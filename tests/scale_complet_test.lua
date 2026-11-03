@@ -165,6 +165,7 @@ end
 
 ---------------------------------------------------------------------------------------------------
 section("4. B.generate : buts de couverture")
+local scene_raw_sat -- défini après sit et goal
 local function sit(over)
   local s = { is_player = false, workers = 8, soldiers = 10, soldiers_max = 30, stock = {}, cap = {}, pending = {}, sites = {},
     room = {}, smelters = 4, smelters_pending = 0, weights = {}, need = {}, at_war = false, key = nil, tick = 0 }
@@ -175,6 +176,16 @@ local function goal(goals, key) for _, g in ipairs(goals) do if g.key == key the
 local SAT = { ["copper-plate"] = 100000, coal = 100000, ["iron-plate"] = 100000, stone = 100000 }
 local function cap_all(n) local c = {} for _, k in ipairs(T.OUTPOST_ORDER) do c[k] = n end return c end
 local function stD() return { targets = { [COAL] = 2, [IRON] = 2, [COPPER] = 1, [STONE] = 1 }, iron2_set = true, short = {}, short_n = {} } end
+scene_raw_sat = function()
+  local room = { [COPPER] = true, [COAL] = true, [STONE] = true }
+  local key = { top = IRON, fuel = COAL, order = { IRON, COPPER, STONE }, optional = {} }
+  local gs = B.generate(sit({ stock = SAT, cap = cap_all(2), room = room, key = key }), stD())
+  local low = {} for k, x in pairs(SAT) do low[k] = x end
+  low[T.outposts[COAL].product], low[T.outposts[STONE].product] = 50, 50
+  local gl = B.generate(sit({ stock = low, cap = cap_all(2), room = room, key = key }), stD())
+  return goal(gs, "couverture:" .. COAL) == nil and goal(gs, "couverture:" .. STONE) == nil and goal(gs, "couverture:" .. COPPER) ~= nil
+    and goal(gl, "couverture:" .. COAL) ~= nil and goal(gl, "couverture:" .. STONE) ~= nil
+end
 do
   -- 4.1 Écarlate : tout saturé, cuivre et charbon avec des places : couverture du cuivre et du charbon, rien d'autre.
   local s = sit({ stock = SAT, cap = cap_all(2), room = { [COPPER] = true, [COAL] = true } })
@@ -182,7 +193,7 @@ do
   local gc, gk = goal(g, "couverture:" .. COPPER), goal(g, "couverture:" .. COAL)
   check(gc ~= nil and gc.fond and gc.extend_only and gc.kind == "outpost" and gc.outpost == COPPER and gc.family == "extraction",
     "4.1 cuivre saturé avec des places : but de couverture de fond, agrandir seulement")
-  check(gk ~= nil, "4.1 charbon saturé avec des places : but de couverture")
+  check(gk == nil, "4.1 charbon saturé avec des places : plus de couverture en brûleurs (THERMIQUE2 : minerai brut saturé)")
   check(goal(g, "extraction:" .. COPPER) == nil, "4.1 aucun but d'extraction (saturé, inchangé)")
   check(goal(g, "couverture:" .. IRON) == nil, "4.1 fer sans place : aucun but de couverture")
   check(gc.value >= 35 and gc.value <= 50, "4.1 valeur dans la bande de la capitalisation (35 à 50) : " .. tostring(gc.value))
@@ -196,7 +207,9 @@ do
   -- 4.3 Le combustible MANQUE : le cuivre attend, le charbon est couvert.
   local st3 = stD()
   st3.short = { [T.outposts[COAL].product] = 40 }
-  local g3 = B.generate(s, st3)
+  local SAT3 = {} for k, x in pairs(SAT) do SAT3[k] = x end
+  SAT3[T.outposts[COAL].product] = 50 -- le combustible manque : son stock est bas (non saturé)
+  local g3 = B.generate(sit({ stock = SAT3, cap = cap_all(2), room = { [COPPER] = true, [COAL] = true } }), st3)
   check(goal(g3, "couverture:" .. COPPER) == nil and goal(g3, "couverture:" .. COAL) ~= nil,
     "4.3 combustible en manque : le cuivre (brûleurs) attend, le charbon se couvre")
   -- 4.4 Votre équipe : jamais.
@@ -207,7 +220,9 @@ do
   local g5 = B.generate(sit({ stock = SAT, cap = cap_all(2), room = { [STONE] = true }, key = key }), stD())
   check(goal(g5, "couverture:" .. STONE) == nil, "4.5 type optionnel : aucun but de couverture")
   local key6 = { top = IRON, fuel = COAL, order = { IRON, COPPER, STONE }, optional = {} }
-  local g6 = B.generate(sit({ stock = SAT, cap = cap_all(2), room = { [STONE] = true }, key = key6 }), stD())
+  local SAT6 = {} for k, x in pairs(SAT) do SAT6[k] = x end
+  SAT6[T.outposts[STONE].product] = 50 -- non saturé (THERMIQUE2 : un minerai brut saturé n'est plus couvert)
+  local g6 = B.generate(sit({ stock = SAT6, cap = cap_all(2), room = { [STONE] = true }, key = key6 }), stD())
   check(goal(g6, "couverture:" .. STONE) ~= nil, "4.5 le même type utile : but de couverture")
   -- 4.6 Un but d'extraction existe pour le type (non saturé, capacité sous la cible) : pas de doublon.
   local s7 = sit({ stock = {}, cap = { [COAL] = 2, [IRON] = 0.5, [COPPER] = 1, [STONE] = 1 }, room = { [IRON] = true } })
@@ -230,9 +245,14 @@ do
   -- 4.9 (relecture) Produit couvert par un module fini (st.covered) : ses tournées sont retirées, aucune couverture.
   local st9 = stD()
   st9.covered = { [T.outposts[COPPER].product] = true }
-  local g9 = B.generate(sit({ stock = SAT, cap = cap_all(2), room = { [COPPER] = true, [COAL] = true } }), st9)
+  local SAT9 = {} for k, x in pairs(SAT) do SAT9[k] = x end
+  SAT9[T.outposts[COAL].product] = 50 -- charbon non saturé : il reste couvert (THERMIQUE2)
+  local g9 = B.generate(sit({ stock = SAT9, cap = cap_all(2), room = { [COPPER] = true, [COAL] = true } }), st9)
   check(goal(g9, "couverture:" .. COPPER) == nil and goal(g9, "couverture:" .. COAL) ~= nil,
     "4.9 produit couvert par un module fini : pas de brûleurs ajoutés")
+  -- 4.10 Lot THERMIQUE2 (retour du DC du 3/11) : un minerai BRUT au coffre (produit = ressource) saturé n'est plus couvert en
+  -- brûleurs ; le même non saturé l'est ; un minerai fondu sur place (produit = plaque) saturé garde sa couverture.
+  check(scene_raw_sat(), "4.10 charbon et pierre saturés : aucune couverture ; non saturés : couverture ; cuivre saturé : couverture")
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -288,7 +308,7 @@ do
   local projs = {}
   for _, p in ipairs(st.projects or {}) do projs[p.key] = p end
   check(projs["couverture:" .. COPPER] ~= nil, "6.1 projet de couverture du cuivre ouvert")
-  check(projs["couverture:" .. COAL] ~= nil, "6.1 projet de couverture du charbon ouvert")
+  check(projs["couverture:" .. COAL] == nil, "6.1 charbon saturé (1 500 au coffre) : plus de projet de couverture en brûleurs (THERMIQUE2)")
   local ext_cu, build_far = nil, 0
   for _, t in ipairs(plan.tasks) do
     if t.kind == "extend" and t.outpost == 1 then ext_cu = t end
@@ -381,7 +401,7 @@ local function scene_take()
     { ["iron-plate"] = 500, stone = 500 })
   return #E3.tasks == 0
 end
-check(scene_far() and scene_cover() and scene_never_build() and scene_fuel() and scene_take() and scene_pile()
+check(scene_far() and scene_cover() and scene_never_build() and scene_fuel() and scene_take() and scene_pile() and scene_raw_sat()
   and scene_recruit(), "7.0 scènes de référence vertes")
 local function mutant(name, scene, apply, restore)
   apply()
@@ -404,6 +424,11 @@ do
       g2.extend_only = nil
       return saved_emit(E, proj, g2, ctx)
     end end, function() P.EMIT.outpost = saved_emit end)
+  local saved_sat = B.saturated
+  mutant("THERMIQUE2 : minerai brut saturé encore couvert", scene_raw_sat, function() B.saturated = function() return false end end,
+    function() B.saturated = saved_sat end)
+  mutant("THERMIQUE2 : saturé toujours vrai (stock bas ignoré)", scene_raw_sat, function() B.saturated = function() return true end end,
+    function() B.saturated = saved_sat end)
   mutant("take_only ignoré", scene_take, function()
     P.EMIT.outpost = function(E, proj, g, ctx)
       local g2 = {}

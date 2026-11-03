@@ -477,7 +477,16 @@ local function executor_run(scn)
   package.loaded["script.team.stock"] = Stock
   package.loaded["script.team.build"] = Build
   package.loaded["script.team.migration_champ"] = nil
-  local Mig = require("script.team.migration_champ")
+  local Mig
+  if scn.mutant then
+    -- lot THERMIQUE : source mutante de l'exécutant (section T), chargée à la place du module
+    local fh = assert(io.open("script/team/migration_champ.lua", "rb"))
+    local src = fh:read("*a")
+    fh:close()
+    Mig = assert(load(scn.mutant(src), "=migration_champ_mutant"))()
+  else
+    Mig = require("script.team.migration_champ")
+  end
 
   -- le monde : un avant-poste de fer dans le lot (0, 3) du treillis ancré au QG en (0, 0)
   local lat = { ox = 0, oy = 0 }
@@ -1402,6 +1411,146 @@ do
   E2.think()
   check(st2.stage == "chantier" and not st2.done_pr["5"], "W3 : une bande en chantier ordinaire n'est pas laissee (16 min)")
   E2.restore()
+end
+
+do
+  -- T. Lot THERMIQUE : balayage des paires thermiques d'un gisement COUVERT, sous le moteur simulé (cadences, états des foreuses et brûleur de la
+  -- centrale simulés ; Mig.sweep appelé seul, sans le reste de la pensée)
+  section("T. THERMIQUE : balayage des paires d'un gisement couvert")
+  local mutant -- source mutante en cours (nil : le module réel)
+  local function setup(opts)
+    local E = executor_run({ pairs = opts.pairs or 8, mutant = mutant })
+    local f, o = E.f, E.o
+    game.entity_prototypes[T.outposts.iron.resource] = { mineable_properties = { mining_time = 1 } }
+    game.entity_prototypes[T.DRILL].mining_speed = 0.25
+    game.entity_prototypes[T.DRILL_ELECTRIC].mining_speed = 0.5
+    game.forces = { [f.force] = { mining_drill_productivity_bonus = 0 } }
+    game.item_prototypes = { [T.fuel] = { fuel_value = 4e6 } }
+    defines.entity_status = { working = 1, no_power = 2 }
+    local id = E.Build.request(f, { site = "champ", champ = { oid = 1, pr = 5, frame = {} } })
+    local p = f.build.projects[id]
+    p.state, p.ents = "fini", {}
+    f.build.order[#f.build.order + 1] = id
+    local edrills = {}
+    for k = 1, opts.working or 6 do
+      local e = { name = T.DRILL_ELECTRIC, x = 9000 + 3 * k, y = 9000, role = "champ-foreuse", built = true }
+      p.ents[#p.ents + 1] = e
+      edrills[e.x .. "," .. e.y] = { valid = true, status = opts.status or defines.entity_status.working }
+    end
+    E.surface.find_entity = function(name, pos) return edrills[pos[1] .. "," .. pos[2]] end
+    local base_find = E.surface.find_entities_filtered
+    E.gens = {}
+    E.surface.find_entities_filtered = function(args)
+      if args.type == "generator" then return E.gens end
+      return base_find(args)
+    end
+    f.migration = { next = 0, logs = 0, logs_f = 0, fields = {},
+      o = { [1] = { stage = "veille", fails = 0, noop = 0, done = 1, produced = 1, retry = 0, frame = { axis = "x" }, order = { 5 }, done_pr = {} } } }
+    E.ms = f.migration
+    E.tick = 0
+    function E.sweep()
+      E.tick = E.tick + 3600
+      game.tick = E.tick
+      return E.Mig.sweep(f, E.surface, E.ms, E.free, E.book, E.tick)
+    end
+    return E
+  end
+  local function said(E, text)
+    for _, l in ipairs(E.logs) do if l:find(text, 1, true) then return true end end
+    return false
+  end
+
+  local function suite()
+    -- T1 : couvert (6 électriques en marche = 3,0 ore/s contre 8 thermiques = 2,0 ore/s) : retiré au 2e relevé, pas au 1er
+    local E = setup({})
+    local before_drills = E.o.drills
+    check(E.sweep() == 0 and E.alive() == 8, "T1 : premier relevé couvert : rien n'est retiré (confirmation)")
+    check(E.sweep() == 1 and E.alive() == 0, "T1 : deuxième relevé couvert : les 8 paires thermiques sont retirées de force (" .. E.alive() .. " restent)")
+    check((E.chest[T.DRILL] or 0) == 8 and (E.chest[T.outposts.iron.sink] or 0) == 8, "T1 : foreuses et fours rendus au stock")
+    check(E.o.drills == before_drills and E.o.migr_credit == 8, "T1 : la comptabilité des foreuses de l'avant-poste ne change pas (credit " .. tostring(E.o.migr_credit) .. ")")
+    check(E.ms.swept == 8 and E.ms.retired == 8, "T1 : compteurs du balayage")
+    check(said(E, "retiree(s) de force"), "T1 : journal du balayage")
+    check(said(E, "[FO-THERMIQUE]"), "T1 : ligne d'état [FO-THERMIQUE]")
+    check(E.sweep() == 0, "T1 : plus rien à balayer")
+    E.restore()
+
+    -- T2 : bande qui ne couvre pas (2 en marche = 1,0 ore/s < 2,0) : les paires restent, même après plusieurs relevés
+    E = setup({ working = 2 })
+    for _ = 1, 4 do E.sweep() end
+    check(E.alive() == 8, "T2 : extraction électrique insuffisante : aucune paire retirée")
+    E.restore()
+
+    -- T3 : foreuses bouchées (pas « en marche ») : la bande ne couvre rien
+    E = setup({ status = 2 })
+    for _ = 1, 4 do E.sweep() end
+    check(E.alive() == 8, "T3 : foreuses électriques à l'arrêt : aucune paire retirée")
+    E.restore()
+
+    -- T4 : une bande en chantier sur ce gisement retient le balayage
+    E = setup({})
+    E.ms.o[1].stage = "projet"
+    for _ = 1, 4 do E.sweep() end
+    check(E.alive() == 8, "T4 : bande demandée dont la partie n'est pas retirée : aucune paire retirée")
+    E.ms.o[1].stage = "chantier"
+    E.sweep(); E.sweep()
+    check(E.alive() == 0, "T4 : la partie retirée (chantier), les restes sont balayés")
+    E.restore()
+
+    -- T5 : minerai CRITIQUE (le combustible de la centrale) : jamais coupé sous le plancher que brûlent les générateurs
+    local saved_fuel = T.fuel
+    E = setup({})
+    T.fuel = T.outposts.iron.resource
+    game.item_prototypes = { [T.fuel] = { fuel_value = 1e6 } }
+    E.gens = { { valid = true, energy_generated_last_tick = 10 * 1e6 / 60 } } -- la centrale brûle 10 ore/s ; l'électrique en donne 3,0
+    for _ = 1, 6 do E.sweep() end -- (la ligne d'état n'est écrite que toutes les 5 min : 5 relevés d'une minute)
+    check(E.alive() == 8, "T5 : la centrale brûle plus que l'électrique ne donne : les paires du minerai critique restent")
+    check(said(E, "source-critique"), "T5 : le refus est écrit au journal d'état (source-critique)")
+    E.gens = { { valid = true, energy_generated_last_tick = 1.0 * 1e6 / 60 } } -- 1,0 ore/s : l'électrique (3,0) tient le plancher
+    E.sweep(); E.sweep()
+    check(E.alive() == 0, "T5 : plancher tenu par l'électrique : les paires partent")
+    T.fuel = saved_fuel
+    E.restore()
+  end
+  suite()
+
+  -- mutants de l'exécutant : chacun doit faire échouer la suite
+  local function mut(from, to)
+    return function(src)
+      local i, j = src:find(from, 1, true)
+      assert(i, "motif de mutant introuvable : " .. from)
+      assert(not src:find(from, j + 1, true), "motif de mutant ambigu : " .. from)
+      return src:sub(1, i - 1) .. to .. src:sub(j + 1)
+    end
+  end
+  local mutants = {
+    { "un seul relevé suffit", mut("local SWEEP_CONFIRM = 2 ", "local SWEEP_CONFIRM = 0 ") },
+    { "confirmation ignorée", mut("if not st or (st.cov_n or 0) < SWEEP_CONFIRM then g.working = 0 end", "") },
+    { "comptabilité des foreuses perdue", mut("q.drills = before[i]", "local _ = 0") },
+    { "crédit de la migration oublié", mut("o.migr_credit = (o.migr_credit or 0) + removed", "local _ = 0") },
+    { "foreuse à l'arrêt comptée en marche", mut("de.status == defines.entity_status.working then n = n + 1 end", "true then n = n + 1 end") },
+    { "chantier en cours ignoré (les deux gardes)", function(src)
+      src = mut("busy = (st and st.stage == \"projet\") and true or false", "busy = false")(src)
+      return mut("if o and st and st.stage ~= \"projet\" then", "if o and st then")(src)
+    end },
+    { "minerai critique ignoré", mut("if spec.resource == T.fuel then", "if false then") },
+    { "brûleur de la centrale sous-estimé", mut("watts = watts + (g.energy_generated_last_tick or 0) * 60", "watts = watts + (g.energy_generated_last_tick or 0)") },
+    { "balayage sans règle", mut("local acts, refused = Th.sweep(gated, ctx)", "local acts, refused = {}, {}") },
+  }
+  local survivors = 0
+  local real_print = print
+  for _, mu in ipairs(mutants) do
+    local saved_p, saved_f = passes, failures
+    _G.print = function() end
+    mutant = mu[2]
+    local ok, err = pcall(suite)
+    mutant = nil
+    _G.print = real_print
+    local bad = (not ok) and 1 or (failures - saved_f)
+    passes, failures = saved_p, saved_f
+    check(bad > 0, "T : mutant refusé : " .. mu[1] .. ((not ok) and (" (plantage : " .. tostring(err):sub(1, 60) .. ")") or ""))
+    if bad == 0 then survivors = survivors + 1 end
+  end
+  print(string.format("[MIGRATION-CHAMP] THERMIQUE : exécutant, mutants %d refusés sur %d", #mutants - survivors, #mutants))
 end
 
 print(string.format("[MIGRATION-CHAMP] BILAN : %d OK, %d ECHEC(S)", passes, failures))
