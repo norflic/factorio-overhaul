@@ -22,6 +22,7 @@ local P = require("shared.team.plan")
 local Ch = require("shared.team.champ")
 local Cv = require("shared.team.champ_verif")
 local Sa = require("shared.team.champ_saut") -- lot FONDERIE : découpe d'une bande trop grosse en projets liés
+local Ra = require("shared.team.champ_raccord") -- lot FONDERIE : tous les poteaux d'une bande rejoignent le réseau alimenté
 local Storage = require("script.core.storage")
 local Events = require("script.core.events")
 local Db = require("shared.team.debit")
@@ -541,6 +542,66 @@ end
 Champ.powered_pole = powered_pole
 
 Build.SITES = Build.SITES or {}
+--- Lot FONDERIE : raccorde TOUTES les composantes des poteaux de `ents` (projet d'une bande ou d'un réseau du charbon) à un poteau alimenté
+--- (Ra.connect). Ajoute les poteaux de liaison à `ents` ; rend (poteaux posés, nil, nil, composantes) ou (nil, raison, attente).
+local function raccord_tous(f, surface, bd, ents, cx, cy)
+  local wire = bd.spec.pole.wire
+  local own = {}
+  for _, e in ipairs(ents) do if e.name == bd.names.pole then own[#own + 1] = { x = e.x, y = e.y } end end
+  if #own == 0 then return 0, nil, nil, 0 end
+  local powered = {}
+  for _, g in ipairs(surface.find_entities_filtered({ type = "generator", force = f.force })) do
+    if g.electric_network_id then powered[g.electric_network_id] = true end
+  end
+  local targets = {}
+  for _, e in ipairs(surface.find_entities_filtered({ position = { cx, cy }, radius = Champ.CFG.chain_far, type = "electric-pole", force = f.force })) do
+    if e.valid and e.electric_network_id and powered[e.electric_network_id] then targets[#targets + 1] = { x = e.position.x, y = e.position.y } end
+  end
+  table.sort(targets, function(a, c) if a.x ~= c.x then return a.x < c.x end return a.y < c.y end)
+  local _, nc = Ra.components(own, wire)
+  if #targets == 0 then return nil, "aucun reseau alimente a " .. Champ.CFG.chain_far .. " tuiles (attente)", true end
+  -- boîte lue : les poteaux du projet et, pour chacun, le poteau alimenté le plus proche (là où passent les chaînes)
+  local x0, y0, x1, y1 = math.huge, math.huge, -math.huge, -math.huge
+  local function grow(x, y) x0, y0, x1, y1 = math.min(x0, x), math.min(y0, y), math.max(x1, x), math.max(y1, y) end
+  for _, q in ipairs(own) do
+    grow(q.x, q.y)
+    local best, bd2
+    for _, t in ipairs(targets) do
+      local d2 = (q.x - t.x) ^ 2 + (q.y - t.y) ^ 2
+      if not bd2 or d2 < bd2 then best, bd2 = t, d2 end
+    end
+    grow(best.x, best.y)
+  end
+  x0, y0, x1, y1 = math.floor(x0) - 8, math.floor(y0) - 8, math.ceil(x1) + 8, math.ceil(y1) + 8
+  local blocked = blocked_in(f, surface, x0, y0, x1, y1, bd.spec.mine)
+  local used = {}
+  for _, e in ipairs(ents) do for _, t in ipairs(P.tiles_of(e)) do used[Ch.key(t[1], t[2])] = true end end
+  local ore = {}
+  for i = 1, #bd.spec.ore - 1, 2 do ore[Ch.key(bd.spec.ore[i], bd.spec.ore[i + 1])] = true end
+  -- (comme le raccord 0.6.41) une chaîne ne passe sur le minerai que dans les rangées de SA bande
+  local b1 = bd.plan.bands[1]
+  local v0, v1 = b1 and b1.pr or 0, b1 and (b1.pr + bd.plan.pitch) or -1
+  local function free(x, y)
+    local tx, ty = math.floor(x), math.floor(y)
+    if tx < x0 or tx > x1 or ty < y0 or ty > y1 then return false end
+    local k = Ch.key(tx, ty)
+    local v = (bd.plan.axis == "x") and ty or tx
+    return not blocked[k] and not used[k] and (not ore[k] or (v >= v0 and v <= v1))
+  end
+  local added, fails = Ra.connect(own, targets, wire, function(a, b)
+    local ch = P.pole_chain(a, b, wire, false, free, nil)
+    for _, c in ipairs(ch or {}) do used[Ch.key(math.floor(c.x), math.floor(c.y))] = true end
+    return ch
+  end)
+  if #fails > 0 then
+    local n = 0
+    for _, x in ipairs(fails) do n = n + x.n end
+    return nil, string.format("%d composante(s) de poteaux (%d poteaux) sans chaine jusqu'au reseau alimente", #fails, n)
+  end
+  for _, c in ipairs(added) do ents[#ents + 1] = { name = bd.names.pole, x = c.x, y = c.y, dir = 0, role = "liaison" } end
+  return #added, nil, nil, nc
+end
+
 Build.SITES.champ = function(f, surface, p, h)
   local cs = p.spec.champ
   local o = cs and Champ.target(f, cs.oid)
@@ -574,11 +635,16 @@ Build.SITES.champ = function(f, surface, p, h)
   local cx, cy = 0, 0
   for _, e in ipairs(poles) do cx, cy = cx + e.x, cy + e.y end
   if #poles > 0 then cx, cy = cx / #poles, cy / #poles end
-  local net = powered_pole(f, surface, cx, cy)
-  -- lot FONDERIE (lot-20261020, emerald, projet 8 : « aucun reseau alimente vu » a 20,3 min, bande isolée toute la partie) : seconde
-  -- recherche, plus loin, avant de poser une bande sans courant
-  if not net and Champ.tapis() then net = powered_pole(f, surface, cx, cy, Champ.CFG.chain_far) end
-  local chain_n = 0
+  local net, chain_n, comps = nil, 0, nil
+  if Champ.tapis() then
+    -- lot FONDERIE (3/11, ENERGIE4, lot7bis-20261020 : colonne de 16 à 20 poteaux à 101 tuiles du réseau, foreuses de charbon à 65 tuiles,
+    -- jamais raccordées) : TOUTES les composantes des poteaux du projet rejoignent un poteau ALIMENTÉ (shared/team/champ_raccord.lua) ;
+    -- les poteaux d'une bande voisine (déjà au plan, retirés ci-dessus) ne comptent pas : son projet peut ne jamais finir
+    local n_r, why_r, wait_r, nc = raccord_tous(f, surface, bd, ents, cx, cy)
+    if not n_r then return nil, "champ: " .. why_r, wait_r end
+    chain_n, comps, net = n_r, nc, true
+  else
+  net = powered_pole(f, surface, cx, cy)
   if net then
     local start, sd
     for _, e in ipairs(poles) do
@@ -607,6 +673,7 @@ Build.SITES.champ = function(f, surface, p, h)
       for _, c in ipairs(chain) do ents[#ents + 1] = { name = bd.names.pole, x = c.x, y = c.y, dir = 0, role = "liaison" }; chain_n = chain_n + 1 end
     end
   end
+  end
   -- Garde (3/11, verif-guide 1618033988 sur 0.6.40 : « real number expected got inf » en find_tiles_filtered, jeu arrêté à 44 min) : une bande dont toutes
   -- les pièces sont déjà au plan n'a plus d'entité ; sa boîte serait (+inf, -inf).
   if #ents == 0 then return nil, "champ: aucune entite a poser pour cette bande" end
@@ -622,7 +689,8 @@ Build.SITES.champ = function(f, surface, p, h)
   end
   say(f, string.format("projet %d : %s du champ de l'avant-poste %d (%s) : %d foreuses, %d fours, %d entites (%d deja au plan), raccord %s",
     p.id, cs.coal and string.format("reseau du charbon cote %s (bande %d)", cs.coal > 0 and "+" or "-", cs.pr) or ("bande " .. cs.pr),
-    o.id, o.kind, nd, nf, #ents, dropped, net and (chain_n > 0 and (chain_n .. " poteau(x)") or "a portee") or "aucun reseau alimente vu"))
+    o.id, o.kind, nd, nf, #ents, dropped, net and (chain_n > 0 and (chain_n .. " poteau(x)") or "a portee") or "aucun reseau alimente vu")
+    .. (comps and string.format(" (%d composante(s) de poteaux, toutes jointes au reseau alimente)", comps) or ""))
   return { key = "champ:" .. o.id .. ":" .. (cs.coal and ("charbon" .. cs.coal) or cs.pr), box = { x0, y0, x1, y1 }, ents = ents, quais = bd.quais,
     outs = bd.outs, masks = masks }
 end
@@ -644,6 +712,7 @@ function Champ.report(f, surface, tick)
   local fuel = { n = 0, min = nil }
   local bad = {} -- bandes finies dont une pièce manque au terrain (détruite) ou dont des foreuses sont figées : détail par projet
   local S = defines.entity_status
+  local tapis_on, nopow_logs = Champ.tapis(), 0
   for _, pid in ipairs(b.order) do
     local p = b.projects[pid]
     if p and p.spec and p.spec.champ then
@@ -676,6 +745,27 @@ function Champ.report(f, surface, tick)
               elseif s == S.no_fuel then fu.nofuel = fu.nofuel + 1 elseif s == S.full_output then fu.full = fu.full + 1 end
             end
           end
+        end
+      end
+      -- lot FONDERIE (3/11) : consommateurs électriques posés SANS courant, chantier compris (lot7bis-20261020 : 15 à 22 bras hors réseau
+      -- de 50 à 130 min, vus par aucun relevé)
+      if tapis_on then
+        local cons, off, at = 0, 0, nil
+        for _, e in ipairs(p.ents) do
+          if e.built and not e.skipped and (e.role == "champ-bras" or e.role == "champ-foreuse" or e.role == "champ-charbon") then
+            local ent = surface.find_entity(e.name, { e.x, e.y })
+            if ent and ent.valid and ent.prototype.electric_energy_source_prototype then
+              cons = cons + 1
+              if ent.status == S.no_power then off = off + 1; at = at or { x = e.x, y = e.y } end
+            end
+          end
+        end
+        if off > 0 and nopow_logs < 4 then
+          nopow_logs = nopow_logs + 1
+          local np = powered_pole(f, surface, at.x, at.y, Champ.CFG.chain_far)
+          log(string.format("[FO-FONDERIE] bande sans courant : %s min %.0f, projet %d (%s, bande %s, %s) : %d consommateur(s) sans courant sur %d, poteau alimente le plus proche a %s tuiles",
+            f.key or "player", tick / 3600, pid, p.state, tostring(p.spec.champ.pr), p.spec.champ.coal and "reseau du charbon" or "bande", off, cons,
+            np and string.format("%.0f", math.sqrt((np.x - at.x) ^ 2 + (np.y - at.y) ^ 2)) or ("plus de " .. Champ.CFG.chain_far)))
         end
       end
       local lk = sorted_keys(pd.lost)
