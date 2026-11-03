@@ -257,7 +257,10 @@ T.qg_recruit_hold_on = true
 -- Lot QGGROUPE (shared/team/qg_groupe.lua) : votre équipe seulement (les factions gardent la règle d'avant : pas de banc pvp de ce lot).
 -- Règle 1 : défense du QG au point le plus faible (appui des voisines) dans le péril ; règle 2 : tourelles du QG regroupées sur les côtés
 -- attaqués, à nombre constant (regroupement en calme, reconstruction aux places des groupes).
-T.qg_groupe_peril_on = true
+-- Règle 1 ÉTEINTE dans la décision (gardée au journal [FO-SURVIE] « face a une vague ») : mesurée en moteur réel (9c96faac, verif-guide
+-- 123456789, fo-logs/2026-11-03_QGGROUPE/g1-123456789) : une tourelle isolée à 48 tuiles fixe l'appui à UNE tourelle, le QG reste en péril
+-- de 22 à 59 min et l'équipe pose des tourelles sans fin (40 autour du QG à 57 min contre 5 au témoin) : ce que le DC refuse.
+T.qg_groupe_peril_on = false
 T.qg_groupe_pose_on = true
 -- Votre équipe sans tourelle possible : aucun site d'avant-poste au-delà de cette distance du coffre (tuiles ; D-18).
 -- 300 demandé (D-18) ; 400 retenu : à 300, sur la graine 1618033988 du guide, les sites restants (337 à 368 tuiles)
