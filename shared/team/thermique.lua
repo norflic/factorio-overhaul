@@ -53,11 +53,22 @@ M.CFG = {
   slots = 2,              -- chantiers de bande simultanés au plus, tous minerais (3 : le fer manquait aux bandes, mesuré 150 min : 25 à 50 % des plaques du témoin)
   sweep_max = 1,          -- gisements balayés au plus par pensée (le retrait est immédiat : un gisement à la fois suffit)
   every = 600,            -- ticks entre deux balayages (une pensée d'équipe de la migration)
+  raw_stock_max = 3000,   -- lot THERMIQUE2 (essai 3, décision du lead) : stock libre d'un minerai BRUT au-delà duquel plus aucun brûleur n'est posé
 }
 
 local EPS = 1e-9
 
 local function cfg_of(cfg) return cfg or M.CFG end
+
+--- Lot THERMIQUE2 (essai 3) : un minerai porté BRUT au coffre (produit = ressource : charbon, pierre ; pas de four dans la paire) dont le
+--- stock libre atteint cfg.raw_stock_max ne reçoit plus de brûleur (couverture et relève du cerveau, agrandissement et avant-poste du travail
+--- de fond). spec = { resource, product } (T.outposts[type]) ; stock = { [objet] = nombre }. Le fer et le cuivre (paire avec four) ne sont
+--- jamais « pleins » ici : leurs paires sont remplacées par les bandes du champ et balayées.
+function M.raw_full(spec, stock, cfg)
+  cfg = cfg_of(cfg)
+  if spec == nil or spec.product ~= spec.resource then return false end
+  return ((stock or {})[spec.product] or 0) >= cfg.raw_stock_max
+end
 
 --- Extraction (ore/s) des paires thermiques debout et des foreuses électriques en marche du gisement.
 function M.supply(fl)

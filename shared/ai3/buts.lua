@@ -27,6 +27,7 @@ local R = require("shared.ai3.reglages") -- lot IA-G : ressources clés de repli
 local Br = require("shared.ai3.bras") -- lot SCALE : travail des bras libres (bornes qui suivent l'effectif)
 local Dm = require("shared.ai3.demande") -- lot C2 : saturation relative au puits ouvert
 local Ex = require("shared.ai3.extension") -- lot C3 EXTENSION : relève d'un avant-poste quand tout gisement pris est plein
+local Th = require("shared.team.thermique") -- lot THERMIQUE2 (essai 3) : minerai brut plein (Th.raw_full)
 
 local B = {}
 
@@ -99,7 +100,7 @@ B.SAT_FACTOR = 3
 -- que l'agrandissement du champ (EXT_PLATES de script/team/migration_champ.lua). Mesure (main 0.6.41, 20261020) : Émeraude passe de 4 à 166
 -- brûleurs sur un gisement de charbon avec 45 000 charbons au coffre ; la garde par B.saturated (essai 2) ne mordait presque jamais (le
 -- besoin suit le débit du puits).
-B.RAW_STOCK_MAX = 3000
+B.RAW_STOCK_MAX = Th.CFG.raw_stock_max
 
 local function clamp(x, a, b)
   if x < a then return a end
@@ -251,7 +252,7 @@ end
 --- Situation de la fonderie pour Br.smelters : entrées de la fonderie (données de shared/team/config.lua), triées.
 --- Lot THERMIQUE2 (essai 3) : minerai brut (produit = ressource) dont le stock libre atteint B.RAW_STOCK_MAX : plus de brûleur pour lui.
 function B.raw_full(s, spec)
-  return spec ~= nil and spec.product == spec.resource and ((s.stock or {})[spec.product] or 0) >= B.RAW_STOCK_MAX
+  return Th.raw_full(spec, s.stock, { raw_stock_max = B.RAW_STOCK_MAX })
 end
 
 local SMELT_INPUTS = {}

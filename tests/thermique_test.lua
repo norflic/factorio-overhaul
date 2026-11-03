@@ -217,6 +217,17 @@ local function suite(Th, verbose)
     check(rows[4].share == nil, "5 : un minerai sans foreuse n'a pas de part")
   end
 
+  do -- 7. Lot THERMIQUE2 (essai 3) : minerai brut plein (stock libre >= 3 000) : plus de brûleur
+    local raw = { resource = "r", product = "r" }
+    local plate = { resource = "r", product = "p" }
+    check(Th.raw_full(raw, { r = 3000 }) == true, "7 : minerai brut à 3 000 au stock : plein")
+    check(Th.raw_full(raw, { r = 2999 }) == false, "7 : minerai brut à 2 999 : pas plein")
+    check(Th.raw_full(raw, {}) == false and Th.raw_full(raw, nil) == false, "7 : stock vide ou absent : pas plein")
+    check(Th.raw_full(plate, { p = 1e6, r = 1e6 }) == false, "7 : paire avec four (produit = plaque) : jamais plein, même stock énorme")
+    check(Th.raw_full(nil, { r = 1e6 }) == false, "7 : type inconnu : pas plein")
+    check(Th.raw_full(raw, { r = 1500 }, { raw_stock_max = 1000 }) == true, "7 : le seuil se lit du réglage")
+  end
+
   return failures - before
 end
 
@@ -262,6 +273,9 @@ local mutants = {
   { "verdict : l'ordinaire attend toujours", "if age > cfg.protect_wait then return \"retirer\" end", "if false then return \"retirer\" end" },
   { "free_slot : un minerai plusieurs chantiers", "if (busy[res] or 0) >= cfg.per_mineral then", "if false then" },
   { "free_slot : total ignoré", "if (busy.total or 0) >= cfg.slots then", "if false then" },
+  { "raw_full : seuil ignoré", "return ((stock or {})[spec.product] or 0) >= cfg.raw_stock_max", "return true" },
+  { "raw_full : seuil strict", "return ((stock or {})[spec.product] or 0) >= cfg.raw_stock_max", "return ((stock or {})[spec.product] or 0) > cfg.raw_stock_max" },
+  { "raw_full : paire avec four comptée", "if spec == nil or spec.product ~= spec.resource then return false end", "if spec == nil then return false end" },
   { "shares : paires des gisements couverts non comptées", "if (g.pairs or 0) > 0 and M.covered(g, cfg) then", "if false then" },
 }
 

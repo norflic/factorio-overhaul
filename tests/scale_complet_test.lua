@@ -85,6 +85,21 @@ do
 end
 
 ---------------------------------------------------------------------------------------------------
+section("2 bis. Lot THERMIQUE2 (essai 3) : le fond ne pose plus de brûleur pour un minerai brut plein (stock libre >= 3 000)")
+local function scene_fond_raw()
+  -- banc thermique-garde (moteur réel, 3/11) : couverture du cerveau coupée, le fond ajoutait encore 4 brûleurs de charbon avec 3 800 au stock
+  local view = { outposts = { op(1, COAL, 30, { drills = 4 }), op(2, IRON, 30, { drills = 8 }) }, sites = { [COAL] = 1, [IRON] = 1 },
+    sites_near = { [COAL] = 30, [IRON] = 30 }, stock = {} }
+  local full = free_all()
+  full[T.outposts[COAL].product] = (full[T.outposts[COAL].product] or 0) + 3000
+  local low = free_all()
+  local c_full = Fond.candidates(view, full, { keys = {} })
+  local c_low = Fond.candidates(view, low, { keys = {} })
+  return #tasks_of(c_full.extraction, "extend", COAL) == 0 and #tasks_of(c_full.extraction, "build", COAL) == 0
+    and #tasks_of(c_full.extraction, "extend", IRON) == 1 and #tasks_of(c_low.extraction, "extend", COAL) == 1
+end
+check(scene_fond_raw(), "2b.1 charbon à 3 000 et plus au stock libre : ni agrandissement ni avant-poste de charbon ; le fer s'agrandit ; sous le seuil, le charbon s'agrandit")
+
 section("2. Le fond : pas de build lointain tant qu'un avant-poste proche a des places")
 do
   -- 2.1 Situation d'Écarlate après le lot PLAFOND-FOREUSES : charbon proche à 42 tuiles, pas plein, mais DANGEREUX (nids à
@@ -434,6 +449,12 @@ do
       g2.extend_only = nil
       return saved_emit(E, proj, g2, ctx)
     end end, function() P.EMIT.outpost = saved_emit end)
+  do
+    local Thm = require("shared.team.thermique")
+    local saved_trf = Thm.raw_full
+    mutant("THERMIQUE2 : le fond ignore le minerai brut plein", scene_fond_raw, function() Thm.raw_full = function() return false end end,
+      function() Thm.raw_full = saved_trf end)
+  end
   local saved_raw = B.raw_full
   mutant("THERMIQUE2 : minerai brut plein encore couvert", scene_raw_sat, function() B.raw_full = function() return false end end,
     function() B.raw_full = saved_raw end)

@@ -39,6 +39,7 @@ local T = require("shared.team.config")
 local ChaineMain = require("shared.team.chaine_main") -- lot FOURS : pas de tournée de fonte à vide
 local Fx = require("shared.team.flux") -- lot FLUX : minerai équivalent (coffre + plaques + sorties), règle pure
 local V = require("shared.faction.valeur") -- lot SITE-PROCHE : V.extension_refused (R1)
+local Th = require("shared.team.thermique") -- lot THERMIQUE2 (essai 3) : plus de brûleur pour un minerai brut plein (Th.raw_full)
 
 local F = {}
 
@@ -174,7 +175,9 @@ local function extraction(view, free, ctx, out)
       extendable[o.kind] = true
       local key = "extend:" .. o.id
       local items = F.pair_items(o.kind, math.min(F.PAIRS, room))
-      if not keys[key] and has(free, items) then
+      -- Lot THERMIQUE2 (essai 3) : banc thermique-garde (moteur réel) : la couverture du cerveau coupée, c'est ce travail de fond qui
+      -- ajoutait 4 brûleurs de charbon toutes les 2 à 3 min avec 3 200 à 3 800 charbons au stock.
+      if not keys[key] and has(free, items) and not Th.raw_full(T.outposts[o.kind], free) then
         take(free, items)
         out[#out + 1] = { key = key, kind = "extend", prio = F.PRIO.extend, outpost = o.id, outpost_kind = o.kind,
           items = items, fond = true, domain = "gisements" }
@@ -195,7 +198,7 @@ local function extraction(view, free, ctx, out)
       end
     end
     if items and not prudent and not safe and not extendable[kind] and (view.sites and view.sites[kind] or 0) > 0
-      and not far and not F.saturated_build(ctx, kind) and not keys[key] and has(free, items) then
+      and not far and not F.saturated_build(ctx, kind) and not keys[key] and has(free, items) and not Th.raw_full(T.outposts[kind], free) then
       take(free, items)
       out[#out + 1] = { key = key, kind = "build", prio = F.PRIO.build, outpost_kind = kind, items = items,
         fond = true, domain = "gisements" }
