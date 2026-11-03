@@ -61,15 +61,13 @@ local function names_line(list)
   return table.concat(t, ", ")
 end
 
---- Ressources minables dans la zone de la foreuse `ent` : verdict, étrangers { { nom, tuiles } }.
-local function zone_of(surface, ent, res)
-  local pr = ent.prototype
+--- Ressources minables dans la zone d'une foreuse du prototype `pr` posée au centre (x, y) : verdict, étrangers { { nom, tuiles } }.
+local function zone_at(surface, pr, x, y, res)
   local rad = pr.mining_drill_radius or 0
   local cats = pr.resource_categories or {}
-  local p = ent.position
   local found, idx = {}, {}
-  for _, r in ipairs(surface.find_entities_filtered({ area = { { p.x - rad, p.y - rad }, { p.x + rad, p.y + rad } }, type = "resource" })) do
-    if r.valid and Mel.in_zone(r.position.x - p.x, r.position.y - p.y, rad) then
+  for _, r in ipairs(surface.find_entities_filtered({ area = { { x - rad, y - rad }, { x + rad, y + rad } }, type = "resource" })) do
+    if r.valid and Mel.in_zone(r.position.x - x, r.position.y - y, rad) then
       local c = Champ.category(r.name)
       if c and cats[c] then
         if not idx[r.name] then idx[r.name] = #found + 1; found[#found + 1] = { r.name, 0 } end
@@ -78,6 +76,18 @@ local function zone_of(surface, ent, res)
     end
   end
   return Mel.zone_verdict(found, { [res] = true })
+end
+
+--- Lot MELANGE : zone d'une foreuse `name` (prototype) posée au centre (x, y), ressource visée `res` -> "ok" | "melange", étrangers.
+--- Lecteur : script/team/foreuse_swap.lua (une foreuse électrique de 5 × 5 à la place d'une thermique de 2 × 2). Lecture seule.
+function Run.zone_at(surface, name, x, y, res)
+  local pr = game.entity_prototypes[name]
+  if not (pr and res) then return "ok", {} end
+  return zone_at(surface, pr, x, y, res)
+end
+
+local function zone_of(surface, ent, res)
+  return zone_at(surface, ent.prototype, ent.position.x, ent.position.y, res)
 end
 
 local function item_of(e, ent)
