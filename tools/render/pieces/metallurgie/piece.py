@@ -34,7 +34,7 @@ MODULES = {"hf": "m_hf", "co": "m_co", "rc": "m_rc", "py": "m_py", "kr": "m_kr",
 GRADE = {"hf": [0.22, 1.8, 0.28, 1.9, 1.0, 1.0], "co": [0.22, 1.8, 0.26, 2.1, 1.0, 1.0], "rc": [0.22, 1.8, 0.32, 1.5, 1.0, 1.1],
          "py": [0.26, 2.0, 0.28, 1.9, 1.0, 1.05], "kr": [0.22, 1.8, 0.28, 1.9, 1.0, 1.0], "cc": [0.22, 1.8, 0.3, 1.75, 1.0, 1.0]}
 # Gain de la lueur par machine (émission linéaire : équivaut à baisser la force du matériau) ; petites lampes trop écrêtées.
-GAIN_LUEUR = {"py": 0.55, "cc": 0.55, "kr": 0.7}
+GAIN_LUEUR = {"py": 0.55, "cc": 0.55, "kr": 0.42}      # kr : −40 % demandé par la contre-relecture (4/11)
 PIECE = {"name": "met", "margin_px": 40, "calib": {"LIGHT_HOLDOUT": True},
          "variants": {"%s_%s" % (m, v): {"epoch": 0, "side": MACHINES[m][1], "dest": "metallurgie/" + m, "anchor_tiles": (0.0, 0.0)}
                       for m in MACHINES for v in VARIANTES}}

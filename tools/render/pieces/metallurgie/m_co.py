@@ -129,7 +129,7 @@ def batterie(lot, M, v, rnd):
         O.tuyau(lot, M["acier"], M["acier2"], [(X0 + 0.02, yb, zb), (X0 + 0.02, yb + 0.5, zb), (X0 + 0.02, yb + 0.5, 0.1)], 0.12, rb=0.15)
     # enfourneuse sur rails au toit
     for y in (-0.62, 0.84):
-        lot.put(M["acier_clair"], G.boite(((X0 + X1) / 2, y, ZT + 0.05), (X1 - X0, 0.05, 0.04)))
+        lot.put(M["rail"], G.boite(((X0 + X1) / 2, y, ZT + 0.05), (X1 - X0, 0.05, 0.04)))
     lx = X0 + (4.5 if v["ouvert"] != 4 else 1.5) * pas
     lot.put(M["acier2"], G.boite((lx, 0.11, ZT + 0.2), (0.36, 1.6, 0.06)))
     for (wy) in (-0.62, 0.84):
@@ -151,7 +151,7 @@ def batterie(lot, M, v, rnd):
 def wagon(lot, M, x, y, rnd, plein=True):
     """Wagon d'extinction sur rails (sud) : caisse ouverte, coke incandescent."""
     for yy in (y - 0.2, y + 0.2):
-        lot.put(M["acier"], G.boite((0.0, yy, 0.035), (2.95, 0.055, 0.05)))
+        lot.put(M["rail"], G.boite((0.0, yy, 0.035), (2.95, 0.055, 0.05)))
     for k in range(11):
         lot.put(M["fonte"], G.boite((-1.38 + 0.276 * k, y, 0.012), (0.09, 0.56, 0.025)))
     K.caisson(lot, M["acier"], x, y, 0.12, 0.62, 0.5, 0.3, 0.02)

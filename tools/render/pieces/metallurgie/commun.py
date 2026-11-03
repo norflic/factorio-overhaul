@@ -130,6 +130,8 @@ def matieres(S, palette="calcul"):
                           rouille=(0.1, 0.04, 0.02), usure=0.7, nu=(0.5, 0.32, 0.22), crasse=0.85, crasse_col=cr, grain=0.12, graine=42)
     M["alumine"] = sf("m_alumine", (0.62, 0.62, 0.6), rough=0.95, met=0.0, usure=0.0, crasse=0.4, crasse_col=(0.2, 0.2, 0.2), grain=0.25,
                       graine=43)
+    # rail : sans usure d'arête (le bruit d'usure faisait un pointillé blanc sur l'arête, critique du 4/11)
+    M["rail"] = sf("m_rail", (0.11, 0.1, 0.09), rough=0.55, met=0.35, usure=0.0, crasse=0.4, crasse_col=cr, grain=0.05, graine=45)
     M["eau"] = MT.verre("m_eau", col=(0.02, 0.05, 0.06), reflet=(0.25, 0.42, 0.5))
     M["graphite"] = sf("m_graphite", (0.05, 0.05, 0.055), rough=0.35, met=0.8, usure=0.6, nu=(0.5, 0.5, 0.52), crasse=0.5, grain=0.4,
                        graine=44)
