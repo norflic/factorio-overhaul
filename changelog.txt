@@ -1,4 +1,12 @@
----------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------------
+Version: 0.6.43
+Date: 2026-11-03
+  Changes:
+    - Tournees vers un avant-poste : le point d'acces, enferme dans le champ par les paires foreuse + coffre, est remplace par la tuile atteignable la plus proche, y compris pour les champs passes a l'electrique (no_path de tournee 273 -> 140 et 192 -> 10 sur deux graines, plaques sans perte).
+    - Une tache dont le chemin echoue est reprise avec un delai croissant (x2 a chaque echec, au plus x16) au lieu d'etre reprise aussitot par le meme PNJ.
+    - Limite connue : certains buts de taches (ex. un quai de plan directeur dans un marais toxique) restent injoignables ; le delai evite seulement les essais inutiles.
+
+------------------------------------------------------------
 Version: 0.6.42
 Date: 2026-11-03
   Changes:
