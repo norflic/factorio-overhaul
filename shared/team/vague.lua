@@ -29,7 +29,7 @@ local Ac = require("shared.team.actif")
 
 local V = {}
 
-V.ON = true -- lot CHARBON4 (A/B du lead) : règle allumée par défaut ; interrupteur par équipe f.team.sorties_vague (nil : V.ON)
+V.ON = false -- lot CHARBON4 (A/B du lead) : règle allumée par défaut ; interrupteur par équipe f.team.sorties_vague (nil : V.ON)
 V.KINDS = { service = true }                       -- tournées d'avant-poste (ravitaillement, collecte)
 V.WHY = { but = true, bloque = true, marque = true } -- refus de la porte pour le DANGER (route ou but), jamais pour des morts
 V.NEAR_R = 64     -- tuiles : but « dans le rayon du QG défendu » (deux fois M.HOME_SAFE, où un PNJ ne regarde même plus)
