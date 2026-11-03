@@ -48,6 +48,7 @@ local function run(opts)
     if it[2] > 0 then chest.insert({ name = it[1], count = it[2] }) end
   end
   W().events[defines.events.on_built_entity]({ created_entity = chest, player_index = 1, tick = game.tick })
+  if opts.forced ~= nil then opts.forced_ok = remote.call("fo-perimetre", "set_enabled", "player", opts.forced) end
   -- base de test : chaîne de fours vers l'est (reliée au QG de proche en proche), grappe d'assembleurs à 60 tuiles ; idem au sud
   for _, x in ipairs({ 20, 30, 40, 50 }) do build(s, "stone-furnace", x, 5) end
   for _, p in ipairs({ { 62, 0 }, { 66, 0 }, { 62, 4 }, { 66, 4 } }) do build(s, "assembling-machine-1", p[1], p[2]) end
@@ -62,7 +63,7 @@ local function run(opts)
   end
   table.sort(turrets, function(a, b) if a.x ~= b.x then return a.x < b.x end return a.y < b.y end)
   local f = global.fo.pteam.team
-  return { logs = logs, turrets = turrets, perim = f and f.perim }
+  return { logs = logs, turrets = turrets, perim = f and f.perim, forced_ok = opts.forced_ok }
 end
 
 local function count(logs, a, b)
@@ -106,6 +107,10 @@ section("4. Interrupteur coupé : la mesure seule")
 local c = run({ iron = 9000, turrets = 12, on = false, ticks = 20000 })
 check(count(c.logs, "mesure a ") >= 2 and count(c.logs, "regle eteinte") >= 2, "mesure au journal, règle éteinte")
 check(count(c.logs, "anneau") == count(c.logs, "anneaux 0") and count(c.logs, "pose de ") == 0, "aucun anneau, aucune pose")
+
+local c2 = run({ iron = 9000, turrets = 12, forced = false, ticks = 20000 })
+check(c2.forced_ok == true and count(c2.logs, "regle forcee false") == 1, "banc témoin : règle forcée éteinte par l'interface")
+check(count(c2.logs, "regle eteinte") >= 2 and count(c2.logs, "pose de ") == 0 and #c2.turrets == #c.turrets, "forcée éteinte : la mesure seule, mêmes tourelles qu'interrupteur coupé")
 
 section("5. Déterminisme")
 local d = run({ iron = 9000, turrets = 12 })

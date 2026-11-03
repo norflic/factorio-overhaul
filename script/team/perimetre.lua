@@ -55,11 +55,14 @@ local function range_of(name)
   return r
 end
 
+--- Règle allumée pour cette équipe : interrupteur de shared/team/config.lua, sauf forçage d'un banc (f.perim.forced, interface fo-perimetre).
 local function enabled(f)
+  local st = f.perim
+  if st and st.forced ~= nil then return st.forced end
   if f.is_player then return T.perimetre_on == true end
   return T.perimetre_factions == true
 end
-local function measured(f) return f.is_player or T.perimetre_factions == true end
+local function measured(f) return f.is_player or T.perimetre_factions == true or (f.perim ~= nil and f.perim.forced == true) end
 
 local function state(f)
   local st = f.perim
@@ -304,6 +307,15 @@ Events.on(defines.events.on_entity_died, on_died)
 
 --- Lecture seule pour les bancs : état du périmètre d'une équipe (« player » : votre équipe), copie en tables simples ; nil sans état.
 remote.add_interface("fo-perimetre", {
+  --- Banc témoin : force la règle (vrai/faux) pour une équipe existante, la mesure reste ; nil rend l'interrupteur de la configuration.
+  --- Rend vrai si l'équipe existe (à appeler AVANT sa première pensée : à l'init du banc, après la pose du coffre).
+  set_enabled = function(key, on)
+    local f = (key == nil or key == "player") and State.faction("player") or State.faction(key)
+    if not f then return false end
+    state(f).forced = on
+    log(string.format("[FO-PERIMETRE] %s : regle forcee %s par un banc (tick %d)", f.key or "player", tostring(on), game.tick))
+    return true
+  end,
   status = function(key)
     local f = (key == nil or key == "player") and State.faction("player") or State.faction(key)
     local st = f and f.perim
