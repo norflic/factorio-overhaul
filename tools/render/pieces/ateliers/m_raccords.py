@@ -21,9 +21,10 @@ Y = CO.Y
 VERS = {"n": (0.0, -1.0), "e": (-1.0, 0.0), "s": (0.0, 1.0), "o": (1.0, 0.0)}
 # longueur du tronçon dans l'emprise (tuiles), hauteur de l'axe (unités), matière, par bâtiment et direction
 TRONCONS = {
-    "bobineuse": {"mat": "givre", "z": 0.32, "L": {"n": 0.55, "e": 0.45, "s": 0.35, "o": 0.45}, "givre": True},
-    "torchere": {"mat": "car2", "z": 0.3, "L": {"n": 0.6, "e": 0.5, "s": 0.35, "o": 0.5}, "givre": False},
-    "taillerie": {"mat": "bleu", "z": 0.3, "L": {"n": 0.45, "e": 0.55, "s": 0.4, "o": 0.55}, "givre": False},
+    # L : jusqu'à l'organe que le tronçon rejoint (corps de la variante a) ; nord dessiné DERRIÈRE le corps, il peut être long
+    "bobineuse": {"mat": "givre", "z": 0.32, "L": {"n": 0.75, "e": 0.3, "s": 0.62, "o": 0.14}, "givre": True},
+    "torchere": {"mat": "car2", "z": 0.3, "L": {"n": 1.35, "e": 0.48, "s": 0.27, "o": 0.31}, "givre": False},
+    "taillerie": {"mat": "bleu", "z": 0.3, "L": {"n": 0.45, "e": 0.2, "s": 0.45, "o": 0.2}, "givre": False},
 }
 
 

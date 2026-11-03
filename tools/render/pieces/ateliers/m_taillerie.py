@@ -35,7 +35,7 @@ def _bac_cristaux(k, x, y):
         n = G.norm(ax)
         _cristal(k, (px + n[0] * L * 0.3, py + n[1] * L * 0.3, h + n[2] * L * 0.3), ax, L=L, r=k.r.f(0.045, 0.07))
     k.plaque("plaque", x, y - ly / 2.0, h * 0.55, 0.2, 0.1)
-    CO.halo(k.S, k, (x, y - 0.3, 0.7), (0.2, 0.75, 1.0), 18.0, r=(0.5, 1.3))
+    CO.halo(k.S, k, (x, y - 0.55, 0.7), (0.2, 0.75, 1.0), 25.0, r=(0.6, 1.5))
 
 
 def _etabli(k, x0, x1, ty0, ty1, zt):
@@ -74,10 +74,10 @@ def taillerie(S, k, v):
     k.sol("noir", 3)
     zt = 0.62
     # bride d'eau au nord, au centre, et conduite vers la rampe de buses
-    yn = Y(1.5)
-    k.axe("acier", (0.0, yn - 0.03, 0.3), (0.0, yn + 0.04, 0.3), 0.12, 18)
-    k.tuyau("bleu", [(0.0, yn, 0.3), (0.0, Y(1.1), 0.3), (0.0, Y(1.1), 1.0), (0.0, Y(0.5), 1.0)], r=0.06, coude=0.15, bride_mat="acier")
-    k.vanne("acier", "rouge", (0.0, Y(1.3), 0.3), 0.045)
+    # arrivée d'eau : tronçon de raccord (pipe_picture) ; ici la colonne montante sortie du sol vers la rampe de buses
+    k.rev("acier", 0.0, Y(1.05), [(0.0, 0.11), (0.06, 0.11), (0.06, 0.07)], 16, cap=False)
+    k.tuyau("bleu", [(0.0, Y(1.05), 0.02), (0.0, Y(1.05), 1.0), (0.0, Y(0.5), 1.0)], r=0.06, coude=0.15, bride_mat="acier")
+    k.collier("acier", (0.0, Y(1.05), 0.45), (0.0, 0.0, 1.0), 0.07)
     # caisse de cristaux bruts au nord-ouest (le signe de la machine), cuve de clarification au nord-est
     _bac_cristaux(k, -0.88, Y(1.0))
     k.cuve("car2", 0.95, Y(1.0), 0.06, 0.95, 0.32, 0.25, 30)

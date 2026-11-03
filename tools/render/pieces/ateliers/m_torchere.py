@@ -10,7 +10,7 @@ import geo as G
 
 Y = CO.Y
 TAU = 2.0 * math.pi
-HALO_W = 1300.0   # puissance (W) des sources de la flamme : À ÉTALONNER (pic au sol, CALIBRATION §4.2 ; cheminée : 300 W à z 2,2)
+HALO_W = 650.0   # puissance (W) des sources de la flamme ; étalonné le 3/11 (8 éch.) : pic 0,47, 26,8 tuiles² (grande torche voulue)
 
 
 def _tete(k, x, y, z, r):
@@ -40,12 +40,7 @@ def _pied(k, xs, ys, grand=False):
     k.cuve("car", xs, ys, 0.1, 0.95, 0.3, 0.3, 28)                                 # pot de garde
     k.cerclages("acier", xs, ys, (0.3, 0.7), 0.3, segs=28)
     k.tuyau("car2", [(0.4, yb, 0.1 + rb), (xs, yb, 0.1 + rb), (xs, ys - 0.28, 0.5)], r=0.07, coude=0.15, bride_mat="acier")
-    # bride d'entrée au nord (tuile ouest) et conduite vers le ballon
-    yn = Y(1.0)
-    k.axe("acier", (-0.5, yn - 0.03, 0.3), (-0.5, yn + 0.04, 0.3), 0.12, 18)
-    k.tuyau("car2", [(-0.5, yn, 0.3), (-0.5, Y(0.2), 0.3), (-0.75, Y(-0.1), 0.3), (-0.78, yb, 0.1 + rb)], r=0.07, coude=0.18,
-            bride_mat="acier")
-    k.vanne("acier", "jaune", (-0.5, Y(0.55), 0.3), 0.045)
+    # arrivée du fluide : tronçon de raccord (pipe_picture, m_raccords.py), plus dans le corps (décision du lead, 3/11)
     # armoire d'allumage
     k.caisson("car2", 0.72, Y(-0.82), 0.1, 0.36, Y(0.2), 0.62, 0.03)
     yf = Y(-0.82) - Y(0.1)

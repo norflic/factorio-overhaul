@@ -25,7 +25,7 @@ def _foyer(k, x, ty, haut=0.62, chem=2.55, chaudiere=False):
         for i in range(5):
             k.b("noir", (x - 0.08 + i * 0.04, yf - 0.052, 0.27), (0.014, 0.012, 0.17))
         k.b("braise", (x, yf - 0.047, 0.08), (0.18, 0.012, 0.035))
-        CO.halo(k.S, k, (x, yf - 0.25, 0.3), (1.0, 0.45, 0.12), 15.0, r=(0.45, 1.2))
+        CO.halo(k.S, k, (x, yf - 0.35, 0.5), (1.0, 0.45, 0.12), 6.0, r=(0.45, 1.2))
         k.cyl("cuivre", x + 0.12, yf + 0.02, 0.85, 0.93, 0.05, 12)          # manomètre
         k.voyant("voyant_o", x + 0.12, yf - 0.01, 0.89, 0.03)
         _cheminee(k, x, y, 1.3, chem, (x, y, 1.33))
@@ -37,7 +37,7 @@ def _foyer(k, x, ty, haut=0.62, chem=2.55, chaudiere=False):
     for i in range(6):
         k.b("noir", (x - 0.1 + i * 0.04, yf - 0.032, 0.3), (0.013, 0.012, 0.2))
     k.b("braise", (x, yf - 0.026, 0.08), (0.22, 0.012, 0.04))                   # cendrier
-    CO.halo(k.S, k, (x, yf - 0.25, 0.32), (1.0, 0.45, 0.12), 15.0, r=(0.45, 1.2))
+    CO.halo(k.S, k, (x, yf - 0.35, 0.5), (1.0, 0.45, 0.12), 6.0, r=(0.45, 1.2))
     k.b("acier_clair", (x + 0.17, yf - 0.035, 0.32), (0.03, 0.02, 0.05))
     k.rivets_ligne("riv", (x - 0.22, yf - 0.006, haut - 0.05), (x + 0.22, yf - 0.006, haut - 0.05), 6)
     _cheminee(k, x, y, haut, chem, (x + 0.05, y + 0.05, haut - 0.05))

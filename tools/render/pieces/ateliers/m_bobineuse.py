@@ -13,6 +13,14 @@ Y = CO.Y
 TAU = 2.0 * math.pi
 
 
+def _coupleur(k, x, y):
+    """Coupleur cryogénique givré contre la machine : l'arrivée de fluide vient du tronçon de raccord (pipe_picture, 4 directions,
+    m_raccords.py), plus du corps (décision du lead, 3/11)."""
+    k.caisson("givre", x, y, 0.0, 0.22, 0.22, 0.36, 0.03)
+    k.cyl("acier", x, y, 0.36, 0.42, 0.06, 12)
+    k.flexible("givre", [(x, y, 0.42), (x + 0.05, y, 0.55), (x + 0.12, y - 0.02, 0.62)], 0.03)
+
+
 def _bride_nord(k, x, ty_bord=1.0):
     """Bride d'entrée au bord nord (prototype : (−0,5 ; −1,5) en coordonnées du jeu) et conduite isolée vers le sud."""
     yb = Y(ty_bord)
@@ -39,7 +47,7 @@ def _tour_cuisson(k, x, ty, h=2.05):
     yf = y - 0.17
     k.b("noir", (x, yf - 0.006, h * 0.5), (0.13, 0.012, h * 0.72))
     k.b("cuisson", (x, yf - 0.012, h * 0.5), (0.07, 0.012, h * 0.66))
-    CO.halo(k.S, k, (x, yf - 0.25, h * 0.45), (1.0, 0.5, 0.12), 18.0, r=(0.45, 1.2))
+    CO.halo(k.S, k, (x, yf - 0.6, h * 0.4), (1.0, 0.5, 0.12), 30.0, r=(0.6, 1.4))
     for i in range(8):
         k.b("acier", (x, yf - 0.016, h * 0.18 + i * h * 0.09), (0.15, 0.012, 0.018))
     k.rivets_ligne("riv", (x - 0.14, yf - 0.004, 0.1), (x - 0.14, yf - 0.004, h - 0.1), 9)
@@ -110,8 +118,7 @@ def bobineuse(S, k, v):
     pt = _tour_cuisson(k, -0.08, 0.66, 2.0 if not big else 2.15)
     k.axe("cuivre", (xt - rt * 0.7, Y(tyt) - rt * 0.7, 0.36), (pt[0], pt[1], pt[2] + 0.12), 0.012, 5)
     k.axe("cuivre", (pt[0], pt[1], pt[2] - 0.12), (xg, yg - 0.07, zg - 0.07), 0.012, 5)
-    _bride_nord(k, -0.5)
-    k.axe("givre", (-0.5, Y(0.55), 0.32), (-0.68, Y(0.1), 0.62), 0.06, 12)
+    _coupleur(k, -0.9, Y(-0.45))          # là où tombe le tronçon ouest (connexion (−1,5 ; 0,5) du jeu)
     _armoire(k, 0.78, 0.15) if not big else _armoire(k, 0.82, 0.22)
     # bobines finies au sud
     for i, x in enumerate((0.55, 0.82) if not big else (0.6,)):
@@ -160,6 +167,5 @@ def _vertical(k):
     k.axe("cuivre", (xt, yt, 0.55), (pt[0], pt[1], pt[2] + 0.12), 0.012, 5)
     k.axe("cuivre", (pt[0], pt[1], pt[2] - 0.12), (xcol - 0.1, cy + 0.15, 1.85), 0.012, 5)
     k.axe("cuivre", (xcol - 0.1, cy + 0.15, 1.85), (xcol - 0.12, cy + 0.15, zg + 0.1), 0.012, 5)
-    _bride_nord(k, -0.5)
-    k.axe("givre", (-0.5, Y(0.55), 0.32), (cx - 0.2, cy + 0.3, 0.3), 0.06, 12)
+    _coupleur(k, cx - 0.42, cy + 0.2)
     _armoire(k, 0.82, -0.6)
