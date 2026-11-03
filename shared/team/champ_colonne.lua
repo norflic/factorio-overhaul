@@ -356,6 +356,9 @@ function Co.coal_line(coal, is_coal, free, d, want, target, R, wire, per_side, c
   local step = math.max(1, math.min(math.floor(wire + 1e-9), s + 2 * R))
   local choice
   local function better(x, y)
+    -- (revue-fonderie, 3/11, cadre du joueur, graine 271828182 : sortie enfermée par ses foreuses et une case bloquée devant, « aucun chemin »
+    -- dans les deux ordres) une ligne dont la sortie peut partir passe avant une ligne enfermée, qui ne servait jamais
+    if x.open ~= y.open then return x.open end
     if x.n ~= y.n then return x.n > y.n end
     if x.score ~= y.score then return x.score < y.score end
     if x.nsides ~= y.nsides then return x.nsides < y.nsides end
@@ -448,9 +451,21 @@ function Co.coal_line(coal, is_coal, free, d, want, target, R, wire, per_side, c
             end
             if ok then
               local eu, ev = P(last + e, l)
+              -- sortie ouverte : la case devant la sortie est libre, ou une case latérale libre et hors des foreuses prises
+              local open = (function()
+                local fu, fv = P(last + 2 * e, l)
+                if free(fu, fv) then return true end
+                for _, sg in ipairs({ -1, 1 }) do
+                  local su, sv = P(last + e, l + sg)
+                  local covered = false
+                  for _, q in ipairs(pick) do if q.sg == sg and last + e >= q.a and last + e <= q.a + s - 1 then covered = true end end
+                  if free(su, sv) and not covered then return true end
+                end
+                return false
+              end)()
               local score = math.abs(eu - target.u) + math.abs(ev - target.v) + math.abs(last - first)
               local cand = { n = n, score = score, nsides = #set, orient = orient, l = l, set = set_i, e = e, pick = pick, poles = poles,
-                first = first, last = last }
+                first = first, last = last, open = open }
               if not choice or better(cand, choice) then choice = cand end
             end
           end

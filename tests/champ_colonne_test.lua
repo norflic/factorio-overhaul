@@ -722,12 +722,13 @@ do
   end
   local function nums(str) local out = {} for _, x in ipairs(split(str, ",")) do out[#out + 1] = tonumber(x) end return out end
   local function set(str) local out = {} for _, x in ipairs(split(str, ",")) do out[tonumber(x)] = true end return out end
-  local h = assert(io.open("tests/fixtures/champ_spec_scarlet_20261020.txt", "r"))
-  local line = h:read("*l")
-  h:close()
-  local fl = {}
-  for _, kv in ipairs(split(line, "|")) do local k, v = kv:match("^([%w_]+)=(.*)$"); if k then fl[k] = v end end
-  local function scarlet()
+  local function load_spec(path)
+    local h = assert(io.open(path, "r"))
+    local line = h:read("*l")
+    h:close()
+    local fl = {}
+    for _, kv in ipairs(split(line, "|")) do local k, v = kv:match("^([%w_]+)=(.*)$"); if k then fl[k] = v end end
+    return function()
     local d, pl, fu, tg = nums(fl.drill), nums(fl.pole), split(fl.furnace, ","), nums(fl.target)
     local belts = {}
     for _, x in ipairs(split(fl.belts, ";")) do belts[#belts + 1] = { lane = tonumber(x) } end
@@ -737,7 +738,10 @@ do
       inserter = { rate = tonumber(fl.ins) }, target = { x = tg[1], y = tg[2] }, max_side = tonumber(fl.max_side), design = "colonne",
       logistics = { underground = tonumber(fl.ug), splitter = fl.splitter == "true" }, coal = { tiles = nums(fl.coal), rate = tonumber(fl.coalrate) },
       ug_tiles = {} }
+    end
   end
+  local scarlet = load_spec("tests/fixtures/champ_spec_scarlet_20261020.txt")
+  local player = load_spec("tests/fixtures/champ_spec_player_271828182.txt")
   local ps = Ch.plan(scarlet())
   check(ps ~= nil and Ch.head_chests(ps) == 0 and ps.order_swapped and ps.order_swapped.chests == 4,
     string.format("scarlet 20261020 : 0 coffre de tete (%s ; avant : %s)", tostring(ps and Ch.head_chests(ps)), tostring(ps and ps.order_swapped and ps.order_swapped.chests)))
@@ -770,6 +774,25 @@ do
   local pm = Ch.plan(scarlet())
   Ch.CFG.both_orders = true
   check(Ch.head_chests(pm) == 4, "mutant « un seul ordre » vu : 4 coffres de tete (" .. Ch.head_chests(pm) .. ")")
+  -- cadre réel du joueur (avant-poste 1, fer, verif-guide 271828182 sur 0.6.43 : côté - « aucun chemin » dans les deux ordres, 5 coffres de
+  -- tête, refus à 84 %) : la sortie de sa ligne de charbon était enfermée (ses foreuses de chaque côté, une case bloquée devant)
+  local pp2 = Ch.plan(player())
+  local voies = 0
+  for _, cs in ipairs(pp2 and pp2.stats.coal or {}) do if cs.voie then voies = voies + 1 end end
+  check(pp2 and Ch.head_chests(pp2) == 0 and voies == 2 and not (pp2.refused and #pp2.refused > 0) and Ch.field_drills(pp2) == 63,
+    string.format("joueur 271828182 : charbon par tapis des deux cotes, 0 coffre de tete, 63 foreuses (%s, %d voie(s))", tostring(pp2 and Ch.head_chests(pp2)), voies))
+  local r2 = pp2 and Cv.verify(pp2, player())
+  check(r2 and r2.no_coal == 0 and r2.no_ore == 0 and r2.no_plate == 0, "joueur : chaque four a minerai et charbon (" .. (r2 and Cv.line(r2) or "?") .. ")")
+  -- mutant : sans la préférence pour une sortie ouverte (Co.coal_line d'origine), les 5 coffres de tête reviennent
+  local Co2src = io.open("shared/team/champ_colonne.lua"):read("*a")
+  local ms, nm = Co2src:gsub("    if x%.open ~= y%.open then return x%.open end%c", "", 1)
+  assert(nm == 1, "mutant introuvable")
+  local Cm = assert(load(ms))()
+  local keep = Co.coal_line
+  Co.coal_line = Cm.coal_line
+  local pmut = Ch.plan(player())
+  Co.coal_line = keep
+  check(Ch.head_chests(pmut) == 5, "mutant « sortie enfermee acceptee » vu : 5 coffres de tete (" .. Ch.head_chests(pmut) .. ")")
 end
 
 print(string.format("[CHAMP-COLONNE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
