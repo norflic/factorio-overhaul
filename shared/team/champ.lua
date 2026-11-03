@@ -21,6 +21,9 @@
     ore      liste plate { x1, y1, x2, y2, ... } des tuiles de minerai (coins nord-ouest, entiers)
     blocked  { [Ch.key(x, y)] = true } : rien ne s'y pose (eau, falaise, bâtiment d'autrui)
     mine     { [Ch.key(x, y)] = true } : tuiles de NOS bâtiments du champ (paires à retirer, bandes déjà posées) : libres pour le plan
+    foreign  { [Ch.key(x, y)] = true } ou nil : tuiles d'une AUTRE ressource que la foreuse sait miner (lot MELANGE, retour du DC du
+             3/11 : « les minerais de charbon prennent la place des minerais de fer sur les convoyeurs ») : aucune foreuse dont la zone
+             en touche une (la rangée se décale d'une tuile et réessaie ; shared/team/melange.lua)
     drill    { size, reach, rate }        côté, portée de minage au-delà du corps, objets/s
     pole     { reach, wire }              tuiles couvertes de part et d'autre (entier), portée des fils
     belts    { { lane = objets/s }, ... } du plus lent au plus rapide
@@ -36,6 +39,7 @@
 ]]
 
 local Fd = require("shared.team.champ_fonderie")
+local Mel = require("shared.team.melange")
 
 local Ch = {}
 
@@ -61,7 +65,7 @@ local DIRS = { [0] = { 0, -1 }, [2] = { 1, 0 }, [4] = { 0, 1 }, [6] = { -1, 0 } 
 
 --- Lectures du champ dans le repère de l'axe : minerai, place libre, tuiles prises par le plan (clés en x, y).
 local function context(spec, axis)
-  local c = { taken = {}, blocked = spec.blocked or {}, mine = spec.mine or {}, ore = {}, list = {} }
+  local c = { taken = {}, blocked = spec.blocked or {}, mine = spec.mine or {}, ore = {}, list = {}, foreign = spec.foreign or {} }
   if axis == "x" then
     c.xy = function(u, v) return u, v end
     c.uv = function(x, y) return x, y end
@@ -75,6 +79,9 @@ local function context(spec, axis)
     if not c.ore[k] then c.ore[k] = true; local u, v = c.uv(o[i], o[i + 1]); c.list[#c.list + 1] = { u, v } end
   end
   c.is_ore = function(u, v) local x, y = c.xy(u, v); return c.ore[Ch.key(x, y)] == true end
+  -- lot MELANGE : une tuile d'une autre ressource minable (jamais une tuile du minerai visé : celui-ci gagne s'il y est aussi)
+  c.has_foreign = next(c.foreign) ~= nil
+  c.is_foreign = function(u, v) local x, y = c.xy(u, v); local k = Ch.key(x, y); return c.foreign[k] == true and not c.ore[k] end
   c.free = function(u, v)
     local x, y = c.xy(u, v)
     local k = Ch.key(x, y)
@@ -108,6 +115,11 @@ local function row_drills(c, spec, row, umin, umax, origin, o)
       for v = row, row + s - 1 do if ok and not c.free(u, v) then ok = false end end
     end
     local n = 0
+    -- lot MELANGE : zone qui touche une autre ressource minable -> refusée (la foreuse en déverserait sur le tapis de la bande)
+    if ok and c.has_foreign then
+      local x0, y0, x1, y1 = Mel.zone(a, row, s, r)
+      if Mel.count(x0, y0, x1, y1, c.is_foreign) > 0 then ok = false end
+    end
     if ok then
       for u = a - r, a + s - 1 + r do for v = row - r, row + s - 1 + r do if c.is_ore(u, v) then n = n + 1 end end end
     end

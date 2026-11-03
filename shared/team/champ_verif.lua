@@ -12,6 +12,7 @@
     drops                   foreuses dont la sortie ne tombe pas sur un tapis de leur groupe
     arms                    bras qui ne prennent pas ou ne posent pas où il faut (tapis -> four, four -> coffre, coffre -> four)
     starved                 groupes dont la fonderie (ou les coffres) absorbe moins que les foreuses, ou dont une voie déborde
+    mixed                   foreuses dont la zone touche une tuile d'une AUTRE ressource minable (spec.foreign ; lot MELANGE)
     ok                      aucun des défauts ci-dessus
 ]]
 
@@ -35,7 +36,7 @@ end
 local function find(parent) return function(i) while parent[i] ~= i do i = parent[i] end; return i end end
 
 function Cv.verify(plan, spec)
-  local rep = { overlaps = 0, blocked = 0, unpowered = 0, components = 0, traverse = 0, inside = 0, drops = 0, arms = 0, starved = 0 }
+  local rep = { overlaps = 0, blocked = 0, unpowered = 0, components = 0, traverse = 0, inside = 0, drops = 0, arms = 0, starved = 0, mixed = 0 }
   local at = {}        -- clé de tuile -> entité
   local R, wire = spec.pole.reach, spec.pole.wire
   local d = spec.drill
@@ -54,15 +55,19 @@ function Cv.verify(plan, spec)
     if not ore[k] then ore[k] = true; n = n + 1 end
   end
   local cov, cn = {}, 0
+  local foreign = spec.foreign or {}
   for _, e in ipairs(plan.ents) do
     if e.kind == "foreuse" then
       local x0, y0 = origin(e)
+      local mixed = false
       for x = x0 - d.reach, x0 + e.size - 1 + d.reach do
         for y = y0 - d.reach, y0 + e.size - 1 + d.reach do
           local k = Ch.key(x, y)
           if ore[k] and not cov[k] then cov[k] = true; cn = cn + 1 end
+          if foreign[k] and not ore[k] then mixed = true end
         end
       end
+      if mixed then rep.mixed = rep.mixed + 1 end
     end
   end
   rep.tiles, rep.covered, rep.elec = n, cn, n > 0 and cn / n or 0
@@ -190,14 +195,14 @@ function Cv.verify(plan, spec)
     end
   end
   rep.ok = rep.overlaps == 0 and rep.blocked == 0 and rep.unpowered == 0 and rep.components <= 1 and rep.traverse == 0
-    and rep.inside == 0 and rep.drops == 0 and rep.arms == 0 and rep.starved == 0
+    and rep.inside == 0 and rep.drops == 0 and rep.arms == 0 and rep.starved == 0 and rep.mixed == 0
   return rep
 end
 
 function Cv.line(rep)
-  return string.format("couverture %d/%d (%d%%), chevauchements %d, obstacles %d, sans courant %d, reseaux %d, tapis hors bande %d, tapis finis dans le champ %d, sorties ratees %d, bras faux %d, debits courts %d",
+  return string.format("couverture %d/%d (%d%%), chevauchements %d, obstacles %d, sans courant %d, reseaux %d, tapis hors bande %d, tapis finis dans le champ %d, sorties ratees %d, bras faux %d, debits courts %d, zones melangees %d",
     rep.covered, rep.tiles, math.floor(100 * rep.elec + 0.5), rep.overlaps, rep.blocked, rep.unpowered, rep.components, rep.traverse,
-    rep.inside, rep.drops, rep.arms, rep.starved)
+    rep.inside, rep.drops, rep.arms, rep.starved, rep.mixed or 0)
 end
 
 return Cv

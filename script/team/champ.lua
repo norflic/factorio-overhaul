@@ -107,7 +107,8 @@ function Champ.data(f, kind)
     pole = { reach = math.floor(pole.proto.supply_area_distance - 0.5 + 1e-6), wire = pole.proto.max_wire_distance },
     belts = belts,
   }
-  local names = { drill = T.DRILL_ELECTRIC, pole = pole.name, belts = bnames, arm = D.ARM, chest = D.CHEST, fuel = T.fuel }
+  local names = { drill = T.DRILL_ELECTRIC, pole = pole.name, belts = bnames, arm = D.ARM, chest = D.CHEST, fuel = T.fuel,
+    resource = spec.resource, cats = dp.resource_categories or {} } -- (lot MELANGE : catégories de ressources que la foreuse sait miner)
   local fp = game.entity_prototypes[spec.sink]
   if fp and fp.type == "furnace" then
     local rec = game.recipe_prototypes[spec.product]
@@ -170,6 +171,34 @@ local function mine_of(f, o)
   return mine
 end
 
+--- Lot MELANGE (retour du DC du 3/11 : « les minerais de charbon prennent la place des minerais de fer sur les convoyeurs ») : tuiles
+--- d'une AUTRE ressource que la foreuse sait miner (catégorie lue au prototype), dans le rectangle ; { [Ch.key] = true }, nombre.
+local CAT = {} -- mémoire LOCALE (prototypes seulement)
+local function category(name)
+  local c = CAT[name]
+  if c == nil then
+    local pp = game.entity_prototypes[name]
+    c = pp and pp.resource_category or false
+    CAT[name] = c
+  end
+  return c
+end
+Champ.category = category
+
+local function foreign_in(surface, res, cats, x0, y0, x1, y1)
+  local out, n = {}, 0
+  for _, r in ipairs(surface.find_entities_filtered({ area = { { x0, y0 }, { x1 + 1, y1 + 1 } }, type = "resource" })) do
+    if r.valid and r.name ~= res then
+      local c = category(r.name)
+      if c and cats[c] then
+        local k = Ch.key(math.floor(r.position.x), math.floor(r.position.y))
+        if not out[k] then out[k] = true; n = n + 1 end
+      end
+    end
+  end
+  return out, n
+end
+
 --- Tuiles où rien ne se pose dans le rectangle : eau, bâtiments (arbres et rochers exceptés : défrichés), tuiles réservées par un
 --- autre projet du plan directeur ; les tuiles `mine` restent libres.
 local function blocked_in(f, surface, x0, y0, x1, y1, mine)
@@ -208,8 +237,16 @@ local function spec_of(f, surface, o, frame, only)
   local mu, mv = Champ.CFG.margin_u, Champ.CFG.margin_v
   if axis == "x" then x0, x1, y0, y1 = x0 - mu, x1 + mu, y0 - mv, y1 + mv else x0, x1, y0, y1 = x0 - mv, x1 + mv, y0 - mu, y1 + mu end
   local mine = mine_of(f, o)
+  -- lot MELANGE : autres ressources minables autour du gisement (une foreuse se pose au plus côté + portée hors du minerai)
+  local ox0, oy0, ox1, oy1 = math.huge, math.huge, -math.huge, -math.huge
+  for i = 1, #ore - 1, 2 do
+    ox0, ox1 = math.min(ox0, ore[i]), math.max(ox1, ore[i])
+    oy0, oy1 = math.min(oy0, ore[i + 1]), math.max(oy1, ore[i + 1])
+  end
+  local fm = data.drill.size + 2 * data.drill.reach + 1
+  local foreign, nforeign = foreign_in(surface, names.resource, names.cats, ox0 - fm, oy0 - fm, ox1 + fm, oy1 + fm)
   local spec = {
-    ore = ore, blocked = blocked_in(f, surface, x0, y0, x1, y1, mine), mine = mine,
+    ore = ore, blocked = blocked_in(f, surface, x0, y0, x1, y1, mine), mine = mine, foreign = foreign, nforeign = nforeign,
     drill = data.drill, pole = data.pole, belts = data.belts, furnace = data.furnace, inserter = data.inserter,
     target = f.hq_pos, max_side = Champ.CFG.side,
   }
@@ -269,7 +306,8 @@ function Champ.frame(f, surface, o)
   for _, it in ipairs(order) do prs[#prs + 1] = it.pr; if it.n > 0 then with = with + 1 end end
   say(f, string.format("avant-poste %d (%s) : plan du champ, %d bande(s) (%d avec des paires), axe %s, sortie %s ; %d foreuses, %d fours, %d poteaux, %d tapis ; %s",
     o.id, o.kind, #prs, with, plan.axis, plan.exit > 0 and "+" or "-", plan.stats.drills, plan.stats.furnaces,
-    plan.stats.poles, plan.stats.belts, Cv.line(rep)) .. string.format(" ; gisement occupe (hors paires) : %s", #occ > 0 and table.concat(occ, ", ") or "rien"))
+    plan.stats.poles, plan.stats.belts, Cv.line(rep)) .. string.format(" ; gisement occupe (hors paires) : %s ; autres ressources minables autour : %d tuile(s)",
+    #occ > 0 and table.concat(occ, ", ") or "rien", spec.nforeign or 0))
   return plan.frame, prs, plan
 end
 
@@ -441,12 +479,12 @@ function Champ.report(f, surface, tick)
       end
       local pd = { lost = {}, stuck = 0, noin = 0, armoff = 0 }
       for _, e in ipairs(p.ents) do
-        if e.built and p.state == "fini" and not (e.role == "champ-foreuse" or e.role == "champ-four") then
+        if e.built and not e.dropped and p.state == "fini" and not (e.role == "champ-foreuse" or e.role == "champ-four") then
           local ent = surface.find_entity(e.name, { e.x, e.y })
           if not (ent and ent.valid) then pd.lost[e.role or "?"] = (pd.lost[e.role or "?"] or 0) + 1
           elseif e.role == "champ-bras" and (ent.status == S.no_power or ent.status == S.low_power) then pd.armoff = pd.armoff + 1 end
         end
-        if e.built and (e.role == "champ-foreuse" or e.role == "champ-four") then
+        if e.built and not e.dropped and (e.role == "champ-foreuse" or e.role == "champ-four") then
           local ent = surface.find_entity(e.name, { e.x, e.y })
           if not (ent and ent.valid) and p.state == "fini" then pd.lost[e.role] = (pd.lost[e.role] or 0) + 1 end
           if ent and ent.valid then

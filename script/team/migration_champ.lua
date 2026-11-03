@@ -37,6 +37,7 @@ local State = require("script.faction.state")
 local Stock = require("script.team.stock")
 local Build = require("script.team.build")
 local Champ = require("script.team.champ") -- lot CHAMP : la partie migrée est une BANDE du champ en rangées (shared/team/champ.lua), hors du treillis
+local Melange = require("script.team.melange") -- lot MELANGE : foreuses des bandes sur une zone mêlée, tapis encombrés d'un autre minerai
 
 local Mig = {}
 
@@ -895,6 +896,7 @@ function Mig.think(f, surface, book, free, tick)
     ms.report_next = tick + Champ.REPORT_EVERY
     Champ.report(f, surface, tick)
   end
+  Melange.pass(f, surface, tick) -- (sa propre horloge : Melange.EVERY)
   local item = T.DRILL_ELECTRIC
   if not game.entity_prototypes[item] then return 0 end
   local did = 0
