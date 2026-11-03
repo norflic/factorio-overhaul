@@ -17,7 +17,8 @@
     3. Le budget dormant (somme des produits qui dorment) sert dans cet ORDRE : (a) intermédiaires des améliorations (engrenages,
        circuits : le bâtiment de fond peut faire fabriquer son coût sans bras libre), (b) centre, (c) défense (au plus Dp.DEF_PCT %
        du budget : un budget OFFERT, que le périmètre lit), (d) extension de capacité (emplacements de chantier de plus, un par
-       Dp.SLOT_PLATES plaques, au plus Dp.SLOTS_MAX).
+       Dp.SLOT_PLATES plaques, au plus Dp.SLOTS_MAX), SEULEMENT quand aucune amélioration ni le centre n'attend : la vraie rareté
+       est le travail (engrenages à la main), pas les plaques.
     4. Jamais sous le plancher : ce qui est offert ne dépasse jamais l'excédent, qui laisse le besoin évalué et Dp.H_SEUIL minutes de
        production au coffre.
     5. Interrupteur : inp.on faux -> rien n'est offert, les horloges sont oubliées.
@@ -112,7 +113,11 @@ function Dp.step(st, inp)
   res.active = res.total > 0
   res.upgrade = res.active and (res.grant.intermediaires or 0) > 0
     and (res.grant.intermediaires or 0) >= math.max(0, num(d.intermediaires)) - 1e-9
-  res.slots = math.min(Dp.SLOTS_MAX, math.floor((res.grant.capacite or 0) / Dp.SLOT_PLATES + 1e-9))
+  -- Ordre STRICT dans le temps (essai 2, verif-guide 123456789) : les emplacements de plus ouvraient des modules qui prenaient les
+  -- engrenages faits à la main ; l'amélioration qui ouvre le centre d'Azur (payée à 47,9 min au témoin, centre à 55,2) ne l'était
+  -- plus. Tant qu'une amélioration ou le centre attend (demande en cours), la capacité n'ouvre aucun emplacement.
+  local pending = num(d.intermediaires) + num(d.centre) > 0
+  res.slots = pending and 0 or math.min(Dp.SLOTS_MAX, math.floor((res.grant.capacite or 0) / Dp.SLOT_PLATES + 1e-9))
   res.defense = math.floor(res.grant.defense or 0)
   res.why = string.format("%s | dort %d plaque(s) | intermediaires %d%s, centre %d, defense %d, capacite %d (+%d emplacement(s))",
     table.concat(parts, " ; "), math.floor(res.total), math.floor(res.grant.intermediaires or 0), res.upgrade and " (amelioration de fond servie)" or "",

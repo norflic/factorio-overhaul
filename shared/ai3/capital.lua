@@ -476,7 +476,21 @@ end
 --- engrenages et demandait son fer, palier 3 de recherche à 20,8 / 40,0 / 51,4 min contre 16,5 / 24,5 / 28,3 au témoin.
 function Cap.emit(P)
   return function(E, proj, g)
-    if P.take(E, g.cost) then
+    -- Lot DEPENSES (essai 3) : l'excédent qui dort est prêté AUSSI au paiement (P.take) : le bâtiment de fond, servi après tous
+    -- les projets, trouvait 0 au stock virtuel avec des milliers de plaques libres au coffre.
+    local lent0 = type(g.depense) == "table" and E.avail and g.depense or nil
+    local before0 = {}
+    if lent0 then
+      for _, k in ipairs(sorted_keys(lent0)) do
+        before0[k] = E.avail[k] or 0
+        E.avail[k] = before0[k] + math.max(0, math.floor(lent0[k] or 0))
+      end
+    end
+    local took = P.take(E, g.cost)
+    if lent0 then
+      for _, k in ipairs(sorted_keys(lent0)) do E.avail[k] = math.min(E.avail[k] or 0, before0[k]) end
+    end
+    if took then
       E.pay = E.pay or {}
       E.pay[#E.pay + 1] = { key = g.key, target = g.target, cost = g.cost }
       return "ok"

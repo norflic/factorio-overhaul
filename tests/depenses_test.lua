@@ -90,9 +90,13 @@ local function suite(Dp, Cap, Em)
   local _, r6 = Dp.step(st4, { on = true, tick = 11 * MIN, products = prods({ { "p1", 1600, 100 } }), demands = { centre = 200, defense = 100 } })
   check(r6.grant.intermediaires == 0 and r6.grant.centre == 200 and r6.grant.defense == 100 and math.abs(r6.grant.capacite - 700) < 1e-6,
     "§4 centre avant défense (demande 100 < 30 %) avant capacité")
+  check(r4.slots == 0 and r6.slots == 0, "§4 une amélioration ou le centre attend : aucun emplacement de plus")
   local st7 = run(Dp, Dp.new(), 0, 10 * MIN, { { "p1", 20600, 100 } }, {}) -- excédent 20 000
   local _, r7 = Dp.step(st7, { on = true, tick = 11 * MIN, products = prods({ { "p1", 20600, 100 } }), demands = {} })
   check(r7.slots == 3, "§4 emplacements de plus bornés à 3 (" .. r7.slots .. ")")
+  local _, r7b = Dp.step(st7, { on = true, tick = 11 * MIN, products = prods({ { "p1", 20600, 100 } }), demands = { intermediaires = 15 } })
+  local _, r7c = Dp.step(st7, { on = true, tick = 11 * MIN, products = prods({ { "p1", 20600, 100 } }), demands = { centre = 900 } })
+  check(r7b.slots == 0 and r7c.slots == 0 and r7b.upgrade, "§4 ordre strict : une amélioration ou le centre attend, la capacité n'ouvre rien")
   local st8 = run(Dp, Dp.new(), 0, 10 * MIN, { { "p1", 4100, 100 } }, {}) -- excédent 3 500, capacité 2 450
   local _, r8 = Dp.step(st8, { on = true, tick = 11 * MIN, products = prods({ { "p1", 4100, 100 } }), demands = {} })
   check(r8.slots == 1, "§4 capacité 2 450 : un emplacement de plus (" .. r8.slots .. ")")
@@ -147,6 +151,12 @@ local function suite(Dp, Cap, Em)
     local P3 = { take = function() return false end, want = function(E_) E_.avail.p = E_.avail.p - 103 end }
     Cap.emit(P3)(E3, { prio = 50 }, { cost = { { "x", 1 } }, depense = { p = 100 } })
     check(E3.avail.p == 2, "§7 au-delà du prêt, le stock virtuel ordinaire paie (" .. tostring(E3.avail.p) .. ")")
+    -- paiement : le prêt sert aussi à P.take
+    local E4 = { view = { workers_idle = 0 }, avail = { p = 0 } }
+    local P4 = { take = function(E_, cost) if (E_.avail.p or 0) >= 6 then E_.avail.p = E_.avail.p - 6 return true end return false end,
+      want = function() end }
+    local r4b = Cap.emit(P4)(E4, { prio = 50 }, { cost = { { "p", 6 } }, depense = { p = 100 }, key = "k", target = "t" })
+    check(r4b == "ok" and E4.pay and #E4.pay == 1 and E4.avail.p == 0, "§7 le prêt paie l'amélioration ; rien n'en reste aux suivants")
   end
   local r2, w2, E2 = emit_case({ cost = { { "x", 1 } }, depense = true, key = "k", target = "t" }, 0, true)
   check(r2 == "ok" and w2 == 0 and E2.pay and #E2.pay == 1, "§7 coût au stock virtuel : payé, rien à fabriquer")
@@ -212,6 +222,8 @@ run_mutant("production non lissée", "dp", "(num(old) * Dp.PROD_KEEP + per_min *
 run_mutant("Cap.emit ignore g.depense", "cap", "not g.depense and ", "")
 run_mutant("prêt gardé par les projets suivants", "cap", "E.avail[k] = math.min(E.avail[k] or 0, before[k])", "E.avail[k] = E.avail[k]")
 run_mutant("aucun prêt", "cap", "E.avail[k] = before[k] + math.max(0, math.floor(lent[k] or 0))", "E.avail[k] = before[k]")
+run_mutant("capacité même quand une amélioration attend", "dp", "res.slots = pending and 0 or ", "res.slots = ")
+run_mutant("prêt absent du paiement", "cap", "E.avail[k] = before0[k] + math.max(0, math.floor(lent0[k] or 0))", "E.avail[k] = before0[k]")
 run_mutant("Em.slots ignore le bonus", "em", "  local cap = base + extra + bonus\n", "  local cap = base + extra\n")
 
 print(string.format("[DEPENSES] BILAN : %d OK, %d ECHEC(S)%s", passes, failures, base_fail > 0 and " (passe de reference en echec)" or ""))
