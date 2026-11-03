@@ -19,7 +19,7 @@ MACHINES = {
     "colonne": ("fo-extraction-column", 12, 3, "m_colonne"),
 }
 DIRS = ("n", "e", "s", "w")
-PIECE = {"name": "chim", "margin_px": 40, "calib": {"LIGHT_HOLDOUT": True},
+PIECE = {"name": "chim", "margin_px": 40, "calib": {"LIGHT_HOLDOUT": True, "AO_DISTANCE": 0.14},
          "variants": {"%s_%s" % (n, d): {"epoch": v[1], "side": v[2], "dest": "machines/chimie/" + n, "anchor_tiles": (0.0, 0.0)}
                       for n, v in MACHINES.items() for d in DIRS}}
 PHASE = 0.0

@@ -3,6 +3,10 @@ voûte est percée par deux rangées de TUBES CATALYTIQUES rouges au pied, reli�
 d'entrée ; fentes de brûleurs lumineuses sur la voûte et fentes de visite sur la face sud ; collecteur de sortie au pied,
 réacteur de conversion trapu, batterie de 4 colonnes d'adsorption (PSA) blanches à bandes bleues, petite cheminée de
 fumées. Entrées nord x = −1 (méthane), +1 (vapeur) ; sorties sud x = −1 (hydrogène, sous les PSA), +1 (CO2).
+Ronde 2 (CRITIQUE.md §2) : tubes rouge sombre (lueur (255, 120, 30)), tubes FROIDS au-dessus de la voûte (acier sombre) avec
+un seul anneau lumineux de 2 px à la traversée, queues de cochon de 3 px, collecteurs de 16 px à brides boulonnées, acier
+bruni au-dessus des fentes, une seule fente de brûleurs sur la voûte, adsorbeurs blanc cassé à 2 bandes bleues de 4 px en
+carré 2 × 2 à l'angle sud-ouest (rang arrière plus haut : les 4 se voient en vue nord).
 """
 import geo as G
 import habille as H
@@ -13,8 +17,8 @@ NT = 8                           # tubes par rangée
 TZ1 = 2.05                       # sommet des tubes
 HZ = 2.27                        # collecteurs d'entrée
 SU, SV, SRR = 0.97, 0.66, 0.27   # réacteur de conversion
-PSA = [(-1.22, 0.47), (-0.78, 0.47), (-1.22, 0.86), (-0.78, 0.86)]
-PR, PZ = 0.125, 1.42
+PSA = [(-1.22, 0.5, 1.85), (-0.76, 0.5, 1.85), (-1.22, 0.94, 1.32), (-0.76, 0.94, 1.32)]   # (u, v, hauteur)
+PR = 0.14
 
 
 def build(S, k, R):
@@ -41,16 +45,17 @@ def four(k, R):
             x = x0 + (x1 - x0) * (i + 0.5) / n
             k.b("acier", (x, Y - 0.012, 1.0), (0.06, 0.024, 0.78))
             k.b("tube_rouge", (x, Y - 0.026, 1.0), (0.03, 0.006, 0.7))
+            k.b("chauffe" if i != 1 else "bleui", (x, Y - 0.004, 1.43), (0.09, 0.008, 0.08))
     # voûte : plancher sombre, trois fentes de brûleurs le long de u, plaques de regard
     zt = FZ
-    for v in (FV - 0.52, FV - 0.0, FV + 0.52):
+    for v in (FV - 0.0,):
         p0, p1 = R.p(FU - FSU / 2.0 + 0.12, v, zt), R.p(FU + FSU / 2.0 - 0.12, v, zt)
         c = G.lerp(p0, p1, 0.5)
         L = G.length(G.sub(p1, p0))
         horiz = abs(p1[0] - p0[0]) > abs(p1[1] - p0[1])
         sx, sy = (L, 0.07) if horiz else (0.07 * 1.0, L)
         k.b("acier", (c[0], c[1], zt + 0.012), (sx + (0 if horiz else 0.06), sy + (0.06 if horiz else 0), 0.025))
-        k.b("feu", (c[0], c[1], zt + 0.026), (sx * (1 if horiz else 0.6), sy * (0.6 if horiz else 1), 0.006))
+        k.b("feu", (c[0], c[1], zt + 0.026), (sx * (1 if horiz else 0.45), sy * (0.45 if horiz else 1), 0.006))
     # rambarde jaune sur la voûte (côté sud absolu) et échelle
     k.rambarde("jaune", [(b[0] + 0.05, Y + 0.05, zt), (b[1] - 0.05, Y + 0.05, zt)], 0.15, 0.3)
     k.echelle("jaune", b[1] - 0.14, Y - 0.06, 0.0, zt + 0.15)
@@ -68,19 +73,24 @@ def tubes(k, R):
     for j, v in enumerate(ROWS):
         hv = v - 0.17
         # collecteur d'entrée sur chevalets
-        R.tuyau("isolant", [(u0 - 0.12, hv, HZ), (u1 + 0.12, hv, HZ)], 0.06, 0.1, bride_mat="acier")
+        R.tuyau("isolant", [(u0 - 0.12, hv, HZ), (u1 + 0.12, hv, HZ)], 0.11, 0.1, bride_mat="acier")
+        for u in (u0 + 0.6, u1 - 0.6):
+            R.collier("acier", (u, hv, HZ), (1.0, 0.0, 0.0), 0.11, 0.03, 0.025)
         for u in (u0 - 0.05, (u0 + u1) / 2.0, u1 + 0.05):
             R.axe("acier", (u, hv, FZ), (u, hv, HZ - 0.05), 0.018, 6)
         for i in range(NT):
             u = u0 + (u1 - u0) * i / (NT - 1)
             # traversée de voûte (presse-étoupe), tube rouge au pied, tête et bride
-            R.cyl("acier", u, v, FZ, FZ + 0.05, 0.065, 12)
-            R.cyl("tube_rouge", u, v, FZ + 0.05, FZ + 0.24, 0.042, 12)
-            R.cyl("acier_clair", u, v, FZ + 0.24, TZ1, 0.042, 12)
-            R.cyl("acier", u, v, TZ1, TZ1 + 0.05, 0.058, 12)
+            R.cyl("acier", u, v, FZ, FZ + 0.04, 0.068, 12)
+            R.tore("tube_rouge", u, v, FZ + 0.045, 0.05, 0.016, 16, 5)
+            R.cyl("acier", u, v, FZ + 0.04, TZ1, 0.042, 12)
+            R.cyl("acier_clair", u, v, TZ1, TZ1 + 0.05, 0.058, 12)
             # queue de cochon vers le collecteur
             ctrl = [R.p(u, v, TZ1 + 0.05), R.p(u, v, TZ1 + 0.12), R.p(u, v - 0.08, HZ + 0.07), R.p(u, hv, HZ + 0.05)]
-            k.put("acier_clair", G.tube(G.catmull(ctrl, 5), 0.014, 6))
+            k.put("acier_clair", G.tube(G.catmull(ctrl, 5), 0.024, 8))
+
+
+zc_psa = 1.95
 
 
 def sortie(k, R):
@@ -98,23 +108,24 @@ def sortie(k, R):
     k.axe("acier_clair", (x, y - SRR - 0.06, 0.62), (x, y - SRR - 0.09, 0.62), 0.11, 14)
     k.voyant("voyant_b", x + 0.14, y - SRR + 0.02, 1.0, 0.02)
     # gaz converti vers la tête des PSA
-    R.tuyau("acier", [(SU, SV, 1.38), (SU, SV, 1.62), (-1.0, SV, 1.62), (-1.0, 0.66, 1.52)], 0.05, 0.1)
+    R.tuyau("acier", [(SU, SV, 1.38), (SU, SV, 2.05), (-0.68, 0.72, 2.05), (-0.68, 0.72, zc_psa)], 0.05, 0.1)
 
 
 def psa(k, R):
     # socle à vannes, 4 colonnes blanches à bandes bleues, collecteurs haut et bas
-    R.box("noir", -1.0, 0.665, 0.0, 0.72, 0.62, 0.1)
-    R.box("acier", -1.0, 0.665, 0.1, 0.62, 0.52, 0.03)
-    for u, v in PSA:
-        R.cuve("blanc", u, v, 0.13, PZ, PR, 0.6, 24)
-        R.cyl("bleu", u, v, 0.85, 0.97, PR + 0.004, 24)
-        R.cyl("bleu", u, v, 0.33, 0.39, PR + 0.004, 24)
-        R.cerclages("acier", u, v, [0.2, PZ - 0.2], PR + 0.002, 0.01, 0.015)
-    R.tuyau("acier", [(-1.22, 0.665, PZ + 0.05), (-0.78, 0.665, PZ + 0.05)], 0.035, 0.08)
-    for u, v in PSA:
-        R.axe("acier", (u, v, PZ - 0.02), (u, 0.665, PZ + 0.05), 0.022, 6)
+    R.box("noir", -0.99, 0.72, 0.0, 0.76, 0.7, 0.1)
+    R.box("acier", -0.99, 0.72, 0.1, 0.66, 0.6, 0.03)
+    for u, v, pz in PSA:
+        R.cuve("blanc", u, v, 0.13, pz, PR, 0.6, 24)
+        R.cyl("bleu", u, v, pz - 0.5, pz - 0.41, PR + 0.004, 24)
+        R.cyl("bleu", u, v, pz - 0.68, pz - 0.59, PR + 0.004, 24)
+        R.cerclages("acier", u, v, [0.24], PR + 0.002, 0.012, 0.016)
+    zc = 1.95
+    R.tuyau("acier", [(-1.3, 0.72, zc), (-0.68, 0.72, zc)], 0.04, 0.08)
+    for u, v, pz in PSA:
+        R.axe("acier", (u, v, pz - 0.02), (u, 0.72, zc), 0.024, 8)
     # vannes pilotées au pied (voyants bleus) : une rangée par colonne
-    for u, v in PSA:
+    for u, v, pz in PSA:
         x, y, _ = R.p(u, v)
         for dz, m in ((0.0, "voyant_b"), (0.07, "voyant_v")):
             k.cyl("acier_clair", x + 0.14, y - 0.02, 0.13, 0.19 + dz, 0.022, 8)

@@ -154,6 +154,12 @@ def surface(name, col, rough=0.55, met=0.5, tole=None, joint=0.5, joint_l=0.014,
         if ta > 0:
             t1 = _range(N, L, _bruit(N, L, obj, 11.0, 4.0, 0.6, add3(d, 31.0)), 0.36, 0.64, 1 - ta, 1 + ta)
             base = _scale(N, L, base, t1)
+        # DA-CHIMIE ronde 2 : grandes taches (salissures, reprises de peinture) de 10 à 25 px HR ; la charte mesurait
+        # une variance basse fréquence trop faible (P2 11 à 15 contre 16) et trop de surfaces planes (P4)
+        tb = PATINE.get("tb", 0.0)
+        if tb > 0:
+            t3 = _range(N, L, _bruit(N, L, obj, 2.6, 3.0, 0.55, add3(d, 53.0)), 0.34, 0.66, 1 - tb, 1 + tb)
+            base = _scale(N, L, base, t3)
         ra = PATINE.get("ra", 0.0)
         if ra > 0:
             r1 = _range(N, L, _bruit(N, L, obj, 7.0, 3.0, 0.5, add3(d, 37.0), (1.0, 14.0, 5.0)), 0.6, 0.66, 1.0, 1.0 - ra)

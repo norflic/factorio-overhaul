@@ -52,7 +52,7 @@ def etalonne(img, grade):
 # main 538 x 425 au lieu de 174 x 350). Alpha sous 3/255 mis à 0, puis composantes 8-connexes PETITES ET FAIBLES retirées
 # (une vraie pièce, même petite, a un alpha fort : voyants, regards). NETTOIE = (taille max, alpha max) par couche ;
 # lueur prudente : à (40, 0,16) elle perdait jusqu'à 5,4 % de son énergie (électrolyseur), à (12, 0,06) 1,15 % au plus.
-NETTOIE = {"main": (16, 0.12), "shadow": (16, 0.12), "glow": (12, 0.06)}
+NETTOIE = {"main": (16, 0.12), "shadow": (16, 0.12), "glow": (12, 0.06), "light": (16, 0.03)}
 
 
 def nettoie(img, couche):
@@ -88,12 +88,15 @@ def post(name, cache, out_root):
     gl = npy("glow")
     if gl is not None:
         hr["glow"] = P.additive_layer(gl)
+    li = npy("light")
+    if li is not None:
+        hr["light"] = P.light_layer(li, C.LIGHT_SCALE)
     out = os.path.join(out_root, name)
     os.makedirs(out, exist_ok=True)
     spec = {"variant": name, "epoch": piece.PIECE["variants"][name]["epoch"], "samples": info["samples"],
             "seconds": info["seconds"], "seconds_render": info.get("seconds_render"), "verts": info.get("verts"),
             "canvas": info["canvas"], "kit": "chimie", "layers": {}}
-    for layer in ("main", "shadow", "glow"):
+    for layer in ("main", "shadow", "glow", "light"):
         if layer not in hr:
             continue
         hr[layer] = nettoie(hr[layer], layer)
@@ -106,7 +109,7 @@ def post(name, cache, out_root):
         sha = P.write_png(crop, os.path.join(out, fn))
         sd = P.sprite_def(box, origin, 64)
         spec["layers"][layer] = {"file": fn, "width": sd["width"], "height": sd["height"], "shift": sd["shift"],
-                                 "sha256": sha, "draw_as": {"shadow": "shadow", "glow": "glow"}.get(layer, "main")}
+                                 "sha256": sha, "draw_as": {"shadow": "shadow", "glow": "glow", "light": "light"}.get(layer, "main")}
     mob = os.path.join(d, "mobiles.json")
     if os.path.exists(mob):
         m = json.load(open(mob, encoding="utf-8"))
@@ -135,6 +138,7 @@ def main():
     ap.add_argument("--samples", type=int, default=32)
     ap.add_argument("--post-only", action="store_true")
     ap.add_argument("--quick", action="store_true", help="passes main, glow, shadow seulement (essais)")
+    ap.add_argument("--halo", action="store_true", help="les 5 passes, halo de nuit compris (sources halo_light)")
     ap.add_argument("--images", type=int, default=0, help="images des pièces mobiles (final)")
     a = ap.parse_args()
     a.cache = a.cache or os.path.join(os.path.dirname(os.path.abspath(a.out)), "cache_" + os.path.basename(a.out))
@@ -147,7 +151,7 @@ def main():
     if not a.post_only:
         cmd = [sys.executable, LOCK, "--disque", a.cache, "--disque", a.out, "--", BLENDER, "-b", "--factory-startup",
                "-noaudio", "--python-exit-code", "1", "-P", BATCH, "--", "--names", ",".join(names), "--out", a.cache,
-               "--samples", str(a.samples), "--images", str(a.images)] + (["--quick"] if a.quick else ["--apercu"])
+               "--samples", str(a.samples), "--images", str(a.images)] + (["--quick"] if a.quick else ([] if a.halo else ["--apercu"]))
         env = dict(os.environ, PYTHONIOENCODING="utf-8")
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
         log = []

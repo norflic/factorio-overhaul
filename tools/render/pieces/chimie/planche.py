@@ -101,7 +101,7 @@ def main():
         cases = [("van", dirs[0])] + [(m, d) for d in dirs]
         for i, (nom, d) in enumerate(cases):
             x = gap + i * (cw + gap)
-            lays = vanilla(d) if nom == "van" else K.own(a.src, "%s_%s" % (nom, d), ("shadow", "main", "glow"))
+            lays = vanilla(d) if nom == "van" else K.own(a.src, "%s_%s" % (nom, d), ("shadow", "main", "glow", "light"))
             day, night, _ = K.compose([{"pos": (a.large / 2.0, a.oy), "layers": lays}], a.large, a.haut)
             img = night if a.nuit else day
             if a.zoom == 1:
