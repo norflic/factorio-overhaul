@@ -14,6 +14,7 @@
 local Storage = require("script.core.storage")
 local State = require("script.faction.state")
 local Team = require("script.team.team")
+local Objectif = require("script.team.objectif") -- lot AGES : libellé d'un objectif
 local Poles = require("script.team.poles")
 local M = require("shared.gui.ia1i")
 
@@ -80,7 +81,7 @@ function Journal.text(e)
   local k = e.kind
   local body
   if k == "goal" then
-    body = { "fo-ia1i.j-goal", { "fo-team.goal-" .. tostring(e.a) } }
+    body = { "fo-ia1i.j-goal", Objectif.name(tostring(e.a)) }
   elseif k == "orientation" then
     body = { "fo-ia1i.j-orientation", preset_name(e.a) }
   elseif k == "declared" or k == "truce" or k == "eliminated" then

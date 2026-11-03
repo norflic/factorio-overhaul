@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.40
+Date: 2026-11-03
+  Changes:
+    - Falaises : une falaise bloque la zone reelle de sa collision (jusqu'a 4 x 3 tuiles), pas sa boite generique ; le projet refuse est abandonne aussitot pour replanifier (c'etait le blocage du charbon de la centrale : Scarlet terminait son alimentation a 14,2 min au lieu de jamais).
+    - Ages : le centre n'attend plus indefiniment la fin d'un gel de pile ; les fours du QG prennent la brique quand la pierre est la. Une graine a 100 min : un centre monte (emerald, 94 min) contre aucun avant.
+    - Navigation : une tournee d'avant-poste dont le chemin echoue a moins de 8 tuiles d'un batiment de l'avant-poste continue.
+    - Thermique (charbon et pierre par le champ, balayage des thermiques) RETIRE de cette version : il fait baisser la production de 30 a 40 % a 1 h sur une graine. A refaire.
+    - Pas fait : fonderie a tapis (en preuve), malls remplis par tapis, defense, parite de croissance.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.39
 Date: 2026-11-02
   Changes:

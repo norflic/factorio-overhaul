@@ -227,7 +227,8 @@ function C.think(view, book, st, ctx)
   local goals = A.goals(B.generate(s, st), ctx.auto, s.weights, s.research) -- lot IA3-e : modules demandés = projets
   -- Lot CAPITAL : le but « amélioration » choisi par le runtime (valeur ÷ coût, shared/ai3/capital.lua), factions seulement.
   -- Lot PILE-PRIORITE : suspendu tant qu'un cadre de rang inférieur retient (il ne réserve plus sa matière, audit A3).
-  if ctx.capital and Pi.allows(pile, "capital") then goals[#goals + 1] = ctx.capital
+  -- Lot AGES : le centre dont le gel est levé (shared/team/degel.lua, ctx.thaw) passe la retenue de la pile ; lui seul.
+  if ctx.capital and (Pi.allows(pile, "capital") or (ctx.thaw and ctx.capital.center)) then goals[#goals + 1] = ctx.capital
   elseif ctx.capital then Pi.suspend(pile, ctx.capital.key or "capital", "amelioration (capital) suspendue") end -- journal [FO-PILE]
   -- Lot CAPIB : un but de FOND par ordre ouvert de la capitalisation (ses exécutants ont reçu l'ordre au runtime ; le but
   -- fait ce qui leur manque, sur la part capi du stock virtuel).

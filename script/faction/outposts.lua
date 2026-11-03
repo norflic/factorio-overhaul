@@ -20,7 +20,9 @@ local R = require("shared.ai3.reglages") -- lot TOURELLES : rôles des types du 
 local Pose = require("shared.team.pose_tourelles") -- lot TOURELLES : quels emplacements prendre (règle pure)
 local Blocage = require("shared.team.blocage") -- lot FACTIONS-BLOQUEES : une tourelle ne se pose pas sur une tuile réservée (règle pure)
 local Axe = require("shared.team.axe") -- lot TOURELLES-HORS-AXE : couloir d'extension des lignes (règle pure)
+local Ar = require("shared.team.arrivee") -- lot C4 PLATEAU 3 : tournée arrivée malgré un chemin refusé (règle pure)
 local Charge = require("shared.team.charge_four") -- lot FOURS : charge d'un four à la pile (règle pure)
+local Chaine = require("shared.team.chaine_main") -- lot BRIQUES : partage des fours (C.releases, règle pure)
 local Gisement = require("script.team.gisement") -- lot GISEMENTS : plus de paire foreuse + four sur le minerai quand l'électrique a pris ce champ
 local Paires = require("shared.team.pose_paires") -- lot EXTENSION-FER : parcours des emplacements, emplacements occupés écartés sans coût (règle pure)
 local Ruines = require("script.team.ruines") -- lot REBUILD-AVANT-POSTE : un avant-poste perdu en entier garde son plan (ruine)
@@ -784,6 +786,14 @@ local function contents_of(e)
   return inv and inv.get_contents() or {}
 end
 
+--- Lot C4 PLATEAU 3 : distance carrée du point (x, y) au bâtiment (foreuse, four, coffre) le plus proche de l'avant-poste ; nil si aucun.
+function Outposts.nearest_d2(o, x, y)
+  local pts = {}
+  for _, e in ipairs(valid_list(o.sinks)) do pts[#pts + 1] = e.position end
+  for _, e in ipairs(valid_list(o.drill_list)) do pts[#pts + 1] = e.position end
+  return Ar.nearest_d2(pts, x, y)
+end
+
 --- État d'un avant-poste : brûleur à court de charbon, production en attente, tourelles.
 --- Lot FLUX : `outputs` = { [objet] = n } des sorties (ce que la tournée rapportera), `stuck` = réceptacles dont la sortie est
 --- pleine (shared/team/flux.lua, Fx.STUCK_AT : le four ne fond plus), `burners` / `dry` = brûleurs et brûleurs sans une braise.
@@ -884,6 +894,13 @@ function Outposts.four_rule(f)
   return not (f.team and f.team.four_regle == false)
 end
 
+-- Lot BRIQUES : interrupteur de banc de la règle de partage des fours (`fo-ia1`, set_regle_partage) ; allumée par défaut. Éteinte :
+-- le comportement de 0.6.37 (un produit sans four attend qu'un four se vide, ce qui n'arrive jamais tant que la demande d'un autre
+-- produit complète les fours au tiers de leur pile, et un four à sortie pleine d'un autre objet reste arrêté), pour les témoins.
+function Outposts.partage_rule(f)
+  return Outposts.four_rule(f) and not (f.team and f.team.partage_regle == false)
+end
+
 -- Entrée de fonderie -> plus petite (RATIO) et plus grande (MAXR) quantité par fabrication (T.smelter_inputs, listes triées).
 local RATIO, MAXR = {}, {}
 for _, p in ipairs(State.sorted_keys(T.smelter_inputs)) do
@@ -914,22 +931,23 @@ end
 --- Lot FOURS : fours à charger, dans l'ordre de la fonderie. `products` = produits demandés (triés). Un four vide reçoit un
 --- produit à tour de rôle ; un four tombé au tiers de sa pile est complété avec SON entrée (une entrée qui est elle-même un
 --- produit de fonte, la plaque de l'acier, seulement pour une demande). Rend { { s, item, ratio, room, free } ... }.
-function Outposts.smelt_loads(f, products, list)
+function Outposts.smelt_loads(f, products, list, released)
   local out = {}
   list = list or Outposts.smelters(f)
+  released = released or {}
   -- Fours multi-types : un four vide va à l'entrée demandée qui a le moins de fours (et non plus toujours à la première).
   local items, counts = {}, {}
   for k, p in ipairs(products) do
     local input = T.smelter_inputs[p]
     items[k] = input and input[1] or p
   end
-  for _, s in ipairs(list) do
+  for k, s in ipairs(list) do
     local c = s.get_inventory(defines.inventory.furnace_source)[1]
-    if c and c.valid_for_read then counts[c.name] = (counts[c.name] or 0) + 1 end
+    if c and c.valid_for_read and not released[k] then counts[c.name] = (counts[c.name] or 0) + 1 end
   end
-  for _, s in ipairs(list) do
+  for k, s in ipairs(list) do
     local c = s.get_inventory(defines.inventory.furnace_source)[1]
-    if c and c.valid_for_read then
+    if c and c.valid_for_read and not released[k] then
       local ratio = RATIO[c.name]
       if ratio and not stuck(s, c) and (not T.smelter_inputs[c.name] or demanded_item(products, c.name)) then
         local room = Charge.room(c.count, stack_of(c.name), ratio)
@@ -945,6 +963,42 @@ function Outposts.smelt_loads(f, products, list)
     end
   end
   return out
+end
+
+--- Lot BRIQUES : un descripteur par four, dans l'ordre de la fonderie, pour la règle pure C.releases (shared/team/chaine_main.lua) :
+--- { item, count } si le four porte une entrée (sauf un four bloqué, libre comme pour la décision), {} s'il est vide ou bloqué.
+function Outposts.smelter_furnaces(f, list)
+  local out = {}
+  for _, s in ipairs(list or Outposts.smelters(f)) do
+    local c = s.get_inventory(defines.inventory.furnace_source)[1]
+    if c and c.valid_for_read and not stuck(s, c) then out[#out + 1] = { item = c.name, count = c.count } else out[#out + 1] = {} end
+  end
+  return out
+end
+
+--- Lot BRIQUES : fours dont la sortie est PLEINE (état du moteur `full_output`) : arrêtés tant qu'une tournée ne vide pas la sortie.
+function Outposts.smelters_blocked(f, list)
+  local n = 0
+  for _, s in ipairs(list or Outposts.smelters(f)) do
+    if s.status == defines.entity_status.full_output then n = n + 1 end
+  end
+  return n
+end
+
+--- Lot BRIQUES : indices (dans la liste des fours) à vider pour servir un produit de `smelt` qui n'a aucun four ; `stock_of(item)`
+--- = quantité dont la tournée dispose (le coffre pour le plan du porteur, son inventaire pour le service). Rien si la règle est coupée.
+Outposts.PARTAGE_LOGS = 30 -- lignes [FO-PARTAGE] au plus par équipe
+function Outposts.smelt_release(f, smelt, stock_of, list)
+  list = list or Outposts.smelters(f)
+  local rel = {}
+  if not Outposts.partage_rule(f) then return rel end
+  local stock = {}
+  for _, p in ipairs(State.sorted_keys(smelt or {})) do
+    local inp = T.smelter_inputs[p]
+    if inp and stock[inp[1]] == nil then stock[inp[1]] = stock_of(inp[1]) end
+  end
+  for _, i in ipairs(Chaine.releases(Outposts.smelter_furnaces(f, list), smelt, T.smelter_inputs, stock)) do rel[i] = true end
+  return rel
 end
 
 --- Fonderie du QG : vide les sorties, charge les entrées selon `smelt` ({ [produit] = n }), ravitaille. Rend (collecté,
@@ -966,6 +1020,31 @@ function Outposts.service_smelters(f, carrier, smelt)
   end
   local loaded = 0
   if Outposts.four_rule(f) then
+    -- Lot BRIQUES : un produit demandé sans aucun four en reçoit un, repris à l'entrée qui en a le plus (C.releases).
+    local rel = Outposts.smelt_release(f, smelt, function(item) return carrier.get_item_count(item) end, list)
+    local freed = 0
+    for k, s in ipairs(list) do
+      if rel[k] then
+        local src = s.get_inventory(defines.inventory.furnace_source)
+        local c = src[1]
+        if c and c.valid_for_read then
+          local name, count = c.name, c.count
+          local took = carrier.insert({ name = name, count = count })
+          if took > 0 then src.remove({ name = name, count = took }) end
+          if src.is_empty() then freed = freed + 1 end
+        end
+      end
+    end
+    if freed > 0 then
+      f.stats = f.stats or {}
+      local m = f.stats.smelt or {}
+      f.stats.smelt = m
+      m.freed = (m.freed or 0) + freed
+      if m.freed <= Outposts.PARTAGE_LOGS then
+        log(string.format("[FO-PARTAGE] %s a %.1f min : %d four(s) repris pour un produit sans four (demande {%s})", tostring(f.key or "player"),
+          game.tick / 3600, freed, table.concat(State.sorted_keys(smelt or {}), " ")))
+      end
+    end
     for _, s in ipairs(list) do
       local src = s.get_inventory(defines.inventory.furnace_source)
       if not src.is_empty() and not s.is_crafting() then
