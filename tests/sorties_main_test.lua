@@ -119,7 +119,7 @@ check("worker : complement de combustible vers l'avant-poste de combustible", W:
 check("worker : regle coupee = 0.6.41 (rien vers le combustible)", W:find('if o.kind == "coal" then carry = 0 end', 1, true) ~= nil)
 check("planificateur : priorite de la tournee", P:find("Sm.fetch_prio(p, o, RAW, have)", 1, true) ~= nil)
 check("planificateur : seulement quand le danger est releve", P:find("view.sorties_on and (o.fuel_low or o.output >= T.collect_at)", 1, true) ~= nil)
-check("vue : interrupteur", TM:find("sorties_on = f.team.sorties_regle ~= false or nil", 1, true) ~= nil)
+check("vue : interrupteur (partie prio, lot CHARBON3)", TM:find("sorties_on = SortiesLog.part(f, \"prio\") or nil", 1, true) ~= nil)
 check("remote : interrupteur de banc", R:find("set_regle_sorties", 1, true) ~= nil)
 
 -- §7 mutants

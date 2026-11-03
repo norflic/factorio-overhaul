@@ -650,7 +650,7 @@ function Team.view(f, tick)
   return {
     tech = f.tech, personality = f.personality, done = f.team.done, deferred = f.team.deferred,
     stock = stock_free, incoming = incoming, repat = repat,
-    sorties_on = f.team.sorties_regle ~= false or nil, -- lot CHARBON-MAIN : règle « sorties brutes d'abord » (shared/team/sorties_main.lua)
+    sorties_on = SortiesLog.part(f, "prio") or nil, -- lot CHARBON-MAIN : tournée urgente (shared/team/sorties_main.lua) ; CHARBON3 : partie « prio »
     outposts = outposts, pending = pend, sites = sites, sites_near = sites_near, -- lot SITE-PROCHE (R1)
     smelters = #Outposts.smelters(f), smelters_pending = smelters_pending,
     smelter_task = Board.has(f, "smelt"), smelter_output = smelter_out, smelter_fuel_low = smelter_low,
