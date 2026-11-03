@@ -37,7 +37,8 @@ local function couche(c, kind, rep)
       t.frame_count, t.line_length, t.animation_speed = c.images, c.images, M.ANIMATION_SPEED
     else
       t.frame_count = 1
-      if rep and rep > 1 then t.repeat_count = rep end
+      -- couche fixe d'une animation à pièce mobile : répétée sur le cycle, à la même vitesse que la pièce
+      if rep and rep > 1 then t.repeat_count, t.animation_speed = rep, M.ANIMATION_SPEED end
     end
     if kind == "shadow" then
       t.draw_as_shadow = true
