@@ -274,7 +274,8 @@ def main():
                     continue
                 total += sortie(pl, robot, anim, couche, a.dest, t["anims"][anim]["couches"], manifeste)
         ic = "%s-icone.png" % robot
-        icone(src, "%s-d10-tir" % robot, os.path.join(a.dest, ic))
+        # même angle à 8 et à 16 directions (d05 sur 8 = d10 sur 16 : 3/4 face, sud-ouest)
+        icone(src, "%s-d%02d-tir" % (robot, nd * 5 // 8), os.path.join(a.dest, ic))
         manifeste["fichiers"][ic] = sha(os.path.join(a.dest, ic))
         t["icone"] = PREFIXE_JEU + ic
         table[piece.ROBOTS[robot]["ro"]] = t

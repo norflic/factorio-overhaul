@@ -21,12 +21,18 @@ DEST_DEFAUT = os.path.join(MOD, "graphics", "robots")
 
 
 def lire_table(dest):
-    """Lit sprites.lua par motif (le format est celui de feuilles.py) : anim, couche, w, h, fichier hr, lr."""
+    """Lit sprites.lua par motif (le format est celui de feuilles.py) : anim, couche, w, h, fichier hr, lr ; « hauteur » du géant pour son torse
+    (rendu à sa place au sol, remonté de `hauteur` en jeu par prototypes/robots.lua : l'origine du torse est le centre des hanches)."""
     txt = open(os.path.join(dest, "sprites.lua"), encoding="utf-8").read()
+    hauteurs = [(m.start(), float(m.group(1))) for m in re.finditer(r"\n    hauteur = ([\d.]+),", txt)]
     out = []
     for m in re.finditer(r'(glow|main|mask|shadow) = \{\s*h = (\d+),\s*hr = "[^"]*/([^"/]+)",\s*hs = [\d.]+,\s*lh = (\d+),\s*lr = "[^"]*/([^"/]+)",\s*lw = (\d+),\s*shift = \{ ([-\d.]+), ([-\d.]+) \},\s*w = (\d+),', txt):
-        out.append({"couche": m.group(1), "h": int(m.group(2)), "hr": m.group(3), "lh": int(m.group(4)), "lr": m.group(5), "lw": int(m.group(6)),
-                    "sx": float(m.group(7)), "sy": float(m.group(8)), "w": int(m.group(9))})
+        t = {"couche": m.group(1), "h": int(m.group(2)), "hr": m.group(3), "lh": int(m.group(4)), "lr": m.group(5), "lw": int(m.group(6)),
+             "sx": float(m.group(7)), "sy": float(m.group(8)), "w": int(m.group(9)), "hauteur": 0.0}
+        if "-torse-" in t["hr"]:
+            avant = [h for p, h in hauteurs if p < m.start()]
+            t["hauteur"] = avant[-1] if avant else float("nan")
+        out.append(t)
     return out
 
 
@@ -62,8 +68,8 @@ def controle(dest):
                 for c in range(col):
                     if (a[r * t["h"]:(r + 1) * t["h"], c * t["w"]:(c + 1) * t["w"]] > 128).sum() < 200:
                         err.append("%s : image %d, %d presque vide" % (t["hr"], r, c))
-            # l'origine de l'entité dans la case (px HR)
-            ox, oy = t["w"] / 2.0 - t["sx"] * 64.0, t["h"] / 2.0 - t["sy"] * 64.0
+            # l'origine de l'entité dans la case (px HR) ; torse d'un géant : centre des hanches, `hauteur` tuiles au-dessus du sol
+            ox, oy = t["w"] / 2.0 - t["sx"] * 64.0, t["h"] / 2.0 - (t["sy"] + t["hauteur"]) * 64.0
             if not (0 <= ox <= t["w"] and 0 <= oy <= t["h"]):
                 err.append("%s : origine hors de la case" % t["hr"])
     return err
@@ -103,7 +109,15 @@ def mutants(dest):
         s2 = re.sub(r"(main = \{[^}]*?shift = \{ )([-\d.]+)", lambda m: m.group(1) + "40", s, count=1, flags=re.S)
         assert s != s2
         open(p, "w", encoding="utf-8", newline="\n").write(s2)
-    tests = [("image changée", m_sha), ("fichier manquant", m_manquant), ("case fausse", m_case), ("image vide", m_vide), ("origine hors de la case", m_origine)]
+    def m_hauteur(d):
+        p = os.path.join(d, "sprites.lua")
+        s = open(p, encoding="utf-8").read()
+        s2 = re.sub(r"(\n    hauteur = )([\d.]+)", lambda m: m.group(1) + "40", s, count=1)
+        if s == s2:
+            raise SystemExit("mutant « hauteur du torse » : aucun géant dans sprites.lua")
+        open(p, "w", encoding="utf-8", newline="\n").write(s2)
+    tests = [("image changée", m_sha), ("fichier manquant", m_manquant), ("case fausse", m_case), ("image vide", m_vide), ("origine hors de la case", m_origine),
+             ("hauteur du torse fausse", m_hauteur)]
     for nom, fn in tests:
         t = tempfile.mkdtemp(prefix="rbm_")
         d = os.path.join(t, "r")

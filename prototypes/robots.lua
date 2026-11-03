@@ -8,9 +8,8 @@
     ombre séparée ; au travail, la lueur s'allume, avec une lumière, et l'atelier fume (fumée vanilla : 0 image neuve).
   - Kit : objet de pile 1, produit de la recette du robot (ingrédients d'au plus 100 chacun : RB0-1). Son `place_result` est
     l'unité du joueur (le cerveau lit ce lien ; un kit posé à la main est inscrit au registre par script/robots/usine.lua).
-  - Unité : `unit` par PROPRIÉTAIRE (le joueur et les 4 factions) : une unité n'a pas de couleur au jeu (PLAN §3). Visuel PROVISOIRE
-    (Ro.PROVISIONAL) : animations des cracheurs vanilla régénérées avec d'autres teintes et tailles (une teinte ne fait que multiplier,
-    F36 : on repasse par les fonctions globales du jeu, comme prototypes/enemies.lua), mêlées d'un peu de la couleur de la faction.
+  - Unité : `unit` par PROPRIÉTAIRE (le joueur et les 4 factions) : une unité n'a pas de couleur au jeu (PLAN §3). Sans feuille (repli
+    seulement, aucun robot depuis ROBOTS-JEU) : animations des cracheurs vanilla régénérées avec d'autres teintes et tailles (F36).
   - Arme : tir à portée de catégorie « fo-robot », PV et dégâts CALIBRÉS par shared/robots/duel.lua ; zone (`area`), portée minimale
     (artillerie), aucun dégât (Cloche : le soin est un script, script/robots/soutien.lua).
   - Géant (âges 13 à 15) : `spider-vehicle` fabriqué par `create_spidertron` (fonction du jeu de base), un canon de portée 100 (RB0 :
@@ -18,6 +17,8 @@
     puis un assemblage final (portique).
   - Lot RB-V1 (1/11) : un robot qui a une feuille (SPR[r.id]) a ses vraies images : marche, tir, ombre, lueur et une couche de PEINTURE teinte
     par propriétaire (unité) ou à l'exécution (géant : torse à plusieurs directions, pièces de pattes communes). Sans feuille : visuel provisoire.
+    Lot ROBOTS-JEU (3/11) : les 12 robots ont leur feuille (Trotte-Vapeur et Lévite à 16 directions, les 7 autres terrestres à 8, les 3 géants :
+    torse à 16 directions et pattes dessinées) ; la RotatedAnimation d'une unité accepte 8 directions (prototype-api : direction_count).
   - Technologies : une par palier, plus celles des pièces (prototypes/robot_parts.lua).
   À charger APRÈS prototypes/enemies.lua (les globales des animations des cracheurs) et prototypes/robot_parts.lua : voir data.lua.
 ]]
