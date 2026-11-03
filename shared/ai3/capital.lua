@@ -87,6 +87,14 @@ Cap.REPLACE_BATCH = 4
 -- (Essai 2, mesuré : compté en COÛT, le report d'un centre de l'époque 3 — 80 acier — dépassait l'heure pour une faction
 -- qui paie 40 de travail par minute ; en valeur, il faut la valeur d'environ 25 tourelles.)
 Cap.DEFER_PCT = 100
+-- Lot AGEBLOCAGE (retour du DC du 3/11 sur 0.6.46 : « la Ligue Azur est restée en âge 1 ») : le report STÉRILE. La règle du loueur
+-- de skis borne la perte par la VALEUR des travaux payés pendant le report ; elle suppose que ces travaux sont payés. Journal du DC :
+-- centre d'Azur payable de 7,3 à 40,3 min, but 'gun:2:173' (score 476 contre celui du centre) jamais payé faute d'engrenages
+-- (bâtiment : bras libres seulement, Cap.emit ; 0 PNJ sans tâche sur 8), donc reports de valeur 0, centre jamais prioritaire ; une
+-- amélioration payée de toute la partie (88 chez Ambre). Règle : tant que le centre est payable, si AUCUNE amélioration n'est payée
+-- pendant Cap.DEFER_IDLE ticks (horloge `quiet` du report, Cap.defer_clock et Cap.defer_paid), le centre passe devant (d.starved).
+-- 10 min : une faction qui paie paie environ une amélioration par 1,7 min (Ambre, 88 en 150 min) ; 10 min sans rien est stérile.
+Cap.DEFER_IDLE = 10 * 3600
 
 local function sorted_keys(t)
   local ks = {}
@@ -411,7 +419,7 @@ function Cap.choose(Ld, census, ctx)
   local first = res.cands[1]
   local starved = false
   for _, c in ipairs(res.cands) do
-    if c.center and (Cap.starved(ctx.defer, c) or ctx.thaw) then first, starved = c, true end -- ctx.thaw : le gel du centre est levé (shared/team/degel.lua)
+    if c.center and (Cap.starved(ctx.defer, c, ctx.tick) or ctx.thaw) then first, starved = c, true end -- ctx.thaw : le gel du centre est levé (shared/team/degel.lua)
   end
   local d = first and {} or { none = true }
   for k, v in pairs(first or {}) do d[k] = v end
@@ -435,13 +443,36 @@ function Cap.choose(Ld, census, ctx)
   return d
 end
 
---- Le centre a-t-il été reporté assez longtemps ? defer = { key, spent } (VALEUR des améliorations payées pendant que le centre
---- `key` était payable, tenue par le runtime), gate = le candidat centre (gate.value : sa valeur).
-function Cap.starved(defer, gate)
+--- Le centre a-t-il été reporté assez longtemps ? defer = { key, spent, quiet } (VALEUR des améliorations payées pendant que le
+--- centre `key` était payable, tenue par le runtime ; `quiet` : tick depuis lequel le centre est payable sans qu'aucune
+--- amélioration soit payée, Cap.defer_clock), gate = le candidat centre (gate.value : sa valeur), tick = maintenant (nil : la
+--- règle du report stérile ne joue pas).
+function Cap.starved(defer, gate, tick)
   if not (defer and gate and gate.center and gate.key and defer.key == gate.key) then return false end
   local value = gate.value or 0
   if value <= 0 then return false end
-  return (defer.spent or 0) * 100 >= value * Cap.DEFER_PCT
+  if (defer.spent or 0) * 100 >= value * Cap.DEFER_PCT then return true end
+  -- Lot AGEBLOCAGE : report stérile (rien payé depuis Cap.DEFER_IDLE ticks, centre payable).
+  return tick ~= nil and defer.quiet ~= nil and tick - defer.quiet >= Cap.DEFER_IDLE
+end
+
+--- Lot AGEBLOCAGE : horloge du report à chaque décision. `open` = le centre est payable à cette décision (Cap.gate_open) ; porte
+--- fermée (ou horloge absente) : l'horloge repart de `tick` (le report stérile ne se compte que porte ouverte, d'un seul tenant).
+--- Rend defer (nil reste nil).
+function Cap.defer_clock(defer, open, tick)
+  if not defer then return nil end
+  defer.open = open or false
+  if not defer.open or defer.quiet == nil then defer.quiet = tick end
+  return defer
+end
+
+--- Lot AGEBLOCAGE : une amélioration (pas le centre) est payée pendant que le centre est payable : sa valeur compte au report
+--- (règle du loueur de skis) et l'horloge du report stérile repart. Porte fermée : rien ne change.
+function Cap.defer_paid(defer, value, tick)
+  if not (defer and defer.open) then return defer end
+  defer.spent = (defer.spent or 0) + (value or 0)
+  defer.quiet = tick
+  return defer
 end
 
 --- Le centre est-il PAYABLE à cette décision (aucune condition qui le bloque, pas de refus récent) ? centre = res.centre de
@@ -464,7 +495,8 @@ function Cap.goal(d, weights)
   local w = math.max(1000, (weights or {}).capital or 1000) -- le caractère avance l'investissement, sans le retarder
   return { key = "capital:" .. d.key, family = "capital", kind = "upgrade", cost = d.cost, target = d.key,
     value = clamp(math.floor(base * w / 1000), 1, 100), center = d.center or nil, fond = true,
-    short = (d.center and d.work ~= nil and (d.work <= Cap.SHORT_WORK or d.starved)) or nil, replace = d.replace and true or nil }
+    short = (d.center and d.work ~= nil and (d.work <= Cap.SHORT_WORK or d.starved)) or nil, replace = d.replace and true or nil,
+    opens = (d.chain ~= nil and not d.center) or nil } -- lot AGEBLOCAGE : le bâtiment de la chaîne Q16 (sa montée ouvre le centre)
 end
 
 --- Émission du projet (enregistrée dans P.EMIT.upgrade par shared/ai3/cerveau.lua) : tout le coût au stock virtuel ->
@@ -474,6 +506,10 @@ end
 --- dort, stock ou bras) : sans PNJ sans tâche à cette pensée, il ne prend que ce qui reste au stock virtuel, rien n'est
 --- fabriqué ni extrait pour lui. Moteur réel, banc c4 (27/10, graine 271828182) : but de fond qui fabriquait quand même ses
 --- engrenages et demandait son fer, palier 3 de recherche à 20,8 / 40,0 / 51,4 min contre 16,5 / 24,5 / 28,3 au témoin.
+--- Lot AGEBLOCAGE : le bâtiment de la CHAÎNE Q16 (g.opens : sa montée est la condition du centre) est un pas de l'époque, servi
+--- comme le centre : ses pièces sont fabriquées même sans bras libre. Journal du DC (3/11) : centre d'Azur bloqué par
+--- `condition:drill` de 40,3 à 150 min, 'drill:2:9486' attendait 3 engrenages et 2 circuits (0 au stock, 0 PNJ sans tâche sur 8,
+--- 4 722 plaques de fer libres) : rien n'était fabriqué pour lui, l'époque ne s'ouvrait jamais.
 function Cap.emit(P)
   return function(E, proj, g)
     if P.take(E, g.cost) then
@@ -481,7 +517,7 @@ function Cap.emit(P)
       E.pay[#E.pay + 1] = { key = g.key, target = g.target, cost = g.cost }
       return "ok"
     end
-    if not g.center and not g.replace and ((E.view and E.view.workers_idle) or 0) <= 0 then return "matiere" end
+    if not g.center and not g.opens and not g.replace and ((E.view and E.view.workers_idle) or 0) <= 0 then return "matiere" end
     P.want(E, proj, g.cost, proj.prio, false, "niveau")
     return "matiere"
   end

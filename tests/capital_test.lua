@@ -252,8 +252,13 @@ local function run_all()
   local book = Book.new(recipes)
   local goal7 = Cap.goal(d7, {})
   local E0 = P.context({ ["iron-plate"] = 500, ["copper-plate"] = 500 }, book, { open = {}, workers_idle = 0 }, {})
-  local s0 = Cap.emit(P)(E0, { id = 70, key = "capital:x", prio = 50 }, Cap.goal(d7, {}))
-  check(s0 == "matiere" and #E0.tasks == 0, "§7 bâtiment sans bras libres : rien n'est fabriqué pour lui (" .. #E0.tasks .. " tâche(s))")
+  -- Lot AGEBLOCAGE : d7 est le bâtiment de la chaîne Q16 (le centre est bloqué par les tourelles) ; la règle des bras libres se lit
+  -- sur le même bâtiment hors chaîne (copie sans `chain`), la chaîne est au §15.
+  local d7o = {}
+  for k, v in pairs(d7) do d7o[k] = v end
+  d7o.chain = nil
+  local s0 = Cap.emit(P)(E0, { id = 70, key = "capital:x", prio = 50 }, Cap.goal(d7o, {}))
+  check(s0 == "matiere" and #E0.tasks == 0, "§7 bâtiment (hors chaîne) sans bras libres : rien n'est fabriqué pour lui (" .. #E0.tasks .. " tâche(s))")
   local E = P.context({ ["iron-plate"] = 500, ["copper-plate"] = 500 }, book, { open = {}, workers_idle = 2 }, {})
   local proj = { id = 7, key = goal7.key, prio = 50 }
   local fn = Cap.emit(P)
@@ -414,6 +419,71 @@ local function run_all()
     for _, c in ipairs(res3.cands) do if c.center then g3 = c end end
     check(g3 ~= nil, "§14 le jeu fait foi aussi dans l'autre sens : relevé de la base incomplet, condition remplie ailleurs")
   end
+
+  -- §15 Lot AGEBLOCAGE (journal du DC, 3/11, Ligue Azur en âge 1 toute la partie, une amélioration payée en 150 min) :
+  --   (a) report STÉRILE : centre payable, aucune amélioration payée pendant Cap.DEFER_IDLE -> le centre passe devant ;
+  --   (b) le bâtiment de la CHAÎNE Q16 fait fabriquer ses pièces même sans bras libre (le centre ne s'ouvre que par lui).
+  do
+    local cen = census(guns({ 2, 1, 1, 1 }), center1)
+    local base = Cap.candidates(L, cen, ctx())
+    local gate
+    for _, c in ipairs(base.cands) do if c.center then gate = c end end
+    local T0 = 1000
+    local IDLE10 = 10 * 3600 -- la règle écrite : 10 min (chiffre fixe ici : un mutant de Cap.DEFER_IDLE doit se voir)
+    -- Horloge : porte fermée -> repart du tick ; porte ouverte -> tenue ; absente (sauvegarde d'avant) -> part du tick.
+    local df = Cap.defer_clock({ key = gate.key, spent = 0 }, true, T0)
+    check(df.quiet == T0 and df.open == true, "§15 horloge : sans `quiet` (sauvegarde d'avant), elle part de la décision")
+    Cap.defer_clock(df, true, T0 + 600)
+    check(df.quiet == T0, "§15 horloge : porte ouverte, rien payé, elle continue (" .. tostring(df.quiet) .. ")")
+    Cap.defer_clock(df, false, T0 + 900)
+    check(df.quiet == T0 + 900 and df.open == false, "§15 horloge : porte fermée, elle repart (le stérile se compte d'un seul tenant)")
+    check(Cap.defer_clock(nil, true, T0) == nil, "§15 horloge : aucun report, rien")
+    -- Paiement d'une amélioration porte ouverte : valeur comptée, horloge remise ; porte fermée : rien.
+    local dp = { key = gate.key, spent = 5, quiet = T0, open = true }
+    Cap.defer_paid(dp, 7, T0 + 1200)
+    check(dp.spent == 12 and dp.quiet == T0 + 1200, "§15 payé porte ouverte : valeur au report (12) et horloge remise")
+    local dc = { key = gate.key, spent = 5, quiet = T0, open = false }
+    Cap.defer_paid(dc, 7, T0 + 1200)
+    check(dc.spent == 5 and dc.quiet == T0, "§15 payé porte fermée : ni valeur ni horloge")
+    -- Le choix : reports de valeur nuls, la tourelle moins chère passe tant que le report n'est pas stérile.
+    local open = { key = gate.key, spent = 0, quiet = T0, open = true }
+    local da = Cap.choose(L, cen, ctx({ defer = open, tick = T0 + IDLE10 - 1 }))
+    check(da.family == "gun" and not da.starved, "§15 rien payé depuis moins de 10 min : la tourelle moins chère passe encore (" .. tostring(da.key) .. ")")
+    local db = Cap.choose(L, cen, ctx({ defer = open, tick = T0 + IDLE10, current = da.key }))
+    check(db.center == true and db.starved == true and db.key == gate.key,
+      "§15 rien payé depuis 10 min, centre payable : le centre passe devant, malgré l'inertie de la tourelle (" .. tostring(db.key) .. ")")
+    local gb = Cap.goal(db, {})
+    check(gb and gb.short == true and gb.center == true and gb.opens == nil, "§15 le centre devenu prioritaire est un travail court")
+    local dnt = Cap.choose(L, cen, ctx({ defer = open }))
+    check(dnt.family == "gun" and not dnt.starved, "§15 sans tick (appel d'avant), la règle du report stérile ne joue pas")
+    local dno = Cap.choose(L, cen, ctx({ defer = { key = gate.key, spent = 0, quiet = T0 }, tick = T0 + 10 * IDLE10 }))
+    check(dno.starved == true, "§15 un report plus que stérile reste prioritaire")
+    local dother = Cap.choose(L, cen, ctx({ defer = { key = "command:9:999", spent = 0, quiet = T0 }, tick = T0 + 10 * IDLE10 }))
+    check(dother.family == "gun" and not dother.starved, "§15 l'horloge d'un autre centre ne compte pas")
+    local blockedc = census(guns({ 1, 1, 1, 1 }), center1)
+    local dbl = Cap.choose(L, blockedc, ctx({ defer = { key = gate.key, spent = 0, quiet = T0 }, tick = T0 + 10 * IDLE10 }))
+    check(dbl.family == "gun" and not dbl.starved and dbl.chain ~= nil, "§15 centre bloqué : pas de passe-droit, le bâtiment de la chaîne d'abord (" .. tostring(dbl.key) .. ")")
+    -- (b) Le bâtiment de la chaîne fabrique ses pièces sans bras libre ; un bâtiment ordinaire non (règle des bras libres gardée).
+    local recipes = dofile("tests/fixtures/recipes_ia1e.lua")
+    local book = Book.new(recipes)
+    local gch = Cap.goal(dbl, {})
+    check(gch and gch.opens == true and gch.center == nil, "§15 but du bâtiment de la chaîne : marqué `opens`")
+    local function emit0(g)
+      local E = P.context({ ["iron-plate"] = 500, ["copper-plate"] = 500 }, book, { open = {}, workers_idle = 0 }, {})
+      E.view = { workers_idle = 0 }
+      local r = Cap.emit(P)(E, { id = 15, key = g.key, prio = 50 }, g)
+      local crafted = {}
+      for _, t in ipairs(E.tasks) do if t.kind == "craft" then crafted[t.item] = (crafted[t.item] or 0) + t.count end end
+      return r, crafted, #E.tasks
+    end
+    local rch, cch = emit0(gch)
+    check(rch == "matiere" and (cch["iron-gear-wheel"] or 0) >= 3,
+      "§15 chaîne, 0 bras libre, plaques au stock : les engrenages sont FABRIQUÉS à la main (" .. tostring(cch["iron-gear-wheel"]) .. ")")
+    local gor = Cap.goal(da, {})
+    check(gor and gor.opens == nil, "§15 tourelle ordinaire (centre payable) : pas de la chaîne")
+    local ror, _, nor = emit0(gor)
+    check(ror == "matiere" and nor == 0, "§15 bâtiment ordinaire, 0 bras libre : rien n'est fabriqué pour lui (" .. nor .. " tâche(s))")
+  end
 end
 
 run_all()
@@ -477,6 +547,36 @@ do
       return cd0(Ld, copy, c)
     end
   end, function() Cap.candidates = cd0 end)
+  -- Lot AGEBLOCAGE.
+  local di = Cap.DEFER_IDLE
+  M("report stérile ignoré", function() Cap.DEFER_IDLE = 1e12 end, function() Cap.DEFER_IDLE = di end)
+  M("report stérile immédiat", function() Cap.DEFER_IDLE = 0 end, function() Cap.DEFER_IDLE = di end)
+  local dcl = Cap.defer_clock
+  M("horloge comptée porte fermée", function()
+    Cap.defer_clock = function(df, open, tick) if df then df.open = open or false if df.quiet == nil then df.quiet = tick end end return df end
+  end, function() Cap.defer_clock = dcl end)
+  local dpd = Cap.defer_paid
+  M("horloge jamais remise au paiement", function()
+    Cap.defer_paid = function(df, v) if df and df.open then df.spent = (df.spent or 0) + (v or 0) end return df end
+  end, function() Cap.defer_paid = dpd end)
+  M("chaîne sans ses pièces", function()
+    Cap.goal = function(d, w) local g = cg(d, w) if g then g.opens = nil end return g end
+  end, function() Cap.goal = cg end)
+  M("tout bâtiment fabrique ses pièces", function()
+    Cap.goal = function(d, w) local g = cg(d, w) if g and not g.center then g.opens = true end return g end
+  end, function() Cap.goal = cg end)
+  local em = Cap.emit
+  M("bras libres ignorés pour la chaîne (porte de l'émission)", function()
+    Cap.emit = function(Pm)
+      local inner = em(Pm)
+      return function(E, proj, g)
+        local g2 = {}
+        for k, v in pairs(g) do g2[k] = v end
+        g2.opens = nil
+        return inner(E, proj, g2)
+      end
+    end
+  end, function() Cap.emit = em end)
   check(n_caught == n_mut, string.format("§10 mutants : %d refusés sur %d", n_caught, n_mut))
 end
 

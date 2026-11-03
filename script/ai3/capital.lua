@@ -429,8 +429,10 @@ function Capital.log_centre(f, c, d, tick)
   log(string.format("[FO-CAPITAL-CENTRE] %s : %s%s ; centre niveau %d%s a %.1f min", f.key or "?", cause, why, c.cc_level or 0,
     key and (", cible '" .. key .. "'") or "", minutes(f, tick)))
   if d and d.starved then
-    log(string.format("[FO-CAPITAL-CENTRE] %s : le centre passe devant (reports de valeur %d, valeur du centre %d, prix %d) a %.1f min",
-      f.key or "?", (c.defer and c.defer.spent) or 0, d.value or 0, d.work or 0, minutes(f, tick)))
+    -- Lot AGEBLOCAGE : la durée sans aucune amélioration payée, centre payable (report stérile, Cap.DEFER_IDLE).
+    local quiet = (c.defer and c.defer.quiet) and (tick - c.defer.quiet) / 3600 or 0
+    log(string.format("[FO-CAPITAL-CENTRE] %s : le centre passe devant (reports de valeur %d, valeur du centre %d, prix %d, rien paye depuis %.1f min) a %.1f min",
+      f.key or "?", (c.defer and c.defer.spent) or 0, d.value or 0, d.work or 0, quiet, minutes(f, tick)))
   end
 end
 
@@ -459,13 +461,14 @@ function Capital.goal(f, view, book, tick, w)
     available = function(item) return unlocked(f, item) end,
     unit_cost = unit_cost_fn(f, book), stock = view.stock or {}, weights = w,
     threat = view.threatened or (f.pvp and f.pvp.declared) or false, current = c.current and c.current.key or nil,
-    exclude = exclude, defer = c.defer, thaw = (c.thaw and c.thaw.active) or false }
+    exclude = exclude, defer = c.defer, thaw = (c.thaw and c.thaw.active) or false, tick = tick }
   local d = Cap.choose(L, census, ctx)
   -- Lot AGES : la valeur des améliorations payées PENDANT que le centre est payable (Cap.starved) ; remise à zéro
   -- quand le centre change (niveau suivant, autre centre) ; le compte vit dans la sauvegarde (nombres et chaînes seulement).
+  -- Lot AGEBLOCAGE : l'horloge du report stérile (Cap.defer_clock ; une sauvegarde d'avant n'a pas `quiet` : il part d'ici).
   if d.gate_key then
     if not (c.defer and c.defer.key == d.gate_key) then c.defer = { key = d.gate_key, spent = 0 } end
-    c.defer.open = d.gate_open or false
+    Cap.defer_clock(c.defer, d.gate_open, tick)
   else
     c.defer = nil
   end
@@ -770,7 +773,7 @@ function Capital.pay(f, surface, tick, plan, stock, only_center)
       if ok then
         done = done + 1
         c.upgrades = (c.upgrades or 0) + 1
-        if not d.center and c.defer and c.defer.open then c.defer.spent = (c.defer.spent or 0) + (d.value or 0) end -- lot AGES
+        if not d.center then Cap.defer_paid(c.defer, d.value, tick) end -- lots AGES et AGEBLOCAGE (porte ouverte seulement)
         local m = {}
         for _, it in ipairs(d.cost) do m[it[1]] = it[2] end
         if d.replace then
