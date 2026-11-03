@@ -38,7 +38,9 @@ Co.WINDOW = 24         -- demi-côté de la fenêtre du gisement de charbon lue 
 Co.UG_COST = 3         -- surcoût d'une paire de souterrains (préférés seulement pour passer un obstacle ou couper un détour)
 Co.SOFT_COST = 8       -- surcoût d'un tapis posé sur un arbre ou un rocher (lot-20261020, emerald : 2 arbres de marais jamais coupés ont
                        -- bloqué 2 h le chantier d'une bande ; le tracé contourne la forêt, ou passe dessous par souterrain)
-Co.ROUTE_CAP = 120000  -- états développés au plus par tracé
+Co.ROUTE_CAP = 200000  -- états développés au plus par tracé
+Co.ROUTE_W = 1.2       -- A* pondéré (heuristique × 1,2) : un tracé de 300 tuiles reste sous le plafond (lot2-20261020 : charbon à ~190 tuiles)
+Co.DEPOSITS = 3        -- gisements de charbon essayés (le plus proche peut être couvert par les paires thermiques de l'équipe)
 Co.ROUTE_MARGIN = 12   -- tuiles autour de la boîte départ, arrivée et zone interdite
 Co.TRUNK_TRIES = 8     -- colonnes de tronc essayées au-delà du bout des colonnes
 Co.COAL_MARGIN = 1.25  -- la ligne extrait au moins 1,25 × le charbon brûlé (banc fonderie-banc, 3/11)
@@ -258,7 +260,7 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost)
   if not free(s.u, s.v) then return nil, "depart" end
   if not free(t.u, t.v) then return nil, "arrivee" end
   local function inb(u, v) return u >= box.u0 and u <= box.u1 and v >= box.v0 and v <= box.v1 end
-  local function hh(u, v) return math.abs(u - t.u) + math.abs(v - t.v) end
+  local function hh(u, v) return (math.abs(u - t.u) + math.abs(v - t.v)) * Co.ROUTE_W end
   local function key(u, v, d, m) return tk(u, v) * 10 + (d - 1) * 2 + m end
   local open, g, prev, closed = {}, {}, {}, {}
   local k0 = key(s.u, s.v, sd, 0)
@@ -331,15 +333,17 @@ end
 --- chaque côté : { ents, exit = { u, v, d }, drills } ou nil. coal : liste { {u, v} } ; is_coal(u, v) ; free(u, v) ; d = { size, reach } ;
 --- want : foreuses voulues ; target { u, v } : la sortie va vers elle. Choix : le plus de foreuses (au plus `want`), puis la ligne la
 --- plus courte et la plus proche de la cible, puis un seul côté.
-function Co.coal_line(coal, is_coal, free, d, want, target, R, wire, per_side)
+function Co.coal_line(coal, is_coal, free, d, want, target, R, wire, per_side, center)
   if #coal == 0 or want < 1 or R < 1 then return nil end
   local s, r = d.size, d.reach
   local h = math.floor(s / 2)
-  -- fenêtre autour de la tuile de charbon la plus proche de la cible
-  local best, bd
-  for _, t in ipairs(coal) do
-    local dd = math.abs(t[1] - target.u) + math.abs(t[2] - target.v)
-    if not bd or dd < bd or (dd == bd and (t[1] < best[1] or (t[1] == best[1] and t[2] < best[2]))) then best, bd = t, dd end
+  -- fenêtre autour de `center`, sinon de la tuile de charbon la plus proche de la cible
+  local best, bd = center, nil
+  if not best then
+    for _, t in ipairs(coal) do
+      local dd = math.abs(t[1] - target.u) + math.abs(t[2] - target.v)
+      if not bd or dd < bd or (dd == bd and (t[1] < best[1] or (t[1] == best[1] and t[2] < best[2]))) then best, bd = t, dd end
+    end
   end
   local W = Co.WINDOW
   local u0, u1, v0, v1 = best[1] - W, best[1] + W, best[2] - W, best[2] + W
@@ -530,8 +534,35 @@ function Co.network(cols, side, env)
   local supply = res.need * Co.COAL_MARGIN
   if not env.split then supply = math.max(supply, (#cols - 1) * cap + maxn) end
   local want = math.max(1, math.ceil(supply / coal.rate - 1e-9))
-  local line = Co.coal_line(coal.tiles, coal.is_coal, function(u, v) return env.free(u, v) and not env.forbid(u, v) end,
-    env.drill, want, { u = base + 2 * side, v = vmid }, env.pole.reach, env.pole.wire, env.lane_drills)
+  -- jusqu'à Co.DEPOSITS fenêtres : la tuile de charbon la plus proche de la cible, puis la plus proche HORS des fenêtres déjà prises ;
+  -- la ligne qui porte le plus de foreuses (au plus `want`), puis la plus proche
+  local target = { u = base + 2 * side, v = vmid }
+  local function dist(t) return math.abs(t[1] - target.u) + math.abs(t[2] - target.v) end
+  local sorted = {}
+  for _, t in ipairs(coal.tiles) do sorted[#sorted + 1] = t end
+  table.sort(sorted, function(a, b)
+    local da, db = dist(a), dist(b)
+    if da ~= db then return da < db end
+    if a[1] ~= b[1] then return a[1] < b[1] end
+    return a[2] < b[2]
+  end)
+  local centers = {}
+  for _, t in ipairs(sorted) do
+    if #centers >= Co.DEPOSITS then break end
+    local inside = false
+    for _, c in ipairs(centers) do if math.abs(t[1] - c[1]) <= Co.WINDOW and math.abs(t[2] - c[2]) <= Co.WINDOW then inside = true end end
+    if not inside then centers[#centers + 1] = t end
+  end
+  local line, lscore
+  local lfree = function(u, v) return env.free(u, v) and not env.forbid(u, v) end
+  for _, c in ipairs(centers) do
+    local l = Co.coal_line(coal.tiles, coal.is_coal, lfree, env.drill, want, target, env.pole.reach, env.pole.wire, env.lane_drills, c)
+    if l then
+      local sc = math.abs(l.exit.u - target.u) + math.abs(l.exit.v - target.v)
+      if not line or l.drills > line.drills or (l.drills == line.drills and sc < lscore) then line, lscore = l, sc end
+      if line.drills >= want then break end
+    end
+  end
   if not line then res.why = "aucune ligne de foreuses sur le charbon" return res end
   local dv = (line.exit.v <= vmid) and 1 or -1
   local first_v, last_v = (dv > 0) and vmin or vmax, (dv > 0) and vmax or vmin
@@ -554,7 +585,8 @@ function Co.network(cols, side, env)
         end
         if fine then kept[#kept + 1] = c else dropped[#dropped + 1] = string.format("bande %s : derivation occupee en (u %d, v %d)", c.key, at[1], at[2]) end
       end
-      if #kept > 0 then uT, keep, res.dropped = u, kept, dropped break end
+      if #kept > 0 and (not keep or #kept > #keep) then uT, keep, res.dropped = u, kept, dropped end
+      if keep and #keep == #cols then break end
     end
   end
   if not uT then res.why = "aucune place pour le tronc" return res end

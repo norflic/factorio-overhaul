@@ -309,6 +309,16 @@ do
     local sp5 = spec_of(disc(0, 0, 26), { coal = disc(70, 50, 16), drill = { size = 5, reach = 1, rate = 1 }, fs = fs })
     judge("foreuses de 5, fours de " .. fs, sp5, Ch.plan(sp5), { voie = true })
   end
+  -- gisement le plus proche COUVERT (paires thermiques de l'équipe, lot2-20261020, emerald) et second gisement libre plus loin : la ligne va
+  -- sur le second, aucun coffre de tête
+  local near, far = disc(50, 30, 8), disc(-20, 75, 9)
+  local coal2 = {}
+  for _, l in ipairs({ near, far }) do for i = 1, #l do coal2[#coal2 + 1] = l[i] end end
+  local covered = {}
+  for i = 1, #near - 1, 2 do covered[Ch.key(near[i], near[i + 1])] = true end
+  local spc = spec_of(ORE, { coal = coal2, blocked = covered })
+  local pc = Ch.plan(spc)
+  judge("charbon proche couvert, second gisement libre", spc, pc, { voie = true })
   -- gisement de charbon trop petit pour tout le côté : les premières colonnes du tronc par la voie, les autres au coffre de tête,
   -- jamais une colonne « en voie » que la ligne ne peut pas nourrir (le contrôle de capacité de judge le dit)
   local spp = spec_of(disc(0, 0, 26), { coal = disc(70, 50, 10), drill = { size = 5, reach = 1, rate = 1 }, fs = 3 })

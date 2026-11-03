@@ -50,6 +50,7 @@ Ch.CFG = {
 }
 
 function Ch.key(x, y) return (x + 50000) * 100000 + (y + 50000) end
+Ch.BRIDGE_TRIES = 24 -- (lot FONDERIE) paires de poteaux essayées pour relier deux réseaux (bridge)
 Ch.furnaces_for = Fd.furnaces_for
 
 --- Foreuses par côté qu'une voie porte.
@@ -299,43 +300,60 @@ local function bridge(c, spec, poles)
       end
     end
     local main = root(1)
-    local best, ba, bb
+    -- (lot FONDERIE) les Ch.BRIDGE_TRIES paires (réseau principal, autre réseau) les plus proches, essayées dans l'ordre : avant, seule la plus
+    -- proche l'était, et un échec arrêtait tout (deux rangées de poteaux d'une ligne de charbon à 8 tuiles : leur milieu est sur le tapis et
+    -- les foreuses, aucun relais possible là, mais au bout de la ligne oui)
+    local cand = {}
     for i, p in ipairs(poles) do
       if root(i) == main then
         for j, q in ipairs(poles) do
           if root(j) ~= main then
             local d2 = (p[1] - q[1]) ^ 2 + (p[2] - q[2]) ^ 2
-            if not best or d2 < best then best, ba, bb = d2, i, j end
+            if #cand < Ch.BRIDGE_TRIES or d2 < cand[#cand][1] then
+              local pos = #cand + 1
+              while pos > 1 and cand[pos - 1][1] > d2 do pos = pos - 1 end
+              table.insert(cand, pos, { d2, i, j })
+              if #cand > Ch.BRIDGE_TRIES then cand[#cand] = nil end
+            end
           end
         end
       end
     end
-    if not best then return added end
-    local a, b = poles[ba], poles[bb]
-    local dist = math.sqrt(best)
-    local n = math.ceil(dist / (wire - 0.5)) - 1
-    local prev = a
-    local ok = n >= 1
-    for k = 1, n do
-      local iu = math.floor(a[1] + (b[1] - a[1]) * k / (n + 1) + 0.5)
-      local iv = math.floor(a[2] + (b[2] - a[2]) * k / (n + 1) + 0.5)
-      local put
-      for r = 0, 3 do
-        for du = -r, r do
-          for dv = -r, r do
-            local u, v = iu + du, iv + dv
-            if not put and math.max(math.abs(du), math.abs(dv)) == r and c.free(u, v)
-              and (u - prev[1]) ^ 2 + (v - prev[2]) ^ 2 <= w2 then put = { u, v } end
+    if #cand == 0 then return added end
+    local done = false
+    for _, cd in ipairs(cand) do
+      if not done then
+        local a, b = poles[cd[2]], poles[cd[3]]
+        local n = math.ceil(math.sqrt(cd[1]) / (wire - 0.5)) - 1
+        local prev, ok, chain, tmp = a, n >= 1, {}, {}
+        for k = 1, n do
+          if ok then
+            local iu = math.floor(a[1] + (b[1] - a[1]) * k / (n + 1) + 0.5)
+            local iv = math.floor(a[2] + (b[2] - a[2]) * k / (n + 1) + 0.5)
+            local put
+            for r = 0, 3 do
+              for du = -r, r do
+                for dv = -r, r do
+                  local u, v = iu + du, iv + dv
+                  if not put and math.max(math.abs(du), math.abs(dv)) == r and c.free(u, v) and not tmp[Ch.key(u, v)]
+                    and (u - prev[1]) ^ 2 + (v - prev[2]) ^ 2 <= w2 then put = { u, v } end
+                end
+              end
+            end
+            if not put then ok = false else chain[#chain + 1] = put; tmp[Ch.key(put[1], put[2])] = true; prev = put end
           end
         end
+        if ok and (prev[1] - b[1]) ^ 2 + (prev[2] - b[2]) ^ 2 <= w2 then
+          for _, put in ipairs(chain) do
+            c.take(put[1], put[2])
+            poles[#poles + 1] = put
+            added[#added + 1] = put
+          end
+          done = true
+        end
       end
-      if not put then ok = false break end
-      c.take(put[1], put[2])
-      poles[#poles + 1] = put
-      added[#added + 1] = put
-      prev = put
     end
-    if not ok then return added end
+    if not done then return added end
   end
   return added
 end

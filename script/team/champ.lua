@@ -43,7 +43,8 @@ Champ.CFG = {
   charge = 40,      -- combustible posé avec chaque coffre de combustible d'une fonderie (deux fours de pierre : 15 min)
   drill_rank = 7,   -- rang de pose des foreuses du champ (P.sort_build : après les tapis, rang 5)
   -- lot FONDERIE
-  coal_r = 192,     -- tuiles autour du champ où le gisement de charbon de la colonne est cherché
+  coal_r = 320,     -- tuiles autour du champ où le gisement de charbon de la colonne est cherché (192 avant lot2-20261020 : emerald,
+                    -- avant-poste 5 à ~190 tuiles de son charbon, deux bandes au coffre de tête vides)
   coal_window = 28, -- demi-côté de la fenêtre lue autour de sa tuile la plus proche (shared/team/champ_colonne.lua, Co.WINDOW = 24)
   route_margin = 24,-- tuiles lues autour du champ et du charbon pour le tracé (eau, bâtiments, souterrains)
   charge_tete = 200,-- charbon posé avec le coffre de tête d'une colonne SANS voie de charbon (24 fours de pierre : 6 min)
@@ -184,12 +185,30 @@ local function coal_tiles(surface, pos)
     end
   end
   if not best then return nil end
+  -- (lot FONDERIE, lot2-20261020) jusqu'à 3 gisements : fenêtres autour de la tuile la plus proche, puis de la plus proche hors des fenêtres
+  -- déjà prises (le plus proche peut être couvert par les paires thermiques de l'équipe : la règle pure garde celui qui porte le plus)
   local W = Champ.CFG.coal_window
-  local list = {}
+  local cand = {}
   for _, r in ipairs(found) do
-    if r.valid and math.abs(r.position.x - best.x) <= W and math.abs(r.position.y - best.y) <= W then
-      list[#list + 1] = { math.floor(r.position.x), math.floor(r.position.y) }
-    end
+    if r.valid then cand[#cand + 1] = { x = r.position.x, y = r.position.y, d = (r.position.x - pos.x) ^ 2 + (r.position.y - pos.y) ^ 2 } end
+  end
+  table.sort(cand, function(a, b)
+    if a.d ~= b.d then return a.d < b.d end
+    if a.x ~= b.x then return a.x < b.x end
+    return a.y < b.y
+  end)
+  local centers = {}
+  for _, c in ipairs(cand) do
+    if #centers >= 3 then break end
+    local inside = false
+    for _, k in ipairs(centers) do if math.abs(c.x - k.x) <= W and math.abs(c.y - k.y) <= W then inside = true end end
+    if not inside then centers[#centers + 1] = c end
+  end
+  local list = {}
+  for _, c in ipairs(cand) do
+    local keep = false
+    for _, k in ipairs(centers) do if math.abs(c.x - k.x) <= W and math.abs(c.y - k.y) <= W then keep = true end end
+    if keep then list[#list + 1] = { math.floor(c.x), math.floor(c.y) } end
   end
   table.sort(list, function(a, b) if a[1] ~= b[1] then return a[1] < b[1] end return a[2] < b[2] end)
   local flat = {}
