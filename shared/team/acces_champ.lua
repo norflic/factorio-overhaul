@@ -20,6 +20,9 @@ local A = {}
 
 A.MARGIN = 3      -- tuiles libres laissées autour des bâtiments de l'avant-poste (le bord du rectangle, d'où part le remplissage)
 A.MAX_SIDE = 200  -- garde-fou : rectangle plus grand non parcouru (l'accès reste tel quel)
+A.FIELD_RADIUS = 32 -- tuiles autour du centre de l'avant-poste où les bâtiments de l'équipe comptent dans le rectangle (= rayon
+                    -- d'agrandissement, shared/team/pose_paires.lua EXTEND_RADIUS) : un champ passé à l'électrique n'est plus dans les
+                    -- listes de l'avant-poste
 
 local key = Paires.key
 local DIRS = { { 0, -1 }, { 1, 0 }, { 0, 1 }, { -1, 0 } }

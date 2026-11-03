@@ -94,6 +94,23 @@ local function suite(A)
   local r2 = A.reach({}, tiles, { x = 0.0, y = 0.0 }, { -11, -11, 11, 11 })
   c("deterministe", r2.x == r.x and r2.y == r.y and r2.reached == r.reached)
   res.field = r
+  -- Suite NAV2 : champ passé à l'électrique. Les listes de l'avant-poste n'ont plus qu'une paire (à 2 tuiles de l'accès) ; le champ de
+  -- l'équipe (anneau d'emprises de rayon 4 autour de l'accès) n'y est pas. Rectangle des seules listes : son bord tombe DANS l'anneau,
+  -- la poche n'est pas vue ; rectangle des bâtiments de l'équipe : vue.
+  local own = { { 2.1, 0.1, 2.9, 0.9 } }
+  local fieldb = {}
+  for x = -4, 4 do for y = -4, 4 do
+    if math.max(math.abs(x), math.abs(y)) == 4 then fieldb[#fieldb + 1] = { x + 0.1, y + 0.1, x + 0.9, y + 0.9 } end
+  end end
+  local allb = {}
+  for _, b in ipairs(own) do allb[#allb + 1] = b end
+  for _, b in ipairs(fieldb) do allb[#allb + 1] = b end
+  local small = A.rect(own, { x = 0.5, y = 0.5 }, A.MARGIN)
+  local rs = A.reach(allb, {}, { x = 0.5, y = 0.5 }, small)
+  c("champ electrique, rectangle des seules listes : poche non vue (le defaut corrige)", rs.moved == false)
+  local big = A.rect(allb, { x = 0.5, y = 0.5 }, A.MARGIN)
+  local rb = A.reach(allb, {}, { x = 0.5, y = 0.5 }, big)
+  c("champ electrique, rectangle des batiments de l'equipe : but hors de l'anneau", rb.moved and math.max(math.abs(math.floor(rb.x)), math.abs(math.floor(rb.y))) >= 5)
   return res
 end
 
@@ -117,6 +134,13 @@ check("obstacles : masque du corps, eau, types mobiles exclus", W:find('collisio
   and W:find('collision_mask = "water-tile"', 1, true) ~= nil and W:find("not ACC_MOVING[e.type]", 1, true) ~= nil)
 check("interrupteur (regle coupee : 0.6.42)", W:find("f.team.acces_off", 1, true) ~= nil)
 check("journal [FO-NAV-ACCES]", W:find("[FO-NAV-ACCES]", 1, true) ~= nil)
+check("rectangle : batiments de l'equipe a FIELD_RADIUS du centre", W:find("radius = Acc.FIELD_RADIUS, force = own[1].force", 1, true) ~= nil)
+check("FIELD_RADIUS = rayon d'agrandissement", (function()
+  local P = dofile("shared/team/pose_paires.lua")
+  return A0.FIELD_RADIUS == P.EXTEND_RADIUS
+end)())
+check("porte exclue des obstacles (le pathfinder la traverse)", W:find("gate = true", 1, true) ~= nil)
+check("diagnostic [FO-NAV-FORTIFY] (8 lignes par equipe)", W:find("[FO-NAV-FORTIFY]", 1, true) ~= nil and W:find("(f.stats.nav_fort or 0) < 8", 1, true) ~= nil)
 check("interface de banc set_regle_acces", read("script/team/ia1_remote.lua"):find("set_regle_acces = function(key, on)", 1, true) ~= nil)
 
 -- §4 mutants

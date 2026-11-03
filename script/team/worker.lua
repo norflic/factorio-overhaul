@@ -288,8 +288,9 @@ end
 --- construction). Moteur réel (session 4) : viser le centre du gisement, désormais couvert de foreuses,
 --- faisait échouer le pathfinder (« but occupé ») et les tournées d'entretien.
 -- Lot NAV2 : types qui bougent (ne ferment pas un champ) ; recalcul au plus toutes les ACC_TTL ticks si le nombre de bâtiments ne change pas.
-local ACC_MOVING = { character = true, unit = true, car = true, ["spider-vehicle"] = true }
-local ACC_TTL = 3600
+-- (porte : ouverte aux PNJ de sa force, le pathfinder la traverse)
+local ACC_MOVING = { character = true, unit = true, car = true, ["spider-vehicle"] = true, gate = true }
+local ACC_TTL = 7200
 local ACC_LOGS = 12
 --- Lot NAV2 : point d'accès ATTEIGNABLE (shared/team/acces_champ.lua). Banc nav2-marge : le point d'accès finit dans une poche fermée
 --- par les paires jointives des agrandissements, le pathfinder n'y va pas (0 chemin sur 8, avec ou sans marge) ; le but de la marche
@@ -310,8 +311,17 @@ local function access(o, f)
     local bb = e.bounding_box
     own_boxes[i] = { bb.left_top.x, bb.left_top.y, bb.right_bottom.x, bb.right_bottom.y }
   end
-  local rect = Acc.rect(own_boxes, base, Acc.MARGIN)
   local surface = own[1].surface
+  -- Suite NAV2 (champs passés à l'électrique) : script/team/gisement.lua retire de o.drill_list les foreuses à combustion remplacées ; les
+  -- foreuses électriques, tapis et poteaux du champ n'y sont pas. Le rectangle couvre aussi les bâtiments de l'ÉQUIPE à Acc.FIELD_RADIUS
+  -- du centre de l'avant-poste (sinon son bord tombe dans le champ et la poche n'est pas vue).
+  for _, e in ipairs(surface.find_entities_filtered({ position = o.pos, radius = Acc.FIELD_RADIUS, force = own[1].force, collision_mask = "player-layer" })) do
+    if e.valid and not ACC_MOVING[e.type] then
+      local bb = e.bounding_box
+      own_boxes[#own_boxes + 1] = { bb.left_top.x, bb.left_top.y, bb.right_bottom.x, bb.right_bottom.y }
+    end
+  end
+  local rect = Acc.rect(own_boxes, base, Acc.MARGIN)
   local area = { { rect[1], rect[2] }, { rect[3] + 1, rect[4] + 1 } }
   local boxes = {}
   for _, e in ipairs(surface.find_entities_filtered({ area = area, collision_mask = "player-layer" })) do
@@ -325,7 +335,8 @@ local function access(o, f)
     tiles[#tiles + 1] = { x = t.position.x, y = t.position.y }
   end
   local r = Acc.reach(boxes, tiles, base, rect)
-  o.acces_cache = { n = #own, t = tick, bx = base.x, by = base.y, p = { x = r.x, y = r.y } }
+  o.acces_cache = { n = #own, t = tick, bx = base.x, by = base.y, p = { x = r.x, y = r.y }, moved = r.moved,
+    side = math.max(rect[3] - rect[1], rect[4] - rect[2]) + 1 }
   if r.moved and f.stats then
     f.stats.acces_moved = (f.stats.acces_moved or 0) + 1
     if f.stats.acces_moved <= ACC_LOGS then
@@ -1490,6 +1501,19 @@ FSM.define(MACHINE, {
             f.key, tostring(agent.task.key), p.x, p.y, g.x, g.y, math.floor(math.sqrt((p.x - g.x) ^ 2 + (p.y - g.y) ^ 2)),
             o and o.kind or "?", o and o.pos.x or 0, o and o.pos.y or 0, (o and o.access) and "pose" or "defaut",
             free and string.format("oui (%d,%d)", free.x, free.y) or "NON", gw, table.concat(parts, " "), tick / 3600))
+        end
+        -- Suite NAV2 (diagnostic seul) : fortification en échec de chemin : qui, quelle cible, but déplacé ou non par la règle (8 lignes au
+        -- plus par équipe). Partie lot-271828182 : 40 refus « fortify » contre 12 au témoin, cause non lue.
+        if f and agent.task and agent.task.kind == "fortify" and agent.entity.valid and (f.stats.nav_fort or 0) < 8 then
+          f.stats.nav_fort = (f.stats.nav_fort or 0) + 1
+          local p, g = agent.entity.position, agent.goal or { x = 0, y = 0 }
+          local tgt = agent.task.outpost
+          local o = type(tgt) == "number" and f.outposts[tgt] or nil
+          local c = o and o.acces_cache
+          log(string.format("[FO-NAV-FORTIFY] %s : ouvrier %d, %s (%s), cible %s%s, PNJ en (%d,%d), but (%.1f,%.1f) a %d tuiles, raison %s, but deplace par la regle : %s (rectangle %s) a %.1f min",
+            f.key, agent.id, tostring(agent.task.key), tostring(agent.task.why or agent.task.from or "-"), tostring(tgt), o and (" " .. tostring(o.kind)) or "",
+            p.x, p.y, g.x, g.y, math.floor(math.sqrt((p.x - g.x) ^ 2 + (p.y - g.y) ^ 2)), tostring(reason),
+            c and (c.moved and "oui" or "non") or "sans calcul", c and tostring(c.side) or "-", tick / 3600))
         end
         abort(agent, f, tick, "chemin")
       end,
