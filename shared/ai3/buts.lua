@@ -300,6 +300,12 @@ function B.generate(s, st)
   -- gisement n'était pas couvert à KAPPA et mangeait le fer qu'une recrue accumule (la recrue n'est réservée que quand elle se paie) :
   -- au moteur simulé (ia1_scale_test), Écarlate et Ambre finissaient à 22 et 24 PNJ en 12 min au lieu de 30 et 29. La couverture,
   -- « au-delà du besoin », attend que l'effectif voulu soit atteint (ou la recrue retenue ou bloquée).
+  -- Lot THERMIQUE2 (retour du DC du 3/11 : « Toujours une quantité insensée de foreuses thermiques => pas remplacée (charbon,
+  -- fer, cuivre...) ») : un minerai porté BRUT au coffre (produit = ressource : pas de four dans la paire) et SATURÉ ne reçoit
+  -- plus de couverture en brûleurs. Mesure (main 0.6.40, graine 20261020) : la couverture d'Émeraude rouvre « couverture:coal »
+  -- d'affilée de 60 à 150 min et porte un gisement de charbon de 4 à 166 foreuses thermiques avec 49 000 charbons libres au
+  -- coffre ; le champ, lui, n'agrandit qu'en dessous de 3 000. Le fer et le cuivre (paire avec four) gardent leur couverture :
+  -- leurs paires sont remplacées par les bandes du champ et balayées (shared/team/thermique.lua).
   if not s.is_player and not s.recruiting then
     local emitted = {}
     for _, g in ipairs(goals) do if g.outpost then emitted[g.outpost] = true end end
@@ -312,7 +318,8 @@ function B.generate(s, st)
     for _, kind in ipairs(T.OUTPOST_ORDER) do
       local spec = T.outposts[kind]
       if (s.room or {})[kind] and not emitted[kind] and not (key.optional or {})[kind]
-        and not (kind ~= fuel_kind and fuel_short) and not covered[spec.product] then
+        and not (kind ~= fuel_kind and fuel_short) and not covered[spec.product]
+        and not (spec.product == spec.resource and B.saturated(s, spec.product)) then
         local take_only = st.other_short == true and B.saturated(s, spec.product) or nil
         goals[#goals + 1] = { key = "couverture:" .. kind, family = "extraction", kind = "outpost", outpost = kind,
           extend_only = true, take_only = take_only, fond = true,
