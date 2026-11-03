@@ -87,7 +87,12 @@ local function suite(Sm)
   c("dangereux : inchange", Sm.fetch_prio(70, { kind = "noir", outputs = { R1 = 300 }, unsafe = true }, raw, 0) == 70)
   c("meurtrier : inchange", Sm.fetch_prio(70, { kind = "noir", outputs = { R1 = 300 }, lethal = true }, raw, 0) == 70)
   c("fondu : inchange", Sm.fetch_prio(70, { kind = "rouge", outputs = { P1 = 300 } }, raw, 0) == 70)
-  c("interrupteur : nil = allume", Sm.on(nil) == true and Sm.on(true) == true and Sm.on(false) == false)
+  c("interrupteur : nil = defaut (eteinte, lot CHARBON3), true = allumee, false = coupee", Sm.on(nil) == false and Sm.on(true) == true and Sm.on(false) == false)
+  -- Lot CHARBON3 : trois parties, éteintes par défaut ; l'interrupteur de la partie l'emporte sur celui de la règle
+  c("parties eteintes par defaut", not Sm.part(nil, nil, "main") and not Sm.part(nil, nil, "prio") and not Sm.part(nil, nil, "porte"))
+  c("regle allumee (bancs) : toutes les parties", Sm.part(true, nil, "main") and Sm.part(true, nil, "prio") and Sm.part(true, nil, "porte"))
+  c("regle coupee : aucune partie", not Sm.part(false, nil, "main") and not Sm.part(false, nil, "porte"))
+  c("interrupteur de partie prioritaire", Sm.part(nil, true, "prio") and not Sm.part(true, false, "prio") and Sm.part(false, true, "main"))
   -- §5 bis : combustible porté du coffre
   c("avant-poste ordinaire : tout le besoin", Sm.carry_fuel(120, false, 0) == 120)
   c("ordinaire : ses sorties n'y changent rien", Sm.carry_fuel(120, false, 500) == 120)
@@ -138,7 +143,9 @@ local MUTANTS = {
   { "urgence vers un dangereux", "if not res or not Sm.counted(o) then return base end", "if not res then return base end" },
   { "urgence abaisse le ravitaillement", "return math.max(num(base), Sm.FETCH_PRIO)", "return Sm.FETCH_PRIO" },
   { "urgence sous 90", "Sm.FETCH_PRIO = 91", "Sm.FETCH_PRIO = 89" },
-  { "interrupteur inverse", "function Sm.on(flag) return flag ~= false end", "function Sm.on(flag) return flag == true end" },
+  { "interrupteur inverse", "if flag ~= nil then return flag ~= false end", "if flag ~= nil then return flag == false end" },
+  { "CHARBON3 parties allumees par defaut", "Sm.PARTS = { main = false, prio = false, porte = false }", "Sm.PARTS = { main = true, prio = true, porte = true }" },
+  { "CHARBON3 regle prioritaire sur la partie", "  if flag ~= nil then return flag and true or false end\n  if all ~= nil then return all and true or false end", "  if all ~= nil then return all and true or false end\n  if flag ~= nil then return flag and true or false end" },
   { "combustible jamais porte (0.6.41)", "return math.max(0, need - num(own))", "return 0" },
   { "sorties propres ignorees", "return math.max(0, need - num(own))", "return need" },
   { "besoin nul porte", "if need <= 0 then return 0 end", "" },
