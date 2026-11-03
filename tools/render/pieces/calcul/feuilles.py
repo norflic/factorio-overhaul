@@ -12,7 +12,9 @@ copie dans fo-logs/2026-11-03_SAUVEGARDE-DA) : ce script n'en dépend pas et ne 
 Règles (toutes contrôlées par tools/render/pieces/calcul/tests/test_calcul_feuilles.py) :
 - NETTOYAGE : les rendus portent des pixels isolés (1 ou 2 px, alpha jusqu'à 129 aux coins de la tireuse et de l'intégrateur) ;
   dans le corps et l'ombre, toute composante connexe (8 voisins, alpha > 0) de 4 px au plus est effacée ; dans la lueur, seulement si
-  son alpha ne dépasse pas 32 (une diode de 1 px reste).
+  son alpha ne dépasse pas 32 (une diode de 1 px reste). Puis NAPPES FAIBLES (critique DA-METALLURGIE, 4/11) : seuls restent les
+  pixels à 3 px au plus de la silhouette utile (alpha >= 16) ; les ombres portaient jusqu'à 589 îles d'alpha < 16 (12 805 px, unité
+  cryogénique) qui étiraient le rectangle rogné jusqu'à 3,8 fois la silhouette (tour à fibre).
 - RECADRAGE au contenu, sur une grille PAIRE alignée sur l'origine de l'entité (coin et taille pairs en pixels hr) : la normale
   (32 px par tuile) est la moyenne exacte 2 × 2 de la hr, en alpha prémultiplié, et tombe au pixel sur la hr et sur les tuiles. Le
   shift est recalculé : aucun décalage (la hr replacée par son shift redonne la source nettoyée au pixel près).
@@ -56,6 +58,8 @@ MACHINES = {
 COUCHES = ("main", "shadow", "glow")
 STRAY_MAX_PX = 4
 STRAY_GLOW_ALPHA = 32 / 255.0
+UTILE_ALPHA = 16 / 255.0  # silhouette utile
+UTILE_MARGE_PX = 3        # liseré gardé autour d'elle (bords doux, pénombre)
 MAX_PX_FICHIER = 8192
 
 
@@ -80,20 +84,32 @@ def sha(p):
 
 def nettoie(a, couche):
     """Efface les composantes isolées (pixels parasites du rendu) ; rend (image, nombre de pixels effacés)."""
-    m = a[..., 3] > 0
-    lab, n = ndimage.label(m, structure=np.ones((3, 3)))
-    if n <= 1:
-        return a, 0
-    taille = np.bincount(lab.ravel())
-    amax = ndimage.maximum(a[..., 3], lab, index=np.arange(1, n + 1))
-    efface = np.zeros(n + 1, bool)
-    for i in range(1, n + 1):
-        if taille[i] <= STRAY_MAX_PX and (couche != "glow" or amax[i - 1] <= STRAY_GLOW_ALPHA):
-            efface[i] = True
-    masque = efface[lab]
     out = a.copy()
-    out[masque] = 0.0
-    return out, int(masque.sum())
+    efface_n = 0
+    # les deux règles se rouvrent l'une l'autre (une nappe effacée peut laisser un éclat de 4 px) : jusqu'à stabilité
+    for _ in range(8):
+        avant = efface_n
+        m = out[..., 3] > 0
+        lab, n = ndimage.label(m, structure=np.ones((3, 3)))
+        if n > 1:
+            taille = np.bincount(lab.ravel())
+            amax = ndimage.maximum(out[..., 3], lab, index=np.arange(1, n + 1))
+            efface = np.zeros(n + 1, bool)
+            for i in range(1, n + 1):
+                if taille[i] <= STRAY_MAX_PX and (couche != "glow" or amax[i - 1] <= STRAY_GLOW_ALPHA):
+                    efface[i] = True
+            masque = efface[lab]
+            out[masque] = 0.0
+            efface_n += int(masque.sum())
+        utile = out[..., 3] >= UTILE_ALPHA
+        if utile.any():
+            garde = ndimage.binary_dilation(utile, structure=np.ones((3, 3)), iterations=UTILE_MARGE_PX)
+            loin = (out[..., 3] > 0) & ~garde
+            out[loin] = 0.0
+            efface_n += int(loin.sum())
+        if efface_n == avant:
+            break
+    return out, efface_n
 
 
 def moitie(a):
