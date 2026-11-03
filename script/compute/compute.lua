@@ -13,7 +13,8 @@
   - Réseau = la FORCE (Q-CALC-1 ouverte). Consommateur : la vitesse de recherche (laboratory_speed_modifier), bonus
     plafonné (Cr.lab_bonus) ; la part posée à la fenêtre précédente est retirée avant de poser la nouvelle (Cp.lab_modifier,
     règle v1 inchangée), la part des technologies est gardée.
-  - Migration des sauvegardes 0.6.27 (on_configuration_changed) : un centre sur une recette v1 (baie usée) passe au
+  - Migration des sauvegardes 0.6.27 et 0.6.28 (on_configuration_changed, UNE fois : seulement si old_version < 0.6.29, correctif
+    CALCUL-V2 du 3/11 ; les recettes v1 restent valides, cachées) : un centre sur une recette v1 (baie usée) passe au
     refroidissement à l'eau glacée ; les baies rendues vont DANS ses emplacements, le surplus tombe au sol près de lui
     (marqué à ramasser par sa force) ; l'eau de la v1 est perdue (≤ 3 000 par centre, déclarée) ; compagnon créé.
   - Déterminisme : centres en LISTE triée par numéro d'unité, forces par nom trié, joueurs dans l'ordre du moteur ; aucun
@@ -266,7 +267,9 @@ Events.on_nth_tick(Cp.WINDOW_TICKS, function(e) Compute.window(e.tick) end)
 --- Relecture de tous les centres (bancs hors jeu : tests/compute_v2_script_test.lua) ; migrate = migration des centres v1.
 Compute.rescan = rescan
 Events.on_init(function() rescan(false) end)
-Events.on_configuration_changed(function() rescan(true) end)
+--- on_configuration_changed : les centres v1 ne sont convertis que pour une sauvegarde d'avant la 0.6.29 (idempotence).
+function Compute.on_config(data) rescan(Cr.v1_migration_due(data, "factorio-overhaul")) end
+Events.on_configuration_changed(Compute.on_config)
 Events.on(defines.events.on_gui_opened, function(e)
   local ent = e.entity
   if ent and ent.valid and IS_CENTER[ent.name] then Gui.show(game.get_player(e.player_index), Compute, ent) end
