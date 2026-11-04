@@ -982,8 +982,8 @@ function M.gate_report(f, tick)
     for k in pairs(da.why or {}) do wk[#wk + 1] = k end
     table.sort(wk)
     for _, k in ipairs(wk) do wparts[#wparts + 1] = string.format("%s %d", k, da.why[k]) end
-    log(string.format("[FO-DANGER-ACTIF] %s : bilan a %.1f min : mises de cote %d, departs a risque %d, escorte absente (depart seul) %d, alertes de soldats sur un site touche %d {%s} ; repos fermes %d, plus long %.1f s, au-dela de 30 s %d ; repos ouverts au-dela de 30 s %d (plus long %.1f s)",
-      tostring(f.key), tick / 3600, da.aside or 0, da.go or 0, da.escort_none or 0, da.site_alerts or 0, table.concat(wparts, ", "), da.rest_n or 0,
+    log(string.format("[FO-DANGER-ACTIF] %s : bilan a %.1f min : mises de cote %d, departs a risque %d, escorte absente (depart seul) %d, alertes de soldats sur un site touche %d (dont au-dela de 226 tuiles %d), soldats perdus (cumul) %d {%s} ; repos fermes %d, plus long %.1f s, au-dela de 30 s %d ; repos ouverts au-dela de 30 s %d (plus long %.1f s)",
+      tostring(f.key), tick / 3600, da.aside or 0, da.go or 0, da.escort_none or 0, da.site_alerts or 0, da.site_alerts_far or 0, (f.stats and f.stats.soldiers_lost) or 0, table.concat(wparts, ", "), da.rest_n or 0,
       (da.rest_max or 0) / 60, da.rest_over or 0, over_now, worst_now / 60))
   end
   if #keys == 0 then return end

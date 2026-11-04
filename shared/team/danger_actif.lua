@@ -47,6 +47,11 @@ function Da.site_alert(alerts, p, tick)
   return false
 end
 
+--- Type du moteur de l'auteur d'un coup : une attaque MOBILE (unité, personnage) alerte les soldats ; un nid, un ver, une tourelle : jamais (nettoyage).
+function Da.mobile_cause(ctype)
+  return ctype == "unit" or ctype == "character"
+end
+
 --- Faut-il prévenir les soldats de cette atteinte portée à un bâtiment de l'équipe ? Au plus une alerte par équipe tous les Da.ALERT_GAP ticks.
 Da.ALERT_GAP = 60
 function Da.alert_due(last, tick)

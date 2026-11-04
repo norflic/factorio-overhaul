@@ -60,6 +60,8 @@ local function cases(Da, A)
   check(Da.site_alert(nil, { x = 0, y = 0 }, 0) == false, "aucune alerte : faux")
   check(Da.alert_due(nil, 10) == true and Da.alert_due(100, 100 + Da.ALERT_GAP - 1) == false and Da.alert_due(100, 100 + Da.ALERT_GAP) == true,
     "alerte des soldats : la première tout de suite, puis au plus une par " .. Da.ALERT_GAP .. " ticks")
+  check(Da.mobile_cause("unit") and Da.mobile_cause("character") and not Da.mobile_cause("unit-spawner") and not Da.mobile_cause("turret") and not Da.mobile_cause(nil),
+    "alerte des soldats : unités et personnages seulement, jamais un nid, un ver ni une tourelle")
   local ags = { [1] = { rest_since = 100 }, [2] = {}, [3] = { rest_since = 9000 } }
   local n, worst = Da.rest_open_over(ags, { 1, 2, 3 }, 9100)
   check(n == 1 and worst == 9000, "repos encore ouverts au-delà de 30 s : 1 sur 3 (" .. n .. ", " .. worst .. ")")
@@ -87,8 +89,10 @@ local RPS = read("script/team/reparation.lua")
 check(RPS:find("Rep.on_attack and hitter and hitter ~= ent.force and Da.alert_due(f.attack_alert_t, e.tick)", 1, true) ~= nil,
   "un bâtiment de l'équipe touché par une force adverse appelle le crochet d'alerte (au plus un par Da.ALERT_GAP)")
 local SDS = read("script/ai3/soldats.lua")
-check(SDS:find("Rep.on_attack = function(f, pos, tick)", 1, true) ~= nil and SDS:find('C.on_alert(f, pos, "unit", tick)', 1, true) ~= nil,
+check(SDS:find("Rep.on_attack = function(f, pos, tick)", 1, true) ~= nil and SDS:find('C.on_alert(f, pos, "unit", tick, "site")', 1, true) ~= nil,
   "le crochet alerte les soldats par C.on_alert (existant)")
+check(RPS:find("Da.mobile_cause(cause.type)", 1, true) ~= nil and RPS:find("State.owner(u)", 1, true) ~= nil, "bâtiment touché : cause mobile seulement ; votre équipe : bâtiment enregistré seulement")
+check(SDS:find('C.on_alert(f, pos, "unit", tick, "site")', 1, true) ~= nil and SDS:find('mode ~= "site" and d2(ep, f.hq_pos)', 1, true) ~= nil, "alerte « site » : sans limite de distance au QG")
 check(CO:find("site_alert = Da.site_alert(t.alerts, p, tick)", 1, true) ~= nil, "le regard passe l'alerte de site à Re.decide")
 
 section("5. Mutants (chacun doit faire échouer au moins un cas)")
@@ -102,6 +106,7 @@ local mutants = {
   { "tout est mis de côté", 'return "aside" end\n  return "go"', 'return "aside" end\n  return "aside"' },
   { "cases mobiles comptées", "return ((parts and parts.fixed) or 0) >= B", "return ((parts and parts.fixed) or 0) + ((parts and parts.mobile) or 0) >= B" },
   { "pause de 2 min", "Da.ASIDE_TICKS = 3600", "Da.ASIDE_TICKS = 7200" },
+  { "nid pris pour une attaque mobile", 'return ctype == "unit" or ctype == "character"', 'return ctype == "unit" or ctype == "character" or ctype == "unit-spawner"' },
   { "site sans limite de distance", "dx * dx + dy * dy <= Da.SITE_R * Da.SITE_R", "true" },
   { "alerte expirée comptée", 'if tick < (a["until"] or 0) then', "if true then" },
   { "alerte à chaque coup", "return last == nil or tick - last >= Da.ALERT_GAP", "return true" },

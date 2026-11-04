@@ -99,7 +99,9 @@ C.on_alert = function(f, ep, kind, tick, mode)
   -- un VER ou une tourelle n'appelle pas 4 soldats en attaque de zone au pied du champ (aucune mesure de sa force) ; ces menaces
   -- fixes sont déjà dans la carte de l'équipe (t.map.threats) : le nettoyage les prend, compté sur le champ entier (Sd.field_need).
   if kind == "spawner" or kind == "worm" or kind == "turret" then return false end
-  if not (f.soldiers and f.hq_pos) or (f.soldiers_count or 0) == 0 or d2(ep, f.hq_pos) > Sd.NEAR_HQ * Sd.NEAR_HQ * 2 then
+  -- Lot DANGER-ACTIF (DC 4/11, 19 h 12 ; lead 19 h 40) : mode « site » = un bâtiment de l'équipe (avant-poste, ligne, QG) touché par des UNITÉS : alerte quelle que
+  -- soit la distance au QG (la limite de 226 tuiles ne vaut que pour les alertes des PNJ en fuite).
+  if not (f.soldiers and f.hq_pos) or (f.soldiers_count or 0) == 0 or (mode ~= "site" and d2(ep, f.hq_pos) > Sd.NEAR_HQ * Sd.NEAR_HQ * 2) then
     return false
   end
   local t = C.team(f)
@@ -119,13 +121,14 @@ end
 
 --- Lot DANGER-ACTIF (DC 4/11, 19 h 12 : « ... ou en défendant ») : un bâtiment de l'équipe touché par une force adverse (script/team/reparation.lua, au plus
 --- une fois par Da.ALERT_GAP ticks et par équipe) alerte les soldats tout de suite, SANS attendre qu'un ouvrier fuie : ils vont vers le site (alerte de
---- C.on_alert : les 4 plus proches, 3600 ticks, limitée à Sd.NEAR_HQ x 1,41 du QG). Compteur : t.stats.dact.site_alerts ([FO-DANGER-ACTIF]).
+--- C.on_alert, mode « site » : les 4 plus proches, 3600 ticks, à toute distance du QG, UNITÉS seulement). Compteurs : t.stats.dact.site_alerts et site_alerts_far (> 226 tuiles).
 Rep.on_attack = function(f, pos, tick)
   if not C.enabled() then return end
-  if C.on_alert(f, pos, "unit", tick) then
+  if C.on_alert(f, pos, "unit", tick, "site") then
     local t = C.team(f)
     t.stats.dact = t.stats.dact or {}
     t.stats.dact.site_alerts = (t.stats.dact.site_alerts or 0) + 1
+    if d2(pos, f.hq_pos) > Sd.NEAR_HQ * Sd.NEAR_HQ * 2 then t.stats.dact.site_alerts_far = (t.stats.dact.site_alerts_far or 0) + 1 end -- au-delà de 226 tuiles
   end
 end
 

@@ -417,6 +417,13 @@ do
   check(type(Rep.on_attack) == "function", "DANGER-ACTIF : crochet d'alerte posé sur le bâtiment touché")
   Rep.on_attack(f, pos, game.tick)
   check(((tm.stats.dact or {}).site_alerts or 0) == n0 + 1 and #(tm.alerts or {}) >= 1, "DANGER-ACTIF : bâtiment touché : alerte des soldats tout de suite (sans ouvrier sur place)")
+  -- Lead 19 h 40 : l'alerte vaut pour tout site de l'équipe, quelle que soit sa distance au QG (avant : refusée au-delà de 226 tuiles), et se compte à part.
+  local far0 = (tm.stats.dact or {}).site_alerts_far or 0
+  local far = { x = f.hq_pos.x + 500, y = f.hq_pos.y }
+  Rep.on_attack(f, far, game.tick + 600)
+  check(((tm.stats.dact or {}).site_alerts_far or 0) == far0 + 1 and ((tm.stats.dact or {}).site_alerts or 0) == n0 + 2,
+    "DANGER-ACTIF : site à 500 tuiles du QG : alerte des soldats, comptée « au-delà de 226 tuiles »")
+  check(C.on_alert(f, { x = f.hq_pos.x + 600, y = f.hq_pos.y }, "unit", game.tick + 1200) == false, "alerte d'un PNJ en fuite : toujours limitée à 226 tuiles du QG (inchangé)")
   check(Dax.site_alert(tm.alerts, { x = pos.x + 10, y = pos.y }, game.tick) == true and Dax.site_alert(tm.alerts, { x = pos.x + 80, y = pos.y }, game.tick) == false,
     "DANGER-ACTIF : un PNJ à 10 tuiles du site attaqué est « sur le site » (il se défend), un PNJ à 80 tuiles non")
   f.soldiers, f.soldiers_count = s_sold, s_n
