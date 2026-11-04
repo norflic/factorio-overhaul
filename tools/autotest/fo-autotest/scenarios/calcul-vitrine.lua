@@ -14,7 +14,9 @@ local MACHINES = {
   "fo-fiber-tower", "fo-packaging-line", "fo-plasma-etcher", "fo-rack-integrator", "fo-smt-line",
   "fo-wire-saw", "fo-cryogenic-unit", "fo-data-center-2", "fo-dilution-fridge", "fo-quantum-lab",
 }
-local DIRECTIONS = { "fo-chiller", "fo-data-center-2", "fo-cryogenic-unit" }
+-- DA-CALCUL (4/11) : la tour de refroidissement aussi (ses tuyaux dessinés touchaient les bords nord et sud)
+local DIRECTIONS = { "fo-chiller", "fo-data-center-2", "fo-cryogenic-unit", "fo-cooling-tower" }
+local DECALAGE_Y = { 0, 11, 22, 33 } -- une rangée par machine : côté + 5 tuiles au moins
 local DIRS = { { "N", defines.direction.north }, { "E", defines.direction.east }, { "S", defines.direction.south },
                { "O", defines.direction.west } }
 
@@ -41,7 +43,7 @@ local function cote(name)
 end
 
 return {
-  description = "MACHINES-CALCUL : les 20 machines du calcul a l'arret, et 3 machines a fluide dans les 4 directions",
+  description = "MACHINES-CALCUL : les 20 machines du calcul a l'arret, et 4 machines a fluide dans les 4 directions",
   base = nil,
   check_tick = 200,
   shots_delay = 240,
@@ -82,8 +84,7 @@ return {
       local r = recette(game.entity_prototypes[name])
       for k, d in ipairs(DIRS) do
         local px = X0 + (k - 1) * (c + 4) + (c % 2 == 1 and 0.5 or 0)
-        local py = y + (j - 1) * (c + 5) + (c % 2 == 1 and 0.5 or 0)
-        if j == 3 then py = y + 2 * 11 + (c % 2 == 1 and 0.5 or 0) end
+        local py = y + DECALAGE_Y[j] + (c % 2 == 1 and 0.5 or 0)
         local e = s.create_entity({ name = name, position = { px, py }, force = "player", direction = d[2], recipe = r })
         if e and e.direction == d[2] then tournees = tournees + 1 end
         st.dirs[#st.dirs + 1] = { name = name, dir = d[1], x = px, y = py, side = c, j = j }

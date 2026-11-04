@@ -166,10 +166,12 @@ local function process(e, rec, tick)
   local w = Ro.factory(e.name)
   local force = e.force
   local used = Armee.used(force.name)
-  local made, giants_made = 0, 0
+  local made = 0
   for _, r in ipairs(Ro.robots_of(e.name)) do
     if inv.get_item_count(r.kit) > 0 then
-      local ok = Mo.can_release(Armee.release_params(force, r, Mo.queue_target(rec.queue, r.id), used, giants_made))
+      -- lot BOURDON-MINEURS : un géant sorti pendant ce balayage est déjà au registre (Armee.create -> Mo.add) : Armee.giants le compte ; l'ancien
+      -- compte « giants_made » en plus le comptait deux fois (un 2e géant refusé à tort dans le même balayage)
+      local ok = Mo.can_release(Armee.release_params(force, r, Mo.queue_target(rec.queue, r.id), used))
       if ok and inv.remove({ name = r.kit, count = 1 }) == 1 then
         local rally = rec.rally or Mo.default_rally(e.position, w.size)
         local u = Armee.create(e.surface, force, r.id, Mo.out_point(e.position, w.size), rally, e.unit_number)
@@ -177,13 +179,16 @@ local function process(e, rec, tick)
           s.stats.kits_removed = s.stats.kits_removed + 1
           used = used + r.points
           made = made + 1
-          if r.is_giant then giants_made = giants_made + 1 end
         else
           inv.insert({ name = r.kit, count = 1 }) -- rien de perdu : le kit revient, on réessaiera
           s.stats.create_failed = s.stats.create_failed + 1
         end
       end
     end
+  end
+  -- Lot BOURDON-SORTIE : objets d'autres lots qui sortent de l'usine comme un kit (le Bourdon fini au Portique : script/robots/bourdon.lua)
+  if Armee.hooks.extra_release then
+    made = made + Armee.hooks.extra_release(e, inv, rec.rally or Mo.default_rally(e.position, w.size))
   end
   return made
 end

@@ -13,6 +13,7 @@
 local Events = require("script.core.events")
 local T = require("shared.team.config")
 local Fondation = require("shared.team.fondation") -- lot KIT : kit de départ commun aux deux équipes
+local QgG = require("script.team.qg_groupe") -- lot QG-GROUPE2 : tourelles de départ du QG en ligne
 local Depart = require("shared.team.depart") -- lot PARITE : tourelles de QG offertes au départ (emplacements)
 local Book = require("shared.team.book")
 local Planner = require("shared.team.planner")
@@ -63,6 +64,7 @@ local JournauxDC = require("shared.team.journaux_dc") -- lot JOURNAUX-DC : plafo
 local General = require("script.ai3.general") -- lot SCALE : ressource la plus demandée (marge de la recrue)
 local Rg = require("shared.ai3.reglages") -- lot SCALE : ressources clés de repli
 local DefChoix = require("script.faction.defchoix") -- lot DEFENSE-CHOIX : base menacée ou envahie (tourelles du QG avant les soldats)
+local Mu = require("shared.team.munitions") -- lot MUNITIONS : chargeurs voulus par tourelle (cible riche quand le fer la paie)
 
 local Team = {}
 
@@ -260,7 +262,9 @@ function Team.faction_grant() return Fondation.grant(false, Team.kit_generous(),
 function Team.place_hq_turrets(f, surface, center, n)
   local force = game.forces[f.force]
   local placed = 0
-  for _, o in ipairs(Depart.offsets(n)) do
+  -- lot QG-GROUPE2 : votre équipe pose ses tourelles de départ en ligne (script/team/qg_groupe.lua, QgG.line ; nil : D.HQ_OFFSETS)
+  local offsets = QgG.line(f, surface, center, n) or Depart.offsets(n)
+  for _, o in ipairs(offsets) do
     local tpos = surface.find_non_colliding_position(T.turret, { x = center.x + o[1], y = center.y + o[2] }, 10, 1)
     if tpos then
       local t = surface.create_entity({ name = T.turret, position = tpos, force = force })
@@ -567,11 +571,69 @@ function Team.view(f, tick)
   for _, kind in ipairs(T.OUTPOST_ORDER) do sites[kind], sites_near[kind] = Sites.available(f, T.outposts[kind].resource, tick) end
   Profiler.fstop("view:3-sites")
   Profiler.fstart("view:4-fin")
+  -- Lot MUNITIONS (shared/team/munitions.lua, Mu.per_turret) : chargeurs voulus par tourelle, relus à chaque pensée (fer au coffre, tourelles
+  -- de l'équipe ; fer d'un chargeur lu au livre quand la technologie change). Lu par Outposts.turret_groups, Outposts.refill_group et la
+  -- tournée de recharge (script/team/worker.lua).
+  if T.munitions_on then
+    if f.team.mag_iron == nil or f.team.mag_iron_tech ~= f.tech then
+      local rm = book_for(f):raw_cost({ { T.turret_ammo, 1 } })
+      f.team.mag_iron, f.team.mag_iron_tech = rm[T.outposts.iron.product] or 0, f.tech
+    end
+    local n_turrets = 0
+    for _, id in ipairs(State.sorted_keys(f.turrets or {})) do if f.turrets[id].valid then n_turrets = n_turrets + 1 end end
+    -- (hystérésis : f.team.ammo_rich garde l'état d'une pensée à l'autre ; essai 1, la cible basculait avec le fer)
+    f.team.ammo_per_turret, f.team.ammo_rich = Mu.per_turret({ base = T.turret_ammo_target,
+      rich = T.turret_ammo_rich_on and T.turret_ammo_rich or T.turret_ammo_target, turrets = n_turrets, -- (essai 3 : cible riche éteinte)
+      iron = iron0, mag_iron = f.team.mag_iron, was = f.team.ammo_rich == true })
+    -- Munition choisie (Mu.best_ammo) : la meilleure de T.turret_ammo_ladder dont la recette est ouverte et qui se fabrique depuis le coffre
+    -- (le livre de l'équipe : aucune matière à produire autrement), ou qui est au coffre ; collante tant qu'elle le reste.
+    -- Votre équipe seulement (T.best_ammo_factions) : chez une faction, la munition plus chère change l'armée et les attaques (pvp_test, base
+    -- défendue : 2 factions sur 4 attaquent au lieu de 3 avec l'échange) ; une faction garde la munition de base.
+    local choose = f.is_player or T.best_ammo_factions
+    local book = book_for(f)
+    local force = game.forces[f.force]
+    local cands = {}
+    for i, name in ipairs(T.turret_ammo_ladder) do
+      local r = force and force.recipes[name]
+      local enabled = i == 1 or (choose and r ~= nil and r.enabled == true)
+      local makeable = enabled and book:handcraftable(name) and next(book:plan({ { name, T.turret_ammo_target } }, stock0).raw) == nil
+      cands[i] = { enabled = enabled, makeable = makeable, stock = stock0[name] or 0 }
+    end
+    -- Essai 3 : choix STABLE (Mu.stable_ammo, état f.team.ammo_state : nombres seulement) ; essai 2 : 17 bascules en 36 min.
+    local idx, why
+    f.team.ammo_state, idx, why = Mu.stable_ammo(f.team.ammo_state, cands, tick)
+    if T.turret_ammo_ladder[idx] ~= (f.team.ammo_item or T.turret_ammo) then
+      log(string.format("[FO-MUNITIONS] %s minute %.1f : munition des tourelles %s -> %s (%s)", tostring(f.key or "?"), tick / 3600,
+        f.team.ammo_item or T.turret_ammo, T.turret_ammo_ladder[idx], why))
+    end
+    f.team.ammo_item, f.team.ammo_why = T.turret_ammo_ladder[idx], why
+  else
+    f.team.ammo_per_turret, f.team.mag_iron, f.team.mag_iron_tech, f.team.ammo_rich, f.team.ammo_item = nil, nil, nil, nil, nil
+    f.team.ammo_state = nil
+  end
   local groups = {}
   local hq_turrets = 0
+  local mj = { n = 0, ammo = 0, low = 0, short = 0, missing = 0, hq_n = 0, hq_ammo = 0 } -- lot MUNITIONS : journal [FO-MUNITIONS]
   for _, g in ipairs(Outposts.turret_groups(f)) do
-    groups[#groups + 1] = { key = g.key, low = g.low, has_task = Board.has(f, "refill:" .. g.key) }
+    groups[#groups + 1] = { key = g.key, low = g.low, has_task = Board.has(f, "refill:" .. g.key),
+      n = #g.list, short = T.munitions_on and g.short or nil, missing = T.munitions_on and g.missing or nil, -- lot MUNITIONS
+      missing_base = T.munitions_on and g.missing_base or nil, short_base = T.munitions_on and g.short_base or nil,
+      worse = T.munitions_on and g.worse or nil, worse_need = T.munitions_on and g.worse_need or nil }
     if g.key == "hq" then hq_turrets = #g.list end -- lot IA1-b2 : tourelles du QG (défendre d'abord)
+    mj.n, mj.ammo, mj.low, mj.short, mj.missing = mj.n + #g.list, mj.ammo + g.ammo, mj.low + g.low, mj.short + g.short, mj.missing + g.missing
+    if g.key == "hq" then mj.hq_n, mj.hq_ammo = #g.list, g.ammo end
+  end
+  -- Lot MUNITIONS : journal de MESURE (aucune décision ne le lit), toutes les 5 min : tourelles, chargeurs, moyenne, sous le seuil bas, à
+  -- recharger au plein, chargeurs au coffre, cible par tourelle, fer au coffre.
+  if tick - (f.team.mun_log or -1000000) >= 5 * 3600 then
+    f.team.mun_log = tick
+    log(string.format("[FO-MUNITIONS] %s minute %.1f | tourelles %d, chargeurs %d (%.1f par tourelle) ; QG %d tourelle(s), %d chargeur(s) ; " ..
+      "sous le seuil bas %d, a recharger %d (%d chargeurs) ; coffre %d chargeur(s) de base, %d de la munition choisie, fer %d ; cible %d par " ..
+      "tourelle%s ; munition %s (%s), regle %s",
+      tostring(f.key or "?"), tick / 3600, mj.n, mj.ammo, mj.n > 0 and mj.ammo / mj.n or 0, mj.hq_n, mj.hq_ammo, mj.low, mj.short, mj.missing,
+      stock0[T.turret_ammo] or 0, stock0[Outposts.ammo_name(f.tech, f)] or 0, iron0, Outposts.ammo_target(f),
+      f.team.ammo_rich and " (riche)" or "", Outposts.ammo_name(f.tech, f), tostring(f.team.ammo_why or "base"),
+      T.munitions_on and "munitions" or "avant"))
   end
   -- Lot IA1-b2 (règle de croissance, D-18) : une recrue de croissance toutes les T.grow_period tant que le QG et chaque
   -- avant-poste sont défendus, que le coffre garde T.grow_iron_reserve fer et qu'un travail attend (D-16 : pas de
@@ -676,6 +738,7 @@ function Team.view(f, tick)
     four_rule = four_rule, smelters_free = smelter_free, smelter_loads = smelter_loads, -- lot FOURS
     smelter_furnaces = smelter_furnaces, smelter_blocked = smelter_blocked, -- lot BRIQUES
     turret_groups = groups,
+    turret_ammo = T.munitions_on and Outposts.ammo_name(f.tech, f) or nil, -- lot MUNITIONS : munition fabriquée et portée (planificateur, cerveau)
     soldiers = f.soldiers_count, soldiers_max = soldiers_max,
     workers = f.engineers_count, workers_max = workers_max, workers_idle = workers_idle, workers_waiting = workers_waiting,
     workers_wanted = workers_wanted, recruit_cost = recruit_cost, recruit_blocked = recruit_blocked,

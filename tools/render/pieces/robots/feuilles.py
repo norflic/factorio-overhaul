@@ -3,7 +3,7 @@ sprites.lua (généré, lu par prototypes/robots.lua), MANIFEST.json. Hors Blend
 
     py -3.9 tools/render/pieces/robots/feuilles.py [--robots trotte] [--src DIR] [--dest DIR]      (depuis la racine du mod)
 
-Sources par défaut : fo-logs/2026-11-01_RBV1/<robot>/sprites (à GARDER). Chaque robot donne :
+Sources par défaut : fo-logs/2026-11-01_RBV1/<robot>/sprites, et fo-logs/2026-11-04_RB16/<robot>/sprites pour Écaille et Bobineur (piece.lot ; à GARDER). Chaque robot donne :
   <robot>-run-<couche>.png et hr-<robot>-run-<couche>.png : 16 directions × images de marche (une ligne par direction, nord d'abord,
       sens horaire ; pas de `slice`, F23) ;
   <robot>-tir-<couche>.png et hr-… : 16 directions à l'arrêt, 2 images (au repos, puis la même reculée de 2 px : recul du tir, sans rendu de plus) ;
@@ -35,7 +35,7 @@ DEST_DEFAUT = os.path.join(MOD, "graphics", "robots")
 PREFIXE_JEU = "__factorio-overhaul__/graphics/robots/"
 COUCHES = ("main", "glow", "mask", "shadow")
 K_NORMALE = 4     # 64 -> 16 px par tuile
-COMMANDE = "py -3.9 tools/render/pieces/robots/feuilles.py   (depuis la racine du mod ; sources : fo-logs/2026-11-01_RBV1/<robot>/sprites, à GARDER)"
+COMMANDE = "py -3.9 tools/render/pieces/robots/feuilles.py   (depuis la racine du mod ; sources : fo-logs/2026-11-01_RBV1/<robot>/sprites et 2026-11-04_RB16/<robot>/sprites, à GARDER)"
 
 
 def sha(p):
@@ -240,7 +240,7 @@ Y_PIECE_PX = int(round(40.0 * 0.7071067811865476 * 64.0))    # origine des pièc
 
 def complet(robot):
     """Série entièrement rendue ?"""
-    src = os.path.join(LOGS, "2026-11-01_RBV1", robot, "sprites")
+    src = os.path.join(LOGS, piece.lot(robot), robot, "sprites")
     if not (piece.ROBOTS[robot].get("serie") or piece.ROBOTS[robot].get("torse")):
         return False
     return all(os.path.isfile(os.path.join(src, n, "spec.json")) for n in piece.noms_serie(robot))
@@ -257,7 +257,7 @@ def main():
     table, manifeste = {}, {"commande": COMMANDE, "fichiers": {}}
     total = 0.0
     for robot in [x for x in a.robots.split(",") if x]:
-        src = os.environ.get("FO_SRC_" + robot) or a.src or os.path.join(LOGS, "2026-11-01_RBV1", robot, "sprites")
+        src = os.environ.get("FO_SRC_" + robot) or a.src or os.path.join(LOGS, piece.lot(robot), robot, "sprites")
         if piece.ROBOTS[robot].get("torse"):
             t, mpx = geant(robot, src, a.dest, manifeste)
             table[piece.ROBOTS[robot]["ro"]] = t

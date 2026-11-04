@@ -183,6 +183,126 @@ do
   check(vu(function(p) return p.actif end), "mutant « sans plafond » vu")
   check(not vu(B.peut_poser), "témoin : la règle du lot passe ses propres cas")
 end
+-- sortie du Portique (lots BOURDON-SORTIE et BOURDON-MINEURS) : objet en sortie, usine du joueur (pas d'une faction), plafond de géants ; les
+-- géants sortis dans le même balayage sont DÉJÀ dans `geants` (registre, liste du script) : aucun compte en plus
+do
+  check(B.sortie({ objets = 1, actif = true, geants = 0, admis = 1 }), "sortie : 1 objet, 0 géant sur 1 admis")
+  check(not B.sortie({ objets = 0, actif = true, geants = 0, admis = 3 }), "sortie : aucun objet, rien ne sort")
+  check(not B.sortie({ objets = 1, actif = true, geants = 1, admis = 1 }), "sortie : plafond atteint, l'objet reste (le Portique s'arrête)")
+  check(B.sortie({ objets = 2, actif = true, geants = 1, admis = 2 }), "sortie : 1 géant sur 2 (sorti dans ce balayage, déjà compté), il sort")
+  check(B.sortie({ objets = 2, actif = true, geants = 1, deja = 1, admis = 2 }), "sortie : un ancien « deja » n'est plus ajouté (double compte)")
+  check(not B.sortie({ objets = 1, faction = true, actif = true, geants = 0, admis = 3 }), "sortie : usine d'une faction, l'objet reste")
+  check(not B.sortie({ objets = 1, actif = false, geants = 0, admis = 3 }), "sortie : robots éteints, rien ne sort")
+  check(not B.sortie(nil), "sortie : paramètres absents")
+  local cas = { { { objets = 1, actif = true, geants = 0, admis = 1 }, true }, { { objets = 0, actif = true, geants = 0, admis = 3 }, false },
+    { { objets = 1, actif = true, geants = 1, admis = 1 }, false }, { { objets = 2, actif = true, geants = 1, deja = 1, admis = 2 }, true },
+    { { objets = 1, faction = true, actif = true, geants = 0, admis = 3 }, false }, { { objets = 1, actif = false, geants = 0, admis = 3 }, false } }
+  local function vu(regle)
+    for _, c in ipairs(cas) do if regle(c[1]) ~= c[2] then return true end end
+    return false
+  end
+  check(vu(function(p) return not p.faction and B.peut_poser({ actif = p.actif, geants = p.geants, admis = p.admis }) end), "mutant « sans objet en sortie » vu")
+  check(vu(function(p) return (p.objets or 0) >= 1 and not p.faction and B.peut_poser({ actif = p.actif, geants = (p.geants or 0) + (p.deja or 0), admis = p.admis }) end),
+    "mutant « double compte des géants du balayage » vu")
+  check(vu(function(p) return (p.objets or 0) >= 1 and B.peut_poser({ actif = p.actif, geants = p.geants, admis = p.admis }) end), "mutant « faction admise » vu")
+  check(vu(function(p) return (p.objets or 0) >= 1 and not p.faction and p.actif end), "mutant « sans plafond » vu")
+  check(not vu(B.sortie), "témoin : la règle de sortie passe ses propres cas")
+  -- ralliement : seulement s'il est loin du point de descente
+  local r = B.ralliement(0, 0, { x = 0, y = 9 })
+  check(r and r.x == 0 and r.y == 9, "ralliement à 9 tuiles : il y vole")
+  check(B.ralliement(0, 0, { x = 3, y = 3 }) == nil, "ralliement à 4,2 tuiles : il reste posé")
+  check(B.ralliement(0, 0, nil) == nil and B.ralliement(0, 0, { x = "a", y = 1 }) == nil, "ralliement absent ou invalide : il reste")
+  check(B.ralliement(10, 10, { x = 10 + B.RALLIEMENT_MIN, y = 10 }) ~= nil, "ralliement à la distance minimale : il y vole")
+end
+-- ordre de l'outil Armée (lot BOURDON-SORTIE) : aller, Glas à portée, Glas hors de portée (approche puis Glas)
+do
+  local o = B.ordre("move", { x = 0, y = 0 }, { x = 30, y = 40 })
+  check(o and o.aller.x == 30 and o.aller.y == 40 and o.glas == nil, "ordre « aller » : il va au point, sans Glas")
+  o = B.ordre("attack", { x = 0, y = 0 }, { x = 30, y = 40 })
+  check(o and o.aller == nil and o.glas.x == 30 and o.glas.y == 40, "ordre « attaquer » à 50 tuiles (portée) : Glas sans vol")
+  o = B.ordre("attack", { x = 0, y = 0 }, { x = 0, y = 100 })
+  check(o and o.glas.y == 100 and proche(o.aller.x, 0) and proche(o.aller.y, 100 - B.APPROCHE), "hors de portée : il s'arrête à 35 tuiles, puis sonne",
+    o and o.aller and (o.aller.x .. ", " .. o.aller.y))
+  o = B.ordre("attack", { 10, 10 }, { 10 + 60, 10 + 80 })
+  check(o and proche(math.sqrt((o.aller.x - 70) ^ 2 + (o.aller.y - 90) ^ 2), B.APPROCHE), "approche : à B.APPROCHE de la cible, sur la droite")
+  check(B.ordre("patrouille", { x = 0, y = 0 }, { x = 1, y = 1 }) == nil, "ordre inconnu : nil")
+  check(B.ordre("move", nil, { x = 1, y = 1 }) == nil and B.ordre("move", { x = 0, y = 0 }, { x = "a", y = 1 }) == nil, "point invalide : nil")
+  -- mutants : chacun change au moins un cas
+  local cas = { { "move", { x = 0, y = 0 }, { x = 30, y = 40 } }, { "attack", { x = 0, y = 0 }, { x = 30, y = 40 } },
+    { "attack", { x = 0, y = 0 }, { x = 0, y = 100 } } }
+  local function sig(f)
+    local t = {}
+    for _, c in ipairs(cas) do
+      local r = f(c[1], c[2], c[3])
+      t[#t + 1] = r and string.format("%s|%s", r.aller and string.format("%.2f,%.2f", r.aller.x, r.aller.y) or "-",
+        r.glas and string.format("%.2f,%.2f", r.glas.x, r.glas.y) or "-") or "nil"
+    end
+    return table.concat(t, ";")
+  end
+  local ref = sig(B.ordre)
+  check(sig(function(k, p, c) local r = B.ordre(k, p, c); if r and k == "move" then r.glas = r.aller end; return r end) ~= ref, "mutant « aller sonne aussi » vu")
+  check(sig(function(k, p, c) return B.ordre(k == "attack" and "move" or k, p, c) end) ~= ref, "mutant « attaquer = aller » vu")
+  check(sig(function(k, p, c) local r = B.ordre(k, p, c); if r and r.aller and r.glas then r.aller = { x = c.x, y = c.y } end; return r end) ~= ref,
+    "mutant « vole jusque sur la cible » vu")
+end
+-- le script : l'adaptateur « robot commandable » posé par bourdon.lua, lu par l'outil Armée et Ordres.order
+do
+  local function lit(p)
+    local f = assert(io.open(p, "r"))
+    local s = f:read("*a")
+    f:close()
+    return s
+  end
+  local b, a, o, t = lit("script/robots/bourdon.lua"), lit("script/robots/armee.lua"), lit("script/robots/ordres.lua"), lit("script/robots/outils.lua")
+  check(b:find("Armee.hooks.commandable = M.commandable", 1, true) ~= nil and b:find("local o = B.ordre(kind, b.e.position, pos)", 1, true) ~= nil,
+    "bourdon : adaptateur posé, ordre décidé par B.ordre")
+  check(a:find("function Armee.commandable(e)", 1, true) ~= nil and a:find("function Armee.order_one(e, kind, pos, radius)", 1, true) ~= nil,
+    "armee : robots commandables (registre ou adaptateur)")
+  check(o:find("Armee.order_one(e, kind, p, radius)", 1, true) ~= nil, "ordres : chaque robot reçoit son ordre par Armee.order_one")
+  local n_cmd = select(2, t:gsub("Armee%.commandable", ""))
+  check(n_cmd >= 4 and t:find("Armee.registered(e.unit_number)", 1, true) == nil, "outils : choix, purge, ordres et cercles passent par l'adaptateur", n_cmd)
+  check(b:find("not b.e.autopilot_destination and tick >= b.recharge", 1, true) ~= nil, "bourdon : un Glas en attente n'est plus perdu en recharge")
+end
+-- Glas en attente (lot BOURDON-MINEURS) : portée revérifiée d'où la cloche s'est posée
+do
+  local o = B.reprise_glas({ x = 0, y = 0 }, { x = 30, y = 40 })
+  check(o and o.aller == nil and o.glas.x == 30, "reprise : cible à 50 tuiles (portée), il sonne")
+  o = B.reprise_glas({ x = 0, y = 0 }, { x = 0, y = 120 })
+  check(o and o.aller and proche(o.aller.y, 120 - B.APPROCHE) and o.glas.y == 120, "reprise : cible à 120 tuiles, il s'approche d'abord, puis sonnera")
+  local p = { x = o.aller.x, y = o.aller.y }
+  local o2 = B.reprise_glas(p, { x = 0, y = 120 })
+  check(o2 and o2.aller == nil, "reprise : posé au point d'approche, la cible est à portée (pas de boucle)")
+  local function lit(q)
+    local f = assert(io.open(q, "r"))
+    local s2 = f:read("*a")
+    f:close()
+    return s2
+  end
+  local sb = lit("script/robots/bourdon.lua")
+  check(sb:find("local o = B.reprise_glas(b.e.position, b.attente)", 1, true) ~= nil and sb:find("if o and o.aller then", 1, true) ~= nil,
+    "bourdon : le Glas en attente revérifie la portée avant de partir")
+  -- mutant : sans revérification, une cible lointaine sonnerait sur place
+  local sans = function(_, c) return { glas = c } end
+  check(sans({ x = 0, y = 0 }, { x = 0, y = 120 }).aller == nil and B.reprise_glas({ x = 0, y = 0 }, { x = 0, y = 120 }).aller ~= nil,
+    "mutant « Glas en attente sans revérifier la portée » vu")
+end
+-- le script : le crochet de sortie posé par bourdon.lua, appelé par le balayage des usines après les kits
+do
+  local function lit(p)
+    local f = assert(io.open(p, "r"))
+    local s = f:read("*a")
+    f:close()
+    return s
+  end
+  local u = lit("script/robots/usine.lua")
+  local b = lit("script/robots/bourdon.lua")
+  check(u:find("Armee.hooks.extra_release(e, inv, rec.rally or Mo.default_rally(e.position, w.size))", 1, true) ~= nil and u:find("giants_made =", 1, true) == nil,
+    "usine : le balayage appelle la sortie des autres lots avec le ralliement de l'usine, sans recompter les géants du balayage")
+  check(b:find("faction = State.by_force(force.name) ~= nil", 1, true) ~= nil, "bourdon : la sortie passe la faction de l'usine à B.sortie")
+  check(b:find("Armee.hooks.extra_release = M.sortie_usine", 1, true) ~= nil and b:find("B.sortie({ objets = n", 1, true) ~= nil,
+    "bourdon : la sortie est branchée et décidée par B.sortie")
+  check(b:find("e.autopilot_destination = { b.ralliement.x, b.ralliement.y }", 1, true) ~= nil, "bourdon : ancres posées, il gagne le ralliement")
+end
 -- le script : le relais remplacé, le compte branché au plafond, la pose fabriquée vérifie le plafond
 do
   local f = assert(io.open("script/robots/bourdon.lua", "r"))

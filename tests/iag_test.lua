@@ -503,7 +503,7 @@ do
   --            rapport du lot) ; le plafond est l'état du 28/10 et ne peut que BAISSER.
   -- Tout autre fichier de ces dossiers : aucun nom. Une ligne en plus dans un fichier : ECHEC.
   local LEDGER = {
-    ["shared/team/config.lua"] = { "EXEC", 44, "table nommée de l'exécutant (kit, avant-postes, foreuse électrique du lot FOREUSES, fonte, munitions, pièces, tourelle de garde, mur de l'enceinte : T.turret et T.wall, recette et portée lues au moteur ; lot FONDERIE : T.LOGISTIC_TYPES, types de prototypes du répartiteur et du souterrain)" },
+    ["shared/team/config.lua"] = { "EXEC", 45, "table nommée de l'exécutant (kit, avant-postes, foreuse électrique du lot FOREUSES, fonte, munitions, pièces, tourelle de garde, mur de l'enceinte : T.turret et T.wall, recette et portée lues au moteur ; lot FONDERIE : T.LOGISTIC_TYPES, types de prototypes du répartiteur et du souterrain ; lot MUNITIONS : T.turret_ammo_ladder, échelle des munitions des tourelles, choisie par la règle pure Mu.best_ammo sans nom)" },
     ["shared/team/modules.lua"] = { "EXEC", 203, "gabarits de modules : catalogue d'usines posables, noms de leurs pièces" },
     ["shared/team/petrole_donnees.lua"] = { "EXEC", 4, "pièces de l'exécutant des chaînes à fluides (tuyau, coffre des quais, bras, poteaux) : briques du plan directeur, comme automatisation_donnees" },
     ["shared/team/automatisation_donnees.lua"] = { "EXEC", 11, "données de l'exécutant d'IA3-e (machines et pièces posables)" },

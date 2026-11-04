@@ -22,6 +22,7 @@ local Ar = require("shared.team.arrivee") -- lot C4 PLATEAU 3 : tournée arrivé
 local Acc = require("shared.team.acces_champ") -- lot NAV2 : point d'accès atteignable depuis l'extérieur du champ (règle pure)
 local Rc = require("shared.team.repli_chemin") -- lot CHARBON3 (B2) : essais de marche d'un PNJ (règle pure)
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
+local Mu = require("shared.team.munitions") -- lot MUNITIONS (revue M3) : prise bornée de la munition de base (Mu.split_take)
 local Outposts = require("script.faction.outposts")
 local Sites = require("script.faction.sites")
 local Board = require("script.team.board")
@@ -463,7 +464,7 @@ function Worker.program(f, task, surface, tick)
     if not pos then return nil end
     local o = task.group ~= "hq" and f.outposts[tonumber(task.group:sub(2))]
     if o then pos = access(o, f) end
-    local ammo = Outposts.ammo_name(f.tech)
+    local ammo = Outposts.ammo_name(f.tech, f) -- lot MUNITIONS : la meilleure munition fabricable de l'équipe (f.team.ammo_item)
     if Board.market(f) then
       -- Lot IA3-b : prise BORNÉE au manque réel du groupe (avant : 200 + 200 chargeurs, `ammo` valant déjà
       -- « firearm-magazine », soit jusqu'à 400 chargeurs sortis du coffre pendant la tournée : la matière promise aux
@@ -471,13 +472,26 @@ function Worker.program(f, task, surface, tick)
       local _, by_key = Outposts.turret_groups(f)
       local g = by_key[task.group]
       local need = 0
+      local target = Outposts.ammo_target(f) -- lot MUNITIONS : au plein de la cible de l'équipe
+      local best = Outposts.rank_of(ammo)
       for _, t in ipairs(g and g.list or {}) do
         local inv = t.valid and t.get_inventory(defines.inventory.turret_ammo)
         local have = inv and inv.get_item_count() or 0
-        if have < T.turret_ammo_target then need = need + T.turret_ammo_target - have end
+        local r = t.valid and Outposts.ammo_rank(t) or 0
+        if r > 0 and r < best then need = need + target -- (lot MUNITIONS : tourelle à ÉCHANGER contre la meilleure munition : la cible entière)
+        elseif have < target then need = need + target - have end
       end
       if need <= 0 then return nil end
-      return { { "home" }, { "take", { { ammo, need } } }, { "goto", pos, 6 }, { "act", "refill" }, { "home" } }
+      -- Lot MUNITIONS : la tournée porte au plus ce que le planificateur lui a donné (task.count : la part urgente avant les recrues, le
+      -- surplus de la cible riche après elles) ; la munition choisie d'abord, la munition de base en complément (prise non stricte).
+      if type(task.count) == "number" and task.count > 0 and task.count < need then need = task.count end
+      -- (revue M3 : la munition de base seulement pour ce que le coffre n'a pas de la choisie ; avant : need de chacune)
+      local take_c, take_b = Mu.split_take(need, Stock.count(f, ammo), ammo == T.turret_ammo)
+      local list = {}
+      if take_c > 0 then list[#list + 1] = { ammo, take_c } end
+      if take_b > 0 then list[#list + 1] = { T.turret_ammo, take_b } end
+      if #list == 0 then return nil end
+      return { { "home" }, { "take", list }, { "goto", pos, 6 }, { "act", "refill" }, { "home" } }
     end
     return { { "home" }, { "take", { { ammo, 200 }, { "firearm-magazine", 200 } } }, { "goto", pos, 6 }, { "act", "refill" }, { "home" } }
   elseif k == "fortify" then
