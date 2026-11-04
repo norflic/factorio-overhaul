@@ -352,21 +352,19 @@ def emetteur(g, c):
 
     def bord(phi, r=Rout):
         return V((0, 0, zh)) + (ex * math.cos(phi) + ey * math.sin(phi)) * r
-    # griffes : de la platine au bord du disque. LOT F1-C ronde 3b (critique : les griffes se lisaient « rayons
-    # droits ») : QUATRE SERRES recourbées, plus épaisses, qui montent en arc par l'extérieur, passent PAR-DESSUS le bord
-    # d'or du disque et plantent leur pointe sur sa face (elles agrippent le disque)
+    # griffes : LOT F1-C, production (les serres de la ronde 3b, qui montaient de la platine en arc par l'extérieur,
+    # enfermaient du fond entre elles, le disque et la platine dans 7 directions sur 10 : jusqu'à 443 px) : QUATRE
+    # SERRES d'or AGRIPPÉES au bord du disque, courtes, qui passent de dessous à dessus du jonc d'or, collées à lui ;
+    # aucune ne descend vers la platine
     for k in range(4):
         phi = -math.pi / 2 + TAU * k / 4 + math.pi / 4
         tip = bord(phi)
-        if tip.z < zb + 0.1:
-            tip = V((tip.x, tip.y, zb + 0.1))
-        out = V((tip.x, tip.y, 0.0)).normalized() if V((tip.x, tip.y, 0.0)).length > 1e-6 else V((1, 0, 0))
-        base = V((tip.x * 0.45, tip.y * 0.45 - 0.1 * re, zb + 0.02))
-        m1 = base.lerp(tip, 0.4) + out * (0.28 * re) + V((0, 0, 0.05 * re))
-        m2 = tip + out * (0.16 * re) - n * (0.06 * re)
-        hook = tip + n * (0.1 * re) + out * (0.02 * re)
-        pointe = tip + n * (0.06 * re) - out * (0.2 * re)
-        griffe(g, [base, m1, m2, hook, pointe], 0.11 + 0.012 * c.side, 0.085, M["or_chauffe"])
+        out = (tip - V((0, 0, zh))).normalized()
+        dessous = tip - n * (0.14 * re) - out * (0.02 * re)
+        bord_ext = tip + out * (0.03 * re)
+        dessus = tip + n * (0.07 * re) + out * (0.01 * re)
+        pointe = tip + n * (0.05 * re) - out * (0.22 * re)
+        griffe(g, [dessous, bord_ext, dessus, pointe], 0.11 + 0.012 * c.side, 0.085, M["or_chauffe"])
     # pinces : du bout de chaque bras de la fourche au point du bord du disque le plus proche ; PLAQUES pleines (reprise
     # de la correction F1-A, 24/10) : la pince en griffe mince laissait, en pose N, un jour enfermé entre le bras, la
     # pince et le bord du disque (59 px, 2 groupes, rendu r0c de 11 h 53) ; la plaque va du bras au bord du disque, du
@@ -380,8 +378,27 @@ def emetteur(g, c):
         a_lo = V((sx * xa, 0.0, zh - 0.3 * re))
         b_lo = bord(phi0 - sx * 0.2, Rout * 0.98)
         b_hi = bord(phi0 + sx * math.pi / 6, Rout * 0.98)
-        q = [a_lo, b_lo, b_hi, a_hi]
-        g.hexa([p - V((0, ep, 0)) for p in q] + [p + V((0, ep, 0)) for p in q], M["or_chauffe"], "hard", "pince")
+        # LOT F1-C, production (contrôle des 64 directions : entre le bord DROIT de la plaque et l'arc du disque, le fond
+        # restait enfermé dans les poses d29 à d36 et d61 à d63, jusqu'à 246 px) : la plaque suit l'ARC du bord du disque
+        # (éventail de 6 quadrilatères pleins jointifs, du bras à 6 points du bord) au lieu de sa corde
+        # (suite, même contrôle : le jour venait en fait de l'espace entre le BRAS de la fourche, le dessous du bord du
+        # disque et la serre avant ; zoom de d33) : la plaque devient un GOUSSET qui part le long du bras, de son milieu
+        # à son bout, et rejoint le bord du disque de l'avant (−0,9 rad) jusqu'à π/6 vers l'arrière
+        p_lo, p_hi = phi0 - sx * 0.9, phi0 + sx * math.pi / 6
+        nf = 8
+        bras0 = V((sx * 0.3 * re, -0.25 * re, zb)).lerp(a_lo, 0.45)
+        A_ = [bras0.lerp(a_lo, k / 4) for k in range(5)] + [a_lo.lerp(a_hi, k / 4) for k in range(1, 5)]
+        B_ = [bord(p_lo + (p_hi - p_lo) * k / nf, Rout * 0.98) for k in range(nf + 1)]
+        for k in range(nf):
+            q = [A_[k], B_[k], B_[k + 1], A_[k + 1]]
+            g.hexa([p - V((0, ep, 0)) for p in q] + [p + V((0, ep, 0)) for p in q], M["or_chauffe"], "hard", "pince")
+    # LOT F1-C, production (contrôle des 64 directions : AXE = False, rien ne reliait le bord du disque au chapeau du
+    # tourillon de la fourche ; le fond restait enfermé entre eux et le bras dans les poses d29 à d36 et d61 à d63,
+    # jusqu'à 301 px) : MOYEUX d'or, du bord du disque au tourillon, de chaque côté
+    for sx in (-1, 1):
+        phi0 = 0.0 if sx > 0 else math.pi
+        g.tube([bord(phi0, Rout * 0.88), V((sx * (t["xc"] + t["tc"] + 0.02), 0.0, zh))], 0.13 * re, M["or_chauffe"], n=14,
+               style="soft", what="moyeu")
     # lentille : point blanc-or à l'avant de l'horizon
     g.sphere((0, rs * 0.98, zh), 0.09, M["emit2"], n=14, m=7, what="lentille")
     F.lit_ring(g, (0, rs * 0.94, zh), "y", 0.16, M["emit"], w=0.03)
