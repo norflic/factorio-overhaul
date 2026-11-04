@@ -144,6 +144,60 @@ for _, sg in ipairs(vers) do
 end
 check(dmax_sud > dmax_nord, "plan : plus loin vers la cible", dmax_sud .. " / " .. dmax_nord)
 
+-- ------------------------------------------------------------- fabrication (lot ROBOTS-JEU) : données et plafond de géants
+do
+  local Ro = require("shared.content.robots")
+  local usine = Ro.factory(B.USINE)
+  check(usine ~= nil and usine.size == 11 and usine.age == 13, "fabriqué au Portique (11 × 11, âge 13)", B.USINE)
+  check(B.AGE == 15 and B.TECH.epoch == B.AGE, "âge 15, technologie de l'âge 15")
+  check(B.OBJET ~= B.NOM and B.POSE ~= B.NOM, "l'objet pose le relais, jamais le spider-vehicle (cerveau des factions)")
+  local n_ing = 0
+  for _, g in ipairs(B.FAB.ingredients) do
+    n_ing = n_ing + 1
+    check(type(g[1]) == "string" and g[2] >= 1 and g[2] <= 100, "ingrédient de 1 à 100 (RB0-1)", g[1] .. " " .. tostring(g[2]))
+  end
+  check(n_ing >= 3 and B.FAB.temps > 0, "recette : au moins 3 ingrédients, durée positive")
+  local crowned = Ro.robot("crowned")
+  local seg = false
+  for _, g in ipairs(B.FAB.ingredients) do if g[1] == crowned.segment_item then seg = true end end
+  check(seg, "10 segments du Couronné : la cloche vient après le dernier géant", crowned.segment_item)
+  local pre = Ro.tech(B.TECH.prerequisites[1])
+  check(pre ~= nil and pre.epoch == 15, "prérequis : la technologie du Couronné (âge 15)", tostring(B.TECH.prerequisites[1]))
+  check(Ro.tech(B.TECHNO) == nil, "technologie propre au Bourdon, hors des paliers de Ro.TECHS")
+  -- plafond : un Bourdon compte pour un géant
+  check(B.peut_poser({ actif = true, geants = 2, admis = 3 }), "plafond : 2 géants sur 3, il descend")
+  check(not B.peut_poser({ actif = true, geants = 3, admis = 3 }), "plafond : 3 sur 3, refusé")
+  check(not B.peut_poser({ actif = true, geants = 0, admis = Ro.giant_allowed(12) }), "âge 12 : aucun géant admis, refusé")
+  check(B.peut_poser({ actif = true, geants = 0, admis = Ro.giant_allowed(15) }), "âge 15 : admis")
+  check(not B.peut_poser({ actif = false, geants = 0, admis = 3 }), "robots éteints : refusé")
+  check(not B.peut_poser(nil), "paramètres absents : refusé")
+  -- mutants de la règle : chacun doit être vu par au moins un contrôle ci-dessus
+  local function vu(regle)
+    local cas = { { { actif = true, geants = 2, admis = 3 }, true }, { { actif = true, geants = 3, admis = 3 }, false },
+      { { actif = false, geants = 0, admis = 3 }, false }, { { actif = true, geants = 0, admis = 0 }, false } }
+    for _, c in ipairs(cas) do if regle(c[1]) ~= c[2] then return true end end
+    return false
+  end
+  check(vu(function(p) return p.actif and p.geants <= p.admis end), "mutant « <= » vu")
+  check(vu(function(p) return p.geants < p.admis end), "mutant « sans le réglage » vu")
+  check(vu(function(p) return p.actif end), "mutant « sans plafond » vu")
+  check(not vu(B.peut_poser), "témoin : la règle du lot passe ses propres cas")
+end
+-- le script : le relais remplacé, le compte branché au plafond, la pose fabriquée vérifie le plafond
+do
+  local f = assert(io.open("script/robots/bourdon.lua", "r"))
+  local s = f:read("*a")
+  f:close()
+  check(s:find("Armee.hooks.extra_giants = M.compte", 1, true) ~= nil, "script : Bourdons comptés au plafond de géants")
+  check(s:find("B.peut_poser(", 1, true) ~= nil and s:find("e.name == B.POSE", 1, true) ~= nil, "script : relais lu, plafond vérifié")
+  f = assert(io.open("script/robots/armee.lua", "r"))
+  s = f:read("*a")
+  f:close()
+  check(s:find("Armee.hooks.extra_giants(force_name)", 1, true) ~= nil, "armee : Armee.giants lit le compte des Bourdons")
+  check(s:find("remote.call(\"fo-xp\", \"geants\", force_name)", 1, true) ~= nil and s:find("itf[\"fo-xp\"].geants", 1, true) ~= nil,
+    "armee : géants du lot EXPERIMENTAUX (interface fo-xp) comptés au même plafond, sous garde")
+end
+
 -- ------------------------------------------------------------- les fichiers du lot : pas de trigonométrie, pas de hasard moteur
 local function contient(path, motif)
   local f = assert(io.open(path, "r"))

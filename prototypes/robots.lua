@@ -8,14 +8,17 @@
     ombre séparée ; au travail, la lueur s'allume, avec une lumière, et l'atelier fume (fumée vanilla : 0 image neuve).
   - Kit : objet de pile 1, produit de la recette du robot (ingrédients d'au plus 100 chacun : RB0-1). Son `place_result` est
     l'unité du joueur (le cerveau lit ce lien ; un kit posé à la main est inscrit au registre par script/robots/usine.lua).
-  - Unité : `unit` par PROPRIÉTAIRE (le joueur et les 4 factions) : une unité n'a pas de couleur au jeu (PLAN §3). Visuel PROVISOIRE
-    (Ro.PROVISIONAL) : animations des cracheurs vanilla régénérées avec d'autres teintes et tailles (une teinte ne fait que multiplier,
-    F36 : on repasse par les fonctions globales du jeu, comme prototypes/enemies.lua), mêlées d'un peu de la couleur de la faction.
+  - Unité : `unit` par PROPRIÉTAIRE (le joueur et les 4 factions) : une unité n'a pas de couleur au jeu (PLAN §3). Sans feuille (repli
+    seulement, aucun robot depuis ROBOTS-JEU) : animations des cracheurs vanilla régénérées avec d'autres teintes et tailles (F36).
   - Arme : tir à portée de catégorie « fo-robot », PV et dégâts CALIBRÉS par shared/robots/duel.lua ; zone (`area`), portée minimale
     (artillerie), aucun dégât (Cloche : le soin est un script, script/robots/soutien.lua).
   - Géant (âges 13 à 15) : `spider-vehicle` fabriqué par `create_spidertron` (fonction du jeu de base), un canon de portée 100 (RB0 :
     zones mortes au-delà de l'échelle 3 avec un canon de 60), munition posée par script (script/robots/geant.lua) ; 10 segments (dock)
     puis un assemblage final (portique).
+  - Lot RB-V1 (1/11) : un robot qui a une feuille (SPR[r.id]) a ses vraies images : marche, tir, ombre, lueur et une couche de PEINTURE teinte
+    par propriétaire (unité) ou à l'exécution (géant : torse à plusieurs directions, pièces de pattes communes). Sans feuille : visuel provisoire.
+    Lot ROBOTS-JEU (3/11) : les 12 robots ont leur feuille (Trotte-Vapeur et Lévite à 16 directions, les 7 autres terrestres à 8, les 3 géants :
+    torse à 16 directions et pattes dessinées) ; la RotatedAnimation d'une unité accepte 8 directions (prototype-api : direction_count).
   - Technologies : une par palier, plus celles des pièces (prototypes/robot_parts.lua).
   À charger APRÈS prototypes/enemies.lua (les globales des animations des cracheurs) et prototypes/robot_parts.lua : voir data.lua.
 ]]
@@ -24,7 +27,8 @@ local lib = require("prototypes.lib")
 local Ro = require("shared.content.robots")
 local F = require("shared.faction.config")
 local C = require("shared.content.crafts")
-local SPR = require("__factorio-overhaul__/graphics/robots/usines/sprites")
+local SPR_US = require("__factorio-overhaul__/graphics/robots/usines/sprites") -- lot US-V1 : usines (tools/render/pieces/usines_robots/feuilles.py)
+local SPR = require("__factorio-overhaul__/graphics/robots/sprites") -- lot RB-V1 : feuilles par identifiant de robot (tools/render/pieces/robots/feuilles.py)
 
 local out = {}
 
@@ -84,7 +88,7 @@ local USINE_LUMIERE = {
 
 --- Images d'une usine : image fixe (principale et ombre) ; lueur et lumière au travail seulement, en fondu ; fumée à la cheminée de l'atelier.
 local function habiller_usine(e, w)
-  local u = SPR.usines[w.sheet]
+  local u = SPR_US.usines[w.sheet]
   assert(u, "robots : usine sans feuille " .. tostring(w.sheet))
   e.animation = { layers = { usine_couche(u.main, "main"), usine_couche(u.shadow, "shadow") } }
   local lum = USINE_LUMIERE[w.sheet]
@@ -107,7 +111,7 @@ local function habiller_usine(e, w)
 end
 
 local function usine_icones(w)
-  local i = SPR.usines[w.sheet].icone
+  local i = SPR_US.usines[w.sheet].icone
   return { { icon = i.filename, icon_size = i.icon_size, icon_mipmaps = i.icon_mipmaps } }
 end
 
@@ -178,6 +182,131 @@ local CLASS_BASE = { P = "medium-spitter", M = "big-spitter", G = "behemoth-spit
 
 local smg = data.raw.gun["submachine-gun"]
 
+-- Couleur de la peinture d'un propriétaire (couche « mask » des feuilles) : du laiton pour le joueur, sa couleur pour une faction.
+local BRASS = { r = 0.86, g = 0.66, b = 0.27 }
+local function paint(owner)
+  if owner == Ro.PLAYER_OWNER then return BRASS end
+  for _, f in ipairs(F.factions) do
+    if f.key == owner then return { r = f.color.r, g = f.color.g, b = f.color.b } end
+  end
+  error("robots : propriétaire inconnu " .. tostring(owner))
+end
+
+--- Une couche d'une feuille : basse définition (16 px par tuile, scale 2), hr (64 px par tuile, scale 0,5). Mêmes cases, même origine.
+local function sheet_layer(c, anim, directions)
+  return {
+    filename = c.lr, width = c.lw, height = c.lh, line_length = anim.line_length, frame_count = anim.frame_count, direction_count = directions,
+    shift = c.shift, scale = 2,
+    hr_version = {
+      filename = c.hr, width = c.w, height = c.h, line_length = anim.line_length, frame_count = anim.frame_count, direction_count = directions,
+      shift = c.shift, scale = c.hs or 0.5,
+    },
+  }
+end
+
+local function both(l, key, v)
+  l[key] = v
+  l.hr_version[key] = v
+end
+
+--- Animation complète : ombre, corps, peinture du propriétaire, lueur.
+local function sheet_animation(sheet, anim_name, owner)
+  local anim = sheet.anims[anim_name]
+  local layers = {}
+  local k = anim.couches
+  local sh = sheet_layer(k.shadow, anim, sheet.directions)
+  both(sh, "draw_as_shadow", true)
+  layers[#layers + 1] = sh
+  layers[#layers + 1] = sheet_layer(k.main, anim, sheet.directions)
+  local m = sheet_layer(k.mask, anim, sheet.directions)
+  both(m, "tint", rgba(paint(owner)))
+  layers[#layers + 1] = m
+  if k.glow then
+    local g = sheet_layer(k.glow, anim, sheet.directions)
+    both(g, "draw_as_glow", true)
+    both(g, "blend_mode", "additive")
+    layers[#layers + 1] = g
+  end
+  return { layers = layers }
+end
+
+--- Une pièce fixe d'une patte de géant (bout haut, milieu, bout bas, articulation).
+local function piece_sprite(c, ombre)
+  local l = {
+    filename = ombre and c.lro or c.lr, width = c.lw, height = c.lh, shift = c.shift, scale = 2,
+    hr_version = { filename = ombre and c.hro or c.hr, width = c.w, height = c.h, shift = c.shift, scale = 0.5 },
+  }
+  if ombre then both(l, "draw_as_shadow", true) end
+  return l
+end
+
+--- Partie d'une patte : les bouts gardent leur taille, le milieu s'étire entre eux (SpiderLegPart).
+local function leg_part(pt, ombre)
+  return {
+    top_end = piece_sprite(pt.parts.top, ombre), middle = piece_sprite(pt.parts.mid, ombre), bottom_end = piece_sprite(pt.parts.bot, ombre),
+    top_end_length = pt.bout, bottom_end_length = pt.bout, middle_offset_from_top = pt.bout, middle_offset_from_bottom = pt.bout,
+  }
+end
+
+--- Géant à feuille : torse à plusieurs directions remonté de `hauteur` (le rendu est en place au sol), peinture teinte à l'exécution (LuaEntity.color),
+--- ombre au sol, positions de hanches et de pieds de la forme, une seule pièce de patte par partie.
+local function giant_graphics(s, sheet, nm)
+  local t = sheet.torse
+  local function raised(c)
+    local l = sheet_layer(c, t, sheet.directions)
+    local sh = { c.shift[1], c.shift[2] + sheet.hauteur }
+    both(l, "shift", sh)
+    return l
+  end
+  local layers = { raised(t.couches.main) }
+  local m = raised(t.couches.mask)
+  both(m, "apply_runtime_tint", true)
+  layers[#layers + 1] = m
+  if t.couches.glow then
+    local g = raised(t.couches.glow)
+    both(g, "draw_as_glow", true)
+    both(g, "blend_mode", "additive")
+    layers[#layers + 1] = g
+  end
+  local shadow = sheet_layer(t.couches.shadow, t, sheet.directions)
+  both(shadow, "draw_as_shadow", true)
+  local g_set = s.graphics_set
+  g_set.animation = { layers = layers }
+  g_set.shadow_animation = shadow
+  g_set.base_animation, g_set.shadow_base_animation, g_set.light_positions, g_set.eye_light, g_set.light = nil, nil, nil, nil, nil
+  s.height = sheet.hauteur
+  -- Moins de pattes que create_spidertron (Torique, 6) : les autres sont retirées, chacune bloque ses 2 voisines de cercle.
+  local n = #sheet.jambes
+  while #s.spider_engine.legs > n do table.remove(s.spider_engine.legs) end
+  for k, leg in ipairs(s.spider_engine.legs) do
+    if n < 8 then
+      leg.blocking_legs = { (k % n) + 1, ((k + n - 2) % n) + 1 }
+    end
+    local j = sheet.jambes[k]
+    leg.mount_position = { j.mx, j.my }
+    leg.ground_position = { j.gx, j.gy }
+    local proto = data.raw["spider-leg"][nm .. "-leg-" .. k]
+    proto.part_length = sheet.part_length
+    proto.graphics_set = {
+      upper_part = leg_part(sheet.pattes.haut, false), lower_part = leg_part(sheet.pattes.bas, false),
+      upper_part_shadow = leg_part(sheet.pattes.haut, true), lower_part_shadow = leg_part(sheet.pattes.bas, true),
+      joint = piece_sprite(sheet.pattes.genou, false), joint_turn_offset = 0,
+    }
+  end
+end
+
+--- Une machine, pas un insecte : ni cadavre ni cri de cracheur (le copié en vient).
+local function as_machine(u, sheet, class)
+  local turret = assert(data.raw["ammo-turret"]["gun-turret"], "robots : gun-turret absente")
+  u.corpse = class == "P" and "small-remnants" or "medium-remnants"
+  u.dying_explosion = class == "G" and "big-explosion" or "explosion"
+  u.damaged_trigger_effect = turret.damaged_trigger_effect
+  u.dying_sound, u.working_sound, u.walking_sound, u.running_sound_animation_positions, u.water_reflection = nil, nil, nil, nil, nil
+  u.alternative_attacking_frame_sequence = nil -- celle du cracheur vise ses 16 images (« Frame index 3 is out of range », 1/11)
+  u.distance_per_frame = sheet.distance_per_frame
+  lib.set_icons(u, { { icon = sheet.icone, icon_size = 64, icon_mipmaps = 4 } })
+end
+
 --- Effet d'un tir : dégâts du robot (par type), en zone si `area`. Un robot sans dégâts (soutien) n'a que l'effet visuel.
 local function robot_ammo(r)
   local damage = { type = "damage", damage = { amount = r.shot.damage, type = r.dtype } }
@@ -246,12 +375,16 @@ local function make_unit(r, owner, i)
     projectile_creation_distance = 0.6,
     range_mode = "bounding-box-to-bounding-box",
     ammo_type = robot_ammo(r),
-    animation = spitterattackanimation(scale, t1, t2),
+    animation = SPR[r.id] and sheet_animation(SPR[r.id], "tir", owner) or spitterattackanimation(scale, t1, t2),
     sound = smg.attack_parameters.sound,
   }
-  u.run_animation = spitterrunanimation(scale, t1, t2)
+  u.run_animation = SPR[r.id] and sheet_animation(SPR[r.id], "run", owner) or spitterrunanimation(scale, t1, t2)
   u.ai_settings = { destroy_when_commands_fail = false, allow_try_return_to_spawner = false, do_separation = true }
-  lib.set_icons(u, icons_of("unit", CLASS_BASE[r.class], tint))
+  if SPR[r.id] then
+    as_machine(u, SPR[r.id], r.class)
+  else
+    lib.set_icons(u, icons_of("unit", CLASS_BASE[r.class], tint))
+  end
   return u
 end
 
@@ -294,8 +427,9 @@ for i, r in ipairs(Ro.ROBOTS) do
   out[#out + 1] = {
     type = "item", name = r.kit,
     localised_name = { "item-name." .. r.kit }, localised_description = { "item-description." .. r.kit },
-    icons = icons_of("item", r.is_giant and "spidertron" or "engine-unit", ROBOT_TINT[r.id]), subgroup = Ro.SUBGROUP,
-    order = string.format("b[kit]-%02d", i), stack_size = 1,
+    icons = SPR[r.id] and { { icon = SPR[r.id].icone, icon_size = 64, icon_mipmaps = 4 } }
+      or icons_of("item", r.is_giant and "spidertron" or "engine-unit", ROBOT_TINT[r.id]),
+    subgroup = Ro.SUBGROUP, order = string.format("b[kit]-%02d", i), stack_size = 1,
     -- Lot RB-3 : le kit « pose » l'unité du joueur (prototype `unit` ou `spider-vehicle`) : le cerveau lit ce lien dans les
     -- prototypes (items_to_place_this), sans nom ; un kit posé à la main est inscrit au registre par script/robots/usine.lua.
     place_result = place,
@@ -414,8 +548,9 @@ for _, g in ipairs(STUB) do
   s.trash_inventory_size = 0
   s.guns = { Ro.gun_name(r.id) }
   s.chain_shooting_cooldown_modifier = 1 -- l'araignée du jeu de base tire 2 fois plus vite en rafale (0,5) : RB-5 a mesuré des duels deux fois trop courts
-  s.icons = icons_of("item", "spidertron", ROBOT_TINT[r.id])
+  s.icons = SPR[r.id] and { { icon = SPR[r.id].icone, icon_size = 64, icon_mipmaps = 4 } } or icons_of("item", "spidertron", ROBOT_TINT[r.id])
   s.icon, s.icon_size, s.icon_mipmaps = nil, nil, nil
+  if SPR[r.id] then giant_graphics(s, SPR[r.id], nm) end
   for k = 1, 8 do
     local leg = data.raw["spider-leg"][nm .. "-leg-" .. k]
     if leg then leg.localised_name = { "fo-robots.unit-name", { "fo-robots.name-" .. r.id } } end

@@ -9,7 +9,9 @@
   avance, jamais sur la force de la cloche ni ses alliés, ni en cessez-le-feu ; fissures qui s'ouvrent à son passage, or qui refroidit puis cicatrice noire qui se referme par morceaux ;
   sol balayé ; poussière (`trivial-smoke`), éclats, lumière. Tous les objets de `rendering` du Glas ont un `time_to_live` : rien à nettoyer après.
 
-  Tant que le Portique (lot RB-5) n'existe pas, deux commandes de DÉMONSTRATION : /fo-bourdon, /fo-glas ; touche Ctrl + Maj + G (Glas vers le curseur) ; interface distante « fo-bourdon ».
+  Commandes de DÉMONSTRATION : /fo-bourdon, /fo-glas ; touche Ctrl + Maj + G (Glas vers le curseur) ; interface distante « fo-bourdon ».
+  FABRIQUÉ (lot ROBOTS-JEU, 3/11) : l'objet du Portique pose un relais remplacé par la descente (M.pose_fabrique), plafond de géants
+  vérifié ; un Bourdon vivant compte pour un géant (Armee.hooks.extra_giants). Les commandes de démonstration ne vérifient pas le plafond.
   Déterminisme : aucun `pairs`, RNG maison, table des directions (shared), forces triées par nom. `require` en tête de fichier (F24).
 ]]
 
@@ -17,6 +19,8 @@ local Events = require("script.core.events")
 local Storage = require("script.core.storage")
 local B = require("shared.robots.bourdon")
 local SPR = require("graphics.robots.bourdon.sprites")
+local Armee = require("script.robots.armee") -- lot ROBOTS-JEU : plafond de géants d'un Bourdon fabriqué
+local Mo = require("shared.robots.modele")
 
 local M = {}
 
@@ -860,6 +864,54 @@ commands.add_command("fo-glas", { "fo-bourdon.aide-glas" }, function(cmd)
   local player = cmd.player_index and game.get_player(cmd.player_index)
   if player then glas_du_joueur(player) end
 end)
+
+-- ---------------------------------------------------------------------------------------- fabriqué (lot ROBOTS-JEU, 3/11)
+--- Bourdons vivants d'une force (liste dans l'ordre de création) : ils comptent pour des géants au plafond (Armee.giants).
+function M.compte(force_name)
+  local etat = st()
+  local n = 0
+  if not etat then return 0 end
+  for _, b in ipairs(etat.liste) do
+    if b.e and b.e.valid and b.e.force.name == force_name then n = n + 1 end
+  end
+  return n
+end
+Armee.hooks.extra_giants = M.compte
+
+--- L'objet fabriqué au Portique a posé le relais : il est retiré et le Bourdon descend à sa place, si le plafond de géants le permet ;
+--- sinon l'objet est rendu (au joueur, ou au sol). Rend le numéro du Bourdon, ou nil.
+function M.pose_fabrique(relais, player)
+  local surface, force, p = relais.surface, relais.force, relais.position
+  local x, y = p.x, p.y
+  relais.destroy()
+  local id
+  if B.peut_poser({ actif = Armee.enabled(), geants = Armee.giants(force.name), admis = Mo.giants_allowed(Armee.age(force)) }) then
+    id = M.descendre(surface, force, x, y)
+  end
+  if not id then
+    local rendu = (player and player.valid) and player.insert({ name = B.OBJET, count = 1 }) or 0
+    if rendu < 1 then surface.spill_item_stack({ x, y }, { name = B.OBJET, count = 1 }, true) end
+    dire(player and player.valid and player or nil, "fo-bourdon.refuse")
+    log(string.format("[FO-BOURDON] pose refusee (plafond de geants ou robots eteints) force=%s geants=%d", force.name, Armee.giants(force.name)))
+    return nil
+  end
+  log(string.format("[FO-BOURDON] fabrique pose %d force=%s (%.1f, %.1f) geants=%d/%d", id, force.name, x, y, Armee.giants(force.name),
+    Mo.giants_allowed(Armee.age(force))))
+  if player and player.valid then
+    dire(player, "fo-bourdon.pose")
+    donner_telecommande(player, trouve(id))
+  end
+  return id
+end
+
+local function sur_pose(ev)
+  local e = ev.created_entity or ev.entity
+  if not (e and e.valid and e.name == B.POSE) then return end
+  M.pose_fabrique(e, ev.player_index and game.get_player(ev.player_index) or nil)
+end
+Events.on(defines.events.on_built_entity, sur_pose)
+Events.on(defines.events.on_robot_built_entity, sur_pose)
+Events.on(defines.events.script_raised_built, sur_pose)
 
 Events.on("fo-bourdon-glas", function(ev)
   local player = game.get_player(ev.player_index)
