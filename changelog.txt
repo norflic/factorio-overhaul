@@ -1,4 +1,30 @@
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Version: 0.6.50
+Date: 2026-11-04
+  Changes:
+    - Azure (et toute faction) ne reste plus bloquee a defricher : la revue des obstacles d'un chantier (8 par passe, a tour de role) revenait toujours aux memes 8 obstacles ; les obstacles deja vides au-dela n'etaient jamais fermes et leurs defrichages revenaient sans fin (cause mesuree sur la partie du DC, graine 717152950 : 68 obstacles vides jamais revus, PNJ pris 55 min). Avec la correction, sur cette partie : defrichages d'Azur par 5 min de 30-44 a 0-22, fabrications reprises (15 a 53 par 5 min), packs verts qui montent apres 49 min (94 a 114), pack chimique fabrique.
+    - Recherche des factions : une recherche n'est plus promue pour un pack nouveau tant que ce pack n'est pas fabrique (5 au stock) ; plus d'arret des laboratoires faute de pack chimique (0 contre 6 sur 3 graines).
+    - Regle B (bandes de champ) : une bande en chantier lent depuis 15 min ou abandonnee voit ses foreuses thermiques et leurs fours reposes (tuiles libres) et revient en reserve ; a la 2e fois, elle reste en reserve sans nouvel essai (choix du DC), sans rien annuler ni laisser d'entites orphelines ; l'attente des matieres apres un retour est bornee. 1er retour vu en jeu sur la branche du lot (17 paires reposees sur 20, graine 20261020) ; sur la 0.6.50 complete, la meme graine n'a plus de bande qui cale (aucun retour declenche, 90 min) ; le 2e retour n'est prouve que par les tests hors jeu.
+    - Preuves : content 554 OK ; verif-guide 16 OK sur 123456789, 1618033988 et 271828182 ; 20261020 a 90 min : 15 OK, 1 ECHEC (fer de votre equipe, connu depuis 0.6.41) ; partie aux reglages du DC (graine 717152950, 4 factions, Impitoyable) ; pvp 1309 OK ; migration d'une sauvegarde 0.6.41 : 3 ECHEC identiques a la 0.6.47.
+    - Tourelles du QG de votre equipe : en peril, le groupe du QG ne compte plus les tourelles des avant-postes voisins (plus de 22 tourelles posees l'une apres l'autre) ; lignes de 4 au plus, carre 2x2 sur une diagonale (les bouts d'une ligne diagonale ne se couvraient plus), 6 tuiles d'ecart minimum ; journal de la pose de depart.
+    - Limites connues : Azure n'atteint toujours pas l'age 2 sur la partie du DC (1 amelioration payee, condition sur les tourelles pendant 32 min : defaut ouvert) ; quelques trajets de defrichage a vide (au plus 6 par heure), bornes.
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Version: 0.6.49
+Date: 2026-11-04
+  Changes:
+    - Munitions des tourelles de votre equipe : tournees qui chargent les tourelles, choix de munition stable ; un QG en peril part avec ce qui couvre d'abord les tourelles vides (15 chargeurs au lieu de 40) ; un echange de munition ne fait jamais baisser une tourelle ; plus de prise en double ; en passage a la perforante, les tourelles qui ne peuvent rien recevoir sont sautees.
+    - Tourelles du QG de votre equipe posees en lignes de 4 des la pose (ecart 6, a 10 tuiles du coffre, cote des nids ou des pertes), sans teleport ; aucune tourelle existante n'est deplacee. Sur la graine 1618033988, le QG tient avec 2 tourelles au lieu de 4 ; une seule partie par graine ne prouve pas la cause.
+    - Bourdon : il sort seul du Portique et vole au ralliement de l'usine ; on le choisit et on le commande a l'outil Armee (aller, Glas sur les ennemis), la telecommande et Ctrl+Maj+G restent ; un Glas commande pendant un vol reverifie la portee a l'atterrissage ; la sortie automatique est reservee au joueur. A verifier en jeu : pour le choisir, encadrer la base, sous la cloche (dessinee environ 23 tuiles plus haut).
+    - Robots geants : un 2e geant autorise etait refuse dans le meme balayage de l'usine (compte deux fois depuis RB-5) : corrige.
+    - Ecaille et Bobineur a 16 directions (80 rendus neufs) : rotation fluide.
+    - Robots experimentaux : 5 petits robots-defenses (Mat-Foudre, Geode, Sarracenie, Demi-Vie, Veilleuse ; emprise 3x3) et 5 geants (Cairn, Stylet, Trombe, Ixion, Tournesol), fabriques au Dock ou au Portique. Chiffres non calibres ; aucune faction ne les fabrique.
+    - Chimie : vapocraqueur, reformeur, electrolyseur et colonne d'extraction ont leur propre visuel dans les 4 directions, lueur au travail, flaque de nuit du vapocraqueur.
+    - Ateliers : torchere (flamme), concasseur, broyeur a machoires, bobineuse et taillerie ont leur propre visuel ; raccords alignes sur les tuyaux dans les 4 directions.
+    - Calcul : salle blanche refaite, unite cryogenique, centre et grand centre de calcul, groupe froid, scie a fil et tour de refroidissement sans tuyaux dessines ; lueurs corrigees.
+    - Metallurgie : lumiere au sol plus forte la nuit (haut fourneau, cuve d'electrolyse).
+    - Preuves : content 554 OK ; verif-guide 16 OK sur 123456789, 1618033988 et 271828182 ; migration d'une sauvegarde 0.6.41 : 3 ECHEC identiques a la 0.6.47 (recettes de robots, statut 21) ; pvp 1309 OK ; memoire video au plancher (5 343 batiments) : 14 pages d'atlas virtuel (13 en 0.6.48), pic 0,49 Go, 60 UPS dans toutes les vues.
+    - Limites connues : pieces mobiles des ateliers et de la chimie non animees ; geants : debut des arcs du Cairn cache par le corps, laser du Tournesol fin, pics de glace identiques, corps sans animation ; petits experimentaux : fusion d'un vert plat, pointes de la Geode identiques ; la regle B (retour en arriere des bandes de champ) n'est PAS dans cette version (0.6.50).
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Version: 0.6.48
 Date: 2026-11-04
   Changes:

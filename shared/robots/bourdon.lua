@@ -323,4 +323,51 @@ function B.peut_poser(p)
   return (p.geants or 0) < (p.admis or 0)
 end
 
+-- ------------------------------------------------------------------------------------------------ sortie du Portique (lot BOURDON-SORTIE, 4/11)
+-- QCM-4/11 du DC : « sortie automatique mais on doit pouvoir les déplacer manuellement hein, contrôler les robots ». Le Bourdon fini SORT SEUL
+-- du Portique, comme un kit de robot (script/robots/usine.lua, balayage toutes les 60 ticks) : il descend au point de sortie de l'usine, puis
+-- vole à son ralliement. Plafond atteint : l'objet reste en sortie et le Portique s'arrête, comme pour les autres géants.
+B.RALLIEMENT_MIN = 6 -- tuiles : plus près que cela du point de descente, il reste posé (ni ancres levées, ni vol pour rien)
+
+--- Le Bourdon en sortie d'un Portique doit-il sortir ? p = { objets (Bourdons finis dans la sortie), faction (vrai : l'usine est à une faction),
+--- actif, geants (géants vivants de la force, Bourdons compris), admis }.
+--- Lot BOURDON-MINEURS (4/11) : `geants` compte déjà les géants sortis pendant le même balayage (Armee.create les inscrit au registre, et un Bourdon
+--- descendu est dans la liste du script dès M.descendre) : plus de compte « deja » en plus, qui les comptait deux fois.
+--- Une FACTION ne sort pas de Bourdon : aucune ne le commande (le cerveau ne voit que les objets qui posent une unité, et l'objet pose un relais),
+--- et le Bourdon n'a pas de rôle de faction (ni garnison, ni raid : script/faction/military.lua ne l'adopte pas) ; l'objet resterait en sortie.
+function B.sortie(p)
+  if type(p) ~= "table" or (p.objets or 0) < 1 or p.faction then return false end
+  return B.peut_poser({ actif = p.actif, geants = p.geants, admis = p.admis })
+end
+
+-- Commande par l'outil Armée (lot BOURDON-SORTIE) : les ordres de l'outil (script/robots/outils.lua) deviennent un vol et un Glas.
+B.APPROCHE = 35.0 -- tuiles : une cible hors de portée, il s'arrête à cette distance d'elle, sur la droite qui l'y mène, puis sonne
+
+--- Ordre `kind` au Bourdon posé en p = { x, y } vers c = { x, y } : « move » -> { aller = c } ; « attack » : à portée (B.PORTEE_AUTO)
+--- -> { glas = c } ; plus loin -> { aller = point à B.APPROCHE de c, glas = c } (il y va, puis sonne). nil : ordre inconnu ou point invalide.
+function B.ordre(kind, p, c)
+  if type(p) ~= "table" or type(c) ~= "table" then return nil end
+  local px, py, cx, cy = p.x or p[1], p.y or p[2], c.x or c[1], c.y or c[2]
+  if type(px) ~= "number" or type(py) ~= "number" or type(cx) ~= "number" or type(cy) ~= "number" then return nil end
+  if kind == "move" then return { aller = { x = cx, y = cy } } end
+  if kind ~= "attack" then return nil end
+  local dx, dy = cx - px, cy - py
+  local d = math.sqrt(dx * dx + dy * dy)
+  if d <= B.PORTEE_AUTO then return { glas = { x = cx, y = cy } } end
+  local k = (d - B.APPROCHE) / d
+  return { aller = { x = px + dx * k, y = py + dy * k }, glas = { x = cx, y = cy } }
+end
+
+--- Lot BOURDON-MINEURS : un Glas en attente (commandé pendant un vol, une descente ou une recharge) est REVÉRIFIÉ au moment de partir, depuis
+--- la position où la cloche s'est posée : à portée, il sonne ({ glas }) ; sinon elle s'approche d'abord ({ aller, glas }), l'attente est gardée.
+function B.reprise_glas(p, cible) return B.ordre("attack", p, cible) end
+
+--- Après sa descente au point (x, y), le Bourdon vole-t-il au ralliement r = { x, y } ? Rend r, ou nil s'il est absent ou trop près.
+function B.ralliement(x, y, r)
+  if type(r) ~= "table" or type(r.x) ~= "number" or type(r.y) ~= "number" then return nil end
+  local dx, dy = r.x - x, r.y - y
+  if dx * dx + dy * dy < B.RALLIEMENT_MIN * B.RALLIEMENT_MIN then return nil end
+  return { x = r.x, y = r.y }
+end
+
 return B

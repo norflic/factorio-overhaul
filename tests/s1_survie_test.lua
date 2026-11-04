@@ -369,6 +369,16 @@ local function pl_facts(Pl, PrX)
   local pr = Pl.plan(view({ stock = { [IRON] = 100, [COPPER] = 200, [T.turret_ammo] = 15 }, hq_turrets = 4,
     turret_groups = { { key = "o1", low = 1, has_task = false }, { key = "hq", low = 2, has_task = false } }, qg_peril = PERIL }), book_norecipe)
   f.F_norecipe_refill = keys_of(pr)["refill:hq"] and 1 or 0
+  -- G (lot HQ-RECENSEMENT) : péril, 9 tourelles au recensement à 48 tuiles (avant-postes voisins compris) dont 4 du groupe « hq »,
+  -- aucune à poser (fresh = 0), tourelles au stock : le groupe « hq » ne veut pas les 9 (avant : tâche fortify:hq, une pose en appelait une autre) ;
+  -- avec fresh = 2 : 4 + 2 = 6, la tâche part
+  local stock_g = { [IRON] = 100, [COPPER] = 200, ["gun-turret"] = 4, [T.turret_ammo] = 80, coal = 100, stone = 100 }
+  local pg0 = Pl.plan(view({ stock = stock_g, hq_turrets = 4, hq_defend = 4, survie = true,
+    qg_peril = { peril = true, want = 9, fresh = 0, refill = 0, cause = "menace" } }), book)
+  f.G_census_fortify = keys_of(pg0)["fortify:hq"] and 1 or 0
+  local pg2 = Pl.plan(view({ stock = stock_g, hq_turrets = 4, hq_defend = 4, survie = true,
+    qg_peril = { peril = true, want = 11, fresh = 2, refill = 0, cause = "menace" } }), book)
+  f.G_fresh_fortify = keys_of(pg2)["fortify:hq"] and 1 or 0
   -- D : un péril qui n'est pas un péril (peril = false) ne change rien
   local p0 = Pl.plan(view({ stock = stock_a, hq_turrets = 4, hq_defend = 4, survie = true }), book)
   local p1 = Pl.plan(view({ stock = stock_a, hq_turrets = 4, hq_defend = 4, qg_peril = { peril = false, want = 9 }, survie = true }), book)
@@ -387,6 +397,8 @@ check(L0.E_peril_o1_alone == 0, "en péril, un avant-poste seul avec 15 chargeur
 check(L0.F_norecipe_mode == Pr.MODE_SURVIE_PENURIE and L0.F_norecipe_pf and L0.F_norecipe_refill == 1,
   "sans recette de tourelle (ni au stock) : le péril ne prend pas le pas sur la production (survie-pénurie gardée), mais les tourelles posées se remplissent")
 check(L0.D_same == 1, "peril = false : plan d'avant")
+check(L0.G_census_fortify == 0 and L0.G_fresh_fortify == 1,
+  "péril, 9 tourelles au recensement dont 4 au QG, fresh 0 : aucune pose au QG ; fresh 2 : la pose part (le groupe « hq » veut hq + fresh)")
 
 ---------------------------------------------------------------------------------------------------
 section("5. La chaîne lue dans les sources : chaque maillon appelle la règle")
@@ -407,7 +419,7 @@ check(has(src.prev, "Pv.mem_floor(st.cal, \"qg\", tick)") and has(src.prev, "fun
 check(has(src.planner, "local qg_peril = peril_seen and turret_ok") and has(src.planner, "peril = in_peril,") and has(src.planner, "Sq.floors(in_peril, T.defend_iron_floor, T.defend_copper_floor)"),
   "maillon 5 (planificateur) : le péril passe à Pr.decide et réduit les planchers")
 check(has(src.planner, "if g.key == \"hq\" then groups[#groups + 1] = g end"), "maillon 5 ter (planificateur) : le groupe du QG est servi d'abord en péril")
-check(has(src.planner, "qg_peril and math.max(dc.want, qp.want or 0) or dc.want") and has(src.planner, "Sq.refill_take(g.low, T.turret_ammo_target"),
+check(has(src.planner, "qg_peril and math.max(dc.want, qwant) or dc.want") and has(src.planner, "local qwant = qp and (qp.hq_want or (view.hq_turrets or 0) + (qp.fresh or 0)) or 0") and has(src.planner, "Sq.refill_take(g.low, T.turret_ammo_target"),
   "maillon 5 bis (planificateur) : tourelles voulues au QG et remplissage partiel")
 check(has(src.prio, "if a.peril and not a.survival then"), "maillon 6 (priorité) : Pr.decide force la défense d'abord")
 check(has(src.capi, "Sv.capi(Survie.on(f) and not (view.qg_peril and view.qg_peril.peril)"), "maillon 7 (capitalisation) : le péril lève le mode survie de la capitalisation")
@@ -461,7 +473,7 @@ local mutants = {
   { "seuil de menace exclusif", "Sq", "if threat < Sq.MIN_THREAT or value <= 0 then return out end", "if threat <= Sq.MIN_THREAT or value <= 0 then return out end" },
   { "pas de marge sur la menace", "Sq", "local need = math.floor(threat * Sq.COVER_PCT / 100)", "local need = threat" },
   { "pas d'hystérésis", "Sq", "local limit = a.was and math.floor(need * Sq.EXIT_PCT / 100) or need", "local limit = need" },
-  { "entrée à la cible incluse", "Sq", "if armed_value >= limit then return out end", "if armed_value > limit then return out end" },
+  { "entrée à la cible incluse", "Sq", "if held >= limit then return out end", "if held > limit then return out end" },
   { "cause munitions jamais", "Sq", "out.cause = (turrets > armed and turrets * value >= need) and \"munitions\" or \"menace\"", "out.cause = \"menace\"" },
   { "cause munitions sans le nombre", "Sq", "(turrets > armed and turrets * value >= need)", "(turrets > armed)" },
   { "pas de plafond de tourelles", "Sq", "if cap > 0 and want > cap then", "if false then" },
@@ -500,7 +512,8 @@ local mutants = {
   { "remplissage conditionné à la recette", "Pl", "  if peril_seen then" .. string.char(10) .. "    groups = {}", "  if in_peril then" .. string.char(10) .. "    groups = {}" },
   { "plancher du QG non réduit", "Pl", "if p.id == \"hq\" and (qg_peril or protect_any) then fi, fc, reduced = fl_i, fl_c, true end", "" },
   { "planchers ordinaires partout", "Pl", "local fl_i, fl_c = Sq.floors(in_peril, T.defend_iron_floor, T.defend_copper_floor)", "local fl_i, fl_c = T.defend_iron_floor, T.defend_copper_floor" },
-  { "tourelles voulues du péril ignorées", "Pl", "want = qg_peril and math.max(dc.want, qp.want or 0) or dc.want", "want = dc.want" },
+  { "tourelles voulues du péril ignorées", "Pl", "want = qg_peril and math.max(dc.want, qwant) or dc.want", "want = dc.want" },
+  { "groupe hq au recensement (défaut d'avant HQ-RECENSEMENT)", "Pl", "(qp.hq_want or (view.hq_turrets or 0) + (qp.fresh or 0))", "(qp.hq_want or qp.want)" },
   { "remplissage partiel retiré", "Pl", "local part = (g.key == \"hq\" and peril_seen) and Sq.refill_take", "local part = 0 and Sq.refill_take" },
   { "le QG en péril n'est pas servi d'abord", "Pl", "    for _, g in ipairs(view.turret_groups) do if g.key == \"hq\" then groups[#groups + 1] = g end end", "" },
   { "remplissage partiel pour tout groupe", "Pl", "local part = (g.key == \"hq\" and peril_seen) and Sq.refill_take", "local part = (peril_seen) and Sq.refill_take" },

@@ -435,7 +435,11 @@ local function executor_run(scn)
   _G.defines = { direction = { north = 0, east = 2, south = 4, west = 6 }, inventory = { furnace_source = 1, furnace_result = 2, fuel = 3 },
     entity_status = { working = 1, no_power = 2, waiting_for_space_in_destination = 3, no_fuel = 4 } } -- (lot THERMIQUE6 : made_by lit l'état des fours)
   local sink_name, drill_name, edrill_name = T.outposts.iron.sink, T.DRILL, T.DRILL_ELECTRIC
-  _G.game = { tick = 0, entity_prototypes = {
+  _G.game = { tick = 0, recipe_prototypes = {
+    -- (lot AZURE : recettes dépliées par Rb.plan pour refaire une foreuse ou un four dépensés)
+    [T.DRILL] = { products = { { name = T.DRILL, amount = 1 } }, ingredients = { { type = "item", name = "iron-plate", amount = 9 } } },
+    [T.outposts.iron.sink] = { products = { { name = T.outposts.iron.sink, amount = 1 } }, ingredients = { { type = "item", name = "stone", amount = 5 } } },
+  }, entity_prototypes = {
     [sink_name] = { type = "furnace", tile_width = 2, tile_height = 2 },
     [drill_name] = { type = "mining-drill", tile_width = 2, tile_height = 2 },
     [edrill_name] = { type = "mining-drill", tile_width = 3, tile_height = 3 },
@@ -452,6 +456,7 @@ local function executor_run(scn)
   local State = {
     sorted_keys = function(t) local ks = {} for k in pairs(t or {}) do ks[#ks + 1] = k end table.sort(ks) return ks end,
     disown = function(u) disowned[u] = true end,
+    own = function() end, -- (lot AZURE : rollback() repose des paires possédées)
   }
   -- plan directeur factice : demandes et annulations
   local Build = { requests = {}, cancels = {} }
@@ -467,9 +472,12 @@ local function executor_run(scn)
     local p = f.build.projects[id]
     if not p or not (p.state == "attente" or p.state == "plan" or p.state == "reserve") then return false end
     p.state, p.reason = "refuse", why
+    p.ents, p.parts = {}, {} -- (comme le vrai Build.cancel : les entités bâties et les fantômes du monde restent, orphelines)
     Build.cancels[#Build.cancels + 1] = { id, why }
     return true
   end
+  Build.gave = {}
+  Build.give_back = function(f, p) Build.gave[#Build.gave + 1] = p.id end -- (lot AZURE : matière rendue au coffre)
   local saved = {}
   for _, name in ipairs({ "script.faction.state", "script.team.stock", "script.team.build", "script.team.migration_champ" }) do
     saved[name] = package.loaded[name]
@@ -501,8 +509,10 @@ local function executor_run(scn)
     local e = { valid = true, name = name, type = etype, unit_number = nextu, position = { x = x, y = y }, direction = dir or 0,
       prototype = { tile_width = w, tile_height = h }, products_finished = 0, inv = {} }
     e.fuel_n = 5 -- (lot THERMIQUE5 : combustible au réservoir, lu par has_fuel ; 0 : brûleur à sec)
+    e.force = { name = "player" }
     e.get_fuel_inventory = function()
-      return { get_contents = function() return e.fuel_n > 0 and { coal = e.fuel_n } or {} end, is_empty = function() return e.fuel_n <= 0 end }
+      return { get_contents = function() return e.fuel_n > 0 and { coal = e.fuel_n } or {} end, is_empty = function() return e.fuel_n <= 0 end,
+        insert = function(st) e.fuel_n = e.fuel_n + st.count; return st.count end } -- (lot AZURE : combustible reposé avec les paires)
     end
     e.get_inventory = function(id)
       return { get_contents = function() if id == defines.inventory.furnace_result then return { [T.outposts.iron.product] = 3 } end return {} end }
@@ -525,6 +535,7 @@ local function executor_run(scn)
       order = {}, next_id = 1, occ = {}, sante = { healthy = scn.power ~= false } },
   }
   local fake_furnaces = {}
+  local made = {} -- (lot AZURE : entités créées par rollback())
   local surface = {
     find_nearest_enemy = function(args)
       if scn.enemy and scn.enemy(game.tick) then return { valid = true } end
@@ -538,12 +549,37 @@ local function executor_run(scn)
       return out
     end,
     spill_item_stack = function(pos, stack) spilled[#spilled + 1] = stack end,
+    -- lot AZURE : pose des paires reposées par rollback() (tuiles prises : scn.busy["x,y"])
+    find_entity = function(name, pos)
+      for _, list in ipairs({ o.drill_list, o.sinks }) do
+        for _, e in ipairs(list) do
+          if e.valid and e.name == name and e.position.x == pos[1] and e.position.y == pos[2] then return e end
+        end
+      end
+    end,
+    can_place_entity = function(a)
+      local busy = scn.busy or {}
+      if busy[string.format("%g,%g", a.position[1], a.position[2])] then return false end
+      for _, list in ipairs({ o.drill_list, o.sinks }) do
+        for _, e in ipairs(list) do
+          if e.valid and e.name == a.name and e.position.x == a.position[1] and e.position.y == a.position[2] then return false end
+        end
+      end
+      return true
+    end,
+    create_entity = function(a)
+      local proto = game.entity_prototypes[a.name]
+      local e = entity(a.name, proto and proto.type or "container", a.position[1], a.position[2], 2, 2, a.direction)
+      e.fuel_n = 0
+      made[#made + 1] = e
+      return e
+    end,
   }
   local book = { handcraftable = function() return true end }
   local free = { [T.outposts.iron.product] = scn.plates or 800, [edrill_name] = 4 }
   chest[T.outposts.iron.product] = scn.plates or 800
 
-  local E = { f = f, o = o, pl = pl, logs = logs, chest = chest, Build = Build, spilled = spilled, disowned = disowned, Mig = Mig, surface = surface,
+  local E = { made = made, f = f, o = o, pl = pl, logs = logs, chest = chest, Build = Build, spilled = spilled, disowned = disowned, Mig = Mig, surface = surface,
     book = book, free = free, lot = P.lot_key(i, j), by_unit = by_unit }
   function E.alive()
     local n = 0
@@ -740,7 +776,9 @@ do
 end
 
 do
-  -- D bis. Un chantier qui n'aboutit jamais : la migration s'arrête, le plan garde son projet, l'avant-poste garde ses paires restantes
+  -- D bis. Un chantier qui n'aboutit jamais (lot AZURE, décision du DC du 3/11 : « si la bande est en chantier lent ou abandonnée, les foreuses
+    -- thermiques et leurs fours sont reposés sur leurs positions si les tuiles sont libres, et la bande revient en réserve ») : avant, la
+    -- migration s'arrêtait en « partiel », paires retirées pour toujours (azure, 38 paires, 100 min sans fer) ; désormais les paires reviennent
   local E = executor_run({ pairs = 8 })
   E.think()
   local p = E.project()
@@ -750,14 +788,10 @@ do
   local left = E.alive()
   drive_plan(E, p, "chantier")
   for _ = 1, math.floor(CFG.build_max / CFG.every) + 3 do E.think() end
-  -- (lot THERMIQUE5, revue du 3/11 : des paires DÉJÀ retirées ne reviennent pas ; avant, « abandon » rendait l'avant-poste extensible et des
-  -- brûleurs se reposaient sur la place retirée : Azure 20261020, 6 paires de cuivre retirées, puis 3 -> 6 brûleurs)
-  check(E.f.migration.cur == nil and E.o.migr == "partiel", "Dbis1 : chantier sans issue après un retrait : plus de suivi, l'avant-poste « partiel »")
-  check(not E.f.migration.o[1].abandoned and E.o.full == true, "Dbis2 : paires déjà retirées : l'avant-poste reste fermé aux brûleurs")
-  check(E.alive() == left and p.state == "chantier", "Dbis3 : les paires restantes et le projet du plan ne sont pas touchés")
-  local n = #E.Build.requests
-  for _ = 1, 10 do E.think() end
-  check(#E.Build.requests == n, "Dbis4 : aucune nouvelle demande")
+  check(left < 8 and E.alive() == 8, "Dbis1 : chantier sans issue après un retrait : les paires retirées sont reposées (" .. E.alive() .. " sur 8)")
+  check(E.f.migration.o[1].rollbacks == 0 and p.state == "refuse" and #E.Build.cancels >= 1,
+    "Dbis2 : la bande revient en réserve, puis (matières jamais réunies, AUCUNE entité bâtie) le plan l'annule ; compte des retours remis à 0 (revue A2)")
+  check(table.concat(E.logs, "\n"):find("[FO-ROLLBACK]", 1, true) ~= nil, "Dbis3 : journal [FO-ROLLBACK]")
   E.restore()
 end
 
@@ -1765,6 +1799,276 @@ do
     if bad == 0 then survivors = survivors + 1 end
   end
   print(string.format("[MIGRATION-CHAMP] THERMIQUE : exécutant, mutants %d refusés sur %d", #mutants - survivors, #mutants))
+end
+
+---------------------------------------------------------------------------------------------------
+-- 10. Lot AZURE : retour en arrière (retire garde les paires ; chantier sans progrès 15 min ou abandon : elles reviennent)
+---------------------------------------------------------------------------------------------------
+section("10. AZURE : retour en arrière")
+local Rb = require("shared.team.migration_retour")
+do
+  --- Monde simulé du retour : executor_run pose les entités reposées (tuiles prises : scn.busy, clés "x,y").
+  local function world(scn, mutator)
+    scn = scn or {}
+    scn.mutant = mutator
+    local E = executor_run(scn)
+    E.key = function(pos) return string.format("%g,%g", pos[1], pos[2]) end
+    return E
+  end
+
+  --- Amène la partie au chantier (paires retirées) : rend le projet et le suivi.
+  local function to_chantier(E)
+    E.think()
+    local p = E.project()
+    drive_plan(E, p, "plan"); E.think()
+    drive_plan(E, p, "materiaux"); E.think()
+    drive_plan(E, p, "degel"); E.think()
+    drive_plan(E, p, "chantier")
+    return p, E.f.migration.o[1]
+  end
+
+  local function battery(mutator)
+    local r = {}
+    -- A. retrait puis chantier sans progrès : après 15 min les paires reviennent, la bande attend en réserve
+    do
+      local E = world({ pairs = 8 }, mutator)
+      local p, st = to_chantier(E)
+      local band_n = #st.ids
+      local left = E.alive()
+      r.a1 = left == 8 - band_n and st.undo ~= nil and #st.undo == band_n and st.undo[1].sink ~= nil and st.undo[1].name == T.DRILL
+      p.retry_at = 99999 -- (un projet « bloque » repris par le plan : la reprise est effacée par le retour)
+      E.think() -- premier relevé du suivi
+      for _ = 1, math.floor(Rb.CFG.stall / CFG.every) - 3 do E.think() end
+      r.a2 = E.alive() == left and st.stage == "chantier" -- pas encore 15 min
+      for _ = 1, 6 do E.think() end
+      r.a3 = E.alive() == 8 and #E.made == 2 * band_n
+      r.a4 = p.state == "reserve" and p.retry_at == nil and p.degele == nil and st.stage == "projet" and st.undo == nil and st.rollbacks == 1 and st.cool ~= nil
+      r.a5 = (E.chest[T.DRILL] or 0) == 0 and (E.chest[T.outposts.iron.sink] or 0) == 0
+      local jr = table.concat(E.logs, "\n")
+      r.a6 = jr:find("[FO-ROLLBACK] essai", 1, true) ~= nil and jr:find(string.format("%d paire(s) gardee(s), %d reposee(s)", band_n, band_n), 1, true) ~= nil
+        and jr:find("chantier-lent", 1, true) ~= nil and jr:find("bande remise en reserve", 1, true) ~= nil
+      local fsum = 0
+      for _, e in ipairs(E.made) do fsum = fsum + e.fuel_n end
+      r.a7 = fsum == 5 * band_n and (E.chest.coal or 0) == 0 and #E.o.drill_list >= 8 and E.o.drills == 8
+      -- la pause : le plan est de nouveau à « degel » mais rien n'est retiré avant la fin de la pause
+      drive_plan(E, p, "degel")
+      for _ = 1, 20 do E.think() end
+      r.a8 = E.alive() == 8 and not p.degele
+      for _ = 1, math.floor(Rb.CFG.cool / CFG.every) do E.think() end
+      r.a9 = E.alive() == 8 - band_n and p.degele == true and st.stage == "chantier"
+      E.restore()
+    end
+    -- B. un chantier qui avance : jamais de retour (une entité de plus toutes les 10 min pendant 80 min)
+    do
+      local E = world({ pairs = 8 }, mutator)
+      local p, st = to_chantier(E)
+      local left = E.alive()
+      local per = math.floor(10 * 3600 / CFG.every)
+      for k = 1, 8 do
+        p.ents[#p.ents + 1] = { name = D.PARTS.belt, x = 6000 + k, y = 6000, dir = 0, built = true }
+        for _ = 1, per do E.think() end
+      end
+      r.b1 = E.alive() == left and st.stage == "chantier" and st.rollbacks == nil and #E.made == 0
+      r.b2 = table.concat(E.logs, "\n"):find("[FO-ROLLBACK]", 1, true) == nil
+      E.restore()
+    end
+    -- C. abandon (90 min depuis le retrait, un progrès toutes les 10 min) : les paires reviennent, l'avant-poste est rendu
+    do
+      local E = world({ pairs = 8 }, mutator)
+      local p, st = to_chantier(E)
+      local per = math.floor(10 * 3600 / CFG.every)
+      for k = 1, 11 do
+        p.ents[#p.ents + 1] = { name = D.PARTS.belt, x = 6000 + k, y = 6000, dir = 0, built = true }
+        for _ = 1, per do E.think() end
+      end
+      -- (revue A6) des paires ont été retirées : l'avant-poste reste fermé aux brûleurs (« partiel »), jamais « abandon » ; le projet n'est pas annulé
+      r.c1 = E.alive() == 8 and E.o.migr == "partiel" and E.o.full == true and not st.abandoned and st.undo == nil and #E.Build.cancels == 0
+        and #p.ents > 0 and p.state == "bloque" and p.parked == true and p.retry_at == nil and #E.Build.gave == 1
+      local jr = table.concat(E.logs, "\n")
+      r.c2 = jr:find("[FO-ROLLBACK]", 1, true) ~= nil and jr:find("(abandon)", 1, true) ~= nil and jr:find("n'aboutit pas", 1, true) ~= nil
+      E.restore()
+    end
+    -- D. tuiles prises : seules les paires dont les tuiles sont libres reviennent
+    do
+      local busy = {}
+      local E = world({ pairs = 8, busy = busy }, mutator)
+      local p, st = to_chantier(E)
+      local band_n = #st.ids
+      local left = E.alive()
+      busy[E.key({ st.undo[1].x, st.undo[1].y })] = true
+      for _ = 1, math.floor(Rb.CFG.stall / CFG.every) + 3 do E.think() end
+      r.d1 = E.alive() == left + band_n - 1
+      r.d2 = table.concat(E.logs, "\n"):find(string.format("%d paire(s) gardee(s), %d reposee(s), 1 tuile(s) prise(s)", band_n, band_n - 1), 1, true) ~= nil
+      E.restore()
+    end
+    -- E. une ligne qui a produit : jamais de retour
+    do
+      local E = world({ pairs = 8 }, mutator)
+      local p, st = to_chantier(E)
+      drive_plan(E, p, "fini")
+      E.think()
+      E.make_products(CFG.produce_min)
+      E.think()
+      for _ = 1, 200 do E.think() end
+      r.e1 = st.produced == 1 and #E.made == 0 and table.concat(E.logs, "\n"):find("[FO-ROLLBACK]", 1, true) == nil and st.undo == nil
+      E.restore()
+    end
+    -- G. foreuses et fours rendus au stock puis DÉPENSÉS (mesuré : « 17 sans objet », B long 20261020) : refaits de plaques et de pierre
+    do
+      local E = world({ pairs = 8 }, mutator)
+      local p, st = to_chantier(E)
+      local band_n = #st.ids
+      local drill, sink = T.DRILL, T.outposts.iron.sink
+      E.chest[drill], E.chest[sink] = 0, 0
+      E.chest["iron-plate"], E.chest.stone = (E.chest["iron-plate"] or 0) + 20 * band_n, 10 * band_n
+      local plates0, stone0 = E.chest["iron-plate"], E.chest.stone
+      for _ = 1, math.floor(Rb.CFG.stall / CFG.every) + 3 do E.think() end
+      r.g1 = E.alive() == 8 and #E.made == 2 * band_n
+      -- une foreuse = 9 plaques, un four = 5 pierres (recettes du moteur simulé)
+      r.g2 = E.chest["iron-plate"] == plates0 - 9 * band_n and E.chest.stone == stone0 - 5 * band_n
+      E.restore()
+    end
+    -- I. une recette à fluide ne se déplie pas : pas de paire sans le four
+    do
+      local E = world({ pairs = 8 }, mutator)
+      local p, st = to_chantier(E)
+      local band_n = #st.ids
+      E.chest[T.outposts.iron.sink] = 0
+      game.recipe_prototypes[T.outposts.iron.sink].ingredients = { { type = "fluid", name = "water", amount = 5 } }
+      for _ = 1, math.floor(Rb.CFG.stall / CFG.every) + 3 do E.think() end
+      r.i1 = E.alive() == 8 - band_n and #E.made == 0
+      E.restore()
+    end
+    -- H. ni objets ni ingrédients : rien n'est reposé, le retour est écrit quand même
+    do
+      local E = world({ pairs = 8 }, mutator)
+      local p, st = to_chantier(E)
+      local band_n = #st.ids
+      E.chest[T.DRILL], E.chest[T.outposts.iron.sink], E.chest["iron-plate"], E.chest.stone = 0, 0, 0, 0
+      for _ = 1, math.floor(Rb.CFG.stall / CFG.every) + 3 do E.think() end
+      r.h1 = E.alive() == 8 - band_n and #E.made == 0
+      r.h2 = table.concat(E.logs, "\n"):find(string.format("%d paire(s) gardee(s), 0 reposee(s), 0 tuile(s) prise(s), %d sans objet", band_n, band_n), 1, true) ~= nil
+      E.restore()
+    end
+    -- J. revue A1 : une bande ENTAMÉE (entités bâties) remise en réserve n'est jamais annulée par la porte des matières (cancel la rendrait orpheline)
+    do
+      local E = world({ pairs = 8 }, mutator)
+      local p, st = to_chantier(E)
+      p.ents[#p.ents + 1] = { name = D.PARTS.belt, x = 6200, y = 6200, dir = 0, built = true }
+      for _ = 1, math.floor(Rb.CFG.stall / CFG.every) + 3 do E.think() end
+      for _ = 1, math.floor(CFG.gate_wait * 1.5 / CFG.every) do E.think() end
+      -- avant la borne (2 x gate_wait depuis le retour) : la bande attend, le créneau reste pris
+      r.j1 = #E.Build.cancels == 0 and p.state ~= "refuse" and p.ents[#p.ents].built == true and st.stage == "projet" and E.f.migration.cur == 1
+      -- R1 : au-delà de 2 x gate_wait, réserve définitive : jamais annulée, bâti en place, matière rendue, créneau libéré, plus relancée
+      local key0 = st.band_key
+      local tiles0 = table.concat(p.spec.degel.tiles, ",")
+      for _ = 1, math.floor(CFG.gate_wait / CFG.every) + 2 do E.think() end
+      r.j2 = #E.Build.cancels == 0 and p.state == "bloque" and p.parked == true and p.ents[#p.ents].built == true and #E.Build.gave == 1
+        and E.f.migration.cur == nil and st.stage == "veille" and st.rollbacks == 0
+      local stopped = false
+      for _, k in ipairs(st.stopped or {}) do if k == key0 then stopped = true end end
+      r.j3 = stopped and table.concat(E.logs, "\n"):find("bande parquee en reserve, plus de nouvel essai", 1, true) ~= nil
+      local before = #E.Build.requests
+      for _ = 1, 200 do E.think() end
+      local again = false
+      for i = before + 1, #E.Build.requests do
+        local pr = E.project(E.Build.requests[i])
+        if pr and pr.spec and pr.spec.degel and table.concat(pr.spec.degel.tiles, ",") == tiles0 then again = true end
+      end
+      r.j4 = not again and p.state == "bloque" and #E.Build.requests == before and E.o.migr == "partiel"
+      E.restore()
+    end
+    -- F. deux retours sans progrès : la bande est LAISSÉE AU PLAN (jamais annulée : ses entités bâties resteraient orphelines, revue A1)
+    do
+      local E = world({ pairs = 8 }, mutator)
+      local p, st = to_chantier(E)
+      local band_n = #st.ids
+      local n_ents = #p.ents
+      p.ents[#p.ents + 1] = { name = D.PARTS.belt, x = 6100, y = 6100, dir = 0, built = true } -- une entité déjà bâtie (progrès initial, puis plus rien)
+      n_ents = n_ents + 1
+      st.done_pr = st.done_pr or {}
+      st.band_key = st.band_key or 77
+      local key0 = st.band_key
+      for _ = 1, math.floor(Rb.CFG.stall / CFG.every) + 3 do E.think() end
+      r.f1 = st.rollbacks == 1 and st.stage == "projet"
+      drive_plan(E, p, "degel")
+      for _ = 1, math.floor(Rb.CFG.cool / CFG.every) + 3 do E.think() end
+      r.f2 = st.stage == "chantier" and E.alive() == 8 - band_n
+      drive_plan(E, p, "chantier")
+      for _, e in ipairs(p.ents) do if not e.built then e.ghosted, e.fails = true, 2 end end -- (R2 : fantomes poses et refus, a oublier au parquage)
+      for _ = 1, math.floor(Rb.CFG.stall / CFG.every) + 3 do E.think() end
+      -- décision du DC (QCM-4/11-REGLEB) : au 2e retour, « réserve, plus de nouvel essai » : thermiques reposés, bâti en place, jamais annulée
+      r.f3 = E.alive() == 8 and #E.Build.cancels == 0 and p.state == "bloque" and p.parked == true and #p.ents == n_ents and p.ents[#p.ents].built == true
+      local stopped = false
+      for _, k in ipairs(st.stopped or {}) do if k == key0 then stopped = true end end
+      r.f4 = st.stage == "veille" and st.fails == 0 and st.undo == nil and st.rollbacks == 0 and stopped and #E.Build.gave >= 1
+      r.f5 = E.f.migration.cur == nil and E.o.migr == "partiel" -- (mock sans cadre : migration du treillis arrêtée, la bande parquée ne serait pas reconnue)
+      -- R2 : les pièces non bâties oublient fantômes et refus
+      local clean = true
+      for _, e in ipairs(p.ents) do if not e.built and (e.ghosted or (e.fails or 0) ~= 0) then clean = false end end
+      r.f7 = clean
+      -- A2 : la bande suivante repart avec son propre compte de retours (rollbacks remis à 0 par bande)
+      r.f6 = (st.rollbacks or 0) == 0 and table.concat(E.logs, "\n"):find("retour 2, bande en reserve, plus de nouvel essai", 1, true) ~= nil
+      E.restore()
+    end
+    return r
+  end
+
+  local base = battery(nil)
+  local names = {}
+  for k in pairs(base) do names[#names + 1] = k end
+  table.sort(names)
+  for _, k in ipairs(names) do check(base[k], "AZURE " .. k .. " : retour en arrière") end
+  check(#names >= 20, "AZURE : " .. #names .. " contrôles")
+
+  -- mutants de l'exécutant
+  local function mutsrc(old, new)
+    return function(src)
+      local i, j = src:find(old, 1, true)
+      assert(i, "mutant introuvable : " .. old:sub(1, 50))
+      return src:sub(1, i - 1) .. new .. src:sub(j + 1)
+    end
+  end
+  local muts = {
+    { "paires non gardees", mutsrc("st.undo, st.pg, st.cool = Rb.pack(undo), nil, nil", "st.undo, st.pg, st.cool = nil, nil, nil") },
+    { "decision ignoree", mutsrc("if dec == \"retour\" then", "if false then") },
+    { "progres non suivi", mutsrc("st.pg = Rb.progress(st.pg, nb, tick)", "st.pg = Rb.progress(nil, nb, tick)") },
+    { "abandon non detecte", mutsrc("local ab = (act == \"abandonner\" or act == \"perdu\")", "local ab = false") },
+    { "pas de pause", mutsrc("st.cool = tick + Rb.CFG.cool", "st.cool = nil") },
+    { "projet pas remis en reserve", mutsrc("p.state, p.reason, p.degele, p.reserve_next = \"reserve\", \"materiaux\", nil, nil", "p.reserve_next = nil") },
+    { "etape pas remise a projet", mutsrc("st.stage, st.gate_t0, st.t_degel, st.why_last, st.t0 = \"projet\", nil, nil, nil, tick", "st.gate_t0 = nil") },
+    { "tuile prise ignoree", mutsrc("elseif not (surface.can_place_entity({ name = u.name, position = { u.x, u.y }, direction = u.dir, force = force })", "elseif false and not (surface.can_place_entity({ name = u.name, position = { u.x, u.y }, direction = u.dir, force = force })") },
+    { "combustible oublie", mutsrc("if n > 0 then bu.get_fuel_inventory().insert({ name = T.fuel, count = Stock.remove(f, T.fuel, n) }) end", "") },
+    { "objets non retires du stock", mutsrc("for _, n in ipairs(sorted_keys(u.plan or {})) do Stock.remove(f, n, u.plan[n]) end\n        local burners", "local burners") },
+    { "objets dépensés non refaits", mutsrc("local ok, used = Rb.plan(u.name, 1, have, recipe_of)", "local ok, used = Stock.count(f, u.name) >= 1, { [u.name] = 1 }") },
+    -- (« recette à fluide acceptée » : mutant ÉQUIVALENT, un fluide n'est jamais au stock, Rb.plan échoue sur lui de toute façon)
+    { "bande annulee au dernier retour", mutsrc("if nxt == \"parquer\" then return \"parquer\" end", "if nxt == \"parquer\" then if p then p.state = \"reserve\" end Build.cancel(f, st.pid, \"x\") return \"parquer\" end") },
+    { "attente de la porte non bornee (R1)", mutsrc("if Rb.wait_over(tick - st.t0, (st.frame and CHAMP_CFG or CFG).gate_wait) then", "if false then") },
+    { "parquage sans dormir", mutsrc("p.state, p.reason, p.retry_at, p.degele, p.reserve_next, p.parked = \"bloque\"", "p.state, p.reason, p.retry_at, p.degele, p.reserve_next, p.parked = \"reserve\"") },
+    { "matiere non rendue", mutsrc("    Build.give_back(f, p)\n  end\n  if st.band_key then", "  end\n  if st.band_key then") },
+    { "fantomes non oublies (R2)", mutsrc("else e.ghosted, e.fails, e.npc_blocks = nil, 0, 0 end\n    end\n    Build.give_back", "end\n    end\n    Build.give_back") },
+    -- (« creneau non libere » : mutant ÉQUIVALENT, Mig.think relâche aussi tout suivi à l'étape « veille » ; le test j2 contrôle l'effet : ms.cur == nil)
+    { "porte des matieres annule une bande entamee", mutsrc("if act == \"annuler\" and p and (st.rollbacks or 0) > 0 then", "if false then") },
+    { "bande non comptee posee", mutsrc("if st.band_key and st.done_pr then st.done_pr[tostring(st.band_key)] = true end\n        st.stage, st.pid, st.ids, st.t_done, st.gate_t0, st.why_last, st.block_t0 = \"veille\"", "st.stage, st.pid, st.ids, st.t_done, st.gate_t0, st.why_last, st.block_t0 = \"veille\"") },
+    { "retours non remis a zero", mutsrc("st.rollbacks, st.cool = 0, nil\n        st.retry = tick + Rb.CFG.cool", "st.cool = nil\n        st.retry = tick + Rb.CFG.cool") },
+    { "etat force sans verifier (reserve_next gardee)", mutsrc("p.state, p.reason, p.degele, p.reserve_next, p.retry_at = \"reserve\", \"materiaux\", nil, nil, nil", "p.state, p.reason, p.degele, p.reserve_next = \"reserve\", \"materiaux\", nil, nil") },
+    { "abandon sans paire fermee", mutsrc("st.undo, st.pg = nil, nil\n  if nxt == \"parquer\" then return \"parquer\" end -- (st.retired reste : Th.stop_state ferme l'avant-poste aux brûleurs, revue A6)\n  st.retired = 0", "st.undo, st.pg = nil, nil\n  st.retired = 0\n  if nxt == \"parquer\" then return \"parquer\" end") },
+    -- (« ligne produite non protegee » : mutant ÉQUIVALENT, Mg.watch ne rend « produit » que pour un projet « fini », que Rb.decide laisse en paix)
+    { "compte des foreuses oublie", mutsrc("o.drills = (o.drills or 0) + 1\n        placed", "placed") },
+    { "retours sans limite", mutsrc("local nxt = Rb.after(st.rollbacks, final)", "local nxt = \"reserve\"") },
+  }
+  local caught = 0
+  local real_print = print
+  for _, mu in ipairs(muts) do
+    _G.print = function() end
+    local ok, got = pcall(battery, mu[2])
+    _G.print = real_print
+    local bad = not ok
+    if ok then for _, k in ipairs(names) do if not got[k] then bad = true end end end
+    if bad then caught = caught + 1 else print("  mutant survivant : " .. mu[1]) end
+  end
+  check(caught == #muts, string.format("AZURE : mutants de l'exécutant refusés %d sur %d", caught, #muts))
+  print(string.format("[MIGRATION-CHAMP] AZURE : exécutant, mutants %d refusés sur %d", caught, #muts))
 end
 
 print(string.format("[MIGRATION-CHAMP] BILAN : %d OK, %d ECHEC(S)", passes, failures))

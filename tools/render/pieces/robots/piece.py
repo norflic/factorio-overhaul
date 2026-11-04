@@ -19,8 +19,10 @@ ROBOTS = {
     "levite": dict(ro="levite", age=12, graine=1212, images=6, gros=None, grade=(0.001, 1.0, 0.42, 1.55, 1.12, 1.08), serie=(16, 6, 1.6)),
     "couronne": dict(ro="crowned", age=15, graine=1515, images=4, gros=None, grade=(0.001, 1.0, 0.5, 1.4, 1.1, 1.14), torse=16),
     # premier passage, 1/11 : 8 directions, 4 images, torse à 16 directions : le PC est chargé (120 à 200 s par image) et il faut toute la gamme ; repasser à (16, 6) PC libre, --reprise
-    "ecaille": dict(ro="scalehide", age=5, graine=505, images=0, gros=None, grade=(0.001, 1.0, 0.4, 1.8, 1.05, 1.1), serie=(8, 4, 0.9)),
-    "bobineur": dict(ro="coiler", age=6, graine=606, images=0, gros=None, grade=G0, serie=(8, 4, 1.0)),
+    # lot RB16 (4/11, QCM du DC « 16 pour les plus vus seulement ») : 16 directions, mêmes 4 images ; les directions paires sont les 8 rendus du
+    # 1/11 (θ = 2πk/n : direction k sur 8 = 2k sur 16), copiés dans fo-logs/2026-11-04_RB16 ; les impaires y sont rendues (`lot`, à GARDER)
+    "ecaille": dict(ro="scalehide", age=5, graine=505, images=0, gros=None, grade=(0.001, 1.0, 0.4, 1.8, 1.05, 1.1), serie=(16, 4, 0.9), lot="2026-11-04_RB16"),
+    "bobineur": dict(ro="coiler", age=6, graine=606, images=0, gros=None, grade=G0, serie=(16, 4, 1.0), lot="2026-11-04_RB16"),
     "aiguille": dict(ro="needle", age=7, graine=707, images=0, gros=None, grade=G0, serie=(8, 4, 1.3)),
     "cloche": dict(ro="bellwether", age=8, graine=808, images=0, gros=None, grade=(0.001, 1.0, 0.35, 2.0, 1.08, 1.14), serie=(8, 4, 0.86)),
     "chanfrein": dict(ro="chamfer", age=9, graine=909, images=0, gros=None, grade=G0, serie=(8, 4, 0.86)),
@@ -55,6 +57,11 @@ def _variantes():
 
 
 PIECE = {"name": "rb", "margin_px": 40, "calib": {"LIGHT_HOLDOUT": True}, "variants": _variantes()}
+
+
+def lot(nom):
+    """Dossier de fo-logs qui garde les sources de rendu d'un robot (lot RB-V1 par défaut, RB16 pour les robots repassés à 16 directions)."""
+    return ROBOTS[nom].get("lot", "2026-11-01_RBV1")
 
 
 def noms_serie(nom):

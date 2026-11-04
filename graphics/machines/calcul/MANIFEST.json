@@ -1,6 +1,6 @@
 {
  "arguments": [],
- "commande": "py -3.9 tools/render/pieces/calcul/feuilles.py   (depuis la racine du mod, sans argument ; sources : fo-logs/2026-11-01_CALCUL-DESIGN/final, à GARDER)",
+ "commande": "py -3.9 tools/render/pieces/calcul/feuilles.py   (depuis la racine du mod, sans argument ; sources : fo-logs/2026-11-01_CALCUL-DESIGN/final et, pour centre, cryo, froid, grand_centre, salle, scie, tour, fo-logs/2026-11-04_DA-CALCUL/final, à GARDER)",
  "fichiers": {
   "arc-glow.png": {
    "hauteur": 88,
@@ -47,26 +47,26 @@
   "centre-glow.png": {
    "hauteur": 155,
    "largeur": 108,
-   "sha256": "bfb9c7fc7bc946e8437e7e175ecd739f184a9fd05ea593af3154ed6f455df876",
-   "taille": 7909
+   "sha256": "7f5f7e15d057ae0d72967ea14ac4e0385a0b4a8d0dea2d98e82af26c050a364f",
+   "taille": 7793
   },
   "centre-main.png": {
    "hauteur": 189,
    "largeur": 134,
-   "sha256": "4abef3eec5e1e9de3bae4d60df65f414498a169717f658762886a0bf796545d4",
-   "taille": 38625
+   "sha256": "bf3c30fe0eeee4d0fc5011abf2730b5722255f38f47938834b9f0e1d7e6f9e5d",
+   "taille": 38728
   },
   "centre-mobile.png": {
    "hauteur": 41,
    "largeur": 200,
-   "sha256": "fbb931d933671c0fe1337fb31e8be9a08c567e1b082a8a0b0f130901f885b22e",
-   "taille": 3280
+   "sha256": "303c15a7a44a4ed1e7cc293e246f440bf1fb37070f6f6639d3f1a0bcba4cf698",
+   "taille": 3281
   },
   "centre-shadow.png": {
-   "hauteur": 126,
-   "largeur": 171,
-   "sha256": "0d9f251368c46454f3cab30c03bd8e7fc85c0c15172096e8cd02174f4d851c15",
-   "taille": 2959
+   "hauteur": 121,
+   "largeur": 176,
+   "sha256": "b19a8e700b9448e58fc8895b166e5ac43dd4c84b47c10f32696c48994540bb20",
+   "taille": 2243
   },
   "cms-glow.png": {
    "hauteur": 86,
@@ -93,22 +93,22 @@
    "taille": 3873
   },
   "cryo-glow.png": {
-   "hauteur": 156,
-   "largeur": 41,
-   "sha256": "ff94ae9dc2209e2bcd585967d8f5047a9d727e36daa1dcf41c68c4adea4f51aa",
-   "taille": 1548
+   "hauteur": 155,
+   "largeur": 40,
+   "sha256": "7aa122ac6672b84df1ae8c316ca697557114772bf0856b6ab3266564b8b513eb",
+   "taille": 1458
   },
   "cryo-main.png": {
-   "hauteur": 196,
+   "hauteur": 193,
    "largeur": 161,
-   "sha256": "646528977652b797786232870fd764e4088787466cb1324f31587550b47024ab",
-   "taille": 45617
+   "sha256": "e5b14c1c5c7d2b97ed1ec788f15b831fbc1add65f325d077b32cf6500f58fa72",
+   "taille": 43027
   },
   "cryo-shadow.png": {
-   "hauteur": 164,
-   "largeur": 203,
-   "sha256": "e3d0c0106fa194b8313c603b0614fa6c3ec68e0599396b28040ddc26c2b9b03a",
-   "taille": 7982
+   "hauteur": 143,
+   "largeur": 201,
+   "sha256": "27f8e318c4baceeae67fe3ce2a87ea453d2728dd525b56d7f53060831df65fd8",
+   "taille": 6939
   },
   "dilution-glow.png": {
    "hauteur": 119,
@@ -177,46 +177,46 @@
    "taille": 3172
   },
   "froid-glow.png": {
-   "hauteur": 3,
-   "largeur": 15,
-   "sha256": "15102fc3d2bc6aba3f72b4b422cc168f8197501f8293fa255520af3b652bc4a2",
-   "taille": 162
+   "hauteur": 111,
+   "largeur": 100,
+   "sha256": "3b07c65d8c59f714b1cf3981a89429929940e7b8d5f9de1d307fdfdda47532de",
+   "taille": 1320
   },
   "froid-main.png": {
    "hauteur": 160,
    "largeur": 128,
-   "sha256": "c0ddf19f61a7f4eb46b2fb3970819df7fa9f4ecce2f4dac2df2f3263041c9a8b",
-   "taille": 35311
+   "sha256": "e7482200333cc26060691a92bafd87c220bf50abfb3f03d66f479255f840f3c9",
+   "taille": 35580
   },
   "froid-mobile.png": {
    "hauteur": 24,
    "largeur": 568,
-   "sha256": "b369ba74874408e33a461f76f014d24ec5d62123761a093c416e098d93355d53",
-   "taille": 27260
+   "sha256": "c0c64ba01597cc392317f887db738ad108016aeec88f8fcf320b94dcd16d7050",
+   "taille": 26718
   },
   "froid-shadow.png": {
-   "hauteur": 136,
-   "largeur": 148,
-   "sha256": "3eda7ba226e69464cfc867759ba44d186c7e2f842388021f23699dbd4eb4a325",
-   "taille": 5312
+   "hauteur": 129,
+   "largeur": 150,
+   "sha256": "c4bb15ef4e6c9a0f640885fbb6af7d0edace9e6d5dbc6957fd956a8d3acd1a09",
+   "taille": 5323
   },
   "grand_centre-glow.png": {
    "hauteur": 219,
    "largeur": 157,
-   "sha256": "e8acb47a8dde3e8ecc897cd8eda0ca2014fcff8c2218b29ed6df50a47ff2868e",
-   "taille": 9966
+   "sha256": "882b9e03a8482f0cde866cb4e092d74acf29890be8e4efba863810246a02bca4",
+   "taille": 8787
   },
   "grand_centre-main.png": {
-   "hauteur": 246,
-   "largeur": 198,
-   "sha256": "a84e8a041df3d3dd0ac1dd2e564b6c418a18ecb99401ad75d21ce54b8cbac373",
-   "taille": 64667
+   "hauteur": 239,
+   "largeur": 187,
+   "sha256": "74a39c0a9848fb159d7e996ff6580b11cc3f9d2071df313fc576a6805871bd7f",
+   "taille": 62210
   },
   "grand_centre-shadow.png": {
-   "hauteur": 217,
+   "hauteur": 198,
    "largeur": 296,
-   "sha256": "99fd6599ec2cbe4b1ca2bcff94ff2124c12fdb99216d1bee76afd9d929653522",
-   "taille": 11779
+   "sha256": "108f79a84fd8c93ca357bf1d537906f770999445b221c86072a746fecb1bb629",
+   "taille": 11121
   },
   "graveur-glow.png": {
    "hauteur": 85,
@@ -281,26 +281,26 @@
   "hr-centre-glow.png": {
    "hauteur": 310,
    "largeur": 216,
-   "sha256": "a1aea157d893204a9be61847c6d4460c348cecfdd83a46cd9f7b87bc10b70486",
-   "taille": 22016
+   "sha256": "8de0dab6a113ede7f3dbcbfdacbdda179b5e754e349e9c7e5cbc7516c371cfde",
+   "taille": 20694
   },
   "hr-centre-main.png": {
    "hauteur": 378,
    "largeur": 268,
-   "sha256": "60745ae74bbd419eadce42b03c7900078fffaea4ac304adc1d89119137d34db7",
-   "taille": 131363
+   "sha256": "1e71a1c659730eff9417c5bb2f8b266ca20e2e67dcce7c6373f3c005d5acb9db",
+   "taille": 132383
   },
   "hr-centre-mobile.png": {
    "hauteur": 82,
    "largeur": 400,
-   "sha256": "b464782072309d0d3d7098647525291d7af8827ad5bb0c26c75e41cecdc67ed4",
-   "taille": 11808
+   "sha256": "1b7a1e13d1af377df7f7aab2951ee541d13a00bf0abda3a17f90404076abdea6",
+   "taille": 11743
   },
   "hr-centre-shadow.png": {
-   "hauteur": 252,
-   "largeur": 342,
-   "sha256": "ecd4f634db057fc41f234fd48475c40428fa29c5821bfd34beed16e89e3a291a",
-   "taille": 8960
+   "hauteur": 242,
+   "largeur": 352,
+   "sha256": "d9c9956ea01835d8bfc33d02474d987b8561d73400c9136ab0dfaa7fbcfd49d7",
+   "taille": 6789
   },
   "hr-cms-glow.png": {
    "hauteur": 172,
@@ -327,22 +327,22 @@
    "taille": 11424
   },
   "hr-cryo-glow.png": {
-   "hauteur": 312,
-   "largeur": 82,
-   "sha256": "c0cdce6ca47a52ee4a9f29d4c6c9d16ced93f6013bd50b0bde6c91025db6141c",
-   "taille": 4415
+   "hauteur": 310,
+   "largeur": 80,
+   "sha256": "699aa78e1c225fb92382b2ce5293cbfb5abe6542be05b47203befb154ad5e294",
+   "taille": 4158
   },
   "hr-cryo-main.png": {
-   "hauteur": 392,
+   "hauteur": 386,
    "largeur": 322,
-   "sha256": "024b31f3acc3e1bbf686fc736d4cae79c2fe3fd4b2391d32762fc1f405747868",
-   "taille": 145886
+   "sha256": "74760a21d85907d73d60162c5952490f195f433c2ffe2e5f119ad1bc7779e4c8",
+   "taille": 137886
   },
   "hr-cryo-shadow.png": {
-   "hauteur": 328,
-   "largeur": 406,
-   "sha256": "275230d4473012e83e2a88f78b20800ae43f9f77d997b58eeb44cebd4af09967",
-   "taille": 21751
+   "hauteur": 286,
+   "largeur": 402,
+   "sha256": "71f0001490fa63ff689fff71fdb9d09e6cd65f4bff659fd64928ade04cc0cc88",
+   "taille": 18732
   },
   "hr-dilution-glow.png": {
    "hauteur": 238,
@@ -411,46 +411,46 @@
    "taille": 8883
   },
   "hr-froid-glow.png": {
-   "hauteur": 6,
-   "largeur": 30,
-   "sha256": "78a69e7f80ec3956d95a5d3757bbea6805856a1f2a2b6caaf47501192d14fb22",
-   "taille": 317
+   "hauteur": 222,
+   "largeur": 200,
+   "sha256": "08b556074a17894b98a817c4c550dfab4059a2960f7492fee8dd09927ae321b4",
+   "taille": 3784
   },
   "hr-froid-main.png": {
    "hauteur": 320,
    "largeur": 256,
-   "sha256": "48d1318fda7fcca2d906189ffd80c0a6ed102836d463dda281b514e037f24bb7",
-   "taille": 118139
+   "sha256": "8c995dd624b17a91944e3a283bfd79616191725ea88baadc9260ee5d9e39944a",
+   "taille": 120002
   },
   "hr-froid-mobile.png": {
    "hauteur": 48,
    "largeur": 1136,
-   "sha256": "a15989485d146ea005e3e9d13cf9489cb99c6198dd43787f9eb7d240865390d4",
-   "taille": 100708
+   "sha256": "05d4ea3cb2796b2ca05857b16a66797bbc74ff2d45818a19039d0b2ccbb2283c",
+   "taille": 98183
   },
   "hr-froid-shadow.png": {
-   "hauteur": 272,
-   "largeur": 296,
-   "sha256": "abde98503fcb2bc29c6b275d559674eb9798483eb934f539b29dbc4fe8b8fca1",
-   "taille": 14825
+   "hauteur": 258,
+   "largeur": 300,
+   "sha256": "cd26bc2303b21af9952bf6bce87cca6a2aa07e39eda53bb578737dd21da9f8e1",
+   "taille": 14625
   },
   "hr-grand_centre-glow.png": {
    "hauteur": 438,
    "largeur": 314,
-   "sha256": "d813ea10c99a5096fc943be53df28572ba98edd4c91735a71bd97e23cc654510",
-   "taille": 29413
+   "sha256": "7ed43dacde6cf7dcc0b45df2fe254d2d020f097dbd5c3394e3b9497848339e62",
+   "taille": 24434
   },
   "hr-grand_centre-main.png": {
-   "hauteur": 492,
-   "largeur": 396,
-   "sha256": "0d5ba5ee05915cd4a4d14bd3b2a83f3295c0fa8ca1a5fad9f49240db53185738",
-   "taille": 205076
+   "hauteur": 478,
+   "largeur": 374,
+   "sha256": "99b728be9c10f629a4fccb87f6e5fa7eb649cd24e6c88d6523a7434eb4e24bb8",
+   "taille": 197440
   },
   "hr-grand_centre-shadow.png": {
-   "hauteur": 434,
+   "hauteur": 396,
    "largeur": 592,
-   "sha256": "2aff371b9d5bd8644660a61028fe3df30e6295689d22fb1397bbf82ee4ff9c97",
-   "taille": 33291
+   "sha256": "438b0399839b42a911625b1332299d9304570a4fc8ef14890ad21bb37078f860",
+   "taille": 31492
   },
   "hr-graveur-glow.png": {
    "hauteur": 170,
@@ -555,52 +555,52 @@
    "taille": 19433
   },
   "hr-salle-glow.png": {
-   "hauteur": 378,
-   "largeur": 208,
-   "sha256": "b01893ae79497af18264ac16054782618d074ef13d4c1c426221a77f58d32dd0",
-   "taille": 11976
+   "hauteur": 326,
+   "largeur": 242,
+   "sha256": "7d49f8a364b589292611b070408daa2b3e8bed48931dabcce9874d86aaa10be0",
+   "taille": 7537
   },
   "hr-salle-main.png": {
-   "hauteur": 422,
-   "largeur": 336,
-   "sha256": "51b24e0568ecfd0089f8351551464cb989c3e80f4cdc39027d654d81388b9f59",
-   "taille": 181448
+   "hauteur": 404,
+   "largeur": 342,
+   "sha256": "b257ce66b43fd8fd3dbe469ff98ee36090e82b63bc840e9341bd145715ff5d66",
+   "taille": 207545
   },
   "hr-salle-mobile.png": {
-   "hauteur": 34,
-   "largeur": 1008,
-   "sha256": "318683da7eb8e587dea2ee53b6d2382193e6f73879dd234904cd86b373ab2fc3",
-   "taille": 67308
+   "hauteur": 52,
+   "largeur": 544,
+   "sha256": "efe5850c64530a0d64ca803e029472ef8a707ec8c89e1a04cc1edb2476af7e9d",
+   "taille": 58599
   },
   "hr-salle-shadow.png": {
-   "hauteur": 326,
-   "largeur": 432,
-   "sha256": "3199fb2e439f44904a5902db911de50503e6fe982c2926de450d08de087bf7d6",
-   "taille": 19768
+   "hauteur": 302,
+   "largeur": 460,
+   "sha256": "94ca6e0c50243e7342bc6e673635e0ca9e7c5133d181fcafabbc3922967485fb",
+   "taille": 12741
   },
   "hr-scie-glow.png": {
-   "hauteur": 8,
-   "largeur": 10,
-   "sha256": "45599e0c195952569e0f36df04a731ca4cb64066834cc1cc426357ae71dd8c9c",
-   "taille": 249
+   "hauteur": 160,
+   "largeur": 154,
+   "sha256": "1952a0466740cb273d7d69ea990e8131b9c89ce0dd98412663c59e759dda641d",
+   "taille": 2776
   },
   "hr-scie-main.png": {
-   "hauteur": 280,
+   "hauteur": 268,
    "largeur": 216,
-   "sha256": "40f60edc981cbe65884e9eb7d1252d6f08f5afe67097403fe05c8d62148304e5",
-   "taille": 85280
+   "sha256": "ce20bd94e0eddeb39bcda057ee56e4da4fe44582c39fae98e33b52cb6ead49e8",
+   "taille": 85071
   },
   "hr-scie-mobile.png": {
    "hauteur": 114,
    "largeur": 1344,
-   "sha256": "c1b4a6f0e2bb03a63be96421e28eb2ddc62d1da50e80ec0b2d799a03f4736a07",
-   "taille": 239300
+   "sha256": "a5968eb67d6c4c59fdb8da4a123e2268709a7b19109bc76b9ad6b5671ee92d06",
+   "taille": 243839
   },
   "hr-scie-shadow.png": {
-   "hauteur": 192,
-   "largeur": 348,
-   "sha256": "d9c97a8fcc5da50c196c6f1f5374ab46990dd89f6fd5572823427ef699c5d571",
-   "taille": 7814
+   "hauteur": 180,
+   "largeur": 364,
+   "sha256": "c364a788a2b23feb392dcf9147a78d4855aa8d408657ff417368e838e25cce95",
+   "taille": 7457
   },
   "hr-testeur-glow.png": {
    "hauteur": 84,
@@ -645,28 +645,28 @@
    "taille": 12841
   },
   "hr-tour-glow.png": {
-   "hauteur": 206,
+   "hauteur": 204,
    "largeur": 292,
-   "sha256": "ea681203229544cc331222def1b5012760f9c977d42788cbca1c899dfb1a60f0",
-   "taille": 35066
+   "sha256": "5f1c56c13f7fb270e66b048dc48d1cbb07f503581b590328b899d1a742ea4b60",
+   "taille": 33873
   },
   "hr-tour-main.png": {
-   "hauteur": 444,
+   "hauteur": 434,
    "largeur": 348,
-   "sha256": "52fa920e307ee9aa38384b1eb0a2fc386de0ee261aa85c85aa438f96d36e41c6",
-   "taille": 180340
+   "sha256": "5ed8a9f211269e1b39b8953f99d8d4286d874af63103c1d89514aa2f0594a636",
+   "taille": 179304
   },
   "hr-tour-mobile.png": {
    "hauteur": 90,
    "largeur": 960,
-   "sha256": "39c16809c2b17de77cee0b17823fa4df7b1cfabdb523778f69bc930ff04c89b0",
-   "taille": 102642
+   "sha256": "6c79afaa55bee4818fb5ee4c6a1a99e700ab7221739160ade13da0e25279e500",
+   "taille": 102964
   },
   "hr-tour-shadow.png": {
-   "hauteur": 328,
+   "hauteur": 294,
    "largeur": 512,
-   "sha256": "4871378e93cab13a416c1627d8578c774e6bcfeaa386ae6fb17f9dfda178399c",
-   "taille": 15704
+   "sha256": "3698d9ec5af1e8fe5907979e846070edfe9cf803a82ea48c6970171c0cc8fef3",
+   "taille": 14792
   },
   "icone-arc.png": {
    "hauteur": 64,
@@ -683,8 +683,8 @@
   "icone-centre.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "f0cb24cd1636d8433c01f6701f89ded157636a3298456e4c58767cb630d4d126",
-   "taille": 9044
+   "sha256": "84c86924d132f69c0c207a178661fd94ff143ad793d65e61938a30adfadeb505",
+   "taille": 8742
   },
   "icone-cms.png": {
    "hauteur": 64,
@@ -695,8 +695,8 @@
   "icone-cryo.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "6fbca3a2e6d19025812da874a7a1172f2c64cdf5c72a179ea692e38c289eaf9e",
-   "taille": 11844
+   "sha256": "38a8997568148820f224140545fbe2fca63c0eced023735c950c77e04e73e22d",
+   "taille": 11281
   },
   "icone-dilution.png": {
    "hauteur": 64,
@@ -719,14 +719,14 @@
   "icone-froid.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "1f45ba49491a6a4500d5d53db2f13a5bee6214e0ec6486a9bda9f7c1966e1b26",
-   "taille": 10621
+   "sha256": "e6412d95e566e03a12ee93290191d889e270d5784a8e0c6408c096b398735396",
+   "taille": 10704
   },
   "icone-grand_centre.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "5edb2924bc624fda1984cd22ef64c00d4067a2ba0bcf7331daafffab7d73ad34",
-   "taille": 10959
+   "sha256": "8335c775ab797e9524f77edf2e9ce37a846be27fa9423cdd6d5f51c1f4aefda4",
+   "taille": 11082
   },
   "icone-graveur.png": {
    "hauteur": 64,
@@ -761,14 +761,14 @@
   "icone-salle.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "bceed92c1b7be9c79295181e70b124b6cd00f50a04248591103d2a0fc6f9262c",
-   "taille": 10419
+   "sha256": "b5f00babba999d0882bfcece94b5484dbaca6251e78dd0ce7fb1c590f3b68dd9",
+   "taille": 12221
   },
   "icone-scie.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "5c0dd828e9b0d9c4f485cd6888ac8e06ae22317263c89db7e91dc38c2e91fdc2",
-   "taille": 9909
+   "sha256": "79d0d6c00a43ac6d3f322b5b25e630ccfdea057e81b3c1ddbaa4fa79b44b5bc6",
+   "taille": 10593
   },
   "icone-testeur.png": {
    "hauteur": 64,
@@ -785,8 +785,8 @@
   "icone-tour.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "ead3530004c2e7bed76c7a26720431a6ba7521094e6f4fde5bf5ae6ca00e7983",
-   "taille": 9870
+   "sha256": "4affe7bce65937e39219b42c10de67677182cc2cf2e7b62a686e378f965fea74",
+   "taille": 10121
   },
   "impr-glow.png": {
    "hauteur": 29,
@@ -873,52 +873,52 @@
    "taille": 6849
   },
   "salle-glow.png": {
-   "hauteur": 189,
-   "largeur": 104,
-   "sha256": "e22627339d2040fdfc3052ceb4c57a9877f958c62d763b934bcc4c03604aae43",
-   "taille": 3640
+   "hauteur": 163,
+   "largeur": 121,
+   "sha256": "c25ab5242d792002472dea4bef8dd0b14f00636197393708c0b3c67791ce7529",
+   "taille": 2613
   },
   "salle-main.png": {
-   "hauteur": 211,
-   "largeur": 168,
-   "sha256": "a8be4bdee956d8142d1ed69030c864657a68566cd5f44cf8f184e826e24eda21",
-   "taille": 54047
+   "hauteur": 202,
+   "largeur": 171,
+   "sha256": "e8dbf1b92250ef956f36fc0dcda70af75148c9efd2a3c2bd069543d25c2a4144",
+   "taille": 61242
   },
   "salle-mobile.png": {
-   "hauteur": 17,
-   "largeur": 504,
-   "sha256": "1719d5c183326f3cf0691cb5ea6f2fda5122b9f3a7377a838c55abae62ffc2e9",
-   "taille": 17771
+   "hauteur": 26,
+   "largeur": 272,
+   "sha256": "e762c432124b15fd74f49bc4fc27d502a69b3809dfa553eab399e3d947fa6753",
+   "taille": 15746
   },
   "salle-shadow.png": {
-   "hauteur": 163,
-   "largeur": 216,
-   "sha256": "02586592a0b2480e1282dd29ba46293cf325f3ff6a8040ec4b1183ac82565a13",
-   "taille": 7083
+   "hauteur": 151,
+   "largeur": 230,
+   "sha256": "64c9419fe57f60deb037b53c548285595ee8cd826768d54a6fc49675f06b4aeb",
+   "taille": 4580
   },
   "scie-glow.png": {
-   "hauteur": 4,
-   "largeur": 5,
-   "sha256": "13abfcd6f55d54f14112a0c2c437d99f319c5eb1777cb12bec0f403d91f62e29",
-   "taille": 137
+   "hauteur": 80,
+   "largeur": 77,
+   "sha256": "55969875a50db3cbc2d0a174a6d4f7f03b0fa26ad41dc690bc0a564339621648",
+   "taille": 916
   },
   "scie-main.png": {
-   "hauteur": 140,
+   "hauteur": 134,
    "largeur": 108,
-   "sha256": "ba109d9e77176ae7e6ee3f4bc68612776f9c006ac352d40765aa7ff32d219a21",
-   "taille": 26075
+   "sha256": "0d62d459a17ba7324c436911ed507ad12c7156fbd8271b46e4df23938c077ac3",
+   "taille": 26005
   },
   "scie-mobile.png": {
    "hauteur": 57,
    "largeur": 672,
-   "sha256": "eecf2e0aba7cd1fd1b26ce0b82bea8a83d12a4beb6a2625d5d84e87e23b49627",
-   "taille": 68858
+   "sha256": "3a768230358ad06d0634f51804b8179c318d30649d5862816914b0afb0bf5b4a",
+   "taille": 69285
   },
   "scie-shadow.png": {
-   "hauteur": 96,
-   "largeur": 174,
-   "sha256": "005feb15ff41eb7390b4d42fab68b149a7e92a0afd978f2773e242b13939bada",
-   "taille": 2558
+   "hauteur": 90,
+   "largeur": 182,
+   "sha256": "9fc9cc19e876223363e5306de581fa8b20a259684ad7d535318dbf090b201d89",
+   "taille": 2473
   },
   "testeur-glow.png": {
    "hauteur": 42,
@@ -963,33 +963,33 @@
    "taille": 4317
   },
   "tour-glow.png": {
-   "hauteur": 103,
+   "hauteur": 102,
    "largeur": 146,
-   "sha256": "40dd5bb3d4038e56584b4022fe692f2460f714ed59204b1b6be172f14de7a2fb",
-   "taille": 11469
+   "sha256": "a7fa530f9cf0377f2955aac878d78eafcaea6bc5bdcfb38fb1cdbefada1ccdd9",
+   "taille": 11301
   },
   "tour-main.png": {
-   "hauteur": 222,
+   "hauteur": 217,
    "largeur": 174,
-   "sha256": "96dc46499b9d0fee0a104836c9e99d51ab6e77ad48455f5015ffe377be1f7061",
-   "taille": 54616
+   "sha256": "13fb8b232230659ab121dc747297694116e111d5b58313aaddf539a8ee6b83bf",
+   "taille": 54185
   },
   "tour-mobile.png": {
    "hauteur": 45,
    "largeur": 480,
-   "sha256": "06eee608edef565149f90f79cc8c1edb074014f99b809d400dd5c95466073400",
-   "taille": 30772
+   "sha256": "b64c1976683297bac418be221d250304b53be70646c52ef3f32e021f4c0963a6",
+   "taille": 30604
   },
   "tour-shadow.png": {
-   "hauteur": 164,
+   "hauteur": 147,
    "largeur": 256,
-   "sha256": "dac0ae06d2ac7325fd28c1095245ea551afee305f71b73793b7f463ea3b76852",
-   "taille": 5504
+   "sha256": "6fc05fa1c1359942d8b48f3d49f1dc038566cb7cee4e68b7e99a0a6e4a20daeb",
+   "taille": 5319
   }
  },
  "machines": 20,
- "mpx_hr": 5.795,
- "mpx_normale": 1.449,
+ "mpx_hr": 5.764,
+ "mpx_normale": 1.441,
  "nettoyage": [
   "arc main : 670 pixel(s) isolé(s) effacé(s)",
   "arc shadow : 2007 pixel(s) isolé(s) effacé(s)",
@@ -997,15 +997,15 @@
   "boitier main : 279 pixel(s) isolé(s) effacé(s)",
   "boitier shadow : 1641 pixel(s) isolé(s) effacé(s)",
   "boitier glow : 173 pixel(s) isolé(s) effacé(s)",
-  "centre main : 353 pixel(s) isolé(s) effacé(s)",
-  "centre shadow : 3305 pixel(s) isolé(s) effacé(s)",
-  "centre glow : 6734 pixel(s) isolé(s) effacé(s)",
+  "centre main : 339 pixel(s) isolé(s) effacé(s)",
+  "centre shadow : 1022 pixel(s) isolé(s) effacé(s)",
+  "centre glow : 3808 pixel(s) isolé(s) effacé(s)",
   "cms main : 178 pixel(s) isolé(s) effacé(s)",
   "cms shadow : 2367 pixel(s) isolé(s) effacé(s)",
   "cms glow : 1242 pixel(s) isolé(s) effacé(s)",
-  "cryo main : 471 pixel(s) isolé(s) effacé(s)",
-  "cryo shadow : 13914 pixel(s) isolé(s) effacé(s)",
-  "cryo glow : 724 pixel(s) isolé(s) effacé(s)",
+  "cryo main : 170 pixel(s) isolé(s) effacé(s)",
+  "cryo shadow : 2597 pixel(s) isolé(s) effacé(s)",
+  "cryo glow : 360 pixel(s) isolé(s) effacé(s)",
   "dilution main : 461 pixel(s) isolé(s) effacé(s)",
   "dilution shadow : 2062 pixel(s) isolé(s) effacé(s)",
   "dilution glow : 3 pixel(s) isolé(s) effacé(s)",
@@ -1015,12 +1015,12 @@
   "fritt main : 277 pixel(s) isolé(s) effacé(s)",
   "fritt shadow : 2007 pixel(s) isolé(s) effacé(s)",
   "fritt glow : 4775 pixel(s) isolé(s) effacé(s)",
-  "froid main : 1151 pixel(s) isolé(s) effacé(s)",
-  "froid shadow : 1840 pixel(s) isolé(s) effacé(s)",
-  "froid glow : 7 pixel(s) isolé(s) effacé(s)",
-  "grand_centre main : 689 pixel(s) isolé(s) effacé(s)",
-  "grand_centre shadow : 7336 pixel(s) isolé(s) effacé(s)",
-  "grand_centre glow : 39442 pixel(s) isolé(s) effacé(s)",
+  "froid main : 852 pixel(s) isolé(s) effacé(s)",
+  "froid shadow : 926 pixel(s) isolé(s) effacé(s)",
+  "froid glow : 341 pixel(s) isolé(s) effacé(s)",
+  "grand_centre main : 917 pixel(s) isolé(s) effacé(s)",
+  "grand_centre shadow : 2449 pixel(s) isolé(s) effacé(s)",
+  "grand_centre glow : 27274 pixel(s) isolé(s) effacé(s)",
   "graveur main : 590 pixel(s) isolé(s) effacé(s)",
   "graveur shadow : 2179 pixel(s) isolé(s) effacé(s)",
   "graveur glow : 1015 pixel(s) isolé(s) effacé(s)",
@@ -1036,21 +1036,31 @@
   "qlab main : 850 pixel(s) isolé(s) effacé(s)",
   "qlab shadow : 3229 pixel(s) isolé(s) effacé(s)",
   "qlab glow : 11299 pixel(s) isolé(s) effacé(s)",
-  "salle main : 253 pixel(s) isolé(s) effacé(s)",
-  "salle shadow : 3444 pixel(s) isolé(s) effacé(s)",
-  "salle glow : 1510 pixel(s) isolé(s) effacé(s)",
-  "scie main : 299 pixel(s) isolé(s) effacé(s)",
-  "scie shadow : 2365 pixel(s) isolé(s) effacé(s)",
-  "scie glow : 0 pixel(s) isolé(s) effacé(s)",
+  "salle main : 156 pixel(s) isolé(s) effacé(s)",
+  "salle shadow : 1967 pixel(s) isolé(s) effacé(s)",
+  "salle glow : 167 pixel(s) isolé(s) effacé(s)",
+  "scie main : 271 pixel(s) isolé(s) effacé(s)",
+  "scie shadow : 1156 pixel(s) isolé(s) effacé(s)",
+  "scie glow : 309 pixel(s) isolé(s) effacé(s)",
   "testeur main : 333 pixel(s) isolé(s) effacé(s)",
   "testeur shadow : 1515 pixel(s) isolé(s) effacé(s)",
   "testeur glow : 973 pixel(s) isolé(s) effacé(s)",
   "tireuse main : 483 pixel(s) isolé(s) effacé(s)",
   "tireuse shadow : 2627 pixel(s) isolé(s) effacé(s)",
   "tireuse glow : 160 pixel(s) isolé(s) effacé(s)",
-  "tour main : 363 pixel(s) isolé(s) effacé(s)",
-  "tour shadow : 2747 pixel(s) isolé(s) effacé(s)",
-  "tour glow : 286 pixel(s) isolé(s) effacé(s)"
+  "tour main : 390 pixel(s) isolé(s) effacé(s)",
+  "tour shadow : 1663 pixel(s) isolé(s) effacé(s)",
+  "tour glow : 19 pixel(s) isolé(s) effacé(s)"
  ],
- "sources": "fo-logs/2026-11-01_CALCUL-DESIGN/final"
+ "reprises_da": [
+  "centre",
+  "cryo",
+  "froid",
+  "grand_centre",
+  "salle",
+  "scie",
+  "tour"
+ ],
+ "sources": "fo-logs/2026-11-01_CALCUL-DESIGN/final",
+ "sources_da": "fo-logs/2026-11-04_DA-CALCUL/final"
 }

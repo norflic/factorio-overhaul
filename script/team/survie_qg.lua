@@ -17,6 +17,7 @@ local Pv = require("shared.ai3.prevision")
 local State = require("script.faction.state")
 local Outposts = require("script.faction.outposts")
 local T = require("shared.team.config")
+local QgG = require("script.team.qg_groupe") -- lot QG-GROUPE2 : appui au point le plus faible, places des lignes du QG
 require("script.team.qg_tourelle") -- lot QGSURVIE2 : journal [FO-QG-TOURELLE] de la mort des tourelles du QG (abonnement au bus, lecture seule)
 
 local SurvieQg = {}
@@ -39,15 +40,17 @@ function SurvieQg.update(f, tick)
   local s = state(f)
   local q = v.qg
   local threat = Sq.threat(v.waves, tick)
-  local r = Sq.peril({ threat = threat, armed_value = q.value, turret_value = q.turret_value, turrets = q.turrets, armed = q.armed,
+  -- lot QG-GROUPE2 : défense au point le plus faible et tourelles voulues au groupe « hq » (votre équipe, T.qg_groupe_peril_on ; sinon nil : la somme)
+  local facing, hq = QgG.facing(f, q.value)
+  local r = Sq.peril({ threat = threat, armed_value = q.value, facing = facing, hq = hq, turret_value = q.turret_value, turrets = q.turrets, armed = q.armed,
     cap = Dc.HQ_CAP, was = s.was })
   r.tick, r.threat = tick, threat
   local who = tostring(f.key or "?")
   if r.peril and not s.was then
     s.entries, s.since, s.cause = s.entries + 1, tick, r.cause
     log(string.format("[FO-SURVIE] %s : QG EN PERIL a %.1f min (entree n %d), cause %s : menace %d PV recue en 30 min, defense ARMEE %d PV " ..
-      "(%d tourelle(s) dont %d armee(s), %d chargeur(s)), cible %d PV -> %d tourelle(s) voulue(s), %d a poser, %d a remplir%s ; defense d'abord, planchers de fer reduits",
-      who, min_of(tick), s.entries, r.cause, threat, math.floor(q.value), q.turrets, q.armed, q.ammo, r.need, r.want, r.fresh, r.refill,
+      "(%d tourelle(s) dont %d armee(s), %d chargeur(s)), au point le plus faible %d PV, cible %d PV -> %d tourelle(s) voulue(s), %d a poser, %d a remplir%s ; defense d'abord, planchers de fer reduits",
+      who, min_of(tick), s.entries, r.cause, threat, math.floor(q.value), q.turrets, q.armed, q.ammo, facing and math.floor(facing) or -1, r.need, r.want, r.fresh, r.refill,
       r.full and " (plafond atteint)" or ""))
     s.last_log = tick
   elseif s.was and not r.peril then
@@ -57,8 +60,9 @@ function SurvieQg.update(f, tick)
     s.last_log = tick
   elseif (r.peril or threat > 0) and tick - s.last_log >= SurvieQg.LOG_EVERY then
     log(string.format("[FO-SURVIE] %s : QG recensement a %.1f min : %d tourelle(s) dont %d armee(s), %d chargeur(s), defense armee %d PV, " ..
-      "menace %d PV, %s",
-      who, min_of(tick), q.turrets, q.armed, q.ammo, math.floor(q.value), threat, r.peril and ("PERIL (" .. tostring(r.cause) .. ")") or "hors de peril"))
+      "menace %d PV, %s ; au point le plus faible %d PV (appui %s)",
+      who, min_of(tick), q.turrets, q.armed, q.ammo, math.floor(q.value), threat, r.peril and ("PERIL (" .. tostring(r.cause) .. ")") or "hors de peril",
+      facing and math.floor(facing) or -1, QgG.support_text(f)))
     s.last_log = tick
   end
   s.was = r.peril

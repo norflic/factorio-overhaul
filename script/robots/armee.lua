@@ -83,7 +83,8 @@ function Armee.giants(force_name)
 end
 
 --- Paramètres de Mo.can_release pour le robot `r` de `force` : `used` (points déjà pris, y compris les kits retirés pendant ce
---- balayage) et `giants_extra` (géants créés pendant ce balayage) sont facultatifs.
+--- balayage) et `giants_extra` sont facultatifs. Lot BOURDON-MINEURS : un géant créé par Armee.create est déjà au registre, donc déjà dans
+--- Armee.giants ; `giants_extra` ne sert qu'à un géant pas encore inscrit (usine.lua ne le passe plus).
 function Armee.release_params(force, r, keep, used, giants_extra)
   return {
     used = used or Armee.used(force.name), cap = Armee.cap(force), points = r.points, have = Armee.have(force.name, r.id), keep = keep,
@@ -122,6 +123,39 @@ end
 function Armee.registered(unit_number)
   local s = Armee.S()
   return s ~= nil and s.ledger.units[unit_number] ~= nil
+end
+
+---------------------------------------------------------------------------------------------------
+-- Robots COMMANDABLES hors du registre (lot BOURDON-SORTIE, QCM-4/11 : « on doit pouvoir les déplacer manuellement ») : l'outil Armée
+-- (script/robots/outils.lua) et Ordres.order commandent aussi ce qu'un autre lot déclare par l'adaptateur
+--   Armee.hooks.commandable = { is = function(e) -> bool, entity = function(numéro d'unité) -> entité ou nil,
+--                               send = function(e, kind, pos, radius) -> bool }   (posé par script/robots/bourdon.lua)
+-- Le registre (points, effectif par robot, pertes) n'est pas touché.
+---------------------------------------------------------------------------------------------------
+--- L'entité est-elle un robot que le joueur commande (inscrit au registre, ou déclaré par l'adaptateur) ?
+function Armee.commandable(e)
+  if not (e and e.valid and e.unit_number) then return false end
+  if Armee.registered(e.unit_number) then return true end
+  local c = Armee.hooks.commandable
+  return c ~= nil and c.is(e) == true
+end
+
+--- L'entité commandable de ce numéro d'unité, ou nil (morte, inconnue).
+function Armee.commandable_entity(unit_number)
+  local e = Armee.entity(unit_number)
+  if e then return e end
+  local c = Armee.hooks.commandable
+  e = c and c.entity(unit_number) or nil
+  if e and e.valid then return e end
+  return nil
+end
+
+--- Donne l'ordre `kind` ("move" ou "attack") à un robot commandable : Armee.send pour un robot du registre, l'adaptateur sinon.
+function Armee.order_one(e, kind, pos, radius)
+  if not (e and e.valid and e.unit_number) then return false end
+  if Armee.registered(e.unit_number) then return Armee.send(e, kind, pos, radius) end
+  local c = Armee.hooks.commandable
+  return c ~= nil and c.is(e) == true and c.send(e, kind, pos, radius) == true
 end
 
 ---------------------------------------------------------------------------------------------------

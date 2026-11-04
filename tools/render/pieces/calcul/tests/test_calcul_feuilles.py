@@ -71,9 +71,9 @@ def manifeste(dest):
 
 
 def source_nettoyee(src, nom, couche):
-    spec = json.load(open(os.path.join(src, nom, "spec.json"), encoding="utf-8"))
+    spec = json.load(open(os.path.join(FE.dossier_source(nom, src), "spec.json"), encoding="utf-8"))
     s = spec["layers"][couche]
-    a = np.asarray(Image.open(os.path.join(src, nom, s["file"])).convert("RGBA")).astype(np.float64) / 255.0
+    a = np.asarray(Image.open(os.path.join(FE.dossier_source(nom, src), s["file"])).convert("RGBA")).astype(np.float64) / 255.0
     a, _ = FE.nettoie(a, couche)
     return FE.u8(a), spec
 
@@ -84,7 +84,7 @@ def au_pixel(dest, src, tab):
     for proto in sorted(tab):
         ent = tab[proto]
         nom = ent["variante"]
-        spec = json.load(open(os.path.join(src, nom, "spec.json"), encoding="utf-8"))
+        spec = json.load(open(os.path.join(FE.dossier_source(nom, src), "spec.json"), encoding="utf-8"))
         m = spec["layers"]["main"]
         c0 = (int(round(m["width"] / 2.0 - m["shift"][0] * PX)), int(round(m["height"] / 2.0 - m["shift"][1] * PX)))
         for couche, c in sorted(ent["couches"].items()):
@@ -110,7 +110,7 @@ def au_pixel(dest, src, tab):
                     ec.append("%s %s : normale différente de la moyenne 2 x 2 (écart %d)" % (proto, couche, d.max()))
             if couche == "mobile":
                 s = spec["layers"]["mobile"]
-                bande = charge(os.path.join(src, nom, s["file"]))
+                bande = charge(os.path.join(FE.dossier_source(nom, src), s["file"]))
                 pw, ph = s["width"], s["height"]
                 px0 = c0[0] + s["shift"][0] * PX - pw / 2.0
                 py0 = c0[1] + s["shift"][1] * PX - ph / 2.0
@@ -145,6 +145,8 @@ def main():
     # --- manifeste
     ec = manifeste(DEST)
     check("manifeste : %d PNG, sha256, tailles, dimensions" % len(man["fichiers"]), not ec, ec[:5])
+    check("reprises DA-CALCUL : %s lues dans %s" % (", ".join(FE.REPRISES_DA), FE.SRC_DA_DEFAUT),
+          man.get("reprises_da") == list(FE.REPRISES_DA) and all(os.path.isfile(os.path.join(FE.dossier_source(n), "spec.json")) and FE.dossier_source(n).startswith(FE.SRC_DA_DEFAUT) for n in FE.REPRISES_DA))
     check("20 machines", len(tab) == 20 and man["machines"] == 20 and sorted(tab) == sorted(v[0] for v in FE.MACHINES.values()))
 
     # --- sprites.lua = sprites.json (mêmes fichiers, mêmes tailles : relu par lua5.2)

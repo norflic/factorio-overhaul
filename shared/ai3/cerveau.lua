@@ -120,6 +120,10 @@ function C.situation(view, st, ctx)
     army_alert = view.army_alert or false, army_need = view.army_need or 0, -- lot ARMEE-ANTICIPATION : vague annoncée (B.goals)
     at_war = ctx.at_war or view.threatened or false,
     ammo_reserve = ctx.ammo_reserve or 0, -- lot S1 : réserve de chargeurs voulue d'après la menace reçue (B.generate)
+    -- Lot MUNITIONS : tourelles de l'équipe et chargeurs qui leur manquent pour leur cible (view.turret_groups, Mu.group) : le stock visé au
+    -- coffre les suit (B.generate, Mu.stock_target). nil : vue sans ce relevé (règle d'avant).
+    turrets_n = C.turrets_seen(view).n, ammo_missing = C.turrets_seen(view).missing,
+    turret_ammo = view.turret_ammo, -- lot MUNITIONS : munition choisie (la meilleure fabricable) ; nil : munition de base
     -- Lot IA-V2 : l'économie est « faite » au fer II de l'ancienne échelle OU quand un avant-poste de fer tourne et que
     -- le fer est SATURÉ (st.economy_ok, collant) : le cerveau par besoins ne bâtit pas un 2e avant-poste de fer qui ne
     -- sert à rien, et la recherche restait plafonnée pour toujours (moteur réel, ia3c-reduit et ia3c-default graine
@@ -149,6 +153,20 @@ function C.base_view(view, st)
   return vb
 end
 
+--- Lot MUNITIONS : tourelles de l'équipe et chargeurs manquants (sommes de view.turret_groups ; nil sans le relevé `missing`).
+function C.turrets_seen(view)
+  local n, missing, seen = 0, 0, false
+  for _, g in ipairs(view.turret_groups or {}) do
+    if g.missing ~= nil then
+      seen = true
+      -- (part URGENTE seulement : jusqu'à la cible ordinaire ; le surplus de la cible riche n'entre jamais dans le stock visé au coffre)
+      n, missing = n + (g.n or 0), missing + (g.missing_base or g.missing)
+    end
+  end
+  if not seen then return {} end
+  return { n = n, missing = missing }
+end
+
 --- Consommation du stock virtuel par les tâches et décisions du planificateur permanent.
 function C.consumed(base, view)
   local used = {}
@@ -161,7 +179,9 @@ function C.consumed(base, view)
     if t.uses then add(t.uses)
     elseif t.items then add(t.items)
     elseif t.kind == "refill" and groups[t.group] then
-      used[T.turret_ammo] = (used[T.turret_ammo] or 0) + groups[t.group].low * T.turret_ammo_target
+      local g = groups[t.group] -- lot MUNITIONS : ce que la tournée porte (t.count), sinon le manque du groupe, sinon la règle d'avant
+      local a = view.turret_ammo or T.turret_ammo
+      used[a] = (used[a] or 0) + (t.count or g.missing or g.low * T.turret_ammo_target)
     end
   end
   if base.recruit_workers and not base.recruit_unarmed then add(base.recruit_uses or view.recruit_cost) end
