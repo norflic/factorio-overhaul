@@ -600,7 +600,7 @@ local function failed(f, ms, o, st, tick, why)
   end
   st.band_key = nil
   st.stage, st.pid, st.ids, st.gate_t0, st.t_done = "veille", nil, nil, nil, nil
-  st.undo, st.pg, st.cool = nil, nil, nil -- lot AZURE
+  st.undo, st.pg, st.cool, st.rollbacks = nil, nil, nil, 0 -- lot AZURE
   release(ms, o.id)
   if st.done == 0 and st.produced == 0 then o.migr, o.full, o.full_by = nil, false, nil end -- rien de migré : l'avant-poste est rendu en attendant
   if st.fails >= CFG.max_fails then
@@ -617,6 +617,7 @@ end
 --- (Build.SITES.champ, script/team/champ.lua). Les paires dont une tuile est sous la bande sont celles que le dégel retire. Rend vrai si la
 --- demande est partie.
 local function begin_band(f, surface, ms, o, st, list, tick, free)
+  st.rollbacks = 0 -- lot AZURE (revue A2) : le compte des retours en arrière est PAR BANDE
   -- lot FONDERIE : un cadre d'une sauvegarde d'avant le lot (fonderie à coffres) dont AUCUNE bande n'a été demandée est replanifié en
   -- colonne à tapis ; dès qu'une bande est posée ou demandée, le cadre garde son motif (les bandes voisines partagent leurs rangées)
   if Champ.tapis() and st.frame and st.frame.design == nil and not Champ.has_band(f, o) then st.frame, st.order, st.done_pr = nil, nil, nil end
@@ -907,6 +908,16 @@ local function step_project(f, surface, ms, o, st, tick, free, book)
       why == "ennemi" and string.format(", ennemi a moins de %d tuiles, rien n'est retire", CFG.safe) or ""))
     return
   end
+  -- lot AZURE (revue A1) : une bande REMISE EN RÉSERVE par un retour en arrière a des entités bâties et des fantômes dans le monde ; Build.cancel
+  -- vide p.ents sans les retirer (elles seraient orphelines) : elle attend ses matières, sans annulation (le retour suivant ou le suivi la clôt)
+  if act == "annuler" and p and (st.rollbacks or 0) > 0 then
+    for _, e in ipairs(p.ents or {}) do
+      if e.built then
+        say_why(f, ms, st, "entamee:" .. why, string.format("avant-poste %d : bande du projet %d entamee (retour en arriere fait), jamais annulee : elle attend (%s)", o.id, st.pid, tostring(why)), true)
+        return
+      end
+    end
+  end
   if act == "annuler" or act == "echec" then
     if p and act == "annuler" then Build.cancel(f, st.pid, "migration: " .. why) end
     failed(f, ms, o, st, tick, why)
@@ -918,7 +929,8 @@ local function step_project(f, surface, ms, o, st, tick, free, book)
     local removed, got, undo = retire(f, surface, o, st, list, ents)
     local purged = purge_recon(f, o)
     st.retired = removed
-    st.undo, st.pg, st.cool = Rb.pack(undo), nil, nil -- lot AZURE : de quoi revenir en arrière (borné) ; le suivi du progrès repart
+    local packed, lost = Rb.pack(undo)
+    st.undo, st.pg, st.cool, st.undo_lost = packed, nil, nil, lost -- lot AZURE (lost : paires au-delà de la borne, dites au journal) : de quoi revenir en arrière (borné) ; le suivi du progrès repart
     ms.retired = (ms.retired or 0) + removed
     say(f, ms, string.format("avant-poste %d : partie retiree, projet %d : %d foreuse(s) thermique(s) et leurs fours repris au stock (%s), %d paire(s) restent "
       .. "debout, %d piece(s) du registre de reconstruction ecartee(s)", o.id, st.pid, removed, items_text(got), math.max(0, #list - removed), purged), true)
@@ -1011,7 +1023,9 @@ local function repose(f, surface, st)
 end
 
 --- Retour en arrière : les paires retirées reviennent (tuiles libres), puis la bande attend en réserve (pause Rb.CFG.cool, retrait possible
---- ensuite) ou, au dernier retour (`final`, ou Rb.CFG.max_rollbacks atteint), elle est annulée si le plan le permet. Rend "reserve" ou "annuler".
+--- ensuite) ou, au dernier retour (`final`, ou Rb.CFG.max_rollbacks atteint), elle est LAISSÉE AU PLAN telle quelle. Rend "reserve" ou "laisser".
+--- (Revue du 4/11, A1 : jamais Build.cancel ici. Il vide p.ents sans retirer les entités bâties ni les fantômes du monde : une bande à
+--- 246/575 devenait orpheline, et il rend faux pour un projet rouvert ou gardé, alors que l'état avait déjà été forcé.)
 local function rollback(f, surface, ms, o, st, p, tick, why, final)
   local undo_n = #(st.undo or {})
   local placed, busy, noitem = repose(f, surface, st)
@@ -1019,17 +1033,12 @@ local function rollback(f, surface, ms, o, st, p, tick, why, final)
   st.rollbacks = (st.rollbacks or 0) + 1
   local nxt = Rb.after(st.rollbacks, final)
   log(Rb.line({ team = name_of(f), outpost = o.id, pid = st.pid, why = why, minute = tick / 3600, undo = undo_n, placed = placed, busy = busy,
-    items = noitem, n = st.rollbacks, next = nxt }))
-  st.retired, st.undo, st.pg = 0, nil, nil
-  if nxt == "annuler" then
-    if p and p.state ~= "fini" then
-      p.state, p.reason = "reserve", "retour" -- (Build.cancel n'annule qu'une demande en attente, en plan ou en réserve)
-      Build.cancel(f, st.pid, "migration: retour en arriere")
-    end
-    return "annuler"
-  end
+    items = noitem, n = st.rollbacks, next = nxt, lost = st.undo_lost }))
+  st.undo, st.pg = nil, nil
+  if nxt == "laisser" then return "laisser" end -- (st.retired reste : Th.stop_state ferme l'avant-poste aux brûleurs, revue A6)
+  st.retired = 0
   if p then
-    p.state, p.reason, p.degele, p.reserve_next = "reserve", "materiaux", nil, nil
+    p.state, p.reason, p.degele, p.reserve_next, p.retry_at = "reserve", "materiaux", nil, nil, nil
     for _, e in ipairs(p.ents or {}) do
       if not e.built then e.ghosted, e.fails, e.npc_blocks = nil, 0, 0 end -- (les paires reposées ont pu recouvrir les fantômes)
     end
@@ -1049,7 +1058,7 @@ local function step_build(f, surface, ms, o, st, tick)
   -- de fer restées thermiques. Après CHAMP_CFG.block_max, elle est laissée au plan (qui peut encore la finir), comptée comme posée, et la
   -- bande suivante part.
   if st.frame then
-    if p and p.state == "bloque" then
+    if p and p.state == "bloque" and not (st.undo and #st.undo > 0) then -- (revue A4 : avec des paires retirées, le retour en arrière décide d'abord)
       st.block_t0 = st.block_t0 or tick
       if tick - st.block_t0 > CHAMP_CFG.block_max then
         if st.band_key then st.done_pr[tostring(st.band_key)] = true end
@@ -1083,15 +1092,16 @@ local function step_build(f, surface, ms, o, st, tick)
       local res = rollback(f, surface, ms, o, st, p, tick, rwhy, ab)
       if res == "reserve" then return end
       if not ab then
-        if st.band_key then
-          st.bad = st.bad or {}
-          if #st.bad < CFG.max_bad then st.bad[#st.bad + 1] = st.band_key end
-        end
-        failed(f, ms, o, st, tick, "retour")
+        -- deuxième retour sans progrès : la bande reste au plan (elle peut encore finir ; ses entités bâties ne sont jamais orphelines),
+        -- comptée comme posée, la suivante part (comme une bande bloquée, plus haut)
+        if st.band_key and st.done_pr then st.done_pr[tostring(st.band_key)] = true end
+        st.stage, st.pid, st.ids, st.t_done, st.gate_t0, st.why_last, st.block_t0 = "veille", nil, nil, nil, nil, nil, nil
+        st.rollbacks, st.cool = 0, nil
         st.retry = tick + Rb.CFG.cool
+        release(ms, o.id)
         return
       end
-      -- abandon ou projet perdu : le suivi ferme l'avant-poste ci-dessous (st.retired = 0 : rien de retiré qui compte)
+      -- abandon ou projet perdu : le suivi ferme l'avant-poste ci-dessous (« partiel » : des paires ont été retirées, Th.stop_state)
     end
   end
   if act == "produit" then

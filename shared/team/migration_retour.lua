@@ -78,10 +78,11 @@ function R.decide(c, cfg)
   return "rien", "avance"
 end
 
---- Suite du retour n° `n` (1 pour le premier) : "reserve" (la bande attend, pause R.CFG.cool) ou "annuler" (dernier retour, ou fin imposée).
+--- Suite du retour n° `n` (1 pour le premier, compte PAR BANDE) : "reserve" (la bande attend, pause R.CFG.cool) ou "laisser" (dernier retour, ou fin
+--- imposée : la bande reste au plan telle quelle, jamais annulée ; revue du 4/11, A1).
 function R.after(n, final, cfg)
   cfg = cfg or R.CFG
-  if final or n >= cfg.max_rollbacks then return "annuler" end
+  if final or n >= cfg.max_rollbacks then return "laisser" end
   return "reserve"
 end
 
@@ -113,12 +114,13 @@ function R.cooling(until_tick, now)
   return until_tick ~= nil and now < until_tick
 end
 
---- Ligne [FO-ROLLBACK]. ev = { team, outpost, pid, why, minute, undo, placed, busy (tuiles prises), items (sans objet), n, next ("reserve"|"annuler") }.
+--- Ligne [FO-ROLLBACK]. ev = { team, outpost, pid, why, minute, undo, placed, busy (tuiles prises), items (sans objet), n, next ("reserve"|"laisser"), lost (non gardées) }.
 function R.line(ev)
   return string.format(
     "[FO-ROLLBACK] %s : avant-poste %d, projet %s a %.1f min (%s) : %d paire(s) gardee(s), %d reposee(s), %d tuile(s) prise(s), %d sans objet ; retour %d, %s",
     tostring(ev.team), ev.outpost or 0, tostring(ev.pid), ev.minute or 0, tostring(ev.why), ev.undo or 0, ev.placed or 0, ev.busy or 0, ev.items or 0,
-    ev.n or 0, ev.next == "annuler" and "bande annulee, une autre sera essayee" or "bande remise en reserve")
+    ev.n or 0, ev.next == "laisser" and "bande laissee au plan, la suivante part" or "bande remise en reserve")
+    .. ((ev.lost or 0) > 0 and string.format(" ; %d paire(s) au-dela de la borne, non gardee(s)", ev.lost) or "")
 end
 
 return R

@@ -60,14 +60,14 @@ local function run(R)
   local _, w5 = R.decide({ undo = 3, produced = true })
   r.c8 = w1 == "chantier-lent" and w2 == "abandon" and w3 == "avance" and w4 == "sans-paire" and w5 == "produit"
   -- 9. suite : premier retour -> reserve, deuxieme -> annuler, final -> annuler
-  r.c9 = R.after(1) == "reserve" and R.after(2) == "annuler" and R.after(1, true) == "annuler" and R.after(5) == "annuler"
+  r.c9 = R.after(1) == "reserve" and R.after(2) == "laisser" and R.after(1, true) == "laisser" and R.after(5) == "laisser"
   -- 10. pause
   r.c10 = R.cooling(1000, 999) == true and R.cooling(1000, 1000) == false and R.cooling(nil, 5) == false
   -- 11. ligne
   local l = R.line({ team = "azure", outpost = 4, pid = 7, why = "chantier-lent", minute = 75.5, undo = 21, placed = 13, busy = 6, items = 2, n = 1, next = "reserve" })
-  local l2 = R.line({ team = "azure", outpost = 4, pid = 7, why = "abandon", minute = 140, undo = 21, placed = 0, busy = 21, items = 0, n = 2, next = "annuler" })
+  local l2 = R.line({ team = "azure", outpost = 4, pid = 7, why = "abandon", minute = 140, undo = 21, placed = 0, busy = 21, items = 0, n = 2, next = "laisser", lost = 3 })
   r.c11 = l == "[FO-ROLLBACK] azure : avant-poste 4, projet 7 a 75.5 min (chantier-lent) : 21 paire(s) gardee(s), 13 reposee(s), 6 tuile(s) prise(s), 2 sans objet ; retour 1, bande remise en reserve"
-    and l2:find("retour 2, bande annulee, une autre sera essayee", 1, true) ~= nil
+    and l2:find("retour 2, bande laissee au plan, la suivante part ; 3 paire(s) au-dela de la borne, non gardee(s)", 1, true) ~= nil
   -- 12. plan d'obtention : stock d'abord, puis recettes dépliées (3 niveaux), atomicité de `used`
   local stock = { gear = 2, plate = 30, stone = 5 }
   local have = function(n) return stock[n] or 0 end
@@ -102,7 +102,7 @@ for i = 1, 12 do check(res["c" .. i], "cas " .. i) end
 -- branchement (lecture des sources)
 local S = read("script/team/migration_champ.lua")
 check(S:find('local Rb = require("shared.team.migration_retour")', 1, true) ~= nil, "exécutant : règle chargée au chargement du module")
-check(S:find("st.undo, st.pg, st.cool = Rb.pack(undo), nil, nil", 1, true) ~= nil, "retrait : les paires sont gardées")
+check(S:find("st.undo, st.pg, st.cool, st.undo_lost = packed, nil, nil, lost", 1, true) ~= nil, "retrait : les paires sont gardées")
 check(S:find("Rb.decide({ undo = #st.undo, produced = false", 1, true) ~= nil and S:find("local res = rollback(f, surface, ms, o, st, p, tick, rwhy, ab)", 1, true) ~= nil,
   "suivi du chantier : décision puis retour en arrière")
 check(S:find("if Rb.cooling(st.cool, tick) then", 1, true) ~= nil, "pause après un retour avant tout nouveau retrait")
