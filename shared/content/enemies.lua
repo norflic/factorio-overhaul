@@ -202,6 +202,37 @@ function E.unit_name(kind, tier, family)
   return "fo-" .. tn .. "-" .. kind
 end
 
+-- Lot BI-V1 (1/11) : ÉCRASEUR, classe neuve (PLAN §5 ter), 4 tailles, rare, dans le nid de déchiqueteurs vanilla. PV et dégâts dérivés du
+-- palier × hp_mult (72 k, 450 k, 2,16 M, 9,9 M) ; coup de zone de rayon `radius`. Boîte plafonnée à BOX_HALF_MAX : l'essai E2 (±1,4) n'est pas fait.
+E.crusher = {
+  tiers = { 6, 8, 10, 12 },
+  scale = { [6] = 1.6, [8] = 2.2, [10] = 2.7, [12] = 3.2 },
+  hp_mult = 3,
+  base_hp = 3000,
+  base_damage = 90,
+  speed = 0.10,
+  radius = 3,
+  cooldown = 70,
+  tint = { [8] = { r = 0.50, g = 0.36, b = 0.14 }, [10] = { r = 0.10, g = 0.42, b = 0.44 }, [12] = { r = 0.30, g = 0.16, b = 0.50 } },
+  glow = { r = 1.00, g = 0.45, b = 0.20 },
+  curves = {
+    [6] = { { 0.78, 0.00 }, { 0.86, 0.03 }, { 1.00, 0.02 } },
+    [8] = { { 0.89, 0.00 }, { 0.94, 0.03 }, { 1.00, 0.02 } },
+    [10] = { { 0.95, 0.00 }, { 0.98, 0.02 }, { 1.00, 0.02 } },
+    [12] = { { 0.98, 0.00 }, { 1.00, 0.02 } },
+  },
+}
+
+function E.crusher_name(tier)
+  return "fo-crusher-" .. E.tier_names[tier] .. "-biter"
+end
+
+--- PV et dégâts d'un écraseur.
+function E.crusher_stats(tier)
+  local nt, c = E.new_tiers[tier], E.crusher
+  return { hp = c.base_hp * nt.hp * c.hp_mult, damage = c.base_damage * nt.damage, poll = nt.poll * c.hp_mult, resist = nt.resist }
+end
+
 function E.worm_name(tier)
   if tier <= E.VANILLA_TIERS then return E.tier_names[tier] .. "-worm-turret" end
   return "fo-" .. E.tier_names[tier] .. "-worm-turret"

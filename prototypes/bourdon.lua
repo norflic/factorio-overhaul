@@ -1,6 +1,6 @@
 -- LE BOURDON, expérimental de l'âge 15 (lot BOURDON, 1er/11) : cloche-cathédrale en lévitation. Le prototype existe toujours (réglage
--- fo-war-robots non requis), rien ne le pose hors des commandes de démonstration (script/robots/bourdon.lua) tant que le Portique
--- (lot RB-5) n'existe pas.
+-- fo-war-robots non requis). Depuis le lot ROBOTS-JEU (3/11), il se FABRIQUE au Portique (objet, recette, technologie : fin de ce
+-- fichier) ; les commandes de démonstration (script/robots/bourdon.lua) restent.
 --
 -- `spider-vehicle` (RB-0, E3, E9) : marche sans chemin, autopilote, télécommande de vanilla. Toute l'image passe par `rendering`
 -- (script/robots/bourdon.lua) : flottement, chaînes, ancres et Glas en dépendent, et l'entité, son `position`, reste invisible.
@@ -31,7 +31,7 @@ for _, k in ipairs(cles) do
   protos[#protos + 1] = p
 end
 
-local ICONE = "__base__/graphics/icons/spidertron.png"
+local ICONE = "__factorio-overhaul__/graphics/robots/icones/fo-bourdon.png" -- lot ROBOTS-JEU : icône de la cloche (tools/render/pieces/experimentaux/icone_bourdon.py)
 
 local function patte(n)
   return {
@@ -222,5 +222,48 @@ protos[#protos + 1] = {
   consuming = "none",
   order = "c[fo-bourdon]-a",
 }
+
+-- ------------------------------------------------------------------------------------------------ fabrication (lot ROBOTS-JEU, 3/11)
+-- Objet fabriqué au Portique, posé à la main : il pose le RELAIS `fo-bourdon-pose`, que script/robots/bourdon.lua remplace aussitôt par
+-- la descente du Bourdon (plafond de géants vérifié ; refusé : l'objet est rendu). Raisons et données : shared/robots/bourdon.lua.
+do
+  local B = require("shared.robots.bourdon")
+  local Ro = require("shared.content.robots")
+  local C = require("shared.content.crafts")
+  local lib = require("prototypes.lib")
+  local ICONES = { { icon = "__factorio-overhaul__/graphics/robots/icones/fo-bourdon.png", icon_size = 64, icon_mipmaps = 4 } }
+  local usine = assert(Ro.factory(B.USINE), "bourdon : usine inconnue " .. B.USINE)
+  local ings = {}
+  for _, g in ipairs(B.FAB.ingredients) do ings[#ings + 1] = { type = "item", name = g[1], amount = g[2] } end
+  protos[#protos + 1] = {
+    type = "item", name = B.OBJET,
+    localised_name = { "entity-name.fo-bourdon" }, localised_description = { "item-description." .. B.OBJET },
+    icons = ICONES, subgroup = Ro.SUBGROUP, order = "b[kit]-99[bourdon]", stack_size = 1,
+    place_result = B.POSE,
+  }
+  protos[#protos + 1] = {
+    type = "simple-entity-with-owner", name = B.POSE,
+    localised_name = { "entity-name.fo-bourdon" }, localised_description = { "item-description." .. B.OBJET },
+    icons = ICONES,
+    flags = { "placeable-neutral", "player-creation", "placeable-off-grid", "not-blueprintable", "not-deconstructable", "not-on-map" },
+    collision_box = { { -1.9, -1.9 }, { 1.9, 1.9 } }, collision_mask = {},
+    selection_box = { { -2, -2 }, { 2, 2 } },
+    max_health = 100, render_layer = "object",
+    picture = { filename = ICONES[1].icon, width = 64, height = 64, scale = 2, shift = { 0, -1 } },
+  }
+  protos[#protos + 1] = {
+    type = "recipe", name = B.RECETTE, category = usine.category, enabled = false, energy_required = B.FAB.temps,
+    ingredients = ings, results = { { type = "item", name = B.OBJET, amount = 1 } }, main_product = B.OBJET,
+    localised_name = { "entity-name.fo-bourdon" },
+  }
+  protos[#protos + 1] = lib.technology({
+    name = B.TECH.name,
+    localised_name = { "technology-name." .. B.TECH.name }, localised_description = { "technology-description." .. B.TECH.name },
+    icons = ICONES,
+    effects = { lib.unlock(B.RECETTE) }, prerequisites = B.TECH.prerequisites,
+    count = C.tech_count(B.TECH), packs = C.packs(B.TECH.epoch), time = B.TECH.time,
+    order = "z[fo]-robots-" .. B.TECH.name,
+  })
+end
 
 data:extend(protos)

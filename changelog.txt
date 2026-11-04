@@ -1,4 +1,17 @@
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Version: 0.6.47
+Date: 2026-11-04
+  Changes:
+    - Recherche de votre equipe : elle ne se bloque plus quand le joueur change la recherche courante (le fil de recherche de la base reprend).
+    - Robots : les 12 robots ont leur vrai visuel en jeu (Trotte-Vapeur, Levite, Torique, Heliaste et Couronne a 16 directions ; Ecaille, Bobineur, Aiguille, Cloche, Chanfrein, Truelle et Aileron a 8 directions) ; « visuel provisoire » retire des robots et des 4 usines ; les pattes des geants sont dessinees.
+    - Le Bourdon se fabrique : objet, recette au Portique, technologie de l'age 15 ; il compte pour un geant dans le plafond (3 au plus).
+    - Les 20 machines de la chaine du calcul ont leur propre visuel (salle blanche, centres de calcul, groupe froid, lithographe, tireuse, scie a fil, graveur plasma, testeur, encapsulation, ligne CMS, tour a fibre, integrateur, tour de refroidissement, refrigerateur a dilution, labo quantique, unite cryogenique, imprimante de circuits, four de frittage, four a arc) ; piece mobile au travail, lueur et lumiere au travail ; raccords de fluide traces par le moteur dans les 4 directions.
+    - 39 icones dediees pour les objets, fluides, baies et technologies du calcul (puces, DRAM, SRAM, carte mere, carte graphique, etc.), a la place des circuits vanilla teintes.
+    - Biters : le Moucheron (famille essaim, 12 paliers) a son propre modele ; l'Ecraseur (paliers 6, 8, 10, 12, coup de zone) apparait dans les nids en fin de partie (evolution 0,78 et plus).
+    - Memoire video : aucune page d'atlas virtuel ajoutee au plancher par ces visuels (13 pages, comme 0.6.46).
+    - Limites connues : pas d'animation de mort pour le Moucheron et l'Ecraseur (corps vanilla teintes) ; 7 robots a 8 directions tournent par pas de 45 degres ; le Bourdon fini reste dans le Portique tant qu'on ne le prend pas ; la salle blanche et les tuyaux dessines de 4 machines du calcul seront refaits (version suivante) ; icones des technologies et segments de robots encore teintees ; les munitions des tourelles, le perimetre de defense et le retour en arriere des bandes de champ (regle B) ne sont pas dans cette version.
+
+------------------------------------------------------------
 Version: 0.6.46
 Date: 2026-11-03
   Changes:
