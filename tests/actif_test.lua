@@ -49,6 +49,26 @@ check(line:find("[FO-ACTIF] ecarlate", 1, true) and line:find("2 PNJ libre", 1, 
   and line:find("moyen 3.5 s", 1, true) and line:find("max 10.0 s", 1, true), "ligne du bilan : " .. line)
 check(A.report_line("x", 0, {}, 0, 0, {}):find("0 prise", 1, true) ~= nil, "bilan vide sans erreur")
 
+-- Lot AGEBLOCAGE (diagnostic) : sortes des tâches prises et en cours
+local sk = {}
+A.note_kind(sk, "ghost") A.note_kind(sk, "craft") A.note_kind(sk, "ghost") A.note_kind(sk, nil)
+check(sk.kinds.ghost == 2 and sk.kinds.craft == 1 and sk.kinds["?"] == 1, "sortes prises comptées (sans sorte : « ? »)")
+check(A.kinds_text({ mine = 2, craft = 1, ghost = 3 }) == "{craft:1 ghost:3 mine:2}", "texte trié par sorte : " .. A.kinds_text({ mine = 2, craft = 1, ghost = 3 }))
+check(A.kinds_text(nil) == "{}" and A.kinds_text({}) == "{}", "table vide ou absente : {}")
+local kl = A.report_kinds_line("azure", 36000, sk, { ghost = 5, mine = 3 }, 1, 6, 64, 8)
+check(kl:find("[FO-ACTIF-SORTES] azure a 10.0 min", 1, true) and kl:find("prises en 5 min {?:1 craft:1 ghost:2}", 1, true)
+  and kl:find("en cours {ghost:5 mine:3}", 1, true) and kl:find("en arriere-plan 1", 1, true) and kl:find("(> 64 tuiles) 6 sur 8", 1, true),
+  "ligne des sortes : " .. kl)
+check(A.report_kinds_line("x", 0, {}, {}, nil, nil, nil, nil):find("prises en 5 min {}", 1, true) ~= nil, "ligne des sortes vide sans erreur")
+do -- mutant : texte non trié
+  local saved = A.kinds_text
+  A.kinds_text = function(map) local out = {} for k, v in pairs(map or {}) do out[#out + 1] = k .. ":" .. v end return "{" .. table.concat(out, " ") .. "}" end
+  local seen = false
+  for _ = 1, 20 do if A.kinds_text({ zz = 1, aa = 2, mm = 3, bb = 4, yy = 5 }) ~= "{aa:2 bb:4 mm:3 yy:5 zz:1}" then seen = true end end
+  A.kinds_text = saved
+  check(seen, "mutant refusé : texte des sortes non trié")
+end
+
 -- Types du moteur seulement, triés (déterminisme)
 for k = 2, #A.REPAIR_TYPES do check(A.REPAIR_TYPES[k - 1] < A.REPAIR_TYPES[k], "types triés") end
 check(A.TURRET_REPAIR_BELOW > 60 and A.TURRET_REPAIR_BELOW <= 100, "seuil des tourelles au-dessus de celui de l'infrastructure")
