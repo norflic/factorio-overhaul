@@ -57,6 +57,7 @@ def main():
     ap.add_argument("--dest", required=True)
     ap.add_argument("--zoom", type=int, default=2, choices=(1, 2))
     ap.add_argument("--nuit", action="store_true")
+    ap.add_argument("--titre", default="DA-CALCUL, états clés (16 échantillons)")
     ap.add_argument("--seulement", default="", help="numéros de rangées (0 = salle), séparés par des virgules")
     a = ap.parse_args()
     ppt = 64 if a.zoom == 2 else 32
@@ -70,7 +71,7 @@ def main():
     sheet = Image.new("RGB", (W, H), (22, 22, 26))
     dr = ImageDraw.Draw(sheet)
     f1, f2, f3 = K.font(22 if a.zoom == 2 else 16), K.font(18 if a.zoom == 2 else 13), K.font(16 if a.zoom == 2 else 11, False)
-    dr.text((10, 8), "DA-CALCUL, états clés (16 échantillons) · zoom %d · %s · lueur de travail allumée" % (a.zoom, "nuit" if a.nuit else "jour"),
+    dr.text((10, 8), "%s · zoom %d · %s · lueur de travail allumée" % (a.titre, a.zoom, "nuit" if a.nuit else "jour"),
             fill=(255, 205, 120), font=f1)
     y = hd
     for t, r in blocs:
