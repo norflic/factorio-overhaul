@@ -684,6 +684,19 @@ function Capital.pay(f, surface, tick, plan, stock, only_center)
   if not Capital.any_on() then return 0 end
   local c = state_of(f)
   local d = c.current
+  -- Lot AGEBLOCAGE (diagnostic, LECTURE SEULE) : [FO-CAPITAL-DIAG], une ligne par minute tant que la décision n'est pas payée.
+  local dg = plan and plan.ia3 and plan.ia3.capdiag
+  if d and dg and dg.path ~= "paye" and tick - (c.diag_t or -3600) >= 3600 then
+    c.diag_t = tick
+    local items = {}
+    for i, it in ipairs(d.cost or {}) do
+      items[#items + 1] = string.format("%s %d : depart %d, a son tour %d, libre %d", it[1], it[2], (dg.start or {})[i] or -1,
+        (dg.turn or {})[i] or -1, (stock or {})[it[1]] or 0)
+    end
+    log(string.format("[FO-CAPITAL-DIAG] %s : '%s' (but '%s') chemin %s ; bras libres %d ; rang %s sur %s, priorite %s ; fabrications emises %s, place %s ; %s ; centre %s a %.1f min",
+      f.key or "?", d.key, tostring(dg.key), tostring(dg.path), dg.idle or -1, tostring(dg.rank), tostring(dg.n), tostring(dg.prio),
+      tostring(dg.crafts or 0), tostring(dg.room), table.concat(items, " | "), tostring(c.centre_sig), minutes(f, tick)))
+  end
   if only_center and not (d and d.center) then return 0, true end -- lot AGES : gel levé pour le centre seulement (2e valeur : rien tenté)
   if not list or #list == 0 then
     if d then

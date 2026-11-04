@@ -331,7 +331,13 @@ function C.think(view, book, st, ctx)
   local repair_proj = { id = 0, key = "pile:reparer" }
   for _, it in ipairs(pile.crafts or {}) do P.want(E, repair_proj, { { it[1], it[2] } }, it[3], false, "pile") end
   P.boot_smelters(E, st, s.cap) -- lot IA-V2 : fours du QG avant les projets (chemin critique)
-  for _, proj in ipairs(order) do P.emit(E, proj, ctx, tick) end
+  -- Lot AGEBLOCAGE (diagnostic, lecture seule) : stock virtuel au départ des projets et rang de chaque projet (lus par Cap.emit).
+  E.avail_start = {}
+  for k, v in pairs(E.avail) do E.avail_start[k] = v end
+  for i, proj in ipairs(order) do
+    E.rank, E.n_order = i, #order
+    P.emit(E, proj, ctx, tick)
+  end
   -- 6. Approvisionnement.
   local raw, minable = C.raw_items()
   -- Lot KIT : matières naturelles récoltables (le bois des poteaux, lu par le runtime sur les arbres) : à miner à la main
@@ -504,6 +510,7 @@ function C.think(view, book, st, ctx)
     ia3 = { K = K, active = n_active, productive = n_productive, dropped = dropped,
       explore = E.explore, saturated = saturated, dominant = dom and dom.key or nil,
       pile = { top = pile.top, hold = pile.hold, blocked = pile.blocked }, -- lot PILE-PRIORITE (l'état complet : st.pile)
+      capdiag = E.capdiag, -- lot AGEBLOCAGE (diagnostic, lecture seule)
       pay = E.pay }, -- lot CAPITAL : améliorations dont le coût est réservé au stock virtuel, payées par le runtime
   }
 end
