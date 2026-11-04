@@ -266,6 +266,9 @@ T.defend_copper_floor = 30 -- 6 pistolets de recrues
 -- tombe armé ; 1618033988 : équipe finie à 54,7 min contre n = 8 au témoin).
 T.qg_reserve_on = false
 T.qg_recruit_hold_on = true
+-- Lot PERIMETRE2 (QCM du DC, 4/11 18 h 05 : « Oui, enceinte et avant-postes ») : l'enceinte de murs de pierre (shared/team/enceinte.lua) est aussi
+-- posée pour votre équipe (avant : éteinte, « le joueur garde la main sur ses propres murs »). Payée en briques ; aucun fer.
+T.enceinte_joueur = true
 -- Lot QG-GROUPE2 (shared/team/qg_groupe.lua ; le DC, QCM du 4/11 : « Placement groupé dès la pose », sans téléport) : votre équipe seulement.
 -- Règle 1 : tourelles du QG posées en lignes de 4 (écart Pose.gap) sur le côté attaqué, à nombre constant, jamais déplacées ;
 -- règle 2 : Sq.peril compte la défense au point le plus faible (appui des voisines), et le groupe « hq » ne veut que hq + fresh tourelles.
