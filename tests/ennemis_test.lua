@@ -133,6 +133,18 @@ check(r12.physical[1] == r8.physical[1] and r12.physical[2] == r8.physical[2], "
 local TD = require("shared.td.waves")
 check(TD.max_tier(200) == 8 and TD.boss_tier(200) == 8 and TD.unit_cost[TD.max_tier(200)] ~= nil, "defense de tours : palier max 8")
 
+-- Lot BI-V1 : écraseur, classe neuve (chiffres écrits en dur, PLAN §5 ter)
+do
+  local attendu = { [6] = 72000, [8] = 450000, [10] = 2160000, [12] = 9900000 }
+  for _, tier in ipairs({ 6, 8, 10, 12 }) do
+    check(math.abs(E.crusher_stats(tier).hp - attendu[tier]) < 1, "ecraseur : PV du palier " .. tier)
+    local poids = 0
+    for _, pt in ipairs(E.crusher.curves[tier]) do poids = math.max(poids, pt[2]) end
+    check(poids <= 0.05 and E.crusher.curves[tier][1][1] >= 0.78, "ecraseur rare, des 0,78 : palier " .. tier)
+  end
+  check(E.crusher_name(12) == "fo-crusher-eternal-biter" and E.crusher.radius == 3, "ecraseur : nom et rayon du coup")
+end
+
 -- Lot BI-0 : tailles, boites, moucheron, nid d'essaim
 local SRC = slurp("shared/content/enemies.lua")
 local function charger(src) return assert(load(src, "enemies", "t"))() end
