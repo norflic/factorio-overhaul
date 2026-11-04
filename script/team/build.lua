@@ -3588,30 +3588,43 @@ function Build.work(agent, f, tick)
     end
     job.done = (job.done or 0) + did
     if did > 0 or remain > 0 then return "more" end
-    if job.seg then
-      -- Lot AGEBLOCAGE (diagnostic, LECTURE SEULE) : un défrichage de rue rendu « done » sans rien abattre ; ce que survey() compterait
-      -- encore dans le tronçon (objets qui bloquent, hors nos bâtiments praticables), par type et nom. 1re fois, puis toutes les 10.
-      if (job.done or 0) == 0 then
-        b.defriche_vide = b.defriche_vide or {}
-        local n = (b.defriche_vide[job.seg] or 0) + 1
-        b.defriche_vide[job.seg] = n
-        if n == 1 or n % 10 == 0 then
-          local x0, y0, x1, y1 = P.seg_rect(b.lat, job.seg)
-          local seen = {}
+    -- Lot AGEBLOCAGE (diagnostic, LECTURE SEULE) : chaque défrichage fini (rue ou obstacles d'un projet), par clé : nombre de fins,
+    -- abattus au total, et ce qui reste dans le rectangle (arbres et rochers : hors de portée du PNJ et le plus proche ; autres objets
+    -- hors de notre force). 1re fin, puis toutes les 10.
+    do
+      local key = job.seg and ("rue:" .. job.seg) or ("p" .. tostring(job.pid) .. ":" .. tostring(job.anchor))
+      b.defriche_fin = b.defriche_fin or {}
+      local st = b.defriche_fin[key] or { n = 0, cut = 0 }
+      b.defriche_fin[key] = st
+      st.n, st.cut = st.n + 1, st.cut + (job.done or 0)
+      if st.n == 1 or st.n % 10 == 0 then
+        local x0, y0, x1, y1
+        if job.seg then x0, y0, x1, y1 = P.seg_rect(b.lat, job.seg)
+        elseif rect then x0, y0, x1, y1 = rect[1], rect[2], rect[3], rect[4] end
+        local trees, far, near, other = 0, 0, nil, {}
+        if x0 then
           for _, ent in ipairs(surface.find_entities_filtered({ area = { { x0, y0 }, { x1, y1 } }, collision_mask = "object-layer" })) do
-            if strict(ent.bounding_box, x0, y0, x1, y1) and ent.force.name ~= f.force then
-              local k = ent.type .. "/" .. ent.name .. "/" .. ent.force.name
-              seen[k] = (seen[k] or 0) + 1
+            if ent.force.name ~= f.force then
+              if ent.type == "tree" or ent.type == "simple-entity" then
+                trees = trees + 1
+                local d2 = dist2(ent.position, pos)
+                if d2 > reach2 then far = far + 1 end
+                if not near or d2 < near then near = d2 end
+              else
+                local k = ent.type .. "/" .. ent.name .. "/" .. ent.force.name
+                other[k] = (other[k] or 0) + 1
+              end
             end
           end
-          local parts = {}
-          for _, k in ipairs(sorted_keys(seen)) do parts[#parts + 1] = k .. "x" .. seen[k] end
-          log(string.format("[FO-DEFRICHE] %s : rue %s defrichee sans rien abattre (%d fois) ; objets restants hors de notre force {%s} a %.1f min",
-            f.key or "player", job.seg, n, table.concat(parts, " "), tick / 3600))
         end
+        local parts = {}
+        for _, k in ipairs(sorted_keys(other)) do parts[#parts + 1] = k .. "x" .. other[k] end
+        log(string.format("[FO-DEFRICHE] %s : %s fin n. %d (abattus cette fois %d, au total %d) ; restants dans le rectangle : arbres et rochers %d dont hors de portee %d (plus proche %.1f, portee %.1f) ; autres objets {%s} ; PNJ a %.1f du point d'appui a %.1f min",
+          f.key or "player", key, st.n, job.done or 0, st.cut, trees, far, near and math.sqrt(near) or -1, math.sqrt(reach2), table.concat(parts, " "),
+          job.ax and math.sqrt(dist2({ x = job.ax, y = job.ay }, pos)) or -1, tick / 3600))
       end
-      Build.street_cleared(f, job.seg)
     end
+    if job.seg then Build.street_cleared(f, job.seg) end
     return "done"
   elseif job.mode == "fill" then
     local q = p.quais[job.idx]
