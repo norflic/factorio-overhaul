@@ -41,7 +41,9 @@ local function mine(force_name, sauf)
 end
 
 --- Géants de cette famille pour une force : son NOM (chaîne, ce qu'envoie script/robots/armee.lua de robotsjeu) ; un LuaForce est aussi lu.
+local appels = 0 -- appels de G.count pendant UN calcul (jamais gardé d'un tick à l'autre : rien en storage)
 function G.count(force)
+  appels = appels + 1
   local name = type(force) == "string" and force or (force and force.valid and force.name)
   if not name then return 0 end
   return mine(name, nil)
@@ -68,7 +70,11 @@ local function on_built(ev)
   if not r then return end
   local force = e.force
   local age = Armee.age(force)
-  local have = Armee.giants(force.name) + mine(force.name, e.unit_number)
+  -- Armee.giants (robotsjeu) compte déjà les miens s'il appelle l'interface « fo-xp » (integ-0647, armee.lua) : sinon, on les ajoute ici.
+  -- Le nouveau venu n'est pas encore inscrit : il n'est compté ni par l'un ni par l'autre.
+  local avant = appels
+  local have = Armee.giants(force.name)
+  if appels == avant then have = have + mine(force.name, e.unit_number) end
   local player = ev.player_index and game.get_player(ev.player_index)
   if not Xp.giant_ok(age, have) then
     K.journal("%s refuse : plafond des geants (%d deja, age %d, plafond %d)", r.id, have, age, Xp.giant_cap(age))
