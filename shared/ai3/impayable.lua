@@ -54,6 +54,24 @@ function Im.missing(ingredients, stock)
   return out
 end
 
+--- Lot AGEBLOCAGE (journal du DC du 3/11 : Azur relance « gate », « electric-energy-distribution-1 », « stronger-explosives-1 »,
+--- « advanced-material-processing » et « follower-robot-count-1 » toutes les 8 min de 53,9 à 150 min, chacune « packs qui manquent :
+--- logistic-science-pack ») : l'arrêt est INUTILE quand chaque autre recherche prête et payable exige aussi un des packs qui manquent
+--- (`missing`, liste de Im.missing ; `others` = { ingrédients { { pack, n } } de chaque autre recherche }). Rien d'autre ne peut avancer :
+--- la recherche garde le laboratoire (ses unités payées ne sont pas perdues) et ses packs restent demandés. Aucun pack manquant : faux
+--- (la cause est ailleurs, la garde joue).
+function Im.useless(missing, others)
+  if not missing or #missing == 0 then return false end
+  local lack = {}
+  for _, p in ipairs(missing) do lack[p] = true end
+  for _, ing in ipairs(others or {}) do
+    local needs = false
+    for _, g in ipairs(ing) do if lack[g[1]] then needs = true end end
+    if not needs then return false end
+  end
+  return true
+end
+
 --- Lâche `tech` : pause jusqu'à tick + Im.PAUSE, packs manquants retenus.
 function Im.stall(st, tech, tick, packs)
   st.stalled = st.stalled or {}

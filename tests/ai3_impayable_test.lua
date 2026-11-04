@@ -52,6 +52,17 @@ local function suite(Im)
   check(#m == 2 and m[1] == "pm" and m[2] == "pz", "§1 packs qui manquent : sous le coût d'une unité, triés")
   check(#Im.missing({ { "pa", 1 } }, { pa = 1 }) == 0, "§1 pack au stock pour une unité : rien ne manque")
 
+  -- §1b Lot AGEBLOCAGE : arrêt inutile (toutes les autres recherches prêtes exigent un pack qui manque).
+  local V, R, M = "pv", "pr", "pm"
+  check(Im.useless({ V }, { { { R, 1 }, { V, 1 } }, { { R, 1 }, { V, 1 }, { M, 1 } } }) == true,
+    "§1b toutes les autres exigent le pack qui manque : arrêt inutile")
+  check(Im.useless({ V }, { { { R, 1 }, { V, 1 } }, { { R, 1 }, { M, 1 } } }) == false,
+    "§1b une autre recherche se paie sans le pack : la garde joue")
+  check(Im.useless({}, { { { R, 1 }, { V, 1 } } }) == false, "§1b aucun pack ne manque : la garde joue (cause ailleurs)")
+  check(Im.useless(nil, {}) == false and Im.useless({}, {}) == false, "§1b packs inconnus ou aucun qui manque, même sans autre recherche : la garde joue")
+  check(Im.useless({ V }, {}) == true, "§1b aucune autre recherche prête : arrêt inutile")
+  check(Im.useless({ V, M }, { { { R, 1 }, { M, 1 } }, { { V, 1 } } }) == true, "§1b chaque autre exige l'un des packs qui manquent")
+
   -- §2 Pause.
   local st = {}
   Im.stall(st, "t1", 1000, { "pz" })
@@ -198,7 +209,7 @@ local MUT = {
   { "grâce ignorée", "if grace ~= nil and tick < grace then return false end", "" },
   { "grâce au terme exclu", "if grace ~= nil and tick < grace then return false end", "if grace ~= nil and tick <= grace then return false end" },
   { "pack au stock pour une unité compté manquant", "if (stock[ing[1]] or 0) < ing[2] then out[#out + 1] = ing[1] end", "if (stock[ing[1]] or 0) <= ing[2] then out[#out + 1] = ing[1] end" },
-  { "packs manquants non triés", "  table.sort(out)\n  return out\nend\n\n--- Lâche", "  return out\nend\n\n--- Lâche" },
+  { "packs manquants non triés", "  table.sort(out)\n  return out\nend\n\n--- Lot AGEBLOCAGE", "  return out\nend\n\n--- Lot AGEBLOCAGE" },
   { "pause trop courte", "st.stalled[tech] = tick + Im.PAUSE", "st.stalled[tech] = tick + 1" },
   { "pause jamais finie", "if tick >= st.stalled[t] or Im.released", "if Im.released" },
   { "retour sur une seule unité", "local units = min(Im.UNITS, math.max(1, remaining or Im.UNITS))", "local units = 1" },
@@ -210,6 +221,10 @@ local MUT = {
   { "lift sans grâce", "  st.grace[best] = tick + Im.PAUSE\n", "" },
   { "lift sans retrait", "  st.stalled[best] = nil\n  if st.stall_packs then st.stall_packs[best] = nil end\n  st.grace = st.grace or {}", "  st.grace = st.grace or {}" },
   { "grâce jamais nettoyée", "if tick >= st.grace[t] then", "if false then" },
+  { "arrêt toujours inutile", "if not missing or #missing == 0 then return false end", "if true then return true end" },
+  { "arrêt inutile sans pack manquant", "if not missing or #missing == 0 then return false end", "if not missing then return false end" },
+  { "une seule autre suffit", "    if not needs then return false end\n  end\n  return true", "    if needs then return true end\n  end\n  return false" },
+  { "aucune autre : la garde joue", "    if not needs then return false end\n  end\n  return true", "    if not needs then return false end\n  end\n  return #(others or {}) > 0" },
 }
 local refused, kept = 0, {}
 for _, m in ipairs(MUT) do

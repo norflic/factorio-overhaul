@@ -611,11 +611,30 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
   if not keep_defense and Im.should_stall(lab, tick, lab and lab.tech and st.techs[lab.tech], lab and lab.tech and st.grace[lab.tech]) then
     local spec = c.techs[lab.tech]
     local stock = view.stock or {}
-    Im.stall(st, lab.tech, tick, Im.missing(spec and spec.ingredients, stock))
-    lab.stalled = true
-    log(string.format("[FO-CERVEAU] %s : recherche '%s' sans progres depuis %d min (packs qui manquent : %s) : les autres passent %d min au plus, retour des que les packs sont au coffre",
-      f.key or "?", lab.tech, math.floor(Im.STALL / 3600), table.concat(st.stall_packs[lab.tech], ",") ~= "" and table.concat(st.stall_packs[lab.tech], ",") or "aucun",
-      math.floor(Im.PAUSE / 3600)))
+    local missing = Im.missing(spec and spec.ingredients, stock)
+    -- Lot AGEBLOCAGE : arrêt INUTILE (Im.useless) quand chaque autre recherche prête et payable exige aussi un pack qui manque : la
+    -- recherche garde le laboratoire et ses packs restent demandés (journal du DC du 3/11 : 5 recherches relancées toutes les 8 min
+    -- pendant 96 min, toutes au pack vert absent ; chaque relance repartait de 0 unité).
+    local others = {}
+    for _, t in ipairs(Gen.ready(c, state, nil)) do
+      local ft = force.technologies[t]
+      if t ~= lab.tech and ft and ft.enabled and ev.tfeas[t] then others[#others + 1] = c.techs[t].ingredients end
+    end
+    if Im.useless(missing, others) then
+      local sig = lab.tech .. "|" .. table.concat(missing, ",")
+      if g.hold_sig ~= sig then
+        g.hold_sig = sig
+        log(string.format("[FO-CERVEAU] %s : recherche '%s' sans progres depuis %d min (packs qui manquent : %s), mais les %d autres recherches pretes les exigent aussi : elle garde le laboratoire, ses packs restent demandes",
+          f.key or "?", lab.tech, math.floor(Im.STALL / 3600), table.concat(missing, ","), #others))
+      end
+    else
+      g.hold_sig = nil
+      Im.stall(st, lab.tech, tick, missing)
+      lab.stalled = true
+      log(string.format("[FO-CERVEAU] %s : recherche '%s' sans progres depuis %d min (packs qui manquent : %s) : les autres passent %d min au plus, retour des que les packs sont au coffre",
+        f.key or "?", lab.tech, math.floor(Im.STALL / 3600), table.concat(st.stall_packs[lab.tech], ",") ~= "" and table.concat(st.stall_packs[lab.tech], ",") or "aucun",
+        math.floor(Im.PAUSE / 3600)))
+    end
   end
   local k1 = wanted ~= nil and Auto.on()
   if st.auto_pause and tick < st.auto_pause then wanted = nil end
