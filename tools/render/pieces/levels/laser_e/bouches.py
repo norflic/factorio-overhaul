@@ -8,11 +8,12 @@ du prototype :
   source_offset = {0, −L}   (attack_parameters, tourné avec la tête : source_direction_count 64)
   hauteur       = H         (action_delivery.source_offset = {0, −H}, vertical à l'écran, non tourné)
 avec L = y_bouche (portée horizontale de la bouche : 1 unité Blender = 1 tuile, la tête tourne autour de l'axe vertical
-sans étirement) et H = z_bouche × sin θ (θ = 45°, fo_calib : hauteur vue à l'écran). Modèle du moteur supposé (B) : le
+sans étirement) et H = z_bouche × sin θ (θ = 45°, fo_calib : hauteur vue à l'écran). Modèle du moteur (B, vérifié en moteur réel) : le
 faisceau part de position + projection(rotation(source_offset)) + (0, −H), la projection écrasant y par cos θ ; c'est le
-modèle sur lequel la vanilla est dessinée (lueur de sa lentille mesurée sur hr-laser-turret-shooting-light.png, 16
-directions : à 0,05 tuile près en E, NE, SE ; fo-logs/2026-11-04_LASER-F1C/NOTES-PRODUCTION.md). La vérification en
-moteur réel se fait sur les captures du scénario f1-lasers (faisceaux dans 8 directions).
+modèle sur lequel la vanilla est dessinée (centroïde de la lueur de sa lentille, hr-laser-turret-shooting-light.png : en
+hauteur, à 0,01 tuile près en NE et E, 0,13 en S ; sans projection, 0,38 en S ; fo-logs/2026-11-04_LASER-F1C/NOTES-
+PRODUCTION.md). Vérifié en moteur réel (4/11) : captures du scénario f1-lasers, faisceaux de la vanilla et des âges 2, 6,
+10, 14 et 15 dans 8 directions, partis du point prévu.
 """
 import argparse
 import json
