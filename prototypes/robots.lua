@@ -428,9 +428,10 @@ for i, r in ipairs(Ro.ROBOTS) do
   out[#out + 1] = {
     type = "item", name = r.kit,
     localised_name = { "item-name." .. r.kit }, localised_description = { "item-description." .. r.kit },
-    -- l'icône du robot (lot RB-V1) d'abord ; l'icône de kit de DA-ICONES (caisse de famille + signature) en repli
-    icons = SPR[r.id] and { { icon = SPR[r.id].icone, icon_size = 64, icon_mipmaps = 4 } }
-      or Vis.icones_objet(r.kit) or icons_of("item", r.is_giant and "spidertron" or "engine-unit", ROBOT_TINT[r.id]),
+    -- choix du DC (4/11, QCM : « Caisse de famille ») : l'icône de kit de DA-ICONES (caisse de famille + signature) d'abord ;
+    -- l'icône du robot (lot RB-V1) en repli (tests/robotique_icones_test.lua refuse l'ordre inverse)
+    icons = Vis.icones_objet(r.kit) or (SPR[r.id] and { { icon = SPR[r.id].icone, icon_size = 64, icon_mipmaps = 4 } })
+      or icons_of("item", r.is_giant and "spidertron" or "engine-unit", ROBOT_TINT[r.id]),
     subgroup = Ro.SUBGROUP, order = string.format("b[kit]-%02d", i), stack_size = 1,
     -- Lot RB-3 : le kit « pose » l'unité du joueur (prototype `unit` ou `spider-vehicle`) : le cerveau lit ce lien dans les
     -- prototypes (items_to_place_this), sans nom ; un kit posé à la main est inscrit au registre par script/robots/usine.lua.

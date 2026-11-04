@@ -11,7 +11,9 @@
      256 px, 4 mipmaps, 480 x 256), sans fichier orphelin.
   3. BRANCHEMENT : les 5 fichiers de prototypes lisent prototypes/robotique_icones.lua, et une icône dédiée n'emporte plus la
      feuille vanilla teintée posée au sol et sur les tapis (`pictures`).
-  4. MUTANTS : 13 altérations, chacune doit faire échouer au moins un contrôle.
+  4. MUTANTS : 14 altérations, chacune doit faire échouer au moins un contrôle.
+  5. KITS : choix du DC (4/11, QCM « Caisse de famille ») : dans prototypes/robots.lua, l'icône de kit DA-ICONES passe AVANT
+     l'icône du robot (SPR[r.id].icone, lot RB-V1) ; l'ordre inverse est refusé.
   Les sommes sha256 : tools/render/pieces/robotique/icones.py --manifeste ; la lecture par le moteur : règle « images » du harness.
 ]]
 
@@ -179,6 +181,14 @@ if ROBOTS_BRANCHE then
 else
   print("  NOTE : prototypes/robots.lua non branché sur cette branche (kits, segments et technologies des robots gardent la copie teintée en jeu) : à poser à la fusion")
 end
+--- Icône des kits : la caisse de famille (Vis.icones_objet(r.kit)) EN PREMIER, l'icône du robot (SPR) seulement en repli.
+local function kits_caisse_d_abord(s)
+  local a = s:find("icons = Vis.icones_objet(r.kit) or", 1, true)
+  local b = s:find("SPR[r.id].icone", 1, true)
+  local _, n = s:gsub("icons = Vis%.icones_objet%(r%.kit%) or", "")
+  return a ~= nil and n == 1 and (b == nil or a < b)
+end
+
 local function branchement(lecteur)
   local e = 0
   for _, b in ipairs(BRANCHES) do
@@ -188,6 +198,7 @@ local function branchement(lecteur)
     if n("Vis%.icones_objet%(") ~= b[2] then e = e + 1 end
     if n("Vis%.icones_tech%(") ~= b[3] then e = e + 1 end
     if b[4] and n("if src%.pictures and not vis then") ~= 1 then e = e + 1 end
+    if b[1] == "prototypes/robots.lua" and not kits_caisse_d_abord(s) then e = e + 1 end
   end
   return e
 end
@@ -237,6 +248,15 @@ check(branchement(function(ch)
   if ch == "prototypes/crafts.lua" and s then s = s:gsub("if src%.pictures and not vis then", "if src.pictures then") end
   return s
 end) > 0, "mutant non détecté : feuille au sol teintée gardée malgré l'icône dédiée")
+
+section("5. Kits : la caisse de famille d'abord (choix du DC)")
+if ROBOTS_BRANCHE then
+  check(kits_caisse_d_abord(lire("prototypes/robots.lua") or ""), "prototypes/robots.lua : l'icône de kit DA-ICONES passe avant celle du robot")
+  -- mutant : l'ancien ordre (l'icône du robot d'abord, la caisse en repli) doit être refusé
+  local ancien = [[icons = SPR[r.id] and { { icon = SPR[r.id].icone, icon_size = 64, icon_mipmaps = 4 } }
+      or Vis.icones_objet(r.kit) or icons_of("item", r.is_giant and "spidertron" or "engine-unit", ROBOT_TINT[r.id]),]]
+  check(not kits_caisse_d_abord(ancien), "mutant non détecté : icône du robot avant la caisse")
+end
 
 print(string.format("[ROBOTIQUE-ICONES] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
