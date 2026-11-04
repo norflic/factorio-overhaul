@@ -38,6 +38,11 @@ HABILLAGE = dict(ages.CORPS[4], **E_.MAQUETTES[4])
 def matieres(metal, M):
     ages.matieres(4, metal, M)
     M["cuve"] = M["jaune_capot"]
+    # LOT F1-C (« volants rouges » non vus par les lecteurs de la ronde 2 : le rouge de la lignée, rouillé, se lisait
+    # brun sur le jaune) : rouge de signalisation vif, peu rouillé, pour TOUS les volants de l'âge
+    metal("rouge_volant", (0.62, 0.035, 0.02), rough=0.38, met=0.15, grain=0.1, gscale=30.0, rust=(0.1, 0.05, 0.025),
+          ra=0.08, dirt=0.45, stain=0.3, sscale=5.0, wear=1.2, streak=0.2)
+    M["redpaint"] = M["rouge_volant"]
 
 
 def liaison(g, pts, r):
@@ -67,11 +72,11 @@ def _vanne(g, k, h):
     """Vanne à volant rouge piquée sur la tuyauterie du flanc."""
     M = g.M
     g.cyl((0, 0, 0.03), "z", 0.035, 0.06, M["noir_capot"], n=10, what="corps_vanne")
-    P2.handwheel(g, (0, 0, 0.08), (0, 0, 1), 0.06, M)
+    P2.handwheel(g, (0, 0, 0.08), (0, 0, 1), 0.085, M)     # LOT F1-C : plus grand
 
 
 def _lampes(g, k, h):
-    O.lampe(g, (0, 0, 0), (0, 0, 1), 0.022, g.M["emit"], g.M["noir_capot"])
+    O.lampe(g, (0, 0, 0), (0, 0, 1), 0.034, g.M["emit"], g.M["noir_capot"])   # LOT F1-C ronde 3b : 0,022 → 0,034 (nuit)
 
 
 def _dessus1(g, k, w):
@@ -105,7 +110,7 @@ def socle(g, c):
     M = g.M
     zp = c.gradins[-1][3]
     O.ceinture(g, c, 0, 0.36, 0.03, M["noir_capot"], colliers=M["jaune_capot"], pas=0.35)
-    O.sur_flanc(g, c, 0, [math.radians(a) for a in (232, 308)], _vanne, f=0.36, dr=0.04)
+    O.sur_flanc(g, c, 0, [math.radians(a) for a in (232, 270, 308)], _vanne, f=0.36, dr=0.04)   # LOT F1-C : + 1
     O.sur_flanc(g, c, 0, [math.radians(a) for a in (205, 255, 285, 335)], _danger, f=0.82, dr=0.006)
     O.ceinture(g, c, 1, 0.3, 0.022, M["noir_capot"], colliers=M["galva_capot"], pas=0.3)
     O.rivets_flanc(g, c, 1, 0.8, M["galva_capot"], pas=0.12, r=0.012)
@@ -187,7 +192,10 @@ def emetteur(g, c):
         g.sphere((sx * L / 2, 0, zh), r, M["jaune_capot"], n=32, m=12, scale=(0.32, 1.0, 1.0), what="fond")
         g.tube_shell((sx * L * 0.48, 0, zh), "x", r + 0.014, r - 0.01, 0.04, M["noir_capot"], n=32, what="cerclage")
         # volants rouges sur le dessus, près des bouts, tournés vers le haut
-        P2.handwheel(g, (sx * L * 0.33, -0.05 * re, zh + r + 0.06), (0, -0.25, 1), 0.2 * re, M)
+        P2.handwheel(g, (sx * L * 0.33, -0.05 * re, zh + r + 0.07), (0, -0.25, 1), 0.3 * re, M)   # LOT F1-C : × 1,5
+        # ronde 3b : disque sombre sous le volant (en pose N, le fond se voyait entre ses rayons : trou de 13 px)
+        g.cyl((sx * L * 0.33, -0.05 * re + 0.004, zh + r + 0.05), (0, -0.25, 1), 0.27 * re, 0.012, M["noir_capot"],
+              n=20, style="hard", what="plateau_volant")
     g.tube_shell((0, 0, zh), "x", r + 0.014, r - 0.01, 0.04, M["noir_capot"], n=32, what="cerclage")
     # trou d'homme boulonné sur le dessus
     g.cyl((0, -0.15 * re, zh + r + 0.01), "z", 0.16 * re, 0.04, M["noir_capot"], n=16, style="hard", what="trou_homme")

@@ -33,10 +33,19 @@ FOYER = ages.FOYER[14]
 FAISCEAU = dict(rgb=(0.957, 0.965, 1.0), rgb2=(0.749, 0.831, 1.0), forme="trait blanc stellaire, étincelles d'étoiles "
                 "le long, le bout s'ouvre en petit trou de ver à l'impact", largeur=0.8)
 HABILLAGE = dict(ages.CORPS[14], **E_.MAQUETTES[14])
+# LOT F1-C (CONCEPT §4) : liserés CONTINUS de la lignée retirés (L2 1,27 à 1,53 t² en ronde 2 : chaque anneau de
+# lumière douce faisait un seul foyer) ; étoiles semées moins denses (5 → 3 par t²)
+HABILLAGE["forme_affut"] = dict(HABILLAGE["forme_affut"], lisere=None, etoiles=dict(mat="emit", densite=3.0))
 
 
 def matieres(metal, M):
     ages.matieres(14, metal, M)
+    # LOT F1-C (écrêtage : 3,7 % du corps en blanc pur en ronde 2, tache de 0,10 t²) : le blanc lunaire (0,55 à 0,63
+    # linéaire) saturait sous le soleil et sous sa propre lumière ; blanc lunaire mat plus sombre, et la lumière blanc
+    # stellaire de l'âge passe en lumière DOUCE (force 0,8 : la couleur reste, sans écrêtage)
+    metal("blanc_lunaire", (0.36, 0.375, 0.43), rough=0.62, met=0.05, grain=0.1, gscale=30.0, rust=(0.2, 0.2, 0.2),
+          ra=0.06, dirt=0.6, stain=0.3, sscale=5.0, wear=0.4, mottle=0.15)
+    M["emit"] = M["emit_soft"]
 
 
 def liaison(g, pts, r):
@@ -82,6 +91,35 @@ def _carte(g, k, h):
                  M["emit"], n=6, m=4, what="etoile_carte")
 
 
+def _noeud_pente(g, k, h):
+    """LOT F1-C ronde 3b : nœud relais sur la pente (repère du flanc) : boîtier indigo cerclé de blanc lunaire, globe,
+    point d'étoile, deux pattes."""
+    M = g.M
+    g.box((0, 0, 0.03), (0.16, h * 0.3, 0.06), M["indigo_nuit2"], "hard", what="boitier_noeud")
+    g.box((0, 0, 0.062), (0.17, h * 0.07, 0.01), M["blanc_lunaire"], "hard", what="cerclage")
+    g.sphere((0, h * 0.05, 0.08), 0.045, M["blanc_lunaire"], n=12, m=6, what="globe")
+    g.sphere((0, h * 0.05 - 0.04, 0.1), 0.014, M["emit"], n=6, m=4, what="point")
+    for s in (-1, 1):
+        g.box((s * 0.07, -h * 0.12, 0.02), (0.02, h * 0.12, 0.04), M["blanc_lunaire"], "hard", what="patte")
+
+
+def _carte_dessus(g, k, w):
+    """LOT F1-C : carte du ciel couchée sur le dessus d'un gradin (repère du dessus, x radial) : cadre blanc lunaire,
+    fond noir spatial, constellation (points et traits fins blanc lunaire)."""
+    M = g.M
+    L = min(0.3, max(0.14, w * 0.7))
+    g.box((0, 0, 0.008), (L, 0.24, 0.016), M["blanc_lunaire"], "hard", what="cadre")
+    g.box((0, 0, 0.017), (L - 0.04, 0.2, 0.004), M["noir_spatial"], "flat", what="carte")
+    rng = random.Random(1440 + k)
+    pts = [V((rng.uniform(-L / 2.6, L / 2.6), rng.uniform(-0.08, 0.08), 0.021)) for _ in range(4)]
+    for j in range(3):
+        d = pts[j + 1] - pts[j]
+        g.box((pts[j] + pts[j + 1]) / 2, (d.length, 0.006, 0.003), M["blanc_lunaire"], "flat",
+              R=Matrix.Rotation(math.atan2(d.y, d.x), 3, "Z"), what="trait")
+    for q in pts:
+        g.sphere(q, 0.011, M["emit"], n=6, m=4, what="etoile_carte")
+
+
 def _relais(g, k, w):
     """Nœud relais sur le dessus : sphère blanc lunaire sur socle indigo, point d'étoile."""
     M = g.M
@@ -121,6 +159,18 @@ def socle(g, c):
     O.sur_flanc(g, c, 0, [math.radians(a) for a in (200, 248, 292, 340)], _carte, f=0.62, dr=0.004)
     O.sur_flanc(g, c, 1, [math.radians(a) for a in (225, 270, 315)], _carte, f=0.62, dr=0.004)
     O.sur_dessus(g, c, 1, [math.radians(a) for a in (190, 215, 245, 295, 325, 350, 160, 20)], _relais, t=0.55)
+    # LOT F1-C (D3 27,0 et grandes surfaces indigo unies en ronde 2) : cartes du ciel COUCHÉES et nœuds relais sur le
+    # DESSUS du premier gradin, rivets blanc lunaire sur les flancs, second ombilical au pied
+    O.sur_dessus(g, c, 0, [math.radians(a) for a in (198, 222, 246, 270, 294, 318, 342)], _carte_dessus, t=0.45)
+    O.sur_dessus(g, c, 0, O.visibles(O.entre_condensateurs(c), nord=0.25), _relais, t=0.85)
+    O.sur_dessus(g, c, 1, [math.radians(a) for a in (202, 230, 258, 282, 310, 338)], _carte_dessus, t=0.2)
+    O.rivets_flanc(g, c, 0, 0.75, M["blanc_lunaire"], pas=0.12, r=0.013)
+    O.rivets_flanc(g, c, 1, 0.7, M["blanc_lunaire"], pas=0.12, r=0.013)
+    O.ceinture(g, c, 0, 0.08, 0.02, M["blanc_lunaire"], colliers=M["indigo_nuit2"], pas=0.4)
+    # ronde 3b (critique : « pente indigo grande et peu meublée, cartes du ciel trop petites ») : NŒUDS RELAIS en relief
+    # sur la pente du premier gradin (boîtier, antenne courte couchée, point d'étoile)
+    O.sur_flanc(g, c, 0, [math.radians(a) for a in (192, 214, 236, 258, 282, 304, 326, 348)], _noeud_pente, f=0.45,
+                dr=0.004)
     for nom, sx in (("coin_NO", -1), ("coin_NE", 1)):
         p = corps.place(c, nom)
         x, y = p["x"] - sx * 0.05, Y(p["yn"] - 0.05)
@@ -194,20 +244,25 @@ def emetteur(g, c):
                 g.box(p, (ra * 2.2, ra * 0.6, ra * 1.6), M["blanc_lunaire"], "hard", R=Rr, what="chevron_bloc")
                 for s in (-1, 1):
                     q = p + V((0, sg * ra * 0.32, 0)) + V((-d.z, 0, d.x)) * (s * ra * 0.42) - d * (ra * 0.1)
-                    g.box(q, (ra * 1.0, 0.012, ra * 0.28), M["emit"], "flat",
-                          R=Rr @ Matrix.Rotation(s * 0.7, 3, "Y"), what="chevron")
+                    g.box(q, (ra * 1.5, 0.016, ra * 0.42), M["emit"], "flat",
+                          R=Rr @ Matrix.Rotation(s * 0.7, 3, "Y"), what="chevron")   # ronde 3b : × 1,5
             g.cyl((0, yo(0.03), 0), "y", Ra - ra * 0.4, 0.03, M["horizon_porte"], n=64, style="soft", what="horizon")
-            g.torus((0, yo(0.05), 0), "y", Ra - ra * 0.75, 0.02, M["emit_soft"], n=64, m=4, what="bord_horizon")
+            # LOT F1-C (L2) : l'anneau de lumière du bord est en TIRETS (12 arcs, joints larges) et plus loin des chevrons ;
+            # les étoiles restent à distance du bord (elles se soudaient à l'anneau en un seul foyer)
+            for kk in range(12):
+                arc = [V(((Ra - ra * 1.05) * math.cos(TAU * (kk + f) / 12), yo(0.05),
+                          (Ra - ra * 1.05) * math.sin(TAU * (kk + f) / 12))) for f in (0.0, 0.15, 0.3, 0.45, 0.6)]
+                g.tube(arc, 0.018, M["emit_soft"], n=5, style="flat", what="bord_horizon")
             rng = random.Random(1414 if sg > 0 else 1415)
             for j in range(80):
                 a = rng.uniform(0, TAU)
-                rr = (Ra - ra * 1.1) * math.sqrt(rng.uniform(0.04, 1.0))
+                rr = (Ra - ra * 1.8) * math.sqrt(rng.uniform(0.04, 1.0))
                 s = rng.choice((0.01, 0.013, 0.017, 0.024))
                 g.cyl((rr * math.cos(a), yo(0.05), rr * math.sin(a)), "y", s, 0.01, M["emit"], n=6, style="flat",
                       what="etoile")
             for j in range(5):
                 a = rng.uniform(0, TAU)
-                rr = (Ra - ra * 1.2) * math.sqrt(rng.uniform(0.2, 1.0))
+                rr = (Ra - ra * 2.0) * math.sqrt(rng.uniform(0.2, 1.0))
                 _etoile(g, (rr * math.cos(a), yo(0.055), rr * math.sin(a)), 0.08, M["emit"])
             # iris central (d'où sort le faisceau ; au dos, l'iris du foyer)
             g.tube_shell((0, yo(0.06), 0), "y", 0.2 * re, 0.13 * re, 0.04, M["blanc_lunaire"], n=32, what="iris")

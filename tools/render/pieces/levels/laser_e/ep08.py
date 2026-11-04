@@ -29,11 +29,16 @@ TRIPLET = ("ampoule", "liquide jaune", "pilotis")
 FOYER = ages.FOYER[8]
 FAISCEAU = dict(rgb=(0.6, 1.0, 0.04), forme="jet ondulant jaune-vert, gouttes d'acide qui tombent", largeur=1.1)
 HABILLAGE = dict(ages.CORPS[8], **E_.MAQUETTES[8])
+# LOT F1-C (« pilotis » non vus par les lecteurs de la ronde 2 : les pieux de la lignée ne dépassent le ponton que de
+# 18 %) : l'âge pose ses propres PILOTIS (_pilotis), plus gros, nettement plus hauts que le ponton, têtes cerclées de
+# fer, liés de cordages ; ceux de la lignée sont retirés
+HABILLAGE["forme_affut"] = dict(HABILLAGE["forme_affut"], pilotis=None)
 
 
 def matieres(metal, M):
     ages.matieres(8, metal, M)
     metal("corde", (0.3, 0.24, 0.14), rough=0.85, met=0.0, grain=0.5, gscale=50.0, dirt=0.6, stain=0.4)
+    metal("vase", (0.03, 0.035, 0.018), rough=0.25, met=0.0, grain=0.3, gscale=40.0, dirt=0.4, stain=0.5)   # LOT F1-C
 
 
 def liaison(g, pts, r):
@@ -108,6 +113,39 @@ def _cuve_lixiviation(g, x, y, r, M):
     g.cyl((x, y, 0.3 + r * 1.85), "z", r * 0.25, 0.08, M["cuivre_terni"], n=10, what="col")
 
 
+def _pilotis(g, c):
+    """LOT F1-C : pilotis de bois mouillé au pied du ponton (à moitié pris dans son flanc), 1,9 fois sa hauteur, tête
+    cerclée de fer, ligature de corde à mi-hauteur ; hors des places de coin."""
+    M = g.M
+    R0, Rt, z0, z1 = c.gradins[0]
+    rp = 0.075 + 0.008 * c.side
+    h = z1 * 1.9
+    n = max(12, int(TAU * R0 / 0.34))
+    for k in range(n):
+        a = math.pi / n + TAU * k / n
+        r = R0 + rp * 0.45
+        x, yn = r * math.cos(a), r * math.sin(a)
+        if not corps._hors_coins(c, x, yn, rp):
+            continue
+        hk = h * (0.92 + 0.16 * ((k * 7) % 5) / 4.0)
+        g.cyl((x, Y(yn), hk / 2), "z", rp, hk, M["bois_mouille"], n=10, style="soft", what="pieu")
+        # ronde 3b (critique : « palissade », pas des pilotis) : collet de vase sombre et luisante au pied, où le pieu
+        # s'enfonce
+        g.cyl((x, Y(yn), 0.012), "z", rp * 2.1, 0.024, M["vase"], n=12, style="soft", what="vase")
+        g.cyl((x, Y(yn), hk + 0.015), "z", rp * 0.86, 0.03, M["bois_mousse"], n=10, style="soft", what="tete_pieu")
+        g.tube_shell((x, Y(yn), hk - 0.03), "z", rp + 0.012, rp - 0.01, 0.03, M["fer_noir"] if "fer_noir" in M
+                     else M["steel_dk"], n=10, what="frette")
+        g.tube_shell((x, Y(yn), z1 + 0.03), "z", rp + 0.014, rp - 0.01, 0.035, M["corde"], n=10, what="ligature")
+
+
+def _cordage(g, k, w):
+    """LOT F1-C : cordage lové sur le dessus (repère du dessus) : trois tours de corde et un bout."""
+    M = g.M
+    for j in range(3):
+        g.torus((0, 0, 0.014 + 0.018 * j), "z", 0.07 - 0.012 * j, 0.012, M["corde"], n=16, m=5, what="corde")
+    g.box((0.08, 0.02, 0.012), (0.08, 0.02, 0.016), M["corde"], "soft", what="bout")
+
+
 def socle(g, c):
     """Plaques de vert-de-gris et cordes sur le flanc des planches, bittes d'amarrage, tonneaux, caisses, lanternes,
     cuves de lixiviation (coins arrière), durites."""
@@ -118,6 +156,12 @@ def socle(g, c):
     O.sur_flanc(g, c, 0, [math.radians(a) for a in (200, 240, 300, 340)], _mousse, f=0.38, dr=0.004)
     O.sur_dessus(g, c, 0, O.visibles(O.entre_condensateurs(c), nord=0.45), _bitte, t=0.5)
     O.sur_dessus(g, c, 1, [math.radians(a) for a in (190, 220, 250, 290, 320, 350)], _caisse)
+    _pilotis(g, c)
+    # LOT F1-C (P4 0,49 en ronde 2) : clous et planches de rive sur les dessus, cordages lovés sur le second gradin
+    O.rivets_flanc(g, c, 0, 0.3, M["cuivre_terni"], pas=0.12, r=0.012)
+    O.rivets_flanc(g, c, 1, 0.3, M["cuivre_terni"], pas=0.12, r=0.012)
+    O.sur_dessus(g, c, 0, [math.radians(a) for a in (186, 213, 327, 354)], _cordage, t=0.85)
+    O.sur_dessus(g, c, 1, [math.radians(a) for a in (205, 270, 335)], _cordage, t=0.25)
     for nom, sx in (("coin_NO", -1), ("coin_NE", 1)):
         p = corps.place(c, nom)
         x, y = p["x"] - sx * 0.04, Y(p["yn"] - 0.04)

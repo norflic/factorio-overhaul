@@ -135,6 +135,28 @@ def _geode(g, x, y, r, M):
     g.pop()
 
 
+def _colonne(g, k, w):
+    """LOT F1-C : colonne de bronze à base et chapiteau (repère du dessus)."""
+    M = g.M
+    h = 0.34
+    g.box((0, 0, 0.02), (0.11, 0.11, 0.04), M["bronze_capot"], "hard", what="base_colonne")
+    g.cyl((0, 0, 0.04 + h / 2), "z", 0.034, h, M["bronze_capot"], n=10, style="soft", what="fut_colonne")
+    for f in (0.3, 0.7):
+        g.tube_shell((0, 0, 0.04 + h * f), "z", 0.04, 0.03, 0.014, M["pierre_claire"], n=10, what="bague_colonne")
+    g.box((0, 0, 0.04 + h + 0.02), (0.12, 0.12, 0.04), M["bronze_capot"], "hard", what="chapiteau")
+    g.sphere((0, 0, 0.04 + h + 0.06), 0.025, M["emit"], n=8, m=5, what="flamme_votive")
+
+
+def _amas(g, x, y, z, r):
+    """LOT F1-C : amas de 5 cristaux violets de hauteurs inégales sur un socle de pierre."""
+    M = g.M
+    g.cyl((x, y, z + 0.03), "z", r * 1.4, 0.06, M["pierre_claire"], n=8, style="hard", what="socle_amas")
+    for j, (dx, dy, hh, tilt) in enumerate(((0, 0, 0.34, 0.0), (0.08, 0.03, 0.22, 0.4), (-0.08, 0.02, 0.24, -0.45),
+                                            (0.03, -0.07, 0.18, 0.3), (-0.04, -0.06, 0.16, -0.3))):
+        d = V((math.sin(tilt), 0.25 * math.sin(tilt * 2), math.cos(tilt))).normalized()
+        _cristal(g, V((x + dx, y + dy, z + 0.05)), d, r * (0.42 if j == 0 else 0.3), hh, lum=(j < 3))
+
+
 def socle(g, c):
     """Escaliers au sud des degrés, arêtes de bronze, niches votives, vasques, géodes aux coins arrière, guides
     d'onde vers le pivot."""
@@ -149,6 +171,14 @@ def socle(g, c):
     O.sur_flanc(g, c, 1, [math.radians(a) for a in (200, 340)], _niche, f=0.5, dr=0.012)
     O.sur_dessus(g, c, 1, [math.radians(a) for a in (225, 315, 180, 0)], _brasero)
     O.sur_dessus(g, c, 2, [math.radians(a) for a in (240, 300)], _brasero)
+    # LOT F1-C ronde 3b (critique : « temple » faible, l'âge régresse par rapport au 6 : grand dallage plat, cristaux
+    # minuscules) : COLONNADE de bronze à chapiteaux sur le troisième degré, AMAS DE CRISTAUX sur le premier degré aux
+    # flancs est et ouest
+    O.sur_dessus(g, c, 2, [math.radians(a) for a in (200, 222, 318, 340)], _colonne, t=0.55)
+    O.sur_dessus(g, c, 1, [math.radians(a) for a in (195, 255, 285, 345)], _colonne, t=0.75)
+    for nom in ("flanc_O", "flanc_E"):
+        p = corps.place(c, nom)
+        _amas(g, p["x"], Y(p["yn"] - 0.15), p["z_sol"], 0.13)
     for nom, sx in (("coin_NO", -1), ("coin_NE", 1)):
         p = corps.place(c, nom)
         # ronde 1 (F1-B) : géode plus petite et poussée dans le coin (en pose N, sa pointe touchait la joue de la tête et

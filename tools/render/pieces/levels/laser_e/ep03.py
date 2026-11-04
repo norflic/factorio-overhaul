@@ -12,7 +12,7 @@ aucun canon, aucune trémie.
 """
 import math
 
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 import ages
 import corps
@@ -45,6 +45,10 @@ def matieres(metal, M):
     ages.matieres(3, metal, M)
     M["globe"] = M["cuivre_capot"]
     M["serpentin"] = M["cuivre_sombre"]
+    # LOT F1-C (« cadrans » non vus par les lecteurs de la ronde 2) : cadran CRÈME mat (pas blanc : points blancs) des
+    # grands manomètres, aiguille noire
+    metal("cadran_creme", (0.4, 0.36, 0.26), rough=0.7, met=0.0, grain=0.1, gscale=30.0, dirt=0.5, stain=0.3,
+          sscale=5.0)
 
 
 def _halo(g, pts, power):
@@ -60,6 +64,34 @@ def _cadran(g, p, nrm, r, M, face=None):
     g.cyl(p + a * 0.012, a, r, 0.024, M["laiton_capot"], n=14, style="hard", what="manometre")
     g.cyl(p + a * 0.026, a, r * 0.76, 0.006, face or M["emit_soft"], n=14, style="flat", what="cadran")
     g.cyl(p + a * 0.03, a, r * 0.12, 0.006, M["cuivre_sombre"], n=8, style="flat", what="axe_aiguille")
+
+
+def _grand_cadran(g, k, h):
+    """LOT F1-C : GRAND manomètre sur le flanc (repère du flanc, z = normale sortante) : boîtier de laiton mat sur
+    une patte de cuivre, cadran crème, graduations sombres, aiguille noire, piquage vers le bas."""
+    M = g.M
+    r = 0.1
+    g.box((0, -r * 0.9, 0.012), (0.035, r * 1.2, 0.024), M["cuivre_sombre"], "hard", what="patte")
+    # ronde 3b : le cadran est PENCHÉ de 45° vers le haut (face à la caméra, pas de profil) et plus grand (r 0,1)
+    g.push((0, 0, 0.03), rx=-math.radians(45))
+    g.cyl((0, 0, 0.0), "z", r, 0.03, M["laiton_capot"], n=18, style="hard", what="manometre")
+    g.cyl((0, 0, 0.017), "z", r * 0.8, 0.006, M["cadran_creme"], n=18, style="flat", what="cadran")
+    for j in range(7):
+        a = math.radians(-135 + 45 * j)
+        g.box((r * 0.66 * math.sin(a), r * 0.66 * math.cos(a), 0.021), (0.009, 0.02, 0.004), M["cuivre_sombre"],
+              "flat", R=Matrix.Rotation(-a, 3, "Z"), what="graduation")
+    an = math.radians(-60 + 40 * (k % 4))
+    g.box((r * 0.28 * math.sin(an), r * 0.28 * math.cos(an), 0.024), (0.011, r * 0.62, 0.004), M["soot"] if "soot" in M
+          else M["steel_dk"], "flat", R=Matrix.Rotation(-an, 3, "Z"), what="aiguille")
+    g.cyl((0, 0, 0.026), "z", 0.012, 0.006, M["cuivre_sombre"], n=8, style="flat", what="axe_aiguille")
+    g.pop()
+
+
+def _hublot_foyer(g, k, h):
+    """LOT F1-C (ronde 3b) : hublot de foyer ambré (lumière de l'âge) cerclé de cuivre sombre, sur le flanc."""
+    M = g.M
+    g.cyl((0, 0, 0.01), "z", 0.04, 0.02, M["cuivre_sombre"], n=14, style="hard", what="cercle_hublot")
+    g.cyl((0, 0, 0.021), "z", 0.028, 0.006, M["emit"], n=14, style="flat", what="hublot_foyer")
 
 
 def _robinet(g, k, h):
@@ -140,6 +172,9 @@ def socle(g, c):
     O.ceinture(g, c, 0, 0.32, 0.014, M["cuivre_sombre"], colliers=M["vert_loco"], pas=0.28)
     O.ceinture(g, c, 1, 0.45, 0.012, M["cuivre_sombre"], colliers=M["vert_loco"], pas=0.28)
     O.sur_flanc(g, c, 0, [math.radians(a) for a in (212, 250, 290, 328)], _robinet, f=0.32, dr=0.02)
+    O.sur_flanc(g, c, 0, [math.radians(a) for a in (231, 270, 309)], _grand_cadran, f=0.62, dr=0.01)   # LOT F1-C
+    # ronde 3b (nuit presque éteinte, critique) : hublots de foyer ambrés sur le flanc du deuxième gradin
+    O.sur_flanc(g, c, 1, [math.radians(a) for a in (215, 250, 290, 325)], _hublot_foyer, f=0.5, dr=0.006)
     O.sur_dessus(g, c, 1, [math.radians(a) for a in (205, 240, 300, 335)], _sifflet)
     O.sur_dessus(g, c, 2, [math.radians(a) for a in (230, 310)], _sifflet, t=0.6)
     _halo(g, [(0.0, Y(-0.85), 0.25), (-0.75, Y(0.1), 0.3), (0.75, Y(0.1), 0.3)], 6.0)

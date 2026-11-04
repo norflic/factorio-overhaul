@@ -3,7 +3,7 @@
 
 En 3 mots : « sphère noire, disque d'accrétion, griffes d'or ». Consigne du DC (23/10, 12 h 40 : « big bang ou maîtrise
 cosmique du néant ») transposée au laser : l'émetteur est un HORIZON NOIR (sphère lisse, seul vrai noir) ceint d'un
-DISQUE D'ACCRÉTION segmenté blanc-or vers orange, OBLIQUE, tenu par TROIS GRIFFES D'OR qui montent de la platine (« un
+DISQUE D'ACCRÉTION (lot F1-C : disque sombre parcouru de bras de lumière en spirale, orange vers blanc-or), OBLIQUE, tenu par TROIS GRIFFES D'OR qui montent de la platine (« un
 Big Bang tenu en laisse ») ; un point blanc-or à l'avant de la sphère est la lentille.
 Correction F1-A (24/10, défaut M-3) : le premier essai penchait le disque de 25° vers l'ARRIÈRE ; en pose N (caméra au
 sud, en hauteur) il se lisait alors comme une ellipse couchée sur l'équateur de la sphère, c'est-à-dire le motif de la
@@ -140,6 +140,23 @@ def _module_vide(g, k, h):
         g.bolt((s * 0.06, h * 0.13, 0.05), (0, 0, 1), 0.012, M["cendre"])
 
 
+def _nervure(g, k, h):
+    """LOT F1-C : nervure de cendre sur le flanc du cône (repère du flanc : y = haut), deux boulons d'or."""
+    M = g.M
+    g.box((0, 0, 0.012), (0.035, h * 0.62, 0.024), M["cendre"], "hard", what="nervure")
+    for s in (-1, 1):
+        g.bolt((0, s * h * 0.26, 0.026), (0, 0, 1), 0.011, M["or_chauffe"])
+
+
+def _port_dessus(g, k, w):
+    """LOT F1-C : petit port de potentiel couché sur le dessus d'un gradin (repère du dessus : x radial) : socle
+    hexagonal de noir profond, cerclage d'or, point incandescent orange."""
+    M = g.M
+    g.cyl((0, 0, 0.018), "z", 0.075, 0.036, M["noir_chaud2"], n=6, style="hard", phase=math.pi / 6, what="port")
+    g.tube_shell((0, 0, 0.034), "z", 0.06, 0.045, 0.012, M["or_chauffe"], n=20, what="cerclage")
+    g.sphere((0, 0, 0.04), 0.018, M["emit2"], n=8, m=5, what="point")
+
+
 def _lisere_tirets(g, c, i, n):
     """Liseré EN TIRETS au sommet du flanc du gradin i : segments de lumière orange et blanc-or séparés par des
     joints sombres (foyers petits : L2 ; lumière plus orange : famille de l'âge)."""
@@ -168,17 +185,9 @@ def socle(g, c):
         # lot F1-B : conduit BAS (il montait à 0,6 au-dessus du pivot, en arc derrière la tête : risque de jour enfermé)
         liaison(g, [(x - sx * 0.3, Y(yn - 0.3), 0.15), (x * 0.6, Y(yn * 0.6), c.gradins[1][3] + 0.1),
                     (x * 0.3, Y(yn * 0.3), zp + 0.08)], 0.06)
-    # lot F1-B (ronde 1 : le cône restait une grande surface lisse) : conduits d'or des AUTRES piliers avant (la lignée
-    # n'en relie qu'un sur deux), modules de vide sur les pentes
-    P = c.T["pivot"]
-    for k, (x, y, z, rc, h) in enumerate(c.condos):
-        if k % 2 == 0 or y > 0.0:
-            continue
-        a = math.atan2(y / SQ2, x)
-        d = V((math.cos(a), math.sin(a), 0.0))
-        p0 = V((x, y, z + h * 1.15 + 0.06))
-        p2 = V((d.x * (P["R"] + 0.02), d.y * (P["R"] + 0.02), zp + P["h"] * 0.3))
-        liaison(g, [p0, (p0 + p2) / 2 + V((0, 0, 0.1)), p2], 0.045)
+    # lot F1-B (ronde 1 : le cône restait une grande surface lisse) : modules de vide sur les pentes. LOT F1-C : la
+    # lignée relie désormais TOUS les piliers avant (corps.liaisons_radiales, pas 1) : la boucle de l'âge qui posait les
+    # conduits manquants est retirée (elle les doublerait).
     O.sur_flanc(g, c, 0, [math.radians(a) for a in (209, 235, 261, 279, 305, 331)], _module_vide, f=0.5, dr=0.004)
     O.sur_flanc(g, c, 1, [math.radians(a) for a in (195, 225, 255, 285, 315, 345)], _module_vide, f=0.5, dr=0.004)
     O.sur_flanc(g, c, 2, [math.radians(a) for a in (205, 248, 292, 335)], _module_vide, f=0.5, dr=0.004)
@@ -190,6 +199,13 @@ def socle(g, c):
     O.sur_flanc(g, c, 1, [math.radians(a) for a in (210, 240, 270, 300, 330)], _port, f=0.55, dr=0.006)
     O.sur_flanc(g, c, 2, [math.radians(a) for a in (225, 270, 315)], _port, f=0.55, dr=0.006)
     O.ceinture(g, c, 0, 0.08, 0.022, M["noir_profond"], colliers=M["or_chauffe"], pas=0.6)
+    # LOT F1-C (P4 0,55 et D3 24,9 en ronde 2 : la grande pente du cône restait lisse) : NERVURES de cendre sur les
+    # flancs visibles, entre les modules et les ports, et petits ports sur les DESSUS des gradins
+    for i, n in ((0, 30), (1, 24), (2, 18), (3, 14)):
+        angs = [TAU * (k + 0.5) / n for k in range(n)]
+        O.sur_flanc(g, c, i, O.visibles(angs, nord=0.2), _nervure, f=0.5, dr=0.003)
+    for i, angs in ((0, (200, 228, 256, 284, 312, 340)), (1, (212, 245, 295, 328)), (2, (232, 308))):
+        O.sur_dessus(g, c, i, [math.radians(a) for a in angs], _port_dessus, t=0.5)
     for (x, yn, pw) in ((0.0, -2.7, 16.0), (-2.4, -1.4, 12.0), (2.4, -1.4, 12.0), (-2.2, 2.2, 14.0), (2.2, 2.2, 14.0)):
         g.halo((x, Y(yn), 0.6), M["_emit2_rgb"], pw)
 
@@ -270,7 +286,8 @@ def _repere_disque():
 
 
 def emetteur(g, c):
-    """HORIZON NOIR (sphère de rayon 0,7 re), DISQUE D'ACCRÉTION OBLIQUE (anneau segmenté de lumière, bords d'or ;
+    """HORIZON NOIR (sphère de rayon 0,7 re), DISQUE D'ACCRÉTION OBLIQUE (disque sombre à bras de lumière en spirale,
+    lot F1-C ; bords d'or ;
     normale NORMALE_DISQUE), trois GRIFFES D'OR de la platine au bord du disque, deux pinces d'or des bras de la fourche
     au bord du disque, point blanc-or à l'avant (lentille)."""
     M = g.M
@@ -285,20 +302,34 @@ def emetteur(g, c):
     Rin, Rout = rs * 1.0, re * 1.05
     g.push_frame((0, 0, zh), n, ex)
     corps.anneau_plat(g, Rout * 0.99, Rin, -0.008, 0.008, M["noir_profond"], n=56, rond=False, what="fond_disque")
-    # lot F1-B : segments séparés par des joints plus larges (0,028 rad de chaque côté ; 0,05 en ronde 1 se lisait « touches de piano ») et deux bandes séparées par un
-    # anneau sombre ; bande intérieure orange et blanc-or alternés (lumière plus orange, foyers plus petits : L2)
-    nseg = 28
-    g.torus((0, 0, 0), "z", Rout * 0.82, 0.016, M["noir_profond"], n=56, m=6, what="joint_disque")
-    for k in range(nseg):
-        a0 = TAU * k / nseg + 0.028
-        a1 = TAU * (k + 1) / nseg - 0.028
-        for (ra, rb, m, z0, z1) in ((Rin + 0.02, Rout * 0.8, M["emit2"] if k % 2 else M["emit"], -0.012, 0.012),
-                                     (Rout * 0.84, Rout, M["emit_soft"] if k % 2 else M["emit2"], -0.01, 0.01)):
-            q = [V((ra * math.cos(a0), ra * math.sin(a0), z0)), V((rb * math.cos(a0), rb * math.sin(a0), z0)),
-                 V((rb * math.cos(a1), rb * math.sin(a1), z0)), V((ra * math.cos(a1), ra * math.sin(a1), z0))]
-            g.hexa(q + [p + V((0, 0, z1 - z0)) for p in q], m, "flat", "segment")
+    # LOT F1-C (CONCEPT §4 : L2 2,17 à 3,15 t² et lecture « anneau à damier » en ronde 2) : plus de 56 segments de
+    # lumière alternés (leurs joints de 0,028 rad, 4 px, se soudaient au foyer lumineux) ; le disque est SOMBRE (fond de
+    # noir profond, deux sillons de cendre) et porte, sur ses deux faces, 5 BRAS EN SPIRALE de lumière, séparés, qui
+    # tombent du bord d'or vers l'horizon (orange dehors, blanc-or dedans) : le flux d'un disque d'accrétion.
+    for rr, m in ((Rout * 0.82, M["noir_profond"]), (Rout * 0.64, M["cendre"]), (Rout * 0.9, M["cendre"])):
+        g.torus((0, 0, 0), "z", rr, 0.014, m, n=56, m=6, what="sillon_disque")
+    for face in (1.0, -1.0):
+        for k in range(5):
+            th0 = TAU * k / 5 + (0.0 if face > 0 else TAU / 10)
+            # ronde 3b (L2 0,52 t² en pose N) : bras plus courts (1,55 → 1,2 rad), joint plus large entre l'orange et le
+            # blanc-or, plus fins
+            for (s0, s1, m, rt) in ((0.0, 0.5, M["emit2"], 0.019), (0.64, 1.0, M["emit"], 0.014)):
+                pts = []
+                for j in range(9):
+                    s_ = s0 + (s1 - s0) * j / 8.0
+                    r_ = Rout * 0.93 - s_ * (Rout * 0.93 - Rin * 1.2)
+                    th = th0 + face * 1.2 * s_
+                    pts.append(V((r_ * math.cos(th), r_ * math.sin(th), face * 0.016)))
+                g.tube(pts, rt, m, n=6, style="flat", what="bras_spirale")
     g.torus((0, 0, 0), "z", Rout + 0.012, 0.022, M["or_chauffe"], n=56, m=6, what="bord")
     g.torus((0, 0, 0), "z", Rin - 0.01, 0.014, M["or_chauffe"], n=48, m=6, what="bord")
+    # ronde 3b (critique : « bord intérieur du disque chaud, en segments ») : BORD INTÉRIEUR incandescent en 10 arcs
+    # séparés, juste hors de l'horizon, sur les deux faces
+    for face in (1.0, -1.0):
+        for k in range(10):
+            arc = [V(((Rin + 0.035) * math.cos(TAU * (k + f) / 10), (Rin + 0.035) * math.sin(TAU * (k + f) / 10),
+                      face * 0.012)) for f in (0.0, 0.18, 0.36, 0.54)]
+            g.tube(arc, 0.016, M["emit2"] if k % 2 else M["emit_soft"], n=5, style="flat", what="bord_chaud")
     g.pop()
     zb = t["z0"] + t["hpl"]
     # colonne d'horizon : porte la sphère depuis la platine (courte et large : jamais une cheminée)
@@ -310,14 +341,21 @@ def emetteur(g, c):
 
     def bord(phi, r=Rout):
         return V((0, 0, zh)) + (ex * math.cos(phi) + ey * math.sin(phi)) * r
-    # griffes : de la platine au bord du disque (3, à 120°, vers l'arrière et les côtés)
-    for k in range(3):
-        tip = bord(-math.pi / 2 + TAU * k / 3)
-        base = V((tip.x * 0.5, tip.y * 0.4 - 0.2 * re, zb + 0.02))
-        mid = base.lerp(tip, 0.55) + V((tip.x * 0.35, 0, 0.1 * re))
+    # griffes : de la platine au bord du disque. LOT F1-C ronde 3b (critique : les griffes se lisaient « rayons
+    # droits ») : QUATRE SERRES recourbées, plus épaisses, qui montent en arc par l'extérieur, passent PAR-DESSUS le bord
+    # d'or du disque et plantent leur pointe sur sa face (elles agrippent le disque)
+    for k in range(4):
+        phi = -math.pi / 2 + TAU * k / 4 + math.pi / 4
+        tip = bord(phi)
         if tip.z < zb + 0.1:
             tip = V((tip.x, tip.y, zb + 0.1))
-        griffe(g, [base, mid, tip, tip + (V((0, 0, zh)) - tip) * 0.12], 0.09 + 0.01 * c.side, 0.07, M["or_chauffe"])
+        out = V((tip.x, tip.y, 0.0)).normalized() if V((tip.x, tip.y, 0.0)).length > 1e-6 else V((1, 0, 0))
+        base = V((tip.x * 0.45, tip.y * 0.45 - 0.1 * re, zb + 0.02))
+        m1 = base.lerp(tip, 0.4) + out * (0.28 * re) + V((0, 0, 0.05 * re))
+        m2 = tip + out * (0.16 * re) - n * (0.06 * re)
+        hook = tip + n * (0.1 * re) + out * (0.02 * re)
+        pointe = tip + n * (0.06 * re) - out * (0.2 * re)
+        griffe(g, [base, m1, m2, hook, pointe], 0.11 + 0.012 * c.side, 0.085, M["or_chauffe"])
     # pinces : du bout de chaque bras de la fourche au point du bord du disque le plus proche ; PLAQUES pleines (reprise
     # de la correction F1-A, 24/10) : la pince en griffe mince laissait, en pose N, un jour enfermé entre le bras, la
     # pince et le bord du disque (59 px, 2 groupes, rendu r0c de 11 h 53) ; la plaque va du bras au bord du disque, du

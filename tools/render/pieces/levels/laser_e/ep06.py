@@ -36,6 +36,9 @@ HABILLAGE = dict(ages.CORPS[6], **E_.MAQUETTES[6])
 # 60/30/10 de l'âge (porcelaine blanche dominante, bleu en second) : flancs de porcelaine à plaques bleues (même
 # silhouette ; matière seulement, écart dit ici)
 HABILLAGE["forme_affut"] = dict(HABILLAGE["forme_affut"], flanc="porcelaine_capot", flanc2="bleu_machine")
+# LOT F1-C ronde 3b (critique : en pose N, les joues hautes de l'étrier, en porcelaine blanche, se lisaient « deux
+# poteaux dressés » de part et d'autre du tore) : BERCEAU, joues larges et basses
+HABILLAGE["forme_tete"] = "berceau"
 
 
 def matieres(metal, M):
@@ -92,6 +95,13 @@ def _couteau(g, k, w):
     g.box((0.04, 0.0, 0.085), (0.02, 0.08, 0.02), M["bakelite"], "hard", what="poignee")
 
 
+def _petite_bobine(g, k, w):
+    """LOT F1-C : petite bobine de cuivre debout sur semelle bleue (repère du dessus)."""
+    M = g.M
+    g.box((0, 0, 0.012), (0.1, 0.1, 0.024), M["fonte_bleue"], "hard", what="semelle")
+    _bobine(g, 0, 0, 0.024, 0.032, 0.07, M)
+
+
 def _petit_isolateur(g, k, w):
     PT.insulators(g, (0, 0, 0.0), 2, 0.03, h=0.03)
 
@@ -108,6 +118,14 @@ def socle(g, c):
     O.sur_flanc(g, c, 0, [math.radians(a) for a in (210, 270, 330)], _armoire, f=0.5, dr=0.02)
     O.sur_dessus(g, c, 1, [math.radians(a) for a in (200, 236, 304, 340)], _couteau)
     O.sur_dessus(g, c, 1, [math.radians(a) for a in (182, 218, 254, 286, 322, 358)], _petit_isolateur, t=0.15)
+    # LOT F1-C (D3 31 contre 51 pour la mitrailleuse en ronde 2) : isolateurs et petites bobines sur le premier gradin
+    # entre les piles, couteaux sur le premier gradin, boîtiers sur le deuxième, rivets de cuivre, jonc bleu au pied
+    O.sur_dessus(g, c, 0, O.visibles(O.entre_condensateurs(c), nord=0.3), _petit_isolateur, t=0.5)
+    O.sur_dessus(g, c, 0, [math.radians(a) for a in (196, 262, 278, 344)], _petite_bobine, t=0.9)
+    O.sur_flanc(g, c, 1, [math.radians(a) for a in (225, 315)], _armoire, f=0.5, dr=0.02)
+    O.rivets_flanc(g, c, 0, 0.88, M["copper_pol"], pas=0.1, r=0.011)
+    O.rivets_flanc(g, c, 1, 0.85, M["copper_pol"], pas=0.1, r=0.011)
+    O.ceinture(g, c, 0, 0.06, 0.016, M["fonte_bleue"], colliers=M["porcelaine"], pas=0.3)
     # couronne d'isolateurs sur l'arête du dernier gradin
     R0, Rt, z0, z1 = c.gradins[-1]
     n = 18
@@ -204,16 +222,23 @@ def emetteur(g, c):
     for yy in (y0, y1):
         g.cyl((0, yy, zh), "y", rb * 1.18, 0.04, M["bakelite"], n=32, style="hard", what="flasque")
         F.bolts_ring(g, (0, yy, zh), (0, 1, 0), rb * 1.08, 8, M["copper_pol"], r=0.012)
-    # tore horizontal de porcelaine posé à plat SUR la bobine (pied court, bandes bleues)
-    zt = zh + rb + 0.12 * re
-    g.cyl((0, -0.05 * re, zh + rb * 0.8), "z", 0.22 * re, 0.32 * re, M["porcelaine"], n=16, style="soft", what="pied")
-    g.torus((0, -0.05 * re, zt), "z", 0.56 * re, 0.17 * re, M["porcelaine_capot"], n=40, m=12, what="tore")
-    g.cyl((0, -0.05 * re, zt), "z", 0.42 * re, 0.2 * re, M["fonte_bleue"], n=32, style="soft", what="coeur_tore")
-    for k in range(8):
-        a = TAU * k / 8
-        g.torus((0.56 * re * math.cos(a), -0.05 * re + 0.56 * re * math.sin(a), zt), (-math.sin(a), math.cos(a), 0),
-                0.175 * re, 0.012, M["bleu_machine"], n=16, m=4, what="bande")
-    g.torus((0, -0.05 * re, zt + 0.12 * re), "z", 0.56 * re, 0.016, M["emit_soft"], n=40, m=4, what="couronne")
+    # TORE : LOT F1-C (pose N, lecteur de la ronde 2 : le tore posé sur un PIED de porcelaine au-dessus de la bobine se
+    # lisait « colonne coiffée d'un anneau ») : plus de pied ; le tore horizontal CEINT la bobine à son équateur (la
+    # bobine passe dans son trou, comme un anneau de garde), plus large qu'elle : un anneau à plat, jamais dressé
+    yt = -0.05 * re
+    Rt_, rt_ = 0.8 * re, 0.15 * re
+    g.torus((0, yt, zh), "z", Rt_, rt_, M["porcelaine_capot"], n=48, m=12, what="tore")
+    for k in range(10):
+        a = TAU * k / 10 + 0.31
+        g.torus((Rt_ * math.cos(a), yt + Rt_ * math.sin(a), zh), (-math.sin(a), math.cos(a), 0),
+                rt_ * 1.03, 0.012, M["bleu_machine"], n=16, m=4, what="bande")
+    # bras de porcelaine qui tiennent le tore sur la bobine (quatre, en croix oblique)
+    for k in range(4):
+        a = TAU * k / 4 + math.pi / 4
+        d = V((math.cos(a), math.sin(a), 0))
+        g.cyl(V((0, yt, zh)) + d * ((rb + Rt_ - rt_) / 2), d, 0.05 * re, Rt_ - rt_ - rb + 0.04, M["porcelaine"], n=10,
+              style="soft", what="bras_tore")
+    g.torus((0, yt, zh + rt_ * 0.92), "z", Rt_, 0.016, M["emit_soft"], n=48, m=4, what="couronne")
     # bec isolant et boule électrode
     g.cyl((0, y1 + 0.2 * re, zh), "y", 0.34 * re, 0.4 * re, M["porcelaine"], n=24, r2=0.14 * re, style="soft",
           what="bec")
@@ -223,12 +248,12 @@ def emetteur(g, c):
     g.sphere((0, y1 + 0.52 * re, zh), 0.2 * re, M["copper_pol"], n=20, m=10, what="boule")
     corps.lentille(g, c, y1 + 0.7 * re, 0.12 * re, verre=M["glass_dk"], cercle=M["bakelite"])
     # arcs : du bord avant du tore, le long de la bobine et du bec, jusqu'à la boule (collés aux surfaces)
-    for k, sx in enumerate((-0.55, 0.0, 0.55)):
+    for k, sx in enumerate((-0.75, -0.3, 0.3, 0.75)):
         pts = []
         for j in range(9):
             s = j / 8.0
-            yy = (0.2 + 0.5 * s) * re + (y1 - 0.2 * re) * s * 0.5
+            yy = (0.28 + 0.42 * s) * re + (y1 - 0.2 * re) * s * 0.5
             rr = (rb + 0.03) * (1 - s) + (0.22 * re) * s
             ang = math.pi / 2 + sx * (1 - s) + 0.18 * (1 if j % 2 else -1) * (1 - s * 0.5)
             pts.append(V((rr * math.cos(ang), yy, zh + rr * math.sin(ang))))
-        g.tube(pts, 0.014, M["emit"], n=5, style="flat", what="arc")
+        g.tube(pts, 0.019, M["emit"], n=5, style="flat", what="arc")   # ronde 3b : 4 arcs, 0,014 → 0,019

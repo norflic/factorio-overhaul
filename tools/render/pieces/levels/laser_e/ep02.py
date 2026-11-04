@@ -34,6 +34,9 @@ HABILLAGE = dict(ages.CORPS[2], **E_.MAQUETTES[2])
 
 def matieres(metal, M):
     ages.matieres(2, metal, M)
+    # LOT F1-C : cuir clair des plis alternés du soufflet
+    metal("cuir_clair", (0.24, 0.12, 0.05), rough=0.72, met=0.0, grain=0.4, gscale=40.0, dirt=0.7, stain=0.5,
+          sscale=5.0, wear=0.8)
     M["caisson"] = M["fer_martele"]
 
 
@@ -182,25 +185,34 @@ def piece(g, c):
 
 
 def arriere(g, c):
-    """SOUFFLET DE FORGE couché en travers : deux planches cerclées de fer, cuir plissé, buse de fer vers l'émetteur."""
+    """SOUFFLET DE FORGE couché en travers : deux planches cerclées de fer, cuir plissé, buse de fer vers l'émetteur.
+    LOT F1-C (« soufflet » non vu par les lecteurs de la ronde 2 : cuir sombre, plus étroit que la tête) : PLUS LARGE que
+    l'émetteur (il dépasse des deux côtés), six plis de cuir alternés sombre et clair en dents de scie, planches de bois
+    débordantes, poignée et grosse buse."""
     M = g.M
     t = c.T["tete"]
     zb = O.zb(c)
+    re = t["re"]
     bx, y0, y1, z1 = t["bx"], t["yb0"], t["yb1"], t["zb1"]
-    L = 2 * bx + 0.06
-    g.box((0, (y0 + y1) / 2, zb + 0.02), (L, y1 - y0, 0.04), M["wood"], "hard", what="planche")
-    hz = z1 - zb - 0.08
-    for k in range(4):
-        f = (k + 0.5) / 4
-        g.box((0, (y0 + y1) / 2 - 0.01 * k, zb + 0.04 + hz * f), (L * (0.96 - 0.04 * (k % 2)), (y1 - y0) * (0.98 - 0.12 * f),
-              hz / 4 * 0.9), M["leather"], "soft", what="pli")
-    g.box((0, (y0 + y1) / 2 - 0.03, z1 - 0.02), (L, (y1 - y0) * 0.86, 0.04), M["wood"], "hard",
-          R=Matrix.Rotation(-0.1, 3, "X"), what="planche")
-    for xx in (-L * 0.35, L * 0.35):
-        g.box((xx, (y0 + y1) / 2 - 0.03, z1 + 0.002), (0.02, (y1 - y0) * 0.9, 0.012), M["fer_noir"], "hard",
-              R=Matrix.Rotation(-0.1, 3, "X"), what="cercle")
-    g.box((0, y0 + 0.02, z1 + 0.03), (0.03, 0.08, 0.03), M["wood"], "hard", what="poignee")
-    g.cyl((0, y1 + 0.03, zb + 0.06), "y", 0.03, 0.08, M["fer_noir"], n=10, r2=0.02, what="buse")
+    L = 1.75 * re
+    ym = (y0 + y1) / 2
+    g.box((0, ym, zb + 0.02), (L + 0.06, y1 - y0 + 0.04, 0.04), M["wood"], "hard", what="planche")
+    hz = z1 - zb - 0.06
+    npl = 6
+    # LOT F1-C (critique de la ronde 3a : soufflet « translucide », le sol se voyait entre les plis) : NOYAU plein
+    g.box((0, ym, zb + 0.04 + hz / 2), (L * 0.82, (y1 - y0) * 0.8, hz), M["leather"], "soft", what="noyau_soufflet")
+    for k in range(npl):
+        f = (k + 0.5) / npl
+        large = 1.0 if k % 2 == 0 else 0.86
+        g.box((0, ym - 0.008 * (k % 2), zb + 0.04 + hz * f), (L * large, (y1 - y0) * (0.98 - 0.1 * f) * large,
+              hz / npl * 0.95), M["leather"] if k % 2 else M["cuir_clair"], "soft", what="pli")
+    g.box((0, ym - 0.02, z1 + 0.0), (L + 0.08, (y1 - y0) * 0.92, 0.04), M["wood"], "hard",
+          R=Matrix.Rotation(-0.08, 3, "X"), what="planche")
+    for xx in (-L * 0.38, 0.0, L * 0.38):
+        g.box((xx, ym - 0.02, z1 + 0.024), (0.024, (y1 - y0) * 0.95, 0.014), M["fer_noir"], "hard",
+              R=Matrix.Rotation(-0.08, 3, "X"), what="cercle")
+    g.box((0, y0 - 0.05, z1 + 0.04), (0.05, 0.14, 0.04), M["wood"], "hard", what="poignee")
+    g.cyl((0, y1 + 0.04, zb + 0.08), "y", 0.05, 0.12, M["fer_noir"], n=12, r2=0.03, what="buse")
 
 
 def tete(g, c):

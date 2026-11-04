@@ -37,6 +37,8 @@ HABILLAGE = dict(ages.CORPS[12], **E_.MAQUETTES[12])
 # son interstice lumineux (_interstices : bande cyan au pied de chaque gradin, entretoises sur le CONTOUR réel) ; la
 # silhouette (gradins, pans, profil) ne change pas.
 HABILLAGE["forme_affut"] = dict(HABILLAGE["forme_affut"], interstice=None)
+# LOT F1-C ronde 3b (critique : joues chromées de l'étrier lues « deux rails dressés » en pose N) : BERCEAU
+HABILLAGE["forme_tete"] = "berceau"
 
 
 def matieres(metal, M):
@@ -102,19 +104,27 @@ def _interstices(g, c):
     M = g.M
     for i in range(len(c.gradins)):
         n = 90
-        for (f, r, m) in ((0.06, 0.03, M["noir_miroir"]), (0.06, 0.016, M["emit"])):
-            pts = []
-            for k in range(n + 1):
-                p, nrm, _ = O.flanc(c, i, TAU * k / n, f, r * (0.3 if m is M["noir_miroir"] else 1.2))
-                pts.append(p)
-            g.tube(pts, r, m, n=6, style="flat", what="interstice")
+        # LOT F1-C (« lévitation » non vue en ronde 2) : bande sombre plus haute (0,03 → 0,048) et filet de lumière plus
+        # large (0,016 → 0,024), en TIRETS (24 arcs par gradin, joints de 25 % : chaque arc est un petit foyer, L2)
+        pts = []
+        for k in range(n + 1):
+            p, nrm, _ = O.flanc(c, i, TAU * k / n, 0.07, 0.048 * 0.3)
+            pts.append(p)
+        g.tube(pts, 0.048, M["noir_miroir"], n=6, style="flat", what="interstice")
+        na = 24
+        for k in range(na):
+            arc = []
+            for j in range(5):
+                p, nrm, _ = O.flanc(c, i, TAU * (k + 0.75 * j / 4) / na, 0.07, 0.024 * 1.9)
+                arc.append(p)
+            g.tube(arc, 0.024, M["emit"], n=6, style="flat", what="interstice")
         R0 = c.gradins[i][0]
         ne = max(6, int(TAU * R0 / 0.5))
         for k in range(ne):
             a = TAU * (k + 0.5) / ne
             p, nrm, tan = O.flanc(c, i, a, 0.06, 0.02)
             g.push_frame(tuple(p), tuple(nrm), tuple(tan))
-            g.box((0, 0, 0.0), (0.05, 0.06, 0.05), M["chrome_mat"], "hard", what="entretoise")
+            g.box((0, 0, 0.0), (0.035, 0.09, 0.06), M["chrome_mat"], "hard", what="entretoise")
             g.pop()
 
 
@@ -131,10 +141,17 @@ def socle(g, c):
     O.sur_flanc(g, c, 2, [math.radians(a) for a in (210, 270, 330)], _givre, f=0.45, dr=0.004)
     O.sur_dessus(g, c, 1, [math.radians(a) for a in (195, 225, 255, 285, 315, 345)], _dewar)
     O.sur_dessus(g, c, 2, [math.radians(a) for a in (220, 270, 320)], _dewar, t=0.55)
+    # LOT F1-C (D3 26,2 en ronde 2) : vannes et petits vases sur le premier gradin entre les bobines, plaques de givre
+    # sur le flanc du deuxième gradin, rivets chromés, conduite givrée basse
+    O.sur_dessus(g, c, 0, O.visibles(O.entre_condensateurs(c), nord=0.25), _dewar, t=0.5)
+    O.sur_flanc(g, c, 1, [math.radians(a) for a in (200, 240, 300, 340)], _givre, f=0.4, dr=0.004)
+    for i in range(3):
+        O.rivets_flanc(g, c, i, 0.85, M["chrome_mat"], pas=0.12, r=0.012)
+    O.ceinture(g, c, 0, 0.3, 0.02, M["pipe"], colliers=M["chrome_mat"], pas=0.35)
     for nom, sx in (("coin_NO", -1), ("coin_NE", 1)):
         p = corps.place(c, nom)
         x, y = p["x"] - sx * 0.04, Y(p["yn"] - 0.04)
-        _cryostat(g, x, y, 0.3, 0.62, M)
+        _cryostat(g, x, y, 0.42, 0.95, M)      # LOT F1-C : plus gros (masse ; ronde 3b : 0,36 × 0,78 → 0,42 × 0,95)
         liaison(g, [(x - sx * 0.28, y - 0.22, 0.05), (x * 0.7, Y(p["yn"] * 0.66), c.gradins[0][3] + 0.05),
                     (x * 0.42, Y(p["yn"] * 0.4), zp + 0.05)], 0.04)
         g.halo((x, y - 0.4, 0.4), M["_emit_rgb"], 5.0)
@@ -195,7 +212,10 @@ def emetteur(g, c):
     re, zh = c.re, c.zh
     rc = 0.62 * re
     g.sphere((0, 0, zh), rc, M["frost"], n=32, m=16, what="coeur")
-    for (ax, k) in (((1.0, 0.0, 0.0), 0), ((0.0, 0.55, 0.83), 1)):
+    # LOT F1-C (pose N : l'arceau dans le plan VERTICAL de l'axe se voyait par la tranche, « capsule chromée dressée ») :
+    # les deux arceaux sont OBLIQUES, croisés en X (plans penchés de ±40° autour de l'axe du faisceau) : aucun n'est
+    # vu par la tranche, ni de dos ni de côté
+    for (ax, k) in (((0.77, 0.0, 0.64), 0), ((-0.77, 0.0, 0.64), 1)):
         g.torus((0, 0, zh), ax, 0.66 * re, 0.075 * re, M["chrome_mat"], n=48, m=10, what="arceau")
         g.torus((0, 0, zh), ax, 0.66 * re + 0.07 * re, 0.012, M["ring"], n=48, m=4, what="filet")
     g.torus((0, 0, zh), (0.0, 0.0, 1.0), 0.64 * re, 0.05 * re, M["noir_miroir"], n=48, m=8, what="equateur")

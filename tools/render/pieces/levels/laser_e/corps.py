@@ -508,7 +508,8 @@ def liaison_defaut(g, pts, r):
 
 
 def liaisons_radiales(g, c, pl, pas=2, r=None):
-    """Liaisons des condensateurs au pivot (organe de liaison de l'âge, ep.liaison ; défaut : gaine) : un sur `pas`,
+    """Liaisons des condensateurs au pivot (organe de liaison de l'âge, ep.liaison ; défaut : gaine) : un sur `pas`
+    (LOT F1-C : le pas 1 essayé en ronde 3a faisait « araignée » partout, critique indépendante : retour au pas 2),
     sur la moitié AVANT seulement (les autres sont derrière la tête). Correction F1-A (24/10, reprise) : le code posait
     aussi les liaisons de la moitié ARRIÈRE, contrairement à ce qu'il annonçait ; vues de la caméra (au sud), elles
     montaient au-dessus de leur condensateur et y enfermaient un jour sur le fond (trous de 10 à 55 px aux maquettes
@@ -608,16 +609,15 @@ def proue(g, c):
         d = b - a
         g.box((a + b) / 2, (0.03, d.length, 0.018), M["steel_dk"], "hard",
               R=Matrix.Rotation(math.atan2(-d.x, d.y), 3, "Z"), what="corniere_proue")
-    # fente lumineuse sur l'axe, puis chevron près de la pointe
+    # LOT F1-C (4/11, dégel ciblé, CONCEPT.md §3) : la fente pleine longueur et le chevron de PLEINE lumière formaient,
+    # au zoom 1, une flèche d'interface « → » presque blanche posée sur la tête (planches F1-B, âges 5 à 15). La direction
+    # se lit désormais par la FORME : arête d'acier sombre en relief sur l'axe, du tiers arrière à l'épaule, puis une
+    # courte fente de lumière DOUCE (emit_soft) de l'épaule vers la pointe (lisible de nuit, sans flèche).
     fw = t["fente"]
-    yf0, yf1 = y0 + 0.1 * (ye - y0), ye + 0.25 * (y1 - ye)
-    g.box((0, (yf0 + yf1) / 2, zt + 0.004), (fw, yf1 - yf0, 0.012), M["emit"], "flat", what="fente_proue")
-    for sx in (-1, 1):
-        a = V((0.0, y1 - 0.1 * (y1 - ye), zt + 0.006))
-        b = V((sx * we * 0.55, ye + 0.05 * (y1 - ye), zt + 0.006))
-        d = b - a
-        g.box((a + b) / 2, (fw * 0.8, d.length, 0.012), M["emit"], "flat",
-              R=Matrix.Rotation(math.atan2(-d.x, d.y), 3, "Z"), what="chevron_proue")
+    ya, yb_ = y0 + 0.12 * (ye - y0), ye
+    g.box((0, (ya + yb_) / 2, zt + 0.012), (fw * 1.5, yb_ - ya, 0.026), M["steel_dk"], "hard", what="arete_proue")
+    yf0, yf1 = ye - 0.02, ye + 0.55 * (y1 - ye)
+    g.box((0, (yf0 + yf1) / 2, zt + 0.004), (fw, yf1 - yf0, 0.012), M["emit_soft"], "flat", what="fente_proue")
 
 
 @_lignee
@@ -768,6 +768,11 @@ def lentille(g, c, y, r, verre=None, cercle=None, anneau=True, point=True, n=40)
         F.lit_ring(g, (0, y + 0.02, zh), "y", r * 0.8, M["emit"], w=max(0.026, r * 0.14))
     if point:
         g.cyl((0, y + 0.022, zh), "y", max(0.03, r * 0.2), 0.012, M["emit2"], n=16, style="flat", what="foyer")
+    # LOT F1-C (critique de la ronde 3a : sans la flèche de la proue, l'émetteur ne se lisait plus ; la face de la
+    # lentille est vue par la tranche en pose E et cachée en pose N) : FOYER DE TIR, dôme de lumière douce qui bombe hors
+    # du verre vers l'avant : une demi-lentille lumineuse visible de côté, à la couleur de l'âge
+    g.sphere((0, y + 0.02, zh), max(0.045, r * 0.42), M["emit_soft"], n=20, m=10, scale=(1.0, 0.6, 1.0),
+             what="foyer_tir")
 
 
 def emetteur_lignee(g, c):
