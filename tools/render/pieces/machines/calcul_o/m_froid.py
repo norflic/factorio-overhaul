@@ -135,10 +135,12 @@ def tour(S, k):
     k.rambarde("acier", [(0.2, -prof[-1][1] - 0.2, H - 0.02), (1.1, -prof[-1][1] - 0.1, H - 0.02)], 0.2, 0.3)
     k.bz("acier", 0.65, -prof[-1][1] - 0.15, H - 0.05, 1.0, 0.24, 0.03)
     # collecteurs : eau chaude monte, eau froide part
-    k.tuyau("orange", [(0.0, 3.55, 0.3), (0.0, 2.4, 0.3), (-1.75, 2.4, 0.3), (-1.75, -0.2, 0.3)], r=0.13, coude=0.3, bride_mat="acier",
-            brides=[(0.0, 3.2, 0.3), (-1.2, 2.4, 0.3), (-1.75, 1.0, 0.3)])
-    k.tuyau("bleu", [(1.8, 0.5, 0.26), (2.05, -2.0, 0.26), (0.0, -3.0, 0.26), (0.0, -3.55, 0.26)], r=0.13, coude=0.4, bride_mat="acier",
-            brides=[(2.0, -1.2, 0.26), (0.0, -3.3, 0.26)])
+    # DA-CALCUL (4/11) : les deux collecteurs touchaient les bords nord et sud (justes face au nord seulement) ; ils sortent
+    # maintenant du sol à l'intérieur de l'emprise (raccords : tracés par le moteur dans les 4 directions)
+    k.tuyau("orange", [(0.0, 2.95, 0.0), (0.0, 2.95, 0.3), (0.0, 2.4, 0.3), (-1.75, 2.4, 0.3), (-1.75, -0.2, 0.3)], r=0.13, coude=0.3, bride_mat="acier",
+            brides=[(0.0, 2.95, 0.14), (-1.2, 2.4, 0.3), (-1.75, 1.0, 0.3)])
+    k.tuyau("bleu", [(1.8, 0.5, 0.26), (2.05, -2.0, 0.26), (0.0, -2.95, 0.26), (0.0, -2.95, 0.0)], r=0.13, coude=0.4, bride_mat="acier",
+            brides=[(2.0, -1.2, 0.26), (0.0, -2.95, 0.12)])
     k.vanne("acier", "rouge", (-1.0, 2.4, 0.35), 0.07)
     k.vanne("acier", "bleu", (1.2, -2.42, 0.34), 0.07)
     # pompes au sud-ouest
