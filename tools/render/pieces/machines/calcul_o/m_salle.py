@@ -24,10 +24,10 @@ def matieres(S, k):
     MT.PATINE["sans"] = tuple(MT.PATINE.get("sans", ())) + ("blanc", "inox", "filtre")
     sf = MT.surface
     cr = (0.05, 0.042, 0.03)
-    M["blanc"] = sf("c_blanc", (0.53, 0.48, 0.385), rough=0.34, met=0.06, tole=(0.66, 0.92), joint=0.6, joint_l=0.011, var=0.035,
+    M["blanc"] = sf("c_blanc", (0.4, 0.36, 0.285), rough=0.34, met=0.06, tole=(0.66, 0.92), joint=0.6, joint_l=0.011, var=0.035,
                     coulures=0.18, rouille=(0.24, 0.2, 0.14), usure=0.25, nu=(0.62, 0.6, 0.56), crasse=0.6, crasse_col=cr,
                     pied=(0.0, 0.35, 0.45), grain=0.035, graine=51)
-    M["blanc_lisse"] = sf("c_blanc_lisse", (0.55, 0.5, 0.4), rough=0.26, met=0.08, usure=0.2, nu=(0.66, 0.64, 0.6), crasse=0.55,
+    M["blanc_lisse"] = sf("c_blanc_lisse", (0.41, 0.37, 0.295), rough=0.26, met=0.08, usure=0.2, nu=(0.66, 0.64, 0.6), crasse=0.55,
                           crasse_col=cr, grain=0.03, graine=52)
     M["inox"] = sf("c_inox", (0.42, 0.405, 0.38), rough=0.22, met=0.95, usure=0.25, nu=(0.75, 0.74, 0.72), crasse=0.5,
                    crasse_col=(0.03, 0.028, 0.025), grain=0.04, graine=53)
@@ -37,9 +37,9 @@ def matieres(S, k):
     M["galva"] = sf("c_galva", (0.3, 0.295, 0.28), rough=0.4, met=0.75, tole=(1.0, 0.36), joint=0.55, var=0.06, coulures=0.4,
                     rouille=(0.16, 0.1, 0.05), usure=0.5, nu=(0.62, 0.6, 0.57), crasse=0.75, crasse_col=(0.012, 0.01, 0.007),
                     grain=0.08, graine=55)
-    M["filtre"] = sf("c_filtre", (0.6, 0.57, 0.5), rough=0.8, met=0.0, usure=0.0, crasse=0.6, crasse_col=(0.14, 0.12, 0.09),
+    M["filtre"] = sf("c_filtre", (0.45, 0.425, 0.365), rough=0.8, met=0.0, usure=0.0, crasse=0.6, crasse_col=(0.14, 0.12, 0.09),
                      grain=0.12, graine=56)
-    M["ambre"] = P.lueur(S, "c_ambre", (1.0, 0.6, 0.1), 3.4, 0.42, part=0.45, echelle=9.0)
+    M["ambre"] = P.lueur(S, "c_ambre", (1.0, 0.6, 0.1), 1.7, 0.5, part=0.45, echelle=9.0)
     return M
 
 

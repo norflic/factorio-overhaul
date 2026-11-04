@@ -35,8 +35,8 @@ def colonne_lumineuse(k, x, y, z, vert="voyant_v"):
 
 def lueurs_travail(S, M):
     """Matières des lueurs de travail ajoutées le 4/11 (écran cyan, rampe de LED blanc froid)."""
-    M["ecran"] = P.lueur(S, "c_ecran", (0.14, 0.72, 1.0), 3.4, 0.5, part=0.3, echelle=36.0)
-    M["led"] = P.lueur(S, "c_led", (0.72, 0.9, 1.0), 4.0, 0.5, part=0.2, echelle=30.0)
+    M["ecran"] = P.lueur(S, "c_ecran", (0.14, 0.72, 1.0), 1.9, 0.55, part=0.3, echelle=36.0)
+    M["led"] = P.lueur(S, "c_led", (0.72, 0.9, 1.0), 2.2, 0.55, part=0.2, echelle=30.0)
 
 
 def froid(S, k):
