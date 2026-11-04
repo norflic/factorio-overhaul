@@ -40,6 +40,11 @@ Xp.EFFECT = {
   lance = "fo-xp-lance",       -- capsule lancée (Géode, Demi-Vie) : préfixe, suivi de l'identifiant
 }
 
+--- Sprites d'effet posés par le script (`rendering`), déclarés par prototypes/experimentaux.lua (préfixe Xp.PREFIX). Un nom qui manque
+--- arrête la partie au premier dessin (g1, 4/11 : « Missing specification of sprite » pour la glace de la Trombe) : le banc hors jeu
+--- contrôle que tout nom `Xp.PREFIX .. "…"` des scripts est déclaré.
+Xp.EFFET_SPRITES = { "pointe", "pointe-lueur", "eclair", "verre", "glace" }
+
 --- Les petits (FAISABILITE, tableau « La famille »). `kind` : turret-electric, turret, unit-capsule. `foot` : côté de l'emprise (tuiles) d'une
 --- défense posée ; `half` : demi-boîte d'une unité. `scale` : réduction du rendu validé (décision du lead, 4/11 : « des plus petits » ;
 --- défenses en 3 x 3, corps d'environ 3 tuiles sur 4 à 5 ; Géode environ 3 ; Demi-Vie environ 2) ; les effets gardent leur taille. `src` : dossier des sources (fo-logs/2026-10-31_ROBOTS/experimentaux/final/sprites).

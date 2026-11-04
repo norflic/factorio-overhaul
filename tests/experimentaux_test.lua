@@ -326,6 +326,32 @@ for _, p in ipairs({ "script/robots/experimentaux.lua", "script/robots/experimen
 end
 check(not XP_SRC:find("%f[%w]global%f[%W]%s*[%.%[]"), "§5 shared : `global` jamais nommé")
 
+-- §5 noms : tout nom littéral `Xp.PREFIX .. "…"` d'un script (sprite, rayon, explosion, fumée, jet) est déclaré par un prototype, littéral
+-- ou sprite d'effet (Xp.EFFET_SPRITES, bouclé par prototypes/experimentaux.lua). g1 (4/11) : la glace de la Trombe manquait, la partie s'arrêtait.
+local function prefix_names(src, set)
+  set = set or {}
+  for n in src:gmatch("Xp%.PREFIX%s*%.%.%s*\"([^\"]+)\"") do set[n] = true end
+  return set
+end
+local function declared_names()
+  local set = prefix_names(PROTO)
+  prefix_names(read("prototypes/experimentaux_geants.lua"), set)
+  if PROTO:find("ipairs%(Xp%.EFFET_SPRITES%)") then
+    for _, n in ipairs(Xp.EFFET_SPRITES or {}) do set[n] = true end
+  end
+  return set
+end
+local DECL = declared_names()
+check(PROTO:find("ipairs%(Xp%.EFFET_SPRITES%)") ~= nil, "§5 prototypes : les sprites d'effet sont bouclés sur Xp.EFFET_SPRITES")
+for _, p in ipairs({ "script/robots/experimentaux.lua", "script/robots/experimentaux_commun.lua", "script/robots/experimentaux_geants.lua" }) do
+  local used, list = prefix_names(read(p)), {}
+  for n in pairs(used) do list[#list + 1] = n end
+  table.sort(list)
+  local missing = {}
+  for _, n in ipairs(list) do if not DECL[n] then missing[#missing + 1] = n end end
+  check(#missing == 0, "§5 " .. p .. " : noms Xp.PREFIX déclarés par un prototype (manquent : " .. table.concat(missing, ", ") .. ")")
+end
+
 -- §6 traductions
 local function cfg(p)
   local t, sec = {}, ""

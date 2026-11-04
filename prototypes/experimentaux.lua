@@ -80,7 +80,7 @@ local function effet_sprite(cle)
   return t
 end
 
-for _, cle in ipairs({ "pointe", "pointe-lueur", "eclair", "verre" }) do
+for _, cle in ipairs(Xp.EFFET_SPRITES) do
   local s = effet_sprite(cle)
   s.type = "sprite"
   s.name = Xp.PREFIX .. cle
