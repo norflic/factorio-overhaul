@@ -15,6 +15,7 @@ local Events = require("script.core.events")
 local State = require("script.faction.state")
 local Registry = require("script.companion.registry")
 local Worker = require("script.team.worker")
+local Rep = require("script.team.reparation") -- lot DANGER-ACTIF : crochet d'alerte des soldats sur un bâtiment touché
 local Profiler = require("script.core.profiler")
 local A = require("shared.ai3.armee") -- lot ARMEE-ANTICIPATION : regroupement, raid (estimation : lot PREVISION)
 local Prev = require("script.ai3.prevision") -- lot PREVISION : estimateur unique de la menace (une fois par minute et par équipe)
@@ -114,6 +115,18 @@ C.on_alert = function(f, ep, kind, tick, mode)
   t.alerts[#t.alerts + 1] = { x = ep.x, y = ep.y, ["until"] = tick + SD.ALERT_TICKS, n = mode == "hunt" and 3 or 4,
     role = mode == "hunt" and "hunt" or nil, t = tick }
   return true
+end
+
+--- Lot DANGER-ACTIF (DC 4/11, 19 h 12 : « ... ou en défendant ») : un bâtiment de l'équipe touché par une force adverse (script/team/reparation.lua, au plus
+--- une fois par Da.ALERT_GAP ticks et par équipe) alerte les soldats tout de suite, SANS attendre qu'un ouvrier fuie : ils vont vers le site (alerte de
+--- C.on_alert : les 4 plus proches, 3600 ticks, limitée à Sd.NEAR_HQ x 1,41 du QG). Compteur : t.stats.dact.site_alerts ([FO-DANGER-ACTIF]).
+Rep.on_attack = function(f, pos, tick)
+  if not C.enabled() then return end
+  if C.on_alert(f, pos, "unit", tick) then
+    local t = C.team(f)
+    t.stats.dact = t.stats.dact or {}
+    t.stats.dact.site_alerts = (t.stats.dact.site_alerts or 0) + 1
+  end
 end
 
 --- C7 : QG menacé. Réponse de l'équipe (Re.hq_response, lot FUITE) :

@@ -403,6 +403,24 @@ for i = 1, 10 do
 end
 check(ref5 == 10, "D-B : but à portée d'une menace FIXE connue : la défense n'y va pas, tâche mise de côté (" .. ref5 .. " sur 10)")
 remote.call("fo-ia3k", "forget", "player")
+-- Lot DANGER-ACTIF (DC 4/11, 19 h 12 : « ... ou en défendant ») : un bâtiment de l'équipe touché par une force adverse (crochet Rep.on_attack, posé par
+-- script/ai3/soldats.lua) alerte les soldats TOUT DE SUITE, sans ouvrier sur place ; un PNJ à moins de Da.SITE_R de l'alerte est « sur le site attaqué »
+-- (Re.SITE_RATIO : l'ouvrier armé se défend), un autre non.
+do
+  local Rep = require("script.team.reparation")
+  local Dax = require("shared.team.danger_actif")
+  local s_sold, s_n = f.soldiers, f.soldiers_count
+  f.soldiers, f.soldiers_count = f.soldiers or {}, 2
+  local tm = C.team(f)
+  local n0 = (tm.stats.dact or {}).site_alerts or 0
+  local pos = { x = f.hq_pos.x + 40, y = f.hq_pos.y }
+  check(type(Rep.on_attack) == "function", "DANGER-ACTIF : crochet d'alerte posé sur le bâtiment touché")
+  Rep.on_attack(f, pos, game.tick)
+  check(((tm.stats.dact or {}).site_alerts or 0) == n0 + 1 and #(tm.alerts or {}) >= 1, "DANGER-ACTIF : bâtiment touché : alerte des soldats tout de suite (sans ouvrier sur place)")
+  check(Dax.site_alert(tm.alerts, { x = pos.x + 10, y = pos.y }, game.tick) == true and Dax.site_alert(tm.alerts, { x = pos.x + 80, y = pos.y }, game.tick) == false,
+    "DANGER-ACTIF : un PNJ à 10 tuiles du site attaqué est « sur le site » (il se défend), un PNJ à 80 tuiles non")
+  f.soldiers, f.soldiers_count = s_sold, s_n
+end
 -- C5 « change de site » : un minage vers un gisement gardé par un ver va miner une autre tuile du même minerai.
 local ip = { x = math.cos(math.pi / 6) * 60, y = math.sin(math.pi / 6) * 60 } -- gisement de fer du moteur simulé
 remote.call("fo-ia3k", "mark", "player", ip.x, ip.y, "worm", 25)

@@ -982,8 +982,8 @@ function M.gate_report(f, tick)
     for k in pairs(da.why or {}) do wk[#wk + 1] = k end
     table.sort(wk)
     for _, k in ipairs(wk) do wparts[#wparts + 1] = string.format("%s %d", k, da.why[k]) end
-    log(string.format("[FO-DANGER-ACTIF] %s : bilan a %.1f min : mises de cote %d, departs a risque %d, escorte absente (depart seul) %d {%s} ; repos fermes %d, plus long %.1f s, au-dela de 30 s %d ; repos ouverts au-dela de 30 s %d (plus long %.1f s)",
-      tostring(f.key), tick / 3600, da.aside or 0, da.go or 0, da.escort_none or 0, table.concat(wparts, ", "), da.rest_n or 0,
+    log(string.format("[FO-DANGER-ACTIF] %s : bilan a %.1f min : mises de cote %d, departs a risque %d, escorte absente (depart seul) %d, alertes de soldats sur un site touche %d {%s} ; repos fermes %d, plus long %.1f s, au-dela de 30 s %d ; repos ouverts au-dela de 30 s %d (plus long %.1f s)",
+      tostring(f.key), tick / 3600, da.aside or 0, da.go or 0, da.escort_none or 0, da.site_alerts or 0, table.concat(wparts, ", "), da.rest_n or 0,
       (da.rest_max or 0) / 60, da.rest_over or 0, over_now, worst_now / 60))
   end
   if #keys == 0 then return end
@@ -1320,7 +1320,8 @@ function M.sense(agent, tick)
   end
   local action, why = Re.decide({ kind = kind, range = range, dist = dist, on_route = on_route, hp = hp, armed = is_armed,
     enemies = enemies, allies = allies, walking = walking, prudence = prud, agressivite = agr, repeats = a.urep,
-    backs = (a.back_t and tick - a.back_t <= Re.BACK_MEMORY) and a.backs or 0 })
+    backs = (a.back_t and tick - a.back_t <= Re.BACK_MEMORY) and a.backs or 0,
+    site_alert = Da.site_alert(t.alerts, p, tick) }) -- lot DANGER-ACTIF : site de l'équipe attaqué, soldats alertés : l'ouvrier armé défend
   -- C4 : un soldat ou un ouvrier ADVERSE isolé (force pesée ≤ 1,5, pas la force des déchiqueteurs) vu près du QG : la
   -- garnison est appelée, elle le chasse (au plus une alerte par menace et par minute : script/ai3/soldats.lua).
   if not K.fixed and enemy.force.name ~= "enemy" and enemies <= Re.ISOLATED and M.on_alert then

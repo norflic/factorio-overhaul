@@ -52,6 +52,14 @@ local function cases(Da, A)
   Da.rest_open(a, 1000)
   Da.rest_close(a, st, 1000 + Da.REST_MAX + 1)
   check(st.rest_over == 1 and st.rest_max == Da.REST_MAX + 1 and st.rest_n == 2, "repos de plus de 30 s : compté, plus long retenu")
+  -- 4. défendre : alerte de soldats en cours et fréquence de l'alerte
+  local al = { { x = 100, y = 100, ["until"] = 5000 }, { x = -300, y = 0, ["until"] = 9000 } }
+  check(Da.site_alert(al, { x = 120, y = 100 }, 1000) == true, "PNJ à 20 tuiles d'une alerte en cours : sur le site attaqué")
+  check(Da.site_alert(al, { x = 140, y = 100 }, 1000) == false, "PNJ à 40 tuiles de l'alerte : pas sur le site")
+  check(Da.site_alert(al, { x = 120, y = 100 }, 5000) == false, "alerte expirée : plus de site attaqué")
+  check(Da.site_alert(nil, { x = 0, y = 0 }, 0) == false, "aucune alerte : faux")
+  check(Da.alert_due(nil, 10) == true and Da.alert_due(100, 100 + Da.ALERT_GAP - 1) == false and Da.alert_due(100, 100 + Da.ALERT_GAP) == true,
+    "alerte des soldats : la première tout de suite, puis au plus une par " .. Da.ALERT_GAP .. " ticks")
   local ags = { [1] = { rest_since = 100 }, [2] = {}, [3] = { rest_since = 9000 } }
   local n, worst = Da.rest_open_over(ags, { 1, 2, 3 }, 9100)
   check(n == 1 and worst == 9000, "repos encore ouverts au-delà de 30 s : 1 sur 3 (" .. n .. ", " .. worst .. ")")
@@ -74,6 +82,15 @@ for _, lang in ipairs({ "fr", "en" }) do
   check(read("locale/" .. lang .. "/ia3k.cfg"):find("etat-attente", 1, true) == nil, "locale " .. lang .. " : etat-attente supprimé")
 end
 
+section("4 bis. Défendre : chaîne dans les sources")
+local RPS = read("script/team/reparation.lua")
+check(RPS:find("Rep.on_attack and hitter and hitter ~= ent.force and Da.alert_due(f.attack_alert_t, e.tick)", 1, true) ~= nil,
+  "un bâtiment de l'équipe touché par une force adverse appelle le crochet d'alerte (au plus un par Da.ALERT_GAP)")
+local SDS = read("script/ai3/soldats.lua")
+check(SDS:find("Rep.on_attack = function(f, pos, tick)", 1, true) ~= nil and SDS:find('C.on_alert(f, pos, "unit", tick)', 1, true) ~= nil,
+  "le crochet alerte les soldats par C.on_alert (existant)")
+check(CO:find("site_alert = Da.site_alert(t.alerts, p, tick)", 1, true) ~= nil, "le regard passe l'alerte de site à Re.decide")
+
 section("5. Mutants (chacun doit faire échouer au moins un cas)")
 local src = read("shared/team/danger_actif.lua")
 local mutants = {
@@ -85,6 +102,9 @@ local mutants = {
   { "tout est mis de côté", 'return "aside" end\n  return "go"', 'return "aside" end\n  return "aside"' },
   { "cases mobiles comptées", "return ((parts and parts.fixed) or 0) >= B", "return ((parts and parts.fixed) or 0) + ((parts and parts.mobile) or 0) >= B" },
   { "pause de 2 min", "Da.ASIDE_TICKS = 3600", "Da.ASIDE_TICKS = 7200" },
+  { "site sans limite de distance", "dx * dx + dy * dy <= Da.SITE_R * Da.SITE_R", "true" },
+  { "alerte expirée comptée", 'if tick < (a["until"] or 0) then', "if true then" },
+  { "alerte à chaque coup", "return last == nil or tick - last >= Da.ALERT_GAP", "return true" },
   { "repos rouvert à chaque refus", "if not a.rest_since then a.rest_since = tick end", "a.rest_since = tick" },
   { "30 s compté trop tôt", "if d > Da.REST_MAX then st.rest_over", "if d >= Da.REST_MAX then st.rest_over" },
   { "plus long non retenu", "if d > (st.rest_max or 0) then st.rest_max = d end", "" },

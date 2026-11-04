@@ -33,6 +33,26 @@ function Da.after_wait(parts, B, why, deaths_n)
   return "go"
 end
 
+Da.SITE_R = 32 -- tuiles : un PNJ à moins de 32 tuiles d'une alerte de soldats en cours est « sur le site attaqué »
+
+--- Le PNJ en `p` est-il sur un site de l'équipe attaqué (alerte de soldats en cours à moins de Da.SITE_R) ? `alerts` : t.alerts de script/ai3/soldats.lua
+--- ({ x, y, until }, nil permis). Les ouvriers armés de ce site se défendent et restent (Re.SITE_RATIO) ; les autres fuient comme avant.
+function Da.site_alert(alerts, p, tick)
+  for _, a in ipairs(alerts or {}) do
+    if tick < (a["until"] or 0) then
+      local dx, dy = a.x - p.x, a.y - p.y
+      if dx * dx + dy * dy <= Da.SITE_R * Da.SITE_R then return true end
+    end
+  end
+  return false
+end
+
+--- Faut-il prévenir les soldats de cette atteinte portée à un bâtiment de l'équipe ? Au plus une alerte par équipe tous les Da.ALERT_GAP ticks.
+Da.ALERT_GAP = 60
+function Da.alert_due(last, tick)
+  return last == nil or tick - last >= Da.ALERT_GAP
+end
+
 --- Suivi du repos d'un PNJ (table simple `a`, par PNJ) : ouvert au premier refus, fermé au départ. `st` = compteurs de l'équipe.
 function Da.rest_open(a, tick)
   if not a.rest_since then a.rest_since = tick end
