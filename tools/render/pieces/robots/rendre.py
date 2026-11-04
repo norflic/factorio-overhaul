@@ -123,7 +123,7 @@ def main():
     ap.add_argument("--quick", action="store_true", help="passes main, glow, shadow seulement (essais)")
     a = ap.parse_args()
     if a.serie and not a.out:
-        base = os.path.join("F:" + os.sep, "Factorio.v1.1.91 Modding", "Factorio.v1.1.91", "fo-logs", "2026-11-01_RBV1", a.serie)
+        base = os.path.join("F:" + os.sep, "Factorio.v1.1.91 Modding", "Factorio.v1.1.91", "fo-logs", piece.lot(a.serie), a.serie)
         a.out = os.path.join(base, "sprites")
         a.cache = a.cache or os.path.join(base, "cache")
     if a.serie:
