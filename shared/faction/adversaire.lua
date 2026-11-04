@@ -250,13 +250,34 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Cible selon le style
 ---------------------------------------------------------------------------------------------------
+-- Lot QG-DERNIER : rayon (tuiles) autour des points du DÉPART du joueur (point d'apparition, QG de votre équipe) dans lequel un secteur
+-- connu compte comme le départ. La clé `home` seule ne suffisait pas : le point d'apparition (0, 0) est le COIN de 4 secteurs de
+-- A.SECTOR tuiles, la base de départ déborde sur les secteurs voisins, et ceux-là étaient visés AVANT l'avant-poste connu
+-- (tests/pvp_test.lua:1157 sur 0.6.51 : cible (21 ; -1), secteur (0, -1), défense 39, à 21 tuiles du point d'apparition ; 0.6.50
+-- visait le même secteur pendant les 10 premières minutes de guerre). Un secteur : la granularité de l'ancienne règle.
+A.HOME_RADIUS = A.SECTOR
+
+--- Le secteur connu `s` ({ key, x, y }) est-il le DÉPART du joueur ? Sa clé est `home` (secteur du point d'apparition), ou son
+--- installation visée est à A.HOME_RADIUS tuiles au plus d'un des points `homes` ({ { x, y } }, facultatif).
+function A.is_home(s, home, homes)
+  if s.key == home then return true end
+  local r2 = A.HOME_RADIUS * A.HOME_RADIUS
+  for _, h in ipairs(homes or {}) do
+    local dx, dy = s.x - h.x, s.y - h.y
+    if dx * dx + dy * dy <= r2 then return true end
+  end
+  return false
+end
+
 --- Choix d'un secteur visé parmi `list` (secteurs connus : { key, x, y (installation visée), def (défense vue
---- autour) }), depuis `from` (notre QG) ; `home` : clé du secteur de départ (visé en dernier, comme un QG).
+--- autour) }), depuis `from` (notre QG) ; `home` : clé du secteur de départ, et `homes` (facultatif, lot QG-DERNIER) : points
+--- du départ du joueur ({ { x, y } } : point d'apparition, QG de votre équipe) ; le départ est visé en dernier, comme un QG
+--- (A.is_home).
 ---   par défaut (équilibré, bâtisseur, agresseur, inconnu) : le plus proche (règle d'IA0) ;
 ---   tortue : le MOINS défendu, puis le plus proche (harcèlement des avant-postes, pas l'assaut des tourelles) ;
 ---   expansionniste : le plus ISOLÉ (moins de secteurs connus à 128 tuiles), puis le plus proche.
 --- Renvoie l'élément choisi (ou nil).
-function A.pick_target(list, from, home, style)
+function A.pick_target(list, from, home, style, homes)
   local best, bk1, bk2
   for _, s in ipairs(list) do
     local dx, dy = s.x - from.x, s.y - from.y
@@ -272,7 +293,7 @@ function A.pick_target(list, from, home, style)
         end
       end
     end
-    if s.key == home then k1 = k1 + 1e9 end
+    if A.is_home(s, home, homes) then k1 = k1 + 1e9 end
     if not best or k1 < bk1 or (k1 == bk1 and (d < bk2 or (d == bk2 and s.key < best.key))) then
       best, bk1, bk2 = s, k1, d
     end

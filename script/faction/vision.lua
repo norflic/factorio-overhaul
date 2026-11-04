@@ -270,9 +270,24 @@ function Vision.known_list(f)
   return list, turrets
 end
 
+--- Lot QG-DERNIER : points du DÉPART du joueur, visés en dernier (A.is_home) : son point d'apparition, lu en direct, et le QG de
+--- votre équipe (coffre d'équipe, script/team/player_team.lua) s'il existe : posé d'office à 6 tuiles du point d'apparition, ou
+--- ailleurs par le joueur (et reposé là où il était s'il est détruit). Liste triée par construction (apparition, puis QG).
+local function player_homes(surface)
+  local out = {}
+  if surface and surface.valid then
+    local sp = game.forces.player.get_spawn_position(surface)
+    out[#out + 1] = { x = sp.x, y = sp.y }
+  end
+  local pt = State.faction("player")
+  if pt and pt.hq and pt.hq.valid and pt.hq_pos then out[#out + 1] = { x = pt.hq_pos.x, y = pt.hq_pos.y } end
+  return out
+end
+
 --- Vue « joueur » pour S.decide : territoire VU (secteurs), défense vue de la cible choisie par le style. nil si la
 --- faction ne sait rien du joueur. Met à jour fp.target (pos, secteur, défense ; réévaluée toutes les target_ttl).
-function Vision.player_view(f, p, fp, tick)
+--- `surface` (lot QG-DERNIER) : surface de la guerre (nil : relue dans l'état de la guerre).
+function Vision.player_view(f, p, fp, tick, surface)
   local v = Vision.state(f)
   local list = Vision.known_list(f)
   if #list == 0 then
@@ -282,7 +297,8 @@ function Vision.player_view(f, p, fp, tick)
   local t = fp.target
   if not t or tick - t.tick >= R.target_ttl or not v.known[t.sector] then
     local home = A.key(p.home.x, p.home.y)
-    local s = A.pick_target(list, f.hq_pos, home, v.model.style)
+    surface = surface or game.surfaces[State.war().surface]
+    local s = A.pick_target(list, f.hq_pos, home, v.model.style, player_homes(surface))
     t = { pos = { x = s.x, y = s.y }, sector = s.key, defense = s.def, tick = tick }
     fp.target = t
   end
