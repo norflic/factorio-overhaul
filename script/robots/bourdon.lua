@@ -22,6 +22,7 @@ local SPR = require("graphics.robots.bourdon.sprites")
 local Armee = require("script.robots.armee") -- lot ROBOTS-JEU : plafond de géants d'un Bourdon fabriqué
 local Mo = require("shared.robots.modele")
 local Ro = require("shared.content.robots") -- lot BOURDON-SORTIE : taille de l'usine (point de sortie)
+local State = require("script.faction.state") -- lot BOURDON-MINEURS : une faction ne sort pas de Bourdon (B.sortie)
 
 local M = {}
 
@@ -706,9 +707,15 @@ local function sur_tick(ev)
         -- lot BOURDON-SORTIE : le Glas en attente part une fois posé, sans vol en attente (ordre reçu pendant la descente) et recharge finie
         -- (avant : consommé même en recharge, donc perdu)
         if b.phase == "pose" and b.attente and not b.glas and not b.e.autopilot_destination and tick >= b.recharge then
-          local a = b.attente
-          b.attente = nil
-          sonner(b, tick, true, a.x, a.y)
+          -- lot BOURDON-MINEURS : portée revérifiée d'où elle s'est posée (B.reprise_glas) ; trop loin, elle s'approche d'abord, l'attente reste
+          local o = B.reprise_glas(b.e.position, b.attente)
+          if o and o.aller then
+            M.aller(b, o.aller.x, o.aller.y)
+          else
+            local a = b.attente
+            b.attente = nil
+            sonner(b, tick, true, a.x, a.y)
+          end
         elseif tick % 60 == b.id % 60 and b.phase == "pose" and not b.glas and tick >= b.recharge and not b.muet then
           local cible = b.e.surface.find_nearest_enemy({ position = b.e.position, max_distance = B.PORTEE_AUTO, force = b.e.force })
           if cible then sonner(b, tick, false, cible.position.x, cible.position.y) end
@@ -913,13 +920,14 @@ end
 
 --- Lot BOURDON-SORTIE : balayage d'une usine (script/robots/usine.lua, Armee.hooks.extra_release). Un Bourdon fini en sortie descend au point de
 --- sortie de l'usine si le plafond de géants le permet, puis vole au ralliement `rally` = { x, y }. Rend le nombre de Bourdons sortis (0 ou 1).
-function M.sortie_usine(usine, inv, rally, deja)
+function M.sortie_usine(usine, inv, rally)
   local n = inv.get_item_count(B.OBJET)
   if n < 1 then return 0 end
   local force = usine.force
   local w = Ro.factory(usine.name)
   if not w then return 0 end
-  if not B.sortie({ objets = n, actif = Armee.enabled(), geants = Armee.giants(force.name), deja = deja, admis = Mo.giants_allowed(Armee.age(force)) }) then
+  if not B.sortie({ objets = n, faction = State.by_force(force.name) ~= nil, actif = Armee.enabled(), geants = Armee.giants(force.name),
+    admis = Mo.giants_allowed(Armee.age(force)) }) then
     return 0
   end
   if inv.remove({ name = B.OBJET, count = 1 }) ~= 1 then return 0 end

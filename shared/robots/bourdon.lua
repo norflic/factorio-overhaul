@@ -329,11 +329,15 @@ end
 -- vole à son ralliement. Plafond atteint : l'objet reste en sortie et le Portique s'arrête, comme pour les autres géants.
 B.RALLIEMENT_MIN = 6 -- tuiles : plus près que cela du point de descente, il reste posé (ni ancres levées, ni vol pour rien)
 
---- Le Bourdon en sortie d'un Portique doit-il sortir ? p = { objets (Bourdons finis dans la sortie), actif, geants (géants vivants de la force,
---- Bourdons compris), deja (géants sortis pendant ce balayage), admis }.
+--- Le Bourdon en sortie d'un Portique doit-il sortir ? p = { objets (Bourdons finis dans la sortie), faction (vrai : l'usine est à une faction),
+--- actif, geants (géants vivants de la force, Bourdons compris), admis }.
+--- Lot BOURDON-MINEURS (4/11) : `geants` compte déjà les géants sortis pendant le même balayage (Armee.create les inscrit au registre, et un Bourdon
+--- descendu est dans la liste du script dès M.descendre) : plus de compte « deja » en plus, qui les comptait deux fois.
+--- Une FACTION ne sort pas de Bourdon : aucune ne le commande (le cerveau ne voit que les objets qui posent une unité, et l'objet pose un relais),
+--- et le Bourdon n'a pas de rôle de faction (ni garnison, ni raid : script/faction/military.lua ne l'adopte pas) ; l'objet resterait en sortie.
 function B.sortie(p)
-  if type(p) ~= "table" or (p.objets or 0) < 1 then return false end
-  return B.peut_poser({ actif = p.actif, geants = (p.geants or 0) + (p.deja or 0), admis = p.admis })
+  if type(p) ~= "table" or (p.objets or 0) < 1 or p.faction then return false end
+  return B.peut_poser({ actif = p.actif, geants = p.geants, admis = p.admis })
 end
 
 -- Commande par l'outil Armée (lot BOURDON-SORTIE) : les ordres de l'outil (script/robots/outils.lua) deviennent un vol et un Glas.
@@ -353,6 +357,10 @@ function B.ordre(kind, p, c)
   local k = (d - B.APPROCHE) / d
   return { aller = { x = px + dx * k, y = py + dy * k }, glas = { x = cx, y = cy } }
 end
+
+--- Lot BOURDON-MINEURS : un Glas en attente (commandé pendant un vol, une descente ou une recharge) est REVÉRIFIÉ au moment de partir, depuis
+--- la position où la cloche s'est posée : à portée, il sonne ({ glas }) ; sinon elle s'approche d'abord ({ aller, glas }), l'attente est gardée.
+function B.reprise_glas(p, cible) return B.ordre("attack", p, cible) end
 
 --- Après sa descente au point (x, y), le Bourdon vole-t-il au ralliement r = { x, y } ? Rend r, ou nil s'il est absent ou trop près.
 function B.ralliement(x, y, r)
