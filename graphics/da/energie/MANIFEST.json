@@ -1,0 +1,409 @@
+{
+ "arguments": [],
+ "commande": "py -3.9 tools/render/pieces/da_energie/feuilles.py   (depuis la racine du mod ; sources : fo-logs/2026-11-04_DA-ENERGIE/final, à GARDER)",
+ "fichiers": {
+  "depot-glow.png": {
+   "hauteur": 211,
+   "largeur": 173,
+   "sha256": "96b26ac51c1b8646f99964ef0422d4ed12e054d0dde518157ec62d2fec5f69db",
+   "taille": 1752
+  },
+  "depot-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "959bd73060bf7b1c131d7b627bc193c6bad264a327a512d6d3f24fc135c721e3",
+   "taille": 12042
+  },
+  "depot-lumiere.png": {
+   "hauteur": 50,
+   "largeur": 67,
+   "sha256": "08bc70b9872210af4ff23b309fa32951733b7b424d8138b4af105a1adf9dbab9",
+   "taille": 4403
+  },
+  "depot-main.png": {
+   "hauteur": 249,
+   "largeur": 206,
+   "sha256": "6336ef36b5dbc42d60a111cd15a3a16d6497acd134a30cbd869db611af98be51",
+   "taille": 91348
+  },
+  "depot-shadow.png": {
+   "hauteur": 185,
+   "largeur": 258,
+   "sha256": "a2e51418815dfb2abccd8642f28e86aa251bacff0b4108bd9f234e6e0bb10cfa",
+   "taille": 7400
+  },
+  "geo-east-glow.png": {
+   "hauteur": 21,
+   "largeur": 43,
+   "sha256": "93f4cd5f9b81e4edd8ab101e38624189f62efefc2bfd19f5ab93e0679492baee",
+   "taille": 788
+  },
+  "geo-east-main.png": {
+   "hauteur": 123,
+   "largeur": 106,
+   "sha256": "115392f49c50409599f62c215e66182f5463559e233d8655b80b5e03c9f69f65",
+   "taille": 18536
+  },
+  "geo-east-shadow.png": {
+   "hauteur": 77,
+   "largeur": 150,
+   "sha256": "287e6037012dc6685117f0bda1ed5a067f5527474f67fbae1e631b905d05be77",
+   "taille": 3573
+  },
+  "geo-north-glow.png": {
+   "hauteur": 21,
+   "largeur": 43,
+   "sha256": "93f4cd5f9b81e4edd8ab101e38624189f62efefc2bfd19f5ab93e0679492baee",
+   "taille": 788
+  },
+  "geo-north-main.png": {
+   "hauteur": 123,
+   "largeur": 105,
+   "sha256": "b1cdba2daf008b95658acd8a2a5f71976746a7bdadc706d8cd4298fc63a414bf",
+   "taille": 18403
+  },
+  "geo-north-shadow.png": {
+   "hauteur": 85,
+   "largeur": 150,
+   "sha256": "454a0911b518e4337a3ffaf3365759ba2396a3d28c3c2b7f5a4c94ac2706defb",
+   "taille": 3776
+  },
+  "geo-south-glow.png": {
+   "hauteur": 17,
+   "largeur": 42,
+   "sha256": "437ccedcd54cdda2b291aedaac254fe922bb5208405eaba16664e97836f7b924",
+   "taille": 778
+  },
+  "geo-south-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "e3bc82188a99595253ee7e021fa0b9e99b368dfa6a992c718b10a88e05e46cb7",
+   "taille": 9091
+  },
+  "geo-south-main.png": {
+   "hauteur": 139,
+   "largeur": 104,
+   "sha256": "cbe433369205b4acea79484dda7cc64009fc1cdd27f879ba140752b57e1f676d",
+   "taille": 21938
+  },
+  "geo-south-shadow.png": {
+   "hauteur": 88,
+   "largeur": 150,
+   "sha256": "86209d20a88912390622fe41364fa2a3a13ca465c1b01477088f4d5bac654fd6",
+   "taille": 4300
+  },
+  "geo-west-glow.png": {
+   "hauteur": 17,
+   "largeur": 43,
+   "sha256": "214bbf810d277ea819ec2891a52dbfdaf4ae1ed18c5e7684de049655cb670b71",
+   "taille": 806
+  },
+  "geo-west-main.png": {
+   "hauteur": 126,
+   "largeur": 107,
+   "sha256": "0dc1f6579d060e102d281c630a9dd432d9ec06b7dc43c7590b8930e1cb2ae727",
+   "taille": 21578
+  },
+  "geo-west-shadow.png": {
+   "hauteur": 77,
+   "largeur": 150,
+   "sha256": "4ec9a8453714d5deef2981e871315dc3445eb43fca8558c026403850cce1d31d",
+   "taille": 4129
+  },
+  "hr-depot-glow.png": {
+   "hauteur": 422,
+   "largeur": 346,
+   "sha256": "4451f047649c152eca49f4bef0c8c2db4ae644a07da5eeadfee80474bf12201f",
+   "taille": 3954
+  },
+  "hr-depot-lumiere.png": {
+   "hauteur": 100,
+   "largeur": 134,
+   "sha256": "eeec3b2a96e8af6527f9ef79f3aea435759d6ab0ea45cc307fab610ce0af54b6",
+   "taille": 3023
+  },
+  "hr-depot-main.png": {
+   "hauteur": 498,
+   "largeur": 412,
+   "sha256": "7e6c9887f093175a8b37854fa61d42e7632235f21776e2f37da58ce29b6f5a5d",
+   "taille": 290843
+  },
+  "hr-depot-shadow.png": {
+   "hauteur": 370,
+   "largeur": 516,
+   "sha256": "1490c353651ab75e827566f82e604bbf0b00cbfcd97aeafa844d0ad1d846ac21",
+   "taille": 21536
+  },
+  "hr-geo-east-glow.png": {
+   "hauteur": 42,
+   "largeur": 86,
+   "sha256": "bce54a2f40e11e1150af4e8fdcb9668e9fe033f16705995d48d1c501f309a78b",
+   "taille": 1665
+  },
+  "hr-geo-east-main.png": {
+   "hauteur": 246,
+   "largeur": 212,
+   "sha256": "5d164b84832e0e39609a8d69735314fa2e7c3fc4db6de8afa8a81348af102366",
+   "taille": 57138
+  },
+  "hr-geo-east-shadow.png": {
+   "hauteur": 154,
+   "largeur": 300,
+   "sha256": "859c6c8e957f0a6a5285e13a8aca186ef6ad7a62a3aa79d56ed3cc4173a43942",
+   "taille": 7695
+  },
+  "hr-geo-north-glow.png": {
+   "hauteur": 42,
+   "largeur": 86,
+   "sha256": "bce54a2f40e11e1150af4e8fdcb9668e9fe033f16705995d48d1c501f309a78b",
+   "taille": 1665
+  },
+  "hr-geo-north-main.png": {
+   "hauteur": 246,
+   "largeur": 210,
+   "sha256": "2fe979b473d4b6b8dc3f7da4268757e63259c3665b11b01a339d163c376f8bc3",
+   "taille": 56901
+  },
+  "hr-geo-north-shadow.png": {
+   "hauteur": 170,
+   "largeur": 300,
+   "sha256": "b9f08c24ad2a828b1436a09c629138f6de8affdfe81db24b0922c3e84db01853",
+   "taille": 8368
+  },
+  "hr-geo-south-glow.png": {
+   "hauteur": 34,
+   "largeur": 84,
+   "sha256": "09ec37da323d59373c91a5045cf52e133f5255e6bbecd28fa870983b4342b3ab",
+   "taille": 1613
+  },
+  "hr-geo-south-main.png": {
+   "hauteur": 278,
+   "largeur": 208,
+   "sha256": "a68919dd5b9b24d90970601f13bdaaafd3ad850de0df5dfa1ea1e453eda7ad35",
+   "taille": 67056
+  },
+  "hr-geo-south-shadow.png": {
+   "hauteur": 176,
+   "largeur": 300,
+   "sha256": "2e846759f1befbd05df421082737f6b1b4e69d7058efd0d239ae290eb03b6a2a",
+   "taille": 10581
+  },
+  "hr-geo-west-glow.png": {
+   "hauteur": 34,
+   "largeur": 86,
+   "sha256": "543e9b6dbd6c70fbab2a0e8c9308d0d48f9bf1400011fbd7768de72b62f36b66",
+   "taille": 1665
+  },
+  "hr-geo-west-main.png": {
+   "hauteur": 252,
+   "largeur": 214,
+   "sha256": "d4affab40d5d8920d1119b2f731b6b1e1a8b006598316511246bd354967be189",
+   "taille": 66500
+  },
+  "hr-geo-west-shadow.png": {
+   "hauteur": 154,
+   "largeur": 300,
+   "sha256": "24431920c83d15c3ed87785e5111551ec261f2066e7779c2ae3036f952b24b87",
+   "taille": 10117
+  },
+  "hr-msr-chaleur.png": {
+   "hauteur": 350,
+   "largeur": 320,
+   "sha256": "d3ee3b25626beb5369ae12951d056cd62667c980c28e6d884c130ac36108dada",
+   "taille": 32376
+  },
+  "hr-msr-glow.png": {
+   "hauteur": 366,
+   "largeur": 252,
+   "sha256": "8a77c84c5cd0704b001ac4285c58eae2602d504cc059a4dbb448c6e960fc2914",
+   "taille": 17137
+  },
+  "hr-msr-main.png": {
+   "hauteur": 430,
+   "largeur": 348,
+   "sha256": "52221e4142651d9a1a3b244830aff4d3fedfa9e4ea4e160e246917887aea68ae",
+   "taille": 182745
+  },
+  "hr-msr-shadow.png": {
+   "hauteur": 320,
+   "largeur": 372,
+   "sha256": "ada37fb990a5b5267e0eec674afbbfa83b0ae3d9fd5df4ca2ed04a2df6257f85",
+   "taille": 35350
+  },
+  "hr-piscine-glow.png": {
+   "hauteur": 4,
+   "largeur": 12,
+   "sha256": "13e6a57d0fd3aacd1cce4c2edfd42b0d113439d765d321a7221fcf279937fbdc",
+   "taille": 253
+  },
+  "hr-piscine-main.png": {
+   "hauteur": 298,
+   "largeur": 284,
+   "sha256": "51265edd6dd7b5bdc8240c7c70a6bc67fec1fcfa46a5f62574fa7062c1c5c47a",
+   "taille": 121285
+  },
+  "hr-piscine-mobile-glow.png": {
+   "hauteur": 226,
+   "largeur": 3096,
+   "sha256": "ae1f789213b43ed21c2cf52a126d7db10dd06d31ae9d5c2ee318d19d74d1883a",
+   "taille": 124553
+  },
+  "hr-piscine-mobile.png": {
+   "hauteur": 226,
+   "largeur": 3096,
+   "sha256": "630dd8baf390dd5501f8b5fb0e588084b92940f92dbc404fa10c849a67812a2e",
+   "taille": 675817
+  },
+  "hr-piscine-shadow.png": {
+   "hauteur": 256,
+   "largeur": 272,
+   "sha256": "c0bf220937eae9e07a25ffa95458774f72c37a1bb0172d2dae0023a0a0509c4e",
+   "taille": 27202
+  },
+  "hr-reso-glow.png": {
+   "hauteur": 74,
+   "largeur": 172,
+   "sha256": "21b9da3c86f059866bafdd74039d903850e2a29a1bfe5d6fd283c3d91a3b5609",
+   "taille": 3884
+  },
+  "hr-reso-lumiere.png": {
+   "hauteur": 160,
+   "largeur": 218,
+   "sha256": "b2f635873d2e86f6ab21418893673d8cb2e4274e2689ae37b44b1a7a504d2773",
+   "taille": 5617
+  },
+  "hr-reso-main.png": {
+   "hauteur": 230,
+   "largeur": 196,
+   "sha256": "8ab80c4267abc2f47ebfb194a4f0fa982e09ed3f1c9a71d99d237272a9f78f7f",
+   "taille": 55804
+  },
+  "hr-reso-mobile-glow.png": {
+   "hauteur": 128,
+   "largeur": 1488,
+   "sha256": "dec280e1bf2fec49093062f7abdc9d2ce551321c807dcc68270e093217ddd903",
+   "taille": 32427
+  },
+  "hr-reso-mobile.png": {
+   "hauteur": 128,
+   "largeur": 1488,
+   "sha256": "8a60da2ac1f38b1f8d336f9cb3ca9587ac142e24de25cd9401be305819797b2d",
+   "taille": 155871
+  },
+  "hr-reso-shadow.png": {
+   "hauteur": 144,
+   "largeur": 308,
+   "sha256": "5fdf97663dddc865a14bcfd428eff87a229ccb5fb9e0f84bd1722ca10a2ecfd7",
+   "taille": 9202
+  },
+  "msr-chaleur.png": {
+   "hauteur": 175,
+   "largeur": 160,
+   "sha256": "987555e4966eee69e6728c9f48e8a4cc8a0f82b894e7fba54a0870c493062966",
+   "taille": 12795
+  },
+  "msr-glow.png": {
+   "hauteur": 183,
+   "largeur": 126,
+   "sha256": "2ddfc489ffc5ec26e37a4dfbfb234b06ef2c0d41967f8c9dd78bf9a9ec555d2b",
+   "taille": 7300
+  },
+  "msr-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "c97e2094b0b8d1153132482eb1b810c613a3daf8fbd42d12a646d94f208ac915",
+   "taille": 10728
+  },
+  "msr-main.png": {
+   "hauteur": 215,
+   "largeur": 174,
+   "sha256": "9277b0727d174b26ad139b3a63f280fc4cbb17a5d723335ad4fe31df9568177b",
+   "taille": 58259
+  },
+  "msr-shadow.png": {
+   "hauteur": 160,
+   "largeur": 186,
+   "sha256": "78ac47ace6e05066d40f11565860663fc115997c94c6da5719fcdfad362a96b5",
+   "taille": 11458
+  },
+  "piscine-glow.png": {
+   "hauteur": 2,
+   "largeur": 6,
+   "sha256": "f0b4ef9fabdd3ac9c3852990ef98dc73b34f6e010f058bc7aacdf27c76a285ae",
+   "taille": 118
+  },
+  "piscine-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "c905c5b2472ccf883a664a65702b6c2374eb059a7e3268fe7429e060a533c766",
+   "taille": 13256
+  },
+  "piscine-main.png": {
+   "hauteur": 149,
+   "largeur": 142,
+   "sha256": "e7a040eddba78e0a70549a49412d6d4c6713985f58865f44df9e549904d043e6",
+   "taille": 40727
+  },
+  "piscine-mobile-glow.png": {
+   "hauteur": 113,
+   "largeur": 1548,
+   "sha256": "5da2b5c909f4c30c76a37fb936627d1225b95ba9ad444311a0dd09f329daa118",
+   "taille": 53169
+  },
+  "piscine-mobile.png": {
+   "hauteur": 113,
+   "largeur": 1548,
+   "sha256": "3d6e3bc0e1636538e3af04aee2086152c3ea98ab3516af6edb43e4479af0365a",
+   "taille": 225283
+  },
+  "piscine-shadow.png": {
+   "hauteur": 128,
+   "largeur": 136,
+   "sha256": "cda4d39ed498c4d0a611443b8b2d5efdd19ae992b9f3ac64343f7b58263160ed",
+   "taille": 8042
+  },
+  "reso-glow.png": {
+   "hauteur": 37,
+   "largeur": 86,
+   "sha256": "b239a560a9c7fb777dbfedd4a368c214a011dfcd28659425aebbb8c4bcbc77c4",
+   "taille": 1780
+  },
+  "reso-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "a499ba14b00b0b3b826c5ceabb7ff21c389e9eb0cfdbfc11fb2973df2b3c1512",
+   "taille": 10708
+  },
+  "reso-lumiere.png": {
+   "hauteur": 80,
+   "largeur": 109,
+   "sha256": "ba4cf0510bb37ba66677384ae4f8d9f725cb9bb3b68b577d9077aa25e33ce8c7",
+   "taille": 7219
+  },
+  "reso-main.png": {
+   "hauteur": 115,
+   "largeur": 98,
+   "sha256": "dba24cca56ef65bc8a8b96cbc4e2866696ee7f4f9888ca154f6f48efbaf7633d",
+   "taille": 19241
+  },
+  "reso-mobile-glow.png": {
+   "hauteur": 64,
+   "largeur": 744,
+   "sha256": "62501b7140727a142337901904dc8e5a48a1dc5ec2270ffa0f19d4267705e100",
+   "taille": 15156
+  },
+  "reso-mobile.png": {
+   "hauteur": 64,
+   "largeur": 744,
+   "sha256": "9901c4ce2638e649a6f8568a35462de2c541ebe55559d494bd76bab549a46d5d",
+   "taille": 54839
+  },
+  "reso-shadow.png": {
+   "hauteur": 72,
+   "largeur": 154,
+   "sha256": "e5454e4b0de2dbed44ade78f3450b385bcd410195b179a2271cb24c343c44f34",
+   "taille": 3417
+  }
+ },
+ "sources": "F:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-11-04_DA-ENERGIE\\final"
+}

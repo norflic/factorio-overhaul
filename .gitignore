@@ -37,3 +37,36 @@ graphics/machines/calcul/*.png
 graphics/biters/*.png
 # Feuilles de jeu de la métallurgie (lot DA-METALLURGIE, même règle) : tools/render/pieces/metallurgie/feuilles.py
 graphics/metallurgie/*.png
+# Caches Python
+__pycache__/
+*.pyc
+
+# Rendus intermédiaires et caches du pipeline graphique (les sprites finaux vont dans graphics/)
+tools/render/cache/
+tools/render/out/
+*.blend1
+
+# Fichiers temporaires
+*.tmp
+*.log
+
+# Worktrees des sous-agents (Claude Code)
+.claude/worktrees/
+
+# Feuilles de jeu de la mitrailleuse (lot A2, décision D-6) : PNG HORS de git, régénérés par
+# tools/render/pieces/levels/gun_e/feuilles.py ; MANIFEST.json, sprites.lua et sprites.json sont commités.
+graphics/levels/gun/*.png
+# Feuilles de jeu du four (lot F2-B, même règle) : tools/render/pieces/levels/four_e/feuilles.py
+graphics/levels/four/*.png
+# Feuilles de jeu de la machine d'assemblage (lot F3-B, même règle) : tools/render/pieces/levels/assembleur_e/feuilles.py
+graphics/levels/assembleur/*.png
+# Feuilles de jeu de la foreuse (lot F4-B, même règle) : tools/render/pieces/levels/foreuse_e/feuilles.py
+graphics/levels/foreuse/*.png
+# Feuilles de jeu des QG (lot QG-JEU, même règle) : tools/render/pieces/levels/qg_e/feuilles.py
+graphics/levels/centre/*.png
+# Feuilles de jeu du Bourdon (lot BOURDON, même règle) : tools/render/pieces/experimentaux/feuilles.py
+graphics/robots/bourdon/*.png
+# Feuilles de jeu des usines de robots (lot US-V1, même règle) : tools/render/pieces/usines_robots/feuilles.py
+graphics/robots/usines/*.png
+# Lot DA-ENERGIE (4/11) : feuilles de jeu hors de git (D-6), régénérées par tools/render/pieces/da_energie/feuilles.py
+graphics/da/energie/*.png
