@@ -71,11 +71,15 @@ end
 
 function Armee.cap(force) return Mo.cap(Armee.age(force), cap_setting()) end
 
---- Géants vivants d'une force (lot RB-5), Bourdons compris (lot ROBOTS-JEU : Armee.hooks.extra_giants, posé par script/robots/bourdon.lua).
+--- Géants vivants d'une force (lot RB-5), Bourdons compris (lot ROBOTS-JEU : Armee.hooks.extra_giants, posé par script/robots/bourdon.lua),
+--- et géants du lot EXPERIMENTAUX (Ixion, famille EXP2 : interface « fo-xp », fonction geants(nom de la force)) : un seul plafond de géants.
 function Armee.giants(force_name)
   local s = Armee.S()
-  local extra = Armee.hooks.extra_giants and Armee.hooks.extra_giants(force_name) or 0
-  return (s and Mo.giants_of(s.ledger, force_name) or 0) + extra
+  local n = s and Mo.giants_of(s.ledger, force_name) or 0
+  if Armee.hooks.extra_giants then n = n + Armee.hooks.extra_giants(force_name) end
+  local itf = remote.interfaces -- garde : sans effet tant que le lot EXPERIMENTAUX n'est pas fusionné
+  if itf and itf["fo-xp"] and itf["fo-xp"].geants then n = n + (remote.call("fo-xp", "geants", force_name) or 0) end
+  return n
 end
 
 --- Paramètres de Mo.can_release pour le robot `r` de `force` : `used` (points déjà pris, y compris les kits retirés pendant ce

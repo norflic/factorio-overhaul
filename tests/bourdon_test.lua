@@ -194,6 +194,8 @@ do
   s = f:read("*a")
   f:close()
   check(s:find("Armee.hooks.extra_giants(force_name)", 1, true) ~= nil, "armee : Armee.giants lit le compte des Bourdons")
+  check(s:find("remote.call(\"fo-xp\", \"geants\", force_name)", 1, true) ~= nil and s:find("itf[\"fo-xp\"].geants", 1, true) ~= nil,
+    "armee : géants du lot EXPERIMENTAUX (interface fo-xp) comptés au même plafond, sous garde")
 end
 
 -- ------------------------------------------------------------- les fichiers du lot : pas de trigonométrie, pas de hasard moteur
