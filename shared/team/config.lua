@@ -258,7 +258,7 @@ T.qg_recruit_hold_on = true
 -- Règle 1 : tourelles du QG posées en lignes de 4 (écart Pose.gap) sur le côté attaqué, à nombre constant, jamais déplacées ;
 -- règle 2 : Sq.peril compte la défense au point le plus faible (appui des voisines), et le groupe « hq » ne veut que hq + fresh tourelles.
 T.qg_groupe_pose_on = true
-T.qg_groupe_peril_on = true
+T.qg_groupe_peril_on = false
 -- Votre équipe sans tourelle possible : aucun site d'avant-poste au-delà de cette distance du coffre (tuiles ; D-18).
 -- 300 demandé (D-18) ; 400 retenu : à 300, sur la graine 1618033988 du guide, les sites restants (337 à 368 tuiles)
 -- étaient tous refusés, 2 avant-postes, fer à 35, équipe perdue à 35 min ; ceux de 314159265 (582 à 588) restent exclus.
