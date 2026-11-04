@@ -109,12 +109,19 @@ function Sq.ammo_reserve(a)
 end
 
 --- Le péril. a = { threat (PV), armed_value (PV des tourelles armées du QG), turret_value (PV d'une tourelle de plus, armée),
---- turrets (tourelles du QG), armed (dont armées), cap (tourelles au plus au QG), was (péril retenu à la pensée d'avant) }.
---- Rend { peril, cause = "menace" | "munitions" | nil, need (PV visés), gap (PV qui manquent), want (tourelles voulues au QG),
---- fresh (tourelles de plus à poser), refill (tourelles à remplir), full (la cible dépasse ce que `cap` tourelles couvrent) }.
+--- turrets (tourelles du QG), armed (dont armées), cap (tourelles au plus au QG), was (péril retenu à la pensée d'avant),
+--- facing (lot QG-GROUPE2, facultatif : PV armés au point le plus faible, shared/team/qg_groupe.lua G.facing), hq (lot QG-GROUPE2,
+--- facultatif : tourelles du groupe « hq ») }.
+--- Rend { peril, cause = "menace" | "munitions" | "dispersion" | nil, need (PV visés), gap (PV qui manquent), want (tourelles voulues au QG),
+--- fresh (tourelles de plus à poser), refill (tourelles à remplir), full (la cible dépasse ce que `cap` tourelles couvrent),
+--- hq_want (avec `hq` : tourelles voulues au groupe « hq » = hq + fresh) }.
+--- Lot QG-GROUPE2 : avec `facing`, la défense qui compte est celle du point le plus faible (les tourelles qui ne tirent pas ensemble ne
+--- s'additionnent plus : QGSURVIE2, 14 morts sur 17 sans appui). Cause « dispersion » : la somme couvrirait la menace, pas le point le plus
+--- faible ; alors fresh = 0 (aucune tourelle de plus : les neuves se posent groupées, shared/team/qg_groupe.lua).
 function Sq.peril(a)
   a = a or {}
   local threat, value, armed_value = num(a.threat), num(a.turret_value), num(a.armed_value)
+  local held = a.facing ~= nil and num(a.facing) or armed_value
   local turrets, armed = num(a.turrets), num(a.armed)
   if armed > turrets then armed = turrets end
   local cap = num(a.cap)
@@ -123,11 +130,13 @@ function Sq.peril(a)
   local need = math.floor(threat * Sq.COVER_PCT / 100)
   out.need = need
   local limit = a.was and math.floor(need * Sq.EXIT_PCT / 100) or need
-  if armed_value >= limit then return out end
+  if held >= limit then return out end
   out.peril = true
-  out.gap = need - armed_value
+  out.gap = need - held
   -- Des tourelles sont là et leur nombre couvrirait la menace si elles étaient chargées : la cause est le chargeur, pas la tourelle.
   out.cause = (turrets > armed and turrets * value >= need) and "munitions" or "menace"
+  -- Lot QG-GROUPE2 : armées et assez nombreuses, mais elles ne tirent pas ensemble.
+  if out.cause == "menace" and a.facing ~= nil and armed_value >= limit then out.cause = "dispersion" end
   local want = ceil(need / value)
   if cap > 0 and want > cap then
     want = cap
@@ -137,6 +146,7 @@ function Sq.peril(a)
   out.want = want
   out.fresh = want - turrets
   out.refill = turrets - armed
+  if a.hq ~= nil then out.hq_want = num(a.hq) + out.fresh end
   return out
 end
 
