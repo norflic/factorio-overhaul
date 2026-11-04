@@ -350,6 +350,14 @@ for _, p in ipairs({ "script/robots/experimentaux.lua", "script/robots/experimen
   local missing = {}
   for _, n in ipairs(list) do if not DECL[n] then missing[#missing + 1] = n end end
   check(#missing == 0, "§5 " .. p .. " : noms Xp.PREFIX déclarés par un prototype (manquent : " .. table.concat(missing, ", ") .. ")")
+  -- couleurs du rendering : prémultipliées (gi1 : un disque { …, a = 0.3 } écrit tel quel sortait blanc opaque) ; une couleur translucide
+  -- passe par rgba(), aucune table littérale avec `a` < 1
+  local brut = {}
+  for line in read(p):gmatch("[^\n]*") do
+    local code = line:gsub("%-%-.*$", "")
+    if code:find("[%w_]+%s*=%s*{[^}]*%f[%w]a%s*=%s*0?%.%d") then brut[#brut + 1] = code:match("^%s*(.-)%s*$"):sub(1, 60) end
+  end
+  check(#brut == 0, "§5 " .. p .. " : aucune couleur translucide littérale (non prémultipliée) : " .. table.concat(brut, " | "))
 end
 
 -- §6 traductions

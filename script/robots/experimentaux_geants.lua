@@ -28,6 +28,16 @@ local PILIER = Xp.PREFIX .. "stylet-pilier"
 local SPR_GLACE, SPR_VERRE = Xp.PREFIX .. "glace", Xp.PREFIX .. "verre"
 local BOUCHE = { cairn = { 0, -30 }, stylet = { 0, -2 }, trombe = { 0, -26 }, ixion = { 0, -8 }, tournesol = { -8.5, -31 } }
 
+--- Couleur du `rendering` : le moteur la lit PRÉMULTIPLIÉE (gi1, 4/11 : { 0,85 ; 0,95 ; 1 ; a = 0,3 } donnait un disque blanc opaque).
+local function rgba(r, g, b, a) return { r = r * a, g = g * a, b = b * a, a = a } end
+
+--- Un rayon vise la POSITION de la cible : la cible tuée par le coup ne l'efface plus au tick suivant (gi1 : arcs du Cairn et foyer du
+--- Tournesol invisibles, chaque coup tuant sa cible).
+local function rayon(e, name, b, target, duration)
+  e.surface.create_entity({ name = name, position = e.position, source = e, source_offset = { b[1], b[2] },
+    target_position = { target.position.x, target.position.y }, duration = duration })
+end
+
 ---------------------------------------------------------------------------------------------------
 -- Registre et plafond
 ---------------------------------------------------------------------------------------------------
@@ -118,11 +128,11 @@ local function balayage(g, r, target, tick)
   if #marks == 0 then return false end
   local list = {}
   for _, m in ipairs(marks) do
-    rendering.draw_circle({ color = { r = 0.3, g = 0.7, b = 1.0, a = 0.8 }, radius = 1.6, width = 3, filled = false, target = m.e, surface = e.surface,
+    rendering.draw_circle({ color = rgba(0.3, 0.7, 1.0, 0.8), radius = 1.6, width = 6, filled = false, target = m.e, surface = e.surface,
       time_to_live = r.delay + 20 })
     list[#list + 1] = m.e
   end
-  rendering.draw_circle({ color = { r = 0.15, g = 0.4, b = 0.8, a = 0.25 }, radius = r.range, width = 4, filled = false, target = e, surface = e.surface,
+  rendering.draw_circle({ color = rgba(0.15, 0.4, 0.8, 0.25), radius = r.range, width = 4, filled = false, target = e, surface = e.surface,
     time_to_live = r.delay })
   job({ kind = "cairn", e = e, un = g.un, list = list, at = tick + r.delay })
   return true
@@ -138,7 +148,7 @@ local function cairn_tire(j)
   local total = 0
   local b = BOUCHE.cairn
   for _, t in ipairs(alive) do
-    e.surface.create_entity({ name = CAIRN_ARC, position = e.position, source = e, source_offset = { b[1], b[2] }, target = t, duration = 20 })
+    rayon(e, CAIRN_ARC, b, t, 20)
     total = total + K.hit(r, t, part, r.dtype, e.force, e)
   end
   K.journal("cairn balayage #%d degats %.1f cibles %d tick %d", j.un, total, #alive, game.tick)
@@ -163,9 +173,9 @@ local function stylet_pas(j, tick)
     K.journal("stylet ecriture #%d degats %.1f noeuds %d tick %d", j.un, j.total, #j.nodes, tick)
     return true
   end
-  rendering.draw_line({ color = { r = 0.6, g = 0.85, b = 1.0, a = 0.9 }, width = 5, from = { a.x, a.y }, to = { b.x, b.y }, surface = e.surface,
+  rendering.draw_line({ color = rgba(0.6, 0.85, 1.0, 0.9), width = 12, from = { a.x, a.y }, to = { b.x, b.y }, surface = e.surface,
     time_to_live = 150, draw_on_ground = true })
-  rendering.draw_line({ color = { r = 1, g = 1, b = 1, a = 1 }, width = 2, from = { a.x, a.y }, to = { b.x, b.y }, surface = e.surface,
+  rendering.draw_line({ color = { r = 1, g = 1, b = 1, a = 1 }, width = 4, from = { a.x, a.y }, to = { b.x, b.y }, surface = e.surface,
     time_to_live = 60, draw_on_ground = true })
   for _, nd in ipairs(j.nodes) do
     if math.abs(nd.x - b.x) < 1e-6 and math.abs(nd.y - b.y) < 1e-6 then
@@ -190,9 +200,9 @@ local function gel(g, r, target, tick)
       frozen[#frozen + 1] = t
     end
   end
-  rendering.draw_circle({ color = { r = 0.85, g = 0.95, b = 1.0, a = 0.3 }, radius = r.radius, filled = true, target = { c.x, c.y }, surface = e.surface,
+  rendering.draw_circle({ color = rgba(0.75, 0.9, 1.0, 0.22), radius = r.radius, filled = true, target = { c.x, c.y }, surface = e.surface,
     time_to_live = r.freeze + 40, draw_on_ground = true })
-  rendering.draw_circle({ color = { r = 0.6, g = 0.9, b = 1.0, a = 0.7 }, radius = r.radius, width = 6, filled = false, target = { c.x, c.y },
+  rendering.draw_circle({ color = rgba(0.6, 0.9, 1.0, 0.7), radius = r.radius, width = 12, filled = false, target = { c.x, c.y },
     surface = e.surface, time_to_live = r.freeze + 40, draw_on_ground = true })
   job({ kind = "trombe", e = e, un = g.un, c = c, frozen = frozen, at = tick + r.freeze })
   K.journal("trombe gel #%d geles %d tick %d", g.un, #frozen, tick)
@@ -237,9 +247,9 @@ local function ixion_pas(j, tick)
     K.journal("ixion tranchee #%d degats %.1f points %d tick %d", j.un, j.total, #j.pts, tick)
     return true
   end
-  rendering.draw_line({ color = { r = 0.12, g = 0.07, b = 0.05, a = 0.95 }, width = 9, from = { j.prev.x, j.prev.y }, to = { p.x, p.y },
+  rendering.draw_line({ color = rgba(0.12, 0.07, 0.05, 0.95), width = 32 * r.width * 0.5, from = { j.prev.x, j.prev.y }, to = { p.x, p.y },
     surface = e.surface, time_to_live = 900, draw_on_ground = true })
-  rendering.draw_line({ color = { r = 1.0, g = 0.5, b = 0.12, a = 1 }, width = 3, from = { j.prev.x, j.prev.y }, to = { p.x, p.y },
+  rendering.draw_line({ color = { r = 1.0, g = 0.5, b = 0.12, a = 1 }, width = 32 * r.width * 0.15, from = { j.prev.x, j.prev.y }, to = { p.x, p.y },
     surface = e.surface, time_to_live = 240, draw_on_ground = true })
   e.surface.create_entity({ name = "big-explosion", position = { p.x, p.y } })
   j.total = j.total + K.blast(r, e.surface, e.force, e, p, r.width, j.part, r.dtype, 1)
@@ -254,12 +264,12 @@ local function foyer(g, r, target, tick)
   local e = g.e
   if not Xp.foyer_fires(e.surface.darkness, r.night) then return false end
   local b = BOUCHE.tournesol
-  e.surface.create_entity({ name = FOYER, position = e.position, source = e, source_offset = { b[1], b[2] }, target = target, duration = r.cooldown })
+  rayon(e, FOYER, b, target, r.cooldown)
   local d = K.hit(r, target, r.shot, r.dtype, e.force, e)
   g.n = g.n + 1
   if g.n % r.glass_every == 0 and target.valid then
     rendering.draw_sprite({ sprite = SPR_VERRE, target = target.position, surface = e.surface, time_to_live = 1200, render_layer = "decals",
-      tint = { r = 1, g = 0.9, b = 0.6, a = 0.8 } })
+      tint = rgba(1, 0.9, 0.6, 0.8) })
   end
   K.journal("tournesol foyer #%d degats %.1f tick %d", g.un, d, tick)
   return true

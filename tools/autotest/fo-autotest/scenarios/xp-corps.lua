@@ -25,6 +25,8 @@ vue(235, "exp1-z02-loin", X1, Y - 90, 0.2)
 for k, t in ipairs({ 400, 800, 1200, 1600, 2000 }) do
   vue(t, string.format("exp2-trajet-%d", k), X2 + DEST / 2, Y + 30, 0.25, { 1800, 1200 })
 end
+-- la session avec images s'arrête à la dernière capture (i1) : une dernière vue APRÈS le contrôle, pour que le BILAN s'écrive
+vue(CHECK + 20, "exp2-fin", X2 + DEST / 2, Y + 30, 0.25, { 1800, 1200 })
 
 local function dist(e, x, y)
   local dx, dy = e.position.x - x, e.position.y - y
