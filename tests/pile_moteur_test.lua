@@ -188,6 +188,9 @@ local function run_hq()
   Ia3.capital_pay = function(...) n.pay = n.pay + 1 return o_pay(...) end
   FoSwap.think = function(...) n.swap = n.swap + 1 return o_swap(...) end
   W().events[defines.events.on_built_entity]({ created_entity = chest, player_index = 1, tick = game.tick })
+  -- Lot PARITE (1ef17630) : le QG naît avec les 4 tourelles d'une faction ; ce cas juge un QG à 0 tourelle (cadre « protéger le QG »),
+  -- elles sont retirées comme dans tests/survie_moteur_test.lua et tests/equipe_moteur_test.lua (oubli de PARITE : 3 ECHEC de 0.6.38 à 0.6.51).
+  for _, e in ipairs(s.find_entities_filtered({ name = "gun-turret", force = "player" })) do e.destroy() end
   M.run_ticks(1500)
   local f = global.fo.pteam.team
   local st = f.team.ia3.pile
