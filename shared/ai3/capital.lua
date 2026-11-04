@@ -464,7 +464,8 @@ function Cap.goal(d, weights)
   local w = math.max(1000, (weights or {}).capital or 1000) -- le caractère avance l'investissement, sans le retarder
   return { key = "capital:" .. d.key, family = "capital", kind = "upgrade", cost = d.cost, target = d.key,
     value = clamp(math.floor(base * w / 1000), 1, 100), center = d.center or nil, fond = true,
-    short = (d.center and d.work ~= nil and (d.work <= Cap.SHORT_WORK or d.starved)) or nil, replace = d.replace and true or nil }
+    short = (d.center and d.work ~= nil and (d.work <= Cap.SHORT_WORK or d.starved)) or nil, replace = d.replace and true or nil,
+    opens = (d.chain ~= nil and not d.center) or nil } -- lot DEFAUT7 : bâtiment de la chaîne Q16 (sa montée est la condition du centre)
 end
 
 --- Émission du projet (enregistrée dans P.EMIT.upgrade par shared/ai3/cerveau.lua) : tout le coût au stock virtuel ->
@@ -481,10 +482,26 @@ function Cap.emit(P)
       E.pay[#E.pay + 1] = { key = g.key, target = g.target, cost = g.cost }
       return "ok"
     end
-    if not g.center and not g.replace and ((E.view and E.view.workers_idle) or 0) <= 0 then return "matiere" end
+    if not g.center and not g.opens and not g.replace and ((E.view and E.view.workers_idle) or 0) <= 0 then return "matiere" end
     P.want(E, proj, g.cost, proj.prio, false, "niveau")
     return "matiere"
   end
+end
+
+--- Lot DEFAUT7 (journal du DC du 3/11 et banc ageblocage-dc 717152950 sur 0.6.50, [FO-CAPITAL-DIAG]) : l'amélioration EXIGÉE par le
+--- centre (bâtiment de la chaîne Q16, g.opens) était servie EN DERNIER (rang 10 à 14 sur 14) : à son tour, le fer et les engrenages du
+--- stock virtuel étaient déjà pris par les projets servis avant (fer épuisé dans 23 relevés sur 33), et Cap.emit ne fabriquait rien sans
+--- bras libre : 0 fabrication émise pour elle dans 31 relevés sur 33, Azur une amélioration payée en 60 min, jamais l'âge 2.
+--- Règle : le projet du bâtiment de la chaîne passe EN TÊTE de l'ordre de service (ses quelques objets pris au stock virtuel avant les
+--- autres projets) ; les autres projets gardent leur ordre. Sa valeur et sa priorité ne changent pas ; le centre n'est pas concerné.
+--- order = liste des projets (P.update) ; rend une nouvelle liste.
+function Cap.chain_first(order)
+  local out, chain = {}, nil
+  for _, p in ipairs(order or {}) do
+    if not chain and p.goal and p.goal.opens then chain = p else out[#out + 1] = p end
+  end
+  if chain then table.insert(out, 1, chain) end
+  return out
 end
 
 --- Texte de journal d'une décision (ASCII).
