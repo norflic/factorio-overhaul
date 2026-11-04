@@ -115,5 +115,78 @@ do
   check(n == 3, "emplacements confondus avant la pose : le nombre voulu est quand même posé (repli ancien)")
 end
 
+-- 9 à 13. Lot HQ-RECENSEMENT (relecture de QG-GROUPE2, mineur 3) : crochet Outposts.hq_slots (script/team/qg_groupe.lua, places libres des
+--    lignes du QG de votre équipe). Il rend {} quand aucune place de la ligne n'est libre (eau, falaise, bâtiments) : la pose reprend les 8
+--    emplacements d'avant (TURRET_OFFSETS, ajoutés par Outposts.fortify) ; nil (autre équipe, interrupteur) : la règle d'avant entière ; il n'est
+--    jamais consulté pour un avant-poste.
+local function hq_cases(O)
+  _G.game.entity_prototypes["gun-turret"] = { turret_range = 18 }
+  local r = {}
+  local calls = 0
+  local answer
+  O.hq_slots = function() calls = calls + 1 return answer end
+  local function qg() local f = fac(); f.hq = { valid = true, unit_number = 77 }; return f end
+  local function at(placed, i) return placed[i] and (placed[i].position.x .. ":" .. placed[i].position.y) or "-" end
+  -- 9. {} : aucune place libre dans la ligne -> premier emplacement d'avant (7, 7), dans l'ordre d'avant (et non (-9, 0), le choix de la
+  --    règle d'avant entière dans ce monde : cas 11)
+  answer = {}
+  local s, placed = world({ building(0, 0, "container", 2, 77), building(-20, 0, "furnace", 2, 3) })
+  local n = O.fortify(qg(), s, { pos = { x = 0, y = 0 } }, 1, carrier(5))
+  r.empty = n .. "@" .. at(placed, 1) .. "#" .. calls
+  -- 10. {} et 2 tourelles : les emplacements d'avant dans l'ordre, l'écart tenu
+  s, placed = world({ building(0, 0, "container", 2, 77) })
+  n = O.fortify(qg(), s, { pos = { x = 0, y = 0 } }, 2, carrier(5))
+  r.empty2 = n .. "@" .. at(placed, 1) .. "," .. at(placed, 2)
+  -- 11. nil : règle d'avant entière (même monde que le cas 6)
+  answer = nil
+  s, placed = world({ building(0, 0, "container", 2, 77), building(-20, 0, "furnace", 2, 3) })
+  n = O.fortify(qg(), s, { pos = { x = 0, y = 0 } }, 1, carrier(5))
+  r.none = n .. "@" .. at(placed, 1)
+  -- 12. une place libre : la tourelle y est posée
+  answer = { { x = 3, y = 10 } }
+  s, placed = world({ building(0, 0, "container", 2, 77) })
+  n = O.fortify(qg(), s, { pos = { x = 0, y = 0 } }, 1, carrier(5))
+  r.one = n .. "@" .. at(placed, 1)
+  -- 13. avant-poste (id) : le crochet n'est pas consulté
+  local before = calls
+  s, placed = world({ building(0, 0, "mining-drill", 3, 1) })
+  n = O.fortify(fac(), s, { id = 1, pos = { x = 0, y = 0 } }, 1, carrier(5))
+  r.outpost = n .. "@" .. at(placed, 1) .. "#" .. (calls - before)
+  O.hq_slots = nil
+  return r
+end
+local H = hq_cases(Outposts)
+check(H.empty == "1@7:7#1", "hq_slots rend {} : la tourelle est posée au premier emplacement d'avant (7, 7) : " .. H.empty)
+check(H.empty2 == "2@7:7,-7:-7", "hq_slots rend {} et 2 tourelles : (7, 7) puis (-7, -7) : " .. H.empty2)
+check(H.none == "1@-9:0", "hq_slots rend nil : règle d'avant ((-9, 0), comme le cas 6) : " .. H.none)
+check(H.one == "1@3:10", "hq_slots rend une place : la tourelle y est posée (3, 10) : " .. H.one)
+check(H.outpost == "1@7:7#0", "avant-poste : hq_slots jamais consulté, (7, 7) comme avant : " .. H.outpost)
+-- Mutants du branchement (script/faction/outposts.lua relu et muté, cas 9 à 13 rejoués)
+do
+  local fh = assert(io.open("script/faction/outposts.lua", "rb")); local SRC = fh:read("*a"); fh:close()
+  local mutants = {
+    { "{} pris pour nil", "    if slots then return slots end", "    if slots and #slots > 0 then return slots end" },
+    { "repli d'avant retiré", "  for _, o in ipairs(TURRET_OFFSETS) do sites[#sites + 1]", "  for _, o in ipairs({}) do sites[#sites + 1]" },
+    { "crochet pour un avant-poste", "  if outpost.id == nil and Outposts.hq_slots ~= nil then", "  if Outposts.hq_slots ~= nil then" },
+  }
+  local killed = 0
+  for _, m in ipairs(mutants) do
+    local a, b = SRC:find(m[2], 1, true)
+    if not a then check(false, "mutant « " .. m[1] .. " » : texte introuvable")
+    else
+      local ok, M = pcall(function() return assert(load(SRC:sub(1, a - 1) .. m[3] .. SRC:sub(b + 1), "@script.faction.outposts"))() end)
+      local same = false
+      if ok then
+        local ok2, R = pcall(hq_cases, M)
+        same = ok2
+        if ok2 then for k, v in pairs(H) do if R[k] ~= v then same = false end end end
+      end
+      if not same then killed = killed + 1 end
+      check(not same, "mutant « " .. m[1] .. " » détecté")
+    end
+  end
+  print(string.format("[TOURELLES-MOTEUR] mutants du crochet hq_slots refusés : %d sur %d", killed, #mutants))
+end
+
 print(string.format("[TOURELLES-MOTEUR] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 if failures > 0 then os.exit(1) end

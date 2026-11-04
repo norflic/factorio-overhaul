@@ -32,6 +32,7 @@ local Mod = require("shared.team.modules")
 local P = require("shared.team.plan")
 local D = require("shared.team.automatisation_donnees")
 local Mg = require("shared.team.migration_champ")
+local Rb = require("shared.team.migration_retour") -- lot AZURE : retour en arrière d'une bande qui n'aboutit pas (règle pure)
 local Th = require("shared.team.thermique") -- lot THERMIQUE : couvert, balayage, protection, ordre, créneaux (règle pure)
 local Rc = require("shared.team.reconstruction")
 local State = require("script.faction.state")
@@ -323,6 +324,7 @@ local function retire(f, surface, o, st, list, ents)
   local byid = {}
   for _, pr in ipairs(list) do byid[pr.id] = pr end
   local got, removed, gone_drills, gone_sinks = {}, 0, {}, {}
+  local undo, sink_info = {}, {} -- lot AZURE : paires retirées (positions et types), reposées par rollback() si la bande n'aboutit pas
   -- lot CHAMP : à qui appartient chaque foreuse (l'avant-poste ou un voisin du même gisement), lu AVANT le retrait
   local owners = st.frame and { o, table.unpack(siblings(f, o)) } or { o }
   local owner_of, rem = {}, {}
@@ -334,7 +336,10 @@ local function retire(f, surface, o, st, list, ents)
     local pr = byid[id]
     if pr then
       local d, s = ents[pr.id], ents[pr.sink_id]
+      if s and s.valid and not sink_info[pr.sink_id] then sink_info[pr.sink_id] = { name = s.name, x = s.position.x, y = s.position.y } end
       if d and d.valid then
+        local oi0 = owner_of[d.unit_number]
+        undo[#undo + 1] = { name = d.name, x = d.position.x, y = d.position.y, dir = d.direction, oid = (owners[oi0 or 1] or o).id, sink = sink_info[pr.sink_id] }
         empty_into_stock(f, surface, d.get_fuel_inventory(), got)
         State.disown(d.unit_number)
         give(f, surface, d.name, 1)
@@ -371,7 +376,7 @@ local function retire(f, surface, o, st, list, ents)
     q.drills = math.max(0, (q.drills or 0) - rem[i])
     q.ext_dead = nil
   end
-  return removed, got
+  return removed, got, undo
 end
 
 local function items_text(got)
@@ -560,7 +565,7 @@ end
 
 --- Fin du suivi d'un avant-poste (état final posé sur l'avant-poste) ; la pensée suivante passe au suivant.
 local function finish(f, ms, o, st, how, text)
-  st.stage, st.pid, st.ids = "veille", nil, nil
+  st.stage, st.pid, st.ids, st.undo, st.pg, st.cool, st.rollbacks = "veille", nil, nil, nil, nil, nil, 0
   if st.frame then -- lot CHAMP : les voisins du même gisement suivent (plus de paire posée par eux sur le champ)
     for _, q in ipairs(siblings(f, o)) do
       q.migr, q.full, q.full_by = (how == "abandon") and nil or how, how ~= "abandon", (how ~= "abandon") and "migration" or nil
@@ -595,6 +600,7 @@ local function failed(f, ms, o, st, tick, why)
   end
   st.band_key = nil
   st.stage, st.pid, st.ids, st.gate_t0, st.t_done = "veille", nil, nil, nil, nil
+  st.undo, st.pg, st.cool, st.rollbacks = nil, nil, nil, 0 -- lot AZURE
   release(ms, o.id)
   if st.done == 0 and st.produced == 0 then o.migr, o.full, o.full_by = nil, false, nil end -- rien de migré : l'avant-poste est rendu en attendant
   if st.fails >= CFG.max_fails then
@@ -611,6 +617,7 @@ end
 --- (Build.SITES.champ, script/team/champ.lua). Les paires dont une tuile est sous la bande sont celles que le dégel retire. Rend vrai si la
 --- demande est partie.
 local function begin_band(f, surface, ms, o, st, list, tick, free)
+  st.rollbacks = 0 -- lot AZURE (revue A2) : le compte des retours en arrière est PAR BANDE
   -- lot FONDERIE : un cadre d'une sauvegarde d'avant le lot (fonderie à coffres) dont AUCUNE bande n'a été demandée est replanifié en
   -- colonne à tapis ; dès qu'une bande est posée ou demandée, le cadre garde son motif (les bandes voisines partagent leurs rangées)
   if Champ.tapis() and st.frame and st.frame.design == nil and not Champ.has_band(f, o) then st.frame, st.order, st.done_pr = nil, nil, nil end
@@ -626,6 +633,7 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
   end
   local bad = {}
   for _, k in ipairs(st.bad or {}) do bad[k] = true end
+  for _, k in ipairs(st.stopped or {}) do bad[k] = true end -- lot AZURE : bandes parquées (réserve définitive), jamais relancées
   local product = T.outposts[o.kind].product
   local pr
   for _, x in ipairs(st.order) do
@@ -848,12 +856,18 @@ local function part_ids(st, list, thaw)
   return ids, added
 end
 
+local park, leave_band -- lot AZURE : définis plus bas (réserve définitive d'une bande, sortie du suivi)
 --- Projet demandé : attend le plan et les matières ; au moment du « degel », retire la partie.
 local function step_project(f, surface, ms, o, st, tick, free, book)
   local b = f.build
   local p = b.projects[st.pid]
   local env = { now = tick }
   local list, ents
+  if Rb.cooling(st.cool, tick) then -- lot AZURE : bande remise en réserve par un retour en arrière : le champ produit, pas de retrait avant la fin de la pause
+    say_why(f, ms, st, "retour", string.format("avant-poste %d : bande du projet %d en reserve apres un retour en arriere, retrait possible a %.1f min",
+      o.id, st.pid, st.cool / 3600), true)
+    return
+  end
   if p and p.state == "reserve" and p.reason == "degel" then
     st.gate_t0 = st.gate_t0 or tick
     if st.frame then list, ents = survey_field(f, o) else list, ents = survey(o) end
@@ -896,6 +910,22 @@ local function step_project(f, surface, ms, o, st, tick, free, book)
       why == "ennemi" and string.format(", ennemi a moins de %d tuiles, rien n'est retire", CFG.safe) or ""))
     return
   end
+  -- lot AZURE (revue A1) : une bande REMISE EN RÉSERVE par un retour en arrière a des entités bâties et des fantômes dans le monde ; Build.cancel
+  -- vide p.ents sans les retirer (elles seraient orphelines) : elle attend ses matières, sans annulation (le retour suivant ou le suivi la clôt)
+  if act == "annuler" and p and (st.rollbacks or 0) > 0 then
+    for _, e in ipairs(p.ents or {}) do
+      if e.built then
+        -- (revue R1 : l'attente est BORNÉE ; sinon le créneau du minerai reste pris pour toujours)
+        if Rb.wait_over(tick - st.t0, (st.frame and CHAMP_CFG or CFG).gate_wait) then
+          park(f, ms, o, st, p, tick, "attente-" .. tostring(why))
+          leave_band(f, ms, o, st, tick)
+          return
+        end
+        say_why(f, ms, st, "entamee:" .. why, string.format("avant-poste %d : bande du projet %d entamee (retour en arriere fait), jamais annulee : elle attend (%s)", o.id, st.pid, tostring(why)), true)
+        return
+      end
+    end
+  end
   if act == "annuler" or act == "echec" then
     if p and act == "annuler" then Build.cancel(f, st.pid, "migration: " .. why) end
     failed(f, ms, o, st, tick, why)
@@ -904,9 +934,11 @@ local function step_project(f, surface, ms, o, st, tick, free, book)
   -- "retirer" ou "passer" : le plan reprend (p.degele)
   if act == "retirer" then
     if not list then if st.frame then list, ents = survey_field(f, o) else list, ents = survey(o) end end
-    local removed, got = retire(f, surface, o, st, list, ents)
+    local removed, got, undo = retire(f, surface, o, st, list, ents)
     local purged = purge_recon(f, o)
     st.retired = removed
+    local packed, lost = Rb.pack(undo)
+    st.undo, st.pg, st.cool, st.undo_lost = packed, nil, nil, lost -- lot AZURE (lost : paires au-delà de la borne, dites au journal) : de quoi revenir en arrière (borné) ; le suivi du progrès repart
     ms.retired = (ms.retired or 0) + removed
     say(f, ms, string.format("avant-poste %d : partie retiree, projet %d : %d foreuse(s) thermique(s) et leurs fours repris au stock (%s), %d paire(s) restent "
       .. "debout, %d piece(s) du registre de reconstruction ecartee(s)", o.id, st.pid, removed, items_text(got), math.max(0, #list - removed), purged), true)
@@ -919,6 +951,146 @@ local function step_project(f, surface, ms, o, st, tick, free, book)
   st.stage, st.t_degel, st.why_last = "chantier", tick, nil
 end
 
+---------------------------------------------------------------------------------------------------
+-- Lot AZURE : retour en arrière (règle pure : shared/team/migration_retour.lua)
+---------------------------------------------------------------------------------------------------
+--- Recette dépliable d'un objet (règle Rb.plan) : produits par fabrication et ingrédients-objets ; nil si inconnue ou à fluide.
+local function recipe_of(name)
+  local r = game.recipe_prototypes and game.recipe_prototypes[name]
+  if not r then return nil end
+  local out
+  for _, pd in ipairs(r.products or {}) do if pd.name == name then out = pd.amount or 1 end end
+  local ings = {}
+  for _, ing in ipairs(r.ingredients or {}) do
+    if ing.type and ing.type ~= "item" then return nil end
+    ings[#ings + 1] = { name = ing.name, amount = ing.amount }
+  end
+  return out and { out = out, ingredients = ings } or nil
+end
+
+--- Ce qu'il faut prendre au stock pour reposer une foreuse (et un four si `sink`) : les objets rendus au retrait ont pu être dépensés depuis, ils sont
+--- refaits de leurs ingrédients (Rb.plan). Écrit le plan dans `u.plan` (champ de ce passage, jeté avec st.undo) ; rend vrai si tout est là.
+local function afford(f, u, sink)
+  local have = function(n) return Stock.count(f, n) end
+  local ok, used = Rb.plan(u.name, 1, have, recipe_of)
+  if not ok then return false end
+  if sink then
+    local ok2, used2 = Rb.plan(sink.name, 1, function(n) return have(n) - (used[n] or 0) end, recipe_of)
+    if not ok2 then return false end
+    for _, k in ipairs(sorted_keys(used2)) do used[k] = (used[k] or 0) + used2[k] end
+  end
+  u.plan = used
+  return true
+end
+
+--- Repose les paires gardées par retire() sur leurs positions (foreuse thermique + four, pris au stock, combustible compris) quand les tuiles
+--- sont libres. Rend (reposées, tuiles prises, sans objet).
+local function repose(f, surface, st)
+  local placed, busy, noitem = 0, 0, 0
+  local force = f.force
+  for _, u in ipairs(st.undo or {}) do
+    local o = Champ.target(f, u.oid)
+    local sk = u.sink
+    local sink_ent = sk and surface.find_entity(sk.name, { sk.x, sk.y }) or nil
+    if sink_ent and not (sink_ent.valid and sink_ent.force.name == force) then sink_ent = nil end
+    local need_sink = sk ~= nil and sink_ent == nil
+    if not o then
+      busy = busy + 1 -- avant-poste perdu depuis
+    elseif not (surface.can_place_entity({ name = u.name, position = { u.x, u.y }, direction = u.dir, force = force })
+        and (not need_sink or surface.can_place_entity({ name = sk.name, position = { sk.x, sk.y }, force = force }))) then
+      busy = busy + 1
+    elseif not afford(f, u, need_sink and sk or nil) then
+      noitem = noitem + 1
+    else
+      local s2 = sink_ent
+      if need_sink then s2 = surface.create_entity({ name = sk.name, position = { sk.x, sk.y }, force = force }) end
+      local d = ((not sk) or s2) and surface.create_entity({ name = u.name, position = { u.x, u.y }, direction = u.dir, force = force }) or nil
+      if d then
+        for _, n in ipairs(sorted_keys(u.plan or {})) do Stock.remove(f, n, u.plan[n]) end
+        local burners = { d }
+        if need_sink and s2 then
+          State.own(s2, f.id, "sink", o.id)
+          o.sinks[#o.sinks + 1] = s2
+          if s2.type == "furnace" then burners[#burners + 1] = s2 end
+        end
+        for _, bu in ipairs(burners) do
+          local n = math.min(T.fuel_per_burner, Stock.count(f, T.fuel))
+          if n > 0 then bu.get_fuel_inventory().insert({ name = T.fuel, count = Stock.remove(f, T.fuel, n) }) end
+        end
+        State.own(d, f.id, "drill", o.id)
+        o.drill_list[#o.drill_list + 1] = d
+        o.drills = (o.drills or 0) + 1
+        placed = placed + 1
+      else
+        if need_sink and s2 and s2.valid then s2.destroy() end
+        busy = busy + 1
+      end
+    end
+  end
+  return placed, busy, noitem
+end
+
+--- Réserve DÉFINITIVE d'une bande (décision du DC, QCM-4/11-REGLEB : « Réserve, plus de nouvel essai ») : le projet n'est plus avancé (dormant : état
+--- « bloque » sans reprise, jamais annulé : ses entités bâties restent en place), sa matière est rendue au coffre, ses pièces non bâties oublient leurs refus
+--- et leurs fantômes (R2), et la bande n'est plus choisie par begin_band ni par la capitalisation (st.stopped). Les paires sont déjà reposées.
+function park(f, ms, o, st, p, tick, why)
+  local built, total = 0, 0
+  if p and p.state ~= "fini" and p.state ~= "refuse" then
+    p.state, p.reason, p.retry_at, p.degele, p.reserve_next, p.parked = "bloque", "retour en arriere : reserve, plus de nouvel essai", nil, nil, nil, true
+    for _, e in ipairs(p.ents or {}) do
+      total = total + 1
+      if e.built then built = built + 1 else e.ghosted, e.fails, e.npc_blocks = nil, 0, 0 end
+    end
+    Build.give_back(f, p)
+  end
+  if st.band_key then
+    st.stopped = st.stopped or {}
+    if #st.stopped < 40 then st.stopped[#st.stopped + 1] = st.band_key end
+  end
+  log(Rb.park_line({ team = name_of(f), outpost = o.id, pid = st.pid, why = why, minute = tick / 3600, built = built, total = total }))
+end
+
+--- Sortie de la bande de ce suivi : le créneau du minerai est libéré, la suivante peut partir. Hors cadre (migration du treillis), la clé d'une partie
+--- porte les numéros de ses paires, qui changent quand elles sont reposées : la bande parquée ne serait pas reconnue, donc la migration de cet
+--- avant-poste s'arrête (« partiel ») au lieu de la relancer.
+function leave_band(f, ms, o, st, tick)
+  if not st.frame then
+    finish(f, ms, o, st, "partiel", string.format("avant-poste %d : bande du projet %s parquee en reserve (treillis, sans cadre) : migration arretee, %d partie(s) migree(s)",
+      o.id, tostring(st.pid), st.done))
+    return
+  end
+  st.stage, st.pid, st.ids, st.t_done, st.gate_t0, st.why_last, st.block_t0 = "veille", nil, nil, nil, nil, nil, nil
+  st.rollbacks, st.cool, st.undo, st.pg = 0, nil, nil, nil
+  st.retry = tick + Rb.CFG.cool
+  release(ms, o.id)
+end
+
+--- Retour en arrière : les paires retirées reviennent (tuiles libres), puis la bande attend en réserve (pause Rb.CFG.cool, retrait possible
+--- ensuite) ou, au dernier retour (`final`, ou Rb.CFG.max_rollbacks atteint), le CALLER la parque (park). Rend "reserve" ou "parquer".
+--- (Revue du 4/11, A1 : jamais Build.cancel ici. Il vide p.ents sans retirer les entités bâties ni les fantômes du monde : une bande à
+--- 246/575 devenait orpheline, et il rend faux pour un projet rouvert ou gardé, alors que l'état avait déjà été forcé.)
+local function rollback(f, surface, ms, o, st, p, tick, why, final)
+  local undo_n = #(st.undo or {})
+  local placed, busy, noitem = repose(f, surface, st)
+  ms.restored = (ms.restored or 0) + placed
+  st.rollbacks = (st.rollbacks or 0) + 1
+  local nxt = Rb.after(st.rollbacks, final)
+  log(Rb.line({ team = name_of(f), outpost = o.id, pid = st.pid, why = why, minute = tick / 3600, undo = undo_n, placed = placed, busy = busy,
+    items = noitem, n = st.rollbacks, next = nxt, lost = st.undo_lost }))
+  st.undo, st.pg = nil, nil
+  if nxt == "parquer" then return "parquer" end -- (st.retired reste : Th.stop_state ferme l'avant-poste aux brûleurs, revue A6)
+  st.retired = 0
+  if p then
+    p.state, p.reason, p.degele, p.reserve_next, p.retry_at = "reserve", "materiaux", nil, nil, nil
+    for _, e in ipairs(p.ents or {}) do
+      if not e.built then e.ghosted, e.fails, e.npc_blocks = nil, 0, 0 end -- (les paires reposées ont pu recouvrir les fantômes)
+    end
+  end
+  st.stage, st.gate_t0, st.t_degel, st.why_last, st.t0 = "projet", nil, nil, nil, tick
+  st.cool = tick + Rb.CFG.cool
+  return "reserve"
+end
+
 --- Chantier de la ligne neuve : la partie suivante attend qu'elle ait produit.
 local function step_build(f, surface, ms, o, st, tick)
   local b = f.build
@@ -929,13 +1101,14 @@ local function step_build(f, surface, ms, o, st, tick)
   -- de fer restées thermiques. Après CHAMP_CFG.block_max, elle est laissée au plan (qui peut encore la finir), comptée comme posée, et la
   -- bande suivante part.
   if st.frame then
-    if p and p.state == "bloque" then
+    if p and p.state == "bloque" and not (st.undo and #st.undo > 0) then -- (revue A4 : avec des paires retirées, le retour en arrière décide d'abord)
       st.block_t0 = st.block_t0 or tick
       if tick - st.block_t0 > CHAMP_CFG.block_max then
         if st.band_key then st.done_pr[tostring(st.band_key)] = true end
         say(f, ms, string.format("avant-poste %d : bande %s du projet %d bloquee depuis %.0f min (%s) : laissee au plan, bande suivante", o.id,
           tostring(st.band_key), st.pid, (tick - st.block_t0) / 3600, tostring(p.reason)), true)
         st.stage, st.pid, st.ids, st.t_done, st.gate_t0, st.why_last, st.block_t0 = "veille", nil, nil, nil, nil, nil, nil
+        st.undo, st.pg = nil, nil -- lot AZURE : la bande reste au plan (elle peut encore finir) : pas de retour en arrière pour elle
         st.retry = tick
         release(ms, o.id)
         return
@@ -949,7 +1122,29 @@ local function step_build(f, surface, ms, o, st, tick)
     env.made = made_by(f, surface, p)
   end
   local act, why = Mg.watch(st, p, env)
+  -- lot AZURE : chantier sans progrès depuis 15 min, ou abandon : les paires retirées reviennent (la ligne n'a rien produit)
+  if act ~= "produit" and st.undo and #st.undo > 0 then
+    if p then
+      local nb = 0
+      for _, e in ipairs(p.ents or {}) do if e.built then nb = nb + 1 end end
+      st.pg = Rb.progress(st.pg, nb, tick)
+    end
+    local ab = (act == "abandonner" or act == "perdu")
+    local dec, rwhy = Rb.decide({ undo = #st.undo, produced = false, state = p and p.state or nil, stalled = Rb.stalled(st.pg, tick), abandon = ab })
+    if dec == "retour" then
+      local res = rollback(f, surface, ms, o, st, p, tick, rwhy, ab)
+      if res == "reserve" then return end
+      -- deuxième retour ou abandon : réserve définitive (décision du DC), jamais Build.cancel ; la suivante part
+      park(f, ms, o, st, p, tick, rwhy)
+      if not ab then
+        leave_band(f, ms, o, st, tick)
+        return
+      end
+      -- abandon ou projet perdu : le suivi ferme l'avant-poste ci-dessous (« partiel » : des paires ont été retirées, Th.stop_state)
+    end
+  end
   if act == "produit" then
+    st.undo, st.pg, st.rollbacks, st.cool = nil, nil, 0, nil
     if (st.retired or 0) > 0 then
       st.done = st.done + 1
       -- comptabilité : les paires retirées comptent de nouveau comme foreuses de l'avant-poste (leur production est celle de la ligne neuve) ;

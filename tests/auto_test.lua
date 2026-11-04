@@ -67,9 +67,17 @@ local function k1_cases()
   r = run_k1({ cand("TA", 900, 500, {}), cand("TC", 300, 50, {}), cand("TE", 250, 10, {}) },
     { TA = { v = 25, target = "TX", len = 4, wanted = true }, TC = { v = 33, target = "TX", len = 3, pack_len = 3 }, TE = { v = 25, target = "TY", len = 4, pack_len = 4 } })
   check(r == "TC TA TE", "K1 c : chaîne courte devant, chaîne longue non (" .. r .. ")")
-  -- d. première consommation d'un pack (P2 jamais consommé par une technologie faite)
+  -- d. première consommation d'un pack (P2 jamais consommé par une technologie faite) que la faction FABRIQUE (au stock pour
+  -- Gen.NEW_PACK_UNITS unités, lot AGEBLOCAGE)
+  state.stock = { P2 = 10 }
   r = run_k1({ cand("TA", 900, 500, {}), cand("TD", 100, 300, {}) }, { TA = { v = 25, target = "TX", len = 4, wanted = true } })
-  check(r == "TD TA", "K1 d : première consommation d'un pack devant (" .. r .. ")")
+  check(r == "TD TA", "K1 d : première consommation d'un pack fabriqué devant (" .. r .. ")")
+  -- d2. lot AGEBLOCAGE : le même pack pas encore fabriqué (stock sous Gen.NEW_PACK_UNITS unités) n'est pas un palier (le laboratoire
+  -- attendrait 8 min avant la garde des recherches impayables)
+  state.stock = { P2 = 4 }
+  r = run_k1({ cand("TA", 900, 500, {}), cand("TD", 100, 300, {}) }, { TA = { v = 25, target = "TX", len = 4, wanted = true } })
+  check(r == "TA TD", "K1 d2 : pack nouveau pas encore fabriqué, pas un palier (" .. r .. ")")
+  state.stock = nil
   -- e. auto par la CHAÎNE (vers un objet voulu) : même règle
   r = run_k1({ cand("TC", 900, 500, {}), cand("TB", 300, 200, { { "pack", "P3" } }) },
     { TC = { v = 25, target = "TA", len = 4, wanted = true } })
@@ -201,6 +209,14 @@ do
   local near = Gen.K1_NEAR
   mutant("chaîne courte à 4 technologies", function() Gen.K1_NEAR = 4 end, function() Gen.K1_NEAR = near end, k1_cases)
   mutant("chaîne courte à 2 technologies", function() Gen.K1_NEAR = 2 end, function() Gen.K1_NEAR = near end, k1_cases)
+  -- Lot AGEBLOCAGE : « pack nouveau » = pack fabriqué (Gen.pack_made, Gen.NEW_PACK_UNITS).
+  local pm, npu = Gen.pack_made, Gen.NEW_PACK_UNITS
+  mutant("pack nouveau faisable compté fabriqué", function() Gen.pack_made = function() return true end end,
+    function() Gen.pack_made = pm end, k1_cases)
+  mutant("pack nouveau jamais fabriqué", function() Gen.pack_made = function() return false end end,
+    function() Gen.pack_made = pm end, k1_cases)
+  mutant("seuil du pack fabriqué à 0", function() Gen.NEW_PACK_UNITS = 0 end, function() Gen.NEW_PACK_UNITS = npu end, k1_cases)
+  mutant("seuil du pack fabriqué démesuré", function() Gen.NEW_PACK_UNITS = 1e9 end, function() Gen.NEW_PACK_UNITS = npu end, k1_cases)
   local br = P.belt_route
   mutant("A* pondéré ignoré", function() P.belt_route = function(a, b, c, d, e, o) return br(a, b, c, d, e, o and { max = o.max } or nil) end end,
     function() P.belt_route = br end, function()

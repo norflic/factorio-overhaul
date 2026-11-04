@@ -262,7 +262,7 @@ function Gen.k1(cat, state, cands, chains)
     c.k1_near = near or nil
     if ch and ch.pack_len and ch.pack_len <= Gen.K1_NEAR then pal = true end
     for _, ing in ipairs(cat.techs[c.tech].ingredients) do
-      if cat.packs[ing[1]] and not used_pack[ing[1]] then pal = true end
+      if cat.packs[ing[1]] and not used_pack[ing[1]] and Gen.pack_made(state, ing) then pal = true end -- lot AGEBLOCAGE : pack fabriqué
     end
     c.auto, c.k1_palier = auto or nil, pal or nil
   end
@@ -322,6 +322,15 @@ end
 --- décision porte alors `blocked` : technologies de valeur impayables et leurs causes).
 Gen.PACK_NEAR = 10     -- lot PETROLE 2 (ctx.new_pack) : chaîne de technologies vers un pack fabricable, enchaînée jusqu'à ce nombre
 Gen.V_NEW_PACK = 100   -- lot PETROLE (ctx.new_pack) : PREMIÈRE technologie à consommer un pack fabricable jamais consommé
+-- Lot AGEBLOCAGE (recherche des factions) : « pack nouveau » = pack FABRIQUÉ, pas seulement faisable dans le graphe. Bancs verif-guide
+-- du témoin f6fb69db (pétrole allumé) : « fo-robot-heavy » (coût 282 421 à 555 373) et « military-3 » passaient en tête « K1 : pack
+-- nouveau » parce que le pack chimique est faisable (pétrole connu, exécutants), sans aucune usine qui le produise : laboratoire
+-- arrêté 8 min puis lâché par la garde (shared/ai3/impayable.lua), 4 fois sur 3 graines. Le pack doit être au stock (coffre et
+-- arrivées, state.stock) pour Gen.NEW_PACK_UNITS unités de la recherche (la même quantité que Im.UNITS, retour d'une recherche lâchée).
+Gen.NEW_PACK_UNITS = 5
+function Gen.pack_made(state, ing)
+  return (((state and state.stock) or {})[ing[1]] or 0) >= (ing[2] or 1) * Gen.NEW_PACK_UNITS
+end
 function Gen.choose(cat, ev, state, ctx)
   ctx = ctx or {}
   local chains = Gen.chains(cat, ev, state, ctx)
@@ -345,7 +354,7 @@ function Gen.choose(cat, ev, state, ctx)
     local v, why, palier = Gen.value(cat, ev, state, t, ctx)
     if used_pack then
       for _, ing in ipairs(cat.techs[t].ingredients) do
-        if cat.packs[ing[1]] and not used_pack[ing[1]] and ev.feas[ing[1]] then
+        if cat.packs[ing[1]] and not used_pack[ing[1]] and ev.feas[ing[1]] and Gen.pack_made(state, ing) then
           v = v + math.floor(Gen.V_NEW_PACK * wf(ctx.weights, "recherche"))
           why[#why + 1] = { "pack nouveau", ing[1] }
           palier = "nouveau"

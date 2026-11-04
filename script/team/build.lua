@@ -25,10 +25,12 @@ local Events = require("script.core.events")
 local State = require("script.faction.state")
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Board = require("script.team.board")
+local ChantierLent = require("script.team.chantier_lent") -- lot AZURE : trace [FO-CHANTIER-LENT] (lecture seule)
 local Tokens = require("script.team.tokens")
 local Profiler = require("script.core.profiler")
 local Foot = require("shared.levels.footprint")
 local P = require("shared.team.plan")
+local RevueObst = require("shared.team.revue_obstacles") -- lot AGEBLOCAGE : curseur de la revue des obstacles
 local M = require("shared.team.modules")
 local Saut = require("shared.team.champ_saut") -- lot FONDERIE : foreuse de bande sautée quand une tourelle de l'équipe a pris son emprise
 local Fonte = require("shared.team.fonte") -- lot FONDERIES : équilibre entre l'entrée des foreuses et les fours (règle pure)
@@ -2142,27 +2144,14 @@ end
 --- Revue de Build.OBST_CHECKS obstacles ouverts (à tour de rôle) : faits quand plus aucun arbre ni rocher n'y est.
 --- Rend le nombre d'obstacles encore ouverts.
 local function review_obstacles(surface, p)
-  local n, left = #p.obstacles, 0
-  if n == 0 then return 0 end
-  local checked = 0
-  p.obst_cur = p.obst_cur or 1
-  for _ = 1, n do
-    if p.obst_cur > n then p.obst_cur = 1 end
-    local o = p.obstacles[p.obst_cur]
-    p.obst_cur = p.obst_cur + 1
-    if not o.done then
-      if checked < Build.OBST_CHECKS then
-        checked = checked + 1
-        if surface.count_entities_filtered({ area = { { o.x - 0.45, o.y - 0.45 }, { o.x + 0.45, o.y + 0.45 } }, type = TREE_TYPES, limit = 1 }) == 0 then
-          o.done = true
-        else
-          left = left + 1
-        end
-      else
-        left = left + 1
-      end
-    end
-  end
+  -- Lot AGEBLOCAGE : le curseur repart juste après le dernier obstacle revu (règle pure shared/team/revue_obstacles.lua). L'ancienne
+  -- boucle faisait n pas : son curseur revenait à son départ, les mêmes obstacles étaient revus à chaque appel et les autres restaient
+  -- ouverts, même vides (banc ageblocage-dc 717152950 : 68 obstacles vides d'Azur jamais revus de 37 à 57 min, curseur bloqué à n + 1,
+  -- 30 à 44 défrichages par 5 min sur des rectangles vides, fabrications à l'arrêt).
+  local left, cur = RevueObst.review(p.obstacles, p.obst_cur, Build.OBST_CHECKS, function(o)
+    return surface.count_entities_filtered({ area = { { o.x - 0.45, o.y - 0.45 }, { o.x + 0.45, o.y + 0.45 } }, type = TREE_TYPES, limit = 1 }) > 0
+  end)
+  p.obst_cur = cur
   return left
 end
 
@@ -2951,6 +2940,12 @@ local function release(f, p)
   end
 end
 
+--- Lot AZURE : rend au coffre de l'équipe la matière réservée par le projet `p` (bande mise en réserve définitive par script/team/migration_champ.lua :
+--- ses entités bâties restent, aucune matière ne reste retenue pour elle). Seul le retour à l'état d'avant la réserve ; rien d'autre.
+function Build.give_back(f, p)
+  release(f, p)
+end
+
 --- Lot FUITES-PILE (fuite b) : la réserve au coffre du projet `p` (état « reserve ») est-elle suspendue par la pile ? Un module NEUF est une
 --- amélioration (R3) : pendant qu'un cadre réparer, protéger ou survivre retient, il ne prend rien au coffre et REND ce qu'il avait pris
 --- (p.stock), ses manques sont effacés (aucun but ne les fabrique), raison « pile », relu dans une seconde ; sauf s'il produit une matière
@@ -3074,6 +3069,7 @@ local function blockers(surface, e)
 end
 
 local function log_refusal(f, p, e, why, surface)
+  e.why = tostring(why) -- lot AZURE : dernier motif de refus de la pièce (chaîne), lu par la trace [FO-CHANTIER-LENT] ; posé avant le plafond du journal
   local st = f.build.stats
   st.refusal_logs = (st.refusal_logs or 0) + 1
   if st.refusal_logs > Build.REFUSAL_LOGS then return end
@@ -4268,6 +4264,7 @@ local function watch_stall(f, tick)
         log(string.format("[FO-BLOQUE] %s : projet %d (%s) sans progres depuis %d min : %s ; %d entite(s) baties sur %d, etat %s a %.1f min",
           f.key or "player", p.id, tostring(p.spec.key or p.spec.gen or "?"), math.floor((tick - rec.since) / 3600), say, count_built(p), #p.ents,
           p.state, tick / 3600))
+        ChantierLent.report(f, p, tick, say, rec) -- lot AZURE : détail du chantier lent d'une bande (une fois par projet)
       end
     elseif b.noprog[pid] then
       b.noprog[pid] = nil

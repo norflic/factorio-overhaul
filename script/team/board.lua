@@ -892,6 +892,41 @@ function Board.takeable(f)
   return n
 end
 
+--- Lot AZURE (trace [FO-CHANTIER-LENT], LECTURE SEULE) : vue du tableau pour un chantier qui n'avance plus. `prefix` : début de la clé des
+--- tâches du projet ("ia1d:<id>:"). Rend { n (tâches libres classées), ahead ("genre:prio" des premières du marché), busy ([ "genre:prio" ]
+--- = PNJ occupés), tasks (tâches LIBRES du projet : key, kind, prio, age (ticks), rank, pause (ticks), path_n, prenable, hinted) }.
+--- Le rang est celui d'un PNJ généraliste désarmé de rien (le marché, sans le trajet : toutes les tâches partent du QG). Ne crée rien.
+function Board.stall_view(f, prefix, tick)
+  local b = Board.get(f)
+  local view = { n = 0, ahead = {}, busy = {}, tasks = {} }
+  local rank = {}
+  if Board.market(f) then
+    local ctx = market_ctx(f, b)
+    ctx.rush = rush_of(b.list)
+    local idx = M.order({ id = 0, role = "generalist" }, b.list, ctx)
+    view.n = #idx
+    for i, j in ipairs(idx) do
+      local t = b.list[j]
+      rank[t.key] = i
+      if i <= 5 then view.ahead[#view.ahead + 1] = string.format("%s:%d", tostring(t.kind), t.prio or 0) end
+    end
+  end
+  for _, key in ipairs(sorted_keys(b.tasks)) do
+    local t = b.tasks[key]
+    if t.worker then
+      local k = string.format("%s:%d", tostring(t.kind), t.prio or 0)
+      view.busy[k] = (view.busy[k] or 0) + 1
+    elseif key:sub(1, #prefix) == prefix then
+      view.tasks[#view.tasks + 1] = {
+        key = key, kind = t.kind, prio = t.prio or 0, age = tick - (t.created or tick), rank = rank[key],
+        pause = math.max(0, (b.cooldown[key] or 0) - tick), path_n = Rc.count(b.path_fails and b.path_fails[key]),
+        prenable = STRICT[t.kind] and Board.prenable(f, t) or nil, hinted = (b.hinted and b.hinted[key] ~= nil) or false,
+      }
+    end
+  end
+  return view
+end
+
 --- La matière stricte de la tâche `t` est-elle libre au registre ? (Sans registre : oui.)
 function Board.prenable(f, t)
   local reg = f.team and f.team.reg
