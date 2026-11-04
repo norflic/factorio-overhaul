@@ -2,6 +2,84 @@
  "arguments": [],
  "commande": "py -3.9 tools/render/pieces/ateliers/feuilles.py   (depuis la racine du mod ; sources : fo-logs/2026-11-04_DA-ATELIERS/final, à GARDER)",
  "fichiers": {
+  "concasseur-glow.png": {
+   "hauteur": 20,
+   "largeur": 8,
+   "sha256": "ab2390ea6354082701e5a70488ab925275b245aff1a76ff0c51e001303dd5bc8",
+   "taille": 396
+  },
+  "concasseur-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "b82548b4109a3b78714488ee7d5a0560ce45e7296ad148211a26c98b05f63fcd",
+   "taille": 8930
+  },
+  "concasseur-light.png": {
+   "hauteur": 54,
+   "largeur": 50,
+   "sha256": "106a51d6758515fdea2d60313fe0224453dcd8f4c1a4af33c187bfd572b4e0c8",
+   "taille": 3328
+  },
+  "concasseur-main.png": {
+   "hauteur": 115,
+   "largeur": 75,
+   "sha256": "e52630a1962d56dfa8950dce00891233a0c35215c7b54a6c5f8e3f1139b61caa",
+   "taille": 15839
+  },
+  "concasseur-shadow.png": {
+   "hauteur": 60,
+   "largeur": 139,
+   "sha256": "428a01a6dd747d58017c3d5bb70545ca9bcc4103757cc34f62a7e3212fe8b1cf",
+   "taille": 3803
+  },
+  "hr-concasseur-glow.png": {
+   "hauteur": 40,
+   "largeur": 16,
+   "sha256": "940d19843bc57f4d1d802779096b8d9e54954e692fbe3c16db71ee74699acb29",
+   "taille": 903
+  },
+  "hr-concasseur-light.png": {
+   "hauteur": 108,
+   "largeur": 100,
+   "sha256": "3f0798fe647bc3725596e37794f22e406fac94df0914517ab3b920a34d218384",
+   "taille": 3019
+  },
+  "hr-concasseur-main.png": {
+   "hauteur": 230,
+   "largeur": 150,
+   "sha256": "dc435bcb45633f36a598a0244eb505c4c615fb5c72d19d6d8173df6f1145b7ef",
+   "taille": 46699
+  },
+  "hr-concasseur-shadow.png": {
+   "hauteur": 120,
+   "largeur": 278,
+   "sha256": "f165899477119880db9050480f829a61a3aa7f22d4dec08214531cfb80ce909d",
+   "taille": 10789
+  },
+  "hr-machoires-glow.png": {
+   "hauteur": 132,
+   "largeur": 142,
+   "sha256": "4ae0f28b0f40a05869ffdb20fe64059e439133c42e0de4a84a4729a17d1aee6b",
+   "taille": 4501
+  },
+  "hr-machoires-light.png": {
+   "hauteur": 104,
+   "largeur": 142,
+   "sha256": "0a63e5a9159b0549abdf995a3d065fe16a6d6ba2acb2b7195f0dbcd0688ffb91",
+   "taille": 3433
+  },
+  "hr-machoires-main.png": {
+   "hauteur": 274,
+   "largeur": 198,
+   "sha256": "68c15a6119433cf610ace6cc642775cd9cd2d07fe8b6e41e95f895236494bdc2",
+   "taille": 81888
+  },
+  "hr-machoires-shadow.png": {
+   "hauteur": 186,
+   "largeur": 274,
+   "sha256": "260082cdacaec5b46ac8a9e58fa0906c29cec6592d080486592fb5dbb345617e",
+   "taille": 15458
+  },
   "hr-torchere-glow.png": {
    "hauteur": 236,
    "largeur": 28,
@@ -67,6 +145,36 @@
    "largeur": 56,
    "sha256": "5138214cc3113a14b8c7324c478a1a590fb0f4278395bf08fb28e5c4f12ba404",
    "taille": 782
+  },
+  "machoires-glow.png": {
+   "hauteur": 66,
+   "largeur": 71,
+   "sha256": "2ba4dc740fbf00de406be5a3c5ee330713950916a22caf5d6e4172cb80fcd735",
+   "taille": 940
+  },
+  "machoires-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "60294a8955de05710537dc2530eae49bfff30171a22769c9fdd6716d9c647dcd",
+   "taille": 10400
+  },
+  "machoires-light.png": {
+   "hauteur": 52,
+   "largeur": 71,
+   "sha256": "8421b158cfbc94e94e30a7d093f75f60a17881cec51c0c1911c7373a76677e54",
+   "taille": 4826
+  },
+  "machoires-main.png": {
+   "hauteur": 137,
+   "largeur": 99,
+   "sha256": "f1996f7425027918e299c40b589481bbf7b0da92361d118f4cd84d4683ca44aa",
+   "taille": 25776
+  },
+  "machoires-shadow.png": {
+   "hauteur": 93,
+   "largeur": 137,
+   "sha256": "12a9d2a28582187263e656d769d7998c51ef79a4f4399529927b15ff074d4e88",
+   "taille": 4877
   },
   "torchere-glow.png": {
    "hauteur": 118,

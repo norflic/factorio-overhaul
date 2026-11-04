@@ -1,5 +1,209 @@
 {
  "pieces": {
+  "concasseur": {
+   "boite": [
+    [
+     -1.125,
+     -2.5
+    ],
+    [
+     3.4375,
+     1.0938
+    ]
+   ],
+   "glow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/hr-concasseur-glow.png",
+     "height": 40,
+     "shift": [
+      0.96875,
+      -0.53125
+     ],
+     "width": 16
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/concasseur-glow.png",
+     "height": 20,
+     "shift": [
+      0.96875,
+      -0.53125
+     ],
+     "width": 8
+    }
+   },
+   "icone": {
+    "filename": "__factorio-overhaul__/graphics/machines/ateliers/concasseur-icone.png",
+    "icon_mipmaps": 4,
+    "icon_size": 64
+   },
+   "light": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/hr-concasseur-light.png",
+     "height": 108,
+     "shift": [
+      1.4375,
+      -0.09375
+     ],
+     "width": 100
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/concasseur-light.png",
+     "height": 54,
+     "shift": [
+      1.4375,
+      -0.09375
+     ],
+     "width": 50
+    }
+   },
+   "main": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/hr-concasseur-main.png",
+     "height": 230,
+     "shift": [
+      0.046875,
+      -0.703125
+     ],
+     "width": 150
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/concasseur-main.png",
+     "height": 115,
+     "shift": [
+      0.046875,
+      -0.703125
+     ],
+     "width": 75
+    }
+   },
+   "map_color": [
+    0.317,
+    0.27,
+    0.224
+   ],
+   "shadow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/hr-concasseur-shadow.png",
+     "height": 120,
+     "shift": [
+      1.265625,
+      0.0625
+     ],
+     "width": 278
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/concasseur-shadow.png",
+     "height": 60,
+     "shift": [
+      1.265625,
+      0.0625
+     ],
+     "width": 139
+    }
+   }
+  },
+  "machoires": {
+   "boite": [
+    [
+     -1.7188,
+     -2.7188
+    ],
+    [
+     2.875,
+     2.1875
+    ]
+   ],
+   "glow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/hr-machoires-glow.png",
+     "height": 132,
+     "shift": [
+      0.328125,
+      -0.625
+     ],
+     "width": 142
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/machoires-glow.png",
+     "height": 66,
+     "shift": [
+      0.328125,
+      -0.625
+     ],
+     "width": 71
+    }
+   },
+   "icone": {
+    "filename": "__factorio-overhaul__/graphics/machines/ateliers/machoires-icone.png",
+    "icon_mipmaps": 4,
+    "icon_size": 64
+   },
+   "light": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/hr-machoires-light.png",
+     "height": 104,
+     "shift": [
+      -0.609375,
+      1.375
+     ],
+     "width": 142
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/machoires-light.png",
+     "height": 52,
+     "shift": [
+      -0.609375,
+      1.375
+     ],
+     "width": 71
+    }
+   },
+   "main": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/hr-machoires-main.png",
+     "height": 274,
+     "shift": [
+      0.015625,
+      -0.578125
+     ],
+     "width": 198
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/machoires-main.png",
+     "height": 137,
+     "shift": [
+      0.015625,
+      -0.578125
+     ],
+     "width": 99
+    }
+   },
+   "map_color": [
+    0.39,
+    0.303,
+    0.207
+   ],
+   "shadow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/hr-machoires-shadow.png",
+     "height": 186,
+     "shift": [
+      0.734375,
+      0.015625
+     ],
+     "width": 274
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/machoires-shadow.png",
+     "height": 93,
+     "shift": [
+      0.734375,
+      0.015625
+     ],
+     "width": 137
+    }
+   }
+  },
   "torchere": {
    "boite": [
     [
