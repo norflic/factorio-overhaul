@@ -209,8 +209,8 @@
   "hr-msr-chaleur.png": {
    "hauteur": 350,
    "largeur": 320,
-   "sha256": "671cbb9ff9c3501a7ee21aaba8f792d6efde519964ae7145503f77ca479f7694",
-   "taille": 36254
+   "sha256": "d3ee3b25626beb5369ae12951d056cd62667c980c28e6d884c130ac36108dada",
+   "taille": 32376
   },
   "hr-msr-glow.png": {
    "hauteur": 366,
@@ -299,8 +299,8 @@
   "msr-chaleur.png": {
    "hauteur": 175,
    "largeur": 160,
-   "sha256": "48327ae6cc5025994d8ef2ac69e9b0ad2e89bde975d3d2cf53c4d39371585410",
-   "taille": 13720
+   "sha256": "987555e4966eee69e6728c9f48e8a4cc8a0f82b894e7fba54a0870c493062966",
+   "taille": 12795
   },
   "msr-glow.png": {
    "hauteur": 183,

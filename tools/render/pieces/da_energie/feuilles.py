@@ -33,7 +33,8 @@ BATIMENTS = {
     "depot": {"variante": "depot_a", "lumiere": {"centre": (0.35, -0.3), "axes": (1.05, 0.78), "couleur": (1.0, 0.9, 0.72)}},
     "reso": {"variante": "reso_c", "lumiere": {"centre": (0.0, -0.15), "axes": (1.7, 1.25), "couleur": (1.0, 1.0, 1.0)}},
     # réacteur : heat_picture = SEULE la lueur du collecteur rendu chauffé (msr_h, couche glow), jamais son main
-    "msr": {"variante": "msr_a", "lumiere": None, "chaleur": "msr_h"},
+    # chaleur_force : la capture en moteur (4/11, 800 °C) montrait un cadre pêche plein de jour : alpha × 0,5
+    "msr": {"variante": "msr_a", "lumiere": None, "chaleur": "msr_h", "chaleur_force": 0.5},
     # capteur : une base par direction de pose ; icône de la direction sud
     "geo": {"directions": {"north": "geo_n", "east": "geo_e", "south": "geo_s", "west": "geo_w"}, "icone": "south", "lumiere": None},
 }
@@ -51,11 +52,15 @@ def _ecrit(im, dest, f, fichiers):
     fichiers.append(f)
 
 
-def couche_seule(src, dest, cle, var, k, nom, fichiers):
-    """Une seule couche d'une variante rendue à part (chaleur du réacteur : la couche glow de msr_h)."""
+def couche_seule(src, dest, cle, var, k, nom, fichiers, force=1.0):
+    """Une seule couche d'une variante rendue à part (chaleur du réacteur : la couche glow de msr_h) ; force : × alpha."""
     s = json.load(open(os.path.join(src, var, "spec.json"), encoding="utf-8"))
     c = s["layers"][k]
     im = Image.open(os.path.join(src, var, c["file"])).convert("RGBA")
+    if force != 1.0:
+        a = np.asarray(im).astype(np.float64)
+        a[..., 3] = np.clip(a[..., 3] * force, 0, 255)
+        im = Image.fromarray(a.round().astype(np.uint8), "RGBA")
     hr_f, lr_f = "hr-%s-%s.png" % (cle, nom), "%s-%s.png" % (cle, nom)
     _ecrit(im, dest, hr_f, fichiers)
     lr = Q.reduite(im)
@@ -213,7 +218,7 @@ def main():
         if b["lumiere"]:
             c["lumiere"] = lumiere(a.dest, cle, b["lumiere"], fichiers)
         if b.get("chaleur"):
-            c["chaleur"] = couche_seule(a.src, a.dest, cle, b["chaleur"], "glow", "chaleur", fichiers)
+            c["chaleur"] = couche_seule(a.src, a.dest, cle, b["chaleur"], "glow", "chaleur", fichiers, b.get("chaleur_force", 1.0))
         rs = [rect(v) for k, v in c.items() if k in ("main", "shadow", "glow", "mobile", "mobile_glow", "chaleur", "lumiere")]
         c["boite"] = [[round(min(r[0] for r in rs), 4), round(min(r[1] for r in rs), 4)],
                       [round(max(r[2] for r in rs), 4), round(max(r[3] for r in rs), 4)]]
