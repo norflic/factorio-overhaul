@@ -62,6 +62,11 @@ local function cases(Da, A)
     "alerte des soldats : la première tout de suite, puis au plus une par " .. Da.ALERT_GAP .. " ticks")
   check(Da.mobile_cause("unit") and Da.mobile_cause("character") and not Da.mobile_cause("unit-spawner") and not Da.mobile_cause("turret") and not Da.mobile_cause(nil),
     "alerte des soldats : unités et personnages seulement, jamais un nid, un ver ni une tourelle")
+  -- 5. abri : exposition et ralliement
+  check(Da.exposed({ x = 60, y = 0 }, { x = 0, y = 0 }, 62) == true and Da.exposed({ x = 63, y = 0 }, { x = 0, y = 0 }, 62) == false, "exposé à moins de la portée + marges de la menace, pas au-delà")
+  check(Da.shelter_resp("rally", { x = 40, y = 0 }, { x = 0, y = 0 }) == "rally" and Da.shelter_resp("rally", { x = 41, y = 0 }, { x = 0, y = 0 }) == "stand",
+    "ralliement général seulement pour une menace à 40 tuiles du QG au plus")
+  check(Da.shelter_resp("away", { x = 90, y = 0 }, { x = 0, y = 0 }) == "away" and Da.shelter_resp("stand", { x = 90, y = 0 }, { x = 0, y = 0 }) == "stand", "éloignement et « stand » inchangés")
   local ags = { [1] = { rest_since = 100 }, [2] = {}, [3] = { rest_since = 9000 } }
   local n, worst = Da.rest_open_over(ags, { 1, 2, 3 }, 9100)
   check(n == 1 and worst == 9000, "repos encore ouverts au-delà de 30 s : 1 sur 3 (" .. n .. ", " .. worst .. ")")
@@ -93,6 +98,8 @@ check(SDS:find("Rep.on_attack = function(f, pos, tick)", 1, true) ~= nil and SDS
   "le crochet alerte les soldats par C.on_alert (existant)")
 check(RPS:find("Da.mobile_cause(cause.type)", 1, true) ~= nil and RPS:find("State.owner(u)", 1, true) ~= nil, "bâtiment touché : cause mobile seulement ; votre équipe : bâtiment enregistré seulement")
 check(SDS:find('C.on_alert(f, pos, "unit", tick, "site")', 1, true) ~= nil and SDS:find('mode ~= "site" and d2(ep, f.hq_pos)', 1, true) ~= nil, "alerte « site » : sans limite de distance au QG")
+check(SDS:find("Da.exposed(p, threat, reach)", 1, true) ~= nil and SDS:find('{ "wait", SD.SHELTER_TICKS }', 1, true) ~= nil and SDS:find('{ { "goto", to, 3 }, { "home" } }', 1, true) ~= nil,
+  "shelter : seuls les exposés lâchent leur tâche ; l'attente fixe n'est plus dans les étapes (seulement citée en commentaire)")
 check(CO:find("site_alert = Da.site_alert(t.alerts, p, tick)", 1, true) ~= nil, "le regard passe l'alerte de site à Re.decide")
 
 section("5. Mutants (chacun doit faire échouer au moins un cas)")
@@ -107,6 +114,8 @@ local mutants = {
   { "cases mobiles comptées", "return ((parts and parts.fixed) or 0) >= B", "return ((parts and parts.fixed) or 0) + ((parts and parts.mobile) or 0) >= B" },
   { "pause de 2 min", "Da.ASIDE_TICKS = 3600", "Da.ASIDE_TICKS = 7200" },
   { "nid pris pour une attaque mobile", 'return ctype == "unit" or ctype == "character"', 'return ctype == "unit" or ctype == "character" or ctype == "unit-spawner"' },
+  { "tous exposés", "return dx * dx + dy * dy <= reach * reach", "return true" },
+  { "ralliement sans limite", "if dx * dx + dy * dy > Da.RALLY_HQ_R * Da.RALLY_HQ_R then return \"stand\" end", "" },
   { "site sans limite de distance", "dx * dx + dy * dy <= Da.SITE_R * Da.SITE_R", "true" },
   { "alerte expirée comptée", 'if tick < (a["until"] or 0) then', "if true then" },
   { "alerte à chaque coup", "return last == nil or tick - last >= Da.ALERT_GAP", "return true" },

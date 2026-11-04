@@ -47,6 +47,26 @@ function Da.site_alert(alerts, p, tick)
   return false
 end
 
+-- Mise à l'abri (script/ai3/soldats.lua, shelter) : seuls les ouvriers EXPOSÉS réagissent (distance à la MENACE, pas au QG) ; le ralliement général derrière les
+-- tourelles du QG n'a lieu que pour une menace qui vise le QG lui-même.
+Da.RALLY_HQ_R = 40 -- tuiles : menace à moins de 40 tuiles du QG = à portée des tourelles du QG (Re.RALLY_R)
+
+--- Le PNJ en `p` est-il exposé à la menace `threat` (à moins de `reach` tuiles : portée de l'ennemi + marge, Re.away_distance) ?
+function Da.exposed(p, threat, reach)
+  local dx, dy = p.x - threat.x, p.y - threat.y
+  return dx * dx + dy * dy <= reach * reach
+end
+
+--- Réponse d'équipe retenue : « rally » (tous derrière les tourelles) seulement si la menace est à portée du QG ; sinon « stand » (les seuls exposés
+--- et désarmés s'écartent, les armés exposés défendent, les autres continuent).
+function Da.shelter_resp(resp, threat, hq)
+  if resp == "rally" then
+    local dx, dy = threat.x - hq.x, threat.y - hq.y
+    if dx * dx + dy * dy > Da.RALLY_HQ_R * Da.RALLY_HQ_R then return "stand" end
+  end
+  return resp
+end
+
 --- Type du moteur de l'auteur d'un coup : une attaque MOBILE (unité, personnage) alerte les soldats ; un nid, un ver, une tourelle : jamais (nettoyage).
 function Da.mobile_cause(ctype)
   return ctype == "unit" or ctype == "character"

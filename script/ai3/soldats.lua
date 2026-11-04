@@ -15,6 +15,7 @@ local Events = require("script.core.events")
 local State = require("script.faction.state")
 local Registry = require("script.companion.registry")
 local Worker = require("script.team.worker")
+local Da = require("shared.team.danger_actif") -- lot DANGER-ACTIF : exposition, ralliement
 local Rep = require("script.team.reparation") -- lot DANGER-ACTIF : crochet d'alerte des soldats sur un bâtiment touché
 local Profiler = require("script.core.profiler")
 local A = require("shared.ai3.armee") -- lot ARMEE-ANTICIPATION : regroupement, raid (estimation : lot PREVISION)
@@ -142,6 +143,12 @@ end
 local function shelter(f, t, threat, tick, resp, rally, range)
   resp = resp or "stand" -- l'appel de votre équipe (sans soldats) n'en donne pas : mise à l'abri seule (moteur réel, petrole-guide 20261020 : plantage à la minute 73)
   local far2 = Re.away_distance(range) ^ 2
+  local reach = Re.away_distance(range)
+  -- Lot DANGER-ACTIF (DC 4/11, 19 h 25 : « ils sont perpétuellement en [...] à l'abri, donc ils ne font plus rien [...] un mode pause pour toutes les IA ») : seuls les
+  -- ouvriers EXPOSÉS (à portée de la menace, pas du QG) lâchent leur tâche ; le ralliement général n'a lieu que pour une menace à portée du QG ; plus d'attente fixe.
+  resp = Da.shelter_resp(resp, threat, f.hq_pos)
+  local da = t.stats.dact or {}
+  t.stats.dact = da
   for _, id in ipairs(State.sorted_keys(f.engineers or {})) do
     local ag = Registry.get(id)
     if ag and ag.entity.valid then
@@ -158,6 +165,10 @@ local function shelter(f, t, threat, tick, resp, rally, range)
           to = C.refuge(f, p, threat)
         end
       end
+      if to and not Da.exposed(p, threat, reach) then
+        da.spared = (da.spared or 0) + 1 -- non exposé : il continue son travail (avant : il aurait tout lâché)
+        to = nil
+      end
       if to then
         local a = C.astate(ag)
         local march = resp ~= "stand" -- ralliement ou éloignement : marche EXPLICITE (un PNJ déjà au QG n'ira nulle part sinon)
@@ -165,15 +176,20 @@ local function shelter(f, t, threat, tick, resp, rally, range)
           if march then a.shelter_t = tick else a.refuge = to end
           a.pts, a.final = nil, nil
           Worker.abort(ag, f, tick, "abri")
-          if march then ag.steps, ag.pc = { { "goto", to, 3 }, { "wait", SD.SHELTER_TICKS }, { "home" } }, 1 end
+          if march then ag.steps, ag.pc = { { "goto", to, 3 }, { "home" } }, 1 end -- (avant : { "wait", SD.SHELTER_TICKS } entre les deux)
           C.label(ag, "abri", tick, t.stats)
           t.stats.shelter = (t.stats.shelter or 0) + 1
+          local dth = math.sqrt(d2(p, threat))
+          da.shelter_n, da.shelter_d = (da.shelter_n or 0) + 1, (da.shelter_d or 0) + dth
+          if dth > (da.shelter_dmax or 0) then da.shelter_dmax = dth end
           if resp ~= "stand" then t.stats["shelter_" .. resp] = (t.stats["shelter_" .. resp] or 0) + 1 end
         end
       end
     end
   end
 end
+
+SD.shelter = shelter -- (banc hors jeu : tests/ia3k_moteur_test.lua)
 
 --- Armés près du QG (à moins de HQ_THREAT_R) : PNJ avec munitions et soldats ; sert à la réponse de l'équipe.
 local function armed_near_hq(f)

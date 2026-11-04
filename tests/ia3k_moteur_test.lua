@@ -428,6 +428,24 @@ do
     "DANGER-ACTIF : un PNJ à 10 tuiles du site attaqué est « sur le site » (il se défend), un PNJ à 80 tuiles non")
   f.soldiers, f.soldiers_count = s_sold, s_n
 end
+-- Lot DANGER-ACTIF (DC 4/11, 19 h 25) : mise à l'abri. Menace à 30 tuiles du QG (à portée de ses tourelles) : le ralliement ne prend QUE l'ouvrier exposé (à 15 tuiles
+-- de la menace) ; celui qui est à 130 tuiles d'elle (100 du QG) continue son travail, et il est compté « épargné ».
+do
+  local SDm = require("script.ai3.soldats")
+  local tm = C.team(f)
+  local hq = f.hq_pos
+  local near, away = Registry.get(ids[1]), Registry.get(ids[2])
+  near.task, away.task = { key = "test:abri-a", kind = "service" }, { key = "test:abri-b", kind = "service" }
+  near.entity.teleport({ x = hq.x + 45, y = hq.y })
+  away.entity.teleport({ x = hq.x - 100, y = hq.y })
+  local tt = game.tick + 100000
+  local sp0 = (tm.stats.dact or {}).spared or 0
+  SDm.shelter(f, tm, { x = hq.x + 30, y = hq.y }, tt, "rally", { x = hq.x, y = hq.y + 10 }, 30)
+  check(C.astate(near).shelter_t == tt, "DANGER-ACTIF : l'ouvrier exposé (15 tuiles de la menace) est rallié")
+  check(C.astate(away).shelter_t ~= tt and ((tm.stats.dact or {}).spared or 0) >= sp0 + 1, "DANGER-ACTIF : l'ouvrier à 130 tuiles de la menace continue son travail (compté épargné)")
+  check(((tm.stats.dact or {}).shelter_n or 0) >= 1 and ((tm.stats.dact or {}).shelter_dmax or 0) <= 62, "DANGER-ACTIF : abris comptés avec leur distance à la menace (jamais au-delà de la portée + marges)")
+  check(near.steps and near.steps[2] and near.steps[2][1] == "home" and near.steps[1][1] == "goto", "DANGER-ACTIF : plus d'attente fixe au refuge (aller puis retour)")
+end
 -- C5 « change de site » : un minage vers un gisement gardé par un ver va miner une autre tuile du même minerai.
 local ip = { x = math.cos(math.pi / 6) * 60, y = math.sin(math.pi / 6) * 60 } -- gisement de fer du moteur simulé
 remote.call("fo-ia3k", "mark", "player", ip.x, ip.y, "worm", 25)
