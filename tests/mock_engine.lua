@@ -1386,6 +1386,8 @@ function M.new_world(opts)
       return table.unpack(res, 2)
     end,
   }
+  -- LuaRemote.interfaces (lot ROBOTS-JEU : garde de l'interface « fo-xp » dans script/robots/armee.lua) : interface -> fonctions
+  _G.remote.interfaces = W.remote
   _G.rendering = {
     draw_text = function(t)
       assert(t.text and t.surface and t.target and t.color, "draw_text : arguments")
