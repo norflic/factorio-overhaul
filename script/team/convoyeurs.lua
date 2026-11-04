@@ -132,7 +132,7 @@ local function upgrade(f, surface, p, idx, part, target)
       local ne = surface.create_entity({ name = target, position = old.position, direction = old.direction, force = f.force,
         fast_replace = true, spill = false, raise_built = false })
       if ne then
-        Stock.remove(f, new_item, 1)
+        Stock.remove(f, new_item, 1, "convoyeurs")
         Stock.insert(f, old_item, 1)
         e.name, e.item = target, new_item
         done = done + 1

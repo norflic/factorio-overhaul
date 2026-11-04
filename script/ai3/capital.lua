@@ -574,7 +574,7 @@ local function place_center(f, c, d, tick)
     if pos then
       local e = surface.create_entity({ name = name, position = pos, force = f.force, raise_built = true })
       if e and e.valid then
-        Stock.remove(f, item, 1)
+        Stock.remove(f, item, 1, "capital-pose")
         f.team.consumed[item] = (f.team.consumed[item] or 0) + 1
         log(string.format("[FO-CAPITAL] %s : centre de commandement pose (niveau 1) en (%d, %d) a %.1f min", f.key or "?",
           math.floor(pos.x), math.floor(pos.y), minutes(f, tick)))
@@ -612,7 +612,7 @@ local function replace_one(f, c, e, to)
     new.destroy()
     return nil, "hors-grille"
   end
-  Stock.remove(f, tp.item, 1)
+  Stock.remove(f, tp.item, 1, "capital-remplace")
   Stock.insert(f, op.item, 1)
   f.team.consumed[tp.item] = (f.team.consumed[tp.item] or 0) + 1
   local mh = get(new.prototype, "max_health")
@@ -692,6 +692,73 @@ function Capital.thaw_step(f, held, tick)
   return c.thaw.active
 end
 
+--- Lot CENTRE-MATIERE (diagnostic, LECTURE SEULE ; aucune décision n'en dépend) : tant que le CENTRE est décidé, une ligne
+--- [FO-FER-DIAG] par minute : chemin du projet dans la pensée pure (rang, service, stocks virtuels, fabrications, manques bruts,
+--- tâches émises), coffre et stock libre de chaque objet du coût, ce que les projets servis avant lui ont pris au stock virtuel, et
+--- les entrées et sorties RÉELLES du coffre par source (Stock.remove / Stock.insert, script/team/stock.lua) depuis la ligne d'avant.
+function Capital.fer_diag(f, c, d, plan, stock, tick)
+  local team = f.team
+  if not team then return end
+  if not (d and d.center) then
+    team.fdiag_items, team.fdiag, c.fdiag_t, c.fdiag_coffre = nil, nil, nil, nil
+    return
+  end
+  if not team.fdiag_items then
+    team.fdiag_items = {}
+    for _, it in ipairs(d.cost or {}) do team.fdiag_items[it[1]] = true end
+    team.fdiag = { out = {}, inn = {} }
+    c.fdiag_t = tick
+    c.fdiag_coffre = {}
+    for _, it in ipairs(d.cost or {}) do c.fdiag_coffre[it[1]] = Stock.count(f, it[1]) end
+    return
+  end
+  if tick - (c.fdiag_t or tick) < 3600 then return end
+  local dt = (tick - c.fdiag_t) / 3600
+  c.fdiag_t = tick
+  local dg = plan and plan.ia3 and plan.ia3.capdiag
+  local fd = team.fdiag or { out = {}, inn = {} }
+  team.fdiag = { out = {}, inn = {} }
+  local parts = {}
+  for i, it in ipairs(d.cost or {}) do
+    local item = it[1]
+    local now = Stock.count(f, item)
+    local inn, out = 0, 0
+    for _, k in ipairs(sorted_keys(fd.inn)) do if k:sub(1, #item + 1) == item .. "|" then inn = inn + fd.inn[k] end end
+    for _, k in ipairs(sorted_keys(fd.out)) do if k:sub(1, #item + 1) == item .. "|" then out = out + fd.out[k] end end
+    local was = (c.fdiag_coffre or {})[item] or now
+    c.fdiag_coffre[item] = now
+    parts[#parts + 1] = string.format("%s %d : coffre %d (%+d), libre %d, entre %d, sort %d, hors-compte %+d", item, it[2], now, now - was,
+      (stock or {})[item] or 0, inn, out, (now - was) - (inn - out))
+  end
+  -- Sorties par source (toutes, triées par quantité), puis entrées par source (les 6 premières).
+  local function top(t, nmax)
+    local rows = {}
+    for _, k in ipairs(sorted_keys(t)) do rows[#rows + 1] = { k, t[k] } end
+    table.sort(rows, function(a, b) if a[2] ~= b[2] then return a[2] > b[2] end return a[1] < b[1] end)
+    local s = {}
+    for i = 1, math.min(nmax, #rows) do s[#s + 1] = rows[i][1] .. " " .. rows[i][2] end
+    return table.concat(s, ", ")
+  end
+  local pure = "pensee -"
+  if dg and dg.key == ("capital:" .. d.key) then
+    local items = {}
+    for i, k in ipairs(dg.items or {}) do
+      items[#items + 1] = string.format("%s depart %d planif %d tour %d brut %s fonte %d", k, (dg.start or {})[i] or -1,
+        (dg.base_used or {})[i] or -1, (dg.turn or {})[i] or -1, tostring((dg.raw or {})[i]), (dg.smelt or {})[i] or 0)
+    end
+    local bef = {}
+    for _, b in ipairs(dg.before or {}) do bef[#bef + 1] = tostring(b[1]):gsub(":%d+", "") .. " " .. b[2] .. " " .. b[3] end
+    local tk = {}
+    for _, k in ipairs(sorted_keys(dg.tasks or {})) do tk[#tk + 1] = k .. " " .. dg.tasks[k] end
+    pure = string.format("pensee : rang %s sur %s, court %s, fond %s, priorite %s, chemin %s, fabrications %s (place %s), bras libres %s ; %s ; pris avant lui [%s] ; taches du projet [%s]",
+      tostring(dg.rank), tostring(dg.n), tostring(dg.short), tostring(dg.fond), tostring(dg.prio), tostring(dg.path),
+      tostring(dg.crafts or 0), tostring(dg.room), tostring(dg.idle), table.concat(items, " | "), table.concat(bef, ", "),
+      table.concat(tk, ", "))
+  end
+  log(string.format("[FO-FER-DIAG] %s : centre '%s' sur %.1f min | %s | %s | sorties [%s] | entrees [%s] a %.1f min", f.key or "?", d.key,
+    dt, table.concat(parts, " ; "), pure, top(fd.out, 14), top(fd.inn, 8), minutes(f, tick)))
+end
+
 --- Paie l'amélioration prête (plan.ia3.pay : coût réservé au stock virtuel par la pensée pure) si le stock LIBRE la
 --- couvre. Rend le nombre d'améliorations faites.
 function Capital.pay(f, surface, tick, plan, stock, only_center)
@@ -699,6 +766,7 @@ function Capital.pay(f, surface, tick, plan, stock, only_center)
   if not Capital.any_on() then return 0 end
   local c = state_of(f)
   local d = c.current
+  Capital.fer_diag(f, c, d, plan, stock, tick) -- lot CENTRE-MATIERE (diagnostic, lecture seule)
   if only_center and not (d and d.center) then return 0, true end -- lot AGES : gel levé pour le centre seulement (2e valeur : rien tenté)
   if not list or #list == 0 then
     if d then

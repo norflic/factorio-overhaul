@@ -142,10 +142,10 @@ local function stock_of(f)
   return Stock.contents(f)
 end
 
-local function remove_list(f, list, times)
+local function remove_list(f, list, times, src)
   for _, it in ipairs(list) do
     local n = it[2] * (times or 1)
-    if n > 0 then Stock.remove(f, it[1], n) end
+    if n > 0 then Stock.remove(f, it[1], n, src or "equipe") end
     f.team.consumed[it[1]] = (f.team.consumed[it[1]] or 0) + n
   end
 end
@@ -977,7 +977,7 @@ function Team.think(f, surface, tick)
   -- Lot IA2-a2 (survie) : recrue équipée AU QG avec les plaques du stock (plan.recruit_uses : objets prélevés).
   local pay = plan.recruit_uses or cost
   if plan.recruit_workers and not plan.recruit_unarmed and has_list(stock, pay) then
-    remove_list(f, pay)
+    remove_list(f, pay, nil, "recrues")
     if Worker.recruit(f, surface, tick) then
       f.stats.recruited = (f.stats.recruited or 0) + 1
       if view.grow_due then f.team.last_grow = tick end -- lot IA1-b2 : rythme de la croissance
@@ -1009,7 +1009,7 @@ function Team.think(f, surface, tick)
   local tr_pay = tr and (tr.uses or T.kits[tr.unit])
   if tr and has_list(stock, tr_pay, tr.uses and 1 or tr.count) then
     local kit = T.kits[tr.unit]
-    remove_list(f, tr_pay, tr.uses and 1 or tr.count)
+    remove_list(f, tr_pay, tr.uses and 1 or tr.count, "formation")
     local made = Military.train(f, surface, tr.unit, tr.count)
     if made < tr.count then
       for _, it in ipairs(kit) do Stock.insert(f, it[1], it[2] * (tr.count - made)) end
@@ -1059,7 +1059,7 @@ function Team.think(f, surface, tick)
   end
   if ia3 then PileRt.journal(f, tick) end -- lot PILE-PRIORITE : journal [FO-PILE] (changement de sommet, toutes les 5 min)
   if plan.research and has_list(stock, T.research[plan.research]) then
-    remove_list(f, T.research[plan.research])
+    remove_list(f, T.research[plan.research], nil, "recherche")
     f.tech = plan.research
     unlock(f, f.tech)
     log(string.format("[FO-TEAM] %s : recherche niveau %d payee en packs a %.1f min", f.key, f.tech, (tick - State.war().started) / 3600))

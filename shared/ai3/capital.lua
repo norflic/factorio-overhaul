@@ -531,13 +531,28 @@ end
 --- engrenages et demandait son fer, palier 3 de recherche à 20,8 / 40,0 / 51,4 min contre 16,5 / 24,5 / 28,3 au témoin.
 function Cap.emit(P)
   return function(E, proj, g)
+    -- Lot CENTRE-MATIERE (diagnostic, LECTURE SEULE) : chemin, rang, priorité, stocks virtuels et fabrications de l'amélioration,
+    -- lus par le runtime (journal [FO-FER-DIAG]). Aucune décision n'en dépend.
+    local dg = { key = g.key, pid = proj.id, rank = E.rank, n = E.n_order, prio = proj.prio, short = g.short, fond = g.fond,
+      idle = (E.view and E.view.workers_idle) or 0, items = E.dg_items, start = {}, turn = {}, crafts0 = E.crafts,
+      room = (P.MAX_CRAFTS or 0) - (E.crafts or 0) }
+    for _, it in ipairs(g.cost or {}) do
+      dg.start[#dg.start + 1] = (E.avail_start or {})[it[1]] or 0
+      dg.turn[#dg.turn + 1] = E.avail[it[1]] or 0
+    end
+    E.capdiag = dg
     if P.take(E, g.cost) then
       E.pay = E.pay or {}
       E.pay[#E.pay + 1] = { key = g.key, target = g.target, cost = g.cost }
+      dg.path = "paye"
       return "ok"
     end
-    if not g.center and not g.opens and not g.replace and ((E.view and E.view.workers_idle) or 0) <= 0 then return "matiere" end
+    if not g.center and not g.opens and not g.replace and ((E.view and E.view.workers_idle) or 0) <= 0 then
+      dg.path = "sans-bras"
+      return "matiere"
+    end
     P.want(E, proj, g.cost, proj.prio, false, "niveau")
+    dg.path, dg.crafts = "voulu", (E.crafts or 0) - (dg.crafts0 or 0)
     return "matiere"
   end
 end

@@ -143,7 +143,7 @@ local function swap_one(f, surface, ref, cx, cy, tick)
     end
     return false
   end
-  if Stock.remove(f, item, 1) < 1 then return false end
+  if Stock.remove(f, item, 1, "foreuses") < 1 then return false end
   local inv = d.get_fuel_inventory()
   local fuel = inv and inv.get_item_count(T.fuel) or 0
   State.disown(d.unit_number)

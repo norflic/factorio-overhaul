@@ -56,8 +56,22 @@ function Stock.count(f, item)
   return n
 end
 
+--- Lot CENTRE-MATIERE (diagnostic, LECTURE SEULE ; aucune décision n'en dépend) : entrées et sorties du coffre par source pour les
+--- objets suivis (f.team.fdiag_items : coût du centre décidé, écrit par Capital.pay), lues par le journal [FO-FER-DIAG].
+--- Stock.src : source posée par l'appelant le temps d'un appel (prise d'une tâche, dépôt) ; sinon le 4e argument ; sinon « autre ».
+Stock.src = nil
+local function diag_note(f, dir, item, n, src)
+  local team = f.team
+  local w = team and team.fdiag_items
+  if not (w and w[item] and n and n > 0) then return end
+  team.fdiag = team.fdiag or { out = {}, inn = {} }
+  local t = team.fdiag[dir]
+  local k = item .. "|" .. (src or Stock.src or "autre")
+  t[k] = (t[k] or 0) + n
+end
+
 --- Retire jusqu'à `n` objets (coffre du QG d'abord) ; rend le nombre retiré.
-function Stock.remove(f, item, n)
+function Stock.remove(f, item, n, src)
   local got = f.hq.remove_item({ name = item, count = n })
   if got < n then
     for _, e in ipairs(Stock.annexes(f)) do
@@ -65,11 +79,12 @@ function Stock.remove(f, item, n)
       if got >= n then break end
     end
   end
+  diag_note(f, "out", item, got, src)
   return got
 end
 
 --- Dépose jusqu'à `n` objets (coffre du QG d'abord, puis les annexes) ; rend le nombre déposé.
-function Stock.insert(f, item, n)
+function Stock.insert(f, item, n, src)
   local put = f.hq.insert({ name = item, count = n })
   if put < n then
     for _, e in ipairs(Stock.annexes(f)) do
@@ -77,6 +92,7 @@ function Stock.insert(f, item, n)
       if put >= n then break end
     end
   end
+  diag_note(f, "inn", item, put, src)
   -- Lot STOCKAGE : un dépôt refusé = plus de place pour cet objet (quel qu'il soit) ; déclenche la pose anticipée d'un coffre.
   if put < n then f.refused_at = game.tick or 0 end
   return put
@@ -250,10 +266,10 @@ function Stock.deploy_idle(f, surface, tick)
   end
   if n <= 0 then return 0 end
   local tmp = game.create_inventory(8)
-  tmp.insert({ name = T.SMELTER, count = Stock.remove(f, T.SMELTER, n) })
+  tmp.insert({ name = T.SMELTER, count = Stock.remove(f, T.SMELTER, n, "fours-pose") })
   -- le combustible libre accompagne les fours (jusqu'à T.fuel_per_burner chacun) ; sans charbon libre, ils sont posés à sec
   local fuel = math.min(math.max(0, free[T.fuel] or 0), T.fuel_per_burner * n)
-  if fuel > 0 then tmp.insert({ name = T.fuel, count = Stock.remove(f, T.fuel, fuel) }) end
+  if fuel > 0 then tmp.insert({ name = T.fuel, count = Stock.remove(f, T.fuel, fuel, "fours-pose") }) end
   local placed = Stock.place_smelters(f, surface, n, tmp)
   for name, c in pairs(tmp.get_contents()) do Stock.insert(f, name, c) end
   tmp.destroy()
@@ -289,7 +305,7 @@ function Stock.grow(f, surface, tick)
         if Stock.reserved and Stock.reserved(f, k.item, pos) then return false end
         local e = surface.create_entity({ name = k.item, position = pos, force = f.force })
         if not (e and e.valid) then return false end
-        Stock.remove(f, k.item, 1)
+        Stock.remove(f, k.item, 1, "stock-croissance")
         f.annex = f.annex or {}
         f.annex[#f.annex + 1] = e
         return true
