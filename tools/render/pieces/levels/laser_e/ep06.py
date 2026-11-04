@@ -32,6 +32,8 @@ FOYER = ages.FOYER[6]
 FAISCEAU = dict(rgb=(0.55, 0.8, 1.0), rgb2=(0.25, 0.55, 1.0), forme="ÉCLAIR ramifié bleu-blanc (pas un trait droit)",
                 largeur=1.0)
 HABILLAGE = dict(ages.CORPS[6], **E_.MAQUETTES[6])
+# LOT F1-C ronde 3c (critique : en pose N, joues claires lues « poteaux dressés ») : joues et paliers SOMBRES (corps.support)
+JOUES = ("fonte_bleue", "bleu_machine")
 # ronde 1 (F1-B) : avec les flancs « bleu machine » de la maquette, le socle se lisait BLEU au zoom 1, contre la palette
 # 60/30/10 de l'âge (porcelaine blanche dominante, bleu en second) : flancs de porcelaine à plaques bleues (même
 # silhouette ; matière seulement, écart dit ici)
@@ -126,6 +128,12 @@ def socle(g, c):
     O.rivets_flanc(g, c, 0, 0.88, M["copper_pol"], pas=0.1, r=0.011)
     O.rivets_flanc(g, c, 1, 0.85, M["copper_pol"], pas=0.1, r=0.011)
     O.ceinture(g, c, 0, 0.06, 0.016, M["fonte_bleue"], colliers=M["porcelaine"], pas=0.3)
+    # ronde 3c (D3 31 en ronde 3b, plancher 38) : rivets sur le dernier gradin, armoires et petites bobines en plus,
+    # isolateurs sur le dessus du deuxième gradin côté arête
+    O.rivets_flanc(g, c, 2, 0.3, M["copper_pol"], pas=0.09, r=0.011)
+    O.rivets_flanc(g, c, 0, 0.12, M["copper_pol"], pas=0.1, r=0.011)
+    O.sur_flanc(g, c, 0, [math.radians(a) for a in (240, 300)], _armoire, f=0.5, dr=0.02)
+    O.sur_dessus(g, c, 1, [math.radians(a) for a in (190, 226, 262, 298, 334)], _petite_bobine, t=0.85)
     # couronne d'isolateurs sur l'arête du dernier gradin
     R0, Rt, z0, z1 = c.gradins[-1]
     n = 18
@@ -137,17 +145,17 @@ def socle(g, c):
     for nom, sx in (("coin_NO", -1), ("coin_NE", 1)):
         p = corps.place(c, nom)
         x, y = p["x"] - sx * 0.04, Y(p["yn"] - 0.04)
-        w = 0.42
-        PT.hull(g, x - w / 2, x + w / 2, y - 0.2, y + 0.2, 0.0, 0.42, ins=(0.02, 0.02, 0.02), panel=0.2,
+        w = 0.5      # ronde 3c : 0,42 → 0,5, plus haut (masse : sous l'âge 5 en ronde 3b)
+        PT.hull(g, x - w / 2, x + w / 2, y - 0.22, y + 0.22, 0.0, 0.52, ins=(0.02, 0.02, 0.02), panel=0.2,
                 mats=[M["bleu_machine"], M["fonte_bleue"]], rivet_step=0.1)
         for s in (-1, 1):
             PT.radiator(g, (x + s * (w / 2 + 0.03), y, 0.05), 0.3, 0.32, 0.05, rz=math.pi / 2,
                         fin_mat=M["fonte_bleue"])
         for j in range(3):
-            zt = PT.insulators(g, (x + (j - 1) * 0.12, y, 0.42), 3, 0.035, h=0.03)
+            zt = PT.insulators(g, (x + (j - 1) * 0.14, y, 0.52), 3, 0.035, h=0.03)
             g.sphere((x + (j - 1) * 0.12, y, zt + 0.02), 0.022, M["copper_pol"], n=8, m=5, what="borne")
-        O.lampe(g, (x, y - 0.205, 0.3), (0, -1, 0), 0.022, M["emit"], M["fonte_bleue"])
-        g.box((x, y - 0.21, 0.18), (0.16, 0.006, 0.08), M["porcelaine"], "flat", what="plaque")
+        O.lampe(g, (x, y - 0.225, 0.34), (0, -1, 0), 0.026, M["emit"], M["fonte_bleue"])
+        g.box((x, y - 0.23, 0.18), (0.18, 0.006, 0.09), M["porcelaine"], "flat", what="plaque")
         liaison(g, [(x - sx * 0.12, y, 0.55), (0, 0, 0), (x * 0.45, Y(p["yn"] * 0.42), zp + 0.04)], 0.03)
         g.halo((x, y - 0.3, 0.3), M["_emit_rgb"], 4.0)
     for (x, yn) in ((0.0, -1.35), (-1.15, -0.4), (1.15, -0.4)):
@@ -199,7 +207,8 @@ def tete(g, c):
     t = c.T["tete"]
     zb = O.zb(c)
     for sx in (-1, 1):
-        PT.insulators(g, (sx * (t["xc"] + t["tc"] / 2), -0.3 * t["re"], c.zh + 0.72 * t["re"] - 0.02), 2, 0.028,
+        # ronde 3c : joues du BERCEAU (0,5 re de haut) : sinon les isolateurs flottaient (îlot de 11 px)
+        PT.insulators(g, (sx * (t["xc"] + t["tc"] / 2), -0.3 * t["re"], c.zh + 0.5 * t["re"] - 0.02), 2, 0.028,
                       h=0.026)
     (xl, yl, wl), (xr, yr, wr) = O.pods(c)
     _bobine(g, xl, yl, zb, wl * 0.8, wl * 1.8, M)

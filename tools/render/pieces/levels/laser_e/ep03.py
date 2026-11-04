@@ -90,8 +90,8 @@ def _grand_cadran(g, k, h):
 def _hublot_foyer(g, k, h):
     """LOT F1-C (ronde 3b) : hublot de foyer ambré (lumière de l'âge) cerclé de cuivre sombre, sur le flanc."""
     M = g.M
-    g.cyl((0, 0, 0.01), "z", 0.04, 0.02, M["cuivre_sombre"], n=14, style="hard", what="cercle_hublot")
-    g.cyl((0, 0, 0.021), "z", 0.028, 0.006, M["emit"], n=14, style="flat", what="hublot_foyer")
+    g.cyl((0, 0, 0.01), "z", 0.06, 0.02, M["cuivre_sombre"], n=14, style="hard", what="cercle_hublot")
+    g.cyl((0, 0, 0.021), "z", 0.045, 0.006, M["emit"], n=14, style="flat", what="hublot_foyer")   # 3c : 0,028 → 0,045
 
 
 def _robinet(g, k, h):

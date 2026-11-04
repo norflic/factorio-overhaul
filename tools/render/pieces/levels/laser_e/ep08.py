@@ -29,6 +29,8 @@ TRIPLET = ("ampoule", "liquide jaune", "pilotis")
 FOYER = ages.FOYER[8]
 FAISCEAU = dict(rgb=(0.6, 1.0, 0.04), forme="jet ondulant jaune-vert, gouttes d'acide qui tombent", largeur=1.1)
 HABILLAGE = dict(ages.CORPS[8], **E_.MAQUETTES[8])
+# LOT F1-C ronde 3c (critique : en pose N, joues claires lues « poteaux dressés ») : joues et paliers SOMBRES (corps.support)
+JOUES = ("steel_dk",)
 # LOT F1-C (« pilotis » non vus par les lecteurs de la ronde 2 : les pieux de la lignée ne dépassent le ponton que de
 # 18 %) : l'âge pose ses propres PILOTIS (_pilotis), plus gros, nettement plus hauts que le ponton, têtes cerclées de
 # fer, liés de cordages ; ceux de la lignée sont retirés

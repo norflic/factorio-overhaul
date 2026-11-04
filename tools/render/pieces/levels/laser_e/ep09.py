@@ -32,6 +32,8 @@ FAISCEAU = dict(rgb=(0.36, 1.0, 0.29), forme="trait vert uranium épais, halo pu
 # affût en TRÈFLE (quatrième jet, M-6 : 3 lobes chanfreinés, epoques.MAQUETTES[9]) ; avant : octogone chanfreiné, la
 # même silhouette que l'âge 7 (temple octogonal)
 HABILLAGE = dict(ages.CORPS[9], **E_.MAQUETTES[9])
+# LOT F1-C ronde 3c (critique : en pose N, joues claires lues « poteaux dressés ») : joues et paliers SOMBRES (corps.support)
+JOUES = ("plomb_sombre", "lead")
 
 
 def matieres(metal, M):
@@ -104,7 +106,7 @@ def socle(g, c):
                   what="event")
         for j, (dx, dy) in enumerate(((-0.4, -0.36), (0.4, -0.36), (0.0, 0.36))):
             cx, cy = x + dx * w, yn + dy * w
-            r, h = 0.215, 0.78       # ronde 3b : plus hauts (masse), serrés (aucun jour entre deux châteaux)
+            r, h = 0.215, 0.98       # ronde 3b : plus hauts (masse), serrés (aucun jour entre deux châteaux) ; 3c : 0,98
             g.cyl((cx, Y(cy), 0.2 + h / 2), "z", r, h, M["lead"], n=24, style="soft", what="chateau")
             for f in (0.12, 0.5, 0.88):
                 g.tube_shell((cx, Y(cy), 0.2 + h * f), "z", r + 0.016, r - 0.01, 0.045, M["plomb_sombre"], n=24,
@@ -127,6 +129,10 @@ def socle(g, c):
     O.ceinture(g, c, 0, 0.3, 0.022, M["lead"], colliers=M["plomb_sombre"], pas=0.4)
     O.ceinture(g, c, 1, 0.4, 0.018, M["lead"], colliers=M["plomb_sombre"], pas=0.35)
     O.sur_flanc(g, c, 0, [math.radians(a) for a in (205, 245, 295, 335)], _pancarte, f=0.62, dr=0.006)
+    # ronde 3c (critique : « aucun signe radioactif lisible ») : trois GRANDS trèfles jaune et noir sur le flanc avant
+    for a in (232, 270, 308):
+        p, nrm, _ = O.flanc(c, 0, math.radians(a), 0.5, 0.012)
+        F.trefoil(g, p, nrm + V((0, 0, 0.35)), 0.15)
     O.sur_flanc(g, c, 1, [math.radians(a) for a in (230, 270, 310)], _pancarte, f=0.55, dr=0.006)
     O.sur_dessus(g, c, 1, [math.radians(a) for a in (200, 235, 270, 305, 340)], _dessus2)
     O.sur_dessus(g, c, 0, O.visibles(O.entre_condensateurs(c), nord=0.2), _regard, t=0.5)
@@ -144,7 +150,7 @@ def socle(g, c):
             if not corps._hors_coins(c, x, yn, 0.12):
                 continue
             if j < 3:
-                F.drum(g, (x, Y(yn), 0.0), 0.12, min(0.3, z1 * 1.25), M["lead"], M["plomb_sombre"],
+                F.drum(g, (x, Y(yn), 0.0), 0.15, min(0.36, z1 * 1.5), M["lead"], M["plomb_sombre"],
                        top=M["beton_capot"], trefoil=(j == 0))
             else:
                 g.box((x, Y(yn), 0.09), (0.22, 0.16, 0.18), M["plomb_sombre"], "hard", R=Matrix.Rotation(aa, 3, "Z"),

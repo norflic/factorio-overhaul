@@ -632,11 +632,15 @@ def support(g, c):
     if f in ("etrier", "berceau"):
         # étrier : joues hautes et étroites ; berceau : joues larges et basses (arrondi plus petit) sur un U plein
         ry = 0.72 * re if f == "etrier" else 0.5 * re
+        # LOT F1-C ronde 3c (dégel ciblé : critique indépendante, en pose N les joues CLAIRES (porcelaine, ivoire, chrome,
+        # béton) se lisaient « deux poteaux dressés ») : un âge peut donner à ses joues et paliers une matière SOMBRE,
+        # JOUES = (matière, matière 2) ; sans clé, rien ne change
+        mj = [M[n] for n in getattr(c.ep, "JOUES", ())] or [capot(c, "olive"), capot(c, "ochre")]
         for sx in (-1, 1):
             xa, xb = sorted((sx * xc, sx * (xc + tc)))
             PT.hull(g, xa, xb, -ry, ry, zb, zh, ins=(0.0, 0.03, 0.03), panel=0.22,
-                    mats=[capot(c, "olive"), capot(c, "ochre")], faces="tsnew", rivet_step=0.12)
-            g.cyl(((xa + xb) / 2, 0, zh), "x", ry, tc, capot(c, "olive"), n=32, style="soft", what="joue")
+                    mats=[mj[0], mj[-1]], faces="tsnew", rivet_step=0.12)
+            g.cyl(((xa + xb) / 2, 0, zh), "x", ry, tc, mj[0], n=32, style="soft", what="joue")
             _tourillon(g, c, sx, cer, fleche=ry)
         if f == "berceau":
             PT.hull(g, -xc - tc, xc + tc, -0.62 * re, 0.62 * re, zb, zh - 0.72 * re, ins=(0.02, 0.03, 0.03),
@@ -647,7 +651,7 @@ def support(g, c):
         for sx in (-1, 1):
             xa, xb = sorted((sx * 0.5 * re, sx * (xc + 0.01)))
             PT.hull(g, xa, xb, -0.55 * re, 0.45 * re, zb, zh, ins=(0.0, 0.02, 0.02), panel=0.22,
-                    mats=[capot(c, "olive"), M["steel_dk"]], faces="tsnew", rivet_step=0.12)
+                    mats=[mj[0], M["steel_dk"]], faces="tsnew", rivet_step=0.12)
     elif f == "anneau":
         # anneau PENCHÉ de INCLINAISON_ANNEAU vers l'avant (quatrième jet, M-4 : vu par la tranche en pose E sinon),
         # fermé par un DIAPHRAGME (aucun jour enfermé au centre, m-5) ; l'émetteur de l'âge se dessine dans le même
@@ -771,8 +775,11 @@ def lentille(g, c, y, r, verre=None, cercle=None, anneau=True, point=True, n=40)
     # LOT F1-C (critique de la ronde 3a : sans la flèche de la proue, l'émetteur ne se lisait plus ; la face de la
     # lentille est vue par la tranche en pose E et cachée en pose N) : FOYER DE TIR, dôme de lumière douce qui bombe hors
     # du verre vers l'avant : une demi-lentille lumineuse visible de côté, à la couleur de l'âge
-    g.sphere((0, y + 0.02, zh), max(0.045, r * 0.42), M["emit_soft"], n=20, m=10, scale=(1.0, 0.6, 1.0),
-             what="foyer_tir")
+    # ronde 3c (critique : « un trait de 2 × 6 px », pas une bouche de tir) : bouche de 0,18 à 0,3 t de diamètre,
+    # LUNETTE sombre autour
+    rb = max(0.09, r * 0.55)
+    g.tube_shell((0, y + 0.03, zh), "y", rb + 0.03, rb - 0.005, 0.05, M["steel_dk"], n=28, what="lunette_tir")
+    g.sphere((0, y + 0.03, zh), rb, M["emit_soft"], n=24, m=12, scale=(1.0, 0.55, 1.0), what="foyer_tir")
 
 
 def emetteur_lignee(g, c):

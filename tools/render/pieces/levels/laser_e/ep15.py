@@ -42,6 +42,10 @@ HABILLAGE = dict(ages.CORPS[15], **E_.MAQUETTES[15])
 # liserés EN TIRETS, orange et blanc-or (socle) : la lumière de l'essai r0b était trop blanche (saturation 0,20, HORS de
 # la famille 0,2 à 0,7) et ses foyers trop grands (L2 0,98 à 1,30 t², plafond 0,45). La silhouette ne change pas.
 HABILLAGE["forme_affut"] = dict(HABILLAGE["forme_affut"], lisere=None)
+# LOT F1-C ronde 3c (P4 0,59 : le cône de noir chaud uni se lisait lisse) : une tôle sur trois en cendre (patchwork)
+HABILLAGE["forme_affut"] = dict(HABILLAGE["forme_affut"], flanc="noir_profond", flanc2="noir_chaud2")
+# ronde 3c (critique : « cône gris clair qui fait abat-jour », hors de la palette noir et or) : flancs de noir profond et
+# noir chaud, nervures d'OR épaisses
 # normale du disque dans le repère de la tête (faisceau vers +Y) : azimut 290°, élévation 65° (correction M-3)
 _AZ, _EL = math.radians(290.0), math.radians(65.0)
 NORMALE_DISQUE = (math.cos(_EL) * math.cos(_AZ), math.cos(_EL) * math.sin(_AZ), math.sin(_EL))
@@ -143,7 +147,7 @@ def _module_vide(g, k, h):
 def _nervure(g, k, h):
     """LOT F1-C : nervure de cendre sur le flanc du cône (repère du flanc : y = haut), deux boulons d'or."""
     M = g.M
-    g.box((0, 0, 0.012), (0.035, h * 0.62, 0.024), M["cendre"], "hard", what="nervure")
+    g.box((0, 0, 0.014), (0.05, h * 0.66, 0.028), M["or_chauffe"], "hard", what="nervure")
     for s in (-1, 1):
         g.bolt((0, s * h * 0.26, 0.026), (0, 0, 1), 0.011, M["or_chauffe"])
 
@@ -206,6 +210,10 @@ def socle(g, c):
         O.sur_flanc(g, c, i, O.visibles(angs, nord=0.2), _nervure, f=0.5, dr=0.003)
     for i, angs in ((0, (200, 228, 256, 284, 312, 340)), (1, (212, 245, 295, 328)), (2, (232, 308))):
         O.sur_dessus(g, c, i, [math.radians(a) for a in angs], _port_dessus, t=0.5)
+    # ronde 3c (D3 26,5) : seconde rangée de rivets de cendre et ports sur le flanc du dernier gradin
+    for i in range(4):
+        O.rivets_flanc(g, c, i, 0.7, M["cendre"], pas=0.11, r=0.013)
+    O.sur_flanc(g, c, 3, [math.radians(a) for a in (215, 250, 290, 325)], _port, f=0.5, dr=0.006)
     for (x, yn, pw) in ((0.0, -2.7, 16.0), (-2.4, -1.4, 12.0), (2.4, -1.4, 12.0), (-2.2, 2.2, 14.0), (2.2, 2.2, 14.0)):
         g.halo((x, Y(yn), 0.6), M["_emit2_rgb"], pw)
 

@@ -78,7 +78,7 @@ def _coulee(g, c, i, a, f0=0.92, f1=0.12, r=0.014):
     g.tube(pts, r, g.M["emit"], n=6, style="soft", what="coulee")
 
 
-def _coulee_longue(g, c, a0, n_g, k, branche):
+def _coulee_longue(g, c, a0, n_g, k, branche, large=False):
     """LOT F1-C : coulée de lave du haut du dernier gradin vers le bas, sur n_g gradins, qui serpente (l'angle dérive
     d'un gradin à l'autre), s'élargit vers le bas ; branche facultative sur le gradin le plus bas atteint."""
     M = g.M
@@ -94,7 +94,7 @@ def _coulee_longue(g, c, a0, n_g, k, branche):
             # traverse le dessus du gradin inférieur (du pied du gradin i à l'arête du gradin i-1)
             q = O.dessus(c, i - 1, a, 0.5)
             pts.append(V((q.x, q.y, q.z + 0.004)))
-    r0 = 0.014 + 0.003 * n_g
+    r0 = (0.026 if large else 0.014) + 0.003 * n_g
     g.tube(pts, r0, M["emit"], n=6, style="soft", what="coulee")
     # croûtes sombres posées sur la coulée (lave qui fige par plaques) : un flot, pas un fil
     for q in pts[2::3]:
@@ -127,7 +127,7 @@ def _cratere(g, c):
     n = 13
     for k in range(n):
         a = TAU * (k + 0.2) / n
-        p = O.dessus(c, i, a, 0.55)
+        p = O.dessus(c, i, a, 0.88)     # ronde 3c : lèvre au BORD du dernier gradin (visible devant la tête)
         # ronde 3b (critique : « le cratère n'existe pas visuellement ») : lèvre DENTELÉE plus haute que le pied de la
         # tête, blocs de 0,11 à 0,2
         hk = 0.11 + 0.045 * ((k * 5) % 3)
@@ -146,9 +146,16 @@ def socle(g, c):
     # LOT F1-C ronde 3b (critique : 40 tirets identiques en rangées radiales = « agrafes », pas des coulées) : SIX
     # COULÉES irrégulières qui partent de la lèvre du cratère et DESCENDENT les gradins en serpentant, de longueurs
     # inégales, avec une branche ; chaque coulée est un foyer séparé (L2)
-    for k, (a0, n_g, br) in enumerate(((212.0, 3, True), (243.0, 2, False), (268.0, 3, True), (296.0, 1, False),
-                                       (322.0, 3, False), (344.0, 2, True))):
-        _coulee_longue(g, c, math.radians(a0), n_g, k, br)
+    # ronde 3c (critique : encore des « tirets radiaux réguliers ») : TROIS grandes coulées, larges, de longueurs
+    # inégales, ramifiées, et deux filets courts
+    for k, (a0, n_g, br) in enumerate(((228.0, 3, True), (275.0, 3, True), (318.0, 2, True), (252.0, 1, False),
+                                       (343.0, 1, False))):
+        _coulee_longue(g, c, math.radians(a0), n_g, k, br, large=(k < 3))
+    # trois gros PRISMES de basalte couchés de travers au pied (cassent la jupe régulière)
+    for k, av in enumerate((205.0, 292.0, 336.0)):
+        p, nrm, _ = O.flanc(c, 0, math.radians(av), 0.05, 0.12)
+        g.cyl((p.x, p.y, 0.09), (math.cos(0.7 * k + 0.4), math.sin(0.7 * k + 0.4), 0.35), 0.09, 0.42,
+              M["basalte_capot"], n=6, style="hard", phase=0.2 * k, what="prisme_basalte")
     O.sur_flanc(g, c, 1, [math.radians(a) for a in (198, 250, 342)], _event, f=0.45, dr=0.0)
     O.sur_flanc(g, c, 0, [math.radians(a) for a in (186, 278, 354)], _event, f=0.4, dr=0.0)
     # blocs de basalte au pied du cône, entre les orgues ; LOT F1-C (« plateforme ronde à lignes de lave, pas une
@@ -170,6 +177,12 @@ def socle(g, c):
             F.lump(g, (p.x, p.y, p.z), 0.05 + 0.02 * (k % 3), M["basalte_capot" if k % 3 else "fonte_v"], sz=0.6,
                    jit=0.35)
     _cratere(g, c)
+    # ronde 3c (P4 0,52 ; masse à 0,987 × l'âge 4) : scories et blocs sur les DESSUS des deux premiers gradins
+    for i, angs in ((0, (192, 218, 250, 282, 312, 338, 358, 172)), (1, (205, 240, 300, 335))):
+        for k, av in enumerate(angs):
+            q = O.dessus(c, i, math.radians(av), 0.4 + 0.25 * (k % 2))
+            F.lump(g, (q.x, q.y, q.z - 0.005), 0.06 + 0.02 * (k % 3), M["basalte_capot" if k % 2 else "fonte_v"],
+                   sz=0.7, jit=0.35)
     # coulées figées aux coins arrière : gros blocs, fentes lumineuses, flaque
     for nom, sx in (("coin_NO", -1), ("coin_NE", 1)):
         p = corps.place(c, nom)

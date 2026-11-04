@@ -33,8 +33,13 @@ FOYER = ages.FOYER[10]
 FAISCEAU = dict(rgb=(0.2, 0.55, 1.0), rgb2=(0.09, 0.33, 1.0), forme="bleu vif en IMPULSIONS (trait en pointillés "
                 "rapides)", largeur=0.9)
 HABILLAGE = dict(ages.CORPS[10], **E_.MAQUETTES[10])
+# LOT F1-C ronde 3c (critique : en pose N, joues claires lues « poteaux dressés ») : joues et paliers SOMBRES (corps.support)
+JOUES = ("anthracite", "gris_tech")
 # LOT F1-C ronde 3b (critique : en pose N, les joues ivoire de l'étrier se lisaient « deux poteaux ») : BERCEAU
 HABILLAGE["forme_tete"] = "berceau"
+# ronde 3c (dominance de l'ère 4 : le galet plein de l'âge 10 pesait plus que les âges 11 et 12, « régression visible »)
+# : galet à 12 pans, même profil
+HABILLAGE["forme_affut"] = dict(HABILLAGE["forme_affut"], pans=12)
 
 
 def matieres(metal, M):

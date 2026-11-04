@@ -111,6 +111,8 @@ def socle(g, c):
     zp = c.gradins[-1][3]
     O.ceinture(g, c, 0, 0.36, 0.03, M["noir_capot"], colliers=M["jaune_capot"], pas=0.35)
     O.sur_flanc(g, c, 0, [math.radians(a) for a in (232, 270, 308)], _vanne, f=0.36, dr=0.04)   # LOT F1-C : + 1
+    # ronde 3c (nuit presque éteinte, critique) : quatre lanternes orange sur le flanc du premier gradin
+    O.sur_flanc(g, c, 0, [math.radians(a) for a in (205, 250, 290, 335)], _lampes, f=0.7, dr=0.004)
     O.sur_flanc(g, c, 0, [math.radians(a) for a in (205, 255, 285, 335)], _danger, f=0.82, dr=0.006)
     O.ceinture(g, c, 1, 0.3, 0.022, M["noir_capot"], colliers=M["galva_capot"], pas=0.3)
     O.rivets_flanc(g, c, 1, 0.8, M["galva_capot"], pas=0.12, r=0.012)

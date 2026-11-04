@@ -171,6 +171,12 @@ def socle(g, c):
     # sur la pente du premier gradin (boîtier, antenne courte couchée, point d'étoile)
     O.sur_flanc(g, c, 0, [math.radians(a) for a in (192, 214, 236, 258, 282, 304, 326, 348)], _noeud_pente, f=0.45,
                 dr=0.004)
+    # ronde 3c (D3 28,3 et P4 0,48 en ronde 3b) : nœuds et cartes sur le flanc du second gradin, seconde rangée de
+    # rivets, relais sur le dessus du second gradin côté arête
+    O.sur_flanc(g, c, 1, [math.radians(a) for a in (200, 240, 300, 340)], _noeud_pente, f=0.4, dr=0.004)
+    O.rivets_flanc(g, c, 0, 0.2, M["blanc_lunaire"], pas=0.12, r=0.013)
+    O.rivets_flanc(g, c, 1, 0.2, M["blanc_lunaire"], pas=0.12, r=0.013)
+    O.sur_dessus(g, c, 1, [math.radians(a) for a in (196, 244, 296, 344)], _relais, t=0.85)
     for nom, sx in (("coin_NO", -1), ("coin_NE", 1)):
         p = corps.place(c, nom)
         x, y = p["x"] - sx * 0.05, Y(p["yn"] - 0.05)

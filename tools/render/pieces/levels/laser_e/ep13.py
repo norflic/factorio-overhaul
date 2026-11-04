@@ -95,6 +95,14 @@ def _solenoide(g, k, w):
         g.box((0, s * 0.08, 0.02), (0.12, 0.03, 0.04), M["acier_noir"], "hard", what="berceau")
 
 
+def _grille_dessus(g, k, w):
+    """LOT F1-C ronde 3c : grille de ventilation d'acier noir couchée sur le dessus (repère du dessus)."""
+    M = g.M
+    g.box((0, 0, 0.01), (0.2, 0.16, 0.02), M["acier_noir"], "hard", what="cadre_grille")
+    for j in range(5):
+        g.box((0, -0.06 + 0.03 * j, 0.024), (0.17, 0.012, 0.01), M["acier_canon2"], "hard", what="lame")
+
+
 def _borne(g, k, w):
     """LOT F1-C : borne de champ (repère du dessus) : plot d'acier noir, collier de cuivre, point violet ou bleu."""
     M = g.M
@@ -144,6 +152,10 @@ def socle(g, c):
     for i in range(3):
         O.rivets_flanc(g, c, i, 0.88, M["acier_noir"], pas=0.11, r=0.013)
     O.ceinture(g, c, 0, 0.06, 0.018, M["cuivre_bobine"], colliers=M["acier_noir"], pas=0.35)
+    # ronde 3c (P4 0,54) : grilles de ventilation et bornes sur les dessus des lobes
+    O.sur_dessus(g, c, 0, [math.radians(a) for a in (200, 230, 250, 290, 310, 340)], _grille_dessus, t=0.8)
+    O.sur_dessus(g, c, 1, [math.radians(a) for a in (200, 340)], _grille_dessus, t=0.75)
+    O.sur_dessus(g, c, 2, [math.radians(a) for a in (190, 235, 305, 350)], _borne, t=0.2)
     for nom, sx in (("coin_NO", -1), ("coin_NE", 1)):
         p = corps.place(c, nom)
         x, y = p["x"] - sx * 0.05, Y(p["yn"] - 0.05)
@@ -225,8 +237,13 @@ def emetteur(g, c):
     # de lumière douce sur la capsule, entre les manchons)
     g.cyl((0, yc, zh + r * 1.1), "z", 0.13 * re, 0.04, M["acier_noir"], n=16, style="hard", what="hublot")
     g.sphere((0, yc, zh + r * 1.13), 0.1 * re, M["emit"], n=14, m=7, scale=(1.0, 1.0, 0.7), what="point_violet")
-    for k in range(5):
-        yy = yc - (L + 0.5 * r) / 2 + (k + 0.0) * (L + 0.5 * r) / 4
-        g.tube_shell((0, yy, zh), "y", r * 1.02, r * 0.9, 0.035 * re, M["emit_soft"], n=36, what="fente_coeur")
+    # ronde 3c (L2 0,93 t² en pose E : les 5 anneaux de lumière se soudaient) : fentes COURTES, sur le dessus et les
+    # flancs seulement, entre les manchons, chacune séparée
+    for k in (1, 2, 3):
+        yy = yc - (L + 0.5 * r) / 2 + k * (L + 0.5 * r) / 4
+        for ang in (math.radians(55), math.radians(125), math.radians(0), math.radians(180)):
+            d = V((math.cos(ang), 0, math.sin(ang)))
+            g.box(V((0, yy, zh)) + d * (r * 1.0), (0.05 * re, 0.03 * re, 0.016), M["emit_soft"], "flat",
+                  R=Matrix.Rotation(-ang + math.pi / 2, 3, "Y"), what="fente_coeur")
     # lentille avant à cœur violet
     corps.lentille(g, c, yc + L / 2 + 0.62 * r - 0.02, 0.22 * re, verre=M["verre_fume"], cercle=M["acier_noir"])

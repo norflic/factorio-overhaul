@@ -35,6 +35,7 @@ HABILLAGE = dict(ages.CORPS[11], **E_.MAQUETTES[11])
 # LOT F1-C (CONCEPT §4 : masse 0,66 × la mitrailleuse et sous l'âge 10 en ronde 2) : étoile moins creusée (0,16 → 0,09),
 # même étoile à 8 pointes, plus de matière
 HABILLAGE["forme_affut"] = dict(HABILLAGE["forme_affut"], lisere=None,
+                                rayons=dict(forme="aileron", n=8, mat="titane_dk", phase=101.25 + 22.5),
                                 contour=dict(HABILLAGE["forme_affut"]["contour"], prof=0.08))
 # ronde 3b (critique : liserés blancs CONTINUS en « toile d'araignée », et de nuit la lumière du socle traverse la tête
 # qui tourne) : liserés de la lignée retirés ; étoile encore moins creusée (0,09 → 0,08, le minimum du contrat : masse)
@@ -102,8 +103,8 @@ def _dessus(g, k, w):
 def _feu_pointe(g, k, h):
     """LOT F1-C ronde 3b : feu de pointe (boîtier de titane sombre, verre de lumière douce)."""
     M = g.M
-    g.box((0, 0, 0.012), (0.09, h * 0.22, 0.024), M["titane_dk"], "hard", what="boitier_feu")
-    g.box((0, 0, 0.026), (0.06, h * 0.12, 0.006), M["emit_soft"], "flat", what="feu")
+    g.box((0, 0, 0.012), (0.12, h * 0.26, 0.024), M["titane_dk"], "hard", what="boitier_feu")
+    g.box((0, 0, 0.026), (0.09, h * 0.17, 0.006), M["emit_soft"], "flat", what="feu")     # ronde 3c : plus grands
 
 
 def _nacelle(g, x, y, z, r, M):
@@ -219,7 +220,8 @@ def arriere(g, c):
         a = V((sx * bx * 0.3, y0 + 0.02, z1 - 0.1))
         b = V((sx * bx * 0.3, y1 - 0.05, z1 - 0.1))
         top = V((sx * bx * 1.05, y0 + 0.04, z1 + 0.06))
-        P2.wedge(g, a, b, top, (b - a).cross(top - a).normalized() * 0.035, M["titane_cl"], what="derive")
+        # ronde 3c (écrêtage : cette dérive en titane clair, face au soleil, passait au blanc pur, 0,063 t²)
+        P2.wedge(g, a, b, top, (b - a).cross(top - a).normalized() * 0.035, M["titane_md"], what="derive")
         g.box(((a + top) / 2), (0.03, 0.03, 0.02), M["orange_aero"], "hard", what="repere")
 
 
@@ -251,6 +253,12 @@ def emetteur(g, c):
     for yy in (yh0 + 0.03, yh1 - 0.03):
         g.tube_shell((0, yy, zh), "y", 0.68 * re, 0.6 * re, 0.05, M["ring"], n=40, what="cercle_moyeu")
     F.bolts_ring(g, (0, yh1 + 0.002, zh), (0, 1, 0), 0.56 * re, 16, M["rivet_ti"], r=0.014)
+    # ronde 3c (nuit morte, critique) : six FENTES de lumière douce sur le pourtour du moyeu, entre les ailerons
+    for k in range(6):
+        a = TAU * k / 6 + 0.13 + TAU / 24
+        d = V((math.cos(a), 0, math.sin(a)))
+        g.box(V((0, (yh0 + yh1) / 2, zh)) + d * (0.665 * re), (0.03, 0.3 * re, 0.07 * re), M["emit_soft"], "flat",
+              R=Matrix.Rotation(-a, 3, "Y"), what="fente_moyeu")
     # ailerons vrillés (alliage clair à bout orange)
     for k in range(12):
         a = TAU * k / 12 + 0.13
