@@ -5,7 +5,8 @@
     - f.team.depenses.defense_want = { [matière] = quantité } : demande de défense, écrite par le périmètre ;
     - Dep.defense(f, tick) -> { [matière] = quantité accordée } (table vide : rien ne dort, règle éteinte ou résultat périmé) ;
     - Dep.labs_target(f, now, cap, tick) -> cible ABSOLUE de laboratoires ou nil (script/ai3/cerveau.lua) ;
-    - Dep.soldiers_target(f, army, max, tick) -> cible d'armée relevée (script/ai3/cerveau.lua, factions) ;
+    - Dep.soldiers_target(f, army, max, now, tick, key, key_short) -> cible d'armée relevée (script/ai3/cerveau.lua, factions : votre
+      équipe n'a ni chemin de recrutement ni prototype de soldat, voir RAPPORT.md) ;
     - Dep.capi_reserve(f, rin, tick) -> l'entrée « stock hors besoin » de la capitalisation, DÉBITÉE de ce que cette règle a accordé ou
       engagé (défense, laboratoires et soldats encore à faire : revue D2, pas de double dépense).
   Interrupteur : f.team.depenses.on = false. Journal : [FO-DEPENSES] <équipe> minute <m> | <cause>.
@@ -40,6 +41,13 @@ local function fresh(f, tick)
   return d.res
 end
 
+--- Essai 3 : le centre d'abord. Il attend tant qu'il est le but courant de l'amélioration (script/ai3/capital.lua, c.current.center)
+--- ou payable (porte ouverte du report, lot AGES : c.defer.open).
+function Dep.centre_waiting(f)
+  local c = f and f.team and f.team.capital
+  return (c and ((c.current and c.current.center) or (c.defer and c.defer.open))) and true or false
+end
+
 --- products = { { key, def_only } } dans l'ordre (plaques des fonderies, puis matières brutes « défense seule »).
 function Dep.think(f, cs, tick, products, minutes)
   if not (f and f.team) then return nil end
@@ -53,14 +61,22 @@ function Dep.think(f, cs, tick, products, minutes)
       free = (rin and rin.free and rin.free[k]) or 0,
       missing = (rin == nil) or (((rin.missing and rin.missing[k]) or 0) > 0) }
   end
+  local hold = Dep.centre_waiting(f)
   local res
-  d.st, res = Dp.step(d.st, { on = d.on ~= false, tick = tick, products = list,
+  d.st, res = Dp.step(d.st, { on = d.on ~= false, tick = tick, products = list, hold = hold,
     want = type(d.defense_want) == "table" and d.defense_want or nil })
   d.res, d.res_tick = res, tick
-  if res.labs <= 0 then d.lab_base, d.lab_target = nil, nil end -- rien ne dort pour la recherche : base oubliée (Dp.labs_target)
+  -- Rien ne dort pour la recherche : base oubliée. Centre en attente : base et cible GARDÉES (pas un nouveau sommeil qui repartirait de
+  -- plus haut), mais aucun laboratoire demandé ni débité tant qu'il attend (Dep.labs_target, Dp.reserved).
+  if res.labs <= 0 and not res.hold then d.lab_base, d.lab_target = nil, nil end
+  if res.hold then d.soldier_target = nil end
   if d.on ~= false then
-    log(string.format("[FO-DEPENSES] %s minute %d | %s | laboratoires base %s cible %s, soldats cible %s", f.key or "?",
-      math.floor((minutes or 0) + 0.5), res.why, tostring(d.lab_base or "-"), tostring(d.lab_target or "-"), tostring(d.soldier_target or "-")))
+    local sold
+    if f.is_player then sold = "soldats : votre equipe ne recrute pas"
+    elseif d.soldier_target then sold = string.format("soldats cible %d (cerveau %d, presents %d)", d.soldier_target, d.soldier_brain or 0, d.soldier_now or 0)
+    else sold = "soldats : rien de plus" end
+    log(string.format("[FO-DEPENSES] %s minute %d | %s | laboratoires base %s cible %s | %s", f.key or "?",
+      math.floor((minutes or 0) + 0.5), res.why, tostring(d.lab_base or "-"), tostring(d.lab_target or "-"), sold))
   end
   return res
 end
@@ -77,22 +93,24 @@ end
 function Dep.labs_target(f, now, cap, tick)
   local r = fresh(f, tick)
   local d = f and f.team and f.team.depenses
-  if not (r and d) then return nil end
-  local target, base = Dp.labs_target(d.lab_base, now, r.labs, cap)
+  if not (r and d) or r.hold then return nil end
+  local target, base = Dp.labs_target(d.lab_base, now, r.labs, cap, d.lab_target)
   d.lab_base, d.lab_target, d.lab_now = base, target, now
   return target
 end
 
---- Cible d'armée relevée (revue D3) ; army = cible du cerveau, max = plafond de soldats ; now = soldats présents (débit).
-function Dep.soldiers_target(f, army, max, now, tick)
+--- Cible d'armée relevée (revue D3, E4) ; army = cible du cerveau, max = plafond de soldats, now = soldats présents (débit), key = matière
+--- clé (seule à payer des soldats), key_short = elle manque (rien de plus : la garde de Br.army et de la prévision).
+function Dep.soldiers_target(f, army, max, now, tick, key, key_short)
   local r = fresh(f, tick)
   local d = f and f.team and f.team.depenses
-  if not (r and d) or (r.soldiers or 0) <= 0 then
+  local extra = r and Dp.soldiers_extra(r, key, key_short) or 0
+  if not d or extra <= 0 then
     if d then d.soldier_target = nil end
     return army
   end
-  local t = Dp.soldiers(army, r.soldiers, max)
-  d.soldier_target, d.soldier_now = t, now
+  local t = Dp.soldiers(army, extra, max)
+  d.soldier_target, d.soldier_brain, d.soldier_now, d.soldier_key = t, army, now, key
   return t
 end
 
@@ -101,15 +119,8 @@ end
 function Dep.reserved(f, tick)
   local r = fresh(f, tick)
   local d = f and f.team and f.team.depenses
-  local out = {}
-  if not (r and d) then return out end
-  for _, k in ipairs(sorted_keys(r.defense)) do out[k] = (out[k] or 0) + (r.defense[k] or 0) end
-  local eng = Dp.engaged(d.lab_target, d.lab_now, Dp.LAB_COST)
-  if d.soldier_target and d.soldier_now then eng = eng + Dp.engaged(d.soldier_target, d.soldier_now, Dp.SOLDIER_COST) end
-  if eng > 0 and (r.research or 0) > 0 then
-    for _, k in ipairs(sorted_keys(r.rper)) do out[k] = (out[k] or 0) + eng * (r.rper[k] or 0) / r.research end
-  end
-  return out
+  if not (r and d) then return {} end
+  return Dp.reserved(r, d.lab_target, d.lab_now, d.soldier_target, d.soldier_brain, d.soldier_now, d.soldier_key)
 end
 
 --- Entrée « stock hors besoin » de la capitalisation débitée de Dep.reserved (copie ; rin nil -> nil).

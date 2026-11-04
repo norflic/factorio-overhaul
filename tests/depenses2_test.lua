@@ -50,6 +50,14 @@ local function suite(Dp)
   -- recherche puis armement
   check(math.abs(r0.research - 4400) < 1e-6 and r0.labs == 4, "recherche : 4 400 plaques -> 4 laboratoires (plafond)")
   check(math.abs(rd.research - 3401) < 1e-6 and rd.labs == 3 and math.abs(rd.arms - 401) < 1e-6, "défense d'abord, puis recherche (3), armement le reste")
+  -- essai 3 : le centre d'abord
+  local sth = run(Dp, 10 * MIN, P, { a = 999 })
+  local _, rh = Dp.step(sth, { on = true, tick = 11 * MIN, products = P, want = { a = 999 }, hold = true })
+  check(rh.hold and rh.labs == 0 and next(rh.arms_by) == nil and rh.defense.a == 999,
+    "centre en attente : 0 laboratoire, 0 armement, la défense reste servie")
+  check(Dp.soldiers_extra(rh, "a", false) == 0, "centre en attente : 0 soldat")
+  local rvh = Dp.reserved(rh, 9, 5, nil, nil, nil, nil)
+  check((rvh.a or 0) == 999, "centre en attente : rien d'engagé pour les laboratoires, la défense seule (" .. tostring(rvh.a) .. ")")
   local _, rp = run(Dp, 10 * MIN, { { key = "a", free = 1500, made = 100 } }, {})
   check(rp.labs == 0, "sous 1 000 plaques après défense : aucun laboratoire de plus")
   -- interrupteur
@@ -69,12 +77,37 @@ local function suite(Dp)
     if target and now < target then now = now + 1 end
   end
   check(now == 6 and base == 2 and target == 6, "laboratoires : base figée à 2, cible 6, posés 6 après 30 pensées (" .. now .. ")")
+  -- essai 3 : cible MONOTONE pendant un sommeil (le surplus oscille autour du seuil : n = 2, 1, 2, 1)
+  local b2, t2, seen = nil, nil, {}
+  for i, n in ipairs({ 2, 1, 2, 1, 3, 1 }) do
+    t2, b2 = Dp.labs_target(b2, 2, n, 13, t2)
+    seen[i] = t2
+  end
+  check(seen[1] == 4 and seen[2] == 4 and seen[4] == 4 and seen[5] == 5 and seen[6] == 5, "cible monotone : 4 4 4 4 5 5 (" .. table.concat(seen, " ") .. ")")
+  check(Dp.labs_target(2, 2, 1, 13, 99) == 6, "cible monotone jamais au-delà de base + 4 (6)")
   check(Dp.labs_target(5, 5, 4, 7) == 7, "cible plafonnée par l'appelant (7)")
   check(Dp.labs_target(5, 5, 0, 7) == nil and select(2, Dp.labs_target(5, 5, 0, 7)) == nil, "rien ne dort : aucune cible, base oubliée")
   check(Dp.engaged(6, 4, 60) == 120 and Dp.engaged(nil, 4, 60) == 0 and Dp.engaged(4, 6, 60) == 0, "plaques engagées : 2 laboratoires à faire = 120")
   -- revue D3 : armement
   local _, rs3 = run(Dp, 10 * MIN, { { key = "a", free = 20600, made = 100 } }, {})
-  check(rs3.labs == 4 and rs3.soldiers == 6, "armement : après 4 laboratoires, le reste paie 6 soldats de plus (plafond)")
+  check(rs3.labs == 4 and Dp.soldiers_extra(rs3, "a", false) == 6, "armement : après 4 laboratoires, le reste paie 6 soldats de plus (plafond)")
+  check(Dp.soldiers_extra(rs3, "a", true) == 0, "matière clé qui manque (key_short) : aucun soldat de plus (E4)")
+  check(Dp.soldiers_extra(rs3, "z", false) == 0 and Dp.soldiers_extra(rs3, nil, false) == 0, "matière clé qui ne dort pas : aucun soldat")
+  -- E4 : par matière. Seul le cuivre dort : il ne paie pas des recrues en fer.
+  local _, rcu = run(Dp, 10 * MIN, { { key = "fer", free = 50, made = 0 }, { key = "cuivre", free = 20600, made = 100 } }, {})
+  check(rcu.arms > 3000 and Dp.soldiers_extra(rcu, "fer", false) == 0, "le cuivre qui dort ne paie pas de soldats en fer (" .. math.floor(rcu.arms) .. ")")
+  local _, rmx = run(Dp, 10 * MIN, { { key = "fer", free = 10600, made = 100 }, { key = "cuivre", free = 10600, made = 100 } }, {})
+  check(math.abs(rmx.arms_by.fer - rmx.arms_by.cuivre) < 1e-6 and math.abs(rmx.arms_by.fer + rmx.arms_by.cuivre - rmx.arms) < 1e-6,
+    "armement par matière : au prorata, somme = armement total")
+  -- E2 : débit des soldats = min(t − cerveau, t − présents) × coût, sur la matière clé ; jamais plus que l'excédent qui dort
+  local rv = Dp.reserved(rs3, nil, nil, 24, 18, 0, "a")
+  check(math.abs((rv.a or 0) - 6 * 60) < 1e-6, "débit : 6 soldats au-dessus de la cible du cerveau (pas 24) = 360 (" .. tostring(rv.a) .. ")")
+  local rv2 = Dp.reserved(rs3, nil, nil, 24, 18, 22, "a")
+  check(math.abs((rv2.a or 0) - 2 * 60) < 1e-6, "débit : 2 encore à recruter (22 présents) = 120")
+  local rv3 = Dp.reserved(rs3, 9, 5, nil, nil, nil, nil)
+  check(math.abs((rv3.a or 0) - 4 * 60) < 1e-6, "débit : 4 laboratoires encore à faire = 240")
+  local tiny = { per = { a = 100 }, rper = { a = 100 }, research = 100, defense = { a = 0 } }
+  check(Dp.reserved(tiny, 20, 0, 30, 0, 0, "a").a == 100, "débit jamais au-delà de l'excédent qui dort (100)")
   check(Dp.soldiers(18, 3, 30) == 21 and Dp.soldiers(29, 3, 30) == 30 and Dp.soldiers(18, 0, 30) == 18 and Dp.soldiers(35, 3, 30) == 35,
     "cible d'armée : +3, plafond de soldats, rien sans excédent, jamais baissée")
   -- revue D5 : relevé manqué, demande qui n'est pas une table
@@ -119,5 +152,13 @@ mutant("relevé manqué ignoré", "if dt and dt > Dp.GAP then st.since, dt = {},
 mutant("demande non gardée", "type(inp.want) == \"table\" and inp.want or {}", "inp.want or {}")
 mutant("engagé négatif", "return math.max(0, math.floor(num(target)) - math.floor(num(now))) * num(cost)", "return (math.floor(num(target)) - math.floor(num(now))) * num(cost)")
 mutant("armée baissée", "return math.max(a, math.min(", "return (math.min(")
-print(string.format("[DEPENSES2] BILAN : %d OK, %d ECHEC(S) (dont 18 mutants)", passes, failures))
+mutant("centre en attente ignoré", "  if res.hold then\n", "  if false then\n")
+mutant("cible qui oscille", "if type(prev) == \"number\" and prev > t then t = prev end", "")
+mutant("cible monotone sans plafond base + 4", "math.floor(num(cap))), base + Dp.LABS_MAX)", "math.floor(num(cap))), 1e9)")
+mutant("matière clé qui manque ignorée", "if not res or res.hold or key_short or key == nil then return 0 end", "if not res or res.hold or key == nil then return 0 end")
+mutant("armement non compté par matière", "local a = num((res.arms_by or {})[key])", "local a = num(res.arms)")
+mutant("débit des soldats sur toute l'armée", "num(sold_target) - num(sold_brain), num(sold_target) - num(sold_now)", "num(sold_target) - num(sold_now), num(sold_target) - num(sold_now)")
+mutant("laboratoires débités pendant l'attente du centre", "res.hold and 0 or Dp.engaged(lab_target, lab_now, Dp.LAB_COST)", "Dp.engaged(lab_target, lab_now, Dp.LAB_COST)")
+mutant("débit au-delà de l'excédent", "out[k] = math.min(out[k], num((res.per or {})[k]))", "out[k] = out[k]")
+print(string.format("[DEPENSES2] BILAN : %d OK, %d ECHEC(S) (dont 26 mutants)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

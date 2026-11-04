@@ -824,7 +824,8 @@ function Ia3.plan(f, view, book, surface, tick)
     local soon = view.army_soon or 0
     if soon > army_target and not key_short then army_target = math.min(soon, view.soldiers_max or 0) end
     -- Lot DEPENSES2 (revue D3) : armement : le reste des plaques qui dorment relève la cible d'armée (absolue, plafond de soldats).
-    army_target = Dep.soldiers_target(f, army_target, view.soldiers_max or 0, f.soldiers_count or 0, tick)
+    -- (revue E4 : la matière clé paie seule, et rien de plus quand elle manque, comme Br.army et la prévision ci-dessus)
+    army_target = Dep.soldiers_target(f, army_target, view.soldiers_max or 0, f.soldiers_count or 0, tick, floor_item, key_short)
   end
   -- En guerre : déclarée au joueur (PvP) ; la posture guerrière du chef passe déjà par les poids (B.weights).
   local at_war = (f.pvp and f.pvp.declared) or false

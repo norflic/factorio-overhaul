@@ -17,6 +17,14 @@
      encore à faire (Dp.LAB_COST plaques chacun) pour que la capitalisation ne dépense pas les mêmes plaques (D2).
   5. Armement (D3) : ce qui reste après les laboratoires relève la cible d'armée des factions, Dp.SOLDIER_PLATES plaques par soldat de
      plus, au plus Dp.SOLDIERS_MAX, jamais au-delà du plafond de soldats (Dp.soldiers, cible ABSOLUE elle aussi).
+  6. Essai 3 (preuve de l'essai 2, C4 : Azur perd l'âge 2 dans 2 parties sur 4, son centre attendait 60 circuits pendant que la règle lui
+     faisait fabriquer 4 laboratoires de 10 circuits) : le CENTRE D'ABORD. Tant que le centre est le but courant ou payable (inp.hold),
+     la règle ne demande ni laboratoire ni soldat ; la défense reste servie. La cible de laboratoires est MONOTONE pendant un sommeil
+     (Dp.labs_target, prev : la plus haute atteinte, jamais au-delà de base + Dp.LABS_MAX) : elle n'oscille plus avec le surplus.
+  7. Revue de l'essai 2 (E2, E4) : l'armement se compte PAR MATIÈRE (arms_by : la part de chaque matière après les laboratoires) ; les
+     soldats ne se paient qu'avec la matière CLÉ (Dp.soldiers_extra, jamais quand elle manque : key_short) ; le débit des soldats engagés
+     (Dp.reserved) est min(cible − cible du cerveau, cible − présents) × coût, porté par la matière clé, et rien n'est débité au-delà de
+     l'excédent qui dort de chaque matière.
   Déterminisme : matières dans l'ordre de l'appelant, aucun hasard, aucun temps mesuré ; l'état ne garde que des nombres.
 ]]
 
@@ -37,6 +45,13 @@ Dp.SOLDIER_COST = 60   -- plaques débitées par soldat de plus encore à recrut
 
 local function num(x) return type(x) == "number" and x == x and x or 0 end
 
+local function sorted_keys(t)
+  local ks = {}
+  for k in next, t or {} do ks[#ks + 1] = k end
+  table.sort(ks, function(a, b) return tostring(a) < tostring(b) end)
+  return ks
+end
+
 function Dp.new() return { since = {}, prod = {} } end
 
 function Dp.smooth(old, made, dt)
@@ -51,15 +66,16 @@ function Dp.excess(free, prod, missing)
   return math.max(0, num(free) - math.max(Dp.FLOOR, Dp.H_SEUIL * math.max(0, num(prod))))
 end
 
---- st = état (Dp.new) ; inp = { on, tick, products = { { key, free, made, missing, def_only } }, want = { [key] = n } }.
+--- st = état (Dp.new) ; inp = { on, tick, products = { { key, free, made, missing, def_only } }, want = { [key] = n }, hold (centre en
+--- attente : ni laboratoire ni soldat) }.
 --- Rend st, res = { per = { [key] = excédent qui dort }, rper = { [key] = part de la recherche }, defense = { [key] = accordé },
---- research = plaques, labs, arms = plaques, soldiers, why }.
+--- research = plaques, labs, arms = plaques, arms_by = { [key] = plaques }, hold, why }.
 function Dp.step(st, inp)
   st = st or Dp.new()
   st.since, st.prod = st.since or {}, st.prod or {}
   inp = inp or {}
   local tick = num(inp.tick)
-  local res = { per = {}, rper = {}, defense = {}, research = 0, labs = 0, arms = 0, soldiers = 0, why = "" }
+  local res = { per = {}, rper = {}, defense = {}, research = 0, labs = 0, arms = 0, arms_by = {}, hold = inp.hold == true, why = "" }
   if not inp.on then
     st.since, st.prod, st.last = {}, {}, nil
     res.why = "eteint"
@@ -88,28 +104,72 @@ function Dp.step(st, inp)
       parts[#parts + 1] = string.format("%s dort %d (defense %d)", k, math.floor(exc), d)
     end
   end
+  -- Essai 3 : le centre d'abord (ni laboratoire ni soldat tant qu'il attend ; tout l'excédent reste au centre et à la défense).
+  if res.hold then
+    res.why = string.format("%s | CENTRE EN ATTENTE : laboratoires et soldats retenus", #parts > 0 and table.concat(parts, " ; ") or "rien ne dort")
+    return st, res
+  end
   res.labs = math.min(Dp.LABS_MAX, math.floor(res.research / Dp.LAB_PLATES + 1e-9))
-  res.arms = math.max(0, res.research - res.labs * Dp.LAB_PLATES)
-  res.soldiers = math.min(Dp.SOLDIERS_MAX, math.floor(res.arms / Dp.SOLDIER_PLATES + 1e-9))
-  res.why = string.format("%s | recherche %d plaque(s) -> %d laboratoire(s) de plus | armement %d plaque(s) -> %d soldat(s) de plus",
-    #parts > 0 and table.concat(parts, " ; ") or "rien ne dort", math.floor(res.research), res.labs, math.floor(res.arms), res.soldiers)
+  -- Armement par matière (E4) : la part de chaque matière après les laboratoires (pris au prorata des parts de la recherche).
+  local left = math.max(0, res.research - res.labs * Dp.LAB_PLATES)
+  for _, p in ipairs(inp.products or {}) do
+    local k = tostring(p.key)
+    if res.rper[k] and res.research > 0 then res.arms_by[k] = res.rper[k] * left / res.research end
+  end
+  res.arms = left
+  local ab = {}
+  for _, p in ipairs(inp.products or {}) do
+    local k = tostring(p.key)
+    if res.arms_by[k] then ab[#ab + 1] = k .. " " .. math.floor(res.arms_by[k]) end
+  end
+  res.why = string.format("%s | recherche %d plaque(s) -> %d laboratoire(s) de plus | armement %d plaque(s) {%s}",
+    #parts > 0 and table.concat(parts, " ; ") or "rien ne dort", math.floor(res.research), res.labs, math.floor(res.arms), table.concat(ab, ", "))
   return st, res
+end
+
+--- Soldats de plus payés par la matière CLÉ (E4) : 0 si le centre attend, si la clé manque (key_short) ou si elle ne dort pas.
+function Dp.soldiers_extra(res, key, key_short)
+  if not res or res.hold or key_short or key == nil then return 0 end
+  local a = num((res.arms_by or {})[key])
+  return math.min(Dp.SOLDIERS_MAX, math.floor(a / Dp.SOLDIER_PLATES + 1e-9))
 end
 
 --- Cible ABSOLUE de laboratoires (revue D1). base = nombre figé (nil : pas encore figé), now = présents, extra = laboratoires de plus
 --- voulus (Dp.step, res.labs), cap = plafond total de l'appelant. Rend (cible ou nil, base à garder ou nil) : rien ne dort -> (nil, nil),
 --- la base est oubliée ; sinon base figée au premier appel, cible = min(cap, base + extra), jamais sous `now` retiré (la cible ne
 --- démonte rien : l'appelant prend le plus grand de sa cible et de celle-ci).
-function Dp.labs_target(base, now, extra, cap)
+function Dp.labs_target(base, now, extra, cap, prev)
   if num(extra) <= 0 then return nil, nil end
   base = base or math.max(0, math.floor(num(now)))
-  return math.min(math.max(0, math.floor(num(cap))), base + math.floor(num(extra))), base
+  local c = math.min(math.max(0, math.floor(num(cap))), base + Dp.LABS_MAX)
+  local t = base + math.floor(num(extra))
+  if type(prev) == "number" and prev > t then t = prev end -- essai 3 : monotone pendant un sommeil (la plus haute atteinte)
+  return math.min(c, t), base
 end
 
 --- Plaques encore engagées : (cible - présents) x coût, jamais négatif.
 function Dp.engaged(target, now, cost)
   if target == nil then return 0 end
   return math.max(0, math.floor(num(target)) - math.floor(num(now))) * num(cost)
+end
+
+--- Ce que la règle a accordé ou engagé, par matière (D2, E2) : défense accordée + laboratoires encore à faire (au prorata des parts de la
+--- recherche) + soldats encore à recruter AU-DESSUS de la cible du cerveau (min(t − brain, t − now) × coût, sur la matière clé) ; jamais
+--- plus que l'excédent qui dort de chaque matière (res.per).
+function Dp.reserved(res, lab_target, lab_now, sold_target, sold_brain, sold_now, key)
+  local out = {}
+  if not res then return out end
+  for _, k in ipairs(sorted_keys(res.defense)) do out[k] = num(res.defense[k]) end
+  local labs = res.hold and 0 or Dp.engaged(lab_target, lab_now, Dp.LAB_COST) -- (centre en attente : rien d'engagé pour les laboratoires)
+  if labs > 0 and num(res.research) > 0 then
+    for _, k in ipairs(sorted_keys(res.rper)) do out[k] = (out[k] or 0) + labs * num(res.rper[k]) / res.research end
+  end
+  if sold_target ~= nil and key ~= nil then
+    local n = math.max(0, math.min(num(sold_target) - num(sold_brain), num(sold_target) - num(sold_now)))
+    if n > 0 then out[key] = (out[key] or 0) + n * Dp.SOLDIER_COST end
+  end
+  for _, k in ipairs(sorted_keys(out)) do out[k] = math.min(out[k], num((res.per or {})[k])) end
+  return out
 end
 
 --- Cible d'armée relevée (D3) : army = cible du cerveau, extra = soldats de plus (res.soldiers), max = plafond de soldats. Absolue :
