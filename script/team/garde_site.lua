@@ -344,7 +344,10 @@ function Gd.view(f, fortify_open)
       local w = st.waves[oid]
       local wave = (w and Gs.wave_live(w.tick, tick)) and w.n or 0
       -- le GROUPE est du côté des attaques : « déjà là » = tourelles à moins de Gs.ACCEPT de son centre (pas les tourelles éparses du site)
-      local nx, ny = Gs.dir({ x = o.pos.x, y = o.pos.y }, threats_near(f, surface, o.pos), f.hq_pos)
+      -- direction FIGÉE dès la première pose (banc lot-dc : la direction suivait la mémoire du front et le groupe changeait de place)
+      local fixed = st.dirs and st.dirs[oid]
+      local nx, ny
+      if fixed then nx, ny = fixed.nx, fixed.ny else nx, ny = Gs.dir({ x = o.pos.x, y = o.pos.y }, threats_near(f, surface, o.pos), f.hq_pos) end
       local g = Gs.spots({ x = o.pos.x, y = o.pos.y }, nx, ny)
       local have = surface.count_entities_filtered({ position = g, radius = Gs.ACCEPT, force = f.force, type = R.TURRET_TYPES })
       local want = Gs.want(wave)
@@ -405,6 +408,10 @@ function Gd.place(f, surface, task, carrier)
   local n = Outposts.fortify_at(f, surface, Gd.OID .. tostring(key), spots, count, carrier, function(pos) return Gs.accepts(g, pos.x, pos.y) end)
   st.poses = st.poses + n
   if n == 0 then st.rest[key] = tick + Gd.REST end
+  if n > 0 then
+    st.dirs = st.dirs or {}
+    if not st.dirs[key] then st.dirs[key] = { nx = pk.nx, ny = pk.ny } end -- le groupe garde sa place
+  end
   glog(f, st, string.format("pose de %d tourelle(s) sur %d en groupe a l'avant-poste %s, autour de (%.0f, %.0f) a %.1f min (cumul %d)%s", n, count,
     tostring(key), g.x, g.y, tick / 3600, st.poses, n == 0 and " : aucune place, site au repos 2 min" or ""))
   return n
