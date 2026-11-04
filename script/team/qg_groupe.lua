@@ -96,7 +96,8 @@ function QgG.line(f, surface, center, n)
   for _, s in ipairs(G.slots(n, st.sides, gap())) do out[#out + 1] = { s.dx, s.dy } end
   -- au-delà de 2 lignes pleines (G.sizes), les tourelles en trop reprennent les emplacements d'avant (D.HQ_OFFSETS)
   for _, o in ipairs(Depart.offsets(n - #out)) do out[#out + 1] = o end
-  say(st, "player : depart, %d tourelle(s) du QG en ligne cote %s (%d nid(s) a %d tuiles%s), ecart %d", n, names(st.sides), #found,
+  say(st, "player : depart, %d tourelle(s) du QG : %s (cotes retenus %s ; %d nid(s) a %d tuiles%s), ecart %d", n, G.shape_text(n, st.sides),
+    names(st.sides), #found,
     QgG.NEST_R, #found == 0 and " : cote par defaut" or "", gap())
   return out
 end

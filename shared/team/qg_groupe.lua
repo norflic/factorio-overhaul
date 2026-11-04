@@ -176,6 +176,20 @@ end
 --- Côté opposé (1 à 8).
 function G.opposite(s) return (s + 3) % 8 + 1 end
 
+--- Texte de journal des groupes posés (mêmes côtés et tailles que G.slots) : « 4 en carre cote SO », « 4 en ligne cote S + 2 en ligne cote N ».
+--- Une diagonale (NE, SE, SO, NO) est un carré, un côté droit une ligne ; « - » sans groupe. ASCII (journal du jeu).
+function G.shape_text(n, sides)
+  if not sides or #sides == 0 then return "-" end
+  if #sides == 1 and num(n) > G.GROUP_MAX then sides = { sides[1], G.opposite(sides[1]) } end
+  local parts = {}
+  for g, m in ipairs(G.sizes(n, #sides)) do
+    local s = sides[g]
+    parts[#parts + 1] = string.format("%d en %s cote %s", m, s % 2 == 0 and "carre" or "ligne", G.NAMES[s])
+  end
+  if #parts == 0 then return "-" end
+  return table.concat(parts, " + ")
+end
+
 --- Places des tourelles (relatives au coffre) : { { dx, dy, group, side } }, ligne 1 d'abord, du centre de la ligne vers ses bouts (une ligne
 --- incomplète reste serrée). n tourelles, `sides` (G.choose_sides ; un seul côté et plus de G.GROUP_MAX tourelles : son opposé en plus), `gap`
 --- écart voulu entre centres (tuiles). Pas ENTIER (G.step) : deux places d'une ligne sont exactement à un multiple du pas, arrondi compris.

@@ -104,6 +104,9 @@ local function facts(G, Sq)
     diag[#diag + 1] = G.NAMES[side] .. ":" .. math.floor(mx * 100 + 0.5) .. "/" .. math.floor(far * 100 + 0.5) .. "/" .. wsup
   end
   r.diag = table.concat(diag, " ")
+  -- journal de départ (lead, 0.6.50) : « en carre » pour une diagonale, « en ligne » pour un côté droit, groupes réellement posés
+  r.shape = G.shape_text(4, { 6, 1 }) .. " | " .. G.shape_text(4, { 5 }) .. " | " .. G.shape_text(6, { 5, 1 }) .. " | " .. G.shape_text(6, { 2 }) ..
+    " | " .. G.shape_text(4, {})
   r.step = G.step(0.70710678, 6) .. "," .. G.step(-0.70710678, 6) .. "," .. G.step(1, 6) .. "," .. G.step(-1, 6) .. "," .. G.step(0, 6)
   -- deux côtés à 90° (S et E) : refusés (leurs bouts se touchaient : (9, 10) et (10, 9))
   r.ninety = table.concat(G.choose_sides({ { side = 5, w = 10 }, { side = 3, w = 9 }, { side = 2, w = 1 } }, 2, nil), ",")
@@ -182,6 +185,8 @@ check(F.n7 == 7, "nombre CONSTANT : 7 tourelles, 7 places")
 check(F.min7 == 60, "écart de pose tenu (6 tuiles) entre toutes les places : " .. F.min7)
 check(F.maxin7 == 180, "une ligne de 4 tient dans la portée (18 tuiles de bout en bout) : " .. F.maxin7)
 check(F.slots3 == "10:4 4:10 10:10", "3 au SE : carré centré en (7, 7), deux coins de côté puis le coin extérieur : " .. F.slots3)
+check(F.shape == "4 en carre cote SO | 4 en ligne cote S | 3 en ligne cote S + 3 en ligne cote N | 3 en carre cote NE + 3 en carre cote SO | -",
+  "journal de départ : carré en diagonale, ligne sur un côté droit, groupes réellement posés : " .. F.shape)
 check(F.diag == "NE:849/1414/2000 SE:849/1414/2000 SO:849/1414/2000 NO:849/1414/2000 S:1800/1345/2000",
   "diagonales : carré, 8,49 tuiles au plus entre deux tourelles (sous la portée), 14,14 du coffre au plus, appui 2 comme la ligne du S : " .. F.diag)
 check(F.worst == 600, "écart minimal entre deux places, 8 côtés et paires permises, 1 à 8 tourelles : 6 tuiles (" .. F.worst .. " centièmes)")
@@ -220,6 +225,7 @@ local mutants = {
   { "G", "pas arrondi au plus près (relecture)", "if x >= 0 then return math.ceil(x - 1e-9) end", "if x >= 0 then return math.floor(x + 0.5) end" },
   { "G", "lignes au-delà de 4 (relecture)", "  if n > ng * G.GROUP_MAX then n = ng * G.GROUP_MAX end\n", "" },
   { "G", "diagonale en ligne (relecture de 31c1ed6e)", "    if s % 2 == 0 then" .. string.char(10), "    if false then" .. string.char(10) },
+  { "G", "journal : tout en ligne", "s % 2 == 0 and \"carre\" or \"ligne\"", "\"ligne\"" },
   { "G", "carré au demi-écart", "local h = math.ceil(gap / 2 - 1e-9)", "local h = math.floor(gap / 4)" },
   { "G", "pas de côté opposé", "if #sides == 1 and num(n) > G.GROUP_MAX then sides = { sides[1], G.opposite(sides[1]) } end", "" },
   { "G", "dispersion sans décalage", "if d > moved then moved = d end", "" },
