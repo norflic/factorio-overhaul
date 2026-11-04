@@ -16,8 +16,11 @@
     centrées à G.RADIUS tuiles du coffre (la ligne couvre le coffre : son bout est à 13,5 tuiles, sous la portée) ; 5 à 8 tourelles : deux
     lignes, sur deux côtés à 135° au moins (G.MIN_SIDE_GAP ; à 90°, les bouts de deux lignes se touchent : (9, 10) et (10, 9) au S et à l'E),
     le côté opposé s'il n'y a qu'un côté retenu ; jamais plus de G.GROUP_MAX par ligne (au-delà de 2 lignes pleines, les tourelles en trop n'ont
-    pas de place : la pose reprend les emplacements d'avant, Outposts.fortify). Le pas de la ligne est ENTIER (G.step : sur une diagonale,
-    (5, 5), 7,07 tuiles ; arrondi à (4, 4), il faisait 5,66 tuiles, sous l'écart voulu, et la pose refusait la place). Côté : celui des pertes près du coffre (marques, G.MARK_R tuiles, G.MEMORY ticks) ; sans marque,
+    pas de place : la pose reprend les emplacements d'avant, Outposts.fortify). Le pas de la ligne est ENTIER (G.step). Sur une DIAGONALE (NE, SE,
+    SO, NO), pas de ligne mais un CARRÉ de 2 × 2 au pas de l'écart, aligné sur la grille et centré sur la diagonale (SE : (4, 4), (10, 4), (4, 10),
+    (10, 10)) : une ligne de 4 en diagonale au pas (5, 5) faisait 21,2 tuiles de bout en bout (au-dessus de la portée : ses bouts ne se couvraient
+    pas) ; au pas (4, 4), 5,66 tuiles, sous l'écart voulu ; à 3 par ligne, 4 tourelles se coupaient en 3 + 1 ou 2 + 2. Le carré : 8,5 tuiles au
+    plus entre deux tourelles, la plus loin à 14,1 tuiles du coffre, appui de 2 tourelles au point le plus faible comme la ligne d'un côté droit. Côté : celui des pertes près du coffre (marques, G.MARK_R tuiles, G.MEMORY ticks) ; sans marque,
     celui des nids connus les plus proches (G.prior) ; sans rien, G.DEFAULT_SIDE. Une tourelle déjà posée n'est JAMAIS déplacée : seules
     les places libres (G.free) reçoivent les tourelles neuves.
   Règle 2, APPUI (G.support, G.facing) : la défense du QG face à une vague est celle de son point le plus faible : pour chaque tourelle qui
@@ -187,6 +190,14 @@ function G.slots(n, sides, gap)
     local s = sides[g]
     local u = G.DIRS[s]
     local cx, cy = u[1] * G.RADIUS, u[2] * G.RADIUS
+    if s % 2 == 0 then
+      -- diagonale : carré de 2 × 2 au pas 2h >= gap, centré sur la diagonale ; ordre : les deux coins de côté, le coin extérieur, le coin intérieur
+      local h = math.ceil(gap / 2 - 1e-9)
+      local sx, sy = u[1] > 0 and 1 or -1, u[2] > 0 and 1 or -1
+      local ox, oy = round(cx), round(cy)
+      local corners = { { sx, -sy }, { -sx, sy }, { sx, sy }, { -sx, -sy } }
+      for i = 1, m do out[#out + 1] = { dx = ox + corners[i][1] * h, dy = oy + corners[i][2] * h, group = g, side = s } end
+    else
     local tx, ty = G.step(-u[2], gap), G.step(u[1], gap)
     local ranks = {}
     for k = 0, m - 1 do ranks[#ranks + 1] = k - (m - 1) / 2 end
@@ -196,6 +207,7 @@ function G.slots(n, sides, gap)
     end)
     for _, r in ipairs(ranks) do
       out[#out + 1] = { dx = round(cx + tx * r), dy = round(cy + ty * r), group = g, side = s }
+    end
     end
   end
   return out

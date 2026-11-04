@@ -89,6 +89,21 @@ local function facts(G, Sq)
     end
   end
   r.worst = math.floor(worst * 100 + 0.5)
+  -- relecture de 31c1ed6e (lead) : sur une diagonale, un carré de 2 × 2 (et non une ligne de 4 de 21,2 tuiles, au-dessus de la portée) :
+  -- plus grand écart interne, plus loin du coffre, appui au point le plus faible, pour les 4 diagonales et un côté droit (S)
+  local diag = {}
+  for _, side in ipairs({ 2, 4, 6, 8, 5 }) do
+    local sl = G.slots(4, { side }, 6)
+    local mx, far, L = 0, 0, {}
+    for i, p in ipairs(sl) do
+      far = math.max(far, math.sqrt(p.dx * p.dx + p.dy * p.dy))
+      L[#L + 1] = { x = p.dx, y = p.dy, s = 1000, p = true }
+      for j = i + 1, #sl do mx = math.max(mx, dist(p, sl[j])) end
+    end
+    local wsup = G.support(L, 18, 0, 0)
+    diag[#diag + 1] = G.NAMES[side] .. ":" .. math.floor(mx * 100 + 0.5) .. "/" .. math.floor(far * 100 + 0.5) .. "/" .. wsup
+  end
+  r.diag = table.concat(diag, " ")
   r.step = G.step(0.70710678, 6) .. "," .. G.step(-0.70710678, 6) .. "," .. G.step(1, 6) .. "," .. G.step(-1, 6) .. "," .. G.step(0, 6)
   -- deux côtés à 90° (S et E) : refusés (leurs bouts se touchaient : (9, 10) et (10, 9))
   r.ninety = table.concat(G.choose_sides({ { side = 5, w = 10 }, { side = 3, w = 9 }, { side = 2, w = 1 } }, 2, nil), ",")
@@ -166,7 +181,9 @@ check(F.cov4 == 4, "les 4 places de la ligne couvrent le coffre (portée 18)")
 check(F.n7 == 7, "nombre CONSTANT : 7 tourelles, 7 places")
 check(F.min7 == 60, "écart de pose tenu (6 tuiles) entre toutes les places : " .. F.min7)
 check(F.maxin7 == 180, "une ligne de 4 tient dans la portée (18 tuiles de bout en bout) : " .. F.maxin7)
-check(F.slots3 == "7:7 12:2 2:12", "3 au SE : centre (7, 7), ligne NE-SO au pas entier (5, -5) : " .. F.slots3)
+check(F.slots3 == "10:4 4:10 10:10", "3 au SE : carré centré en (7, 7), deux coins de côté puis le coin extérieur : " .. F.slots3)
+check(F.diag == "NE:849/1414/2000 SE:849/1414/2000 SO:849/1414/2000 NO:849/1414/2000 S:1800/1345/2000",
+  "diagonales : carré, 8,49 tuiles au plus entre deux tourelles (sous la portée), 14,14 du coffre au plus, appui 2 comme la ligne du S : " .. F.diag)
 check(F.worst == 600, "écart minimal entre deux places, 8 côtés et paires permises, 1 à 8 tourelles : 6 tuiles (" .. F.worst .. " centièmes)")
 check(F.step == "5,-5,6,-6,0", "pas entier, arrondi vers l'extérieur : " .. F.step)
 check(F.ninety == "5,2", "S puis E (90°) écarté, NE (135°) pris : " .. F.ninety)
@@ -202,6 +219,8 @@ local mutants = {
   { "G", "côtés à 90° permis (relecture)", "G.MIN_SIDE_GAP = 3 ", "G.MIN_SIDE_GAP = 2 " },
   { "G", "pas arrondi au plus près (relecture)", "if x >= 0 then return math.ceil(x - 1e-9) end", "if x >= 0 then return math.floor(x + 0.5) end" },
   { "G", "lignes au-delà de 4 (relecture)", "  if n > ng * G.GROUP_MAX then n = ng * G.GROUP_MAX end\n", "" },
+  { "G", "diagonale en ligne (relecture de 31c1ed6e)", "    if s % 2 == 0 then" .. string.char(10), "    if false then" .. string.char(10) },
+  { "G", "carré au demi-écart", "local h = math.ceil(gap / 2 - 1e-9)", "local h = math.floor(gap / 4)" },
   { "G", "pas de côté opposé", "if #sides == 1 and num(n) > G.GROUP_MAX then sides = { sides[1], G.opposite(sides[1]) } end", "" },
   { "G", "dispersion sans décalage", "if d > moved then moved = d end", "" },
   { "G", "va-et-vient", "if wp * 100 >= ranked[1].w * G.KEEP_PCT then return prev end", "" },
