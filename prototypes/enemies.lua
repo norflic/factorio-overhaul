@@ -2,14 +2,15 @@
   Déchiqueteurs : paliers 5-8, familles (blindée, ignée, couvée, foudroyante), nids de famille, vers 5-8,
   et redistribution des courbes d'apparition des nids vanilla. Données : shared/content/enemies.lua.
 
-  Aucune nouvelle image : les animations vanilla sont régénérées par les fonctions globales du jeu
-  (biterrunanimation, spitterrunanimation, worm_*, spawner_*) avec d'autres tailles et teintes. Lot BI-0 : chaque famille a
-  sa taille (E.families[f].size) et les moucherons (essaim) prennent le corps du petit cracheur.
+  Les animations vanilla sont régénérées par les fonctions globales du jeu (biterrunanimation, spitterrunanimation, worm_*,
+  spawner_*) avec d'autres tailles et teintes. Lot BI-0 : chaque famille a sa taille (E.families[f].size). Lot BI-V1 : deux souches
+  ont leurs images (prototypes/souches.lua), le moucheron de l'essaim et l'écraseur, classe neuve.
 ]]
 
 local lib = require("prototypes.lib")
 local Evo = require("prototypes.evolution")
 local E = require("shared.content.enemies")
+local Souches = require("prototypes.souches")
 local enemy_autoplace = require("__base__/prototypes/entity/enemy-autoplace-utils")
 
 local out = {}
@@ -126,9 +127,11 @@ local function make_unit(kind, tier, family)
   local corpse = lib.copy("corpse", E.tier_names[src_tier] .. "-" .. kind .. "-corpse")
   corpse.name = name .. "-corpse"
   if E.spitter_body(kind, family) then
-    -- Moucheron (essaim) : le corps du petit cracheur, nain ; il mord (l'attaque reste celle du déchiqueteur).
-    u.run_animation = spitterrunanimation(scale, t1, t2)
-    u.attack_parameters.animation = spitterattackanimation(scale, t1, t2)
+    -- Moucheron (essaim) : sa souche, naine (lot BI-V1) ; le masque ne porte que la lueur d'évolution, la couleur est dans l'image ; il mord.
+    local invisible = { r = 0, g = 0, b = 0, a = 0 }   -- couleurs prémultipliées : a = 0 seul ne cache rien (capture du 1/11, moucheron blanc)
+    u.run_animation = Souches.course("moucheron", scale, invisible)
+    u.attack_parameters.animation = Souches.attaque("moucheron", scale, invisible)
+    u.distance_per_frame = Souches.distance_par_image("moucheron", scale)
     u.water_reflection = spitter_water_reflection(scale)
     u.attack_parameters.damage_modifier = dmg
     if f and f.damage_type then lib.retype_damage(u.attack_parameters.ammo_type, f.damage_type) end
@@ -167,6 +170,7 @@ local function make_unit(kind, tier, family)
   local glow = (f and f.glow) or (nt and nt.tint2)
   if glow then
     local alpha = f and Evo.tier_alpha(tier, 0.22, 0.08) or Evo.tier_alpha(tier - E.VANILLA_TIERS, 0.35, 0.13)
+    if E.spitter_body(kind, family) then alpha = alpha * 0.3 end   -- souche sombre : sa lueur est un reflet, pas une peinture
     Evo.glow_masks(u.run_animation, glow, alpha)
     Evo.glow_masks(u.attack_parameters.animation, glow, alpha)
   end
@@ -217,6 +221,60 @@ for _, family in ipairs(E.FAMILY_ORDER) do
 end
 
 ---------------------------------------------------------------------------------------------------
+-- Écraseurs (lot BI-V1) : classe neuve, 4 tailles, coup de zone
+---------------------------------------------------------------------------------------------------
+local function make_crusher(tier)
+  local c, st = E.crusher, E.crusher_stats(tier)
+  local tn = E.tier_names[tier]
+  local name = E.crusher_name(tier)
+  local g = c.scale[tier]
+  local u = lib.copy("unit", "behemoth-biter")
+  u.name = name
+  u.order = string.format("b-a-z[fo]-crusher-%d", tier)
+  u.max_health = st.hp
+  u.movement_speed = c.speed
+  u.resistances = scaled_resistances(u.resistances, st.resist, st.resist)
+  u.pollution_to_join_attack = st.poll * u.pollution_to_join_attack
+  local half = math.max(math.abs(u.collision_box[1][1]), u.collision_box[2][1])
+  local f = E.BOX_HALF_MAX / half
+  u.collision_box = lib.scale_box(u.collision_box, f)
+  u.selection_box = { { -1.6 * g / 2, -3.2 * g / 2 }, { 1.6 * g / 2, 0.8 * g / 2 } }
+  if u.sticker_box then u.sticker_box = lib.scale_box(u.sticker_box, f) end
+  local teinte = c.tint[tier] and { r = c.tint[tier].r, g = c.tint[tier].g, b = c.tint[tier].b, a = 1 } or { r = 0, g = 0, b = 0, a = 0 }
+  u.run_animation = Souches.course("ecraseur", g, teinte)
+  u.distance_per_frame = Souches.distance_par_image("ecraseur", g)
+  u.water_reflection = biter_water_reflection(g)
+  u.attack_parameters.animation = Souches.attaque("ecraseur", g, teinte)
+  u.attack_parameters.cooldown = c.cooldown
+  u.attack_parameters.damage_modifier = nil
+  u.attack_parameters.ammo_type = {
+    category = "melee", target_type = "entity",
+    action = { type = "area", radius = c.radius, force = "not-same", action_delivery = { type = "instant", target_effects = {
+      { type = "damage", damage = { amount = st.damage, type = "physical" } },
+    } } },
+  }
+  local lueur = c.tint[tier] or c.glow
+  local a_lueur = 0.05 * (tier - E.VANILLA_TIERS)
+  Evo.glow_masks(u.run_animation, lueur, a_lueur)
+  Evo.glow_masks(u.attack_parameters.animation, lueur, a_lueur)
+  local corpse = lib.copy("corpse", "behemoth-biter-corpse")
+  corpse.name = name .. "-corpse"
+  add_biter_die_animation(g, E.new_tiers[tier].tint1, c.glow, corpse)
+  u.corpse = corpse.name
+  local base_icon = data.raw.unit["behemoth-biter"]
+  lib.set_icons(u, lib.tier_icons(base_icon.icon, base_icon.icon_size, c.glow, tier, base_icon.icon_mipmaps))
+  lib.set_icons(corpse, lib.tier_icons(base_icon.icon, base_icon.icon_size, c.glow, nil, base_icon.icon_mipmaps))
+  u.localised_name = { "entity-name.fo-crusher-" .. tn .. "-biter" }
+  corpse.localised_name = { "", u.localised_name, " (", { "fo-enemy.corpse" }, ")" }
+  out[#out + 1] = u
+  out[#out + 1] = corpse
+  return name
+end
+
+local crushers = {}
+for _, tier in ipairs(E.crusher.tiers) do crushers[tier] = make_crusher(tier) end
+
+---------------------------------------------------------------------------------------------------
 -- Nids vanilla : 8 paliers redistribués sur l'évolution
 ---------------------------------------------------------------------------------------------------
 local function result_units(units_by_kind, mix)
@@ -232,6 +290,11 @@ end
 -- Le nid de déchiqueteurs ne produit que des déchiqueteurs ; le nid de cracheurs garde ses petits
 -- déchiqueteurs de début de partie puis produit des cracheurs.
 data.raw["unit-spawner"]["biter-spawner"].result_units = result_units(base_units, { "biter" })
+for _, tier in ipairs(E.crusher.tiers) do
+  local cv = {}
+  for _, pt in ipairs(E.crusher.curves[tier]) do cv[#cv + 1] = { pt[1], pt[2] } end
+  table.insert(data.raw["unit-spawner"]["biter-spawner"].result_units, { crushers[tier], cv })
+end
 local spitter_nest = result_units(base_units, { "spitter" })
 table.insert(spitter_nest, 1, { "small-biter", { { 0.0, 0.3 }, { 0.35, 0 } } })
 data.raw["unit-spawner"]["spitter-spawner"].result_units = spitter_nest

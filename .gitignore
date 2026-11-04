@@ -33,3 +33,5 @@ graphics/robots/usines/*.png
 graphics/robots/*.png
 # Feuilles de jeu des 20 machines du calcul (lot MACHINES-CALCUL, même règle) : tools/render/pieces/calcul/feuilles.py
 graphics/machines/calcul/*.png
+# Feuilles de jeu des souches de biters (lot BI-V1, intégré par BITERS-JEU, même règle) : tools/render/pieces/biters/feuilles.py
+graphics/biters/*.png
