@@ -35,6 +35,11 @@ VANILLA = {
     "assembleur3": ("assembling-machine-3/hr-assembling-machine-3.png", (0, 0, 214, 237), (0, -0.75),
                     "assembling-machine-3/hr-assembling-machine-3-shadow.png", (0, 0, 260, 162), (28, 4), (3, 3),
                     "Vanilla : assembleur 3 (3×3)"),
+    # DA-CALCUL (4/11) : références de même emprise (data/base/prototypes/entity/entities.lua)
+    "roboport": ("roboport/hr-roboport-base.png", (0, 0, 228, 277), (2, 7.75),
+                 "roboport/hr-roboport-shadow.png", (0, 0, 294, 201), (28.5, 19.25), (4, 4), "Vanilla : roboport (4×4)"),
+    "reacteur": ("nuclear-reactor/hr-reactor.png", (0, 0, 302, 318), (-5, -7),
+                 "nuclear-reactor/hr-reactor-shadow.png", (0, 0, 525, 323), (52, 0), (5, 5), "Vanilla : réacteur (5×5)"),
 }
 sys.path.insert(0, HERE)
 import piece as PC  # noqa: E402

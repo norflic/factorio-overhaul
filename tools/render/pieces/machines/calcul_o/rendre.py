@@ -48,6 +48,27 @@ def etalonne(img, grade):
     return out
 
 
+def nettoie(img, couche, seuil=1.0 / 255.0, taille_max=4, alpha_lueur=32.0 / 255.0):
+    """DA-CALCUL (4/11) : efface les îles d'alpha isolées (pixels parasites du rendu) AVANT le rognage, sinon elles élargissent
+    la boîte. Composantes connexes (8 voisins, alpha ≥ 1/255) de taille_max px au plus ; dans la lueur, seulement si leur alpha
+    reste sous alpha_lueur (une diode d'un pixel reste). Même règle que tools/render/pieces/calcul/feuilles.py."""
+    from scipy import ndimage
+    m = img[..., 3] >= seuil
+    lab, n = ndimage.label(m, structure=np.ones((3, 3)))
+    if n <= 1:
+        return img, 0
+    taille = np.bincount(lab.ravel())
+    amax = ndimage.maximum(img[..., 3], lab, index=np.arange(1, n + 1))
+    efface = np.zeros(n + 1, bool)
+    for i in range(1, n + 1):
+        if taille[i] <= taille_max and (couche != "glow" or amax[i - 1] <= alpha_lueur):
+            efface[i] = True
+    masque = efface[lab] | (~m & (img[..., 3] > 0))
+    out = img.copy()
+    out[masque] = 0.0
+    return out, int((efface[lab]).sum())
+
+
 def post(name, cache, out_root):
     d = os.path.join(cache, name)
     info = json.load(open(os.path.join(d, "render.json"), encoding="utf-8"))
@@ -71,9 +92,11 @@ def post(name, cache, out_root):
     spec = {"variant": name, "epoch": piece.PIECE["variants"][name]["epoch"], "samples": info["samples"],
             "seconds": info["seconds"], "seconds_render": info.get("seconds_render"), "verts": info.get("verts"),
             "canvas": info["canvas"], "kit": "calcul_o", "layers": {}}
+    spec["nettoyage"] = {}
     for layer in ("main", "shadow", "glow"):
         if layer not in hr:
             continue
+        hr[layer], spec["nettoyage"][layer] = nettoie(hr[layer], layer)
         box = P.trim_box(hr[layer], origin)
         if box is None:
             continue

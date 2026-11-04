@@ -58,12 +58,20 @@ def centre(S, k):
             k.cable("caoutchouc", (x + dy, ay + 0.6, 1.98), (x + dy * 1.4, ay - 0.82, 1.37), 0.2, 0.02)
     k.bz("acier", -0.42, ay + 0.86, 2.02, 2.6, 0.2, 0.03)
     k.bz("jaune", -0.42, ay + 0.86, 2.05, 2.5, 0.06, 0.012)
-    # collecteur d'eau : deux gros tuyaux au-dessus de la rangée nord, descentes vers chaque baie
+    # collecteur d'eau : deux gros tuyaux au-dessus de la rangée nord, descentes vers chaque baie. DA-CALCUL (4/11) : ils
+    # finissent dans une unité de distribution du liquide (CDU) au nord-est, DANS l'emprise (le bleu descendait au bord nord,
+    # l'orange au bord est : justes face au nord seulement ; les raccords sont tracés par le moteur dans les 4 directions)
     zb = 2.24
-    k.tuyau("bleu", [(-1.76, ay + 1.08, zb), (0.95, ay + 1.08, zb), (0.95, 2.72, zb), (0.95, 2.72, 0.3)], r=0.085, coude=0.22,
-            brides=[(-1.72, ay + 1.08, zb), (-0.7, ay + 1.08, zb), (0.5, ay + 1.08, zb), (0.95, 2.45, zb)], bride_mat="acier")
-    k.tuyau("orange", [(-1.76, ay + 1.36, zb - 0.02), (1.3, ay + 1.36, zb - 0.02), (1.3, 0.75, zb - 0.02), (2.0, 0.75, 1.2), (2.0, 0.75, 0.4)], r=0.075, coude=0.22,
-            brides=[(-1.72, ay + 1.36, zb - 0.02), (-0.2, ay + 1.36, zb - 0.02)], bride_mat="acier")
+    k.caisson("car2", 1.45, 1.5, 0.3, 0.8, 1.5, 1.35, 0.05)
+    k.persiennes("acier", 1.45, 0.75, 0.42, 0.62, 0.42, 5)
+    k.plaque("plaque", 1.3, 0.75, 1.12, 0.26, 0.12)
+    k.voyant("voyant_v", 1.62, 0.74, 1.12, 0.02)
+    k.voyant("diode", 1.7, 0.74, 1.12, 0.02)
+    k.moteur("noir", 1.45, 1.95, 1.65, 0.42, 0.12, ailette="acier", axe="y")
+    k.tuyau("bleu", [(-1.76, ay + 1.08, zb), (1.25, ay + 1.08, zb), (1.25, ay + 1.08, 1.65)], r=0.085, coude=0.22,
+            brides=[(-1.72, ay + 1.08, zb), (-0.7, ay + 1.08, zb), (0.5, ay + 1.08, zb), (1.25, ay + 1.08, 1.78)], bride_mat="acier")
+    k.tuyau("orange", [(-1.76, ay + 1.36, zb - 0.02), (1.62, ay + 1.36, zb - 0.02), (1.62, ay + 1.36, 1.65)], r=0.075, coude=0.22,
+            brides=[(-1.72, ay + 1.36, zb - 0.02), (-0.2, ay + 1.36, zb - 0.02), (1.62, ay + 1.36, 1.76)], bride_mat="acier")
     for x in xs:
         k.tuyau("bleu", [(x - 0.09, ay + 1.08, zb), (x - 0.09, ay + 1.08, 1.95)], r=0.022, brides=[])
         k.tuyau("orange", [(x + 0.09, ay + 1.36, zb - 0.02), (x + 0.09, ay + 1.36, 1.95)], r=0.022, brides=[])
@@ -140,11 +148,10 @@ def grand_centre(S, k):
         k.poly("noir", [(x - 0.14, y - 0.14), (x + 0.14, y - 0.14), (x + 0.14, y + 0.14), (x - 0.14, y + 0.14)], 0.08, h, 0.55)
         k.cyl("chrome", x, y, h, h + 0.14, 0.05, 12)
         k.voyant_h("cyan", x, y, h + 0.14, 0.04)
-    # conduites froides givrées : grosses, en quart de tour, vers les raccords
-    k.tuyau("givre", [(-0.5, 4.3, 0.42), (-0.5, 2.8, 0.42), (-0.5, 2.2, 1.0), (cx - 0.3, cy + 1.2, 2.8)], r=0.13, coude=0.3, bride_mat="plaque",
-            brides=[(-0.5, 3.8, 0.42), (-0.5, 2.5, 0.72)])
-    k.tuyau("givre", [(0.5, -4.3, 0.2), (0.5, -3.7, 0.2), (0.5, -3.38, 0.34)], r=0.13, coude=0.2, bride_mat="plaque")
-    k.tuyau("car2", [(2.05, 0.71, 0.3), (2.9, 0.71, 0.3), (3.0, 0.71, 0.3)], r=0.12, coude=0.2, bride_mat="plaque")
+    # conduites froides givrées. DA-CALCUL (4/11) : la grosse conduite part du groupe froid (elle venait du bord nord) ; les
+    # tronçons qui touchaient les bords sud et est sont retirés (raccords : tracés par le moteur dans les 4 directions)
+    k.tuyau("givre", [(0.42, 3.25, 0.5), (-0.5, 3.25, 0.5), (-0.5, 2.8, 0.5), (-0.5, 2.2, 1.0), (cx - 0.3, cy + 1.2, 2.8)], r=0.13, coude=0.3,
+            bride_mat="plaque", brides=[(0.3, 3.25, 0.5), (-0.5, 2.5, 0.72)])
     k.tuyau("givre", [(1.95, -0.2, 0.42), (2.55, -0.2, 0.42), (2.55, 1.55, 0.42), (2.55, 1.95, 1.5)], r=0.09, coude=0.2, bride_mat="plaque")
     # groupe froid au nord-est, dewar givré
     k.cuve("givre", 2.1, 3.0, 0.08, 2.0, 0.5, 0.35)

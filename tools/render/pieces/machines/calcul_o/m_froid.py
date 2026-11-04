@@ -10,20 +10,60 @@ import palettes as P
 D = O.D
 
 
+def pompe(k, x, y, mat, r=0.13):
+    """Pompe de circulation (DA-CALCUL, 4/11) : socle, moteur couché nord-sud, volute ronde au sud ; un tuyau y finit (plus
+    aucun tuyau dessiné ne touche le bord : les raccords sont tracés par le moteur dans les 4 directions)."""
+    k.bz("noir", x, y + 0.1, 0.04, 0.34, 0.66, 0.06)
+    k.moteur("car2", x, y + 0.24, 0.1, 0.36, r, axe="y")
+    k.axe(mat, (x, y - 0.14, 0.1 + r), (x, y - 0.04, 0.1 + r), r * 1.25, 18)
+    k.cyl(mat, x, y - 0.09, 0.1 + r, 0.1 + r * 2.6, r * 0.42, 12)
+
+
+def ecran(k, x, y, z, l, h):
+    """Écran de contrôle allumé sur une face sud (DA-CALCUL : lueur de travail lisible, D2) : cadre noir, dalle lumineuse."""
+    k.b("noir", (x, y - 0.006, z), (l + 0.05, 0.014, h + 0.05))
+    k.b("ecran", (x, y - 0.015, z), (l, 0.006, h))
+
+
+def colonne_lumineuse(k, x, y, z, vert="voyant_v"):
+    """Colonne lumineuse de machine (rouge, orange, VERT allumé au travail) sur un dessus."""
+    k.cyl("noir", x, y, z, z + 0.12, 0.014, 6)
+    for i, m_ in enumerate(("rouge", "orange", vert)):
+        k.cyl(m_, x, y, z + 0.12 + 0.07 * i, z + 0.185 + 0.07 * i, 0.04, 12)
+    k.cyl("noir", x, y, z + 0.33, z + 0.35, 0.042, 12)
+
+
+def lueurs_travail(S, M):
+    """Matières des lueurs de travail ajoutées le 4/11 (écran cyan, rampe de LED blanc froid)."""
+    M["ecran"] = P.lueur(S, "c_ecran", (0.14, 0.72, 1.0), 3.4, 0.5, part=0.3, echelle=36.0)
+    M["led"] = P.lueur(S, "c_led", (0.72, 0.9, 1.0), 4.0, 0.5, part=0.2, echelle=30.0)
+
+
 def froid(S, k):
     """GROUPE FROID : deux gros corps d'échangeur couchés bleu (eau glacée) et orange (eau chaude), compresseur à vis et
-    moteur à ailettes entre eux, batterie de deux ventilateurs au nord."""
+    moteur à ailettes entre eux, batterie de deux ventilateurs au nord. DA-CALCUL (4/11) : les lignes d'eau finissent dans
+    deux pompes internes (elles touchaient les bords nord et sud) ; lueur de travail : pupitre à écran cyan et colonne
+    lumineuse au sud-ouest, rampe de LED sur le condenseur."""
     M = k.M = P.matieres(S, "hitech")
+    lueurs_travail(S, M)
     k.sol("noir", 4, h=0.06, ch=0.22)
     for x in (-1.6, 1.6):
         k.bz("car2", x, -0.3, 0.06, 0.22, 4.4, 0.16)
     # évaporateur (eau glacée), bas sud
     k.echangeur(-0.1, -1.72, 0.2, 2.9, 0.45, "bleu", "acier_clair", cerc=5)
     k.echangeur(0.35, -0.5, 0.2, 2.0, 0.36, "orange", "acier_clair", cerc=3)
-    k.tuyau("bleu", [(-1.2, -1.72, 1.1), (-1.2, -1.72, 1.34), (-1.2, -0.65, 1.34), (-1.2, 0.2, 1.34), (-1.2, 2.6, 0.5), (-0.5, 2.85, 0.5)], r=0.1, coude=0.22,
-            brides=[(-1.2, -1.72, 1.18), (-1.2, 0.5, 1.34)], bride_mat="acier")
-    k.tuyau("orange", [(0.9, -0.5, 0.92), (0.9, -0.5, 1.2), (1.72, -0.5, 1.2), (1.72, -2.3, 0.6), (0.5, -2.85, 0.32)], r=0.08, coude=0.22, bride_mat="acier",
-            brides=[(0.9, -0.5, 1.0), (1.72, -1.2, 1.0)])
+    k.tuyau("bleu", [(-1.2, -1.72, 1.1), (-1.2, -1.72, 1.34), (-1.2, 0.2, 1.34), (-1.45, 0.5, 1.34), (-1.45, 0.74, 0.62)], r=0.1, coude=0.22,
+            brides=[(-1.2, -1.72, 1.18), (-1.2, -0.4, 1.34)], bride_mat="acier")
+    pompe(k, -1.45, 0.86, "bleu")
+    k.tuyau("orange", [(0.9, -0.5, 0.92), (0.9, -0.5, 1.2), (1.72, -0.5, 1.2), (1.72, -1.9, 1.2), (1.4, -2.64, 0.9), (1.4, -2.64, 0.44)], r=0.08,
+            coude=0.22, bride_mat="acier", brides=[(0.9, -0.5, 1.0), (1.72, -1.2, 1.2), (1.4, -2.64, 0.52)])
+    pompe(k, 1.4, -2.55, "orange")
+    # pupitre à écran et colonne lumineuse au sud-ouest (lueur de travail)
+    k.caisson("car2", -1.38, -2.36, 0.06, 0.56, 0.24, 0.9, 0.02)
+    ecran(k, -1.38, -2.48, 0.66, 0.42, 0.26)
+    for i in range(4):
+        k.voyant("voyant_v" if i != 2 else "voyant_o", -1.53 + i * 0.1, -2.49, 0.4, 0.016)
+    colonne_lumineuse(k, -1.2, -2.32, 0.96)
     # compresseur à vis : carter ovale, moteur à ailettes, lignes de gaz en cuivre
     k.echangeur(-0.22, 0.72, 0.5, 1.12, 0.3, "car2", "acier", cerc=1)
     k.moteur("car", 0.9, 0.72, 0.42, 0.85, 0.34)
@@ -33,6 +73,8 @@ def froid(S, k):
     k.vanne("acier", "rouge", (-1.2, -0.12, 1.42), 0.055)
     # condenseur au nord : caisson bas et 2 ventilateurs sur le dessus
     k.caisson("car", 0.2, 2.15, 0.06, 3.0, 1.2, 1.24, 0.1)
+    k.b("noir", (0.2, 1.545, 1.12), (2.6, 0.014, 0.07))
+    k.b("led", (0.2, 1.535, 1.12), (2.5, 0.006, 0.042))
     k.persiennes("acier", -0.3, 1.54, 0.18, 1.8, 0.78, 10)
     k.ventilo(-0.55, 2.18, 1.36, 0.42, corps="noir")
     k.ventilo(0.72, 2.18, 1.36, 0.42, corps="noir", ph=(k.phase + 0.37) % 1.0)
@@ -141,10 +183,14 @@ def cryo(S, k):
     k.tuyau("givre", [(1.25, 1.1, 1.3), (1.25, 0.3, 1.3), (0.38, 0.3, 1.3)], r=0.1, coude=0.2, bride_mat="plaque", brides=[(0.8, 0.3, 1.3)])
     k.tuyau("givre", [(-0.05, -0.15, 1.1), (-0.05, -1.25, 1.1), (0.7, -1.65, 1.0)], r=0.09, coude=0.22, bride_mat="plaque")
     k.tuyau("car2", [(-1.0, -1.1, 0.88), (-1.0, -0.2, 2.3), (-0.55, 0.05, 2.3)], r=0.07, coude=0.18, bride_mat="plaque", brides=[(-1.0, -0.7, 1.6)])
-    k.tuyau("car2", [(0.5, 3.55, 0.26), (0.5, 2.5, 0.26), (0.5, 2.0, 0.9), (0.15, 0.8, 1.0)], r=0.08, coude=0.2, bride_mat="plaque")
-    k.tuyau("car2", [(-0.5, 3.55, 0.26), (-0.5, 2.8, 0.26), (-0.5, 2.1, 0.5)], r=0.08, coude=0.2, bride_mat="plaque")
-    for x in (-1.0, 0.0, 1.0):
-        k.tuyau("givre", [(x, -3.55, 0.28), (x, -2.82, 0.28), (x, -2.4, 0.45)], r=0.075, coude=0.2, bride_mat="plaque")
+    # DA-CALCUL (4/11) : les arrivées nord et les trois départs sud touchaient les bords (justes face au nord seulement) ;
+    # les deux lignes d'arrivée sortent maintenant du sol, à l'intérieur de l'emprise (raccords : tracés par le moteur)
+    k.tuyau("car2", [(0.5, 2.75, 0.0), (0.5, 2.75, 0.26), (0.5, 2.5, 0.26), (0.5, 2.0, 0.9), (0.15, 0.8, 1.0)], r=0.08, coude=0.2, bride_mat="plaque",
+            brides=[(0.5, 2.75, 0.12), (0.5, 2.25, 0.55)])
+    k.tuyau("car2", [(-0.5, 2.8, 0.0), (-0.5, 2.8, 0.26), (-0.5, 2.3, 0.26), (-0.8, 1.72, 0.5)], r=0.08, coude=0.2, bride_mat="plaque",
+            brides=[(-0.5, 2.8, 0.12), (-0.8, 1.72, 0.5)])
+    k.vanne("plaque", "rouge", (0.5, 2.62, 0.3), 0.045)
+    k.vanne("plaque", "rouge", (-0.5, 2.55, 0.3), 0.045)
     k.vanne("plaque", "rouge", (-1.0, 0.3, 1.68), 0.05)
     k.vanne("plaque", "rouge", (0.8, 0.3, 1.38), 0.05)
     k.echelle("plaque", -0.08, -0.17, 0.08, 3.5, 0.18)

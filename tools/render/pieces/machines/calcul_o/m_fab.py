@@ -230,8 +230,11 @@ def tireuse(S, k):
 
 def scie(S, k):
     """SCIE À FIL : grosses bobines et rouleaux cannelés, nappe de fils brillants tendue entre eux, lingot serré au-dessus,
-    bac à boue en dessous. Le rouleau tourne."""
+    bac à boue en dessous. Le rouleau tourne. DA-CALCUL (4/11) : lueur de travail lisible (rampe de LED sous le portique qui
+    éclaire la nappe, pupitre à écran, colonne lumineuse)."""
+    import m_froid as F
     M = k.M = P.matieres(S, "hitech")
+    F.lueurs_travail(S, M)
     k.sol("noir", 3, h=0.05, ch=0.18)
     cy = -0.42
     k.caisson("car2", 0.0, cy, 0.05, 2.75, 2.65, 0.42, 0.05)
@@ -291,6 +294,13 @@ def scie(S, k):
     k.tuyau("orange", [(1.15, -1.75, 0.6), (1.32, -1.0, 0.6), (1.32, cy, 1.6), (0.46, cy, 1.6)], r=0.03, coude=0.14, brides=[(1.32, -0.9, 0.72)], bride_mat="acier")
     k.armoire("car2", -0.82, -1.9, 0.05, 0.62, 0.44, 0.2, lampe="voyant")
     k.chevrons(0.25, -1.76, 0.2, 0.9, 0.08)
+    # lueur de travail : rampe de LED sur la face sud de la traverse basse du portique, pupitre à écran, colonne lumineuse
+    yt = cy - 0.98 - 0.1
+    k.b("noir", (0.0, yt - 0.006, 2.88), (2.3, 0.014, 0.075))
+    k.b("led", (0.0, yt - 0.015, 2.88), (2.2, 0.006, 0.048))
+    k.caisson("car2", -0.82, -1.62, 0.49, 0.5, 0.16, 0.4, 0.02)
+    F.ecran(k, -0.82, -1.7, 0.71, 0.4, 0.24)
+    F.colonne_lumineuse(k, 1.2, cy - 0.98, 2.98)
 
 
 def graveur(S, k):

@@ -22,12 +22,16 @@ MACHINES = {
     "cryo": ("fo-cryogenic-unit", 12, 5, "m_froid"), "dilution": ("fo-dilution-fridge", 13, 3, "m_quant"),
     "qlab": ("fo-quantum-lab", 13, 5, "m_quant"), "impr": ("fo-circuit-printer", 4, 3, "m_amont"),
     "fritt": ("fo-sintering-furnace", 5, 3, "m_amont"), "arc": ("fo-arc-furnace", 6, 4, "m_amont"),
+    # DA-CALCUL (4/11) : salle blanche refaite, trois variantes d'états clés (m_salle.py) ; « salle » reste le rendu du 1/11
+    "salle_a": ("fo-cleanroom", 10, 5, "m_salle"), "salle_b": ("fo-cleanroom", 10, 5, "m_salle"),
+    "salle_c": ("fo-cleanroom", 10, 5, "m_salle"),
 }
 PIECE = {"name": "calc", "margin_px": 40, "calib": {"LIGHT_HOLDOUT": True},
          "variants": {n: {"epoch": v[1], "side": v[2], "dest": "machines/calcul/" + n, "anchor_tiles": (0.0, 0.0)} for n, v in MACHINES.items()}}
 PHASE = 0.0
 # Machines à pièces mobiles rendues en images (batch_blender --images) ; fond opaque derrière la pièce, sinon fantôme.
-ANIMES = ("centre", "froid", "tour", "salle", "fritt", "impr", "scie", "testeur", "boitier", "cms", "fibre", "litho")
+ANIMES = ("centre", "froid", "tour", "salle", "fritt", "impr", "scie", "testeur", "boitier", "cms", "fibre", "litho", "salle_a", "salle_b",
+          "salle_c")
 
 
 def margin_px(name):
