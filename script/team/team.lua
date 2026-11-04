@@ -263,17 +263,22 @@ function Team.place_hq_turrets(f, surface, center, n)
   local force = game.forces[f.force]
   local placed = 0
   -- lot QG-GROUPE2 : votre équipe pose ses tourelles de départ en ligne (script/team/qg_groupe.lua, QgG.line ; nil : D.HQ_OFFSETS)
-  local offsets = QgG.line(f, surface, center, n) or Depart.offsets(n)
-  for _, o in ipairs(offsets) do
+  local line = QgG.line(f, surface, center, n)
+  local offsets = line or Depart.offsets(n)
+  local got = {} -- lot HQ-RECENSEMENT (relecture, mineur 4) : positions obtenues, pour le journal de la dispersion finale
+  for i, o in ipairs(offsets) do
     local tpos = surface.find_non_colliding_position(T.turret, { x = center.x + o[1], y = center.y + o[2] }, 10, 1)
+    got[i] = false
     if tpos then
       local t = surface.create_entity({ name = T.turret, position = tpos, force = force })
       if t then
         Outposts.add_turret(f, t, nil, 20)
         placed = placed + 1
+        got[i] = { x = t.position.x, y = t.position.y }
       end
     end
   end
+  if line then QgG.depart_report(f, center, offsets, got) end
   return placed
 end
 
