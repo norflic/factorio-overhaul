@@ -83,7 +83,8 @@ function Armee.giants(force_name)
 end
 
 --- Paramètres de Mo.can_release pour le robot `r` de `force` : `used` (points déjà pris, y compris les kits retirés pendant ce
---- balayage) et `giants_extra` (géants créés pendant ce balayage) sont facultatifs.
+--- balayage) et `giants_extra` sont facultatifs. Lot BOURDON-MINEURS : un géant créé par Armee.create est déjà au registre, donc déjà dans
+--- Armee.giants ; `giants_extra` ne sert qu'à un géant pas encore inscrit (usine.lua ne le passe plus).
 function Armee.release_params(force, r, keep, used, giants_extra)
   return {
     used = used or Armee.used(force.name), cap = Armee.cap(force), points = r.points, have = Armee.have(force.name, r.id), keep = keep,

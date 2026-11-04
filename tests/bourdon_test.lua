@@ -183,26 +183,29 @@ do
   check(vu(function(p) return p.actif end), "mutant « sans plafond » vu")
   check(not vu(B.peut_poser), "témoin : la règle du lot passe ses propres cas")
 end
--- sortie du Portique (lot BOURDON-SORTIE) : objet en sortie + plafond de géants (géants sortis pendant le même balayage compris)
+-- sortie du Portique (lots BOURDON-SORTIE et BOURDON-MINEURS) : objet en sortie, usine du joueur (pas d'une faction), plafond de géants ; les
+-- géants sortis dans le même balayage sont DÉJÀ dans `geants` (registre, liste du script) : aucun compte en plus
 do
   check(B.sortie({ objets = 1, actif = true, geants = 0, admis = 1 }), "sortie : 1 objet, 0 géant sur 1 admis")
   check(not B.sortie({ objets = 0, actif = true, geants = 0, admis = 3 }), "sortie : aucun objet, rien ne sort")
   check(not B.sortie({ objets = 1, actif = true, geants = 1, admis = 1 }), "sortie : plafond atteint, l'objet reste (le Portique s'arrête)")
-  check(not B.sortie({ objets = 2, actif = true, geants = 1, deja = 1, admis = 2 }), "sortie : un géant sorti dans le même balayage compte")
-  check(B.sortie({ objets = 2, actif = true, geants = 1, deja = 0, admis = 2 }), "sortie : 1 sur 2, il sort")
+  check(B.sortie({ objets = 2, actif = true, geants = 1, admis = 2 }), "sortie : 1 géant sur 2 (sorti dans ce balayage, déjà compté), il sort")
+  check(B.sortie({ objets = 2, actif = true, geants = 1, deja = 1, admis = 2 }), "sortie : un ancien « deja » n'est plus ajouté (double compte)")
+  check(not B.sortie({ objets = 1, faction = true, actif = true, geants = 0, admis = 3 }), "sortie : usine d'une faction, l'objet reste")
   check(not B.sortie({ objets = 1, actif = false, geants = 0, admis = 3 }), "sortie : robots éteints, rien ne sort")
   check(not B.sortie(nil), "sortie : paramètres absents")
   local cas = { { { objets = 1, actif = true, geants = 0, admis = 1 }, true }, { { objets = 0, actif = true, geants = 0, admis = 3 }, false },
-    { { objets = 1, actif = true, geants = 1, admis = 1 }, false }, { { objets = 2, actif = true, geants = 1, deja = 1, admis = 2 }, false },
-    { { objets = 1, actif = false, geants = 0, admis = 3 }, false } }
+    { { objets = 1, actif = true, geants = 1, admis = 1 }, false }, { { objets = 2, actif = true, geants = 1, deja = 1, admis = 2 }, true },
+    { { objets = 1, faction = true, actif = true, geants = 0, admis = 3 }, false }, { { objets = 1, actif = false, geants = 0, admis = 3 }, false } }
   local function vu(regle)
     for _, c in ipairs(cas) do if regle(c[1]) ~= c[2] then return true end end
     return false
   end
-  check(vu(function(p) return B.peut_poser({ actif = p.actif, geants = p.geants, admis = p.admis }) end), "mutant « sans objet en sortie » vu")
-  check(vu(function(p) return (p.objets or 0) >= 1 and B.peut_poser({ actif = p.actif, geants = p.geants, admis = p.admis }) end),
-    "mutant « géants du balayage oubliés » vu")
-  check(vu(function(p) return (p.objets or 0) >= 1 and p.actif end), "mutant « sans plafond » vu")
+  check(vu(function(p) return not p.faction and B.peut_poser({ actif = p.actif, geants = p.geants, admis = p.admis }) end), "mutant « sans objet en sortie » vu")
+  check(vu(function(p) return (p.objets or 0) >= 1 and not p.faction and B.peut_poser({ actif = p.actif, geants = (p.geants or 0) + (p.deja or 0), admis = p.admis }) end),
+    "mutant « double compte des géants du balayage » vu")
+  check(vu(function(p) return (p.objets or 0) >= 1 and B.peut_poser({ actif = p.actif, geants = p.geants, admis = p.admis }) end), "mutant « faction admise » vu")
+  check(vu(function(p) return (p.objets or 0) >= 1 and not p.faction and p.actif end), "mutant « sans plafond » vu")
   check(not vu(B.sortie), "témoin : la règle de sortie passe ses propres cas")
   -- ralliement : seulement s'il est loin du point de descente
   local r = B.ralliement(0, 0, { x = 0, y = 9 })
@@ -260,6 +263,29 @@ do
   check(n_cmd >= 4 and t:find("Armee.registered(e.unit_number)", 1, true) == nil, "outils : choix, purge, ordres et cercles passent par l'adaptateur", n_cmd)
   check(b:find("not b.e.autopilot_destination and tick >= b.recharge", 1, true) ~= nil, "bourdon : un Glas en attente n'est plus perdu en recharge")
 end
+-- Glas en attente (lot BOURDON-MINEURS) : portée revérifiée d'où la cloche s'est posée
+do
+  local o = B.reprise_glas({ x = 0, y = 0 }, { x = 30, y = 40 })
+  check(o and o.aller == nil and o.glas.x == 30, "reprise : cible à 50 tuiles (portée), il sonne")
+  o = B.reprise_glas({ x = 0, y = 0 }, { x = 0, y = 120 })
+  check(o and o.aller and proche(o.aller.y, 120 - B.APPROCHE) and o.glas.y == 120, "reprise : cible à 120 tuiles, il s'approche d'abord, puis sonnera")
+  local p = { x = o.aller.x, y = o.aller.y }
+  local o2 = B.reprise_glas(p, { x = 0, y = 120 })
+  check(o2 and o2.aller == nil, "reprise : posé au point d'approche, la cible est à portée (pas de boucle)")
+  local function lit(q)
+    local f = assert(io.open(q, "r"))
+    local s2 = f:read("*a")
+    f:close()
+    return s2
+  end
+  local sb = lit("script/robots/bourdon.lua")
+  check(sb:find("local o = B.reprise_glas(b.e.position, b.attente)", 1, true) ~= nil and sb:find("if o and o.aller then", 1, true) ~= nil,
+    "bourdon : le Glas en attente revérifie la portée avant de partir")
+  -- mutant : sans revérification, une cible lointaine sonnerait sur place
+  local sans = function(_, c) return { glas = c } end
+  check(sans({ x = 0, y = 0 }, { x = 0, y = 120 }).aller == nil and B.reprise_glas({ x = 0, y = 0 }, { x = 0, y = 120 }).aller ~= nil,
+    "mutant « Glas en attente sans revérifier la portée » vu")
+end
 -- le script : le crochet de sortie posé par bourdon.lua, appelé par le balayage des usines après les kits
 do
   local function lit(p)
@@ -270,8 +296,9 @@ do
   end
   local u = lit("script/robots/usine.lua")
   local b = lit("script/robots/bourdon.lua")
-  check(u:find("Armee.hooks.extra_release(e, inv, rec.rally or Mo.default_rally(e.position, w.size), giants_made)", 1, true) ~= nil,
-    "usine : le balayage appelle la sortie des autres lots, avec le ralliement de l'usine et les géants du balayage")
+  check(u:find("Armee.hooks.extra_release(e, inv, rec.rally or Mo.default_rally(e.position, w.size))", 1, true) ~= nil and u:find("giants_made =", 1, true) == nil,
+    "usine : le balayage appelle la sortie des autres lots avec le ralliement de l'usine, sans recompter les géants du balayage")
+  check(b:find("faction = State.by_force(force.name) ~= nil", 1, true) ~= nil, "bourdon : la sortie passe la faction de l'usine à B.sortie")
   check(b:find("Armee.hooks.extra_release = M.sortie_usine", 1, true) ~= nil and b:find("B.sortie({ objets = n", 1, true) ~= nil,
     "bourdon : la sortie est branchée et décidée par B.sortie")
   check(b:find("e.autopilot_destination = { b.ralliement.x, b.ralliement.y }", 1, true) ~= nil, "bourdon : ancres posées, il gagne le ralliement")
