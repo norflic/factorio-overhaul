@@ -197,6 +197,18 @@ T.smelter_fuel_to = 20
 -- Tourelles : munitions visées par tourelle, seuil de ravitaillement.
 T.turret_ammo_target = 20
 T.turret_ammo_low = 8
+-- Lot MUNITIONS (shared/team/munitions.lua) : recharge au plein sous 75 % de la cible, recharge partielle, stock au coffre qui suit le nombre
+-- de tourelles, et cible RICHE par tourelle quand le fer au coffre la paie (une tourelle garde 200 chargeurs au plus : 50 = 50 s de tir).
+-- T.munitions_on faux : règle d'avant (seuil bas, tout ou rien, réserve fixe), code gardé.
+T.munitions_on = true
+T.turret_ammo_rich = 50
+-- Lot MUNITIONS, essai 3 : cible riche ÉTEINTE (hypothèse du lead : elle occupait les PNJ, verif-guide 123456789 de l'essai 2 : 12 PNJ sur 14
+-- inactifs à 40 min, 39 % affamés). Faux : la cible reste T.turret_ammo_target ; recharge au plein, partielle et perforantes gardées.
+T.turret_ammo_rich_on = false
+-- Lot MUNITIONS : échelle des munitions des mitrailleuses, de la moins bonne à la meilleure (Mu.best_ammo : la meilleure dont la recette est
+-- ouverte et qui se fabrique depuis le coffre ; balles perforantes : recherche « military-2 », 8 de dégâts contre 5). La première est T.turret_ammo.
+T.turret_ammo_ladder = { "firearm-magazine", "piercing-rounds-magazine", "uranium-rounds-magazine" }
+T.best_ammo_factions = false -- la meilleure munition pour votre équipe seulement (pvp_test : une faction aux perforantes attaque moins)
 -- Les tourelles reçoivent des chargeurs standard (bon marché) ; l'acier va aux mitrailleurs.
 T.turret_ammo = "firearm-magazine"
 T.turret = "gun-turret" -- lot CENTRALE-GARDE : la tourelle posée (portée lue à son prototype)

@@ -28,6 +28,7 @@ local Paires = require("shared.team.pose_paires") -- lot EXTENSION-FER : parcour
 local Ruines = require("script.team.ruines") -- lot REBUILD-AVANT-POSTE : un avant-poste perdu en entier garde son plan (ruine)
 local Zone = require("script.team.zone_melee") -- lot MELANGE2 : zone minée de la foreuse thermique (2 × 2) lue au moteur, sans cycle de require
 local Flux = require("shared.team.flux") -- lot FLUX : sorties pleines d'un avant-poste (règle pure)
+local Mu = require("shared.team.munitions") -- lot MUNITIONS : recharge au plein, cible par tourelle (règle pure)
 
 local Outposts = {}
 
@@ -93,8 +94,11 @@ local function valid_list(list)
   return out
 end
 
-function Outposts.ammo_name(tech)
-  return T.turret_ammo
+--- Munition des tourelles. Sans `f` (pose d'une tourelle, payée en munition de base) : T.turret_ammo. Avec `f` (lot MUNITIONS) : la munition
+--- choisie pour l'équipe à sa pensée (f.team.ammo_item, Mu.best_ammo : la meilleure fabricable, balles perforantes dès qu'elles le sont).
+function Outposts.ammo_name(tech, f)
+  local v = T.munitions_on and f and f.team and f.team.ammo_item or nil
+  return type(v) == "string" and v or T.turret_ammo
 end
 
 function Outposts.add_turret(f, turret, oid, ammo_count)
@@ -1209,9 +1213,32 @@ local function ammo_of(t)
   return inv and inv.get_item_count() or 0
 end
 
---- Groupes de tourelles : { key, pos, list, low } ; key = "hq" ou "o<id d'avant-poste>".
+-- Lot MUNITIONS : rang d'une munition dans l'échelle (T.turret_ammo_ladder, de la moins bonne à la meilleure), 0 hors échelle.
+local AMMO_RANK = {}
+for i, name in ipairs(T.turret_ammo_ladder) do AMMO_RANK[name] = i end
+
+--- Lot MUNITIONS : rang de la munition dans la case de la tourelle (0 : vide).
+local function ammo_rank(t)
+  local inv = t.get_inventory(defines.inventory.turret_ammo)
+  if not inv or inv.is_empty() then return 0 end
+  local s = inv[1]
+  return s.valid_for_read and (AMMO_RANK[s.name] or 0) or 0
+end
+Outposts.ammo_rank = ammo_rank
+--- Lot MUNITIONS : rang d'une munition (0 hors échelle).
+function Outposts.rank_of(name) return AMMO_RANK[name] or 0 end
+
+--- Lot MUNITIONS : chargeurs voulus par tourelle de l'équipe (f.team.ammo_per_turret, Mu.per_turret à la pensée ; T.turret_ammo_target sinon).
+function Outposts.ammo_target(f)
+  local v = T.munitions_on and f and f.team and f.team.ammo_per_turret or nil
+  return (type(v) == "number" and v > 0) and v or T.turret_ammo_target
+end
+
+--- Groupes de tourelles : { key, pos, list, low, short, missing, ammo } ; key = "hq" ou "o<id d'avant-poste>". low : tourelles sous le seuil bas ;
+--- short / missing (lot MUNITIONS, Mu.group) : tourelles à recharger au plein et chargeurs qui leur manquent pour la cible ; ammo : chargeurs.
 function Outposts.turret_groups(f)
   local groups, by_key = {}, {}
+  local target = Outposts.ammo_target(f)
   for _, id in ipairs(State.sorted_keys(f.turrets)) do
     local t = f.turrets[id]
     if t.valid then
@@ -1222,28 +1249,90 @@ function Outposts.turret_groups(f)
       if not g then
         local pos = f.hq_pos
         if oid then pos = f.outposts[oid] and f.outposts[oid].pos or t.position end
-        g = { key = key, pos = pos, list = {}, low = 0 }
+        g = { key = key, pos = pos, list = {}, low = 0, have = {}, ranks = {} }
         by_key[key] = g
         groups[#groups + 1] = g
       end
       g.list[#g.list + 1] = t
-      if ammo_of(t) < T.turret_ammo_low then g.low = g.low + 1 end
+      local a = ammo_of(t)
+      g.have[#g.have + 1] = a
+      g.ranks[#g.ranks + 1] = ammo_rank(t)
+      if a < T.turret_ammo_low then g.low = g.low + 1 end
     else
       f.turrets[id] = nil
     end
   end
+  local best = AMMO_RANK[Outposts.ammo_name(nil, f)] or 1
+  for _, g in ipairs(groups) do
+    local m = Mu.group(g.have, target, T.turret_ammo_low, T.turret_ammo_target, g.ranks, best)
+    local sum = 0
+    for _, a in ipairs(g.have) do sum = sum + a end
+    g.short, g.missing, g.ammo, g.have = m.short, m.missing, sum, nil
+    g.missing_base, g.short_base = m.missing_base, m.short_base -- part urgente : jusqu'à la cible ordinaire
+    g.worse, g.worse_need, g.ranks = m.worse, m.worse_need, nil -- tourelles à ÉCHANGER contre la meilleure munition
+  end
   return groups, by_key
 end
 
+--- Lot MUNITIONS : une tourelle chargée d'une munition MOINS BONNE que la meilleure portée la rend au porteur et reçoit la meilleure (la
+--- tourelle n'a qu'une case : sans échange, les balles perforantes n'y entraient jamais tant qu'il restait un chargeur de base).
+--- Revue M2 : l'échange ne fait JAMAIS baisser les chargeurs d'une tourelle (Mu.swap_take : n <= cible, et la meilleure remise aussitôt à
+--- max(n, remplissage)) ; la munition rendue revient au porteur (puis au coffre). Rend les chargeurs posés.
+local function swap_for_best(t, carrier, target, fill)
+  local inv = t.get_inventory(defines.inventory.turret_ammo)
+  if not inv or inv.is_empty() then return 0 end
+  local cur = inv[1].valid_for_read and inv[1].name or nil
+  if not cur then return 0 end
+  for i = #T.turret_ammo_ladder, 1, -1 do
+    local best = T.turret_ammo_ladder[i]
+    if (AMMO_RANK[cur] or 0) >= i then return 0 end
+    local n = inv.get_item_count(cur)
+    local put = Mu.swap_take(n, target, carrier.get_item_count(best), fill)
+    if put > 0 then
+      local back = carrier.insert({ name = cur, count = n })
+      if back < n then -- porteur plein : on remet ce qu'il n'a pas pris, pas d'échange
+        if back > 0 then carrier.remove({ name = cur, count = back }) end
+        return 0
+      end
+      inv.remove({ name = cur, count = n })
+      local moved = t.insert({ name = best, count = put })
+      if moved > 0 then carrier.remove({ name = best, count = moved }) end
+      return moved
+    end
+  end
+  return 0
+end
+
 --- Ravitaille les tourelles du groupe avec les munitions portées. Renvoie chargeurs posés.
+--- Lot MUNITIONS : échange d'abord (une munition moins bonne contre la meilleure, sans baisse, revue M2), puis plan de remplissage
+--- (Mu.fill_plan) : la tourelle la MOINS chargée d'abord, par paliers (5, seuil bas, cible ordinaire, cible) : une tournée partielle arme
+--- toutes les vides avant d'en remplir une (revue M1) ; meilleure munition d'abord.
 function Outposts.refill_group(f, key, carrier)
   local _, by_key = Outposts.turret_groups(f)
   local g = by_key[key]
   if not g then return 0 end
   local put = 0
-  for _, t in ipairs(g.list) do
-    local missing = T.turret_ammo_target - ammo_of(t)
-    for _, ammo in ipairs({ "piercing-rounds-magazine", "firearm-magazine" }) do
+  local target = Outposts.ammo_target(f)
+  local fill = math.min(T.turret_ammo_target, target)
+  local list = {}
+  for _, t in ipairs(g.list) do if t.valid then list[#list + 1] = t end end
+  if T.munitions_on then
+    for _, t in ipairs(list) do put = put + swap_for_best(t, carrier, target, fill) end
+  end
+  local have, carried, ok = {}, 0, {}
+  for i, t in ipairs(list) do
+    have[i] = ammo_of(t)
+    -- (contre-relecture : une tourelle chargée d'une munition que le porteur n'a pas ne peut rien recevoir : hors du plan)
+    local inv = t.get_inventory(defines.inventory.turret_ammo)
+    local cur = inv and not inv.is_empty() and inv[1].valid_for_read and inv[1].name or nil
+    ok[i] = cur == nil or carrier.get_item_count(cur) > 0
+  end
+  for _, name in ipairs(T.turret_ammo_ladder) do carried = carried + carrier.get_item_count(name) end
+  local plan = T.munitions_on and Mu.fill_plan(have, { Mu.REFILL_MIN, T.turret_ammo_low, fill, target }, carried, ok) or nil
+  for i, t in ipairs(list) do
+    local missing = plan and plan[i] or (target - have[i])
+    for j = #T.turret_ammo_ladder, 1, -1 do
+      local ammo = T.turret_ammo_ladder[j]
       local n = math.min(missing, carrier.get_item_count(ammo))
       if n > 0 then
         local moved = t.insert({ name = ammo, count = n })
