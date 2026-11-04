@@ -29,8 +29,8 @@ local Cp = require("shared.content.compute")
 local Cv = {}
 
 ---------------------------------------------------------------------------------------------------
--- Machines (une par étape) : visuel PROVISOIRE (copie teintée d'une machine vanilla, mise à l'échelle), liste
--- Cv.PROVISIONAL ; à dessiner après le workflow design-calcul-* (aucun de ses fichiers n'est touché).
+-- Machines (une par étape) : copie d'une machine vanilla (boîtes, sons) ; visuel dessiné posé par prototypes/calcul_machines.lua
+-- (lot MACHINES-CALCUL) ; la teinte et l'échelle de copy/side/tint ne servent plus qu'au gabarit.
 --   copy : assembleur vanilla copié ; side : son côté ; pipes : entrées (in) et sorties (out) de fluide, positions des
 --   raccords (juste hors de l'emprise).
 ---------------------------------------------------------------------------------------------------
@@ -97,11 +97,9 @@ Cv.MACHINES = {
 Cv.DATA_CENTER = { name = "fo-data-center", kw = 300, slots = 6, categories = { "fo-computing", "fo-dc-cooling" },
                    out = { { 2.5, 0.5 } } }
 
---- Visuels provisoires (à dessiner) : toutes les machines neuves, plus le centre et le lithographe de la v1.
+--- Visuels provisoires restants : aucun depuis le lot MACHINES-CALCUL (3/11) : les 13 machines neuves, le centre et le
+--- lithographe de la v1 ont leur vrai visuel (prototypes/calcul_machines.lua, feuilles graphics/machines/calcul).
 Cv.PROVISIONAL = {}
-for _, m in ipairs(Cv.MACHINES) do Cv.PROVISIONAL[#Cv.PROVISIONAL + 1] = m.name end
-Cv.PROVISIONAL[#Cv.PROVISIONAL + 1] = Cv.DATA_CENTER.name -- le centre v1 (copie teintée, devenu modulaire)
-Cv.PROVISIONAL[#Cv.PROVISIONAL + 1] = "fo-crystal-lithograph" -- le lithographe v1 (copie teintée, inchangé)
 
 ---------------------------------------------------------------------------------------------------
 -- Objets, fluides, baies
