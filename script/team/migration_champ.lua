@@ -565,7 +565,7 @@ end
 
 --- Fin du suivi d'un avant-poste (état final posé sur l'avant-poste) ; la pensée suivante passe au suivant.
 local function finish(f, ms, o, st, how, text)
-  st.stage, st.pid, st.ids, st.undo, st.pg, st.cool = "veille", nil, nil, nil, nil, nil
+  st.stage, st.pid, st.ids, st.undo, st.pg, st.cool, st.rollbacks = "veille", nil, nil, nil, nil, nil, 0
   if st.frame then -- lot CHAMP : les voisins du même gisement suivent (plus de paire posée par eux sur le champ)
     for _, q in ipairs(siblings(f, o)) do
       q.migr, q.full, q.full_by = (how == "abandon") and nil or how, how ~= "abandon", (how ~= "abandon") and "migration" or nil
@@ -633,6 +633,7 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
   end
   local bad = {}
   for _, k in ipairs(st.bad or {}) do bad[k] = true end
+  for _, k in ipairs(st.stopped or {}) do bad[k] = true end -- lot AZURE : bandes parquées (réserve définitive), jamais relancées
   local product = T.outposts[o.kind].product
   local pr
   for _, x in ipairs(st.order) do
@@ -855,6 +856,7 @@ local function part_ids(st, list, thaw)
   return ids, added
 end
 
+local park, leave_band -- lot AZURE : définis plus bas (réserve définitive d'une bande, sortie du suivi)
 --- Projet demandé : attend le plan et les matières ; au moment du « degel », retire la partie.
 local function step_project(f, surface, ms, o, st, tick, free, book)
   local b = f.build
@@ -913,6 +915,12 @@ local function step_project(f, surface, ms, o, st, tick, free, book)
   if act == "annuler" and p and (st.rollbacks or 0) > 0 then
     for _, e in ipairs(p.ents or {}) do
       if e.built then
+        -- (revue R1 : l'attente est BORNÉE ; sinon le créneau du minerai reste pris pour toujours)
+        if Rb.wait_over(tick - st.t0, (st.frame and CHAMP_CFG or CFG).gate_wait) then
+          park(f, ms, o, st, p, tick, "attente-" .. tostring(why))
+          leave_band(f, ms, o, st, tick)
+          return
+        end
         say_why(f, ms, st, "entamee:" .. why, string.format("avant-poste %d : bande du projet %d entamee (retour en arriere fait), jamais annulee : elle attend (%s)", o.id, st.pid, tostring(why)), true)
         return
       end
@@ -1022,8 +1030,43 @@ local function repose(f, surface, st)
   return placed, busy, noitem
 end
 
+--- Réserve DÉFINITIVE d'une bande (décision du DC, QCM-4/11-REGLEB : « Réserve, plus de nouvel essai ») : le projet n'est plus avancé (dormant : état
+--- « bloque » sans reprise, jamais annulé : ses entités bâties restent en place), sa matière est rendue au coffre, ses pièces non bâties oublient leurs refus
+--- et leurs fantômes (R2), et la bande n'est plus choisie par begin_band ni par la capitalisation (st.stopped). Les paires sont déjà reposées.
+function park(f, ms, o, st, p, tick, why)
+  local built, total = 0, 0
+  if p and p.state ~= "fini" and p.state ~= "refuse" then
+    p.state, p.reason, p.retry_at, p.degele, p.reserve_next, p.parked = "bloque", "retour en arriere : reserve, plus de nouvel essai", nil, nil, nil, true
+    for _, e in ipairs(p.ents or {}) do
+      total = total + 1
+      if e.built then built = built + 1 else e.ghosted, e.fails, e.npc_blocks = nil, 0, 0 end
+    end
+    Build.give_back(f, p)
+  end
+  if st.band_key then
+    st.stopped = st.stopped or {}
+    if #st.stopped < 40 then st.stopped[#st.stopped + 1] = st.band_key end
+  end
+  log(Rb.park_line({ team = name_of(f), outpost = o.id, pid = st.pid, why = why, minute = tick / 3600, built = built, total = total }))
+end
+
+--- Sortie de la bande de ce suivi : le créneau du minerai est libéré, la suivante peut partir. Hors cadre (migration du treillis), la clé d'une partie
+--- porte les numéros de ses paires, qui changent quand elles sont reposées : la bande parquée ne serait pas reconnue, donc la migration de cet
+--- avant-poste s'arrête (« partiel ») au lieu de la relancer.
+function leave_band(f, ms, o, st, tick)
+  if not st.frame then
+    finish(f, ms, o, st, "partiel", string.format("avant-poste %d : bande du projet %s parquee en reserve (treillis, sans cadre) : migration arretee, %d partie(s) migree(s)",
+      o.id, tostring(st.pid), st.done))
+    return
+  end
+  st.stage, st.pid, st.ids, st.t_done, st.gate_t0, st.why_last, st.block_t0 = "veille", nil, nil, nil, nil, nil, nil
+  st.rollbacks, st.cool, st.undo, st.pg = 0, nil, nil, nil
+  st.retry = tick + Rb.CFG.cool
+  release(ms, o.id)
+end
+
 --- Retour en arrière : les paires retirées reviennent (tuiles libres), puis la bande attend en réserve (pause Rb.CFG.cool, retrait possible
---- ensuite) ou, au dernier retour (`final`, ou Rb.CFG.max_rollbacks atteint), elle est LAISSÉE AU PLAN telle quelle. Rend "reserve" ou "laisser".
+--- ensuite) ou, au dernier retour (`final`, ou Rb.CFG.max_rollbacks atteint), le CALLER la parque (park). Rend "reserve" ou "parquer".
 --- (Revue du 4/11, A1 : jamais Build.cancel ici. Il vide p.ents sans retirer les entités bâties ni les fantômes du monde : une bande à
 --- 246/575 devenait orpheline, et il rend faux pour un projet rouvert ou gardé, alors que l'état avait déjà été forcé.)
 local function rollback(f, surface, ms, o, st, p, tick, why, final)
@@ -1035,7 +1078,7 @@ local function rollback(f, surface, ms, o, st, p, tick, why, final)
   log(Rb.line({ team = name_of(f), outpost = o.id, pid = st.pid, why = why, minute = tick / 3600, undo = undo_n, placed = placed, busy = busy,
     items = noitem, n = st.rollbacks, next = nxt, lost = st.undo_lost }))
   st.undo, st.pg = nil, nil
-  if nxt == "laisser" then return "laisser" end -- (st.retired reste : Th.stop_state ferme l'avant-poste aux brûleurs, revue A6)
+  if nxt == "parquer" then return "parquer" end -- (st.retired reste : Th.stop_state ferme l'avant-poste aux brûleurs, revue A6)
   st.retired = 0
   if p then
     p.state, p.reason, p.degele, p.reserve_next, p.retry_at = "reserve", "materiaux", nil, nil, nil
@@ -1091,14 +1134,10 @@ local function step_build(f, surface, ms, o, st, tick)
     if dec == "retour" then
       local res = rollback(f, surface, ms, o, st, p, tick, rwhy, ab)
       if res == "reserve" then return end
+      -- deuxième retour ou abandon : réserve définitive (décision du DC), jamais Build.cancel ; la suivante part
+      park(f, ms, o, st, p, tick, rwhy)
       if not ab then
-        -- deuxième retour sans progrès : la bande reste au plan (elle peut encore finir ; ses entités bâties ne sont jamais orphelines),
-        -- comptée comme posée, la suivante part (comme une bande bloquée, plus haut)
-        if st.band_key and st.done_pr then st.done_pr[tostring(st.band_key)] = true end
-        st.stage, st.pid, st.ids, st.t_done, st.gate_t0, st.why_last, st.block_t0 = "veille", nil, nil, nil, nil, nil, nil
-        st.rollbacks, st.cool = 0, nil
-        st.retry = tick + Rb.CFG.cool
-        release(ms, o.id)
+        leave_band(f, ms, o, st, tick)
         return
       end
       -- abandon ou projet perdu : le suivi ferme l'avant-poste ci-dessous (« partiel » : des paires ont été retirées, Th.stop_state)

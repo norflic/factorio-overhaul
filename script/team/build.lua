@@ -2952,6 +2952,12 @@ local function release(f, p)
   end
 end
 
+--- Lot AZURE : rend au coffre de l'équipe la matière réservée par le projet `p` (bande mise en réserve définitive par script/team/migration_champ.lua :
+--- ses entités bâties restent, aucune matière ne reste retenue pour elle). Seul le retour à l'état d'avant la réserve ; rien d'autre.
+function Build.give_back(f, p)
+  release(f, p)
+end
+
 --- Lot FUITES-PILE (fuite b) : la réserve au coffre du projet `p` (état « reserve ») est-elle suspendue par la pile ? Un module NEUF est une
 --- amélioration (R3) : pendant qu'un cadre réparer, protéger ou survivre retient, il ne prend rien au coffre et REND ce qu'il avait pris
 --- (p.stock), ses manques sont effacés (aucun but ne les fabrique), raison « pile », relu dans une seconde ; sauf s'il produit une matière

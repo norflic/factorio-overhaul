@@ -476,6 +476,8 @@ local function executor_run(scn)
     Build.cancels[#Build.cancels + 1] = { id, why }
     return true
   end
+  Build.gave = {}
+  Build.give_back = function(f, p) Build.gave[#Build.gave + 1] = p.id end -- (lot AZURE : matière rendue au coffre)
   local saved = {}
   for _, name in ipairs({ "script.faction.state", "script.team.stock", "script.team.build", "script.team.migration_champ" }) do
     saved[name] = package.loaded[name]
@@ -1881,7 +1883,7 @@ do
       end
       -- (revue A6) des paires ont été retirées : l'avant-poste reste fermé aux brûleurs (« partiel »), jamais « abandon » ; le projet n'est pas annulé
       r.c1 = E.alive() == 8 and E.o.migr == "partiel" and E.o.full == true and not st.abandoned and st.undo == nil and #E.Build.cancels == 0
-        and #p.ents > 0 and p.state ~= "refuse"
+        and #p.ents > 0 and p.state == "bloque" and p.parked == true and p.retry_at == nil and #E.Build.gave == 1
       local jr = table.concat(E.logs, "\n")
       r.c2 = jr:find("[FO-ROLLBACK]", 1, true) ~= nil and jr:find("(abandon)", 1, true) ~= nil and jr:find("n'aboutit pas", 1, true) ~= nil
       E.restore()
@@ -1954,8 +1956,26 @@ do
       local p, st = to_chantier(E)
       p.ents[#p.ents + 1] = { name = D.PARTS.belt, x = 6200, y = 6200, dir = 0, built = true }
       for _ = 1, math.floor(Rb.CFG.stall / CFG.every) + 3 do E.think() end
-      for _ = 1, math.floor(CFG.gate_wait * 2 / CFG.every) do E.think() end
-      r.j1 = #E.Build.cancels == 0 and p.state ~= "refuse" and p.ents[#p.ents].built == true and st.stage == "projet"
+      for _ = 1, math.floor(CFG.gate_wait * 1.5 / CFG.every) do E.think() end
+      -- avant la borne (2 x gate_wait depuis le retour) : la bande attend, le créneau reste pris
+      r.j1 = #E.Build.cancels == 0 and p.state ~= "refuse" and p.ents[#p.ents].built == true and st.stage == "projet" and E.f.migration.cur == 1
+      -- R1 : au-delà de 2 x gate_wait, réserve définitive : jamais annulée, bâti en place, matière rendue, créneau libéré, plus relancée
+      local key0 = st.band_key
+      local tiles0 = table.concat(p.spec.degel.tiles, ",")
+      for _ = 1, math.floor(CFG.gate_wait / CFG.every) + 2 do E.think() end
+      r.j2 = #E.Build.cancels == 0 and p.state == "bloque" and p.parked == true and p.ents[#p.ents].built == true and #E.Build.gave == 1
+        and E.f.migration.cur == nil and st.stage == "veille" and st.rollbacks == 0
+      local stopped = false
+      for _, k in ipairs(st.stopped or {}) do if k == key0 then stopped = true end end
+      r.j3 = stopped and table.concat(E.logs, "\n"):find("bande parquee en reserve, plus de nouvel essai", 1, true) ~= nil
+      local before = #E.Build.requests
+      for _ = 1, 200 do E.think() end
+      local again = false
+      for i = before + 1, #E.Build.requests do
+        local pr = E.project(E.Build.requests[i])
+        if pr and pr.spec and pr.spec.degel and table.concat(pr.spec.degel.tiles, ",") == tiles0 then again = true end
+      end
+      r.j4 = not again and p.state == "bloque" and #E.Build.requests == before and E.o.migr == "partiel"
       E.restore()
     end
     -- F. deux retours sans progrès : la bande est LAISSÉE AU PLAN (jamais annulée : ses entités bâties resteraient orphelines, revue A1)
@@ -1968,18 +1988,27 @@ do
       n_ents = n_ents + 1
       st.done_pr = st.done_pr or {}
       st.band_key = st.band_key or 77
+      local key0 = st.band_key
       for _ = 1, math.floor(Rb.CFG.stall / CFG.every) + 3 do E.think() end
       r.f1 = st.rollbacks == 1 and st.stage == "projet"
       drive_plan(E, p, "degel")
       for _ = 1, math.floor(Rb.CFG.cool / CFG.every) + 3 do E.think() end
       r.f2 = st.stage == "chantier" and E.alive() == 8 - band_n
       drive_plan(E, p, "chantier")
+      for _, e in ipairs(p.ents) do if not e.built then e.ghosted, e.fails = true, 2 end end -- (R2 : fantomes poses et refus, a oublier au parquage)
       for _ = 1, math.floor(Rb.CFG.stall / CFG.every) + 3 do E.think() end
-      r.f3 = E.alive() == 8 and #E.Build.cancels == 0 and p.state ~= "refuse" and #p.ents == n_ents and p.ents[#p.ents].built == true
-      r.f4 = st.stage == "veille" and st.fails == 0 and st.undo == nil and st.rollbacks == 0 and st.done_pr[tostring(st.band_key)] == true
-      r.f5 = st.retry > game.tick and E.f.migration.cur == nil
+      -- décision du DC (QCM-4/11-REGLEB) : au 2e retour, « réserve, plus de nouvel essai » : thermiques reposés, bâti en place, jamais annulée
+      r.f3 = E.alive() == 8 and #E.Build.cancels == 0 and p.state == "bloque" and p.parked == true and #p.ents == n_ents and p.ents[#p.ents].built == true
+      local stopped = false
+      for _, k in ipairs(st.stopped or {}) do if k == key0 then stopped = true end end
+      r.f4 = st.stage == "veille" and st.fails == 0 and st.undo == nil and st.rollbacks == 0 and stopped and #E.Build.gave >= 1
+      r.f5 = E.f.migration.cur == nil and E.o.migr == "partiel" -- (mock sans cadre : migration du treillis arrêtée, la bande parquée ne serait pas reconnue)
+      -- R2 : les pièces non bâties oublient fantômes et refus
+      local clean = true
+      for _, e in ipairs(p.ents) do if not e.built and (e.ghosted or (e.fails or 0) ~= 0) then clean = false end end
+      r.f7 = clean
       -- A2 : la bande suivante repart avec son propre compte de retours (rollbacks remis à 0 par bande)
-      r.f6 = (st.rollbacks or 0) == 0 and table.concat(E.logs, "\n"):find("retour 2, bande laissee au plan, la suivante part", 1, true) ~= nil
+      r.f6 = (st.rollbacks or 0) == 0 and table.concat(E.logs, "\n"):find("retour 2, bande en reserve, plus de nouvel essai", 1, true) ~= nil
       E.restore()
     end
     return r
@@ -2013,12 +2042,17 @@ do
     { "objets non retires du stock", mutsrc("for _, n in ipairs(sorted_keys(u.plan or {})) do Stock.remove(f, n, u.plan[n]) end\n        local burners", "local burners") },
     { "objets dépensés non refaits", mutsrc("local ok, used = Rb.plan(u.name, 1, have, recipe_of)", "local ok, used = Stock.count(f, u.name) >= 1, { [u.name] = 1 }") },
     -- (« recette à fluide acceptée » : mutant ÉQUIVALENT, un fluide n'est jamais au stock, Rb.plan échoue sur lui de toute façon)
-    { "bande annulee au dernier retour", mutsrc("if nxt == \"laisser\" then return \"laisser\" end", "if nxt == \"laisser\" then if p then p.state = \"reserve\" end Build.cancel(f, st.pid, \"x\") return \"laisser\" end") },
+    { "bande annulee au dernier retour", mutsrc("if nxt == \"parquer\" then return \"parquer\" end", "if nxt == \"parquer\" then if p then p.state = \"reserve\" end Build.cancel(f, st.pid, \"x\") return \"parquer\" end") },
+    { "attente de la porte non bornee (R1)", mutsrc("if Rb.wait_over(tick - st.t0, (st.frame and CHAMP_CFG or CFG).gate_wait) then", "if false then") },
+    { "parquage sans dormir", mutsrc("p.state, p.reason, p.retry_at, p.degele, p.reserve_next, p.parked = \"bloque\"", "p.state, p.reason, p.retry_at, p.degele, p.reserve_next, p.parked = \"reserve\"") },
+    { "matiere non rendue", mutsrc("    Build.give_back(f, p)\n  end\n  if st.band_key then", "  end\n  if st.band_key then") },
+    { "fantomes non oublies (R2)", mutsrc("else e.ghosted, e.fails, e.npc_blocks = nil, 0, 0 end\n    end\n    Build.give_back", "end\n    end\n    Build.give_back") },
+    -- (« creneau non libere » : mutant ÉQUIVALENT, Mig.think relâche aussi tout suivi à l'étape « veille » ; le test j2 contrôle l'effet : ms.cur == nil)
     { "porte des matieres annule une bande entamee", mutsrc("if act == \"annuler\" and p and (st.rollbacks or 0) > 0 then", "if false then") },
     { "bande non comptee posee", mutsrc("if st.band_key and st.done_pr then st.done_pr[tostring(st.band_key)] = true end\n        st.stage, st.pid, st.ids, st.t_done, st.gate_t0, st.why_last, st.block_t0 = \"veille\"", "st.stage, st.pid, st.ids, st.t_done, st.gate_t0, st.why_last, st.block_t0 = \"veille\"") },
     { "retours non remis a zero", mutsrc("st.rollbacks, st.cool = 0, nil\n        st.retry = tick + Rb.CFG.cool", "st.cool = nil\n        st.retry = tick + Rb.CFG.cool") },
     { "etat force sans verifier (reserve_next gardee)", mutsrc("p.state, p.reason, p.degele, p.reserve_next, p.retry_at = \"reserve\", \"materiaux\", nil, nil, nil", "p.state, p.reason, p.degele, p.reserve_next = \"reserve\", \"materiaux\", nil, nil") },
-    { "abandon sans paire fermee", mutsrc("st.undo, st.pg = nil, nil\n  if nxt == \"laisser\" then return \"laisser\" end -- (st.retired reste : Th.stop_state ferme l'avant-poste aux brûleurs, revue A6)\n  st.retired = 0", "st.undo, st.pg = nil, nil\n  st.retired = 0\n  if nxt == \"laisser\" then return \"laisser\" end") },
+    { "abandon sans paire fermee", mutsrc("st.undo, st.pg = nil, nil\n  if nxt == \"parquer\" then return \"parquer\" end -- (st.retired reste : Th.stop_state ferme l'avant-poste aux brûleurs, revue A6)\n  st.retired = 0", "st.undo, st.pg = nil, nil\n  st.retired = 0\n  if nxt == \"parquer\" then return \"parquer\" end") },
     -- (« ligne produite non protegee » : mutant ÉQUIVALENT, Mg.watch ne rend « produit » que pour un projet « fini », que Rb.decide laisse en paix)
     { "compte des foreuses oublie", mutsrc("o.drills = (o.drills or 0) + 1\n        placed", "placed") },
     { "retours sans limite", mutsrc("local nxt = Rb.after(st.rollbacks, final)", "local nxt = \"reserve\"") },

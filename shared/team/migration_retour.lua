@@ -78,11 +78,11 @@ function R.decide(c, cfg)
   return "rien", "avance"
 end
 
---- Suite du retour n° `n` (1 pour le premier, compte PAR BANDE) : "reserve" (la bande attend, pause R.CFG.cool) ou "laisser" (dernier retour, ou fin
---- imposée : la bande reste au plan telle quelle, jamais annulée ; revue du 4/11, A1).
+--- Suite du retour n° `n` (1 pour le premier, compte PAR BANDE) : "reserve" (la bande attend, pause R.CFG.cool) ou "parquer" (dernier retour, ou fin
+--- imposée : réserve définitive, plus de nouvel essai, jamais annulée ; décision du DC, QCM-4/11-REGLEB, revue A1).
 function R.after(n, final, cfg)
   cfg = cfg or R.CFG
-  if final or n >= cfg.max_rollbacks then return "laisser" end
+  if final or n >= cfg.max_rollbacks then return "parquer" end
   return "reserve"
 end
 
@@ -109,6 +109,18 @@ function R.plan(name, qty, have, recipe, used, depth)
   return true, used
 end
 
+--- Revue R1 : l'attente d'une bande ENTAMÉE remise en réserve (matières, ennemi...) est bornée : au-delà de deux fois le délai des matières depuis le
+--- retour, la bande est parquée (sinon le créneau du minerai reste pris pour toujours : Th.free_slot, un seul par minerai).
+function R.wait_over(waited, gate_wait)
+  return (waited or 0) > 2 * (gate_wait or 0)
+end
+
+--- Ligne [FO-ROLLBACK] d'une bande PARQUÉE (réserve définitive). ev = { team, outpost, pid, why, minute, built, total }.
+function R.park_line(ev)
+  return string.format("[FO-ROLLBACK] %s : avant-poste %d, projet %s a %.1f min (%s) : bande parquee en reserve, plus de nouvel essai ; %d entite(s) baties sur %d restent en place, matieres rendues, creneau libere",
+    tostring(ev.team), ev.outpost or 0, tostring(ev.pid), ev.minute or 0, tostring(ev.why), ev.built or 0, ev.total or 0)
+end
+
 --- La pause du retour est-elle en cours ? (until : tick de fin ou nil)
 function R.cooling(until_tick, now)
   return until_tick ~= nil and now < until_tick
@@ -119,7 +131,7 @@ function R.line(ev)
   return string.format(
     "[FO-ROLLBACK] %s : avant-poste %d, projet %s a %.1f min (%s) : %d paire(s) gardee(s), %d reposee(s), %d tuile(s) prise(s), %d sans objet ; retour %d, %s",
     tostring(ev.team), ev.outpost or 0, tostring(ev.pid), ev.minute or 0, tostring(ev.why), ev.undo or 0, ev.placed or 0, ev.busy or 0, ev.items or 0,
-    ev.n or 0, ev.next == "laisser" and "bande laissee au plan, la suivante part" or "bande remise en reserve")
+    ev.n or 0, ev.next == "parquer" and "bande en reserve, plus de nouvel essai" or "bande remise en reserve")
     .. ((ev.lost or 0) > 0 and string.format(" ; %d paire(s) au-dela de la borne, non gardee(s)", ev.lost) or "")
 end
 

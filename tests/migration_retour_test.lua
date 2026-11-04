@@ -60,14 +60,14 @@ local function run(R)
   local _, w5 = R.decide({ undo = 3, produced = true })
   r.c8 = w1 == "chantier-lent" and w2 == "abandon" and w3 == "avance" and w4 == "sans-paire" and w5 == "produit"
   -- 9. suite : premier retour -> reserve, deuxieme -> annuler, final -> annuler
-  r.c9 = R.after(1) == "reserve" and R.after(2) == "laisser" and R.after(1, true) == "laisser" and R.after(5) == "laisser"
+  r.c9 = R.after(1) == "reserve" and R.after(2) == "parquer" and R.after(1, true) == "parquer" and R.after(5) == "parquer"
   -- 10. pause
   r.c10 = R.cooling(1000, 999) == true and R.cooling(1000, 1000) == false and R.cooling(nil, 5) == false
   -- 11. ligne
   local l = R.line({ team = "azure", outpost = 4, pid = 7, why = "chantier-lent", minute = 75.5, undo = 21, placed = 13, busy = 6, items = 2, n = 1, next = "reserve" })
-  local l2 = R.line({ team = "azure", outpost = 4, pid = 7, why = "abandon", minute = 140, undo = 21, placed = 0, busy = 21, items = 0, n = 2, next = "laisser", lost = 3 })
+  local l2 = R.line({ team = "azure", outpost = 4, pid = 7, why = "abandon", minute = 140, undo = 21, placed = 0, busy = 21, items = 0, n = 2, next = "parquer", lost = 3 })
   r.c11 = l == "[FO-ROLLBACK] azure : avant-poste 4, projet 7 a 75.5 min (chantier-lent) : 21 paire(s) gardee(s), 13 reposee(s), 6 tuile(s) prise(s), 2 sans objet ; retour 1, bande remise en reserve"
-    and l2:find("retour 2, bande laissee au plan, la suivante part ; 3 paire(s) au-dela de la borne, non gardee(s)", 1, true) ~= nil
+    and l2:find("retour 2, bande en reserve, plus de nouvel essai ; 3 paire(s) au-dela de la borne, non gardee(s)", 1, true) ~= nil
   -- 12. plan d'obtention : stock d'abord, puis recettes dépliées (3 niveaux), atomicité de `used`
   local stock = { gear = 2, plate = 30, stone = 5 }
   local have = function(n) return stock[n] or 0 end
@@ -88,6 +88,11 @@ local function run(R)
   local ok5, u5 = R.plan("pair", 3, have, rec)                                                  -- 3 voulus, 2 par fabrication : 2 fabrications
   local ok6 = R.plan("deep", 1, have, rec)                                                      -- 4 niveaux : refuse
   local ok7 = R.plan("rock", 1, have, rec)                                                      -- ni stock ni recette
+  -- 13. attente bornée (R1) et ligne de la bande parquée
+  r.c13 = R.wait_over(2 * 90 * 3600, 90 * 3600) == false and R.wait_over(2 * 90 * 3600 + 1, 90 * 3600) == true and R.wait_over(0, 90 * 3600) == false
+    and R.wait_over(nil, nil) == false
+    and R.park_line({ team = "azure", outpost = 3, pid = 6, why = "chantier-lent", minute = 140.5, built = 246, total = 575 })
+      == "[FO-ROLLBACK] azure : avant-poste 3, projet 6 a 140.5 min (chantier-lent) : bande parquee en reserve, plus de nouvel essai ; 246 entite(s) baties sur 575 restent en place, matieres rendues, creneau libere"
   r.c12 = ok1 and u1.gear == 1 and u1.plate == nil
     and ok2 and u2.gear == 2 and u2.plate == 2 and ok3 and u3.gear == 2 and u3.plate == 3 + 2 and u3.stone == 5
     and not ok4 and ok5 and u5.plate == 2 and not ok6 and not ok7 and not R.plan("zero", 1, have, rec)
@@ -97,7 +102,7 @@ end
 
 local R = require("shared.team.migration_retour")
 local res = run(R)
-for i = 1, 12 do check(res["c" .. i], "cas " .. i) end
+for i = 1, 13 do check(res["c" .. i], "cas " .. i) end
 
 -- branchement (lecture des sources)
 local S = read("script/team/migration_champ.lua")
@@ -106,6 +111,7 @@ check(S:find("st.undo, st.pg, st.cool, st.undo_lost = packed, nil, nil, lost", 1
 check(S:find("Rb.decide({ undo = #st.undo, produced = false", 1, true) ~= nil and S:find("local res = rollback(f, surface, ms, o, st, p, tick, rwhy, ab)", 1, true) ~= nil,
   "suivi du chantier : décision puis retour en arrière")
 check(S:find("if Rb.cooling(st.cool, tick) then", 1, true) ~= nil, "pause après un retour avant tout nouveau retrait")
+check(S:find("for _, k in ipairs(st.stopped or {}) do bad[k] = true end", 1, true) ~= nil, "begin_band écarte les bandes parquées (réserve définitive ; hors cadre la migration de l'avant-poste s'arrête)")
 check(S:find("log(Rb.line(", 1, true) ~= nil, "journal [FO-ROLLBACK]")
 
 -- mutants
@@ -128,6 +134,8 @@ local muts = {
   { "plan sans profondeur", "if depth >= R.CFG.craft_depth then return false end", "" },
   { "plan fabrications arrondies", "local runs = math.ceil(rest / rc.out)", "local runs = math.floor(rest / rc.out)" },
   { "plan used partage", "local avail = have(name) - (used[name] or 0)", "local avail = have(name)" },
+  { "attente non bornee", "return (waited or 0) > 2 * (gate_wait or 0)", "return false" },
+  { "attente bornee a une fois", "return (waited or 0) > 2 * (gate_wait or 0)", "return (waited or 0) > (gate_wait or 0)" },
   { "pack garde l'entree", "out[#out + 1] = { name = e.name,", "out[#out + 1] = e or { name = e.name," },
 }
 local caught = 0
@@ -139,7 +147,7 @@ for _, m in ipairs(muts) do
   if ok then
     local ok2, x = pcall(run, M)
     all = ok2
-    if ok2 then for i = 1, 12 do if not x["c" .. i] then all = false end end end
+    if ok2 then for i = 1, 13 do if not x["c" .. i] then all = false end end end
   end
   if not all then caught = caught + 1 else print("mutant survivant : " .. m[1]) end
 end
