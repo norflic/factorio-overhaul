@@ -245,18 +245,15 @@ def tete_laser(faisceau=1.6, rayon0=0.38, nez=1.15, lueur=False):
         o.rotation_euler = (0, math.radians(90), 0)
     elif faisceau > 0:
         coeur = lum("faisceau", mode="z", z0=faisceau, z1=0.0)
-        o = lathe([(rayon0, 0.0), (rayon0 * 0.6, faisceau * 0.7), (0.02, faisceau)], xl + 0.05, 0, 0, coeur, verts=16)
+        o = lathe([(rayon0, 0.0), (rayon0 * 0.8, faisceau * 0.75), (rayon0 * 0.3, faisceau)], xl + 0.05, 0, 0, coeur, verts=16)
         o.rotation_euler = (0, math.radians(90), 0)
-        gaine = P.mat_voile("gaine_laser", (1.0, 0.06, 0.03), 0.55, 5.0)
-        g = lathe([(rayon0 * 2.6, 0.0), (rayon0 * 1.6, faisceau * 0.7), (0.05, faisceau)], xl + 0.05, 0, 0, gaine, verts=24)
-        g.rotation_euler = (0, math.radians(90), 0)
-        g.visible_shadow = False
+        o.visible_shadow = False
     B(2.6, 1.2, 0.3, -0.6, 0, -1.25, "alu_sombre", bev=0.05)
 
 
 def ic_laser_module():
     """Tête de PROFIL sur la diagonale (critique : vue dans l'axe, elle se confondait avec le capteur optique)."""
-    pivoter(capte(tete_laser, 2.8, 0.17, 0.7, True), rot=(0, 14, -62))
+    pivoter(capte(tete_laser, 3.2, 0.1, 0.7, True), rot=(0, 14, -62))
 
 
 # ------------------------------------------------------------------------------------------------------------------
@@ -308,8 +305,10 @@ def oscillateur():
     zf, yf = 1.55, -ep / 2
     TOR(0.98, 0.08, 0, yf - 0.03, zf, "chrome", rot=(90, 0, 0), minor=10)
     CYX(0.94, 0.04, 0, yf - 0.01, zf, "fond_noir", axe="y", verts=48, bev=0)
-    d = CYX(0.68, 0.14, 0, yf - 0.2, zf, lum("quartz", force=1.2), axe="y", verts=48, bev=0.02)
-    d.rotation_euler = (math.radians(90 + 28), 0, math.radians(30))
+    d = CYX(0.7, 0.12, 0, yf - 0.12, zf, lum("quartz2"), axe="y", verts=48, bev=0.02)
+    d.rotation_euler = (math.radians(68), 0, math.radians(-20))
+    t = TOR(0.7, 0.05, 0, yf - 0.12, zf, "noir_mat", minor=8)
+    t.rotation_euler = (math.radians(68), 0, math.radians(-20))
     for sx in (-1, 1):
         tube([(sx * 0.5, yf - 0.18, zf - 0.35), (sx * 0.58, yf - 0.1, zf - 0.7), (sx * 0.62, yf - 0.03, zf - 0.88)], 0.035, "or", res=6)
 

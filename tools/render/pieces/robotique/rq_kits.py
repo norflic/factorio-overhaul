@@ -61,33 +61,27 @@ def _plaque(p, n, t, dims, m, inclinaison=14.0):
     return o
 
 
-def sig_ecaille(L=5.2, R=1.35):
-    """Long corps cuirassé à FLANCS DROITS (section en superellipse), dos d'âne : bandes d'écailles d'ACIER dominantes, cuivre en
-    rappel, joints orange entre les bandes, CRÊTE d'écailles pointues sur l'échine, bloc de nez à l'avant (+x) (contre-relecture :
-    un pain cuivré à bandes, une grenade)."""
-    a, c, n, m = L / 2, R * 1.05, 4.0, 5.0
-    B(L * 0.9, 2 * R * 0.94, c * 1.85, 0, 0, -c * 0.92, lum("joint_orange", force=0.9), bev=0.45)
-
-    def ext(x):
-        return max(0.08, (1 - abs(x / a) ** m)) ** (1 / m)
-    nb, nk = 8, 8
-    mats = ("ecaille", "ecaille", "cuivre", "ecaille")
+def sig_ecaille(L=5.0, R=1.35):
+    """LONG corps cuirassé (environ 2 fois plus long que large, critique : un dôme faisait une tortue), dos en dos d'âne : bandes
+    d'écailles d'acier et de cuivre, joints orange incandescents ENTRE les bandes, bloc de nez à l'avant (+x), crête à pointes."""
+    a, c = L / 2, R * 1.05
+    corps = SPH(1.0, 0, 0, 0, lum("joint_orange", force=0.9), seg=48, rings=24)
+    corps.scale = (a * 0.97, R * 0.97, c * 0.97)
+    nb, nk = 7, 7
     for i in range(nb):
         x = -a + (i + 0.5) * (2 * a / nb)
-        f = ext(x)
+        f = math.sqrt(max(0.05, 1 - (x / a) ** 2))
+        m = ("ecaille", "cuivre", "ecaille_rouille")[i % 3]
         for k in range(nk):
-            phi = math.radians(8 + k * (164 / (nk - 1)))
-            cs, sn = math.cos(phi), math.sin(phi)
-            y = R * f * math.copysign(abs(cs) ** (2 / n), cs)
-            z = c * f * abs(sn) ** (2 / n)
-            nv = Vector((0.0, math.copysign(abs(y / R) ** (n - 1), y) / R, abs(z / c) ** (n - 1) / c)).normalized()
-            tv = Vector((0.0, -nv.z, nv.y))
-            _plaque(Vector((x, y, z)), nv, tv, (0.62 * f + 0.12, (2 * a / nb) * 0.9, 0.15), mats[i % 4], inclinaison=12)
-        o = lathe([(0.3, 0.0), (0.0, 0.75)], x, 0, c * f + 0.05, "ecaille", verts=4, lisse=False, phase=0.785)
-        o.rotation_euler = (0, math.radians(-22), 0)
-    B(0.95, 1.9, 1.6, a - 0.15, 0, -0.75, "fonte", bev=0.16)
+            phi = math.radians(12 + k * 26)
+            p = Vector((x, R * f * math.cos(phi), c * f * math.sin(phi)))
+            nv = Vector((x / a ** 2, p.y / R ** 2, p.z / c ** 2))
+            tv = Vector((0.0, -math.sin(phi), math.cos(phi)))
+            _plaque(p, nv, tv, (max(0.3, R * f * 0.47), (2 * a / nb) * 0.9, 0.14), m, inclinaison=12)
+        lathe([(0.2, 0.0), (0.0, 0.5)], x, 0, c * f + 0.08, "fonte", verts=4, lisse=False)
+    B(0.9, 1.7, 1.5, a - 0.25, 0, -0.55, "fonte", bev=0.16)
     for s in (-1, 1):
-        B(0.06, 0.34, 0.14, a + 0.34, s * 0.45, 0.2, lum("joint_orange", force=1.4), bev=0)
+        B(0.06, 0.34, 0.14, a + 0.21, s * 0.42, 0.25, lum("joint_orange", force=1.4), bev=0)
 
 
 def sig_bobineur():

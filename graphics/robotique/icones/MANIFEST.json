@@ -16,7 +16,7 @@
    "genre": "item",
    "icon_mipmaps": 4,
    "icon_size": 64,
-   "sha256": "894eb7d9b907db95fa8515ad642a34445e886ebccefebac72efc4107b1ea4148"
+   "sha256": "081d839eccf05a8aac1e72cf8433abc314d04d323bc24400ccd4f1ae45c82c4c"
   },
   "icones/fo-enameled-wire.png": {
    "genre": "item",
@@ -34,7 +34,7 @@
    "genre": "item",
    "icon_mipmaps": 4,
    "icon_size": 64,
-   "sha256": "2e22e6862002bf9909072bdfe625003d14a14eca9fcf3b6dc0e1703071fc9d6d"
+   "sha256": "eea369701cd5839bf7b34d2b9b04748b596de2ad619ecf5da7332bcc58e94d8f"
   },
   "icones/fo-magnetic-actuator.png": {
    "genre": "item",
@@ -124,7 +124,7 @@
    "genre": "item",
    "icon_mipmaps": 4,
    "icon_size": 64,
-   "sha256": "cdeb771a2461fd6cf3b37ad53ba01db1b4f53f662192f0426177c84aec9f1ee8"
+   "sha256": "c8d62b20199d5fcdfd31d67c6f80e7347eff5ae8114af3184198130c664c2bfc"
   },
   "icones/fo-robot-kit-steam-trotter.png": {
    "genre": "item",
@@ -250,7 +250,7 @@
    "genre": "tech",
    "icon_mipmaps": 4,
    "icon_size": 256,
-   "sha256": "3d3a7e756bf217aa0cffa98d3ed082b166be8efbfb30e2316f2f736e07046d7e"
+   "sha256": "cbad56c8f355409f4f8edd65548541c002818387cf5350f06181c7823a90a2b3"
   },
   "tech/fo-robot-levite.png": {
    "genre": "tech",
