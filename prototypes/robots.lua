@@ -17,7 +17,7 @@
     puis un assemblage final (portique).
   - Lot RB-V1 (1/11) : un robot qui a une feuille (SPR[r.id]) a ses vraies images : marche, tir, ombre, lueur et une couche de PEINTURE teinte
     par propriétaire (unité) ou à l'exécution (géant : torse à plusieurs directions, pièces de pattes communes). Sans feuille : visuel provisoire.
-    Lot ROBOTS-JEU (3/11) : les 12 robots ont leur feuille (Trotte-Vapeur et Lévite à 16 directions, les 7 autres terrestres à 8, les 3 géants :
+    Lot ROBOTS-JEU (3/11) : les 12 robots ont leur feuille (Trotte-Vapeur et Lévite à 16 directions, Écaille et Bobineur aussi depuis RB16 (4/11), les 5 autres terrestres à 8, les 3 géants :
     torse à 16 directions et pattes dessinées) ; la RotatedAnimation d'une unité accepte 8 directions (prototype-api : direction_count).
   - Technologies : une par palier, plus celles des pièces (prototypes/robot_parts.lua).
   À charger APRÈS prototypes/enemies.lua (les globales des animations des cracheurs) et prototypes/robot_parts.lua : voir data.lua.
