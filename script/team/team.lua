@@ -41,6 +41,7 @@ local FluxLog = require("script.team.flux") -- lot FLUX : journal des sorties qu
 local SortiesLog = require("script.team.sorties") -- lot CHARBON-MAIN : journal [FO-SEC] (brûleurs à sec et état de leur tournée)
 local Front = require("script.team.front") -- lot DEFENSE-FRONT : la défense suit les attaques
 local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : tourelles des îlots isolés hors de l'enceinte
+local PerteLog = require("script.team.perte_log") -- lot PERIMETRE2 (diagnostic) : journal [FO-PERTE], lecture seule
 local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites avant d'améliorer
 local Objectif = require("script.team.objectif") -- lot AGES : libellé d'un objectif (aucune clé de traduction inconnue)
 local Reparation = require("script.team.reparation") -- lot PD-REPARATION (D79) : bâtiments endommagés réparés (toutes les équipes)
@@ -458,6 +459,7 @@ end
 function Team.view(f, tick)
   local war = State.war()
   local soldiers_max = f.is_player and 0 or war.settings.soldiers_max
+  PerteLog.measure(f, tick) -- lot PERIMETRE2 (diagnostic) : relevé [FO-PERTE] toutes les 5 min, lecture seule
   -- Lot IA1-a : plafond d'effectif de l'époque (Q-IA1-2 (2) : le maximum dès l'époque 1), recrue au prix
   -- O.recruit_cost, recrutement suspendu au-delà de fo-agents-max agents riches (garde comptée en agents).
   local workers_max = Team.npc_max(f)
