@@ -86,7 +86,7 @@ def etat(sortie, nom):
 
 
 def estime(nom, faits):
-    """Secondes de rendu estimées : moyenne des variantes faites de même âge et partie, sinon temps mesurés du lot
+    """Secondes estimées (durée totale de la variante dans sa session, construction comprise) : moyenne des variantes faites de même âge et partie, sinon temps mesurés du lot
     (128 échantillons : tête de l'âge 2 9 s, de l'âge 15 30 s ; socle de l'âge 9 134 s)."""
     e, p = int(nom[1:3]), partie(nom)
     vus = [s for n, s in faits.items() if int(n[1:3]) == e and partie(n) == p and s]
@@ -159,7 +159,7 @@ def main():
     for nom in toutes:
         ok, motif, s = etat(a.sortie, nom)
         if ok:
-            faits[nom] = (s or {}).get("seconds_render") or (s or {}).get("seconds")
+            faits[nom] = (s or {}).get("seconds") or (s or {}).get("seconds_render")
         else:
             reste.append(nom)
             motifs[nom] = motif
@@ -182,18 +182,30 @@ def main():
                                                                                          est / 3600.0, a.directions))
     hors_regle, erreurs, code_disque = [], 0, False
     t0 = time.time()
-    for i, p in enumerate(pq):
+    i = -1
+    tentes = set()
+    while True:
+        # paquets RECALCULÉS après chaque paquet, aux temps réels déjà mesurés (4/11, 19 h 30 : une partie du DC en
+        # cours ralentissait les têtes de l'âge 10 à 70-105 s, un paquet prévu à 10 min en durait 29)
+        a_faire = [n for n in toutes if n not in faits and n not in tentes]
+        if not a_faire:
+            break
+        pq = paquets(a_faire, faits, a.minutes)
+        p = pq[0]
+        i += 1
         if os.path.exists(a.stop):
-            journal(a.journal, "STOP trouvé (%s) : arrêt avant le paquet %d/%d" % (a.stop, i + 1, len(pq)))
+            journal(a.journal, "STOP trouvé (%s) : arrêt avant le paquet %d (%d à faire)" % (a.stop, i + 1,
+                                                                                           len(a_faire)))
             return 2
         if a.max_paquets and i >= a.max_paquets:
             break
+        tentes.update(p)
         tete = partie(p[0]) == "tete"
         cmd = [sys.executable, "-B", a.rendre, "--only", ",".join(p), "--samples", str(SAMPLES), "--out", a.sortie,
                "--cache", cache, "--per", str(len(p)), "--sessions", "1"]
         if tete:
             cmd += ["--samples-passes", PASSES_TETE]
-        journal(a.journal, "paquet %d/%d : %d variantes (%s … %s), %.0f s estimées" % (
+        journal(a.journal, "paquet %d (%d restants) : %d variantes (%s … %s), %.0f s estimées" % (
             i + 1, len(pq), len(p), p[0], p[-1], sum(estime(n, faits) for n in p)))
         tp = time.time()
         try:
@@ -217,7 +229,7 @@ def main():
                 erreurs += 1
                 journal(a.journal, "  %s : NON FAITE (%s)" % (nom, motif))
                 continue
-            faits[nom] = s.get("seconds_render") or s.get("seconds")
+            faits[nom] = s.get("seconds") or s.get("seconds_render")
             c = s.get("checks", {})
             if not c.get("holes_ok", False):
                 hors_regle.append("%s %s px" % (nom, c.get("largest_hole_px")))
