@@ -1003,10 +1003,26 @@ for _, l in ipairs(CalcSheets.lines_protos(calc_protos)) do print(l) end
 local BitersSheets = dofile(HERE .. "/biters_sheets.lua")
 local biters_sheets = BitersSheets.check(MOD_ROOT)
 for _, l in ipairs(BitersSheets.lines(biters_sheets)) do print(l) end
--- Feuilles des machines de chimie hors de git (D-6, lot DA-CHIMIE) : même contrôle
-local ChimieSheets = dofile(HERE .. "/chimie_sheets.lua")
-local chimie_sheets = ChimieSheets.check(MOD_ROOT)
-for _, l in ipairs(ChimieSheets.lines(chimie_sheets)) do print(l) end
+-- Feuilles de la métallurgie hors de git (D-6, lot DA-METALLURGIE) : même contrôle
+local MetalSheets = dofile(HERE .. "/metallurgie_sheets.lua")
+local metal_sheets = MetalSheets.check(MOD_ROOT)
+for _, l in ipairs(MetalSheets.lines(metal_sheets)) do print(l) end
+-- Feuilles du lot DA-ENERGIE hors de git (D-6, 4/11) : même contrôle (bloc : limite de 200 locales du chunk)
+local da_energie_ok
+do
+  local S = dofile(HERE .. "/da_energie_sheets.lua")
+  local r = S.check(MOD_ROOT)
+  for _, l in ipairs(S.lines(r)) do print(l) end
+  da_energie_ok = S.ok(r)
+end
+-- Feuilles du lot DA-CHIMIE hors de git (D-6, 4/11) : même contrôle (bloc : limite de 200 locales du chunk)
+local chimie_ok
+do
+  local S = dofile(HERE .. "/chimie_sheets.lua")
+  local r = S.check(MOD_ROOT)
+  for _, l in ipairs(S.lines(r)) do print(l) end
+  chimie_ok = S.ok(r)
+end
 -- Sons (lot S0)
 print(string.format("Sons : %d violation(s) (fichier manquant, format non lu par le moteur, en-tête faux, .ogg autre que "
   .. "Vorbis, en-têtes Vorbis invalides, fichier tronqué) ; étalonnage "
@@ -1077,5 +1093,8 @@ os.exit((#new_errors == 0 and #own_paths == 0 and #missing_locale == 0 and #rule
   and #img_errors == 0 and #img_vanilla == 0 and #img_self_fail == 0 and GunSheets.ok(gun_sheets)
   and FourSheets.ok(four_sheets) and AsmSheets.ok(asm_sheets) and DrillSheets.ok(drill_sheets) and UsinesSheets.ok(usines_sheets) and CentreSheets.ok(centre_sheets)
   and CalcSheets.ok(calc_sheets) and CalcSheets.ok_protos(calc_protos)
-  and BitersSheets.ok(biters_sheets) and ChimieSheets.ok(chimie_sheets)
+  and BitersSheets.ok(biters_sheets)
+  and MetalSheets.ok(metal_sheets)
+  and da_energie_ok
+  and chimie_ok
   and #snd_errors == 0 and #snd_vanilla == 0 and #snd_self_fail == 0) and 0 or 1)

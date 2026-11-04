@@ -9,6 +9,7 @@ local S = require("shared.content.superconductors")
 local CV = require("prototypes.chimie_visuels")
 local T = require("shared.content.titanium")
 local W = require("shared.content.world")
+local Vis = require("prototypes.robotique_icones") -- icônes dédiées (lot DA-ICONES) ; un nom absent garde la copie teintée
 
 local out = {}
 local MZ = W.resources.monazite.tint
@@ -45,18 +46,19 @@ end
 for i, name in ipairs(S.ITEMS) do
   local x = T.x_item(name)
   local ic = assert(ICON[name], "supraconducteurs : icône provisoire absente pour " .. name)
+  local vis = Vis.icones_objet(name)
   local item = {
     type = "item",
     name = name,
     localised_name = { "item-name." .. name },
     localised_description = { "item-description." .. name },
-    icons = icon_of(ic[1], ic[2], ic[3]),
+    icons = vis or icon_of(ic[1], ic[2], ic[3]),
     subgroup = "fo-superconductors",
     order = string.format("z[fo]-c[superconductors]-%02d", i),
     stack_size = x.stack,
   }
   local src = data.raw[ic[1]][ic[2]]
-  if src.pictures then
+  if src.pictures and not vis then
     item.pictures = table.deepcopy(src.pictures)
     lib.tint_sprites(item.pictures, ic[3])
   end

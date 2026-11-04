@@ -195,3 +195,6 @@ for _, t in ipairs(B.TECHS) do
 end
 
 data:extend(out)
+
+-- Lot DA-METALLURGIE : vrais visuels (feuilles graphics/metallurgie) à la place des copies teintées de titanium, crafts et bauxite.
+require("prototypes.metallurgie_machines").appliquer()
