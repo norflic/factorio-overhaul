@@ -58,6 +58,7 @@ local Ca = require("shared.ai3.capitalisation")
 local Rs = require("shared.ai3.reserve") -- lot INDUSTRIE I1 : description du besoin évalué (journal [FO-RESERVE])
 local L = require("shared.levels.config") -- intégration 0.6.28 : vitesse de plan des bâtiments à niveaux
 local Rp = require("shared.ai3.repli") -- lot CAPI-REPLI : repli par (produit, gisement), matériaux, plafond
+local Dep = require("script.ai3.depenses") -- lot DEPENSES2 : le stock qui dort (défense, recherche, armement)
 local Em = require("shared.ai3.emplacements") -- lot CAPI-DEBIT : emplacements du plan directeur (figés, stock riche, décision)
 local A = require("shared.ai3.automatiser")
 local R = require("shared.ai3.reglages")
@@ -268,6 +269,17 @@ do
   local seen = {}
   for _, m in ipairs(A.METHODS) do
     if m.ore and m.product and not seen[m.product] then seen[m.product] = true PLATE_PRODUCTS[#PLATE_PRODUCTS + 1] = m.product end
+  end
+end
+-- Lot DEPENSES2 : matières jugées par la règle du stock qui dort : les plaques des fonderies, puis les matières brutes des avant-postes
+-- (« défense seule » : la pierre des murs ; la recherche ne les prend pas).
+local DEP_PRODUCTS = {}
+do
+  local seen = {}
+  for _, p in ipairs(PLATE_PRODUCTS) do seen[p] = true DEP_PRODUCTS[#DEP_PRODUCTS + 1] = { key = p } end
+  for _, kind in ipairs(T.OUTPOST_ORDER) do
+    local r = T.outposts[kind].resource
+    if r and not seen[r] then seen[r] = true DEP_PRODUCTS[#DEP_PRODUCTS + 1] = { key = r, def_only = true } end
   end
 end
 
@@ -1352,6 +1364,7 @@ end
 local function decide(f, cs, view, book, tick, research, w)
   local D = Capi.data()
   cs.flows = flows_of(f, cs)
+  Dep.think(f, cs, tick, DEP_PRODUCTS, minutes(f, tick)) -- lot DEPENSES2 : budget du stock qui dort (Dep.defense, Dep.labs)
   if f.team.ia3.mall then Ml.set_running(f.team.ia3.mall, cs.flows) end -- lot PILE-MALL (relecture)
   local input = build_input(f, cs, view, book, tick, D, w)
   Profiler.fstart("capi:decide")

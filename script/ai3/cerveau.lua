@@ -55,6 +55,7 @@ local PileRt = require("script.team.pile") -- lot PILE-PRIORITE : entrées du ru
 local Rsv = require("script.ai3.reserve") -- lot INDUSTRIE I1 : le besoin évalué (réglage fo-war-industrie)
 local Dm = require("shared.ai3.demande") -- lot C2 : puits ouvert (capacités de plus selon les bras libres, journal de la saturation)
 local SurvieQg = require("script.team.survie_qg") -- lot S1 : réserve de chargeurs sur la menace reçue, recherche de la tourelle
+local Dep = require("script.ai3.depenses") -- lot DEPENSES2 : laboratoires de plus quand les plaques dorment
 local Prev = require("script.ai3.prevision") -- lot PREVISION : estimateur unique de la menace (cadres « preparer », défense induite)
 
 local Ia3 = {}
@@ -573,6 +574,9 @@ local function research_step(f, st, book, w, tick, view)
   -- Br.labs_max) ; le petit nombre d'avant (au plus Ia3.LABS_MAX, fenêtre de recherche) reste un plancher.
   local capi_labs = Capi.labs_want(f)
   if capi_labs then want = math.max(capi_labs, math.min(Ia3.LABS_MAX, math.max(1, math.ceil(secs / Ia3.LAB_WINDOW_S)))) end
+  -- Lot DEPENSES2 : les plaques qui dorment (après la défense) paient des laboratoires de plus (shared/ai3/depenses.lua).
+  local dep_labs = Dep.labs(f, tick)
+  if dep_labs > 0 then want = math.max(want, #labs + dep_labs) end
   if lproto then
     info.lab_item = lproto.item
     local stock = view.stock[lproto.item] or 0
