@@ -72,6 +72,7 @@ require("script.robots.faction") -- lot RB-3 : la demande de robots des factions
 require("script.robots.outils") -- lot RB-2 : outils de sélection, ralliement, alerte de pertes (l'interface : script/gui/robots.lua, via la fenêtre)
 -- Le Bourdon, expérimental de l'âge 15 (lot BOURDON) : démonstration, /fo-bourdon, /fo-glas
 require("script.robots.bourdon")
+require("script.robots.experimentaux") -- lot EXPERIMENTAUX : effets, lancer des capsules, interface « fo-xp »
 
 -- Pilotage sans joueur (tests automatisés, scénarios)
 require("script.remote")

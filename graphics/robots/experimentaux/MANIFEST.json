@@ -1,0 +1,534 @@
+{
+ "arguments": [],
+ "commande": "py -3.9 tools/render/pieces/experimentaux/feuilles_xp.py   (depuis la racine du mod ; sources : fo-logs/2026-10-31_ROBOTS/experimentaux/final/sprites, à GARDER)",
+ "fichiers": {
+  "cairn-lueur.png": {
+   "hauteur": 804,
+   "largeur": 768,
+   "sha256": "5cefe9f3a88af5943f4c98b4ba3652a48442ef995e1d897bb53622a9139f8810",
+   "taille": 291999
+  },
+  "cairn-ombre.png": {
+   "hauteur": 662,
+   "largeur": 891,
+   "sha256": "bfab418d4f93308c83adf8d8d0b22e4b32e4c2b4a3919cc8b8f331f738ef04fc",
+   "taille": 53800
+  },
+  "cairn.png": {
+   "hauteur": 804,
+   "largeur": 768,
+   "sha256": "e0d1c88359985374d4654fbc15480e7596bf91b26d548e119ce50ff43c1fc5dc",
+   "taille": 761969
+  },
+  "demi-vie-hublots.png": {
+   "hauteur": 20,
+   "largeur": 46,
+   "sha256": "11779a0404684cf08344a30117d06db8d2a597e2b62f5cb0e9327435088b546a",
+   "taille": 1000
+  },
+  "demi-vie-ombre.png": {
+   "hauteur": 56,
+   "largeur": 71,
+   "sha256": "25df59e454b8fb11bf653cced6f35671ae199a4f0d175981f197b54b4f1983e9",
+   "taille": 1186
+  },
+  "demi-vie-uranium.png": {
+   "hauteur": 82,
+   "largeur": 51,
+   "sha256": "16365e0f244ec7dc2c01a2520cced30d724dcdfd5e5a47f98d9c4f06d843b422",
+   "taille": 6377
+  },
+  "demi-vie.png": {
+   "hauteur": 92,
+   "largeur": 64,
+   "sha256": "44b36b752e299314b0ef787792c8bac547c7fc9583575f73e26469c84d39d187",
+   "taille": 13307
+  },
+  "eclair-blanc.png": {
+   "hauteur": 128,
+   "largeur": 128,
+   "sha256": "7793e5c386de33469626363b8b4e3f78da8489a11bc1866b9f6b40e3d3e48a6f",
+   "taille": 4609
+  },
+  "eclair.png": {
+   "hauteur": 128,
+   "largeur": 128,
+   "sha256": "f9b71008a5229ae97574479a4c1be86363f9dfc447559afcf1d6463af8fdd1ce",
+   "taille": 5924
+  },
+  "geode-cristal.png": {
+   "hauteur": 159,
+   "largeur": 196,
+   "sha256": "e1436fa4fc1ad6dd63e1837eaad07b4cee17f6e0f957d2e44f8c17b308fff605",
+   "taille": 18088
+  },
+  "geode-ombre.png": {
+   "hauteur": 147,
+   "largeur": 191,
+   "sha256": "0a19d4c4d968591c61b97e548f3a2a78bc5c54108d819815207fb96f564a338a",
+   "taille": 3143
+  },
+  "geode.png": {
+   "hauteur": 159,
+   "largeur": 196,
+   "sha256": "8c9825d556ad863ff2b832b6945eb71c316292649ae4f3668f1d694885aaabf2",
+   "taille": 43377
+  },
+  "glace.png": {
+   "hauteur": 42,
+   "largeur": 18,
+   "sha256": "5be1657a12456ad21b5cead17e3eec55715e7fa3df3fb370dfd9bff6d8eb0bf7",
+   "taille": 1261
+  },
+  "hr-cairn-lueur.png": {
+   "hauteur": 1609,
+   "largeur": 1537,
+   "sha256": "4850839530153623989c54513b92d1c09dbbe4080f1d2b7ed83058d4541c1322",
+   "taille": 787033
+  },
+  "hr-cairn-ombre.png": {
+   "hauteur": 1323,
+   "largeur": 1782,
+   "sha256": "c14176b0e8fdc9bbde8ab66c28ce91dd98a55969d538558aecb508c43ddd99e5",
+   "taille": 171167
+  },
+  "hr-cairn.png": {
+   "hauteur": 1609,
+   "largeur": 1537,
+   "sha256": "583083e4909c15339a0ca09975ab1dfbf96eeaf241a111f567fe681f9694f3a7",
+   "taille": 2369417
+  },
+  "hr-demi-vie-hublots.png": {
+   "hauteur": 40,
+   "largeur": 93,
+   "sha256": "ca46b8bcf36f22a297311d966e0146305be50d3ddb7f990d9a2be8a597026a75",
+   "taille": 2293
+  },
+  "hr-demi-vie-ombre.png": {
+   "hauteur": 112,
+   "largeur": 143,
+   "sha256": "a9a430b173f996feebd15ac4615e60e5d6e45635e3ebc01ffa712bb5182bf5e5",
+   "taille": 2402
+  },
+  "hr-demi-vie-uranium.png": {
+   "hauteur": 164,
+   "largeur": 102,
+   "sha256": "7de7190bc3588fc00a9574201fc0262d45144873a657ca2eb2b0fa4b88f740b2",
+   "taille": 17623
+  },
+  "hr-demi-vie.png": {
+   "hauteur": 184,
+   "largeur": 128,
+   "sha256": "6dfb9e131ea010fb1e7a577bce4ba683f1c0a32443a3783a3019f7a74d1af41d",
+   "taille": 43305
+  },
+  "hr-eclair-blanc.png": {
+   "hauteur": 256,
+   "largeur": 256,
+   "sha256": "91e3189f9efec2d238c0429458e4b3f6c33a39206b02f7c2a81220e56b138dc1",
+   "taille": 12631
+  },
+  "hr-eclair.png": {
+   "hauteur": 256,
+   "largeur": 256,
+   "sha256": "fcc14542cc275c47ff8ea9546008e209b3d21a7f1bd63115585e57cc21e00077",
+   "taille": 16315
+  },
+  "hr-geode-cristal.png": {
+   "hauteur": 319,
+   "largeur": 393,
+   "sha256": "5ba1b6e9782e783496a712df9f3e10240c0e51ba9176048dca6e42176a6b88c1",
+   "taille": 47351
+  },
+  "hr-geode-ombre.png": {
+   "hauteur": 293,
+   "largeur": 383,
+   "sha256": "83a4bb36111ff5e3a0aa674f448dbb643316c5e601439da2811a9c233ed26c16",
+   "taille": 7545
+  },
+  "hr-geode.png": {
+   "hauteur": 319,
+   "largeur": 393,
+   "sha256": "fa2df6520d439bbeef92accfc4eacd83f4c8ae8402234a111595416b8612833e",
+   "taille": 132669
+  },
+  "hr-glace.png": {
+   "hauteur": 83,
+   "largeur": 35,
+   "sha256": "fd2a62af345851ccaca2676a392c57559c933ae240b8d92f31080c0d0847287d",
+   "taille": 2527
+  },
+  "hr-ixion-lueur.png": {
+   "hauteur": 1507,
+   "largeur": 1354,
+   "sha256": "0235df20461d1fdc12fe51ca0f70bd3e76b5a837daf9e25ca35c1b73c793a8c7",
+   "taille": 1363585
+  },
+  "hr-ixion-ombre.png": {
+   "hauteur": 1024,
+   "largeur": 1476,
+   "sha256": "da683f5e2b3b4fc8a082edc24b2080e72e22b8bdab00bafe5957fe2b9e672a60",
+   "taille": 94993
+  },
+  "hr-ixion.png": {
+   "hauteur": 1510,
+   "largeur": 1435,
+   "sha256": "be8249c48f1b119a95d3c53eda0ce3834670d99f85ba71370e51c351035f239b",
+   "taille": 2906938
+  },
+  "hr-mat-foudre-arc.png": {
+   "hauteur": 93,
+   "largeur": 124,
+   "sha256": "21c87008ae5b2725419cc1af47e6c50f27083f27c8c71362b287902e4c51e221",
+   "taille": 18113
+  },
+  "hr-mat-foudre-hublots.png": {
+   "hauteur": 36,
+   "largeur": 44,
+   "sha256": "502b7959547297855ccd3442af8562e032934df6ab46b75b270fbbd0cac714b1",
+   "taille": 825
+  },
+  "hr-mat-foudre-ombre.png": {
+   "hauteur": 198,
+   "largeur": 255,
+   "sha256": "57e50a59fb083acf9e362e2599c1e8f3c9e674dfe9f360f883466c6ae9960ee0",
+   "taille": 4091
+  },
+  "hr-mat-foudre.png": {
+   "hauteur": 321,
+   "largeur": 164,
+   "sha256": "7bcc488a7813127d3789c876d42c9e2955d7f97b1d58e6c0419ca2dfb241704f",
+   "taille": 92546
+  },
+  "hr-pointe-lueur.png": {
+   "hauteur": 83,
+   "largeur": 35,
+   "sha256": "f11acfb902e22c6ffc710c351d2b4dd329bb723bf877bf8537043b699f6b4e52",
+   "taille": 3536
+  },
+  "hr-pointe.png": {
+   "hauteur": 83,
+   "largeur": 35,
+   "sha256": "fabebb023088453ea8e64d5fe18aa0e1531a5fa790dec806e712ceadb2ec9cc9",
+   "taille": 2776
+  },
+  "hr-sarracenie-ombre.png": {
+   "hauteur": 200,
+   "largeur": 232,
+   "sha256": "b3fb3737414ddaf8bd0aa3b42f5caddaaf9b8fc4f63c2815549a46f81c3cd952",
+   "taille": 4407
+  },
+  "hr-sarracenie-suc.png": {
+   "hauteur": 118,
+   "largeur": 104,
+   "sha256": "4eae54120ab8f998ec1a58812ec12eecb5698404e33819fb9639c9c1a83848ec",
+   "taille": 11236
+  },
+  "hr-sarracenie.png": {
+   "hauteur": 302,
+   "largeur": 205,
+   "sha256": "cb91509858109738da0ee732b336e154ea113a21837ed39051f93b17a79303d7",
+   "taille": 74899
+  },
+  "hr-stylet-lueur.png": {
+   "hauteur": 1730,
+   "largeur": 1190,
+   "sha256": "18e8233948b96026d8026ceb7b92b041dc14dd46cee1779499281f6a33ca490a",
+   "taille": 388514
+  },
+  "hr-stylet-ombre.png": {
+   "hauteur": 1198,
+   "largeur": 1635,
+   "sha256": "ee45552b80b3d194384a979977caec2f9affb4f7ab265ca5fcc35c8ec2dd6704",
+   "taille": 72324
+  },
+  "hr-stylet.png": {
+   "hauteur": 1730,
+   "largeur": 1192,
+   "sha256": "fe75b0ea923dc6ea0d9a8e7c0ced84e614229854fd75a4b15ba54d92025d7de5",
+   "taille": 1235599
+  },
+  "hr-tournesol-lueur.png": {
+   "hauteur": 2162,
+   "largeur": 1362,
+   "sha256": "d3268817bb1709cd15961be9c8e0148972acd3dc2f9fc4508b561d30cf9163b6",
+   "taille": 189908
+  },
+  "hr-tournesol-ombre.png": {
+   "hauteur": 1344,
+   "largeur": 1722,
+   "sha256": "10608e3ffdc022956f169121de3bb905fc70a93ec335ae2be6724db2616905eb",
+   "taille": 163958
+  },
+  "hr-tournesol.png": {
+   "hauteur": 2398,
+   "largeur": 1511,
+   "sha256": "f07d003ee849c93434dd4877c3c9cc56bd692e3ffdfa45336a19e631c7469d0c",
+   "taille": 3118359
+  },
+  "hr-trombe-lueur.png": {
+   "hauteur": 1552,
+   "largeur": 1303,
+   "sha256": "dee2cd282fd7f8586c4b9deec53137a01abd3b5754b1815782c3f71fa65e52da",
+   "taille": 464700
+  },
+  "hr-trombe-ombre.png": {
+   "hauteur": 1155,
+   "largeur": 1527,
+   "sha256": "50da89d1b6f585429c30ba9931355e18973eb5929cfb15dbf93fe8cd4c270b3a",
+   "taille": 98397
+  },
+  "hr-trombe.png": {
+   "hauteur": 1696,
+   "largeur": 1359,
+   "sha256": "b58d514d763545e37629a005dbfc6a5d2349c7e0aa73bfca6b126fa41484c94f",
+   "taille": 2658949
+  },
+  "hr-veilleuse-ombre.png": {
+   "hauteur": 194,
+   "largeur": 251,
+   "sha256": "28182d983526bf18a023145344079b01ff5bf13133b0695f4473ffc9411472a9",
+   "taille": 6379
+  },
+  "hr-veilleuse-plasma.png": {
+   "hauteur": 119,
+   "largeur": 201,
+   "sha256": "448235d9a485c2aa7bb6def2c00d17a2a6255fdae6852cf0f90db83e3a689476",
+   "taille": 29828
+  },
+  "hr-veilleuse-soleil.png": {
+   "hauteur": 120,
+   "largeur": 166,
+   "sha256": "410b52978965595776f49143925039e5f05d66db4920a8b2303667fa3e0f0fb3",
+   "taille": 28004
+  },
+  "hr-veilleuse.png": {
+   "hauteur": 304,
+   "largeur": 205,
+   "sha256": "92a89200d38748c41839472aab03578e4ee50afccf8023c6e4291cd3fee379a1",
+   "taille": 81230
+  },
+  "hr-verre.png": {
+   "hauteur": 160,
+   "largeur": 160,
+   "sha256": "485f90fb2e898171e23fca0ac49ef41ab3ac9b9040b8dc4bc1dd525df29e9536",
+   "taille": 17806
+  },
+  "icone-cairn.png": {
+   "hauteur": 64,
+   "largeur": 64,
+   "sha256": "9ae0429c7006f880118e6d302292c2f2503c448806c0fefed10c8b12168b4a8b",
+   "taille": 9755
+  },
+  "icone-demi-vie.png": {
+   "hauteur": 64,
+   "largeur": 64,
+   "sha256": "6c00003db436da756c701f3882a0fce5f35c6046d1ca970c3cd80ef9c63d6a03",
+   "taille": 6630
+  },
+  "icone-geode.png": {
+   "hauteur": 64,
+   "largeur": 64,
+   "sha256": "e0692d7f7827650f322e4bbee354aa99c972863ecb59a6dac1d7a127c73a9b30",
+   "taille": 7028
+  },
+  "icone-ixion.png": {
+   "hauteur": 64,
+   "largeur": 64,
+   "sha256": "e7f87e0735d0c2e40fb58ba7717afe7dfc9225905d9dd7f2e41107437270bb0a",
+   "taille": 10506
+  },
+  "icone-mat-foudre.png": {
+   "hauteur": 64,
+   "largeur": 64,
+   "sha256": "a98b3985ece57071f29c187abe95dfda00c23f20c1187fe11e768c6018baaed3",
+   "taille": 6026
+  },
+  "icone-sarracenie.png": {
+   "hauteur": 64,
+   "largeur": 64,
+   "sha256": "c0b787d3246406caee3308f0728276da1305fabc799e5f3268c4faeb95453315",
+   "taille": 6085
+  },
+  "icone-stylet.png": {
+   "hauteur": 64,
+   "largeur": 64,
+   "sha256": "dacc96a0e7215e9298c3c50e0577cb890e199b80fc489c6e1fab9a8925f72afa",
+   "taille": 4987
+  },
+  "icone-tournesol.png": {
+   "hauteur": 64,
+   "largeur": 64,
+   "sha256": "c0ab48b85631924f0df78436a6d9679f5c0ca302c783e092d05dc50b4b8ed766",
+   "taille": 5821
+  },
+  "icone-trombe.png": {
+   "hauteur": 64,
+   "largeur": 64,
+   "sha256": "1b605e3ab22cd9536e229773fda1805d78c594f67259ebe5d269ba95e363c7e6",
+   "taille": 7882
+  },
+  "icone-veilleuse.png": {
+   "hauteur": 64,
+   "largeur": 64,
+   "sha256": "a74a3de74f259f93e4acaf2dc6c7926e1c64bc40ee6e1af6ad90a8a1a1686fd2",
+   "taille": 6613
+  },
+  "ixion-lueur.png": {
+   "hauteur": 754,
+   "largeur": 677,
+   "sha256": "9a0466065074178ec07a2508fae712fa550ecdce8f79c5442abe0055347c163b",
+   "taille": 474333
+  },
+  "ixion-ombre.png": {
+   "hauteur": 512,
+   "largeur": 738,
+   "sha256": "cf00f7e78c503c3059df7adbafef0fc4457995a1e72c713e029aa6a77459b681",
+   "taille": 35305
+  },
+  "ixion.png": {
+   "hauteur": 755,
+   "largeur": 718,
+   "sha256": "cb188a3526c1eaeec804346e4ab531c2edd50ce4ddba0df320bcc8ffb94904a9",
+   "taille": 902818
+  },
+  "mat-foudre-arc.png": {
+   "hauteur": 46,
+   "largeur": 62,
+   "sha256": "c0a0294b71b16a17e6069be73595fa016ef63c001ea70fa18bf555a2e225c300",
+   "taille": 5911
+  },
+  "mat-foudre-hublots.png": {
+   "hauteur": 18,
+   "largeur": 22,
+   "sha256": "b5a50b530b0434c48161c4318e7c2aeb3f4cd1bbb92d619aae92196306c632c1",
+   "taille": 396
+  },
+  "mat-foudre-ombre.png": {
+   "hauteur": 99,
+   "largeur": 128,
+   "sha256": "725821362d05ef2e676b0a899e5642f216a58575c4fb8a881e8581a16fd1283f",
+   "taille": 1875
+  },
+  "mat-foudre.png": {
+   "hauteur": 161,
+   "largeur": 82,
+   "sha256": "7d4a96d7a306219c40dd19c20ad3c6c7ea79fc420121b0c873a204fe00fc4f9b",
+   "taille": 29289
+  },
+  "pointe-lueur.png": {
+   "hauteur": 42,
+   "largeur": 18,
+   "sha256": "e25cd95d46988ba7075680541547ee7f5b64d18193a75602be8e4f78a6f0fd03",
+   "taille": 1492
+  },
+  "pointe.png": {
+   "hauteur": 42,
+   "largeur": 18,
+   "sha256": "49d9f277bc96f8562cf8cd466372f3a60688ecc22b164a986652dbdf3f53852b",
+   "taille": 1358
+  },
+  "sarracenie-ombre.png": {
+   "hauteur": 100,
+   "largeur": 116,
+   "sha256": "751ad9899e72cfb3f139c9ab39a7df0dc5c1817ac7869fa4ce1771dd52f7293f",
+   "taille": 2001
+  },
+  "sarracenie-suc.png": {
+   "hauteur": 59,
+   "largeur": 52,
+   "sha256": "33bfb107125c2a65550938203a0fbffa9ef1977334451ee2609a3ffb3bf9499b",
+   "taille": 4269
+  },
+  "sarracenie.png": {
+   "hauteur": 151,
+   "largeur": 102,
+   "sha256": "9346691d3e6ba5fd8c2b7ae337d2cbc20f4e8f9eaf33677f20f44c23a416e4f8",
+   "taille": 24868
+  },
+  "stylet-lueur.png": {
+   "hauteur": 865,
+   "largeur": 595,
+   "sha256": "c004c31f5f578af34092aab358e1b838e17b69a0ec919a8fb310ed823bb6f2b5",
+   "taille": 138469
+  },
+  "stylet-ombre.png": {
+   "hauteur": 599,
+   "largeur": 817,
+   "sha256": "da730abe27ffeffd195cbf1087bfb53c48a18e7ef39d57b9bdd71bd6324b876f",
+   "taille": 23501
+  },
+  "stylet.png": {
+   "hauteur": 865,
+   "largeur": 596,
+   "sha256": "2ed2bfc9d6af750865cb50dffe7aede43c167ec9618f1195b2590505a3d01cae",
+   "taille": 378107
+  },
+  "tournesol-lueur.png": {
+   "hauteur": 1081,
+   "largeur": 681,
+   "sha256": "250e96cdb189f8618bf5c0841dbf066223c17ee581f2fcbae38d5eeb923c5587",
+   "taille": 71596
+  },
+  "tournesol-ombre.png": {
+   "hauteur": 672,
+   "largeur": 861,
+   "sha256": "38a3557793268fb39c27d52126e886c8722d2e03f1bec506b03bda1974b07ff2",
+   "taille": 59134
+  },
+  "tournesol.png": {
+   "hauteur": 1199,
+   "largeur": 756,
+   "sha256": "4d082ef5862c025b606e8189ced2d6882c57f4673893580c60dedde2a1765969",
+   "taille": 933430
+  },
+  "trombe-lueur.png": {
+   "hauteur": 776,
+   "largeur": 652,
+   "sha256": "266821f0a5ae6bd305130086536855b228b62454ab2beaa8458fc37f3d66b8e7",
+   "taille": 186914
+  },
+  "trombe-ombre.png": {
+   "hauteur": 578,
+   "largeur": 764,
+   "sha256": "46c03197e0683b76ce8dbbefc90245fa20752bc86f8c3701fd74ef23dbf2fd2d",
+   "taille": 35177
+  },
+  "trombe.png": {
+   "hauteur": 848,
+   "largeur": 680,
+   "sha256": "1e899b55f6b1282b4260cf09230f18ab74d48169daedd751feb30fe7bc052f14",
+   "taille": 810999
+  },
+  "veilleuse-ombre.png": {
+   "hauteur": 97,
+   "largeur": 125,
+   "sha256": "3e01ace649d47a9a4d644f67c1432713e456188eef235bcb950850ecf266fb06",
+   "taille": 2699
+  },
+  "veilleuse-plasma.png": {
+   "hauteur": 60,
+   "largeur": 101,
+   "sha256": "f818d42f98c35631efbb4c944814af903b0dc534e8a510d38f63d485e747bb9e",
+   "taille": 9881
+  },
+  "veilleuse-soleil.png": {
+   "hauteur": 60,
+   "largeur": 83,
+   "sha256": "4e068aad7944488ac9e239bcbead5d2a0215ff02b42666fb6a1d8e7aa9632187",
+   "taille": 9373
+  },
+  "veilleuse.png": {
+   "hauteur": 152,
+   "largeur": 103,
+   "sha256": "9de98916f08f6467974eb0f3feae102fb185880b2c92a465871fe0f8b2113897",
+   "taille": 27587
+  },
+  "verre.png": {
+   "hauteur": 80,
+   "largeur": 80,
+   "sha256": "29a69ef024e257bb38c47f5e4aa76a1e98d29b633dfe422c91e5e44b187b6579",
+   "taille": 6329
+  }
+ }
+}

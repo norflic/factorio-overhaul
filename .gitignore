@@ -43,3 +43,5 @@ graphics/da/energie/*.png
 graphics/machines/chimie/*.png
 # Feuilles des bâtiments d'atelier (lot DA-ATELIERS, D-6) : régénérées par tools/render/pieces/ateliers/feuilles.py
 graphics/machines/ateliers/*.png
+# Feuilles de jeu des robots expérimentaux (lot EXPERIMENTAUX, même règle) : tools/render/pieces/experimentaux/feuilles_xp.py
+graphics/robots/experimentaux/*.png
