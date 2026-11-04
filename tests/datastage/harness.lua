@@ -1023,6 +1023,14 @@ do
   for _, l in ipairs(S.lines(r)) do print(l) end
   chimie_ok = S.ok(r)
 end
+-- Feuilles des bâtiments d'atelier (lot DA-ATELIERS, D-6, 4/11) : même contrôle ; résultat dans une GLOBALE (aucune locale de plus :
+-- le chunk est à la limite de 200 locales de Lua 5.2)
+do
+  local S = dofile(HERE .. "/ateliers_sheets.lua")
+  local r = S.check(MOD_ROOT)
+  for _, l in ipairs(S.lines(r)) do print(l) end
+  FO_ATELIERS_SHEETS_OK = S.ok(r)
+end
 -- Sons (lot S0)
 print(string.format("Sons : %d violation(s) (fichier manquant, format non lu par le moteur, en-tête faux, .ogg autre que "
   .. "Vorbis, en-têtes Vorbis invalides, fichier tronqué) ; étalonnage "
@@ -1097,4 +1105,5 @@ os.exit((#new_errors == 0 and #own_paths == 0 and #missing_locale == 0 and #rule
   and MetalSheets.ok(metal_sheets)
   and da_energie_ok
   and chimie_ok
+  and FO_ATELIERS_SHEETS_OK
   and #snd_errors == 0 and #snd_vanilla == 0 and #snd_self_fail == 0) and 0 or 1)
