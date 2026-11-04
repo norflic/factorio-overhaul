@@ -37,6 +37,7 @@ local Sq = require("shared.team.survie_qg") -- lot S1 : QG en péril (planchers 
 local Pt = require("shared.team.premiere_tourelle") -- lot EQUIPE : premier palier de la défense du QG (planchers réduits sous P.FIRST_N tourelles)
 local Fx = require("shared.team.flux") -- lot FLUX : priorité des tournées d'avant-poste (règle pure)
 local Th = require("shared.team.thermique") -- lot THERMIQUE2 (essai 3) : plus de brûleur pour un minerai brut plein (Th.raw_full)
+local Gs = require("shared.team.garde_site") -- lot PERIMETRE2 : budget des groupes de tourelles des avant-postes (Gs.budget)
 local Mu = require("shared.team.munitions") -- lot MUNITIONS : recharge au plein, partielle, des tourelles (règle pure)
 
 local P = {}
@@ -437,6 +438,20 @@ function P.plan(view, book)
       posts[#posts + 1] = { id = "ilot", want = pk.want, have = pk.have, busy = view.ilot.busy, sites = pk.sites, pos = pk.pos,
         ilot = pk.key, box = pk.box, optional = true, floor_i = view.ilot.floor_i, floor_cu = view.ilot.floor_cu }
     end
+    -- Lot PERIMETRE2 (G1/G2, accord du lead 4/11) : le groupe de tourelles de l'avant-poste à servir (script/team/garde_site.lua). FACULTATIF comme
+    -- l'îlot (hors du coût de la défense, jamais en « production d'abord » ni équipe décimée) ; commande bornée par Gs.budget : fer accordé par
+    -- DEPENSES s'il est là, sinon 30 % du fer libre hors besoin ; rien sous 2 000 de fer.
+    if view.garde and view.garde.pick then
+      local pk = view.garde.pick
+      local unit = book:raw_cost(turret_items(1))[iron_key] or 0
+      local n, src = Gs.budget({ granted = view.garde.granted, iron = avail[iron_key] or 0, free = view.garde.free, unit = unit,
+        held = view.garde.held or 0, want = pk.want - pk.have })
+      out.garde = { key = pk.key, have = pk.have, want = pk.want, allowed = n, source = src, unit = unit }
+      if n > 0 then
+        posts[#posts + 1] = { id = "garde", want = pk.have + n, have = pk.have, busy = view.garde.busy, pos = { x = pk.x, y = pk.y }, garde = pk.key,
+          optional = true }
+      end
+    end
   end
   -- Lot PRIORITE-RESSOURCES (remarque du DC, 29/10 : « si on manque cruellement de ressources, l'objectif est justement ces
   -- ressources, pas la défense […] mais si on peut pas se l'acheter, on investit les ressources dans la production de plus de
@@ -752,7 +767,7 @@ function P.plan(view, book)
             local function task_of(list)
               add({ key = key, kind = "fortify", prio = T.defend_prio, outpost = p.id, items = list, defend = true,
                 sites = p.sites, pos = p.pos, range = p.range, pieces = p.pieces, plant_id = p.plant_id, cell_key = p.cell_key,
-                ilot = p.ilot, box = p.box }) -- (ILOTS-MURS : îlot et emprise de la pose)
+                ilot = p.ilot, box = p.box, garde = p.garde }) -- (ILOTS-MURS : îlot et emprise de la pose ; PERIMETRE2 : avant-poste gardé)
             end
             if p.optional then
               -- Lot ILOTS-MURS : « ressources d'abord ». Rien en « production d'abord » (pénurie comprise) ni pour une équipe décimée ; sinon

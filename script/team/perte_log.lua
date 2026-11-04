@@ -14,6 +14,7 @@ local R = require("shared.ai3.reglages")
 local T = require("shared.team.config")
 local Pa = require("shared.team.perte")
 local Stock = require("script.team.stock")
+local Garde = require("script.team.garde_site") -- lot PERIMETRE2 : entités de la force « player » qui sont à votre équipe (Gd.team_owned)
 
 local PL = {}
 
@@ -96,6 +97,8 @@ local function on_died(e)
   if not (f and f.hq_pos) or f.eliminated then return end
   local role = R.ENTITY_ROLE[ent.type]
   if role == "main" or ent.type == "character" or ent.type == "unit" or ent.type == "car" or ent.type == "spider-vehicle" then return end
+  -- relecture du lead (point 7) : la force « player » est partagée avec le joueur : seules les pièces de votre équipe sont comptées
+  if f.is_player and not Garde.team_owned(f, ent) then return end
   local is_hq = f.hq ~= nil and f.hq.valid and ent.unit_number ~= nil and f.hq.unit_number == ent.unit_number
   local cat = Pa.category(ent.type, role, is_hq)
   local pos, s = ent.position, ent.surface

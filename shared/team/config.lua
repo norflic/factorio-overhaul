@@ -269,6 +269,10 @@ T.qg_recruit_hold_on = true
 -- Lot PERIMETRE2 (QCM du DC, 4/11 18 h 05 : « Oui, enceinte et avant-postes ») : l'enceinte de murs de pierre (shared/team/enceinte.lua) est aussi
 -- posée pour votre équipe (avant : éteinte, « le joueur garde la main sur ses propres murs »). Payée en briques ; aucun fer.
 T.enceinte_joueur = true
+-- Lot PERIMETRE2 (shared/team/garde_site.lua, script/team/garde_site.lua) : G1/G2 groupes de tourelles aux avant-postes (budget : fer accordé par
+-- DEPENSES, sinon 30 % du fer libre hors besoin, rien sous 2 000 de fer) ; G3 anneau de murs de pierre autour des avant-postes attaqués.
+T.garde_site_on = true
+T.garde_walls_on = true
 -- Lot QG-GROUPE2 (shared/team/qg_groupe.lua ; le DC, QCM du 4/11 : « Placement groupé dès la pose », sans téléport) : votre équipe seulement.
 -- Règle 1 : tourelles du QG posées en lignes de 4 (écart Pose.gap) sur le côté attaqué, à nombre constant, jamais déplacées ;
 -- règle 2 : Sq.peril compte la défense au point le plus faible (appui des voisines), et le groupe « hq » ne veut que hq + fresh tourelles.
