@@ -1,4 +1,14 @@
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Version: 0.6.48
+Date: 2026-11-04
+  Changes:
+    - Icones : 45 icones dediees pour les pieces de robots, les circuits, le silicium et les bobinages, les 12 kits de robots, les 3 segments des geants et 15 technologies de la robotique ; les kits montrent une caisse aux couleurs de leur famille (ambre Atelier, violet Hall, bleu Dock, magenta Portique).
+    - Metallurgie : haut fourneau, four a coke, cuve d'electrolyse ignee, pylone haute tension (4 directions, fils accroches), reacteur de Kroll et concentrateur ont leur propre visuel, avec lueur et lumiere au travail et fumee pour le haut fourneau et le four a coke ; emprises et fonctions inchangees.
+    - Energie : piscine d'entreposage (bassin rond, pont polaire), depot geologique, reacteur a sels fondus (cadre chauffe), capteur geothermique (4 directions) et amplificateur de resonance ont leur propre visuel ; emprises et fonctions inchangees.
+    - Version courte demandee par le Directeur Creatif : seul le banc content a tourne en moteur reel (pas de verif-guide, de pvp ni de migration rejoues : ces changements ne touchent que les prototypes graphiques et les icones).
+    - Limites connues : de nuit, les disques cyan de l'amplificateur restent visibles a l'arret ; la lumiere au sol du haut fourneau et de la cuve reste discrete la nuit ; les tiges de la cuve sont plus claires mais pas encore « alu vif ».
+    - Version suivante (0.6.49) : ateliers, chimie, salle blanche et tour de refroidissement, petits robots experimentaux, retour en arriere des bandes de champ (regle B), munitions des tourelles, Bourdon qui sort seul du Portique et se commande a l'outil Armee, 16 directions pour l'Ecaille et le Bobineur, tourelles du QG groupees des la pose.
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Version: 0.6.47
 Date: 2026-11-04
   Changes:

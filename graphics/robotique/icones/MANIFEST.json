@@ -1,0 +1,277 @@
+{
+ "fichiers": {
+  "icones/fo-coil.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "69d31702b6264e421fa377742f48cd3a3d0114bd59717b3be6f8118b8f913ee0"
+  },
+  "icones/fo-controller.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "f171fdc844e55a4c6e136e96c405d59da204596e1992f5aabf45a380a86a7dc8"
+  },
+  "icones/fo-crystal-oscillator.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "081d839eccf05a8aac1e72cf8433abc314d04d323bc24400ccd4f1ae45c82c4c"
+  },
+  "icones/fo-enameled-wire.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "791dc61c5b4e1d27602a837d5bfae5ec0234ac14423f85604726a1a8af8bd841"
+  },
+  "icones/fo-guidance-core.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "85c725a4f8947f1e4287bf058c60f797d88b42dae6b1c3f950713b8d29b8d106"
+  },
+  "icones/fo-laser-module.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "eea369701cd5839bf7b34d2b9b04748b596de2ad619ecf5da7332bcc58e94d8f"
+  },
+  "icones/fo-magnetic-actuator.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "2bf8d9d94b67d56d9c1cc824bb9e01aecda541e46c91a611f478f915bd3100e4"
+  },
+  "icones/fo-metallurgical-silicon.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "5d67d5f886830110bf3a5c01981823f792905a1075e0114ef8d5cff1a8152a21"
+  },
+  "icones/fo-ndyag-rod.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "3ec3e0c88499941c73928f033bd5be0f28b4071b06c7864fc8624b7756f4e12c"
+  },
+  "icones/fo-optical-sensor.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "7bc810a5f2079ca8c3ebf20978fc8b7420f8bff44934510e2f604d3a511ccf9d"
+  },
+  "icones/fo-printed-circuit-board.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "7749cb8d279dd6b0e60d176a1411a3fe946e12f73ebd59b0ad408c3faf10ce37"
+  },
+  "icones/fo-pure-silicon.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "6a3363add6e1ad09f21da10d9aa7d206b0f3810bd7ed74ff7cf32af0a1d6cc50"
+  },
+  "icones/fo-robot-kit-bellwether.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "c30e9c98f7d89ce547d1cf2b3d575bdd8f96e3ea77b83aa46f9e5d9932c0082f"
+  },
+  "icones/fo-robot-kit-chamfer.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "e2d1b34bad70608ff766ab929618e8110d556e142e03de2ce813f7f34c3a6303"
+  },
+  "icones/fo-robot-kit-coiler.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "dcdab190642e5d1e946b521e6f94c1f91b997abf7dcc6a62bef1e9ac1717610d"
+  },
+  "icones/fo-robot-kit-crowned.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "ba6c601d23770897ae2f5843161d32a320a63b74f1ca1932b3dacfa96e2ec0b1"
+  },
+  "icones/fo-robot-kit-finback.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "29ad38e1732598484efc7b0e9476b9b25f797659dd53dac49b83340da3a3c6f1"
+  },
+  "icones/fo-robot-kit-heliast.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "7d93586ff747d104e2f51bf9f12993c1b20ee472a40fcf67309386a905420143"
+  },
+  "icones/fo-robot-kit-levite.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "4087c59ae80a7c4adaeb4d964fd385a18ba553c054c605254853e0d05dd50968"
+  },
+  "icones/fo-robot-kit-needle.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "60eaa9516a79dbe1fc0704090bc2f6def483bc0a5632df82f7f98920ed209df0"
+  },
+  "icones/fo-robot-kit-scalehide.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "c8d62b20199d5fcdfd31d67c6f80e7347eff5ae8114af3184198130c664c2bfc"
+  },
+  "icones/fo-robot-kit-steam-trotter.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "2ecb4487eaa0bf121fd0e7d1d073605430c2f6f076ac3da702268e2eec670c3b"
+  },
+  "icones/fo-robot-kit-toroid.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "49a4e4bbdabf8c5545e1237a880c1e213888667bbe82c97c7ba0815d02a13e32"
+  },
+  "icones/fo-robot-kit-trowel.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "6c06d822df1edef1cea63960e0fbaaa8426b106257f8ec42b63a9e7cbea03e8f"
+  },
+  "icones/fo-robot-segment-crowned.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "f0615da09154381d07f5f46e18c02e7f201ec8adca1bb50139c70dbfaae10839"
+  },
+  "icones/fo-robot-segment-heliast.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "3ca92a978700345bca97f20d3d867b4769077e5102362512c0651ff605143570"
+  },
+  "icones/fo-robot-segment-toroid.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "9eb9e935129b192c82a82ea876b0bebe6b7d743d2e75a234930042c7408e1f81"
+  },
+  "icones/fo-servo-motor.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "c81d24b4d46b168fee6516366c14f3704d0058c3f54285b3ef7da51dc8cacf80"
+  },
+  "icones/fo-silicon-wafer.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "21f0a95e4e3300297a31548a6de50667436ddb537299c405ed72610a7b29fcb1"
+  },
+  "icones/fo-superconducting-tape.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "5c59b4949cb357d8f678631fefd8b07130ef15ed692273467bd38671fff0b863"
+  },
+  "tech/fo-magnetic-drive.png": {
+   "genre": "tech",
+   "icon_mipmaps": 4,
+   "icon_size": 256,
+   "sha256": "836b94cacba7799e1e0d4770e191e94e0931f1cbcd49a91a00746979cef38036"
+  },
+  "tech/fo-robot-automata.png": {
+   "genre": "tech",
+   "icon_mipmaps": 4,
+   "icon_size": 256,
+   "sha256": "3ccf381c0c631cf5a7d4bfa65bdf738e59915ab178c44a26b122d68677722cc7"
+  },
+  "tech/fo-robot-bay.png": {
+   "genre": "tech",
+   "icon_mipmaps": 4,
+   "icon_size": 256,
+   "sha256": "214538761c0619398d17a07e204370be42bbdf1cdfbe207bff684741b986cc0a"
+  },
+  "tech/fo-robot-bellwether.png": {
+   "genre": "tech",
+   "icon_mipmaps": 4,
+   "icon_size": 256,
+   "sha256": "69e3735af419d19f7cb78711b1e054ab7831ad27574edbc6e86dc9302b0a0aac"
+  },
+  "tech/fo-robot-coil.png": {
+   "genre": "tech",
+   "icon_mipmaps": 4,
+   "icon_size": 256,
+   "sha256": "aab6bf1ee3ec95a805ad814556d1f5352f9eb82d592e79d9ab9c6621d6290337"
+  },
+  "tech/fo-robot-dock.png": {
+   "genre": "tech",
+   "icon_mipmaps": 4,
+   "icon_size": 256,
+   "sha256": "2fbeee8af16cd5844bd910f5b708883499f17a5e126cd7d6fde10e1b03fa13b9"
+  },
+  "tech/fo-robot-finback.png": {
+   "genre": "tech",
+   "icon_mipmaps": 4,
+   "icon_size": 256,
+   "sha256": "70c84dad1cea31a2fd9acc970da3cdf048821c1503fb88c2b58739b6b609240d"
+  },
+  "tech/fo-robot-gantry-crowned.png": {
+   "genre": "tech",
+   "icon_mipmaps": 4,
+   "icon_size": 256,
+   "sha256": "44bd00a273dcf2ad0243ed71ebd2868a088ad35e48c2349fb3cb5ee678249768"
+  },
+  "tech/fo-robot-gantry-heliast.png": {
+   "genre": "tech",
+   "icon_mipmaps": 4,
+   "icon_size": 256,
+   "sha256": "c8c51fd5798b68816c3439b02f1d52f5328b173499a2dbbe7c1c96d268ea03a7"
+  },
+  "tech/fo-robot-gantry.png": {
+   "genre": "tech",
+   "icon_mipmaps": 4,
+   "icon_size": 256,
+   "sha256": "7eb25d7441f6ba99b60aa72bafd6ea3725c3a0a9a8bc426ff846c92e60e34da7"
+  },
+  "tech/fo-robot-guidance.png": {
+   "genre": "tech",
+   "icon_mipmaps": 4,
+   "icon_size": 256,
+   "sha256": "cd93ce3eab38c0025e2191c5767be61047be49bfb0c4a9d27262254dd5e5507e"
+  },
+  "tech/fo-robot-heavy.png": {
+   "genre": "tech",
+   "icon_mipmaps": 4,
+   "icon_size": 256,
+   "sha256": "cbad56c8f355409f4f8edd65548541c002818387cf5350f06181c7823a90a2b3"
+  },
+  "tech/fo-robot-levite.png": {
+   "genre": "tech",
+   "icon_mipmaps": 4,
+   "icon_size": 256,
+   "sha256": "f6a2c63de8ef06f505d555622d50f529a71dee53e3c7859e84c5b0017b939791"
+  },
+  "tech/fo-robot-mortar.png": {
+   "genre": "tech",
+   "icon_mipmaps": 4,
+   "icon_size": 256,
+   "sha256": "aab1fb29c86f38d98b339611db71ecccc81b2c04b5ce66578782b24416647c3e"
+  },
+  "tech/fo-servo-mechanisms.png": {
+   "genre": "tech",
+   "icon_mipmaps": 4,
+   "icon_size": 256,
+   "sha256": "eb8880305574bdfb26ba5d96561c2d5356b4e1893bf681de8f85940c16d0a814"
+  }
+ },
+ "outil": "tools/render/pieces/robotique/icones.py",
+ "samples": 16,
+ "version": 1
+}

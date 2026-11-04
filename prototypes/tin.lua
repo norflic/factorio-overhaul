@@ -6,6 +6,7 @@
 local lib = require("prototypes.lib")
 local Sn = require("shared.content.tin")
 local W = require("shared.content.world")
+local Vis = require("prototypes.robotique_icones") -- icônes dédiées (lot DA-ICONES) ; un nom absent garde la copie teintée
 
 local out = {}
 local TINT = W.resources.cassiterite.tint
@@ -27,14 +28,15 @@ end
 for i, name in ipairs(Sn.ITEMS) do
   local x = assert(Sn.x3_item(name), "étain : objet X3 absent " .. name)
   local ic = ICON[name]
+  local vis = Vis.icones_objet(name)
   local item = {
     type = "item", name = name,
     localised_name = { "item-name." .. name }, localised_description = { "item-description." .. name },
-    icons = icon_of(ic[1], ic[2], ic[3]), subgroup = "fo-tin", order = string.format("z[fo]-e[tin]-%02d", i),
+    icons = vis or icon_of(ic[1], ic[2], ic[3]), subgroup = "fo-tin", order = string.format("z[fo]-e[tin]-%02d", i),
     stack_size = x.stack,
   }
   local src = data.raw[ic[1]][ic[2]]
-  if src.pictures then
+  if src.pictures and not vis then
     item.pictures = table.deepcopy(src.pictures)
     lib.tint_sprites(item.pictures, ic[3])
   end

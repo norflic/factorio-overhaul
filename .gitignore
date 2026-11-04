@@ -35,3 +35,7 @@ graphics/robots/*.png
 graphics/machines/calcul/*.png
 # Feuilles de jeu des souches de biters (lot BI-V1, intégré par BITERS-JEU, même règle) : tools/render/pieces/biters/feuilles.py
 graphics/biters/*.png
+# Feuilles de jeu de la métallurgie (lot DA-METALLURGIE, même règle) : tools/render/pieces/metallurgie/feuilles.py
+graphics/metallurgie/*.png
+# Feuilles de jeu du lot DA-ENERGIE (même règle) : tools/render/pieces/da_energie/feuilles.py
+graphics/da/energie/*.png

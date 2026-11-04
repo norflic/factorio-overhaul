@@ -28,6 +28,7 @@ local Ro = require("shared.content.robots")
 local F = require("shared.faction.config")
 local C = require("shared.content.crafts")
 local SPR_US = require("__factorio-overhaul__/graphics/robots/usines/sprites") -- lot US-V1 : usines (tools/render/pieces/usines_robots/feuilles.py)
+local Vis = require("prototypes.robotique_icones") -- icônes dédiées (lot DA-ICONES) : segments, technologies ; kits en repli
 local SPR = require("__factorio-overhaul__/graphics/robots/sprites") -- lot RB-V1 : feuilles par identifiant de robot (tools/render/pieces/robots/feuilles.py)
 
 local out = {}
@@ -427,7 +428,9 @@ for i, r in ipairs(Ro.ROBOTS) do
   out[#out + 1] = {
     type = "item", name = r.kit,
     localised_name = { "item-name." .. r.kit }, localised_description = { "item-description." .. r.kit },
-    icons = SPR[r.id] and { { icon = SPR[r.id].icone, icon_size = 64, icon_mipmaps = 4 } }
+    -- choix du DC (4/11, QCM : « Caisse de famille ») : l'icône de kit de DA-ICONES (caisse de famille + signature) d'abord ;
+    -- l'icône du robot (lot RB-V1) en repli (tests/robotique_icones_test.lua refuse l'ordre inverse)
+    icons = Vis.icones_objet(r.kit) or (SPR[r.id] and { { icon = SPR[r.id].icone, icon_size = 64, icon_mipmaps = 4 } })
       or icons_of("item", r.is_giant and "spidertron" or "engine-unit", ROBOT_TINT[r.id]),
     subgroup = Ro.SUBGROUP, order = string.format("b[kit]-%02d", i), stack_size = 1,
     -- Lot RB-3 : le kit « pose » l'unité du joueur (prototype `unit` ou `spider-vehicle`) : le cerveau lit ce lien dans les
@@ -444,7 +447,7 @@ for i, r in ipairs(Ro.ROBOTS) do
     out[#out + 1] = {
       type = "item", name = r.segment_item,
       localised_name = { "item-name." .. r.segment_item }, localised_description = { "item-description." .. r.segment_item },
-      icons = icons_of("item", "low-density-structure", ROBOT_TINT[r.id]), subgroup = Ro.SUBGROUP,
+      icons = Vis.icones_objet(r.segment_item) or icons_of("item", "low-density-structure", ROBOT_TINT[r.id]), subgroup = Ro.SUBGROUP,
       order = string.format("b[segment]-%02d", i), stack_size = 10,
     }
     out[#out + 1] = {
@@ -470,7 +473,7 @@ for _, t in ipairs(Ro.TECHS) do
     name = t.name,
     localised_name = { "technology-name." .. t.name },
     localised_description = { "technology-description." .. t.name },
-    icons = icons_of("technology", "engine", KIT_TINT),
+    icons = Vis.icones_tech(t.name) or icons_of("technology", "engine", KIT_TINT),
     effects = effects, prerequisites = t.prerequisites, count = C.tech_count(t), packs = C.packs(t.epoch), time = t.time,
     order = "z[fo]-robots-" .. t.name,
   })
