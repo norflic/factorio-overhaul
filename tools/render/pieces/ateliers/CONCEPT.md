@@ -33,7 +33,7 @@ ceux de l'assembleur 2 vanilla d'aujourd'hui : à trancher en phase 3), comme l'
 - Fonction : la roche tombe dans une chambre en V entre une mâchoire fixe et une mâchoire mobile ; un arbre excentrique
   porté par DEUX GRANDS VOLANTS fait osciller la mâchoire mobile (bielle) qui écrase la roche contre la fixe ; le gravier
   calibré sort par le bas, sur une goulotte au SUD ; un moteur électrique entraîne un volant par courroies trapézoïdales.
-- Silhouette : un caisson d'acier trapu et bas, flanqué à l'est et à l'ouest de deux roues à rayons plus hautes que lui.
+- Silhouette : un caisson d'acier trapu et bas, devant et derrière lequel tournent deux roues à rayons plus hautes que lui. CORRIGÉ le 3/11 (critique) : les volants sont au NORD et au SUD (arbre excentrique nord-sud), car dans la projection de Factorio un disque vu de profil (volants à l'est et à l'ouest) se réduit à un trait.
 - 3 éléments : les 2 volants (rayons, jante épaisse) ; la gueule en V vue de dessus, pleine de roches ; le moteur à
   ailettes et son carter de courroies au nord, sur un socle de béton.
 - Mobile et lueur : volants qui tournent, bielle qui monte et descend ; gyrophare ambre et projecteur dirigé dans la

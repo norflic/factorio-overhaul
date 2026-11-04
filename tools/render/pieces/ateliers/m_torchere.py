@@ -27,14 +27,14 @@ def _tete(k, x, y, z, r):
     k.boulons_rond("riv", x, y, z - 0.11, r * 0.95, 10, 0.012)
 
 
-def _pied(k, xs, ys, grand=False):
+def _pied(k, xs, ys, grand=False, ballon="car2"):
     """Pied : dalle, pot de garde vertical, ballon séparateur horizontal sur berceaux, conduite d'arrivée depuis la bride nord,
     armoire d'allumage et son voyant."""
     k.caisson("beton", -0.12, Y(-0.55), 0.0, 1.35, Y(0.42), 0.1, 0.03)
     k.rev("beton", xs, ys, [(0.0, 0.42), (0.1, 0.4), (0.1, 0.0)], 32)
     rb = 0.25 if grand else 0.21
     yb = Y(-0.55)
-    k.echangeur(-0.12, yb, 0.1, 1.15 if grand else 1.0, rb, "car2", bride="acier", axe="x", cerc=3)
+    k.echangeur(-0.12, yb, 0.1, 1.15 if grand else 1.0, rb, ballon, bride="acier", axe="x", cerc=3)
     k.cyl("acier", -0.55, yb, 0.1 + 2 * rb, 0.1 + 2 * rb + 0.1, 0.05, 10)          # trou d'homme
     k.vanne("acier", "rouge", (0.25, yb, 0.1 + 2 * rb), 0.04)
     k.cuve("car", xs, ys, 0.1, 0.95, 0.3, 0.3, 28)                                 # pot de garde
@@ -55,15 +55,22 @@ def torchere(S, k, v):
     xs, ys = 0.22, Y(0.32)
     if v == "a":
         zt, rs = 4.05, 0.11
-    elif v == "b":
+    elif v in ("b", "d", "e"):
         zt, rs = 4.25, 0.1
     else:
         zt, rs = 3.05, 0.15
     rt = rs * (1.55 if v != "c" else 1.6)
     CO.FLAMME_Z = (zt + 0.34, zt + 0.34 + (1.35 if v != "c" else 1.15))
-    M = k.M = CO.matieres(S)
+    v2 = v in ("d", "e")       # d : b corrigée (critique du 3/11) avec flamme d'aperçu ; e : la même SANS flamme (rendu final : la
+    #                            flamme du jeu est l'animation vanilla fire-flame en draw_as_glow + une lumière qui scintille)
+    M = k.M = CO.matieres(S, v2=v2)
+    if v2:
+        M["rouge_balise"] = CO.MT.surface("a_rouge_balise", (0.58, 0.02, 0.015), rough=0.42, met=0.05, coulures=0.3, rouille=(0.2, 0.06, 0.02),
+                                          usure=0.4, nu=(0.7, 0.55, 0.5), crasse=0.5, crasse_col=(0.03, 0.02, 0.01), grain=0.06, graine=95)
+        M["blanc"] = CO.MT.surface("a_blanc_balise", (0.86, 0.85, 0.82), rough=0.42, met=0.05, coulures=0.3, rouille=(0.22, 0.1, 0.04),
+                                   usure=0.4, nu=(0.9, 0.88, 0.85), crasse=0.5, crasse_col=(0.05, 0.04, 0.03), grain=0.06, graine=96)
     k.sol("noir", 2)
-    _pied(k, xs, ys, grand=(v == "c"))
+    _pied(k, xs, ys, grand=(v == "c"), ballon="jaune" if v2 else "car2")
     # cheminée
     if v == "a":
         k.bandes_cyl(("rouge_vif", "blanc"), xs, ys, 0.95, zt - 0.12, rs, 8, 22)
@@ -85,8 +92,11 @@ def torchere(S, k, v):
         k.echelle("acier", xs, ys - rs - 0.07, 0.95, zp, l=0.12)
         for z in [1.3 + i * 0.3 for i in range(int((zp - 1.3) / 0.3) + 1)]:
             k.put("acier", G.tour([(z - 0.008, 0.13), (z + 0.008, 0.13)], 12, "z", (xs, ys - rs - 0.1, 0.0), math.pi * 1.05, math.pi * 1.95))
-    elif v == "b":
-        k.bandes_cyl(("rouge_vif", "blanc"), xs, ys, 0.95, zt - 0.12, rs, 9, 22)
+    elif v in ("b", "d", "e"):
+        if v2:
+            k.bandes_cyl(("rouge_balise", "blanc"), xs, ys, 0.95, zt - 0.12, rs + 0.01, 6, 24)   # 6 bandes d'environ 0,37 tuile
+        else:
+            k.bandes_cyl(("rouge_vif", "blanc"), xs, ys, 0.95, zt - 0.12, rs, 9, 22)
         # pylône en treillis à 3 pieds autour de la cheminée
         pieds = [(xs + 0.55 * math.cos(a), ys + 0.55 * math.sin(a)) for a in (math.radians(215), math.radians(325), math.radians(90))]
         zh = zt - 0.5
@@ -130,8 +140,9 @@ def torchere(S, k, v):
     k.voyant_h("voyant_r", xs - rt - 0.05, ys, zt + 0.1, 0.022)
     # flamme (lot à part : passes glow et light seulement)
     zf = CO.FLAMME_Z[0]
-    k.flamme("flamme", xs + 0.02, ys, zf - 0.04, CO.FLAMME_Z[1] - zf, rt * 1.5, langues=6, penche=(0.16, 0.05))
+    if v != "e":
+        k.flamme("flamme", xs + 0.02, ys, zf - 0.04, CO.FLAMME_Z[1] - zf, rt * (1.9 if v2 else 1.5), langues=7 if v2 else 6, penche=(0.16, 0.05))
     # halo de nuit : deux sources dans la flamme (la flamme elle-même n'est pas rendue dans la passe light)
     hf = CO.FLAMME_Z[1] - zf
-    for t, part in ((0.25, 0.6), (0.6, 0.4)):
+    for t, part in ((0.25, 0.6), (0.6, 0.4)) if v != "e" else ():     # e : lumière du jeu (working_visualisations, flicker)
         CO.halo(S, k, (xs + 0.05, ys, zf + hf * t), (1.0, 0.58, 0.22), HALO_W * part, r=(2.2, 5.0))

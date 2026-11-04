@@ -106,6 +106,8 @@ def _bocard(k, n, xs, ty_tige, h_cadre, phase):
 
 
 def concasseur(S, k, v):
+    if v == "d":
+        return concasseur_d(S, k)
     M = k.M = CO.matieres(S)
     k.sol("noir", 2)
     if v in ("a", "b"):
@@ -198,3 +200,120 @@ def _moulin(k):
     k.axe("acier_clair", (xf, Y(-0.12) - 0.06, 1.2), (xf, Y(0.1), 1.2), 0.04, 10)
     k.axe("acier", (xf, Y(0.1), 1.2), (xf, Y(0.1), 1.88), 0.035, 10)
     k.tas("charbon", 0.3, Y(-0.95), 0.18, 0.14, 0.07)
+
+
+# ------------------------------------------------------------------------------------------------ version d (critique du 3/11)
+def concasseur_d(S, k):
+    """Corrections de la critique (CRITIQUE.md §1) : base b (4 pilons, chaudière verticale), porte de foyer de a ; tiges de 6 px,
+    sabots de 0,24 tuile dans un mortier ouvert ; une came par tige, décalées, et un taquet en laiton au-dessus ; plus de bac au
+    sommet : couloir incliné à mi-hauteur derrière les pilons ; volant à jante lourde, 6 rayons pleins, sans manivelle, relié à
+    l'arbre à cames par une courroie plate ; goulotte sombre inclinée, filet et cône de sable ; chêne clair et fonte rouge oxyde ;
+    emprise en x ramenée dans [−1,1 ; 1,1]."""
+    k.M = CO.matieres(S, v2=True)
+    k.sol("noir", 2)
+    xs = [-0.66, -0.39, -0.12, 0.15]
+    y = Y(-0.02)
+    x0, x1 = xs[0] - 0.18, xs[-1] + 0.18
+    xm, lx = (x0 + x1) / 2.0, x1 - x0
+    py = Y(0.42)
+    yfm = y - py / 2.0
+    # fondation et mortier OUVERT (parois en fonte rouge oxyde, lit de pierre concassée visible)
+    k.caisson("beton", xm, y, 0.0, lx + 0.1, py + 0.12, 0.14, 0.03)
+    e = 0.05
+    k.bz("rouge_oxyde", xm, y + py / 2.0 - e / 2.0, 0.14, lx, e, 0.46)            # paroi nord
+    k.bz("rouge_oxyde", xm, yfm + e / 2.0, 0.14, lx, e, 0.36)                     # paroi sud, plus basse : on voit dedans
+    for x in (x0 + e / 2.0, x1 - e / 2.0):
+        k.bz("rouge_oxyde", x, y, 0.14, e, py, 0.46)
+    k.b("pierre2", (xm, y, 0.4), (lx - 2 * e, py - 2 * e, 0.02))
+    k.roches("gravier", x0 + 0.06, x1 - 0.06, yfm + 0.06, y + py / 2.0 - 0.06, 0.43, 26, 0.02, 0.045, mats=("gravier", "sable", "pierre"))
+    k.rivets_ligne("riv", (x0 + 0.04, yfm - 0.006, 0.44), (x1 - 0.04, yfm - 0.006, 0.44), 11)
+    # grille de décharge sur la face sud et goulotte sombre inclinée vers le sud, filet et cône de sable
+    k.b("noir", (xm - 0.2, yfm - 0.006, 0.25), (0.44, 0.012, 0.16))
+    for i in range(9):
+        k.b("acier", (xm - 0.4 + i * 0.05, yfm - 0.014, 0.25), (0.012, 0.012, 0.16))
+    xg = xm - 0.2
+    k.b("fonte", (xg, yfm - 0.17, 0.2), (0.3, 0.34, 0.025), rx=math.radians(32))
+    for sx in (-1, 1):
+        k.b("noir", (xg + sx * 0.15, yfm - 0.17, 0.24), (0.025, 0.34, 0.08), rx=math.radians(32))
+    k.put("sable", G.tube([(xg, yfm - 0.33, 0.12), (xg + 0.01, yfm - 0.38, 0.06), (xg + 0.02, yfm - 0.42, 0.0)], 0.03, 8))
+    k.cone("sable", xg + 0.02, Y(-0.82), 0.24, 0.42, grains="pierre2", n=18)
+    # portique en chêne : poteaux, contre-fiches, chapeau, traverses-guides et leurs coulisseaux
+    hc = 2.05
+    for x in (x0 - 0.07, x1 + 0.07):
+        k.bz("chene", x, y, 0.14, 0.12, 0.14, hc - 0.14)
+        k.axe("chene", (x, y + 0.62, 0.14), (x, y + 0.06, hc * 0.6), 0.04, 6)
+        for z in (0.6, hc * 0.5, hc - 0.2):
+            k.b("acier", (x, y - 0.072, z), (0.14, 0.012, 0.04))
+    k.bz("chene", xm, y, hc, lx + 0.28, 0.16, 0.12)
+    for z in (1.02, hc - 0.32):
+        k.bz("chene", xm, y, z, lx + 0.16, 0.18, 0.09)
+        for x in xs:
+            k.bz("acier", x, y, z - 0.01, 0.12, 0.2, 0.11)
+    # couloir d'alimentation incliné à mi-hauteur DERRIÈRE les pilons (pierres visibles), sur deux poteaux
+    yc0, yc1 = y + 0.26, Y(0.82)
+    zc0, zc1 = 0.6, 1.08
+    ang = math.atan2(zc1 - zc0, yc1 - yc0)
+    lc = math.hypot(zc1 - zc0, yc1 - yc0)
+    k.b("chene", (xm, (yc0 + yc1) / 2.0, (zc0 + zc1) / 2.0), (lx - 0.1, lc, 0.04), rx=ang)
+    for sx in (-1, 1):
+        k.b("chene", (xm + sx * (lx / 2.0 - 0.07), (yc0 + yc1) / 2.0, (zc0 + zc1) / 2.0 + 0.07), (0.04, lc, 0.14), rx=ang)
+    for i in range(30):
+        t = k.r.f(0.08, 0.95)
+        k.roche(("pierre", "pierre2", "laitier")[i % 3], (k.r.f(x0 + 0.1, x1 - 0.1), yc0 + (yc1 - yc0) * t, zc0 + (zc1 - zc0) * t + 0.05),
+                k.r.f(0.045, 0.085))
+    for sx in (-1, 1):
+        k.bz("chene", xm + sx * (lx / 2.0 - 0.08), yc1 - 0.05, 0.0, 0.08, 0.08, zc1)
+    # arbre à cames derrière les tiges ; une came par tige, décalées ; taquets en laiton
+    za, ya = 1.4, y + 0.26
+    k.axe("acier_clair", (x0 - 0.12, ya, za), (0.72, ya, za), 0.05, 14)
+    for x in (x0 - 0.07, x1 + 0.07):
+        k.bz("fonte", x, ya, za - 0.12, 0.14, 0.16, 0.2)
+    k.mobile(True)
+    for i, x in enumerate(xs):
+        t = (k.phase + i / 4.0) % 1.0
+        lift = 0.2 * (t / 0.7) if t < 0.7 else 0.2 * (1.0 - (t - 0.7) / 0.3) ** 3
+        a = math.radians(-60) + TAU * t * 0.5
+        # came en croissant : deux plaques d'acier clair de part et d'autre du plan de la tige
+        for dx in (-0.045, 0.045):
+            k.b("manganese", (x + dx, ya - 0.1 * math.cos(a), za + 0.1 * math.sin(a)), (0.025, 0.22, 0.07), rx=a)
+        z0 = 0.43 + lift
+        k.rev("fonte", x, y, [(z0, 0.11), (z0 + 0.03, 0.12), (z0 + 0.24, 0.12), (z0 + 0.28, 0.075)], 20)       # sabot
+        k.cerclages("acier_clair", x, y, (z0 + 0.06, z0 + 0.2), 0.12, e=0.012, h=0.02, segs=20)
+        k.cyl("manganese", x, y, z0 + 0.26, z0 + hc + 0.36, 0.047, 12)                                       # tige 6 px
+        k.cyl("or", x, y, za + 0.07 + lift, za + 0.16 + lift, 0.085, 16)                                    # taquet
+        k.cyl("acier", x, y, z0 + hc + 0.34, z0 + hc + 0.4, 0.06, 12)
+    k.mobile(False)
+    # chaudière verticale au nord-est, porte de foyer de a (grande lueur), cheminée
+    xb, yb, rb = 0.74, Y(0.38), 0.26
+    k.cuve("car2", xb, yb, 0.0, 1.32, rb, 0.25, 30)
+    k.cerclages("or", xb, yb, (0.12, 0.62, 1.02), rb, segs=30)
+    yfd = yb - rb
+    k.b("fonte", (xb, yfd - 0.015, 0.31), (0.38, 0.04, 0.34))
+    k.b("acier", (xb, yfd - 0.04, 0.31), (0.32, 0.024, 0.28))
+    k.b("feu", (xb, yfd - 0.054, 0.31), (0.25, 0.012, 0.19))
+    for i in range(6):
+        k.b("noir", (xb - 0.1 + i * 0.04, yfd - 0.06, 0.31), (0.013, 0.012, 0.21))
+    k.b("braise", (xb, yfd - 0.054, 0.08), (0.22, 0.012, 0.045))
+    CO.halo(S, k, (xb, yfd - 0.4, 0.5), (1.0, 0.45, 0.12), 6.0, r=(0.45, 1.2))
+    k.cyl("cuivre", xb + 0.16, yfd + 0.03, 0.82, 0.9, 0.045, 12)
+    k.voyant("voyant_o", xb + 0.16, yfd, 0.86, 0.028)
+    k.cyl("suie", xb + 0.03, yb + 0.05, 1.3, 2.62, 0.075, 16)
+    k.cerclages("acier", xb + 0.03, yb + 0.05, (1.8, 2.3), 0.075, segs=16)
+    k.rev("suie", xb + 0.03, yb + 0.05, [(2.62, 0.075), (2.66, 0.13), (2.78, 0.13), (2.82, 0.06)], 16)
+    # renvoi : arbre à cames → boîte d'angle → arbre de renvoi vers le sud → poulie ; courroie plate jusqu'au volant
+    xf = 0.68
+    k.caisson("fonte", xf, ya, za - 0.18, 0.24, 0.24, 0.34, 0.03)
+    yp = Y(-0.5)
+    k.axe("acier_clair", (xf, ya, za), (xf, yp - 0.05, za), 0.04, 12)
+    k.bz("fonte", xf, yp + 0.13, 0.0, 0.1, 0.1, za)
+    k.mobile(True)
+    k.put("fonte", G.tour([(-0.05, 0.03), (-0.05, 0.14), (0.05, 0.14), (0.05, 0.03)], 28, "y", (xf, yp, za)))
+    R, zv = 0.32, 0.5
+    k.volant((xf, yp, zv), R, "y", larg=0.1, rayons=6, jante="rouge_oxyde", moyeu="acier", ph=k.phase, ep=0.12, mobile=False,
+             repere="or")
+    k.courroie("caoutchouc", (xf, yp, zv), R, (xf, yp, za), 0.14, (0.0, 1.0, 0.0), larg=0.07, e=0.014)
+    k.mobile(False)
+    k.axe("acier_clair", (xf, yp - 0.07, zv), (xf, yp + 0.28, zv), 0.045, 12)
+    k.caisson("fonte", xf, yp + 0.3, 0.0, 0.2, 0.2, zv + 0.06, 0.03)                        # bâti de la machine à vapeur
+    k.cyl("car2", xf, yp + 0.3, zv + 0.06, zv + 0.3, 0.08, 14)
+    k.tuyau("cuivre", [(xb - 0.1, yb - 0.1, 1.1), (xf, yp + 0.3, 0.85), (xf, yp + 0.3, zv + 0.3)], r=0.022, coude=0.08)

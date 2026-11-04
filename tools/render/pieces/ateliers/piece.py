@@ -20,12 +20,14 @@ BATIMENTS = {
     "torchere": ("fo-flare-stack", 2, "m_torchere", "torchere"),
     "taillerie": ("fo-lapidary", 3, "m_taillerie", "taillerie"),
 }
-VARIANTES = ("a", "b", "c")
+VARIANTES = ("a", "b", "c", "d")   # d : corrections de la critique (CRITIQUE.md, 3/11)
 MACHINES = {"%s_%s" % (b, v): (p[0], 0, p[1], p[2], p[3], v) for b, p in BATIMENTS.items() for v in VARIANTES}
 # raccords de fluide (pipe_picture, m_raccords.py) : un tronçon par direction pour les 3 machines à fluide ; ancre = connexion
 RACCORDS = {"raccord_%s_%s" % (b, d): (BATIMENTS[b][0], 0, 1, "m_raccords", "raccord", (b, d))
             for b in ("bobineuse", "torchere", "taillerie") for d in ("n", "e", "s", "o")}
 MACHINES.update(RACCORDS)
+# torchère, rendu final (phase 3) : la b corrigée SANS flamme rendue (flamme du jeu : fire-flame vanilla + lumière qui scintille)
+MACHINES["torchere_e"] = ("fo-flare-stack", 0, 2, "m_torchere", "torchere", "e")
 PIECE = {"name": "at", "margin_px": 40, "calib": {"LIGHT_HOLDOUT": True},
          "variants": {n: {"epoch": 0, "side": v[2], "dest": "machines/ateliers/" + n, "anchor_tiles": (0.0, 0.0)}
                       for n, v in MACHINES.items()}}

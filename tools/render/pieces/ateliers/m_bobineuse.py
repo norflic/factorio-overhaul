@@ -60,6 +60,8 @@ def _tour_cuisson(k, x, ty, h=2.05):
 
 
 def bobineuse(S, k, v):
+    if v == "d":
+        return bobineuse_d(S, k)
     M = k.M = CO.matieres(S)
     k.sol("noir", 2)
     if v == "c":
@@ -169,3 +171,110 @@ def _vertical(k):
     k.axe("cuivre", (xcol - 0.1, cy + 0.15, 1.85), (xcol - 0.12, cy + 0.15, zg + 0.1), 0.012, 5)
     _coupleur(k, cx - 0.42, cy + 0.2)
     _armoire(k, 0.82, -0.6)
+
+
+# ------------------------------------------------------------------------------------------------ version d (critique du 3/11)
+def _helice(k, mat, c, R, L, pas=0.034, r_fil=0.017, axe="x", ph=0.0, segs=36):
+    """Enroulement réel : un fil en hélice (spires jointives) autour d'un axe ; casse le reflet comme du vrai fil."""
+    n = max(2, int(L / pas))
+    pts = []
+    for i in range(n * segs + 1):
+        a = TAU * i / segs + ph * TAU
+        t = -L / 2.0 + pas * i / segs
+        u, v = R * math.cos(a), R * math.sin(a)
+        if axe == "x":
+            pts.append((c[0] + t, c[1] + u, c[2] + v))
+        else:
+            pts.append((c[0] + u, c[1] + v, c[2] + t))
+    k.put(mat, G.tube(pts, r_fil, 6, False, False))
+
+
+def _bobine(k, c, R, L, joue=0.1, axe="x", ph=0.0, mat_joue="acier"):
+    """Bobine : noyau, enroulement en hélice, deux joues d'acier qui dépassent de `joue`."""
+    k.put("cuivre", G.tour([(-L / 2.0, 0.05), (-L / 2.0, R - 0.02), (L / 2.0, R - 0.02), (L / 2.0, 0.05)], 36, axe, c))
+    _helice(k, "spire", c, R - 0.017, L - 0.02, axe=axe, ph=ph)
+    for s in (-1, 1):
+        t = s * (L / 2.0 + 0.018)
+        cc = (c[0] + t, c[1], c[2]) if axe == "x" else (c[0], c[1], c[2] + t)
+        k.put(mat_joue, G.tour([(-0.018, 0.04), (-0.018, R + joue), (0.018, R + joue), (0.018, 0.04)], 40, axe, cc))
+
+
+def bobineuse_d(S, k):
+    """Corrections de la critique (CRITIQUE.md §3) : base a, armoire est de b (sans la caisse verte) ; spires et joues ; fil de
+    cuivre mat (2 px) du touret au bac d'émail, à la poulie de tête de tour, au guide-fil, à la bobine ; plus de trait lumineux :
+    trois hublots de cuisson ; touret à axe horizontal ; peinture vert machine-outil ; arrivée de fluide par les tronçons."""
+    k.M = CO.matieres(S, v2=True)
+    k.sol("noir", 2)
+    zb = 0.42
+    yb = Y(-0.25)
+    for x in (-0.68, 0.7):
+        k.caisson("vert_machine", x, yb, 0.0, 0.36, Y(0.5), zb, 0.03)
+    k.caisson("vert_machine", 0.0, yb, zb - 0.12, 1.66, Y(0.36), 0.12, 0.02)
+    yfb = yb - Y(0.25)
+    k.persiennes("acier", -0.68, yfb, 0.06, 0.3, 0.24, 4)
+    k.chevrons(0.0, yb - Y(0.18) - 0.002, zb - 0.06, 1.5, 0.05)
+    k.caisson("vert_machine", -0.68, yb, zb, 0.32, Y(0.45), 0.55, 0.04)        # poupée
+    k.moteur("car2", -0.68, Y(0.12), zb + 0.08, 0.36, 0.13, axe="y")
+    k.caisson("vert_machine", 0.7, yb, zb, 0.22, Y(0.4), 0.42, 0.04)          # contre-pointe
+    k.axe("acier_clair", (0.55, yb, zb + 0.3), (0.62, yb, zb + 0.3), 0.05, 12)
+    # mandrin et grosse bobine (spires en hélice, joues)
+    zc, rc, lc, xc = zb + 0.32, 0.31, 0.74, -0.04
+    k.mobile(True)
+    k.axe("acier_clair", (-0.52, yb, zc), (0.58, yb, zc), 0.045, 14)
+    _bobine(k, (xc, yb, zc), rc, lc, joue=0.1, ph=k.phase)
+    k.mobile(False)
+    # guide-fil sur glissière
+    zg, yg = zc + rc + 0.36, Y(-0.02)
+    for sx in (-1, 1):
+        k.bz("vert_machine", sx * 0.66, yg, zb, 0.07, 0.07, zg - zb + 0.06)
+    k.axe("acier_clair", (-0.66, yg, zg), (0.66, yg, zg), 0.025, 10)
+    k.axe("acier", (-0.66, yg, zg + 0.08), (0.66, yg, zg + 0.08), 0.018, 8)
+    xg = xc + (lc / 2.0 - 0.06) * math.sin(TAU * k.phase)
+    k.mobile(True)
+    k.caisson("jaune", xg, yg, zg - 0.08, 0.14, 0.12, 0.2, 0.02)
+    k.volant((xg, yg - 0.07, zg - 0.12), 0.05, "y", larg=0.02, rayons=3, jante="acier_clair", moyeu="acier", ep=0.015, repere=None, mobile=False)
+    k.axe("cuivre", (xg, yg - 0.07, zg - 0.17), (xg, yb - rc * 0.25, zc + rc * 0.97), 0.016, 6)
+    k.mobile(False)
+    # touret d'alimentation à axe horizontal (cuivre sur le flanc) sur chevalet
+    xt, yt, zt_ = 0.48, Y(0.66), 0.42
+    for sx in (-1, 1):
+        k.axe("acier", (xt + sx * 0.2, yt - 0.12, 0.0), (xt + sx * 0.2, yt, zt_), 0.025, 6)
+        k.axe("acier", (xt + sx * 0.2, yt + 0.12, 0.0), (xt + sx * 0.2, yt, zt_), 0.025, 6)
+    k.mobile(True)
+    k.axe("acier_clair", (xt - 0.22, yt, zt_), (xt + 0.22, yt, zt_), 0.03, 10)
+    _bobine(k, (xt, yt, zt_), 0.19, 0.3, joue=0.07, ph=k.phase * 2.0)
+    k.mobile(False)
+    # bac d'émail ambré où le fil plonge (rouleaux), entre le touret et la tour
+    xe, ye, ze = 0.08, Y(0.66), 0.5
+    for sx in (-1, 1):
+        k.bz("acier", xe + sx * 0.16, ye, 0.0, 0.05, 0.05, ze - 0.2)
+    k.caisson("vert_machine", xe, ye, ze - 0.2, 0.4, 0.3, 0.2, 0.02)
+    k.b("email", (xe, ye, ze - 0.005), (0.35, 0.25, 0.012))
+    for x in (xe - 0.13, xe + 0.13):
+        k.axe("acier_clair", (x, ye - 0.13, ze + 0.01), (x, ye + 0.13, ze + 0.01), 0.022, 10)
+    # tour de cuisson : trois hublots, poulie de tête, évent
+    xtw, ytw, h = -0.3, Y(0.66), 2.0
+    k.caisson("isolant", xtw, ytw, 0.0, 0.34, 0.34, h, 0.04)
+    yft = ytw - 0.17
+    for z in (h * 0.3, h * 0.5, h * 0.7):
+        k.axe("acier", (xtw, yft + 0.01, z), (xtw, yft - 0.02, z), 0.075, 16)
+        k.axe("cuisson", (xtw, yft - 0.015, z), (xtw, yft - 0.025, z), 0.052, 16)
+    k.b("braise", (xtw, yft - 0.006, 0.12), (0.22, 0.012, 0.05))
+    CO.halo(S, k, (xtw, yft - 0.6, h * 0.4), (1.0, 0.5, 0.12), 30.0, r=(0.6, 1.4))
+    k.rivets_ligne("riv", (xtw - 0.14, yft - 0.004, 0.1), (xtw - 0.14, yft - 0.004, h - 0.1), 9)
+    k.cyl("rouille", xtw + 0.08, ytw + 0.08, h, h + 0.32, 0.05, 12)
+    k.rev("rouille", xtw + 0.08, ytw + 0.08, [(h + 0.32, 0.075), (h + 0.36, 0.075), (h + 0.38, 0.03)], 12)
+    k.bz("acier", xtw - 0.04, ytw, h - 0.05, 0.05, 0.08, 0.17)
+    pt = (xtw - 0.04, ytw - 0.06, h + 0.12)
+    k.volant(pt, 0.12, "y", larg=0.04, rayons=4, jante="acier_clair", moyeu="acier", ph=k.phase, ep=0.03, repere=None)
+    # fil : touret → bac (plonge) → tête de tour → guide-fil (oblique)
+    fil = [(xt - 0.1, yt - 0.18, zt_ + 0.12), (xe + 0.13, ye - 0.06, ze + 0.04), (xe, ye - 0.06, ze - 0.03), (xe - 0.13, ye - 0.06, ze + 0.04),
+           (pt[0] + 0.1, pt[1] - 0.02, pt[2] - 0.05)]
+    for a_, b_ in zip(fil[:-1], fil[1:]):
+        k.axe("cuivre", a_, b_, 0.016, 6)
+    k.axe("cuivre", (pt[0] - 0.11, pt[1] - 0.02, pt[2]), (xg, yg - 0.07, zg - 0.08), 0.016, 6)
+    # armoire est (de b), coupleur cryogénique à l'ouest, bobines finies au sud
+    _armoire(k, 0.82, 0.22)
+    _coupleur(k, -0.9, Y(-0.45))
+    for x in (0.5, 0.8):
+        _bobine(k, (x, Y(-0.82), 0.16), 0.11, 0.16, joue=0.035, axe="x")

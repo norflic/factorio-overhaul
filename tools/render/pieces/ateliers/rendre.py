@@ -57,7 +57,13 @@ def post(name, cache, out_root):
         p = os.path.join(d, "%s-%s.npy" % (name, layer))
         return np.load(p).astype(np.float64) if layer in info["layers"] and os.path.exists(p) else None
 
-    hr = {"main": P.compose_main(npy("main"), npy("ao"), C)}
+    # liseré de contact borné à 16 px autour de la silhouette : la passe ao, bruitée, laissait un voile sur tout le canevas
+    # (sprites non recadrés, atlas gaspillé : F186)
+    from PIL import Image as _Im, ImageFilter as _If
+    _m = npy("main")
+    _sil = _Im.fromarray((np.clip(_m[..., 3], 0, 1) > 0.05).astype(np.uint8) * 255).filter(_If.MaxFilter(17))
+    hors = 1.0 - np.asarray(_sil).astype(np.float64) / 255.0
+    hr = {"main": P.compose_main(_m, npy("ao"), C, fringe_mask=hors)}
     if os.environ.get("FO_GRADE"):
         hr["main"] = etalonne(hr["main"], [float(x) for x in os.environ["FO_GRADE"].split(",")])
     sh = npy("shadow")
@@ -90,6 +96,17 @@ def post(name, cache, out_root):
     for layer in ("main", "shadow", "glow", "light"):
         if layer not in hr:
             continue
+        # le débruitage laisse un voile d'alpha de 1 à 2 niveaux sur tout le canevas : on le retire avant le recadrage
+        hr[layer] = P.floor_alpha(hr[layer], 3.0 / 255)
+        if layer in ("shadow", "glow"):
+            # voile bruité (passe ombre ou lueur à peu d'échantillons) : rien hors de la boîte où l'alpha dépasse 0,06, + 6 px
+            _al = hr[layer][..., 3]
+            _ys, _xs = np.nonzero(_al > 0.06)
+            if len(_xs):
+                _k = np.zeros_like(_al)
+                _k[max(0, _ys.min() - 6):_ys.max() + 7, max(0, _xs.min() - 6):_xs.max() + 7] = 1.0
+                hr[layer] = hr[layer].copy()
+                hr[layer][..., 3] = _al * _k
         box = P.trim_box(hr[layer], origin)
         if box is None:
             continue

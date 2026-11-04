@@ -333,8 +333,19 @@ class Kit:
             m = mats[i % len(mats)] if mats else mat
             self.roche(m, (self.r.f(x0, x1), self.r.f(y0, y1), z + self.r.f(-dz, dz)), self.r.f(r0, r1))
 
-    def tas(self, mat, x, y, rx, ry, h):
-        self.put(mat, G.butte_polaire((x, y, 0.0), rx, ry, h, self.r, nr=8, na=36, bosses=0.2, bord=0.14))
+    def tas(self, mat, x, y, rx, ry, h, expo=1.6, bosses=0.2):
+        """Tas au sol ; expo < 1 : cône (sommet pointu, pied évasé) ; 1,6 : galette (défaut de la phase 2)."""
+        self.put(mat, G.butte_polaire((x, y, 0.0), rx, ry, h, self.r, nr=10, na=36, bosses=bosses, bord=0.14, expo=expo))
+
+    def cone(self, mat, x, y, r, h, grains=None, n=10):
+        """Tas en cône (sommet clair et pointu, pied évasé) avec quelques grains posés dessus (critique : « cônes ombrés »)."""
+        # vu à 45°, un cône de pente 45° a son sommet SUR le contour et se lit comme un disque : il faut h ≥ 1,5 r
+        self.rev(mat, x, y, [(0.0, r), (h * 0.06, r * 0.9), (h * 0.45, r * 0.52), (h * 0.85, r * 0.14), (h, 0.0)], 30)
+        for i in range(n):
+            a_ = self.r.f(0.0, TAU)
+            t = self.r.f(0.15, 0.85)
+            rr = r * (1.0 - t) * 0.95
+            self.roche(grains or mat, (x + rr * math.cos(a_), y + rr * math.sin(a_), h * t * 0.95), self.r.f(0.018, 0.035))
 
     def courroie(self, mat, a, ra, b, rb, n_axe, larg=0.06, e=0.016):
         """Courroie entre deux poulies de centres a et b (même plan, normale n_axe) : deux brins tangents, aplatis."""

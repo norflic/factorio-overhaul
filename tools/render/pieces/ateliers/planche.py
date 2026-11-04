@@ -37,7 +37,7 @@ ACTUEL = {
 }
 NOMS = {"concasseur": "Concasseur fo-crusher", "machoires": "Broyeur à mâchoires fo-jaw-crusher", "bobineuse": "Bobineuse fo-coil-winder",
         "torchere": "Torchère fo-flare-stack", "taillerie": "Taillerie fo-lapidary"}
-TITRE_V = {"a": "a : référence", "b": "b : plus chargée", "c": "c : autre parti"}
+TITRE_V = {"a": "a : référence", "b": "b : plus chargée", "c": "c : autre parti", "d": "d : corrigée (critique du 3/11)"}
 
 
 def _png(rel, rect, k=1.0, tint=None):
@@ -82,14 +82,17 @@ def main():
     ap.add_argument("--zoom", type=int, default=2, choices=(1, 2))
     ap.add_argument("--nuit", action="store_true")
     ap.add_argument("--titre", default="")
+    ap.add_argument("--avant", default="", help="dossier des rendus de la phase précédente (colonne « retenue »)")
+    ap.add_argument("--avant-v", default="", help="variante retenue par bâtiment, ex. concasseur=b,machoires=c")
     a = ap.parse_args()
+    avant = dict(x.split("=") for x in a.avant_v.split(",") if x) if a.avant else {}
     bats = [b for b in a.batiments.split(",") if b]
     vs = [v for v in a.variantes.split(",") if v]
     ppt = 64 if a.zoom == 2 else 32
     CW, gap, hd, lab, rh = 5.0, 6, 40, 24, 22
     HT = {"torchere": 8.6}
     OY = {"torchere": 6.4}
-    W = int(len(vs) + 1) * (int(CW * ppt) + gap) + gap
+    W = int(len(vs) + 1 + (1 if a.avant else 0)) * (int(CW * ppt) + gap) + gap
     rows = []
     for b in bats:
         ht = HT.get(b, 6.4)
@@ -105,13 +108,17 @@ def main():
                 font=K.font(18 if a.zoom == 2 else 13))
         y += rh
         x = gap
-        for nom in ["van:" + b] + ["%s_%s" % (b, v) for v in vs]:
-            day, night, _ = K.compose([{"pos": (CW / 2.0, oy), "layers": couches(a.src, nom)}], CW, ht)
+        cols = [("van:" + b, a.src, None)]
+        if b in avant:
+            cols.append(("%s_%s" % (b, avant[b]), a.avant, "retenue en phase 2 : %s" % avant[b]))
+        cols += [("%s_%s" % (b, v), a.src, None) for v in vs]
+        for nom, src, tt in cols:
+            day, night, _ = K.compose([{"pos": (CW / 2.0, oy), "layers": couches(src, nom)}], CW, ht)
             img = night if a.nuit else day
             if a.zoom == 1:
                 img = K.down2(img)
             sheet.paste(K.to_im(img), (x, y))
-            dr.text((x + 6, y + int(ht * ppt) + 3), titre(nom, a.zoom == 1), fill=(235, 235, 235), font=K.font(16 if a.zoom == 2 else 11))
+            dr.text((x + 6, y + int(ht * ppt) + 3), tt or titre(nom, a.zoom == 1), fill=(235, 235, 235), font=K.font(16 if a.zoom == 2 else 11))
             x += int(CW * ppt) + gap
         y += int(ht * ppt) + lab + gap
     os.makedirs(os.path.dirname(os.path.abspath(a.dest)), exist_ok=True)

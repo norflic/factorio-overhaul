@@ -28,24 +28,52 @@ TRONCONS = {
 }
 
 
+# Gabarit du tuyau vanilla (mesuré sur hr-pipe-straight-horizontal.png, 3/11) : corps de 36 px HR de haut centré 2 px au-dessus du
+# centre de la tuile, soit un rayon de 0,28 tuile ; dessin « à plat ». Le tronçon est modelé à l'axe z = R_VAN, puis décalé de DY_VAN
+# vers le sud pour que sa projection tombe où le moteur dessine le tuyau vanilla (y + z = 0,044 unité, soit 2 px).
+R_VAN = 0.28
+DY_VAN = 0.044 - R_VAN
+
+
 def raccord(S, k, bat, d):
-    """Tronçon du bâtiment bat pour la direction d (n, e, s, o) : bride au bord, tuyau, collier, petite vanne sur le flanc."""
-    k.M = CO.matieres(S)
+    """Tronçon du bâtiment bat pour la direction d (n, e, s, o), au gabarit vanilla : bride et gros tuyau au bord de l'emprise (le
+    tuyau vanilla voisin s'y raccorde), réduction conique, puis tuyau de la machine jusqu'à l'organe qu'il rejoint."""
+    k.M = CO.matieres(S, v2=True)
     t = TRONCONS[bat]
     ux, uy = VERS[d]
-    z, L, mat = t["z"], t["L"][d], t["mat"]
-    a = (ux * 0.5, Y(uy * 0.5), z)                    # bord de l'emprise
-    b = (ux * (0.5 + L), Y(uy * (0.5 + L)), z)        # collier contre la machine
-    r = 0.075 if t["givre"] else 0.07
-    k.axe(mat, (ux * 0.47, Y(uy * 0.47), z), b, r, 16)
-    n = G.norm((b[0] - a[0], b[1] - a[1], 0.0))
-    k.collier("acier", a, n, r + 0.012, e=0.03, h=0.035)
-    k.collier("acier", b, n, r + 0.008, e=0.025, h=0.03)
-    m = (a[0] + (b[0] - a[0]) * 0.5, a[1] + (b[1] - a[1]) * 0.5, z)
+    L, mat = t["L"][d], t["mat"]
+    z = R_VAN
+    lot = k.lot
+
+    class _Decale:
+        def __init__(self, lot):
+            self.l = lot
+
+        def put(self, m, mesh):
+            v, f, u = mesh
+            self.l.put(m, ([(p[0], p[1] + DY_VAN, p[2]) for p in v], f, u))
+
+        def __getattr__(self, n):
+            return getattr(self.l, n)
+
+    k.lot = k.fixe = _Decale(lot)
+
+    def P(s, zz=z):
+        return (ux * s, Y(uy * s), zz)
+    n = G.norm((ux, Y(uy), 0.0))
+    k.axe("acier", P(0.47), P(0.64), R_VAN - 0.01, 24)                     # gros tuyau au gabarit vanilla
+    k.collier("acier", P(0.5), n, R_VAN - 0.01, e=0.035, h=0.03)           # bride de raccord
+    k.put("acier", G.oriente(G.tour([(0.0, R_VAN - 0.01), (0.12, 0.09)], 24, "z"), P(0.64), n))  # réduction
+    r = 0.08
+    fin = max(0.5 + L, 0.78)
+    if fin > 0.8:
+        k.axe(mat, P(0.7), P(fin), r, 16)
+    k.collier("acier", P(fin), n, r + 0.01, e=0.025, h=0.03)
     if t["givre"]:
-        for f in (0.3, 0.7):
-            k.collier("acier", (a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, z), n, r + 0.004, e=0.012, h=0.015)
-    else:
-        k.vanne("acier", "rouge", m, 0.04, 0.08)
-    # support au sol sous le collier
-    k.bz("fonte", b[0], b[1], 0.0, 0.1, 0.1, z - r)
+        for f in (0.82, 0.5 + L * 0.7):
+            if f < 0.5 + L:
+                k.collier("acier", P(f), n, r + 0.004, e=0.012, h=0.015)
+    elif L > 0.35:
+        k.vanne("acier", "rouge", P(0.5 + L * 0.7), 0.045, 0.08)
+    k.bz("fonte", P(fin)[0], P(fin)[1], 0.0, 0.12, 0.12, z - r)
+    k.lot = k.fixe = lot
