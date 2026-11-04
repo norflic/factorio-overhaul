@@ -25,6 +25,7 @@ local Events = require("script.core.events")
 local State = require("script.faction.state")
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Board = require("script.team.board")
+local ChantierLent = require("script.team.chantier_lent") -- lot AZURE : trace [FO-CHANTIER-LENT] (lecture seule)
 local Tokens = require("script.team.tokens")
 local Profiler = require("script.core.profiler")
 local Foot = require("shared.levels.footprint")
@@ -2951,6 +2952,12 @@ local function release(f, p)
   end
 end
 
+--- Lot AZURE : rend au coffre de l'équipe la matière réservée par le projet `p` (bande mise en réserve définitive par script/team/migration_champ.lua :
+--- ses entités bâties restent, aucune matière ne reste retenue pour elle). Seul le retour à l'état d'avant la réserve ; rien d'autre.
+function Build.give_back(f, p)
+  release(f, p)
+end
+
 --- Lot FUITES-PILE (fuite b) : la réserve au coffre du projet `p` (état « reserve ») est-elle suspendue par la pile ? Un module NEUF est une
 --- amélioration (R3) : pendant qu'un cadre réparer, protéger ou survivre retient, il ne prend rien au coffre et REND ce qu'il avait pris
 --- (p.stock), ses manques sont effacés (aucun but ne les fabrique), raison « pile », relu dans une seconde ; sauf s'il produit une matière
@@ -3074,6 +3081,7 @@ local function blockers(surface, e)
 end
 
 local function log_refusal(f, p, e, why, surface)
+  e.why = tostring(why) -- lot AZURE : dernier motif de refus de la pièce (chaîne), lu par la trace [FO-CHANTIER-LENT] ; posé avant le plafond du journal
   local st = f.build.stats
   st.refusal_logs = (st.refusal_logs or 0) + 1
   if st.refusal_logs > Build.REFUSAL_LOGS then return end
@@ -4268,6 +4276,7 @@ local function watch_stall(f, tick)
         log(string.format("[FO-BLOQUE] %s : projet %d (%s) sans progres depuis %d min : %s ; %d entite(s) baties sur %d, etat %s a %.1f min",
           f.key or "player", p.id, tostring(p.spec.key or p.spec.gen or "?"), math.floor((tick - rec.since) / 3600), say, count_built(p), #p.ents,
           p.state, tick / 3600))
+        ChantierLent.report(f, p, tick, say, rec) -- lot AZURE : détail du chantier lent d'une bande (une fois par projet)
       end
     elseif b.noprog[pid] then
       b.noprog[pid] = nil
