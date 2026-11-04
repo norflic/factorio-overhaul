@@ -131,25 +131,27 @@ def ic_optical_sensor():
 
 
 def controleur():
-    """Boîtier de commande (REFAIT, critique : la carte verte se confondait avec la carte imprimée et la carte mère) : boîte
-    plate en alu à ailettes, gros connecteur multibroche noir en façade, 2 voyants, court faisceau de 3 fils (écho du servo)."""
+    """Boîtier de commande : boîte plate en alu à COUVERCLE LISSE (plaque d'étiquette en relief), pattes de fixation, GROS
+    connecteur noir trapézoïdal multibroche en façade d'où sort UN câble noir épais, 2 voyants (contre-relecture : les ailettes
+    et les 3 fils colorés le confondaient avec le radiateur et le commutateur réseau du calcul)."""
     B(4.4, 3.0, 1.25, 0, 0, 0, "alu_brosse", bev=0.16)
-    for k in range(7):
-        B(0.18, 2.3, 0.36, -1.5 + k * 0.5, 0.25, 1.25, "alu_sombre", bev=0.03)
+    B(2.6, 1.5, 0.07, -0.3, 0.35, 1.25, "etiquette", bev=0.02)
+    for k in range(3):
+        B(1.8 - k * 0.4, 0.1, 0.02, -0.55 + k * 0.2, 0.62 - k * 0.27, 1.32, "marquage", bev=0)
     for sx in (-1, 1):
         B(0.75, 3.4, 0.16, sx * 2.45, 0, 0, "alu_sombre", bev=0.03)
         for sy in (-1, 1):
             CY(0.13, 0.2, sx * 2.55, sy * 1.35, 0.0, "fond_noir", verts=12, bev=0)
-    B(2.5, 0.6, 0.9, -0.55, -1.7, 0.16, "noir_mat", bev=0.08)
-    B(2.1, 0.08, 0.6, -0.55, -2.0, 0.31, "fond_noir", bev=0)
-    for row in range(2):
-        for k in range(7):
-            B(0.13, 0.06, 0.13, -1.37 + k * 0.27, -2.04, 0.41 + row * 0.24, "or", bev=0)
-    B(0.34, 0.12, 0.34, 1.15, -1.53, 0.5, "voyant_vert", bev=0.03)
-    B(0.34, 0.12, 0.34, 1.7, -1.53, 0.5, "voyant_ambre", bev=0.03)
-    B(1.2, 0.04, 0.16, 1.42, -1.52, 0.95, "marquage", bev=0)
-    for i, c in enumerate(("cable_rouge", "cable_gris", "cable_jaune")):
-        tube([(-1.3 + i * 0.4, -2.05, 0.62), (-1.45 + i * 0.4, -2.7, 0.55), (-2.0 + i * 0.35, -3.1, 0.1)], 0.1, c)
+    trap = [(-1.35, 0.0), (1.35, 0.0), (1.1, 0.95), (-1.1, 0.95)]
+    o = prisme("connecteur", trap, 0.62, "noir_mat", z=1.5, bev=0.06)
+    o.rotation_euler = (math.radians(90), 0, 0)
+    o.location = (-0.55, 0, 0.16)
+    for row, n in ((0, 8), (1, 7)):
+        for k in range(n):
+            B(0.13, 0.06, 0.13, -0.55 - (n - 1) * 0.135 + k * 0.27, -2.14, 0.38 + row * 0.32, "or", bev=0)
+    B(0.34, 0.12, 0.34, 1.2, -1.53, 0.5, "voyant_vert", bev=0.03)
+    B(0.34, 0.12, 0.34, 1.75, -1.53, 0.5, "voyant_ambre", bev=0.03)
+    tube([(-1.95, -1.85, 0.55), (-2.3, -2.6, 0.4), (-2.6, -3.25, 0.05)], 0.2, "cable_gris", res=8)
 
 
 def ic_controller():
@@ -221,8 +223,10 @@ def ic_ndyag_rod():
     pivoter(capte(barreau), rot=(0, -10, 30))
 
 
-def tete_laser(faisceau=1.6):
-    """Module laser (axe x, nez vers +x) : culasse à ailettes, 2 bobines de cuivre, nez chromé, lentille rouge, faisceau rouge."""
+def tete_laser(faisceau=1.6, rayon0=0.38, nez=1.15, lueur=False):
+    """Module laser (axe x, nez vers +x) : culasse à ailettes, 2 bobines de cuivre, nez chromé, lentille rouge, faisceau rouge.
+    lueur : faisceau fin et saturé avec une gaine translucide (icône de l'objet ; contre-relecture : le cône opaque faisait une
+    pointe de crayon) ; par défaut, celui de la technologie « Entraînement magnétique » (VALIDE)."""
     CYX(1.05, 1.6, -1.9, 0, 0, "noir_mat", verts=40, bev=0.04)
     for k in range(7):
         CYX(1.3, 0.08, -2.55 + k * 0.2, 0, 0, "alu_brosse", verts=40, bev=0.01)
@@ -231,18 +235,28 @@ def tete_laser(faisceau=1.6):
         CYX(1.0, 0.7, x, 0, 0, "cuivre", verts=40, bev=0.03)
         for k in range(5):
             TOR(1.0, 0.04, x - 0.28 + k * 0.14, 0, 0, "or_sombre", rot=(0, 90, 0), minor=8)
-    lathe([(0.85, 0), (0.85, 0.3), (0.62, 0.9), (0.55, 1.15), (0, 1.15)], 1.05, 0, 0, "chrome", verts=40).rotation_euler = (0, math.radians(90), 0)
-    CYX(0.6, 0.06, 2.22, 0, 0, lum("rouge_laser", force=1.5), verts=32, bev=0)
-    if faisceau > 0:
+    k = nez / 1.15
+    lathe([(0.85, 0), (0.85, 0.3 * k), (0.62, 0.9 * k), (0.55, 1.15 * k), (0, 1.15 * k)], 1.05, 0, 0, "chrome", verts=40).rotation_euler = (0, math.radians(90), 0)
+    xl = 1.05 + nez
+    CYX(0.6, 0.06, xl + 0.02, 0, 0, lum("rouge_laser", force=1.5), verts=32, bev=0)
+    if faisceau > 0 and not lueur:
         rayon = lum("rouge_laser", mode="z", force=1.6, z0=0.0, z1=faisceau)
-        o = lathe([(0.38, 0.0), (0.2, faisceau * 0.65), (0.05, faisceau)], 2.25, 0, 0, rayon, verts=16)
+        o = lathe([(rayon0, 0.0), (rayon0 * 0.2 / 0.38, faisceau * 0.65), (rayon0 * 0.05 / 0.38, faisceau)], xl + 0.05, 0, 0, rayon, verts=16)
         o.rotation_euler = (0, math.radians(90), 0)
+    elif faisceau > 0:
+        coeur = lum("faisceau", mode="z", z0=faisceau, z1=0.0)
+        o = lathe([(rayon0, 0.0), (rayon0 * 0.6, faisceau * 0.7), (0.02, faisceau)], xl + 0.05, 0, 0, coeur, verts=16)
+        o.rotation_euler = (0, math.radians(90), 0)
+        gaine = P.mat_voile("gaine_laser", (1.0, 0.06, 0.03), 0.55, 5.0)
+        g = lathe([(rayon0 * 2.6, 0.0), (rayon0 * 1.6, faisceau * 0.7), (0.05, faisceau)], xl + 0.05, 0, 0, gaine, verts=24)
+        g.rotation_euler = (0, math.radians(90), 0)
+        g.visible_shadow = False
     B(2.6, 1.2, 0.3, -0.6, 0, -1.25, "alu_sombre", bev=0.05)
 
 
 def ic_laser_module():
     """Tête de PROFIL sur la diagonale (critique : vue dans l'axe, elle se confondait avec le capteur optique)."""
-    pivoter(capte(tete_laser), rot=(0, 14, -62))
+    pivoter(capte(tete_laser, 2.8, 0.17, 0.7, True), rot=(0, 14, -62))
 
 
 # ------------------------------------------------------------------------------------------------------------------
@@ -275,8 +289,9 @@ def ic_printed_circuit_board():
 
 
 def oscillateur():
-    """Boîtier HC-49 (REFAIT, critique : gris foncé, il se lisait comme une prise ou une enceinte) : métal ARGENT brillant, dessus
-    arrondi, fenêtre sur un disque de quartz cyan lumineux plein, socle sombre, 2 longues pattes d'or fines."""
+    """Boîtier HC-49 en ARGENT BROSSÉ clair, dessus arrondi, socle sombre, 2 longues pattes d'or fines ; dans la fenêtre, un DISQUE
+    de quartz cyan incliné (sa tranche, plus sombre, se voit) tenu par 2 fils de contact fins (contre-relecture : un aplat pâle
+    faisait une LED)."""
     W, H, r, ep = 2.8, 3.0, 1.0, 1.15
     pts = [(-W / 2, 0.0), (W / 2, 0.0)]
     for k in range(9):
@@ -290,8 +305,13 @@ def oscillateur():
     B(W + 0.25, ep + 0.25, 0.32, 0, 0, -0.32, "noir_mat", bev=0.05)
     for sx in (-1, 1):
         CY(0.07, 2.3, sx * 0.75, 0, -2.6, "or", verts=10)
-    TOR(0.98, 0.08, 0, -ep / 2 - 0.03, 1.55, "chrome", rot=(90, 0, 0), minor=10)
-    CYX(0.92, 0.08, 0, -ep / 2 - 0.03, 1.55, lum("quartz", force=1.15), axe="y", verts=48, bev=0)
+    zf, yf = 1.55, -ep / 2
+    TOR(0.98, 0.08, 0, yf - 0.03, zf, "chrome", rot=(90, 0, 0), minor=10)
+    CYX(0.94, 0.04, 0, yf - 0.01, zf, "fond_noir", axe="y", verts=48, bev=0)
+    d = CYX(0.68, 0.14, 0, yf - 0.2, zf, lum("quartz", force=1.2), axe="y", verts=48, bev=0.02)
+    d.rotation_euler = (math.radians(90 + 28), 0, math.radians(30))
+    for sx in (-1, 1):
+        tube([(sx * 0.5, yf - 0.18, zf - 0.35), (sx * 0.58, yf - 0.1, zf - 0.7), (sx * 0.62, yf - 0.03, zf - 0.88)], 0.035, "or", res=6)
 
 
 def ic_crystal_oscillator():

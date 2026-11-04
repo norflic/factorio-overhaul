@@ -10,13 +10,13 @@
    "genre": "item",
    "icon_mipmaps": 4,
    "icon_size": 64,
-   "sha256": "eceb71bf406e2b4988fce699a81c57137c4a4734ec488870c3b446520fb8804d"
+   "sha256": "f171fdc844e55a4c6e136e96c405d59da204596e1992f5aabf45a380a86a7dc8"
   },
   "icones/fo-crystal-oscillator.png": {
    "genre": "item",
    "icon_mipmaps": 4,
    "icon_size": 64,
-   "sha256": "a3b0daf41d95efe59a2ec7732abf054d7b9f0205acfb9b172c35647b5423b7f7"
+   "sha256": "894eb7d9b907db95fa8515ad642a34445e886ebccefebac72efc4107b1ea4148"
   },
   "icones/fo-enameled-wire.png": {
    "genre": "item",
@@ -34,7 +34,7 @@
    "genre": "item",
    "icon_mipmaps": 4,
    "icon_size": 64,
-   "sha256": "f57dec8f5b1fa941385aec183d18cc00942a078ca45ee99daf953fbeeacf332b"
+   "sha256": "2e22e6862002bf9909072bdfe625003d14a14eca9fcf3b6dc0e1703071fc9d6d"
   },
   "icones/fo-magnetic-actuator.png": {
    "genre": "item",
@@ -76,13 +76,13 @@
    "genre": "item",
    "icon_mipmaps": 4,
    "icon_size": 64,
-   "sha256": "7175376e01d0f631828acfc944aaa62d3a38168777e1443d71103a59984f7c3d"
+   "sha256": "c30e9c98f7d89ce547d1cf2b3d575bdd8f96e3ea77b83aa46f9e5d9932c0082f"
   },
   "icones/fo-robot-kit-chamfer.png": {
    "genre": "item",
    "icon_mipmaps": 4,
    "icon_size": 64,
-   "sha256": "91613571aba31429f6bff8eec8c6111bf7375932ae72e627fda20c9ccb0ab432"
+   "sha256": "e2d1b34bad70608ff766ab929618e8110d556e142e03de2ce813f7f34c3a6303"
   },
   "icones/fo-robot-kit-coiler.png": {
    "genre": "item",
@@ -100,7 +100,7 @@
    "genre": "item",
    "icon_mipmaps": 4,
    "icon_size": 64,
-   "sha256": "4da9f9b7d2504cb93d9df1aebcd12f6b90b13d17d969fcc140565c9698c4187a"
+   "sha256": "29ad38e1732598484efc7b0e9476b9b25f797659dd53dac49b83340da3a3c6f1"
   },
   "icones/fo-robot-kit-heliast.png": {
    "genre": "item",
@@ -118,13 +118,13 @@
    "genre": "item",
    "icon_mipmaps": 4,
    "icon_size": 64,
-   "sha256": "59f347035afe2d01572b639bcb564f4d87ab47486082aa63187ef6cad5ae6b33"
+   "sha256": "60eaa9516a79dbe1fc0704090bc2f6def483bc0a5632df82f7f98920ed209df0"
   },
   "icones/fo-robot-kit-scalehide.png": {
    "genre": "item",
    "icon_mipmaps": 4,
    "icon_size": 64,
-   "sha256": "c8d62b20199d5fcdfd31d67c6f80e7347eff5ae8114af3184198130c664c2bfc"
+   "sha256": "cdeb771a2461fd6cf3b37ad53ba01db1b4f53f662192f0426177c84aec9f1ee8"
   },
   "icones/fo-robot-kit-steam-trotter.png": {
    "genre": "item",
@@ -154,13 +154,13 @@
    "genre": "item",
    "icon_mipmaps": 4,
    "icon_size": 64,
-   "sha256": "393469f8fd1ba043960fd3b0eb9dd1dc8d76acbbb8311ee56b81ecd948b42d0e"
+   "sha256": "3ca92a978700345bca97f20d3d867b4769077e5102362512c0651ff605143570"
   },
   "icones/fo-robot-segment-toroid.png": {
    "genre": "item",
    "icon_mipmaps": 4,
    "icon_size": 64,
-   "sha256": "34449282c663daec14507df63538ef7ad6c8f2570aa9c5ea04d90097a91eb08f"
+   "sha256": "9eb9e935129b192c82a82ea876b0bebe6b7d743d2e75a234930042c7408e1f81"
   },
   "icones/fo-servo-motor.png": {
    "genre": "item",
@@ -196,13 +196,13 @@
    "genre": "tech",
    "icon_mipmaps": 4,
    "icon_size": 256,
-   "sha256": "1aabb6973e3b06b927e869e3f4854b8578ebf6ad6ecec7e43225442d5e5f7805"
+   "sha256": "214538761c0619398d17a07e204370be42bbdf1cdfbe207bff684741b986cc0a"
   },
   "tech/fo-robot-bellwether.png": {
    "genre": "tech",
    "icon_mipmaps": 4,
    "icon_size": 256,
-   "sha256": "91006e87df3bef612bf99d316bfc16a596807e9919171f08377ce90bc574d982"
+   "sha256": "69e3735af419d19f7cb78711b1e054ab7831ad27574edbc6e86dc9302b0a0aac"
   },
   "tech/fo-robot-coil.png": {
    "genre": "tech",
@@ -250,7 +250,7 @@
    "genre": "tech",
    "icon_mipmaps": 4,
    "icon_size": 256,
-   "sha256": "cbad56c8f355409f4f8edd65548541c002818387cf5350f06181c7823a90a2b3"
+   "sha256": "3d3a7e756bf217aa0cffa98d3ed082b166be8efbfb30e2316f2f736e07046d7e"
   },
   "tech/fo-robot-levite.png": {
    "genre": "tech",
@@ -262,7 +262,7 @@
    "genre": "tech",
    "icon_mipmaps": 4,
    "icon_size": 256,
-   "sha256": "d3902ce081d1303a12347813e5290750d56292a787db8f8dc3c6729295cbfe0c"
+   "sha256": "aab1fb29c86f38d98b339611db71ecccc81b2c04b5ce66578782b24416647c3e"
   },
   "tech/fo-servo-mechanisms.png": {
    "genre": "tech",
