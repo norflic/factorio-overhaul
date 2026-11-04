@@ -185,6 +185,10 @@ local function process(e, rec, tick)
       end
     end
   end
+  -- Lot BOURDON-SORTIE : objets d'autres lots qui sortent de l'usine comme un kit (le Bourdon fini au Portique : script/robots/bourdon.lua)
+  if Armee.hooks.extra_release then
+    made = made + Armee.hooks.extra_release(e, inv, rec.rally or Mo.default_rally(e.position, w.size), giants_made)
+  end
   return made
 end
 

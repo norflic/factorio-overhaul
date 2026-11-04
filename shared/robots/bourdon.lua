@@ -323,4 +323,25 @@ function B.peut_poser(p)
   return (p.geants or 0) < (p.admis or 0)
 end
 
+-- ------------------------------------------------------------------------------------------------ sortie du Portique (lot BOURDON-SORTIE, 4/11)
+-- QCM-4/11 du DC : « sortie automatique mais on doit pouvoir les déplacer manuellement hein, contrôler les robots ». Le Bourdon fini SORT SEUL
+-- du Portique, comme un kit de robot (script/robots/usine.lua, balayage toutes les 60 ticks) : il descend au point de sortie de l'usine, puis
+-- vole à son ralliement. Plafond atteint : l'objet reste en sortie et le Portique s'arrête, comme pour les autres géants.
+B.RALLIEMENT_MIN = 6 -- tuiles : plus près que cela du point de descente, il reste posé (ni ancres levées, ni vol pour rien)
+
+--- Le Bourdon en sortie d'un Portique doit-il sortir ? p = { objets (Bourdons finis dans la sortie), actif, geants (géants vivants de la force,
+--- Bourdons compris), deja (géants sortis pendant ce balayage), admis }.
+function B.sortie(p)
+  if type(p) ~= "table" or (p.objets or 0) < 1 then return false end
+  return B.peut_poser({ actif = p.actif, geants = (p.geants or 0) + (p.deja or 0), admis = p.admis })
+end
+
+--- Après sa descente au point (x, y), le Bourdon vole-t-il au ralliement r = { x, y } ? Rend r, ou nil s'il est absent ou trop près.
+function B.ralliement(x, y, r)
+  if type(r) ~= "table" or type(r.x) ~= "number" or type(r.y) ~= "number" then return nil end
+  local dx, dy = r.x - x, r.y - y
+  if dx * dx + dy * dy < B.RALLIEMENT_MIN * B.RALLIEMENT_MIN then return nil end
+  return { x = r.x, y = r.y }
+end
+
 return B

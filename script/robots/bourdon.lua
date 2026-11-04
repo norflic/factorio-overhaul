@@ -21,6 +21,7 @@ local B = require("shared.robots.bourdon")
 local SPR = require("graphics.robots.bourdon.sprites")
 local Armee = require("script.robots.armee") -- lot ROBOTS-JEU : plafond de géants d'un Bourdon fabriqué
 local Mo = require("shared.robots.modele")
+local Ro = require("shared.content.robots") -- lot BOURDON-SORTIE : taille de l'usine (point de sortie)
 
 local M = {}
 
@@ -626,7 +627,14 @@ local function pas_phase(b, tick)
         place_ancre(b, i, 0, B.oscille(tick, i), bob)
       end
     end
-    if fini then b.phase, b.t0 = "pose", tick end
+    if fini then
+      b.phase, b.t0 = "pose", tick
+      -- lot BOURDON-SORTIE : sorti du Portique, il gagne le ralliement de l'usine une fois ses ancres posées (le tick suivant, l'ordre lève les ancres)
+      if b.ralliement then
+        e.autopilot_destination = { b.ralliement.x, b.ralliement.y }
+        b.ralliement = nil
+      end
+    end
   elseif b.phase == "leve" then
     local fini = true
     for rang, i in ipairs(ORDRE_CHUTE) do
@@ -903,6 +911,33 @@ function M.pose_fabrique(relais, player)
   end
   return id
 end
+
+--- Lot BOURDON-SORTIE : balayage d'une usine (script/robots/usine.lua, Armee.hooks.extra_release). Un Bourdon fini en sortie descend au point de
+--- sortie de l'usine si le plafond de géants le permet, puis vole au ralliement `rally` = { x, y }. Rend le nombre de Bourdons sortis (0 ou 1).
+function M.sortie_usine(usine, inv, rally, deja)
+  local n = inv.get_item_count(B.OBJET)
+  if n < 1 then return 0 end
+  local force = usine.force
+  local w = Ro.factory(usine.name)
+  if not w then return 0 end
+  if not B.sortie({ objets = n, actif = Armee.enabled(), geants = Armee.giants(force.name), deja = deja, admis = Mo.giants_allowed(Armee.age(force)) }) then
+    return 0
+  end
+  if inv.remove({ name = B.OBJET, count = 1 }) ~= 1 then return 0 end
+  local o = Mo.out_point(usine.position, w.size)
+  local id = M.descendre(usine.surface, force, o.x, o.y)
+  if not id then
+    inv.insert({ name = B.OBJET, count = 1 }) -- rien de perdu : l'objet revient, on réessaiera au balayage suivant
+    return 0
+  end
+  local b = trouve(id)
+  b.ralliement = B.ralliement(o.x, o.y, rally)
+  log(string.format("[FO-BOURDON] sorti du portique %d : Bourdon %d force=%s descend en (%.1f, %.1f), ralliement %s, geants=%d/%d", usine.unit_number, id,
+    force.name, o.x, o.y, b.ralliement and string.format("(%.1f, %.1f)", b.ralliement.x, b.ralliement.y) or "sur place", Armee.giants(force.name),
+    Mo.giants_allowed(Armee.age(force))))
+  return 1
+end
+Armee.hooks.extra_release = M.sortie_usine
 
 local function sur_pose(ev)
   local e = ev.created_entity or ev.entity
