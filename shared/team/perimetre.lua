@@ -17,7 +17,7 @@
   6. GROUPES : Pe.GROUP tourelles (Pe.GROUP_THREAT si menacé) ; « déjà là » = tourelles à moins de Pe.HAVE_R du centre.
   7. ORDRE : postes « point » (menace, poids, numéro), puis anneaux 1, 2, 3 (menace, poids, numéro).
   8. BUDGET : tourelles du périmètre vivantes <= Pe.BUDGET_PCT % du surplus de fer / coût d'une tourelle armée (Pe.allowed), et rien
-     sous Pe.RICH_IRON plaques de fer au stock (équipe riche seulement).
+     sous Pe.RICH_IRON plaques de fer au stock (équipe riche seulement) ; avec le besoin évalué, Pe.FREE_PCT % du fer LIBRE hors besoin.
 ]]
 
 local Pe = {}
@@ -47,6 +47,10 @@ Pe.BUDGET_PCT = 15     -- % du surplus de fer que les tourelles du périmètre p
 -- Essai 1 (verif-guide 1618033988, fer de 0 à 977 : une tourelle « payable » à 950 de fer, fabriquée puis prise par les autres postes, partie
 -- divergente) : la prévision n'achète rien sous Pe.RICH_IRON plaques de fer au stock (le DC : « une fois qu'une équipe roule sur l'or »).
 Pe.RICH_IRON = 2000
+-- Tour 3 (lead, 4/11 : « puiser dans le stock libre hors besoin, jusqu'à 30 % » ; partie du DC à 140 min : 22 855 MU libres, besoins
+-- couverts, 0 dépensé en défense) : avec le besoin évalué (shared/ai3/reserve.lua), la base du budget est le fer LIBRE une fois le besoin
+-- payé (0 si le besoin n'est pas couvert), à Pe.FREE_PCT % ; sans besoin évalué, la règle du tour 2 (Pe.BUDGET_PCT % du fer au-dessus du plancher).
+Pe.FREE_PCT = 30
 Pe.ROLE_W = { fabrique = 3, labo = 3, chauffe = 3, generateur = 3, pompe = 2, foreuse = 1 }
 Pe.HQ_W = 20
 Pe.CAT = { fabrique = "fab", labo = "labo", chauffe = "centrale", generateur = "centrale", pompe = "centrale", foreuse = "foreuse", qg = "qg" }
@@ -408,13 +412,15 @@ function Pe.accepts(post, x, y) return d2(post.x, post.y, x, y) <= Pe.ACCEPT * P
 --- Repos d'un poste après `zero` poses nulles de suite (ticks).
 function Pe.rest_ticks(zero) return Pe.REST * math.min(math.max(zero or 1, 1), Pe.REST_MAX) end
 
---- Budget : s = { iron, floor, unit (fer d'une tourelle armée), pct, held (tourelles du périmètre vivantes), want } -> tourelles commandables
---- maintenant (0 à want). Les tourelles du périmètre n'immobilisent jamais plus de pct % du surplus de fer au-dessus du plancher.
+--- Budget : s = { iron, floor, unit (fer d'une tourelle armée), pct, held (tourelles du périmètre vivantes), want, free (fer libre hors besoin,
+--- facultatif) } -> tourelles commandables maintenant (0 à want). Les tourelles du périmètre n'immobilisent jamais plus de Pe.FREE_PCT % du fer
+--- libre hors besoin (`free` donné), sinon de Pe.BUDGET_PCT % du fer au-dessus du plancher ; rien sous Pe.RICH_IRON de fer au stock.
 function Pe.allowed(s)
   local unit = s.unit or 0
-  local surplus = (s.iron or 0) - (s.floor or 0)
+  local surplus, pct = (s.iron or 0) - (s.floor or 0), s.pct or Pe.BUDGET_PCT
+  if s.free ~= nil then surplus, pct = s.free, s.pct or Pe.FREE_PCT end
   if unit <= 0 or surplus <= 0 or (s.iron or 0) < (s.rich or Pe.RICH_IRON) then return 0 end
-  local a = math.floor((s.pct or Pe.BUDGET_PCT) * surplus / (100 * unit)) - (s.held or 0)
+  local a = math.floor(pct * surplus / (100 * unit)) - (s.held or 0)
   if a <= 0 then return 0 end
   return math.min(a, math.max(0, s.want or 0))
 end

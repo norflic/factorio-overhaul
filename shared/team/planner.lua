@@ -440,8 +440,9 @@ function P.plan(view, book)
     if view.perim and view.perim.pick then
       local pk = view.perim.pick
       local unit = book:raw_cost(turret_items(1))[iron_key] or 0
-      local n = Pe.allowed({ iron = avail[iron_key] or 0, floor = T.defend_iron_floor, unit = unit, held = view.perim.held or 0, want = pk.want - pk.have })
-      out.perim = { key = pk.key, have = pk.have, want = pk.want, allowed = n, unit = unit, held = view.perim.held or 0 }
+      local n = Pe.allowed({ iron = avail[iron_key] or 0, floor = T.defend_iron_floor, unit = unit, held = view.perim.held or 0, want = pk.want - pk.have,
+        free = view.perim.free_iron }) -- (tour 3 : fer libre hors besoin, nil sans besoin évalué)
+      out.perim = { key = pk.key, have = pk.have, want = pk.want, allowed = n, unit = unit, held = view.perim.held or 0, free = view.perim.free_iron }
       if n > 0 then
         posts[#posts + 1] = { id = "perim", want = pk.have + n, have = pk.have, busy = view.perim.busy, pos = { x = pk.x, y = pk.y }, perim = pk.key,
           optional = true }

@@ -25,6 +25,7 @@ local T = require("shared.team.config")
 local Fr = require("shared.team.front")
 local Pe = require("shared.team.perimetre")
 local Outposts = require("script.faction.outposts")
+local Rsv = require("script.ai3.reserve") -- tour 3 : fer libre hors besoin (besoin évalué par le cerveau), base du budget
 
 local Pm = {}
 
@@ -218,9 +219,9 @@ local function scan(f, st, surface, tick, on)
   if st.mlogs <= Pm.MLOGS then
     log(string.format("[FO-PERIMETRE] %s : mesure a %.1f min : couverture armee %d %% du poids (%d/%d) ; nombre : %s ; tourelles %d dont armees %d, " ..
       "isolees %d, du perimetre %d ; anneaux %d, postes %d point(s) + %d d'anneau (servis %s sur %s) ; perdus sous l'ennemi : sensibles %d, " ..
-      "tourelles %d, murs %d, autres %d ; regle %s", f.key or "player", tick / 3600, Pe.pct(ca.wc, ca.w), ca.wc, ca.w, table.concat(parts, " "),
-      #tur, armed, Pe.isolated(tur), held(f), #st.rings, npoint, nring, tostring(st.served or 0), tostring(st.total or 0),
-      st.lost.sens, st.lost.tur, st.lost.mur, st.lost.autre, on and "allumee" or "eteinte"))
+      "tourelles %d, murs %d, autres %d ; regle %s ; fer libre hors besoin %s", f.key or "player", tick / 3600, Pe.pct(ca.wc, ca.w), ca.wc, ca.w,
+      table.concat(parts, " "), #tur, armed, Pe.isolated(tur), held(f), #st.rings, npoint, nring, tostring(st.served or 0), tostring(st.total or 0),
+      st.lost.sens, st.lost.tur, st.lost.mur, st.lost.autre, on and "allumee" or "eteinte", st.free_iron and string.format("%.0f", st.free_iron) or "-"))
   end
 end
 
@@ -237,7 +238,12 @@ function Pm.view(f, fortify_open)
     plan(f, st, surface, tick)
   end
   if not on then return nil end
-  return { pick = st.pick, busy = fortify_open and fortify_open[Pm.OID] or false, held = held(f) }
+  -- Tour 3 : fer LIBRE une fois le besoin évalué payé (0 si le besoin n'est pas couvert) ; nil sans besoin évalué (règle du tour 2)
+  local inp = Rsv.input(f, tick)
+  local free
+  if inp then free = inp.covered and (inp.free[T.outposts.iron.product] or 0) or 0 end
+  st.free_iron = free
+  return { pick = st.pick, busy = fortify_open and fortify_open[Pm.OID] or false, held = held(f), free_iron = free }
 end
 
 local function find_post(st, key)

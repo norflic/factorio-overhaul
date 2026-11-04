@@ -160,6 +160,9 @@ local function suite(Pe)
   check(Pe.allowed({ iron = 100, floor = 150, unit = 120, want = 2 }) == 0 and Pe.allowed({ iron = 9000, floor = 150, unit = 0, want = 2 }) == 0,
     "sous le plancher, ou coût inconnu : rien")
   check(Pe.allowed({ iron = 12000, floor = 150, unit = 120, held = 10, want = 3 }) == 3, "équipe riche : 15 % de 11 850 = 14 tourelles")
+  check(Pe.allowed({ iron = 12000, floor = 150, unit = 120, held = 20, want = 3, free = 9000 }) == 2, "fer libre hors besoin : 30 % de 9 000 = 22 tourelles")
+  check(Pe.allowed({ iron = 12000, floor = 150, unit = 120, held = 0, want = 3, free = 0 }) == 0, "besoin non couvert (fer libre 0) : rien")
+  check(Pe.allowed({ iron = 1500, floor = 150, unit = 120, held = 0, want = 3, free = 1400 }) == 0, "fer libre mais équipe sous 2 000 de fer : rien")
 
   -- 13. repos
   check(Pe.rest_ticks(nil) == 7200 and Pe.rest_ticks(3) == 21600 and Pe.rest_ticks(10) == 43200, "repos croissant, plafonné")
@@ -191,7 +194,9 @@ local mutants = {
   { "pas de renfort sur menace", "want = th > 0 and Pe.GROUP_THREAT or Pe.GROUP", "want = Pe.GROUP" },
   { "budget sans les tourelles posées", "/ (100 * unit)) - (s.held or 0)", "/ (100 * unit))" },
   { "prévision sans seuil de richesse", "or (s.iron or 0) < (s.rich or Pe.RICH_IRON) then return 0 end", "then return 0 end" },
-  { "budget à 100 %", "math.floor((s.pct or Pe.BUDGET_PCT) * surplus / (100 * unit))", "math.floor(surplus / unit)" },
+  { "fer libre à 100 %", "if s.free ~= nil then surplus, pct = s.free, s.pct or Pe.FREE_PCT end", "if s.free ~= nil then surplus, pct = s.free, 100 end" },
+  { "fer libre ignoré", "if s.free ~= nil then surplus, pct = s.free, s.pct or Pe.FREE_PCT end", "" },
+  { "budget à 100 %", "math.floor(pct * surplus / (100 * unit))", "math.floor(surplus / unit)" },
   { "prévision sans seuil de taille", "if ncore < Pe.MIN_POINTS then return ev, info end", "" },
   { "paire dans l'axe d'arrivée", "return -ny, nx, nx, ny", "return nx, ny, nx, ny" },
   { "postes « point » jamais retirés", "if p.kind == \"point\" and p.w <= 0 then", "if false then" },
