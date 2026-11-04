@@ -144,11 +144,14 @@ end
 
 --- Plan de remplissage d'une tournée : chargeurs à ajouter à chaque tourelle (même ordre que `have`). Les tourelles sont servies la MOINS
 --- CHARGÉE d'abord (à égalité, l'ordre de `have`), par paliers `caps` croissants (ex. 5, seuil bas, cible ordinaire, cible) : avec peu de
---- chargeurs, toutes les vides en reçoivent avant qu'une seule soit pleine (revue M1). carried = chargeurs portés.
-function Mu.fill_plan(have, caps, carried)
+--- chargeurs, toutes les vides en reçoivent avant qu'une seule soit pleine (revue M1). carried = chargeurs portés. ok = { faux : tourelle
+--- qui ne peut rien recevoir de ce qui est porté } (contre-relecture : une tourelle encore chargée de base quand le porteur n'a que des
+--- perforantes, échange refusé faute de 20 ; sa part était perdue pour les vides suivantes) ; absent : toutes reçoivent.
+function Mu.fill_plan(have, caps, carried, ok)
   local out, order, cur = {}, {}, {}
   for i, h in ipairs(have or {}) do
-    out[i], order[i], cur[i] = 0, i, num(h)
+    out[i], cur[i] = 0, num(h)
+    if not ok or ok[i] ~= false then order[#order + 1] = i end
   end
   table.sort(order, function(a, b)
     if cur[a] ~= cur[b] then return cur[a] < cur[b] end

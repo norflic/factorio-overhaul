@@ -128,6 +128,11 @@ local function facts(W)
   local fp2 = Mu.fill_plan({ 14, 0, 14, 0, 0, 14, 14, 14 }, { 5, 8, 20, 20 }, 100)
   local tot2 = 0
   for _, x in ipairs(fp2) do tot2 = tot2 + x end
+  -- contre-relecture : tourelle 1 à 3 chargeurs de base, le porteur n'a que des perforantes (échange refusé) : hors du plan, les 20 aux 2 vides (12 et 8 ; sans exclusion, 4 perdus sur la 1re)
+  local fp4 = Mu.fill_plan({ 3, 0, 0 }, { 5, 8, 20 }, 20, { false, true, true })
+  local fp5 = Mu.fill_plan({ 3, 0, 0 }, { 5, 8, 20 }, 20)
+  f.res_excl = string.format("%d/%d/%d", fp4[1], fp4[2], fp4[3])
+  f.res_all = string.format("%d/%d/%d", fp5[1], fp5[2], fp5[3])
   local fp3 = Mu.fill_plan({ 3, 0 }, { 5 }, 4)
   f.m1_fill_low_first = (fp3[1] == 0 and fp3[2] == 4) and 1 or 0
   f.m1_fill_full = (fp2[2] == 20 and fp2[4] == 20 and fp2[5] == 20 and fp2[1] == 6 and tot2 == 90) and 1 or 0
@@ -306,6 +311,9 @@ check(F0.st_turrets == 400 and F0.st_floor == 60 and F0.st_missing == 120,
   "stock visé : 10 par tourelle plus le manque urgent, au moins le plancher d'avant (400 pour 40 tourelles contre 158 ; 60 pour 4 ; 120)")
 check(F0.m1_take == 15 and F0.m1_take_nolow == 0,
   "revue M1 : 3 vides + 5 à 14, 15 au coffre : la tournée part avec 15 (sans compter les vides : il en fallait 40)")
+check(F0.res_excl == "0/12/8" and F0.res_all == "4/8/8",
+  "contre-relecture : la tourelle qui ne peut rien recevoir est hors du plan, les 20 portés vont aux 2 vides (" .. F0.res_excl ..
+  " ; sans exclusion " .. F0.res_all .. ")")
 check(F0.m1_fill_low_first == 1, "revue M1 : 4 chargeurs pour {3, 0} : tous à la vide (la moins chargée d'abord)")
 check(F0.m1_fill_empties == 1, "revue M1 : 15 chargeurs portés : 5 à chacune des 3 vides d'abord, rien aux tourelles à 14")
 check(F0.m1_fill_full == 1, "revue M1 : 100 portés : les vides à 20, puis les tourelles à 14 à 20 (90 posés)")
@@ -399,9 +407,12 @@ check(has("script/team/team.lua", "f.team.ammo_per_turret, f.team.ammo_rich = Mu
 check(has("script/team/team.lua", "short = T.munitions_on and g.short or nil"), "Team.view passe short et missing au planificateur")
 check(has("script/team/team.lua", "turret_ammo = T.munitions_on and Outposts.ammo_name(f.tech, f) or nil"), "Team.view passe la munition choisie")
 check(has("shared/team/planner.lua", "local part = Mu.take(nb, math.max(1, g.short_base or g.short), stock, g.low)"), "revue M1 : le planificateur passe les vides")
-check(has("script/faction/outposts.lua", "local plan = T.munitions_on and Mu.fill_plan(have, { Mu.REFILL_MIN, T.turret_ammo_low, fill, target }, carried) or nil"),
+check(has("script/faction/outposts.lua", "local plan = T.munitions_on and Mu.fill_plan(have, { Mu.REFILL_MIN, T.turret_ammo_low, fill, target }, carried, ok) or nil"),
   "revue M1 : la tournée remplit la moins chargée d'abord (Mu.fill_plan)")
 check(has("script/faction/outposts.lua", "local put = Mu.swap_take(n, target, carrier.get_item_count(best), fill)"), "revue M2 : échange par Mu.swap_take")
+check(has("script/faction/outposts.lua", "ok[i] = cur == nil or carrier.get_item_count(cur) > 0")
+  and has("script/faction/outposts.lua", "{ Mu.REFILL_MIN, T.turret_ammo_low, fill, target }, carried, ok)"),
+  "contre-relecture : refill_group exclut du plan les tourelles incompatibles avec la munition portée")
 check(has("script/team/worker.lua", "local take_c, take_b = Mu.split_take(need, Stock.count(f, ammo), ammo == T.turret_ammo)"), "revue M3 : prise bornée")
 check(has("shared/ai3/cerveau.lua", "missing + (g.missing_base or g.missing)"), "le stock visé ne compte que la part urgente")
 check(has("shared/ai3/cerveau.lua", "turrets_n = C.turrets_seen(view).n"), "le cerveau relève les tourelles et leur manque")
@@ -437,6 +448,7 @@ local MUTANTS = {
   { "M1 : remplissage dans l'ordre", mutate("Mu", "if cur[a] ~= cur[b] then return cur[a] < cur[b] end", "") },
   { "M2 : échange en baisse", mutate("Mu", "if put <= 0 or carried < put or put < n then return 0 end", "if put <= 0 or carried < put then return 0 end") },
   { "M3 : base en double", mutate("Mu", "  return c, need - c", "  return c, need") },
+  { "plan : tourelles incompatibles gardées", mutate("Mu", "if not ok or ok[i] ~= false then order[#order + 1] = i end", "order[#order + 1] = i") },
   { "choix : quitte aussitôt", mutate("Mu", "if tick - out.bad_since >= Mu.AMMO_HOLD then", "if true then") },
   { "choix : l'attente ne repart pas", mutate("Mu", "  out.cand, out.cand_since = nil, nil\n  return out, out.cur, out.cur > 1", "  return out, out.cur, out.cur > 1") },
   { "planificateur : relevé ignoré", mutate("Pl", "if g.short ~= nil then", "if false then") },

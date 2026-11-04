@@ -1319,10 +1319,16 @@ function Outposts.refill_group(f, key, carrier)
   if T.munitions_on then
     for _, t in ipairs(list) do put = put + swap_for_best(t, carrier, target, fill) end
   end
-  local have, carried = {}, 0
-  for i, t in ipairs(list) do have[i] = ammo_of(t) end
+  local have, carried, ok = {}, 0, {}
+  for i, t in ipairs(list) do
+    have[i] = ammo_of(t)
+    -- (contre-relecture : une tourelle chargée d'une munition que le porteur n'a pas ne peut rien recevoir : hors du plan)
+    local inv = t.get_inventory(defines.inventory.turret_ammo)
+    local cur = inv and not inv.is_empty() and inv[1].valid_for_read and inv[1].name or nil
+    ok[i] = cur == nil or carrier.get_item_count(cur) > 0
+  end
   for _, name in ipairs(T.turret_ammo_ladder) do carried = carried + carrier.get_item_count(name) end
-  local plan = T.munitions_on and Mu.fill_plan(have, { Mu.REFILL_MIN, T.turret_ammo_low, fill, target }, carried) or nil
+  local plan = T.munitions_on and Mu.fill_plan(have, { Mu.REFILL_MIN, T.turret_ammo_low, fill, target }, carried, ok) or nil
   for i, t in ipairs(list) do
     local missing = plan and plan[i] or (target - have[i])
     for j = #T.turret_ammo_ladder, 1, -1 do
