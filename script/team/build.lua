@@ -3502,6 +3502,33 @@ local function not_there(f, agent, job, pos, inv, tick, reach2, give_up)
   return give_up
 end
 
+--- Lot AGEBLOCAGE (diagnostic, LECTURE SEULE) : CHAQUE fin d'un défrichage de rue, avec son rang (nombre de fins de ce tronçon),
+--- les abattus, et les arbres et rochers restants : dans la moitié traitée (job.rect) et dans tout le tronçon (ce que relit survey pour
+--- le classer « encombre »), dont hors de portée du PNJ ; `voie` : « fin » (rien à portée) ou « loin » (fin par not_there).
+local function rue_probe(f, b, surface, job, pos, reach2, voie, tick)
+  b.rue_fins = b.rue_fins or {}
+  local st = b.rue_fins[job.seg] or { n = 0, cut = 0 }
+  b.rue_fins[job.seg] = st
+  st.n, st.cut = st.n + 1, st.cut + (job.done or 0)
+  local function count(x0, y0, x1, y1)
+    local n, far, near = 0, 0, nil
+    for _, t in ipairs(surface.find_entities_filtered({ area = { { x0, y0 }, { x1, y1 } }, type = TREE_TYPES })) do
+      n = n + 1
+      local d2 = dist2(t.position, pos)
+      if d2 > reach2 then far = far + 1 end
+      if not near or d2 < near then near = d2 end
+    end
+    return n, far, near and math.sqrt(near) or -1
+  end
+  local hn, hf, hd = 0, 0, -1
+  if job.rect then hn, hf, hd = count(job.rect[1], job.rect[2], job.rect[3], job.rect[4]) end
+  local x0, y0, x1, y1 = P.seg_rect(b.lat, job.seg)
+  local sn, sf, sd = count(x0, y0, x1, y1)
+  log(string.format("[FO-RUE] %s : rue %s fin n. %d (%s) ; abattus cette fois %d, au total %d ; moitie traitee : %d restant(s) dont %d hors de portee (plus proche %.1f) ; troncon entier : %d restant(s) dont %d hors de portee (plus proche %.1f) ; portee %.1f ; PNJ a %.1f du point d'appui a %.1f min",
+    f.key or "player", job.seg, st.n, voie, job.done or 0, st.cut, hn, hf, hd, sn, sf, sd, math.sqrt(reach2),
+    job.ax and math.sqrt(dist2({ x = job.ax, y = job.ay }, pos)) or -1, tick / 3600))
+end
+
 function Build.work(agent, f, tick)
   local job = agent.ia1d
   local b = f and f.build
@@ -3580,11 +3607,16 @@ function Build.work(agent, f, tick)
     -- rien à portée dans la zone (PNJ arrêté en route, forêt dense) : il s'ouvre le couloir vers son point d'appui,
     -- puis refait la marche (correction du 27/10, banc ia1-build-foret)
     if did == 0 and remain == 0 and job.ax and dist2({ x = job.ax, y = job.ay }, pos) > 16 then
-      return not_there(f, agent, job, pos, inv, tick, reach2, "done")
+      local r = not_there(f, agent, job, pos, inv, tick, reach2, "done")
+      if job.seg and r == "done" then rue_probe(f, b, surface, job, pos, reach2, "loin", tick) end -- lot AGEBLOCAGE (lecture seule)
+      return r
     end
     job.done = (job.done or 0) + did
     if did > 0 or remain > 0 then return "more" end
-    if job.seg then Build.street_cleared(f, job.seg) end
+    if job.seg then
+      rue_probe(f, b, surface, job, pos, reach2, "fin", tick) -- lot AGEBLOCAGE (diagnostic, lecture seule)
+      Build.street_cleared(f, job.seg)
+    end
     return "done"
   elseif job.mode == "fill" then
     local q = p.quais[job.idx]
