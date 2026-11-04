@@ -154,11 +154,12 @@ def surface(name, col, rough=0.55, met=0.5, tole=None, joint=0.5, joint_l=0.014,
         if ta > 0:
             t1 = _range(N, L, _bruit(N, L, obj, 11.0, 4.0, 0.6, add3(d, 31.0)), 0.36, 0.64, 1 - ta, 1 + ta)
             base = _scale(N, L, base, t1)
-        # DA-CHIMIE ronde 2 : grandes taches (salissures, reprises de peinture) de 10 à 25 px HR ; la charte mesurait
-        # une variance basse fréquence trop faible (P2 11 à 15 contre 16) et trop de surfaces planes (P4)
+        # DA-CHIMIE : taches DOUCES (salissures, reprises de peinture) de 8 à 15 px HR, bruit sans détail. La charte (P2)
+        # mesure l'écart-type de (flou 2 px - flou 8 px) sur les surfaces PLANES : des taches nettes ne comptent pas (elles
+        # ne sont plus planes), il faut des dégradés doux et amples. Ronde 2 (échelle 2,6, détail 3) : P2 de 11 à 15,7.
         tb = PATINE.get("tb", 0.0)
         if tb > 0:
-            t3 = _range(N, L, _bruit(N, L, obj, 2.6, 3.0, 0.55, add3(d, 53.0)), 0.34, 0.66, 1 - tb, 1 + tb)
+            t3 = _range(N, L, _bruit(N, L, obj, 6.0, 0.0, 0.4, add3(d, 53.0)), 0.32, 0.68, 1 - tb, 1 + tb, True)
             base = _scale(N, L, base, t3)
         ra = PATINE.get("ra", 0.0)
         if ra > 0:

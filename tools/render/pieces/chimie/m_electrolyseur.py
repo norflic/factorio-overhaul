@@ -18,7 +18,7 @@ NP = 14                         # plaques
 RU, RV, RSU, RSV, RZ = 0.72, -0.98, 1.3, 0.7, 1.75      # redresseur
 TU, TV, TR = -0.86, -0.97, 0.33                           # réservoir d'eau
 SEP = ((-1.0, 0.92, "blanc"), (1.0, 0.92, "bleu"))       # séparateurs
-SR, SZ = 0.3, 2.35
+SR, SZ = 0.3, 2.2
 
 
 def build(S, k, R):
@@ -135,8 +135,8 @@ def separateurs(k, R):
             k.axe("acier", (xs, y - 0.05, z), (x, y - 0.05, z), 0.018, 6)
         # soupape et plate-forme de tête
         uc = u + (0.14 if u < 0 else -0.14)
-        R.cyl("acier_clair", uc, v, SZ - 0.06, SZ + 0.12, 0.03, 10)
-        R.cyl("rouge", uc, v, SZ + 0.12, SZ + 0.19, 0.05, 10)
+        R.cyl("acier_clair", uc, v, SZ - 0.06, SZ + 0.05, 0.03, 10)
+        R.cyl("rouge", uc, v, SZ + 0.05, SZ + 0.1, 0.05, 10)
 
 
 def reservoir(k, R):
@@ -175,7 +175,7 @@ def raccords(k, R):
     # gaz : flancs de la pile vers la tête de chaque séparateur (H2 blanc, O2 bleu)
     for u, v, m in SEP:
         su = -1 if u < 0 else 1
-        R.tuyau(m, [(su * 0.66, 0.35, 1.2), (u, 0.35, 1.2), (u, 0.35, SZ + 0.18), (u, v, SZ + 0.18), (u, v, SZ - 0.05)],
+        R.tuyau(m, [(su * 0.66, 0.35, 1.2), (u, 0.35, 1.2), (u, 0.35, SZ + 0.1), (u, v, SZ + 0.1), (u, v, SZ - 0.05)],
                 0.055, 0.1, bride_mat="acier")
         # retour de lessive (pied du séparateur vers le pied de la pile)
         R.tuyau("acier", [(u, v - 0.2, 0.22), (u, 0.62, 0.22), (su * 0.6, 0.62, 0.22)], 0.035, 0.08)

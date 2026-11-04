@@ -28,7 +28,7 @@ def lueur2(S, name, srgb, a_glow=0.4, v_main=0.5, part=0.4, echelle=18.0, graine
 
 def matieres(S):
     MT.PATINE.clear()
-    MT.PATINE.update(ta=0.2, tb=0.26, ra=0.28, ec=0.55, nu_k=1.6, ec_col=(0.03, 0.017, 0.007),
+    MT.PATINE.update(ta=0.2, tb=0.34, ra=0.28, ec=0.55, nu_k=1.6, ec_col=(0.03, 0.017, 0.007),
                      sans=("verre", "cuivre", "chrome", "noir", "isolant", "blanc", "laiton"))
     sf = MT.surface
     cr = (0.012, 0.008, 0.004)
@@ -73,11 +73,11 @@ def matieres(S):
                    rouille=rouille, usure=0.85, nu=(0.75, 0.68, 0.56), crasse=0.9, crasse_col=cr, pied=(0.0, 0.7, 0.55),
                    grain=0.12, graine=13)
     # craquage : caisson rouge oxyde, brique réfractaire à rangs de 7 px HR, suie, acier bruni par la chaleur
-    M["oxyde"] = sf("h_oxyde", (0.34, 0.085, 0.03), rough=0.48, met=0.25, tole=(0.45, 0.36), joint=0.45, var=0.14, coulures=0.95,
+    M["oxyde"] = sf("h_oxyde", (0.4, 0.12, 0.05), rough=0.48, met=0.25, tole=(0.45, 0.36), joint=0.45, var=0.14, coulures=0.95,
                     rouille=(0.1, 0.035, 0.015), usure=0.75, nu=(0.62, 0.42, 0.3), crasse=0.9, crasse_col=cr,
                     pied=(0.0, 0.9, 0.6), grain=0.14, graine=41)
-    M["brique"] = sf("h_brique", (0.38, 0.16, 0.085), rough=0.85, met=0.0, tole=(0.22, 0.155), joint=0.28, joint_l=0.012,
-                     var=0.22, usure=0.35, nu=(0.55, 0.32, 0.18), crasse=0.85, crasse_col=(0.02, 0.008, 0.004), grain=0.22,
+    M["brique"] = sf("h_brique", (0.45, 0.2, 0.1), rough=0.8, met=0.0, tole=(0.3, 0.17), joint=0.42, joint_l=0.012,
+                     var=0.15, usure=0.35, nu=(0.55, 0.32, 0.18), crasse=0.85, crasse_col=(0.02, 0.008, 0.004), grain=0.22,
                      relief=0.9, coulures=0.6, rouille=(0.04, 0.03, 0.025), graine=42)
     M["suie"] = sf("h_suie", (0.03, 0.024, 0.02), rough=0.8, met=0.0, usure=0.2, crasse=0.4, grain=0.3, graine=50)
     M["chauffe"] = sf("h_chauffe", (0.22, 0.11, 0.07), rough=0.3, met=0.85, usure=0.4, nu=(0.55, 0.4, 0.5), crasse=0.6,
@@ -85,7 +85,7 @@ def matieres(S):
     M["bleui"] = sf("h_bleui", (0.08, 0.075, 0.15), rough=0.3, met=0.85, usure=0.3, nu=(0.4, 0.3, 0.45), crasse=0.6,
                     crasse_col=cr, grain=0.2, graine=52)
     # reformage : caisson gris chaud calorifugé, adsorbeurs blanc cassé usé
-    M["gris_proc"] = sf("h_gris_proc", (0.31, 0.235, 0.15), rough=0.4, met=0.45, tole=(0.5, 0.35), joint=0.45, var=0.12,
+    M["gris_proc"] = sf("h_gris_proc", (0.31, 0.235, 0.15), rough=0.4, met=0.45, tole=(0.36, 0.26), joint=0.45, var=0.12,
                         coulures=0.95, rouille=rouille, usure=0.75, nu=(0.75, 0.7, 0.6), crasse=0.85, crasse_col=cr,
                         pied=(0.0, 0.8, 0.55), grain=0.13, graine=44)
     M["blanc"] = sf("h_blanc", (0.6, 0.53, 0.4), rough=0.4, met=0.15, coulures=0.7, rouille=(0.22, 0.12, 0.05), usure=0.6,
@@ -95,7 +95,7 @@ def matieres(S):
                           crasse_col=cr, grain=0.06, graine=45)
     M["joint_pile"] = sf("h_joint_pile", (0.45, 0.04, 0.02), rough=0.6, met=0.0, usure=0.2, crasse=0.5, crasse_col=cr,
                          graine=46)
-    M["titane"] = sf("h_titane", (0.4, 0.33, 0.24), rough=0.26, met=0.9, usure=0.45, nu=(0.82, 0.78, 0.7), crasse=0.7,
+    M["titane"] = sf("h_titane", (0.4, 0.33, 0.24), rough=0.26, met=0.9, tole=(0.5, 0.36), joint=0.6, var=0.1, usure=0.45, nu=(0.82, 0.78, 0.7), crasse=0.7,
                      crasse_col=cr, coulures=0.5, rouille=rouille, grain=0.06, graine=47)
     M["sel_lilas"] = sf("h_sel_lilas", (0.36, 0.13, 0.5), rough=0.75, met=0.0, usure=0.0, crasse=0.6,
                         crasse_col=(0.08, 0.04, 0.1), grain=0.3, graine=48)

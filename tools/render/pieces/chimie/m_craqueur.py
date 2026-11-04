@@ -69,7 +69,7 @@ def radiation(k, R, S):
     k.echelle("jaune", b[1] - 0.2, Y - 0.08, zp, FZ + 0.12)
     # rangée de brûleurs au sol : collecteur, cannes, petites vannes ; plaque chevron
     k.tuyau("acier", [(b[0] + 0.08, Y - 0.17, 0.07), (b[1] - 0.08, Y - 0.17, 0.07)], 0.032, 0.1)
-    n = int(w / 0.28)
+    n = int(w / 0.42)
     for i in range(n):
         x = b[0] + 0.14 + (w - 0.08) * i / max(1, n - 1)
         k.axe("acier_clair", (x, Y - 0.17, 0.07), (x, Y - 0.05, 0.17), 0.02, 8)
@@ -81,11 +81,11 @@ def radiation(k, R, S):
     pts = [(b[0] + 0.04, Y + 0.03, zt), (b[1] - 0.04, Y + 0.03, zt)]
     k.rambarde("laiton", pts, 0.15, 0.3)
     # nuit : flaque orange devant la fente de sole (passe halo seulement)
-    # 5 sources basses (0,5 W) : pic au sol visé 0,3 à 0,55, flaque d'environ 2 × 0,8 tuile (essai à 3 × 4 W : pic écrêté
-    # à 1,0, 0,8 tuile²)
+    # 5 sources basses (1,1 W) : pic au sol visé 0,3 à 0,55, flaque d'environ 2 × 0,8 tuile (3 × 4 W : pic écrêté à 1,0,
+    # 0,8 tuile² ; 5 × 0,5 W : pic 0,18 à 0,31, 0,35 à 0,46 tuile²)
     for i in range(5):
         x = b[0] + 0.25 + (b[1] - b[0] - 0.5) * i / 4.0
-        S.halo_light((x, Y - 0.42, 0.3), (1.0, 0.33, 0.05), 0.5, 0.08)
+        S.halo_light((x, Y - 0.42, 0.3), (1.0, 0.33, 0.05), 1.1, 0.08)
 
 
 def convection(k, R):
