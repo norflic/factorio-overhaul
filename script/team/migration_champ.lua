@@ -1006,7 +1006,7 @@ local function repose(f, surface, st)
       if need_sink then s2 = surface.create_entity({ name = sk.name, position = { sk.x, sk.y }, force = force }) end
       local d = ((not sk) or s2) and surface.create_entity({ name = u.name, position = { u.x, u.y }, direction = u.dir, force = force }) or nil
       if d then
-        for _, n in ipairs(sorted_keys(u.plan or {})) do Stock.remove(f, n, u.plan[n]) end
+        for _, n in ipairs(sorted_keys(u.plan or {})) do Stock.remove(f, n, u.plan[n], "champ") end
         local burners = { d }
         if need_sink and s2 then
           State.own(s2, f.id, "sink", o.id)
@@ -1015,7 +1015,7 @@ local function repose(f, surface, st)
         end
         for _, bu in ipairs(burners) do
           local n = math.min(T.fuel_per_burner, Stock.count(f, T.fuel))
-          if n > 0 then bu.get_fuel_inventory().insert({ name = T.fuel, count = Stock.remove(f, T.fuel, n) }) end
+          if n > 0 then bu.get_fuel_inventory().insert({ name = T.fuel, count = Stock.remove(f, T.fuel, n, "champ") }) end
         end
         State.own(d, f.id, "drill", o.id)
         o.drill_list[#o.drill_list + 1] = d

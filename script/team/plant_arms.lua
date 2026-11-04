@@ -87,7 +87,7 @@ local function restore(f, surface, p, tick)
       if new and new.valid then
         local fuel = new.get_fuel_inventory()
         if fuel and Stock.count(f, T.fuel) >= T.fuel_per_burner then
-          fuel.insert({ name = T.fuel, count = Stock.remove(f, T.fuel, T.fuel_per_burner) })
+          fuel.insert({ name = T.fuel, count = Stock.remove(f, T.fuel, T.fuel_per_burner, "bras") })
         end
         Bras.restored(e, M.BURNER_ARM)
         done = done + 1

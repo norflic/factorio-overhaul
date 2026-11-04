@@ -252,6 +252,13 @@ local function ingredients_of(name)
   return v
 end
 
+--- Lot CENTRE-MATIERE (diagnostic, LECTURE SEULE) : catégorie d'une tâche pour le journal [FO-FER-DIAG] (projet sans numéros).
+local function diag_cat(t)
+  if not t then return "-" end
+  local s = tostring(t.why or t.key or t.kind or "?"):gsub(":%d+", ""):gsub(",%-?%d+", ""):gsub("@%-?%d+", "")
+  return (t.kind or "?") .. ":" .. s:sub(1, 48)
+end
+
 local function deposit_all(agent, f)
   if not (f.hq and f.hq.valid) then return end
   local e = agent.entity
@@ -1204,14 +1211,18 @@ local function run_steps(agent, tick)
     local kind = step[1]
     if kind == "home" then
       if not goto_step(agent, home_slot(agent, f), 1, tick) then return end
+      Stock.src = "depot:" .. diag_cat(agent.task) -- lot CENTRE-MATIERE (diagnostic, lecture seule) : source des entrées du coffre
       deposit_all(agent, f)
       bg_deliver(agent, f, tick) -- lot CRAFT-PARALLELE : produits des travaux finis livrés (déposés juste au-dessus)
+      Stock.src = nil
       agent.pc = agent.pc + 1
     elseif kind == "take" then
       -- Lot IA3-b : une tâche avec réservation (registre) prend exactement sa réservation, rien de plus.
       local all
+      Stock.src = "tache:" .. diag_cat(agent.task) -- lot CENTRE-MATIERE (diagnostic, lecture seule) : source des sorties du coffre
       if agent.resa_id then all = Board.take_reserved(f, agent, main_inv(agent), step[2])
       else all = take(agent, f, step[2]) end
+      Stock.src = nil
       if agent.task then agent.task.took = true end -- lot IA1-b : objets pris (stock libre du fond)
       if step.strict and not all then
         abort(agent, f, tick, (agent.task and agent.task.preempted) and "preempte" or "stock")

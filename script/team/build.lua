@@ -2844,7 +2844,7 @@ local function craft_walls(f, p)
   if runs <= 0 then return end
   for i, ing in ipairs(wr.ings) do
     local want = ing.amount * runs
-    local got = Stock.remove(f, ing.name, want)
+    local got = Stock.remove(f, ing.name, want, "chantier-fab")
     if got < want then -- ne devrait pas arriver (compté dans le même tick) : tout est rendu, rien n'est fabriqué
       Stock.insert(f, ing.name, got)
       for j = 1, i - 1 do Stock.insert(f, wr.ings[j].name, wr.ings[j].amount * runs) end
@@ -2882,7 +2882,7 @@ local function reserve(f, p)
       local have = math.min(Stock.count(f, it), free[it] or 0)
       local n = math.min(want, have)
       if n > 0 then
-        local got = Stock.remove(f, it, n)
+        local got = Stock.remove(f, it, n, "chantier-prise")
         bump(p.stock, it, got)
         want = want - got
       end
@@ -3028,7 +3028,7 @@ function Build.take_reserved(f, pid, items, inv)
       -- complément au coffre (un PNJ a pu rapporter des objets) : sur le stock LIBRE seulement (lot IA3-e, K4)
       free = free or free_stock(f)
       local add = math.min(want - have, Stock.count(f, it[1]), free[it[1]] or 0)
-      if add > 0 then have = have + Stock.remove(f, it[1], add) end
+      if add > 0 then have = have + Stock.remove(f, it[1], add, "chantier-resa") end
     end
     local n = math.min(want, have)
     local put = n > 0 and inv.insert({ name = it[1], count = n }) or 0

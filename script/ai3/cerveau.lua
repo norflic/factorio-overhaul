@@ -455,7 +455,7 @@ local function place_labs(f, st, lab, want)
       if Stock.count(f, lab.item) < 1 then return nil end
       local e = f.hq.surface.create_entity({ name = lab.entity, position = pos, force = f.force })
       if not e then return false end
-      Stock.remove(f, lab.item, 1)
+      Stock.remove(f, lab.item, 1, "labo-pose")
       st.labs[#st.labs + 1] = e
       return true
     end)
@@ -604,7 +604,7 @@ local function research_step(f, st, book, w, tick, view)
       end
       if not ok then break end
       for _, ing in ipairs(spec.ing) do
-        Stock.remove(f, ing[1], ing[2])
+        Stock.remove(f, ing[1], ing[2], "labo-packs")
         f.team.consumed[ing[1]] = (f.team.consumed[ing[1]] or 0) + ing[2]
       end
       lab.paid = lab.paid + 1

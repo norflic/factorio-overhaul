@@ -332,7 +332,29 @@ function C.think(view, book, st, ctx)
   local repair_proj = { id = 0, key = "pile:reparer" }
   for _, it in ipairs(pile.crafts or {}) do P.want(E, repair_proj, { { it[1], it[2] } }, it[3], false, "pile") end
   P.boot_smelters(E, st, s.cap) -- lot IA-V2 : fours du QG avant les projets (chemin critique)
-  for _, proj in ipairs(order) do P.emit(E, proj, ctx, tick) end
+  -- Lot CENTRE-MATIERE (diagnostic, LECTURE SEULE ; aucune décision n'en dépend) : objets du coût de l'amélioration décidée,
+  -- stock virtuel au départ (stock − planificateur permanent − pile), rang de chaque projet, et ce que chaque projet servi AVANT
+  -- l'amélioration prend de ces objets au stock virtuel (lu par Cap.emit et le runtime, journal [FO-FER-DIAG]).
+  local dgi = {}
+  for _, it in ipairs((ctx.capital and ctx.capital.cost) or {}) do dgi[#dgi + 1] = it[1] end
+  E.dg_items = dgi
+  E.avail_start = {}
+  for _, k in ipairs(dgi) do E.avail_start[k] = E.avail[k] or 0 end
+  E.dg_base = {}
+  for _, k in ipairs(dgi) do E.dg_base[k] = math.max(0, (avail0[k] or 0) - (E.avail[k] or 0)) end -- pile (réserve, réparations, fours)
+  E.dg_before = {}
+  for i, proj in ipairs(order) do
+    E.rank, E.n_order = i, #order
+    local was = {}
+    for _, k in ipairs(dgi) do was[k] = E.avail[k] or 0 end
+    P.emit(E, proj, ctx, tick)
+    if not E.capdiag then
+      for _, k in ipairs(dgi) do
+        local took = was[k] - (E.avail[k] or 0)
+        if took > 0 then E.dg_before[#E.dg_before + 1] = { proj.key, k, took } end
+      end
+    end
+  end
   -- 6. Approvisionnement.
   local raw, minable = C.raw_items()
   -- Lot KIT : matières naturelles récoltables (le bois des poteaux, lu par le runtime sur les arbres) : à miner à la main
@@ -340,6 +362,26 @@ function C.think(view, book, st, ctx)
   for _, k in ipairs(ctx.harvest or {}) do raw[k] = true minable[k] = true end
   P.supply(E, { reach = ctx.reach, known = ctx.known, workers = s.workers, mines_open = ctx.mines_open, minable = minable,
     cap = s.cap, home_known = ctx.home_known, bilan = ctx.bilan })
+  -- Lot CENTRE-MATIERE (diagnostic, LECTURE SEULE) : manques bruts des objets du coût (quantité, priorité, projet qui la porte) et
+  -- tâches émises pour le projet de l'amélioration, par genre, après l'approvisionnement.
+  if E.capdiag then
+    local dg = E.capdiag
+    dg.base_used = {}
+    for i, k in ipairs(dgi) do dg.base_used[i] = (used[k] or 0) + (E.dg_base[k] or 0) end
+    dg.before = E.dg_before
+    dg.raw = {}
+    for i, k in ipairs(dgi) do
+      local r = E.raw[k]
+      dg.raw[i] = r and string.format("%d@%d(%s)", math.ceil(r.n), r.prio or 0, tostring(r.why)) or "-"
+    end
+    dg.tasks = {}
+    for _, t in ipairs(E.tasks) do
+      if t.ia3 == dg.pid then dg.tasks[t.kind or "?"] = (dg.tasks[t.kind or "?"] or 0) + (t.count or 1) end
+    end
+    dg.smelt = {}
+    for i, k in ipairs(dgi) do dg.smelt[i] = E.smelt[k] or 0 end
+    dg.smelt_prio = E.smelt_prio
+  end
   -- Lot IA-V2 : pas d'exploration demandée avant que les abords du QG soient vus (ctx.home_known faux : brouillard
   -- d'IA3-f, regard en cours) ; le projet reste bloqué sur sa cause (« site: »), rien d'autre ne change.
   if ctx.home_known == false then E.explore = {} end
@@ -505,6 +547,7 @@ function C.think(view, book, st, ctx)
     ia3 = { K = K, active = n_active, productive = n_productive, dropped = dropped,
       explore = E.explore, saturated = saturated, dominant = dom and dom.key or nil,
       pile = { top = pile.top, hold = pile.hold, blocked = pile.blocked }, -- lot PILE-PRIORITE (l'état complet : st.pile)
+      capdiag = E.capdiag, -- lot CENTRE-MATIERE (diagnostic, lecture seule)
       pay = E.pay }, -- lot CAPITAL : améliorations dont le coût est réservé au stock virtuel, payées par le runtime
   }
 end

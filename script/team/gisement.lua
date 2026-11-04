@@ -97,7 +97,7 @@ local function refuel(f, e)
   local want = T.fuel_refill_to - inv.get_item_count(T.fuel)
   if want <= 0 then return 0 end
   local took = math.min(want, Stock.count(f, T.fuel))
-  if took <= 0 or Stock.remove(f, T.fuel, took) < 1 then return 0 end
+  if took <= 0 or Stock.remove(f, T.fuel, took, "gisement") < 1 then return 0 end
   return inv.insert({ name = T.fuel, count = took })
 end
 
@@ -149,7 +149,7 @@ function Gis.think(f, surface, tick, book)
               local at = surface.find_non_colliding_position(spec.sink, c, 2, 1)
               -- le réceptacle posé doit RECEVOIR le dépôt de la foreuse (sa boîte contient le point de dépôt)
               local catches = at and S.inside({ x = at.x, y = at.y, w = sink_proto.tile_width or 1, h = sink_proto.tile_height or 1 }, c.x, c.y)
-              if at and catches and fits(spec.sink, at) and Stock.remove(f, spec.sink, 1) >= 1 then
+              if at and catches and fits(spec.sink, at) and Stock.remove(f, spec.sink, 1, "gisement") >= 1 then
                 local n = surface.create_entity({ name = spec.sink, position = at, force = f.force })
                 if n then
                   State.own(n, f.id, "sink", o.id)
