@@ -222,8 +222,17 @@ GROUPES = [("Pieces de robots", PIECES), ("Circuits", CIRCUITS), ("Silicium et b
            ("Segments des geants", SEGMENTS)]
 
 
-def planche(sortie, samples, cache, noms=None, titre=None):
-    """noms : ne montrer que ces icônes (objets et technologies, par nom) ; titre : bandeau."""
+def _bande_planche(src, depot, nom, cle, dossier, tailles):
+    """Bande d'une icône pour la planche : réduite depuis le rendu gardé, ou lue telle quelle dans le DÉPÔT (ce que le jeu charge)."""
+    if depot:
+        p = os.path.join(SORTIE, dossier, nom + ".png")
+        return Image.open(p).convert("RGBA") if os.path.exists(p) else None
+    p = os.path.join(src, cle + nom + ".png")
+    return CI.bande(p, tailles) if os.path.exists(p) else None
+
+
+def planche(sortie, samples, cache, noms=None, titre=None, depot=False):
+    """noms : ne montrer que ces icônes (objets et technologies, par nom) ; titre : bandeau ; depot : bandes du dépôt."""
     src = os.path.join(cache, str(samples))
     garde = (lambda n: True) if not noms else (lambda n: n in noms)
     groupes = [(t, [n for n in g if garde(n)]) for t, g in GROUPES]
@@ -236,7 +245,7 @@ def planche(sortie, samples, cache, noms=None, titre=None):
     im = Image.new("RGBA", (max(ligne * cw, tl * tw) + 24, hauteur), CI.FOND + (255,))
     d = ImageDraw.Draw(im)
     d.text((12, 8), (titre or "DA-ICONES : etats cles") + ", %d echantillons | a gauche : NOUVELLE (64 px x 2, 32 px en case, 32 px nu) | a droite, "
-           "sur fond rouge sombre : l'icone ACTUELLE en jeu (vanilla teintee, 64 px et 32 px en case)" % samples, font=CI.police(14, True),
+           "sur fond rouge sombre : l'icone vanilla teintee qu'elle REMPLACE (64 px et 32 px en case)" % samples, font=CI.police(14, True),
            fill=(235, 235, 235))
     y = 36
     for nom_g, liste in groupes:
@@ -245,9 +254,8 @@ def planche(sortie, samples, cache, noms=None, titre=None):
         for i, n in enumerate(liste):
             x, yy = 12 + (i % ligne) * cw, y + (i // ligne) * ch
             d.text((x, yy), n[3:], font=CI.police(11), fill=(205, 205, 205))
-            p = os.path.join(src, n + ".png")
-            if os.path.exists(p):
-                b = CI.bande(p, (64, 32, 16, 8))
+            b = _bande_planche(src, depot, n, "", "icones", (64, 32, 16, 8))
+            if b is not None:
                 i64, i32 = CI.mips(b, 64)
                 im.alpha_composite(i64.resize((128, 128), Image.NEAREST), (x, yy + 16))
                 im.alpha_composite(CI.fente(i32), (x + 130, yy + 16))
@@ -265,9 +273,8 @@ def planche(sortie, samples, cache, noms=None, titre=None):
     for i, t in enumerate(technos):
         x0, y0 = 12 + (i % tl) * tw, y + (i // tl) * th
         d.text((x0, y0), t, font=CI.police(11), fill=(205, 205, 205))
-        p = os.path.join(src, "tech-" + t + ".png")
-        if os.path.exists(p):
-            b = CI.bande(p, (256, 128, 64, 32))
+        b = _bande_planche(src, depot, t, "tech-", "tech", (256, 128, 64, 32))
+        if b is not None:
             im.alpha_composite(b.crop((0, 0, 256, 256)), (x0, y0 + 16))
             im.alpha_composite(b.crop((384, 0, 448, 64)), (x0 + 258, y0 + 20))
             im.alpha_composite(CI.fente(b.crop((448, 0, 480, 32))), (x0 + 270, y0 + 90))
@@ -294,6 +301,7 @@ def main():
     ap.add_argument("--manifeste", action="store_true")
     ap.add_argument("--noms", help="planche : liste de noms séparés par des virgules")
     ap.add_argument("--titre")
+    ap.add_argument("--depot", action="store_true", help="planche : bandes du dépôt (graphics/robotique) au lieu des rendus gardés")
     a = ap.parse_args()
     if a.manifeste:
         return 1 if verifier_manifeste() else 0
@@ -301,7 +309,7 @@ def main():
         noms = (ITEMS + ["tech-" + t for t in TECHNOS]) if a.rendre == "tout" else a.rendre.split(",")
         rendre(noms, a.samples, a.cache, a.taille)
     if a.planche:
-        planche(a.planche, a.samples, a.cache, set(a.noms.split(",")) if a.noms else None, a.titre)
+        planche(a.planche, a.samples, a.cache, set(a.noms.split(",")) if a.noms else None, a.titre, a.depot)
         return 0
     if a.rendre and a.rendre != "tout":
         return 0
