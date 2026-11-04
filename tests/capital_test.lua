@@ -468,20 +468,23 @@ local function run_all()
     local book = Book.new(recipes)
     local gch = Cap.goal(dbl, {})
     check(gch and gch.opens == true and gch.center == nil, "§15 but du bâtiment de la chaîne : marqué `opens`")
-    check(gch.short == true and gch.fond == true, "§15 but du bâtiment de la chaîne : travail court (servi juste après le premier projet)")
-    check(gch.value == 62 and gb.value == 62, "§15 pas d'époque (chaîne, centre prioritaire) : valeur au rang de la recherche, 62 (" ..
+    check(gch.short == nil and gch.invest == true and gch.fond == true,
+      "§15 but du bâtiment de la chaîne : investissement (après l'armée), pas un travail court (relecture M1)")
+    check(gch.value == 40 and gb.value == 62, "§15 valeurs : chaîne 40 (sous l'armée), centre prioritaire 62 (" ..
       tostring(gch.value) .. ", " .. tostring(gb.value) .. ")")
+    -- Priorité de fabrication de la chaîne au plus haut (inertie et vieillissement maximal) : 70 au plus, sous les 10 premiers soldats (71).
+    local e_max = math.min(100, gch.value + math.floor(gch.value * P.INERTIA_PCT / 100) + P.AGING_MAX)
+    check(P.prio_of(e_max) <= 70, "§15 priorité de fabrication de la chaîne au plus 70 (" .. P.prio_of(e_max) .. ")")
     local gcn = Cap.goal(Cap.choose(L, cen, ctx({ defer = open, tick = T0 + IDLE10 - 1 })), {})
     check(gcn and gcn.value < 62, "§15 bâtiment ordinaire : valeur d'avant, sous la recherche (" .. tostring(gcn and gcn.value) .. ")")
-    -- Ordre de service : le but court de la chaîne passe devant un projet ordinaire et l'armée permanente ; le même bâtiment hors
-    -- chaîne reste servi en dernier.
+    -- Ordre de service (relecture M1) : premier projet, armée permanente, puis la chaîne (investissement), devant les autres projets.
     local stp = {}
     local goals = { { key = "obj", value = 60 }, { key = "armee", value = 45, permanent = true }, { key = "autre", value = 40 }, gch }
     local order = P.update(stp, goals, 0, 8)
     local pos = {}
     for i, p in ipairs(order) do pos[p.key] = i end
-    check(pos[gch.key] == 2 and pos["armee"] == 3, "§15 ordre de service : premier projet, puis la chaîne, puis l'armée (" ..
-      tostring(pos[gch.key]) .. ")")
+    check(pos["armee"] == 2 and pos[gch.key] == 3 and pos["autre"] == 4,
+      "§15 ordre de service : premier projet, l'armée, puis la chaîne, puis les autres (" .. tostring(pos[gch.key]) .. ")")
     local function emit0(g)
       local E = P.context({ ["iron-plate"] = 500, ["copper-plate"] = 500 }, book, { open = {}, workers_idle = 0 }, {})
       E.view = { workers_idle = 0 }
@@ -639,9 +642,14 @@ do
   local cf0 = Cap.craft_first
   M("plaques avant les pièces (ordre du coût)", function() Cap.craft_first = function(l) return l end end,
     function() Cap.craft_first = cf0 end)
-  M("chaîne servie en dernier (pas courte)", function()
-    Cap.goal = function(d, w) local g = cg(d, w) if g and g.opens then g.short = nil end return g end
+  M("chaîne servie en dernier (pas un investissement)", function()
+    Cap.goal = function(d, w) local g = cg(d, w) if g and g.opens then g.invest = nil end return g end
   end, function() Cap.goal = cg end)
+  M("chaîne servie devant l'armée (courte)", function()
+    Cap.goal = function(d, w) local g = cg(d, w) if g and g.opens then g.short = true end return g end
+  end, function() Cap.goal = cg end)
+  local gcv = Cap.GOAL_CHAIN
+  M("chaîne au rang de la recherche", function() Cap.GOAL_CHAIN = 62 end, function() Cap.GOAL_CHAIN = gcv end)
   M("tout bâtiment court", function()
     Cap.goal = function(d, w) local g = cg(d, w) if g and not g.center and not g.replace then g.short = true end return g end
   end, function() Cap.goal = cg end)

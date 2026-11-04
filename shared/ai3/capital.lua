@@ -65,6 +65,9 @@ Cap.GOAL_EPOCH = 6
 -- 13 727 fers libres, circuits montés à 39 sur 60 puis retombés à 0, consommés par les packs de la recherche ; au témoin, le
 -- centre y était monté à 55,2 min. Coût borné : un pas par famille qui bloque et un centre par époque.
 Cap.GOAL_STEP = 62
+-- Lot AGEBLOCAGE (relecture, M1) : valeur du bâtiment de la CHAÎNE Q16, sous l'armée : avec l'inertie (20 %) et le vieillissement
+-- (+20 au plus, shared/ai3/projets.lua), priorité de fabrication 70 au plus, sous les 10 premiers soldats (valeur 58, priorité 71).
+Cap.GOAL_CHAIN = 40
 -- Le but est de FOND (shared/ai3/projets.lua, P.update : g.fond) : aucune des K places de projet, servi après tous les
 -- autres projets, avec ce qui reste au stock virtuel ; ses tâches (fabrication, manques) à la priorité de sa valeur (53 à
 -- 61, sous la recherche et l'extraction). Moteur réel, bancs c1 et c1-temoin (27/10, graine 271828182, même code, capital
@@ -74,7 +77,7 @@ Cap.GOAL_STEP = 62
 -- en travail ne dépasse pas Cap.SHORT_WORK (la pose du centre : 541 en jeu) passe devant les familles permanentes (armée, réserve), comme une recherche peu
 -- chère. Moteur réel, banc c1 (27/10, graine 271828182) : servie APRÈS l'armée, la pose du centre (coût 541, environ 90
 -- plaques de fer) attendait 60 min chez 2 factions sur 4, l'armée prenant tout le fer ; le passage du centre (coût 3 024)
--- n'est pas court et reste derrière l'armée. Les BÂTIMENTS ne sont jamais courts : au moteur simulé
+-- n'est pas court et reste derrière l'armée (sauf PRIORITAIRE, lots AGES et AGEBLOCAGE). Les BÂTIMENTS ne sont jamais courts : au moteur simulé
 -- (tests/capital_moteur_test.lua, 45 min, Normal), les mitrailleuses servies avant l'armée prenaient son fer (59
 -- améliorations, 214 soldats envoyés contre 329 au témoin) ; servies après, elles n'ont que ce que l'armée laisse.
 Cap.SHORT_WORK = 800
@@ -521,18 +524,23 @@ function Cap.goal(d, weights)
   local base = Cap.GOAL_VALUE + (d.all_in and Cap.GOAL_STOCK or 0) + (d.center and Cap.GOAL_EPOCH or 0)
   local w = math.max(1000, (weights or {}).capital or 1000) -- le caractère avance l'investissement, sans le retarder
   local value = clamp(math.floor(base * w / 1000), 1, 100)
-  -- Lot AGEBLOCAGE : un PAS D'ÉPOQUE (centre prioritaire, bâtiment de la chaîne Q16) est servi au rang de la recherche.
-  if (d.center and d.starved) or (d.chain ~= nil and not d.center) then value = math.max(value, Cap.GOAL_STEP) end
+  local chain = d.chain ~= nil and not d.center -- lot AGEBLOCAGE : le bâtiment de la chaîne Q16 (sa montée ouvre le centre)
+  -- Lot AGEBLOCAGE : le centre prioritaire est servi au rang de la recherche ; le bâtiment de la chaîne SOUS l'armée (Cap.GOAL_CHAIN).
+  if d.center and d.starved then value = math.max(value, Cap.GOAL_STEP) end
+  if chain then value = math.max(value, Cap.GOAL_CHAIN) end
   return { key = "capital:" .. d.key, family = "capital", kind = "upgrade", cost = d.cost, target = d.key,
     value = value, center = d.center or nil, fond = true,
-    short = (d.center and d.work ~= nil and (d.work <= Cap.SHORT_WORK or d.starved)) or (d.chain ~= nil and not d.center) or nil,
+    short = (d.center and d.work ~= nil and (d.work <= Cap.SHORT_WORK or d.starved)) or nil,
+    invest = chain or nil, -- après l'armée et les réserves, devant les autres projets (shared/ai3/projets.lua, P.update)
     replace = d.replace and true or nil,
-    opens = (d.chain ~= nil and not d.center) or nil } -- lot AGEBLOCAGE : le bâtiment de la chaîne Q16 (sa montée ouvre le centre)
+    opens = chain or nil }
 end
--- Lot AGEBLOCAGE : le bâtiment de la chaîne Q16 est aussi COURT (servi juste après le premier projet). Banc verif-guide, graine
--- 123456789, premier essai (pièces fabriquées sans bras libre, but de fond servi en dernier) : 'gun:2:154' attendait encore 60 min,
--- ses engrenages faits pour lui (3/3 au stock libre à 17,6 min) repris au stock virtuel par les projets servis avant lui. Coût
--- borné : un bâtiment par famille qui bloque le centre, une fois par époque (6 fers, 3 engrenages, 3 cuivres pour la tourelle).
+-- Lot AGEBLOCAGE : le bâtiment de la chaîne Q16 n'est plus servi en DERNIER (banc verif-guide 123456789, premier essai : 'gun:2:154'
+-- attendait 60 min, ses engrenages repris au stock virtuel par les projets servis avant lui) mais en INVESTISSEMENT (g.invest), APRÈS
+-- l'armée et la réserve de munitions (relecture, M1 : servi en travail court à la valeur 62, il passait devant les 10 premiers soldats ;
+-- moteur simulé 28 améliorations, 53 soldats en vie contre 61 à main). Coût : la condition du centre au niveau c vaut 2c
+-- (L.cc_condition_level) ; une famille neuve, posée au niveau 1, franchit jusqu'à 2c − 1 niveaux, de l'acier dès le niveau 3, des
+-- moteurs dès le niveau 5 (relecture, M3).
 
 --- Émission du projet (enregistrée dans P.EMIT.upgrade par shared/ai3/cerveau.lua) : tout le coût au stock virtuel ->
 --- payé à cette pensée (E.pay, lu par le runtime après le tableau) ; sinon le dépliage le sert comme un besoin ordinaire
