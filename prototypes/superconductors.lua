@@ -6,6 +6,7 @@
 
 local lib = require("prototypes.lib")
 local S = require("shared.content.superconductors")
+local CV = require("prototypes.chimie_visuels")
 local T = require("shared.content.titanium")
 local W = require("shared.content.world")
 
@@ -157,13 +158,14 @@ local function machine(spec)
     end
   end
   lib.set_icons(e, icon_of("item", spec.copy, spec.tint))
+  CV.habiller(e)   -- lot DA-CHIMIE : vrais visuels de la colonne d'extraction (4 directions)
   out[#out + 1] = e
   out[#out + 1] = {
     type = "item",
     name = spec.name,
     localised_name = { "entity-name." .. spec.name },
     localised_description = { "entity-description." .. spec.name },
-    icons = icon_of("item", spec.copy, spec.tint),
+    icons = CV.icones(spec.name) or icon_of("item", spec.copy, spec.tint),
     subgroup = "fo-superconductors-machines",
     order = "z[fo]-c[superconductors]-" .. spec.name,
     place_result = spec.name,

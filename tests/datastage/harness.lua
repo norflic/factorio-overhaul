@@ -992,6 +992,10 @@ for _, l in ipairs(CentreSheets.lines(centre_sheets)) do print(l) end
 local UsinesSheets = dofile(HERE .. "/usines_sheets.lua")
 local usines_sheets = UsinesSheets.check(MOD_ROOT)
 for _, l in ipairs(UsinesSheets.lines(usines_sheets)) do print(l) end
+-- Feuilles des machines de chimie hors de git (D-6, lot DA-CHIMIE) : même contrôle
+local ChimieSheets = dofile(HERE .. "/chimie_sheets.lua")
+local chimie_sheets = ChimieSheets.check(MOD_ROOT)
+for _, l in ipairs(ChimieSheets.lines(chimie_sheets)) do print(l) end
 -- Sons (lot S0)
 print(string.format("Sons : %d violation(s) (fichier manquant, format non lu par le moteur, en-tête faux, .ogg autre que "
   .. "Vorbis, en-têtes Vorbis invalides, fichier tronqué) ; étalonnage "
@@ -1060,5 +1064,5 @@ for i = 1, math.min(#lot_errors, 40) do print("  LOT " .. lot_errors[i]) end
 os.exit((#new_errors == 0 and #own_paths == 0 and #missing_locale == 0 and #rule_errors == 0 and #selftest_fail == 0
   and #unlock_errors == 0 and unlock_self == 2 and #lot_errors == 0 and lot_self == 2
   and #img_errors == 0 and #img_vanilla == 0 and #img_self_fail == 0 and GunSheets.ok(gun_sheets)
-  and FourSheets.ok(four_sheets) and AsmSheets.ok(asm_sheets) and DrillSheets.ok(drill_sheets) and UsinesSheets.ok(usines_sheets) and CentreSheets.ok(centre_sheets)
+  and FourSheets.ok(four_sheets) and AsmSheets.ok(asm_sheets) and DrillSheets.ok(drill_sheets) and UsinesSheets.ok(usines_sheets) and CentreSheets.ok(centre_sheets) and ChimieSheets.ok(chimie_sheets)
   and #snd_errors == 0 and #snd_vanilla == 0 and #snd_self_fail == 0) and 0 or 1)
