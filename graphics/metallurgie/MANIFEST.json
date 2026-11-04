@@ -1,0 +1,217 @@
+{
+ "arguments": [],
+ "commande": "py -3.9 tools/render/pieces/metallurgie/feuilles.py   (depuis la racine du mod ; sources : fo-logs/2026-11-04_DA-METALLURGIE/final, à GARDER)",
+ "fichiers": {
+  "fo-blast-furnace-glow.png": {
+   "hauteur": 99,
+   "largeur": 114,
+   "sha256": "71669e0ccbe40a770a049ca9c5dc942c3c9222a024c7ed7245a64ca7af0e12d8",
+   "taille": 4215
+  },
+  "fo-blast-furnace-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "d4ee8798586fab8df6975bf3900fbb29bb45faf8c1aa8a5683168a8b98e1be7c",
+   "taille": 9697
+  },
+  "fo-blast-furnace-main.png": {
+   "hauteur": 234,
+   "largeur": 144,
+   "sha256": "a39de1bcd3c4cf6cd4afe39660b4fdc548a80e735c6b9f0280f193bd120e606c",
+   "taille": 72803
+  },
+  "fo-blast-furnace-shadow.png": {
+   "hauteur": 128,
+   "largeur": 237,
+   "sha256": "0e785fba8d7c9496351c8394ae7b99a08d607141b40e1cedf2366c79cf47e445",
+   "taille": 7413
+  },
+  "fo-coke-oven-glow.png": {
+   "hauteur": 108,
+   "largeur": 73,
+   "sha256": "f02a08e64b053e7e5a3ced34375f22da2cfb8ebac6acd8323f733b34254fdd36",
+   "taille": 3745
+  },
+  "fo-coke-oven-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "f954d83ba5ed7509c52f5199abd396f060d372b8447af800735d7be9eb2d0edd",
+   "taille": 7077
+  },
+  "fo-coke-oven-main.png": {
+   "hauteur": 203,
+   "largeur": 114,
+   "sha256": "a02cb02bfd8a40309ec6bf3788d171cdb292b60da9b6728eddcdadeeabe63119",
+   "taille": 37666
+  },
+  "fo-coke-oven-shadow.png": {
+   "hauteur": 98,
+   "largeur": 176,
+   "sha256": "8d3d57e8003e474cc10ec8de65c627a718b1111b7fb2bcf97a09350e18f95edf",
+   "taille": 2543
+  },
+  "fo-ht-pylon-glow.png": {
+   "hauteur": 78,
+   "largeur": 432,
+   "sha256": "068cec5776e70a7f857ce3c44f852e2e339083b71549c5abc1744622fd53a9fb",
+   "taille": 1503
+  },
+  "fo-ht-pylon-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "30e2d1e35999584bb90490c7a8ccb65f2cc630015c58f41d3cf9ff7254009c97",
+   "taille": 8519
+  },
+  "fo-ht-pylon-main.png": {
+   "hauteur": 212,
+   "largeur": 472,
+   "sha256": "73ec31347868fcdd12ce1b48d105211606b34e4ff7696a50e9f246dac7023f41",
+   "taille": 101684
+  },
+  "fo-ht-pylon-shadow.png": {
+   "hauteur": 84,
+   "largeur": 1048,
+   "sha256": "3e9f4aef9070f71f97ffff954b26692b439bfdbb7eb852b99d69f5a8e7e1f68a",
+   "taille": 32835
+  },
+  "fo-kroll-reactor-glow.png": {
+   "hauteur": 112,
+   "largeur": 106,
+   "sha256": "3a7dca3292ca3c9185d7485c1cb6442c9ca5ecee038402b58bace57dd1c93fb6",
+   "taille": 6966
+  },
+  "fo-kroll-reactor-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "8feb16c38db9c25a5839ce07f01f7c84eb22330d583bed6a6e5df9febb48ac0d",
+   "taille": 12072
+  },
+  "fo-kroll-reactor-main.png": {
+   "hauteur": 175,
+   "largeur": 148,
+   "sha256": "80ad824817af1c2a13c14cded3067dc94c497a739cef0a3848ed2b8bd7ffe2c2",
+   "taille": 50953
+  },
+  "fo-kroll-reactor-shadow.png": {
+   "hauteur": 132,
+   "largeur": 226,
+   "sha256": "e6e0f3897d80e9c4d4530f7f70fd1d1f4358bba8a73d6cd9123a0344d137c4c2",
+   "taille": 4720
+  },
+  "fo-ore-concentrator-glow.png": {
+   "hauteur": 69,
+   "largeur": 10,
+   "sha256": "d4dea9e3a2b3745de5b9541a8c8aee826dd709e63af92a35d150c2ce8e665161",
+   "taille": 588
+  },
+  "fo-ore-concentrator-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "850829f8eb2d208494d20a7ecd793b15c89667aeef8b5287f84b7d3cb0e9f1e7",
+   "taille": 8801
+  },
+  "fo-ore-concentrator-main.png": {
+   "hauteur": 108,
+   "largeur": 75,
+   "sha256": "26a3ce6c0fd874e8393bd93ca4e0e46a8e79d95b6a590a4c149d294e74c943e2",
+   "taille": 14597
+  },
+  "fo-ore-concentrator-shadow.png": {
+   "hauteur": 64,
+   "largeur": 114,
+   "sha256": "0cf4c842dbefe44de82357383395332984d1a009edc760e0b65ca4f01cca7c66",
+   "taille": 2051
+  },
+  "hr-fo-blast-furnace-glow.png": {
+   "hauteur": 198,
+   "largeur": 228,
+   "sha256": "ed9909b58286b9f70795ab97cd4e3a3086df7d5b9867a6839ca22d8acde1b0a1",
+   "taille": 10498
+  },
+  "hr-fo-blast-furnace-main.png": {
+   "hauteur": 468,
+   "largeur": 288,
+   "sha256": "24149a3ca3cbe954895782df14261eb5d9fc1d2f375945da79e4bec042071ee9",
+   "taille": 243907
+  },
+  "hr-fo-blast-furnace-shadow.png": {
+   "hauteur": 256,
+   "largeur": 474,
+   "sha256": "1a158ebd3ca1ca8240d8df3666da8e35c460072c56a31201c168a42d0a325195",
+   "taille": 24327
+  },
+  "hr-fo-coke-oven-glow.png": {
+   "hauteur": 216,
+   "largeur": 146,
+   "sha256": "535f284313b81d0513773ac0a0a106e44afdbbe47aad6fc79294a4cf98d23a86",
+   "taille": 9031
+  },
+  "hr-fo-coke-oven-main.png": {
+   "hauteur": 406,
+   "largeur": 228,
+   "sha256": "a394311286841f775c0cc876c22a5e4540eae9e6c8bf91b0a121f12c59cb6d3e",
+   "taille": 119756
+  },
+  "hr-fo-coke-oven-shadow.png": {
+   "hauteur": 196,
+   "largeur": 352,
+   "sha256": "4fe51a400239f9c51ab0bbd459944c09f67ba3f682104cebd58c50ed44eab48a",
+   "taille": 7129
+  },
+  "hr-fo-ht-pylon-glow.png": {
+   "hauteur": 156,
+   "largeur": 864,
+   "sha256": "71a46a5c3291f9d165d206be88c2ace840015338805e31614a5968a7344df71b",
+   "taille": 3230
+  },
+  "hr-fo-ht-pylon-main.png": {
+   "hauteur": 424,
+   "largeur": 944,
+   "sha256": "2305f6d99d2ac96d3b2a8af9175c429dfd908203f73b73fc3f7c30676baa1ada",
+   "taille": 323975
+  },
+  "hr-fo-ht-pylon-shadow.png": {
+   "hauteur": 168,
+   "largeur": 2096,
+   "sha256": "acdfc049b4bb61ff21ca1361361af8e60b92ebbacce8f68fea6892ac0337eeea",
+   "taille": 98477
+  },
+  "hr-fo-kroll-reactor-glow.png": {
+   "hauteur": 224,
+   "largeur": 212,
+   "sha256": "2d8c23155b1b9282f9ee54e1580fb749866ae99ff87732fb93a87f1303a721a8",
+   "taille": 18106
+  },
+  "hr-fo-kroll-reactor-main.png": {
+   "hauteur": 350,
+   "largeur": 296,
+   "sha256": "c46a25d2f38ffb57f6890155e7f248ee357072dfa29e5baa10e0d9179b1836a0",
+   "taille": 167319
+  },
+  "hr-fo-kroll-reactor-shadow.png": {
+   "hauteur": 264,
+   "largeur": 452,
+   "sha256": "a1e0e8a90d9d4f60ee642d3f74b96e6b4c0dfa9bf923f3993f3277f68bcc15fd",
+   "taille": 15236
+  },
+  "hr-fo-ore-concentrator-glow.png": {
+   "hauteur": 138,
+   "largeur": 20,
+   "sha256": "fe501be399979a3b3267809e9195646e8367e05845213c90b6eeaae63162ef01",
+   "taille": 1409
+  },
+  "hr-fo-ore-concentrator-main.png": {
+   "hauteur": 216,
+   "largeur": 150,
+   "sha256": "7a0c247bd9a37c0cd49ba191d4aa19a90f8dddbaa8d5a4ab197e0207f3b402f0",
+   "taille": 45850
+  },
+  "hr-fo-ore-concentrator-shadow.png": {
+   "hauteur": 128,
+   "largeur": 228,
+   "sha256": "89fe99b9a36a0970b691f4083b9949f387c8884a5a382f5b69605ea7b1085a62",
+   "taille": 5284
+  }
+ },
+ "sources": "F:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-11-04_DA-METALLURGIE\\final"
+}

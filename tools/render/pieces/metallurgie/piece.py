@@ -31,7 +31,7 @@ MODULES = {"hf": "m_hf", "co": "m_co", "rc": "m_rc", "py": "m_py", "kr": "m_kr",
 # (sous tp, puissance tk : noirs plus noirs), épaule (au-dessus de sp, pente g), gamma des tons moyens, saturation. Critique du 3/11 :
 # écart-type 0,13 à 0,18 contre 0,20 à 0,24 en vanilla ; cibles p5 ≤ 0,04, p95 ≥ 0,65. Vide : aucun étalonnage (états clés du 3/11).
 # Réglé le 3/11 vers 23 h 40 sur les rendus corrigés (mesure.py) : une courbe par machine, la cuve (aluminium vif) plus douce.
-GRADE = {"hf": [0.22, 1.8, 0.28, 1.9, 1.0, 1.0], "co": [0.22, 1.8, 0.26, 2.1, 1.0, 1.0], "rc": [0.22, 1.8, 0.32, 1.5, 1.0, 1.1],
+GRADE = {"hf": [0.22, 1.8, 0.28, 1.9, 1.0, 1.0], "co": [0.22, 1.8, 0.26, 2.1, 1.0, 1.0], "rc": [0.22, 1.8, 0.38, 1.3, 1.0, 1.1],
          "py": [0.26, 2.0, 0.28, 1.9, 1.0, 1.05], "kr": [0.22, 1.8, 0.28, 1.9, 1.0, 1.0], "cc": [0.22, 1.8, 0.3, 1.75, 1.0, 1.0]}
 # Gain de la lueur par machine (émission linéaire : équivaut à baisser la force du matériau) ; petites lampes trop écrêtées.
 GAIN_LUEUR = {"py": 0.55, "cc": 0.55, "kr": 0.42, "rc": 0.5}      # kr : −40 % demandé par la contre-relecture (4/11)

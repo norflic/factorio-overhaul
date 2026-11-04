@@ -62,7 +62,8 @@ def capots(lot, M, ouvert):
         cy0, cy1 = Y0 + 0.04, YC - 0.4
         lot.put(M["croute_claire"], G.boite(((x0 + x1) / 2, (cy0 + cy1) / 2, ZP + 0.06), (x1 - x0 - 0.04, cy1 - cy0, 0.02)))
         r = G.Rnd(6611)
-        branches = [((x0 + x1) / 2 + r.f(-0.15, 0.15), cy0 + 0.04, math.pi / 2 + r.f(-0.3, 0.3), 0.032, 9)]
+        branches = [(x0 + (x1 - x0) * f + r.f(-0.05, 0.05), cy0 + 0.04, math.pi / 2 + r.f(-0.35, 0.35), 0.034, 10)
+                    for f in (0.2, 0.5, 0.8)]
         n = 0
         while branches and n < 40:
             px, py, ang, w, k = branches.pop(0)
@@ -199,11 +200,11 @@ def build(S, lot, v):
     M = K.matieres(S, PALETTE)
     # matières propres à la cuve (contre-relecture du 4/11) : aluminium VIF sans usure d'arête (le bruit d'usure faisait un
     # pointillé blanc), croûte claire d'alumine figée, poudre d'alumine claire ; commun.py n'est pas touché (autres machines)
-    M["alu_vif"] = MT.surface("m_alu_vif", (0.78, 0.79, 0.81), rough=0.32, met=0.2, usure=0.0, crasse=0.12, crasse_col=(0.2, 0.2, 0.21),
+    M["alu_vif"] = MT.surface("m_alu_vif", (0.58, 0.59, 0.61), rough=0.32, met=0.2, usure=0.0, crasse=0.12, crasse_col=(0.2, 0.2, 0.21),
                               grain=0.04, graine=61)
     M["croute_claire"] = MT.surface("m_croute_claire", (0.36, 0.35, 0.33), rough=0.9, met=0.0, usure=0.0, crasse=0.5,
                                     crasse_col=(0.08, 0.075, 0.07), grain=0.3, graine=62)
-    M["alumine"] = MT.surface("m_alumine_cuve", (0.72, 0.72, 0.7), rough=0.95, met=0.0, usure=0.0, crasse=0.25, crasse_col=(0.3, 0.3, 0.29),
+    M["alumine"] = MT.surface("m_alumine_cuve", (0.6, 0.6, 0.58), rough=0.95, met=0.0, usure=0.0, crasse=0.25, crasse_col=(0.3, 0.3, 0.29),
                               grain=0.25, graine=63)
     v = VAR[v]
     lot.put(M["beton"], G.prisme([(-1.97, -2.78), (1.97, -2.78), (1.97, 2.78), (-1.97, 2.78)], 0.0, 0.03))
@@ -258,7 +259,7 @@ def superstructure_v2(lot, M):
         for i in range(9):
             x = -1.44 + i * 0.36
             lot.put(M["alu_vif"], G.boite((x, yt, 1.56), (0.09, 0.09, 1.24)))
-            lot.put(M["cuivre"], G.boite((x, yb + s * 0.1, 1.55), (0.17, 0.1, 0.15)))
+            lot.put(M["cuivre"], G.boite((x, yb + s * 0.1, 1.55), (0.21, 0.12, 0.19)))
             lot.put(M["cuivre"], G.boite((x, yt, 2.2), (0.12, 0.12, 0.05)))
             lot.put(M["acier_clair"], G.tube([(x - 0.07, yb + s * 0.155, 1.55), (x + 0.07, yb + s * 0.155, 1.55)], 0.018, 5))
             K.rev(lot, M["acier2"], x, yt, [(1.0, 0.075), (1.05, 0.075)], 8)
@@ -292,8 +293,9 @@ def barres_v2(lot, M):
         sgn = 1 if y > 0 else -1
         for k in range(12):
             xx = -XP + 0.18 + k * (2 * XP - 0.36) / 11
-            O.flexible(lot, M["cuivre"], [(xx, y - sgn * 0.3, 0.32), (xx, y - sgn * 0.2, 0.36), (xx, y - sgn * 0.08, 0.26)], 0.03)
-            lot.put(M["cuivre"], G.boite((xx, y - sgn * 0.08, 0.27), (0.1, 0.06, 0.04)))
+            O.flexible(lot, M["cuivre"], [(xx, y - sgn * 0.3, 0.34), (xx, y - sgn * 0.2, 0.4), (xx, y - sgn * 0.08, 0.28)], 0.042)
+            lot.put(M["cuivre"], G.boite((xx, y - sgn * 0.08, 0.28), (0.14, 0.1, 0.06)))
+            lot.put(M["cuivre"], G.boite((xx, y - sgn * 0.33, 0.3), (0.12, 0.08, 0.16)))
         for x in (-1.6, -0.6, 0.6, 1.6):
             lot.put(M["acier2"], G.boite((x, y, 0.03), (0.1, 0.3, 0.06)))
     yb = YC + 0.27
