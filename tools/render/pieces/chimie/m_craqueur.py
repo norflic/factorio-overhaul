@@ -81,11 +81,11 @@ def radiation(k, R, S):
     pts = [(b[0] + 0.04, Y + 0.03, zt), (b[1] - 0.04, Y + 0.03, zt)]
     k.rambarde("laiton", pts, 0.15, 0.3)
     # nuit : flaque orange devant la fente de sole (passe halo seulement)
-    # 5 sources basses (1,1 W) : pic au sol visé 0,3 à 0,55, flaque d'environ 2 × 0,8 tuile (3 × 4 W : pic écrêté à 1,0,
-    # 0,8 tuile² ; 5 × 0,5 W : pic 0,18 à 0,31, 0,35 à 0,46 tuile²)
+    # 5 sources (2,2 W, à 0,45 de haut) : +20 de luminance de nuit devant la face sud (contre-relecture) ; essais : 3 × 4 W : pic écrêté à 1,0,
+    # 0,8 tuile² ; 5 × 0,5 W : +5 à +7, pic 0,18 à 0,31.
     for i in range(5):
         x = b[0] + 0.25 + (b[1] - b[0] - 0.5) * i / 4.0
-        S.halo_light((x, Y - 0.42, 0.3), (1.0, 0.33, 0.05), 1.1, 0.08)
+        S.halo_light((x, Y - 0.5, 0.45), (1.0, 0.33, 0.05), 2.2, 0.08)
 
 
 def convection(k, R):

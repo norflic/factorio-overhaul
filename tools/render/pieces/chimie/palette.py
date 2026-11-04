@@ -46,8 +46,8 @@ def matieres(S):
     M["riv"] = sf("h_riv", (0.16, 0.11, 0.06), rough=0.45, met=0.6, usure=0.4, nu=(0.7, 0.6, 0.45), crasse=0.5, graine=20)
     M["caoutchouc"] = sf("h_cao", (0.025, 0.022, 0.018), rough=0.72, met=0.0, usure=0.3, nu=(0.09, 0.08, 0.07), crasse=0.5,
                          crasse_col=cr, graine=21)
-    M["cuivre"] = sf("h_cuivre", (0.62, 0.24, 0.07), rough=0.24, met=0.95, coulures=0.35, rouille=(0.05, 0.17, 0.11), usure=0.5,
-                     nu=(0.95, 0.58, 0.3), crasse=0.5, crasse_col=cr, grain=0.06, graine=22)
+    M["cuivre"] = sf("h_cuivre", (0.8, 0.33, 0.18), rough=0.26, met=0.6, coulures=0.12, rouille=(0.05, 0.17, 0.11), usure=0.75,
+                     nu=(1.0, 0.74, 0.52), crasse=0.5, crasse_col=cr, grain=0.06, graine=22)
     M["laiton"] = sf("h_laiton", (0.55, 0.36, 0.1), rough=0.3, met=0.9, usure=0.5, nu=(0.9, 0.75, 0.4), crasse=0.55,
                      crasse_col=cr, coulures=0.3, rouille=(0.1, 0.12, 0.05), grain=0.06, graine=49)
     M["chevron"] = sf("h_chevron", (0.5, 0.28, 0.012), rough=0.45, met=0.2, bandes=(0.14, (0.012, 0.011, 0.01), 0.5), usure=0.8,
@@ -95,7 +95,7 @@ def matieres(S):
                           crasse_col=cr, grain=0.06, graine=45)
     M["joint_pile"] = sf("h_joint_pile", (0.45, 0.04, 0.02), rough=0.6, met=0.0, usure=0.2, crasse=0.5, crasse_col=cr,
                          graine=46)
-    M["titane"] = sf("h_titane", (0.4, 0.33, 0.24), rough=0.26, met=0.9, tole=(0.5, 0.36), joint=0.6, var=0.1, usure=0.45, nu=(0.82, 0.78, 0.7), crasse=0.7,
+    M["titane"] = sf("h_titane", (0.4, 0.33, 0.24), rough=0.38, met=0.9, tole=(0.5, 0.36), joint=0.6, var=0.1, usure=0.45, nu=(0.82, 0.78, 0.7), crasse=0.7,
                      crasse_col=cr, coulures=0.5, rouille=rouille, grain=0.06, graine=47)
     M["sel_lilas"] = sf("h_sel_lilas", (0.36, 0.13, 0.5), rough=0.75, met=0.0, usure=0.0, crasse=0.6,
                         crasse_col=(0.08, 0.04, 0.1), grain=0.3, graine=48)

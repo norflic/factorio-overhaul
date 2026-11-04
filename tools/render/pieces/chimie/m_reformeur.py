@@ -48,14 +48,7 @@ def four(k, R):
             k.b("chauffe" if i != 1 else "bleui", (x, Y - 0.004, 1.43), (0.09, 0.008, 0.08))
     # voûte : plancher sombre, trois fentes de brûleurs le long de u, plaques de regard
     zt = FZ
-    for v in (FV - 0.0,):
-        p0, p1 = R.p(FU - FSU / 2.0 + 0.12, v, zt), R.p(FU + FSU / 2.0 - 0.12, v, zt)
-        c = G.lerp(p0, p1, 0.5)
-        L = G.length(G.sub(p1, p0))
-        horiz = abs(p1[0] - p0[0]) > abs(p1[1] - p0[1])
-        sx, sy = (L, 0.07) if horiz else (0.07 * 1.0, L)
-        k.b("acier", (c[0], c[1], zt + 0.012), (sx + (0 if horiz else 0.06), sy + (0.06 if horiz else 0), 0.025))
-        k.b("feu", (c[0], c[1], zt + 0.026), (sx * (1 if horiz else 0.45), sy * (0.45 if horiz else 1), 0.006))
+    voute(k, R)
     # rambarde jaune sur la voûte (côté sud absolu) et échelle
     k.rambarde("jaune", [(b[0] + 0.05, Y + 0.05, zt), (b[1] - 0.05, Y + 0.05, zt)], 0.15, 0.3)
     k.echelle("jaune", b[1] - 0.14, Y - 0.06, 0.0, zt + 0.15)
@@ -66,6 +59,40 @@ def four(k, R):
     R.cerclages("acier", cu, cv, [1.4, 2.0, 2.6], 0.122, 0.012, 0.02)
     R.cyl("rouge", cu, cv, 2.8, 2.95, 0.126, 24)
     R.cyl("noir", cu, cv, 3.0, 3.06, 0.09, 16)
+
+
+def voute(k, R):
+    """Toit d'un reformeur chauffé par le haut : gaine d'air de combustion le long des rangées (entre elles), brûleurs de voûte
+    (pot, tête, petite lueur à la traversée) sous la gaine et sur deux rangées extérieures alimentées par un tube de gaz,
+    tôles de voûte. Contre-relecture du 4/11 : le toit nu se lisait comme un couvercle en E et O."""
+    zt = FZ
+    u0, u1 = FU - FSU / 2.0 + 0.2, FU + FSU / 2.0 - 0.25
+    vm = (ROWS[0] + ROWS[1]) / 2.0
+    zg = zt + 0.3
+    # gaine d'air (caisson sur béquilles), ventilateur de tirage au bout est, raidisseurs
+    R.caisson("car2", (u0 + u1) / 2.0, vm, zg, u1 - u0 + 0.3, 0.2, 0.22, 0.02)
+    for u in (u0 - 0.05, (u0 + u1) / 2.0, u1 + 0.05):
+        R.box("acier", u, vm, zt, 0.05, 0.05, zg - zt)
+    n = 6
+    for i in range(n + 1):
+        R.box("acier", u0 - 0.1 + (u1 - u0 + 0.2) * i / n, vm, zg - 0.01, 0.035, 0.22, 0.24)
+    R.box("car", u1 + 0.25, vm, zt, 0.24, 0.3, 0.42)
+    R.ventilo(u1 + 0.25, vm, zt + 0.47, 0.11, corps="car2", lame="acier_clair", grille="acier", moyeu="acier", garde=False)
+    # brûleurs sous la gaine : une descente par intervalle de tubes
+    for i in range(NT - 1):
+        u = u0 + (u1 - u0) * (i + 0.5) / (NT - 1)
+        R.cyl("acier", u, vm, zt, zt + 0.06, 0.07, 12)
+        R.tore("feu", u, vm, zt + 0.065, 0.05, 0.014, 14, 4)
+        R.cyl("acier_clair", u, vm, zt + 0.06, zg, 0.04, 10)
+    # deux rangées extérieures de brûleurs, tube de gaz et petites vannes
+    for v in (ROWS[0] - 0.26, ROWS[1] + 0.26):
+        R.tuyau("acier", [(u0 - 0.1, v, zt + 0.2), (u1 + 0.1, v, zt + 0.2)], 0.028, 0.08)
+        for i in range(NT - 1):
+            u = u0 + (u1 - u0) * (i + 0.5) / (NT - 1)
+            R.cyl("acier", u, v, zt, zt + 0.05, 0.05, 10)
+            R.tore("feu", u, v, zt + 0.055, 0.036, 0.012, 12, 4)
+            R.axe("acier_clair", (u, v, zt + 0.05), (u, v, zt + 0.2), 0.016, 6)
+        R.vanne("acier", "rouge", (u0 + 0.2, v, zt + 0.2), 0.026, 0.04)
 
 
 def tubes(k, R):

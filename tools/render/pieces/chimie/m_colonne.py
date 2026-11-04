@@ -37,6 +37,9 @@ def chambre(k, R):
     R.rev("titane", CU, CV, [(0.08, DR - 0.06), (0.16, DR), (0.92, DR), (1.1, 0.6), (Z_BAS, CR + 0.03)], 40)
     R.cerclages("acier", CU, CV, [0.3, 0.62, 0.86], DR + 0.002, 0.018, 0.026)
     R.boulons_rond("riv", CU, CV, 1.0, 0.72, 20, 0.018)
+    for zz, rr in ((1.06, 0.66), (1.16, 0.47)):
+        R.tore("acier", CU, CV, zz, rr, 0.012, 48, 4)
+    R.boulons_rond("riv", CU, CV, 1.17, 0.42, 14, 0.016)
     # hublot de l'interface basse et trou d'homme (face sud absolue)
     x, y, _ = R.p(CU, CV)
     Y = y - DR
