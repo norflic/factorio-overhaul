@@ -61,6 +61,28 @@ local function suite(Dp)
   local _, y = run(Dp, 10 * MIN, { P[1], { key = "b", free = 3000, made = 0 } }, { a = 10 })
   check(x.why == y.why and x.why:find("a dort", 1, true) < x.why:find("b dort", 1, true), "mêmes entrées, même sortie, ordre de l'appelant")
   check(math.abs(Dp.smooth(100, 400, MIN) - 190) < 1e-6, "production lissée")
+  check(rd.rper and math.abs((rd.rper.a or 0) - 3401) < 1e-6, "part de la recherche par matière (3 401)")
+  -- revue D1 : cible ABSOLUE, aucun cliquet. On simule la pose d'un laboratoire par pensée, 30 pensées.
+  local base, now, target = nil, 2, nil
+  for _ = 1, 30 do
+    target, base = Dp.labs_target(base, now, 4, 7)
+    if target and now < target then now = now + 1 end
+  end
+  check(now == 6 and base == 2 and target == 6, "laboratoires : base figée à 2, cible 6, posés 6 après 30 pensées (" .. now .. ")")
+  check(Dp.labs_target(5, 5, 4, 7) == 7, "cible plafonnée par l'appelant (7)")
+  check(Dp.labs_target(5, 5, 0, 7) == nil and select(2, Dp.labs_target(5, 5, 0, 7)) == nil, "rien ne dort : aucune cible, base oubliée")
+  check(Dp.engaged(6, 4, 60) == 120 and Dp.engaged(nil, 4, 60) == 0 and Dp.engaged(4, 6, 60) == 0, "plaques engagées : 2 laboratoires à faire = 120")
+  -- revue D3 : armement
+  local _, rs3 = run(Dp, 10 * MIN, { { key = "a", free = 20600, made = 100 } }, {})
+  check(rs3.labs == 4 and rs3.soldiers == 6, "armement : après 4 laboratoires, le reste paie 6 soldats de plus (plafond)")
+  check(Dp.soldiers(18, 3, 30) == 21 and Dp.soldiers(29, 3, 30) == 30 and Dp.soldiers(18, 0, 30) == 18 and Dp.soldiers(35, 3, 30) == 35,
+    "cible d'armée : +3, plafond de soldats, rien sans excédent, jamais baissée")
+  -- revue D5 : relevé manqué, demande qui n'est pas une table
+  local stg = run(Dp, 10 * MIN, P, {})
+  local _, rg = Dp.step(stg, { on = true, tick = 14 * MIN, products = P })
+  check(next(rg.per) == nil, "relevé manqué (4 min) : sommeil interrompu, horloges oubliées")
+  local okw, rw = pcall(function() return select(2, run(Dp, 10 * MIN, P, 5)) end)
+  check(okw and rw and rw.defense.a == 0, "demande qui n'est pas une table : ignorée sans erreur")
 end
 
 suite(load_dp(SRC))
@@ -90,6 +112,12 @@ mutant("horloge jamais remise à zéro", " else st.since[k] = nil end", " end")
 mutant("interrupteur sans effet", "  if not inp.on then", "  if false then")
 mutant("défense seule ignorée", "local cap = p.def_only and exc or exc * Dp.DEF_PCT / 100", "local cap = exc * Dp.DEF_PCT / 100")
 mutant("demande de défense ignorée", "math.max(0, num(want[k]))", "cap")
-mutant("défense seule payée par la recherche", "if not p.def_only then res.research", "if true then res.research")
-print(string.format("[DEPENSES2] BILAN : %d OK, %d ECHEC(S) (dont 12 mutants)", passes, failures))
+mutant("défense seule payée par la recherche", "if not p.def_only then\n        res.research", "if true then\n        res.research")
+mutant("cliquet : base relative", "base = base or math.max(0, math.floor(num(now)))", "base = math.max(0, math.floor(num(now)))")
+mutant("soldiers sans plafond", nil, nil, function(Dp) Dp.SOLDIERS_MAX = 99 end)
+mutant("relevé manqué ignoré", "if dt and dt > Dp.GAP then st.since, dt = {}, nil end", "")
+mutant("demande non gardée", "type(inp.want) == \"table\" and inp.want or {}", "inp.want or {}")
+mutant("engagé négatif", "return math.max(0, math.floor(num(target)) - math.floor(num(now))) * num(cost)", "return (math.floor(num(target)) - math.floor(num(now))) * num(cost)")
+mutant("armée baissée", "return math.max(a, math.min(", "return (math.min(")
+print(string.format("[DEPENSES2] BILAN : %d OK, %d ECHEC(S) (dont 18 mutants)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

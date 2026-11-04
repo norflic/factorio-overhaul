@@ -574,9 +574,12 @@ local function research_step(f, st, book, w, tick, view)
   -- Br.labs_max) ; le petit nombre d'avant (au plus Ia3.LABS_MAX, fenêtre de recherche) reste un plancher.
   local capi_labs = Capi.labs_want(f)
   if capi_labs then want = math.max(capi_labs, math.min(Ia3.LABS_MAX, math.max(1, math.ceil(secs / Ia3.LAB_WINDOW_S)))) end
-  -- Lot DEPENSES2 : les plaques qui dorment (après la défense) paient des laboratoires de plus (shared/ai3/depenses.lua).
-  local dep_labs = Dep.labs(f, tick)
-  if dep_labs > 0 then want = math.max(want, #labs + dep_labs) end
+  -- Lot DEPENSES2 : les plaques qui dorment (après la défense) paient des laboratoires de plus (shared/ai3/depenses.lua). Revue D1 : cible
+  -- ABSOLUE (base figée quand la recherche commence à recevoir le stock qui dort, plus n), jamais au-delà du plafond des bras plus
+  -- Dep.LABS_MAX : un laboratoire posé ne relève plus la cible.
+  local dep_cap = Br.labs_max(view.workers, Ia3.LABS_MAX, Dm.extra_cap(st.puits ~= nil, spare_hands)) + Dep.LABS_MAX
+  local dep_t = Dep.labs_target(f, #labs, dep_cap, tick)
+  if dep_t then want = math.max(want, dep_t) end
   if lproto then
     info.lab_item = lproto.item
     local stock = view.stock[lproto.item] or 0
@@ -820,6 +823,8 @@ function Ia3.plan(f, view, book, surface, tick)
     -- plus (C.base_view) : un seul chemin de recrutement.
     local soon = view.army_soon or 0
     if soon > army_target and not key_short then army_target = math.min(soon, view.soldiers_max or 0) end
+    -- Lot DEPENSES2 (revue D3) : armement : le reste des plaques qui dorment relève la cible d'armée (absolue, plafond de soldats).
+    army_target = Dep.soldiers_target(f, army_target, view.soldiers_max or 0, f.soldiers_count or 0, tick)
   end
   -- En guerre : déclarée au joueur (PvP) ; la posture guerrière du chef passe déjà par les poids (B.weights).
   local at_war = (f.pvp and f.pvp.declared) or false
