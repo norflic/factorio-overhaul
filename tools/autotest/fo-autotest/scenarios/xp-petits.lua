@@ -58,11 +58,12 @@ return {
       st.sites[#st.sites + 1] = site
     end
     -- comme le banc « content » (c1 : « rien produit, statut 38 » sur les 5 recettes) : machine posée sans événement, recette posée,
-    -- ingrédients × 4 ; on relève le statut par son NOM
+    -- ingrédients × 4 ; on relève le statut par son NOM. Relevé p1-e : 38 = no_power (le banc content n'alimente pas la rangée
+    -- y = -270 de sa grille de recettes, où tombent ces 5 recettes) ; ici, toutes alimentées.
     st.comme = {}
     local cx = C.x(7)
     ctx.prepare_area(cx - 10, C.Y - 10, cx + 90, C.Y + 30, "dry-dirt")
-    ctx.power(cx - 6, C.Y + 10)
+    ctx.power(cx + 32, C.Y + 25)
     for k, id in ipairs(C.IDS) do
       local rec = game.recipe_prototypes["fo-xp-make-" .. id]
       local m = s.create_entity({ name = C.USINE[id], position = { cx + (k - 1) * 16, C.Y + 10 }, force = "player" })
