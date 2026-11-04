@@ -59,6 +59,8 @@ return {
     st.w = s.create_entity({ name = PORTIQUE, position = { X, Y }, force = "player", raise_built = true })
     st.w.set_recipe(RECETTE)
     st.mis = st.w.get_output_inventory().insert({ name = OBJET, count = 1 })
+    -- contrôlé ICI : le balayage des usines (toutes les 60 ticks, tick 0 compris) peut sortir le Bourdon avant le premier tick du scénario
+    ctx.check(st.mis == 1 and st.w.get_output_inventory().get_item_count(OBJET) == 1, "un Bourdon fini est depose dans la sortie du Portique", tostring(st.mis))
     st.cibles = {}
     for i, c in ipairs(CIBLES) do st.cibles[i] = s.create_entity({ name = "gun-turret", position = c, force = C.CIBLE }) end
   end,
@@ -66,9 +68,6 @@ return {
   tick = function(ctx, e)
     local st = ctx.state()
     local t = e.tick
-    if t == 10 then
-      ctx.check(st.mis == 1 and st.w.get_output_inventory().get_item_count(OBJET) == 1, "un Bourdon fini attend dans la sortie du Portique", tostring(st.mis))
-    end
     -- (1) sortie : le balayage (toutes les 60 ticks) retire l'objet et le Bourdon descend au point de sortie
     if not st.sorti and t > 10 and t % 10 == 0 then
       local bs = ctx.surface().find_entities_filtered({ name = "fo-bourdon", area = { { X - 60, Y - 60 }, { X + 60, Y + 60 } } })
@@ -139,6 +138,11 @@ return {
     ctx.check(st.au_ralliement ~= nil, "(2) au ralliement", tostring(st.au_ralliement))
     ctx.check(st.arrive ~= nil, "(3) « aller » execute", tostring(st.arrive))
     ctx.check(st.sonne ~= nil, "(4) Glas sur l'ordre « attaquer »", tostring(st.sonne))
+    local touchees = 0
+    for _, c in ipairs(st.cibles or {}) do
+      if not c.valid or c.health < c.prototype.max_health then touchees = touchees + 1 end
+    end
+    ctx.check(touchees == #CIBLES, "les 3 tourelles visees par l'outil sont touchees ou detruites", touchees .. " / " .. #CIBLES)
   end,
 
   shots = function(ctx, add)
