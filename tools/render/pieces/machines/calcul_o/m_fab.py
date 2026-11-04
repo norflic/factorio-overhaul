@@ -234,7 +234,7 @@ def scie(S, k):
     éclaire la nappe, pupitre à écran, colonne lumineuse)."""
     import m_froid as F
     M = k.M = P.matieres(S, "hitech")
-    F.lueurs_travail(S, M)
+    F.lueurs_travail(S, M, ecran=(0.04, 0.5, 1.0), led=(1.0, 0.58, 0.19))
     k.sol("noir", 3, h=0.05, ch=0.18)
     cy = -0.42
     k.caisson("car2", 0.0, cy, 0.05, 2.75, 2.65, 0.42, 0.05)
@@ -290,14 +290,16 @@ def scie(S, k):
     k.cable("chrome", (-0.72, by - 0.1, 0.88), (-0.92, cy + 0.72, 1.36), 0.02, 0.0085, 5)
     k.cable("chrome", (0.72, by - 0.1, 0.88), (0.92, cy + 0.72, 1.36), 0.02, 0.0085, 5)
     # boue d'abrasif : tuyau orange, pompe, bidon
-    k.cuve("orange", 1.15, -1.98, 0.05, 0.72, 0.26, 0.22, 20)
-    k.tuyau("orange", [(1.15, -1.75, 0.6), (1.32, -1.0, 0.6), (1.32, cy, 1.6), (0.46, cy, 1.6)], r=0.03, coude=0.14, brides=[(1.32, -0.9, 0.72)], bride_mat="acier")
+    # réservoir remonté de 0,2 tuile (critique du 4/11 : il dépassait de 0,17 tuile au sud)
+    k.cuve("orange", 1.15, -1.70, 0.05, 0.72, 0.26, 0.22, 20)
+    k.tuyau("orange", [(1.15, -1.47, 0.6), (1.32, -1.0, 0.6), (1.32, cy, 1.6), (0.46, cy, 1.6)], r=0.03, coude=0.14, brides=[(1.32, -0.9, 0.72)], bride_mat="acier")
     k.armoire("car2", -0.82, -1.9, 0.05, 0.62, 0.44, 0.2, lampe="voyant")
     k.chevrons(0.25, -1.76, 0.2, 0.9, 0.08)
-    # lueur de travail : rampe de LED sur la face sud de la traverse basse du portique, pupitre à écran, colonne lumineuse
+    # lueur de travail : trait chaud (fil éclairé) sur la face sud de la traverse basse du portique, pupitre à écran cyan, colonne
+    # lumineuse
     yt = cy - 0.98 - 0.1
     k.b("noir", (0.0, yt - 0.006, 2.88), (2.3, 0.014, 0.075))
-    k.b("led", (0.0, yt - 0.015, 2.88), (2.2, 0.006, 0.048))
+    k.b("led", (0.0, yt - 0.015, 2.88), (2.2, 0.006, 0.032))
     k.caisson("car2", -0.82, -1.62, 0.49, 0.5, 0.16, 0.4, 0.02)
     F.ecran(k, -0.82, -1.7, 0.71, 0.4, 0.24)
     F.colonne_lumineuse(k, 1.2, cy - 0.98, 2.98)

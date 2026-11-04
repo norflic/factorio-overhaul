@@ -68,10 +68,10 @@ def centre(S, k):
     k.voyant("voyant_v", 1.62, 0.74, 1.12, 0.02)
     k.voyant("diode", 1.7, 0.74, 1.12, 0.02)
     k.moteur("noir", 1.45, 1.95, 1.65, 0.42, 0.12, ailette="acier", axe="y")
-    k.tuyau("bleu", [(-1.76, ay + 1.08, zb), (1.25, ay + 1.08, zb), (1.25, ay + 1.08, 1.65)], r=0.085, coude=0.22,
-            brides=[(-1.72, ay + 1.08, zb), (-0.7, ay + 1.08, zb), (0.5, ay + 1.08, zb), (1.25, ay + 1.08, 1.78)], bride_mat="acier")
-    k.tuyau("orange", [(-1.76, ay + 1.36, zb - 0.02), (1.62, ay + 1.36, zb - 0.02), (1.62, ay + 1.36, 1.65)], r=0.075, coude=0.22,
-            brides=[(-1.72, ay + 1.36, zb - 0.02), (-0.2, ay + 1.36, zb - 0.02), (1.62, ay + 1.36, 1.76)], bride_mat="acier")
+    k.tuyau("bleu", [(-1.51, ay + 1.08, zb), (1.25, ay + 1.08, zb), (1.25, ay + 1.08, 1.65)], r=0.085, coude=0.22,
+            brides=[(-1.47, ay + 1.08, zb), (-0.7, ay + 1.08, zb), (0.5, ay + 1.08, zb), (1.25, ay + 1.08, 1.78)], bride_mat="acier")
+    k.tuyau("orange", [(-1.51, ay + 1.36, zb - 0.02), (1.62, ay + 1.36, zb - 0.02), (1.62, ay + 1.36, 1.65)], r=0.075, coude=0.22,
+            brides=[(-1.47, ay + 1.36, zb - 0.02), (-0.2, ay + 1.36, zb - 0.02), (1.62, ay + 1.36, 1.76)], bride_mat="acier")
     for x in xs:
         k.tuyau("bleu", [(x - 0.09, ay + 1.08, zb), (x - 0.09, ay + 1.08, 1.95)], r=0.022, brides=[])
         k.tuyau("orange", [(x + 0.09, ay + 1.36, zb - 0.02), (x + 0.09, ay + 1.36, 1.95)], r=0.022, brides=[])

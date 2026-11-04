@@ -163,10 +163,15 @@ class Kit:
         """Pied télescopique court (âge 10 : les corps se lèvent)."""
         self.rev(sabot or mat, x, y, [(0.0, r * 1.7), (0.03, r * 1.7), (0.05, r * 1.0), (z1 * 0.5, r * 1.0), (z1 * 0.5, r * 0.72), (z1, r * 0.72)], 12)
 
-    def sol(self, mat, N, h=0.08, ch=0.18, y0=-1.0, y1=1.0):
+    def sol(self, mat, N, h=0.08, ch=0.18, y0=-1.0, y1=1.0, patins=None):
         """Plus de semelle (essai 1 : un pont plat sous chaque machine, défaut déjà refusé) : le sol se voit entre les organes,
-        comme sous la raffinerie vanilla. Deux patins bas seulement, cachés sous la masse."""
+        comme sous la raffinerie vanilla. Deux patins bas seulement, cachés sous la masse. patins (DA-CALCUL) : [(x, ya, yb)]
+        à la place des deux patins par défaut (un patin qui dépasse de la masse se lit comme une bande sombre sur rien)."""
         a = N / 2.0 - 0.25
+        if patins is not None:
+            for x, ya, yb in patins:
+                self.b("noir", (x, (ya + yb) / 2.0, 0.015), (0.16, abs(yb - ya), 0.03))
+            return
         for sg in (-1, 1):
             self.b("noir", (sg * a * 0.7, 0.0, 0.015), (0.16, a * 1.6 * D, 0.03))
         return
@@ -218,12 +223,13 @@ class Kit:
         self.rivets(mat, [(x + R * math.cos(TAU * i / k), y + R * math.sin(TAU * i / k), z) for i in range(k)], (0.0, 0.0, 1.0), r)
 
     # ---------------------------------------------------------------------------------------- pièces marquées
-    def ventilo(self, x, y, z, R, corps="noir", lame="acier_clair", grille="acier", moyeu="acier", ph=None, lames=7, garde=True):
-        """Ventilateur à axe vertical : virole, lames (mobiles), grille. ph : phase (0 à 1) ; None = phase du kit."""
+    def ventilo(self, x, y, z, R, corps="noir", lame="acier_clair", grille="acier", moyeu="acier", ph=None, lames=7, garde=True, anime=True):
+        """Ventilateur à axe vertical : virole, lames (mobiles), grille. ph : phase (0 à 1) ; None = phase du kit. anime=False
+        (DA-CALCUL) : lames fixes (petits ventilateurs sous grille : la boîte des images mobiles reste petite)."""
         self.rev(corps, x, y, [(z - 0.1, R * 1.14), (z + 0.03, R * 1.1), (z + 0.03, R * 1.0), (z - 0.12, R * 0.98)], 28, cap=False)
         self.cyl("noir", x, y, z - 0.13, z - 0.1, R, 24)
         a0 = (self.phase if ph is None else ph) * TAU / lames
-        self.mobile(True)
+        self.mobile(anime)
         for i in range(lames):
             a = a0 + TAU * i / lames
             p0 = (x + R * 0.22 * math.cos(a), y + R * 0.22 * math.sin(a), z - 0.04)

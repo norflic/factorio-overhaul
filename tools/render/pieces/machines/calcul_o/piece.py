@@ -13,7 +13,7 @@ if HERE not in sys.path:
 # nom : (prototype, âge, côté, module)
 MACHINES = {
     "centre": ("fo-data-center", 10, 4, "m_centres"), "grand_centre": ("fo-data-center-2", 12, 6, "m_centres"),
-    "litho": ("fo-crystal-lithograph", 10, 4, "m_fab"), "salle": ("fo-cleanroom", 10, 5, "m_fab"),
+    "litho": ("fo-crystal-lithograph", 10, 4, "m_fab"), "salle": ("fo-cleanroom", 10, 5, "m_salle"),
     "tireuse": ("fo-crystal-puller", 10, 3, "m_fab"), "scie": ("fo-wire-saw", 10, 3, "m_fab"),
     "graveur": ("fo-plasma-etcher", 10, 3, "m_fab"), "testeur": ("fo-die-prober", 10, 3, "m_fab2"),
     "boitier": ("fo-packaging-line", 10, 3, "m_fab2"), "cms": ("fo-smt-line", 10, 4, "m_fab2"),

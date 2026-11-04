@@ -33,17 +33,19 @@ def colonne_lumineuse(k, x, y, z, vert="voyant_v"):
     k.cyl("noir", x, y, z + 0.33, z + 0.35, 0.042, 12)
 
 
-def lueurs_travail(S, M):
-    """Matières des lueurs de travail ajoutées le 4/11 (écran cyan, rampe de LED blanc froid)."""
-    M["ecran"] = P.lueur(S, "c_ecran", (0.14, 0.72, 1.0), 1.9, 0.55, part=0.3, echelle=36.0)
-    M["led"] = P.lueur(S, "c_led", (0.72, 0.9, 1.0), 2.2, 0.55, part=0.2, echelle=30.0)
+def lueurs_travail(S, M, ecran=(0.1, 0.5, 1.0), led=(0.1, 0.5, 1.0), force=1.6):
+    """Matières des lueurs de travail (DA-CALCUL, 4/11). Critique du 4/11 : une teinte par fonction (bleu froid ≈ (90, 190, 255)
+    pour le groupe froid, trait chaud ≈ (255, 200, 120) sur le fil de la scie), en dégradé (bruit), sans aucun blanc : la
+    composante la plus forte reste sous 1 (couleurs en valeurs linéaires ; P.lueur multiplie la force par 0,55)."""
+    M["ecran"] = P.lueur(S, "c_ecran", ecran, force, 0.55, part=0.45, echelle=14.0)
+    M["led"] = P.lueur(S, "c_led", led, force, 0.55, part=0.5, echelle=11.0)
 
 
 def froid(S, k):
     """GROUPE FROID : deux gros corps d'échangeur couchés bleu (eau glacée) et orange (eau chaude), compresseur à vis et
     moteur à ailettes entre eux, batterie de deux ventilateurs au nord. DA-CALCUL (4/11) : les lignes d'eau finissent dans
-    deux pompes internes (elles touchaient les bords nord et sud) ; lueur de travail : pupitre à écran cyan et colonne
-    lumineuse au sud-ouest, rampe de LED sur le condenseur."""
+    le condenseur et dans une pompe interne (elles touchaient les bords nord et sud) ; lueur de travail en bleu froid : pupitre à
+    écran et colonne lumineuse au sud-ouest, rampe de LED sur le condenseur."""
     M = k.M = P.matieres(S, "hitech")
     lueurs_travail(S, M)
     k.sol("noir", 4, h=0.06, ch=0.22)
@@ -52,9 +54,10 @@ def froid(S, k):
     # évaporateur (eau glacée), bas sud
     k.echangeur(-0.1, -1.72, 0.2, 2.9, 0.45, "bleu", "acier_clair", cerc=5)
     k.echangeur(0.35, -0.5, 0.2, 2.0, 0.36, "orange", "acier_clair", cerc=3)
-    k.tuyau("bleu", [(-1.2, -1.72, 1.1), (-1.2, -1.72, 1.34), (-1.2, 0.2, 1.34), (-1.45, 0.5, 1.34), (-1.45, 0.74, 0.62)], r=0.1, coude=0.22,
-            brides=[(-1.2, -1.72, 1.18), (-1.2, -0.4, 1.34)], bride_mat="acier")
-    pompe(k, -1.45, 0.86, "bleu")
+    # crosse bleue : entre dans la face sud du caisson du condenseur, à l'ouest des persiennes (critique du 4/11 : elle
+    # redescendait contre le montant ouest et s'y arrêtait, piquage lu vers l'ouest)
+    k.tuyau("bleu", [(-1.2, -1.72, 1.1), (-1.2, -1.72, 1.34), (-1.2, 0.55, 1.34), (-1.22, 1.15, 0.92), (-1.22, 1.6, 0.92)], r=0.1, coude=0.22,
+            brides=[(-1.2, -1.72, 1.18), (-1.2, -0.4, 1.34), (-1.22, 1.5, 0.92)], bride_mat="acier")
     k.tuyau("orange", [(0.9, -0.5, 0.92), (0.9, -0.5, 1.2), (1.72, -0.5, 1.2), (1.72, -1.9, 1.2), (1.4, -2.64, 0.9), (1.4, -2.64, 0.44)], r=0.08,
             coude=0.22, bride_mat="acier", brides=[(0.9, -0.5, 1.0), (1.72, -1.2, 1.2), (1.4, -2.64, 0.52)])
     pompe(k, 1.4, -2.55, "orange")
@@ -152,7 +155,8 @@ def cryo(S, k):
     M = k.M = P.matieres(S, "supra")
     M["cyan"] = P.lueur(S, "c_cyan", (0.08, 0.86, 1.0), 4.0, 0.55, part=0.5, echelle=12.0)
     # givre en dégradé sur les corps : une matière mélange noir et givre selon la hauteur (bruit)
-    k.sol("car2", 5, h=0.08, ch=0.3)
+    # DA-CALCUL (critique du 4/11) : le patin est s'arrête sous l'échangeur de la turbine (il finissait 0,3 tuile plus bas, sur rien)
+    k.sol("car2", 5, h=0.08, ch=0.3, patins=[(-1.575, -2.25, 2.0), (1.575, -1.95, 2.3)])
     def dewar(x, y, z1, r, gz):
         k.cuve("car", x, y, 0.08, z1, r, 0.4, 36)
         k.rev("givre", x, y, [(0.08, r + 0.012), (gz * 0.72, r + 0.012), (gz, r + 0.002)], 36, cap=False)
