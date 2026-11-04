@@ -54,7 +54,7 @@ return {
         icon_mipmaps = 4,
         icon_size = 64
       },
-      map_color = { 0.299, 0.252, 0.226 },
+      map_color = { 0.306, 0.258, 0.231 },
       n = {
         glow = {
           hr = {
@@ -194,42 +194,42 @@ return {
         glow = {
           hr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/hr-craqueur_e-glow.png",
-            height = 156,
-            shift = { -0.0625, -0.375 },
+            height = 154,
+            shift = { -0.0625, -0.390625 },
             width = 140
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/craqueur_e-glow.png",
-            height = 78,
-            shift = { -0.0625, -0.375 },
+            height = 77,
+            shift = { -0.0625, -0.390625 },
             width = 70
           }
         },
         light = {
           hr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/hr-craqueur_e-light.png",
-            height = 66,
-            shift = { 0.4375, 1.421875 },
-            width = 152
+            height = 82,
+            shift = { 0.4375, 1.359375 },
+            width = 268
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/craqueur_e-light.png",
-            height = 33,
-            shift = { 0.4375, 1.421875 },
-            width = 76
+            height = 41,
+            shift = { 0.4375, 1.359375 },
+            width = 134
           }
         },
         main = {
           hr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/hr-craqueur_e-main.png",
-            height = 376,
-            shift = { 0.0, -1.46875 },
+            height = 374,
+            shift = { 0.0, -1.484375 },
             width = 208
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/craqueur_e-main.png",
-            height = 188,
-            shift = { 0.0, -1.46875 },
+            height = 187,
+            shift = { 0.0, -1.484375 },
             width = 104
           }
         },
@@ -253,34 +253,34 @@ return {
         icon_mipmaps = 4,
         icon_size = 64
       },
-      map_color = { 0.3, 0.241, 0.198 },
+      map_color = { 0.324, 0.263, 0.215 },
       n = {
         glow = {
           hr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/hr-craqueur_n-glow.png",
-            height = 202,
-            shift = { -0.125, -0.765625 },
+            height = 204,
+            shift = { -0.125, -0.75 },
             width = 148
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/craqueur_n-glow.png",
-            height = 101,
-            shift = { -0.125, -0.765625 },
+            height = 102,
+            shift = { -0.125, -0.75 },
             width = 74
           }
         },
         light = {
           hr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/hr-craqueur_n-light.png",
-            height = 60,
-            shift = { -0.453125, 0.75 },
-            width = 166
+            height = 110,
+            shift = { 0.03125, 0.890625 },
+            width = 264
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/craqueur_n-light.png",
-            height = 30,
-            shift = { -0.453125, 0.75 },
-            width = 83
+            height = 55,
+            shift = { 0.03125, 0.890625 },
+            width = 132
           }
         },
         main = {
@@ -316,29 +316,29 @@ return {
         glow = {
           hr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/hr-craqueur_s-glow.png",
-            height = 182,
-            shift = { -0.015625, -0.359375 },
-            width = 162
+            height = 180,
+            shift = { 0.0, -0.375 },
+            width = 164
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/craqueur_s-glow.png",
-            height = 91,
-            shift = { -0.015625, -0.359375 },
-            width = 81
+            height = 90,
+            shift = { 0.0, -0.375 },
+            width = 82
           }
         },
         light = {
           hr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/hr-craqueur_s-light.png",
-            height = 56,
-            shift = { -0.015625, 1.625 },
-            width = 138
+            height = 78,
+            shift = { 0.203125, 1.546875 },
+            width = 274
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/craqueur_s-light.png",
-            height = 28,
-            shift = { -0.015625, 1.625 },
-            width = 69
+            height = 39,
+            shift = { 0.203125, 1.546875 },
+            width = 137
           }
         },
         main = {
@@ -374,29 +374,29 @@ return {
         glow = {
           hr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/hr-craqueur_w-glow.png",
-            height = 244,
-            shift = { 0.0, -0.625 },
+            height = 240,
+            shift = { 0.0, -0.65625 },
             width = 132
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/craqueur_w-glow.png",
-            height = 122,
-            shift = { 0.0, -0.625 },
+            height = 120,
+            shift = { 0.0, -0.65625 },
             width = 66
           }
         },
         light = {
           hr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/hr-craqueur_w-light.png",
-            height = 52,
-            shift = { -0.40625, 1.71875 },
-            width = 156
+            height = 68,
+            shift = { -0.21875, 1.59375 },
+            width = 244
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/craqueur_w-light.png",
-            height = 26,
-            shift = { -0.40625, 1.71875 },
-            width = 78
+            height = 34,
+            shift = { -0.21875, 1.59375 },
+            width = 122
           }
         },
         main = {
@@ -416,21 +416,21 @@ return {
         shadow = {
           hr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/hr-craqueur_w-shadow.png",
-            height = 186,
-            shift = { 1.46875, 0.078125 },
+            height = 188,
+            shift = { 1.46875, 0.0625 },
             width = 380
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/craqueur_w-shadow.png",
-            height = 93,
-            shift = { 1.46875, 0.078125 },
+            height = 94,
+            shift = { 1.46875, 0.0625 },
             width = 190
           }
         }
       }
     },
     electrolyseur = {
-      boite = { { -1.625, -2.875 }, { 3.375, 1.5938 } },
+      boite = { { -1.625, -2.7188 }, { 3.1875, 1.5938 } },
       e = {
         glow = {
           hr = {
@@ -449,14 +449,14 @@ return {
         main = {
           hr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/hr-electrolyseur_e-main.png",
-            height = 280,
-            shift = { 0.0, -0.6875 },
+            height = 270,
+            shift = { 0.0, -0.609375 },
             width = 208
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/electrolyseur_e-main.png",
-            height = 140,
-            shift = { 0.0, -0.6875 },
+            height = 135,
+            shift = { 0.0, -0.609375 },
             width = 104
           }
         },
@@ -480,7 +480,7 @@ return {
         icon_mipmaps = 4,
         icon_size = 64
       },
-      map_color = { 0.259, 0.242, 0.22 },
+      map_color = { 0.289, 0.265, 0.243 },
       n = {
         glow = {
           hr = {
@@ -514,14 +514,14 @@ return {
           hr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/hr-electrolyseur_n-shadow.png",
             height = 196,
-            shift = { 1.0, 0.0 },
-            width = 304
+            shift = { 0.90625, 0.0 },
+            width = 292
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/electrolyseur_n-shadow.png",
             height = 98,
-            shift = { 1.0, 0.0 },
-            width = 152
+            shift = { 0.90625, 0.0 },
+            width = 146
           }
         }
       },
@@ -543,14 +543,14 @@ return {
         main = {
           hr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/hr-electrolyseur_s-main.png",
-            height = 278,
-            shift = { -0.03125, -0.609375 },
+            height = 274,
+            shift = { -0.03125, -0.578125 },
             width = 192
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/electrolyseur_s-main.png",
-            height = 139,
-            shift = { -0.03125, -0.609375 },
+            height = 137,
+            shift = { -0.03125, -0.578125 },
             width = 96
           }
         },
@@ -558,14 +558,14 @@ return {
           hr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/hr-electrolyseur_s-shadow.png",
             height = 196,
-            shift = { 0.96875, 0.0 },
-            width = 308
+            shift = { 0.875, 0.0 },
+            width = 296
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/electrolyseur_s-shadow.png",
             height = 98,
-            shift = { 0.96875, 0.0 },
-            width = 154
+            shift = { 0.875, 0.0 },
+            width = 148
           }
         }
       },
@@ -587,14 +587,14 @@ return {
         main = {
           hr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/hr-electrolyseur_w-main.png",
-            height = 276,
-            shift = { 0.0, -0.71875 },
+            height = 266,
+            shift = { 0.0, -0.640625 },
             width = 208
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/electrolyseur_w-main.png",
-            height = 138,
-            shift = { 0.0, -0.71875 },
+            height = 133,
+            shift = { 0.0, -0.640625 },
             width = 104
           }
         },
@@ -602,14 +602,14 @@ return {
           hr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/hr-electrolyseur_w-shadow.png",
             height = 180,
-            shift = { 0.890625, -0.03125 },
-            width = 306
+            shift = { 0.8125, -0.03125 },
+            width = 296
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/electrolyseur_w-shadow.png",
             height = 90,
-            shift = { 0.890625, -0.03125 },
-            width = 153
+            shift = { 0.8125, -0.03125 },
+            width = 148
           }
         }
       }
@@ -621,14 +621,14 @@ return {
           hr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/hr-reformeur_e-glow.png",
             height = 194,
-            shift = { -0.109375, -0.828125 },
-            width = 142
+            shift = { 0.015625, -0.828125 },
+            width = 158
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/reformeur_e-glow.png",
             height = 97,
-            shift = { -0.109375, -0.828125 },
-            width = 71
+            shift = { 0.015625, -0.828125 },
+            width = 79
           }
         },
         main = {
@@ -665,19 +665,19 @@ return {
         icon_mipmaps = 4,
         icon_size = 64
       },
-      map_color = { 0.311, 0.273, 0.231 },
+      map_color = { 0.292, 0.255, 0.216 },
       n = {
         glow = {
           hr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/hr-reformeur_n-glow.png",
-            height = 194,
-            shift = { -0.109375, -0.578125 },
+            height = 212,
+            shift = { -0.109375, -0.71875 },
             width = 162
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/reformeur_n-glow.png",
-            height = 97,
-            shift = { -0.109375, -0.578125 },
+            height = 106,
+            shift = { -0.109375, -0.71875 },
             width = 81
           }
         },
@@ -759,14 +759,14 @@ return {
           hr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/hr-reformeur_w-glow.png",
             height = 196,
-            shift = { 0.0, -0.46875 },
-            width = 156
+            shift = { -0.015625, -0.46875 },
+            width = 158
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/machines/chimie/reformeur_w-glow.png",
             height = 98,
-            shift = { 0.0, -0.46875 },
-            width = 78
+            shift = { -0.015625, -0.46875 },
+            width = 79
           }
         },
         main = {
