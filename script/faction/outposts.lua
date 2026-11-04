@@ -575,6 +575,11 @@ end
 --- repli du moteur, sans doublon) ; seul l'ORDRE change : celui qui couvre le plus de bâtiments de l'équipe (règle pure :
 --- shared/team/pose_tourelles.lua). Sans portée lue ni bâtiment : l'ancien ordre.
 local function pose_order(f, surface, outpost, count)
+  -- lot QG-GROUPE2 : QG de votre équipe, places libres des lignes (crochet posé par script/team/qg_groupe.lua ; nil : règle d'avant)
+  if outpost.id == nil and Outposts.hq_slots ~= nil then
+    local slots = Outposts.hq_slots(f, surface, count)
+    if slots then return slots end
+  end
   local raw = {}
   for _, o in ipairs(TURRET_OFFSETS) do
     local pos = surface.find_non_colliding_position(TURRET, { x = outpost.pos.x + o[1], y = outpost.pos.y + o[2] }, 4, 1)

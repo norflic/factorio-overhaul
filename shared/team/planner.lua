@@ -387,7 +387,10 @@ function P.plan(view, book)
   end
   out.defchoix = dc
   if df then
-    posts[1] = { id = "hq", want = qg_peril and math.max(dc.want, qp.want or 0) or dc.want, have = view.hq_turrets or 0, busy = view.hq_fortify }
+    -- lot QG-GROUPE2 : avec Sq.peril{hq}, le groupe « hq » veut hq + fresh (qp.hq_want) ; qp.want compte le recensement à 48 tuiles (tourelles
+    -- des avant-postes voisins comprises) contre `have` = groupe « hq » seul : une pose en appelait une autre (g1-123456789 : 22 posées)
+    local qwant = qp and (qp.hq_want or qp.want) or 0
+    posts[1] = { id = "hq", want = qg_peril and math.max(dc.want, qwant) or dc.want, have = view.hq_turrets or 0, busy = view.hq_fortify }
     for _, o in ipairs(view.outposts) do
       if lacking[o.id] then
         local ospec = T.outposts[o.kind]

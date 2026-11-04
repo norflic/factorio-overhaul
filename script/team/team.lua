@@ -13,6 +13,7 @@
 local Events = require("script.core.events")
 local T = require("shared.team.config")
 local Fondation = require("shared.team.fondation") -- lot KIT : kit de départ commun aux deux équipes
+local QgG = require("script.team.qg_groupe") -- lot QG-GROUPE2 : tourelles de départ du QG en ligne
 local Depart = require("shared.team.depart") -- lot PARITE : tourelles de QG offertes au départ (emplacements)
 local Book = require("shared.team.book")
 local Planner = require("shared.team.planner")
@@ -260,7 +261,9 @@ function Team.faction_grant() return Fondation.grant(false, Team.kit_generous(),
 function Team.place_hq_turrets(f, surface, center, n)
   local force = game.forces[f.force]
   local placed = 0
-  for _, o in ipairs(Depart.offsets(n)) do
+  -- lot QG-GROUPE2 : votre équipe pose ses tourelles de départ en ligne (script/team/qg_groupe.lua, QgG.line ; nil : D.HQ_OFFSETS)
+  local offsets = QgG.line(f, surface, center, n) or Depart.offsets(n)
+  for _, o in ipairs(offsets) do
     local tpos = surface.find_non_colliding_position(T.turret, { x = center.x + o[1], y = center.y + o[2] }, 10, 1)
     if tpos then
       local t = surface.create_entity({ name = T.turret, position = tpos, force = force })
