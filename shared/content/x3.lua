@@ -197,7 +197,7 @@ B{ name = "fo-data-center", epoch = 10, fr = "Centre de calcul", en = "Data cent
    fluid_in = 1, fluid_out = 1, fluid_filters = { input = { "water" }, output = { "fo-compute" } },
    fixed_recipe = "fo-computing", levels = LV("process"), sprite_fr = "copie teintée d'assembling-machine-3, étirée en 4 × 4 (provisoire)",
    rule_fr = "recette fixe : 10 eau/s → 5 calcul/s ; boîtes filtrées (FluidBox.filter : eau en entrée, calcul en sortie) ; ses niveaux (famille des procédés) donnent plus de calcul par bâtiment" }
-B{ name = "fo-robotics-bay", epoch = 10, fr = "Atelier de robotique", en = "Robotics bay",
+B{ name = "fo-x3-robotics-bay", epoch = 10, fr = "Atelier de robotique", en = "Robotics bay",
    proto = "assembling-machine", size = { 5, 5 }, energy = ELEC, kw = 2500, speed = 1, categories = { "fo-robotics" },
    fluid_in = 1, fluid_filters = { input = { "fo-compute" } }, levels = LV("process"), sprite_fr = "copie teintée du roboport",
    rule_fr = "reçoit le calcul par tuyau (boîte filtrée sur fo-compute) ; le calcul se stocke et voyage en wagon-citerne : l'atelier n'est pas forcé de se poser à côté du centre" }
@@ -317,8 +317,8 @@ R("fo-data-center", 10, "advanced-crafting", 30,
   { { "fo-graphics-card", 10 }, { "fo-controller", 4 }, { "steel-plate", 20 }, { "concrete", 20 }, { "pipe", 10 } }, { { "fo-data-center", 1 } })
 R("fo-computing", 10, "fo-computing", 1, { { "water", 10 } }, { { "fo-compute", 5 } },
   { fr = "Calcul", en = "Computing", note_fr = "recette fixe du centre de calcul (10 MW : 2 MJ l'unité) ; l'eau évaporée est le refroidissement, rien à évacuer" })
-R("fo-robotics-bay", 10, "advanced-crafting", 20,
-  { { "fo-servo-motor", 10 }, { "fo-controller", 6 }, { "fo-optical-sensor", 10 }, { "steel-plate", 40 }, { "concrete", 40 } }, { { "fo-robotics-bay", 1 } })
+R("fo-x3-robotics-bay", 10, "advanced-crafting", 20,
+  { { "fo-servo-motor", 10 }, { "fo-controller", 6 }, { "fo-optical-sensor", 10 }, { "steel-plate", 40 }, { "concrete", 40 } }, { { "fo-x3-robotics-bay", 1 } })
 R("fo-guidance-core", 10, "fo-robotics", 20,
   { { "fo-controller", 1 }, { "fo-graphics-card", 1 }, { "fo-optical-sensor", 2 }, { "fo-compute", 20 } }, { { "fo-guidance-core", 1 } },
   { note_fr = "20 calculs, soit 40 MJ d'électricité, par noyau" })
@@ -403,7 +403,7 @@ T("fo-chip-foundry", 10, "Fonderie de puces", "Chip foundry",
     "fo-crystal-lithograph", "fo-etched-wafer", "fo-memory-module", "fo-etched-processor", "fo-graphics-card" },
   { prereq = { "fo-silicon", "fo-servo-mechanisms" } })
 T("fo-computing", 10, "Calcul et robotique", "Computing and robotics",
-  { "fo-data-center", "fo-computing", "fo-robotics-bay", "fo-guidance-core", "fo-guard-drone-capsule" },
+  { "fo-data-center", "fo-computing", "fo-x3-robotics-bay", "fo-guidance-core", "fo-guard-drone-capsule" },
   { prereq = { "fo-chip-foundry" } })
 T("fo-combat-robots", 12, "Robots de combat", "Combat robots",
   { "fo-magnetic-actuator", "fo-ndyag-rod", "fo-laser-module", "fo-combat-robot", "fo-cryogenic-unit-actuated" },
