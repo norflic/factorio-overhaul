@@ -1015,6 +1015,14 @@ do
   for _, l in ipairs(S.lines(r)) do print(l) end
   da_energie_ok = S.ok(r)
 end
+-- Feuilles du lot DA-CHIMIE hors de git (D-6, 4/11) : même contrôle (bloc : limite de 200 locales du chunk)
+local chimie_ok
+do
+  local S = dofile(HERE .. "/chimie_sheets.lua")
+  local r = S.check(MOD_ROOT)
+  for _, l in ipairs(S.lines(r)) do print(l) end
+  chimie_ok = S.ok(r)
+end
 -- Sons (lot S0)
 print(string.format("Sons : %d violation(s) (fichier manquant, format non lu par le moteur, en-tête faux, .ogg autre que "
   .. "Vorbis, en-têtes Vorbis invalides, fichier tronqué) ; étalonnage "
@@ -1088,4 +1096,5 @@ os.exit((#new_errors == 0 and #own_paths == 0 and #missing_locale == 0 and #rule
   and BitersSheets.ok(biters_sheets)
   and MetalSheets.ok(metal_sheets)
   and da_energie_ok
+  and chimie_ok
   and #snd_errors == 0 and #snd_vanilla == 0 and #snd_self_fail == 0) and 0 or 1)

@@ -5,6 +5,7 @@
 
 local lib = require("prototypes.lib")
 local T = require("shared.content.titanium")
+local CV = require("prototypes.chimie_visuels")
 local W = require("shared.content.world")
 
 local out = {}
@@ -158,13 +159,14 @@ local function machine(spec)
   end
   local src_icon = data.raw.item[spec.copy]
   lib.set_icons(e, icon_of("item", spec.copy, spec.tint))
+  CV.habiller(e)   -- lot DA-CHIMIE : vrais visuels de l'électrolyseur (4 directions)
   out[#out + 1] = e
   out[#out + 1] = {
     type = "item",
     name = spec.name,
     localised_name = { "entity-name." .. spec.name },
     localised_description = { "entity-description." .. spec.name },
-    icons = icon_of("item", spec.copy, spec.tint),
+    icons = CV.icones(spec.name) or icon_of("item", spec.copy, spec.tint),
     subgroup = "fo-titanium-machines",
     order = "z[fo]-b[titanium]-" .. spec.name,
     place_result = spec.name,
