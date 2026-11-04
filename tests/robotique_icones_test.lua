@@ -166,7 +166,7 @@ local REQ = 'require%("prototypes%.robotique_icones"%)'
 -- prototypes/robots.lua appartient au lot ROBOTSJEU : ses 3 lignes (kits, segments, technologies des robots) sont posées par
 -- l'intégrateur à la fusion, après ROBOTSJEU (fo-logs/2026-11-04_DA-ICONES/robots_lua_a_poser.patch). Passer ROBOTS_BRANCHE à
 -- true à ce moment-là : le contrôle devient alors strict, comme pour les 4 autres fichiers.
-local ROBOTS_BRANCHE = false
+local ROBOTS_BRANCHE = true
 local BRANCHES = {
   -- fichier, appels icones_objet, appels icones_tech, garde de `pictures`
   { "prototypes/robot_parts.lua", 1, 1, false },
