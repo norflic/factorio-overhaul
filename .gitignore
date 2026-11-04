@@ -41,3 +41,5 @@ graphics/metallurgie/*.png
 graphics/da/energie/*.png
 # Feuilles de jeu des machines de chimie (lot DA-CHIMIE, même règle D-6) : tools/render/pieces/chimie/feuilles.py
 graphics/machines/chimie/*.png
+# Feuilles des bâtiments d'atelier (lot DA-ATELIERS, D-6) : régénérées par tools/render/pieces/ateliers/feuilles.py
+graphics/machines/ateliers/*.png

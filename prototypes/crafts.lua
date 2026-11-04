@@ -5,6 +5,7 @@
 
 local lib = require("prototypes.lib")
 local C = require("shared.content.crafts")
+local AV = require("prototypes.ateliers_visuels")   -- lot DA-ATELIERS : visuels propres des bâtiments d'atelier
 local T = require("shared.content.titanium")
 local Vis = require("prototypes.robotique_icones") -- icônes dédiées (lot DA-ICONES) ; un nom absent garde la copie teintée
 local CV = require("prototypes.chimie_visuels")
@@ -206,7 +207,9 @@ local function machine(spec)
   else
     e.fluid_boxes = nil
   end
-  local icons = icon_of("item", spec.copy[2], spec.tint)
+  -- lot DA-ATELIERS : visuel propre (images rendues, raccords, flamme) à la place de la copie teintée, quand il existe
+  local propres = AV.appliquer(e)
+  local icons = propres or icon_of("item", spec.copy[2], spec.tint)
   lib.set_icons(e, icons)
   -- lot DA-CHIMIE : vrais visuels (4 directions) à la place de la copie teintée, quand la machine en a
   if CV.habiller(e) then icons = CV.icones(spec.name) end
@@ -216,7 +219,7 @@ local function machine(spec)
     name = spec.name,
     localised_name = { "entity-name." .. spec.name },
     localised_description = { "entity-description." .. spec.name },
-    icons = icons,
+    icons = table.deepcopy(icons),
     subgroup = "fo-crafts-machines",
     order = "z[fo]-a[crafts]-" .. spec.name,
     place_result = spec.name,
