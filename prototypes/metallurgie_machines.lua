@@ -39,13 +39,13 @@ end
 -- modèles (m_hf.py : cour de coulée ; m_co.py : porte ouverte ; m_kr.py : puits ouvert). Fumée des machines à combustible : au
 -- sommet des prises de gaz du haut fourneau (z 5,3) et de la cheminée du four à coke (z 4,5), projetées à l'écran.
 local AU_TRAVAIL = {
-  ["fo-blast-furnace"] = { light = { intensity = 0.55, size = 7, color = { r = 1.0, g = 0.55, b = 0.2 }, shift = { 0.0, 1.2 } },
+  ["fo-blast-furnace"] = { light = { intensity = 0.85, size = 9, color = { r = 1.0, g = 0.55, b = 0.2 }, shift = { 0.0, 1.2 } },
                            smoke = { { -0.29, -4.25 }, { 0.59, -4.25 } } },
   ["fo-coke-oven"] = { light = { intensity = 0.45, size = 5, color = { r = 1.0, g = 0.5, b = 0.18 }, shift = { 0.0, 0.9 } },
                        smoke = { { -0.62, -4.4 } } },
   ["fo-kroll-reactor"] = { light = { intensity = 0.55, size = 6, color = { r = 1.0, g = 0.6, b = 0.25 }, shift = { -0.2, -0.6 } } },
   ["fo-ore-concentrator"] = { light = { intensity = 0.3, size = 3, color = { r = 1.0, g = 0.7, b = 0.3 }, shift = { 0.5, -0.8 } } },
-  ["fo-reduction-cell"] = { light = { intensity = 0.4, size = 5, color = { r = 1.0, g = 0.55, b = 0.2 }, shift = { 0.45, 1.0 } } },
+  ["fo-reduction-cell"] = { light = { intensity = 0.7, size = 7, color = { r = 1.0, g = 0.55, b = 0.2 }, shift = { 0.45, 1.0 } } },
 }
 
 --- Une machine (assembling-machine) : image fixe principale + ombre ; lueur et lumière au sol au travail seulement, en fondu.
