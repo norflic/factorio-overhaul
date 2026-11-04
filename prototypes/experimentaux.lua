@@ -164,7 +164,16 @@ do
   local f = table.deepcopy(data.raw.explosion["nuke-explosion"])
   f.name = Xp.PREFIX .. "demi-vie-fusion"
   f.localised_name = { "entity-name." .. f.name }
-  lib.tint_sprites(f.animations, { r = 0.55, g = 1.0, b = 0.45 })
+  -- lib.tint_sprites saute les couches draw_as_glow : or l'explosion nucléaire vanilla n'a QUE des couches de lueur (i3 : boule blanche).
+  -- Teinte posée ici sur toutes ses couches, lueurs comprises (une teinte ne fait que multiplier, F36 : le blanc devient vert).
+  local VERT = { r = 0.45, g = 1.0, b = 0.3, a = 1 }
+  local function teinte(t, seen)
+    if type(t) ~= "table" or seen[t] then return end
+    seen[t] = true
+    if t.filename or t.filenames or t.stripes then t.tint = VERT end
+    for _, v in pairs(t) do teinte(v, seen) end -- étape data : l'ordre de parcours ne change rien (même teinte partout)
+  end
+  teinte(f.animations, {})
   f.light = { intensity = 1, size = 40, color = { r = 0.45, g = 1.0, b = 0.3 } }
   out[#out + 1] = f
   local nuage = table.deepcopy(data.raw["smoke-with-trigger"]["poison-cloud-visual-dummy"])

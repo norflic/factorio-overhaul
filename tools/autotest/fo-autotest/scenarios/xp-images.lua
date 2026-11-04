@@ -21,7 +21,8 @@ for i, id in ipairs(C.IDS) do
   local vx = id == "demi-vie" and C.x(8) + 6 or x + d / 2 - 6
   vue(t, id .. "-jour", vx, C.Y - 7, 1)
   vue(t + 2, id .. "-nuit", vx, C.Y - 7, 1, true)
-  for k = 0, 5 do vue(t + 10 + k * 9, string.format("%s-effet-%d", id, k), x + d / 2, C.Y - 5, 1) end
+  local ex = id == "demi-vie" and x + d - 4 or x + d / 2 -- la fusion a lieu sur les cibles (i3 : au bord de l'image)
+  for k = 0, 5 do vue(t + 10 + k * 9, string.format("%s-effet-%d", id, k), ex, C.Y - 5, 1) end
   vue(t + 70, id .. "-z05", x + d / 2, C.Y - 6, 0.5)
 end
 vue(990, "joueur-pose-et-lance", JOUEUR_X + 10, C.Y - 6, 0.7)
