@@ -435,7 +435,11 @@ local function executor_run(scn)
   _G.defines = { direction = { north = 0, east = 2, south = 4, west = 6 }, inventory = { furnace_source = 1, furnace_result = 2, fuel = 3 },
     entity_status = { working = 1, no_power = 2, waiting_for_space_in_destination = 3, no_fuel = 4 } } -- (lot THERMIQUE6 : made_by lit l'état des fours)
   local sink_name, drill_name, edrill_name = T.outposts.iron.sink, T.DRILL, T.DRILL_ELECTRIC
-  _G.game = { tick = 0, entity_prototypes = {
+  _G.game = { tick = 0, recipe_prototypes = {
+    -- (lot AZURE : recettes dépliées par Rb.plan pour refaire une foreuse ou un four dépensés)
+    [T.DRILL] = { products = { { name = T.DRILL, amount = 1 } }, ingredients = { { type = "item", name = "iron-plate", amount = 9 } } },
+    [T.outposts.iron.sink] = { products = { { name = T.outposts.iron.sink, amount = 1 } }, ingredients = { { type = "item", name = "stone", amount = 5 } } },
+  }, entity_prototypes = {
     [sink_name] = { type = "furnace", tile_width = 2, tile_height = 2 },
     [drill_name] = { type = "mining-drill", tile_width = 2, tile_height = 2 },
     [edrill_name] = { type = "mining-drill", tile_width = 3, tile_height = 3 },
@@ -1903,6 +1907,43 @@ do
       r.e1 = st.produced == 1 and #E.made == 0 and table.concat(E.logs, "\n"):find("[FO-ROLLBACK]", 1, true) == nil and st.undo == nil
       E.restore()
     end
+    -- G. foreuses et fours rendus au stock puis DÉPENSÉS (mesuré : « 17 sans objet », B long 20261020) : refaits de plaques et de pierre
+    do
+      local E = world({ pairs = 8 }, mutator)
+      local p, st = to_chantier(E)
+      local band_n = #st.ids
+      local drill, sink = T.DRILL, T.outposts.iron.sink
+      E.chest[drill], E.chest[sink] = 0, 0
+      E.chest["iron-plate"], E.chest.stone = (E.chest["iron-plate"] or 0) + 20 * band_n, 10 * band_n
+      local plates0, stone0 = E.chest["iron-plate"], E.chest.stone
+      for _ = 1, math.floor(Rb.CFG.stall / CFG.every) + 3 do E.think() end
+      r.g1 = E.alive() == 8 and #E.made == 2 * band_n
+      -- une foreuse = 9 plaques, un four = 5 pierres (recettes du moteur simulé)
+      r.g2 = E.chest["iron-plate"] == plates0 - 9 * band_n and E.chest.stone == stone0 - 5 * band_n
+      E.restore()
+    end
+    -- I. une recette à fluide ne se déplie pas : pas de paire sans le four
+    do
+      local E = world({ pairs = 8 }, mutator)
+      local p, st = to_chantier(E)
+      local band_n = #st.ids
+      E.chest[T.outposts.iron.sink] = 0
+      game.recipe_prototypes[T.outposts.iron.sink].ingredients = { { type = "fluid", name = "water", amount = 5 } }
+      for _ = 1, math.floor(Rb.CFG.stall / CFG.every) + 3 do E.think() end
+      r.i1 = E.alive() == 8 - band_n and #E.made == 0
+      E.restore()
+    end
+    -- H. ni objets ni ingrédients : rien n'est reposé, le retour est écrit quand même
+    do
+      local E = world({ pairs = 8 }, mutator)
+      local p, st = to_chantier(E)
+      local band_n = #st.ids
+      E.chest[T.DRILL], E.chest[T.outposts.iron.sink], E.chest["iron-plate"], E.chest.stone = 0, 0, 0, 0
+      for _ = 1, math.floor(Rb.CFG.stall / CFG.every) + 3 do E.think() end
+      r.h1 = E.alive() == 8 - band_n and #E.made == 0
+      r.h2 = table.concat(E.logs, "\n"):find(string.format("%d paire(s) gardee(s), 0 reposee(s), 0 tuile(s) prise(s), %d sans objet", band_n, band_n), 1, true) ~= nil
+      E.restore()
+    end
     -- F. deux retours sans progrès : le second annule la bande (le plan l'accepte en réserve) et une autre sera essayée plus tard
     do
       local E = world({ pairs = 8 }, mutator)
@@ -1948,7 +1989,9 @@ do
     { "etape pas remise a projet", mutsrc("st.stage, st.gate_t0, st.t_degel, st.why_last, st.t0 = \"projet\", nil, nil, nil, tick", "st.gate_t0 = nil") },
     { "tuile prise ignoree", mutsrc("elseif not (surface.can_place_entity({ name = u.name, position = { u.x, u.y }, direction = u.dir, force = force })", "elseif false and not (surface.can_place_entity({ name = u.name, position = { u.x, u.y }, direction = u.dir, force = force })") },
     { "combustible oublie", mutsrc("if n > 0 then bu.get_fuel_inventory().insert({ name = T.fuel, count = Stock.remove(f, T.fuel, n) }) end", "") },
-    { "objets non retires du stock", mutsrc("Stock.remove(f, u.name, 1)\n        local burners", "local burners") },
+    { "objets non retires du stock", mutsrc("for _, n in ipairs(sorted_keys(u.plan or {})) do Stock.remove(f, n, u.plan[n]) end\n        local burners", "local burners") },
+    { "objets dépensés non refaits", mutsrc("local ok, used = Rb.plan(u.name, 1, have, recipe_of)", "local ok, used = Stock.count(f, u.name) >= 1, { [u.name] = 1 }") },
+    -- (« recette à fluide acceptée » : mutant ÉQUIVALENT, un fluide n'est jamais au stock, Rb.plan échoue sur lui de toute façon)
     { "annulation oubliee", mutsrc("Build.cancel(f, st.pid, \"migration: retour en arriere\")", "") },
     { "bande refusee non memorisee", mutsrc("failed(f, ms, o, st, tick, \"retour\")\n        st.retry = tick + Rb.CFG.cool", "st.stage = \"veille\"\n        st.retry = tick + Rb.CFG.cool") },
     -- (« ligne produite non protegee » : mutant ÉQUIVALENT, Mg.watch ne rend « produit » que pour un projet « fini », que Rb.decide laisse en paix)

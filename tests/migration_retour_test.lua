@@ -68,12 +68,36 @@ local function run(R)
   local l2 = R.line({ team = "azure", outpost = 4, pid = 7, why = "abandon", minute = 140, undo = 21, placed = 0, busy = 21, items = 0, n = 2, next = "annuler" })
   r.c11 = l == "[FO-ROLLBACK] azure : avant-poste 4, projet 7 a 75.5 min (chantier-lent) : 21 paire(s) gardee(s), 13 reposee(s), 6 tuile(s) prise(s), 2 sans objet ; retour 1, bande remise en reserve"
     and l2:find("retour 2, bande annulee, une autre sera essayee", 1, true) ~= nil
+  -- 12. plan d'obtention : stock d'abord, puis recettes dépliées (3 niveaux), atomicité de `used`
+  local stock = { gear = 2, plate = 30, stone = 5 }
+  local have = function(n) return stock[n] or 0 end
+  local recipes = {
+    drill = { out = 1, ingredients = { { name = "gear", amount = 3 }, { name = "plate", amount = 3 }, { name = "furnace", amount = 1 } } },
+    gear = { out = 1, ingredients = { { name = "plate", amount = 2 } } },
+    furnace = { out = 1, ingredients = { { name = "stone", amount = 5 } } },
+    pair = { out = 2, ingredients = { { name = "plate", amount = 1 } } }, zero = { out = 0, ingredients = {} },
+    two = { out = 1, ingredients = { { name = "gear", amount = 2 }, { name = "gear", amount = 2 } } },
+    deep = { out = 1, ingredients = { { name = "deep2", amount = 1 } } }, deep2 = { out = 1, ingredients = { { name = "deep3", amount = 1 } } },
+    deep3 = { out = 1, ingredients = { { name = "deep4", amount = 1 } } }, deep4 = { out = 1, ingredients = { { name = "plate", amount = 1 } } },
+  }
+  local rec = function(n) return recipes[n] end
+  local ok1, u1 = R.plan("gear", 1, have, rec)
+  local ok2, u2 = R.plan("gear", 3, have, rec)
+  local ok3, u3 = R.plan("drill", 1, have, rec)
+  local ok4 = R.plan("drill", 1, function(n) return n == "stone" and 3 or have(n) end, rec)  -- pas assez de pierre : four impossible
+  local ok5, u5 = R.plan("pair", 3, have, rec)                                                  -- 3 voulus, 2 par fabrication : 2 fabrications
+  local ok6 = R.plan("deep", 1, have, rec)                                                      -- 4 niveaux : refuse
+  local ok7 = R.plan("rock", 1, have, rec)                                                      -- ni stock ni recette
+  r.c12 = ok1 and u1.gear == 1 and u1.plate == nil
+    and ok2 and u2.gear == 2 and u2.plate == 2 and ok3 and u3.gear == 2 and u3.plate == 3 + 2 and u3.stone == 5
+    and not ok4 and ok5 and u5.plate == 2 and not ok6 and not ok7 and not R.plan("zero", 1, have, rec)
+    and (select(2, R.plan("two", 1, have, rec)).gear == 2) and (select(2, R.plan("two", 1, have, rec)).plate == 4)
   return r
 end
 
 local R = require("shared.team.migration_retour")
 local res = run(R)
-for i = 1, 11 do check(res["c" .. i], "cas " .. i) end
+for i = 1, 12 do check(res["c" .. i], "cas " .. i) end
 
 -- branchement (lecture des sources)
 local S = read("script/team/migration_champ.lua")
@@ -99,6 +123,11 @@ local muts = {
   { "pause jamais finie", "return until_tick ~= nil and now < until_tick", "return until_tick ~= nil" },
   { "pack non borne", "if i <= max then", "if i <= max + 100 then" },
   { "pack non trie", "table.sort(list, function(a, b)", "table.sort(list, function(a, b) if true then return false end" },
+  { "plan sans stock", "local take = math.min(qty, math.max(0, avail))", "local take = 0" },
+  { "plan sans recette", "if not rc or (rc.out or 0) < 1 then return false end", "if not rc then return false end rc.out = rc.out or 1" },
+  { "plan sans profondeur", "if depth >= R.CFG.craft_depth then return false end", "" },
+  { "plan fabrications arrondies", "local runs = math.ceil(rest / rc.out)", "local runs = math.floor(rest / rc.out)" },
+  { "plan used partage", "local avail = have(name) - (used[name] or 0)", "local avail = have(name)" },
   { "pack garde l'entree", "out[#out + 1] = { name = e.name,", "out[#out + 1] = e or { name = e.name," },
 }
 local caught = 0
@@ -110,7 +139,7 @@ for _, m in ipairs(muts) do
   if ok then
     local ok2, x = pcall(run, M)
     all = ok2
-    if ok2 then for i = 1, 11 do if not x["c" .. i] then all = false end end end
+    if ok2 then for i = 1, 12 do if not x["c" .. i] then all = false end end end
   end
   if not all then caught = caught + 1 else print("mutant survivant : " .. m[1]) end
 end

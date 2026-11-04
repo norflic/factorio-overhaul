@@ -934,6 +934,35 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Lot AZURE : retour en arrière (règle pure : shared/team/migration_retour.lua)
 ---------------------------------------------------------------------------------------------------
+--- Recette dépliable d'un objet (règle Rb.plan) : produits par fabrication et ingrédients-objets ; nil si inconnue ou à fluide.
+local function recipe_of(name)
+  local r = game.recipe_prototypes and game.recipe_prototypes[name]
+  if not r then return nil end
+  local out
+  for _, pd in ipairs(r.products or {}) do if pd.name == name then out = pd.amount or 1 end end
+  local ings = {}
+  for _, ing in ipairs(r.ingredients or {}) do
+    if ing.type and ing.type ~= "item" then return nil end
+    ings[#ings + 1] = { name = ing.name, amount = ing.amount }
+  end
+  return out and { out = out, ingredients = ings } or nil
+end
+
+--- Ce qu'il faut prendre au stock pour reposer une foreuse (et un four si `sink`) : les objets rendus au retrait ont pu être dépensés depuis, ils sont
+--- refaits de leurs ingrédients (Rb.plan). Écrit le plan dans `u.plan` (champ de ce passage, jeté avec st.undo) ; rend vrai si tout est là.
+local function afford(f, u, sink)
+  local have = function(n) return Stock.count(f, n) end
+  local ok, used = Rb.plan(u.name, 1, have, recipe_of)
+  if not ok then return false end
+  if sink then
+    local ok2, used2 = Rb.plan(sink.name, 1, function(n) return have(n) - (used[n] or 0) end, recipe_of)
+    if not ok2 then return false end
+    for _, k in ipairs(sorted_keys(used2)) do used[k] = (used[k] or 0) + used2[k] end
+  end
+  u.plan = used
+  return true
+end
+
 --- Repose les paires gardées par retire() sur leurs positions (foreuse thermique + four, pris au stock, combustible compris) quand les tuiles
 --- sont libres. Rend (reposées, tuiles prises, sans objet).
 local function repose(f, surface, st)
@@ -950,17 +979,16 @@ local function repose(f, surface, st)
     elseif not (surface.can_place_entity({ name = u.name, position = { u.x, u.y }, direction = u.dir, force = force })
         and (not need_sink or surface.can_place_entity({ name = sk.name, position = { sk.x, sk.y }, force = force }))) then
       busy = busy + 1
-    elseif Stock.count(f, u.name) < 1 or (need_sink and Stock.count(f, sk.name) < 1) then
+    elseif not afford(f, u, need_sink and sk or nil) then
       noitem = noitem + 1
     else
       local s2 = sink_ent
       if need_sink then s2 = surface.create_entity({ name = sk.name, position = { sk.x, sk.y }, force = force }) end
       local d = ((not sk) or s2) and surface.create_entity({ name = u.name, position = { u.x, u.y }, direction = u.dir, force = force }) or nil
       if d then
-        Stock.remove(f, u.name, 1)
+        for _, n in ipairs(sorted_keys(u.plan or {})) do Stock.remove(f, n, u.plan[n]) end
         local burners = { d }
         if need_sink and s2 then
-          Stock.remove(f, sk.name, 1)
           State.own(s2, f.id, "sink", o.id)
           o.sinks[#o.sinks + 1] = s2
           if s2.type == "furnace" then burners[#burners + 1] = s2 end

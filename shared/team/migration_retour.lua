@@ -27,6 +27,7 @@ R.CFG = {
   cool = 30 * 3600,      -- 30 min en réserve avant que le plan puisse retirer de nouveau (les paires produisent entre-temps)
   max_rollbacks = 2,     -- retours en arrière par bande au plus ; le dernier annule la bande
   undo_max = 40,         -- paires gardées au plus (une bande retire 8 paires par partie en général, 21 au pire mesuré)
+  craft_depth = 3,       -- profondeur des recettes dépliées pour refaire un objet rendu au stock puis dépensé (foreuse -> engrenage -> plaque)
 }
 
 --- Paires retirées -> liste bornée, triée par (x, y, nom) de la foreuse. entries : { { name, x, y, dir, oid, sink = { name, x, y } }, ... }.
@@ -82,6 +83,29 @@ function R.after(n, final, cfg)
   cfg = cfg or R.CFG
   if final or n >= cfg.max_rollbacks then return "annuler" end
   return "reserve"
+end
+
+--- Plan d'obtention de `qty` objets `name` : d'abord ce qui est au stock, le reste fabriqué de ses ingrédients (récursif, R.CFG.craft_depth).
+--- `have(nom)` : stock libre ; `recipe(nom)` : { out = produits par fabrication, ingredients = { { name, amount }, ... } } ou nil (objet qui ne se
+--- fabrique pas, ou recette à fluide). `used` : { [nom] = quantité À PRENDRE au stock } (créé si nil). Rend (vrai, used) ou (faux).
+--- Mesuré (B long, 20261020, azure) : « 17 sans objet » : les foreuses et fours rendus au stock par le retrait avaient été dépensés ailleurs,
+--- aucune paire reposée. Le retour refait ce qu'il avait rendu.
+function R.plan(name, qty, have, recipe, used, depth)
+  used = used or {}
+  depth = depth or 0
+  local avail = have(name) - (used[name] or 0)
+  local take = math.min(qty, math.max(0, avail))
+  if take > 0 then used[name] = (used[name] or 0) + take end
+  local rest = qty - take
+  if rest <= 0 then return true, used end
+  if depth >= R.CFG.craft_depth then return false end
+  local rc = recipe(name)
+  if not rc or (rc.out or 0) < 1 then return false end
+  local runs = math.ceil(rest / rc.out)
+  for _, ing in ipairs(rc.ingredients or {}) do
+    if not R.plan(ing.name, ing.amount * runs, have, recipe, used, depth + 1) then return false end
+  end
+  return true, used
 end
 
 --- La pause du retour est-elle en cours ? (until : tick de fin ou nil)
