@@ -293,39 +293,39 @@ return {
   },
   ["fo-cooling-tower"] = {
     age = 10,
-    boite = { { -2.71875, -4.25 }, { 2.71875, 2.6875 } },
+    boite = { { -2.71875, -4.25 }, { 2.71875, 2.53125 } },
     calage_px = {
       est = 2,
       ouest = 2,
-      sud = 2
+      sud = 9
     },
     cote = 5,
     couches = {
       glow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-tour-glow.png",
-          height = 206,
-          shift = { 0.0, 0.296875 },
+          height = 204,
+          shift = { 0.0, 0.3125 },
           width = 292
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/tour-glow.png",
-          height = 103,
-          shift = { 0.0, 0.296875 },
+          height = 102,
+          shift = { 0.0, 0.3125 },
           width = 146
         }
       },
       main = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-tour-main.png",
-          height = 444,
-          shift = { 0.0, -0.78125 },
+          height = 434,
+          shift = { 0.0, -0.859375 },
           width = 348
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/tour-main.png",
-          height = 222,
-          shift = { 0.0, -0.78125 },
+          height = 217,
+          shift = { 0.0, -0.859375 },
           width = 174
         }
       },
@@ -347,14 +347,14 @@ return {
       shadow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-tour-shadow.png",
-          height = 328,
-          shift = { 1.5625, 0.0 },
+          height = 294,
+          shift = { 1.5625, 0.046875 },
           width = 512
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/tour-shadow.png",
-          height = 164,
-          shift = { 1.5625, 0.0 },
+          height = 147,
+          shift = { 1.5625, 0.046875 },
           width = 256
         }
       }
@@ -364,7 +364,7 @@ return {
       icon_mipmaps = 4,
       icon_size = 64
     },
-    map_color = { 0.204, 0.202, 0.199 },
+    map_color = { 0.205, 0.203, 0.199 },
     variante = "tour"
   },
   ["fo-cryogenic-unit"] = {

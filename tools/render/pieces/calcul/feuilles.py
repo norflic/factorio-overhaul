@@ -6,7 +6,7 @@ sprites.lua (GÉNÉRÉ, lu par prototypes/calcul_machines.lua), sprites.json et 
 
 Sources à GARDER : fo-logs/2026-11-01_CALCUL-DESIGN/final/<machine>/ (rendus à 64 échantillons du kit calcul_o, lot CALCUL-DESIGN :
 couches main, shadow, glow et, pour 12 machines, une bande de 8 images de la pièce mobile ; spec.json : tailles, shift en tuiles,
-64 px par tuile). Depuis le lot DA-CALCUL (4/11), les 6 machines de REPRISES_DA (salle blanche refaite, tuyaux dessinés retirés,
+64 px par tuile). Depuis le lot DA-CALCUL (4/11), les 7 machines de REPRISES_DA (salle blanche refaite, tuyaux dessinés retirés,
 lueurs de travail) viennent de fo-logs/2026-11-04_DA-CALCUL/final/<machine>/ (même format, même étalonnage, à GARDER). Le kit de
 rendu est commité depuis DA-CALCUL (tools/render/pieces/machines/calcul_o) : ce script n'en dépend pas et ne lance jamais Blender.
 
@@ -36,10 +36,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 MOD = os.path.normpath(os.path.join(HERE, "..", "..", "..", ".."))
 LOGS = r"F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs"
 SRC_DEFAUT = os.path.join(LOGS, "2026-11-01_CALCUL-DESIGN", "final")
-# Lot DA-CALCUL (4/11) : 6 machines reprises (salle blanche refaite ; tuyaux dessinés retirés de l'unité cryogénique, des deux
-# centres et du groupe froid ; lueur de travail du groupe froid et de la scie à fil) ont leurs sources dans un second dossier à GARDER.
+# Lot DA-CALCUL (4/11) : 7 machines reprises (salle blanche refaite ; tuyaux dessinés retirés de l'unité cryogénique, des deux
+# centres, du groupe froid et de la tour de refroidissement ; lueur de travail du groupe froid et de la scie à fil) ont leurs sources dans un second dossier à GARDER.
 SRC_DA_DEFAUT = os.path.join(LOGS, "2026-11-04_DA-CALCUL", "final")
-REPRISES_DA = ("centre", "cryo", "froid", "grand_centre", "salle", "scie")
+REPRISES_DA = ("centre", "cryo", "froid", "grand_centre", "salle", "scie", "tour")
 DEST_DEFAUT = os.path.join(MOD, "graphics", "machines", "calcul")
 PREFIXE = "__factorio-overhaul__/graphics/machines/calcul/"
 PX = 64  # pixels hr par tuile

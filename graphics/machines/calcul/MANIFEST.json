@@ -1,6 +1,6 @@
 {
  "arguments": [],
- "commande": "py -3.9 tools/render/pieces/calcul/feuilles.py   (depuis la racine du mod, sans argument ; sources : fo-logs/2026-11-01_CALCUL-DESIGN/final et, pour centre, cryo, froid, grand_centre, salle, scie, fo-logs/2026-11-04_DA-CALCUL/final, à GARDER)",
+ "commande": "py -3.9 tools/render/pieces/calcul/feuilles.py   (depuis la racine du mod, sans argument ; sources : fo-logs/2026-11-01_CALCUL-DESIGN/final et, pour centre, cryo, froid, grand_centre, salle, scie, tour, fo-logs/2026-11-04_DA-CALCUL/final, à GARDER)",
  "fichiers": {
   "arc-glow.png": {
    "hauteur": 88,
@@ -645,28 +645,28 @@
    "taille": 12841
   },
   "hr-tour-glow.png": {
-   "hauteur": 206,
+   "hauteur": 204,
    "largeur": 292,
-   "sha256": "ea681203229544cc331222def1b5012760f9c977d42788cbca1c899dfb1a60f0",
-   "taille": 35066
+   "sha256": "5f1c56c13f7fb270e66b048dc48d1cbb07f503581b590328b899d1a742ea4b60",
+   "taille": 33873
   },
   "hr-tour-main.png": {
-   "hauteur": 444,
+   "hauteur": 434,
    "largeur": 348,
-   "sha256": "52fa920e307ee9aa38384b1eb0a2fc386de0ee261aa85c85aa438f96d36e41c6",
-   "taille": 180340
+   "sha256": "5ed8a9f211269e1b39b8953f99d8d4286d874af63103c1d89514aa2f0594a636",
+   "taille": 179304
   },
   "hr-tour-mobile.png": {
    "hauteur": 90,
    "largeur": 960,
-   "sha256": "39c16809c2b17de77cee0b17823fa4df7b1cfabdb523778f69bc930ff04c89b0",
-   "taille": 102642
+   "sha256": "6c79afaa55bee4818fb5ee4c6a1a99e700ab7221739160ade13da0e25279e500",
+   "taille": 102964
   },
   "hr-tour-shadow.png": {
-   "hauteur": 328,
+   "hauteur": 294,
    "largeur": 512,
-   "sha256": "4871378e93cab13a416c1627d8578c774e6bcfeaa386ae6fb17f9dfda178399c",
-   "taille": 15704
+   "sha256": "3698d9ec5af1e8fe5907979e846070edfe9cf803a82ea48c6970171c0cc8fef3",
+   "taille": 14792
   },
   "icone-arc.png": {
    "hauteur": 64,
@@ -785,8 +785,8 @@
   "icone-tour.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "ead3530004c2e7bed76c7a26720431a6ba7521094e6f4fde5bf5ae6ca00e7983",
-   "taille": 9870
+   "sha256": "4affe7bce65937e39219b42c10de67677182cc2cf2e7b62a686e378f965fea74",
+   "taille": 10121
   },
   "impr-glow.png": {
    "hauteur": 29,
@@ -963,33 +963,33 @@
    "taille": 4317
   },
   "tour-glow.png": {
-   "hauteur": 103,
+   "hauteur": 102,
    "largeur": 146,
-   "sha256": "40dd5bb3d4038e56584b4022fe692f2460f714ed59204b1b6be172f14de7a2fb",
-   "taille": 11469
+   "sha256": "a7fa530f9cf0377f2955aac878d78eafcaea6bc5bdcfb38fb1cdbefada1ccdd9",
+   "taille": 11301
   },
   "tour-main.png": {
-   "hauteur": 222,
+   "hauteur": 217,
    "largeur": 174,
-   "sha256": "96dc46499b9d0fee0a104836c9e99d51ab6e77ad48455f5015ffe377be1f7061",
-   "taille": 54616
+   "sha256": "13fb8b232230659ab121dc747297694116e111d5b58313aaddf539a8ee6b83bf",
+   "taille": 54185
   },
   "tour-mobile.png": {
    "hauteur": 45,
    "largeur": 480,
-   "sha256": "06eee608edef565149f90f79cc8c1edb074014f99b809d400dd5c95466073400",
-   "taille": 30772
+   "sha256": "b64c1976683297bac418be221d250304b53be70646c52ef3f32e021f4c0963a6",
+   "taille": 30604
   },
   "tour-shadow.png": {
-   "hauteur": 164,
+   "hauteur": 147,
    "largeur": 256,
-   "sha256": "dac0ae06d2ac7325fd28c1095245ea551afee305f71b73793b7f463ea3b76852",
-   "taille": 5504
+   "sha256": "6fc05fa1c1359942d8b48f3d49f1dc038566cb7cee4e68b7e99a0a6e4a20daeb",
+   "taille": 5319
   }
  },
  "machines": 20,
- "mpx_hr": 5.785,
- "mpx_normale": 1.446,
+ "mpx_hr": 5.764,
+ "mpx_normale": 1.441,
  "nettoyage": [
   "arc main : 670 pixel(s) isolé(s) effacé(s)",
   "arc shadow : 2007 pixel(s) isolé(s) effacé(s)",
@@ -1048,9 +1048,9 @@
   "tireuse main : 483 pixel(s) isolé(s) effacé(s)",
   "tireuse shadow : 2627 pixel(s) isolé(s) effacé(s)",
   "tireuse glow : 160 pixel(s) isolé(s) effacé(s)",
-  "tour main : 363 pixel(s) isolé(s) effacé(s)",
-  "tour shadow : 2747 pixel(s) isolé(s) effacé(s)",
-  "tour glow : 286 pixel(s) isolé(s) effacé(s)"
+  "tour main : 390 pixel(s) isolé(s) effacé(s)",
+  "tour shadow : 1663 pixel(s) isolé(s) effacé(s)",
+  "tour glow : 19 pixel(s) isolé(s) effacé(s)"
  ],
  "reprises_da": [
   "centre",
@@ -1058,7 +1058,8 @@
   "froid",
   "grand_centre",
   "salle",
-  "scie"
+  "scie",
+  "tour"
  ],
  "sources": "fo-logs/2026-11-01_CALCUL-DESIGN/final",
  "sources_da": "fo-logs/2026-11-04_DA-CALCUL/final"
