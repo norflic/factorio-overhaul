@@ -70,4 +70,30 @@ function A.report_line(key, tick, st, idle, free, gate)
     tostring(key), tick / 3600, idle, free, n, n > 0 and (st.sum / n) / 60 or 0, (st.max or 0) / 60, st.fast or 0, gate.calm or 0, gate.calm_go or 0)
 end
 
+--- Lot AGEBLOCAGE (diagnostic, lecture seule) : sortes des tâches PRISES dans la fenêtre. Le journal du DC du 3/11 ne disait que les
+--- tâches LIBRES ; on ne savait pas ce que faisaient les 8 PNJ d'Azur de 47 à 86 min, pendant que plus rien n'était fabriqué.
+function A.note_kind(st, kind)
+  st.kinds = st.kinds or {}
+  local k = kind or "?"
+  st.kinds[k] = (st.kinds[k] or 0) + 1
+end
+
+--- Texte « sorte:n » d'une table { [sorte] = n }, sortes triées (déterminisme ; aucune décision).
+function A.kinds_text(map)
+  local ks = {}
+  for k in pairs(map or {}) do ks[#ks + 1] = k end
+  table.sort(ks)
+  local out = {}
+  for _, k in ipairs(ks) do out[#out + 1] = k .. ":" .. map[k] end
+  return "{" .. table.concat(out, " ") .. "}"
+end
+
+--- Ligne [FO-ACTIF-SORTES] (texte seul) : prises de la fenêtre par sorte, PNJ par sorte de tâche EN COURS (`busy`), PNJ qui
+--- fabriquent en arrière-plan (`bg`), PNJ loin du QG (`far`, au-delà de `far_r` tuiles) sur `n` PNJ.
+function A.report_kinds_line(key, tick, st, busy, bg, far, far_r, n)
+  return string.format("[FO-ACTIF-SORTES] %s a %.1f min : prises en 5 min %s ; PNJ par tache en cours %s ; en arriere-plan %d ; loin du QG (> %d tuiles) %d sur %d",
+    tostring(key), tick / 3600, A.kinds_text(st and st.kinds), A.kinds_text(busy), bg or 0, far_r or 0, far or 0, n or 0)
+end
+A.FAR_R = 64 -- tuiles : un PNJ au-delà ne repasse pas au coffre du QG entre deux étapes (lecture seule)
+
 return A

@@ -615,6 +615,26 @@ function Board.actif_report(f, tick)
   local key = f.key or (f.is_player and "player") or f.id
   local gate = (Board.gate_actif and Board.gate_actif(f)) or {}
   log(Ac.report_line(key, tick, a.win, idle, free, gate))
+  -- Lot AGEBLOCAGE (diagnostic, lecture seule) : PNJ par sorte de tâche EN COURS, PNJ qui fabriquent en arrière-plan, PNJ loin du QG.
+  local busy, bg, far, n = {}, 0, 0, 0
+  local home = f.hq_pos
+  for _, id in ipairs(sorted_keys(f.engineers or {})) do
+    local ag = Registry.get(id)
+    if ag then
+      n = n + 1
+      if ag.task then
+        local k = ag.task.kind or "?"
+        busy[k] = (busy[k] or 0) + 1
+      end
+      if ag.bg and ag.bg.jobs and #ag.bg.jobs > 0 then bg = bg + 1 end
+      local e = ag.entity
+      if home and e and e.valid then
+        local dx, dy = e.position.x - home.x, e.position.y - home.y
+        if dx * dx + dy * dy > Ac.FAR_R * Ac.FAR_R then far = far + 1 end
+      end
+    end
+  end
+  log(Ac.report_kinds_line(key, tick, a.win, busy, bg, far, Ac.FAR_R, n))
   a.win = {}
 end
 
@@ -698,6 +718,7 @@ function Board.claim(f, agent, tick)
       best.worker = agent.id
       best.claimed = tick
       if best.created then Ac.note_claim(Board.actif(f).win, tick - best.created) end -- lot COMPAGNONS-ACTIFS : délai d'affectation
+      Ac.note_kind(Board.actif(f).win, best.kind) -- lot AGEBLOCAGE (diagnostic, lecture seule) : sorte de la tâche prise
       best.away = nil
       Fantomes.show(f, best, tick) -- lot FANTOMES : où le PNJ va poser (aperçu en fantômes)
       -- Son indice (pris ou non) et celui de la tâche prise sont rendus : la tâche indiquée redevient libre pour tous.
@@ -767,6 +788,7 @@ function Board.claim(f, agent, tick)
     best.worker = agent.id
     best.claimed = tick
     if best.created then Ac.note_claim(Board.actif(f).win, tick - best.created) end -- lot COMPAGNONS-ACTIFS : délai d'affectation
+      Ac.note_kind(Board.actif(f).win, best.kind) -- lot AGEBLOCAGE (diagnostic, lecture seule) : sorte de la tâche prise
     best.away = (away and (best.prio or 0) >= O.URGENT_PRIO) or nil
     Fantomes.show(f, best, tick) -- lot FANTOMES
   end
