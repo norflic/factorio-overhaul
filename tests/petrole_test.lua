@@ -150,6 +150,12 @@ local function run(d, label, names)
   for k in pairs(all_techs_before(cat, names.mil_tech)) do st2.techs[k] = true end
   st2.techs[names.mil_tech] = true
   local ev3 = Gen.prepare(cat, st2)
+  -- Lot AGEBLOCAGE : « pack nouveau » = pack FABRIQUÉ. Sans pack chimique au stock, la règle ne promeut rien (fo-robot-heavy et
+  -- military-3 lâchés après 8 min dans les bancs verif-guide de f6fb69db) ; avec 10 packs au stock, comme avant.
+  local d_nostock = Gen.choose(cat, ev3, st2, { new_pack = true })
+  check(not consumes(d_nostock.tech or "") and d_nostock.k1 ~= "pack nouveau",
+    label .. " §2b pack chimique faisable mais pas au stock : aucune recherche promue « pack nouveau » (" .. tostring(d_nostock.tech) .. ")")
+  st2.stock[names.chem_pack] = 10
   local d_on = Gen.choose(cat, ev3, st2, { new_pack = true })
   local used = {}
   for t in pairs(st2.techs) do for _, ing in ipairs((cat.techs[t] or {}).ingredients or {}) do used[ing[1]] = true end end
