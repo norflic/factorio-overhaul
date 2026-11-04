@@ -94,8 +94,12 @@ def estime(nom, faits):
         return sum(vus) / len(vus)
     # âge pas encore rendu : temps du lot × rapport (réel / estimé) des variantes faites de la même partie (1re production :
     # têtes de l'âge 7 à 23 s pour 17 s estimées ; sans ce rapport, les paquets des grands âges dépassaient 20 min)
-    rapports = [s / defaut(n) for n, s in faits.items() if partie(n) == p and s]
-    k = max(1.0, sum(rapports) / len(rapports)) if rapports else 1.0
+    # rapport le plus FORT par âge déjà rendu (prudence : têtes de l'âge 9 à 1,8 fois l'estimation, paquet de 19 min 45)
+    par_age = {}
+    for n, s in faits.items():
+        if partie(n) == p and s:
+            par_age.setdefault(int(n[1:3]), []).append(s / defaut(n))
+    k = max([1.0] + [sum(v) / len(v) for v in par_age.values()])
     return defaut(nom) * k
 
 
@@ -137,7 +141,7 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--directions", default=FE.DIRECTIONS_DEFAUT)
     ap.add_argument("--ages", default="1-15")
-    ap.add_argument("--minutes", type=float, default=12.0, help="rendu estimé par paquet (une session ≤ 20 min)")
+    ap.add_argument("--minutes", type=float, default=10.0, help="rendu estimé par paquet (une session ≤ 20 min)")
     ap.add_argument("--sortie", default=SORTIE)
     ap.add_argument("--journal", default=JOURNAL)
     ap.add_argument("--stop", default=STOP)
