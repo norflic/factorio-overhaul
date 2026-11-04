@@ -17,19 +17,19 @@
       "filename": "__factorio-overhaul__/graphics/machines/chimie/hr-colonne_e-glow.png",
       "height": 298,
       "shift": [
-       -0.03125,
+       -0.046875,
        -1.109375
       ],
-      "width": 160
+      "width": 162
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/colonne_e-glow.png",
       "height": 149,
       "shift": [
-       -0.03125,
+       -0.046875,
        -1.109375
       ],
-      "width": 80
+      "width": 81
      }
     },
     "main": {
@@ -79,9 +79,9 @@
     "icon_size": 64
    },
    "map_color": [
-    0.306,
-    0.258,
-    0.231
+    0.313,
+    0.266,
+    0.238
    ],
    "n": {
     "glow": {
@@ -89,19 +89,19 @@
       "filename": "__factorio-overhaul__/graphics/machines/chimie/hr-colonne_n-glow.png",
       "height": 322,
       "shift": [
-       -0.03125,
+       -0.015625,
        -1.171875
       ],
-      "width": 116
+      "width": 114
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/colonne_n-glow.png",
       "height": 161,
       "shift": [
-       -0.03125,
+       -0.015625,
        -1.171875
       ],
-      "width": 58
+      "width": 57
      }
     },
     "main": {
@@ -109,19 +109,19 @@
       "filename": "__factorio-overhaul__/graphics/machines/chimie/hr-colonne_n-main.png",
       "height": 392,
       "shift": [
-       -0.046875,
+       -0.03125,
        -1.59375
       ],
-      "width": 198
+      "width": 196
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/colonne_n-main.png",
       "height": 196,
       "shift": [
-       -0.046875,
+       -0.03125,
        -1.59375
       ],
-      "width": 99
+      "width": 98
      }
     },
     "shadow": {
@@ -149,19 +149,19 @@
     "glow": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/hr-colonne_s-glow.png",
-      "height": 276,
+      "height": 278,
       "shift": [
        -0.015625,
-       -1.03125
+       -1.015625
       ],
       "width": 158
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/colonne_s-glow.png",
-      "height": 138,
+      "height": 139,
       "shift": [
        -0.015625,
-       -1.03125
+       -1.015625
       ],
       "width": 79
      }
@@ -171,7 +171,7 @@
       "filename": "__factorio-overhaul__/graphics/machines/chimie/hr-colonne_s-main.png",
       "height": 360,
       "shift": [
-       0.0625,
+       0.03125,
        -1.25
       ],
       "width": 196
@@ -180,7 +180,7 @@
       "filename": "__factorio-overhaul__/graphics/machines/chimie/colonne_s-main.png",
       "height": 180,
       "shift": [
-       0.0625,
+       0.03125,
        -1.25
       ],
       "width": 98
@@ -189,19 +189,19 @@
     "shadow": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/hr-colonne_s-shadow.png",
-      "height": 188,
+      "height": 190,
       "shift": [
        2.109375,
-       0.0625
+       0.046875
       ],
       "width": 434
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/colonne_s-shadow.png",
-      "height": 94,
+      "height": 95,
       "shift": [
        2.109375,
-       0.0625
+       0.046875
       ],
       "width": 217
      }
@@ -213,19 +213,19 @@
       "filename": "__factorio-overhaul__/graphics/machines/chimie/hr-colonne_w-glow.png",
       "height": 292,
       "shift": [
-       0.1875,
+       0.203125,
        -1.15625
       ],
-      "width": 144
+      "width": 142
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/colonne_w-glow.png",
       "height": 146,
       "shift": [
-       0.1875,
+       0.203125,
        -1.15625
       ],
-      "width": 72
+      "width": 71
      }
     },
     "main": {
@@ -628,26 +628,26 @@
     ],
     [
      3.1875,
-     1.5938
+     1.5625
     ]
    ],
    "e": {
     "glow": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/hr-electrolyseur_e-glow.png",
-      "height": 188,
+      "height": 190,
       "shift": [
        -0.03125,
-       -0.71875
+       -0.734375
       ],
       "width": 164
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/electrolyseur_e-glow.png",
-      "height": 94,
+      "height": 95,
       "shift": [
        -0.03125,
-       -0.71875
+       -0.734375
       ],
       "width": 82
      }
@@ -655,19 +655,19 @@
     "main": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/hr-electrolyseur_e-main.png",
-      "height": 270,
+      "height": 268,
       "shift": [
        0.0,
-       -0.609375
+       -0.625
       ],
       "width": 208
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/electrolyseur_e-main.png",
-      "height": 135,
+      "height": 134,
       "shift": [
        0.0,
-       -0.609375
+       -0.625
       ],
       "width": 104
      }
@@ -677,19 +677,19 @@
       "filename": "__factorio-overhaul__/graphics/machines/chimie/hr-electrolyseur_e-shadow.png",
       "height": 184,
       "shift": [
-       0.734375,
+       0.75,
        0.0625
       ],
-      "width": 286
+      "width": 288
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/electrolyseur_e-shadow.png",
       "height": 92,
       "shift": [
-       0.734375,
+       0.75,
        0.0625
       ],
-      "width": 143
+      "width": 144
      }
     }
    },
@@ -699,15 +699,15 @@
     "icon_size": 64
    },
    "map_color": [
-    0.289,
-    0.265,
-    0.243
+    0.299,
+    0.275,
+    0.254
    ],
    "n": {
     "glow": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/hr-electrolyseur_n-glow.png",
-      "height": 146,
+      "height": 150,
       "shift": [
        0.0,
        -0.484375
@@ -716,7 +716,7 @@
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/electrolyseur_n-glow.png",
-      "height": 73,
+      "height": 75,
       "shift": [
        0.0,
        -0.484375
@@ -727,21 +727,21 @@
     "main": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/hr-electrolyseur_n-main.png",
-      "height": 268,
+      "height": 266,
       "shift": [
-       0.03125,
-       -0.5
+       0.015625,
+       -0.515625
       ],
-      "width": 192
+      "width": 190
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/electrolyseur_n-main.png",
-      "height": 134,
+      "height": 133,
       "shift": [
-       0.03125,
-       -0.5
+       0.015625,
+       -0.515625
       ],
-      "width": 96
+      "width": 95
      }
     },
     "shadow": {
@@ -771,19 +771,19 @@
       "filename": "__factorio-overhaul__/graphics/machines/chimie/hr-electrolyseur_s-glow.png",
       "height": 162,
       "shift": [
-       0.0,
+       -0.015625,
        -0.859375
       ],
-      "width": 164
+      "width": 166
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/electrolyseur_s-glow.png",
       "height": 81,
       "shift": [
-       0.0,
+       -0.015625,
        -0.859375
       ],
-      "width": 82
+      "width": 83
      }
     },
     "main": {
@@ -791,19 +791,19 @@
       "filename": "__factorio-overhaul__/graphics/machines/chimie/hr-electrolyseur_s-main.png",
       "height": 274,
       "shift": [
-       -0.03125,
+       -0.015625,
        -0.578125
       ],
-      "width": 192
+      "width": 190
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/electrolyseur_s-main.png",
       "height": 137,
       "shift": [
-       -0.03125,
+       -0.015625,
        -0.578125
       ],
-      "width": 96
+      "width": 95
      }
     },
     "shadow": {
@@ -811,19 +811,19 @@
       "filename": "__factorio-overhaul__/graphics/machines/chimie/hr-electrolyseur_s-shadow.png",
       "height": 196,
       "shift": [
-       0.875,
+       0.890625,
        0.0
       ],
-      "width": 296
+      "width": 294
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/electrolyseur_s-shadow.png",
       "height": 98,
       "shift": [
-       0.875,
+       0.890625,
        0.0
       ],
-      "width": 148
+      "width": 147
      }
     }
    },
@@ -871,19 +871,19 @@
     "shadow": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/hr-electrolyseur_w-shadow.png",
-      "height": 180,
+      "height": 182,
       "shift": [
        0.8125,
-       -0.03125
+       -0.015625
       ],
       "width": 296
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/electrolyseur_w-shadow.png",
-      "height": 90,
+      "height": 91,
       "shift": [
        0.8125,
-       -0.03125
+       -0.015625
       ],
       "width": 148
      }
@@ -898,7 +898,7 @@
     ],
     [
      4.1562,
-     1.5938
+     1.5625
     ]
    ],
    "e": {
@@ -969,27 +969,27 @@
     "icon_size": 64
    },
    "map_color": [
-    0.292,
-    0.255,
-    0.216
+    0.297,
+    0.261,
+    0.223
    ],
    "n": {
     "glow": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/hr-reformeur_n-glow.png",
-      "height": 212,
+      "height": 210,
       "shift": [
        -0.109375,
-       -0.71875
+       -0.703125
       ],
       "width": 162
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/reformeur_n-glow.png",
-      "height": 106,
+      "height": 105,
       "shift": [
        -0.109375,
-       -0.71875
+       -0.703125
       ],
       "width": 81
      }
@@ -997,19 +997,19 @@
     "main": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/hr-reformeur_n-main.png",
-      "height": 318,
+      "height": 316,
       "shift": [
        -0.015625,
-       -0.890625
+       -0.90625
       ],
       "width": 202
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/reformeur_n-main.png",
-      "height": 159,
+      "height": 158,
       "shift": [
        -0.015625,
-       -0.890625
+       -0.90625
       ],
       "width": 101
      }
@@ -1019,19 +1019,19 @@
       "filename": "__factorio-overhaul__/graphics/machines/chimie/hr-reformeur_n-shadow.png",
       "height": 196,
       "shift": [
-       1.328125,
+       1.34375,
        0.0
       ],
-      "width": 362
+      "width": 360
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/reformeur_n-shadow.png",
       "height": 98,
       "shift": [
-       1.328125,
+       1.34375,
        0.0
       ],
-      "width": 181
+      "width": 180
      }
     }
    },
@@ -1039,39 +1039,39 @@
     "glow": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/hr-reformeur_s-glow.png",
-      "height": 138,
+      "height": 140,
       "shift": [
-       0.203125,
-       -0.234375
+       0.1875,
+       -0.25
       ],
-      "width": 146
+      "width": 140
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/reformeur_s-glow.png",
-      "height": 69,
+      "height": 70,
       "shift": [
-       0.203125,
-       -0.234375
+       0.1875,
+       -0.25
       ],
-      "width": 73
+      "width": 70
      }
     },
     "main": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/hr-reformeur_s-main.png",
-      "height": 246,
+      "height": 244,
       "shift": [
        0.015625,
-       -0.328125
+       -0.34375
       ],
       "width": 202
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/reformeur_s-main.png",
-      "height": 123,
+      "height": 122,
       "shift": [
        0.015625,
-       -0.328125
+       -0.34375
       ],
       "width": 101
      }
@@ -1103,37 +1103,37 @@
       "filename": "__factorio-overhaul__/graphics/machines/chimie/hr-reformeur_w-glow.png",
       "height": 196,
       "shift": [
-       -0.015625,
+       0.0,
        -0.46875
       ],
-      "width": 158
+      "width": 160
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/reformeur_w-glow.png",
       "height": 98,
       "shift": [
-       -0.015625,
+       0.0,
        -0.46875
       ],
-      "width": 79
+      "width": 80
      }
     },
     "main": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/hr-reformeur_w-main.png",
-      "height": 326,
+      "height": 324,
       "shift": [
        0.0,
-       -0.984375
+       -1.0
       ],
       "width": 208
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/machines/chimie/reformeur_w-main.png",
-      "height": 163,
+      "height": 162,
       "shift": [
        0.0,
-       -0.984375
+       -1.0
       ],
       "width": 104
      }
