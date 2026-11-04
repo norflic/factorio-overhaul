@@ -118,13 +118,64 @@ function Mu.due(g)
 end
 
 --- Chargeurs à prendre au coffre pour recharger un groupe : tout le manque si le stock le couvre ; sinon tout le stock s'il donne au moins
---- Mu.REFILL_MIN chargeurs à chaque tourelle à recharger ; sinon 0 (le manque est à fabriquer).
-function Mu.take(missing, short, stock)
-  missing, short, stock = num(missing), num(short), num(stock)
+--- Mu.REFILL_MIN chargeurs à chaque tourelle à recharger ; sinon 0 (le manque est à fabriquer). Revue M1 : `low` = tourelles sous le seuil bas
+--- (vides ou presque) ; s'il y en a, le seuil ne compte qu'ELLES (3 vides + 5 à 14 sur 20 : 15 chargeurs suffisent, et non 40 ; la règle S1
+--- d'avant, Sq.refill_take, partait avec low x 5) ; la tournée les sert d'abord (Mu.fill_plan, la moins chargée d'abord).
+function Mu.take(missing, short, stock, low)
+  missing, short, stock, low = num(missing), num(short), num(stock), num(low)
   if missing <= 0 or short <= 0 then return 0 end
   if stock >= missing then return missing end
-  if stock >= short * Mu.REFILL_MIN then return stock end
+  local need_n = low > 0 and low or short
+  if stock >= need_n * Mu.REFILL_MIN then return stock end
   return 0
+end
+
+--- Revue M2 : chargeurs de la meilleure munition à mettre dans une tourelle qu'on ÉCHANGE (0 : pas d'échange). n = chargeurs de la munition
+--- moins bonne qu'elle porte, target = cible par tourelle, carried = meilleure munition portée, fill = remplissage voulu (cible ordinaire).
+--- Jamais de baisse : l'échange exige n <= target (une tourelle chargée au-delà par le joueur garde sa munition) et de quoi remettre
+--- max(n, fill) chargeurs aussitôt.
+function Mu.swap_take(n, target, carried, fill)
+  n, target, carried, fill = num(n), num(target), num(carried), num(fill)
+  local put = n > fill and n or fill
+  if put > target then put = target end
+  if put <= 0 or carried < put or put < n then return 0 end
+  return put
+end
+
+--- Plan de remplissage d'une tournée : chargeurs à ajouter à chaque tourelle (même ordre que `have`). Les tourelles sont servies la MOINS
+--- CHARGÉE d'abord (à égalité, l'ordre de `have`), par paliers `caps` croissants (ex. 5, seuil bas, cible ordinaire, cible) : avec peu de
+--- chargeurs, toutes les vides en reçoivent avant qu'une seule soit pleine (revue M1). carried = chargeurs portés.
+function Mu.fill_plan(have, caps, carried)
+  local out, order, cur = {}, {}, {}
+  for i, h in ipairs(have or {}) do
+    out[i], order[i], cur[i] = 0, i, num(h)
+  end
+  table.sort(order, function(a, b)
+    if cur[a] ~= cur[b] then return cur[a] < cur[b] end
+    return a < b
+  end)
+  local left = num(carried)
+  for _, cap in ipairs(caps or {}) do
+    cap = num(cap)
+    for _, i in ipairs(order) do
+      if left <= 0 then return out end
+      local want = cap - cur[i]
+      if want > 0 then
+        local n = want < left and want or left
+        out[i], cur[i], left = out[i] + n, cur[i] + n, left - n
+      end
+    end
+  end
+  return out
+end
+
+--- Revue M3 : prise au coffre pour une tournée de `need` chargeurs : la munition choisie d'abord (ce que le coffre en a), la munition de base
+--- seulement pour le reste (avant : `need` de chacune, jusqu'à 2 x need hors du coffre). Rend choisie, base.
+function Mu.split_take(need, chosen_stock, same)
+  need, chosen_stock = num(need), num(chosen_stock)
+  if same then return need, 0 end
+  local c = need < chosen_stock and need or chosen_stock
+  return c, need - c
 end
 
 --- Stock de chargeurs visé au coffre. a = { turrets (tourelles de l'équipe), missing (manque URGENT : jusqu'à la cible ordinaire), base (cible

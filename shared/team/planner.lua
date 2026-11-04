@@ -682,7 +682,7 @@ function P.plan(view, book)
         local n = g.missing
         local nb = math.min(n, g.missing_base or n)
         local stock = avail[ammo] or 0
-        local part = Mu.take(nb, math.max(1, g.short_base or g.short), stock)
+        local part = Mu.take(nb, math.max(1, g.short_base or g.short), stock, g.low) -- (revue M1 : les tourelles vides d'abord)
         local task = nil
         if part > 0 then
           task = { key = "refill:" .. g.key, kind = "refill", prio = 90, group = g.key, count = part }

@@ -1276,48 +1276,63 @@ end
 
 --- Lot MUNITIONS : une tourelle chargée d'une munition MOINS BONNE que la meilleure portée la rend au porteur et reçoit la meilleure (la
 --- tourelle n'a qu'une case : sans échange, les balles perforantes n'y entraient jamais tant qu'il restait un chargeur de base).
-local function swap_for_best(t, carrier, min_best)
+--- Revue M2 : l'échange ne fait JAMAIS baisser les chargeurs d'une tourelle (Mu.swap_take : n <= cible, et la meilleure remise aussitôt à
+--- max(n, remplissage)) ; la munition rendue revient au porteur (puis au coffre). Rend les chargeurs posés.
+local function swap_for_best(t, carrier, target, fill)
   local inv = t.get_inventory(defines.inventory.turret_ammo)
-  if not inv or inv.is_empty() then return end
+  if not inv or inv.is_empty() then return 0 end
   local cur = inv[1].valid_for_read and inv[1].name or nil
-  if not cur then return end
+  if not cur then return 0 end
   for i = #T.turret_ammo_ladder, 1, -1 do
     local best = T.turret_ammo_ladder[i]
-    if (AMMO_RANK[cur] or 0) >= i then return end
-    if carrier.get_item_count(best) >= min_best then -- (assez pour la remplir : jamais une tourelle pleine vidée pour 5 balles)
-      local n = inv.get_item_count(cur)
-      local back = n > 0 and carrier.insert({ name = cur, count = n }) or 0
-      if back > 0 then inv.remove({ name = cur, count = back }) end
-      return
+    if (AMMO_RANK[cur] or 0) >= i then return 0 end
+    local n = inv.get_item_count(cur)
+    local put = Mu.swap_take(n, target, carrier.get_item_count(best), fill)
+    if put > 0 then
+      local back = carrier.insert({ name = cur, count = n })
+      if back < n then -- porteur plein : on remet ce qu'il n'a pas pris, pas d'échange
+        if back > 0 then carrier.remove({ name = cur, count = back }) end
+        return 0
+      end
+      inv.remove({ name = cur, count = n })
+      local moved = t.insert({ name = best, count = put })
+      if moved > 0 then carrier.remove({ name = best, count = moved }) end
+      return moved
     end
   end
+  return 0
 end
 
 --- Ravitaille les tourelles du groupe avec les munitions portées. Renvoie chargeurs posés.
---- Lot MUNITIONS : chaque tourelle d'abord à la cible ORDINAIRE, puis au plein de la cible de l'équipe (une tournée partielle ne remplit pas
---- une tourelle à 50 en laissant la suivante vide) ; meilleure munition d'abord, échangée contre une moins bonne.
+--- Lot MUNITIONS : échange d'abord (une munition moins bonne contre la meilleure, sans baisse, revue M2), puis plan de remplissage
+--- (Mu.fill_plan) : la tourelle la MOINS chargée d'abord, par paliers (5, seuil bas, cible ordinaire, cible) : une tournée partielle arme
+--- toutes les vides avant d'en remplir une (revue M1) ; meilleure munition d'abord.
 function Outposts.refill_group(f, key, carrier)
   local _, by_key = Outposts.turret_groups(f)
   local g = by_key[key]
   if not g then return 0 end
   local put = 0
   local target = Outposts.ammo_target(f)
-  local caps = { math.min(T.turret_ammo_target, target), target }
-  for pass, cap in ipairs(caps) do
-    for _, t in ipairs(g.list) do
-      if t.valid then
-        if pass == 1 and T.munitions_on then swap_for_best(t, carrier, caps[1]) end
-        local missing = cap - ammo_of(t)
-        for i = #T.turret_ammo_ladder, 1, -1 do
-          local ammo = T.turret_ammo_ladder[i]
-          local n = math.min(missing, carrier.get_item_count(ammo))
-          if n > 0 then
-            local moved = t.insert({ name = ammo, count = n })
-            if moved > 0 then carrier.remove({ name = ammo, count = moved }) end
-            missing = missing - moved
-            put = put + moved
-          end
-        end
+  local fill = math.min(T.turret_ammo_target, target)
+  local list = {}
+  for _, t in ipairs(g.list) do if t.valid then list[#list + 1] = t end end
+  if T.munitions_on then
+    for _, t in ipairs(list) do put = put + swap_for_best(t, carrier, target, fill) end
+  end
+  local have, carried = {}, 0
+  for i, t in ipairs(list) do have[i] = ammo_of(t) end
+  for _, name in ipairs(T.turret_ammo_ladder) do carried = carried + carrier.get_item_count(name) end
+  local plan = T.munitions_on and Mu.fill_plan(have, { Mu.REFILL_MIN, T.turret_ammo_low, fill, target }, carried) or nil
+  for i, t in ipairs(list) do
+    local missing = plan and plan[i] or (target - have[i])
+    for j = #T.turret_ammo_ladder, 1, -1 do
+      local ammo = T.turret_ammo_ladder[j]
+      local n = math.min(missing, carrier.get_item_count(ammo))
+      if n > 0 then
+        local moved = t.insert({ name = ammo, count = n })
+        if moved > 0 then carrier.remove({ name = ammo, count = moved }) end
+        missing = missing - moved
+        put = put + moved
       end
     end
   end

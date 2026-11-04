@@ -22,6 +22,7 @@ local Ar = require("shared.team.arrivee") -- lot C4 PLATEAU 3 : tournée arrivé
 local Acc = require("shared.team.acces_champ") -- lot NAV2 : point d'accès atteignable depuis l'extérieur du champ (règle pure)
 local Rc = require("shared.team.repli_chemin") -- lot CHARBON3 (B2) : essais de marche d'un PNJ (règle pure)
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
+local Mu = require("shared.team.munitions") -- lot MUNITIONS (revue M3) : prise bornée de la munition de base (Mu.split_take)
 local Outposts = require("script.faction.outposts")
 local Sites = require("script.faction.sites")
 local Board = require("script.team.board")
@@ -484,8 +485,12 @@ function Worker.program(f, task, surface, tick)
       -- Lot MUNITIONS : la tournée porte au plus ce que le planificateur lui a donné (task.count : la part urgente avant les recrues, le
       -- surplus de la cible riche après elles) ; la munition choisie d'abord, la munition de base en complément (prise non stricte).
       if type(task.count) == "number" and task.count > 0 and task.count < need then need = task.count end
-      local list = { { ammo, need } }
-      if ammo ~= T.turret_ammo then list[2] = { T.turret_ammo, need } end
+      -- (revue M3 : la munition de base seulement pour ce que le coffre n'a pas de la choisie ; avant : need de chacune)
+      local take_c, take_b = Mu.split_take(need, Stock.count(f, ammo), ammo == T.turret_ammo)
+      local list = {}
+      if take_c > 0 then list[#list + 1] = { ammo, take_c } end
+      if take_b > 0 then list[#list + 1] = { T.turret_ammo, take_b } end
+      if #list == 0 then return nil end
       return { { "home" }, { "take", list }, { "goto", pos, 6 }, { "act", "refill" }, { "home" } }
     end
     return { { "home" }, { "take", { { ammo, 200 }, { "firearm-magazine", 200 } } }, { "goto", pos, 6 }, { "act", "refill" }, { "home" } }
