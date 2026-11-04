@@ -106,7 +106,7 @@ def matieres(S, v2=False):
         M["cristal_f3"] = cristal_facette(S, "v_cristal_f3", (0.1, 0.8, 1.0), 1.1, bas=0.04)    # faces sombres, arêtes lisibles
         M["eclat"] = P.lueur(S, "v_eclat", (0.85, 0.97, 1.0), 6.0, 0.8, part=0.1, echelle=30.0)
         M["email_chaud"] = P.lueur(S, "v_email_chaud", (1.0, 0.55, 0.12), 1.6, 0.55, part=0.5, echelle=18.0)
-        M["boue2"] = MT.surface("v_boue2", (0.4, 0.46, 0.5), rough=0.2, met=0.0, usure=0.0, crasse=0.3, crasse_col=(0.1, 0.12, 0.14), grain=0.2, graine=97)
+        M["boue2"] = MT.surface("v_boue2", (0.27, 0.32, 0.36), rough=0.2, met=0.0, usure=0.0, crasse=0.3, crasse_col=(0.1, 0.12, 0.14), grain=0.2, graine=97)
         M["depot"] = MT.surface("v_depot", (0.2, 0.2, 0.19), rough=0.85, met=0.0, usure=0.0, crasse=0.5, crasse_col=(0.05, 0.05, 0.05), grain=0.35, graine=98)
         M["cristal_f2"] = cristal_facette(S, "v_cristal_f2", (0.35, 0.95, 1.0), 2.2)
         M["diamant"] = sf("v_diamant", (0.72, 0.72, 0.7), rough=0.55, met=0.6, usure=0.0, crasse=0.2, crasse_col=cr2, grain=0.55, graine=89)

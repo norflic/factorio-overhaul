@@ -257,7 +257,7 @@ def bobineuse_d(S, k):
     for x in (xe - 0.15, xe + 0.15):
         k.axe("acier_clair", (x, ye - lye / 2.0, ze + 0.01), (x, ye + lye / 2.0, ze + 0.01), 0.022, 10)
     k.chevrons(xe, ye - lye / 2.0 - 0.002, 0.16, lxe - 0.04, 0.05)
-    CO.halo(S, k, (xe, ye - 0.35, 0.55), (1.0, 0.6, 0.18), 10.0, r=(0.4, 1.0))
+    CO.halo(S, k, (xe, ye - 0.35, 0.55), (1.0, 0.6, 0.18), 7.5, r=(0.4, 1.0))
     # tour de cuisson : trois hublots, poulie de tête, évent
     xtw, ytw, h = -0.3, Y(0.66), 2.0
     k.caisson("isolant", xtw, ytw, 0.0, 0.34, 0.34, h, 0.04)
