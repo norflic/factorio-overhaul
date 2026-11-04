@@ -27,10 +27,9 @@ DEST_DEFAUT = os.path.join(MOD, "graphics", "metallurgie")
 PREFIXE_JEU = "__factorio-overhaul__/graphics/metallurgie/"
 COUCHES = ("main", "shadow", "glow")
 # entité : variante(s) retenue(s) par la critique ; le pylône : 4 directions du moteur (0 à 3)
-MACHINES = {"fo-blast-furnace": "hf_b", "fo-coke-oven": "co_b", "fo-kroll-reactor": "kr_b", "fo-ore-concentrator": "cc_b"}
+MACHINES = {"fo-blast-furnace": "hf_b", "fo-coke-oven": "co_b", "fo-kroll-reactor": "kr_b", "fo-ore-concentrator": "cc_b",
+            "fo-reduction-cell": "rc_a"}    # cuve : validée par la contre-relecture du 4/11 (v3, tiges éclaircies au rendu final)
 POTEAUX = {"fo-ht-pylon": ("py_c", "py_c1", "py_c2", "py_c3")}
-# la cuve d'électrolyse n'entre que validée par la critique : --avec-cuve (variante rc_a)
-CUVE = {"fo-reduction-cell": "rc_a"}
 COMMANDE = "py -3.9 tools/render/pieces/metallurgie/feuilles.py   (depuis la racine du mod ; sources : " \
            "fo-logs/2026-11-04_DA-METALLURGIE/final, à GARDER)"
 
@@ -199,7 +198,6 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--src", default=SRC_DEFAUT)
     ap.add_argument("--dest", default=DEST_DEFAUT)
-    ap.add_argument("--avec-cuve", action="store_true", help="ajoute la cuve d'électrolyse (après validation par la critique)")
     a = ap.parse_args()
     os.makedirs(a.dest, exist_ok=True)
     for f in os.listdir(a.dest):
@@ -209,8 +207,6 @@ def main():
     tab = {"machines": {}, "poteaux": {}}
     mpx = 0.0
     machines = dict(MACHINES)
-    if a.avec_cuve:
-        machines.update(CUVE)
     for entite in sorted(machines):
         nom = machines[entite]
         couches = copie(a.src, a.dest, entite, nom, fichiers)
@@ -241,7 +237,7 @@ def main():
         f.write(entete + "return " + lua(tab) + "\n")
     with open(os.path.join(a.dest, "sprites.json"), "w", encoding="utf-8", newline="\n") as f:
         json.dump(tab, f, indent=1, sort_keys=True, ensure_ascii=False)
-    man = {"commande": COMMANDE, "arguments": ["--avec-cuve"] if a.avec_cuve else [], "sources": a.src, "fichiers": {}}
+    man = {"commande": COMMANDE, "arguments": [], "sources": a.src, "fichiers": {}}
     total = 0
     for fn in sorted(fichiers):
         p = os.path.join(a.dest, fn)

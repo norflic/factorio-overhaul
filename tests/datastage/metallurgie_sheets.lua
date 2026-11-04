@@ -16,8 +16,8 @@ local M = {}
 
 M.DIR = "graphics/metallurgie"
 M.REGEN = "py -3.9 tools/render/pieces/metallurgie/feuilles.py   (depuis la racine du mod ; sources dans "
-  .. "fo-logs : 2026-11-04_DA-METALLURGIE/final, à GARDER ; arguments : MANIFEST.json, « arguments »)"
-M.MACHINES = { "fo-blast-furnace", "fo-coke-oven", "fo-kroll-reactor", "fo-ore-concentrator" }
+  .. "fo-logs : 2026-11-04_DA-METALLURGIE/final, à GARDER)"
+M.MACHINES = { "fo-blast-furnace", "fo-coke-oven", "fo-kroll-reactor", "fo-ore-concentrator", "fo-reduction-cell" }
 M.POTEAUX = { "fo-ht-pylon" }
 
 local function read_all(p)

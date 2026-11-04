@@ -331,6 +331,89 @@
     }
    },
    "variante": "cc_b"
+  },
+  "fo-reduction-cell": {
+   "boite": [
+    [
+     -2.2188,
+     -3.4375
+    ],
+    [
+     2.2188,
+     2.0312
+    ]
+   ],
+   "glow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/metallurgie/hr-fo-reduction-cell-glow.png",
+     "height": 112,
+     "shift": [
+      -0.421875,
+      0.625
+     ],
+     "width": 162
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/metallurgie/fo-reduction-cell-glow.png",
+     "height": 56,
+     "shift": [
+      -0.421875,
+      0.625
+     ],
+     "width": 81
+    }
+   },
+   "icone": {
+    "filename": "__factorio-overhaul__/graphics/metallurgie/fo-reduction-cell-icone.png",
+    "icon_mipmaps": 4,
+    "icon_size": 64
+   },
+   "main": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/metallurgie/hr-fo-reduction-cell-main.png",
+     "height": 350,
+     "shift": [
+      0.0,
+      -0.703125
+     ],
+     "width": 284
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/metallurgie/fo-reduction-cell-main.png",
+     "height": 175,
+     "shift": [
+      0.0,
+      -0.703125
+     ],
+     "width": 142
+    }
+   },
+   "map_color": [
+    0.339,
+    0.331,
+    0.326
+   ],
+   "shadow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/metallurgie/hr-fo-reduction-cell-shadow.png",
+     "height": 256,
+     "shift": [
+      0.9375,
+      0.0
+     ],
+     "width": 376
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/metallurgie/fo-reduction-cell-shadow.png",
+     "height": 128,
+     "shift": [
+      0.9375,
+      0.0
+     ],
+     "width": 188
+    }
+   },
+   "variante": "rc_a"
   }
  },
  "poteaux": {

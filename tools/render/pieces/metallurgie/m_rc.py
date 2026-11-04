@@ -202,6 +202,9 @@ def build(S, lot, v):
     # pointillé blanc), croûte claire d'alumine figée, poudre d'alumine claire ; commun.py n'est pas touché (autres machines)
     M["alu_vif"] = MT.surface("m_alu_vif", (0.58, 0.59, 0.61), rough=0.32, met=0.2, usure=0.0, crasse=0.12, crasse_col=(0.2, 0.2, 0.21),
                               grain=0.04, graine=61)
+    # tiges d'anode : contre-relecture du 4/11, elles sortaient plus sombres que les capots (L 0,26 à 0,30) : plus claires, peu
+    # métalliques, sans crasse d'occlusion (le peigne serré s'assombrissait de lui-même)
+    M["alu_tige"] = MT.surface("m_alu_tige", (0.86, 0.87, 0.89), rough=0.3, met=0.0, usure=0.0, crasse=0.0, grain=0.03, graine=64)
     M["croute_claire"] = MT.surface("m_croute_claire", (0.36, 0.35, 0.33), rough=0.9, met=0.0, usure=0.0, crasse=0.5,
                                     crasse_col=(0.08, 0.075, 0.07), grain=0.3, graine=62)
     M["alumine"] = MT.surface("m_alumine_cuve", (0.6, 0.6, 0.58), rough=0.95, met=0.0, usure=0.0, crasse=0.25, crasse_col=(0.3, 0.3, 0.29),
@@ -258,7 +261,8 @@ def superstructure_v2(lot, M):
         yt = YC + s * 0.4
         for i in range(9):
             x = -1.44 + i * 0.36
-            lot.put(M["alu_vif"], G.boite((x, yt, 1.56), (0.09, 0.09, 1.24)))
+            # tige ronde : sa face ouest prend le soleil (une tige carrée ne montrait que sa face sud, à l'ombre : L 0,31)
+            K.rev(lot, M["alu_tige"], x, yt, [(0.94, 0.055), (2.18, 0.055)], 14)
             lot.put(M["cuivre"], G.boite((x, yb + s * 0.1, 1.55), (0.21, 0.12, 0.19)))
             lot.put(M["cuivre"], G.boite((x, yt, 2.2), (0.12, 0.12, 0.05)))
             lot.put(M["acier_clair"], G.tube([(x - 0.07, yb + s * 0.155, 1.55), (x + 0.07, yb + s * 0.155, 1.55)], 0.018, 5))

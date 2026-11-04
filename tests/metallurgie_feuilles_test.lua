@@ -27,10 +27,10 @@ local SPR = rs.spr or {}
 -- §2 ------------------------------------------------------------------------------------------------ prototypes
 package.preload["__factorio-overhaul__/graphics/metallurgie/sprites"] = function() return dofile("graphics/metallurgie/sprites.lua") end
 
-local MACHINES = { "fo-blast-furnace", "fo-coke-oven", "fo-kroll-reactor", "fo-ore-concentrator" }
+local MACHINES = { "fo-blast-furnace", "fo-coke-oven", "fo-kroll-reactor", "fo-ore-concentrator", "fo-reduction-cell" }
 local BURNER = { ["fo-blast-furnace"] = true, ["fo-coke-oven"] = true }
 -- côtés des emprises (shared/content/epochs.lua) ; boîte de collision du mod : côté / 2 − 0,3
-local COTE = { ["fo-blast-furnace"] = 4, ["fo-coke-oven"] = 3, ["fo-kroll-reactor"] = 4, ["fo-ore-concentrator"] = 2 }
+local COTE = { ["fo-blast-furnace"] = 4, ["fo-coke-oven"] = 3, ["fo-kroll-reactor"] = 4, ["fo-ore-concentrator"] = 2, ["fo-reduction-cell"] = 4 }
 local TINT = { r = 0.8, g = 0.6, b = 0.5 }
 
 local function faux_data()
@@ -113,7 +113,7 @@ _G.data = avant
 local Met = dofile("prototypes/metallurgie_machines.lua")
 local n = Met.appliquer()
 local raw = _G.data.raw
-check(n == 5, "§2 appliquer() habille 5 bâtiments (" .. tostring(n) .. ")")
+check(n == 6, "§2 appliquer() habille 6 bâtiments (" .. tostring(n) .. ")")
 for _, nom in ipairs(MACHINES) do
   local e = raw["assembling-machine"][nom]
   local err = controle_entite(e, false)
