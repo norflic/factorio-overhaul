@@ -24,7 +24,7 @@ TRONCONS = {
     # L : jusqu'à l'organe que le tronçon rejoint (corps de la variante a) ; nord dessiné DERRIÈRE le corps, il peut être long
     "bobineuse": {"mat": "givre", "z": 0.32, "L": {"n": 0.75, "e": 0.3, "s": 0.62, "o": 0.14}, "givre": True},
     "torchere": {"mat": "car2", "z": 0.3, "L": {"n": 1.35, "e": 0.48, "s": 0.27, "o": 0.31}, "givre": False},
-    "taillerie": {"mat": "bleu", "z": 0.3, "L": {"n": 0.45, "e": 0.2, "s": 0.45, "o": 0.2}, "givre": False},
+    "taillerie": {"mat": "bleu", "z": 0.3, "L": {"n": 0.45, "e": 0.75, "s": 0.45, "o": 0.2}, "givre": False},
 }
 
 

@@ -10,7 +10,8 @@ local SPR = require("__factorio-overhaul__/graphics/machines/ateliers/sprites")
 local V = {}
 
 -- prototype : nom de la pièce dans sprites.lua
-local PIECE = { ["fo-flare-stack"] = "torchere", ["fo-crusher"] = "concasseur", ["fo-jaw-crusher"] = "machoires" }
+local PIECE = { ["fo-flare-stack"] = "torchere", ["fo-crusher"] = "concasseur", ["fo-jaw-crusher"] = "machoires",
+                ["fo-coil-winder"] = "bobineuse", ["fo-lapidary"] = "taillerie" }
 
 --- Couche d'une feuille : normale 32 px/tuile + hr_version 64 px/tuile (scale 0,5), comme prototypes/robots.lua (usine_couche).
 local function couche(def, kind)
@@ -102,6 +103,19 @@ local function machoires(e, p)
   e.working_visualisations = vis
 end
 
+-- Bobineuse et taillerie (versions d) : lueur et halo cuits (bac d'émail, hublots ; cristaux) + une lumière de jeu à la source.
+-- Bac d'émail : (−0,48 ; 1,13 unité, z 0,3), soit (−0,48 ; 0,59) à l'écran ; cristal du mandrin de la taillerie : (−0,04 ; −0,96).
+local LUMIERE = {
+  bobineuse = { intensity = 0.4, size = 3, color = { r = 1.0, g = 0.6, b = 0.18 }, shift = { -0.48, 0.75 } },
+  taillerie = { intensity = 0.45, size = 3.5, color = { r = 0.3, g = 0.8, b = 1.0 }, shift = { -0.05, -0.7 } },
+}
+local function simple(e, p, nom)
+  local vis = { { fadeout = true, animation = couche(p.glow, "glow") } }
+  if p.light then vis[#vis + 1] = { fadeout = true, animation = couche(p.light, "light") } end
+  vis[#vis + 1] = { fadeout = true, light = LUMIERE[nom] }
+  e.working_visualisations = vis
+end
+
 --- Habille le prototype e (copie d'assembleur de prototypes/crafts.lua) s'il a un visuel d'atelier. Rend les icônes, ou nil.
 function V.appliquer(e)
   local nom = PIECE[e.name]
@@ -112,7 +126,8 @@ function V.appliquer(e)
   e.idle_animation = nil
   e.integration_patch = nil
   e.shadow = nil
-  if nom == "torchere" then torchere(e, p) elseif nom == "concasseur" then concasseur(e, p) elseif nom == "machoires" then machoires(e, p) end
+  if nom == "torchere" then torchere(e, p) elseif nom == "concasseur" then concasseur(e, p) elseif nom == "machoires" then machoires(e, p)
+  elseif LUMIERE[nom] then simple(e, p, nom) end
   -- raccords : un tronçon par direction ; le nord est dessiné sous le corps (secondary_draw_orders du modèle)
   if e.fluid_boxes then
     local t = { north = SPR.pieces[nom .. "_tuyau_n"], east = SPR.pieces[nom .. "_tuyau_e"], south = SPR.pieces[nom .. "_tuyau_s"],

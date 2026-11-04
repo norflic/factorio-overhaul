@@ -10,6 +10,44 @@
 local X0, Y0 = 4200, 3000
 local DIRS = { { "n", defines.direction.north }, { "e", defines.direction.east }, { "s", defines.direction.south }, { "o", defines.direction.west } }
 
+--- Rangée d'une machine à fluide dans ses 4 rotations : tuyau vanilla au raccord, tuyau infini au-delà (fluide), objets insérés.
+local function rangee(s, proto_nom, recette, fluide, items, y, pas, cote)
+  local out = {}
+  local pc = game.entity_prototypes[proto_nom].fluidbox_prototypes[1].pipe_connections[1]
+  local demi = (cote % 2 == 0) and 0 or 0.5
+  for i, d in ipairs(DIRS) do
+    local px, py = X0 + (i - 1) * pas + demi, y + demi
+    local m = s.create_entity({ name = proto_nom, position = { px, py }, force = "player", direction = d[2], recipe = recette })
+    local q = pc.positions[(d[2] / 2) + 1]
+    local t = { dir = d[1], m = m, x = px, y = py, q = { q.x, q.y } }
+    if m then
+      for _, it in ipairs(items) do pcall(function() m.insert(it) end) end   -- un objet absent n'arrête pas la rangée
+      local ox, oy = (q.x > 0.6 and 1) or (q.x < -0.6 and -1) or 0, (q.y > 0.6 and 1) or (q.y < -0.6 and -1) or 0
+      t.tuyau = s.create_entity({ name = "pipe", position = { px + q.x, py + q.y }, force = "player" })
+      local inf = s.create_entity({ name = "infinity-pipe", position = { px + q.x + ox, py + q.y + oy }, force = "player" })
+      if inf then pcall(function() inf.set_infinity_pipe_filter({ name = fluide, percentage = 1 }) end) end
+    end
+    out[#out + 1] = t
+  end
+  return out
+end
+
+local function relies(liste)
+  local n, detail = 0, {}
+  for _, t in ipairs(liste) do
+    local ok = false
+    if t.m and t.m.valid and t.tuyau and t.tuyau.valid then
+      for _, c in ipairs(t.m.fluidbox.get_connections(1)) do
+        if c.owner and c.owner.valid and c.owner.unit_number == t.tuyau.unit_number then ok = true end
+      end
+    end
+    if ok then n = n + 1 end
+    detail[#detail + 1] = string.format("%s : raccord (%.1f ; %.1f) %s%s", t.dir, t.q[1], t.q[2], ok and "relie" or "NON RELIE",
+      (t.m and t.m.valid) and (", etat " .. tostring(t.m.status)) or "")
+  end
+  return n, table.concat(detail, " ; ")
+end
+
 local function activer(recettes)
   for _, r in ipairs(recettes) do
     local p = game.forces.player.recipes[r]
@@ -27,7 +65,7 @@ return {
     local s = ctx.surface()
     local st = ctx.state()
     st.torcheres, st.machines = {}, {}
-    ctx.prepare_area(X0 - 14, Y0 - 14, X0 + 50, Y0 + 30, "concrete")
+    ctx.prepare_area(X0 - 14, Y0 - 14, X0 + 50, Y0 + 50, "concrete")
     game.map_settings.enemy_expansion.enabled = false
     game.forces.enemy.set_cease_fire("player", true)
     game.forces.player.set_cease_fire("enemy", true)
@@ -36,7 +74,12 @@ return {
     end
     local src = ctx.power(X0 + 18, Y0 + 9)
     ctx.check(src ~= nil, "alimentation invisible du mod de test", src and "posee" or "prototypes absents")
-    activer({ "fo-flare-ethylene", "fo-sand" })
+    activer({ "fo-flare-ethylene", "fo-sand", "fo-superconducting-coil", "fo-crystal-cutting" })
+    ctx.power(X0 + 18, Y0 + 30)
+    -- rangées 3 et 4 : bobineuse et taillerie dans leurs 4 rotations (raccords des pipe_picture), en marche si possible
+    st.bobineuses = rangee(s, "fo-coil-winder", "fo-superconducting-coil", "fo-liquid-nitrogen",
+      { { name = "fo-superconducting-tape", count = 8 }, { name = "fo-cryostat", count = 2 } }, Y0 + 17, 6, 2)
+    st.tailleries = rangee(s, "fo-lapidary", "fo-crystal-cutting", "water", { { name = "fo-resonance-crystal", count = 20 } }, Y0 + 27, 8, 3)
     -- rangée 1 : torchère dans ses 4 rotations ; tuyau vanilla au raccord, tuyau infini au-delà
     local proto = game.entity_prototypes["fo-flare-stack"]
     local pc = proto.fluidbox_prototypes[1].pipe_connections[1]
@@ -92,6 +135,10 @@ return {
       detail[#detail + 1] = string.format("%s : raccord (%.1f ; %.1f) %s", t.dir, t.q[1], t.q[2], ok and "relie" or "NON RELIE")
     end
     ctx.check(raccordes == 4, "raccord de chaque rotation relie au tuyau vanilla (point de connexion du prototype)", table.concat(detail, " ; "))
+    for _, r in ipairs({ { "bobineuse", st.bobineuses }, { "taillerie", st.tailleries } }) do
+      local n, d = relies(r[2] or {})
+      ctx.check(n == 4, r[1] .. " : raccord de chaque rotation relie au tuyau vanilla", d)
+    end
     ctx.check(marche == 4, "torcheres en marche (elles brulent)", marche .. " / 4")
     local en = {}
     for _, m in ipairs(st.machines) do
@@ -126,6 +173,14 @@ return {
         local nm = string.format("carriere-et-vanilla-z%d-%s", z, nuit and "nuit" or "jour")
         add(nm, mx, my, z, nuit and 0.5 or 0, { res = { z == 2 and 1600 or 800, z == 2 and 480 or 240 }, info = false, aa = true })
         L[#L + 1] = string.format("%s\t%d\t%d\t%.2f\t%.2f", nm, z, nuit and 1 or 0, mx, my)
+      end
+    end
+    for _, r in ipairs({ { "bobineuse", st.bobineuses, 2 }, { "taillerie", st.tailleries, 3 } }) do
+      local a, b = r[2][1], r[2][#r[2]]
+      for _, nuit in ipairs({ false, true }) do
+        local nm = string.format("%s-4-rotations-z2-%s", r[1], nuit and "nuit" or "jour")
+        add(nm, (a.x + b.x) / 2, a.y - 0.6, 2, nuit and 0.5 or 0, { res = { r[3] == 2 and 1600 or 2000, r[3] == 2 and 400 or 520 }, info = false, aa = true })
+        L[#L + 1] = string.format("%s	2	%d	%.2f	%.2f", nm, nuit and 1 or 0, (a.x + b.x) / 2, a.y)
       end
     end
     add("vue-ensemble-z1-jour", (t1.x + m5.x) / 2, (t1.y + m5.y) / 2 - 1.5, 1, 0, { res = { 960, 560 }, info = false, aa = true })

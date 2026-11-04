@@ -281,7 +281,7 @@ def bobineuse_d(S, k):
     # armoire est (de b), coupleur cryogénique à l'ouest, bobines finies au sud
     _armoire(k, 0.82, 0.22)
     _coupleur(k, -0.9, Y(-0.45))
-    for x in (0.55, 0.82):
+    for x in (0.74, 0.96):        # à l'est du tronçon sud (connexion x = 0,5)
         _bobine(k, (x, Y(-0.82), 0.16), 0.11, 0.16, joue=0.035, axe="x")
     # au nord-est, à la place de l'ancien touret : râtelier de tourets de réserve
     for i, x in enumerate((0.36, 0.6)):
