@@ -202,6 +202,9 @@ T.turret_ammo_low = 8
 -- T.munitions_on faux : règle d'avant (seuil bas, tout ou rien, réserve fixe), code gardé.
 T.munitions_on = true
 T.turret_ammo_rich = 50
+-- Lot MUNITIONS, essai 3 : cible riche ÉTEINTE (hypothèse du lead : elle occupait les PNJ, verif-guide 123456789 de l'essai 2 : 12 PNJ sur 14
+-- inactifs à 40 min, 39 % affamés). Faux : la cible reste T.turret_ammo_target ; recharge au plein, partielle et perforantes gardées.
+T.turret_ammo_rich_on = false
 -- Lot MUNITIONS : échelle des munitions des mitrailleuses, de la moins bonne à la meilleure (Mu.best_ammo : la meilleure dont la recette est
 -- ouverte et qui se fabrique depuis le coffre ; balles perforantes : recherche « military-2 », 8 de dégâts contre 5). La première est T.turret_ammo.
 T.turret_ammo_ladder = { "firearm-magazine", "piercing-rounds-magazine", "uranium-rounds-magazine" }

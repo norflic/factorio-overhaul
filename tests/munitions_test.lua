@@ -137,6 +137,42 @@ local function facts(W)
   f.ba_keep = ba({ enabled = true, makeable = false, stock = 3 }, nil, 2)
   f.ba_nokeep = ba({ enabled = true, makeable = false, stock = 3 }, nil, 1)
   f.ba_top = ba({ enabled = true, makeable = true, stock = 0 }, { enabled = true, makeable = true, stock = 0 })
+  -- essai 3 : choix STABLE (Mu.stable_ammo). H = Mu.AMMO_HOLD ; une pensée toutes les 600 ticks.
+  local H = Mu.AMMO_HOLD
+  local function L(p2) return { { enabled = true, makeable = true, stock = 0 }, p2, { enabled = false } } end
+  local OK2, NO2 = { enabled = true, makeable = true, stock = 0 }, { enabled = true, makeable = false, stock = 0 }
+  local s1, i1 = Mu.stable_ammo(nil, L(OK2), 1000)
+  local s2, i2 = Mu.stable_ammo(s1, L(OK2), 1000 + H - 1)
+  local s3, i3 = Mu.stable_ammo(s2, L(OK2), 1000 + H)
+  f.st_wait, f.st_before, f.st_after = i1, i2, i3
+  -- éligibilité interrompue : l'attente repart de zéro
+  local u1 = Mu.stable_ammo(nil, L(OK2), 0)
+  local u2 = Mu.stable_ammo(u1, L(NO2), 600)
+  local u3, j3 = Mu.stable_ammo(u2, L(OK2), 1200)
+  local _, j4 = Mu.stable_ammo(u3, L(OK2), 1200 + H - 1)
+  f.st_reset = (j3 == 1 and j4 == 1) and 1 or 0
+  -- la courante (perforante) inutilisable : gardée H ticks, puis la base
+  local d1, k1 = Mu.stable_ammo({ cur = 2 }, L(NO2), 5000)
+  local _, k2 = Mu.stable_ammo(d1, L(NO2), 5000 + H - 1)
+  local _, k3 = Mu.stable_ammo(d1, L(NO2), 5000 + H)
+  f.st_keep, f.st_keep2, f.st_down = k1, k2, k3
+  local _, k4 = Mu.stable_ammo({ cur = 2, bad_since = 0 }, L({ enabled = true, makeable = false, stock = 3 }), 10 * H)
+  f.st_stock_keeps = k4
+  local _, k5 = Mu.stable_ammo({ cur = 2 }, L({ enabled = false, makeable = false, stock = 50 }), 5000)
+  f.st_closed = k5
+  -- 60 pensées où l'acier va et vient (fabricable une pensée sur deux) : le choix ne bascule jamais ; l'ancienne règle bascule à chaque pensée
+  local st, prev, flips, flips_old, prev_old = nil, 1, 0, 0, 1
+  for n = 1, 60 do
+    local lst = L((n % 2 == 0) and OK2 or NO2)
+    local idx
+    st, idx = Mu.stable_ammo(st, lst, n * 600)
+    if idx ~= prev then flips = flips + 1 end
+    prev = idx
+    local io_ = Mu.best_ammo(lst, prev_old)
+    if io_ ~= prev_old then flips_old = flips_old + 1 end
+    prev_old = io_
+  end
+  f.st_flips, f.st_flips_old = flips, flips_old
   -- 2. cas du DC : QG à 120 chargeurs pour 8 tourelles (140,2 min)
   local hq = { 20, 20, 20, 15, 15, 10, 10, 10 }
   local old_low = 0
@@ -244,6 +280,13 @@ check(F0.st_turrets == 400 and F0.st_floor == 60 and F0.st_missing == 120,
 check(F0.st_cap == 580 and F0.st_nobase == 1070, "plafond : une charge ordinaire par tourelle (29 tourelles : 580, et non 1 070 comme à l'essai 1)")
 check(F0.ba_make == 2 and F0.ba_cannot == 1 and F0.ba_closed == 1 and F0.ba_stock == 2,
   "munition : perforante si sa recette est ouverte et qu'elle se fabrique, ou 10 au coffre ; sinon la base (recette fermée : base même avec 50)")
+check(F0.st_wait == 1 and F0.st_before == 1 and F0.st_after == 2,
+  "choix stable : la perforante n'est prise qu'après 5 min d'éligibilité continue (1, 1 à H - 1, 2 à H)")
+check(F0.st_reset == 1, "choix stable : une interruption de l'éligibilité fait repartir l'attente")
+check(F0.st_keep == 2 and F0.st_keep2 == 2 and F0.st_down == 1, "choix stable : la courante inutilisable est gardée 5 min, puis la base")
+check(F0.st_stock_keeps == 2 and F0.st_closed == 1, "choix stable : gardée tant qu'il en reste au coffre ; recette fermée : la base aussitôt")
+check(F0.st_flips == 0 and F0.st_flips_old >= 50,
+  "acier qui va et vient une pensée sur deux pendant 60 pensées : 0 bascule (ancienne règle : " .. F0.st_flips_old .. ")")
 check(F0.ba_keep == 2 and F0.ba_nokeep == 1 and F0.ba_top == 3,
   "munition collante : gardée avec 3 au coffre si elle était choisie, pas prise pour 3 ; la meilleure fabricable d'abord (uranium)")
 
@@ -307,7 +350,12 @@ check(has("script/faction/outposts.lua", "local m = Mu.group(g.have, target, T.t
   "Outposts.turret_groups relève les tourelles à échanger")
 check(has("script/team/worker.lua", "if r > 0 and r < best then need = need + target"), "la tournée d'échange porte la cible entière")
 check(has("shared/team/planner.lua", "local got = Mu.upgrade_take(g.worse_need, stock)"), "le planificateur lance l'échange (Mu.upgrade_take)")
-check(has("script/team/team.lua", "local idx, why = Mu.best_ammo(cands, cur)"), "Team.view choisit la munition (Mu.best_ammo)")
+check(has("script/team/team.lua", "f.team.ammo_state, idx, why = Mu.stable_ammo(f.team.ammo_state, cands, tick)"),
+  "Team.view choisit la munition de façon stable (Mu.stable_ammo)")
+check(has("script/team/team.lua", "rich = T.turret_ammo_rich_on and T.turret_ammo_rich or T.turret_ammo_target") and T.turret_ammo_rich_on == false,
+  "essai 3 : cible riche éteinte (T.turret_ammo_rich_on)")
+check(has("shared/team/planner.lua", "want({ { base_ammo, nb - part } }, 90, \"munitions\")"),
+  "part urgente en munition de base quand la munition choisie ne se fabrique plus")
 check(has("script/team/team.lua", "local choose = f.is_player or T.best_ammo_factions") and T.best_ammo_factions == false,
   "meilleure munition pour votre équipe seulement (une faction garde la munition de base)")
 check(has("script/team/team.lua", "was = f.team.ammo_rich == true"), "Team.view garde l'état riche d'une pensée à l'autre (hystérésis)")
@@ -318,7 +366,7 @@ check(has("shared/team/planner.lua", "local part = Mu.take(nb, math.max(1, g.sho
 check(has("shared/ai3/cerveau.lua", "missing + (g.missing_base or g.missing)"), "le stock visé ne compte que la part urgente")
 check(has("shared/ai3/cerveau.lua", "turrets_n = C.turrets_seen(view).n"), "le cerveau relève les tourelles et leur manque")
 check(has("shared/ai3/buts.lua", "ammo_target = Mu.stock_target("), "le but « defense:munitions » suit Mu.stock_target")
-check(T.munitions_on == true and T.turret_ammo_rich > T.turret_ammo_target, "réglage : règle allumée, cible riche au-dessus de l'ordinaire")
+check(T.munitions_on == true and T.turret_ammo_rich > T.turret_ammo_target, "réglage : règle allumée, cible riche (éteinte) au-dessus de l'ordinaire")
 check(T.turret_ammo_ladder[1] == T.turret_ammo and #T.turret_ammo_ladder >= 2, "échelle des munitions : la base d'abord, au moins une meilleure")
 
 ---------------------------------------------------------------------------------------------------
@@ -343,7 +391,10 @@ local MUTANTS = {
   { "munition : toujours la base", mutate("Mu", 'if c.makeable then return i, "fabricable" end', "") },
   { "munition : pas collante", mutate("Mu", 'if i == current and num(c.stock) > 0 then return i, "gardee (au coffre)" end', "") },
   { "munition : recette fermée acceptée", mutate("Mu", "    if c.enabled then\n", "    if true then\n") },
-  { "planificateur : reste non fabriqué", mutate("Pl", 'if part < nb then want({ { ammo, nb - part } }, 90, "munitions") end', "") },
+  { "planificateur : reste non fabriqué", mutate("Pl", 'if part < nb and not want({ { ammo, nb - part } }, 90, "munitions") and ammo ~= base_ammo then', "if false then") },
+  { "choix : sans attente", mutate("Mu", "Mu.AMMO_HOLD = 5 * 3600", "Mu.AMMO_HOLD = 0") },
+  { "choix : quitte aussitôt", mutate("Mu", "if tick - out.bad_since >= Mu.AMMO_HOLD then", "if true then") },
+  { "choix : l'attente ne repart pas", mutate("Mu", "  out.cand, out.cand_since = nil, nil\n  return out, out.cur, out.cur > 1", "  return out, out.cur, out.cur > 1") },
   { "planificateur : relevé ignoré", mutate("Pl", "if g.short ~= nil then", "if false then") },
   { "planificateur : surplus urgent", mutate("Pl", "local nb = math.min(n, g.missing_base or n)", "local nb = n") },
   { "planificateur : surplus oublié", mutate("Pl", "if n > nb then surplus[#surplus + 1] = { g = g, n = n - nb, task = task } end", "") },

@@ -579,7 +579,8 @@ function Team.view(f, tick)
     local n_turrets = 0
     for _, id in ipairs(State.sorted_keys(f.turrets or {})) do if f.turrets[id].valid then n_turrets = n_turrets + 1 end end
     -- (hystérésis : f.team.ammo_rich garde l'état d'une pensée à l'autre ; essai 1, la cible basculait avec le fer)
-    f.team.ammo_per_turret, f.team.ammo_rich = Mu.per_turret({ base = T.turret_ammo_target, rich = T.turret_ammo_rich, turrets = n_turrets,
+    f.team.ammo_per_turret, f.team.ammo_rich = Mu.per_turret({ base = T.turret_ammo_target,
+      rich = T.turret_ammo_rich_on and T.turret_ammo_rich or T.turret_ammo_target, turrets = n_turrets, -- (essai 3 : cible riche éteinte)
       iron = iron0, mag_iron = f.team.mag_iron, was = f.team.ammo_rich == true })
     -- Munition choisie (Mu.best_ammo) : la meilleure de T.turret_ammo_ladder dont la recette est ouverte et qui se fabrique depuis le coffre
     -- (le livre de l'équipe : aucune matière à produire autrement), ou qui est au coffre ; collante tant qu'elle le reste.
@@ -588,15 +589,16 @@ function Team.view(f, tick)
     local choose = f.is_player or T.best_ammo_factions
     local book = book_for(f)
     local force = game.forces[f.force]
-    local cands, cur = {}, 1
+    local cands = {}
     for i, name in ipairs(T.turret_ammo_ladder) do
       local r = force and force.recipes[name]
       local enabled = i == 1 or (choose and r ~= nil and r.enabled == true)
       local makeable = enabled and book:handcraftable(name) and next(book:plan({ { name, T.turret_ammo_target } }, stock0).raw) == nil
       cands[i] = { enabled = enabled, makeable = makeable, stock = stock0[name] or 0 }
-      if name == f.team.ammo_item then cur = i end
     end
-    local idx, why = Mu.best_ammo(cands, cur)
+    -- Essai 3 : choix STABLE (Mu.stable_ammo, état f.team.ammo_state : nombres seulement) ; essai 2 : 17 bascules en 36 min.
+    local idx, why
+    f.team.ammo_state, idx, why = Mu.stable_ammo(f.team.ammo_state, cands, tick)
     if T.turret_ammo_ladder[idx] ~= (f.team.ammo_item or T.turret_ammo) then
       log(string.format("[FO-MUNITIONS] %s minute %.1f : munition des tourelles %s -> %s (%s)", tostring(f.key or "?"), tick / 3600,
         f.team.ammo_item or T.turret_ammo, T.turret_ammo_ladder[idx], why))
@@ -604,6 +606,7 @@ function Team.view(f, tick)
     f.team.ammo_item, f.team.ammo_why = T.turret_ammo_ladder[idx], why
   else
     f.team.ammo_per_turret, f.team.mag_iron, f.team.mag_iron_tech, f.team.ammo_rich, f.team.ammo_item = nil, nil, nil, nil, nil
+    f.team.ammo_state = nil
   end
   local groups = {}
   local hq_turrets = 0

@@ -156,4 +156,45 @@ function Mu.best_ammo(list, current)
   return 1, "base"
 end
 
+--- Lot MUNITIONS, essai 3 : choix STABLE (essai 2, verif-guide 1618033988 : 17 bascules perforantes <-> base de 24 à 60 min, « fabricable »
+--- dépendant de l'acier au coffre à chaque pensée). st = état gardé d'une pensée à l'autre ({ cur, cand, cand_since, bad_since } : nombres
+--- seulement), list = comme Mu.best_ammo, tick = tick de la pensée. Une meilleure munition n'est prise qu'après Mu.AMMO_HOLD ticks d'éligibilité
+--- SANS INTERRUPTION (recette ouverte ET fabricable, ou au coffre : l'acier est produit de façon durable) ; la munition courante n'est quittée
+--- que si sa recette se ferme (aussitôt) ou si elle reste Mu.AMMO_HOLD ticks ni fabricable ni au coffre. Rend le nouvel état, l'indice, la raison.
+Mu.AMMO_HOLD = 5 * 3600
+
+function Mu.stable_ammo(st, list, tick)
+  st = st or {}
+  list = list or {}
+  tick = num(tick)
+  local out = { cur = st.cur or 1, cand = st.cand, cand_since = st.cand_since, bad_since = st.bad_since }
+  local best = Mu.best_ammo(list, 0) -- la meilleure éligible à cette pensée (sans garde : courante = 0)
+  local c = list[out.cur] or {}
+  -- La munition courante : recette fermée, on la quitte aussitôt ; inutilisable (ni fabricable ni au coffre) pendant AMMO_HOLD, aussi.
+  if out.cur > 1 and not c.enabled then
+    out.cur, out.bad_since, out.cand, out.cand_since = best, nil, nil, nil
+    return out, out.cur, "recette fermee"
+  end
+  if out.cur > 1 and not c.makeable and num(c.stock) <= 0 then
+    out.bad_since = out.bad_since or tick
+    if tick - out.bad_since >= Mu.AMMO_HOLD then
+      out.cur, out.bad_since, out.cand, out.cand_since = best < out.cur and best or 1, nil, nil, nil
+      return out, out.cur, "plus fabricable depuis 5 min"
+    end
+  else
+    out.bad_since = nil
+  end
+  -- Une meilleure munition : seulement après AMMO_HOLD ticks d'éligibilité continue.
+  if best > out.cur then
+    if out.cand ~= best then out.cand, out.cand_since = best, tick end
+    if tick - out.cand_since >= Mu.AMMO_HOLD then
+      out.cur, out.cand, out.cand_since = best, nil, nil
+      return out, out.cur, "fabricable depuis 5 min"
+    end
+    return out, out.cur, "candidate en attente"
+  end
+  out.cand, out.cand_since = nil, nil
+  return out, out.cur, out.cur > 1 and "gardee" or "base"
+end
+
 return Mu

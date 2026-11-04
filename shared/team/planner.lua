@@ -689,7 +689,11 @@ function P.plan(view, book)
           add(task)
           avail[ammo] = stock - part
         end
-        if part < nb then want({ { ammo, nb - part } }, 90, "munitions") end
+        -- (essai 3 : la munition choisie n'est quittée qu'après 5 min sans pouvoir la fabriquer ; pendant ce temps la part urgente se fait en
+        -- munition de base, jamais une tourelle laissée vide faute d'acier)
+        if part < nb and not want({ { ammo, nb - part } }, 90, "munitions") and ammo ~= base_ammo then
+          want({ { base_ammo, nb - part } }, 90, "munitions")
+        end
         if n > nb then surplus[#surplus + 1] = { g = g, n = n - nb, task = task } end
       end
     elseif g.low > 0 and not g.has_task then
