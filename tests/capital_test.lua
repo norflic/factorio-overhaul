@@ -432,9 +432,20 @@ local function run_all()
     local gor = Cap.goal(dor.center and nil or dor, {})
     local dorb = {}
     for k, v in pairs(dor) do dorb[k] = v end
-    dorb.chain, dorb.center = nil, nil
+    dorb.chain, dorb.center, dorb.gate_open = nil, nil, false
     local gord = Cap.goal(dorb, {})
-    check(gord.opens == nil, "§15 bâtiment hors chaîne : pas `opens`")
+    check(gord.opens == nil, "§15 bâtiment hors chaîne, porte fermée : pas `opens`")
+    -- Essai 2 : centre payable (porte ouverte) : l'amélioration en cours d'un bâtiment est `opens` ; le centre lui-même jamais.
+    check(dor.gate_open == true and not dor.center and Cap.goal(dor, {}).opens == true,
+      "§15 centre payable : l'amélioration du bâtiment en cours est servie comme la chaîne (" .. tostring(dor.key) .. ")")
+    local dcen = {}
+    for k, v in pairs(dor) do dcen[k] = v end
+    dcen.center = true
+    check(Cap.goal(dcen, {}).opens == nil, "§15 le centre n'est jamais `opens`")
+    local dcl = {}
+    for k, v in pairs(dor) do dcl[k] = v end
+    dcl.gate_open = false
+    check(Cap.goal(dcl, {}).opens == nil, "§15 porte fermée, hors chaîne : pas `opens`")
     local dno = {}
     for k, v in pairs(dch) do dno[k] = v end
     dno.chain = nil
@@ -553,6 +564,9 @@ do
       end
     end
   end, function() Cap.emit = em end)
+  M("porte ouverte ignorée (essai 2)", function()
+    Cap.goal = function(d, w) local g = cg(d, w) if g and not d.chain then g.opens = nil end return g end
+  end, function() Cap.goal = cg end)
   M("tout bâtiment marqué de la chaîne", function()
     Cap.goal = function(d, w) local g = cg(d, w) if g and not g.center then g.opens = true end return g end
   end, function() Cap.goal = cg end)

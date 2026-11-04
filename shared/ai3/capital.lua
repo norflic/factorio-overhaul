@@ -465,7 +465,9 @@ function Cap.goal(d, weights)
   return { key = "capital:" .. d.key, family = "capital", kind = "upgrade", cost = d.cost, target = d.key,
     value = clamp(math.floor(base * w / 1000), 1, 100), center = d.center or nil, fond = true,
     short = (d.center and d.work ~= nil and (d.work <= Cap.SHORT_WORK or d.starved)) or nil, replace = d.replace and true or nil,
-    opens = (d.chain ~= nil and not d.center) or nil } -- lot DEFAUT7 : bâtiment de la chaîne Q16 (sa montée est la condition du centre)
+    -- lot DEFAUT7 : bâtiment de la chaîne Q16 (sa montée est la condition du centre) ; essai 2 : aussi l'amélioration d'un bâtiment
+    -- pendant que le centre est PAYABLE (porte ouverte) : ses paiements sont le chemin du centre (règle du loueur de skis, Cap.starved).
+    opens = (not d.center and (d.chain ~= nil or d.gate_open == true)) or nil }
 end
 
 --- Émission du projet (enregistrée dans P.EMIT.upgrade par shared/ai3/cerveau.lua) : tout le coût au stock virtuel ->
@@ -492,6 +494,9 @@ end
 --- centre (bâtiment de la chaîne Q16, g.opens) était servie EN DERNIER (rang 10 à 14 sur 14) : à son tour, le fer et les engrenages du
 --- stock virtuel étaient déjà pris par les projets servis avant (fer épuisé dans 23 relevés sur 33), et Cap.emit ne fabriquait rien sans
 --- bras libre : 0 fabrication émise pour elle dans 31 relevés sur 33, Azur une amélioration payée en 60 min, jamais l'âge 2.
+--- Essai 2 (dc-croissance 123456789, essai 1 : une fois la chaîne payée, le centre devient payable mais l'amélioration suivante
+--- d'Émeraude, une tourelle ordinaire, reste impayée 38 min : 0 engrenage à son tour, 2 améliorations en 60 min, la règle du loueur de
+--- skis ne passe jamais ; 0 âge 2 contre 2 au témoin) : `opens` vaut aussi pour l'amélioration d'un bâtiment quand le centre est payable.
 --- Règle : le projet du bâtiment de la chaîne passe EN TÊTE de l'ordre de service (ses quelques objets pris au stock virtuel avant les
 --- autres projets) ; les autres projets gardent leur ordre. Sa valeur et sa priorité ne changent pas ; le centre n'est pas concerné.
 --- order = liste des projets (P.update) ; rend une nouvelle liste.
