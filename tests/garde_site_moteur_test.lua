@@ -103,6 +103,8 @@ check(#logs("[FO-PERIMETRE] player : pose de") == 0, "aucune tourelle de la gard
 
 section("3. Murs retirés par le joueur, usine du joueur")
 local f3, s3 = setup(9000)
+-- (l'enceinte de votre équipe est éteinte par défaut depuis l'essai 2 : allumée ici pour juger le mécanisme des murs rendus)
+require("shared.team.config").enceinte_joueur = true
 -- (le moteur simulé ne bâtit pas de plan directeur pour votre équipe : son état minimal, lu par le crochet et la réparation)
 f3.build = f3.build or { projects = {}, order = {}, occ = {} }
 W().prototypes["stone-wall"] = W().prototypes["stone-wall"] or { type = "wall", max_health = 350,
