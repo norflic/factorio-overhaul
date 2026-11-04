@@ -21,28 +21,28 @@
    "taille": 761969
   },
   "demi-vie-hublots.png": {
-   "hauteur": 65,
-   "largeur": 150,
-   "sha256": "30dbca652b03dffe2a32d3018524d5484610415c70fba80e53456ab8de677e94",
-   "taille": 4079
+   "hauteur": 20,
+   "largeur": 46,
+   "sha256": "11779a0404684cf08344a30117d06db8d2a597e2b62f5cb0e9327435088b546a",
+   "taille": 1000
   },
   "demi-vie-ombre.png": {
-   "hauteur": 180,
-   "largeur": 230,
-   "sha256": "9b7afefefb46441af567e50a7384dfc96e47fb560f051a792b0d7967568ee957",
-   "taille": 4114
+   "hauteur": 56,
+   "largeur": 71,
+   "sha256": "25df59e454b8fb11bf653cced6f35671ae199a4f0d175981f197b54b4f1983e9",
+   "taille": 1186
   },
   "demi-vie-uranium.png": {
-   "hauteur": 265,
-   "largeur": 165,
-   "sha256": "1fc4b2f373dc1dfa21c4fc5a85ff215170c70430ddcb868c5b6b8acfaef25c2a",
-   "taille": 35560
+   "hauteur": 82,
+   "largeur": 51,
+   "sha256": "16365e0f244ec7dc2c01a2520cced30d724dcdfd5e5a47f98d9c4f06d843b422",
+   "taille": 6377
   },
   "demi-vie.png": {
-   "hauteur": 296,
-   "largeur": 206,
-   "sha256": "bfb2e77fd34e90727e567b7ff03682208c930f0cb9c452a14500c0f7073e449e",
-   "taille": 96952
+   "hauteur": 92,
+   "largeur": 64,
+   "sha256": "44b36b752e299314b0ef787792c8bac547c7fc9583575f73e26469c84d39d187",
+   "taille": 13307
   },
   "eclair-blanc.png": {
    "hauteur": 128,
@@ -57,22 +57,22 @@
    "taille": 5924
   },
   "geode-cristal.png": {
-   "hauteur": 234,
-   "largeur": 289,
-   "sha256": "a86afcd6327a95bcfe6d67aaa5681acbd6fa7c6bf36faa923098b3e673e7e88a",
-   "taille": 30763
+   "hauteur": 159,
+   "largeur": 196,
+   "sha256": "e1436fa4fc1ad6dd63e1837eaad07b4cee17f6e0f957d2e44f8c17b308fff605",
+   "taille": 18088
   },
   "geode-ombre.png": {
-   "hauteur": 216,
-   "largeur": 281,
-   "sha256": "c32fc77df0a0438b1fc80e432a7ce702b1292a91cdf72002bbc9b64289949d2b",
-   "taille": 5035
+   "hauteur": 147,
+   "largeur": 191,
+   "sha256": "0a19d4c4d968591c61b97e548f3a2a78bc5c54108d819815207fb96f564a338a",
+   "taille": 3143
   },
   "geode.png": {
-   "hauteur": 234,
-   "largeur": 289,
-   "sha256": "7a608fbb8f6657a81a69df27035eb34f94162384b4cba36a0bf60bb31805db95",
-   "taille": 80532
+   "hauteur": 159,
+   "largeur": 196,
+   "sha256": "8c9825d556ad863ff2b832b6945eb71c316292649ae4f3668f1d694885aaabf2",
+   "taille": 43377
   },
   "glace.png": {
    "hauteur": 42,
@@ -99,28 +99,28 @@
    "taille": 2369417
   },
   "hr-demi-vie-hublots.png": {
-   "hauteur": 194,
-   "largeur": 450,
-   "sha256": "78e7a3f5385fad14c511f7959d4347155e5c6c0a4d588933b708f4a3a7c4a3d8",
-   "taille": 24683
+   "hauteur": 40,
+   "largeur": 93,
+   "sha256": "ca46b8bcf36f22a297311d966e0146305be50d3ddb7f990d9a2be8a597026a75",
+   "taille": 2293
   },
   "hr-demi-vie-ombre.png": {
-   "hauteur": 360,
-   "largeur": 460,
-   "sha256": "800617c76a3dceab1e7b68b3385edd510b81c9b45a791b766dec6a34fba33d30",
-   "taille": 9889
+   "hauteur": 112,
+   "largeur": 143,
+   "sha256": "a9a430b173f996feebd15ac4615e60e5d6e45635e3ebc01ffa712bb5182bf5e5",
+   "taille": 2402
   },
   "hr-demi-vie-uranium.png": {
-   "hauteur": 794,
-   "largeur": 494,
-   "sha256": "5fe771922cd44363ba122baa4e4fb0c1e39a37614b97c291b224950463c82e22",
-   "taille": 296116
+   "hauteur": 164,
+   "largeur": 102,
+   "sha256": "7de7190bc3588fc00a9574201fc0262d45144873a657ca2eb2b0fa4b88f740b2",
+   "taille": 17623
   },
   "hr-demi-vie.png": {
-   "hauteur": 888,
-   "largeur": 618,
-   "sha256": "c88f6817694c6aa0260ce3c52e23eff3fafb0715665b21a8a3f3b4d5db47fbaf",
-   "taille": 591211
+   "hauteur": 184,
+   "largeur": 128,
+   "sha256": "6dfb9e131ea010fb1e7a577bce4ba683f1c0a32443a3783a3019f7a74d1af41d",
+   "taille": 43305
   },
   "hr-eclair-blanc.png": {
    "hauteur": 256,
@@ -135,22 +135,22 @@
    "taille": 16315
   },
   "hr-geode-cristal.png": {
-   "hauteur": 703,
-   "largeur": 866,
-   "sha256": "2a21e8fd7f9ab3fb75585bdb99a75b336c63d745140af8f4dcb8a241126a19fb",
-   "taille": 119812
+   "hauteur": 319,
+   "largeur": 393,
+   "sha256": "5ba1b6e9782e783496a712df9f3e10240c0e51ba9176048dca6e42176a6b88c1",
+   "taille": 47351
   },
   "hr-geode-ombre.png": {
-   "hauteur": 431,
-   "largeur": 563,
-   "sha256": "09d4756da88e4f7a48b8dad4c9350714a54fcc01e8a9cd2fa247d684a3147f4c",
-   "taille": 12930
+   "hauteur": 293,
+   "largeur": 383,
+   "sha256": "83a4bb36111ff5e3a0aa674f448dbb643316c5e601439da2811a9c233ed26c16",
+   "taille": 7545
   },
   "hr-geode.png": {
-   "hauteur": 703,
-   "largeur": 866,
-   "sha256": "ee9b27b7ae2abd57baae1e420ec604a8aacd090b44028ba37637d2786a5b0f0b",
-   "taille": 434645
+   "hauteur": 319,
+   "largeur": 393,
+   "sha256": "fa2df6520d439bbeef92accfc4eacd83f4c8ae8402234a111595416b8612833e",
+   "taille": 132669
   },
   "hr-glace.png": {
    "hauteur": 83,
@@ -177,28 +177,28 @@
    "taille": 2906938
   },
   "hr-mat-foudre-arc.png": {
-   "hauteur": 265,
-   "largeur": 354,
-   "sha256": "15cff38be96a13c4be8789e139a19b4ced9c521192b379e3f0d1772487539fd7",
-   "taille": 107957
+   "hauteur": 93,
+   "largeur": 124,
+   "sha256": "21c87008ae5b2725419cc1af47e6c50f27083f27c8c71362b287902e4c51e221",
+   "taille": 18113
   },
   "hr-mat-foudre-hublots.png": {
-   "hauteur": 104,
-   "largeur": 127,
-   "sha256": "a8da7cc1ed2c7896c997a0ae4e9f4fc1f437f5a2c14bd19be7f4efa1b1a5efd0",
-   "taille": 4669
+   "hauteur": 36,
+   "largeur": 44,
+   "sha256": "502b7959547297855ccd3442af8562e032934df6ab46b75b270fbbd0cac714b1",
+   "taille": 825
   },
   "hr-mat-foudre-ombre.png": {
-   "hauteur": 377,
-   "largeur": 487,
-   "sha256": "a91125cac7436ce218b89546424edab548b0168af30176539448b15cc8a419b5",
-   "taille": 10374
+   "hauteur": 198,
+   "largeur": 255,
+   "sha256": "57e50a59fb083acf9e362e2599c1e8f3c9e674dfe9f360f883466c6ae9960ee0",
+   "taille": 4091
   },
   "hr-mat-foudre.png": {
-   "hauteur": 919,
-   "largeur": 470,
-   "sha256": "0266236e1290626a0d93f9d3528564358d6be70d8758403dabd04fda81dbf687",
-   "taille": 512720
+   "hauteur": 321,
+   "largeur": 164,
+   "sha256": "7bcc488a7813127d3789c876d42c9e2955d7f97b1d58e6c0419ca2dfb241704f",
+   "taille": 92546
   },
   "hr-pointe-lueur.png": {
    "hauteur": 83,
@@ -213,22 +213,22 @@
    "taille": 2776
   },
   "hr-sarracenie-ombre.png": {
-   "hauteur": 441,
-   "largeur": 510,
-   "sha256": "6801ae10ae146f5c8d99dc903c8239ffe4edcbf9358252618122cbdf70f2b625",
-   "taille": 12490
+   "hauteur": 200,
+   "largeur": 232,
+   "sha256": "b3fb3737414ddaf8bd0aa3b42f5caddaaf9b8fc4f63c2815549a46f81c3cd952",
+   "taille": 4407
   },
   "hr-sarracenie-suc.png": {
-   "hauteur": 390,
-   "largeur": 345,
-   "sha256": "b583be842bfe997243381546f142916c5e7fa326f9de18a6646d1dd04d16c896",
-   "taille": 96339
+   "hauteur": 118,
+   "largeur": 104,
+   "sha256": "4eae54120ab8f998ec1a58812ec12eecb5698404e33819fb9639c9c1a83848ec",
+   "taille": 11236
   },
   "hr-sarracenie.png": {
-   "hauteur": 997,
-   "largeur": 676,
-   "sha256": "93f86da7000cf457bb4385dbf8e22784d4a1dc2880d88c42b9fde972f5d88971",
-   "taille": 460009
+   "hauteur": 302,
+   "largeur": 205,
+   "sha256": "cb91509858109738da0ee732b336e154ea113a21837ed39051f93b17a79303d7",
+   "taille": 74899
   },
   "hr-stylet-lueur.png": {
    "hauteur": 1730,
@@ -285,28 +285,28 @@
    "taille": 2658949
   },
   "hr-veilleuse-ombre.png": {
-   "hauteur": 451,
-   "largeur": 583,
-   "sha256": "3cd021592adb2c24de92e0366d3eb70438a092d11b7be833275ae3229642747b",
-   "taille": 20338
+   "hauteur": 194,
+   "largeur": 251,
+   "sha256": "28182d983526bf18a023145344079b01ff5bf13133b0695f4473ffc9411472a9",
+   "taille": 6379
   },
   "hr-veilleuse-plasma.png": {
-   "hauteur": 416,
-   "largeur": 702,
-   "sha256": "564eed11710da86e91fef87b0be566da24e3f9012068dc8ed913190653f08cdf",
-   "taille": 243525
+   "hauteur": 119,
+   "largeur": 201,
+   "sha256": "448235d9a485c2aa7bb6def2c00d17a2a6255fdae6852cf0f90db83e3a689476",
+   "taille": 29828
   },
   "hr-veilleuse-soleil.png": {
-   "hauteur": 420,
-   "largeur": 579,
-   "sha256": "13fe8a170604346f0ae7aaaad2b7b2cc0af507935972baf3f1ac0a070794b6ac",
-   "taille": 171036
+   "hauteur": 120,
+   "largeur": 166,
+   "sha256": "410b52978965595776f49143925039e5f05d66db4920a8b2303667fa3e0f0fb3",
+   "taille": 28004
   },
   "hr-veilleuse.png": {
-   "hauteur": 1060,
-   "largeur": 716,
-   "sha256": "c2025e7ece0256a85f6329821f830061cea3ea9c138fbd0301aa0f2bb40bd2a2",
-   "taille": 545330
+   "hauteur": 304,
+   "largeur": 205,
+   "sha256": "92a89200d38748c41839472aab03578e4ee50afccf8023c6e4291cd3fee379a1",
+   "taille": 81230
   },
   "hr-verre.png": {
    "hauteur": 160,
@@ -393,28 +393,28 @@
    "taille": 902818
   },
   "mat-foudre-arc.png": {
-   "hauteur": 88,
-   "largeur": 118,
-   "sha256": "ac87ff39c061cb43e0c451be399197de1337f33580cb02392125bfb898dca61d",
-   "taille": 16768
+   "hauteur": 46,
+   "largeur": 62,
+   "sha256": "c0a0294b71b16a17e6069be73595fa016ef63c001ea70fa18bf555a2e225c300",
+   "taille": 5911
   },
   "mat-foudre-hublots.png": {
-   "hauteur": 35,
-   "largeur": 42,
-   "sha256": "4ae0620c515a89bf378bd31a50213146fc8b32ca843edac32582c4399848542d",
-   "taille": 770
+   "hauteur": 18,
+   "largeur": 22,
+   "sha256": "b5a50b530b0434c48161c4318e7c2aeb3f4cd1bbb92d619aae92196306c632c1",
+   "taille": 396
   },
   "mat-foudre-ombre.png": {
-   "hauteur": 189,
-   "largeur": 243,
-   "sha256": "bd9046ce258ae80f58163728d69986a841033af143cfde9e71c491012833223a",
-   "taille": 3840
+   "hauteur": 99,
+   "largeur": 128,
+   "sha256": "725821362d05ef2e676b0a899e5642f216a58575c4fb8a881e8581a16fd1283f",
+   "taille": 1875
   },
   "mat-foudre.png": {
-   "hauteur": 306,
-   "largeur": 157,
-   "sha256": "54770d1faf6c7531901fd5bdb366456789b8c0586c4e62f2eb396d83c1c71ae5",
-   "taille": 85494
+   "hauteur": 161,
+   "largeur": 82,
+   "sha256": "7d4a96d7a306219c40dd19c20ad3c6c7ea79fc420121b0c873a204fe00fc4f9b",
+   "taille": 29289
   },
   "pointe-lueur.png": {
    "hauteur": 42,
@@ -429,22 +429,22 @@
    "taille": 1358
   },
   "sarracenie-ombre.png": {
-   "hauteur": 220,
-   "largeur": 255,
-   "sha256": "f0fe8b1d94f9bef85124cc98df5f6afd12e96f9fd3237c446ae3cce9591b517c",
-   "taille": 5016
+   "hauteur": 100,
+   "largeur": 116,
+   "sha256": "751ad9899e72cfb3f139c9ab39a7df0dc5c1817ac7869fa4ce1771dd52f7293f",
+   "taille": 2001
   },
   "sarracenie-suc.png": {
-   "hauteur": 130,
-   "largeur": 115,
-   "sha256": "df456f2bc0cd29de031bb268912171a001ef68207c2e1bb8c4b5fecef091a8f0",
-   "taille": 12851
+   "hauteur": 59,
+   "largeur": 52,
+   "sha256": "33bfb107125c2a65550938203a0fbffa9ef1977334451ee2609a3ffb3bf9499b",
+   "taille": 4269
   },
   "sarracenie.png": {
-   "hauteur": 332,
-   "largeur": 225,
-   "sha256": "9eaf64c9f3d38c1f131e71b15ab0aa9b0122da4049af13f38c7d19dd6aa336ac",
-   "taille": 87172
+   "hauteur": 151,
+   "largeur": 102,
+   "sha256": "9346691d3e6ba5fd8c2b7ae337d2cbc20f4e8f9eaf33677f20f44c23a416e4f8",
+   "taille": 24868
   },
   "stylet-lueur.png": {
    "hauteur": 865,
@@ -501,28 +501,28 @@
    "taille": 810999
   },
   "veilleuse-ombre.png": {
-   "hauteur": 226,
-   "largeur": 292,
-   "sha256": "a029eb499a815160b0688782ac062cfe961fab3c8ec1de70e2e3b6ee44f7644e",
-   "taille": 7772
+   "hauteur": 97,
+   "largeur": 125,
+   "sha256": "3e01ace649d47a9a4d644f67c1432713e456188eef235bcb950850ecf266fb06",
+   "taille": 2699
   },
   "veilleuse-plasma.png": {
-   "hauteur": 139,
-   "largeur": 234,
-   "sha256": "ec7b5bdb149f572e2775659a0f3a84054ef48ed0f6c6e016eb62ec25159710cf",
-   "taille": 37834
+   "hauteur": 60,
+   "largeur": 101,
+   "sha256": "f818d42f98c35631efbb4c944814af903b0dc534e8a510d38f63d485e747bb9e",
+   "taille": 9881
   },
   "veilleuse-soleil.png": {
-   "hauteur": 140,
-   "largeur": 193,
-   "sha256": "77a220cb1a61af40ab83a7a2d8756435d13a1c6adb50f358b3867d56ea7dcb29",
-   "taille": 35257
+   "hauteur": 60,
+   "largeur": 83,
+   "sha256": "4e068aad7944488ac9e239bcbead5d2a0215ff02b42666fb6a1d8e7aa9632187",
+   "taille": 9373
   },
   "veilleuse.png": {
-   "hauteur": 353,
-   "largeur": 239,
-   "sha256": "93ab47ac9500b9880a0435bb61d61e104140ef3e026d12bf6ec27a4cc02f0c7c",
-   "taille": 103538
+   "hauteur": 152,
+   "largeur": 103,
+   "sha256": "9de98916f08f6467974eb0f3feae102fb185880b2c92a465871fe0f8b2113897",
+   "taille": 27587
   },
   "verre.png": {
    "hauteur": 80,

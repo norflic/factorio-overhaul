@@ -51,6 +51,9 @@ end
 
 local function near(a, b, eps) return math.abs(a - b) <= (eps or 1e-6) * math.max(1, math.abs(b)) end
 
+-- feuilles générées (D-6) : l'échelle écrite par feuilles_xp.py doit être celle des données (contrôlé aussi sur les mutants)
+local okspr0, SPR0 = pcall(dofile, "graphics/robots/experimentaux/sprites.lua")
+
 --- La suite : rend (ok, échecs, messages). `Xp` : le module (réel ou mutant).
 local function suite(Xp)
   local pass, fail, msgs = 0, 0, {}
@@ -96,9 +99,11 @@ local function suite(Xp)
       if r.is_unit then
         check(r.half and r.half <= 1.5 and r.speed and r.speed > 0, "§1 " .. r.id .. " : unité de demi-boîte au plus 1,5 (chemins), vitesse > 0")
       else
-        check(r.foot and r.foot >= 3 and r.foot % 1 == 0, "§1 " .. r.id .. " : emprise entière d'au moins 3")
+        check(r.foot == 3, "§1 " .. r.id .. " : défense posée en 3 × 3 (décision du lead, 4/11)")
       end
       check(r.range > 0 and r.cooldown > 0, "§1 " .. r.id .. " : portée et cadence")
+      check(okspr0 and SPR0.corps[r.id] and SPR0.corps[r.id].echelle == r.scale and r.scale > 0 and r.scale < 0.5,
+        "§1 " .. r.id .. " : réduit (échelle " .. tostring(r.scale) .. ", celle des feuilles)")
       check((r.single_use == true) == (r.id == "demi-vie"), "§1 " .. r.id .. " : usage unique pour la seule Demi-Vie")
     end
   end
@@ -274,7 +279,14 @@ if okspr then
       for _, g in ipairs(s.lueurs) do check_img(g, r.id .. " lueur " .. tostring(g.nom)) end
       local w, h = png_size(file_of(s.icone.filename))
       check(w == 64 and h == 64, "§4 " .. r.id .. " : icône 64 × 64")
-      check(near(s.main.hr.scale * s.px_rendu, 32, 1e-3) and near(s.main.lr.scale, 2), "§4 " .. r.id .. " : échelles 32 / px du rendu et 2 (16 px par tuile)")
+      check(near(s.main.hr.scale, 0.5) and near(s.main.lr.scale, 1) and s.px_rendu == 64, "§4 " .. r.id .. " : 64 px par tuile en haute, 32 en normale")
+      check(s.echelle == r.scale, "§4 " .. r.id .. " : feuilles à l'échelle de shared (" .. tostring(s.echelle) .. " / " .. tostring(r.scale) .. ")")
+      -- taille du corps à l'écran (tuiles), décision du lead du 4/11 : défenses ~3 de large, 4 à 5 de haut ; Géode ~3 (sphère ; débris
+      -- compris, 6,5 au plus) ; Demi-Vie ~2
+      local w, h = s.main.hr.width * s.main.hr.scale / 32, s.main.hr.height * s.main.hr.scale / 32
+      local maxw, maxh = 3.3, 5.1
+      if r.id == "geode" then maxw, maxh = 6.5, 5.1 elseif r.id == "demi-vie" then maxw, maxh = 2.1, 3.0 end
+      check(w <= maxw and h <= maxh and w >= maxw * 0.6, string.format("§4 %s : corps de %.2f × %.2f tuiles (au plus %.1f × %.1f)", r.id, w, h, maxw, maxh))
     end
   end
   for _, k in ipairs({ "pointe", "pointe-lueur", "eclair", "verre" }) do
@@ -381,7 +393,9 @@ local MUTANTS = {
   { "capsule de défense acceptée", "return r and r.is_unit and r or nil", "return r" },
   { "Demi-Vie réutilisable", "speed = 0.16, single_use = true,", "speed = 0.16," },
   { "charge de 20 s", "Xp.BURST_SECONDS = 30", "Xp.BURST_SECONDS = 20" },
-  { "unité trop large pour les chemins", 'half = 1.2, range = 3', 'half = 2.5, range = 3' },
+  { "unité trop large pour les chemins", 'half = 0.8, range = 3', 'half = 2.5, range = 3' },
+  { "Mât-Foudre à l'ancienne échelle", 'mu = 1800, time = 30, scale = 0.262, foot = 3,', 'mu = 1800, time = 30, scale = 1, foot = 3,' },
+  { "Veilleuse en 11 × 11", 'mu = 42000, time = 10, scale = 0.215, foot = 3,', 'mu = 42000, time = 10, scale = 0.215, foot = 11,' },
 }
 local refused, kept = 0, {}
 for _, m in ipairs(MUTANTS) do

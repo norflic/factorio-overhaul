@@ -57,6 +57,23 @@ return {
       ctx.log(string.format("%s : usine %s, ingredients inseres %s", id, C.USINE[id], table.concat(site.usine.inserted, ", ")))
       st.sites[#st.sites + 1] = site
     end
+    -- comme le banc « content » (c1 : « rien produit, statut 38 » sur les 5 recettes) : machine posée sans événement, recette posée,
+    -- ingrédients × 4 ; on relève le statut par son NOM
+    st.comme = {}
+    local cx = C.x(7)
+    ctx.prepare_area(cx - 10, C.Y - 10, cx + 90, C.Y + 30, "dry-dirt")
+    ctx.power(cx - 6, C.Y + 10)
+    for k, id in ipairs(C.IDS) do
+      local rec = game.recipe_prototypes["fo-xp-make-" .. id]
+      local m = s.create_entity({ name = C.USINE[id], position = { cx + (k - 1) * 16, C.Y + 10 }, force = "player" })
+      if m and rec then
+        m.set_recipe(rec.name)
+        local mis = {}
+        for _, g in ipairs(rec.ingredients) do mis[#mis + 1] = g.name .. " " .. m.insert({ name = g.name, count = g.amount * 4 }) .. "/" .. (g.amount * 4) end
+        ctx.log(string.format("comme content %s : recette %s, %s", id, tostring(m.get_recipe() and m.get_recipe().name), table.concat(mis, ", ")))
+      end
+      st.comme[#st.comme + 1] = { id = id, m = m }
+    end
   end,
 
   tick = function(ctx, e)
@@ -93,6 +110,16 @@ return {
   finish = function(ctx)
     local st = ctx.state()
     local all = stats()
+    local nom = {}
+    for k, v in pairs(defines.entity_status) do nom[v] = k end -- table de noms : l'ordre de parcours ne compte pas
+    for _, c in ipairs(st.comme or {}) do
+      local m = c.m
+      local out = m and m.valid and m.get_output_inventory().get_item_count("fo-xp-" .. c.id) or -1
+      ctx.check(m and m.valid and (out > 0 or (m.crafting_progress or 0) > 0 or m.products_finished > 0),
+        c.id .. " : fabrique comme dans le banc content (ingredients x 4, sans evenement)",
+        m and m.valid and string.format("sortie %d, progression %.2f, finis %d, statut %s (%s)", out, m.crafting_progress or 0, m.products_finished,
+          tostring(nom[m.status]), tostring(m.status)) or "machine absente")
+    end
     for _, site in ipairs(st.sites) do
       local id = site.id
       local sx = all[id]

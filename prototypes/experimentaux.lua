@@ -251,9 +251,10 @@ local function base_tourelle(r, type_)
   return t
 end
 
--- Bouche du Mât-Foudre : la sphère au sommet, relevée sur capture (i1 : 14,4 tuiles au-dessus de la position). Le moteur ADDITIONNE le
--- décalage des paramètres d'attaque et celui de la livraison (i1 : rayon parti de 2 × 12,9 tuiles) : un seul des deux est écrit.
-local MAT_SPHERE = { 0, -14.4 }
+-- Bouche du Mât-Foudre : la sphère au sommet, relevée sur capture (i1 : 14,4 tuiles au-dessus de la position, à l'échelle du rendu), réduite
+-- avec le corps. Le moteur ADDITIONNE le décalage des paramètres d'attaque et celui de la livraison (i1 : rayon parti de 2 × 12,9 tuiles) :
+-- un seul des deux est écrit.
+local MAT_SPHERE = { 0, -14.4 * Xp.robot("mat-foudre").scale }
 
 local function mat_foudre(r)
   local t = base_tourelle(r, "electric-turret")

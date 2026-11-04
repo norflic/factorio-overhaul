@@ -41,19 +41,20 @@ Xp.EFFECT = {
 }
 
 --- Les petits (FAISABILITE, tableau « La famille »). `kind` : turret-electric, turret, unit-capsule. `foot` : côté de l'emprise (tuiles) d'une
---- défense posée ; `half` : demi-boîte d'une unité. `src` : dossier des sources (fo-logs/2026-10-31_ROBOTS/experimentaux/final/sprites).
+--- défense posée ; `half` : demi-boîte d'une unité. `scale` : réduction du rendu validé (décision du lead, 4/11 : « des plus petits » ;
+--- défenses en 3 x 3, corps d'environ 3 tuiles sur 4 à 5 ; Géode environ 3 ; Demi-Vie environ 2) ; les effets gardent leur taille. `src` : dossier des sources (fo-logs/2026-10-31_ROBOTS/experimentaux/final/sprites).
 --- `ref` : robot de même âge (ou du dernier âge qui en a un qui tire) dont on tire la valeur. `after` : technologie de robot de l'époque.
 Xp.ROBOTS = {
   {
     id = "mat-foudre", src = "mat_foudre", age = 6, kind = "turret-electric", factory = "fo-robot-workshop", after = "fo-robot-coil",
-    ref = "coiler", mu = 1800, time = 30, foot = 7, range = 24, cooldown = 60, dtype = "electric",
+    ref = "coiler", mu = 1800, time = 30, scale = 0.262, foot = 3, range = 24, cooldown = 60, dtype = "electric",
     chain = { jumps = 2, radius = 8, share = 0.5 },
     ingredients = { { "battery", 100 }, { "steel-plate", 100 }, { "engine-unit", 60 }, { "copper-cable", 100 }, { "electronic-circuit", 60 } },
     lueur = { r = 0.35, g = 0.9, b = 1.0 },
   },
   {
     id = "geode", src = "geode", age = 7, kind = "unit-capsule", factory = "fo-robotics-bay", after = "fo-robot-bay",
-    ref = "needle", mu = 3400, time = 30, half = 1.0, range = 20, cooldown = 120, dtype = "physical", speed = 0.10,
+    ref = "needle", mu = 3400, time = 30, scale = 0.34, half = 1.0, range = 20, cooldown = 120, dtype = "physical", speed = 0.10,
     spikes = { count = 8, step_ticks = 3, radius = 1.5, share = 0.1, final_radius = 2.5 },
     ingredients = { { "fo-resonance-crystal", 100 }, { "fo-servo-motor", 30 }, { "battery", 100 }, { "steel-plate", 100 },
       { "fo-optical-sensor", 40 }, { "fo-controller", 18 } },
@@ -61,7 +62,7 @@ Xp.ROBOTS = {
   },
   {
     id = "sarracenie", src = "sarracenie", age = 8, kind = "turret", factory = "fo-robotics-bay", after = "fo-robot-bellwether",
-    ref = "needle", mu = 6200, time = 30, foot = 9, range = 30, cooldown = 90, dtype = "acid",
+    ref = "needle", mu = 6200, time = 30, scale = 0.227, foot = 3, range = 30, cooldown = 90, dtype = "acid",
     jets = { count = 3, spread = 3, radius = 2 }, puddle_share = 0.25,
     ingredients = { { "fo-methane-barrel", 100 }, { "fo-servo-motor", 50 }, { "fo-controller", 40 }, { "battery", 100 },
       { "steel-plate", 100 }, { "fo-optical-sensor", 100 }, { "plastic-bar", 100 } },
@@ -69,7 +70,7 @@ Xp.ROBOTS = {
   },
   {
     id = "demi-vie", src = "demi_vie", age = 9, kind = "unit-capsule", factory = "fo-robotics-bay", after = "fo-robot-mortar",
-    ref = "chamfer", mu = 7500, time = 20, half = 1.2, range = 3, cooldown = 30, dtype = "explosion", speed = 0.16, single_use = true,
+    ref = "chamfer", mu = 7500, time = 20, scale = 0.155, half = 0.8, range = 3, cooldown = 30, dtype = "explosion", speed = 0.16, single_use = true,
     blast = { radius = 12, edge = 0.5 }, contamination = { radius = 10, duration = 2700, period = 30, share = 0.005, dtype = "poison" },
     ingredients = { { "uranium-238", 100 }, { "fo-lead-plate", 100 }, { "processing-unit", 40 }, { "fo-servo-motor", 30 },
       { "fo-controller", 30 }, { "steel-plate", 100 }, { "battery", 50 } },
@@ -77,7 +78,7 @@ Xp.ROBOTS = {
   },
   {
     id = "veilleuse", src = "veilleuse", age = 13, kind = "turret", factory = "fo-robot-gantry", after = "fo-robot-gantry",
-    ref = "toroid", mu = 42000, time = 10, foot = 11, range = 40, cooldown = 120, dtype = "laser",
+    ref = "toroid", mu = 42000, time = 10, scale = 0.215, foot = 3, range = 40, cooldown = 120, dtype = "laser",
     drop = { radius = 4 },
     ingredients = { { "fo-superconducting-coil", 100 }, { "fo-laser-module", 100 }, { "fo-magnetic-actuator", 100 }, { "processing-unit", 100 },
       { "fo-graphics-card", 100 }, { "fo-guidance-core", 60 }, { "fo-titanium-plate", 100 } },

@@ -34,7 +34,12 @@ OMBRE_HR, OMBRE_LR = 16.0, 8.0
 SEUIL_ALPHA = 2  # rognage : alpha > 2 / 255
 
 # id du jeu (shared/robots/experimentaux.lua) -> dossier source
-PETITS = [("mat-foudre", "mat_foudre"), ("geode", "geode"), ("sarracenie", "sarracenie"), ("demi-vie", "demi_vie"), ("veilleuse", "veilleuse")]
+# petits : (id, dossier, échelle du corps) ; l'échelle est celle de shared/robots/experimentaux.lua (`scale`, contrôlée par
+# tests/experimentaux_test.lua) : décision du lead du 4/11 (défenses en 3 x 3, corps ~3 x 4-5 tuiles ; Géode ~3 ; Demi-Vie ~2)
+PETITS = [("mat-foudre", "mat_foudre", 0.262), ("geode", "geode", 0.34), ("sarracenie", "sarracenie", 0.227), ("demi-vie", "demi_vie", 0.155),
+          ("veilleuse", "veilleuse", 0.215)]
+PETIT_HR, PETIT_LR = 64.0, 32.0          # corps et lueurs des petits (tuile à l'échelle du jeu)
+PETIT_OMBRE_HR, PETIT_OMBRE_LR = 32.0, 16.0
 # géants (rendus à 40 px/tuile) : corps haute 32 px/tuile, lueurs fondues en une couche (FAISABILITE : budget à 32 px/tuile)
 GEANTS = [("cairn", "cairn"), ("stylet", "stylet"), ("trombe", "trombe"), ("ixion", "ixion"), ("tournesol", "tournesol")]
 
@@ -115,7 +120,13 @@ class Sortie:
                 "shift": [round(float(shift[0]), 4), round(float(shift[1]), 4)]}
 
 
-def lit_couche(src, var, couche):
+def lit_couche(src, var, couche, echelle=1.0):
+    """Couche rognée ; avec `echelle`, l'objet est réduit : px par tuile du jeu = px du rendu / échelle, décalage × échelle."""
+    c, px, sh = _lit_couche(src, var, couche)
+    return c, px / echelle, (sh[0] * echelle, sh[1] * echelle)
+
+
+def _lit_couche(src, var, couche):
     s = json.load(open(os.path.join(src, var, "spec.json"), encoding="utf-8"))
     info = s["layers"][couche]
     px = float(s["px"])
@@ -137,30 +148,30 @@ def reduit(a, px_src, ppt):
     return lanczos(a, max(1, int(round(a.shape[1] * k))), max(1, int(round(a.shape[0] * k))))
 
 
-def corps(S, src, cle, var):
-    """main, lueurs (glow_*), ombre d'un expérimental. Rend l'entrée de sprites.lua."""
+def corps(S, src, cle, var, echelle):
+    """main, lueurs (glow_*), ombre d'un petit, réduit à `echelle`. Rend l'entrée de sprites.lua."""
     spec = json.load(open(os.path.join(src, var, "spec.json"), encoding="utf-8"))
-    out = {"lueurs": []}
-    c, px, sh = lit_couche(src, var, "main")
-    out["main"] = S.couche(cle, c, px, reduit(c, px, LR_PPT), LR_PPT, sh)
-    out["px_rendu"] = px
+    out = {"lueurs": [], "echelle": echelle}
+    c, px, sh = lit_couche(src, var, "main", echelle)
+    out["main"] = S.couche(cle, reduit(c, px, PETIT_HR), PETIT_HR, reduit(c, px, PETIT_LR), PETIT_LR, sh)
+    out["px_rendu"] = PETIT_HR
     for nom in sorted(spec["layers"]):
         if not nom.startswith("glow_"):
             continue
-        g, gpx, gsh = lit_couche(src, var, nom)
+        g, gpx, gsh = lit_couche(src, var, nom, echelle)
         if g.shape[0] * g.shape[1] <= 1:
             continue
-        e = S.couche("%s-%s" % (cle, nom[5:]), g, gpx, reduit(g, gpx, LR_PPT), LR_PPT, gsh)
+        e = S.couche("%s-%s" % (cle, nom[5:]), reduit(g, gpx, PETIT_HR), PETIT_HR, reduit(g, gpx, PETIT_LR), PETIT_LR, gsh)
         e["nom"] = nom[5:]
         out["lueurs"].append(e)
     if not out["lueurs"]:
         # rendu sans couche de lueur (Géode) : les cristaux violets du corps deviennent la lueur (vue de nuit, règle D2)
         g = lueur_cristaux(c)
-        e = S.couche("%s-cristal" % cle, g, px, reduit(g, px, LR_PPT), LR_PPT, sh)
+        e = S.couche("%s-cristal" % cle, reduit(g, px, PETIT_HR), PETIT_HR, reduit(g, px, PETIT_LR), PETIT_LR, sh)
         e["nom"] = "cristal"
         out["lueurs"].append(e)
-    o, opx, osh = lit_couche(src, var, "shadow")
-    out["ombre"] = S.couche(cle + "-ombre", reduit(o, opx, OMBRE_HR), OMBRE_HR, reduit(o, opx, OMBRE_LR), OMBRE_LR, osh)
+    o, opx, osh = lit_couche(src, var, "shadow", echelle)
+    out["ombre"] = S.couche(cle + "-ombre", reduit(o, opx, PETIT_OMBRE_HR), PETIT_OMBRE_HR, reduit(o, opx, PETIT_OMBRE_LR), PETIT_OMBRE_LR, osh)
     # icône : le corps tenu dans 60 px, centré dans 64
     k = 60.0 / max(c.shape[0], c.shape[1])
     ic = lanczos(c, max(1, int(round(c.shape[1] * k))), max(1, int(round(c.shape[0] * k))))
@@ -325,8 +336,8 @@ def main():
             os.remove(os.path.join(a.dest, f))
     S = Sortie(a.dest)
     spr = {"corps": {}, "effets": effets(S)}
-    for cle, var in PETITS:
-        spr["corps"][cle] = corps(S, a.src, cle, var)
+    for cle, var, echelle in PETITS:
+        spr["corps"][cle] = corps(S, a.src, cle, var, echelle)
     for cle, var in GEANTS:
         spr["corps"][cle] = geant(S, a.src, cle, var)
     p = os.path.join(a.dest, "sprites.lua")
