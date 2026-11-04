@@ -513,6 +513,28 @@ local function run_all()
     local ord = Cap.craft_first({ { "iron-plate", 6 }, { "iron-gear-wheel", 3 }, { "stone-brick", 2 }, { "electronic-circuit", 2 } }, book)
     check(ord[1][1] == "iron-gear-wheel" and ord[2][1] == "electronic-circuit" and ord[3][1] == "iron-plate" and ord[4][1] == "stone-brick",
       "§15 ordre du besoin : pièces fabricables d'abord, dans l'ordre du coût, puis le reste")
+    -- (d) Relecture B1/M2 : l'état prioritaire se DÉFAIT. Prioritaire depuis 10 min sans être payé -> priorité rendue 10 min.
+    local MIN10 = 10 * 3600 -- chiffres écrits de la règle (un mutant de Cap.PRIO_MAX / Cap.PRIO_COOL doit se voir)
+    local pd = { key = gate.key, spent = 0, quiet = T0 }
+    Cap.defer_clock(pd, true, T0 + 100, true)
+    check(pd.prio_since == T0 + 100 and pd.cool_until == nil, "§15d prioritaire : l'horloge de la priorité part")
+    Cap.defer_clock(pd, true, T0 + 100 + MIN10 - 1, true)
+    check(pd.cool_until == nil, "§15d prioritaire depuis moins de 10 min : la priorité tient")
+    Cap.defer_clock(pd, true, T0 + 100 + MIN10, true)
+    local Tc = T0 + 100 + MIN10
+    check(pd.cool_until == Tc + MIN10 and pd.prio_since == nil and pd.quiet == Tc,
+      "§15d prioritaire depuis 10 min sans paiement : priorité rendue 10 min, horloge du report stérile repartie")
+    local dcool = Cap.choose(L, cen, ctx({ defer = pd, tick = Tc + MIN10 - 1 }))
+    check(dcool.family == "gun" and not dcool.starved, "§15d pendant la priorité rendue : les autres améliorations repassent (" .. tostring(dcool.key) .. ")")
+    local pv = { key = gate.key, spent = 10 * gate.value, quiet = Tc, cool_until = Tc + MIN10 }
+    check(Cap.starved(pv, gate, Tc + MIN10 - 1) == false and Cap.starved(pv, gate, Tc + MIN10) == true,
+      "§15d la priorité gagnée par la VALEUR est rendue aussi, puis revient à la fin de la pause")
+    check(Cap.starved(pd, gate, Tc + MIN10) == true, "§15d fin de la pause, toujours rien payé : prioritaire de nouveau")
+    Cap.defer_clock(pd, false, Tc + 50, false)
+    check(pd.cool_until == nil and pd.prio_since == nil, "§15d porte fermée : priorité et pause oubliées")
+    local pn = { key = gate.key, spent = 0, quiet = T0, prio_since = T0 }
+    Cap.defer_clock(pn, true, T0 + 200, false)
+    check(pn.prio_since == nil, "§15d plus prioritaire (payé, ou autre décision) : l'horloge de la priorité s'efface")
     local gor = Cap.goal(da, {})
     check(gor and gor.opens == nil, "§15 tourelle ordinaire (centre payable) : pas de la chaîne")
     local ror, _, nor = emit0(gor)
@@ -596,6 +618,19 @@ do
   M("chaîne sans ses pièces", function()
     Cap.goal = function(d, w) local g = cg(d, w) if g then g.opens = nil end return g end
   end, function() Cap.goal = cg end)
+  local pmx, pcl = Cap.PRIO_MAX, Cap.PRIO_COOL
+  M("la priorité ne se défait jamais", function() Cap.PRIO_MAX = 1e12 end, function() Cap.PRIO_MAX = pmx end)
+  M("priorité rendue sans pause", function() Cap.PRIO_COOL = 0 end, function() Cap.PRIO_COOL = pcl end)
+  local stv = Cap.starved
+  M("pause de la priorité ignorée", function()
+    Cap.starved = function(df, g, t)
+      local c = df and df.cool_until
+      if df then df.cool_until = nil end
+      local r = stv(df, g, t)
+      if df then df.cool_until = c end
+      return r
+    end
+  end, function() Cap.starved = stv end)
   local gs = Cap.GOAL_STEP
   M("pas d'époque sous la recherche", function() Cap.GOAL_STEP = 0 end, function() Cap.GOAL_STEP = gs end)
   M("tout but au rang de la recherche", function()

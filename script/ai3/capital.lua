@@ -468,7 +468,13 @@ function Capital.goal(f, view, book, tick, w)
   -- Lot AGEBLOCAGE : l'horloge du report stérile (Cap.defer_clock ; une sauvegarde d'avant n'a pas `quiet` : il part d'ici).
   if d.gate_key then
     if not (c.defer and c.defer.key == d.gate_key) then c.defer = { key = d.gate_key, spent = 0 } end
-    Cap.defer_clock(c.defer, d.gate_open, tick)
+    local cool0 = c.defer.cool_until
+    Cap.defer_clock(c.defer, d.gate_open, tick, d.starved)
+    -- Lot AGEBLOCAGE (relecture B1, M2) : la priorité du centre est rendue (Cap.PRIO_MAX sans paiement), une ligne au changement.
+    if c.defer.cool_until and c.defer.cool_until ~= cool0 then
+      log(string.format("[FO-CAPITAL-CENTRE] %s : priorite du centre rendue (prioritaire %.0f min sans etre paye) : les autres ameliorations passent %.0f min a %.1f min",
+        f.key or "?", Cap.PRIO_MAX / 3600, Cap.PRIO_COOL / 3600, minutes(f, tick)))
+    end
   else
     c.defer = nil
   end

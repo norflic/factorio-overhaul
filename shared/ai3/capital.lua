@@ -101,6 +101,14 @@ Cap.DEFER_PCT = 100
 -- pendant Cap.DEFER_IDLE ticks (horloge `quiet` du report, Cap.defer_clock et Cap.defer_paid), le centre passe devant (d.starved).
 -- 10 min : une faction qui paie paie environ une amélioration par 1,7 min (Ambre, 88 en 150 min) ; 10 min sans rien est stérile.
 Cap.DEFER_IDLE = 10 * 3600
+-- Lot AGEBLOCAGE, correction de la relecture (REVUE.md B1, M2) : l'état PRIORITAIRE se défait. Un centre prioritaire (par la
+-- valeur ou par le report stérile) payé tout ou rien et qui reste impayé bloquait toute autre amélioration : dc-croissance 20261020
+-- à 30 ouvriers (essai 4), Azur prioritaire de 10,3 à 60 min à 40-51 circuits sur 60, Émeraude 12 min, aucune faction à l'âge 2
+-- contre une au témoin ; moteur simulé, 28 améliorations contre 35. Règle : prioritaire depuis Cap.PRIO_MAX ticks sans être payé
+-- -> la priorité est rendue pendant Cap.PRIO_COOL ticks (les autres améliorations repassent ; l'horloge du report stérile repart).
+-- 10 min : au témoin, Émeraude a payé son centre 1,6 min après être passé devant.
+Cap.PRIO_MAX = 10 * 3600
+Cap.PRIO_COOL = 10 * 3600
 
 local function sorted_keys(t)
   local ks = {}
@@ -425,11 +433,13 @@ function Cap.choose(Ld, census, ctx)
   local first = res.cands[1]
   local starved = false
   for _, c in ipairs(res.cands) do
-    if c.center and (Cap.starved(ctx.defer, c, ctx.tick) or ctx.thaw) then first, starved = c, true end -- ctx.thaw : le gel du centre est levé (shared/team/degel.lua)
+    if c.center and (Cap.starved(ctx.defer, c, ctx.tick) or ctx.thaw) then first, starved = c, true end
+    -- Lot AGEBLOCAGE (relecture, m1) : le journal dit si le passe-droit vient du report stérile (aucune valeur reportée) -- ctx.thaw : le gel du centre est levé (shared/team/degel.lua)
   end
   local d = first and {} or { none = true }
   for k, v in pairs(first or {}) do d[k] = v end
   d.starved = starved or nil
+  d.sterile = (starved and first and ctx.defer and (ctx.defer.spent or 0) * 100 < (first.value or 0) * Cap.DEFER_PCT and not ctx.thaw) or nil
   d.gate_open = Cap.gate_open(res.centre)
   d.gate_key = res.centre and res.centre.key or nil
   d.ranked = {}
@@ -457,6 +467,7 @@ function Cap.starved(defer, gate, tick)
   if not (defer and gate and gate.center and gate.key and defer.key == gate.key) then return false end
   local value = gate.value or 0
   if value <= 0 then return false end
+  if tick ~= nil and defer.cool_until ~= nil and tick < defer.cool_until then return false end -- priorité rendue (Cap.PRIO_COOL)
   if (defer.spent or 0) * 100 >= value * Cap.DEFER_PCT then return true end
   -- Lot AGEBLOCAGE : report stérile (rien payé depuis Cap.DEFER_IDLE ticks, centre payable).
   return tick ~= nil and defer.quiet ~= nil and tick - defer.quiet >= Cap.DEFER_IDLE
@@ -464,11 +475,21 @@ end
 
 --- Lot AGEBLOCAGE : horloge du report à chaque décision. `open` = le centre est payable à cette décision (Cap.gate_open) ; porte
 --- fermée (ou horloge absente) : l'horloge repart de `tick` (le report stérile ne se compte que porte ouverte, d'un seul tenant).
---- Rend defer (nil reste nil).
-function Cap.defer_clock(defer, open, tick)
+--- `starved` = le centre est prioritaire à cette décision : horloge `prio_since` ; prioritaire depuis Cap.PRIO_MAX sans être payé ->
+--- `cool_until` = tick + Cap.PRIO_COOL (priorité rendue, Cap.starved) et l'horloge du report stérile repart. Rend defer (nil reste nil).
+function Cap.defer_clock(defer, open, tick, starved)
   if not defer then return nil end
   defer.open = open or false
   if not defer.open or defer.quiet == nil then defer.quiet = tick end
+  if not defer.open then defer.prio_since, defer.cool_until = nil, nil end
+  if defer.open and starved then
+    defer.prio_since = defer.prio_since or tick
+    if tick - defer.prio_since >= Cap.PRIO_MAX then
+      defer.cool_until, defer.prio_since, defer.quiet = tick + Cap.PRIO_COOL, nil, tick
+    end
+  else
+    defer.prio_since = nil
+  end
   return defer
 end
 
@@ -570,7 +591,7 @@ function Cap.why_text(d)
   for _, it in ipairs(d.cost or {}) do cost[#cost + 1] = it[1] .. " " .. it[2] end
   local txt = "raisons [" .. table.concat(parts, ", ") .. "] cout [" .. table.concat(cost, ", ") .. "]"
   if d.chain then txt = txt .. " ; ouvre '" .. d.chain.target .. "' (+" .. d.chain.v .. ")" end
-  if d.starved then txt = txt .. " ; PRIORITAIRE (reporte plus que son prix)" end
+  if d.starved then txt = txt .. (d.sterile and " ; PRIORITAIRE (rien paye depuis le report sterile)" or " ; PRIORITAIRE (reporte plus que son prix)") end
   local r = {}
   for i = 2, #(d.ranked or {}) do r[#r + 1] = d.ranked[i][1] .. " " .. d.ranked[i][2] end
   if #r > 0 then txt = txt .. " ; suivantes : " .. table.concat(r, ", ") end
