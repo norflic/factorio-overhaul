@@ -14,7 +14,10 @@
   Règle 1, POSE (G.prior, G.note, G.rank, G.choose_sides, G.sizes, G.slots, G.free) : les tourelles du QG vont en lignes de G.GROUP_MAX au
     plus, écart = l'écart de pose voulu (Pose.gap : 6 tuiles à portée 18, la règle PD-ESPACEMENT du DC reste tenue), perpendiculaires au côté,
     centrées à G.RADIUS tuiles du coffre (la ligne couvre le coffre : son bout est à 13,5 tuiles, sous la portée) ; 5 à 8 tourelles : deux
-    lignes, sur deux côtés à 90° au moins. Côté : celui des pertes près du coffre (marques, G.MARK_R tuiles, G.MEMORY ticks) ; sans marque,
+    lignes, sur deux côtés à 135° au moins (G.MIN_SIDE_GAP ; à 90°, les bouts de deux lignes se touchent : (9, 10) et (10, 9) au S et à l'E),
+    le côté opposé s'il n'y a qu'un côté retenu ; jamais plus de G.GROUP_MAX par ligne (au-delà de 2 lignes pleines, les tourelles en trop n'ont
+    pas de place : la pose reprend les emplacements d'avant, Outposts.fortify). Le pas de la ligne est ENTIER (G.step : sur une diagonale,
+    (5, 5), 7,07 tuiles ; arrondi à (4, 4), il faisait 5,66 tuiles, sous l'écart voulu, et la pose refusait la place). Côté : celui des pertes près du coffre (marques, G.MARK_R tuiles, G.MEMORY ticks) ; sans marque,
     celui des nids connus les plus proches (G.prior) ; sans rien, G.DEFAULT_SIDE. Une tourelle déjà posée n'est JAMAIS déplacée : seules
     les places libres (G.free) reçoivent les tourelles neuves.
   Règle 2, APPUI (G.support, G.facing) : la défense du QG face à une vague est celle de son point le plus faible : pour chaque tourelle qui
@@ -33,6 +36,7 @@ G.REACH = 13             -- tuiles : le tueur d'une tourelle, vers l'extérieur 
 G.MARK_R = 40            -- tuiles : une perte plus proche du coffre marque son côté (F.NEAR_HQ = 40, shared/team/front.lua)
 G.MEMORY = 30 * 3600     -- ticks : durée d'une marque (comme Sq.WINDOW)
 G.MARKS_MAX = 64         -- marques gardées au plus (les plus récentes)
+G.MIN_SIDE_GAP = 3       -- huitièmes de tour : deux lignes sur des côtés à 135° au moins (à 90°, leurs bouts se touchent)
 G.KEEP_PCT = 75          -- % : les côtés retenus restent tant que leur poids vaut au moins cela du plus lourd (pas de va-et-vient)
 G.W_TURRET = 2           -- poids d'une tourelle perdue
 G.W_OTHER = 1            -- poids d'une autre pièce perdue
@@ -121,7 +125,7 @@ function G.prior(points)
   return ranked_of(w)
 end
 
---- Côtés des lignes (au plus k) : le plus lourd, puis le suivant à 90° au moins de ceux déjà pris. `prev` (côtés retenus avant) est gardé
+--- Côtés des lignes (au plus k) : le plus lourd, puis le suivant à G.MIN_SIDE_GAP huitièmes de tour au moins de ceux déjà pris. `prev` (côtés retenus avant) est gardé
 --- tant que le poids de son premier côté vaut au moins G.KEEP_PCT % du plus lourd (pas de va-et-vient). Sans poids : `prev`, sinon
 --- { G.DEFAULT_SIDE }. Rend une liste non vide.
 function G.choose_sides(ranked, k, prev)
@@ -139,36 +143,51 @@ function G.choose_sides(ranked, k, prev)
   for _, r in ipairs(ranked) do
     if #out >= k then break end
     local ok = true
-    for _, s in ipairs(out) do if G.gap_sides(s, r.side) < 2 then ok = false end end
+    for _, s in ipairs(out) do if G.gap_sides(s, r.side) < G.MIN_SIDE_GAP then ok = false end end
     if ok then out[#out + 1] = r.side end
   end
   return out
 end
 
 --- Tailles des lignes pour n tourelles sur `nsides` côtés : ceil(n / G.GROUP_MAX) lignes (au moins 1, au plus nsides), le reste aux
---- premières. Rend une liste de tailles (somme = n).
+--- premières, jamais plus de G.GROUP_MAX par ligne. Rend une liste de tailles (somme = min(n, nsides × G.GROUP_MAX)).
 function G.sizes(n, nsides)
   n, nsides = math.floor(num(n)), math.floor(num(nsides))
   if n <= 0 or nsides <= 0 then return {} end
   local ng = math.min(nsides, math.max(1, math.ceil(n / G.GROUP_MAX)))
+  if n > ng * G.GROUP_MAX then n = ng * G.GROUP_MAX end
   local out = {}
   local base, extra = math.floor(n / ng), n % ng
   for g = 1, ng do out[g] = base + (g <= extra and 1 or 0) end
   return out
 end
 
+--- Composante entière du pas d'une ligne : v × gap arrondi vers l'extérieur (jamais plus court que l'écart voulu une fois arrondi).
+function G.step(v, gap)
+  local x = num(v) * num(gap)
+  if math.abs(x) < 1e-9 then return 0 end
+  if x >= 0 then return math.ceil(x - 1e-9) end
+  return -math.ceil(-x - 1e-9)
+end
+
+--- Côté opposé (1 à 8).
+function G.opposite(s) return (s + 3) % 8 + 1 end
+
 --- Places des tourelles (relatives au coffre) : { { dx, dy, group, side } }, ligne 1 d'abord, du centre de la ligne vers ses bouts (une ligne
---- incomplète reste serrée). n tourelles, `sides` (G.choose_sides), `gap` écart entre centres (tuiles). #rendu = n (0 sans côté).
+--- incomplète reste serrée). n tourelles, `sides` (G.choose_sides ; un seul côté et plus de G.GROUP_MAX tourelles : son opposé en plus), `gap`
+--- écart voulu entre centres (tuiles). Pas ENTIER (G.step) : deux places d'une ligne sont exactement à un multiple du pas, arrondi compris.
+--- #rendu = min(n, 2 lignes de G.GROUP_MAX) (0 sans côté).
 function G.slots(n, sides, gap)
   local out = {}
   if not sides or #sides == 0 then return out end
   gap = num(gap)
   if gap <= 0 then return out end
+  if #sides == 1 and num(n) > G.GROUP_MAX then sides = { sides[1], G.opposite(sides[1]) } end
   for g, m in ipairs(G.sizes(n, #sides)) do
     local s = sides[g]
     local u = G.DIRS[s]
     local cx, cy = u[1] * G.RADIUS, u[2] * G.RADIUS
-    local tx, ty = -u[2], u[1]
+    local tx, ty = G.step(-u[2], gap), G.step(u[1], gap)
     local ranks = {}
     for k = 0, m - 1 do ranks[#ranks + 1] = k - (m - 1) / 2 end
     table.sort(ranks, function(a, b)
@@ -176,7 +195,7 @@ function G.slots(n, sides, gap)
       return a < b
     end)
     for _, r in ipairs(ranks) do
-      out[#out + 1] = { dx = round(cx + tx * r * gap), dy = round(cy + ty * r * gap), group = g, side = s }
+      out[#out + 1] = { dx = round(cx + tx * r), dy = round(cy + ty * r), group = g, side = s }
     end
   end
   return out
@@ -236,6 +255,30 @@ function G.facing(value, weakest, total)
   if total <= 0 or value <= 0 then return 0 end
   if weakest >= total then return math.floor(value) end
   return math.floor(value * weakest / total)
+end
+
+--- Dispersion d'une pose (journal) : targets = { { x, y } } places voulues, placed = { { x, y } | false } positions obtenues (même indice ;
+--- false : rien posé). Rend moved (plus grand décalage d'une tourelle à sa place, tuiles), gap (plus petit écart entre deux tourelles posées ;
+--- nil sous deux), n (posées).
+function G.dispersion(targets, placed)
+  local moved, gapmin, n = 0, nil, 0
+  local pts = {}
+  for i, p in ipairs(placed or {}) do
+    local t = targets and targets[i]
+    if p and t then
+      n = n + 1
+      local d = math.sqrt((num(p.x) - num(t.x)) ^ 2 + (num(p.y) - num(t.y)) ^ 2)
+      if d > moved then moved = d end
+      pts[#pts + 1] = p
+    end
+  end
+  for i = 1, #pts do
+    for j = i + 1, #pts do
+      local d = math.sqrt((num(pts[i].x) - num(pts[j].x)) ^ 2 + (num(pts[i].y) - num(pts[j].y)) ^ 2)
+      if gapmin == nil or d < gapmin then gapmin = d end
+    end
+  end
+  return moved, gapmin, n
 end
 
 return G

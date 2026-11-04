@@ -75,6 +75,30 @@ local function facts(G, Sq)
   local s3 = G.slots(3, { 4 }, 6)
   r.slots3 = s3[1].dx .. ":" .. s3[1].dy .. " " .. s3[2].dx .. ":" .. s3[2].dy .. " " .. s3[3].dx .. ":" .. s3[3].dy
   r.noside = #G.slots(4, {}, 6)
+  -- relecture HQ-RECENSEMENT (mineur 1) : écart minimal entre DEUX places quelconques, sur les 8 côtés seuls et toutes les paires de côtés
+  -- permises (G.MIN_SIDE_GAP), de 1 à 8 tourelles : jamais sous l'écart voulu (6), arrondi compris (diagonale : pas entier (5, 5))
+  local worst = math.huge
+  for a = 1, 8 do
+    local sets = { { a } }
+    for b = 1, 8 do if G.gap_sides(a, b) >= G.MIN_SIDE_GAP then sets[#sets + 1] = { a, b } end end
+    for _, sides in ipairs(sets) do
+      for n = 1, 8 do
+        local s = G.slots(n, sides, 6)
+        for i = 1, #s do for j = i + 1, #s do local dd = dist(s[i], s[j]); if dd < worst then worst = dd end end end
+      end
+    end
+  end
+  r.worst = math.floor(worst * 100 + 0.5)
+  r.step = G.step(0.70710678, 6) .. "," .. G.step(-0.70710678, 6) .. "," .. G.step(1, 6) .. "," .. G.step(-1, 6) .. "," .. G.step(0, 6)
+  -- deux côtés à 90° (S et E) : refusés (leurs bouts se touchaient : (9, 10) et (10, 9))
+  r.ninety = table.concat(G.choose_sides({ { side = 5, w = 10 }, { side = 3, w = 9 }, { side = 2, w = 1 } }, 2, nil), ",")
+  -- relecture (mineur 2) : jamais plus de 4 par ligne ; 12 tourelles « hq » : 8 places au plus ; un seul côté et 6 tourelles : le côté opposé
+  r.cap = #G.slots(12, { 5, 1 }, 6) .. "," .. table.concat(G.sizes(12, 2), "+")
+  local s6 = G.slots(6, { 5 }, 6)
+  r.opp = #s6 .. "," .. s6[1].side .. "," .. s6[6].side .. "," .. G.opposite(5) .. "," .. G.opposite(2) .. "," .. G.opposite(8)
+  -- relecture (mineur 4) : dispersion d'une pose (journal) : décalage max, écart min, posées ; une place sans tourelle ne compte pas
+  local mv, gm, np = G.dispersion({ { x = 0, y = 0 }, { x = 6, y = 0 }, { x = 12, y = 0 } }, { { x = 0, y = 1 }, false, { x = 15, y = 4 } })
+  r.disp = string.format("%.1f,%.1f,%d", mv, gm, np)
   -- places libres : une tourelle à 1,5 tuile d'une place la prend ; à 2 tuiles, non (rien ne bouge, seules les places vides servent)
   local abs = { { x = 3, y = 10 }, { x = -3, y = 10 }, { x = 9, y = 10 } }
   local fr = G.free(abs, { { x = 3, y = 11.5 }, { x = -3, y = 12 } })
@@ -135,14 +159,20 @@ check(F.default == "5", "sans marque ni nid : côté par défaut S")
 check(F.keep_none == "3", "sans marque : côtés retenus avant")
 check(F.choose == "5,1", "côtés : S, puis N (SE adjacent écarté) : " .. F.choose)
 check(F.keep == "5,1", "pas de va-et-vient : anciens côtés gardés à 80 % : " .. F.keep)
-check(F.leave == "3,5", "anciens côtés quittés sous 75 % : " .. F.leave)
-check(F.sizes == "4|3+2|4+4|5+4|3|0", "tailles des lignes : " .. F.sizes)
+check(F.leave == "3", "anciens côtés quittés sous 75 % ; S à 90° de E écarté (relecture : 135° au moins) : " .. F.leave)
+check(F.sizes == "4|3+2|4+4|4+4|3|0", "tailles des lignes (jamais plus de 4 par ligne) : " .. F.sizes)
 check(F.slots4 == "3:10 -3:10 9:10 -9:10", "4 au sud en ligne serrée du centre vers les bouts : " .. F.slots4)
 check(F.cov4 == 4, "les 4 places de la ligne couvrent le coffre (portée 18)")
 check(F.n7 == 7, "nombre CONSTANT : 7 tourelles, 7 places")
 check(F.min7 == 60, "écart de pose tenu (6 tuiles) entre toutes les places : " .. F.min7)
 check(F.maxin7 == 180, "une ligne de 4 tient dans la portée (18 tuiles de bout en bout) : " .. F.maxin7)
-check(F.slots3 == "7:7 11:3 3:11", "3 au SE : centre (7, 7), ligne NE-SO : " .. F.slots3)
+check(F.slots3 == "7:7 12:2 2:12", "3 au SE : centre (7, 7), ligne NE-SO au pas entier (5, -5) : " .. F.slots3)
+check(F.worst == 600, "écart minimal entre deux places, 8 côtés et paires permises, 1 à 8 tourelles : 6 tuiles (" .. F.worst .. " centièmes)")
+check(F.step == "5,-5,6,-6,0", "pas entier, arrondi vers l'extérieur : " .. F.step)
+check(F.ninety == "5,2", "S puis E (90°) écarté, NE (135°) pris : " .. F.ninety)
+check(F.cap == "8,4+4", "12 tourelles hq : 8 places, 4 + 4 : " .. F.cap)
+check(F.opp == "6,5,1,1,6,4", "un côté (S) et 6 tourelles : 4 au S + 2 au N (opposé) : " .. F.opp)
+check(F.disp == "5.0,15.3,2", "dispersion : décalage max 5, écart min 15,3, 2 posées (la place vide ne compte pas) : " .. F.disp)
 check(F.noside == 0, "sans côté, aucune place")
 check(F.free == "2:-3,9", "places libres : prise à 1,5 tuile, libre à 2 tuiles ; ordre gardé : " .. F.free)
 check(F.ring == "1000/4000/4", "une par côté (mesure QGSURVIE2) : UNE tourelle au point le plus faible : " .. F.ring)
@@ -168,11 +198,16 @@ local mutants = {
   { "G", "mémoire sans fin", "if tick - m.t <= G.MEMORY then keep[#keep + 1] = m end", "keep[#keep + 1] = m" },
   { "G", "nids sans distance", "w[s] = w[s] + math.floor(1000000 / math.max(1, dx * dx + dy * dy))", "w[s] = w[s] + 1" },
   { "G", "pas de côté par défaut", "    return { G.DEFAULT_SIDE }\n", "    return {}\n" },
-  { "G", "côtés adjacents permis", "if G.gap_sides(s, r.side) < 2 then ok = false end", "if G.gap_sides(s, r.side) < 1 then ok = false end" },
+  { "G", "côtés adjacents permis", "if G.gap_sides(s, r.side) < G.MIN_SIDE_GAP then ok = false end", "if G.gap_sides(s, r.side) < 1 then ok = false end" },
+  { "G", "côtés à 90° permis (relecture)", "G.MIN_SIDE_GAP = 3 ", "G.MIN_SIDE_GAP = 2 " },
+  { "G", "pas arrondi au plus près (relecture)", "if x >= 0 then return math.ceil(x - 1e-9) end", "if x >= 0 then return math.floor(x + 0.5) end" },
+  { "G", "lignes au-delà de 4 (relecture)", "  if n > ng * G.GROUP_MAX then n = ng * G.GROUP_MAX end\n", "" },
+  { "G", "pas de côté opposé", "if #sides == 1 and num(n) > G.GROUP_MAX then sides = { sides[1], G.opposite(sides[1]) } end", "" },
+  { "G", "dispersion sans décalage", "if d > moved then moved = d end", "" },
   { "G", "va-et-vient", "if wp * 100 >= ranked[1].w * G.KEEP_PCT then return prev end", "" },
   { "G", "lignes de 8", "G.GROUP_MAX = 4 ", "G.GROUP_MAX = 8 " },
   { "G", "reste perdu", "for g = 1, ng do out[g] = base + (g <= extra and 1 or 0) end", "for g = 1, ng do out[g] = base end" },
-  { "G", "pas de tangente", "local tx, ty = -u[2], u[1]", "local tx, ty = u[1], u[2]" },
+  { "G", "pas de tangente", "local tx, ty = G.step(-u[2], gap), G.step(u[1], gap)", "local tx, ty = G.step(u[1], gap), G.step(u[2], gap)" },
   { "G", "anneau d'avant (une par côté)", "local cx, cy = u[1] * G.RADIUS, u[2] * G.RADIUS", "local cx, cy = u[1] * G.RADIUS * 3, u[2] * G.RADIUS * 3" },
   { "G", "place prise ignorée", "if dx * dx + dy * dy < G.FREE_R * G.FREE_R then taken = true end", "" },
   { "G", "appui = total", "if weakest == nil or sum < weakest then weakest, worst = sum, i end", "if weakest == nil or sum > weakest then weakest, worst = sum, i end" },

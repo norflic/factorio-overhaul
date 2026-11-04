@@ -18,6 +18,7 @@ local Pose = require("shared.team.pose_tourelles")
 local Sq = require("shared.team.survie_qg")
 local T = require("shared.team.config")
 local G = require("shared.team.qg_groupe")
+local Depart = require("shared.team.depart")
 
 local QgG = {}
 QgG.LOGS = 60
@@ -90,11 +91,33 @@ function QgG.line(f, surface, center, n)
   end
   local prior = G.prior(pts)
   st.sides = G.choose_sides(prior, 2, nil)
+  st.depart_default = #found == 0
   local out = {}
   for _, s in ipairs(G.slots(n, st.sides, gap())) do out[#out + 1] = { s.dx, s.dy } end
+  -- au-delà de 2 lignes pleines (G.sizes), les tourelles en trop reprennent les emplacements d'avant (D.HQ_OFFSETS)
+  for _, o in ipairs(Depart.offsets(n - #out)) do out[#out + 1] = o end
   say(st, "player : depart, %d tourelle(s) du QG en ligne cote %s (%d nid(s) a %d tuiles%s), ecart %d", n, names(st.sides), #found,
     QgG.NEST_R, #found == 0 and " : cote par defaut" or "", gap())
   return out
+end
+
+--- Lot HQ-RECENSEMENT (relecture, mineur 4) : journal de la dispersion FINALE de la pose de départ. offsets = { {dx, dy} } voulus (QgG.line),
+--- got = { {x, y} | false } positions obtenues (même indice). Une ligne : posées, côté et sa source (nids ou défaut), écart minimal entre
+--- tourelles posées, plus grand décalage à la place voulue (find_non_colliding_position, rayon 10), appui au point le plus faible.
+function QgG.depart_report(f, center, offsets, got)
+  if not (f and f.team) then return end
+  local st = state(f)
+  local targets, list = {}, {}
+  local range = Outposts.turret_range()
+  for i, o in ipairs(offsets) do targets[i] = { x = center.x + o[1], y = center.y + o[2] } end
+  for _, p in ipairs(got) do
+    if p then list[#list + 1] = { x = p.x, y = p.y, s = 1000, p = G.covers(p.x, p.y, center.x, center.y, range) } end
+  end
+  local moved, gapmin, n = G.dispersion(targets, got)
+  local w, t = G.support(list, range, center.x, center.y)
+  say(st, "player : depart pose, %d tourelle(s) sur %d, cote %s (%s), ecart min %s tuiles (voulu %d), decalage max %.1f tuiles de leur place, appui au point le plus faible %d sur %d",
+    n, #offsets, names(st.sides), st.depart_default and "par defaut, aucun nid connu" or "nids", gapmin and string.format("%.1f", gapmin) or "-",
+    gap(), moved, w, t)
 end
 
 --- 2b. Crochet de la reconstruction et du péril (Outposts.fortify, pose_order) : places libres des lignes, ou nil (règle d'avant).
