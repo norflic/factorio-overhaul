@@ -30,6 +30,7 @@ local B = require("shared.ai3.buts")
 local C = require("shared.ai3.cerveau")
 local P = require("shared.ai3.projets")
 local A = require("shared.ai3.recherche")
+local Rj = require("shared.ai3.recherche_joueur") -- lot RECHERCHE : la courante de la force est au joueur ou à l'équipe
 local R = require("shared.ai3.registre") -- lot IA-V2 : contrôle du registre d'IA3-b (interface de lecture)
 local State = require("script.faction.state")
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
@@ -534,8 +535,22 @@ local function research_step(f, st, book, w, tick, view)
   local spec = c.techs[tech]
   st.lab = st.lab or {}
   local lab = st.lab
+  -- Lot RECHERCHE (retour du DC, 0.6.46 : « dès que l'utilisateur modifie ce qu'il veut rechercher, ça coupe entièrement le
+  -- fil de recherche de la base ») : une force n'a qu'UNE recherche courante. Qui la tient, relu à chaque pensée : si elle est au
+  -- joueur, l'équipe n'y touche pas (ni add_research, ni research_progress) et continue sa technologie EN PARALLÈLE, à elle ;
+  -- sinon (vide, ou la sienne) comme avant.
+  local cur0 = force.current_research
+  local holder = Rj.holder(cur0 and cur0.name or nil, lab.tech)
+  local own = Rj.writes_force(holder)
   if lab.tech ~= tech then
-    if force.add_research(tech) then
+    local launched
+    if own then
+      launched = force.add_research(tech)
+    else
+      local tobj = force.technologies[tech]
+      launched = tobj ~= nil and not tobj.researched and tobj.enabled ~= false and Rj.prereqs_done(spec.pre, st.techs)
+    end
+    if launched then
       st.lab = { tech = tech, units = 0, paid = 0, last = tick, palier = palier, started = tick, for_auto = for_auto or nil }
       lab = st.lab
       log(string.format("[FO-IA3C] %s : recherche '%s' commencee (%d unites de %d s, laboratoires %d) a %.1f min",
@@ -573,7 +588,7 @@ local function research_step(f, st, book, w, tick, view)
   end
   -- Avancement au temps des prototypes, packs consommés unité par unité.
   local cur = force.current_research
-  if not cur or cur.name ~= tech then
+  if own and (not cur or cur.name ~= tech) then
     if not force.add_research(tech) then return info end
   end
   local dt = tick - (lab.last or tick)
@@ -597,7 +612,11 @@ local function research_step(f, st, book, w, tick, view)
     end
     lab.units = math.min(target, lab.paid)
     if lab.units >= spec.count then
-      force.research_progress = 1
+      if Rj.finish_by(holder) == "progress" then
+        force.research_progress = 1
+      else
+        force.technologies[tech].researched = true -- courante au joueur : sans y toucher (F270)
+      end
       st.techs[tech] = true
       log(string.format("[FO-IA3C] %s : recherche '%s' terminee a %.1f min (laboratoire du QG, %d labo(s))", f.key, tech,
         minutes(f, tick), #labs))
@@ -605,7 +624,7 @@ local function research_step(f, st, book, w, tick, view)
       f.tech = math.max(f.tech or 0, packs_researched(st, c))
       return info
     end
-    force.research_progress = lab.units / spec.count
+    if own then force.research_progress = lab.units / spec.count end
   end
   -- Packs encore à fabriquer pour la technologie en cours (net du coffre et des fabrications en cours), plus une RÉSERVE
   -- de Ia3.PACK_RESERVE packs de chaque sorte que la force sait faire et PAYER (un joueur garde quelques packs de chaque
@@ -736,15 +755,15 @@ end
 
 ---------------------------------------------------------------------------------------------------
 -- Pensée
---- Votre équipe peut-elle choisir la recherche ? Oui si votre force n'en a aucune en cours, ou si la recherche en cours
---- est celle que l'équipe a elle-même lancée (st.lab.tech). Vos choix passent toujours avant.
+--- Votre équipe pense-t-elle sa recherche ? Toujours (lot RECHERCHE) : si votre force a une autre recherche en cours (votre
+--- choix), l'équipe n'y touche pas et avance la sienne en parallèle (shared/ai3/recherche_joueur.lua). Avant ce lot : non, d'où le
+--- blocage de toute la recherche de l'équipe tant que votre choix n'était pas fini. Vos choix passent toujours avant.
 function Ia3.player_research_free(f, st)
   local force = game.forces[f.force]
   if not force then return false end
   local cur = force.current_research
-  if not cur then return true end
   local mine = st and st.lab and st.lab.tech
-  return mine ~= nil and cur.name == mine
+  return Rj.thinks(Rj.holder(cur and cur.name or nil, mine))
 end
 
 ---------------------------------------------------------------------------------------------------

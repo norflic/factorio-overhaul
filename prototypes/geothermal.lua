@@ -117,3 +117,7 @@ do
 end
 
 data:extend(out)
+
+-- Lot DA-ENERGIE : vrais visuels de la famille (piscine, dépôt, amplificateur ; puis réacteur et capteur), APRÈS tous
+-- les prototypes habillés (crafts, galena, spent_fuel, geothermal).
+require("prototypes.da_energie")

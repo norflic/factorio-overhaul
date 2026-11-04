@@ -12,13 +12,13 @@
   - points : P 1, M 2, G 4, géant 12 ; plafond = 12 + 6 × âge (§3) ; réglage `fo-war-robots-cap` (0 = automatique) ;
     géants : 1, 2 puis 3 par force aux âges 13, 14 et 15 ;
   - PV et dégâts : CALIBRÉS par shared/robots/duel.lua (voir Ro.ROBOTS), jamais à la main.
-  Visuel PROVISOIRE (Ro.PROVISIONAL) : cracheurs vanilla teintés et araignées vanilla, 0 image neuve (vrai visuel : lots RB-V0/V1).
+  Visuel : les 12 robots ont leurs feuilles de jeu (lots RB-V1 et ROBOTS-JEU, graphics/robots, D-6) ; Ro.PROVISIONAL = false depuis ROBOTS-JEU.
   Aucun nom d'objet ici n'est lu par shared/ai3 ni script/ai3 (tests/iag_test.lua §8) : le cerveau lira les prototypes (RB-3).
 ]]
 
 local Ro = {}
 
-Ro.PROVISIONAL = true -- visuel provisoire (voir l'en-tête) ; marqué dans les noms et descriptions
+Ro.PROVISIONAL = false -- lot ROBOTS-JEU (3/11) : vrai visuel des 12 robots ; plus de « visuel provisoire » dans les noms et descriptions
 
 Ro.SETTING = "fo-war-robots"         -- réglage maître (runtime-global) : éteint = ni balayage, ni unité, ni ordre
 Ro.SETTING_CAP = "fo-war-robots-cap" -- plafond en points (0 = automatique : 12 + 6 × âge)

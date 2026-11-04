@@ -1121,7 +1121,10 @@ function T.start()
   S.lx0, S.ly0 = 300, 120            -- niveaux : chantiers (session 5)
   S.gx0, S.gy0 = 300, 140            -- niveaux : galerie
   prepare_area(s, 290, -410, 390, -270)
-  power_grid(s, 307, -393, 390, -270)
+  -- Lot ROBOTS-JEU (3/11) : sous-stations jusqu'à y = -267 (portée 9 : y <= -258), soit les rangées de recettes 0 à 23 (288 places).
+  -- Avant : dernière rangée en -285, couverte jusqu'à -276 ; la 254e recette du mod (le Bourdon) a poussé fo-wound-electric-engine
+  -- en rangée 21 (y = -270), sans courant (« rien produit ») ; seule la cornue à zinc, à combustible, y tournait.
+  power_grid(s, 307, -393, 390, -267)
   prepare_area(s, 290, -180, 300 + (#DUELS + #HANDHELD) * 80, -140)
   prepare_area(s, 290, -110, 480, 40)
   prepare_area(s, 290, 40, 500, 100)

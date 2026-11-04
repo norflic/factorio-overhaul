@@ -29,5 +29,16 @@ graphics/levels/centre/*.png
 graphics/robots/bourdon/*.png
 # Feuilles de jeu des usines de robots (lot US-V1, même règle) : tools/render/pieces/usines_robots/feuilles.py
 graphics/robots/usines/*.png
-# Feuilles des bâtiments d'atelier (lot DA-ATELIERS, D-6) : régénérées par tools/render/pieces/ateliers/feuilles.py
+# Feuilles de jeu des robots (lot RB-V1, même règle) : tools/render/pieces/robots/feuilles.py
+graphics/robots/*.png
+# Feuilles de jeu des 20 machines du calcul (lot MACHINES-CALCUL, même règle) : tools/render/pieces/calcul/feuilles.py
+graphics/machines/calcul/*.png
+# Feuilles de jeu des souches de biters (lot BI-V1, intégré par BITERS-JEU, même règle) : tools/render/pieces/biters/feuilles.py
+graphics/biters/*.png
+# Feuilles de jeu de la métallurgie (lot DA-METALLURGIE, même règle) : tools/render/pieces/metallurgie/feuilles.py
+graphics/metallurgie/*.png
+# Feuilles de jeu du lot DA-ENERGIE (même règle) : tools/render/pieces/da_energie/feuilles.py
+graphics/da/energie/*.png
+
+# Feuilles des bâtiments d'atelier (lot DA-ATELIERS, même règle) : tools/render/pieces/ateliers/feuilles.py
 graphics/machines/ateliers/*.png
