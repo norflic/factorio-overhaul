@@ -31,7 +31,8 @@ function Ordres.select(force, surface, area)
   end
   local out = {}
   for _, e in ipairs(found) do
-    if e.valid and e.unit_number and s.ledger.units[e.unit_number] and Ro.parse_unit(e.name) then out[#out + 1] = e end
+    -- robots du registre, et robots commandables d'un autre lot (le Bourdon : Armee.hooks.commandable, lot BOURDON-SORTIE)
+    if e.valid and e.unit_number and ((s.ledger.units[e.unit_number] and Ro.parse_unit(e.name)) or Armee.commandable(e)) then out[#out + 1] = e end
   end
   table.sort(out, function(a, b) return a.unit_number < b.unit_number end)
   return out
@@ -49,7 +50,8 @@ function Ordres.order(force, entities, kind, pos, radius)
   local p = { x = pos.x or pos[1], y = pos.y or pos[2] }
   local n = 0
   for _, e in ipairs(entities) do
-    if e.valid and s.ledger.units[e.unit_number] and e.force == force and Armee.send(e, kind, p, radius) then n = n + 1 end
+    -- lot BOURDON-SORTIE : robot du registre (Armee.send) ou robot commandable d'un autre lot (le Bourdon : Armee.hooks.commandable)
+    if e.valid and e.force == force and Armee.order_one(e, kind, p, radius) then n = n + 1 end
   end
   s.stats.orders = s.stats.orders + 1
   s.stats.ordered = s.stats.ordered + n
