@@ -315,7 +315,6 @@ function C.think(view, book, st, ctx)
     end
   end
   local order, K = P.update(st, goals, tick, s.workers)
-  order = Cap.chain_first(order) -- lot DEFAUT7 : l'amélioration exigée par le centre (chaîne Q16) servie d'abord
   -- 5. Dépliage.
   local E = P.context(avail, book, view, st)
   E.priorite = base.priorite -- lot PRIORITE-RESSOURCES : production d'abord quand le fer ne paie pas la défense et la production
@@ -332,7 +331,11 @@ function C.think(view, book, st, ctx)
   local repair_proj = { id = 0, key = "pile:reparer" }
   for _, it in ipairs(pile.crafts or {}) do P.want(E, repair_proj, { { it[1], it[2] } }, it[3], false, "pile") end
   P.boot_smelters(E, st, s.cap) -- lot IA-V2 : fours du QG avant les projets (chemin critique)
-  for _, proj in ipairs(order) do P.emit(E, proj, ctx, tick) end
+  -- Ordre de SERVICE du stock virtuel : une COPIE de l'ordre (l'ordre d'origine garde le projet dominant, plus bas ; relecture de
+  -- 16f1b3e0, point 1). Lot DEFAUT7 : l'amélioration exigée par le centre (chaîne Q16) servie d'abord ; étage 3 : le centre passé
+  -- devant servi en tête, après les seuls projets qui produisent la matière qui lui manque (Cap.ahead_first).
+  local served = Cap.ahead_first(Cap.chain_first(order), E.avail, T.outposts, T.smelter_inputs)
+  for _, proj in ipairs(served) do P.emit(E, proj, ctx, tick) end
   -- 6. Approvisionnement.
   local raw, minable = C.raw_items()
   -- Lot KIT : matières naturelles récoltables (le bois des poteaux, lu par le runtime sur les arbres) : à miner à la main
