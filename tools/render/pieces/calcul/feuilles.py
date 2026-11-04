@@ -6,8 +6,9 @@ sprites.lua (GÉNÉRÉ, lu par prototypes/calcul_machines.lua), sprites.json et 
 
 Sources à GARDER : fo-logs/2026-11-01_CALCUL-DESIGN/final/<machine>/ (rendus à 64 échantillons du kit calcul_o, lot CALCUL-DESIGN :
 couches main, shadow, glow et, pour 12 machines, une bande de 8 images de la pièce mobile ; spec.json : tailles, shift en tuiles,
-64 px par tuile). Le kit de rendu lui-même vit dans le worktree calcul-design (tools/render/pieces/machines/calcul_o, non commité ;
-copie dans fo-logs/2026-11-03_SAUVEGARDE-DA) : ce script n'en dépend pas et ne lance jamais Blender.
+64 px par tuile). Depuis le lot DA-CALCUL (4/11), les 6 machines de REPRISES_DA (salle blanche refaite, tuyaux dessinés retirés,
+lueurs de travail) viennent de fo-logs/2026-11-04_DA-CALCUL/final/<machine>/ (même format, même étalonnage, à GARDER). Le kit de
+rendu est commité depuis DA-CALCUL (tools/render/pieces/machines/calcul_o) : ce script n'en dépend pas et ne lance jamais Blender.
 
 Règles (toutes contrôlées par tools/render/pieces/calcul/tests/test_calcul_feuilles.py) :
 - NETTOYAGE : les rendus portent des pixels isolés (1 ou 2 px, alpha jusqu'à 129 aux coins de la tireuse et de l'intégrateur) ;
@@ -35,11 +36,20 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 MOD = os.path.normpath(os.path.join(HERE, "..", "..", "..", ".."))
 LOGS = r"F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs"
 SRC_DEFAUT = os.path.join(LOGS, "2026-11-01_CALCUL-DESIGN", "final")
+# Lot DA-CALCUL (4/11) : 6 machines reprises (salle blanche refaite ; tuyaux dessinés retirés de l'unité cryogénique, des deux
+# centres et du groupe froid ; lueur de travail du groupe froid et de la scie à fil) ont leurs sources dans un second dossier à GARDER.
+SRC_DA_DEFAUT = os.path.join(LOGS, "2026-11-04_DA-CALCUL", "final")
+REPRISES_DA = ("centre", "cryo", "froid", "grand_centre", "salle", "scie")
 DEST_DEFAUT = os.path.join(MOD, "graphics", "machines", "calcul")
 PREFIXE = "__factorio-overhaul__/graphics/machines/calcul/"
 PX = 64  # pixels hr par tuile
 COMMANDE = "py -3.9 tools/render/pieces/calcul/feuilles.py   (depuis la racine du mod, sans argument ; sources : " \
-           "fo-logs/2026-11-01_CALCUL-DESIGN/final, à GARDER)"
+           "fo-logs/2026-11-01_CALCUL-DESIGN/final et, pour %s, fo-logs/2026-11-04_DA-CALCUL/final, à GARDER)" % ", ".join(REPRISES_DA)
+
+
+def dossier_source(nom, src=SRC_DEFAUT, src_da=SRC_DA_DEFAUT):
+    """Dossier des sources d'une machine : celui du lot DA-CALCUL pour les 6 reprises, sinon celui du 1/11."""
+    return os.path.join(src_da if nom in REPRISES_DA else src, nom)
 ETIQUETTE = "[FO-FEUILLES-CALCUL]"
 
 # nom de la variante rendue : (prototype, âge, côté de l'emprise en tuiles) ; même table que calcul_o/piece.py
@@ -210,9 +220,9 @@ def lua(v, ind=0):
     return json.dumps(v, ensure_ascii=False)
 
 
-def une_machine(src, dest, nom, fichiers, journal):
+def une_machine(src, dest, nom, fichiers, journal, src_da=SRC_DA_DEFAUT):
     proto, age, cote = MACHINES[nom]
-    d = os.path.join(src, nom)
+    d = dossier_source(nom, src, src_da)
     p = os.path.join(d, "spec.json")
     if not os.path.isfile(p):
         raise SystemExit("%s %s : source absente %s" % (ETIQUETTE, nom, p))
@@ -323,6 +333,7 @@ def une_machine(src, dest, nom, fichiers, journal):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--src", default=SRC_DEFAUT)
+    ap.add_argument("--src-da", default=SRC_DA_DEFAUT, help="sources des 6 machines reprises par DA-CALCUL (%s)" % ", ".join(REPRISES_DA))
     ap.add_argument("--dest", default=DEST_DEFAUT)
     a = ap.parse_args()
     os.makedirs(a.dest, exist_ok=True)
@@ -331,7 +342,7 @@ def main():
             os.remove(os.path.join(a.dest, f))
     fichiers, journal, tab = [], [], {}
     for nom in sorted(MACHINES):
-        proto, ent = une_machine(a.src, a.dest, nom, fichiers, journal)
+        proto, ent = une_machine(a.src, a.dest, nom, fichiers, journal, a.src_da)
         tab[proto] = ent
     entete = ("-- FICHIER GÉNÉRÉ par tools/render/pieces/calcul/feuilles.py (lot MACHINES-CALCUL) : ne pas modifier à la main.\n"
               "-- Tailles en pixels, shift et boîtes en tuiles ; hr = 64 px par tuile (scale 0,5), normale = 32 (moyenne 2 x 2 exacte).\n"
@@ -340,7 +351,8 @@ def main():
         f.write(entete + "return " + lua(tab) + "\n")
     with open(os.path.join(a.dest, "sprites.json"), "w", encoding="utf-8", newline="\n") as f:
         json.dump(tab, f, indent=1, sort_keys=True, ensure_ascii=False)
-    man = {"commande": COMMANDE, "arguments": [], "sources": "fo-logs/2026-11-01_CALCUL-DESIGN/final", "machines": len(tab),
+    man = {"commande": COMMANDE, "arguments": [], "sources": "fo-logs/2026-11-01_CALCUL-DESIGN/final", "sources_da": "fo-logs/2026-11-04_DA-CALCUL/final",
+           "reprises_da": list(REPRISES_DA), "machines": len(tab),
            "fichiers": {}}
     total, mpx_hr, mpx_lr = 0, 0.0, 0.0
     for fn in sorted(fichiers):
@@ -357,8 +369,8 @@ def main():
     man["nettoyage"] = journal
     with open(os.path.join(a.dest, "MANIFEST.json"), "w", encoding="utf-8", newline="\n") as f:
         json.dump(man, f, indent=1, sort_keys=True, ensure_ascii=False)
-    print("%s %d machines, %d fichiers PNG, %.2f Mo, %.2f Mpx hr, %.2f Mpx normale ; sources %s"
-          % (ETIQUETTE, len(tab), len(fichiers), total / 1e6, mpx_hr, mpx_lr, a.src))
+    print("%s %d machines, %d fichiers PNG, %.2f Mo, %.2f Mpx hr, %.2f Mpx normale ; sources %s, reprises (%s) %s"
+          % (ETIQUETTE, len(tab), len(fichiers), total / 1e6, mpx_hr, mpx_lr, a.src, ", ".join(REPRISES_DA), a.src_da))
 
 
 if __name__ == "__main__":
