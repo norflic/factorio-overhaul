@@ -297,4 +297,30 @@ function B.trie(noms)
   return noms
 end
 
+-- ------------------------------------------------------------------------------------------------ fabrication (lot ROBOTS-JEU, 3/11)
+-- Le Bourdon se FABRIQUE au Portique (âge 15) : un objet de pile 1, posé à la main là où il doit descendre. L'objet pose une entité
+-- RELAIS (`B.POSE`, simple-entity-with-owner) que le script remplace par la descente : il ne pose jamais directement le `spider-vehicle`,
+-- car le cerveau des factions lit tout `spider-vehicle` qu'un objet pose (script/ai3/general.lua, dump.units) et commanderait le Bourdon
+-- sans savoir le sortir (aucune faction ne le fabrique : choix déclaré). Il compte pour un GÉANT au plafond (Ro.giant_allowed).
+B.OBJET = "fo-bourdon-item"
+B.POSE = "fo-bourdon-pose"
+B.RECETTE = "fo-robot-make-bourdon"
+B.TECHNO = "fo-robot-bourdon"
+B.USINE = "fo-robot-gantry"
+B.AGE = 15
+-- Au plus 100 de chaque ingrédient (RB0-1) ; 10 segments du Couronné (dock) : la cloche vient après le dernier géant.
+B.FAB = {
+  temps = 180,
+  ingredients = { { "fo-robot-segment-crowned", 10 }, { "fo-brass", 100 }, { "fo-superconducting-coil", 100 }, { "fo-guidance-core", 100 },
+    { "fo-laser-module", 100 } },
+}
+B.TECH = { name = B.TECHNO, epoch = B.AGE, count = 400, time = 30, prerequisites = { "fo-robot-gantry-crowned" } }
+
+--- Un Bourdon fabriqué peut-il descendre ? p = { actif (réglage fo-war-robots), geants (géants vivants de la force, Bourdons compris),
+--- admis (géants admis à son âge) }. Les commandes de démonstration (/fo-bourdon) ne passent pas par ici.
+function B.peut_poser(p)
+  if type(p) ~= "table" or not p.actif then return false end
+  return (p.geants or 0) < (p.admis or 0)
+end
+
 return B

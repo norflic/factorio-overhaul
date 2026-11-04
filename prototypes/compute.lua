@@ -1,13 +1,15 @@
 -- Lot CALCUL (30/10) : la chaîne du calcul par étapes (puces, processeur, mémoire, carte mère, baies, carte graphique,
 -- processeur quantique) et le CENTRE DE CALCUL. Données : shared/content/compute.lua ; le calcul lui-même est tenu par
--- script (script/compute/compute.lua, D-20 (4)). Visuels et icônes PROVISOIRES : copies vanilla teintées (une teinte ne
--- fait que multiplier, F36, F38), en attendant les modèles comparés au vanilla (lot CALC-D).
+-- script (script/compute/compute.lua, D-20 (4)). Visuels PROVISOIRES : copies vanilla teintées (une teinte ne fait que
+-- multiplier, F36, F38) en attendant les modèles comparés au vanilla (lot CALC-D) ; icônes des objets, fluides et technologies :
+-- dédiées (prototypes/calcul_icones.lua, lot ICONES-CALCUL), la copie teintée ne sert plus qu'aux machines.
 -- À charger APRÈS prototypes/crafts.lua (salle blanche, taillerie, verre, silicium), prototypes/tin.lua (carte imprimée,
 -- résine époxy, imprimante de circuits), prototypes/bauxite.lua (aluminium) et prototypes/superconductors.lua (cryostat,
 -- bande supraconductrice, unité cryogénique, four de frittage).
 
 local lib = require("prototypes.lib")
 local Cp = require("shared.content.compute")
+local Vis = require("prototypes.calcul_icones")
 
 local out = {}
 
@@ -51,7 +53,7 @@ for i, it in ipairs(Cp.ITEMS) do
   out[#out + 1] = {
     type = "item", name = it.name,
     localised_name = { "item-name." .. it.name }, localised_description = { "item-description." .. it.name },
-    icons = icon_of(ic[1], ic[2], ic[3]), subgroup = "fo-compute", order = string.format("z[fo]-j[compute]-%02d", i),
+    icons = Vis.icones_objet(it.name) or icon_of(ic[1], ic[2], ic[3]), subgroup = "fo-compute", order = string.format("z[fo]-j[compute]-%02d", i),
     stack_size = it.stack,
   }
 end
@@ -67,7 +69,7 @@ for i, fl in ipairs(Cp.FLUIDS) do
   f.fuel_value = nil
   f.auto_barrel = false
   f.order = "a[fluid]-z[fo]-j[compute]-" .. i
-  lib.set_icons(f, { { icon = f.icon, icon_size = f.icon_size, icon_mipmaps = f.icon_mipmaps, tint = tint } })
+  lib.set_icons(f, Vis.icones_objet(fl.name) or { { icon = f.icon, icon_size = f.icon_size, icon_mipmaps = f.icon_mipmaps, tint = tint } })
   out[#out + 1] = f
 end
 
@@ -216,7 +218,7 @@ for _, t in ipairs(Cp.TECHS) do
     name = t.name,
     localised_name = { "technology-name." .. t.name },
     localised_description = { "technology-description." .. t.name },
-    icons = (function()
+    icons = Vis.icones_tech(t.name) or (function()
       if src.icons then
         local l = table.deepcopy(src.icons)
         for _, layer in ipairs(l) do layer.tint = ti[2] end
