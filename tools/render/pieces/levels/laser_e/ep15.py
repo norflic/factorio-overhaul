@@ -181,6 +181,9 @@ def _lisere_tirets(g, c, i, n):
 def socle(g, c):
     """Deux micro-singularités tenues en laisse aux coins arrière, conduits d'or vers le pivot, halos."""
     M = g.M
+    # LOT F1-C (production) : dalles d'appui sous les coins arrière (trous enfermés du post-traitement, orne.dalle_coin)
+    for nom in ("coin_NO", "coin_NE"):
+        O.dalle_coin(g, c, nom)
     zp = c.gradins[-1][3]
     for nom, sx in (("coin_NO", -1), ("coin_NE", 1)):
         p = corps.place(c, nom)

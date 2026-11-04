@@ -112,6 +112,11 @@ def socle(g, c):
     """Barres de cuivre sur colliers de porcelaine, boîtiers de commande, couronne d'isolateurs sur le dernier gradin,
     interrupteurs à couteau, transformateurs bleus à ailettes aux coins arrière, fils nus vers le pivot."""
     M = g.M
+    # LOT F1-C (production) : dalles d'appui sous les coins arrière (trous enfermés du post-traitement, orne.dalle_coin)
+    for nom in ("coin_NO", "coin_NE"):
+        O.dalle_coin(g, c, nom)
+    for av in (30.0, 150.0):
+        O.dalle_angle(g, c, math.radians(av), 0.9)
     zp = c.gradins[-1][3]
     O.ceinture(g, c, 0, 0.3, 0.014, M["copper_pol"], colliers=M["porcelaine"], pas=0.3)
     O.ceinture(g, c, 0, 0.62, 0.014, M["copper_pol"], colliers=M["porcelaine"], pas=0.3)

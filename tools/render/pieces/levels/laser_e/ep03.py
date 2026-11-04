@@ -142,6 +142,9 @@ def socle(g, c):
     """Machine à vapeur verticale à volant au coin arrière gauche, petit réservoir au coin arrière droit, tuyaux de
     cuivre vers le pivot, manomètres ; halos ambrés."""
     M = g.M
+    # LOT F1-C (production) : dalles d'appui sous les coins arrière (trous enfermés du post-traitement, orne.dalle_coin)
+    for nom in ("coin_NO", "coin_NE"):
+        O.dalle_coin(g, c, nom)
     pNO, pNE = corps.place(c, "coin_NO"), corps.place(c, "coin_NE")
     zp = c.gradins[-1][3]
     # dynamo à vapeur (NO) : bâti de fonte, cylindre, volant de laiton, posée contre le premier gradin

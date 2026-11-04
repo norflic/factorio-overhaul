@@ -91,6 +91,11 @@ def condensateur(g, c, x, y, z, r, h):
 def socle(g, c):
     """Coins arrière : blocs de blindage de plomb à évents et trèfles ; gaines vers le pivot ; halos verts."""
     M = g.M
+    # LOT F1-C (production) : dalles d'appui sous les coins arrière (trous enfermés du post-traitement, orne.dalle_coin)
+    for nom in ("coin_NO", "coin_NE"):
+        O.dalle_coin(g, c, nom)
+    for av in (30.0, 150.0):
+        O.dalle_angle(g, c, math.radians(av), 0.9)
     zp = c.gradins[-1][3]
     for nom, sx in (("coin_NO", -1), ("coin_NE", 1)):
         p = corps.place(c, nom)
