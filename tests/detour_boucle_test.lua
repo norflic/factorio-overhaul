@@ -206,15 +206,16 @@ check(ok1 == false and (stats().dloop_refus or 0) == r0 + 1, "but où l'on a tou
 check((stats().gate_why["wait:boucle"] or 0) >= 1, "motif compté au bilan de la porte (wait:boucle)")
 local steps_other = { { "home" }, { "goto", { x = -120, y = 5 }, 3 }, { "act", "service" }, { "home" } }
 check(C.gate(f, ag, { key = "test:autre", kind = "service" }, steps_other, game.tick) == true, "une autre tâche part (autre but)")
--- L'escalade d'IA3-k reste possible (« attendre n'est pas une fin ») : après W refus, départ « risque accepté », sans
--- détour devant une menace fixe : plus de boucle possible.
-local refus_b, went_b = 1, false
+-- Lot DANGER-ACTIF (DC 4/11 19 h 10 et 19 h 12) : plus d'escalade après 4 refus (avant : « attendre n'est pas une fin », départ « risque accepté »
+-- au 5e appel) ; le but où l'on a tourné en rond est MIS DE CÔTÉ à chaque appel pendant Dt.FAIL_TICKS (le PNJ prend une autre tâche), jamais retenté
+-- en boucle : la tâche porte la raison « danger-but » et sa pause bornée.
+local Da = require("shared.team.danger_actif")
+local all_aside = true
 for i = 1, 8 do
-  if C.gate(f, ag, { key = "test:boucle-esc", kind = "service" }, steps, game.tick + i) then went_b = true break end
-  refus_b = refus_b + 1
+  local tk = { key = "test:boucle-esc", kind = "service" }
+  if C.gate(f, ag, tk, steps, game.tick + i) or tk.fail ~= Da.ASIDE_FAIL then all_aside = false end
 end
-check(went_b and refus_b == 4 and global.fo.ia3k.agents[ag.id].risk == true,
-  "escalade après 4 refus (neutre), départ « risque accepté » (" .. refus_b .. " refus)")
+check(all_aside and (stats().escalade or 0) == 0, "DANGER-ACTIF : but de la boucle : mis de côté à chaque appel (raison « danger-but »), aucune escalade")
 -- Relecture : un minage refusé cherche une autre tuile HORS de la case où l'on a tourné en rond (M.retarget_mine).
 local tmr = global.fo.ia3k.teams["player"]
 local mtask = { key = "test:mine", kind = "mine", resource = "iron-ore", radius = 96 }

@@ -251,7 +251,10 @@ check(CO:find("Fa.goal({ on = true, kind = task.kind, parts = fam_parts, calm = 
 check(CO:find("deaths_n = D.deaths_near(t.map, { dest }, D.DEATH_R, tick) })", 1, true) ~= nil, "porte : morts de l'heure au but passées à Fa.goal (plafond)")
 check(CO:find("if fam then goal_free = true end", 1, true) ~= nil, "porte : le but de famine compte comme libre pour l'escalade")
 check(CO:find("if fam_only then decision, why = Fa.decide({ n = w.n, free = free }) end", 1, true) ~= nil, "porte : Fa.decide (départ ou escorte)")
-check(CO:find('elseif why ~= "loin" and why ~= "famine" then', 1, true) ~= nil, "escorte refusée en famine : le PNJ part quand même")
+-- Lot DANGER-ACTIF : l'escorte refusée ne retient plus personne (famine ou non) : le PNJ part seul, risque accepté ; seule une tâche dont le but est sous
+-- une menace fixe est mise de côté (autre tâche), jamais celle de famine.
+check(CO:find('elseif why ~= "loin" then', 1, true) ~= nil and CO:find('if why ~= "famine" and Da.after_wait(parts, res.B, why', 1, true) ~= nil,
+  "escorte refusée en famine : le PNJ part quand même (DANGER-ACTIF : et hors famine aussi)")
 check(CO:find("if Fa.clear(Survie.on(f)) then", 1, true) ~= nil and CO:find("D.forget_mobile(t.map, c.x, c.y, r, nd)", 1, true) ~= nil, "regard : cases mobiles vides effacées en survie")
 check(CO:find("log(Fa.line(", 1, true) ~= nil and CO:find("log(Fa.keep_line(", 1, true) ~= nil and CO:find("[FO-FAMINE] %s : bilan", 1, true) ~= nil, "journal [FO-FAMINE] : décisions, prudence gardée, bilan")
 check(SS:find("function Survie.note_famine(f, cleared)", 1, true) ~= nil and SS:find("departs de famine %d, cases mobiles effacees %d", 1, true) ~= nil, "bilan [FO-SURVIE] : compteurs de famine")

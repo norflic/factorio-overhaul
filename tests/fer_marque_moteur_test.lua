@@ -97,7 +97,8 @@ local function run_all()
   local dg = remote.call("fo-ia3k", "danger", "player")
   check(dg and #dg.threats == 0 and dg.summary.cells > 0, "le but n'est marqué que par des cases mobiles (" .. tostring(dg and dg.summary.cells) .. " cases, 0 menace fixe)")
   local r0 = tries("service", "fm:service-off", 8)
-  check(r0 == 8, "hors survie : " .. r0 .. " refus sur 8 (règle d'avant)")
+  -- Lot DANGER-ACTIF (DC 4/11, 19 h 10 et 19 h 12) : des cases MOBILES seules (une attaque qui passe) ne retiennent plus personne (avant : 8 refus sur 8).
+  check(r0 == 0, "DANGER-ACTIF : hors survie, cases mobiles seules au but : " .. r0 .. " refus sur 8 (le PNJ part, risque accepté ; avant : 8)")
   check(#logs_with("[FO-FAMINE]") == 0, "hors survie : aucune ligne [FO-FAMINE]")
 
   ---------------------------------------------------------------------------------------------------
@@ -109,13 +110,10 @@ local function run_all()
   local bx, by = -40, -70
   wave(bx, by)
   local r1, first1 = tries("service", "fm:service-on", 8, bx, by)
-  check(first1 == Fa.W + 1, "service : départ au " .. tostring(first1) .. "e essai (attendu " .. (Fa.W + 1) .. ")")
-  check(r1 == Fa.W, "service : " .. r1 .. " refus sur 8 (passe-droit ensuite)")
-  local fl = logs_with("[FO-FAMINE]")
-  check(#fl >= 3 and fl[1]:find("-> wait", 1, true) and fl[Fa.W + 1]:find("-> go (famine)", 1, true)
-    and fl[Fa.W + 2]:find("-> go (passe-droit)", 1, true), "journal : attentes, « go (famine) », puis passe-droit (" .. tostring(fl[Fa.W + 1]) .. ")")
-  check(fl[1]:find("mobile 900, fixe 0, morts 0, seuil", 1, true) ~= nil, "journal : parts du but (" .. tostring(fl[1]) .. ")")
-  check((s.famine_go or 0) >= 1, "compteur du séjour : " .. tostring(s.famine_go) .. " départ(s) de famine")
+  -- Lot DANGER-ACTIF : la porte n'attend plus, même hors famine ; la montée en deux refus de la famine (Fa.W) et son journal ne servent plus à ce cas.
+  check(first1 == 1, "DANGER-ACTIF : service : départ au " .. tostring(first1) .. "e essai (attendu 1 ; avant : " .. (Fa.W + 1) .. ")")
+  check(r1 == 0, "DANGER-ACTIF : service : " .. r1 .. " refus sur 8 (avant : " .. Fa.W .. ")")
+  check(#logs_with("[FO-FAMINE]") == 0, "DANGER-ACTIF : plus de ligne de famine (aucun refus à lever)")
   -- But A, refusé 8 fois hors survie : ces refus de suite comptent (même destination) : départ au premier essai en survie.
   local rA, firstA = tries("service", "fm:service-A", 1)
   check(firstA == 1, "but déjà refusé 8 fois avant le mode : départ dès le 1er essai en survie (refus de suite gardés par destination)")
@@ -123,12 +121,12 @@ local function run_all()
   local cx, cy = -60, 40
   wave(cx, cy)
   local r2, first2 = tries("rebuild", "fm:rebuild-on", 8, cx, cy)
-  check(first2 == Fa.W + 1, "reconstruction vers le gisement : départ au " .. tostring(first2) .. "e essai (" .. r2 .. " refus)")
+  check(first2 == 1, "DANGER-ACTIF : reconstruction vers le gisement : départ au " .. tostring(first2) .. "e essai (" .. r2 .. " refus ; avant : " .. (Fa.W + 1) .. "e essai)")
   -- Défense vers un but neuf D : règle d'avant.
   local dx_, dy_ = 70, 40
   wave(dx_, dy_)
   local r3 = tries("fortify", "fm:fortify-on", 8, dx_, dy_)
-  check(r3 == 8, "tâche de défense (fortify) : " .. r3 .. " refus sur 8 (hors famine)")
+  check(r3 == 0, "DANGER-ACTIF : tâche de défense (fortify), cases mobiles seules : " .. r3 .. " refus sur 8 (elle part, risque accepté ; avant : 8)")
 
   ---------------------------------------------------------------------------------------------------
   section("3. Menace fixe au but : prudence gardée")
@@ -138,9 +136,9 @@ local function run_all()
   wave(90, -90)
   remote.call("fo-ia3k", "mark", "player", 100, -90, "worm", 25)
   local r4 = tries("service", "fm:service-ver", 8, 90, -90)
-  check(r4 == 8, "ver connu au but + cases mobiles : " .. r4 .. " refus sur 8")
-  local kl = logs_with("prudence gardee")
-  check(#kl >= 1 and kl[1]:find("menace fixe au but", 1, true) ~= nil, "journal : « prudence gardee » (" .. tostring(kl[1]) .. ")")
+  check(r4 == 8, "ver connu au but + cases mobiles : " .. r4 .. " refus sur 8 (tâche mise de côté)")
+  check(((C.team(f).stats.dact or {}).why or {})["aside:but"] ~= nil or ((C.team(f).stats.dact or {}).aside or 0) >= 8,
+    "DANGER-ACTIF : refus comptés « mises de côté » au bilan de la porte (" .. tostring((C.team(f).stats.dact or {}).aside) .. ")")
 
   ---------------------------------------------------------------------------------------------------
   section("3 bis. Morts au but (calme) : une ou deux ne bloquent pas, Fa.DEATHS_MAX gardent la prudence (relecture)")
@@ -155,20 +153,17 @@ local function run_all()
   wave(ex, ey)
   deaths_at(ex, ey, 1)
   local r5, first5 = tries("service", "fm:service-mort1", 8, ex, ey)
-  check(first5 == Fa.W + 1, "1 mort ancienne au but (calme) + cases mobiles : départ au " .. tostring(first5) .. "e essai (" .. r5 .. " refus)")
+  check(first5 == 1 and r5 == 0, "DANGER-ACTIF : 1 mort ancienne au but + cases mobiles : départ au " .. tostring(first5) .. "e essai (" .. r5 .. " refus ; avant : " .. (Fa.W + 1) .. "e)")
   remote.call("fo-ia3k", "forget", "player")
   local hx, hy = 60, 60
   wave(hx, hy)
   deaths_at(hx, hy, Fa.DEATHS_MAX)
+  local aside0 = (C.team(f).stats.dact or {}).aside or 0
   local r6 = tries("service", "fm:service-morts", 8, hx, hy)
   check(r6 == 8, Fa.DEATHS_MAX .. " morts anciennes au but (calme) + cases mobiles : " .. r6 .. " refus sur 8 (pas de marche suicide)")
-  local fs = C.team(f).stats.famine or {}
-  check((fs["prudence:morts"] or 0) == 8, "compteur : " .. tostring(fs["prudence:morts"]) .. " refus « prudence:morts » (8 attendus : la règle de famine les a jugés)")
-  -- (la ligne « prudence gardee » est limitée à une toutes les Fa.KEEP_LOG ticks par équipe : celle du ver, section 3, est au même tick)
-  C.team(f).famine_keep_t = nil
-  tries("service", "fm:service-morts", 1, hx, hy)
-  local ml = logs_with("morts de l'heure au but ou plus")
-  check(#ml >= 1, "journal : « prudence gardee » pour les morts au but (" .. tostring(ml[1]) .. ")")
+  local da = C.team(f).stats.dact or {}
+  check((da.aside or 0) - aside0 == 8,
+    "DANGER-ACTIF : les refus du but à morts sont comptés « mises de côté » au bilan de la porte (le journal de famine « prudence gardee » n'est plus écrit)")
 
   ---------------------------------------------------------------------------------------------------
   section("4. Regard sur place : marque vide effacée")

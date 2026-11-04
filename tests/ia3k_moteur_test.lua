@@ -238,9 +238,13 @@ check(C.gate(f, ag, task, steps, game.tick) == false, "cerveau retenu : la porte
 remote.call("fo-ia3k", "hold", "player", false)
 check(C.gate(f, ag, task, steps, game.tick) == true, "trajet sûr : la tâche part")
 remote.call("fo-ia3k", "death", "player", -5, 130)
-check(C.gate(f, ag, task, steps, game.tick) == false, "1 mort près du but, pas d'escorte possible : attente")
+-- Lot DANGER-ACTIF (DC 4/11 19 h 10 et 19 h 12 : « ils continuent de travailler en évitant le danger » ; avant : attente) : 1 ou 2 morts sur la route, sans escorte :
+-- le PNJ PART par le chemin du moindre danger, risque accepté (réflexes gardés), jamais une attente.
+check(C.gate(f, ag, task, steps, game.tick) == true and C.astate(ag).risk == true,
+  "DANGER-ACTIF : 1 mort près du but, pas d'escorte possible : le PNJ part (risque accepté), il n'attend plus")
 remote.call("fo-ia3k", "death", "player", 0, 135)
-check(C.gate(f, ag, task, steps, game.tick) == false, "2 morts dans l'heure : attente")
+check(C.gate(f, ag, task, steps, game.tick) == true and C.astate(ag).risk == true,
+  "DANGER-ACTIF : 2 morts dans l'heure : le PNJ part par le chemin du moindre danger (avant : attente d'une heure)")
 M.run_ticks(61 * 3600)
 check(C.gate(f, ag, task, steps, game.tick) == true, "une heure plus tard : la tâche repart")
 -- Lot COMPAGNONS-ACTIFS (DC 29/10 : « la peur c'est bien, mais pour fuir si jamais ils se font attaquer. Mais sinon il faut revenir ») :
@@ -252,8 +256,8 @@ do
   remote.call("fo-ia3k", "death", "player", -5, 130)
   remote.call("fo-ia3k", "death", "player", 0, 135)
   local ta = game.tick
-  check(C.gate(f, ag, { key = "test:actif", kind = "service" }, steps, ta + 60) == false,
-    "COMPAGNONS-ACTIFS : 2 morts il y a 1 s près du but proche (attaque en cours) : attente")
+  check(C.gate(f, ag, { key = "test:actif", kind = "service" }, steps, ta + 60) == true and C.astate(ag).risk == true and C.astate(ag).calm == nil,
+    "DANGER-ACTIF : 2 morts il y a 1 s près du but proche (attaque en cours) : le PNJ part, risque accepté, pas « au calme » (avant : attente)")
   local ca0 = (global.fo.ia3k.teams["player"].actif or { calm = 0 }).calm
   check(C.gate(f, ag, { key = "test:actif", kind = "service" }, steps, ta + Ac.FEAR_TICKS + 60) == true,
     "COMPAGNONS-ACTIFS : 2 morts de plus de 1 min, aucune menace connue, but proche : la tâche repart (avant : 1 h d'attente)")
@@ -261,7 +265,7 @@ do
   check(C.astate(ag).calm == true, "COMPAGNONS-ACTIFS (relecture) : départ « au calme » noté sur le PNJ (lu par M.leg et le recontrôle d'époque)")
   remote.call("fo-ia3k", "mark", "player", -5, 142, "worm", 25)
   check(C.gate(f, ag, { key = "test:actif2", kind = "service" }, steps, ta + Ac.FEAR_TICKS + 120) == false,
-    "COMPAGNONS-ACTIFS : morts anciennes mais but à portée d'un ver connu : attente (la menace reste jugée)")
+    "COMPAGNONS-ACTIFS : morts anciennes mais but à portée d'un ver connu : tâche mise de côté (DANGER-ACTIF : autre tâche, la menace reste jugée)")
   check(C.astate(ag).calm == nil, "COMPAGNONS-ACTIFS (relecture) : refus : plus de départ « au calme » sur le PNJ")
   remote.call("fo-ia3k", "forget", "player")
 end
@@ -272,7 +276,17 @@ local refused_in = 0
 for _ = 1, 8 do
   if not C.gate(f, ag, { key = "test:service-in", kind = "service" }, steps_in, game.tick) then refused_in = refused_in + 1 end
 end
-check(refused_in == 8, "but à portée d'un ver connu : jamais d'escalade (" .. refused_in .. " refus sur 8)")
+check(refused_in == 8, "but à portée d'un ver connu : jamais d'escalade, tâche mise de côté à chaque fois (" .. refused_in .. " refus sur 8)")
+do -- DANGER-ACTIF : la tâche mise de côté porte sa raison (pause bornée) et le ver du but est signalé aux soldats
+  local mk = { key = "test:aside", kind = "service" }
+  C.gate(f, ag, mk, steps_in, game.tick)
+  local Da = require("shared.team.danger_actif")
+  local Ac = require("shared.team.actif")
+  check(mk.fail == Da.ASIDE_FAIL and Ac.retry(mk.fail, false, 1800) == Da.ASIDE_TICKS, "DANGER-ACTIF : tâche mise de côté : raison « danger-but », pause bornée " .. Da.ASIDE_TICKS .. " ticks")
+  local blocked_th = false
+  for _, th in ipairs(global.fo.ia3k.teams["player"].map.threats) do if th.b then blocked_th = true end end
+  check(blocked_th, "DANGER-ACTIF : le ver du but est signalé aux soldats (nettoyage)")
+end
 remote.call("fo-ia3k", "forget", "player")
 -- Escalade : une destination HORS de portée mais entourée de vers VUS (sans mort ; tout trajet passe à leur portée) est
 -- refusée W fois (W = 4 pour un neutre), puis la tâche part (risque accepté), et les vers qui bloquent sont signalés
@@ -286,38 +300,27 @@ for _ = 1, 8 do
   if C.gate(f, ag, { key = "test:service2", kind = "service" }, steps2, game.tick) then went = true break end
   refusals = refusals + 1
 end
-check(went and refusals == 4, "escalade : 4 attentes puis départ (" .. refusals .. " refus)")
-check(global.fo.ia3k.agents[ag.id].risk == true, "tournée escaladée marquée « risque accepté »")
-local blocking = false
-for _, th in ipairs(global.fo.ia3k.teams["player"].map.threats) do if th.b then blocking = true end end
-check(blocking, "le ver qui bloque est signalé aux soldats")
--- Lot DEFENSE-FACTIONS D6 : PASSE-DROIT de C.PASS_TICKS après l'escalade accordée (avant : le compteur repartait à 0, 4 refus puis un départ,
--- à chaque tâche ; la « boucle Trop dangereux »). Aucun seuil ne change : le but doit toujours être hors de portée d'une menace.
+-- Lot DANGER-ACTIF (DC 4/11 19 h 10 et 19 h 12) : destination HORS de portée mais entourée de vers : plus d'attente (avant : 4 refus puis escalade, passe-droit de 5 min,
+-- étiquette « Trop dangereux » au 2e refus) ; le PNJ part tout de suite par le chemin du moindre danger, risque accepté, étiquette « contourne ».
+check(went and refusals == 0, "DANGER-ACTIF : route entourée de vers, but libre : départ au premier appel (" .. refusals .. " refus)")
+check(global.fo.ia3k.agents[ag.id].risk == true, "DANGER-ACTIF : tournée partie en « risque accepté » (chemin du moindre danger)")
 local tstats = global.fo.ia3k.teams["player"].stats
-local pd0 = tstats.passe_droit or 0
+local esc0, pd0 = tstats.escalade or 0, tstats.passe_droit or 0
 local t_esc = game.tick
-check(C.gate(f, ag, { key = "test:service2b", kind = "service" }, steps2, t_esc + 60) == true and (tstats.passe_droit or 0) == pd0 + 1,
-  "D6 : juste après l'escalade, la même destination repart tout de suite (passe-droit)")
-check(C.gate(f, ag, { key = "test:service2c", kind = "service" }, steps2, t_esc + C.PASS_TICKS - 60) == true and (tstats.passe_droit or 0) == pd0 + 2,
-  "D6 : encore dans les 5 minutes : le passe-droit tient")
-local refusals_after = 0
-for i = 1, 8 do
-  if C.gate(f, ag, { key = "test:service2d", kind = "service" }, steps2, t_esc + C.PASS_TICKS + 600 + i) then break end
-  refusals_after = refusals_after + 1
+for i = 1, 3 do
+  check(C.gate(f, ag, { key = "test:service2b" .. i, kind = "service" }, steps2, t_esc + i * 400) == true, "DANGER-ACTIF : la même destination repart à chaque appel (" .. i .. ")")
 end
-check(refusals_after == 4, "D6 : passe-droit expiré : le cycle recommence (4 refus avant le départ, " .. refusals_after .. " observés)")
--- Lot DEFENSE-FACTIONS D6 : l'étiquette « Trop dangereux » ne s'affiche qu'au 2e refus de suite pour la même destination
+check((tstats.escalade or 0) == esc0 and (tstats.passe_droit or 0) == pd0, "DANGER-ACTIF : ni escalade ni passe-droit (l'attente qui les rendait nécessaires n'existe plus)")
+check((tstats.labels.contourne or 0) >= 1 and (tstats.labels.attente or 0) == 0, "DANGER-ACTIF : étiquette « contourne le danger », jamais « Trop dangereux »")
+local C_rest = tstats.dact or {}
+check((C_rest.go or 0) >= 1 and (C_rest.rest_over or 0) == 0, "DANGER-ACTIF : départs à risque comptés, aucun repos de plus de 30 s")
+-- Le nettoyage reste décidé par les soldats ; la tâche, elle, n'attend plus qu'un ver soit signalé.
 local gx3, gy3 = -150, -200
 for _, o in ipairs(ring) do remote.call("fo-ia3k", "mark", "player", gx3 + o[1], gy3 + o[2], "worm", 25) end
 local steps3 = { { "home" }, { "goto", { x = gx3, y = gy3 }, 3 }, { "act", "service" }, { "home" } }
-local lab0 = tstats.labels.attente or 0
 local tt = t_esc + 3 * C.PASS_TICKS
-local r1 = C.gate(f, ag, { key = "test:service3", kind = "service" }, steps3, tt)
-local lab1 = tstats.labels.attente or 0
-local r2 = C.gate(f, ag, { key = "test:service3", kind = "service" }, steps3, tt + 400)
-local lab2 = tstats.labels.attente or 0
-check(r1 == false and r2 == false and lab1 == lab0 and lab2 == lab0 + 1,
-  "D6 : 1er refus sans étiquette « Trop dangereux », 2e refus avec (" .. lab0 .. " -> " .. lab1 .. " -> " .. lab2 .. ")")
+check(C.gate(f, ag, { key = "test:service3", kind = "service" }, steps3, tt) == true and C.gate(f, ag, { key = "test:service3", kind = "service" }, steps3, tt + 400) == true,
+  "DANGER-ACTIF : second but entouré de vers : départ aux deux premiers appels (avant : 1er refus sans étiquette, 2e avec)")
 -- Lot INTEG-DEFENSE D-B, revu au lot PORTE-BASE (arbitrage du DC, 29/10) : une tâche de DÉFENSE (fortify, refill) dont les morts de la
 -- route sont TOUTES dans la zone de base (densité de bâtiments, shared/ai3/base.lua) part tout de suite : la base se défend. Une mort HORS
 -- de la base (route vers un lieu sans bâtiments) garde la règle d'IA3-k : refus à chaque fois, sans escalade. Une autre tâche garde la
@@ -346,7 +349,7 @@ local refused_service = 0
 for i = 1, 10 do
   if not C.gate(f, ag, { key = "test:service4", kind = "service" }, steps4, t4 + i) then refused_service = refused_service + 1 end
 end
-check(refused_service == 10, "D-B : 2 morts au but, tâche ordinaire : refus à chaque fois (" .. refused_service .. " sur 10)")
+check(refused_service == 0, "DANGER-ACTIF : 2 morts au but, tâche ordinaire, aucune menace fixe : le PNJ part à chaque fois, risque accepté (" .. refused_service .. " refus sur 10 ; avant : 10)")
 local pz0 = (remote.call("fo-ia3k", "base", "player").porte_zone["base:go"] or 0)
 local base_went = C.gate(f, ag, { key = "test:fortify4", kind = "fortify", defend = true }, steps4, t4 + 101)
 local pz = remote.call("fo-ia3k", "base", "player").porte_zone
@@ -364,8 +367,8 @@ local mix_ref = 0
 for i = 1, 10 do
   if not C.gate(f, ag, { key = "test:fortify4b", kind = "fortify", defend = true }, steps4, t4 + 200 + i) then mix_ref = mix_ref + 1 end
 end
-check(mix_ref == 10, "PORTE-BASE : 2 morts dans la base + 1 hors d'elle sur la route : défense refusée à chaque fois (" .. mix_ref .. " sur 10)")
-check((remote.call("fo-ia3k", "base", "player").porte_zone["hors:wait"] or 0) >= 10, "PORTE-BASE : refus comptés hors:wait")
+check(mix_ref == 0, "DANGER-ACTIF : 2 morts dans la base + 1 hors d'elle sur la route : la défense part (risque accepté) ; avant : refus à chaque fois (" .. mix_ref .. " refus sur 10)")
+check((remote.call("fo-ia3k", "base", "player").porte_zone["hors:go"] or 0) >= 10, "PORTE-BASE : départs comptés hors:go (avant : refus hors:wait)")
 for _, en in ipairs(ilot) do en.destroy() end
 -- Même but SANS bâtiments (îlot détruit, zone recalculée) : les morts sont « à perpète », la défense ne part plus (avant ce lot : 4 attentes
 -- puis départ, risque accepté).
@@ -378,8 +381,8 @@ local ed0 = tstats.escalade_defense or 0
 for i = 1, 10 do
   if not C.gate(f, ag, { key = "test:fortify4c", kind = "fortify", defend = true }, steps4, t4 + 400 + i) then def_ref = def_ref + 1 end
 end
-check(def_ref == 10 and (tstats.escalade_defense or 0) == ed0,
-  "PORTE-BASE : 2 morts HORS de la base, tâche « fortify » : refus à chaque fois, aucune escalade (" .. def_ref .. " sur 10)")
+check(def_ref == 0 and (tstats.escalade_defense or 0) == ed0,
+  "DANGER-ACTIF : 2 morts HORS de la base, tâche « fortify » : la défense part (risque accepté), aucune escalade (" .. def_ref .. " refus sur 10 ; avant : 10)")
 local hors_log = false
 for i = logs0 + 1, #W().logs do if W().logs[i]:find("prudence gardee", 1, true) then hors_log = true end end
 check(hors_log, "PORTE-BASE : journal [FO-BASE] de la cause (route meurtrière hors de la base)")
@@ -387,7 +390,7 @@ local logs1 = #W().logs
 C.gate_report(f, t4 + 1000)
 local bilan = nil
 for i = logs1 + 1, #W().logs do if W().logs[i]:find("[FO-BASE] player : bilan", 1, true) then bilan = W().logs[i] end end
-check(bilan ~= nil and bilan:find("base:go 1", 1, true) ~= nil and bilan:find("hors:wait", 1, true) ~= nil,
+check(bilan ~= nil and bilan:find("base:go 1", 1, true) ~= nil and bilan:find("hors:go", 1, true) ~= nil,
   "PORTE-BASE : bilan [FO-BASE] avec les compteurs de la porte par zone (" .. tostring(bilan) .. ")")
 local gx5, gy5 = -200, 200
 remote.call("fo-ia3k", "death", "player", gx5, gy5 - 5)
@@ -398,7 +401,7 @@ local ref5 = 0
 for i = 1, 10 do
   if not C.gate(f, ag, { key = "test:refill5", kind = "refill" }, steps5, game.tick + i) then ref5 = ref5 + 1 end
 end
-check(ref5 == 10, "D-B : but à portée d'une menace connue : la défense reste refusée (" .. ref5 .. " sur 10)")
+check(ref5 == 10, "D-B : but à portée d'une menace FIXE connue : la défense n'y va pas, tâche mise de côté (" .. ref5 .. " sur 10)")
 remote.call("fo-ia3k", "forget", "player")
 -- C5 « change de site » : un minage vers un gisement gardé par un ver va miner une autre tuile du même minerai.
 local ip = { x = math.cos(math.pi / 6) * 60, y = math.sin(math.pi / 6) * 60 } -- gisement de fer du moteur simulé
