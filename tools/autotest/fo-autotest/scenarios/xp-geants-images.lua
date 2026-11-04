@@ -19,6 +19,9 @@ for i, id in ipairs(IDS) do
   vue(t, id .. "-jour", x + 6, Y - 24, 0.5)
   vue(t + 2, id .. "-nuit", x + 6, Y - 24, 0.5, true)
   vue(t + 4, id .. "-z1-pied", x - 8, Y - 6, 1)
+  -- E-XP1 pour le corps `rendering` : la POSITION du géant 26 tuiles sous le bord bas de l'image (le corps, 40 tuiles et plus de haut,
+  -- la couvre) ; un torse porté par le prototype y disparaît (essai e1, 4/11) : le sprite attaché reste-t-il dessiné ?
+  vue(t + 6, id .. "-hors-ecran-sud", x, Y - 40, 1)
   for k = 0, 7 do vue(t + 20 + k * 14, string.format("%s-effet-%d", id, k), x + 14, Y - 14, 0.5) end
 end
 table.sort(PLAN, function(a, b) return a.tick < b.tick end)
