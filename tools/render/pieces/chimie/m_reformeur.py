@@ -34,7 +34,7 @@ def four(k, R):
     R.box("beton", FU, FV, 0.0, FSU + 0.12, FSV + 0.12, 0.06)
     R.caisson("gris_proc", FU, FV, 0.06, FSU, FSV, FZ - 0.06, 0.03)
     b = R.bornes(FU, FV, FSU, FSV)
-    xs = H.montants(k, "acier", b, 0.06, FZ + 0.02, pas=0.4, l=0.07)
+    xs = H.montants(k, "acier", b, 0.06, FZ + 0.02, pas=0.32, l=0.07)
     for z in (0.5, FZ - 0.04):
         H.ceinture(k, "acier", b, z, 0.045, 0.028)
     # fentes de visite verticales : les tubes rouges se voient au travers (grille-pain)

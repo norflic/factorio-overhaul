@@ -66,7 +66,8 @@ return {
         local px, py = X0 + (i - 1) * PAS_X + 0.5, Y0 + (j - 1) * PAS_Y + 0.5
         local m = s.create_entity({ name = mc.nom, position = { px, py }, direction = d[2], force = "player",
           recipe = mc.recette })
-        local site = { mc = mc, dir = d[1], m = m, x = px, y = py, tuyaux = {}, conn = {} }
+        local site = { mc = mc, dir = d[1], m = m, x = px, y = py, tuyaux = {}, conn = {}, entrees = {}, sorties = {},
+          tuyaux_sortie = {} }
         st.sites[#st.sites + 1] = site
         if m then
           for _, it in ipairs(mc.objets) do m.insert(it) end
@@ -81,11 +82,19 @@ return {
             local proto = m.fluidbox.get_prototype(b)
             if proto.production_type == "input" then
               k = k + 1
-              if fl[k] then m.fluidbox[b] = { name = fl[k], amount = 900 } end
+              if fl[k] then
+                m.fluidbox[b] = { name = fl[k], amount = 900 }
+                site.entrees[#site.entrees + 1] = { b, fl[k] }
+              end
+            else
+              site.sorties[#site.sorties + 1] = b
             end
             for _, pc in ipairs(m.fluidbox.get_pipe_connections(b)) do
               local t = s.create_entity({ name = "pipe", position = pc.target_position, force = "player" })
-              if t then site.tuyaux[#site.tuyaux + 1] = t end
+              if t then
+                site.tuyaux[#site.tuyaux + 1] = t
+                if proto.production_type ~= "input" then site.tuyaux_sortie[#site.tuyaux_sortie + 1] = t end
+              end
               site.conn[#site.conn + 1] = { x = pc.target_position.x - px, y = pc.target_position.y - py }
             end
           end
@@ -118,14 +127,45 @@ return {
     ctx.check(ok_tuy == 16, "un vrai tuyau relie a chaque boite de fluide, 4 directions", ok_tuy .. " / 16")
   end,
 
+  -- Un script ne remplit pas une entrée au-delà de sa limite d'insertion (F221 : environ 2 fabrications) : les entrées sont
+  -- remplies et les sorties (boîtes et tuyaux) vidées toutes les 30 ticks, pour que les machines TRAVAILLENT aux captures.
+  tick = function(ctx, e)
+    if e.tick % 30 ~= 0 then return end
+    for _, c in ipairs(ctx.state().sites or {}) do
+      local m = c.m
+      if m and m.valid then
+        for _, en in ipairs(c.entrees) do m.fluidbox[en[1]] = { name = en[2], amount = 900 } end
+        for _, b in ipairs(c.sorties) do m.fluidbox[b] = nil end
+        for _, t in ipairs(c.tuyaux_sortie) do
+          if t.valid then t.fluidbox[1] = nil end
+        end
+      end
+    end
+  end,
+
   finish = function(ctx)
     local st = ctx.state()
     local marche, ko = 0, {}
+    -- noms des statuts (liste triée : aucun ordre de pairs)
+    local noms_statut = {}
+    local cles = {}
+    for k in pairs(defines.entity_status) do cles[#cles + 1] = k end
+    table.sort(cles)
+    for _, k in ipairs(cles) do noms_statut[defines.entity_status[k]] = k end
+    local function boites(m)
+      local t = {}
+      for b = 1, #m.fluidbox do
+        local f = m.fluidbox[b]
+        t[#t + 1] = f and string.format("%s %.0f", f.name, f.amount) or "vide"
+      end
+      return table.concat(t, ", ")
+    end
     for _, c in ipairs(st.sites) do
       if c.m and c.m.valid and c.m.status == defines.entity_status.working then
         marche = marche + 1
       else
-        ko[#ko + 1] = c.mc.court .. " " .. c.dir .. (c.m and c.m.valid and (" (statut " .. tostring(c.m.status) .. ")") or "")
+        ko[#ko + 1] = c.mc.court .. " " .. c.dir .. (c.m and c.m.valid and (" (" .. tostring(noms_statut[c.m.status] or c.m.status)
+          .. " ; " .. boites(c.m) .. ")") or "")
       end
     end
     ctx.check(marche == 16, "machines en marche au tick 300", marche .. " / 16" ..

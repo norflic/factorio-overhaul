@@ -139,6 +139,7 @@ def main():
     ap.add_argument("--post-only", action="store_true")
     ap.add_argument("--quick", action="store_true", help="passes main, glow, shadow seulement (essais)")
     ap.add_argument("--halo", action="store_true", help="les 5 passes, halo de nuit compris (sources halo_light)")
+    ap.add_argument("--samples-passes", default="", help="échantillons PAR PASSE (D-7), ex. « ao=64,shadow=64,light=64 »")
     ap.add_argument("--images", type=int, default=0, help="images des pièces mobiles (final)")
     a = ap.parse_args()
     a.cache = a.cache or os.path.join(os.path.dirname(os.path.abspath(a.out)), "cache_" + os.path.basename(a.out))
@@ -151,7 +152,7 @@ def main():
     if not a.post_only:
         cmd = [sys.executable, LOCK, "--disque", a.cache, "--disque", a.out, "--", BLENDER, "-b", "--factory-startup",
                "-noaudio", "--python-exit-code", "1", "-P", BATCH, "--", "--names", ",".join(names), "--out", a.cache,
-               "--samples", str(a.samples), "--images", str(a.images)] + (["--quick"] if a.quick else ([] if a.halo else ["--apercu"]))
+               "--samples", str(a.samples), "--images", str(a.images)] + (["--samples-passes", a.samples_passes] if a.samples_passes else []) + (["--quick"] if a.quick else ([] if a.halo else ["--apercu"]))
         env = dict(os.environ, PYTHONIOENCODING="utf-8")
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
         log = []
