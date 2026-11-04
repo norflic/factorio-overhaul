@@ -40,7 +40,12 @@ local function mine(force_name, sauf)
   return n
 end
 
-function G.count(force_name) return mine(force_name, nil) end
+--- Géants de cette famille pour une force : son NOM (chaîne, ce qu'envoie script/robots/armee.lua de robotsjeu) ; un LuaForce est aussi lu.
+function G.count(force)
+  local name = type(force) == "string" and force or (force and force.valid and force.name)
+  if not name then return 0 end
+  return mine(name, nil)
+end
 
 local function corps(g, r)
   if Xp.GIANT_BODY ~= "rendering" then return end

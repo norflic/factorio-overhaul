@@ -147,6 +147,11 @@ return {
       st.gele and string.format("gel au tick %d, puis %s", st.gele.t, tostring(st.degele)) or "aucune cible arretee")
     ctx.check(st.nuit == 0 and all.tournesol.coups >= 1, "tournesol : rien de nuit, tire de jour",
       string.format("de nuit %s, en tout %d", tostring(st.nuit), all.tournesol.coups))
+    -- interface lue par robotsjeu (script/robots/armee.lua) : le NOM de la force, une chaîne
+    ctx.check(remote.call("fo-xp", "geants", "fo-xp-g-cairn") == 1 and remote.call("fo-xp", "geants", "player") == 1
+      and remote.call("fo-xp", "geants", "fo-xp-inconnue") == 0, "interface fo-xp geants : nom de force (chaine)",
+      string.format("cairn %s, joueur %s, inconnue %s", tostring(remote.call("fo-xp", "geants", "fo-xp-g-cairn")),
+        tostring(remote.call("fo-xp", "geants", "player")), tostring(remote.call("fo-xp", "geants", "fo-xp-inconnue"))))
     local n = ctx.surface().count_entities_filtered({ name = "fo-xp-cairn", force = "player" })
     local sol = ctx.surface().count_entities_filtered({ name = "item-on-ground", position = { st.cap_x + 30, Y }, radius = 6 })
     ctx.check(st.c1 and st.c1.valid and n == 1 and sol >= 1, "plafond : a l'age 10, un Cairn admis, le second refuse (objet rendu au sol)",
