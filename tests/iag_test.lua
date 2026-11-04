@@ -513,6 +513,8 @@ do
     ["script/team/raccord.lua"] = { "TYPE", 2, "types du moteur lus par le relevé de couverture électrique (lot PD-ELEC : machines électriques, machines génératrices dont solar-panel) : le GENRE, jamais un niveau" },
     ["script/team/plant_arms.lua"] = { "EXEC", 1, "journal de la centrale : le fluide « vapeur » lu dans les chaudières (diagnostic)" },
     ["script/faction/vision.lua"] = { "TYPE", 2, "types du moteur (assembling-machine, furnace...)" },
+    ["script/team/perte_log.lua"] = { "TYPE", 1, "lot PERIMETRE2 : types du moteur exclus du journal [FO-PERTE] (character, unit, car, spider-vehicle), lecture seule" },
+    ["shared/team/perte.lua"] = { "TYPE", 1, "lot PERIMETRE2 : types du moteur classés par catégorie de perte (furnace, assembling-machine, boiler...), mesure seule" },
     ["script/faction/journal.lua"] = { "TYPE", 2, "types du moteur (car, robots)" },
     ["script/modules/mult.lua"] = { "TYPE", 2, "types du moteur des machines à modules" },
     ["script/team/convoyeurs.lua"] = { "TYPE", 1, "type du moteur transport-belt (filtre des prototypes de tapis, lot CONVOYEURS)" },
