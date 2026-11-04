@@ -315,6 +315,7 @@ function C.think(view, book, st, ctx)
     end
   end
   local order, K = P.update(st, goals, tick, s.workers)
+  order = Cap.chain_first(order) -- lot DEFAUT7 : l'amélioration exigée par le centre (chaîne Q16) servie d'abord
   -- 5. Dépliage.
   local E = P.context(avail, book, view, st)
   E.priorite = base.priorite -- lot PRIORITE-RESSOURCES : production d'abord quand le fer ne paie pas la défense et la production

@@ -252,8 +252,13 @@ local function run_all()
   local book = Book.new(recipes)
   local goal7 = Cap.goal(d7, {})
   local E0 = P.context({ ["iron-plate"] = 500, ["copper-plate"] = 500 }, book, { open = {}, workers_idle = 0 }, {})
-  local s0 = Cap.emit(P)(E0, { id = 70, key = "capital:x", prio = 50 }, Cap.goal(d7, {}))
-  check(s0 == "matiere" and #E0.tasks == 0, "§7 bâtiment sans bras libres : rien n'est fabriqué pour lui (" .. #E0.tasks .. " tâche(s))")
+  -- Lot DEFAUT7 : d7 est le bâtiment de la chaîne Q16 (le centre est bloqué par les tourelles) ; la règle des bras libres se lit sur
+  -- le même bâtiment HORS chaîne (copie sans `chain`) ; la chaîne est au §15.
+  local d7o = {}
+  for k, v in pairs(d7) do d7o[k] = v end
+  d7o.chain = nil
+  local s0 = Cap.emit(P)(E0, { id = 70, key = "capital:x", prio = 50 }, Cap.goal(d7o, {}))
+  check(s0 == "matiere" and #E0.tasks == 0, "§7 bâtiment (hors chaîne) sans bras libres : rien n'est fabriqué pour lui (" .. #E0.tasks .. " tâche(s))")
   local E = P.context({ ["iron-plate"] = 500, ["copper-plate"] = 500 }, book, { open = {}, workers_idle = 2 }, {})
   local proj = { id = 7, key = goal7.key, prio = 50 }
   local fn = Cap.emit(P)
@@ -414,6 +419,73 @@ local function run_all()
     for _, c in ipairs(res3.cands) do if c.center then g3 = c end end
     check(g3 ~= nil, "§14 le jeu fait foi aussi dans l'autre sens : relevé de la base incomplet, condition remplie ailleurs")
   end
+
+  -- §15 Lot DEFAUT7 : l'amélioration EXIGÉE par le centre (bâtiment de la chaîne Q16) est servie d'abord et veut ses pièces même
+  -- sans bras libre ; aucune valeur changée, le centre n'est pas concerné.
+  do
+    local recipes = dofile("tests/fixtures/recipes_ia1e.lua")
+    local book = Book.new(recipes)
+    local dch = Cap.choose(L, census(guns({ 1, 1, 1, 1 }), center1), ctx()) -- centre bloqué par les tourelles : chaîne
+    local gch = Cap.goal(dch, {})
+    check(dch.chain ~= nil and gch.opens == true, "§15 but du bâtiment de la chaîne : marqué `opens`")
+    local dor = Cap.choose(L, census(guns({ 2, 1, 1, 1 }), center1), ctx()) -- condition remplie : tourelle ordinaire
+    local gor = Cap.goal(dor.center and nil or dor, {})
+    local dorb = {}
+    for k, v in pairs(dor) do dorb[k] = v end
+    dorb.chain, dorb.center, dorb.gate_open = nil, nil, false
+    local gord = Cap.goal(dorb, {})
+    check(gord.opens == nil, "§15 bâtiment hors chaîne, porte fermée : pas `opens`")
+    -- Essai 2 : centre payable (porte ouverte) : l'amélioration en cours d'un bâtiment est `opens` ; le centre lui-même jamais.
+    check(dor.gate_open == true and not dor.center and Cap.goal(dor, {}).opens == true,
+      "§15 centre payable : l'amélioration du bâtiment en cours est servie comme la chaîne (" .. tostring(dor.key) .. ")")
+    local dcen = {}
+    for k, v in pairs(dor) do dcen[k] = v end
+    dcen.center = true
+    check(Cap.goal(dcen, {}).opens == nil, "§15 le centre n'est jamais `opens`")
+    local dcl = {}
+    for k, v in pairs(dor) do dcl[k] = v end
+    dcl.gate_open = false
+    check(Cap.goal(dcl, {}).opens == nil, "§15 porte fermée, hors chaîne : pas `opens`")
+    local dno = {}
+    for k, v in pairs(dch) do dno[k] = v end
+    dno.chain = nil
+    check(Cap.goal(dno, {}).value == gch.value, "§15 la chaîne ne change pas la valeur du but (" .. gch.value .. ")")
+    -- Ordre de service : la chaîne en tête, les autres dans leur ordre ; sans chaîne, rien ne bouge.
+    local o = { { key = "obj", goal = {} }, { key = "armee", goal = { permanent = true } }, { key = "x", goal = {} }, { key = gch.key, goal = gch } }
+    local o2 = Cap.chain_first(o)
+    check(o2[1].key == gch.key and o2[2].key == "obj" and o2[3].key == "armee" and o2[4].key == "x" and #o2 == 4,
+      "§15 ordre de service : la chaîne en tête, les autres dans leur ordre")
+    local o3 = Cap.chain_first({ { key = "a", goal = {} }, { key = "b", goal = {} } })
+    check(o3[1].key == "a" and o3[2].key == "b", "§15 sans chaîne : ordre inchangé")
+    -- Le cas mesuré (Azur, 0.6.50) : fer limité, des projets servis avant prennent tout le fer, 0 engrenage, 0 bras libre.
+    -- Servie en tête, la chaîne prend ses objets et fait fabriquer ses engrenages ; servie en dernier, rien.
+    local function run(ordered)
+      local E = P.context({ ["iron-plate"] = 40, ["copper-plate"] = 40 }, book, { open = {}, workers_idle = 0 }, {})
+      E.view = { workers_idle = 0 }
+      local greedy = { id = 1, key = "obj", prio = 70, goal = { kind = "x" } }
+      local chain = { id = 2, key = gch.key, prio = 53, goal = gch }
+      local list = ordered and Cap.chain_first({ greedy, chain }) or { greedy, chain }
+      local gears = 0
+      for _, pr in ipairs(list) do
+        if pr == greedy then
+          E.avail["iron-plate"] = 0 -- un projet d'avant prend tout le fer qui reste
+        else
+          Cap.emit(P)(E, pr, gch)
+        end
+      end
+      for _, t in ipairs(E.tasks) do if t.kind == "craft" and t.item == "iron-gear-wheel" then gears = gears + t.count end end
+      return gears
+    end
+    local first = run(true)
+    local last = run(false)
+    check(first >= 3, "§15 chaîne servie d'abord, 0 bras libre : ses 3 engrenages sont fabriqués (" .. first .. ")")
+    check(last == 0, "§15 la même servie en dernier (avant la règle) : rien n'est fabriqué (" .. last .. ")")
+    -- Bâtiment ordinaire, 0 bras libre : toujours rien (règle des bras libres gardée).
+    local E2 = P.context({ ["iron-plate"] = 40, ["copper-plate"] = 40 }, book, { open = {}, workers_idle = 0 }, {})
+    E2.view = { workers_idle = 0 }
+    Cap.emit(P)(E2, { id = 3, key = gord.key, prio = 53 }, gord)
+    check(#E2.tasks == 0, "§15 bâtiment ordinaire, 0 bras libre : rien n'est fabriqué (" .. #E2.tasks .. ")")
+  end
 end
 
 run_all()
@@ -477,6 +549,27 @@ do
       return cd0(Ld, copy, c)
     end
   end, function() Cap.candidates = cd0 end)
+  -- Lot DEFAUT7.
+  local cfs = Cap.chain_first
+  M("chaîne servie en dernier", function() Cap.chain_first = function(o) return o end end, function() Cap.chain_first = cfs end)
+  local em = Cap.emit
+  M("sans bras = rien émis, même pour la chaîne", function()
+    Cap.emit = function(Pm)
+      local inner = em(Pm)
+      return function(E, proj, g)
+        local g2 = {}
+        for k, v in pairs(g) do g2[k] = v end
+        g2.opens = nil
+        return inner(E, proj, g2)
+      end
+    end
+  end, function() Cap.emit = em end)
+  M("porte ouverte ignorée (essai 2)", function()
+    Cap.goal = function(d, w) local g = cg(d, w) if g and not d.chain then g.opens = nil end return g end
+  end, function() Cap.goal = cg end)
+  M("tout bâtiment marqué de la chaîne", function()
+    Cap.goal = function(d, w) local g = cg(d, w) if g and not g.center then g.opens = true end return g end
+  end, function() Cap.goal = cg end)
   check(n_caught == n_mut, string.format("§10 mutants : %d refusés sur %d", n_caught, n_mut))
 end
 

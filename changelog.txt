@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Version: 0.6.51
+Date: 2026-11-04
+  Changes:
+    - Factions bloquees a l'age 1 (Azur dans la partie du DC) : quand le centre de commandement est payable, l'amelioration de batiment qu'il exige (chaine de l'age suivant) est servie d'abord et demande ses pieces meme sans bras libre. Mesure sur la partie du DC (graine 717152950) : Azur fait 54 ameliorations et passe l'age 2 a 43,3 min ; 3 factions a l'age 2 contre 0 avant.
+    - Pas encore dans cette version (relectures du 4/11 18 h 20) : enceinte de murs de votre equipe (un mur que vous retirez serait repose, l'anneau peut couper votre usine, rayon fige sur une partie en cours) et depenses du stock qui dort (laboratoires sans plafond) : corriges en version suivante.
+    - Limites connues : sur la graine 123456789 a 30 ouvriers, 2 factions perdent leur age 2 (4 passages a l'age 2 au total, comme avant : le gain n'est pas general) ; la tourelle laser redessinee est en production (version suivante).
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Version: 0.6.50
 Date: 2026-11-04
   Changes:
