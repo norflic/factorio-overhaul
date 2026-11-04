@@ -3588,7 +3588,30 @@ function Build.work(agent, f, tick)
     end
     job.done = (job.done or 0) + did
     if did > 0 or remain > 0 then return "more" end
-    if job.seg then Build.street_cleared(f, job.seg) end
+    if job.seg then
+      -- Lot AGEBLOCAGE (diagnostic, LECTURE SEULE) : un défrichage de rue rendu « done » sans rien abattre ; ce que survey() compterait
+      -- encore dans le tronçon (objets qui bloquent, hors nos bâtiments praticables), par type et nom. 1re fois, puis toutes les 10.
+      if (job.done or 0) == 0 then
+        b.defriche_vide = b.defriche_vide or {}
+        local n = (b.defriche_vide[job.seg] or 0) + 1
+        b.defriche_vide[job.seg] = n
+        if n == 1 or n % 10 == 0 then
+          local x0, y0, x1, y1 = P.seg_rect(b.lat, job.seg)
+          local seen = {}
+          for _, ent in ipairs(surface.find_entities_filtered({ area = { { x0, y0 }, { x1, y1 } }, collision_mask = "object-layer" })) do
+            if strict(ent.bounding_box, x0, y0, x1, y1) and ent.force.name ~= f.force then
+              local k = ent.type .. "/" .. ent.name .. "/" .. ent.force.name
+              seen[k] = (seen[k] or 0) + 1
+            end
+          end
+          local parts = {}
+          for _, k in ipairs(sorted_keys(seen)) do parts[#parts + 1] = k .. "x" .. seen[k] end
+          log(string.format("[FO-DEFRICHE] %s : rue %s defrichee sans rien abattre (%d fois) ; objets restants hors de notre force {%s} a %.1f min",
+            f.key or "player", job.seg, n, table.concat(parts, " "), tick / 3600))
+        end
+      end
+      Build.street_cleared(f, job.seg)
+    end
     return "done"
   elseif job.mode == "fill" then
     local q = p.quais[job.idx]
