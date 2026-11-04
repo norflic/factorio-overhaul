@@ -15,6 +15,7 @@ local function read(path)
   return s
 end
 local SRC = read("shared/team/sorties_main.lua")
+local Bl = require("shared.team.bail") -- lot ETAGE4 : bail des tournées (durée lue, jamais recopiée)
 local function load_sm(src)
   local fn = load(src, "=sm", "t")
   if not fn then return nil end
@@ -44,23 +45,33 @@ local function suite(Sm)
   c("fondu exclu", raw.rouge == nil)
   c("aucune donnee : vide", next(Sm.raw_kinds(nil)) == nil)
   -- §2
-  c("sorties comptees par defaut", Sm.counted({}) == true)
-  c("meurtrier exclu", Sm.counted({ lethal = true }) == false)
-  c("dangereux exclu", Sm.counted({ unsafe = true }) == false)
-  c("2 tournees ratees : compte", Sm.counted({ fails = Sm.FAILS_MAX - 1 }) == true)
-  c("3 tournees ratees : exclu", Sm.counted({ fails = Sm.FAILS_MAX }) == false)
+  c("tournee libre : sorties comptees", Sm.counted({ tour = "libre" }) == true)
+  c("meurtrier exclu", Sm.counted({ tour = "libre", lethal = true }) == false)
+  c("dangereux exclu", Sm.counted({ tour = "libre", unsafe = true }) == false)
+  c("2 tournees ratees : compte", Sm.counted({ tour = "libre", fails = Sm.FAILS_MAX - 1 }) == true)
+  c("3 tournees ratees : exclu", Sm.counted({ tour = "libre", fails = Sm.FAILS_MAX }) == false)
   c("rangee absente : exclue", Sm.counted(nil) == false)
-  c("tournee libre depuis peu : compte", Sm.counted({ free_age = Sm.STALE_TICKS - 1 }) == true)
-  c("tournee libre depuis 5 min : exclu", Sm.counted({ free_age = Sm.STALE_TICKS }) == false)
+  c("tournee libre depuis peu : compte", Sm.counted({ tour = "libre", free_age = Sm.STALE_TICKS - 1 }) == true)
+  c("tournee libre depuis 5 min : exclu", Sm.counted({ tour = "libre", free_age = Sm.STALE_TICKS }) == false)
+  -- §2 bis (lot ETAGE4) : la tournée doit être VIVANTE
+  c("aucune tournee (absente, en pause) : exclu", Sm.counted({}) == false)
+  c("tournee prise qui progresse : compte", Sm.counted({ tour = "prise", stall = 0 }) == true)
+  c("tournee prise, progres juste sous le bail : compte", Sm.counted({ tour = "prise", stall = Bl.LEASE - 1 }) == true)
+  c("tournee prise sans progres depuis le bail : exclu (cas d'Emeraude)", Sm.counted({ tour = "prise", stall = Bl.LEASE }) == false)
+  c("prise meme tres ancienne mais qui progresse : compte", Sm.counted({ tour = "prise", stall = 10, free_age = 1e9 }) == true)
+  c("sur : ni meurtrier ni dangereux ni ratees", Sm.safe({}) == true and Sm.safe({ unsafe = true }) == false
+    and Sm.safe({ lethal = true }) == false and Sm.safe({ fails = Sm.FAILS_MAX }) == false and Sm.safe(nil) == false)
   -- §3
   local rows = {
-    { id = 3, kind = "noir", outputs = { R1 = 300 } },
-    { id = 1, kind = "noir", outputs = { R1 = 500 } },
-    { id = 2, kind = "noir", outputs = { R1 = 300 } },
-    { id = 4, kind = "noir", outputs = { R1 = 900 }, unsafe = true },
-    { id = 5, kind = "gris", outputs = { R2 = 70 } },
-    { id = 6, kind = "rouge", outputs = { P1 = 400, R1 = 50 } },
-    { id = 7, kind = "noir", outputs = {} },
+    { id = 3, kind = "noir", outputs = { R1 = 300 }, tour = "libre" },
+    { id = 1, kind = "noir", outputs = { R1 = 500 }, tour = "prise", stall = 60 },
+    { id = 2, kind = "noir", outputs = { R1 = 300 }, tour = "libre" },
+    { id = 4, kind = "noir", outputs = { R1 = 900 }, unsafe = true, tour = "libre" },
+    { id = 5, kind = "gris", outputs = { R2 = 70 }, tour = "libre" },
+    { id = 6, kind = "rouge", outputs = { P1 = 400, R1 = 50 }, tour = "libre" },
+    { id = 7, kind = "noir", outputs = {}, tour = "libre" },
+    { id = 8, kind = "noir", outputs = { R1 = 1666 }, tour = "prise", stall = 2479 * 60 }, -- Émeraude : tenue 41 min sans progrès
+    { id = 9, kind = "noir", outputs = { R1 = 700 } },                                     -- aucune tournée au tableau
   }
   local total, ids = Sm.dormant(rows, raw, "R1")
   c("total des bruts comptes", total == 1100)
@@ -87,6 +98,8 @@ local function suite(Sm)
   c("dangereux : inchange", Sm.fetch_prio(70, { kind = "noir", outputs = { R1 = 300 }, unsafe = true }, raw, 0) == 70)
   c("meurtrier : inchange", Sm.fetch_prio(70, { kind = "noir", outputs = { R1 = 300 }, lethal = true }, raw, 0) == 70)
   c("fondu : inchange", Sm.fetch_prio(70, { kind = "rouge", outputs = { P1 = 300 } }, raw, 0) == 70)
+  c("urgence posee meme sans tournee au tableau (le planificateur la pose)", Sm.fetch_prio(70, { kind = "noir", outputs = { R1 = 300 } }, raw, 0) == Sm.FETCH_PRIO)
+  c("tournee libre depuis 5 min : pas d'urgence", Sm.fetch_prio(70, { kind = "noir", outputs = { R1 = 300 }, free_age = Sm.STALE_TICKS }, raw, 0) == 70)
   c("interrupteur : nil = allume", Sm.on(nil) == true and Sm.on(true) == true and Sm.on(false) == false)
   -- §5 bis : combustible porté du coffre
   c("avant-poste ordinaire : tout le besoin", Sm.carry_fuel(120, false, 0) == 120)
@@ -113,7 +126,8 @@ check("worker : refus ecrit (main:sorties)", W:find('"main:sorties"', 1, true) ~
 check("lecteur : regle pure", S:find("Sm.hand_ok(", 1, true) ~= nil and S:find("Sm.dormant(", 1, true) ~= nil)
 check("lecteur : interrupteur", S:find("Sm.on(f.team.sorties_regle)", 1, true) ~= nil)
 check("lecteur : danger releve", S:find("Poles.DANGER_RADIUS", 1, true) ~= nil and S:find("lethal_ticks", 1, true) ~= nil)
-check("lecteur : age de la tournee libre", S:find("free_age = Board.free_age(", 1, true) ~= nil)
+check("lecteur : etat de la tournee (prise, libre, sans progres)", S:find("local tour, free_age, stall = S.tour(f, oid, tick)", 1, true) ~= nil
+  and S:find("t.prog and t.prog.t", 1, true) ~= nil)
 check("journal [FO-SEC] appele apres le plan", TM:find("SortiesLog.report(f, view, tick)", 1, true) ~= nil)
 check("worker : complement de combustible vers l'avant-poste de combustible", W:find("carry = Sorties.carry_fuel(f, o, need)", 1, true) ~= nil)
 check("worker : regle coupee = 0.6.41 (rien vers le combustible)", W:find('if o.kind == "coal" then carry = 0 end', 1, true) ~= nil)
@@ -128,14 +142,16 @@ local MUTANTS = {
   { "meurtrier compte", "if not o or o.lethal or o.unsafe then return false end", "if not o or o.unsafe then return false end" },
   { "dangereux compte", "if not o or o.lethal or o.unsafe then return false end", "if not o or o.lethal then return false end" },
   { "tournees ratees ignorees", "return num(o.fails) < Sm.FAILS_MAX", "return true" },
-  { "tournee oubliee comptee", "if num(o.free_age) >= Sm.STALE_TICKS then return false end", "" },
+  { "tournee non exigee (avant ETAGE4)", "return Bl.alive(o.tour, o.free_age, o.stall, Sm.STALE_TICKS)", "return true" },
+  { "urgence pour une tournee oubliee", "or num(o.free_age) >= Sm.STALE_TICKS then return base end", "then return base end" },
   { "sorties non comptees", "if raw[o.kind] == item and Sm.counted(o) then", "if raw[o.kind] == item then" },
   { "ordre inverse", "if a.n ~= b.n then return a.n > b.n end", "if a.n ~= b.n then return a.n < b.n end" },
   { "jamais refuse", "if num(a.dormant) >= Sm.MIN then return false, \"sorties\" end", "" },
   { "crise refusee", "if a.crisis then return true, \"crise\" end", "" },
   { "seuil strict", "if num(a.dormant) >= Sm.MIN then", "if num(a.dormant) > Sm.MIN then" },
   { "urgence meme coffre garni", "or num(have) >= Sm.COVER then return base end", "then return base end" },
-  { "urgence vers un dangereux", "if not res or not Sm.counted(o) then return base end", "if not res then return base end" },
+  { "urgence vers un dangereux", "if not res or not Sm.safe(o) or", "if not res or" },
+  { "sur sans les ratees", "return num(o.fails) < Sm.FAILS_MAX", "return true" },
   { "urgence abaisse le ravitaillement", "return math.max(num(base), Sm.FETCH_PRIO)", "return Sm.FETCH_PRIO" },
   { "urgence sous 90", "Sm.FETCH_PRIO = 91", "Sm.FETCH_PRIO = 89" },
   { "interrupteur inverse", "function Sm.on(flag) return flag ~= false end", "function Sm.on(flag) return flag == true end" },

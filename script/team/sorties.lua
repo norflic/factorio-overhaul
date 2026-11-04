@@ -11,9 +11,18 @@ local Board = require("script.team.board")
 
 local S = {}
 
+--- Lot ETAGE4 : état de la tournée de l'avant-poste `oid` au tableau : "prise" | "libre" | nil (absente ou en pause), attente sans preneur,
+--- ticks sans progrès du PNJ qui la tient (relevé t.prog du bail, script/team/bail.lua ; à défaut, depuis la prise).
+function S.tour(f, oid, tick)
+  local t = Board.get(f).tasks["service:" .. tostring(oid)]
+  if not t then return nil, nil, nil end
+  if t.worker then return "prise", nil, tick - ((t.prog and t.prog.t) or t.claimed or tick) end
+  return "libre", tick - (t.created or tick), nil
+end
+
 local RAW = Sm.raw_kinds(T.outposts)
 
---- Rangées { id, kind, outputs = { [item] = n }, lethal, unsafe, fails } des avant-postes bruts de ressource `item` dont les coffres de
+--- Rangées { id, kind, outputs = { [item] = n }, lethal, unsafe, fails, tour, free_age, stall } des avant-postes bruts de ressource `item` dont les coffres de
 --- sortie en ont (ordre des ids ; le danger n'est relevé que pour ceux-là).
 function S.rows(f, item, tick)
   local rows = {}
@@ -29,8 +38,9 @@ function S.rows(f, item, tick)
         local pos = o.access or o.pos
         local unsafe = surface and pos and (surface.count_entities_filtered({ position = pos, radius = Poles.DANGER_RADIUS, force = "enemy",
           type = { "unit-spawner", "turret" }, limit = 1 }) > 0 or (f.is_player and Poles.near_loss(f, pos, tick))) or nil
+        local tour, free_age, stall = S.tour(f, oid, tick)
         rows[#rows + 1] = { id = oid, kind = o.kind, outputs = { [item] = n }, fails = o.flux_fails, unsafe = unsafe,
-          free_age = Board.free_age(f, "service:" .. tostring(oid), tick),
+          tour = tour, free_age = free_age, stall = stall,
           lethal = (o.lethal_tick ~= nil and tick - o.lethal_tick < T.lethal_ticks) or nil }
       end
     end
@@ -59,7 +69,8 @@ function S.report(f, view, tick)
       local t = b.tasks[key]
       local cd = b.cooldown[key]
       local st
-      if t and t.worker then st = string.format("prise %ds p%d", math.floor((tick - (t.claimed or tick)) / 60), t.prio or 0)
+      if t and t.worker then st = string.format("prise %ds p%d sans progres %ds", math.floor((tick - (t.claimed or tick)) / 60), t.prio or 0,
+        math.floor((tick - ((t.prog and t.prog.t) or t.claimed or tick)) / 60))
       elseif t then st = string.format("libre %ds p%d", math.floor((tick - (t.created or tick)) / 60), t.prio or 0)
       elseif cd and tick < cd then st = string.format("pause %ds", math.floor((cd - tick) / 60))
       else st = "absente" end
@@ -96,12 +107,20 @@ function S.carry_fuel(f, o, need)
   return Sm.carry_fuel(need, self_fuel, own)
 end
 
---- Minage à la main de `item` : ok, raison, objets dans les sorties comptées. Règle coupée (f.team.sorties_regle == false) : toujours ok.
+--- Minage à la main de `item` : ok, raison, objets dans les sorties comptées, et l'état des tournées des avant-postes garnis (journal, lot
+--- ETAGE4 : « 1:prise 40s », « 3:absente »...). Règle coupée (f.team.sorties_regle == false) : toujours ok.
 function S.hand_ok(f, item, tick, crisis)
-  if not (f.team and Sm.on(f.team.sorties_regle)) then return true, "coupee", 0 end
-  local total = Sm.dormant(S.rows(f, item, tick), RAW, item)
+  if not (f.team and Sm.on(f.team.sorties_regle)) then return true, "coupee", 0, "" end
+  local rows = S.rows(f, item, tick)
+  local total = Sm.dormant(rows, RAW, item)
   local ok, why = Sm.hand_ok({ dormant = total, crisis = crisis })
-  return ok, why, total
+  local parts = {}
+  for _, r in ipairs(rows) do
+    parts[#parts + 1] = string.format("%s:%s%s", tostring(r.id), r.tour or "absente",
+      r.tour == "prise" and string.format(" sans progres %ds", math.floor((r.stall or 0) / 60))
+      or (r.tour == "libre" and string.format(" %ds", math.floor((r.free_age or 0) / 60)) or ""))
+  end
+  return ok, why, total, table.concat(parts, ",")
 end
 
 return S

@@ -588,7 +588,7 @@ function Worker.program(f, task, surface, tick)
       -- Lot CHARBON-MAIN (retour du DC du 3/11 : « des milliers de charbons réunis dans les coffres [des foreuses] et ils minent à la main
       -- juste à côté ») : jamais à la main ce qui attend dans les coffres de sortie d'un avant-poste brut sûr ; sa tournée est une urgence
       -- au planificateur (shared/team/sorties_main.lua, Sm.fetch_prio). Survie comprise ; seule une crise injectée par un banc passe.
-      local ok2, why2, dormant = Sorties.hand_ok(f, task.resource, tick, task.crisis)
+      local ok2, why2, dormant, tours = Sorties.hand_ok(f, task.resource, tick, task.crisis)
       if not ok2 then
         f.stats.main_sorties = (f.stats.main_sorties or 0) + 1
         f.stats.main_refus = f.stats.main_refus or {}
@@ -596,8 +596,8 @@ function Worker.program(f, task, surface, tick)
         local last = f.stats.main_refus[key]
         if not last or tick - last >= 3600 then
           f.stats.main_refus[key] = tick
-          log(string.format("[FO-MAIN] %s : minage a la main de '%s' REFUSE (%s) : %d dans les coffres de sortie des avant-postes, tache %s, a %.1f min (refus %d)",
-            f.key or "?", tostring(task.resource), why2, dormant, tostring(task.key), tick / 3600, f.stats.main_sorties))
+          log(string.format("[FO-MAIN] %s : minage a la main de '%s' REFUSE (%s) : %d dans les coffres de sortie des avant-postes, tache %s, a %.1f min (refus %d) ; tournees {%s}",
+            f.key or "?", tostring(task.resource), why2, dormant, tostring(task.key), tick / 3600, f.stats.main_sorties, tours or ""))
         end
         task.fail = task.fail or "main:sorties"
         return nil
@@ -868,6 +868,33 @@ local function abort(agent, f, tick, reason)
   set(agent, "step", tick)
 end
 Worker.abort = abort -- lot IA3-k : demi-tour et fuite
+
+--- Lot ETAGE4 : bail échu d'une tâche (shared/team/bail.lua, appelé par script/team/bail.lua). 1re fois : abandon (programme « rentrer »,
+--- la machine repart de l'étape : une marche ou un état sans issue est remis à zéro) ; encore sans progrès au bail suivant (il ne peut même
+--- pas rentrer : enfermé, état sans issue) : DÉGAGÉ, téléporté près du QG (comme le secours de l'étape « home »), dépôt, et la tâche finit en
+--- échec. Rend "abandon" | "degage".
+function Worker.release_stuck(agent, f, tick)
+  local task = agent.task
+  if task and not task.bailed then
+    task.bailed = true
+    abort(agent, f, tick, "bail")
+    return "abandon"
+  end
+  local e = agent.entity
+  if e and e.valid then
+    if agent.nav then Nav.stop(agent, tick) end
+    local spot = f.hq and f.hq.valid and e.surface.find_non_colliding_position(e.name, home_slot(agent, f), 20, 0.5)
+    if spot then
+      e.teleport(spot)
+      f.stats.rescued = (f.stats.rescued or 0) + 1
+      deposit_all(agent, f)
+    end
+  end
+  if task then task.fail = task.fail or "bail" end
+  agent.failed = nil
+  finish(agent, f, false, tick)
+  return "degage"
+end
 
 ---------------------------------------------------------------------------------------------------
 -- Lot CRAFT-PARALLELE : fabrication en arrière-plan
