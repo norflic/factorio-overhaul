@@ -169,44 +169,45 @@ def v_c(S, k):
     # bassin : couronne de béton usé, paroi intérieure, rail circulaire sur l'arase
     k.rev("beton", 0.0, 0.0, [(0.0, R + 0.28), (ZB, R + 0.28), (ZB, R), (ZE - 0.1, R)], 64, cap=False)
     k.rev("eau_ch", 0.0, 0.0, [(ZE - 0.02, R), (ZE - 0.02, 0.0)], 64)
-    k.tore("acier", 0.0, 0.0, ZB + 0.035, R + 0.14, 0.036, 72, 8)
-    for i in range(24):
-        a = TAU * i / 24
-        k.b("acier", ((R + 0.14) * math.cos(a), (R + 0.14) * math.sin(a), ZB + 0.01), (0.07, 0.22, 0.02), rz=a)
-    # râteliers : têtes d'assemblages sombres vues sous l'eau, la lueur vient des alvéoles (l'eau)
-    for ring, n in ((0.38, 6), (0.78, 12), (1.18, 18)):
-        for i in range(n):
-            a = TAU * (i + 0.5) / n
-            if (i * 5 + n) % 9 == 0:
+    # rail circulaire MARQUÉ : semelle sombre, champignon clair, traverses
+    k.tore("noir", 0.0, 0.0, ZB + 0.012, R + 0.14, 0.05, 72, 6)
+    k.tore("acier_clair", 0.0, 0.0, ZB + 0.05, R + 0.14, 0.034, 72, 8)
+    for i in range(32):
+        a = TAU * i / 32
+        k.b("rouille", ((R + 0.14) * math.cos(a), (R + 0.14) * math.sin(a), ZB + 0.008), (0.06, 0.24, 0.016), rz=a)
+    # râteliers alignés sur une trame régulière (têtes sombres sous l'eau, lueur dans les alvéoles)
+    pas = 0.27
+    for i in range(-6, 7):
+        for j in range(-6, 7):
+            x, y = i * pas, j * pas
+            if x * x + y * y > (R - 0.2) ** 2 or (i * 7 + j * 3) % 11 == 0:
                 continue
-            k.b("rack", (ring * math.cos(a), ring * math.sin(a), ZE - 0.005), (0.15, 0.15, 0.02), rz=a)
-    k.cyl("rack", 0.0, 0.0, ZE - 0.02, ZE + 0.005, 0.1, 16)
-    # pont polaire : poutre-caisson jaune de 0,4 × 0,4, sur 2 sommiers à galets, qui tourne (pièce mobile)
+            k.b("rack", (x, y, ZE - 0.005), (0.15, 0.15, 0.02))
+    # pont polaire : 2 poutres-caissons jaunes et une fente au milieu, sur 2 sommiers à galets ; chariot au centre, palan
+    # dont le câble plonge par la fente jusqu'à l'assemblage saisi (symétrique : un demi-tour fait le cycle)
     a = TAU * k.phase * 0.5 + 0.5
     ca, sa = math.cos(a), math.sin(a)
     Lb = R + 0.14
-    zb = ZB + 0.18
+    zb = ZB + 0.2
     k.mobile(True)
-    k.b("jaune", (0.0, 0.0, zb + 0.2), (2 * Lb - 0.1, 0.42, 0.4), rz=a)
-    k.b("car2", (0.0, 0.0, zb + 0.41), (2 * Lb - 0.3, 0.3, 0.02), rz=a)
+    for d in (-0.15, 0.15):
+        k.b("jaune", (-sa * d, ca * d, zb + 0.2), (2 * Lb - 0.12, 0.2, 0.4), rz=a)
+        k.b("car2", (-sa * d, ca * d, zb + 0.41), (2 * Lb - 0.3, 0.14, 0.02), rz=a)
     for sg in (-1, 1):
         px, py = sg * Lb * ca, sg * Lb * sa
-        k.b("car2", (px, py, ZB + 0.12), (0.34, 0.62, 0.16), rz=a)                   # sommier
-        for d in (-0.22, 0.22):
+        k.b("car2", (px, py, ZB + 0.13), (0.34, 0.66, 0.18), rz=a)                   # sommier sur le rail
+        for d in (-0.24, 0.24):
             q = (px - sa * d, py + ca * d)
-            k.axe("noir", (q[0] - ca * 0.09, q[1] - sa * 0.09, ZB + 0.08), (q[0] + ca * 0.09, q[1] + sa * 0.09, ZB + 0.08), 0.065, 12)
-        k.b("chevron", (px * 0.9, py * 0.9, zb + 0.405), (0.28, 0.43, 0.02), rz=a)
-    t = -0.42
-    tx, tyy = t * ca, t * sa
-    k.b("car", (tx, tyy, zb + 0.54), (0.42, 0.5, 0.24), rz=a)                      # chariot
-    for d in (-0.255, 0.255):
-        k.b("chevron", (tx - sa * d, tyy + ca * d, zb + 0.54), (0.42, 0.02, 0.1), rz=a)
-    k.voyant_h("voyant_o", tx + ca * 0.12, tyy + sa * 0.12, zb + 0.66, 0.04)
-    hx, hy = tx - sa * 0.42, tyy + ca * 0.42                                          # palan en porte-à-faux
-    k.b("car", ((tx + hx) / 2, (tyy + hy) / 2, zb + 0.6), (0.12, 0.5, 0.1), rz=a)
-    k.axe("noir", (hx, hy, zb + 0.6), (hx, hy, ZE + 0.24), 0.018, 6)
-    k.b("acier", (hx, hy, ZE + 0.22), (0.16, 0.16, 0.06), rz=a)
-    k.b("rack", (hx, hy, ZE + 0.07), (0.11, 0.11, 0.24), rz=a)                       # assemblage à demi immergé
+            k.axe("noir", (q[0] - ca * 0.09, q[1] - sa * 0.09, ZB + 0.1), (q[0] + ca * 0.09, q[1] + sa * 0.09, ZB + 0.1), 0.07, 12)
+        k.b("chevron", (px * 0.9, py * 0.9, zb + 0.405), (0.28, 0.5, 0.02), rz=a)
+    k.b("car", (0.0, 0.0, zb + 0.53), (0.46, 0.56, 0.24), rz=a)                      # chariot
+    for d in (-0.285, 0.285):
+        k.b("chevron", (-sa * d, ca * d, zb + 0.53), (0.46, 0.02, 0.1), rz=a)
+    k.voyant_h("voyant_o", 0.0, 0.0, zb + 0.65, 0.045)
+    k.axe("noir", (0.0, 0.0, zb), (0.0, 0.0, ZE + 0.2), 0.026, 6)                     # câble du palan
+    k.b("acier", (0.0, 0.0, ZE + 0.19), (0.18, 0.18, 0.06), rz=a)
+    k.b("rack", (0.0, 0.0, ZE + 0.06), (0.12, 0.12, 0.22), rz=a)                      # assemblage à demi immergé
+    k.tore("ch_vif", 0.0, 0.0, ZE + 0.003, 0.11, 0.02, 20, 5)
     k.mobile(False)
     _nord(k, E.ty(1.62), -1.75, 1.75)
     _sas_sud(k, E.ty(-1.66), 0.0, pupitre=False)

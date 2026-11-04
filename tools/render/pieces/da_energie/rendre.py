@@ -91,6 +91,12 @@ def post(name, cache, out_root):
         hr["glow"] = P.additive_layer(gl)
     out = os.path.join(out_root, name)
     os.makedirs(out, exist_ok=True)
+    mob = os.path.join(d, "mobiles.json")
+    m = json.load(open(mob, encoding="utf-8")) if os.path.exists(mob) else None
+    if m is not None and "glow" in hr:
+        # la lueur DANS la boîte des pièces mobiles est portée par les images (occlusion juste à chaque image)
+        bx0, by0, bx1, by1 = m["boite"]
+        hr["glow"][by0:by1, bx0:bx1, 3] = 0.0
     spec = {"variant": name, "epoch": piece.PIECE["variants"][name]["epoch"], "samples": info["samples"],
             "seconds": info["seconds"], "seconds_render": info.get("seconds_render"), "verts": info.get("verts"),
             "canvas": info["canvas"], "kit": "da_energie", "layers": {}}
@@ -108,22 +114,26 @@ def post(name, cache, out_root):
         sd = P.sprite_def(box, origin, 64)
         spec["layers"][layer] = {"file": fn, "width": sd["width"], "height": sd["height"], "shift": sd["shift"],
                                  "sha256": sha, "draw_as": {"shadow": "shadow", "glow": "glow"}.get(layer, "main")}
-    mob = os.path.join(d, "mobiles.json")
-    if os.path.exists(mob):
-        m = json.load(open(mob, encoding="utf-8"))
+    if m is not None:
         grade = [float(x) for x in os.environ["FO_GRADE"].split(",")] if os.environ.get("FO_GRADE") else None
         x0, y0, x1, y1 = m["boite"]
-        cases = []
+        cases, lueurs = [], []
         for k in range(m["images"]):
             im = np.load(os.path.join(d, "%s-img%02d-main.npy" % (name, k))).astype(np.float64)
             im = etalonne(im, grade) if grade else im
             cases.append(nettoie(im[y0:y1, x0:x1], "mobile"))
+            pg = os.path.join(d, "%s-img%02d-glow.npy" % (name, k))
+            if os.path.exists(pg):
+                lueurs.append(nettoie(P.additive_layer(np.load(pg).astype(np.float64))[y0:y1, x0:x1], "glow"))
         w, h = x1 - x0, y1 - y0
-        fn = "hr-den-%s-mobile.png" % name
-        sha = P.write_png(np.concatenate(cases, 1), os.path.join(out, fn))
         sd = P.sprite_def((x0, y0, x1, y1), origin, 64)
-        spec["layers"]["mobile"] = {"file": fn, "width": w, "height": h, "shift": sd["shift"], "images": m["images"], "sha256": sha,
-                                    "draw_as": "main"}
+        for cle, imgs in (("mobile", cases), ("mobile_glow", lueurs)):
+            if not imgs:
+                continue
+            fn = "hr-den-%s-%s.png" % (name, cle.replace("_", "-"))
+            sha = P.write_png(np.concatenate(imgs, 1), os.path.join(out, fn))
+            spec["layers"][cle] = {"file": fn, "width": w, "height": h, "shift": sd["shift"], "images": m["images"], "sha256": sha,
+                                   "draw_as": "glow" if cle == "mobile_glow" else "main"}
     json.dump(spec, open(os.path.join(out, "spec.json"), "w", encoding="utf-8", newline="\n"), indent=1, sort_keys=True)
     return spec
 
@@ -137,6 +147,7 @@ def main():
     ap.add_argument("--post-only", action="store_true")
     ap.add_argument("--quick", action="store_true", help="passes main, glow, shadow seulement (essais)")
     ap.add_argument("--images", type=int, default=0, help="images des pièces mobiles (final)")
+    ap.add_argument("--samples-images", type=int, default=0, help="échantillons des images mobiles (défaut : --samples)")
     a = ap.parse_args()
     a.cache = a.cache or os.path.join(os.path.dirname(os.path.abspath(a.out)), "cache_" + os.path.basename(a.out))
     names = [n for n in a.names.split(",") if n]
@@ -148,7 +159,7 @@ def main():
     if not a.post_only:
         cmd = [sys.executable, LOCK, "--disque", a.cache, "--disque", a.out, "--", BLENDER, "-b", "--factory-startup",
                "-noaudio", "--python-exit-code", "1", "-P", BATCH, "--", "--names", ",".join(names), "--out", a.cache,
-               "--samples", str(a.samples), "--images", str(a.images)] + (["--quick"] if a.quick else ["--apercu"])
+               "--samples", str(a.samples), "--images", str(a.images), "--samples-images", str(a.samples_images)] + (["--quick"] if a.quick else ["--apercu"])
         env = dict(os.environ, PYTHONIOENCODING="utf-8")
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
         log = []

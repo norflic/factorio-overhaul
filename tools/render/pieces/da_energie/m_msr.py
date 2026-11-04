@@ -131,7 +131,7 @@ def v_a(S, k, chaud=False):
     M = E.matieres(S, k, "hitech", "msr", ecailles=0.12)
     E.lueurs(S, M)
     if chaud:
-        M["chaleur_vif"] = E.P.lueur(S, "c_chaleur_vif", (1.0, 0.13, 0.015), 2.6, 0.0, part=0.4, echelle=10.0)
+        M["chaleur_vif"] = E.P.lueur(S, "c_chaleur_vif", (1.0, 0.11, 0.012), 1.6, 0.0, part=0.4, echelle=10.0)
         for key in ("sel", "voyant", "voyant_v", "voyant_r", "voyant_o", "fenetre", "cristal_p"):
             M[key] = M["noir"]
     _collecteur(k, mat="chaleur_vif" if chaud else "acier_clair")

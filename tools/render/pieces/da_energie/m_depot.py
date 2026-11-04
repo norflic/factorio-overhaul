@@ -112,6 +112,19 @@ def v_a(S, k):
     _trefle_toit(k, 0.35, (yb0 + yb1) / 2 + 0.05, hb + 0.08, 0.62)
     _merlon(k, -2.0, -2.95, yb0, yb1, hb - 0.12)
     _merlon(k, 2.0, 2.95, yb0, yb1, hb - 0.12)
+    rnd = G.Rnd(71)
+    for i in range(46):                                         # gravier et pierres sur les merlons
+        sg = -1 if i % 2 else 1
+        u = rnd.f(0.05, 0.92)
+        x = sg * (2.0 + 0.95 * u)
+        y = rnd.f(yb0 + 0.1, yb1 - 0.1)
+        z = (hb - 0.12) * (1.0 - u)
+        r = rnd.f(0.03, 0.07)
+        k.put("roche", G.butte_polaire((x, y, z - 0.01), r, r * rnd.f(0.7, 1.3), r * 0.8, G.Rnd(200 + i), nr=3, na=8, bosses=0.4, bord=0.3, expo=0.6))
+    # projecteur sur mât au coin du toit, tourné vers le trèfle (sa flaque de lumière : couche draw_as_light de feuilles.py)
+    k.cyl("acier", 1.75, yb0 + 0.25, hb + 0.08, hb + 0.62, 0.025, 8)
+    k.b("car2", (1.69, yb0 + 0.3, hb + 0.64), (0.16, 0.12, 0.1), rz=0.6)
+    k.put("fenetre", G.oriente(G.tour([(0.0, 0.05), (0.01, 0.0)], 12, "z", cap0=True), (1.62, yb0 + 0.36, hb + 0.62), (-0.6, 0.5, -0.6)))
     for x in (-1.75, -0.95, 0.95, 1.75):                         # contreforts de la façade sud
         k.put("beton", G.prisme([(x - 0.11, yb0 - 0.32), (x + 0.11, yb0 - 0.32), (x + 0.11, yb0), (x - 0.11, yb0)], 0.0, 0.25))
         k.put("beton", G.prisme([(x - 0.11, yb0 - 0.16), (x + 0.11, yb0 - 0.16), (x + 0.11, yb0), (x - 0.11, yb0)], 0.25, hb - 0.1))
@@ -172,8 +185,8 @@ def v_a(S, k):
         E.roue_xz(k, "jaune", cx, cy, cz, Rw, 0.04, 8, moyeu="car2")
         k.caisson("car2", cx, cy, H + 0.12, 0.14, 0.3, Rw + 0.04, 0.01)
         for e in (-0.035, 0.035):
-            k.axe("noir", (cx + Rw * 0.87, cy + e, cz), (cx + Rw * 0.87, cy + e, 0.36), 0.013, 4)
-            k.axe("noir", (cx - Rw * 0.5, cy + e, cz + Rw * 0.87), (-1.25, T(1.65) + e, 1.36), 0.013, 4)
+            k.axe("caoutchouc", (cx + Rw * 0.87, cy + e, cz), (cx + Rw * 0.87, cy + e, 0.36), 0.02, 5)
+            k.axe("caoutchouc", (cx - Rw * 0.5, cy + e * 1.6, cz + Rw * 0.87), (-1.25, T(1.65) + e * 1.6, 1.36), 0.021, 5)
     k.voyant_h("voyant_r", xs + 0.85, ys - 0.45, H + 0.12, 0.045)
     k.voyant_h("voyant_r", xs - 0.85, ys - 0.45, H + 0.12, 0.045)
     # --- salle des machines (2 × 2 tuiles), toit à deux pans (faîtage nord-sud), collée au pied du chevalement

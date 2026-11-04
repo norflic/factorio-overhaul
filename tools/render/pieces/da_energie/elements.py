@@ -63,7 +63,7 @@ def matieres(S, k, ere="hitech", peinture=None, ecailles=None):
                     crasse_col=(0.03, 0.015, 0.006), pied=(0.0, 0.5, 0.4), grain=0.5, relief=1.0, graine=44)
     M["roche"] = sf("c_roche", (0.13, 0.11, 0.09), rough=0.9, met=0.0, usure=0.5, nu=(0.25, 0.22, 0.19), crasse=0.85, crasse_col=cr,
                     grain=0.45, relief=0.9, graine=47)
-    M["alu"] = sf("c_alu", (0.42, 0.43, 0.44), rough=0.3, met=0.9, tole=(0.45, 9.0), joint=0.75, var=0.05, usure=0.2,
+    M["alu"] = sf("c_alu", (0.36, 0.37, 0.38), rough=0.5, met=0.6, tole=(0.45, 9.0), joint=0.75, var=0.05, usure=0.2,
                   nu=(0.7, 0.71, 0.72), crasse=0.6, crasse_col=(0.05, 0.045, 0.04), coulures=0.3, rouille=(0.2, 0.18, 0.12), grain=0.04, graine=45)
     M["grille"] = sf("c_grille", (0.06, 0.06, 0.06), rough=0.6, met=0.6, bandes=(0.05, (0.01, 0.01, 0.01), 0.5), usure=0.5,
                      nu=(0.4, 0.4, 0.4), crasse=0.6, crasse_col=cr, graine=46)

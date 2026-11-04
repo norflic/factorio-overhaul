@@ -71,6 +71,7 @@ def reconstruit(piece, name, phase):
     S._BLACK = S._WHITE = S._AO = None
     S._BOOSTED.clear()
     piece.PHASE = phase
+    piece.STATIQUE = False
     piece.build(S, C, name)
     bpy.context.view_layer.update()
     return S.piece_objects()
@@ -94,7 +95,7 @@ def images_mobiles(piece, name, a, d, W, H, ox, oy):
         t0 = time.time()
         reconstruit(piece, name, k / float(n))
         scene = bpy.context.scene
-        S.setup_render(scene, W, H, samples=a.samples)
+        S.setup_render(scene, W, H, samples=a.samples_images or a.samples)
         if os.environ.get("FO_DENOISE"):
             scene.cycles.use_denoising = True
             scene.cycles.denoiser = "OPENIMAGEDENOISE"
@@ -107,7 +108,7 @@ def images_mobiles(piece, name, a, d, W, H, ox, oy):
         scene.render.use_crop_to_border = False
         scene.render.border_min_x, scene.render.border_max_x = x0 / float(W), x1 / float(W)
         scene.render.border_min_y, scene.render.border_max_y = 1.0 - y1 / float(H), 1.0 - y0 / float(H)
-        res = S.render_passes(scene, d, "%s-img%02d" % (name, k), ["main"], sun, ground)
+        res = S.render_passes(scene, d, "%s-img%02d" % (name, k), ["main", "glow"], sun, ground)
         scene.render.use_border = False
         for _, path in res.items():
             to_npy(path, path[:-4] + ".npy")
@@ -127,6 +128,7 @@ def main():
     ap.add_argument("--quick", action="store_true")
     ap.add_argument("--apercu", action="store_true")
     ap.add_argument("--images", type=int, default=0, help="lot CALCUL-DESIGN : images des pièces mobiles (piece.ANIMES)")
+    ap.add_argument("--samples-images", type=int, default=0, help="échantillons des images mobiles (défaut : --samples)")
     ap.add_argument("--samples-passes", default="",
                     help="décision D-7 (lot A3) : échantillons PAR PASSE, ex. « shadow=32 » ; les autres passes gardent "
                          "--samples. Vide (défaut) : comportement d'avant, inchangé")
@@ -175,7 +177,9 @@ def main():
         S._BLACK = S._WHITE = S._AO = None
         S._BOOSTED.clear()
         scene = bpy.context.scene
+        piece.STATIQUE = bool(a.images and name in piece.ANIMES)
         info_build = piece.build(S, C, name)
+        piece.STATIQUE = False
         t_build = time.time() - t0
         bpy.context.view_layer.update()
         objs = S.piece_objects()

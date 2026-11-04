@@ -28,11 +28,16 @@ MACHINES = {"%s_%s" % (b, v): (p[0], p[1], p[2], p[3]) for b, p in BATIMENTS.ite
 # couches à part : état chauffé du collecteur du réacteur (heat_picture), panache de vapeur du capteur (animation)
 MACHINES["msr_h"] = BATIMENTS["msr"][:4]
 MACHINES["geo_vap"] = BATIMENTS["geo"][:4]
+for _d in ("n", "e", "s", "w"):           # capteur : une base par direction de pose (raccord du chevalet vanilla)
+    MACHINES["geo_" + _d] = BATIMENTS["geo"][:4]
 PIECE = {"name": "den", "margin_px": 40, "calib": {"LIGHT_HOLDOUT": True},
          "variants": {n: {"epoch": m[1], "side": m[2], "dest": "da/energie/" + n, "anchor_tiles": (0.0, 0.0)}
                       for n, m in MACHINES.items()}}
 PHASE = 0.0
 DIR = "south"
+# STATIQUE (phase 3) : passes fixes SANS les pièces mobiles (elles vont dans les images, avec leur lueur), pour qu'aucune
+# couche fixe ne garde l'ombre ou le masque de lueur d'une pièce qui bouge (D3).
+STATIQUE = False
 # Pièces mobiles rendues en images (batch_blender --images) : phase 3.
 ANIMES = tuple(n for n in MACHINES if n.split("_")[0] in ("piscine", "geo", "reso"))
 
@@ -52,5 +57,6 @@ def build(S, C, variant):
     getattr(mod, "v_" + v)(S, k)
     n = lot.n + mob.n
     lot.flush()
-    mob.flush()
+    if not STATIQUE:
+        mob.flush()
     return {"count": {"pieces": n}, "halos": 0}

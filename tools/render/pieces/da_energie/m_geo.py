@@ -26,14 +26,21 @@ def _ligne(k, depart, direction, z=0.42, lyre=0.55, demi=0.3):
     (ex, ey, ez), (dx, dy) = raccord(direction)
     ax, ay = ex - dx * 0.55, ey - dy * 0.55          # coude avant la sortie
     x0, y0, z0 = depart
+    if dx and (ax - x0) * dx < 0:      # départ déjà au-delà du coude (raccord est, ouest) : sortir tout droit
+        ax = x0
+    if dy and (ay - y0) * dy < 0:
+        ay = y0
     pts = [depart, (x0, y0, z)]
     if abs(ax - x0) >= 0.9:          # lyre sur le trajet est-ouest : dans le plan X-Z, face à la caméra
         m, sg = (x0 + ax) / 2.0, math.copysign(1.0, ax - x0)
         pts += [(x0, ay, z), (m - sg * demi, ay, z), (m - sg * demi, ay, z + lyre), (m + sg * demi, ay, z + lyre), (m + sg * demi, ay, z), (ax, ay, z)]
-    else:
+    elif abs(ay - y0) >= 0.9:
         m, sg = (y0 + ay) / 2.0, math.copysign(1.0, ay - y0)
         pts += [(x0, m - sg * demi, z), (x0, m - sg * demi, z + lyre), (x0, m + sg * demi, z + lyre), (x0, m + sg * demi, z), (x0, ay, z), (ax, ay, z)]
-    pts += [(ax + dx * 0.2, ay + dy * 0.2, ZR), (ex, ey, ZR)]
+    else:                              # trajet court : pas de lyre
+        pts += [(x0, ay, z), (ax, ay, z)]
+    dd = min(0.2, 0.5 * abs((ex - ax) if dx else (ey - ay)))
+    pts += [(ax + dx * dd, ay + dy * dd, ZR), (ex, ey, ZR)]
     clean = [pts[0]]
     for p in pts[1:]:
         if G.length(G.sub(p, clean[-1])) > 0.04:
@@ -204,9 +211,29 @@ def v_a(S, k):
     k.rev("noir", xsil, ysil, [(zb1 + 0.58, 0.1), (zb1 + 0.58, 0.0)], 18)
     # aile de la tête de puits vers l'entrée tangentielle ; ligne alu du tube plongeur au raccord
     k.tuyau("acier", [(xw, yw, zw), (xw + 0.45, yw, zw), (xc - 0.66, yt_, zb1 - 0.17)], r=0.06, coude=0.12, brides=[(xw + 0.14, yw, zw)])
-    dep = (xc + 0.02, yc - rc - 0.14, zb1 + 0.12)
+    dep = (xc + rc + 0.12, yc, zb1 + 0.12)      # sortie par le flanc EST : le tuyau ne cache plus le cône (critique)
     k.tuyau("alu", [(xc, yc, zb1 + 0.2), (xc, yc, zb1 + 0.3), (dep[0], dep[1], zb1 + 0.3), dep], r=0.075, coude=0.12, brides=[])
     _ligne(k, dep, k.dir, 0.36, lyre=0.32)
+
+
+def v_n(S, k):
+    k.dir = "north"
+    v_a(S, k)
+
+
+def v_e(S, k):
+    k.dir = "east"
+    v_a(S, k)
+
+
+def v_s(S, k):
+    k.dir = "south"
+    v_a(S, k)
+
+
+def v_w(S, k):
+    k.dir = "west"
+    v_a(S, k)
 
 
 def v_vap(S, k):
