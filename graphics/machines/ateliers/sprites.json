@@ -1,0 +1,314 @@
+{
+ "pieces": {
+  "torchere": {
+   "boite": [
+    [
+     -0.9375,
+     -3.8438
+    ],
+    [
+     4.625,
+     1.0
+    ]
+   ],
+   "glow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/hr-torchere-glow.png",
+     "height": 236,
+     "shift": [
+      0.625,
+      -1.28125
+     ],
+     "width": 28
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/torchere-glow.png",
+     "height": 118,
+     "shift": [
+      0.625,
+      -1.28125
+     ],
+     "width": 14
+    }
+   },
+   "icone": {
+    "filename": "__factorio-overhaul__/graphics/machines/ateliers/torchere-icone.png",
+    "icon_mipmaps": 4,
+    "icon_size": 64
+   },
+   "main": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/hr-torchere-main.png",
+     "height": 310,
+     "shift": [
+      0.046875,
+      -1.421875
+     ],
+     "width": 126
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/torchere-main.png",
+     "height": 155,
+     "shift": [
+      0.046875,
+      -1.421875
+     ],
+     "width": 63
+    }
+   },
+   "map_color": [
+    0.342,
+    0.304,
+    0.25
+   ],
+   "shadow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/hr-torchere-shadow.png",
+     "height": 112,
+     "shift": [
+      1.90625,
+      0.09375
+     ],
+     "width": 348
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/torchere-shadow.png",
+     "height": 56,
+     "shift": [
+      1.90625,
+      0.09375
+     ],
+     "width": 174
+    }
+   }
+  },
+  "torchere_tuyau_e": {
+   "boite": [
+    [
+     -1.1875,
+     -0.3438
+    ],
+    [
+     0.0625,
+     0.4062
+    ]
+   ],
+   "main": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/hr-torchere_tuyau_e-main.png",
+     "height": 48,
+     "shift": [
+      -0.75,
+      0.03125
+     ],
+     "width": 56
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/torchere_tuyau_e-main.png",
+     "height": 24,
+     "shift": [
+      -0.75,
+      0.03125
+     ],
+     "width": 28
+    }
+   },
+   "map_color": [
+    0.26,
+    0.235,
+    0.207
+   ],
+   "shadow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/hr-torchere_tuyau_e-shadow.png",
+     "height": 30,
+     "shift": [
+      -0.5,
+      0.171875
+     ],
+     "width": 72
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/torchere_tuyau_e-shadow.png",
+     "height": 15,
+     "shift": [
+      -0.5,
+      0.171875
+     ],
+     "width": 36
+    }
+   }
+  },
+  "torchere_tuyau_n": {
+   "boite": [
+    [
+     -0.4375,
+     0.2188
+    ],
+    [
+     0.6875,
+     2.1875
+    ]
+   ],
+   "main": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/hr-torchere_tuyau_n-main.png",
+     "height": 126,
+     "shift": [
+      0.0,
+      1.203125
+     ],
+     "width": 56
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/torchere_tuyau_n-main.png",
+     "height": 63,
+     "shift": [
+      0.0,
+      1.203125
+     ],
+     "width": 28
+    }
+   },
+   "map_color": [
+    0.296,
+    0.27,
+    0.236
+   ],
+   "shadow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/hr-torchere_tuyau_n-shadow.png",
+     "height": 94,
+     "shift": [
+      0.25,
+      1.359375
+     ],
+     "width": 56
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/torchere_tuyau_n-shadow.png",
+     "height": 47,
+     "shift": [
+      0.25,
+      1.359375
+     ],
+     "width": 28
+    }
+   }
+  },
+  "torchere_tuyau_o": {
+   "boite": [
+    [
+     0.3125,
+     -0.3438
+    ],
+    [
+     1.2188,
+     0.4062
+    ]
+   ],
+   "main": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/hr-torchere_tuyau_o-main.png",
+     "height": 48,
+     "shift": [
+      0.65625,
+      0.03125
+     ],
+     "width": 44
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/torchere_tuyau_o-main.png",
+     "height": 24,
+     "shift": [
+      0.65625,
+      0.03125
+     ],
+     "width": 22
+    }
+   },
+   "map_color": [
+    0.229,
+    0.213,
+    0.189
+   ],
+   "shadow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/hr-torchere_tuyau_o-shadow.png",
+     "height": 30,
+     "shift": [
+      0.84375,
+      0.171875
+     ],
+     "width": 48
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/torchere_tuyau_o-shadow.png",
+     "height": 15,
+     "shift": [
+      0.84375,
+      0.171875
+     ],
+     "width": 24
+    }
+   }
+  },
+  "torchere_tuyau_s": {
+   "boite": [
+    [
+     -0.4375,
+     -0.9375
+    ],
+    [
+     0.6875,
+     -0.1562
+    ]
+   ],
+   "main": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/hr-torchere_tuyau_s-main.png",
+     "height": 50,
+     "shift": [
+      0.0,
+      -0.546875
+     ],
+     "width": 56
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/torchere_tuyau_s-main.png",
+     "height": 25,
+     "shift": [
+      0.0,
+      -0.546875
+     ],
+     "width": 28
+    }
+   },
+   "map_color": [
+    0.24,
+    0.222,
+    0.196
+   ],
+   "shadow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/hr-torchere_tuyau_s-shadow.png",
+     "height": 26,
+     "shift": [
+      0.25,
+      -0.484375
+     ],
+     "width": 56
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/ateliers/torchere_tuyau_s-shadow.png",
+     "height": 13,
+     "shift": [
+      0.25,
+      -0.484375
+     ],
+     "width": 28
+    }
+   }
+  }
+ }
+}

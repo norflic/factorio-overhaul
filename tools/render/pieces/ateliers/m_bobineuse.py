@@ -235,23 +235,29 @@ def bobineuse_d(S, k):
     k.volant((xg, yg - 0.07, zg - 0.12), 0.05, "y", larg=0.02, rayons=3, jante="acier_clair", moyeu="acier", ep=0.015, repere=None, mobile=False)
     k.axe("cuivre", (xg, yg - 0.07, zg - 0.17), (xg, yb - rc * 0.25, zc + rc * 0.97), 0.016, 6)
     k.mobile(False)
-    # touret d'alimentation à axe horizontal (cuivre sur le flanc) sur chevalet
-    xt, yt, zt_ = 0.48, Y(0.66), 0.42
+    # touret d'alimentation à axe horizontal (cuivre sur le flanc) sur chevalet, à l'AVANT (contre-relecture : il était caché)
+    xt, yt, zt_ = 0.06, Y(-0.8), 0.27
     for sx in (-1, 1):
         k.axe("acier", (xt + sx * 0.2, yt - 0.12, 0.0), (xt + sx * 0.2, yt, zt_), 0.025, 6)
         k.axe("acier", (xt + sx * 0.2, yt + 0.12, 0.0), (xt + sx * 0.2, yt, zt_), 0.025, 6)
     k.mobile(True)
     k.axe("acier_clair", (xt - 0.22, yt, zt_), (xt + 0.22, yt, zt_), 0.03, 10)
-    _bobine(k, (xt, yt, zt_), 0.19, 0.3, joue=0.07, ph=k.phase * 2.0)
+    _bobine(k, (xt, yt, zt_), 0.17, 0.3, joue=0.06, ph=k.phase * 2.0)
     k.mobile(False)
-    # bac d'émail ambré où le fil plonge (rouleaux), entre le touret et la tour
-    xe, ye, ze = 0.08, Y(0.66), 0.5
+    # bac d'émail SORTI au sud-ouest (contre-relecture) : ouvert, émail ambré chaud visible, le fil y plonge ; c'est la source de
+    # la couche light (elle éclaire le sol au sud, plus de tache sans source à l'ouest)
+    xe, ye, ze = -0.48, Y(-0.8), 0.3
+    lxe, lye, e = 0.42, Y(0.22), 0.035
+    k.bz("vert_machine", xe, ye, 0.0, lxe, lye, 0.08)
+    for sy in (-1, 1):
+        k.bz("vert_machine", xe, ye + sy * (lye - e) / 2.0, 0.08, lxe, e, ze - 0.08)
     for sx in (-1, 1):
-        k.bz("acier", xe + sx * 0.16, ye, 0.0, 0.05, 0.05, ze - 0.2)
-    k.caisson("vert_machine", xe, ye, ze - 0.2, 0.4, 0.3, 0.2, 0.02)
-    k.b("email", (xe, ye, ze - 0.005), (0.35, 0.25, 0.012))
-    for x in (xe - 0.13, xe + 0.13):
-        k.axe("acier_clair", (x, ye - 0.13, ze + 0.01), (x, ye + 0.13, ze + 0.01), 0.022, 10)
+        k.bz("vert_machine", xe + sx * (lxe - e) / 2.0, ye, 0.08, e, lye, ze - 0.08)
+    k.b("email_chaud", (xe, ye, ze - 0.04), (lxe - 2 * e, lye - 2 * e, 0.012))
+    for x in (xe - 0.15, xe + 0.15):
+        k.axe("acier_clair", (x, ye - lye / 2.0, ze + 0.01), (x, ye + lye / 2.0, ze + 0.01), 0.022, 10)
+    k.chevrons(xe, ye - lye / 2.0 - 0.002, 0.16, lxe - 0.04, 0.05)
+    CO.halo(S, k, (xe, ye - 0.35, 0.55), (1.0, 0.6, 0.18), 10.0, r=(0.4, 1.0))
     # tour de cuisson : trois hublots, poulie de tête, évent
     xtw, ytw, h = -0.3, Y(0.66), 2.0
     k.caisson("isolant", xtw, ytw, 0.0, 0.34, 0.34, h, 0.04)
@@ -260,7 +266,6 @@ def bobineuse_d(S, k):
         k.axe("acier", (xtw, yft + 0.01, z), (xtw, yft - 0.02, z), 0.075, 16)
         k.axe("cuisson", (xtw, yft - 0.015, z), (xtw, yft - 0.025, z), 0.052, 16)
     k.b("braise", (xtw, yft - 0.006, 0.12), (0.22, 0.012, 0.05))
-    CO.halo(S, k, (xtw, yft - 0.6, h * 0.4), (1.0, 0.5, 0.12), 30.0, r=(0.6, 1.4))
     k.rivets_ligne("riv", (xtw - 0.14, yft - 0.004, 0.1), (xtw - 0.14, yft - 0.004, h - 0.1), 9)
     k.cyl("rouille", xtw + 0.08, ytw + 0.08, h, h + 0.32, 0.05, 12)
     k.rev("rouille", xtw + 0.08, ytw + 0.08, [(h + 0.32, 0.075), (h + 0.36, 0.075), (h + 0.38, 0.03)], 12)
@@ -268,7 +273,7 @@ def bobineuse_d(S, k):
     pt = (xtw - 0.04, ytw - 0.06, h + 0.12)
     k.volant(pt, 0.12, "y", larg=0.04, rayons=4, jante="acier_clair", moyeu="acier", ph=k.phase, ep=0.03, repere=None)
     # fil : touret → bac (plonge) → tête de tour → guide-fil (oblique)
-    fil = [(xt - 0.1, yt - 0.18, zt_ + 0.12), (xe + 0.13, ye - 0.06, ze + 0.04), (xe, ye - 0.06, ze - 0.03), (xe - 0.13, ye - 0.06, ze + 0.04),
+    fil = [(xt - 0.12, yt + 0.05, zt_ + 0.15), (xe + 0.15, ye, ze + 0.04), (xe, ye, ze - 0.05), (xe - 0.15, ye, ze + 0.04),
            (pt[0] + 0.1, pt[1] - 0.02, pt[2] - 0.05)]
     for a_, b_ in zip(fil[:-1], fil[1:]):
         k.axe("cuivre", a_, b_, 0.016, 6)
@@ -276,5 +281,8 @@ def bobineuse_d(S, k):
     # armoire est (de b), coupleur cryogénique à l'ouest, bobines finies au sud
     _armoire(k, 0.82, 0.22)
     _coupleur(k, -0.9, Y(-0.45))
-    for x in (0.5, 0.8):
+    for x in (0.55, 0.82):
         _bobine(k, (x, Y(-0.82), 0.16), 0.11, 0.16, joue=0.035, axe="x")
+    # au nord-est, à la place de l'ancien touret : râtelier de tourets de réserve
+    for i, x in enumerate((0.36, 0.6)):
+        _bobine(k, (x, Y(0.7), 0.15), 0.12, 0.18, joue=0.04, axe="x")

@@ -169,7 +169,7 @@ def _prisme_cristal(k, c, axe, L, r, mat="cristal_f"):
     k.put(mat, G.oriente(G.tour(prof, 6, "z", (0.0, 0.0, 0.0), 0.3, 0.3 + TAU), c, axe))
 
 
-def _brillant(k, c, axe, r, mat="cristal_f2"):
+def _brillant(k, c, axe, r, mat="gemme"):
     """Gemme taillée en brillant : culasse en cône, rondiste, couronne, table (8 facettes)."""
     h = r * 1.3
     prof = [(-h * 0.62, 0.0), (0.0, r), (h * 0.06, r), (h * 0.3, r * 0.62), (h * 0.3, 0.0)]
@@ -228,14 +228,14 @@ def taillerie_d(S, k):
         k.b("noir", (pe[0] + 0.17 * math.cos(aa), pe[1] - 0.064, pe[2] + 0.17 * math.sin(aa)), (0.012, 0.006, 0.035), ry=-aa)
     k.cyl("acier", pe[0], pe[1], pe[2] - 0.05, pe[2] + 0.05, 0.05, 12)
     k.cyl("noir", pm[0], pm[1], pm[2], pm[2] + 0.14, 0.045, 12)
-    _prisme_cristal(k, (pm[0] - 0.02, pm[1], pm[2] - 0.18), (0.15, 0.0, 1.0), 0.42, 0.1)
+    _prisme_cristal(k, (pm[0] - 0.02, pm[1], pm[2] - 0.18), (0.15, 0.0, 1.0), 0.44, 0.11, mat="cristal_f3")
     k.mobile(False)
-    CO.halo(S, k, (pm[0], pm[1] - 0.45, zl + 0.3), (0.2, 0.75, 1.0), 8.0, r=(0.4, 1.1))
+    CO.halo(S, k, (pm[0], pm[1] - 0.45, zl + 0.3), (0.2, 0.75, 1.0), 10.0, r=(0.4, 1.2))
     # lampe de travail sur bras (lueur chaude), braquée sur la meule
     k.axe("acier", (xc, yc, 2.0), (0.22, Y(-0.05), 2.12), 0.022, 8)
     k.axe("noir", (0.24, Y(-0.04), 2.13), (0.14, Y(-0.12), 2.02), 0.08, 14)
     k.put("projecteur", G.oriente(G.tour([(0.0, 0.07), (0.012, 0.062), (0.02, 0.0)], 14, "z"), (0.13, Y(-0.13), 2.01), (-0.35, -0.45, -0.8)))
-    CO.halo(S, k, (-0.1, Y(-0.9), 1.0), (1.0, 0.8, 0.5), 13.0, r=(0.5, 1.4))
+    CO.halo(S, k, (cx, cy - R - 0.3, zl + 0.5), (0.3, 0.8, 1.0), 9.0, r=(0.5, 1.3))
     # eau : colonne montante (bride par les tronçons), rampe au-dessus de la meule, buses, filets, éclaboussures
     k.rev("acier", 0.0, Y(1.05), [(0.0, 0.11), (0.06, 0.11), (0.06, 0.07)], 16, cap=False)
     rampe = [(0.0, Y(1.05), 0.02), (0.0, Y(1.05), 1.25), (-0.25, Y(0.2), 1.25), (-0.75, Y(0.05), 1.22), (-1.0, Y(-0.25), 1.18)]
@@ -250,19 +250,20 @@ def taillerie_d(S, k):
     # bac de décantation laiteux au sud-est : niveau, surverse, jauge
     xb_, yb_ = 0.88, Y(-0.98)
     lxb, lyb, hb, e = 0.95, Y(0.72), 0.58, 0.04          # bac OUVERT : parois, eau laiteuse visible à 0,08 sous le bord
-    k.bz("bleu_machine", xb_, yb_, 0.0, lxb, lyb, 0.1)
+    k.bz("acier", xb_, yb_, 0.0, lxb, lyb, 0.1)
     for sy in (-1, 1):
-        k.bz("bleu_machine", xb_, yb_ + sy * (lyb - e) / 2.0, 0.1, lxb, e, hb - 0.1)
+        k.bz("acier", xb_, yb_ + sy * (lyb - e) / 2.0, 0.1, lxb, e, hb - 0.1)
     for sx in (-1, 1):
-        k.bz("bleu_machine", xb_ + sx * (lxb - e) / 2.0, yb_, 0.1, e, lyb, hb - 0.1)
-    k.b("boue", (xb_, yb_, 0.5), (lxb - 2 * e, lyb - 2 * e, 0.012))
-    k.roches("boue", xb_ - 0.3, xb_ + 0.3, yb_ - 0.2, yb_ + 0.2, 0.505, 6, 0.02, 0.035)
+        k.bz("acier", xb_ + sx * (lxb - e) / 2.0, yb_, 0.1, e, lyb, hb - 0.1)
+    k.b("boue2", (xb_, yb_, 0.46), (lxb - 2 * e, lyb - 2 * e, 0.012))
+    k.b("bleu_machine", (xb_, yb_ - (lyb - e) / 2.0 - 0.022, 0.47), (lxb - 0.06, 0.008, 0.025))     # ligne de niveau
+    k.roches("depot", xb_ - 0.38, xb_ + 0.38, yb_ - 0.22, yb_ + 0.22, 0.465, 12, 0.025, 0.05)
     k.b("acier", (xb_, yb_, 0.6), (0.05, Y(0.66), 0.05))
     yfb = yb_ - Y(0.36)
     k.tuyau("acier", [(xb_ - 0.3, yfb + 0.02, 0.48), (xb_ - 0.3, yfb - 0.12, 0.48), (xb_ - 0.3, yfb - 0.16, 0.4)], r=0.03, coude=0.05, brides=[])
     k.put("jet", G.tube([(xb_ - 0.3, yfb - 0.16, 0.38), (xb_ - 0.3, yfb - 0.17, 0.0)], 0.014, 6))
     k.axe("verre", (xb_ + 0.3, yfb - 0.02, 0.08), (xb_ + 0.3, yfb - 0.02, 0.52), 0.025, 8)
-    k.b("boue", (xb_ + 0.3, yfb - 0.045, 0.24), (0.02, 0.006, 0.3))
+    k.b("boue2", (xb_ + 0.3, yfb - 0.045, 0.24), (0.02, 0.006, 0.3))
     k.put("boue", G.tube([(cx + R * 0.7, cy - R * 0.5, zl - 0.04), (0.45, Y(-0.85), 0.62), (xb_ - 0.2, yb_ + 0.1, 0.62)], 0.035, 8))
     # caisse de cristaux bruts en oursin au nord-ouest
     xk, yk = -0.95, Y(0.95)
@@ -287,7 +288,9 @@ def taillerie_d(S, k):
     k.b("bleu_machine", (xp, yp - 0.17, 0.27), (0.64, 0.03, 0.06))
     for i in range(4):
         u = -0.21 + i * 0.14
-        _brillant(k, (xp + u, yp - 0.02 + 0.03 * (i % 2), 0.42 + 0.015 * (i % 2)), (0.0, -0.45, 1.0), 0.055)
+        cc = (xp + u, yp - 0.02 + 0.03 * (i % 2), 0.42 + 0.015 * (i % 2))
+        _brillant(k, cc, (0.0, -0.45, 1.0), 0.06)
+        k.sph("eclat", (cc[0] - 0.02, cc[1] - 0.02, cc[2] + 0.05), 0.011, 6, 3)
     # cuve de clarification au nord-est, reliée à la colonne montante
     k.cuve("bleu_machine", 0.95, Y(1.0), 0.0, 0.95, 0.32, 0.25, 30)
     k.cerclages("acier", 0.95, Y(1.0), (0.3, 0.7), 0.32, segs=30)

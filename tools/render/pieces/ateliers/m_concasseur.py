@@ -273,9 +273,8 @@ def concasseur_d(S, k):
         t = (k.phase + i / 4.0) % 1.0
         lift = 0.2 * (t / 0.7) if t < 0.7 else 0.2 * (1.0 - (t - 0.7) / 0.3) ** 3
         a = math.radians(-60) + TAU * t * 0.5
-        # came en croissant : deux plaques d'acier clair de part et d'autre du plan de la tige
-        for dx in (-0.045, 0.045):
-            k.b("manganese", (x + dx, ya - 0.1 * math.cos(a), za + 0.1 * math.sin(a)), (0.025, 0.22, 0.07), rx=a)
+        # UNE came par tige (contre-relecture : « une came visible par tige ») : lobe épais en acier clair, à côté de la tige
+        k.b("manganese", (x + 0.07, ya - 0.12 * math.cos(a), za + 0.12 * math.sin(a)), (0.06, 0.28, 0.09), rx=a)
         z0 = 0.43 + lift
         k.rev("fonte", x, y, [(z0, 0.11), (z0 + 0.03, 0.12), (z0 + 0.24, 0.12), (z0 + 0.28, 0.075)], 20)       # sabot
         k.cerclages("acier_clair", x, y, (z0 + 0.06, z0 + 0.2), 0.12, e=0.012, h=0.02, segs=20)
@@ -288,13 +287,21 @@ def concasseur_d(S, k):
     k.cuve("car2", xb, yb, 0.0, 1.32, rb, 0.25, 30)
     k.cerclages("or", xb, yb, (0.12, 0.62, 1.02), rb, segs=30)
     yfd = yb - rb
-    k.b("fonte", (xb, yfd - 0.015, 0.31), (0.38, 0.04, 0.34))
-    k.b("acier", (xb, yfd - 0.04, 0.31), (0.32, 0.024, 0.28))
-    k.b("feu", (xb, yfd - 0.054, 0.31), (0.25, 0.012, 0.19))
-    for i in range(6):
-        k.b("noir", (xb - 0.1 + i * 0.04, yfd - 0.06, 0.31), (0.013, 0.012, 0.21))
-    k.b("braise", (xb, yfd - 0.054, 0.08), (0.22, 0.012, 0.045))
-    CO.halo(S, k, (xb, yfd - 0.4, 0.5), (1.0, 0.45, 0.12), 6.0, r=(0.45, 1.2))
+    # porte du foyer sur la face SUD-EST de la chaudière, à droite de la courroie et de la poulie du renvoi (contre-relecture :
+    # elle était cachée) ; la flaque de lumière part de cette porte
+    az = math.radians(-38)
+    nx, ny = math.cos(az), math.sin(az)
+    rz = az + math.pi / 2.0
+    def porte(mat, off, size, z):
+        k.b(mat, (xb + (rb + off) * nx, yb + (rb + off) * ny, z), size, rz=rz)
+    porte("fonte", 0.012, (0.3, 0.04, 0.34), 0.31)
+    porte("acier", 0.036, (0.26, 0.024, 0.28), 0.31)
+    porte("feu", 0.05, (0.2, 0.012, 0.19), 0.31)
+    for i in range(5):
+        px = (i - 2) * 0.04
+        k.b("noir", (xb + (rb + 0.056) * nx - px * ny, yb + (rb + 0.056) * ny + px * nx, 0.31), (0.013, 0.012, 0.21), rz=rz)
+    porte("braise", 0.05, (0.18, 0.012, 0.045), 0.08)
+    CO.halo(S, k, (xb + (rb + 0.4) * nx, yb + (rb + 0.4) * ny, 0.45), (1.0, 0.45, 0.12), 6.0, r=(0.45, 1.2))
     k.cyl("cuivre", xb + 0.16, yfd + 0.03, 0.82, 0.9, 0.045, 12)
     k.voyant("voyant_o", xb + 0.16, yfd, 0.86, 0.028)
     k.cyl("suie", xb + 0.03, yb + 0.05, 1.3, 2.62, 0.075, 16)

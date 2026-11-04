@@ -29,3 +29,5 @@ graphics/levels/centre/*.png
 graphics/robots/bourdon/*.png
 # Feuilles de jeu des usines de robots (lot US-V1, même règle) : tools/render/pieces/usines_robots/feuilles.py
 graphics/robots/usines/*.png
+# Feuilles des bâtiments d'atelier (lot DA-ATELIERS, D-6) : régénérées par tools/render/pieces/ateliers/feuilles.py
+graphics/machines/ateliers/*.png

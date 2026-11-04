@@ -140,7 +140,7 @@ def _machoire(k, haut, bas, ly, dents=7):
     for i in range(dents):
         f = (i + 0.6) / (dents + 0.4)
         p = G.add(G.add(haut, G.mul(G.sub(bas, haut), f)), G.mul(nrm, 0.035))
-        k.put("manganese", O._plat(p, (0.0, 1.0, 0.0), nrm, ly * 0.96, 0.038, 0.032))
+        k.put("manganese", O._plat(p, (0.0, 1.0, 0.0), nrm, ly * 0.96, 0.055, 0.05))
 
 
 def _volant_lourd(k, c, R, ep, larg, ph, jante, contrepoids=True):
@@ -246,7 +246,8 @@ def machoires_d(S, k):
         k.voyant(m, xa - 0.1 + i * 0.1, yfa - 0.008, 0.85, 0.026)
     k.cyl("noir", xa, ya, ha + 0.04, ha + 0.1, 0.1, 16)
     k.rev("gyro", xa, ya, [(ha + 0.1, 0.08), (ha + 0.24, 0.08), (ha + 0.3, 0.045), (ha + 0.32, 0.0)], 16)
-    CO.halo(S, k, (xa + 0.1, ya - 0.2, ha + 0.2), (1.0, 0.55, 0.1), 260.0, r=(1.0, 2.4))
+    # (contre-relecture : le halo cuit du gyrophare tombait hors emprise ; la chambre est éclairée en jeu par une lumière de
+    # working_visualisations centrée sur les pierres, prototypes/ateliers_visuels.lua)
     # lampe de goulotte au sud-ouest : tache chaude sur le cône de gravier la nuit
     k.axe("acier", (-0.95, Y(-0.85), 0.14), (-0.95, Y(-0.85), 0.95), 0.025, 8)
     k.axe("acier", (-0.95, Y(-0.85), 0.92), (-0.75, Y(-0.95), 0.98), 0.02, 6)
