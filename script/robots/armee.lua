@@ -125,6 +125,39 @@ function Armee.registered(unit_number)
 end
 
 ---------------------------------------------------------------------------------------------------
+-- Robots COMMANDABLES hors du registre (lot BOURDON-SORTIE, QCM-4/11 : « on doit pouvoir les déplacer manuellement ») : l'outil Armée
+-- (script/robots/outils.lua) et Ordres.order commandent aussi ce qu'un autre lot déclare par l'adaptateur
+--   Armee.hooks.commandable = { is = function(e) -> bool, entity = function(numéro d'unité) -> entité ou nil,
+--                               send = function(e, kind, pos, radius) -> bool }   (posé par script/robots/bourdon.lua)
+-- Le registre (points, effectif par robot, pertes) n'est pas touché.
+---------------------------------------------------------------------------------------------------
+--- L'entité est-elle un robot que le joueur commande (inscrit au registre, ou déclaré par l'adaptateur) ?
+function Armee.commandable(e)
+  if not (e and e.valid and e.unit_number) then return false end
+  if Armee.registered(e.unit_number) then return true end
+  local c = Armee.hooks.commandable
+  return c ~= nil and c.is(e) == true
+end
+
+--- L'entité commandable de ce numéro d'unité, ou nil (morte, inconnue).
+function Armee.commandable_entity(unit_number)
+  local e = Armee.entity(unit_number)
+  if e then return e end
+  local c = Armee.hooks.commandable
+  e = c and c.entity(unit_number) or nil
+  if e and e.valid then return e end
+  return nil
+end
+
+--- Donne l'ordre `kind` ("move" ou "attack") à un robot commandable : Armee.send pour un robot du registre, l'adaptateur sinon.
+function Armee.order_one(e, kind, pos, radius)
+  if not (e and e.valid and e.unit_number) then return false end
+  if Armee.registered(e.unit_number) then return Armee.send(e, kind, pos, radius) end
+  local c = Armee.hooks.commandable
+  return c ~= nil and c.is(e) == true and c.send(e, kind, pos, radius) == true
+end
+
+---------------------------------------------------------------------------------------------------
 -- Commandes (construction des commandes du moteur ; l'ordre en lui-même : script/robots/ordres.lua)
 ---------------------------------------------------------------------------------------------------
 --- Donne un ordre à une unité : « move » (aller, puis rester sur place) ou « attack » (marche-attaque sur une zone, puis rester).

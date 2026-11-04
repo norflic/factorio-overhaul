@@ -703,7 +703,9 @@ local function sur_tick(ev)
       pas_phase(b, tick)
       if b.e.valid then
         -- attente : la cloche est allée sonner plus loin
-        if b.phase == "pose" and b.attente and not b.glas then
+        -- lot BOURDON-SORTIE : le Glas en attente part une fois posé, sans vol en attente (ordre reçu pendant la descente) et recharge finie
+        -- (avant : consommé même en recharge, donc perdu)
+        if b.phase == "pose" and b.attente and not b.glas and not b.e.autopilot_destination and tick >= b.recharge then
           local a = b.attente
           b.attente = nil
           sonner(b, tick, true, a.x, a.y)
@@ -802,14 +804,11 @@ end
 --- Glas vers (x, y) : à portée, il part ; plus loin, la cloche y va d'abord, puis sonne.
 local function glas_vers(b, tick, x, y)
   if not x then return sonner(b, tick, true, nil, nil) end
-  local p = b.e.position
-  local dx, dy = x - p.x, y - p.y
-  local d = math.sqrt(dx * dx + dy * dy)
-  if d <= B.PORTEE_AUTO then return sonner(b, tick, true, x, y) end
-  -- s'arrête à 35 tuiles de la cible, sur la droite qui l'y mène
-  local k = (d - 35) / d
-  b.attente = { x = x, y = y }
-  M.aller(b, p.x + dx * k, p.y + dy * k)
+  -- même règle que l'outil Armée (B.ordre) : à portée, il sonne ; plus loin, il s'arrête à B.APPROCHE de la cible puis sonne
+  local o = B.ordre("attack", b.e.position, { x = x, y = y })
+  if not o.aller then return sonner(b, tick, true, x, y) end
+  b.attente = o.glas
+  M.aller(b, o.aller.x, o.aller.y)
   return "route"
 end
 
@@ -939,6 +938,47 @@ function M.sortie_usine(usine, inv, rally, deja)
 end
 Armee.hooks.extra_release = M.sortie_usine
 
+--- Le Bourdon de ce numéro d'unité (vivant), ou nil.
+local function par_numero(un)
+  local etat = st()
+  if not (etat and un) then return nil end
+  for _, b in ipairs(etat.liste) do
+    if b.e and b.e.valid and b.e.unit_number == un then return b end
+  end
+  return nil
+end
+
+--- Lot BOURDON-SORTIE : un ordre de l'outil Armée (« move » ou « attack ») au Bourdon b, vers pos = { x, y }. Règle : B.ordre. Pendant la descente,
+--- l'ordre attend l'atterrissage (b.ralliement, b.attente) ; à portée en recharge, le Glas part dès qu'elle finit ; « aller » annule un Glas en
+--- attente. Rend vrai si l'ordre est pris.
+function M.commander(b, kind, pos)
+  if not (b and b.e and b.e.valid) or b.phase == "retire" then return false end
+  local o = B.ordre(kind, b.e.position, pos)
+  if not o then return false end
+  b.attente = o.glas
+  if b.phase == "descente" then
+    b.ralliement = o.aller
+    return true
+  end
+  if o.aller then
+    M.aller(b, o.aller.x, o.aller.y)
+    return true
+  end
+  if sonner(b, game.tick, true, o.glas.x, o.glas.y) then b.attente = nil end
+  return true
+end
+
+-- Adaptateur « robot commandable » (script/robots/armee.lua) : l'outil Armée choisit, cercle et commande le Bourdon comme un robot du registre.
+M.commandable = {
+  is = function(e) return e.name == B.NOM and par_numero(e.unit_number) ~= nil end,
+  entity = function(un)
+    local b = par_numero(un)
+    return b and b.e or nil
+  end,
+  send = function(e, kind, pos) return M.commander(par_numero(e.unit_number), kind, pos) end,
+}
+Armee.hooks.commandable = M.commandable
+
 local function sur_pose(ev)
   local e = ev.created_entity or ev.entity
   if not (e and e.valid and e.name == B.POSE) then return end
@@ -986,7 +1026,8 @@ remote.add_interface("fo-bourdon", {
     local b = trouve(id)
     if not b then return nil end
     local tir = b.dernier or {}
-    return { phase = b.phase, x = b.e.position.x, y = b.e.position.y, glas = b.glas and true or false, compte = b.compte or 0,
+    return { phase = b.phase, x = b.e.position.x, y = b.e.position.y, glas = b.glas and true or false, compte = b.compte or 0, unite = b.e.unit_number,
+      attente = b.attente and true or false,
       touches = tir.touches or 0, tues = tir.tues or 0, recharge = b.recharge, sante = b.e.health, ancres = (function()
         local n = 0
         for i = 1, #b.ancres do if b.ancres[i].e >= 1 then n = n + 1 end end

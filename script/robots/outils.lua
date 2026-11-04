@@ -39,7 +39,7 @@ local TARGET_TYPES = { "unit", "unit-spawner", "turret", "spider-vehicle" } -- c
 function Outils.selection(player_index)
   local sel = Armee.table_of("sel")
   if not sel then return {} end
-  local kept = Cm.purge(sel[player_index] or {}, function(n) return Armee.entity(n) ~= nil end)
+  local kept = Cm.purge(sel[player_index] or {}, function(n) return Armee.commandable_entity(n) ~= nil end) -- lot BOURDON-SORTIE : Bourdon compris
   if sel[player_index] then sel[player_index] = kept end
   return kept
 end
@@ -52,11 +52,11 @@ function Outils.choose(player_index, numbers)
   return sel[player_index]
 end
 
---- Numéros des robots inscrits de `force` parmi des entités.
+--- Numéros des robots commandables de `force` parmi des entités (inscrits au registre, ou le Bourdon : lot BOURDON-SORTIE).
 local function robots_of(force, entities)
   local out = {}
   for _, e in ipairs(entities or {}) do
-    if e.valid and e.unit_number and e.force == force and Armee.registered(e.unit_number) then out[#out + 1] = e.unit_number end
+    if e.valid and e.unit_number and e.force == force and Armee.commandable(e) then out[#out + 1] = e.unit_number end
   end
   return out
 end
@@ -75,7 +75,7 @@ end
 local function entities_of(numbers)
   local out = {}
   for _, n in ipairs(numbers) do
-    local e = Armee.entity(n)
+    local e = Armee.commandable_entity(n)
     if e then out[#out + 1] = e end
   end
   return out
@@ -225,9 +225,10 @@ local function draw_all()
   for _, player in ipairs(game.connected_players) do
     local sel = Outils.selection(player.index)
     for _, n in ipairs(sel) do
-      local u = Armee.entity(n)
+      local u = Armee.commandable_entity(n)
       if u then
-        rendering.draw_circle({ color = GREEN, radius = 0.9, width = 2, filled = false, target = u, surface = u.surface,
+        -- cercle à la taille du robot : 0,9 pour une unité, 2,5 pour une araignée (géants, Bourdon)
+        rendering.draw_circle({ color = GREEN, radius = u.type == "spider-vehicle" and 2.5 or 0.9, width = 2, filled = false, target = u, surface = u.surface,
           time_to_live = DRAW_TTL, players = { player } })
       end
     end

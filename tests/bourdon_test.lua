@@ -211,6 +211,55 @@ do
   check(B.ralliement(0, 0, nil) == nil and B.ralliement(0, 0, { x = "a", y = 1 }) == nil, "ralliement absent ou invalide : il reste")
   check(B.ralliement(10, 10, { x = 10 + B.RALLIEMENT_MIN, y = 10 }) ~= nil, "ralliement à la distance minimale : il y vole")
 end
+-- ordre de l'outil Armée (lot BOURDON-SORTIE) : aller, Glas à portée, Glas hors de portée (approche puis Glas)
+do
+  local o = B.ordre("move", { x = 0, y = 0 }, { x = 30, y = 40 })
+  check(o and o.aller.x == 30 and o.aller.y == 40 and o.glas == nil, "ordre « aller » : il va au point, sans Glas")
+  o = B.ordre("attack", { x = 0, y = 0 }, { x = 30, y = 40 })
+  check(o and o.aller == nil and o.glas.x == 30 and o.glas.y == 40, "ordre « attaquer » à 50 tuiles (portée) : Glas sans vol")
+  o = B.ordre("attack", { x = 0, y = 0 }, { x = 0, y = 100 })
+  check(o and o.glas.y == 100 and proche(o.aller.x, 0) and proche(o.aller.y, 100 - B.APPROCHE), "hors de portée : il s'arrête à 35 tuiles, puis sonne",
+    o and o.aller and (o.aller.x .. ", " .. o.aller.y))
+  o = B.ordre("attack", { 10, 10 }, { 10 + 60, 10 + 80 })
+  check(o and proche(math.sqrt((o.aller.x - 70) ^ 2 + (o.aller.y - 90) ^ 2), B.APPROCHE), "approche : à B.APPROCHE de la cible, sur la droite")
+  check(B.ordre("patrouille", { x = 0, y = 0 }, { x = 1, y = 1 }) == nil, "ordre inconnu : nil")
+  check(B.ordre("move", nil, { x = 1, y = 1 }) == nil and B.ordre("move", { x = 0, y = 0 }, { x = "a", y = 1 }) == nil, "point invalide : nil")
+  -- mutants : chacun change au moins un cas
+  local cas = { { "move", { x = 0, y = 0 }, { x = 30, y = 40 } }, { "attack", { x = 0, y = 0 }, { x = 30, y = 40 } },
+    { "attack", { x = 0, y = 0 }, { x = 0, y = 100 } } }
+  local function sig(f)
+    local t = {}
+    for _, c in ipairs(cas) do
+      local r = f(c[1], c[2], c[3])
+      t[#t + 1] = r and string.format("%s|%s", r.aller and string.format("%.2f,%.2f", r.aller.x, r.aller.y) or "-",
+        r.glas and string.format("%.2f,%.2f", r.glas.x, r.glas.y) or "-") or "nil"
+    end
+    return table.concat(t, ";")
+  end
+  local ref = sig(B.ordre)
+  check(sig(function(k, p, c) local r = B.ordre(k, p, c); if r and k == "move" then r.glas = r.aller end; return r end) ~= ref, "mutant « aller sonne aussi » vu")
+  check(sig(function(k, p, c) return B.ordre(k == "attack" and "move" or k, p, c) end) ~= ref, "mutant « attaquer = aller » vu")
+  check(sig(function(k, p, c) local r = B.ordre(k, p, c); if r and r.aller and r.glas then r.aller = { x = c.x, y = c.y } end; return r end) ~= ref,
+    "mutant « vole jusque sur la cible » vu")
+end
+-- le script : l'adaptateur « robot commandable » posé par bourdon.lua, lu par l'outil Armée et Ordres.order
+do
+  local function lit(p)
+    local f = assert(io.open(p, "r"))
+    local s = f:read("*a")
+    f:close()
+    return s
+  end
+  local b, a, o, t = lit("script/robots/bourdon.lua"), lit("script/robots/armee.lua"), lit("script/robots/ordres.lua"), lit("script/robots/outils.lua")
+  check(b:find("Armee.hooks.commandable = M.commandable", 1, true) ~= nil and b:find("local o = B.ordre(kind, b.e.position, pos)", 1, true) ~= nil,
+    "bourdon : adaptateur posé, ordre décidé par B.ordre")
+  check(a:find("function Armee.commandable(e)", 1, true) ~= nil and a:find("function Armee.order_one(e, kind, pos, radius)", 1, true) ~= nil,
+    "armee : robots commandables (registre ou adaptateur)")
+  check(o:find("Armee.order_one(e, kind, p, radius)", 1, true) ~= nil, "ordres : chaque robot reçoit son ordre par Armee.order_one")
+  local n_cmd = select(2, t:gsub("Armee%.commandable", ""))
+  check(n_cmd >= 4 and t:find("Armee.registered(e.unit_number)", 1, true) == nil, "outils : choix, purge, ordres et cercles passent par l'adaptateur", n_cmd)
+  check(b:find("not b.e.autopilot_destination and tick >= b.recharge", 1, true) ~= nil, "bourdon : un Glas en attente n'est plus perdu en recharge")
+end
 -- le script : le crochet de sortie posé par bourdon.lua, appelé par le balayage des usines après les kits
 do
   local function lit(p)
