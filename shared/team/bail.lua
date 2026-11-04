@@ -6,15 +6,19 @@
   Règles :
     Bl.progress(prev, cur, tick) -> relevé du dernier PROGRÈS du PNJ qui tient la tâche, et le temps sans progrès. Progrès = autre étape
                                     du programme, autre état de la machine, ou déplacement d'au moins Bl.MOVE tuile depuis le dernier progrès.
-    Bl.expired(kind, stall)      -> le bail est-il échu ? Seulement pour les types de Bl.KINDS (les tournées : un PNJ en tournée marche ou
-                                    agit sans cesse ; une fabrication ou une garde reste sur place par nature).
-    Bl.alive(state, free_age, stall, stale) -> la tournée va-t-elle chercher ce qui attend ? Libre depuis moins de `stale`, ou prise avec un
-                                    progrès depuis moins de Bl.LEASE. Absente : non.
+    Bl.expired(kind, stall, held) -> le bail est-il échu ? Seulement pour les types de Bl.KINDS (les tournées : un PNJ en tournée marche ou
+                                    agit sans cesse ; une fabrication ou une garde reste sur place par nature). Échu sans progrès depuis Bl.LEASE,
+                                    ou tenue depuis Bl.MAX_HOLD même en bougeant (essai 2 : une tournée d'Azur tenue 489 s en tournant en rond,
+                                    banc lot-croiss-123456789 ; aller et retour à 400 tuiles : moins de 2 min de marche).
+    Bl.alive(state, free_age, stall, stale, held) -> la tournée va-t-elle chercher ce qui attend ? Libre depuis moins de `stale`, ou prise avec
+                                    un progrès depuis moins de Bl.LEASE et depuis moins de Bl.MAX_HOLD. Absente : non.
 ]]
 local Bl = {}
 
 Bl.LEASE = 2 * 3600       -- ticks sans progrès au-delà desquels une tournée prise est rendue (une tournée normale dure 1 à 2 min en marchant)
 Bl.MOVE = 1               -- tuiles : déplacement qui compte comme un progrès (cumulé depuis le dernier progrès)
+Bl.MAX_HOLD = 3 * 3600    -- ticks au-delà desquels une tournée prise est rendue même si son PNJ bouge (essai 2 ; aller et retour à 400 tuiles en
+                          -- moins de 2 min de marche : 50 % de marge)
 Bl.KINDS = { service = true }
 
 local function num(v) return type(v) == "number" and v or 0 end
@@ -31,14 +35,16 @@ function Bl.progress(prev, cur, tick)
   return prev, tick - num(prev.t)
 end
 
---- Bail échu pour une tâche de type `kind` sans progrès depuis `stall` ticks ?
-function Bl.expired(kind, stall)
-  return Bl.KINDS[kind] == true and num(stall) >= Bl.LEASE
+--- Bail échu pour une tâche de type `kind` sans progrès depuis `stall` ticks, tenue depuis `held` ticks ?
+function Bl.expired(kind, stall, held)
+  if Bl.KINDS[kind] ~= true then return false end
+  return num(stall) >= Bl.LEASE or num(held) >= Bl.MAX_HOLD
 end
 
---- state = "libre" | "prise" | nil (tournée absente du tableau ou en pause) ; free_age = attente sans preneur ; stall = sans progrès.
-function Bl.alive(state, free_age, stall, stale)
-  if state == "prise" then return num(stall) < Bl.LEASE end
+--- state = "libre" | "prise" | nil (tournée absente du tableau ou en pause) ; free_age = attente sans preneur ; stall = sans progrès ;
+--- held = tenue depuis.
+function Bl.alive(state, free_age, stall, stale, held)
+  if state == "prise" then return num(stall) < Bl.LEASE and num(held) < Bl.MAX_HOLD end
   if state == "libre" then return num(free_age) < num(stale) end
   return false
 end

@@ -126,7 +126,7 @@ check("worker : refus ecrit (main:sorties)", W:find('"main:sorties"', 1, true) ~
 check("lecteur : regle pure", S:find("Sm.hand_ok(", 1, true) ~= nil and S:find("Sm.dormant(", 1, true) ~= nil)
 check("lecteur : interrupteur", S:find("Sm.on(f.team.sorties_regle)", 1, true) ~= nil)
 check("lecteur : danger releve", S:find("Poles.DANGER_RADIUS", 1, true) ~= nil and S:find("lethal_ticks", 1, true) ~= nil)
-check("lecteur : etat de la tournee (prise, libre, sans progres)", S:find("local tour, free_age, stall = S.tour(f, oid, tick)", 1, true) ~= nil
+check("lecteur : etat de la tournee (prise, libre, sans progres)", S:find("local tour, free_age, stall, held = S.tour(f, oid, tick)", 1, true) ~= nil
   and S:find("t.prog and t.prog.t", 1, true) ~= nil)
 check("journal [FO-SEC] appele apres le plan", TM:find("SortiesLog.report(f, view, tick)", 1, true) ~= nil)
 check("worker : complement de combustible vers l'avant-poste de combustible", W:find("carry = Sorties.carry_fuel(f, o, need)", 1, true) ~= nil)
@@ -142,7 +142,7 @@ local MUTANTS = {
   { "meurtrier compte", "if not o or o.lethal or o.unsafe then return false end", "if not o or o.unsafe then return false end" },
   { "dangereux compte", "if not o or o.lethal or o.unsafe then return false end", "if not o or o.lethal then return false end" },
   { "tournees ratees ignorees", "return num(o.fails) < Sm.FAILS_MAX", "return true" },
-  { "tournee non exigee (avant ETAGE4)", "return Bl.alive(o.tour, o.free_age, o.stall, Sm.STALE_TICKS)", "return true" },
+  { "tournee non exigee (avant ETAGE4)", "return Bl.alive(o.tour, o.free_age, o.stall, Sm.STALE_TICKS, o.held)", "return true" },
   { "urgence pour une tournee oubliee", "or num(o.free_age) >= Sm.STALE_TICKS then return base end", "then return base end" },
   { "sorties non comptees", "if raw[o.kind] == item and Sm.counted(o) then", "if raw[o.kind] == item then" },
   { "ordre inverse", "if a.n ~= b.n then return a.n > b.n end", "if a.n ~= b.n then return a.n < b.n end" },

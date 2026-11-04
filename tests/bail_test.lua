@@ -53,12 +53,19 @@ local function suite(Bl)
   c("fabrication : jamais", Bl.expired("craft", 1e9) == false)
   c("garde : jamais", Bl.expired("garrison", 1e9) == false)
   c("bail de 2 min au plus (une tournee normale marche ou agit)", Bl.LEASE <= 2 * 3600 and Bl.LEASE >= 3600)
+  -- essai 2 : tenue maximale même en bougeant (Azur, 489 s en tournant en rond)
+  c("tenue maximale : echu meme en bougeant", Bl.expired("service", 0, Bl.MAX_HOLD) == true)
+  c("juste sous la tenue maximale : non", Bl.expired("service", 0, Bl.MAX_HOLD - 1) == false)
+  c("tenue maximale : pas pour une fabrication", Bl.expired("craft", 0, 1e9) == false)
+  c("tenue maximale entre le bail et 5 min", Bl.MAX_HOLD >= Bl.LEASE and Bl.MAX_HOLD <= 5 * 3600)
   -- §3
   local stale = 5 * 3600
   c("libre recente : vivante", Bl.alive("libre", 10, nil, stale) == true)
   c("libre oubliee : non", Bl.alive("libre", stale, nil, stale) == false)
   c("prise qui progresse : vivante", Bl.alive("prise", nil, 0, stale) == true)
   c("prise sans progres depuis le bail : non", Bl.alive("prise", nil, Bl.LEASE, stale) == false)
+  c("prise qui bouge mais tenue trop longtemps : non", Bl.alive("prise", nil, 0, stale, Bl.MAX_HOLD) == false)
+  c("prise qui bouge, tenue courte : vivante", Bl.alive("prise", nil, 0, stale, Bl.MAX_HOLD - 1) == true)
   c("absente : non", Bl.alive(nil, nil, nil, stale) == false)
   -- §4 Émeraude (fd-croiss-123456789) : prise à 18,7 min, PNJ immobile ; une pensée toutes les 300 ticks
   local rec, stall, released = nil, 0, nil
@@ -77,7 +84,7 @@ for _, r in ipairs(suite(Bl)) do check(r[1], r[2]) end
 local M = read("script/team/bail.lua")
 local TM = read("script/team/team.lua")
 local W = read("script/team/worker.lua")
-check("moniteur : progres et bail purs", M:find("Bl.progress(t.prog,", 1, true) ~= nil and M:find("Bl.expired(t.kind, stall)", 1, true) ~= nil)
+check("moniteur : progres et bail purs", M:find("Bl.progress(t.prog,", 1, true) ~= nil and M:find("Bl.expired(t.kind, stall, held)", 1, true) ~= nil)
 check("moniteur : etat decrit AVANT d'etre rendu", (M:find("local desc = describe(agent)", 1, true) or 1e9) < (M:find("Worker.release_stuck(agent, f, tick)", 1, true) or 0))
 check("moniteur : PNJ disparu -> tache rendue", M:find('"sans PNJ"', 1, true) ~= nil and M:find("Board.finish(f, t, false, tick)", 1, true) ~= nil)
 check("moniteur : listes triees", M:find("State.sorted_keys(b.tasks)", 1, true) ~= nil)
@@ -95,10 +102,12 @@ local MUTANTS = {
   { "deplacement ignore", "if dx * dx + dy * dy >= Bl.MOVE * Bl.MOVE then", "if false then" },
   { "reptation perdue (relevé à chaque lecture)", "  return prev, tick - num(prev.t)", "  return { pc = cur.pc, state = cur.state, x = num(cur.x), y = num(cur.y), t = num(prev.t) }, tick - num(prev.t)" },
   { "temps sans progres remis a zero", "  return prev, tick - num(prev.t)", "  return prev, 0" },
-  { "bail sur tous les types", "return Bl.KINDS[kind] == true and num(stall) >= Bl.LEASE", "return num(stall) >= Bl.LEASE" },
-  { "bail strict", "and num(stall) >= Bl.LEASE", "and num(stall) > Bl.LEASE" },
+  { "bail sur tous les types", "if Bl.KINDS[kind] ~= true then return false end", "" },
+  { "bail strict", "return num(stall) >= Bl.LEASE or", "return num(stall) > Bl.LEASE or" },
+  { "tenue maximale ignoree", "return num(stall) >= Bl.LEASE or num(held) >= Bl.MAX_HOLD", "return num(stall) >= Bl.LEASE" },
+  { "tenue maximale ignoree pour la tournee vivante", "return num(stall) < Bl.LEASE and num(held) < Bl.MAX_HOLD end", "return num(stall) < Bl.LEASE end" },
   { "bail de 41 min", "Bl.LEASE = 2 * 3600", "Bl.LEASE = 41 * 3600" },
-  { "prise toujours vivante (avant ETAGE4)", "if state == \"prise\" then return num(stall) < Bl.LEASE end", "if state == \"prise\" then return true end" },
+  { "prise toujours vivante (avant ETAGE4)", "if state == \"prise\" then return num(stall) < Bl.LEASE and num(held) < Bl.MAX_HOLD end", "if state == \"prise\" then return true end" },
   { "libre jamais oubliee", "if state == \"libre\" then return num(free_age) < num(stale) end", "if state == \"libre\" then return true end" },
   { "absente vivante", "  return false\nend\n\nreturn Bl", "  return true\nend\n\nreturn Bl" },
 }

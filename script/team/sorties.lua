@@ -12,12 +12,15 @@ local Board = require("script.team.board")
 local S = {}
 
 --- Lot ETAGE4 : état de la tournée de l'avant-poste `oid` au tableau : "prise" | "libre" | nil (absente ou en pause), attente sans preneur,
---- ticks sans progrès du PNJ qui la tient (relevé t.prog du bail, script/team/bail.lua ; à défaut, depuis la prise).
+--- ticks sans progrès du PNJ qui la tient (relevé t.prog du bail, script/team/bail.lua ; à défaut, depuis la prise), ticks depuis la prise
+--- (ou depuis le dernier abandon du bail, t.lease_t).
 function S.tour(f, oid, tick)
   local t = Board.get(f).tasks["service:" .. tostring(oid)]
-  if not t then return nil, nil, nil end
-  if t.worker then return "prise", nil, tick - ((t.prog and t.prog.t) or t.claimed or tick) end
-  return "libre", tick - (t.created or tick), nil
+  if not t then return nil, nil, nil, nil end
+  if t.worker then
+    return "prise", nil, tick - ((t.prog and t.prog.t) or t.claimed or tick), tick - (t.lease_t or t.claimed or tick)
+  end
+  return "libre", tick - (t.created or tick), nil, nil
 end
 
 local RAW = Sm.raw_kinds(T.outposts)
@@ -38,9 +41,9 @@ function S.rows(f, item, tick)
         local pos = o.access or o.pos
         local unsafe = surface and pos and (surface.count_entities_filtered({ position = pos, radius = Poles.DANGER_RADIUS, force = "enemy",
           type = { "unit-spawner", "turret" }, limit = 1 }) > 0 or (f.is_player and Poles.near_loss(f, pos, tick))) or nil
-        local tour, free_age, stall = S.tour(f, oid, tick)
+        local tour, free_age, stall, held = S.tour(f, oid, tick)
         rows[#rows + 1] = { id = oid, kind = o.kind, outputs = { [item] = n }, fails = o.flux_fails, unsafe = unsafe,
-          tour = tour, free_age = free_age, stall = stall,
+          tour = tour, free_age = free_age, stall = stall, held = held,
           lethal = (o.lethal_tick ~= nil and tick - o.lethal_tick < T.lethal_ticks) or nil }
       end
     end
@@ -117,7 +120,7 @@ function S.hand_ok(f, item, tick, crisis)
   local parts = {}
   for _, r in ipairs(rows) do
     parts[#parts + 1] = string.format("%s:%s%s", tostring(r.id), r.tour or "absente",
-      r.tour == "prise" and string.format(" sans progres %ds", math.floor((r.stall or 0) / 60))
+      r.tour == "prise" and string.format(" sans progres %ds tenue %ds", math.floor((r.stall or 0) / 60), math.floor((r.held or 0) / 60))
       or (r.tour == "libre" and string.format(" %ds", math.floor((r.free_age or 0) / 60)) or ""))
   end
   return ok, why, total, table.concat(parts, ",")

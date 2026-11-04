@@ -55,12 +55,15 @@ function B.think(f, tick)
         local p = e.position
         local prog, stall = Bl.progress(t.prog, { pc = agent.pc, state = agent.state, x = p.x, y = p.y }, tick)
         t.prog = prog
-        if Bl.expired(t.kind, stall) then
+        local held = tick - (t.lease_t or t.claimed or tick)
+        if Bl.expired(t.kind, stall, held) then
           local desc = describe(agent)
           local how = Worker.release_stuck(agent, f, tick)
           f.stats.bail_released = (f.stats.bail_released or 0) + 1
-          line(f, t, desc, how, stall, tick)
+          line(f, t, desc, string.format("%s, %s, tenue %d s", how, stall >= Bl.LEASE and "sans progres" or "trop longue", math.floor(held / 60)),
+            stall, tick)
           t.prog = nil -- l'abandon est un progrès (nouvelle étape) ; le prochain relevé repart de zéro
+          t.lease_t = tick -- et le temps de tenue aussi : le PNJ a Bl.MAX_HOLD pour rentrer avant d'être dégagé
           n = n + 1
         end
       end
