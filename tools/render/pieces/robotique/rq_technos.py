@@ -5,7 +5,7 @@ import math
 
 from scene_base import B, CY, TOR, capte, lathe, pivoter, tube
 from rq_couleurs import peint
-from rq_kits import FAMILLE, SIGNATURES, lum_fam
+from rq_kits import FAMILLE, SIGNATURES, lum_fam, sig_bobineur_robot
 import rq_pieces as Q
 
 
@@ -42,8 +42,8 @@ def grue(famille):
 # id : (échelle de la signature, z de la signature sur le plateau, pattes(...) ou None)
 ROBOT = {
     "steam-trotter": (1.15, 1.25, dict(n=4, r0=1.0, z0=1.4, R=2.3, m="laiton_sombre", phase=math.pi / 4, ep=0.15)),
-    "scalehide": (1.15, 0.8, dict(n=4, r0=1.8, z0=1.0, R=2.8, m="fonte", phase=math.pi / 4, genou=0.4, ep=0.24)),
-    "coiler": (1.2, 1.2, dict(n=2, r0=0.7, z0=1.3, R=1.6, m="titane", phase=math.pi / 2, ep=0.15)),
+    "scalehide": (1.0, 1.95, dict(n=4, r0=1.2, z0=1.0, R=2.9, m="fonte", phase=math.pi / 4, genou=0.35, ep=0.24)),
+    "coiler": (1.15, 0.9, dict(n=4, r0=0.7, z0=1.2, R=2.3, m="titane", phase=math.pi / 4, genou=0.4, ep=0.15)),
     "needle": (1.15, 2.2, dict(n=4, r0=1.2, z0=2.3, R=2.8, m="laiton", phase=math.pi / 4, genou=0.8, ep=0.11)),
     "bellwether": (1.15, 1.0, dict(n=4, r0=1.7, z0=1.0, R=2.8, m="cuivre", phase=math.pi / 4, genou=0.5, ep=0.15)),
     "chamfer": (1.1, 0.9, dict(n=6, r0=1.8, z0=1.0, R=3.0, m="canon", phase=0.0, genou=0.5, ep=0.17)),
@@ -51,10 +51,12 @@ ROBOT = {
     "finback": (1.05, 1.6, dict(n=3, r0=0.3, z0=1.6, R=1.2, m="titane", phase=math.pi / 2, genou=0.1, ep=0.1)),
     "levite": (1.2, 0.55, None),
     "toroid": (1.25, 0.0, None),
-    "heliast": (1.1, 0.75, None),
+    "heliast": (1.15, 0.75, None),
     "crowned": (1.4, 0.0, None),
 }
 USINE = {"steam-trotter", "needle", "trowel", "toroid"}
+# Signature de la technologie quand elle diffère de celle du kit (Bobineur : le robot entier, critique).
+TECH_SIG = {"coiler": sig_bobineur_robot}
 
 
 def tech_robot(rid):
@@ -68,17 +70,18 @@ def tech_robot(rid):
             pattes(sol=zp, **d)
         if rid == "heliast":
             CY(0.5, 0.7, 0, 0, zp, "or_sombre", verts=8)
-        pivoter(capte(SIGNATURES[rid]), loc=(0, 0, zp + z), s=s)
+        pivoter(capte(TECH_SIG.get(rid, SIGNATURES[rid])), loc=(0, 0, zp + z), s=s)
         if rid in USINE:
             grue(fam)
     return f
 
 
 def tech_servo_mechanisms():
-    """Le servomoteur au centre, le capteur optique debout à gauche, le contrôleur à plat devant à droite."""
-    pivoter(capte(Q.servo), loc=(0.2, 1.0, 0.4))
-    pivoter(capte(Q.capteur), rot=(62, 0, 18), loc=(-3.2, -0.6, 0.9), s=0.8)
-    pivoter(capte(Q.controleur), rot=(0, 0, 16), loc=(2.6, -2.2, 0.0), s=0.72)
+    """Le servomoteur SEUL au centre, en grand ; capteur optique et boîtier de commande plus petits en arrière, sans recouvrement
+    (critique : 3 objets qui se chevauchaient, et une carte verte qui rappelait la carte mère)."""
+    pivoter(capte(Q.servo), loc=(0.0, 0.0, 0.0), s=1.25)
+    pivoter(capte(Q.capteur), rot=(62, 0, 18), loc=(-4.7, 2.8, 1.0), s=0.6)
+    pivoter(capte(Q.controleur), rot=(0, 0, -14), loc=(4.9, 3.2, 0.0), s=0.55)
 
 
 def tech_robot_guidance():
@@ -88,10 +91,11 @@ def tech_robot_guidance():
 
 
 def tech_magnetic_drive():
-    """Le vérin à aimants en diagonale devant, le module laser au-dessus qui tire vers la gauche, le barreau à droite."""
-    pivoter(capte(Q.actionneur), rot=(0, 0, -20), loc=(0.0, -1.2, 0.9))
-    pivoter(capte(Q.tete_laser), rot=(0, -4, -150), loc=(0.6, 1.6, 3.4), s=1.0)
-    pivoter(capte(Q.barreau), rot=(0, -8, 62), loc=(3.6, 0.6, 0.7), s=0.6)
+    """Vérin à aimants en diagonale à l'arrière ; module laser en haut à gauche qui TIRE un faisceau rouge vers le coin bas droit ;
+    barreau Nd:YAG entièrement devant, sans croiser la tige du vérin (critique : aucun faisceau, barreau caché)."""
+    pivoter(capte(Q.actionneur), rot=(0, 0, 155), loc=(-1.6, 3.2, 1.4), s=0.7)
+    pivoter(capte(Q.tete_laser, 5.0), rot=(0, 30, -32), loc=(-1.8, 0.4, 4.7), s=0.9)
+    pivoter(capte(Q.barreau), rot=(0, -6, 8), loc=(-2.8, -3.0, 0.7), s=0.7)
 
 
 TECHS = {

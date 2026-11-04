@@ -222,20 +222,25 @@ GROUPES = [("Pieces de robots", PIECES), ("Circuits", CIRCUITS), ("Silicium et b
            ("Segments des geants", SEGMENTS)]
 
 
-def planche(sortie, samples, cache):
+def planche(sortie, samples, cache, noms=None, titre=None):
+    """noms : ne montrer que ces icônes (objets et technologies, par nom) ; titre : bandeau."""
     src = os.path.join(cache, str(samples))
+    garde = (lambda n: True) if not noms else (lambda n: n in noms)
+    groupes = [(t, [n for n in g if garde(n)]) for t, g in GROUPES]
+    groupes = [(t, g) for t, g in groupes if g]
+    technos = [t for t in TECHNOS if garde(t)]
     ligne, cw, ch = 6, 318, 168
-    rangs = sum((len(g) + ligne - 1) // ligne for _, g in GROUPES)
+    rangs = sum((len(g) + ligne - 1) // ligne for _, g in groupes)
     tl, tw, th = 4, 474, 300
-    hauteur = 40 + rangs * ch + len(GROUPES) * 24 + 30 + ((len(TECHNOS) + tl - 1) // tl) * th + 20
+    hauteur = 40 + rangs * ch + len(groupes) * 24 + 30 + ((len(technos) + tl - 1) // tl) * th + 20
     im = Image.new("RGBA", (max(ligne * cw, tl * tw) + 24, hauteur), CI.FOND + (255,))
     d = ImageDraw.Draw(im)
-    d.text((12, 8), "DA-ICONES : etats cles, %d echantillons | a gauche : NOUVELLE (64 px x 2, 32 px en case, 32 px nu) | a droite, "
+    d.text((12, 8), (titre or "DA-ICONES : etats cles") + ", %d echantillons | a gauche : NOUVELLE (64 px x 2, 32 px en case, 32 px nu) | a droite, "
            "sur fond rouge sombre : l'icone ACTUELLE en jeu (vanilla teintee, 64 px et 32 px en case)" % samples, font=CI.police(14, True),
            fill=(235, 235, 235))
     y = 36
-    for titre, liste in GROUPES:
-        d.text((12, y), titre, font=CI.police(14, True), fill=(255, 210, 120))
+    for nom_g, liste in groupes:
+        d.text((12, y), nom_g, font=CI.police(14, True), fill=(255, 210, 120))
         y += 22
         for i, n in enumerate(liste):
             x, yy = 12 + (i % ligne) * cw, y + (i // ligne) * ch
@@ -257,7 +262,7 @@ def planche(sortie, samples, cache):
     d.text((12, y), "Technologies : 256 px, mipmaps 64 et 32 en case | a droite, l'icone actuelle (vanilla teintee, 128 px)", font=CI.police(14, True),
            fill=(255, 210, 120))
     y += 24
-    for i, t in enumerate(TECHNOS):
+    for i, t in enumerate(technos):
         x0, y0 = 12 + (i % tl) * tw, y + (i // tl) * th
         d.text((x0, y0), t, font=CI.police(11), fill=(205, 205, 205))
         p = os.path.join(src, "tech-" + t + ".png")
@@ -287,6 +292,8 @@ def main():
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--planche")
     ap.add_argument("--manifeste", action="store_true")
+    ap.add_argument("--noms", help="planche : liste de noms séparés par des virgules")
+    ap.add_argument("--titre")
     a = ap.parse_args()
     if a.manifeste:
         return 1 if verifier_manifeste() else 0
@@ -294,7 +301,7 @@ def main():
         noms = (ITEMS + ["tech-" + t for t in TECHNOS]) if a.rendre == "tout" else a.rendre.split(",")
         rendre(noms, a.samples, a.cache, a.taille)
     if a.planche:
-        planche(a.planche, a.samples, a.cache)
+        planche(a.planche, a.samples, a.cache, set(a.noms.split(",")) if a.noms else None, a.titre)
         return 0
     if a.rendre and a.rendre != "tout":
         return 0

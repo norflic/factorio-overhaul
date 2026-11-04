@@ -12,7 +12,7 @@ from mathutils import Matrix, Vector
 import scene_base as P
 from scene_base import B, CY, CYX, SPH, TOR, capte, lathe, pivoter, tube
 from rq_couleurs import lum as nom_lum, peint
-from rq_pieces import lum
+from rq_pieces import lum, prisme as _prisme
 
 FAMILLE = {
     "steam-trotter": "ambre", "scalehide": "ambre", "coiler": "ambre",
@@ -61,28 +61,27 @@ def _plaque(p, n, t, dims, m, inclinaison=14.0):
     return o
 
 
-def sig_ecaille(a=2.3, b=1.75, c=1.55):
-    """Carapace bombée d'écailles d'acier sombre qui se chevauchent ; joints orange incandescents dessous ; crête à pointes."""
-    s = SPH(1.0, 0, 0, 0, lum("joint_orange", force=1.25), seg=48, rings=24)
-    s.scale = (a * 0.97, b * 0.97, c * 0.97)
-    rng = random.Random(12)
-    for r, (phi, n) in enumerate(((8, 15), (26, 13), (44, 10), (62, 7))):
-        f = math.radians(phi)
-        for k in range(n):
-            th = 2 * math.pi * (k + 0.5 * (r % 2)) / n
-            p = Vector((a * math.cos(f) * math.cos(th), b * math.cos(f) * math.sin(th), c * math.sin(f)))
-            nv = Vector((math.cos(f) * math.cos(th) / a, math.cos(f) * math.sin(th) / b, math.sin(f) / c))
-            tv = Vector((-math.sin(th), math.cos(th), 0.0))
-            larg = 2 * math.pi * a * math.cos(f) / n * 0.92
-            m = "ecaille_rouille" if rng.random() < 0.28 else "ecaille"
-            _plaque(p, nv, tv, (min(larg, 1.2), 0.95, 0.14), m)
-    _plaque(Vector((0, 0, c)), Vector((0, 0, 1)), Vector((1, 0, 0)), (1.0, 0.9, 0.16), "ecaille", inclinaison=0)
-    for k in range(5):
-        x = -1.2 + k * 0.6
-        z = c * math.sqrt(max(0.0, 1 - (x / a) ** 2))
-        lathe([(0.2, 0.0), (0.0, 0.55)], x, 0, z - 0.05, "fonte", verts=4, lisse=False)
-    # bouclier avant (tête)
-    B(1.0, 1.6, 0.9, a - 0.15, 0, 0.0, "fonte", bev=0.12)
+def sig_ecaille(L=5.0, R=1.35):
+    """LONG corps cuirassé (environ 2 fois plus long que large, critique : un dôme faisait une tortue), dos en dos d'âne : bandes
+    d'écailles d'acier et de cuivre, joints orange incandescents ENTRE les bandes, bloc de nez à l'avant (+x), crête à pointes."""
+    a, c = L / 2, R * 1.05
+    corps = SPH(1.0, 0, 0, 0, lum("joint_orange", force=0.9), seg=48, rings=24)
+    corps.scale = (a * 0.97, R * 0.97, c * 0.97)
+    nb, nk = 7, 7
+    for i in range(nb):
+        x = -a + (i + 0.5) * (2 * a / nb)
+        f = math.sqrt(max(0.05, 1 - (x / a) ** 2))
+        m = ("ecaille", "cuivre", "ecaille_rouille")[i % 3]
+        for k in range(nk):
+            phi = math.radians(12 + k * 26)
+            p = Vector((x, R * f * math.cos(phi), c * f * math.sin(phi)))
+            nv = Vector((x / a ** 2, p.y / R ** 2, p.z / c ** 2))
+            tv = Vector((0.0, -math.sin(phi), math.cos(phi)))
+            _plaque(p, nv, tv, (max(0.3, R * f * 0.47), (2 * a / nb) * 0.9, 0.14), m, inclinaison=12)
+        lathe([(0.2, 0.0), (0.0, 0.5)], x, 0, c * f + 0.08, "fonte", verts=4, lisse=False)
+    B(0.9, 1.7, 1.5, a - 0.25, 0, -0.55, "fonte", bev=0.16)
+    for s in (-1, 1):
+        B(0.06, 0.34, 0.14, a + 0.21, s * 0.42, 0.25, lum("joint_orange", force=1.4), bev=0)
 
 
 def sig_bobineur():
@@ -142,56 +141,49 @@ def sig_cloche():
 
 
 def sig_chanfrein():
-    """Socle octogonal à bande jaune, fût de mortier évasé à anneaux d'or, gueule à lueur verte."""
-    lathe([(0, 0), (1.95, 0), (1.95, 0.55), (1.7, 0.75), (0, 0.75)], 0, 0, 0, "canon", verts=8, lisse=False, bev=0.03, phase=0.39)
-    lathe([(1.97, 0.0), (1.97, 0.16), (0, 0.16)], 0, 0, 0.28, "jaune_danger", verts=8, lisse=False, phase=0.39)
+    """Corps octogonal à bande jaune ; fût de mortier DROIT et épais à 2 frettes d'or, embouchure à 1,3 fois le fût, incliné
+    d'environ 30° (tir de mortier), lueur verte au fond (critique : le pavillon évasé faisait un gramophone)."""
+    lathe([(0, 0), (1.95, 0), (1.95, 0.75), (1.7, 0.95), (0, 0.95)], 0, 0, 0, "canon", verts=8, lisse=False, bev=0.03, phase=0.39)
+    lathe([(1.97, 0.0), (1.97, 0.18), (0, 0.18)], 0, 0, 0.36, "jaune_danger", verts=8, lisse=False, phase=0.39)
 
     def fut():
-        lathe([(1.05, 0.0), (1.0, 0.6), (0.95, 1.8), (1.05, 2.35), (1.38, 2.85), (1.52, 3.05), (1.5, 3.15), (1.22, 3.12),
-               (0.98, 2.8), (0.76, 2.2), (0.72, 1.6), (0.0, 1.6)], 0, 0, 0, "canon", verts=56)
-        CY(0.72, 0.03, 0, 0, 1.62, lum("voyant_vert", force=1.4), verts=40, bev=0)
+        lathe([(1.0, 0.0), (1.0, 2.7), (1.3, 2.76), (1.32, 3.15), (1.0, 3.22), (0.78, 3.12), (0.76, 1.6), (0.0, 1.6)], 0, 0, 0,
+              "canon", verts=56)
+        CY(0.75, 0.03, 0, 0, 1.62, lum("voyant_vert", force=1.4), verts=40, bev=0)
         for k in range(6):
             a = 2 * math.pi * k / 6
             SPH(0.1, 0.4 * math.cos(a), 0.4 * math.sin(a), 1.7, lum("voyant_vert", force=1.6), seg=10, rings=6)
-        for z in (0.35, 1.0):
-            TOR(1.03, 0.08, 0, 0, z, "or", minor=10)
-    pivoter(capte(fut), rot=(24, 0, 0), loc=(0, 0.25, 0.7))
+        for z in (0.75, 1.95):
+            TOR(1.04, 0.11, 0, 0, z, "or", minor=10)
+        for s in (-1, 1):
+            CYX(0.32, 0.45, s * 1.15, 0, 0.55, "fonte", verts=20)
+    pivoter(capte(fut), rot=(12, 30, 0), loc=(-0.3, 0.2, 0.95))
 
 
 def sig_truelle():
-    """Dôme argent, ceinture noire à voyants bleus, parabole sur mât, bras-truelle."""
+    """Dôme argent ; anneau de voyants bleus à sa base (signature du sprite) ; petite parabole de 3/4, creux sombre et bras de
+    cornet ; antenne fouet (critique : la parabole de face faisait une horloge, le câble latéral un bec de bouilloire)."""
     CY(1.88, 0.42, 0, 0, 0, "noir_mat", verts=64, bev=0.04)
+    TOR(1.9, 0.1, 0, 0, 0.21, lum("voyant_bleu", force=1.3), minor=10)
     for k in range(12):
         a = 2 * math.pi * k / 12
-        B(0.3, 0.06, 0.14, 1.9 * math.cos(a), 1.9 * math.sin(a), 0.14, "voyant_bleu", bev=0, rot=(0, 0, math.degrees(a) + 90))
+        B(0.36, 0.08, 0.16, 1.95 * math.cos(a), 1.95 * math.sin(a), 0.13, "voyant_bleu", bev=0, rot=(0, 0, math.degrees(a) + 90))
     lathe([(1.82, 0.0), (1.8, 0.3), (1.6, 0.95), (1.25, 1.42), (0.72, 1.74), (0.0, 1.85)], 0, 0, 0.42, "chrome", verts=64)
     for (x, y, l, r) in ((0.6, -1.1, 0.7, 20), (-0.7, -1.0, 0.5, -30)):
         B(l, 0.5, 0.06, x, y, 1.6, "carenage_sombre", bev=0.01, rot=(35, 0, r))
-    CY(0.08, 0.7, 0.5, 0.5, 2.0, "alu_sombre", verts=10)
+    CY(0.09, 0.55, 0.55, 0.45, 2.05, "alu_sombre", verts=10)
 
     def parabole():
-        lathe([(0.0, 0.0), (0.35, 0.03), (0.7, 0.13), (0.95, 0.28), (0.98, 0.32), (0.7, 0.2), (0.35, 0.1), (0.0, 0.07)], 0, 0, 0,
-              "alliage_blanc", verts=40)
-        CY(0.04, 0.55, 0, 0, 0.05, "alu_sombre", verts=8)
-        SPH(0.08, 0, 0, 0.6, "cable_rouge", seg=10, rings=6)
-    pivoter(capte(parabole), rot=(40, 0, -30), loc=(0.5, 0.5, 2.65))
+        o = lathe([(0.0, 0.0), (0.32, 0.03), (0.56, 0.11), (0.68, 0.2), (0.7, 0.25), (0.64, 0.26), (0.55, 0.18), (0.31, 0.1), (0.0, 0.07)],
+                  0, 0, 0, "alliage_blanc", verts=40)
+        o.data.materials.append(P.mat("fond_noir"))
+        for poly in o.data.polygons:
+            if poly.index >= 5 * 40:
+                poly.material_index = 1
+        tube([(0.62, 0, 0.25), (0.3, 0, 0.55), (0.0, 0, 0.62)], 0.035, "alu_sombre", res=6)
+        CY(0.08, 0.16, 0, 0, 0.56, "alu_sombre", verts=10)
+    pivoter(capte(parabole), rot=(40, 0, 60), loc=(0.55, 0.45, 2.55))
     CY(0.03, 1.2, -0.7, 0.4, 2.0, "alu_sombre", verts=6)
-    # bras-truelle à droite
-    tube([(1.7, -0.3, 0.6), (2.4, -0.5, 1.2), (2.9, -0.6, 0.6)], 0.12, "titane", res=6)
-    B(0.9, 0.08, 0.6, 3.05, -0.6, 0.0, "chrome", bev=0.02, rot=(0, 0, 20))
-
-
-def _prisme(nom, poly, ep, m, z=0.0):
-    """Prisme d'une épaisseur ep (en z) sur un polygone convexe [(x, y), ...]."""
-    n = len(poly)
-    vs = [(x, y, z) for (x, y) in poly] + [(x, y, z + ep) for (x, y) in poly]
-    fs = [tuple(range(n - 1, -1, -1)), tuple(range(n, 2 * n))]
-    for i in range(n):
-        j = (i + 1) % n
-        fs.append((i, j, n + j, n + i))
-    o = P._maille(nom, vs, fs, m, lisse=False)
-    P.S.bevel(o, 0.02)
-    return o
 
 
 def sig_aileron():
@@ -268,23 +260,26 @@ def panneau(x, y, z, w, d, rot=(0, 0, 0)):
     return objs
 
 
-def sig_heliaste(panneaux=2):
-    """Corps doré octogonal, réservoirs d'or, 2 ailes de panneaux solaires bleus (`panneaux` par aile), parabole d'or."""
-    lathe([(0, 0), (1.05, 0), (1.15, 0.2), (1.15, 1.25), (0.95, 1.55), (0, 1.6)], 0, 0, 0, "or", verts=8, lisse=False, bev=0.03, phase=0.39)
-    for k in range(4):
-        a = 2 * math.pi * k / 4 + 0.785
-        SPH(0.36, 1.15 * math.cos(a), 1.15 * math.sin(a), 0.45, "or_sombre", seg=20, rings=10)
+def sig_heliaste(panneaux=1, w=1.85, d=1.75, k=1.45):
+    """Corps doré octogonal (k fois l'ancien), réservoirs d'or, ailes de panneaux solaires FACE CAMÉRA relevées en V (critique :
+    vus par la tranche, ils ne faisaient qu'un trait à 32 px), parabole d'or."""
+    lathe([(0, 0), (1.05 * k, 0), (1.15 * k, 0.2 * k), (1.15 * k, 1.25 * k), (0.95 * k, 1.55 * k), (0, 1.6 * k)], 0, 0, 0, "or",
+          verts=8, lisse=False, bev=0.03, phase=0.39)
+    for j in range(4):
+        a = 2 * math.pi * j / 4 + 0.785
+        SPH(0.36 * k, 1.15 * k * math.cos(a), 1.15 * k * math.sin(a), 0.45 * k, "or_sombre", seg=20, rings=10)
     for s in (-1, 1):
-        CYX(0.1, 1.2, s * 1.65, 0, 0.85, "alu_brosse", verts=10)
+        CYX(0.12, 0.7, s * (1.15 * k + 0.3), 0, 0.85 * k, "alu_brosse", verts=10)
         for i in range(panneaux):
-            panneau(s * (2.85 + i * 1.62), 0, 0.82, 1.55, 1.25, rot=(s * 12, 0, 0))
+            cx = s * (1.15 * k + 0.6 + w / 2 + i * (w + 0.1))
+            panneau(cx, 0, 0.85 * k - 0.4, w, d, rot=(62, -s * 22, 0))
 
     def parabole():
         lathe([(0.0, 0.0), (0.5, 0.04), (0.95, 0.18), (1.25, 0.38), (1.28, 0.44), (0.95, 0.26), (0.5, 0.12), (0.0, 0.08)], 0, 0, 0,
               "or", verts=48)
         CY(0.05, 0.75, 0, 0, 0.05, "alu_sombre", verts=8)
         SPH(0.1, 0, 0, 0.82, "or_sombre", seg=10, rings=6)
-    pivoter(capte(parabole), rot=(-35, 0, 15), loc=(0, 0.1, 1.65))
+    pivoter(capte(parabole), rot=(-35, 0, 15), loc=(0, 0.1, 1.6 * k), s=0.85)
 
 
 def sig_couronne():
@@ -305,6 +300,26 @@ def sig_couronne():
     TOR(1.7, 0.07, 0, 0, 3.75, lum("or_halo"), rot=(12, 0, 0), minor=10)
 
 
+def sig_bobineur_robot():
+    """Le Bobineur entier, pour sa technologie (critique : une colonne Tesla seule, sans corps ni pattes) : corps HORIZONTAL de
+    cuivre à ailettes de radiateur, nez-foret, ressort de Tesla vertical, anneau et sphère bleus ; posé sur z = 0."""
+    CYX(1.0, 2.6, 0, 0, 1.0, "cuivre", verts=40)
+    for k in range(7):
+        CYX(1.14, 0.1, -1.0 + k * 0.33, 0, 1.0, "alu_brosse", verts=40)
+    CYX(0.95, 0.22, -1.42, 0, 1.0, "fonte", verts=40)
+    o = lathe([(0.85, 0.0), (0.55, 0.55), (0.0, 1.3)], 1.3, 0, 1.0, "chrome", verts=24)
+    o.rotation_euler = (0, math.radians(90), 0)
+    CY(0.3, 1.9, -0.2, 0, 1.85, "noir_mat", verts=24)
+    pts = []
+    for i in range(5 * 12 + 1):
+        a = 2 * math.pi * i / 12
+        pts.append((-0.2 + 0.62 * math.cos(a), 0.62 * math.sin(a), 2.05 + 1.6 * i / 60))
+    tube(pts, 0.12, "chrome", res=4)
+    TOR(0.72, 0.21, -0.2, 0, 3.95, "chrome", minor=16)
+    SPH(0.32, -0.2, 0, 3.95, lum("voyant_bleu", force=1.4))
+    tube([(0.55, 0, 4.05), (1.0, 0.2, 4.35), (0.9, -0.1, 4.6), (1.35, 0.1, 4.9)], 0.05, lum("ligne_bleu_blanc", force=1.5), res=2)
+
+
 SIGNATURES = {
     "steam-trotter": sig_trotte, "scalehide": sig_ecaille, "coiler": sig_bobineur, "needle": sig_aiguille,
     "bellwether": sig_cloche, "chamfer": sig_chanfrein, "trowel": sig_truelle, "finback": sig_aileron,
@@ -315,21 +330,21 @@ SIGNATURES = {
 # ------------------------------------------------------------------------------------------------------------------
 # Caisse et kits
 # ------------------------------------------------------------------------------------------------------------------
-def caisse(famille, W=4.4, D=3.0, H=1.25):
-    """Caisse ouverte : lattes de bois sombre ; poteaux d'angle, sangle et rebord à la couleur de la famille (lisible à 32 px) ;
-    voyant de famille en façade."""
+def caisse(famille, W=4.4, D=3.0, H=1.9):
+    """Caisse ouverte, parois à environ 1/3 de la hauteur de l'icône (critique : un plateau bas faisait un présentoir) : 4 rangs de
+    lattes de bois sombre, poteaux d'angle, sangle et rebord à la couleur de la famille, voyant de famille en façade."""
     fam, rgb = peint(famille), lum_fam(famille, force=1.3)
     B(W - 0.1, D - 0.1, H - 0.25, 0, 0, 0, "fonte", bev=0.02)
-    for k in range(3):
-        z = 0.05 + k * (H - 0.1) / 3
-        h = (H - 0.1) / 3 - 0.08
+    for k in range(4):
+        z = 0.05 + k * (H - 0.1) / 4
+        h = (H - 0.1) / 4 - 0.09
         B(W - 0.2, 0.12, h, 0, -D / 2, z, "bois_caisse", bev=0.02)
         B(W - 0.2, 0.12, h, 0, D / 2, z, "bois_caisse", bev=0.02)
         B(0.12, D - 0.2, h, -W / 2, 0, z, "bois_caisse", bev=0.02)
         B(0.12, D - 0.2, h, W / 2, 0, z, "bois_caisse", bev=0.02)
     for sx in (-1, 1):
         for sy in (-1, 1):
-            B(0.44, 0.44, H + 0.08, sx * (W / 2 - 0.05), sy * (D / 2 - 0.05), 0, fam, bev=0.05)
+            B(0.46, 0.46, H + 0.08, sx * (W / 2 - 0.05), sy * (D / 2 - 0.05), 0, fam, bev=0.05)
     zb = H * 0.3
     B(W + 0.04, 0.06, 0.42, 0, -D / 2 - 0.06, zb, fam, bev=0.01)
     B(W + 0.04, 0.06, 0.42, 0, D / 2 + 0.06, zb, fam, bev=0.01)
@@ -347,29 +362,25 @@ def caisse(famille, W=4.4, D=3.0, H=1.25):
 # (échelle, décalage x, décalage z, rotation) de la signature de chaque kit : elle domine et peut déborder de la caisse,
 # la caisse basse dit « kit » et porte la couleur de la famille.
 KIT = {
-    "steam-trotter": (1.15, 0.0, -0.6, (0, 0, -8)),
-    "scalehide": (1.0, 0.0, 0.0, (0, 0, -14)),
-    "coiler": (1.15, 0.0, -0.35, (0, 0, 0)),
-    "needle": (1.3, 0.2, -0.3, (0, 0, -20)),
-    "bellwether": (1.2, 0.0, -0.5, (0, 0, 0)),
-    "chamfer": (1.2, 0.0, -0.6, (0, 0, 0)),
-    "trowel": (1.15, -0.25, -0.25, (0, 0, 0)),
-    "finback": (1.0, 0.0, 0.25, (0, -10, -24)),
-    "levite": (1.1, 0.0, -0.35, (0, 0, 0)),
-    "toroid": (0.95, 0.0, -0.1, (0, 0, 0)),
-    "heliast": (1.4, 0.0, -0.35, (0, 0, -10)),
-    "crowned": (1.15, 0.0, -0.35, (0, 0, 0)),
+    "steam-trotter": (1.15, 0.0, -0.95, (0, 0, -8)),
+    "scalehide": (1.0, 0.0, 0.2, (0, 0, -18)),
+    "coiler": (1.15, 0.0, -0.7, (0, 0, 0)),
+    "needle": (1.3, 0.2, -0.65, (0, 0, -20)),
+    "bellwether": (1.2, 0.0, -0.9, (0, 0, 0)),
+    "chamfer": (1.15, 0.0, -0.95, (0, 0, 0)),
+    "trowel": (1.15, 0.0, -0.6, (0, 0, 0)),
+    "finback": (1.0, 0.0, -0.05, (0, -10, -24)),
+    "levite": (1.1, 0.0, -0.7, (0, 0, 0)),
+    "toroid": (0.95, 0.0, -0.45, (0, 0, 0)),
+    "heliast": (1.0, 0.0, -0.75, (0, 0, -6)),
+    "crowned": (1.15, 0.0, -0.7, (0, 0, 0)),
 }
-
-
-# Signature propre au kit quand celle du robot ne tient pas à 32 px (Héliaste : un seul panneau par aile, corps plus gros).
-KIT_SIG = {"heliast": lambda: sig_heliaste(panneaux=1)}
 
 
 def kit(rid):
     s, dx, dz, rot = KIT[rid]
     H = caisse(FAMILLE[rid])
-    pivoter(capte(KIT_SIG.get(rid, SIGNATURES[rid])), rot=rot, loc=(dx, 0, H + dz), s=s)
+    pivoter(capte(SIGNATURES[rid]), rot=rot, loc=(dx, 0, H + dz), s=s)
 
 
 def _kit(rid):
@@ -385,44 +396,95 @@ def anneau_levage(x, y, z):
 
 
 def seg_torique():
-    """Un arc du tore : tronçons cuivre, noir et rose lumineux, brides de fonte aux deux bouts."""
-    R, n, a0, a1 = 3.4, 6, math.radians(-55), math.radians(55)
+    """Quart d'anneau du Torique, vu de 3/4 au-dessus (critique : un coude de tuyau noir) : 4 tronçons à cuivre dominant (cuivre,
+    noir, cuivre, cuivre), bagues roses lumineuses aux joints, brides boulonnées aux 2 bouts, anneau de levage magenta."""
+    R, a0, a1, rt = 5.0, math.radians(-36), math.radians(36), 0.75
+    cyc = ("cuivre", "noir_mat", "cuivre", "cuivre")
     rose = lum("rose_tore", force=1.3)
-    cyc = ("cuivre", "noir_mat", rose, "cuivre", "noir_mat", rose)
+    n = len(cyc)
     L = R * (a1 - a0) / n
     for k in range(n):
         a = a0 + (k + 0.5) * (a1 - a0) / n
-        P.S.cylinder(0.85, L * 0.94, (R * math.cos(a) - R, R * math.sin(a), 0.85), P.mat(cyc[k]), verts=32,
+        P.S.cylinder(rt, L * 0.96, (R * math.cos(a) - R, R * math.sin(a), rt), P.mat(cyc[k]), verts=40,
                      rot=(0, math.radians(90), a + math.pi / 2), bevel_w=0.04)
-    for a in (a0, a1):
-        P.S.cylinder(1.0, 0.3, (R * math.cos(a) - R, R * math.sin(a), 0.85), P.mat("fonte"), verts=32,
-                     rot=(0, math.radians(90), a + math.pi / 2), bevel_w=0.04)
-    anneau_levage(0.05, 0, 1.6)
-    pivoter(list(P.S.piece_objects()), rot=(0, 0, 90))
+    for k in range(1, n):
+        a = a0 + k * (a1 - a0) / n
+        TOR(rt + 0.03, 0.09, R * math.cos(a) - R, R * math.sin(a), rt, rose, rot=(0, 90, math.degrees(a) + 90), minor=10)
+    for a, sens in ((a0, -1), (a1, 1)):
+        cx, cy = R * math.cos(a) - R, R * math.sin(a)
+        t = Vector((-math.sin(a), math.cos(a), 0.0)) * sens
+        u = Vector((math.cos(a), math.sin(a), 0.0))
+        P.S.cylinder(rt + 0.32, 0.24, (cx, cy, rt), P.mat("fonte"), verts=40, rot=(0, math.radians(90), a + math.pi / 2), bevel_w=0.04)
+        for j in range(8):
+            b = 2 * math.pi * j / 8
+            q = Vector((cx, cy, rt)) + (u * math.cos(b) + Vector((0, 0, 1)) * math.sin(b)) * (rt + 0.18) + t * 0.14
+            SPH(0.09, q.x, q.y, q.z, "vis", seg=10, rings=6)
+    anneau_levage(0.0, 0, 2 * rt - 0.05)
+    pivoter(list(P.S.piece_objects()), rot=(0, 0, 45))
+
+
+def panneau_epais(w, d, ep=0.22):
+    """Panneau solaire épais (épaisseur visible) : dos alu sombre, verre bleu, cadre et grille d'alu ; centré, face inférieure à 0."""
+    B(w, d, ep, 0, 0, 0, "alu_sombre", bev=0.03)
+    B(w - 0.12, d - 0.12, 0.05, 0, 0, ep, "panneau_solaire", bev=0.01)
+    for k in range(1, 3):
+        B(0.05, d - 0.12, 0.07, -w / 2 + k * w / 3, 0, ep, "alu_brosse", bev=0)
+    for k in range(1, 4):
+        B(w - 0.12, 0.05, 0.07, 0, -d / 2 + k * d / 4, ep, "alu_brosse", bev=0)
 
 
 def seg_heliaste():
-    """Une aile solaire repliée en accordéon : 3 panneaux bleus sur un longeron d'or."""
-    B(5.2, 0.5, 0.5, 0, 0, 0, "or", bev=0.06)
-    for x in (-2.4, 2.4):
-        B(0.5, 0.7, 0.7, x, 0, -0.1, "or_sombre", bev=0.06)
+    """Aile solaire repliée en ACCORDÉON (critique : un panneau plat se confondait avec le panneau solaire vanilla) : 3 panneaux
+    épais en zigzag (silhouette en W), charnières d'or, longeron d'or dessous, anneau de levage magenta sur le longeron."""
+    d, prof, ang = 1.75, 3.0, math.radians(38)
+    pts = [(-2.1, 0.75)]
     for i in range(3):
-        s = 1 if i % 2 == 0 else -1
-        panneau(0.0, 0.0, 0.55 + i * 0.5, 4.4, 2.6, rot=(s * 9, 0, 0))
-        B(0.2, 0.2, 0.5, 2.25 * s, 1.25 * s, 0.5 + i * 0.5, "or", bev=0.03)
-    anneau_levage(0, -0.2, 2.0)
+        sgn = 1 if i % 2 == 0 else -1
+        x0, z0 = pts[-1]
+        pts.append((x0 + d * math.cos(ang), z0 + sgn * d * math.sin(ang)))
+    for i in range(3):
+        (x0, z0), (x1, z1) = pts[i], pts[i + 1]
+        tilt = math.degrees(math.atan2(z1 - z0, x1 - x0))
+        pivoter(capte(panneau_epais, d, prof), rot=(0, -tilt, 0), loc=((x0 + x1) / 2, 0, (z0 + z1) / 2))
+    for (x, z) in pts[1:3]:
+        CYX(0.15, prof + 0.15, x, 0, z + 0.1, "or", axe="y", verts=16)
+    xa, xb = pts[0][0] - 0.2, pts[-1][0] + 0.2
+    B(xb - xa, 0.5, 0.42, (xa + xb) / 2, 0, -0.1, "or", bev=0.06)
+    for (x, z) in (pts[0], pts[2]):
+        B(0.24, 0.24, z, x, 0, 0.0, "or_sombre", bev=0.03)
+    anneau_levage(xb - 0.5, -0.1, 0.32)
+    pivoter(list(P.S.piece_objects()), rot=(0, 0, 22))
 
 
 def seg_couronne():
-    """Un pan de mur doré à arc gothique (lumière chaude derrière), contreforts, flèche au sommet."""
-    B(3.6, 0.7, 3.2, 0, 0, 0, "or", bev=0.06)
-    B(1.3, 0.1, 1.7, 0, -0.36, 0.45, "fond_noir", bev=0)
-    chaud = lum("voyant_ambre", force=1.2)
-    B(1.05, 0.08, 1.5, 0, -0.38, 0.5, chaud, bev=0)
+    """Pan de la couronne du Couronné (REFAIT, critique : un cadenas, du bois) : arc d'anneau en OR franc, fenêtre en lancette
+    gothique haute et pointue (meneau, remplage, vitrail ambre sombre), flèches sur la crête, flèche centrale plus haute que le
+    mur, anneau de levage sur un angle."""
+    R, span, n, H, ep = 5.0, math.radians(64), 5, 3.2, 0.55
+    Ls = 2 * R * math.sin(span / n / 2) * 1.04
+    for k in range(n):
+        a = -span / 2 + (k + 0.5) * span / n
+        x, y = R * math.sin(a), R - R * math.cos(a)
+        rz = math.degrees(a)
+        B(Ls, ep, H, x, y, 0.0, "or_mur", bev=0.04, rot=(0, 0, rz))
+        B(Ls, ep + 0.16, 0.42, x, y, 0.0, "or_sombre", bev=0.04, rot=(0, 0, rz))
+        B(Ls, ep + 0.14, 0.3, x, y, H - 0.05, "or_sombre", bev=0.04, rot=(0, 0, rz))
+        h = 2.6 if k == n // 2 else (1.1 if k % 2 == 0 else 0.8)
+        lathe([(0.3, 0.0), (0.18, h * 0.4), (0.0, h)], x, y, H + 0.25, "or", verts=6, lisse=False)
+    gemme = lum("rose_tore", force=1.1)
+    SPH(0.16, 0, 0, H + 0.6, gemme, seg=12, rings=8)
+    # fenêtre en lancette sur le pan central (face -y)
+    arc = [(-0.62, 0.0), (0.62, 0.0), (0.62, 1.45), (0.5, 1.85), (0.3, 2.15), (0.0, 2.35), (-0.3, 2.15), (-0.5, 1.85), (-0.62, 1.45)]
+    cadre = [(x * 1.22, z * 1.08 - 0.08) for (x, z) in arc]
+    for poly, m, y0, e in ((cadre, "or_sombre", ep / 2, 0.07), (arc, lum("vitrail"), ep / 2 + 0.07, 0.03)):
+        o = _prisme("lancette", poly, e, m, z=y0, bev=0.01)
+        o.rotation_euler = (math.radians(90), 0, 0)
+        o.location = (0, 0, 0.55)
+    B(0.09, 0.08, 1.75, 0, -ep / 2 - 0.12, 0.55, "or", bev=0.01)
+    TOR(0.2, 0.05, 0, -ep / 2 - 0.12, 0.55 + 1.95, "or", rot=(90, 0, 0), minor=8)
     for s in (-1, 1):
-        B(0.95, 0.12, 0.2, s * 0.32, -0.38, 2.05, "or", bev=0.02, rot=(0, s * 48, 0))
-        B(0.55, 1.1, 3.6, s * 1.95, -0.1, 0, "or_sombre", bev=0.06)
-        lathe([(0.32, 0.0), (0.0, 1.1)], s * 1.95, -0.1, 3.6, "or", verts=4, lisse=False, phase=0.785)
-    B(3.8, 0.9, 0.3, 0, 0, 3.2, "or_sombre", bev=0.05)
-    lathe([(0.4, 0.0), (0.25, 0.5), (0.0, 1.9)], 0, 0, 3.5, "or", verts=8, lisse=False)
-    anneau_levage(0.0, 0.6, 3.5)
+        B(0.32, 0.05, 0.05, s * 0.18, -ep / 2 - 0.12, 0.55 + 1.6, "or", bev=0, rot=(0, s * 40, 0))
+    a = span / 2
+    anneau_levage(R * math.sin(a) - 0.3, R - R * math.cos(a), H + 0.2)
+
+

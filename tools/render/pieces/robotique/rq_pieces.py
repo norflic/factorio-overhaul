@@ -4,7 +4,6 @@ import math
 import random
 
 import scene_base as P
-import scene_objets as O
 from scene_base import B, CY, CYX, SPH, TOR, capte, lathe, pivoter, roche, tube
 from rq_couleurs import LUM
 
@@ -12,6 +11,51 @@ from rq_couleurs import LUM
 def lum(nom, mode="face", force=None, z0=0.0, z1=1.0, cle=None):
     c, b, f = LUM[cle or nom]
     return P.mat_lum("l_" + nom + mode, c, b, force if force is not None else f, mode=mode, z0=z0, z1=z1)
+
+
+def mat_verre(nom, rgb, rough=0.06, ior=1.82):
+    """Cristal translucide (transmission) : on voit à travers lui ce qu'il contient (cœur lumineux du barreau laser)."""
+    m = P.bpy.data.materials.new(nom)
+    nt, N, L = P.S._nodes(m)
+    p = N["Principled BSDF"]
+    p.inputs["Base Color"].default_value = tuple(rgb) + (1,)
+    p.inputs["Roughness"].default_value = rough
+    p.inputs["IOR"].default_value = ior
+    p.inputs["Transmission Weight"].default_value = 1.0
+    return m
+
+
+def mat_irise(nom, R):
+    """Miroir de silicium sombre à BANDE IRISÉE bleu-violet-or en diagonale (couleur de base d'un métal : elle teinte le reflet)."""
+    m = P.bpy.data.materials.new(nom)
+    nt, N, L = P.S._nodes(m)
+    p = N["Principled BSDF"]
+    p.inputs["Metallic"].default_value = 0.85
+    p.inputs["Roughness"].default_value = 0.10
+    tc = N.new("ShaderNodeTexCoord")
+    sz = N.new("ShaderNodeSeparateXYZ")
+    L.new(tc.outputs["Object"], sz.inputs[0])
+    mx = N.new("ShaderNodeMath")
+    mx.operation = "MULTIPLY_ADD"
+    L.new(sz.outputs["X"], mx.inputs[0])
+    mx.inputs[1].default_value = 0.6 / (2 * R)
+    my = N.new("ShaderNodeMath")
+    my.operation = "MULTIPLY_ADD"
+    L.new(sz.outputs["Y"], my.inputs[0])
+    my.inputs[1].default_value = 0.8 / (2 * R)
+    L.new(mx.outputs[0], my.inputs[2])
+    mx.inputs[2].default_value = 0.5
+    rampe = N.new("ShaderNodeValToRGB")
+    r = rampe.color_ramp
+    r.elements[0].position, r.elements[0].color = 0.0, (0.16, 0.20, 0.30, 1)
+    r.elements[1].position, r.elements[1].color = 1.0, (0.16, 0.20, 0.30, 1)
+    for pos, c in ((0.36, (0.16, 0.20, 0.30, 1)), (0.46, (0.10, 0.22, 0.75, 1)), (0.55, (0.42, 0.12, 0.70, 1)), (0.64, (0.85, 0.55, 0.10, 1)),
+                   (0.74, (0.16, 0.20, 0.30, 1))):
+        e = r.elements.new(pos)
+        e.color = c
+    L.new(my.outputs[0], rampe.inputs["Fac"])
+    L.new(rampe.outputs["Color"], p.inputs["Base Color"])
+    return m
 
 
 def engrenage(r, h, n, x, y, z, m, dent=0.22, moyeu="chrome"):
@@ -24,26 +68,41 @@ def engrenage(r, h, n, x, y, z, m, dent=0.22, moyeu="chrome"):
     CY(r * 0.32, h + 0.08, x, y, z, moyeu, verts=24, bev=0.02)
 
 
+def prisme(nom, poly, ep, m, z=0.0, bev=0.02):
+    """Prisme d'épaisseur ep (en z) sur un polygone convexe [(x, y), ...], face inférieure à z."""
+    n = len(poly)
+    vs = [(x, y, z) for (x, y) in poly] + [(x, y, z + ep) for (x, y) in poly]
+    fs = [tuple(range(n - 1, -1, -1)), tuple(range(n, 2 * n))]
+    for i in range(n):
+        j = (i + 1) % n
+        fs.append((i, j, n + j, n + i))
+    o = P._maille(nom, vs, fs, m, lisse=False)
+    if bev:
+        P.S.bevel(o, bev)
+    return o
+
+
 # ------------------------------------------------------------------------------------------------------------------
 # Pièces de robots
 # ------------------------------------------------------------------------------------------------------------------
 def servo():
-    """Carter alu à ailettes, embout bleu, réducteur sombre, roue de laiton, palonnier noir en croix."""
+    """Carter LISSE en alu brossé (2 ailettes en pied seulement : 9 ailettes faisaient un ressort, critique), embout bleu,
+    réducteur sombre, roues de laiton, grand palonnier blanc en croix qui déborde du réducteur, 3 fils."""
     CY(1.25, 0.32, 0, 0, -0.32, "moyeu_bleu", verts=48, bev=0.03)
     CY(1.2, 2.7, 0, 0, 0, "alu_brosse", verts=48, bev=0.03)
-    for k in range(6):
-        TOR(1.25, 0.075, 0, 0, 0.35 + k * 0.38, "alu_sombre", minor=10)
+    for z in (0.22, 0.52):
+        TOR(1.25, 0.085, 0, 0, z, "alu_sombre", minor=10)
     B(3.4, 2.5, 0.75, 0.6, 0, 2.7, "titane_sombre", bev=0.08)
     engrenage(1.0, 0.28, 14, 1.3, 0.05, 3.45, "laiton")
     engrenage(0.5, 0.28, 9, -0.3, -0.45, 3.45, "laiton_sombre")
-    CY(0.22, 0.5, 1.3, 0.05, 3.7, "chrome", verts=20)
-    B(3.0, 0.5, 0.22, 1.3, 0.05, 4.1, "alliage_blanc", bev=0.06, rot=(0, 0, 28))
-    B(1.8, 0.5, 0.22, 1.3, 0.05, 4.1, "alliage_blanc", bev=0.06, rot=(0, 0, 118))
-    for t in (-1.05, 1.05):
-        a = math.radians(28)
-        CY(0.09, 0.03, 1.3 + t * math.cos(a), 0.05 + t * math.sin(a), 4.32, "fond_noir", verts=12, bev=0)
+    CY(0.28, 0.6, 1.3, 0.05, 3.7, "chrome", verts=20)
+    a = math.radians(28)
+    B(4.7, 0.78, 0.32, 1.3, 0.05, 4.2, "alliage_blanc", bev=0.1, rot=(0, 0, 28))
+    B(2.8, 0.78, 0.32, 1.3, 0.05, 4.2, "alliage_blanc", bev=0.1, rot=(0, 0, 118))
+    for t in (-2.0, -1.4, 1.4, 2.0):
+        CY(0.12, 0.04, 1.3 + t * math.cos(a), 0.05 + t * math.sin(a), 4.5, "fond_noir", verts=12, bev=0)
     for i, c in enumerate(("cable_rouge", "cable_gris", "cable_jaune")):
-        tube([(-1.2, -0.25 + i * 0.25, 2.9), (-1.9, -0.25 + i * 0.3, 2.4), (-2.3, -0.4 + i * 0.35, 1.2)], 0.08, c)
+        tube([(-1.2, -0.25 + i * 0.25, 2.9), (-1.9, -0.25 + i * 0.3, 2.4), (-2.3, -0.4 + i * 0.35, 1.2)], 0.09, c)
 
 
 def ic_servo_motor():
@@ -72,29 +131,29 @@ def ic_optical_sensor():
 
 
 def controleur():
-    """Calculateur de bord : carte verte, gros microcontrôleur à coeur ambre, barrette de broches, voyants."""
-    B(5.2, 3.8, 0.18, 0, 0, 0, "pcb_vert", bev=0.03)
-    for (x, y, l, r) in ((-1.5, 1.2, 1.6, 0), (1.6, -1.15, 1.6, 0), (-2.0, -0.4, 1.4, 90), (2.1, 0.6, 1.2, 90), (0.0, -1.55, 2.6, 0)):
-        B(l, 0.08, 0.02, x, y, 0.18, "or", bev=0, rot=(0, 0, r))
-    S = 2.1
-    B(S, S, 0.3, 0, 0, 0.26, "puce_noire", bev=0.05)
-    O.pattes(S, S, 6, 0.42, 0.18, ((1, 0), (-1, 0), (0, 1), (0, -1)), z=0.22)
-    B(1.2, 1.2, 0.06, 0, 0, 0.56, "logique", bev=0.02)
-    B(0.5, 0.4, 0.04, -0.2, 0.2, 0.62, "logique_clair", bev=0.01)
-    # barrette de broches, au bord du fond
-    B(4.2, 0.5, 0.5, 0, 1.55, 0.18, "noir_mat", bev=0.04)
-    for k in range(10):
-        B(0.13, 0.13, 0.5, -1.9 + k * 0.42, 1.55, 0.6, "or", bev=0.01)
-    # voyants et condensateurs
-    B(0.34, 0.34, 0.18, -2.1, -1.4, 0.18, "voyant_vert", bev=0.03)
-    B(0.34, 0.34, 0.18, -1.6, -1.4, 0.18, "voyant_ambre", bev=0.03)
-    CY(0.28, 0.6, 2.05, -0.95, 0.18, "condensateur", verts=24)
-    CY(0.28, 0.6, 2.05, -0.2, 0.18, "condensateur", verts=24)
-    B(0.8, 0.4, 0.3, -1.9, 0.2, 0.18, "chrome", bev=0.15)
+    """Boîtier de commande (REFAIT, critique : la carte verte se confondait avec la carte imprimée et la carte mère) : boîte
+    plate en alu à ailettes, gros connecteur multibroche noir en façade, 2 voyants, court faisceau de 3 fils (écho du servo)."""
+    B(4.4, 3.0, 1.25, 0, 0, 0, "alu_brosse", bev=0.16)
+    for k in range(7):
+        B(0.18, 2.3, 0.36, -1.5 + k * 0.5, 0.25, 1.25, "alu_sombre", bev=0.03)
+    for sx in (-1, 1):
+        B(0.75, 3.4, 0.16, sx * 2.45, 0, 0, "alu_sombre", bev=0.03)
+        for sy in (-1, 1):
+            CY(0.13, 0.2, sx * 2.55, sy * 1.35, 0.0, "fond_noir", verts=12, bev=0)
+    B(2.5, 0.6, 0.9, -0.55, -1.7, 0.16, "noir_mat", bev=0.08)
+    B(2.1, 0.08, 0.6, -0.55, -2.0, 0.31, "fond_noir", bev=0)
+    for row in range(2):
+        for k in range(7):
+            B(0.13, 0.06, 0.13, -1.37 + k * 0.27, -2.04, 0.41 + row * 0.24, "or", bev=0)
+    B(0.34, 0.12, 0.34, 1.15, -1.53, 0.5, "voyant_vert", bev=0.03)
+    B(0.34, 0.12, 0.34, 1.7, -1.53, 0.5, "voyant_ambre", bev=0.03)
+    B(1.2, 0.04, 0.16, 1.42, -1.52, 0.95, "marquage", bev=0)
+    for i, c in enumerate(("cable_rouge", "cable_gris", "cable_jaune")):
+        tube([(-1.3 + i * 0.4, -2.05, 0.62), (-1.45 + i * 0.4, -2.7, 0.55), (-2.0 + i * 0.35, -3.1, 0.1)], 0.1, c)
 
 
 def ic_controller():
-    pivoter(capte(controleur), rot=(0, 0, 16))
+    pivoter(capte(controleur), rot=(0, 0, -14))
 
 
 def noyau():
@@ -125,42 +184,45 @@ def ic_guidance_core():
 
 
 def actionneur():
-    """Vérin à aimants (axe x) : anneaux rouges et bleus alternés, flasques alu, tige chromée, chapes."""
+    """Vérin à aimants (axe x), GROS (critique : il se lisait comme une résistance) : 3 paires d'anneaux rouges et bleus épais,
+    flasques alu boulonnées, tige chromée, chape en fourche franche avec son axe, oeil arrière."""
+    R = 1.55
     for k in range(6):
-        CYX(0.98, 0.42, -1.45 + k * 0.46, 0, 0, "aimant_rouge" if k % 2 == 0 else "aimant_bleu", verts=48, bev=0.03)
-    for x in (-2.1, 1.35):
-        CYX(1.06, 0.32, x, 0, 0, "alu_brosse", verts=48, bev=0.04)
-        for k in range(4):
-            a = math.pi / 4 + k * math.pi / 2
-            CYX(0.09, 0.42, x, 0.85 * math.cos(a), 0.85 * math.sin(a), "vis", verts=10)
-    CYX(0.32, 2.2, 2.5, 0, 0, "chrome", verts=32)
-    # chape avant et chape arrière
-    B(0.6, 0.7, 0.75, 3.75, 0, -0.38, "titane_sombre", bev=0.08)
-    CYX(0.16, 0.9, 3.85, 0, 0, "chrome", axe="y", verts=16)
-    B(0.5, 0.6, 0.6, -2.55, 0, -0.3, "titane_sombre", bev=0.08)
-    TOR(0.4, 0.12, -3.0, 0, 0, "titane_sombre", rot=(90, 0, 0), minor=10)
+        CYX(R, 0.6, -1.55 + k * 0.62, 0, 0, "aimant_rouge" if k % 2 == 0 else "aimant_bleu", verts=56, bev=0.04)
+    for x in (-2.2, 1.9):
+        CYX(R + 0.1, 0.36, x, 0, 0, "alu_brosse", verts=56, bev=0.05)
+        for k in range(6):
+            a = math.pi / 6 + k * math.pi / 3
+            CYX(0.11, 0.46, x, 1.38 * math.cos(a), 1.38 * math.sin(a), "vis", verts=10)
+    CYX(0.46, 2.0, 3.05, 0, 0, "chrome", verts=32)
+    B(0.5, 1.4, 1.0, 4.2, 0, -0.5, "titane_sombre", bev=0.06)
+    for s in (-1, 1):
+        B(1.1, 0.34, 1.0, 4.9, s * 0.53, -0.5, "titane_sombre", bev=0.06)
+    CYX(0.2, 1.7, 5.05, 0, 0, "chrome", axe="y", verts=16)
+    B(0.6, 0.9, 0.9, -2.7, 0, -0.45, "titane_sombre", bev=0.08)
+    TOR(0.5, 0.17, -3.25, 0, 0, "titane_sombre", rot=(90, 0, 0), minor=10)
 
 
 def ic_magnetic_actuator():
-    pivoter(capte(actionneur), rot=(0, -16, -28))
+    pivoter(capte(actionneur), rot=(0, -26, -36))
 
 
 def barreau():
-    """Barreau de grenat lilas lumineux (axe x), bagues-miroirs aux bouts, 2 colliers dorés."""
-    CYX(0.7, 4.6, 0, 0, 0, lum("lilas_yag"), verts=40, bev=0.03)
-    for x in (-2.45, 2.45):
-        CYX(0.82, 0.38, x, 0, 0, "chrome", verts=40, bev=0.04)
-        CYX(0.6, 0.06, x + (0.21 if x > 0 else -0.21), 0, 0, "alliage_blanc", verts=40, bev=0)
-    for x in (-1.0, 1.0):
-        TOR(0.74, 0.08, x, 0, 0, "or", rot=(0, 90, 0), minor=10)
+    """Barreau de grenat lilas SOMBRE et saturé, ligne de lumière vive au coeur (dégradé de face) ; faces d'extrémité en miroirs
+    polis sertis d'une bague fine (critique : les 2 bagues du milieu et les capuchons mats en faisaient un fusible)."""
+    CYX(0.78, 4.8, 0, 0, 0, mat_verre("grenat", (0.42, 0.10, 0.80)), verts=48, bev=0.03)
+    CYX(0.2, 4.7, 0, 0, 0, lum("lilas_yag", force=2.2), verts=16, bev=0)
+    for x in (-2.48, 2.48):
+        CYX(0.86, 0.2, x, 0, 0, "chrome", verts=48, bev=0.03)
+        CYX(0.7, 0.04, x + (0.11 if x > 0 else -0.11), 0, 0, "miroir", verts=48, bev=0)
 
 
 def ic_ndyag_rod():
-    pivoter(capte(barreau), rot=(0, -18, 32))
+    pivoter(capte(barreau), rot=(0, -10, 30))
 
 
-def tete_laser():
-    """Module laser (axe x, nez vers +x) : culasse à ailettes, 2 bobines de cuivre, nez chromé, lentille rouge, faisceau."""
+def tete_laser(faisceau=1.6):
+    """Module laser (axe x, nez vers +x) : culasse à ailettes, 2 bobines de cuivre, nez chromé, lentille rouge, faisceau rouge."""
     CYX(1.05, 1.6, -1.9, 0, 0, "noir_mat", verts=40, bev=0.04)
     for k in range(7):
         CYX(1.3, 0.08, -2.55 + k * 0.2, 0, 0, "alu_brosse", verts=40, bev=0.01)
@@ -170,38 +232,42 @@ def tete_laser():
         for k in range(5):
             TOR(1.0, 0.04, x - 0.28 + k * 0.14, 0, 0, "or_sombre", rot=(0, 90, 0), minor=8)
     lathe([(0.85, 0), (0.85, 0.3), (0.62, 0.9), (0.55, 1.15), (0, 1.15)], 1.05, 0, 0, "chrome", verts=40).rotation_euler = (0, math.radians(90), 0)
-    CYX(0.52, 0.06, 2.22, 0, 0, lum("rouge_laser", force=1.4), verts=32, bev=0)
-    rayon = lum("rouge_laser", mode="z", force=1.6, z0=0.0, z1=1.4)
-    o = lathe([(0.32, 0.0), (0.16, 0.9), (0.04, 1.4)], 2.25, 0, 0, rayon, verts=16)
-    o.rotation_euler = (0, math.radians(90), 0)
+    CYX(0.6, 0.06, 2.22, 0, 0, lum("rouge_laser", force=1.5), verts=32, bev=0)
+    if faisceau > 0:
+        rayon = lum("rouge_laser", mode="z", force=1.6, z0=0.0, z1=faisceau)
+        o = lathe([(0.38, 0.0), (0.2, faisceau * 0.65), (0.05, faisceau)], 2.25, 0, 0, rayon, verts=16)
+        o.rotation_euler = (0, math.radians(90), 0)
     B(2.6, 1.2, 0.3, -0.6, 0, -1.25, "alu_sombre", bev=0.05)
 
 
 def ic_laser_module():
-    pivoter(capte(tete_laser), rot=(0, -6, -128))
+    """Tête de PROFIL sur la diagonale (critique : vue dans l'axe, elle se confondait avec le capteur optique)."""
+    pivoter(capte(tete_laser), rot=(0, 14, -62))
 
 
 # ------------------------------------------------------------------------------------------------------------------
 # Circuits
 # ------------------------------------------------------------------------------------------------------------------
 def carte_nue():
-    """Carte imprimée nue (âge 4) : plaque verte, pistes et pastilles étamées, trous, connecteur de bord doré."""
+    """Carte imprimée nue (âge 4), vue plongeante : plaque verte, grille de trous percés, grosses pastilles étamées, pistes
+    larges, connecteur de bord doré sur toute l'arête avant ; aucune puce (critique : se distinguer du contrôleur et de la
+    carte mère)."""
     B(5.4, 3.8, 0.18, 0, 0, 0, "pcb_vert", bev=0.03)
-    pistes = [(-1.6, 0.9, 2.2, 0), (-0.5, 0.0, 1.8, 90), (0.8, -0.9, 2.6, 0), (1.8, 0.3, 1.6, 90), (-1.9, -0.6, 1.4, 90),
-              (0.6, 1.3, 2.0, 0), (-0.9, -1.4, 1.6, 0)]
+    pistes = [(-1.3, 1.0, 2.2, 0), (-0.15, 0.25, 1.5, 90), (1.0, -0.45, 2.3, 0), (2.4, 0.45, 1.8, 90), (-2.2, 0.15, 1.3, 90)]
     for (x, y, l, r) in pistes:
-        B(l, 0.16, 0.03, x, y, 0.18, "etain", bev=0, rot=(0, 0, r))
-    pastilles = [(-2.7 + 0.0, 0.9), (-0.5, 0.9), (-0.5, -0.9), (2.1, -0.9), (1.8, 1.1), (1.8, -0.5), (-1.9, 0.1), (-1.9, -1.3),
-                 (-0.4, 1.3), (1.6, 1.3), (-1.7, -1.4), (-0.1, -1.4)]
-    for (x, y) in pastilles:
-        CY(0.24, 0.05, x, y, 0.18, "etain", verts=24, bev=0)
-        CY(0.09, 0.06, x, y, 0.19, "fond_noir", verts=12, bev=0)
+        B(l, 0.24, 0.03, x, y, 0.18, "etain", bev=0, rot=(0, 0, r))
+    for (x, y) in ((-2.4, 1.0), (-0.15, 1.0), (-0.15, -0.45), (2.4, -0.45), (2.4, 1.35), (-2.2, -0.5)):
+        CY(0.36, 0.05, x, y, 0.18, "etain", verts=28, bev=0)
+        CY(0.12, 0.06, x, y, 0.19, "fond_noir", verts=12, bev=0)
+    for i in range(4):
+        for j in range(3):
+            x, y = 0.45 + i * 0.45, 0.35 + j * 0.45
+            CY(0.17, 0.04, x, y, 0.18, "etain", verts=16, bev=0)
+            CY(0.1, 0.06, x, y, 0.19, "fond_noir", verts=12, bev=0)
     for sx in (-1, 1):
-        for sy in (-1, 1):
-            CY(0.26, 0.04, sx * 2.35, sy * 1.55, 0.18, "etain", verts=24, bev=0)
-            CY(0.13, 0.05, sx * 2.35, sy * 1.55, 0.19, "fond_noir", verts=16, bev=0)
-    for k in range(9):
-        B(0.28, 0.6, 0.03, -1.6 + k * 0.4, -1.62, 0.18, "or", bev=0)
+        CY(0.26, 0.04, sx * 2.4, 1.6 if sx < 0 else -0.05, 0.18, "etain", verts=24, bev=0)
+    for k in range(15):
+        B(0.24, 0.9, 0.03, -2.45 + k * 0.35, -1.42, 0.18, "or", bev=0)
 
 
 def ic_printed_circuit_board():
@@ -209,61 +275,73 @@ def ic_printed_circuit_board():
 
 
 def oscillateur():
-    """Boîtier HC-49 : ovale argent debout, socle sombre, 2 pattes d'or, fenêtre sur le quartz cyan lumineux."""
-    B(2.0, 1.15, 2.6, 0, 0, 0.35, "chrome", bev=0.05)
+    """Boîtier HC-49 (REFAIT, critique : gris foncé, il se lisait comme une prise ou une enceinte) : métal ARGENT brillant, dessus
+    arrondi, fenêtre sur un disque de quartz cyan lumineux plein, socle sombre, 2 longues pattes d'or fines."""
+    W, H, r, ep = 2.8, 3.0, 1.0, 1.15
+    pts = [(-W / 2, 0.0), (W / 2, 0.0)]
+    for k in range(9):
+        a = math.radians(k * 90 / 8)
+        pts.append((W / 2 - r + r * math.cos(a), H - r + r * math.sin(a)))
+    for k in range(9):
+        a = math.radians(90 + k * 90 / 8)
+        pts.append((-W / 2 + r + r * math.cos(a), H - r + r * math.sin(a)))
+    o = prisme("hc49", pts, ep, "argent_hc49", z=-ep / 2, bev=0.06)
+    o.rotation_euler = (math.radians(90), 0, 0)
+    B(W + 0.25, ep + 0.25, 0.32, 0, 0, -0.32, "noir_mat", bev=0.05)
     for sx in (-1, 1):
-        CY(0.575, 2.6, sx * 1.0, 0, 0.35, "chrome", verts=32, bev=0.03)
-    B(3.4, 1.4, 0.4, 0, 0, 0.0, "noir_mat", bev=0.06)
-    for sx in (-1, 1):
-        CY(0.13, 1.2, sx * 0.9, 0, -1.2, "or", verts=12)
-        B(0.26, 0.26, 0.12, sx * 0.9, 0, -1.25, "or", bev=0.02)
-    CYX(0.95, 0.06, 0, -0.6, 1.75, "noir_mat", axe="y", verts=40, bev=0)
-    CYX(0.82, 0.08, 0, -0.62, 1.75, lum("quartz"), axe="y", verts=40, bev=0)
-    CYX(0.36, 0.1, 0, -0.64, 1.75, "or", axe="y", verts=32, bev=0)
-    for k in range(3):
-        B(1.5, 0.04, 0.08, 0, -0.6, 0.65 + k * 0.17, "marquage", bev=0)
+        CY(0.07, 2.3, sx * 0.75, 0, -2.6, "or", verts=10)
+    TOR(0.98, 0.08, 0, -ep / 2 - 0.03, 1.55, "chrome", rot=(90, 0, 0), minor=10)
+    CYX(0.92, 0.08, 0, -ep / 2 - 0.03, 1.55, lum("quartz", force=1.15), axe="y", verts=48, bev=0)
 
 
 def ic_crystal_oscillator():
-    pivoter(capte(oscillateur), rot=(0, 0, 22))
+    pivoter(capte(oscillateur), rot=(0, 0, 24))
 
 
 # ------------------------------------------------------------------------------------------------------------------
 # Silicium
 # ------------------------------------------------------------------------------------------------------------------
 def ic_metallurgical_silicon():
-    """3 blocs gris foncé à éclat métallique, facettes franches."""
-    roche(1.55, -0.6, 0.4, 1.1, "silicium_met", 31, ecrase=0.75, rugueux=0.32, subdiv=1)
-    roche(1.25, 1.35, -0.4, 0.85, "silicium_met", 32, ecrase=0.8, rugueux=0.3, subdiv=1)
-    roche(0.95, -0.4, -1.4, 0.6, "silicium_met", 33, ecrase=0.8, rugueux=0.3, subdiv=1)
+    """3 blocs EMPILÉS (2 en bas, 1 dessus), de tailles inégales, à reflets métalliques bleutés (critique : en Y, un shuriken)."""
+    roche(1.45, -1.05, 0.25, 0.95, "silicium_met", 31, ecrase=0.75, rugueux=0.3, subdiv=1)
+    roche(1.15, 1.25, -0.2, 0.8, "silicium_met", 32, ecrase=0.8, rugueux=0.3, subdiv=1)
+    roche(1.0, 0.15, 0.05, 2.2, "silicium_met", 34, ecrase=0.85, rugueux=0.28, subdiv=1)
 
 
-def barreau_poly(L, R, graine):
-    """Tronçon de barreau Siemens (axe Z) : surface en chou-fleur (rayon bosselé), cassures irrégulières aux bouts."""
+def troncon_poly(L, R, graine):
+    """Tronçon de barreau Siemens (axe x) : âme, GROS nodules de chou-fleur (4 rangs), bouts cassés à plat à section claire."""
     rng = random.Random(graine)
-    prof = [(0.0, 0.0), (R * 0.55, rng.uniform(-0.12, 0.05)), (R * 0.85, 0.12)]
-    n = 18
-    for i in range(1, n):
-        z = 0.12 + (L - 0.24) * i / n
-        prof.append((R * (1 + 0.06 * math.sin(i * 2.1) + rng.uniform(-0.04, 0.04)), z))
-    prof += [(R * 0.82, L - 0.1), (R * 0.5, L + rng.uniform(-0.05, 0.12)), (0.0, L)]
-    return lathe(prof, 0, 0, -L / 2, "polysilicium", verts=28, lisse=False, bev=0.01)
+    CYX(R, L, 0, 0, 0, "polysilicium", verts=32)
+    for i in range(4):
+        x = -L / 2 + L * (i + 0.5) / 4
+        for k in range(7):
+            a = 2 * math.pi * k / 7 + rng.uniform(0, 0.6) + i * 0.45
+            r = R * rng.uniform(0.4, 0.52)
+            SPH(r, x + rng.uniform(-0.15, 0.15), (R - r * 0.35) * math.cos(a), (R - r * 0.35) * math.sin(a), "polysilicium", seg=20, rings=10)
+    for s in (-1, 1):
+        CYX(R * 0.98, 0.04, s * (L / 2 + 0.02), 0, 0, "silicium_casse", verts=32, bev=0)
 
 
 def ic_pure_silicon():
-    pivoter(capte(barreau_poly, 4.8, 0.9, 5), rot=(0, 84, 30), loc=(-0.3, 0.9, 0.9))
-    pivoter(capte(barreau_poly, 4.2, 0.85, 6), rot=(0, 84, 30), loc=(0.5, -1.0, 0.85))
-    roche(0.55, 2.2, 0.2, 0.45, "polysilicium", 7, ecrase=0.8, rugueux=0.3, subdiv=1)
+    """2 tronçons CROISÉS en X (critique : parallèles, ils faisaient des saucisses et rappelaient le lingot du calcul)."""
+    pivoter(capte(troncon_poly, 4.8, 0.72, 5), rot=(0, 0, 34), loc=(0, 0, 0.8))
+    pivoter(capte(troncon_poly, 4.8, 0.72, 6), rot=(0, 0, -34), loc=(0, 0, 2.15))
+
+
+def tranche_nue(R=2.6, h=0.14):
+    """Tranche nue : disque à méplat taillé en corde droite, miroir sombre à reflet irisé (couche mince)."""
+    m = mat_irise("m_tranche_irisee", R)
+    demi = math.radians(26)
+    a0, a1 = -math.pi / 2 + demi, 3 * math.pi / 2 - demi
+    n = 90
+    pts = [(R * math.cos(a0 + (a1 - a0) * i / n), R * math.sin(a0 + (a1 - a0) * i / n)) for i in range(n + 1)]
+    prisme("tranche", pts, h, m, bev=0.02)
 
 
 def ic_silicon_wafer():
-    """Pile de 3 tranches nues, miroir bleu-gris, méplat (même galette que la tranche gravée du calcul)."""
+    """Pile de 3 tranches nues, moins exposée (critique : des assiettes blanches), méplat en corde droite, reflet irisé."""
     for i in range(3):
-        def une():
-            O.galette(2.6, 0.14, "silicium_poli")
-            TOR(2.58, 0.05, 0, 0, 0.07, "alu_brosse")
-            B(1.3, 0.3, 0.16, 0, -2.52, 0.0, "fond_noir", bev=0)
-        pivoter(capte(une), rot=(0, 0, 8 + i * 9), loc=(i * 0.18, i * 0.32, i * 0.55))
+        pivoter(capte(tranche_nue), rot=(0, 0, 8 + i * 9), loc=(i * 0.18, i * 0.32, i * 0.5))
 
 
 # ------------------------------------------------------------------------------------------------------------------
@@ -304,38 +382,43 @@ def ic_coil():
     pivoter(capte(bobine), rot=(0, 0, 22))
 
 
-def ruban(points, larg, z, m):
-    """Ruban plat vertical suivant des points (x, y), de largeur larg en z (une face, deux côtés rendus)."""
+
+
+
+def ruban3(points, larg, m):
+    """Ruban plat qui suit des points (x, y, z) et s'étend de larg vers le haut (une face, épaissie par SOLIDIFY)."""
     vs, fs = [], []
-    for (x, y) in points:
+    for (x, y, z) in points:
         vs.append((x, y, z))
         vs.append((x, y, z + larg))
     for i in range(len(points) - 1):
         fs.append((2 * i, 2 * i + 2, 2 * i + 3, 2 * i + 1))
-    return P._maille("ruban", vs, fs, m)
+    o = P._maille("ruban", vs, fs, m)
+    o.modifiers.new("ep", "SOLIDIFY").thickness = 0.05
+    return o
 
 
 def galette_ruban():
-    """Galette plate de ruban YBCO sur moyeu bleu, bout déroulé, liseré de givre cyan."""
-    CY(2.35, 0.75, 0, 0, 0, "ruban_ybco", verts=96, bev=0.02)
-    for k in range(7):
-        TOR(0.95 + k * 0.22, 0.012, 0, 0, 0.75, "noir_mat", minor=6)
-    CY(0.85, 0.9, 0, 0, -0.08, "moyeu_bleu", verts=48, bev=0.04)
-    CY(0.35, 0.95, 0, 0, -0.08, "fond_noir", verts=24, bev=0.02)
-    TOR(2.36, 0.06, 0, 0, 0.75, lum("givre_lum"), minor=8)
-    TOR(2.36, 0.06, 0, 0, 0.0, lum("givre_lum"), minor=8)
+    """3 galettes de ruban YBCO empilées : la tranche montre les couches (critique : un disque plat se lisait comme un CD) ;
+    bout libre large qui se relève ; givre en liseré cyan sur la tranche seulement ; moyeu bleu."""
+    for k in range(3):
+        z = k * 0.44
+        CY(2.3, 0.38, 0, 0, z, "ruban_ybco", verts=96, bev=0.02)
+        if k < 2:
+            CY(2.26, 0.06, 0, 0, z + 0.38, "ruban_sombre", verts=96, bev=0)
+    zt = 2 * 0.44 + 0.38
+    for k in range(6):
+        TOR(1.0 + k * 0.22, 0.014, 0, 0, zt, "ruban_sombre", minor=6)
+    CY(0.85, zt + 0.14, 0, 0, -0.06, "moyeu_bleu", verts=48, bev=0.04)
+    CY(0.35, zt + 0.18, 0, 0, -0.08, "fond_noir", verts=24, bev=0.02)
+    TOR(2.31, 0.035, 0, 0, 0.63, lum("givre_lum"), minor=8)
     pts = []
-    for i in range(12):
-        t = i / 11
-        a = -1.0 + t * 1.6
-        r = 2.36 + t * t * 1.4
-        pts.append((r * math.cos(a), r * math.sin(a) - t * 0.3))
-    r = ruban(pts, 0.7, 0.03, "ruban_ybco")
-    r.modifiers.new("ep", "SOLIDIFY").thickness = 0.05
-    rng = random.Random(4)
-    for k in range(5):
-        a = rng.uniform(0, 6.28)
-        lathe([(0.14, 0.0), (0.0, 0.35)], 2.3 * math.cos(a), 2.3 * math.sin(a), 0.75, "givre", verts=6, lisse=False)
+    for i in range(14):
+        t = i / 13
+        a = -0.9 + t * 1.4
+        r = 2.32 + t * t * 1.3
+        pts.append((r * math.cos(a), r * math.sin(a) - t * 0.4, zt - 0.5 + t * t * 1.4))
+    ruban3(pts, 0.6, "alu_brosse")
 
 
 def ic_superconducting_tape():

@@ -11,9 +11,9 @@ FAMILLES = ("ambre", "violet", "bleu", "magenta")
 MAT.update({
     # familles : peinture des cornières, sangles et plateaux
     "peint_ambre": dict(rgb=lin("#E3901E"), rough=0.30, met=0.45, grain=0.07, creux=0.6, arete=0.8, bosse=0.06),
-    "peint_violet": dict(rgb=lin("#7E3FD8"), rough=0.30, met=0.45, grain=0.07, creux=0.6, arete=0.8, bosse=0.06),
+    "peint_violet": dict(rgb=lin("#6248E6"), rough=0.30, met=0.45, grain=0.07, creux=0.6, arete=0.8, bosse=0.06),
     "peint_bleu": dict(rgb=lin("#1F7BDC"), rough=0.30, met=0.45, grain=0.07, creux=0.6, arete=0.8, bosse=0.06),
-    "peint_magenta": dict(rgb=lin("#D02FA2"), rough=0.30, met=0.45, grain=0.07, creux=0.6, arete=0.8, bosse=0.06),
+    "peint_magenta": dict(rgb=lin("#EE3F86"), rough=0.30, met=0.45, grain=0.07, creux=0.6, arete=0.8, bosse=0.06),
     # caisse de transport
     "bois_caisse": dict(rgb=lin("#5C4128"), rough=0.62, met=0.0, grain=0.22, gs=18.0, creux=0.7, arete=0.6, bosse=0.12),
     "acier_caisse": dict(rgb=lin("#3A3D44"), rough=0.32, met=0.8, grain=0.08, creux=0.6, arete=1.0, bosse=0.06),
@@ -35,25 +35,32 @@ MAT.update({
     "laque_cuivre": dict(rgb=lin("#B0401C"), rough=0.12, met=0.75, grain=0.04, creux=0.5, arete=0.5, bosse=0.04),
     "tole": dict(rgb=lin("#7C828C"), rough=0.30, met=0.85, grain=0.10, gs=90.0, creux=0.8, arete=0.8, bosse=0.06),
     "etain": dict(rgb=(0.70, 0.71, 0.73), rough=0.16, met=1.0, grain=0.05, creux=0.4, arete=0.4, bosse=0.03),
-    "silicium_met": dict(rgb=(0.24, 0.25, 0.29), rough=0.24, met=0.9, grain=0.24, gs=26.0, creux=0.7, arete=1.3, bosse=0.20),
+    "silicium_met": dict(rgb=(0.20, 0.23, 0.31), rough=0.18, met=0.95, grain=0.24, gs=26.0, creux=0.7, arete=1.3, bosse=0.20),
     "polysilicium": dict(rgb=(0.50, 0.53, 0.60), rough=0.26, met=0.9, grain=0.20, gs=32.0, creux=0.8, arete=0.6, bosse=0.20),
     "ruban_ybco": dict(rgb=(0.40, 0.41, 0.44), rough=0.18, met=1.0, grain=0.05, gs=150.0, creux=0.6, arete=0.6, bosse=0.03),
+    "tranche": dict(rgb=(0.20, 0.25, 0.36), rough=0.08, met=0.75, grain=0.02, creux=0.2, arete=0.3, bosse=0.04),
+    "silicium_casse": dict(rgb=(0.62, 0.65, 0.72), rough=0.30, met=0.6, grain=0.30, gs=40.0, creux=0.4, arete=0.6, bosse=0.25),
+    "miroir": dict(rgb=(0.92, 0.93, 0.95), rough=0.30, met=1.0, grain=0.01, creux=0.2, arete=0.2, bosse=0.0),
+    "ruban_sombre": dict(rgb=(0.10, 0.10, 0.12), rough=0.30, met=0.6, grain=0.04, creux=0.4, arete=0.6, bosse=0.02),
+    "or_mur": dict(rgb=lin("#E2A83A"), rough=0.32, met=0.55, grain=0.06, creux=0.6, arete=0.6, bosse=0.06),
+    "argent_hc49": dict(rgb=(0.86, 0.87, 0.89), rough=0.10, met=1.0, grain=0.03, creux=0.5, arete=0.3, bosse=0.03),
     "moyeu_bleu": dict(rgb=lin("#1E5FB8"), rough=0.28, met=0.5, grain=0.05, creux=0.5, arete=0.6, bosse=0.03),
 })
 
 LUM.update({
     "fam_ambre": (lin("#FFD884"), lin("#E07A10"), 1.15),
-    "fam_violet": (lin("#E0B8FF"), lin("#7A30E0"), 1.15),
+    "fam_violet": (lin("#C8C4FF"), lin("#5638F0"), 1.15),
     "fam_bleu": (lin("#B4E2FF"), lin("#1A70E0"), 1.15),
-    "fam_magenta": (lin("#FFA8EE"), lin("#C8189E"), 1.15),
+    "fam_magenta": (lin("#FFB4D2"), lin("#F02A78"), 1.15),
     "joint_orange": (lin("#FFB060"), lin("#E04808"), 1.2),
     "vert_cloche": (lin("#C8FF9A"), lin("#20A030"), 1.0),
     "violet_cristal": (lin("#F0C8FF"), lin("#8028E0"), 1.0),
     "cyan_levite": (lin("#C8FAFF"), lin("#10A8D8"), 1.2),
     "rose_tore": (lin("#FFB0F0"), lin("#E020B0"), 1.2),
     "rouge_laser": (lin("#FFB090"), lin("#E01808"), 1.3),
-    "lilas_yag": (lin("#FBE0FF"), lin("#B048D8"), 0.9),
+    "lilas_yag": (lin("#F4C0FF"), lin("#5A1488"), 1.05),
     "quartz": (lin("#D8FAFF"), lin("#38A8D8"), 0.9),
+    "vitrail": (lin("#E08A20"), lin("#5A1E02"), 0.6),
     "or_halo": (lin("#FFF0B0"), lin("#E0A020"), 1.0),
 })
 
