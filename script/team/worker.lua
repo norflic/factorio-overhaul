@@ -40,6 +40,7 @@ local Harvest = require("script.team.harvest") -- lot KIT : entités qui donnent
 local Charge = require("shared.team.charge_four") -- lot FOURS : quantité emportée pour remplir les fours à la pile
 local Front = require("script.team.front") -- lot DEFENSE-FRONT : tourelles posées là où les pièces tombent
 local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : tourelles posées dans l'emprise d'un îlot isolé
+local Garde = require("script.team.garde_site") -- lot PERIMETRE2 : groupes de tourelles des avant-postes
 local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites (tâche « rebuild »)
 local Mi = require("shared.team.main_inventaire") -- lot MAIN-INVENTAIRE : minage à la main, inventaire plein, minerai au sol
 local Sorties = require("script.team.sorties") -- lot CHARBON-MAIN : la ressource qui dort dans les coffres des avant-postes bruts
@@ -502,8 +503,8 @@ function Worker.program(f, task, surface, tick)
       if not task.pos then return nil end
       return { { "home" }, { "take", task.items, strict = true }, { "goto", task.pos, 5 }, { "act", "fortify" }, { "home" } }
     end
-    -- Lot DEFENSE-FRONT : la cellule du front ; on va jusqu'à son centre
-    if task.outpost == "front" then
+    -- Lot DEFENSE-FRONT : la cellule du front ; on va jusqu'à son centre (lot PERIMETRE2 : le groupe d'un avant-poste aussi)
+    if task.outpost == "front" or task.outpost == "garde" then
       if not task.pos then return nil end
       return { { "home" }, { "take", task.items, strict = true }, { "goto", task.pos, 5 }, { "act", "fortify" }, { "home" } }
     end
@@ -801,6 +802,11 @@ ACTS.fortify = function(agent, f, task, surface)
   end
   if task.outpost == "ilot" then -- lot ILOTS-MURS
     local n = Ilots.place(f, surface, task, main_inv(agent))
+    if task.defend then f.stats.defend_fortified = (f.stats.defend_fortified or 0) + n end
+    return n > 0
+  end
+  if task.outpost == "garde" then -- lot PERIMETRE2
+    local n = Garde.place(f, surface, task, main_inv(agent))
     if task.defend then f.stats.defend_fortified = (f.stats.defend_fortified or 0) + n end
     return n > 0
   end
@@ -1715,6 +1721,7 @@ Registry.on_removed(function(agent)
     -- Lot DEFENSE-FRONT : porteur tué en allant renforcer une cellule du front : la cellule se repose (T.lethal_ticks)
     if t and t.kind == "fortify" and t.outpost == "front" then Front.on_lost(f, t.cell_key, agent.death_cause) end
     if t and t.kind == "fortify" and t.outpost == "ilot" then Ilots.on_lost(f, agent.id, agent.death_cause) end -- lot ILOTS-MURS
+    if t and t.kind == "fortify" and t.outpost == "garde" then Garde.on_lost(f, t.garde, agent.death_cause) end -- lot PERIMETRE2
     -- Lot SCALE (correction après revue) : QG OCCUPÉ par les biters (factions) : T.hq_lethal_deaths PNJ tués par la force
     -- « enemy » à moins de Worker.SAFE_HOME tuiles du QG en moins de T.hq_lethal_window : plus de recrue pendant
     -- T.hq_lethal_ticks (script/team/team.lua, view.hold_recruits). Dates gardées : les T.hq_lethal_deaths dernières.

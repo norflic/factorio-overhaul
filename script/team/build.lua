@@ -2262,8 +2262,14 @@ local function plan_enceinte(f, surface, p)
     areas = ring_areas(x0, y0, x1, y1)
   end
   local m = enc_masks(f, surface, areas)
+  -- Lot PERIMETRE2 : tuiles jamais murées (rendues par le joueur, usine du joueur) : crochet posé par script/team/garde_site.lua
+  local extra = Build.wall_mask and Build.wall_mask(f, surface, areas) or nil
   local function skip(tx, ty)
     local k = P.tkey(tx, ty)
+    if extra then
+      local why = extra(tx, ty)
+      if why then return why end
+    end
     if m.water[k] then return "eau" end
     if m.ore[k] then return "ressource" end
     if m.blocked[k] then return "bloque" end
@@ -4656,6 +4662,13 @@ function Build.space_step(f, surface, tick)
   local b = f.build
   if b.opts.espace == false or tick < (b.space_next or 0) then return end
   b.space_next = tick + Enc.CHECK_TICKS
+  -- Lot PERIMETRE2 (G3) : anneau de murs des avant-postes attaqués (crochet posé par script/team/garde_site.lua ; votre équipe), avant l'enceinte
+  if Build.outpost_walls then
+    Build.outpost_walls(f, surface, tick, { prio = Build.PRIO - 15,
+      equiv = function() local wr = wall_recipe(f) return wr and (Stock.count(f, wr.item) + craftable_walls(f, wr)) or 0 end,
+      request = function(spec) return Build.request(f, spec) end,
+      repair = function(hold) repair_enclosure(f, surface, tick, hold, "[FO-PERIMETRE]") end })
+  end
   local enc = b.enc
   if enc then
     if not enc.segs then upgrade_legacy_enclosure(enc) end
@@ -4706,7 +4719,7 @@ function Build.space_step(f, surface, tick)
   local on = b.opts.enceinte
   -- Lot PERIMETRE2 (QCM du DC, 4/11 18 h 05 : « Oui, enceinte et avant-postes ») : votre équipe ceint aussi sa base (T.enceinte_joueur) ;
   -- les murs posés à la main ne sont jamais touchés (read_masks : un mur d'une force non neutre est une tuile BLOQUÉE, jamais défrichée).
-  if on == nil then on = (not f.is_player) or T.enceinte_joueur == true end
+  if on == nil then on = (not f.is_player) or (T.enceinte_joueur == true and not f.garde_temoin) end -- (f.garde_temoin : banc témoin, fo-garde)
   if not on or tick < (b.enc_retry or 0) or not Enc.enclosure_due(info) then return end
   -- premier segment : le rayon n'est figé (b.enc) que si un segment est vraiment demandé
   -- lot ENCEINTE3 : contour serré sur l'empreinte (bornes figées avec le rayon) ; nil : le rayon, comme avant

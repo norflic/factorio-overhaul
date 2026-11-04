@@ -15,9 +15,13 @@ local chest = s.create_entity({ name = "fo-team-chest", position = { x = 5, y = 
 W().events[defines.events.on_built_entity]({ created_entity = chest, player_index = 1, tick = game.tick })
 M.run_ticks(18300)
 local furnace = s.create_entity({ name = "stone-furnace", position = { x = 60, y = 5 }, force = "player" })
+local State = require("script.faction.state")
+State.own(furnace, global.fo.pteam.team.id, "sink", 1) -- four de VOTRE ÉQUIPE (relecture du lead, point 7)
+local mine = s.create_entity({ name = "stone-furnace", position = { x = 80, y = 5 }, force = "player" }) -- four posé par le JOUEUR
 local tur = s.create_entity({ name = "gun-turret", position = { x = 66, y = 5 }, force = "player" })
 local biter = s.create_entity({ name = "small-biter", position = { x = 61, y = 6 }, force = "enemy" })
 W().events[defines.events.on_entity_died]({ entity = furnace, force = game.forces.enemy, cause = biter, tick = game.tick })
+W().events[defines.events.on_entity_died]({ entity = mine, force = game.forces.enemy, cause = biter, tick = game.tick })
 local own = s.create_entity({ name = "stone-furnace", position = { x = 70, y = 5 }, force = "player" })
 W().events[defines.events.on_entity_died]({ entity = own, force = game.forces.player, tick = game.tick })
 local lines, rel = {}, {}
@@ -27,7 +31,7 @@ for _, l in ipairs(W().logs) do
 end
 print("    " .. tostring(lines[1]))
 print("    " .. tostring(rel[#rel]))
-check(#lines == 1, "une seule ligne de perte (la perte par sa propre force ignorée) : " .. #lines)
+check(#lines == 1, "une seule ligne de perte (la perte par sa propre force et le four du joueur ignorés) : " .. #lines)
 check(lines[1] and lines[1]:find("stone-furnace (fonderie) site base cote E", 1, true) ~= nil, "catégorie, site, côté")
 check(lines[1] and lines[1]:find("tueur mordeur | tourelles a portee 1 dont armees 0", 1, true) ~= nil and lines[1]:find("manque b", 1, true) ~= nil,
   "tueur, tourelle vide à portée, manque b")

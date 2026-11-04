@@ -69,7 +69,7 @@ function D.think(f, view, plan, tick)
     end
   end
   for _, p in ipairs(blocked) do
-    local kind = (p.id == "hq" or p.id == "front" or p.id == "plant" or p.id == "ilot") and p.id or "outpost" -- (ILOTS-MURS : « ilot »)
+    local kind = (p.id == "hq" or p.id == "front" or p.id == "plant" or p.id == "ilot" or p.id == "garde") and p.id or "outpost" -- (ILOTS-MURS : « ilot » ; PERIMETRE2 : « garde »)
     local k = kind .. ":" .. p.why
     why[k] = (why[k] or 0) + 1
   end
