@@ -461,7 +461,8 @@ function Capital.goal(f, view, book, tick, w)
     available = function(item) return unlocked(f, item) end,
     unit_cost = unit_cost_fn(f, book), stock = view.stock or {}, weights = w,
     threat = view.threatened or (f.pvp and f.pvp.declared) or false, current = c.current and c.current.key or nil,
-    exclude = exclude, defer = c.defer, thaw = (c.thaw and c.thaw.active) or false, tick = tick }
+    exclude = exclude, defer = c.defer, thaw = (c.thaw and c.thaw.active) or false, tick = tick,
+    craftable = book and function(item) return book:handcraftable(item) end or nil } -- lot AGEBLOCAGE (Cap.raw_covered)
   local d = Cap.choose(L, census, ctx)
   -- Lot AGES : la valeur des améliorations payées PENDANT que le centre est payable (Cap.starved) ; remise à zéro
   -- quand le centre change (niveau suivant, autre centre) ; le compte vit dans la sauvegarde (nombres et chaînes seulement).

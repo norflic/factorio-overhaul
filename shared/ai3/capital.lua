@@ -436,7 +436,9 @@ function Cap.choose(Ld, census, ctx)
   local first = res.cands[1]
   local starved = false
   for _, c in ipairs(res.cands) do
-    if c.center and (Cap.starved(ctx.defer, c, ctx.tick) or ctx.thaw) then first, starved = c, true end
+    if c.center and (Cap.starved(ctx.defer, c, ctx.tick, Cap.raw_covered(c.cost, ctx.stock, ctx.craftable)) or ctx.thaw) then
+      first, starved = c, true
+    end
     -- Lot AGEBLOCAGE (relecture, m1) : le journal dit si le passe-droit vient du report stérile (aucune valeur reportée) -- ctx.thaw : le gel du centre est levé (shared/team/degel.lua)
   end
   local d = first and {} or { none = true }
@@ -466,14 +468,28 @@ end
 --- centre `key` était payable, tenue par le runtime ; `quiet` : tick depuis lequel le centre est payable sans qu'aucune
 --- amélioration soit payée, Cap.defer_clock), gate = le candidat centre (gate.value : sa valeur), tick = maintenant (nil : la
 --- règle du report stérile ne joue pas).
-function Cap.starved(defer, gate, tick)
+function Cap.starved(defer, gate, tick, covered)
   if not (defer and gate and gate.center and gate.key and defer.key == gate.key) then return false end
   local value = gate.value or 0
   if value <= 0 then return false end
   if tick ~= nil and defer.cool_until ~= nil and tick < defer.cool_until then return false end -- priorité rendue (Cap.PRIO_COOL)
   if (defer.spent or 0) * 100 >= value * Cap.DEFER_PCT then return true end
-  -- Lot AGEBLOCAGE : report stérile (rien payé depuis Cap.DEFER_IDLE ticks, centre payable).
-  return tick ~= nil and defer.quiet ~= nil and tick - defer.quiet >= Cap.DEFER_IDLE
+  -- Lot AGEBLOCAGE : report stérile (rien payé depuis Cap.DEFER_IDLE ticks, centre payable), seulement si `covered` n'est pas faux
+  -- (Cap.raw_covered : la matière non fabricable du coût est au stock libre).
+  return covered ~= false and tick ~= nil and defer.quiet ~= nil and tick - defer.quiet >= Cap.DEFER_IDLE
+end
+
+--- Lot AGEBLOCAGE, essai 2 de la correction B1 : le report STÉRILE ne met le centre devant que si la matière NON fabricable à la
+--- main de son coût (plaques, briques : `craftable(objet)` faux) est déjà au stock libre ; les pièces fabricables suivent. Banc
+--- dc-croissance 123456789 à 30 ouvriers (essai 1) : centres passés devant avec 0 fer libre (Émeraude), 227 fers sur 310 (Écarlate)
+--- ou 23 briques sur 160 (Azur), jamais payés, et pendant ce temps aucune autre amélioration (25 contre 75 au témoin, 0 âge 2 contre
+--- 2). Sans `craftable` (appel d'avant) : nil, la règle joue comme avant.
+function Cap.raw_covered(cost, stock, craftable)
+  if not craftable then return nil end
+  for _, it in ipairs(cost or {}) do
+    if not craftable(it[1]) and ((stock or {})[it[1]] or 0) < it[2] then return false end
+  end
+  return true
 end
 
 --- Lot AGEBLOCAGE : horloge du report à chaque décision. `open` = le centre est payable à cette décision (Cap.gate_open) ; porte

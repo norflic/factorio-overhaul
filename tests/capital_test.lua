@@ -516,6 +516,30 @@ local function run_all()
     local ord = Cap.craft_first({ { "iron-plate", 6 }, { "iron-gear-wheel", 3 }, { "stone-brick", 2 }, { "electronic-circuit", 2 } }, book)
     check(ord[1][1] == "iron-gear-wheel" and ord[2][1] == "electronic-circuit" and ord[3][1] == "iron-plate" and ord[4][1] == "stone-brick",
       "§15 ordre du besoin : pièces fabricables d'abord, dans l'ordre du coût, puis le reste")
+    -- (e) Essai 2 de la correction B1 : le report stérile ne met le centre devant que si sa matière non fabricable est au stock libre.
+    local craft = function(item) return item == "electronic-circuit" or item == "iron-gear-wheel" end
+    local ccost = gate.cost
+    local full = {}
+    for _, it in ipairs(ccost) do full[it[1]] = it[2] end
+    check(Cap.raw_covered(ccost, full, craft) == true, "§15e coût du centre au stock libre : couvert")
+    local nobrick = {}
+    for k, v in pairs(full) do nobrick[k] = v end
+    nobrick["stone-brick"] = 23
+    check(Cap.raw_covered(ccost, nobrick, craft) == false, "§15e 23 briques sur 160 (non fabricables) : pas couvert")
+    local nocirc = {}
+    for k, v in pairs(full) do nocirc[k] = v end
+    nocirc["electronic-circuit"] = 0
+    check(Cap.raw_covered(ccost, nocirc, craft) == true, "§15e circuits absents mais fabricables : couvert (ils seront fabriqués)")
+    check(Cap.raw_covered(ccost, {}, nil) == nil, "§15e sans livre de recettes (appel d'avant) : nil")
+    local ster = { key = gate.key, spent = 0, quiet = T0 }
+    check(Cap.starved(ster, gate, T0 + IDLE10, false) == false and Cap.starved(ster, gate, T0 + IDLE10, true) == true
+      and Cap.starved(ster, gate, T0 + IDLE10, nil) == true, "§15e report stérile : pas devant si non couvert ; devant si couvert ou inconnu")
+    local valv = { key = gate.key, spent = gate.value, quiet = T0 }
+    check(Cap.starved(valv, gate, T0 + 1, false) == true, "§15e la règle de la VALEUR ne dépend pas de la couverture")
+    local dnc = Cap.choose(L, cen, ctx({ defer = { key = gate.key, spent = 0, quiet = T0 }, tick = T0 + IDLE10, stock = nobrick, craftable = craft }))
+    check(dnc.family == "gun" and not dnc.starved, "§15e choix : briques absentes, la tourelle passe encore (" .. tostring(dnc.key) .. ")")
+    local dcv = Cap.choose(L, cen, ctx({ defer = { key = gate.key, spent = 0, quiet = T0 }, tick = T0 + IDLE10, stock = full, craftable = craft }))
+    check(dcv.center == true and dcv.starved == true, "§15e choix : matière au stock, le centre passe devant (" .. tostring(dcv.key) .. ")")
     -- (d) Relecture B1/M2 : l'état prioritaire se DÉFAIT. Prioritaire depuis 10 min sans être payé -> priorité rendue 10 min.
     local MIN10 = 10 * 3600 -- chiffres écrits de la règle (un mutant de Cap.PRIO_MAX / Cap.PRIO_COOL doit se voir)
     local pd = { key = gate.key, spent = 0, quiet = T0 }
@@ -621,6 +645,11 @@ do
   M("chaîne sans ses pièces", function()
     Cap.goal = function(d, w) local g = cg(d, w) if g then g.opens = nil end return g end
   end, function() Cap.goal = cg end)
+  local rcv = Cap.raw_covered
+  M("report stérile sans regarder la matière", function() Cap.raw_covered = function() return true end end,
+    function() Cap.raw_covered = rcv end)
+  M("report stérile jamais couvert", function() Cap.raw_covered = function() return false end end,
+    function() Cap.raw_covered = rcv end)
   local pmx, pcl = Cap.PRIO_MAX, Cap.PRIO_COOL
   M("la priorité ne se défait jamais", function() Cap.PRIO_MAX = 1e12 end, function() Cap.PRIO_MAX = pmx end)
   M("priorité rendue sans pause", function() Cap.PRIO_COOL = 0 end, function() Cap.PRIO_COOL = pcl end)
