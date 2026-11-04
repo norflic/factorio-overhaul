@@ -29,6 +29,12 @@ Xp.LOG = "[FO-XP]"
 Xp.HP_POSE = 3        -- une défense posée a 3 fois les PV de la valeur (elle ne fuit pas, elle encaisse)
 Xp.BURST_SECONDS = 30 -- usage unique : la charge vaut 30 s de dégâts de la valeur
 
+--- Unités de recherche de la technologie d'un expérimental : le double de la technologie de robot qui la précède (`after`).
+--- Décision du DC (4/11, 19 h 48, QCM du lot XP-COUTS) : « Le double du robot précédent ». `robot_units` : unités EN JEU de la
+--- technologie de robot (C.tech_count). Les packs sont ceux de l'âge (C.packs).
+Xp.TECH_FACTOR = 2
+function Xp.tech_units(robot_units) return Xp.TECH_FACTOR * robot_units end
+
 --- Effets du moteur qui appellent le script (on_script_trigger_effect).
 Xp.EFFECT = {
   arc = "fo-xp-arc",           -- Mât-Foudre : l'arc touche (rayon du moteur)
@@ -77,7 +83,9 @@ Xp.ROBOTS = {
     id = "demi-vie", src = "demi_vie", age = 9, kind = "unit-capsule", factory = "fo-robotics-bay", after = "fo-robot-mortar",
     ref = "chamfer", mu = 7500, time = 20, scale = 0.155, half = 0.8, range = 3, cooldown = 30, dtype = "explosion", speed = 0.16, single_use = true,
     blast = { radius = 12, edge = 0.5 }, contamination = { radius = 10, duration = 2700, period = 30, share = 0.005, dtype = "poison" },
-    ingredients = { { "uranium-238", 100 }, { "fo-lead-plate", 100 }, { "processing-unit", 40 }, { "fo-servo-motor", 30 },
+    -- décision du DC (4/11, 19 h 48) : 100 circuits avancés et 70 servomoteurs à la place de 40 processeurs (âge 10, plus tard que
+    -- la Demi-Vie) et 30 servomoteurs ; 7 178 MU contre 7 500 (0,957)
+    ingredients = { { "uranium-238", 100 }, { "fo-lead-plate", 100 }, { "advanced-circuit", 100 }, { "fo-servo-motor", 70 },
       { "fo-controller", 30 }, { "steel-plate", 100 }, { "battery", 50 } },
     lueur = { r = 0.45, g = 1.0, b = 0.3 },
   },
