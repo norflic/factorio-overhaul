@@ -205,6 +205,26 @@ def main():
             if n and np.bincount(lab.ravel())[1:].min() <= FE.STRAY_MAX_PX:
                 ec.append("%s %s" % (p, c))
     check("nettoyage : aucun pixel isolé (<= 4 px) dans corps et ombre", not ec, ec[:5])
+    # nappes faibles (critique DA-METALLURGIE) : aucun pixel à plus de 3 px de la silhouette utile (alpha >= 16), et rectangle rogné
+    # <= 1,2 fois la boîte de la silhouette pour le corps et l'ombre (les lueurs de quelques pixels sont exemptées du rapport)
+    ec, pire = [], (0.0, "")
+    for p, v in sorted(tab.items()):
+        for c in ("main", "shadow", "glow"):
+            if c not in v["couches"]:
+                continue
+            a = charge(os.path.join(DEST, os.path.basename(v["couches"][c]["hr"]["filename"])))[..., 3]
+            utile = a >= 16
+            garde = ndimage.binary_dilation(utile, structure=np.ones((3, 3)), iterations=FE.UTILE_MARGE_PX)
+            loin = int(((a > 0) & ~garde).sum())
+            if loin:
+                ec.append("%s %s : %d px loin de la silhouette" % (p, c, loin))
+            if c != "glow":
+                ys, xs = np.nonzero(utile)
+                r = a.size / float((xs.max() - xs.min() + 1) * (ys.max() - ys.min() + 1))
+                pire = max(pire, (r, "%s %s" % (p, c)))
+                if r > 1.2:
+                    ec.append("%s %s : rectangle rogné %.2f fois la silhouette" % (p, c, r))
+    check("nappes faibles : 0 px loin de la silhouette, rectangle <= 1,2 x silhouette (corps, ombre ; pire %.2f %s)" % pire, not ec, ec[:5])
 
     # --- régénération dans un dossier jetable : mêmes sha256
     tmp = tempfile.mkdtemp(prefix="fo-calc-")

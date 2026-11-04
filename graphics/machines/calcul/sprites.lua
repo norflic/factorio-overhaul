@@ -4,7 +4,7 @@
 return {
   ["fo-arc-furnace"] = {
     age = 6,
-    boite = { { -2.15625, -3.15625 }, { 2.0, 2.0 } },
+    boite = { { -2.125, -3.15625 }, { 2.0, 2.0 } },
     calage_px = {
       est = 16,
       ouest = 6,
@@ -16,42 +16,42 @@ return {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-arc-glow.png",
           height = 176,
-          shift = { -0.8125, -0.09375 },
-          width = 132
+          shift = { -0.84375, -0.09375 },
+          width = 128
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/arc-glow.png",
           height = 88,
-          shift = { -0.8125, -0.09375 },
-          width = 66
+          shift = { -0.84375, -0.09375 },
+          width = 64
         }
       },
       main = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-arc-main.png",
           height = 322,
-          shift = { -0.125, -0.640625 },
-          width = 260
+          shift = { -0.109375, -0.640625 },
+          width = 258
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/arc-main.png",
           height = 161,
-          shift = { -0.125, -0.640625 },
-          width = 130
+          shift = { -0.109375, -0.640625 },
+          width = 129
         }
       },
       shadow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-arc-shadow.png",
-          height = 458,
-          shift = { 1.390625, -1.265625 },
-          width = 502
+          height = 234,
+          shift = { 1.4375, -0.109375 },
+          width = 420
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/arc-shadow.png",
-          height = 229,
-          shift = { 1.390625, -1.265625 },
-          width = 251
+          height = 117,
+          shift = { 1.4375, -0.109375 },
+          width = 210
         }
       }
     },
@@ -65,7 +65,7 @@ return {
   },
   ["fo-chiller"] = {
     age = 10,
-    boite = { { -2.03125, -2.875 }, { 2.03125, 2.15625 } },
+    boite = { { -2.0, -2.875 }, { 2.0, 2.125 } },
     calage_px = {
       est = 12,
       ouest = 15,
@@ -90,15 +90,15 @@ return {
       main = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-froid-main.png",
-          height = 322,
-          shift = { 0.0, -0.359375 },
-          width = 260
+          height = 320,
+          shift = { 0.0, -0.375 },
+          width = 256
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/froid-main.png",
-          height = 161,
-          shift = { 0.0, -0.359375 },
-          width = 130
+          height = 160,
+          shift = { 0.0, -0.375 },
+          width = 128
         }
       },
       mobile = {
@@ -119,15 +119,15 @@ return {
       shadow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-froid-shadow.png",
-          height = 410,
-          shift = { 0.765625, -0.515625 },
-          width = 398
+          height = 272,
+          shift = { 0.59375, 0.0 },
+          width = 296
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/froid-shadow.png",
-          height = 205,
-          shift = { 0.765625, -0.515625 },
-          width = 199
+          height = 136,
+          shift = { 0.59375, 0.0 },
+          width = 148
         }
       }
     },
@@ -152,15 +152,15 @@ return {
       glow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-impr-glow.png",
-          height = 60,
-          shift = { 0.46875, -0.5 },
-          width = 116
+          height = 58,
+          shift = { 0.46875, -0.515625 },
+          width = 108
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/impr-glow.png",
-          height = 30,
-          shift = { 0.46875, -0.5 },
-          width = 58
+          height = 29,
+          shift = { 0.46875, -0.515625 },
+          width = 54
         }
       },
       main = {
@@ -195,15 +195,15 @@ return {
       shadow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-impr-shadow.png",
-          height = 306,
-          shift = { 0.890625, -0.703125 },
-          width = 394
+          height = 152,
+          shift = { 0.8125, -0.0625 },
+          width = 288
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/impr-shadow.png",
-          height = 153,
-          shift = { 0.890625, -0.703125 },
-          width = 197
+          height = 76,
+          shift = { 0.8125, -0.0625 },
+          width = 144
         }
       }
     },
@@ -217,7 +217,7 @@ return {
   },
   ["fo-cleanroom"] = {
     age = 10,
-    boite = { { -2.59375, -3.84375 }, { 2.6875, 2.75 } },
+    boite = { { -2.5625, -3.84375 }, { 2.6875, 2.75 } },
     calage_px = {
       est = 4,
       ouest = 4,
@@ -243,14 +243,14 @@ return {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-salle-main.png",
           height = 422,
-          shift = { 0.046875, -0.546875 },
-          width = 338
+          shift = { 0.0625, -0.546875 },
+          width = 336
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/salle-main.png",
           height = 211,
-          shift = { 0.046875, -0.546875 },
-          width = 169
+          shift = { 0.0625, -0.546875 },
+          width = 168
         }
       },
       mobile = {
@@ -271,15 +271,15 @@ return {
       shadow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-salle-shadow.png",
-          height = 522,
-          shift = { 1.578125, -0.890625 },
-          width = 594
+          height = 326,
+          shift = { 0.9375, 0.046875 },
+          width = 432
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/salle-shadow.png",
-          height = 261,
-          shift = { 1.578125, -0.890625 },
-          width = 297
+          height = 163,
+          shift = { 0.9375, 0.046875 },
+          width = 216
         }
       }
     },
@@ -293,7 +293,7 @@ return {
   },
   ["fo-cooling-tower"] = {
     age = 10,
-    boite = { { -2.75, -4.25 }, { 2.75, 2.6875 } },
+    boite = { { -2.71875, -4.25 }, { 2.71875, 2.6875 } },
     calage_px = {
       est = 2,
       ouest = 2,
@@ -304,14 +304,14 @@ return {
       glow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-tour-glow.png",
-          height = 208,
-          shift = { 0.0, 0.28125 },
+          height = 206,
+          shift = { 0.0, 0.296875 },
           width = 292
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/tour-glow.png",
-          height = 104,
-          shift = { 0.0, 0.28125 },
+          height = 103,
+          shift = { 0.0, 0.296875 },
           width = 146
         }
       },
@@ -320,13 +320,13 @@ return {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-tour-main.png",
           height = 444,
           shift = { 0.0, -0.78125 },
-          width = 352
+          width = 348
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/tour-main.png",
           height = 222,
           shift = { 0.0, -0.78125 },
-          width = 176
+          width = 174
         }
       },
       mobile = {
@@ -347,15 +347,15 @@ return {
       shadow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-tour-shadow.png",
-          height = 596,
-          shift = { 2.03125, -1.53125 },
-          width = 648
+          height = 328,
+          shift = { 1.5625, 0.0 },
+          width = 512
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/tour-shadow.png",
-          height = 298,
-          shift = { 2.03125, -1.53125 },
-          width = 324
+          height = 164,
+          shift = { 1.5625, 0.0 },
+          width = 256
         }
       }
     },
@@ -369,7 +369,7 @@ return {
   },
   ["fo-cryogenic-unit"] = {
     age = 12,
-    boite = { { -2.59375, -3.46875 }, { 2.5, 2.65625 } },
+    boite = { { -2.5625, -3.46875 }, { 2.5, 2.65625 } },
     calage_px = {
       est = 18,
       ouest = 11,
@@ -380,43 +380,43 @@ return {
       glow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-cryo-glow.png",
-          height = 314,
-          shift = { -0.109375, -0.578125 },
-          width = 86
+          height = 312,
+          shift = { -0.078125, -0.5625 },
+          width = 82
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/cryo-glow.png",
-          height = 157,
-          shift = { -0.109375, -0.578125 },
-          width = 43
+          height = 156,
+          shift = { -0.078125, -0.5625 },
+          width = 41
         }
       },
       main = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-cryo-main.png",
           height = 392,
-          shift = { -0.0625, -0.40625 },
-          width = 324
+          shift = { -0.046875, -0.40625 },
+          width = 322
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/cryo-main.png",
           height = 196,
-          shift = { -0.0625, -0.40625 },
-          width = 162
+          shift = { -0.046875, -0.40625 },
+          width = 161
         }
       },
       shadow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-cryo-shadow.png",
-          height = 574,
-          shift = { 1.984375, -1.296875 },
-          width = 626
+          height = 328,
+          shift = { 0.921875, 0.0 },
+          width = 406
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/cryo-shadow.png",
-          height = 287,
-          shift = { 1.984375, -1.296875 },
-          width = 313
+          height = 164,
+          shift = { 0.921875, 0.0 },
+          width = 203
         }
       }
     },
@@ -430,7 +430,7 @@ return {
   },
   ["fo-crystal-lithograph"] = {
     age = 10,
-    boite = { { -2.21875, -2.96875 }, { 2.21875, 2.125 } },
+    boite = { { -2.21875, -2.96875 }, { 2.1875, 2.125 } },
     calage_px = {
       est = 3,
       ouest = 2,
@@ -442,28 +442,28 @@ return {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-litho-glow.png",
           height = 162,
-          shift = { 0.359375, -0.671875 },
-          width = 182
+          shift = { 0.453125, -0.671875 },
+          width = 170
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/litho-glow.png",
           height = 81,
-          shift = { 0.359375, -0.671875 },
-          width = 91
+          shift = { 0.453125, -0.671875 },
+          width = 85
         }
       },
       main = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-litho-main.png",
           height = 326,
-          shift = { 0.0, -0.421875 },
-          width = 284
+          shift = { -0.015625, -0.421875 },
+          width = 282
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/litho-main.png",
           height = 163,
-          shift = { 0.0, -0.421875 },
-          width = 142
+          shift = { -0.015625, -0.421875 },
+          width = 141
         }
       },
       mobile = {
@@ -484,15 +484,15 @@ return {
       shadow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-litho-shadow.png",
-          height = 446,
-          shift = { 1.265625, -0.953125 },
-          width = 486
+          height = 244,
+          shift = { 0.5625, 0.03125 },
+          width = 316
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/litho-shadow.png",
-          height = 223,
-          shift = { 1.265625, -0.953125 },
-          width = 243
+          height = 122,
+          shift = { 0.5625, 0.03125 },
+          width = 158
         }
       }
     },
@@ -501,12 +501,12 @@ return {
       icon_mipmaps = 4,
       icon_size = 64
     },
-    map_color = { 0.227, 0.225, 0.224 },
+    map_color = { 0.227, 0.226, 0.224 },
     variante = "litho"
   },
   ["fo-crystal-puller"] = {
     age = 10,
-    boite = { { -1.625, -3.21875 }, { 1.65625, 1.59375 } },
+    boite = { { -1.5625, -3.21875 }, { 1.625, 1.59375 } },
     calage_px = {
       est = 6,
       ouest = 10,
@@ -518,42 +518,42 @@ return {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-tireuse-glow.png",
           height = 268,
-          shift = { 0.234375, -1.09375 },
-          width = 66
+          shift = { 0.25, -1.09375 },
+          width = 64
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/tireuse-glow.png",
           height = 134,
-          shift = { 0.234375, -1.09375 },
-          width = 33
+          shift = { 0.25, -1.09375 },
+          width = 32
         }
       },
       main = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-tireuse-main.png",
           height = 308,
-          shift = { 0.015625, -0.8125 },
-          width = 210
+          shift = { 0.03125, -0.8125 },
+          width = 204
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/tireuse-main.png",
           height = 154,
-          shift = { 0.015625, -0.8125 },
-          width = 105
+          shift = { 0.03125, -0.8125 },
+          width = 102
         }
       },
       shadow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-tireuse-shadow.png",
-          height = 450,
-          shift = { 2.03125, -1.515625 },
-          width = 512
+          height = 412,
+          shift = { 2.34375, -1.8125 },
+          width = 472
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/tireuse-shadow.png",
-          height = 225,
-          shift = { 2.03125, -1.515625 },
-          width = 256
+          height = 206,
+          shift = { 2.34375, -1.8125 },
+          width = 236
         }
       }
     },
@@ -567,7 +567,7 @@ return {
   },
   ["fo-data-center"] = {
     age = 10,
-    boite = { { -2.125, -3.90625 }, { 2.125, 2.0 } },
+    boite = { { -2.09375, -3.90625 }, { 2.09375, 2.0 } },
     calage_px = {
       est = -4,
       ouest = 8,
@@ -578,15 +578,15 @@ return {
       glow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-centre-glow.png",
-          height = 332,
-          shift = { 0.03125, -1.3125 },
-          width = 220
+          height = 310,
+          shift = { 0.0625, -1.484375 },
+          width = 216
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/centre-glow.png",
-          height = 166,
-          shift = { 0.03125, -1.3125 },
-          width = 110
+          height = 155,
+          shift = { 0.0625, -1.484375 },
+          width = 108
         }
       },
       main = {
@@ -594,13 +594,13 @@ return {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-centre-main.png",
           height = 378,
           shift = { 0.0, -0.953125 },
-          width = 272
+          width = 268
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/centre-main.png",
           height = 189,
           shift = { 0.0, -0.953125 },
-          width = 136
+          width = 134
         }
       },
       mobile = {
@@ -621,15 +621,15 @@ return {
       shadow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-centre-shadow.png",
-          height = 448,
-          shift = { 1.4375, -1.0625 },
-          width = 504
+          height = 252,
+          shift = { 0.796875, -0.09375 },
+          width = 342
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/centre-shadow.png",
-          height = 224,
-          shift = { 1.4375, -1.0625 },
-          width = 252
+          height = 126,
+          shift = { 0.796875, -0.09375 },
+          width = 171
         }
       }
     },
@@ -643,7 +643,7 @@ return {
   },
   ["fo-data-center-2"] = {
     age = 12,
-    boite = { { -3.0, -4.4375 }, { 3.25, 3.25 } },
+    boite = { { -3.0, -4.4375 }, { 3.21875, 3.25 } },
     calage_px = {
       est = -2,
       ouest = 18,
@@ -670,27 +670,27 @@ return {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-grand_centre-main.png",
           height = 492,
           shift = { 0.125, -0.59375 },
-          width = 400
+          width = 396
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/grand_centre-main.png",
           height = 246,
           shift = { 0.125, -0.59375 },
-          width = 200
+          width = 198
         }
       },
       shadow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-grand_centre-shadow.png",
-          height = 630,
-          shift = { 1.625, -1.234375 },
-          width = 632
+          height = 434,
+          shift = { 1.9375, 0.296875 },
+          width = 592
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/grand_centre-shadow.png",
-          height = 315,
-          shift = { 1.625, -1.234375 },
-          width = 316
+          height = 217,
+          shift = { 1.9375, 0.296875 },
+          width = 296
         }
       }
     },
@@ -715,15 +715,15 @@ return {
       glow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-testeur-glow.png",
-          height = 90,
-          shift = { -0.3125, 0.421875 },
-          width = 132
+          height = 84,
+          shift = { -0.390625, 0.46875 },
+          width = 122
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/testeur-glow.png",
-          height = 45,
-          shift = { -0.3125, 0.421875 },
-          width = 66
+          height = 42,
+          shift = { -0.390625, 0.46875 },
+          width = 61
         }
       },
       main = {
@@ -758,15 +758,15 @@ return {
       shadow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-testeur-shadow.png",
-          height = 320,
-          shift = { 0.640625, -0.34375 },
-          width = 342
+          height = 188,
+          shift = { 0.640625, 0.09375 },
+          width = 262
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/testeur-shadow.png",
-          height = 160,
-          shift = { 0.640625, -0.34375 },
-          width = 171
+          height = 94,
+          shift = { 0.640625, 0.09375 },
+          width = 131
         }
       }
     },
@@ -792,14 +792,14 @@ return {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-dilution-glow.png",
           height = 238,
-          shift = { -0.671875, -0.828125 },
-          width = 86
+          shift = { -0.6875, -0.828125 },
+          width = 84
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/dilution-glow.png",
           height = 119,
-          shift = { -0.671875, -0.828125 },
-          width = 43
+          shift = { -0.6875, -0.828125 },
+          width = 42
         }
       },
       main = {
@@ -819,15 +819,15 @@ return {
       shadow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-dilution-shadow.png",
-          height = 452,
-          shift = { 1.84375, -1.4375 },
-          width = 492
+          height = 194,
+          shift = { 1.328125, -0.015625 },
+          width = 346
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/dilution-shadow.png",
-          height = 226,
-          shift = { 1.84375, -1.4375 },
-          width = 246
+          height = 97,
+          shift = { 1.328125, -0.015625 },
+          width = 173
         }
       }
     },
@@ -841,7 +841,7 @@ return {
   },
   ["fo-fiber-tower"] = {
     age = 10,
-    boite = { { -1.65625, -4.6875 }, { 1.6875, 1.5 } },
+    boite = { { -1.65625, -4.6875 }, { 1.65625, 1.5 } },
     calage_px = {
       est = 6,
       ouest = 6,
@@ -867,14 +867,14 @@ return {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-fibre-main.png",
           height = 394,
-          shift = { 0.015625, -1.609375 },
-          width = 214
+          shift = { 0.0, -1.609375 },
+          width = 212
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/fibre-main.png",
           height = 197,
-          shift = { 0.015625, -1.609375 },
-          width = 107
+          shift = { 0.0, -1.609375 },
+          width = 106
         }
       },
       mobile = {
@@ -895,15 +895,15 @@ return {
       shadow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-fibre-shadow.png",
-          height = 498,
-          shift = { 2.546875, -1.984375 },
-          width = 582
+          height = 168,
+          shift = { 2.296875, 0.0 },
+          width = 470
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/fibre-shadow.png",
-          height = 249,
-          shift = { 2.546875, -1.984375 },
-          width = 291
+          height = 84,
+          shift = { 2.296875, 0.0 },
+          width = 235
         }
       }
     },
@@ -917,7 +917,7 @@ return {
   },
   ["fo-packaging-line"] = {
     age = 10,
-    boite = { { -1.71875, -2.75 }, { 1.8125, 1.59375 } },
+    boite = { { -1.71875, -2.75 }, { 1.8125, 1.5625 } },
     calage_px = {
       est = -4,
       ouest = 2,
@@ -928,28 +928,28 @@ return {
       glow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-boitier-glow.png",
-          height = 58,
-          shift = { 0.0, -0.984375 },
-          width = 176
+          height = 28,
+          shift = { -0.65625, -1.21875 },
+          width = 92
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/boitier-glow.png",
-          height = 29,
-          shift = { 0.0, -0.984375 },
-          width = 88
+          height = 14,
+          shift = { -0.65625, -1.21875 },
+          width = 46
         }
       },
       main = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-boitier-main.png",
-          height = 278,
-          shift = { 0.046875, -0.578125 },
+          height = 276,
+          shift = { 0.046875, -0.59375 },
           width = 226
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/boitier-main.png",
-          height = 139,
-          shift = { 0.046875, -0.578125 },
+          height = 138,
+          shift = { 0.046875, -0.59375 },
           width = 113
         }
       },
@@ -971,15 +971,15 @@ return {
       shadow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-boitier-shadow.png",
-          height = 356,
-          shift = { 1.265625, -0.78125 },
-          width = 422
+          height = 166,
+          shift = { 0.65625, 0.109375 },
+          width = 264
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/boitier-shadow.png",
-          height = 178,
-          shift = { 1.265625, -0.78125 },
-          width = 211
+          height = 83,
+          shift = { 0.65625, 0.109375 },
+          width = 132
         }
       }
     },
@@ -993,7 +993,7 @@ return {
   },
   ["fo-plasma-etcher"] = {
     age = 10,
-    boite = { { -1.71875, -2.03125 }, { 1.6875, 1.78125 } },
+    boite = { { -1.6875, -2.03125 }, { 1.6875, 1.78125 } },
     calage_px = {
       est = 4,
       ouest = 2,
@@ -1004,43 +1004,43 @@ return {
       glow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-graveur-glow.png",
-          height = 182,
-          shift = { 0.078125, -0.109375 },
-          width = 142
+          height = 170,
+          shift = { 0.0, -0.203125 },
+          width = 132
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/graveur-glow.png",
-          height = 91,
-          shift = { 0.078125, -0.109375 },
-          width = 71
+          height = 85,
+          shift = { 0.0, -0.203125 },
+          width = 66
         }
       },
       main = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-graveur-main.png",
           height = 244,
-          shift = { -0.015625, -0.125 },
-          width = 218
+          shift = { 0.0, -0.125 },
+          width = 216
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/graveur-main.png",
           height = 122,
-          shift = { -0.015625, -0.125 },
-          width = 109
+          shift = { 0.0, -0.125 },
+          width = 108
         }
       },
       shadow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-graveur-shadow.png",
-          height = 338,
-          shift = { 0.65625, -0.453125 },
-          width = 352
+          height = 196,
+          shift = { 0.609375, 0.0625 },
+          width = 258
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/graveur-shadow.png",
-          height = 169,
-          shift = { 0.65625, -0.453125 },
-          width = 176
+          height = 98,
+          shift = { 0.609375, 0.0625 },
+          width = 129
         }
       }
     },
@@ -1049,12 +1049,12 @@ return {
       icon_mipmaps = 4,
       icon_size = 64
     },
-    map_color = { 0.266, 0.25, 0.246 },
+    map_color = { 0.266, 0.25, 0.247 },
     variante = "graveur"
   },
   ["fo-quantum-lab"] = {
     age = 13,
-    boite = { { -2.65625, -3.375 }, { 2.71875, 2.625 } },
+    boite = { { -2.625, -3.375 }, { 2.71875, 2.59375 } },
     calage_px = {
       est = 1,
       ouest = 7,
@@ -1079,29 +1079,29 @@ return {
       main = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-qlab-main.png",
-          height = 384,
-          shift = { 0.03125, -0.375 },
-          width = 344
+          height = 382,
+          shift = { 0.046875, -0.390625 },
+          width = 342
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/qlab-main.png",
-          height = 192,
-          shift = { 0.03125, -0.375 },
-          width = 172
+          height = 191,
+          shift = { 0.046875, -0.390625 },
+          width = 171
         }
       },
       shadow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-qlab-shadow.png",
-          height = 540,
-          shift = { 1.921875, -1.15625 },
-          width = 626
+          height = 298,
+          shift = { 0.828125, 0.140625 },
+          width = 406
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/qlab-shadow.png",
-          height = 270,
-          shift = { 1.921875, -1.15625 },
-          width = 313
+          height = 149,
+          shift = { 0.828125, 0.140625 },
+          width = 203
         }
       }
     },
@@ -1115,7 +1115,7 @@ return {
   },
   ["fo-rack-integrator"] = {
     age = 10,
-    boite = { { -2.125, -4.09375 }, { 2.125, 2.0625 } },
+    boite = { { -2.09375, -4.09375 }, { 2.09375, 2.0625 } },
     calage_px = {
       est = 9,
       ouest = 8,
@@ -1126,15 +1126,15 @@ return {
       glow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-integ-glow.png",
-          height = 204,
-          shift = { -0.15625, -0.1875 },
-          width = 156
+          height = 188,
+          shift = { -0.171875, -0.3125 },
+          width = 154
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/integ-glow.png",
-          height = 102,
-          shift = { -0.15625, -0.1875 },
-          width = 78
+          height = 94,
+          shift = { -0.171875, -0.3125 },
+          width = 77
         }
       },
       main = {
@@ -1142,27 +1142,27 @@ return {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-integ-main.png",
           height = 394,
           shift = { 0.0, -1.015625 },
-          width = 272
+          width = 268
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/integ-main.png",
           height = 197,
           shift = { 0.0, -1.015625 },
-          width = 136
+          width = 134
         }
       },
       shadow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-integ-shadow.png",
-          height = 468,
-          shift = { 1.53125, -1.0625 },
-          width = 512
+          height = 430,
+          shift = { 1.859375, -1.359375 },
+          width = 470
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/integ-shadow.png",
-          height = 234,
-          shift = { 1.53125, -1.0625 },
-          width = 256
+          height = 215,
+          shift = { 1.859375, -1.359375 },
+          width = 235
         }
       }
     },
@@ -1187,14 +1187,14 @@ return {
       glow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-fritt-glow.png",
-          height = 230,
-          shift = { -0.015625, -0.703125 },
+          height = 138,
+          shift = { -0.015625, 0.015625 },
           width = 170
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/fritt-glow.png",
-          height = 115,
-          shift = { -0.015625, -0.703125 },
+          height = 69,
+          shift = { -0.015625, 0.015625 },
           width = 85
         }
       },
@@ -1230,15 +1230,15 @@ return {
       shadow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-fritt-shadow.png",
-          height = 374,
-          shift = { 1.09375, -0.828125 },
-          width = 400
+          height = 192,
+          shift = { 0.9375, 0.0 },
+          width = 296
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/fritt-shadow.png",
-          height = 187,
-          shift = { 1.09375, -0.828125 },
-          width = 200
+          height = 96,
+          shift = { 0.9375, 0.0 },
+          width = 148
         }
       }
     },
@@ -1306,15 +1306,15 @@ return {
       shadow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-cms-shadow.png",
-          height = 384,
-          shift = { 0.796875, -0.625 },
-          width = 442
+          height = 228,
+          shift = { 0.53125, 0.0 },
+          width = 312
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/cms-shadow.png",
-          height = 192,
-          shift = { 0.796875, -0.625 },
-          width = 221
+          height = 114,
+          shift = { 0.53125, 0.0 },
+          width = 156
         }
       }
     },
@@ -1382,15 +1382,15 @@ return {
       shadow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/hr-scie-shadow.png",
-          height = 408,
-          shift = { 1.4375, -0.96875 },
-          width = 440
+          height = 192,
+          shift = { 1.34375, 0.125 },
+          width = 348
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/machines/calcul/scie-shadow.png",
-          height = 204,
-          shift = { 1.4375, -0.96875 },
-          width = 220
+          height = 96,
+          shift = { 1.34375, 0.125 },
+          width = 174
         }
       }
     },
