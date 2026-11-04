@@ -246,7 +246,7 @@ return {
           width = 142
         }
       },
-      map_color = { 0.339, 0.331, 0.326 },
+      map_color = { 0.343, 0.335, 0.329 },
       shadow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/metallurgie/hr-fo-reduction-cell-shadow.png",

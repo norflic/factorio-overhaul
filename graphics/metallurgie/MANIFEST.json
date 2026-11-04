@@ -131,20 +131,20 @@
   "fo-reduction-cell-icone.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "99da81e231444d5fab73f2453f243a3da785a6484c487513c8db6d410cfc9d69",
-   "taille": 11455
+   "sha256": "6dcd5e8663ca24a32e33fb559f1ab8760d8080180825344ad1949e5b400c98d4",
+   "taille": 11483
   },
   "fo-reduction-cell-main.png": {
    "hauteur": 175,
    "largeur": 142,
-   "sha256": "f8dfbd0507759a7de8e6ac6b210fe53524d80c73cb606af29d98ce16ec749fd2",
-   "taille": 47233
+   "sha256": "7ca866ca8759338b9cf80eadb855559867f29ee5f2dbd90047cfde4e02fb618a",
+   "taille": 47469
   },
   "fo-reduction-cell-shadow.png": {
    "hauteur": 128,
    "largeur": 188,
-   "sha256": "46a99860b0f95a9820821181f007e10cb00ba65dd78fc5a4b3b4d16504ad3b6b",
-   "taille": 3178
+   "sha256": "3d575fa722dcab135b0bb53703a7b1aa0652f9ac33319bbd677069869bf73c96",
+   "taille": 3211
   },
   "hr-fo-blast-furnace-glow.png": {
    "hauteur": 198,
@@ -239,20 +239,20 @@
   "hr-fo-reduction-cell-glow.png": {
    "hauteur": 112,
    "largeur": 162,
-   "sha256": "70c99d66c4169043742e24478f1a2b5046b9fe56c5c4b7d639109b892d9b3d34",
-   "taille": 3788
+   "sha256": "dcf5f7e440dbb930622f53a9698fe1e98f1765852ae9e993a42bdc86c13663aa",
+   "taille": 3789
   },
   "hr-fo-reduction-cell-main.png": {
    "hauteur": 350,
    "largeur": 284,
-   "sha256": "3c24b20e0ba408e8bf4a7c2cb011315546ca47d36e338e1840ae6d17d1ee5821",
-   "taille": 155670
+   "sha256": "c6e2e2c1f8680fcf5696c1e6575a4142446dacc5f96fe81b9b647426fec084c6",
+   "taille": 156408
   },
   "hr-fo-reduction-cell-shadow.png": {
    "hauteur": 256,
    "largeur": 376,
-   "sha256": "43a3b2291b79fcf7b73fa497fbee0311580f57284ce018cb6f1e5730f5284dae",
-   "taille": 10032
+   "sha256": "80d1897213bbd231ac36003819adad1c212e97e504c326304e5b0d620f43482f",
+   "taille": 10189
   }
  },
  "sources": "F:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-11-04_DA-METALLURGIE\\final"
