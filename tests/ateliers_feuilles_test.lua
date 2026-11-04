@@ -44,8 +44,10 @@ local function sorted_keys(t)
   return k
 end
 
---- Contrôle complet ; manifeste et sprites peuvent être donnés (mutants). Rend la liste des écarts.
-local function controle(manifest_text, spr)
+--- Contrôle complet (tests/datastage/ateliers_sheets.lua, le même que le harnais) ; manifeste et sprites peuvent être donnés.
+local AS = dofile("tests/datastage/ateliers_sheets.lua")
+local function controle(manifest_text, spr) return (AS.ecarts(DIR, manifest_text, spr)) end
+local function controle_ancien(manifest_text, spr)
   local e = {}
   local list, why = Gun.parse(manifest_text or "")
   if not list then return { "manifeste illisible : " .. tostring(why) } end
