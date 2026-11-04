@@ -2139,9 +2139,37 @@ local function add_obstacle(p, o)
   p.obstacles[#p.obstacles + 1] = o
 end
 
+--- Lot AGEBLOCAGE (diagnostic, LECTURE SEULE) : relevé des obstacles d'un projet, au plus une ligne toutes les 5 min par projet :
+--- ouverts, ouverts AVEC un arbre ou un rocher (le test de review_obstacles), ouverts SANS (ils devraient être faits), curseur de la revue,
+--- et les 3 premiers ouverts avec arbre (case, point d'appui, nom de l'arbre).
+local function obstacles_probe(surface, p, f, tick)
+  if not (f and tick) then return end
+  if p.obst_probe_t and tick - p.obst_probe_t < 18000 then return end
+  p.obst_probe_t = tick
+  local open, with_tree, without, firsts = 0, 0, 0, {}
+  for i, o in ipairs(p.obstacles) do
+    if not o.done then
+      open = open + 1
+      local ts = surface.find_entities_filtered({ area = { { o.x - 0.45, o.y - 0.45 }, { o.x + 0.45, o.y + 0.45 } }, type = TREE_TYPES, limit = 1 })
+      if ts[1] then
+        with_tree = with_tree + 1
+        if #firsts < 3 then
+          firsts[#firsts + 1] = string.format("#%d (%.1f, %.1f) appui %s %s", i, o.x, o.y, tostring(o.anchor), ts[1].name)
+        end
+      else
+        without = without + 1
+      end
+    end
+  end
+  if open == 0 then return end
+  log(string.format("[FO-OBSTACLES] %s : projet %d (%s) : %d obstacle(s), %d ouvert(s) dont %d avec arbre ou rocher et %d SANS ; curseur de la revue %s ; premiers avec arbre {%s} a %.1f min",
+    f.key or "player", p.id, tostring(p.state), #p.obstacles, open, with_tree, without, tostring(p.obst_cur), table.concat(firsts, " ; "), tick / 3600))
+end
+
 --- Revue de Build.OBST_CHECKS obstacles ouverts (à tour de rôle) : faits quand plus aucun arbre ni rocher n'y est.
 --- Rend le nombre d'obstacles encore ouverts.
-local function review_obstacles(surface, p)
+local function review_obstacles(surface, p, f, tick)
+  obstacles_probe(surface, p, f, tick) -- lot AGEBLOCAGE (diagnostic, lecture seule)
   local n, left = #p.obstacles, 0
   if n == 0 then return 0 end
   local checked = 0
@@ -4161,7 +4189,7 @@ local function advance(f, surface, p, tick)
     refresh_missing(f, p)
   end
   if p.state == "defrichage" then
-    if review_obstacles(surface, p) == 0 then p.state = "fantomes" end
+    if review_obstacles(surface, p, f, tick) == 0 then p.state = "fantomes" end
     return
   end
   if p.state == "fantomes" then
@@ -4195,7 +4223,7 @@ local function advance(f, surface, p, tick)
     return
   end
   if p.state == "chantier" then
-    review_obstacles(surface, p)
+    review_obstacles(surface, p, f, tick)
     if all_built(p) then
       p.state = "raccordement"
     else
