@@ -17,7 +17,7 @@ spec.loader.exec_module(dd)
 
 # Essai 2 : « laboratoires base X cible Y, soldats cible Z » ; essai 3 : « laboratoires base X cible Y | soldats ... ».
 RX_DEP = re.compile(r"\[FO-DEPENSES\] (\S+) minute (\d+) \|.*laboratoires base (\S+) cible ([^,\s]+)(?:, soldats cible (\S+)| \| (.*))")
-RX_HOLD = re.compile(r"\[FO-DEPENSES\] (\S+) minute \d+ \| CENTRE EN ATTENTE")
+RX_HOLD = re.compile(r"\[FO-DEPENSES\] (\S+) minute \d+ \|.*CENTRE EN ATTENTE")
 RX_RSV = re.compile(r"\[FO-RESERVE\] (\S+) minute (\d+) \| besoin NON couvert")
 RX_CC = re.compile(r"\[FO-CAPITAL\] (\S+) : centre monte au niveau (\d+) .* a ([0-9.]+) min")
 RX_BILAN = re.compile(r"\[FO-DEPENSES-DIAG(?:-DC)?\] BILAN : (\d+) OK, (\d+) ECHEC")
