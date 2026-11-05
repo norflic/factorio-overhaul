@@ -7,6 +7,8 @@
 -- Pattes sans image, de collision nulle : elle passe partout, eau comprise.
 
 local SPR = require("__factorio-overhaul__/graphics/robots/bourdon/sprites")
+local Ech = require("shared.robots.echelle")
+local AGE_BOURDON = require("shared.robots.bourdon").AGE
 
 local protos = {}
 
@@ -81,17 +83,11 @@ protos[#protos + 1] = {
   selection_priority = 20, -- le bâtiment dessous reste cliquable
   drawing_box = { { -40, -66 }, { 40, 26 } },
   flags = { "placeable-neutral", "player-creation", "placeable-off-grid", "not-blueprintable", "not-deconstructable", "not-flammable", "not-repairable" },
-  max_health = 60000,
+  -- Règle d'échelle (lot EXPERIMENTAUX-PUISSANCE ; réponses du DC du 5/11, accord du lead) : PV et résistances de son âge (15) ;
+  -- avant : 60 000 PV, résistances 10 à 50 fixes et 50 à 90 % par type. L'attaque (Glas) reste telle quelle.
+  max_health = Ech.pv(AGE_BOURDON),
   healing_per_tick = 0.5,
-  resistances = {
-    { type = "physical", decrease = 30, percent = 70 },
-    { type = "impact", decrease = 50, percent = 90 },
-    { type = "explosion", decrease = 30, percent = 70 },
-    { type = "fire", decrease = 20, percent = 80 },
-    { type = "acid", decrease = 10, percent = 60 },
-    { type = "laser", decrease = 10, percent = 50 },
-    { type = "electric", decrease = 10, percent = 50 },
-  },
+  resistances = Ech.resistances(AGE_BOURDON),
   dying_explosion = "massive-explosion",
   map_color = { r = 0.95, g = 0.8, b = 0.42 },
   friendly_map_color = { r = 1.0, g = 0.85, b = 0.45 },

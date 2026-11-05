@@ -31,6 +31,7 @@ end
 
 local Ro = require("shared.content.robots")
 local E = require("shared.content.enemies")
+local Ech = require("shared.robots.echelle")
 
 local function suite(D)
   local pass, fail, msgs = 0, 0, {}
@@ -111,7 +112,12 @@ local function suite(D)
   local cal = D.calibrate_all(Ro.ROBOTS)
   for _, r in ipairs(Ro.ROBOTS) do
     local c = cal[r.id]
-    check(c.hp == r.hp, "§5 PV écrits = PV calibrés : " .. r.id .. " (" .. tostring(r.hp) .. " contre " .. tostring(c.hp) .. ")")
+    if r.is_giant then
+      -- géants : PV de la règle d'échelle (lot EXPERIMENTAUX-PUISSANCE, réponses du DC du 5/11), plus du calibrage ; le canon reste calibré
+      check(r.hp == Ech.pv(r.age), "§5 PV d'un géant = PV de la règle d'échelle : " .. r.id .. " (" .. tostring(r.hp) .. " contre " .. tostring(Ech.pv(r.age)) .. ")")
+    else
+      check(c.hp == r.hp, "§5 PV écrits = PV calibrés : " .. r.id .. " (" .. tostring(r.hp) .. " contre " .. tostring(c.hp) .. ")")
+    end
     if r.heal then
       check(c.heal == r.heal.amount, "§5 soin écrit = soin calibré : " .. r.id .. " (" .. tostring(r.heal.amount) .. " contre " .. tostring(c.heal) .. ")")
       check(r.shot.damage == 0 and r.dps == 0, "§5 la Cloche n'a aucun dégât")
@@ -137,6 +143,25 @@ local function suite(D)
       check(not half.win or half.fraction_subject < D.TARGET, "§5 " .. r.id .. " : avec un tiers de la puissance, la marge s'effondre")
     end
   end
+  -- §5 bis Géants (règle d'échelle, lot EXPERIMENTAUX-PUISSANCE) : résistances et salve de zone dans le duel.
+  local tor = Ro.robot("toroid")
+  local ech = D.echelle_of(tor)
+  check(ech ~= nil and ech.zone.damage == Ech.salve(13, "electric") and ech.zone.cooldown == Ech.CADENCE_ZONE and ech.zone.dtype == "electric",
+    "§5 bis géant : salve de zone de son âge et de son type, cadence de la règle")
+  check(D.echelle_of(Ro.robot("finback")) == nil, "§5 bis un robot de ligne n'a pas de salve de zone")
+  local t10 = D.tier_of_age(13)
+  local avec = D.run(tor, tor.hp, tor.shot.damage, t10, nil, nil, ech)
+  local sans = D.run(tor, tor.hp, tor.shot.damage, t10)
+  check(avec.win and avec.ticks < sans.ticks, "§5 bis la salve de zone abrège le duel du géant", string.format("%d contre %d", avec.ticks, sans.ticks))
+  check(avec.ticks == D.ZONE_DELAY + (Ech.SALVES - 1) * Ech.CADENCE_ZONE,
+    "§5 bis Torique contre 3 du palier 10 : la 5e salve finit le duel", tostring(avec.ticks))
+  local b10 = D.biter(t10)
+  local m1 = D.fight({ { hp = 1e9, back = 0, res = D.res_of(tor.resistances) } }, b10, 1, { max_ticks = 600 })
+  local m0 = D.fight({ { hp = 1e9, back = 0 } }, b10, 1, { max_ticks = 600 })
+  local ratio = (1e9 - m1.left[1]) / (1e9 - m0.left[1])
+  local want = Ech.apres(b10.dmg, Ech.resistances(13)[1].decrease, Ech.resistances(13)[1].percent) / b10.dmg
+  check(math.abs(ratio - want) < 1e-6 and ratio < 1, "§5 bis les résistances du géant réduisent chaque morsure selon la formule du moteur",
+    string.format("%.6f contre %.6f", ratio, want))
   -- §6 La gamme.
   local mono_r = true
   for i = 2, #reach do if reach[i] < reach[i - 1] then mono_r = false end end
@@ -165,7 +190,7 @@ local function giant_block(D)
   for _, id in ipairs({ "toroid", "heliast", "crowned" }) do
     local r = Ro.robot(id)
     local tier = D.tier_of_age(r.age)
-    local run = D.run(r, r.hp, r.shot.damage, tier)
+    local run = D.run(r, r.hp, r.shot.damage, tier, nil, nil, D.echelle_of(r)) -- règle d'échelle : résistances et salve de zone
     out[#out + 1] = string.format('  ["%s"] = { age = %d, tier = %d, frac = %.2f, ticks = %d },', id, r.age, tier, run.fraction_subject, run.ticks)
   end
   out[#out + 1] = "}"
@@ -255,6 +280,11 @@ local MUTANTS = {
   { "famille sans PV", "b.hp, b.dmg, b.speed = b.hp * f.hp, b.dmg * f.damage, b.speed * f.speed", "b.dmg, b.speed = b.dmg * f.damage, b.speed * f.speed" },
   { "trois déchiqueteurs devenus un", "Duel.BITERS = 3", "Duel.BITERS = 1" },
   { "écran de 3 s", "Duel.SCREEN_SECONDS = 12", "Duel.SCREEN_SECONDS = 3" },
+  { "salve de zone jamais jouée", "        if t >= m.zready then", "        if false then" },
+  { "salve de zone sans délai", "if m.zready == nil then m.zready = Duel.ZONE_DELAY end", "if m.zready == nil then m.zready = 0 end" },
+  { "cadence de zone ignorée", "m.zready = t + z.cooldown", "m.zready = t + 60" },
+  { "morsure sans résistance du géant", "tg.hp = tg.hp - (tg.res and Duel.after_resist(biter.dmg, biter.dtype, tg.res) or biter.dmg)", "tg.hp = tg.hp - biter.dmg" },
+  { "pourcentage du prototype lu comme fraction", "(x.percent or 0) / 100", "(x.percent or 0) / 1000" },
 }
 local refused, kept = 0, {}
 for _, m in ipairs(MUTANTS) do

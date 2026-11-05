@@ -37,6 +37,7 @@ Ech.ANNEAU = 3
 Ech.LOT_RANGEMENT = 500 -- 1 000 donnait 1,2 à 1,5 ms Lua par tick avec la liste (tests/echelle_cout.lua, 5/11) ; en jeu, + 4 lectures du pont C++ par entité
 Ech.PLAFOND = 4000
 Ech.CADENCE_ZONE = 180
+Ech.AGE_MAX = 15 -- dernier âge du jeu (15 époques) : cratères prototypés de AGE_ZONE_MIN à AGE_MAX
 
 --- Types de dégâts couverts par la résistance d'écart d'âge (ordre fixe).
 Ech.TYPES = { "physical", "impact", "explosion", "fire", "acid", "poison", "laser", "electric" }

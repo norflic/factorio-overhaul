@@ -160,8 +160,8 @@ local function zone(g, r, c, tick)
   s.create_entity({ name = "big-scorchmark", position = { c.x, c.y } })
   local forces = K.enemy_forces(e.force)
   local found = #forces > 0 and s.find_entities_filtered({ position = { c.x, c.y }, radius = eff.zone, force = forces }) or {}
-  job({ kind = "zone", e = e, un = g.un, id = r.id, found = found, i = 1, plan = Ech.nouveau_plan(c), salve = eff.salve, zone = eff.zone,
-        at = tick, total = 0, tues = 0, debut = tick })
+  job({ kind = "zone", e = e, un = g.un, id = r.id, dtype = r.dtype, found = found, i = 1, plan = Ech.nouveau_plan(c), salve = eff.salve,
+        zone = eff.zone, at = tick, total = 0, tues = 0, debut = tick })
 end
 
 --- Rangement : au plus Ech.LOT_RANGEMENT entités de la recherche par tick ; la liste est figée quand tout est rangé.
@@ -189,11 +189,11 @@ local function zone_pas(j, tick)
     j.at = tick + 1
     return false
   end
-  local r = Xp.robot(j.id)
+  local r = { id = j.id } -- statistiques par robot (K.stat) : les géants de robotsjeu y ont aussi leur ligne
   local list, fini = Ech.suivants(j.plan, j.cur, Ech.TRANCHE)
   for _, t in ipairs(list) do
     if t.valid then
-      j.total = j.total + K.hit(r, t, j.salve, r.dtype, e.force, e)
+      j.total = j.total + K.hit(r, t, j.salve, j.dtype, e.force, e)
       if not t.valid or t.health <= 0 then j.tues = j.tues + 1 end
     end
   end
@@ -365,6 +365,11 @@ local function cible(g, r)
   end
   return nil
 end
+
+--- Pour les géants de robotsjeu (script/robots/geant.lua, règle d'échelle) : cible et salve de zone, mêmes règles que les géants de cette
+--- famille. `r` : un robot de données avec id, age, dtype, range, zone, salve, cratere (shared/content/robots.lua).
+function G.cible(e, r, bonus) return cible({ e = e, bonus = bonus }, r) end
+function G.salve(e, un, r, c, tick, bonus) zone({ e = e, un = un, bonus = bonus }, r, c, tick) end
 
 local function scan(ev)
   local s = K.S()

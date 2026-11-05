@@ -182,6 +182,41 @@ local Ech = require("shared.robots.echelle")
 local pass, fail, msgs = suite(Ech)
 local function check(c, m) if c then pass = pass + 1 else fail = fail + 1; msgs[#msgs + 1] = m end end
 
+-- §9 la règle appliquée aux géants de robotsjeu et au Bourdon (accord du lead, 5/11) : données et sources
+local Ro = require("shared.content.robots")
+local function same_res(a, b)
+  if #a ~= #b then return false end
+  for i = 1, #a do
+    if a[i].type ~= b[i].type or a[i].decrease ~= b[i].decrease or a[i].percent ~= b[i].percent then return false end
+  end
+  return true
+end
+local ro_ok, ro_ids = true, {}
+for _, r in ipairs(Ro.giants()) do
+  ro_ids[#ro_ids + 1] = r.id
+  if not (r.hp == Ech.pv(r.age) and same_res(r.resistances, Ech.resistances(r.age)) and r.salve == Ech.salve(r.age, r.dtype)
+    and r.zone == Ech.rayon(r.age) and r.cratere == Ech.cratere(r.age) and r.zone_cooldown == Ech.CADENCE_ZONE) then ro_ok = false end
+end
+check(ro_ok and #ro_ids == 3, "§9 géants de robotsjeu (" .. table.concat(ro_ids, ", ") .. ") : PV, résistances, salve, zone, cratère, cadence de leur âge")
+check(Ro.robot("crowned").hp == 8260200 and Ro.robot("toroid").zone == 60, "§9 Couronné 8 260 200 PV, Torique zone de 60 tuiles")
+local ro_line = true
+for _, r in ipairs(Ro.ROBOTS) do
+  if not r.is_giant and (r.salve or r.zone or r.resistances) then ro_line = false end
+end
+check(ro_line, "§9 les robots de ligne de robotsjeu ne suivent pas la règle (hors décision)")
+local PB = read("prototypes/bourdon.lua")
+check(PB:find("max_health = Ech.pv(AGE_BOURDON)", 1, true) ~= nil and PB:find("resistances = Ech.resistances(AGE_BOURDON)", 1, true) ~= nil,
+  "§9 Bourdon : PV et résistances de son âge (prototype)")
+check(require("shared.robots.bourdon").AGE == 15, "§9 Bourdon : âge 15")
+local SB = read("script/robots/bourdon.lua")
+check(SB:find("XpG.cible(b.e, { range = B.PORTEE_AUTO })", 1, true) ~= nil and not SB:find("find_nearest_enemy({ position = b.e.position", 1, true),
+  "§9 Bourdon : cible « tout ce qui est ennemi » (militaire d'abord)")
+local PR = read("prototypes/robots.lua")
+check(PR:find("s.resistances = table.deepcopy(r.resistances)", 1, true) ~= nil, "§9 géants de robotsjeu : résistances posées sur le prototype")
+local SG = read("script/robots/geant.lua")
+check(SG:find("XpG.salve(u, un, r,", 1, true) ~= nil and SG:find("at = tick + r.zone_cooldown", 1, true) ~= nil,
+  "§9 géants de robotsjeu : salve de zone à la cadence de la règle")
+
 -- §5 forme
 check(not SRC:gsub("ipairs%(", ""):find("pairs%("), "§5 aucun pairs")
 check(not SRC:find("game%.") and not SRC:find("script%.") and not SRC:find("%f[%w]global%f[%W]"), "§5 Lua pur (ni game, ni script, ni global)")

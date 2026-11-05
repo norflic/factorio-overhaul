@@ -11,6 +11,7 @@
 
 local lib = require("prototypes.lib")
 local Xp = require("shared.robots.experimentaux")
+local Ech = require("shared.robots.echelle")
 local Ro = require("shared.content.robots")
 local C = require("shared.content.crafts")
 local SPR = require("__factorio-overhaul__/graphics/robots/experimentaux/sprites")
@@ -104,18 +105,18 @@ do
 end
 
 -- E4 (règle d'échelle, shared/robots/echelle.lua) : cratère au point visé d'une salve de zone, sol vanilla de la bombe atomique
--- (`nuclear-ground`, jamais sur l'eau) posé par le moteur à la création, décoratifs retirés. Un prototype par âge de géant.
-for _, r in ipairs(Xp.GEANTS) do
-  if not data.raw.explosion[Xp.PREFIX .. "cratere-" .. r.age] then
-    local x = table.deepcopy(data.raw.explosion["big-explosion"])
-    x.name = Xp.PREFIX .. "cratere-" .. r.age
-    x.localised_name = { "entity-name." .. Xp.PREFIX .. "cratere" }
-    x.created_effect = { type = "direct", action_delivery = { type = "instant", target_effects = {
-      { type = "set-tile", tile_name = "nuclear-ground", radius = r.cratere, apply_projection = true, tile_collision_mask = { "water-tile" } },
-      { type = "destroy-decoratives", radius = r.cratere },
-    } } }
-    out[#out + 1] = x
-  end
+-- (`nuclear-ground`, jamais sur l'eau) posé par le moteur à la création, décoratifs retirés. Un prototype par âge à zone (10 à 15) :
+-- géants de cette famille ET géants de robotsjeu (Torique, Héliaste, Couronné : âges 13 à 15, script/robots/geant.lua).
+for age = Ech.AGE_ZONE_MIN, Ech.AGE_MAX do
+  local rc = Ech.cratere(age)
+  local x = table.deepcopy(data.raw.explosion["big-explosion"])
+  x.name = Xp.PREFIX .. "cratere-" .. age
+  x.localised_name = { "entity-name." .. Xp.PREFIX .. "cratere" }
+  x.created_effect = { type = "direct", action_delivery = { type = "instant", target_effects = {
+    { type = "set-tile", tile_name = "nuclear-ground", radius = rc, apply_projection = true, tile_collision_mask = { "water-tile" } },
+    { type = "destroy-decoratives", radius = rc },
+  } } }
+  out[#out + 1] = x
 end
 
 for i, r in ipairs(Xp.GEANTS) do
