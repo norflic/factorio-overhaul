@@ -1,0 +1,250 @@
+{
+ "equipements": {
+  "fo-xp-module-portee-1": {
+   "bord": [
+    0.62,
+    0.4,
+    1.0
+   ],
+   "fichier": "equipement/fo-xp-module-portee-1.png",
+   "fond": [
+    0.32,
+    0.16,
+    0.55,
+    0.45
+   ],
+   "hauteur": 64,
+   "hr_fichier": "equipement/hr-fo-xp-module-portee-1.png",
+   "hr_hauteur": 128,
+   "hr_largeur": 128,
+   "hr_sha256": "b973fff09e2824b5c792b91c5ed0bb88151007f500f2bea2612962d0f3b03ef4",
+   "largeur": 64,
+   "palier": 1,
+   "sha256": "d6176d94d5fcc804d3f877a75056e2a547779c4b8717b40f9748e42b558599eb",
+   "type": "portee"
+  },
+  "fo-xp-module-portee-2": {
+   "bord": [
+    0.62,
+    0.4,
+    1.0
+   ],
+   "fichier": "equipement/fo-xp-module-portee-2.png",
+   "fond": [
+    0.32,
+    0.16,
+    0.55,
+    0.45
+   ],
+   "hauteur": 64,
+   "hr_fichier": "equipement/hr-fo-xp-module-portee-2.png",
+   "hr_hauteur": 128,
+   "hr_largeur": 128,
+   "hr_sha256": "7e0b525b03c550dfc521626750b4d2c6da2fa3f170366ab0252225c62d7cdf89",
+   "largeur": 64,
+   "palier": 2,
+   "sha256": "f7be008399d6d83901e35ff8bd75acb3121eb7077092c8ce71048eef8c9945d2",
+   "type": "portee"
+  },
+  "fo-xp-module-portee-3": {
+   "bord": [
+    0.62,
+    0.4,
+    1.0
+   ],
+   "fichier": "equipement/fo-xp-module-portee-3.png",
+   "fond": [
+    0.32,
+    0.16,
+    0.55,
+    0.45
+   ],
+   "hauteur": 64,
+   "hr_fichier": "equipement/hr-fo-xp-module-portee-3.png",
+   "hr_hauteur": 128,
+   "hr_largeur": 128,
+   "hr_sha256": "f66ae81f4a4febdf916927a7f2111dee808303a00befe23173b932022a952c87",
+   "largeur": 64,
+   "palier": 3,
+   "sha256": "9df17c228d0808d574a1a715441fc58feb7fdb8b476db03ad6c096351f5fc3a2",
+   "type": "portee"
+  },
+  "fo-xp-module-puissance-1": {
+   "bord": [
+    1.0,
+    0.45,
+    0.3
+   ],
+   "fichier": "equipement/fo-xp-module-puissance-1.png",
+   "fond": [
+    0.55,
+    0.12,
+    0.12,
+    0.45
+   ],
+   "hauteur": 64,
+   "hr_fichier": "equipement/hr-fo-xp-module-puissance-1.png",
+   "hr_hauteur": 128,
+   "hr_largeur": 128,
+   "hr_sha256": "1ca053ffce3d776c04eb1b9df68020a0c013cc9bb276b215df1b46901a312b78",
+   "largeur": 64,
+   "palier": 1,
+   "sha256": "f4ec8d8ffcfdbe2a7bdb717cc88338a4ebbb916b355c58f0acbf47c546a7f8da",
+   "type": "puissance"
+  },
+  "fo-xp-module-puissance-2": {
+   "bord": [
+    1.0,
+    0.45,
+    0.3
+   ],
+   "fichier": "equipement/fo-xp-module-puissance-2.png",
+   "fond": [
+    0.55,
+    0.12,
+    0.12,
+    0.45
+   ],
+   "hauteur": 64,
+   "hr_fichier": "equipement/hr-fo-xp-module-puissance-2.png",
+   "hr_hauteur": 128,
+   "hr_largeur": 128,
+   "hr_sha256": "720db92eb82a3a17f768f2e4769414c58eaead59c64c27138098d2ec28c8d2d3",
+   "largeur": 64,
+   "palier": 2,
+   "sha256": "035c6e50ce91ba699afd0a5b273a9cccd759a69a6b9c9b57d974bc1586fbf637",
+   "type": "puissance"
+  },
+  "fo-xp-module-puissance-3": {
+   "bord": [
+    1.0,
+    0.45,
+    0.3
+   ],
+   "fichier": "equipement/fo-xp-module-puissance-3.png",
+   "fond": [
+    0.55,
+    0.12,
+    0.12,
+    0.45
+   ],
+   "hauteur": 64,
+   "hr_fichier": "equipement/hr-fo-xp-module-puissance-3.png",
+   "hr_hauteur": 128,
+   "hr_largeur": 128,
+   "hr_sha256": "a9ca9d279563502a68260d620b2722b151a6d62eed6169416a3b25f1597389dd",
+   "largeur": 64,
+   "palier": 3,
+   "sha256": "1766aac8f993d07b2d4745dd7daf2a32a7c73b9d1604b3fbd44f595cc1973b85",
+   "type": "puissance"
+  }
+ },
+ "objets": {
+  "fo-xp-module-portee-1": {
+   "age": 10,
+   "fichier": "fo-xp-module-portee-1.png",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "palier": 1,
+   "sha256": "5944a7dd96b8d9d03c640f0adb818461a9d23a2452884e4c375bc8a0aea78724",
+   "type": "portee"
+  },
+  "fo-xp-module-portee-2": {
+   "age": 12,
+   "fichier": "fo-xp-module-portee-2.png",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "palier": 2,
+   "sha256": "d7b5e5566a7ad1d2d459bf4c1a7deaed6e94402cb112b92da635b85510702ce1",
+   "type": "portee"
+  },
+  "fo-xp-module-portee-3": {
+   "age": 14,
+   "fichier": "fo-xp-module-portee-3.png",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "palier": 3,
+   "sha256": "48c91a563b6d3fef24478c0576b8f4f888dad656e13ad154f454754b6ff582b6",
+   "type": "portee"
+  },
+  "fo-xp-module-puissance-1": {
+   "age": 10,
+   "fichier": "fo-xp-module-puissance-1.png",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "palier": 1,
+   "sha256": "ba602730538e7bbb0511cf7ebafe7a285dae64e4382ddfc63446f29a6fa2142f",
+   "type": "puissance"
+  },
+  "fo-xp-module-puissance-2": {
+   "age": 12,
+   "fichier": "fo-xp-module-puissance-2.png",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "palier": 2,
+   "sha256": "5dc7316375b3a291f673bba74c1ce59879d0c4b14069367a88e8cc313a62838f",
+   "type": "puissance"
+  },
+  "fo-xp-module-puissance-3": {
+   "age": 14,
+   "fichier": "fo-xp-module-puissance-3.png",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "palier": 3,
+   "sha256": "f1a0b484784703e015260270f60b42a3895d5d8fca1a188bbeb18eafa6538493",
+   "type": "puissance"
+  }
+ },
+ "outil": "tools/render/pieces/modules/icones_geants.py",
+ "technos": {
+  "fo-xp-modules-portee-1": {
+   "fichier": "tech/fo-xp-modules-portee-1.png",
+   "icon_mipmaps": 4,
+   "icon_size": 256,
+   "palier": 1,
+   "sha256": "934e62378bf4fac7600531d0cf669246d8e1745e2f7f1efff22f0e448d73c8f0",
+   "type": "portee"
+  },
+  "fo-xp-modules-portee-2": {
+   "fichier": "tech/fo-xp-modules-portee-2.png",
+   "icon_mipmaps": 4,
+   "icon_size": 256,
+   "palier": 2,
+   "sha256": "5a5e3241e3e37e6f0dd080d1954aafc8525bd43927d8b14f524c1b9ecaabc7c7",
+   "type": "portee"
+  },
+  "fo-xp-modules-portee-3": {
+   "fichier": "tech/fo-xp-modules-portee-3.png",
+   "icon_mipmaps": 4,
+   "icon_size": 256,
+   "palier": 3,
+   "sha256": "5248e8b7fb7da594544883f50041b865b19be53a6b44e6a650f981d8be19b7be",
+   "type": "portee"
+  },
+  "fo-xp-modules-puissance-1": {
+   "fichier": "tech/fo-xp-modules-puissance-1.png",
+   "icon_mipmaps": 4,
+   "icon_size": 256,
+   "palier": 1,
+   "sha256": "28539dae61d34b4656e5f507670f0ff294411da418476c29511b5005922b936c",
+   "type": "puissance"
+  },
+  "fo-xp-modules-puissance-2": {
+   "fichier": "tech/fo-xp-modules-puissance-2.png",
+   "icon_mipmaps": 4,
+   "icon_size": 256,
+   "palier": 2,
+   "sha256": "a71caf189b4865564592d4a8180567a3586fb742fe344c4281e45836f77b7aa2",
+   "type": "puissance"
+  },
+  "fo-xp-modules-puissance-3": {
+   "fichier": "tech/fo-xp-modules-puissance-3.png",
+   "icon_mipmaps": 4,
+   "icon_size": 256,
+   "palier": 3,
+   "sha256": "d41c1fdb687c53a8cc5675f04f811da1404483e5e4a510492a54ba65519d07d6",
+   "type": "puissance"
+  }
+ },
+ "version": 1
+}
