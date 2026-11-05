@@ -439,7 +439,9 @@ section("QG : tourelles débordées en portée (lot CORR-RALLIEMENT)")
 -- QG (portée 18) hors de leur portée pendant que les PNJ s'y rallient. Ici : la réponse du QG (script/ai3/soldats.lua, C7) à
 -- 5 unités de MÊME vue (30) et de même vitesse, qui ne diffèrent que par leur portée d'ATTAQUE (20 ou 1) ; puis la règle
 -- éteinte par l'interrupteur du banc témoin.
-do
+-- Prototypes de test et mitrailleuse du QG GARNIE (point 4 de la relecture : une tourelle vide ne protège pas le ralliement), puis
+-- une vague de 5 unités à 30 tuiles ; rend les écarts de compteurs de l'équipe (stats ia3k). Sert aussi au mutant du point 5.
+local function corr_arena(f, s)
   local P = W().prototypes
   -- La réponse du QG (script/ai3/soldats.lua) lit la vitesse du personnage VANILLA (game.entity_prototypes["character"], 0,15 en
   -- jeu) ; le moteur simulé n'a que « fo-companion » : on lui donne celui du jeu (table du jeu simulé, game.entity_prototypes).
@@ -456,9 +458,14 @@ do
       collision_box = sb.collision_box, collision_mask = sb.collision_mask }
   end
   local hq = f.hq_pos or { x = 5, y = 5 }
+  P["gun-turret"].attack_parameters = P["gun-turret"].attack_parameters or { range = 18 }
   local tu = s.create_entity({ name = "gun-turret", position = { x = hq.x + 8, y = hq.y }, force = "player" })
-  check(tu ~= nil, "mitrailleuse du QG posée")
-  local function wave(name, on, prep)
+  if tu then tu.insert({ name = "firearm-magazine", count = 10 }) end
+  -- `ticks` : durée de la vague (défaut 65 : au moins deux réponses du QG, SD.PERIOD = 30 ticks). `hurt` : les PNJ à moins de
+  -- 32 tuiles du QG sont blessés (10 points) au début de la vague et tous les 50 ticks : un PNJ près du QG ne regarde que blessé
+  -- (comportement.lua, M.HOME_SAFE ; remarque 9 de la relecture), seul cas où la branche PAR PNJ de M.sense est jouée.
+  -- Rend une table d'écarts de compteurs : d.hq_rally, d.outranged…
+  local function wave(name, on, prep, ticks, hurt)
     remote.call("fo-ia3k", "debordement", on)
     if prep then prep() end
     local st0 = remote.call("fo-ia3k", "status", "player").stats
@@ -466,12 +473,36 @@ do
     for k = 0, 4 do
       us[#us + 1] = s.create_entity({ name = name, position = { x = hq.x + 30, y = hq.y - 4 + 2 * k }, force = "enemy" })
     end
-    M.run_ticks(65) -- au moins deux réponses du QG (SD.PERIOD = 30 ticks)
+    local Reg = require("script.companion.registry")
+    local left = ticks or 65
+    while left > 0 do
+      if hurt then
+        for _, id in ipairs(agent_ids(f)) do
+          local ag = Reg.get(id)
+          local e = ag and ag.entity
+          if e and e.valid and (e.position.x - hq.x) ^ 2 + (e.position.y - hq.y) ^ 2 <= 32 * 32 and e.health > 60 then
+            e.damage(10, game.forces.enemy)
+          end
+        end
+      end
+      local step = math.min(50, left)
+      M.run_ticks(step)
+      left = left - step
+    end
     local st1 = remote.call("fo-ia3k", "status", "player").stats
     for _, u in ipairs(us) do if u and u.valid then u.destroy() end end
     M.run_ticks(5)
-    local function dlt(k) return (st1[k] or 0) - (st0[k] or 0) end
-    return dlt("hq_rally"), dlt("hq_away"), dlt("hq_outranged"), dlt("shelter_away"), dlt("away_none")
+    return setmetatable({}, { __index = function(_, k) return (st1[k] or 0) - (st0[k] or 0) end })
+  end
+  return hq, tu, wave
+end
+
+do
+  local hq, tu, wave0 = corr_arena(f, s)
+  check(tu ~= nil, "mitrailleuse du QG posée et garnie")
+  local function wave(name, on, prep)
+    local d = wave0(name, on, prep)
+    return d.hq_rally, d.hq_away, d.hq_outranged, d.shelter_away, d.away_none
   end
   local r, a, o, sa, an = wave("fo-test-gunner", true)
   check(o > 0 and a > 0 and r == 0, string.format(
@@ -488,6 +519,24 @@ do
   check(o == 0 and r > 0 and a == 0, string.format(
     "règle éteinte (interrupteur du banc témoin) : ralliement comme avant (rally %d, away %d, débordé %d)", r, a, o))
   remote.call("fo-ia3k", "debordement", true)
+  -- Point 4 de la relecture : des tourelles VIDES ne protègent plus le point : pas de ralliement, même contre des mordeurs. Le QG
+  -- simulé a 4 mitrailleuses garnies en plus de celle du banc : toutes sont vidées, puis regarnies.
+  local home = f.home_spot or f.hq_pos
+  local emptied = {}
+  for _, t in ipairs(s.find_entities_filtered({ position = home, radius = 40, force = "player", type = "ammo-turret" })) do
+    local inv = t.get_inventory(defines.inventory.turret_ammo)
+    local n = inv.get_item_count("firearm-magazine")
+    if n > 0 then inv.remove({ name = "firearm-magazine", count = n }) end
+    emptied[#emptied + 1] = { t, n }
+  end
+  local dv = wave0("fo-test-biter", true)
+  check(#emptied >= 2 and dv.hq_rally == 0 and dv.hq_rally_bare > 0 and dv.hq_outranged == 0, string.format(
+    "%d mitrailleuses du QG vides : pas de ralliement contre des mordeurs (rally %d, sans tourelle %d, débordé %d)",
+    #emptied, dv.hq_rally, dv.hq_rally_bare, dv.hq_outranged))
+  for _, it in ipairs(emptied) do if it[2] > 0 then it[1].insert({ name = "firearm-magazine", count = it[2] }) end end
+  local dk = wave0("fo-test-biter", true)
+  check(dk.hq_rally > 0 and dk.hq_rally_bare == 0, string.format(
+    "regarnies : ralliement de nouveau (rally %d, sans tourelle %d)", dk.hq_rally, dk.hq_rally_bare))
   -- Point 3 de la relecture : vers marqués sur la carte de l'équipe dans les 5 directions qui éloignent de l'ennemi (à 44 tuiles
   -- du coffre) : aucune direction sûre, personne ne part (« stand »). Les PNJ partis aux vagues d'avant rentrent d'abord.
   M.run_ticks(2400)
@@ -501,6 +550,12 @@ do
       for _, w in ipairs({ { -44, 0 }, { -31, -31 }, { -31, 31 }, { 0, -44 }, { 0, 44 } }) do
         D.mark_seen(tm.map, ch.x + w[1], ch.y + w[2], "worm", 30, game.tick)
       end
+    end
+    -- Les PNJ sont ramenés au coffre (à 3 tuiles au plus) : les vers, à 44 tuiles, barrent leurs 5 directions.
+    local Reg = require("script.companion.registry")
+    for i, id in ipairs(agent_ids(f)) do
+      local ag = Reg.get(id)
+      if ag and ag.entity.valid then ag.entity.teleport({ x = ch.x + (i % 7) - 3, y = ch.y + math.floor(i / 7) % 7 - 3 }) end
     end
     local r4, a4, o4, sa4, an4 = wave("fo-test-gunner", true, blocked)
     check(a4 > 0 and an4 > 0 and sa4 == 0, string.format(

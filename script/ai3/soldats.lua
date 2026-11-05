@@ -295,8 +295,14 @@ local function hq_threat(f, t, surface, tick)
   local _, range = C.classify(en)
   local own = game.entity_prototypes["character"] and game.entity_prototypes["character"].running_speed or nil
   -- Lot CORR-RALLIEMENT : des tourelles du QG que l'ennemi déborde en portée ne protègent pas le ralliement.
-  local outranged = rally ~= nil and C.outrange_on() and Re.outranges(foes, qg_turrets)
-  if outranged then t.stats.hq_outranged = (t.stats.hq_outranged or 0) + 1 end
+  -- Relecture (point 4) : seules les tourelles qui marchent et couvrent le point de ralliement comptent (Re.rally_judge).
+  local outranged = false
+  if rally ~= nil and C.outrange_on() then
+    local verdict = Re.rally_judge(foes, qg_turrets, rally)
+    outranged = verdict ~= "couvert"
+    if verdict == "deborde" then t.stats.hq_outranged = (t.stats.hq_outranged or 0) + 1
+    elseif verdict == "sans-tourelle" then t.stats.hq_rally_bare = (t.stats.hq_rally_bare or 0) + 1 end
+  end
   local resp = Re.hq_response({ allies = armed_near_hq(f), force = force, prudence = prud, agressivite = agr, rally = rally,
     outrun = Re.outrun(C.enemy_speed(en), own), outranged = outranged })
   t.stats["hq_" .. resp] = (t.stats["hq_" .. resp] or 0) + 1

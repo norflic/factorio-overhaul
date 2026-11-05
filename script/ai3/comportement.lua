@@ -287,8 +287,25 @@ function M.enemy_speed(e)
   return v or nil
 end
 
---- Tourelles amies debout autour du QG (à moins de Re.RALLY_R tuiles du coffre), en positions { x, y, n, r, bb, hx, hy } (profil
--- d'attaque, lot CORR-RALLIEMENT : Re.profile) : celles de l'équipe ET celles que son joueur a posées (un scan de la zone : appelé seulement
+--- Lot CORR-RALLIEMENT (relecture, point 4) : la tourelle MARCHE-t-elle ? Munitions (ammo-turret), énergie en réserve
+--- (electric-turret : sans courant, sa réserve se vide), fluide (fluid-turret). Les autres types : oui.
+local function turret_works(t)
+  local ty = t.type
+  if ty == "ammo-turret" then
+    local inv = t.get_inventory(defines.inventory.turret_ammo)
+    return inv ~= nil and not inv.is_empty()
+  elseif ty == "electric-turret" then
+    return (t.energy or 0) > 0
+  elseif ty == "fluid-turret" then
+    local fb = t.fluidbox
+    return fb ~= nil and #fb > 0 and fb[1] ~= nil
+  end
+  return true
+end
+M.turret_works = turret_works
+
+--- Tourelles amies debout autour du QG (à moins de Re.RALLY_R tuiles du coffre), en positions { x, y, n, r, bb, hx, hy, ok } (profil
+-- d'attaque, lot CORR-RALLIEMENT : Re.profile ; ok : elle marche, turret_works) : celles de l'équipe ET celles que son joueur a posées (un scan de la zone : appelé seulement
 -- quand le QG est menacé ou qu'un PNJ y est blessé).
 local function qg_turret_points(f)
   local out = {}
@@ -300,7 +317,7 @@ local function qg_turret_points(f)
   for _, t in ipairs(list) do
     local q = M.attack_profile(t) -- lot CORR-RALLIEMENT : portée, mode et demi-boîte (Re.outranges, tourelle par tourelle)
     out[#out + 1] = { x = t.position.x, y = t.position.y, n = t.unit_number or 0,
-      r = q and q.r, bb = q and q.bb, hx = q and q.hx or 0, hy = q and q.hy or 0 }
+      r = q and q.r, bb = q and q.bb, hx = q and q.hx or 0, hy = q and q.hy or 0, ok = turret_works(t) }
   end
   table.sort(out, function(a, b) if a.n ~= b.n then return a.n < b.n end if a.x ~= b.x then return a.x < b.x end return a.y < b.y end)
   return out
@@ -1321,9 +1338,15 @@ function M.sense(agent, tick)
     -- on se bat ; sinon on se regroupe derrière les tourelles du QG ; sans tourelle, on s'éloigne d'un ennemi plus lent, et
     -- face à un plus rapide (déchiqueteur) on se bat, groupés.
     local rally, qg_turrets = M.rally(f)
-    -- Lot CORR-RALLIEMENT : des tourelles que l'ennemi déborde en portée ne protègent pas le ralliement (Re.outranges).
-    local outranged = rally ~= nil and M.outrange_on() and Re.outranges(M.foe_profiles(seen_foes), qg_turrets)
-    if outranged then t.stats.outranged = (t.stats.outranged or 0) + 1 end
+    -- Lot CORR-RALLIEMENT : seules les tourelles qui marchent et couvrent le point comptent (Re.rally_judge) ; débordées
+    -- (« deborde ») ou aucune (« sans-tourelle ») : le point ne protège pas, on fait comme sans tourelle.
+    local outranged = false
+    if rally ~= nil and M.outrange_on() then
+      local verdict = Re.rally_judge(M.foe_profiles(seen_foes), qg_turrets, rally)
+      outranged = verdict ~= "couvert"
+      if verdict == "deborde" then t.stats.outranged = (t.stats.outranged or 0) + 1
+      elseif verdict == "sans-tourelle" then t.stats.rally_bare = (t.stats.rally_bare or 0) + 1 end
+    end
     local resp = Re.hq_response({ allies = allies + 1, force = enemies, prudence = prud, agressivite = agr, rally = rally,
       outrun = Re.outrun(M.enemy_speed(enemy), e.prototype.running_speed), outranged = outranged })
     if resp == "rally" then

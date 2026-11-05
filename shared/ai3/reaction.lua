@@ -323,6 +323,32 @@ function Re.outranges(enemies, turrets)
   return n > 0
 end
 
+--- Relecture (revue-danger, 18 h 12, point 4) : une tourelle (position x, y et profil) COUVRE le point pt si elle y frappe ce qui s'y
+--- tient (demi-boîte (px, py), 0 par défaut) : sa portée de centre à centre ; en boîte à boîte, plus la plus petite somme des
+--- demi-boîtes (l'axe, le moins favorable). Portée inconnue : ne couvre rien.
+function Re.covers(t, pt, px, py)
+  if type(t) ~= "table" or type(t.r) ~= "number" then return false end
+  local reach = t.r
+  if t.bb then reach = reach + math.min((t.hx or 0) + (px or 0), (t.hy or 0) + (py or 0)) end
+  local dx, dy = t.x - pt.x, t.y - pt.y
+  return dx * dx + dy * dy <= reach * reach
+end
+
+--- Jugement du point de ralliement (point 4) : au lieu de toutes les tourelles à Re.RALLY_R tuiles du coffre, seules celles qui
+--- MARCHENT (t.ok ~= false : munitions, courant, fluide ; lu par le script) et qui COUVRENT le point comptent. Rend "couvert" (au
+--- moins une qu'aucun ennemi ne déborde, ou portée ennemie inconnue), "deborde" (toutes débordées) ou "sans-tourelle" (pas de
+--- point, ou aucune tourelle qui marche ne le couvre : s'y rallier ne protège de rien), puis le nombre de tourelles jugées.
+function Re.rally_judge(enemies, turrets, rally, px, py)
+  if not rally then return "sans-tourelle", 0 end
+  local judged = {}
+  for _, t in ipairs(turrets or {}) do
+    if type(t) == "table" and t.ok ~= false and Re.covers(t, rally, px, py) then judged[#judged + 1] = t end
+  end
+  if #judged == 0 then return "sans-tourelle", 0 end
+  if Re.outranges(enemies, judged) then return "deborde", #judged end
+  return "couvert", #judged
+end
+
 --- Relecture (revue-danger, 18 h 12, point 2) : une tourelle amie (profil q, position tp) est-elle encore un REFUGE devant le
 --- groupe ennemi (profils) vu en ep ? Non si un ennemi la DÉBORDE (Re.gap) et qu'elle est à moins de son atteinte (Re.reach_on)
 --- plus Re.MARGIN : il la détruit hors de sa portée, puis les désarmés abrités derrière elle. Tourelle de portée inconnue, ou aucun
