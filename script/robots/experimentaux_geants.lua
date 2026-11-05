@@ -157,11 +157,16 @@ local function zone(g, r, c, tick)
   local s = e.surface
   local eff = Ech.effectif(r, g.bonus)
   s.create_entity({ name = CRATERE .. r.age, position = { c.x, c.y } })
-  s.create_entity({ name = "big-scorchmark", position = { c.x, c.y } })
+  local b = K.S().impact == "B" -- design IMPACT : variante B (sol brûlé sur la zone), posée par les bancs d'images seulement
+  if b then
+    for _, x in ipairs(Ech.brulures(c, eff.zone)) do s.create_entity({ name = x.nom, position = { x.x, x.y } }) end
+  else
+    s.create_entity({ name = "big-scorchmark", position = { c.x, c.y } })
+  end
   local forces = K.enemy_forces(e.force)
   local found = #forces > 0 and s.find_entities_filtered({ position = { c.x, c.y }, radius = eff.zone, force = forces }) or {}
   job({ kind = "zone", e = e, un = g.un, id = r.id, dtype = r.dtype, found = found, i = 1, plan = Ech.nouveau_plan(c), salve = eff.salve,
-        zone = eff.zone, at = tick, total = 0, tues = 0, debut = tick })
+        zone = eff.zone, at = tick, total = 0, tues = 0, debut = tick, brule = b or nil, nb = 0 })
 end
 
 --- Rangement : au plus Ech.LOT_RANGEMENT entités de la recherche par tick ; la liste est figée quand tout est rangé.
@@ -173,11 +178,13 @@ local function zone_ranger(j)
     if x.valid and x.health and x.destructible then
       local p = x.position
       Ech.poser(j.plan, p.x, p.y, x)
+      j.nb = j.nb + 1
     end
   end
   j.i = b + 1
   if j.i > n then
     j.found, j.cur = nil, Ech.curseur()
+    if j.brule then j.pas = Ech.pas_brulure(math.min(j.nb, Ech.PLAFOND)) end
   end
 end
 
@@ -193,8 +200,12 @@ local function zone_pas(j, tick)
   local list, fini = Ech.suivants(j.plan, j.cur, Ech.TRANCHE)
   for _, t in ipairs(list) do
     if t.valid then
+      local p = j.brule and t.position
       j.total = j.total + K.hit(r, t, j.salve, j.dtype, e.force, e)
-      if not t.valid or t.health <= 0 then j.tues = j.tues + 1 end
+      if not t.valid or t.health <= 0 then
+        j.tues = j.tues + 1
+        if p and j.tues % j.pas == 0 then e.surface.create_entity({ name = "small-scorchmark", position = { p.x, p.y } }) end
+      end
     end
   end
   if fini then

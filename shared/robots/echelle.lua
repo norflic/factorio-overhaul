@@ -299,4 +299,41 @@ function Ech.feux(o, e, pas)
   return out
 end
 
+---------------------------------------------------------------------------------------------------
+-- IMPACT, variante B (design IMPACT, à montrer au DC à côté de la variante A, cratère et une brûlure au centre) : « sol brûlé » sur toute
+-- la zone. Une très grande brûlure au centre, 6 grandes sur un anneau à 0,35 du rayon, 12 moyennes sur un anneau à 0,7, et une petite sous
+-- une cible tuée sur k (au plus Ech.BRULURES_MAX par salve). Brûlures du jeu de base (`*-scorchmark`, 10 min). Directions : 24 vecteurs
+-- unitaires ÉCRITS (pas de 15°), sans trigonométrie.
+---------------------------------------------------------------------------------------------------
+Ech.BRULURES_MAX = 300
+Ech.BRULURE_ANNEAUX = { { part = 0.35, pas = 4, nom = "big-scorchmark" }, { part = 0.7, pas = 2, nom = "medium-scorchmark" } }
+local Q15 = { { 1, 0 }, { 0.96592582628906831, 0.25881904510252074 }, { 0.86602540378443871, 0.5 }, { 0.70710678118654757, 0.70710678118654757 },
+  { 0.5, 0.86602540378443871 }, { 0.25881904510252074, 0.96592582628906831 } }
+local DIR24 = {}
+for q = 0, 3 do
+  for i = 1, 6 do
+    local x, y = Q15[i][1], Q15[i][2]
+    for _ = 1, q do x, y = -y, x end
+    DIR24[#DIR24 + 1] = { x, y }
+  end
+end
+Ech.DIR24 = DIR24
+
+--- Brûlures d'une salve de zone centrée en `c`, de rayon `zone` : liste { x, y, nom } (centre, puis anneaux, dans l'ordre).
+function Ech.brulures(c, zone)
+  local out = { { x = c.x, y = c.y, nom = "huge-scorchmark" } }
+  for _, a in ipairs(Ech.BRULURE_ANNEAUX) do
+    local rr = zone * a.part
+    for k = 1, 24, a.pas do
+      out[#out + 1] = { x = c.x + DIR24[k][1] * rr, y = c.y + DIR24[k][2] * rr, nom = a.nom }
+    end
+  end
+  return out
+end
+
+--- Une petite brûlure sous une cible tuée sur `pas_brulure(n)`, pour n cibles frappées : au plus Ech.BRULURES_MAX par salve.
+function Ech.pas_brulure(n)
+  return math.max(1, math.ceil(n / Ech.BRULURES_MAX))
+end
+
 return Ech

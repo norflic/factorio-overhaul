@@ -175,6 +175,27 @@ local function suite(Ech)
     "§8 balayage : bande de 1,5 autour du rayon, bout compris")
   local fx = Ech.feux(o, { x = 45, y = 0 }, 4)
   check(#fx == 11 and math.abs(fx[1].x - 4) < 1e-9 and math.abs(fx[11].x - 44) < 1e-9, "§8 balayage : un feu tous les 4 tuiles le long du rayon")
+  -- §10 IMPACT, variante B : brûlures
+  local unit = true
+  for k = 1, 24 do
+    local d = Ech.DIR24[k]
+    if math.abs(d[1] * d[1] + d[2] * d[2] - 1) > 1e-12 then unit = false end
+  end
+  check(#Ech.DIR24 == 24 and unit and math.abs(Ech.DIR24[7][2] - 1) < 1e-12 and math.abs(Ech.DIR24[13][1] + 1) < 1e-12
+    and math.abs(Ech.DIR24[4][1] - Ech.DIR24[4][2]) < 1e-12, "§10 24 directions unitaires, pas de 15° (90° et 180° exacts)")
+  local br = Ech.brulures({ x = 100, y = -50 }, 90)
+  local nb = { ["huge-scorchmark"] = 0, ["big-scorchmark"] = 0, ["medium-scorchmark"] = 0 }
+  local dist_ok = true
+  for i, b in ipairs(br) do
+    nb[b.nom] = (nb[b.nom] or 0) + 1
+    local d = math.sqrt((b.x - 100) ^ 2 + (b.y + 50) ^ 2)
+    local want = i == 1 and 0 or (b.nom == "big-scorchmark" and 31.5 or 63)
+    if math.abs(d - want) > 1e-9 then dist_ok = false end
+  end
+  check(#br == 19 and nb["huge-scorchmark"] == 1 and nb["big-scorchmark"] == 6 and nb["medium-scorchmark"] == 12 and dist_ok,
+    "§10 brûlures : 1 au centre, 6 à 0,35 du rayon, 12 à 0,7")
+  check(Ech.pas_brulure(100) == 1 and Ech.pas_brulure(300) == 1 and Ech.pas_brulure(301) == 2 and Ech.pas_brulure(4000) == 14 and Ech.pas_brulure(0) == 1,
+    "§10 une petite brûlure sur k cibles tuées : au plus 300 par salve")
   return pass, fail, msgs
 end
 
@@ -238,7 +259,11 @@ local MUTANTS = {
   { "salve sans la part fixe", "return math.ceil(net / (1 - r[2] / 100) + r[1])", "return math.ceil(net / (1 - r[2] / 100))" },
   { "plan du bord vers le centre", "  for k = 1, p.top do", "  for k = p.top, 1, -1 do" },
   { "rangement qui oublie la dernière entrée", "local c = cands[i]\n    Ech.poser(p, c.x, c.y, c)", "local c = cands[i]\n    if i == b then break end\n    Ech.poser(p, c.x, c.y, c)" },
-  { "parcours sans plafond", "while #out < n and cur.pris < Ech.PLAFOND and cur.k <= p.top do", "while #out < n and cur.k <= p.top do" },
+  { "brûlures : anneau extérieur à 0,6", "part = 0.7, pas = 2", "part = 0.6, pas = 2" },
+  { "brûlures : 6 points au lieu de 12", "part = 0.7, pas = 2", "part = 0.7, pas = 4" },
+  { "brûlures : rotation de quart de tour fausse", "for _ = 1, q do x, y = -y, x end", "for _ = 1, q do x, y = y, -x end" },
+  { "brûlures sans plafond", "return math.max(1, math.ceil(n / Ech.BRULURES_MAX))", "return 1" },
+  { "parcours sans plafond","while #out < n and cur.pris < Ech.PLAFOND and cur.k <= p.top do", "while #out < n and cur.k <= p.top do" },
   { "parcours qui saute un anneau", "      cur.k, cur.i = cur.k + 1, 1", "      cur.k, cur.i = cur.k + 2, 1" },
   { "parcours épuisé trop tôt", "if r and i <= #r then fini = false; break end", "if r and i < #r then fini = false; break end" },
   { "parcours jamais épuisé par le reste vide", "    fini = true\n    while k <= p.top do", "    fini = false\n    while k <= p.top do" },

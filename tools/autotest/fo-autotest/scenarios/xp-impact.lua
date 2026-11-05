@@ -6,14 +6,16 @@
 -- Chaque site part à un tick connu S (les géants balaient toutes les 30 ticks : posés 9 ticks avant un balayage, ils tirent à ce balayage) :
 -- S1 = 240, S2 = 270, S3 = 331 (bombe créée à 1 tuile du centre au tick 330). États : avant, l'onde (S + 3, 8, 15, 30), juste après (1 s),
 -- 10 s après, de jour puis de nuit, et le cratère de près. Contrôles (sans juger l'image) : les deux bases des géants rasées, chaque cratère
--- posé ; la bombe vanilla, de rayon plus court, n'a pas à raser la sienne (comptée, sans contrôle).
+-- posé ; la bombe vanilla, de rayon plus court, n'a pas à raser la sienne (comptée, sans contrôle). Site (4) : la Tournesol encore, avec la
+-- VARIANTE B de la trace (sol brûlé sur toute la zone : brûlures en anneaux et sous les cibles tuées), pour la comparer à A au même zoom.
 local C = require("scenarios/xp_commun")
 
 local CHECK = 900
 local Y = 5200
 local R = 60
 local SITES = { { id = "tournesol", x = 13000, S = 240, pose = 231 }, { id = "crowned", x = 13400, S = 270, pose = 261 },
-  { id = "vanilla", x = 13800, S = 331, pose = 330 } }
+  { id = "vanilla", x = 13800, S = 331, pose = 330 }, { id = "tournesol-B", x = 14200, S = 300, pose = 291 } }
+local IMPACT_B = 285 -- variante B (sol brûlé sur la zone, shared/robots/echelle.lua Ech.brulures) pour les salves lancées après ce tick
 local DX = 50 -- l'unité à 50 tuiles à l'ouest du centre de la base
 
 local PLAN = {}
@@ -82,7 +84,7 @@ return {
       remote.call("fo-robots", "set_age", fname, 15)
       st.n[i] = base(s, cx)
     end
-    ctx.log(string.format("bases : %d, %d, %d entites", st.n[1], st.n[2], st.n[3]))
+    ctx.log(string.format("bases : %d, %d, %d, %d entites", st.n[1], st.n[2], st.n[3], st.n[4]))
   end,
 
   tick = function(ctx, e)
@@ -94,6 +96,11 @@ return {
     elseif e.tick == SITES[2].pose then
       st.ro = remote.call("fo-robots", "spawn", "fo-xp-impact-2", "crowned", SITES[2].x, Y)
       ctx.log(string.format("tick %d : couronne %s", e.tick, tostring(st.ro)))
+    elseif e.tick == IMPACT_B then
+      remote.call("fo-xp", "impact", "B")
+    elseif e.tick == SITES[4].pose then
+      st.g4 = s.create_entity({ name = "fo-xp-tournesol", position = { SITES[4].x, Y }, force = "fo-xp-impact-4", raise_built = true })
+      ctx.log(string.format("tick %d : tournesol (variante B) %s", e.tick, tostring(st.g4 and st.g4.valid)))
     elseif e.tick == SITES[3].pose then
       local cx3 = SITES[3].x + DX
       st.nuke = s.create_entity({ name = "atomic-rocket", position = { cx3 - 1, Y }, target = { cx3, Y }, speed = 1, force = "fo-xp-impact-3" })
