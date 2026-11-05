@@ -168,7 +168,7 @@ local SALVE_SCAN = 30
 
 function Geant.salves(tick)
   local s = Armee.S()
-  if not s or not Armee.enabled() then return 0 end
+  if not s then return 0 end -- un géant inscrit tire ses salves même si le réglage des robots a été coupé depuis
   local old = Armee.table_of("salves")
   local nxt, n = {}, 0
   for _, r in ipairs(GIANTS) do
