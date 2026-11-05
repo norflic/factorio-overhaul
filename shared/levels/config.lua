@@ -146,10 +146,13 @@ L.epochs = {
 -- 5,48 MU) : la valeur déclarée surestimait ces monnaies de 64 à 100 %, d'où des époques 4 à 6 payées en 67 à 84 % du
 -- calendrier. La valeur d'époque (value_mult) ne change pas : seules les QUANTITÉS demandées suivent. Cristal (3 pour
 -- 1 MU) gardé : rareté voulue par X0.
+-- QCM du DC (5/11, « Aligner sur 1,0 ») : plastique 1,5 → 1,0. Depuis 0.6.22, fo-polyethylene (shared/content/crafts.lua)
+-- le fabrique pour 0,99 MU de matière brute (calc_test : rapport 1,52 au-delà de la borne 1,5). Les niveaux de l'âge 4
+-- demandent donc 1,5 × plus de plastique, pour le même effort en matière brute que le calendrier.
 L.epoch_materials = {
   [2] = { key = "steel", want = "acier", item = "steel-plate", value = 5 },
   [3] = { key = "engine", want = "moteur (mécanique de l'ère vapeur)", item = "engine-unit", value = 9 },
-  [4] = { key = "plastic", want = "plastique", item = "plastic-bar", value = 1.5 },
+  [4] = { key = "plastic", want = "plastique", item = "plastic-bar", value = 1.0 },
   [5] = { key = "tungsten", want = "plaque de tungstène", item = "fo-tungsten-plate", value = 2 },
   [6] = { key = "battery", want = "batterie", item = "battery", value = 5.5 },
   [7] = { key = "crystal", want = "cristal de résonance", item = "fo-resonance-crystal", value = 3 },
