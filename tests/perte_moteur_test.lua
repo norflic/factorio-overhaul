@@ -36,5 +36,18 @@ check(lines[1] and lines[1]:find("stone-furnace (fonderie) site base cote E", 1,
 check(lines[1] and lines[1]:find("tueur mordeur | tourelles a portee 1 dont armees 0", 1, true) ~= nil and lines[1]:find("manque b", 1, true) ~= nil,
   "tueur, tourelle vide à portée, manque b")
 check(#rel >= 1 and rel[1]:find("couverture armee", 1, true) ~= nil, "relevé de 5 min")
+-- ligne « plan » (lot PERIMETRE2, G3) : croissance du plan directeur de votre équipe, lecture seule
+local f = global.fo.pteam.team
+local saved = f.build
+f.build = { radius = 4, order = { 1, 2 }, projects = { { id = 1, state = "fini" }, { id = 2, state = "chantier" } }, stats = { projects_done = 1 },
+  lots = { a = { i = 0, j = 0, state = "occupe", used = 1 }, b = { i = 1, j = 0, state = "libre" }, c = { i = 2, j = 0, state = "libre", out = true } },
+  enc = { r = 4, segs = { { pid = 1, n = 8 } }, complete = false } }
+require("script.team.perte_log").plan_line(f, game.tick)
+f.build = saved
+local pl
+for _, l in ipairs(W().logs) do if l:find("[FO-PERTE] player plan a", 1, true) then pl = l end end
+print("    " .. tostring(pl))
+check(pl and pl:find("treillis rayon 4 | lots 3 : pris 1, libres 1, ecartes 1 | projets finis 1, en cours 1", 1, true) ~= nil
+  and pl:find("segments 1 dont finis 1, murs demandes 8, complete false", 1, true) ~= nil, "ligne « plan » : rayon, lots, projets, enceinte")
 print(string.format("[PERTE-MOTEUR] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

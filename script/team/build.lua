@@ -4734,7 +4734,7 @@ function Build.space_step(f, surface, tick)
   local on = b.opts.enceinte
   -- Lot PERIMETRE2 (QCM du DC, 4/11 18 h 05 : « Oui, enceinte et avant-postes ») : votre équipe ceint aussi sa base (T.enceinte_joueur) ;
   -- les murs posés à la main ne sont jamais touchés (read_masks : un mur d'une force non neutre est une tuile BLOQUÉE, jamais défrichée).
-  if on == nil then on = (not f.is_player) or (T.enceinte_joueur == true and not f.garde_temoin) end -- (f.garde_temoin : banc témoin, fo-garde)
+  if on == nil then on = (not f.is_player) or ((T.enceinte_joueur == true or f.garde_g3 == true) and not f.garde_temoin) end -- (fo-garde : f.garde_temoin banc témoin, f.garde_g3 banc de G3)
   if not on or tick < (b.enc_retry or 0) or not Enc.enclosure_due(info) then return end
   -- premier segment : le rayon n'est figé (b.enc) que si un segment est vraiment demandé
   -- lot ENCEINTE3 : contour serré sur l'empreinte (bornes figées avec le rayon) ; nil : le rayon, comme avant

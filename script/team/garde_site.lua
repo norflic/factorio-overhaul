@@ -50,6 +50,11 @@ Gd.LOGS = 150            -- lignes [FO-PERIMETRE] au plus
 Gd.DEP_TTL = 3 * 3600    -- ticks : sans tick d'émission de DEPENSES, son accord est tenu pour neuf toutes les 3 min (son seuil de péremption)
 
 local function iron_key() return T.outposts.iron.product end
+
+--- G3 pour votre équipe : enceinte (T.enceinte_joueur) ou, pour un banc, f.garde_g3 (interface fo-garde, g3) ; jamais au banc témoin.
+function Gd.g3(f) return f.is_player == true and not f.garde_temoin and (T.enceinte_joueur == true or f.garde_g3 == true) end
+--- Murs des avant-postes attaqués : T.garde_walls_on, ou f.garde_g3 pour un banc ; jamais au banc témoin.
+function Gd.walls_on(f) return f.is_player == true and not f.garde_temoin and (T.garde_walls_on == true or f.garde_g3 == true) end
 local function stone_key() return T.outposts.stone and T.outposts.stone.product or nil end
 
 local function state(f)
@@ -242,14 +247,14 @@ function Gd.wall_mask(f, surface, areas)
   end
 end
 Build.wall_mask = function(f, surface, areas)
-  if not (f.is_player and T.enceinte_joueur) or f.garde_temoin then return nil end
+  if not Gd.g3(f) then return nil end
   return Gd.wall_mask(f, surface, areas)
 end
 
 --- Crochet de revive_one (script/team/build.lua), au moment de poser le fantôme d'un mur de l'équipe : la tuile est-elle devenue interdite
 --- depuis le plan (rendue au joueur, ou usine du joueur à moins de Gs.PLAYER_GAP tuiles) ? Rend la raison ou nil. Votre équipe, murs allumés.
 Build.wall_veto = function(f, surface, e)
-  if not (f.is_player and (T.enceinte_joueur or T.garde_walls_on)) or f.garde_temoin then return nil end
+  if not (Gd.g3(f) or Gd.walls_on(f)) then return nil end
   local tx, ty = math.floor(e.x), math.floor(e.y)
   return Gd.wall_mask(f, surface, { { tx, ty, tx + 1, ty + 1 } })(tx, ty)
 end
@@ -305,7 +310,7 @@ local function drop_ring(f, st, oid, why, tick)
 end
 
 function Gd.walls_step(f, surface, tick, ctx)
-  if not (T.garde_walls_on and f.is_player and f.outposts and f.hq_pos) or f.garde_temoin then return end
+  if not (Gd.walls_on(f) and f.outposts and f.hq_pos) then return end
   local st = state(f)
   local h = st.walls
   local b = f.build
@@ -536,6 +541,14 @@ remote.add_interface("fo-garde", {
     if not f then return false end
     f.garde_temoin = true
     log(string.format("[FO-PERIMETRE] player : banc temoin, garde des sites, murs et enceinte de l'equipe eteints (tick %d)", game.tick))
+    return true
+  end,
+  -- Banc de G3 : enceinte de votre équipe et murs des avant-postes attaqués ALLUMÉS pour cette partie (f.garde_g3), défauts inchangés.
+  g3 = function()
+    local f = State.faction("player")
+    if not f then return false end
+    f.garde_g3 = true
+    log(string.format("[FO-PERIMETRE] player : banc G3, enceinte de l'equipe et murs des avant-postes allumes (tick %d)", game.tick))
     return true
   end,
 })

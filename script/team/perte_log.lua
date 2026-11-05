@@ -162,7 +162,44 @@ function PL.measure(f, tick)
     log(string.format("[FO-PERTE] %s releve a %.1f min | couverture armee %d %% du poids (%d/%d), points %d dont couverts %d | tourelles %d dont armees %d, isolees %d | murs %d | pertes cumulees : %s",
       f.key or "player", tick / 3600, cov.w > 0 and math.floor(100 * cov.wc / cov.w + 0.5) or 100, cov.wc, cov.w, cov.n, cov.nc, #tur, n_armed,
       Pa.isolated(tur), walls, Pa.summary(st.agg)))
+    if f.is_player and f.build then PL.plan_line(f, tick) end
   end
+end
+
+--- Lot PERIMETRE2 (G3, 5/11) : croissance du plan directeur de votre équipe, en LECTURE SEULE : rayon du treillis, lots (pris, libres,
+--- écartés par le contour), projets finis et en cours, enceinte (segments finis, murs planifiés, complète), pierre, briques et murs au stock.
+function PL.plan_line(f, tick)
+  local b = f.build
+  local used, free, out, total = 0, 0, 0, 0
+  for _, k in ipairs(State.sorted_keys(b.lots or {})) do
+    local l = b.lots[k]
+    total = total + 1
+    if l.used then used = used + 1 end
+    if l.out then out = out + 1 end
+    if not l.used and not l.out and (l.state == "libre" or l.state == "defricher") then free = free + 1 end
+  end
+  local active, ring = 0, "aucune"
+  for _, pid in ipairs(b.order or {}) do
+    local p = b.projects[pid]
+    if p and p.state ~= "fini" and p.state ~= "refuse" then active = active + 1 end
+  end
+  if b.enc then
+    local fin, w = 0, 0
+    for _, sg in ipairs(b.enc.segs or {}) do
+      local p = b.projects[sg.pid]
+      if p and p.state == "fini" then fin = fin + 1 end
+      w = w + (sg.n or 0)
+    end
+    ring = string.format("rayon %s, segments %d dont finis %d, murs demandes %d, complete %s", tostring(b.enc.r), #(b.enc.segs or {}), fin, w,
+      tostring(b.enc.complete == true))
+  end
+  local stone = T.outposts.stone and T.outposts.stone.product
+  local wall_item = T.wall
+  local rec = game.recipe_prototypes[T.wall]
+  local brick = rec and rec.ingredients[1] and rec.ingredients[1].name -- (briques : premier ingrédient du mur, lu dans les données)
+  log(string.format("[FO-PERTE] %s plan a %.1f min | treillis rayon %s | lots %d : pris %d, libres %d, ecartes %d | projets finis %d, en cours %d | enceinte : %s | stock pierre %d, briques %d, murs %d",
+    f.key or "player", tick / 3600, tostring(b.radius), total, used, free, out, b.stats and b.stats.projects_done or 0, active, ring,
+    stone and Stock.count(f, stone) or 0, brick and Stock.count(f, brick) or 0, wall_item and Stock.count(f, wall_item) or 0))
 end
 
 return PL
