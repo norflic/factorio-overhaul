@@ -491,14 +491,14 @@ do
   -- Garde du QG : le PNJ est 8 tuiles plus loin de la meute que la case du QG (le but s'enfonce de 8 tuiles) : seule la défense de la base le laisse partir.
   local gv = Registry.get(ids[3])
   gv.entity.teleport({ x = home.x - 8, y = home.y })
-  local garde = { key = "test:meute-garde", kind = "garrison", post = "hq" }
-  local gsteps = { { "goto", { x = home.x, y = home.y }, 6 }, { "wait", 600 }, { "home" } }
-  check(C.gate(f, gv, garde, gsteps, tz + 2) == true and garde.fail == nil and (tm.stats.dact.rel_def or 0) == def0 + 1,
-    "DANGER-ACTIF 2e essai : garde du QG sous la meute : départ (défense de la base, R-QCM-25c (b)), compté")
-  -- Relecture de revue-danger (bloquant) : la recharge et la pose ne sont exemptées de la meute que pour un PNJ ARMÉ.
+  -- Relecture de revue-danger : la défense de la base n'est exemptée de la meute que pour un PNJ ARMÉ (munitions chargées, M.has_ammo), garde comprise.
   local gammo = gv.entity.get_inventory(defines.inventory.character_ammo)
   gammo.clear()
   gammo.insert({ name = "firearm-magazine", count = 10 })
+  local garde = { key = "test:meute-garde", kind = "garrison", post = "hq" }
+  local gsteps = { { "goto", { x = home.x, y = home.y }, 6 }, { "wait", 600 }, { "home" } }
+  check(C.gate(f, gv, garde, gsteps, tz + 2) == true and garde.fail == nil and (tm.stats.dact.rel_def or 0) == def0 + 1,
+    "DANGER-ACTIF 2e essai : garde du QG sous la meute par un PNJ armé : départ (défense de la base, R-QCM-25c (b)), compté")
   local rsteps = { { "home" }, { "goto", { x = home.x + 40, y = home.y }, 6 }, { "act", "refill" }, { "home" } }
   local esc_goal = { key = "test:meute-recharge", kind = "refill", group = "hq" }
   check(C.gate(f, gv, esc_goal, rsteps, tz + 3) == true,
@@ -510,8 +510,9 @@ do
   local fo_d = { key = "test:meute-pose-desarme", kind = "fortify" }
   check(C.gate(f, gv, fo_d, { { "home" }, { "goto", { x = home.x + 40, y = home.y }, 5 }, { "act", "fortify" }, { "home" } }, tz + 3) == false
     and fo_d.fail == Dax.ASIDE_FAIL, "DANGER-ACTIF 2e essai : pose de tourelles vers la meute par un DÉSARMÉ : mise de côté")
-  check(C.gate(f, gv, { key = "test:meute-garde-desarme", kind = "garrison", post = "hq" }, gsteps, tz + 3) == true,
-    "DANGER-ACTIF 2e essai : la garde du QG part (elle n'est donnée qu'aux armés, board.lua CANNOT_UNARMED)")
+  local gd = { key = "test:meute-garde-desarme", kind = "garrison", post = "hq" }
+  check(C.gate(f, gv, gd, gsteps, tz + 3) == false and gd.fail == Dax.ASIDE_FAIL,
+    "DANGER-ACTIF 2e essai : garde par un PNJ sans munitions CHARGÉES (la place de marché compte aussi celles du sac) : mise de côté")
   gammo.insert({ name = "firearm-magazine", count = 10 })
   -- (A) seulement pour une MEUTE et seulement DANS la base (zone de PORTE-BASE, M.base_zone : case du QG et marge de 24 tuiles, amas de bâtiments).
   remote.call("fo-ia3k", "forget", "player")

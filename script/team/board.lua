@@ -39,6 +39,7 @@ local Ad = require("shared.team.adopte") -- lot ADOPTE : règles pures (mise en 
 local Fantomes = require("script.team.fantomes") -- lot FANTOMES : aperçu en fantômes des paires que le PNJ va poser
 local Outposts = require("script.faction.outposts") -- lot ADOPTE : fours du QG (pose des fours dormants, Stock.place_smelters)
 local Ac = require("shared.team.actif") -- lot COMPAGNONS-ACTIFS : retour rapide après un danger, délai d'affectation mesuré
+local Profiler = require("script.core.profiler") -- lot DANGER-ACTIF : mesure [FO-PRISE-VIDE] seulement avec le profileur
 local Rc = require("shared.team.repli_chemin") -- lot NAV2 : délai croissant pour une tâche dont le chemin échoue de suite (règle pure)
 
 local Board = {}
@@ -527,7 +528,7 @@ Board.HINT_TICKS = 60
 --- prise : « absente » (retirée du tableau), « role » (le PNJ ne sait pas la faire : garde sans munitions, conception), « indice » (indiquée à un autre
 --- PNJ libre, ou trop longue pour sa fabrication en arrière-plan), « reserve » (essayée, matière refusée au registre), « matiere » (matière stricte non
 --- libre au registre, jamais essayée), « essais » (Board.MARKET_TRIES épuisés avant elle). Cumuls dans b.miss, lus et remis à zéro par le bilan
---- [FO-PRISE-VIDE] (Board.actif_report, toutes les 5 min). Lecture seule : aucune décision ne change.
+--- [FO-PRISE-VIDE] (Board.actif_report, toutes les 5 min). Lecture seule : aucune décision ne change ; profileur allumé seulement (verif-guide l'allume).
 local function note_miss(b, list, npc, ctx, reg, tried)
   local m = b.miss or { n = 0, why = {} }
   b.miss = m
@@ -608,7 +609,7 @@ local function claim_market(f, agent, tick, b)
       if tries >= Board.MARKET_TRIES then break end
     end
   end
-  note_miss(b, list, npc, ctx, reg, tried)
+  if Profiler.enabled() then note_miss(b, list, npc, ctx, reg, tried) end -- (relecture de revue-danger : mesure, jamais sans profileur)
   return nil
 end
 

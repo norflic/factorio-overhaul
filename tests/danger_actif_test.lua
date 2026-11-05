@@ -211,10 +211,10 @@ local function cases2(D, Da)
   check(Da.goal_deaths(5, true, false, 3) == 0, "défense, morts de la route toutes dans la base (PORTE-BASE) : morts au but ignorées")
   check(Da.goal_deaths(2, false, true, 3) == 0 and Da.goal_deaths(3, false, true, 3) == 3, "au calme : morts au but ignorées sous le garde-fou (3), comptées à partir de lui")
   check(Da.goal_deaths(2, false, false, 3) == 2 and Da.goal_deaths(nil, false, false, 3) == 0, "hors exemption : toutes les morts au but")
-  check(Da.base_defense("garrison", true) == true and Da.base_defense("refill", true, true) == true and Da.base_defense("fortify", true, true) == true,
+  check(Da.base_defense("garrison", true, true) == true and Da.base_defense("refill", true, true) == true and Da.base_defense("fortify", true, true) == true,
     "garde, recharge, pose de tourelles dans la base par un PNJ armé : défense de la base")
-  check(Da.base_defense("refill", true, false) == false and Da.base_defense("fortify", true, nil) == false,
-    "relecture de revue-danger : recharge ou pose par un DÉSARMÉ dans la base : pas d'exemption (il partait en plein raid sans réflexe)")
+  check(Da.base_defense("refill", true, false) == false and Da.base_defense("fortify", true, nil) == false and Da.base_defense("garrison", true, false) == false,
+    "relecture de revue-danger : garde, recharge ou pose par un PNJ sans munitions chargées dans la base : pas d'exemption")
   check(Da.base_defense("garrison", false, true) == false and Da.base_defense("mine", true, true) == false and Da.base_defense("service", true, true) == false,
     "hors de la base, ou une autre tâche : pas d'exemption")
   check(Da.after_wait({ fixed = 0 }, B, "marque", 0, { fixed = 0, deaths = 0 }) == "go", "trajet qui sort de la meute (danger ajouté nul) : départ")
@@ -283,9 +283,9 @@ local mutantsDa = {
   { "défense : morts au but gardées", "if def_base then return 0 end", "" },
   { "calme : garde-fou ignoré", "if calm and (n or 0) < (cap or 0) then return 0 end", "if calm then return 0 end" },
   { "calme ignoré", "if calm and (n or 0) < (cap or 0) then return 0 end", "" },
-  { "défense hors de la base", "Da.DEFENSE_KINDS[kind] and in_base and (", "Da.DEFENSE_KINDS[kind] and (" },
-  { "désarmé exempté", "and (kind == \"garrison\" or armed)) and true or false", ") and true or false" },
-  { "garde exigée armée", "(kind == \"garrison\" or armed)", "(armed)" },
+  { "défense hors de la base", "Da.DEFENSE_KINDS[kind] and in_base and armed", "Da.DEFENSE_KINDS[kind] and armed" },
+  { "désarmé exempté", "and in_base and armed) and true or false", "and in_base) and true or false" },
+  { "garde toujours exemptée", "and in_base and armed) and true or false", "and in_base and (armed or kind == \"garrison\")) and true or false" },
   { "garde retirée de la défense", "Da.DEFENSE_KINDS = { fortify = true, garrison = true, refill = true }", "Da.DEFENSE_KINDS = { fortify = true, refill = true }" },
 }
 local refused2, total2 = 0, 0

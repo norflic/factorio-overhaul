@@ -813,9 +813,10 @@ gate_core = function(f, agent, task, steps, tick)
     -- Relecture du lead (B4), étendue à la garde (2e essai) : la DÉFENSE de la base (garde, recharge, pose de tourelles, but dans la zone de base) ne se met
     -- pas de côté pour une MEUTE, l'attaque même qu'elle défend (R-QCM-25c (b) « l'équipe le défend », team.lua : toute l'équipe en garde au QG menacé).
     -- Verif-guide 271828182 (essai 2, 46 min) : « met de cote (but) : tache garrison vers (6, 9), menace fixe au but 800 », la case même du QG.
-    -- Relecture de revue-danger (bloquant) : un PNJ ARMÉ seulement (la garde l'est toujours) ; un désarmé qui recharge ou pose reste mis de côté.
+    -- Relecture de revue-danger (bloquant) : un PNJ ARMÉ seulement, munitions CHARGÉES (M.has_ammo : la place de marché compte aussi celles du sac,
+    -- un garde peut n'avoir rien de chargé) ; un désarmé qui garde, recharge ou pose reste mis de côté.
     local def_base = Da.base_defense(task.kind, Da.DEFENSE_KINDS[task.kind] and Base.contains(M.base_zone(f, t, e.surface, tick), dest.x, dest.y),
-      task.kind == "garrison" or (Da.DEFENSE_KINDS[task.kind] and M.has_ammo(e)))
+      Da.DEFENSE_KINDS[task.kind] and M.has_ammo(e))
     local skip = def_base and "pack" or nil
     local parts = D.exact_parts(t.map, dest.x, dest.y, tick)
     local da = t.stats.dact or {}
