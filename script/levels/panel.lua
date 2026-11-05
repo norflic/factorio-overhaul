@@ -20,9 +20,10 @@
   bleue) avec un bouton « Annuler l'agrandissement ». Sans clic, rien ne change.
   Lot PANNEAU (4/11, demande du DC : « dès que le curseur passe sur un truc, c'est ultra chiant ») : QUAND le panneau s'ouvre
   dépend du réglage par joueur fo-levels-panneau (règle pure : shared/levels/panneau.lua). « clic » (défaut) : le survol
-  n'ouvre rien ; le panneau suit l'interface du bâtiment (on_gui_opened / on_gui_closed ; après une amélioration, l'interface
-  de la nouvelle entité est rouverte) ; U améliore sans ouvrir ; Maj+U (fo-level-panel) ouvre ou ferme le panneau du bâtiment
-  survolé. « survol » : le comportement décrit plus haut, inchangé.
+  n'ouvre rien ; un clic gauche sur le bâtiment ouvre son panneau (fo-level-open, liée à « open-gui » : murs et lasers
+  compris) ; ouvert avec l'interface du bâtiment, le panneau la suit (on_gui_opened / on_gui_closed ; après une amélioration,
+  l'interface de la nouvelle entité est rouverte, fermeture ignorée pendant l'amélioration) ; U améliore sans ouvrir ; Maj+U
+  (fo-level-panel) ouvre ou ferme le panneau du bâtiment survolé. « survol » : le comportement décrit plus haut, inchangé.
 ]]
 
 local Events = require("script.core.events")
@@ -38,9 +39,10 @@ local FRAME = "fo_lvl_panel"
 -- drawn (correction V3-T) : dernier aperçu de place dessiné pour chaque joueur { unit, free, until_tick }
 -- (nombres et booléens seulement, jamais d'identifiant de rendu) ; absent d'une sauvegarde d'avant : créé au
 -- premier dessin.
--- via (lot PANNEAU) : comment le panneau de chaque joueur a été ouvert ("gui", "key", "hover") ; absent d'une sauvegarde
--- d'avant : créé à la première ouverture (un panneau ouvert sans via vaut « survol »).
-Storage.declare("levels_ui", function() return { target = {}, unit = {}, drawn = {}, via = {} } end)
+-- via (lot PANNEAU) : comment le panneau de chaque joueur a été ouvert ("gui", "click", "key", "hover") ; absent d'une
+-- sauvegarde d'avant : créé à la première ouverture (un panneau ouvert sans via vaut « survol »). upgrading : amélioration du
+-- joueur en cours (vrai seulement le temps d'un gestionnaire ; créé au premier usage).
+Storage.declare("levels_ui", function() return { target = {}, unit = {}, drawn = {}, via = {}, upgrading = {} } end)
 local function UI() return Storage.ns("levels_ui") end
 
 --- Période du rafraîchissement du panneau (ticks) : l'aperçu de place dessiné vit jusqu'au rafraîchissement
@@ -397,17 +399,28 @@ local function state(player, entity)
     same = same_as_target(player, entity),
     via = via,
     bound = via == "gui" and bound(player, target) or false,
+    upgrading = ui.upgrading ~= nil and ui.upgrading[player.index] == true,
   }
 end
 
+--- Relecture de dcccb525 (R1) : amélioration du joueur EN COURS (clic « Améliorer », « Améliorer la rangée », réparation de
+--- l'épave, touche U). Le remplacement peut fermer l'interface de l'ancienne entité, encore valide, avant que la cible ne suive
+--- la nouvelle (Levels.on_replaced) : la règle ignore alors on_gui_closed, et follow() rouvre l'interface une fois l'action
+--- finie. Posé et retiré dans le même gestionnaire.
+local function set_upgrading(player, on)
+  local ui = UI()
+  ui.upgrading = ui.upgrading or {}
+  ui.upgrading[player.index] = on or nil
+end
+
 --- Rouvre l'interface de la cible (nouvelle entité après une amélioration). Écrire `opened` lève on_gui_opened aussitôt
---- (doc 1.1.91 de LuaControl.opened) : le gestionnaire plus bas retrouve la même cible. Écriture refusée : le panneau, qui
---- suit l'interface, se ferme.
+--- (doc 1.1.91 de LuaControl.opened) : le gestionnaire plus bas retrouve la même cible. La cible est valide (vérifié) et de la
+--- même famille que l'entité dont l'interface était ouverte. Écriture sans effet : le panneau, qui suit l'interface, se ferme.
 local function reopen(player)
   local target = UI().target[player.index]
   if not (target and target.valid) then return close(player) end
-  local ok = pcall(function() player.opened = target end)
-  if not (ok and bound(player, target)) then close(player) end
+  player.opened = target
+  if not bound(player, target) then close(player) end
 end
 
 local function apply(player, entity, act, via)
@@ -447,7 +460,9 @@ Events.on("fo-level-up", function(e)
     set_target(player, sel)
     set_via(player, via)
   end
+  set_upgrading(player, true)
   try_upgrade(player, sel, false)
+  set_upgrading(player, false)
   follow(player)
   if act == "open" or act == "refresh" then refresh(player) end
 end)
@@ -462,6 +477,19 @@ Events.on("fo-level-panel", function(e)
   apply(player, sel, Panneau.decide("key-panel", state(player, sel)))
 end)
 
+-- Relecture de dcccb525 : clic gauche (touche fo-level-open, liée à « open-gui », non consommée) sur un bâtiment à niveaux de sa
+-- force : ouvre son panneau en « clic », qu'il ait une interface ou non. Rien quand le joueur tient un objet ou un fantôme en
+-- main (le clic gauche pose alors un bâtiment).
+Events.on("fo-level-open", function(e)
+  local player = game.get_player(e.player_index)
+  if not player then return end
+  local sel = player.selected
+  if not (sel and leveled(player, sel)) then return end
+  local cs = player.cursor_stack
+  if (cs and cs.valid_for_read) or player.cursor_ghost then return end
+  apply(player, sel, Panneau.decide("click", state(player, sel)))
+end)
+
 -- Lot PANNEAU : en « clic », le panneau s'ouvre avec l'interface d'un bâtiment à niveaux de la force du joueur…
 Events.on(defines.events.on_gui_opened, function(e)
   local ent = e.entity
@@ -472,7 +500,8 @@ Events.on(defines.events.on_gui_opened, function(e)
 end)
 
 -- … et se ferme avec elle. Une interface fermée parce que son entité a été détruite (amélioration) n'est pas comparée : le
--- rafraîchissement ferme le panneau si l'interface du joueur n'est plus celle de la cible.
+-- rafraîchissement ferme le panneau si l'interface du joueur n'est plus celle de la cible. Pendant une amélioration du joueur
+-- (set_upgrading), la fermeture est ignorée quel que soit l'ordre des événements du moteur (relecture, R1).
 Events.on(defines.events.on_gui_closed, function(e)
   local player = game.get_player(e.player_index)
   if not (player and UI().target[player.index] ~= nil) then return end
@@ -507,9 +536,13 @@ Events.on(defines.events.on_gui_click, function(e)
   elseif name == "fo_lvl_free_cancel" then
     Free.cancel(target, "cancelled")
   elseif name == "fo_centre_repair" then
+    set_upgrading(player, true)
     try_repair(player, target)
+    set_upgrading(player, false)
   else
+    set_upgrading(player, true)
     try_upgrade(player, target, name == "fo_lvl_row")
+    set_upgrading(player, false)
   end
   follow(player)
   refresh(player)
@@ -531,6 +564,7 @@ Events.on(defines.events.on_player_left_game, function(e)
   UI().unit[e.player_index] = nil
   if UI().drawn then UI().drawn[e.player_index] = nil end
   if UI().via then UI().via[e.player_index] = nil end
+  if UI().upgrading then UI().upgrading[e.player_index] = nil end
 end)
 
 -- Après une amélioration, le bâtiment est une NOUVELLE entité : le panneau la suit.

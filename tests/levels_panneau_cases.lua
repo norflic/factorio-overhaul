@@ -8,12 +8,15 @@
   concerné. »
 
   Cases.pure    : la table de décision, déclencheur par déclencheur.
-  Cases.runtime : 8 cas en « clic » dans le moteur simulé (le survol n'ouvre pas ; l'interface ouverte ouvre ; l'interface
+  Cases.runtime : 11 cas en « clic » dans le moteur simulé (le survol n'ouvre pas ; l'interface ouverte ouvre ; l'interface
                   fermée ferme ; U améliore sans ouvrir ; Maj+U ouvre puis ferme ; après une amélioration, le panneau suit la
-                  nouvelle entité et son interface est rouverte ; interface fermée sans événement : fermé au rafraîchissement ;
-                  panneau ouvert au survol puis passage en « clic » : fermé au rafraîchissement), puis CHAQUE cas rejoué avec
-                  son mutant (Panneau.decide remplacé pour un seul déclencheur) : le cas doit échouer. Enfin le réglage, la
-                  touche (étape data réelle, harnais) et les traductions FR et EN.
+                  nouvelle entité et son interface est rouverte, l'ancienne interface étant fermée APRÈS le remplacement, ou
+                  PENDANT, encore valide, par le bouton ou par U (relecture, R1) ; le clic gauche ouvre, avec ou sans
+                  interface, dans les deux ordres clic / interface ; interface fermée sans événement : fermé au
+                  rafraîchissement ; panneau ouvert au survol puis passage en « clic » : fermé au rafraîchissement), puis CHAQUE
+                  cas rejoué avec son mutant (Panneau.decide remplacé pour un seul déclencheur) : le cas doit échouer. Puis le
+                  journal [FO-REGLAGES] (rien pour un réglage par joueur). Cases.data : le réglage, les touches (étape data
+                  réelle, harnais) et les traductions FR et EN.
   Les cas « survol » (comportement d'avant) restent ceux de levels_test et levels_clear_cases, joueur mis en « survol ».
 ]]
 
@@ -55,6 +58,14 @@ function Cases.pure(check, section)
   check(is("gui-opened", {}, "open", "gui") and is("gui-opened", { open = true, via = "key" }, "open", "gui")
     and is("gui-opened", { has = false }, "none"), "règle (clic) : l'interface d'un bâtiment à niveaux ouvre son panneau")
   check(is("gui-opened", { mode = P.SURVOL }, "none"), "règle (survol) : l'interface n'ouvre rien (comportement d'avant)")
+  -- Clic gauche sur un bâtiment (fo-level-open, avec ou sans interface).
+  check(is("click", {}, "open", "click") and is("click", { open = true }, "open", "click") and is("click", { has = false }, "none")
+    and is("click", { has = false, open = true }, "none"), "règle (clic) : un clic gauche sur un bâtiment à niveaux ouvre son panneau")
+  check(is("click", { open = true, same = true, via = "gui" }, "none") and is("click", { open = true, same = true, via = "click" }, "none"),
+    "règle (clic) : un clic sur la cible déjà montrée ne change rien (jamais de bascule ; l'interface garde le panneau)")
+  check(is("click", { mode = P.SURVOL }, "none"), "règle (survol) : le clic n'ouvre rien de plus (comportement d'avant)")
+  check(is("gui-closed", { open = true, via = "gui", same = true, upgrading = true }, "none"),
+    "règle : pendant une amélioration du joueur, la fermeture de l'interface (ancienne entité) est ignorée")
   check(is("gui-closed", { open = true, via = "gui", same = true }, "close") and is("gui-closed", { open = true, via = "gui" }, "none")
     and is("gui-closed", { open = true, via = "key", same = true }, "none") and is("gui-closed", { open = true, via = "hover", same = true }, "none")
     and is("gui-closed", { mode = P.SURVOL, open = true, via = "gui", same = true }, "close"),
@@ -69,6 +80,7 @@ function Cases.pure(check, section)
   -- Rafraîchissement.
   check(is("tick", {}, "none") and is("tick", { open = true, via = "gui", bound = true }, "refresh")
     and is("tick", { open = true, via = "gui" }, "close") and is("tick", { open = true, via = "key" }, "refresh")
+    and is("tick", { open = true, via = "click" }, "refresh")
     and is("tick", { open = true, via = "hover" }, "close") and is("tick", { open = true }, "close"),
     "règle (clic) : au rafraîchissement, panneau d'interface gardé tant qu'elle est ouverte ; panneau de survol fermé")
   check(is("tick", { mode = P.SURVOL, open = true, via = "hover" }, "refresh") and is("tick", { mode = P.SURVOL, open = true }, "refresh")
@@ -131,6 +143,37 @@ function Cases.runtime(check, section)
   rawset(player, "force", game.forces[FORCE])
   player.gui = { left = fake_gui(), top = fake_gui(), screen = fake_gui() }
 
+  -- Interface ouverte du joueur, émulée comme LuaControl.opened (doc 1.1.91), le temps de ces cas seulement (le moteur simulé
+  -- partagé garde un champ simple : ia1i_test l'écrit aussi). Lecture : opened et opened_gui_type. ÉCRITURE par le script :
+  -- l'interface ouverte est « priée de se fermer » (on_gui_closed), puis on_gui_opened est levé aussitôt, opened_gui_type
+  -- devient entity. Les gestes du joueur (open_gui, close_gui) passent par `eng` sans écriture du script.
+  local eng = { opened = nil, gtype = GT.none, writes = 0 }
+  local mt0 = getmetatable(player)
+  rawset(player, "opened", nil)
+  rawset(player, "opened_gui_type", nil)
+  setmetatable(player, {
+    __index = function(t, k)
+      if k == "opened" then return eng.opened end
+      if k == "opened_gui_type" then return eng.gtype end
+      local i = mt0 and mt0.__index
+      if type(i) == "function" then return i(t, k) end
+      return i and i[k]
+    end,
+    __newindex = function(t, k, v)
+      if k == "opened_gui_type" then error("opened_gui_type est en lecture seule") end
+      if k ~= "opened" then return rawset(t, k, v) end
+      eng.writes = eng.writes + 1
+      local prev = eng.opened
+      if prev ~= nil then
+        eng.opened, eng.gtype = nil, GT.none
+        M.dispatch(ev[defines.events.on_gui_closed], { player_index = 1, entity = prev, gui_type = GT.entity, tick = game.tick })
+      end
+      if v == nil then return end
+      eng.opened, eng.gtype = v, GT.entity
+      M.dispatch(ev[defines.events.on_gui_opened], { player_index = 1, entity = v, gui_type = GT.entity, tick = game.tick })
+    end,
+  })
+
   local UI = function() return global.fo.levels_ui end
   local function panel() return player.gui.left["fo_lvl_panel"] end
   local function target() return UI().target[1] end
@@ -140,8 +183,9 @@ function Cases.runtime(check, section)
     if f then f.destroy() end
     UI().target[1], UI().unit[1] = nil, nil
     if UI().via then UI().via[1] = nil end
-    rawset(player, "opened", nil)
-    rawset(player, "opened_gui_type", GT.none)
+    if UI().upgrading then UI().upgrading[1] = nil end
+    rawset(player, "cursor_stack", nil)
+    eng.opened, eng.gtype = nil, GT.none
     rawset(player, "selected", nil)
     M.set_player_setting(1, P.SETTING, "clic")
   end
@@ -150,19 +194,34 @@ function Cases.runtime(check, section)
     rawset(player, "selected", e)
     M.dispatch(ev[defines.events.on_selected_entity_changed], { player_index = 1, tick = game.tick })
   end
-  --- Le moteur ouvre l'interface (opened, opened_gui_type) PUIS lève on_gui_opened.
+  --- Geste du joueur : le moteur ouvre l'interface (opened, opened_gui_type) PUIS lève on_gui_opened.
   local function open_gui(e)
-    rawset(player, "opened", e)
-    rawset(player, "opened_gui_type", GT.entity)
+    eng.opened, eng.gtype = e, GT.entity
     M.dispatch(ev[defines.events.on_gui_opened], { player_index = 1, entity = e, gui_type = GT.entity, tick = game.tick })
   end
+  --- Geste du joueur : Échap ou E ferme l'interface.
   local function close_gui(e)
-    rawset(player, "opened", nil)
-    rawset(player, "opened_gui_type", GT.none)
+    eng.opened, eng.gtype = nil, GT.none
     M.dispatch(ev[defines.events.on_gui_closed], { player_index = 1, entity = e, gui_type = GT.entity, tick = game.tick })
   end
   local function key(name)
     M.dispatch(ev[name], { player_index = 1, input_name = name, tick = game.tick })
+  end
+  --- Relecture (R1) : le moteur ferme l'interface de l'ANCIENNE entité, encore valide, PENDANT le remplacement, avant que la
+  --- cible ne suive la nouvelle. create_entity{fast_replace} du moteur simulé enveloppé : on_gui_closed levé d'abord.
+  --- Renvoie la fonction qui retire l'enveloppe et rend le nombre de fermetures levées.
+  local function close_during_replace(old)
+    local raw = s.create_entity
+    local hits = 0
+    s.create_entity = function(spec)
+      if spec.fast_replace and old.valid then
+        hits = hits + 1
+        eng.opened, eng.gtype = nil, GT.none
+        M.dispatch(ev[defines.events.on_gui_closed], { player_index = 1, entity = old, gui_type = GT.entity, tick = game.tick })
+      end
+      return raw(spec)
+    end
+    return function() s.create_entity = raw; return hits end
   end
   local slot = 0
   local function new_at(family, n)
@@ -242,26 +301,97 @@ function Cases.runtime(check, section)
     open_gui(g)
     local btn = find_el(panel(), "fo_lvl_up")
     chk(btn ~= nil and btn.enabled == true, "clic : bouton « Améliorer » du panneau ouvert avec l'interface")
+    -- Ordre « après » : le remplacement ne ferme rien ; l'interface ouverte reste celle de l'ancienne entité (détruite) jusqu'à
+    -- l'écriture de `opened` par le script, qui la « prie de se fermer » (on_gui_closed, entité invalide) puis lève on_gui_opened.
+    local w0 = eng.writes
     M.dispatch(ev[defines.events.on_gui_click], { element = btn, player_index = 1, tick = game.tick })
     local g3 = s.find_entity(L.name(GUN, 3), pos)
     chk(not g.valid and g3 ~= nil and target() == g3 and via() == "gui", "clic : amélioration depuis le panneau, la cible est la nouvelle entité")
-    chk(rawget(player, "opened") == g3, "clic : l'interface de la NOUVELLE entité est rouverte (player.opened écrit)")
-    -- Ce que le moteur lève à l'écriture de `opened` (doc 1.1.91) : fermeture de l'ancienne interface (entité détruite), puis
-    -- ouverture de la nouvelle. Le panneau ne bouge pas.
+    chk(player.opened == g3 and player.opened_gui_type == GT.entity and eng.writes == w0 + 1,
+      "clic : l'interface de la NOUVELLE entité est rouverte (player.opened écrit 1 fois ; " .. (eng.writes - w0) .. ")")
+    -- Fermeture TARDIVE de l'ancienne interface (entité détruite), si le moteur la lève encore : le panneau ne bouge pas.
     M.dispatch(ev[defines.events.on_gui_closed], { player_index = 1, entity = g, gui_type = GT.entity, tick = game.tick })
-    M.dispatch(ev[defines.events.on_gui_opened], { player_index = 1, entity = g3, gui_type = GT.entity, tick = game.tick })
-    chk(panel() ~= nil and target() == g3, "clic : fermeture de l'ancienne interface (entité détruite) puis ouverture de la nouvelle : panneau gardé")
+    chk(panel() ~= nil and target() == g3, "clic : ancienne interface fermée (entité détruite), avant ou après la nouvelle : panneau gardé")
     M.run_ticks(60)
     chk(panel() ~= nil and target() == g3, "clic : panneau toujours ouvert 60 ticks après l'amélioration")
     close_gui(g3)
     chk(panel() == nil, "clic : fermer l'interface de la nouvelle entité ferme le panneau")
   end)
 
+  -- Relecture (R1), l'AUTRE ordre : l'interface de l'ancienne entité, encore valide, est fermée pendant le remplacement.
+  case("pendant-clic", "fermeture pendant le remplacement (bouton « Améliorer »)", function(chk)
+    local g, pos = new_at(GUN, 2)
+    open_gui(g)
+    local btn = find_el(panel(), "fo_lvl_up")
+    local unhook = close_during_replace(g)
+    local okc, errc = pcall(M.dispatch, ev[defines.events.on_gui_click], { element = btn, player_index = 1, tick = game.tick })
+    local hits = unhook()
+    local g3 = s.find_entity(L.name(GUN, 3), pos)
+    chk(okc and hits == 1 and not g.valid and g3 ~= nil,
+      "ordre « pendant » : l'interface de l'ancienne entité, encore valide, est fermée pendant le remplacement (" .. hits .. " fois"
+      .. (okc and "" or (", " .. tostring(errc))) .. ")")
+    chk(panel() ~= nil and target() == g3 and via() == "gui" and player.opened == g3,
+      "ordre « pendant » : panneau gardé sur la nouvelle entité, son interface rouverte")
+    chk(not (UI().upgrading and UI().upgrading[1]), "drapeau d'amélioration retiré à la fin du clic")
+    M.run_ticks(60)
+    chk(panel() ~= nil and target() == g3, "ordre « pendant » : panneau toujours ouvert 60 ticks après")
+    close_gui(g3)
+    chk(panel() == nil, "ordre « pendant » : fermer ensuite l'interface ferme le panneau (drapeau retiré)")
+  end)
+
+  case("pendant-u", "fermeture pendant le remplacement (touche U, interface ouverte)", function(chk)
+    local g, pos = new_at(GUN, 2)
+    open_gui(g)
+    rawset(player, "selected", g)
+    local unhook = close_during_replace(g)
+    local oku, erru = pcall(key, "fo-level-up")
+    local hits = unhook()
+    local g3 = s.find_entity(L.name(GUN, 3), pos)
+    chk(oku and hits == 1 and not g.valid and g3 ~= nil, "U, ordre « pendant » : amélioration faite, ancienne interface fermée pendant le remplacement"
+      .. (oku and "" or (" (" .. tostring(erru) .. ")")))
+    chk(panel() ~= nil and target() == g3 and player.opened == g3,
+      "U, ordre « pendant » : panneau gardé sur la nouvelle entité, son interface rouverte")
+    chk(not (UI().upgrading and UI().upgrading[1]), "drapeau d'amélioration retiré à la fin de U")
+  end)
+
+  -- Relecture : clic gauche sur TOUT bâtiment à niveaux (fo-level-open, liée à « open-gui »), interface ou non.
+  case("clic", "le clic gauche ouvre (avec ou sans interface)", function(chk)
+    local w = new_at(WALL, 2)
+    rawset(player, "selected", w)
+    key("fo-level-open")
+    chk(panel() ~= nil and target() == w and via() == "click", "clic gauche sur un mur (sans interface) : son panneau s'ouvre")
+    M.run_ticks(60)
+    key("fo-level-open")
+    chk(panel() ~= nil and target() == w, "le panneau ouvert au clic reste (2 rafraîchissements), un 2e clic ne le referme pas")
+    -- Bâtiment avec interface, ordre de la doc 1.1.91 : la touche non consommée passe AVANT l'événement du jeu.
+    local g = new_at(GUN, 2)
+    rawset(player, "selected", g)
+    key("fo-level-open")
+    open_gui(g)
+    chk(panel() ~= nil and target() == g and via() == "gui", "clic puis interface : le panneau passe à la mitrailleuse et suit son interface")
+    close_gui(g)
+    chk(panel() == nil, "clic puis interface : fermer l'interface ferme le panneau")
+    -- Ordre inverse : l'interface d'abord, puis le clic.
+    local g2 = new_at(GUN, 2)
+    open_gui(g2)
+    rawset(player, "selected", g2)
+    key("fo-level-open")
+    chk(panel() ~= nil and target() == g2 and via() == "gui", "interface puis clic : le clic ne referme pas le panneau et ne le détache pas de l'interface")
+    close_gui(g2)
+    chk(panel() == nil, "interface puis clic : fermer l'interface ferme le panneau")
+    -- Objet en main : le clic gauche pose un bâtiment, il n'ouvre rien.
+    local w2 = new_at(WALL, 2)
+    rawset(player, "selected", w2)
+    rawset(player, "cursor_stack", { valid_for_read = true, name = "stone-wall", count = 10 })
+    key("fo-level-open")
+    rawset(player, "cursor_stack", nil)
+    chk(panel() == nil, "objet en main : le clic gauche n'ouvre pas le panneau")
+  end)
+
   case("muet", "interface fermée sans événement : fermé au rafraîchissement", function(chk)
     local g = new_at(GUN, 2)
     open_gui(g)
-    rawset(player, "opened", nil) -- interface fermée sans on_gui_closed (mort du joueur, doc 1.1.91)
-    rawset(player, "opened_gui_type", GT.none)
+    eng.opened, eng.gtype = nil, GT.none -- interface fermée sans on_gui_closed (mort du joueur, doc 1.1.91)
     M.run_ticks(30)
     chk(panel() == nil and target() == nil, "clic : interface fermée sans événement, panneau fermé au rafraîchissement suivant")
   end)
@@ -300,6 +430,14 @@ function Cases.runtime(check, section)
       patch = function(orig, st) local a, v = orig("key-panel", st); if a == "open" then return "none" end return a, v end },
     { case = "suit", name = "l'interface de la nouvelle entité n'est pas rouverte", trigger = "replaced",
       patch = function() return "none" end },
+    { case = "pendant-clic", name = "la fermeture pendant l'amélioration ferme le panneau (drapeau ignoré)", trigger = "gui-closed",
+      patch = function(orig, st) if st.open and st.via == "gui" and st.same then return "close" end return "none" end },
+    { case = "pendant-u", name = "la fermeture pendant U ferme le panneau (drapeau ignoré)", trigger = "gui-closed",
+      patch = function(orig, st) if st.open and st.via == "gui" and st.same then return "close" end return "none" end },
+    { case = "clic", name = "le clic gauche n'ouvre rien", trigger = "click",
+      patch = function() return "none" end },
+    { case = "clic", name = "le clic gauche bascule (referme la cible déjà montrée)", trigger = "click",
+      patch = function(orig, st) if st.open and st.same then return "close" end return orig("click", st) end },
     { case = "muet", name = "le rafraîchissement garde un panneau dont l'interface est fermée", trigger = "tick",
       patch = function(orig, st) if st.open and st.via == "gui" then return "refresh" end return orig("tick", st) end },
     { case = "bascule", name = "le rafraîchissement garde en « clic » un panneau ouvert au survol", trigger = "tick",
@@ -326,9 +464,25 @@ function Cases.runtime(check, section)
   for _, id in ipairs(ORDER) do if not covered[id] then uncovered[#uncovered + 1] = id end end
   check(#uncovered == 0, "chaque cas « clic » a un mutant détecté (" .. #ORDER .. " cas" .. (#uncovered > 0 and (" ; sans : " .. table.concat(uncovered, ", ")) or "") .. ")")
 
+  -- Relecture : changer le réglage PAR JOUEUR n'écrit pas de ligne [FO-REGLAGES] (script/faction/journaux_dc.lua) ; un réglage de
+  -- carte en écrit toujours une (contraste).
+  local function reglages_after(spec)
+    local n0 = #Wd.logs
+    spec.tick = game.tick
+    local ok = pcall(M.dispatch, ev[defines.events.on_runtime_mod_setting_changed], spec)
+    local n = 0
+    for i = n0 + 1, #Wd.logs do if Wd.logs[i]:find("[FO-REGLAGES]", 1, true) then n = n + 1 end end
+    return ok, n
+  end
+  local okj1, nj1 = reglages_after({ player_index = 1, setting = P.SETTING, setting_type = "runtime-per-user" })
+  check(okj1 and nj1 == 0, "journal : changer le réglage par joueur fo-levels-panneau n'écrit AUCUNE ligne [FO-REGLAGES] (" .. nj1 .. ")")
+  local okj2, nj2 = reglages_after({ player_index = 1, setting = "fo-war-robots", setting_type = "runtime-global" })
+  check(okj2 and nj2 == 1, "journal : un réglage de carte (fo-war-robots) écrit toujours sa ligne [FO-REGLAGES] (" .. nj2 .. ")")
+
   -- Retour à l'état d'avant pour la suite du banc.
   reset()
   M.set_player_setting(1, P.SETTING, nil)
+  setmetatable(player, mt0)
   rawset(player, "opened", opened0)
   rawset(player, "opened_gui_type", gtype0)
   rawset(player, "selected", sel0)
@@ -370,6 +524,12 @@ function Cases.data(check, section, game_data_dir)
     local out2 = ph2 and ph2:read("*a") or ""
     if ph2 then ph2:close() end
     check(out2:find('key_sequence = "U"', 1, true) ~= nil, "touche fo-level-up inchangée (U)")
+    local ph3 = io.popen(lua .. ' tests/datastage/harness.lua "' .. game_data_dir .. '" . --dump-final custom-input/fo-level-open 2>&1', "r")
+    local out3 = ph3 and ph3:read("*a") or ""
+    if ph3 then ph3:close() end
+    check(out3:find('linked_game_control = "open-gui"', 1, true) ~= nil and out3:find('consuming = "none"', 1, true) ~= nil
+      and out3:find('name = "fo-level-open"', 1, true) ~= nil,
+      "touche fo-level-open déclarée à l'étape data réelle : liée au clic « open-gui », non consommée")
   else
     check(false, "données du jeu introuvables : touche non vérifiée à l'étape data")
   end
@@ -390,7 +550,8 @@ function Cases.data(check, section, game_data_dir)
     end
     local miss = {}
     for _, k in ipairs({ "mod-setting-name.fo-levels-panneau", "mod-setting-description.fo-levels-panneau",
-        "string-mod-setting.fo-levels-panneau-clic", "string-mod-setting.fo-levels-panneau-survol", "controls.fo-level-panel" }) do
+        "string-mod-setting.fo-levels-panneau-clic", "string-mod-setting.fo-levels-panneau-survol", "controls.fo-level-panel",
+        "controls.fo-level-open" }) do
       if not (keys[k] and #keys[k] > 0) then miss[#miss + 1] = k end
     end
     check(f ~= nil and #miss == 0, lang .. " : traductions du lot PANNEAU (réglage, valeurs, touche)" .. (#miss > 0 and (" ; manquent : " .. table.concat(miss, ", ")) or ""))

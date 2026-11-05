@@ -7,20 +7,26 @@
   clique sur le bâtiment concerné. »
 
   Réglage par joueur `fo-levels-panneau` (settings/levels_panneau.lua) :
-    « clic » (défaut)  le survol n'ouvre plus rien ; le panneau s'ouvre avec l'interface d'un bâtiment à niveaux de votre force
-                       et se ferme avec elle ; la touche U améliore le bâtiment survolé SANS ouvrir le panneau ; Maj+U
-                       (fo-level-panel) ouvre ou ferme le panneau du bâtiment survolé (bâtiments sans interface : murs…).
+    « clic » (défaut)  le survol n'ouvre plus rien ; un clic gauche sur un bâtiment à niveaux de votre force ouvre son panneau
+                       (fo-level-open, avec ou sans interface : murs, lasers…) ; ouvert avec l'interface du bâtiment, il se
+                       ferme avec elle ; la touche U améliore le bâtiment survolé SANS ouvrir le panneau ; Maj+U
+                       (fo-level-panel) ouvre ou ferme le panneau du bâtiment survolé.
     « survol »         le comportement d'avant, inchangé (survol et U ouvrent le panneau, qui reste affiché) ; Maj+U marche aussi.
 
   P.decide(déclencheur, état) -> action, via
-    déclencheurs : "hover" (le curseur passe sur un bâtiment), "gui-opened", "gui-closed" (interface d'un bâtiment), "key-up"
-                   (touche U), "key-panel" (Maj+U), "tick" (rafraîchissement périodique), "replaced" (juste après une action
-                   qui a pu remplacer la cible : amélioration, réparation de l'épave).
+    déclencheurs : "hover" (le curseur passe sur un bâtiment), "click" (clic gauche sur un bâtiment : touche fo-level-open liée
+                   à la commande « open-gui », avec ou sans interface), "gui-opened", "gui-closed" (interface d'un bâtiment),
+                   "key-up" (touche U), "key-panel" (Maj+U), "tick" (rafraîchissement périodique), "replaced" (juste après une
+                   action qui a pu remplacer la cible : amélioration, réparation de l'épave).
     état         : mode ("clic" | "survol"), open (le panneau est ouvert), has (le déclencheur porte sur un bâtiment à niveaux
                    de la force du joueur), same (ce bâtiment est la cible du panneau), via (comment le panneau a été ouvert :
-                   "gui", "key", "hover", nil pour un panneau d'une sauvegarde d'avant = survol), bound (l'interface ouverte du
-                   joueur est la cible ; lu pour via "gui" seulement).
+                   "gui", "click", "key", "hover", nil pour un panneau d'une sauvegarde d'avant = survol), bound (l'interface
+                   ouverte du joueur est la cible ; lu pour via "gui" seulement), upgrading (une amélioration du joueur est en
+                   cours : le remplacement peut fermer l'interface de l'ANCIENNE entité, encore valide, avant que la cible
+                   suive la nouvelle ; relecture de dcccb525, R1).
     actions      : "open" (+ via), "close", "refresh", "reopen" (rouvrir l'interface de la cible remplacée), "none".
+  Le clic et l'interface arrivent dans les deux ordres (doc 1.1.91 : une touche non consommée passe AVANT l'événement du jeu) :
+  un clic sur la cible déjà montrée ne change rien (jamais de bascule), l'interface ouverte rattache le panneau à elle.
 ]]
 
 local P = {}
@@ -48,7 +54,17 @@ local function gui_opened(st)
   return "open", "gui"
 end
 
+--- Clic gauche sur un bâtiment à niveaux (en « clic ») : ouvre son panneau, qu'il ait une interface ou non ; la cible déjà
+--- montrée ne bouge pas (l'interface, si elle s'ouvre aussi, garde ou prend le panneau). En « survol » : rien (comportement
+--- d'avant inchangé).
+local function click(st)
+  if st.mode ~= P.CLIC or not st.has then return "none" end
+  if st.open and st.same then return "none" end
+  return "open", "click"
+end
+
 local function gui_closed(st)
+  if st.upgrading then return "none" end
   if st.open and st.via == "gui" and st.same then return "close" end
   return "none"
 end
@@ -72,7 +88,7 @@ end
 local function tick(st)
   if not st.open then return "none" end
   if st.via == "gui" then return st.bound and "refresh" or "close" end
-  if st.mode == P.CLIC and st.via ~= "key" then return "close" end
+  if st.mode == P.CLIC and st.via ~= "key" and st.via ~= "click" then return "close" end
   return "refresh"
 end
 
@@ -83,6 +99,7 @@ end
 
 local RULES = {
   hover = hover,
+  click = click,
   ["gui-opened"] = gui_opened,
   ["gui-closed"] = gui_closed,
   ["key-up"] = key_up,
