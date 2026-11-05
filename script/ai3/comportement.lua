@@ -45,6 +45,7 @@ local Board = require("script.team.board") -- lot COMPAGNONS-ACTIFS : crochet du
 local Ac = require("shared.team.actif") -- lot COMPAGNONS-ACTIFS : la peur sert à fuir une attaque en cours, puis on revient agir
 local Da = require("shared.team.danger_actif") -- lot DANGER-ACTIF : un refus de la porte devient « autre tâche » ou « part par le moindre danger »
 local Vg = require("shared.team.vague") -- lot CHARBON3 (Q4) : tournée proche rejugée sans les marques d'une vague passée
+local Tp = require("shared.team.tri_proches") -- lot CERVEAU-CENTRAL (P1) : tri des tuiles de minage, positions lues une fois
 
 local M = {}
 
@@ -700,12 +701,8 @@ function M.retarget_mine(f, t, task, surface, tick, B)
   local names = Harvest.names_for(f, task.resource, task.trees)
   if #names == 0 then return nil end -- lot KIT : rien à récolter pour cet objet
   local res = surface.find_entities_filtered({ position = f.hq_pos, radius = task.radius or 96, name = names, limit = 256 })
-  table.sort(res, function(x, y)
-    local dx, dy = d2(x.position, f.hq_pos), d2(y.position, f.hq_pos)
-    if dx ~= dy then return dx < dy end
-    if x.position.x ~= y.position.x then return x.position.x < y.position.x end
-    return x.position.y < y.position.y
-  end)
+  -- Lot CERVEAU-CENTRAL (P1) : même ordre (distance au QG, puis x, puis y), positions lues une fois (shared/team/tri_proches.lua).
+  Tp.sort(res, f.hq_pos, d2)
   local field = D.field(t.map, tick)
   local stride = math.max(1, math.floor(#res / 40))
   for i = 1, #res, stride do
@@ -1352,6 +1349,32 @@ function M.detour_guard(agent, f, t, a, why, ep, kind, tick)
   return out == "abandon" and "back" or "none"
 end
 
+---------------------------------------------------------------------------------------------------
+-- Lot CERVEAU-CENTRAL (P2) : regard du tick, relu par l'autodéfense du même PNJ dans la même pensée
+---------------------------------------------------------------------------------------------------
+-- Table LOCALE d'un seul tick (vidée au premier regard d'un autre tick ; jamais dans global) : elle ne sert qu'à SAUTER une
+-- recherche dont le résultat est déjà connu (nil). Vide (chargement d'une partie, autre pair), l'autodéfense cherche et trouve le
+-- même nil : la décision ne dépend jamais de son contenu.
+local LOOK, LOOK_TICK = {}, -1
+M.LOOK_MARGIN = 1 -- tuile de marge de l'inclusion des disques (virgule fixe du moteur, distance à la boîte d'une entité)
+
+local function note_look(id, tick, c, r, none)
+  if tick ~= LOOK_TICK then LOOK, LOOK_TICK = {}, tick end
+  LOOK[id] = { x = c.x, y = c.y, r = r, none = none }
+end
+M.note_look = note_look -- (tests/cerveau_central_test.lua)
+
+--- Vrai si le regard du PNJ `id`, à CE tick, n'a vu aucun ennemi dans un disque qui contient celui de centre `p` et de rayon `R` :
+--- distance(c, p) + R + M.LOOK_MARGIN <= r. find_nearest_enemy y rendrait nil (même force, même surface, même tick, aucune entité
+--- créée entre les deux : la pensée du PNJ rend la main juste après un regard vide).
+function M.look_clear(id, tick, p, R)
+  if tick ~= LOOK_TICK then return false end
+  local L = LOOK[id]
+  if not (L and L.none) then return false end
+  local dx, dy = p.x - L.x, p.y - L.y
+  return math.sqrt(dx * dx + dy * dy) + R + M.LOOK_MARGIN <= L.r
+end
+
 function M.sense(agent, tick)
   if not M.enabled() then return false end
   local e = agent.entity
@@ -1467,6 +1490,7 @@ function M.sense(agent, tick)
   local r = Re.look_radius(prud)
   t.stats.looks = t.stats.looks + 1
   local enemy = e.surface.find_nearest_enemy({ position = c, max_distance = r, force = e.force })
+  note_look(agent.id, tick, c, r, enemy == nil) -- lot CERVEAU-CENTRAL (P2) : lu par l'autodéfense du même tick (M.look_clear)
   local nd = enemy and math.sqrt(d2(c, enemy.position)) or nil
   t.stats.forgot = t.stats.forgot + D.forget_unseen(t.map, c.x, c.y, r, nd)
   if Fa.clear(Survie.on(f)) then
