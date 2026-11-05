@@ -337,6 +337,15 @@ function C.think(view, book, st, ctx)
   -- 16f1b3e0, point 1). Lot DEFAUT7 : l'amélioration exigée par le centre (chaîne Q16) servie d'abord ; étage 3 : le centre passé
   -- devant servi en tête, après les seuls projets qui produisent la matière qui lui manque (Cap.ahead_first).
   local served = Cap.ahead_first(Cap.chain_first(order), E.avail, T.outposts, T.smelter_inputs)
+  -- Lot AGEBLOCAGE (moteur simulé, 5/11) : la priorité du projet de la RÉSERVE DE MUNITIONS (famille « defense », genre « stock ») plafonne
+  -- celle des fabrications du centre collant (Cap.ahead_prio).
+  E.ahead_cap = nil
+  for _, p in ipairs(served) do
+    local g = p.goal
+    if g and g.family == "defense" and g.kind == "stock" and p.prio then
+      E.ahead_cap = E.ahead_cap and math.min(E.ahead_cap, p.prio) or p.prio
+    end
+  end
   for _, proj in ipairs(served) do P.emit(E, proj, ctx, tick) end
   -- 6. Approvisionnement.
   local raw, minable = C.raw_items()

@@ -534,7 +534,7 @@ function Cap.emit(P)
     -- Étage CIRCUITS : le centre collant ne compte que ce qui est AU COFFRE (Cap.ahead_clamp) et ses tâches ont la priorité du
     -- projet le plus fort (Cap.ahead_prio). Les arrivées mises de côté sont rendues au stock virtuel des projets suivants.
     local aside = g.ahead and Cap.ahead_clamp(E, g.cost) or nil
-    local prio = g.ahead and Cap.ahead_prio(P, proj.prio) or proj.prio
+    local prio = g.ahead and Cap.ahead_prio(P, proj.prio, E.ahead_cap) or proj.prio
     local res
     if P.take(E, g.cost) then
       E.pay = E.pay or {}
@@ -559,8 +559,14 @@ end
 --- stock libre au coffre, et ses tâches prennent la priorité du projet le plus fort (P.prio_of(100)), sous les urgences de défense et
 --- l'amorçage. Borné par l'état collant (Cap.AHEAD_TICKS).
 --- (Relecture de d18d1531, remarque 1 : un cran SOUS le plus fort, 84, pour ne jamais être à égalité avec l'armée d'alerte, 85.)
-function Cap.ahead_prio(P, prio)
-  return math.max(prio or 0, P.prio_of(100) - 1)
+--- (Moteur simulé, 5/11 : à 84, les fabrications du centre collant passaient devant celles de la réserve de munitions ; les chargeurs
+--- d'Azur manquaient à la levée d'urgence de 43,3 min et 5 mitrailleurs n'étaient pas reformés : 53 soldats en vie à 45 min contre 57.
+--- Plafond `cap` : la priorité du projet de la réserve de munitions de cette pensée (shared/ai3/cerveau.lua, E.ahead_cap) ; le
+--- centre collant reste un cran dessous ; sa propre priorité, si elle est plus haute, est gardée.)
+function Cap.ahead_prio(P, prio, cap)
+  local top = P.prio_of(100) - 1
+  if cap and cap - 1 < top then top = cap - 1 end
+  return math.max(prio or 0, top)
 end
 
 --- Étage CIRCUITS : ramène le stock virtuel des objets du coût au stock LIBRE du coffre (E.view.stock) moins ce que le planificateur

@@ -604,6 +604,19 @@ local function run_all()
     check(r1 == "matiere" and n1 >= 6 and pay1 == nil,
       "§17 centre collant : 200 circuits ATTENDUS (coffre 0) ne paient rien ; il fabrique ses 6 circuits (" .. n1 .. ")")
     check(p1 == P.prio_of(100) - 1, "§17 centre collant : ses fabrications un cran sous le projet le plus fort, jamais à égalité avec l'armée d'alerte (" .. tostring(p1) .. ")")
+    -- Réserve de munitions présente (E.ahead_cap = sa priorité) : le centre collant reste un cran dessous ; sa propre priorité plus haute
+    -- est gardée.
+    check(Cap.ahead_prio(P, 60, 70) == 69, "§17 réserve de munitions à 70 : le centre collant fabrique à 69 (" .. Cap.ahead_prio(P, 60, 70) .. ")")
+    check(Cap.ahead_prio(P, 72, 70) == 72, "§17 sa propre priorité (72) au-dessus du plafond est gardée")
+    check(Cap.ahead_prio(P, 60, nil) == P.prio_of(100) - 1, "§17 sans réserve de munitions : 84")
+    local Ec = P.context({ ["iron-plate"] = 400, ["copper-plate"] = 400, ["electronic-circuit"] = 0 }, book, { open = {}, workers_idle = 0 }, {})
+    Ec.view = { workers_idle = 0, stock = { ["iron-plate"] = 400, ["copper-plate"] = 400, ["electronic-circuit"] = 0 } }
+    Ec.ahead_cap = 66
+    Cap.emit(P)(Ec, { id = 8, key = "capital:command:2:1", prio = 60 },
+      { key = "capital:command:2:1", center = true, ahead = true, fond = true, short = true, cost = cost })
+    local pc = nil
+    for _, t in ipairs(Ec.tasks) do if t.kind == "craft" and t.item == "electronic-circuit" then pc = t.prio end end
+    check(pc == 65, "§17 Cap.emit lit E.ahead_cap : circuits du centre collant à 65 sous la réserve à 66 (" .. tostring(pc) .. ")")
     check(a1 == 200, "§17 les circuits attendus restent au stock virtuel des projets suivants (" .. tostring(a1) .. ")")
     local r2, n2, _, _, pay2 = emit17(false, 200)
     check(r2 == "ok" and n2 == 0 and pay2 ~= nil, "§17 centre ordinaire : comportement d'avant (les attendus comptent, paiement prévu)")
@@ -730,6 +743,8 @@ do
   M("producteur de la matière bloqué par le centre", function() Cap.products = function() return {} end end,
     function() Cap.products = pr end)
   local apr = Cap.ahead_prio
+  M("centre collant au-dessus de la réserve de munitions", function() Cap.ahead_prio = function(Pm, p) return apr(Pm, p, nil) end end,
+    function() Cap.ahead_prio = apr end)
   M("centre collant à la priorité de son projet", function() Cap.ahead_prio = function(_, p) return p end end,
     function() Cap.ahead_prio = apr end)
   local acl = Cap.ahead_clamp
