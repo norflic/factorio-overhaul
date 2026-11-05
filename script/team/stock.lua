@@ -81,11 +81,18 @@ function Stock.remove(f, item, n)
   return got
 end
 
---- Dépose jusqu'à `n` objets (coffre du QG d'abord, puis les annexes) ; rend le nombre déposé.
+--- Dépose jusqu'à `n` objets (coffre du QG d'abord, puis les annexes, puis les coffres de dépôt du joueur) ; rend le nombre déposé.
 function Stock.insert(f, item, n)
   local put = f.hq.insert({ name = item, count = n })
   if put < n then
     for _, e in ipairs(Stock.annexes(f)) do
+      put = put + e.insert({ name = item, count = n - put })
+      if put >= n then break end
+    end
+  end
+  -- Lot COFFRES-JOUEUR : coffres ordinaires du joueur dans sa base, sans bras (CJs.depot ; vide hors de votre équipe).
+  if put < n then
+    for _, e in ipairs(CJs.depot(f)) do
       put = put + e.insert({ name = item, count = n - put })
       if put >= n then break end
     end
@@ -119,6 +126,12 @@ function Stock.flush(f)
     local put = f.hq.insert({ name = name, count = n })
     if put < n then
       for _, e in ipairs(Stock.annexes(f)) do
+        put = put + e.insert({ name = name, count = n - put })
+        if put >= n then break end
+      end
+    end
+    if put < n then -- lot COFFRES-JOUEUR : coffres de dépôt du joueur
+      for _, e in ipairs(CJs.depot(f)) do
         put = put + e.insert({ name = name, count = n - put })
         if put >= n then break end
       end
@@ -173,6 +186,12 @@ local function totals(f)
   local used, size = slots_of(chest_inv(f.hq))
   local annex = Stock.annexes(f)
   for _, e in ipairs(annex) do
+    local u, s = slots_of(chest_inv(e))
+    used, size = used + u, size + s
+  end
+  -- Lot COFFRES-JOUEUR : les cases des coffres de dépôt du joueur comptent dans la place du stock (sinon l'équipe se croit pleine) ;
+  -- pas dans le nombre d'annexes (le plafond des coffres posés par l'équipe ne change pas).
+  for _, e in ipairs(CJs.depot(f)) do
     local u, s = slots_of(chest_inv(e))
     used, size = used + u, size + s
   end

@@ -28,6 +28,7 @@ CJs.base = nil
 local EMPTY = {}
 local TYPES = { "container", "logistic-container" }
 CJs.MAX_LOGS = 40
+CJs.MAX_DEPOT_LOGS = 100 -- lignes « adopte en DEPOT » au plus par partie (une par coffre)
 
 local function in_base(cells, homes, x, y)
   if cells and A.in_zone(cells, x, y) then return true end
@@ -121,6 +122,21 @@ function CJs.refresh(f, tick)
   if not changed then for i, e in ipairs(list) do if st.list[i] ~= e then changed = true break end end end
   if #depot ~= #(st.depot or EMPTY) then changed = true end
   st.list, st.depot, st.seen, st.kept = list, depot, #found, #list
+  -- Décision du lead (5/11, 21 h 55, mots du DC : « comme c'est un coffre que j'ai posé, ils devraient [...] pouvoir l'utiliser ») :
+  -- une ligne par coffre du joueur ADOPTÉ en dépôt (première fois seulement ; st.depot_seen = numéros déjà annoncés).
+  st.depot_seen = st.depot_seen or {}
+  for _, e in ipairs(depot) do
+    if not st.depot_seen[e.unit_number] then
+      st.depot_seen[e.unit_number] = true
+      f.stats = f.stats or {}
+      f.stats.cj_depot = (f.stats.cj_depot or 0) + 1
+      if f.stats.cj_depot <= CJs.MAX_DEPOT_LOGS then
+        local p = e.position
+        log(string.format("[FO-COFFRES-JOUEUR] player : coffre %s du joueur en (%d, %d) adopte en DEPOT (%d case(s)) a %.1f min", e.name or "?",
+          math.floor(p.x), math.floor(p.y), #e.get_inventory(defines.inventory.chest), (tick - (f.started or 0)) / 3600))
+      end
+    end
+  end
   if changed then
     f.stats = f.stats or {}
     f.stats.cj_logs = (f.stats.cj_logs or 0) + 1

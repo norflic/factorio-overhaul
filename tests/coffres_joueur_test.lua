@@ -186,7 +186,10 @@ do
   for k in pairs(f.hq.items) do f.hq.items[k] = nil end
   f.hq.items.stone = 1000 -- coffre du QG plein (10 cases de 100)
   local put = Stock.insert(f, "iron-plate", 100)
-  check(put == 0 and pc.items["iron-plate"] == 180, "dépôt : jamais dans le coffre du joueur (QG plein : rien déposé)")
+  -- Signalement du DC (21 h 47) et accord avec STOCKAGE : un coffre ORDINAIRE du joueur sans bras reçoit les dépôts quand le QG est plein
+  -- (Stock.insert, après les annexes) ; avant ce branchement, rien n'était déposé et l'équipe se croyait pleine.
+  check(put == 100 and pc.items["iron-plate"] == 280 and (f.stock_pending == nil or f.stock_pending["iron-plate"] == nil),
+    "dépôt : QG plein, les 100 fers vont au coffre de dépôt du joueur (rien en attente)")
   check(#Stock.inventories(f) == 1, "inventaires du stock (dépôts du moteur) : sans le coffre du joueur")
 end
 
@@ -267,6 +270,13 @@ do
   check(has(take, out) and not has(depot, out), "sortie de sa fonderie (un bras y dépose) : prise seulement")
   check(has(take, logi) and not has(depot, logi), "coffre logistique de stockage : prise seulement")
   check(#depot == 2 and depot[1] == steel and depot[2] == hand, "dépôt : du plus proche du QG au plus lointain")
+  local adopted = 0
+  for _, l in ipairs(logs) do if l:find("adopte en DEPOT", 1, true) and l:find("(9, 3)", 1, true) then adopted = adopted + 1 end end
+  game.tick = CJ.REFRESH
+  CJs.chests(f)
+  local again = 0
+  for _, l in ipairs(logs) do if l:find("adopte en DEPOT", 1, true) and l:find("(9, 3)", 1, true) then again = again + 1 end end
+  check(adopted == 1 and again == 1, "journal : une ligne « adopte en DEPOT » par coffre, une seule fois (décision du lead, 21 h 55)")
   -- Ce que STOCKAGE branche dans Stock.insert (après les annexes) : déposer dans CJs.depot ; ici à la main, le QG plein.
   for k in pairs(f.hq.items) do f.hq.items[k] = nil end
   f.hq.items.stone = 1000
@@ -274,6 +284,21 @@ do
   for _, e in ipairs(CJs.depot(f)) do put = put + e.insert({ name = "iron-plate", count = 150 - put }) if put >= 150 then break end end
   check(put == 150 and steel.items["iron-plate"] == 150 and out.items["iron-plate"] == 50, "dépôt de 150 fers : dans le coffre en acier, rien dans la sortie de la fonderie")
   check(Stock.count(f, "iron-plate") == 200, "relu aussitôt par le stock (150 déposés + 50 de la fonderie)")
+end
+
+-- Capacité (totals, accord avec STOCKAGE) : les cases d'un coffre de dépôt du joueur comptent dans la place du stock ; le QG plein et un
+-- coffre de dépôt vide de 32 cases : l'équipe ne se croit pas pleine (aucun coffre de plus demandé). Témoin : le même coffre en SORTIE
+-- de chaîne (un bras y dépose) ne compte pas, et le stock plein demande un coffre.
+do
+  game.tick = 0
+  local s = new_surface()
+  local f = team(s, { stone = 1000 })
+  local pc = player_chest(s, 12, 4, {})
+  local w1 = Stock.wanted(f)
+  game.tick = CJ.REFRESH
+  s.inserters[1] = { valid = true, drop_target = pc }
+  local w2 = Stock.wanted(f)
+  check(w1 == 0 and w2 > 0, string.format("capacité : QG plein + coffre de dépôt vide -> %d coffre(s) demandé(s) ; sortie de chaîne -> %d", w1, w2))
 end
 
 -- Un seul registre (accord avec STOCKAGE) : un coffre du joueur inscrit comme ANNEXE (Stock.scan, adoption) sort AUSSITÔT de la liste
