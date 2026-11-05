@@ -1924,7 +1924,14 @@ function Ca.decide(input, st)
   local free_mu = free_stock_mu(ctx, req)
   local budget, bank, stock_part = Ca.budget(ctx.ch, ctx.Y, free_mu, ctx.dt, st.bank, ctx.reserve)
   local b_left, l_left, work_used = budget, ctx.labor, 0
-  local function fits(o) return o.cost_m <= b_left + Ca.EPS and (o.work or 0) <= l_left + Ca.EPS end
+  -- Lot AGEBLOCAGE, étage chantiers (prédicat partagé ci-dessus) : une option de CHAÎNE (rangée d'assembleurs) qui débloque un ordre
+  -- ouvert ne passe pas par le budget de BRAS : les bras sont retenus par ces ordres mêmes, qui attendent sa matière. Elle reste
+  -- bornée par le budget de matières et par la règle du goulot amont (Ca.options).
+  local blocked = Ca.blocked_items(ctx)
+  local function fits(o)
+    return o.cost_m <= b_left + Ca.EPS
+      and ((o.work or 0) <= l_left + Ca.EPS or (o.kind == "chaine" and Ca.unblocks(o, blocked)))
+  end
   local room = Ca.OPEN_MAX - #ctx.open
   if room <= 0 then refuse(ctx, "capi", "capi", nil, string.format("%d ordres ouverts (au plus %d)", #ctx.open, Ca.OPEN_MAX)) end
   local orders = {}
