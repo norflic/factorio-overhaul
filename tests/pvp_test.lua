@@ -1414,6 +1414,19 @@ do
     #seen_out, tostring(min_seen), #at_out))
   check(hq_known == 0, string.format("« QG en dernier » (choix du DC du 4/11) : aucune attaque sur la base de départ tant que l'avant-poste est connu " ..
     "(%d attaque(s) sur le départ, dont %d avant-poste connu)", #at_hq, hq_known))
+  -- Garde contre un contrôle vide (relecture de QG-DERNIER) : « aucune attaque sur le départ tant que l'avant-poste est connu » ne prouve rien si
+  -- aucune faction ne l'a jamais connu, ou si personne ne l'a attaqué.
+  local kt = 0
+  for m = 0, 60 do
+    for _, known_out in pairs(knows[m] or {}) do if known_out then kt = kt + 1 end end
+  end
+  check(kt > 0 and #at_out >= 1, string.format("garde : l'avant-poste connu à %d relevé(s) (faction × minute) et attaqué %d fois", kt, #at_out))
+  -- Lot QG-ZONE (choix du DC du 5/11 : « Toute la base qui grandit ») : zone du départ mesurée sur le terrain ; le QG de l'équipe (6, 6) et la base
+  -- de départ (machines en (10 à 18, 10)) y sont, l'avant-poste (-96, 96), à plus de 60 tuiles de tout bâtiment de la base, n'y est pas.
+  local z = pvp().zone
+  check(z and z.at and z.n >= 1 and A.in_zone(z.cells, 6, 6) and A.in_zone(z.cells, 10, 10) and not A.in_zone(z.cells, OUTPOST.x, OUTPOST.y)
+    and not z.capped, string.format("zone du départ : %s maille(s) de %d tuiles, %s comptage(s) au dernier calcul (tick %s), QG et base dedans, avant-poste dehors",
+      tostring(z and z.n), A.ZONE_CELL, tostring(z and z.tests), tostring(z and z.at)))
   check(pvp().losses >= 1, "pertes du joueur (" .. pvp().losses .. ")")
 end
 do

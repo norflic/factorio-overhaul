@@ -274,6 +274,10 @@ Scheduler.define_lane(PvP.SCAN_LANE, R.scan_period, function(_, tick)
   Profiler.start("pvp:scan")
   Vision.pass(surface, p, tick)
   Profiler.stop("pvp:scan")
+  -- Lot QG-ZONE : zone du départ (toute la base reliée au départ), A.ZONE_STEP comptages au plus par passe.
+  Profiler.start("pvp:zone")
+  Vision.zone_pass(surface, p, tick)
+  Profiler.stop("pvp:zone")
 end)
 
 --- Vue « joueur » d'une faction, évaluée seulement quand elle peut servir (niveau agressif, guerre

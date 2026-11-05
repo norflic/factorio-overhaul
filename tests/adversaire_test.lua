@@ -230,6 +230,275 @@ do
 end
 
 ---------------------------------------------------------------------------------------------------
+section("Zone du départ : toute la base reliée au départ (lot QG-ZONE, choix du DC du 5/11)")
+do
+  -- Terrain simulé : bâtiments carrés de `w` tuiles posés sur la grille des tuiles, boîte de collision rentrée de 0,1 (comme le moteur) ;
+  -- une maille est occupée quand une boîte la TOUCHE (intervalles fermés, F96 : le comptage moteur fait de même).
+  local function bld(x, y, w)
+    w = w or 3
+    return { x0 = x + 0.1, y0 = y + 0.1, x1 = x + w - 0.1, y1 = y + w - 0.1, cx = x + w / 2, cy = y + w / 2, tx = x, w = w }
+  end
+  local function terrain(boxes) return { boxes = boxes, calls = 0 } end
+  local function occupied(t, cx, cy)
+    t.calls = t.calls + 1
+    local c = A.ZONE_CELL
+    local x0, y0, x1, y1 = cx * c, cy * c, cx * c + c, cy * c + c
+    for _, b in ipairs(t.boxes) do
+      if b.x0 <= x1 and b.x1 >= x0 and b.y0 <= y1 and b.y1 >= y0 then return true end
+    end
+    return false
+  end
+  -- Calcul complet, pas à pas (budget A.ZONE_STEP) : renvoie l'état final et le plus grand nombre de comptages d'un pas.
+  local function zone_of(homes, t, step_fn)
+    local w = A.zone_begin(homes)
+    local steps, worst, guard = 0, 0, 0
+    local before = t.calls
+    repeat
+      local c0 = t.calls
+      local done, used = (step_fn or A.zone_step)(w, occupied, A.ZONE_STEP, t)
+      steps = steps + 1
+      worst = math.max(worst, t.calls - c0, used)
+      guard = guard + 1
+    until done or guard > 100000
+    return w, { steps = steps, worst = worst, calls = t.calls - before }
+  end
+  local function line(boxes, x_from, x_to, y, step, w)
+    local x = x_from
+    while x + (w or 3) <= x_to do
+      boxes[#boxes + 1] = bld(x, y, w)
+      x = x + step
+    end
+    return boxes
+  end
+  local function sector(b) return { key = A.key(A.sector_of(b.cx, b.cy)), x = b.cx, y = b.cy, def = 0 } end
+  local spawn = { x = 0, y = 0 }
+  local home = A.key(0, 0)
+  local STYLES = { "equilibre", "tortue", "expansionniste", "inconnu" }
+
+  -- A. La base grandit en ligne jusqu'à 400 tuiles du point d'apparition (bâtiments de 3 tuiles tous les 12 : trous de 9 tuiles) ; un
+  -- avant-poste séparé au sud-ouest. Écarlate au nord du bout de la ligne : le bout est plus proche d'elle que l'avant-poste.
+  do
+    local boxes = line({}, 0, 400, 4, 12)
+    local edge = boxes[#boxes]
+    local op = { bld(-200, 200), bld(-196, 200), bld(-192, 204) }
+    for _, b in ipairs(op) do boxes[#boxes + 1] = b end
+    local t = terrain(boxes)
+    local w = zone_of({ spawn }, t)
+    local from = { x = 400, y = -320 }
+    local list = { sector(boxes[1]), sector(edge), sector(op[1]) }
+    local all_in = true
+    for i = 1, #boxes - #op do if not A.in_zone(w.cells, boxes[i].cx, boxes[i].cy) then all_in = false end end
+    check(all_in and edge.cx > 390, string.format("ligne de %d bâtiments jusqu'à %.0f tuiles du départ : toute dans la zone (%d mailles)",
+      #boxes - #op, edge.cx, w.n))
+    check(not A.in_zone(w.cells, op[1].cx, op[1].cy), "avant-poste séparé : hors de la zone")
+    check(A.pick_target(list, from, home, "equilibre", { spawn }).key == list[2].key,
+      "témoin (rayon de 64 tuiles seul, la règle de QG-DERNIER) : le bout de la base est visé avant l'avant-poste, le défaut relevé")
+    for _, style in ipairs(STYLES) do
+      local s = A.pick_target(list, from, home, style, { spawn }, w.cells)
+      check(s and s.key == list[3].key, string.format("style %s : l'avant-poste séparé passe avant le bout de la base (visé (%s, %s))",
+        style, tostring(s and s.x), tostring(s and s.y)))
+    end
+    local s2 = A.pick_target({ list[1], list[2] }, from, home, "equilibre", { spawn }, w.cells)
+    check(s2 and s2.key == list[2].key, "seule la base connue : elle est visée (le plus proche de nous)")
+  end
+
+  -- B. Trou entre la base et un groupe de bâtiments : 20 tuiles, le groupe fait partie de la base ; 50 tuiles, c'est un avant-poste.
+  do
+    for _, g in ipairs({ 20, 50 }) do
+      local boxes = line({}, 0, 180, 4, 12) -- dernier bâtiment : tuiles 168 à 170 (secteur 2)
+      local last = boxes[#boxes]
+      local start = last.tx + last.w + g -- première tuile du groupe, après `g` tuiles vides (groupe dans le secteur 3)
+      local grp = { bld(start, 4), bld(start + 4, 4), bld(start + 8, 4) }
+      for _, b in ipairs(grp) do boxes[#boxes + 1] = b end
+      local w = zone_of({ spawn }, terrain(boxes))
+      local from = { x = last.cx, y = -300 }
+      local s = A.pick_target({ sector(last), sector(grp[3]) }, from, home, "equilibre", { spawn }, w.cells)
+      if g == 20 then
+        check(A.in_zone(w.cells, grp[3].cx, grp[3].cy), "trou de 20 tuiles : le groupe fait partie de la base de départ")
+      else
+        check(not A.in_zone(w.cells, grp[1].cx, grp[1].cy) and s and s.key == sector(grp[3]).key,
+          "trou de 50 tuiles : avant-poste séparé, visé avant le bout de la base (plus proche de la faction)")
+      end
+    end
+  end
+
+  -- C. Le coffre protège toujours : QG de votre équipe posé loin du départ, sa base grandit à 150 tuiles de lui.
+  do
+    local boxes = line({}, 0, 40, 4, 12)
+    local hq = { x = 1000, y = 1000 }
+    line(boxes, 1000, 1150, 1000, 12)
+    local op = bld(600, 1000)
+    boxes[#boxes + 1] = op
+    local t = terrain(boxes)
+    local hq_edge = boxes[#boxes - 1]
+    local from = { x = 1150, y = 700 }
+    local list = { sector(hq_edge), sector(op) }
+    local w = zone_of({ spawn, hq }, t)
+    check(hq_edge.cx - hq.x > A.HOME_RADIUS and A.in_zone(w.cells, hq_edge.cx, hq_edge.cy),
+      string.format("QG d'équipe loin du départ : sa base jusqu'à %.0f tuiles de lui est dans la zone", hq_edge.cx - hq.x))
+    local s = A.pick_target(list, from, home, "equilibre", { spawn, hq }, w.cells)
+    check(s and s.key == list[2].key, "QG d'équipe loin du départ : l'avant-poste passe avant le bout de sa base")
+    local w0 = zone_of({ spawn }, terrain(boxes))
+    local s0 = A.pick_target(list, from, home, "equilibre", { spawn, hq }, w0.cells)
+    check(s0 and s0.key == list[1].key, "mutant refusé : le QG d'équipe n'est pas un point de départ de la zone (le bout de sa base est visé)")
+  end
+
+  -- D. Seuil du trou, toutes les places sur la grille (16 décalages) : un bâtiment au bout d'une base de 200 tuiles, un autre après
+  -- `g` tuiles vides, en ligne, en colonne et en diagonale. Attendu : moins de 32 tuiles, TOUJOURS relié ; 47 ou plus, JAMAIS.
+  local function linked_counts(step_fn)
+    local res = {}
+    for g = 0, 60 do
+      local n = 0
+      for o = 0, 15 do
+        for _, dir in ipairs({ { 1, 0 }, { 0, 1 }, { 1, 1 } }) do
+          local boxes = line({}, 0, 200, 0, 12) -- base de départ : (0, 0) à (200, 3)
+          local ax, ay = 200 + o, dir[2] == 0 and 0 or 2 + o
+          if dir[1] == 0 then ax = 192 end
+          boxes[#boxes + 1] = bld(ax, ay, 1) -- relié à la base (20 tuiles au plus du dernier bâtiment)
+          local bx, by = ax + dir[1] * (1 + g), ay + dir[2] * (1 + g)
+          local b = bld(bx, by, 1)
+          boxes[#boxes + 1] = b
+          local w = zone_of({ spawn }, terrain(boxes), step_fn)
+          if A.in_zone(w.cells, b.cx, b.cy) then n = n + 1 end
+        end
+      end
+      res[g] = n
+    end
+    return res
+  end
+  local res = linked_counts()
+  local always, never = true, true
+  local band = {}
+  for g = 0, 60 do
+    if g < 32 and res[g] ~= 48 then always = false end
+    if g >= 47 and res[g] ~= 0 then never = false end
+    if res[g] > 0 and res[g] < 48 then band[#band + 1] = g end
+  end
+  check(always, "trou de moins de 32 tuiles : TOUJOURS relié (48 places : 16 décalages × ligne, colonne, diagonale)")
+  check(never, "trou de 47 tuiles ou plus : JAMAIS relié")
+  print(string.format("  seuil mesuré : relié selon la place pour un trou de %s à %s tuiles", tostring(band[1]), tostring(band[#band])))
+
+  -- E. Mutants : chacun doit être refusé par un contrôle ci-dessus.
+  do
+    local r0 = A.ZONE_REACH
+    A.ZONE_REACH = 1
+    local m = linked_counts()
+    A.ZONE_REACH = r0
+    local refused = false
+    for g = 0, 31 do if m[g] ~= 48 then refused = true end end
+    check(refused, "mutant refusé : mailles reliées à 1 maille seulement (un trou de 16 à 31 tuiles coupe la base)")
+    -- Voisines en croix seulement (sans diagonale) : copie de A.zone_step à une ligne près.
+    local function cross_step(w, occ, budget, ctx)
+      local used = 0
+      while used < budget and w.qi <= #w.q do
+        local k = w.q[w.qi]
+        w.qi = w.qi + 1
+        local cx, cy = A.cell_xy(k)
+        used, w.tests = used + 1, w.tests + 1
+        if occ(ctx, cx, cy) then
+          w.cells[k], w.n = true, w.n + 1
+          for d = -A.ZONE_REACH, A.ZONE_REACH do
+            for _, p in ipairs({ { cx + d, cy }, { cx, cy + d } }) do
+              local kk = A.cell_key(p[1], p[2])
+              if not w.seen[kk] then w.seen[kk] = true; w.q[#w.q + 1] = kk end
+            end
+          end
+        end
+      end
+      return w.qi > #w.q, used
+    end
+    local mc = linked_counts(cross_step)
+    local refused2 = false
+    for g = 0, 31 do if mc[g] ~= 48 then refused2 = true end end
+    check(refused2, "mutant refusé : voisines en croix seulement (une base qui grandit en diagonale est coupée)")
+    -- Expansion depuis TOUTES les mailles testées (pas seulement les occupées) : la zone traverse les trous.
+    local function flood_step(w, occ, budget, ctx)
+      return A.zone_step(w, function() return true end, budget, ctx)
+    end
+    local boxes = line({}, 0, 200, 4, 12)
+    local far = bld(260, 4)
+    boxes[#boxes + 1] = far
+    local wf = zone_of({ spawn }, terrain(boxes), flood_step)
+    check(A.in_zone(wf.cells, far.cx, far.cy) and wf.capped, "mutant refusé : zone étendue sans bâtiment (l'avant-poste à 65 tuiles du bout de la base y entre)")
+    local m0 = A.ZONE_MAX
+    A.ZONE_MAX = 8
+    local boxes2 = line({}, 0, 400, 4, 12)
+    local wc = zone_of({ spawn }, terrain(boxes2))
+    A.ZONE_MAX = m0
+    check(wc.capped and not A.in_zone(wc.cells, boxes2[#boxes2].cx, boxes2[#boxes2].cy), "plafond de comptages : calcul arrêté, zone partielle signalée (capped)")
+  end
+
+  -- F. Coût BORNÉ et mesuré. Base dense de 320 × 320 tuiles (20 × 20 mailles occupées) autour du point d'apparition : 576 comptages
+  -- (400 mailles occupées + une bande de 2 mailles autour), A.ZONE_STEP au plus par pas ; base de 2 000 × 2 000 tuiles : ZONE_MAX.
+  do
+    local occ_sq = function(t, cx, cy)
+      t.calls = t.calls + 1
+      return cx >= t.a and cx < t.b and cy >= t.a and cy < t.b
+    end
+    local t = { calls = 0, a = 0, b = 20 }
+    local w = A.zone_begin({ { x = 160, y = 160 } })
+    local steps, worst = 0, 0
+    repeat
+      local before = t.calls
+      local done = A.zone_step(w, occ_sq, A.ZONE_STEP, t)
+      steps = steps + 1
+      worst = math.max(worst, t.calls - before)
+    until done
+    check(w.n == 400 and w.tests == 576 and t.calls == 576 and worst <= A.ZONE_STEP and steps == 144,
+      string.format("base de 320 × 320 tuiles : %d mailles, %d comptages en %d pas, %d au plus par pas (budget %d)", w.n, w.tests, steps, worst, A.ZONE_STEP))
+    local R = 50 -- os.clock compte à la milliseconde sous Windows : 50 calculs entiers
+    local c0 = os.clock()
+    for _ = 1, R do
+      local wr = A.zone_begin({ { x = 160, y = 160 } })
+      repeat until A.zone_step(wr, occ_sq, A.ZONE_STEP, t)
+    end
+    local dt = (os.clock() - c0) / R
+    print(string.format("  coût Lua (hors comptages moteur) : %.1f µs par pas, %.2f ms pour le calcul entier ; 576 comptages en %d s de jeu (1 pas / 8 ticks)",
+      dt * 1e6 / steps, dt * 1e3, math.floor(steps * 8 / 60)))
+    local tb = { calls = 0, a = -62, b = 63 }
+    local wb = A.zone_begin({ spawn })
+    local n = 0
+    repeat n = n + 1 until A.zone_step(wb, occ_sq, A.ZONE_STEP, tb) or n > 100000
+    check(wb.capped and wb.tests == A.ZONE_MAX and tb.calls == A.ZONE_MAX,
+      string.format("base de 2 000 × 2 000 tuiles : plafond de %d comptages tenu (%d), zone partielle (%d mailles)", A.ZONE_MAX, tb.calls, wb.n))
+    -- Pensée d'une faction : 64 secteurs connus, zone de 400 mailles : lectures seulement.
+    local list = {}
+    for i = 0, 63 do list[#list + 1] = { key = A.key(i % 8, math.floor(i / 8)), x = (i % 8) * 64 + 20, y = math.floor(i / 8) * 64 + 20, def = i % 3 } end
+    local N = 2000
+    local c1 = os.clock()
+    local s
+    for _ = 1, N do s = A.pick_target(list, { x = 900, y = -300 }, home, "equilibre", { spawn, { x = 6, y = 6 } }, w.cells) end
+    local d1 = os.clock() - c1
+    local c2 = os.clock()
+    for _ = 1, N do A.pick_target(list, { x = 900, y = -300 }, home, "equilibre", { spawn, { x = 6, y = 6 } }) end
+    local d2 = os.clock() - c2
+    check(s and not A.in_zone(w.cells, s.x, s.y), "64 secteurs connus : la cible est hors de la zone")
+    print(string.format("  pensée (A.pick_target, 64 secteurs connus) : %.1f µs avec la zone, %.1f µs sans (règle de QG-DERNIER)",
+      d1 * 1e6 / N, d2 * 1e6 / N))
+  end
+
+  -- G. Déterminisme : même terrain, mêmes points du départ dans l'autre ordre : même zone ; même ordre : même file.
+  do
+    local boxes = line({}, 0, 300, 4, 12)
+    line(boxes, 1000, 1100, 1000, 12)
+    local hq = { x = 1000, y = 1000 }
+    local w1 = zone_of({ spawn, hq }, terrain(boxes))
+    local w2 = zone_of({ hq, spawn }, terrain(boxes))
+    local w3 = zone_of({ spawn, hq }, terrain(boxes))
+    local same = w1.n == w2.n
+    local keys = {}
+    for i = 1, #w1.q do keys[#keys + 1] = w1.q[i] end
+    table.sort(keys)
+    for _, k in ipairs(keys) do if (w1.cells[k] or false) ~= (w2.cells[k] or false) then same = false end end
+    local seq = #w1.q == #w3.q
+    for i = 1, #w1.q do if w1.q[i] ~= w3.q[i] then seq = false end end
+    check(same and seq and w1.n > 0, string.format("déterministe : %d mailles quel que soit l'ordre des points, même file à l'identique", w1.n))
+    local cx, cy = A.cell_xy(A.cell_key(-70000, 123456))
+    check(cx == -70000 and cy == 123456 and A.cell_key(-1, 0) ~= A.cell_key(0, -1), "clé de maille réversible sur toute la carte")
+  end
+end
+
+---------------------------------------------------------------------------------------------------
 section("Mémoire des attaques données")
 do
   local m = {}

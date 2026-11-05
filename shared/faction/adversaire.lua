@@ -14,7 +14,8 @@
     - STYLE (A.classify) : tortue, expansionniste, agresseur, bâtisseur (qui décolle), équilibré, inconnu, à partir de
       relevés (territoire vu, tourelles vues, croissance sur 10 min, coups reçus de lui) ;
     - CIBLE (A.pick_target) selon le style : la plus proche (règle d'IA0) ; contre une tortue, la moins défendue
-      (harcèlement des avant-postes) ; contre un expansionniste, la plus isolée ;
+      (harcèlement des avant-postes) ; contre un expansionniste, la plus isolée ; la base de départ en DERNIER, toute la
+      base reliée au départ (lots QG-DERNIER et QG-ZONE : A.is_home, zone mesurée par A.zone_begin et A.zone_step) ;
     - GO / NO-GO au rassemblement (A.go) : la défense vue a grossi (≥ 1,5 × celle du départ + 1 tourelle) et le groupe
       n'a plus le rapport de force : la faction renonce ;
     - MOMENT de la 1re attaque de la partie contre le joueur (A.first_after) : valeur du niveau × tempo tiré à ±20 %
@@ -257,27 +258,131 @@ end
 -- visait le même secteur pendant les 10 premières minutes de guerre). Un secteur : la granularité de l'ancienne règle.
 A.HOME_RADIUS = A.SECTOR
 
+---------------------------------------------------------------------------------------------------
+-- Zone du départ (lot QG-ZONE ; choix du DC du 5/11 : « Toute la base qui grandit », « Le coffre protège toujours »)
+---------------------------------------------------------------------------------------------------
+-- La base de départ, c'est TOUTE la base reliée au départ : les installations du joueur à HOME_RADIUS tuiles au plus d'un point du
+-- départ (point d'apparition, QG de votre équipe), puis, de proche en proche, celles qui n'en sont pas séparées par un trou de plus
+-- d'environ 32 tuiles. Seuls les avant-postes séparés sont visés avant elle. Le QG de votre équipe est un point du départ où qu'il
+-- soit : sa base est protégée de même.
+--
+-- Mesure : mailles de ZONE_CELL tuiles ; une maille est OCCUPÉE quand une installation du joueur la touche (un comptage moteur,
+-- `occupied`, injecté) ; deux mailles occupées sont reliées à ZONE_REACH mailles au plus l'une de l'autre sur chaque axe (8 directions,
+-- diagonales comprises). Avec 16 tuiles et 2 mailles : un trou de moins de 32 tuiles relie TOUJOURS, un trou de 47 tuiles ou plus
+-- sépare TOUJOURS, entre les deux selon la place des bâtiments sur la grille (tests/adversaire_test.lua, toutes les places essayées).
+-- Les secteurs connus (64 tuiles) ne suffisent pas : deux secteurs voisins laissent passer un trou de 127 tuiles, et le brouillard
+-- d'une faction (secteurs pas encore vus, secteurs d'une seule installation oubliés) couperait la base en morceaux. La zone est donc
+-- mesurée sur le terrain, comme les points du départ (lus en direct depuis QG-DERNIER) : c'est une règle de la partie, pas un savoir
+-- de la faction ; elle ne fait connaître aucune cible (la faction ne vise toujours que des secteurs qu'elle a vus).
+--
+-- Coût BORNÉ : le calcul avance de ZONE_STEP comptages par passe de la voie « fo-pvp-scan » (toutes les 8 ticks), ZONE_MAX
+-- comptages au plus par calcul (base au-delà : zone partielle, journalisée), recalcul ZONE_TTL ticks après le précédent ; la pensée
+-- d'une faction n'y fait que des lectures (une par secteur connu).
+A.ZONE_CELL = 16
+A.ZONE_REACH = 2
+A.ZONE_STEP = 4
+A.ZONE_MAX = 4096
+A.ZONE_TTL = 2 * 3600
+
+--- Clé d'une maille de la zone (de ±131 072 mailles : toute la carte, 2 000 000 tuiles de côté ; entier exact).
+function A.cell_key(cx, cy) return (cx + 131072) * 262144 + (cy + 131072) end
+
+function A.cell_xy(key)
+  local cx = math.floor(key / 262144) - 131072
+  return cx, key - (cx + 131072) * 262144 - 131072
+end
+
+function A.cell_of(x, y) return math.floor(x / A.ZONE_CELL), math.floor(y / A.ZONE_CELL) end
+
+local function zone_push(w, cx, cy)
+  local k = A.cell_key(cx, cy)
+  if not w.seen[k] then
+    w.seen[k] = true
+    w.q[#w.q + 1] = k
+  end
+end
+
+--- Début d'un calcul de la zone depuis les points du départ `homes` ({ { x, y } }, dans l'ordre donné) : les mailles qui touchent le
+--- disque de HOME_RADIUS tuiles de chaque point, ligne par ligne. Renvoie l'état du calcul (nombres et tables seulement).
+function A.zone_begin(homes)
+  local w = { q = {}, qi = 1, seen = {}, cells = {}, n = 0, tests = 0, capped = false }
+  local c, R = A.ZONE_CELL, A.HOME_RADIUS
+  for _, h in ipairs(homes or {}) do
+    for cy = math.floor((h.y - R) / c), math.floor((h.y + R) / c) do
+      for cx = math.floor((h.x - R) / c), math.floor((h.x + R) / c) do
+        local dx = math.max(cx * c - h.x, 0, h.x - (cx + 1) * c)
+        local dy = math.max(cy * c - h.y, 0, h.y - (cy + 1) * c)
+        if dx * dx + dy * dy <= R * R then zone_push(w, cx, cy) end
+      end
+    end
+  end
+  return w
+end
+
+--- Avance le calcul `w` d'au plus `budget` comptages `occupied(ctx, cx, cy)` (vrai : une installation du joueur touche la maille).
+--- Une maille occupée entre dans la zone et met en file ses voisines à ZONE_REACH mailles (ligne par ligne). Renvoie fini (vrai quand
+--- la file est vide ou ZONE_MAX atteint : w.capped) et le nombre de comptages faits.
+function A.zone_step(w, occupied, budget, ctx)
+  local used, reach = 0, A.ZONE_REACH
+  local q, seen = w.q, w.seen
+  local nq = #q
+  while used < budget and w.qi <= nq do
+    if w.tests >= A.ZONE_MAX then
+      w.capped = true
+      break
+    end
+    local k = q[w.qi]
+    w.qi = w.qi + 1
+    local cx, cy = A.cell_xy(k)
+    used, w.tests = used + 1, w.tests + 1
+    if occupied(ctx, cx, cy) then
+      w.cells[k] = true
+      w.n = w.n + 1
+      -- Voisines ligne par ligne ; la clé est linéaire : clé(cx + dx, cy + dy) = clé(cx, cy) + dx × 262 144 + dy.
+      for dy = -reach, reach do
+        for dx = -reach, reach do
+          if dx ~= 0 or dy ~= 0 then
+            local kk = k + dx * 262144 + dy
+            if not seen[kk] then
+              seen[kk] = true
+              nq = nq + 1
+              q[nq] = kk
+            end
+          end
+        end
+      end
+    end
+  end
+  return w.capped or w.qi > nq, used
+end
+
+--- Le point (x, y) est-il dans la zone `zone` (ensemble clé de maille → true) ?
+function A.in_zone(zone, x, y)
+  return zone ~= nil and zone[A.cell_key(A.cell_of(x, y))] == true
+end
+
 --- Le secteur connu `s` ({ key, x, y }) est-il le DÉPART du joueur ? Sa clé est `home` (secteur du point d'apparition), ou son
---- installation visée est à A.HOME_RADIUS tuiles au plus d'un des points `homes` ({ { x, y } }, facultatif).
-function A.is_home(s, home, homes)
+--- installation visée est à A.HOME_RADIUS tuiles au plus d'un des points `homes` ({ { x, y } }, facultatif), ou dans la zone du
+--- départ `zone` (lot QG-ZONE, facultative : A.zone_begin, A.zone_step).
+function A.is_home(s, home, homes, zone)
   if s.key == home then return true end
   local r2 = A.HOME_RADIUS * A.HOME_RADIUS
   for _, h in ipairs(homes or {}) do
     local dx, dy = s.x - h.x, s.y - h.y
     if dx * dx + dy * dy <= r2 then return true end
   end
-  return false
+  return A.in_zone(zone, s.x, s.y)
 end
 
 --- Choix d'un secteur visé parmi `list` (secteurs connus : { key, x, y (installation visée), def (défense vue
 --- autour) }), depuis `from` (notre QG) ; `home` : clé du secteur de départ, et `homes` (facultatif, lot QG-DERNIER) : points
---- du départ du joueur ({ { x, y } } : point d'apparition, QG de votre équipe) ; le départ est visé en dernier, comme un QG
---- (A.is_home).
+--- du départ du joueur ({ { x, y } } : point d'apparition, QG de votre équipe) ; `zone` (facultative, lot QG-ZONE) : zone du départ
+--- (toute la base reliée au départ) ; le départ est visé en dernier, comme un QG (A.is_home).
 ---   par défaut (équilibré, bâtisseur, agresseur, inconnu) : le plus proche (règle d'IA0) ;
 ---   tortue : le MOINS défendu, puis le plus proche (harcèlement des avant-postes, pas l'assaut des tourelles) ;
 ---   expansionniste : le plus ISOLÉ (moins de secteurs connus à 128 tuiles), puis le plus proche.
 --- Renvoie l'élément choisi (ou nil).
-function A.pick_target(list, from, home, style, homes)
+function A.pick_target(list, from, home, style, homes, zone)
   local best, bk1, bk2
   for _, s in ipairs(list) do
     local dx, dy = s.x - from.x, s.y - from.y
@@ -293,7 +398,7 @@ function A.pick_target(list, from, home, style, homes)
         end
       end
     end
-    if A.is_home(s, home, homes) then k1 = k1 + 1e9 end
+    if A.is_home(s, home, homes, zone) then k1 = k1 + 1e9 end
     if not best or k1 < bk1 or (k1 == bk1 and (d < bk2 or (d == bk2 and s.key < best.key))) then
       best, bk1, bk2 = s, k1, d
     end
