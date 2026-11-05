@@ -1840,6 +1840,38 @@ end
 --- st : état persistant de la règle (nombres et tables : bank, T_hist, sink_t, u_target). Rend { orders, refus,
 --- explore, s, delta, alpha, tmax, g, lambda, Y, K, budget, bank, flow_part, stock_part, spent, labor, labor_used,
 --- u_star, labs_target, coverage, bottleneck, R, open_n }.
+--- Lot AGEBLOCAGE, étage chantiers (journal lot-guide-271828182 de DEPENSES2, 4 ouvriers) : matières qui MANQUENT aux ordres ouverts
+--- (o.missing) et leurs ingrédients DIRECTS dans les recettes du jeu (D.producers, D.recipes ; sans fluide) : { [objet] = vrai }.
+--- Mesuré : 4 ordres ouverts bloqués en « matériaux » (champ de cuivre en attente de circuits, chaînes « matériaux introuvables »)
+--- retenaient tout le budget de bras (hands × 600 PNJ-s − leur travail restant) : bras = 0 de la minute 20 à 59 sauf quand un ordre
+--- se fermait (30, 37, 60) ; la chaîne des circuits qui les aurait débloqués ne sortait qu'à la minute 60.
+function Ca.blocked_items(ctx)
+  local out = {}
+  local D = ctx.D
+  for _, o in ipairs(ctx.open or {}) do
+    for _, m in ipairs(o.missing or {}) do
+      local it = m[1]
+      if it and (m[2] or 0) > 0 then
+        out[it] = true
+        for _, rn in ipairs((D and D.producers and D.producers[it]) or {}) do
+          local r = D.recipes and D.recipes[rn]
+          for _, i in ipairs((r and r.ingredients) or {}) do
+            if not i.fluid then out[i.name] = true end
+          end
+        end
+      end
+    end
+  end
+  return out
+end
+
+--- Étage chantiers : une option de CHAÎNE (rangée d'assembleurs) dont le produit débloque un ordre ouvert (Ca.blocked_items) ne
+--- passe pas par le budget de BRAS : les bras sont retenus par ces ordres mêmes, qui attendent sa matière. Elle reste bornée par le
+--- budget de matières et par la règle du goulot amont (Ca.options).
+function Ca.unblocks(o, blocked)
+  return o ~= nil and o.kind == "chaine" and o.item ~= nil and blocked[o.item] == true
+end
+
 function Ca.decide(input, st)
   st = st or {}
   local ctx = prepare(input, st)
@@ -1848,7 +1880,10 @@ function Ca.decide(input, st)
   local free_mu = free_stock_mu(ctx, req)
   local budget, bank, stock_part = Ca.budget(ctx.ch, ctx.Y, free_mu, ctx.dt, st.bank, ctx.reserve)
   local b_left, l_left, work_used = budget, ctx.labor, 0
-  local function fits(o) return o.cost_m <= b_left + Ca.EPS and (o.work or 0) <= l_left + Ca.EPS end
+  local blocked = Ca.blocked_items(ctx)
+  local function fits(o)
+    return o.cost_m <= b_left + Ca.EPS and ((o.work or 0) <= l_left + Ca.EPS or Ca.unblocks(o, blocked))
+  end
   local room = Ca.OPEN_MAX - #ctx.open
   if room <= 0 then refuse(ctx, "capi", "capi", nil, string.format("%d ordres ouverts (au plus %d)", #ctx.open, Ca.OPEN_MAX)) end
   local orders = {}
