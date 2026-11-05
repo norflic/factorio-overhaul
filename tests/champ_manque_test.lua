@@ -177,6 +177,48 @@ local function suite()
   check(sB.comp and sB.comp["iron-plate"] and not sB.comp["copper-plate"] and not Em.drill_refused(sB, "iron-plate")
     and Em.drill_refused(sB, "copper-plate"), "cas B par le second prédicat : siège du fer seulement")
 
+  section("seconde relecture (point 1) : un champ ne tient le siège que s'il avance VRAIMENT (Em.champ_holds, Em.champ_advance)")
+  local ch = { exec = "champ", seat = "complement", opened = T }
+  check(Em.champ_holds(ch, T + Em.STALL - 1) == true and Em.champ_holds(ch, T + Em.STALL) == false,
+    "jamais rien posé : il tient le siège Em.STALL ticks après son ouverture, puis le lâche")
+  -- La pile bat : l'étiquette change chaque minute (progress_tick à jour), rien n'est posé.
+  local adv, hi = nil, nil
+  for k = 0, math.floor(Em.STALL / 3600) + 2 do adv, hi = Em.champ_advance(adv, hi, 0, T + k * 3600) end
+  local bat = { exec = "champ", seat = "complement", opened = T, adv_tick = adv, progress_tick = T + (math.floor(Em.STALL / 3600) + 2) * 3600 }
+  check(adv == nil and Em.champ_holds(bat, T + Em.STALL + 60) == false,
+    "un champ qui « bat » sans rien poser (progress_tick à jour) lâche le siège après Em.STALL")
+  local a2, h2 = Em.champ_advance(nil, nil, 0, T)
+  a2, h2 = Em.champ_advance(a2, h2, 3, T + 5 * 3600)
+  local bld = { exec = "champ", seat = "complement", opened = T, adv_tick = a2 }
+  check(a2 == T + 5 * 3600 and h2 == 3 and Em.champ_holds(bld, T + Em.STALL + 60) == true
+    and Em.champ_holds(bld, T + 5 * 3600 + Em.STALL) == false, "un champ qui pose tient le siège Em.STALL après son dernier progrès réel")
+  local a3, h3 = Em.champ_advance(a2, h2, 2, T + 6 * 3600)
+  check(a3 == a2 and h3 == 3, "des entités perdues ne sont pas un progrès")
+  check(Em.champ_holds({ exec = "champ", opened = T }, T) == false and Em.champ_holds({ exec = "module", seat = "complement", opened = T }, T) == false,
+    "un champ hors du siège, ou un module, ne compte pas ici")
+  local s8 = {} for k, v in pairs(s1) do s8[k] = v end
+  s8.held_comp = Em.champ_holds(bat, T + Em.STALL + 60) and 1 or 0
+  local sl8 = Em.slots(s8)
+  check(sl8.room_comp == 1 and not Em.drill_refused(sl8, "iron-plate"), "le siège lâché par le champ qui bat revient au fer")
+
+  section("seconde relecture (point 2) : hystérésis du siège (Ca.seat_plate, prev, Ca.SEAT_MARGIN = " .. Ca.SEAT_MARGIN .. " %)")
+  local function sp(fe, cu, prev)
+    return (Ca.seat_plate({ open = { { missing = { { "iron-plate", fe }, { "copper-plate", cu } } } }, book = BOOK, names = NAMES, free = {}, prev = prev }))
+  end
+  check(sp(100, 110) == "copper-plate", "sans plaque d'avant : le plus grand déficit (cuivre 110 contre fer 100)")
+  check(sp(100, 110, "iron-plate") == "iron-plate", "le fer tenait le siège : il le garde (110 <= 100 + 25 %)")
+  check(sp(100, 125, "iron-plate") == "iron-plate" and sp(100, 126, "iron-plate") == "copper-plate", "bascule au-delà de la marge seulement (125 garde, 126 bascule)")
+  check(sp(0, 10, "iron-plate") == "copper-plate", "la plaque d'avant ne manque plus : le siège passe")
+  check(sp(140, 130, "copper-plate") == "copper-plate", "dans l'autre sens aussi (fer 140, cuivre 130 : le cuivre garde)")
+  local held_p, flips = nil, 0
+  for k = 1, 12 do
+    local fe, cu = (k % 2 == 1) and 100 or 108, (k % 2 == 1) and 108 or 100
+    local p0 = sp(fe, cu, held_p)
+    if held_p ~= nil and p0 ~= held_p then flips = flips + 1 end
+    held_p = p0
+  end
+  check(flips == 0, "deux déficits proches qui s'échangent 12 fois : aucune bascule (" .. flips .. ")")
+
   section("remarque 6 de la relecture : un refus dû au seul siège déjà pris n'ouvre pas d'emplacement ordinaire (Em.blocked_counts)")
   check(Em.blocked_counts(sl.comp, "iron-plate") == false, "second ordre du fer refusé (siège pris) : pas compté dans blocked_slots")
   check(Em.blocked_counts(sl.comp, "copper-plate") == true and Em.blocked_counts(sl.comp, nil) == true and Em.blocked_counts(nil, "iron-plate") == true,
@@ -295,6 +337,21 @@ mutant("siège : plus PETIT déficit", function()
 end)
 mutant("remarque 6 : tout refus compté (avant)", function() patch(Em, "blocked_counts", function() return true end) end)
 mutant("remarque 6 : aucun refus compté", function() patch(Em, "blocked_counts", function() return false end) end)
+mutant("point 1 : tout champ sur le siège le tient (87041986)", function()
+  patch(Em, "champ_holds", function(o) return o ~= nil and o.exec == "champ" and o.seat == "complement" end)
+end)
+mutant("point 1 : chaque relevé compte comme un progrès (l'étiquette)", function()
+  patch(Em, "champ_advance", function(adv, hi, built, tick) return tick, built end)
+end)
+mutant("point 1 : une baisse des posées compte", function()
+  local ca = Em.champ_advance
+  patch(Em, "champ_advance", function(adv, hi, built, tick) if hi ~= nil and built ~= hi then return tick, built end return ca(adv, hi, built, tick) end)
+end)
+mutant("point 2 : pas d'hystérésis", function()
+  local sp0 = Ca.seat_plate
+  patch(Ca, "seat_plate", function(ctx) local c = {} for k, v in pairs(ctx) do c[k] = v end c.prev = nil return sp0(c) end)
+end)
+mutant("point 2 : marge nulle", function() patch(Ca, "SEAT_MARGIN", 0) end)
 mutant("ressource oubliée par unblocks", function()
   patch(Ca, "unblocks", function(o, b) return o ~= nil and b ~= nil and ((o.item and b[o.item]) or (o.product and b[o.product])) == true end)
 end)

@@ -16,6 +16,10 @@
     §4 INTERRUPTEUR du banc témoin (remote « fo-capi », « manque ») : §2 éteint, aucun siège ; rallumé, le siège revient.
     §5 CHAMP (relecture, point 1, BLOQUANT) : un ordre exec = "champ" ouvert sur le siège le TIENT, et la foreuse de fer est refusée
        à la décision suivante. Rouge sur 1e97d7da ; mutant « held_comp ignoré ».
+    §6 CHAMP QUI BAT (seconde relecture, point 1) : ouvert depuis plus de Em.STALL, étiquette de progrès à jour (la pile bat), rien
+       posé : il LÂCHE le siège, la foreuse de fer est de nouveau accordée. Rouge sur 87041986.
+    §7 HYSTÉRÉSIS (seconde relecture, point 2) : deux relevés de suite, déficits proches qui s'échangent (fer 100 / cuivre 108, puis
+       108 / 100) : la plaque du premier relevé garde le siège. Rouge sur 87041986.
   Ce que ce banc ne montre PAS : un ordre « couvrir » qui PART au journal [FO-CAPI]. La faute est au moteur simulé :
     - il n'a pas de foreuse électrique de l'exécutant (« foreuse electrique de l'executant nil »), donc aucune option de foreuse ;
     - avec une foreuse électrique posée dans le seul test, il plante plus loin, sans has_flag dans script/team/convoyeurs.lua.
@@ -72,9 +76,10 @@ local BARE = { { "chaine:a", {} }, { "chaine:b", {} } }
 
 --- Situation : les ordres « module » donnés, en réserve, seuls ouverts (2 emplacements de base, comme le cas B) ; rend le relevé du
 --- vrai Capi.slots et ses lignes de journal [FO-CAPI-EMPLACEMENTS].
-local function situation(orders, stock, champ)
+local function situation(orders, stock, champ, keep_prev)
   local tick = game.tick + 60
   f.team.ia3.puits, cs.blocked_slots = nil, 0
+  if not keep_prev then cs.seat_prev = nil end
   cs.open, cs.slots_sig = {}, nil
   local keep = {}
   for _, m in ipairs(st.mods) do if not (m.id >= 9200 and m.id < 9300) then keep[#keep + 1] = m end end
@@ -86,8 +91,11 @@ local function situation(orders, stock, champ)
       missing = c[2] }
   end
   if champ then
-    cs.open[#cs.open + 1] = { key = "couvrir:iron-ore@banc", kind = "couvrir", exec = "champ", resource = "iron-ore", seat = "complement",
+    local c = { key = "couvrir:iron-ore@banc", kind = "couvrir", exec = "champ", resource = "iron-ore", seat = "complement",
       opened = tick, progress_tick = tick, missing = {} }
+    if type(champ) == "table" then for k, v in pairs(champ) do c[k] = v end end
+    for k, v in pairs(c) do if v == "TICK" then c[k] = tick elseif type(v) == "number" and v < 0 then c[k] = tick + v end end
+    cs.open[#cs.open + 1] = c
   end
   local log0 = #W().logs
   local sl = Capi.slots(f, cs, stock, tick, book)
@@ -146,6 +154,27 @@ Em.slots = function(s0) local c = {} for k, v in pairs(s0) do c[k] = v end c.hel
 local s5m = situation(CASE_B, STOCK_B, true)
 Em.slots = o_slots
 check(not s5_ok(s5m), "§5 mutant « champ tenu ignore » (comme 1e97d7da) : refuse")
+
+say("§6 champ qui bat (seconde relecture, point 1) : ouvert depuis plus de Em.STALL, etiquette a jour, rien pose")
+local s6, j6 = situation(CASE_B, STOCK_B, { opened = -(Em.STALL + 600), progress_tick = "TICK", tag = "pile:1:reserve:pile:0" })
+say("§6 " .. s6.why)
+check(s6.room_comp == 1 and not Em.drill_refused(s6, "iron-plate") and not s6.why:find("siege tenu", 1, true),
+  "§6 le champ qui bat sans rien poser LACHE le siege apres Em.STALL : foreuse de fer de nouveau accordee")
+local s6b = situation(CASE_B, STOCK_B, { opened = -(Em.STALL + 600), progress_tick = "TICK", adv_tick = -600, built_hi = 4 })
+check(s6b.room_comp == 0 and Em.drill_refused(s6b, "iron-plate"), "§6 le meme champ qui a pose il y a 10 s tient toujours le siege")
+
+say("§7 hysteresis (seconde relecture, point 2) : deux releves de suite, deficits proches qui s'echangent")
+local PL1 = { { "chaine:x", { { "iron-plate", 100 }, { "copper-plate", 108 } } } }
+local PL2 = { { "chaine:x", { { "iron-plate", 108 }, { "copper-plate", 100 } } } }
+local NONE = { ["iron-plate"] = 0, ["copper-plate"] = 0 }
+local s7a = situation(PL1, NONE)
+local s7b = situation(PL2, NONE, nil, true)
+say("§7 releve 1 : " .. s7a.why)
+say("§7 releve 2 : " .. s7b.why)
+check(s7a.comp and s7a.comp["copper-plate"] and s7b.comp and s7b.comp["copper-plate"] and not s7b.comp["iron-plate"],
+  "§7 le cuivre prend le siege (108 contre 100) puis le GARDE quand le fer passe a 108 (marge " .. tostring(require("shared.ai3.capitalisation").SEAT_MARGIN) .. " %)")
+local s7c = situation(PL2, NONE)
+check(s7c.comp and s7c.comp["iron-plate"], "§7 sans releve d'avant, le meme etat donne le fer (le plus grand deficit)")
 
 print(string.format("[CHAMP-MANQUE-MOTEUR] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
