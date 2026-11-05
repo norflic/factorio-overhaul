@@ -129,7 +129,7 @@ local function shelter(f, t, threat, tick, resp, rally, range, foes)
   local judged = C.outrange_on() -- lot CORR-RALLIEMENT : éloignement jugé sur la carte du danger (Re.away_pick)
   local B = judged and D.block((C.character(f))) or nil
   -- Seconde relecture (point A, coût) : un mémo par PASSAGE (directions par case de 16 tuiles, cases mobiles : Re.away_pass).
-  local away_cache = (judged and resp == "away") and Re.away_cache() or nil
+  local away_cache = judged and Re.away_cache() or nil -- (éloignement, et repli du refuge : point E)
   for _, id in ipairs(State.sorted_keys(f.engineers or {})) do
     local ag = Registry.get(id)
     if ag and ag.entity.valid then
@@ -161,7 +161,9 @@ local function shelter(f, t, threat, tick, resp, rally, range, foes)
         if mode == "rally" then
           if d2(p, rally) > 36 then to = rally end
         elseif mode == "stand" and ag.task and not C.has_ammo(e) and dh > 12 * 12 then
-          to = C.refuge(f, p, threat, nil, foes) -- lot CORR-RALLIEMENT : pas sous une tourelle débordée (Re.refuge_ok)
+          -- lot CORR-RALLIEMENT : pas sous une tourelle débordée (Re.refuge_ok) ; repli jugé sur la carte du danger, sinon pas de refuge
+          -- (seconde relecture, point E ; le mémo du passage évite de refaire un calcul qui vient d'échouer)
+          to = C.refuge(f, p, threat, nil, foes, tick, away_cache)
         end
       end
       if to then

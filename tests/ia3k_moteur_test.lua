@@ -619,6 +619,30 @@ do
   check(with17 and not near_tu(with17), string.format(
     "refuge : la mitrailleuse débordée (portée 17 en boîte à boîte, à 18 tuiles) est écartée (refuge %.1f, %.1f)",
     with17 and with17.x or 0, with17 and with17.y or 0))
+  -- Seconde relecture, point E : sans tourelle, le QG menacé, le repli du refuge passe par Re.away_pick (et non plus 24 tuiles
+  -- en ligne droite) ; aucune direction sûre : pas de refuge (nil, "stand") ; règle éteinte : la ligne droite d'avant.
+  do
+    local Dm = require("shared.ai3.danger")
+    local tm = C.team(f)
+    local saved_threats = {}
+    for i, th in ipairs(tm.map.threats) do saved_threats[i] = th end
+    f.turrets = {}
+    local hm = f.home_spot or f.hq_pos
+    local pe, ee = { x = hm.x + 3, y = hm.y }, { x = hm.x + 13, y = hm.y }
+    local q1 = C.refuge(f, pe, ee, nil, nil, game.tick)
+    check(q1 ~= nil and q1.x < pe.x - 30, string.format("sans tourelle, QG menacé : éloignement jugé (%.1f tuiles à l'ouest)",
+      q1 and pe.x - q1.x or -1))
+    for _, w in ipairs({ { -44, 0 }, { -31, -31 }, { -31, 31 }, { 0, -44 }, { 0, 44 } }) do
+      Dm.mark_seen(tm.map, pe.x + w[1], pe.y + w[2], "worm", 30, game.tick)
+    end
+    local q2, why2 = C.refuge(f, pe, ee, nil, nil, game.tick)
+    check(q2 == nil and why2 == "stand", "vers dans les 5 directions : pas de refuge (stand), pas de ligne droite sur eux")
+    remote.call("fo-ia3k", "debordement", false)
+    local q3 = C.refuge(f, pe, ee, nil, nil, game.tick)
+    remote.call("fo-ia3k", "debordement", true)
+    check(q3 ~= nil and math.abs(q3.x - (pe.x - 24)) < 1e-6, "règle éteinte : 24 tuiles à l'opposé, comme avant")
+    tm.map.threats = saved_threats
+  end
   f.turrets = saved_turrets
   if tu2 and tu2.valid then tu2.destroy() end
   if tu and tu.valid then tu.destroy() end
