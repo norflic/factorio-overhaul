@@ -323,7 +323,51 @@ local cerv = read("shared/ai3/cerveau.lua")
 local prt = read("script/team/pile.lua")
 local function has(src, s, msg) check(src:find(s, 1, true) ~= nil, msg) end
 has(capi, "local allowed, pwhy = pile_ok(f, o)", "capitalisation : chaque ordre neuf passe par la porte de la pile (fuite a)")
-has(capi, "if allowed then rec, why = execute(f, cs, o, view, book, tick, research)", "capitalisation : ordre refusé : aucun exécutant")
+-- « Ordre refusé : aucun exécutant ». Contrôle de STRUCTURE (lot CORR-CHAMP-MANQUE, d9defeb7 : la branche « elseif allowed then »
+-- tient désormais sur plusieurs lignes, l'ancien contrôle cherchait « if allowed then rec, why = execute(... » sur une seule).
+-- Dans la boucle des ordres de la décision, de la porte de la pile (pile_ok) à son refus (PileRt.refuse) :
+--   - UN SEUL appel à l'exécutant ;
+--   - il est dans la branche « elseif allowed then » : après le refus faute de place (« if allowed and ... then », sans exécutant),
+--     et avant la branche du refus de la pile (« else » puis « why = "pile : " »).
+local function refused_never_executed(src)
+  local a = src:find("local allowed, pwhy = pile_ok(f, o)", 1, true)
+  local z = a and src:find("PileRt.refuse(f, \"capi:\" .. tostring(o.key)", a, true)
+  if not (a and z) then return false end
+  local seg = src:sub(a, z)
+  local call = "execute(f, cs, o, view, book, tick, research)"
+  local n, k = 0, 1
+  while true do
+    local i = seg:find(call, k, true)
+    if not i then break end
+    n, k = n + 1, i + 1
+  end
+  local first = seg:find("if allowed and", 1, true)
+  local g = seg:find("elseif allowed then", 1, true)
+  local e = seg:find(call, 1, true)
+  local pile = seg:find("why = \"pile : \"", 1, true)
+  local els = pile and seg:sub(1, pile):match(".*()%f[%w]else%f[%W]") or nil
+  return n == 1 and first ~= nil and g ~= nil and e ~= nil and pile ~= nil and els ~= nil and first < g and g < e and e < els
+end
+check(refused_never_executed(capi), "capitalisation : ordre refusé : aucun exécutant (un seul exécutant, branche « elseif allowed then »)")
+do -- mutants du contrôle de structure : chacun doit le faire échouer
+  local function mut(from, to)
+    local i, j = capi:find(from, 1, true)
+    if not i then return nil end
+    return capi:sub(1, i - 1) .. to .. capi:sub(j + 1)
+  end
+  local call = "execute(f, cs, o, view, book, tick, research)"
+  local muts = {
+    { "exécutant dans le refus faute de place", mut("rec, why = nil, Em.busy_text(cs.slots)", "rec, why = " .. call .. ", Em.busy_text(cs.slots)") },
+    { "exécutant sans la porte (elseif true)", mut("elseif allowed then", "elseif true then") },
+    { "exécutant dans le refus de la pile", mut("why = \"pile : \" .. tostring(pwhy)", "rec, why = " .. call .. " why = \"pile : \" .. tostring(pwhy)") },
+  }
+  local caught = 0
+  for _, m in ipairs(muts) do
+    if m[2] ~= nil and not refused_never_executed(m[2]) then caught = caught + 1
+    else print("  MUTANT SURVIVANT (contrôle de structure) : " .. m[1] .. (m[2] == nil and " (introuvable)" or "")) end
+  end
+  check(caught == #muts, "contrôle « aucun exécutant » : " .. caught .. " mutant(s) refusé(s) sur " .. #muts)
+end
 has(capi, "PileRt.refuse(f, \"capi:\" .. tostring(o.key)", "capitalisation : refus au journal [FO-PILE]")
 has(capi, "if allowed and (o.kind == \"equiper\" or o.kind == \"techno\") then hold(cs, o.key, why, tick) end",
   "capitalisation : un refus de la pile ne met pas l'ordre en repli")
