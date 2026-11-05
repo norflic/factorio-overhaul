@@ -45,6 +45,12 @@
        (partie du DC 717152950 en 0.6.51) : 2 modules qui attendaient du fer tenaient les 2 emplacements de 11 à 31 min (règle 1), la
        foreuse de fer était refusée « plan directeur occupe » (12 foreuses de fer contre 18 à 28 en 0.6.50) ; la pile, qui battait
        (26 changements en 36 min), remettait à zéro l'horloge de la règle 5 ; la règle 7 ne s'ouvrait pas (rien ne dormait).
+       QUI PREND LE SIÈGE (un seul, Em.COMP_SLOTS ; point de relecture de DEPENSES2, 5/11) : quand un produit dort et qu'un autre
+       manque, le complément (Em.complement) est celui de la règle 7, TOUS les produits qui ne dorment pas, ceux qui manquent compris,
+       sans priorité de plus ; sans rien qui dort, il se réduit aux produits qui manquent ; un produit qui dort ne le prend jamais, même
+       s'il manque. Chaque foreuse d'un produit du complément est accordée tant que room_comp > 0 (Em.drill_refused) ; à la décision, le
+       siège va au PREMIER ordre, dans l'ordre trié de Ca.decide, dont le produit est dans le complément (Em.order_seat) ; les suivants
+       sont refusés « plan directeur occupe ».
   Déterminisme : listes parcourues dans l'ordre donné, aucun hasard, aucun temps mesuré ; entrée et sortie : nombres, chaînes,
   tables.
 ]]
