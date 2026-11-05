@@ -49,6 +49,20 @@ do
   check(not ok and r == "avant-poste", "réception d'une foreuse adoptée : non")
 end
 
+section("Règle pure : dépôt (signalement du DC du 5/11, 21 h 47)")
+do
+  local function d(over)
+    local c = { by_player = true, in_base = true, kind = "container" }
+    for k, x in pairs(over or {}) do c[k] = x end
+    return CJ.deposit_ok(c)
+  end
+  check(d(), "coffre ordinaire du joueur, sans bras, dans la base : dépôt")
+  check(not d({ drops = true }), "un bras y dépose (sortie de sa fonderie) : prise seulement, pas de dépôt")
+  check(not d({ kind = "logistic-container", mode = "storage" }), "coffre logistique : prise seulement (les robots y ont leurs règles)")
+  check(not d({ feeds = true }) and not d({ by_player = false }) and not d({ in_base = false }) and not d({ adopted = true }),
+    "tampon, coffre de l'équipe, hors base, réception adoptée : aucun dépôt")
+end
+
 section("Règle pure : ordre et plafond")
 do
   local list = {}
@@ -232,6 +246,36 @@ do
   check(Stock.count(f, "iron-plate") == CJ.MAX - 1, "coffre disparu : retiré de la liste aussitôt")
 end
 
+-- Signalement du DC (5/11, 21 h 47) : un coffre en ACIER vide posé PAR-DESSUS une annexe en fer (remplacement rapide : nouvelle
+-- entité, nouveau numéro, dernier utilisateur = le joueur) ; un coffre vide posé à la main ; la sortie de sa fonderie ; un coffre logistique.
+do
+  game.tick = 0
+  local s = new_surface()
+  local f = team(s, {})
+  local old = new_chest(16, 9, 3)
+  old.valid = false -- l'annexe en fer remplacée n'existe plus
+  f.annex = { old }
+  local steel = player_chest(s, 9, 3, {})
+  local hand = player_chest(s, 14, 3, {})
+  local out = player_chest(s, 20, 3, { ["iron-plate"] = 50 })
+  s.inserters[1] = { valid = true, drop_target = out }
+  local logi = player_chest(s, 24, 3, {}, { type = "logistic-container", mode = "storage" })
+  local take, depot = CJs.chests(f), CJs.depot(f)
+  local function has(list, e) for _, x in ipairs(list) do if x == e then return true end end return false end
+  check(has(take, steel) and has(depot, steel), "coffre en acier qui remplace une annexe (nouveau numéro) : retrouvé, prise ET dépôt")
+  check(has(take, hand) and has(depot, hand), "coffre vide posé à la main dans la base : retrouvé, prise ET dépôt")
+  check(has(take, out) and not has(depot, out), "sortie de sa fonderie (un bras y dépose) : prise seulement")
+  check(has(take, logi) and not has(depot, logi), "coffre logistique de stockage : prise seulement")
+  check(#depot == 2 and depot[1] == steel and depot[2] == hand, "dépôt : du plus proche du QG au plus lointain")
+  -- Ce que STOCKAGE branche dans Stock.insert (après les annexes) : déposer dans CJs.depot ; ici à la main, le QG plein.
+  for k in pairs(f.hq.items) do f.hq.items[k] = nil end
+  f.hq.items.stone = 1000
+  local put = 0
+  for _, e in ipairs(CJs.depot(f)) do put = put + e.insert({ name = "iron-plate", count = 150 - put }) if put >= 150 then break end end
+  check(put == 150 and steel.items["iron-plate"] == 150 and out.items["iron-plate"] == 50, "dépôt de 150 fers : dans le coffre en acier, rien dans la sortie de la fonderie")
+  check(Stock.count(f, "iron-plate") == 200, "relu aussitôt par le stock (150 déposés + 50 de la fonderie)")
+end
+
 -- Parité : une faction n'a pas de joueur ; le même coffre à côté de son QG ne change rien.
 do
   game.tick = 0
@@ -243,7 +287,7 @@ do
   local f0 = s.finds
   check(Stock.count(g, "iron-plate") == 5 and Stock.remove(g, "iron-plate", 50) == 5 and s.finds == f0 and g.coffres_joueur == nil,
     "faction : le stock est son coffre seul (aucune recherche, aucun état)")
-  check(CJs.chests(g) == CJs.chests({}) and #CJs.chests(g) == 0, "faction : liste vide (même table, aucune allocation)")
+  check(CJs.chests(g) == CJs.chests({}) and #CJs.chests(g) == 0 and #CJs.depot(g) == 0, "faction : listes vides (même table, aucune allocation)")
 end
 
 print(string.format("\nRésultat : %d OK, %d ECHEC(S)", passes, failures))
