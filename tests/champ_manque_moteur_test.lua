@@ -10,6 +10,10 @@
        pour le fer, journal [FO-CAPI-EMPLACEMENTS] « +1 pour la matiere qui manque aux ordres ouverts (iron-plate) », foreuse de fer
        accordée, cuivre refusé, ordre « couvrir » du fer sur le siège.
     §3 INTERRUPTEUR du banc témoin (remote « fo-capi », « manque ») : éteint, même cas que §2 sans siège ; rallumé, le siège revient.
+    §4 relecture du lead (18 h 10, point 1, BLOQUANT) : le VRAI Capi.slots, sans rien remplacer (ni Em.slots ni le prédicat) ; deux
+       ordres « module » en réserve injectés comme tests/capi_debit_test.lua §6 (manques du cas B : assembleurs, bras, coffres), puis
+       un ordre CHAMP ouvert sur le siège (exec = "champ", pas un module) : il TIENT le siège, la foreuse de fer est refusée à la
+       décision suivante. Rouge sur 1e97d7da (seuls les modules comptaient) ; mutant : held_comp ignoré.
   Usage : lua5.2 tests/champ_manque_moteur_test.lua   (depuis la racine du mod ; quatre parties simulées, quelques minutes)
 ]]
 package.path = "./?.lua;" .. package.path
@@ -128,6 +132,57 @@ check(c.seen.first ~= nil and c.seen.first.busy and c.seen.first.comp == nil and
 local d = run({ gears = true, off = false })
 check(d.seen.remote == true and d.seen.short_ok ~= nil and d.seen.short_ok.comp and d.seen.short_ok.comp["iron-plate"] == true,
   "§3 rallumee (on = true) : le siege du fer revient")
+
+-- §4 : le vrai Capi.slots, un ordre champ sur le siège
+local CASE_B = { { "packs:automation-science-pack", { { "assembling-machine-1", 2 }, { "inserter", 7 }, { "iron-chest", 3 } } },
+  { "chaine:burner-mining-drill", { { "assembling-machine-1", 3 }, { "inserter", 10 }, { "iron-chest", 4 } } } }
+local function real_slots(mutant)
+  M.new_world({ patches = patches(), p_busy = 0, p_nopath = 0, p_lost = 0, difficulty = "peaceful", ia3e = true, capi = true })
+  M.load_mod()
+  M.dispatch(W().on_init)
+  M.command("fo-war", "start 2 30 30 320")
+  M.run_ticks(MIN)
+  local f = global.fo.war.factions[1]
+  local cs, st = f.team.capi, f.team.ia3e
+  local Capi = require("script.ai3.capitalisation")
+  local Em = require("shared.ai3.emplacements")
+  local o_slots = Em.slots
+  if mutant then Em.slots = function(s0) local c = {} for k, v in pairs(s0) do c[k] = v end c.held_comp = nil return o_slots(c) end end
+  local tick = game.tick
+  f.team.ia3.puits, cs.blocked_slots = nil, 0 -- (2 emplacements de base, A.MAX_OPEN : comme le cas B)
+  cs.open = {}
+  for i, c in ipairs(CASE_B) do
+    local id = 9200 + i
+    st.mods[#st.mods + 1] = { id = id, product = "p" .. i, state = "reserve", missing = c[2], built = 0, total = 50, capi = c[1] }
+    cs.open[#cs.open + 1] = { key = c[1], kind = "chaine", exec = "module", mod_ids = { id }, n = 1, opened = tick, progress_tick = tick,
+      missing = c[2] }
+  end
+  local stock = { ["iron-plate"] = 66, ["copper-plate"] = 354 }
+  local a = Capi.slots(f, cs, stock, tick)
+  cs.open[#cs.open + 1] = { key = "couvrir:iron-ore@banc", kind = "couvrir", exec = "champ", resource = "iron-ore", seat = "complement",
+    opened = tick, progress_tick = tick, missing = {} }
+  local b = Capi.slots(f, cs, stock, tick)
+  Em.slots = o_slots
+  return a, b, Em
+end
+local function s4_ok(a, b, Em, out)
+  local ok1 = a.busy and a.room == 0 and a.room_comp == 1 and a.comp and a.comp["iron-plate"] == true and not Em.drill_refused(a, "iron-plate")
+  local ok2 = b.busy and b.room == 0 and b.room_comp == 0 and Em.drill_refused(b, "iron-plate")
+  local ok3 = b.counted == a.counted and (b.why or ""):find("siege tenu par 1 champ(s)", 1, true) ~= nil
+  if out then
+    say("§4 avant le champ : " .. tostring(a.why))
+    say("§4 champ ouvert   : " .. tostring(b.why))
+    check(ok1, "§4 vrai Capi.slots, cas B : pleins, un siège pour le fer, foreuse de fer accordée")
+    check(ok2, "§4 un ordre champ ouvert sur le siège le TIENT : foreuse de fer refusée à la décision suivante (room_comp " .. tostring(b.room_comp) .. ")")
+    check(ok3, "§4 le champ ne prend aucun emplacement ordinaire, le journal dit qu'il tient le siège")
+  end
+  return ok1 and ok2 and ok3
+end
+say("§4 relecture du lead (point 1) : le vrai Capi.slots, un ordre champ sur le siège")
+local a4, b4, Em4 = real_slots(false)
+s4_ok(a4, b4, Em4, true)
+local am, bm, Emm = real_slots(true)
+check(not s4_ok(am, bm, Emm, false), "§4 mutant « champ tenu ignoré » (comme 1e97d7da) : refusé")
 
 print(string.format("[CHAMP-MANQUE-MOTEUR] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

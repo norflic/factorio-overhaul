@@ -108,13 +108,34 @@ local function suite()
   local r2, rc2 = Em.take(sl.room, sl.room_comp, 1)
   check(Em.order_seat(r2, rc2, sl.comp, "iron-plate") == nil, "un seul siège par décision")
   check(sl.why:find("matiere qui manque aux ordres ouverts (iron-plate)", 1, true) ~= nil, "le journal dit pourquoi : " .. sl.why)
-  -- Décision suivante : le champ ouvert par le siège est compté ; plus de siège.
+  -- Décision suivante : un MODULE ouvert par le siège est compté dans mods ; plus de siège.
   local mods3 = waiting_mods()
-  mods3[#mods3 + 1] = { key = "couvrir:iron-ore", states = { "reserve" }, opened = T }
+  mods3[#mods3 + 1] = { key = "chaine:fonderie-fer", states = { "reserve" }, opened = T }
   local s3 = {} for k, v in pairs(s1) do s3[k] = v end
   s3.mods = mods3
   local sl3 = Em.slots(s3)
-  check(sl3.room_comp == 0 and Em.drill_refused(sl3, "iron-plate") == true, "le champ ouvert compte : pas de second champ")
+  check(sl3.room_comp == 0 and Em.drill_refused(sl3, "iron-plate") == true, "un module ouvert sur le siège compte : pas de second")
+
+  section("relecture du lead (18 h 10, point 1) : le CHAMP n'est pas un module, il tient quand même le siège (held_comp, Em.champ_seat)")
+  local s6 = {} for k, v in pairs(s1) do s6[k] = v end
+  s6.held_comp = 1 -- le champ du fer ouvert à la décision précédente : il n'est PAS dans mods
+  local sl6 = Em.slots(s6)
+  check(sl6.room_comp == 0 and sl6.held_comp == 1 and Em.drill_refused(sl6, "iron-plate") == true,
+    "le champ ouvert sur le siège le tient : pas de second champ à la décision suivante")
+  check(sl6.counted == sl.counted and sl6.room == sl.room, "il ne prend aucun emplacement ordinaire (lot CHAMP)")
+  check(sl6.why:find("siege tenu par 1 champ(s)", 1, true) ~= nil, "le journal le dit : " .. sl6.why)
+  local s7 = {} for k, v in pairs(s0) do s7[k] = v end
+  s7.held_comp = 1
+  local sl7 = Em.slots(s7)
+  check(sl7.comp == nil and sl7.room == old.room and sl7.counted == old.counted and sl7.why == old.why,
+    "plus rien ne manque : un champ tenu ne change rien aux emplacements ordinaires")
+  check(Em.champ_seat(false, 0, 0, sl.comp, "copper-plate") == "hors" and Em.champ_seat(false, 3, 0, nil, nil) == "hors",
+    "emplacements libres au début de la décision : le champ ne prend rien, comme avant")
+  check(Em.champ_seat(true, sl.room, sl.room_comp, sl.comp, "iron-plate") == "complement", "pleins : le champ du fer prend le siège")
+  check(Em.champ_seat(true, sl.room, sl.room_comp, sl.comp, "copper-plate") == nil, "pleins : le champ du cuivre est refusé")
+  local r6, rc6 = Em.take(sl.room, sl.room_comp, 1)
+  check(Em.champ_seat(true, r6, rc6, sl.comp, "iron-plate") == nil, "un second champ du fer dans la même décision : refusé")
+  check(Em.champ_seat(true, sl6.room, sl6.room_comp, sl6.comp, "iron-plate") == nil, "décision suivante, siège tenu : refusé")
   -- Le fer redevient riche : plus de siège.
   local s4 = {} for k, v in pairs(s1) do s4[k] = v end
   s4.short = Em.short(NAMES, ORES, { ["iron-plate"] = true }, { ["iron-plate"] = 1500 })
@@ -199,6 +220,14 @@ mutant("fluides comptés", function()
     end end end
     return o
   end)
+end)
+mutant("champ tenu ignoré (1e97d7da : seuls les modules comptent)", function()
+  local sl0 = Em.slots
+  patch(Em, "slots", function(s0) local c = {} for k, v in pairs(s0 or {}) do c[k] = v end c.held_comp = nil return sl0(c) end)
+end)
+mutant("le champ passe sans siège (1e97d7da : not to_champ)", function() patch(Em, "champ_seat", function() return "hors" end) end)
+mutant("le champ prend le siège même avec des emplacements libres", function()
+  patch(Em, "champ_seat", function(full, room, rc, comp, p) return Em.order_seat(room, rc, comp, p) == "complement" and "complement" or nil end)
 end)
 mutant("ressource oubliée par unblocks", function()
   patch(Ca, "unblocks", function(o, b) return o ~= nil and b ~= nil and ((o.item and b[o.item]) or (o.product and b[o.product])) == true end)

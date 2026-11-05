@@ -790,8 +790,11 @@ function Capi.slots(f, cs, stock, tick)
   for i, p in ipairs(PLATE_PRODUCTS) do free[p] = plates[i] end
   -- (banc témoin seulement : remote.call("fo-capi", "manque", <clé>, false) éteint la règle 8, cs.no_short)
   local short = cs.no_short and {} or Em.short(PLATE_PRODUCTS, ORE_OF_PRODUCT, Ca.blocked_items({ open = cs.open, D = Capi.data() }), free)
+  -- Relecture du lead (18 h 10, point 1, BLOQUANT) : un ordre CHAMP ouvert sur le siège du complément (decide, Em.champ_seat) le tient.
+  local held = 0
+  for _, o in ipairs(cs.open or {}) do if o.exec == "champ" and o.seat == "complement" then held = held + 1 end end
   local sl = Em.slots({ base = base, plates = plates, mods = mods, tick = tick, names = PLATE_PRODUCTS, sleeping = Dep.sleeping(f, tick),
-    short = short })
+    short = short, held_comp = held })
   if (cs.dm_base or A.MAX_OPEN) ~= base then
     log(string.format("[FO-DEMANDE] %s : EMPLACEMENTS de chantier %s -> %d (base %d + %d : %d bras libres, %d ordre(s) retenu(s) faute de place ; plafond de surete %d) a %.1f min",
       f.key or "?", cs.dm_base and tostring(cs.dm_base) or "-", base, A.MAX_OPEN, base - A.MAX_OPEN, math.floor(hands), cs.blocked_slots or 0, Dm.SLOTS_HARD, minutes(f, tick)))
@@ -1484,22 +1487,30 @@ local function decide(f, cs, view, book, tick, research, w)
   -- Capi.MAX_ORDERS modules partaient d'un coup) ; un ordre qui ouvrirait un module de trop est refusé, son épargne rendue.
   local room = cs.slots and cs.slots.room
   local room_comp = cs.slots and cs.slots.room_comp -- lot DEPENSES2 (essai 4) : siège du complément du stock qui dort (Em.slots, règle 7)
+  -- Relecture du lead (18 h 10, point 1) : emplacements PLEINS au début de la décision : une foreuse n'a pu être accordée que par le
+  -- siège du complément, le champ y passe lui aussi (Em.champ_seat).
+  local full = room ~= nil and room <= 0
   for _, o in ipairs(res.orders) do
     local rec, why
     -- (Intégration 0.6.25 : la porte de la pile de FUITES-PILE d'abord, puis le plafond des emplacements de CAPI-DEBIT.)
     local allowed, pwhy = pile_ok(f, o)
     local meth_o = (o.kind == "couvrir" or o.kind == "ouvrir") and METHOD_OF_ORE[o.resource] or nil
     local seat = Em.order_seat(room, room_comp, cs.slots and cs.slots.comp, meth_o and meth_o.product) -- (règle pure, testée)
-    if allowed and seat == nil and Capi.MODULE_KINDS[o.kind] and not to_champ(f, cs, o) then -- (lot CHAMP : le champ n'est pas un module)
+    local champ = to_champ(f, cs, o) -- (lot CHAMP : le champ n'est pas un module)
+    local cseat = champ and Em.champ_seat(full, room, room_comp, cs.slots and cs.slots.comp, meth_o and meth_o.product) or nil
+    if allowed and Capi.MODULE_KINDS[o.kind] and ((not champ and seat == nil) or (champ and cseat == nil)) then
       rec, why = nil, Em.busy_text(cs.slots) .. " ; emplacements libres pris par cette decision"
       cs.blocked_slots = (cs.blocked_slots or 0) + 1 -- (intégration 0.6.32 : retenu faute de place lui aussi)
-    elseif allowed then rec, why = execute(f, cs, o, view, book, tick, research)
+    elseif allowed then
+      rec, why = execute(f, cs, o, view, book, tick, research)
+      if rec and rec.exec == "champ" and cseat == "complement" then rec.seat = "complement" end -- (tenu : Capi.slots, held_comp)
     else
       why = "pile : " .. tostring(pwhy)
       PileRt.refuse(f, "capi:" .. tostring(o.key), "ordre " .. tostring(o.kind) .. " " .. tostring(o.item or o.resource or o.tech)
         .. " non envoye (" .. tostring(pwhy) .. ")", tick)
     end
-    if rec and rec.exec == "module" then room, room_comp = Em.take(room, room_comp, #(rec.mod_ids or { rec.module })) end
+    if rec and rec.exec == "module" then room, room_comp = Em.take(room, room_comp, #(rec.mod_ids or { rec.module }))
+    elseif rec and rec.seat == "complement" then room, room_comp = Em.take(room, room_comp, 1) end -- (le champ sur le siège)
     if rec then
       cs.open[#cs.open + 1] = rec
       cs.orders = cs.orders + 1

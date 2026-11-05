@@ -200,10 +200,22 @@ function Em.take(room, room_comp, n)
   return room ~= nil and room - n or nil, room_comp ~= nil and room_comp - n or nil
 end
 
+--- Relecture du lead (18 h 10, point 1, BLOQUANT) : siège d'un ordre CHAMP (« couvrir » ou « ouvrir » d'un minerai que le champ pose).
+--- Le champ n'est pas un module (lot CHAMP) : quand il restait des emplacements au début de la décision (full faux), il n'en prend
+--- aucun, comme avant ("hors"). Quand ils étaient PLEINS (full vrai), sa foreuse n'a pu être accordée que par le siège du complément
+--- (Em.drill_refused) : il le prend s'il en reste un pour son produit ("complement" ; le runtime marque l'ordre, qui le tient tant
+--- qu'il est ouvert : Em.slots, held_comp), sinon il est refusé (nil, « plan directeur occupe »).
+function Em.champ_seat(full, room, room_comp, comp, product)
+  if not full then return "hors" end
+  if Em.order_seat(room, room_comp, comp, product) == "complement" then return "complement" end
+  return nil
+end
+
 --- s = { base (A.MAX_OPEN), plates (liste des stocks libres des produits des fonderies), mods (liste de { states, progress_tick,
 --- opened, work_tick, key }), tick, names (produits des fonderies, dans l'ordre de plates), sleeping ({ [produit] = true } : ceux qui
---- dorment, lot DEPENSES2), short ({ [produit] = true } : leur matière manque aux ordres ouverts, Em.short, lot CORR-CHAMP-MANQUE) }.
---- Rend { cap, counted, stalled, free_stalled, materials, open, room, busy, keys_stalled, why, comp, room_comp }.
+--- dorment, lot DEPENSES2), short ({ [produit] = true } : leur matière manque aux ordres ouverts, Em.short, lot CORR-CHAMP-MANQUE),
+--- held_comp (ordres CHAMP ouverts qui tiennent le siège du complément : ils ne sont pas dans mods ; relecture du lead, 18 h 10) }.
+--- Rend { cap, counted, stalled, free_stalled, materials, open, room, busy, keys_stalled, why, comp, room_comp, held_comp }.
 function Em.slots(s)
   local base = math.max(0, math.floor((s and s.base) or 0))
   local extra = Em.extra(s and s.plates)
@@ -243,8 +255,12 @@ function Em.slots(s)
   -- produits dont la matière manque aux ordres ouverts (s.short)
   local comp = Em.complement(s and s.names, s and s.sleeping, s and s.short)
   local room_comp = room
+  -- Relecture du lead (18 h 10, point 1, BLOQUANT) : un ordre CHAMP qui a pris le siège (Em.champ_seat) n'est pas un module, il n'est
+  -- pas dans `mods` : il le TIENT quand même (s.held_comp), sinon chaque décision relancerait un champ de plus sur la plaque qui manque.
+  local held = math.max(0, math.floor((s and s.held_comp) or 0))
   if comp then
     room_comp = math.max(0, cap + Em.COMP_SLOTS - counted)
+    room_comp = math.max(0, room_comp - held) -- (ligne à part : la précédente est celle des mutants de DEPENSES2)
     local cn, cm = {}, {}
     local short = (s and s.short) or {}
     local sleep_comp = Em.complement(s.names, s.sleeping)
@@ -260,9 +276,10 @@ function Em.slots(s)
     elseif #cm > 0 then
       why = why .. string.format(", +%d pour la matiere qui manque aux ordres ouverts (%s)", Em.COMP_SLOTS, table.concat(cm, " "))
     end
+    if held > 0 then why = why .. string.format(" ; siege tenu par %d champ(s)", held) end
   end
   return { cap = cap, base = base, extra = extra, counted = counted, stalled = stalled, free_stalled = free_stalled,
-    piled = piled, free_piled = free_piled, keys_piled = keys_piled,
+    piled = piled, free_piled = free_piled, keys_piled = keys_piled, held_comp = held,
     materials = materials, open = #mods, room = room, busy = room <= 0, keys_stalled = keys_stalled, why = why,
     comp = comp, room_comp = room_comp }
 end
