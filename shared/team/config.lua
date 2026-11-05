@@ -181,7 +181,9 @@ T.hq_rows_slack = 2
 --              au nord (QG au nord de l'origine de la carte), half = 7 pour laisser les fours (est, x >= 8) et les laboratoires
 --              (ouest, x <= -8,5) : 8 colonnes × 4 rangées = 32 places. Les places les plus proches du QG d'abord.
 T.annex = {
-  kinds = { { item = "iron-chest", slots = 32 }, { item = "wooden-chest", slots = 16, cheap = true } },
+  -- Lot STOCKAGE (essai 2, remarque du DC du 5/11 : « les coffres restent des coffres en fer et pas en acier ») : du plus grand au plus petit ;
+  -- le premier en main est posé, le plus petit posé est amélioré (shared/team/stockage.lua, Sg.decide).
+  kinds = { { item = "steel-chest", slots = 48 }, { item = "iron-chest", slots = 32 }, { item = "wooden-chest", slots = 16, cheap = true } },
   grow_at = 0.70, park_at = 0.80, park_to = 0.60, keep = 1, max = 48, want = 2,
   early_at = 0.60, early_keep = 0.55, early_ticks = 5 * 3600, refused_ticks = 3600, retry = 1800, gap = 1,
   block = { near = 5, far = 11, half_south = 11, half_north = 7 },
