@@ -461,13 +461,21 @@ local CB = require("shared.team.craft_bg") -- lot CRAFT-PARALLELE : genres refus
 -- Lot CRAFT-PARALLELE : crochet posé par script/team/worker.lua (seul lecteur de agent.bg) : nil ou { left = s de file restante }.
 Board.bg_view = nil
 
+--- PNJ ARMÉ : munitions CHARGÉES (emplacement des munitions du personnage), la règle de la porte des tâches (script/ai3/comportement.lua,
+--- M.has_ammo, qui la reprend). Lot DANGER-ACTIF (relecture du lead, 5/11) : la place de marché comptait les chargeurs de TOUS les inventaires (sac
+--- compris) et donnait la garde à un PNJ dont l'arme était vide, que la porte envoyait ensuite défendre sous une meute.
+function Board.has_ammo(e)
+  local inv = e.get_inventory(defines.inventory.character_ammo)
+  return inv ~= nil and not inv.is_empty()
+end
+
 --- PNJ vu par la place de marché : rôle (sans organisation : neutre, comme NEUTRAL), pôle EFFECTIF, position, projet
---- précédent (ou celui qu'il mène), ce qu'il ne sait pas faire (conception : exécutant ; garde : sans munitions).
+--- précédent (ou celui qu'il mène), ce qu'il ne sait pas faire (conception : exécutant ; garde : sans munitions chargées).
 local function market_npc(agent)
   local org = agent.org
   local role = org and (org.role or "executant") or "generalist"
   local e = agent.entity
-  local armed = e.get_item_count(T.worker_ammo) + e.get_item_count("piercing-rounds-magazine") > 0
+  local armed = Board.has_ammo(e)
   local cannot
   if role ~= "generalist" then cannot = armed and CANNOT_EXEC or CANNOT_EXEC_UNARMED
   elseif not armed then cannot = CANNOT_UNARMED end
@@ -479,6 +487,7 @@ local function market_npc(agent)
   return { id = agent.id, role = role, pole = org and O.effective_pole(org) or nil, pos = { x = p.x, y = p.y },
     last_project = (org and org.project) or agent.last_project, cannot = cannot, bg_left = bv and bv.left or nil }
 end
+Board.market_npc = market_npc -- (bancs hors jeu : lecture seule)
 
 --- Point de départ d'une tâche (trajet de la note) : la case du QG pour toute tâche qui commence au coffre ; le poste
 --- pour une garde. Facteur de besoin d'une tâche d'extraction (minage, tournée ordinaire d'un avant-poste).

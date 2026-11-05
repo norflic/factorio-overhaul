@@ -307,10 +307,9 @@ end
 M.d_route = d_route
 
 --- Le personnage a-t-il de quoi tirer ? Lu dans SON inventaire de munitions (aucun nom d'objet : une munition chargée,
---- quelle qu'elle soit).
+--- quelle qu'elle soit). Lot DANGER-ACTIF : une seule règle, celle de la place de marché qui donne la garde (Board.has_ammo).
 function M.has_ammo(e)
-  local inv = e.get_inventory(defines.inventory.character_ammo)
-  return inv ~= nil and not inv.is_empty()
+  return Board.has_ammo(e)
 end
 
 local function armed(agent, a, tick)

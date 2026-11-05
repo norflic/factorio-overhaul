@@ -512,8 +512,20 @@ do
     and fo_d.fail == Dax.ASIDE_FAIL, "DANGER-ACTIF 2e essai : pose de tourelles vers la meute par un DÉSARMÉ : mise de côté")
   local gd = { key = "test:meute-garde-desarme", kind = "garrison", post = "hq" }
   check(C.gate(f, gv, gd, gsteps, tz + 3) == false and gd.fail == Dax.ASIDE_FAIL,
-    "DANGER-ACTIF 2e essai : garde par un PNJ sans munitions CHARGÉES (la place de marché compte aussi celles du sac) : mise de côté")
+    "DANGER-ACTIF 2e essai : garde par un PNJ sans munitions CHARGÉES : mise de côté")
+  -- Relecture du lead : chargeurs dans le SAC, arme vide : la place de marché ne donne plus la garde (avant : comptés dans tous les inventaires).
+  local Bd = require("script.team.board")
+  local gmain = gv.entity.get_inventory(defines.inventory.character_main)
+  gmain.insert({ name = "firearm-magazine", count = 20 })
+  local np = Bd.market_npc(gv)
+  check(gv.entity.get_item_count("firearm-magazine") >= 20 and np.cannot ~= nil and np.cannot.garrison == true and Bd.has_ammo(gv.entity) == false,
+    "DANGER-ACTIF 2e essai : chargeurs dans le sac, arme vide : pas de garde à la place de marché (même règle que la porte)")
+  local gs = { key = "test:meute-garde-sac", kind = "garrison", post = "hq" }
+  check(C.gate(f, gv, gs, gsteps, tz + 3) == false and gs.fail == Dax.ASIDE_FAIL,
+    "DANGER-ACTIF 2e essai : chargeurs dans le sac, arme vide, garde sous une meute : mise de côté")
+  gmain.remove({ name = "firearm-magazine", count = 20 })
   gammo.insert({ name = "firearm-magazine", count = 10 })
+  check(Bd.market_npc(gv).cannot == nil or Bd.market_npc(gv).cannot.garrison ~= true, "DANGER-ACTIF 2e essai : arme chargée : la garde est permise")
   -- (A) seulement pour une MEUTE et seulement DANS la base (zone de PORTE-BASE, M.base_zone : case du QG et marge de 24 tuiles, amas de bâtiments).
   remote.call("fo-ia3k", "forget", "player")
   remote.call("fo-ia3k", "mark", "player", home.x + 10, home.y, "worm", 25)
