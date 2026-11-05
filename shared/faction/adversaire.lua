@@ -266,10 +266,14 @@ A.HOME_RADIUS = A.SECTOR
 -- d'environ 32 tuiles. Seuls les avant-postes séparés sont visés avant elle. Le QG de votre équipe est un point du départ où qu'il
 -- soit : sa base est protégée de même.
 --
--- Mesure : mailles de ZONE_CELL tuiles ; une maille est OCCUPÉE quand une installation du joueur la touche (un comptage moteur,
--- `occupied`, injecté) ; deux mailles occupées sont reliées à ZONE_REACH mailles au plus l'une de l'autre sur chaque axe (8 directions,
--- diagonales comprises). Avec 16 tuiles et 2 mailles : un trou de moins de 32 tuiles relie TOUJOURS, un trou de 47 tuiles ou plus
--- sépare TOUJOURS, entre les deux selon la place des bâtiments sur la grille (tests/adversaire_test.lua, toutes les places essayées).
+-- Mesure : mailles de ZONE_CELL tuiles ; une maille est OCCUPÉE quand une installation du joueur qui RELIE la touche (un comptage
+-- moteur, `occupied`, injecté ; les coffres ne relient pas : A.link_types) ; deux mailles occupées sont reliées quand la DISTANCE
+-- (à vol d'oiseau, pas par axe) entre leurs bords est de moins de ZONE_GAP tuiles. Donc : un trou de moins de 32 tuiles relie
+-- TOUJOURS, dans toutes les directions (les deux points les plus proches des deux bâtiments sont dans des mailles occupées à moins de
+-- 32 tuiles l'une de l'autre) ; deux mailles reliées sont à 51,2 tuiles au plus d'un bord à l'autre (8 × √(5² + 4²)) : un trou de
+-- plus de 51 tuiles sépare TOUJOURS ; entre les deux, selon la place des bâtiments sur la grille (tests/adversaire_test.lua : 16
+-- directions, 8 places par direction). Des mailles de 16 tuiles ne peuvent pas faire mieux : reliées par axe, la diagonale allait
+-- jusqu'à 66 tuiles ; reliées par distance, il faut descendre le seuil bas à 22 tuiles pour rester sous 58 en diagonale.
 -- Les secteurs connus (64 tuiles) ne suffisent pas : deux secteurs voisins laissent passer un trou de 127 tuiles, et le brouillard
 -- d'une faction (secteurs pas encore vus, secteurs d'une seule installation oubliés) couperait la base en morceaux. La zone est donc
 -- mesurée sur le terrain, comme les points du départ (lus en direct depuis QG-DERNIER) : c'est une règle de la partie, pas un savoir
@@ -277,12 +281,47 @@ A.HOME_RADIUS = A.SECTOR
 --
 -- Coût BORNÉ : le calcul avance de ZONE_STEP comptages par passe de la voie « fo-pvp-scan » (toutes les 8 ticks), ZONE_MAX
 -- comptages au plus par calcul (base au-delà : zone partielle, journalisée), recalcul ZONE_TTL ticks après le précédent ; la pensée
--- d'une faction n'y fait que des lectures (une par secteur connu).
-A.ZONE_CELL = 16
-A.ZONE_REACH = 2
-A.ZONE_STEP = 4
-A.ZONE_MAX = 4096
+-- d'une faction n'y fait que des lectures (une par secteur connu). Une base nouvellement reliée compte comme le départ au plus
+-- ZONE_TTL + la durée d'un calcul plus tard (2 à 2,5 min pour une base de quelques centaines de tuiles).
+A.ZONE_CELL = 8
+A.ZONE_GAP = 32
+A.ZONE_STEP = 8
+A.ZONE_MAX = 16384
 A.ZONE_TTL = 2 * 3600
+
+-- Revue du lot (exploit relevé par le relecteur) : un coffre en bois tous les 31 tuiles faisait de toute la carte le « départ ». Les
+-- coffres restent des CIBLES (Vision.INSTALL_TYPES) mais ne RELIENT pas la zone ; le coffre de votre équipe reste un point du départ
+-- (graine). Une base réelle a des machines entre ses coffres.
+A.ZONE_UNLINKED = { container = true, ["logistic-container"] = true }
+
+--- Types d'installation qui relient la zone : `types` (liste) sans ceux de A.ZONE_UNLINKED, dans le même ordre.
+function A.link_types(types)
+  local out = {}
+  for _, t in ipairs(types) do
+    if not A.ZONE_UNLINKED[t] then out[#out + 1] = t end
+  end
+  return out
+end
+
+-- Voisines d'une maille, en écarts de clé (ligne par ligne) : les mailles dont le bord est à moins de ZONE_GAP tuiles. Fonction pure
+-- des constantes ; mise en cache par valeurs (hors de global, sans effet sur les décisions).
+local offsets_cache = {}
+function A.zone_offsets()
+  local c, g = A.ZONE_CELL, A.ZONE_GAP
+  local id = c .. ":" .. g
+  local list = offsets_cache[id]
+  if list then return list end
+  list = {}
+  local r = math.floor(g / c) + 1
+  for dy = -r, r do
+    for dx = -r, r do
+      local a, b = math.max(math.abs(dx) - 1, 0), math.max(math.abs(dy) - 1, 0)
+      if (dx ~= 0 or dy ~= 0) and c * c * (a * a + b * b) < g * g then list[#list + 1] = dx * 262144 + dy end
+    end
+  end
+  offsets_cache[id] = list
+  return list
+end
 
 --- Clé d'une maille de la zone (de ±131 072 mailles : toute la carte, 2 000 000 tuiles de côté ; entier exact).
 function A.cell_key(cx, cy) return (cx + 131072) * 262144 + (cy + 131072) end
@@ -320,11 +359,12 @@ function A.zone_begin(homes)
 end
 
 --- Avance le calcul `w` d'au plus `budget` comptages `occupied(ctx, cx, cy)` (vrai : une installation du joueur touche la maille).
---- Une maille occupée entre dans la zone et met en file ses voisines à ZONE_REACH mailles (ligne par ligne). Renvoie fini (vrai quand
+--- Une maille occupée entre dans la zone et met en file ses voisines (A.zone_offsets, ligne par ligne). Renvoie fini (vrai quand
 --- la file est vide ou ZONE_MAX atteint : w.capped) et le nombre de comptages faits.
 function A.zone_step(w, occupied, budget, ctx)
-  local used, reach = 0, A.ZONE_REACH
+  local used = 0
   local q, seen = w.q, w.seen
+  local offs = A.zone_offsets()
   local nq = #q
   while used < budget and w.qi <= nq do
     if w.tests >= A.ZONE_MAX then
@@ -339,16 +379,12 @@ function A.zone_step(w, occupied, budget, ctx)
       w.cells[k] = true
       w.n = w.n + 1
       -- Voisines ligne par ligne ; la clé est linéaire : clé(cx + dx, cy + dy) = clé(cx, cy) + dx × 262 144 + dy.
-      for dy = -reach, reach do
-        for dx = -reach, reach do
-          if dx ~= 0 or dy ~= 0 then
-            local kk = k + dx * 262144 + dy
-            if not seen[kk] then
-              seen[kk] = true
-              nq = nq + 1
-              q[nq] = kk
-            end
-          end
+      for i = 1, #offs do
+        local kk = k + offs[i]
+        if not seen[kk] then
+          seen[kk] = true
+          nq = nq + 1
+          q[nq] = kk
         end
       end
     end

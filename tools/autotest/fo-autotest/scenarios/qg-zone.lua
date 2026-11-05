@@ -2,8 +2,9 @@
   Lot QG-ZONE (5/11) : « Toute la base qui grandit » (choix du DC) en moteur réel. Une faction (Écarlate, à 320 tuiles,
   Normal) ; la base du joueur est une LIGNE d'assembleurs (un tous les 10 tuiles, trous de 7 tuiles au plus) qui part
   du point d'apparition vers le QG de la faction et s'arrête à 80 tuiles de lui (plus de 200 tuiles du départ) ; un
-  avant-poste de 4 assembleurs est posé à 95 tuiles de côté du bout de la ligne : séparé de toute la base par 47 tuiles
-  au moins (mesuré sur les bâtiments posés), et PLUS LOIN du QG de la faction que le bout de la ligne. Les bâtiments du
+  avant-poste de 4 assembleurs est posé à 95 tuiles de côté du bout de la ligne : séparé de toute la base par plus de 51,2
+  tuiles (au-delà, la zone ne relie jamais ; mesuré sur les bâtiments posés), et PLUS LOIN du QG de la faction que le bout de
+  la ligne. Les bâtiments du
   joueur sont indestructibles (la cible ne change pas parce qu'un bâtiment tombe). Au tick 60, le banc abat un bâtiment
   de la faction au nom du joueur (provocation : guerre déclarée sans attendre la grâce).
 
@@ -24,9 +25,10 @@ local function half(name)
   return math.floor(cb.right_bottom.x - cb.left_top.x + 0.999) / 2
 end
 
---- Trou (tuiles) entre deux bâtiments posés, sur l'axe le plus écarté (la mesure de la zone : mailles reliées sur chaque axe).
+--- Trou (tuiles, à vol d'oiseau) entre deux bâtiments posés de demi-côté h (la mesure de la zone : distance entre mailles).
 local function gap(a, b, h)
-  return math.max(math.abs(a.x - b.x), math.abs(a.y - b.y)) - 2 * h
+  local gx, gy = math.max(math.abs(a.x - b.x) - 2 * h, 0), math.max(math.abs(a.y - b.y) - 2 * h, 0)
+  return math.sqrt(gx * gx + gy * gy)
 end
 
 local function dist(a, b) return math.sqrt((a.x - b.x) ^ 2 + (a.y - b.y) ^ 2) end
@@ -99,8 +101,8 @@ return {
     end
     local best = 0
     for _, n in pairs(sectors) do best = math.max(best, n) end
-    ctx.check(#st.out == #OUT and best >= 2 and sep >= 47,
-      "avant-poste pose, separe de toute la base par 47 tuiles ou plus", string.format("%d/%d assembleurs (%d dans un secteur), trou %.1f tuiles",
+    ctx.check(#st.out == #OUT and best >= 2 and sep > 51.2,
+      "avant-poste pose, separe de toute la base par plus de 51,2 tuiles", string.format("%d/%d assembleurs (%d dans un secteur), trou %.1f tuiles",
         #st.out, #OUT, best, sep))
     ctx.check(E ~= nil and dist(E, H) < closest_out,
       "temoin : le bout de la ligne est plus proche de la faction que l'avant-poste", string.format("%.0f contre %.0f tuiles",

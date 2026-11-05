@@ -301,11 +301,15 @@ function Vision.zone_state(p)
   return z
 end
 
---- Une maille est occupée : une installation du joueur (cibles des factions, Vision.INSTALL_TYPES) la touche (un comptage, limit 1).
+--- Installations qui RELIENT la zone : les cibles des factions sans les coffres (revue du lot : un coffre tous les 31 tuiles faisait de
+--- toute la carte le départ ; les coffres restent des cibles).
+Vision.LINK_TYPES = A.link_types(Vision.INSTALL_TYPES)
+
+--- Une maille est occupée : une installation du joueur qui relie (Vision.LINK_TYPES) la touche (un comptage, limit 1).
 local function zone_occupied(surface, cx, cy)
   local c = A.ZONE_CELL
   local x0, y0 = cx * c, cy * c
-  return surface.count_entities_filtered({ area = { { x0, y0 }, { x0 + c, y0 + c } }, force = "player", type = Vision.INSTALL_TYPES, limit = 1 }) > 0
+  return surface.count_entities_filtered({ area = { { x0, y0 }, { x0 + c, y0 + c } }, force = "player", type = Vision.LINK_TYPES, limit = 1 }) > 0
 end
 
 --- Un pas du calcul de la zone (voie « fo-pvp-scan », toutes les 8 ticks) : A.ZONE_STEP comptages au plus ; un calcul neuf
@@ -319,7 +323,8 @@ function Vision.zone_pass(surface, p, tick)
   local done, used = A.zone_step(z.work, zone_occupied, A.ZONE_STEP, surface)
   if done then
     local w = z.work
-    if w.n ~= z.n or w.capped then
+    -- Une ligne quand la zone change de taille ou d'état (plafond atteint ou levé), pas à chaque recalcul (revue du lot).
+    if w.n ~= z.n or (w.capped or false) ~= (z.capped or false) then
       log(string.format("[FO-PVP] zone du depart tick %d : %d maille(s) de %d tuiles (avant %d), %d comptage(s)%s", tick, w.n,
         A.ZONE_CELL, z.n, w.tests, w.capped and ", PLAFOND atteint (zone partielle)" or ""))
     end

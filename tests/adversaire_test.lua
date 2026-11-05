@@ -236,15 +236,24 @@ do
   -- une maille est occupée quand une boîte la TOUCHE (intervalles fermés, F96 : le comptage moteur fait de même).
   local function bld(x, y, w)
     w = w or 3
-    return { x0 = x + 0.1, y0 = y + 0.1, x1 = x + w - 0.1, y1 = y + w - 0.1, cx = x + w / 2, cy = y + w / 2, tx = x, w = w }
+    return { x0 = x + 0.1, y0 = y + 0.1, x1 = x + w - 0.1, y1 = y + w - 0.1, cx = x + w / 2, cy = y + w / 2, tx = x, ty = y, w = w,
+      kind = "assembling-machine" }
   end
-  local function terrain(boxes) return { boxes = boxes, calls = 0 } end
+  -- `types` (facultatif) : types qui relient (A.link_types) ; un bâtiment d'un autre type n'occupe pas sa maille.
+  local function terrain(boxes, types)
+    local set
+    if types then
+      set = {}
+      for _, ty in ipairs(types) do set[ty] = true end
+    end
+    return { boxes = boxes, calls = 0, types = set }
+  end
   local function occupied(t, cx, cy)
     t.calls = t.calls + 1
     local c = A.ZONE_CELL
     local x0, y0, x1, y1 = cx * c, cy * c, cx * c + c, cy * c + c
     for _, b in ipairs(t.boxes) do
-      if b.x0 <= x1 and b.x1 >= x0 and b.y0 <= y1 and b.y1 >= y0 then return true end
+      if (not t.types or t.types[b.kind]) and b.x0 <= x1 and b.x1 >= x0 and b.y0 <= y1 and b.y1 >= y0 then return true end
     end
     return false
   end
@@ -343,74 +352,96 @@ do
     check(s0 and s0.key == list[1].key, "mutant refusé : le QG d'équipe n'est pas un point de départ de la zone (le bout de sa base est visé)")
   end
 
-  -- D. Seuil du trou, toutes les places sur la grille (16 décalages) : un bâtiment au bout d'une base de 200 tuiles, un autre après
-  -- `g` tuiles vides, en ligne, en colonne et en diagonale. Attendu : moins de 32 tuiles, TOUJOURS relié ; 47 ou plus, JAMAIS.
-  local function linked_counts(step_fn)
-    local res = {}
-    for g = 0, 60 do
-      local n = 0
-      for o = 0, 15 do
-        for _, dir in ipairs({ { 1, 0 }, { 0, 1 }, { 1, 1 } }) do
-          local boxes = line({}, 0, 200, 0, 12) -- base de départ : (0, 0) à (200, 3)
-          local ax, ay = 200 + o, dir[2] == 0 and 0 or 2 + o
-          if dir[1] == 0 then ax = 192 end
-          boxes[#boxes + 1] = bld(ax, ay, 1) -- relié à la base (20 tuiles au plus du dernier bâtiment)
-          local bx, by = ax + dir[1] * (1 + g), ay + dir[2] * (1 + g)
-          local b = bld(bx, by, 1)
-          boxes[#boxes + 1] = b
-          local w = zone_of({ spawn }, terrain(boxes), step_fn)
-          if A.in_zone(w.cells, b.cx, b.cy) then n = n + 1 end
-        end
-      end
-      res[g] = n
-    end
-    return res
-  end
-  local res = linked_counts()
-  local always, never = true, true
-  local band = {}
-  for g = 0, 60 do
-    if g < 32 and res[g] ~= 48 then always = false end
-    if g >= 47 and res[g] ~= 0 then never = false end
-    if res[g] > 0 and res[g] < 48 then band[#band + 1] = g end
-  end
-  check(always, "trou de moins de 32 tuiles : TOUJOURS relié (48 places : 16 décalages × ligne, colonne, diagonale)")
-  check(never, "trou de 47 tuiles ou plus : JAMAIS relié")
-  print(string.format("  seuil mesuré : relié selon la place pour un trou de %s à %s tuiles", tostring(band[1]), tostring(band[#band])))
-
-  -- E. Mutants : chacun doit être refusé par un contrôle ci-dessus.
-  do
-    local r0 = A.ZONE_REACH
-    A.ZONE_REACH = 1
-    local m = linked_counts()
-    A.ZONE_REACH = r0
-    local refused = false
-    for g = 0, 31 do if m[g] ~= 48 then refused = true end end
-    check(refused, "mutant refusé : mailles reliées à 1 maille seulement (un trou de 16 à 31 tuiles coupe la base)")
-    -- Voisines en croix seulement (sans diagonale) : copie de A.zone_step à une ligne près.
-    local function cross_step(w, occ, budget, ctx)
-      local used = 0
-      while used < budget and w.qi <= #w.q do
-        local k = w.q[w.qi]
-        w.qi = w.qi + 1
-        local cx, cy = A.cell_xy(k)
-        used, w.tests = used + 1, w.tests + 1
-        if occ(ctx, cx, cy) then
-          w.cells[k], w.n = true, w.n + 1
-          for d = -A.ZONE_REACH, A.ZONE_REACH do
-            for _, p in ipairs({ { cx + d, cy }, { cx, cy + d } }) do
-              local kk = A.cell_key(p[1], p[2])
-              if not w.seen[kk] then w.seen[kk] = true; w.q[#w.q + 1] = kk end
-            end
+  -- D. Seuil du trou, mesuré dans 16 DIRECTIONS (les 8 du vent et les 8 pentes 2:1), 8 places sur la grille par direction : une chaîne
+  -- de bâtiments d'une tuile tous les 24 tuiles part du point d'apparition dans la direction (trous de 23 tuiles : reliée), un bâtiment
+  -- B au-delà de son bout A ; trou = distance entre les deux bâtiments (à vol d'oiseau). Attendu : moins de 32 tuiles, TOUJOURS relié ;
+  -- plus de 51,2 tuiles (8 × √41 : les deux mailles reliées les plus éloignées), JAMAIS.
+  local DIRS = { { 1, 0 }, { 2, 1 }, { 1, 1 }, { 1, 2 }, { 0, 1 }, { -1, 2 }, { -1, 1 }, { -2, 1 }, { -1, 0 }, { -2, -1 }, { -1, -1 },
+    { -1, -2 }, { 0, -1 }, { 1, -2 }, { 1, -1 }, { 2, -1 } }
+  local function tile(x, y) return bld(x, y, 1) end
+  local function measure(dirs, gmin, gmax, step_fn)
+    local recs = {}
+    for di, d in ipairs(dirs) do
+      local len = math.sqrt(d[1] * d[1] + d[2] * d[2])
+      local ux, uy = d[1] / len, d[2] / len
+      for j = 0, 7 do
+        local ox, oy = j, (j * 3) % 8
+        local chain = {}
+        for k = 0, 4 do chain[#chain + 1] = tile(math.floor(ux * 24 * k + 0.5) + ox, math.floor(uy * 24 * k + 0.5) + oy) end
+        local a = chain[#chain]
+        local last_g = -1
+        for k2 = 1, 90 do
+          local bx, by = a.tx + math.floor(ux * k2 + 0.5), a.ty + math.floor(uy * k2 + 0.5)
+          local gx, gy = math.max(math.abs(bx - a.tx) - 1, 0), math.max(math.abs(by - a.ty) - 1, 0)
+          local g = math.sqrt(gx * gx + gy * gy)
+          if g > last_g and g >= gmin and g <= gmax then
+            last_g = g
+            local boxes = {}
+            for _, c in ipairs(chain) do boxes[#boxes + 1] = c end
+            local b = tile(bx, by)
+            boxes[#boxes + 1] = b
+            local w = zone_of({ spawn }, terrain(boxes), step_fn)
+            recs[#recs + 1] = { dir = di, g = g, linked = A.in_zone(w.cells, b.cx, b.cy) }
           end
         end
       end
-      return w.qi > #w.q, used
     end
-    local mc = linked_counts(cross_step)
-    local refused2 = false
-    for g = 0, 31 do if mc[g] ~= 48 then refused2 = true end end
-    check(refused2, "mutant refusé : voisines en croix seulement (une base qui grandit en diagonale est coupée)")
+    return recs
+  end
+  local function summary(recs)
+    local max_linked, min_cut, n = -1, math.huge, #recs
+    local short_cut, long_linked = 0, 0
+    for _, r in ipairs(recs) do
+      if r.linked and r.g > max_linked then max_linked = r.g end
+      if not r.linked and r.g < min_cut then min_cut = r.g end
+      if r.g < 32 and not r.linked then short_cut = short_cut + 1 end -- seuil du DC (« environ 32 tuiles »), pas la constante mutée
+      if r.g > 51.2 and r.linked then long_linked = long_linked + 1 end
+    end
+    return { max_linked = max_linked, min_cut = min_cut, n = n, short_cut = short_cut, long_linked = long_linked }
+  end
+  local recs = measure(DIRS, 0, 70)
+  local sm = summary(recs)
+  check(sm.short_cut == 0 and sm.n > 1000, string.format("trou de moins de 32 tuiles : TOUJOURS relié (%d places mesurées, 16 directions)", sm.n))
+  check(sm.long_linked == 0, "trou de plus de 51,2 tuiles : JAMAIS relié")
+  local by_class = { { "axes", { 1, 5, 9, 13 } }, { "diagonales", { 3, 7, 11, 15 } }, { "pentes 2:1", { 2, 4, 6, 8, 10, 12, 14, 16 } } }
+  for _, cl in ipairs(by_class) do
+    local sub, set = {}, {}
+    for _, i in ipairs(cl[2]) do set[i] = true end
+    for _, r in ipairs(recs) do if set[r.dir] then sub[#sub + 1] = r end end
+    local s = summary(sub)
+    print(string.format("  seuil mesuré (%s) : coupé dès %.1f tuiles, relié jusqu'à %.1f tuiles (%d places)", cl[1], s.min_cut, s.max_linked, s.n))
+  end
+
+  -- E. Mutants : chacun doit être refusé par un contrôle ci-dessus.
+  do
+    local g0 = A.ZONE_GAP
+    A.ZONE_GAP = 16
+    local m1 = summary(measure(DIRS, 20, 31.9))
+    A.ZONE_GAP = g0
+    check(m1.short_cut > 0, "mutant refusé : mailles reliées à moins de 16 tuiles (un trou de 20 à 31 tuiles coupe la base)")
+    -- La règle d'avant la relecture : mailles de 16 tuiles reliées à 2 mailles sur chaque axe (Tchebychev) : la diagonale reliait
+    -- jusqu'à 66 tuiles.
+    local c0, o0 = A.ZONE_CELL, A.zone_offsets
+    A.ZONE_CELL = 16
+    A.zone_offsets = function()
+      local l = {}
+      for dy = -2, 2 do for dx = -2, 2 do if dx ~= 0 or dy ~= 0 then l[#l + 1] = dx * 262144 + dy end end end
+      return l
+    end
+    local m2 = summary(measure({ { 1, 1 }, { -1, -1 } }, 51.3, 70))
+    A.zone_offsets = function()
+      local l = {}
+      for _, kk in ipairs(o0()) do
+        local dx = math.floor((kk + 131072) / 262144)
+        if dx == 0 or kk - dx * 262144 == 0 then l[#l + 1] = kk end
+      end
+      return l
+    end
+    A.ZONE_CELL = c0
+    local m3 = summary(measure({ { 1, 1 }, { -1, 1 } }, 20, 31.9))
+    A.zone_offsets = o0
+    check(m2.long_linked > 0, string.format("mutant refusé : mailles de 16 tuiles reliées par axe (la diagonale relie jusqu'à %.1f tuiles)", m2.max_linked))
+    check(m3.short_cut > 0, "mutant refusé : voisines en croix seulement (une base qui grandit en diagonale est coupée)")
     -- Expansion depuis TOUTES les mailles testées (pas seulement les occupées) : la zone traverse les trous.
     local function flood_step(w, occ, budget, ctx)
       return A.zone_step(w, function() return true end, budget, ctx)
@@ -428,14 +459,54 @@ do
     check(wc.capped and not A.in_zone(wc.cells, boxes2[#boxes2].cx, boxes2[#boxes2].cy), "plafond de comptages : calcul arrêté, zone partielle signalée (capped)")
   end
 
-  -- F. Coût BORNÉ et mesuré. Base dense de 320 × 320 tuiles (20 × 20 mailles occupées) autour du point d'apparition : 576 comptages
-  -- (400 mailles occupées + une bande de 2 mailles autour), A.ZONE_STEP au plus par pas ; base de 2 000 × 2 000 tuiles : ZONE_MAX.
+  -- H. Les coffres ne relient pas (revue du lot : un coffre en bois tous les 31 tuiles faisait de toute la carte le départ) ; ils restent
+  -- des cibles. Une base de machines jusqu'à 200 tuiles, puis une chaîne de coffres seuls tous les 31 tuiles (trous de 30) jusqu'à 600.
+  do
+    local INSTALL = { "assembling-machine", "furnace", "container", "logistic-container", "ammo-turret" }
+    local lt = A.link_types(INSTALL)
+    check(#lt == 3 and lt[1] == "assembling-machine" and lt[2] == "furnace" and lt[3] == "ammo-turret",
+      "types qui relient : les installations sans les coffres (container, logistic-container), dans le même ordre")
+    local function chest_world()
+      local boxes = line({}, 0, 200, 4, 12)
+      local x = 195 + 30
+      while x <= 600 do
+        local c = bld(x, 4, 1)
+        c.kind = "container"
+        boxes[#boxes + 1] = c
+        x = x + 31
+      end
+      return boxes
+    end
+    local boxes = chest_world()
+    local far = boxes[#boxes]
+    local w = zone_of({ spawn }, terrain(boxes, lt))
+    check(far.cx > 590 and not A.in_zone(w.cells, far.cx, far.cy) and A.in_zone(w.cells, boxes[1].cx, boxes[1].cy),
+      string.format("chaîne de coffres seuls tous les 31 tuiles jusqu'à %.0f tuiles : hors de la zone (la base de machines y est)", far.cx))
+    local u0 = A.ZONE_UNLINKED
+    A.ZONE_UNLINKED = {}
+    local wm = zone_of({ spawn }, terrain(chest_world(), A.link_types(INSTALL)))
+    A.ZONE_UNLINKED = u0
+    check(A.in_zone(wm.cells, far.cx, far.cy), "mutant refusé : les coffres relient (toute la chaîne entre dans la zone)")
+  end
+
+  -- F. Coût BORNÉ et mesuré. Base dense de 320 × 320 tuiles (40 × 40 mailles occupées) autour du point d'apparition : les mailles
+  -- occupées et leur bande de voisines (comptées ici une à une), A.ZONE_STEP au plus par pas ; base de 2 000 × 2 000 tuiles : ZONE_MAX.
   do
     local occ_sq = function(t, cx, cy)
       t.calls = t.calls + 1
       return cx >= t.a and cx < t.b and cy >= t.a and cy < t.b
     end
-    local t = { calls = 0, a = 0, b = 20 }
+    local side = math.floor(320 / A.ZONE_CELL)
+    local t = { calls = 0, a = 0, b = side }
+    local expect, seen_e = 0, {}
+    for cy = 0, side - 1 do
+      for cx = 0, side - 1 do
+        local k0 = A.cell_key(cx, cy)
+        local function add(k) if not seen_e[k] then seen_e[k] = true; expect = expect + 1 end end
+        add(k0)
+        for _, o in ipairs(A.zone_offsets()) do add(k0 + o) end
+      end
+    end
     local w = A.zone_begin({ { x = 160, y = 160 } })
     local steps, worst = 0, 0
     repeat
@@ -444,24 +515,26 @@ do
       steps = steps + 1
       worst = math.max(worst, t.calls - before)
     until done
-    check(w.n == 400 and w.tests == 576 and t.calls == 576 and worst <= A.ZONE_STEP and steps == 144,
-      string.format("base de 320 × 320 tuiles : %d mailles, %d comptages en %d pas, %d au plus par pas (budget %d)", w.n, w.tests, steps, worst, A.ZONE_STEP))
-    local R = 50 -- os.clock compte à la milliseconde sous Windows : 50 calculs entiers
+    check(w.n == side * side and w.tests == expect and t.calls == expect and worst <= A.ZONE_STEP and steps == math.ceil(expect / A.ZONE_STEP),
+      string.format("base de 320 × 320 tuiles : %d mailles, %d comptages (attendus %d) en %d pas, %d au plus par pas (budget %d)", w.n, w.tests, expect,
+        steps, worst, A.ZONE_STEP))
+    local R = 20 -- os.clock compte à la milliseconde sous Windows : 20 calculs entiers
     local c0 = os.clock()
     for _ = 1, R do
       local wr = A.zone_begin({ { x = 160, y = 160 } })
       repeat until A.zone_step(wr, occ_sq, A.ZONE_STEP, t)
     end
     local dt = (os.clock() - c0) / R
-    print(string.format("  coût Lua (hors comptages moteur) : %.1f µs par pas, %.2f ms pour le calcul entier ; 576 comptages en %d s de jeu (1 pas / 8 ticks)",
-      dt * 1e6 / steps, dt * 1e3, math.floor(steps * 8 / 60)))
-    local tb = { calls = 0, a = -62, b = 63 }
+    print(string.format("  coût Lua (hors comptages moteur) : %.1f µs par pas, %.2f ms pour le calcul entier ; %d comptages en %d s de jeu (1 pas / 8 ticks)",
+      dt * 1e6 / steps, dt * 1e3, expect, math.floor(steps * 8 / 60)))
+    local half_side = math.floor(1000 / A.ZONE_CELL)
+    local tb = { calls = 0, a = -half_side, b = half_side }
     local wb = A.zone_begin({ spawn })
     local n = 0
     repeat n = n + 1 until A.zone_step(wb, occ_sq, A.ZONE_STEP, tb) or n > 100000
     check(wb.capped and wb.tests == A.ZONE_MAX and tb.calls == A.ZONE_MAX,
       string.format("base de 2 000 × 2 000 tuiles : plafond de %d comptages tenu (%d), zone partielle (%d mailles)", A.ZONE_MAX, tb.calls, wb.n))
-    -- Pensée d'une faction : 64 secteurs connus, zone de 400 mailles : lectures seulement.
+    -- Pensée d'une faction : 64 secteurs connus, zone de la base dense : lectures seulement.
     local list = {}
     for i = 0, 63 do list[#list + 1] = { key = A.key(i % 8, math.floor(i / 8)), x = (i % 8) * 64 + 20, y = math.floor(i / 8) * 64 + 20, def = i % 3 } end
     local N = 2000

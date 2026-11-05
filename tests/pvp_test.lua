@@ -1427,6 +1427,14 @@ do
   check(z and z.at and z.n >= 1 and A.in_zone(z.cells, 6, 6) and A.in_zone(z.cells, 10, 10) and not A.in_zone(z.cells, OUTPOST.x, OUTPOST.y)
     and not z.capped, string.format("zone du départ : %s maille(s) de %d tuiles, %s comptage(s) au dernier calcul (tick %s), QG et base dedans, avant-poste dehors",
       tostring(z and z.n), A.ZONE_CELL, tostring(z and z.tests), tostring(z and z.at)))
+  -- Revue du lot : les coffres restent des cibles mais ne relient pas la zone (le module chargé, pas une copie).
+  local V = package.loaded["script.faction.vision"]
+  local function has(list, ty)
+    for _, t in ipairs(list or {}) do if t == ty then return true end end
+    return false
+  end
+  check(V and has(V.INSTALL_TYPES, "container") and not has(V.LINK_TYPES, "container") and not has(V.LINK_TYPES, "logistic-container")
+    and has(V.LINK_TYPES, "assembling-machine"), "coffres : cibles des factions, mais ils ne relient pas la zone du départ")
   check(pvp().losses >= 1, "pertes du joueur (" .. pvp().losses .. ")")
 end
 do
