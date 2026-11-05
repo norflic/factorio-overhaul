@@ -205,11 +205,16 @@ Events.on(defines.events.on_entity_destroyed, function(e)
   game.print({ "fo-team.lost" })
 end)
 
+-- Lot PERF3 (accord du lead, 5/11) : votre équipe pensait au MÊME tick que la première faction (créneau 1 des deux voies de période
+-- 300, tick % 300 = 0) : 504 ticks de 50 à 200 ms à cette phase sur la partie du DC (fo-logs/2026-11-05_PERF3/BASE.md). Phase 174 :
+-- la plus calme mesurée (0,047 ms en moyenne, p99 0,08), loin des 4 pensées de faction (0 à 3) et des passes du plan directeur qui les
+-- suivent (5 à 75), hors des multiples de 5 (build:pulse), de 15 (regards d'IA3-f) et des restes 0 à 3 de 30 (prospection).
+local THINK_PHASE = 174
 Scheduler.define_lane(THINK_LANE, 300, function(_, tick)
   local f = get()
   if not (f and f.hq and f.hq.valid) then return end
   Team.think(f, f.hq.surface, tick)
-end)
+end, THINK_PHASE)
 
 Scheduler.define_lane(PROSPECT_LANE, 30, function(_, tick)
   local f = get()
