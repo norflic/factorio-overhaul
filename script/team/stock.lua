@@ -24,6 +24,9 @@ local PlacesQG = require("script.ai3.places_qg")
 local Br = require("shared.ai3.bras")
 local Ad = require("shared.team.adopte")
 local FQ = require("shared.ai3.fonderie_qg") -- lot PD-FONDERIEQG (D77) : fonderie du QG bornée par l'automatisation
+-- Lot COFFRES-JOUEUR : coffres posés par le joueur dans sa base, LUS et VIDÉS après le QG et les annexes (Stock.count, Stock.remove,
+-- Stock.contents) ; jamais de dépôt (Stock.insert, Stock.inventories, rangement inchangés). Liste vide hors de votre équipe.
+local CJs = require("script.team.coffres_joueur")
 
 -- Entrées de la fonderie du QG, triées (données de shared/team/config.lua), pour FQ.automated.
 local SMELT_INPUTS = {}
@@ -53,14 +56,21 @@ local function chest_inv(e) return e.get_inventory(defines.inventory.chest) end
 function Stock.count(f, item)
   local n = f.hq.get_item_count(item)
   for _, e in ipairs(Stock.annexes(f)) do n = n + e.get_item_count(item) end
+  for _, e in ipairs(CJs.chests(f)) do n = n + e.get_item_count(item) end
   return n
 end
 
---- Retire jusqu'à `n` objets (coffre du QG d'abord) ; rend le nombre retiré.
+--- Retire jusqu'à `n` objets (coffre du QG d'abord, puis les annexes, puis les coffres du joueur) ; rend le nombre retiré.
 function Stock.remove(f, item, n)
   local got = f.hq.remove_item({ name = item, count = n })
   if got < n then
     for _, e in ipairs(Stock.annexes(f)) do
+      got = got + e.remove_item({ name = item, count = n - got })
+      if got >= n then break end
+    end
+  end
+  if got < n then
+    for _, e in ipairs(CJs.chests(f)) do
       got = got + e.remove_item({ name = item, count = n - got })
       if got >= n then break end
     end
@@ -86,10 +96,14 @@ end
 function Stock.contents(f)
   local c = chest_inv(f.hq).get_contents()
   local annex = Stock.annexes(f)
-  if #annex == 0 then return c end
+  local mine = CJs.chests(f)
+  if #annex == 0 and #mine == 0 then return c end
   local out = {}
   for k, v in pairs(c) do out[k] = v end
   for _, e in ipairs(annex) do
+    for k, v in pairs(chest_inv(e).get_contents()) do out[k] = (out[k] or 0) + v end
+  end
+  for _, e in ipairs(mine) do
     for k, v in pairs(chest_inv(e).get_contents()) do out[k] = (out[k] or 0) + v end
   end
   return out

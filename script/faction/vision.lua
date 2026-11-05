@@ -35,6 +35,7 @@ local Tr = require("shared.faction.traits")
 local State = require("script.faction.state")
 local Military = require("script.faction.military")
 local Character = require("script.faction.character")
+local CoffresJoueur = require("script.team.coffres_joueur") -- lot COFFRES-JOUEUR : CoffresJoueur.base (la base du joueur)
 
 local Vision = {}
 
@@ -285,6 +286,14 @@ local function player_homes(surface)
   return out
 end
 
+-- Lot COFFRES-JOUEUR : la base du joueur (zone du départ, points du départ, boîte de la zone) pour les coffres que votre équipe lit
+-- (script/team/coffres_joueur.lua ; ce fichier le requiert, pas l'inverse).
+CoffresJoueur.base = function(surface)
+  local p = State.war().pvp
+  local z = p and p.zone
+  return z and z.at and z.cells or nil, player_homes(surface), z and z.at and z.box or nil
+end
+
 ---------------------------------------------------------------------------------------------------
 -- Zone du départ (lot QG-ZONE ; choix du DC du 5/11 : « Toute la base qui grandit », « Le coffre protège toujours ») : toute la base
 -- reliée au point d'apparition ou au QG de votre équipe, sans trou de plus d'environ 32 tuiles (règle pure : A.zone_begin,
@@ -329,6 +338,9 @@ function Vision.zone_pass(surface, p, tick)
         A.ZONE_CELL, z.n, w.tests, w.capped and ", PLAFOND atteint (zone partielle)" or ""))
     end
     z.cells, z.n, z.at, z.tests, z.capped, z.work = w.cells, w.n, tick, w.tests, w.capped or nil, nil
+    -- Boîte de la zone en tuiles (lot COFFRES-JOUEUR : recherche des coffres du joueur dans sa base) ; nil pour une zone vide.
+    local c = A.ZONE_CELL
+    z.box = w.x0 and { w.x0 * c, w.y0 * c, (w.x1 + 1) * c, (w.y1 + 1) * c } or nil
   end
   return used
 end

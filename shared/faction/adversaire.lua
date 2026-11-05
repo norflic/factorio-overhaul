@@ -378,6 +378,11 @@ function A.zone_step(w, occupied, budget, ctx)
     if occupied(ctx, cx, cy) then
       w.cells[k] = true
       w.n = w.n + 1
+      -- Boîte de la zone (mailles), pour les recherches dans la base (lot COFFRES-JOUEUR).
+      if not w.x0 or cx < w.x0 then w.x0 = cx end
+      if not w.x1 or cx > w.x1 then w.x1 = cx end
+      if not w.y0 or cy < w.y0 then w.y0 = cy end
+      if not w.y1 or cy > w.y1 then w.y1 = cy end
       -- Voisines ligne par ligne ; la clé est linéaire : clé(cx + dx, cy + dy) = clé(cx, cy) + dx × 262 144 + dy.
       for i = 1, #offs do
         local kk = k + offs[i]
