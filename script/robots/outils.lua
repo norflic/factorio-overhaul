@@ -11,7 +11,9 @@
       rayon minimal (Ro.MIN_ZONE) s'applique, ce qui est le même résultat (RB0 E6 : non prouvé par le banc, jamais joué).
     - Outil de ralliement `Ro.TOOL_RALLY` (mis en main par le bouton du panneau de l'atelier) : un clic ou un glisser fixe le
       ralliement de l'atelier qui l'a demandé (une seule fois : l'outil est ensuite rendu).
-    - Dessin : les robots choisis sont cerclés ; le ralliement d'un atelier se voit quand on le survole ou qu'on place l'outil.
+    - Dessin : les robots choisis sont cerclés ; le ralliement d'un atelier se voit quand on place l'outil, et, selon le réglage par
+      joueur fo-levels-panneau (lot PANNEAU-2, shared/levels/panneau.lua) : interface de l'atelier ouverte (« clic », défaut) ou
+      atelier survolé (« survol », comportement d'avant).
     - Alerte de pertes : une alerte du moteur (au plus une par Ro.ALERT_COOLDOWN ticks et par force), puis un bilan écrit.
   Les unités d'une FACTION n'obéissent pas au joueur (Ordres.order). Aucune décision ne dépend de la souris autrement que par
   les événements ci-dessus, que le moteur synchronise et rejoue au même tick chez tous les joueurs ; aucun `pairs` dans une décision ;
@@ -25,6 +27,7 @@ local Ordres = require("script.robots.ordres")
 local Usine = require("script.robots.usine")
 local Ro = require("shared.content.robots")
 local Cm = require("shared.robots.commande")
+local Panneau = require("shared.levels.panneau") -- lot PANNEAU-2 : ralliement au clic ou au survol (appelé par la table)
 
 local Outils = {}
 
@@ -218,6 +221,20 @@ local function draw_rally(player, rec)
     time_to_live = DRAW_TTL, players = { player } })
 end
 
+--- Lot PANNEAU-2 : l'atelier dont le joueur voit le ralliement, selon fo-levels-panneau : celui dont l'interface est ouverte
+--- (« clic ») ou celui survolé (« survol »). Un atelier de SA force seulement ; nil sinon.
+local function rally_workshop(player)
+  local mode = Panneau.mode_of(settings.get_player_settings(player)[Panneau.SETTING].value)
+  local e
+  if Panneau.rally_source(mode) == "selected" then
+    e = player.selected
+  elseif player.opened_gui_type == defines.gui_type.entity then
+    e = player.opened
+  end
+  if e and e.valid and e.unit_number and Ro.is_workshop(e.name) and e.force == player.force then return e end
+  return nil
+end
+
 local function draw_all()
   if not Armee.enabled() then return end
   local s = Armee.S()
@@ -233,10 +250,8 @@ local function draw_all()
       end
     end
     local shown
-    local sel_ent = player.selected
-    if sel_ent and sel_ent.valid and sel_ent.unit_number and Ro.is_workshop(sel_ent.name) and sel_ent.force == player.force then
-      shown = Usine.record(sel_ent.unit_number)
-    end
+    local ws = rally_workshop(player)
+    if ws then shown = Usine.record(ws.unit_number) end
     local pending = s.rally_for and s.rally_for[player.index]
     if pending then shown = Usine.record(pending) or shown end
     if shown then draw_rally(player, shown) end
