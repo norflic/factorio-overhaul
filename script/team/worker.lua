@@ -24,6 +24,7 @@ local Co = require("shared.team.couloir") -- lot ÉTAGE 5 : le bâtiment qui fer
 local Rc = require("shared.team.repli_chemin") -- lot CHARBON3 (B2) : essais de marche d'un PNJ (règle pure)
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Mu = require("shared.team.munitions") -- lot MUNITIONS (revue M3) : prise bornée de la munition de base (Mu.split_take)
+local Ra = require("shared.team.rearmement") -- lot REARMEMENT : emplacement des munitions complété au dépôt au QG (règle pure)
 local Outposts = require("script.faction.outposts")
 local Sites = require("script.faction.sites")
 local Board = require("script.team.board")
@@ -253,6 +254,43 @@ local function ingredients_of(name)
   return v
 end
 
+--- Lot REARMEMENT : plancher de la défense pour le rechargement des armes (Ra.floor) : la réserve minimale de munitions, ou la part urgente
+--- des tourelles de l'équipe (chargeurs qui leur manquent jusqu'à la cible ordinaire, Outposts.turret_groups) : les tourelles d'abord.
+local function rearm_floor(f)
+  local urgent = 0
+  for _, g in ipairs(Outposts.turret_groups(f)) do urgent = urgent + (g.missing_base or 0) end
+  -- QG en péril (f.team.s1.was, pensée d'avant) : la réserve sur la menace reçue (f.team.s1.reserve_said, Sq.ammo_reserve) entre au plancher
+  local s1 = f.team and f.team.s1
+  return Ra.floor(T.ammo_min, urgent, s1 ~= nil and s1.was == true, s1 and s1.reserve_said or 0)
+end
+
+--- Lot REARMEMENT : au dépôt au QG, l'emplacement des munitions d'un PNJ ARMÉ (pistolet en main) est complété jusqu'à la dotation
+--- (T.worker_ammo_keep) avec des chargeurs du coffre au-dessus du plancher (Ra.take). Avant : jamais (seul le recrutement le remplissait).
+--- Compte : f.team.rearm = { n = rechargements, mags = chargeurs } (journal [FO-REARMEMENT], Worker.rearm_report).
+local function rearm(agent, f)
+  if not T.rearm_on then return end
+  local e = agent.entity
+  local guns = e.get_inventory(defines.inventory.character_guns)
+  if not (guns and guns.get_item_count(T.worker_gun) > 0) then return end
+  local ammo = e.get_inventory(defines.inventory.character_ammo)
+  if not ammo then return end
+  local slot = ammo.get_item_count(T.worker_ammo)
+  if slot >= T.worker_ammo_keep then return end -- (emplacement plein : ni registre ni tourelles relus à chaque dépôt)
+  -- Stock LIBRE du registre (Stock.free_view : ce que les tâches n'ont pas réservé, tourelles neuves et fabrications comprises), pas le compte
+  -- brut du coffre : un rechargement ne fait jamais échouer une prise réservée.
+  local free = Stock.free_view and Stock.free_view(f, game.tick) or nil
+  local stock = free and (free[T.worker_ammo] or 0) or Stock.count(f, T.worker_ammo)
+  local n = Ra.take(slot, T.worker_ammo_keep, stock, rearm_floor(f))
+  if n <= 0 then return end
+  local got = Stock.remove(f, T.worker_ammo, n)
+  local put = got > 0 and ammo.insert({ name = T.worker_ammo, count = got }) or 0
+  if put < got then Stock.insert(f, T.worker_ammo, got - put) end
+  if put > 0 then
+    f.team.rearm = f.team.rearm or { n = 0, mags = 0 }
+    f.team.rearm.n, f.team.rearm.mags = f.team.rearm.n + 1, f.team.rearm.mags + put
+  end
+end
+
 local function deposit_all(agent, f)
   if not (f.hq and f.hq.valid) then return end
   local e = agent.entity
@@ -263,6 +301,7 @@ local function deposit_all(agent, f)
   if ammo then deposit_inventory(f, ammo, KEEP_AMMO) end
   local armor = e.get_inventory(defines.inventory.character_armor)
   if armor then deposit_inventory(f, armor, nil) end
+  rearm(agent, f) -- lot REARMEMENT : après le dépôt (la dotation de 10 n'est jamais reprise : deposit et bg_absorb s'arrêtent à KEEP_AMMO)
 end
 
 --- Prend au QG la liste { {objet, n} }. Renvoie true si tout a été pris.
@@ -1747,6 +1786,32 @@ end
 
 --- Lot CRAFT-PARALLELE : le PNJ a-t-il une fabrication en arrière-plan (file en cours ou produits pas encore déposés) ?
 function Worker.crafting(agent) return agent.bg ~= nil end
+
+--- Lot REARMEMENT : journal de MESURE [FO-REARMEMENT], toutes les 5 min par équipe (aucune décision ne le lit) : PNJ, armés (pistolet),
+--- armés à emplacement VIDE, rechargements et chargeurs depuis le début, plancher, chargeurs au coffre.
+function Worker.rearm_report(f, tick)
+  if not (f and f.team) or tick - (f.team.rearm_log or -1000000) < 5 * 3600 then return end
+  f.team.rearm_log = tick
+  local n, gun, empty = 0, 0, 0
+  for _, id in ipairs(State.sorted_keys(f.engineers or {})) do
+    local a = Registry.get(id)
+    local e = a and a.entity
+    if e and e.valid then
+      n = n + 1
+      local guns = e.get_inventory(defines.inventory.character_guns)
+      if guns and guns.get_item_count(T.worker_gun) > 0 then
+        gun = gun + 1
+        local ammo = e.get_inventory(defines.inventory.character_ammo)
+        if not ammo or ammo.is_empty() then empty = empty + 1 end
+      end
+    end
+  end
+  local r = f.team.rearm or { n = 0, mags = 0 }
+  log(string.format("[FO-REARMEMENT] %s minute %.1f | PNJ %d, armes %d, arme vide %d ; rechargements %d (%d chargeurs) depuis le debut ; " ..
+    "plancher %d, coffre %d chargeur(s), regle %s", tostring(f.key or "?"), tick / 3600, n, gun, empty, r.n, r.mags,
+    (f.hq and f.hq.valid) and rearm_floor(f) or 0, (f.hq and f.hq.valid) and Stock.count(f, T.worker_ammo) or 0,
+    T.rearm_on and "rechargement" or "avant"))
+end
 
 function Worker.idle_count(f)
   local n = 0
