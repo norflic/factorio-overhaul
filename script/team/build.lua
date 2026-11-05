@@ -2202,9 +2202,10 @@ end
 --- DC à venir (T.enceinte_zone, f.garde_zone pour un banc).
 local function enc_tight_bounds(f, zone)
   -- (lot d'une centrale, zone « centrales » ; règle LOCALE à la fonction : le bloc principal de build.lua est à la limite de 200 variables
-  -- locales de Lua 5.2, que la fusion avec corr-etage5 dépassait)
+  -- locales de Lua 5.2, que la fusion avec corr-etage5 dépassait. Première partie « centrale », posée par plan_project en même temps que
+  -- lots[].used : aucun nom d'objet du jeu ici, iag_test §8 bis)
   local function plant_lot(p)
-    return (p.parts ~= nil and p.parts[1] ~= nil and p.parts[1].kind == "centrale") or (p.spec ~= nil and p.spec.gen == "steam")
+    return p.parts ~= nil and p.parts[1] ~= nil and p.parts[1].kind == "centrale"
   end
   local core = zone ~= nil
   local b = f.build

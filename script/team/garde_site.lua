@@ -323,7 +323,9 @@ Events.on(defines.events.on_robot_mined_entity, on_mined)
 --- couloir d'accès d'un avant-poste (Build.couloirs du lot ÉTAGE 5, ensemble { [P.tkey] = id }) ne sont jamais murées, raison « couloir » :
 --- anneau du QG (plan_enceinte), anneaux des avant-postes attaqués (walls_step) et pose du fantôme (Build.wall_veto). Les 8 portes des rues
 --- principales et la porte d'un anneau d'avant-poste (milieu du côté tourné vers le QG) ne tombent sur le couloir que par hasard : il part
---- de l'accès, sur l'axe dominant. Sans Build.couloirs (avant la fusion d'ÉTAGE 5), rien ne change.
+--- de l'accès, sur l'axe dominant. Sans Build.couloirs (avant la fusion d'ÉTAGE 5), rien ne change. Un mur DÉJÀ debout quand un couloir
+--- apparaît ensuite n'est jamais retiré (accord du lead du 5/11 ; sauvegarde d'avant ÉTAGE 5 : NAV2 et le bail d'ETAGE4 couvrent ce reste).
+--- L'ensemble se relit à chaque appel (mémo par tick d'ÉTAGE 5), jamais gardé d'un tick à l'autre.
 function Gd.wall_mask(f, surface, areas)
   local b = f.build
   local released = b and b.walls_released or {}
