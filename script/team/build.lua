@@ -4350,6 +4350,7 @@ local function pulse_team(f, tick)
   local surface = surface_of(f)
   if not (b and surface) then return end
   -- 1. évaluations
+  Profiler.fstart("bp:eval") -- lot PERF3 : portées fines de la passe (mesure seulement)
   ungen_retry(f, surface, tick) -- lot INDUSTRIE I3 : lots lointains dont les chunks viennent d'être générés
   local n = 0
   while b.qhead <= #b.queue and n < Build.EVAL_PER_PULSE do
@@ -4360,7 +4361,9 @@ local function pulse_team(f, tick)
     n = n + 1
   end
   if b.qhead > #b.queue and #b.queue > 0 then b.queue, b.qhead = {}, 1 end
+  Profiler.fstop("bp:eval")
   -- 2. projets, dans l'ordre des demandes (un plan au plus par passe)
+  Profiler.fstart("bp:projets")
   for _, pid in ipairs(b.order) do
     local p = b.projects[pid]
     -- projet bloqué : il a rendu ses PNJ ; il reprend son chantier à l'heure dite (échecs remis à zéro)
@@ -4381,23 +4384,34 @@ local function pulse_team(f, tick)
       if was == "plan" and p.state ~= "plan" then break end
     end
   end
+  Profiler.fstop("bp:projets")
+  Profiler.fstart("bp:suivi")
   watch_stall(f, tick) -- lot FACTIONS-BLOQUEES
   -- 3. lot PLANDIR : moniteur de la centrale finie (premier courant, pannes)
   local pp = b.plant and b.projects[b.plant]
   if pp and pp.state == "fini" then PlantArms.step(f, surface, pp, tick) end
   -- 4. lot CORR-RESEAU : santé de la centrale et du réseau (horloge propre, rien si pas l'heure)
+  Profiler.fstop("bp:suivi")
+  Profiler.fstart("bp:reseau")
   Rv.step({ plant = Build.plant, cancel = Build.cancel }, f, surface, tick)
+  Profiler.fstop("bp:reseau")
+  Profiler.fstart("bp:raccord")
   -- 4 bis. lot PD-ELEC (D05) : machines des modules finis sans courant HORS poteau perdu (île, sous aucun poteau) : raccordement
   -- (lot FONDERIE, 0.6.43) champ_live : les bandes de champ en cours sont relevées aussi (fonderie à tapis allumée)
   Raccord.step({ request = Build.request, prio = Build.PRIO + 4, champ_live = (Build.TAPIS and Build.TAPIS()) or false }, f, surface, tick)
   -- 4 ter. lot INDUSTRIE I7 : un quai d'entrée porté à la main par un PNJ, relié par un tapis à la sortie d'un module du même objet
+  Profiler.fstop("bp:raccord")
+  Profiler.fstart("bp:liaison")
   Liaison.step({ request = Build.request, prio = Build.PRIO + 1, fill = Build.QUAI_FILL, low = Build.QUAI_LOW }, f, surface, tick)
+  Profiler.fstop("bp:liaison")
+  Profiler.fstart("bp:centrale")
   -- 5. lot CORR-ENERGIE : centrale saturée, une centrale de plus (même mécanisme que la première)
   local nb, stale = PlantArms.watch(f, surface, tick)
   for _, id in ipairs(stale or {}) do Build.cancel(f, id, PlantArms.STALE_REASON) end
   if nb then Build.grow_plant(f, nb, tick) end
   -- 6. lot CHARBON-CENTRALE : une centrale nourrie à la main demande ses foreuses (horloge propre)
   charbon_step(f, tick)
+  Profiler.fstop("bp:centrale")
 end
 
 local function teams()

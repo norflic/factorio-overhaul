@@ -586,8 +586,12 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
   local c = General.catalogue()
   local g = iag_state(f)
   Profiler.start("iag:choose")
+  Profiler.fstart("iag:state") -- lot PERF3 : portées fines (mesure seulement)
   local state, nlabs = General.state(f, st, view)
+  Profiler.fstop("iag:state")
+  Profiler.fstart("iag:prepare")
   local ev = Gen.prepare(c, state, memo_of(f))
+  Profiler.fstop("iag:prepare")
   local lab = st.lab
   -- Lot AUTO (garde de K1 du lot IA3-e, reportée du choix de repli) : une recherche voulue par l'automatisation
   -- (for_auto) sans unité payée depuis General.AUTO_STALL laisse passer les autres General.AUTO_PAUSE (objets voulus
@@ -626,11 +630,13 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
     end
     log(string.format("[FO-CERVEAU] %s : but '%s' abandonne (plus payable) a %.1f min", f.key or "?", lab.tech, minutes(f, tick)))
   end
+  Profiler.fstart("iag:disabled")
   local disabled = {}
   for _, t in ipairs(c.tech_list) do
     local ft = force.technologies[t]
     if not ft or not ft.enabled then disabled[t] = true end
   end
+  Profiler.fstop("iag:disabled")
   local stalled_now = Im.active(st, tick,
     function(t) return c.techs[t] and c.techs[t].ingredients or {} end,
     function(t) return c.techs[t] and c.techs[t].count or 0 end, view.stock or {})
@@ -648,7 +654,9 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
       -- QG attaqué dès 8,6 min : fo-logs/2026-11-01_EQUIPE/RAPPORT.md).
       defense = T.turret })
   end
+  Profiler.fstart("iag:gen-choose")
   local d = choose()
+  Profiler.fstop("iag:gen-choose")
   -- Lot RB-FLUIDE : rien d'autre de payable : la recherche lâchée depuis le plus longtemps revient (le laboratoire ne reste pas oisif), sans reprise de la garde avant la fin de la pause
   if not d.tech then
     local back = Im.lift(st, tick)
@@ -662,7 +670,9 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
   end
   -- Ce que rapporterait chaque ressource inconnue qu'un exécutant sait extraire (« quelles ressources peuvent rapporter ») :
   -- la meilleure, si elle rapporte, est à explorer (A6 : explorer pour une raison).
+  Profiler.fstart("iag:rv")
   local rv = Gen.resource_values(c, ev, state, { weights = w, wanted = wanted })
+  Profiler.fstop("iag:rv")
   local rv_txt = {}
   for i = 1, math.min(4, #rv) do rv_txt[#rv_txt + 1] = rv[i][1] .. " " .. rv[i][2] end
   if not d.tech then

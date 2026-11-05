@@ -851,6 +851,7 @@ function Team.think(f, surface, tick)
       collect_min = T.smelt_collect_min, blocked = view.smelter_blocked, furnaces = view.smelter_furnaces })
   end
   Profiler.stop("team:plan")
+  Profiler.fstart("tt:journaux") -- lot PERF3 : portées fines de la partie non découpée de Team.think (mesure seulement)
   BriquesLog.think(f, view, plan, tasks_avant_filtre, tick)
   DefenseLog.think(f, view, plan, tick) -- lot DEFENSE-FACTIONS D1 : journal [FO-DEFENSE] (lecture seule, toutes les 5 min)
   FluxLog.think(f, view, tick) -- lot FLUX : journal [FO-FLUX] (lecture seule, toutes les 5 min)
@@ -908,6 +909,7 @@ function Team.think(f, surface, tick)
   for kind, n in pairs(plan.site_needs) do needs[T.outposts[kind].resource] = n end
   -- Une réserve d'un site par type déjà exploité, pour l'expansion suivante.
   f.site_needs = needs
+  Profiler.fstop("tt:journaux")
 
   Profiler.start("team:board")
   Board.sync(f, plan.tasks, tick, plan, view, book_for(f)) -- lot IA3-b : manque de plaques (réglage allumé)
@@ -928,16 +930,25 @@ function Team.think(f, surface, tick)
     Profiler.stop("team:build")
   end
   -- Lot COUVERTURE : pièces de l'équipe détruites, à refaire (tâches « rebuild » ; rien tant que rien n'a été détruit).
+  Profiler.fstart("tt:recon")
   Recon.think(f, surface, tick)
+  Profiler.fstop("tt:recon")
+  Profiler.fstart("tt:reparation")
   Reparation.think(f, surface, tick) -- lot PD-REPARATION (D79) : autres bâtiments endommagés (labos, fours, assembleurs, foreuses...), toutes les équipes
+  Profiler.fstop("tt:reparation")
+  Profiler.fstart("tt:repair")
   Recon.repair_think(f, surface, tick) -- lot RECONSTRUIRE : infrastructure électrique endommagée remise à neuf
+  Profiler.fstop("tt:repair")
+  Profiler.fstart("tt:inter")
   Inter.think(f, tick) -- lot MAIN-ET-INTERMEDIAIRES (D09, D10) : tâches libres retirées AVANT le marché (minage à la main fourni par les machines, quais d'un module au plafond)
   -- Lot IA3-b : meilleures paires PNJ inactif × tâche (place de marché, réglage allumé). Fusion IA-V2 : APRÈS le plan
   -- directeur (le plan crée ses tâches, puis le marché les attribue ; consigne de l'intégrateur, 27/10).
+  Profiler.fstop("tt:inter")
   Profiler.start("team:market")
   Board.assign(f, tick)
   Profiler.stop("team:market")
 
+  Profiler.fstart("tt:idle")
   -- Lot IA1-a : mesures publiées (inactivité réelle ; exécutants au-delà du carnet) et cases du QG revalidées
   -- à tour de rôle.
   -- Lot IA1-b2 (complément du DC, 25/10 vers 11 h 25) : raisons d'attente des PNJ sans tâche à la pensée : « rien »
@@ -956,6 +967,7 @@ function Team.think(f, surface, tick)
     if free_n == 0 then r.rien = r.rien + idle_n else r.bloque = r.bloque + idle_n end
     if miss then r.manque = r.manque + idle_n end
   end
+  Profiler.fstop("tt:idle")
   Profiler.start("team:scale")
   Team.measure(f, view, tick)
   Worker.check_slots(f, surface, Scale.SLOT_CHECKS_PER_THINK)
@@ -971,6 +983,7 @@ function Team.think(f, surface, tick)
   end
   Profiler.stop("team:scale")
 
+  Profiler.fstart("tt:stock")
   -- Décisions immédiates sur le stock (relu : les tâches n'ont encore rien pris). Lot IA3-b : stock LIBRE (réglage).
   local stock = Board.view_stock(f, stock_of(f), tick)
   local cost = view.recruit_cost
@@ -1024,19 +1037,29 @@ function Team.think(f, surface, tick)
   end
   -- Lot CAPITAL : amélioration d'un bâtiment à niveaux ou du centre, payée sur le stock LIBRE après les recrues et l'armée.
   -- Lot COUVERTURE : refaire ce qui est détruit AVANT d'améliorer ce qui reste (constat du DC du 28/10).
+  Profiler.fstop("tt:stock")
+  Profiler.fstart("tt:spares")
   Recon.craft_spares(f, book_for(f), stock, tick) -- lot RECONSTRUIRE : objets d'infrastructure électrique à fabriquer
+  Profiler.fstop("tt:spares")
   -- Lot PILE-PRIORITE (« on répare + protège […] et ensuite on continue et on améliore », DC 29/10) : tant qu'un cadre réparer,
   -- protéger ou survivre retient (shared/ai3/pile.lua, f.team.ia3.pile, écrit par la pensée juste avant), ni changement de
   -- foreuses, ni migration du champ, ni amélioration payée. Garde AJOUTÉE à côté de celle de la reconstruction (lot SANS-GEL).
   local pile_hold = ia3 and PileRt.hold(f)
+  Profiler.fstart("tt:gisement")
   Gisement.think(f, surface, tick, book_for(f)) -- lot GISEMENTS (retour du DC du 31/10) : foreuses à combustion à l'arrêt rebranchées ou retirées du gisement (rend tout au stock)
+  Profiler.fstop("tt:gisement")
   if not pile_hold then
+    Profiler.fstart("tt:foswap")
     FoSwap.think(f, surface, book_for(f), stock, tick) -- lot FOREUSES (retour du DC du 29/10) : foreuses thermiques remplacées par des électriques alimentées
+    Profiler.fstop("tt:foswap")
   end
   -- lot MIGRATION-CHAMP (retour du DC du 29/10) : champ thermique migré par parties en rangées électriques. Lot THERMIQUE5 (revue du 3/11 : la
   -- retenue gelait balayage, dégel et chantier ; Azure et Scarlet retenues 99 à 100 % du temps, 139 thermiques et 0 électrique sur 271828182) :
   -- toujours pensée ; pendant la retenue, seul le départ d'une bande neuve est retenu (shared/team/thermique.lua, Th.pile_permits)
+  Profiler.fstart("tt:migchamp")
   MigChamp.think(f, surface, book_for(f), stock, tick, pile_hold == true)
+  Profiler.fstop("tt:migchamp")
+  Profiler.fstart("tt:capital")
   -- Lot SANS-GEL : plus de gel des améliorations après une réouverture ; la reconstruction ne retient que sa matière (Recon.upgrade_stock).
   -- (Intégration 0.6.19 : garde de la pile ET stock libre de SANS-GEL, les deux gardés.)
   local recon_hold = ia3 and Recon.hold_upgrades(f)
@@ -1058,6 +1081,8 @@ function Team.think(f, surface, tick)
     end
   end
   if ia3 then PileRt.journal(f, tick) end -- lot PILE-PRIORITE : journal [FO-PILE] (changement de sommet, toutes les 5 min)
+  Profiler.fstop("tt:capital")
+  Profiler.fstart("tt:fin")
   if plan.research and has_list(stock, T.research[plan.research]) then
     remove_list(f, T.research[plan.research])
     f.tech = plan.research
@@ -1070,6 +1095,7 @@ function Team.think(f, surface, tick)
   -- Lot COFFRE : l'excédent du coffre du QG passe aux annexes, et un coffre se pose quand les cases se remplissent.
   Stock.balance(f)
   Stock.grow(f, surface, tick)
+  Profiler.fstop("tt:fin")
   return plan
 end
 
