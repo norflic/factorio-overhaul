@@ -56,12 +56,14 @@
 # ancien lanceur, celui-ci garde la place 1 et le premier nouveau ticket fait les places 2 et 3).
 #
 # Usage (depuis n'importe quel dossier ; racine du jeu trouvée en remontant depuis ce fichier) :
-#   py -3.9 -B tools/autotest/banc.py --out <dossier> [--graine N] [--creation <source>] [--son] [--carte]
+#   py -3.9 -B tools/autotest/banc.py --out <dossier> [--graine N] [--creation <source>] [--sauvegarde <zip>] [--son] [--carte]
 #          [--visuel "<FO_VISUAL_ARGS>"] [--qui <étiquette>] [--captures] [--seul] [--places N]
 #          -- <ticks> <scenario> <source du mod>
 #   --captures : fo-captures.bat <scenario> <source> au lieu de fo-autotest.bat (ticks ignorés) ; archive aussi
 #                fo-visual\write\script-output\fo-shots\ dans <out>\fo-shots.
 #   --seul : banc seul sur le PC (mesures de performance K10 : TOUJOURS --seul).
+#   --sauvegarde <zip> : (lot PERF4) pas de création de carte : la sauvegarde (chemin absolu, .zip) est COPIÉE dans le
+#                dossier de la place et rejouée par --benchmark (variable FO_SAVE de fo-autotest.bat) ; jamais avec --creation.
 #   --places N : nombre de places vues par ce lanceur (1 à 3), au lieu de fo-banc-places.txt ; ce ticket ne prend
 #                alors aucune place au-delà de N.
 #   --file : affiche les places, la file et l'affectation, sans rien lancer.
@@ -601,6 +603,7 @@ def main(argv):
     ap.add_argument("--out")
     ap.add_argument("--graine")
     ap.add_argument("--creation")
+    ap.add_argument("--sauvegarde")
     ap.add_argument("--son", action="store_true")
     ap.add_argument("--carte", action="store_true")
     ap.add_argument("--captures", action="store_true")
@@ -627,12 +630,16 @@ def main(argv):
     ticks, scenario, source = a.reste
     out = os.path.abspath(a.out)
     env = dict(os.environ)
-    for k in ("FO_MAP_SEED", "FO_CREATE_SRC", "FO_AUDIO", "FO_VISUAL_ARGS", "FO_LOCK_HELD", "FO_PLACE"):
+    for k in ("FO_MAP_SEED", "FO_CREATE_SRC", "FO_SAVE", "FO_AUDIO", "FO_VISUAL_ARGS", "FO_LOCK_HELD", "FO_PLACE"):
         env.pop(k, None)
     if a.graine:
         env["FO_MAP_SEED"] = a.graine
     if a.creation:
         env["FO_CREATE_SRC"] = a.creation
+    if a.sauvegarde:
+        if a.creation or a.captures:
+            ap.error("--sauvegarde ne va ni avec --creation ni avec --captures")
+        env["FO_SAVE"] = os.path.abspath(a.sauvegarde)
     if a.son:
         env["FO_AUDIO"] = "1"
     if a.visuel:
@@ -728,6 +735,7 @@ def main(argv):
             p.returncode = CODE_SANS_RESULTAT
         with open(os.path.join(out, "banc.txt"), "w", encoding="utf-8") as f:
             f.write(f"{qui}\ncommande : {' '.join(cmd)}\ngraine {a.graine or '-'} ; creation {a.creation or '-'} ; "
+                    f"sauvegarde {env.get('FO_SAVE', '-')} ; "
                     f"son {a.son} ; visuel {a.visuel or '-'}\ncode {p.returncode} ; attente {attente:.0f} s ; "
                     f"banc {t2 - t1:.0f} s ; fin {time.strftime('%d/%m/%Y %H:%M:%S')}\n"
                     f"place {place} ; verrous {' '.join(map(str, mes))} ; genre {genre} ; dossier {dossier(place)} ; "
