@@ -39,6 +39,7 @@ local Ad = require("shared.team.adopte") -- lot ADOPTE : règles pures (mise en 
 local Fantomes = require("script.team.fantomes") -- lot FANTOMES : aperçu en fantômes des paires que le PNJ va poser
 local Outposts = require("script.faction.outposts") -- lot ADOPTE : fours du QG (pose des fours dormants, Stock.place_smelters)
 local Ac = require("shared.team.actif") -- lot COMPAGNONS-ACTIFS : retour rapide après un danger, délai d'affectation mesuré
+local State = require("script.faction.state") -- lot AGEBLOCAGE : interrupteur de la sonde [FO-BRAS] (État de la guerre)
 local Rc = require("shared.team.repli_chemin") -- lot NAV2 : délai croissant pour une tâche dont le chemin échoue de suite (règle pure)
 
 local Board = {}
@@ -602,19 +603,28 @@ end
 --- Lot AGEBLOCAGE, étage chantiers (diagnostic, LECTURE SEULE ; aucune décision n'en dépend) : où vont les bras. À chaque pensée
 --- (Board.assign), le temps écoulé depuis la pensée d'avant est compté pour chaque PNJ de l'équipe : à sa tâche (genre et projet, sans
 --- numéros), ou « libre » ; et, à part, la fabrication en arrière-plan en cours (premier travail de agent.bg, file du personnage non
---- vide). Journal [FO-BRAS] toutes les 5 min (avec [FO-ACTIF]), puis remise à zéro. État : f.team.bras (nombres et chaînes).
+--- vide). Journal [FO-BRAS] toutes les Ac.REPORT_EVERY ticks (5 min) depuis son propre début, puis remise à zéro. État : f.team.bras
+--- (nombres et chaînes). ÉTEINTE par défaut (relecture) : allumée par les seuls scénarios de mesure (remote « fo-bras », set), rangé dans
+--- l'état de la guerre (State.war().bras_on) ; en lecture seule, les décisions sont identiques allumée ou éteinte.
 local function bras_cat(t)
   if not t then return "libre" end
   local s = tostring(t.why or t.key or t.kind or "?"):gsub(":%-?%d+%.?%d*", ""):gsub(",%-?%d+", ""):gsub("@%-?%d+", "")
   return (t.kind or "?") .. ":" .. s:sub(1, 40)
 end
 
+function Board.bras_on()
+  local w = State.war()
+  return w ~= nil and w.bras_on == true
+end
+
+local bras_report
+
 function Board.bras_sample(f, tick)
   local team = f.team
-  if not team then return end
+  if not team or not Board.bras_on() then return end
   local s = team.bras
   if not s then
-    team.bras = { last = tick, work = {}, bg = {}, n = 0 }
+    team.bras = { last = tick, t0 = tick, work = {}, bg = {}, n = 0 }
     return
   end
   local dt = tick - (s.last or tick)
@@ -635,9 +645,10 @@ function Board.bras_sample(f, tick)
     end
   end
   s.n = math.max(s.n or 0, n)
+  if tick - (s.t0 or tick) >= Ac.REPORT_EVERY then bras_report(f, tick) end
 end
 
-local function bras_report(f, tick)
+bras_report = function(f, tick)
   local s = f.team and f.team.bras
   if not s then return end
   local function top(t, nmax)
@@ -674,10 +685,10 @@ local function bras_report(f, tick)
       parts[#parts + 1] = b[2] .. " {" .. table.concat(kk, " ") .. "}"
     end
   end
-  log(string.format("[FO-BRAS] %s a %.1f min : PNJ %d ; travail (s, total %d) [%s] ; fabrication de fond (s, total %d) [%s] ; taches libres %s",
-    f.key or (f.is_player and "player") or tostring(f.id), tick / 3600, s.n or 0, wt, w, gt, g,
+  log(string.format("[FO-BRAS] %s a %.1f min (fenetre %.1f min) : PNJ %d ; travail (s, total %d) [%s] ; fabrication de fond (s, total %d) [%s] ; taches libres %s",
+    f.key or (f.is_player and "player") or tostring(f.id), tick / 3600, (tick - (s.t0 or tick)) / 3600, s.n or 0, wt, w, gt, g,
     #parts > 0 and table.concat(parts, " ; ") or "aucune"))
-  f.team.bras = { last = s.last, work = {}, bg = {}, n = 0 }
+  f.team.bras = { last = s.last, t0 = tick, work = {}, bg = {}, n = 0 }
 end
 
 function Board.actif_report(f, tick)
@@ -686,7 +697,6 @@ function Board.actif_report(f, tick)
   local first = a.t == nil
   a.t = tick
   if first then return end
-  bras_report(f, tick) -- lot AGEBLOCAGE (diagnostic, lecture seule) : [FO-BRAS]
   local b = Board.get(f)
   local idle, free = 0, 0
   for _, id in ipairs(sorted_keys(f.engineers or {})) do
@@ -1068,5 +1078,13 @@ function Board.drop_free(f, keep)
   if n > 0 then rebuild_list(b) end
   return n
 end
+
+-- Lot AGEBLOCAGE (diagnostic, lecture seule) : interrupteur de la sonde [FO-BRAS], posé par les scénarios de mesure.
+remote.add_interface("fo-bras", {
+  set = function(on)
+    State.war().bras_on = (on == true) or nil
+    return Board.bras_on()
+  end,
+})
 
 return Board
