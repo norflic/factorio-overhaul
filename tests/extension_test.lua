@@ -251,12 +251,27 @@ do
   local g = find(goals, "releve:" .. K1)
   check(g and g.releve == "plein" and g.outpost == K1 and g.family == "extraction" and g.fond == nil, "§6 B.generate : « releve:" .. K1 .. " », cause « plein », projet ordinaire")
   check(g and g.value >= 1 and g.value <= 100, "§6 valeur bornée")
-  goals = B.generate(situation({ stock = { [T.outposts[K1].product] = 100000 } }), { short = {}, short_n = {}, targets = {}, ever = {} })
-  check(find(goals, "releve:" .. K1) == nil, "§6 produit saturé, allure non échue : aucun but de relève")
-  goals = B.generate(situation({ stock = { [T.outposts[K1].product] = 100000 }, tick = 90 * MIN }), { short = {}, short_n = {}, targets = {},
+  -- Produit saturé : joué sur K2 (le fer), dont le produit (plaque) n'est pas la ressource. Sur K1 (le charbon, produit = ressource),
+  -- le lot THERMIQUE2 (essai 3, e2384ae0) retire VOLONTAIREMENT toute relève d'un minerai brut dont le stock libre atteint
+  -- B.RAW_STOCK_MAX (B.raw_full, shared/ai3/buts.lua:255, filtre de :354) : le cas « allure échue » y donne « aucune relève »
+  -- par choix, d'où son contrôle inverse ci-dessous (test réaligné sur ce choix, pas assoupli ; lot corr-tests, 5/11).
+  local function on_kind(kind, o)
+    local s = situation(o)
+    s.cap, s.sites, s.sites_near, s.nout = { [kind] = 5.5 }, { [kind] = 1 }, { [kind] = 120 }, { [kind] = 1 }
+    return s
+  end
+  goals = B.generate(on_kind(K2, { stock = { [T.outposts[K2].product] = 100000 } }), { short = {}, short_n = {}, targets = {}, ever = {} })
+  check(find(goals, "releve:" .. K2) == nil, "§6 produit saturé (" .. K2 .. "), allure non échue : aucun but de relève")
+  goals = B.generate(on_kind(K2, { stock = { [T.outposts[K2].product] = 100000 }, tick = 90 * MIN }), { short = {}, short_n = {}, targets = {},
     ever = {}, ext = { last = 10 * MIN, n_out = 1, grown = 0, why = {}, log = {}, seq = 0, open = {} } })
-  g = find(goals, "releve:" .. K1)
-  check(g and g.releve == "extension" and g.fond == true and g.value <= B.COVER_MAX, "§6 allure échue : but de FOND borné comme la couverture")
+  g = find(goals, "releve:" .. K2)
+  check(g and g.releve == "extension" and g.fond == true and g.value <= B.COVER_MAX, "§6 allure échue (" .. K2 .. ") : but de FOND borné comme la couverture")
+  -- Contrôle inverse : même situation sur K1, minerai brut dont le stock (100 000) dépasse B.RAW_STOCK_MAX : aucune relève.
+  check(T.outposts[K1].product == T.outposts[K1].resource and 100000 >= B.RAW_STOCK_MAX,
+    "§6 prémisse : " .. K1 .. " est un minerai brut (produit = ressource) et 100 000 >= B.RAW_STOCK_MAX")
+  goals = B.generate(on_kind(K1, { stock = { [T.outposts[K1].product] = 100000 }, tick = 90 * MIN }), { short = {}, short_n = {}, targets = {},
+    ever = {}, ext = { last = 10 * MIN, n_out = 1, grown = 0, why = {}, log = {}, seq = 0, open = {} } })
+  check(find(goals, "releve:" .. K1) == nil, "§6 allure échue, minerai brut plein (" .. K1 .. ") : aucune relève (THERMIQUE2 essai 3)")
   goals = B.generate(situation({ is_player = true }), { short = {}, short_n = {}, targets = {}, ever = {} })
   check(find(goals, "releve:" .. K1) == nil, "§6 votre équipe : aucune relève")
   goals = B.generate(situation({ extension = false }), { short = {}, short_n = {}, targets = {}, ever = {} })
