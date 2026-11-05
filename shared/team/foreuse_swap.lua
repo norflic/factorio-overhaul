@@ -87,18 +87,41 @@ function S.plan(entries, ctx)
   local list = {}
   for _, e in ipairs(entries) do list[#list + 1] = e end
   table.sort(list, function(a, b) return a.id < b.id end)
+  -- Lot FOREUSES-THERMIQUES (coût) : poteaux ALIMENTÉS rangés par cases de S.CELL tuiles ; une foreuse ne lit que les cases voisines
+  -- (couverture : la case et ses 8 voisines ; chaîne : les cases à portée de S.CHAIN_MAX fils). Réponses inchangées : seuls des poteaux
+  -- trop loin pour compter sont sautés (rayon relevé élargi, des centaines de poteaux par équipe).
+  local grid = {}
+  for _, p in ipairs(ctx.poles) do
+    if p.powered then
+      local k = math.floor(p.x / S.CELL) .. ":" .. math.floor(p.y / S.CELL)
+      grid[k] = grid[k] or {}
+      grid[k][#grid[k] + 1] = p
+    end
+  end
+  local function near(box, r)
+    local out = {}
+    local gx, gy = math.floor(box.x / S.CELL), math.floor(box.y / S.CELL)
+    for dy = -r, r do
+      for dx = -r, r do
+        for _, p in ipairs(grid[(gx + dx) .. ":" .. (gy + dy)] or {}) do out[#out + 1] = p end
+      end
+    end
+    return out
+  end
+  local maxn = ctx.chain_max or S.CHAIN_MAX
+  local far_r = ctx.pole and math.ceil((maxn * ctx.pole.wire + ctx.pole.supply + ctx.electric.size) / S.CELL) or 0
   for _, e in ipairs(list) do
     local cx, cy = S.electric_center(e.x, e.y, e.dir, e.sink, ctx.electric)
     if cx then
       local box = { x = cx, y = cy, w = ctx.electric.size, h = ctx.electric.size }
       local powered = false
-      for _, p in ipairs(ctx.poles) do
-        if p.powered and S.covered(p.x, p.y, p.dist, box) then powered = true break end
+      for _, p in ipairs(near(box, 1)) do
+        if S.covered(p.x, p.y, p.dist, box) then powered = true break end
       end
       if S.choose_type(ctx.obtainable, powered) == "electric" then
         ready[#ready + 1] = { id = e.id, cx = cx, cy = cy, poles = {}, est = 0 }
       elseif ctx.obtainable and ctx.pole then
-        local est = S.reach_estimate(box, ctx.poles, ctx.pole, ctx.chain_max)
+        local est = S.reach_estimate(box, near(box, far_r), ctx.pole, ctx.chain_max)
         if est then chained[#chained + 1] = { id = e.id, cx = cx, cy = cy, est = est, e = e, box = box } end
       end
     end
@@ -137,6 +160,7 @@ S.CHAIN_MAX = 6      -- poteaux neufs au plus par remplacement (6 petits poteaux
 S.SOURCES = 4        -- poteaux alimentes essayes au plus (les plus proches)
 S.TARGETS = 3        -- places du dernier poteau essayees par source (les plus proches de la source)
 S.TRIES = 4          -- plans de chaine calcules au plus par passe (un refus est remis a plus tard par l'executant : Swap.RETRY)
+S.CELL = 16          -- cote (tuiles) des cases du rangement des poteaux alimentes (couverture : case et voisines ; supply + boite < 16)
 
 local function d2(a, b) local dx, dy = a.x - b.x, a.y - b.y; return dx * dx + dy * dy end
 

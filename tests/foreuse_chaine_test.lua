@@ -172,6 +172,35 @@ local function suite(S)
   -- 15. un poteau sur un réseau qui ne produit pas n'est jamais une source
   local w15, why15 = pole_plan(bx, off, SMALL, anyfree, { chain = chain })
   c("15 : poteau eteint : aucune source", w15 == nil and why15 == "aucun poteau alimente", tostring(why15))
+  -- 16. rangement des poteaux par cases (coût) : mêmes réponses que la lecture de TOUS les poteaux, sur 60 cartes pseudo-aléatoires
+  local seed = 7
+  local function rnd(n) seed = (seed * 1103515245 + 12345) % 2147483648 return math.floor(seed / 65536) % n end -- bits hauts (les bas bits d un LCG ont une courte periode)
+  local diff, n_pw, n_ch = 0, 0, 0
+  for _ = 1, 60 do
+    local es, ps = {}, {}
+    for i = 1, 12 do es[i] = entry(i, rnd(200) - 100, rnd(200) - 100) end
+    for i = 1, 40 do ps[i] = { x = rnd(240) - 120 + 0.5, y = rnd(240) - 120 + 0.5, dist = (rnd(2) == 0) and 2.5 or 3.5, wire = 7.5, powered = rnd(4) > 0 } end
+    -- poteaux tout près de la moitié des foreuses (couverture à cheval sur deux cases), et à 10-40 tuiles (chaînes)
+    for i = 1, 12 do
+      if i % 2 == 0 then ps[#ps + 1] = { x = es[i].x + (i % 4 == 0 and 2.5 or -3.5), y = es[i].y + 0.5, dist = 2.5, wire = 7.5, powered = true } end
+      if i % 3 == 0 then ps[#ps + 1] = { x = es[i].x + 10 + 3 * i + 0.5, y = es[i].y - 7.5, dist = 2.5, wire = 7.5, powered = true } end
+    end
+    local _, r1, c1 = S.plan(es, ctx_of(ps, { limit = 0, have = 0 }))
+    -- référence : tous les poteaux lus pour chaque foreuse
+    local r2, c2 = 0, 0
+    for _, e in ipairs(es) do
+      local cx, cy = S.electric_center(e.x, e.y, e.dir, e.sink, E)
+      if cx then
+        local box = { x = cx, y = cy, w = 3, h = 3 }
+        local pw = false
+        for _, p in ipairs(ps) do if p.powered and S.covered(p.x, p.y, p.dist, box) then pw = true end end
+        if pw then r2 = r2 + 1 ; n_pw = n_pw + 1 elseif reach_estimate(box, ps, SMALL) then c2 = c2 + 1 ; n_ch = n_ch + 1 end
+      end
+    end
+    if r1 ~= r2 or c1 ~= c2 then diff = diff + 1 end
+  end
+  c("16 : rangement par cases : memes candidats que la lecture de tous les poteaux (60 cartes)", diff == 0, tostring(diff))
+  c("16 : les cartes ont des foreuses alimentees et des chaines (le cas n'est pas vide)", n_pw > 0 and n_ch > 0, n_pw .. " / " .. n_ch)
   return res
 end
 
@@ -197,6 +226,8 @@ local MUT = {
   { "n_ready compte les chaines", "return out, #ready, #chained", "return out, #ready + #chained, #chained" },
   { "essais sans borne", "if #out >= n or tries >= (ctx.tries or S.TRIES) then break end", "if #out >= n then break end" },
   { "puissance a l'envers", "<= c.capacity + EPS", ">= c.capacity - EPS" },
+  { "cases voisines ignorees (couverture)", "for _, p in ipairs(near(box, 1)) do", "for _, p in ipairs(near(box, 0)) do" },
+  { "cases trop proches (chaine)", "local est = S.reach_estimate(box, near(box, far_r), ctx.pole, ctx.chain_max)", "local est = S.reach_estimate(box, near(box, 1), ctx.pole, ctx.chain_max)" },
   { "poteau eteint compte", "  for _, s in ipairs(sources or {}) do\n    if s.powered then\n      if S.covered(s.x, s.y, s.dist, box) then return { poles = {}, source = s } end", "  for _, s in ipairs(sources or {}) do\n    if true then\n      if S.covered(s.x, s.y, s.dist, box) then return { poles = {}, source = s } end" },
 }
 local refused, kept = 0, {}
