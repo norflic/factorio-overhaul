@@ -417,16 +417,42 @@ function Ca.data(dump, opts)
   return D
 end
 
+--- Lot VALEURS (5/11) : recettes qui DÉFONT exactement ce qu'une autre assemble : mêmes objets aux mêmes quantités, ingrédients
+--- et produits échangés, et plus de sortes de produits que d'ingrédients (le vidage d'un contenant). Elles ne fixent aucun prix
+--- (Ca.values) : le couple formerait un cycle où le coût partagé à parts égales entre les produits tire le prix d'un contenu
+--- vers celui du contenu le moins cher passé par le même contenant (mesuré : gaz 0,05 MU par un fluide de 0,003 MU, au lieu de
+--- 2,23 par sa recette). Un couple qui a autant de sortes des deux côtés garde ses deux recettes. Rend { [recette] = true }.
+function Ca.unpackers(D)
+  local function sig(list)
+    local t = {}
+    for _, x in ipairs(list) do t[#t + 1] = x.name .. "=" .. x.amount end
+    table.sort(t)
+    return table.concat(t, ",")
+  end
+  local fwd, out = {}, {}
+  for _, rn in ipairs(D.recipe_list) do
+    local r = D.recipes[rn]
+    fwd[sig(r.ingredients) .. ">" .. sig(r.products)] = true
+  end
+  for _, rn in ipairs(D.recipe_list) do
+    local r = D.recipes[rn]
+    if #r.products > #r.ingredients and fwd[sig(r.products) .. ">" .. sig(r.ingredients)] then out[rn] = true end
+  end
+  return out
+end
+
 --- Valeur de chaque objet (MU) : point fixe min-plus sur les recettes (ordre des noms), jusqu'à stabilité (au plus une
---- passe par recette, plus une). Rend aussi la recette la moins chère de chaque objet.
+--- passe par recette, plus une). Rend aussi la recette la moins chère de chaque objet. Les recettes de Ca.unpackers n'y
+--- entrent pas.
 function Ca.values(D)
   local mu, best = {}, {}
+  local skip = Ca.unpackers(D)
   for _, name in ipairs(D.res_list) do mu[name] = Ca.RAW_MU * D.res[name].mining_time end
   for _ = 1, #D.recipe_list + 1 do
     local changed = false
     for _, rn in ipairs(D.recipe_list) do
       local r = D.recipes[rn]
-      local input, ok = r.energy * Ca.TIME_MU, true
+      local input, ok = r.energy * Ca.TIME_MU, not skip[rn]
       for _, i in ipairs(r.ingredients) do
         local m = mu[i.name]
         if m == nil then ok = false break end
