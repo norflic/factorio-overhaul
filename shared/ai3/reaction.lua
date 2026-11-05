@@ -149,15 +149,33 @@ function Re.outrun(enemy_speed, own_speed)
   return enemy_speed <= own_speed * Re.OUTRUN
 end
 
+--- Lot CORR-RALLIEMENT (EFFONDREMENT, 5/11) : l'ennemi DÉBORDE-t-il les tourelles du QG ? Vrai si sa portée d'ATTAQUE (pas sa
+-- vue : un petit déchiqueteur voit à 30 tuiles mais frappe à moins d'une) dépasse la plus grande portée des tourelles du QG.
+-- Partie du DC rejouée (graine 717152950) : des soldats des factions de portée 20 tuent les tourelles du QG (portée 18) de 19 à
+-- 21 tuiles, hors de leur portée, puis les PNJ ralliés sous elles (13 à 51 PNJ selon la trajectoire). Portée inconnue (nil),
+-- ou aucune tourelle de portée connue : faux (la règle d'avant). `turret_ranges` : liste de nombres (tourelles du QG).
+function Re.outranges(attack_range, turret_ranges)
+  if type(attack_range) ~= "number" then return false end
+  local best = nil
+  for _, r in ipairs(turret_ranges or {}) do
+    if type(r) == "number" and (best == nil or r > best) then best = r end
+  end
+  if best == nil then return false end
+  return attack_range > best
+end
+
 --- Réponse d'un QG menacé par des UNITÉS (C7, lot FUITE) : "stand" (assez nombreux : on se bat, groupés), "rally" (derrière
 -- les tourelles du QG : elles tirent pendant que les ennemis s'y heurtent), "away" (loin de l'ennemi, qu'on distance, sans
 -- tourelle), sinon "stand" (fuir ne sert à rien : on se bat groupés). Mesuré (banc ia3k-vague-lente) : s'éloigner AVEC des
 -- tourelles au QG est pire que se rallier (l'ennemi suit les PNJ loin des tourelles : 8 perdus, 1 ennemi tué sur 10).
--- i = { allies (armés près du QG, soi compris), force (pesée), prudence, agressivite, rally (point | nil), outrun (bool) }.
+-- Lot CORR-RALLIEMENT : des tourelles que l'ennemi DÉBORDE en portée (i.outranged, Re.outranges) ne protègent pas le point de
+-- ralliement : on fait comme sans tourelle (« away » si on le distance, sinon « stand »).
+-- i = { allies (armés près du QG, soi compris), force (pesée), prudence, agressivite, rally (point | nil), outrun (bool),
+--       outranged (bool | nil) }.
 function Re.hq_response(i)
   local need = Re.engage_ratio(i.prudence, i.agressivite) * math.max(0.2, i.force or 1)
   if (i.allies or 0) * 1000 >= need then return "stand" end
-  if i.rally then return "rally" end
+  if i.rally and not i.outranged then return "rally" end
   if i.outrun then return "away" end
   return "stand"
 end

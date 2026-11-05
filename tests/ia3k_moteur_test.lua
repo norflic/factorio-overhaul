@@ -117,6 +117,9 @@ end
 ---------------------------------------------------------------------------------------------------
 section("Variation des tournées (C1)")
 local f = setup()
+-- Lot CORR-RALLIEMENT : portée d'attaque de la mitrailleuse au prototype simulé (18, comme le jeu), posée AVANT tout regard : la
+-- portée d'attaque est gardée en cache par nom de prototype (script/ai3/comportement.lua, M.attack_range).
+W().prototypes["gun-turret"].attack_parameters = { range = 18 }
 local ids = agent_ids(f)
 check(#ids >= 2, "au moins 2 PNJ (" .. #ids .. ")")
 local R = require("shared.ai3.route")
@@ -429,6 +432,55 @@ for _, th in ipairs(remote.call("fo-ia3k", "danger", "player").threats) do
 end
 check(near_gone, "menace disparue dans le champ du QG : oubliée (yeux fixes)")
 check(far_kept, "menace hors du champ des yeux fixes : gardée (brouillard)")
+
+---------------------------------------------------------------------------------------------------
+section("QG : tourelles débordées en portée (lot CORR-RALLIEMENT)")
+-- Partie du DC rejouée (graine 717152950) : des mitrailleurs de faction (portée 20, vitesse 0,11) tuent les mitrailleuses du
+-- QG (portée 18) hors de leur portée pendant que les PNJ s'y rallient. Ici : la réponse du QG (script/ai3/soldats.lua, C7) à
+-- 5 unités de MÊME vue (30) et de même vitesse, qui ne diffèrent que par leur portée d'ATTAQUE (20 ou 1) ; puis la règle
+-- éteinte par l'interrupteur du banc témoin.
+do
+  local P = W().prototypes
+  -- La réponse du QG (script/ai3/soldats.lua) lit la vitesse du personnage VANILLA (game.entity_prototypes["character"], 0,15 en
+  -- jeu) ; le moteur simulé n'a que « fo-companion » : on lui donne celui du jeu (table du jeu simulé, game.entity_prototypes).
+  local EP = game.entity_prototypes
+  local cp = EP["character"] or { type = "character", max_health = 250 } -- (une entrée sans vitesse peut déjà exister)
+  if cp.running_speed == nil then cp.running_speed = 0.15 end
+  EP["character"] = cp
+  local sb = P["small-biter"]
+  for _, u in ipairs({ { "fo-test-gunner", 20 }, { "fo-test-biter", 1 } }) do
+    P[u[1]] = { type = "unit", max_health = 600, speed = 0.11, vision_distance = 30, attack_parameters = { range = u[2] },
+      collision_box = sb.collision_box, collision_mask = sb.collision_mask }
+  end
+  local hq = f.hq_pos or { x = 5, y = 5 }
+  local tu = s.create_entity({ name = "gun-turret", position = { x = hq.x + 8, y = hq.y }, force = "player" })
+  check(tu ~= nil, "mitrailleuse du QG posée")
+  local function wave(name, on)
+    remote.call("fo-ia3k", "debordement", on)
+    local st0 = remote.call("fo-ia3k", "status", "player").stats
+    local us = {}
+    for k = 0, 4 do
+      us[#us + 1] = s.create_entity({ name = name, position = { x = hq.x + 30, y = hq.y - 4 + 2 * k }, force = "enemy" })
+    end
+    M.run_ticks(65) -- au moins deux réponses du QG (SD.PERIOD = 30 ticks)
+    local st1 = remote.call("fo-ia3k", "status", "player").stats
+    for _, u in ipairs(us) do if u and u.valid then u.destroy() end end
+    M.run_ticks(5)
+    local function dlt(k) return (st1[k] or 0) - (st0[k] or 0) end
+    return dlt("hq_rally"), dlt("hq_away"), dlt("hq_outranged")
+  end
+  local r, a, o = wave("fo-test-gunner", true)
+  check(o > 0 and a > 0 and r == 0, string.format(
+    "portée d'attaque 20 contre la mitrailleuse (18) : éloignement, aucun ralliement (rally %d, away %d, débordé %d)", r, a, o))
+  r, a, o = wave("fo-test-biter", true)
+  check(o == 0 and r > 0 and a == 0, string.format(
+    "même vue (30), portée d'attaque 1 : ralliement inchangé, la vue ne compte pas (rally %d, away %d, débordé %d)", r, a, o))
+  r, a, o = wave("fo-test-gunner", false)
+  check(o == 0 and r > 0 and a == 0, string.format(
+    "règle éteinte (interrupteur du banc témoin) : ralliement comme avant (rally %d, away %d, débordé %d)", r, a, o))
+  remote.call("fo-ia3k", "debordement", true)
+  if tu and tu.valid then tu.destroy() end
+end
 
 ---------------------------------------------------------------------------------------------------
 section("Réglage éteint : aucun effet")

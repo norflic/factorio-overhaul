@@ -238,6 +238,25 @@ function M.classify(e)
   return kind, (r ~= false) and r or nil
 end
 
+local attack_cache = {} -- [nom de prototype] = portée d'ATTAQUE (false : aucune ; prototypes identiques chez tous les pairs)
+
+--- Lot CORR-RALLIEMENT : portée d'ATTAQUE d'une unité ou d'une tourelle (prototype.attack_parameters.range), SANS la vue que
+-- M.classify prend pour une unité (un petit déchiqueteur voit à 30 tuiles, frappe à moins d'une). nil pour les autres types
+-- (personnage : son arme n'est pas au prototype) ou sans paramètres d'attaque.
+function M.attack_range(e)
+  local ty = e.type
+  if ty ~= "unit" and not TURRET_TYPES[ty] and ty ~= "turret" then return nil end
+  local name = e.name
+  local r = attack_cache[name]
+  if r == nil then
+    r = false
+    local ap = e.prototype.attack_parameters
+    if ap and type(ap.range) == "number" then r = ap.range end
+    attack_cache[name] = r
+  end
+  return r or nil
+end
+
 --- Vitesse d'une unité ennemie (prototype) ; nil pour les autres (personnage, tourelle…).
 function M.enemy_speed(e)
   if e.type ~= "unit" then return nil end
@@ -250,8 +269,9 @@ function M.enemy_speed(e)
   return v or nil
 end
 
---- Tourelles amies debout autour du QG (à moins de Re.RALLY_R tuiles du coffre), en positions { x, y } : celles de l'équipe
--- ET celles que son joueur a posées (un scan de la zone : appelé seulement quand le QG est menacé ou qu'un PNJ y est blessé).
+--- Tourelles amies debout autour du QG (à moins de Re.RALLY_R tuiles du coffre), en positions { x, y, r } (r : portée
+-- d'attaque, lot CORR-RALLIEMENT) : celles de l'équipe ET celles que son joueur a posées (un scan de la zone : appelé seulement
+-- quand le QG est menacé ou qu'un PNJ y est blessé).
 local function qg_turret_points(f)
   local out = {}
   local surface = f.hq and f.hq.valid and f.hq.surface
@@ -259,14 +279,25 @@ local function qg_turret_points(f)
   local home = f.home_spot or f.hq_pos
   local list = surface.find_entities_filtered({ position = home, radius = Re.RALLY_R, force = f.force,
     type = { "ammo-turret", "electric-turret", "fluid-turret" } })
-  for _, t in ipairs(list) do out[#out + 1] = { x = t.position.x, y = t.position.y, n = t.unit_number or 0 } end
+  for _, t in ipairs(list) do
+    out[#out + 1] = { x = t.position.x, y = t.position.y, n = t.unit_number or 0, r = M.attack_range(t) }
+  end
   table.sort(out, function(a, b) if a.n ~= b.n then return a.n < b.n end if a.x ~= b.x then return a.x < b.x end return a.y < b.y end)
   return out
 end
 
---- Point de ralliement du QG (derrière ses tourelles, côté coffre) ; nil sans tourelle du QG.
+--- Point de ralliement du QG (derrière ses tourelles, côté coffre) ; nil sans tourelle du QG. Second retour (lot
+-- CORR-RALLIEMENT) : les portées d'attaque de ces tourelles (liste, pour Re.outranges).
 function M.rally(f)
-  return Re.rally_point(qg_turret_points(f), f.home_spot or f.hq_pos)
+  local pts = qg_turret_points(f)
+  local ranges = {}
+  for _, q in ipairs(pts) do ranges[#ranges + 1] = q.r end
+  return Re.rally_point(pts, f.home_spot or f.hq_pos), ranges
+end
+
+--- Lot CORR-RALLIEMENT : règle allumée (défaut) ; le banc témoin l'éteint par remote.call("fo-ia3k", "debordement", false).
+function M.outrange_on()
+  return not S().no_outrange
 end
 
 local weight_cache = {} -- [nom de prototype] = poids (prototypes : identiques chez tous les pairs)
@@ -1236,12 +1267,15 @@ function M.sense(agent, tick)
   local on_route = walking and d_route(p, a, ep) <= rr + Re.MARGIN
   local s = e.surface
   local enemies, allies = 1, 0
+  local reach = M.attack_range(enemy) -- lot CORR-RALLIEMENT : plus grande portée d'ATTAQUE du groupe vu (Re.outranges)
   if not K.fixed then
     -- Force ennemie PESÉE : une unité vaut sa vie maximale / 75 (petit déchiqueteur 0,2, moyen 1, gros 5), au moins 0,2 ;
     -- un personnage vaut 1 (un ouvrier armé comme nous).
     enemies = 0
     for _, u in ipairs(s.find_entities_filtered({ position = ep, radius = 16, force = enemy.force, type = { "unit", "character" }, limit = 24 })) do
       enemies = enemies + M.weight(u)
+      local ar = M.attack_range(u)
+      if ar and (reach == nil or ar > reach) then reach = ar end
     end
     allies = math.max(0, s.count_entities_filtered({ position = p, radius = M.ALLY_R, force = e.force,
       type = { "unit", "character" } }) - 1)
@@ -1265,9 +1299,12 @@ function M.sense(agent, tick)
     -- Lot FUITE : pas de combat un par un (int-1 : 5 PNJ tués dans les 32 tuiles du QG). Re.hq_response : assez nombreux,
     -- on se bat ; sinon on se regroupe derrière les tourelles du QG ; sans tourelle, on s'éloigne d'un ennemi plus lent, et
     -- face à un plus rapide (déchiqueteur) on se bat, groupés.
-    local rally = M.rally(f)
+    local rally, turret_ranges = M.rally(f)
+    -- Lot CORR-RALLIEMENT : des tourelles que l'ennemi déborde en portée ne protègent pas le ralliement (Re.outranges).
+    local outranged = rally ~= nil and M.outrange_on() and Re.outranges(reach, turret_ranges)
+    if outranged then t.stats.outranged = (t.stats.outranged or 0) + 1 end
     local resp = Re.hq_response({ allies = allies + 1, force = enemies, prudence = prud, agressivite = agr, rally = rally,
-      outrun = Re.outrun(M.enemy_speed(enemy), e.prototype.running_speed) })
+      outrun = Re.outrun(M.enemy_speed(enemy), e.prototype.running_speed), outranged = outranged })
     if resp == "rally" then
       if d2(p, rally) <= 36 then action, why = "engage", "sous-les-tourelles"
       else action, why, to = "flee", "ralliement", rally end
@@ -1477,6 +1514,11 @@ remote.add_interface("fo-ia3k", {
     local f = team_by_key(key)
     if not f then return false end
     M.team(f).hold = on and true or nil
+    return true
+  end,
+  -- Lot CORR-RALLIEMENT : banc témoin seulement ; false éteint la règle des tourelles débordées (toutes les équipes).
+  debordement = function(on)
+    S().no_outrange = (on == false) or nil
     return true
   end,
   set_character = function(key, prudence, agressivite)

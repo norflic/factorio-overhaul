@@ -131,6 +131,46 @@ local function suite()
   check(hq({ force = 2, allies = 4, rally = rp }) == "stand", "4 contre force 2 : on se bat")
   check(hq({ force = 2, allies = 2, rally = rp }) == "rally", "2 contre force 2 (ratio 2 000 requis) : ralliement")
   check(hq({ prudence = 600, agressivite = 1500, allies = 3, force = 2, rally = rp }) == "stand", "un audacieux se bat à 3 contre 2")
+
+  section("QG attaqué par des unités qui DÉBORDENT ses tourelles (lot CORR-RALLIEMENT)")
+  -- Partie du DC rejouée (graine 717152950) : 5 mitrailleurs d'Ambre (portée 20, vitesse 0,11, 600 PV : force pesée 40) contre
+  -- les tourelles du QG (portée 18) ; les PNJ (0,15) ralliés sous elles meurent un par un.
+  check(Re.outranges(20, { 18, 18, 18 }) == true, "mitrailleur (20) contre mitrailleuses (18) : débordées")
+  check(Re.outranges(26, { 18 }) == true, "grenadier (26) : débordées")
+  check(Re.outranges(16, { 18, 18 }) == false, "fusilier (16) : non")
+  check(Re.outranges(18, { 18 }) == false, "portée égale : non (la tourelle tire aussi)")
+  check(Re.outranges(14, { 18 }) == false and Re.outranges(1.5, { 18 }) == false, "cracheur (14), mordeur (1,5) : non")
+  check(Re.outranges(20, { 18, 24 }) == false, "une tourelle de plus longue portée (24) au QG : non (la plus grande compte)")
+  check(Re.outranges(20, { 24, 18 }) == false, "même chose dans l'autre ordre")
+  check(Re.outranges(nil, { 18 }) == false, "portée d'attaque inconnue (personnage) : non")
+  check(Re.outranges(20, {}) == false and Re.outranges(20, nil) == false, "aucune tourelle : non")
+  check(Re.outranges(20, { "?", false }) == false, "portées de tourelles inconnues : non")
+  local gun = { allies = 9, force = 40, prudence = 1000, agressivite = 1000, rally = rp }
+  local function hqg(over) local i = {} for k, v in pairs(gun) do i[k] = v end for k, v in pairs(over or {}) do i[k] = v end return Re.hq_response(i) end
+  check(hqg({ outranged = true, outrun = true }) == "away", "débordées, ennemi plus lent : on s'éloigne (pas de ralliement)")
+  check(hqg({ outranged = true, outrun = false }) == "stand", "débordées, ennemi plus rapide : on se bat groupés (pas de ralliement)")
+  check(hqg({ outranged = false, outrun = true }) == "rally", "non débordées : ralliement (inchangé)")
+  check(hqg({ outranged = nil, outrun = true }) == "rally", "débordement inconnu (nil) : ralliement (inchangé)")
+  check(hqg({ outranged = true, outrun = true, allies = 200 }) == "stand", "débordées mais assez nombreux : on se bat (inchangé)")
+  check(hqg({ outranged = true, outrun = true, rally = nil }) == "away", "débordées et sans tourelle : comme sans tourelle")
+  -- Règle d'avant inchangée quand `outranged` est absent : toute la grille de cas de la section précédente, sans le champ.
+  local same = true
+  for _, al in ipairs({ 0, 2, 9, 30 }) do
+    for _, fo in ipairs({ 0.2, 2, 13, 40 }) do
+      for _, ru in ipairs({ false, true }) do
+        for _, ra in ipairs({ false, true }) do
+          local i = { allies = al, force = fo, prudence = 1000, agressivite = 1000, rally = ra and rp or nil, outrun = ru }
+          local r0 = Re.hq_response(i)
+          i.outranged = false
+          if Re.hq_response(i) ~= r0 then same = false end
+          local need = Re.engage_ratio(1000, 1000) * math.max(0.2, fo)
+          local old = (al * 1000 >= need) and "stand" or (ra and "rally") or (ru and "away") or "stand"
+          if r0 ~= old then same = false end
+        end
+      end
+    end
+  end
+  check(same, "sans débordement (nil ou false) : la réponse d'avant sur 64 cas")
   -- Le refuge ne mène pas sur l'ennemi.
   check(Re.on_the_way({ x = 0, y = 0 }, { x = 100, y = 0 }, { x = 30, y = 5 }) == true, "ennemi sur le chemin")
   check(Re.on_the_way({ x = 0, y = 0 }, { x = 100, y = 0 }, { x = 30, y = 60 }) == false, "ennemi sur le côté")
@@ -202,6 +242,49 @@ mutant("éloignement avant ralliement", function()
   end)
 end)
 mutant("ratio d'engagement ignoré", function() patch(Re, "engage_ratio", function() return 1 end) end)
+-- Lot CORR-RALLIEMENT
+mutant("débordement ignoré (règle d'avant)", function()
+  patch(Re, "hq_response", function(i)
+    local need = Re.engage_ratio(i.prudence, i.agressivite) * math.max(0.2, i.force or 1)
+    if (i.allies or 0) * 1000 >= need then return "stand" end
+    if i.rally then return "rally" end
+    if i.outrun then return "away" end
+    return "stand"
+  end)
+end)
+mutant("débordées : toujours s'éloigner, même plus lent que l'ennemi", function()
+  local h = Re.hq_response
+  patch(Re, "hq_response", function(i) local r = h(i) if i.outranged and r == "stand" and i.rally then return "away" end return r end)
+end)
+mutant("débordées : se rallier quand même", function()
+  local h = Re.hq_response
+  patch(Re, "hq_response", function(i) local r = h(i) if i.outranged and i.rally and r ~= "stand" then return "rally" end return r end)
+end)
+mutant("débordement dès la portée égale", function()
+  patch(Re, "outranges", function(a, rs)
+    if type(a) ~= "number" then return false end
+    local best for _, r in ipairs(rs or {}) do if type(r) == "number" and (best == nil or r > best) then best = r end end
+    return best ~= nil and a >= best
+  end)
+end)
+mutant("la plus PETITE portée des tourelles compte", function()
+  patch(Re, "outranges", function(a, rs)
+    if type(a) ~= "number" then return false end
+    local low for _, r in ipairs(rs or {}) do if type(r) == "number" and (low == nil or r < low) then low = r end end
+    return low ~= nil and a > low
+  end)
+end)
+mutant("la première tourelle seule compte", function()
+  patch(Re, "outranges", function(a, rs)
+    local r = (rs or {})[1]
+    return type(a) == "number" and type(r) == "number" and a > r
+  end)
+end)
+mutant("portée inconnue prise pour un débordement", function()
+  local o = Re.outranges
+  patch(Re, "outranges", function(a, rs) if a == nil then return true end return o(a, rs) end)
+end)
+mutant("débordement jamais", function() patch(Re, "outranges", function() return false end) end)
 mutant("ennemi jamais sur le chemin", function() patch(Re, "on_the_way", function() return false end) end)
 mutant("ennemi toujours sur le chemin", function() patch(Re, "on_the_way", function() return true end) end)
 mutant("QG toujours le refuge", function() patch(Re, "away_point", function() return nil end) end)
