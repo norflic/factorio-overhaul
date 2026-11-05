@@ -408,7 +408,12 @@ end
 --- Refuge le plus proche : une tourelle amie (pas du côté de la menace), sinon la case du QG. `foes` (facultatif, lot
 --- CORR-RALLIEMENT) : profils d'attaque du groupe ennemi (M.foe_profiles) ; une tourelle qu'il déborde, à moins de son atteinte
 --- plus une marge, n'est pas un refuge (Re.refuge_ok).
-local function refuge(f, p, ep, range, foes)
+---
+--- Seconde relecture (point E) : sous l'interrupteur du lot (M.outrange_on), les deux replis « s'éloigner » en LIGNE DROITE (24 tuiles à
+--- l'opposé quand le QG menacé n'a pas de tourelle ; Re.away_point quand le QG est du côté de l'ennemi) passent par Re.away_pick (carte
+--- du danger de l'équipe, `tick`, `cache` : mémo d'un passage, Re.away_pass) ; aucune direction sûre : nil, "stand" (pas de refuge :
+--- l'appelant fait se battre sur place, groupés), au lieu d'une ligne droite que away_pick vient de refuser.
+local function refuge(f, p, ep, range, foes, tick, cache)
   local best, bd = nil, nil
   for _, id in ipairs(State.sorted_keys(f.turrets or {})) do
     local t = f.turrets[id]
@@ -423,7 +428,16 @@ local function refuge(f, p, ep, range, foes)
     end
   end
   local home = f.home_spot or f.hq_pos
+  local judged = M.outrange_on()
+  local function away()
+    local tk = tick or game.tick
+    local mp, B = M.team(f).map, D.block((M.character(f)))
+    local q = cache and Re.away_pass(cache, mp, tk, p, ep, range, B) or (not cache and Re.away_pick(mp, tk, p, ep, range, B))
+    if q then return q end
+    return nil, "stand"
+  end
   if not best and d2(home, ep) < 32 * 32 then
+    if judged then return away() end
     -- Pas de tourelle et c'est le QG qui est menacé : s'éloigner de la menace (24 tuiles à l'opposé), pas y courir.
     local vx, vy = p.x - ep.x, p.y - ep.y
     local L = math.sqrt(vx * vx + vy * vy)
@@ -433,6 +447,10 @@ local function refuge(f, p, ep, range, foes)
   if not best or d2(home, p) <= bd then
     -- Le QG est du côté de l'ennemi : y courir, c'est courir sur lui (fusion-60, PNJ 7 : tué en rentrant à 232 tuiles) ;
     -- on s'éloigne d'abord, l'itinéraire de retour contourne ensuite la meute marquée.
+    if judged then
+      if Re.on_the_way(p, home, ep) then return away() end
+      return { x = home.x, y = home.y }
+    end
     local aw = Re.away_point(p, home, ep, range)
     if aw then return aw end
     return { x = home.x, y = home.y }
@@ -1206,6 +1224,17 @@ local function act(agent, f, t, a, action, why, ep, kind, tick, range, refuge_to
   if action == "back" and a.ret_t and tick - a.ret_t < 600 then return false end
   if action == "flee" and agent.nav == "moving" and a.refuge and a.flee_ep and a.flee_t and tick - a.flee_t < 600
     and d2(a.flee_ep, ep) <= 64 then return false end
+  -- Seconde relecture (point E) : le refuge est cherché AVANT l'action ; aucun refuge sûr (« stand ») : la fuite devient un combat
+  -- sur place (le PNJ ne marche pas en ligne droite là où la carte du danger vient de refuser toute direction).
+  local flee_to = nil
+  if action == "flee" and not refuge_to then
+    local stand
+    flee_to, stand = refuge(f, agent.entity.position, ep, range, foes, tick)
+    if not flee_to and stand then
+      action, why = "engage", "sans-refuge-sur"
+      t.stats.refuge_none = (t.stats.refuge_none or 0) + 1
+    end
+  end
   inc(t.stats.actions, action)
   local key = Re.LABEL[action]
   if key then label(agent, key, tick, t.stats) end
@@ -1251,7 +1280,7 @@ local function act(agent, f, t, a, action, why, ep, kind, tick, range, refuge_to
       a.backs, a.back_t = (a.backs or 0) + 1, tick
     end
     if action == "flee" then
-      a.refuge = refuge_to or refuge(f, agent.entity.position, ep, range, foes)
+      a.refuge = refuge_to or flee_to
       a.flee_t, a.flee_ep = tick, { x = ep.x, y = ep.y }
       t.stats.refuges = t.stats.refuges + 1
       -- Votre équipe : un PNJ qui fuit prévient les autres AVANT la première perte (lieu de la menace) ; hors du QG, qui
