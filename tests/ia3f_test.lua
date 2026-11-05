@@ -12,13 +12,20 @@
        inconnu : demande d'exploration « minage » ;
     4. factions : étape « explore » du cerveau (interface fo-ia3f) pour une ressource jamais vue (« crude-oil » à
        620 tuiles) : trouvée, demande fermée, l'éclaireur rentre ; prospection seulement dans les secteurs vus ;
-    5. déterminisme : deux parties identiques donnent la même carte et les mêmes dates.
+    5. déterminisme : deux parties identiques donnent la même carte et les mêmes dates ;
+    6. et 7. (lot EXPLO, 5/11) : critères C-226 et C-301 sur 20 graines appariées du moteur simulé, écrits AVANT la réécriture
+       (<racine>\fo-logs\2026-11-05_EXPLO\CRITERES.md) : la date du pétrole est chaotique (un secteur vu en plus, un chemin raté
+       tiré dans un autre ordre déplacent l'éclaireur de plusieurs minutes), une graine seule ou 6 graines sans tolérance n'en
+       disent rien.
 
-  Usage : lua5.2 tests/ia3f_test.lua   (depuis la racine du mod)
+  Usage : lua5.2 tests/ia3f_test.lua           (depuis la racine du mod ; 20 graines, celui de l'intégration)
+          lua5.2 tests/ia3f_test.lua --court   (graines 1 à 6 : travail courant ; C-301 c ne peut pas échouer sur 6 graines,
+                                                car la plus petite valeur p exacte est 1/64 ; C-301 b refuse quand même les mutants)
 ]]
 
 package.path = "./?.lua;" .. package.path
 local M = require("tests.mock_engine")
+local COURT = arg and arg[1] == "--court"
 
 local pass, fail = 0, 0
 local function check(cond, msg)
@@ -223,8 +230,11 @@ local rer = count_logs("chemin rate en route, autre cible")
 local ends = count_logs("fin : chemin")
 print(string.format("  chemins rates en route repris : %d ; missions finies sur chemin : %d ; petrole a %s min", rer, ends,
   tostring(oil6 and (oil6 - t6) / 3600)))
-check(asked6 == "demande" and oil6 ~= nil and oil6 - t6 <= 30 * 3600, "chemins ratés : pétrole trouvé moins de 30 min après (" ..
-  tostring(oil6 and (oil6 - t6) / 3600) .. " min)")
+-- Lot EXPLO (5/11) : la date du pétrole de la SEULE graine 1 n'est plus contrôlée ici (ancien `:226`) : c'est le critère C-226
+-- ci-dessous, sur 20 graines. Mesure du lot (fo-logs\2026-11-05_EXPLO) : à 30 % de chemins ratés, 0.6.10 trouvait le pétrole sur 3
+-- graines sur 20 (dont la 1, par chance), f3190e45 sur 2 (plus la 1 : la règle des fours rebat les chemins ratés tirés dans le
+-- math.random commun du moteur simulé), main sur 14 ; l'exploration n'a ralenti à aucun commit.
+check(asked6 == "demande", "chemins ratés : étape explore, demande ouverte (" .. tostring(asked6) .. ")")
 check(rer >= 1, "chemins ratés en route : une autre cible (" .. rer .. " fois)")
 -- Lot IA3F-PETROLE (30/10) : de 0.6.9 (279c043) à 0.6.20, ce cas échouait : les régions bloquées par les chemins ratés (lot EXPLO,
 -- c27646b, disque de 128 tuiles + cône de 37° chacun, 30 min) couvraient tout le tour du QG en 8 min, et chaque mission finissait
@@ -232,9 +242,47 @@ check(rer >= 1, "chemins ratés en route : une autre cible (" .. rer .. " fois)"
 -- trouvé en moins de 30 min : avant EXPLO 5/8, après EXPLO 2/8 (6 graines avec des fins « rien »), 0.6.20 2/8, ce lot 7/8 (graine 3 :
 -- non trouvé, aucune fin « rien »). La date du pétrole reste une affaire de chance à 30 % de chemins ratés ; ce contrôle-ci ne l'est
 -- pas : aucune mission ne finit « rien » tant que la frontière a des secteurs non vus hors exclusion dure.
+-- (Lot EXPLO : ce contrôle, autrefois sur la graine 1 seule, est C-226 b, sur toutes les graines.)
 local rien6 = count_logs("(explore crude-oil) fin : rien")
-check(rien6 == 0, "chemins ratés : aucune mission finie « rien » à cause des régions bloquées (" .. rien6 .. ")")
 check(pcall(M.serialize, global), "global sérialisable (chemins ratés)")
+
+-- Parties « pétrole » par (chemins ratés, réglage du pétrole, graine), jouées une seule fois : une partie est déterministe (section 5 ;
+-- et, mesuré par le lot EXPLO, la même partie jouée seule ou à la suite d'autres dans un processus donne la même date).
+local SEEDS20 = {}
+for i = 1, COURT and 6 or 20 do SEEDS20[i] = i end
+local OIL = {}
+local function oil_key(p, petrole, sd) return string.format("%s|%s|%d", tostring(p), petrole and "1" or "0", sd) end
+local function oil_run(p, petrole, sd)
+  local key = oil_key(p, petrole, sd)
+  if not OIL[key] then
+    local _, _, t0x, oilx = run_oil(p, { petrole = petrole, seed = sd })
+    OIL[key] = { min = oilx and oilx - t0x <= 30 * 3600 and (oilx - t0x) / 3600 or nil,
+      rien = count_logs("(explore crude-oil) fin : rien") }
+  end
+  return OIL[key]
+end
+-- La partie de cette section est celle de (0,3, éteint, graine 1) : run_oil(0.3) = graine 1, réglage du pétrole éteint.
+OIL[oil_key(0.3, false, 1)] = { min = oil6 and oil6 - t6 <= 30 * 3600 and (oil6 - t6) / 3600 or nil, rien = rien6 }
+
+-- C-226 (lot EXPLO, 5/11 ; CRITÈRES ÉCRITS AVANT : fo-logs\2026-11-05_EXPLO\CRITERES.md) : 20 graines, 30 % de chemins ratés,
+-- réglage du pétrole éteint.
+--   a. pétrole trouvé en moins de 30 min sur au moins 9 graines sur 20 (main : 14 ; loi binomiale de paramètre 0,7 : P(X <= 8) = 0,005 ;
+--      défaut des fins « rien », 2 ou 3 graines sur 20 à 0.6.10 et f3190e45 : refusé) ; --court : au moins 3 sur 6 (9/20 arrondi au-dessus) ;
+--   b. aucune mission « (explore crude-oil) fin : rien » sur aucune graine (0.6.10 : 17 graines sur 20 ; main : 0).
+-- Ce que cela prouve : l'exploration lointaine sous chemins ratés au hasard ne retombe pas dans le défaut des fins « rien » et trouve le
+-- pétrole sur la plupart des graines du moteur simulé. Ce que cela ne prouve PAS : la découverte en jeu réel ; ni que les régions bloquées
+-- (cônes posés sur des échecs TIRÉS AU HASARD, ici) sont justes : sans elles, une copie jetable de main trouve sur 20 graines sur 20 (lot EXPLO).
+local found226, rien226 = 0, 0
+for _, sd in ipairs(SEEDS20) do
+  local r = oil_run(0.3, false, sd)
+  if r.min then found226 = found226 + 1 end
+  if r.rien > 0 then rien226 = rien226 + 1 end
+  print(string.format("  C-226 graine %d : petrole trouve a %s min, fins rien %d", sd, tostring(r.min), r.rien))
+end
+local need226 = math.ceil(9 * #SEEDS20 / 20)
+check(found226 >= need226, string.format("C-226 a : 30 %% de chemins ratés : pétrole trouvé en moins de 30 min sur %d graines sur %d (au moins %d)",
+  found226, #SEEDS20, need226))
+check(rien226 == 0, string.format("C-226 b : aucune mission finie « rien » (%d graine(s) sur %d en ont)", rien226, #SEEDS20))
 
 -- 7. Lot PETROLE (branche petrole2, 28/10 ; repris sur 0.6.20) : allumer fo-war-petrole ne dégrade pas l'exploration lointaine.
 -- CRITÈRES ÉCRITS AVANT LA MESURE (28/10) :
@@ -246,9 +294,9 @@ check(pcall(M.serialize, global), "global sérialisable (chemins ratés)")
 -- 6 graines du moteur simulé. Ce que cela ne prouve PAS : la découverte du pétrole en jeu réel, ni que l'exploration est bonne
 -- (balayage de la frontière sans direction : section 6).
 local SEEDS = { 1, 2, 3, 4, 5, 6 }
+-- (Lot EXPLO : mêmes parties que run_oil(0.3, opt), prises dans la table OIL ; celles du réglage éteint sont déjà jouées par C-226.)
 local function find_min(opt)
-  local _, _, t0x, oilx = run_oil(0.3, opt)
-  return oilx and oilx - t0x <= 30 * 3600 and (oilx - t0x) / 3600 or nil
+  return oil_run(0.3, opt.petrole == true, opt.seed).min
 end
 local on_n, off_n, on_t, off_t = 0, 0, {}, {}
 for _, sd in ipairs(SEEDS) do
@@ -276,30 +324,119 @@ check(on_n >= off_n, string.format("chemins ratés : pétrole allumé trouve le 
   on_n, off_n, #SEEDS))
 check(m_on <= m_off + spread, string.format("chemins ratés : temps médian allumé %.1f min, éteint %.1f min, écart toléré %.1f min", m_on, m_off, spread))
 
--- 7b. Reprise sur 0.6.20 (30/10), APRÈS la mesure (donc critère ajouté, pas écrit avant ; les C1/C2 ci-dessus restent tels
--- quels) : sur 0.6.20, C1 échoue (0 graine sur 6 réglage allumé, 2 sur 6 éteint). Relevé de la graine 5 : les deux parties sont
--- identiques jusqu'au premier chemin raté de l'éclaireur du pétrole ; la cible diffère, puis 3 chemins ratés de suite ferment la
--- frontière (« region bloquee », 8 régions) et toutes les sorties suivantes finissent « rien après 0.0 min » : MÊME mécanisme que
--- l'échec de la section 6, réglage éteint, sur main (lot IA3F-PETROLE). Pour séparer l'effet du pétrole de ce défaut, la même
--- comparaison SANS chemin raté : le pétrole allumé doit trouver le pétrole sur autant de graines, en un temps médian pas plus long.
-local function find_min0(opt)
-  local _, _, t0x, oilx = run_oil(0, opt)
-  return oilx and oilx - t0x <= 30 * 3600 and (oilx - t0x) / 3600 or nil
+-- 7b. Reprise sur 0.6.20 (30/10) : pour séparer l'effet du pétrole du défaut des fins « rien » (section 6), la même comparaison SANS
+-- chemin raté. Lot EXPLO (5/11) : l'ancien contrôle (médiane allumé <= médiane éteint, 6 graines, AUCUNE tolérance) échouait sur main
+-- par le seul chaos : graine 14, les deux parties sont identiques jusqu'au tick 14 400 où la partie allumée a vu un secteur de plus
+-- (83 contre 82) ; K.best_target (shared/ai3/carte.lua, frontière la plus proche) choisit alors un autre secteur, l'éclaireur fait le
+-- tour par le sud : 10,0 min contre 3,6. Sur 20 graines appariées, la médiane des écarts vaut 0 et le Wilcoxon n'est pas significatif.
+-- C-301 (CRITÈRES ÉCRITS AVANT : fo-logs\2026-11-05_EXPLO\CRITERES.md) : 20 graines, 0 % de chemins ratés, allumé contre éteint,
+-- appariées par graine, t = 30 min si le pétrole n'est pas vu :
+--   a. graines où le pétrole est trouvé : allumé >= éteint ;
+--   b. médiane des 20 écarts (allumé - éteint) <= +2,5 min (hypothèse nulle, signes tirés au hasard : 99e centile 0,32 min sur main,
+--      2,15 au parent de 0b724584) ;
+--   c. Wilcoxon des rangs signés, exact, unilatéral « allumé plus lent » : p >= 0,01 (écarts nuls retirés, ex aequo au rang moyen).
+-- Mutants refusés (dans ce test, sur les dates mesurées ici) : « allumé + 3 min » et « allumé x 1,5 » (bornés à 30 min).
+-- Ce que cela prouve : allumer le pétrole ne retarde pas la découverte du pétrole au-delà du chaos, sur 20 graines du moteur simulé.
+-- Ce que cela ne prouve PAS : la découverte en jeu réel, ni la qualité de l'exploration.
+
+--- Wilcoxon des rangs signés, apparié, EXACT : W+ et P(W+ >= W+ observé) sous l'hypothèse nulle (2^n signes équiprobables).
+--- Écarts |d| <= 1e-9 retirés ; ex aequo (|d| à 1e-9 près) au rang moyen ; rangs doublés (entiers) pour la loi exacte.
+local function wilcoxon_upper(a, b)
+  local d = {}
+  for i = 1, #a do
+    local x = a[i] - b[i]
+    if math.abs(x) > 1e-9 then d[#d + 1] = x end
+  end
+  local n = #d
+  if n == 0 then return 0, 1, 0 end
+  local idx = {}
+  for i = 1, n do idx[i] = i end
+  table.sort(idx, function(i, j)
+    local ai, aj = math.abs(d[i]), math.abs(d[j])
+    if ai ~= aj then return ai < aj end
+    return i < j
+  end)
+  local r2 = {} -- rangs doublés
+  local i = 1
+  while i <= n do
+    local j = i
+    while j + 1 <= n and math.abs(math.abs(d[idx[j + 1]]) - math.abs(d[idx[i]])) <= 1e-9 do j = j + 1 end
+    for k = i, j do r2[idx[k]] = i + j end -- 2 x rang moyen ((i + j) / 2)
+    i = j + 1
+  end
+  local w2, total = 0, 0
+  for k = 1, n do
+    if d[k] > 0 then w2 = w2 + r2[k] end
+    total = total + r2[k]
+  end
+  local dist = { [0] = 1 } -- dist[s] : nombre de jeux de signes de somme doublée s
+  for k = 1, n do
+    local nd = {}
+    for s = 0, total do
+      local c = dist[s]
+      if c then
+        nd[s] = (nd[s] or 0) + c
+        nd[s + r2[k]] = (nd[s + r2[k]] or 0) + c
+      end
+    end
+    dist = nd
+  end
+  local hi = 0
+  for s = w2, total do hi = hi + (dist[s] or 0) end
+  return w2 / 2, hi / 2 ^ n, n
 end
-local on0_n, off0_n, on0_t, off0_t = 0, 0, {}, {}
-for _, sd in ipairs(SEEDS) do
-  local a = find_min0({ petrole = true, seed = sd })
-  local b = find_min0({ petrole = false, seed = sd })
-  if a then on0_n = on0_n + 1 end
-  if b then off0_n = off0_n + 1 end
+
+--- C-301 sur deux séries appariées de dates (30 si non trouvé) : a, b, c et leurs chiffres.
+local function c301(on_t, off_t)
+  local on_n, off_n, diffs = 0, 0, {}
+  for k = 1, #on_t do
+    if on_t[k] < 30 then on_n = on_n + 1 end
+    if off_t[k] < 30 then off_n = off_n + 1 end
+    diffs[k] = on_t[k] - off_t[k]
+  end
+  local med = median(diffs)
+  local w, p, n = wilcoxon_upper(on_t, off_t)
+  return { a = on_n >= off_n, b = med <= 2.5, c = p >= 0.01, on_n = on_n, off_n = off_n, med = med, w = w, p = p, n = n }
+end
+
+-- La loi exacte, contrôlée sur des cas calculés à la main.
+do
+  local w, p, n = wilcoxon_upper({ 1, 2, 3, 4, 5 }, { 0, 0, 0, 0, 0 })
+  check(w == 15 and n == 5 and math.abs(p - 1 / 32) < 1e-12, "Wilcoxon exact : 5 écarts positifs, W+ 15, p = 1/32 (" .. p .. ")")
+  w, p = wilcoxon_upper({ 0, 0, 0 }, { 1, 2, 3 })
+  check(w == 0 and p == 1, "Wilcoxon exact : écarts tous négatifs, W+ 0, p = 1")
+  w, p, n = wilcoxon_upper({ 4, 4 }, { 4, 4 })
+  check(n == 0 and p == 1, "Wilcoxon exact : écarts tous nuls retirés, p = 1")
+  -- écarts 1, -1, 2 : rangs 1,5 ; 1,5 ; 3 ; W+ = 4,5 ; sommes doublées {0,3,3,6,6,9,9,12} : P(>= 9) = 3/8
+  w, p = wilcoxon_upper({ 1, 0, 2 }, { 0, 1, 0 })
+  check(w == 4.5 and math.abs(p - 3 / 8) < 1e-12, "Wilcoxon exact : ex aequo au rang moyen, W+ 4,5, p = 3/8 (" .. p .. ")")
+end
+
+local on0_t, off0_t = {}, {}
+for _, sd in ipairs(SEEDS20) do
+  local a = oil_run(0, true, sd).min
+  local b = oil_run(0, false, sd).min
   on0_t[#on0_t + 1] = a or 30
   off0_t[#off0_t + 1] = b or 30
   print(string.format("  sans chemin rate, graine %d : petrole trouve a %s min (allume) / %s min (eteint)", sd, tostring(a), tostring(b)))
 end
-check(on0_n >= off0_n, string.format("sans chemin raté : pétrole allumé trouve le pétrole sur au moins autant de graines (%d contre %d sur %d)",
-  on0_n, off0_n, #SEEDS))
-check(median(on0_t) <= median(off0_t), string.format("sans chemin raté : temps médian allumé %.1f min <= éteint %.1f min",
-  median(on0_t), median(off0_t)))
+local r301 = c301(on0_t, off0_t)
+print(string.format("  C-301 : trouves %d (allume) / %d (eteint) sur %d ; mediane des ecarts %+.2f min ; Wilcoxon W+ %.1f sur n %d, p %.4f",
+  r301.on_n, r301.off_n, #SEEDS20, r301.med, r301.w, r301.n, r301.p))
+check(r301.a, string.format("C-301 a : sans chemin raté, pétrole allumé trouvé sur au moins autant de graines (%d contre %d sur %d)",
+  r301.on_n, r301.off_n, #SEEDS20))
+check(r301.b, string.format("C-301 b : sans chemin raté, médiane des écarts allumé - éteint %+.2f min <= +2,5", r301.med))
+check(r301.c, string.format("C-301 c : sans chemin raté, Wilcoxon unilatéral « allumé plus lent » p %.4f >= 0,01 (W+ %.1f, n %d)",
+  r301.p, r301.w, r301.n))
+-- Mutants : un pétrole allumé qui retarderait vraiment la découverte doit être refusé par C-301.
+for _, mu in ipairs({ { "allumé + 3 min", function(t) return math.min(30, t + 3) end },
+  { "allumé x 1,5", function(t) return math.min(30, t * 1.5) end } }) do
+  local mt = {}
+  for k, t in ipairs(on0_t) do mt[k] = mu[2](t) end
+  local rm = c301(mt, off0_t)
+  check(not (rm.a and rm.b and rm.c), string.format("C-301 : mutant « %s » refusé (a %s, b %s : médiane %+.2f, c %s : p %.5f)",
+    mu[1], tostring(rm.a), tostring(rm.b), rm.med, tostring(rm.c), rm.p))
+end
 
 print(string.format("[IA3F] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 os.exit(fail == 0 and 0 or 1)
