@@ -130,6 +130,24 @@ def paquets(reste, faits, minutes):
     return res
 
 
+def banc_seul():
+    """Vrai si un banc --seul (mesure de performance, interdit n° 4 : « seule sur le PC ») tient une place : le rendu
+    fausserait la mesure. Lecture des verrous par tools/autotest/banc.py (etat_place), sans rien prendre."""
+    essai = os.environ.get("FO_BANC_SEUL_FICHIER")     # (bancs de l'outil) fichier « 1 » = banc --seul simulé
+    if essai:
+        try:
+            with open(essai, encoding="utf-8") as f:
+                return f.read().strip() == "1"
+        except OSError:
+            return False
+    try:
+        sys.path.insert(0, os.path.join(FE.MOD, "tools", "autotest"))
+        import banc
+        return any((banc.etat_place(q) or (0, "", ""))[2] == "exclusif" for q in (1, 2, 3))
+    except Exception:  # noqa: BLE001 (lecture impossible : on ne conclut pas)
+        return False
+
+
 def qos_jeu():
     import qos
     return qos.jeu_du_dc()
@@ -149,7 +167,8 @@ def session_rendu(cmd, ecoqos, log):
     lead, 5/11 : sans EcoQoS, priorité BelowNormal inchangée). Si le DC joue (fo-banc-places.txt = 1, contrôlé toutes
     les 5 s, ou un factorio.exe hors bancs, toutes les 30 s), l'arbre de rendu est TERMINÉ aussitôt (consigne du DC du
     4/11 : « aucune instance de test ni Blender quand il joue ») ; les variantes du paquet seront refaites.
-    Rend (code, sortie, le DC joue)."""
+    Un banc --seul qui prend une place termine aussi la session (paquet refait après la mesure).
+    Rend (code, sortie, raison : None, « dc » ou « seul »)."""
     import threading
     import qos
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -160,13 +179,15 @@ def session_rendu(cmd, ecoqos, log):
     vus, n = set(), 0
     while p.poll() is None:
         n += 1
-        joue = dc_joue() or (n % 6 == 0 and qos.jeu_du_dc())
-        if joue:
+        raison = "dc" if (dc_joue() or (n % 6 == 0 and qos.jeu_du_dc())) else ("seul" if n % 3 == 0 and banc_seul()
+                                                                               else None)
+        if raison:
             qos.tuer_arbre(p.pid)
-            log("  le DC joue : session de rendu TERMINÉE (arbre de rendre.py %d), paquet à refaire" % p.pid)
+            log("  %s : session de rendu TERMINÉE (arbre de rendre.py %d), paquet à refaire" % (
+                "le DC joue" if raison == "dc" else "banc --seul en cours", p.pid))
             p.wait()
             lecteur.join(timeout=30)
-            return p.returncode, (morceaux[0] if morceaux else b"").decode("utf-8", "replace"), True
+            return p.returncode, (morceaux[0] if morceaux else b"").decode("utf-8", "replace"), raison
         if ecoqos == "retirer":
             try:
                 for pid in qos.descendants(p.pid, "blender.exe"):
@@ -178,7 +199,7 @@ def session_rendu(cmd, ecoqos, log):
                 log("  EcoQoS : %r" % ex)
         time.sleep(5)
     lecteur.join(timeout=30)
-    return p.returncode, (morceaux[0] if morceaux else b"").decode("utf-8", "replace"), False
+    return p.returncode, (morceaux[0] if morceaux else b"").decode("utf-8", "replace"), None
 
 
 def journal(path, msg):
@@ -259,6 +280,12 @@ def main():
             return 2
         if a.max_paquets and i >= a.max_paquets:
             break
+        if banc_seul():
+            journal(a.journal, "banc --seul en cours : attente avant le paquet %d (contrôle toutes les 30 s)" % (i + 1))
+            while banc_seul() and not os.path.exists(a.stop) and not dc_joue():
+                time.sleep(30)
+            i -= 1
+            continue
         tentes.update(p)
         tete = partie(p[0]) == "tete"
         cmd = [sys.executable, "-B", a.rendre, "--only", ",".join(p), "--samples", str(SAMPLES), "--out", a.sortie,
@@ -270,6 +297,9 @@ def main():
         tp = time.time()
         try:
             rc, sortie, dc = session_rendu(cmd, a.ecoqos, lambda m: journal(a.journal, m))
+            if dc == "seul":
+                tentes.difference_update(p)
+                continue
             if dc:
                 with open(a.stop, "w", encoding="utf-8") as f:
                     f.write("posé par produire.py le %s : le DC joue (session de rendu terminée)" % time.strftime("%d/%m %H:%M")
