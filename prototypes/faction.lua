@@ -135,7 +135,11 @@ local function grenade_ammo()
   }
 end
 
-for _, faction in ipairs(F.factions) do
+-- Lot DEPENSES2 (b) : les soldats de votre équipe (F.player_army, « fo-player-<soldat> ») sont ceux des factions, à sa couleur.
+local owners = {}
+for _, faction in ipairs(F.factions) do owners[#owners + 1] = faction end
+owners[#owners + 1] = F.player_army
+for _, faction in ipairs(owners) do
   for _, key in ipairs(F.soldier_order) do
     local s = F.soldiers[key]
     local anims = character.animations[s.armor] or character.animations[1]

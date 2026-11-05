@@ -8,8 +8,8 @@
     - Dep.debit(f, "defense", matière, quantité) -> quantité débitée de l'accord courant (au plus son reste) ; le compte repart de zéro à
       chaque nouvel accord (Dep.think) ; ce qui est débité sort aussi de la réserve (Dep.reserved) ;
     - Dep.labs_target(f, now, cap, tick) -> cible ABSOLUE de laboratoires ou nil (script/ai3/cerveau.lua) ;
-    - Dep.soldiers_target(f, army, max, now, tick, key, key_short) -> cible d'armée relevée (script/ai3/cerveau.lua, factions : votre
-      équipe n'a ni chemin de recrutement ni prototype de soldat, voir RAPPORT.md) ;
+    - Dep.soldiers_target(f, army, max, now, tick, key, key_short) -> cible d'armée relevée (script/ai3/cerveau.lua ; factions, et votre
+      équipe depuis le lot DEPENSES2 b : cible de base 0, plafond des factions, unités fo-player-*) ;
     - Dep.capi_reserve(f, rin, tick) -> l'entrée « stock hors besoin » de la capitalisation, DÉBITÉE de ce que cette règle a accordé ou
       engagé (défense, laboratoires et soldats encore à faire : revue D2, pas de double dépense).
   Interrupteur : f.team.depenses.on = false. Journal : [FO-DEPENSES] <équipe> minute <m> | <cause>.
@@ -76,8 +76,8 @@ function Dep.think(f, cs, tick, products, minutes)
   -- (essai 4 : le centre en attente ne retient plus les soldats ; Dep.soldiers_target les sert comme hors attente)
   if d.on ~= false then
     local sold
-    if f.is_player then sold = "soldats : votre equipe ne recrute pas"
-    elseif d.soldier_target then sold = string.format("soldats cible %d (cerveau %d, presents %d)", d.soldier_target, d.soldier_brain or 0, d.soldier_now or 0)
+    -- (lot DEPENSES2 b : votre équipe aussi)
+    if d.soldier_target then sold = string.format("soldats cible %d (cerveau %d, presents %d)", d.soldier_target, d.soldier_brain or 0, d.soldier_now or 0)
     else sold = "soldats : rien de plus" end
     log(string.format("[FO-DEPENSES] %s minute %d | %s | laboratoires base %s cible %s | %s", f.key or "?",
       math.floor((minutes or 0) + 0.5), res.why, tostring(d.lab_base or "-"), tostring(d.lab_target or "-"), sold))

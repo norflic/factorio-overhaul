@@ -16,6 +16,10 @@ F.factions = {
   { key = "emerald", color = { r = 0.20, g = 0.80, b = 0.30 }, personality = "builder" },
   { key = "amber",   color = { r = 0.95, g = 0.70, b = 0.10 }, personality = "balanced" },
 }
+-- Lot DEPENSES2 (b ; QCM-4/11-RECRUES du DC : « Oui, comme les factions ») : votre équipe recrute elle aussi, sur son stock qui dort.
+-- Mêmes soldats, même code (prototypes/faction.lua, script/faction/military.lua) : clé « player » (celle de script/team/player_team.lua),
+-- à sa couleur. Ce n'est PAS une faction de la guerre : elle n'entre pas dans F.factions.
+F.player_army = { key = "player", color = { r = 0.95, g = 0.85, b = 0.3 } }
 
 -- Personnalités : pondérations de la stratégie (1 = neutre).
 -- caution (lot IA0b) : prudence face à une base du JOUEUR défendue, multiplie le rapport de force exigé

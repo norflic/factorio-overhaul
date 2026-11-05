@@ -745,6 +745,8 @@ function Team.view(f, tick)
     turret_groups = groups,
     turret_ammo = T.munitions_on and Outposts.ammo_name(f.tech, f) or nil, -- lot MUNITIONS : munition fabriquée et portée (planificateur, cerveau)
     soldiers = f.soldiers_count, soldiers_max = soldiers_max,
+    -- lot DEPENSES2 (b) : plafond des factions, celui des soldats que votre équipe paie sur son stock qui dort (0 sans guerre lancée)
+    army_cap = (war.settings and war.settings.soldiers_max) or 0,
     workers = f.engineers_count, workers_max = workers_max, workers_idle = workers_idle, workers_waiting = workers_waiting,
     workers_wanted = workers_wanted, recruit_cost = recruit_cost, recruit_blocked = recruit_blocked,
     recruit_held = recruit_held, recruit_prio = recruit_prio, -- lot IA3-d : priorité de l'équipement d'une recrue décidée

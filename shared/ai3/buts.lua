@@ -433,6 +433,13 @@ function B.generate(s, st)
         value = val(math.floor(B.ARMY_MORE * war / 100), w.armee), permanent = true }
     end
   end
+  -- Lot DEPENSES2 (b ; QCM-4/11-RECRUES du DC : « Oui, comme les factions ») : votre équipe recrute sur son stock qui dort. Sa cible
+  -- (s.army_target) n'est relevée que par la règle du stock qui dort (script/ai3/cerveau.lua : cible de base 0, au plus 6, plafond des
+  -- factions, jamais quand la matière clé manque) ; même projet que l'armée « qui grandit » des factions.
+  if boot and s.is_player and (s.soldiers or 0) < (s.army_target or 0) then
+    goals[#goals + 1] = { key = "armee", family = "armee", kind = "army", target = s.army_target,
+      value = val(B.ARMY_MORE, w.armee), permanent = true }
+  end
   table.sort(goals, function(a, b)
     if a.value ~= b.value then return a.value > b.value end
     return a.key < b.key
