@@ -114,4 +114,12 @@ function P.decide(trigger, st)
   return rule(st)
 end
 
+--- Lot PANNEAU-2 (réponse du DC, 5/11 : « Au clic, comme le panneau ») : le trait de ralliement d'un atelier de robots
+--- (script/robots/outils.lua) suit le même réglage. "selected" : l'atelier survolé (« survol », comportement d'avant) ;
+--- "opened" : l'atelier dont l'interface est ouverte (« clic »). Le ralliement en cours de choix (outil en main) se voit toujours.
+function P.rally_source(mode)
+  if mode == P.SURVOL then return "selected" end
+  return "opened"
+end
+
 return P

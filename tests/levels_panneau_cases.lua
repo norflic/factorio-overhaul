@@ -15,8 +15,10 @@
                   interface, dans les deux ordres clic / interface ; interface fermée sans événement : fermé au
                   rafraîchissement ; panneau ouvert au survol puis passage en « clic » : fermé au rafraîchissement), puis CHAQUE
                   cas rejoué avec son mutant (Panneau.decide remplacé pour un seul déclencheur) : le cas doit échouer. Puis le
-                  journal [FO-REGLAGES] (rien pour un réglage par joueur). Cases.data : le réglage, les touches (étape data
-                  réelle, harnais) et les traductions FR et EN.
+                  journal [FO-REGLAGES] (rien pour un réglage par joueur). Lot PANNEAU-2 : le trait de ralliement d'un atelier
+                  de robots suit le même réglage (interface ouverte en « clic », survol en « survol »), avec ses mutants.
+  Cases.data    : le réglage, les touches (étape data réelle, harnais), les traductions FR et EN, et (lot PANNEAU-2) plus aucun
+                  « ρ8 » affiché, sans doublon de nom.
   Les cas « survol » (comportement d'avant) restent ceux de levels_test et levels_clear_cases, joueur mis en « survol ».
 ]]
 
@@ -91,6 +93,8 @@ function Cases.pure(check, section)
     and is("replaced", { open = true, via = "key" }, "none") and is("replaced", {}, "none"),
     "règle : après une action, l'interface de la cible remplacée est rouverte si le panneau la suivait")
   check(not pcall(P.decide, "inconnu", st()), "règle : un déclencheur inconnu est une erreur")
+  check(P.rally_source(P.CLIC) == "opened" and P.rally_source(P.SURVOL) == "selected" and P.rally_source(nil) == "opened",
+    "règle (lot PANNEAU-2) : ralliement de l'atelier ouvert en « clic » (défaut), survolé en « survol »")
 end
 
 function Cases.runtime(check, section)
@@ -406,6 +410,61 @@ function Cases.runtime(check, section)
     chk(panel() == nil and target() == nil, "passage en « clic » : le panneau ouvert au survol se ferme au rafraîchissement suivant")
   end)
 
+  -- Lot PANNEAU-2 (réponse du DC, 5/11) : le trait de ralliement d'un atelier de robots (script/robots/outils.lua, dessiné toutes
+  -- les 30 ticks pour ce seul joueur) suit le même réglage.
+  local Usine = require("script.robots.usine")
+  --- Atelier de robots de la force du banc, inscrit au registre (raise_built, comme une pose).
+  local function new_workshop()
+    slot = slot + 1
+    local ws = s.create_entity({ name = "fo-robot-workshop", position = { x = 5100.5 + 8 * slot, y = 5020.5 }, force = FORCE, raise_built = true })
+    return ws
+  end
+  --- Traits de ralliement tirés de `ws` pour le joueur 1 pendant `ticks` ticks (enveloppe de rendering.draw_line).
+  --- Le moteur simulé n'a pas rendering.draw_circle (cercle du ralliement, cercles des robots choisis) : fourni le temps de ces cas,
+  --- avec les mêmes contrôles d'arguments que draw_line.
+  local function rally_lines(ws, ticks)
+    local raw, raw_circle = rendering.draw_line, rendering.draw_circle
+    local n = 0
+    rendering.draw_line = function(t)
+      local p = t.players and t.players[1]
+      local pi = type(p) == "table" and p.index or p
+      local f = t.from
+      if pi == 1 and f and f.x == ws.position.x and f.y == ws.position.y then n = n + 1 end
+      return raw(t)
+    end
+    rendering.draw_circle = raw_circle or function(t)
+      assert(t.color and t.radius and t.surface and t.target, "draw_circle : arguments")
+      return 0
+    end
+    local ok, err = pcall(M.run_ticks, ticks)
+    rendering.draw_line, rendering.draw_circle = raw, raw_circle
+    if not ok then error(err, 0) end
+    return n
+  end
+
+  case("ralliement-clic", "ralliement de l'atelier : au clic, pas au survol", function(chk)
+    local ws = new_workshop()
+    chk(ws and Usine.record(ws.unit_number) ~= nil, "atelier de robots posé et inscrit au registre")
+    rawset(player, "selected", ws)
+    chk(rally_lines(ws, 30) == 0, "clic : survoler l'atelier ne trace PAS son ralliement")
+    open_gui(ws)
+    local n = rally_lines(ws, 30)
+    chk(n == 1, "clic : interface de l'atelier ouverte, son ralliement est tracé pour ce joueur (" .. n .. " trait)")
+    rawset(player, "selected", nil)
+    chk(rally_lines(ws, 30) == 1, "clic : le ralliement reste tracé tant que l'interface est ouverte, curseur ailleurs")
+    close_gui(ws)
+    chk(rally_lines(ws, 30) == 0, "clic : interface fermée, plus de ralliement")
+  end)
+
+  case("ralliement-survol", "ralliement de l'atelier : au survol en « survol »", function(chk)
+    local ws = new_workshop()
+    M.set_player_setting(1, P.SETTING, "survol")
+    rawset(player, "selected", ws)
+    chk(rally_lines(ws, 30) == 1, "survol : survoler l'atelier trace son ralliement (comportement d'avant)")
+    rawset(player, "selected", nil)
+    chk(rally_lines(ws, 30) == 0, "survol : curseur ailleurs, plus de ralliement")
+  end)
+
   -- Témoin : tous les cas, contrôlés par le banc.
   for _, id in ipairs(ORDER) do
     reset()
@@ -434,6 +493,10 @@ function Cases.runtime(check, section)
       patch = function(orig, st) if st.open and st.via == "gui" and st.same then return "close" end return "none" end },
     { case = "pendant-u", name = "la fermeture pendant U ferme le panneau (drapeau ignoré)", trigger = "gui-closed",
       patch = function(orig, st) if st.open and st.via == "gui" and st.same then return "close" end return "none" end },
+    { case = "ralliement-clic", name = "le ralliement suit encore le survol en « clic »", fn = "rally_source",
+      patch = function() return "selected" end },
+    { case = "ralliement-survol", name = "le ralliement suit l'interface en « survol »", fn = "rally_source",
+      patch = function() return "opened" end },
     { case = "clic", name = "le clic gauche n'ouvre rien", trigger = "click",
       patch = function() return "none" end },
     { case = "clic", name = "le clic gauche bascule (referme la cible déjà montrée)", trigger = "click",
@@ -445,15 +508,21 @@ function Cases.runtime(check, section)
   }
   local covered = {}
   for _, m in ipairs(MUTANTS) do
-    local orig = P.decide
-    P.decide = function(trigger, st)
-      if trigger == m.trigger then return m.patch(orig, st) end
-      return orig(trigger, st)
+    -- Fonction remplacée : P.decide pour un déclencheur (m.trigger), ou une autre fonction de la règle en entier (m.fn).
+    local fname = m.fn or "decide"
+    local orig = P[fname]
+    if m.fn then
+      P[fname] = function(...) return m.patch(orig, ...) end
+    else
+      P.decide = function(trigger, st)
+        if trigger == m.trigger then return m.patch(orig, st) end
+        return orig(trigger, st)
+      end
     end
     reset()
     local failed = {}
     local ok, err = pcall(CASES[m.case].fn, function(cond, msg) if not cond then failed[#failed + 1] = msg end end)
-    P.decide = orig
+    P[fname] = orig
     reset()
     local detected = #failed > 0 or not ok
     if detected then covered[m.case] = true end
@@ -532,6 +601,74 @@ function Cases.data(check, section, game_data_dir)
       "touche fo-level-open déclarée à l'étape data réelle : liée au clic « open-gui », non consommée")
   else
     check(false, "données du jeu introuvables : touche non vérifiée à l'étape data")
+  end
+
+  -- Lot PANNEAU-2 (réponse du DC, 5/11 : « Retirer « ρ8 » ») : plus aucun « ρ8 » dans un texte affiché ; les noms internes
+  -- (fo-*-r8) restent ; aucun nom retouché ne devient celui d'un AUTRE objet, fluide, entité ou technologie du mod (une recette
+  -- du même nom que son produit est l'usage du jeu).
+  local RENAMED = {
+    fr = { ["item-name.fo-iron-concentrate"] = "Concentré de fer", ["item-name.fo-copper-concentrate"] = "Concentré de cuivre",
+      ["item-name.fo-tungsten-concentrate"] = "Concentré de tungstène", ["item-name.fo-iron-plate-r8"] = "Billette de fer",
+      ["item-name.fo-copper-plate-r8"] = "Billette de cuivre", ["item-name.fo-tungsten-plate-r8"] = "Billette de tungstène",
+      ["item-name.fo-ilmenite-concentrate"] = "Concentré d'ilménite", ["item-name.fo-titanium-slag"] = "Laitier titanifère",
+      ["item-name.fo-titanium-sponge"] = "Éponge de titane", ["item-name.fo-titanium-plate"] = "Plaque de titane",
+      ["item-name.fo-monazite-concentrate"] = "Concentré de monazite", ["technology-name.fo-billets"] = "Billettes" },
+    en = { ["item-name.fo-iron-concentrate"] = "Iron concentrate", ["item-name.fo-copper-concentrate"] = "Copper concentrate",
+      ["item-name.fo-tungsten-concentrate"] = "Tungsten concentrate", ["item-name.fo-iron-plate-r8"] = "Iron billet",
+      ["item-name.fo-copper-plate-r8"] = "Copper billet", ["item-name.fo-tungsten-plate-r8"] = "Tungsten billet",
+      ["item-name.fo-ilmenite-concentrate"] = "Ilmenite concentrate", ["item-name.fo-titanium-slag"] = "Titanium slag",
+      ["item-name.fo-titanium-sponge"] = "Titanium sponge", ["item-name.fo-titanium-plate"] = "Titanium plate",
+      ["item-name.fo-monazite-concentrate"] = "Monazite concentrate", ["technology-name.fo-billets"] = "Billets" },
+  }
+  local OBJECT_SECTIONS = { ["item-name"] = true, ["fluid-name"] = true, ["entity-name"] = true, ["equipment-name"] = true,
+    ["tile-name"] = true, ["technology-name"] = true }
+  for _, lang in ipairs({ "fr", "en" }) do
+    local names, rho, files = {}, {}, {}
+    local lsf = io.popen(((package.config:sub(1, 1) == "\\") and 'dir /b "locale\\' .. lang .. '\\*.cfg" 2>nul'
+      or ('ls locale/' .. lang .. '/*.cfg 2>/dev/null')), "r")
+    for line in (lsf and lsf:lines() or function() return nil end) do
+      local base = line:match("([^/\\]+%.cfg)%s*$")
+      if base then files[#files + 1] = base end
+    end
+    if lsf then lsf:close() end
+    table.sort(files)
+    for _, base in ipairs(files) do
+      local f = io.open("locale/" .. lang .. "/" .. base, "rb")
+      local sec = ""
+      for line in (f and f:read("*a") or ""):gmatch("[^\n]+") do
+        line = line:gsub("\r$", "")
+        local h = line:match("^%[(.-)%]")
+        if h then sec = h else
+          local k, v = line:match("^([^=;#]+)=(.*)$")
+          if k then
+            names[sec .. "." .. k] = v
+            if v:find("ρ8", 1, true) then rho[#rho + 1] = base .. ":" .. sec .. "." .. k end
+          end
+        end
+      end
+      if f then f:close() end
+    end
+    check(#files >= 20 and #rho == 0, lang .. " : aucun « ρ8 » dans les " .. #files .. " fichiers de traduction"
+      .. (#rho > 0 and (" ; reste : " .. table.concat(rho, ", ")) or ""))
+    local wrong, dups = {}, {}
+    local keys = {}
+    for k in pairs(RENAMED[lang]) do keys[#keys + 1] = k end
+    table.sort(keys)
+    for _, k in ipairs(keys) do
+      local want = RENAMED[lang][k]
+      if names[k] ~= want then wrong[#wrong + 1] = k .. "=" .. tostring(names[k]) end
+      local all = {}
+      for other in pairs(names) do all[#all + 1] = other end
+      table.sort(all)
+      for _, other in ipairs(all) do
+        local sec = other:match("^(.-)%.")
+        if other ~= k and OBJECT_SECTIONS[sec] and names[other]:lower() == want:lower() then dups[#dups + 1] = k .. " = " .. other end
+      end
+    end
+    check(#wrong == 0, lang .. " : les " .. #keys .. " noms sans « ρ8 » (clés internes fo-*-r8 inchangées)"
+      .. (#wrong > 0 and (" ; faux : " .. table.concat(wrong, ", ")) or ""))
+    check(#dups == 0, lang .. " : aucun nom retouché n'est celui d'un autre objet, fluide, entité ou technologie"
+      .. (#dups > 0 and (" ; doublons : " .. table.concat(dups, ", ")) or ""))
   end
 
   -- Traductions FR et EN (fichiers du lot).
