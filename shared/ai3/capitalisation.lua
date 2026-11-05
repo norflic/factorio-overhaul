@@ -1935,6 +1935,64 @@ function Ca.seat_plate(ctx)
   return best, def
 end
 
+--- Règle 9 des emplacements (extension du lead, 5/11 au soir) : l'objet qui MANQUE le plus aux ordres ouverts, pour le siège d'une
+--- CHAÎNE. MESURÉ dans la partie du DC (fo-logs/2026-11-05_PARTIE-DC-ESSAI, minute 100) : 6 modules attendaient des
+--- assembling-machine-2, avec 65 000 fers et 19 000 cuivres au coffre. La chaîne des AM2 était refusée « plan directeur occupe » :
+--- les plaques ne manquent pas, c'est la machine qui manque.
+--- « Le plus », en NOMBRE D'ORDRES qui l'attendent, puis en quantité, puis par nom. Le compte n'est pas en quantité : à la minute
+--- 100, 19 poteaux moyens pour UN ordre passaient devant 13 AM2 pour 6 ordres. Les plaques `names` n'y sont jamais (règle 8).
+--- Hystérésis : l'objet d'avant (ctx.prev) garde le siège tant que le meilleur ne le dépasse pas de plus de Ca.SEAT_MARGIN %
+--- d'ordres. Rend nil si les PLAQUES de cet objet sont en déficit : coût brut de sa quantité qui manque, au livre de la force, moins
+--- le stock libre ; la règle 8 s'applique alors. Rend aussi nil sans livre.
+--- Rend l'objet ou nil, et info = { orders, qty, deficit = plaque en déficit }.
+--- ctx = { open, book, names, free, prev }, comme Ca.seat_plate.
+function Ca.seat_chain(ctx)
+  local info = {}
+  if not (ctx and ctx.book) then return nil, info end
+  local plate = {}
+  for _, n in ipairs(ctx.names or {}) do plate[n] = true end
+  local by, qty, keys = {}, {}, {}
+  for _, o in ipairs(ctx.open or {}) do
+    local seen = {}
+    for _, m in ipairs(o.missing or {}) do
+      local it, n = m[1], m[2] or 0
+      if it ~= nil and n > 0 and not plate[it] then
+        if by[it] == nil then by[it], qty[it] = 0, 0 keys[#keys + 1] = it end
+        if not seen[it] then by[it], seen[it] = by[it] + 1, true end
+        qty[it] = qty[it] + n
+      end
+    end
+  end
+  table.sort(keys)
+  local best = nil
+  for _, it in ipairs(keys) do
+    if best == nil or by[it] > by[best] or (by[it] == by[best] and qty[it] > qty[best]) then best = it end
+  end
+  local prev = ctx.prev
+  if best ~= nil and prev ~= nil and prev ~= best and by[prev] ~= nil and by[best] * 100 <= by[prev] * (100 + Ca.SEAT_MARGIN) then
+    best = prev
+  end
+  if best == nil then return nil, info end
+  info.orders, info.qty = by[best], qty[best]
+  local stock = {}
+  for _, n in ipairs(ctx.names or {}) do stock[n] = math.max(0, (ctx.free or {})[n] or 0) end
+  local raw = ctx.book:plan({ { best, qty[best] } }, stock).raw
+  for _, n in ipairs(ctx.names or {}) do
+    if (raw[n] or 0) > 0 then info.deficit = n return nil, info end
+  end
+  return best, info
+end
+
+--- Règle 9 : la chaîne sur le siège ne se bâtit pas avec l'objet même qui bloque. MESURÉ dans la partie du DC : le module de la
+--- chaîne des AM2 (#35) attendait lui-même « assembling-machine-2 x1 », puis il a été refusé au bout de 15 min. `usable` donne les
+--- objets utilisables (A.method_for : machines, kit) ; on en retire `avoid` ({ [objet] = vrai }).
+function Ca.avoiding(usable, avoid)
+  return function(n)
+    if avoid and avoid[n] then return false end
+    return usable == nil or usable(n)
+  end
+end
+
 --- La décision d'un cycle. input = {
 ---   data (Ca.data), state = { techs = { [techno] = vrai }, known = { [ressource] = vrai } (absente : toutes) },
 ---   stock = { [objet] = n }, flows = { [objet] = { made = /min arrivés au QG (toutes sources), hand = /min faits ou minés à

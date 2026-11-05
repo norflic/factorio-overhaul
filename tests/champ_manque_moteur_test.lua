@@ -146,7 +146,7 @@ local function s5_ok(sl)
   return sl.busy and sl.room == 0 and sl.room_comp == 0 and Em.drill_refused(sl, "iron-plate") and sl.counted == s2.counted
 end
 check(s5_ok(s5), "§5 le champ TIENT le siege : foreuse de fer refusee a la decision suivante, aucun emplacement ordinaire pris")
-check(j5:find("siege tenu par 1 champ(s)", 1, true) ~= nil, "§5 journal : siege tenu par 1 champ")
+check(j5:find("siege tenu par 1 ordre(s)", 1, true) ~= nil, "§5 journal : siege tenu par 1 champ")
 check(Em.champ_seat(true, s2.room, s2.room_comp, s2.comp, "iron-plate") == "complement"
   and Em.champ_seat(true, s5.room, s5.room_comp, s5.comp, "iron-plate") == nil, "§5 decision : le premier champ du fer prend le siege, le suivant est refuse")
 local o_slots = Em.slots

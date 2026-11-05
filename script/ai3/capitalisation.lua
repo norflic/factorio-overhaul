@@ -760,7 +760,8 @@ end
 function Capi.slots(f, cs, stock, tick, book)
   local mods = {}
   for _, o in ipairs(cs.open or {}) do
-    if o.exec == "module" then
+    -- (règle 9 : une chaîne ouverte sur le siège du complément n'est pas comptée ici ; elle le tient tant qu'elle avance, plus bas)
+    if o.exec == "module" and o.seat ~= "complement" then
       local states = {}
       -- lot DIAG-USINE : suspendu par la pile = chaque module non fini est en réserve « pile » (objets rendus au coffre)
       local suspended = false
@@ -800,12 +801,21 @@ function Capi.slots(f, cs, stock, tick, book)
   else
     cs.seat_prev = nil
   end
+  -- Règle 9 (extension du lead, 5/11 au soir) : la CHAÎNE de l'objet qui manque le plus aux ordres ouverts, si ses plaques ne sont pas
+  -- en déficit (Ca.seat_chain, hystérésis sur cs.seat_chain_prev) ; Em.slots ne l'applique que si tous les emplacements comptés
+  -- attendent leur matière (partie du DC, minute 100 : 6 modules qui attendaient des AM2, chaine:assembling-machine-2 refusée).
+  local chain, cinfo = nil, {}
+  if not cs.no_short then
+    chain, cinfo = Ca.seat_chain({ open = cs.open, book = book, names = PLATE_PRODUCTS, free = free, prev = cs.seat_chain_prev })
+  end
+  cs.seat_chain_prev = chain
   -- Relecture du lead (18 h 10, point 1, BLOQUANT) : un ordre CHAMP ouvert sur le siège du complément (decide, Em.champ_seat) le tient.
   -- (seconde relecture, point 1 : seulement s'il avance VRAIMENT, posées en hausse depuis moins de Em.STALL : Em.champ_holds)
   local held = 0
   for _, o in ipairs(cs.open or {}) do if Em.champ_holds(o, tick) then held = held + 1 end end
   local sl = Em.slots({ base = base, plates = plates, mods = mods, tick = tick, names = PLATE_PRODUCTS, sleeping = Dep.sleeping(f, tick),
-    short = short, held_comp = held })
+    short = short, held_comp = held, chain = chain, chain_n = cinfo.orders })
+  sl.avoid = sl.chain and { [sl.chain] = true } or nil -- (la chaîne du siège ne se bâtit pas avec l'objet qui bloque : Ca.avoiding)
   if (cs.dm_base or A.MAX_OPEN) ~= base then
     log(string.format("[FO-DEMANDE] %s : EMPLACEMENTS de chantier %s -> %d (base %d + %d : %d bras libres, %d ordre(s) retenu(s) faute de place ; plafond de surete %d) a %.1f min",
       f.key or "?", cs.dm_base and tostring(cs.dm_base) or "-", base, A.MAX_OPEN, base - A.MAX_OPEN, math.floor(hands), cs.blocked_slots or 0, Dm.SLOTS_HARD, minutes(f, tick)))
@@ -813,8 +823,8 @@ function Capi.slots(f, cs, stock, tick, book)
   end
   local comp_list = {} -- lot CORR-CHAMP-MANQUE : le journal suit aussi les produits du siège (stock qui dort, matière qui manque)
   for _, p in ipairs(PLATE_PRODUCTS) do if sl.comp and sl.comp[p] then comp_list[#comp_list + 1] = p end end
-  local sig = string.format("%d|%d|%d|%s|%s|%d|%s", sl.cap, sl.counted, sl.open, table.concat(sl.keys_stalled, ","), table.concat(sl.keys_piled, ","),
-    sl.comp and sl.room_comp or -1, table.concat(comp_list, ","))
+  local sig = string.format("%d|%d|%d|%s|%s|%d|%s|%s", sl.cap, sl.counted, sl.open, table.concat(sl.keys_stalled, ","), table.concat(sl.keys_piled, ","),
+    sl.comp and sl.room_comp or -1, table.concat(comp_list, ","), tostring(sl.chain))
   if cs.slots_sig ~= sig then
     cs.slots_sig = sig
     local pl = {}
@@ -1142,7 +1152,9 @@ local function execute(f, cs, o, view, book, tick, research)
     return rec
   elseif o.kind == "chaine" or o.kind == "packs" then
     local vstock = view.stock or {}
-    local meth, why = A.method_for(o.item, book, function(n) return book:handcraftable(n) or (vstock[n] or 0) > 0 end)
+    local usable = function(n) return book:handcraftable(n) or (vstock[n] or 0) > 0 end
+    if o.avoid then usable = Ca.avoiding(usable, o.avoid) end -- (règle 9 : chaîne du siège, sans l'objet qui bloque)
+    local meth, why = A.method_for(o.item, book, usable)
     if not meth then return nil, tostring(why) end
     local ids, why2 = {}, nil
     local rkey = Rp.key(o.item, nil)
@@ -1193,6 +1205,7 @@ local function follow(f, cs, rec, tick)
     end
     local n_mod = #(rec.mod_ids or { rec.module })
     rec.missing, rec.blocked = missing, blocked
+    rec.adv_tick, rec.built_hi = Em.champ_advance(rec.adv_tick, rec.built_hi, built, tick) -- (règle 9 : progrès RÉEL, Em.champ_holds)
     rec.work_tick = Em.work_tick(rec.work_tick, states, tick)
     if n_fini + n_ref >= n_mod then
       if n_fini > 0 then return "fini" end
@@ -1508,17 +1521,23 @@ local function decide(f, cs, view, book, tick, research, w)
     -- (Intégration 0.6.25 : la porte de la pile de FUITES-PILE d'abord, puis le plafond des emplacements de CAPI-DEBIT.)
     local allowed, pwhy = pile_ok(f, o)
     local meth_o = (o.kind == "couvrir" or o.kind == "ouvrir") and METHOD_OF_ORE[o.resource] or nil
-    local seat = Em.order_seat(room, room_comp, cs.slots and cs.slots.comp, meth_o and meth_o.product) -- (règle pure, testée)
+    -- (règle 9 : le produit d'une CHAÎNE est son objet ; il n'est dans le complément que si la règle 9 l'y a mis)
+    local seat_product = (meth_o and meth_o.product) or (o.kind == "chaine" and o.item) or nil
+    local seat = Em.order_seat(room, room_comp, cs.slots and cs.slots.comp, seat_product) -- (règle pure, testée)
     local champ = to_champ(f, cs, o) -- (lot CHAMP : le champ n'est pas un module)
     local cseat = champ and Em.champ_seat(full, room, room_comp, cs.slots and cs.slots.comp, meth_o and meth_o.product) or nil
     if allowed and Capi.MODULE_KINDS[o.kind] and ((not champ and seat == nil) or (champ and cseat == nil)) then
       rec, why = nil, Em.busy_text(cs.slots) .. " ; emplacements libres pris par cette decision"
       -- (intégration 0.6.32 : retenu faute de place lui aussi ; remarque 6 de la relecture de CORR-CHAMP-MANQUE : pas quand seul le
       -- siège unique du complément était pris, Em.blocked_counts)
-      if Em.blocked_counts(cs.slots and cs.slots.comp, meth_o and meth_o.product) then cs.blocked_slots = (cs.blocked_slots or 0) + 1 end
+      if Em.blocked_counts(cs.slots and cs.slots.comp, seat_product) then cs.blocked_slots = (cs.blocked_slots or 0) + 1 end
     elseif allowed then
+      -- règle 9 : la chaîne qui prend le siège ne se bâtit pas avec l'objet qui bloque (Ca.avoiding, dans execute)
+      local chain_seat = o.kind == "chaine" and seat == "complement"
+      if chain_seat then o.avoid = cs.slots and cs.slots.avoid end
       rec, why = execute(f, cs, o, view, book, tick, research)
       if rec and rec.exec == "champ" and cseat == "complement" then rec.seat = "complement" end -- (tenu : Capi.slots, held_comp)
+      if rec and rec.exec == "module" and chain_seat then rec.seat = "complement" end -- (règle 9 : tenue comme le champ)
     else
       why = "pile : " .. tostring(pwhy)
       PileRt.refuse(f, "capi:" .. tostring(o.key), "ordre " .. tostring(o.kind) .. " " .. tostring(o.item or o.resource or o.tech)
@@ -1825,7 +1844,7 @@ remote.add_interface("fo-capi", {
       out.open[#out.open + 1] = { key = rec.key, kind = rec.kind, exec = rec.exec, n = rec.n, n_left = rec.n_left,
         mod_ids = rec.mod_ids, opened = rec.opened, module = rec.module, per = rec.per, inserted = rec.inserted,
         refused = rec.refused, why_refused = rec.why_refused, tech = rec.tech, announced = rec.announced,
-        resource = rec.resource, product = rec.product, missing = rec.missing } -- (lot CORR-CHAMP-MANQUE : ressource, produit, manques)
+        resource = rec.resource, product = rec.product, missing = rec.missing, item = rec.item, seat = rec.seat } -- (lot CORR-CHAMP-MANQUE)
     end
     -- lot CORR-CHAMP-MANQUE : emplacements du dernier relevé (Capi.slots), produits du siège du complément dans l'ordre des fonderies
     local sl = cs.slots
@@ -1833,9 +1852,12 @@ remote.add_interface("fo-capi", {
       local comp = {}
       for _, p in ipairs(PLATE_PRODUCTS) do if sl.comp and sl.comp[p] then comp[#comp + 1] = p end end
       out.slots = { cap = sl.cap, counted = sl.counted, open = sl.open, room = sl.room, room_comp = sl.room_comp, busy = sl.busy,
-        materials = sl.materials, comp = comp, why = sl.why }
+        materials = sl.materials, comp = comp, why = sl.why, chain = sl.chain, held_comp = sl.held_comp }
     end
     for _, d in ipairs(cs.done) do out.done[#out.done + 1] = d end
+    -- règle 9 (bancs) : ordres refusés et tick du refus, triés
+    out.refused = {}
+    for _, k in ipairs(sorted_keys(cs.refused or {})) do out.refused[#out.refused + 1] = { key = k, tick = cs.refused[k] } end
     -- lot CAPI-REPLI / CAPI-MESURE : repli par (produit, gisement) et raison de chaque foreuse refusée (bancs)
     out.repli, out.drill_why = {}, cs.drill_why
     for _, k in ipairs(sorted_keys(cs.repli or {})) do out.repli[k] = Rp.describe(cs.repli, k, game.tick, nil) end

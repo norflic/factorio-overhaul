@@ -128,7 +128,7 @@ local function suite()
   check(sl6.room_comp == 0 and sl6.held_comp == 1 and Em.drill_refused(sl6, "iron-plate") == true,
     "le champ ouvert sur le siège le tient : pas de second champ à la décision suivante")
   check(sl6.counted == sl.counted and sl6.room == sl.room, "il ne prend aucun emplacement ordinaire (lot CHAMP)")
-  check(sl6.why:find("siege tenu par 1 champ(s)", 1, true) ~= nil, "le journal le dit : " .. sl6.why)
+  check(sl6.why:find("siege tenu par 1 ordre(s)", 1, true) ~= nil, "le journal le dit : " .. sl6.why)
   local s7 = {} for k, v in pairs(s0) do s7[k] = v end
   s7.held_comp = 1
   local sl7 = Em.slots(s7)
@@ -194,8 +194,11 @@ local function suite()
     and Em.champ_holds(bld, T + 5 * 3600 + Em.STALL) == false, "un champ qui pose tient le siège Em.STALL après son dernier progrès réel")
   local a3, h3 = Em.champ_advance(a2, h2, 2, T + 6 * 3600)
   check(a3 == a2 and h3 == 3, "des entités perdues ne sont pas un progrès")
-  check(Em.champ_holds({ exec = "champ", opened = T }, T) == false and Em.champ_holds({ exec = "module", seat = "complement", opened = T }, T) == false,
-    "un champ hors du siège, ou un module, ne compte pas ici")
+  check(Em.champ_holds({ exec = "champ", opened = T }, T) == false and Em.champ_holds({ exec = "module", opened = T }, T) == false
+    and Em.champ_holds({ exec = "techno", seat = "complement", opened = T }, T) == false,
+    "un champ ou un module hors du siège, ou un autre exécutant, ne compte pas ici")
+  check(Em.champ_holds({ exec = "module", seat = "complement", opened = T }, T + 60) == true,
+    "règle 9 : une chaîne (module) ouverte sur le siège le tient comme un champ")
   local s8 = {} for k, v in pairs(s1) do s8[k] = v end
   s8.held_comp = Em.champ_holds(bat, T + Em.STALL + 60) and 1 or 0
   local sl8 = Em.slots(s8)

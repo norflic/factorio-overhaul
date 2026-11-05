@@ -51,6 +51,18 @@
        s'il manque. Chaque foreuse d'un produit du complément est accordée tant que room_comp > 0 (Em.drill_refused) ; à la décision, le
        siège va au PREMIER ordre, dans l'ordre trié de Ca.decide, dont le produit est dans le complément (Em.order_seat) ; les suivants
        sont refusés « plan directeur occupe ».
+    9. Extension du lead (5/11 au soir) : le même siège pour une CHAÎNE. Condition : TOUS les emplacements comptés sont tenus par des
+       modules en attente de matière, et l'objet qui manque le plus aux ordres ouverts n'a pas ses plaques en déficit (Ca.seat_chain :
+       compté en nombre d'ordres, avec hystérésis). Alors le complément est {cet objet}, SEUL : l'interblocage passe avant les
+       règles 7 et 8. Sinon, la règle 8 s'applique.
+       MESURÉ dans la partie du DC (fo-logs/2026-11-05_PARTIE-DC-ESSAI, minute 100) :
+         - 6 modules sur 6 emplacements attendaient des assembling-machine-2, avec 65 000 fers au coffre ;
+         - chaine:assembling-machine-2 était refusée « plan directeur occupe » ;
+         - le module de cette chaîne, quand il a été ouvert (#35), attendait lui-même une AM2.
+       Deux conséquences dans le runtime :
+         - la chaîne du siège se bâtit SANS l'objet qui bloque (Ca.avoiding) ;
+         - elle n'est pas comptée dans les emplacements ordinaires et tient le siège tant qu'elle avance (Em.champ_holds), comme le
+           champ.
   Déterminisme : listes parcourues dans l'ordre donné, aucun hasard, aucun temps mesuré ; entrée et sortie : nombres, chaînes,
   tables.
 ]]
@@ -216,8 +228,10 @@ end
 --- bâtir (26 changements en 36 min, MESURÉ dans la partie du DC) : progress_tick avance, ORDER_TTL ne tombe jamais. Ici, seul le
 --- PROGRÈS RÉEL compte : entités posées en hausse (Em.champ_advance). Un champ sans progrès réel depuis Em.STALL ticks (depuis son
 --- ouverture s'il n'a jamais rien posé) lâche le siège, comme un module « figé ». o = { exec, seat, adv_tick, opened }.
+--- Règle 9 (extension du lead, 5/11 au soir) : la même tenue pour une CHAÎNE ouverte sur le siège (exec = "module", seat marqué) :
+--- elle n'est pas comptée dans les emplacements ordinaires, elle tient le siège tant qu'elle avance.
 function Em.champ_holds(o, tick)
-  if not (o and o.exec == "champ" and o.seat == "complement") then return false end
+  if not (o and (o.exec == "champ" or o.exec == "module") and o.seat == "complement") then return false end
   local t0 = o.adv_tick or o.opened or tick or 0
   return (tick or 0) - t0 < Em.STALL
 end
@@ -242,7 +256,8 @@ end
 --- s = { base (A.MAX_OPEN), plates (liste des stocks libres des produits des fonderies), mods (liste de { states, progress_tick,
 --- opened, work_tick, key }), tick, names (produits des fonderies, dans l'ordre de plates), sleeping ({ [produit] = true } : ceux qui
 --- dorment, lot DEPENSES2), short ({ [produit] = true } : leur matière manque aux ordres ouverts, Em.short, lot CORR-CHAMP-MANQUE),
---- held_comp (ordres CHAMP ouverts qui tiennent le siège du complément : ils ne sont pas dans mods ; relecture du lead, 18 h 10) }.
+--- held_comp (ordres CHAMP ouverts qui tiennent le siège du complément : ils ne sont pas dans mods ; relecture du lead, 18 h 10),
+--- chain, chain_n (règle 9 : l'objet qui manque le plus, Ca.seat_chain, et son nombre d'ordres) }.
 --- Rend { cap, counted, stalled, free_stalled, materials, open, room, busy, keys_stalled, why, comp, room_comp, held_comp }.
 function Em.slots(s)
   local base = math.max(0, math.floor((s and s.base) or 0))
@@ -282,6 +297,14 @@ function Em.slots(s)
   -- Règle 7 (lot DEPENSES2) : le siège du complément du stock qui dort ; règle 8 (CORR-CHAMP-MANQUE) : le même siège pour les
   -- produits dont la matière manque aux ordres ouverts (s.short)
   local comp = Em.complement(s and s.names, s and s.sleeping, s and s.short)
+  -- Règle 9 (extension du lead, 5/11 au soir) : TOUS les emplacements comptés sont tenus par des modules en attente de matière, et
+  -- l'objet qui manque le plus aux ordres ouverts a ses plaques (s.chain, Ca.seat_chain) : le siège va à SA chaîne, SEULE. Un
+  -- interblocage passe avant le stock qui dort (règle 7) et avant la plaque qui manque (règle 8), qui n'ont rien à débloquer ici.
+  local chain = nil
+  if s and s.chain ~= nil and room <= 0 and counted > 0 and materials >= counted then
+    chain = s.chain
+    comp = { [chain] = true }
+  end
   local room_comp = room
   -- Relecture du lead (18 h 10, point 1, BLOQUANT) : un ordre CHAMP qui a pris le siège (Em.champ_seat) n'est pas un module, il n'est
   -- pas dans `mods` : il le TIENT quand même (s.held_comp), sinon chaque décision relancerait un champ de plus sur la plaque qui manque.
@@ -304,12 +327,16 @@ function Em.slots(s)
     elseif #cm > 0 then
       why = why .. string.format(", +%d pour la matiere qui manque aux ordres ouverts (%s)", Em.COMP_SLOTS, table.concat(cm, " "))
     end
-    if held > 0 then why = why .. string.format(" ; siege tenu par %d champ(s)", held) end
+    if chain then
+      why = why .. string.format(", +%d pour la chaine de l'objet qui manque le plus aux ordres ouverts (%s, %d ordre(s))", Em.COMP_SLOTS,
+        chain, s.chain_n or 0)
+    end
+    if held > 0 then why = why .. string.format(" ; siege tenu par %d ordre(s)", held) end
   end
   return { cap = cap, base = base, extra = extra, counted = counted, stalled = stalled, free_stalled = free_stalled,
     piled = piled, free_piled = free_piled, keys_piled = keys_piled, held_comp = held,
     materials = materials, open = #mods, room = room, busy = room <= 0, keys_stalled = keys_stalled, why = why,
-    comp = comp, room_comp = room_comp }
+    comp = comp, room_comp = room_comp, chain = chain }
 end
 
 --- Lot INDUSTRIE I6 : l'emplacement des blocs de mall. s = { mods = liste de { states, progress_tick, opened, work_tick, pile_tick, key }
