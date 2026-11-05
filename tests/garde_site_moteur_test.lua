@@ -251,5 +251,35 @@ Gd.debit(f6, IRON, 120)
 check(calls[1] == "defense:" .. IRON .. ":120" and Gd.grant(f6, 3100, IRON) == 600, "Dep.debit présent : la dépense lui est rendue, pas de compte local")
 Gd.set_dep(nil)
 check(Gd.grant(f6, 3200, IRON) == nil, "sans module : repli")
+section("7. G3 (essai 3) : briques à fondre de la pierre qui dort pour l'anneau de votre équipe")
+do
+  local f7 = global.fo.pteam.team
+  local Rsv = require("script.ai3.reserve")
+  local input0 = Rsv.input
+  local stone_free = 600
+  Rsv.input = function() return { covered = false, free = { ["iron-plate"] = 0, stone = stone_free } } end
+  f7.build = f7.build or { projects = {}, order = {}, occ = {} }
+  f7.build.enc_need = { walls = 100, equiv = 0, tick = game.tick }
+  check(Gd.bricks_want(f7, game.tick, 0) == nil, "enceinte de votre équipe éteinte : aucune brique voulue")
+  f7.garde_g3 = true
+  local bw = Gd.bricks_want(f7, game.tick, 0)
+  local Stock = require("script.team.stock")
+  local eq = Stock.count(f7, "stone-wall") + math.floor(Stock.count(f7, "stone-brick") / 5) -- (murs et briques déjà au coffre de l'équipe)
+  check(bw and bw.item == "stone-brick" and bw.n == math.min(300, 5 * (100 - eq)) and bw.deficit == 100 - eq,
+    "anneau de 100 murs, " .. eq .. " au coffre, 600 pierres libres : briques bornées par la pierre (" .. tostring(bw and bw.n) .. ", manque " .. tostring(bw and bw.deficit) .. ")")
+  stone_free = 2000
+  bw = Gd.bricks_want(f7, game.tick, 0)
+  check(bw and bw.n == 5 * bw.deficit, "pierre suffisante : les briques de tout ce qui manque (" .. tostring(bw and bw.n) .. ")")
+  stone_free = 0
+  check(Gd.bricks_want(f7, game.tick, 0) == nil, "aucune pierre libre : rien (aucune extraction demandée)")
+  stone_free = 2000
+  check(Gd.bricks_want(f7, game.tick + 2 * require("shared.team.enceinte").CHECK_TICKS + 1, 0) == nil, "besoin périmé (plus écrit par l'enceinte) : rien")
+  f7.garde_temoin = true
+  check(Gd.bricks_want(f7, game.tick, 0) == nil, "témoin : rien")
+  f7.garde_temoin, f7.garde_g3 = nil, nil
+  f7.build.enc_need = nil
+  Rsv.input = input0
+end
+
 print(string.format("[GARDE-SITE-MOTEUR] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

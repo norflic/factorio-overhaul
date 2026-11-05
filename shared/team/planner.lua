@@ -1278,6 +1278,11 @@ function P.plan(view, book)
     end
   end
 
+  -- Lot PERIMETRE2 (G3, essai 3) : briques des murs de votre équipe, fondues de la PIERRE QUI DORT (view.garde.bricks, borné par
+  -- script/team/garde_site.lua à la pierre libre hors besoin : aucune extraction, aucun fer) ; besoin d'accumulation, priorité basse.
+  local gb = view.garde and view.garde.bricks
+  if gb and gb.item and (gb.n or 0) > 0 then want({ { gb.item, gb.n } }, T.garde_bricks_prio, "enceinte", true) end
+
   ---------------------------------------------------------------------------------------------------
   -- 5. Matières premières manquantes : avant-poste existant (on attend sa tournée), fonderie, minage
   ---------------------------------------------------------------------------------------------------

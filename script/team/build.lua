@@ -200,7 +200,8 @@ function Build.grow(f, r, cap)
   r = math.min(r, cap or Build.RADIUS_MAX) -- lot INDUSTRIE I3 : `cap` = Build.RADIUS_ORE pour une croissance vers un gisement connu
   -- lot ESPACE : le rayon est figé par l'enceinte (un lot posé après l'anneau serait dehors, ou l'anneau couperait un lot)
   -- Lot C3 EXTENSION : sauf enceinte COMPLÈTE à contour serré (Build.beyond_wall) : les lots au-delà sont des îlots
-  if b.enc and not Build.beyond_wall(b) then r = math.min(r, b.enc.r) end
+  -- Lot PERIMETRE2 (G3, essai 3) : sauf l'enceinte de VOTRE équipe pendant sa construction (enc.grow) : la base grandit comme sans mur
+  if Build.radius_frozen(b) then r = math.min(r, b.enc.r) end
   if r <= b.radius then return end
   for _, l in ipairs(P.lots_within(r)) do
     local k = P.lot_key(l.i, l.j)
@@ -225,9 +226,15 @@ function Build.beyond_wall(b)
   return b.enc ~= nil and Ic.open(b.enc) and Rsv.on()
 end
 
+--- Le rayon du treillis est-il figé par l'enceinte ? Oui tant qu'elle n'est pas complète (Build.beyond_wall), SAUF l'enceinte de votre
+--- équipe pendant sa construction (enc.grow, lot PERIMETRE2 G3 essai 3 : la base grandit comme sans mur jusqu'à l'anneau complet).
+function Build.radius_frozen(b)
+  return b.enc ~= nil and not Build.beyond_wall(b) and not b.enc.grow
+end
+
 --- Lot ESPACE : le treillis peut-il encore grandir ? (rayon maximal ou enceinte : non). Les replans qui attendent une
 --- croissance s'y réfèrent, sinon ils attendraient pour toujours un rayon figé.
-function Build.can_grow(b) return b.radius < Build.RADIUS_MAX and (not b.enc or Build.beyond_wall(b)) end
+function Build.can_grow(b) return b.radius < Build.RADIUS_MAX and not Build.radius_frozen(b) end
 
 local function seg_ok(b) return function(key) local s = b.segs[key]; return s ~= nil and s.state == "ouvert" end end
 local function seg_passable(b) return function(key) local s = b.segs[key]; return s ~= nil and s.state ~= "ferme" and s.state ~= "inconnu" end end
@@ -1180,7 +1187,7 @@ local function treillis_step(f, surface, res, dt, dist, reach_tiles)
     return nil
   end
   -- (intégration 0.6.32 : enceinte complète, Build.beyond_wall : le rayon n'est plus figé ; Tr.decide refusait « enceinte » ce que Build.grow permet)
-  local s = { radius = b.radius, cap = Build.RADIUS_ORE, enc_r = b.enc and not Build.beyond_wall(b) and b.enc.r or nil,
+  local s = { radius = b.radius, cap = Build.RADIUS_ORE, enc_r = Build.radius_frozen(b) and b.enc.r or nil,
     pending = math.max(0, #b.queue - b.qhead + 1), reach = reach_tiles }
   if dt then
     s.found, s.dist = true, dist
@@ -2216,12 +2223,15 @@ end
 
 --- Lot ENCEINTE3 : les lots libres que le mur coupe ou laisse dehors ne reçoivent plus de module (drapeau `out`, lu par
 --- `candidates` et Enc.free_count) ; un lot de GISEMENT reste utilisable dehors (les mines d'avant-poste).
-local function enc_mark_out(b, bounds)
+--- Lot PERIMETRE2 (G3, essai 3) : `cut_only` (enceinte de votre équipe en construction) : seuls les lots que l'anneau COUPE sont écartés ;
+--- les lots tout dehors restent utilisables jusqu'à l'enceinte complète (partie du DC, lot-dc : 76 lots écartés dès le premier segment).
+local function enc_mark_out(b, bounds, cut_only)
   local n = 0
   for _, k in ipairs(sorted_keys(b.lots)) do
     local l = b.lots[k]
     local x0, y0, x1, y1 = P.lot_rect(b.lat, l.i, l.j)
-    if not (l.i == 0 and l.j == 0) and not Enc.inside(bounds, { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }) then
+    local rect = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }
+    if not (l.i == 0 and l.j == 0) and (cut_only and Enc.cut(bounds, rect) or (not cut_only and not Enc.inside(bounds, rect))) then
       l.out = true
       n = n + 1
     end
@@ -4605,10 +4615,21 @@ local function request_segment(f, enc, tick)
   local equiv = Stock.count(f, wr.item) + craftable_walls(f, wr)
   local threats = known_threats(f)
   -- lot ENCEINTE3 (lot A) : le segment démarre au bout du tronçon le plus proche de la menace connue de son côté, à défaut du QG
-  local seg, why = Enc.next_segment(runs, Enc.run_order(runs, b.lat, threats), enc.claimed, Enc.segment_cap(equiv),
-    Enc.run_refs(runs, b.lat, threats))
+  -- Lot PERIMETRE2 (G3, essai 3) : l'anneau de votre équipe a été payé en entier au départ (enc.full) : segments sur tout le stock (40 au plus)
+  local cap = enc.full and Enc.segment_cap_full(equiv) or Enc.segment_cap(equiv)
+  local seg, why = Enc.next_segment(runs, Enc.run_order(runs, b.lat, threats), enc.claimed, cap, Enc.run_refs(runs, b.lat, threats))
   if not seg then
-    if why == "complet" then enc.complete = true end
+    if why == "complet" then
+      enc.complete = true
+      if enc.grow and enc.bounds then -- (G3 : l'anneau est entier : les lots dehors passent à l'extension par îlots, comme ENCEINTE3)
+        local n = enc_mark_out(b, enc.bounds)
+        enc.grow = nil
+        space_log(b, string.format("[FO-ESPACE] %s : enceinte complete (tous ses segments demandes) a %.1f min : %d lot(s) dehors ecartes, la suite par les ilots",
+          f.key or "player", tick / 3600, n))
+      end
+    elseif why == "stock" and enc.full then
+      b.enc_need = { walls = Enc.unclaimed(runs, enc.claimed), equiv = equiv, tick = tick } -- (briques de la pierre qui dort, garde_site.lua)
+    end
     return false, why, equiv
   end
   local tiles = {}
@@ -4708,6 +4729,16 @@ function Build.space_step(f, surface, tick)
       request = function(spec) return Build.request(f, spec) end, cancel = function(pid, why) return Build.cancel(f, pid, why) end,
       repair = function(hold) repair_enclosure(f, surface, tick, hold, "[FO-ILOT]") end })
     if Build.beyond_step then Build.beyond_step(f, b, enc, tick, active_segment(b, enc) ~= nil) end -- lot C3 EXTENSION
+    -- Lot PERIMETRE2 (G3, essai 3) : l'enceinte de votre équipe en construction ne fige pas la base : la croissance est évaluée comme sans mur
+    if enc.grow and not enc.complete then
+      local ginfo = space_info(b)
+      ginfo.enc = false
+      if Enc.grow_due(ginfo) then
+        space_log(b, string.format("[FO-ESPACE] %s : le treillis grandit au rayon %d pendant la construction de l'enceinte (lots libres %d < %d) a %.1f min",
+          f.key or "player", b.radius + 1, ginfo.free, Enc.GROW_FREE_MIN, tick / 3600))
+        Build.grow(f, b.radius + 1)
+      end
+    end
     if enc.complete or active_segment(b, enc) or tick < (enc.retry or 0) then return end
     local ok, why, equiv = request_segment(f, enc, tick)
     if ok then
@@ -4740,6 +4771,24 @@ function Build.space_step(f, surface, tick)
   -- lot ENCEINTE3 : contour serré sur l'empreinte (bornes figées avec le rayon) ; nil : le rayon, comme avant
   local tight, tinfo = enc_tight_bounds(f)
   local cand = { r = b.radius, claimed = {}, segs = {}, tick = tick, gates = Enc.gate_count(), bounds = tight }
+  -- Lot PERIMETRE2 (G3, essai 3, cause MESURÉE sur la partie du DC) : votre équipe ne commence l'anneau que s'il est payé EN ENTIER (murs et
+  -- briques au stock ; les briques se fondent de la pierre qui dort, script/team/garde_site.lua) ; ses segments prennent alors tout le stock
+  -- (40 au plus), seuls les lots COUPÉS sont écartés et la base continue de grandir jusqu'à l'enceinte complète.
+  if f.is_player then
+    local need = Enc.max_walls(b.radius, { bounds = tight })
+    local wr = wall_recipe(f)
+    local have = wr and (Stock.count(f, wr.item) + craftable_walls(f, wr)) or 0
+    b.enc_need = { walls = need, equiv = have, tick = tick }
+    if not Enc.full_ring_ok(have, need) then
+      if not b.space_poor then
+        b.space_poor = true
+        space_log(b, string.format("[FO-ESPACE] %s : enceinte voulue (rayon %d, %d murs), stock equivalent %d murs : attente de l'anneau ENTIER (briques de la pierre qui dort) a %.1f min",
+          f.key or "player", b.radius, need, have, tick / 3600))
+      end
+      return
+    end
+    cand.full, cand.grow = true, true
+  end
   local ok, why, equiv = request_segment(f, cand, tick)
   if not ok then
     if why == "stock" and not b.space_poor then
@@ -4750,7 +4799,8 @@ function Build.space_step(f, surface, tick)
     return
   end
   b.enc = cand
-  local out_n = tight and enc_mark_out(b, tight) or 0
+  b.enc_need = nil
+  local out_n = tight and enc_mark_out(b, tight, cand.grow) or 0
   space_log(b, string.format("[FO-ESPACE] %s : enceinte progressive commencee (rayon %d fige, %d murs au plus en tout) a %.1f min", f.key or "player",
     b.radius, Enc.max_walls(b.radius, { bounds = tight }), tick / 3600))
   if tight then

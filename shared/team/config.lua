@@ -275,6 +275,7 @@ T.enceinte_joueur = false
 -- DEPENSES, sinon 30 % du fer libre hors besoin, rien sous 2 000 de fer) ; G3 anneau de murs de pierre autour des avant-postes attaqués.
 T.garde_site_on = true
 T.garde_walls_on = false -- (essai 2 : murs des avant-postes ÉTEINTS avec l'enceinte ; G1/G2 seuls mesurés à part)
+T.garde_bricks_prio = 20 -- lot PERIMETRE2 (G3, essai 3) : priorité des briques des murs de votre équipe (pierre qui dort ; sous la production)
 -- Lot QG-GROUPE2 (shared/team/qg_groupe.lua ; le DC, QCM du 4/11 : « Placement groupé dès la pose », sans téléport) : votre équipe seulement.
 -- Règle 1 : tourelles du QG posées en lignes de 4 (écart Pose.gap) sur le côté attaqué, à nombre constant, jamais déplacées ;
 -- règle 2 : Sq.peril compte la défense au point le plus faible (appui des voisines), et le groupe « hq » ne veut que hq + fresh tourelles.

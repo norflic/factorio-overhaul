@@ -339,8 +339,10 @@ do
     { "script/faction/sites.lua", "faction_limits(f)), need + FACTION_EXTRA", "Sites : sites voulus par ressource selon la défense" },
     { "script/faction/sites.lua", "ctx.reach_bonus = es.reach", "la portée de valeur suit l'étendue" },
     { "script/ai3/capitalisation.lua", "local scan_r = scan_radius(f)", "la capitalisation recense le rayon de la base" },
-    { "script/ai3/capitalisation.lua", "if enc and Build.beyond_wall(f.build) then enc = nil end", "enceinte complète : un gisement au-delà n'est plus « hors du plan directeur »" },
-    { "script/team/build.lua", "enc_r = b.enc and not Build.beyond_wall(b) and b.enc.r or nil", "enceinte complète : la croissance vers un gisement n'est plus refusée" },
+    -- (lot PERIMETRE2 G3 essai 3 : par Build.radius_frozen = enceinte ni complète ni de votre équipe en construction ; factions : la règle d'avant)
+    { "script/ai3/capitalisation.lua", "if enc and not Build.radius_frozen(f.build) then enc = nil end", "enceinte complète : un gisement au-delà n'est plus « hors du plan directeur »" },
+    { "script/team/build.lua", "enc_r = Build.radius_frozen(b) and b.enc.r or nil", "enceinte complète : la croissance vers un gisement n'est plus refusée" },
+    { "script/team/build.lua", "return b.enc ~= nil and not Build.beyond_wall(b) and not b.enc.grow", "Build.radius_frozen : figé sauf enceinte complète (ou celle de votre équipe en construction)" },
     { "script/ai3/capitalisation.lua", "Dm.blocked_next(cs.blocked_slots, Dm.count_blocked(res.refus))", "les emplacements lisent les ordres retenus" },
     { "script/ai3/exploration.lua", "K.blocked_near(k.blocked, bx, by, tick, block_params(k))", "régions bloquées : rayon et durée variables" },
     { "script/ai3/exploration.lua", "push = push,", "la veille reçoit la poussée de l'extension" },

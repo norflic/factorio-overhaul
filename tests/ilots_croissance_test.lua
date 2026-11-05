@@ -213,8 +213,11 @@ end
 local extra_fail = {}
 do
   local function need(cond, m) if not cond then extra_fail[#extra_fail + 1] = m end end
-  need(BUILD_SRC:find("if b.enc and not Build.beyond_wall(b) then r = math.min(r, b.enc.r) end", 1, true), "Build.grow : plafond de l'enceinte levé seulement par Build.beyond_wall")
-  need(BUILD_SRC:find("(not b.enc or Build.beyond_wall(b))", 1, true), "Build.can_grow : la croissance au-delà du mur est possible")
+  -- (lot PERIMETRE2 G3 essai 3 : le plafond passe par Build.radius_frozen, levé par Build.beyond_wall ou, pour l'enceinte de votre équipe
+  -- en construction, par enc.grow ; les factions n'ont jamais enc.grow : pour elles, la règle d'avant)
+  need(BUILD_SRC:find("if Build.radius_frozen(b) then r = math.min(r, b.enc.r) end", 1, true), "Build.grow : plafond de l'enceinte levé seulement par Build.beyond_wall (ou enc.grow)")
+  need(BUILD_SRC:find("return b.enc ~= nil and not Build.beyond_wall(b) and not b.enc.grow", 1, true), "Build.radius_frozen : figé sauf au-delà du mur ou enc.grow")
+  need(BUILD_SRC:find("return b.radius < Build.RADIUS_MAX and not Build.radius_frozen(b)", 1, true), "Build.can_grow : la croissance au-delà du mur est possible")
   need(BUILD_SRC:find("Build.beyond_step(f, b, enc, tick, active_segment(b, enc) ~= nil)", 1, true), "Build.space_step appelle Build.beyond_step")
   need(BUILD_SRC:find("return b.enc ~= nil and Ic.open(b.enc) and Rsv.on()", 1, true), "Build.beyond_wall : enceinte complète ET réglage maître")
 end

@@ -26,19 +26,21 @@ local W = { stock_wall = 0, logs = {} }
 local built = {}                      -- positions des murs "vivants" : "x:y"
 local Build = { PRIO = 55 }
 local env = {
-  Enc = Enc, Build = Build, ipairs = ipairs, pairs = pairs, math = math, table = table, string = string, tostring = tostring,
+  -- (lot PERIMETRE2 : le plafond passé à Enc.next_segment est relevé dans W.last_cap)
+  Enc = setmetatable({ next_segment = function(...) W.last_cap = select(4, ...) return Enc.next_segment(...) end }, { __index = Enc }), Build = Build, ipairs = ipairs, pairs = pairs, math = math, table = table, string = string, tostring = tostring,
   next = next, type = type,
   Stock = { count = function(_, name) if name == "stone-wall" then return W.stock_wall end return 0 end },
   wall_recipe = function() return { item = "stone-wall", ings = { { name = "stone-brick", amount = 5 } }, per = 1 } end,
   craftable_walls = function() return 0 end,
   space_log = function(_, text) W.logs[#W.logs + 1] = text end,
-  space_info = function() return { radius = 3, rmax = 5, pending = 0, free = 5, busy = 0, done = 10, enc = false } end,
+  space_info = function() return W.info or { radius = 3, rmax = 5, pending = 0, free = 5, busy = 0, done = 10, enc = false } end,
   -- lot ENCEINTE3 : par defaut, pas de contour serre (le rayon, comme avant) ; les essais du contour serre posent W.tight
   enc_tight_bounds = function() if W.tight then return W.tight, W.tight_info end return nil end,
-  enc_mark_out = function() W.marked = (W.marked or 0) + 1 return 7 end,
+  enc_mark_out = function(_, _, cut) W.marked = (W.marked or 0) + 1; W.mark_cut = W.mark_cut or {}; W.mark_cut[#W.mark_cut + 1] = cut == true return 7 end,
   enc_release = function() W.released = (W.released or 0) + 1 end,
   -- lot ILOTS-MURS : le pas des îlots est appelé à chaque décision d'une équipe murée (joué en vrai par tests/ilots_flux_test.lua)
   Ilots = { step = function(_, _, _, ctx) W.ilots_calls = (W.ilots_calls or 0) + 1; W.ilots_ctx = ctx end },
+  T = require("shared.team.config"), -- (lot PERIMETRE2 : interrupteur de l'enceinte de votre équipe, lu par space_step)
 }
 local chunk = assert(load("local Enc, Build, ipairs, math, table, string, tostring, Stock, wall_recipe, craftable_walls, space_log, space_info, "
   .. "enc_tight_bounds, enc_mark_out, enc_release, Ilots = "
@@ -74,7 +76,7 @@ Build.cancel = function(f, id, why)
   end
   return false
 end
-Build.grow = function() end
+Build.grow = function(f, r) W.grows = (W.grows or 0) + 1; f.build.radius = r end
 local surface = {
   count_entities_filtered = function(q) return built[q.position[1] .. ":" .. q.position[2]] and 1 or 0 end,
 }
@@ -414,6 +416,19 @@ do
   check(fc == expect and fc >= 1, "free_count ne compte pas les lots ecartes (" .. fc .. ")")
   release(f.build)
   check(not f.build.lots["8:8"].out and not f.build.lots["5:0"].out, "liberation : plus aucun lot ecarte")
+  -- lot PERIMETRE2 (G3, essai 3) : enceinte de votre équipe en construction : seuls les lots COUPÉS par l'anneau sont écartés
+  local nc = mark_out(f.build, tb, true)
+  local agree, cut_seen = true, 0
+  for _, k in ipairs(env2.sorted_keys(f.build.lots)) do
+    local l = f.build.lots[k]
+    local a, b2_, c, d = P.lot_rect(az, l.i, l.j)
+    local want_out = not (l.i == 0 and l.j == 0) and Enc.cut(tb, { x0 = a, y0 = b2_, x1 = c, y1 = d })
+    if (l.out == true) ~= want_out then agree = false end
+    if want_out then cut_seen = cut_seen + 1 end
+  end
+  check(agree and nc == cut_seen and not f.build.lots["8:8"].out and not f.build.lots["5:0"].out,
+    "G3 : lots coupés seuls écartés (" .. nc .. "), les lots tout dehors restent utilisables pendant la construction")
+  release(f.build)
   -- le code lit bien le drapeau aux deux endroits qui choisissent un lot libre
   check(src:find('if l.out and (l.state == "libre" or l.state == "defricher") then ok_state = false end', 1, true) ~= nil, "candidates() ecarte les lots libres dehors")
   -- lot PD-CENTRALE (décision du DC D-24 (1)) : make_pond, second lecteur du drapeau, est retiré (plus d'étang garanti)
@@ -436,6 +451,59 @@ do
   finish(f, requests[1], tick)
   step(f)
   check(W.ilots_calls == 2 and W.ilots_ctx.main_busy == false, "ilots : segment fini, enceinte principale libre au moment de l'appel")
+end
+
+-- 16. Lot PERIMETRE2 (G3, essai 3) : enceinte de VOTRE équipe (partie du DC, lot-dc : anneau de 794 murs commencé avec 32 au stock, segments
+--     de 8, 76 lots écartés, croissance figée, jamais finie) : l'anneau ne commence que payé EN ENTIER, ses segments prennent tout le stock
+--     (40 au plus), seuls les lots coupés sont écartés au départ, la base grandit pendant la construction, tout est écarté à l'anneau complet.
+do
+  requests = {}
+  W.marked, W.mark_cut, W.grows, W.info = nil, nil, nil, nil
+  local tb = Enc.tight_bounds(lat, { Enc.lot_box(lat, 1, 0), Enc.lot_box(lat, 0, 1) }, {})
+  W.tight, W.tight_info = tb, { core = 2, excluded = {}, room = 0 }
+  local need = Enc.max_walls(3, { bounds = tb })
+  local f = new_team()
+  f.is_player, f.garde_g3 = true, true -- (banc de G3 : fo-garde g3 ; défaut T.enceinte_joueur éteint)
+  W.stock_wall = need - 1
+  step(f)
+  local b = f.build
+  check(b.enc == nil and #requests == 0 and b.enc_need and b.enc_need.walls == need and b.enc_need.equiv == need - 1,
+    "votre équipe : anneau pas payé en entier (" .. (need - 1) .. " sur " .. need .. ") : rien demandé, rayon libre, besoin écrit pour les briques")
+  W.stock_wall = need
+  step(f)
+  check(b.enc ~= nil and b.enc.full and b.enc.grow and #requests == 1, "anneau payé en entier : commencé")
+  W.stock_wall = 100 -- (briques prises ailleurs : il en reste 100)
+  finish(f, requests[1], tick)
+  step(f)
+  check(W.last_cap == 40 and #requests == 2, "segments sur tout le stock : plafond " .. tostring(W.last_cap) .. " (un quart en aurait " .. Enc.segment_cap(100) .. ")")
+  W.stock_wall = need
+  check(W.mark_cut and W.mark_cut[1] == true and b.enc_need == nil, "au départ, seuls les lots COUPÉS par l'anneau sont écartés")
+  -- croissance pendant la construction (plus de 3 lots libres manquent)
+  W.info = { radius = b.radius, rmax = 5, pending = 0, free = 0, busy = 0, done = 10, enc = false }
+  step(f)
+  check((W.grows or 0) == 1 and b.radius == 4, "la base grandit pendant la construction de l'enceinte (rayon " .. b.radius .. ")")
+  W.info = nil
+  local guard = 0
+  while guard < 200 and not b.enc.complete do
+    guard = guard + 1
+    local last = requests[#requests]
+    if last and last.state ~= "fini" then finish(f, last, tick) end
+    step(f)
+  end
+  check(b.enc.complete and b.enc.grow == nil and W.mark_cut[#W.mark_cut] == false, "anneau complet : tous les lots dehors écartés, la suite par les îlots")
+  check(b.enc.r == 3, "le contour reste celui du départ (rayon 3), le treillis a grandi à côté")
+  -- une faction garde la règle d'avant : un quart du stock, aucune croissance pendant la construction
+  requests = {}
+  W.grows, W.mark_cut = 0, nil
+  local g = new_team()
+  W.stock_wall = 100
+  step(g)
+  check(g.build.enc and not g.build.enc.full and not g.build.enc.grow and W.last_cap == Enc.segment_cap(100) and W.mark_cut[1] == false,
+    "faction : règle d'avant (un quart du stock : plafond " .. tostring(W.last_cap) .. ", tous les lots dehors écartés)")
+  W.info = { radius = 3, rmax = 5, pending = 0, free = 0, busy = 0, done = 10, enc = false }
+  step(g)
+  check(W.grows == 0, "faction : rayon figé pendant la construction")
+  W.info, W.tight, W.tight_info = nil, nil, nil
 end
 
 print(string.format("[ENCEINTE-FLUX] BILAN : %d OK, %d ECHEC(S)", passes, failures))

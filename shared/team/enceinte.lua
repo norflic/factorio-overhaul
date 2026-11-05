@@ -257,6 +257,24 @@ function E.inside(bounds, r)
   return r.x0 >= bounds[1] + 1 and r.y0 >= bounds[2] + 1 and r.x1 <= bounds[3] and r.y1 <= bounds[4]
 end
 
+--- Lot PERIMETRE2 (G3, enceinte de votre équipe) : le rectangle r est-il COUPÉ par l'anneau des bornes (il touche le rectangle fermé
+--- [x0, x1] x [y0, y1] sans être dedans) ? Un lot tout dehors n'est pas coupé : il reste utilisable pendant que l'anneau se construit.
+function E.cut(bounds, r)
+  local overlap = r.x0 <= bounds[3] and r.x1 >= bounds[1] and r.y0 <= bounds[4] and r.y1 >= bounds[2]
+  return overlap and not E.inside(bounds, r)
+end
+
+--- Lot PERIMETRE2 (G3) : votre équipe ne commence un anneau que si le stock (murs et ce que ses briques permettent) le paie EN ENTIER
+--- (partie du DC, lot-dc : anneau de 794 murs commencé avec 32 murs au stock, segments de 8, jamais fini, croissance figée).
+function E.full_ring_ok(equiv, need)
+  return (need or 0) > 0 and (equiv or 0) >= need
+end
+
+--- Lot PERIMETRE2 (G3) : plafond d'un segment quand l'anneau entier a été payé au départ : tout le stock, E.SEG_MAX au plus (au lieu d'un quart).
+function E.segment_cap_full(equiv)
+  return math.min(E.SEG_MAX, math.max(0, math.floor(equiv or 0)))
+end
+
 --- Les ouvertures des rues principales tiennent-elles dans les bornes ? (invariant du contour serré ; jamais faux avec le lot du QG
 --- dans l'empreinte.)
 function E.gates_inside(lat, bounds, mains)

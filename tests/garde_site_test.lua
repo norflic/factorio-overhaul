@@ -125,18 +125,29 @@ local function planner_suite(Planner)
   rich["iron-plate"] = 9000
   local p3 = Planner.plan(pview(rich), book)
   ck(p3.garde and p3.garde.allowed == 6, "planificateur : 9 000 de fer : le groupe voulu (6) entier")
+  -- G3 (essai 3) : briques des murs de votre équipe fondues de la pierre qui dort (view.garde.bricks), sans extraction
+  local vb = pview(rich)
+  vb.garde.bricks = { item = "stone-brick", n = 50 }
+  local p4 = Planner.plan(vb, book)
+  local mine_stone = false
+  for _, t in ipairs(p4.tasks) do if t.kind == "mine" and t.resource == "stone" then mine_stone = true end end
+  ck((p4.smelt["stone-brick"] or 0) >= 50 and not mine_stone, "planificateur : 50 briques voulues -> fonte de la pierre au stock, aucune extraction")
+  ck(p3.smelt["stone-brick"] == nil, "planificateur : sans briques voulues, aucune fonte de briques")
   return fl, nn
 end
 local pf, pn = planner_suite(require("shared.team.planner"))
 for _, m in ipairs(pf) do print("  ECHEC : " .. m) end
 passes, failures = passes + pn - #pf, failures + #pf
-do -- mutant du planificateur : fabrications en cours comptées au plancher
-  local a, b = PSRC:find("local iron_now = math.max(0, (avail[iron_key] or 0) - ((view.incoming or {})[iron_key] or 0))", 1, true)
-  if not a then failures = failures + 1 print("  ECHEC : mutant du planificateur : texte introuvable")
+for _, pm in ipairs({ -- mutants du planificateur
+  { "fabrications en cours comptées au plancher", "local iron_now = math.max(0, (avail[iron_key] or 0) - ((view.incoming or {})[iron_key] or 0))", "local iron_now = avail[iron_key] or 0" },
+  { "briques de l'enceinte jamais voulues", 'if gb and gb.item and (gb.n or 0) > 0 then want({ { gb.item, gb.n } }, T.garde_bricks_prio, "enceinte", true) end', "" },
+}) do
+  local a, b = PSRC:find(pm[2], 1, true)
+  if not a then failures = failures + 1 print("  ECHEC : mutant du planificateur « " .. pm[1] .. " » : texte introuvable")
   else
-    local txt = PSRC:sub(1, a - 1) .. "local iron_now = avail[iron_key] or 0" .. PSRC:sub(b + 1)
+    local txt = PSRC:sub(1, a - 1) .. pm[3] .. PSRC:sub(b + 1)
     local ok, mf = pcall(function() return (planner_suite(assert(load(txt, "@shared/team/planner.lua"))())) end)
-    if (not ok) or #mf > 0 then passes = passes + 1 else failures = failures + 1 print("  ECHEC : mutant « fabrications en cours comptées » non détecté") end
+    if (not ok) or #mf > 0 then passes = passes + 1 else failures = failures + 1 print("  ECHEC : mutant « " .. pm[1] .. " » non détecté") end
   end
 end
 local function mutate(old, new)

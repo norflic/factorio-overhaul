@@ -841,7 +841,7 @@ local function build_input(f, cs, view, book, tick, D, w)
   local enc = f.build and f.build.enc
   -- Intégration 0.6.32 (C3) : une enceinte complète ne fige plus le treillis (Build.beyond_wall) : sans cela, un gisement au-delà de son rayon
   -- restait « hors du plan directeur » alors que le treillis y va.
-  if enc and Build.beyond_wall(f.build) then enc = nil end
+  if enc and not Build.radius_frozen(f.build) then enc = nil end -- (lot PERIMETRE2 G3 : ni l'enceinte complète, ni celle de votre équipe en construction)
   local reach = (Tr.reach_radius(enc and enc.r, Build.RADIUS_ORE) + 0.5) * Pl.PITCH -- lot INDUSTRIE I3 : jusqu'à RADIUS_ORE (12), plus RADIUS_MAX (5)
   if not Rsv.on() then reach = ((enc and enc.r and math.min(enc.r, Build.RADIUS_MAX) or Build.RADIUS_MAX) + 0.5) * Pl.PITCH end -- réglage maître éteint
   local open_dep = {}
