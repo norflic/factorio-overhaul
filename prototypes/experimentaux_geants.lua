@@ -103,6 +103,21 @@ do
   }
 end
 
+-- E4 (règle d'échelle, shared/robots/echelle.lua) : cratère au point visé d'une salve de zone, sol vanilla de la bombe atomique
+-- (`nuclear-ground`, jamais sur l'eau) posé par le moteur à la création, décoratifs retirés. Un prototype par âge de géant.
+for _, r in ipairs(Xp.GEANTS) do
+  if not data.raw.explosion[Xp.PREFIX .. "cratere-" .. r.age] then
+    local x = table.deepcopy(data.raw.explosion["big-explosion"])
+    x.name = Xp.PREFIX .. "cratere-" .. r.age
+    x.localised_name = { "entity-name." .. Xp.PREFIX .. "cratere" }
+    x.created_effect = { type = "direct", action_delivery = { type = "instant", target_effects = {
+      { type = "set-tile", tile_name = "nuclear-ground", radius = r.cratere, apply_projection = true, tile_collision_mask = { "water-tile" } },
+      { type = "destroy-decoratives", radius = r.cratere },
+    } } }
+    out[#out + 1] = x
+  end
+end
+
 for i, r in ipairs(Xp.GEANTS) do
   local s = SPR.corps[r.id]
   assert(s, "experimentaux : geant sans feuille " .. r.id)
@@ -128,7 +143,7 @@ for i, r in ipairs(Xp.GEANTS) do
     drawing_box = { { -30, -60 }, { 30, 20 } },
     flags = { "placeable-neutral", "player-creation", "placeable-off-grid", "not-blueprintable", "not-flammable" },
     minable = { mining_time = 2, result = r.name },
-    max_health = r.hp, healing_per_tick = r.hp / 60 / 600,
+    max_health = r.hp, healing_per_tick = r.hp / 60 / 600, resistances = table.deepcopy(r.resistances), -- règle d'échelle par âge
     dying_explosion = "massive-explosion",
     map_color = { r = r.lueur.r, g = r.lueur.g, b = r.lueur.b }, friendly_map_color = { r = r.lueur.r, g = r.lueur.g, b = r.lueur.b },
     enemy_map_color = { r = 1.0, g = 0.2, b = 0.1 },
