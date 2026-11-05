@@ -36,7 +36,7 @@ local env = {
   space_log = function(_, text) W.logs[#W.logs + 1] = text end,
   space_info = function() return W.info or { radius = 3, rmax = 5, pending = 0, free = 5, busy = 0, done = 10, enc = false } end,
   -- lot ENCEINTE3 : par defaut, pas de contour serre (le rayon, comme avant) ; les essais du contour serre posent W.tight
-  enc_tight_bounds = function() if W.tight then return W.tight, W.tight_info end return nil end,
+  enc_tight_bounds = function(_, core) W.core = core if W.tight then return W.tight, W.tight_info end return nil end,
   enc_mark_out = function(_, _, cut) W.marked = (W.marked or 0) + 1; W.mark_cut = W.mark_cut or {}; W.mark_cut[#W.mark_cut + 1] = cut == true return 7 end,
   enc_release = function() W.released = (W.released or 0) + 1 end,
   -- lot ILOTS-MURS : le pas des îlots est appelé à chaque décision d'une équipe murée (joué en vrai par tests/ilots_flux_test.lua)
@@ -417,6 +417,11 @@ do
   check(fc == expect and fc >= 1, "free_count ne compte pas les lots ecartes (" .. fc .. ")")
   release(f.build)
   check(not f.build.lots["8:8"].out and not f.build.lots["5:0"].out, "liberation : plus aucun lot ecarte")
+  -- lot PERIMETRE2 (G3, essai 4) : anneau COURT de votre équipe (core) : ni tourelles ni lots libres gardés dedans
+  local tbc, infoc = tight_bounds_of(f, true)
+  check(tbc ~= nil and infoc.room == 0 and (tbc[3] - tbc[1]) <= (tb[3] - tb[1]) and (tbc[4] - tbc[2]) <= (tb[4] - tb[2])
+    and ((tbc[3] - tbc[1]) < (tb[3] - tb[1]) or (tbc[4] - tbc[2]) < (tb[4] - tb[2])),
+    "G3 essai 4 : anneau court plus petit (" .. (tbc and ((tbc[3] - tbc[1]) .. "x" .. (tbc[4] - tbc[2])) or "?") .. " contre " .. (tb[3] - tb[1]) .. "x" .. (tb[4] - tb[2]) .. "), sans lot libre garde")
   -- lot PERIMETRE2 (G3, essai 3) : enceinte de votre équipe en construction : seuls les lots COUPÉS par l'anneau sont écartés
   local nc = mark_out(f.build, tb, true)
   local agree, cut_seen = true, 0
@@ -537,6 +542,52 @@ do
     local ok, res = pcall(d5_case, Bm)
     if os.getenv("FO_D5") then print("    D5 mutant :", ok, res) end
     check(not ok or res == false, "D5 : mutant « garde du contour retiré » refusé")
+  end
+end
+
+-- 18. G3 essai 4 : anneau COURT pour votre équipe, et les murs des avant-postes ATTAQUÉS d'abord (l'anneau attend que le stock les paie aussi) ;
+--     MUTANT : le texte de build.lua sans les murs d'avant-postes dans la condition de départ.
+local function e4_case(BuildX)
+  requests = {}
+  W.mark_cut, W.info, W.core = nil, nil, nil
+  local tb = Enc.tight_bounds(lat, { Enc.lot_box(lat, 1, 0) }, {})
+  W.tight, W.tight_info = tb, { core = 1, excluded = {}, room = 0 }
+  local need = Enc.max_walls(3, { bounds = tb })
+  local f = new_team()
+  f.is_player, f.garde_g3 = true, true
+  W.pend = 50
+  BuildX.outpost_walls_pending = function() return W.pend end
+  W.stock_wall = need + 49
+  tick = tick + Enc.CHECK_TICKS
+  BuildX.space_step(f, surface, tick)
+  local waited = f.build.enc == nil and f.build.enc_need ~= nil and f.build.enc_need.outposts == 50
+  W.stock_wall = need + 50
+  tick = tick + Enc.CHECK_TICKS
+  BuildX.space_step(f, surface, tick)
+  local started = f.build.enc ~= nil
+  BuildX.outpost_walls_pending = nil
+  W.tight, W.tight_info, W.pend = nil, nil, nil
+  return waited, started, W.core
+end
+do
+  local waited, started, core = e4_case(Build)
+  check(core == true, "G3 essai 4 : le contour de votre équipe est demandé COURT (enc_tight_bounds(f, true))")
+  check(waited and started, "G3 essai 4 : 50 murs manquent aux avant-postes attaqués : l'anneau attend qu'ils soient payés aussi, puis commence")
+  local key = "if not Enc.full_ring_ok(have, need + pend) then"
+  local a6 = chunk_src:find(key, 1, true)
+  if not a6 then
+    check(false, "G3 essai 4 : texte de la condition introuvable")
+  else
+    local mut = chunk_src:sub(1, a6 - 1) .. "if not Enc.full_ring_ok(have, need) then" .. chunk_src:sub(a6 + #key)
+    local Bm = { PRIO = 55, request = Build.request, cancel = Build.cancel, grow = Build.grow }
+    local envm = setmetatable({ Build = Bm }, { __index = env })
+    local cm = assert(load("local Enc, Build, ipairs, math, table, string, tostring, Stock, wall_recipe, craftable_walls, space_log, space_info, "
+      .. "enc_tight_bounds, enc_mark_out, enc_release, Ilots = "
+      .. "Enc, Build, ipairs, math, table, string, tostring, Stock, wall_recipe, craftable_walls, space_log, space_info, "
+      .. "enc_tight_bounds, enc_mark_out, enc_release, Ilots" .. string.char(10) .. mut .. string.char(10) .. "return Build", "enceinte_flux_e4", "t", envm))
+    cm()
+    local ok, w2 = pcall(e4_case, Bm)
+    check(not ok or w2 == false, "G3 essai 4 : mutant « avant-postes oubliés dans la condition de départ » refusé")
   end
 end
 

@@ -227,6 +227,17 @@ local nb = st5.walls.rings[oid5] and st5.walls.rings[oid5].box
 check(nb and nb.x1 >= math.floor(o5.pos.x) + 12, "nouvel anneau autour de la nouvelle emprise (x1 " .. tostring(nb and nb.x1) .. ")")
 check(#st5.walls.segs == 0 and not st5.walls.done[oid5] and (rec5.req or 0) == 1, "ancien segment jeté, anneau rouvert, un segment redemandé")
 check(#logs("oublies (avant-poste agrandi)") == 1, "journal : ancien anneau oublié")
+-- G3 essai 4 (c) : murs qui manquent à l'avant-poste attaqué, lus par l'enceinte de votre équipe (qui passe après)
+local GsP = require("shared.team.garde_site")
+local nb5 = st5.walls.rings[oid5] and st5.walls.rings[oid5].box
+local full5 = nb5 and GsP.unclaimed(GsP.ring(nb5, f5.hq_pos), {}) or -1
+Gd.walls_step(f5, s5, game.tick, walls_ctx({})) -- (le pas suivant relève ce qui manque à l'anneau neuf)
+local pend5 = Gd.walls_pending(f5)
+check(pend5 > 0 and pend5 <= full5 and require("script.team.build").outpost_walls_pending(f5) == pend5,
+  "avant-poste attaqué : " .. pend5 .. " mur(s) manquent (anneau de " .. full5 .. "), lus par l'enceinte")
+st5.walls.done[oid5] = true
+Gd.walls_step(f5, s5, game.tick, walls_ctx({}))
+check(Gd.walls_pending(f5) == 0, "anneau de l'avant-poste complet : plus rien ne passe avant l'enceinte")
 require("shared.team.config").garde_walls_on = false
 
 section("6. DEPENSES : repli quand il est absent, éteint ou périmé ; l'accordé débité dès la dépense")

@@ -2194,7 +2194,10 @@ end
 --- Empreinte = lots pris par un projet vivant (planifié ou fini), lot du QG, tourelles de l'équipe ; + E.MARGIN tuiles ; les lots
 --- et tourelles ISOLÉS (plus de E.ISOLATED_GAP tuiles) restent dehors ; les E.ROOM_LOTS lots libres les plus proches restent dedans.
 --- Rend ({ x0, y0, x1, y1 } = tuiles du mur, incluses, info) ou nil (ouvertures hors bornes : repli sur le rayon d'avant).
-local function enc_tight_bounds(f)
+--- Lot PERIMETRE2 (G3, essai 4, accord du lead du 5/11 : « un anneau court autour du QG et de la production, puis étendu ») : `core` (enceinte
+--- de VOTRE équipe) : l'empreinte n'est QUE le lot du QG et les lots pris par la production ; ni lots libres gardés dedans, ni tourelles (elles
+--- défendent dehors) ; la suite (îlots dehors, Build.beyond_wall) étend la défense. Partie du DC (dc-temoin3, 90 min) : 532 murs contre 558.
+local function enc_tight_bounds(f, core)
   local b = f.build
   local rects, room = {}, {}
   for _, k in ipairs(sorted_keys(b.lots)) do
@@ -2208,7 +2211,7 @@ local function enc_tight_bounds(f)
       room[#room + 1] = box
     end
   end
-  for _, id in ipairs(sorted_keys(f.turrets or {})) do
+  for _, id in ipairs(core and {} or sorted_keys(f.turrets or {})) do
     local t = f.turrets[id]
     if t and t.valid then
       local x, y = t.position.x, t.position.y
@@ -2216,7 +2219,7 @@ local function enc_tight_bounds(f)
     end
   end
   local cx0, cy0, cx1, cy1 = Enc.bounds(b.lat, b.radius) -- relecture ENCEINTE3 : jamais plus large que l'anneau du rayon
-  local bounds, info = Enc.tight_bounds(b.lat, rects, room, { clamp = { cx0, cy0, cx1, cy1 } })
+  local bounds, info = Enc.tight_bounds(b.lat, rects, room, { clamp = { cx0, cy0, cx1, cy1 }, room_lots = core and 0 or nil })
   if not Enc.gates_inside(b.lat, bounds) then return nil end
   return bounds, info
 end
@@ -4769,13 +4772,14 @@ function Build.space_step(f, surface, tick)
   if not on or tick < (b.enc_retry or 0) or not Enc.enclosure_due(info) then return end
   -- premier segment : le rayon n'est figé (b.enc) que si un segment est vraiment demandé
   -- lot ENCEINTE3 : contour serré sur l'empreinte (bornes figées avec le rayon) ; nil : le rayon, comme avant
-  local tight, tinfo = enc_tight_bounds(f)
+  local essai3 = f.is_player and not f.garde_e2 -- (votre équipe ; f.garde_e2 : règle de l'essai 2, banc g3-micro-ancien)
+  local tight, tinfo = enc_tight_bounds(f, essai3) -- (G3 essai 4 : anneau COURT pour votre équipe)
   local cand = { r = b.radius, claimed = {}, segs = {}, tick = tick, gates = Enc.gate_count(), bounds = tight }
   -- Lot PERIMETRE2 (G3, essai 3, cause MESURÉE sur la partie du DC) : votre équipe ne commence l'anneau que s'il est payé EN ENTIER (murs et
   -- briques au stock ; les briques se fondent de la pierre qui dort, script/team/garde_site.lua) ; ses segments prennent alors tout le stock
   -- (40 au plus), seuls les lots COUPÉS sont écartés et la base continue de grandir jusqu'à l'enceinte complète.
   -- (f.garde_e2 : banc g3-micro-ancien seulement, interface fo-garde g3_ancien : la règle de l'essai 2, pour la preuve « échoue avant »)
-  if f.is_player and not f.garde_e2 then
+  if essai3 then
     -- relecture D5 : jamais sans contour serré (sans bornes, l'anneau du rayon ne passe jamais à l'extension par îlots et enc.grow resterait)
     if not tight then
       if not b.space_notight then
@@ -4788,12 +4792,15 @@ function Build.space_step(f, surface, tick)
     local need = Enc.max_walls(b.radius, { bounds = tight })
     local wr = wall_recipe(f)
     local have = wr and (Stock.count(f, wr.item) + craftable_walls(f, wr)) or 0
-    b.enc_need = { walls = need, equiv = have, tick = tick }
-    if not Enc.full_ring_ok(have, need) then
-      if not b.space_poor then
-        b.space_poor = true
-        space_log(b, string.format("[FO-ESPACE] %s : enceinte voulue (rayon %d, %d murs), stock equivalent %d murs : attente de l'anneau ENTIER (briques de la pierre qui dort) a %.1f min",
-          f.key or "player", b.radius, need, have, tick / 3600))
+    -- G3 essai 4 (c) : les murs des avant-postes ATTAQUÉS passent d'abord : l'anneau attend que le stock paie aussi ce qui leur manque
+    local pend = Build.outpost_walls_pending and Build.outpost_walls_pending(f) or 0
+    b.enc_need = { walls = need, equiv = have, tick = tick, outposts = pend }
+    if not Enc.full_ring_ok(have, need + pend) then
+      local sig = need .. ":" .. pend
+      if b.space_poor_sig ~= sig then
+        b.space_poor_sig = sig
+        space_log(b, string.format("[FO-ESPACE] %s : enceinte voulue (rayon %d, anneau court de %d murs ; avant-postes attaques : %d murs d'abord), stock equivalent %d murs : attente de l'anneau ENTIER (briques de la pierre qui dort) a %.1f min",
+          f.key or "player", b.radius, need, pend, have, tick / 3600))
       end
       return
     end

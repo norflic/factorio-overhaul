@@ -434,6 +434,22 @@ function Gd.walls_step(f, surface, tick, ctx)
     end
   end
   ctx.repair(h)
+  -- G3 essai 4 (c) : murs qui manquent encore aux anneaux des avant-postes ATTAQUÉS (tuiles ni réservées ni refusées) : l'enceinte de votre
+  -- équipe n'est commencée que si le stock les paie AUSSI (Build.outpost_walls_pending, lu par Build.space_step juste après ce pas)
+  local pend = 0
+  for _, oid in ipairs(State.sorted_keys(st.waves)) do
+    local w = st.waves[oid]
+    local o = f.outposts[oid]
+    if o and o.pos and Gs.wave_live(w.tick, tick) and not h.done[oid] then
+      local box = (h.rings[oid] and h.rings[oid].box) or outpost_box(f, surface, o, oid)
+      if box then
+        local rr = Gs.ring(box, f.hq_pos)
+        local mask = Gd.wall_mask(f, surface, { { rr.box[1], rr.box[2], rr.box[3], rr.box[4] } })
+        pend = pend + Gs.unclaimed(rr, h.claimed, function(tx, ty) return mask(tx, ty) ~= nil end)
+      end
+    end
+  end
+  h.pending, h.pending_tick = pend, tick
   for _, sg in ipairs(h.segs) do
     local p = b.projects[sg.pid]
     if p and p.state ~= "fini" and p.state ~= "refuse" then return end -- un segment à la fois
@@ -494,6 +510,15 @@ function Gd.walls_step(f, surface, tick, ctx)
   end
 end
 Build.outpost_walls = function(f, surface, tick, ctx) return Gd.walls_step(f, surface, tick, ctx) end
+
+--- G3 essai 4 (c) : murs qui manquent aux avant-postes attaqués, relevés au dernier pas des murs (0 sans murs d'avant-postes ou relevé périmé).
+function Gd.walls_pending(f)
+  if not Gd.walls_on(f) then return 0 end
+  local h = f.garde and f.garde.walls
+  if not (h and h.pending_tick) or game.tick - h.pending_tick > 2 * Enc.CHECK_TICKS then return 0 end
+  return h.pending or 0
+end
+Build.outpost_walls_pending = function(f) return Gd.walls_pending(f) end
 
 ---------------------------------------------------------------------------------------------------
 -- G1 et G2 : groupes de tourelles
@@ -621,11 +646,7 @@ function Gd.view(f, fortify_open)
   local pick, served, total = Gs.pick(sites, rest)
   local g_iron, free = Gd.grant(f, tick, iron_key()), free_iron(f, tick)
   -- demande écrite pour DEPENSES (lue par sa règle quand elle est là ; sans elle, inoffensive)
-  local walls_wanted = 0
-  for _, oid in ipairs(State.sorted_keys(st.waves)) do
-    local w = st.waves[oid]
-    if Gs.wave_live(w.tick, tick) and not st.walls.done[oid] then walls_wanted = walls_wanted + 60 end
-  end
+  local walls_wanted = Gd.walls_pending(f) -- (G3 essai 4 : murs qui manquent vraiment aux avant-postes attaqués, au lieu de 60 chacun)
   f.team.depenses = f.team.depenses or { on = true }
   f.team.depenses.defense_want = Gs.want_table(iron_key(), missing, Gs.UNIT_IRON, stone_key(), walls_wanted)
   local out = { busy = busy, held = held(f), granted = g_iron, free = free, served = served, total = total }

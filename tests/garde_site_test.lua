@@ -104,6 +104,15 @@ local function suite(Gs)
   check(seg2 and seg2.side == "e" and #seg2.walls == 10 and not refused, "segment 2 : côté est, au plus le plafond, tuiles refusées sautées")
   local s3, why3 = Gs.next_segment(r, claimed, 5)
   check(s3 == nil and why3 == "stock", "plafond sous 8 tuiles : attente de stock")
+  -- G3 essai 4 (c) : murs qui manquent à un anneau d'avant-poste
+  local rr = Gs.ring({ x0 = 0, y0 = 0, x1 = 9, y1 = 9 }, { x = 5, y = -100 })
+  local total = Gs.unclaimed(rr, {})
+  local cl = {}
+  for _, w in ipairs(rr.runs.n) do cl[Gs.tkey(w.tx, w.ty)] = true end
+  check(total == 4 * 17 - 3 and Gs.unclaimed(rr, cl) == total - #rr.runs.n, "murs qui manquent : l'anneau moins ses tuiles réservées (" .. total .. ")")
+  local refused = 0
+  for _, sd in ipairs(rr.order) do for _, w in ipairs(rr.runs[sd]) do if w.ty == 13 and not cl[Gs.tkey(w.tx, w.ty)] then refused = refused + 1 end end end
+  check(refused > 0 and Gs.unclaimed(rr, cl, function(tx, ty) return ty == 13 end) == total - #rr.runs.n - refused, "… et moins ses tuiles refusées (usine du joueur)")
   -- usine du joueur
   check(Gs.in_player_zone(10, 10, { { x0 = 15, y0 = 15, x1 = 17, y1 = 17 } }) and not Gs.in_player_zone(8, 10, { { x0 = 15, y0 = 15, x1 = 17, y1 = 17 } }),
     "usine du joueur : 6 tuiles autour de ses bâtiments")
@@ -219,6 +228,7 @@ local mutants = {
   { "D2 : demande sans fin", "if s.ep_start and (s.tick or 0) - s.ep_start > Gs.BRICKS_MAX then return 0, \"delai\" end", "" },
   { "D2 : reprise immédiate", "if s.retry and (s.tick or 0) < s.retry then return 0, \"attente\" end", "" },
   { "D3 : besoin non couvert ignoré", "if not s.covered then return 0, \"besoin non couvert\" end", "" },
+  { "murs manquants : tuiles réservées comptées", "if not (claimed and claimed[Gs.tkey(t.tx, t.ty)]) and not (skip and skip(t.tx, t.ty)) then n = n + 1 end", "if not (skip and skip(t.tx, t.ty)) then n = n + 1 end" },
   { "D4 : briques avant la recherche du mur", "if not s.enabled then return 0, \"mur non recherche\" end", "" },
   { "plancher compté sans le seuil", "local floor_n = math.floor(((s.iron or 0) - rich) / unit)", "local floor_n = math.floor((s.iron or 0) / unit)" },
 }

@@ -210,6 +210,17 @@ function Gs.next_segment(ring, claimed, cap, skip)
   return nil, "complet"
 end
 
+--- G3 essai 4 (c) : tuiles de l'anneau `rr` (Gs.ring) ni réservées (`claimed`, clés Gs.tkey) ni refusées (`skip(tx, ty)`) : murs qui manquent.
+function Gs.unclaimed(rr, claimed, skip)
+  local n = 0
+  for _, side in ipairs(rr.order or {}) do
+    for _, t in ipairs(rr.runs[side] or {}) do
+      if not (claimed and claimed[Gs.tkey(t.tx, t.ty)]) and not (skip and skip(t.tx, t.ty)) then n = n + 1 end
+    end
+  end
+  return n
+end
+
 --- Une tuile est-elle dans l'usine du joueur ? (à moins de Gs.PLAYER_GAP tuiles, Chebyshev, d'une boîte { x0, y0, x1, y1 } de ses bâtiments)
 function Gs.in_player_zone(tx, ty, boxes)
   local g = Gs.PLAYER_GAP
