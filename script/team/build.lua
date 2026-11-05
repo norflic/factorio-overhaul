@@ -111,7 +111,9 @@ Build.SITES = {}               -- lot PETROLE : planificateurs de sites { [nom] 
 local REACH = P.BUILD_DISTANCE
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (réserve des modules neufs, agrandissement, tapis)
 local Rr = require("shared.team.rebuild_rapide") -- lot REBUILD-RAPIDE : projet rouvert sans attendre toute sa matière, ordre, foreuse de secours
+local Co = require("shared.team.couloir") -- lot ÉTAGE 5 : couloir d'accès réservé des avant-postes (règle pure)
 local TREE_TYPES = { "tree", "simple-entity" }
+
 
 ---------------------------------------------------------------------------------------------------
 -- Outils
@@ -394,6 +396,30 @@ end
 -- (liste plate { tx, ty, ... } de spec.degel.tiles ; mémoire LOCALE posée autour de plan_project, jamais dans global).
 local THAW = nil
 
+--- Lot ÉTAGE 5 : tuiles des couloirs d'accès des avant-postes de l'équipe `f` (shared/team/couloir.lua), ensemble { [P.tkey] = id d'avant-poste }.
+--- Lecteurs : read_masks (free : foreuses et poteaux du plan ; les tapis traversent, un tapis ne bloque pas un personnage), la vue des poteaux
+--- (masques_view), Build.reserved_entity (agrandissements et tourelles, crochet Outposts.reserved ; remplacements de foreuse) et le masque de la
+--- migration du champ électrique (script/team/champ.lua). Cache LOCAL (jamais dans global, vide à chaque chargement), refait quand un accès ou
+--- le QG change : il ne dépend que de l'état. Règle coupée (f.team.couloir_off, bancs témoins) : ensemble vide.
+local COULOIRS = {}
+local NO_COULOIR = {}
+function Build.couloirs(f)
+  if not (f and f.hq_pos and f.outposts) or (f.team and f.team.couloir_off) then return NO_COULOIR end
+  local sig = { math.floor(f.hq_pos.x), math.floor(f.hq_pos.y) }
+  for _, oid in ipairs(sorted_keys(f.outposts)) do
+    local a = f.outposts[oid].access
+    if a then sig[#sig + 1] = tostring(oid) .. ":" .. math.floor(a.x) .. ":" .. math.floor(a.y) end
+  end
+  local s = table.concat(sig, ";")
+  local k = tostring(f.key or f.id)
+  local c = COULOIRS[k]
+  if c and c.sig == s then return c.set end
+  local set = {}
+  for _, t in ipairs(Co.team_tiles(f.outposts, f.hq_pos)) do set[P.tkey(t.x, t.y)] = t.id end
+  COULOIRS[k] = { sig = s, set = set }
+  return set
+end
+
 local function read_masks(f, surface, x0, y0, x1, y1)
   local b = f.build
   local water, blocked, clear = {}, {}, {}
@@ -423,12 +449,13 @@ local function read_masks(f, surface, x0, y0, x1, y1)
   if THAW then
     for i = 1, #THAW - 1, 2 do blocked[P.tkey(THAW[i], THAW[i + 1])] = nil end
   end
+  local cor = Build.couloirs(f) -- lot ÉTAGE 5 : ni module ni poteau sur un couloir d'accès (les tapis, par `blocked`, le traversent)
   return {
     water = water, blocked = blocked, clear = clear,
     rect = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }, -- lot POTEAUX-MASQUES : où ce relevé fait foi (Mq.view)
     free = function(tx, ty)
       local k = P.tkey(tx, ty)
-      return not water[k] and not blocked[k] and not b.occ[k]
+      return not water[k] and not blocked[k] and not b.occ[k] and not cor[k]
     end,
   }
 end
@@ -471,7 +498,11 @@ local function masques_view(f, surface, p, masks, legs, reach)
     end
   end
   if not complete then return nil end
-  return Mq.view(masks, masks.rect, ready, P.tkey, function(tx, ty) return not b.occ[P.tkey(tx, ty)] end)
+  local cor = Build.couloirs(f) -- lot ÉTAGE 5 : les poteaux lus dans le cache des chunks évitent aussi les couloirs d'accès
+  return Mq.view(masks, masks.rect, ready, P.tkey, function(tx, ty)
+    local k = P.tkey(tx, ty)
+    return not b.occ[k] and not cor[k]
+  end)
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -1489,7 +1520,10 @@ end
 --- 138 entités sur 139 jusqu'à 90 min.
 function Build.reserved_entity(f, name, pos, dir)
   local b = f and f.build
-  if not (b and b.occ and pos) then return false end
+  if not (f and pos) then return false end
+  local occ = b and b.occ
+  local cor = Build.couloirs(f) -- lot ÉTAGE 5 : une emprise sur le couloir d'accès d'un avant-poste est réservée (agrandissements, tourelles)
+  if not occ and next(cor) == nil then return false end
   local p = game.entity_prototypes[name]
   if not p then return false end
   local w, h = p.tile_width or 1, p.tile_height or 1
@@ -1497,7 +1531,8 @@ function Build.reserved_entity(f, name, pos, dir)
   local x0, y0 = math.floor(pos.x - w / 2 + 0.01), math.floor(pos.y - h / 2 + 0.01)
   for ty = y0, y0 + h - 1 do
     for tx = x0, x0 + w - 1 do
-      if b.occ[P.tkey(tx, ty)] then return true end
+      local k = P.tkey(tx, ty)
+      if (occ and occ[k]) or cor[k] then return true end
     end
   end
   return false

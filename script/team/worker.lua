@@ -20,6 +20,7 @@ local Nav = require("script.agents.nav")
 local State = require("script.faction.state")
 local Ar = require("shared.team.arrivee") -- lot C4 PLATEAU 3 : tournée arrivée malgré un chemin refusé (règle pure)
 local Acc = require("shared.team.acces_champ") -- lot NAV2 : point d'accès atteignable depuis l'extérieur du champ (règle pure)
+local Co = require("shared.team.couloir") -- lot ÉTAGE 5 : le bâtiment qui ferme la dernière issue d'un accès (journal [FO-NAV-ACCES])
 local Rc = require("shared.team.repli_chemin") -- lot CHARBON3 (B2) : essais de marche d'un PNJ (règle pure)
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Mu = require("shared.team.munitions") -- lot MUNITIONS (revue M3) : prise bornée de la munition de base (Mu.split_take)
@@ -325,11 +326,12 @@ local function access(o, f)
   end
   local rect = Acc.rect(own_boxes, base, Acc.MARGIN)
   local area = { { rect[1], rect[2] }, { rect[3] + 1, rect[4] + 1 } }
-  local boxes = {}
+  local boxes, ents = {}, {}
   for _, e in ipairs(surface.find_entities_filtered({ area = area, collision_mask = "player-layer" })) do
     if e.valid and not ACC_MOVING[e.type] then
       local bb = e.bounding_box
       boxes[#boxes + 1] = { bb.left_top.x, bb.left_top.y, bb.right_bottom.x, bb.right_bottom.y }
+      ents[#boxes] = e
     end
   end
   local tiles = {}
@@ -337,14 +339,35 @@ local function access(o, f)
     tiles[#tiles + 1] = { x = t.position.x, y = t.position.y }
   end
   local r = Acc.reach(boxes, tiles, base, rect)
+  local was = c and c.moved
   o.acces_cache = { n = #own, t = tick, bx = base.x, by = base.y, p = { x = r.x, y = r.y }, moved = r.moved,
     side = math.max(rect[3] - rect[1], rect[4] - rect[2]) + 1 }
   if r.moved and f.stats then
     f.stats.acces_moved = (f.stats.acces_moved or 0) + 1
     if f.stats.acces_moved <= ACC_LOGS then
-      log(string.format("[FO-NAV-ACCES] %s : avant-poste %d %s : acces (%.1f,%.1f) ferme par le champ (%d batiment(s)), but deplace en (%.1f,%.1f) a %.1f tuile(s), %d tuile(s) atteignable(s) (n. %d) a %.1f min",
+      -- Lot ÉTAGE 5 (accord du lead) : à la fermeture (ou quand le champ a changé), le bâtiment le plus récent, à 10 tuiles au plus de l'accès,
+      -- dont le retrait seul rouvre l'accès (Co.closer) : celui qui ferme la DERNIÈRE issue. Un seul relevé de plus par ligne de journal.
+      local closer = "-"
+      if not was or not c or c.n ~= #own then
+        local order = {}
+        for i, e in ipairs(ents) do
+          local bb = boxes[i]
+          local cx, cy = (bb[1] + bb[3]) / 2, (bb[2] + bb[4]) / 2
+          if (cx - base.x) ^ 2 + (cy - base.y) ^ 2 <= 100 then order[#order + 1] = i end
+        end
+        table.sort(order, function(i, j)
+          local ui, uj = ents[i].unit_number or -1, ents[j].unit_number or -1
+          if ui ~= uj then return ui > uj end
+          return i < j
+        end)
+        local k = Co.closer(boxes, tiles, base, rect, order)
+        local e = k and ents[k]
+        closer = e and string.format("%s n. %s en (%.1f,%.1f) %s", e.name, tostring(e.unit_number), e.position.x, e.position.y,
+          e.force.name == own[1].force.name and "de l'equipe" or e.force.name) or "aucun seul"
+      end
+      log(string.format("[FO-NAV-ACCES] %s : avant-poste %d %s : acces (%.1f,%.1f) ferme par le champ (%d batiment(s)), but deplace en (%.1f,%.1f) a %.1f tuile(s), %d tuile(s) atteignable(s), derniere issue fermee par %s (n. %d) a %.1f min",
         tostring(f.key), o.id or 0, tostring(o.kind), base.x, base.y, #own, r.x, r.y, math.sqrt((r.x - base.x) ^ 2 + (r.y - base.y) ^ 2), r.reached,
-        f.stats.acces_moved, tick / 3600))
+        closer, f.stats.acces_moved, tick / 3600))
     end
   end
   return { x = r.x, y = r.y }
