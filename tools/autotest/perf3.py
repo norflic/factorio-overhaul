@@ -87,6 +87,23 @@ def script_ms(rows, calib):
     return out
 
 
+def normalise(sc, calib, ref):
+    """{tick: ms} ramenés à l'étalon de référence `ref` (ms) : × ref / étalon de la fenêtre de 600 ticks du tick (mesure
+    [FO-CALIB] au début de la fenêtre ; la plus proche avant, sinon après). La machine qui ralentit (autre programme sur
+    les mêmes cœurs, F30) allonge l'étalon et le script dans le même rapport : approximation, les deux sont du Lua."""
+    if not calib:
+        return dict(sc)
+    ks = sorted(calib)
+    out = {}
+    for t, x in sc.items():
+        k = (t // 600) * 600
+        c = calib.get(k)
+        if c is None:
+            c = calib[min(ks, key=lambda q: abs(q - t))]
+        out[t] = x * ref / c if c > 0 else x
+    return out
+
+
 def stats(v):
     if not v:
         return {"n": 0, "moy": 0.0, "med": 0.0, "p99": 0.0, "p999": 0.0, "max": 0.0}
@@ -156,7 +173,7 @@ def fmt_stats(s):
         s["moy"], s["med"], s["p99"], s["p999"], s["max"], s["n"])
 
 
-def rapport(a_dir, b_dir, seuil, top):
+def rapport(a_dir, b_dir, seuil, top, ref=None):
     with opn(a_dir, "benchmark-stdout.txt") as f:
         rows = parse_verbose(f)
     with opn(a_dir, "benchmark.log") as f:
@@ -164,8 +181,12 @@ def rapport(a_dir, b_dir, seuil, top):
     sc = script_ms(rows, calib)
     ticks = sorted(sc)
     print("== A : %s" % a_dir)
-    print("   ticks %d (de %d à %d) ; étalon [FO-CALIB] : %d mesures, médiane %.2f ms (soustrait)" % (
-        len(ticks), ticks[0], ticks[-1], len(calib), pct(list(calib.values()), 0.5)))
+    cv = list(calib.values())
+    print("   ticks %d (de %d à %d) ; étalon [FO-CALIB] : %d mesures, médiane %.2f ms, min %.2f, max %.2f (soustrait)" % (
+        len(ticks), ticks[0], ticks[-1], len(calib), pct(cv, 0.5), min(cv) if cv else 0, max(cv) if cv else 0))
+    if ref:
+        sc = normalise(sc, calib, ref)
+        print("   TEMPS RAMENÉS À L'ÉTALON %.2f ms (× %.2f / étalon de la fenêtre de 600 ticks)" % (ref, ref))
     whole = {t: rows[t].get("wholeUpdate", 0) / 1e6 - calib.get(t, 0.0) for t in ticks}
     ent = {t: rows[t].get("entityUpdate", 0) / 1e6 for t in ticks}
     gc = {t: rows[t].get("luaGarbageIncremental", 0) / 1e6 for t in ticks}
@@ -292,12 +313,13 @@ def main():
     ap.add_argument("--top", type=int, default=40)
     ap.add_argument("--decisions", nargs=2)
     ap.add_argument("--sans-profileur", action="store_true")
+    ap.add_argument("--etalon", type=float, help="ramener les temps du script à cet étalon [FO-CALIB] (ms), ex. 2.13")
     a = ap.parse_args()
     if a.decisions:
         sys.exit(compare(a.decisions[0], a.decisions[1], a.sans_profileur))
     if not a.archive:
         ap.error("archive A requise")
-    rapport(a.archive, a.detail, a.seuil, a.top)
+    rapport(a.archive, a.detail, a.seuil, a.top, a.etalon)
 
 
 if __name__ == "__main__":

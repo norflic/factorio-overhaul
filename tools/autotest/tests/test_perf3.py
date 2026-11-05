@@ -57,6 +57,9 @@ verifie(perf3.premier_niveau(det[300]) == 11.0, "premier_niveau : event:on_tick 
 # Mutant : une portée comptée deux fois (mère ignorée) ferait un temps propre de la voie > 9.
 verifie(pr["lane:commander"] < 9.0, "mutant : la fille retirée de la mère")
 
+nm = perf3.normalise({0: 4.0, 650: 3.0, 1300: 1.0}, {0: 4.0, 600: 2.0}, 2.0)
+verifie(nm[0] == 2.0 and nm[650] == 3.0 and nm[1300] == 1.0, "normalise : étalon de la fenêtre, sinon le plus proche")
+verifie(perf3.normalise({5: 1.0}, {}, 2.0) == {5: 1.0}, "normalise : sans étalon, inchangé")
 verifie(perf3.periode([0, 300, 600, 900, 1500]) == (300, 0.75), "periode : écart le plus fréquent et sa part")
 verifie(perf3.periode([0, 5]) == (0, 0.0), "periode : trop peu d'occurrences")
 v = [0.1] * 98 + [20.0, 120.0]
