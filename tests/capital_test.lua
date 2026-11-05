@@ -534,18 +534,29 @@ local function run_all()
     local OUT = { iron = { product = "P", resource = "R" }, coal = { product = "K", resource = "K" } }
     local IN = { P = { "R", 1 } }
     local cg = { key = "capital:command:2:1", center = true, ahead = true, cost = { { "P", 310 }, { "Q", 10 }, { "C", 60 } } }
-    local o = { { key = "alim:pack", goal = { product = "pack" } }, { key = "armee", goal = { permanent = true } },
+    -- Défense minimale (règle D1 de shared/ai3/buts.lua, « jamais retenue ») : premiers soldats ou armée d'alerte (minimal, alert),
+    -- part minimale de la réserve de munitions (minimal_n > 0) ; l'armée qui grandit et une réserve au-dessus du minimum, non.
+    local o = { { key = "alim:pack", goal = { product = "pack" } }, { key = "armee", goal = { permanent = true, minimal = true } },
       { key = "extraction:iron", goal = { outpost = "iron" } }, { key = gate.key, goal = cg }, { key = "capi:chaine:C", goal = { order = { item = "C" } } },
-      { key = "couverture:coal", goal = { outpost = "coal" } }, { key = "capi:ouvrir:R", goal = { order = { item = "R", resource = "R" } } } }
+      { key = "couverture:coal", goal = { outpost = "coal" } }, { key = "capi:ouvrir:R", goal = { order = { item = "R", resource = "R" } } },
+      { key = "defense:munitions", goal = { permanent = true, minimal_n = 12 } } }
     local s = Cap.ahead_first(o, { P = 5, Q = 50, C = 0 }, OUT, IN)
     local ks = {}
     for i, p in ipairs(s) do ks[i] = p.key end
-    check(table.concat(ks, ",") == "extraction:iron,capi:chaine:C,capi:ouvrir:R," .. gate.key .. ",alim:pack,armee,couverture:coal",
-      "§16 ordre : producteurs de la matière qui manque, puis le centre, puis les autres dans leur ordre (" .. table.concat(ks, ",") .. ")")
-    check(o[1].key == "alim:pack" and o[4].key == gate.key and #o == 7, "§16 l'ordre d'origine n'est pas touché (projet dominant)")
+    check(table.concat(ks, ",") == "armee,extraction:iron,capi:chaine:C,capi:ouvrir:R,defense:munitions," .. gate.key .. ",alim:pack,couverture:coal",
+      "§16 ordre : défense minimale et producteurs de la matière qui manque, puis le centre, puis les autres (" .. table.concat(ks, ",") .. ")")
+    check(o[1].key == "alim:pack" and o[4].key == gate.key and #o == 8, "§16 l'ordre d'origine n'est pas touché (projet dominant)")
+    local o4 = { { key = "alim:pack", goal = { product = "pack" } }, { key = "armee", goal = { permanent = true } },
+      { key = gate.key, goal = cg }, { key = "defense:munitions", goal = { permanent = true, minimal_n = 0 } },
+      { key = "armee-alerte", goal = { permanent = true, alert = true } } }
+    local s4 = Cap.ahead_first(o4, { P = 400, Q = 50, C = 60 }, OUT, IN)
+    local k4 = {}
+    for i, p in ipairs(s4) do k4[i] = p.key end
+    check(table.concat(k4, ",") == "armee-alerte," .. gate.key .. ",alim:pack,armee,defense:munitions",
+      "§16 armée d'alerte avant le centre ; armée qui grandit et réserve au-dessus du minimum après lui (" .. table.concat(k4, ",") .. ")")
     local s2 = Cap.ahead_first(o, { P = 400, Q = 50, C = 0 }, OUT, IN)
-    check(s2[1].key == "capi:chaine:C" and s2[2].key == gate.key and s2[3].key == "alim:pack",
-      "§16 matière couverte (P) : son producteur n'est plus exempté")
+    check(s2[1].key == "armee" and s2[2].key == "capi:chaine:C" and s2[3].key == "defense:munitions" and s2[4].key == gate.key
+      and s2[5].key == "alim:pack", "§16 matière couverte (P) : son producteur n'est plus exempté")
     local plain = { { key = "a", goal = {} }, { key = "b", goal = { center = true, cost = {} } } }
     check(Cap.ahead_first(plain, {}, OUT, IN) == plain, "§16 sans centre passé devant : ordre inchangé")
     -- Le cas mesuré : un premier projet prend tout le fer ; servi en tête, le centre garde ce qui est là (réservé à cette pensée).
@@ -673,6 +684,9 @@ do
   local pr = Cap.products
   M("producteur de la matière bloqué par le centre", function() Cap.products = function() return {} end end,
     function() Cap.products = pr end)
+  local md = Cap.minimal_defense
+  M("défense minimale servie après le centre", function() Cap.minimal_defense = function() return false end end,
+    function() Cap.minimal_defense = md end)
   M("remplacement de machines en tête (porte ouverte)", function()
     Cap.goal = function(d, w) local g = cg(d, w) if g and d.replace and d.gate_open then g.opens = true end return g end
   end, function() Cap.goal = cg end)
