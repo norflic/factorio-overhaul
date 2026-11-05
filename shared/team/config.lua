@@ -64,6 +64,9 @@ T.worker_ammo_keep = 10
 -- Lot REARMEMENT (shared/team/rearmement.lua) : au dépôt au QG, l'emplacement des munitions d'un PNJ armé est complété jusqu'à
 -- T.worker_ammo_keep avec des chargeurs du coffre, au-dessus du plancher de la défense. Faux : la règle d'avant (jamais rechargé), code gardé.
 T.rearm_on = true
+-- Réserve MINIMALE de munitions au coffre (chargeurs) : lue par le but « defense:munitions » (shared/ai3/buts.lua, B.AMMO_MIN) et par le
+-- plancher du rechargement des armes (lot REARMEMENT). Une seule source.
+T.ammo_min = 20
 
 ---------------------------------------------------------------------------------------------------
 -- Avant-postes : foreuses à combustible (alimentées en charbon par les ouvriers) ; minerais fondus sur place.

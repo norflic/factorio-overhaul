@@ -24,7 +24,6 @@ local Rc = require("shared.team.repli_chemin") -- lot CHARBON3 (B2) : essais de 
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Mu = require("shared.team.munitions") -- lot MUNITIONS (revue M3) : prise bornée de la munition de base (Mu.split_take)
 local Ra = require("shared.team.rearmement") -- lot REARMEMENT : emplacement des munitions complété au dépôt au QG (règle pure)
-local Bt = require("shared.ai3.buts") -- lot REARMEMENT : réserve minimale de munitions (Bt.AMMO_MIN), plancher du rechargement
 local Outposts = require("script.faction.outposts")
 local Sites = require("script.faction.sites")
 local Board = require("script.team.board")
@@ -259,7 +258,9 @@ end
 local function rearm_floor(f)
   local urgent = 0
   for _, g in ipairs(Outposts.turret_groups(f)) do urgent = urgent + (g.missing_base or 0) end
-  return Ra.floor(Bt.AMMO_MIN, urgent)
+  -- QG en péril (f.team.s1.was, pensée d'avant) : la réserve sur la menace reçue (f.team.s1.reserve_said, Sq.ammo_reserve) entre au plancher
+  local s1 = f.team and f.team.s1
+  return Ra.floor(T.ammo_min, urgent, s1 ~= nil and s1.was == true, s1 and s1.reserve_said or 0)
 end
 
 --- Lot REARMEMENT : au dépôt au QG, l'emplacement des munitions d'un PNJ ARMÉ (pistolet en main) est complété jusqu'à la dotation
@@ -272,7 +273,13 @@ local function rearm(agent, f)
   if not (guns and guns.get_item_count(T.worker_gun) > 0) then return end
   local ammo = e.get_inventory(defines.inventory.character_ammo)
   if not ammo then return end
-  local n = Ra.take(ammo.get_item_count(T.worker_ammo), T.worker_ammo_keep, Stock.count(f, T.worker_ammo), rearm_floor(f))
+  local slot = ammo.get_item_count(T.worker_ammo)
+  if slot >= T.worker_ammo_keep then return end -- (emplacement plein : ni registre ni tourelles relus à chaque dépôt)
+  -- Stock LIBRE du registre (Stock.free_view : ce que les tâches n'ont pas réservé, tourelles neuves et fabrications comprises), pas le compte
+  -- brut du coffre : un rechargement ne fait jamais échouer une prise réservée.
+  local free = Stock.free_view and Stock.free_view(f, game.tick) or nil
+  local stock = free and (free[T.worker_ammo] or 0) or Stock.count(f, T.worker_ammo)
+  local n = Ra.take(slot, T.worker_ammo_keep, stock, rearm_floor(f))
   if n <= 0 then return end
   local got = Stock.remove(f, T.worker_ammo, n)
   local put = got > 0 and ammo.insert({ name = T.worker_ammo, count = got }) or 0

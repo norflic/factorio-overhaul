@@ -38,6 +38,9 @@ local function facts(Ra)
   f.fl_min = Ra.floor(20, 5)
   f.fl_turrets = Ra.floor(20, 140)
   f.fl_bad = Ra.floor(nil, -4)
+  f.fl_peril = Ra.floor(20, 30, true, 158)    -- QG en péril, réserve sur la menace 158 : 158
+  f.fl_calm = Ra.floor(20, 30, false, 158)    -- hors péril : la réserve sur la menace n'entre pas : 30
+  f.fl_peril_low = Ra.floor(20, 90, true, 60) -- en péril, la part urgente plus grande : 90
   return f
 end
 
@@ -52,13 +55,21 @@ check(F0.bad == 0, "entrées invalides : rien")
 
 section("2. Ra.floor")
 check(F0.fl_min == 20 and F0.fl_turrets == 140 and F0.fl_bad == 0, "plancher = max(réserve minimale, part urgente des tourelles)")
+check(F0.fl_peril == 158 and F0.fl_calm == 30 and F0.fl_peril_low == 90,
+  "QG en péril : la réserve sur la menace entre au plancher (158) ; hors péril non (30) ; la plus grande des trois (90)")
 
 section("3. La chaîne dans les sources")
 local function has(path, pat) return read_src(path):find(pat, 1, true) ~= nil end
 check(has("script/team/worker.lua", "rearm(agent, f) -- lot REARMEMENT : après le dépôt"), "deposit_all recharge l'arme après le dépôt")
-check(has("script/team/worker.lua", "local n = Ra.take(ammo.get_item_count(T.worker_ammo), T.worker_ammo_keep, Stock.count(f, T.worker_ammo), rearm_floor(f))"),
+check(has("script/team/worker.lua", "local n = Ra.take(slot, T.worker_ammo_keep, stock, rearm_floor(f))"),
   "le rechargement passe par Ra.take avec le plancher de la défense")
-check(has("script/team/worker.lua", "return Ra.floor(Bt.AMMO_MIN, urgent)"), "plancher : réserve minimale (Bt.AMMO_MIN) ou part urgente des tourelles")
+check(has("script/team/worker.lua", "local free = Stock.free_view and Stock.free_view(f, game.tick) or nil"),
+  "relecture (1) : le rechargement lit le stock LIBRE du registre (Stock.free_view), pas le compte brut")
+check(has("script/team/worker.lua", "if slot >= T.worker_ammo_keep then return end"), "relecture (3) : emplacement plein testé avant le plancher")
+check(has("script/team/worker.lua", "return Ra.floor(T.ammo_min, urgent, s1 ~= nil and s1.was == true, s1 and s1.reserve_said or 0)"),
+  "relecture (2) : plancher = réserve minimale, part urgente des tourelles et, en péril, réserve sur la menace")
+check(has("shared/ai3/buts.lua", "B.AMMO_MIN = T.ammo_min") and T.ammo_min == 20 and not has("script/team/worker.lua", "shared.ai3.buts"),
+  "relecture (4) : une seule constante T.ammo_min (buts et rechargement), plus de require de shared.ai3.buts dans worker.lua")
 check(has("script/team/worker.lua", "if not (guns and guns.get_item_count(T.worker_gun) > 0) then return end"), "seul un PNJ armé (pistolet) est rechargé")
 check(has("script/team/worker.lua", "if ammo then deposit_inventory(f, ammo, KEEP_AMMO) end")
   and has("script/team/worker.lua", "local spare = inv and (inv.get_item_count(item) - (s[2][item] or 0)) or 0"),
@@ -76,7 +87,9 @@ local MUTANTS = {
   { "plancher ignoré", mutate("local free = stock - floor", "local free = stock") },
   { "dotation ignorée", mutate("if slot >= keep then return 0 end", "") },
   { "prise au-delà du stock", mutate("return n < free and n or free", "return n") },
-  { "plancher = réserve seule", mutate("return min_reserve > turret_urgent and min_reserve or turret_urgent", "return min_reserve") },
+  { "plancher = réserve seule", mutate("if u > m then m = u end", "") },
+  { "péril ignoré", mutate("local r = peril and num(threat_reserve) or 0", "local r = 0") },
+  { "réserve sur la menace hors péril", mutate("local r = peril and num(threat_reserve) or 0", "local r = num(threat_reserve)") },
 }
 local killed = 0
 local keys = {}

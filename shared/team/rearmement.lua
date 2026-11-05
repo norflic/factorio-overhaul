@@ -31,11 +31,16 @@ function Ra.take(slot, keep, stock, floor)
   return n < free and n or free
 end
 
---- Plancher de la défense : la réserve minimale de munitions (min_reserve) ou la part urgente des tourelles (chargeurs qui leur manquent
---- jusqu'à la cible ordinaire), la plus grande des deux.
-function Ra.floor(min_reserve, turret_urgent)
-  min_reserve, turret_urgent = num(min_reserve), num(turret_urgent)
-  return min_reserve > turret_urgent and min_reserve or turret_urgent
+--- Plancher de la défense : la réserve minimale de munitions (min_reserve), la part urgente des tourelles (chargeurs qui leur manquent jusqu'à
+--- la cible ordinaire) et, QG EN PÉRIL (peril vrai), la réserve sur la menace reçue (threat_reserve : 60 à 158 chargeurs dans la partie du DC) :
+--- la plus grande. Relecture de 7d786d5c : hors de ce plancher, le coffre pouvait tomber à 20 pendant un péril.
+function Ra.floor(min_reserve, turret_urgent, peril, threat_reserve)
+  local m = num(min_reserve)
+  local u = num(turret_urgent)
+  if u > m then m = u end
+  local r = peril and num(threat_reserve) or 0
+  if r > m then m = r end
+  return m
 end
 
 return Ra

@@ -131,5 +131,47 @@ print(string.format("   votre équipe : %d à 10 ou plus sur %d, %d vides ; fact
 check(off.p_rearm == 0 and off.f_rearm == 0, "règle éteinte : aucun rechargement")
 check(on.p.full > off.p.full and on.f.full > off.f.full, "la règle remet des armes chargées que la règle d'avant laisse vides")
 
+section("3. Plancher au niveau du rechargement : stock sous la part urgente des tourelles (relecture (6))")
+--- Votre équipe : coffre SANS fer (aucune fabrication), 30 chargeurs, les 4 tourelles du QG vidées (part urgente 80 > 30), armes vidées.
+--- Règle : le plancher retient, aucun rechargement d'arme. Mutant AU NIVEAU DE rearm : Ra.floor rend 0 (le module partagé), même partie.
+local function run_floor(floor_off)
+  M.new_game({ patches = patches(), p_busy = 0.01, p_nopath = 0.01, p_lost = 0 })
+  local s = game.surfaces[1]
+  local chest = s.create_entity({ name = "fo-team-chest", position = { x = 5, y = 5 }, force = "player" })
+  for _, it in ipairs({ { "copper-plate", 100 }, { "coal", 200 }, { "stone", 200 }, { GUN, 2 } }) do chest.insert({ name = it[1], count = it[2] }) end
+  M.world().events[defines.events.on_built_entity]({ created_entity = chest, player_index = 1, tick = game.tick })
+  M.run_ticks(600)
+  local f = global.fo.pteam.team
+  -- tourelles du QG vidées, coffre à 30 chargeurs exactement, fer retiré (aucun chargeur fabriqué pendant la mesure)
+  local turrets = 0
+  for _, t in ipairs(s.find_entities_filtered({ type = "ammo-turret", force = "player" })) do
+    local inv = t.get_inventory(defines.inventory.turret_ammo)
+    local c = inv.get_item_count()
+    if c > 0 then inv.remove({ name = AMMO, count = c }) end
+    turrets = turrets + 1
+  end
+  local Stock = require("script.team.stock")
+  local have = Stock.count(f, AMMO)
+  if have > 30 then Stock.remove(f, AMMO, have - 30) elseif have < 30 then Stock.insert(f, AMMO, 30 - have) end
+  local iron = Stock.count(f, "iron-plate")
+  if iron > 0 then Stock.remove(f, "iron-plate", iron) end
+  empty_guns(f)
+  require("shared.team.config").rearm_on = true
+  local Ra = require("shared.team.rearmement")
+  local orig = Ra.floor
+  if floor_off then Ra.floor = function() return 0 end end
+  local okr, err = pcall(M.run_ticks, 3600)
+  Ra.floor = orig
+  return { turrets = turrets, ok = okr, err = err, rearm = f.team.rearm and f.team.rearm.n or 0, a = arms(f) }
+end
+local fl = run_floor(false)
+local fm = run_floor(true)
+print(string.format("   règle : %d tourelle(s) vidée(s), %d rechargement(s) d'arme, %d PNJ à 10 ou plus ; mutant (Ra.floor = 0) : %d rechargement(s), %d à 10 ou plus",
+  fl.turrets, fl.rearm, fl.a.full, fm.rearm, fm.a.full))
+check(fl.ok and fm.ok, "simulations sans erreur (" .. tostring(fl.err or fm.err) .. ")")
+check(fl.turrets >= 1, "des tourelles du QG à court (part urgente au-dessus du stock)")
+check(fl.rearm == 0, "règle : le plancher retient, aucune arme rechargée sur les chargeurs des tourelles (" .. fl.rearm .. ")")
+check(fm.rearm > fl.rearm, "mutant « plancher ignoré » au niveau de rearm : des armes sont rechargées sur les chargeurs des tourelles (" .. fm.rearm .. ")")
+
 print(string.format("[REARMEMENT-MOTEUR] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
