@@ -134,6 +134,29 @@ function Em.comp_ok(sl, product)
   return sl ~= nil and sl.comp ~= nil and product ~= nil and sl.comp[product] == true and (sl.room_comp or 0) > 0
 end
 
+--- Relecture DEPENSES2 (revue, point 4) : les deux décisions du runtime (script/ai3/capitalisation.lua), ici pour être testées.
+--- Foreuse électrique d'un minerai qui produit `product` refusée « plan directeur occupe » ? (emplacements pleins, et pas de siège du
+--- complément pour ce produit)
+function Em.drill_refused(sl, product)
+  return sl ~= nil and sl.busy == true and not Em.comp_ok(sl, product)
+end
+
+--- Siège d'un ORDRE de la décision (décompte de la décision entière) : room = emplacements libres restants (nil : aucun plafond),
+--- room_comp = sièges du complément restants, comp = { [produit] = true }, product = produit de l'ordre (nil : pas une foreuse).
+--- Rend "libre" (aucun plafond), "ordinaire", "complement", ou nil (refusé : « plan directeur occupe »).
+function Em.order_seat(room, room_comp, comp, product)
+  if room == nil then return "libre" end
+  if room > 0 then return "ordinaire" end
+  if comp ~= nil and product ~= nil and comp[product] == true and (room_comp or 0) > 0 then return "complement" end
+  return nil
+end
+
+--- Décompte d'un module envoyé (n modules) : rend room, room_comp (nil gardés nil).
+function Em.take(room, room_comp, n)
+  n = n or 1
+  return room ~= nil and room - n or nil, room_comp ~= nil and room_comp - n or nil
+end
+
 --- s = { base (A.MAX_OPEN), plates (liste des stocks libres des produits des fonderies), mods (liste de { states, progress_tick,
 --- opened, work_tick, key }), tick, names (produits des fonderies, dans l'ordre de plates), sleeping ({ [produit] = true } : ceux qui
 --- dorment, lot DEPENSES2) }. Rend { cap, counted, stalled, free_stalled, materials, open, room, busy, keys_stalled, why, comp,

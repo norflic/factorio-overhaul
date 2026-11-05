@@ -45,7 +45,7 @@ Dp.LAB_COST = 60       -- plaques débitées par laboratoire encore à faire (re
 Dp.GAP = 3 * 3600      -- ticks sans relevé : le sommeil n'est plus continu, horloges oubliées
 Dp.SOLDIER_PLATES = 500 -- plaques dormantes (après la défense et la recherche) par soldat de plus
 Dp.SOLDIERS_MAX = 6    -- soldats de plus au plus
-Dp.SOLDIER_COST = 60   -- plaques débitées par soldat de plus encore à recruter
+Dp.SOLDIER_COST = 60   -- REPLI seulement : plaques par soldat quand l'appelant ne donne pas le coût de l'équipement (relecture, point 2)
 
 local function num(x) return type(x) == "number" and x == x and x or 0 end
 
@@ -180,7 +180,9 @@ function Dp.debit(res, spent, k, q)
   return n
 end
 
-function Dp.reserved(res, lab_target, lab_now, sold_target, sold_brain, sold_now, key, spent)
+--- sold_cost (relecture, point 2) = { [matière] = quantité } : coût matière d'UN soldat, calculé par l'appelant depuis l'équipement de
+--- l'unité (T.kits, livre de recettes) ; absent ou vide : Dp.SOLDIER_COST sur la matière clé (repli des sauvegardes et des appels d'avant).
+function Dp.reserved(res, lab_target, lab_now, sold_target, sold_brain, sold_now, key, spent, sold_cost)
   local out = {}
   if not res then return out end
   local left = Dp.defense_left(res, spent) -- (la défense déjà posée n'est plus retenue : elle a quitté le coffre)
@@ -191,7 +193,13 @@ function Dp.reserved(res, lab_target, lab_now, sold_target, sold_brain, sold_now
   end
   if sold_target ~= nil and key ~= nil then
     local n = math.max(0, math.min(num(sold_target) - num(sold_brain), num(sold_target) - num(sold_now)))
-    if n > 0 then out[key] = (out[key] or 0) + n * Dp.SOLDIER_COST end
+    if n > 0 then
+      if type(sold_cost) == "table" and next(sold_cost) ~= nil then
+        for _, k in ipairs(sorted_keys(sold_cost)) do out[k] = (out[k] or 0) + n * math.max(0, num(sold_cost[k])) end
+      else
+        out[key] = (out[key] or 0) + n * Dp.SOLDIER_COST
+      end
+    end
   end
   for _, k in ipairs(sorted_keys(out)) do out[k] = math.min(out[k], num((res.per or {})[k])) end
   return out

@@ -13,6 +13,9 @@
     §5 essai 3 : CENTRE EN ATTENTE DE CIRCUITS (but courant de l'amélioration, coût impayable) : 0 laboratoire de plus ; §5b (essai 4) :
        centre en attente de briques : 0 laboratoire, les soldats passent ;
        journal « CENTRE EN ATTENTE » ; son mutant (la garde ignorée) pose des laboratoires ;
+    §7 siège du complément (essai 4 c, relecture point 4) : le fer dort, le cuivre non, deux modules en attente tiennent les emplacements :
+       chemin de jeu Capi.slots → Dep.sleeping → Em.slots (1 siège réservé au cuivre, journal), décisions Em.drill_refused et
+       Em.order_seat sur ce relevé ; mutant (relevé vide) : aucun siège ;
     §6 interface du périmètre (PERIMETRE2, 5/11) : table créée par le périmètre gardée, accord sur sa demande, etat actif / perime /
        eteint, Dep.debit au plus l'accord, débité aussi de la réserve, compte remis à zéro au nouvel accord.
   Usage : lua5.2 tests/depenses2_moteur_test.lua   (depuis la racine du mod ; quelques minutes)
@@ -71,10 +74,29 @@ local function run(opts)
     c.scan_n = 1e9
   end
   if opts.ignore_hold then Dep.centre_waiting = function() return false end end -- mutant de §5
+  if opts.fake_mods then
+    -- §7 : deux modules qui attendent leur matière tiennent les 2 emplacements (le moteur simulé n'a pas de foreuse électrique de
+    -- l'exécutant : « foreuse electrique de l'executant nil », aucun module réel ne s'ouvre)
+    local Em = require("shared.ai3.emplacements")
+    local o_slots = Em.slots
+    Em.slots = function(sl)
+      if sl and sl.mods then
+        local mods = {}
+        for _, m in ipairs(sl.mods) do mods[#mods + 1] = m end
+        for i = 1, 2 do mods[#mods + 1] = { key = "attente" .. i, states = { "attente" }, opened = 0 } end
+        sl.mods = mods
+      end
+      local out = o_slots(sl)
+      if out.comp and not opts.comp_slots then opts.comp_slots = out end -- (premier relevé avec le siège : il dépend du sommeil du moment)
+      if not opts.any_slots then opts.any_slots = out end
+      return out
+    end
+  end
+  if opts.no_sleep then Dep.sleeping = function() return {} end end -- mutant de §7
   local spy = { calls = 0, raise = 0, over_max = 0, above_brain = 0, brain = nil }
   local o_st = Dep.soldiers_target
-  Dep.soldiers_target = function(ff, army, max, now, tick, key, key_short)
-    local t = o_st(ff, army, max, now, tick, key, key_short)
+  Dep.soldiers_target = function(ff, army, max, now, tick, key, key_short, cost)
+    local t = o_st(ff, army, max, now, tick, key, key_short, cost)
     if ff == f then
       spy.calls = spy.calls + 1
       if t - army > spy.raise then spy.raise = t - army end
@@ -92,7 +114,7 @@ local function run(opts)
       return now + r.labs
     end
   end
-  for _, it in ipairs({ { "iron-plate", 30000 }, { "copper-plate", 30000 }, { "lab", 60 } }) do Stock.insert(f, it[1], it[2]) end
+  for _, it in ipairs(opts.stock or { { "iron-plate", 30000 }, { "copper-plate", 30000 }, { "lab", 60 } }) do Stock.insert(f, it[1], it[2]) end
   local log0 = #W().logs -- (les lignes de la première minute, avant l'interrupteur, ne comptent pas)
   local series, reserve_seen = {}, nil
   for m = 1, opts.minutes do
@@ -146,11 +168,15 @@ do -- §3 débit : 2 laboratoires encore à faire et 6 soldats au-dessus de la c
   local function sum(t) local n = 0 for _, v in pairs((t and t.free) or {}) do n = n + v end return n end
   local before = sum(rin)
   local out = Dep.capi_reserve(a.f, rin, game.tick)
-  local held = Dp.reserved(d.res, d.lab_target, d.lab_now, 24, 18, 18, "iron-plate")
+  local held = Dp.reserved(d.res, d.lab_target, d.lab_now, 24, 18, 18, "iron-plate", d.spent, d.soldier_cost)
   local want = 0
   for _, v in pairs(held) do want = want + v end
-  check(rin ~= nil and math.abs((before - sum(out)) - want) < 1e-6 and want >= 120 + 360 - 1e-6,
-    "§3 stock hors besoin de la capitalisation débité de l'engagé : 2 laboratoires (120) + 6 soldats au-dessus du cerveau (360), défense comprise ("
+  local cfe = (d.soldier_cost or {})["iron-plate"] or 0
+  local ccu = (d.soldier_cost or {})["copper-plate"] or 0
+  say(string.format("§3 cout d'un soldat (equipement au livre de recettes) : %.0f fer, %.0f cuivre", cfe, ccu))
+  check(cfe > 0 and ccu > 0, "§3 coût d'un soldat calculé depuis son équipement (fer et cuivre ; relecture, point 2)")
+  check(rin ~= nil and math.abs((before - sum(out)) - want) < 1e-6 and want >= 120 + 6 * (cfe + ccu) - 1e-6,
+    "§3 stock hors besoin de la capitalisation débité de l'engagé : 2 laboratoires (120) + 6 soldats au-dessus du cerveau au coût de leur équipement, défense comprise ("
     .. string.format("%.1f", before - sum(out)) .. " = " .. string.format("%.1f", want) .. ")")
   check(sum(rin) == before, "§3 l'entrée d'origine n'est pas modifiée (copie)")
   d.lab_now, d.soldier_target, d.soldier_brain, d.soldier_now, d.soldier_key = save[1], save[2], save[3], save[4], save[5]
@@ -223,6 +249,31 @@ do
     "§6 interrupteur : eteint, rien accordé ni débité")
   d.on = nil
 end
+
+say("§7 siege du complement : le fer dort, le cuivre non, emplacements pleins")
+local function comp_case(opts)
+  local r = run(opts)
+  local Em = require("shared.ai3.emplacements")
+  local sl = opts.comp_slots or (r.f.team.capi and r.f.team.capi.slots)
+  local seen = 0
+  for _, l in ipairs(W().logs) do
+    if l:find("[FO-CAPI-EMPLACEMENTS] " .. tostring(r.f.key), 1, true) and l:find("complement du stock qui dort (copper-plate)", 1, true) then seen = seen + 1 end
+  end
+  return r, sl, seen, Em
+end
+local CU = { { "iron-plate", 30000 }, { "copper-plate", 100 } }
+local h7, sl7, seen7, Em7 = comp_case({ minutes = 10, fake_mods = true, stock = CU })
+say("§7 emplacements : " .. tostring(sl7 and sl7.why))
+check(sl7 ~= nil and sl7.busy and sl7.room == 0 and sl7.room_comp == 1 and sl7.comp and sl7.comp["copper-plate"] == true
+  and not sl7.comp["iron-plate"], "§7 chemin de jeu (Capi.slots, Dep.sleeping) : plein, 1 siège réservé au cuivre")
+check(seen7 >= 1, "§7 journal [FO-CAPI-EMPLACEMENTS] : +1 pour le complement (copper-plate)")
+check(not Em7.drill_refused(sl7, "copper-plate") and Em7.drill_refused(sl7, "iron-plate"),
+  "§7 foreuses sur ce relevé : cuivre servi, fer refusé « plan directeur occupe »")
+check(Em7.order_seat(sl7.room, sl7.room_comp, sl7.comp, "copper-plate") == "complement" and Em7.order_seat(sl7.room, sl7.room_comp, sl7.comp, "iron-plate") == nil,
+  "§7 ordres sur ce relevé : couvrir le cuivre prend le siège, le fer est refusé")
+say("§7 mutant : la regle du stock qui dort ne dit rien (Dep.sleeping vide)")
+local _, sl7m, seen7m = comp_case({ minutes = 10, fake_mods = true, no_sleep = true, stock = CU })
+check(sl7m ~= nil and sl7m.comp == nil and sl7m.room_comp == 0 and seen7m == 0, "§7 mutant détecté : sans relevé, aucun siège (le cuivre reste refusé)")
 
 print(string.format("[DEPENSES2-MOTEUR] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

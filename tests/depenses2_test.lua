@@ -110,6 +110,14 @@ local function suite(Dp)
   check(math.abs((rv3.a or 0) - 4 * 60) < 1e-6, "débit : 4 laboratoires encore à faire = 240")
   local tiny = { per = { a = 100 }, rper = { a = 100 }, research = 100, defense = { a = 0 } }
   check(Dp.reserved(tiny, 20, 0, 30, 0, 0, "a").a == 100, "débit jamais au-delà de l'excédent qui dort (100)")
+  -- Relecture (point 2) : coût d'un soldat donné par l'équipement de l'unité (fer et cuivre), plus de constante unique
+  local rc = Dp.reserved(rmx, nil, nil, 24, 18, 0, "fer", nil, { fer = 120, cuivre = 10 })
+  check(math.abs((rc.fer or 0) - 720) < 1e-6 and math.abs((rc.cuivre or 0) - 60) < 1e-6,
+    "débit au coût de l'équipement : 6 soldats x (120 fer, 10 cuivre) = 720 fer, 60 cuivre (" .. tostring(rc.fer) .. ", " .. tostring(rc.cuivre) .. ")")
+  local rf = Dp.reserved(rmx, nil, nil, 24, 18, 0, "fer", nil, nil)
+  check(math.abs((rf.fer or 0) - 360) < 1e-6 and (rf.cuivre or 0) == 0, "sans coût donné : repli Dp.SOLDIER_COST sur la matière clé (360)")
+  local rz = Dp.reserved(rs3, nil, nil, 24, 18, 0, "a", nil, { a = 120, z = 10 })
+  check(math.abs((rz.a or 0) - 720) < 1e-6 and (rz.z or 0) == 0, "matière de l'équipement qui ne dort pas : rien débité (plafond à l'excédent)")
   check(Dp.soldiers(18, 3, 30) == 21 and Dp.soldiers(29, 3, 30) == 30 and Dp.soldiers(18, 0, 30) == 18 and Dp.soldiers(35, 3, 30) == 35,
     "cible d'armée : +3, plafond de soldats, rien sans excédent, jamais baissée")
   -- revue D5 : relevé manqué, demande qui n'est pas une table
@@ -174,10 +182,11 @@ mutant("matière clé qui manque ignorée", "if not res or key_short or key == n
 mutant("armement non compté par matière", "local a = num((res.arms_by or {})[key])", "local a = num(res.arms)")
 mutant("débit des soldats sur toute l'armée", "num(sold_target) - num(sold_brain), num(sold_target) - num(sold_now)", "num(sold_target) - num(sold_now), num(sold_target) - num(sold_now)")
 mutant("laboratoires débités pendant l'attente du centre", "res.hold and 0 or Dp.engaged(lab_target, lab_now, Dp.LAB_COST)", "Dp.engaged(lab_target, lab_now, Dp.LAB_COST)")
+mutant("coût de l'équipement ignoré", "if type(sold_cost) == \"table\" and next(sold_cost) ~= nil then", "if false then")
 mutant("débit au-delà de l'excédent", "out[k] = math.min(out[k], num((res.per or {})[k]))", "out[k] = out[k]")
 mutant("défense posée encore retenue", "local left = Dp.defense_left(res, spent)", "local left = Dp.defense_left(res, nil)")
 mutant("débit au-delà de l'accord", "math.min(num(q), num((res.defense or {})[k]) - used)", "num(q)")
 mutant("reste de l'accord négatif", "out[k] = math.max(0, num(res.defense[k]) - num((spent or {})[k]))", "out[k] = num(res.defense[k]) - num((spent or {})[k])")
 mutant("débit non compté", "if n > 0 then spent[k] = used + n end", "")
-print(string.format("[DEPENSES2] BILAN : %d OK, %d ECHEC(S) (dont 31 mutants)", passes, failures))
+print(string.format("[DEPENSES2] BILAN : %d OK, %d ECHEC(S) (dont 32 mutants)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

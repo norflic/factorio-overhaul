@@ -835,7 +835,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     elseif not elec_drill then why = "aucune foreuse electrique de l'executant"
     elseif plant_state == "refuse" then why = "centrale refusee (" .. tostring(plant_why) .. ")"
     elseif wait_plant then why = "centrale demandee, pas finie (" .. tostring(plant_state) .. ")"
-    elseif busy and not Em.comp_ok(slots, meth.product) then why = busy_text -- (lot DEPENSES2 : siège du complément)
+    elseif Em.drill_refused(slots, meth.product) then why = busy_text -- (lot DEPENSES2 : siège du complément ; règle pure, testée)
     else
       ok, miss = module_ok(meth, book, stock, plant_state ~= nil, nil, Harvest.reachable(f), Auto.belt_flow(f))
       if not ok then why = "objets impossibles : " .. table.concat(miss, ",") end
@@ -1474,9 +1474,8 @@ local function decide(f, cs, view, book, tick, research, w)
     -- (Intégration 0.6.25 : la porte de la pile de FUITES-PILE d'abord, puis le plafond des emplacements de CAPI-DEBIT.)
     local allowed, pwhy = pile_ok(f, o)
     local meth_o = (o.kind == "couvrir" or o.kind == "ouvrir") and METHOD_OF_ORE[o.resource] or nil
-    local comp_seat = meth_o ~= nil and cs.slots ~= nil and cs.slots.comp ~= nil and cs.slots.comp[meth_o.product] == true
-      and (room_comp or 0) > 0
-    if allowed and room ~= nil and room <= 0 and not comp_seat and Capi.MODULE_KINDS[o.kind] and not to_champ(f, cs, o) then -- (lot CHAMP : le champ n'est pas un module)
+    local seat = Em.order_seat(room, room_comp, cs.slots and cs.slots.comp, meth_o and meth_o.product) -- (règle pure, testée)
+    if allowed and seat == nil and Capi.MODULE_KINDS[o.kind] and not to_champ(f, cs, o) then -- (lot CHAMP : le champ n'est pas un module)
       rec, why = nil, Em.busy_text(cs.slots) .. " ; emplacements libres pris par cette decision"
       cs.blocked_slots = (cs.blocked_slots or 0) + 1 -- (intégration 0.6.32 : retenu faute de place lui aussi)
     elseif allowed then rec, why = execute(f, cs, o, view, book, tick, research)
@@ -1485,10 +1484,7 @@ local function decide(f, cs, view, book, tick, research, w)
       PileRt.refuse(f, "capi:" .. tostring(o.key), "ordre " .. tostring(o.kind) .. " " .. tostring(o.item or o.resource or o.tech)
         .. " non envoye (" .. tostring(pwhy) .. ")", tick)
     end
-    if rec and rec.exec == "module" and room ~= nil then
-      room = room - #(rec.mod_ids or { rec.module })
-      if room_comp ~= nil then room_comp = room_comp - #(rec.mod_ids or { rec.module }) end
-    end
+    if rec and rec.exec == "module" then room, room_comp = Em.take(room, room_comp, #(rec.mod_ids or { rec.module })) end
     if rec then
       cs.open[#cs.open + 1] = rec
       cs.orders = cs.orders + 1

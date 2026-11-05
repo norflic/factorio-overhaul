@@ -8,8 +8,12 @@
     §3 plafond des factions à 2 : jamais plus de 2 soldats ;
     §4 alerte près du QG : ses soldats prennent le rôle « defense » des factions (même code : script/ai3/soldats.lua, pass) ;
     §5 mutant : la branche de votre équipe retirée du cerveau (cible jamais relevée) : aucun soldat ;
-    §6 mutant : le but « armée » de votre équipe retiré (shared/ai3/buts.lua) : aucun soldat.
-  Usage : lua5.2 tests/depenses2_joueur_moteur_test.lua   (depuis la racine du mod ; environ 1 min)
+    §6 mutant : le but « armée » de votre équipe retiré (shared/ai3/buts.lua) : aucun soldat ;
+    §7 (relecture, point 1) fin de l'équipe (coffre retiré) : ses soldats partent avec elle (aucune unité sans suivi, propriété rendue) ;
+       une nouvelle équipe repart de 0 et recrute de nouveau avec des comptes justes ;
+    §8 renvoi des PNJ : l'équipe reste, ses soldats restent comptés ;
+    §9 (relecture, point 3) plafond 0 : journal « rien de plus (plafond 0) », jamais « soldats cible 0 ».
+  Usage : lua5.2 tests/depenses2_joueur_moteur_test.lua   (depuis la racine du mod ; environ 2 min)
 ]]
 package.path = "./?.lua;" .. package.path
 local M = require("tests.mock_engine")
@@ -67,8 +71,8 @@ local function run(opts)
   end
   local spy = { calls = 0, short_raised = 0, max_t = 0 }
   local o_st = Dep.soldiers_target
-  Dep.soldiers_target = function(ff, army, max, now, tick, key, key_short)
-    local t = o_st(ff, army, max, now, tick, key, key_short)
+  Dep.soldiers_target = function(ff, army, max, now, tick, key, key_short, cost)
+    local t = o_st(ff, army, max, now, tick, key, key_short, cost)
     if ff.is_player then
       spy.calls = spy.calls + 1
       if key_short and t > army then spy.short_raised = spy.short_raised + 1 end
@@ -160,6 +164,78 @@ say("§6 mutant : but « armee » de votre equipe retire")
 local g6 = run({ minutes = 14, no_goal = true, stock = with({ { "iron-plate", 30000 }, { "copper-plate", 30000 }, { "coal", 500 }, { "stone", 500 } }) })
 local n6 = player_soldiers(g6.f)
 check(n6 == 0, "§6 mutant détecté : sans le but « armée », aucun soldat (" .. n6 .. ")")
+
+local function fo_player_alive()
+  local n = 0
+  for _, e in ipairs(W().entities) do
+    if e.valid and type(e.name) == "string" and e.name:sub(1, 10) == "fo-player-" then n = n + 1 end
+  end
+  return n
+end
+local IRON = { { "iron-plate", 30000 }, { "copper-plate", 30000 }, { "coal", 500 }, { "stone", 500 } }
+
+say("§8 renvoi des PNJ : l'equipe reste, ses soldats restent suivis")
+do
+  local r = run({ minutes = 10, stock = with(IRON) })
+  local n0 = player_soldiers(r.f)
+  M.command("fo-team", "dismiss")
+  M.run_ticks(2)
+  local f = global.fo.pteam.team
+  check(f ~= nil and n0 >= 1 and f.soldiers_count == n0 and fo_player_alive() == n0,
+    "§8 renvoi : équipe gardée, " .. n0 .. " soldat(s) toujours comptés (" .. tostring(f and f.soldiers_count) .. ", vivants " .. fo_player_alive() .. ")")
+end
+
+say("§7 fin de l'equipe : ses soldats partent avec elle ; une nouvelle equipe repart de zero")
+do
+  local r = run({ minutes = 10, stock = with(IRON) })
+  local ids = {}
+  for id in pairs(r.f.soldiers or {}) do ids[#ids + 1] = id end
+  table.sort(ids)
+  local n0 = #ids
+  r.f.hq.destroy() -- (retiré, pas tué : l'équipe prend fin même avec des soldats vivants, Sq.chest_fate)
+  M.run_ticks(2)
+  local owned = 0
+  for _, id in ipairs(ids) do if global.fo.war.owners[id] then owned = owned + 1 end end
+  check(n0 >= 1 and global.fo.pteam.team == nil, "§7 coffre retiré : l'équipe prend fin (" .. n0 .. " soldat(s) avant)")
+  check(fo_player_alive() == 0, "§7 aucun soldat fo-player-* ne reste sans suivi (" .. fo_player_alive() .. ")")
+  check(owned == 0, "§7 propriété rendue : aucune perte ne sera comptée à une équipe suivante (" .. owned .. ")")
+  local released = 0
+  for _, l in ipairs(W().logs) do if l:find("soldat(s) de votre equipe retire(s) avec elle", 1, true) then released = released + 1 end end
+  check(released == 1, "§7 journal [FO-PTEAM] : soldats retirés avec l'équipe")
+  local chest = game.surfaces[1].create_entity({ name = "fo-team-chest", position = { x = 5, y = 5 }, force = "player" })
+  W().events[defines.events.on_built_entity]({ created_entity = chest, player_index = 1, tick = game.tick })
+  local g = global.fo.pteam.team
+  check(g ~= nil and g ~= r.f and (g.soldiers_count or 0) == 0, "§7 nouvelle équipe : 0 soldat compté au départ")
+  local Stock = require("script.team.stock")
+  for _, it in ipairs(with(IRON)) do Stock.insert(g, it[1], it[2]) end
+  M.run_ticks(10 * MIN)
+  local ng = player_soldiers(g)
+  check(ng >= 1 and ng <= 6 and g.soldiers_count == ng and fo_player_alive() == ng,
+    "§7 nouvelle équipe : recrute de nouveau, comptes justes (" .. ng .. " suivis, " .. fo_player_alive() .. " vivants)")
+end
+
+say("§7 mutant : les soldats ne partent pas avec l'equipe")
+do
+  local r = run({ minutes = 10, stock = with(IRON) })
+  local n0 = player_soldiers(r.f)
+  require("script.team.player_team").release_soldiers = function() return 0 end
+  r.f.hq.destroy()
+  M.run_ticks(2)
+  check(n0 >= 1 and global.fo.pteam.team == nil and fo_player_alive() == n0,
+    "§7 mutant détecté : sans le retrait, " .. fo_player_alive() .. " soldat(s) fo-player-* restent sans suivi")
+end
+
+say("§9 plafond 0 (aucun soldat permis) : journal « rien de plus (plafond 0) »")
+do
+  local r = run({ minutes = 10, cap = 0, stock = with(IRON) })
+  local zero, note = 0, 0
+  for _, l in ipairs(r.lines) do
+    if l:find("soldats cible 0", 1, true) then zero = zero + 1 end
+    if l:find("soldats : rien de plus (plafond 0)", 1, true) then note = note + 1 end
+  end
+  check(player_soldiers(r.f) == 0 and zero == 0 and note >= 1,
+    "§9 plafond 0 : aucun soldat, aucune ligne « soldats cible 0 », " .. note .. " ligne(s) « rien de plus (plafond 0) »")
+end
 
 print(string.format("[DEPENSES2-JOUEUR] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

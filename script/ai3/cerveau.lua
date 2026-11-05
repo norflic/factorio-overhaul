@@ -810,6 +810,9 @@ function Ia3.plan(f, view, book, surface, tick)
   end
   local army_target = 0
   local spare_hands = General.spare_hands(f, view, tick) -- lot SCALE : bras libres durables (0 pour votre équipe)
+  -- Lot DEPENSES2 (relecture, point 2) : coût matière d'UN soldat de l'unité que l'équipe recrute (son équipement, au livre de recettes),
+  -- débité du stock qui dort tant qu'il reste à recruter (fusilier, mitrailleur : pas une constante).
+  local sold_cost = book:raw_cost(T.kits[Planner.best_unit(view.tech or 0)] or {})
   if not f.is_player then
     local share = T.army_share[view.personality] or 0.6
     army_target = math.floor((view.soldiers_max or 0) * share)
@@ -825,13 +828,13 @@ function Ia3.plan(f, view, book, surface, tick)
     if soon > army_target and not key_short then army_target = math.min(soon, view.soldiers_max or 0) end
     -- Lot DEPENSES2 (revue D3) : armement : le reste des plaques qui dorment relève la cible d'armée (absolue, plafond de soldats).
     -- (revue E4 : la matière clé paie seule, et rien de plus quand elle manque, comme Br.army et la prévision ci-dessus)
-    army_target = Dep.soldiers_target(f, army_target, view.soldiers_max or 0, f.soldiers_count or 0, tick, floor_item, key_short)
+    army_target = Dep.soldiers_target(f, army_target, view.soldiers_max or 0, f.soldiers_count or 0, tick, floor_item, key_short, sold_cost)
   else
     -- Lot DEPENSES2 (b ; QCM-4/11-RECRUES du DC : « Oui, comme les factions ») : votre équipe n'a pas d'armée de base (cible 0) ; son
     -- stock qui dort lui paie des soldats par la même règle (au plus Dp.SOLDIERS_MAX, plafond des factions view.army_cap, jamais quand
     -- sa matière clé manque), servis par le but « armée » (shared/ai3/buts.lua) et Military.train, comme ceux des factions.
     local key_short = ((st.short or {})[floor_item] or 0) > 0
-    army_target = Dep.soldiers_target(f, 0, view.army_cap or 0, f.soldiers_count or 0, tick, floor_item, key_short)
+    army_target = Dep.soldiers_target(f, 0, view.army_cap or 0, f.soldiers_count or 0, tick, floor_item, key_short, sold_cost)
   end
   -- En guerre : déclarée au joueur (PvP) ; la posture guerrière du chef passe déjà par les poids (B.weights).
   local at_war = (f.pvp and f.pvp.declared) or false

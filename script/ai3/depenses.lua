@@ -78,6 +78,7 @@ function Dep.think(f, cs, tick, products, minutes)
     local sold
     -- (lot DEPENSES2 b : votre équipe aussi)
     if d.soldier_target then sold = string.format("soldats cible %d (cerveau %d, presents %d)", d.soldier_target, d.soldier_brain or 0, d.soldier_now or 0)
+    elseif d.soldier_note then sold = "soldats : rien de plus (" .. d.soldier_note .. ")"
     else sold = "soldats : rien de plus" end
     log(string.format("[FO-DEPENSES] %s minute %d | %s | laboratoires base %s cible %s | %s", f.key or "?",
       math.floor((minutes or 0) + 0.5), res.why, tostring(d.lab_base or "-"), tostring(d.lab_target or "-"), sold))
@@ -125,16 +126,30 @@ end
 
 --- Cible d'armée relevée (revue D3, E4) ; army = cible du cerveau, max = plafond de soldats, now = soldats présents (débit), key = matière
 --- clé (seule à payer des soldats), key_short = elle manque (rien de plus : la garde de Br.army et de la prévision).
-function Dep.soldiers_target(f, army, max, now, tick, key, key_short)
+--- cost (relecture, point 2) = { [matière] = quantité } : coût d'UN soldat de l'unité que l'équipe recrute (T.kits au livre de recettes,
+--- script/ai3/cerveau.lua) ; débité par Dep.reserved. Rien de plus (plafond déjà atteint, ou 0 sans guerre pour votre équipe) : aucune
+--- cible gardée, aucun débit, journal « rien de plus (plafond 0) » (relecture, point 3).
+function Dep.soldiers_target(f, army, max, now, tick, key, key_short, cost)
   local r = fresh(f, tick)
   local d = f and f.team and f.team.depenses
   local extra = r and Dp.soldiers_extra(r, key, key_short) or 0
   if not d or extra <= 0 then
-    if d then d.soldier_target = nil end
+    if d then d.soldier_target, d.soldier_note = nil, nil end
     return army
   end
   local t = Dp.soldiers(army, extra, max)
-  d.soldier_target, d.soldier_brain, d.soldier_now, d.soldier_key = t, army, now, key
+  if t <= math.max(0, math.floor(tonumber(army) or 0)) then
+    d.soldier_target = nil
+    d.soldier_note = math.floor(tonumber(max) or 0) <= 0 and "plafond 0" or "plafond atteint"
+    return army
+  end
+  local c = {}
+  for _, k in ipairs(sorted_keys(cost or {})) do
+    local v = tonumber(cost[k]) or 0
+    if v > 0 then c[k] = v end
+  end
+  d.soldier_target, d.soldier_brain, d.soldier_now, d.soldier_key, d.soldier_note = t, army, now, key, nil
+  d.soldier_cost = next(c) ~= nil and c or nil
   return t
 end
 
@@ -144,7 +159,7 @@ function Dep.reserved(f, tick)
   local r = fresh(f, tick)
   local d = f and f.team and f.team.depenses
   if not (r and d) then return {} end
-  return Dp.reserved(r, d.lab_target, d.lab_now, d.soldier_target, d.soldier_brain, d.soldier_now, d.soldier_key, d.spent)
+  return Dp.reserved(r, d.lab_target, d.lab_now, d.soldier_target, d.soldier_brain, d.soldier_now, d.soldier_key, d.spent, d.soldier_cost)
 end
 
 --- Entrée « stock hors besoin » de la capitalisation débitée de Dep.reserved (copie ; rin nil -> nil).
