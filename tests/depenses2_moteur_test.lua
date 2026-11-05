@@ -10,7 +10,8 @@
        du plafond de soldats, des recrues arrivent au-dessus de la cible du cerveau ; la capitalisation reçoit un stock hors besoin débité
        de l'engagé (laboratoires à faire, soldats AU-DESSUS de la cible du cerveau) ;
     §4 interrupteur f.team.depenses.on = false : aucune ligne ;
-    §5 essai 3 : CENTRE EN ATTENTE DE CIRCUITS (but courant de l'amélioration, coût impayable) : 0 laboratoire et 0 soldat de plus,
+    §5 essai 3 : CENTRE EN ATTENTE DE CIRCUITS (but courant de l'amélioration, coût impayable) : 0 laboratoire de plus ; §5b (essai 4) :
+       centre en attente de briques : 0 laboratoire, les soldats passent ;
        journal « CENTRE EN ATTENTE » ; son mutant (la garde ignorée) pose des laboratoires ;
     §6 interface du périmètre (PERIMETRE2, 5/11) : table créée par le périmètre gardée, accord sur sa demande, etat actif / perime /
        eteint, Dep.debit au plus l'accord, débité aussi de la réserve, compte remis à zéro au nouvel accord.
@@ -63,7 +64,7 @@ local function run(opts)
     -- §5 : le centre est le but courant de l'amélioration et attend des circuits (coût impayable : il reste en attente).
     f.team.capital = f.team.capital or {}
     local c = f.team.capital
-    local cost = { { "electronic-circuit", 1000000 } }
+    local cost = { { opts.centre_item or "electronic-circuit", 1000000 } }
     c.current = { key = "command:2:banc", id = 0, family = "command", center = true, cost = cost, value = 50, work = 0, score = 1 }
     c.goal = { key = "capital:command:2:banc", family = "capital", kind = "upgrade", target = "command:2:banc", value = 50, center = true,
       fond = true, cost = cost }
@@ -175,7 +176,15 @@ for m = 1, 10 do if e.series[m] > maxe then maxe = e.series[m] end end
 say("§5 laboratoires par minute : " .. table.concat(e.series, " ") .. " ; lignes « centre en attente » " .. held_lines)
 check(held_lines >= 5, "§5 journal : centre en attente (" .. held_lines .. ")")
 check(maxe <= e.series[1], "§5 centre en attente : 0 laboratoire de plus (" .. e.series[1] .. " -> " .. maxe .. ")")
-check(e.spy.raise == 0, "§5 centre en attente : 0 soldat de plus (" .. e.spy.raise .. ")")
+-- (un centre qui attend 1 000 000 de circuits rend le fer « court » au cerveau : garde E4, aucun soldat ; les soldats se contrôlent en §5b)
+say("§5b centre en attente de briques (le fer ne manque pas)")
+local eb = run({ minutes = 10, centre = true, centre_item = "stone-brick" })
+local maxeb = 0
+for m = 1, 10 do if eb.series[m] > maxeb then maxeb = eb.series[m] end end
+say("§5b laboratoires par minute : " .. table.concat(eb.series, " ") .. " ; soldats relevés de " .. eb.spy.raise)
+check(maxeb <= eb.series[1], "§5b centre en attente : 0 laboratoire de plus (" .. eb.series[1] .. " -> " .. maxeb .. ")")
+check(eb.spy.raise >= 1 and eb.spy.raise <= 6 and eb.spy.over_max == 0,
+  "§5b centre en attente : les soldats passent, 1 à 6 de plus, jamais au-delà du plafond (essai 4 ; " .. eb.spy.raise .. ")")
 say("§5 mutant : la garde du centre ignoree")
 local g = run({ minutes = 10, centre = true, ignore_hold = true })
 local maxg = 0

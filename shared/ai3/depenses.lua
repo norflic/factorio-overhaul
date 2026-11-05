@@ -19,7 +19,8 @@
      plus, au plus Dp.SOLDIERS_MAX, jamais au-delà du plafond de soldats (Dp.soldiers, cible ABSOLUE elle aussi).
   6. Essai 3 (preuve de l'essai 2, C4 : Azur perd l'âge 2 dans 2 parties sur 4, son centre attendait 60 circuits pendant que la règle lui
      faisait fabriquer 4 laboratoires de 10 circuits) : le CENTRE D'ABORD. Tant que le centre est le but courant ou payable (inp.hold),
-     la règle ne demande ni laboratoire ni soldat ; la défense reste servie. La cible de laboratoires est MONOTONE pendant un sommeil
+     la règle ne demande ni laboratoire ni soldat ; la défense reste servie. Essai 4 (accord du lead) : seuls les laboratoires sont
+     retenus, les soldats passent (la part de la recherche va à l'armement pendant l'attente). La cible de laboratoires est MONOTONE pendant un sommeil
      (Dp.labs_target, prev : la plus haute atteinte, jamais au-delà de base + Dp.LABS_MAX) : elle n'oscille plus avec le surplus.
   7. Revue de l'essai 2 (E2, E4) : l'armement se compte PAR MATIÈRE (arms_by : la part de chaque matière après les laboratoires) ; les
      soldats ne se paient qu'avec la matière CLÉ (Dp.soldiers_extra, jamais quand elle manque : key_short) ; le débit des soldats engagés
@@ -70,7 +71,7 @@ function Dp.excess(free, prod, missing)
 end
 
 --- st = état (Dp.new) ; inp = { on, tick, products = { { key, free, made, missing, def_only } }, want = { [key] = n }, hold (centre en
---- attente : ni laboratoire ni soldat) }.
+--- attente : aucun laboratoire, la part de la recherche va à l'armement) }.
 --- Rend st, res = { per = { [key] = excédent qui dort }, rper = { [key] = part de la recherche }, defense = { [key] = accordé },
 --- research = plaques, labs, arms = plaques, arms_by = { [key] = plaques }, hold, why }.
 function Dp.step(st, inp)
@@ -107,12 +108,9 @@ function Dp.step(st, inp)
       parts[#parts + 1] = string.format("%s dort %d (defense %d)", k, math.floor(exc), d)
     end
   end
-  -- Essai 3 : le centre d'abord (ni laboratoire ni soldat tant qu'il attend ; tout l'excédent reste au centre et à la défense).
-  if res.hold then
-    res.why = string.format("%s | CENTRE EN ATTENTE : laboratoires et soldats retenus", #parts > 0 and table.concat(parts, " ; ") or "rien ne dort")
-    return st, res
-  end
-  res.labs = math.min(Dp.LABS_MAX, math.floor(res.research / Dp.LAB_PLATES + 1e-9))
+  -- Essai 3 : le centre d'abord. Essai 4 (accord du lead, 5/11) : tant qu'il attend, seuls les LABORATOIRES sont retenus (10 circuits
+  -- chacun : ce que le centre attendait, C4 de l'essai 2) ; l'armement passe et reçoit la part de la recherche.
+  res.labs = res.hold and 0 or math.min(Dp.LABS_MAX, math.floor(res.research / Dp.LAB_PLATES + 1e-9))
   -- Armement par matière (E4) : la part de chaque matière après les laboratoires (pris au prorata des parts de la recherche).
   local left = math.max(0, res.research - res.labs * Dp.LAB_PLATES)
   for _, p in ipairs(inp.products or {}) do
@@ -125,14 +123,17 @@ function Dp.step(st, inp)
     local k = tostring(p.key)
     if res.arms_by[k] then ab[#ab + 1] = k .. " " .. math.floor(res.arms_by[k]) end
   end
-  res.why = string.format("%s | recherche %d plaque(s) -> %d laboratoire(s) de plus | armement %d plaque(s) {%s}",
-    #parts > 0 and table.concat(parts, " ; ") or "rien ne dort", math.floor(res.research), res.labs, math.floor(res.arms), table.concat(ab, ", "))
+  local lab_txt = res.hold and string.format("CENTRE EN ATTENTE : laboratoires retenus, recherche %d plaque(s) a l'armement", math.floor(res.research))
+    or string.format("recherche %d plaque(s) -> %d laboratoire(s) de plus", math.floor(res.research), res.labs)
+  res.why = string.format("%s | %s | armement %d plaque(s) {%s}",
+    #parts > 0 and table.concat(parts, " ; ") or "rien ne dort", lab_txt, math.floor(res.arms), table.concat(ab, ", "))
   return st, res
 end
 
---- Soldats de plus payés par la matière CLÉ (E4) : 0 si le centre attend, si la clé manque (key_short) ou si elle ne dort pas.
+--- Soldats de plus payés par la matière CLÉ (E4) : 0 si la clé manque (key_short) ou si elle ne dort pas. Essai 4 : le centre en
+--- attente ne les retient plus.
 function Dp.soldiers_extra(res, key, key_short)
-  if not res or res.hold or key_short or key == nil then return 0 end
+  if not res or key_short or key == nil then return 0 end
   local a = num((res.arms_by or {})[key])
   return math.min(Dp.SOLDIERS_MAX, math.floor(a / Dp.SOLDIER_PLATES + 1e-9))
 end

@@ -73,7 +73,7 @@ function Dep.think(f, cs, tick, products, minutes)
   -- Rien ne dort pour la recherche : base oubliée. Centre en attente : base et cible GARDÉES (pas un nouveau sommeil qui repartirait de
   -- plus haut), mais aucun laboratoire demandé ni débité tant qu'il attend (Dep.labs_target, Dp.reserved).
   if res.labs <= 0 and not res.hold then d.lab_base, d.lab_target = nil, nil end
-  if res.hold then d.soldier_target = nil end
+  -- (essai 4 : le centre en attente ne retient plus les soldats ; Dep.soldiers_target les sert comme hors attente)
   if d.on ~= false then
     local sold
     if f.is_player then sold = "soldats : votre equipe ne recrute pas"
