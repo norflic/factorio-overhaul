@@ -2197,7 +2197,13 @@ end
 --- Lot PERIMETRE2 (G3, essai 4, accord du lead du 5/11 : « un anneau court autour du QG et de la production, puis étendu ») : `core` (enceinte
 --- de VOTRE équipe) : l'empreinte n'est QUE le lot du QG et les lots pris par la production ; ni lots libres gardés dedans, ni tourelles (elles
 --- défendent dehors) ; la suite (îlots dehors, Build.beyond_wall) étend la défense. Partie du DC (dc-temoin3, 90 min) : 532 murs contre 558.
-local function enc_tight_bounds(f, core)
+--- `zone` (votre équipe ; nil : factions, règle d'avant) : « production » (lot du QG + lots pris), « centrales » (lot du QG + lots des
+--- centrales seuls : 252 murs dans la partie du DC, payable vers 85 min) ; choix du DC à venir (T.enceinte_zone, f.garde_zone pour un banc).
+local function plant_lot(p)
+  return (p.parts ~= nil and p.parts[1] ~= nil and p.parts[1].kind == "centrale") or (p.spec ~= nil and p.spec.gen == "steam")
+end
+local function enc_tight_bounds(f, zone)
+  local core = zone ~= nil
   local b = f.build
   local rects, room = {}, {}
   for _, k in ipairs(sorted_keys(b.lots)) do
@@ -2206,8 +2212,8 @@ local function enc_tight_bounds(f, core)
     local box = { x0 = x0, y0 = y0, x1 = x1, y1 = y1, k = k }
     if l.used then
       local p = b.projects[l.used]
-      if p and p.state ~= "refuse" and not (p.spec and p.spec.enceinte) then rects[#rects + 1] = box end
-    elseif (l.state == "libre" or l.state == "defricher") and not (l.i == 0 and l.j == 0) and not (l.bad and l.bad >= 2) and not l.out then
+      if p and p.state ~= "refuse" and not (p.spec and p.spec.enceinte) and (zone ~= "centrales" or plant_lot(p)) then rects[#rects + 1] = box end
+    elseif not core and (l.state == "libre" or l.state == "defricher") and not (l.i == 0 and l.j == 0) and not (l.bad and l.bad >= 2) and not l.out then
       room[#room + 1] = box
     end
   end
@@ -4773,7 +4779,7 @@ function Build.space_step(f, surface, tick)
   -- premier segment : le rayon n'est figé (b.enc) que si un segment est vraiment demandé
   -- lot ENCEINTE3 : contour serré sur l'empreinte (bornes figées avec le rayon) ; nil : le rayon, comme avant
   local essai3 = f.is_player and not f.garde_e2 -- (votre équipe ; f.garde_e2 : règle de l'essai 2, banc g3-micro-ancien)
-  local tight, tinfo = enc_tight_bounds(f, essai3) -- (G3 essai 4 : anneau COURT pour votre équipe)
+  local tight, tinfo = enc_tight_bounds(f, essai3 and (f.garde_zone or T.enceinte_zone or "production") or nil) -- (G3 essai 4 : anneau COURT)
   local cand = { r = b.radius, claimed = {}, segs = {}, tick = tick, gates = Enc.gate_count(), bounds = tight }
   -- Lot PERIMETRE2 (G3, essai 3, cause MESURÉE sur la partie du DC) : votre équipe ne commence l'anneau que s'il est payé EN ENTIER (murs et
   -- briques au stock ; les briques se fondent de la pierre qui dort, script/team/garde_site.lua) ; ses segments prennent alors tout le stock

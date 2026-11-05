@@ -418,10 +418,18 @@ do
   release(f.build)
   check(not f.build.lots["8:8"].out and not f.build.lots["5:0"].out, "liberation : plus aucun lot ecarte")
   -- lot PERIMETRE2 (G3, essai 4) : anneau COURT de votre équipe (core) : ni tourelles ni lots libres gardés dedans
-  local tbc, infoc = tight_bounds_of(f, true)
+  local tbc, infoc = tight_bounds_of(f, "production")
   check(tbc ~= nil and infoc.room == 0 and (tbc[3] - tbc[1]) <= (tb[3] - tb[1]) and (tbc[4] - tbc[2]) <= (tb[4] - tb[2])
     and ((tbc[3] - tbc[1]) < (tb[3] - tb[1]) or (tbc[4] - tbc[2]) < (tb[4] - tb[2])),
     "G3 essai 4 : anneau court plus petit (" .. (tbc and ((tbc[3] - tbc[1]) .. "x" .. (tbc[4] - tbc[2])) or "?") .. " contre " .. (tb[3] - tb[1]) .. "x" .. (tb[4] - tb[2]) .. "), sans lot libre garde")
+  -- zone « centrales » (choix du DC à venir) : le lot du QG et les lots des centrales seuls
+  local fz = mk({ { i = 0, j = 0, state = "occupe", used = 1 }, { i = 1, j = 0, state = "libre", used = 21 }, { i = -1, j = 0, state = "libre", used = 22 },
+    { i = 0, j = 2, state = "libre" } }, { [1] = { state = "fini" }, [21] = { state = "fini", spec = { gen = "steam" }, parts = { { kind = "centrale" } } },
+    [22] = { state = "fini", spec = { gen = "gears" }, parts = { { kind = "module" } } } }, { [31] = turret(339 + 60, 339) })
+  local zp = tight_bounds_of(fz, "production")
+  local zc = tight_bounds_of(fz, "centrales")
+  check(zp and zc and zc[1] > zp[1] and zc[3] == zp[3] and zc[2] == zp[2] and zc[4] == zp[4],
+    "zone « centrales » : le lot de production (-1, 0) reste dehors, la centrale (1, 0) dedans (" .. tostring(zc and zc[1]) .. " > " .. tostring(zp and zp[1]) .. ")")
   -- lot PERIMETRE2 (G3, essai 3) : enceinte de votre équipe en construction : seuls les lots COUPÉS par l'anneau sont écartés
   local nc = mark_out(f.build, tb, true)
   local agree, cut_seen = true, 0
@@ -571,7 +579,7 @@ local function e4_case(BuildX)
 end
 do
   local waited, started, core = e4_case(Build)
-  check(core == true, "G3 essai 4 : le contour de votre équipe est demandé COURT (enc_tight_bounds(f, true))")
+  check(core == "production", "G3 essai 4 : le contour de votre équipe est demandé COURT (zone « production » par défaut) : " .. tostring(core))
   check(waited and started, "G3 essai 4 : 50 murs manquent aux avant-postes attaqués : l'anneau attend qu'ils soient payés aussi, puis commence")
   local key = "if not Enc.full_ring_ok(have, need + pend) then"
   local a6 = chunk_src:find(key, 1, true)
