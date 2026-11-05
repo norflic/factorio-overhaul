@@ -12,13 +12,14 @@ local Board = require("script.team.board")
 local S = {}
 
 --- Lot ETAGE4 : état de la tournée de l'avant-poste `oid` au tableau : "prise" | "libre" | nil (absente ou en pause), attente sans preneur,
---- ticks sans progrès du PNJ qui la tient (relevé t.prog du bail, script/team/bail.lua ; à défaut, depuis la prise), ticks depuis la prise
---- (ou depuis le dernier abandon du bail, t.lease_t).
+--- ticks sans progrès du PNJ qui la tient (relevé t.prog du bail, script/team/bail.lua ; à défaut, depuis la prise), ticks de tenue hors
+--- combat et fuite (t.hold_t du bail ; à défaut, depuis la prise). Revue du lead (m3) : une tournée déjà ABANDONNÉE (danger, fuite, bail) dont
+--- le PNJ rentre au QG n'ira jamais chercher ce qui attend : comme absente.
 function S.tour(f, oid, tick)
   local t = Board.get(f).tasks["service:" .. tostring(oid)]
-  if not t then return nil, nil, nil, nil, nil end
+  if not t or t.fail or t.bailed then return nil, nil, nil, nil, nil end
   if t.worker then
-    return "prise", nil, tick - ((t.prog and t.prog.t) or t.claimed or tick), tick - (t.lease_t or t.claimed or tick), t.pre_act ~= false
+    return "prise", nil, tick - ((t.prog and t.prog.t) or t.claimed or tick), tick - (t.hold_t or t.claimed or tick), t.pre_act ~= false
   end
   return "libre", tick - (t.created or tick), nil, nil, nil
 end
@@ -72,8 +73,8 @@ function S.report(f, view, tick)
       local t = b.tasks[key]
       local cd = b.cooldown[key]
       local st
-      if t and t.worker then st = string.format("prise %ds p%d sans progres %ds", math.floor((tick - (t.claimed or tick)) / 60), t.prio or 0,
-        math.floor((tick - ((t.prog and t.prog.t) or t.claimed or tick)) / 60))
+      if t and t.worker then st = string.format("prise %ds p%d sans progres %ds%s", math.floor((tick - (t.claimed or tick)) / 60), t.prio or 0,
+        math.floor((tick - ((t.prog and t.prog.t) or t.claimed or tick)) / 60), (t.fail or t.bailed) and (" abandonnee (" .. tostring(t.fail) .. ")") or "")
       elseif t then st = string.format("libre %ds p%d", math.floor((tick - (t.created or tick)) / 60), t.prio or 0)
       elseif cd and tick < cd then st = string.format("pause %ds", math.floor((cd - tick) / 60))
       else st = "absente" end

@@ -14,6 +14,12 @@
                                     fait, n'est plus coupé par la tenue maximale, seulement par l'absence de progrès).
     Bl.alive(state, free_age, stall, stale, held, pre_act) -> la tournée va-t-elle chercher ce qui attend ? Libre depuis moins de `stale`, ou
                                     prise et pas échue au sens de Bl.expired. Absente : non.
+  Revue du lead (5/11, m4 et m5) :
+    Bl.busy(k, shooting, tick)   -> le PNJ est-il au COMBAT sur place (arrêt « engage » des comportements visibles, ou autodéfense qui tire) ou
+                                    en FUITE (refuge en cours depuis moins de Bl.FLEE_MAX) ? Ce temps-là ne compte ni comme temps sans progrès
+                                    (Bl.progress, cur.busy : progrès) ni comme temps de tenue (Bl.held_base).
+    Bl.count(prev, reset), Bl.pause(n) -> bails de suite d'une même tournée sans tournée réussie entre deux ; au-delà de Bl.HOLD_AFTER, pause de
+                                    la tournée Bl.PAUSE_TICKS (modèle d'Ad.hold, shared/team/adopte.lua) : un accès muré ne boucle plus sans fin.
 ]]
 local Bl = {}
 
@@ -23,8 +29,36 @@ Bl.GOAL_EPS = 0.5         -- tuiles : un but qui bouge de plus est un AUTRE but 
 Bl.MAX_HOLD = 3 * 3600    -- ticks au-delà desquels une tournée prise et pas encore à l'acte est rendue même si son PNJ bouge (essai 2 ; aller
                           -- et retour à 400 tuiles en moins de 2 min de marche : 50 % de marge)
 Bl.KINDS = { service = true }
+Bl.FLEE_MAX = 2 * 3600    -- ticks : une fuite plus longue (refuge jamais atteint) recompte comme temps sans progrès
+Bl.HOLD_AFTER = 2         -- bails de suite d'une tournée (sans tournée réussie entre deux) avant sa pause (A.HOLD_AFTER du lot ADOPTE)
+Bl.PAUSE_TICKS = 10 * 3600 -- pause de la tournée : elle n'est plus reposée au tableau (le minage à la main n'est plus bloqué par elle)
 
 local function num(v) return type(v) == "number" and v or 0 end
+
+--- m5 : combat sur place ou fuite ? k = état des comportements visibles du PNJ { hold, hold_stop, refuge, flee_t } (nil : éteints) ; un
+--- arrêt d'ALERTE (hold_stop) n'est pas un combat. shooting = l'autodéfense tire.
+function Bl.busy(k, shooting, tick)
+  if shooting == true then return true end
+  if type(k) ~= "table" then return false end
+  if k.hold ~= nil and k.hold_stop == nil and num(tick) < num(k.hold) then return true end
+  return k.refuge ~= nil and k.flee_t ~= nil and num(tick) - num(k.flee_t) < Bl.FLEE_MAX
+end
+
+--- m5 : origine du temps de tenue, décalée du temps passé au combat ou en fuite depuis la pensée précédente (`last`).
+function Bl.held_base(base, last, tick, busy)
+  if busy == true and last ~= nil then return num(base) + (num(tick) - num(last)) end
+  return base
+end
+
+--- m4 : bails de suite d'une tournée (`reset` : la tournée d'avant a réussi, ou aucune n'a échoué).
+function Bl.count(prev, reset)
+  if reset then return 1 end
+  return num(prev) + 1
+end
+
+function Bl.pause(n)
+  return num(n) >= Bl.HOLD_AFTER
+end
 
 local function dist(c)
   local dx, dy = num(c.gx) - num(c.x), num(c.gy) - num(c.y)
@@ -36,10 +70,10 @@ local function fresh(cur, tick)
     best = cur.gx ~= nil and dist(cur) or nil, t = tick }, 0
 end
 
---- prev = relevé précédent (nil : première lecture) ; cur = { pc, state, x, y, gx, gy } (gx, gy : but de l'étape en cours, nil sans but).
---- Rend (relevé, ticks sans progrès).
+--- prev = relevé précédent (nil : première lecture) ; cur = { pc, state, x, y, gx, gy, busy } (gx, gy : but de l'étape en cours, nil sans but ;
+--- busy : Bl.busy, le temps au combat ou en fuite ne compte pas). Rend (relevé, ticks sans progrès).
 function Bl.progress(prev, cur, tick)
-  if not prev or prev.pc ~= cur.pc or prev.state ~= cur.state then return fresh(cur, tick) end
+  if not prev or cur.busy == true or prev.pc ~= cur.pc or prev.state ~= cur.state then return fresh(cur, tick) end
   if cur.gx ~= nil then
     if prev.gx == nil or math.abs(num(prev.gx) - num(cur.gx)) + math.abs(num(prev.gy) - num(cur.gy)) > Bl.GOAL_EPS then
       return fresh(cur, tick)

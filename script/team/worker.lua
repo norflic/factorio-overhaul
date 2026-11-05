@@ -873,17 +873,42 @@ Worker.abort = abort -- lot IA3-k : demi-tour et fuite
 --- la machine repart de l'étape : une marche ou un état sans issue est remis à zéro) ; encore sans progrès au bail suivant (il ne peut même
 --- pas rentrer : enfermé, état sans issue) : DÉGAGÉ, téléporté près du QG (comme le secours de l'étape « home »), dépôt, et la tâche finit en
 --- échec. Rend "abandon" | "degage".
+--- Place près de `center` pour le personnage `e` : sans bâtiment (find_non_colliding_position) ni fantôme sur la case (F293). Centres essayés
+--- dans un ordre fixe : `center`, puis 8 à 3 tuiles et 8 à 6 tuiles. Aucune sans fantôme : la première place sans bâtiment ; aucune : nil.
+local GHOST_RING = { { 0, 0 }, { 3, 0 }, { 0, 3 }, { -3, 0 }, { 0, -3 }, { 3, 3 }, { -3, 3 }, { -3, -3 }, { 3, -3 },
+  { 6, 0 }, { 0, 6 }, { -6, 0 }, { 0, -6 }, { 6, 6 }, { -6, 6 }, { -6, -6 }, { 6, -6 } }
+function Worker.ghost_free_spot(e, center)
+  local s = e.surface
+  local first
+  for _, o in ipairs(GHOST_RING) do
+    local spot = s.find_non_colliding_position(e.name, { x = center.x + o[1], y = center.y + o[2] }, 20, 0.5)
+    if spot then
+      first = first or spot
+      if s.count_entities_filtered({ type = "entity-ghost", limit = 1,
+        area = { { spot.x - 0.5, spot.y - 0.5 }, { spot.x + 0.5, spot.y + 0.5 } } }) == 0 then
+        return spot
+      end
+    end
+  end
+  return first
+end
+
+--- Revue du lead (m5) : le motif d'un abandon antérieur (fuite, danger) est gardé ; « bail » seulement s'il n'y en avait pas.
+--- Accord du lead (F293) : la place du dégagement est libre de bâtiments (find_non_colliding_position) ET de fantômes (un personnage debout
+--- sur l'emprise d'un fantôme en empêche le ravivage) : Worker.ghost_free_spot.
 function Worker.release_stuck(agent, f, tick)
   local task = agent.task
   if task and not task.bailed then
     task.bailed = true
+    local why = task.fail
     abort(agent, f, tick, "bail")
+    if why then task.fail = why end
     return "abandon"
   end
   local e = agent.entity
   if e and e.valid then
     if agent.nav then Nav.stop(agent, tick) end
-    local spot = f.hq and f.hq.valid and e.surface.find_non_colliding_position(e.name, home_slot(agent, f), 20, 0.5)
+    local spot = f.hq and f.hq.valid and Worker.ghost_free_spot(e, home_slot(agent, f))
     if spot then
       e.teleport(spot)
       f.stats.rescued = (f.stats.rescued or 0) + 1

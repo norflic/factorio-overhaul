@@ -854,7 +854,8 @@ function Board.finish(f, task, ok, tick)
       -- Lot CHARBON3 (B1, Q2) : le facteur ne vaut que pour un échec de CHEMIN ; une tâche vitale (priorité >= Rc.VITAL_PRIO) reprend au
       -- plus après Rc.VITAL_CAP (shared/team/repli_chemin.lua, Rc.delay).
       local delay, k_path = Rc.delay(Ac.retry(task.fail, task.fond, RETRY_TICKS), n_path, task.fail, task.prio, f.team.repli_off)
-      b.cooldown[task.key] = tick + delay
+      -- Lot ETAGE4 (m4) : une pause plus longue déjà posée (tournée en pause après des bails de suite, script/team/bail.lua) n'est pas raccourcie.
+      b.cooldown[task.key] = math.max(tick + delay, b.cooldown[task.key] or 0)
       if k_path > 1 then
         f.team.repli_logs = (f.team.repli_logs or 0) + 1
         if f.team.repli_logs <= 12 then
