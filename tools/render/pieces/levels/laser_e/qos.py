@@ -87,3 +87,24 @@ def ecoqos(pid, actif):
         return bool(ok), (0 if ok else ctypes.get_last_error())
     finally:
         _k32.CloseHandle(h)
+
+
+def jeu_du_dc():
+    """Vrai si un factorio.exe tourne SANS « fo-autotest » ni « fo-visual » dans sa ligne de commande : la partie du DC
+    (les bancs passent tous par fo-autotest*.bat ou fo-visual). Lecture seule (CIM), environ 1 s."""
+    import subprocess
+    cmd = ("Get-CimInstance Win32_Process -Filter \"Name='factorio.exe'\" | ForEach-Object { "
+           "if ($_.CommandLine -notlike '*fo-autotest*' -and $_.CommandLine -notlike '*fo-visual*') { 'JEU' } }")
+    try:
+        r = subprocess.run(["powershell", "-NoProfile", "-Command", cmd], stdout=subprocess.PIPE,
+                           stderr=subprocess.DEVNULL, timeout=60)
+        return b"JEU" in r.stdout
+    except Exception:  # noqa: BLE001 (lecture impossible : on ne conclut pas)
+        return False
+
+
+def tuer_arbre(pid):
+    """Termine le processus `pid` et TOUS ses descendants (taskkill /T /F) : seulement l'arbre de rendu lancé par la
+    production elle-même."""
+    import subprocess
+    subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
