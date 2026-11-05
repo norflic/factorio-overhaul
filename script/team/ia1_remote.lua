@@ -25,6 +25,7 @@ local Team = require("script.team.team")
 local Poles = require("script.team.poles")
 local Config = require("script.core.config")
 local Outposts = require("script.faction.outposts") -- lot FOURS (bancs : fours posés, interrupteur, compteurs de visites)
+local Build = require("script.team.build") -- lot ÉTAGE 5 (bancs : couloir d'un accès écrit) ; déjà chargé par script/team/worker.lua
 local T = require("shared.team.config")
 
 -- Lot IA1-b (docs §8.6, pilotage sans clic) :
@@ -230,7 +231,10 @@ remote.add_interface("fo-ia1", {
     local o = Outposts.build(f, chest.surface, kind, { x = x, y = y }, tmp)
     tmp.destroy()
     if not o then return nil end
-    if type(ax) == "number" and type(ay) == "number" then o.access = { x = ax, y = ay } end
+    if type(ax) == "number" and type(ay) == "number" then
+      o.access = { x = ax, y = ay }
+      Build.couloirs_reset(f)
+    end
     return { id = o.id, drills = #o.drill_list, sinks = #o.sinks }
   end,
   -- Lot NAV2 (bancs seulement) : agrandit `rounds` fois l'avant-poste `oid` (Outposts.extend, objets fournis) : champ DENSE comme une

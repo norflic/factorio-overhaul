@@ -124,7 +124,12 @@ local function swap_one(f, surface, ref, cx, cy, tick)
   local st = f.swap
   -- Relecture statique : la place de la future boite est peut-etre reservee par le plan directeur (meme garde que place_pairs) ;
   -- on le sait AVANT de retirer l'ancienne foreuse.
-  if Outposts.reserved and Outposts.reserved(f, item, { x = cx, y = cy }, dir) then
+  -- Lot ÉTAGE 5 (revue B1) : remplacement SUR PLACE : les tuiles de couloir sous l'ancienne foreuse ne comptent pas (sinon une foreuse à
+  -- combustion déjà sur un couloir ne passait JAMAIS à l'électrique) ; seules les tuiles hors de l'ancienne emprise respectent le couloir.
+  local bb = d.bounding_box
+  local keep = { math.floor(bb.left_top.x + 0.01), math.floor(bb.left_top.y + 0.01), math.ceil(bb.right_bottom.x - 0.01) - 1,
+    math.ceil(bb.right_bottom.y - 0.01) - 1 }
+  if Outposts.reserved and Outposts.reserved(f, item, { x = cx, y = cy }, dir, { keep = keep }) then
     st.retry[ref.key] = tick + Swap.RETRY
     return false
   end

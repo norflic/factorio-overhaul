@@ -100,14 +100,24 @@ for _, r in ipairs(suite(Co)) do check(r[1], r[2]) end
 local B = read("script/team/build.lua")
 local CH = read("script/team/champ.lua")
 local W = read("script/team/worker.lua")
-check("lecteur 1 : Build.reserved_entity (agrandissements, tourelles)", B:find("if (occ and occ[k]) or cor[k] then return true end", 1, true) ~= nil
-  and B:find("Outposts.reserved = function(f, name, pos, dir) return Build.reserved_entity(f, name, pos, dir) end", 1, true) ~= nil)
-check("lecteur 2 : read_masks free() (modules, poteaux du plan)", B:find("return not water[k] and not blocked[k] and not b.occ[k] and not cor[k]", 1, true) ~= nil)
+local FS = read("script/team/foreuse_swap.lua")
+local AD = read("script/team/adopte.lua")
+local RM = read("script/team/ia1_remote.lua")
+check("lecteur 1 : Build.reserved_entity (agrandissements, tourelles)", B:find("if cor[k] and not (keep and tx >= keep[1]", 1, true) ~= nil
+  and B:find("Outposts.reserved = function(f, name, pos, dir, opts) return Build.reserved_entity(f, name, pos, dir, opts) end", 1, true) ~= nil)
+check("lecteur 2 : read_masks free() (modules, poteaux du plan)", B:find("if water[k] or blocked[k] or b.occ[k] then return false end\n      if cor[k] then", 1, true) ~= nil)
 check("lecteur 3 : vue des poteaux en cache", B:find("return not b.occ[k] and not cor[k]", 1, true) ~= nil)
-check("lecteur 4 : masque de la migration du champ", CH:find('if cor[k] and not blocked[Ch.key(x, y)] then blocked[Ch.key(x, y)] = "couloir" end', 1, true) ~= nil)
+check("lecteur 4 : masque de la migration du champ", CH:find('blocked[Ch.key(x, y)] = "couloir"', 1, true) ~= nil)
 check("les tapis traversent (cout du tapis sans couloir)", B:find("if masks.water[k] or masks.blocked[k] or b.occ[k] or planned[k] then return nil end", 1, true) ~= nil)
 check("interrupteur de banc f.team.couloir_off", B:find("(f.team and f.team.couloir_off) then return NO_COULOIR end", 1, true) ~= nil)
 check("journal : derniere issue fermee par", W:find("derniere issue fermee par %s", 1, true) ~= nil and W:find("Co.closer(boxes, tiles, base, rect, order)", 1, true) ~= nil)
+check("B1 : le remplacement sur place passe l'ancienne emprise", FS:find("Outposts.reserved(f, item, { x = cx, y = cy }, dir, { keep = keep })", 1, true) ~= nil)
+local _, nad = AD:gsub("Outposts%.reserved%(f, ent%.name, ent%.position, ent%.direction, { couloir = false }%)", "")
+check("B2 : les deux adoptions ignorent le couloir", nad == 2, tostring(nad))
+check("B3 : bilan [FO-COULOIR] dans la pensee du plan", B:find("Build.couloir_report(f, tick) -- lot ÉTAGE 5 (revue B3)", 1, true) ~= nil
+  and CH:find("f.stats.couloir_champ = (f.stats.couloir_champ or 0) + 1", 1, true) ~= nil)
+check("memo : l'acces ecrit efface le releve du tick (construction, banc)", W:find("o.access = { x = p.x, y = p.y }\n  Build.couloirs_reset(f)", 1, true) ~= nil
+  and RM:find("o.access = { x = ax, y = ay }\n      Build.couloirs_reset(f)", 1, true) ~= nil)
 
 -- §5 mutants de la règle
 local MUTANTS = {
@@ -141,7 +151,7 @@ check(string.format("mutants de la regle refuses %d/%d%s", refused, #MUTANTS, #k
   refused == #MUTANTS)
 package.loaded["shared.team.couloir"] = nil
 
--- §6 Build.reserved_entity au moteur simulé : une emprise sur le couloir est réservée, à côté non ; interrupteur.
+-- §6 Build au moteur simulé : réservation, interrupteur, B1 (ancienne emprise), B2 (adoption), B3 (comptes et bilan), mémo par tick.
 local Mk = require("tests.mock_engine")
 local function moteur(build_src)
   local res = {}
@@ -162,23 +172,62 @@ local function moteur(build_src)
   if not (f and f.hq_pos) then return res end
   local saved = f.outposts
   local ax, ay = f.hq_pos.x + 40, f.hq_pos.y
+  -- une emprise d'une tuile (le moteur simulé n'a pas de tile_width) : tuile (tx, ty) visée par son centre
+  local function at(tx, ty) return { x = tx + 0.5, y = ty + 0.5 } end
+  local cx, cy = math.floor(ax) - 10, math.floor(ay) -- tuile du couloir (rangée de l'accès, vers le QG)
   f.outposts = { [7] = { access = { x = ax, y = ay } } }
-  local on = Build.reserved_entity(f, "stone-furnace", { x = ax - 10, y = ay + 1 })
-  local off = Build.reserved_entity(f, "stone-furnace", { x = ax - 10, y = ay + 6 })
-  c("emprise sur le couloir : reservee", on == true)
-  c("emprise a cote du couloir : libre", off == false)
+  Build.couloirs_reset(f)
+  f.stats = f.stats or {}
+  local e0 = f.stats.couloir_emprises or 0
+  c("emprise sur le couloir : reservee", Build.reserved_entity(f, "stone-furnace", at(cx, cy)) == true)
+  c("emprise a cote du couloir : libre", Build.reserved_entity(f, "stone-furnace", at(cx, cy + 6)) == false)
+  c("B3 : refus par le couloir compte", (f.stats.couloir_emprises or 0) == e0 + 1)
+  -- B1 : remplacement sur place : la tuile de couloir sous l'ancienne emprise ne compte pas, une tuile hors d'elle si
+  c("B1 : couloir sous l'ancienne emprise : le remplacement passe", Build.reserved_entity(f, "stone-furnace", at(cx, cy), 0, { keep = { cx, cy, cx, cy } }) == false)
+  c("B1 : couloir hors de l'ancienne emprise : refuse", Build.reserved_entity(f, "stone-furnace", at(cx, cy), 0, { keep = { cx + 3, cy, cx + 4, cy } }) == true)
+  -- B2 : adoption d'une machine posée par le joueur : le couloir ne compte pas
+  c("B2 : adoption sur un couloir : pas reservee", Build.reserved_entity(f, "stone-furnace", at(cx, cy), 0, { couloir = false }) == false)
   f.team.couloir_off = true
-  c("interrupteur : couloir coupe", Build.reserved_entity(f, "stone-furnace", { x = ax - 10, y = ay + 1 }) == false)
+  c("interrupteur : couloir coupe", Build.reserved_entity(f, "stone-furnace", at(cx, cy)) == false)
   f.team.couloir_off = nil
+  -- mémo par tick : 50 lectures dans le même tick = un relevé de signature ; un accès écrit (reset) = un relevé de plus ; tick suivant : un de plus
+  local n0 = Build.couloir_stats.sig
+  for _ = 1, 50 do Build.couloirs(f) end
+  c("memo : une seule signature par tick", Build.couloir_stats.sig - n0 <= 1, tostring(Build.couloir_stats.sig - n0))
   f.outposts = { [7] = { access = { x = ax, y = ay } }, [8] = { access = { x = ax, y = ay - 20 } } }
-  c("cache refait quand un acces change", Build.reserved_entity(f, "stone-furnace", { x = ax - 10, y = ay - 19 }) == true)
+  c("memo : sans reset, le meme tick garde l'ancien releve", Build.reserved_entity(f, "stone-furnace", at(cx, math.floor(ay - 20))) == false)
+  Build.couloirs_reset(f)
+  c("memo : acces ecrit (reset) : le nouveau couloir vaut dans le meme tick", Build.reserved_entity(f, "stone-furnace", at(cx, math.floor(ay - 20))) == true)
+  -- tick suivant SANS reset (avant-poste perdu, autre écriture) : la signature voit le changement
+  f.outposts = { [7] = { access = { x = ax, y = ay } } }
+  local t0 = game.tick
+  game.tick = t0 + 1
+  local gone = Build.reserved_entity(f, "stone-furnace", at(cx, math.floor(ay - 20)))
+  game.tick = t0
+  c("signature : au tick suivant, un couloir disparu ne reserve plus", gone == false)
+  -- B3 : bilan [FO-COULOIR] à la tranche de 10 min suivante
+  local logs, log0 = {}, log
+  log = function(s) logs[#logs + 1] = s end
+  f.stats.couloir_slot = nil
+  Build.couloir_report(f, 36000)
+  Build.couloir_report(f, 36000 + 300)
+  Build.couloir_report(f, 72000)
+  log = log0
+  local line = logs[1] or ""
+  c("B3 : un bilan [FO-COULOIR] par tranche de 10 min", #logs == 1 and line:find("[FO-COULOIR]", 1, true) ~= nil
+    and line:find(string.format("%d emprise(s)", f.stats.couloir_emprises), 1, true) ~= nil, line)
   f.outposts = saved
   return res
 end
 for _, r in ipairs(moteur(nil)) do check("moteur : " .. r[1], r[2]) end
 local BMUT = {
-  { "reserved_entity sans couloir", "if (occ and occ[k]) or cor[k] then return true end", "if occ and occ[k] then return true end" },
-  { "cache jamais refait", "if c and c.sig == s then return c.set end", "if c then return c.set end" },
+  { "reserved_entity sans couloir", "if cor[k] and not (keep and tx >= keep[1] and tx <= keep[3] and ty >= keep[2] and ty <= keep[4]) then by_cor = true end", "" },
+  { "B1 : ancienne emprise ignoree", "not (keep and tx >= keep[1] and tx <= keep[3] and ty >= keep[2] and ty <= keep[4])", "true" },
+  { "B2 : option couloir ignoree", "local cor = (opts and opts.couloir == false) and NO_COULOIR or Build.couloirs(f)", "local cor = Build.couloirs(f)" },
+  { "B3 : refus non compte", "f.stats.couloir_emprises = (f.stats.couloir_emprises or 0) + 1 -- revue (B3)", "" },
+  { "memo par tick absent", "if c and c.tick == now then return c.set end", "" },
+  { "reset sans effet", "if f then COULOIRS[tostring(f.key or f.id)] = nil end", "" },
+  { "cache jamais refait", "if c and c.sig == s then\n    c.tick = now\n    return c.set\n  end", "if c then\n    c.tick = now\n    return c.set\n  end" },
   { "interrupteur ignore", "(f.team and f.team.couloir_off) then return NO_COULOIR end", "false then return NO_COULOIR end" },
 }
 local bref, bkept = 0, {}

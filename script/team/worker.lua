@@ -752,6 +752,7 @@ ACTS.build = function(agent, f, task, surface, tick)
   end
   local p = agent.entity.position
   o.access = { x = p.x, y = p.y }
+  Build.couloirs_reset(f) -- lot ÉTAGE 5 : le couloir de ce nouvel accès vaut dès ce tick
   task.site_used = true
   f.stats.built = (f.stats.built or 0) + 1
   -- Lot SCALE-COMPLET : origine et distance de chaque NOUVEL avant-poste (partie du DC, 0.6.18 : l'avant-poste de charbon n° 5
