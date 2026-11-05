@@ -2198,7 +2198,8 @@ end
 --- de VOTRE équipe) : l'empreinte n'est QUE le lot du QG et les lots pris par la production ; ni lots libres gardés dedans, ni tourelles (elles
 --- défendent dehors) ; la suite (îlots dehors, Build.beyond_wall) étend la défense. Partie du DC (dc-temoin3, 90 min) : 532 murs contre 558.
 --- `zone` (votre équipe ; nil : factions, règle d'avant) : « production » (lot du QG + lots pris), « centrales » (lot du QG + lots des
---- centrales seuls : 252 murs dans la partie du DC, payable vers 85 min) ; choix du DC à venir (T.enceinte_zone, f.garde_zone pour un banc).
+--- centrales seuls : 252 murs dans la partie du DC, payable vers 85 min), « qg » (le lot du QG seul : 140 murs, payable vers 45 min) ; choix du
+--- DC à venir (T.enceinte_zone, f.garde_zone pour un banc).
 local function plant_lot(p)
   return (p.parts ~= nil and p.parts[1] ~= nil and p.parts[1].kind == "centrale") or (p.spec ~= nil and p.spec.gen == "steam")
 end
@@ -2212,7 +2213,9 @@ local function enc_tight_bounds(f, zone)
     local box = { x0 = x0, y0 = y0, x1 = x1, y1 = y1, k = k }
     if l.used then
       local p = b.projects[l.used]
-      if p and p.state ~= "refuse" and not (p.spec and p.spec.enceinte) and (zone ~= "centrales" or plant_lot(p)) then rects[#rects + 1] = box end
+      if p and p.state ~= "refuse" and not (p.spec and p.spec.enceinte) and zone ~= "qg" and (zone ~= "centrales" or plant_lot(p)) then
+        rects[#rects + 1] = box
+      end
     elseif not core and (l.state == "libre" or l.state == "defricher") and not (l.i == 0 and l.j == 0) and not (l.bad and l.bad >= 2) and not l.out then
       room[#room + 1] = box
     end

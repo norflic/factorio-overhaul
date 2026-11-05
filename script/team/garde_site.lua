@@ -722,10 +722,10 @@ remote.add_interface("fo-garde", {
     log(string.format("[FO-PERIMETRE] player : banc G3 ANCIEN (regle de l'essai 2) a l'init (tick %d)", game.tick))
     return true
   end,
-  -- Banc de G3 : zone de l'anneau court de votre équipe pour cette partie (« production », « centrales »), défaut T.enceinte_zone.
+  -- Banc de G3 : zone de l'anneau court de votre équipe pour cette partie (« production », « centrales », « qg »), défaut T.enceinte_zone.
   zone = function(z)
     local f = State.faction("player")
-    if not (f and (z == "production" or z == "centrales")) then return false end
+    if not (f and (z == "production" or z == "centrales" or z == "qg")) then return false end
     f.garde_zone = z
     log(string.format("[FO-PERIMETRE] player : banc G3, zone de l'anneau court %s (tick %d)", z, game.tick))
     return true

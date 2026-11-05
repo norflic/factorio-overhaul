@@ -430,6 +430,10 @@ do
   local zc = tight_bounds_of(fz, "centrales")
   check(zp and zc and zc[1] > zp[1] and zc[3] == zp[3] and zc[2] == zp[2] and zc[4] == zp[4],
     "zone « centrales » : le lot de production (-1, 0) reste dehors, la centrale (1, 0) dedans (" .. tostring(zc and zc[1]) .. " > " .. tostring(zp and zp[1]) .. ")")
+  local zq = tight_bounds_of(fz, "qg")
+  local hq = Enc.lot_box(az, 0, 0)
+  check(zq and zq[1] == hq.x0 - Enc.MARGIN - 1 and zq[3] == hq.x1 + Enc.MARGIN and zq[2] == hq.y0 - Enc.MARGIN - 1 and zq[4] == hq.y1 + Enc.MARGIN,
+    "zone « qg » : le lot du QG seul, à la marge près (" .. (zq and table.concat(zq, ",") or "?") .. ")")
   -- lot PERIMETRE2 (G3, essai 3) : enceinte de votre équipe en construction : seuls les lots COUPÉS par l'anneau sont écartés
   local nc = mark_out(f.build, tb, true)
   local agree, cut_seen = true, 0
