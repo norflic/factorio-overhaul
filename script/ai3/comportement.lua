@@ -290,16 +290,33 @@ end
 
 --- Lot CORR-RALLIEMENT (relecture, point 4) : la tourelle MARCHE-t-elle ? Munitions (ammo-turret), énergie en réserve
 --- (electric-turret : sans courant, sa réserve se vide), fluide (fluid-turret). Les autres types : oui.
+local shot_cache = {} -- [nom de prototype] = énergie d'un tir (J ; false : inconnue) ; prototypes identiques chez tous les pairs
+local function shot_cost(t)
+  local name = t.name
+  local v = shot_cache[name]
+  if v == nil then
+    local ap = t.prototype.attack_parameters
+    local at = ap and ap.ammo_type
+    v = (at and type(at.energy_consumption) == "number" and at.energy_consumption) or false
+    shot_cache[name] = v
+  end
+  return v or nil
+end
+
+-- Seconde relecture (point B) : règle pure Re.turret_ready ; ici, la lecture de l'entité.
 local function turret_works(t)
   local ty = t.type
   if ty == "ammo-turret" then
     local inv = t.get_inventory(defines.inventory.turret_ammo)
-    return inv ~= nil and not inv.is_empty()
+    return Re.turret_ready({ type = ty, ammo = inv ~= nil and not inv.is_empty() })
   elseif ty == "electric-turret" then
-    return (t.energy or 0) > 0
+    local st, S = t.status, defines.entity_status
+    local off = st ~= nil and (st == S.no_power or st == S.low_power or st == S.not_plugged_in_electric_network)
+    return Re.turret_ready({ type = ty, energy = t.energy, shot = shot_cost(t), off = off })
   elseif ty == "fluid-turret" then
     local fb = t.fluidbox
-    return fb ~= nil and #fb > 0 and fb[1] ~= nil
+    local fl = fb ~= nil and #fb > 0 and fb[1] or nil
+    return Re.turret_ready({ type = ty, fluid = fl and fl.amount or 0 })
   end
   return true
 end
