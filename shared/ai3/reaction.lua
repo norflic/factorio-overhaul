@@ -415,15 +415,44 @@ end
 --- MARCHENT (t.ok ~= false : munitions, courant, fluide ; lu par le script) et qui COUVRENT le point comptent. Rend "couvert" (au
 --- moins une qu'aucun ennemi ne déborde, ou portée ennemie inconnue), "deborde" (toutes débordées) ou "sans-tourelle" (pas de
 --- point, ou aucune tourelle qui marche ne le couvre : s'y rallier ne protège de rien), puis le nombre de tourelles jugées.
-function Re.rally_judge(enemies, turrets, rally, px, py)
+--- Seconde relecture (point C) : « couvrir le point » n'est pas « protéger le point ». Endroit d'où l'ennemi e frappe le point de
+--- ralliement (PNJ de demi-boîte (px, py)) : sa position ep s'il l'atteint déjà, sinon le point de son trajet (en ligne droite vers le
+--- point) à son atteinte Re.reach_on(e, px, py). Pour des mordeurs, tout près du point ; pour un mitrailleur, à 20,3 tuiles.
+function Re.firing_spot(e, rally, ep, px, py)
+  local reach = Re.reach_on(e, px, py)
+  local dx, dy = ep.x - rally.x, ep.y - rally.y
+  local L = math.sqrt(dx * dx + dy * dy)
+  if L <= reach then return { x = ep.x, y = ep.y } end
+  return { x = rally.x + reach * dx / L, y = rally.y + reach * dy / L }
+end
+
+--- La tourelle t (qui marche et couvre le point) le PROTÈGE-t-elle contre le groupe (profils) ? Aucun ennemi ne la déborde, et elle
+--- atteint l'endroit d'où chacun frappe le point (Re.firing_spot ; ep inconnu : la règle du point 4 seule).
+function Re.protects(t, enemies, rally, ep, px, py)
+  for _, e in ipairs(enemies or {}) do
+    if type(e) == "table" and type(e.r) == "number" then
+      if Re.gap(e, t) > Re.RANGE_EPS then return false end
+      if ep and not Re.covers(t, Re.firing_spot(e, rally, ep, px, py), e.hx, e.hy) then return false end
+    end
+  end
+  return true
+end
+
+--- `ep` (seconde relecture, point C) : position de la menace ; une tourelle jugée ne compte que si elle PROTÈGE le point (Re.protects).
+--- Verdicts : "couvert", "deborde" (toutes débordées), "hors-portee" (aucune débordée partout, mais aucune n'atteint l'endroit d'où
+--- l'ennemi frappe le point), "sans-tourelle".
+function Re.rally_judge(enemies, turrets, rally, px, py, ep)
   if not rally then return "sans-tourelle", 0 end
   local judged = {}
   for _, t in ipairs(turrets or {}) do
     if type(t) == "table" and t.ok ~= false and Re.covers(t, rally, px, py) then judged[#judged + 1] = t end
   end
   if #judged == 0 then return "sans-tourelle", 0 end
+  for _, t in ipairs(judged) do
+    if Re.protects(t, enemies, rally, ep, px, py) then return "couvert", #judged end
+  end
   if Re.outranges(enemies, judged) then return "deborde", #judged end
-  return "couvert", #judged
+  return "hors-portee", #judged
 end
 
 --- Relecture (revue-danger, 18 h 12, point 2) : une tourelle amie (profil q, position tp) est-elle encore un REFUGE devant le

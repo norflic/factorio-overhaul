@@ -1518,9 +1518,12 @@ function M.sense(agent, tick)
     -- (« deborde ») ou aucune (« sans-tourelle ») : le point ne protège pas, on fait comme sans tourelle.
     local outranged = false
     if rally ~= nil and M.outrange_on() then
-      local verdict = Re.rally_judge(M.foe_profiles(seen_foes), qg_turrets, rally)
+      -- Seconde relecture (point C) : une tourelle ne compte que si elle atteint l'endroit d'où cet ennemi frapperait le point (ep).
+      local me = Re.profile(0, nil, e.prototype.collision_box)
+      local verdict = Re.rally_judge(M.foe_profiles(seen_foes), qg_turrets, rally, me.hx, me.hy, ep)
       outranged = verdict ~= "couvert"
       if verdict == "deborde" then t.stats.outranged = (t.stats.outranged or 0) + 1
+      elseif verdict == "hors-portee" then t.stats.rally_far = (t.stats.rally_far or 0) + 1
       elseif verdict == "sans-tourelle" then t.stats.rally_bare = (t.stats.rally_bare or 0) + 1 end
     end
     local resp = Re.hq_response({ allies = allies + 1, force = enemies, prudence = prud, agressivite = agr, rally = rally,
