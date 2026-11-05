@@ -326,6 +326,25 @@ local function wanted_items(f, General, c)
   return out, seen, diag
 end
 
+--- Lot PERF3 : recettes du catalogue qui produisent au moins un PACK, triées, avec ces packs dans leur ordre ({ rn, packs }) ;
+--- gardées par catalogue (General.catalogue rend la même table tant que les réglages ne changent pas ; table locale, rebâtie après
+--- un chargement : déduite des seuls prototypes, la même sur tous les clients). Pet.think les parcourait TOUTES (377 recettes : tri des
+--- noms et deux appels au moteur par recette, à chaque pensée de faction) pour n'en garder que celles-ci.
+local pack_rows_cat, pack_rows = nil, nil
+local function pack_recipes(c)
+  if pack_rows_cat ~= c then
+    pack_rows = {}
+    for _, rn in ipairs(sorted_keys(c.products)) do
+      local pks = {}
+      for _, pk in ipairs(c.products[rn]) do if c.packs[pk] then pks[#pks + 1] = pk end end
+      if #pks > 0 then pack_rows[#pack_rows + 1] = { rn = rn, packs = pks } end
+    end
+    pack_rows_cat = c
+  end
+  return pack_rows
+end
+Pet.pack_recipes = pack_recipes -- (tests)
+
 --- Objets produits par la force depuis le début (statistiques de production ; 0 si le moteur simulé n'en a pas).
 local function produced(force, item)
   local ok, n = pcall(function() return force.item_production_statistics.get_input_count(item) end)
@@ -931,11 +950,12 @@ function Pet.think(f, view, book, tick, auto, General, deposits)
   do
     local force = game.forces[f.force]
     local c = General.catalogue()
-    for _, rn in ipairs(sorted_keys(c.products)) do
-      local fr = force and force.recipes[rn]
+    -- Lot PERF3 : seules les recettes qui font un pack (mêmes recettes, même ordre, mêmes packs : le même ensemble `consumes`)
+    for _, row in ipairs(pack_recipes(c)) do
+      local fr = force and force.recipes[row.rn]
       if fr and fr.enabled then
-        for _, pk in ipairs(c.products[rn]) do
-          if c.packs[pk] and (stock[pk] or 0) == 0 and produced(force, pk) == 0 then
+        for _, pk in ipairs(row.packs) do
+          if (stock[pk] or 0) == 0 and produced(force, pk) == 0 then
             consumes[pk] = true
           end
         end
