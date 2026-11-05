@@ -33,13 +33,22 @@ local function suite(Bl)
   local function c(name, cond) res[#res + 1] = { name, cond and true or false } end
   -- §1 sans but (règle de l'essai 1)
   local p, s = Bl.progress(nil, { pc = 2, state = "walk", x = 10, y = 5 }, 100)
-  c("premiere lecture : progres, 0", s == 0 and p.t == 100 and p.pc == 2 and p.state == "walk")
+  c("premiere lecture : progres, 0", s == 0 and p.t == 100 and p.pc == 2)
   local p2, s2 = Bl.progress(p, { pc = 2, state = "walk", x = 10.3, y = 5.2 }, 400)
   c("immobile : pas de progres, temps qui court", s2 == 300 and p2.t == 100)
   local p3, s3 = Bl.progress(p2, { pc = 3, state = "walk", x = 10.3, y = 5.2 }, 700)
   c("autre etape : progres", s3 == 0 and p3.t == 700 and p3.pc == 3)
   local p4, s4 = Bl.progress(p3, { pc = 3, state = "step", x = 10.3, y = 5.2 }, 800)
-  c("autre etat : progres", s4 == 0 and p4.t == 800)
+  c("autre etat SEUL (marche / arret) : PAS de progres", s4 == 100 and p4.t == 700)
+  -- PNJ 22 d'Azur (lot3-croiss-123456789, 34,9 min) : recalcule sur place un itinéraire « BLOQUE », marche / arrêt à chaque pensée, même
+  -- étape, à 16 tuiles du but de son étape ; le point de passage change (il n'entre pas dans la règle) : rendu au bail.
+  local az, azs, azr = nil, 0, nil
+  for k = 0, 40 do
+    local tick = k * 300
+    az, azs = Bl.progress(az, { pc = 4, state = k % 2 == 0 and "walk" or "step", x = 331.4, y = 345.5, gx = 319.6, gy = 334.3 }, tick)
+    if Bl.expired("service", azs, 0, false) then azr = tick break end
+  end
+  c("boucle marche / arret sur place (Azur) : rendue au bail, meme apres l'acte", azr ~= nil and azr <= Bl.LEASE + 300)
   local p5, s5 = Bl.progress(p4, { pc = 3, state = "step", x = 10.3 + Bl.MOVE, y = 5.2 }, 900)
   c("sans but : deplacement d'une tuile = progres", s5 == 0 and p5.t == 900)
   local q = { pc = 1, state = "walk", x = 0, y = 0, t = 0 }
@@ -205,10 +214,11 @@ local function harness(msrc)
   for name in pairs(stubs) do package.loaded[name] = saved[name] end
   if not ok or type(B) ~= "table" then return nil end
   env.B = B
-  env.f = { key = "emerald", team = {}, stats = {}, outposts = { [1] = { flux_fails = 0 } } }
-  -- PNJ d'Émeraude mesuré (fd-croiss-123456789) : immobile près de son but, étape 2 de 4 (aller), l'acte après.
+  env.f = { key = "emerald", team = {}, stats = {}, outposts = { [1] = { flux_fails = 0 } }, home_spot = { x = -60, y = 400 } }
+  -- PNJ d'Émeraude mesuré (fd-croiss-123456789) : immobile près de son but, étape 2 de 4 (aller vers l'accès), l'acte après.
   function env.npc(id, steps, pc)
-    local a = { id = id, state = "walk", pc = pc or 2, steps = steps or { { "goto" }, { "goto" }, { "act" }, { "home" } },
+    local a = { id = id, state = "walk", pc = pc or 2,
+      steps = steps or { { "home" }, { "goto", { x = -175.5, y = 488.5 }, 3 }, { "act", "service" }, { "home" } },
       goal = { x = -175.5, y = 488.5 }, entity = { valid = true, position = { x = -179.4, y = 488.6 } } }
     env.agents[id] = a
     return a
@@ -252,7 +262,7 @@ local function monitor_suite(msrc)
   c("A : abandon au bail (2 min, et non 41)", okA and r1 ~= nil and r1.tick <= Bl.LEASE + 300)
   c("A : degage un bail entier apres l'abandon, pas avant", r2 ~= nil and r2.tick - r1.tick >= Bl.LEASE - 300 and r2.tick - r1.tick <= Bl.LEASE + 300)
   c("A : tache finie une seule fois, en echec", #E.finished == 1 and E.finished[1].ok == false)
-  c("A : le journal dit l'etat d'AVANT le bail (etape 2/4, aller)", E.has("etape 2/4 (goto)"))
+  c("A : le journal dit l'etat d'AVANT le bail (etape 2/4, aller vers l'acces)", E.has("etape 2/4 (goto) vers (-175.5, 488.5)"))
   c("A : premier bail compte, pas de pause", (E.board.bail_n or {})["service:1"] == 1 and E.board.cooldown["service:1"] == nil)
   -- B. Combat sur place 10 min (crochet allumé, arrêt « engage » renouvelé), avant l'acte : rien n'est rendu pendant le combat (ni sans progrès,
   -- ni tenue trop longue) ; rendue un bail après la fin du combat.
@@ -311,6 +321,31 @@ local function monitor_suite(msrc)
   c("F : autre tache : jamais rendue", #G.released == 0 and #G.finished == 0)
   c("F : mesuree une fois (type, duree)", r ~= nil and r.n == 1 and r.max >= 9 * 3600 and G.has("MESURE (lecture seule) garrison:3"))
   c("F : bilan a 10 min", G.has("BILAN a 10 min") and G.has("garrison 1 (max"))
+  -- H. Boucle sur place (PNJ 22 d'Azur, lot3) : marche / arrêt à chaque pensée, nouveau point de passage à chaque itinéraire, même étape, pas plus
+  -- près du but de l'étape. Avant l'acte : rendue au bail SANS PROGRÈS (2 min), pas à la tenue maximale (3 min). Au RETOUR (étape « home »,
+  -- après l'acte) : rendue aussi (sinon tenue sans fin).
+  local RING = { { 10, 0 }, { 0, 10 }, { -10, 0 }, { 0, -10 } }
+  local function loop_case(pc, circle)
+    local L = harness(msrc)
+    local la = L.npc(22, nil, pc)
+    la.entity.position = { x = 331.4, y = 345.5 }
+    L.task("service:1", "service", 22, 0)
+    L.run(300, 10 * 3600, function(tick)
+      if la.task then
+        local k = tick / 300
+        la.state = k % 2 == 0 and "walk" or "step"
+        la.goal = { x = 331.4 + k % 7, y = 345.5 - k % 5 }
+        if circle then la.entity.position = { x = 331.4 + RING[k % 4 + 1][1], y = 345.5 + RING[k % 4 + 1][2] } end
+      end
+    end)
+    return L
+  end
+  local H1 = loop_case(2)
+  c("H : boucle sur place avant l'acte : rendue au bail sans progres", H1.released[1] ~= nil and H1.released[1].tick <= Bl.LEASE + 300
+    and H1.has("sans progres, tenue"))
+  local H2 = loop_case(4, true)
+  c("H : au retour (apres l'acte), tourne en rond a 10 tuiles sans s'approcher du QG : rendue aussi", H2.released[1] ~= nil
+    and H2.released[1].tick <= Bl.LEASE + 1500)
   -- G. Interrupteur de banc.
   local I = harness(msrc)
   I.f.team.bail_regle = false
@@ -327,10 +362,12 @@ local MMUTANTS = {
   { "sans PNJ sans agent.task == t (m6)", "if not (agent and e and e.valid and agent.task == t) then\n    -- Le PNJ", "if not (agent and e and e.valid) then\n    -- Le PNJ" },
   { "M2 retire", "if agent and agent.task == t then agent.task, agent.steps, agent.pc = nil, nil, nil end", "" },
   { "combat compte (m5)", "local busy = Bl.busy(k_of(agent), agent.shooting, tick)", "local busy = false" },
+  { "but = point de passage (avant lot3)", "local p, g = e.position, B.target(agent, f)", "local p, g = e.position, agent.goal" },
+  { "retour au QG sans but", "if step[1] == \"home\" then return f.home_spot end", "" },
   { "tenue : combat compte (m5)", "t.hold_t = Bl.held_base(t.hold_t or t.claimed or tick, t.seen, tick, busy)", "t.hold_t = t.hold_t or t.claimed or tick" },
   { "tenue avant l'acte meme au retour", "t.pre_act = B.pre_act(agent)", "t.pre_act = true" },
-  { "etat decrit APRES le bail", "local desc = describe(agent, tick)\n  local how = Worker.release_stuck(agent, f, tick)",
-    "local how = Worker.release_stuck(agent, f, tick)\n  local desc = describe(agent, tick)" },
+  { "etat decrit APRES le bail", "local desc = describe(agent, tick, f)\n  local how = Worker.release_stuck(agent, f, tick)",
+    "local how = Worker.release_stuck(agent, f, tick)\n  local desc = describe(agent, tick, f)" },
   { "bails jamais comptes (m4)", "if how == \"abandon\" then count_bail(f, b, t, tick) end", "" },
   { "reussite ignoree (m4)", "not (o and (o.flux_fails or 0) > 0)", "false" },
   { "pause sans effet (m4)", "b.cooldown[t.key] = math.max(b.cooldown[t.key] or 0, tick + Bl.PAUSE_TICKS)", "" },
@@ -355,8 +392,9 @@ check(string.format("moniteur : mutants refuses %d/%d%s", mref, #MMUTANTS, #mkep
 
 -- §6 mutants
 local MUTANTS = {
-  { "etape ignoree", "prev.pc ~= cur.pc or prev.state ~= cur.state then", "prev.state ~= cur.state then" },
-  { "etat ignore", "prev.pc ~= cur.pc or prev.state ~= cur.state then", "prev.pc ~= cur.pc then" },
+  { "etape ignoree", "cur.busy == true or prev.pc ~= cur.pc then", "cur.busy == true then" },
+  { "etat seul compte comme progres (avant lot3)", "cur.busy == true or prev.pc ~= cur.pc then",
+    "cur.busy == true or prev.pc ~= cur.pc or prev.state ~= cur.state then" },
   { "combat compte comme temps sans progres (m5)", "cur.busy == true or ", "" },
   { "arret d'alerte = combat", "k.hold_stop == nil and ", "" },
   { "tir ignore", "if shooting == true then return true end", "" },

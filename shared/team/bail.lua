@@ -5,10 +5,12 @@
   (script/team/board.lua, Board.sync) : aucun bail, aucune échéance. 12 archives de dc-croissance, témoins de main compris.
   Règles :
     Bl.progress(prev, cur, tick) -> relevé du dernier PROGRÈS du PNJ qui tient la tâche, et le temps sans progrès. Progrès (revue du lead,
-                                    M1, 5/11) = autre étape du programme, autre état de la machine, autre BUT d'étape (nouveau point de passage),
-                                    ou approche du but d'au moins Bl.MOVE tuile PLUS PRÈS QUE JAMAIS pour ce but. Un PNJ qui tourne en rond
-                                    sans s'approcher ne progresse pas. Sans but connu : déplacement d'au moins Bl.MOVE tuile depuis le dernier
-                                    progrès (règle de l'essai 1).
+                                    M1, 5/11) = autre ÉTAPE du programme, autre but d'ÉTAPE, ou approche de ce but d'au moins Bl.MOVE tuile
+                                    PLUS PRÈS QUE JAMAIS. Le but est celui de l'ÉTAPE (position d'un « goto », QG d'un « home »), pas le point de
+                                    passage des comportements visibles, qui change à chaque itinéraire. Un changement d'ÉTAT seul (marche /
+                                    arrêt) n'est pas un progrès : PNJ 22 d'Azur et PNJ 3 de votre équipe (lot3-croiss-123456789) recalculaient
+                                    sur place un itinéraire « BLOQUE » et passaient pour « 0 à 5 s sans progrès ». Sans but d'étape (étapes
+                                    instantanées) : déplacement d'au moins Bl.MOVE tuile depuis le dernier progrès (règle de l'essai 1).
     Bl.expired(kind, stall, held, pre_act) -> le bail est-il échu ? Seulement pour les types de Bl.KINDS (les tournées). Échu sans progrès depuis
                                     Bl.LEASE ; ou tenue depuis Bl.MAX_HOLD AVANT l'acte (essai 2 ; M1 : le retour au QG après l'acte, travail
                                     fait, n'est plus coupé par la tenue maximale, seulement par l'absence de progrès).
@@ -66,21 +68,20 @@ local function dist(c)
 end
 
 local function fresh(cur, tick)
-  return { pc = cur.pc, state = cur.state, x = num(cur.x), y = num(cur.y), gx = cur.gx, gy = cur.gy,
-    best = cur.gx ~= nil and dist(cur) or nil, t = tick }, 0
+  return { pc = cur.pc, x = num(cur.x), y = num(cur.y), gx = cur.gx, gy = cur.gy, best = cur.gx ~= nil and dist(cur) or nil, t = tick }, 0
 end
 
---- prev = relevé précédent (nil : première lecture) ; cur = { pc, state, x, y, gx, gy, busy } (gx, gy : but de l'étape en cours, nil sans but ;
---- busy : Bl.busy, le temps au combat ou en fuite ne compte pas). Rend (relevé, ticks sans progrès).
+--- prev = relevé précédent (nil : première lecture) ; cur = { pc, x, y, gx, gy, busy } (gx, gy : but de l'ÉTAPE en cours, nil sans but ; busy :
+--- Bl.busy, le temps au combat ou en fuite ne compte pas). Rend (relevé, ticks sans progrès).
 function Bl.progress(prev, cur, tick)
-  if not prev or cur.busy == true or prev.pc ~= cur.pc or prev.state ~= cur.state then return fresh(cur, tick) end
+  if not prev or cur.busy == true or prev.pc ~= cur.pc then return fresh(cur, tick) end
   if cur.gx ~= nil then
     if prev.gx == nil or math.abs(num(prev.gx) - num(cur.gx)) + math.abs(num(prev.gy) - num(cur.gy)) > Bl.GOAL_EPS then
       return fresh(cur, tick)
     end
     local d = dist(cur)
     if d <= num(prev.best) - Bl.MOVE then
-      return { pc = cur.pc, state = cur.state, x = num(cur.x), y = num(cur.y), gx = cur.gx, gy = cur.gy, best = d, t = tick }, 0
+      return { pc = cur.pc, x = num(cur.x), y = num(cur.y), gx = cur.gx, gy = cur.gy, best = d, t = tick }, 0
     end
     return prev, tick - num(prev.t)
   end

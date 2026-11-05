@@ -1,7 +1,7 @@
 --[[
   Lot ETAGE4 : bail des tournées prises (règle pure : shared/team/bail.lua). À chaque pensée d'équipe, après la synchronisation du tableau
-  (script/team/team.lua) : pour chaque tâche PRISE d'un type à bail (Bl.KINDS), relevé du progrès du PNJ qui la tient (étape, état de la
-  machine, approche du but, combat ou fuite) dans la tâche (t.prog, nombres seuls) ; bail échu : Worker.release_stuck (abandon, puis
+  (script/team/team.lua) : pour chaque tâche PRISE d'un type à bail (Bl.KINDS), relevé du progrès du PNJ qui la tient (étape, approche du but
+  de l'ÉTAPE, B.target ; combat ou fuite) dans la tâche (t.prog, nombres seuls) ; bail échu : Worker.release_stuck (abandon, puis
   dégagement au bail suivant) et une ligne [FO-BAIL] qui dit l'état exact du PNJ (machine, étape, navigation, comportement, position). Un PNJ
   qui n'existe plus, ou qui tient autre chose : la tâche est rendue. Bails de suite d'une même tournée (m4) : pause de la tournée.
   Les AUTRES tâches prises (hors Bl.KINDS) sont MESURÉES en lecture seule (accord du lead, 4/11) : tenue sans progrès depuis Bl.LEASE ou plus,
@@ -28,19 +28,32 @@ local function k_of(agent)
   return H.astate(agent)
 end
 
---- État du PNJ AVANT qu'il soit rendu (machine, étape, navigation, comportement, but, position) : ce que le journal doit dire.
-local function describe(agent, tick)
+--- But de l'ÉTAPE en cours (pas le point de passage des comportements visibles, agent.goal) : position d'un « goto », QG d'un « home » ; nil pour
+--- une étape sans lieu (take, act : instantanées ; wait).
+function B.target(agent, f)
+  local step = agent.steps and agent.pc and agent.steps[agent.pc]
+  if not step then return nil end
+  if step[1] == "goto" and type(step[2]) == "table" and step[2].x then return step[2] end
+  if step[1] == "home" then return f.home_spot end
+  return nil
+end
+
+--- État du PNJ AVANT qu'il soit rendu (machine, étape, but de l'étape, navigation, comportement, point de passage, position) : ce que le journal
+--- doit dire.
+local function describe(agent, tick, f)
   local e = agent and agent.entity
   local p = e and e.valid and e.position or { x = 0, y = 0 }
   local step = agent and agent.steps and agent.steps[agent.pc]
+  local tg = agent and f and B.target(agent, f)
   local g = agent and agent.goal
   local k = agent and e and e.valid and k_of(agent) or nil
   local ks = k and string.format("arret %s%s, refuge %s", k.hold and string.format("%d", k.hold - tick) or "-", k.hold_stop and " (alerte)" or "",
     k.refuge and "oui" or "non") or "comportement eteint"
-  return string.format("PNJ %s etat %s, etape %s/%s (%s), nav %s (%s), %s, tir %s, but %s, position (%.1f, %.1f), %s", tostring(agent and agent.id),
-    tostring(agent and agent.state), tostring(agent and agent.pc), tostring(agent and agent.steps and #agent.steps), tostring(step and step[1]),
-    tostring(agent and agent.nav), tostring(agent and agent.nav_fail), ks, agent and agent.shooting and "oui" or "non",
-    g and string.format("(%.1f, %.1f)", g.x, g.y) or "-", p.x, p.y, agent and agent.street_walk and "rue" or "chemin")
+  return string.format("PNJ %s etat %s, etape %s/%s (%s) vers %s, nav %s (%s), %s, tir %s, point de passage %s, position (%.1f, %.1f), %s",
+    tostring(agent and agent.id), tostring(agent and agent.state), tostring(agent and agent.pc), tostring(agent and agent.steps and #agent.steps),
+    tostring(step and step[1]), tg and string.format("(%.1f, %.1f)", tg.x, tg.y) or "-", tostring(agent and agent.nav),
+    tostring(agent and agent.nav_fail), ks, agent and agent.shooting and "oui" or "non", g and string.format("(%.1f, %.1f)", g.x, g.y) or "-",
+    p.x, p.y, agent and agent.street_walk and "rue" or "chemin")
 end
 
 local function line(f, t, desc, why, stall, tick)
@@ -61,13 +74,12 @@ function B.pre_act(agent)
   return false
 end
 
---- Relevé de progrès d'une tâche tenue par `agent` (combat et fuite : m5). Rend (ticks sans progrès, au combat ou en fuite).
-local function observe(t, agent, tick)
+--- Relevé de progrès d'une tâche tenue par `agent` (but de l'ÉTAPE ; combat et fuite : m5). Rend (ticks sans progrès, au combat ou en fuite).
+local function observe(f, t, agent, tick)
   local e = agent.entity
-  local p, g = e.position, agent.goal
+  local p, g = e.position, B.target(agent, f)
   local busy = Bl.busy(k_of(agent), agent.shooting, tick)
-  local prog, stall = Bl.progress(t.prog, { pc = agent.pc, state = agent.state, x = p.x, y = p.y, gx = g and g.x, gy = g and g.y, busy = busy },
-    tick)
+  local prog, stall = Bl.progress(t.prog, { pc = agent.pc, x = p.x, y = p.y, gx = g and g.x, gy = g and g.y, busy = busy }, tick)
   t.prog = prog
   return stall, busy
 end
@@ -94,7 +106,7 @@ local function lease(f, b, t, tick)
   if not (agent and e and e.valid and agent.task == t) then
     -- Le PNJ qui la tenait n'existe plus ou tient autre chose : la tâche est rendue (elle ne sera jamais finie par lui).
     f.stats.bail_orphan = (f.stats.bail_orphan or 0) + 1
-    line(f, t, describe(agent, tick), "sans PNJ", tick - (t.claimed or tick), tick)
+    line(f, t, describe(agent, tick, f), "sans PNJ", tick - (t.claimed or tick), tick)
     t.fail = t.fail or "bail"
     -- Revue du lead (M2) : un PNJ encore inscrit (entité perdue) ne tient plus la tâche AVANT qu'elle soit finie : la machine ne la
     -- finirait pas une seconde fois.
@@ -102,14 +114,14 @@ local function lease(f, b, t, tick)
     Board.finish(f, t, false, tick)
     return 1
   end
-  local stall, busy = observe(t, agent, tick)
+  local stall, busy = observe(f, t, agent, tick)
   if busy then f.stats.bail_busy = (f.stats.bail_busy or 0) + 1 end
   t.hold_t = Bl.held_base(t.hold_t or t.claimed or tick, t.seen, tick, busy)
   t.seen = tick
   t.pre_act = B.pre_act(agent)
   local held = tick - t.hold_t
   if not Bl.expired(t.kind, stall, held, t.pre_act) then return 0 end
-  local desc = describe(agent, tick)
+  local desc = describe(agent, tick, f)
   local how = Worker.release_stuck(agent, f, tick)
   f.stats.bail_released = (f.stats.bail_released or 0) + 1
   line(f, t, desc, string.format("%s, %s, tenue %d s, motif %s", how, stall >= Bl.LEASE and "sans progres" or "trop longue", math.floor(held / 60),
@@ -125,7 +137,7 @@ local function measure(f, t, tick)
   local agent = Registry.get(t.worker)
   local e = agent and agent.entity
   if not (agent and e and e.valid and agent.task == t) then return end -- fabrication en arrière-plan, PNJ perdu : hors mesure
-  local stall = observe(t, agent, tick)
+  local stall = observe(f, t, agent, tick)
   if stall < Bl.LEASE then return end
   local s = f.stats
   s.bail_autres = s.bail_autres or {}
@@ -138,7 +150,7 @@ local function measure(f, t, tick)
   s.bail_mlogs = (s.bail_mlogs or 0) + 1
   if s.bail_mlogs > B.MLOGS then return end
   log(string.format("[FO-BAIL] %s : MESURE (lecture seule) %s (%s) tenue sans progres depuis %d s ; %s a %.1f min", f.key or "player",
-    tostring(t.key), tostring(t.kind), math.floor(stall / 60), describe(agent, tick), tick / 3600))
+    tostring(t.key), tostring(t.kind), math.floor(stall / 60), describe(agent, tick, f), tick / 3600))
 end
 
 --- Bilan [FO-BAIL] d'une équipe, une fois par tranche de B.SUM_EVERY ticks.
