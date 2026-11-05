@@ -118,7 +118,7 @@ end
 section("Variation des tournées (C1)")
 local f = setup()
 -- Lot CORR-RALLIEMENT : portée d'attaque de la mitrailleuse au prototype simulé (18, comme le jeu), posée AVANT tout regard : la
--- portée d'attaque est gardée en cache par nom de prototype (script/ai3/comportement.lua, M.attack_range).
+-- profil d'attaque est gardé en cache par nom de prototype (script/ai3/comportement.lua, M.attack_profile).
 W().prototypes["gun-turret"].attack_parameters = { range = 18 }
 local ids = agent_ids(f)
 check(#ids >= 2, "au moins 2 PNJ (" .. #ids .. ")")
@@ -448,8 +448,11 @@ do
   if cp.running_speed == nil then cp.running_speed = 0.15 end
   EP["character"] = cp
   local sb = P["small-biter"]
-  for _, u in ipairs({ { "fo-test-gunner", 20 }, { "fo-test-biter", 1 } }) do
-    P[u[1]] = { type = "unit", max_health = 600, speed = 0.11, vision_distance = 30, attack_parameters = { range = u[2] },
+  -- Relecture (revue-danger, 18 h 12) : les soldats des factions tirent en boîte à boîte (prototypes/faction.lua) ; « fo-test-17 »
+  -- (portée 17 < 18) déborde quand même la mitrailleuse (± 0,7) : 17 + |(0,9 ; 0,9)| = 18,27 en diagonale (Re.gap).
+  for _, u in ipairs({ { "fo-test-gunner", 20 }, { "fo-test-biter", 1 }, { "fo-test-17", 17 } }) do
+    P[u[1]] = { type = "unit", max_health = 600, speed = 0.11, vision_distance = 30,
+      attack_parameters = { range = u[2], range_mode = "bounding-box-to-bounding-box" },
       collision_box = sb.collision_box, collision_mask = sb.collision_mask }
   end
   local hq = f.hq_pos or { x = 5, y = 5 }
@@ -475,6 +478,9 @@ do
   r, a, o = wave("fo-test-biter", true)
   check(o == 0 and r > 0 and a == 0, string.format(
     "même vue (30), portée d'attaque 1 : ralliement inchangé, la vue ne compte pas (rally %d, away %d, débordé %d)", r, a, o))
+  r, a, o = wave("fo-test-17", true)
+  check(o > 0 and a > 0 and r == 0, string.format(
+    "portée 17 en boîte à boîte (18,27 au centre) contre 18 : éloignement, profil lu au prototype (rally %d, away %d, débordé %d)", r, a, o))
   r, a, o = wave("fo-test-gunner", false)
   check(o == 0 and r > 0 and a == 0, string.format(
     "règle éteinte (interrupteur du banc témoin) : ralliement comme avant (rally %d, away %d, débordé %d)", r, a, o))

@@ -270,19 +270,19 @@ local function hq_threat(f, t, surface, tick)
   local threat = { x = en.position.x, y = en.position.y }
   -- Force ennemie PESÉE autour de la menace (même mesure que le regard : moyen déchiqueteur = 1).
   local force = 0
-  local reach = C.attack_range(en) -- lot CORR-RALLIEMENT : plus grande portée d'ATTAQUE du groupe (Re.outranges)
+  local seen_foes = { en } -- lot CORR-RALLIEMENT : profils d'ATTAQUE du groupe (Re.outranges, C.foe_profiles)
   for _, u in ipairs(surface.find_entities_filtered({ position = threat, radius = 16, force = en.force,
     type = { "unit", "character" }, limit = 24 })) do
     force = force + C.weight(u)
-    local ar = C.attack_range(u)
-    if ar and (reach == nil or ar > reach) then reach = ar end
+    seen_foes[#seen_foes + 1] = u
   end
+  local foes = C.foe_profiles(seen_foes)
   local prud, agr = C.character(f)
-  local rally, turret_ranges = C.rally(f)
+  local rally, qg_turrets = C.rally(f)
   local _, range = C.classify(en)
   local own = game.entity_prototypes["character"] and game.entity_prototypes["character"].running_speed or nil
   -- Lot CORR-RALLIEMENT : des tourelles du QG que l'ennemi déborde en portée ne protègent pas le ralliement.
-  local outranged = rally ~= nil and C.outrange_on() and Re.outranges(reach, turret_ranges)
+  local outranged = rally ~= nil and C.outrange_on() and Re.outranges(foes, qg_turrets)
   if outranged then t.stats.hq_outranged = (t.stats.hq_outranged or 0) + 1 end
   local resp = Re.hq_response({ allies = armed_near_hq(f), force = force, prudence = prud, agressivite = agr, rally = rally,
     outrun = Re.outrun(C.enemy_speed(en), own), outranged = outranged })

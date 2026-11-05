@@ -149,19 +149,78 @@ function Re.outrun(enemy_speed, own_speed)
   return enemy_speed <= own_speed * Re.OUTRUN
 end
 
---- Lot CORR-RALLIEMENT (EFFONDREMENT, 5/11) : l'ennemi DÉBORDE-t-il les tourelles du QG ? Vrai si sa portée d'ATTAQUE (pas sa
--- vue : un petit déchiqueteur voit à 30 tuiles mais frappe à moins d'une) dépasse la plus grande portée des tourelles du QG.
--- Partie du DC rejouée (graine 717152950) : des soldats des factions de portée 20 tuent les tourelles du QG (portée 18) de 19 à
--- 21 tuiles, hors de leur portée, puis les PNJ ralliés sous elles (13 à 51 PNJ selon la trajectoire). Portée inconnue (nil),
--- ou aucune tourelle de portée connue : faux (la règle d'avant). `turret_ranges` : liste de nombres (tourelles du QG).
-function Re.outranges(attack_range, turret_ranges)
-  if type(attack_range) ~= "number" then return false end
-  local best = nil
-  for _, r in ipairs(turret_ranges or {}) do
-    if type(r) == "number" and (best == nil or r > best) then best = r end
+--- Lot CORR-RALLIEMENT (EFFONDREMENT, 5/11) : l'ennemi DÉBORDE-t-il les tourelles du QG ? Partie du DC rejouée (graine
+-- 717152950) : des soldats des factions de portée 20 tuent les tourelles du QG (portée 18) de 19 à 21 tuiles, hors de leur
+-- portée, puis les PNJ ralliés sous elles (13 à 51 PNJ selon la trajectoire).
+-- Relecture (revue-danger, 5/11, 18 h 12) : les portées BRUTES ne se comparent pas. Les soldats des factions tirent en « boîte à
+-- boîte » (prototypes/faction.lua, range_mode), les tourelles de centre à centre (défaut du moteur). Tout est ramené au CENTRE,
+-- tourelle par tourelle, à partir de PROFILS lus aux prototypes (portée, mode, boîte de collision).
+Re.BB = "bounding-box-to-bounding-box"
+Re.RANGE_EPS = 1e-6 -- tuile : à atteinte égale, chacun frappe l'autre (pas de débordement)
+
+--- PROFIL d'attaque d'une unité ou d'une tourelle : { r = portée (attack_parameters.range), bb = vrai si range_mode vaut
+--- « bounding-box-to-bounding-box » (sinon centre à centre, le défaut du moteur), hx, hy = demi-largeurs de la boîte de collision
+--- (formats { left_top, right_bottom } du jeu et { {x, y}, {x, y} } de l'étape data ; sans boîte : 0) }. nil sans portée connue.
+function Re.profile(range, mode, box)
+  if type(range) ~= "number" then return nil end
+  local hx, hy = 0, 0
+  if type(box) == "table" then
+    local lt, rb = box.left_top or box[1], box.right_bottom or box[2]
+    if type(lt) == "table" and type(rb) == "table" then
+      local x0, y0, x1, y1 = lt.x or lt[1], lt.y or lt[2], rb.x or rb[1], rb.y or rb[2]
+      if x0 and y0 and x1 and y1 then hx, hy = math.abs(x1 - x0) / 2, math.abs(y1 - y0) / 2 end
+    end
   end
-  if best == nil then return false end
-  return attack_range > best
+  return { r = range, bb = mode == Re.BB, hx = hx, hy = hy }
+end
+
+--- Plus grande distance de CENTRE à centre d'où le profil `a` atteint une cible de demi-boîte (hx, hy). Centre à centre : sa
+--- portée. Boîte à boîte : la zone d'atteinte est un carré arrondi (somme des demi-boîtes S, plus la portée), le plus loin dans la
+--- DIAGONALE, où les coins se font face : portée + |S|. MESURÉ (partie 0.6.51, [FO-QG-TOURELLE]) : une mitrailleuse du QG (± 0,7)
+--- tuée depuis 21,2 tuiles par un mitrailleur (portée 20, ± 0,2) : au-delà des 20,9 de l'axe, en deçà des 21,27 de la diagonale.
+function Re.reach_on(a, hx, hy)
+  if not a.bb then return a.r end
+  local sx, sy = a.hx + (hx or 0), a.hy + (hy or 0)
+  return a.r + math.sqrt(sx * sx + sy * sy)
+end
+
+--- Écart (tuiles) de l'ennemi `e` sur la tourelle `t` (profils) : le plus grand, sur toutes les directions, de « distance de centre
+--- à centre d'où e frappe t » moins « distance d'où t frappe e ». > Re.RANGE_EPS : e peut frapper t hors de sa portée (débordée).
+--- Zones d'atteinte : disque (centre à centre) ou carré arrondi (boîte à boîte, même somme S des demi-boîtes pour les deux). Les
+--- deux zones sont convexes et symétriques ; l'écart le plus grand est sur l'axe ou la diagonale :
+---   même mode : e.r − t.r ; e en boîte, t au centre : e.r + |S| − t.r (diagonale) ; e au centre, t en boîte : e.r − (t.r + min(Sx, Sy)) (axe).
+function Re.gap(e, t)
+  if e.bb == t.bb then return e.r - t.r end
+  local sx, sy = e.hx + t.hx, e.hy + t.hy
+  if e.bb then return e.r + math.sqrt(sx * sx + sy * sy) - t.r end
+  return e.r - (t.r + math.min(sx, sy))
+end
+
+--- La tourelle `t` (profil) est-elle débordée par au moins un des ennemis (liste de profils) ?
+function Re.turret_outranged(enemies, t)
+  for _, e in ipairs(enemies or {}) do
+    if type(e) == "table" and type(e.r) == "number" and Re.gap(e, t) > Re.RANGE_EPS then return true end
+  end
+  return false
+end
+
+--- Les tourelles (profils) sont-elles TOUTES débordées par le groupe ennemi (profils), tourelle par tourelle ? Une tourelle
+--- qu'aucun ennemi ne déborde protège encore (une laser de 24 contre des mitrailleurs de 20). Faux sans ennemi de portée connue
+--- (personnage : son arme n'est pas au prototype) ou sans tourelle de portée connue (la règle d'avant).
+function Re.outranges(enemies, turrets)
+  local known = false
+  for _, e in ipairs(enemies or {}) do
+    if type(e) == "table" and type(e.r) == "number" then known = true break end
+  end
+  if not known then return false end
+  local n = 0
+  for _, t in ipairs(turrets or {}) do
+    if type(t) == "table" and type(t.r) == "number" then
+      n = n + 1
+      if not Re.turret_outranged(enemies, t) then return false end
+    end
+  end
+  return n > 0
 end
 
 --- Réponse d'un QG menacé par des UNITÉS (C7, lot FUITE) : "stand" (assez nombreux : on se bat, groupés), "rally" (derrière
