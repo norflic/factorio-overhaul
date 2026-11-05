@@ -1,4 +1,16 @@
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Version: 0.6.52
+Date: 2026-11-05
+  Changes:
+    - Panneau Evolution au clic (demande du DC du 4/11) : le survol n'ouvre plus rien. Le panneau s'ouvre avec l'interface d'un batiment a niveaux de votre force (clic gauche, murs et tourelles laser compris) et se ferme avec elle ; apres une amelioration depuis le panneau, l'interface du nouveau batiment se rouvre ; U ameliore sans rien ouvrir ; Maj+U ouvre ou ferme le panneau du batiment survole. Reglage par joueur fo-levels-panneau : clic (defaut) ou survol (comportement d'avant).
+    - Trait de ralliement des ateliers de robots au clic aussi (choix du DC du 5/11) : en reglage clic, le trait ambre n'apparait que quand l'interface de l'atelier est ouverte, plus au survol ; avec l'outil de ralliement en main, il reste visible.
+    - Noms affiches sans rho8 (choix du DC du 5/11) : concentres, billettes, chaine du titane, monazite et la technologie Billettes ; les noms internes ne changent pas (sauvegardes intactes).
+    - A essayer en jeu (prouve au moteur simule, pas encore par un banc avec images) : clic sur un mur ; amelioration depuis le panneau puis interface rouverte ; touche U panneau ouvert ; Maj+U au survol ; clic sur un atelier de robots (trait ambre), Echap (le trait disparait).
+    - Base de depart toujours visee en dernier (choix du DC du 4/11) : le depart est une zone de 64 tuiles autour du point d'apparition et du QG d'equipe. Avant, seul le secteur du point d'apparition etait protege : la base, au coin de 4 secteurs, etait attaquee des les premieres minutes de guerre. Mesure (pvp_test) : 0 attaque sur le QG, 9 sur l'avant-poste.
+    - Technologies des robots experimentaux (choix du DC du 4/11) : tous les packs de l'age (ages 9 et 13, 6 technologies), cout au double de la technologie de robot prerequise ; Demi-Vie : 100 circuits avances et 70 servomoteurs au lieu de 40 processeurs (age 10) et 30 servomoteurs.
+    - Proposition X3 (non jouee) : sa machine Atelier de robotique s'appelle fo-x3-robotics-bay (conflit de nom avec le Hall de montage en jeu).
+    - Pas encore dans cette version (en cours) : defense et travail continus pendant les attaques (fin du blocage Trop dangereux / A l'abri) ; enceinte de murs de votre equipe ; soldats de votre equipe recrutes sur le stock qui dort ; plastique de l'age 4 et processeur de l'age 10 alignes (choix du DC du 5/11) ; zone de depart qui suit la base ; rechargement des armes des PNJ ; gels du plan des champs ; tourelle laser redessinee.
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Version: 0.6.51
 Date: 2026-11-04
   Changes:
