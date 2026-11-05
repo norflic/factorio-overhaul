@@ -24,6 +24,8 @@ local PlacesQG = require("script.ai3.places_qg")
 local Br = require("shared.ai3.bras")
 local Ad = require("shared.team.adopte")
 local Sg = require("shared.team.stockage") -- lot STOCKAGE (essai 2) : poser le plus grand, améliorer, anneaux (règle pure)
+local R = require("shared.ai3.reglages") -- lot STOCKAGE (essai 3) : types qui prouvent qu'un coffre est sur une ligne du joueur (R.ADOPT_BLOCKERS)
+local State = require("script.faction.state") -- lot STOCKAGE (essai 3) : un coffre déjà à un avant-poste (State.owner) n'est pas une annexe
 local FQ = require("shared.ai3.fonderie_qg") -- lot PD-FONDERIEQG (D77) : fonderie du QG bornée par l'automatisation
 
 -- Entrées de la fonderie du QG, triées (données de shared/team/config.lua), pour FQ.automated.
@@ -358,6 +360,52 @@ local function ring_places(f, sy, w, h)
   return out
 end
 
+--- Lot STOCKAGE (essai 3) : ZONE DE STOCKAGE : la boîte des places des anneaux ouverts autour du QG, une tuile de marge.
+local function zone(f)
+  local x0, y0, x1, y1
+  for _, p in ipairs(ring_places(f, side(f), 1, 1)) do
+    x0, x1 = math.min(x0 or p[1], p[1]), math.max(x1 or p[1], p[1])
+    y0, y1 = math.min(y0 or p[2], p[2]), math.max(y1 or p[2], p[2])
+  end
+  local hx, hy = f.hq_pos.x, f.hq_pos.y
+  return { { hx + (x0 or 0) - 1, hy + (y0 or 0) - 1 }, { hx + (x1 or 0) + 1, hy + (y1 or 0) + 1 } }
+end
+
+--- Un coffre au contact d'un bras, d'un tapis ou d'une foreuse (R.ADOPT_BLOCKERS) appartient à une ligne du joueur : jamais une annexe.
+local function on_a_line(surface, e)
+  local p = e.position
+  return #surface.find_entities_filtered({ area = { { p.x - 1.6, p.y - 1.6 }, { p.x + 1.6, p.y + 1.6 } }, type = R.ADOPT_BLOCKERS }) > 0
+end
+
+--- Lot STOCKAGE (essai 3, remarque du DC du 5/11, 21 h 47 : « j'ai posé le coffre [en acier] par-dessus [...] ils retrouvent plus le coffre ») :
+--- le REGISTRE SE RÉPARE. Un coffre de l'échelle (T.annex.kinds), de la force de l'équipe, dans la zone de stockage, absent du registre, est
+--- inscrit comme annexe : le coffre remplacé par-dessus par le joueur (le moteur lui donne un NOUVEAU numéro d'unité, l'ancien est purgé par
+--- Stock.annexes) comme le coffre qu'il pose lui-même dans la zone. Jamais : un coffre d'avant-poste (State.owner), sur une place du plan
+--- directeur (Stock.reserved), ou sur une ligne du joueur (bras, tapis, foreuse au contact). Rend le nombre de coffres inscrits.
+function Stock.scan(f, surface, tick)
+  if not (surface and surface.find_entities_filtered and f.hq_pos) then return 0 end
+  local listed = {}
+  for _, e in ipairs(Stock.annexes(f)) do if e.unit_number then listed[e.unit_number] = true end end
+  local found = surface.find_entities_filtered({ area = zone(f), type = "container", force = f.force })
+  table.sort(found, function(a, b) return (a.unit_number or 0) < (b.unit_number or 0) end)
+  local n = 0
+  for _, e in ipairs(found) do
+    local u = e.valid and e.unit_number
+    if u and not listed[u] and e ~= f.hq and rank_of(e.name) and not State.owner(u)
+      and not (Stock.reserved and Stock.reserved(f, e.name, e.position)) and not on_a_line(surface, e) then
+      f.annex = f.annex or {}
+      f.annex[#f.annex + 1] = e
+      listed[u] = true
+      n = n + 1
+      f.stats = f.stats or {}
+      f.stats.annex_found = (f.stats.annex_found or 0) + 1
+      log(string.format("[FO-STOCKAGE] %s : coffre %s retrouve en (%.1f, %.1f) et inscrit au stock (absent du registre : remplace ou pose par le joueur) a %.1f min",
+        f.key or "player", e.name, e.position.x, e.position.y, (tick - (f.started or 0)) / 3600))
+    end
+  end
+  return n
+end
+
 --- Lot STOCKAGE (essai 2) : pose du coffre de rang k sur la première place libre des anneaux ouverts ; rend vrai si posé.
 local function place_kind(f, surface, k, tick, n, used, size, st)
   local item = T.annex.kinds[k].item
@@ -435,6 +483,15 @@ function Stock.grow(f, surface, tick)
   local waiting = Stock.flush(f)
   local used, size, n = totals(f)
   if size <= 0 then return false end
+  -- Lot STOCKAGE (essai 3) : le registre se répare : à chaque pensée où le stock demande de la place (60 % ou un refus), et toutes les 5 min
+  -- sinon, les coffres de la zone absents du registre sont retrouvés (Stock.scan) ; les objets en attente y entrent aussitôt.
+  if A.fill(used, size) >= T.annex.early_at or waiting > 0 or f.refused_at or tick - (f.annex_scan_at or -1000000) >= 5 * 3600 then
+    f.annex_scan_at = tick
+    if Stock.scan(f, surface, tick) > 0 then
+      waiting = Stock.flush(f)
+      used, size, n = totals(f)
+    end
+  end
   f.stock_watch = f.stock_watch or {}
   local st = A.watch(f.stock_watch, used, size, tick)
   if waiting > 0 then
