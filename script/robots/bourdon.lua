@@ -23,6 +23,7 @@ local Armee = require("script.robots.armee") -- lot ROBOTS-JEU : plafond de géa
 local Mo = require("shared.robots.modele")
 local Ro = require("shared.content.robots") -- lot BOURDON-SORTIE : taille de l'usine (point de sortie)
 local State = require("script.faction.state") -- lot BOURDON-MINEURS : une faction ne sort pas de Bourdon (B.sortie)
+local XpG = require("script.robots.experimentaux_geants") -- règle d'échelle : cible « tout ce qui est ennemi » (lot EXPERIMENTAUX-PUISSANCE)
 
 local M = {}
 
@@ -717,7 +718,8 @@ local function sur_tick(ev)
             sonner(b, tick, true, a.x, a.y)
           end
         elseif tick % 60 == b.id % 60 and b.phase == "pose" and not b.glas and tick >= b.recharge and not b.muet then
-          local cible = b.e.surface.find_nearest_enemy({ position = b.e.position, max_distance = B.PORTEE_AUTO, force = b.e.force })
+          -- règle d'échelle (réponses du DC du 5/11) : l'ennemi militaire le plus proche, sinon toute entité ennemie à portée, jusqu'à la fin
+          local cible = XpG.cible(b.e, { range = B.PORTEE_AUTO })
           if cible then sonner(b, tick, false, cible.position.x, cible.position.y) end
         end
       end
@@ -859,7 +861,7 @@ local function glas_du_joueur(player, cx, cy)
     if sel and sel.valid and sel.force ~= player.force then
       x, y = sel.position.x, sel.position.y
     else
-      local ennemi = b.e.surface.find_nearest_enemy({ position = b.e.position, max_distance = 400, force = b.e.force })
+      local ennemi = XpG.cible(b.e, { range = 400 }) -- règle d'échelle : militaire d'abord, sinon toute entité ennemie
       if ennemi then x, y = ennemi.position.x, ennemi.position.y end
     end
   end
