@@ -470,6 +470,26 @@ local function threat_max(map, p, pts, goal, tick)
   return mx
 end
 
+--- Lot DANGER-ACTIF : danger des seules menaces FIXES le plus fort le long d'un itinéraire (6 premières tuiles exclues) : s'il atteint le seuil, tout chemin
+--- passe à portée d'un nid, d'un ver ou d'une tourelle ennemie.
+local function fixed_max(map, p, pts, goal, tick)
+  local qs = R.samples(p, pts, goal, R.SAMPLE)
+  local x0, y0, x1, y1 = goal.x, goal.y, goal.x, goal.y
+  for _, q in ipairs(qs) do
+    if q.x < x0 then x0 = q.x elseif q.x > x1 then x1 = q.x end
+    if q.y < y0 then y0 = q.y elseif q.y > y1 then y1 = q.y end
+  end
+  local prep = D.exact_prep(map, tick, x0, y0, x1, y1)
+  local mx = 0
+  for _, q in ipairs(qs) do
+    if d2(q, p) > 36 then
+      local v = D.fixed_at(prep, q.x, q.y)
+      if v > mx then mx = v end
+    end
+  end
+  return mx
+end
+
 ---------------------------------------------------------------------------------------------------
 -- Crochet : prochain point de passage d'une étape « aller »
 ---------------------------------------------------------------------------------------------------
@@ -633,19 +653,21 @@ local gate_core
 
 --- Lot DANGER-ACTIF : la tâche dont le but est sous une menace fixe est mise de côté (Da.ASIDE_TICKS) ; les soldats sont prévenus (th.b) ; le PNJ
 --- prend une autre tâche. Rend false, "danger" (task.fail = Da.ASIDE_FAIL, lu par Board.finish -> A.retry).
-local function set_aside(f, agent, task, t, dest, res, why, parts, tick)
+local function set_aside(f, agent, task, t, dest, res, why, parts, tick, qs)
   local da = t.stats.dact or {}
   t.stats.dact = da
   for _, th in ipairs(t.map.threats) do
-    if d2(dest, th) <= (th.r + 16) * (th.r + 16) then th.b = tick end -- les soldats la nettoient (script/ai3/soldats.lua : « bloque une tournée »)
+    local hit = d2(dest, th) <= (th.r + 16) * (th.r + 16)
+    for _, q in ipairs(hit and {} or (qs or {})) do -- et celles de la ROUTE : les vers qui bloquent sont signalés aux soldats (nettoyage)
+      if d2(q, th) <= (th.r + 16) * (th.r + 16) then hit = true break end
+    end
+    if hit then th.b = tick end -- les soldats la nettoient (script/ai3/soldats.lua : « bloque une tournée »)
   end
   da.aside = (da.aside or 0) + 1
   da.why = da.why or {}
   inc(da.why, "aside:" .. why)
   task.fail = Da.ASIDE_FAIL
   Survie.note_wait(f, tick)
-  inc(t.stats.gate, "wait")
-  inc(t.stats.gate_why, "wait:" .. why)
   if Profiler.enabled() then
     log(string.format("[FO-IA3K] %s : PNJ %d met de cote (%s) : tache %s vers (%d, %d), menace fixe au but %d (seuil %d)",
       tostring(f.key), agent.id, why, tostring(task.kind), math.floor(dest.x), math.floor(dest.y), parts.fixed or 0, res.B))
@@ -661,7 +683,7 @@ function M.gate(f, agent, task, steps, tick)
   local t = M.team(f)
   t.stats.dact = t.stats.dact or {}
   local a = astate(agent)
-  if ok then Da.rest_close(a, t.stats.dact, tick) else Da.rest_open(a, tick) a.rest_team = tostring(f.key) end
+  if ok then Da.rest_close(a, t.stats.dact, tick) a.depart_t = tick else Da.rest_open(a, tick) a.rest_team = tostring(f.key) end
   return ok, why
 end
 
@@ -780,13 +802,26 @@ gate_core = function(f, agent, task, steps, tick)
   --   - but à portée d'une menace FIXE connue : tâche MISE DE CÔTÉ (Da.ASIDE_TICKS), soldats prévenus, le PNJ prend tout de suite une autre tâche ;
   --   - sinon : le PNJ PART par le chemin du moindre danger (M.leg), risque accepté, ses réflexes restent (fuite, demi-tour à portée).
   -- L'escalade, le passe-droit et l'étiquette « Trop dangereux » ne servent plus aux cas traités ici (ils restent pour le code qui les lit).
-  if decision == "wait" then
+  -- Relecture du lead (5/11) : B1 une route que TOUT chemin ne peut franchir qu'à portée d'une menace fixe, B2 2 morts de l'heure sur le chemin du moindre danger
+  -- (docs/IA_ATTENDUS.md C5), B3 une escorte ne contourne pas la mise de côté d'un but sous menace fixe : le jugement se fait AVANT la branche escorte.
+  local aside = nil
+  if decision == "wait" or (decision == "escort" and why ~= "loin") then
     local parts = D.exact_parts(t.map, dest.x, dest.y, tick)
     local da = t.stats.dact or {}
     t.stats.dact = da
-    if Da.after_wait(parts, res.B, why, D.deaths_near(t.map, { dest }, D.DEATH_R, tick)) == "aside" then
-      return set_aside(f, agent, task, t, dest, res, why, parts, tick)
+    local rp = (alt or res).pts
+    local qs = R.samples(p, rp, dest, 8)
+    local route = { fixed = fixed_max(t.map, p, rp, dest, tick),
+      deaths = (ginfo.deaths or 0) >= 2 and D.deaths_near(t.map, qs, D.HOUR_R, tick) or 0 }
+    if Da.after_wait(parts, res.B, why, D.deaths_near(t.map, { dest }, D.DEATH_R, tick), route) == "aside" then
+      -- Mise de côté : la décision devient "wait" pour les comptes de la porte (gate_why, porte_zone « base / hors », journal [FO-BASE]) ; l'escalade et le
+      -- passe-droit sont sautés (aside) et la sortie rend false, "danger" plus bas avec task.fail = Da.ASIDE_FAIL.
+      aside = { parts = parts, qs = qs }
+      decision = "wait"
     end
+  end
+  if decision == "wait" and not aside then
+    local da = t.stats.dact
     da.go = (da.go or 0) + 1
     da.why = da.why or {}
     inc(da.why, "go:" .. why)
@@ -813,14 +848,14 @@ gate_core = function(f, agent, task, steps, tick)
   -- comme libre pour l'escalade (Fa.W refus, escorte si possible). Menace fixe ou mort au but : prudence gardée (journal [FO-FAMINE]).
   local fam, fam_why, fam_parts = false, nil, nil
   local fam_only = false -- vrai : seule la règle de famine libère ce but (journal et escorte)
-  if decision == "wait" and ((why ~= "morts" and why ~= "mort") or defense_free) and Fa.KINDS[task.kind] and Survie.on(f) then
+  if decision == "wait" and not aside and ((why ~= "morts" and why ~= "mort") or defense_free) and Fa.KINDS[task.kind] and Survie.on(f) then
     fam_parts = D.exact_parts(t.map, dest.x, dest.y, tick)
     fam, fam_why = Fa.goal({ on = true, kind = task.kind, parts = fam_parts, calm = calm, B = res.B,
       deaths_n = D.deaths_near(t.map, { dest }, D.DEATH_R, tick) }) -- (relecture : plafond de morts au but, calme compris)
     fam_only = fam and not goal_free
     if fam then goal_free = true end
   end
-  if decision == "wait" and ((why ~= "morts" and why ~= "mort") or defense_free) then
+  if decision == "wait" and not aside and ((why ~= "morts" and why ~= "mort") or defense_free) then
     local w = t.waits[dk]
     if not w then
       w = { n = 0 }
@@ -919,6 +954,7 @@ gate_core = function(f, agent, task, steps, tick)
   -- (lot SURVIE-PENURIE : les refus sont comptés par set_aside, shared/team/survie.lua)
   -- Lot DANGER-ACTIF : plus d'attente ici (la décision "wait" a été traduite plus haut en « mise de côté » ou en départ) ; l'étiquette « Trop dangereux »
   -- (clé "attente") n'existe plus.
+  if aside then return set_aside(f, agent, task, t, dest, res, why, aside.parts, tick, aside.qs) end
   if decision == "escort" then
     -- Taille de l'escorte : 2, plus une par menace fixe connue à moins de 64 tuiles du trajet ou du but (6 au plus).
     local n = 2
@@ -934,10 +970,6 @@ gate_core = function(f, agent, task, steps, tick)
       -- { "wait", ESCORT_WAIT } au QG quand le danger était connu).
       label(agent, "escorte", tick, t.stats)
     elseif why ~= "loin" then
-      local parts = D.exact_parts(t.map, dest.x, dest.y, tick)
-      if why ~= "famine" and Da.after_wait(parts, res.B, why, D.deaths_near(t.map, { dest }, D.DEATH_R, tick)) == "aside" then
-        return set_aside(f, agent, task, t, dest, res, why, parts, tick) -- but sous une menace fixe : autre tâche (inc gate ci-dessous évité)
-      end
       -- Lot DANGER-ACTIF : pas d'escorte libre : le PNJ part seul par le chemin du moindre danger, risque accepté (avant : « attente », return false).
       -- (lot FER-MARQUE : en famine, il partait déjà seul.)
       a.risk = true
@@ -982,9 +1014,10 @@ function M.gate_report(f, tick)
     for k in pairs(da.why or {}) do wk[#wk + 1] = k end
     table.sort(wk)
     for _, k in ipairs(wk) do wparts[#wparts + 1] = string.format("%s %d", k, da.why[k]) end
-    log(string.format("[FO-DANGER-ACTIF] %s : bilan a %.1f min : mises de cote %d, departs a risque %d, escorte absente (depart seul) %d, alertes de soldats sur un site touche %d (dont au-dela de 226 tuiles %d), soldats perdus (cumul) %d, mis a l'abri %d (distance moyenne a la menace %.0f, max %.0f tuiles), epargnes (non exposes) %d {%s} ; repos fermes %d, plus long %.1f s, au-dela de 30 s %d ; repos ouverts au-dela de 30 s %d (plus long %.1f s)",
+    log(string.format("[FO-DANGER-ACTIF] %s : bilan a %.1f min : mises de cote %d, departs a risque %d, escorte absente (depart seul) %d, alertes de soldats sur un site touche %d (dont au-dela de 226 tuiles %d), soldats perdus (cumul) %d, mis a l'abri %d (distance moyenne a la menace %.0f, max %.0f tuiles), epargnes (non exposes) %d, allers-retours (abandon < 60 s apres le depart) %d, abris repetes (< 60 s) %d, ouvriers armes non rappeles %d {%s} ; repos fermes %d, plus long %.1f s, au-dela de 30 s %d ; repos ouverts au-dela de 30 s %d (plus long %.1f s)",
       tostring(f.key), tick / 3600, da.aside or 0, da.go or 0, da.escort_none or 0, da.site_alerts or 0, da.site_alerts_far or 0, (f.stats and f.stats.soldiers_lost) or 0,
-      da.shelter_n or 0, (da.shelter_n or 0) > 0 and da.shelter_d / da.shelter_n or 0, da.shelter_dmax or 0, da.spared or 0, table.concat(wparts, ", "), da.rest_n or 0,
+      da.shelter_n or 0, (da.shelter_n or 0) > 0 and da.shelter_d / da.shelter_n or 0, da.shelter_dmax or 0, da.spared or 0, da.quick_back or 0, da.shelter_again or 0,
+      (f.stats and f.stats.recall_armed_kept) or 0, table.concat(wparts, ", "), da.rest_n or 0,
       (da.rest_max or 0) / 60, da.rest_over or 0, over_now, worst_now / 60))
   end
   if #keys == 0 then return end
@@ -1073,6 +1106,11 @@ local function act(agent, f, t, a, action, why, ep, kind, tick, range, refuge_to
     a.pts, a.final, a.hold, a.hold_stop = nil, nil, nil, nil
     a.calm = nil -- lot COMPAGNONS-ACTIFS (relecture) : la tâche est abandonnée, la porte rejugera la suivante
     a.ret_t = tick
+    -- Lot DANGER-ACTIF (relecture du lead) : un abandon moins de 60 s après le départ est un aller-retour (compté, critère C1).
+    if a.depart_t and tick - a.depart_t < 3600 then
+      t.stats.dact = t.stats.dact or {}
+      t.stats.dact.quick_back = (t.stats.dact.quick_back or 0) + 1
+    end
     if action == "back" and (kind == "unit" or kind == "character") then
       -- Mémoire des demi-tours devant des unités : le suivant, dans Re.BACK_MEMORY ticks, devient une fuite.
       if a.back_t and tick - a.back_t > Re.BACK_MEMORY then a.backs = 0 end

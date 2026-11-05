@@ -21,15 +21,20 @@ Da.REST_MAX = 1800           -- 30 s : au-delà, un PNJ refusé qui n'est pas re
 --- Le but est-il sous une menace FIXE connue, ou un lieu où des PNJ sont morts en nombre (tueur absent de la carte : « pas de marche suicide », même
 --- garde-fou que shared/team/famine.lua) ? `parts` = D.exact_parts(map, x, y, tick) (fixed, deaths, mobile) ; `B` = seuil de la porte ; `deaths_n` = morts
 --- de l'heure à moins de D.DEATH_R du but. Les cases MOBILES (attaque qui passe) et les morts sur la ROUTE ne comptent pas : on part, par le moindre danger.
-Da.DEATHS_GOAL = 3 -- morts de l'heure au but à partir desquelles la tâche est mise de côté
+Da.DEATHS_GOAL = 2 -- morts de l'heure au but à partir desquelles la tâche est mise de côté (docs/IA_ATTENDUS.md C5 : au plus 2 morts au même endroit par heure)
+Da.DEATHS_ROUTE = 2 -- morts de l'heure sur le chemin du moindre danger à partir desquelles la tâche est mise de côté (même règle)
 function Da.fixed_goal(parts, B, deaths_n)
   return ((parts and parts.fixed) or 0) >= B or (deaths_n or 0) >= Da.DEATHS_GOAL
 end
 
 --- Que devient une attente de la porte ? "aside" (autre tâche) ou "go" (départ par le chemin du moindre danger, risque accepté).
 --- `why` = motif de la porte : « boucle » (lot DETOUR-BOUCLE : un PNJ a tourné en rond autour de ce but) est toujours mis de côté.
-function Da.after_wait(parts, B, why, deaths_n)
+--- `route` (facultatif) = { fixed = danger FIXE le plus fort le long du chemin du moindre danger, deaths = morts de l'heure sur ce chemin } : un chemin qui
+--- passe forcément à portée d'une menace fixe (le PNJ ferait demi-tour à portée, puis reviendrait au tableau : boucle cachée) ou par 2 morts de l'heure
+--- met la tâche de côté.
+function Da.after_wait(parts, B, why, deaths_n, route)
   if why == "boucle" or Da.fixed_goal(parts, B, deaths_n) then return "aside" end
+  if route and ((route.fixed or 0) >= B or (route.deaths or 0) >= Da.DEATHS_ROUTE) then return "aside" end
   return "go"
 end
 

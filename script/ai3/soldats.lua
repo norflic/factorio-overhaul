@@ -173,6 +173,7 @@ local function shelter(f, t, threat, tick, resp, rally, range)
         local a = C.astate(ag)
         local march = resp ~= "stand" -- ralliement ou éloignement : marche EXPLICITE (un PNJ déjà au QG n'ira nulle part sinon)
         if march and tick - (a.shelter_t or -1e9) >= SD.SHELTER_TICKS or (not march and not a.refuge) then
+          if a.shelter_t and tick - a.shelter_t < 3600 then da.shelter_again = (da.shelter_again or 0) + 1 end -- oscillation : de nouveau à l'abri en moins de 60 s
           if march then a.shelter_t = tick else a.refuge = to end
           a.pts, a.final = nil, nil
           Worker.abort(ag, f, tick, "abri")

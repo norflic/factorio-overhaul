@@ -370,6 +370,18 @@ function D.exact_at(prep, x, y, no_deaths)
   return s
 end
 
+--- Lot DANGER-ACTIF : danger des seules menaces FIXES en un point du rectangle de `prep` (ni cases mobiles ni morts) : une route dont le meilleur
+--- chemin reste sous ce danger passe forcément à portée d'un nid, d'un ver ou d'une tourelle ennemie.
+function D.fixed_at(prep, x, y)
+  local s = 0
+  local tx, ty, tr2, tw = prep.tx, prep.ty, prep.tr2, prep.tw
+  for i = 1, prep.nt do
+    local dx, dy = tx[i] - x, ty[i] - y
+    if dx * dx + dy * dy <= tr2[i] then s = s + tw[i] end
+  end
+  return s
+end
+
 --- Danger d'une case (sans champ précalculé : pour un contrôle ponctuel).
 function D.danger_at(map, x, y, tick)
   local cx, cy = D.cell(x), D.cell(y)

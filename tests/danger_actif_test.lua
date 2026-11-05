@@ -32,12 +32,19 @@ local function cases(Da, A)
   check(Da.after_wait({ fixed = B + 500, deaths = 0, mobile = 0 }, B, "bloque", 0) == "aside", "menace fixe forte au but : mise de côté")
   check(Da.after_wait({ fixed = B - 1, deaths = 0, mobile = 0 }, B, "but", 0) == "go", "menace fixe juste sous le seuil : départ")
   check(Da.after_wait({ fixed = 0, deaths = 0, mobile = 5000 }, B, "marque", 0) == "go", "attaque en cours (cases mobiles) au but : départ par le moindre danger")
-  check(Da.after_wait({ fixed = 0, deaths = 5000, mobile = 0 }, B, "morts", 2) == "go", "2 morts, danger de morts seul : départ (morts de PNJ sur la route)")
+  check(Da.after_wait({ fixed = 0, deaths = 5000, mobile = 0 }, B, "morts", 1) == "go", "1 mort au but, danger de morts seul : départ")
   check(Da.after_wait({ fixed = 0, deaths = 0, mobile = 0 }, B, "morts", Da.DEATHS_GOAL) == "aside", "Da.DEATHS_GOAL morts au but : mise de côté (pas de marche suicide)")
   check(Da.after_wait({ fixed = 0, deaths = 0, mobile = 0 }, B, "morts", Da.DEATHS_GOAL - 1) == "go", "une mort de moins au but : départ")
+  -- relecture du lead (5/11) : B1 chemin du moindre danger qui passe forcément à portée d'une menace fixe, B2 2 morts de l'heure sur ce chemin
+  check(Da.after_wait({ fixed = 0, deaths = 0, mobile = 0 }, B, "bloque", 0, { fixed = B, deaths = 0 }) == "aside", "B1 : le meilleur chemin atteint le seuil par des menaces FIXES : mise de côté")
+  check(Da.after_wait({ fixed = 0, deaths = 0, mobile = 0 }, B, "bloque", 0, { fixed = B - 1, deaths = 0 }) == "go", "B1 : juste sous le seuil : départ")
+  check(Da.after_wait({ fixed = 0, deaths = 0, mobile = 0 }, B, "bloque", 0, { fixed = 0, deaths = 0 }) == "go", "B1 : route bloquée par des cases MOBILES seules : départ (attaque qui passe)")
+  check(Da.after_wait({ fixed = 0, deaths = 0, mobile = 0 }, B, "morts", 0, { fixed = 0, deaths = Da.DEATHS_ROUTE }) == "aside", "B2 : 2 morts de l'heure sur le chemin : mise de côté")
+  check(Da.after_wait({ fixed = 0, deaths = 0, mobile = 0 }, B, "mort", 0, { fixed = 0, deaths = Da.DEATHS_ROUTE - 1 }) == "go", "B2 : 1 mort sur le chemin : départ")
+  check(Da.DEATHS_ROUTE == 2, "morts de l'heure sur le chemin : 2")
   check(Da.after_wait({ fixed = 0, deaths = 0, mobile = 0 }, B, "boucle", 0) == "aside", "but où l'on a tourné en rond : mise de côté")
   check(Da.after_wait(nil, B, "marque", nil) == "go", "sans mesure du but : départ")
-  check(Da.DEATHS_GOAL == 3, "garde-fou des morts au but : 3 (même valeur que la famine)")
+  check(Da.DEATHS_GOAL == 2, "garde-fou des morts au but : 2 (docs/IA_ATTENDUS.md C5)")
   -- 2. pause bornée
   check(A.retry(Da.ASIDE_FAIL, false, 1800) == Da.ASIDE_TICKS and Da.ASIDE_TICKS == 3600, "tâche mise de côté : pause de 3600 ticks (1 min)")
   check(A.retry("danger", false, 1800) == A.RETRY_DANGER, "refus ordinaire pour danger : pause de 10 s (inchangée)")
@@ -100,6 +107,9 @@ check(RPS:find("Da.mobile_cause(cause.type)", 1, true) ~= nil and RPS:find("Stat
 check(SDS:find('C.on_alert(f, pos, "unit", tick, "site")', 1, true) ~= nil and SDS:find('mode ~= "site" and d2(ep, f.hq_pos)', 1, true) ~= nil, "alerte « site » : sans limite de distance au QG")
 check(SDS:find("Da.exposed(p, threat, reach)", 1, true) ~= nil and SDS:find('{ "wait", SD.SHELTER_TICKS }', 1, true) ~= nil and SDS:find('{ { "goto", to, 3 }, { "home" } }', 1, true) ~= nil,
   "shelter : seuls les exposés lâchent leur tâche ; l'attente fixe n'est plus dans les étapes (seulement citée en commentaire)")
+local WK = read("script/team/worker.lua")
+check(WK:find("recall_armed_kept", 1, true) ~= nil and WK:find("Worker.hook.has_ammo(e)", 1, true) ~= nil, "Worker.recall_near : un ouvrier armé n'est pas rappelé (il défend)")
+check(CO:find("quick_back", 1, true) ~= nil and SDS:find("shelter_again", 1, true) ~= nil, "allers-retours et abris répétés comptés")
 check(CO:find("site_alert = Da.site_alert(t.alerts, p, tick)", 1, true) ~= nil, "le regard passe l'alerte de site à Re.decide")
 
 section("5. Mutants (chacun doit faire échouer au moins un cas)")
@@ -107,7 +117,9 @@ local src = read("shared/team/danger_actif.lua")
 local mutants = {
   { "seuil > au lieu de >=", ">= B or (deaths_n or 0)", "> B or (deaths_n or 0)" },
   { "morts au but ignorées", " or (deaths_n or 0) >= Da.DEATHS_GOAL", "" },
-  { "garde-fou des morts à 4", "Da.DEATHS_GOAL = 3", "Da.DEATHS_GOAL = 4" },
+  { "garde-fou des morts à 3", "Da.DEATHS_GOAL = 2", "Da.DEATHS_GOAL = 3" },
+  { "chemin sans menace fixe ignoré", "(route.fixed or 0) >= B or", "false and" },
+  { "morts du chemin ignorées", "or (route.deaths or 0) >= Da.DEATHS_ROUTE", "" },
   { "boucle plus mise de côté", 'why == "boucle" or ', "" },
   { "tout part", 'return "aside" end\n  return "go"', 'return "go" end\n  return "go"' },
   { "tout est mis de côté", 'return "aside" end\n  return "go"', 'return "aside" end\n  return "aside"' },
