@@ -531,15 +531,51 @@ end
 --- engrenages et demandait son fer, palier 3 de recherche à 20,8 / 40,0 / 51,4 min contre 16,5 / 24,5 / 28,3 au témoin.
 function Cap.emit(P)
   return function(E, proj, g)
+    -- Étage CIRCUITS : le centre collant ne compte que ce qui est AU COFFRE (Cap.ahead_clamp) et ses tâches ont la priorité du
+    -- projet le plus fort (Cap.ahead_prio). Les arrivées mises de côté sont rendues au stock virtuel des projets suivants.
+    local aside = g.ahead and Cap.ahead_clamp(E, g.cost) or nil
+    local prio = g.ahead and Cap.ahead_prio(P, proj.prio) or proj.prio
+    local res
     if P.take(E, g.cost) then
       E.pay = E.pay or {}
       E.pay[#E.pay + 1] = { key = g.key, target = g.target, cost = g.cost }
-      return "ok"
+      res = "ok"
+    elseif not g.center and not g.opens and not g.replace and ((E.view and E.view.workers_idle) or 0) <= 0 then
+      res = "matiere"
+    else
+      P.want(E, proj, g.cost, prio, false, "niveau")
+      res = "matiere"
     end
-    if not g.center and not g.opens and not g.replace and ((E.view and E.view.workers_idle) or 0) <= 0 then return "matiere" end
-    P.want(E, proj, g.cost, proj.prio, false, "niveau")
-    return "matiere"
+    for _, k in ipairs(sorted_keys(aside)) do E.avail[k] = (E.avail[k] or 0) + aside[k] end
+    return res
   end
+end
+
+--- Lot DEFAUT7, étage CIRCUITS (sonde [FO-FER-DIAG] sur 5d4d0aa4 : fd2-guide-271828182, fd2-dc-717152950). Le centre collant manquait
+--- de CIRCUITS, pas de fer : (1) ses fabrications à la main (60 circuits demandés à chaque pensée) n'étaient jamais faites, à la
+--- priorité de son projet (59 à 67) quand l'équipe n'a aucun bras libre (Azur 32 à 36 min, Ambre 27 à 29 min : 0 circuit entré) ;
+--- (2) les circuits ATTENDUS au coffre (view.incoming : 200 pour Azur de 43 à 46 min, coffre à 0) couvraient son coût au stock virtuel :
+--- aucune fabrication, et ces circuits partaient à leur arrivée vers les quais des modules. Règle : le centre collant ne compte que le
+--- stock libre au coffre, et ses tâches prennent la priorité du projet le plus fort (P.prio_of(100)), sous les urgences de défense et
+--- l'amorçage. Borné par l'état collant (Cap.AHEAD_TICKS).
+function Cap.ahead_prio(P, prio)
+  return math.max(prio or 0, P.prio_of(100))
+end
+
+--- Étage CIRCUITS : ramène le stock virtuel des objets du coût au stock LIBRE du coffre (E.view.stock) ; rend l'excédent mis de côté
+--- ({ [objet] = n }), que Cap.emit rend ensuite au stock virtuel.
+function Cap.ahead_clamp(E, cost)
+  local aside = {}
+  local stock = (E.view and E.view.stock) or {}
+  for _, it in ipairs(cost or {}) do
+    local k = it[1]
+    local over = (E.avail[k] or 0) - (stock[k] or 0)
+    if over > 0 and not aside[k] then
+      aside[k] = over
+      E.avail[k] = E.avail[k] - over
+    end
+  end
+  return aside
 end
 
 --- Lot DEFAUT7 (journal du DC du 3/11 et banc ageblocage-dc 717152950 sur 0.6.50, [FO-CAPITAL-DIAG]) : l'amélioration EXIGÉE par le
