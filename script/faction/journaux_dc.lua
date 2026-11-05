@@ -138,6 +138,8 @@ end)
 Events.on(defines.events.on_runtime_mod_setting_changed, function(e)
   local name = e.setting or "?"
   if name:sub(1, #PREFIX) ~= PREFIX then return end
+  -- Lot PANNEAU (relecture) : un réglage PAR JOUEUR (fo-levels-panneau…) n'est pas un réglage de carte : ni ligne, ni cache vidé.
+  if e.setting_type == "runtime-per-user" then return end
   Config.invalidate() -- le cache est aussi vidé par script/core/config.lua ; l'ordre des abonnements n'importe pas ici
   JDC.reglages(string.format("changement de %s (%s)", name, e.player_index and ("joueur " .. e.player_index) or "script"))
 end)

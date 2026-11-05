@@ -55,6 +55,18 @@ end
 
 function M.world() return W end
 
+--- Lot PANNEAU : défauts du JEU des réglages par joueur (settings/*.lua, setting_type « runtime-per-user »), lus par
+--- settings.get_player_settings du moteur simulé ; M.set_player_setting les change pour un joueur (nil : retour au défaut).
+local PLAYER_SETTING_DEFAULTS = {
+  ["fo-levels-panneau"] = "clic", -- settings/levels_panneau.lua (shared/levels/panneau.lua, P.DEFAULT)
+}
+
+function M.set_player_setting(player_index, name, value)
+  assert(PLAYER_SETTING_DEFAULTS[name] ~= nil, "set_player_setting : réglage par joueur inconnu " .. tostring(name))
+  W.player_settings[player_index] = W.player_settings[player_index] or {}
+  W.player_settings[player_index][name] = value
+end
+
 --- Lot IA3-c : prototypes de technologies du mock (forme de LuaTechnologyPrototype) depuis la fixture des coûts FINAUX
 --- (tests/fixtures/tech_ai3_final.lua, contrôlée en moteur réel par le scénario ia3-donnees, F275). Lu une fois.
 local tech_cache = nil
@@ -980,6 +992,10 @@ function M.new_world(opts)
     on_player_used_capsule = 40,
   }
   _G.defines = {
+    -- Lot PANNEAU : type de l'interface ouverte (LuaControl.opened_gui_type) ; noms de l'API 1.1.91, valeurs opaques.
+    gui_type = strict({ none = 0, entity = 1, research = 2, controller = 3, production = 4, item = 5, bonus = 6, trains = 7,
+      achievement = 8, blueprint_library = 9, equipment = 10, logistic = 11, other_player = 12, permissions = 13, tutorials = 14,
+      custom = 15, server_management = 16, player_management = 17, tile = 18, script_inventory = 19 }, "defines.gui_type"),
     -- Lot IA3-e : plan directeur des factions (fantômes : can_place_entity{build_check_type = ghost_revive}).
     build_check_type = { script = 0, manual = 1, manual_ghost = 2, script_ghost = 3, blueprint_ghost = 4, ghost_revive = 5 },
     direction = strict({ north = 0, northeast = 1, east = 2, southeast = 3, south = 4, southwest = 5, west = 6, northwest = 7 }, "defines.direction"),
@@ -1362,6 +1378,20 @@ function M.new_world(opts)
     if v == nil then error("paramètre inconnu : " .. k, 2) end
     return { value = v }
   end }) }
+  -- Lot PANNEAU : réglages par joueur (LuaSettings.get_player_settings, PlayerIdentification : joueur ou numéro). Valeur posée
+  -- par M.set_player_setting, sinon le défaut du jeu (PLAYER_SETTING_DEFAULTS) ; un nom inconnu est une erreur, comme global.
+  W.player_settings = {}
+  _G.settings.get_player_settings = function(p)
+    local index = type(p) == "table" and p.index or p
+    assert(type(index) == "number", "get_player_settings : joueur ou numéro attendu")
+    return setmetatable({}, { __index = function(_, k)
+      local own = W.player_settings[index]
+      local v = own and own[k]
+      if v == nil then v = PLAYER_SETTING_DEFAULTS[k] end
+      if v == nil then error("paramètre par joueur inconnu : " .. tostring(k), 2) end
+      return { value = v }
+    end })
+  end
   _G.script = {
     on_init = function(f) W.on_init = f end,
     on_load = function(f) W.on_load = f end,
