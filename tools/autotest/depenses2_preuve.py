@@ -22,17 +22,28 @@ RX_RSV = re.compile(r"\[FO-RESERVE\] (\S+) minute (\d+) \| besoin NON couvert")
 RX_CC = re.compile(r"\[FO-CAPITAL\] (\S+) : centre monte au niveau (\d+) .* a ([0-9.]+) min")
 RX_BILAN = re.compile(r"\[FO-DEPENSES-DIAG(?:-DC)?\] BILAN : (\d+) OK, (\d+) ECHEC")
 RX_ERR = re.compile(r"stack traceback|Error while running|script error", re.I)
+# Essai 4 : C9 (laboratoires pendant l'attente du centre), C10 (ordre du cuivre d'Azur), R1 (soldats de votre équipe)
+RX_DEP_FULL = re.compile(r"\[FO-DEPENSES\] (\S+) minute (\d+) \|(.*)laboratoires base (\S+) cible ([^,\s|]+)")
+RX_COPPER = re.compile(r"\[FO-CAPI\] azure : ordre ouvrir:copper-ore@\S+ (FINI|ECHOUE)")
 
 
 def scan(path):
     p = os.path.join(path, "benchmark.log.gz")
-    out = {"dep": [], "noncouv": {}, "cc": {}, "bilan": None, "err": 0, "hold": {}}
+    out = {"dep": [], "noncouv": {}, "cc": {}, "bilan": None, "err": 0, "hold": {}, "full": [], "copper": [], "psold": 0}
     with gzip.open(p, "rt", encoding="utf-8", errors="replace") as fh:
         for line in fh:
             if RX_ERR.search(line):
                 out["err"] += 1
             if "[FO-" not in line:
                 continue
+            m = RX_COPPER.search(line)
+            if m:
+                out["copper"].append(m.group(1))
+            m = RX_DEP_FULL.search(line)
+            if m:
+                out["full"].append((m.group(1), int(m.group(2)), "CENTRE EN ATTENTE" in m.group(3), m.group(5)))
+                if m.group(1) == "player" and "soldats cible" in line:
+                    out["psold"] += 1
             m = RX_HOLD.search(line)
             if m:
                 out["hold"][m.group(1)] = out["hold"].get(m.group(1), 0) + 1
@@ -86,6 +97,7 @@ def main(root, troot=None):
     errs = []
     dor_l, dor_t, red_l, red_t = [], [], [], []
     rows = []
+    c8_hold_sold, c9_bad, c10, r1 = 0, [], [], []
     for n in names:
         lp, tp = os.path.join(root, "lot-" + n), os.path.join(troot, "temoin-" + n)
         if not (os.path.exists(os.path.join(lp, "benchmark.log.gz")) and os.path.exists(os.path.join(tp, "benchmark.log.gz"))):
@@ -95,6 +107,27 @@ def main(root, troot=None):
         DT, OT = scan(tp)
         errs.append((n, OL["err"], OT["err"]))
         holds.append((n, sorted(OL["hold"].items())))
+        # Essai 4 : C9 (cible de laboratoires qui monte pendant l'attente du centre), C8 (soldats relevés pendant l'attente), C10, R1
+        prev = {}
+        for (eq, mi, hold, tg) in OL["full"]:
+            try:
+                tv = int(float(tg))
+            except ValueError:
+                tv = None
+            if hold and tv is not None and prev.get(eq) is not None and tv > prev[eq]:
+                c9_bad.append((n, eq, mi, prev[eq], tv))
+            if tv is not None:
+                prev[eq] = tv
+        with gzip.open(os.path.join(lp, "benchmark.log.gz"), "rt", encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                if "[FO-DEPENSES] " in line and "CENTRE EN ATTENTE" in line and "soldats cible" in line:
+                    c8_hold_sold += 1
+        if n == "guide-271828182":
+            c10.append((n, OL["copper"], OT["copper"]))
+        ps = [dd.g(DL[k], "soldats") for k in sorted(DL) if k[0] == "player" and k[2] == "A"]
+        r1.append((n, OL["psold"], max(ps) if ps else None, val(DL, "player", "A", "soldats"), val(DT, "player", "A", "soldats"),
+                   val(DL, "player", "A", "ouvriers"), val(DT, "player", "A", "ouvriers"), val(DL, "player", "L", "faites"),
+                   val(DT, "player", "L", "faites")))
         if n.startswith("guide"):
             c5.append((n, OL["bilan"], OT["bilan"]))
         eqs = sorted(set(k[0] for k in DL) | set(k[0] for k in DT))
@@ -174,7 +207,28 @@ def main(root, troot=None):
     print("C6 erreurs Lua (lot, temoin) : %s -> %s" % (errs, "TENU" if all(e[1] == 0 for e in errs) else "NON TENU"))
     print("Indicatif : plaques qui dorment a 59 min lot %s ; temoin %s" % (dist(dor_l), dist(dor_t)))
     print("Indicatif : packs rouges qui dorment lot %s ; temoin %s" % (dist(red_l), dist(red_t)))
-    print("Indicatif : minutes « CENTRE EN ATTENTE » du lot (rien pour la recherche ni l'armee) : %s" % holds)
+    print("Indicatif : minutes « CENTRE EN ATTENTE » du lot : %s" % holds)
+    # Essai 4 (CRITERES.md, écrits avant les chiffres)
+    pairs = [(a, b) for a, b in zip(dor_l, dor_t) if a is not None and b is not None]
+    drops = sum(1 for a, b in pairs if a < b)
+    ml = statistics.median([a for a, b in pairs]) if pairs else None
+    mt = statistics.median([b for a, b in pairs]) if pairs else None
+    print("C7 plaques qui dorment : mediane lot %s, temoin %s ; baisses %d sur %d -> %s" % (ml, mt, drops, len(pairs),
+          "TENU" if pairs and ml < mt and drops * 4 >= 3 * len(pairs) else "NON TENU"))
+    sl = sum(x for x in sold_l if x is not None)
+    stt = sum(x for x in sold_t if x is not None)
+    print("C8 armement : soldats des factions a 59 min, somme lot %d, temoin %d ; lignes « soldats cible » pendant l'attente du centre : %d -> %s" % (
+          sl, stt, c8_hold_sold, "TENU" if sl >= stt and c8_hold_sold > 0 else "NON TENU"))
+    print("C9 attente du centre : cible de laboratoires montee pendant l'attente : %d %s -> %s" % (len(c9_bad), c9_bad[:4],
+          "TENU" if not c9_bad else "NON TENU"))
+    print("C10 ordre ouvrir:copper-ore d'Azur (271828182) : %s -> %s" % (c10, "TENU" if c10 and c10[0][1] and "ECHOUE" not in c10[0][1]
+          else "NON TENU"))
+    print("R1 a R4 votre equipe (partie, lignes « soldats cible », soldats max, soldats 59 min L/T, ouvriers 59 min L/T, techs L/T) :")
+    for x in r1:
+        print("   %s" % (x,))
+    print("R1 recrute : %s ; R3 plafond (<= 6 et <= 30) : %s" % (
+          "TENU" if any((x[1] or 0) > 0 and (x[2] or 0) >= 1 for x in r1) else "NON TENU",
+          "TENU" if all((x[2] or 0) <= 6 for x in r1) else "NON TENU"))
     return 0
 
 
