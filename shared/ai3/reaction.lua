@@ -223,6 +223,23 @@ function Re.outranges(enemies, turrets)
   return n > 0
 end
 
+--- Relecture (revue-danger, 18 h 12, point 2) : une tourelle amie (profil q, position tp) est-elle encore un REFUGE devant le
+--- groupe ennemi (profils) vu en ep ? Non si un ennemi la DÉBORDE (Re.gap) et qu'elle est à moins de son atteinte (Re.reach_on)
+--- plus Re.MARGIN : il la détruit hors de sa portée, puis les désarmés abrités derrière elle. Tourelle de portée inconnue, ou aucun
+--- ennemi de portée connue : oui (la règle d'avant).
+function Re.refuge_ok(enemies, q, tp, ep)
+  if type(q) ~= "table" or type(q.r) ~= "number" then return true end
+  local dx, dy = tp.x - ep.x, tp.y - ep.y
+  local dd = dx * dx + dy * dy
+  for _, e in ipairs(enemies or {}) do
+    if type(e) == "table" and type(e.r) == "number" and Re.gap(e, q) > Re.RANGE_EPS then
+      local lim = Re.reach_on(e, q.hx, q.hy) + Re.MARGIN
+      if dd <= lim * lim then return false end
+    end
+  end
+  return true
+end
+
 --- Réponse d'un QG menacé par des UNITÉS (C7, lot FUITE) : "stand" (assez nombreux : on se bat, groupés), "rally" (derrière
 -- les tourelles du QG : elles tirent pendant que les ennemis s'y heurtent), "away" (loin de l'ennemi, qu'on distance, sans
 -- tourelle), sinon "stand" (fuir ne sert à rien : on se bat groupés). Mesuré (banc ia3k-vague-lente) : s'éloigner AVEC des

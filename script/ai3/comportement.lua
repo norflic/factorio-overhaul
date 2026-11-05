@@ -314,6 +314,7 @@ function M.rally(f)
 end
 
 --- Lot CORR-RALLIEMENT : règle allumée (défaut) ; le banc témoin l'éteint par remote.call("fo-ia3k", "debordement", false).
+--- L'interrupteur couvre tout le lot : débordement (Re.outranges), refuge (Re.refuge_ok).
 function M.outrange_on()
   return not S().no_outrange
 end
@@ -370,15 +371,18 @@ local function armed(agent, a, tick)
   return a.armed
 end
 
---- Refuge le plus proche : une tourelle amie (pas du côté de la menace), sinon la case du QG.
-local function refuge(f, p, ep, range)
+--- Refuge le plus proche : une tourelle amie (pas du côté de la menace), sinon la case du QG. `foes` (facultatif, lot
+--- CORR-RALLIEMENT) : profils d'attaque du groupe ennemi (M.foe_profiles) ; une tourelle qu'il déborde, à moins de son atteinte
+--- plus une marge, n'est pas un refuge (Re.refuge_ok).
+local function refuge(f, p, ep, range, foes)
   local best, bd = nil, nil
   for _, id in ipairs(State.sorted_keys(f.turrets or {})) do
     local t = f.turrets[id]
     if t and t.valid then
       local tp = t.position
       -- Ni à 12 tuiles de l'ennemi, ni derrière lui : y courir, c'est courir sur lui (armée en marche sur le QG, int-1).
-      if d2(tp, ep) >= 144 and not Re.on_the_way(p, tp, ep) then
+      if d2(tp, ep) >= 144 and not Re.on_the_way(p, tp, ep)
+        and (not foes or Re.refuge_ok(foes, M.attack_profile(t), tp, ep)) then
         local dd = d2(tp, p)
         if not bd or dd < bd then best, bd = tp, dd end
       end
@@ -1007,7 +1011,7 @@ local function resume_now(agent, a, tick)
   a.now = nil
 end
 
-local function act(agent, f, t, a, action, why, ep, kind, tick, range, refuge_to)
+local function act(agent, f, t, a, action, why, ep, kind, tick, range, refuge_to, foes)
   -- Déjà en retraite (demi-tour ou fuite de moins de 10 s) : on ne s'arrête pas de nouveau à chaque regard (le PNJ
   -- rentrerait par saccades, poursuivi) ; l'itinéraire du retour évite déjà ce qui est marqué. Une FUITE n'est jamais
   -- retardée par un demi-tour récent (survie avant tâche) : elle n'est évitée que si elle est déjà engagée vers le même
@@ -1055,7 +1059,7 @@ local function act(agent, f, t, a, action, why, ep, kind, tick, range, refuge_to
       a.backs, a.back_t = (a.backs or 0) + 1, tick
     end
     if action == "flee" then
-      a.refuge = refuge_to or refuge(f, agent.entity.position, ep, range)
+      a.refuge = refuge_to or refuge(f, agent.entity.position, ep, range, foes)
       a.flee_t, a.flee_ep = tick, { x = ep.x, y = ep.y }
       t.stats.refuges = t.stats.refuges + 1
       -- Votre équipe : un PNJ qui fuit prévient les autres AVANT la première perte (lieu de la menace) ; hors du QG, qui
@@ -1368,7 +1372,9 @@ function M.sense(agent, tick)
     if ac == "back" then action, why = "back", "boucle" end
   end
   -- Pas de demi-tour ni de fuite pour un PNJ déjà en route vers le QG sans tâche : il rentre déjà (refuge seulement).
-  return act(agent, f, t, a, action, why, ep, kind, tick, range, to)
+  -- Lot CORR-RALLIEMENT : le refuge écarte les tourelles que ce groupe déborde (profils, Re.refuge_ok).
+  local foes = (action == "flee" and not to and M.outrange_on()) and M.foe_profiles(seen_foes) or nil
+  return act(agent, f, t, a, action, why, ep, kind, tick, range, to, foes)
 end
 
 ---------------------------------------------------------------------------------------------------

@@ -206,6 +206,22 @@ local function suite()
   check(Re.outranges({}, { gun }) == false and Re.outranges(nil, { gun }) == false, "portée d'attaque inconnue (personnage) : non")
   check(Re.outranges({ gunner }, {}) == false and Re.outranges({ gunner }, nil) == false, "aucune tourelle : non")
   check(Re.outranges({ gunner }, { "?", false }) == false, "tourelles de portée inconnue : non")
+  -- Point 2 de la relecture : pas de refuge sous une tourelle débordée, à moins de l'atteinte ennemie (21,27) + Re.MARGIN (8).
+  local ep0 = { x = 30, y = 0 }
+  local function at(x) return { x = x, y = 0 } end
+  check(Re.refuge_ok({ gunner }, gun, at(12), ep0) == false, "mitrailleuse à 18 tuiles d'un mitrailleur : pas un refuge")
+  check(Re.refuge_ok({ gunner }, gun, at(5), ep0) == false and Re.refuge_ok({ gunner }, gun, at(1), ep0) == false,
+    "à 25 et 29 tuiles (au-delà de l'atteinte, dans la marge) : pas un refuge")
+  check(Re.refuge_ok({ gunner }, gun, at(0.5), ep0) == true and Re.refuge_ok({ gunner }, gun, at(-20), ep0) == true,
+    "à 29,5 et 50 tuiles (au-delà de 29,27) : refuge")
+  check(Re.refuge_ok({ gunner }, gun, { x = 30 - 18 / math.sqrt(2), y = 18 / math.sqrt(2) }, ep0) == false,
+    "en diagonale à 18 tuiles : pas un refuge")
+  check(Re.refuge_ok({ gunner }, laser, at(12), ep0) == true, "laser (24) à 18 tuiles : refuge (non débordée)")
+  check(Re.refuge_ok({ rifle }, gun, at(12), ep0) == true, "fusilier (16) : la mitrailleuse reste un refuge")
+  check(Re.refuge_ok({ rifle, gunner }, gun, at(12), ep0) == false and Re.refuge_ok({ gunner, rifle }, gun, at(12), ep0) == false,
+    "groupe mêlé : le mitrailleur compte, quel que soit l'ordre")
+  check(Re.refuge_ok({ gunner }, nil, at(12), ep0) == true and Re.refuge_ok({}, gun, at(12), ep0) == true
+    and Re.refuge_ok(nil, gun, at(12), ep0) == true, "portées inconnues : refuge (règle d'avant)")
   local gun = { allies = 9, force = 40, prudence = 1000, agressivite = 1000, rally = rp }
   local function hqg(over) local i = {} for k, v in pairs(gun) do i[k] = v end for k, v in pairs(over or {}) do i[k] = v end return Re.hq_response(i) end
   check(hqg({ outranged = true, outrun = true }) == "away", "débordées, ennemi plus lent : on s'éloigne (pas de ralliement)")
@@ -372,6 +388,29 @@ end)
 mutant("portée inconnue prise pour un débordement", function()
   local o = Re.outranges
   patch(Re, "outranges", function(es, ts) if es == nil or #es == 0 then return true end return o(es, ts) end)
+end)
+-- Point 2 : refuge
+mutant("refuge sous une tourelle débordée (règle d'avant)", function() patch(Re, "refuge_ok", function() return true end) end)
+mutant("toute tourelle à l'atteinte écartée, même non débordée", function()
+  patch(Re, "refuge_ok", function(es, q, tp, ep)
+    if type(q) ~= "table" or type(q.r) ~= "number" then return true end
+    local dx, dy = tp.x - ep.x, tp.y - ep.y
+    for _, e in ipairs(es or {}) do
+      local lim = Re.reach_on(e, q.hx, q.hy) + Re.MARGIN
+      if dx * dx + dy * dy <= lim * lim then return false end
+    end
+    return true
+  end)
+end)
+mutant("refuge : marge oubliée", function()
+  local m = Re.MARGIN
+  local r = Re.refuge_ok
+  patch(Re, "refuge_ok", function(...) Re.MARGIN = 0 local v = r(...) Re.MARGIN = m return v end)
+end)
+mutant("refuge : portée brute (atteinte au centre oubliée)", function()
+  local ro = Re.reach_on
+  local r = Re.refuge_ok
+  patch(Re, "refuge_ok", function(...) Re.reach_on = function(a) return a.r end local v = r(...) Re.reach_on = ro return v end)
 end)
 mutant("débordement jamais", function() patch(Re, "outranges", function() return false end) end)
 mutant("ennemi jamais sur le chemin", function() patch(Re, "on_the_way", function() return false end) end)

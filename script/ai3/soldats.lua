@@ -123,7 +123,7 @@ end
 ---   "rally"  : TOUS les PNJ occupés ou libres à moins de 160 tuiles vont derrière les tourelles du QG (point de ralliement) ;
 ---   "away"   : tous s'éloignent de l'ennemi, qu'ils distancent ;
 --- la garnison, la fortification et la défense (Re.recall_exempt) gardent leur poste.
-local function shelter(f, t, threat, tick, resp, rally, range)
+local function shelter(f, t, threat, tick, resp, rally, range, foes)
   resp = resp or "stand" -- l'appel de votre équipe (sans soldats) n'en donne pas : mise à l'abri seule (moteur réel, petrole-guide 20261020 : plantage à la minute 73)
   local far2 = Re.away_distance(range) ^ 2
   for _, id in ipairs(State.sorted_keys(f.engineers or {})) do
@@ -139,7 +139,7 @@ local function shelter(f, t, threat, tick, resp, rally, range)
         elseif resp == "away" then
           if d2(p, threat) < far2 then to = Re.away_from(p, threat, range) end
         elseif ag.task and not C.has_ammo(e) and dh > 12 * 12 then
-          to = C.refuge(f, p, threat)
+          to = C.refuge(f, p, threat, nil, foes) -- lot CORR-RALLIEMENT : pas sous une tourelle débordée (Re.refuge_ok)
         end
       end
       if to then
@@ -287,7 +287,7 @@ local function hq_threat(f, t, surface, tick)
   local resp = Re.hq_response({ allies = armed_near_hq(f), force = force, prudence = prud, agressivite = agr, rally = rally,
     outrun = Re.outrun(C.enemy_speed(en), own), outranged = outranged })
   t.stats["hq_" .. resp] = (t.stats["hq_" .. resp] or 0) + 1
-  shelter(f, t, threat, tick, resp, rally, range)
+  shelter(f, t, threat, tick, resp, rally, range, C.outrange_on() and foes or nil)
   return threat -- lot NETTOYAGE-SITE : lu par pass (aucune opération de nettoyage lancée quand le QG est menacé)
 end
 
@@ -709,7 +709,14 @@ Events.on_nth_tick(120, function(e)
   if not (f and f.hq and f.hq.valid and f.hq_pos) then return end
   local en = f.hq.surface.find_nearest_enemy({ position = f.hq_pos, max_distance = SD.HQ_THREAT_R, force = f.force })
   if en and (en.type == "unit" or en.type == "character") then
-    shelter(f, C.team(f), { x = en.position.x, y = en.position.y }, e.tick)
+    -- Lot CORR-RALLIEMENT : profils d'attaque du groupe (même recherche que hq_threat) : pas de refuge sous une tourelle débordée.
+    local seen_foes = { en }
+    for _, u in ipairs(f.hq.surface.find_entities_filtered({ position = en.position, radius = 16, force = en.force,
+      type = { "unit", "character" }, limit = 24 })) do
+      seen_foes[#seen_foes + 1] = u
+    end
+    shelter(f, C.team(f), { x = en.position.x, y = en.position.y }, e.tick, nil, nil, nil,
+      C.outrange_on() and C.foe_profiles(seen_foes) or nil)
   end
 end)
 

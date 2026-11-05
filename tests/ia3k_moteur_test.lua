@@ -485,6 +485,34 @@ do
   check(o == 0 and r > 0 and a == 0, string.format(
     "règle éteinte (interrupteur du banc témoin) : ralliement comme avant (rally %d, away %d, débordé %d)", r, a, o))
   remote.call("fo-ia3k", "debordement", true)
+  -- Point 2 de la relecture : le refuge d'un désarmé (M.refuge) écarte une tourelle que le groupe déborde (profils lus aux
+  -- prototypes : Re.refuge_ok). Mitrailleuse du QG à 18 tuiles de l'ennemi, PNJ entre les deux, une autre à 56 tuiles.
+  local C = require("script.ai3.comportement")
+  local ep = { x = hq.x + 26, y = hq.y }
+  local tu2 = s.create_entity({ name = "gun-turret", position = { x = hq.x - 30, y = hq.y }, force = "player" })
+  local saved_turrets = f.turrets
+  f.turrets = { [tu.unit_number] = tu, [tu2.unit_number] = tu2 }
+  local function foes_of(name)
+    local u = s.create_entity({ name = name, position = ep, force = "enemy" })
+    local q = C.foe_profiles({ u })
+    u.destroy()
+    return q
+  end
+  local p0 = { x = hq.x + 15, y = hq.y }
+  local behind = C.refuge(f, p0, ep, nil, nil)
+  local with17 = C.refuge(f, p0, ep, nil, foes_of("fo-test-17"))
+  local with_biter = C.refuge(f, p0, ep, nil, foes_of("fo-test-biter"))
+  local home = f.home_spot or f.hq_pos
+  local hx, hy = home.x - tu.position.x, home.y - tu.position.y
+  local hl = math.sqrt(hx * hx + hy * hy)
+  local bx, by = tu.position.x + 3 * hx / hl, tu.position.y + 3 * hy / hl -- 3 tuiles derrière la tourelle, côté QG
+  local near_tu = function(q) return q and math.abs(q.x - bx) < 0.5 and math.abs(q.y - by) < 0.5 end
+  check(near_tu(behind) and near_tu(with_biter), "refuge : 3 tuiles derrière la mitrailleuse du QG (sans profil, ou mordeur)")
+  check(with17 and not near_tu(with17), string.format(
+    "refuge : la mitrailleuse débordée (portée 17 en boîte à boîte, à 18 tuiles) est écartée (refuge %.1f, %.1f)",
+    with17 and with17.x or 0, with17 and with17.y or 0))
+  f.turrets = saved_turrets
+  if tu2 and tu2.valid then tu2.destroy() end
   if tu and tu.valid then tu.destroy() end
 end
 
