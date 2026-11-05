@@ -2,13 +2,16 @@
   COFFRES DU JOUEUR dans le stock de votre équipe (lot COFFRES-JOUEUR ; règle pure : shared/team/coffres_joueur.lua).
 
   CJs.chests(f) : coffres posés par le joueur dans sa base, que votre équipe LIT et dans lesquels elle PREND (script/team/stock.lua :
-  Stock.count, Stock.remove, Stock.contents ; jamais Stock.insert, Stock.inventories ni le rangement). Votre équipe seulement
-  (f.is_player) : une faction n'a pas de joueur, la liste est vide et Stock fait exactement ce qu'il faisait.
+  Stock.count, Stock.remove, Stock.contents ; jamais Stock.inventories ni le rangement). CJs.depot(f) : ceux d'entre eux où elle
+  DÉPOSE aussi (coffres ordinaires sans bras : un coffre vide posé à la main, ou qui remplace une annexe par remplacement rapide ;
+  branché par STOCKAGE dans Stock.insert et la capacité). Votre équipe seulement (f.is_player) : une faction n'a pas de joueur, les
+  listes sont vides et Stock fait exactement ce qu'il faisait. C'est la SEULE recherche des coffres du joueur (f.annex reste le
+  registre des coffres posés par l'équipe, que cette recherche saute).
 
   Liste refaite au plus toutes les CJ.REFRESH ticks, à la première lecture du stock qui suit (tick déterministe : la liste est dans
-  global, f.coffres_joueur = { list (entités), at, seen, kept }) : une recherche des coffres de la force dans la boîte de la base,
-  puis, pour les CJ.SCAN coffres non vides les plus proches du QG, une recherche des bras alentour (un bras qui PREND dans le coffre
-  en fait un tampon de chaîne). La base vient de la zone du départ (CJs.base, posé par script/faction/vision.lua : cellules, points
+  global, f.coffres_joueur = { list, depot (entités), at, seen, kept }) : une recherche des coffres de la force dans la boîte de la
+  base, puis, pour les CJ.SCAN coffres les plus proches du QG (vides compris), une recherche des bras alentour (un bras qui PREND
+  dans le coffre en fait un tampon de chaîne ; un bras qui y DÉPOSE en fait une sortie, où l'équipe prend mais ne dépose pas). La base vient de la zone du départ (CJs.base, posé par script/faction/vision.lua : cellules, points
   du départ et boîte) ; sans zone, les HOME_RADIUS tuiles autour des points du départ.
   Journal : [FO-COFFRES-JOUEUR] quand la liste change (40 lignes au plus par partie).
 ]]
@@ -51,14 +54,19 @@ local function search_box(box, homes)
   return { { x0, y0 }, { x1, y1 } }
 end
 
---- Un bras de la force prend-il dans ce coffre ? (bras à 3 tuiles au plus de son bord : longue portée comprise.)
-local function feeds(surface, chest, force)
+--- Bras de la force autour de ce coffre (3 tuiles au plus de son bord : longue portée comprise) : un bras y prend-il, un bras y
+--- dépose-t-il ?
+local function arms(surface, chest, force)
   local b = chest.bounding_box
   local area = { { b.left_top.x - 3, b.left_top.y - 3 }, { b.right_bottom.x + 3, b.right_bottom.y + 3 } }
+  local takes, drops = false, false
   for _, ins in ipairs(surface.find_entities_filtered({ area = area, type = "inserter", force = force })) do
-    if ins.valid and ins.pickup_target == chest then return true end
+    if ins.valid then
+      if ins.pickup_target == chest then takes = true end
+      if ins.drop_target == chest then drops = true end
+    end
   end
-  return false
+  return takes, drops
 end
 
 --- Refait la liste des coffres du joueur retenus (f.coffres_joueur).
@@ -72,7 +80,7 @@ function CJs.refresh(f, tick)
   st.at = tick
   local area = surface and search_box(box, homes)
   if not area then
-    st.list = {}
+    st.list, st.depot = {}, {}
     return st
   end
   -- Coffres de l'équipe : QG, annexes, réceptions des foreuses adoptées (registre f.adopt.drills, ensemble lu sans ordre).
@@ -84,7 +92,7 @@ function CJs.refresh(f, tick)
   local found = surface.find_entities_filtered({ area = area, force = f.force, type = TYPES })
   local cands = {}
   for _, e in ipairs(found) do
-    if e.valid and e.unit_number and e ~= f.hq and not e.get_inventory(defines.inventory.chest).is_empty() then
+    if e.valid and e.unit_number and e ~= f.hq then
       local p = e.position
       local dx, dy = p.x - f.hq_pos.x, p.y - f.hq_pos.y
       cands[#cands + 1] = { e = e, id = e.unit_number, d2 = dx * dx + dy * dy, x = p.x, y = p.y, adopted = skip[e.unit_number] or false }
@@ -98,18 +106,21 @@ function CJs.refresh(f, tick)
     if not c.adopted then
       c.by_player = e.last_user ~= nil
       c.in_base = in_base(cells, homes, c.x, c.y)
+      c.kind = e.type
       c.mode = e.type == "logistic-container" and e.prototype.logistic_mode or nil
       -- Recherche des bras seulement pour un coffre qui serait retenu sans elle (coût).
-      c.feeds = c.by_player and c.in_base and not (c.mode and CJ.EXCLUDED_MODES[c.mode]) and feeds(surface, e, f.force) or false
+      if c.by_player and c.in_base and not (c.mode and CJ.EXCLUDED_MODES[c.mode]) then c.feeds, c.drops = arms(surface, e, f.force) end
     end
     exam[#exam + 1] = c
   end
-  local keep, why = CJ.select(exam, CJ.MAX)
-  local list = {}
+  local keep, why, dep = CJ.select(exam, CJ.MAX)
+  local list, depot = {}, {}
   for i, c in ipairs(keep) do list[i] = c.e end
+  for i, c in ipairs(dep) do depot[i] = c.e end
   local changed = #list ~= #st.list
   if not changed then for i, e in ipairs(list) do if st.list[i] ~= e then changed = true break end end end
-  st.list, st.seen, st.kept = list, #found, #list
+  if #depot ~= #(st.depot or EMPTY) then changed = true end
+  st.list, st.depot, st.seen, st.kept = list, depot, #found, #list
   if changed then
     f.stats = f.stats or {}
     f.stats.cj_logs = (f.stats.cj_logs or 0) + 1
@@ -117,29 +128,46 @@ function CJs.refresh(f, tick)
       local parts = {}
       for _, r in ipairs(CJ.REASONS) do if why[r] then parts[#parts + 1] = r .. " " .. why[r] end end
       if why.plafond then parts[#parts + 1] = "plafond " .. why.plafond end
-      log(string.format("[FO-COFFRES-JOUEUR] player : %d coffre(s) du joueur dans le stock a %.1f min (%d coffre(s) de la force dans la boite, %d non vide(s), %d examine(s) : %s)%s",
-        #list, (tick - (f.started or 0)) / 3600, #found, #cands, #exam, table.concat(parts, ", "), cells and "" or " ; sans zone du depart : rayon des points du depart"))
+      log(string.format("[FO-COFFRES-JOUEUR] player : %d coffre(s) du joueur dans le stock, dont %d de depot, a %.1f min (%d coffre(s) de la force dans la boite, %d examine(s) : %s)%s",
+        #list, #depot, (tick - (f.started or 0)) / 3600, #found, #exam, table.concat(parts, ", "), cells and "" or " ; sans zone du depart : rayon des points du depart"))
     end
   end
   return st
 end
 
---- Coffres du joueur retenus (entités valides), à lire et vider APRÈS le coffre du QG et les annexes. Vide hors de votre équipe.
-function CJs.chests(f)
-  if not f.is_player or not (f.hq and f.hq.valid and f.hq_pos) then return EMPTY end
+local function current(f)
+  if not f.is_player or not (f.hq and f.hq.valid and f.hq_pos) then return nil end
   local tick = game.tick or 0
   local st = f.coffres_joueur
   if not st or tick - (st.at or -1e9) >= CJ.REFRESH then st = CJs.refresh(f, tick) end
-  local list = st.list
+  return st
+end
+
+--- Entités valides de st[field] (la liste est purgée sur place d'une entité disparue).
+local function valid_list(st, field)
+  local list = st[field] or EMPTY
   for i = 1, #list do
     if not list[i].valid then
       local out = {}
       for _, e in ipairs(list) do if e.valid then out[#out + 1] = e end end
-      st.list = out
+      st[field] = out
       return out
     end
   end
   return list
+end
+
+--- Coffres du joueur retenus (entités valides), à lire et vider APRÈS le coffre du QG et les annexes. Vide hors de votre équipe.
+function CJs.chests(f)
+  local st = current(f)
+  return st and valid_list(st, "list") or EMPTY
+end
+
+--- Coffres du joueur où votre équipe DÉPOSE aussi (sous-liste de CJs.chests : coffres ordinaires sans bras), APRÈS les annexes.
+--- Vide hors de votre équipe.
+function CJs.depot(f)
+  local st = current(f)
+  return st and valid_list(st, "depot") or EMPTY
 end
 
 return CJs
