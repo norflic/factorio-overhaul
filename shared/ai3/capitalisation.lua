@@ -1862,6 +1862,44 @@ function Ca.unblocks(o, blocked)
     or (o.resource ~= nil and blocked[o.resource] == true)
 end
 
+--- Lot CORR-CHAMP-MANQUE (relecture du lead, 18 h 10, point 2) : SECOND prédicat, celui du SIÈGE du complément (règle 8 de
+--- shared/ai3/emplacements.lua). Ca.blocked_items reste celui d'AGEBLOCAGE, tel quel : ses chaînes ont besoin de tout l'ensemble,
+--- circuits et câbles compris. Pour le siège, les ingrédients DIRECTS penchent vers le fer : un module qui attend des circuits manque
+--- en fait de CUIVRE, par le câble. Ici :
+---   - on prend le coût BRUT des manques des ordres ouverts (book:plan : recettes de la main du LIVRE donné ; le livre d'une force
+---     n'a que ses recettes ouvertes, D.producers les a toutes) ;
+---   - on retire le stock libre des plaques ;
+---   - on garde les seules plaques `names`.
+--- Rend UNE plaque, celle du plus grand déficit (égalité : l'ordre de `names`), ou nil ; second retour : { [plaque] = déficit }.
+--- ctx = {
+---   open : ordres ouverts, chacun avec missing = { { objet, n } } ;
+---   book : livre (shared/team/book.lua) ;
+---   names : plaques, dans l'ordre ;
+---   free : { [plaque] = n } }.
+--- Pur : aucune API Factorio, le livre est donné par l'appelant.
+function Ca.seat_plate(ctx)
+  local def = {}
+  local book = ctx and ctx.book
+  if not book then return nil, def end
+  local wants = {}
+  for _, o in ipairs(ctx.open or {}) do
+    for _, m in ipairs(o.missing or {}) do
+      if m[1] ~= nil and (m[2] or 0) > 0 then wants[#wants + 1] = { m[1], m[2] } end
+    end
+  end
+  if #wants == 0 then return nil, def end
+  local stock = {}
+  for _, n in ipairs(ctx.names or {}) do stock[n] = math.max(0, (ctx.free or {})[n] or 0) end
+  local raw = book:plan(wants, stock).raw
+  local best, bv = nil, 0
+  for _, n in ipairs(ctx.names or {}) do
+    local v = raw[n] or 0
+    def[n] = v
+    if v > bv then best, bv = n, v end
+  end
+  return best, def
+end
+
 --- La décision d'un cycle. input = {
 ---   data (Ca.data), state = { techs = { [techno] = vrai }, known = { [ressource] = vrai } (absente : toutes) },
 ---   stock = { [objet] = n }, flows = { [objet] = { made = /min arrivés au QG (toutes sources), hand = /min faits ou minés à

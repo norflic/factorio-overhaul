@@ -757,7 +757,7 @@ end
 --- Lot CAPI-DEBIT : emplacements du plan directeur (règle pure shared/ai3/emplacements.lua). Les ordres « module » ouverts, avec
 --- l'état de chacun de leurs modules (Auto.module), leur dernier progrès (follow : entités bâties) ; le stock libre des produits des
 --- fonderies. Journal [FO-CAPI-EMPLACEMENTS] quand le plafond, le compte ou les modules figés changent (jamais à l'horloge).
-function Capi.slots(f, cs, stock, tick)
+function Capi.slots(f, cs, stock, tick, book)
   local mods = {}
   for _, o in ipairs(cs.open or {}) do
     if o.exec == "module" then
@@ -784,12 +784,18 @@ function Capi.slots(f, cs, stock, tick)
   local hands = Ca.idle_of(g_iag and g_iag.idle_ema or 0)
   local base = Dm.slots(A.MAX_OPEN, f.team.ia3 and f.team.ia3.puits ~= nil, hands, cs.blocked_slots)
   -- lot DEPENSES2 (essai 4) : produits qui dorment -> siège du complément (Em.slots, règle 7)
-  -- lot CORR-CHAMP-MANQUE (règle 8) : produits dont la matière manque aux ordres ouverts (prédicat partagé Ca.blocked_items) : le
-  -- champ de leur minerai a le siège du complément, même quand rien ne dort (partie du DC 717152950 en 0.6.51, 11 à 31 min).
+  -- lot CORR-CHAMP-MANQUE (règle 8) : la plaque qui manque LE PLUS aux ordres ouverts (coût brut des manques, recettes ouvertes du
+  -- livre de la force, moins le stock libre : Ca.seat_plate, relecture du lead 18 h 10, point 2 ; pas Ca.blocked_items, qui penche
+  -- vers le fer) : le champ de son minerai a le siège du complément, même quand rien ne dort (partie du DC 717152950 en 0.6.51,
+  -- 11 à 31 min). Sans livre (appelant de banc) : aucun siège de la règle 8.
   local free = {}
   for i, p in ipairs(PLATE_PRODUCTS) do free[p] = plates[i] end
   -- (banc témoin seulement : remote.call("fo-capi", "manque", <clé>, false) éteint la règle 8, cs.no_short)
-  local short = cs.no_short and {} or Em.short(PLATE_PRODUCTS, ORE_OF_PRODUCT, Ca.blocked_items({ open = cs.open, D = Capi.data() }), free)
+  local short = {}
+  if not cs.no_short then
+    local plate = Ca.seat_plate({ open = cs.open, book = book, names = PLATE_PRODUCTS, free = free })
+    if plate then short = Em.short(PLATE_PRODUCTS, ORE_OF_PRODUCT, { [plate] = true }, free) end
+  end
   -- Relecture du lead (18 h 10, point 1, BLOQUANT) : un ordre CHAMP ouvert sur le siège du complément (decide, Em.champ_seat) le tient.
   local held = 0
   for _, o in ipairs(cs.open or {}) do if o.exec == "champ" and o.seat == "complement" then held = held + 1 end end
@@ -834,7 +840,7 @@ local function build_input(f, cs, view, book, tick, D, w)
   -- Lot CAPI-DEBIT : emplacements (A.MAX_OPEN de base) : un module figé en chantier depuis Em.STALL n'en tient plus, un stock
   -- riche en ouvre de plus ; un module qui attend sa matière tient toujours le sien (la matière réservée par le plan directeur
   -- ne doit pas vider le coffre, banc p4). cs.slots sert aussi au décompte des ordres d'une même décision (decide).
-  local slots = Capi.slots(f, cs, stock, tick)
+  local slots = Capi.slots(f, cs, stock, tick, book)
   cs.slots = slots
   local elec_open = slots.open
   local wait_plant = plant_state ~= nil and plant_state ~= "fini" and elec_open > 0

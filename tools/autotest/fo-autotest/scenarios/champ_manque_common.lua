@@ -17,8 +17,9 @@
     témoin : après la centrale finie et au moins une décision, la foreuse de fer est refusée « plan directeur occupe », aucun ordre
              sur le minerai de fer, jamais de siège pour le fer ;
     lot    : un relevé montre le siège du fer (iron-plate) ; après la centrale finie et au moins une décision, la foreuse de fer n'est
-             plus refusée « plan directeur occupe » ; un ordre sur le minerai de fer est ouvert ; le plafond des emplacements est
-             inchangé et au plus UN module compte au-delà (le siège du complément).
+             plus refusée « plan directeur occupe » ; un ordre sur le minerai de fer est ouvert, jamais plus d'un à la fois (un ordre
+             CHAMP tient le siège : relecture du lead, 18 h 10, point 1) ; le plafond des emplacements est inchangé et au plus UN
+             module compte au-delà (le siège du complément).
   Lancement (par la file, APRÈS la reprise seulement) :
     banc.py --out <archive> --qui EFFONDREMENT -- 9600 champ-manque-temoin <source>
     banc.py --out <archive> --qui EFFONDREMENT -- 9600 champ-manque <source>
@@ -165,10 +166,11 @@ return function(temoin)
       local st = ctx.state()
       ctx.check(st.fini ~= nil, "centrale finie (ravivee par le banc) avant la fin", tostring(st.fini))
       local last, seat, iron_order, after_dec = nil, false, false, false
-      local max_over = 0
+      local max_over, max_iron = 0, 0
       for _, r in ipairs(st.rel or {}) do
         if has(r.comp, "iron-plate") then seat = true end
         if #r.iron_orders > 0 then iron_order = true end
+        if #r.iron_orders > max_iron then max_iron = #r.iron_orders end
         if r.after and r.decisions > (st.dec_fini or 0) then after_dec = true last = r end
         if r.cap and r.counted then max_over = math.max(max_over, r.counted - r.cap) end
       end
@@ -187,6 +189,8 @@ return function(temoin)
         ctx.check(last ~= nil and not busy_iron(last.why_iron), "lot : foreuse de fer plus refusee « plan directeur occupe »",
           last and tostring(last.why_iron or "accordee") or "aucun releve apres decision")
         ctx.check(iron_order, "lot : un ordre sur le minerai de fer est ouvert")
+        -- relecture du lead (18 h 10, point 1) : un ordre CHAMP tient le siège ; jamais deux ordres du fer ouverts à la fois sur un siège
+        ctx.check(max_iron <= 1, "lot : jamais plus d'un ordre sur le minerai de fer ouvert a la fois (siege unique)", "au plus " .. max_iron)
         ctx.check(endr ~= nil and endr.cap == st.cap0 and max_over <= 1,
           "lot : plafond inchange et au plus un module au-dela (siege du complement)",
           string.format("plafond %s -> %s, au-dela %d", tostring(st.cap0), tostring(endr and endr.cap), max_over))
