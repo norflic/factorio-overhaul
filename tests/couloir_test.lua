@@ -109,13 +109,14 @@ check("lecteur 2 : read_masks free() (modules, poteaux du plan)", B:find("if wat
 check("lecteur 3 : vue des poteaux en cache", B:find("return not b.occ[k] and not cor[k]", 1, true) ~= nil)
 check("lecteur 4 : masque de la migration du champ", CH:find('blocked[Ch.key(x, y)] = "couloir"', 1, true) ~= nil)
 check("les tapis traversent (cout du tapis sans couloir)", B:find("if masks.water[k] or masks.blocked[k] or b.occ[k] or planned[k] then return nil end", 1, true) ~= nil)
-check("interrupteur de banc f.team.couloir_off", B:find("(f.team and f.team.couloir_off) then return NO_COULOIR end", 1, true) ~= nil)
+check("interrupteur de banc f.team.couloir_off", B:find("(f.team and f.team.couloir_off) then return Build.NO_COULOIR end", 1, true) ~= nil)
 check("journal : derniere issue fermee par", W:find("derniere issue fermee par %s", 1, true) ~= nil and W:find("Co.closer(boxes, tiles, base, rect, order)", 1, true) ~= nil)
 check("B1 : le remplacement sur place passe l'ancienne emprise", FS:find("Outposts.reserved(f, item, { x = cx, y = cy }, dir, { keep = keep })", 1, true) ~= nil)
 local _, nad = AD:gsub("Outposts%.reserved%(f, ent%.name, ent%.position, ent%.direction, { couloir = false }%)", "")
 check("B2 : les deux adoptions ignorent le couloir", nad == 2, tostring(nad))
 check("B3 : bilan [FO-COULOIR] dans la pensee du plan", B:find("Build.couloir_report(f, tick) -- lot ÉTAGE 5 (revue B3)", 1, true) ~= nil
   and CH:find("f.stats.couloir_champ = (f.stats.couloir_champ or 0) + 1", 1, true) ~= nil)
+check("lecteur 5 : skip de plan_enceinte, toutes equipes", B:find('if b.occ[k] then return "reserve" end\n    if Build.couloirs(f)[k] then return "couloir" end', 1, true) ~= nil)
 check("memo : l'acces ecrit efface le releve du tick (construction, banc)", W:find("o.access = { x = p.x, y = p.y }\n  Build.couloirs_reset(f)", 1, true) ~= nil
   and RM:find("o.access = { x = ax, y = ay }\n      Build.couloirs_reset(f)", 1, true) ~= nil)
 
@@ -149,9 +150,11 @@ for _, m in ipairs(MUTANTS) do
 end
 check(string.format("mutants de la regle refuses %d/%d%s", refused, #MUTANTS, #kept > 0 and (" ; survivants : " .. table.concat(kept, ", ")) or ""),
   refused == #MUTANTS)
+print(string.format("[COULOIR] mutants de la regle refuses %d/%d", refused, #MUTANTS))
 package.loaded["shared.team.couloir"] = nil
 
--- §6 Build au moteur simulé : réservation, interrupteur, B1 (ancienne emprise), B2 (adoption), B3 (comptes et bilan), mémo par tick.
+-- §6 Build au moteur simulé : réservation, interrupteur, B1 (ancienne emprise), B2 (adoption), B3 (comptes et bilan), mémo par tick,
+-- skip de plan_enceinte (décision du lead : un mur d'enceinte ne coupe pas un couloir).
 local Mk = require("tests.mock_engine")
 local function moteur(build_src)
   local res = {}
@@ -216,6 +219,40 @@ local function moteur(build_src)
   local line = logs[1] or ""
   c("B3 : un bilan [FO-COULOIR] par tranche de 10 min", #logs == 1 and line:find("[FO-COULOIR]", 1, true) ~= nil
     and line:find(string.format("%d emprise(s)", f.stats.couloir_emprises), 1, true) ~= nil, line)
+  -- Enceinte (décision du lead, 5/11) : le skip de plan_enceinte, texte de build.lua (mutant compris), joué avec le vrai
+  -- Build.couloirs de cette partie : un segment de mur qui croise le couloir ne pose aucun mur sur ses tuiles.
+  local text = build_src or B
+  local ea = text:find("  local function skip(tx, ty)\n", 1, true)
+  local ez = text:find('  if #ring.walls == 0 then return false, "aucun mur posable" end', 1, true)
+  c("enceinte : reperes du skip de plan_enceinte", ea ~= nil and ez ~= nil and ez > ea)
+  if ea and ez and ez > ea then
+    local body = text:sub(ea, ez - 1)
+    local fn = load("local f, b, m, tiles, enc, Enc, P, Build = ...\n" .. body .. "\nreturn ring", "=enceinte_skip", "t", _G)
+    c("enceinte : skip extrait compilable", fn ~= nil)
+    if fn then
+      local EncM, PM = require("shared.team.enceinte"), require("shared.team.plan")
+      local cor = Build.couloirs(f)
+      local seg, n_cor = {}, 0
+      for ty = cy - 4, cy + 5 do
+        seg[#seg + 1] = { tx = cx, ty = ty, x = cx + 0.5, y = ty + 0.5 }
+        if cor[PM.tkey(cx, ty)] then n_cor = n_cor + 1 end
+      end
+      local masks = { water = {}, ore = {}, blocked = {} }
+      local occ = { [PM.tkey(cx, cy - 4)] = 99 }
+      local ring = fn(f, { occ = occ }, masks, seg, nil, EncM, PM, Build)
+      local on_cor = 0
+      for _, w in ipairs(ring.walls) do if cor[PM.tkey(w.tx, w.ty)] then on_cor = on_cor + 1 end end
+      c("enceinte : le segment croise le couloir (2 tuiles de large)", n_cor == 2, tostring(n_cor))
+      c("enceinte : aucun mur sur le couloir", on_cor == 0, tostring(on_cor))
+      c("enceinte : tuiles du couloir sautees (motif couloir)", (ring.skipped.couloir or 0) == n_cor and #ring.walls == #seg - n_cor - 1,
+        string.format("couloir %s, murs %d", tostring(ring.skipped.couloir), #ring.walls))
+      c("enceinte : une tuile reservee reste « reserve »", (ring.skipped.reserve or 0) == 1)
+      f.team.couloir_off = true
+      local ring_off = fn(f, { occ = {} }, masks, seg, nil, EncM, PM, Build)
+      f.team.couloir_off = nil
+      c("enceinte : interrupteur coupe : le mur passe", ring_off.skipped.couloir == nil and #ring_off.walls == #seg)
+    end
+  end
   f.outposts = saved
   return res
 end
@@ -223,12 +260,13 @@ for _, r in ipairs(moteur(nil)) do check("moteur : " .. r[1], r[2]) end
 local BMUT = {
   { "reserved_entity sans couloir", "if cor[k] and not (keep and tx >= keep[1] and tx <= keep[3] and ty >= keep[2] and ty <= keep[4]) then by_cor = true end", "" },
   { "B1 : ancienne emprise ignoree", "not (keep and tx >= keep[1] and tx <= keep[3] and ty >= keep[2] and ty <= keep[4])", "true" },
-  { "B2 : option couloir ignoree", "local cor = (opts and opts.couloir == false) and NO_COULOIR or Build.couloirs(f)", "local cor = Build.couloirs(f)" },
+  { "B2 : option couloir ignoree", "local cor = (opts and opts.couloir == false) and Build.NO_COULOIR or Build.couloirs(f)", "local cor = Build.couloirs(f)" },
   { "B3 : refus non compte", "f.stats.couloir_emprises = (f.stats.couloir_emprises or 0) + 1 -- revue (B3)", "" },
   { "memo par tick absent", "if c and c.tick == now then return c.set end", "" },
-  { "reset sans effet", "if f then COULOIRS[tostring(f.key or f.id)] = nil end", "" },
+  { "reset sans effet", "if f then Build._couloirs[tostring(f.key or f.id)] = nil end", "" },
   { "cache jamais refait", "if c and c.sig == s then\n    c.tick = now\n    return c.set\n  end", "if c then\n    c.tick = now\n    return c.set\n  end" },
-  { "interrupteur ignore", "(f.team and f.team.couloir_off) then return NO_COULOIR end", "false then return NO_COULOIR end" },
+  { "interrupteur ignore", "(f.team and f.team.couloir_off) then return Build.NO_COULOIR end", "false then return Build.NO_COULOIR end" },
+  { "enceinte : skip sans couloir", '    if Build.couloirs(f)[k] then return "couloir" end', "" },
 }
 local bref, bkept = 0, {}
 for _, m in ipairs(BMUT) do
@@ -244,6 +282,7 @@ for _, m in ipairs(BMUT) do
 end
 check(string.format("moteur : mutants de build.lua refuses %d/%d%s", bref, #BMUT, #bkept > 0 and (" ; survivants : " .. table.concat(bkept, ", ")) or ""),
   bref == #BMUT)
+print(string.format("[COULOIR] mutants de build.lua refuses %d/%d (dont « enceinte : skip sans couloir »)", bref, #BMUT))
 
 -- §7 aucun nom d'objet du jeu dans la règle
 local code = SRC:gsub("%-%-%[%[.-%]%]", ""):gsub("%-%-[^\n]*", "")

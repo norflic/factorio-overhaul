@@ -111,7 +111,9 @@ Build.SITES = {}               -- lot PETROLE : planificateurs de sites { [nom] 
 local REACH = P.BUILD_DISTANCE
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (réserve des modules neufs, agrandissement, tapis)
 local Rr = require("shared.team.rebuild_rapide") -- lot REBUILD-RAPIDE : projet rouvert sans attendre toute sa matière, ordre, foreuse de secours
-local Co = require("shared.team.couloir") -- lot ÉTAGE 5 : couloir d'accès réservé des avant-postes (règle pure)
+-- Lot ÉTAGE 5 : couloir d'accès réservé des avant-postes (règle pure). Champ de Build, pas une locale : le bloc principal de ce fichier est
+-- à la limite de 200 locales de Lua 5.2 (fusion avec le lot PERIMETRE2).
+Build.Co = require("shared.team.couloir")
 local TREE_TYPES = { "tree", "simple-entity" }
 
 
@@ -404,13 +406,13 @@ local THAW = nil
 --- Revue (performance) : un seul relevé par tick et par équipe (c.tick == game.tick) ; Build.couloirs_reset(f) l'efface quand un accès est
 --- écrit (worker.lua ACTS.build, banc bench_outpost) : un agrandissement dans le même tick voit déjà le couloir. Build.couloir_stats.sig : relevés
 --- de signature faits (tests).
-local COULOIRS = {}
-local NO_COULOIR = {}
+Build._couloirs = {}  -- cache LOCAL au module (champ : limite des 200 locales)
+Build.NO_COULOIR = {} -- ensemble vide partagé : ne jamais écrire dedans
 Build.couloir_stats = { sig = 0 }
 function Build.couloirs(f)
-  if not (f and f.hq_pos and f.outposts) or (f.team and f.team.couloir_off) then return NO_COULOIR end
+  if not (f and f.hq_pos and f.outposts) or (f.team and f.team.couloir_off) then return Build.NO_COULOIR end
   local k = tostring(f.key or f.id)
-  local c = COULOIRS[k]
+  local c = Build._couloirs[k]
   local now = game and game.tick or 0
   if c and c.tick == now then return c.set end
   Build.couloir_stats.sig = Build.couloir_stats.sig + 1
@@ -425,16 +427,16 @@ function Build.couloirs(f)
     return c.set
   end
   local set, n = {}, 0
-  for _, t in ipairs(Co.team_tiles(f.outposts, f.hq_pos)) do
+  for _, t in ipairs(Build.Co.team_tiles(f.outposts, f.hq_pos)) do
     set[P.tkey(t.x, t.y)] = t.id
     n = n + 1
   end
-  COULOIRS[k] = { sig = s, set = set, tick = now, n = n }
+  Build._couloirs[k] = { sig = s, set = set, tick = now, n = n }
   return set
 end
 
 function Build.couloirs_reset(f)
-  if f then COULOIRS[tostring(f.key or f.id)] = nil end
+  if f then Build._couloirs[tostring(f.key or f.id)] = nil end
 end
 
 --- Revue (B3) : place prise par les couloirs, au journal [FO-COULOIR] une fois par tranche de 10 min et par équipe (appelé par Build.think) :
@@ -449,7 +451,7 @@ function Build.couloir_report(f, tick)
   local first = st.couloir_slot == nil
   st.couloir_slot = slot
   if first then return end
-  local c = COULOIRS[tostring(f.key or f.id)]
+  local c = Build._couloirs[tostring(f.key or f.id)]
   log(string.format("[FO-COULOIR] %s : bilan a %.0f min : %d tuile(s) de couloir ; refus par un couloir : %d emprise(s) (agrandissements, tourelles, "
     .. "foreuses), %d tuile(s) du plan (modules, poteaux), %d tuile(s) du champ", f.key or "player", tick / 3600, c and c.n or 0,
     st.couloir_emprises or 0, st.couloir_tuiles or 0, st.couloir_champ or 0))
@@ -1568,7 +1570,7 @@ function Build.reserved_entity(f, name, pos, dir, opts)
   if not (f and pos) then return false end
   local occ = b and b.occ
   -- lot ÉTAGE 5 : une emprise sur le couloir d'accès d'un avant-poste est réservée (agrandissements, tourelles, remplacements)
-  local cor = (opts and opts.couloir == false) and NO_COULOIR or Build.couloirs(f)
+  local cor = (opts and opts.couloir == false) and Build.NO_COULOIR or Build.couloirs(f)
   if not occ and next(cor) == nil then return false end
   local p = game.entity_prototypes[name]
   if not p then return false end
@@ -2356,6 +2358,7 @@ local function plan_enceinte(f, surface, p)
     if m.ore[k] then return "ressource" end
     if m.blocked[k] then return "bloque" end
     if b.occ[k] then return "reserve" end
+    if Build.couloirs(f)[k] then return "couloir" end -- lot ÉTAGE 5 (décision du lead) : un mur d'enceinte ne coupe pas un couloir d'accès
     return nil
   end
   local ring

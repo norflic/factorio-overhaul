@@ -109,14 +109,13 @@ local function extract(src, from, to)
   return src:sub(a, b - 1)
 end
 -- Lot ÉTAGE 5 : Build.reserved_entity lit aussi les couloirs d'accès (Build.couloirs, hors du bloc extrait) : aucun couloir dans ce banc.
-local Build = { couloirs = function() return {} end }
+local Build = { couloirs = function() return {} end, NO_COULOIR = {} }
 local Outposts, Stock = {}, {}
 local function load_build(src, A)
   local chunk_src = extract(src, "--- Lot AUTO : l'emprise d'une entité `name`", "Build.ROUTE_WEIGHT")
   -- Conv.belts : tapis des données (relecture : un tapis amélioré en place garde le couloir)
   local Conv = { belts = function() return { { name = "transport-belt" }, { name = "fast-transport-belt" } } end }
-  local env = setmetatable({ Build = Build, Outposts = Outposts, Stock = Stock, P = P, M = M, Axe = A, Conv = Conv, NO_COULOIR = {} },
-    { __index = _G })
+  local env = setmetatable({ Build = Build, Outposts = Outposts, Stock = Stock, P = P, M = M, Axe = A, Conv = Conv }, { __index = _G })
   assert(load("local Build, Outposts, Stock, P, M, Axe = Build, Outposts, Stock, P, M, Axe\n" .. chunk_src, "build_axe", "t", env))()
 end
 load_build(BUILD_SRC, Axe)
