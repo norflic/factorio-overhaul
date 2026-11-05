@@ -163,7 +163,7 @@ X.epochs = {
     milestones = { construction = { "nuclear-reactor", 1 }, exploration = { resource = "fo-galena" } } },
   { n = 10, key = "hightech", fr = "Haute technologie", en = "High technology", act = 3,
     pack = "utility-science-pack", currency = "processing-unit",
-    energy_fr = "aucune source nouvelle ; concentrés ρ8",
+    energy_fr = "aucune source nouvelle ; concentrés",
     reveal_fr = "Un réseau de cristal gravé oscille sans énergie : premier cristal temporel (C-I).",
     pressure_fr = "exo-fantassins laser des factions",
     codex_fr = "Un réseau de cristal gravé oscille sans énergie : un cristal temporel. La Dynastie Ambre y voit l'éternité.",
@@ -589,19 +589,19 @@ I("fo-pure-silicon", 10, "Silicium pur", "Pure silicon")
 I("fo-silicon-wafer", 10, "Tranche de silicium", "Silicon wafer")
 I("fo-unstable-time-crystal", 10, "Cristal temporel instable", "Unstable time crystal", { branch = "C", level = 1 })
 I("fo-chronometric-data", 10, "Données chronométriques", "Chronometric data", { use = "data", branch = "C", level = 1 })
-I("fo-iron-concentrate", 10, "Concentré de fer ρ8", "Iron concentrate ρ8", { material = true, rho = 8 })
-I("fo-copper-concentrate", 10, "Concentré de cuivre ρ8", "Copper concentrate ρ8", { material = true, rho = 8 })
-I("fo-tungsten-concentrate", 10, "Concentré de tungstène ρ8", "Tungsten concentrate ρ8", { material = true, rho = 8 })
-I("fo-iron-plate-r8", 10, "Billette de fer ρ8", "Iron billet ρ8", { material = true, rho = 8 })
-I("fo-copper-plate-r8", 10, "Billette de cuivre ρ8", "Copper billet ρ8", { material = true, rho = 8 })
-I("fo-tungsten-plate-r8", 10, "Billette de tungstène ρ8", "Tungsten billet ρ8", { material = true, rho = 8 })
+I("fo-iron-concentrate", 10, "Concentré de fer", "Iron concentrate", { material = true, rho = 8 })
+I("fo-copper-concentrate", 10, "Concentré de cuivre", "Copper concentrate", { material = true, rho = 8 })
+I("fo-tungsten-concentrate", 10, "Concentré de tungstène", "Tungsten concentrate", { material = true, rho = 8 })
+I("fo-iron-plate-r8", 10, "Billette de fer", "Iron billet", { material = true, rho = 8 })
+I("fo-copper-plate-r8", 10, "Billette de cuivre", "Copper billet", { material = true, rho = 8 })
+I("fo-tungsten-plate-r8", 10, "Billette de tungstène", "Tungsten billet", { material = true, rho = 8 })
 I("fo-codex-10", 10, "Codex X : plans de la salle blanche", "Codex X: cleanroom blueprints", { use = "codex" })
 -- Époque 11
 I("fo-ilmenite-ore", 11, "Minerai d'ilménite", "Ilmenite ore", { source = "mining" })
-I("fo-ilmenite-concentrate", 11, "Concentré d'ilménite ρ8", "Ilmenite concentrate ρ8", { material = true, rho = 8 })
-I("fo-titanium-slag", 11, "Laitier titanifère ρ8", "Titanium slag ρ8", { material = true, rho = 8 })
-I("fo-titanium-sponge", 11, "Éponge de titane ρ8", "Titanium sponge ρ8", { material = true, rho = 8 })
-I("fo-titanium-plate", 11, "Plaque de titane ρ8", "Titanium plate ρ8", { material = true, rho = 8 })
+I("fo-ilmenite-concentrate", 11, "Concentré d'ilménite", "Ilmenite concentrate", { material = true, rho = 8 })
+I("fo-titanium-slag", 11, "Laitier titanifère", "Titanium slag", { material = true, rho = 8 })
+I("fo-titanium-sponge", 11, "Éponge de titane", "Titanium sponge", { material = true, rho = 8 })
+I("fo-titanium-plate", 11, "Plaque de titane", "Titanium plate", { material = true, rho = 8 })
 I("fo-caustic-soda", 11, "Soude caustique", "Caustic soda")
 I("fo-magnesium-chloride", 11, "Chlorure de magnésium", "Magnesium chloride", { rho = 0.5 })
 I("fo-magnesium", 11, "Magnésium", "Magnesium")
@@ -620,7 +620,7 @@ F("fo-titanium-tetrachloride", 11, "Tétrachlorure de titane", "Titanium tetrach
 I("fo-codex-11", 11, "Codex XI : carte des cratères", "Codex XI: crater map", { use = "codex" })
 -- Époque 12
 I("fo-monazite-ore", 12, "Minerai de monazite", "Monazite ore", { source = "mining" })
-I("fo-monazite-concentrate", 12, "Concentré de monazite ρ8", "Monazite concentrate ρ8", { material = true, rho = 8 })
+I("fo-monazite-concentrate", 12, "Concentré de monazite", "Monazite concentrate", { material = true, rho = 8 })
 I("fo-rare-earth-concentrate", 12, "Concentré de terres rares", "Rare earth concentrate")
 I("fo-thorium-oxide", 12, "Oxyde de thorium", "Thorium oxide")
 I("fo-neodymium", 12, "Néodyme", "Neodymium")
@@ -645,7 +645,7 @@ F("fo-liquid-helium", 12, "Hélium liquide", "Liquid helium", { temperature = -2
 F("fo-dark-flux", 12, "Flux sombre", "Dark flux", { branch = "A", level = 2, barrel = false })
 I("fo-codex-12", 12, "Codex XII : traité des aimants", "Codex XII: treatise on magnets", { use = "codex" })
 -- Époque 13
-I("fo-degassed-ilmenite", 13, "Ilménite dégazée ρ8", "Degassed ilmenite ρ8", { material = true, rho = 8 })
+I("fo-degassed-ilmenite", 13, "Ilménite dégazée", "Degassed ilmenite", { material = true, rho = 8 })
 I("fo-fusion-pellet", 13, "Pastille de fusion", "Fusion pellet",
   { fuel = 80000, fuel_category = "fo-fusion", whitelist_fr = "fusion : source d'énergie primaire" })
 I("fo-catalyzed-fusion-pellet", 13, "Pastille de fusion catalysée", "Catalyzed fusion pellet",
@@ -671,9 +671,9 @@ F("fo-plasma", 13, "Plasma", "Plasma", { default_temperature = 15, max_temperatu
   barrel_fr = "baril permis : le plasma en baril retombe à 15 °C (sa chaleur est perdue, la turbine MHD n'en tire rien) ; il sert de matière aux failles et aux fonderies éloignées" })
 I("fo-codex-13", 13, "Codex XIII : journal du confinement", "Codex XIII: confinement journal", { use = "codex" })
 -- Époque 14
-I("fo-ferrous-meteorite", 14, "Météorite ferreuse ρ8", "Ferrous meteorite ρ8", { material = true, rho = 8, source = "mining", stack = 200 })
-I("fo-strange-meteorite", 14, "Météorite étrange ρ8", "Strange meteorite ρ8", { rho = 8, stack = 50 })
-I("fo-nickel-iron", 14, "Ferronickel ρ8", "Nickel-iron ρ8", { material = true, rho = 8 })
+I("fo-ferrous-meteorite", 14, "Météorite ferreuse", "Ferrous meteorite", { material = true, rho = 8, source = "mining", stack = 200 })
+I("fo-strange-meteorite", 14, "Météorite étrange", "Strange meteorite", { rho = 8, stack = 50 })
+I("fo-nickel-iron", 14, "Ferronickel", "Nickel-iron", { material = true, rho = 8 })
 I("fo-iridium", 14, "Iridium", "Iridium", { rho = 8, stack = 200, note_fr = "ρ8 : le métal le plus dense ; sa part de MU au concassage suit sa densité" })
 I("fo-superalloy", 14, "Superalliage ρ32", "Superalloy ρ32", { material = true, rho = 32 })
 I("fo-iridium-mirror", 14, "Miroir d'iridium", "Iridium mirror")
@@ -1771,7 +1771,7 @@ T("fo-silicon", 10, "Silicium et salle blanche", "Silicon and cleanroom",
 T("fo-phased-array-radar", 10, "Radar à réseau phasé", "Phased-array radar", { "fo-phased-array-radar" }, { prereq = { "fo-silicon" } })
 T("fo-concentration", 10, "Foreuses de concentré (T4)", "Concentrate drills (T4)",
   { "fo-ore-concentrator", "fo-concentrate-drill", "fo-iron-concentrate", "fo-copper-concentrate", "fo-tungsten-concentrate" })
-T("fo-billets", 10, "Billettes ρ8", "ρ8 billets",
+T("fo-billets", 10, "Billettes", "Billets",
   { "fo-iron-plate-r8", "fo-copper-plate-r8", "fo-tungsten-plate-r8", "fo-iron-plate-r8-unpacking", "fo-copper-plate-r8-unpacking",
     "fo-tungsten-plate-r8-unpacking" }, { prereq = { "fo-concentration" } })
 T("fo-cleanroom-plans", 10, "Plans de la salle blanche", "Cleanroom blueprints", { "fo-codex-10" }, { role = "codex", prereq = { "fo-silicon", "fo-billets" } })
