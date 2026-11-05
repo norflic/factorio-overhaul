@@ -286,6 +286,7 @@ if DUMP_RECIPES then
       category = r.category or "crafting", energy = d.energy_required or 0.5,
       ingredients = norm_list(d.ingredients), products = products,
       hidden = (d.hidden or r.hidden) and true or false,
+      main_product = d.main_product or r.main_product,
     }
     lines[#lines + 1] = string.format("  [%q] = %s,", name, ser(rec))
   end

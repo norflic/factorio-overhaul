@@ -369,8 +369,11 @@ function Ca.data(dump, opts)
       end
       table.sort(ing, function(a, b) return a.name < b.name end)
       table.sort(prod, function(a, b) return a.name < b.name end)
+      -- Lot SOUS-PRODUITS (5/11) : produit principal DÉCLARÉ par la recette (main_product du relevé ; "" ou absent : aucun).
+      -- Lu par la règle pure shared/ai3/prix.lua ; Ca.values ne s'en sert pas.
+      local main = (r.main_product ~= nil and r.main_product ~= "") and r.main_product or nil
       D.recipes[name] = { name = name, category = r.category or "", energy = math.max(Ca.EPS, r.energy or 0.5),
-        ingredients = ing, products = prod, fluid = fluid, enabled = r.enabled ~= false }
+        ingredients = ing, products = prod, fluid = fluid, enabled = r.enabled ~= false, main = main }
       D.recipe_list[#D.recipe_list + 1] = name
       for _, p in ipairs(prod) do
         if p.amount > 0 then

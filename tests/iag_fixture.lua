@@ -6,7 +6,8 @@
   Ce fichier est du TEST : il nomme les objets du jeu (types du moteur des machines, objets militaires, effets des
   technologies de bonus, entrées du laboratoire vanilla), comme le ferait le moteur. Le code de décision n'en voit rien.
 
-  F.dump(opts) -> relevé ; opts.reverse = vrai : toutes les listes dans l'ordre inverse (déterminisme) ;
+  F.dump(opts) -> relevé ; opts.reverse = vrai : toutes les listes dans l'ordre inverse (déterminisme) ; opts.recipes_file :
+  autre relevé de recettes ;
   opts.mutate = function(dump) (données changées : preuve de généralisation).
 ]]
 
@@ -78,7 +79,9 @@ end
 
 function F.dump(opts)
   opts = opts or {}
-  local recipes = deep(dofile("tests/fixtures/recipes_ia1e.lua"))
+  -- Lot SOUS-PRODUITS (5/11) : opts.recipes_file choisit un autre relevé de recettes (relevé du 5/11 avec produit principal :
+  -- tests/fixtures/recipes_0511.lua) ; sans lui, la fixture d'origine, inchangée.
+  local recipes = deep(dofile(opts.recipes_file or "tests/fixtures/recipes_ia1e.lua"))
   local techs0 = deep(dofile("tests/fixtures/tech_ai3_final.lua"))
   local ent = dofile("tests/fixtures/entities_ai3.lua")
   local techs = {}
