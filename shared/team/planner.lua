@@ -446,9 +446,9 @@ function P.plan(view, book)
       local pk = view.garde.pick
       local unit = book:raw_cost(turret_items(1))[iron_key] or 0
       local iron_now = math.max(0, (avail[iron_key] or 0) - ((view.incoming or {})[iron_key] or 0))
-      local n, src = Gs.budget({ granted = view.garde.granted, iron = iron_now, free = view.garde.free, unit = unit,
+      local n, src, why = Gs.budget({ granted = view.garde.granted, iron = iron_now, free = view.garde.free, unit = unit,
         held = view.garde.held or 0, want = pk.want - pk.have })
-      out.garde = { key = pk.key, have = pk.have, want = pk.want, allowed = n, source = src, unit = unit }
+      out.garde = { key = pk.key, have = pk.have, want = pk.want, allowed = n, source = src, why = why, unit = unit, iron = iron_now }
       if n > 0 then
         posts[#posts + 1] = { id = "garde", want = pk.have + n, have = pk.have, busy = view.garde.busy, pos = { x = pk.x, y = pk.y }, garde = pk.key,
           optional = true }

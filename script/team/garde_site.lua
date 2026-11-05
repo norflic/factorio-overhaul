@@ -157,15 +157,109 @@ local function on_died(e)
   end
   local st = state(f)
   local w = st.waves[bid]
+  local grew
   if w and Gs.wave_live(w.tick, e.tick) then
-    if n > w.n then w.n = n end
+    grew = n > w.n
+    if grew then w.n = n end
     w.tick = e.tick
   else
     st.waves[bid] = { n = n, tick = e.tick }
+    grew = true
   end
   st.plan_tick = nil
+  if grew then Gd.note_wave(f, st, bid, n, e.tick) end
 end
 Events.on(defines.events.on_entity_died, on_died)
+
+---------------------------------------------------------------------------------------------------
+-- Mesure du plancher de 2 000 fer (demande du lead, 5/11) : LECTURE SEULE, aucune décision ne lit st.meas ni st.last_budget
+---------------------------------------------------------------------------------------------------
+Gd.MEAS_LOGS = 120 -- lignes « vague » au plus
+
+local function meas(st)
+  local m = st.meas
+  if not m then
+    m = { plans = 0, zero = 0, why = {}, zero_min = 0, last_min = -1, waves = 0, wave_low = 0, wave_iron = {}, loss = {}, wlogs = 0 }
+    st.meas = m
+  end
+  return m
+end
+
+--- Budget de la garde rendu par le planificateur à cette pensée (plan.garde : avant-poste choisi, permis, source, raison, fer compté).
+function Gd.after_plan(f, pg, tick)
+  if not (pg and f.is_player and f.garde) then return end
+  local st = f.garde
+  local m = meas(st)
+  m.plans = m.plans + 1
+  st.last_budget = { allowed = pg.allowed, source = pg.source, why = pg.why, iron = pg.iron, tick = tick, key = pg.key }
+  if (pg.allowed or 0) == 0 then
+    m.zero = m.zero + 1
+    local w = pg.why or "?"
+    m.why[w] = (m.why[w] or 0) + 1
+    local mn = math.floor(tick / 3600)
+    if mn ~= m.last_min then
+      m.last_min = mn
+      m.zero_min = m.zero_min + 1
+    end
+  end
+end
+
+--- Une vague nouvelle (ou plus grosse) à un avant-poste : fer au stock à ce moment.
+function Gd.note_wave(f, st, oid, n, tick)
+  local m = meas(st)
+  local iron = Stock.count(f, iron_key())
+  m.waves = m.waves + 1
+  if iron < Gs.RICH_IRON then m.wave_low = m.wave_low + 1 end
+  if #m.wave_iron < 400 then m.wave_iron[#m.wave_iron + 1] = iron end
+  if m.wlogs < Gd.MEAS_LOGS then
+    m.wlogs = m.wlogs + 1
+    local lb = st.last_budget
+    log(string.format("[FO-PERIMETRE] player : vague a l'avant-poste %s (%d ennemis) a %.1f min, fer au stock %d ; dernier budget de la garde : %s",
+      tostring(oid), n, tick / 3600, iron, lb and string.format("%d tourelle(s) (%s, fer compte %d) a %.1f min", lb.allowed or 0, tostring(lb.why),
+        lb.iron or 0, (lb.tick or 0) / 3600) or "aucun"))
+  end
+end
+
+--- Une perte SENSIBLE à l'avant-poste `oid` : le groupe y était-il complet, voulu mais budget à 0 (et pourquoi), ou en attente ? (lecture seule)
+function Gd.loss_class(f, oid, surface)
+  local st = f.garde
+  if not (st and T.garde_site_on and f.is_player) or f.garde_temoin then return "sans garde" end
+  local o = oid and f.outposts and f.outposts[oid]
+  if not (o and o.pos) then return "hors avant-poste" end
+  local d = (st.dirs and st.dirs[oid]) or (st.vdir and st.vdir[oid])
+  if not d then return "jamais vu par la garde" end
+  local g = Gs.spots({ x = o.pos.x, y = o.pos.y }, d.nx, d.ny)
+  local have = surface.count_entities_filtered({ position = g, radius = Gs.ACCEPT, force = f.force, type = R.TURRET_TYPES })
+  local w = st.waves[oid]
+  local want = Gs.want((w and Gs.wave_live(w.tick, game.tick)) and w.n or 0)
+  if have >= want then return "groupe complet" end
+  local lb = st.last_budget
+  if lb and (lb.allowed or 0) == 0 then return "budget 0 (" .. tostring(lb.why or lb.source) .. ")" end
+  return "groupe en attente"
+end
+
+function Gd.note_loss(f, cls)
+  local st = f.garde
+  if not st then return end
+  local m = meas(st)
+  m.loss[cls] = (m.loss[cls] or 0) + 1
+end
+
+--- Ligne du relevé de 5 min ([FO-PERTE], script/team/perte_log.lua) : de quoi juger le plancher sur données.
+function Gd.meas_line(f, tick)
+  local st = f.garde
+  if not (st and f.is_player) then return end
+  local m = meas(st)
+  local why, loss = {}, {}
+  for _, k in ipairs(State.sorted_keys(m.why)) do why[#why + 1] = k .. " " .. m.why[k] end
+  for _, k in ipairs(State.sorted_keys(m.loss)) do loss[#loss + 1] = k .. " " .. m.loss[k] end
+  local ir = {}
+  for i, v in ipairs(m.wave_iron) do ir[i] = v end
+  table.sort(ir)
+  log(string.format("[FO-PERTE] player garde a %.1f min | plans avec groupe voulu %d, budget 0 : %d (%s), minutes avec budget 0 : %d | vagues %d, fer au stock : median %s, min %s, max %s, sous 2 000 : %d | pertes sensibles aux avant-postes : %s",
+    tick / 3600, m.plans, m.zero, #why > 0 and table.concat(why, ", ") or "-", m.zero_min, m.waves, #ir > 0 and tostring(ir[math.floor((#ir + 1) / 2)]) or "-",
+    #ir > 0 and tostring(ir[1]) or "-", #ir > 0 and tostring(ir[#ir]) or "-", m.wave_low, #loss > 0 and table.concat(loss, ", ") or "aucune"))
+end
 
 ---------------------------------------------------------------------------------------------------
 -- Murs rendus au joueur, usine du joueur
@@ -497,6 +591,8 @@ function Gd.view(f, fortify_open)
       local nx, ny
       if fixed then nx, ny = fixed.nx, fixed.ny else nx, ny = Gs.dir({ x = o.pos.x, y = o.pos.y }, threats_near(f, surface, o.pos), f.hq_pos) end
       local g = Gs.spots({ x = o.pos.x, y = o.pos.y }, nx, ny)
+      st.vdir = st.vdir or {}
+      st.vdir[oid] = { nx = nx, ny = ny } -- (mesure du plancher seulement : Gd.loss_class)
       local have = surface.count_entities_filtered({ position = g, radius = Gs.ACCEPT, force = f.force, type = R.TURRET_TYPES })
       local want = Gs.want(wave)
       if have < want then missing = missing + (want - have) end

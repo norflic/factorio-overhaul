@@ -126,10 +126,16 @@ local function on_died(e)
   local st = state(f)
   st.agg = Pa.add(st.agg, rec)
   st.lines = st.lines + 1
+  -- mesure du plancher (lot PERIMETRE2, 5/11) : perte sensible à un avant-poste : groupe complet, budget 0 (pourquoi) ou en attente
+  local gcls
+  if f.is_player and rec.lack and ap and rec.site:sub(1, 2) == "ap" then
+    gcls = Garde.loss_class(f, ap, s)
+    Garde.note_loss(f, gcls)
+  end
   if st.lines <= PL.LINES then
-    log(string.format("[FO-PERTE] %s minute %.1f | %s (%s) site %s cote %s a %.0f tuiles du QG | tueur %s | tourelles a portee %d dont armees %d | ennemis a %d tuiles %d | mur %s | fer %s | manque %s",
+    log(string.format("[FO-PERTE] %s minute %.1f | %s (%s) site %s cote %s a %.0f tuiles du QG | tueur %s | tourelles a portee %d dont armees %d | ennemis a %d tuiles %d | mur %s | fer %s | manque %s%s",
       f.key or "player", e.tick / 3600, ent.name, cat, rec.site, rec.side, dhq, rec.killer, nr, na, Pa.WAVE_R, units, wall and "oui" or "non",
-      okf and tostring(iron) or "?", rec.lack or "-"))
+      okf and tostring(iron) or "?", rec.lack or "-", gcls and (" | garde " .. gcls) or ""))
   end
 end
 Events.on(defines.events.on_entity_died, on_died)
@@ -163,6 +169,7 @@ function PL.measure(f, tick)
       f.key or "player", tick / 3600, cov.w > 0 and math.floor(100 * cov.wc / cov.w + 0.5) or 100, cov.wc, cov.w, cov.n, cov.nc, #tur, n_armed,
       Pa.isolated(tur), walls, Pa.summary(st.agg)))
     if f.is_player and f.build then PL.plan_line(f, tick) end
+    if f.is_player then Garde.meas_line(f, tick) end
   end
 end
 

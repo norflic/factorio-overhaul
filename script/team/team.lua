@@ -833,6 +833,7 @@ function Team.think(f, surface, tick)
   -- Lot IA3-c : bascule figée par équipe à sa première pensée (script/ai3/cerveau.lua) ; éteinte : planificateur d'avant.
   local ia3 = Ia3.active(f, tick)
   local plan = ia3 and Ia3.plan(f, view, book_for(f), surface, tick) or Planner.plan(view, book_for(f))
+  Garde.after_plan(f, plan.garde, tick) -- lot PERIMETRE2 : mesure du plancher de 2 000 fer (lecture seule, aucune décision n'en dépend)
   -- Lot BRIQUES (bancs seulement, f.team.bench_smelt posé par fo-ia1 bench_smelt_demand) : demande de fonte imposée, ajoutée au plan.
   if f.team.bench_smelt then
     plan.smelt = f.team.bench_smelt_seul and {} or plan.smelt or {}

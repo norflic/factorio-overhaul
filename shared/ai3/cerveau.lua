@@ -502,6 +502,7 @@ function C.think(view, book, st, ctx)
     -- lot S1 (reconstruction, agrandissement de survie) ne s'allumaient jamais.
     turret_ok = base.turret_ok, turret_payable = base.turret_payable,
     defchoix = base.defchoix, -- lot DEFENSE-CHOIX : tourelles du QG avant les soldats (journal [FO-DEFCHOIX], script/team/team.lua)
+    garde = base.garde, -- lot PERIMETRE2 : budget de la garde des avant-postes, LU SEULEMENT par la mesure du plancher (Garde.after_plan)
     ia3 = { K = K, active = n_active, productive = n_productive, dropped = dropped,
       explore = E.explore, saturated = saturated, dominant = dom and dom.key or nil,
       pile = { top = pile.top, hold = pile.hold, blocked = pile.blocked }, -- lot PILE-PRIORITE (l'état complet : st.pile)

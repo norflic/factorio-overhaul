@@ -117,10 +117,12 @@ end
 --- le module, éteint ou périmé : repli), iron (stock SANS les fabrications en cours), free (fer libre hors besoin, repli), unit (fer d'une
 --- tourelle armée), held (tourelles de la garde vivantes, repli), want, rich, pct } -> (n, source).
 --- PLANCHER (décision du lead, relecture du 4/11) : le stock de fer APRÈS achat reste >= rich (2 000), sur les deux chemins.
+--- 3e valeur (mesure du plancher, lecture seule) : pourquoi : « pauvre » (fer sous le seuil), « plancher » (le seuil après achat bloque),
+--- « part » (30 % du fer libre ou l'accord de DEPENSES ne paient rien), « voulu » (rien n'est voulu), « ok ».
 function Gs.budget(s)
   local unit, want = s.unit or 0, math.max(0, s.want or 0)
   local rich = s.rich or Gs.RICH_IRON
-  if unit <= 0 or (s.iron or 0) < rich then return 0, "pauvre" end
+  if unit <= 0 or (s.iron or 0) < rich then return 0, "pauvre", "pauvre" end
   local floor_n = math.floor(((s.iron or 0) - rich) / unit)
   local a, src
   if s.granted ~= nil then
@@ -129,7 +131,9 @@ function Gs.budget(s)
     a, src = math.floor((s.pct or Gs.FREE_PCT) * math.max(0, s.free or 0) / (100 * unit)) - (s.held or 0), "repli"
     if a < 0 then a = 0 end
   end
-  return math.min(want, a, floor_n), src
+  local n = math.min(want, a, floor_n)
+  local why = n > 0 and "ok" or (want <= 0 and "voulu") or (floor_n <= 0 and "plancher") or "part"
+  return n, src, why
 end
 
 --- Demande écrite pour DEPENSES : { [clé du fer] = tourelles × unit, [clé de la pierre] = murs × Gs.WALL_ITEMS } (clés données par l'appelant).

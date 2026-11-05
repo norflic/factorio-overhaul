@@ -57,6 +57,13 @@ local function suite(Gs)
   check(Gs.budget({ granted = 5000, iron = 2300, unit = 120, want = 6 }) == 2, "plancher, DEPENSES : (2 300 - 2 000) / 120 = 2 tourelles")
   check(Gs.budget({ iron = 2500, free = 8000, unit = 120, want = 6 }) == 4, "plancher, repli : (2 500 - 2 000) / 120 = 4 tourelles")
   check(Gs.budget({ iron = 2000, free = 8000, unit = 120, want = 6 }) == 0, "plancher : 2 000 tout juste : rien")
+  -- raison du budget (mesure du plancher, lecture seule)
+  local _, _, w1 = Gs.budget({ iron = 1500, free = 8000, unit = 120, want = 6 })
+  local _, _, w2 = Gs.budget({ iron = 2100, free = 8000, unit = 120, want = 6 })
+  local _, _, w3 = Gs.budget({ iron = 9000, free = 100, unit = 120, want = 6 })
+  local _, _, w4 = Gs.budget({ iron = 9000, free = 8000, unit = 120, want = 6 })
+  local _, _, w5 = Gs.budget({ granted = 0, iron = 9000, unit = 120, want = 6 })
+  check(w1 == "pauvre" and w2 == "plancher" and w3 == "part" and w4 == "ok" and w5 == "part", "raison : pauvre, plancher, part (30 % ou accord), ok")
   local wt = Gs.want_table("fer", 3, 120, "pierre", 50)
   check(wt.fer == 360 and wt.pierre == 500, "demande écrite : fer des tourelles, pierre des murs")
   -- G3 anneau
@@ -164,7 +171,7 @@ local mutants = {
   { "trame sans quinconce", "if (i + j) % 2 == 0 and r2 <= Gs.SPOT_R * Gs.SPOT_R then", "if r2 <= Gs.SPOT_R * Gs.SPOT_R then" },
   { "sites attaqués pas d'abord", "if (a.wave or 0) ~= (b.wave or 0) then return (a.wave or 0) > (b.wave or 0) end", "" },
   { "repos ignoré", "elseif not pick and not (rest and rest[s.key]) then pick = s end", "elseif not pick then pick = s end" },
-  { "pas de seuil de richesse", "if unit <= 0 or (s.iron or 0) < rich then return 0, \"pauvre\" end", "if unit <= 0 then return 0, \"pauvre\" end" },
+  { "pas de seuil de richesse", "if unit <= 0 or (s.iron or 0) < rich then return 0, \"pauvre\", \"pauvre\" end", "if unit <= 0 then return 0, \"pauvre\", \"pauvre\" end" },
   { "double compte (repli en plus de DEPENSES)", "if s.granted ~= nil then", "if s.granted ~= nil and s.granted > 0 then" },
   { "repli sans les tourelles posées", "/ (100 * unit)) - (s.held or 0)", "/ (100 * unit))" },
   { "porte murée", "if side == gside and math.abs(pos - mid) <= half then return end", "" },
@@ -173,7 +180,8 @@ local mutants = {
   { "tuiles refusées murées", "if not claimed[tkey(t.tx, t.ty)] and not (skip and skip(t.tx, t.ty)) then", "if not claimed[tkey(t.tx, t.ty)] then" },
   { "segment sans plancher", "if n < math.min(#free, Gs.SEG_MIN) then return nil, \"stock\" end", "if n <= 0 then return nil, \"stock\" end" },
   { "usine du joueur collée", "Gs.PLAYER_GAP = 6 ", "Gs.PLAYER_GAP = 0 " },
-  { "pas de plancher après achat", "return math.min(want, a, floor_n), src", "return math.min(want, a), src" },
+  { "pas de plancher après achat", "local n = math.min(want, a, floor_n)", "local n = math.min(want, a)" },
+  { "raison du budget 0 fausse", "(floor_n <= 0 and \"plancher\") or \"part\"", "\"part\"" },
   { "plancher compté sans le seuil", "local floor_n = math.floor(((s.iron or 0) - rich) / unit)", "local floor_n = math.floor((s.iron or 0) / unit)" },
 }
 local killed = 0

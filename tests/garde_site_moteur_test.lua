@@ -104,6 +104,13 @@ local f2, s2 = setup(1500)
 attack(f2, s2)
 M.run_ticks(15000)
 check(#logs("[FO-PERIMETRE] player : pose de") == 0, "aucune tourelle de la garde sous 2 000 de fer")
+-- mesure du plancher (lecture seule, demande du lead du 5/11) : fer à la vague, budget 0 compté, perte sensible classée
+local lv, lg, ll = logs("[FO-PERIMETRE] player : vague a l'avant-poste"), logs("[FO-PERTE] player garde a"), {}
+for _, l in ipairs(logs("[FO-PERTE] player minute")) do if l:find("burner-mining-drill", 1, true) then ll[#ll + 1] = l end end
+for _, l in ipairs({ lv[1], lg[#lg], ll[1] }) do print("    " .. tostring(l):sub(1, 260)) end
+check(#lv >= 1 and lv[1]:find("(18 ennemis)", 1, true) and lv[1]:find("fer au stock", 1, true), "vague notée avec le fer au stock")
+check(#lg >= 1 and lg[#lg]:match("budget 0 : (%d+) %(pauvre") ~= nil and tonumber(lg[#lg]:match("budget 0 : (%d+)")) > 0, "relevé : plans au budget 0 comptés, raison « pauvre »")
+check(#ll >= 1 and ll[1]:find("| garde ", 1, true) ~= nil, "perte sensible à l'avant-poste : classée (groupe complet, budget 0, attente)")
 
 section("3. Murs retirés par le joueur, usine du joueur")
 local f3, s3 = setup(9000)
