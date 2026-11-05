@@ -9,7 +9,10 @@
        tuiles de l'équipe n'est pas retenu ; la règle est revérifiée à la pose du fantôme (Build.wall_veto) ;
     4. avant-poste disparu : son anneau quitte la réparation, son chantier rouvert est abandonné (relecture du lead, point A) ;
     5. avant-poste agrandi : l'ancien anneau est jeté, le nouveau suit l'emprise (point B) ;
-    6. DEPENSES : repli quand il est absent, éteint ou périmé ; l'accordé est débité dès la dépense (risque C).
+    6. DEPENSES : repli quand il est absent, éteint ou périmé ; l'accordé est débité dès la dépense (risque C) ;
+    7. G3 : briques à fondre de la pierre qui dort, bornées (relecture D2 à D4) ;
+    8. ÉTAGE 5 : le couloir d'accès d'un avant-poste (Build.couloirs, simulé avant la fusion de corr-etage5) n'est jamais muré : anneau
+       d'avant-poste, anneau du QG de votre équipe, pose du fantôme ; sans Build.couloirs ou couloirs coupés, rien ne change.
 ]]
 package.path = "./?.lua;" .. package.path
 local M = require("tests.mock_engine")
@@ -307,6 +310,78 @@ do
   f7.garde_temoin, f7.garde_g3 = nil, nil
   f7.build.enc_need = nil
   Rsv.input = input0
+end
+
+section("8. ÉTAGE 5 : le couloir d'accès d'un avant-poste n'est jamais muré (anneau d'avant-poste, anneau du QG, fantôme)")
+do
+  -- Build.couloirs (lot ÉTAGE 5, branche corr-etage5 ; absent ici avant sa fusion) est SIMULÉ : ensemble { [P.tkey] = id } d'un couloir de
+  -- 2 tuiles, de l'accès (décentré, au sud-ouest de l'avant-poste) vers le QG à l'ouest ; il coupe l'anneau HORS de sa porte (y = 3 et 4,
+  -- porte en y = -1 à 1), comme un accès qui n'est pas au milieu du côté tourné vers le QG
+  local P8 = require("shared.team.plan")
+  local Gs8 = require("shared.team.garde_site")
+  local Build8 = require("script.team.build")
+  local cor0 = Build8.couloirs
+  local f8, s8 = global.fo.pteam.team, game.surfaces[1]
+  require("shared.team.config").garde_walls_on = true
+  f8.build = f8.build or { projects = {}, order = {}, occ = {} }
+  local st8 = fresh_garde(f8)
+  local oid8 = 9800
+  f8.outposts[oid8] = { pos = { x = 200.5, y = 0.5 }, drills = 1, access = { x = 199.5, y = 4.5 } }
+  st8.walls.rings[oid8] = { box = { x0 = 198, y0 = -2, x1 = 202, y1 = 2 } }
+  st8.waves[oid8] = { n = 12, tick = game.tick }
+  local cor = {}
+  for x = 160, 199 do for _, y in ipairs({ 3, 4 }) do cor[P8.tkey(x, y)] = oid8 end end
+  local rr = Gs8.ring(st8.walls.rings[oid8].box, f8.hq_pos)
+  local area = { { rr.box[1], rr.box[2], rr.box[3], rr.box[4] } }
+  local on_ring = 0
+  for _, side in ipairs(rr.order) do
+    for _, t in ipairs(rr.runs[side]) do if cor[P8.tkey(t.tx, t.ty)] then on_ring = on_ring + 1 end end
+  end
+  check(rr.gate == "o" and on_ring == 2, "géométrie : porte à l'ouest (" .. tostring(rr.gate) .. "), le couloir coupe 2 tuiles de l'anneau hors de la porte (" .. on_ring .. ")")
+  -- avant la fusion d'ÉTAGE 5 (pas de Build.couloirs) : rien ne change
+  Build8.couloirs = nil
+  local mask0 = Gd.wall_mask(f8, s8, area)
+  check(mask0(194, 3) == nil and mask0(194, 4) == nil, "sans Build.couloirs : tuiles du couloir murables (comportement d'avant)")
+  local base = Gs8.unclaimed(rr, {}, function(tx, ty) return mask0(tx, ty) ~= nil end)
+  -- couloir présent
+  Build8.couloirs = function(f) if f == f8 then return cor end return {} end
+  local mask = Gd.wall_mask(f8, s8, area)
+  check(mask(194, 3) == "couloir" and mask(194, 4) == "couloir" and mask(194, 5) == nil and mask(194, 2) == nil,
+    "couloir : ses 2 tuiles sur l'anneau jamais murées, leurs voisines murables")
+  local reqs, nid = {}, 9900
+  local ctx = walls_ctx({})
+  ctx.request = function(spec)
+    nid = nid + 1
+    f8.build.projects[nid] = { id = nid, state = "fini", spec = spec, ents = {} } -- (segment fini au pas suivant : le suivant est demandé)
+    for _, w in ipairs(spec.walls) do reqs[#reqs + 1] = w end
+    return nid
+  end
+  Gd.walls_step(f8, s8, game.tick, ctx)
+  local pend8 = Gd.walls_pending(f8)
+  check(pend8 == base - on_ring, "murs qui manquent à l'anneau : " .. pend8 .. " = " .. base .. " - " .. on_ring .. " tuiles du couloir")
+  for _ = 1, 40 do
+    if st8.walls.done[oid8] then break end
+    Gd.walls_step(f8, s8, game.tick, ctx)
+  end
+  local hit = 0
+  for _, w in ipairs(reqs) do if cor[P8.tkey(w[1], w[2])] then hit = hit + 1 end end
+  check(st8.walls.done[oid8] == true and hit == 0 and #reqs == base - on_ring,
+    "anneau complet sans un mur sur le couloir : " .. #reqs .. " murs demandés, " .. hit .. " sur le couloir")
+  -- pose du fantôme (crochet de revive_one) : un couloir apparu APRÈS le plan abandonne le mur
+  check(Build8.wall_veto(f8, s8, { x = 194.5, y = 3.5 }) == "couloir" and Build8.wall_veto(f8, s8, { x = 194.5, y = 5.5 }) == nil,
+    "pose du fantôme : mur sur le couloir abandonné, voisin posé")
+  -- anneau du QG de votre équipe (crochet Build.wall_mask de plan_enceinte, enceinte allumée par G3)
+  check(Build8.wall_mask(f8, s8, area) == nil, "enceinte de votre équipe éteinte : plan_enceinte inchangé (crochet absent)")
+  f8.garde_g3 = true
+  local hq = Build8.wall_mask(f8, s8, area)
+  check(hq and hq(170, 3) == "couloir" and hq(170, 5) == nil, "anneau du QG : tuile du couloir sautée par plan_enceinte, raison « couloir »")
+  f8.garde_g3 = nil
+  -- règle d'ÉTAGE 5 coupée (f.team.couloir_off : Build.couloirs rend un ensemble vide)
+  Build8.couloirs = function() return {} end
+  check(Gd.wall_mask(f8, s8, area)(194, 3) == nil, "couloirs coupés (ensemble vide) : tuile murable")
+  Build8.couloirs = cor0
+  f8.outposts[oid8] = nil
+  require("shared.team.config").garde_walls_on = false
 end
 
 print(string.format("[GARDE-SITE-MOTEUR] BILAN : %d OK, %d ECHEC(S)", passes, failures))

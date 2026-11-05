@@ -319,9 +319,15 @@ Events.on(defines.events.on_player_mined_entity, on_mined)
 Events.on(defines.events.on_robot_mined_entity, on_mined)
 
 --- Crochet de plan_enceinte (script/team/build.lua) : rend une fonction (tx, ty) -> raison ou nil, pour les tuiles jamais murées.
+--- Lot ÉTAGE 5 (accord du lead du 5/11 : « l'enceinte de votre équipe laisse une OUVERTURE là où un couloir la traverse ») : les tuiles du
+--- couloir d'accès d'un avant-poste (Build.couloirs du lot ÉTAGE 5, ensemble { [P.tkey] = id }) ne sont jamais murées, raison « couloir » :
+--- anneau du QG (plan_enceinte), anneaux des avant-postes attaqués (walls_step) et pose du fantôme (Build.wall_veto). Les 8 portes des rues
+--- principales et la porte d'un anneau d'avant-poste (milieu du côté tourné vers le QG) ne tombent sur le couloir que par hasard : il part
+--- de l'accès, sur l'axe dominant. Sans Build.couloirs (avant la fusion d'ÉTAGE 5), rien ne change.
 function Gd.wall_mask(f, surface, areas)
   local b = f.build
   local released = b and b.walls_released or {}
+  local cor = Build.couloirs and Build.couloirs(f) or nil
   local boxes = {}
   if f.is_player then
     local g = Gs.PLAYER_GAP
@@ -335,7 +341,9 @@ function Gd.wall_mask(f, surface, areas)
     end
   end
   return function(tx, ty)
-    if released[P.tkey(tx, ty)] then return "rendue" end
+    local k = P.tkey(tx, ty)
+    if released[k] then return "rendue" end
+    if cor and cor[k] ~= nil then return "couloir" end
     if #boxes > 0 and Gs.in_player_zone(tx, ty, boxes) then return "joueur" end
     return nil
   end
