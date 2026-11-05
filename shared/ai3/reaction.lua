@@ -34,6 +34,8 @@ Re.EXEMPT = { garrison = true, fortify = true } -- tâches de défense : jamais 
 Re.RALLY_R = 40      -- tuiles : les tourelles à moins de 40 tuiles du QG sont celles qui le défendent
 Re.RALLY_BEHIND = 10 -- tuiles : le point de ralliement est 10 tuiles derrière le centre des tourelles, côté coffre
 Re.OUTRUN = 0.9      -- l'ennemi est distancé s'il va à au plus 90 % de la vitesse du PNJ
+Re.SITE_RATIO = 1000 -- lot DANGER-ACTIF (DC 4/11, 19 h 12 : « ... ou en défendant ») : rapport de force exigé pour s'engager sur un site de l'équipe
+                     -- attaqué (soldats alertés) : la parité, au lieu de 1 500 à 3 000
 Re.FEAR_BASE = 400  -- 40 % de vie (IA_ATTENDUS C3)
 Re.FEAR_MAX = 550
 
@@ -410,7 +412,9 @@ function Re.decide(s)
     return "back", why
   end
   local n = math.max(0.2, s.enemies or 1) -- force PESÉE (moyen déchiqueteur = 1)
-  if s.armed and ((s.allies or 0) + 1) * 1000 >= Re.engage_ratio(p, s.agressivite) * n then
+  local need = Re.engage_ratio(p, s.agressivite)
+  if s.site_alert and need > Re.SITE_RATIO then need = Re.SITE_RATIO end -- DANGER-ACTIF : sur un site attaqué, l'ouvrier armé tient à parité
+  if s.armed and ((s.allies or 0) + 1) * 1000 >= need * n then
     if dist <= range + Re.MARGIN or s.on_route then return "engage", "surnombre" end
     return "none", "vu"
   end

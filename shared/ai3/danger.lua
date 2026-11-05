@@ -370,6 +370,51 @@ function D.exact_at(prep, x, y, no_deaths)
   return s
 end
 
+--- Lot DANGER-ACTIF (2e essai) : menaces FIXES (nids, vers, tourelles, meutes) PRÉPARÉES pour juger un trajet qui part de `opts.from`, dans le
+--- rectangle [x0, x1] × [y0, y1] (mêmes poids décrus et même portée r + D.EXACT_MARGIN que D.exact_prep, ni morts ni cases mobiles).
+--- La règle porte sur le danger que le trajet AJOUTE à celui que le PNJ court déjà là où il est :
+---   - une menace dont la zone ne contient pas le départ compte en tout point de sa zone (comme avant) ;
+---   - une menace dont la zone CONTIENT déjà le départ (meute qui couvre le QG, PNJ au bord d'un ver) ne compte qu'aux points PLUS PRÈS
+---     d'elle que le départ : sortir de la zone en s'éloignant n'ajoute rien, s'enfoncer vers elle compte.
+--- Verif-guide 271828182 (essai 2, 46-48 min) : une meute marquée à 24 tuiles de la case du QG mettait de côté TOUS les trajets qui partaient du
+--- QG, même à l'opposé de l'attaque, et les PNJ attendaient dans la zone même. `opts.skip` : un genre de menace écarté (la meute, pour la
+--- défense de la base). D.fixed_at(prep, x, y) rend le danger fixe ainsi compté en un point du rectangle.
+function D.fixed_prep(map, tick, x0, y0, x1, y1, opts)
+  opts = opts or {}
+  local skip, from = opts.skip, opts.from
+  local tx, ty, lim, strict, tw, nt = {}, {}, {}, {}, {}, 0
+  for _, t in ipairs(map.threats) do
+    if t.k ~= skip then
+      local K = D.KINDS[t.k] or D.KINDS.unit
+      local r = t.r + D.EXACT_MARGIN
+      local ddx = (t.x < x0) and (x0 - t.x) or ((t.x > x1) and (t.x - x1) or 0)
+      local ddy = (t.y < y0) and (y0 - t.y) or ((t.y > y1) and (t.y - y1) or 0)
+      if ddx * ddx + ddy * ddy <= r * r then
+        nt = nt + 1
+        tx[nt], ty[nt], lim[nt], strict[nt] = t.x, t.y, r * r, false
+        if from then
+          local fx, fy = t.x - from.x, t.y - from.y
+          local f2 = fx * fx + fy * fy
+          if f2 <= r * r then lim[nt], strict[nt] = f2, true end -- départ dans la zone : seuls les points plus près que lui comptent
+        end
+        tw[nt] = math.floor(K.w * (K.fast and D.dec10(tick - t.t) or D.dec2(tick - t.t)) / 1000)
+      end
+    end
+  end
+  return { tx = tx, ty = ty, lim = lim, strict = strict, tw = tw, nt = nt }
+end
+
+function D.fixed_at(prep, x, y)
+  local s = 0
+  local tx, ty, lim, strict, tw = prep.tx, prep.ty, prep.lim, prep.strict, prep.tw
+  for i = 1, prep.nt do
+    local dx, dy = tx[i] - x, ty[i] - y
+    local dd = dx * dx + dy * dy
+    if dd < lim[i] or (dd == lim[i] and not strict[i]) then s = s + tw[i] end
+  end
+  return s
+end
+
 --- Danger d'une case (sans champ précalculé : pour un contrôle ponctuel).
 function D.danger_at(map, x, y, tick)
   local cx, cy = D.cell(x), D.cell(y)

@@ -49,6 +49,14 @@ local function suite()
   check(Re.decide(unit_case({ dist = 45, backs = 1 })) == "stop", "au-delà de portée + marge : stop")
   check(Re.decide(unit_case({ dist = 22, backs = 1, allies = 5 })) == "engage", "en surnombre : engage, même après un demi-tour")
   check(Re.decide(unit_case({ walking = false, backs = 0 })) == "flee", "immobile à portée : flee")
+  -- Lot DANGER-ACTIF (DC 4/11, 19 h 12 : « ... ou en défendant ») : sur un site de l'équipe attaqué (soldats alertés), l'ouvrier armé tient à PARITÉ
+  -- (Re.SITE_RATIO) au lieu de 1 500 à 3 000 ; blessé ou désarmé, il fuit comme avant.
+  check(Re.SITE_RATIO == 1000, "rapport d'engagement sur un site attaqué : la parité (1 000)")
+  check(Re.decide(unit_case({ enemies = 1, allies = 0 })) ~= "engage", "hors site attaqué : seul contre 1 déchiqueteur moyen, pas d'engagement")
+  check(Re.decide(unit_case({ enemies = 1, allies = 0, site_alert = true })) == "engage", "site attaqué : seul contre 1 déchiqueteur moyen, il se défend")
+  check(Re.decide(unit_case({ enemies = 2, allies = 0, site_alert = true })) ~= "engage", "site attaqué : seul contre 2, la parité n'y est pas : il ne s'engage pas")
+  check(Re.decide(unit_case({ enemies = 1, allies = 0, site_alert = true, armed = false })) == "flee", "site attaqué, désarmé : il fuit")
+  check(Re.decide(unit_case({ enemies = 1, allies = 0, site_alert = true, hp = 300 })) == "flee", "site attaqué, blessé sous le seuil de peur : il fuit")
   -- Menace FIXE : le compteur d'unités ne la concerne pas.
   check(Re.decide({ kind = "worm", dist = 25, range = 30, hp = 1000, armed = true, walking = true, backs = 3 }) == "back",
     "ver à portée : back, quel que soit le compteur")
@@ -392,6 +400,7 @@ mutant("éloignement avant ralliement", function()
     return "stand"
   end)
 end)
+mutant("site attaqué sans effet", function() patch(Re, "SITE_RATIO", 1e9) end)
 mutant("ratio d'engagement ignoré", function() patch(Re, "engage_ratio", function() return 1 end) end)
 -- Lot CORR-RALLIEMENT
 mutant("débordement ignoré (règle d'avant)", function()

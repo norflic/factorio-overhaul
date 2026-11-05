@@ -1186,7 +1186,11 @@ function Worker.recall_near(f, p, radius, tick, except)
     local a = Registry.get(id)
     local at = a and a.task
     local e = a and a.entity
-    if a ~= except and at and e and e.valid and not Re.recall_exempt(at.kind, at.defend)
+    -- Lot DANGER-ACTIF (relecture du lead, 5/11) : un ouvrier ARMÉ n'est pas rappelé : il défend (Re.decide, Re.SITE_RATIO), comme le veut le DC (19 h 12).
+    local armed = e and e.valid and Worker.hook and Worker.hook.has_ammo and Worker.hook.has_ammo(e)
+    if armed and a ~= except and at and not at.fail and dist2(e.position, p) <= r2 then
+      f.stats.recall_armed_kept = (f.stats.recall_armed_kept or 0) + 1
+    elseif a ~= except and at and e and e.valid and not Re.recall_exempt(at.kind, at.defend)
       and not at.fail and dist2(e.position, p) <= r2 then
       -- Lot MAIN-INVENTAIRE : le service des fours du QG (charbon, sortie, relance) reste prioritaire après une attaque.
       if Mi.keep_working(at.kind, dist2(e.position, f.hq_pos)) then

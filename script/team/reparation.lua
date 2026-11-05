@@ -27,6 +27,7 @@ local State = require("script.faction.state")
 local Board = require("script.team.board")
 local Recon = require("script.team.reconstruction")
 local Rp = require("shared.team.reparation")
+local Da = require("shared.team.danger_actif") -- lot DANGER-ACTIF : fréquence de l'alerte des soldats
 
 local Rep = {}
 
@@ -54,6 +55,27 @@ local function on_damaged(e)
   if not CLASS[false][etype] then return end -- hors filtre (filtre absent : sauvegarde chargée avant le filtre, autre abonné)
   local f = team_of(ent.force.name)
   if not (f and not f.eliminated and f.hq and f.hq.valid) then return end
+  -- Lot DANGER-ACTIF (DC 4/11, 19 h 12 : « continuer à travailler tout en évitant le danger ou en défendant ») : un bâtiment de l'équipe touché par
+  -- une force adverse prévient les SOLDATS tout de suite (crochet posé par script/ai3/soldats.lua, nil sans lui), avec ou sans ouvrier sur place.
+  -- Attaque MOBILE seulement (une unité ou un personnage, jamais un nid ni un ver) ; pour votre équipe, un bâtiment enregistré à elle (comme Front, on_died).
+  local hitter = e.force
+  if Rep.on_attack and hitter and hitter ~= ent.force and Da.alert_due(f.attack_alert_t, e.tick) then
+    local cause = e.cause
+    if cause and cause.valid and Da.mobile_cause(cause.type) then
+      local mine = true
+      if f.is_player then
+        local u = ent.unit_number
+        local o = u and State.owner(u)
+        local owned = o and o.f == f.id
+        local adopted = u and f.adopt and f.adopt.units and f.adopt.units[u]
+        mine = (owned or adopted) and true or false
+      end
+      if mine then
+        f.attack_alert_t = e.tick
+        Rep.on_attack(f, ent.position, e.tick)
+      end
+    end
+  end
   local cls = CLASS[f.is_player == true][etype]
   if not cls then return end
   local unit = ent.unit_number

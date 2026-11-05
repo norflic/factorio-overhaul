@@ -106,7 +106,9 @@ local function run_all()
   ag.entity.teleport({ x = 0, y = 10 }) -- le trajet jugé part du coffre
   remote.call("fo-ia3k", "death", "player", 26, 70)
   remote.call("fo-ia3k", "death", "player", 26, 76)
-  check(C.gate(f, ag, task_s, steps, game.tick) == false, "2 morts de l'heure sur la route, mode éteint : attente")
+  -- Lot DANGER-ACTIF (DC 4/11, 19 h 10 et 19 h 12) : plus d'attente ; 2 morts de l'heure sur le chemin = pas de marche suicide (docs/IA_ATTENDUS.md C5) : la tâche
+  -- est MISE DE CÔTÉ (autre tâche pour le PNJ). Le refus reste noté pour la paralysie (Survie.note_wait).
+  check(C.gate(f, ag, task_s, steps, game.tick) == false and task_s.fail == "danger-but", "2 morts de l'heure sur la route, mode éteint : mise de côté (autre tâche), plus d'attente")
   local n_waits0 = #Survie.state(f).waits
   check(n_waits0 >= 1, "le refus est noté pour la paralysie (" .. n_waits0 .. ")")
 
@@ -121,10 +123,10 @@ local function run_all()
   check(s.relaxed >= 1 and (s.relax_why.morts or 0) >= 1, "la porte assouplie est comptée par motif (" .. tostring(s.relax_why.morts) .. " « morts »)")
   check(#logs_with("[FO-SURVIE]") >= 1 and logs_with("porte assouplie")[1] ~= nil, "journal : « porte assouplie » écrit")
   check(C.gate(f, ag, { key = "test:fortify-sv", kind = "fortify" }, steps, game.tick) == false,
-    "mode survie, tâche de DÉFENSE (fortify), mêmes 2 morts sur la route : attente (porte ordinaire)")
+    "mode survie, tâche de DÉFENSE (fortify), mêmes 2 morts sur la route : mise de côté (porte ordinaire ; DANGER-ACTIF : autre tâche et non attente)")
   remote.call("fo-ia3k", "death", "player", 26, 73)
   check(C.gate(f, ag, { key = "test:service-sv3", kind = "service" }, steps, game.tick) == false,
-    "mode survie, 3 morts de l'heure sur la route : attente quand même")
+    "mode survie, 3 morts de l'heure sur la route : mise de côté quand même (DANGER-ACTIF : autre tâche et non attente)")
   remote.call("fo-ia3k", "forget", "player")
   -- But à portée d'un ver connu : jamais, mode survie ou non.
   remote.call("fo-ia3k", "mark", "player", 160, -140, "worm", 25)
@@ -145,7 +147,7 @@ local function run_all()
     if C.gate(f, ag, { key = "test:service2", kind = "service" }, steps2, game.tick) then went = true break end
     refusals = refusals + 1
   end
-  check(went and refusals == Sv.ESCALADE_W, "mode survie : escalade après " .. Sv.ESCALADE_W .. " refus (" .. refusals .. " observés ; 4 en temps normal)")
+  check(not went and refusals == 8, "mode survie : route entourée de vers : mise de côté à chaque appel (" .. refusals .. " sur 8), jamais d'escalade à travers l'anneau (DANGER-ACTIF, relecture B1 ; avant : escalade après " .. Sv.ESCALADE_W .. " refus)")
   remote.call("fo-ia3k", "forget", "player")
 
   ---------------------------------------------------------------------------------------------------

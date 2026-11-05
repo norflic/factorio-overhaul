@@ -221,9 +221,11 @@ if #busy >= 3 then
   near.entity.teleport({ x = 140, y = 120 })
   far.entity.teleport({ x = 300, y = 300 })
   local recalls0 = g3.stats.danger_recalls or 0
+  -- Lot DANGER-ACTIF (relecture du lead, 5/11) : le rappel ne vise que les PNJ DÉSARMÉS ; un ouvrier armé défend (voir tests/danger_actif_test.lua) : celui-ci n'a plus de munitions.
+  near.entity.get_inventory(defines.inventory.character_ammo).clear()
   victim.entity.die()
   M.run_ticks(1)
-  check(near.task and near.task.fail == "danger", "PNJ à 20 tuiles de la perte : rappelé au QG (« danger »)")
+  check(near.task and near.task.fail == "danger", "PNJ désarmé à 20 tuiles de la perte : rappelé au QG (« danger »)")
   check(not (far.task and far.task.fail == "danger"), "PNJ à plus de 64 tuiles : continue")
   check((g3.stats.danger_recalls or 0) - recalls0 >= 1, "rappel compté (" .. tostring(g3.stats.danger_recalls) .. ")")
   -- Perte près du QG (moins de 24 tuiles) : personne n'est rappelé.
