@@ -16,11 +16,11 @@ local S = {}
 --- (ou depuis le dernier abandon du bail, t.lease_t).
 function S.tour(f, oid, tick)
   local t = Board.get(f).tasks["service:" .. tostring(oid)]
-  if not t then return nil, nil, nil, nil end
+  if not t then return nil, nil, nil, nil, nil end
   if t.worker then
-    return "prise", nil, tick - ((t.prog and t.prog.t) or t.claimed or tick), tick - (t.lease_t or t.claimed or tick)
+    return "prise", nil, tick - ((t.prog and t.prog.t) or t.claimed or tick), tick - (t.lease_t or t.claimed or tick), t.pre_act ~= false
   end
-  return "libre", tick - (t.created or tick), nil, nil
+  return "libre", tick - (t.created or tick), nil, nil, nil
 end
 
 local RAW = Sm.raw_kinds(T.outposts)
@@ -41,9 +41,9 @@ function S.rows(f, item, tick)
         local pos = o.access or o.pos
         local unsafe = surface and pos and (surface.count_entities_filtered({ position = pos, radius = Poles.DANGER_RADIUS, force = "enemy",
           type = { "unit-spawner", "turret" }, limit = 1 }) > 0 or (f.is_player and Poles.near_loss(f, pos, tick))) or nil
-        local tour, free_age, stall, held = S.tour(f, oid, tick)
+        local tour, free_age, stall, held, pre_act = S.tour(f, oid, tick)
         rows[#rows + 1] = { id = oid, kind = o.kind, outputs = { [item] = n }, fails = o.flux_fails, unsafe = unsafe,
-          tour = tour, free_age = free_age, stall = stall, held = held,
+          tour = tour, free_age = free_age, stall = stall, held = held, pre_act = pre_act,
           lethal = (o.lethal_tick ~= nil and tick - o.lethal_tick < T.lethal_ticks) or nil }
       end
     end

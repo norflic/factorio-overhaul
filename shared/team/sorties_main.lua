@@ -57,7 +57,7 @@ end
 --- o = { lethal, unsafe, fails, tour = "libre" | "prise" | nil, free_age, stall } : ses sorties comptent-elles pour le minage à la main ?
 function Sm.counted(o)
   if not Sm.safe(o) then return false end
-  return Bl.alive(o.tour, o.free_age, o.stall, Sm.STALE_TICKS, o.held)
+  return Bl.alive(o.tour, o.free_age, o.stall, Sm.STALE_TICKS, o.held, o.pre_act)
 end
 
 --- rows = { { id, kind, outputs = { [objet] = n }, lethal, unsafe, fails } } ; raw = Sm.raw_kinds ; item = la ressource.

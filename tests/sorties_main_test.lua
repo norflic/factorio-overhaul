@@ -59,6 +59,8 @@ local function suite(Sm)
   c("tournee prise, progres juste sous le bail : compte", Sm.counted({ tour = "prise", stall = Bl.LEASE - 1 }) == true)
   c("tournee prise sans progres depuis le bail : exclu (cas d'Emeraude)", Sm.counted({ tour = "prise", stall = Bl.LEASE }) == false)
   c("prise meme tres ancienne mais qui progresse : compte", Sm.counted({ tour = "prise", stall = 10, free_age = 1e9 }) == true)
+  c("prise avant l'acte, tenue au-dela de la tenue maximale : exclu", Sm.counted({ tour = "prise", stall = 0, held = Bl.MAX_HOLD, pre_act = true }) == false)
+  c("prise apres l'acte, longue mais qui progresse : compte (M1)", Sm.counted({ tour = "prise", stall = 0, held = 1e9, pre_act = false }) == true)
   c("sur : ni meurtrier ni dangereux ni ratees", Sm.safe({}) == true and Sm.safe({ unsafe = true }) == false
     and Sm.safe({ lethal = true }) == false and Sm.safe({ fails = Sm.FAILS_MAX }) == false and Sm.safe(nil) == false)
   -- §3
@@ -126,7 +128,7 @@ check("worker : refus ecrit (main:sorties)", W:find('"main:sorties"', 1, true) ~
 check("lecteur : regle pure", S:find("Sm.hand_ok(", 1, true) ~= nil and S:find("Sm.dormant(", 1, true) ~= nil)
 check("lecteur : interrupteur", S:find("Sm.on(f.team.sorties_regle)", 1, true) ~= nil)
 check("lecteur : danger releve", S:find("Poles.DANGER_RADIUS", 1, true) ~= nil and S:find("lethal_ticks", 1, true) ~= nil)
-check("lecteur : etat de la tournee (prise, libre, sans progres)", S:find("local tour, free_age, stall, held = S.tour(f, oid, tick)", 1, true) ~= nil
+check("lecteur : etat de la tournee (prise, libre, sans progres)", S:find("local tour, free_age, stall, held, pre_act = S.tour(f, oid, tick)", 1, true) ~= nil
   and S:find("t.prog and t.prog.t", 1, true) ~= nil)
 check("journal [FO-SEC] appele apres le plan", TM:find("SortiesLog.report(f, view, tick)", 1, true) ~= nil)
 check("worker : complement de combustible vers l'avant-poste de combustible", W:find("carry = Sorties.carry_fuel(f, o, need)", 1, true) ~= nil)
@@ -142,7 +144,7 @@ local MUTANTS = {
   { "meurtrier compte", "if not o or o.lethal or o.unsafe then return false end", "if not o or o.unsafe then return false end" },
   { "dangereux compte", "if not o or o.lethal or o.unsafe then return false end", "if not o or o.lethal then return false end" },
   { "tournees ratees ignorees", "return num(o.fails) < Sm.FAILS_MAX", "return true" },
-  { "tournee non exigee (avant ETAGE4)", "return Bl.alive(o.tour, o.free_age, o.stall, Sm.STALE_TICKS, o.held)", "return true" },
+  { "tournee non exigee (avant ETAGE4)", "return Bl.alive(o.tour, o.free_age, o.stall, Sm.STALE_TICKS, o.held, o.pre_act)", "return true" },
   { "urgence pour une tournee oubliee", "or num(o.free_age) >= Sm.STALE_TICKS then return base end", "then return base end" },
   { "sorties non comptees", "if raw[o.kind] == item and Sm.counted(o) then", "if raw[o.kind] == item then" },
   { "ordre inverse", "if a.n ~= b.n then return a.n > b.n end", "if a.n ~= b.n then return a.n < b.n end" },

@@ -34,6 +34,17 @@ local function line(f, t, desc, why, stall, tick)
     f.key or "player", tostring(t.key), why, math.floor(stall / 60), desc, tick / 3600))
 end
 
+--- Le PNJ n'est-il pas encore à l'acte de son programme (étape « act » à venir) ? Après l'acte (retour au QG, travail fait) ou dans un
+--- programme sans acte (abandon : « rentrer »), la tenue maximale ne s'applique plus (revue du lead, M1).
+function B.pre_act(agent)
+  local steps = agent.steps
+  if not (steps and agent.pc) then return false end
+  for i = agent.pc, #steps do
+    if steps[i][1] == "act" then return true end
+  end
+  return false
+end
+
 --- Une pensée d'équipe : relevés de progrès et baux échus. Rend le nombre de tâches rendues.
 function B.think(f, tick)
   if not (f.team and f.team.bail_regle ~= false) then return 0 end
@@ -49,14 +60,19 @@ function B.think(f, tick)
         f.stats.bail_orphan = (f.stats.bail_orphan or 0) + 1
         line(f, t, describe(agent), "sans PNJ", tick - (t.claimed or tick), tick)
         t.fail = t.fail or "bail"
+        -- Revue du lead (M2) : un PNJ encore inscrit (entité perdue) ne tient plus la tâche AVANT qu'elle soit finie : la machine ne la
+        -- finirait pas une seconde fois.
+        if agent and agent.task == t then agent.task, agent.steps, agent.pc = nil, nil, nil end
         Board.finish(f, t, false, tick)
         n = n + 1
       else
         local p = e.position
-        local prog, stall = Bl.progress(t.prog, { pc = agent.pc, state = agent.state, x = p.x, y = p.y }, tick)
+        local g = agent.goal
+        local prog, stall = Bl.progress(t.prog, { pc = agent.pc, state = agent.state, x = p.x, y = p.y, gx = g and g.x, gy = g and g.y }, tick)
         t.prog = prog
+        t.pre_act = B.pre_act(agent)
         local held = tick - (t.lease_t or t.claimed or tick)
-        if Bl.expired(t.kind, stall, held) then
+        if Bl.expired(t.kind, stall, held, t.pre_act) then
           local desc = describe(agent)
           local how = Worker.release_stuck(agent, f, tick)
           f.stats.bail_released = (f.stats.bail_released or 0) + 1
