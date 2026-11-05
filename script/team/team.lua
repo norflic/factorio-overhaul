@@ -630,6 +630,7 @@ function Team.view(f, tick)
   end
   -- Lot MUNITIONS : journal de MESURE (aucune décision ne le lit), toutes les 5 min : tourelles, chargeurs, moyenne, sous le seuil bas, à
   -- recharger au plein, chargeurs au coffre, cible par tourelle, fer au coffre.
+  Worker.rearm_report(f, tick) -- lot REARMEMENT : journal [FO-REARMEMENT] (mesure, toutes les 5 min)
   if tick - (f.team.mun_log or -1000000) >= 5 * 3600 then
     f.team.mun_log = tick
     log(string.format("[FO-MUNITIONS] %s minute %.1f | tourelles %d, chargeurs %d (%.1f par tourelle) ; QG %d tourelle(s), %d chargeur(s) ; " ..

@@ -61,6 +61,9 @@ T.zone_units = false
 T.worker_gun = "pistol"
 T.worker_ammo = "firearm-magazine"
 T.worker_ammo_keep = 10
+-- Lot REARMEMENT (shared/team/rearmement.lua) : au dépôt au QG, l'emplacement des munitions d'un PNJ armé est complété jusqu'à
+-- T.worker_ammo_keep avec des chargeurs du coffre, au-dessus du plancher de la défense. Faux : la règle d'avant (jamais rechargé), code gardé.
+T.rearm_on = true
 
 ---------------------------------------------------------------------------------------------------
 -- Avant-postes : foreuses à combustible (alimentées en charbon par les ouvriers) ; minerais fondus sur place.
