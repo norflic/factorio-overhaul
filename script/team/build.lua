@@ -4774,7 +4774,8 @@ function Build.space_step(f, surface, tick)
   -- Lot PERIMETRE2 (G3, essai 3, cause MESURÉE sur la partie du DC) : votre équipe ne commence l'anneau que s'il est payé EN ENTIER (murs et
   -- briques au stock ; les briques se fondent de la pierre qui dort, script/team/garde_site.lua) ; ses segments prennent alors tout le stock
   -- (40 au plus), seuls les lots COUPÉS sont écartés et la base continue de grandir jusqu'à l'enceinte complète.
-  if f.is_player then
+  -- (f.garde_e2 : banc g3-micro-ancien seulement, interface fo-garde g3_ancien : la règle de l'essai 2, pour la preuve « échoue avant »)
+  if f.is_player and not f.garde_e2 then
     -- relecture D5 : jamais sans contour serré (sans bornes, l'anneau du rayon ne passe jamais à l'extension par îlots et enc.grow resterait)
     if not tight then
       if not b.space_notight then

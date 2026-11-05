@@ -693,6 +693,58 @@ remote.add_interface("fo-garde", {
     log(string.format("[FO-PERIMETRE] player : banc temoin, garde des sites, murs et enceinte de l'equipe eteints (tick %d)", game.tick))
     return true
   end,
+  -- Banc g3-micro-ancien : G3 allumé avec la règle d'avant l'essai 3 (anneau au quart du stock, tous les lots dehors écartés, rayon figé).
+  g3_ancien = function()
+    local f = State.faction("player")
+    if not f then return false end
+    f.garde_g3, f.garde_e2 = true, true
+    log(string.format("[FO-PERIMETRE] player : banc G3 ANCIEN (regle de l'essai 2) a l'init (tick %d)", game.tick))
+    return true
+  end,
+  -- Bancs courts de G3 (g3-micro) SEULEMENT : « pret » (projets finis comptés au minimum de l'enceinte), « espace » (décision d'espace au tick
+  -- suivant), « occupe » (n lots libres écartés comme après des échecs, bad = 2 : la base « a pris » sa place), « etat » (lecture).
+  banc = function(cmd, n)
+    local f = State.faction("player")
+    local b = f and f.build
+    if not b then return nil end
+    if cmd == "pret" then
+      b.stats.projects_done = math.max(b.stats.projects_done or 0, Enc.MIN_PROJECTS)
+      return b.stats.projects_done
+    elseif cmd == "espace" then
+      b.space_next = game.tick
+      return true
+    elseif cmd == "occupe" then
+      local k = 0
+      for _, key in ipairs(State.sorted_keys(b.lots)) do
+        local l = b.lots[key]
+        if k < (n or 1) and not l.used and not l.out and not (l.bad and l.bad >= 2) and (l.state == "libre" or l.state == "defricher")
+          and not (l.i == 0 and l.j == 0) then
+          l.bad = 2
+          k = k + 1
+        end
+      end
+      return k
+    elseif cmd == "etat" then
+      local out = { radius = b.radius, need = b.enc_need and b.enc_need.walls or nil, equiv = b.enc_need and b.enc_need.equiv or nil, lots = {} }
+      local enc = b.enc
+      if enc then
+        local fin = 0
+        for _, sg in ipairs(enc.segs or {}) do local p = b.projects[sg.pid] if p and p.state == "fini" then fin = fin + 1 end end
+        out.enc = { r = enc.r, complete = enc.complete == true, grow = enc.grow == true, full = enc.full == true, segs = #(enc.segs or {}), fin = fin,
+          ring = Enc.max_walls(enc.r, { bounds = enc.bounds }),
+          bounds = enc.bounds and { enc.bounds[1], enc.bounds[2], enc.bounds[3], enc.bounds[4] } or nil }
+      end
+      for _, key in ipairs(State.sorted_keys(b.lots)) do
+        local l = b.lots[key]
+        local x0, y0, x1, y1 = P.lot_rect(b.lat, l.i, l.j)
+        local r = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }
+        out.lots[#out.lots + 1] = { k = key, out = l.out == true, state = l.state, used = l.used ~= nil,
+          cut = enc and enc.bounds and Enc.cut(enc.bounds, r) or false, inside = enc and enc.bounds and Enc.inside(enc.bounds, r) or false }
+      end
+      return out
+    end
+    return nil
+  end,
   -- Banc de G3 : enceinte de votre équipe et murs des avant-postes attaqués ALLUMÉS pour cette partie (f.garde_g3), défauts inchangés.
   g3 = function()
     local f = State.faction("player")
