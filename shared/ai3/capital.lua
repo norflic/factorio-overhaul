@@ -597,9 +597,15 @@ function Cap.missing_set(cost, avail, inputs)
 end
 
 --- Étage 3 : ordre de SERVICE (une copie ; l'ordre d'origine garde le projet dominant) quand un centre est passé devant (g.ahead) :
---- d'abord les projets qui PRODUISENT une matière qui lui manque (exemption, leur ordre relatif gardé), puis le centre, puis tous les
---- autres dans leur ordre. Sans centre passé devant : l'ordre tel quel. Le planificateur permanent (recrues, formation, munitions) et
---- la pile (réparer, protéger) sont servis AVANT les projets (shared/ai3/cerveau.lua) et ne sont pas concernés.
+--- d'abord, dans leur ordre relatif, les projets EXEMPTÉS : la DÉFENSE MINIMALE (règle D1 de shared/ai3/buts.lua, « jamais retenue » :
+--- premiers soldats et armée d'alerte g.minimal / g.alert, part minimale de la réserve de munitions g.minimal_n > 0) et ceux qui
+--- PRODUISENT une matière qui manque au centre ; puis le centre ; puis tous les autres dans leur ordre. Sans centre passé devant :
+--- l'ordre tel quel. Le planificateur permanent et la pile (réparer, protéger) sont servis avant les projets (shared/ai3/cerveau.lua).
+--- (Essai 1 de l'étage, 3c9666e7, relecture : la défense minimale passait APRÈS le centre ; moteur simulé, 57 soldats en vie contre 62.)
+function Cap.minimal_defense(g)
+  return g ~= nil and (g.minimal == true or g.alert == true or (g.minimal_n or 0) > 0)
+end
+
 function Cap.ahead_first(order, avail, outposts, inputs)
   local centre = nil
   for _, p in ipairs(order or {}) do
@@ -610,9 +616,11 @@ function Cap.ahead_first(order, avail, outposts, inputs)
   local out, rest = {}, {}
   for _, p in ipairs(order) do
     if p ~= centre then
-      local feeds = false
-      for _, item in ipairs(Cap.products(p.goal, outposts)) do
-        if missing[item] then feeds = true break end
+      local feeds = Cap.minimal_defense(p.goal)
+      if not feeds then
+        for _, item in ipairs(Cap.products(p.goal, outposts)) do
+          if missing[item] then feeds = true break end
+        end
       end
       if feeds then out[#out + 1] = p else rest[#rest + 1] = p end
     end
