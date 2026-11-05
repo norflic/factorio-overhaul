@@ -763,8 +763,50 @@ function Board.actif_report(f, tick)
   b.miss = nil
 end
 
+--- Lot AGEBLOCAGE, acier (diagnostic, LECTURE SEULE ; aucune décision n'en dépend ; ÉTEINT par défaut) : une ligne [FO-ACIER] par minute
+--- et par équipe : stock des objets suivis (Stock.watch), leurs entrées et sorties du coffre par source depuis la ligne d'avant
+--- (script/team/stock.lua), fours du QG par (entrée -> sortie, en marche) et tâches de fonte au tableau (produits demandés). Allumée par
+--- le remote « fo-acier », watch (scénarios de mesure) ; état : f.team.acier, f.team.acier_t (nombres et chaînes).
+function Board.acier_report(f, tick)
+  local watch = Stock.acier_watch()
+  if not watch then return end
+  local team = f.team
+  if not team then return end
+  if team.acier_t and tick - team.acier_t < 3600 then return end
+  team.acier_t = tick
+  local d = team.acier or { inn = {}, out = {} }
+  team.acier = { inn = {}, out = {} }
+  local function flat(t)
+    local rows = {}
+    for _, k in ipairs(sorted_keys(t)) do rows[#rows + 1] = k .. " " .. t[k] end
+    return table.concat(rows, ", ")
+  end
+  local have = {}
+  for _, it in ipairs(sorted_keys(watch)) do have[#have + 1] = it .. " " .. Stock.count(f, it) end
+  local furn = {}
+  for _, sm in ipairs(Outposts.smelters(f) or {}) do
+    if sm.valid then
+      local src = sm.get_inventory(defines.inventory.furnace_source)[1]
+      local res = sm.get_output_inventory()[1]
+      local k = string.format("%s>%s%s", (src and src.valid_for_read) and (src.name .. "x" .. src.count) or "vide",
+        (res and res.valid_for_read) and (res.name .. "x" .. res.count) or "vide", sm.is_crafting() and "*" or "")
+      furn[#furn + 1] = k
+    end
+  end
+  local smelt = {}
+  for _, t in ipairs(Board.get(f).list or {}) do
+    if t.kind == "smelt" then
+      for _, p in ipairs(sorted_keys(t.smelt or {})) do smelt[#smelt + 1] = p .. "=" .. t.smelt[p] .. (t.worker and "(prise)" or "") .. "@" .. tostring(t.prio) end
+    end
+  end
+  log(string.format("[FO-ACIER] %s a %.1f min : coffre {%s} ; entrees [%s] ; sorties [%s] ; fours QG %d [%s] ; fonte au tableau [%s]",
+    f.key or (f.is_player and "player") or tostring(f.id), tick / 3600, table.concat(have, ", "), flat(d.inn), flat(d.out), #furn,
+    table.concat(furn, " "), table.concat(smelt, " ")))
+end
+
 function Board.assign(f, tick)
   local b = Board.get(f)
+  Board.acier_report(f, tick) -- lot AGEBLOCAGE, acier (diagnostic, lecture seule)
   Board.bras_sample(f, tick) -- lot AGEBLOCAGE (diagnostic, lecture seule) : où vont les bras
   Board.actif_report(f, tick) -- lot COMPAGNONS-ACTIFS : bilan [FO-ACTIF] (au plus toutes les 5 min)
   b.hint, b.hinted = nil, nil
@@ -1134,6 +1176,17 @@ function Board.drop_free(f, keep)
 end
 
 -- Lot AGEBLOCAGE (diagnostic, lecture seule) : interrupteur de la sonde [FO-BRAS], posé par les scénarios de mesure.
+-- Lot AGEBLOCAGE, acier (diagnostic, lecture seule) : objets suivis par [FO-ACIER] (liste ; vide ou nil : sonde éteinte), rangés dans
+-- l'état de la guerre (State.war().acier_watch).
+remote.add_interface("fo-acier", {
+  watch = function(items)
+    local w = {}
+    for _, it in ipairs(items or {}) do w[it] = true end
+    State.war().acier_watch = next(w) and w or nil
+    return Stock.acier_watch() ~= nil
+  end,
+})
+
 remote.add_interface("fo-bras", {
   set = function(on)
     State.war().bras_on = (on == true) or nil

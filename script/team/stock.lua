@@ -56,6 +56,25 @@ function Stock.count(f, item)
   return n
 end
 
+--- Lot AGEBLOCAGE, acier (diagnostic, LECTURE SEULE ; aucune décision n'en dépend ; éteint par défaut) : entrées et sorties du coffre
+--- par source pour les objets suivis (Stock.watch, posé par le remote « fo-acier » des scénarios de mesure), lues par [FO-ACIER]
+--- (script/team/board.lua). Stock.src : source posée par l'appelant le temps d'un appel (prise ou dépôt d'une tâche) ; sinon « autre ».
+Stock.src = nil
+local StateA = require("script.faction.state")
+--- Objets suivis par [FO-ACIER] ({ [objet] = vrai } ou nil), rangés dans l'état de la guerre (survit au rechargement du banc).
+function Stock.acier_watch()
+  local w = StateA.war()
+  return w and w.acier_watch or nil
+end
+local function acier_note(f, dir, item, n)
+  local w = Stock.acier_watch()
+  if not (w and w[item] and n and n > 0 and f.team) then return end
+  local d = f.team.acier or { inn = {}, out = {} }
+  f.team.acier = d
+  local k = item .. "|" .. (Stock.src or "autre")
+  d[dir][k] = (d[dir][k] or 0) + n
+end
+
 --- Retire jusqu'à `n` objets (coffre du QG d'abord) ; rend le nombre retiré.
 function Stock.remove(f, item, n)
   local got = f.hq.remove_item({ name = item, count = n })
@@ -65,6 +84,7 @@ function Stock.remove(f, item, n)
       if got >= n then break end
     end
   end
+  acier_note(f, "out", item, got)
   return got
 end
 
@@ -79,6 +99,7 @@ function Stock.insert(f, item, n)
   end
   -- Lot STOCKAGE : un dépôt refusé = plus de place pour cet objet (quel qu'il soit) ; déclenche la pose anticipée d'un coffre.
   if put < n then f.refused_at = game.tick or 0 end
+  acier_note(f, "inn", item, put)
   return put
 end
 
