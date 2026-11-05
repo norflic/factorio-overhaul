@@ -117,6 +117,9 @@ end
 ---------------------------------------------------------------------------------------------------
 section("Variation des tournées (C1)")
 local f = setup()
+-- Lot CORR-RALLIEMENT : portée d'attaque de la mitrailleuse au prototype simulé (18, comme le jeu), posée AVANT tout regard : la
+-- profil d'attaque est gardé en cache par nom de prototype (script/ai3/comportement.lua, M.attack_profile).
+W().prototypes["gun-turret"].attack_parameters = { range = 18 }
 local ids = agent_ids(f)
 check(#ids >= 2, "au moins 2 PNJ (" .. #ids .. ")")
 local R = require("shared.ai3.route")
@@ -429,6 +432,205 @@ for _, th in ipairs(remote.call("fo-ia3k", "danger", "player").threats) do
 end
 check(near_gone, "menace disparue dans le champ du QG : oubliée (yeux fixes)")
 check(far_kept, "menace hors du champ des yeux fixes : gardée (brouillard)")
+
+---------------------------------------------------------------------------------------------------
+section("QG : tourelles débordées en portée (lot CORR-RALLIEMENT)")
+-- Partie du DC rejouée (graine 717152950) : des mitrailleurs de faction (portée 20, vitesse 0,11) tuent les mitrailleuses du
+-- QG (portée 18) hors de leur portée pendant que les PNJ s'y rallient. Ici : la réponse du QG (script/ai3/soldats.lua, C7) à
+-- 5 unités de MÊME vue (30) et de même vitesse, qui ne diffèrent que par leur portée d'ATTAQUE (20 ou 1) ; puis la règle
+-- éteinte par l'interrupteur du banc témoin.
+-- Prototypes de test et mitrailleuse du QG GARNIE (point 4 de la relecture : une tourelle vide ne protège pas le ralliement), puis
+-- une vague de 5 unités à 30 tuiles ; rend les écarts de compteurs de l'équipe (stats ia3k). Sert aussi au mutant du point 5.
+local function corr_arena(f, s)
+  local P = W().prototypes
+  -- La réponse du QG (script/ai3/soldats.lua) lit la vitesse du personnage VANILLA (game.entity_prototypes["character"], 0,15 en
+  -- jeu) ; le moteur simulé n'a que « fo-companion » : on lui donne celui du jeu (table du jeu simulé, game.entity_prototypes).
+  local EP = game.entity_prototypes
+  local cp = EP["character"] or { type = "character", max_health = 250 } -- (une entrée sans vitesse peut déjà exister)
+  if cp.running_speed == nil then cp.running_speed = 0.15 end
+  EP["character"] = cp
+  local sb = P["small-biter"]
+  -- Relecture (revue-danger, 18 h 12) : les soldats des factions tirent en boîte à boîte (prototypes/faction.lua) ; « fo-test-17 »
+  -- (portée 17 < 18) déborde quand même la mitrailleuse (± 0,7) : 17 + |(0,9 ; 0,9)| = 18,27 en diagonale (Re.gap).
+  for _, u in ipairs({ { "fo-test-gunner", 20 }, { "fo-test-biter", 1 }, { "fo-test-17", 17 } }) do
+    P[u[1]] = { type = "unit", max_health = 600, speed = 0.11, vision_distance = 30,
+      attack_parameters = { range = u[2], range_mode = "bounding-box-to-bounding-box" },
+      collision_box = sb.collision_box, collision_mask = sb.collision_mask }
+  end
+  local hq = f.hq_pos or { x = 5, y = 5 }
+  P["gun-turret"].attack_parameters = P["gun-turret"].attack_parameters or { range = 18 }
+  local tu = s.create_entity({ name = "gun-turret", position = { x = hq.x + 8, y = hq.y }, force = "player" })
+  if tu then tu.insert({ name = "firearm-magazine", count = 10 }) end
+  -- `ticks` : durée de la vague (défaut 65 : au moins deux réponses du QG, SD.PERIOD = 30 ticks). `hurt` : les PNJ à moins de
+  -- 32 tuiles du QG sont blessés (10 points) au début de la vague et tous les 50 ticks : un PNJ près du QG ne regarde que blessé
+  -- (comportement.lua, M.HOME_SAFE ; remarque 9 de la relecture), seul cas où la branche PAR PNJ de M.sense est jouée.
+  -- Rend une table d'écarts de compteurs : d.hq_rally, d.outranged…
+  local function wave(name, on, prep, ticks, hurt)
+    remote.call("fo-ia3k", "debordement", on)
+    if prep then prep() end
+    local st0 = remote.call("fo-ia3k", "status", "player").stats
+    local us = {}
+    for k = 0, 4 do
+      us[#us + 1] = s.create_entity({ name = name, position = { x = hq.x + 30, y = hq.y - 4 + 2 * k }, force = "enemy" })
+    end
+    local Reg = require("script.companion.registry")
+    local left = ticks or 65
+    while left > 0 do
+      if hurt then
+        for _, id in ipairs(agent_ids(f)) do
+          local ag = Reg.get(id)
+          local e = ag and ag.entity
+          if e and e.valid and (e.position.x - hq.x) ^ 2 + (e.position.y - hq.y) ^ 2 <= 32 * 32 and e.health > 60 then
+            e.damage(10, game.forces.enemy)
+          end
+        end
+      end
+      local step = math.min(50, left)
+      M.run_ticks(step)
+      left = left - step
+    end
+    local st1 = remote.call("fo-ia3k", "status", "player").stats
+    for _, u in ipairs(us) do if u and u.valid then u.destroy() end end
+    M.run_ticks(5)
+    return setmetatable({}, { __index = function(_, k) return (st1[k] or 0) - (st0[k] or 0) end })
+  end
+  return hq, tu, wave
+end
+
+do
+  local hq, tu, wave0 = corr_arena(f, s)
+  check(tu ~= nil, "mitrailleuse du QG posée et garnie")
+  local function wave(name, on, prep)
+    local d = wave0(name, on, prep)
+    return d.hq_rally, d.hq_away, d.hq_outranged, d.shelter_away, d.away_none
+  end
+  local r, a, o, sa, an = wave("fo-test-gunner", true)
+  check(o > 0 and a > 0 and r == 0, string.format(
+    "portée d'attaque 20 contre la mitrailleuse (18) : éloignement, aucun ralliement (rally %d, away %d, débordé %d)", r, a, o))
+  check(sa > 0 and an == 0, string.format(
+    "éloignement jugé (Re.away_pick) : des PNJ partent, carte sans danger (partis %d, sans direction sûre %d)", sa, an))
+  r, a, o = wave("fo-test-biter", true)
+  check(o == 0 and r > 0 and a == 0, string.format(
+    "même vue (30), portée d'attaque 1 : ralliement inchangé, la vue ne compte pas (rally %d, away %d, débordé %d)", r, a, o))
+  r, a, o = wave("fo-test-17", true)
+  check(o > 0 and a > 0 and r == 0, string.format(
+    "portée 17 en boîte à boîte (18,27 au centre) contre 18 : éloignement, profil lu au prototype (rally %d, away %d, débordé %d)", r, a, o))
+  r, a, o = wave("fo-test-gunner", false)
+  check(o == 0 and r > 0 and a == 0, string.format(
+    "règle éteinte (interrupteur du banc témoin) : ralliement comme avant (rally %d, away %d, débordé %d)", r, a, o))
+  remote.call("fo-ia3k", "debordement", true)
+  -- Point 4 de la relecture : des tourelles VIDES ne protègent plus le point : pas de ralliement, même contre des mordeurs. Le QG
+  -- simulé a 4 mitrailleuses garnies en plus de celle du banc : toutes sont vidées, puis regarnies.
+  local home = f.home_spot or f.hq_pos
+  local emptied = {}
+  for _, t in ipairs(s.find_entities_filtered({ position = home, radius = 40, force = "player", type = "ammo-turret" })) do
+    local inv = t.get_inventory(defines.inventory.turret_ammo)
+    local n = inv.get_item_count("firearm-magazine")
+    if n > 0 then inv.remove({ name = "firearm-magazine", count = n }) end
+    emptied[#emptied + 1] = { t, n }
+  end
+  local dv = wave0("fo-test-biter", true)
+  check(#emptied >= 2 and dv.hq_rally == 0 and dv.hq_rally_bare > 0 and dv.hq_outranged == 0, string.format(
+    "%d mitrailleuses du QG vides : pas de ralliement contre des mordeurs (rally %d, sans tourelle %d, débordé %d)",
+    #emptied, dv.hq_rally, dv.hq_rally_bare, dv.hq_outranged))
+  for _, it in ipairs(emptied) do if it[2] > 0 then it[1].insert({ name = "firearm-magazine", count = it[2] }) end end
+  local dk = wave0("fo-test-biter", true)
+  check(dk.hq_rally > 0 and dk.hq_rally_bare == 0, string.format(
+    "regarnies : ralliement de nouveau (rally %d, sans tourelle %d)", dk.hq_rally, dk.hq_rally_bare))
+  -- Point 5 de la relecture : la branche PAR PNJ (M.sense, près du QG : t.stats.outranged, qg_pnj_<réponse>), sur 200 ticks
+  -- (chaque PNJ au repos regarde au moins une fois). Mutant « outranged forcé à faux dans M.sense » : section suivante.
+  M.run_ticks(2400) -- les PNJ partis aux vagues d'avant rentrent
+  local dg = wave0("fo-test-gunner", true, nil, 200, true)
+  check(dg.outranged > 0 and dg.qg_pnj_rally == 0, string.format(
+    "par PNJ, mitrailleurs (20) : débordé %d fois, aucun ralliement (rally %d, away %d, stand %d)",
+    dg.outranged, dg.qg_pnj_rally, dg.qg_pnj_away, dg.qg_pnj_stand))
+  M.run_ticks(2400)
+  local db = wave0("fo-test-biter", true, nil, 200, true)
+  check(db.outranged == 0 and db.qg_pnj_rally > 0, string.format(
+    "par PNJ, mordeurs (1) : jamais débordé (%d), ralliement (%d)", db.outranged, db.qg_pnj_rally))
+  -- Point 3 de la relecture : vers marqués sur la carte de l'équipe dans les 5 directions qui éloignent de l'ennemi (à 44 tuiles
+  -- du coffre) : aucune direction sûre, personne ne part (« stand »). Les PNJ partis aux vagues d'avant rentrent d'abord.
+  M.run_ticks(2400)
+  do
+    local D = require("shared.ai3.danger")
+    local tm = require("script.ai3.comportement").team(f)
+    local saved_threats = {}
+    for i, th in ipairs(tm.map.threats) do saved_threats[i] = th end
+    local ch = f.home_spot or f.hq_pos
+    local blocked = function()
+      for _, w in ipairs({ { -44, 0 }, { -31, -31 }, { -31, 31 }, { 0, -44 }, { 0, 44 } }) do
+        D.mark_seen(tm.map, ch.x + w[1], ch.y + w[2], "worm", 30, game.tick)
+      end
+    end
+    -- Les PNJ sont ramenés au coffre (à 3 tuiles au plus) : les vers, à 44 tuiles, barrent leurs 5 directions.
+    local Reg = require("script.companion.registry")
+    for i, id in ipairs(agent_ids(f)) do
+      local ag = Reg.get(id)
+      if ag and ag.entity.valid then ag.entity.teleport({ x = ch.x + (i % 7) - 3, y = ch.y + math.floor(i / 7) % 7 - 3 }) end
+    end
+    local r4, a4, o4, sa4, an4 = wave("fo-test-gunner", true, blocked)
+    check(a4 > 0 and an4 > 0 and sa4 == 0, string.format(
+      "vers dans les 5 directions qui éloignent : personne ne part, on se bat groupés (away %d, partis %d, sans direction sûre %d)",
+      a4, sa4, an4))
+    tm.map.threats = saved_threats
+  end
+  -- Point 2 de la relecture : le refuge d'un désarmé (M.refuge) écarte une tourelle que le groupe déborde (profils lus aux
+  -- prototypes : Re.refuge_ok). Mitrailleuse du QG à 18 tuiles de l'ennemi, PNJ entre les deux, une autre à 56 tuiles.
+  local C = require("script.ai3.comportement")
+  local ep = { x = hq.x + 26, y = hq.y }
+  local tu2 = s.create_entity({ name = "gun-turret", position = { x = hq.x - 30, y = hq.y }, force = "player" })
+  local saved_turrets = f.turrets
+  f.turrets = { [tu.unit_number] = tu, [tu2.unit_number] = tu2 }
+  local function foes_of(name)
+    local u = s.create_entity({ name = name, position = ep, force = "enemy" })
+    local q = C.foe_profiles({ u })
+    u.destroy()
+    return q
+  end
+  local p0 = { x = hq.x + 15, y = hq.y }
+  local behind = C.refuge(f, p0, ep, nil, nil)
+  local with17 = C.refuge(f, p0, ep, nil, foes_of("fo-test-17"))
+  local with_biter = C.refuge(f, p0, ep, nil, foes_of("fo-test-biter"))
+  local home = f.home_spot or f.hq_pos
+  local hx, hy = home.x - tu.position.x, home.y - tu.position.y
+  local hl = math.sqrt(hx * hx + hy * hy)
+  local bx, by = tu.position.x + 3 * hx / hl, tu.position.y + 3 * hy / hl -- 3 tuiles derrière la tourelle, côté QG
+  local near_tu = function(q) return q and math.abs(q.x - bx) < 0.5 and math.abs(q.y - by) < 0.5 end
+  check(near_tu(behind) and near_tu(with_biter), "refuge : 3 tuiles derrière la mitrailleuse du QG (sans profil, ou mordeur)")
+  check(with17 and not near_tu(with17), string.format(
+    "refuge : la mitrailleuse débordée (portée 17 en boîte à boîte, à 18 tuiles) est écartée (refuge %.1f, %.1f)",
+    with17 and with17.x or 0, with17 and with17.y or 0))
+  f.turrets = saved_turrets
+  if tu2 and tu2.valid then tu2.destroy() end
+  if tu and tu.valid then tu.destroy() end
+end
+
+---------------------------------------------------------------------------------------------------
+section("Mutant : « outranged forcé à faux dans M.sense » (lot CORR-RALLIEMENT, point 5)")
+-- script/ai3/comportement.lua relu, la ligne de M.sense « outranged = verdict ~= "couvert" » remplacée par « outranged = false »,
+-- le module chargé à sa place (package.preload) dans une partie neuve ; la vague de mitrailleurs doit alors montrer un ralliement
+-- par PNJ et aucun débordement : le contrôle « par PNJ » de la section précédente le refuse.
+do
+  local fh = assert(io.open("script/ai3/comportement.lua", "rb"))
+  local src = fh:read("*a")
+  fh:close()
+  local old = 'outranged = verdict ~= "couvert"'
+  local a, b = src:find(old, 1, true)
+  check(a ~= nil and src:find(old, b + 1, true) == nil, "mutant : motif unique dans comportement.lua (M.sense)")
+  if a then
+    local msrc = src:sub(1, a - 1) .. "outranged = false" .. src:sub(b + 1)
+    package.preload["script.ai3.comportement"] = function() return assert(load(msrc, "=comportement-mutant", "t"))() end
+    local fm = setup()
+    local _, tum, wavem = corr_arena(fm, game.surfaces[1])
+    local dm = wavem("fo-test-gunner", true, nil, 200, true)
+    package.preload["script.ai3.comportement"] = nil
+    local refused = not (dm.outranged > 0 and dm.qg_pnj_rally == 0)
+    check(refused and dm.qg_pnj_rally > 0 and dm.hq_outranged > 0, string.format(
+      "mutant refusé : par PNJ, débordé %d, ralliement %d (la réponse de l'équipe, hors M.sense, déborde encore : %d)",
+      dm.outranged, dm.qg_pnj_rally, dm.hq_outranged))
+    if tum and tum.valid then tum.destroy() end
+  end
+end
 
 ---------------------------------------------------------------------------------------------------
 section("Réglage éteint : aucun effet")

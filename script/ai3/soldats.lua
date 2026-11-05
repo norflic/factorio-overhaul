@@ -123,9 +123,11 @@ end
 ---   "rally"  : TOUS les PNJ occupés ou libres à moins de 160 tuiles vont derrière les tourelles du QG (point de ralliement) ;
 ---   "away"   : tous s'éloignent de l'ennemi, qu'ils distancent ;
 --- la garnison, la fortification et la défense (Re.recall_exempt) gardent leur poste.
-local function shelter(f, t, threat, tick, resp, rally, range)
+local function shelter(f, t, threat, tick, resp, rally, range, foes)
   resp = resp or "stand" -- l'appel de votre équipe (sans soldats) n'en donne pas : mise à l'abri seule (moteur réel, petrole-guide 20261020 : plantage à la minute 73)
   local far2 = Re.away_distance(range) ^ 2
+  local judged = C.outrange_on() -- lot CORR-RALLIEMENT : éloignement jugé sur la carte du danger (Re.away_pick)
+  local B = judged and D.block((C.character(f))) or nil
   for _, id in ipairs(State.sorted_keys(f.engineers or {})) do
     local ag = Registry.get(id)
     if ag and ag.entity.valid then
@@ -133,18 +135,29 @@ local function shelter(f, t, threat, tick, resp, rally, range)
       local p = e.position
       local dh = d2(p, f.hq_pos)
       local to = nil
+      local mode = resp -- réponse pour CE PNJ : « away » sans direction sûre devient « stand »
       if dh <= Sd.NEAR_HQ * Sd.NEAR_HQ and not (ag.task and Re.recall_exempt(ag.task.kind, ag.task.defend)) then
-        if resp == "rally" then
+        if mode == "away" and d2(p, threat) < far2 then
+          -- Lot CORR-RALLIEMENT (relecture, point 3) : huit directions jugées, calculées seulement quand le PNJ repartirait
+          -- (SD.SHELTER_TICKS) ; aucune sûre : il fait comme « stand » (abri des désarmés, les autres se battent groupés).
+          local a = C.astate(ag)
+          if tick - (a.shelter_t or -1e9) >= SD.SHELTER_TICKS then
+            if judged then to = Re.away_pick(t.map, tick, p, threat, range, B) else to = Re.away_from(p, threat, range) end
+            if not to then
+              mode = "stand"
+              t.stats.away_none = (t.stats.away_none or 0) + 1
+            end
+          end
+        end
+        if mode == "rally" then
           if d2(p, rally) > 36 then to = rally end
-        elseif resp == "away" then
-          if d2(p, threat) < far2 then to = Re.away_from(p, threat, range) end
-        elseif ag.task and not C.has_ammo(e) and dh > 12 * 12 then
-          to = C.refuge(f, p, threat)
+        elseif mode == "stand" and ag.task and not C.has_ammo(e) and dh > 12 * 12 then
+          to = C.refuge(f, p, threat, nil, foes) -- lot CORR-RALLIEMENT : pas sous une tourelle débordée (Re.refuge_ok)
         end
       end
       if to then
         local a = C.astate(ag)
-        local march = resp ~= "stand" -- ralliement ou éloignement : marche EXPLICITE (un PNJ déjà au QG n'ira nulle part sinon)
+        local march = mode ~= "stand" -- ralliement ou éloignement : marche EXPLICITE (un PNJ déjà au QG n'ira nulle part sinon)
         if march and tick - (a.shelter_t or -1e9) >= SD.SHELTER_TICKS or (not march and not a.refuge) then
           if march then a.shelter_t = tick else a.refuge = to end
           a.pts, a.final = nil, nil
@@ -152,7 +165,7 @@ local function shelter(f, t, threat, tick, resp, rally, range)
           if march then ag.steps, ag.pc = { { "goto", to, 3 }, { "wait", SD.SHELTER_TICKS }, { "home" } }, 1 end
           C.label(ag, "abri", tick, t.stats)
           t.stats.shelter = (t.stats.shelter or 0) + 1
-          if resp ~= "stand" then t.stats["shelter_" .. resp] = (t.stats["shelter_" .. resp] or 0) + 1 end
+          if mode ~= "stand" then t.stats["shelter_" .. mode] = (t.stats["shelter_" .. mode] or 0) + 1 end
         end
       end
     end
@@ -270,18 +283,30 @@ local function hq_threat(f, t, surface, tick)
   local threat = { x = en.position.x, y = en.position.y }
   -- Force ennemie PESÉE autour de la menace (même mesure que le regard : moyen déchiqueteur = 1).
   local force = 0
+  local seen_foes = { en } -- lot CORR-RALLIEMENT : profils d'ATTAQUE du groupe (Re.outranges, C.foe_profiles)
   for _, u in ipairs(surface.find_entities_filtered({ position = threat, radius = 16, force = en.force,
     type = { "unit", "character" }, limit = 24 })) do
     force = force + C.weight(u)
+    seen_foes[#seen_foes + 1] = u
   end
+  local foes = C.foe_profiles(seen_foes)
   local prud, agr = C.character(f)
-  local rally = C.rally(f)
+  local rally, qg_turrets = C.rally(f)
   local _, range = C.classify(en)
   local own = game.entity_prototypes["character"] and game.entity_prototypes["character"].running_speed or nil
+  -- Lot CORR-RALLIEMENT : des tourelles du QG que l'ennemi déborde en portée ne protègent pas le ralliement.
+  -- Relecture (point 4) : seules les tourelles qui marchent et couvrent le point de ralliement comptent (Re.rally_judge).
+  local outranged = false
+  if rally ~= nil and C.outrange_on() then
+    local verdict = Re.rally_judge(foes, qg_turrets, rally)
+    outranged = verdict ~= "couvert"
+    if verdict == "deborde" then t.stats.hq_outranged = (t.stats.hq_outranged or 0) + 1
+    elseif verdict == "sans-tourelle" then t.stats.hq_rally_bare = (t.stats.hq_rally_bare or 0) + 1 end
+  end
   local resp = Re.hq_response({ allies = armed_near_hq(f), force = force, prudence = prud, agressivite = agr, rally = rally,
-    outrun = Re.outrun(C.enemy_speed(en), own) })
+    outrun = Re.outrun(C.enemy_speed(en), own), outranged = outranged })
   t.stats["hq_" .. resp] = (t.stats["hq_" .. resp] or 0) + 1
-  shelter(f, t, threat, tick, resp, rally, range)
+  shelter(f, t, threat, tick, resp, rally, range, C.outrange_on() and foes or nil)
   return threat -- lot NETTOYAGE-SITE : lu par pass (aucune opération de nettoyage lancée quand le QG est menacé)
 end
 
@@ -706,7 +731,14 @@ Events.on_nth_tick(120, function(e)
   if not (f and f.hq and f.hq.valid and f.hq_pos) then return end
   local en = f.hq.surface.find_nearest_enemy({ position = f.hq_pos, max_distance = SD.HQ_THREAT_R, force = f.force })
   if en and (en.type == "unit" or en.type == "character") then
-    shelter(f, C.team(f), { x = en.position.x, y = en.position.y }, e.tick)
+    -- Lot CORR-RALLIEMENT : profils d'attaque du groupe (même recherche que hq_threat) : pas de refuge sous une tourelle débordée.
+    local seen_foes = { en }
+    for _, u in ipairs(f.hq.surface.find_entities_filtered({ position = en.position, radius = 16, force = en.force,
+      type = { "unit", "character" }, limit = 24 })) do
+      seen_foes[#seen_foes + 1] = u
+    end
+    shelter(f, C.team(f), { x = en.position.x, y = en.position.y }, e.tick, nil, nil, nil,
+      C.outrange_on() and C.foe_profiles(seen_foes) or nil)
   end
 end)
 

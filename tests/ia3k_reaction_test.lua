@@ -131,7 +131,198 @@ local function suite()
   check(hq({ force = 2, allies = 4, rally = rp }) == "stand", "4 contre force 2 : on se bat")
   check(hq({ force = 2, allies = 2, rally = rp }) == "rally", "2 contre force 2 (ratio 2 000 requis) : ralliement")
   check(hq({ prudence = 600, agressivite = 1500, allies = 3, force = 2, rally = rp }) == "stand", "un audacieux se bat à 3 contre 2")
-  -- Le refuge ne mène pas sur l'ennemi.
+
+  section("QG attaqué par des unités qui DÉBORDENT ses tourelles (lot CORR-RALLIEMENT)")
+  -- Partie du DC rejouée (graine 717152950) : 5 mitrailleurs d'Ambre (portée 20, vitesse 0,11, 600 PV : force pesée 40) contre
+  -- les tourelles du QG (portée 18) ; les PNJ (0,15) ralliés sous elles meurent un par un.
+  -- Relecture (revue-danger, 18 h 12) : profils lus aux prototypes. Soldats des factions en boîte à boîte (± 0,2 :
+  -- prototypes/faction.lua), tourelles de centre à centre ; demi-boîte d'une tourelle à niveaux = côté / 2 − 0,3
+  -- (shared/levels/footprint.lua, F.MARGIN) ; mitrailleuse à niveaux : 18 + 0,4 par niveau, 2×2 aux niveaux 1 à 6, 3×3 aux 7 à 12,
+  -- 4×4 aux 13 à 18 (shared/levels/config.lua).
+  local function soldier(r) return Re.profile(r, Re.BB, { { -0.2, -0.2 }, { 0.2, 0.2 } }) end
+  local function tur(r, side, mode)
+    local h = side / 2 - 0.3
+    return Re.profile(r, mode, { left_top = { x = -h, y = -h }, right_bottom = { x = h, y = h } })
+  end
+  local gunner, grenadier, rifle = soldier(20), soldier(26), soldier(16)
+  local gun, laser = tur(18, 2), tur(24, 2)
+  -- Portée réelle du niveau n : 18 + 0,4 × (n − 1) + L.range_bonus = (côté − 2) / 2 (shared/levels/config.lua : la portée se mesure
+  -- du centre, la tourelle qui grandit la gagne ; relecture de revue-danger).
+  local function lvl(n)
+    local side = n <= 6 and 2 or (n <= 12 and 3 or 4)
+    return tur(18 + 0.4 * (n - 1) + (side - 2) / 2, side)
+  end
+  check(gunner.bb == true and gun.bb == false and math.abs(gun.hx - 0.7) < 1e-9 and math.abs(gunner.hy - 0.2) < 1e-9,
+    "profils : soldat en boîte à boîte (± 0,2), mitrailleuse au centre (± 0,7)")
+  check(Re.profile(nil, Re.BB, nil) == nil and Re.profile(18, nil, nil).hx == 0, "profil : portée inconnue = nil ; sans boîte : 0")
+  -- Oracle par force brute : distance de boîte à boîte (la plus courte entre les deux boîtes) ≤ portée, sur 720 directions, par
+  -- dichotomie ; la plus grande distance de centre à centre trouvée doit être Re.reach_on (à 1e-3 près).
+  local function brute_reach(r, sx, sy)
+    local best = 0
+    for k = 0, 719 do
+      local c, s = math.cos(k * math.pi / 360), math.sin(k * math.pi / 360)
+      local lo, hi = 0, r + sx + sy + 2
+      for _ = 1, 60 do
+        local mid = (lo + hi) / 2
+        local gx = math.max(0, math.abs(mid * c) - sx)
+        local gy = math.max(0, math.abs(mid * s) - sy)
+        if gx * gx + gy * gy <= r * r then lo = mid else hi = mid end
+      end
+      if lo > best then best = lo end
+    end
+    return best
+  end
+  check(math.abs(Re.reach_on(gunner, gun.hx, gun.hy) - brute_reach(20, 0.9, 0.9)) < 1e-3
+    and math.abs(Re.reach_on(gunner, 1.2, 1.2) - brute_reach(20, 1.4, 1.4)) < 1e-3
+    and math.abs(Re.reach_on(gunner, 0.7, 1.7) - brute_reach(20, 0.9, 1.9)) < 1e-3,
+    "atteinte en boîte à boîte = oracle par force brute (720 directions ; boîtes carrées et rectangle)")
+  check(Re.reach_on(gun, 0.2, 0.2) == 18, "atteinte de centre à centre : la portée seule")
+  local rg = Re.reach_on(gunner, gun.hx, gun.hy)
+  check(rg >= 21.2 and rg < 21.3 and 20 + 0.9 < 21.2,
+    string.format("MESURÉ : mitrailleuse du QG tuée depuis 21,2 tuiles : dans l'atteinte (%.2f), au-delà de l'axe (20,9)", rg))
+  check(Re.outranges({ gunner }, { gun, gun, gun }) == true, "mitrailleur (20) contre mitrailleuses (18) : débordées")
+  check(Re.outranges({ grenadier }, { gun }) == true, "grenadier (26) : débordées")
+  check(Re.outranges({ rifle }, { gun, gun }) == false, "fusilier (16 + 1,27 = 17,27 < 18) : non")
+  check(Re.outranges({ soldier(18) }, { gun }) == true,
+    "portée égale (18 contre 18) mais modes différents : débordée (le soldat frappe depuis 19,27)")
+  check(Re.outranges({ Re.profile(18, nil, nil) }, { gun }) == false and Re.gap(Re.profile(18, nil, nil), gun) == 0,
+    "atteinte égale (18 contre 18, deux centres) : non, chacun frappe l'autre")
+  check(Re.outranges({ soldier(20) }, { Re.profile(20, Re.BB, { { -0.7, -0.7 }, { 0.7, 0.7 } }) }) == false
+    and Re.outranges({ soldier(20.01) }, { Re.profile(20, Re.BB, { { -0.7, -0.7 }, { 0.7, 0.7 } }) }) == true,
+    "deux boîtes à boîte : la portée seule compte (20 contre 20 : non ; 20,01 : oui)")
+  check(Re.outranges({ Re.profile(18.25, nil, nil) }, { soldier(18) }) == true
+    and Re.outranges({ Re.profile(18.15, nil, nil) }, { soldier(18) }) == false,
+    "ennemi au centre contre tourelle en boîte (± 0,2 + 0 : l'axe, 18,2, est le plus court) : 18,25 déborde, 18,15 non")
+  check(Re.outranges({ Re.profile(1.5, Re.BB, { { -0.2, -0.2 }, { 0.2, 0.2 } }) }, { gun }) == false
+    and Re.outranges({ soldier(14) }, { gun }) == false, "mordeur (1,5), cracheur (14) : non")
+  -- Mitrailleuse à niveaux contre le mitrailleur (20) : erreurs de la règle d'avant (portées brutes) aux niveaux 6 à 9.
+  check(Re.outranges({ gunner }, { lvl(6) }) == true, "niveau 6 (20,0 ; 2×2) : débordée (le mitrailleur frappe depuis 21,27)")
+  check(Re.outranges({ gunner }, { lvl(7) }) == true and Re.outranges({ gunner }, { lvl(8) }) == true,
+    "niveaux 7 et 8 (20,9 et 21,3 ; 3×3, ± 1,2) : débordées (21,98 en diagonale ; l'axe dit 21,4)")
+  check(Re.outranges({ gunner }, { lvl(9) }) == true, "niveau 9 (21,7) : débordée par la diagonale seule (21,98 ; l'axe dit 21,4)")
+  check(Re.outranges({ gunner }, { lvl(10) }) == false and Re.outranges({ gunner }, { lvl(13) }) == false,
+    "niveau 10 (22,1) et niveau 13 (23,8 ; 4×4, atteinte 22,69) : non")
+  check(Re.outranges({ gunner }, { gun, laser }) == false, "une laser (24) au QG : non (une tourelle qu'aucun ennemi ne déborde protège)")
+  check(Re.outranges({ gunner }, { laser, gun }) == false, "même chose dans l'autre ordre")
+  check(Re.outranges({ gunner, grenadier }, { gun, laser }) == true and Re.outranges({ grenadier, gunner }, { laser, gun }) == true,
+    "mitrailleur et grenadier : la laser débordée par le grenadier (27,27 > 24), la mitrailleuse par les deux")
+  check(Re.outranges({ rifle, gunner }, { gun }) == true and Re.outranges({ gunner, rifle }, { gun }) == true,
+    "groupe mêlé : le plus long compte, quel que soit l'ordre")
+  check(Re.outranges({}, { gun }) == false and Re.outranges(nil, { gun }) == false, "portée d'attaque inconnue (personnage) : non")
+  check(Re.outranges({ gunner }, {}) == false and Re.outranges({ gunner }, nil) == false, "aucune tourelle : non")
+  check(Re.outranges({ gunner }, { "?", false }) == false, "tourelles de portée inconnue : non")
+  -- Point 2 de la relecture : pas de refuge sous une tourelle débordée, à moins de l'atteinte ennemie (21,27) + Re.MARGIN (8).
+  local ep0 = { x = 30, y = 0 }
+  local function at(x) return { x = x, y = 0 } end
+  check(Re.refuge_ok({ gunner }, gun, at(12), ep0) == false, "mitrailleuse à 18 tuiles d'un mitrailleur : pas un refuge")
+  check(Re.refuge_ok({ gunner }, gun, at(5), ep0) == false and Re.refuge_ok({ gunner }, gun, at(1), ep0) == false,
+    "à 25 et 29 tuiles (au-delà de l'atteinte, dans la marge) : pas un refuge")
+  check(Re.refuge_ok({ gunner }, gun, at(0.5), ep0) == true and Re.refuge_ok({ gunner }, gun, at(-20), ep0) == true,
+    "à 29,5 et 50 tuiles (au-delà de 29,27) : refuge")
+  check(Re.refuge_ok({ gunner }, gun, { x = 30 - 18 / math.sqrt(2), y = 18 / math.sqrt(2) }, ep0) == false,
+    "en diagonale à 18 tuiles : pas un refuge")
+  check(Re.refuge_ok({ gunner }, laser, at(12), ep0) == true, "laser (24) à 18 tuiles : refuge (non débordée)")
+  check(Re.refuge_ok({ rifle }, gun, at(12), ep0) == true, "fusilier (16) : la mitrailleuse reste un refuge")
+  check(Re.refuge_ok({ rifle, gunner }, gun, at(12), ep0) == false and Re.refuge_ok({ gunner, rifle }, gun, at(12), ep0) == false,
+    "groupe mêlé : le mitrailleur compte, quel que soit l'ordre")
+  check(Re.refuge_ok({ gunner }, nil, at(12), ep0) == true and Re.refuge_ok({}, gun, at(12), ep0) == true
+    and Re.refuge_ok(nil, gun, at(12), ep0) == true, "portées inconnues : refuge (règle d'avant)")
+  local gun = { allies = 9, force = 40, prudence = 1000, agressivite = 1000, rally = rp }
+  local function hqg(over) local i = {} for k, v in pairs(gun) do i[k] = v end for k, v in pairs(over or {}) do i[k] = v end return Re.hq_response(i) end
+  check(hqg({ outranged = true, outrun = true }) == "away", "débordées, ennemi plus lent : on s'éloigne (pas de ralliement)")
+  check(hqg({ outranged = true, outrun = false }) == "stand", "débordées, ennemi plus rapide : on se bat groupés (pas de ralliement)")
+  check(hqg({ outranged = false, outrun = true }) == "rally", "non débordées : ralliement (inchangé)")
+  check(hqg({ outranged = nil, outrun = true }) == "rally", "débordement inconnu (nil) : ralliement (inchangé)")
+  check(hqg({ outranged = true, outrun = true, allies = 200 }) == "stand", "débordées mais assez nombreux : on se bat (inchangé)")
+  check(hqg({ outranged = true, outrun = true, rally = nil }) == "away", "débordées et sans tourelle : comme sans tourelle")
+  -- Règle d'avant inchangée quand `outranged` est absent : toute la grille de cas de la section précédente, sans le champ.
+  local same = true
+  for _, al in ipairs({ 0, 2, 9, 30 }) do
+    for _, fo in ipairs({ 0.2, 2, 13, 40 }) do
+      for _, ru in ipairs({ false, true }) do
+        for _, ra in ipairs({ false, true }) do
+          local i = { allies = al, force = fo, prudence = 1000, agressivite = 1000, rally = ra and rp or nil, outrun = ru }
+          local r0 = Re.hq_response(i)
+          i.outranged = false
+          if Re.hq_response(i) ~= r0 then same = false end
+          local need = Re.engage_ratio(1000, 1000) * math.max(0.2, fo)
+          local old = (al * 1000 >= need) and "stand" or (ra and "rally") or (ru and "away") or "stand"
+          if r0 ~= old then same = false end
+        end
+      end
+    end
+  end
+  check(same, "sans débordement (nil ou false) : la réponse d'avant sur 64 cas")
+  -- Point 4 de la relecture : seules les tourelles qui MARCHENT et COUVRENT le point de ralliement sont jugées (Re.rally_judge),
+  -- au lieu de toutes celles à 40 tuiles du coffre. Point en (0, 0), ennemi : mitrailleurs.
+  local R0 = { x = 0, y = 0 }
+  local gunt = tur(18, 2) -- (« gun » désigne plus haut l'entrée de Re.hq_response)
+  local function put(q, x, ok) return { x = x, y = 0, r = q.r, bb = q.bb, hx = q.hx, hy = q.hy, ok = ok } end
+  check(Re.covers(put(gunt, 18), R0) == true and Re.covers(put(gunt, 18.01), R0) == false, "couvre : portée 18 de centre à centre")
+  local rect = { x = 18.15, y = 0, r = 18, bb = true, hx = 0.2, hy = 1.2 }
+  check(Re.covers(rect, R0) == true and Re.covers({ x = 18.5, y = 0, r = 18, bb = true, hx = 0.2, hy = 1.2 }, R0) == false,
+    "couvre, tourelle en boîte (± 0,2 × ± 1,2) : portée + la plus petite demi-boîte (18,2)")
+  check(Re.covers({ x = 1, y = 0, bb = false, hx = 0, hy = 0 }, R0) == false, "tourelle de portée inconnue : ne couvre rien")
+  local v, n = Re.rally_judge({ gunner }, { put(gunt, 10, true), put(laser, 30, true) }, R0)
+  check(v == "deborde" and n == 1, "laser à 30 tuiles (ne couvre pas le point) : seule la mitrailleuse est jugée, débordée (règle d'avant : couvert)")
+  v, n = Re.rally_judge({ gunner }, { put(gunt, 10, true), put(laser, 20, true) }, R0)
+  check(v == "couvert" and n == 2, "laser à 20 tuiles (couvre le point) : couvert")
+  v = Re.rally_judge({ gunner }, { put(gunt, 10, false), put(laser, 20, true) }, R0)
+  check(v == "couvert", "mitrailleuse vide, laser alimentée : couvert")
+  v = Re.rally_judge({ gunner }, { put(gunt, 10, true), put(laser, 20, false) }, R0)
+  check(v == "deborde", "laser sans courant : seule la mitrailleuse compte, débordée")
+  v, n = Re.rally_judge({ rifle }, { put(gunt, 10, false), put(gunt, 12, false) }, R0)
+  check(v == "sans-tourelle" and n == 0, "toutes vides : sans tourelle (s'y rallier ne protège de rien), même contre un fusilier")
+  check(Re.rally_judge({}, { put(gunt, 10, true) }, R0) == "couvert", "portée ennemie inconnue, tourelle qui marche : couvert (règle d'avant)")
+  check(Re.rally_judge({ gunner }, { put(gunt, 10, true) }, nil) == "sans-tourelle", "pas de point de ralliement : sans tourelle")
+  check(Re.rally_judge({ rifle }, { put(gunt, 10, nil) }, R0) == "couvert", "état inconnu (ok absent) : comptée")
+  -- Point 3 de la relecture : « s'éloigner » sur 8 directions jugées par la carte du danger (Re.away_pick). PNJ en (0, 0),
+  -- ennemi à l'est (20, 0), vue 30 : 62 tuiles ; B = 600 (prudence neutre). Directions : k × 45° depuis l'ouest (0 : ouest,
+  -- 1 : nord-ouest, 7 : sud-ouest, 2 : nord, 6 : sud).
+  local Dg = require("shared.ai3.danger")
+  local P0, E0, B0, T0 = { x = 0, y = 0 }, { x = 20, y = 0 }, Dg.block(1000), 7200
+  local function pick(prep)
+    local map = Dg.new()
+    if prep then prep(map) end
+    return Re.away_pick(map, T0, P0, E0, 30, B0)
+  end
+  local function is_at(q, x, y) return q ~= nil and math.abs(q.x - x) < 1e-6 and math.abs(q.y - y) < 1e-6 end
+  local L0, c45 = Re.away_distance(30), math.sqrt(0.5)
+  local q, info = pick()
+  check(is_at(q, -L0, 0) and info.k == 0 and info.danger == 0 and info.safe == 5,
+    "carte vide : tout droit à l'opposé (62 tuiles), 5 directions sûres (les 3 qui rapprochent de l'ennemi écartées)")
+  q, info = pick(function(m) Dg.mark_seen(m, -50, 0, "worm", 30, T0) end)
+  check(is_at(q, -L0 * c45, -L0 * c45) and info.k == 1, "ver sur la ligne droite : nord-ouest (le ver est à 35,4 tuiles du trajet)")
+  q, info = pick(function(m) Dg.mark_seen(m, -50, 0, "worm", 30, T0) Dg.mark_seen(m, -36, -36, "worm", 30, T0) end)
+  check(info.k == 7 and is_at(q, -L0 * c45, L0 * c45), "vers à l'ouest et au nord-ouest : sud-ouest")
+  q, info = pick(function(m) Dg.mark_seen(m, -30, 0, "worm", 10, T0) end)
+  check(info.k ~= 0, "petit ver (portée 10) au MILIEU du trajet, pas au bout : la ligne droite est écartée")
+  q, info = pick(function(m)
+    for _, w in ipairs({ { -40, 0 }, { -28, -28 }, { -28, 28 }, { 0, -40 }, { 0, 40 } }) do Dg.mark_seen(m, w[1], w[2], "worm", 30, T0) end
+  end)
+  check(q == nil and info.safe == 0, "vers dans les 5 directions qui éloignent, l'est libre : aucune sûre (nil : on se bat groupés)")
+  q, info = pick(function(m) Dg.mark_death(m, -40, 0, T0 - 600) end)
+  check(info.k == 1, "une mort de l'heure sur la ligne droite : nord-ouest")
+  q, info = pick(function(m) Dg.mark_death(m, -40, 0, 0) end)
+  local q2 = Re.away_pick((function() local m = Dg.new() Dg.mark_death(m, -40, 0, 0) return m end)(), Dg.HOUR + 7200, P0, E0, 30, B0)
+  check(q2 and q2.x == -L0, "une mort de plus d'une heure : ignorée (tout droit)")
+  q, info = pick(function(m) Dg.mark_death(m, -40, 0, T0 - 600, true) end)
+  check(info.k == 0, "une mort au QG (home) : ignorée, comme la règle de l'heure (tout droit)")
+  q, info = pick(function(m) Dg.mark_death(m, 2, 0, T0 - 600) end)
+  check(info.k == 0, "une mort à 2 tuiles du PNJ, derrière lui : on s'en éloigne, elle ne compte pas (tout droit)")
+  q, info = pick(function(m) Dg.mark_seen(m, 20, 0, "pack", 30, T0) end)
+  check(info.k == 0, "la meute marquée autour de l'ennemi (zone qui contient le PNJ) : on s'en éloigne (tout droit)")
+  q, info = pick(function(m) Dg.mark_seen(m, -20, 0, "worm", 30, T0) end)
+  check(info.k == 2 and is_at(q, 0, -L0), "dans la zone d'un ver à l'ouest : ni l'ouest, ni les diagonales qui s'en rapprochent ; le nord")
+  q, info = pick(function(m) for _ = 1, 5 do Dg.mark_seen(m, 20, 0, "unit", 30, T0) end end)
+  check(info.k == 0, "cases mobiles de l'ennemi (5 unités, autour du PNJ aussi) : le danger AJOUTÉ seul compte (tout droit)")
+  local heavy = function(m) for _ = 1, 5 do Dg.mark_seen(m, -40, 0, "unit", 6, T0) end end
+  q, info = pick(heavy)
+  local mw = (function() local m = Dg.new() heavy(m) return Dg.exact_parts(m, -40, 0, T0).mobile end)()
+  check(mw >= B0 and info.k ~= 0 and info.danger < B0, string.format(
+    "une autre meute (mobile %d) à l'ouest : pas la ligne droite (direction %s)", mw, tostring(info.k)))
+  q, info = pick(function(m) Dg.mark_seen(m, -40, 0, "unit", 6, T0) end)
+  check(info.k ~= 0 and info.danger == 0, "une seule unité (150, sous le seuil) à l'ouest : la direction la MOINS dangereuse (0)")
   check(Re.on_the_way({ x = 0, y = 0 }, { x = 100, y = 0 }, { x = 30, y = 5 }) == true, "ennemi sur le chemin")
   check(Re.on_the_way({ x = 0, y = 0 }, { x = 100, y = 0 }, { x = 30, y = 60 }) == false, "ennemi sur le côté")
   check(Re.on_the_way({ x = 0, y = 0 }, { x = 100, y = 0 }, { x = 130, y = 0 }) == false, "ennemi au-delà de la cible")
@@ -202,6 +393,164 @@ mutant("éloignement avant ralliement", function()
   end)
 end)
 mutant("ratio d'engagement ignoré", function() patch(Re, "engage_ratio", function() return 1 end) end)
+-- Lot CORR-RALLIEMENT
+mutant("débordement ignoré (règle d'avant)", function()
+  patch(Re, "hq_response", function(i)
+    local need = Re.engage_ratio(i.prudence, i.agressivite) * math.max(0.2, i.force or 1)
+    if (i.allies or 0) * 1000 >= need then return "stand" end
+    if i.rally then return "rally" end
+    if i.outrun then return "away" end
+    return "stand"
+  end)
+end)
+mutant("débordées : toujours s'éloigner, même plus lent que l'ennemi", function()
+  local h = Re.hq_response
+  patch(Re, "hq_response", function(i) local r = h(i) if i.outranged and r == "stand" and i.rally then return "away" end return r end)
+end)
+mutant("débordées : se rallier quand même", function()
+  local h = Re.hq_response
+  patch(Re, "hq_response", function(i) local r = h(i) if i.outranged and i.rally and r ~= "stand" then return "rally" end return r end)
+end)
+-- Relecture (revue-danger, 18 h 12) : portées ramenées au centre, tourelle par tourelle.
+mutant("débordement dès l'atteinte égale", function() patch(Re, "RANGE_EPS", -1e-6) end)
+mutant("portées brutes (règle d'avant : modes et boîtes ignorés)", function()
+  patch(Re, "gap", function(e, t) return e.r - t.r end)
+end)
+mutant("axe seulement (diagonale oubliée)", function()
+  patch(Re, "gap", function(e, t)
+    if e.bb == t.bb then return e.r - t.r end
+    local sx, sy = e.hx + t.hx, e.hy + t.hy
+    if e.bb then return e.r + math.min(sx, sy) - t.r end
+    return e.r - (t.r + math.min(sx, sy))
+  end)
+end)
+mutant("demi-boîte de la tourelle oubliée", function()
+  patch(Re, "gap", function(e, t)
+    if e.bb == t.bb then return e.r - t.r end
+    local sx, sy = e.hx, e.hy
+    if e.bb then return e.r + math.sqrt(sx * sx + sy * sy) - t.r end
+    return e.r - (t.r + math.min(sx, sy))
+  end)
+end)
+mutant("ennemi au centre contre tourelle en boîte : diagonale prise", function()
+  local g = Re.gap
+  patch(Re, "gap", function(e, t)
+    if t.bb and not e.bb then local sx, sy = e.hx + t.hx, e.hy + t.hy return e.r - (t.r + math.sqrt(sx * sx + sy * sy)) end
+    return g(e, t)
+  end)
+end)
+mutant("mode lu à l'envers", function()
+  local p = Re.profile
+  patch(Re, "profile", function(r, m, b) local q = p(r, m, b) if q then q.bb = not q.bb end return q end)
+end)
+mutant("une tourelle débordée suffit (au lieu de toutes)", function()
+  patch(Re, "outranges", function(es, ts)
+    for _, t in ipairs(ts or {}) do if type(t) == "table" and type(t.r) == "number" and Re.turret_outranged(es, t) then return true end end
+    return false
+  end)
+end)
+mutant("la première tourelle seule compte", function()
+  patch(Re, "outranges", function(es, ts)
+    local t = (ts or {})[1]
+    return type(t) == "table" and type(t.r) == "number" and Re.turret_outranged(es, t)
+  end)
+end)
+mutant("le premier ennemi seul compte", function()
+  local tu = Re.turret_outranged
+  patch(Re, "turret_outranged", function(es, t) return tu({ (es or {})[1] }, t) end)
+end)
+mutant("portée inconnue prise pour un débordement", function()
+  local o = Re.outranges
+  patch(Re, "outranges", function(es, ts) if es == nil or #es == 0 then return true end return o(es, ts) end)
+end)
+-- Point 2 : refuge
+mutant("refuge sous une tourelle débordée (règle d'avant)", function() patch(Re, "refuge_ok", function() return true end) end)
+mutant("toute tourelle à l'atteinte écartée, même non débordée", function()
+  patch(Re, "refuge_ok", function(es, q, tp, ep)
+    if type(q) ~= "table" or type(q.r) ~= "number" then return true end
+    local dx, dy = tp.x - ep.x, tp.y - ep.y
+    for _, e in ipairs(es or {}) do
+      local lim = Re.reach_on(e, q.hx, q.hy) + Re.MARGIN
+      if dx * dx + dy * dy <= lim * lim then return false end
+    end
+    return true
+  end)
+end)
+mutant("refuge : marge oubliée", function()
+  local m = Re.MARGIN
+  local r = Re.refuge_ok
+  patch(Re, "refuge_ok", function(...) Re.MARGIN = 0 local v = r(...) Re.MARGIN = m return v end)
+end)
+-- Point 3 : « s'éloigner » sur 8 directions. Mutants SUR LA SOURCE (variables locales de Re.away_pick) : shared/ai3/reaction.lua
+-- relu, un motif remplacé (unique, sinon le banc s'arrête), le module recompilé ; seul away_pick est pris du mutant.
+local REACTION_SRC
+local function src_mutant(name, old, new)
+  mutant(name, function()
+    if not REACTION_SRC then
+      local fh = assert(io.open("shared/ai3/reaction.lua", "rb"))
+      REACTION_SRC = fh:read("*a")
+      fh:close()
+    end
+    local a, b = REACTION_SRC:find(old, 1, true)
+    assert(a and not REACTION_SRC:find(old, b + 1, true), "mutant « " .. name .. " » : motif absent ou non unique")
+    local R2 = assert(load(REACTION_SRC:sub(1, a - 1) .. new .. REACTION_SRC:sub(b + 1), "=reaction-mutant", "t"))()
+    patch(Re, "away_pick", R2.away_pick)
+  end)
+end
+mutant("s'éloigner : ligne droite seule (règle d'avant)", function()
+  patch(Re, "away_pick", function(map, tick, p, ep, range) return Re.away_from(p, ep, range), { k = 0, danger = 0, safe = 1 } end)
+end)
+src_mutant("s'éloigner : menaces fixes ignorées", "then v = v + fw[i] end", "then v = v + 0 end")
+src_mutant("s'éloigner : cases mobiles ignorées", "if mq > m0 then v = v + (mq - m0) end", "if false then end")
+src_mutant("s'éloigner : cases mobiles en absolu (celle du PNJ comptée)", "if mq > m0 then v = v + (mq - m0) end", "v = v + mq")
+src_mutant("s'éloigner : morts ignorées", "dead[i], nd = true, nd + 1", "dead[i] = true")
+src_mutant("s'éloigner : zone fixe de départ comptée partout", "(fp2[i] > fr2[i] or dq < fp2[i])", "true")
+src_mutant("s'éloigner : mort de départ comptée partout", "(mp2[i] > R2 or dq < mp2[i])", "true")
+src_mutant("s'éloigner : morts de plus d'une heure comptées", "if not d.home and tick - d.t < D.HOUR then", "if not d.home then")
+src_mutant("s'éloigner : morts au QG comptées", "if not d.home and tick - d.t < D.HOUR then", "if tick - d.t < D.HOUR then")
+src_mutant("s'éloigner : directions vers l'ennemi permises", "if (-ex) * vx + (-ey) * vy <= 1e-9 * el then", "if true then")
+src_mutant("s'éloigner : aucune sûre, ligne droite quand même", "return best, { k = best_k",
+  "return best or Re.away_from(p, ep, range), { k = best_k")
+src_mutant("s'éloigner : préférence ignorée (la dernière sûre)", "if best_v == nil or worst < best_v then",
+  "if best_v == nil or worst <= best_v then")
+src_mutant("s'éloigner : bout du trajet seul jugé", "local s = Re.AWAY_STEP", "local s = L")
+-- Point 4 : tourelles jugées
+mutant("ralliement : toutes les tourelles à 40 tuiles (règle d'avant)", function()
+  local j = Re.rally_judge
+  patch(Re, "rally_judge", function(es, ts, r, px, py)
+    local all = {}
+    for i, t in ipairs(ts or {}) do all[i] = { x = r and r.x or 0, y = r and r.y or 0, r = t.r, bb = t.bb, hx = t.hx, hy = t.hy, ok = t.ok } end
+    return j(es, all, r, px, py)
+  end)
+end)
+mutant("ralliement : tourelle vide ou sans courant comptée", function()
+  local j = Re.rally_judge
+  patch(Re, "rally_judge", function(es, ts, r, px, py)
+    local all = {}
+    for i, t in ipairs(ts or {}) do all[i] = { x = t.x, y = t.y, r = t.r, bb = t.bb, hx = t.hx, hy = t.hy } end
+    return j(es, all, r, px, py)
+  end)
+end)
+mutant("ralliement : sans tourelle pris pour couvert", function()
+  local j = Re.rally_judge
+  patch(Re, "rally_judge", function(...) local v, n = j(...) if v == "sans-tourelle" then return "couvert", n end return v, n end)
+end)
+mutant("couverture en boîte : la plus grande demi-boîte", function()
+  patch(Re, "covers", function(t, pt, px, py)
+    if type(t) ~= "table" or type(t.r) ~= "number" then return false end
+    local reach = t.r
+    if t.bb then reach = reach + math.max((t.hx or 0) + (px or 0), (t.hy or 0) + (py or 0)) end
+    local dx, dy = t.x - pt.x, t.y - pt.y
+    return dx * dx + dy * dy <= reach * reach
+  end)
+end)
+mutant("couverture : tout couvre", function() patch(Re, "covers", function(t) return type(t) == "table" and type(t.r) == "number" end) end)
+mutant("refuge : portée brute (atteinte au centre oubliée)", function()
+  local ro = Re.reach_on
+  local r = Re.refuge_ok
+  patch(Re, "refuge_ok", function(...) Re.reach_on = function(a) return a.r end local v = r(...) Re.reach_on = ro return v end)
+end)
+mutant("débordement jamais", function() patch(Re, "outranges", function() return false end) end)
 mutant("ennemi jamais sur le chemin", function() patch(Re, "on_the_way", function() return false end) end)
 mutant("ennemi toujours sur le chemin", function() patch(Re, "on_the_way", function() return true end) end)
 mutant("QG toujours le refuge", function() patch(Re, "away_point", function() return nil end) end)
