@@ -33,6 +33,7 @@ local Build = require("script.team.build")
 local Conv = require("script.team.convoyeurs")
 local Fal = require("script.team.falaise") -- lot OBSTACLES : emprise réelle des falaises
 local Profiler = require("script.core.profiler") -- lot PERF3 : portées fines (mesure seulement)
+local Fo = require("shared.team.champ_forme") -- lot CHAMP-COUVERTURE : forme du champ en une ligne, rejouée hors jeu
 
 local Champ = {}
 
@@ -64,6 +65,10 @@ Champ.CFG = {
   charge_tete = 200,-- charbon posé avec le coffre de tête d'une colonne SANS voie de charbon (24 fours de pierre : 6 min)
   amorce = 5,       -- charbon posé avec chaque four d'une colonne (une fois) : la limite d'insertion d'un bras (mesurée, banc-2) ; sans elle,
                     -- les fours se garnissent un à un depuis la tête et la queue attend plusieurs minutes
+  -- lot CHAMP-COUVERTURE (étape 0, accord du lead du 5/11) : forme du champ ([FO-CHAMP-FORME], shared/team/champ_forme.lua) écrite pour un
+  -- plan qui couvre moins que forme_below du gisement ou ne pose aucune bande, au plus forme_max lignes par équipe et par partie
+  forme_below = 0.6,
+  forme_max = 10,
 }
 
 local function sorted_keys(t) return State.sorted_keys(t or {}) end
@@ -498,7 +503,17 @@ function Champ.frame(f, surface, o)
     .. string.format(" ; fonderie %s, %d souterrain(s), %d repartiteur(s)%s", plan.design or "a coffres", plan.stats.undergrounds or 0,
       plan.stats.splitters or 0, #cs > 0 and (", " .. table.concat(cs, ", ")) or "")
     .. string.format(" ; autres ressources minables autour : %d tuile(s) du champ, %d de la ligne de charbon", spec.nforeign or 0,
-      spec.coal and spec.coal.nforeign or 0))
+      spec.coal and spec.coal.nforeign or 0)
+    -- lot CHAMP-COUVERTURE (étape 0) : foreuses possibles sur les rangées mais hors des groupes (tapis plein, tapis bloqué avant le bout du
+    -- champ), groupes retirés faute de place pour leur fonderie
+    .. string.format(" ; coupees %d, sans fonderie %d", plan.stats.capped or 0, plan.stats.no_smelter or 0))
+  -- lot CHAMP-COUVERTURE (étape 0) : la FORME du champ (entrées du plan), rejouée hors jeu par tools/champ_forme.lua, pour un plan qui couvre
+  -- peu ou ne pose rien (hors du plafond des lignes [FO-CHAMP] de say ; son propre plafond par équipe)
+  if (rep.elec < Champ.CFG.forme_below or #prs == 0) and (f.champ_formes or 0) < Champ.CFG.forme_max then
+    f.champ_formes = (f.champ_formes or 0) + 1
+    log(string.format("[FO-CHAMP-FORME] %s : avant-poste %d (%s) a %.1f min : %s", f.key or "player", o.id, o.kind, game.tick / 3600,
+      Fo.encode(spec, { covered = rep.covered, tiles = rep.tiles, drills = plan.stats.drills, bands = #prs })))
+  end
   -- (revue-fonderie, 3/11) réseau du charbon calculé dans l'autre ordre des côtés : moins de coffres de tête
   if plan.order_swapped then
     log(string.format("[FO-CHAMP] %s : avant-poste %d : reseau du charbon calcule cote %s d'abord : coffres de tete %d -> %d, foreuses du champ %d -> %d a %.1f min",
