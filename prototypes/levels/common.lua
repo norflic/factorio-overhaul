@@ -1346,6 +1346,13 @@ function Common.generate()
 
   -- Raccourci d'amélioration (touche U).
   out[#out + 1] = { type = "custom-input", name = "fo-level-up", key_sequence = "U", consuming = "none", order = "a" }
+  -- Lot PANNEAU (4/11) : ouvrir ou fermer le panneau « Évolution » du bâtiment survolé (Maj+U), pour les bâtiments sans
+  -- interface (murs…) quand le panneau ne s'ouvre plus au survol (réglage par joueur fo-levels-panneau, shared/levels/panneau.lua).
+  out[#out + 1] = { type = "custom-input", name = "fo-level-panel", key_sequence = "SHIFT + U", consuming = "none", order = "b" }
+  -- Clic gauche sur un bâtiment à niveaux (relecture de dcccb525 : « quand on clique sur le bâtiment », murs et lasers compris,
+  -- qui n'ont pas d'interface) : liée à la commande du jeu « open-gui », jamais consommée (l'interface normale s'ouvre aussi).
+  out[#out + 1] = { type = "custom-input", name = "fo-level-open", key_sequence = "", linked_game_control = "open-gui",
+    consuming = "none", order = "c" }
 
   data:extend(out)
 end

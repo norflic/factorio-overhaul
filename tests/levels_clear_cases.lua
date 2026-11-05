@@ -712,6 +712,7 @@ function Cases.runtime(check, section)
     return nil
   end
   rawset(player, "selected", g5)
+  M.set_player_setting(1, "fo-levels-panneau", "survol") -- lot PANNEAU : le survol ouvre le panneau (comportement d'avant)
   local ev = Wd.events
   local okp = pcall(M.dispatch, ev[defines.events.on_selected_entity_changed], { player_index = 1, tick = game.tick })
   local fr = player.gui.left["fo_lvl_panel"]
