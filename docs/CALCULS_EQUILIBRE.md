@@ -17,11 +17,10 @@
 - Fusion : four en acier de la famille, sans case : jamais de module (le four électrique vanilla, 2 cases, n'est pas compté).
 - Recherche de productivité minière vanilla, balises et bonus d'équipe : NON comptés.
 
-## 1. Incohérences relevées (14)
+## 1. Incohérences relevées (12)
 
 | Gravité | Constat |
 |---|---|
-| FAUX | Époque 4 : `plastic-bar` déclarée 1,5 u, matière brute réelle 0,99 (rapport 1,52, hors de 0,67 à 1,5). |
 | FAUX | Époque 5 : `fo-tungsten-plate` déclarée 2 u, matière brute réelle 1 (rapport 2, hors de 0,67 à 1,5). |
 | BIAIS | Époque 7 : `fo-resonance-crystal` déclarée 3 u, matière brute réelle 1 (rapport 3, hors de 0,67 à 1,5) ; rareté assumée par X0 (gisements rares, valeur de monnaie au-dessus du minerai). |
 | FAUX | Époque 10 : `processing-unit` déclarée 75 u, matière brute réelle 45,34 (rapport 1,65, hors de 0,67 à 1,5). |
@@ -29,7 +28,6 @@
 | NOTE | Détour : dès l'époque 10, la chaîne la moins chère de `plastic-bar` sous H2 abandonne `crude-oil` (brut principal de H0) : coal-liquefaction, fo-polyethylene, fo-steam-cracking, gisement:coal, heavy-oil-cracking, light-oil-cracking. |
 | NOTE | Détour : dès l'époque 10, la chaîne la moins chère de `battery` sous H2 abandonne `crude-oil` (brut principal de H0) : battery, coal-liquefaction, copper-plate, fo-iron-concentrate, fo-iron-plate-r8, fo-iron-plate-r8-unpacking, gisement:coal, gisement:copper-ore, gisement:iron-ore, heavy-oil-cracking, light-oil-cracking, sulfur, sulfuric-acid. |
 | NOTE | Détour : dès l'époque 10, la chaîne la moins chère de `processing-unit` sous H2 abandonne `copper-ore` (brut principal de H0) : advanced-circuit, coal-liquefaction, electronic-circuit, fo-iron-concentrate, fo-iron-plate-r8, fo-iron-plate-r8-unpacking, fo-polyethylene, fo-sand, fo-steam-cracking, fo-water-electrolysis, gisement:coal, gisement:iron-ore, heavy-oil-cracking, light-oil-cracking, processing-unit, sulfur, sulfuric-acid. |
-| BIAIS | command : le niveau 5 coûte × 2,76 du niveau 4 (2 285 → 6 318 u). |
 | BIAIS | command : le niveau 11 coûte × 4,19 du niveau 10 (16 055 → 67 260 u). |
 | NOTE | assembler niveau 20 (époque 10) : 24 modules de productivité palier 5 dépassent le plafond × 328,67 du moteur (cases perdues). |
 | NOTE | drill niveau 20 (époque 10) : 24 modules de productivité palier 5 dépassent le plafond × 328,67 du moteur (cases perdues). |
@@ -42,7 +40,7 @@
 |---|---|---|---|---|---|---|---|---|
 | 2 | `steel-plate` | 5 | 5 | 1 | 5 | × 1 | même | 5 |
 | 3 | `engine-unit` | 9 | 9 | 1 | 9 | × 1 | même | 9 |
-| 4 | `plastic-bar` | 1,5 | 0,99 | 1,52 | 0,99 | × 1 | même | 1,5 |
+| 4 | `plastic-bar` | 1 | 0,99 | 1,01 | 0,99 | × 1 | même | 1 |
 | 5 | `fo-tungsten-plate` | 2 | 1 | 2 | 1 | × 1 | même | 2 |
 | 6 | `battery` | 5,5 | 5,35 | 1,03 | 0,56 | × 9,64 | même | 5,5 |
 | 7 | `fo-resonance-crystal` | 3 | 1 | 3 | 0,18 | × 5,56 | même | 3 |
@@ -202,9 +200,9 @@ Valeur déclarée : `L.cost_value` (ce que compte le calendrier). Réelle : quan
 | 2 | 1 | 310 iron-plate, 160 copper-plate, 160 stone-brick, 60 electronic-circuit | 940 | — | 940 | 1 | 940 | 9 / 24 |
 | 3 | 2 | 360 iron-plate, 180 copper-plate, 180 stone-brick, 70 electronic-circuit, 80 steel-plate | 1 475 | 1,57 | 1 475 | 1 | 1 475 | 10 / 32 |
 | 4 | 3 | 400 iron-plate, 210 copper-plate, 210 stone-brick, 80 electronic-circuit, 70 engine-unit, 85 steel-plate | 2 285 | 1,55 | 2 285 | 1 | 2 285 | 14 / 40 |
-| 5 | 4 | 450 iron-plate, 230 copper-plate, 230 stone-brick, 85 electronic-circuit, 1 990 plastic-bar, 220 engine-unit | 6 318 | 2,76 | 5 301 | 0,84 | 5 301 | 37 / 48 |
-| 6 | 5 | 500 iron-plate, 260 copper-plate, 260 stone-brick, 95 electronic-circuit, 1 820 fo-tungsten-plate, 1 620 plastic-bar | 7 588 | 1,2 | 4 940 | 0,65 | 4 940 | 48 / 56 |
-| 7 | 6 | 540 iron-plate, 280 copper-plate, 280 stone-brick, 110 electronic-circuit, 670 battery, 1 230 fo-tungsten-plate | 7 800 | 1,03 | 6 470 | 0,83 | 948 | 30 / 64 |
+| 5 | 4 | 450 iron-plate, 230 copper-plate, 230 stone-brick, 85 electronic-circuit, 1 990 plastic-bar, 150 engine-unit | 4 693 | 2,05 | 4 671 | 1 | 4 671 | 35 / 48 |
+| 6 | 5 | 500 iron-plate, 260 copper-plate, 260 stone-brick, 95 electronic-circuit, 1 500 fo-tungsten-plate, 2 000 plastic-bar | 6 518 | 1,39 | 4 996 | 0,77 | 4 996 | 47 / 56 |
+| 7 | 6 | 540 iron-plate, 280 copper-plate, 280 stone-brick, 110 electronic-circuit, 670 battery, 1 230 fo-tungsten-plate | 7 800 | 1,2 | 6 470 | 0,83 | 948 | 30 / 64 |
 | 8 | 7 | 590 iron-plate, 300 copper-plate, 300 stone-brick, 110 electronic-circuit, 1 260 fo-resonance-crystal, 460 battery | 8 075 | 1,04 | 5 486 | 0,68 | 710 | 42 / 72 |
 | 9 | 8 | 640 iron-plate, 330 copper-plate, 330 stone-brick, 120 electronic-circuit, 380 fo-methane-barrel, 850 fo-resonance-crystal | 8 280 | 1,03 | 6 580 | 0,79 | 693 | 71 / 80 |
 | 10 | 9 | 680 iron-plate, 350 copper-plate, 350 stone-brick, 130 electronic-circuit, 600 uranium-238, 560 fo-methane-barrel | 16 055 | 1,94 | 14 710 | 0,92 | 1 217 | 78 / 88 |
@@ -223,13 +221,13 @@ Valeur déclarée : `L.cost_value` (ce que compte le calendrier). Réelle : quan
 | 4 | 2 | 8 iron-plate, 4 iron-gear-wheel, 4 copper-plate, 4 steel-plate | 40 | 1,29 | 40 | 1 | 40 | 4 / 32 |
 | 5 | 3 | 9 iron-plate, 4 iron-gear-wheel, 4 copper-plate, 2 engine-unit, 1 steel-plate | 44 | 1,1 | 44 | 1 | 44 | 5 / 40 |
 | 6 | 3 | 10 iron-plate, 5 iron-gear-wheel, 5 copper-plate, 2 engine-unit, 2 steel-plate | 53 | 1,2 | 53 | 1 | 53 | 5 / 40 |
-| 7 | 4 | 11 iron-plate, 5 iron-gear-wheel, 5 copper-plate, 25 plastic-bar, 3 engine-unit | 91 | 1,71 | 78 | 0,86 | 78 | 5 / 48 |
-| 8 | 4 | 11 iron-plate, 6 iron-gear-wheel, 6 copper-plate, 30 plastic-bar, 3 engine-unit | 101 | 1,12 | 86 | 0,85 | 86 | 5 / 48 |
-| 9 | 5 | 12 iron-plate, 6 iron-gear-wheel, 6 copper-plate, 55 fo-tungsten-plate, 50 plastic-bar | 215 | 2,13 | 134 | 0,63 | 134 | 5 / 56 |
-| 10 | 5 | 13 iron-plate, 7 iron-gear-wheel, 7 copper-plate, 70 fo-tungsten-plate, 60 plastic-bar | 264 | 1,23 | 163 | 0,62 | 163 | 5 / 56 |
-| 11 | 6 | 14 iron-plate, 7 iron-gear-wheel, 7 copper-plate, 40 battery, 70 fo-tungsten-plate | 395 | 1,5 | 319 | 0,81 | 43 | 5 / 64 |
-| 12 | 6 | 15 iron-plate, 8 iron-gear-wheel, 8 copper-plate, 50 battery, 90 fo-tungsten-plate | 494 | 1,25 | 397 | 0,8 | 53 | 5 / 64 |
-| 13 | 7 | 16 iron-plate, 8 iron-gear-wheel, 8 copper-plate, 140 fo-resonance-crystal, 50 battery | 735 | 1,49 | 448 | 0,61 | 53 | 7 / 72 |
+| 7 | 4 | 11 iron-plate, 5 iron-gear-wheel, 5 copper-plate, 45 plastic-bar, 3 engine-unit | 98 | 1,85 | 98 | 0,99 | 98 | 5 / 48 |
+| 8 | 4 | 11 iron-plate, 6 iron-gear-wheel, 6 copper-plate, 55 plastic-bar, 4 engine-unit | 120 | 1,22 | 119 | 0,99 | 119 | 5 / 48 |
+| 9 | 5 | 12 iron-plate, 6 iron-gear-wheel, 6 copper-plate, 55 fo-tungsten-plate, 75 plastic-bar | 215 | 1,79 | 159 | 0,74 | 159 | 5 / 56 |
+| 10 | 5 | 13 iron-plate, 7 iron-gear-wheel, 7 copper-plate, 70 fo-tungsten-plate, 95 plastic-bar | 269 | 1,25 | 198 | 0,74 | 198 | 5 / 56 |
+| 11 | 6 | 14 iron-plate, 7 iron-gear-wheel, 7 copper-plate, 40 battery, 70 fo-tungsten-plate | 395 | 1,47 | 319 | 0,81 | 43 | 5 / 64 |
+| 12 | 6 | 15 iron-plate, 8 iron-gear-wheel, 8 copper-plate, 45 battery, 85 fo-tungsten-plate | 457 | 1,16 | 365 | 0,8 | 49 | 5 / 64 |
+| 13 | 7 | 16 iron-plate, 8 iron-gear-wheel, 8 copper-plate, 140 fo-resonance-crystal, 50 battery | 735 | 1,61 | 448 | 0,61 | 53 | 7 / 72 |
 | 14 | 7 | 17 iron-plate, 8 iron-gear-wheel, 8 copper-plate, 170 fo-resonance-crystal, 65 battery | 909 | 1,24 | 559 | 0,62 | 65 | 8 / 72 |
 | 15 | 8 | 18 iron-plate, 9 iron-gear-wheel, 9 copper-plate, 80 fo-methane-barrel, 180 fo-resonance-crystal | 1 385 | 1,52 | 1 025 | 0,74 | 99 | 15 / 80 |
 | 16 | 8 | 19 iron-plate, 9 iron-gear-wheel, 9 copper-plate, 100 fo-methane-barrel, 220 fo-resonance-crystal | 1 706 | 1,23 | 1 266 | 0,74 | 122 | 18 / 80 |
@@ -257,11 +255,11 @@ Valeur déclarée : `L.cost_value` (ce que compte le calendrier). Réelle : quan
 | 4 | 2 | 11 steel-plate, 4 electronic-circuit, 3 battery | 82 | 1,28 | 81 | 0,99 | 81 | 3 / 32 |
 | 5 | 3 | 6 steel-plate, 4 electronic-circuit, 3 battery, 3 engine-unit | 84 | 1,02 | 83 | 0,99 | 83 | 4 / 40 |
 | 6 | 3 | 8 steel-plate, 5 electronic-circuit, 3 battery, 2 engine-unit | 87 | 1,04 | 87 | 0,99 | 87 | 4 / 40 |
-| 7 | 4 | 5 steel-plate, 5 electronic-circuit, 4 battery, 40 plastic-bar, 5 engine-unit | 165 | 1,89 | 143 | 0,87 | 143 | 5 / 48 |
-| 8 | 4 | 6 steel-plate, 6 electronic-circuit, 4 battery, 50 plastic-bar, 6 engine-unit | 196 | 1,19 | 170 | 0,87 | 170 | 5 / 48 |
-| 9 | 5 | 6 steel-plate, 6 electronic-circuit, 4 battery, 95 fo-tungsten-plate, 85 plastic-bar | 385 | 1,96 | 245 | 0,64 | 245 | 5 / 56 |
-| 10 | 5 | 7 steel-plate, 7 electronic-circuit, 4 battery, 120 fo-tungsten-plate, 100 plastic-bar | 465 | 1,21 | 293 | 0,63 | 293 | 6 / 56 |
-| 11 | 6 | 7 steel-plate, 7 electronic-circuit, 70 battery, 120 fo-tungsten-plate | 678 | 1,46 | 547 | 0,81 | 73 | 5 / 64 |
+| 7 | 4 | 5 steel-plate, 5 electronic-circuit, 4 battery, 75 plastic-bar, 6 engine-unit | 189 | 2,17 | 187 | 0,99 | 187 | 5 / 48 |
+| 8 | 4 | 6 steel-plate, 6 electronic-circuit, 4 battery, 95 plastic-bar, 7 engine-unit | 225 | 1,19 | 223 | 0,99 | 223 | 5 / 48 |
+| 9 | 5 | 6 steel-plate, 6 electronic-circuit, 4 battery, 95 fo-tungsten-plate, 120 plastic-bar | 377 | 1,68 | 280 | 0,74 | 280 | 6 / 56 |
+| 10 | 5 | 7 steel-plate, 7 electronic-circuit, 4 battery, 120 fo-tungsten-plate, 160 plastic-bar | 475 | 1,26 | 352 | 0,74 | 352 | 7 / 56 |
+| 11 | 6 | 7 steel-plate, 7 electronic-circuit, 70 battery, 120 fo-tungsten-plate | 678 | 1,43 | 547 | 0,81 | 73 | 5 / 64 |
 | 12 | 6 | 8 steel-plate, 8 electronic-circuit, 85 battery, 150 fo-tungsten-plate | 828 | 1,22 | 665 | 0,8 | 88 | 5 / 64 |
 | 13 | 7 | 8 steel-plate, 8 electronic-circuit, 90 battery, 230 fo-resonance-crystal | 1 245 | 1,5 | 772 | 0,62 | 90 | 8 / 72 |
 | 14 | 7 | 8 steel-plate, 8 electronic-circuit, 106 battery, 290 fo-resonance-crystal | 1 513 | 1,22 | 917 | 0,61 | 108 | 9 / 72 |
@@ -291,9 +289,9 @@ Valeur déclarée : `L.cost_value` (ce que compte le calendrier). Réelle : quan
 | 4 | 2 | 4 stone-brick, 1 steel-plate | 13 | 1,18 | 13 | 1 | 13 | 2 / 32 |
 | 5 | 3 | 4 stone-brick, 1 engine-unit | 17 | 1,31 | 17 | 1 | 17 | 2 / 40 |
 | 6 | 3 | 5 stone-brick, 1 engine-unit | 19 | 1,12 | 19 | 1 | 19 | 2 / 40 |
-| 7 | 4 | 5 stone-brick, 7 plastic-bar | 21 | 1,08 | 17 | 0,83 | 17 | 2 / 48 |
-| 8 | 4 | 6 stone-brick, 9 plastic-bar | 26 | 1,24 | 21 | 0,82 | 21 | 2 / 48 |
-| 9 | 5 | 6 stone-brick, 16 fo-tungsten-plate | 44 | 1,73 | 28 | 0,64 | 28 | 2 / 56 |
+| 7 | 4 | 5 stone-brick, 13 plastic-bar | 23 | 1,21 | 23 | 0,99 | 23 | 2 / 48 |
+| 8 | 4 | 6 stone-brick, 16 plastic-bar | 28 | 1,22 | 28 | 0,99 | 28 | 2 / 48 |
+| 9 | 5 | 6 stone-brick, 16 fo-tungsten-plate | 44 | 1,57 | 28 | 0,64 | 28 | 2 / 56 |
 | 10 | 5 | 7 stone-brick, 19 fo-tungsten-plate | 52 | 1,18 | 33 | 0,63 | 33 | 2 / 56 |
 | 11 | 6 | 7 stone-brick, 11 battery | 75 | 1,43 | 73 | 0,98 | 9 | 2 / 64 |
 | 12 | 6 | 8 stone-brick, 13 battery | 88 | 1,17 | 86 | 0,98 | 11 | 2 / 64 |
@@ -325,12 +323,12 @@ Valeur déclarée : `L.cost_value` (ce que compte le calendrier). Réelle : quan
 | 4 | 2 | 8 iron-plate, 4 iron-gear-wheel, 3 electronic-circuit, 3 steel-plate | 39 | 1,38 | 39 | 1 | 39 | 4 / 32 |
 | 5 | 3 | 9 iron-plate, 4 iron-gear-wheel, 3 electronic-circuit, 2 engine-unit, 1 steel-plate | 48 | 1,23 | 48 | 1 | 48 | 5 / 40 |
 | 6 | 3 | 10 iron-plate, 5 iron-gear-wheel, 3 electronic-circuit, 2 engine-unit, 1 steel-plate | 51 | 1,06 | 51 | 1 | 51 | 5 / 40 |
-| 7 | 4 | 11 iron-plate, 5 iron-gear-wheel, 4 electronic-circuit, 14 plastic-bar, 2 engine-unit | 70 | 1,39 | 63 | 0,9 | 63 | 5 / 48 |
-| 8 | 4 | 11 iron-plate, 6 iron-gear-wheel, 4 electronic-circuit, 18 plastic-bar, 2 engine-unit | 78 | 1,11 | 69 | 0,88 | 69 | 5 / 48 |
-| 9 | 5 | 12 iron-plate, 6 iron-gear-wheel, 4 electronic-circuit, 35 fo-tungsten-plate, 30 plastic-bar | 149 | 1,91 | 99 | 0,66 | 99 | 5 / 56 |
-| 10 | 5 | 13 iron-plate, 7 iron-gear-wheel, 4 electronic-circuit, 40 fo-tungsten-plate, 35 plastic-bar | 170 | 1,14 | 112 | 0,66 | 112 | 5 / 56 |
-| 11 | 6 | 14 iron-plate, 7 iron-gear-wheel, 5 electronic-circuit, 25 battery, 40 fo-tungsten-plate | 258 | 1,52 | 214 | 0,83 | 27 | 5 / 64 |
-| 12 | 6 | 15 iron-plate, 8 iron-gear-wheel, 5 electronic-circuit, 30 battery, 50 fo-tungsten-plate | 309 | 1,2 | 254 | 0,82 | 32 | 5 / 64 |
+| 7 | 4 | 11 iron-plate, 5 iron-gear-wheel, 4 electronic-circuit, 25 plastic-bar, 2 engine-unit | 74 | 1,47 | 74 | 1 | 74 | 5 / 48 |
+| 8 | 4 | 11 iron-plate, 6 iron-gear-wheel, 4 electronic-circuit, 35 plastic-bar, 2 engine-unit | 86 | 1,16 | 86 | 1 | 86 | 5 / 48 |
+| 9 | 5 | 12 iron-plate, 6 iron-gear-wheel, 4 electronic-circuit, 35 fo-tungsten-plate, 45 plastic-bar | 149 | 1,73 | 114 | 0,76 | 114 | 5 / 56 |
+| 10 | 5 | 13 iron-plate, 7 iron-gear-wheel, 4 electronic-circuit, 40 fo-tungsten-plate, 55 plastic-bar | 172 | 1,15 | 131 | 0,76 | 131 | 5 / 56 |
+| 11 | 6 | 14 iron-plate, 7 iron-gear-wheel, 5 electronic-circuit, 20 battery, 40 fo-tungsten-plate | 231 | 1,34 | 188 | 0,81 | 24 | 5 / 64 |
+| 12 | 6 | 15 iron-plate, 8 iron-gear-wheel, 5 electronic-circuit, 30 battery, 50 fo-tungsten-plate | 309 | 1,34 | 254 | 0,82 | 32 | 5 / 64 |
 | 13 | 7 | 16 iron-plate, 8 iron-gear-wheel, 5 electronic-circuit, 80 fo-resonance-crystal, 30 battery | 450 | 1,46 | 285 | 0,63 | 32 | 6 / 72 |
 | 14 | 7 | 17 iron-plate, 8 iron-gear-wheel, 6 electronic-circuit, 100 fo-resonance-crystal, 35 battery | 541 | 1,2 | 335 | 0,62 | 38 | 6 / 72 |
 | 15 | 8 | 18 iron-plate, 9 iron-gear-wheel, 6 electronic-circuit, 45 fo-methane-barrel, 100 fo-resonance-crystal | 801 | 1,48 | 601 | 0,75 | 56 | 10 / 80 |
@@ -359,10 +357,10 @@ Valeur déclarée : `L.cost_value` (ce que compte le calendrier). Réelle : quan
 | 4 | 2 | 5 steel-plate, 4 stone-brick | 33 | 1,27 | 33 | 1 | 33 | 2 / 32 |
 | 5 | 3 | 4 steel-plate, 4 stone-brick, 1 engine-unit | 37 | 1,12 | 37 | 1 | 37 | 3 / 40 |
 | 6 | 3 | 4 steel-plate, 5 stone-brick, 1 engine-unit | 39 | 1,05 | 39 | 1 | 39 | 3 / 40 |
-| 7 | 4 | 4 steel-plate, 5 stone-brick, 12 plastic-bar, 1 engine-unit | 57 | 1,46 | 51 | 0,89 | 51 | 4 / 48 |
-| 8 | 4 | 4 steel-plate, 6 stone-brick, 15 plastic-bar, 2 engine-unit | 73 | 1,27 | 65 | 0,89 | 65 | 4 / 48 |
-| 9 | 5 | 4 steel-plate, 6 stone-brick, 30 fo-tungsten-plate, 25 plastic-bar | 130 | 1,79 | 87 | 0,67 | 87 | 4 / 56 |
-| 10 | 5 | 4 steel-plate, 7 stone-brick, 35 fo-tungsten-plate, 30 plastic-bar | 149 | 1,15 | 99 | 0,66 | 99 | 4 / 56 |
+| 7 | 4 | 4 steel-plate, 5 stone-brick, 25 plastic-bar, 2 engine-unit | 73 | 1,87 | 73 | 1 | 73 | 4 / 48 |
+| 8 | 4 | 4 steel-plate, 6 stone-brick, 30 plastic-bar, 2 engine-unit | 80 | 1,1 | 80 | 1 | 80 | 4 / 48 |
+| 9 | 5 | 4 steel-plate, 6 stone-brick, 30 fo-tungsten-plate, 35 plastic-bar | 127 | 1,59 | 97 | 0,76 | 97 | 4 / 56 |
+| 10 | 5 | 4 steel-plate, 7 stone-brick, 35 fo-tungsten-plate, 45 plastic-bar | 149 | 1,17 | 114 | 0,76 | 114 | 4 / 56 |
 | 11 | 6 | 5 steel-plate, 7 stone-brick, 19 battery, 35 fo-tungsten-plate | 214 | 1,43 | 176 | 0,82 | 26 | 4 / 64 |
 | 12 | 6 | 5 steel-plate, 8 stone-brick, 25 battery, 45 fo-tungsten-plate | 269 | 1,26 | 220 | 0,82 | 32 | 4 / 64 |
 | 13 | 7 | 5 steel-plate, 8 stone-brick, 70 fo-resonance-crystal, 25 battery | 389 | 1,45 | 245 | 0,63 | 31 | 5 / 72 |
@@ -393,12 +391,12 @@ Valeur déclarée : `L.cost_value` (ce que compte le calendrier). Réelle : quan
 | 4 | 2 | 8 iron-plate, 4 iron-gear-wheel, 4 electronic-circuit, 3 steel-plate | 41 | 1,34 | 41 | 1 | 41 | 4 / 32 |
 | 5 | 3 | 9 iron-plate, 4 iron-gear-wheel, 4 electronic-circuit, 2 engine-unit, 1 steel-plate | 50 | 1,22 | 50 | 1 | 50 | 5 / 40 |
 | 6 | 3 | 10 iron-plate, 5 iron-gear-wheel, 5 electronic-circuit, 2 engine-unit, 1 steel-plate | 56 | 1,11 | 56 | 1 | 56 | 5 / 40 |
-| 7 | 4 | 11 iron-plate, 5 iron-gear-wheel, 5 electronic-circuit, 14 plastic-bar, 2 engine-unit | 73 | 1,31 | 65 | 0,9 | 65 | 5 / 48 |
-| 8 | 4 | 11 iron-plate, 6 iron-gear-wheel, 6 electronic-circuit, 18 plastic-bar, 2 engine-unit | 83 | 1,14 | 74 | 0,89 | 74 | 5 / 48 |
-| 9 | 5 | 12 iron-plate, 6 iron-gear-wheel, 6 electronic-circuit, 35 fo-tungsten-plate, 30 plastic-bar | 154 | 1,86 | 104 | 0,67 | 104 | 5 / 56 |
-| 10 | 5 | 13 iron-plate, 7 iron-gear-wheel, 7 electronic-circuit, 40 fo-tungsten-plate, 35 plastic-bar | 177 | 1,15 | 119 | 0,67 | 119 | 5 / 56 |
-| 11 | 6 | 14 iron-plate, 7 iron-gear-wheel, 7 electronic-circuit, 25 battery, 40 fo-tungsten-plate | 263 | 1,49 | 219 | 0,83 | 27 | 5 / 64 |
-| 12 | 6 | 15 iron-plate, 8 iron-gear-wheel, 8 electronic-circuit, 30 battery, 50 fo-tungsten-plate | 316 | 1,2 | 262 | 0,83 | 32 | 5 / 64 |
+| 7 | 4 | 11 iron-plate, 5 iron-gear-wheel, 5 electronic-circuit, 25 plastic-bar, 2 engine-unit | 77 | 1,38 | 76 | 1 | 76 | 5 / 48 |
+| 8 | 4 | 11 iron-plate, 6 iron-gear-wheel, 6 electronic-circuit, 35 plastic-bar, 2 engine-unit | 91 | 1,19 | 91 | 1 | 91 | 5 / 48 |
+| 9 | 5 | 12 iron-plate, 6 iron-gear-wheel, 6 electronic-circuit, 35 fo-tungsten-plate, 45 plastic-bar | 154 | 1,69 | 119 | 0,77 | 119 | 5 / 56 |
+| 10 | 5 | 13 iron-plate, 7 iron-gear-wheel, 7 electronic-circuit, 40 fo-tungsten-plate, 55 plastic-bar | 180 | 1,17 | 139 | 0,77 | 139 | 5 / 56 |
+| 11 | 6 | 14 iron-plate, 7 iron-gear-wheel, 7 electronic-circuit, 20 battery, 40 fo-tungsten-plate | 236 | 1,31 | 193 | 0,82 | 24 | 5 / 64 |
+| 12 | 6 | 15 iron-plate, 8 iron-gear-wheel, 8 electronic-circuit, 30 battery, 50 fo-tungsten-plate | 316 | 1,34 | 262 | 0,83 | 32 | 5 / 64 |
 | 13 | 7 | 16 iron-plate, 8 iron-gear-wheel, 8 electronic-circuit, 80 fo-resonance-crystal, 30 battery | 457 | 1,45 | 293 | 0,64 | 32 | 6 / 72 |
 | 14 | 7 | 17 iron-plate, 8 iron-gear-wheel, 8 electronic-circuit, 100 fo-resonance-crystal, 35 battery | 546 | 1,19 | 340 | 0,62 | 38 | 6 / 72 |
 | 15 | 8 | 18 iron-plate, 9 iron-gear-wheel, 9 electronic-circuit, 45 fo-methane-barrel, 100 fo-resonance-crystal | 809 | 1,48 | 609 | 0,75 | 56 | 10 / 80 |
@@ -428,19 +426,19 @@ coûts change : déclarée, puis matière brute réelle sous H0, H2r, H2.
 | 1 | 0 h 30 | 1 222 | 0 h 30 | 1 222 | 0 h 30 | 1 222 | 0 h 30 | 1 222 | 0 h 30 |
 | 2 | 1 h 00 | 4 464 | 1 h 00 | 4 464 | 1 h 00 | 4 464 | 1 h 00 | 4 464 | 1 h 00 |
 | 3 | 1 h 30 | 12 202 | 1 h 30 | 12 202 | 1 h 30 | 12 202 | 1 h 30 | 12 202 | 1 h 30 |
-| 4 | 2 h 00 | 29 762 | 2 h 00 | 26 535 | 1 h 47 | 26 535 | 1 h 47 | 26 535 | 1 h 47 |
-| 5 | 2 h 30 | 68 411 | 2 h 31 | 48 256 | 1 h 46 | 48 256 | 1 h 46 | 48 256 | 1 h 46 |
-| 6 | 3 h 00 | 151 135 | 3 h 02 | 127 619 | 2 h 34 | 78 141 | 1 h 34 | 17 024 | 0 h 21 |
-| 7 | 3 h 30 | 317 988 | 3 h 30 | 197 046 | 2 h 10 | 135 319 | 1 h 29 | 24 338 | 0 h 16 |
-| 8 | 4 h 00 | 671 786 | 4 h 03 | 530 036 | 3 h 11 | 335 672 | 2 h 01 | 49 877 | 0 h 18 |
-| 9 | 4 h 30 | 1 363 375 | 4 h 29 | 1 189 901 | 3 h 55 | 808 482 | 2 h 40 | 95 910 | 0 h 19 |
-| 10 | 5 h 00 | 2 782 296 | 5 h 00 | 1 958 372 | 3 h 32 | 517 404 | 0 h 56 | 1 557 | 0 h 00 |
-| 11 | 5 h 30 | 5 582 967 | 5 h 30 | 5 815 159 | 5 h 43 | 2 803 058 | 2 h 46 | 8 525 | 0 h 01 |
-| 12 | 6 h 00 | 11 217 290 | 6 h 02 | 14 553 141 | 7 h 50 | 3 274 054 | 1 h 46 | 9 958 | 0 h 00 |
-| 13 | 6 h 30 | 22 062 090 | 6 h 30 | 21 534 358 | 6 h 20 | 1 174 026 | 0 h 21 | 3 564 | 0 h 00 |
-| 14 | 7 h 00 | 43 390 660 | 6 h 59 | 32 217 121 | 5 h 11 | 637 155 | 0 h 06 | 1 937 | 0 h 00 |
-| 15 | 7 h 00 | 79 273 298 | 6 h 59 | 48 447 203 | 4 h 16 | 1 221 090 | 0 h 06 | 3 714 | 0 h 00 |
-| **Total** | **59 h 30** | | **59 h 36** | | **51 h 17** | | **20 h 19** | | **7 h 49** |
+| 4 | 2 h 00 | 29 913 | 2 h 01 | 29 803 | 2 h 00 | 29 803 | 2 h 00 | 29 803 | 2 h 00 |
+| 5 | 2 h 30 | 68 160 | 2 h 30 | 53 359 | 1 h 58 | 53 359 | 1 h 58 | 53 359 | 1 h 58 |
+| 6 | 3 h 00 | 149 063 | 3 h 00 | 127 923 | 2 h 34 | 78 485 | 1 h 35 | 17 099 | 0 h 21 |
+| 7 | 3 h 30 | 318 276 | 3 h 30 | 199 571 | 2 h 12 | 136 757 | 1 h 30 | 24 597 | 0 h 16 |
+| 8 | 4 h 00 | 672 074 | 4 h 03 | 532 561 | 3 h 12 | 337 105 | 2 h 02 | 50 090 | 0 h 18 |
+| 9 | 4 h 30 | 1 363 663 | 4 h 29 | 1 192 425 | 3 h 55 | 809 912 | 2 h 40 | 96 085 | 0 h 19 |
+| 10 | 5 h 00 | 2 782 584 | 5 h 01 | 1 960 897 | 3 h 32 | 517 906 | 0 h 56 | 1 559 | 0 h 00 |
+| 11 | 5 h 30 | 5 583 255 | 5 h 30 | 5 817 684 | 5 h 44 | 2 803 560 | 2 h 46 | 8 526 | 0 h 01 |
+| 12 | 6 h 00 | 11 217 578 | 6 h 02 | 14 555 666 | 7 h 50 | 3 274 556 | 1 h 46 | 9 959 | 0 h 00 |
+| 13 | 6 h 30 | 22 062 378 | 6 h 30 | 21 536 883 | 6 h 21 | 1 174 528 | 0 h 21 | 3 565 | 0 h 00 |
+| 14 | 7 h 00 | 43 390 948 | 6 h 59 | 32 219 646 | 5 h 11 | 637 369 | 0 h 06 | 1 938 | 0 h 00 |
+| 15 | 7 h 00 | 79 273 586 | 6 h 59 | 48 449 728 | 4 h 16 | 1 221 304 | 0 h 06 | 3 715 | 0 h 00 |
+| **Total** | **59 h 30** | | **59 h 34** | | **51 h 46** | | **20 h 46** | | **8 h 13** |
 
 ## 7. Recherche par époque (coûts FINAUX de l'étape data)
 
@@ -479,16 +477,16 @@ Trois voies, chiffrées sur le même modèle :
 | 1 | 0 | 0 | 1 | × 1 | 0,1 | 0 | — |
 | 2 | 1,43 | 407 | 1 | × 1 | 1,4 | 410 | 5 |
 | 3 | 1,46 | 1 050 | 1 | × 1 | 1,5 | 1 050 | 9 |
-| 4 | 5,1 | 4 980 | 0,89 | × 1 | 5,1 | 4 980 | 1 |
-| 5 | 15,5 | 6 060 | 0,71 | × 1 | 15,5 | 6 060 | 1 |
-| 6 | 29,5 | 6 160 | 0,84 | × 7,5 | 220 | 46 200 | 5,4 |
-| 7 | 57,7 | 6 290 | 0,62 | × 8,1 | 470 | 50 900 | 1 |
+| 4 | 6,25 | 3 310 | 1 | × 1 | 6,3 | 3 310 | 1 |
+| 5 | 15,5 | 5 000 | 0,78 | × 1 | 15,5 | 5 000 | 1 |
+| 6 | 29 | 6 160 | 0,86 | × 7,48 | 220 | 46 100 | 5,4 |
+| 7 | 57,3 | 6 290 | 0,63 | × 8,11 | 460 | 51 000 | 1 |
 | 8 | 110 | 6 380 | 0,79 | × 10,63 | 1 170 | 67 800 | 10 |
-| 9 | 204 | 14 100 | 0,87 | × 12,41 | 2 530 | 174 900 | 11,8 |
-| 10 | 365 | 65 000 | 0,7 | × 1257,69 | 459 100 | 8,2 × 10^7 | 45 |
-| 11 | 687 | 66 300 | 1,04 | × 682,17 | 468 600 | 4,5 × 10^7 | 25 |
-| 12 | 1250 | 100 000 | 1,3 | × 1461,52 | 1 826 900 | 1,5 × 10^8 | 80 |
-| 13 | 2260 | 150 000 | 0,98 | × 6042,96 | 1,4 × 10^7 | 9,1 × 10^8 | 35 |
+| 9 | 204 | 14 100 | 0,87 | × 12,41 | 2 530 | 175 000 | 11,8 |
+| 10 | 365 | 65 000 | 0,7 | × 1258,08 | 459 200 | 8,2 × 10^7 | 45 |
+| 11 | 687 | 66 300 | 1,04 | × 682,34 | 468 800 | 4,5 × 10^7 | 25 |
+| 12 | 1250 | 100 000 | 1,3 | × 1461,55 | 1 826 900 | 1,5 × 10^8 | 80 |
+| 13 | 2260 | 150 000 | 0,98 | × 6041,08 | 1,4 × 10^7 | 9,1 × 10^8 | 35 |
 | 14 | 4140 | 190 000 | 0,74 | × 1,7 × 10^4 | 6,9 × 10^7 | 3,2 × 10^9 | 100 |
 | 15 | 7070 | 0 | 0,61 | × 1,3 × 10^4 | 9,2 × 10^7 | 0 | 130 |
 

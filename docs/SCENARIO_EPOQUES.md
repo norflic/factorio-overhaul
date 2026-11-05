@@ -432,7 +432,7 @@ pour C ; hypothèse de la matière étrange (Witten, 1984) pour D.
 | 1 Pionnier | 0,5 h | 0 h | T1 | 1 | 2 | 3 | 2 | 4 054 | 405 | panier de base | 82 Plaque de fer | 34,7 % |
 | 2 Forge | 1 h | 0,5 h | T1 | 1 | 4 | 5 | 4 | 14 826 | 1 483 | Plaque d'acier (5 MU, 100) | 60 Plaque d'acier | 35,5 % |
 | 3 Vapeur | 1,5 h | 1,5 h | T1 | 1 | 6 | 10 | 8 | 40 662 | 4 066 | Moteur (9 MU, 50) | 91 Moteur | 35 % |
-| 4 Pétrole | 2 h | 3 h | T2 | 2 | 8 | 18 | 14 | 99 130 | 9 913 | Plastique (1,5 MU, 100) | 1 322 Plastique | 35,2 % |
+| 4 Pétrole | 2 h | 3 h | T2 | 2 | 8 | 18 | 14 | 99 130 | 9 913 | Plastique (1 MU, 100) | 1 983 Plastique | 35,2 % |
 | 5 Volcan | 2,5 h | 5 h | T2 | 2 | 10 | 34 | 25 | 226 561 | 22 656 | Plaque de tungstène (2 MU, 100) | 2 266 Plaque de tungstène | 34,8 % |
 | 6 Électricité | 3 h | 7,5 h | T2 | 2 | 12 | 61 | 46 | 497 094 | 49 709 | Batterie (5,5 MU, 200) | 1 808 Batterie | 35,2 % |
 | 7 Cristal | 3,5 h | 10,5 h | T3 | 3 | 14 | 112 | 84 | 1 060 369 | 106 037 | Cristal de résonance (3 MU, 50) | 7 070 Cristal de résonance | 35 % |
