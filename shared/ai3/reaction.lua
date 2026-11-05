@@ -145,16 +145,35 @@ local function away_dirs(ux, uy)
   return v
 end
 
-function Re.away_pick(map, tick, p, ep, range, B)
+--- Relecture (seconde, point A : COÛT). Case mobile lue directement (map.cells et la décroissance de D.dec10, la formule de
+--- danger.lua, sans la table de D.exact_parts), mémorisée par case pour l'appel (ou le passage : `mob`) ; menaces et morts
+--- filtrées PAR DIRECTION (distance au segment au plus leur rayon : les autres n'y touchent aucun point). Mêmes résultats que la
+--- version 878d3594 (tests/ia3k_reaction_test.lua : 400 cartes tirées au sort, référence recopiée).
+local function mobile_at(map, tick, mob, x, y)
+  local k = D.key(D.cell(x), D.cell(y))
+  local m = mob[k]
+  if m == nil then
+    local c = map.cells[k]
+    m = c and math.floor(c.m * D.dec10(tick - c.t) / 1000) or 0
+    mob[k] = m
+  end
+  return m
+end
+Re.mobile_at = mobile_at
+
+--- Direction de fuite (vecteur unitaire { x, y }) ou nil ; second retour : { k, danger, safe }. `mob` : mémo des cases mobiles
+--- (facultatif ; valable pour une seule carte et un seul tick).
+function Re.away_dir(map, tick, p, ep, range, B, mob)
+  mob = mob or {}
   local ex, ey = p.x - ep.x, p.y - ep.y
   local el = math.sqrt(ex * ex + ey * ey)
   if el < 1 then ex, ey, el = 1, 0, 1 end
   local ux, uy = ex / el, ey / el
   local L = Re.away_distance(range)
   local dirs = away_dirs(ux, uy)
-  local m0 = D.exact_parts(map, p.x, p.y, tick).mobile
+  local m0 = mobile_at(map, tick, mob, p.x, p.y)
   -- Menaces fixes et morts PROCHES (au plus L + leur rayon du PNJ), poids décrus calculés une fois.
-  local fx, fy, fr2, fp2, fw = {}, {}, {}, {}, {}
+  local fx, fy, fr2, fp2, fw, fr = {}, {}, {}, {}, {}, {}
   for _, t in ipairs(map.threats or {}) do
     local K = D.KINDS[t.k] or D.KINDS.unit
     local r = t.r + D.EXACT_MARGIN
@@ -162,7 +181,7 @@ function Re.away_pick(map, tick, p, ep, range, B)
     local dd = dx * dx + dy * dy
     if dd <= (L + r) * (L + r) then
       local i = #fx + 1
-      fx[i], fy[i], fr2[i], fp2[i] = t.x, t.y, r * r, dd
+      fx[i], fy[i], fr2[i], fp2[i], fr[i] = t.x, t.y, r * r, dd, r
       fw[i] = math.floor(K.w * (K.fast and D.dec10(tick - t.t) or D.dec2(tick - t.t)) / 1000)
     end
   end
@@ -178,11 +197,21 @@ function Re.away_pick(map, tick, p, ep, range, B)
       end
     end
   end
+  -- Distance² d'un point (cx, cy) au segment [p, p + L·v].
+  local function seg2(cx, cy, vx, vy)
+    local s = (cx - p.x) * vx + (cy - p.y) * vy
+    if s < 0 then s = 0 elseif s > L then s = L end
+    local qx, qy = p.x + s * vx - cx, p.y + s * vy - cy
+    return qx * qx + qy * qy
+  end
   local best, best_k, best_v, safe = nil, nil, nil, 0
   for _, k in ipairs(AWAY_PREF) do
     local vx, vy = dirs[k][1], dirs[k][2]
     -- Rapproche de l'ennemi : (ep − p)·v > 0 (au-delà d'une tolérance de calcul).
     if (-ex) * vx + (-ey) * vy <= 1e-9 * el then
+      local ti, di = {}, {}
+      for i = 1, #fx do if seg2(fx[i], fy[i], vx, vy) <= fr2[i] then ti[#ti + 1] = i end end
+      for i = 1, #mx do if seg2(mx[i], my[i], vx, vy) <= R2 then di[#di + 1] = i end end
       local worst, dead = 0, {}
       local nd = 0
       local s = Re.AWAY_STEP
@@ -190,15 +219,15 @@ function Re.away_pick(map, tick, p, ep, range, B)
         if s > L then s = L end
         local qx, qy = p.x + s * vx, p.y + s * vy
         local v = 0
-        for i = 1, #fx do
+        for _, i in ipairs(ti) do
           local dx, dy = fx[i] - qx, fy[i] - qy
           local dq = dx * dx + dy * dy
           if dq <= fr2[i] and (fp2[i] > fr2[i] or dq < fp2[i]) then v = v + fw[i] end
         end
-        local mq = D.exact_parts(map, qx, qy, tick).mobile
+        local mq = mobile_at(map, tick, mob, qx, qy)
         if mq > m0 then v = v + (mq - m0) end
         if v > worst then worst = v end
-        for i = 1, #mx do
+        for _, i in ipairs(di) do
           if not dead[i] then
             local dx, dy = mx[i] - qx, my[i] - qy
             local dq = dx * dx + dy * dy
@@ -210,11 +239,40 @@ function Re.away_pick(map, tick, p, ep, range, B)
       end
       if nd == 0 and worst < (B or D.block(1000)) then
         safe = safe + 1
-        if best_v == nil or worst < best_v then best, best_k, best_v = { x = p.x + L * vx, y = p.y + L * vy }, k, worst end
+        if best_v == nil or worst < best_v then best, best_k, best_v = { x = vx, y = vy }, k, worst end
       end
     end
   end
   return best, { k = best_k, danger = best_v, safe = safe }
+end
+
+function Re.away_pick(map, tick, p, ep, range, B, mob)
+  local v, info = Re.away_dir(map, tick, p, ep, range, B, mob)
+  if not v then return nil, info end
+  local L = Re.away_distance(range)
+  return { x = p.x + L * v.x, y = p.y + L * v.y }, info
+end
+
+--- Mémo d'un PASSAGE de la mise à l'abri (une carte, un tick) : directions par case de 16 tuiles, cases mobiles.
+function Re.away_cache() return { dirs = {}, mob = {} } end
+
+--- « S'éloigner » dans un passage : les PNJ d'une même case de la carte (16 tuiles) prennent la direction calculée pour le premier
+--- d'entre eux (ordre des numéros : déterministe), si elle ne les RAPPROCHE pas de l'ennemi (sinon, calcul propre, non mémorisé) ;
+--- aucune direction sûre pour la case : nil pour tous. Rend le point, ou nil.
+function Re.away_pass(cache, map, tick, p, ep, range, B)
+  local key = D.key(D.cell(p.x), D.cell(p.y))
+  local c = cache.dirs[key]
+  local L = Re.away_distance(range)
+  if c == false then return nil end
+  if c then
+    local ex, ey = ep.x - p.x, ep.y - p.y
+    if ex * c.x + ey * c.y <= 1e-9 * math.sqrt(ex * ex + ey * ey) then return { x = p.x + L * c.x, y = p.y + L * c.y } end
+    local v = Re.away_dir(map, tick, p, ep, range, B, cache.mob)
+    return v and { x = p.x + L * v.x, y = p.y + L * v.y } or nil
+  end
+  local v = Re.away_dir(map, tick, p, ep, range, B, cache.mob)
+  cache.dirs[key] = v or false
+  return v and { x = p.x + L * v.x, y = p.y + L * v.y } or nil
 end
 
 --- L'ennemi (ep) est-il SUR LE CHEMIN de p vers target ? Dans le cône Re.HOME_CONE vers la cible et plus près qu'elle.

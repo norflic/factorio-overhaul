@@ -34,6 +34,131 @@ local function unit_case(over)
   return s
 end
 
+
+-- Lot CORR-RALLIEMENT, seconde relecture (point A, coût) : RÉFÉRENCE de Re.away_pick, recopiée telle quelle du commit 878d3594
+-- (e5bee46b), pour prouver que la version rapide (case mobile lue directement, filtre par direction, mémo) rend les mêmes résultats.
+local D = require("shared.ai3.danger")
+local AWAY_PREF = { 0, 1, 7, 2, 6, 3, 5, 4 }
+local ROT = math.sqrt(0.5)
+local function away_dirs(ux, uy)
+  local v = { [0] = { ux, uy } }
+  for k = 1, 7 do
+    local x, y = v[k - 1][1], v[k - 1][2]
+    v[k] = { (x - y) * ROT, (x + y) * ROT }
+  end
+  return v
+end
+local function ref_away_pick(map, tick, p, ep, range, B)
+  local ex, ey = p.x - ep.x, p.y - ep.y
+  local el = math.sqrt(ex * ex + ey * ey)
+  if el < 1 then ex, ey, el = 1, 0, 1 end
+  local ux, uy = ex / el, ey / el
+  local L = Re.away_distance(range)
+  local dirs = away_dirs(ux, uy)
+  local m0 = D.exact_parts(map, p.x, p.y, tick).mobile
+  -- Menaces fixes et morts PROCHES (au plus L + leur rayon du PNJ), poids décrus calculés une fois.
+  local fx, fy, fr2, fp2, fw = {}, {}, {}, {}, {}
+  for _, t in ipairs(map.threats or {}) do
+    local K = D.KINDS[t.k] or D.KINDS.unit
+    local r = t.r + D.EXACT_MARGIN
+    local dx, dy = t.x - p.x, t.y - p.y
+    local dd = dx * dx + dy * dy
+    if dd <= (L + r) * (L + r) then
+      local i = #fx + 1
+      fx[i], fy[i], fr2[i], fp2[i] = t.x, t.y, r * r, dd
+      fw[i] = math.floor(K.w * (K.fast and D.dec10(tick - t.t) or D.dec2(tick - t.t)) / 1000)
+    end
+  end
+  local mx, my, mp2 = {}, {}, {}
+  local R2 = D.DEATH_R * D.DEATH_R
+  for _, d in ipairs(map.deaths or {}) do
+    if not d.home and tick - d.t < D.HOUR then
+      local dx, dy = d.x - p.x, d.y - p.y
+      local dd = dx * dx + dy * dy
+      if dd <= (L + D.DEATH_R) * (L + D.DEATH_R) then
+        local i = #mx + 1
+        mx[i], my[i], mp2[i] = d.x, d.y, dd
+      end
+    end
+  end
+  local best, best_k, best_v, safe = nil, nil, nil, 0
+  for _, k in ipairs(AWAY_PREF) do
+    local vx, vy = dirs[k][1], dirs[k][2]
+    -- Rapproche de l'ennemi : (ep − p)·v > 0 (au-delà d'une tolérance de calcul).
+    if (-ex) * vx + (-ey) * vy <= 1e-9 * el then
+      local worst, dead = 0, {}
+      local nd = 0
+      local s = Re.AWAY_STEP
+      while true do
+        if s > L then s = L end
+        local qx, qy = p.x + s * vx, p.y + s * vy
+        local v = 0
+        for i = 1, #fx do
+          local dx, dy = fx[i] - qx, fy[i] - qy
+          local dq = dx * dx + dy * dy
+          if dq <= fr2[i] and (fp2[i] > fr2[i] or dq < fp2[i]) then v = v + fw[i] end
+        end
+        local mq = D.exact_parts(map, qx, qy, tick).mobile
+        if mq > m0 then v = v + (mq - m0) end
+        if v > worst then worst = v end
+        for i = 1, #mx do
+          if not dead[i] then
+            local dx, dy = mx[i] - qx, my[i] - qy
+            local dq = dx * dx + dy * dy
+            if dq <= R2 and (mp2[i] > R2 or dq < mp2[i]) then dead[i], nd = true, nd + 1 end
+          end
+        end
+        if s >= L then break end
+        s = s + Re.AWAY_STEP
+      end
+      if nd == 0 and worst < (B or D.block(1000)) then
+        safe = safe + 1
+        if best_v == nil or worst < best_v then best, best_k, best_v = { x = p.x + L * vx, y = p.y + L * vy }, k, worst end
+      end
+    end
+  end
+  return best, { k = best_k, danger = best_v, safe = safe }
+end
+
+-- Cartes tirées au sort (générateur congruentiel, déterministe) autour d'un PNJ près de (0, 0), ennemi à l'est.
+local function random_maps(n, seed0, nthreats, ndeaths)
+  local seed = seed0
+  local function rnd() seed = (seed * 1103515245 + 12345) % 2147483648 return seed / 2147483648 end
+  local kinds = { "worm", "pack", "spawner", "turret" }
+  local out = {}
+  for c = 1, n do
+    local tick = 100000
+    local m = D.new()
+    for i = 1, nthreats do
+      m.threats[i] = { x = (rnd() - 0.5) * 200, y = (rnd() - 0.5) * 200, k = kinds[i % 4 + 1], r = 8 + rnd() * 40,
+        t = tick - math.floor(rnd() * 20000) }
+    end
+    for i = 1, ndeaths do
+      m.deaths[i] = { x = (rnd() - 0.5) * 160, y = (rnd() - 0.5) * 160, t = tick - math.floor(rnd() * 4000), home = rnd() < 0.2 or nil }
+    end
+    for _ = 1, 40 do
+      local k = D.key(math.floor((rnd() - 0.5) * 12), math.floor((rnd() - 0.5) * 12))
+      m.cells[k] = { m = math.floor(rnd() * 900), t = tick - math.floor(rnd() * 20000) } -- jusqu'à 5,5 min : décroissance
+    end
+    local pp = { x = (rnd() - 0.5) * 10, y = (rnd() - 0.5) * 10 }
+    local ep = { x = pp.x + 10 + rnd() * 30, y = pp.y + (rnd() - 0.5) * 40 }
+    out[c] = { map = m, tick = tick, p = pp, ep = ep, range = 10 + rnd() * 30, B = 400 + math.floor(rnd() * 350) }
+  end
+  return out
+end
+local function same_pick(cases)
+  local bad = 0
+  for _, c in ipairs(cases) do
+    local q1, i1 = ref_away_pick(c.map, c.tick, c.p, c.ep, c.range, c.B)
+    local q2, i2 = Re.away_pick(c.map, c.tick, c.p, c.ep, c.range, c.B)
+    local same = (q1 == nil) == (q2 == nil) and i1.k == i2.k and i1.danger == i2.danger and i1.safe == i2.safe
+      and (q1 == nil or (q1.x == q2.x and q1.y == q2.y))
+    if not same then bad = bad + 1 end
+  end
+  return bad
+end
+local SMALL_CASES = random_maps(40, 777, 12, 8)
+
 local function suite()
   section("back, back, puis flee avec refuge")
   local a1, w1 = Re.decide(unit_case({ backs = 0 }))
@@ -323,6 +448,41 @@ local function suite()
     "une autre meute (mobile %d) à l'ouest : pas la ligne droite (direction %s)", mw, tostring(info.k)))
   q, info = pick(function(m) Dg.mark_seen(m, -40, 0, "unit", 6, T0) end)
   check(info.k ~= 0 and info.danger == 0, "une seule unité (150, sous le seuil) à l'ouest : la direction la MOINS dangereuse (0)")
+  -- Seconde relecture, point A (coût) : mêmes résultats que la référence 878d3594 (40 cartes ici ; 400 hors des mutants, plus bas).
+  local bad = same_pick(SMALL_CASES)
+  check(bad == 0, string.format("version rapide = référence 878d3594 sur 40 cartes tirées au sort (%d écart(s))", bad))
+  local mc = Dg.new()
+  for _ = 1, 3 do Dg.mark_seen(mc, -40, 0, "unit", 6, T0 - 7200) end -- 2 min : décrues
+  local okm = true
+  for _, pt in ipairs({ { -40, 0 }, { -25, 7 }, { 3, 3 }, { -55, -12 } }) do
+    if Re.mobile_at(mc, T0, {}, pt[1], pt[2]) ~= Dg.exact_parts(mc, pt[1], pt[2], T0).mobile then okm = false end
+  end
+  check(okm, "case mobile lue directement = D.exact_parts(...).mobile (même décroissance)")
+  -- Mémo d'un passage (Re.away_pass) : les PNJ d'une même case de 16 tuiles prennent la direction du premier.
+  local calls = 0
+  local ad = Re.away_dir
+  Re.away_dir = function(...) calls = calls + 1 return ad(...) end
+  local cache = Re.away_cache()
+  local m1 = Dg.new()
+  local qa = Re.away_pass(cache, m1, T0, { x = 1, y = 1 }, E0, 30, B0)
+  local qb = Re.away_pass(cache, m1, T0, { x = 3, y = 5 }, E0, 30, B0)
+  local qc = Re.away_pass(cache, m1, T0, { x = 20, y = 5 }, E0, 30, B0)
+  Re.away_dir = ad
+  check(calls == 2 and qa and qb and qc and math.abs((qb.x - 3) - (qa.x - 1)) < 1e-9 and math.abs((qb.y - 5) - (qa.y - 1)) < 1e-9,
+    string.format("même case : direction du premier reprise sans calcul ; autre case : calculée (%d calculs)", calls))
+  local m2 = Dg.new()
+  for _, w in ipairs({ { -40, 0 }, { -28, -28 }, { -28, 28 }, { 0, -40 }, { 0, 40 } }) do Dg.mark_seen(m2, w[1], w[2], "worm", 30, T0) end
+  calls = 0
+  Re.away_dir = function(...) calls = calls + 1 return ad(...) end
+  local c2 = Re.away_cache()
+  local none = true
+  for i = 1, 5 do if Re.away_pass(c2, m2, T0, { x = 1 + i, y = 2 }, E0, 30, B0) then none = false end end
+  Re.away_dir = ad
+  check(none and calls == 1, string.format("aucune direction sûre pour la case : nil pour ses 5 PNJ, un seul calcul (%d)", calls))
+  local c3 = Re.away_cache()
+  c3.dirs[Dg.key(0, 0)] = { x = 1, y = 0 } -- direction mémorisée qui mène sur l'ennemi (est) pour ce PNJ
+  local q3 = Re.away_pass(c3, Dg.new(), T0, P0, E0, 30, B0)
+  check(q3 ~= nil and q3.x < 0, "direction mémorisée qui RAPPROCHE ce PNJ de l'ennemi : refusée, calcul propre (ouest)")
   check(Re.on_the_way({ x = 0, y = 0 }, { x = 100, y = 0 }, { x = 30, y = 5 }) == true, "ennemi sur le chemin")
   check(Re.on_the_way({ x = 0, y = 0 }, { x = 100, y = 0 }, { x = 30, y = 60 }) == false, "ennemi sur le côté")
   check(Re.on_the_way({ x = 0, y = 0 }, { x = 100, y = 0 }, { x = 130, y = 0 }) == false, "ennemi au-delà de la cible")
@@ -333,6 +493,10 @@ suite()
 ---------------------------------------------------------------------------------------------------
 -- MUTANTS : chaque règle retirée doit faire échouer au moins un contrôle.
 ---------------------------------------------------------------------------------------------------
+do
+  local bad = same_pick(random_maps(400, 4242, 48, 32))
+  check(bad == 0, string.format("version rapide = référence 878d3594 sur 400 cartes pleines (48 menaces, 32 morts) (%d écart(s))", bad))
+end
 local base_fail = failures
 print(string.format("[FUITE] suite de base : %d OK, %d ECHEC(S)", passes, failures))
 
@@ -510,7 +674,35 @@ src_mutant("s'éloigner : morts de plus d'une heure comptées", "if not d.home a
 src_mutant("s'éloigner : morts au QG comptées", "if not d.home and tick - d.t < D.HOUR then", "if tick - d.t < D.HOUR then")
 src_mutant("s'éloigner : directions vers l'ennemi permises", "if (-ex) * vx + (-ey) * vy <= 1e-9 * el then", "if true then")
 src_mutant("s'éloigner : aucune sûre, ligne droite quand même", "return best, { k = best_k",
-  "return best or Re.away_from(p, ep, range), { k = best_k")
+  "return best or { x = ux, y = uy }, { k = best_k")
+src_mutant("s'éloigner : filtre par direction, menaces écartées", "if seg2(fx[i], fy[i], vx, vy) <= fr2[i] then", "if false then")
+src_mutant("s'éloigner : filtre par direction, morts écartées", "if seg2(mx[i], my[i], vx, vy) <= R2 then", "if false then")
+src_mutant("s'éloigner : filtre par direction, segment coupé à mi-chemin", "if s < 0 then s = 0 elseif s > L then s = L end",
+  "if s < 0 then s = 0 elseif s > L / 2 then s = L / 2 end")
+src_mutant("s'éloigner : case mobile sans décroissance", "m = c and math.floor(c.m * D.dec10(tick - c.t) / 1000) or 0",
+  "m = c and c.m or 0")
+mutant("passage : direction mémorisée reprise même si elle rapproche de l'ennemi", function()
+  patch(Re, "away_pass", function(cache, map, tick, p, ep, range, B)
+    local key = D.key(D.cell(p.x), D.cell(p.y))
+    local c = cache.dirs[key]
+    local L = Re.away_distance(range)
+    if c == false then return nil end
+    if c then return { x = p.x + L * c.x, y = p.y + L * c.y } end
+    local v = Re.away_dir(map, tick, p, ep, range, B, cache.mob)
+    cache.dirs[key] = v or false
+    return v and { x = p.x + L * v.x, y = p.y + L * v.y } or nil
+  end)
+end)
+mutant("passage : échec non mémorisé", function()
+  local ap = Re.away_pass
+  patch(Re, "away_pass", function(cache, ...)
+    local q = ap(cache, ...)
+    local ks = {}
+    for k, v in pairs(cache.dirs) do if v == false then ks[#ks + 1] = k end end
+    for _, k in ipairs(ks) do cache.dirs[k] = nil end
+    return q
+  end)
+end)
 src_mutant("s'éloigner : préférence ignorée (la dernière sûre)", "if best_v == nil or worst < best_v then",
   "if best_v == nil or worst <= best_v then")
 src_mutant("s'éloigner : bout du trajet seul jugé", "local s = Re.AWAY_STEP", "local s = L")
