@@ -1063,7 +1063,8 @@ function M.gate_report(f, tick)
       (f.stats and f.stats.recall_armed_kept) or 0, table.concat(wparts, ", "), da.rest_n or 0,
       (da.rest_max or 0) / 60, da.rest_over or 0, over_now, worst_now / 60)
       .. string.format(" ; departs par le danger ajoute (menace qui couvrait deja le PNJ, ou defense de la base) %d (dont defense de la base %d), tues en route %d",
-        da.rel_go or 0, da.rel_def or 0, da.rel_dead or 0))
+        da.rel_go or 0, da.rel_def or 0, da.rel_dead or 0)
+      .. string.format(" ; alertes lointaines (> 226 tuiles) : groupes envoyes %d, refusees (reserve du QG) %d", da.site_far_sent or 0, da.site_far_refused or 0))
   end
   if #keys == 0 then return end
   local total, d_total, parts = 0, 0, {}

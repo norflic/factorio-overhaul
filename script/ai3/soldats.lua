@@ -400,6 +400,11 @@ local function pass(f, tick)
   -- Lot ARMEE-ANTICIPATION : pendant une alerte (vague annoncée, f.armee), une alerte de défense prend TOUTE la force libre si
   -- elle est près du QG (à moins de Sd.NEAR_HQ), personne sinon : plus d'envoi de 4 soldats isolés loin du regroupement.
   local army_on = A.alert_on(f.armee)
+  -- Lot DANGER-ACTIF (relecture du lead, 5/11 17 h 34) : une alerte LOINTAINE (site touché à plus de 226 tuiles : seules les alertes « site » vont au-delà)
+  -- ne prend qu'un groupe entier pris au-dessus de la réserve du QG (Da.site_far_send) ; le QG menacé et les alertes proches passent d'abord.
+  local far2 = Sd.NEAR_HQ * Sd.NEAR_HQ * 2
+  local left = hq_en and 0 or Sd.surplus(#list)
+  local far_alerts = {}
   for _, a in ipairs(t.alerts or {}) do
     if tick < a["until"] then
       alerts[#alerts + 1] = a
@@ -409,7 +414,25 @@ local function pass(f, tick)
       if army_on and not a.role then
         if d2(a, f.hq_pos) <= Sd.NEAR_HQ * Sd.NEAR_HQ then n = nil else n = 0 end
       end
-      if n ~= 0 then defend[#defend + 1] = { key = "alerte", x = a.x, y = a.y, n = n, role = a.role } end
+      if n ~= 0 and not a.role and d2(a, f.hq_pos) > far2 then
+        far_alerts[#far_alerts + 1] = a
+      elseif n ~= 0 then
+        defend[#defend + 1] = { key = "alerte", x = a.x, y = a.y, n = n, role = a.role }
+        left = (n == nil) and 0 or math.max(0, left - n)
+      end
+    end
+  end
+  for _, a in ipairs(far_alerts) do
+    local n
+    n, left = Da.site_far_send(left)
+    if n > 0 then defend[#defend + 1] = { key = "alerte", x = a.x, y = a.y, n = n } end
+    -- Compté une fois par alerte (envoi, ou refus faute de soldats au-dessus de la réserve du QG) ; lu par le bilan [FO-DANGER-ACTIF].
+    local st = n > 0 and "sent" or "refused"
+    if a.far ~= st then
+      a.far = st
+      t.stats.dact = t.stats.dact or {}
+      local da = t.stats.dact
+      if n > 0 then da.site_far_sent = (da.site_far_sent or 0) + 1 else da.site_far_refused = (da.site_far_refused or 0) + 1 end
     end
   end
   t.alerts = alerts

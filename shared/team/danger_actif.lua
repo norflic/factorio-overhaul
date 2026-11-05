@@ -99,6 +99,18 @@ function Da.mobile_cause(ctype)
   return ctype == "unit" or ctype == "character"
 end
 
+--- Alerte LOINTAINE d'un site touché (au-delà de la limite des alertes de fuite, Sd.NEAR_HQ × √2 = 226 tuiles du QG) : relecture du lead (5/11,
+--- 17 h 34, risque relevé par le lot DEPENSES2 ; F251 : les PNJ meurent surtout en route vers les avant-postes lointains, F253 : ce qu'ils portent est
+--- perdu). Les soldats n'y vont que par groupe ENTIER de Da.SITE_GROUP (le groupe d'une alerte, C.on_alert) pris sur ce qui DÉPASSE la réserve du QG
+--- (`left` = soldats libres moins Sd.reserve, moins ce que le QG menacé et les alertes proches ont déjà pris) ; sinon aucun (le QG n'est jamais vidé sous
+--- sa réserve, aucun envoi de soldats isolés au loin). Rend les soldats envoyés et ce qui reste disponible pour les alertes suivantes.
+Da.SITE_GROUP = 4
+function Da.site_far_send(left)
+  left = left or 0
+  if left >= Da.SITE_GROUP then return Da.SITE_GROUP, left - Da.SITE_GROUP end
+  return 0, left
+end
+
 --- Faut-il prévenir les soldats de cette atteinte portée à un bâtiment de l'équipe ? Au plus une alerte par équipe tous les Da.ALERT_GAP ticks.
 Da.ALERT_GAP = 60
 function Da.alert_due(last, tick)

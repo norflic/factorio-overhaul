@@ -74,6 +74,19 @@ local function cases(Da, A)
   check(Da.shelter_resp("rally", { x = 40, y = 0 }, { x = 0, y = 0 }) == "rally" and Da.shelter_resp("rally", { x = 41, y = 0 }, { x = 0, y = 0 }) == "stand",
     "ralliement général seulement pour une menace à 40 tuiles du QG au plus")
   check(Da.shelter_resp("away", { x = 90, y = 0 }, { x = 0, y = 0 }) == "away" and Da.shelter_resp("stand", { x = 90, y = 0 }, { x = 0, y = 0 }) == "stand", "éloignement et « stand » inchangés")
+  -- 6. Alertes LOINTAINES d'un site touché (relecture du lead, 5/11 17 h 34 ; F251, F253) : un groupe entier au-dessus de la réserve du QG, sinon rien.
+  local Sd = require("shared.ai3.soldats")
+  local n1, l1 = Da.site_far_send(8)
+  check(n1 == 4 and l1 == 4, "alerte lointaine, 8 soldats au-dessus de la réserve : un groupe de 4 part, 4 restent")
+  local n2, l2 = Da.site_far_send(l1)
+  local n3, l3 = Da.site_far_send(l2)
+  check(n2 == 4 and l2 == 0 and n3 == 0 and l3 == 0, "deux groupes au plus avec 8 de surplus ; la 3e alerte lointaine n'envoie personne")
+  local n4, l4 = Da.site_far_send(3)
+  check(n4 == 0 and l4 == 3, "3 soldats au-dessus de la réserve : aucun envoi (jamais de soldats isolés au loin)")
+  check(Da.site_far_send(nil) == 0 and Da.site_far_send(0) == 0, "aucun surplus : aucun envoi")
+  check(Sd.surplus(10) == 2 and Da.site_far_send(Sd.surplus(10)) == 0 and Da.site_far_send(Sd.surplus(12)) == 4,
+    "réserve du QG (Sd.reserve : 8 au moins) : 10 soldats libres, aucun départ au loin ; 12, un groupe")
+  check(Da.SITE_GROUP == 4, "groupe d'une alerte de site : 4 (C.on_alert)")
   local ags = { [1] = { rest_since = 100 }, [2] = {}, [3] = { rest_since = 9000 } }
   local n, worst = Da.rest_open_over(ags, { 1, 2, 3 }, 9100)
   check(n == 1 and worst == 9000, "repos encore ouverts au-delà de 30 s : 1 sur 3 (" .. n .. ", " .. worst .. ")")
@@ -104,7 +117,10 @@ local SDS = read("script/ai3/soldats.lua")
 check(SDS:find("Rep.on_attack = function(f, pos, tick)", 1, true) ~= nil and SDS:find('C.on_alert(f, pos, "unit", tick, "site")', 1, true) ~= nil,
   "le crochet alerte les soldats par C.on_alert (existant)")
 check(RPS:find("Da.mobile_cause(cause.type)", 1, true) ~= nil and RPS:find("State.owner(u)", 1, true) ~= nil, "bâtiment touché : cause mobile seulement ; votre équipe : bâtiment enregistré seulement")
-check(SDS:find('C.on_alert(f, pos, "unit", tick, "site")', 1, true) ~= nil and SDS:find('mode ~= "site" and d2(ep, f.hq_pos)', 1, true) ~= nil, "alerte « site » : sans limite de distance au QG")
+check(SDS:find('C.on_alert(f, pos, "unit", tick, "site")', 1, true) ~= nil and SDS:find('mode ~= "site" and d2(ep, f.hq_pos)', 1, true) ~= nil, "alerte « site » : enregistrée à toute distance du QG")
+check(SDS:find("local left = hq_en and 0 or Sd.surplus(#list)", 1, true) ~= nil and SDS:find("n, left = Da.site_far_send(left)", 1, true) ~= nil
+  and SDS:find("left = (n == nil) and 0 or math.max(0, left - n)", 1, true) ~= nil,
+  "alerte lointaine (> 226 tuiles) : soldats pris au-dessus de la réserve du QG, après le QG menacé et les alertes proches (relecture du lead 17 h 34)")
 check(SDS:find("Da.exposed(p, threat, reach)", 1, true) ~= nil and SDS:find('{ "wait", SD.SHELTER_TICKS }', 1, true) ~= nil and SDS:find('{ { "goto", to, 3 }, { "home" } }', 1, true) ~= nil,
   "shelter : seuls les exposés lâchent leur tâche ; l'attente fixe n'est plus dans les étapes (seulement citée en commentaire)")
 local WK = read("script/team/worker.lua")
@@ -134,6 +150,10 @@ local mutants = {
   { "repos rouvert à chaque refus", "if not a.rest_since then a.rest_since = tick end", "a.rest_since = tick" },
   { "30 s compté trop tôt", "if d > Da.REST_MAX then st.rest_over", "if d >= Da.REST_MAX then st.rest_over" },
   { "plus long non retenu", "if d > (st.rest_max or 0) then st.rest_max = d end", "" },
+  { "alerte lointaine : groupe partiel", "if left >= Da.SITE_GROUP then return Da.SITE_GROUP, left - Da.SITE_GROUP end",
+    "if left > 0 then local k = math.min(left, Da.SITE_GROUP) return k, left - k end" },
+  { "alerte lointaine : surplus non décompté", "return Da.SITE_GROUP, left - Da.SITE_GROUP end", "return Da.SITE_GROUP, left end" },
+  { "alerte lointaine : toujours un groupe", "if left >= Da.SITE_GROUP then", "if true then" },
 }
 local refused = 0
 for _, mu in ipairs(mutants) do
