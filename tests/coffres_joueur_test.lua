@@ -276,6 +276,24 @@ do
   check(Stock.count(f, "iron-plate") == 200, "relu aussitôt par le stock (150 déposés + 50 de la fonderie)")
 end
 
+-- Un seul registre (accord avec STOCKAGE) : un coffre du joueur inscrit comme ANNEXE (Stock.scan, adoption) sort AUSSITÔT de la liste
+-- des coffres du joueur : jamais compté deux fois, même avant la minute de rafraîchissement.
+do
+  game.tick = 0
+  local s = new_surface()
+  local f = team(s, {})
+  local pc = player_chest(s, 12, 4, { ["iron-plate"] = 60 })
+  check(Stock.count(f, "iron-plate") == 60 and #CJs.chests(f) == 1, "coffre du joueur : compté une fois")
+  game.tick = 10
+  f.annex[#f.annex + 1] = pc -- inscrit comme annexe par STOCKAGE
+  check(Stock.count(f, "iron-plate") == 60 and #CJs.chests(f) == 0 and #CJs.depot(f) == 0,
+    "inscrit comme annexe : compté une fois (annexe), sorti de la liste du joueur sans attendre la minute")
+  local finds = s.finds
+  game.tick = 20
+  Stock.count(f, "iron-plate")
+  check(s.finds == finds, "registre inchangé : pas de nouvelle recherche")
+end
+
 -- Parité : une faction n'a pas de joueur ; le même coffre à côté de son QG ne change rien.
 do
   game.tick = 0
