@@ -87,7 +87,8 @@ return function(temoin)
         ctx.check(st.key ~= nil, "faction relevee (" .. tostring(st.key) .. ")")
         if not st.key then return end
         local s = ctx.surface()
-        local hq = s.find_entities_filtered({ name = "fo-faction-hq", position = { r.x, r.y }, radius = 12 })[1]
+        -- (premier passage, 5/11 22 h 05 : les lignes de « fo-ia1 teams » n'ont pas de position ; le QG se trouve par sa FORCE)
+        local hq = r.force and s.find_entities_filtered({ name = "fo-faction-hq", force = r.force, limit = 1 })[1] or nil
         local inv = hq and hq.valid and hq.get_inventory(defines.inventory.chest)
         local removed = {}
         if inv then
