@@ -1,5 +1,6 @@
 -- Étape settings : uniquement des déclarations de paramètres.
--- Tous les paramètres sont "runtime-global" : synchronisés en multijoueur, modifiables sans recharger.
+-- Les paramètres sont "runtime-global" (synchronisés en multijoueur, modifiables sans recharger), sauf les réglages
+-- propres à chaque joueur, en "runtime-per-user" (fo-levels-panneau, lot PANNEAU, 0.6.52).
 
 data:extend({
   {
