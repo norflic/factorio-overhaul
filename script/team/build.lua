@@ -2200,10 +2200,12 @@ end
 --- `zone` (votre équipe ; nil : factions, règle d'avant) : « production » (lot du QG + lots pris), « centrales » (lot du QG + lots des
 --- centrales seuls : 252 murs dans la partie du DC, payable vers 85 min), « qg » (le lot du QG seul : 140 murs, payable vers 45 min) ; choix du
 --- DC à venir (T.enceinte_zone, f.garde_zone pour un banc).
-local function plant_lot(p)
-  return (p.parts ~= nil and p.parts[1] ~= nil and p.parts[1].kind == "centrale") or (p.spec ~= nil and p.spec.gen == "steam")
-end
 local function enc_tight_bounds(f, zone)
+  -- (lot d'une centrale, zone « centrales » ; règle LOCALE à la fonction : le bloc principal de build.lua est à la limite de 200 variables
+  -- locales de Lua 5.2, que la fusion avec corr-etage5 dépassait)
+  local function plant_lot(p)
+    return (p.parts ~= nil and p.parts[1] ~= nil and p.parts[1].kind == "centrale") or (p.spec ~= nil and p.spec.gen == "steam")
+  end
   local core = zone ~= nil
   local b = f.build
   local rects, room = {}, {}
@@ -3364,7 +3366,8 @@ end
 --- Lot PERIMETRE2 (relecture du lead, point 4) : un mur de l'équipe dont la tuile est devenue interdite depuis le plan (rendue au joueur, usine
 --- du joueur à moins de 6 tuiles) est ABANDONNÉ au moment de poser son fantôme (crochet Build.wall_veto de script/team/garde_site.lua ; votre
 --- équipe, murs allumés ; sans crochet ou sans raison : rien). Rend vrai si la pièce est abandonnée.
-local function wall_vetoed(f, surface, p, e)
+--- (Champ de Build, pas une variable locale : le bloc principal de build.lua est à la limite de 200 variables locales de Lua 5.2.)
+function Build.drop_vetoed_wall(f, surface, p, e)
   if not (e.wall and p.spec and p.spec.enceinte and Build.wall_veto) then return false end
   local why = Build.wall_veto(f, surface, e)
   if not why then return false end
@@ -3388,7 +3391,7 @@ local function revive_one(surface, f, p, e, inv, tick, self)
     end
   end
   local gh = find_ghost(surface, e, f.force)
-  if not gh and wall_vetoed(f, surface, p, e) then return true end
+  if not gh and Build.drop_vetoed_wall(f, surface, p, e) then return true end
   if not gh then
     local r = place_ghost(surface, f, e)
     if r == "deja" then e.built = true return true end
@@ -4174,9 +4177,9 @@ local function advance(f, surface, p, tick)
       if not e.built and not e.ghosted then
         if placed >= Build.GHOSTS_PER_PULSE then pending = pending + 1 break end
         if not Tokens.take(f, tick, Build.COST_GHOST) then return end
-        local r = wall_vetoed(f, surface, p, e) and "veto" or place_ghost(surface, f, e) -- (lot PERIMETRE2 : mur interdit depuis le plan)
+        local r = Build.drop_vetoed_wall(f, surface, p, e) and "veto" or place_ghost(surface, f, e) -- (lot PERIMETRE2 : mur interdit depuis le plan)
         if r == "occupe" and move_turrets_off(f, surface, p, e) then r = place_ghost(surface, f, e) end -- lot TOURELLES-HORS-AXE
-        if r == "veto" then -- pièce abandonnée par wall_vetoed
+        if r == "veto" then -- pièce abandonnée par Build.drop_vetoed_wall
         elseif r == "ok" then e.ghosted = true; placed = placed + 1; b.stats.ghosts = b.stats.ghosts + 1
         elseif r == "deja" then e.built = true
         elseif r == "obstacle" then
