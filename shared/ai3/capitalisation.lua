@@ -1824,6 +1824,44 @@ local function free_stock_mu(ctx, req)
   return v
 end
 
+--- PRÉDICAT PARTAGÉ « ce qui débloque un manque » (lots AGEBLOCAGE, étage chantiers, et EFFONDREMENT, CORR-CHAMP-MANQUE ; accord du
+--- lead du 5/11 : un seul prédicat pour les deux verrous de la capitalisation). Matières qui MANQUENT aux ordres ouverts (o.missing,
+--- n > 0) et leurs ingrédients DIRECTS dans les recettes du jeu (D.producers, D.recipes ; sans fluide) : { [objet] = vrai }.
+--- ctx = { open = { { missing = { {objet, n} } } }, D = { producers, recipes } }. Mesurés :
+---   - AGEBLOCAGE (journal lot-guide-271828182 de DEPENSES2, 4 ouvriers) : 4 ordres ouverts bloqués en « matériaux » retenaient tout le
+---     budget de bras de la minute 20 à 59 ; la chaîne des circuits qui les aurait débloqués ne sortait qu'à la minute 60 ;
+---   - EFFONDREMENT (partie du DC 717152950 en 0.6.51, fo-logs/2026-11-05_EFFONDREMENT/RAPPORT.md §2 bis) : 2 modules qui attendaient
+---     du fer tenaient les 2 emplacements du plan directeur de 11 à 31 min ; la foreuse de fer était refusée « plan directeur occupe »
+---     (12 foreuses de fer contre 18 à 28 dans la partie 0.6.50).
+function Ca.blocked_items(ctx)
+  local out = {}
+  local D = ctx and ctx.D
+  for _, o in ipairs((ctx and ctx.open) or {}) do
+    for _, m in ipairs(o.missing or {}) do
+      local it = m[1]
+      if it and (m[2] or 0) > 0 then
+        out[it] = true
+        for _, rn in ipairs((D and D.producers and D.producers[it]) or {}) do
+          local r = D.recipes and D.recipes[rn]
+          for _, i in ipairs((r and r.ingredients) or {}) do
+            if not i.fluid then out[i.name] = true end
+          end
+        end
+      end
+    end
+  end
+  return out
+end
+
+--- Une option (ou un module, un champ) DÉBLOQUE-t-elle un manque ? Vrai si ce qu'elle fait (o.item, o.product) ou la ressource qu'elle
+--- extrait (o.resource) est dans `blocked` (Ca.blocked_items). Aucune condition de genre : chaque règle choisit où elle l'applique
+--- (AGEBLOCAGE : les chaînes, hors du budget de bras ; EFFONDREMENT : les champs, au siège +1 des emplacements).
+function Ca.unblocks(o, blocked)
+  if o == nil or blocked == nil then return false end
+  return (o.item ~= nil and blocked[o.item] == true) or (o.product ~= nil and blocked[o.product] == true)
+    or (o.resource ~= nil and blocked[o.resource] == true)
+end
+
 --- La décision d'un cycle. input = {
 ---   data (Ca.data), state = { techs = { [techno] = vrai }, known = { [ressource] = vrai } (absente : toutes) },
 ---   stock = { [objet] = n }, flows = { [objet] = { made = /min arrivés au QG (toutes sources), hand = /min faits ou minés à

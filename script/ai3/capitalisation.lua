@@ -271,6 +271,11 @@ do
     if m.ore and m.product and not seen[m.product] then seen[m.product] = true PLATE_PRODUCTS[#PLATE_PRODUCTS + 1] = m.product end
   end
 end
+-- Lot CORR-CHAMP-MANQUE : minerai de chaque produit des fonderies (le premier de A.METHODS), pour Em.short.
+local ORE_OF_PRODUCT = {}
+for _, m in ipairs(A.METHODS) do
+  if m.ore and m.product and not ORE_OF_PRODUCT[m.product] then ORE_OF_PRODUCT[m.product] = m.ore end
+end
 -- Lot DEPENSES2 : matières jugées par la règle du stock qui dort : les plaques des fonderies, puis les matières brutes des avant-postes
 -- (« défense seule » : la pierre des murs ; la recherche ne les prend pas).
 local DEP_PRODUCTS = {}
@@ -778,14 +783,22 @@ function Capi.slots(f, cs, stock, tick)
   local hands = Ca.idle_of(g_iag and g_iag.idle_ema or 0)
   local base = Dm.slots(A.MAX_OPEN, f.team.ia3 and f.team.ia3.puits ~= nil, hands, cs.blocked_slots)
   -- lot DEPENSES2 (essai 4) : produits qui dorment -> siège du complément (Em.slots, règle 7)
-  local sl = Em.slots({ base = base, plates = plates, mods = mods, tick = tick, names = PLATE_PRODUCTS, sleeping = Dep.sleeping(f, tick) })
+  -- lot CORR-CHAMP-MANQUE (règle 8) : produits dont la matière manque aux ordres ouverts (prédicat partagé Ca.blocked_items) : le
+  -- champ de leur minerai a le siège du complément, même quand rien ne dort (partie du DC 717152950 en 0.6.51, 11 à 31 min).
+  local free = {}
+  for i, p in ipairs(PLATE_PRODUCTS) do free[p] = plates[i] end
+  local short = Em.short(PLATE_PRODUCTS, ORE_OF_PRODUCT, Ca.blocked_items({ open = cs.open, D = Capi.data() }), free)
+  local sl = Em.slots({ base = base, plates = plates, mods = mods, tick = tick, names = PLATE_PRODUCTS, sleeping = Dep.sleeping(f, tick),
+    short = short })
   if (cs.dm_base or A.MAX_OPEN) ~= base then
     log(string.format("[FO-DEMANDE] %s : EMPLACEMENTS de chantier %s -> %d (base %d + %d : %d bras libres, %d ordre(s) retenu(s) faute de place ; plafond de surete %d) a %.1f min",
       f.key or "?", cs.dm_base and tostring(cs.dm_base) or "-", base, A.MAX_OPEN, base - A.MAX_OPEN, math.floor(hands), cs.blocked_slots or 0, Dm.SLOTS_HARD, minutes(f, tick)))
     cs.dm_base = base
   end
-  local sig = string.format("%d|%d|%d|%s|%s|%d", sl.cap, sl.counted, sl.open, table.concat(sl.keys_stalled, ","), table.concat(sl.keys_piled, ","),
-    sl.comp and sl.room_comp or -1)
+  local comp_list = {} -- lot CORR-CHAMP-MANQUE : le journal suit aussi les produits du siège (stock qui dort, matière qui manque)
+  for _, p in ipairs(PLATE_PRODUCTS) do if sl.comp and sl.comp[p] then comp_list[#comp_list + 1] = p end end
+  local sig = string.format("%d|%d|%d|%s|%s|%d|%s", sl.cap, sl.counted, sl.open, table.concat(sl.keys_stalled, ","), table.concat(sl.keys_piled, ","),
+    sl.comp and sl.room_comp or -1, table.concat(comp_list, ","))
   if cs.slots_sig ~= sig then
     cs.slots_sig = sig
     local pl = {}

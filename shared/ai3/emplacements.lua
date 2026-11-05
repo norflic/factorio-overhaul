@@ -40,6 +40,11 @@
        produits). Em.COMP_SLOTS emplacement de plus, RÉSERVÉ aux modules qui produisent un produit qui ne dort pas (extraction et fonte :
        fonderies à foreuses) : room_comp ; les autres modules gardent room. Jamais plus d'un siège : un module ouvert ainsi est compté
        à la décision suivante.
+    8. Lot CORR-CHAMP-MANQUE (EFFONDREMENT, accord du lead du 5/11) : le MÊME siège pour le produit dont la matière MANQUE aux ordres
+       ouverts (Em.short, sur le prédicat partagé Ca.blocked_items de shared/ai3/capitalisation.lua), même quand rien ne dort. Mesuré
+       (partie du DC 717152950 en 0.6.51) : 2 modules qui attendaient du fer tenaient les 2 emplacements de 11 à 31 min (règle 1), la
+       foreuse de fer était refusée « plan directeur occupe » (12 foreuses de fer contre 18 à 28 en 0.6.50) ; la pile, qui battait
+       (26 changements en 36 min), remettait à zéro l'horloge de la règle 5 ; la règle 7 ne s'ouvrait pas (rien ne dormait).
   Déterminisme : listes parcourues dans l'ordre donné, aucun hasard, aucun temps mesuré ; entrée et sortie : nombres, chaînes,
   tables.
 ]]
@@ -120,13 +125,45 @@ end
 
 --- Lot DEPENSES2 (règle 7) : produits du COMPLÉMENT. names = liste des produits des fonderies, sleeping = { [produit] = true } (ceux
 --- qui dorment). Rend { [produit] = true } des produits qui ne dorment pas quand au moins un dort et au moins un ne dort pas ; nil sinon.
-function Em.complement(names, sleeping)
+--- Lot CORR-CHAMP-MANQUE (règle 8) : short = { [produit] = true } (facultatif) : les produits dont la matière MANQUE aux ordres ouverts
+--- (Ca.blocked_items, prédicat partagé) ; ils ont droit au MÊME siège, même quand rien ne dort (jamais un produit qui dort).
+function Em.complement(names, sleeping, short)
   local comp, any_sleep, any_comp = {}, false, false
   for _, n in ipairs(names or {}) do
     if (sleeping or {})[n] then any_sleep = true else comp[n] = true any_comp = true end
   end
+  -- Règle 8 : sans rien qui dort, le siège ne va qu'aux produits qui manquent ; avec, ils sont déjà dans le complément (un produit
+  -- qui manque ne dort pas).
+  local miss = Em.missing_seat(names, sleeping, short)
+  if miss and not (any_sleep and any_comp) then return miss end
   if any_sleep and any_comp then return comp end
   return nil
+end
+
+--- Règle 8 : produits qui manquent (short) et ne dorment pas ; nil s'il n'y en a aucun.
+function Em.missing_seat(names, sleeping, short)
+  local out = nil
+  for _, n in ipairs(names or {}) do
+    if (short or {})[n] and not (sleeping or {})[n] then
+      out = out or {}
+      out[n] = true
+    end
+  end
+  return out
+end
+
+--- Lot CORR-CHAMP-MANQUE (règle 8) : produits des fonderies dont la matière manque aux ordres ouverts. names = produits des fonderies,
+--- ores = { [produit] = minerai }, blocked = { [objet] = vrai } (Ca.blocked_items : matières manquantes des ordres ouverts et leurs
+--- ingrédients directs), free = { [produit] = stock libre }. Un produit RICHE (Em.PER_SLOT plaques libres ou plus) ne manque pas : son
+--- module attend autre chose (un circuit, un assembleur), pas lui. Rend { [produit] = true } (éventuellement vide).
+function Em.short(names, ores, blocked, free)
+  local out = {}
+  blocked = blocked or {}
+  for _, n in ipairs(names or {}) do
+    local ore = (ores or {})[n]
+    if (blocked[n] or (ore ~= nil and blocked[ore])) and ((free or {})[n] or 0) < Em.PER_SLOT then out[n] = true end
+  end
+  return out
 end
 
 --- Le siège du complément est-il ouvert à un module qui produit `product` ? (sl : rendu d'Em.slots)
@@ -159,8 +196,8 @@ end
 
 --- s = { base (A.MAX_OPEN), plates (liste des stocks libres des produits des fonderies), mods (liste de { states, progress_tick,
 --- opened, work_tick, key }), tick, names (produits des fonderies, dans l'ordre de plates), sleeping ({ [produit] = true } : ceux qui
---- dorment, lot DEPENSES2) }. Rend { cap, counted, stalled, free_stalled, materials, open, room, busy, keys_stalled, why, comp,
---- room_comp }.
+--- dorment, lot DEPENSES2), short ({ [produit] = true } : leur matière manque aux ordres ouverts, Em.short, lot CORR-CHAMP-MANQUE) }.
+--- Rend { cap, counted, stalled, free_stalled, materials, open, room, busy, keys_stalled, why, comp, room_comp }.
 function Em.slots(s)
   local base = math.max(0, math.floor((s and s.base) or 0))
   local extra = Em.extra(s and s.plates)
@@ -196,14 +233,27 @@ function Em.slots(s)
   local why = string.format("%d module(s) ouvert(s), %d compte(s) sur %d emplacement(s) (%d + %d par le stock), %d fige(s) hors du compte, %d en attente de matiere",
     #mods, counted, cap, base, extra, free_stalled, materials)
   if free_piled > 0 then why = why .. string.format(", %d suspendu(s) par la pile hors du compte", free_piled) end
-  -- Règle 7 (lot DEPENSES2) : le siège du complément du stock qui dort
-  local comp = Em.complement(s and s.names, s and s.sleeping)
+  -- Règle 7 (lot DEPENSES2) : le siège du complément du stock qui dort ; règle 8 (CORR-CHAMP-MANQUE) : le même siège pour les
+  -- produits dont la matière manque aux ordres ouverts (s.short)
+  local comp = Em.complement(s and s.names, s and s.sleeping, s and s.short)
   local room_comp = room
   if comp then
     room_comp = math.max(0, cap + Em.COMP_SLOTS - counted)
-    local cn = {}
-    for _, n in ipairs(s.names) do if comp[n] then cn[#cn + 1] = n end end
-    why = why .. string.format(", +%d pour le complement du stock qui dort (%s)", Em.COMP_SLOTS, table.concat(cn, " "))
+    local cn, cm = {}, {}
+    local short = (s and s.short) or {}
+    local sleep_comp = Em.complement(s.names, s.sleeping)
+    for _, n in ipairs(s.names) do
+      if comp[n] then
+        if sleep_comp and sleep_comp[n] then cn[#cn + 1] = n end
+        if short[n] then cm[#cm + 1] = n end
+      end
+    end
+    if #cn > 0 then why = why .. string.format(", +%d pour le complement du stock qui dort (%s)", Em.COMP_SLOTS, table.concat(cn, " ")) end
+    if #cm > 0 and #cn > 0 then
+      why = why .. string.format(" ; meme siege pour la matiere qui manque aux ordres ouverts (%s)", table.concat(cm, " "))
+    elseif #cm > 0 then
+      why = why .. string.format(", +%d pour la matiere qui manque aux ordres ouverts (%s)", Em.COMP_SLOTS, table.concat(cm, " "))
+    end
   end
   return { cap = cap, base = base, extra = extra, counted = counted, stalled = stalled, free_stalled = free_stalled,
     piled = piled, free_piled = free_piled, keys_piled = keys_piled,
