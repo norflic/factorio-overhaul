@@ -381,6 +381,23 @@ function Re.outranges(enemies, turrets)
   return n > 0
 end
 
+--- Seconde relecture (point B) : une tourelle MARCHE-t-elle ? s = { type, ammo (munitions présentes), energy (réserve, J), shot (énergie
+--- d'un tir, J : attack_parameters.ammo_type.energy_consumption ; nil si inconnue), off (statut no_power, low_power ou
+--- not_plugged_in_electric_network), fluid (quantité de fluide) }. Laser : statut alimenté ET réserve d'au moins un tir (une réserve
+--- non nulle mais sous le coût d'un tir ne tire pas : « energy > 0 » la comptait en marche). Lance-flammes : du fluide. Autres : oui.
+function Re.turret_ready(s)
+  local ty = s.type
+  if ty == "ammo-turret" then return s.ammo == true end
+  if ty == "electric-turret" then
+    if s.off then return false end
+    local e = s.energy or 0
+    if type(s.shot) == "number" and s.shot > 0 then return e >= s.shot end
+    return e > 0
+  end
+  if ty == "fluid-turret" then return (s.fluid or 0) > 0 end
+  return true
+end
+
 --- Relecture (revue-danger, 18 h 12, point 4) : une tourelle (position x, y et profil) COUVRE le point pt si elle y frappe ce qui s'y
 --- tient (demi-boîte (px, py), 0 par défaut) : sa portée de centre à centre ; en boîte à boîte, plus la plus petite somme des
 --- demi-boîtes (l'axe, le moins favorable). Portée inconnue : ne couvre rien.

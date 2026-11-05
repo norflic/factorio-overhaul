@@ -537,6 +537,21 @@ do
   local dk = wave0("fo-test-biter", true)
   check(dk.hq_rally > 0 and dk.hq_rally_bare == 0, string.format(
     "regarnies : ralliement de nouveau (rally %d, sans tourelle %d)", dk.hq_rally, dk.hq_rally_bare))
+  -- Seconde relecture, point B : lecture de l'entité par turret_works (entités FACTICES : le moteur simulé n'a ni laser ni
+  -- lance-flammes) ; règle pure : Re.turret_ready (ia3k_reaction_test).
+  do
+    local Cw = require("script.ai3.comportement")
+    local S = defines.entity_status
+    local function laser(energy, status) return { type = "electric-turret", name = "fo-test-laser", energy = energy, status = status,
+      prototype = { attack_parameters = { ammo_type = { energy_consumption = 800000 } } } } end
+    check(Cw.turret_works(laser(900000, S.working)) == true and Cw.turret_works(laser(500000, S.working)) == false,
+      "laser : réserve d'un tir lue au prototype (0,8 MJ) : 0,9 oui, 0,5 non")
+    check(Cw.turret_works(laser(900000, S.low_power)) == false and Cw.turret_works(laser(900000, S.no_power)) == false
+      and Cw.turret_works(laser(900000, S.not_plugged_in_electric_network)) == false, "laser : statut sans courant ou faible : non")
+    check(Cw.turret_works({ type = "fluid-turret", name = "fo-test-flamme", fluidbox = { { name = "light-oil", amount = 30 } } }) == true
+      and Cw.turret_works({ type = "fluid-turret", name = "fo-test-flamme", fluidbox = {} }) == false,
+      "lance-flammes : fluide lu dans la boîte à fluide")
+  end
   -- Point 5 de la relecture : la branche PAR PNJ (M.sense, près du QG : t.stats.outranged, qg_pnj_<réponse>), sur 200 ticks
   -- (chaque PNJ au repos regarde au moins une fois). Mutant « outranged forcé à faux dans M.sense » : section suivante.
   M.run_ticks(2400) -- les PNJ partis aux vagues d'avant rentrent

@@ -401,6 +401,19 @@ local function suite()
   check(Re.rally_judge({}, { put(gunt, 10, true) }, R0) == "couvert", "portée ennemie inconnue, tourelle qui marche : couvert (règle d'avant)")
   check(Re.rally_judge({ gunner }, { put(gunt, 10, true) }, nil) == "sans-tourelle", "pas de point de ralliement : sans tourelle")
   check(Re.rally_judge({ rifle }, { put(gunt, 10, nil) }, R0) == "couvert", "état inconnu (ok absent) : comptée")
+  -- Seconde relecture, point B : une tourelle « en marche » (Re.turret_ready).
+  check(Re.turret_ready({ type = "ammo-turret", ammo = true }) == true and Re.turret_ready({ type = "ammo-turret", ammo = false }) == false,
+    "mitrailleuse : garnie oui, vide non")
+  check(Re.turret_ready({ type = "electric-turret", energy = 900000, shot = 800000 }) == true, "laser : réserve d'un tir (0,9 MJ pour 0,8) : oui")
+  check(Re.turret_ready({ type = "electric-turret", energy = 500000, shot = 800000 }) == false,
+    "laser : réserve sous le coût d'un tir (0,5 MJ pour 0,8) : non (energy > 0 disait oui)")
+  check(Re.turret_ready({ type = "electric-turret", energy = 900000, shot = 800000, off = true }) == false,
+    "laser : statut sans courant ou courant faible, réserve pleine : non")
+  check(Re.turret_ready({ type = "electric-turret", energy = 1 }) == true and Re.turret_ready({ type = "electric-turret", energy = 0 }) == false,
+    "laser, coût d'un tir inconnu : réserve non nulle")
+  check(Re.turret_ready({ type = "fluid-turret", fluid = 40 }) == true and Re.turret_ready({ type = "fluid-turret", fluid = 0 }) == false
+    and Re.turret_ready({ type = "fluid-turret" }) == false, "lance-flammes : avec fluide oui, sans non")
+  check(Re.turret_ready({ type = "artillery-turret" }) == true, "autre type : oui")
   -- Point 3 de la relecture : « s'éloigner » sur 8 directions jugées par la carte du danger (Re.away_pick). PNJ en (0, 0),
   -- ennemi à l'est (20, 0), vue 30 : 62 tuiles ; B = 600 (prudence neutre). Directions : k × 45° depuis l'ouest (0 : ouest,
   -- 1 : nord-ouest, 7 : sud-ouest, 2 : nord, 6 : sud).
@@ -644,6 +657,23 @@ mutant("refuge : marge oubliée", function()
   local m = Re.MARGIN
   local r = Re.refuge_ok
   patch(Re, "refuge_ok", function(...) Re.MARGIN = 0 local v = r(...) Re.MARGIN = m return v end)
+end)
+-- Seconde relecture, point B : tourelle en marche
+mutant("laser : réserve non nulle suffit (règle d'avant)", function()
+  local tr = Re.turret_ready
+  patch(Re, "turret_ready", function(s) if s.type == "electric-turret" then return (s.energy or 0) > 0 end return tr(s) end)
+end)
+mutant("laser : statut ignoré", function()
+  local tr = Re.turret_ready
+  patch(Re, "turret_ready", function(s) local c = {} for k, v in pairs(s) do c[k] = v end c.off = nil return tr(c) end)
+end)
+mutant("lance-flammes : toujours en marche", function()
+  local tr = Re.turret_ready
+  patch(Re, "turret_ready", function(s) if s.type == "fluid-turret" then return true end return tr(s) end)
+end)
+mutant("mitrailleuse vide en marche", function()
+  local tr = Re.turret_ready
+  patch(Re, "turret_ready", function(s) if s.type == "ammo-turret" then return true end return tr(s) end)
 end)
 -- Point 3 : « s'éloigner » sur 8 directions. Mutants SUR LA SOURCE (variables locales de Re.away_pick) : shared/ai3/reaction.lua
 -- relu, un motif remplacé (unique, sinon le banc s'arrête), le module recompilé ; seul away_pick est pris du mutant.
