@@ -394,6 +394,28 @@ do
   local total = 0
   for i = nlogs + 1, #logs do if logs[i]:find("BORNE") then total = total + 1 end end
   check(said == 1 and total == 1, "journal [FO-STOCKAGE] BORNE écrit une seule fois (" .. total .. ")")
+  -- (e) à la borne, l'attente grossit : ALERTE au journal au-delà de 1 000 objets, une fois par dépassement, réarmée sous le seuil.
+  local function alerts(from)
+    local a = 0
+    for i = from + 1, #logs do if logs[i]:find("FO%-STOCKAGE") and logs[i]:find("ALERTE") then a = a + 1 end end
+    return a
+  end
+  local n0 = #logs
+  Stock.insert(b, "stone", 1500)
+  b.stock_watch.retry = nil
+  Stock.grow(b, surf_new, 400 + 2 * T.annex.retry)
+  b.stock_watch.retry = nil
+  Stock.grow(b, surf_new, 400 + 3 * T.annex.retry)
+  check(Stock.pending(b) == 1500 and alerts(n0) == 1, "1 500 objets en attente : une ALERTE [FO-STOCKAGE], pas deux (" .. alerts(n0) .. ")")
+  b.stock_pending = { stone = 10 }
+  b.stock_watch.retry = nil
+  Stock.grow(b, surf_new, 400 + 4 * T.annex.retry)
+  check(b.pending_alert == nil, "repassée sous le seuil : l'alerte est réarmée")
+  local n1 = #logs
+  Stock.insert(b, "stone", 1200)
+  b.stock_watch.retry = nil
+  Stock.grow(b, surf_new, 400 + 5 * T.annex.retry)
+  check(alerts(n1) == 1, "nouveau dépassement : nouvelle alerte")
   game.tick = nil
 end
 

@@ -117,6 +117,9 @@ function Stock.flush(f)
   return left
 end
 
+--- Seuil d'alerte du journal [FO-STOCKAGE] pour les objets en attente (demande du lead, 5/11).
+Stock.PENDING_ALERT = 1000
+
 --- Objets en attente (0 sans attente).
 function Stock.pending(f)
   local n = 0
@@ -441,6 +444,15 @@ function Stock.grow(f, surface, tick)
       log(string.format("[FO-STOCKAGE] %s : %d objet(s) en attente d'une place au stock (refuses, ni perdus ni au sol), %d annexe(s), " ..
         "anneaux %d/%d, a %.1f min", f.key or "player", waiting, n, rings(f), Sg.MAX_RINGS, (tick - (f.started or 0)) / 3600))
     end
+  end
+  -- Demande du lead (5/11) : l'attente est hors de la lecture du stock ; à la borne des anneaux elle grossit sans se voir : une ALERTE au
+  -- journal quand elle dépasse Stock.PENDING_ALERT objets (une fois par dépassement ; réarmée quand elle repasse dessous).
+  if waiting > Stock.PENDING_ALERT and not f.pending_alert then
+    f.pending_alert = tick
+    log(string.format("[FO-STOCKAGE] %s : ALERTE : %d objet(s) en attente (plus de %d), invisibles du stock ; %d annexe(s), anneaux %d/%d, a %.1f min",
+      f.key or "player", waiting, Stock.PENDING_ALERT, n, rings(f), Sg.MAX_RINGS, (tick - (f.started or 0)) / 3600))
+  elseif waiting <= Stock.PENDING_ALERT then
+    f.pending_alert = nil
   end
   local early = A.early_due(st, tick, f.refused_at)
   side(f) -- la face du bloc se fixe à la première pensée où la position du QG est connue (comme avant)
