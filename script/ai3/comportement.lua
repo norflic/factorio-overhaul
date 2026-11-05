@@ -470,16 +470,18 @@ local function threat_max(map, p, pts, goal, tick)
   return mx
 end
 
---- Lot DANGER-ACTIF : danger des seules menaces FIXES le plus fort le long d'un itinéraire (6 premières tuiles exclues) : s'il atteint le seuil, tout chemin
---- passe à portée d'un nid, d'un ver ou d'une tourelle ennemie.
-local function fixed_max(map, p, pts, goal, tick)
+--- Lot DANGER-ACTIF : danger des seules menaces FIXES (nids, vers, tourelles, meutes) le plus fort le long d'un itinéraire (6 premières tuiles exclues),
+--- puis au but. S'il atteint le seuil sur la route, tout chemin passe à portée d'une menace fixe (B1). 2e essai : `from` (le départ du PNJ) donné, une
+--- menace dont la zone contient déjà le départ ne compte que là où le trajet va plus près d'elle (D.fixed_prep) ; `skip` : un genre écarté (meute, pour
+--- la défense de la base). Rend le maximum sur la route, puis le danger fixe au but.
+local function fixed_route(map, p, pts, goal, tick, skip, from)
   local qs = R.samples(p, pts, goal, R.SAMPLE)
   local x0, y0, x1, y1 = goal.x, goal.y, goal.x, goal.y
   for _, q in ipairs(qs) do
     if q.x < x0 then x0 = q.x elseif q.x > x1 then x1 = q.x end
     if q.y < y0 then y0 = q.y elseif q.y > y1 then y1 = q.y end
   end
-  local prep = D.exact_prep(map, tick, x0, y0, x1, y1)
+  local prep = D.fixed_prep(map, tick, x0, y0, x1, y1, { skip = skip, from = from })
   local mx = 0
   for _, q in ipairs(qs) do
     if d2(q, p) > 36 then
@@ -487,7 +489,7 @@ local function fixed_max(map, p, pts, goal, tick)
       if v > mx then mx = v end
     end
   end
-  return mx
+  return mx, D.fixed_at(prep, goal.x, goal.y)
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -776,6 +778,7 @@ gate_core = function(f, agent, task, steps, tick)
   end
   local a = astate(agent)
   a.escort, a.risk, a.calm = nil, nil, nil
+  a.rel_key = nil -- 2e essai : tâche partie par la règle « danger ajouté » (morts en route comptées, Registry.on_removed)
   if vague and decision == "go" then a.risk = true end -- lot CHARBON3 (Q4) : vague passée, risque accepté (M.leg, M.sense)
   -- C5 « ou change de site » : un MINAGE refusé cherche une autre tuile de son minerai hors de la zone marquée (même ordre
   -- que le programme : la plus proche du QG, au plus 40 tuiles contrôlées), puis la porte rejuge.
@@ -783,20 +786,20 @@ gate_core = function(f, agent, task, steps, tick)
   -- tâches) ; rien près du QG : gisement CONNU et sûr plus loin (Worker.far_mine, carte de connaissance d'IA3-f, qui
   -- demande une exploration sinon) ; la porte rejuge le nouveau but (final-050-2c49ceb memoire-20261020 : Écarlate sans
   -- soldats, 1 064 attentes, fer livré 400 contre 6 976 au témoin).
-  if decision == "wait" and task.kind == "mine"
-    and (not task.ia3k_retarget or tick - task.ia3k_retarget >= M.RETARGET_PERIOD) then
+  local function try_retarget()
+    if task.kind ~= "mine" or (task.ia3k_retarget and tick - task.ia3k_retarget < M.RETARGET_PERIOD) then return nil end
     task.ia3k_retarget = tick
     local q = M.retarget_mine(f, t, task, e.surface, tick, res.B)
     if not q and Worker.far_mine then q = Worker.far_mine(f, task, e.surface, tick) end
-    if q then
-      for _, s in ipairs(steps) do
-        if s[1] == "goto" then s[2] = { x = q.x, y = q.y } break end
-      end
-      task.target = { x = q.x, y = q.y }
-      t.stats.retarget = (t.stats.retarget or 0) + 1
-      return M.gate(f, agent, task, steps, tick)
+    if not q then return nil end
+    for _, s in ipairs(steps) do
+      if s[1] == "goto" then s[2] = { x = q.x, y = q.y } break end
     end
+    task.target = { x = q.x, y = q.y }
+    t.stats.retarget = (t.stats.retarget or 0) + 1
+    return true
   end
+  if decision == "wait" and try_retarget() then return M.gate(f, agent, task, steps, tick) end
   -- Lot DANGER-ACTIF (DC 4/11, 19 h 10 et 19 h 12 : « continuer à travailler tout en évitant le danger ou en défendant ») : plus d'attente.
   -- Un refus de D.gate (morts, route bloquée, champ de danger, escorte absente, boucle de détours) devient :
   --   - but à portée d'une menace FIXE connue : tâche MISE DE CÔTÉ (Da.ASIDE_TICKS), soldats prévenus, le PNJ prend tout de suite une autre tâche ;
@@ -805,18 +808,41 @@ gate_core = function(f, agent, task, steps, tick)
   -- Relecture du lead (5/11) : B1 une route que TOUT chemin ne peut franchir qu'à portée d'une menace fixe, B2 2 morts de l'heure sur le chemin du moindre danger
   -- (docs/IA_ATTENDUS.md C5), B3 une escorte ne contourne pas la mise de côté d'un but sous menace fixe : le jugement se fait AVANT la branche escorte.
   local aside = nil
+  local rel = nil -- 2e essai : départ que la règle « danger ajouté » (ou la défense de la base) laisse partir alors que l'ancienne règle le mettait de côté
   if decision == "wait" or (decision == "escort" and why ~= "loin") then
+    -- Relecture du lead (B4), étendue à la garde (2e essai) : la DÉFENSE de la base (garde, recharge, pose de tourelles, but dans la zone de base) ne se met
+    -- pas de côté pour une MEUTE, l'attaque même qu'elle défend (R-QCM-25c (b) « l'équipe le défend », team.lua : toute l'équipe en garde au QG menacé).
+    -- Verif-guide 271828182 (essai 2, 46 min) : « met de cote (but) : tache garrison vers (6, 9), menace fixe au but 800 », la case même du QG.
+    local def_base = Da.base_defense(task.kind, Da.DEFENSE_KINDS[task.kind] and Base.contains(M.base_zone(f, t, e.surface, tick), dest.x, dest.y))
+    local skip = def_base and "pack" or nil
     local parts = D.exact_parts(t.map, dest.x, dest.y, tick)
     local da = t.stats.dact or {}
     t.stats.dact = da
     local rp = (alt or res).pts
     local qs = R.samples(p, rp, dest, 8)
-    local route = { fixed = fixed_max(t.map, p, rp, dest, tick),
-      deaths = (ginfo.deaths or 0) >= 2 and D.deaths_near(t.map, qs, D.HOUR_R, tick) or 0 }
-    if Da.after_wait(parts, res.B, why, D.deaths_near(t.map, { dest }, D.DEATH_R, tick), route) == "aside" then
+    -- 2e essai (D.fixed_prep) : une menace qui couvre DÉJÀ le PNJ (meute marquée sur le QG) ne compte, au but et sur la route, que là où le trajet va plus
+    -- près d'elle que lui : sortir de la zone à l'opposé de l'attaque part ; aller vers elle reste mis de côté (verif-guide 271828182, essai 2 : 61
+    -- « met de cote (marque) ... menace fixe au but 0 », trajets partis du QG vers l'ouest, la meute à l'est).
+    local route_fixed, goal_fixed = fixed_route(t.map, p, rp, dest, tick, skip, p)
+    local route = { fixed = route_fixed, deaths = (ginfo.deaths or 0) >= 2 and D.deaths_near(t.map, qs, D.HOUR_R, tick) or 0 }
+    local rparts = { fixed = goal_fixed, deaths = parts.deaths, mobile = parts.mobile }
+    -- Morts au but : exemptions de PORTE-BASE et de COMPAGNONS-ACTIFS, garde-fou de FER-MARQUE (Fa.DEATHS_MAX) au calme.
+    local deaths_goal = Da.goal_deaths(D.deaths_near(t.map, { dest }, D.DEATH_R, tick), is_def and d_out == 0, calm, Fa.DEATHS_MAX)
+    local after = Da.after_wait(rparts, res.B, why, deaths_goal, route)
+    if after == "go" then
+      -- Ce que l'ancienne règle (danger absolu, sans exemption de la défense) aurait décidé : la différence est journalisée et comptée.
+      local abs_route, abs_goal = fixed_route(t.map, p, rp, dest, tick, nil, nil)
+      if Da.after_wait({ fixed = abs_goal }, res.B, why, deaths_goal, { fixed = abs_route, deaths = route.deaths }) == "aside" then
+        rel = { why = def_base and "defense de la base" or "sortie de zone", abs_route = abs_route, abs_goal = abs_goal,
+          route = route_fixed, goal = goal_fixed }
+      end
+    end
+    if after == "aside" then
+      -- C5 « ou change de site » : un minage mis de côté (y compris derrière une escorte) cherche aussi un autre site avant de renoncer.
+      if decision == "escort" and try_retarget() then return M.gate(f, agent, task, steps, tick) end
       -- Mise de côté : la décision devient "wait" pour les comptes de la porte (gate_why, porte_zone « base / hors », journal [FO-BASE]) ; l'escalade et le
       -- passe-droit sont sautés (aside) et la sortie rend false, "danger" plus bas avec task.fail = Da.ASIDE_FAIL.
-      aside = { parts = parts, qs = qs }
+      aside = { parts = rparts, qs = qs }
       decision = "wait"
     end
   end
@@ -828,6 +854,16 @@ gate_core = function(f, agent, task, steps, tick)
     decision, why = "go", "contourne"
     a.risk = true
     label(agent, "contourne", tick, t.stats)
+  end
+  if rel and not aside then
+    -- 2e essai : départ que la règle absolue (avant ce lot) mettait de côté. Une ligne par départ ; morts en route comptées (Registry.on_removed).
+    local da = t.stats.dact
+    da.rel_go = (da.rel_go or 0) + 1
+    if rel.why == "defense de la base" then da.rel_def = (da.rel_def or 0) + 1 end
+    a.rel_key = task.key
+    log(string.format("[FO-DANGER-ACTIF] %s : PNJ %d part (%s) a %.1f min : tache %s vers (%d, %d) ; danger fixe, regle absolue -> danger ajoute : route %d -> %d, but %d -> %d (seuil %d)",
+      tostring(f.key), agent.id, rel.why, tick / 3600, tostring(task.kind), math.floor(dest.x), math.floor(dest.y), rel.abs_route, rel.route,
+      rel.abs_goal, rel.goal, res.B))
   end
   -- ESCALADE (IA3_CERVEAU §4.2 : « attendre n'est pas une fin ») : une destination refusée pour une menace VUE (pas pour
   -- une mort) part quand même après W attentes (2 audacieux à 6 prudent) ; le PNJ garde ses réflexes (demi-tour à portée).
@@ -1014,11 +1050,14 @@ function M.gate_report(f, tick)
     for k in pairs(da.why or {}) do wk[#wk + 1] = k end
     table.sort(wk)
     for _, k in ipairs(wk) do wparts[#wparts + 1] = string.format("%s %d", k, da.why[k]) end
-    log(string.format("[FO-DANGER-ACTIF] %s : bilan a %.1f min : mises de cote %d, departs a risque %d, escorte absente (depart seul) %d, alertes de soldats sur un site touche %d (dont au-dela de 226 tuiles %d), soldats perdus (cumul) %d, mis a l'abri %d (distance moyenne a la menace %.0f, max %.0f tuiles), epargnes (non exposes) %d, allers-retours (abandon < 60 s apres le depart) %d, abris repetes (< 60 s) %d, ouvriers armes non rappeles %d {%s} ; repos fermes %d, plus long %.1f s, au-dela de 30 s %d ; repos ouverts au-dela de 30 s %d (plus long %.1f s)",
-      tostring(f.key), tick / 3600, da.aside or 0, da.go or 0, da.escort_none or 0, da.site_alerts or 0, da.site_alerts_far or 0, (f.stats and f.stats.soldiers_lost) or 0,
+    log(string.format("[FO-DANGER-ACTIF] %s : bilan a %.1f min : ", tostring(f.key), tick / 3600)
+      .. string.format("mises de cote %d, departs a risque %d, escorte absente (depart seul) %d, alertes de soldats sur un site touche %d (dont au-dela de 226 tuiles %d), soldats perdus (cumul) %d, mis a l'abri %d (distance moyenne a la menace %.0f, max %.0f tuiles), epargnes (non exposes) %d, allers-retours (abandon < 60 s apres le depart) %d, abris repetes (< 60 s) %d, ouvriers armes non rappeles %d {%s} ; repos fermes %d, plus long %.1f s, au-dela de 30 s %d ; repos ouverts au-dela de 30 s %d (plus long %.1f s)",
+      da.aside or 0, da.go or 0, da.escort_none or 0, da.site_alerts or 0, da.site_alerts_far or 0, (f.stats and f.stats.soldiers_lost) or 0,
       da.shelter_n or 0, (da.shelter_n or 0) > 0 and da.shelter_d / da.shelter_n or 0, da.shelter_dmax or 0, da.spared or 0, da.quick_back or 0, da.shelter_again or 0,
       (f.stats and f.stats.recall_armed_kept) or 0, table.concat(wparts, ", "), da.rest_n or 0,
-      (da.rest_max or 0) / 60, da.rest_over or 0, over_now, worst_now / 60))
+      (da.rest_max or 0) / 60, da.rest_over or 0, over_now, worst_now / 60)
+      .. string.format(" ; departs par le danger ajoute (menace qui couvrait deja le PNJ, ou defense de la base) %d (dont defense de la base %d), tues en route %d",
+        da.rel_go or 0, da.rel_def or 0, da.rel_dead or 0))
   end
   if #keys == 0 then return end
   local total, d_total, parts = 0, 0, {}
@@ -1443,6 +1482,13 @@ Registry.on_removed(function(agent)
   local f = State.faction(agent.faction)
   if not f then return end
   local t = M.team(f)
+  -- Lot DANGER-ACTIF (2e essai) : mort pendant une tâche partie par la règle « danger ajouté » (sortie de zone, défense de la base) : comptée, journalisée.
+  if a and a.rel_key and agent.task and agent.task.key == a.rel_key and agent.death_cause and agent.death_cause:find("/", 1, true) then
+    t.stats.dact = t.stats.dact or {}
+    t.stats.dact.rel_dead = (t.stats.dact.rel_dead or 0) + 1
+    log(string.format("[FO-DANGER-ACTIF] %s : PNJ %d tue en (%d, %d) pendant une tache partie par la regle du danger ajoute (%s), %d mort(s) ainsi",
+      tostring(f.key), agent.id, math.floor(agent.death_pos.x), math.floor(agent.death_pos.y), tostring(agent.task.kind), t.stats.dact.rel_dead))
+  end
   -- Morts tuées par un ennemi seulement (« cause/force:dégâts »).
   -- Lot RECO-DIRECTION (relecture) : un éclaireur de reconnaissance (agent.reco_tag) mort en route ne laisse aucune marque : l'équipe ne
   -- sait pas où il est tombé (demande du DC : ce qu'il a vu n'est transmis que s'il revient). Compté à part.

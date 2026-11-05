@@ -459,6 +459,84 @@ do
   check(((tm.stats.dact or {}).shelter_n or 0) >= 1 and ((tm.stats.dact or {}).shelter_dmax or 0) <= 62, "DANGER-ACTIF : abris comptés avec leur distance à la menace (jamais au-delà de la portée + marges)")
   check(near.steps and near.steps[2] and near.steps[2][1] == "home" and near.steps[1][1] == "goto", "DANGER-ACTIF : plus d'attente fixe au refuge (aller puis retour)")
 end
+-- Lot DANGER-ACTIF, 2e essai (5/11 ; verif-guide 271828182, essai 2 : 7 repos de plus de 30 s pendant la vague de 46 min) : une MEUTE marquée à 26 tuiles à
+-- l'est de la case du QG couvre le QG (zone 40 tuiles). Avant : tout trajet parti du QG (B1) et la garde du QG étaient mis de côté, il ne restait aucune
+-- tâche. Après : sortir à l'opposé part (une ligne de journal), aller vers la meute reste mis de côté, la garde du QG part (défense de la base) ; une mort
+-- pendant une tâche ainsi partie est comptée.
+do
+  remote.call("fo-ia3k", "forget", "player")
+  local Dax = require("shared.team.danger_actif")
+  local tm = C.team(f)
+  local home = f.home_spot or f.hq_pos
+  local mx, my = home.x + 26, home.y
+  remote.call("fo-ia3k", "mark", "player", mx, my, "pack", 36)
+  local tz = game.tick + 1
+  ag.entity.teleport({ x = home.x, y = home.y })
+  local da0 = tm.stats.dact or {}
+  local go0, def0, as0 = da0.rel_go or 0, da0.rel_def or 0, da0.aside or 0
+  local logs0 = #W().logs
+  local west = { key = "test:meute-ouest", kind = "service" }
+  local wsteps = { { "home" }, { "goto", { x = home.x - 70, y = home.y }, 3 }, { "act", "service" }, { "home" } }
+  check(C.gate(f, ag, west, wsteps, tz) == true and C.astate(ag).risk == true and west.fail == nil,
+    "DANGER-ACTIF 2e essai : meute qui couvre le QG, tâche à l'opposé : le PNJ part (avant : mise de côté, aucune tâche)")
+  check((tm.stats.dact.rel_go or 0) == go0 + 1 and C.astate(ag).rel_key == west.key, "DANGER-ACTIF 2e essai : départ compté « danger ajouté », tâche notée sur le PNJ")
+  local line = nil
+  for i = logs0 + 1, #W().logs do if W().logs[i]:find("[FO-DANGER-ACTIF] player : PNJ " .. ag.id .. " part (sortie de zone)", 1, true) then line = W().logs[i] end end
+  check(line ~= nil, "DANGER-ACTIF 2e essai : une ligne de journal par départ (" .. tostring(line) .. ")")
+  local east = { key = "test:meute-est", kind = "service" }
+  local esteps = { { "home" }, { "goto", { x = home.x + 45, y = home.y }, 3 }, { "act", "service" }, { "home" } }
+  check(C.gate(f, ag, east, esteps, tz + 1) == false and east.fail == Dax.ASIDE_FAIL and (tm.stats.dact.aside or 0) == as0 + 1,
+    "DANGER-ACTIF 2e essai : tâche VERS la meute (but à 19 tuiles d'elle, le départ à 26) : mise de côté (jamais vers une attaque en cours)")
+  check(C.astate(ag).rel_key == nil, "DANGER-ACTIF 2e essai : mise de côté : plus de tâche « danger ajouté » sur le PNJ")
+  -- Garde du QG : le PNJ est 8 tuiles plus loin de la meute que la case du QG (le but s'enfonce de 8 tuiles) : seule la défense de la base le laisse partir.
+  local gv = Registry.get(ids[3])
+  gv.entity.teleport({ x = home.x - 8, y = home.y })
+  local garde = { key = "test:meute-garde", kind = "garrison", post = "hq" }
+  local gsteps = { { "goto", { x = home.x, y = home.y }, 6 }, { "wait", 600 }, { "home" } }
+  check(C.gate(f, gv, garde, gsteps, tz + 2) == true and garde.fail == nil and (tm.stats.dact.rel_def or 0) == def0 + 1,
+    "DANGER-ACTIF 2e essai : garde du QG sous la meute : départ (défense de la base, R-QCM-25c (b)), compté")
+  local esc_goal = { key = "test:meute-recharge", kind = "refill", group = "hq" }
+  check(C.gate(f, gv, esc_goal, { { "home" }, { "goto", { x = home.x + 40, y = home.y }, 6 }, { "act", "refill" }, { "home" } }, tz + 3) == true,
+    "DANGER-ACTIF 2e essai : recharge dans la base vers la meute : départ (la défense va à l'attaque qu'elle défend)")
+  -- Mort pendant une tâche partie ainsi : comptée.
+  check(C.gate(f, gv, garde, gsteps, tz + 4) == true, "garde repartie")
+  local rd0 = tm.stats.dact.rel_dead or 0
+  gv.task = garde
+  gv.death_cause, gv.death_pos = "medium-biter/enemy:physical", { x = home.x - 4, y = home.y }
+  Registry.remove(ids[3], true)
+  check((tm.stats.dact.rel_dead or 0) == rd0 + 1, "DANGER-ACTIF 2e essai : mort pendant une tâche partie par le danger ajouté : comptée")
+  local logs1 = #W().logs
+  C.gate_report(f, tz + 10 * C.REPORT_EVERY)
+  local bil = nil
+  for i = logs1 + 1, #W().logs do if W().logs[i]:find("[FO-DANGER-ACTIF] player : bilan", 1, true) then bil = W().logs[i] end end
+  check(bil ~= nil and bil:find("departs par le danger ajoute", 1, true) ~= nil and bil:find("tues en route 1", 1, true) ~= nil,
+    "DANGER-ACTIF 2e essai : bilan avec les départs par le danger ajouté et les morts en route (" .. tostring(bil and bil:sub(-140)) .. ")")
+  remote.call("fo-ia3k", "forget", "player")
+end
+-- Lot DANGER-ACTIF (reprise) : la règle des morts au but (B2, Da.DEATHS_GOAL) garde l'exemption de COMPAGNONS-ACTIFS (tâche proche aux morts toutes
+-- anciennes : on revient agir) sous le garde-fou de FER-MARQUE (Fa.DEATHS_MAX). Ici la porte refuse pour des cases mobiles sur la route (« marque ») et le
+-- but a 2 morts anciennes : départ ; à 3 morts anciennes : mise de côté (pas de marche suicide).
+do
+  local Ac = require("shared.team.actif")
+  local Dax = require("shared.team.danger_actif")
+  local home = f.home_spot or f.hq_pos
+  ag.entity.teleport({ x = home.x, y = home.y })
+  local cg = { x = home.x - 5, y = home.y + 120 }
+  local csteps = { { "home" }, { "goto", { x = cg.x, y = cg.y }, 3 }, { "act", "service" }, { "home" } }
+  remote.call("fo-ia3k", "forget", "player")
+  remote.call("fo-ia3k", "death", "player", cg.x, cg.y - 6)
+  remote.call("fo-ia3k", "death", "player", cg.x + 4, cg.y - 3)
+  for _ = 1, 3 do remote.call("fo-ia3k", "mark", "player", home.x - 2, home.y + 60, "unit", 16) end
+  local tc = game.tick + Ac.FEAR_TICKS + 60
+  local t2 = { key = "test:calme-2", kind = "service" }
+  check(C.gate(f, ag, t2, csteps, tc) == true and t2.fail == nil and C.astate(ag).calm == true,
+    "DANGER-ACTIF : 2 morts anciennes au but proche, cases mobiles sur la route : départ au calme (COMPAGNONS-ACTIFS), pas de mise de côté")
+  remote.call("fo-ia3k", "death", "player", cg.x - 3, cg.y + 2)
+  local t3 = { key = "test:calme-3", kind = "service" }
+  check(C.gate(f, ag, t3, csteps, game.tick + Ac.FEAR_TICKS + 60) == false and t3.fail == Dax.ASIDE_FAIL,
+    "DANGER-ACTIF : 3 morts anciennes au but (garde-fou de FER-MARQUE) : mise de côté")
+  remote.call("fo-ia3k", "forget", "player")
+end
 -- C5 « change de site » : un minage vers un gisement gardé par un ver va miner une autre tuile du même minerai.
 local ip = { x = math.cos(math.pi / 6) * 60, y = math.sin(math.pi / 6) * 60 } -- gisement de fer du moteur simulé
 remote.call("fo-ia3k", "mark", "player", ip.x, ip.y, "worm", 25)
@@ -468,6 +546,21 @@ ag.entity.teleport({ x = 0, y = 10 }) -- le trajet jugé part du coffre (le PNJ 
 local mok = C.gate(f, ag, mt, msteps, game.tick)
 local ng = msteps[2][2]
 check(mok == true and R.dist(ng.x, ng.y, ip.x, ip.y) > 40, string.format("minage reciblé hors de la zone du ver (%.0f, %.0f)", ng.x, ng.y))
+-- Lot DANGER-ACTIF (2e essai, reprise du travail laissé par l'agent précédent) : une ESCORTE possible ne contourne pas la mise de côté d'un but sous une menace
+-- fixe (B3) ; un minage ainsi mis de côté cherche aussi un autre site (C5 « ou change de site ») au lieu d'attendre la fin de sa pause.
+do
+  local ef, re = C.escort_free, C.request_escort
+  C.escort_free = function() return 4 end
+  C.request_escort = function() return true end
+  local mt2 = { key = "test:mine-escorte", kind = "mine", resource = "iron-ore", radius = 96, target = { x = ip.x, y = ip.y } }
+  local msteps2 = { { "home" }, { "goto", { x = ip.x, y = ip.y }, 1.5 }, { "mine", "iron-ore", 10 }, { "home" } }
+  local r0 = C.team(f).stats.retarget or 0
+  local ok2 = C.gate(f, ag, mt2, msteps2, game.tick + 1)
+  local ng2 = msteps2[2][2]
+  check(ok2 == true and R.dist(ng2.x, ng2.y, ip.x, ip.y) > 40 and (C.team(f).stats.retarget or 0) == r0 + 1,
+    string.format("DANGER-ACTIF : minage sous un ver, escorte possible : reciblé hors de la zone du ver (%.0f, %.0f), pas mis de côté", ng2.x, ng2.y))
+  C.escort_free, C.request_escort = ef, re
+end
 remote.call("fo-ia3k", "hold", "player", true)
 -- Mort réelle d'un PNJ (cause ennemie) : marquée par le crochet du registre.
 local d_before = remote.call("fo-ia3k", "status", "player").stats.deaths

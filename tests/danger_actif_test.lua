@@ -163,5 +163,109 @@ for _, mu in ipairs(mutants) do
 end
 print(string.format("  mutants refusés : %d sur %d", refused, #mutants))
 
+--- 2e essai (5/11) : danger AJOUTÉ par un trajet (shared/ai3/danger.lua, D.fixed_prep / D.fixed_at) et exemptions du but (Da.goal_deaths,
+--- Da.base_defense). Verif-guide 271828182, essai 2 : une meute marquée à 24 tuiles de la case du QG mettait de côté tous les trajets partis du QG.
+local function cases2(D, Da)
+  local B = 600
+  local function map_of(list)
+    local m = D.new()
+    for _, th in ipairs(list) do m.threats[#m.threats + 1] = { x = th[1], y = th[2], k = th[3], r = th[4], t = th[5] or 0 } end
+    return m
+  end
+  local box = { -400, -400, 400, 400 }
+  local function at(m, tick, from, skip, x, y)
+    local prep = D.fixed_prep(m, tick, box[1], box[2], box[3], box[4], { from = from, skip = skip })
+    return D.fixed_at(prep, x, y)
+  end
+  -- Meute (r 36, zone 40) centrée en (26, 0) ; le PNJ au QG (0, 0) est DANS la zone (26 <= 40).
+  local m = map_of({ { 26, 0, "pack", 36 } })
+  local hq = { x = 0, y = 0 }
+  check(at(m, 0, nil, nil, -10, 0) == 800, "sans départ (règle d'avant) : point à 36 tuiles de la meute, dans sa zone : 800")
+  check(at(m, 0, hq, nil, -10, 0) == 0, "départ dans la zone : un point à l'opposé (36 tuiles, le départ à 26) ne compte pas")
+  check(at(m, 0, hq, nil, 10, 0) == 800, "départ dans la zone : un point plus près de la meute (16 tuiles) compte")
+  check(at(m, 0, hq, nil, 0, 0) == 0, "départ dans la zone : le départ lui-même (même distance) ne compte pas")
+  check(at(m, 0, hq, nil, 0, 26) == 0, "départ dans la zone : un point à côté, plus loin de la meute (36,8 tuiles) ne compte pas")
+  check(at(m, 0, hq, nil, 1, 0) == 800, "départ dans la zone : un pas vers la meute (25 tuiles) compte")
+  check(at(m, 0, hq, "pack", 10, 0) == 0, "genre écarté (la défense de la base ignore la meute) : 0")
+  -- Ver (r 25, zone 29) en (100, 0) : départ HORS de sa zone : la règle ne change rien.
+  local m2 = map_of({ { 100, 0, "worm", 25 } })
+  check(at(m2, 0, hq, nil, 71, 0) == 1000 and at(m2, 0, hq, nil, 70, 0) == 0, "départ hors de la zone d'un ver : compté jusqu'au bord (29 tuiles), comme avant")
+  check(at(m2, 0, hq, "pack", 80, 0) == 1000, "genre écarté : le ver compte toujours")
+  -- PNJ au bord du ver (départ à 27 tuiles, dans la zone) : s'enfoncer compte, s'éloigner non.
+  local edge = { x = 73, y = 0 }
+  check(at(m2, 0, edge, nil, 80, 0) == 1000 and at(m2, 0, edge, nil, 60, 0) == 0, "PNJ au bord d'un ver : vers lui compte, à l'opposé non")
+  -- Deux menaces : une qui couvre le départ, une autre plus loin (entrer dans la seconde compte).
+  local m3 = map_of({ { 26, 0, "pack", 36 }, { -100, 0, "worm", 25 } })
+  check(at(m3, 0, hq, nil, -75, 0) == 1000, "sortir de la meute pour entrer dans la zone d'un ver : le ver compte")
+  -- Mêmes poids décrus que D.exact_parts (règle d'avant, sans départ) : nid vu il y a 10 min, meute vue il y a 2 min.
+  local m4 = map_of({ { 0, 50, "spawner", 30, 0 }, { 40, 0, "pack", 30, 0 } })
+  local tick = 10 * 3600 + 10
+  for _, q in ipairs({ { 0, 30 }, { 30, 0 }, { 20, 20 }, { 0, 0 }, { 70, 0 } }) do
+    check(at(m4, tick, nil, nil, q[1], q[2]) == D.exact_parts(m4, q[1], q[2], tick).fixed,
+      string.format("sans départ : même danger fixe que D.exact_parts en (%d, %d)", q[1], q[2]))
+  end
+  -- Rectangle : une menace hors de portée du rectangle n'est pas préparée.
+  local prep = D.fixed_prep(m2, 0, -10, -10, 10, 10, { from = hq })
+  check(prep.nt == 0, "ver hors de portée du rectangle : écarté")
+  -- Exemptions du but (Da.goal_deaths) et défense de la base (Da.base_defense).
+  check(Da.goal_deaths(5, true, false, 3) == 0, "défense, morts de la route toutes dans la base (PORTE-BASE) : morts au but ignorées")
+  check(Da.goal_deaths(2, false, true, 3) == 0 and Da.goal_deaths(3, false, true, 3) == 3, "au calme : morts au but ignorées sous le garde-fou (3), comptées à partir de lui")
+  check(Da.goal_deaths(2, false, false, 3) == 2 and Da.goal_deaths(nil, false, false, 3) == 0, "hors exemption : toutes les morts au but")
+  check(Da.base_defense("garrison", true) == true and Da.base_defense("refill", true) == true and Da.base_defense("fortify", true) == true,
+    "garde, recharge, pose de tourelles dans la base : défense de la base")
+  check(Da.base_defense("garrison", false) == false and Da.base_defense("mine", true) == false and Da.base_defense("service", true) == false,
+    "hors de la base, ou une autre tâche : pas d'exemption")
+  check(Da.after_wait({ fixed = 0 }, B, "marque", 0, { fixed = 0, deaths = 0 }) == "go", "trajet qui sort de la meute (danger ajouté nul) : départ")
+end
+
+section("6. Danger ajouté par le trajet (2e essai)")
+local D = require("shared.ai3.danger")
+cases2(D, Da)
+
+section("7. Mutants du danger ajouté (chacun doit faire échouer au moins un cas)")
+local srcD = read("shared/ai3/danger.lua")
+local mutantsD = {
+  { "départ ignoré", "if f2 <= r * r then lim[nt], strict[nt] = f2, true end", "" },
+  { "départ dans la zone : tout compte", "if f2 <= r * r then lim[nt], strict[nt] = f2, true end", "if f2 <= r * r then lim[nt], strict[nt] = r * r, true end" },
+  { "même distance comptée", "if dd < lim[i] or (dd == lim[i] and not strict[i]) then", "if dd <= lim[i] then" },
+  { "bord de zone exclu", "if dd < lim[i] or (dd == lim[i] and not strict[i]) then", "if dd < lim[i] then" },
+  { "genre écarté compté", "if t.k ~= skip then", "if true then" },
+  { "sans décroissance", "lui comptent\n        end\n        tw[nt] = math.floor(K.w * (K.fast and D.dec10(tick - t.t) or D.dec2(tick - t.t)) / 1000)",
+    "lui comptent\n        end\n        tw[nt] = K.w" },
+  { "rectangle ignoré", "if ddx * ddx + ddy * ddy <= r * r then\n        nt = nt + 1\n        tx[nt], ty[nt], lim[nt], strict[nt]", "if true then\n        nt = nt + 1\n        tx[nt], ty[nt], lim[nt], strict[nt]" },
+}
+local srcDa = read("shared/team/danger_actif.lua")
+local mutantsDa = {
+  { "défense : morts au but gardées", "if def_base then return 0 end", "" },
+  { "calme : garde-fou ignoré", "if calm and (n or 0) < (cap or 0) then return 0 end", "if calm then return 0 end" },
+  { "calme ignoré", "if calm and (n or 0) < (cap or 0) then return 0 end", "" },
+  { "défense hors de la base", "return (Da.DEFENSE_KINDS[kind] and in_base) and true or false", "return Da.DEFENSE_KINDS[kind] and true or false" },
+  { "garde retirée de la défense", "Da.DEFENSE_KINDS = { fortify = true, garrison = true, refill = true }", "Da.DEFENSE_KINDS = { fortify = true, refill = true }" },
+}
+local refused2, total2 = 0, 0
+local function try(name, src, pat, rep, which)
+  total2 = total2 + 1
+  local a, b = src:find(pat, 1, true)
+  if not a then
+    failures = failures + 1
+    print("  ECHEC : mutant « " .. name .. " » : motif introuvable dans la source")
+    return
+  end
+  local code = src:sub(1, a - 1) .. rep .. src:sub(b + 1)
+  local Mu = assert(load(code, "mutant", "t"))()
+  local p0, f0 = passes, failures
+  cur_fail = false
+  quiet = true
+  local ok = pcall(cases2, which == "D" and Mu or D, which == "Da" and Mu or Da)
+  quiet = false
+  local failed = (not ok) or cur_fail
+  passes, failures = p0, f0
+  check(failed, "mutant « " .. name .. " » refusé")
+  if failed then refused2 = refused2 + 1 end
+end
+for _, mu in ipairs(mutantsD) do try(mu[1], srcD, mu[2], mu[3], "D") end
+for _, mu in ipairs(mutantsDa) do try(mu[1], srcDa, mu[2], mu[3], "Da") end
+print(string.format("  mutants refusés : %d sur %d", refused2, total2))
+
 print(string.format("[DANGER-ACTIF] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

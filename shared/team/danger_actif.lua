@@ -8,6 +8,8 @@
     - le BUT est à portée d'une menace FIXE connue ou d'un lieu de morts de PNJ (partie fixe du danger au but >= seuil, ou Da.DEATHS_GOAL morts de l'heure au but) : la tâche est MISE DE CÔTÉ pour ce but
       Da.ASIDE_TICKS, le PNJ prend tout de suite une autre tâche (jamais la même refusée en boucle) ;
     - sinon (route seulement, morts de PNJ, menaces mobiles, escorte refusée) : le PNJ PART par le chemin du moindre danger, risque accepté.
+    - 2e essai (5/11) : une menace dont la zone contient DÉJÀ le PNJ (meute qui couvre le QG) ne compte, au but et sur la route, que là où le trajet va
+      plus près d'elle que son départ (shared/ai3/danger.lua, D.fixed_prep) ; la défense de la base ne se met pas de côté pour une meute (Da.base_defense).
   Mesure du repos : un PNJ refusé qui n'est pas reparti depuis plus de Da.REST_MAX ticks compte comme repos pour cause de danger.
   Types du moteur seulement (aucun nom d'objet du jeu).
 ]]
@@ -25,6 +27,24 @@ Da.DEATHS_GOAL = 2 -- morts de l'heure au but à partir desquelles la tâche est
 Da.DEATHS_ROUTE = 2 -- morts de l'heure sur le chemin du moindre danger à partir desquelles la tâche est mise de côté (même règle)
 function Da.fixed_goal(parts, B, deaths_n)
   return ((parts and parts.fixed) or 0) >= B or (deaths_n or 0) >= Da.DEATHS_GOAL
+end
+
+--- Morts de l'heure au but RETENUES par la mise de côté (`n` = morts à moins de D.DEATH_R du but). Les exemptions déjà décidées pour la porte valent ici :
+---   - `def_base` : défense dont les morts de la route sont toutes dans la base (lot PORTE-BASE, arbitrage du DC du 29/10 : « la base se défend ») : 0 ;
+---   - `calm` : tâche proche aux morts toutes anciennes (lot COMPAGNONS-ACTIFS, DC 29/10 : « il faut revenir, il faut agir ») : 0 sous `cap`, le garde-fou de
+---     FER-MARQUE (Fa.DEATHS_MAX, « pas de marche suicide », calme compris) ; à partir de `cap`, toutes.
+function Da.goal_deaths(n, def_base, calm, cap)
+  if def_base then return 0 end
+  if calm and (n or 0) < (cap or 0) then return 0 end
+  return n or 0
+end
+
+--- Défense de la base (relecture du lead, B4 ; DC 4/11 19 h 12 « ou en défendant » ; R-QCM-25c (b) « l'équipe le défend ») : une garde, une recharge ou une
+--- pose de tourelles dont le but est DANS la zone de base n'est pas mise de côté pour une MEUTE (l'attaque même qu'elle défend) ; un nid, un ver ou une
+--- tourelle ennemie au but la met toujours de côté.
+Da.DEFENSE_KINDS = { fortify = true, garrison = true, refill = true }
+function Da.base_defense(kind, in_base)
+  return (Da.DEFENSE_KINDS[kind] and in_base) and true or false
 end
 
 --- Que devient une attente de la porte ? "aside" (autre tâche) ou "go" (départ par le chemin du moindre danger, risque accepté).
