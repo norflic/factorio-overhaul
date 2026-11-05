@@ -152,6 +152,8 @@ local function shelter(f, t, threat, tick, resp, rally, range, foes)
   resp = Da.shelter_resp(resp, threat, f.hq_pos)
   local da = t.stats.dact or {}
   t.stats.dact = da
+  -- Seconde relecture (point A, coût) : un mémo par PASSAGE (directions par case de 16 tuiles, cases mobiles : Re.away_pass).
+  local away_cache = (judged and resp == "away") and Re.away_cache() or nil
   for _, id in ipairs(State.sorted_keys(f.engineers or {})) do
     local ag = Registry.get(id)
     if ag and ag.entity.valid then
@@ -166,11 +168,18 @@ local function shelter(f, t, threat, tick, resp, rally, range, foes)
           -- (SD.SHELTER_TICKS) ; aucune sûre : il fait comme « stand » (abri des désarmés, les autres se battent groupés).
           local a = C.astate(ag)
           if tick - (a.shelter_t or -1e9) >= SD.SHELTER_TICKS then
-            if judged then to = Re.away_pick(t.map, tick, p, threat, range, B) else to = Re.away_from(p, threat, range) end
-            if not to then
-              mode = "stand"
-              t.stats.away_none = (t.stats.away_none or 0) + 1
+            if not judged then
+              to = Re.away_from(p, threat, range)
+            elseif not (a.away_t and tick - a.away_t < SD.SHELTER_TICKS) then
+              -- Seconde relecture (point A) : l'ÉCHEC est noté (a.away_t) et rejugé après SD.SHELTER_TICKS, comme un départ ; sans
+              -- cela, chaque PNJ près du QG refaisait le calcul toutes les 30 ticks pendant toute l'attaque.
+              to = Re.away_pass(away_cache, t.map, tick, p, threat, range, B)
+              if not to then
+                a.away_t = tick
+                t.stats.away_none = (t.stats.away_none or 0) + 1
+              end
             end
+            if not to then mode = "stand" end
           end
         end
         if mode == "rally" then

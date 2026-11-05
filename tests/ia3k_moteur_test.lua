@@ -770,6 +770,10 @@ do
     check(a4 > 0 and an4 > 0 and sa4 == 0, string.format(
       "vers dans les 5 directions qui éloignent : personne ne part, on se bat groupés (away %d, partis %d, sans direction sûre %d)",
       a4, sa4, an4))
+    -- Seconde relecture (point A, coût) : l'échec est noté par PNJ (a.away_t, SD.SHELTER_TICKS) : la vague dure 2 passages de la
+    -- mise à l'abri (65 ticks), chaque PNJ n'est jugé qu'une fois (sans le mémo : une fois par passage).
+    local npnj = #agent_ids(f)
+    check(an4 <= npnj, string.format("échec noté : au plus un calcul par PNJ en 2 passages (%d pour %d PNJ)", an4, npnj))
     tm.map.threats = saved_threats
   end
   -- Point 2 de la relecture : le refuge d'un désarmé (M.refuge) écarte une tourelle que le groupe déborde (profils lus aux
