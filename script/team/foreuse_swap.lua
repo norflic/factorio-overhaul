@@ -129,13 +129,19 @@ local function swap_one(f, surface, ref, cx, cy, tick)
   local bb = d.bounding_box
   local keep = { math.floor(bb.left_top.x + 0.01), math.floor(bb.left_top.y + 0.01), math.ceil(bb.right_bottom.x - 0.01) - 1,
     math.ceil(bb.right_bottom.y - 0.01) - 1 }
-  -- B1, 2e relecture : le remplacement n'est refusé que s'il COUPE le couloir ; les tuiles des bâtiments voisins de l'équipe (ceux qui
-  -- arrêtent un PNJ : couche « player-layer », les tapis non) comptent comme prises, l'ancienne foreuse non.
+  -- B1, 2e relecture : le remplacement n'est refusé que s'il COUPE le couloir ; tout ce qui arrête un PNJ autour de la future boîte
+  -- compte comme pris (couche « player-layer » : bâtiments de toutes les forces, rochers, falaises, arbres ; les tapis non), sauf
+  -- l'ancienne foreuse et ce qui bouge (personnages, unités, véhicules) ; l'eau aussi (3e relecture : rochers, falaises, eau).
   local taken = {}
   local r = T.drill_electric.size / 2 + 3
-  for _, e in ipairs(surface.find_entities_filtered({ area = { { cx - r, cy - r }, { cx + r, cy + r } }, force = f.force,
-      collision_mask = "player-layer" })) do
-    if e.valid and e ~= d and e.type ~= "character" then
+  local area = { { cx - r, cy - r }, { cx + r, cy + r } }
+  local MOVING = { character = true, unit = true, car = true, ["spider-vehicle"] = true, locomotive = true, ["cargo-wagon"] = true,
+    ["fluid-wagon"] = true, ["artillery-wagon"] = true }
+  for _, t in ipairs(surface.find_tiles_filtered({ area = area, collision_mask = "player-layer" })) do
+    taken[math.floor(t.position.x) .. "," .. math.floor(t.position.y)] = true
+  end
+  for _, e in ipairs(surface.find_entities_filtered({ area = area, collision_mask = "player-layer" })) do
+    if e.valid and e ~= d and not MOVING[e.type] then
       local eb = e.bounding_box
       for ty = math.floor(eb.left_top.y + 0.01), math.ceil(eb.right_bottom.y - 0.01) - 1 do
         for tx = math.floor(eb.left_top.x + 0.01), math.ceil(eb.right_bottom.x - 0.01) - 1 do taken[tx .. "," .. ty] = true end
