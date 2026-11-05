@@ -97,7 +97,8 @@ local function suite(text)
   local src = W.pole(30.5, 10.5, 1)
   W.stock[POLE.name] = 5
   local list = { { x = 23.5, y = 10.5 }, { x = 16.5, y = 10.5 }, { x = 12.5, y = 10.5 } }
-  local ok = place_chain(f, W.surface, POLE, list, src)
+  local ok, _, placed = place_chain(f, W.surface, POLE, list, src)
+  c("A : les poteaux poses sont rendus (o.swap_poles, lu par le plan du champ)", type(placed) == "table" and #placed == 3)
   c("A : chaine posee et reliee au reseau de la source", ok == true and W.created == 3 and W.ents[#W.ents].electric_network_id == 1)
   c("A : 3 poteaux pris au stock", W.stock[POLE.name] == 2, tostring(W.stock[POLE.name]))
   -- B. stock insuffisant : rien n'est posé

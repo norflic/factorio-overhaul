@@ -297,7 +297,7 @@ local function place_chain(f, surface, pole, list, src)
   if not (src and src.valid and last.valid and last.electric_network_id ~= nil and last.electric_network_id == src.electric_network_id) then
     return undo("reseau non relie")
   end
-  return true
+  return true, nil, placed
 end
 
 --- Bilan de puissance de l'equipe (kW) : capacite et production de la centrale (plan directeur, f.build.grow), chantiers admis.
@@ -380,7 +380,12 @@ function Swap.think(f, surface, book, free, tick)
         need_poles = need_poles + placed_n
         prep = function()
           local src = r.source and (r.source.ent or by_pos[r.source.x .. ":" .. r.source.y])
-          local ok, why = place_chain(f, surface, pole, r.poles, src)
+          local ok, why, placed = place_chain(f, surface, pole, r.poles, src)
+          -- poteaux de l'avant-poste (o.swap_poles) : a compter comme NOTRES par le plan du champ (mine_of), comme ses paires
+          if ok and placed then
+            ref.o.swap_poles = ref.o.swap_poles or {}
+            for _, e in ipairs(placed) do ref.o.swap_poles[#ref.o.swap_poles + 1] = e end
+          end
           if not ok then
             count(st, why)
             if why ~= "poteaux au stock" then st.retry[ref.key] = tick + Swap.RETRY end
