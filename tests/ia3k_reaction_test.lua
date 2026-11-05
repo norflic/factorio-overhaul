@@ -401,6 +401,22 @@ local function suite()
   check(Re.rally_judge({}, { put(gunt, 10, true) }, R0) == "couvert", "portée ennemie inconnue, tourelle qui marche : couvert (règle d'avant)")
   check(Re.rally_judge({ gunner }, { put(gunt, 10, true) }, nil) == "sans-tourelle", "pas de point de ralliement : sans tourelle")
   check(Re.rally_judge({ rifle }, { put(gunt, 10, nil) }, R0) == "couvert", "état inconnu (ok absent) : comptée")
+  -- Seconde relecture, point C : « couvre le point » n'est pas « protège le point ». Contre-exemple de la relectrice : ralliement en
+  -- (0, 0), mitrailleuse en (5, 0), laser 24 en (20, 0), mitrailleur en (−20,5 ; 0). La laser couvre le point (20 <= 24) et n'est pas
+  -- débordée, mais le mitrailleur frappe les PNJ au point depuis (−20,5 ; 0), à 40,5 tuiles d'elle. Une tourelle ne compte que si elle
+  -- atteint aussi l'endroit d'où l'ennemi frappe le point (sa position, ou, s'il est plus loin, le point de son trajet à son atteinte).
+  local EPC = { x = -20.5, y = 0 }
+  local vc = Re.rally_judge({ gunner }, { put(gunt, 5, true), put(laser, 20, true) }, R0, nil, nil, EPC)
+  check(vc ~= "couvert", "contre-exemple : laser qui couvre le point mais n'atteint pas le mitrailleur : PAS couvert (" .. tostring(vc) .. ")")
+  vc = Re.rally_judge({ gunner }, { put(gunt, 5, true), put(laser, -10, true) }, R0, nil, nil, EPC)
+  check(vc == "couvert", "laser en (−10, 0), à 10,5 du mitrailleur : couvert (" .. tostring(vc) .. ")")
+  local bit = Re.profile(1.5, Re.BB, { { -0.2, -0.2 }, { 0.2, 0.2 } })
+  vc = Re.rally_judge({ bit }, { put(gunt, 5, true) }, R0, nil, nil, { x = 30, y = 0 })
+  check(vc == "couvert", "mordeurs à 30 tuiles : ils frapperont le point de tout près, la mitrailleuse y porte : couvert (" .. tostring(vc) .. ")")
+  vc = Re.rally_judge({ gunner }, { put(laser, 20, true) }, R0, nil, nil, { x = -60, y = 0 })
+  check(vc ~= "couvert", "mitrailleur à 60 tuiles à l'ouest, laser à l'est : il frappera le point depuis 20,3 à l'ouest, hors de portée (" .. tostring(vc) .. ")")
+  vc = Re.rally_judge({ gunner }, { put(laser, -10, true) }, R0, nil, nil, { x = -60, y = 0 })
+  check(vc == "couvert", "mitrailleur à 60 tuiles, laser entre lui et le point : couvert (" .. tostring(vc) .. ")")
   -- Seconde relecture, point B : une tourelle « en marche » (Re.turret_ready).
   check(Re.turret_ready({ type = "ammo-turret", ammo = true }) == true and Re.turret_ready({ type = "ammo-turret", ammo = false }) == false,
     "mitrailleuse : garnie oui, vide non")
@@ -657,6 +673,17 @@ mutant("refuge : marge oubliée", function()
   local m = Re.MARGIN
   local r = Re.refuge_ok
   patch(Re, "refuge_ok", function(...) Re.MARGIN = 0 local v = r(...) Re.MARGIN = m return v end)
+end)
+-- Seconde relecture, point C : protéger, pas seulement couvrir
+mutant("protéger = couvrir (règle du point 4 : menace ignorée)", function()
+  local j = Re.rally_judge
+  patch(Re, "rally_judge", function(es, ts, r, px, py) return j(es, ts, r, px, py, nil) end)
+end)
+mutant("endroit du tir : toujours la position de la menace", function()
+  patch(Re, "firing_spot", function(e, rally, ep) return { x = ep.x, y = ep.y } end)
+end)
+mutant("endroit du tir : le point de ralliement lui-même", function()
+  patch(Re, "firing_spot", function(e, rally) return { x = rally.x, y = rally.y } end)
 end)
 -- Seconde relecture, point B : tourelle en marche
 mutant("laser : réserve non nulle suffit (règle d'avant)", function()

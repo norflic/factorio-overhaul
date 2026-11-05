@@ -307,9 +307,13 @@ local function hq_threat(f, t, surface, tick)
   -- Relecture (point 4) : seules les tourelles qui marchent et couvrent le point de ralliement comptent (Re.rally_judge).
   local outranged = false
   if rally ~= nil and C.outrange_on() then
-    local verdict = Re.rally_judge(foes, qg_turrets, rally)
+    -- Seconde relecture (point C) : ... et qui atteignent l'endroit d'où la menace frapperait le point (Re.protects).
+    local cp = game.entity_prototypes["character"]
+    local me = Re.profile(0, nil, cp and cp.collision_box)
+    local verdict = Re.rally_judge(foes, qg_turrets, rally, me.hx, me.hy, threat)
     outranged = verdict ~= "couvert"
     if verdict == "deborde" then t.stats.hq_outranged = (t.stats.hq_outranged or 0) + 1
+    elseif verdict == "hors-portee" then t.stats.hq_rally_far = (t.stats.hq_rally_far or 0) + 1
     elseif verdict == "sans-tourelle" then t.stats.hq_rally_bare = (t.stats.hq_rally_bare or 0) + 1 end
   end
   local resp = Re.hq_response({ allies = armed_near_hq(f), force = force, prudence = prud, agressivite = agr, rally = rally,
