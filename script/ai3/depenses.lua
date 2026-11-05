@@ -3,7 +3,10 @@
   par cycle et par équipe (factions et votre équipe). État : f.team.depenses (nombres et tables ; créé au premier appel, rien à migrer).
   Interface (le budget est À CE LOT ; le périmètre le CONSOMME) :
     - f.team.depenses.defense_want = { [matière] = quantité } : demande de défense, écrite par le périmètre ;
-    - Dep.defense(f, tick) -> { [matière] = quantité accordée } (table vide : rien ne dort, règle éteinte ou résultat périmé) ;
+    - Dep.defense(f, tick) -> accord, info : accord = { [matière] = accordé − déjà débité } (table vide : rien ne dort, règle éteinte ou
+      résultat périmé) ; info = { etat = "actif" | "eteint" | "perime", tick = tick de l'accord } (PERIMETRE2 : repli si etat ≠ "actif") ;
+    - Dep.debit(f, "defense", matière, quantité) -> quantité débitée de l'accord courant (au plus son reste) ; le compte repart de zéro à
+      chaque nouvel accord (Dep.think) ; ce qui est débité sort aussi de la réserve (Dep.reserved) ;
     - Dep.labs_target(f, now, cap, tick) -> cible ABSOLUE de laboratoires ou nil (script/ai3/cerveau.lua) ;
     - Dep.soldiers_target(f, army, max, now, tick, key, key_short) -> cible d'armée relevée (script/ai3/cerveau.lua, factions : votre
       équipe n'a ni chemin de recrutement ni prototype de soldat, voir RAPPORT.md) ;
@@ -66,6 +69,7 @@ function Dep.think(f, cs, tick, products, minutes)
   d.st, res = Dp.step(d.st, { on = d.on ~= false, tick = tick, products = list, hold = hold,
     want = type(d.defense_want) == "table" and d.defense_want or nil })
   d.res, d.res_tick = res, tick
+  d.spent = {} -- (nouvel accord : il est calculé sur le stock libre, qui a déjà perdu ce que la défense a posé)
   -- Rien ne dort pour la recherche : base oubliée. Centre en attente : base et cible GARDÉES (pas un nouveau sommeil qui repartirait de
   -- plus haut), mais aucun laboratoire demandé ni débité tant qu'il attend (Dep.labs_target, Dp.reserved).
   if res.labs <= 0 and not res.hold then d.lab_base, d.lab_target = nil, nil end
@@ -81,12 +85,23 @@ function Dep.think(f, cs, tick, products, minutes)
   return res
 end
 
---- Accordé à la défense, par matière (copie : le lecteur ne peut pas écrire l'état).
+--- Accordé à la défense et pas encore débité, par matière (copie : le lecteur ne peut pas écrire l'état), et l'état de l'accord :
+--- "eteint" (interrupteur), "perime" (aucun accord, ou plus vieux que Dep.FRESH), "actif" (même centre en attente : la défense reste servie).
 function Dep.defense(f, tick)
+  local d = f and f.team and f.team.depenses
   local r = fresh(f, tick)
-  local out = {}
-  if r then for _, k in ipairs(sorted_keys(r.defense)) do out[k] = r.defense[k] end end
-  return out
+  local etat = (type(d) == "table" and d.on == false) and "eteint" or (r and "actif" or "perime")
+  local info = { etat = etat, tick = type(d) == "table" and d.res_tick or nil }
+  return r and Dp.defense_left(r, d.spent) or {}, info
+end
+
+--- Dépense de défense (kind = "defense") sur l'accord courant : rend la quantité débitée (au plus le reste de l'accord ; 0 si éteint,
+--- sans accord ou autre kind).
+function Dep.debit(f, kind, item, qty)
+  local d = f and f.team and f.team.depenses
+  if kind ~= "defense" or type(d) ~= "table" or d.on == false or type(d.res) ~= "table" then return 0 end
+  if type(d.spent) ~= "table" then d.spent = {} end
+  return Dp.debit(d.res, d.spent, item, qty)
 end
 
 --- Cible ABSOLUE de laboratoires (revue D1) : now = laboratoires présents, cap = plafond total. nil : rien ne dort.
@@ -120,7 +135,7 @@ function Dep.reserved(f, tick)
   local r = fresh(f, tick)
   local d = f and f.team and f.team.depenses
   if not (r and d) then return {} end
-  return Dp.reserved(r, d.lab_target, d.lab_now, d.soldier_target, d.soldier_brain, d.soldier_now, d.soldier_key)
+  return Dp.reserved(r, d.lab_target, d.lab_now, d.soldier_target, d.soldier_brain, d.soldier_now, d.soldier_key, d.spent)
 end
 
 --- Entrée « stock hors besoin » de la capitalisation débitée de Dep.reserved (copie ; rin nil -> nil).

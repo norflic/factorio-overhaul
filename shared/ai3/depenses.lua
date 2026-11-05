@@ -25,6 +25,9 @@
      soldats ne se paient qu'avec la matière CLÉ (Dp.soldiers_extra, jamais quand elle manque : key_short) ; le débit des soldats engagés
      (Dp.reserved) est min(cible − cible du cerveau, cible − présents) × coût, porté par la matière clé, et rien n'est débité au-delà de
      l'excédent qui dort de chaque matière.
+  8. Interface du périmètre (PERIMETRE2, accord du lead le 5/11) : ce que la défense a DÉJÀ dépensé de l'accord courant (spent, compté par
+     Dp.debit, jamais au-delà de l'accord) sort de l'accord rendu (Dp.defense_left) et de la réserve (Dp.reserved) : le fer posé n'est
+     pas retenu une seconde fois jusqu'au relevé suivant.
   Déterminisme : matières dans l'ordre de l'appelant, aucun hasard, aucun temps mesuré ; l'état ne garde que des nombres.
 ]]
 
@@ -156,10 +159,31 @@ end
 --- Ce que la règle a accordé ou engagé, par matière (D2, E2) : défense accordée + laboratoires encore à faire (au prorata des parts de la
 --- recherche) + soldats encore à recruter AU-DESSUS de la cible du cerveau (min(t − brain, t − now) × coût, sur la matière clé) ; jamais
 --- plus que l'excédent qui dort de chaque matière (res.per).
-function Dp.reserved(res, lab_target, lab_now, sold_target, sold_brain, sold_now, key)
+--- Accord de défense restant, par matière : accordé − déjà dépensé (spent, de Dp.debit), jamais négatif. Copie.
+function Dp.defense_left(res, spent)
   local out = {}
   if not res then return out end
-  for _, k in ipairs(sorted_keys(res.defense)) do out[k] = num(res.defense[k]) end
+  for _, k in ipairs(sorted_keys(res.defense)) do
+    out[k] = math.max(0, num(res.defense[k]) - num((spent or {})[k]))
+  end
+  return out
+end
+
+--- Débit d'une dépense de défense sur l'accord res : rend la quantité débitée = min(q, reste de l'accord), jamais négative ; spent (table
+--- de l'appelant, par matière) est augmenté d'autant.
+function Dp.debit(res, spent, k, q)
+  if not (res and spent and k ~= nil) then return 0 end
+  local used = num(spent[k])
+  local n = math.max(0, math.min(num(q), num((res.defense or {})[k]) - used))
+  if n > 0 then spent[k] = used + n end
+  return n
+end
+
+function Dp.reserved(res, lab_target, lab_now, sold_target, sold_brain, sold_now, key, spent)
+  local out = {}
+  if not res then return out end
+  local left = Dp.defense_left(res, spent) -- (la défense déjà posée n'est plus retenue : elle a quitté le coffre)
+  for _, k in ipairs(sorted_keys(left)) do out[k] = left[k] end
   local labs = res.hold and 0 or Dp.engaged(lab_target, lab_now, Dp.LAB_COST) -- (centre en attente : rien d'engagé pour les laboratoires)
   if labs > 0 and num(res.research) > 0 then
     for _, k in ipairs(sorted_keys(res.rper)) do out[k] = (out[k] or 0) + labs * num(res.rper[k]) / res.research end

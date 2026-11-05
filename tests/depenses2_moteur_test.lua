@@ -11,7 +11,9 @@
        de l'engagé (laboratoires à faire, soldats AU-DESSUS de la cible du cerveau) ;
     §4 interrupteur f.team.depenses.on = false : aucune ligne ;
     §5 essai 3 : CENTRE EN ATTENTE DE CIRCUITS (but courant de l'amélioration, coût impayable) : 0 laboratoire et 0 soldat de plus,
-       journal « CENTRE EN ATTENTE » ; son mutant (la garde ignorée) pose des laboratoires.
+       journal « CENTRE EN ATTENTE » ; son mutant (la garde ignorée) pose des laboratoires ;
+    §6 interface du périmètre (PERIMETRE2, 5/11) : table créée par le périmètre gardée, accord sur sa demande, etat actif / perime /
+       eteint, Dep.debit au plus l'accord, débité aussi de la réserve, compte remis à zéro au nouvel accord.
   Usage : lua5.2 tests/depenses2_moteur_test.lua   (depuis la racine du mod ; quelques minutes)
 ]]
 package.path = "./?.lua;" .. package.path
@@ -53,6 +55,9 @@ local function run(opts)
   local Dep = require("script.ai3.depenses")
   if opts.off then
     f.team.depenses = { on = false }
+  end
+  if opts.want then -- §6 : le périmètre crée la table et écrit sa demande avant la première pensée de la règle
+    f.team.depenses = { defense_want = opts.want }
   end
   if opts.centre then
     -- §5 : le centre est le but courant de l'amélioration et attend des circuits (coût impayable : il reste en attente).
@@ -177,6 +182,38 @@ local maxg = 0
 for m = 1, 10 do if g.series[m] > maxg then maxg = g.series[m] end end
 say("§5 mutant : laboratoires par minute : " .. table.concat(g.series, " "))
 check(maxg > g.series[1], "§5 mutant détecté : sans la garde, des laboratoires sont posés malgré le centre (" .. g.series[1] .. " -> " .. maxg .. ")")
+
+say("§6 interface du perimetre : accord, etat, debit")
+do
+  local Dep = require("script.ai3.depenses")
+  local h = run({ minutes = 8, want = { ["iron-plate"] = 1200 } })
+  local d, t = h.d, game.tick
+  local acc, info = Dep.defense(h.f, t)
+  check(info.etat == "actif" and info.tick == d.res_tick, "§6 accord actif, avec le tick de l'accord (" .. tostring(info.etat) .. ")")
+  local g0 = acc["iron-plate"] or 0
+  check(g0 == 1200, "§6 table créée par le périmètre gardée : fer accordé sur sa demande (" .. g0 .. ")")
+  local function held() return Dep.reserved(h.f, t)["iron-plate"] or 0 end
+  local r0 = held()
+  check(Dep.debit(h.f, "defense", "iron-plate", 120) == 120, "§6 débit d'une tourelle : 120")
+  check(Dep.defense(h.f, t)["iron-plate"] == g0 - 120, "§6 accord rendu débité (" .. tostring(Dep.defense(h.f, t)["iron-plate"]) .. ")")
+  check(math.abs((r0 - held()) - 120) < 1e-6, "§6 la réserve de la capitalisation ne retient plus les 120 posés (" .. (r0 - held()) .. ")")
+  check(Dep.debit(h.f, "defense", "iron-plate", 1e9) == g0 - 120 and (Dep.defense(h.f, t)["iron-plate"] or 0) == 0,
+    "§6 jamais au-delà de l'accord")
+  check(Dep.debit(h.f, "autre", "iron-plate", 10) == 0, "§6 autre dépense que la défense : 0")
+  M.run_ticks(MIN)
+  local acc2, info2 = Dep.defense(h.f, game.tick)
+  check(info2.etat == "actif" and info2.tick > info.tick and (acc2["iron-plate"] or 0) > 0 and next(d.spent) == nil,
+    "§6 nouvel accord à la minute suivante : compte remis à zéro (" .. tostring(acc2["iron-plate"]) .. ")")
+  local _, info3 = Dep.defense(h.f, game.tick + Dep.FRESH + 1)
+  check(info3.etat == "perime", "§6 accord périmé après 3 min sans relevé (" .. tostring(info3.etat) .. ")")
+  local _, info5 = Dep.defense({ team = {} }, game.tick)
+  check(info5.etat == "perime" and info5.tick == nil, "§6 équipe sans règle : perime, sans tick")
+  d.on = false
+  local acc4, info4 = Dep.defense(h.f, game.tick)
+  check(info4.etat == "eteint" and next(acc4) == nil and Dep.debit(h.f, "defense", "iron-plate", 10) == 0,
+    "§6 interrupteur : eteint, rien accordé ni débité")
+  d.on = nil
+end
 
 print(string.format("[DEPENSES2-MOTEUR] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
