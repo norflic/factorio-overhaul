@@ -367,7 +367,7 @@ for i, r in ipairs(Xp.ROBOTS) do
     localised_name = { "technology-name." .. r.tech }, localised_description = { "technology-description." .. r.tech },
     icons = { { icon = SPR.corps[r.id].icone.filename, icon_size = 64 } },
     effects = { lib.unlock(r.recipe) }, prerequisites = { r.after },
-    count = C.tech_count({ epoch = r.age, count = after.count }), packs = C.packs(r.age), time = 30,
+    count = Xp.tech_units(C.tech_count(after)), packs = C.packs(r.age), time = 30,
     order = "z[fo]-robots-xp-" .. string.format("%02d", r.age),
   })
 end

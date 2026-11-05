@@ -289,21 +289,22 @@ function C.present(name)
   return T.present(name) or IN_GAME[name] == true
 end
 
---- Packs vanilla de la fenêtre X0 de l'âge k (pack militaire ajouté dès l'âge 4 : X.pack_window), ordre de
---- lib.SCIENCE (du rouge au spatial). Les packs du mod (fo-*) ne sont pas en jeu : retirés.
+--- Packs vanilla de l'âge k : TOUS les packs vanilla apparus à l'âge k ou avant dans le calendrier X0 (X.epochs[j].pack :
+--- rouge 1, vert 2, militaire 3, bleu 4, production 6, utilité 10, spatial 14), ordre de lib.SCIENCE (du rouge au spatial).
+--- Les packs du mod (fo-*) ne sont pas en jeu.
+--- Décision du DC (4/11, 19 h 48, QCM du lot XP-COUTS) : « Oui, tous les packs de l'âge ». Avant, la règle gardait les packs
+--- vanilla de la fenêtre X0 (k, k − 1, k − 2) : aux âges 9 et 13, cette fenêtre n'a que des packs du mod, d'où rouge, vert,
+--- militaire seulement (moins qu'à l'âge 6). Les 13 autres âges donnent la même liste qu'avant (tests/xp_couts_test.lua).
 local ORDER = { "automation-science-pack", "logistic-science-pack", "military-science-pack", "chemical-science-pack",
                 "production-science-pack", "utility-science-pack", "space-science-pack" }
+local PACK_AGE = {} -- âge d'apparition de chaque pack dans le calendrier X0
+for j, e in ipairs(X.epochs) do
+  if PACK_AGE[e.pack] == nil then PACK_AGE[e.pack] = j end
+end
 function C.packs(k)
-  local want = {}
-  for _, p in ipairs(X.pack_window(k, { military = true })) do want[p] = true end
-  -- La fenêtre glisse : l'âge k exige aussi les packs vanilla plus anciens encore utilisés en jeu (les technologies
-  -- vanilla de l'âge k les exigent toutes), du rouge jusqu'au pack de l'âge.
-  local top = 0
-  for i, p in ipairs(ORDER) do if want[p] then top = i end end
   local out = {}
-  for i = 1, top do
-    local p = ORDER[i]
-    if p ~= "military-science-pack" or want[p] or k >= 3 then out[#out + 1] = p end
+  for _, p in ipairs(ORDER) do
+    if PACK_AGE[p] and PACK_AGE[p] <= k then out[#out + 1] = p end
   end
   return out
 end
