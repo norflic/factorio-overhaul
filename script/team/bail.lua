@@ -83,8 +83,10 @@ local function observe(f, t, agent, tick)
   local raw = Bl.busy(k_of(agent), agent.shooting, tick)
   t.busy_acc = Bl.busy_acc(t.busy_acc, last, tick, raw)
   local busy = Bl.busy_counted(raw, t.busy_acc)
-  -- travail sur place du bâtisseur (reconstructions de l'étape « ia1d », script/team/build.lua Build.work : job.done)
-  local work = agent.ia1d and agent.ia1d.done or nil
+  -- travail sur place du bâtisseur (étape « ia1d », script/team/build.lua Build.work) : reconstructions (job.done) et arbres coupés vers son
+  -- point d'appui (job.cut, cut_toward ; relecture de revue-etage4). L'attente de jetons (Tokens.take) n'en est pas : 2 min sans jeton = famine.
+  local job = agent.ia1d
+  local work = job and ((job.done or 0) + (job.cut or 0)) or nil
   local prog, stall = Bl.progress(t.prog, { pc = agent.pc, x = p.x, y = p.y, gx = g and g.x, gy = g and g.y, busy = busy, work = work }, tick)
   t.prog = prog
   t.seen = tick

@@ -3467,6 +3467,7 @@ local function cut_toward(f, agent, job, pos, inv, tick, reach2)
       if not Tokens.take(f, tick, Build.COST_EVAL) then return nil end
       if not t.mine({ inventory = inv, force = e.force, raise_destroyed = true }) and t.valid then t.destroy({ raise_destroy = true }) end
       cut = cut + 1
+      job.cut = (job.cut or 0) + 1 -- lot ETAGE4 (relecture) : travail sur place du bâtisseur, lu par le bail (script/team/bail.lua)
       b.stats.cleared = b.stats.cleared + 1
       b.stats.cut = (b.stats.cut or 0) + 1
     end

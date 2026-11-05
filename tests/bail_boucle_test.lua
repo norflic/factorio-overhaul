@@ -64,6 +64,8 @@ local function run(pc, kind, mode)
     if kind == "ghost" and mode == "boucle" then
       agent.pc, agent.ia1d = (k % 2 == 0) and 3 or 4, nil
       if agent.pc == 4 then agent.state = "ia1d" end
+    elseif kind == "ghost" and mode == "coupe" then
+      agent.pc, agent.state, agent.ia1d = 4, "ia1d", { pid = 9, mode = "build", done = 0, cut = k } -- coupe vers son point d'appui
     elseif kind == "ghost" then
       agent.pc, agent.state, agent.ia1d = 4, "ia1d", { pid = 9, mode = "build", done = k }
     end
@@ -95,25 +97,35 @@ check("batisseur en boucle marche / chantier vide / marche : lache au bail", dg 
   dg and string.format("lache apres %d s", dg / 60) or "jamais lache en 6,7 min")
 local dw = run(4, "ghost", "travail")
 check("batisseur qui reconstruit sur place : PAS lache", dw == nil, dw and string.format("lache apres %d s", dw / 60) or "jamais lache en 6,7 min")
+local dc = run(4, "ghost", "coupe")
+check("batisseur qui coupe les arbres vers son point d'appui : PAS lache", dc == nil, dc and string.format("lache apres %d s", dc / 60) or "jamais lache en 6,7 min")
 -- Mutants de la règle (code du dépôt seulement) : chacun doit faire échouer un cas du bâtisseur au moteur simulé.
 if not OLD then
-  local f = assert(io.open("shared/team/bail.lua", "rb"))
-  local SRC = f:read("*a")
-  f:close()
+  local function src_of(path)
+    local f = assert(io.open(path, "rb"))
+    local s = f:read("*a")
+    f:close()
+    return s
+  end
+  local SRCS = { ["shared.team.bail"] = src_of("shared/team/bail.lua"), ["script.team.bail"] = src_of("script/team/bail.lua") }
+  -- { nom, motif, remplacement, cas (travail / coupe : ne doit PAS être lâché ; boucle : doit l'être), module muté }
   local MUT = {
-    { "travail ignore", "if cur.work ~= nil and num(cur.work) > num(prev.work) then return fresh(cur, tick, top) end", "", "travail" },
-    { "retour en arriere = progres", "cur.busy == true or num(cur.pc) > num(top) then", "cur.busy == true or cur.pc ~= prev.pc then", "boucle" },
-    { "batisseur hors bail", "Bl.KINDS = { service = true, ghost = true }", "Bl.KINDS = { service = true }", "boucle" },
+    { "travail ignore", "if cur.work ~= nil and num(cur.work) > num(prev.work) then return fresh(cur, tick, top) end", "", "travail", "shared.team.bail" },
+    { "retour en arriere = progres", "cur.busy == true or num(cur.pc) > num(top) then", "cur.busy == true or cur.pc ~= prev.pc then", "boucle", "shared.team.bail" },
+    { "batisseur hors bail", "Bl.KINDS = { service = true, ghost = true }", "Bl.KINDS = { service = true }", "boucle", "shared.team.bail" },
+    { "arbres coupes ignores (moniteur)", "local work = job and ((job.done or 0) + (job.cut or 0)) or nil", "local work = job and job.done or nil", "coupe",
+      "script.team.bail" },
   }
   for _, m in ipairs(MUT) do
+    local SRC = SRCS[m[5]]
     local a, b = SRC:find(m[2], 1, true)
     local seen = false
     if a then
       local src = SRC:sub(1, a - 1) .. m[3] .. SRC:sub(b + 1)
-      package.preload["shared.team.bail"] = function() return assert(load(src, "=bail-mutant", "t"))() end
-      local d = run(m[4] == "travail" and 4 or 3, "ghost", m[4])
-      package.preload["shared.team.bail"] = nil
-      if m[4] == "travail" then seen = d ~= nil else seen = d == nil or d > LEASE + 600 end
+      package.preload[m[5]] = function() return assert(load(src, "=bail-mutant", "t"))() end
+      local d = run((m[4] == "travail" or m[4] == "coupe") and 4 or 3, "ghost", m[4])
+      package.preload[m[5]] = nil
+      if m[4] == "boucle" then seen = d == nil or d > LEASE + 600 else seen = d ~= nil end
     end
     check("mutant « " .. m[1] .. " » refuse", seen, a and "" or "motif introuvable")
   end
