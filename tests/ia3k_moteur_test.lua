@@ -537,6 +537,17 @@ do
   local dk = wave0("fo-test-biter", true)
   check(dk.hq_rally > 0 and dk.hq_rally_bare == 0, string.format(
     "regarnies : ralliement de nouveau (rally %d, sans tourelle %d)", dk.hq_rally, dk.hq_rally_bare))
+  -- Point 5 de la relecture : la branche PAR PNJ (M.sense, près du QG : t.stats.outranged, qg_pnj_<réponse>), sur 200 ticks
+  -- (chaque PNJ au repos regarde au moins une fois). Mutant « outranged forcé à faux dans M.sense » : section suivante.
+  M.run_ticks(2400) -- les PNJ partis aux vagues d'avant rentrent
+  local dg = wave0("fo-test-gunner", true, nil, 200, true)
+  check(dg.outranged > 0 and dg.qg_pnj_rally == 0, string.format(
+    "par PNJ, mitrailleurs (20) : débordé %d fois, aucun ralliement (rally %d, away %d, stand %d)",
+    dg.outranged, dg.qg_pnj_rally, dg.qg_pnj_away, dg.qg_pnj_stand))
+  M.run_ticks(2400)
+  local db = wave0("fo-test-biter", true, nil, 200, true)
+  check(db.outranged == 0 and db.qg_pnj_rally > 0, string.format(
+    "par PNJ, mordeurs (1) : jamais débordé (%d), ralliement (%d)", db.outranged, db.qg_pnj_rally))
   -- Point 3 de la relecture : vers marqués sur la carte de l'équipe dans les 5 directions qui éloignent de l'ennemi (à 44 tuiles
   -- du coffre) : aucune direction sûre, personne ne part (« stand »). Les PNJ partis aux vagues d'avant rentrent d'abord.
   M.run_ticks(2400)
@@ -592,6 +603,33 @@ do
   f.turrets = saved_turrets
   if tu2 and tu2.valid then tu2.destroy() end
   if tu and tu.valid then tu.destroy() end
+end
+
+---------------------------------------------------------------------------------------------------
+section("Mutant : « outranged forcé à faux dans M.sense » (lot CORR-RALLIEMENT, point 5)")
+-- script/ai3/comportement.lua relu, la ligne de M.sense « outranged = verdict ~= "couvert" » remplacée par « outranged = false »,
+-- le module chargé à sa place (package.preload) dans une partie neuve ; la vague de mitrailleurs doit alors montrer un ralliement
+-- par PNJ et aucun débordement : le contrôle « par PNJ » de la section précédente le refuse.
+do
+  local fh = assert(io.open("script/ai3/comportement.lua", "rb"))
+  local src = fh:read("*a")
+  fh:close()
+  local old = 'outranged = verdict ~= "couvert"'
+  local a, b = src:find(old, 1, true)
+  check(a ~= nil and src:find(old, b + 1, true) == nil, "mutant : motif unique dans comportement.lua (M.sense)")
+  if a then
+    local msrc = src:sub(1, a - 1) .. "outranged = false" .. src:sub(b + 1)
+    package.preload["script.ai3.comportement"] = function() return assert(load(msrc, "=comportement-mutant", "t"))() end
+    local fm = setup()
+    local _, tum, wavem = corr_arena(fm, game.surfaces[1])
+    local dm = wavem("fo-test-gunner", true, nil, 200, true)
+    package.preload["script.ai3.comportement"] = nil
+    local refused = not (dm.outranged > 0 and dm.qg_pnj_rally == 0)
+    check(refused and dm.qg_pnj_rally > 0 and dm.hq_outranged > 0, string.format(
+      "mutant refusé : par PNJ, débordé %d, ralliement %d (la réponse de l'équipe, hors M.sense, déborde encore : %d)",
+      dm.outranged, dm.qg_pnj_rally, dm.hq_outranged))
+    if tum and tum.valid then tum.destroy() end
+  end
 end
 
 ---------------------------------------------------------------------------------------------------

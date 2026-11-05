@@ -1349,6 +1349,7 @@ function M.sense(agent, tick)
     end
     local resp = Re.hq_response({ allies = allies + 1, force = enemies, prudence = prud, agressivite = agr, rally = rally,
       outrun = Re.outrun(M.enemy_speed(enemy), e.prototype.running_speed), outranged = outranged })
+    t.stats["qg_pnj_" .. resp] = (t.stats["qg_pnj_" .. resp] or 0) + 1 -- lot CORR-RALLIEMENT : réponse PAR PNJ (tests, point 5)
     if resp == "rally" then
       if d2(p, rally) <= 36 then action, why = "engage", "sous-les-tourelles"
       else action, why, to = "flee", "ralliement", rally end
