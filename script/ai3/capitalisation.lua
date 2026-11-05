@@ -295,37 +295,74 @@ end
 --- fabriquer tous ses objets (comme A.decide : un module plus grand demande des bras rapides ou d'autres objets pas encore
 --- recherchés ; banc p4 du lot : modules à 150/min en réserve 15 min sur « fast-inserter », jamais recherché). Rend
 --- (gabarit, args) ou (nil, objets manquants de la plus petite taille).
-local function fit_module(meth, rate, book, stock, has_plant, harvest, belt_flow)
+--- Décision du lead (5/11, 21 h 20, point (a)) : objets utilisables par un module. Ce sont ceux du stock, ou ceux que la main fait ET
+--- dont les matières brutes fabriquées sont au stock ou produites (Ca.buildable, mémorisé pour l'appel). made = { [objet] = n } :
+--- production du dernier relevé (Capi.made_of). Règle de PRINCIPE : sans acier au stock ni produit, l'AM2 n'est pas choisie (l'AM1
+--- l'est) ; son effet sur la partie du DC N'EST PAS établi (débit réel d'acier non mesuré, Ca.buildable).
+function Capi.usable_of(book, stock, made)
+  local memo = {}
+  return function(n)
+    if ((stock or {})[n] or 0) > 0 then return true end
+    if not book:handcraftable(n) then return false end
+    local v = memo[n]
+    if v == nil then
+      v = (Ca.buildable(n, book, stock, made)) == true
+      memo[n] = v
+    end
+    return v
+  end
+end
+
+--- Production du dernier relevé de la capitalisation : { [objet] = n }, depuis cs.flows (flows_of : statistiques de la force et main).
+--- VOTRE ÉQUIPE (player = vrai, décision du lead 5/11, 21 h 45) : la main de l'équipe seulement (cs.flows[k].hand), jamais les
+--- statistiques de la force « player », qui comptent aussi l'usine du DC humain (comme D09, script/team/intermediaires.lua) : de l'acier
+--- fondu par le DC ne doit pas faire croire que l'équipe en produit. Factions : statistiques de leur force, main comprise.
+function Capi.made_of(cs, player)
+  local out = {}
+  for _, k in ipairs(sorted_keys((cs and cs.flows) or {})) do
+    local fl = cs.flows[k]
+    out[k] = (player and (fl.hand or 0)) or (fl.made or 0)
+  end
+  return out
+end
+
+local function fit_module(meth, rate, book, stock, has_plant, harvest, belt_flow, made)
   -- lot PLANDIR : poteau du gabarit = le moins cher dont la recette est débloquée (A.choose_pole)
   local pole = A.choose_pole(book, stock, harvest) -- lot KIT : le bois à portée compte (les factions n'en ont plus au départ)
   local g, args = A.sized(meth, rate, pole)
   if not g then return nil, {} end
   local function missing_of(gg)
     local _, items = A.cost(meth, gg, { has_plant = has_plant, belt_flow = belt_flow })
-    local miss = {}
+    local miss, raw = {}, {}
     for _, name in ipairs(sorted_keys(items)) do
-      if not (book:handcraftable(name) or (stock[name] or 0) > 0) then miss[#miss + 1] = name end
+      if not (book:handcraftable(name) or (stock[name] or 0) > 0) then miss[#miss + 1] = name
+      elseif (stock[name] or 0) <= 0 then
+        -- point (a) : faisable à la main, mais une matière brute fabriquée n'est ni au stock ni produite (acier des AM2)
+        local ok, r = Ca.buildable(name, book, stock, made)
+        if not ok then raw[#raw + 1] = name .. " (" .. tostring(r) .. ")" end
+      end
     end
-    return miss
+    return miss, raw
   end
-  local miss = missing_of(g)
-  while #miss > 0 and g.ext and (args[g.ext.arg] or 1) > 1 do
+  local miss, raw = missing_of(g)
+  while (#miss > 0 or #raw > 0) and g.ext and (args[g.ext.arg] or 1) > 1 do
     local a2 = {}
     for i = 1, #args do a2[i] = args[i] end
     a2[g.ext.arg] = args[g.ext.arg] - 1
     local g2 = A.template(meth.gen, a2, pole)
     if not g2 then break end
     g, args = g2, a2
-    miss = missing_of(g)
+    miss, raw = missing_of(g)
   end
-  if #miss > 0 then return nil, miss end
+  -- (miss : objets hors de la main et hors du stock, demandés à la recherche par les appelants ; raw : point (a), jamais à la recherche)
+  if #miss > 0 or #raw > 0 then return nil, miss, raw end
   return g, args
 end
 
-local function module_ok(meth, book, stock, has_plant, rate, harvest, belt_flow)
-  local g, miss = fit_module(meth, math.min(rate or A.FIRST_RATE_MAX, A.FIRST_RATE_MAX), book, stock, has_plant, harvest, belt_flow)
-  if not g then return false, miss end
-  return true, {}
+local function module_ok(meth, book, stock, has_plant, rate, harvest, belt_flow, made)
+  local g, miss, raw = fit_module(meth, math.min(rate or A.FIRST_RATE_MAX, A.FIRST_RATE_MAX), book, stock, has_plant, harvest, belt_flow, made)
+  if not g then return false, miss, raw end
+  return true, {}, {}
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -831,6 +868,7 @@ local function build_input(f, cs, view, book, tick, D, w)
   D.bonus.mining = (force and force.mining_drill_productivity_bonus) or 0
   D.bonus.lab = (force and force.laboratory_speed_modifier) or 0
   local stock = view.stock or {}
+  local made = Capi.made_of(cs, f.is_player) -- (point (a) du lead : production du dernier relevé ; votre équipe : sa main seulement)
   local threat, production_first = Sv.capi(Survie.on(f) and not (view.qg_peril and view.qg_peril.peril), view.threatened or false, (f.team and f.team.priorite_pf) or false)
   if threat and R.PILE_BUDGET and Pi.threat_open(st.pile) then threat = false end -- lot PILE-BUDGET (relecture) : défense payée, l'évolution continue
   -- foreuse imposée par ressource : électrique (fonderie du plan directeur) si le gabarit se pose aujourd'hui ; sinon
@@ -866,8 +904,14 @@ local function build_input(f, cs, view, book, tick, D, w)
     elseif wait_plant then why = "centrale demandee, pas finie (" .. tostring(plant_state) .. ")"
     elseif Em.drill_refused(slots, meth.product) then why = busy_text -- (lot DEPENSES2 : siège du complément ; règle pure, testée)
     else
-      ok, miss = module_ok(meth, book, stock, plant_state ~= nil, nil, Harvest.reachable(f), Auto.belt_flow(f))
-      if not ok then why = "objets impossibles : " .. table.concat(miss, ",") end
+      local raw
+      ok, miss, raw = module_ok(meth, book, stock, plant_state ~= nil, nil, Harvest.reachable(f), Auto.belt_flow(f), made)
+      if not ok then
+        local all = {}
+        for _, x in ipairs(miss or {}) do all[#all + 1] = x end
+        for _, x in ipairs(raw or {}) do all[#all + 1] = x end
+        why = "objets impossibles : " .. table.concat(all, ",")
+      end
     end
     if ok then drill_for[res], elec[res] = elec_drill, true
     else
@@ -953,7 +997,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     end
     local m = ce_memo[item]
     if m ~= nil then return m or nil end
-    local meth, why = A.method_for(item, book, function(n) return book:handcraftable(n) or (stock[n] or 0) > 0 end)
+    local meth, why = A.method_for(item, book, Capi.usable_of(book, stock, made)) -- (point (a) : machine faisable aujourd'hui)
     local res = nil
     local hw = Rp.held(repli, Rp.key(item, nil), tick, nil) -- lot CAPI-REPLI : chaînes et packs, clé = l'objet seul
     if not meth then res = tostring(why)
@@ -964,10 +1008,13 @@ local function build_input(f, cs, view, book, tick, D, w)
     elseif plant_state == "refuse" and ((A.template(meth.gen, meth.args) or {}).power_kw or 0) > 0 then
       res = "centrale refusee (" .. tostring(plant_why) .. ")"
     else
-      local ok, miss = module_ok(meth, book, stock, plant_state ~= nil, nil, Harvest.reachable(f), Auto.belt_flow(f))
-      if not ok then
+      local ok, miss, raw = module_ok(meth, book, stock, plant_state ~= nil, nil, Harvest.reachable(f), Auto.belt_flow(f), made)
+      if not ok and #(miss or {}) > 0 then
         res = "recherche : " .. table.concat(miss, ",")
         for _, x in ipairs(miss) do wanted[x] = true end
+      elseif not ok then
+        -- point (a) : une matière brute fabriquée n'est ni au stock ni produite ; rien à demander à la recherche
+        res = "matiere brute absente : " .. table.concat(raw or {}, ",")
       end
     end
     ce_memo[item] = res or false
@@ -1073,8 +1120,15 @@ local function execute(f, cs, o, view, book, tick, research)
       local repli = repli_book(cs)
       local shrunk = Rp.factor(repli, rkey, tick) < 1 -- lot INTEG-ECONOMIE (D2) : module réduit après un échec de matériaux
       for _, part in ipairs(Capi.split(rate, Rp.factor(repli, rkey, tick))) do
-        local g, args = fit_module(meth, part, book, view.stock or {}, Auto.plant_state(f) ~= nil, Harvest.reachable(f), Auto.belt_flow(f))
-        if not g then why = "objets impossibles : " .. table.concat(args or {}, ",") break end
+        local g, args, raw = fit_module(meth, part, book, view.stock or {}, Auto.plant_state(f) ~= nil, Harvest.reachable(f),
+          Auto.belt_flow(f), Capi.made_of(cs, f.is_player))
+        if not g then
+          local all = {}
+          for _, x in ipairs(args or {}) do all[#all + 1] = x end
+          for _, x in ipairs(raw or {}) do all[#all + 1] = x end
+          why = "objets impossibles : " .. table.concat(all, ",")
+          break
+        end
         local id, w2 = Auto.submit(f, { product = meth.product, gen = meth.gen, args = args, feed = meth.feed, rate = part,
           shrunk = shrunk or nil,
           rate_nom = (g.nominal[meth.product] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, near = near, pole = g.pole,
@@ -1142,14 +1196,23 @@ local function execute(f, cs, o, view, book, tick, research)
     return rec
   elseif o.kind == "chaine" or o.kind == "packs" then
     local vstock = view.stock or {}
-    local meth, why = A.method_for(o.item, book, function(n) return book:handcraftable(n) or (vstock[n] or 0) > 0 end)
+    local made = Capi.made_of(cs, f.is_player)
+    -- point (a) du lead : machine et kit faisables aujourd'hui (Capi.usable_of : pas d'AM2 sans acier)
+    local meth, why = A.method_for(o.item, book, Capi.usable_of(book, vstock, made))
     if not meth then return nil, tostring(why) end
     local ids, why2 = {}, nil
     local rkey = Rp.key(o.item, nil)
     local repli = repli_book(cs)
     for _, part in ipairs(Capi.split(o.rate or 0, Rp.factor(repli, rkey, tick))) do
-      local g, args = fit_module(meth, part, book, view.stock or {}, Auto.plant_state(f) ~= nil, Harvest.reachable(f), Auto.belt_flow(f))
-      if not g then why2 = "objets impossibles : " .. table.concat(args or {}, ",") break end
+      local g, args, raw = fit_module(meth, part, book, view.stock or {}, Auto.plant_state(f) ~= nil, Harvest.reachable(f),
+        Auto.belt_flow(f), made)
+      if not g then
+        local all = {}
+        for _, x in ipairs(args or {}) do all[#all + 1] = x end
+        for _, x in ipairs(raw or {}) do all[#all + 1] = x end
+        why2 = "objets impossibles : " .. table.concat(all, ",")
+        break
+      end
       local id, w2 = Auto.submit(f, { product = o.item, gen = meth.gen, args = args, feed = meth.feed, rate = part,
         rate_nom = (g.nominal[o.item] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, capi = o.key, pole = g.pole,
         why = string.format("CAPI %s x%d T=%.2f", o.kind, o.n or 0, o.T or 0) }, tick, research)

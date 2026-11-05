@@ -1935,6 +1935,32 @@ function Ca.seat_plate(ctx)
   return best, def
 end
 
+--- Décision du lead (5/11, 21 h 20, point (a)) : un objet que la main sait faire est-il FAISABLE pour un module ?
+--- Partie du DC (fo-logs/2026-11-05_PARTIE-DC-ESSAI), votre équipe :
+---   - MESURÉ : ses modules prenaient l'assembling-machine-2 (2 plaques d'acier), dont la recette est ouverte et faisable à la main ;
+---   - MESURÉ : ils l'ont attendue jusqu'au refus « matériaux introuvables » ; la main n'en a fait que 3 en toute la partie ;
+---   - NON MESURÉ : le débit d'acier réel. Le « 0 » des 147 fenêtres [FO-IA3E] est un artefact : ce D ne compte pas les fours du QG
+---     (ageblocage). De l'acier existait (un four d'acier payé à 53,5 min).
+---   L'effet de cette règle sur la partie du DC N'EST PAS établi : c'est une règle de PRINCIPE (sans acier du tout, ne pas prendre
+---   l'AM2). La variante « produit assez vite » attend la sonde du débit réel d'acier.
+--- Règle : on fait le plan de UN `item` au livre de la force (book:plan, avec le stock). Chaque matière brute qu'il y reste, celles que
+--- la main ne fait pas (acier, plaques), doit être produite : made[r] > 0, au dernier relevé des statistiques de la capitalisation.
+--- Sinon l'objet n'est pas faisable. On rend aussi cette matière, la première dans l'ordre trié.
+--- Les matières NATURELLES (book:natural : bois, pierre, charbon, minerais) ne comptent pas : les PNJ les récoltent ou les extraient
+--- (lot KIT). Seules comptent les matières FABRIQUÉES hors de la main, par un four ou une usine.
+--- Pur : livre, stock { [objet] = n } et made { [objet] = n } donnés par l'appelant. Sans livre : vrai, comme avant.
+function Ca.buildable(item, book, stock, made)
+  if not book then return true end
+  local raw = book:plan({ { item, 1 } }, stock or {}).raw
+  local keys = {}
+  for k in next, raw do keys[#keys + 1] = k end
+  table.sort(keys)
+  for _, r in ipairs(keys) do
+    if r ~= item and (raw[r] or 0) > 0 and not book:natural(r) and ((made or {})[r] or 0) <= 0 then return false, r end
+  end
+  return true, nil
+end
+
 --- La décision d'un cycle. input = {
 ---   data (Ca.data), state = { techs = { [techno] = vrai }, known = { [ressource] = vrai } (absente : toutes) },
 ---   stock = { [objet] = n }, flows = { [objet] = { made = /min arrivés au QG (toutes sources), hand = /min faits ou minés à
