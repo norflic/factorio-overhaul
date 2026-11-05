@@ -177,6 +177,11 @@ local function suite()
   check(sB.comp and sB.comp["iron-plate"] and not sB.comp["copper-plate"] and not Em.drill_refused(sB, "iron-plate")
     and Em.drill_refused(sB, "copper-plate"), "cas B par le second prédicat : siège du fer seulement")
 
+  section("remarque 6 de la relecture : un refus dû au seul siège déjà pris n'ouvre pas d'emplacement ordinaire (Em.blocked_counts)")
+  check(Em.blocked_counts(sl.comp, "iron-plate") == false, "second ordre du fer refusé (siège pris) : pas compté dans blocked_slots")
+  check(Em.blocked_counts(sl.comp, "copper-plate") == true and Em.blocked_counts(sl.comp, nil) == true and Em.blocked_counts(nil, "iron-plate") == true,
+    "tout autre refus (autre produit, module ordinaire, aucun siège) : compté comme avant")
+
   section("témoin : sans manque, Em.slots rend exactement ce que rendait DEPENSES2 (c)")
   local same = true
   for _, sleep in ipairs({ {}, { ["copper-plate"] = true }, { ["iron-plate"] = true }, { ["iron-plate"] = true, ["copper-plate"] = true } }) do
@@ -288,6 +293,8 @@ mutant("siège : plus PETIT déficit", function()
     return best, {}
   end)
 end)
+mutant("remarque 6 : tout refus compté (avant)", function() patch(Em, "blocked_counts", function() return true end) end)
+mutant("remarque 6 : aucun refus compté", function() patch(Em, "blocked_counts", function() return false end) end)
 mutant("ressource oubliée par unblocks", function()
   patch(Ca, "unblocks", function(o, b) return o ~= nil and b ~= nil and ((o.item and b[o.item]) or (o.product and b[o.product])) == true end)
 end)

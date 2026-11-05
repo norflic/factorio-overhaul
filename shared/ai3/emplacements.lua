@@ -211,6 +211,14 @@ function Em.champ_seat(full, room, room_comp, comp, product)
   return nil
 end
 
+--- Relecture de CORR-CHAMP-MANQUE (remarque 6) : un ordre refusé faute de place compte-t-il dans cs.blocked_slots (ordres retenus
+--- faute de place, qui ouvrent des emplacements ORDINAIRES de chantier à la décision suivante, lot C2) ? Non quand il n'a été refusé
+--- que parce que le siège UNIQUE du complément était déjà pris (son produit est dans le complément) : sinon le second ordre du fer
+--- d'une décision ouvrait un emplacement ordinaire de plus, et le siège unique n'en était plus un. Oui pour tout autre refus.
+function Em.blocked_counts(comp, product)
+  return not (comp ~= nil and product ~= nil and comp[product] == true)
+end
+
 --- s = { base (A.MAX_OPEN), plates (liste des stocks libres des produits des fonderies), mods (liste de { states, progress_tick,
 --- opened, work_tick, key }), tick, names (produits des fonderies, dans l'ordre de plates), sleeping ({ [produit] = true } : ceux qui
 --- dorment, lot DEPENSES2), short ({ [produit] = true } : leur matière manque aux ordres ouverts, Em.short, lot CORR-CHAMP-MANQUE),

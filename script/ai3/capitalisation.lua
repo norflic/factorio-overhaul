@@ -1506,7 +1506,9 @@ local function decide(f, cs, view, book, tick, research, w)
     local cseat = champ and Em.champ_seat(full, room, room_comp, cs.slots and cs.slots.comp, meth_o and meth_o.product) or nil
     if allowed and Capi.MODULE_KINDS[o.kind] and ((not champ and seat == nil) or (champ and cseat == nil)) then
       rec, why = nil, Em.busy_text(cs.slots) .. " ; emplacements libres pris par cette decision"
-      cs.blocked_slots = (cs.blocked_slots or 0) + 1 -- (intégration 0.6.32 : retenu faute de place lui aussi)
+      -- (intégration 0.6.32 : retenu faute de place lui aussi ; remarque 6 de la relecture de CORR-CHAMP-MANQUE : pas quand seul le
+      -- siège unique du complément était pris, Em.blocked_counts)
+      if Em.blocked_counts(cs.slots and cs.slots.comp, meth_o and meth_o.product) then cs.blocked_slots = (cs.blocked_slots or 0) + 1 end
     elseif allowed then
       rec, why = execute(f, cs, o, view, book, tick, research)
       if rec and rec.exec == "champ" and cseat == "complement" then rec.seat = "complement" end -- (tenu : Capi.slots, held_comp)
