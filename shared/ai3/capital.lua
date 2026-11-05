@@ -558,18 +558,23 @@ end
 --- aucune fabrication, et ces circuits partaient à leur arrivée vers les quais des modules. Règle : le centre collant ne compte que le
 --- stock libre au coffre, et ses tâches prennent la priorité du projet le plus fort (P.prio_of(100)), sous les urgences de défense et
 --- l'amorçage. Borné par l'état collant (Cap.AHEAD_TICKS).
+--- (Relecture de d18d1531, remarque 1 : un cran SOUS le plus fort, 84, pour ne jamais être à égalité avec l'armée d'alerte, 85.)
 function Cap.ahead_prio(P, prio)
-  return math.max(prio or 0, P.prio_of(100))
+  return math.max(prio or 0, P.prio_of(100) - 1)
 end
 
---- Étage CIRCUITS : ramène le stock virtuel des objets du coût au stock LIBRE du coffre (E.view.stock) ; rend l'excédent mis de côté
+--- Étage CIRCUITS : ramène le stock virtuel des objets du coût au stock LIBRE du coffre (E.view.stock) moins ce que le planificateur
+--- permanent a déjà pris à cette pensée (E.base_used : recrues, plein des tourelles ; relecture de d18d1531, remarque 2 : sans cela, le
+--- centre comptait des objets promis ailleurs, P.take rendait « ok » et Capital.pay échouait en boucle) ; rend l'excédent mis de côté
 --- ({ [objet] = n }), que Cap.emit rend ensuite au stock virtuel.
 function Cap.ahead_clamp(E, cost)
   local aside = {}
   local stock = (E.view and E.view.stock) or {}
+  local used = E.base_used or {}
   for _, it in ipairs(cost or {}) do
     local k = it[1]
-    local over = (E.avail[k] or 0) - (stock[k] or 0)
+    local here = math.max(0, (stock[k] or 0) - (used[k] or 0))
+    local over = (E.avail[k] or 0) - here
     if over > 0 and not aside[k] then
       aside[k] = over
       E.avail[k] = E.avail[k] - over

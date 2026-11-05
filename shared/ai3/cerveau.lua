@@ -317,6 +317,7 @@ function C.think(view, book, st, ctx)
   local order, K = P.update(st, goals, tick, s.workers)
   -- 5. Dépliage.
   local E = P.context(avail, book, view, st)
+  E.base_used = used -- étage CIRCUITS : ce que le planificateur permanent a pris (Cap.ahead_clamp)
   E.priorite = base.priorite -- lot PRIORITE-RESSOURCES : production d'abord quand le fer ne paie pas la défense et la production
   -- Lot PILE-PRIORITE : les manques des rangs R0 et R1 (fer des tourelles, survie, reconstruction d'un avant-poste) entrent
   -- dans E.raw AVEC leur priorité : P.supply en fait la fonte, le minage par plusieurs PNJ, l'exploration ; st.short_n en fait

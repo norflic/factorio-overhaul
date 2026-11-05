@@ -603,12 +603,32 @@ local function run_all()
     local r1, n1, p1, a1, pay1 = emit17(true, 200)
     check(r1 == "matiere" and n1 >= 6 and pay1 == nil,
       "§17 centre collant : 200 circuits ATTENDUS (coffre 0) ne paient rien ; il fabrique ses 6 circuits (" .. n1 .. ")")
-    check(p1 == P.prio_of(100), "§17 centre collant : ses fabrications à la priorité du projet le plus fort (" .. tostring(p1) .. ")")
+    check(p1 == P.prio_of(100) - 1, "§17 centre collant : ses fabrications un cran sous le projet le plus fort, jamais à égalité avec l'armée d'alerte (" .. tostring(p1) .. ")")
     check(a1 == 200, "§17 les circuits attendus restent au stock virtuel des projets suivants (" .. tostring(a1) .. ")")
     local r2, n2, _, _, pay2 = emit17(false, 200)
     check(r2 == "ok" and n2 == 0 and pay2 ~= nil, "§17 centre ordinaire : comportement d'avant (les attendus comptent, paiement prévu)")
     local _, n3, p3 = emit17(false, 0)
     check(n3 >= 6 and p3 == 60, "§17 centre ordinaire sans circuits : fabrication à la priorité de son projet (" .. tostring(p3) .. ")")
+    -- Relecture de d18d1531, remarque 2 : le clamp ne compte pas ce que le planificateur permanent a déjà pris (E.base_used).
+    local function emit17b(coffre, base, incoming)
+      -- stock virtuel = coffre + attendus − planificateur permanent (shared/ai3/cerveau.lua, C.think)
+      local E = P.context({ ["iron-plate"] = coffre + (incoming or 0) - base, ["electronic-circuit"] = 6 }, book, { open = {}, workers_idle = 0 }, {})
+      E.view = { workers_idle = 0, stock = { ["iron-plate"] = coffre, ["electronic-circuit"] = 6 } }
+      E.base_used = { ["iron-plate"] = base }
+      local g = { key = "capital:command:2:1", center = true, ahead = true, fond = true, short = true, cost = cost }
+      local res = Cap.emit(P)(E, { id = 7, key = g.key, prio = 60 }, g)
+      return res, E.pay, E.avail["iron-plate"]
+    end
+    local r4, pay4, a4 = emit17b(10, 0)
+    check(r4 == "ok" and pay4 ~= nil and a4 == 0, "§17 centre collant, tout au coffre : P.take réussi avec le clamp, paiement prévu (" .. tostring(r4) .. ")")
+    local r5, pay5 = emit17b(10, 4, 4)
+    check(r5 == "matiere" and pay5 == nil,
+      "§17 centre collant : 10 fers au coffre dont 4 pris par le planificateur permanent, 4 attendus : rien n'est payé (" .. tostring(r5) .. ")")
+    local E6 = P.context({ ["iron-plate"] = 6 }, book, { open = {}, workers_idle = 0 }, {})
+    E6.view = { stock = { ["iron-plate"] = 10 } }
+    E6.base_used = { ["iron-plate"] = 4 }
+    local aside6 = Cap.ahead_clamp(E6, { { "iron-plate", 10 } })
+    check(next(aside6) == nil and E6.avail["iron-plate"] == 6, "§17 stock virtuel déjà sous (coffre − planificateur) : rien mis de côté")
   end
 end
 
@@ -713,6 +733,9 @@ do
   M("centre collant à la priorité de son projet", function() Cap.ahead_prio = function(_, p) return p end end,
     function() Cap.ahead_prio = apr end)
   local acl = Cap.ahead_clamp
+  M("clamp sans la part du planificateur permanent", function()
+    Cap.ahead_clamp = function(E, c) local u = E.base_used; E.base_used = nil; local a = acl(E, c); E.base_used = u; return a end
+  end, function() Cap.ahead_clamp = acl end)
   M("arrivées comptées pour le centre collant", function() Cap.ahead_clamp = function() return {} end end,
     function() Cap.ahead_clamp = acl end)
   local md = Cap.minimal_defense
