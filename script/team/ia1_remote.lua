@@ -19,6 +19,7 @@
 local Storage = require("script.core.storage")
 local State = require("script.faction.state")
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
+local CoffresJoueur = require("script.team.coffres_joueur") -- lot COFFRES-JOUEUR (bancs : listes des coffres du joueur)
 local Registry = require("script.companion.registry")
 local Scale = require("shared.team.scale")
 local Team = require("script.team.team")
@@ -336,6 +337,23 @@ remote.add_interface("fo-ia1", {
       return nil
     end
     return n
+  end,
+  -- Lot COFFRES-JOUEUR (bancs seulement) : le stock de l'équipe `key` lu ou touché par les fonctions du jeu (Stock.count, Stock.remove,
+  -- Stock.insert), et les listes des coffres du joueur (CJs.chests, CJs.depot : positions et numéros) ; op = "count", "remove",
+  -- "insert", "lists" ou "refresh" (liste refaite aussitôt).
+  bench_stock = function(key, op, item, n)
+    local f = team_of(key)
+    if not (f and f.hq and f.hq.valid) then return nil end
+    if op == "count" then return Stock.count(f, item) end
+    if op == "remove" then return Stock.remove(f, item, n or 0) end
+    if op == "insert" then return Stock.insert(f, item, n or 0) end
+    if op == "refresh" then CoffresJoueur.refresh(f, game.tick) end
+    local function rows(list)
+      local out = {}
+      for _, e in ipairs(list) do out[#out + 1] = { x = e.position.x, y = e.position.y, unit = e.unit_number, name = e.name } end
+      return out
+    end
+    return { take = rows(CoffresJoueur.chests(f)), depot = rows(CoffresJoueur.depot(f)) }
   end,
   team_status = function(key)
     local f = team_of(key)
