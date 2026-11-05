@@ -36,6 +36,8 @@ SORTIE = os.path.join(BASE, "sprites")
 JOURNAL = os.path.join(BASE, "production.log")
 STOP = os.path.join(BASE, "STOP")
 RENDRE = os.path.join(HERE, "rendre.py")
+RACINE = os.path.dirname(FE.LOGS)
+PLACES = os.environ.get("FO_PLACES_FICHIER") or os.path.join(RACINE, "fo-banc-places.txt")   # 1 = le DC joue (interdit n° 4)
 SAMPLES = 128
 PASSES_TETE = "shadow=32"
 
@@ -128,6 +130,45 @@ def paquets(reste, faits, minutes):
     return res
 
 
+def dc_joue():
+    """Vrai si fo-banc-places.txt vaut 1 (le DC joue : « remettre 1 quand le DC joue »)."""
+    try:
+        with open(PLACES, encoding="utf-8") as f:
+            return f.read().strip() == "1"
+    except OSError:
+        return False
+
+
+def session_rendu(cmd, ecoqos, log):
+    """Lance rendre.py et attend sa fin ; toutes les 5 s, retire l'EcoQoS de chaque Blender descendant (choix « b » du
+    lead, 5/11 : sans EcoQoS, priorité BelowNormal inchangée) et le REMET si le DC se met à jouer (fo-banc-places.txt
+    = 1). Rend (code, sortie, le DC a joué pendant la session)."""
+    import threading
+    import qos
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                         env=dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUTF8="1"))
+    morceaux = []
+    lecteur = threading.Thread(target=lambda: morceaux.append(p.stdout.read()), daemon=True)
+    lecteur.start()
+    etat_pid, dc = {}, False
+    while p.poll() is None:
+        if ecoqos == "retirer":
+            joue = dc_joue()
+            dc = dc or joue
+            try:
+                for pid in qos.descendants(p.pid, "blender.exe"):
+                    if etat_pid.get(pid) != joue:
+                        ok, err = qos.ecoqos(pid, joue)
+                        etat_pid[pid] = joue
+                        log("  Blender %d : EcoQoS %s (%s)" % (pid, "REMIS, le DC joue" if joue else "retiré",
+                                                              "ok" if ok else "erreur %d" % err))
+            except Exception as ex:  # noqa: BLE001 (le rendu continue, bridé)
+                log("  EcoQoS : %r" % ex)
+        time.sleep(5)
+    lecteur.join(timeout=30)
+    return p.returncode, (morceaux[0] if morceaux else b"").decode("utf-8", "replace"), dc
+
+
 def journal(path, msg):
     ligne = "%s %s" % (time.strftime("%Y-%m-%d %H:%M:%S"), msg)
     print(ligne, flush=True)
@@ -147,6 +188,8 @@ def main():
     ap.add_argument("--stop", default=STOP)
     ap.add_argument("--max-paquets", type=int, default=0)
     ap.add_argument("--rendre", default=RENDRE, help="(bancs de l'outil) rendre.py à appeler")
+    ap.add_argument("--ecoqos", default="retirer", choices=("retirer", "garder"),
+                    help="retirer (défaut, choix b du lead) : EcoQoS retiré des sessions Blender, remis si le DC joue")
     a = ap.parse_args()
     ndirs = FE.plages(a.directions)
     if "-" in a.ages:
@@ -197,6 +240,11 @@ def main():
             journal(a.journal, "STOP trouvé (%s) : arrêt avant le paquet %d (%d à faire)" % (a.stop, i + 1,
                                                                                            len(a_faire)))
             return 2
+        if dc_joue():
+            with open(a.stop, "w", encoding="utf-8") as f:
+                f.write("posé par produire.py le %s : fo-banc-places.txt vaut 1 (le DC joue)\n" % time.strftime("%d/%m %H:%M"))
+            journal(a.journal, "le DC joue (fo-banc-places.txt = 1) : STOP posé, arrêt avant le paquet %d" % (i + 1))
+            return 2
         if a.max_paquets and i >= a.max_paquets:
             break
         tentes.update(p)
@@ -209,15 +257,14 @@ def main():
             i + 1, len(pq), len(p), p[0], p[-1], sum(estime(n, faits) for n in p)))
         tp = time.time()
         try:
-            r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                               env=dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUTF8="1"))
-            sortie = r.stdout.decode("utf-8", "replace")
-            if r.returncode:
+            rc, sortie, dc = session_rendu(cmd, a.ecoqos, lambda m: journal(a.journal, m))
+            if dc:
+                journal(a.journal, "  le DC s'est mis à jouer pendant le paquet %d : EcoQoS remis" % (i + 1))
+            if rc:
                 erreurs += 1
                 if "REFUS" in sortie and "disque" in sortie.lower():
                     code_disque = True
-                journal(a.journal, "paquet %d : rendre.py code %d ; fin de sortie :\n%s" % (i + 1, r.returncode,
-                                                                                         sortie[-2500:]))
+                journal(a.journal, "paquet %d : rendre.py code %d ; fin de sortie :\n%s" % (i + 1, rc, sortie[-2500:]))
                 if code_disque:
                     return 4
         except Exception:  # noqa: BLE001
