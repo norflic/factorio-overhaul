@@ -34,6 +34,12 @@
     6. Lot INDUSTRIE I6 : le BLOC DE MALL a son emplacement à lui (Em.mall, Em.MALL_SLOTS = 1), hors du compte des fonderies et des
        chaînes : sinon la fonte, qui paie en premier, le privait toujours de sa place (plan INDUSTRIE §3). Un bloc FIGÉ (Em.STALL) ou
        SUSPENDU par la pile (Em.PILE_HOLD) libère l'emplacement, comme un module ordinaire : le mall ne bloque jamais.
+    7. Lot DEPENSES2 (essai 4, accord du lead du 5/11) : le COMPLÉMENT du stock qui dort. Quand un produit des fonderies DORT (règle de
+       shared/ai3/depenses.lua) et qu'un autre ne dort pas, celui qui ne dort pas manque en face (mesuré, essai 3, Azur sur 271828182 :
+       5 190 fer dormaient, cuivre à 45/min, ses foreuses refusées « plan directeur occupe », Em.extra à 0 car il prend le plus FAIBLE des
+       produits). Em.COMP_SLOTS emplacement de plus, RÉSERVÉ aux modules qui produisent un produit qui ne dort pas (extraction et fonte :
+       fonderies à foreuses) : room_comp ; les autres modules gardent room. Jamais plus d'un siège : un module ouvert ainsi est compté
+       à la décision suivante.
   Déterminisme : listes parcourues dans l'ordre donné, aucun hasard, aucun temps mesuré ; entrée et sortie : nombres, chaînes,
   tables.
 ]]
@@ -47,6 +53,7 @@ Em.PILE_HOLD = 5 * 3600 -- ticks de suspension continue par la pile avant de lib
 Em.PILED_FREE = 2      -- modules suspendus par la pile au plus hors du compte des emplacements
 Em.PER_SLOT = 1000     -- plaques libres de chaque produit des fonderies par emplacement de plus
 Em.MALL_SLOTS = 1      -- lot INDUSTRIE I6 : blocs de mall ouverts à la fois (emplacement à part)
+Em.COMP_SLOTS = 1      -- lot DEPENSES2 (essai 4) : emplacement de plus réservé au complément du stock qui dort
 
 -- États de l'exécutant (script/team/build.lua) où la matière du module se réserve encore ou n'est pas encore planifiée.
 Em.MATERIAL_STATES = { attente = true, plan = true, reserve = true }
@@ -111,8 +118,26 @@ function Em.extra(plates)
   return math.min(Em.EXTRA_MAX, math.floor(low / Em.PER_SLOT + 1e-9))
 end
 
+--- Lot DEPENSES2 (règle 7) : produits du COMPLÉMENT. names = liste des produits des fonderies, sleeping = { [produit] = true } (ceux
+--- qui dorment). Rend { [produit] = true } des produits qui ne dorment pas quand au moins un dort et au moins un ne dort pas ; nil sinon.
+function Em.complement(names, sleeping)
+  local comp, any_sleep, any_comp = {}, false, false
+  for _, n in ipairs(names or {}) do
+    if (sleeping or {})[n] then any_sleep = true else comp[n] = true any_comp = true end
+  end
+  if any_sleep and any_comp then return comp end
+  return nil
+end
+
+--- Le siège du complément est-il ouvert à un module qui produit `product` ? (sl : rendu d'Em.slots)
+function Em.comp_ok(sl, product)
+  return sl ~= nil and sl.comp ~= nil and product ~= nil and sl.comp[product] == true and (sl.room_comp or 0) > 0
+end
+
 --- s = { base (A.MAX_OPEN), plates (liste des stocks libres des produits des fonderies), mods (liste de { states, progress_tick,
---- opened, work_tick, key }), tick }. Rend { cap, counted, stalled, free_stalled, materials, open, room, busy, keys_stalled, why }.
+--- opened, work_tick, key }), tick, names (produits des fonderies, dans l'ordre de plates), sleeping ({ [produit] = true } : ceux qui
+--- dorment, lot DEPENSES2) }. Rend { cap, counted, stalled, free_stalled, materials, open, room, busy, keys_stalled, why, comp,
+--- room_comp }.
 function Em.slots(s)
   local base = math.max(0, math.floor((s and s.base) or 0))
   local extra = Em.extra(s and s.plates)
@@ -148,9 +173,19 @@ function Em.slots(s)
   local why = string.format("%d module(s) ouvert(s), %d compte(s) sur %d emplacement(s) (%d + %d par le stock), %d fige(s) hors du compte, %d en attente de matiere",
     #mods, counted, cap, base, extra, free_stalled, materials)
   if free_piled > 0 then why = why .. string.format(", %d suspendu(s) par la pile hors du compte", free_piled) end
+  -- Règle 7 (lot DEPENSES2) : le siège du complément du stock qui dort
+  local comp = Em.complement(s and s.names, s and s.sleeping)
+  local room_comp = room
+  if comp then
+    room_comp = math.max(0, cap + Em.COMP_SLOTS - counted)
+    local cn = {}
+    for _, n in ipairs(s.names) do if comp[n] then cn[#cn + 1] = n end end
+    why = why .. string.format(", +%d pour le complement du stock qui dort (%s)", Em.COMP_SLOTS, table.concat(cn, " "))
+  end
   return { cap = cap, base = base, extra = extra, counted = counted, stalled = stalled, free_stalled = free_stalled,
     piled = piled, free_piled = free_piled, keys_piled = keys_piled,
-    materials = materials, open = #mods, room = room, busy = room <= 0, keys_stalled = keys_stalled, why = why }
+    materials = materials, open = #mods, room = room, busy = room <= 0, keys_stalled = keys_stalled, why = why,
+    comp = comp, room_comp = room_comp }
 end
 
 --- Lot INDUSTRIE I6 : l'emplacement des blocs de mall. s = { mods = liste de { states, progress_tick, opened, work_tick, pile_tick, key }

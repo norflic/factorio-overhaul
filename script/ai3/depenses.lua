@@ -85,6 +85,15 @@ function Dep.think(f, cs, tick, products, minutes)
   return res
 end
 
+--- Matières qui DORMENT selon le dernier relevé frais : { [matière] = true } (vide : règle éteinte, rien ne dort ou relevé périmé). Lu par
+--- la capitalisation (siège du complément, shared/ai3/emplacements.lua, règle 7).
+function Dep.sleeping(f, tick)
+  local r = fresh(f, tick)
+  local out = {}
+  if r then for _, k in ipairs(sorted_keys(r.per)) do if (r.per[k] or 0) > 0 then out[k] = true end end end
+  return out
+end
+
 --- Accordé à la défense et pas encore débité, par matière (copie : le lecteur ne peut pas écrire l'état), et l'état de l'accord :
 --- "eteint" (interrupteur), "perime" (aucun accord, ou plus vieux que Dep.FRESH), "actif" (même centre en attente : la défense reste servie).
 function Dep.defense(f, tick)
