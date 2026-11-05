@@ -25,17 +25,24 @@ RX_ERR = re.compile(r"stack traceback|Error while running|script error", re.I)
 # Essai 4 : C9 (laboratoires pendant l'attente du centre), C10 (ordre du cuivre d'Azur), R1 (soldats de votre équipe)
 RX_DEP_FULL = re.compile(r"\[FO-DEPENSES\] (\S+) minute (\d+) \|(.*)laboratoires base (\S+) cible ([^,\s|]+)")
 RX_COPPER = re.compile(r"\[FO-CAPI\] azure : ordre ouvrir:copper-ore@\S+ (FINI|ECHOUE)")
+# R1 (base de 10, 26268e60) : paie des soldats de votre équipe (Dep.on_trained) ; « matiere cle qui manque : OUI » ne doit jamais paraître
+RX_PAID = re.compile(r"\[FO-DEPENSES\] player : (\d+) soldat\(s\) \S+ paye\(s\) .*matiere cle qui manque : (OUI|non)")
 
 
 def scan(path):
     p = os.path.join(path, "benchmark.log.gz")
-    out = {"dep": [], "noncouv": {}, "cc": {}, "bilan": None, "err": 0, "hold": {}, "full": [], "copper": [], "psold": 0}
+    out = {"dep": [], "noncouv": {}, "cc": {}, "bilan": None, "err": 0, "hold": {}, "full": [], "copper": [], "psold": 0, "paid": 0, "paid_short": 0}
     with gzip.open(p, "rt", encoding="utf-8", errors="replace") as fh:
         for line in fh:
             if RX_ERR.search(line):
                 out["err"] += 1
             if "[FO-" not in line:
                 continue
+            m = RX_PAID.search(line)
+            if m:
+                out["paid"] += int(m.group(1))
+                if m.group(2) == "OUI":
+                    out["paid_short"] += 1
             m = RX_COPPER.search(line)
             if m:
                 out["copper"].append(m.group(1))
@@ -127,7 +134,7 @@ def main(root, troot=None):
         ps = [dd.g(DL[k], "soldats") for k in sorted(DL) if k[0] == "player" and k[2] == "A"]
         r1.append((n, OL["psold"], max(ps) if ps else None, val(DL, "player", "A", "soldats"), val(DT, "player", "A", "soldats"),
                    val(DL, "player", "A", "ouvriers"), val(DT, "player", "A", "ouvriers"), val(DL, "player", "L", "faites"),
-                   val(DT, "player", "L", "faites")))
+                   val(DT, "player", "L", "faites"), OL["paid"], OL["paid_short"]))
         if n.startswith("guide"):
             c5.append((n, OL["bilan"], OT["bilan"]))
         eqs = sorted(set(k[0] for k in DL) | set(k[0] for k in DT))
@@ -223,12 +230,16 @@ def main(root, troot=None):
           "TENU" if not c9_bad else "NON TENU"))
     print("C10 ordre ouvrir:copper-ore d'Azur (271828182) : %s -> %s" % (c10, "TENU" if c10 and c10[0][1] and "ECHOUE" not in c10[0][1]
           else "NON TENU"))
-    print("R1 a R4 votre equipe (partie, lignes « soldats cible », soldats max, soldats 59 min L/T, ouvriers 59 min L/T, techs L/T) :")
+    print("R1 a R4 votre equipe (partie, lignes « soldats cible », soldats max, soldats 59 min L/T, ouvriers 59 min L/T, techs L/T, "
+          "soldats payes, payes quand la cle manque) :")
     for x in r1:
         print("   %s" % (x,))
-    print("R1 recrute : %s ; R3 plafond (<= 6 et <= 30) : %s" % (
-          "TENU" if any((x[1] or 0) > 0 and (x[2] or 0) >= 1 for x in r1) else "NON TENU",
-          "TENU" if all((x[2] or 0) <= 6 for x in r1) else "NON TENU"))
+    # Depuis 26268e60 : base de 10 (défense minimale des factions) + 6 du stock qui dort ; jamais payés quand la matière clé manque.
+    print("R1 recrute : %s ; R2 jamais quand la cle manque : %s ; R3 plafond (<= 16 et <= 30) : %s ; R4 croissance (ouvriers et techs L >= T) : %s" % (
+          "TENU" if any((x[2] or 0) >= 1 or (x[9] or 0) >= 1 for x in r1) else "NON TENU",
+          "TENU" if all((x[10] or 0) == 0 for x in r1) else "NON TENU",
+          "TENU" if all((x[2] or 0) <= 16 for x in r1) else "NON TENU",
+          "TENU" if all((x[5] is None or x[6] is None or x[5] >= x[6]) and (x[7] is None or x[8] is None or x[7] >= x[8]) for x in r1) else "NON TENU"))
     return 0
 
 
