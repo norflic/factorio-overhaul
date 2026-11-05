@@ -258,31 +258,41 @@ Gd.debit(f6, IRON, 120)
 check(calls[1] == "defense:" .. IRON .. ":120" and Gd.grant(f6, 3100, IRON) == 600, "Dep.debit présent : la dépense lui est rendue, pas de compte local")
 Gd.set_dep(nil)
 check(Gd.grant(f6, 3200, IRON) == nil, "sans module : repli")
-section("7. G3 (essai 3) : briques à fondre de la pierre qui dort pour l'anneau de votre équipe")
+section("7. G3 (essai 3, relecture D2 à D4) : briques à fondre de la pierre qui dort, bornées")
 do
   local f7 = global.fo.pteam.team
+  local Gs7 = require("shared.team.garde_site")
   local Rsv = require("script.ai3.reserve")
   local input0 = Rsv.input
-  local stone_free = 600
-  Rsv.input = function() return { covered = false, free = { ["iron-plate"] = 0, stone = stone_free } } end
+  local stone_free, covered = 2000, true
+  Rsv.input = function() return { covered = covered, free = { ["iron-plate"] = 0, stone = stone_free } } end
   f7.build = f7.build or { projects = {}, order = {}, occ = {} }
   f7.build.enc_need = { walls = 100, equiv = 0, tick = game.tick }
-  check(Gd.bricks_want(f7, game.tick, 0) == nil, "enceinte de votre équipe éteinte : aucune brique voulue")
+  local t0 = game.tick
+  check(Gd.bricks_want(f7, t0, 0) == nil, "enceinte de votre équipe éteinte : aucune brique voulue")
   f7.garde_g3 = true
-  local bw = Gd.bricks_want(f7, game.tick, 0)
   local Stock = require("script.team.stock")
   local eq = Stock.count(f7, "stone-wall") + math.floor(Stock.count(f7, "stone-brick") / 5) -- (murs et briques déjà au coffre de l'équipe)
-  check(bw and bw.item == "stone-brick" and bw.n == math.min(300, 5 * (100 - eq)) and bw.deficit == 100 - eq,
-    "anneau de 100 murs, " .. eq .. " au coffre, 600 pierres libres : briques bornées par la pierre (" .. tostring(bw and bw.n) .. ", manque " .. tostring(bw and bw.deficit) .. ")")
-  stone_free = 2000
-  bw = Gd.bricks_want(f7, game.tick, 0)
-  check(bw and bw.n == 5 * bw.deficit, "pierre suffisante : les briques de tout ce qui manque (" .. tostring(bw and bw.n) .. ")")
-  stone_free = 0
-  check(Gd.bricks_want(f7, game.tick, 0) == nil, "aucune pierre libre : rien (aucune extraction demandée)")
-  stone_free = 2000
-  check(Gd.bricks_want(f7, game.tick + 2 * require("shared.team.enceinte").CHECK_TICKS + 1, 0) == nil, "besoin périmé (plus écrit par l'enceinte) : rien")
+  local bw = Gd.bricks_want(f7, t0, 0)
+  check(bw and bw.item == "stone-brick" and bw.n == 5 * (100 - eq) and bw.deficit == 100 - eq,
+    "anneau de 100 murs, " .. eq .. " au coffre, 2 000 pierres libres : les briques de tout ce qui manque (" .. tostring(bw and bw.n) .. ")")
+  stone_free = 10 * (100 - eq) - 1
+  check(Gd.bricks_want(f7, t0, 0) == nil and #logs("aucune : pierre") >= 1, "D2 : la pierre libre ne paie pas tout : rien, cause au journal")
+  stone_free, covered = 2000, false
+  check(Gd.bricks_want(f7, t0, 0) == nil and #logs("aucune : besoin non couvert") >= 1, "D3 : besoin non couvert : rien")
+  covered = true
+  game.forces.player.recipes["stone-wall"].enabled = false
+  check(Gd.bricks_want(f7, t0, 0) == nil and #logs("aucune : mur non recherche") >= 1, "D4 : mur non recherché par la force : rien")
+  game.forces.player.recipes["stone-wall"].enabled = true
+  check(Gd.bricks_want(f7, t0, 0) ~= nil and f7.garde.bricks_ep == t0, "demande reprise : la durée de la demande court depuis son début")
+  f7.build.enc_need.tick = t0 + Gs7.BRICKS_MAX + 1
+  check(Gd.bricks_want(f7, t0 + Gs7.BRICKS_MAX + 1, 0) == nil and #logs("aucune : delai") >= 1, "D2 : 30 min sans anneau payé : demande arrêtée, cause au journal")
+  check(Gd.bricks_want(f7, t0 + Gs7.BRICKS_MAX + 2, 0) == nil and #logs("aucune : attente") >= 1, "D2 : pas de reprise avant 30 min")
+  f7.build.enc_need.tick = t0 + 2 * Gs7.BRICKS_MAX + 10
+  check(Gd.bricks_want(f7, t0 + 2 * Gs7.BRICKS_MAX + 10, 0) ~= nil, "D2 : reprise après le délai si la pierre paie toujours tout")
+  check(Gd.bricks_want(f7, t0 + 2 * Gs7.BRICKS_MAX + 10 + 2 * require("shared.team.enceinte").CHECK_TICKS + 1, 0) == nil, "besoin périmé (plus écrit par l'enceinte) : rien")
   f7.garde_temoin = true
-  check(Gd.bricks_want(f7, game.tick, 0) == nil, "témoin : rien")
+  check(Gd.bricks_want(f7, t0, 0) == nil, "témoin : rien")
   f7.garde_temoin, f7.garde_g3 = nil, nil
   f7.build.enc_need = nil
   Rsv.input = input0

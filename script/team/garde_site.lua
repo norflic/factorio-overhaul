@@ -524,38 +524,57 @@ local function threats_near(f, surface, site)
   return out
 end
 
---- Coûts d'un mur lus dans les données : briques (premier ingrédient du mur, T.wall) et pierre par brique (T.smelter_inputs) ; nil sinon.
-local function wall_costs()
+--- Coûts d'un mur : briques (premier ingrédient de la recette du mur, T.wall) et pierre par brique (T.smelter_inputs), et si la FORCE a la
+--- recette (relecture D4 : rien n'est fondu avant que le mur soit recherché) ; nil sans recette.
+local function wall_costs(f)
   local rec = game.recipe_prototypes[T.wall]
   local ing = rec and rec.ingredients[1]
   if not (ing and ing.type == "item") then return nil end
   local si = T.smelter_inputs[ing.name]
   if not si then return nil end
-  return { brick = ing.name, per = ing.amount, stone = si[1], stone_per = si[2] }
+  local fo = game.forces[f.force]
+  local fr = fo and fo.recipes[T.wall]
+  return { brick = ing.name, per = ing.amount, stone = si[1], stone_per = si[2], enabled = fr ~= nil and fr.enabled == true }
 end
 
 --- G3 (essai 3) : briques à fondre de la PIERRE QUI DORT pour l'anneau de votre équipe (b.enc_need, écrit par Build.space_step quand
---- l'enceinte est voulue et pas payée en entier) et les murs des avant-postes attaqués : { item, n, deficit, stone } ou nil.
---- Borné par la pierre libre hors besoin (Rsv.input, ou la pierre accordée par DEPENSES) : aucune extraction demandée, aucun fer.
+--- l'enceinte est voulue et pas payée en entier) et les murs des avant-postes attaqués : { item, n, deficit, stone } ou nil. Règle bornée
+--- (Gs.bricks, relecture D2 à D4) : mur recherché, besoin couvert, pierre libre qui paie TOUT ce qui manque, au plus Gs.BRICKS_MAX par demande ;
+--- versée au planificateur comme FONTE seule (jamais un manque : aucune extraction, relecture D1). Chaque changement de raison va au journal.
 function Gd.bricks_want(f, tick, outpost_walls)
+  local st = state(f)
   local need = 0
   local en = f.build and f.build.enc_need
   if Gd.g3(f) and en and tick - (en.tick or -1e9) <= 2 * Enc.CHECK_TICKS then need = need + (en.walls or 0) end
   if Gd.walls_on(f) then need = need + (outpost_walls or 0) end
-  if need <= 0 then return nil end
-  local c = wall_costs()
-  if not c then return nil end
-  local equiv = Stock.count(f, T.wall) + math.floor(Stock.count(f, c.brick) / math.max(1, c.per))
-  local deficit = need - equiv
-  if deficit <= 0 then return nil end
-  local stone = Gd.grant(f, tick, c.stone)
-  if stone == nil then
-    local inp = Rsv.input(f, tick)
-    stone = inp and (inp.free[c.stone] or 0) or 0
+  local c = need > 0 and wall_costs(f) or nil
+  local n, why, equiv, stone, covered = 0, need > 0 and "pas de recette" or "rien", 0, 0, false
+  if c then
+    equiv = Stock.count(f, T.wall) + math.floor(Stock.count(f, c.brick) / math.max(1, c.per))
+    local g = Gd.grant(f, tick, c.stone)
+    if g ~= nil then
+      stone, covered = g, true
+    else
+      local inp = Rsv.input(f, tick)
+      stone, covered = inp and (inp.free[c.stone] or 0) or 0, inp ~= nil and inp.covered == true
+    end
+    n, why = Gs.bricks({ enabled = c.enabled, need = need, equiv = equiv, per = c.per, stone_per = c.stone_per, stone = stone, covered = covered,
+      tick = tick, ep_start = st.bricks_ep, retry = st.bricks_retry })
   end
-  local n = math.min(deficit * c.per, math.floor(math.max(0, stone) / math.max(1, c.stone_per)))
+  if why == "ok" then
+    st.bricks_ep = st.bricks_ep or tick
+  elseif why == "delai" then
+    st.bricks_ep, st.bricks_retry = nil, tick + Gs.BRICKS_RETRY
+  elseif why ~= "attente" then
+    st.bricks_ep = nil
+  end
+  if why ~= st.bricks_why and need > 0 then
+    glog(f, st, string.format("briques des murs : %s (murs voulus %d, au stock %d, pierre libre %d, besoin %s) a %.1f min", why == "ok"
+      and (n .. " a fondre") or ("aucune : " .. why), need, equiv, stone, covered and "couvert" or "non couvert", tick / 3600))
+  end
+  st.bricks_why = need > 0 and why or nil
   if n <= 0 then return nil end
-  return { item = c.brick, n = n, deficit = deficit, stone = stone }
+  return { item = c.brick, n = n, deficit = need - equiv, stone = stone }
 end
 
 local function free_iron(f, tick)
@@ -611,11 +630,6 @@ function Gd.view(f, fortify_open)
   f.team.depenses.defense_want = Gs.want_table(iron_key(), missing, Gs.UNIT_IRON, stone_key(), walls_wanted)
   local out = { busy = busy, held = held(f), granted = g_iron, free = free, served = served, total = total }
   out.bricks = Gd.bricks_want(f, tick, walls_wanted)
-  if out.bricks and st.bricks_sig ~= out.bricks.deficit then
-    st.bricks_sig = out.bricks.deficit
-    glog(f, st, string.format("briques voulues pour les murs : %d (manque %d murs ; pierre libre %d) a %.1f min", out.bricks.n, out.bricks.deficit,
-      out.bricks.stone, tick / 3600))
-  end
   if pick then
     local nx, ny = pick.nx, pick.ny
     local g = { x = pick.gx, y = pick.gy }

@@ -64,6 +64,25 @@ local function suite(Gs)
   local _, _, w4 = Gs.budget({ iron = 9000, free = 8000, unit = 120, want = 6 })
   local _, _, w5 = Gs.budget({ granted = 0, iron = 9000, unit = 120, want = 6 })
   check(w1 == "pauvre" and w2 == "plancher" and w3 == "part" and w4 == "ok" and w5 == "part", "raison : pauvre, plancher, part (30 % ou accord), ok")
+  -- G3 (essai 3, relecture D2 à D4) : briques bornées
+  local B = { enabled = true, need = 100, equiv = 20, per = 5, stone_per = 2, stone = 800, covered = true, tick = 1000 }
+  local function bk(o) local t = {} for k, v in pairs(B) do t[k] = v end for k, v in pairs(o or {}) do t[k] = v end return Gs.bricks(t) end
+  local n0, y0 = bk()
+  check(n0 == 400 and y0 == "ok", "briques : 80 murs manquent, 800 pierres les paient : 400 briques")
+  local n1, y1 = bk({ stone = 799 })
+  check(n1 == 0 and y1 == "pierre", "D2 : la pierre libre ne paie pas TOUT ce qui manque : aucune demande (elle ne finirait pas)")
+  local n2, y2 = bk({ ep_start = 1000 - Gs.BRICKS_MAX - 1 })
+  check(n2 == 0 and y2 == "delai", "D2 : demande de plus de 30 min sans anneau payé : arrêtée")
+  local n2b = bk({ ep_start = 1000 - Gs.BRICKS_MAX })
+  check(n2b == 400, "D2 : 30 min tout juste : la demande continue")
+  local n3, y3 = bk({ retry = 1001 })
+  check(n3 == 0 and y3 == "attente", "D2 : après un arrêt, pas de reprise avant le délai")
+  local n4, y4 = bk({ covered = false })
+  check(n4 == 0 and y4 == "besoin non couvert", "D3 : besoin non couvert : rien (comme le fer libre)")
+  local n5, y5 = bk({ enabled = false })
+  check(n5 == 0 and y5 == "mur non recherche", "D4 : mur non recherché par la force : rien n'est fondu")
+  local n6, y6 = bk({ equiv = 100 })
+  check(n6 == 0 and y6 == "paye", "anneau déjà payé : rien")
   local wt = Gs.want_table("fer", 3, 120, "pierre", 50)
   check(wt.fer == 360 and wt.pierre == 500, "demande écrite : fer des tourelles, pierre des murs")
   -- G3 anneau
@@ -139,6 +158,18 @@ local function planner_suite(Planner)
   local mine_stone = false
   for _, t in ipairs(p4.tasks) do if t.kind == "mine" and t.resource == "stone" then mine_stone = true end end
   ck((p4.smelt["stone-brick"] or 0) >= 50 and not mine_stone, "planificateur : 50 briques voulues -> fonte de la pierre au stock, aucune extraction")
+  ck(p4.raw_need == nil or p4.raw_need["stone-brick"] == nil, "D1 : les briques de l'enceinte ne sont jamais un manque brut (la pile n'en voit rien)")
+  -- D1 : même avec la pierre absente du stock, aucune extraction de pierre ne s'ouvre pour les briques de l'enceinte
+  local nostone = {}
+  for k, v in pairs(rich) do nostone[k] = v end
+  nostone.stone = 0
+  local vb2 = pview(nostone)
+  vb2.garde.bricks = { item = "stone-brick", n = 50 }
+  local p5 = Planner.plan(vb2, book)
+  local p5b = Planner.plan(pview(nostone), book) -- même vue sans briques voulues
+  local function mines(pl) local n = 0 for _, t in ipairs(pl.tasks) do if t.kind == "mine" and t.resource == "stone" then n = n + 1 end end return n end
+  ck(mines(p5) == mines(p5b) and (p5.raw_need or {})["stone-brick"] == nil and (((p5.raw_need or {}).stone or {}).n == ((p5b.raw_need or {}).stone or {}).n) and (((p5.raw_need or {}).stone or {}).prio == ((p5b.raw_need or {}).stone or {}).prio),
+    "D1 : pierre absente : les briques de l'enceinte n'ouvrent aucune extraction de plus (" .. mines(p5) .. " contre " .. mines(p5b) .. ", besoin de pierre " .. tostring(((p5.raw_need or {}).stone or {}).n) .. " contre " .. tostring(((p5b.raw_need or {}).stone or {}).n) .. ", briques " .. tostring((p5.raw_need or {})["stone-brick"]) .. ")")
   ck(p3.smelt["stone-brick"] == nil, "planificateur : sans briques voulues, aucune fonte de briques")
   return fl, nn
 end
@@ -147,7 +178,9 @@ for _, m in ipairs(pf) do print("  ECHEC : " .. m) end
 passes, failures = passes + pn - #pf, failures + #pf
 for _, pm in ipairs({ -- mutants du planificateur
   { "fabrications en cours comptées au plancher", "local iron_now = math.max(0, (avail[iron_key] or 0) - ((view.incoming or {})[iron_key] or 0))", "local iron_now = avail[iron_key] or 0" },
-  { "briques de l'enceinte jamais voulues", 'if gb and gb.item and (gb.n or 0) > 0 then want({ { gb.item, gb.n } }, T.garde_bricks_prio, "enceinte", true) end', "" },
+  { "briques de l'enceinte jamais fondues", 'if gb and gb.item and (gb.n or 0) > 0 and view.smelters > 0 then out.smelt[gb.item] = (out.smelt[gb.item] or 0) + gb.n end', "" },
+  { "briques versées au manque brut (D1)", 'if gb and gb.item and (gb.n or 0) > 0 and view.smelters > 0 then out.smelt[gb.item] = (out.smelt[gb.item] or 0) + gb.n end',
+    'if gb and gb.item and (gb.n or 0) > 0 then want({ { gb.item, gb.n } }, 60, "enceinte", true) end' },
 }) do
   local a, b = PSRC:find(pm[2], 1, true)
   if not a then failures = failures + 1 print("  ECHEC : mutant du planificateur « " .. pm[1] .. " » : texte introuvable")
@@ -182,6 +215,11 @@ local mutants = {
   { "usine du joueur collée", "Gs.PLAYER_GAP = 6 ", "Gs.PLAYER_GAP = 0 " },
   { "pas de plancher après achat", "local n = math.min(want, a, floor_n)", "local n = math.min(want, a)" },
   { "raison du budget 0 fausse", "(floor_n <= 0 and \"plancher\") or \"part\"", "\"part\"" },
+  { "D2 : briques sans pierre qui paie tout", "if (s.stone or 0) < deficit * per * sp then return 0, \"pierre\" end", "" },
+  { "D2 : demande sans fin", "if s.ep_start and (s.tick or 0) - s.ep_start > Gs.BRICKS_MAX then return 0, \"delai\" end", "" },
+  { "D2 : reprise immédiate", "if s.retry and (s.tick or 0) < s.retry then return 0, \"attente\" end", "" },
+  { "D3 : besoin non couvert ignoré", "if not s.covered then return 0, \"besoin non couvert\" end", "" },
+  { "D4 : briques avant la recherche du mur", "if not s.enabled then return 0, \"mur non recherche\" end", "" },
   { "plancher compté sans le seuil", "local floor_n = math.floor(((s.iron or 0) - rich) / unit)", "local floor_n = math.floor((s.iron or 0) / unit)" },
 }
 local killed = 0

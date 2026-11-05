@@ -506,5 +506,38 @@ do
   W.info, W.tight, W.tight_info = nil, nil, nil
 end
 
+-- 17. Relecture D5 : votre équipe sans contour serré (enc_tight_bounds rend nil) : aucun anneau, donc jamais un enc.grow qui resterait ;
+--     MUTANT : le garde retiré du texte de build.lua, l'anneau se ferait sans bornes (enc.grow jamais rendu au passage à l'extension).
+local function d5_case(BuildX)
+  requests = {}
+  W.tight, W.tight_info, W.mark_cut = nil, nil, nil
+  local f = new_team()
+  f.is_player, f.garde_g3 = true, true
+  W.stock_wall = 100000
+  tick = tick + Enc.CHECK_TICKS
+  BuildX.space_step(f, surface, tick)
+  return f.build.enc == nil and #requests == 0
+end
+check(d5_case(Build), "D5 : votre équipe sans contour serré : aucun anneau (ni enc.grow)")
+do
+  local guard = "    if not tight then" .. string.char(10) .. "      if not b.space_notight then"
+  local a5 = chunk_src:find(guard, 1, true)
+  if not a5 then
+    check(false, "D5 : texte du garde introuvable")
+  else
+    local mut = chunk_src:sub(1, a5 - 1) .. "    if false then" .. string.char(10) .. "      if not b.space_notight then" .. chunk_src:sub(a5 + #guard)
+    local Bm = { PRIO = 55, request = Build.request, cancel = Build.cancel, grow = Build.grow }
+    local envm = setmetatable({ Build = Bm }, { __index = env })
+    local cm = assert(load("local Enc, Build, ipairs, math, table, string, tostring, Stock, wall_recipe, craftable_walls, space_log, space_info, "
+      .. "enc_tight_bounds, enc_mark_out, enc_release, Ilots = "
+      .. "Enc, Build, ipairs, math, table, string, tostring, Stock, wall_recipe, craftable_walls, space_log, space_info, "
+      .. "enc_tight_bounds, enc_mark_out, enc_release, Ilots" .. string.char(10) .. mut .. string.char(10) .. "return Build", "enceinte_flux_d5", "t", envm))
+    cm()
+    local ok, res = pcall(d5_case, Bm)
+    if os.getenv("FO_D5") then print("    D5 mutant :", ok, res) end
+    check(not ok or res == false, "D5 : mutant « garde du contour retiré » refusé")
+  end
+end
+
 print(string.format("[ENCEINTE-FLUX] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

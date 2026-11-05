@@ -4621,8 +4621,8 @@ local function request_segment(f, enc, tick)
   if not seg then
     if why == "complet" then
       enc.complete = true
-      if enc.grow and enc.bounds then -- (G3 : l'anneau est entier : les lots dehors passent à l'extension par îlots, comme ENCEINTE3)
-        local n = enc_mark_out(b, enc.bounds)
+      if enc.grow then -- (G3 : l'anneau est entier : les lots dehors passent à l'extension par îlots, comme ENCEINTE3)
+        local n = enc.bounds and enc_mark_out(b, enc.bounds) or 0 -- (sans bornes : jamais, relecture D5 ; enc.grow est remis quand même)
         enc.grow = nil
         space_log(b, string.format("[FO-ESPACE] %s : enceinte complete (tous ses segments demandes) a %.1f min : %d lot(s) dehors ecartes, la suite par les ilots",
           f.key or "player", tick / 3600, n))
@@ -4775,6 +4775,15 @@ function Build.space_step(f, surface, tick)
   -- briques au stock ; les briques se fondent de la pierre qui dort, script/team/garde_site.lua) ; ses segments prennent alors tout le stock
   -- (40 au plus), seuls les lots COUPÉS sont écartés et la base continue de grandir jusqu'à l'enceinte complète.
   if f.is_player then
+    -- relecture D5 : jamais sans contour serré (sans bornes, l'anneau du rayon ne passe jamais à l'extension par îlots et enc.grow resterait)
+    if not tight then
+      if not b.space_notight then
+        b.space_notight = true
+        space_log(b, string.format("[FO-ESPACE] %s : enceinte voulue mais contour serre impossible (ouvertures hors bornes) : pas d'anneau a %.1f min",
+          f.key or "player", tick / 3600))
+      end
+      return
+    end
     local need = Enc.max_walls(b.radius, { bounds = tight })
     local wr = wall_recipe(f)
     local have = wr and (Stock.count(f, wr.item) + craftable_walls(f, wr)) or 0

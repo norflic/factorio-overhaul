@@ -34,6 +34,8 @@ Gs.PLAYER_GAP = 6       -- tuiles : jamais de mur à moins de cela d'un bâtimen
 Gs.SEG_MIN = 8          -- tuiles au moins par segment (sauf le reste d'un côté)
 Gs.WALL_ITEMS = 10      -- matière brute (pierre) par mur : 5 briques de 2 pierres
 Gs.UNIT_IRON = 120      -- fer d'une tourelle armée (40 + 20 chargeurs de 4) : demande écrite pour DEPENSES seulement (le budget lit le livre)
+Gs.BRICKS_MAX = 30 * 3600   -- (G3, relecture D2) une demande de briques qui n'a pas payé l'anneau en 30 min s'arrête, cause au journal
+Gs.BRICKS_RETRY = 30 * 3600 -- … et ne reprend pas avant 30 min
 
 local function d2(ax, ay, bx, by) local dx, dy = ax - bx, ay - by return dx * dx + dy * dy end
 
@@ -134,6 +136,23 @@ function Gs.budget(s)
   local n = math.min(want, a, floor_n)
   local why = n > 0 and "ok" or (want <= 0 and "voulu") or (floor_n <= 0 and "plancher") or "part"
   return n, src, why
+end
+
+--- G3 (essai 3, relecture du lead D2 à D4) : briques à FONDRE pour les murs de votre équipe, bornées. s = { enabled (le mur est recherché par la
+--- force), need (murs voulus : l'anneau, les avant-postes attaqués), equiv (murs + briques au stock, en murs), per (briques par mur), stone_per
+--- (pierre par brique), stone (pierre libre hors besoin, ou accordée par DEPENSES), covered (besoin couvert, ou accord de DEPENSES), tick,
+--- ep_start (début de la demande en cours), retry (pas de demande avant) } -> (briques, raison). La demande n'existe que si la pierre libre
+--- paie TOUT ce qui manque (elle finit donc : la fonte rend l'anneau payable) et au plus Gs.BRICKS_MAX ticks (le besoin grandit avec la base).
+function Gs.bricks(s)
+  if not s.enabled then return 0, "mur non recherche" end
+  local deficit = (s.need or 0) - (s.equiv or 0)
+  if (s.need or 0) <= 0 or deficit <= 0 then return 0, "paye" end
+  if s.retry and (s.tick or 0) < s.retry then return 0, "attente" end
+  if s.ep_start and (s.tick or 0) - s.ep_start > Gs.BRICKS_MAX then return 0, "delai" end
+  if not s.covered then return 0, "besoin non couvert" end
+  local per, sp = math.max(1, s.per or 1), math.max(1, s.stone_per or 1)
+  if (s.stone or 0) < deficit * per * sp then return 0, "pierre" end
+  return deficit * per, "ok"
 end
 
 --- Demande écrite pour DEPENSES : { [clé du fer] = tourelles × unit, [clé de la pierre] = murs × Gs.WALL_ITEMS } (clés données par l'appelant).
