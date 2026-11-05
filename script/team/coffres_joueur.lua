@@ -135,11 +135,22 @@ function CJs.refresh(f, tick)
   return st
 end
 
+--- Le registre des annexes (f.annex : Stock.grow, Stock.scan, adoption) a-t-il changé depuis la liste ? Un coffre du joueur inscrit
+--- comme annexe entre deux listes serait compté DEUX fois (annexe et coffre du joueur) : la liste est alors refaite aussitôt.
+local function annex_changed(f, st)
+  local a = f.annex or EMPTY
+  return #a ~= (st.annex_n or 0) or (#a > 0 and a[#a] ~= st.annex_last)
+end
+
 local function current(f)
   if not f.is_player or not (f.hq and f.hq.valid and f.hq_pos) then return nil end
   local tick = game.tick or 0
   local st = f.coffres_joueur
-  if not st or tick - (st.at or -1e9) >= CJ.REFRESH then st = CJs.refresh(f, tick) end
+  if not st or tick - (st.at or -1e9) >= CJ.REFRESH or annex_changed(f, st) then
+    st = CJs.refresh(f, tick)
+    local a = f.annex or EMPTY
+    st.annex_n, st.annex_last = #a, a[#a]
+  end
   return st
 end
 
