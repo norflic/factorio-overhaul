@@ -66,6 +66,8 @@ return {
     local ok = ctx.remote("fo-pvp", "set_difficulty", "peaceful")
     ctx.check(ok == true, "difficulte Paisible", tostring(ok))
     ctx.check(ctx.call("war_start", 2, 0, 4) == true, "guerre lancee : 2 factions, 4 ouvriers")
+    local on = remote.interfaces["fo-bras"] and remote.call("fo-bras", "set", true)
+    ctx.log("sonde [FO-BRAS] allumee : " .. tostring(on))
   end,
 
   tick = function(ctx, e)
