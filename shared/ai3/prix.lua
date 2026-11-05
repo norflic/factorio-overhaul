@@ -1,5 +1,5 @@
 --[[
-  Lot SOUS-PRODUITS (5/11, décision du lead) : VALEUR des objets (MU), règle PURE, PAS ENCORE BRANCHÉE.
+  Lots SOUS-PRODUITS et VALEURS-ÂGE (5/11, décisions du lead) : VALEUR des objets (MU), règle PURE, PAS ENCORE BRANCHÉE.
   Ca.values (shared/ai3/capitalisation.lua) reste la règle en jeu jusqu'à la bascule du relevé des recettes et au recalage des
   tests qui le lisent (lot FIXTURE-RECETTES). Critères : fo-logs/2026-11-05_SOUS-PRODUITS/CRITERES.md. Aucun nom du jeu
   (tests/iag_test.lua §8).
@@ -16,12 +16,15 @@
     6. CO-PRODUITS sans produit principal déclaré : parts égales par unité (comme Ca.values) ;
     7. les valeurs des sous-produits viennent du tour précédent ; au plus o.max_rounds tours ; sans stabilité, la règle rend les
        prix SANS crédit (B2), déterministes, et info.fallback le dit.
+  VALEURS-ÂGE : Px.by_age, mêmes prix sur les seules recettes d'âge <= k (âge fourni par l'appelant ; recette sans âge
+  écartée), gardés en cache par âge.
 
   Px.values(D, o) -> mu, best, info
     D : données de Ca.data (res_list, res, recipe_list, recipes { energy, ingredients, products, main }).
     o.raw_mu, o.time_mu : Ca.RAW_MU et Ca.TIME_MU de l'appelant ; o.skip : { [recette] = vrai } écartées ; o.allowed :
     { [recette] = vrai } (nil : toutes) ; o.credit (défaut vrai) ; o.max_rounds (défaut Px.MAX_ROUNDS).
     info = { waste = { objets à 0, triés }, recovery = { recettes de récupération, triées }, rounds, fallback }.
+  Px.by_age(D, o, age_of, k, cache) -> mu, best, info ; age_of = { [recette] = âge } ; cache = table gardée par l'appelant.
 ]]
 
 local Px = {}
@@ -182,6 +185,23 @@ function Px.values(D, o)
   end
   info.fallback = true
   return mu2, best2, info
+end
+
+--- Prix à l'âge k : recettes d'âge connu <= k ; cache[k] gardé (un calcul par âge).
+function Px.by_age(D, o, age_of, k, cache)
+  if cache and cache[k] then return cache[k].mu, cache[k].best, cache[k].info end
+  local allowed = {}
+  for _, rn in ipairs(D.recipe_list) do
+    local a = age_of[rn]
+    if a and a <= k then allowed[rn] = true end
+  end
+  local oo = {}
+  for _, key in ipairs(sorted_keys(o or {})) do oo[key] = o[key] end
+  oo.allowed = allowed
+  local mu, best, info = Px.values(D, oo)
+  info.age = k
+  if cache then cache[k] = { mu = mu, best = best, info = info } end
+  return mu, best, info
 end
 
 return Px

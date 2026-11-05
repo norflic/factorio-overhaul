@@ -1,5 +1,5 @@
 --[[
-  Lot SOUS-PRODUITS (5/11) : test hors jeu de la règle PURE shared/ai3/prix.lua (pas encore branchée).
+  Lots SOUS-PRODUITS et VALEURS-ÂGE (5/11) : test hors jeu de la règle PURE shared/ai3/prix.lua (pas encore branchée).
   Critères écrits avant le code : fo-logs/2026-11-05_SOUS-PRODUITS/CRITERES.md (P1 à P6).
 
     §1 scènes synthétiques : produit principal qui porte tout (B2) puis crédité (B3) ; sous-produit au prix de sa propre voie ;
@@ -7,6 +7,7 @@
        catalyseur en forme nette ; co-produits à parts égales ; crédits croisés qui ne se stabilisent pas -> B2 rendu et signalé ;
     §2 relevé du 5/11 (tests/fixtures/recipes_0511.lua ; HYPOTHÈSE : minerais et fluides du mod absents des données des leviers à
        1 MU par unité, eau sans prix) : prix calculés à la main ;
+    §3 VALEURS-ÂGE : prix aux âges 1, 2, 4 et 6 (âges de shared/content/epochs.lua), cache par âge ;
     §4 tous les noms changés et relevé en ordre inverse : mêmes prix ;
     §5 mutants, chacun refusé par un contrôle.
   Usage : lua5.2 tests/prix_test.lua   (depuis la racine du mod)
@@ -36,6 +37,7 @@ local function load_px(src) return assert(load(src, "@shared.ai3.prix"))() end
 
 local C = require("tests.leviers_common")
 local Ca = require("shared.ai3.capitalisation")
+local X = require("shared.content.epochs")
 
 ---------------------------------------------------------------------------------------------------
 -- Scènes synthétiques : D au format de Ca.data (listes triées par nom), aucun nom du jeu.
@@ -99,10 +101,32 @@ local function dump0(reverse) return C.dump(nil, { recipes_file = FIX, mutate = 
 local D = Ca.data(dump0(), {})
 local OD = { raw_mu = Ca.RAW_MU, time_mu = Ca.TIME_MU, skip = Ca.unpackers(D) }
 
+-- Âge de chaque recette (shared/content/epochs.lua) : vanilla re-rangé, recettes du mod ; « fo-lotN-X » : âge de X ; barils :
+-- âge du fluide, au moins 4. Sans âge connu : absente (écartée par Px.by_age).
+local AGE = {}
+do
+  local idx = X.index()
+  local base = {}
+  for _, row in ipairs(X.base_recipe_epochs) do for _, n in ipairs(row[2]) do base[n] = row[1] end end
+  local function epoch_of(rn)
+    if base[rn] then return base[rn] end
+    if idx.recipe[rn] then return idx.recipe[rn].epoch end
+    local inner = rn:match("^fo%-lot%d+%-(.+)$")
+    if inner then return epoch_of(inner) end
+    local fl = rn:match("^fill%-(.+)%-barrel$") or rn:match("^empty%-(.+)%-barrel$")
+    if fl then local it = idx.item[fl]; return math.max(4, (it and it.epoch) or base[fl] or 4) end
+    return nil
+  end
+  for _, rn in ipairs(D.recipe_list) do AGE[rn] = epoch_of(rn) end
+end
+
 local WATCH = { "iron-plate", "copper-plate", "fo-coke", "fo-graphite", "steel-plate", "fo-slag", "fo-red-mud", "fo-zinc-plate",
   "fo-hydrogen", "fo-chlorine", "fo-magnesium", "fo-magnesium-chloride", "fo-caustic-soda", "steam", "petroleum-gas", "plastic-bar",
   "electronic-circuit", "copper-cable", "advanced-circuit", "productivity-module", "fo-titanium-slag", "fo-titanium-tetrachloride",
   "fo-titanium-sponge", "fo-cement" }
+local AGE_WATCH = { { 1, "iron-plate" }, { 1, "copper-plate" }, { 1, "electronic-circuit" }, { 2, "steel-plate" },
+  { 4, "petroleum-gas" }, { 4, "plastic-bar" }, { 6, "petroleum-gas" }, { 6, "plastic-bar" }, { 6, "productivity-module" } }
+
 --- Faits : ce que la règle rend sur toutes les scènes (comparés aux mutants).
 local function facts(Px)
   local r = {}
@@ -126,6 +150,18 @@ local function facts(Px)
   r.real_rounds, r.real_fb = info.rounds, info.fallback
   r.real_waste = table.concat(info.waste, ",")
   r.real_rec = table.concat(info.recovery, ",")
+  local cache = {}
+  r.age = {}
+  for _, aw in ipairs(AGE_WATCH) do
+    local m, b = Px.by_age(D, OD, AGE, aw[1], cache)
+    r.age[aw[1] .. ":" .. aw[2]] = m[aw[2]]
+    r.age[aw[1] .. ":" .. aw[2] .. "@"] = b[aw[2]]
+  end
+  local m6 = Px.by_age(D, OD, AGE, 6, cache)
+  r.cache_same = (m6 == cache[6].mu)
+  local m1a = Px.by_age(D, OD, AGE, 1, cache)
+  local m1b = Px.by_age(D, OD, AGE, 1, cache)
+  r.cache_twice = (m1a == m1b)
   return r
 end
 
@@ -193,6 +229,28 @@ check(F.real_waste:find("fo-slag", 1, true) and F.real_rec:find("fo-red-mud-iron
   "§2 laitier déchet, fer de la boue rouge en récupération")
 
 ---------------------------------------------------------------------------------------------------
+-- §3 VALEURS-ÂGE (âges de shared/content/epochs.lua)
+---------------------------------------------------------------------------------------------------
+local AGE_WANT = {
+  { "1:iron-plate", 1.32, "iron-plate", "1 + 3,2 x 0,1 (fonte à l'arc : âge 10)" },
+  { "1:copper-plate", 1.32, "copper-plate", "idem" },
+  { "1:electronic-circuit", 3 * 0.685 + 1.32 + 0.05, "electronic-circuit", "3 câbles 0,685 + 1,32 + 0,05" },
+  { "2:steel-plate", 4 * 1.32 + 1.7 + 1.2, "fo-blast-furnace-steel", "haut fourneau, laitier déchet (recette 8,2)" },
+  { "4:petroleum-gas", 100.5 / 45, "basic-oil-processing", "pas de vapeur avant l'âge 5 : pas de liquéfaction" },
+  { "4:plastic-bar", (1 + 20 * 100.5 / 45 + 0.1) / 2, "plastic-bar", "(1 + 20 x 2,2333 + 0,1) / 2" },
+  { "6:petroleum-gas", GAS, "coal-liquefaction", "vapeur du gaz volcanique (âge 5)" },
+  { "6:plastic-bar", (1 + 20 * GAS + 0.1) / 2, "plastic-bar", "polyéthylène 12,36 plus cher" },
+  { "6:productivity-module", 5 * (4 * 0.685 + 2 * 3.425 + 2 * (1 + 20 * GAS + 0.1) / 2 + 0.6) + 5 * 3.425 + 1.5, "productivity-module",
+    "fer et cuivre à 1,32 jusqu'à l'âge 10" },
+}
+for _, w in ipairs(AGE_WANT) do
+  local v, b = F.age[w[1]], F.age[w[1] .. "@"]
+  check(near(v, w[2], 1e-6) and b == w[3], string.format("§3 âge %s = %s via %s (main : %.4f via %s ; %s)", w[1], f4(v), tostring(b), w[2],
+    tostring(w[3]), w[4]))
+end
+check(F.cache_same and F.cache_twice, "§3 un seul calcul par âge (cache rendu tel quel)")
+
+---------------------------------------------------------------------------------------------------
 -- §4 noms changés, ordre inverse
 ---------------------------------------------------------------------------------------------------
 do
@@ -243,6 +301,8 @@ local MUTANTS = {
   { "plafond sans retour à B2", "  info.fallback = true\n  return mu2, best2, info", "  info.fallback = true\n  return prev, best2, info" },
   { "repli non signalé", "  info.fallback = true\n", "" },
   { "récupération jamais utilisée", "if next(open) ~= nil then mu, best = fixpoint(ctx, credit, waste, rec, open) end", "" },
+  { "filtre d'âge ignoré", "if a and a <= k then allowed[rn] = true end", "allowed[rn] = true" },
+  { "cache par âge ignoré", "if cache and cache[k] then return", "if false then return" },
 }
 local caught, crashed = 0, 0
 for _, m in ipairs(MUTANTS) do
