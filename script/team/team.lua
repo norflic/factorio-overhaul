@@ -32,6 +32,7 @@ local Sites = require("script.faction.sites")
 local Board = require("script.team.board")
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Worker = require("script.team.worker")
+local Bail = require("script.team.bail") -- lot ETAGE4 : bail des tournées prises (shared/team/bail.lua)
 local Poles = require("script.team.poles") -- lot IA1-b : pôles, managers, généralistes, travail de fond
 local Build = require("script.team.build") -- lot IA1-d : plan directeur et construction (rien sans f.build)
 local GardeCentrale = require("script.team.garde_centrale") -- lot CENTRALE-GARDE : la centrale finie est un poste à défendre
@@ -911,6 +912,7 @@ function Team.think(f, surface, tick)
 
   Profiler.start("team:board")
   Board.sync(f, plan.tasks, tick, plan, view, book_for(f)) -- lot IA3-b : manque de plaques (réglage allumé)
+  Bail.think(f, tick) -- lot ETAGE4 : une tournée prise sans progrès depuis Bl.LEASE est rendue (le PNJ abandonne, puis est dégagé)
   SurvieQg.note_plan(f, plan) -- lot S1 : une tourelle est-elle posable ? (les attentes de protection ne valent que si oui)
   Survie.think(f, view, plan, tick) -- lot SURVIE-PENURIE : entrée / sortie du mode survie et ses tâches (minage à la main, fours, foreuses)
   Profiler.stop("team:board")
@@ -921,6 +923,7 @@ function Team.think(f, surface, tick)
   if ia3 then Ia3.after_poles(f, tick) end -- lot IA3-c : pas de fond sur une matière saturée
   for _, a in ipairs(Poles.sur_stops(f)) do Worker.abort(a, f, tick, "preempte") end -- intégration 0.6.30 : la file sûre cède au travail du cerveau
   Profiler.stop("team:poles")
+  Build.couloir_report(f, tick) -- lot ÉTAGE 5 (revue B3, 2e relecture) : bilan [FO-COULOIR] de TOUTES les équipes, plan directeur ou non
   -- Lot IA1-d : tâches du plan directeur (chantiers, défrichage, quais) ; rien pour une équipe sans plan.
   if f.build then
     Profiler.start("team:build")

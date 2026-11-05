@@ -111,7 +111,11 @@ Build.SITES = {}               -- lot PETROLE : planificateurs de sites { [nom] 
 local REACH = P.BUILD_DISTANCE
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (réserve des modules neufs, agrandissement, tapis)
 local Rr = require("shared.team.rebuild_rapide") -- lot REBUILD-RAPIDE : projet rouvert sans attendre toute sa matière, ordre, foreuse de secours
+-- Lot ÉTAGE 5 : couloir d'accès réservé des avant-postes (règle pure). Champ de Build, pas une locale : le bloc principal de ce fichier est
+-- à la limite de 200 locales de Lua 5.2 (fusion avec le lot PERIMETRE2).
+Build.Co = require("shared.team.couloir")
 local TREE_TYPES = { "tree", "simple-entity" }
+
 
 ---------------------------------------------------------------------------------------------------
 -- Outils
@@ -394,6 +398,68 @@ end
 -- (liste plate { tx, ty, ... } de spec.degel.tiles ; mémoire LOCALE posée autour de plan_project, jamais dans global).
 local THAW = nil
 
+--- Lot ÉTAGE 5 : tuiles des couloirs d'accès des avant-postes de l'équipe `f` (shared/team/couloir.lua), ensemble { [P.tkey] = id d'avant-poste }.
+--- Lecteurs : read_masks (free : foreuses et poteaux du plan ; les tapis traversent, un tapis ne bloque pas un personnage), la vue des poteaux
+--- (masques_view), Build.reserved_entity (agrandissements et tourelles, crochet Outposts.reserved ; remplacements de foreuse) et le masque de la
+--- migration du champ électrique (script/team/champ.lua). Cache LOCAL (jamais dans global, vide à chaque chargement), refait quand un accès ou
+--- le QG change : il ne dépend que de l'état. Règle coupée (f.team.couloir_off, bancs témoins) : ensemble vide.
+--- Revue (performance) : un seul relevé par tick et par équipe (c.tick == game.tick) ; Build.couloirs_reset(f) l'efface quand un accès est
+--- écrit (worker.lua ACTS.build, banc bench_outpost) : un agrandissement dans le même tick voit déjà le couloir. Build.couloir_stats.sig : relevés
+--- de signature faits (tests).
+Build._couloirs = {}  -- cache LOCAL au module (champ : limite des 200 locales)
+Build.NO_COULOIR = {} -- ensemble vide partagé : ne jamais écrire dedans
+Build.couloir_stats = { sig = 0 }
+function Build.couloirs(f)
+  if not (f and f.hq_pos and f.outposts) or (f.team and f.team.couloir_off) then return Build.NO_COULOIR end
+  local k = tostring(f.key or f.id)
+  local c = Build._couloirs[k]
+  local now = game and game.tick or 0
+  if c and c.tick == now then return c.set end
+  Build.couloir_stats.sig = Build.couloir_stats.sig + 1
+  local sig = { math.floor(f.hq_pos.x), math.floor(f.hq_pos.y) }
+  for _, oid in ipairs(sorted_keys(f.outposts)) do
+    local a = f.outposts[oid].access
+    if a then sig[#sig + 1] = tostring(oid) .. ":" .. math.floor(a.x) .. ":" .. math.floor(a.y) end
+  end
+  local s = table.concat(sig, ";")
+  if c and c.sig == s then
+    c.tick = now
+    return c.set
+  end
+  local set, n = {}, 0
+  for _, t in ipairs(Build.Co.team_tiles(f.outposts, f.hq_pos)) do
+    set[P.tkey(t.x, t.y)] = t.id
+    n = n + 1
+  end
+  Build._couloirs[k] = { sig = s, set = set, tick = now, n = n }
+  return set
+end
+
+function Build.couloirs_reset(f)
+  if f then Build._couloirs[tostring(f.key or f.id)] = nil end
+end
+
+--- Revue (B3) : place prise par les couloirs, au journal [FO-COULOIR] une fois par tranche de 10 min et par équipe (appelé par Team.think, pour
+--- toutes les équipes) : refus par un couloir comptés en APPELS (une même place peut être lue plusieurs fois : free() par tuile et par essai,
+--- place_pairs jusqu'à 8 appels par place) : lectures d'emprise refusées (agrandissements, tourelles, remplacements de foreuse), lectures de
+--- tuile refusées au plan (modules, poteaux), tuiles de couloir marquées dans le masque de la migration du champ.
+Build.COULOIR_REPORT = 10 * 3600
+function Build.couloir_report(f, tick)
+  local st = f.stats
+  if not st then return end
+  local slot = math.floor(tick / Build.COULOIR_REPORT)
+  if st.couloir_slot == slot then return end
+  local first = st.couloir_slot == nil
+  st.couloir_slot = slot
+  if first then return end
+  Build.couloirs(f) -- relevé à jour (une équipe sans lecteur dans la tranche n'en a pas)
+  local c = Build._couloirs[tostring(f.key or f.id)]
+  log(string.format("[FO-COULOIR] %s : bilan a %.0f min : %d tuile(s) de couloir ; refus par un couloir, en APPELS (une place peut etre lue "
+    .. "plusieurs fois) : %d appel(s) d'emprise (agrandissements, tourelles, foreuses), %d appel(s) de tuile du plan (modules, poteaux), "
+    .. "%d marque(s) au masque du champ", f.key or "player", tick / 3600, c and c.n or 0,
+    st.couloir_emprises or 0, st.couloir_tuiles or 0, st.couloir_champ or 0))
+end
+
 local function read_masks(f, surface, x0, y0, x1, y1)
   local b = f.build
   local water, blocked, clear = {}, {}, {}
@@ -423,12 +489,20 @@ local function read_masks(f, surface, x0, y0, x1, y1)
   if THAW then
     for i = 1, #THAW - 1, 2 do blocked[P.tkey(THAW[i], THAW[i + 1])] = nil end
   end
+  local cor = Build.couloirs(f) -- lot ÉTAGE 5 : ni module ni poteau sur un couloir d'accès (les tapis, par `blocked`, le traversent)
+  f.stats = f.stats or {}
+  local st = f.stats
   return {
     water = water, blocked = blocked, clear = clear,
     rect = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }, -- lot POTEAUX-MASQUES : où ce relevé fait foi (Mq.view)
     free = function(tx, ty)
       local k = P.tkey(tx, ty)
-      return not water[k] and not blocked[k] and not b.occ[k]
+      if water[k] or blocked[k] or b.occ[k] then return false end
+      if cor[k] then
+        st.couloir_tuiles = (st.couloir_tuiles or 0) + 1 -- revue (B3) : place perdue par le plan
+        return false
+      end
+      return true
     end,
   }
 end
@@ -471,7 +545,11 @@ local function masques_view(f, surface, p, masks, legs, reach)
     end
   end
   if not complete then return nil end
-  return Mq.view(masks, masks.rect, ready, P.tkey, function(tx, ty) return not b.occ[P.tkey(tx, ty)] end)
+  local cor = Build.couloirs(f) -- lot ÉTAGE 5 : les poteaux lus dans le cache des chunks évitent aussi les couloirs d'accès
+  return Mq.view(masks, masks.rect, ready, P.tkey, function(tx, ty)
+    local k = P.tkey(tx, ty)
+    return not b.occ[k] and not cor[k]
+  end)
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -1487,25 +1565,43 @@ end
 --- d'IA3-c) la consultent : moteur réel, a2-usine graine 271828182, emerald, un coffre d'avant-poste posé à 50 min sur le
 --- tracé du tapis de la fonderie planifiée à 31 min : fantôme du tapis refusé « occupe » 18 fois, fonderie bloquée à
 --- 138 entités sur 139 jusqu'à 90 min.
-function Build.reserved_entity(f, name, pos, dir)
+--- opts (lot ÉTAGE 5, revue) : opts.couloir == false : le couloir ne compte pas (adoption d'une machine posée à la main : B2, décision du lead) ;
+--- opts.keep = { x0, y0, x1, y1 } (tuiles) : l'ANCIENNE emprise d'un remplacement sur place ; il n'est refusé que s'il COUPE un couloir que
+--- l'ancienne laissait ouvert (B1, 2e relecture : la 3×3 électrique déborde toujours d'une colonne ET d'une rangée de la 2×2, donc sur un
+--- couloir de 2 de large toute foreuse à combustion posée dessus était refusée à jamais) ; opts.blocked(x, y) : tuiles des bâtiments voisins.
+function Build.reserved_entity(f, name, pos, dir, opts)
   local b = f and f.build
-  if not (b and b.occ and pos) then return false end
+  if not (f and pos) then return false end
+  local occ = b and b.occ
+  -- lot ÉTAGE 5 : une emprise sur le couloir d'accès d'un avant-poste est réservée (agrandissements, tourelles, remplacements)
+  local cor = (opts and opts.couloir == false) and Build.NO_COULOIR or Build.couloirs(f)
+  if not occ and next(cor) == nil then return false end
   local p = game.entity_prototypes[name]
   if not p then return false end
   local w, h = p.tile_width or 1, p.tile_height or 1
   if dir == 2 or dir == 6 then w, h = h, w end
   local x0, y0 = math.floor(pos.x - w / 2 + 0.01), math.floor(pos.y - h / 2 + 0.01)
+  local keep = opts and opts.keep
+  local by_cor = false
   for ty = y0, y0 + h - 1 do
     for tx = x0, x0 + w - 1 do
-      if b.occ[P.tkey(tx, ty)] then return true end
+      local k = P.tkey(tx, ty)
+      if occ and occ[k] then return true end
+      if cor[k] then by_cor = true end
     end
   end
-  return false
+  -- B1 (2e relecture, lead 5/11 17 h 38) : remplacement sur place : refusé seulement s'il sépare deux tuiles libres du couloir (Co.cuts)
+  if by_cor and keep then by_cor = Build.Co.cuts(function(x, y) return cor[P.tkey(x, y)] ~= nil end, keep, { x0, y0, x0 + w - 1, y0 + h - 1 }, opts.blocked) end
+  if by_cor then
+    f.stats = f.stats or {}
+    f.stats.couloir_emprises = (f.stats.couloir_emprises or 0) + 1 -- revue (B3)
+  end
+  return by_cor
 end
 
 -- Crochet des avant-postes (script/faction/outposts.lua, déjà chargé par script/team/worker.lua avant ce fichier : ni
 -- l'ordre des require ni celui des abonnements ne change).
-Outposts.reserved = function(f, name, pos, dir) return Build.reserved_entity(f, name, pos, dir) end
+Outposts.reserved = function(f, name, pos, dir, opts) return Build.reserved_entity(f, name, pos, dir, opts) end
 -- Lot STOCKAGE : les annexes du QG (script/team/stock.lua) sautent une place réservée par le plan directeur.
 Stock.reserved = function(f, name, pos) return Build.reserved_entity(f, name, pos) end
 
@@ -2268,6 +2364,7 @@ local function plan_enceinte(f, surface, p)
     if m.ore[k] then return "ressource" end
     if m.blocked[k] then return "bloque" end
     if b.occ[k] then return "reserve" end
+    if Build.couloirs(f)[k] then return "couloir" end -- lot ÉTAGE 5 (décision du lead) : un mur d'enceinte ne coupe pas un couloir d'accès
     return nil
   end
   local ring
@@ -3467,6 +3564,7 @@ local function cut_toward(f, agent, job, pos, inv, tick, reach2)
       if not Tokens.take(f, tick, Build.COST_EVAL) then return nil end
       if not t.mine({ inventory = inv, force = e.force, raise_destroyed = true }) and t.valid then t.destroy({ raise_destroy = true }) end
       cut = cut + 1
+      job.cut = (job.cut or 0) + 1 -- lot ETAGE4 (relecture) : travail sur place du bâtisseur, lu par le bail (script/team/bail.lua)
       b.stats.cleared = b.stats.cleared + 1
       b.stats.cut = (b.stats.cut or 0) + 1
     end

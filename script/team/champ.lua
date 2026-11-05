@@ -348,9 +348,15 @@ local function blocked_in(f, surface, x0, y0, x1, y1, mine, soft_out)
   Fal.mark(surface, x0, y0, x1, y1, function(tx, ty) blocked[Ch.key(tx, ty)] = "cliff" end)
   Fal.mark_learned(f.build and f.build.hard, function(tx, ty) blocked[Ch.key(tx, ty)] = "cliff" end)
   local occ = f.build and f.build.occ or {}
+  local cor = Build.couloirs(f) -- lot ÉTAGE 5 : la bande ne se pose pas sur un couloir d'accès d'avant-poste
   for x = math.floor(x0), math.ceil(x1) do
     for y = math.floor(y0), math.ceil(y1) do
-      if occ[P.tkey(x, y)] and not blocked[Ch.key(x, y)] then blocked[Ch.key(x, y)] = "reserve" end
+      local k = P.tkey(x, y)
+      if occ[k] and not blocked[Ch.key(x, y)] then blocked[Ch.key(x, y)] = "reserve" end
+      if cor[k] and not blocked[Ch.key(x, y)] then
+        blocked[Ch.key(x, y)] = "couloir"
+        if f.stats then f.stats.couloir_champ = (f.stats.couloir_champ or 0) + 1 end -- revue (B3)
+      end
     end
   end
   return blocked

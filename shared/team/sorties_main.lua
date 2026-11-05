@@ -10,8 +10,12 @@
     3. à la place de marché, ce minage (jusqu'à 85 × facteur de besoin 1,5) bat la tournée (70, 95 à sec ; distance retirée).
   Règles (PURES : aucune API du moteur, aucun nom d'objet ; les types d'avant-poste arrivent en DONNÉES : spec = T.outposts) :
     Sm.raw_kinds(spec)            -> { [type] = ressource } : avant-postes BRUTS (leur produit est leur ressource : sortie = la ressource).
-    Sm.counted(o)                 -> ses sorties comptent-elles ? (pas meurtrier, pas dangereux, pas Sm.FAILS_MAX tournées ratées de suite,
-                                     tournée pas libre depuis Sm.STALE_TICKS : personne n'y va, le minage reprend la main).
+    Sm.safe(o)                    -> avant-poste sûr : pas meurtrier, pas dangereux, moins de Sm.FAILS_MAX tournées ratées de suite.
+    Sm.counted(o)                 -> ses sorties comptent-elles pour le minage à la main ? Sûr ET sa tournée est VIVANTE (lot ETAGE4,
+                                     shared/team/bail.lua, Bl.alive) : libre depuis moins de Sm.STALE_TICKS, ou prise avec un progrès depuis
+                                     moins du bail. Absente, en pause ou prise sans progrès : personne ne va le chercher, le minage reprend.
+                                     (Avant ETAGE4 : une tournée PRISE comptait toujours ; tenue 41 min par un PNJ immobile, elle bloquait le
+                                     minage du charbon, 122 refus, fonte du QG arrêtée : fo-logs/2026-11-04_ETAGE4/RAPPORT.md.)
     Sm.dormant(rows, raw, item)   -> objets `item` dans les sorties des avant-postes bruts comptés, et leurs ids (le plus garni d'abord).
     Sm.hand_ok(a)                 -> mine-t-on `item` à la main ? Non quand ses sorties en ont Sm.MIN au moins : on va les chercher.
     Sm.fetch_prio(base, o, raw, have) -> priorité de la tournée d'un avant-poste brut : Sm.FETCH_PRIO (une urgence) quand ses sorties ont
@@ -20,6 +24,8 @@
                                      sorties ne couvrent pas (avant : jamais rien, d'où un avant-poste à sec, coffres vides, qui ne repart plus).
   Interrupteur par équipe (bancs) : f.team.sorties_regle == false coupe tout (comportement de 0.6.41). Défaut : allumé.
 ]]
+local Bl = require("shared.team.bail") -- lot ETAGE4 : bail des tournées (tournée vivante)
+
 local Sm = {}
 
 Sm.MIN = 20          -- objets d'une ressource dans les sorties à partir desquels on va les chercher plutôt que la miner à la main
@@ -42,11 +48,16 @@ function Sm.raw_kinds(spec)
   return out
 end
 
---- o = { lethal, unsafe, fails, free_age } : les sorties de cet avant-poste comptent-elles ?
-function Sm.counted(o)
+--- o = { lethal, unsafe, fails } : avant-poste sûr ?
+function Sm.safe(o)
   if not o or o.lethal or o.unsafe then return false end
-  if num(o.free_age) >= Sm.STALE_TICKS then return false end
   return num(o.fails) < Sm.FAILS_MAX
+end
+
+--- o = { lethal, unsafe, fails, tour = "libre" | "prise" | nil, free_age, stall } : ses sorties comptent-elles pour le minage à la main ?
+function Sm.counted(o)
+  if not Sm.safe(o) then return false end
+  return Bl.alive(o.tour, o.free_age, o.stall, Sm.STALE_TICKS, o.held, o.pre_act)
 end
 
 --- rows = { { id, kind, outputs = { [objet] = n }, lethal, unsafe, fails } } ; raw = Sm.raw_kinds ; item = la ressource.
@@ -79,10 +90,11 @@ function Sm.hand_ok(a)
   return true, "rien"
 end
 
---- base = priorité du planificateur ; o = { kind, outputs, lethal, unsafe, fails } ; raw = Sm.raw_kinds ; have = la ressource au coffre.
+--- base = priorité du planificateur ; o = { kind, outputs, lethal, unsafe, fails, free_age } ; raw = Sm.raw_kinds ; have = la ressource au
+--- coffre. (Inchangé par ETAGE4 : le planificateur POSE la tournée, elle n'a pas à être déjà vivante.)
 function Sm.fetch_prio(base, o, raw, have)
   local res = o and raw[o.kind]
-  if not res or not Sm.counted(o) then return base end
+  if not res or not Sm.safe(o) or num(o.free_age) >= Sm.STALE_TICKS then return base end
   if num(o.outputs and o.outputs[res]) < Sm.MIN or num(have) >= Sm.COVER then return base end
   return math.max(num(base), Sm.FETCH_PRIO)
 end

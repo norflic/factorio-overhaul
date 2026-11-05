@@ -20,6 +20,7 @@ local Nav = require("script.agents.nav")
 local State = require("script.faction.state")
 local Ar = require("shared.team.arrivee") -- lot C4 PLATEAU 3 : tournée arrivée malgré un chemin refusé (règle pure)
 local Acc = require("shared.team.acces_champ") -- lot NAV2 : point d'accès atteignable depuis l'extérieur du champ (règle pure)
+local Co = require("shared.team.couloir") -- lot ÉTAGE 5 : le bâtiment qui ferme la dernière issue d'un accès (journal [FO-NAV-ACCES])
 local Rc = require("shared.team.repli_chemin") -- lot CHARBON3 (B2) : essais de marche d'un PNJ (règle pure)
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Mu = require("shared.team.munitions") -- lot MUNITIONS (revue M3) : prise bornée de la munition de base (Mu.split_take)
@@ -325,11 +326,12 @@ local function access(o, f)
   end
   local rect = Acc.rect(own_boxes, base, Acc.MARGIN)
   local area = { { rect[1], rect[2] }, { rect[3] + 1, rect[4] + 1 } }
-  local boxes = {}
+  local boxes, ents = {}, {}
   for _, e in ipairs(surface.find_entities_filtered({ area = area, collision_mask = "player-layer" })) do
     if e.valid and not ACC_MOVING[e.type] then
       local bb = e.bounding_box
       boxes[#boxes + 1] = { bb.left_top.x, bb.left_top.y, bb.right_bottom.x, bb.right_bottom.y }
+      ents[#boxes] = e
     end
   end
   local tiles = {}
@@ -337,14 +339,35 @@ local function access(o, f)
     tiles[#tiles + 1] = { x = t.position.x, y = t.position.y }
   end
   local r = Acc.reach(boxes, tiles, base, rect)
+  local was = c and c.moved
   o.acces_cache = { n = #own, t = tick, bx = base.x, by = base.y, p = { x = r.x, y = r.y }, moved = r.moved,
     side = math.max(rect[3] - rect[1], rect[4] - rect[2]) + 1 }
   if r.moved and f.stats then
     f.stats.acces_moved = (f.stats.acces_moved or 0) + 1
     if f.stats.acces_moved <= ACC_LOGS then
-      log(string.format("[FO-NAV-ACCES] %s : avant-poste %d %s : acces (%.1f,%.1f) ferme par le champ (%d batiment(s)), but deplace en (%.1f,%.1f) a %.1f tuile(s), %d tuile(s) atteignable(s) (n. %d) a %.1f min",
+      -- Lot ÉTAGE 5 (accord du lead) : à la fermeture (ou quand le champ a changé), le bâtiment le plus récent, à 10 tuiles au plus de l'accès,
+      -- dont le retrait seul rouvre l'accès (Co.closer) : celui qui ferme la DERNIÈRE issue. Un seul relevé de plus par ligne de journal.
+      local closer = "-"
+      if not was or not c or c.n ~= #own then
+        local order = {}
+        for i, e in ipairs(ents) do
+          local bb = boxes[i]
+          local cx, cy = (bb[1] + bb[3]) / 2, (bb[2] + bb[4]) / 2
+          if (cx - base.x) ^ 2 + (cy - base.y) ^ 2 <= 100 then order[#order + 1] = i end
+        end
+        table.sort(order, function(i, j)
+          local ui, uj = ents[i].unit_number or -1, ents[j].unit_number or -1
+          if ui ~= uj then return ui > uj end
+          return i < j
+        end)
+        local k = Co.closer(boxes, tiles, base, rect, order)
+        local e = k and ents[k]
+        closer = e and string.format("%s n. %s en (%.1f,%.1f) %s", e.name, tostring(e.unit_number), e.position.x, e.position.y,
+          e.force.name == own[1].force.name and "de l'equipe" or e.force.name) or "aucun seul"
+      end
+      log(string.format("[FO-NAV-ACCES] %s : avant-poste %d %s : acces (%.1f,%.1f) ferme par le champ (%d batiment(s)), but deplace en (%.1f,%.1f) a %.1f tuile(s), %d tuile(s) atteignable(s), derniere issue fermee par %s (n. %d) a %.1f min",
         tostring(f.key), o.id or 0, tostring(o.kind), base.x, base.y, #own, r.x, r.y, math.sqrt((r.x - base.x) ^ 2 + (r.y - base.y) ^ 2), r.reached,
-        f.stats.acces_moved, tick / 3600))
+        closer, f.stats.acces_moved, tick / 3600))
     end
   end
   return { x = r.x, y = r.y }
@@ -588,7 +611,7 @@ function Worker.program(f, task, surface, tick)
       -- Lot CHARBON-MAIN (retour du DC du 3/11 : « des milliers de charbons réunis dans les coffres [des foreuses] et ils minent à la main
       -- juste à côté ») : jamais à la main ce qui attend dans les coffres de sortie d'un avant-poste brut sûr ; sa tournée est une urgence
       -- au planificateur (shared/team/sorties_main.lua, Sm.fetch_prio). Survie comprise ; seule une crise injectée par un banc passe.
-      local ok2, why2, dormant = Sorties.hand_ok(f, task.resource, tick, task.crisis)
+      local ok2, why2, dormant, tours = Sorties.hand_ok(f, task.resource, tick, task.crisis)
       if not ok2 then
         f.stats.main_sorties = (f.stats.main_sorties or 0) + 1
         f.stats.main_refus = f.stats.main_refus or {}
@@ -596,8 +619,8 @@ function Worker.program(f, task, surface, tick)
         local last = f.stats.main_refus[key]
         if not last or tick - last >= 3600 then
           f.stats.main_refus[key] = tick
-          log(string.format("[FO-MAIN] %s : minage a la main de '%s' REFUSE (%s) : %d dans les coffres de sortie des avant-postes, tache %s, a %.1f min (refus %d)",
-            f.key or "?", tostring(task.resource), why2, dormant, tostring(task.key), tick / 3600, f.stats.main_sorties))
+          log(string.format("[FO-MAIN] %s : minage a la main de '%s' REFUSE (%s) : %d dans les coffres de sortie des avant-postes, tache %s, a %.1f min (refus %d) ; tournees {%s}",
+            f.key or "?", tostring(task.resource), why2, dormant, tostring(task.key), tick / 3600, f.stats.main_sorties, tours or ""))
         end
         task.fail = task.fail or "main:sorties"
         return nil
@@ -729,6 +752,7 @@ ACTS.build = function(agent, f, task, surface, tick)
   end
   local p = agent.entity.position
   o.access = { x = p.x, y = p.y }
+  Build.couloirs_reset(f) -- lot ÉTAGE 5 : le couloir de ce nouvel accès vaut dès ce tick
   task.site_used = true
   f.stats.built = (f.stats.built or 0) + 1
   -- Lot SCALE-COMPLET : origine et distance de chaque NOUVEL avant-poste (partie du DC, 0.6.18 : l'avant-poste de charbon n° 5
@@ -868,6 +892,58 @@ local function abort(agent, f, tick, reason)
   set(agent, "step", tick)
 end
 Worker.abort = abort -- lot IA3-k : demi-tour et fuite
+
+--- Lot ETAGE4 : bail échu d'une tâche (shared/team/bail.lua, appelé par script/team/bail.lua). 1re fois : abandon (programme « rentrer »,
+--- la machine repart de l'étape : une marche ou un état sans issue est remis à zéro) ; encore sans progrès au bail suivant (il ne peut même
+--- pas rentrer : enfermé, état sans issue) : DÉGAGÉ, téléporté près du QG (comme le secours de l'étape « home »), dépôt, et la tâche finit en
+--- échec. Rend "abandon" | "degage".
+--- Place près de `center` pour le personnage `e` : sans bâtiment (find_non_colliding_position) ni fantôme sur la case (F293). Centres essayés
+--- dans un ordre fixe : `center`, puis 8 à 3 tuiles et 8 à 6 tuiles. Aucune sans fantôme : la première place sans bâtiment ; aucune : nil.
+local GHOST_RING = { { 0, 0 }, { 3, 0 }, { 0, 3 }, { -3, 0 }, { 0, -3 }, { 3, 3 }, { -3, 3 }, { -3, -3 }, { 3, -3 },
+  { 6, 0 }, { 0, 6 }, { -6, 0 }, { 0, -6 }, { 6, 6 }, { -6, 6 }, { -6, -6 }, { 6, -6 } }
+function Worker.ghost_free_spot(e, center)
+  local s = e.surface
+  local first
+  for _, o in ipairs(GHOST_RING) do
+    local spot = s.find_non_colliding_position(e.name, { x = center.x + o[1], y = center.y + o[2] }, 20, 0.5)
+    if spot then
+      first = first or spot
+      if s.count_entities_filtered({ type = "entity-ghost", limit = 1,
+        area = { { spot.x - 0.5, spot.y - 0.5 }, { spot.x + 0.5, spot.y + 0.5 } } }) == 0 then
+        return spot
+      end
+    end
+  end
+  return first
+end
+
+--- Revue du lead (m5) : le motif d'un abandon antérieur (fuite, danger) est gardé ; « bail » seulement s'il n'y en avait pas.
+--- Accord du lead (F293) : la place du dégagement est libre de bâtiments (find_non_colliding_position) ET de fantômes (un personnage debout
+--- sur l'emprise d'un fantôme en empêche le ravivage) : Worker.ghost_free_spot.
+function Worker.release_stuck(agent, f, tick)
+  local task = agent.task
+  if task and not task.bailed then
+    task.bailed = true
+    local why = task.fail
+    abort(agent, f, tick, "bail")
+    if why then task.fail = why end
+    return "abandon"
+  end
+  local e = agent.entity
+  if e and e.valid then
+    if agent.nav then Nav.stop(agent, tick) end
+    local spot = f.hq and f.hq.valid and Worker.ghost_free_spot(e, home_slot(agent, f))
+    if spot then
+      e.teleport(spot)
+      f.stats.rescued = (f.stats.rescued or 0) + 1
+      deposit_all(agent, f)
+    end
+  end
+  if task then task.fail = task.fail or "bail" end
+  agent.failed = nil
+  finish(agent, f, false, tick)
+  return "degage"
+end
 
 ---------------------------------------------------------------------------------------------------
 -- Lot CRAFT-PARALLELE : fabrication en arrière-plan
