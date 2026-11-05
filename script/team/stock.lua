@@ -23,8 +23,8 @@ local Pl = require("shared.ai3.places")
 local PlacesQG = require("script.ai3.places_qg")
 local Br = require("shared.ai3.bras")
 local Ad = require("shared.team.adopte")
-local FQ = require("shared.ai3.fonderie_qg") -- lot PD-FONDERIEQG (D77) : fonderie du QG bornée par l'automatisation
 local Sg = require("shared.team.stockage") -- lot STOCKAGE (essai 2) : poser le plus grand, améliorer, anneaux (règle pure)
+local FQ = require("shared.ai3.fonderie_qg") -- lot PD-FONDERIEQG (D77) : fonderie du QG bornée par l'automatisation
 
 -- Entrées de la fonderie du QG, triées (données de shared/team/config.lua), pour FQ.automated.
 local SMELT_INPUTS = {}
