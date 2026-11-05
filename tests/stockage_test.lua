@@ -51,11 +51,12 @@ local FREE_BOTH = { used = 700, size = 800, n = 20, cap = 48, free_places = 28, 
   annexes = { [2] = 20 } }
 
 ---------------------------------------------------------------------------------------------------
-section("1. Règle d'avant (production) sur les cas du DC : constat")
+section("1. Règle d'avant (production) sur les cas du DC : constat (test ROUGE du lot : fo-logs/2026-11-05_STOCKAGE/test_rouge.txt, 27709509)")
 ---------------------------------------------------------------------------------------------------
-check(old_rule(DC) == "poser", "DC, stock plein, bloc saturé : il faut faire de la place (la règle d'avant rend « " .. old_rule(DC) .. " »)")
-check(T.annex.kinds[1].slots >= 48, "l'échelle des annexes commence par un coffre de 48 cases ou plus (T.annex.kinds[1] : " ..
-  tostring(T.annex.kinds[1].item) .. ", " .. tostring(T.annex.kinds[1].slots) .. " cases)")
+check(old_rule(DC) == "bloque", "constat : stock plein, bloc saturé, coffres en fer en main : la règle d'avant ne pose RIEN (" .. old_rule(DC) .. ")")
+check(old_rule({ used = 1600, size = 1600, n = 48, cap = 48, free_places = 0, early = true }) == "rien",
+  "constat : 48 annexes, la règle d'avant ne demande même plus de coffre (plafond T.annex.max = " .. T.annex.max .. ")")
+check(T.annex.kinds[1].slots == 32 and #T.annex.kinds == 2, "constat : l'échelle d'avant est fer (32 cases) puis bois (16), sans acier (48)")
 
 ---------------------------------------------------------------------------------------------------
 section("2. Règle du lot (shared/team/stockage.lua)")
@@ -92,6 +93,52 @@ for _, p in ipairs(r2) do if seen[p[1] .. ":" .. p[2]] then common = common + 1 
 check(#r1 == A.capacity(1, 1, 1) and #r2 > 0 and common == 0 and near2 > far1,
   "anneau 1 = le bloc d'avant (" .. #r1 .. " places) ; anneau 2 plus loin, sans place commune (" .. #r2 .. " places)")
 check(Sg.capacity(1, 1, 1, 3) == #r1 + #r2 + #Sg.ring_slots(1, 1, 1, 3), "capacité = somme des anneaux ouverts")
+-- fabrication en parallèle : l'acier fabricable et plus grand que le fer en main ; rien quand l'acier est déjà en main ou pas fabricable
+check(Sg.craft(DC, LADDER) == 1, "DC : de la place tout de suite (anneau, coffres en fer en main) ET l'acier fabriqué en parallèle")
+check(Sg.craft(DC_STEEL, LADDER) == nil and Sg.craft(CALM, LADDER) == nil, "acier déjà en main, ou stock calme : rien à fabriquer")
+check(Sg.craft({ used = 1568, size = 1568, n = 48, cap = 48, free_places = 0, early = true, hand = { 0, 40, 0 }, makeable = { false, true, true },
+  annexes = { [2] = 48 } }, LADDER) == nil, "acier non fabricable, bloc de fer : rien de plus grand à fabriquer")
+local plafond = Sg.capacity(1, 1, 1, Sg.MAX_RINGS)
+check(plafond >= 5 * 48 and d({ used = 9000, size = 9000, n = plafond, cap = plafond, free_places = 0, early = true, hand = { 5, 0, 0 },
+  makeable = { true, true, true }, annexes = { [1] = plafond }, rings = Sg.MAX_RINGS }) == "rien",
+  "borne de sécurité : " .. Sg.MAX_RINGS .. " anneaux, " .. plafond .. " coffres (" .. plafond * 48 .. " cases en acier)")
+
+---------------------------------------------------------------------------------------------------
+section("3. Mutants de la règle du lot")
+---------------------------------------------------------------------------------------------------
+local f0 = io.open("shared/team/stockage.lua", "rb")
+local SRC = f0:read("*a")
+f0:close()
+local function facts(M)
+  local function dd(c) local a, k = M.decide(c, LADDER) return tostring(a) .. ":" .. tostring(k) end
+  return table.concat({ dd(DC), dd(DC_STEEL), dd(FULL_STEEL), dd(EMPTY_HAND), dd(CALM), dd(FREE_BOTH),
+    dd({ used = 9000, size = 9000, n = 240, free_places = 0, early = true, hand = { 5, 0, 0 }, makeable = { true, true, true },
+      annexes = { [1] = 240 }, rings = M.MAX_RINGS }),
+    tostring(M.craft(DC, LADDER)), tostring(M.craft(DC_STEEL, LADDER)), tostring(#M.ring_slots(1, 1, 1, 2)),
+    tostring(M.ring_slots(1, 1, 1, 2)[1][2]) }, "|")
+end
+local F0 = facts(Sg)
+local function mutate(from, to)
+  local s2, n = SRC:gsub(from:gsub("[%^%$%(%)%%%.%[%]%*%+%-%?]", "%%%0"), (to:gsub("%%", "%%%%")), 1)
+  assert(n == 1, "mutant introuvable : " .. from)
+  return s2
+end
+local MUTANTS = {
+  { "jamais d'amélioration", mutate('if s and k_hand < s then return "ameliorer", k_hand end', "") },
+  { "jamais d'anneau", mutate('if math.max(1, math.floor(num(c.rings))) < Sg.MAX_RINGS then return "anneau" end', "") },
+  { "pose du plus petit", mutate('if num(c.free_places) > 0 then return "poser", k_hand end', 'if num(c.free_places) > 0 then return "poser", #ladder end') },
+  { "anneaux sans borne", mutate('if math.max(1, math.floor(num(c.rings))) < Sg.MAX_RINGS then return "anneau" end', 'return "anneau"') },
+  { "fabrique même en main", mutate("if k_hand and k_hand <= k_make then return nil end", "") },
+  { "anneau 2 sur l'anneau 1", mutate("local shift = (ring - 1) * Sg.RING_STEP", "local shift = 0") },
+}
+local killed = 0
+for _, m in ipairs(MUTANTS) do
+  local ok, Fm = pcall(function() return facts(assert(load(m[2], "@shared.team.stockage"))()) end)
+  local seen = (not ok) or Fm ~= F0
+  if seen then killed = killed + 1 end
+  check(seen, "mutant « " .. m[1] .. " » vu")
+end
+print(string.format("[STOCKAGE] mutants : %d/%d vus", killed, #MUTANTS))
 
 print(string.format("[STOCKAGE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
