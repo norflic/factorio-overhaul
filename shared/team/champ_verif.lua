@@ -219,7 +219,14 @@ function Cv.flow(plan, spec)
   return rep
 end
 
-local function find(parent) return function(i) while parent[i] ~= i do i = parent[i] end; return i end end
+-- Lot PERF3 : compression de chemin par moitiés (mêmes racines : un nœud ne quitte jamais l'arbre de sa racine ; sans elle, les chaînes
+-- des poteaux d'un grand champ rendaient chaque recherche linéaire)
+local function find(parent)
+  return function(i)
+    while parent[i] ~= i do parent[i] = parent[parent[i]]; i = parent[i] end
+    return i
+  end
+end
 
 function Cv.verify(plan, spec)
   local rep = { overlaps = 0, blocked = 0, unpowered = 0, components = 0, traverse = 0, inside = 0, drops = 0, arms = 0, starved = 0, melange = 0 }
