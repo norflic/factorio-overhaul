@@ -33,6 +33,9 @@ Bl.MAX_HOLD = 3 * 3600    -- ticks au-delà desquels une tournée prise et pas e
 Bl.KINDS = { service = true, ghost = true } -- tournées ; reconstructions du bâtisseur (« ghost », accord du lead du 5/11 : mesuré 240 s sans
                                            -- progrès chez Azur, lot5-croiss-123456789). Pas d'étape « act » : la tenue maximale ne s'y applique pas.
 Bl.FLEE_MAX = 2 * 3600    -- ticks : une fuite plus longue (refuge jamais atteint) recompte comme temps sans progrès
+Bl.BUSY_MAX = 2 * 3600    -- ticks « au combat ou en fuite » cumulés par tâche au-delà desquels ce temps recompte (R1 : tir sans portée)
+Bl.DEAD_WAIT = 2 * 3600   -- R2 : fenêtre de mort (entité perdue, PNJ encore inscrit) laissée à Registry.on_removed avant que le bail rende
+                          -- la tâche (filet si l'événement ne vient jamais)
 Bl.HOLD_AFTER = 2         -- bails de suite d'une tournée (sans tournée réussie entre deux) avant sa pause (A.HOLD_AFTER du lot ADOPTE)
 Bl.PAUSE_TICKS = 10 * 3600 -- pause de la tournée : elle n'est plus reposée au tableau (le minage à la main n'est plus bloqué par elle)
 
@@ -45,6 +48,18 @@ function Bl.busy(k, shooting, tick)
   if type(k) ~= "table" then return false end
   if k.hold ~= nil and k.hold_stop == nil and num(tick) < num(k.hold) then return true end
   return k.refuge ~= nil and k.flee_t ~= nil and num(tick) - num(k.flee_t) < Bl.FLEE_MAX
+end
+
+--- Revue de revue-etage4 (R1, 5/11) : le temps « au combat ou en fuite » d'une tâche est BORNÉ. Un PNJ coincé à 15-18 tuiles d'un ennemi fixe
+--- garde agent.shooting vrai sans tirer (le pistolet porte à 15, l'autodéfense cherche à 18) : sans borne, busy à chaque pensée rouvrait le défaut
+--- des 41 min. acc = temps au combat déjà compté pour la tâche ; last = pensée précédente ; raw = Bl.busy à cette pensée.
+function Bl.busy_acc(acc, last, tick, raw)
+  if raw == true and last ~= nil then return num(acc) + (num(tick) - num(last)) end
+  return num(acc)
+end
+
+function Bl.busy_counted(raw, acc)
+  return raw == true and num(acc) < Bl.BUSY_MAX
 end
 
 --- m5 : origine du temps de tenue, décalée du temps passé au combat ou en fuite depuis la pensée précédente (`last`).

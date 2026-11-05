@@ -158,6 +158,13 @@ local function suite(Bl)
   c("tenue : au combat, l'origine avance du temps passe", Bl.held_base(100, 400, 700, true) == 400)
   c("tenue : hors combat, l'origine reste", Bl.held_base(100, 400, 700, false) == 100)
   c("tenue : premiere pensee (pas de precedente), l'origine reste", Bl.held_base(100, nil, 700, true) == 100)
+  -- R1 : temps au combat borné par tâche
+  c("combat compte : intervalle depuis la pensee precedente", Bl.busy_acc(100, 400, 700, true) == 400 and Bl.busy_acc(100, 400, 700, false) == 100
+    and Bl.busy_acc(nil, nil, 700, true) == 0)
+  c("combat : compte tant que le cumul est sous Bl.BUSY_MAX", Bl.busy_counted(true, Bl.BUSY_MAX - 1) == true and Bl.busy_counted(true, Bl.BUSY_MAX) == false
+    and Bl.busy_counted(false, 0) == false)
+  c("borne du combat entre 1 et 5 min ; fenetre de mort laissee a on_removed entre 1 et 5 min", Bl.BUSY_MAX >= 3600 and Bl.BUSY_MAX <= 5 * 3600
+    and Bl.DEAD_WAIT >= 3600 and Bl.DEAD_WAIT <= 5 * 3600)
   c("bails : premier = 1", Bl.count(nil, false) == 1)
   c("bails : de suite, sans reussite entre deux : +1", Bl.count(1, false) == 2)
   c("bails : apres une tournee reussie : repart a 1", Bl.count(5, true) == 1)
@@ -292,8 +299,16 @@ local function monitor_suite(msrc)
   C.task("service:1", "service", 7, 0)
   C.run(300, 20 * 3600, function(tick) C.k[7] = tick < 10 * 3600 and { hold = tick + 120 } or {} end)
   local c1 = C.released[1]
-  c("B : rien de rendu pendant 10 min de combat", c1 ~= nil and c1.tick >= 10 * 3600)
-  c("B : rendue un bail apres la fin du combat", c1 ~= nil and c1.tick <= 10 * 3600 + Bl.LEASE + 300)
+  c("B (R1) : combat sur place sans fin : rien de rendu avant Bl.BUSY_MAX + Bl.LEASE", c1 ~= nil and c1.tick >= Bl.BUSY_MAX + Bl.LEASE - 600)
+  c("B (R1) : rendue un bail apres la borne du combat", c1 ~= nil and c1.tick <= Bl.BUSY_MAX + Bl.LEASE + 600)
+  -- B bis (R1) : autodéfense qui « tire » sans portée (ennemi fixe à 15-18 tuiles), sans crochet : même borne
+  local SH = harness(msrc)
+  local sh = SH.npc(7)
+  SH.task("service:1", "service", 7, 0)
+  SH.run(300, 20 * 3600, function() sh.shooting = true end)
+  local s1 = SH.released[1]
+  c("B bis (R1) : tir sans fin : rendue apres Bl.BUSY_MAX + Bl.LEASE", s1 ~= nil and s1.tick >= Bl.BUSY_MAX + Bl.LEASE - 600
+    and s1.tick <= Bl.BUSY_MAX + Bl.LEASE + 600)
   -- C. PNJ qui tient AUTRE CHOSE : la tâche est rendue sans toucher à sa vraie tâche.
   local O = harness(msrc)
   local a = O.npc(7)
@@ -309,7 +324,10 @@ local function monitor_suite(msrc)
   D2.task("service:1", "service", 7, 0)
   d.entity.valid = false
   D2.run(300, 300)
-  c("D (M2) : tache rendue, le PNJ ne la tient plus a Board.finish", #D2.finished == 1 and D2.finished[1].holder == nil and d.task == nil)
+  c("D (R2) : fenetre de mort : rien (on_removed finit la tache)", #D2.finished == 0 and #D2.released == 0 and d.task ~= nil)
+  D2.run(600, Bl.DEAD_WAIT + 900)
+  c("D (M2, filet) : sans on_removed apres Bl.DEAD_WAIT, rendue une fois, le PNJ ne la tient plus a Board.finish", #D2.finished == 1
+    and D2.finished[1].holder == nil and d.task == nil)
   -- E. Pause (m4) : 2e bail de suite sans tournée réussie entre deux : pause ; après une tournée réussie : pas de pause.
   local P = harness(msrc)
   P.npc(7)
@@ -381,10 +399,12 @@ for _, r in ipairs(monitor_suite(M)) do check("moniteur : " .. r[1], r[2]) end
 local MMUTANTS = {
   { "sans PNJ sans agent.task == t (m6)", "if not (agent and e and e.valid and agent.task == t) then\n    -- Le PNJ", "if not (agent and e and e.valid) then\n    -- Le PNJ" },
   { "M2 retire", "if agent and agent.task == t then agent.task, agent.steps, agent.pc = nil, nil, nil end", "" },
-  { "combat compte (m5)", "local busy = Bl.busy(k_of(agent), agent.shooting, tick)", "local busy = false" },
+  { "combat compte (m5)", "local raw = Bl.busy(k_of(agent), agent.shooting, tick)", "local raw = false" },
+  { "combat sans borne (R1)", "local busy = Bl.busy_counted(raw, t.busy_acc)", "local busy = raw" },
+  { "fenetre de mort ignoree (R2)", "if tick - t.dead_t < Bl.DEAD_WAIT then return 0 end", "" },
   { "but = point de passage (avant lot3)", "local p, g = e.position, B.target(agent, f)", "local p, g = e.position, agent.goal" },
   { "retour au QG sans but", "if step[1] == \"home\" then return f.home_spot end", "" },
-  { "tenue : combat compte (m5)", "t.hold_t = Bl.held_base(t.hold_t or t.claimed or tick, t.seen, tick, busy)", "t.hold_t = t.hold_t or t.claimed or tick" },
+  { "tenue : combat compte (m5)", "t.hold_t = Bl.held_base(t.hold_t or t.claimed or tick, last, tick, busy)", "t.hold_t = t.hold_t or t.claimed or tick" },
   { "tenue avant l'acte meme au retour", "t.pre_act = B.pre_act(agent)", "t.pre_act = true" },
   { "etat decrit APRES le bail", "local desc = describe(agent, tick, f)\n  local how = Worker.release_stuck(agent, f, tick)",
     "local how = Worker.release_stuck(agent, f, tick)\n  local desc = describe(agent, tick, f)" },
@@ -423,6 +443,8 @@ local MUTANTS = {
   { "tir ignore", "if shooting == true then return true end", "" },
   { "fuite sans fin", "num(tick) - num(k.flee_t) < Bl.FLEE_MAX", "true" },
   { "tenue : combat compte (m5)", "if busy == true and last ~= nil then return num(base) + (num(tick) - num(last)) end", "" },
+  { "combat jamais cumule (R1)", "if raw == true and last ~= nil then return num(acc) + (num(tick) - num(last)) end", "" },
+  { "borne du combat ignoree (R1)", "return raw == true and num(acc) < Bl.BUSY_MAX", "return raw == true" },
   { "bails jamais remis a zero (m4)", "if reset then return 1 end", "" },
   { "pause des le premier bail (m4)", "return num(n) >= Bl.HOLD_AFTER", "return num(n) >= 1" },
   { "sans but : deplacement ignore", "if dx * dx + dy * dy >= Bl.MOVE * Bl.MOVE then return fresh(cur, tick, top) end", "" },

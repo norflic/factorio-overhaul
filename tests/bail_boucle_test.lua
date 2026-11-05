@@ -56,7 +56,7 @@ local function run(pc, kind, mode)
   agent.steps = kind == "ghost" and { { "home" }, { "take_res", 9, {} }, { "goto", { x = 50.5, y = -20.5 }, 1 }, { "ia1d" }, { "home" } }
     or { { "home" }, { "goto", { x = 70.5, y = -20.5 }, 3 }, { "act", "service" }, { "home" } }
   local t0 = game.tick
-  for k = 1, 40 do
+  for k = 1, 80 do
     local tick = t0 + k * 300
     if agent.task ~= t then break end
     agent.state = k % 2 == 0 and "walk" or "step"
@@ -67,6 +67,7 @@ local function run(pc, kind, mode)
     elseif kind == "ghost" then
       agent.pc, agent.state, agent.ia1d = 4, "ia1d", { pid = 9, mode = "build", done = k }
     end
+    if mode == "tir" then agent.state, agent.shooting = "walk", true end
     e.teleport(P)
     Bail.think(f, tick)
     if t.bailed or b.tasks[key] ~= t then return tick - t0 end
@@ -84,13 +85,16 @@ print("[BAIL-BOUCLE] " .. code)
 for _, case in ipairs({ { 2, "avant l'acte (aller)" }, { 4, "au retour (apres l'acte)" } }) do
   local d = run(case[1])
   check(case[2] .. " : lache en moins de 2 min", d ~= nil and d <= LEASE + 300,
-    d and string.format("lache apres %d s", d / 60) or "jamais lache en 10 min")
+    d and string.format("lache apres %d s", d / 60) or "jamais lache en 6,7 min")
 end
+local dt = run(2, "service", "tir")
+check("revue R1 : autodefense qui « tire » sans portee (ennemi fixe a 15-18 tuiles) : lache apres la borne du combat", dt ~= nil and dt <= 4 * 3600 + 600,
+  dt and string.format("lache apres %d s", dt / 60) or "jamais lache en 6,7 min")
 local dg = run(3, "ghost", "boucle")
 check("batisseur en boucle marche / chantier vide / marche : lache au bail", dg ~= nil and dg <= LEASE + 600,
-  dg and string.format("lache apres %d s", dg / 60) or "jamais lache en 10 min")
+  dg and string.format("lache apres %d s", dg / 60) or "jamais lache en 6,7 min")
 local dw = run(4, "ghost", "travail")
-check("batisseur qui reconstruit sur place : PAS lache", dw == nil, dw and string.format("lache apres %d s", dw / 60) or "jamais lache en 10 min")
+check("batisseur qui reconstruit sur place : PAS lache", dw == nil, dw and string.format("lache apres %d s", dw / 60) or "jamais lache en 6,7 min")
 -- Mutants de la règle (code du dépôt seulement) : chacun doit faire échouer un cas du bâtisseur au moteur simulé.
 if not OLD then
   local f = assert(io.open("shared/team/bail.lua", "rb"))

@@ -74,16 +74,21 @@ function B.pre_act(agent)
   return false
 end
 
---- Relevé de progrès d'une tâche tenue par `agent` (but de l'ÉTAPE ; combat et fuite : m5). Rend (ticks sans progrès, au combat ou en fuite).
+--- Relevé de progrès d'une tâche tenue par `agent` (but de l'ÉTAPE ; combat et fuite : m5, bornés par tâche : R1). Rend (ticks sans progrès,
+--- au combat ou en fuite compté, pensée précédente).
 local function observe(f, t, agent, tick)
   local e = agent.entity
   local p, g = e.position, B.target(agent, f)
-  local busy = Bl.busy(k_of(agent), agent.shooting, tick)
+  local last = t.seen
+  local raw = Bl.busy(k_of(agent), agent.shooting, tick)
+  t.busy_acc = Bl.busy_acc(t.busy_acc, last, tick, raw)
+  local busy = Bl.busy_counted(raw, t.busy_acc)
   -- travail sur place du bâtisseur (reconstructions de l'étape « ia1d », script/team/build.lua Build.work : job.done)
   local work = agent.ia1d and agent.ia1d.done or nil
   local prog, stall = Bl.progress(t.prog, { pc = agent.pc, x = p.x, y = p.y, gx = g and g.x, gy = g and g.y, busy = busy, work = work }, tick)
   t.prog = prog
-  return stall, busy
+  t.seen = tick
+  return stall, busy, last
 end
 
 --- m4 : bail d'une tournée (abandon) : bails de suite comptés par clé ; au-delà de Bl.HOLD_AFTER, la tournée est mise en pause (délai de reprise
@@ -105,6 +110,12 @@ end
 local function lease(f, b, t, tick)
   local agent = Registry.get(t.worker)
   local e = agent and agent.entity
+  if agent and agent.task == t and not (e and e.valid) then
+    -- Revue (R2) : fenêtre de mort (entité perdue, PNJ encore inscrit) : rien ici ; Registry.on_removed finit la tâche une seule fois, avec
+    -- le traitement de la mort (o.lethal_tick, lot IA1-b2). Filet : au-delà de Bl.DEAD_WAIT sans l'événement, la tâche est rendue ci-dessous.
+    t.dead_t = t.dead_t or tick
+    if tick - t.dead_t < Bl.DEAD_WAIT then return 0 end
+  end
   if not (agent and e and e.valid and agent.task == t) then
     -- Le PNJ qui la tenait n'existe plus ou tient autre chose : la tâche est rendue (elle ne sera jamais finie par lui).
     f.stats.bail_orphan = (f.stats.bail_orphan or 0) + 1
@@ -116,10 +127,9 @@ local function lease(f, b, t, tick)
     Board.finish(f, t, false, tick)
     return 1
   end
-  local stall, busy = observe(f, t, agent, tick)
+  local stall, busy, last = observe(f, t, agent, tick)
   if busy then f.stats.bail_busy = (f.stats.bail_busy or 0) + 1 end
-  t.hold_t = Bl.held_base(t.hold_t or t.claimed or tick, t.seen, tick, busy)
-  t.seen = tick
+  t.hold_t = Bl.held_base(t.hold_t or t.claimed or tick, last, tick, busy)
   t.pre_act = B.pre_act(agent)
   local held = tick - t.hold_t
   if not Bl.expired(t.kind, stall, held, t.pre_act) then return 0 end

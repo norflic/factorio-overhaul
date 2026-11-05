@@ -35,11 +35,14 @@ local function patches()
 end
 
 --- Une partie neuve (worker.lua éventuellement muté), puis le scénario. Rend la liste { nom, vrai/faux }.
-local function scenario(worker_src)
+local function scenario(worker_src, bail_src)
   local res = {}
   local function c(name, cond) res[#res + 1] = { name, cond and true or false } end
   if worker_src then
     package.preload["script.team.worker"] = function() return assert(load(worker_src, "=worker", "t"))() end
+  end
+  if bail_src then
+    package.preload["script.team.bail"] = function() return assert(load(bail_src, "=bail", "t"))() end
   end
   local okg, err = pcall(function()
     Mk.new_game({ patches = patches(), p_busy = 0, p_nopath = 0, p_lost = 0, seed = 7 })
@@ -50,6 +53,7 @@ local function scenario(worker_src)
     Mk.run_ticks(600)
   end)
   package.preload["script.team.worker"] = nil
+  package.preload["script.team.bail"] = nil
   if not okg then c("partie au moteur simulé : " .. tostring(err), false) return res end
   local Registry = require("script.companion.registry")
   local State = require("script.faction.state")
@@ -101,6 +105,25 @@ local function scenario(worker_src)
   c("ghost_free_spot : evite le fantome", spot ~= nil and d2(spot, p1) > 1)
   local spot2 = Worker.ghost_free_spot(e, { x = p1.x + 40, y = p1.y })
   c("ghost_free_spot : place libre rendue telle quelle", spot2 ~= nil and d2(spot2, { x = p1.x + 40, y = p1.y }) < 1e-9)
+  -- 5. Revue (R2) : PNJ tué pendant sa tournée ; le moniteur pense dans la fenêtre de mort (corps détruit, on_entity_destroyed pas encore
+  -- venu) ; le traitement de la mort (worker.lua, Registry.on_removed) doit voir la tâche : avant-poste meurtrier, une seule fin en échec.
+  local Bail = require("script.team.bail")
+  f.outposts = f.outposts or {}
+  local saved99 = f.outposts[99]
+  f.outposts[99] = { id = 99, kind = "coal" }
+  local t5 = give("service:99")
+  agent.death_cause, agent.death_pos = "small-biter/enemy", { x = e.position.x, y = e.position.y }
+  local st = f.team.task_stats and f.team.task_stats.service
+  local fails0 = st and st.fail or 0
+  e.destroy()
+  Bail.think(f, tick + 9000)
+  local held_in_window = agent.task == t5
+  Mk.run_ticks(2)
+  st = f.team.task_stats and f.team.task_stats.service
+  c("R2 : fenetre de mort : le moniteur laisse la tache au PNJ", held_in_window)
+  c("R2 : la mort voit la tache : avant-poste meurtrier", f.outposts[99] and f.outposts[99].lethal_tick ~= nil)
+  c("R2 : une seule fin en echec, motif de la mort (pas « bail »)", (st and st.fail or 0) == fails0 + 1 and t5.fail ~= "bail")
+  f.outposts[99] = saved99
   return res
 end
 
@@ -129,6 +152,16 @@ for _, m in ipairs(MUTANTS) do
 end
 check(string.format("mutants de worker.lua refuses %d/%d%s", refused, #MUTANTS, #kept > 0 and (" ; survivants : " .. table.concat(kept, ", ")) or ""),
   refused == #MUTANTS)
+
+-- Mutant du moniteur (R2) : la fenêtre de mort ignorée (comportement d'avant la revue).
+local BS = read("script/team/bail.lua")
+local a2, b2 = BS:find("if tick - t.dead_t < Bl.DEAD_WAIT then return 0 end", 1, true)
+local seen2 = false
+if a2 then
+  local okm, res = pcall(scenario, nil, BS:sub(1, a2 - 1) .. BS:sub(b2 + 1))
+  if not okm then seen2 = true else for _, r in ipairs(res) do if not r[2] then seen2 = true break end end end
+end
+check("mutant du moniteur « fenetre de mort ignoree (R2) » refuse" .. (a2 and "" or " (motif introuvable)"), seen2)
 
 print(string.format("[BAIL-MOTEUR] BILAN : %d OK, %d ECHEC(S)", ok_n, bad))
 os.exit(bad == 0 and 0 or 1)
