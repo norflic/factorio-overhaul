@@ -352,7 +352,8 @@ function Swap.think(f, surface, book, free, tick)
     return 0
   end
   -- lot FOREUSES-THERMIQUES : le remplacement pose lui-meme sa chaine de poteaux depuis le poteau alimente le plus proche
-  local pole = pole_choice(book, free)
+  -- (bancs : f.team.chaine_off, interrupteur de ia1_remote.lua set_regle_chaine : comportement d'avant, temoin)
+  local pole = not (f.team and f.team.chaine_off) and pole_choice(book, free) or nil
   local ctx = { poles = poles, electric = T.drill_electric, have = have, obtainable = obtainable, limit = T.swap.per_pass,
     pole = pole, free_for = pole and free_for(f, surface, pole) or nil, chain = P.pole_chain, chain_max = S.CHAIN_MAX }
   local out, n_ready, n_chain = S.plan(entries, ctx)
