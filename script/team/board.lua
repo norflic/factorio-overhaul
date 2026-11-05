@@ -522,6 +522,37 @@ Board.MARKET_TRIES = 8 -- tâches strictes refusées (matière non libre) essay�
 -- 52 prises vides sur 52 avaient toutes leurs tâches libres indiquées à d'AUTRES PNJ).
 Board.HINT_TICKS = 60
 
+--- Lot DANGER-ACTIF (mesure demandée par le lead, 5/11 : « craft 138 libres non prises » pendant les repos de verif-guide 271828182, essai 2) : une
+--- prise de la place de marché qui ne rend RIEN classe chaque tâche libre par la raison qui l'a écartée pour ce PNJ, dans l'ordre des tests de la
+--- prise : « absente » (retirée du tableau), « role » (le PNJ ne sait pas la faire : garde sans munitions, conception), « indice » (indiquée à un autre
+--- PNJ libre, ou trop longue pour sa fabrication en arrière-plan), « reserve » (essayée, matière refusée au registre), « matiere » (matière stricte non
+--- libre au registre, jamais essayée), « essais » (Board.MARKET_TRIES épuisés avant elle). Cumuls dans b.miss, lus et remis à zéro par le bilan
+--- [FO-PRISE-VIDE] (Board.actif_report, toutes les 5 min). Lecture seule : aucune décision ne change.
+local function note_miss(b, list, npc, ctx, reg, tried)
+  local m = b.miss or { n = 0, why = {} }
+  b.miss = m
+  m.n = m.n + 1
+  for _, t in ipairs(list) do
+    if not t.worker then
+      local why
+      if b.tasks[t.key] ~= t then why = "absente"
+      elseif npc.cannot and npc.cannot[t.kind] then why = "role"
+      elseif ctx.skip(t) then why = "indice"
+      elseif tried[t.key] then why = "reserve"
+      else
+        why = "essais"
+        if (t.prio or 0) < M.URGENT then
+          for _, it in ipairs(Board.strict_list(t) or {}) do
+            if R.free(reg, it[1]) < it[2] then why = "matiere" break end
+          end
+        end
+      end
+      local k = tostring(t.kind) .. ":" .. why
+      m.why[k] = (m.why[k] or 0) + 1
+    end
+  end
+end
+
 local function claim_market(f, agent, tick, b)
   local list = b.list
   local reg = reg_of(f)
@@ -551,6 +582,7 @@ local function claim_market(f, agent, tick, b)
     end
   end
   local seen, tries = {}, 0
+  local tried = {} -- lot DANGER-ACTIF (mesure) : tâches essayées dont la réservation a été refusée
   for _, j in ipairs(idx) do
     local t = list[j]
     -- Lot IA-V2 : tri préalable sans lecture du coffre : une tâche dont la matière stricte n'est pas libre au registre
@@ -571,10 +603,12 @@ local function claim_market(f, agent, tick, b)
         if t.fond then bump(f, "market_fond") end
         return t
       end
+      tried[t.key] = true
       tries = tries + 1
       if tries >= Board.MARKET_TRIES then break end
     end
   end
+  note_miss(b, list, npc, ctx, reg, tried)
   return nil
 end
 
@@ -616,6 +650,15 @@ function Board.actif_report(f, tick)
   local gate = (Board.gate_actif and Board.gate_actif(f)) or {}
   log(Ac.report_line(key, tick, a.win, idle, free, gate))
   a.win = {}
+  -- Lot DANGER-ACTIF (mesure) : prises vides de la place de marché et raisons des tâches libres non prises (note_miss), sur les 5 dernières minutes.
+  local m = b.miss
+  if m and m.n > 0 then
+    local parts = {}
+    for _, k in ipairs(sorted_keys(m.why)) do parts[#parts + 1] = string.format("%s %d", k, m.why[k]) end
+    log(string.format("[FO-PRISE-VIDE] %s : bilan a %.1f min (5 min) : %d prise(s) sans tache ; taches libres non prises, par genre et raison {%s}",
+      tostring(key), tick / 3600, m.n, table.concat(parts, ", ")))
+  end
+  b.miss = nil
 end
 
 function Board.assign(f, tick)

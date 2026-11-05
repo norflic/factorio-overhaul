@@ -211,11 +211,55 @@ local function cases2(D, Da)
   check(Da.goal_deaths(5, true, false, 3) == 0, "défense, morts de la route toutes dans la base (PORTE-BASE) : morts au but ignorées")
   check(Da.goal_deaths(2, false, true, 3) == 0 and Da.goal_deaths(3, false, true, 3) == 3, "au calme : morts au but ignorées sous le garde-fou (3), comptées à partir de lui")
   check(Da.goal_deaths(2, false, false, 3) == 2 and Da.goal_deaths(nil, false, false, 3) == 0, "hors exemption : toutes les morts au but")
-  check(Da.base_defense("garrison", true) == true and Da.base_defense("refill", true) == true and Da.base_defense("fortify", true) == true,
-    "garde, recharge, pose de tourelles dans la base : défense de la base")
-  check(Da.base_defense("garrison", false) == false and Da.base_defense("mine", true) == false and Da.base_defense("service", true) == false,
+  check(Da.base_defense("garrison", true) == true and Da.base_defense("refill", true, true) == true and Da.base_defense("fortify", true, true) == true,
+    "garde, recharge, pose de tourelles dans la base par un PNJ armé : défense de la base")
+  check(Da.base_defense("refill", true, false) == false and Da.base_defense("fortify", true, nil) == false,
+    "relecture de revue-danger : recharge ou pose par un DÉSARMÉ dans la base : pas d'exemption (il partait en plein raid sans réflexe)")
+  check(Da.base_defense("garrison", false, true) == false and Da.base_defense("mine", true, true) == false and Da.base_defense("service", true, true) == false,
     "hors de la base, ou une autre tâche : pas d'exemption")
   check(Da.after_wait({ fixed = 0 }, B, "marque", 0, { fixed = 0, deaths = 0 }) == "go", "trajet qui sort de la meute (danger ajouté nul) : départ")
+  -- Cas TIRÉS de c4 (verif-guide 271828182, essai 2, journal [FO-IA3K] de 44 à 48 min) : meute vue en (30, 6) (« detour (camarade) : pack en (30, 6) »),
+  -- départ à la case du QG (6, 9) (« tache garrison vers (6, 9) »). Rayon de la meute : vue des déchiqueteurs 30 + étendue du groupe (0 à 24, inconnue) :
+  -- les deux bornes sont jouées. Trajets en ligne droite échantillonnés comme la porte (R.samples, pas de 4 tuiles, 6 premières tuiles exclues).
+  local Rr = require("shared.ai3.route")
+  local function route_max(mm, from, goal, use_from)
+    local qs = Rr.samples(from, {}, goal, Rr.SAMPLE)
+    local prep = D.fixed_prep(mm, 0, -400, -400, 400, 400, { from = use_from and from or nil })
+    local mx = 0
+    for _, q in ipairs(qs) do
+      if (q.x - from.x) ^ 2 + (q.y - from.y) ^ 2 > 36 then
+        local v = D.fixed_at(prep, q.x, q.y)
+        if v > mx then mx = v end
+      end
+    end
+    return mx, D.fixed_at(prep, goal.x, goal.y)
+  end
+  local qg = { x = 6, y = 9 }
+  for _, r in ipairs({ 30, 54 }) do
+    local mc4 = map_of({ { 30, 6, "pack", r } })
+    -- Mis de côté en c4 (« met de cote (marque) ... menace fixe au but 0 ») : trajets partis du QG à l'opposé de l'attaque.
+    for _, g in ipairs({ { -42, 171, "ghost" }, { -59, 180, "ghost" }, { -100, 196, "ghost" }, { -20, 16, "mine" }, { -186, 231, "service" }, { -13, 9, "service" } }) do
+      local a_route = route_max(mc4, qg, { x = g[1], y = g[2] }, false)
+      local r_route, r_goal = route_max(mc4, qg, { x = g[1], y = g[2] }, true)
+      check(a_route >= B, string.format("c4, meute r %d : %s vers (%d, %d) : règle d'avant, route à %d (>= seuil : mis de côté, comme en c4)", r, g[3], g[1], g[2], a_route))
+      check(r_route == 0 and r_goal == 0 and Da.after_wait({ fixed = r_goal }, B, "marque", 0, { fixed = r_route, deaths = 0 }) == "go",
+        string.format("c4, meute r %d : %s vers (%d, %d) s'éloigne de la meute : danger ajouté nul, départ", r, g[3], g[1], g[2]))
+    end
+    -- Vers l'attaque (c4 : « carry vers (20, 28) », « ghost vers (48, 4) », « rebuild vers (56, 2) ») : toujours mis de côté.
+    for _, g in ipairs({ { 20, 28, "carry" }, { 48, 4, "ghost" }, { 56, 2, "rebuild" } }) do
+      local r_route, r_goal = route_max(mc4, qg, { x = g[1], y = g[2] }, true)
+      check(Da.after_wait({ fixed = r_goal }, B, "marque", 0, { fixed = r_route, deaths = 0 }) == "aside",
+        string.format("c4, meute r %d : %s vers (%d, %d) va vers la meute : mis de côté (route %d, but %d)", r, g[3], g[1], g[2], r_route, r_goal))
+    end
+  end
+  -- Départ HORS de toute zone : identique à la règle d'avant, point par point (c4 : ver posé sur le trajet du QG vers (-42, 171)).
+  local mw = map_of({ { -10, 90, "worm", 25 }, { 30, 6, "pack", 30 } })
+  local far = { x = -60, y = 20 } -- à 90 tuiles de la meute, 72 du ver : hors des deux zones
+  for _, g in ipairs({ { -42, 171 }, { 40, 100 }, { 20, 6 } }) do
+    local a1, a2 = route_max(mw, far, { x = g[1], y = g[2] }, false)
+    local b1, b2 = route_max(mw, far, { x = g[1], y = g[2] }, true)
+    check(a1 == b1 and a2 == b2, string.format("départ hors de toute zone : même danger que la règle d'avant vers (%d, %d) (route %d/%d, but %d/%d)", g[1], g[2], a1, b1, a2, b2))
+  end
 end
 
 section("6. Danger ajouté par le trajet (2e essai)")
@@ -239,7 +283,9 @@ local mutantsDa = {
   { "défense : morts au but gardées", "if def_base then return 0 end", "" },
   { "calme : garde-fou ignoré", "if calm and (n or 0) < (cap or 0) then return 0 end", "if calm then return 0 end" },
   { "calme ignoré", "if calm and (n or 0) < (cap or 0) then return 0 end", "" },
-  { "défense hors de la base", "return (Da.DEFENSE_KINDS[kind] and in_base) and true or false", "return Da.DEFENSE_KINDS[kind] and true or false" },
+  { "défense hors de la base", "Da.DEFENSE_KINDS[kind] and in_base and (", "Da.DEFENSE_KINDS[kind] and (" },
+  { "désarmé exempté", "and (kind == \"garrison\" or armed)) and true or false", ") and true or false" },
+  { "garde exigée armée", "(kind == \"garrison\" or armed)", "(armed)" },
   { "garde retirée de la défense", "Da.DEFENSE_KINDS = { fortify = true, garrison = true, refill = true }", "Da.DEFENSE_KINDS = { fortify = true, refill = true }" },
 }
 local refused2, total2 = 0, 0

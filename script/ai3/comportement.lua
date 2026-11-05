@@ -813,7 +813,9 @@ gate_core = function(f, agent, task, steps, tick)
     -- Relecture du lead (B4), étendue à la garde (2e essai) : la DÉFENSE de la base (garde, recharge, pose de tourelles, but dans la zone de base) ne se met
     -- pas de côté pour une MEUTE, l'attaque même qu'elle défend (R-QCM-25c (b) « l'équipe le défend », team.lua : toute l'équipe en garde au QG menacé).
     -- Verif-guide 271828182 (essai 2, 46 min) : « met de cote (but) : tache garrison vers (6, 9), menace fixe au but 800 », la case même du QG.
-    local def_base = Da.base_defense(task.kind, Da.DEFENSE_KINDS[task.kind] and Base.contains(M.base_zone(f, t, e.surface, tick), dest.x, dest.y))
+    -- Relecture de revue-danger (bloquant) : un PNJ ARMÉ seulement (la garde l'est toujours) ; un désarmé qui recharge ou pose reste mis de côté.
+    local def_base = Da.base_defense(task.kind, Da.DEFENSE_KINDS[task.kind] and Base.contains(M.base_zone(f, t, e.surface, tick), dest.x, dest.y),
+      task.kind == "garrison" or (Da.DEFENSE_KINDS[task.kind] and M.has_ammo(e)))
     local skip = def_base and "pack" or nil
     local parts = D.exact_parts(t.map, dest.x, dest.y, tick)
     local da = t.stats.dact or {}
@@ -856,14 +858,18 @@ gate_core = function(f, agent, task, steps, tick)
     label(agent, "contourne", tick, t.stats)
   end
   if rel and not aside then
-    -- 2e essai : départ que la règle absolue (avant ce lot) mettait de côté. Une ligne par départ ; morts en route comptées (Registry.on_removed).
+    -- 2e essai : départ que la règle absolue (avant ce lot) mettait de côté. Tous comptés (bilan) ; morts en route comptées (Registry.on_removed).
+    -- Journal (relecture de revue-danger) : une ligne au plus toutes les Ac.LOG_GAP ticks par équipe, avec le nombre de départs depuis la précédente.
     local da = t.stats.dact
     da.rel_go = (da.rel_go or 0) + 1
     if rel.why == "defense de la base" then da.rel_def = (da.rel_def or 0) + 1 end
     a.rel_key = task.key
-    log(string.format("[FO-DANGER-ACTIF] %s : PNJ %d part (%s) a %.1f min : tache %s vers (%d, %d) ; danger fixe, regle absolue -> danger ajoute : route %d -> %d, but %d -> %d (seuil %d)",
-      tostring(f.key), agent.id, rel.why, tick / 3600, tostring(task.kind), math.floor(dest.x), math.floor(dest.y), rel.abs_route, rel.route,
-      rel.abs_goal, rel.goal, res.B))
+    if not t.rel_log_t or tick - t.rel_log_t >= Ac.LOG_GAP then
+      log(string.format("[FO-DANGER-ACTIF] %s : PNJ %d part (%s) a %.1f min : tache %s vers (%d, %d) ; danger fixe, regle absolue -> danger ajoute : route %d -> %d, but %d -> %d (seuil %d) ; %d depart(s) ainsi depuis la ligne precedente, %d en tout",
+        tostring(f.key), agent.id, rel.why, tick / 3600, tostring(task.kind), math.floor(dest.x), math.floor(dest.y), rel.abs_route, rel.route,
+        rel.abs_goal, rel.goal, res.B, da.rel_go - (t.rel_log_n or 0), da.rel_go))
+      t.rel_log_t, t.rel_log_n = tick, da.rel_go
+    end
   end
   -- ESCALADE (IA3_CERVEAU §4.2 : « attendre n'est pas une fin ») : une destination refusée pour une menace VUE (pas pour
   -- une mort) part quand même après W attentes (2 audacieux à 6 prudent) ; le PNJ garde ses réflexes (demi-tour à portée).

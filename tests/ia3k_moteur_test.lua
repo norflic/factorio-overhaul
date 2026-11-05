@@ -495,9 +495,42 @@ do
   local gsteps = { { "goto", { x = home.x, y = home.y }, 6 }, { "wait", 600 }, { "home" } }
   check(C.gate(f, gv, garde, gsteps, tz + 2) == true and garde.fail == nil and (tm.stats.dact.rel_def or 0) == def0 + 1,
     "DANGER-ACTIF 2e essai : garde du QG sous la meute : départ (défense de la base, R-QCM-25c (b)), compté")
+  -- Relecture de revue-danger (bloquant) : la recharge et la pose ne sont exemptées de la meute que pour un PNJ ARMÉ.
+  local gammo = gv.entity.get_inventory(defines.inventory.character_ammo)
+  gammo.clear()
+  gammo.insert({ name = "firearm-magazine", count = 10 })
+  local rsteps = { { "home" }, { "goto", { x = home.x + 40, y = home.y }, 6 }, { "act", "refill" }, { "home" } }
   local esc_goal = { key = "test:meute-recharge", kind = "refill", group = "hq" }
-  check(C.gate(f, gv, esc_goal, { { "home" }, { "goto", { x = home.x + 40, y = home.y }, 6 }, { "act", "refill" }, { "home" } }, tz + 3) == true,
-    "DANGER-ACTIF 2e essai : recharge dans la base vers la meute : départ (la défense va à l'attaque qu'elle défend)")
+  check(C.gate(f, gv, esc_goal, rsteps, tz + 3) == true,
+    "DANGER-ACTIF 2e essai : recharge dans la base vers la meute par un PNJ ARMÉ : départ (la défense va à l'attaque qu'elle défend)")
+  gammo.clear()
+  local rf_d = { key = "test:meute-recharge-desarme", kind = "refill", group = "hq" }
+  check(C.gate(f, gv, rf_d, rsteps, tz + 3) == false and rf_d.fail == Dax.ASIDE_FAIL,
+    "DANGER-ACTIF 2e essai : la même recharge par un DÉSARMÉ : mise de côté (exempté de l'abri, il partirait en plein raid sans réflexe)")
+  local fo_d = { key = "test:meute-pose-desarme", kind = "fortify" }
+  check(C.gate(f, gv, fo_d, { { "home" }, { "goto", { x = home.x + 40, y = home.y }, 5 }, { "act", "fortify" }, { "home" } }, tz + 3) == false
+    and fo_d.fail == Dax.ASIDE_FAIL, "DANGER-ACTIF 2e essai : pose de tourelles vers la meute par un DÉSARMÉ : mise de côté")
+  check(C.gate(f, gv, { key = "test:meute-garde-desarme", kind = "garrison", post = "hq" }, gsteps, tz + 3) == true,
+    "DANGER-ACTIF 2e essai : la garde du QG part (elle n'est donnée qu'aux armés, board.lua CANNOT_UNARMED)")
+  gammo.insert({ name = "firearm-magazine", count = 10 })
+  -- (A) seulement pour une MEUTE et seulement DANS la base (zone de PORTE-BASE, M.base_zone : case du QG et marge de 24 tuiles, amas de bâtiments).
+  remote.call("fo-ia3k", "forget", "player")
+  remote.call("fo-ia3k", "mark", "player", home.x + 10, home.y, "worm", 25)
+  gv.entity.teleport({ x = home.x - 30, y = home.y }) -- départ hors de la zone du ver (40 tuiles, zone 29)
+  local garde_v = { key = "test:ver-garde", kind = "garrison", post = "hq" }
+  check(C.gate(f, gv, garde_v, gsteps, tz + 5) == false and garde_v.fail == Dax.ASIDE_FAIL,
+    "DANGER-ACTIF 2e essai : garde du QG sous un VER (menace fixe au but) : mise de côté, la défense de la base ne vaut que pour une meute")
+  remote.call("fo-ia3k", "forget", "player")
+  local og = { x = home.x + 150, y = home.y - 150 }
+  check(remote.call("fo-ia3k", "base", "player", true, og.x, og.y).inside == false, "DANGER-ACTIF 2e essai : (150, -150) du QG : hors de la base")
+  remote.call("fo-ia3k", "mark", "player", og.x + 5, og.y, "pack", 30)
+  gv.entity.teleport({ x = home.x, y = home.y })
+  local rf = { key = "test:meute-hors-base", kind = "refill", group = "a1" }
+  check(C.gate(f, gv, rf, { { "home" }, { "goto", og, 6 }, { "act", "refill" }, { "home" } }, tz + 6) == false and rf.fail == Dax.ASIDE_FAIL,
+    "DANGER-ACTIF 2e essai : recharge HORS de la base sous une meute : mise de côté (jamais vers une attaque en cours hors de la base)")
+  remote.call("fo-ia3k", "forget", "player")
+  remote.call("fo-ia3k", "mark", "player", mx, my, "pack", 36)
+  gv.entity.teleport({ x = home.x - 8, y = home.y })
   -- Mort pendant une tâche partie ainsi : comptée.
   check(C.gate(f, gv, garde, gsteps, tz + 4) == true, "garde repartie")
   local rd0 = tm.stats.dact.rel_dead or 0

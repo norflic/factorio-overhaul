@@ -40,11 +40,13 @@ function Da.goal_deaths(n, def_base, calm, cap)
 end
 
 --- Défense de la base (relecture du lead, B4 ; DC 4/11 19 h 12 « ou en défendant » ; R-QCM-25c (b) « l'équipe le défend ») : une garde, une recharge ou une
---- pose de tourelles dont le but est DANS la zone de base n'est pas mise de côté pour une MEUTE (l'attaque même qu'elle défend) ; un nid, un ver ou une
---- tourelle ennemie au but la met toujours de côté.
+--- pose de tourelles dont le but est DANS la zone de base (M.base_zone, lot PORTE-BASE) n'est pas mise de côté pour une MEUTE (l'attaque même qu'elle
+--- défend) ; un nid, un ver ou une tourelle ennemie au but la met toujours de côté. Relecture de revue-danger (bloquant) : seulement pour un PNJ ARMÉ
+--- (`armed`) ; la garde l'est toujours (script/team/board.lua : CANNOT_UNARMED). Un désarmé qui recharge ou pose une tourelle est exempté de l'abri et du
+--- rappel (Re.EXEMPT) et ne regarde pas à moins de 32 tuiles du QG : il partait en plein raid sans réflexe.
 Da.DEFENSE_KINDS = { fortify = true, garrison = true, refill = true }
-function Da.base_defense(kind, in_base)
-  return (Da.DEFENSE_KINDS[kind] and in_base) and true or false
+function Da.base_defense(kind, in_base, armed)
+  return (Da.DEFENSE_KINDS[kind] and in_base and (kind == "garrison" or armed)) and true or false
 end
 
 --- Que devient une attente de la porte ? "aside" (autre tâche) ou "go" (départ par le chemin du moindre danger, risque accepté).
