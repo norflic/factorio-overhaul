@@ -284,7 +284,7 @@ X.currencies = {
   { epoch = 8, item = "fo-biopolymer", value = 4, stack = 100, v2_item = "fo-methane-barrel",
     why_fr = "le baril de méthane de V2 s'empile par 10 (< 50) ; le biopolymère (PHB) est le produit signature du marais" },
   { epoch = 9, item = "uranium-238", value = 14, stack = 100, v2_item = "uranium-238" },
-  { epoch = 10, item = "processing-unit", value = 75, stack = 100, v2_item = "processing-unit" },
+  { epoch = 10, item = "processing-unit", value = 46, stack = 100, v2_item = "processing-unit" },
   { epoch = 11, item = "fo-titanium-plate", value = 20, stack = 100, v2_item = "low-density-structure",
     why_fr = "le matériau voulu par V2 (want_item fo-titanium-plate)" },
   { epoch = 12, item = "fo-superconducting-coil", value = 60, stack = 100, v2_item = "electric-engine-unit",

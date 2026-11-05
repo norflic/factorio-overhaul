@@ -438,7 +438,7 @@ pour C ; hypothèse de la matière étrange (Witten, 1984) pour D.
 | 7 Cristal | 3,5 h | 10,5 h | T3 | 3 | 14 | 112 | 84 | 1 060 369 | 106 037 | Cristal de résonance (3 MU, 50) | 7 070 Cristal de résonance | 35 % |
 | 8 Marais | 4 h | 14 h | T3 | 3 | 16 | 205 | 154 | 2 215 750 | 221 575 | Biopolymère (4 MU, 100) | 11 079 Biopolymère | 35 % |
 | 9 Atome | 4,5 h | 18 h | T3 | 3 | 18 | 375 | 281 | 4 557 694 | 455 769 | Uranium 238 (14 MU, 100) | 6 511 Uranium 238 | 35,1 % |
-| 10 Haute technologie | 5 h | 22,5 h | T4 | 4 | 20 | 685 | 514 | 9 259 223 | 925 922 | Processeur (75 MU, 100) | 2 470 Processeur | 35 % |
+| 10 Haute technologie | 5 h | 22,5 h | T4 | 4 | 20 | 685 | 514 | 9 259 223 | 925 922 | Processeur (46 MU, 100) | 4 026 Processeur | 35 % |
 | 11 Titane | 5,5 h | 27,5 h | T4 | 4 | 22 | 1 253 | 941 | 18 622 549 | 1 862 255 | Plaque de titane ρ8 (20 MU, 100) | 18 623 Plaque de titane ρ8 | 35 % |
 | 12 Supraconducteurs | 6 h | 33 h | T4 | 4 | 24 | 2 290 | 1 720 | 37 144 935 | 3 714 494 | Bobine supraconductrice (60 MU, 100) | 12 382 Bobine supraconductrice | 35 % |
 | 13 Fusion | 6,5 h | 39 h | T5 | 5 | 26 | 4 188 | 3 144 | 73 575 568 | 7 357 557 | Cellule de plasma (25 MU, 100) | 58 861 Cellule de plasma | 35 % |

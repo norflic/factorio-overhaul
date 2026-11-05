@@ -110,17 +110,17 @@ L.epochs = {
   { key = "pioneer",        color = { r = 1.00, g = 1.00, b = 1.00 }, value_mult = 0, cc_value = 0 },
   { key = "forge",          color = { r = 0.80, g = 0.88, b = 1.00 }, value_mult = 1.43, cc_value = 407 },
   { key = "steam",          color = { r = 1.00, g = 0.66, b = 0.50 }, value_mult = 1.46, cc_value = 1050 },
-  { key = "oil",            color = { r = 0.95, g = 0.84, b = 0.50 }, value_mult = 6.25, cc_value = 3310 },
-  { key = "volcano",        color = { r = 0.62, g = 0.55, b = 0.62 }, value_mult = 15.5, cc_value = 5000 },
-  { key = "electricity",    color = { r = 0.62, g = 0.85, b = 1.00 }, value_mult = 29, cc_value = 6160 },
-  { key = "crystal",        color = { r = 0.82, g = 0.62, b = 1.00 }, value_mult = 57.3, cc_value = 6290 },
-  { key = "swamp",          color = { r = 0.66, g = 0.92, b = 0.55 }, value_mult = 110, cc_value = 6380 },
-  { key = "atom",           color = { r = 0.72, g = 1.00, b = 0.62 }, value_mult = 204, cc_value = 14100 },
-  { key = "hightech",       color = { r = 0.88, g = 0.95, b = 1.00 }, value_mult = 365, cc_value = 65000 },
-  { key = "titanium",       color = { r = 0.95, g = 0.95, b = 0.98 }, value_mult = 687, cc_value = 66300 },
-  { key = "superconductor", color = { r = 0.58, g = 0.80, b = 1.00 }, value_mult = 1250, cc_value = 100000 },
-  { key = "fusion",         color = { r = 1.00, g = 0.70, b = 0.90 }, value_mult = 2260, cc_value = 150000 },
-  { key = "orbit",          color = { r = 1.00, g = 0.86, b = 0.42 }, value_mult = 4140, cc_value = 190000 },
+  { key = "oil",            color = { r = 0.95, g = 0.84, b = 0.50 }, value_mult = 5.8, cc_value = 3980 },
+  { key = "volcano",        color = { r = 0.62, g = 0.55, b = 0.62 }, value_mult = 16.2, cc_value = 4000 },
+  { key = "electricity",    color = { r = 0.62, g = 0.85, b = 1.00 }, value_mult = 28.9, cc_value = 6420 },
+  { key = "crystal",        color = { r = 0.82, g = 0.62, b = 1.00 }, value_mult = 57.3, cc_value = 6560 },
+  { key = "swamp",          color = { r = 0.66, g = 0.92, b = 0.55 }, value_mult = 110, cc_value = 6660 },
+  { key = "atom",           color = { r = 0.72, g = 1.00, b = 0.62 }, value_mult = 204, cc_value = 11600 },
+  { key = "hightech",       color = { r = 0.88, g = 0.95, b = 1.00 }, value_mult = 365, cc_value = 56000 },
+  { key = "titanium",       color = { r = 0.95, g = 0.95, b = 0.98 }, value_mult = 675, cc_value = 77800 },
+  { key = "superconductor", color = { r = 0.58, g = 0.80, b = 1.00 }, value_mult = 1250, cc_value = 79300 },
+  { key = "fusion",         color = { r = 1.00, g = 0.70, b = 0.90 }, value_mult = 2250, cc_value = 174000 },
+  { key = "orbit",          color = { r = 1.00, g = 0.86, b = 0.42 }, value_mult = 4140, cc_value = 180000 },
   { key = "legend",         color = { r = 1.00, g = 0.94, b = 0.74 }, value_mult = 7070, cc_value = 0 },
 }
 
@@ -146,6 +146,7 @@ L.epochs = {
 -- 5,48 MU) : la valeur déclarée surestimait ces monnaies de 64 à 100 %, d'où des époques 4 à 6 payées en 67 à 84 % du
 -- calendrier. La valeur d'époque (value_mult) ne change pas : seules les QUANTITÉS demandées suivent. Cristal (3 pour
 -- 1 MU) gardé : rareté voulue par X0.
+-- QCM du DC (5/11, « Aligner sur 46 ») : processeur de l'époque 10, 75 → 46 (matière brute réelle 45,8 MU, rapport 1,64 avant).
 -- QCM du DC (5/11, « Aligner sur 1,0 ») : plastique 1,5 → 1,0. Depuis 0.6.22, fo-polyethylene (shared/content/crafts.lua)
 -- le fabrique pour 0,99 MU de matière brute (calc_test : rapport 1,52 au-delà de la borne 1,5). Les niveaux de l'âge 4
 -- demandent donc 1,5 × plus de plastique, pour le même effort en matière brute que le calendrier.
@@ -159,7 +160,7 @@ L.epoch_materials = {
   -- Baril généré par le jeu de base pour chaque fluide (data-updates de base) : un objet réel.
   [8] = { key = "methane", want = "méthane (baril)", item = "fo-methane-barrel", value = 10 },
   [9] = { key = "uranium", want = "uranium", item = "uranium-238", value = 14 },
-  [10] = { key = "processor", want = "processeur", item = "processing-unit", value = 75 },
+  [10] = { key = "processor", want = "processeur", item = "processing-unit", value = 46 },
   -- Lot X1-TITANE (25/10) : la VRAIE plaque de titane (chaîne de Kroll en jeu, shared/content/titanium.lua), valeur et
   -- pile du scénario X0 (X.currencies : 20 MU, pile 100). Avant : structure basse densité, provisoire, valeur 45.
   [11] = { key = "titanium", want = "plaque de titane", item = "fo-titanium-plate", value = 20 },
@@ -235,6 +236,10 @@ L.families = {
     -- aspect 2 (lot QG-JEU, 1/11) : l'emprise du centre est un RECTANGLE 2 : 1 (largeur = 2 × hauteur) ; `size` et
     -- L.footprint sont la HAUTEUR (4 à 8, comme avant), L.dims donne { w, h }.
     key = "command", type = "container", base = "fo-command-center", size = 4, max = 15, aspect = 2,
+    -- QCM du DC (5/11, « Moitié plastique, moitié moteurs ») : le passage du centre paie 50 % en monnaie de l'époque et 50 %
+    -- dans celle de l'époque précédente (60/40 pour les autres familles). Avec le plastique à 1,0, le plafond de 2 000 objets
+    -- d'une sorte bornait le passage 4 → 5 à 4,73 % du budget (contrat : 5 % au moins).
+    main_share = 0.5,
     stats = {
       { path = { "max_health" }, op = "pow", k = 0.15 },
       { path = { "inventory_size" }, op = "add", k = 16 },
