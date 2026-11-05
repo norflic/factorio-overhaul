@@ -113,17 +113,23 @@ function Gs.pick(sites, rest)
   return pick, served, #rows
 end
 
---- Budget en tourelles commandables maintenant. s = { granted (fer accordé par DEPENSES, nil sans le module), iron (stock), free (fer libre
---- hors besoin, repli), unit (fer d'une tourelle armée), held (tourelles de la garde vivantes, repli), want, rich, pct } -> (n, source).
+--- Budget en tourelles commandables maintenant. s = { granted (fer accordé par DEPENSES, déjà débité de ce que la garde en a dépensé ; nil sans
+--- le module, éteint ou périmé : repli), iron (stock SANS les fabrications en cours), free (fer libre hors besoin, repli), unit (fer d'une
+--- tourelle armée), held (tourelles de la garde vivantes, repli), want, rich, pct } -> (n, source).
+--- PLANCHER (décision du lead, relecture du 4/11) : le stock de fer APRÈS achat reste >= rich (2 000), sur les deux chemins.
 function Gs.budget(s)
   local unit, want = s.unit or 0, math.max(0, s.want or 0)
-  if unit <= 0 or (s.iron or 0) < (s.rich or Gs.RICH_IRON) then return 0, "pauvre" end
+  local rich = s.rich or Gs.RICH_IRON
+  if unit <= 0 or (s.iron or 0) < rich then return 0, "pauvre" end
+  local floor_n = math.floor(((s.iron or 0) - rich) / unit)
+  local a, src
   if s.granted ~= nil then
-    return math.min(want, math.floor(math.max(0, s.granted) / unit)), "depenses"
+    a, src = math.floor(math.max(0, s.granted) / unit), "depenses"
+  else
+    a, src = math.floor((s.pct or Gs.FREE_PCT) * math.max(0, s.free or 0) / (100 * unit)) - (s.held or 0), "repli"
+    if a < 0 then a = 0 end
   end
-  local a = math.floor((s.pct or Gs.FREE_PCT) * math.max(0, s.free or 0) / (100 * unit)) - (s.held or 0)
-  if a < 0 then a = 0 end
-  return math.min(want, a), "repli"
+  return math.min(want, a, floor_n), src
 end
 
 --- Demande écrite pour DEPENSES : { [clé du fer] = tourelles × unit, [clé de la pierre] = murs × Gs.WALL_ITEMS } (clés données par l'appelant).

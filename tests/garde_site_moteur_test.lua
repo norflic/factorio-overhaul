@@ -5,7 +5,11 @@
        3 tourelles à moins de 10 tuiles du centre du groupe, chacune à portée d'une autre) ;
     2. budget : coffre sous 2 000 de fer : aucune tourelle de la garde ;
     3. murs retirés par le joueur : la tuile est rendue POUR TOUJOURS (pièce abandonnée, jamais reposée, jamais replanifiée) ; un mur posé
-       par le joueur rend sa zone non murable (usine du joueur) ; un mur DÉTRUIT par l'ennemi n'est pas rendu.
+       par le joueur rend sa zone non murable (usine du joueur) ; un mur DÉTRUIT par l'ennemi n'est pas rendu ; un mur du joueur hors des
+       tuiles de l'équipe n'est pas retenu ; la règle est revérifiée à la pose du fantôme (Build.wall_veto) ;
+    4. avant-poste disparu : son anneau quitte la réparation, son chantier rouvert est abandonné (relecture du lead, point A) ;
+    5. avant-poste agrandi : l'ancien anneau est jeté, le nouveau suit l'emprise (point B) ;
+    6. DEPENSES : repli quand il est absent, éteint ou périmé ; l'accordé est débité dès la dépense (risque C).
 ]]
 package.path = "./?.lua;" .. package.path
 local M = require("tests.mock_engine")
@@ -117,6 +121,7 @@ if b then
   b.projects[pid] = { id = pid, state = "fini", spec = { enceinte = true, ilot = "ap-test", walls = { { 40, 40 }, { 41, 40 } } },
     ents = { { name = "stone-wall", x = 40.5, y = 40.5, wall = true, built = true }, { name = "stone-wall", x = 41.5, y = 40.5, wall = true, built = true } } }
   b.order[#b.order + 1] = pid
+  b.next_id = math.max(b.next_id or 1, pid + 1) -- (l'index des tuiles de murs suit les projets nouveaux par b.next_id)
   local w1 = s3.create_entity({ name = "stone-wall", position = { x = 40.5, y = 40.5 }, force = "player" })
   local w2 = s3.create_entity({ name = "stone-wall", position = { x = 41.5, y = 40.5 }, force = "player" })
   if w1 and w2 then
@@ -137,9 +142,114 @@ if b then
     local mask2 = Build.wall_mask(f3, s3, { { 60, 60, 80, 80 } })
     check(mask2 and mask2(74, 70) == "joueur" and mask2(77, 70) == nil, "usine du joueur : rien à moins de 6 tuiles de ses bâtiments")
     check(#logs("mur retire par le joueur") == 1, "journal : une ligne « mur retiré par le joueur »")
+    -- un mur du joueur démonté HORS des tuiles de l'équipe : rien retenu (walls_released ne grossit pas)
+    local w3 = s3.create_entity({ name = "stone-wall", position = { x = 60.5, y = 60.5 }, force = "player" })
+    W().events[defines.events.on_player_mined_entity]({ entity = w3, player_index = 1, tick = game.tick })
+    w3.destroy()
+    check(b.walls_released[P.tkey(60, 60)] == nil and #logs("mur retire par le joueur") == 1, "mur du joueur hors des tuiles de l'équipe : rien retenu")
+    -- point 4 : la règle revérifiée au moment de poser le fantôme d'un mur (crochet de revive_one)
+    check(Build.wall_veto(f3, s3, { x = 74.5, y = 70.5 }) == "joueur" and Build.wall_veto(f3, s3, { x = 40.5, y = 40.5 }) == "rendue"
+      and Build.wall_veto(f3, s3, { x = 90.5, y = 90.5 }) == nil, "pose du fantôme : usine du joueur et tuile rendue refusées, ailleurs permis")
+    f3.garde_temoin = true
+    check(Build.wall_veto(f3, s3, { x = 74.5, y = 70.5 }) == nil, "témoin : aucun refus (comportement de main)")
+    f3.garde_temoin = nil
   else
     check(false, "murs du banc posés")
   end
 end
+require("shared.team.config").enceinte_joueur = false
+
+local function walls_ctx(rec)
+  return { prio = 0, equiv = function() return 400 end, request = function() rec.req = (rec.req or 0) + 1 return nil, "banc" end,
+    repair = function(h) rec.repair = #h.segs end }
+end
+local function fresh_garde(f)
+  f.garde = { waves = {}, rest = {}, picks = {}, logs = 0, poses = 0, walls = { segs = {}, claimed = {}, rings = {}, done = {} } }
+  return f.garde
+end
+
+section("4. Avant-poste disparu : son anneau est oublié (ni réparé ni rouvert)")
+-- (le moteur simulé recharge les modules du mod à chaque partie : config et garde relus APRÈS setup)
+local f4, s4 = setup(9000)
+require("shared.team.config").garde_walls_on = true
+Gd = require("script.team.garde_site")
+f4.build = f4.build or { projects = {}, order = {}, occ = {} }
+local st4 = fresh_garde(f4)
+local gone = 9999
+f4.outposts[gone] = { pos = { x = 120, y = 120 }, drills = 1 }
+local b4 = f4.build
+b4.projects[9101] = { id = 9101, state = "fini", spec = { enceinte = true, ilot = "ap" .. gone, walls = { { 117, 117 } } },
+  ents = { { name = "stone-wall", x = 117.5, y = 117.5, wall = true, built = true } } }
+b4.projects[9102] = { id = 9102, state = "reserve", reopened = 1, spec = { enceinte = true, ilot = "ap" .. gone, walls = { { 118, 117 } } },
+  ents = { { name = "stone-wall", x = 118.5, y = 117.5, wall = true, built = false } } }
+st4.walls.segs = { { pid = 9101, n = 1, oid = gone, walls = { { 117, 117 } } }, { pid = 9102, n = 1, oid = gone, walls = { { 118, 117 } } } }
+st4.walls.claimed[require("shared.team.garde_site").tkey(117, 117)] = true
+st4.walls.rings[gone] = { box = { x0 = 119, y0 = 119, x1 = 121, y1 = 121 } }
+st4.waves[gone] = { n = 12, tick = game.tick }
+f4.outposts[gone] = nil
+local rec4 = {}
+Gd.walls_step(f4, s4, game.tick, walls_ctx(rec4))
+check(#st4.walls.segs == 0 and rec4.repair == 0, "segments de l'avant-poste disparu retirés AVANT la réparation (" .. tostring(rec4.repair) .. ")")
+check(st4.walls.rings[gone] == nil and st4.waves[gone] == nil and next(st4.walls.claimed) == nil, "anneau, vague et tuiles oubliés")
+local e2 = b4.projects[9102].ents[1]
+check(e2.built == true and e2.dropped == true, "chantier rouvert (non annulable) : son mur non posé abandonné, aucun PNJ n'y retourne")
+check(#logs("oublies (avant-poste disparu)") == 1, "journal : murs de l'avant-poste oubliés")
+
+section("5. Avant-poste agrandi : l'ancien anneau est jeté, le nouveau suit l'emprise")
+local f5, s5 = setup(9000)
+require("shared.team.config").garde_walls_on = true
+Gd = require("script.team.garde_site")
+f5.build = f5.build or { projects = {}, order = {}, occ = {} }
+local st5 = fresh_garde(f5)
+local State = require("script.faction.state")
+local oid5
+for _, k in ipairs(State.sorted_keys(f5.outposts)) do if f5.outposts[k].pos then oid5 = k break end end
+local o5 = f5.outposts[oid5]
+local far = s5.create_entity({ name = "stone-furnace", position = { x = o5.pos.x + 12.5, y = o5.pos.y + 0.5 }, force = "player" })
+State.own(far, f5.id, "sink", oid5)
+local old = { x0 = math.floor(o5.pos.x) - 1, y0 = math.floor(o5.pos.y) - 1, x1 = math.floor(o5.pos.x) + 1, y1 = math.floor(o5.pos.y) + 1 }
+st5.walls.rings[oid5] = { box = old }
+f5.build.projects[9201] = { id = 9201, state = "fini", spec = { enceinte = true, walls = { { old.x0 - 3, old.y0 - 3 } } },
+  ents = { { name = "stone-wall", x = old.x0 - 2.5, y = old.y0 - 2.5, wall = true, built = true } } }
+st5.walls.segs = { { pid = 9201, n = 1, oid = oid5, walls = { { old.x0 - 3, old.y0 - 3 } } } }
+st5.walls.done[oid5] = true
+st5.waves[oid5] = { n = 12, tick = game.tick }
+local rec5 = {}
+Gd.walls_step(f5, s5, game.tick, walls_ctx(rec5))
+local nb = st5.walls.rings[oid5] and st5.walls.rings[oid5].box
+check(nb and nb.x1 >= math.floor(o5.pos.x) + 12, "nouvel anneau autour de la nouvelle emprise (x1 " .. tostring(nb and nb.x1) .. ")")
+check(#st5.walls.segs == 0 and not st5.walls.done[oid5] and (rec5.req or 0) == 1, "ancien segment jeté, anneau rouvert, un segment redemandé")
+check(#logs("oublies (avant-poste agrandi)") == 1, "journal : ancien anneau oublié")
+require("shared.team.config").garde_walls_on = false
+
+section("6. DEPENSES : repli quand il est absent, éteint ou périmé ; l'accordé débité dès la dépense")
+local f6 = global.fo.pteam.team
+local IRON = "iron-plate"
+local calls = {}
+local reply, info = {}, nil
+Gd.set_dep({ defense = function() return reply, info end })
+check(Gd.grant(f6, 1000, IRON) == nil, "accord vide sans état (éteint ou périmé) : repli")
+reply, info = { [IRON] = 600 }, { etat = "perime", tick = 900 }
+check(Gd.grant(f6, 1000, IRON) == nil, "état « perime » : repli")
+reply, info = { [IRON] = 600 }, { etat = "eteint", tick = 900 }
+check(Gd.grant(f6, 1000, IRON) == nil, "état « eteint » : repli")
+reply, info = { [IRON] = 600 }, { etat = "actif", tick = 900 }
+check(Gd.grant(f6, 1000, IRON) == 600, "état « actif » : 600 accordés")
+Gd.debit(f6, IRON, 240)
+check(Gd.grant(f6, 1100, IRON) == 360, "après une pose de 2 tourelles (240) : 360, jamais redépensés avant la prochaine émission")
+reply, info = { [IRON] = 600 }, { etat = "actif", tick = 1200 }
+check(Gd.grant(f6, 1300, IRON) == 600, "nouvelle émission : le compte repart de l'accord neuf")
+reply, info = { [IRON] = 600 }, nil
+check(Gd.grant(f6, 1300, IRON) == 600, "sans info (forme de corr-depenses2) : l'accord tel quel")
+Gd.debit(f6, IRON, 480)
+check(Gd.grant(f6, 1400, IRON) == 120 and Gd.grant(f6, 1300 + Gd.DEP_TTL, IRON) == 600, "sans info : débit tenu jusqu'à la péremption de DEPENSES (3 min)")
+reply, info = { [IRON] = 0 }, { etat = "actif", tick = 2000 }
+check(Gd.grant(f6, 2100, IRON) == 0, "actif sans fer accordé : 0 (DEPENSES décide, pas de repli en plus)")
+Gd.set_dep({ defense = function() return { [IRON] = 600 }, { etat = "actif", tick = 3000 } end,
+  debit = function(_, who, key, qty) calls[#calls + 1] = who .. ":" .. key .. ":" .. qty end })
+Gd.debit(f6, IRON, 120)
+check(calls[1] == "defense:" .. IRON .. ":120" and Gd.grant(f6, 3100, IRON) == 600, "Dep.debit présent : la dépense lui est rendue, pas de compte local")
+Gd.set_dep(nil)
+check(Gd.grant(f6, 3200, IRON) == nil, "sans module : repli")
 print(string.format("[GARDE-SITE-MOTEUR] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

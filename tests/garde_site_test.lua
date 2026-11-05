@@ -52,6 +52,11 @@ local function suite(Gs)
   check(Gs.budget({ iron = 9000, free = 8000, unit = 120, held = 19, want = 6 }) == 1, "repli : moins les tourelles déjà posées")
   check(Gs.budget({ granted = 0, iron = 9000, free = 8000, unit = 120, want = 6 }) == 0, "DEPENSES présent sans accord : rien (pas de double compte)")
   check(Gs.budget({ iron = 9000, free = 8000, unit = 0, want = 6 }) == 0, "coût inconnu : rien")
+  -- PLANCHER (relecture du lead) : le fer au stock APRÈS achat reste >= 2 000, sur les deux chemins
+  check(Gs.budget({ granted = 500, iron = 2100, unit = 120, want = 6 }) == 0, "plancher : 2 100 - 2 000 < 120 : rien, même accordé")
+  check(Gs.budget({ granted = 5000, iron = 2300, unit = 120, want = 6 }) == 2, "plancher, DEPENSES : (2 300 - 2 000) / 120 = 2 tourelles")
+  check(Gs.budget({ iron = 2500, free = 8000, unit = 120, want = 6 }) == 4, "plancher, repli : (2 500 - 2 000) / 120 = 4 tourelles")
+  check(Gs.budget({ iron = 2000, free = 8000, unit = 120, want = 6 }) == 0, "plancher : 2 000 tout juste : rien")
   local wt = Gs.want_table("fer", 3, 120, "pierre", 50)
   check(wt.fer == 360 and wt.pierre == 500, "demande écrite : fer des tourelles, pierre des murs")
   -- G3 anneau
@@ -82,6 +87,58 @@ end
 local fails, total = suite(load_gs(SRC))
 for _, m in ipairs(fails) do print("  ECHEC : " .. m) end
 local passes, failures = total - #fails, #fails
+
+-- Branchement au planificateur (shared/team/planner.lua) : le plancher lit le stock SANS les fabrications en cours (view.incoming)
+local T = require("shared.team.config")
+local Book = require("shared.team.book")
+local S = require("shared.team.scale")
+local book = Book.new(dofile("tests/fixtures/recipes.lua"))
+local PSRC = read_src("shared/team/planner.lua")
+local function pview(stock, incoming)
+  local v = {
+    tech = 0, personality = "balanced", done = { coal = true, iron = true, copper = true, stone = true },
+    deferred = {}, stock = stock, incoming = incoming or {}, outposts = {}, pending = {}, sites = {}, smelters = 2,
+    smelters_pending = 0, smelter_task = false, smelter_output = 0, smelter_fuel_low = false, smelter_coal = 0,
+    turret_groups = {}, soldiers = 0, soldiers_max = 0, workers = 8, workers_max = 30, workers_idle = 0,
+    threatened = false, open = {}, workers_wanted = 30, no_research = true, ladder = T.player_ladder,
+    hq_turrets = T.defend_hq, defend_first = true,
+    garde = { busy = false, held = 0, granted = nil, free = 20000, served = 0, total = 1,
+      pick = { key = 1, x = 50, y = 0, have = 0, want = 6, wave = 18 } },
+  }
+  v.recruit_cost = S.recruit_cost(v.workers)
+  return v
+end
+local function planner_suite(Planner)
+  local fl, nn = {}, 0
+  local function ck(c, m) nn = nn + 1 if not c then fl[#fl + 1] = m end end
+  local base = { ["iron-plate"] = 2300, ["copper-plate"] = 2000, coal = 500, stone = 500, ["gun-turret"] = 10, [T.turret_ammo] = 400 }
+  local p1 = Planner.plan(pview(base), book)
+  local g1 = p1.garde
+  local unit = g1 and g1.unit or 0
+  ck(g1 ~= nil and unit > 0, "planificateur : budget de la garde calculé (coût d'une tourelle armée " .. tostring(unit) .. " fer)")
+  local cap = unit > 0 and math.floor(300 / unit) or -1
+  ck(g1 and g1.allowed <= cap, "planificateur : 2 300 de fer au stock : au plus " .. cap .. " tourelle(s) (plancher), " .. tostring(g1 and g1.allowed))
+  local p2 = Planner.plan(pview(base, { ["iron-plate"] = 5000 }), book)
+  ck(p2.garde and g1 and p2.garde.allowed == g1.allowed, "planificateur : 5 000 de fer en fabrication NE comptent PAS au plancher")
+  local rich = {}
+  for k, v in pairs(base) do rich[k] = v end
+  rich["iron-plate"] = 9000
+  local p3 = Planner.plan(pview(rich), book)
+  ck(p3.garde and p3.garde.allowed == 6, "planificateur : 9 000 de fer : le groupe voulu (6) entier")
+  return fl, nn
+end
+local pf, pn = planner_suite(require("shared.team.planner"))
+for _, m in ipairs(pf) do print("  ECHEC : " .. m) end
+passes, failures = passes + pn - #pf, failures + #pf
+do -- mutant du planificateur : fabrications en cours comptées au plancher
+  local a, b = PSRC:find("local iron_now = math.max(0, (avail[iron_key] or 0) - ((view.incoming or {})[iron_key] or 0))", 1, true)
+  if not a then failures = failures + 1 print("  ECHEC : mutant du planificateur : texte introuvable")
+  else
+    local txt = PSRC:sub(1, a - 1) .. "local iron_now = avail[iron_key] or 0" .. PSRC:sub(b + 1)
+    local ok, mf = pcall(function() return (planner_suite(assert(load(txt, "@shared/team/planner.lua"))())) end)
+    if (not ok) or #mf > 0 then passes = passes + 1 else failures = failures + 1 print("  ECHEC : mutant « fabrications en cours comptées » non détecté") end
+  end
+end
 local function mutate(old, new)
   local a, b = SRC:find(old, 1, true)
   if not a then return nil end
@@ -96,7 +153,7 @@ local mutants = {
   { "trame sans quinconce", "if (i + j) % 2 == 0 and r2 <= Gs.SPOT_R * Gs.SPOT_R then", "if r2 <= Gs.SPOT_R * Gs.SPOT_R then" },
   { "sites attaqués pas d'abord", "if (a.wave or 0) ~= (b.wave or 0) then return (a.wave or 0) > (b.wave or 0) end", "" },
   { "repos ignoré", "elseif not pick and not (rest and rest[s.key]) then pick = s end", "elseif not pick then pick = s end" },
-  { "pas de seuil de richesse", "if unit <= 0 or (s.iron or 0) < (s.rich or Gs.RICH_IRON) then return 0, \"pauvre\" end", "if unit <= 0 then return 0, \"pauvre\" end" },
+  { "pas de seuil de richesse", "if unit <= 0 or (s.iron or 0) < rich then return 0, \"pauvre\" end", "if unit <= 0 then return 0, \"pauvre\" end" },
   { "double compte (repli en plus de DEPENSES)", "if s.granted ~= nil then", "if s.granted ~= nil and s.granted > 0 then" },
   { "repli sans les tourelles posées", "/ (100 * unit)) - (s.held or 0)", "/ (100 * unit))" },
   { "porte murée", "if side == gside and math.abs(pos - mid) <= half then return end", "" },
@@ -105,6 +162,8 @@ local mutants = {
   { "tuiles refusées murées", "if not claimed[tkey(t.tx, t.ty)] and not (skip and skip(t.tx, t.ty)) then", "if not claimed[tkey(t.tx, t.ty)] then" },
   { "segment sans plancher", "if n < math.min(#free, Gs.SEG_MIN) then return nil, \"stock\" end", "if n <= 0 then return nil, \"stock\" end" },
   { "usine du joueur collée", "Gs.PLAYER_GAP = 6 ", "Gs.PLAYER_GAP = 0 " },
+  { "pas de plancher après achat", "return math.min(want, a, floor_n), src", "return math.min(want, a), src" },
+  { "plancher compté sans le seuil", "local floor_n = math.floor(((s.iron or 0) - rich) / unit)", "local floor_n = math.floor((s.iron or 0) / unit)" },
 }
 local killed = 0
 for _, m in ipairs(mutants) do

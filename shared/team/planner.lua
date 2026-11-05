@@ -440,11 +440,13 @@ function P.plan(view, book)
     end
     -- Lot PERIMETRE2 (G1/G2, accord du lead 4/11) : le groupe de tourelles de l'avant-poste à servir (script/team/garde_site.lua). FACULTATIF comme
     -- l'îlot (hors du coût de la défense, jamais en « production d'abord » ni équipe décimée) ; commande bornée par Gs.budget : fer accordé par
-    -- DEPENSES s'il est là, sinon 30 % du fer libre hors besoin ; rien sous 2 000 de fer.
+    -- DEPENSES s'il est là, sinon 30 % du fer libre hors besoin ; PLANCHER : le fer au stock APRÈS achat reste >= 2 000, fabrications en cours
+    -- (view.incoming) NON comptées (relecture du lead, 4/11).
     if view.garde and view.garde.pick then
       local pk = view.garde.pick
       local unit = book:raw_cost(turret_items(1))[iron_key] or 0
-      local n, src = Gs.budget({ granted = view.garde.granted, iron = avail[iron_key] or 0, free = view.garde.free, unit = unit,
+      local iron_now = math.max(0, (avail[iron_key] or 0) - ((view.incoming or {})[iron_key] or 0))
+      local n, src = Gs.budget({ granted = view.garde.granted, iron = iron_now, free = view.garde.free, unit = unit,
         held = view.garde.held or 0, want = pk.want - pk.have })
       out.garde = { key = pk.key, have = pk.have, want = pk.want, allowed = n, source = src, unit = unit }
       if n > 0 then

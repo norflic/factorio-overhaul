@@ -3339,6 +3339,19 @@ local function shift_pole(f, surface, p, e)
   return false
 end
 
+--- Lot PERIMETRE2 (relecture du lead, point 4) : un mur de l'équipe dont la tuile est devenue interdite depuis le plan (rendue au joueur, usine
+--- du joueur à moins de 6 tuiles) est ABANDONNÉ au moment de poser son fantôme (crochet Build.wall_veto de script/team/garde_site.lua ; votre
+--- équipe, murs allumés ; sans crochet ou sans raison : rien). Rend vrai si la pièce est abandonnée.
+local function wall_vetoed(f, surface, p, e)
+  if not (e.wall and p.spec and p.spec.enceinte and Build.wall_veto) then return false end
+  local why = Build.wall_veto(f, surface, e)
+  if not why then return false end
+  e.built, e.skipped, e.dropped = true, why, true
+  p.dropped = (p.dropped or 0) + 1
+  log(string.format("[FO-PERIMETRE] %s : projet %d, mur (%.1f, %.1f) abandonne au moment de poser son fantome (%s)", f.key or "player", p.id, e.x, e.y, why))
+  return true
+end
+
 --- Ravive (ou pose puis ravive) une entité planifiée avec l'objet porté par le PNJ `self` : true si bâtie. Une
 --- entité sous les pieds du bâtisseur lui-même est laissée (ni essai, ni échec) : un autre passage la fera.
 local function revive_one(surface, f, p, e, inv, tick, self)
@@ -3353,6 +3366,7 @@ local function revive_one(surface, f, p, e, inv, tick, self)
     end
   end
   local gh = find_ghost(surface, e, f.force)
+  if not gh and wall_vetoed(f, surface, p, e) then return true end
   if not gh then
     local r = place_ghost(surface, f, e)
     if r == "deja" then e.built = true return true end
@@ -4138,9 +4152,10 @@ local function advance(f, surface, p, tick)
       if not e.built and not e.ghosted then
         if placed >= Build.GHOSTS_PER_PULSE then pending = pending + 1 break end
         if not Tokens.take(f, tick, Build.COST_GHOST) then return end
-        local r = place_ghost(surface, f, e)
+        local r = wall_vetoed(f, surface, p, e) and "veto" or place_ghost(surface, f, e) -- (lot PERIMETRE2 : mur interdit depuis le plan)
         if r == "occupe" and move_turrets_off(f, surface, p, e) then r = place_ghost(surface, f, e) end -- lot TOURELLES-HORS-AXE
-        if r == "ok" then e.ghosted = true; placed = placed + 1; b.stats.ghosts = b.stats.ghosts + 1
+        if r == "veto" then -- pièce abandonnée par wall_vetoed
+        elseif r == "ok" then e.ghosted = true; placed = placed + 1; b.stats.ghosts = b.stats.ghosts + 1
         elseif r == "deja" then e.built = true
         elseif r == "obstacle" then
           add_obstacle(p, { x = e.x, y = e.y, anchor = e.anchor, ax = e.ax, ay = e.ay })
