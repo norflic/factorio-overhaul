@@ -15,7 +15,9 @@ spec = importlib.util.spec_from_file_location("dd", os.path.join(HERE, "depenses
 dd = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(dd)
 
-RX_DEP = re.compile(r"\[FO-DEPENSES\] (\S+) minute (\d+) \|.*laboratoires base (\S+) cible (\S+), soldats cible (\S+)")
+# Essai 2 : « laboratoires base X cible Y, soldats cible Z » ; essai 3 : « laboratoires base X cible Y | soldats ... ».
+RX_DEP = re.compile(r"\[FO-DEPENSES\] (\S+) minute (\d+) \|.*laboratoires base (\S+) cible ([^,\s]+)(?:, soldats cible (\S+)| \| (.*))")
+RX_HOLD = re.compile(r"\[FO-DEPENSES\] (\S+) minute \d+ \| CENTRE EN ATTENTE")
 RX_RSV = re.compile(r"\[FO-RESERVE\] (\S+) minute (\d+) \| besoin NON couvert")
 RX_CC = re.compile(r"\[FO-CAPITAL\] (\S+) : centre monte au niveau (\d+) .* a ([0-9.]+) min")
 RX_BILAN = re.compile(r"\[FO-DEPENSES-DIAG(?:-DC)?\] BILAN : (\d+) OK, (\d+) ECHEC")
@@ -24,16 +26,19 @@ RX_ERR = re.compile(r"stack traceback|Error while running|script error", re.I)
 
 def scan(path):
     p = os.path.join(path, "benchmark.log.gz")
-    out = {"dep": [], "noncouv": {}, "cc": {}, "bilan": None, "err": 0}
+    out = {"dep": [], "noncouv": {}, "cc": {}, "bilan": None, "err": 0, "hold": {}}
     with gzip.open(p, "rt", encoding="utf-8", errors="replace") as fh:
         for line in fh:
             if RX_ERR.search(line):
                 out["err"] += 1
             if "[FO-" not in line:
                 continue
+            m = RX_HOLD.search(line)
+            if m:
+                out["hold"][m.group(1)] = out["hold"].get(m.group(1), 0) + 1
             m = RX_DEP.search(line)
             if m:
-                out["dep"].append((m.group(1), int(m.group(2)), m.group(3), m.group(4), m.group(5)))
+                out["dep"].append((m.group(1), int(m.group(2)), m.group(3), m.group(4), m.group(5) or m.group(6)))
                 continue
             m = RX_RSV.search(line)
             if m:
@@ -68,8 +73,10 @@ def dist(xs):
     return "n=%d min %.0f med %.1f max %.0f [%s]" % (len(xs), min(xs), statistics.median(xs), max(xs), " ".join("%.0f" % x for x in xs))
 
 
-def main(root):
+def main(root, troot=None):
+    troot = troot or root
     names = sorted(n[4:] for n in os.listdir(root) if n.startswith("lot-") and os.path.isdir(os.path.join(root, n)))
+    holds = []
     c1d, c1s = [], [0, 0]
     labs_l, labs_t, c2_bad, c2_over, c2_after = [], [], [], [], []
     sold_l, sold_t, c3_cap = [], [], []
@@ -80,13 +87,14 @@ def main(root):
     dor_l, dor_t, red_l, red_t = [], [], [], []
     rows = []
     for n in names:
-        lp, tp = os.path.join(root, "lot-" + n), os.path.join(root, "temoin-" + n)
+        lp, tp = os.path.join(root, "lot-" + n), os.path.join(troot, "temoin-" + n)
         if not (os.path.exists(os.path.join(lp, "benchmark.log.gz")) and os.path.exists(os.path.join(tp, "benchmark.log.gz"))):
             print("(paire incomplete : %s)" % n)
             continue
         DL, OL = scan(lp)
         DT, OT = scan(tp)
         errs.append((n, OL["err"], OT["err"]))
+        holds.append((n, sorted(OL["hold"].items())))
         if n.startswith("guide"):
             c5.append((n, OL["bilan"], OT["bilan"]))
         eqs = sorted(set(k[0] for k in DL) | set(k[0] for k in DT))
@@ -166,8 +174,9 @@ def main(root):
     print("C6 erreurs Lua (lot, temoin) : %s -> %s" % (errs, "TENU" if all(e[1] == 0 for e in errs) else "NON TENU"))
     print("Indicatif : plaques qui dorment a 59 min lot %s ; temoin %s" % (dist(dor_l), dist(dor_t)))
     print("Indicatif : packs rouges qui dorment lot %s ; temoin %s" % (dist(red_l), dist(red_t)))
+    print("Indicatif : minutes « CENTRE EN ATTENTE » du lot (rien pour la recherche ni l'armee) : %s" % holds)
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1]))
+    sys.exit(main(sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else None))
