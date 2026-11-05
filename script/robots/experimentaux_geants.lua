@@ -80,6 +80,12 @@ function G.set_bonus(unit_number, portee, puissance)
   return false
 end
 
+--- Écouteurs d'une salve de zone (lot DESIGN-MODULES : marque visible des modules, UNE fois par salve). Fonctions gardées dans le module,
+--- réinscrites à chaque chargement par le `require` de leur auteur : rien en storage. Appel : f(e, r, bonus, c, eff), bonus pouvant être nil
+--- (géants de robotsjeu, géant sans module), eff = Ech.effectif(r, bonus).
+local ecouteurs = {}
+function G.ecoute(f) ecouteurs[#ecouteurs + 1] = f end
+
 local function corps(g, r)
   if Xp.GIANT_BODY ~= "rendering" then return end
   local e = g.e
@@ -110,6 +116,13 @@ local function on_built(ev)
   if not Xp.giant_ok(age, have) then
     K.journal("%s refuse : plafond des geants (%d deja, age %d, plafond %d)", r.id, have, age, Xp.giant_cap(age))
     local name = e.name
+    -- les modules de sa grille sont rendus aussi (DESIGN-MODULES : un objet neuf ne les porte pas)
+    if e.grid then
+      for _, eq in ipairs(e.grid.equipment) do
+        local it = eq.prototype.take_result
+        if it then rendre(player, e, it.name) end
+      end
+    end
     rendre(player, e, name)
     if player then player.print({ "fo-xp.plafond", { "entity-name." .. name }, Xp.giant_cap(age), age }) end
     e.destroy()
@@ -156,6 +169,7 @@ local function zone(g, r, c, tick)
   local e = g.e
   local s = e.surface
   local eff = Ech.effectif(r, g.bonus)
+  for _, f in ipairs(ecouteurs) do f(e, r, g.bonus, c, eff) end
   s.create_entity({ name = CRATERE .. r.age, position = { c.x, c.y } })
   local b = K.S().impact == "B" -- design IMPACT : variante B (sol brûlé sur la zone), posée par les bancs d'images seulement
   if b then
