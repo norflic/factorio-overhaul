@@ -4,7 +4,8 @@
   Cause mesurée (partie du DC, lot-dc, 0.6.50) : anneau commencé avec 32 murs pour 794, segments de 8, 76 lots écartés dès le premier segment,
   rayon figé, jamais fini.
 
-  Cadre : terrain vidé et refait en herbe (200 x 200), coffre d'équipe en (0, 0), plan directeur « seul » au rayon 1, pas de guerre ; enceinte
+  Cadre : terrain vidé et refait en herbe (200 x 200), coffre d'équipe en (0, 0), plan directeur « seul » au rayon 1 (automatisation IA3-e éteinte :
+  elle éteint un plan directeur sans projet), pas de guerre ; enceinte
   de votre équipe allumée (fo-garde g3, ou g3_ancien pour la règle de l'essai 2) ; projets finis comptés au minimum de l'enceinte (fo-garde banc
   pret) ; une décision d'espace toutes les 60 ticks (fo-garde banc espace, au lieu de 30 s).
     phase A (jusqu'à T_PAY) : 100 murs au coffre, l'anneau en demande bien plus : il NE doit PAS commencer ;
@@ -50,6 +51,8 @@ return function(ancien)
 
     init = function(ctx)
       ctx.check(ctx.remote("fo-ia1", "set_setting", "fo-npc-start", 12) == 12, "effectif de depart 12")
+      -- (l'automatisation IA3-e éteint le plan directeur qui n'a aucun projet : banc micro1, f.build retiré dès les premières secondes)
+      ctx.check(ctx.remote("factorio-overhaul", "war_setting", "fo-war-ia3e", false) == false, "automatisation IA3-e eteinte (le plan directeur reste allume)")
       shape(ctx)
       local chest = ctx.surface().create_entity({ name = "fo-team-chest", position = { 0.5, 0.5 }, force = "player", raise_built = true })
       ctx.check(chest ~= nil, "coffre d'equipe pose")
