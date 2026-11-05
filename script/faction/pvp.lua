@@ -288,7 +288,7 @@ local function player_view(f, surface, p, fp, tick, level)
     if n == 0 then return nil end
     return { score = n, defense = 0, reachable = false }
   end
-  return Vision.player_view(f, p, fp, tick)
+  return Vision.player_view(f, p, fp, tick, surface) -- lot QG-DERNIER : la surface, pour le point d'apparition
 end
 
 local function player_groups(f)

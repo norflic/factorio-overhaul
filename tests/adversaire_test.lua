@@ -176,6 +176,60 @@ do
 end
 
 ---------------------------------------------------------------------------------------------------
+section("Cible : le départ en dernier, point d'apparition au coin de 4 secteurs (lot QG-DERNIER)")
+do
+  -- Le cas mesuré (tests/pvp_test.lua:1157 sur 0.6.51) : point d'apparition (0, 0), COIN des secteurs (0, 0), (0, -1), (-1, 0) et
+  -- (-1, -1) ; la base de départ déborde sur (0, -1) (QG de l'équipe et ses tourelles, défense 39) et (-1, 0) ; l'avant-poste (-2, 1)
+  -- est connu. Écarlate au nord, à 320 tuiles.
+  local spawn = { x = 0, y = 0 }
+  local from = { x = 0, y = -320 }
+  local home = A.key(0, 0)
+  local base = {
+    { key = A.key(0, 0), x = 18, y = 10, def = 0 },
+    { key = A.key(0, -1), x = 21, y = -1, def = 39 },
+    { key = A.key(-1, 0), x = -4, y = 0, def = 0 },
+  }
+  local outpost = { key = A.key(-2, 1), x = -90, y = 96, def = 8 }
+  local list = { base[1], base[2], base[3], outpost }
+  check(A.pick_target(list, from, home, "equilibre").key == A.key(0, -1),
+    "témoin (clé du secteur seule, la règle d'avant) : le secteur voisin du départ est visé, le défaut mesuré")
+  for _, style in ipairs({ "equilibre", "tortue", "expansionniste", "inconnu" }) do
+    local t = A.pick_target(list, from, home, style, { spawn })
+    check(t and t.key == outpost.key, string.format("style %s : l'avant-poste connu passe avant toute la base de départ (visé (%s, %s))",
+      style, tostring(t and t.x), tostring(t and t.y)))
+  end
+  local t2 = A.pick_target(base, from, home, "equilibre", { spawn })
+  check(t2 and t2.key == A.key(0, -1), "seul le départ connu : il est visé (le plus proche de nous)")
+  -- QG de votre équipe posé loin du point d'apparition : ses abords comptent aussi comme le départ ; le point d'apparition reste protégé.
+  local hq = { x = 600, y = 40 }
+  local near_hq = { key = A.key(9, 0), x = 590, y = 30, def = 16 }
+  local far = { key = A.key(4, 3), x = 300, y = 220, def = 0 }
+  local l3 = { near_hq, far, base[1] }
+  local from3 = { x = 600, y = -320 }
+  check(A.pick_target(l3, from3, home, "equilibre", { spawn }).key == near_hq.key, "QG d'équipe déplacé et non donné : ses abords visés d'abord (témoin)")
+  check(A.pick_target(l3, from3, home, "equilibre", { spawn, hq }).key == far.key,
+    "QG d'équipe déplacé : ses abords visés en dernier, comme le point d'apparition")
+  -- Bord du rayon, et appel sans points (comme avant le lot).
+  check(A.is_home({ key = 1, x = 64, y = 0 }, home, { spawn }) and not A.is_home({ key = 1, x = 64.5, y = 0 }, home, { spawn }),
+    "rayon : 64 tuiles comprises, 64,5 non")
+  check(A.is_home({ key = home, x = 999, y = 999 }, home, nil) and not A.is_home({ key = 1, x = 1, y = 1 }, home, nil),
+    "sans points : la clé du secteur seule, comme avant")
+  -- Mutants : chacun doit faire viser la base de départ dans le cas mesuré.
+  local function refused(mut)
+    local r0, i0 = A.HOME_RADIUS, A.is_home
+    mut()
+    local t = A.pick_target(list, from, home, "equilibre", { spawn })
+    A.HOME_RADIUS, A.is_home = r0, i0
+    return t ~= nil and t.key ~= outpost.key
+  end
+  check(refused(function() A.HOME_RADIUS = 0 end), "mutant refusé : rayon nul (la clé du secteur seule)")
+  check(refused(function()
+    local i0 = A.is_home
+    A.is_home = function(s, h) return i0(s, h, nil) end
+  end), "mutant refusé : points du départ ignorés")
+end
+
+---------------------------------------------------------------------------------------------------
 section("Mémoire des attaques données")
 do
   local m = {}
