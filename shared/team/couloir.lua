@@ -16,6 +16,8 @@
     Co.closer(boxes, tiles, access, rect, order) -> indice, dans `order` (du plus récent au plus ancien), du premier obstacle dont le retrait
                                     rend l'accès atteignable depuis le bord du rectangle (Acc.reach) : le bâtiment qui ferme la DERNIÈRE issue
                                     (journal [FO-NAV-ACCES]). nil si aucun retrait seul ne suffit.
+    Co.cuts(has, old, new, blocked) -> vrai si remplacer l'emprise `old` par `new` sépare deux tuiles de couloir libres qui étaient
+                                    reliées (remplacement sur place d'une foreuse 2×2 par une 3×3 : revue B1).
 ]]
 local Acc = require("shared.team.acces_champ")
 
@@ -89,6 +91,61 @@ function Co.team_tiles(outposts, hq)
     end
   end
   return out
+end
+
+--- Revue B1, 2e relecture (lead, 5/11 17 h 38) : un REMPLACEMENT SUR PLACE (ancienne emprise `old`, nouvelle `new`, rectangles de tuiles
+--- { x0, y0, x1, y1 } inclus) coupe-t-il un couloir ? has(x, y) : tuile de couloir ; blocked(x, y) (facultatif) : tuile déjà prise par un
+--- autre bâtiment (l'ancien exclu). Dans la fenêtre des deux emprises élargie de Co.WIDTH, on étiquette les morceaux 4-connexes des tuiles
+--- de couloir libres, une fois avec l'ancienne emprise posée, une fois avec la nouvelle. Coupe = deux tuiles libres dans les DEUX états,
+--- reliées avec l'ancienne et séparées avec la nouvelle. Rétrécir le couloir (une rangée reste libre) ne coupe pas ; une section déjà fermée
+--- par l'ancienne emprise non plus (le remplacement ne fait pas pire) ; libérer une tuile ne coupe jamais.
+local DIRS = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }
+function Co.cuts(has, old, new, blocked)
+  local m = Co.WIDTH
+  local x0, y0 = math.min(old[1], new[1]) - m, math.min(old[2], new[2]) - m
+  local x1, y1 = math.max(old[3], new[3]) + m, math.max(old[4], new[4]) + m
+  local W = x1 - x0 + 1
+  local function label(box)
+    local function free(x, y)
+      if x < x0 or x > x1 or y < y0 or y > y1 then return false end
+      if x >= box[1] and x <= box[3] and y >= box[2] and y <= box[4] then return false end
+      return has(x, y) and not (blocked and blocked(x, y))
+    end
+    local lab, n = {}, 0
+    for y = y0, y1 do
+      for x = x0, x1 do
+        local i = (y - y0) * W + (x - x0) + 1
+        if not lab[i] and free(x, y) then
+          n = n + 1
+          lab[i] = n
+          local stack = { x, y }
+          while #stack > 0 do
+            local cy = table.remove(stack)
+            local cx = table.remove(stack)
+            for _, d in ipairs(DIRS) do
+              local nx, ny = cx + d[1], cy + d[2]
+              local j = (ny - y0) * W + (nx - x0) + 1
+              if free(nx, ny) and not lab[j] then
+                lab[j] = n
+                stack[#stack + 1] = nx
+                stack[#stack + 1] = ny
+              end
+            end
+          end
+        end
+      end
+    end
+    return lab
+  end
+  local lo, ln = label(old), label(new)
+  local map = {}
+  for i = 1, W * (y1 - y0 + 1) do
+    local a, b = lo[i], ln[i]
+    if a and b then
+      if map[a] == nil then map[a] = b elseif map[a] ~= b then return true end
+    end
+  end
+  return false
 end
 
 function Co.closer(boxes, tiles, access, rect, order)

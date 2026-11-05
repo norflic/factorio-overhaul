@@ -439,9 +439,10 @@ function Build.couloirs_reset(f)
   if f then Build._couloirs[tostring(f.key or f.id)] = nil end
 end
 
---- Revue (B3) : place prise par les couloirs, au journal [FO-COULOIR] une fois par tranche de 10 min et par équipe (appelé par Build.think) :
---- emprises refusées par un couloir (agrandissements, tourelles, remplacements de foreuse), tuiles refusées au plan (modules, poteaux), tuiles
---- de couloir dans le masque de la migration du champ.
+--- Revue (B3) : place prise par les couloirs, au journal [FO-COULOIR] une fois par tranche de 10 min et par équipe (appelé par Team.think, pour
+--- toutes les équipes) : refus par un couloir comptés en APPELS (une même place peut être lue plusieurs fois : free() par tuile et par essai,
+--- place_pairs jusqu'à 8 appels par place) : lectures d'emprise refusées (agrandissements, tourelles, remplacements de foreuse), lectures de
+--- tuile refusées au plan (modules, poteaux), tuiles de couloir marquées dans le masque de la migration du champ.
 Build.COULOIR_REPORT = 10 * 3600
 function Build.couloir_report(f, tick)
   local st = f.stats
@@ -451,9 +452,11 @@ function Build.couloir_report(f, tick)
   local first = st.couloir_slot == nil
   st.couloir_slot = slot
   if first then return end
+  Build.couloirs(f) -- relevé à jour (une équipe sans lecteur dans la tranche n'en a pas)
   local c = Build._couloirs[tostring(f.key or f.id)]
-  log(string.format("[FO-COULOIR] %s : bilan a %.0f min : %d tuile(s) de couloir ; refus par un couloir : %d emprise(s) (agrandissements, tourelles, "
-    .. "foreuses), %d tuile(s) du plan (modules, poteaux), %d tuile(s) du champ", f.key or "player", tick / 3600, c and c.n or 0,
+  log(string.format("[FO-COULOIR] %s : bilan a %.0f min : %d tuile(s) de couloir ; refus par un couloir, en APPELS (une place peut etre lue "
+    .. "plusieurs fois) : %d appel(s) d'emprise (agrandissements, tourelles, foreuses), %d appel(s) de tuile du plan (modules, poteaux), "
+    .. "%d marque(s) au masque du champ", f.key or "player", tick / 3600, c and c.n or 0,
     st.couloir_emprises or 0, st.couloir_tuiles or 0, st.couloir_champ or 0))
 end
 
@@ -1563,8 +1566,9 @@ end
 --- tracé du tapis de la fonderie planifiée à 31 min : fantôme du tapis refusé « occupe » 18 fois, fonderie bloquée à
 --- 138 entités sur 139 jusqu'à 90 min.
 --- opts (lot ÉTAGE 5, revue) : opts.couloir == false : le couloir ne compte pas (adoption d'une machine posée à la main : B2, décision du lead) ;
---- opts.keep = { x0, y0, x1, y1 } (tuiles) : l'ANCIENNE emprise d'un remplacement sur place, dont les tuiles de couloir ne comptent pas (B1 : une
---- foreuse à combustion déjà sur un couloir passe quand même à l'électrique).
+--- opts.keep = { x0, y0, x1, y1 } (tuiles) : l'ANCIENNE emprise d'un remplacement sur place ; il n'est refusé que s'il COUPE un couloir que
+--- l'ancienne laissait ouvert (B1, 2e relecture : la 3×3 électrique déborde toujours d'une colonne ET d'une rangée de la 2×2, donc sur un
+--- couloir de 2 de large toute foreuse à combustion posée dessus était refusée à jamais) ; opts.blocked(x, y) : tuiles des bâtiments voisins.
 function Build.reserved_entity(f, name, pos, dir, opts)
   local b = f and f.build
   if not (f and pos) then return false end
@@ -1583,9 +1587,11 @@ function Build.reserved_entity(f, name, pos, dir, opts)
     for tx = x0, x0 + w - 1 do
       local k = P.tkey(tx, ty)
       if occ and occ[k] then return true end
-      if cor[k] and not (keep and tx >= keep[1] and tx <= keep[3] and ty >= keep[2] and ty <= keep[4]) then by_cor = true end
+      if cor[k] then by_cor = true end
     end
   end
+  -- B1 (2e relecture, lead 5/11 17 h 38) : remplacement sur place : refusé seulement s'il sépare deux tuiles libres du couloir (Co.cuts)
+  if by_cor and keep then by_cor = Build.Co.cuts(function(x, y) return cor[P.tkey(x, y)] ~= nil end, keep, { x0, y0, x0 + w - 1, y0 + h - 1 }, opts.blocked) end
   if by_cor then
     f.stats = f.stats or {}
     f.stats.couloir_emprises = (f.stats.couloir_emprises or 0) + 1 -- revue (B3)
@@ -4826,7 +4832,6 @@ end
 function Build.think(f, surface, tick)
   local b = f.build
   if not b then return end
-  Build.couloir_report(f, tick) -- lot ÉTAGE 5 (revue B3)
   local tasks = {}
   local free_cache -- relecture REBUILD-RAPIDE : stock libre lu une fois par pensée, au premier projet rouvert (batch_tasks)
   local function free_of()

@@ -923,6 +923,7 @@ function Team.think(f, surface, tick)
   if ia3 then Ia3.after_poles(f, tick) end -- lot IA3-c : pas de fond sur une matière saturée
   for _, a in ipairs(Poles.sur_stops(f)) do Worker.abort(a, f, tick, "preempte") end -- intégration 0.6.30 : la file sûre cède au travail du cerveau
   Profiler.stop("team:poles")
+  Build.couloir_report(f, tick) -- lot ÉTAGE 5 (revue B3, 2e relecture) : bilan [FO-COULOIR] de TOUTES les équipes, plan directeur ou non
   -- Lot IA1-d : tâches du plan directeur (chantiers, défrichage, quais) ; rien pour une équipe sans plan.
   if f.build then
     Profiler.start("team:build")
