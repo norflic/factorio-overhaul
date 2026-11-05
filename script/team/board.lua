@@ -599,12 +599,94 @@ end
 
 --- Lot COMPAGNONS-ACTIFS : bilan [FO-ACTIF] toutes les Ac.REPORT_EVERY ticks par équipe (PNJ libres, tâches libres, délai d'affectation
 --- des tâches prises dans la fenêtre, tâches proches jugées sans morts anciennes par la porte). Lecture seule hors f.team.actif.
+--- Lot AGEBLOCAGE, étage chantiers (diagnostic, LECTURE SEULE ; aucune décision n'en dépend) : où vont les bras. À chaque pensée
+--- (Board.assign), le temps écoulé depuis la pensée d'avant est compté pour chaque PNJ de l'équipe : à sa tâche (genre et projet, sans
+--- numéros), ou « libre » ; et, à part, la fabrication en arrière-plan en cours (premier travail de agent.bg, file du personnage non
+--- vide). Journal [FO-BRAS] toutes les 5 min (avec [FO-ACTIF]), puis remise à zéro. État : f.team.bras (nombres et chaînes).
+local function bras_cat(t)
+  if not t then return "libre" end
+  local s = tostring(t.why or t.key or t.kind or "?"):gsub(":%-?%d+%.?%d*", ""):gsub(",%-?%d+", ""):gsub("@%-?%d+", "")
+  return (t.kind or "?") .. ":" .. s:sub(1, 40)
+end
+
+function Board.bras_sample(f, tick)
+  local team = f.team
+  if not team then return end
+  local s = team.bras
+  if not s then
+    team.bras = { last = tick, work = {}, bg = {}, n = 0 }
+    return
+  end
+  local dt = tick - (s.last or tick)
+  s.last = tick
+  if dt <= 0 then return end
+  local n = 0
+  for _, id in ipairs(sorted_keys(f.engineers or {})) do
+    local ag = Registry.get(id)
+    if ag then
+      n = n + 1
+      local k = bras_cat(ag.task)
+      s.work[k] = (s.work[k] or 0) + dt
+      local bg, e = ag.bg, ag.entity
+      if bg and bg.jobs and bg.jobs[1] and e and e.valid and e.crafting_queue_size > 0 then
+        local kb = bras_cat(bg.jobs[1].task)
+        s.bg[kb] = (s.bg[kb] or 0) + dt
+      end
+    end
+  end
+  s.n = math.max(s.n or 0, n)
+end
+
+local function bras_report(f, tick)
+  local s = f.team and f.team.bras
+  if not s then return end
+  local function top(t, nmax)
+    local rows, total = {}, 0
+    for _, k in ipairs(sorted_keys(t)) do rows[#rows + 1] = { k, t[k] } total = total + t[k] end
+    table.sort(rows, function(a, b) if a[2] ~= b[2] then return a[2] > b[2] end return a[1] < b[1] end)
+    local out = {}
+    for i = 1, math.min(nmax, #rows) do out[#out + 1] = string.format("%s %d", rows[i][1], math.floor(rows[i][2] / 60 + 0.5)) end
+    return table.concat(out, ", "), math.floor(total / 60 + 0.5)
+  end
+  local w, wt = top(s.work, 14)
+  local g, gt = top(s.bg, 8)
+  -- Tâches LIBRES du tableau par tranche de priorité (genre x nombre).
+  local bands = { { 90, "90+" }, { 80, "80-89" }, { 70, "70-79" }, { 60, "60-69" }, { -1e9, "<60" } }
+  local cnt = {}
+  for _, t in ipairs((Board.get(f).list) or {}) do
+    if not t.worker then
+      local p = t.prio or 0
+      for _, b in ipairs(bands) do
+        if p >= b[1] then
+          cnt[b[2]] = cnt[b[2]] or {}
+          cnt[b[2]][t.kind or "?"] = (cnt[b[2]][t.kind or "?"] or 0) + 1
+          break
+        end
+      end
+    end
+  end
+  local parts = {}
+  for _, b in ipairs(bands) do
+    local c = cnt[b[2]]
+    if c then
+      local kk = {}
+      for _, k in ipairs(sorted_keys(c)) do kk[#kk + 1] = k .. "x" .. c[k] end
+      parts[#parts + 1] = b[2] .. " {" .. table.concat(kk, " ") .. "}"
+    end
+  end
+  log(string.format("[FO-BRAS] %s a %.1f min : PNJ %d ; travail (s, total %d) [%s] ; fabrication de fond (s, total %d) [%s] ; taches libres %s",
+    f.key or (f.is_player and "player") or tostring(f.id), tick / 3600, s.n or 0, wt, w, gt, g,
+    #parts > 0 and table.concat(parts, " ; ") or "aucune"))
+  f.team.bras = { last = s.last, work = {}, bg = {}, n = 0 }
+end
+
 function Board.actif_report(f, tick)
   local a = Board.actif(f)
   if a.t and tick - a.t < Ac.REPORT_EVERY then return end
   local first = a.t == nil
   a.t = tick
   if first then return end
+  bras_report(f, tick) -- lot AGEBLOCAGE (diagnostic, lecture seule) : [FO-BRAS]
   local b = Board.get(f)
   local idle, free = 0, 0
   for _, id in ipairs(sorted_keys(f.engineers or {})) do
@@ -620,6 +702,7 @@ end
 
 function Board.assign(f, tick)
   local b = Board.get(f)
+  Board.bras_sample(f, tick) -- lot AGEBLOCAGE (diagnostic, lecture seule) : où vont les bras
   Board.actif_report(f, tick) -- lot COMPAGNONS-ACTIFS : bilan [FO-ACTIF] (au plus toutes les 5 min)
   b.hint, b.hinted = nil, nil
   if not Board.market(f) then return 0 end
