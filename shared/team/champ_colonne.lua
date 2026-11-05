@@ -253,6 +253,105 @@ end
 local function tk(u, v) return (u + 50000) * 100000 + (v + 50000) end
 Co.tk = tk
 
+--- Lot PERF3 (gels de 1 à 3 s de la partie du DC : « trace du charbon : aucun chemin ») : sans chemin, l'A* ci-dessous développe TOUS
+--- les états (tuile, sens, tout droit imposé) atteignables depuis `s` avant de conclure ; une sortie de ligne enfermée par ses foreuses,
+--- ou une tête de tronc enfermée, coûte ainsi toute la boîte (2,8 s hors jeu pour 300 × 120 tuiles). Preuve RAPIDE et EXACTE de
+--- l'impossibilité, sur un graphe de TUILES qui contient celui de l'A* (mêmes conditions de pose, sans les sens ni le passage sous
+--- les souterrains posés : il a plus d'arêtes, jamais moins) : deux remplissages bornés, depuis `s` (arêtes de l'A*) et depuis `t`
+--- (arêtes inversées) ; si l'un s'épuise sans toucher l'autre bout, aucun état de `t` n'est atteignable, et l'A* aurait rendu
+--- « aucun chemin » si les états atteignables tiennent sous le plafond (au plus 4 par tuile sans souterrain, un par sens ; 8 avec : tout
+--- droit imposé ou non), « trop long » sinon. Quand la borne ne tranche pas, l'A* tourne comme avant. Rend "aucun chemin" ou nil (rien de prouvé).
+--- Tentée UNE fois, quand l'A* a développé Co.PREUVE_APRES états sans conclure (un tracé ordinaire finit bien avant : rien ne change
+--- pour lui) ; si rien n'est prouvé, l'A* reprend là où il en était.
+Co.PREUVE = true        -- (tests : faux = l'A* seul, la référence)
+Co.PREUVE_APRES = 2000  -- états développés par l'A* avant la tentative
+Co.PREUVE_TUILES = 3000 -- tuiles développées au plus par chacun des deux remplissages
+function Co.unreachable(s, t, free, ug, box, cap)
+  local fcache = {}
+  local function fr(u, v)
+    local k = tk(u, v)
+    local x = fcache[k]
+    if x == nil then x = free(u, v) and true or false; fcache[k] = x end
+    return x
+  end
+  local function inb(u, v) return u >= box.u0 and u <= box.u1 and v >= box.v0 and v <= box.v1 end
+  local function is_t(u, v) return u == t.u and v == t.v end
+  local function is_s(u, v) return u == s.u and v == s.v end
+  -- tuile d'arrivée d'une arête de l'A* (relax) : dans la boîte, libre ou la cible
+  local function landing(u, v) return inb(u, v) and (is_t(u, v) or fr(u, v)) end
+  -- tuile qui porte un état développable : le départ, ou une tuile d'arrivée qui n'est pas la cible (la cible ne se développe pas)
+  local function holder(u, v) return is_s(u, v) or (not is_t(u, v) and landing(u, v)) end
+  local fseen, rseen = { [tk(s.u, s.v)] = true }, { [tk(t.u, t.v)] = true }
+  local fq, rq = { { s.u, s.v } }, { { t.u, t.v } }
+  local fh, rh = 1, 1
+  local fn, rn = 1, 1
+  local maxk = ug or 0
+  local function fstep()
+    local x = fq[fh]; fh = fh + 1
+    local u, v = x[1], x[2]
+    if is_t(u, v) then return end -- la cible ne se développe pas
+    for _, d in ipairs(D4) do
+      local nu, nv = u + d[1], v + d[2]
+      if landing(nu, nv) then
+        local k = tk(nu, nv)
+        if not fseen[k] then fseen[k] = true; fn = fn + 1; fq[#fq + 1] = { nu, nv } end
+      end
+      for kk = 2, maxk do
+        local mu, mv = u + kk * d[1], v + kk * d[2]
+        local yu, yv = mu + d[1], mv + d[2]
+        if fr(mu, mv) and not is_t(mu, mv) and landing(yu, yv) then
+          local k = tk(yu, yv)
+          if not fseen[k] then fseen[k] = true; fn = fn + 1; fq[#fq + 1] = { yu, yv } end
+        end
+      end
+    end
+  end
+  local function rstep()
+    local y = rq[rh]; rh = rh + 1
+    local u, v = y[1], y[2]
+    for _, d in ipairs(D4) do
+      -- arête x -> y avec x = y - d (pas d'un tapis)
+      local xu, xv = u - d[1], v - d[2]
+      if holder(xu, xv) then
+        local k = tk(xu, xv)
+        if not rseen[k] then rseen[k] = true; rn = rn + 1; rq[#rq + 1] = { xu, xv } end
+      end
+      -- paire de souterrains x -> y : sortie m = y - d libre (et pas la cible), x = y - (kk + 1) d
+      local mu, mv = u - d[1], v - d[2]
+      if maxk >= 2 and fr(mu, mv) and not is_t(mu, mv) then
+        for kk = 2, maxk do
+          local xu2, xv2 = u - (kk + 1) * d[1], v - (kk + 1) * d[2]
+          if holder(xu2, xv2) then
+            local k = tk(xu2, xv2)
+            if not rseen[k] then rseen[k] = true; rn = rn + 1; rq[#rq + 1] = { xu2, xv2 } end
+          end
+        end
+      end
+    end
+  end
+  local area = (box.u1 - box.u0 + 1) * (box.v1 - box.v0 + 1) + 1
+  local per = (maxk >= 2) and 8 or 4 -- états par tuile : sans paire de souterrains, « tout droit imposé » n'existe jamais (m = 0)
+  while true do
+    local fdone, rdone = fh > #fq, rh > #rq
+    if fdone then
+      -- remplissage avant épuisé : `t` non atteint, au plus 8 états par tuile atteinte
+      if fseen[tk(t.u, t.v)] then return nil end
+      if per * fn <= cap then return "aucun chemin" end
+      return nil
+    end
+    if rdone then
+      -- remplissage arrière épuisé : `s` ne mène pas à `t` ; états atteignables depuis `s` bornés par la boîte (+ le départ)
+      if rseen[tk(s.u, s.v)] then return nil end
+      if per * area <= cap then return "aucun chemin" end
+      return nil
+    end
+    -- un bout a touché l'autre : rien ne sera prouvé (le chemin existe peut-être), l'A* reprend
+    if fseen[tk(t.u, t.v)] or rseen[tk(s.u, s.v)] then return nil end
+    if fn > Co.PREUVE_TUILES and rn > Co.PREUVE_TUILES then return nil end
+    if (fn <= rn or rn > Co.PREUVE_TUILES) and fn <= Co.PREUVE_TUILES then fstep() else rstep() end
+  end
+end
+
 --- Tracé de la tuile `s` (le tapis d'avant y entre par le sens `sd`, index de D4) jusqu'à la tuile `t`, tournée vers `td`.
 --- free(u, v) : un tapis peut s'y poser ; span(u, v) : un souterrain peut passer dessous ; ug : écart maximal entre l'entrée et la
 --- sortie d'une paire (nil : aucun souterrain) ; box { u0, v0, u1, v1 }. Rend la liste { u, v, d (index), kind = "tapis" |
@@ -289,6 +388,10 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost)
       closed[cur.k] = true
       expanded = expanded + 1
       if expanded > cap then return nil, "trop long" end
+      if expanded == Co.PREUVE_APRES and Co.PREUVE then
+        local why = Co.unreachable(s, t, free, ug, box, cap) -- lot PERF3 : impossibilité prouvée vite, même réponse que l'A*
+        if why then return nil, why end
+      end
       if cur.u == t.u and cur.v == t.v then
         if cur.d ~= ((td + 1) % 4) + 1 and (cur.m == 0 or cur.d == td) then
           local out = { { u = t.u, v = t.v, d = td, kind = "tapis" } }
