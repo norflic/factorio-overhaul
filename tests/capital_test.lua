@@ -566,7 +566,7 @@ local function run_all()
       cost = { { "iron-plate", 310 }, { "copper-plate", 160 } } }
     local function run(ahead)
       local E = P.context({ ["iron-plate"] = 40, ["copper-plate"] = 400 }, book, { open = {}, workers_idle = 0 }, {})
-      E.view = { workers_idle = 0 }
+      E.view = { workers_idle = 0, stock = { ["iron-plate"] = 40, ["copper-plate"] = 400 } } -- tout est au coffre (rien d'attendu)
       local greedy = { id = 1, key = "alim:pack", prio = 80, goal = { product = "pack" } }
       local centre = { id = 2, key = gc.key, prio = 60, goal = gc }
       local list = { greedy, centre }
@@ -584,6 +584,31 @@ local function run_all()
     end
     check(run(true) == 0, "§16 centre en tête : le premier projet ne prend plus le fer du centre")
     check(run(false) == 40, "§16 avant la règle : le premier projet prend les 40 plaques avant le centre")
+
+    -- §17 Étage CIRCUITS (sonde [FO-FER-DIAG] sur 5d4d0aa4) : le centre collant ne compte que le stock libre au coffre, et ses tâches
+    -- ont la priorité du projet le plus fort ; un centre ordinaire, rien ne change.
+    local cost = { { "iron-plate", 10 }, { "electronic-circuit", 6 } }
+    local function emit17(ahead, incoming)
+      local E = P.context({ ["iron-plate"] = 400, ["copper-plate"] = 400, ["electronic-circuit"] = incoming }, book,
+        { open = {}, workers_idle = 0 }, {})
+      E.view = { workers_idle = 0, stock = { ["iron-plate"] = 400, ["copper-plate"] = 400, ["electronic-circuit"] = 0 } }
+      local g = { key = "capital:command:2:1", center = true, ahead = ahead or nil, fond = true, short = true, cost = cost }
+      local res = Cap.emit(P)(E, { id = 7, key = g.key, prio = 60 }, g)
+      local n, pr = 0, nil
+      for _, t in ipairs(E.tasks) do
+        if t.kind == "craft" and t.item == "electronic-circuit" then n, pr = n + t.count, t.prio end
+      end
+      return res, n, pr, E.avail["electronic-circuit"], E.pay
+    end
+    local r1, n1, p1, a1, pay1 = emit17(true, 200)
+    check(r1 == "matiere" and n1 >= 6 and pay1 == nil,
+      "§17 centre collant : 200 circuits ATTENDUS (coffre 0) ne paient rien ; il fabrique ses 6 circuits (" .. n1 .. ")")
+    check(p1 == P.prio_of(100), "§17 centre collant : ses fabrications à la priorité du projet le plus fort (" .. tostring(p1) .. ")")
+    check(a1 == 200, "§17 les circuits attendus restent au stock virtuel des projets suivants (" .. tostring(a1) .. ")")
+    local r2, n2, _, _, pay2 = emit17(false, 200)
+    check(r2 == "ok" and n2 == 0 and pay2 ~= nil, "§17 centre ordinaire : comportement d'avant (les attendus comptent, paiement prévu)")
+    local _, n3, p3 = emit17(false, 0)
+    check(n3 >= 6 and p3 == 60, "§17 centre ordinaire sans circuits : fabrication à la priorité de son projet (" .. tostring(p3) .. ")")
   end
 end
 
@@ -684,6 +709,12 @@ do
   local pr = Cap.products
   M("producteur de la matière bloqué par le centre", function() Cap.products = function() return {} end end,
     function() Cap.products = pr end)
+  local apr = Cap.ahead_prio
+  M("centre collant à la priorité de son projet", function() Cap.ahead_prio = function(_, p) return p end end,
+    function() Cap.ahead_prio = apr end)
+  local acl = Cap.ahead_clamp
+  M("arrivées comptées pour le centre collant", function() Cap.ahead_clamp = function() return {} end end,
+    function() Cap.ahead_clamp = acl end)
   local md = Cap.minimal_defense
   M("défense minimale servie après le centre", function() Cap.minimal_defense = function() return false end end,
     function() Cap.minimal_defense = md end)
