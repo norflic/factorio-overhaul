@@ -437,6 +437,7 @@ function Champ.frame(f, surface, o)
   local spec, names = spec_of(f, surface, o, nil, nil)
   Profiler.fstop("champ:frame-spec")
   if not spec then return nil, names end
+  Profiler.dump("champ-frame", { spec = spec, cfg = Ch.CFG }) -- lot PERF3 : entrées du plan, bancs de détail seulement
   Profiler.fstart("champ:frame-plan")
   local plan, why = Ch.plan(spec)
   Profiler.fstop("champ:frame-plan")
@@ -575,6 +576,7 @@ function Champ.band(f, surface, o, frame, pr, coal_side)
   local spec, names = spec_of(f, surface, o, frame, { [pr] = true })
   Profiler.fstop("champ:band-spec")
   if not spec then return nil, names end
+  Profiler.dump("champ-band", { spec = spec, cfg = Ch.CFG }) -- lot PERF3 : entrées du plan, bancs de détail seulement
   Profiler.fstart("champ:band-plan")
   local plan, why = Ch.plan(spec)
   Profiler.fstop("champ:band-plan")

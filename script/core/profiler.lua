@@ -95,6 +95,48 @@ function Profiler.enabled()
   return Storage.ns("prof").enabled
 end
 
+--- Lot PERF3 : le détail par tick est-il allumé (bancs seulement) ? Copie locale, comme Profiler.fine().
+function Profiler.detail()
+  return detail_on
+end
+
+--- Lot PERF3 (bancs seulement, détail allumé) : une ligne « [FO-PERF3-DUMP] <tick> <étiquette> <table Lua> » : les ENTRÉES d'une
+--- règle pure coûteuse (ex. la spec du plan du champ), rejouées hors jeu (tools/autotest/perf3_rejeu.lua) pour la mesurer et prouver
+--- qu'une version plus rapide rend le même résultat. Clés triées (nombres puis chaînes), aucune fonction ; rien hors détail.
+local function ser(v, out)
+  local t = type(v)
+  if t == "number" then
+    if v ~= v or v == math.huge or v == -math.huge then out[#out + 1] = (v ~= v) and "0/0" or (v > 0 and "math.huge" or "-math.huge")
+    elseif v == math.floor(v) and math.abs(v) < 2 ^ 53 then out[#out + 1] = string.format("%d", v)
+    else out[#out + 1] = string.format("%.17g", v) end
+  elseif t == "string" then out[#out + 1] = string.format("%q", v)
+  elseif t == "boolean" then out[#out + 1] = v and "true" or "false"
+  elseif t == "table" then
+    local nk, sk = {}, {}
+    for k in pairs(v) do
+      if type(k) == "number" then nk[#nk + 1] = k elseif type(k) == "string" then sk[#sk + 1] = k end
+    end
+    table.sort(nk)
+    table.sort(sk)
+    out[#out + 1] = "{"
+    for _, k in ipairs(nk) do
+      out[#out + 1] = "["; ser(k, out); out[#out + 1] = "]="; ser(v[k], out); out[#out + 1] = ","
+    end
+    for _, k in ipairs(sk) do
+      out[#out + 1] = "["; ser(k, out); out[#out + 1] = "]="; ser(v[k], out); out[#out + 1] = ","
+    end
+    out[#out + 1] = "}"
+  else
+    out[#out + 1] = "nil"
+  end
+end
+Profiler.ser = function(v) local out = {}; ser(v, out); return table.concat(out) end
+
+function Profiler.dump(label, value)
+  if not detail_on then return end
+  log("[FO-PERF3-DUMP] " .. tostring(game.tick) .. " " .. tostring(label) .. " " .. Profiler.ser(value))
+end
+
 --- fine : true (portées fines), false (éteintes), "detail" (fines + détail par tick, lot PERF3), nil (inchangé).
 function Profiler.set_enabled(on, tick, fine)
   local p = Storage.ns("prof")
