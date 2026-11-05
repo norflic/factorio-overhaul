@@ -314,7 +314,7 @@ function M.rally(f)
 end
 
 --- Lot CORR-RALLIEMENT : règle allumée (défaut) ; le banc témoin l'éteint par remote.call("fo-ia3k", "debordement", false).
---- L'interrupteur couvre tout le lot : débordement (Re.outranges), refuge (Re.refuge_ok).
+--- L'interrupteur couvre tout le lot : débordement (Re.outranges), refuge (Re.refuge_ok), éloignement jugé (Re.away_pick).
 function M.outrange_on()
   return not S().no_outrange
 end
@@ -1330,7 +1330,16 @@ function M.sense(agent, tick)
       if d2(p, rally) <= 36 then action, why = "engage", "sous-les-tourelles"
       else action, why, to = "flee", "ralliement", rally end
     elseif resp == "away" then
-      action, why, to = "flee", "eloignement", Re.away_from(p, ep, rr)
+      -- Lot CORR-RALLIEMENT (relecture, point 3) : huit directions jugées sur la carte du danger (Re.away_pick), marchées sans
+      -- itinéraire (M.leg rend a.refuge tel quel) ; aucune sûre : on se bat groupés, comme face à un ennemi plus rapide.
+      local q = M.outrange_on() and Re.away_pick(t.map, tick, p, ep, rr, D.block(prud)) or nil
+      if not M.outrange_on() then q = Re.away_from(p, ep, rr) end
+      if q then
+        action, why, to = "flee", "eloignement", q
+      else
+        action, why = "engage", "groupes-au-qg"
+        t.stats.away_none = (t.stats.away_none or 0) + 1
+      end
     else
       action, why = "engage", "groupes-au-qg"
     end

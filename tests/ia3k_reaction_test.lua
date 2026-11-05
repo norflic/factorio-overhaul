@@ -248,7 +248,53 @@ local function suite()
     end
   end
   check(same, "sans débordement (nil ou false) : la réponse d'avant sur 64 cas")
-  -- Le refuge ne mène pas sur l'ennemi.
+  -- Point 3 de la relecture : « s'éloigner » sur 8 directions jugées par la carte du danger (Re.away_pick). PNJ en (0, 0),
+  -- ennemi à l'est (20, 0), vue 30 : 62 tuiles ; B = 600 (prudence neutre). Directions : k × 45° depuis l'ouest (0 : ouest,
+  -- 1 : nord-ouest, 7 : sud-ouest, 2 : nord, 6 : sud).
+  local Dg = require("shared.ai3.danger")
+  local P0, E0, B0, T0 = { x = 0, y = 0 }, { x = 20, y = 0 }, Dg.block(1000), 7200
+  local function pick(prep)
+    local map = Dg.new()
+    if prep then prep(map) end
+    return Re.away_pick(map, T0, P0, E0, 30, B0)
+  end
+  local function is_at(q, x, y) return q ~= nil and math.abs(q.x - x) < 1e-6 and math.abs(q.y - y) < 1e-6 end
+  local L0, c45 = Re.away_distance(30), math.sqrt(0.5)
+  local q, info = pick()
+  check(is_at(q, -L0, 0) and info.k == 0 and info.danger == 0 and info.safe == 5,
+    "carte vide : tout droit à l'opposé (62 tuiles), 5 directions sûres (les 3 qui rapprochent de l'ennemi écartées)")
+  q, info = pick(function(m) Dg.mark_seen(m, -50, 0, "worm", 30, T0) end)
+  check(is_at(q, -L0 * c45, -L0 * c45) and info.k == 1, "ver sur la ligne droite : nord-ouest (le ver est à 35,4 tuiles du trajet)")
+  q, info = pick(function(m) Dg.mark_seen(m, -50, 0, "worm", 30, T0) Dg.mark_seen(m, -36, -36, "worm", 30, T0) end)
+  check(info.k == 7 and is_at(q, -L0 * c45, L0 * c45), "vers à l'ouest et au nord-ouest : sud-ouest")
+  q, info = pick(function(m) Dg.mark_seen(m, -30, 0, "worm", 10, T0) end)
+  check(info.k ~= 0, "petit ver (portée 10) au MILIEU du trajet, pas au bout : la ligne droite est écartée")
+  q, info = pick(function(m)
+    for _, w in ipairs({ { -40, 0 }, { -28, -28 }, { -28, 28 }, { 0, -40 }, { 0, 40 } }) do Dg.mark_seen(m, w[1], w[2], "worm", 30, T0) end
+  end)
+  check(q == nil and info.safe == 0, "vers dans les 5 directions qui éloignent, l'est libre : aucune sûre (nil : on se bat groupés)")
+  q, info = pick(function(m) Dg.mark_death(m, -40, 0, T0 - 600) end)
+  check(info.k == 1, "une mort de l'heure sur la ligne droite : nord-ouest")
+  q, info = pick(function(m) Dg.mark_death(m, -40, 0, 0) end)
+  local q2 = Re.away_pick((function() local m = Dg.new() Dg.mark_death(m, -40, 0, 0) return m end)(), Dg.HOUR + 7200, P0, E0, 30, B0)
+  check(q2 and q2.x == -L0, "une mort de plus d'une heure : ignorée (tout droit)")
+  q, info = pick(function(m) Dg.mark_death(m, -40, 0, T0 - 600, true) end)
+  check(info.k == 0, "une mort au QG (home) : ignorée, comme la règle de l'heure (tout droit)")
+  q, info = pick(function(m) Dg.mark_death(m, 2, 0, T0 - 600) end)
+  check(info.k == 0, "une mort à 2 tuiles du PNJ, derrière lui : on s'en éloigne, elle ne compte pas (tout droit)")
+  q, info = pick(function(m) Dg.mark_seen(m, 20, 0, "pack", 30, T0) end)
+  check(info.k == 0, "la meute marquée autour de l'ennemi (zone qui contient le PNJ) : on s'en éloigne (tout droit)")
+  q, info = pick(function(m) Dg.mark_seen(m, -20, 0, "worm", 30, T0) end)
+  check(info.k == 2 and is_at(q, 0, -L0), "dans la zone d'un ver à l'ouest : ni l'ouest, ni les diagonales qui s'en rapprochent ; le nord")
+  q, info = pick(function(m) for _ = 1, 5 do Dg.mark_seen(m, 20, 0, "unit", 30, T0) end end)
+  check(info.k == 0, "cases mobiles de l'ennemi (5 unités, autour du PNJ aussi) : le danger AJOUTÉ seul compte (tout droit)")
+  local heavy = function(m) for _ = 1, 5 do Dg.mark_seen(m, -40, 0, "unit", 6, T0) end end
+  q, info = pick(heavy)
+  local mw = (function() local m = Dg.new() heavy(m) return Dg.exact_parts(m, -40, 0, T0).mobile end)()
+  check(mw >= B0 and info.k ~= 0 and info.danger < B0, string.format(
+    "une autre meute (mobile %d) à l'ouest : pas la ligne droite (direction %s)", mw, tostring(info.k)))
+  q, info = pick(function(m) Dg.mark_seen(m, -40, 0, "unit", 6, T0) end)
+  check(info.k ~= 0 and info.danger == 0, "une seule unité (150, sous le seuil) à l'ouest : la direction la MOINS dangereuse (0)")
   check(Re.on_the_way({ x = 0, y = 0 }, { x = 100, y = 0 }, { x = 30, y = 5 }) == true, "ennemi sur le chemin")
   check(Re.on_the_way({ x = 0, y = 0 }, { x = 100, y = 0 }, { x = 30, y = 60 }) == false, "ennemi sur le côté")
   check(Re.on_the_way({ x = 0, y = 0 }, { x = 100, y = 0 }, { x = 130, y = 0 }) == false, "ennemi au-delà de la cible")
@@ -407,6 +453,39 @@ mutant("refuge : marge oubliée", function()
   local r = Re.refuge_ok
   patch(Re, "refuge_ok", function(...) Re.MARGIN = 0 local v = r(...) Re.MARGIN = m return v end)
 end)
+-- Point 3 : « s'éloigner » sur 8 directions. Mutants SUR LA SOURCE (variables locales de Re.away_pick) : shared/ai3/reaction.lua
+-- relu, un motif remplacé (unique, sinon le banc s'arrête), le module recompilé ; seul away_pick est pris du mutant.
+local REACTION_SRC
+local function src_mutant(name, old, new)
+  mutant(name, function()
+    if not REACTION_SRC then
+      local fh = assert(io.open("shared/ai3/reaction.lua", "rb"))
+      REACTION_SRC = fh:read("*a")
+      fh:close()
+    end
+    local a, b = REACTION_SRC:find(old, 1, true)
+    assert(a and not REACTION_SRC:find(old, b + 1, true), "mutant « " .. name .. " » : motif absent ou non unique")
+    local R2 = assert(load(REACTION_SRC:sub(1, a - 1) .. new .. REACTION_SRC:sub(b + 1), "=reaction-mutant", "t"))()
+    patch(Re, "away_pick", R2.away_pick)
+  end)
+end
+mutant("s'éloigner : ligne droite seule (règle d'avant)", function()
+  patch(Re, "away_pick", function(map, tick, p, ep, range) return Re.away_from(p, ep, range), { k = 0, danger = 0, safe = 1 } end)
+end)
+src_mutant("s'éloigner : menaces fixes ignorées", "then v = v + fw[i] end", "then v = v + 0 end")
+src_mutant("s'éloigner : cases mobiles ignorées", "if mq > m0 then v = v + (mq - m0) end", "if false then end")
+src_mutant("s'éloigner : cases mobiles en absolu (celle du PNJ comptée)", "if mq > m0 then v = v + (mq - m0) end", "v = v + mq")
+src_mutant("s'éloigner : morts ignorées", "dead[i], nd = true, nd + 1", "dead[i] = true")
+src_mutant("s'éloigner : zone fixe de départ comptée partout", "(fp2[i] > fr2[i] or dq < fp2[i])", "true")
+src_mutant("s'éloigner : mort de départ comptée partout", "(mp2[i] > R2 or dq < mp2[i])", "true")
+src_mutant("s'éloigner : morts de plus d'une heure comptées", "if not d.home and tick - d.t < D.HOUR then", "if not d.home then")
+src_mutant("s'éloigner : morts au QG comptées", "if not d.home and tick - d.t < D.HOUR then", "if tick - d.t < D.HOUR then")
+src_mutant("s'éloigner : directions vers l'ennemi permises", "if (-ex) * vx + (-ey) * vy <= 1e-9 * el then", "if true then")
+src_mutant("s'éloigner : aucune sûre, ligne droite quand même", "return best, { k = best_k",
+  "return best or Re.away_from(p, ep, range), { k = best_k")
+src_mutant("s'éloigner : préférence ignorée (la dernière sûre)", "if best_v == nil or worst < best_v then",
+  "if best_v == nil or worst <= best_v then")
+src_mutant("s'éloigner : bout du trajet seul jugé", "local s = Re.AWAY_STEP", "local s = L")
 mutant("refuge : portée brute (atteinte au centre oubliée)", function()
   local ro = Re.reach_on
   local r = Re.refuge_ok

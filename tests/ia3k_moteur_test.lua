@@ -458,8 +458,9 @@ do
   local hq = f.hq_pos or { x = 5, y = 5 }
   local tu = s.create_entity({ name = "gun-turret", position = { x = hq.x + 8, y = hq.y }, force = "player" })
   check(tu ~= nil, "mitrailleuse du QG posée")
-  local function wave(name, on)
+  local function wave(name, on, prep)
     remote.call("fo-ia3k", "debordement", on)
+    if prep then prep() end
     local st0 = remote.call("fo-ia3k", "status", "player").stats
     local us = {}
     for k = 0, 4 do
@@ -470,11 +471,13 @@ do
     for _, u in ipairs(us) do if u and u.valid then u.destroy() end end
     M.run_ticks(5)
     local function dlt(k) return (st1[k] or 0) - (st0[k] or 0) end
-    return dlt("hq_rally"), dlt("hq_away"), dlt("hq_outranged")
+    return dlt("hq_rally"), dlt("hq_away"), dlt("hq_outranged"), dlt("shelter_away"), dlt("away_none")
   end
-  local r, a, o = wave("fo-test-gunner", true)
+  local r, a, o, sa, an = wave("fo-test-gunner", true)
   check(o > 0 and a > 0 and r == 0, string.format(
     "portée d'attaque 20 contre la mitrailleuse (18) : éloignement, aucun ralliement (rally %d, away %d, débordé %d)", r, a, o))
+  check(sa > 0 and an == 0, string.format(
+    "éloignement jugé (Re.away_pick) : des PNJ partent, carte sans danger (partis %d, sans direction sûre %d)", sa, an))
   r, a, o = wave("fo-test-biter", true)
   check(o == 0 and r > 0 and a == 0, string.format(
     "même vue (30), portée d'attaque 1 : ralliement inchangé, la vue ne compte pas (rally %d, away %d, débordé %d)", r, a, o))
@@ -485,6 +488,26 @@ do
   check(o == 0 and r > 0 and a == 0, string.format(
     "règle éteinte (interrupteur du banc témoin) : ralliement comme avant (rally %d, away %d, débordé %d)", r, a, o))
   remote.call("fo-ia3k", "debordement", true)
+  -- Point 3 de la relecture : vers marqués sur la carte de l'équipe dans les 5 directions qui éloignent de l'ennemi (à 44 tuiles
+  -- du coffre) : aucune direction sûre, personne ne part (« stand »). Les PNJ partis aux vagues d'avant rentrent d'abord.
+  M.run_ticks(2400)
+  do
+    local D = require("shared.ai3.danger")
+    local tm = require("script.ai3.comportement").team(f)
+    local saved_threats = {}
+    for i, th in ipairs(tm.map.threats) do saved_threats[i] = th end
+    local ch = f.home_spot or f.hq_pos
+    local blocked = function()
+      for _, w in ipairs({ { -44, 0 }, { -31, -31 }, { -31, 31 }, { 0, -44 }, { 0, 44 } }) do
+        D.mark_seen(tm.map, ch.x + w[1], ch.y + w[2], "worm", 30, game.tick)
+      end
+    end
+    local r4, a4, o4, sa4, an4 = wave("fo-test-gunner", true, blocked)
+    check(a4 > 0 and an4 > 0 and sa4 == 0, string.format(
+      "vers dans les 5 directions qui éloignent : personne ne part, on se bat groupés (away %d, partis %d, sans direction sûre %d)",
+      a4, sa4, an4))
+    tm.map.threats = saved_threats
+  end
   -- Point 2 de la relecture : le refuge d'un désarmé (M.refuge) écarte une tourelle que le groupe déborde (profils lus aux
   -- prototypes : Re.refuge_ok). Mitrailleuse du QG à 18 tuiles de l'ennemi, PNJ entre les deux, une autre à 56 tuiles.
   local C = require("script.ai3.comportement")

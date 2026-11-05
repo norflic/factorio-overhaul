@@ -117,6 +117,106 @@ function Re.away_from(p, ep, range)
   return { x = p.x - d * ex / el, y = p.y - d * ey / el }
 end
 
+--- Relecture (revue-danger, 18 h 12, point 3) : « s'éloigner » en ligne droite (Re.away_from, ~62 tuiles, marchées sans itinéraire :
+--- M.leg rend a.refuge tel quel) peut mener sur un ver, un nid, une autre meute ou là où des PNJ sont morts. Le cas devient
+--- fréquent : tous les soldats des factions sont plus lents que 0,9 × 0,15, donc « distancés ». Huit directions, à 45° l'une de
+--- l'autre à partir de l'opposé de l'ennemi, chacune jugée sur la carte du danger D de l'équipe (échantillons tous les
+--- Re.AWAY_STEP tuiles jusqu'à Re.away_distance(range)) :
+---   - une direction qui RAPPROCHE de l'ennemi (le trajet passe plus près de lui que le PNJ ne l'est) n'est jamais prise
+---     (trois sur huit : à 135° et 180° de l'opposé) ;
+---   - DANGER AJOUTÉ seulement (le PNJ fuit d'un endroit dangereux : ce qu'il a déjà autour de lui ne départage rien) : une
+---     menace FIXE (ver, nid, tourelle, meute) dont la zone (portée + D.EXACT_MARGIN) contient déjà le PNJ ne compte qu'aux
+---     points plus près d'elle que lui ; de même une MORT de l'heure (rayon D.DEATH_R, comptée une fois) ; les cases MOBILES
+---     comptent pour ce qu'elles ont de plus que celle du PNJ ;
+---   - SÛRE : aucune mort ajoutée et, en chaque point, menaces fixes + mobiles ajoutées < B (seuil de blocage, D.block).
+--- Rend le point de la plus sûre (danger le plus bas, puis l'ordre 0°, +45°, −45°, +90°, −90°), ou nil si aucune n'est sûre
+--- (le PNJ se bat alors groupé : « stand »). Second retour : { k = indice de la direction (0 à 7, sens trigonométrique de 45°),
+--- danger = danger ajouté le plus haut, safe = nombre de directions sûres }.
+Re.AWAY_STEP = 4
+local ROT = math.sqrt(0.5)
+local AWAY_PREF = { 0, 1, 7, 2, 6, 3, 5, 4 } -- ordre de préférence des directions (k × 45°)
+
+local function away_dirs(ux, uy)
+  local v = { [0] = { ux, uy } }
+  for k = 1, 7 do
+    local x, y = v[k - 1][1], v[k - 1][2]
+    v[k] = { (x - y) * ROT, (x + y) * ROT } -- + 45°
+  end
+  return v
+end
+
+function Re.away_pick(map, tick, p, ep, range, B)
+  local ex, ey = p.x - ep.x, p.y - ep.y
+  local el = math.sqrt(ex * ex + ey * ey)
+  if el < 1 then ex, ey, el = 1, 0, 1 end
+  local ux, uy = ex / el, ey / el
+  local L = Re.away_distance(range)
+  local dirs = away_dirs(ux, uy)
+  local m0 = D.exact_parts(map, p.x, p.y, tick).mobile
+  -- Menaces fixes et morts PROCHES (au plus L + leur rayon du PNJ), poids décrus calculés une fois.
+  local fx, fy, fr2, fp2, fw = {}, {}, {}, {}, {}
+  for _, t in ipairs(map.threats or {}) do
+    local K = D.KINDS[t.k] or D.KINDS.unit
+    local r = t.r + D.EXACT_MARGIN
+    local dx, dy = t.x - p.x, t.y - p.y
+    local dd = dx * dx + dy * dy
+    if dd <= (L + r) * (L + r) then
+      local i = #fx + 1
+      fx[i], fy[i], fr2[i], fp2[i] = t.x, t.y, r * r, dd
+      fw[i] = math.floor(K.w * (K.fast and D.dec10(tick - t.t) or D.dec2(tick - t.t)) / 1000)
+    end
+  end
+  local mx, my, mp2 = {}, {}, {}
+  local R2 = D.DEATH_R * D.DEATH_R
+  for _, d in ipairs(map.deaths or {}) do
+    if not d.home and tick - d.t < D.HOUR then
+      local dx, dy = d.x - p.x, d.y - p.y
+      local dd = dx * dx + dy * dy
+      if dd <= (L + D.DEATH_R) * (L + D.DEATH_R) then
+        local i = #mx + 1
+        mx[i], my[i], mp2[i] = d.x, d.y, dd
+      end
+    end
+  end
+  local best, best_k, best_v, safe = nil, nil, nil, 0
+  for _, k in ipairs(AWAY_PREF) do
+    local vx, vy = dirs[k][1], dirs[k][2]
+    -- Rapproche de l'ennemi : (ep − p)·v > 0 (au-delà d'une tolérance de calcul).
+    if (-ex) * vx + (-ey) * vy <= 1e-9 * el then
+      local worst, dead = 0, {}
+      local nd = 0
+      local s = Re.AWAY_STEP
+      while true do
+        if s > L then s = L end
+        local qx, qy = p.x + s * vx, p.y + s * vy
+        local v = 0
+        for i = 1, #fx do
+          local dx, dy = fx[i] - qx, fy[i] - qy
+          local dq = dx * dx + dy * dy
+          if dq <= fr2[i] and (fp2[i] > fr2[i] or dq < fp2[i]) then v = v + fw[i] end
+        end
+        local mq = D.exact_parts(map, qx, qy, tick).mobile
+        if mq > m0 then v = v + (mq - m0) end
+        if v > worst then worst = v end
+        for i = 1, #mx do
+          if not dead[i] then
+            local dx, dy = mx[i] - qx, my[i] - qy
+            local dq = dx * dx + dy * dy
+            if dq <= R2 and (mp2[i] > R2 or dq < mp2[i]) then dead[i], nd = true, nd + 1 end
+          end
+        end
+        if s >= L then break end
+        s = s + Re.AWAY_STEP
+      end
+      if nd == 0 and worst < (B or D.block(1000)) then
+        safe = safe + 1
+        if best_v == nil or worst < best_v then best, best_k, best_v = { x = p.x + L * vx, y = p.y + L * vy }, k, worst end
+      end
+    end
+  end
+  return best, { k = best_k, danger = best_v, safe = safe }
+end
+
 --- L'ennemi (ep) est-il SUR LE CHEMIN de p vers target ? Dans le cône Re.HOME_CONE vers la cible et plus près qu'elle.
 function Re.on_the_way(p, target, ep)
   local hx, hy = target.x - p.x, target.y - p.y
