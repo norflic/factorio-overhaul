@@ -72,6 +72,7 @@ local General = require("script.ai3.general")
 local Auto = require("script.ai3.automatisation")
 local Build = require("script.team.build")
 local Harvest = require("script.team.harvest") -- lot KIT : matières naturelles récoltables à portée
+local Book = require("shared.team.book") -- lot CORR-CHAMP-MANQUE : livre de recettes de la force (banc « bench_order » seulement)
 local Adopte = require("script.team.adopte") -- lot ADOPTE : machines du joueur que personne ne sert
 local Equip = require("script.team.equiper") -- lot LEVIERS : tâche « equiper »
 local Lv = require("shared.ai3.leviers")
@@ -787,7 +788,8 @@ function Capi.slots(f, cs, stock, tick)
   -- champ de leur minerai a le siège du complément, même quand rien ne dort (partie du DC 717152950 en 0.6.51, 11 à 31 min).
   local free = {}
   for i, p in ipairs(PLATE_PRODUCTS) do free[p] = plates[i] end
-  local short = Em.short(PLATE_PRODUCTS, ORE_OF_PRODUCT, Ca.blocked_items({ open = cs.open, D = Capi.data() }), free)
+  -- (banc témoin seulement : remote.call("fo-capi", "manque", <clé>, false) éteint la règle 8, cs.no_short)
+  local short = cs.no_short and {} or Em.short(PLATE_PRODUCTS, ORE_OF_PRODUCT, Ca.blocked_items({ open = cs.open, D = Capi.data() }), free)
   local sl = Em.slots({ base = base, plates = plates, mods = mods, tick = tick, names = PLATE_PRODUCTS, sleeping = Dep.sleeping(f, tick),
     short = short })
   if (cs.dm_base or A.MAX_OPEN) ~= base then
@@ -1757,6 +1759,36 @@ remote.add_interface("fo-capi", {
     state_of(f).block_all = on and true or nil
     return true
   end,
+  --- Lot CORR-CHAMP-MANQUE (BANC SEULEMENT, témoin) : on = false éteint la règle 8 des emplacements (siège du minerai dont la plaque
+  --- manque aux ordres ouverts) pour cette équipe ; on = true (ou nil) la rallume. Rend vrai si l'équipe existe.
+  manque = function(key, on)
+    local f = team_of(key)
+    if not (f and f.team) then return false end
+    state_of(f).no_short = (on == false) or nil
+    return true
+  end,
+  --- Lot CORR-CHAMP-MANQUE (BANC SEULEMENT) : ouvre un ordre de la capitalisation de genre `kind` (« chaine » ou « packs ») pour
+  --- `item` à `rate` objets/min, par l'exécutant des ordres de la décision (execute : A.method_for, Auto.submit) SANS passer par
+  --- elle ; l'ordre entre dans cs.open (emplacements, suivi, manques) comme un ordre décidé. Rend les numéros de modules, ou nil et
+  --- la raison. (Comme « fo-ind row » : un banc court ne peut pas attendre que la décision veuille ces ordres.)
+  bench_order = function(key, kind, item, rate)
+    local f = team_of(key)
+    local cs = f and f.team and f.team.capi
+    if not (cs and f.hq and f.hq.valid) then return nil, "equipe ou capitalisation absente" end
+    if kind ~= "chaine" and kind ~= "packs" then return nil, "genre refuse : " .. tostring(kind) end
+    local force = game.forces[f.force]
+    local book = Book.from_game(game.recipe_prototypes, { allowed = function(name)
+      local r = force and force.recipes[name]
+      return r ~= nil and r.enabled
+    end })
+    local inv = f.hq.get_inventory(defines.inventory.chest)
+    local view = { stock = inv and inv.get_contents() or {} }
+    local o = { key = "banc:" .. kind .. ":" .. tostring(item), kind = kind, item = item, rate = rate, n = 1, T = 0, why = "banc" }
+    local rec, why = execute(f, cs, o, view, book, game.tick, nil)
+    if not rec then return nil, tostring(why) end
+    cs.open[#cs.open + 1] = rec
+    return rec.mod_ids, o.key
+  end,
   status = function(key)
     local f = team_of(key)
     local cs = f and f.team and f.team.capi
@@ -1766,7 +1798,16 @@ remote.add_interface("fo-capi", {
     for _, rec in ipairs(cs.open) do
       out.open[#out.open + 1] = { key = rec.key, kind = rec.kind, exec = rec.exec, n = rec.n, n_left = rec.n_left,
         mod_ids = rec.mod_ids, opened = rec.opened, module = rec.module, per = rec.per, inserted = rec.inserted,
-        refused = rec.refused, why_refused = rec.why_refused, tech = rec.tech, announced = rec.announced }
+        refused = rec.refused, why_refused = rec.why_refused, tech = rec.tech, announced = rec.announced,
+        resource = rec.resource, product = rec.product, missing = rec.missing } -- (lot CORR-CHAMP-MANQUE : ressource, produit, manques)
+    end
+    -- lot CORR-CHAMP-MANQUE : emplacements du dernier relevé (Capi.slots), produits du siège du complément dans l'ordre des fonderies
+    local sl = cs.slots
+    if sl then
+      local comp = {}
+      for _, p in ipairs(PLATE_PRODUCTS) do if sl.comp and sl.comp[p] then comp[#comp + 1] = p end end
+      out.slots = { cap = sl.cap, counted = sl.counted, open = sl.open, room = sl.room, room_comp = sl.room_comp, busy = sl.busy,
+        materials = sl.materials, comp = comp, why = sl.why }
     end
     for _, d in ipairs(cs.done) do out.done[#out.done + 1] = d end
     -- lot CAPI-REPLI / CAPI-MESURE : repli par (produit, gisement) et raison de chaque foreuse refusée (bancs)

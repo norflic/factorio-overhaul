@@ -9,7 +9,8 @@
     §2 LOT : chemin de jeu Capi.slots → Ca.blocked_items (recettes du relevé) → Em.short (stock libre du relevé) → Em.slots : un siège
        pour le fer, journal [FO-CAPI-EMPLACEMENTS] « +1 pour la matiere qui manque aux ordres ouverts (iron-plate) », foreuse de fer
        accordée, cuivre refusé, ordre « couvrir » du fer sur le siège.
-  Usage : lua5.2 tests/champ_manque_moteur_test.lua   (depuis la racine du mod ; environ une minute)
+    §3 INTERRUPTEUR du banc témoin (remote « fo-capi », « manque ») : éteint, même cas que §2 sans siège ; rallumé, le siège revient.
+  Usage : lua5.2 tests/champ_manque_moteur_test.lua   (depuis la racine du mod ; quatre parties simulées, quelques minutes)
 ]]
 package.path = "./?.lua;" .. package.path
 local M = require("tests.mock_engine")
@@ -71,6 +72,15 @@ local function run(opts)
     end
   end
   for _, it in ipairs({ { "iron-plate", 100 }, { "copper-plate", 100 } }) do Stock.insert(f, it[1], it[2]) end
+  -- §3 : interrupteur du banc témoin (remote « fo-capi », « manque »), pour CHAQUE faction (les relevés d'Em.slots ci-dessus ne
+  -- disent pas de quelle équipe ils viennent)
+  if opts.off ~= nil then
+    seen.remote = true
+    for _, ff in ipairs(global.fo.war.factions) do
+      if remote.call("fo-capi", "manque", ff.key, not opts.off) ~= true then seen.remote = false end
+    end
+    seen.remote_player = remote.call("fo-capi", "manque", "player", not opts.off) -- (votre équipe, si elle existe dans ce monde)
+  end
   local log0 = #W().logs
   M.run_ticks(4 * MIN)
   local lines = {}
@@ -108,6 +118,16 @@ check(s2 ~= nil and b.Em.order_seat(s2.room, s2.room_comp, s2.comp, "iron-plate"
   "§2 ordre « couvrir » du fer : siège du complément")
 check(has(b.lines, "+1 pour la matiere qui manque aux ordres ouverts (iron-plate)"),
   "§2 journal [FO-CAPI-EMPLACEMENTS] : +1 pour la matiere qui manque (iron-plate)")
+
+say("§3 temoin du banc : meme cas que §2, regle 8 eteinte par remote.call(\"fo-capi\", \"manque\", cle, false)")
+local c = run({ gears = true, off = true })
+check(c.seen.remote == true, "§3 interrupteur accepte (fo-capi, manque)")
+check(c.seen.blocked == nil, "§3 regle eteinte : le predicat partage n'est pas consulte (cs.no_short)")
+check(c.seen.first ~= nil and c.seen.first.busy and c.seen.first.comp == nil and c.Em.drill_refused(c.seen.first, "iron-plate")
+  and c.seen.short_ok == nil and not has(c.lines, "matiere qui manque"), "§3 regle eteinte : aucun siege, foreuse de fer refusee")
+local d = run({ gears = true, off = false })
+check(d.seen.remote == true and d.seen.short_ok ~= nil and d.seen.short_ok.comp and d.seen.short_ok.comp["iron-plate"] == true,
+  "§3 rallumee (on = true) : le siege du fer revient")
 
 print(string.format("[CHAMP-MANQUE-MOTEUR] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
