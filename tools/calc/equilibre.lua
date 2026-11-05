@@ -34,7 +34,7 @@ local function currency_rows(D, cache)
   for e = 2, L.EPOCHS do
     local m = L.epoch_materials[e]
     local xc = X.currency_of(e)
-    local mu0 = cache.mu(m.item, "H0", e)
+    local mu0 = cache.mu(m.item, "H0e", e)
     local mu2 = cache.mu(m.item, "H2", e)
     rows[#rows + 1] = { e = e, item = m.item, value = m.value, provisional = m.provisional, want = m.want_item,
       mu0 = mu0, mu2 = mu2, ratio = m.value / mu0, x0_item = xc and xc.item, x0_value = xc and xc.value,
@@ -286,7 +286,7 @@ function Eq.render(D)
   p("|---|---|---|---|---|---|---|---|---|---|")
   for _, r in ipairs(cur) do
     local e = r.e
-    local _, x0 = cache.mu(r.item, "H0", e)
+    local _, x0 = cache.mu(r.item, "H0e", e)
     local _, x2 = cache.mu(r.item, "H2", e)
     if r.mu0 < math.huge then
       local l0, t0, fl = Mo.chain_machines(D, x0, e)
@@ -405,7 +405,7 @@ function Eq.render(D)
     local m = L.epoch_materials[e]
     local prop = "—"
     if m then
-      local mu0 = cache.mu(m.item, "H0", e)
+      local mu0 = cache.mu(m.item, "H0e", e)
       prop = mu0 < math.huge and Fmt.nice(mu0) or "—"
     end
     p(string.format("| %d | %s | %s | %s | × %s | %s | %s | %s |", e, num(ep.value_mult), th(ep.cc_value), num(r.s0 / r.sd, 2), Fmt.big(g),
