@@ -354,105 +354,141 @@ do
   check(SCRIPT_SRC:find("for _, eq in ipairs(grid.equipment) do", 1, true) ~= nil, "§5 script : la grille est lue en LISTE (equipment), pas en dictionnaire")
   check(not SCRIPT_SRC:find("get_contents", 1, true), "§5 script : get_contents (dictionnaire) jamais lu")
   local code_script = SCRIPT_SRC:gsub("%-%-%[%[.-%]%]", ""):gsub("%-%-[^\n]*", "")
-  check(not code_script:find("storage", 1, true) and not code_script:find("K.S()", 1, true), "§5 script : aucun état gardé (ni storage ni K.S())")
+  check(not code_script:find("storage", 1, true) and not code_script:find("g.bonus =", 1, true) and not code_script:find("s.giants =", 1, true),
+    "§5 script : aucun état propre (ni storage, ni écriture dans la liste des géants : le bonus passe par Geants.set_bonus)")
 end
 
--- §5 bis script joué sur un moteur simulé (rendering, grille) : bonus, portée et coup effectifs, marques visibles aux bons moments
-do
+-- §5 bis script joué sur un moteur simulé (rendering, grilles, géants inscrits du lot EXPERIMENTAUX) : synchronisation du bonus, marque d'une salve
+--- Charge `src` (source du script, réel ou mutant) sur le moteur simulé ; rend la suite des contrôles (ok, échecs, messages).
+local function suite_script(src)
+  local pass_, fail_, msgs_ = 0, 0, {}
+  local function chk(c, m) if c then pass_ = pass_ + 1 else fail_ = fail_ + 1; msgs_[#msgs_ + 1] = m end end
   local appels = {}
   local function enregistre(kind) return function(t) appels[#appels + 1] = { kind = kind, t = t } return #appels end end
   _G.rendering = { draw_line = enregistre("line"), draw_circle = enregistre("circle"), draw_light = enregistre("light"),
     draw_sprite = enregistre("sprite") }
-  _G.defines = { events = { on_player_placed_equipment = 1, on_player_removed_equipment = 2 } }
-  local abonnes = {}
-  package.preload["script.core.events"] = function() return { on = function(ev, f) abonnes[#abonnes + 1] = { ev = ev, f = f } end } end
-  local okx, XM = pcall(dofile, "script/robots/experimentaux_modules.lua")
-  check(okx and type(XM) == "table", "§5 bis script chargé hors jeu : " .. tostring(not okx and XM or ""))
-  check(#abonnes == 2 and abonnes[1].ev == 1 and abonnes[2].ev == 2, "§5 bis texte au joueur : pose et retrait d'équipement")
-  if okx then
-    local cairn = Xp.robot("cairn")
-    local function geant(noms_eq)
-      local eqs = {}
-      for _, n in ipairs(noms_eq) do eqs[#eqs + 1] = { name = n } end
-      return { valid = true, position = { x = 0, y = 0 }, surface = {}, grid = { equipment = eqs } }
-    end
-    local sans = { valid = true, position = { x = 0, y = 0 }, surface = {} }
-    check(XM.bonus(sans).portee == 0 and XM.bonus(sans).puissance == 0, "§5 bis géant sans grille : bonus nul")
-    local g2 = geant({ Mod.name("portee", 3), Mod.name("puissance", 2), "energy-shield-equipment" })
-    local st = XM.stats(g2, cairn)
-    check(math.abs(st.range - 50) < 1e-9 and math.abs(st.shot - cairn.shot * 1.3) < 1e-6 and st.bonus.portee == 25,
-      "§5 bis Cairn avec portée III et puissance II : 50 tuiles, coup × 1,3")
-    -- visée : seulement si la portée en plus sert, sur la POSITION relevée avant le coup
-    appels = {}
-    check(XM.visee(g2, cairn, st.bonus, { x = 30, y = 0 }) == false and #appels == 0, "§5 bis visée : rien dans la portée de base")
-    check(XM.visee(geant({}), cairn, Mod.ZERO, { x = 45, y = 0 }) == false and #appels == 0, "§5 bis visée : rien sans module de portée")
-    check(XM.visee(g2, cairn, st.bonus, { x = 45, y = 0 }) == true, "§5 bis visée : cible à 45 tuiles, au-delà des 40 de base")
-    local ligne, cercle = nil, nil
-    for _, a in ipairs(appels) do
-      if a.kind == "line" and a.t.dash_length then ligne = a.t end
-      if a.kind == "circle" then cercle = a.t end
-    end
-    check(ligne and ligne.gap_length and ligne.time_to_live >= 60 and cercle and cercle.time_to_live >= 60,
-      "§5 bis visée : trait en tirets et cercle de verrouillage, au moins 60 ticks")
-    -- impact : à chaque point touché, visible de jour (cercle au sol), et de nuit (lumière)
-    appels = {}
-    check(XM.impact(g2, Mod.ZERO, { x = 3, y = 4 }) == false and #appels == 0, "§5 bis impact : rien sans module de puissance")
-    check(XM.impact(g2, st.bonus, { x = 3, y = 4 }) == true, "§5 bis impact : coup renforcé")
-    local sol, lum = nil, nil
-    for _, a in ipairs(appels) do
-      if a.kind == "circle" and a.t.filled and a.t.draw_on_ground then sol = a.t end
-      if a.kind == "light" then lum = a.t end
-    end
-    check(sol and sol.time_to_live >= 60 and sol.target[1] == 3 and sol.target[2] == 4 and lum ~= nil,
-      "§5 bis impact : brûlure au sol (de jour) et lumière")
-    appels = {}
-    check(XM.aura(g2, st.bonus) == true and #appels >= 1 and appels[1].kind == "circle" and appels[1].t.time_to_live >= 60,
-      "§5 bis aura : halo au sol sous le géant, au moins 60 ticks")
-    local gp = geant({ Mod.name("portee", 1) })
-    check(XM.aura(gp, XM.bonus(gp)) == false, "§5 bis aura : rien sans puissance")
-    -- couleurs prémultipliées : chaque composante au plus alpha
-    local premul = true
-    appels = {}
-    XM.visee(g2, cairn, st.bonus, { x = 45, y = 0 })
-    XM.impact(g2, st.bonus, { x = 1, y = 1 })
-    XM.aura(g2, st.bonus)
-    for _, a in ipairs(appels) do
-      local c = a.t.color
-      if c and c.a and (c.r > c.a + 1e-9 or c.g > c.a + 1e-9 or c.b > c.a + 1e-9) then premul = false end
-    end
-    check(premul, "§5 bis couleurs du rendering prémultipliées")
-    check(XM.TTL_VISEE >= 60 and XM.TTL_IMPACT >= 60 and XM.TTL_AURA >= 60, "§5 bis durées d'au moins 60 ticks (tirs toutes les 30 à 300)")
+  _G.defines = { events = { on_player_placed_equipment = 1, on_player_removed_equipment = 2, on_equipment_inserted = 3, on_equipment_removed = 4,
+    on_built_entity = 5, on_robot_built_entity = 6, script_raised_built = 7, script_raised_revive = 8 } }
+  local abonnes, ecoute, bonus_ecrits = {}, nil, {}
+  local giants = {}
+  package.loaded["script.core.events"] = { on = function(ev, f) abonnes[#abonnes + 1] = { ev = ev, f = f } end }
+  local journal = {}
+  package.loaded["script.robots.experimentaux_commun"] = { S = function() return { giants = giants } end,
+    journal = function(fmt, ...) journal[#journal + 1] = string.format(fmt, ...) end }
+  package.loaded["script.robots.experimentaux_geants"] = {
+    set_bonus = function(un, p, f)
+      for _, g in ipairs(giants) do if g.un == un then bonus_ecrits[#bonus_ecrits + 1] = { un = un, p = p, f = f } return true end end
+      return false
+    end,
+    ecoute = function(f) ecoute = f end,
+  }
+  local fn = load(src, "=script", "t")
+  local okx, XM = false, nil
+  if fn then okx, XM = pcall(fn) end
+  for _, nm in ipairs({ "script.core.events", "script.robots.experimentaux_commun", "script.robots.experimentaux_geants" }) do package.loaded[nm] = nil end
+  chk(okx and type(XM) == "table", "§5 bis script chargé hors jeu : " .. tostring(not okx and XM or ""))
+  if not (okx and type(XM) == "table") then return pass_, fail_, msgs_ end
+  local evs = {}
+  for _, a in ipairs(abonnes) do evs[#evs + 1] = a.ev end
+  chk(table.concat(evs, ",") == "1,2,3,4,5,6,7,8", "§5 bis abonné aux poses et retraits d'équipement et aux poses de géant : " .. table.concat(evs, ","))
+  chk(ecoute == XM.salve, "§5 bis marque inscrite au crochet de salve du géant (Geants.ecoute)")
+  local function geant(un, noms_eq, valide)
+    local eqs = {}
+    for _, n in ipairs(noms_eq or {}) do eqs[#eqs + 1] = { name = n } end
+    return { un = un, e = { valid = valide ~= false, position = { x = 0, y = 0 }, surface = {}, grid = noms_eq and { equipment = eqs } or nil } }
   end
+  giants[1] = geant(11, { Mod.name("portee", 3), Mod.name("puissance", 2), "energy-shield-equipment" })
+  giants[2] = geant(12, nil)
+  giants[3] = geant(13, { Mod.name("puissance", 3), Mod.name("puissance", 3), Mod.name("puissance", 3) })
+  giants[4] = geant(14, { Mod.name("portee", 1) }, false)
+  local n = XM.sync()
+  chk(n == 3 and #bonus_ecrits == 3, "§5 bis synchronisation : 3 géants valides mis à jour, le géant invalide sauté")
+  local w = {}
+  for _, b in ipairs(bonus_ecrits) do w[b.un] = b end
+  chk(w[11] and math.abs(w[11].p - 0.25) < 1e-12 and math.abs(w[11].f - 0.30) < 1e-12, "§5 bis Cairn portée III + puissance II : fractions 0,25 et 0,30")
+  chk(w[12] and w[12].p == 0 and w[12].f == 0, "§5 bis géant sans grille : bonus nul écrit")
+  chk(w[13] and math.abs(w[13].f - 1.0) < 1e-12, "§5 bis trois puissances III : plafond, fraction 1,0")
+  chk(#journal == 3 and journal[1] == "modules geant #11 portee +25 % puissance +30 %", "§5 bis journal [FO-XP] : une ligne par géant mis à jour : "
+    .. tostring(journal[1]))
+  -- marque d'une salve
+  local cairn = Xp.robot("cairn")
+  local rr = { range = cairn.range, zone = 15, zone_cooldown = 180, cooldown = cairn.cooldown }
+  local e = giants[1].e
+  appels = {}
+  chk(XM.salve(e, rr, { portee = 0, puissance = 0 }, { x = 50, y = 0 }, { zone = 15 }) == 0 and #appels == 0, "§5 bis salve sans module : aucune marque")
+  appels = {}
+  local np = XM.salve(e, rr, { portee = 0.25, puissance = 0 }, { x = 30, y = 0 }, { range = 50, zone = 18.75 })
+  local anneau, tirets = nil, 0
+  for _, a in ipairs(appels) do
+    if a.kind == "circle" and a.t.draw_on_ground and not a.t.filled then anneau = a.t end
+    if a.kind == "line" and a.t.dash_length then tirets = tirets + 1 end
+  end
+  chk(np == 1 and anneau and math.abs(anneau.radius - 18.75) < 1e-9 and tirets == 0, "§5 bis portée, point visé dans la portée de base : anneau de la zone agrandie seul")
+  appels = {}
+  local nl = XM.salve(e, rr, { portee = 0.5, puissance = 0 }, { x = 55, y = 0 }, { range = 60, zone = 22.5 })
+  tirets = 0
+  for _, a in ipairs(appels) do if a.kind == "line" and a.t.dash_length and a.t.gap_length then tirets = tirets + 1 end end
+  chk(nl == 7 and tirets == 1, "§5 bis portée, point visé à 55 tuiles (au-delà de 40) : trait de visée en tirets et verrou à 4 crans")
+  appels = {}
+  local nf = XM.salve(e, rr, { portee = 0, puissance = 1.0 }, { x = 20, y = 0 }, { zone = 15 })
+  chk(nf == 2 and #appels == 2, "§5 bis puissance : anneau cramoisi au point visé et halo sous le géant")
+  appels = {}
+  local nt = XM.salve(e, rr, { portee = 0.5, puissance = 1.0 }, { x = 55, y = 0 }, { zone = 22.5 })
+  chk(nt <= 9 and #appels == nt, "§5 bis au plus 9 objets de rendering par salve (" .. nt .. ")")
+  local premul, ttl_ok = true, true
+  for _, a in ipairs(appels) do
+    local c = a.t.color
+    if c and c.a and (c.r > c.a + 1e-9 or c.g > c.a + 1e-9 or c.b > c.a + 1e-9) then premul = false end
+    if not a.t.time_to_live or a.t.time_to_live > 180 then ttl_ok = false end
+  end
+  chk(premul, "§5 bis couleurs du rendering prémultipliées")
+  chk(ttl_ok, "§5 bis durées au plus la cadence de zone (180)")
+  local tour = { range = 60, zone = 75, zone_cooldown = 30 }
+  chk(XM.ttl(tour) == 30 and XM.ttl({ range = 40, cooldown = 300 }) == 90, "§5 bis durée = min(90, cadence) : 30 pour une cadence de 30 (Tournesol), 90 sinon")
+  return pass_, fail_, msgs_
 end
 
---- Contrat du branchement dans script/robots/experimentaux_geants.lua (lot EXPERIMENTAUX) : actif dès que ce fichier charge le nôtre.
-local function contrat(src)
-  local ok_, ko = 0, {}
-  local function c(cond, m) if cond then ok_ = ok_ + 1 else ko[#ko + 1] = m end end
-  c(src:find('require("script.robots.experimentaux_modules")', 1, true) ~= nil, "charge script/robots/experimentaux_modules")
-  c(src:find("max_distance = eff.range", 1, true) ~= nil and not src:find("max_distance = r.range", 1, true), "cherche la cible à la portée effective")
-  c(not src:find("Xp.split(r.shot", 1, true) and not src:find("K.hit(r, target, r.shot", 1, true), "aucun coup lu sans le bonus")
-  local n_hit, n_imp = 0, 0
-  for _ in src:gmatch("K%.hit%(") do n_hit = n_hit + 1 end
-  for _ in src:gmatch("K%.blast%(") do n_hit = n_hit + 1 end
-  for _ in src:gmatch("XM%.impact%(") do n_imp = n_imp + 1 end
-  c(n_hit > 0 and n_imp == n_hit, "une marque d'impact par point de dégâts (" .. n_imp .. " pour " .. n_hit .. ")")
-  c(src:find("XM.visee(e, r, eff.bonus, tp)", 1, true) ~= nil, "visée sur la position relevée avant le coup")
-  c(src:find("rendre_modules(player, e)\n    rendre(player, e, name)", 1, true) ~= nil, "un géant refusé au plafond rend ses modules")
-  return ok_, ko
-end
 do
-  local geants_src = read("script/robots/experimentaux_geants.lua")
-  if geants_src:find('require("script.robots.experimentaux_modules")', 1, true) then
-    local _, ko = contrat(geants_src)
-    check(#ko == 0, "§9 branchement : " .. table.concat(ko, " ; "))
-  else
-    print("[XP-MODULES] branchement dans experimentaux_geants.lua : ABSENT (attendu avant intégration ; contrôle §9 en attente)")
+  local p_, f_, m_ = suite_script(SCRIPT_SRC)
+  pass, fail = pass + p_, fail + f_
+  for _, m in ipairs(m_) do msgs[#msgs + 1] = m end
+end
+
+-- §8 bis mutants du SCRIPT : chacun doit faire échouer la suite du script
+local MUTANTS_SCRIPT = {
+  { "fractions oubliées (pourcents envoyés)", "function XM.fractions(b) return b.portee / 100, b.puissance / 100 end", "function XM.fractions(b) return b.portee, b.puissance end" },
+  { "portée et puissance inversées", "function XM.fractions(b) return b.portee / 100, b.puissance / 100 end", "function XM.fractions(b) return b.puissance / 100, b.portee / 100 end" },
+  { "géant invalide synchronisé", "if g.e and g.e.valid then", "if g.e then" },
+  { "durée au-delà de la cadence", "return math.max(1, math.min(XM.TTL_MAX, cad))", "return XM.TTL_MAX" },
+  { "trait de visée toujours tiré", "if dist(e.position, c) > r.range then", "if true then" },
+  { "anneau à la zone de base", "radius = zone, width = 6", "radius = zone / (1 + bp), width = 6" },
+  { "marque cramoisie sans puissance", "  if bf > 0 then", "  if bf >= 0 then" },
+  { "crochet de salve oublié", "if Geants.ecoute then Geants.ecoute(XM.salve) end", "" },
+  { "retrait d'équipement ignoré", "Events.on(defines.events.on_player_removed_equipment, equipement)", "" },
+  { "couleur non prémultipliée", "local function rgba(r, g, b, a) return { r = r * a, g = g * a, b = b * a, a = a } end",
+    "local function rgba(r, g, b, a) return { r = r, g = g, b = b, a = a } end" },
+}
+do
+  local refused_s, kept_s = 0, {}
+  for _, mu in ipairs(MUTANTS_SCRIPT) do
+    local a, b = SCRIPT_SRC:find(mu[2], 1, true)
+    if not a then kept_s[#kept_s + 1] = mu[1] .. " (motif absent)" else
+      local _, ff = suite_script(SCRIPT_SRC:sub(1, a - 1) .. mu[3] .. SCRIPT_SRC:sub(b + 1))
+      if ff > 0 then refused_s = refused_s + 1 else kept_s[#kept_s + 1] = mu[1] end
+    end
   end
-  if arg and arg[1] == "--contrat" and arg[2] then
-    local okc, ko = contrat(read(arg[2]))
-    print(string.format("[XP-MODULES] contrat de %s : %d OK, %d ECHEC(S)%s", arg[2], okc, #ko, #ko > 0 and (" : " .. table.concat(ko, " ; ")) or ""))
-    check(#ko == 0, "§9 contrat du fichier donné : " .. table.concat(ko, " ; "))
+  check(#kept_s == 0, "§8 bis mutants du script NON refusés : " .. table.concat(kept_s, " ; "))
+  print(string.format("[XP-MODULES] mutants du script refusés : %d sur %d", refused_s, #MUTANTS_SCRIPT))
+end
+
+-- §9 le branchement du lot EXPERIMENTAUX (script/robots/experimentaux_geants.lua) offre ce que ce script appelle
+do
+  local gsrc = read("script/robots/experimentaux_geants.lua")
+  check(gsrc:find("function G.set_bonus(unit_number, portee, puissance)", 1, true) ~= nil, "§9 le géant offre G.set_bonus (fractions)")
+  if gsrc:find("function G.ecoute(", 1, true) then
+    check(gsrc:find("f(e, r, g.bonus, c, eff)", 1, true) ~= nil, "§9 crochet de salve : appelé avec (géant, r, bonus, point visé, effectif)")
+  else
+    print("[XP-MODULES] crochet G.ecoute ABSENT dans experimentaux_geants.lua : marque visible inactive (demandé au lot EXPERIMENTAUX)")
   end
 end
 
