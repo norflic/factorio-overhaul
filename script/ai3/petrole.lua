@@ -897,10 +897,13 @@ function Pet.think(f, view, book, tick, auto, General, deposits)
   if not Pet.on() or not (f.team and f.hq and f.hq.valid) then return auto end
   Profiler.start("petrole:think")
   local st = state_of(f)
+  Profiler.fstart("pet:decide") -- lot PERF3 : portées fines (mesure seulement)
   if tick >= (st.next or 0) then
     st.next = tick + Pet.EVERY
     decide(f, st, General, deposits, tick)
   end
+  Profiler.fstop("pet:decide")
+  Profiler.fstart("pet:centrale")
   local mods, feeds = {}, {}
   local stock = view.stock or {}
   -- La centrale du plan directeur (demandée par un site électrique) est un projet du cerveau comme un site : ses manques
@@ -917,6 +920,8 @@ function Pet.think(f, view, book, tick, auto, General, deposits)
   -- il n'est plus plafonné sous la recherche (moteur réel, petrole-partie 1618033988 : site du pétrole en « réserve » de
   -- 74 à 120 min, raffinerie, chevalets et poteaux jamais fabriqués, la recherche passant devant). Un site au plus par
   -- pack (le premier : celui du gisement, demandé après la cellule sans fluide, passe d'abord dans la liste triée).
+  Profiler.fstop("pet:centrale")
+  Profiler.fstart("pet:packs")
   local lab = f.team.ia3 and f.team.ia3.lab
   local consumes, used_pack = {}, {}
   local cspec = lab and lab.tech and General.catalogue().techs[lab.tech]
@@ -937,6 +942,8 @@ function Pet.think(f, view, book, tick, auto, General, deposits)
       end
     end
   end
+  Profiler.fstop("pet:packs")
+  Profiler.fstart("pet:sites")
   local order_sites = {}
   for i, s in ipairs(st.sites) do order_sites[i] = s end
   table.sort(order_sites, function(a, b2)
@@ -983,6 +990,7 @@ function Pet.think(f, view, book, tick, auto, General, deposits)
       end
     end
   end
+  Profiler.fstop("pet:sites")
   Profiler.stop("petrole:think")
   if #mods == 0 and #feeds == 0 then return auto end
   auto = auto or { mods = {}, cap = {}, covered = {}, feeds = {} }
