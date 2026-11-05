@@ -1,13 +1,19 @@
 --[[
-  Lot EXPERIMENTAUX-PUISSANCE (5/11) : COÛT en Lua de « frapper tout dans la zone » (moteur simulé, hors jeu). Lua 5.2, depuis la racine :
+  Lot EXPERIMENTAUX-PUISSANCE (5/11) : COÛT en Lua de « frapper tout dans la zone », EN MS PAR TICK AU PIRE (demande du lead, 21 h 40 :
+  « Mesure au moteur simulé avec 1 000 à 10 000 entités : je veux les ms par tick au pire »). Hors jeu, Lua 5.2, depuis la racine :
       lua5.2 tests/echelle_cout.lua
-  Une salve de zone se fait en trois temps, comme le fera script/robots/experimentaux_geants.lua :
-    1. recherche des entités ennemies dans le rayon (ici : parcours d'une liste, comme tests/mock_engine.lua ; en jeu, la recherche du
-       moteur, en C++, n'est PAS mesurée ici) et filtre (valide, PV, destructible) ;
-    2. plan : tri par distance puis identifiant, plafond Ech.PLAFOND (shared/robots/echelle.lua) ;
-    3. dégâts par tranches de Ech.TRANCHE entités par tick (en jeu, `damage` et les morts coûtent en C++ : NON mesuré ici).
-  Ce banc borne la part Lua : il échoue si une tranche dépasse en moyenne 0,5 ms ou si le plan d'une salve dépasse 25 ms (jusqu'à 10 000
-  entités dans 90 tuiles ; moyennes sur 20 salves, os.clock n'ayant qu'une milliseconde de résolution sous Windows). La part du moteur se mesure en jeu (banc à faire, garde levée).
+  Une salve de zone se fait, comme dans script/robots/experimentaux_geants.lua, en ticks SÉPARÉS :
+    tick 0      : UNE recherche d'entités du moteur (find_entities_filtered, C++) : aucune boucle Lua. Ici, une recherche simulée (parcours
+                  d'une liste, comme tests/mock_engine.lua) est donnée pour mémoire, HORS du pire tick Lua ;
+    ticks 1..m  : rangement par anneaux (Ech.poser), au plus Ech.LOT_RANGEMENT entités par tick ;
+    ticks m+1.. : dégâts, au plus Ech.TRANCHE entités par tick, lues en parcourant les anneaux (Ech.suivants : aucune copie de la file) ;
+                  en jeu, `damage` et les morts coûtent en C++ : NON mesuré ici.
+  Pire tick Lua = max(un lot de rangement, une tranche). Chaque temps est une moyenne sur REP répétitions du MÊME
+  travail (os.clock n'a qu'une milliseconde de résolution sous Windows).
+  LIMITE : les entités simulées sont des tables Lua ; en jeu, lire valid, health, destructible et position passe par le pont C++ (4 lectures
+  par entité rangée). Ce coût du pont et celui du moteur (recherche, dégâts, morts) se mesurent en jeu : banc xp-zone et analyze.py --spikes.
+  Le banc échoue si le pire tick Lua dépasse 1 ms ou si une salve demande plus de Ech.CADENCE_ZONE ticks (deux salves d'un géant ne se
+  chevauchent pas).
 ]]
 
 package.path = "./?.lua;" .. package.path
@@ -16,7 +22,7 @@ local Ech = require("shared.robots.echelle")
 local seed = 12345
 local function rnd() seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648 end
 
---- Monde simulé : n entités ennemies dans un disque de rayon r (plus des entités hors du disque, à écarter).
+--- Monde simulé : n entités ennemies dans un disque de rayon 1,2 r (une part hors de la zone, à écarter par la recherche).
 local function monde(n, r)
   local out = {}
   for i = 1, n do
@@ -29,55 +35,92 @@ local function monde(n, r)
   return out
 end
 
---- Recherche simulée (parcours linéaire, comme le moteur simulé) : entités valides du disque.
+--- Recherche simulée : les entités du disque (ce que rend find_entities_filtered{position, radius} en jeu).
 local function chercher(ents, c, r)
   local out = {}
   local r2 = r * r
-  for i, e in ipairs(ents) do
-    if e.valid and e.health and e.destructible then
-      local dx, dy = e.position.x - c.x, e.position.y - c.y
-      if dx * dx + dy * dy <= r2 then out[#out + 1] = { x = e.position.x, y = e.position.y, id = e.unit_number or (1e9 + i), e = e } end
-    end
+  for _, e in ipairs(ents) do
+    local dx, dy = e.position.x - c.x, e.position.y - c.y
+    if dx * dx + dy * dy <= r2 then out[#out + 1] = e end
   end
   return out
 end
 
-local REP = 20 -- os.clock n'a qu'une milliseconde de résolution sous Windows : on répète et on divise
+--- Un lot de rangement, comme zone_ranger : filtre, lecture de la position, Ech.poser.
+local function ranger_lot(p, found, i, b)
+  for k = i, b do
+    local x = found[k]
+    if x.valid and x.health and x.destructible then
+      local q = x.position
+      Ech.poser(p, q.x, q.y, x)
+    end
+  end
+end
+
+local REP = 20
 
 local function mesure(n, r, salve)
-  local rech, tri, tranches, nt, dans, traitees = 0, 0, 0, 0, 0, 0
+  local ents = monde(n, r)
+  local c = { x = 0, y = 0 }
+  -- recherche simulée (pour mémoire)
+  local t0 = os.clock()
+  local found
+  for _ = 1, REP do found = chercher(ents, c, r) end
+  local rech = (os.clock() - t0) / REP
+  local nf = #found
+  local lots = math.max(1, math.ceil(nf / Ech.LOT_RANGEMENT))
+  -- rangement : salve entière REP fois, divisée par le nombre de lots
+  local p
+  t0 = os.clock()
   for _ = 1, REP do
-    local ents = monde(n, r)
-    local c = { x = 0, y = 0 }
-    local t0 = os.clock()
-    local cands = chercher(ents, c, r)
+    p = Ech.nouveau_plan(c)
+    local i = 1
+    while i <= nf do
+      local b = math.min(nf, i + Ech.LOT_RANGEMENT - 1)
+      ranger_lot(p, found, i, b)
+      i = b + 1
+    end
+  end
+  local lot = (os.clock() - t0) / REP / lots
+  local nl = math.min(nf, Ech.PLAFOND)
+  local nt = Ech.ticks(nl)
+  -- tranches de dégâts : REP salves sur des mondes neufs, temps par tranche
+  local ttr = 0
+  for _ = 1, REP do
+    local w = monde(n, r)
+    local f = chercher(w, c, r)
+    local q = Ech.nouveau_plan(c)
+    ranger_lot(q, f, 1, #f)
+    local cur = Ech.curseur()
     local t1 = os.clock()
-    local plan = Ech.plan(cands, c)
-    local t2 = os.clock()
-    for k = 1, Ech.ticks(#plan) do
-      local a, b = Ech.tranche(k, #plan)
-      for i = a, b do
-        local e = plan[i].e
+    local nb = 0
+    repeat
+      local l, fini = Ech.suivants(q, cur, Ech.TRANCHE)
+      nb = nb + 1
+      for _, e in ipairs(l) do
         if e.valid then e:damage(salve) end
       end
-    end
-    local t3 = os.clock()
-    rech, tri, tranches = rech + (t1 - t0), tri + (t2 - t1), tranches + (t3 - t2)
-    nt, dans, traitees = nt + Ech.ticks(#plan), #cands, #plan
+    until fini
+    ttr = ttr + (os.clock() - t1) / nb
   end
-  return { n = n, dans = dans, plan = traitees, recherche = rech / REP * 1000, tri = tri / REP * 1000, ticks = nt / REP,
-           tranche = (nt > 0 and tranches / nt or 0) * 1000 }
+  local tranche = ttr / REP
+  local pire = math.max(lot, tranche)
+  return { n = n, dans = nf, plan = nl, recherche = rech * 1000, lots = lots, lot = lot * 1000,
+           tranches = nt, tranche = tranche * 1000, pire = pire * 1000, ticks = 1 + lots + nt }
 end
 
 local fail = 0
-print(string.format("[ECHELLE-COUT] tranche %d entités par tick, plafond %d par salve, cadence de zone %d ticks ; moyennes sur %d salves",
-  Ech.TRANCHE, Ech.PLAFOND, Ech.CADENCE_ZONE, REP))
-print("[ECHELLE-COUT] entités | dans la zone | traitées | recherche simulée (ms/salve) | tri (ms/salve) | ticks | tranche (ms/tick)")
-for _, n in ipairs({ 1000, 3000, 6000, 10000 }) do
+print(string.format("[ECHELLE-COUT] rangement %d entités par tick, tranche %d coups par tick, plafond %d par salve, cadence de zone %d ticks ;"
+  .. " moyennes sur %d répétitions", Ech.LOT_RANGEMENT, Ech.TRANCHE, Ech.PLAFOND, Ech.CADENCE_ZONE, REP))
+print("[ECHELLE-COUT] entités | dans la zone | frappées | recherche simulée ms (moteur en jeu) | lots | ms/lot | tranches"
+  .. " | ms/tranche | PIRE TICK LUA ms | ticks par salve")
+for _, n in ipairs({ 1000, 2000, 3000, 6000, 10000 }) do
   local w = mesure(n, 90, Ech.salve(15, "laser"))
-  print(string.format("[ECHELLE-COUT] %d | %d | %d | %.2f | %.2f | %d | %.3f", w.n, w.dans, w.plan, w.recherche, w.tri, w.ticks, w.tranche))
-  if w.tranche > 0.5 then fail = fail + 1; print("[ECHELLE-COUT] ECHEC tranche au-delà de 0,5 ms") end
-  if w.tri + w.recherche > 25 then fail = fail + 1; print("[ECHELLE-COUT] ECHEC plan d'une salve au-delà de 25 ms") end
+  print(string.format("[ECHELLE-COUT] %d | %d | %d | %.2f | %d | %.3f | %d | %.3f | %.3f | %d", w.n, w.dans, w.plan, w.recherche,
+    w.lots, w.lot, w.tranches, w.tranche, w.pire, w.ticks))
+  if w.pire > 1 then fail = fail + 1; print("[ECHELLE-COUT] ECHEC pire tick Lua au-delà de 1 ms") end
+  if w.ticks > Ech.CADENCE_ZONE then fail = fail + 1; print("[ECHELLE-COUT] ECHEC une salve dure plus que la cadence de zone") end
 end
-print(string.format("[ECHELLE-COUT] BILAN : %s", fail == 0 and "OK (part Lua bornée)" or (fail .. " ECHEC(S)")))
+print(string.format("[ECHELLE-COUT] BILAN : %s", fail == 0 and "OK (pire tick Lua borné ; pont C++ et moteur : banc xp-zone en jeu)"
+  or (fail .. " ECHEC(S)")))
 os.exit(fail == 0 and 0 or 1)

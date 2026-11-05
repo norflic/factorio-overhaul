@@ -105,6 +105,76 @@ local function suite(Ech)
   local all = true
   for i = 1, n do all = all and seen[i] == true end
   check(all and not dup and Ech.ticks(n) == math.ceil(n / Ech.TRANCHE), "§4 tranches : chaque cible une fois")
+  -- §4 rangement incrémental : par lots, la même file qu'en une fois
+  local p = Ech.nouveau_plan({ x = 0, y = 0 })
+  for a = 1, #cands, 7 do Ech.ranger(p, cands, a, math.min(#cands, a + 6)) end
+  -- §4 parcours par tranches (Ech.suivants) : la même file que Ech.liste, plafond compris, épuisé à la DERNIÈRE tranche, jamais avant
+  local function parcours(pl, tr)
+    local cur, out, fins, tranches = Ech.curseur(), {}, 0, 0
+    while true do
+      local t, fini = Ech.suivants(pl, cur, tr)
+      tranches = tranches + 1
+      for _, x in ipairs(t) do out[#out + 1] = x end
+      if fini then fins = fins + 1; break end
+      if tranches > 100000 then break end
+    end
+    return out, tranches
+  end
+  local pb = Ech.nouveau_plan({ x = 0, y = 0 })
+  Ech.ranger(pb, big, 1, #big)
+  local lb, tb = parcours(pb, Ech.TRANCHE)
+  local lbl = Ech.liste(pb)
+  local sb = #lb == #lbl and #lb == Ech.PLAFOND and tb == math.ceil(Ech.PLAFOND / Ech.TRANCHE)
+  for i = 1, #lbl do sb = sb and lb[i] == lbl[i] end
+  check(sb, "§4 parcours par tranches = liste en une fois (plafond, dernière tranche)")
+  local pc = Ech.nouveau_plan({ x = 0, y = 0 })
+  local sparse = {}
+  for i = 1, 25 do sparse[i] = { x = (i % 5) * 20, y = 0, id = i } end -- anneaux vides entre les pleins
+  Ech.ranger(pc, sparse, 1, #sparse)
+  local lc, tc = parcours(pc, 4)
+  local lcl = Ech.liste(pc)
+  local sc = #lc == 25 and #lcl == 25 and tc == 7
+  for i = 1, #lcl do sc = sc and lc[i] == lcl[i] end
+  check(sc, "§4 parcours : anneaux vides sautés, dernière tranche partielle")
+  local _, t5 = parcours(pc, 5)
+  check(t5 == 5, "§4 parcours : file multiple de la tranche, aucune tranche vide à la fin")
+  local _, f0 = Ech.suivants(Ech.nouveau_plan({ x = 0, y = 0 }), Ech.curseur(), Ech.TRANCHE)
+  check(f0 == true, "§4 parcours d'un plan vide : épuisé tout de suite")
+  local l2 = Ech.liste(p)
+  local same = #l2 == #plan
+  for i = 1, #plan do same = same and l2[i] == plan[i] end
+  check(same, "§4 rangement par lots = rangement en une fois")
+  -- §7 modules : produit
+  local eff = Ech.effectif({ range = 40, zone = 30, salve = 1000 }, { portee = 0.2, puissance = 0.5 })
+  check(math.abs(eff.range - 48) < 1e-9 and math.abs(eff.zone - 36) < 1e-9 and math.abs(eff.salve - 1500) < 1e-9, "§7 modules : portée et zone × 1,2, salve × 1,5")
+  local e0 = Ech.effectif({ range = 40, zone = 30, salve = 1000 }, nil)
+  check(e0.range == 40 and e0.zone == 30 and e0.salve == 1000, "§7 modules : sans bonus, inchangé")
+  -- §8 balayage (Stylet, âge 11, portée 45)
+  local bp = Ech.balayage(11, 45)
+  check(bp.angle == 30 and bp.pas == 10 and bp.longueur == 45 and bp.salve == Ech.salve(11, "laser") and bp.demi == 1.5,
+    "§8 balayage : 30° en 10 pas, rayon de la longueur de la portée, salve laser de l'âge")
+  local o, cb = { x = 0, y = 0 }, { x = 10, y = 0 }
+  local rs = Ech.rayons(o, cb, 45)
+  local okr = rs and #rs == 11
+  if okr then
+    for _, q in ipairs(rs) do okr = okr and math.abs(math.sqrt(q.x * q.x + q.y * q.y) - 45) < 1e-6 end
+    -- premier et dernier à ±15° de la cible, milieu sur la cible
+    okr = okr and math.abs(rs[1].x / 45 - 0.96592582628906829) < 1e-6 and math.abs(rs[11].x / 45 - 0.96592582628906829) < 1e-6
+      and rs[1].y * rs[11].y < 0 and math.abs(rs[6].y) < 1e-6 and math.abs(rs[6].x - 45) < 1e-6
+    -- pas réguliers de 3°
+    for k = 2, 11 do
+      local a, b = rs[k - 1], rs[k]
+      local cosk = (a.x * b.x + a.y * b.y) / (45 * 45)
+      okr = okr and math.abs(cosk - 0.99862953475457383) < 1e-9
+    end
+  end
+  check(okr, "§8 balayage : 11 rayons de 45, de −15° à +15° par pas de 3°, le milieu sur la cible")
+  check(Ech.rayons(o, o, 45) == nil, "§8 balayage : cible sur l'unité, rien")
+  check(Ech.dans_bande({ x = 20, y = 1.4 }, o, { x = 45, y = 0 }, 1.5) and not Ech.dans_bande({ x = 20, y = 1.6 }, o, { x = 45, y = 0 }, 1.5)
+    and not Ech.dans_bande({ x = 47, y = 0 }, o, { x = 45, y = 0 }, 1.5) and Ech.dans_bande({ x = 46, y = 0 }, o, { x = 45, y = 0 }, 1.5),
+    "§8 balayage : bande de 1,5 autour du rayon, bout compris")
+  local fx = Ech.feux(o, { x = 45, y = 0 }, 4)
+  check(#fx == 11 and math.abs(fx[1].x - 4) < 1e-9 and math.abs(fx[11].x - 44) < 1e-9, "§8 balayage : un feu tous les 4 tuiles le long du rayon")
   return pass, fail, msgs
 end
 
@@ -131,7 +201,19 @@ local MUTANTS = {
   { "acide oublié", 'or t == "acid" then', 'then' },
   { "munition chargeur", "return a <= 8 and 8 or 24", "return 5" },
   { "salve sans la part fixe", "return math.ceil(net / (1 - r[2] / 100) + r[1])", "return math.ceil(net / (1 - r[2] / 100))" },
-  { "plan du bord vers le centre", "  for k = 1, top do", "  for k = top, 1, -1 do" },
+  { "plan du bord vers le centre", "  for k = 1, p.top do", "  for k = p.top, 1, -1 do" },
+  { "rangement qui oublie la dernière entrée", "local c = cands[i]\n    Ech.poser(p, c.x, c.y, c)", "local c = cands[i]\n    if i == b then break end\n    Ech.poser(p, c.x, c.y, c)" },
+  { "parcours sans plafond", "while #out < n and cur.pris < Ech.PLAFOND and cur.k <= p.top do", "while #out < n and cur.k <= p.top do" },
+  { "parcours qui saute un anneau", "      cur.k, cur.i = cur.k + 1, 1", "      cur.k, cur.i = cur.k + 2, 1" },
+  { "parcours épuisé trop tôt", "if r and i <= #r then fini = false; break end", "if r and i < #r then fini = false; break end" },
+  { "parcours jamais épuisé par le reste vide", "    fini = true\n    while k <= p.top do", "    fini = false\n    while k <= p.top do" },
+  { "module de portée sans effet sur la zone", "zone = r.zone and r.zone * (1 + bp)", "zone = r.zone" },
+  { "puissance en somme au lieu du produit", "salve = r.salve and r.salve * (1 + bf)", "salve = r.salve and r.salve + bf" },
+  { "balayage de 36°", "local COS15, SIN15 = 0.96592582628906829, 0.25881904510252074", "local COS15, SIN15 = 0.95105651629515353, 0.30901699437494740" },
+  { "pas de 4°", "local COS3, SIN3 = 0.99862953475457383, 0.052335956242943835", "local COS3, SIN3 = 0.99756405025982425, 0.069756473744125301" },
+  { "bande sans le bout du segment", "if t < 0 then t = 0 elseif t > 1 then t = 1 end", "if t < 0 then t = 0 end" },
+  { "balayage hors laser", 'salve = Ech.salve(age, "laser") }', 'salve = Ech.salve(age, "physical") }' },
+  { "feux à la mauvaise distance", "local t = i * pas / l", "local t = (i - 0.5) * pas / l" },
   { "anneaux de 6 tuiles", "Ech.ANNEAU = 3", "Ech.ANNEAU = 6" },
   { "plafond ignoré", "if #out >= Ech.PLAFOND then return out end", "" },
   { "tranche qui saute une cible", "local a = (k - 1) * Ech.TRANCHE + 1", "local a = (k - 1) * Ech.TRANCHE + 2" },

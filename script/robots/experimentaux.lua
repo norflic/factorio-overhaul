@@ -303,6 +303,8 @@ remote.add_interface("fo-xp", {
   zones = function() return #S().zones end,
   --- Géants de cette famille, vivants, pour une force (le plafond des géants les compte avec ceux de robotsjeu).
   geants = function(force_name) return Geants.count(force_name) end,
+  --- Modules (lot DESIGN-MODULES) : bonus de portée et de puissance d'un géant (0,2 = + 20 %, produit avec la règle d'échelle).
+  bonus = function(unit_number, portee, puissance) return Geants.set_bonus(unit_number, portee, puissance) end,
   noms = function() return NAMES end,
 })
 
