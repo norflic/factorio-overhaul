@@ -443,6 +443,26 @@ end
 --- pierre sur la voie de charbon la bouchent).
 function Co.coal_line(coal, is_coal, free, d, want, target, R, wire, per_side, center, is_foreign)
   if #coal == 0 or want < 1 or R < 1 then return nil end
+  -- Lot PERF3 : place libre et tuiles étrangères lues UNE fois par tuile pendant l'appel (rien n'est pris ici : mêmes réponses) ;
+  -- chaque position de foreuse les relisait toutes, et les rangées voisines se recouvrent
+  do
+    local f0, fmem = free, {}
+    free = function(u, v)
+      local k = tk(u, v)
+      local x = fmem[k]
+      if x == nil then x = f0(u, v) and true or false; fmem[k] = x end
+      return x
+    end
+    if is_foreign then
+      local g0, gmem = is_foreign, {}
+      is_foreign = function(u, v)
+        local k = tk(u, v)
+        local x = gmem[k]
+        if x == nil then x = g0(u, v) and true or false; gmem[k] = x end
+        return x
+      end
+    end
+  end
   local s, r = d.size, d.reach
   local h = math.floor(s / 2)
   -- fenêtre autour de `center`, sinon de la tuile de charbon la plus proche de la cible
@@ -475,26 +495,48 @@ function Co.coal_line(coal, is_coal, free, d, want, target, R, wire, per_side, c
     local amin, amax, lmin, lmax
     if orient == "u" then amin, amax, lmin, lmax = u0, u1, v0, v1 else amin, amax, lmin, lmax = v0, v1, u0, u1 end
     -- foreuses possibles d'un côté sg de la rangée l (corps sur les rangées l + sg .. l + sg * s), glouton le long de a
+    -- Lot PERF3 : lectures par COLONNE x (corps libre sur les s rangées, tuile étrangère, charbon compté sur les s + 2r rangées de la
+    -- zone), gardées pour la rangée l et le côté sg : mêmes réponses que tuile par tuile, sans relire une colonne à chaque position
     local function side_drills(l, sg)
       local A = {}
+      local bodyc, forc, coalc = {}, {}, {}
+      local function body_free(x)
+        local v = bodyc[x]
+        if v == nil then
+          v = true
+          for y = 1, s do local pu, pv = P(x, l + sg * y); if not free(pu, pv) then v = false break end end
+          bodyc[x] = v
+        end
+        return v
+      end
+      local function col_foreign(x)
+        local v = forc[x]
+        if v == nil then
+          v = false
+          for y = 1 - r, s + r do local pu, pv = P(x, l + sg * y); if is_foreign(pu, pv) then v = true break end end
+          forc[x] = v
+        end
+        return v
+      end
+      local function col_coal(x)
+        local v = coalc[x]
+        if v == nil then
+          v = 0
+          for y = 1 - r, s + r do local pu, pv = P(x, l + sg * y); if cc(pu, pv) then v = v + 1 end end
+          coalc[x] = v
+        end
+        return v
+      end
       local a = amin - s - r
       while a <= amax + r do
         local ok = true
-        for x = a, a + s - 1 do
-          for y = 1, s do
-            if ok then local pu, pv = P(x, l + sg * y); if not free(pu, pv) then ok = false end end
-          end
-        end
+        for x = a, a + s - 1 do if ok and not body_free(x) then ok = false end end
         local n = 0
         if ok and is_foreign then -- lot MELANGE
-          for x = a - r, a + s - 1 + r do
-            for y = 1 - r, s + r do local pu, pv = P(x, l + sg * y); if ok and is_foreign(pu, pv) then ok = false end end
-          end
+          for x = a - r, a + s - 1 + r do if ok and col_foreign(x) then ok = false end end
         end
         if ok then
-          for x = a - r, a + s - 1 + r do
-            for y = 1 - r, s + r do local pu, pv = P(x, l + sg * y); if cc(pu, pv) then n = n + 1 end end
-          end
+          for x = a - r, a + s - 1 + r do n = n + col_coal(x) end
         end
         if ok and n >= Co.MIN_COAL then A[#A + 1] = a; a = a + s else a = a + 1 end
       end
