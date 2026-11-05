@@ -112,11 +112,12 @@ C.on_alert = function(f, ep, kind, tick, mode)
       if tick - (a.t or 0) < 3600 and mode == "hunt" then return false end
       a["until"] = tick + SD.ALERT_TICKS
       a.x, a.y, a.t = ep.x, ep.y, tick
+      if mode == "site" then a.site = true end -- lot DANGER-ACTIF : un site touché ; ses soldats sont pris au-dessus de la réserve du QG (pass)
       return true
     end
   end
   t.alerts[#t.alerts + 1] = { x = ep.x, y = ep.y, ["until"] = tick + SD.ALERT_TICKS, n = mode == "hunt" and 3 or 4,
-    role = mode == "hunt" and "hunt" or nil, t = tick }
+    role = mode == "hunt" and "hunt" or nil, t = tick, site = (mode == "site") or nil }
   return true
 end
 
@@ -400,11 +401,12 @@ local function pass(f, tick)
   -- Lot ARMEE-ANTICIPATION : pendant une alerte (vague annoncée, f.armee), une alerte de défense prend TOUTE la force libre si
   -- elle est près du QG (à moins de Sd.NEAR_HQ), personne sinon : plus d'envoi de 4 soldats isolés loin du regroupement.
   local army_on = A.alert_on(f.armee)
-  -- Lot DANGER-ACTIF (relecture du lead, 5/11 17 h 34) : une alerte LOINTAINE (site touché à plus de 226 tuiles : seules les alertes « site » vont au-delà)
-  -- ne prend qu'un groupe entier pris au-dessus de la réserve du QG (Da.site_far_send) ; le QG menacé et les alertes proches passent d'abord.
+  -- Lot DANGER-ACTIF (relecture du lead, 5/11 17 h 34 et 17 h 41) : la SOMME des alertes de SITE (bâtiment touché, a.site), proches comprises, ne prend que
+  -- ce qui dépasse la réserve du QG (Sd.surplus), servie par distance croissante, par groupe entier (Da.site_plan). Le QG menacé (hq_en : tous les soldats,
+  -- left = 0) et une alerte d'armée gardent leur priorité ; les alertes de fuite et de chasse aussi (servies avant, elles comptent dans ce qui est pris).
   local far2 = Sd.NEAR_HQ * Sd.NEAR_HQ * 2
   local left = hq_en and 0 or Sd.surplus(#list)
-  local far_alerts = {}
+  local site = {}
   for _, a in ipairs(t.alerts or {}) do
     if tick < a["until"] then
       alerts[#alerts + 1] = a
@@ -413,26 +415,37 @@ local function pass(f, tick)
       -- partait, même au pied du QG ; écrit en deux branches.
       if army_on and not a.role then
         if d2(a, f.hq_pos) <= Sd.NEAR_HQ * Sd.NEAR_HQ then n = nil else n = 0 end
-      end
-      if n ~= 0 and not a.role and d2(a, f.hq_pos) > far2 then
-        far_alerts[#far_alerts + 1] = a
+        if n ~= 0 then
+          defend[#defend + 1] = { key = "alerte", x = a.x, y = a.y, n = n, role = a.role }
+          left = 0
+        end
+      elseif a.site and not a.role then
+        site[#site + 1] = { a = a, d2 = d2(a, f.hq_pos), x = a.x, y = a.y }
       elseif n ~= 0 then
         defend[#defend + 1] = { key = "alerte", x = a.x, y = a.y, n = n, role = a.role }
         left = (n == nil) and 0 or math.max(0, left - n)
       end
     end
   end
-  for _, a in ipairs(far_alerts) do
-    local n
-    n, left = Da.site_far_send(left)
-    if n > 0 then defend[#defend + 1] = { key = "alerte", x = a.x, y = a.y, n = n } end
-    -- Compté une fois par alerte (envoi, ou refus faute de soldats au-dessus de la réserve du QG) ; lu par le bilan [FO-DANGER-ACTIF].
-    local st = n > 0 and "sent" or "refused"
-    if a.far ~= st then
-      a.far = st
+  local served
+  served, left = Da.site_plan(site, left)
+  for _, sv in ipairs(served) do
+    local a = sv.item.a
+    if sv.n > 0 then defend[#defend + 1] = { key = "alerte", x = a.x, y = a.y, n = sv.n } end
+    -- Compté une fois par alerte et par état (servie, ou refusée faute de soldats au-dessus de la réserve du QG) ; lu par le bilan [FO-DANGER-ACTIF].
+    local st = sv.n > 0 and "sent" or "refused"
+    if a.served ~= st then
+      a.served = st
       t.stats.dact = t.stats.dact or {}
       local da = t.stats.dact
-      if n > 0 then da.site_far_sent = (da.site_far_sent or 0) + 1 else da.site_far_refused = (da.site_far_refused or 0) + 1 end
+      local far = sv.item.d2 > far2
+      if sv.n > 0 then
+        da.site_sent = (da.site_sent or 0) + 1
+        if far then da.site_far_sent = (da.site_far_sent or 0) + 1 end
+      else
+        da.site_refused = (da.site_refused or 0) + 1
+        if far then da.site_far_refused = (da.site_far_refused or 0) + 1 end
+      end
     end
   end
   t.alerts = alerts

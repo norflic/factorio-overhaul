@@ -99,16 +99,36 @@ function Da.mobile_cause(ctype)
   return ctype == "unit" or ctype == "character"
 end
 
---- Alerte LOINTAINE d'un site touché (au-delà de la limite des alertes de fuite, Sd.NEAR_HQ × √2 = 226 tuiles du QG) : relecture du lead (5/11,
---- 17 h 34, risque relevé par le lot DEPENSES2 ; F251 : les PNJ meurent surtout en route vers les avant-postes lointains, F253 : ce qu'ils portent est
---- perdu). Les soldats n'y vont que par groupe ENTIER de Da.SITE_GROUP (le groupe d'une alerte, C.on_alert) pris sur ce qui DÉPASSE la réserve du QG
---- (`left` = soldats libres moins Sd.reserve, moins ce que le QG menacé et les alertes proches ont déjà pris) ; sinon aucun (le QG n'est jamais vidé sous
---- sa réserve, aucun envoi de soldats isolés au loin). Rend les soldats envoyés et ce qui reste disponible pour les alertes suivantes.
+--- Alertes de SITE (un bâtiment de l'équipe touché, C.on_alert mode « site ») : relecture du lead (5/11, 17 h 34 et 17 h 41, risque relevé par le lot
+--- DEPENSES2 ; F251 : les PNJ meurent surtout en route vers les avant-postes lointains, F253 : ce qu'ils portent est perdu). La SOMME des alertes de
+--- site, proches comprises, ne prend que ce qui DÉPASSE la réserve du QG (`left` = soldats libres moins Sd.reserve, moins ce que le QG menacé, une alerte
+--- d'armée ou les alertes de fuite ont déjà pris) ; les alertes s'y servent par distance CROISSANTE au QG, par groupe ENTIER de Da.SITE_GROUP (le groupe
+--- d'une alerte), sinon rien (jamais de soldats isolés). Aucune exception près du QG : à moins de 48 tuiles (SD.HQ_THREAT_R), une unité ennemie fait du QG
+--- une menace (hq_en), défendue par TOUS les soldats avant les alertes.
 Da.SITE_GROUP = 4
-function Da.site_far_send(left)
+function Da.site_send(left)
   left = left or 0
   if left >= Da.SITE_GROUP then return Da.SITE_GROUP, left - Da.SITE_GROUP end
   return 0, left
+end
+
+--- `list` = { { d2 = distance au QG au carré, x, y, ... } } (alertes de site vivantes) ; rend { { item, n } } dans l'ordre de service (distance croissante,
+--- puis x, puis y) et ce qui reste au-dessus de la réserve. Pur : la liste d'entrée n'est pas modifiée.
+function Da.site_plan(list, left)
+  local order = {}
+  for i, it in ipairs(list or {}) do order[i] = it end
+  table.sort(order, function(a, b)
+    if a.d2 ~= b.d2 then return a.d2 < b.d2 end
+    if a.x ~= b.x then return a.x < b.x end
+    return a.y < b.y
+  end)
+  local out = {}
+  for i, it in ipairs(order) do
+    local n
+    n, left = Da.site_send(left)
+    out[i] = { item = it, n = n }
+  end
+  return out, left
 end
 
 --- Faut-il prévenir les soldats de cette atteinte portée à un bâtiment de l'équipe ? Au plus une alerte par équipe tous les Da.ALERT_GAP ticks.

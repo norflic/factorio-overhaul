@@ -74,19 +74,35 @@ local function cases(Da, A)
   check(Da.shelter_resp("rally", { x = 40, y = 0 }, { x = 0, y = 0 }) == "rally" and Da.shelter_resp("rally", { x = 41, y = 0 }, { x = 0, y = 0 }) == "stand",
     "ralliement général seulement pour une menace à 40 tuiles du QG au plus")
   check(Da.shelter_resp("away", { x = 90, y = 0 }, { x = 0, y = 0 }) == "away" and Da.shelter_resp("stand", { x = 90, y = 0 }, { x = 0, y = 0 }) == "stand", "éloignement et « stand » inchangés")
-  -- 6. Alertes LOINTAINES d'un site touché (relecture du lead, 5/11 17 h 34 ; F251, F253) : un groupe entier au-dessus de la réserve du QG, sinon rien.
+  -- 6. Alertes de SITE (relecture du lead, 5/11 17 h 34 et 17 h 41 ; F251, F253) : leur SOMME, proches comprises, ne prend que ce qui dépasse la
+  -- réserve du QG ; servies par distance croissante, par groupe entier, sinon rien.
   local Sd = require("shared.ai3.soldats")
-  local n1, l1 = Da.site_far_send(8)
-  check(n1 == 4 and l1 == 4, "alerte lointaine, 8 soldats au-dessus de la réserve : un groupe de 4 part, 4 restent")
-  local n2, l2 = Da.site_far_send(l1)
-  local n3, l3 = Da.site_far_send(l2)
-  check(n2 == 4 and l2 == 0 and n3 == 0 and l3 == 0, "deux groupes au plus avec 8 de surplus ; la 3e alerte lointaine n'envoie personne")
-  local n4, l4 = Da.site_far_send(3)
-  check(n4 == 0 and l4 == 3, "3 soldats au-dessus de la réserve : aucun envoi (jamais de soldats isolés au loin)")
-  check(Da.site_far_send(nil) == 0 and Da.site_far_send(0) == 0, "aucun surplus : aucun envoi")
-  check(Sd.surplus(10) == 2 and Da.site_far_send(Sd.surplus(10)) == 0 and Da.site_far_send(Sd.surplus(12)) == 4,
-    "réserve du QG (Sd.reserve : 8 au moins) : 10 soldats libres, aucun départ au loin ; 12, un groupe")
+  local n1, l1 = Da.site_send(8)
+  check(n1 == 4 and l1 == 4, "alerte de site, 8 soldats au-dessus de la réserve : un groupe de 4 part, 4 restent")
+  local n4, l4 = Da.site_send(3)
+  check(n4 == 0 and l4 == 3, "3 soldats au-dessus de la réserve : aucun envoi (jamais de soldats isolés)")
+  check(Da.site_send(nil) == 0 and Da.site_send(0) == 0, "aucun surplus : aucun envoi")
   check(Da.SITE_GROUP == 4, "groupe d'une alerte de site : 4 (C.on_alert)")
+  -- Cas du lead : 3 alertes proches (60, 100, 150 tuiles) + 1 lointaine (400), 14 soldats libres : le QG en garde au moins 8.
+  local function plan_case(free_n)
+    local al = { { d2 = 400 * 400, x = 400, y = 0, tag = "loin" }, { d2 = 150 * 150, x = 0, y = 150, tag = "150" },
+      { d2 = 60 * 60, x = 60, y = 0, tag = "60" }, { d2 = 100 * 100, x = 0, y = -100, tag = "100" } }
+    local out, rest = Da.site_plan(al, Sd.surplus(free_n))
+    local taken, by = 0, {}
+    for _, sv in ipairs(out) do taken = taken + sv.n by[sv.item.tag] = sv.n end
+    return free_n - taken, by, out, rest, al
+  end
+  local kept, by, out, _, al = plan_case(14)
+  check(kept >= 8 and kept == 10 and by["60"] == 4 and by["100"] == 0 and by["150"] == 0 and by["loin"] == 0,
+    string.format("3 alertes proches + 1 lointaine, 14 soldats : un groupe à la plus proche (60 tuiles), le QG en garde %d (>= 8)", kept))
+  check(out[1].item.tag == "60" and out[2].item.tag == "100" and out[3].item.tag == "150" and out[4].item.tag == "loin" and al[1].tag == "loin",
+    "alertes servies par distance croissante au QG ; la liste d'entrée n'est pas modifiée")
+  local kept20, by20 = plan_case(20)
+  check(kept20 == 8 and by20["60"] == 4 and by20["100"] == 4 and by20["150"] == 4 and by20["loin"] == 0,
+    string.format("20 soldats (réserve 8) : 3 groupes aux 3 alertes proches, rien au loin, le QG en garde %d", kept20))
+  local kept40, by40 = plan_case(40)
+  check(kept40 == 24 and by40["loin"] == 4 and Sd.reserve(40) == 14, "40 soldats (réserve 35 % = 14) : les 4 alertes servies, le QG en garde 24")
+  check(#Da.site_plan({}, 10) == 0 and select(2, Da.site_plan({}, 10)) == 10, "aucune alerte : rien de pris")
   local ags = { [1] = { rest_since = 100 }, [2] = {}, [3] = { rest_since = 9000 } }
   local n, worst = Da.rest_open_over(ags, { 1, 2, 3 }, 9100)
   check(n == 1 and worst == 9000, "repos encore ouverts au-delà de 30 s : 1 sur 3 (" .. n .. ", " .. worst .. ")")
@@ -118,9 +134,10 @@ check(SDS:find("Rep.on_attack = function(f, pos, tick)", 1, true) ~= nil and SDS
   "le crochet alerte les soldats par C.on_alert (existant)")
 check(RPS:find("Da.mobile_cause(cause.type)", 1, true) ~= nil and RPS:find("State.owner(u)", 1, true) ~= nil, "bâtiment touché : cause mobile seulement ; votre équipe : bâtiment enregistré seulement")
 check(SDS:find('C.on_alert(f, pos, "unit", tick, "site")', 1, true) ~= nil and SDS:find('mode ~= "site" and d2(ep, f.hq_pos)', 1, true) ~= nil, "alerte « site » : enregistrée à toute distance du QG")
-check(SDS:find("local left = hq_en and 0 or Sd.surplus(#list)", 1, true) ~= nil and SDS:find("n, left = Da.site_far_send(left)", 1, true) ~= nil
-  and SDS:find("left = (n == nil) and 0 or math.max(0, left - n)", 1, true) ~= nil,
-  "alerte lointaine (> 226 tuiles) : soldats pris au-dessus de la réserve du QG, après le QG menacé et les alertes proches (relecture du lead 17 h 34)")
+check(SDS:find("local left = hq_en and 0 or Sd.surplus(#list)", 1, true) ~= nil and SDS:find("served, left = Da.site_plan(site, left)", 1, true) ~= nil
+  and SDS:find("elseif a.site and not a.role then", 1, true) ~= nil and SDS:find("left = (n == nil) and 0 or math.max(0, left - n)", 1, true) ~= nil
+  and SDS:find('if mode == "site" then a.site = true end', 1, true) ~= nil and SDS:find('site = (mode == "site") or nil', 1, true) ~= nil,
+  "alertes de site, proches comprises : soldats pris au-dessus de la réserve du QG, après le QG menacé, l'armée et les alertes de fuite (relecture du lead 17 h 41)")
 check(SDS:find("Da.exposed(p, threat, reach)", 1, true) ~= nil and SDS:find('{ "wait", SD.SHELTER_TICKS }', 1, true) ~= nil and SDS:find('{ { "goto", to, 3 }, { "home" } }', 1, true) ~= nil,
   "shelter : seuls les exposés lâchent leur tâche ; l'attente fixe n'est plus dans les étapes (seulement citée en commentaire)")
 local WK = read("script/team/worker.lua")
@@ -150,10 +167,13 @@ local mutants = {
   { "repos rouvert à chaque refus", "if not a.rest_since then a.rest_since = tick end", "a.rest_since = tick" },
   { "30 s compté trop tôt", "if d > Da.REST_MAX then st.rest_over", "if d >= Da.REST_MAX then st.rest_over" },
   { "plus long non retenu", "if d > (st.rest_max or 0) then st.rest_max = d end", "" },
-  { "alerte lointaine : groupe partiel", "if left >= Da.SITE_GROUP then return Da.SITE_GROUP, left - Da.SITE_GROUP end",
+  { "alerte de site : groupe partiel", "if left >= Da.SITE_GROUP then return Da.SITE_GROUP, left - Da.SITE_GROUP end",
     "if left > 0 then local k = math.min(left, Da.SITE_GROUP) return k, left - k end" },
-  { "alerte lointaine : surplus non décompté", "return Da.SITE_GROUP, left - Da.SITE_GROUP end", "return Da.SITE_GROUP, left end" },
-  { "alerte lointaine : toujours un groupe", "if left >= Da.SITE_GROUP then", "if true then" },
+  { "alerte de site : surplus non décompté", "return Da.SITE_GROUP, left - Da.SITE_GROUP end", "return Da.SITE_GROUP, left end" },
+  { "alerte de site : toujours un groupe", "if left >= Da.SITE_GROUP then", "if true then" },
+  { "réserve seulement pour les lointaines", "    n, left = Da.site_send(left)\n    out[i] = { item = it, n = n }",
+    "    if it.d2 <= 226 * 226 then n = Da.SITE_GROUP else n, left = Da.site_send(left) end\n    out[i] = { item = it, n = n }" },
+  { "ordre d'arrivée au lieu de la distance", "if a.d2 ~= b.d2 then return a.d2 < b.d2 end", "if a.d2 ~= b.d2 then return a.d2 > b.d2 end" },
 }
 local refused = 0
 for _, mu in ipairs(mutants) do
