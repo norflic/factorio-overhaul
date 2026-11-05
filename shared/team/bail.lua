@@ -30,7 +30,8 @@ Bl.MOVE = 1               -- tuiles : approche (ou déplacement sans but) qui co
 Bl.GOAL_EPS = 0.5         -- tuiles : un but qui bouge de plus est un AUTRE but (nouveau point de passage)
 Bl.MAX_HOLD = 3 * 3600    -- ticks au-delà desquels une tournée prise et pas encore à l'acte est rendue même si son PNJ bouge (essai 2 ; aller
                           -- et retour à 400 tuiles en moins de 2 min de marche : 50 % de marge)
-Bl.KINDS = { service = true }
+Bl.KINDS = { service = true, ghost = true } -- tournées ; reconstructions du bâtisseur (« ghost », accord du lead du 5/11 : mesuré 240 s sans
+                                           -- progrès chez Azur, lot5-croiss-123456789). Pas d'étape « act » : la tenue maximale ne s'y applique pas.
 Bl.FLEE_MAX = 2 * 3600    -- ticks : une fuite plus longue (refuge jamais atteint) recompte comme temps sans progrès
 Bl.HOLD_AFTER = 2         -- bails de suite d'une tournée (sans tournée réussie entre deux) avant sa pause (A.HOLD_AFTER du lot ADOPTE)
 Bl.PAUSE_TICKS = 10 * 3600 -- pause de la tournée : elle n'est plus reposée au tableau (le minage à la main n'est plus bloqué par elle)
@@ -67,26 +68,39 @@ local function dist(c)
   return math.sqrt(dx * dx + dy * dy)
 end
 
-local function fresh(cur, tick)
-  return { pc = cur.pc, x = num(cur.x), y = num(cur.y), gx = cur.gx, gy = cur.gy, best = cur.gx ~= nil and dist(cur) or nil, t = tick }, 0
+--- Relevé : maxpc = étape la plus avancée atteinte pour cette tâche ; work = compteur de travail de l'étape (reconstructions du bâtisseur) ;
+--- best = meilleure distance au but de l'étape ; t = tick du dernier progrès.
+local function record(cur, best, maxpc, t)
+  return { pc = cur.pc, maxpc = maxpc, x = num(cur.x), y = num(cur.y), gx = cur.gx, gy = cur.gy, best = best, work = cur.work, t = t }
 end
 
---- prev = relevé précédent (nil : première lecture) ; cur = { pc, x, y, gx, gy, busy } (gx, gy : but de l'ÉTAPE en cours, nil sans but ; busy :
---- Bl.busy, le temps au combat ou en fuite ne compte pas). Rend (relevé, ticks sans progrès).
+local function fresh(cur, tick, maxpc)
+  return record(cur, cur.gx ~= nil and dist(cur) or nil, maxpc, tick), 0
+end
+
+--- prev = relevé précédent (nil : première lecture) ; cur = { pc, x, y, gx, gy, busy, work } (gx, gy : but de l'ÉTAPE en cours, nil sans but ;
+--- busy : Bl.busy, le temps au combat ou en fuite ne compte pas ; work : compteur de travail de l'étape, nil sans). Rend (relevé, ticks sans
+--- progrès). Lot ETAGE4 (tâches « ghost », accord du lead du 5/11) : une étape compte si elle est PLUS AVANCÉE que toutes celles déjà atteintes
+--- (un retour en arrière, « refaire la marche » du bâtisseur, n'est pas un progrès : sinon la boucle marche / chantier / marche le serait à
+--- chaque tour) ; un travail fait sur place (compteur qui monte) est un progrès.
 function Bl.progress(prev, cur, tick)
-  if not prev or cur.busy == true or prev.pc ~= cur.pc then return fresh(cur, tick) end
+  local top = prev and (prev.maxpc or prev.pc)
+  if not prev or cur.busy == true or num(cur.pc) > num(top) then return fresh(cur, tick, math.max(num(cur.pc), num(top))) end
+  if prev.pc ~= cur.pc then
+    -- étape déjà franchie : le temps continue ; l'approche repart de ce point, vers le but de cette étape
+    return record(cur, cur.gx ~= nil and dist(cur) or nil, top, prev.t), tick - num(prev.t)
+  end
+  if cur.work ~= nil and num(cur.work) > num(prev.work) then return fresh(cur, tick, top) end
   if cur.gx ~= nil then
     if prev.gx == nil or math.abs(num(prev.gx) - num(cur.gx)) + math.abs(num(prev.gy) - num(cur.gy)) > Bl.GOAL_EPS then
-      return fresh(cur, tick)
+      return fresh(cur, tick, top)
     end
     local d = dist(cur)
-    if d <= num(prev.best) - Bl.MOVE then
-      return { pc = cur.pc, x = num(cur.x), y = num(cur.y), gx = cur.gx, gy = cur.gy, best = d, t = tick }, 0
-    end
+    if d <= num(prev.best) - Bl.MOVE then return record(cur, d, top, tick), 0 end
     return prev, tick - num(prev.t)
   end
   local dx, dy = num(cur.x) - num(prev.x), num(cur.y) - num(prev.y)
-  if dx * dx + dy * dy >= Bl.MOVE * Bl.MOVE then return fresh(cur, tick) end
+  if dx * dx + dy * dy >= Bl.MOVE * Bl.MOVE then return fresh(cur, tick, top) end
   return prev, tick - num(prev.t)
 end
 

@@ -38,6 +38,24 @@ local function suite(Bl)
   c("immobile : pas de progres, temps qui court", s2 == 300 and p2.t == 100)
   local p3, s3 = Bl.progress(p2, { pc = 3, state = "walk", x = 10.3, y = 5.2 }, 700)
   c("autre etape : progres", s3 == 0 and p3.t == 700 and p3.pc == 3)
+  local rb, rbs = Bl.progress(p3, { pc = 2, x = 10.3, y = 5.2 }, 1000)
+  c("retour a une etape deja franchie : PAS un progres", rbs == 300 and rb.t == 700 and rb.maxpc == 3)
+  local fw, fws = Bl.progress(rb, { pc = 3, x = 10.3, y = 5.2 }, 1300)
+  c("revenir a l'etape la plus avancee deja atteinte : PAS un progres", fws == 600 and fw.t == 700)
+  local nx, nxs = Bl.progress(fw, { pc = 4, x = 10.3, y = 5.2 }, 1600)
+  c("etape plus avancee que toutes : progres", nxs == 0 and nx.t == 1600 and nx.maxpc == 4)
+  -- bâtisseur (tâche « ghost ») : marche / chantier / « refaire la marche » en boucle, sur place : rendu au bail
+  local ag, ags, agr = nil, 0, nil
+  for k = 0, 40 do
+    local tick = k * 300
+    ag, ags = Bl.progress(ag, { pc = k % 2 == 0 and 3 or 4, x = 50, y = 50, gx = k % 2 == 0 and 60 or nil, gy = k % 2 == 0 and 50 or nil }, tick)
+    if Bl.expired("ghost", ags, 0, false) then agr = tick break end
+  end
+  c("boucle marche / chantier / marche sur place (batisseur) : rendue au bail", agr ~= nil and agr <= Bl.LEASE + 600)
+  local w0 = Bl.progress(nil, { pc = 4, x = 0, y = 0, work = 2 }, 0)
+  local _, wsa = Bl.progress(w0, { pc = 4, x = 0, y = 0, work = 5 }, 600)
+  local _, wsb = Bl.progress(w0, { pc = 4, x = 0, y = 0, work = 2 }, 600)
+  c("travail sur place (reconstructions) : progres ; sans reconstruction : non", wsa == 0 and wsb == 600)
   local p4, s4 = Bl.progress(p3, { pc = 3, state = "step", x = 10.3, y = 5.2 }, 800)
   c("autre etat SEUL (marche / arret) : PAS de progres", s4 == 100 and p4.t == 700)
   -- PNJ 22 d'Azur (lot3-croiss-123456789, 34,9 min) : recalcule sur place un itinéraire « BLOQUE », marche / arrêt à chaque pensée, même
@@ -81,6 +99,8 @@ local function suite(Bl)
   c("juste sous le bail : non", Bl.expired("service", Bl.LEASE - 1) == false)
   c("fabrication : jamais", Bl.expired("craft", 1e9, 1e9, true) == false)
   c("garde : jamais", Bl.expired("garrison", 1e9, 1e9, true) == false)
+  c("batisseur (ghost) : bail sans progres", Bl.expired("ghost", Bl.LEASE) == true and Bl.expired("ghost", Bl.LEASE - 1) == false)
+  c("batisseur (ghost) : pas d'acte, la tenue maximale ne coupe pas", Bl.expired("ghost", 0, 1e9, false) == false)
   c("bail de 2 min au plus (une tournee normale marche ou agit)", Bl.LEASE <= 2 * 3600 and Bl.LEASE >= 3600)
   c("avant l'acte : tenue maximale echue meme en progressant", Bl.expired("service", 0, Bl.MAX_HOLD, true) == true)
   c("avant l'acte : juste sous la tenue maximale : non", Bl.expired("service", 0, Bl.MAX_HOLD - 1, true) == false)
@@ -392,9 +412,12 @@ check(string.format("moniteur : mutants refuses %d/%d%s", mref, #MMUTANTS, #mkep
 
 -- §6 mutants
 local MUTANTS = {
-  { "etape ignoree", "cur.busy == true or prev.pc ~= cur.pc then", "cur.busy == true then" },
-  { "etat seul compte comme progres (avant lot3)", "cur.busy == true or prev.pc ~= cur.pc then",
-    "cur.busy == true or prev.pc ~= cur.pc or prev.state ~= cur.state then" },
+  { "etape ignoree", "cur.busy == true or num(cur.pc) > num(top) then", "cur.busy == true then" },
+  { "retour en arriere = progres", "cur.busy == true or num(cur.pc) > num(top) then", "cur.busy == true or cur.pc ~= prev.pc then" },
+  { "travail ignore (batisseur)", "if cur.work ~= nil and num(cur.work) > num(prev.work) then return fresh(cur, tick, top) end", "" },
+  { "batisseur hors bail", "Bl.KINDS = { service = true, ghost = true }", "Bl.KINDS = { service = true }" },
+  { "etat seul compte comme progres (avant lot3)", "cur.busy == true or num(cur.pc) > num(top) then",
+    "cur.busy == true or num(cur.pc) > num(top) or prev.state ~= cur.state then" },
   { "combat compte comme temps sans progres (m5)", "cur.busy == true or ", "" },
   { "arret d'alerte = combat", "k.hold_stop == nil and ", "" },
   { "tir ignore", "if shooting == true then return true end", "" },
@@ -402,10 +425,10 @@ local MUTANTS = {
   { "tenue : combat compte (m5)", "if busy == true and last ~= nil then return num(base) + (num(tick) - num(last)) end", "" },
   { "bails jamais remis a zero (m4)", "if reset then return 1 end", "" },
   { "pause des le premier bail (m4)", "return num(n) >= Bl.HOLD_AFTER", "return num(n) >= 1" },
-  { "sans but : deplacement ignore", "if dx * dx + dy * dy >= Bl.MOVE * Bl.MOVE then return fresh(cur, tick) end", "" },
+  { "sans but : deplacement ignore", "if dx * dx + dy * dy >= Bl.MOVE * Bl.MOVE then return fresh(cur, tick, top) end", "" },
   { "but : tout deplacement compte (essai 1)", "if d <= num(prev.best) - Bl.MOVE then", "if true then" },
   { "but : nouveau but ignore", "if prev.gx == nil or math.abs(num(prev.gx) - num(cur.gx)) + math.abs(num(prev.gy) - num(cur.gy)) > Bl.GOAL_EPS then", "if prev.gx == nil then" },
-  { "but : meilleure distance oubliee", "best = d, t = tick }, 0", "best = num(prev.best), t = tick }, 0" },
+  { "but : meilleure distance oubliee", "return record(cur, d, top, tick), 0", "return record(cur, prev.best, top, tick), 0" },
   { "but : approche stricte", "if d <= num(prev.best) - Bl.MOVE then", "if d < num(prev.best) - Bl.MOVE then" },
   { "temps sans progres remis a zero", "    return prev, tick - num(prev.t)\n  end\n  local dx", "    return prev, 0\n  end\n  local dx" },
   { "bail sur tous les types", "if Bl.KINDS[kind] ~= true then return false end", "" },

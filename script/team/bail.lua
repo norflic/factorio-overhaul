@@ -79,7 +79,9 @@ local function observe(f, t, agent, tick)
   local e = agent.entity
   local p, g = e.position, B.target(agent, f)
   local busy = Bl.busy(k_of(agent), agent.shooting, tick)
-  local prog, stall = Bl.progress(t.prog, { pc = agent.pc, x = p.x, y = p.y, gx = g and g.x, gy = g and g.y, busy = busy }, tick)
+  -- travail sur place du bâtisseur (reconstructions de l'étape « ia1d », script/team/build.lua Build.work : job.done)
+  local work = agent.ia1d and agent.ia1d.done or nil
+  local prog, stall = Bl.progress(t.prog, { pc = agent.pc, x = p.x, y = p.y, gx = g and g.x, gy = g and g.y, busy = busy, work = work }, tick)
   t.prog = prog
   return stall, busy
 end
