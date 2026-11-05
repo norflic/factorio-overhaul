@@ -15,7 +15,8 @@ local function check(cond, msg)
 end
 
 -- extraction du code testé
-local fh = assert(io.open("script/team/build.lua", "rb"))
+-- (FO_BUILD_SRC : jouer le banc sur un autre texte de build.lua, par exemple celui d'un commit plus ancien : preuve « échoue avant, passe après »)
+local fh = assert(io.open(os.getenv("FO_BUILD_SRC") or "script/team/build.lua", "rb"))
 local src = fh:read("*a")
 fh:close()
 local a = assert(src:find("--- Segment d'enceinte en cours", 1, true), "repere de debut absent")
