@@ -1351,13 +1351,34 @@ do
   check(pcall(M.serialize, global), "global sérialisable (plan, sièges, fenêtre)")
 end
 -- Lot PARITE : la même base défendue (14 tourelles à l'avant-poste), guerre lancée par la commande humaine : l'équipe est fondée d'office avec ses 4
--- tourelles de QG. L'attaque reste possible, et la défense COMPTE : la faction connaît 4 tourelles au QG (défense estimée faible) et les 14 de l'avant-poste
--- (>= 96) ; elle attaque la base la moins défendue d'abord (diagnostic : 1re attaque au QG, défense estimée 32 contre besoin 20).
+-- tourelles de QG près du départ. L'attaque reste possible, et la défense de l'avant-poste COMPTE (décisions journalisées à défense estimée >= 96).
+-- Lot QG-DERNIER (choix du DC du 4/11, 19 h 48 : « Base de départ toujours en dernier ») : le QG de l'équipe EST la base de départ (point
+-- d'apparition au coin de 4 secteurs, QG à (6, 6), tourelles de x -4 à 21) ; tant qu'une faction connaît l'avant-poste, elle ne l'attaque pas,
+-- même s'il est moins défendu. Avant (0.6.39 à 0.6.51) ce contrôle exigeait l'inverse (au moins une attaque sur le QG, « la défense compte dans le
+-- choix ») : c'était le défaut de la règle (seul le secteur du point d'apparition était protégé), contraire au contrôle « QG en dernier » de la
+-- section « Normal » (tests/pvp_test.lua, cible après 20 min de guerre). La connaissance de l'avant-poste est relevée à chaque minute.
 do
   new_world("normal", { turrets = 14 })
   war("start 4 60 6 320")
-  M.run_ticks(60 * MIN)
+  local OUT_KEY = A.key(A.sector_of(OUTPOST.x, OUTPOST.y))
+  local t0 = game.tick
+  local knows = {} -- [minute] = { [clé de faction] = vrai si l'avant-poste est connu à ce relevé }
+  local function sample(m)
+    local row = {}
+    for i = 1, 4 do
+      local f = fac(i)
+      local v = f and f.pvp and f.pvp.vision
+      row[f.key] = (v and v.known and v.known[OUT_KEY] ~= nil) or false
+    end
+    knows[m] = row
+  end
+  sample(0)
+  for m = 1, 60 do
+    M.run_ticks(MIN)
+    sample(m)
+  end
   local at_hq, at_out = {}, {}
+  local hq_known = 0 -- attaques sur le départ alors que leur faction connaissait l'avant-poste (relevé précédent)
   -- Défense de l'avant-poste vue par une faction, dans N'IMPORTE LAQUELLE de ses décisions journalisées (attaque vers l'avant-poste, siège, dissuasion) :
   -- sur 10 attaques, UNE seule visait l'avant-poste (0.6.39) et le lot BRIQUES, en déplaçant la production des factions, l'a fait disparaître sans
   -- que la faction ignore l'avant-poste (dissuasion à défense estimée 112 journalisée). Compter les seules attaques suivait le hasard du choix de cible.
@@ -1367,10 +1388,17 @@ do
     if (kind == "siege" or kind == "dissuasion") and d0 and tonumber(d0) >= 96 then seen_out[#seen_out + 1] = tonumber(d0) end
   end
   for _, line in ipairs(W().logs) do
-    local x, y = line:match("^%[FO%-PVP%] attaque tick %d+ %a+ %-> joueur : %d+ soldats vers %((%-?%d+), (%-?%d+)%)")
+    local tk, who, x, y = line:match("^%[FO%-PVP%] attaque tick (%d+) (%a+) %-> joueur : %d+ soldats vers %((%-?%d+), (%-?%d+)%)")
     local d = line:match("defense estimee (%d+)")
     if x and d then
-      if tonumber(x) < -64 and tonumber(y) >= 64 then at_out[#at_out + 1] = tonumber(d) else at_hq[#at_hq + 1] = tonumber(d) end
+      if tonumber(x) < -64 and tonumber(y) >= 64 then
+        at_out[#at_out + 1] = tonumber(d)
+      else
+        at_hq[#at_hq + 1] = tonumber(d)
+        local m = math.max(0, math.floor((tonumber(tk) - t0) / MIN))
+        local row = knows[m] or {}
+        if row[who] then hq_known = hq_known + 1 end
+      end
     end
   end
   local max_hq, min_out = 0, math.huge
@@ -1384,7 +1412,8 @@ do
   for _, d in ipairs(seen_out) do if d < min_seen then min_seen = d end end
   check(#seen_out >= 1 and min_seen >= 96, string.format("l'avant-poste défendu est pris en compte en CONNAISSANT sa défense (%d décision(s) journalisée(s), au moins %s ≥ 96 ; %d attaque(s) vers lui)",
     #seen_out, tostring(min_seen), #at_out))
-  check(#at_hq >= 1 and max_hq < 96, "le QG de l'équipe (4 tourelles) est vu comme peu défendu (" .. max_hq .. " < 96) : la défense compte dans le choix")
+  check(hq_known == 0, string.format("« QG en dernier » (choix du DC du 4/11) : aucune attaque sur la base de départ tant que l'avant-poste est connu " ..
+    "(%d attaque(s) sur le départ, dont %d avant-poste connu)", #at_hq, hq_known))
   check(pvp().losses >= 1, "pertes du joueur (" .. pvp().losses .. ")")
 end
 do
