@@ -1574,6 +1574,48 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Exécution
 ---------------------------------------------------------------------------------------------------
+-- §16 Lot AGEBLOCAGE, étage chantiers (journal lot-guide-271828182 de DEPENSES2) : 4 ouvriers au plafond, aucun bras libre, des ordres
+-- ouverts BLOQUÉS en matériaux (ils attendent des circuits) retiennent tout le budget de bras ; la chaîne qui fait la matière qui leur
+-- manque passe quand même (Ca.unblocks), bornée par le budget de matières ; rien d'autre ne passe sans bras.
+local function s16()
+  local D = vdata()
+  local function scene(idle, open_work)
+    local st = pieces({ ["electronic-circuit"] = 0, ["iron-plate"] = 3000, ["copper-plate"] = 3000 })
+    return vin(D, { stock = st, workers = 4, idle = idle, can_grow = false,
+      open = { { key = "ouvrir:dx", kind = "ouvrir", item = "copper-ore", resource = "copper-ore", n = 0, n_left = 15,
+        missing = { { "electronic-circuit", 94 } }, work_left = open_work } },
+      machines = { { entity = "stone-furnace", recipe = "iron-plate", n = 16, where = "d-fe" },
+        { entity = "stone-furnace", recipe = "copper-plate", n = 16, where = "d-cu" } },
+      flows = { ["iron-plate"] = { made = 300 }, ["copper-plate"] = { made = 300 } } })
+  end
+  local function circuit_chain(r)
+    return find(r, "chaine:electronic-circuit") or find(r, "chaine:copper-cable")
+  end
+  local bl = Ca.blocked_items({ D = D, open = { { missing = { { "electronic-circuit", 94 } } } } })
+  check(bl["electronic-circuit"] and bl["copper-cable"] and bl["iron-plate"] and not bl["pipe"],
+    "§16 matières qui débloquent : le circuit qui manque et ses ingrédients directs, rien d'autre")
+  -- Témoin : des bras libres, la chaîne passe comme avant.
+  local r0 = Ca.decide(scene(2, 0), {})
+  check(circuit_chain(r0) ~= nil, "§16 témoin (2 bras libres) : la chaîne des circuits passe")
+  -- Le verrou mesuré : aucun bras libre, 4 000 PNJ-s de travail restant aux ordres bloqués, bras = 0.
+  local r1 = Ca.decide(scene(0, 4000), {})
+  local oc = circuit_chain(r1)
+  check(r1.labor == 0, "§16 verrou : budget de bras nul (" .. tostring(r1.labor) .. ")")
+  check(oc ~= nil, "§16 verrou : la chaîne qui fait la matière manquante passe quand même (" .. tostring(oc and oc.key) .. ")")
+  local others = 0
+  local bl1 = Ca.blocked_items({ D = D, open = scene(0, 4000).open })
+  for _, o in ipairs(r1.orders) do if not (o.kind == "chaine" and Ca.unblocks(o, bl1)) then others = others + 1 end end
+  check(others == 0, "§16 verrou : aucun autre ordre sans bras (" .. others .. ")")
+  -- Sans ordre bloqué, rien n'est exempté : aucun bras, aucune chaîne.
+  local r2 = Ca.decide(vin(D, { stock = pieces({ ["electronic-circuit"] = 0, ["iron-plate"] = 3000, ["copper-plate"] = 3000 }),
+    workers = 4, idle = 0, can_grow = false, open = { { key = "x", kind = "chaine", item = "pipe", n = 1, n_left = 1, missing = {}, work_left = 4000 } },
+    sinks = { { item = "electronic-circuit", rate = 60 } },
+    machines = { { entity = "stone-furnace", recipe = "iron-plate", n = 16, where = "d-fe" },
+      { entity = "stone-furnace", recipe = "copper-plate", n = 16, where = "d-cu" } },
+    flows = { ["iron-plate"] = { made = 300 }, ["copper-plate"] = { made = 300 } } }), {})
+  check(circuit_chain(r2) == nil, "§16 ordre ouvert sans manque : pas d'exemption, la règle des bras reste (" .. #r2.orders .. " ordre(s))")
+end
+
 local function run_all()
   s1()
   s2()
@@ -1588,6 +1630,7 @@ local function run_all()
   s13()
   s14()
   s15()
+  s16()
 end
 
 local t0 = os.clock()
@@ -1633,6 +1676,7 @@ do
   MF("caractère ignoré", "character", function(ch) return function(_, _, th) return ch({}, {}, th) end end)
   MV("aval servi avant son ingrédient (goulot ignoré)", "THETA_MIN", 0)
   MV("menace ignorée", "THREAT_DIV", 1)
+  MF("chaîne qui débloque un ordre soumise aux bras (verrou)", "unblocks", function() return function() return false end end)
   MV("croissance coupée", "G_MAX", 0)
   MF("débouché ignoré (toute ressource demandée)", "requirements", function(rq)
     return function(ctx, plan)

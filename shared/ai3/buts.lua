@@ -415,12 +415,17 @@ function B.generate(s, st)
     goals[#goals + 1] = { key = "recherche", family = "recherche", kind = "research", tech = r.tech, value = v,
       short = (cheap or r.for_defense) or nil } -- lot S1 : la recherche de la tourelle est servie d'abord, sans plancher de fer (EMIT.research)
   end
-  -- Armée (factions).
+  -- Armée (factions, et votre équipe depuis le lot DEPENSES2).
   -- Une faction EN GUERRE (déclarée au joueur, ou posture guerrière du chef) s'arme d'abord : valeur × B.ARMY_WAR_PCT.
-  if boot and not s.is_player and (s.soldiers_max or 0) > 0 then
-    local first = math.min(B.ARMY_FIRST_N, s.soldiers_max)
+  -- Lot DEPENSES2 (R1, décision du lead sur « Oui, comme les factions » du DC) : votre équipe a la MÊME défense minimale (armée d'alerte,
+  -- B.ARMY_FIRST_N premiers soldats) et le même « encore » (sa cible : la base plus le stock qui dort, script/ai3/cerveau.lua), au plafond
+  -- des factions (s.army_cap ; son soldiers_max reste 0 : la prévision et le planificateur d'avant ne lui font pas d'armée). Son plafond
+  -- est aussi sa cible (s.army_target, 0 quand sa matière clé manque) : aucun de ses buts « armée » ne passe avant son fer vital.
+  local army_cap = s.is_player and math.min(s.army_cap or 0, s.army_target or 0) or (s.soldiers_max or 0)
+  if boot and army_cap > 0 then
+    local first = math.min(B.ARMY_FIRST_N, army_cap)
     local war = s.at_war and B.ARMY_WAR_PCT or 100
-    local alert_need = s.army_alert and math.min(s.army_need or 0, s.soldiers_max) or 0
+    local alert_need = s.army_alert and math.min(s.army_need or 0, army_cap) or 0
     if (s.soldiers or 0) < alert_need then
       goals[#goals + 1] = { key = "armee", family = "armee", kind = "army", target = alert_need,
         value = val(B.ARMY_ALERT, w.armee), permanent = true, minimal = true, alert = true }

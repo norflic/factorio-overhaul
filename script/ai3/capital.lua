@@ -459,8 +459,14 @@ function Capital.goal(f, view, book, tick, w)
     available = function(item) return unlocked(f, item) end,
     unit_cost = unit_cost_fn(f, book), stock = view.stock or {}, weights = w,
     threat = view.threatened or (f.pvp and f.pvp.declared) or false, current = c.current and c.current.key or nil,
-    exclude = exclude, defer = c.defer, thaw = (c.thaw and c.thaw.active) or false }
+    exclude = exclude, defer = c.defer, thaw = (c.thaw and c.thaw.active) or false, tick = tick }
   local d = Cap.choose(L, census, ctx)
+  -- Lot DEFAUT7, étage 3 : fin de l'état « collant » quand la cible du centre change (payé, ou autre centre) : sa durée au journal.
+  local old = c.defer
+  if old and old.ahead_since and not old.ahead_done and old.key ~= d.gate_key then
+    log(string.format("[FO-CAPITAL-CENTRE] %s : fin du collant de '%s' apres %.1f min (cible changee : %s) a %.1f min", f.key or "?",
+      old.key, (tick - old.ahead_since) / 3600, tostring(d.gate_key or "aucune"), minutes(f, tick)))
+  end
   -- Lot AGES : la valeur des améliorations payées PENDANT que le centre est payable (Cap.starved) ; remise à zéro
   -- quand le centre change (niveau suivant, autre centre) ; le compte vit dans la sauvegarde (nombres et chaînes seulement).
   if d.gate_key then
@@ -468,6 +474,15 @@ function Capital.goal(f, view, book, tick, w)
     c.defer.open = d.gate_open or false
   else
     c.defer = nil
+  end
+  -- Lot DEFAUT7, étage 3 : le centre passé devant y reste au plus Cap.AHEAD_TICKS (shared/ai3/capital.lua, Cap.ahead_step).
+  local ev = Cap.ahead_step(c.defer, d, tick)
+  if ev == "debut" then
+    log(string.format("[FO-CAPITAL-CENTRE] %s : '%s' reste devant (collant, servi en tete, borne %d min) a %.1f min", f.key or "?",
+      d.key, math.floor(Cap.AHEAD_TICKS / 3600), minutes(f, tick)))
+  elseif ev == "borne" then
+    log(string.format("[FO-CAPITAL-CENTRE] %s : fin du collant de '%s' apres %.1f min (borne atteinte : retour a la regle des reports) a %.1f min",
+      f.key or "?", c.defer.key, Cap.AHEAD_TICKS / 3600, minutes(f, tick)))
   end
   c.wanted = {}
   for _, k in ipairs(sorted_keys(d.wanted)) do c.wanted[k] = true end

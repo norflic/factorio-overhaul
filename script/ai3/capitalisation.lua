@@ -58,6 +58,7 @@ local Ca = require("shared.ai3.capitalisation")
 local Rs = require("shared.ai3.reserve") -- lot INDUSTRIE I1 : description du besoin évalué (journal [FO-RESERVE])
 local L = require("shared.levels.config") -- intégration 0.6.28 : vitesse de plan des bâtiments à niveaux
 local Rp = require("shared.ai3.repli") -- lot CAPI-REPLI : repli par (produit, gisement), matériaux, plafond
+local Dep = require("script.ai3.depenses") -- lot DEPENSES2 : le stock qui dort (défense, recherche, armement)
 local Em = require("shared.ai3.emplacements") -- lot CAPI-DEBIT : emplacements du plan directeur (figés, stock riche, décision)
 local A = require("shared.ai3.automatiser")
 local R = require("shared.ai3.reglages")
@@ -71,6 +72,7 @@ local General = require("script.ai3.general")
 local Auto = require("script.ai3.automatisation")
 local Build = require("script.team.build")
 local Harvest = require("script.team.harvest") -- lot KIT : matières naturelles récoltables à portée
+local Book = require("shared.team.book") -- lot CORR-CHAMP-MANQUE : livre de recettes de la force (banc « bench_order » seulement)
 local Adopte = require("script.team.adopte") -- lot ADOPTE : machines du joueur que personne ne sert
 local Equip = require("script.team.equiper") -- lot LEVIERS : tâche « equiper »
 local Lv = require("shared.ai3.leviers")
@@ -268,6 +270,22 @@ do
   local seen = {}
   for _, m in ipairs(A.METHODS) do
     if m.ore and m.product and not seen[m.product] then seen[m.product] = true PLATE_PRODUCTS[#PLATE_PRODUCTS + 1] = m.product end
+  end
+end
+-- Lot CORR-CHAMP-MANQUE : minerai de chaque produit des fonderies (le premier de A.METHODS), pour Em.short.
+local ORE_OF_PRODUCT = {}
+for _, m in ipairs(A.METHODS) do
+  if m.ore and m.product and not ORE_OF_PRODUCT[m.product] then ORE_OF_PRODUCT[m.product] = m.ore end
+end
+-- Lot DEPENSES2 : matières jugées par la règle du stock qui dort : les plaques des fonderies, puis les matières brutes des avant-postes
+-- (« défense seule » : la pierre des murs ; la recherche ne les prend pas).
+local DEP_PRODUCTS = {}
+do
+  local seen = {}
+  for _, p in ipairs(PLATE_PRODUCTS) do seen[p] = true DEP_PRODUCTS[#DEP_PRODUCTS + 1] = { key = p } end
+  for _, kind in ipairs(T.OUTPOST_ORDER) do
+    local r = T.outposts[kind].resource
+    if r and not seen[r] then seen[r] = true DEP_PRODUCTS[#DEP_PRODUCTS + 1] = { key = r, def_only = true } end
   end
 end
 
@@ -739,7 +757,7 @@ end
 --- Lot CAPI-DEBIT : emplacements du plan directeur (règle pure shared/ai3/emplacements.lua). Les ordres « module » ouverts, avec
 --- l'état de chacun de leurs modules (Auto.module), leur dernier progrès (follow : entités bâties) ; le stock libre des produits des
 --- fonderies. Journal [FO-CAPI-EMPLACEMENTS] quand le plafond, le compte ou les modules figés changent (jamais à l'horloge).
-function Capi.slots(f, cs, stock, tick)
+function Capi.slots(f, cs, stock, tick, book)
   local mods = {}
   for _, o in ipairs(cs.open or {}) do
     if o.exec == "module" then
@@ -765,13 +783,33 @@ function Capi.slots(f, cs, stock, tick)
   local g_iag = f.team.iag
   local hands = Ca.idle_of(g_iag and g_iag.idle_ema or 0)
   local base = Dm.slots(A.MAX_OPEN, f.team.ia3 and f.team.ia3.puits ~= nil, hands, cs.blocked_slots)
-  local sl = Em.slots({ base = base, plates = plates, mods = mods, tick = tick })
+  -- lot DEPENSES2 (essai 4) : produits qui dorment -> siège du complément (Em.slots, règle 7)
+  -- lot CORR-CHAMP-MANQUE (règle 8) : la plaque qui manque LE PLUS aux ordres ouverts (coût brut des manques, recettes ouvertes du
+  -- livre de la force, moins le stock libre : Ca.seat_plate, relecture du lead 18 h 10, point 2 ; pas Ca.blocked_items, qui penche
+  -- vers le fer) : le champ de son minerai a le siège du complément, même quand rien ne dort (partie du DC 717152950 en 0.6.51,
+  -- 11 à 31 min). Sans livre (appelant de banc) : aucun siège de la règle 8.
+  local free = {}
+  for i, p in ipairs(PLATE_PRODUCTS) do free[p] = plates[i] end
+  -- (banc témoin seulement : remote.call("fo-capi", "manque", <clé>, false) éteint la règle 8, cs.no_short)
+  local short = {}
+  if not cs.no_short then
+    local plate = Ca.seat_plate({ open = cs.open, book = book, names = PLATE_PRODUCTS, free = free })
+    if plate then short = Em.short(PLATE_PRODUCTS, ORE_OF_PRODUCT, { [plate] = true }, free) end
+  end
+  -- Relecture du lead (18 h 10, point 1, BLOQUANT) : un ordre CHAMP ouvert sur le siège du complément (decide, Em.champ_seat) le tient.
+  local held = 0
+  for _, o in ipairs(cs.open or {}) do if o.exec == "champ" and o.seat == "complement" then held = held + 1 end end
+  local sl = Em.slots({ base = base, plates = plates, mods = mods, tick = tick, names = PLATE_PRODUCTS, sleeping = Dep.sleeping(f, tick),
+    short = short, held_comp = held })
   if (cs.dm_base or A.MAX_OPEN) ~= base then
     log(string.format("[FO-DEMANDE] %s : EMPLACEMENTS de chantier %s -> %d (base %d + %d : %d bras libres, %d ordre(s) retenu(s) faute de place ; plafond de surete %d) a %.1f min",
       f.key or "?", cs.dm_base and tostring(cs.dm_base) or "-", base, A.MAX_OPEN, base - A.MAX_OPEN, math.floor(hands), cs.blocked_slots or 0, Dm.SLOTS_HARD, minutes(f, tick)))
     cs.dm_base = base
   end
-  local sig = string.format("%d|%d|%d|%s|%s", sl.cap, sl.counted, sl.open, table.concat(sl.keys_stalled, ","), table.concat(sl.keys_piled, ","))
+  local comp_list = {} -- lot CORR-CHAMP-MANQUE : le journal suit aussi les produits du siège (stock qui dort, matière qui manque)
+  for _, p in ipairs(PLATE_PRODUCTS) do if sl.comp and sl.comp[p] then comp_list[#comp_list + 1] = p end end
+  local sig = string.format("%d|%d|%d|%s|%s|%d|%s", sl.cap, sl.counted, sl.open, table.concat(sl.keys_stalled, ","), table.concat(sl.keys_piled, ","),
+    sl.comp and sl.room_comp or -1, table.concat(comp_list, ","))
   if cs.slots_sig ~= sig then
     cs.slots_sig = sig
     local pl = {}
@@ -802,7 +840,7 @@ local function build_input(f, cs, view, book, tick, D, w)
   -- Lot CAPI-DEBIT : emplacements (A.MAX_OPEN de base) : un module figé en chantier depuis Em.STALL n'en tient plus, un stock
   -- riche en ouvre de plus ; un module qui attend sa matière tient toujours le sien (la matière réservée par le plan directeur
   -- ne doit pas vider le coffre, banc p4). cs.slots sert aussi au décompte des ordres d'une même décision (decide).
-  local slots = Capi.slots(f, cs, stock, tick)
+  local slots = Capi.slots(f, cs, stock, tick, book)
   cs.slots = slots
   local elec_open = slots.open
   local wait_plant = plant_state ~= nil and plant_state ~= "fini" and elec_open > 0
@@ -821,7 +859,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     elseif not elec_drill then why = "aucune foreuse electrique de l'executant"
     elseif plant_state == "refuse" then why = "centrale refusee (" .. tostring(plant_why) .. ")"
     elseif wait_plant then why = "centrale demandee, pas finie (" .. tostring(plant_state) .. ")"
-    elseif busy then why = busy_text
+    elseif Em.drill_refused(slots, meth.product) then why = busy_text -- (lot DEPENSES2 : siège du complément ; règle pure, testée)
     else
       ok, miss = module_ok(meth, book, stock, plant_state ~= nil, nil, Harvest.reachable(f), Auto.belt_flow(f))
       if not ok then why = "objets impossibles : " .. table.concat(miss, ",") end
@@ -947,7 +985,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     limits = Rsv.on() and {} or { max_ingredients = 2 }, workers = view.workers or 0, idle = Ca.idle_of(g and g.idle_ema or 0),
     can_grow = (view.workers or 0) < (view.workers_wanted or 0), traits = f.traits or {},
     weights = w or {}, threat = threat, dt = 1, lag = cs.lag, starved = Pi.threat_exempt(st.pile, st.starved_open), -- (intégration 0.6.28)
-    reserve = (not threat) and Rsv.input(f, tick) or nil, -- lot INDUSTRIE I1 : stock hors besoin (nil : réglage éteint, besoin périmé ou QG menacé)
+    reserve = (not threat) and Dep.capi_reserve(f, Rsv.input(f, tick), tick) or nil, -- lot INDUSTRIE I1 : stock hors besoin (nil : réglage éteint, besoin périmé ou QG menacé) ; lot DEPENSES2 (revue D2) : débité de ce que la règle du stock qui dort a accordé ou engagé
     demande = (not threat) and Rsv.on() and not cs.demande_off or false, -- (cs.demande_off : BANC SEULEMENT, témoin) lot C2 : puits ouvert (le stock hors besoin qui dort devient une demande)
     demande_sleep = Dm.SLEEP_CYCLES, -- intégration 0.6.32 : un stock ne dort qu'après 3 décisions de suite au-dessus du seuil
     -- Lot PRIORITE-RESSOURCES : la pensée précédente du cerveau a décidé « production d'abord » (shared/team/priorite.lua)
@@ -1352,6 +1390,7 @@ end
 local function decide(f, cs, view, book, tick, research, w)
   local D = Capi.data()
   cs.flows = flows_of(f, cs)
+  Dep.think(f, cs, tick, DEP_PRODUCTS, minutes(f, tick)) -- lot DEPENSES2 : budget du stock qui dort (Dep.defense, Dep.labs)
   if f.team.ia3.mall then Ml.set_running(f.team.ia3.mall, cs.flows) end -- lot PILE-MALL (relecture)
   local input = build_input(f, cs, view, book, tick, D, w)
   Profiler.fstart("capi:decide")
@@ -1453,20 +1492,33 @@ local function decide(f, cs, view, book, tick, research, w)
   -- Lot CAPI-DEBIT : le plafond des emplacements vaut pour la décision entière (avant : de 0 module ouvert, jusqu'à
   -- Capi.MAX_ORDERS modules partaient d'un coup) ; un ordre qui ouvrirait un module de trop est refusé, son épargne rendue.
   local room = cs.slots and cs.slots.room
+  local room_comp = cs.slots and cs.slots.room_comp -- lot DEPENSES2 (essai 4) : siège du complément du stock qui dort (Em.slots, règle 7)
+  -- Relecture du lead (18 h 10, point 1) : emplacements PLEINS au début de la décision : une foreuse n'a pu être accordée que par le
+  -- siège du complément, le champ y passe lui aussi (Em.champ_seat).
+  local full = room ~= nil and room <= 0
   for _, o in ipairs(res.orders) do
     local rec, why
     -- (Intégration 0.6.25 : la porte de la pile de FUITES-PILE d'abord, puis le plafond des emplacements de CAPI-DEBIT.)
     local allowed, pwhy = pile_ok(f, o)
-    if allowed and room ~= nil and room <= 0 and Capi.MODULE_KINDS[o.kind] and not to_champ(f, cs, o) then -- (lot CHAMP : le champ n'est pas un module)
+    local meth_o = (o.kind == "couvrir" or o.kind == "ouvrir") and METHOD_OF_ORE[o.resource] or nil
+    local seat = Em.order_seat(room, room_comp, cs.slots and cs.slots.comp, meth_o and meth_o.product) -- (règle pure, testée)
+    local champ = to_champ(f, cs, o) -- (lot CHAMP : le champ n'est pas un module)
+    local cseat = champ and Em.champ_seat(full, room, room_comp, cs.slots and cs.slots.comp, meth_o and meth_o.product) or nil
+    if allowed and Capi.MODULE_KINDS[o.kind] and ((not champ and seat == nil) or (champ and cseat == nil)) then
       rec, why = nil, Em.busy_text(cs.slots) .. " ; emplacements libres pris par cette decision"
-      cs.blocked_slots = (cs.blocked_slots or 0) + 1 -- (intégration 0.6.32 : retenu faute de place lui aussi)
-    elseif allowed then rec, why = execute(f, cs, o, view, book, tick, research)
+      -- (intégration 0.6.32 : retenu faute de place lui aussi ; remarque 6 de la relecture de CORR-CHAMP-MANQUE : pas quand seul le
+      -- siège unique du complément était pris, Em.blocked_counts)
+      if Em.blocked_counts(cs.slots and cs.slots.comp, meth_o and meth_o.product) then cs.blocked_slots = (cs.blocked_slots or 0) + 1 end
+    elseif allowed then
+      rec, why = execute(f, cs, o, view, book, tick, research)
+      if rec and rec.exec == "champ" and cseat == "complement" then rec.seat = "complement" end -- (tenu : Capi.slots, held_comp)
     else
       why = "pile : " .. tostring(pwhy)
       PileRt.refuse(f, "capi:" .. tostring(o.key), "ordre " .. tostring(o.kind) .. " " .. tostring(o.item or o.resource or o.tech)
         .. " non envoye (" .. tostring(pwhy) .. ")", tick)
     end
-    if rec and rec.exec == "module" and room ~= nil then room = room - #(rec.mod_ids or { rec.module }) end
+    if rec and rec.exec == "module" then room, room_comp = Em.take(room, room_comp, #(rec.mod_ids or { rec.module }))
+    elseif rec and rec.seat == "complement" then room, room_comp = Em.take(room, room_comp, 1) end -- (le champ sur le siège)
     if rec then
       cs.open[#cs.open + 1] = rec
       cs.orders = cs.orders + 1
@@ -1726,6 +1778,36 @@ remote.add_interface("fo-capi", {
     state_of(f).block_all = on and true or nil
     return true
   end,
+  --- Lot CORR-CHAMP-MANQUE (BANC SEULEMENT, témoin) : on = false éteint la règle 8 des emplacements (siège du minerai dont la plaque
+  --- manque aux ordres ouverts) pour cette équipe ; on = true (ou nil) la rallume. Rend vrai si l'équipe existe.
+  manque = function(key, on)
+    local f = team_of(key)
+    if not (f and f.team) then return false end
+    state_of(f).no_short = (on == false) or nil
+    return true
+  end,
+  --- Lot CORR-CHAMP-MANQUE (BANC SEULEMENT) : ouvre un ordre de la capitalisation de genre `kind` (« chaine » ou « packs ») pour
+  --- `item` à `rate` objets/min, par l'exécutant des ordres de la décision (execute : A.method_for, Auto.submit) SANS passer par
+  --- elle ; l'ordre entre dans cs.open (emplacements, suivi, manques) comme un ordre décidé. Rend les numéros de modules, ou nil et
+  --- la raison. (Comme « fo-ind row » : un banc court ne peut pas attendre que la décision veuille ces ordres.)
+  bench_order = function(key, kind, item, rate)
+    local f = team_of(key)
+    local cs = f and f.team and f.team.capi
+    if not (cs and f.hq and f.hq.valid) then return nil, "equipe ou capitalisation absente" end
+    if kind ~= "chaine" and kind ~= "packs" then return nil, "genre refuse : " .. tostring(kind) end
+    local force = game.forces[f.force]
+    local book = Book.from_game(game.recipe_prototypes, { allowed = function(name)
+      local r = force and force.recipes[name]
+      return r ~= nil and r.enabled
+    end })
+    local inv = f.hq.get_inventory(defines.inventory.chest)
+    local view = { stock = inv and inv.get_contents() or {} }
+    local o = { key = "banc:" .. kind .. ":" .. tostring(item), kind = kind, item = item, rate = rate, n = 1, T = 0, why = "banc" }
+    local rec, why = execute(f, cs, o, view, book, game.tick, nil)
+    if not rec then return nil, tostring(why) end
+    cs.open[#cs.open + 1] = rec
+    return rec.mod_ids, o.key
+  end,
   status = function(key)
     local f = team_of(key)
     local cs = f and f.team and f.team.capi
@@ -1735,7 +1817,16 @@ remote.add_interface("fo-capi", {
     for _, rec in ipairs(cs.open) do
       out.open[#out.open + 1] = { key = rec.key, kind = rec.kind, exec = rec.exec, n = rec.n, n_left = rec.n_left,
         mod_ids = rec.mod_ids, opened = rec.opened, module = rec.module, per = rec.per, inserted = rec.inserted,
-        refused = rec.refused, why_refused = rec.why_refused, tech = rec.tech, announced = rec.announced }
+        refused = rec.refused, why_refused = rec.why_refused, tech = rec.tech, announced = rec.announced,
+        resource = rec.resource, product = rec.product, missing = rec.missing } -- (lot CORR-CHAMP-MANQUE : ressource, produit, manques)
+    end
+    -- lot CORR-CHAMP-MANQUE : emplacements du dernier relevé (Capi.slots), produits du siège du complément dans l'ordre des fonderies
+    local sl = cs.slots
+    if sl then
+      local comp = {}
+      for _, p in ipairs(PLATE_PRODUCTS) do if sl.comp and sl.comp[p] then comp[#comp + 1] = p end end
+      out.slots = { cap = sl.cap, counted = sl.counted, open = sl.open, room = sl.room, room_comp = sl.room_comp, busy = sl.busy,
+        materials = sl.materials, comp = comp, why = sl.why }
     end
     for _, d in ipairs(cs.done) do out.done[#out.done + 1] = d end
     -- lot CAPI-REPLI / CAPI-MESURE : repli par (produit, gisement) et raison de chaque foreuse refusée (bancs)

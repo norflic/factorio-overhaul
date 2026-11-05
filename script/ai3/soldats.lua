@@ -687,13 +687,16 @@ Events.on_nth_tick(SD.PERIOD, function(e)
   if f and not f.eliminated and f.hq_pos then pass(f, e.tick) end
 end)
 
--- Votre équipe n'est pas une faction de la guerre (State.alive) : elle n'a pas de rôles de soldats, mais son QG est menacé
--- comme les autres (une vague de biters, un raid d'une faction) : même réponse, à chaque période (une recherche d'ennemi).
+-- Votre équipe n'est pas une faction de la guerre (State.alive), mais son QG est menacé comme les autres (une vague de biters, un
+-- raid d'une faction) : même réponse, à chaque période (une recherche d'ennemi).
+-- Lot DEPENSES2 (b ; « Oui, comme les factions ») : votre équipe qui a des soldats (payés par son stock qui dort) leur donne les MÊMES rôles
+-- que les factions (pass : garde, défense aux alertes, escorte, nettoyage ; hq_threat y est compris), à chaque période.
 Events.on_nth_tick(SD.PERIOD, function(e)
   if not C.enabled() then return end
   local f = State.faction("player")
   local surface = f and f.hq_pos and f.hq and f.hq.valid and f.hq.surface
-  if surface then hq_threat(f, C.team(f), surface, e.tick) end
+  if not surface then return end
+  if (f.soldiers_count or 0) > 0 then pass(f, e.tick) else hq_threat(f, C.team(f), surface, e.tick) end
 end)
 
 -- Votre équipe n'a pas de soldats : seule la mise à l'abri (C7) la concerne, toutes les 120 ticks.
