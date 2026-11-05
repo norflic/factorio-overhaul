@@ -9,7 +9,7 @@
     B : 10 chargeurs dans l'emplacement, 20 dans le sac (se recharge-t-il quand l'emplacement se vide ?) ;
     C : 10 dans l'emplacement, sac vide (témoin : tire 10 chargeurs puis s'arrête).
   Tir forcé toutes les 60 ticks (shooting_state = shooting_enemies, comme defend). Relevé toutes les 300 ticks : emplacement, sac, PV du biter.
-  Journal : [FO-REARMEMENT-SAC] ; ligne FAIT par personnage à la fin. Aucun contrôle sur la réponse (c'est la mesure) ; 3 000 ticks.
+  Journal : [FO-REARMEMENT-SAC] ; ligne FAIT par personnage à la fin. Aucun contrôle sur la réponse (c'est la mesure) ; contrôle au tick 2 800, banc de 2 900 ticks (le pistolet tire 4 balles par seconde : 10 chargeurs en 1 500 ticks).
 ]]
 
 local AX = 3000
@@ -32,7 +32,7 @@ local function hp(c) return (c.b and c.b.valid) and c.b.health or -1 end
 
 return {
   description = "REARMEMENT : un PNJ tire-t-il avec les chargeurs de son sac quand l'emplacement est vide ? (mesure d'un fait moteur)",
-  check_tick = 3000,
+  check_tick = 2800,
 
   init = function(ctx)
     local s = ctx.surface()
