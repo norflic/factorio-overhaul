@@ -11,9 +11,6 @@
     - tick 1 900 : contrôle : A a été rempli par l'équipe avant le tick 1 300, B après.
   Règle du lot : Stock.scan (script/team/stock.lua) retrouve A et B ; le rangement (Stock.balance) les remplit. Témoin (règle d'avant, essai-a) :
   l'ancienne annexe purgée, A et B jamais inscrits, rien rangé. Journal : [FO-STOCKAGE-REMPLACE] (et [FO-STOCKAGE] du mod).
-  Limite : posés par script, A et B n'ont pas de joueur (last_user vide) : c'est le cas d'un coffre refait ou remplacé par l'équipe. Le cas
-  EXACT du DC (coffre posé par un joueur) passe par la vue de dépôt du lot COFFRES-JOUEUR (Stock.depot = CJs.depot), prouvée par son test ;
-  un banc en session avec un joueur le montrerait en moteur.
 ]]
 
 local AX = 3500

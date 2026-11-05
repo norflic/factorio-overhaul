@@ -53,17 +53,6 @@ end
 
 local function chest_inv(e) return e.get_inventory(defines.inventory.chest) end
 
---- Lot STOCKAGE x COFFRES-JOUEUR (UN registre par coffre, convenu avec qgzone le 5/11) : coffres POSÉS PAR UN JOUEUR qui acceptent les dépôts de
---- l'équipe (vue CJs.depot de script/team/coffres_joueur.lua, qui les cherche ; jamais une annexe de f.annex). Posé par le lot COFFRES-JOUEUR
---- (`Stock.depot = CJs.depot`) ; absent : aucun. Lu par Stock.insert, Stock.flush et la capacité (totals) : le coffre en acier que le joueur
---- pose par-dessus une annexe reçoit les dépôts et compte dans la place du stock.
-Stock.depot = nil
-local NONE = {}
-local function depot_of(f)
-  local d = Stock.depot and Stock.depot(f)
-  return d or NONE
-end
-
 function Stock.count(f, item)
   local n = f.hq.get_item_count(item)
   for _, e in ipairs(Stock.annexes(f)) do n = n + e.get_item_count(item) end
@@ -88,13 +77,6 @@ function Stock.insert(f, item, n)
   if put < n then
     for _, e in ipairs(Stock.annexes(f)) do
       put = put + e.insert({ name = item, count = n - put })
-      if put >= n then break end
-    end
-  end
-  -- Lot STOCKAGE x COFFRES-JOUEUR : les coffres du joueur ouverts aux dépôts (Stock.depot) après les annexes.
-  if put < n then
-    for _, e in ipairs(depot_of(f)) do
-      if e.valid then put = put + e.insert({ name = item, count = n - put }) end
       if put >= n then break end
     end
   end
@@ -128,12 +110,6 @@ function Stock.flush(f)
     if put < n then
       for _, e in ipairs(Stock.annexes(f)) do
         put = put + e.insert({ name = name, count = n - put })
-        if put >= n then break end
-      end
-    end
-    if put < n then
-      for _, e in ipairs(depot_of(f)) do
-        if e.valid then put = put + e.insert({ name = name, count = n - put }) end
         if put >= n then break end
       end
     end
@@ -185,14 +161,6 @@ local function totals(f)
   for _, e in ipairs(annex) do
     local u, s = slots_of(chest_inv(e))
     used, size = used + u, size + s
-  end
-  -- Lot STOCKAGE x COFFRES-JOUEUR : les cases des coffres du joueur ouverts aux dépôts comptent dans la place (l'équipe ne se croit pas pleine) ;
-  -- pas dans le nombre d'annexes (le plafond reste celui des coffres de l'équipe).
-  for _, e in ipairs(depot_of(f)) do
-    if e.valid then
-      local u, s = slots_of(chest_inv(e))
-      used, size = used + u, size + s
-    end
   end
   return used, size, #annex
 end
@@ -410,11 +378,10 @@ local function on_a_line(surface, e)
 end
 
 --- Lot STOCKAGE (essai 3, remarque du DC du 5/11, 21 h 47 : « j'ai posé le coffre [en acier] par-dessus [...] ils retrouvent plus le coffre ») :
---- le REGISTRE SE RÉPARE. Un coffre de l'échelle (T.annex.kinds), de la force de l'équipe, SANS joueur (last_user vide : posé par l'équipe, refait
---- par la reconstruction, remplacé par script), dans la zone de stockage, absent du registre, est inscrit comme annexe (le moteur donne un
---- NOUVEAU numéro d'unité à un coffre remplacé ou refait ; l'ancien est purgé par Stock.annexes). Un coffre posé par un JOUEUR (le remplacement
---- du DC) est l'affaire du lot COFFRES-JOUEUR (Stock.depot) : un seul registre par coffre. Jamais : un coffre d'avant-poste (State.owner), sur
---- une place du plan directeur (Stock.reserved), ou sur une ligne du joueur (bras, tapis, foreuse au contact). Rend le nombre inscrit.
+--- le REGISTRE SE RÉPARE. Un coffre de l'échelle (T.annex.kinds), de la force de l'équipe, dans la zone de stockage, absent du registre, est
+--- inscrit comme annexe : le coffre remplacé par-dessus par le joueur (le moteur lui donne un NOUVEAU numéro d'unité, l'ancien est purgé par
+--- Stock.annexes) comme le coffre qu'il pose lui-même dans la zone. Jamais : un coffre d'avant-poste (State.owner), sur une place du plan
+--- directeur (Stock.reserved), ou sur une ligne du joueur (bras, tapis, foreuse au contact). Rend le nombre de coffres inscrits.
 function Stock.scan(f, surface, tick)
   if not (surface and surface.find_entities_filtered and f.hq_pos) then return 0 end
   local listed = {}
@@ -424,8 +391,7 @@ function Stock.scan(f, surface, tick)
   local n = 0
   for _, e in ipairs(found) do
     local u = e.valid and e.unit_number
-    -- (un coffre posé par un JOUEUR, last_user, est cherché par le lot COFFRES-JOUEUR, Stock.depot : un seul registre par coffre)
-    if u and not listed[u] and e ~= f.hq and rank_of(e.name) and not e.last_user and not State.owner(u)
+    if u and not listed[u] and e ~= f.hq and rank_of(e.name) and not State.owner(u)
       and not (Stock.reserved and Stock.reserved(f, e.name, e.position)) and not on_a_line(surface, e) then
       f.annex = f.annex or {}
       f.annex[#f.annex + 1] = e

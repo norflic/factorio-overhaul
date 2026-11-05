@@ -434,9 +434,7 @@ do
   local owned = ent(9003, "steel-chest", -3, 7) -- réception d'avant-poste
   local lined = ent(9004, "steel-chest", 5, 9) -- un bras au contact
   local far = ent(9005, "steel-chest", 40, 40) -- hors de la zone
-  local byplayer = ent(9006, "steel-chest", -5, 9) -- posé par un JOUEUR : l'affaire de COFFRES-JOUEUR (Stock.depot), pas du registre des annexes
-  byplayer.last_user = { name = "DC" }
-  local world = { replaced, posed, owned, lined, far, byplayer }
+  local world = { replaced, posed, owned, lined, far }
   local surf_scan = {
     create_entity = function(s) return named(32, s.name, s.position.x, s.position.y) end,
     find_entities_filtered = function(flt)
@@ -461,7 +459,7 @@ do
   for _, e in ipairs(Stock.annexes(q)) do ids[#ids + 1] = e.unit_number end
   table.sort(ids)
   check(table.concat(ids, ",") == "9001,9002", "registre réparé : le coffre remplacé (9001) et celui posé par le joueur (9002) ; ni avant-poste, " ..
-    "ni ligne du joueur, ni hors zone, ni coffre d'un joueur (" .. table.concat(ids, ",") .. ")")
+    "ni ligne du joueur, ni hors zone (" .. table.concat(ids, ",") .. ")")
   local found = 0
   for i = nl + 1, #logs do if logs[i]:find("FO%-STOCKAGE") and logs[i]:find("retrouve") then found = found + 1 end end
   check(found == 2, "journal [FO-STOCKAGE] : 2 coffres retrouvés (" .. found .. ")")
@@ -479,25 +477,6 @@ do
   check(#Stock.annexes(q2) == 0, "mutant (réparation retirée) : aucun coffre retrouvé, la règle d'avant")
   Stock.scan = sc0
   Stt.owner = owner0
-  -- (g) STOCKAGE x COFFRES-JOUEUR : un coffre du joueur ouvert aux dépôts (Stock.depot) reçoit les dépôts quand le QG et les annexes sont pleins,
-  -- compte dans la place du stock (pas dans le nombre d'annexes), et reçoit les objets en attente.
-  local dz = team(10)
-  dz.hq.items.stone = 50 * 10 -- QG plein, aucune annexe
-  local mine = named(48, "steel-chest", 3, 20)
-  mine.last_user = { name = "DC" }
-  Stock.depot = function(ff) return ff == dz and { mine } or {} end
-  game.tick = 7000
-  check(Stock.insert(dz, "coal", 100) == 100 and (mine.items.coal or 0) == 100 and Stock.pending(dz) == 0,
-    "QG plein : le dépôt va au coffre du joueur ouvert aux dépôts, rien en attente")
-  local used, size, n = 0, 0, 0
-  dz.stock_watch = {}
-  local wanted_with = Stock.wanted(dz)
-  check(wanted_with == 0, "sa place compte dans le stock : l'équipe ne se croit pas pleine (coffres demandés : " .. wanted_with .. ")")
-  dz.stock_pending = { wood = 50 }
-  Stock.flush(dz)
-  check((mine.items.wood or 0) == 50 and Stock.pending(dz) == 0, "les objets en attente y entrent aussi")
-  Stock.depot = nil
-  game.tick = nil
   game.tick = nil
 end
 
