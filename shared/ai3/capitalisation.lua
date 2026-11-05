@@ -1875,8 +1875,11 @@ end
 ---   open : ordres ouverts, chacun avec missing = { { objet, n } } ;
 ---   book : livre (shared/team/book.lua) ;
 ---   names : plaques, dans l'ordre ;
----   free : { [plaque] = n } }.
+---   free : { [plaque] = n } ;
+---   prev : la plaque rendue la fois d'avant (hystérésis, Ca.SEAT_MARGIN), ou nil }.
 --- Pur : aucune API Factorio, le livre est donné par l'appelant.
+Ca.SEAT_MARGIN = 25 -- % : seconde relecture, point 2 : la plaque qui tient le siège le garde tant que l'autre ne la dépasse pas de plus
+
 function Ca.seat_plate(ctx)
   local def = {}
   local book = ctx and ctx.book
@@ -1897,6 +1900,12 @@ function Ca.seat_plate(ctx)
     def[n] = v
     if v > bv then best, bv = n, v end
   end
+  -- Seconde relecture (revue-depenses2, point 2) : HYSTÉRÉSIS. La plaque qui tenait le siège (ctx.prev) le garde tant qu'elle manque
+  -- encore et que la meilleure ne la dépasse pas de plus de Ca.SEAT_MARGIN % ; sinon la porte des foreuses basculerait fer, cuivre,
+  -- fer d'une minute à l'autre sur deux déficits proches. (Entiers : best × 100 <= prev × (100 + marge).)
+  local prev = ctx.prev
+  local pv = prev ~= nil and def[prev] or nil
+  if best ~= nil and pv ~= nil and pv > 0 and best ~= prev and bv * 100 <= pv * (100 + Ca.SEAT_MARGIN) then best = prev end
   return best, def
 end
 

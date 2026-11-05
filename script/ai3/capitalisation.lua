@@ -793,12 +793,17 @@ function Capi.slots(f, cs, stock, tick, book)
   -- (banc témoin seulement : remote.call("fo-capi", "manque", <clé>, false) éteint la règle 8, cs.no_short)
   local short = {}
   if not cs.no_short then
-    local plate = Ca.seat_plate({ open = cs.open, book = book, names = PLATE_PRODUCTS, free = free })
+    -- (seconde relecture, point 2 : hystérésis sur la plaque du relevé précédent, cs.seat_prev)
+    local plate = Ca.seat_plate({ open = cs.open, book = book, names = PLATE_PRODUCTS, free = free, prev = cs.seat_prev })
+    cs.seat_prev = plate
     if plate then short = Em.short(PLATE_PRODUCTS, ORE_OF_PRODUCT, { [plate] = true }, free) end
+  else
+    cs.seat_prev = nil
   end
   -- Relecture du lead (18 h 10, point 1, BLOQUANT) : un ordre CHAMP ouvert sur le siège du complément (decide, Em.champ_seat) le tient.
+  -- (seconde relecture, point 1 : seulement s'il avance VRAIMENT, posées en hausse depuis moins de Em.STALL : Em.champ_holds)
   local held = 0
-  for _, o in ipairs(cs.open or {}) do if o.exec == "champ" and o.seat == "complement" then held = held + 1 end end
+  for _, o in ipairs(cs.open or {}) do if Em.champ_holds(o, tick) then held = held + 1 end end
   local sl = Em.slots({ base = base, plates = plates, mods = mods, tick = tick, names = PLATE_PRODUCTS, sleeping = Dep.sleeping(f, tick),
     short = short, held_comp = held })
   if (cs.dm_base or A.MAX_OPEN) ~= base then
@@ -1231,6 +1236,8 @@ local function follow(f, cs, rec, tick)
     if s.abandoned then return "echec", "champ : abandonne" end
     local tag = table.concat({ tostring(s.stage), tostring(s.pid), tostring(s.pstate), tostring(s.reason), tostring(s.built) }, ":")
     if tag ~= rec.tag then rec.tag, rec.progress_tick = tag, tick end
+    -- seconde relecture (point 1) : le progrès RÉEL (posées en hausse), seul lu par le siège du complément (Em.champ_holds)
+    rec.adv_tick, rec.built_hi = Em.champ_advance(rec.adv_tick, rec.built_hi, s.built, tick)
     rec.missing = {}
     return "ouvert"
   elseif rec.exec == "techno" then

@@ -211,6 +211,26 @@ function Em.champ_seat(full, room, room_comp, comp, product)
   return nil
 end
 
+--- Seconde relecture (revue-depenses2, point 1) : un ordre CHAMP sur le siège ne le TIENT que s'il AVANCE VRAIMENT. Son étiquette de
+--- progrès (étape, projet, état, raison, posées : script/ai3/capitalisation.lua, follow) change aussi quand la pile bat sans rien
+--- bâtir (26 changements en 36 min, MESURÉ dans la partie du DC) : progress_tick avance, ORDER_TTL ne tombe jamais. Ici, seul le
+--- PROGRÈS RÉEL compte : entités posées en hausse (Em.champ_advance). Un champ sans progrès réel depuis Em.STALL ticks (depuis son
+--- ouverture s'il n'a jamais rien posé) lâche le siège, comme un module « figé ». o = { exec, seat, adv_tick, opened }.
+function Em.champ_holds(o, tick)
+  if not (o and o.exec == "champ" and o.seat == "complement") then return false end
+  local t0 = o.adv_tick or o.opened or tick or 0
+  return (tick or 0) - t0 < Em.STALL
+end
+
+--- Dernier progrès RÉEL d'un champ : rend adv_tick, built_hi (le plus haut nombre d'entités posées vu). Le premier relevé fixe la
+--- référence sans compter comme progrès ; ensuite, seule une HAUSSE des posées en est un (une baisse : entités perdues, pas un progrès).
+function Em.champ_advance(adv_tick, built_hi, built, tick)
+  local b = type(built) == "number" and built or 0
+  if built_hi == nil then return adv_tick, b end
+  if b > built_hi then return tick, b end
+  return adv_tick, built_hi
+end
+
 --- Relecture de CORR-CHAMP-MANQUE (remarque 6) : un ordre refusé faute de place compte-t-il dans cs.blocked_slots (ordres retenus
 --- faute de place, qui ouvrent des emplacements ORDINAIRES de chantier à la décision suivante, lot C2) ? Non quand il n'a été refusé
 --- que parce que le siège UNIQUE du complément était déjà pris (son produit est dans le complément) : sinon le second ordre du fer
