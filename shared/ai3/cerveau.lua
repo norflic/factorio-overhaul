@@ -109,6 +109,7 @@ function C.situation(view, st, ctx)
   return {
     is_player = ctx.is_player or false, workers = view.workers or 0, soldiers = view.soldiers or 0,
     soldiers_max = view.soldiers_max or 0, stock = view.stock or {}, cap = cap, pending = view.pending or {},
+    army_cap = view.army_cap or 0, -- lot DEPENSES2 (R1) : plafond des factions, celui de l'armée de votre équipe (B.generate)
     sites = view.sites or {}, sites_near = view.sites_near or {}, nout = nout, undef_n = undef_n, lethal_n = lethal_n,
     threatened = view.threatened or false, expansion = ctx.expansion or 0, dominant = ctx.dominant or false,
     desired = ctx.desired, extension = ctx.industrie or false, room = room, smelters = view.smelters or 0, smelters_pending = view.smelters_pending or 0,

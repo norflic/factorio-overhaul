@@ -17,6 +17,7 @@
 
 local Dp = require("shared.ai3.depenses")
 local Rsv = require("script.ai3.reserve")
+local Stock = require("script.team.stock") -- (journal Dep.on_trained)
 
 local Dep = {}
 
@@ -132,6 +133,7 @@ end
 function Dep.soldiers_target(f, army, max, now, tick, key, key_short, cost)
   local r = fresh(f, tick)
   local d = f and f.team and f.team.depenses
+  if d then d.army_base, d.army_key, d.army_key_short = army, key, key_short and true or nil end -- (journal Dep.on_trained)
   local extra = r and Dp.soldiers_extra(r, key, key_short) or 0
   if not d or extra <= 0 then
     if d then d.soldier_target, d.soldier_note = nil, nil end
@@ -151,6 +153,19 @@ function Dep.soldiers_target(f, army, max, now, tick, key, key_short, cost)
   d.soldier_target, d.soldier_brain, d.soldier_now, d.soldier_key, d.soldier_note = t, army, now, key, nil
   d.soldier_cost = next(c) ~= nil and c or nil
   return t
+end
+
+--- Lot DEPENSES2 (R1, demande du lead) : journal des soldats de VOTRE ÉQUIPE quand ils sont payés (script/team/team.lua, après
+--- Military.train) : combien, quelle unité, sa cible (base des factions + stock qui dort), son fer au coffre et si sa matière clé manque
+--- (jamais vrai ici : la base et le relèvement sont à 0 quand elle manque, script/ai3/cerveau.lua).
+function Dep.on_trained(f, unit, made, tick)
+  if not (f and f.is_player and (made or 0) > 0) then return end
+  local d = (f.team and f.team.depenses) or {}
+  local key = d.army_key or "?"
+  local have = d.army_key and Stock.count(f, d.army_key) or -1
+  log(string.format("[FO-DEPENSES] %s : %d soldat(s) %s paye(s) a %.1f min | soldats %d, cible %d (base %d + stock qui dort %d) | %s au coffre %d, matiere cle qui manque : %s",
+    f.key or "?", made, tostring(unit), (tick - (f.started or 0)) / 3600, f.soldiers_count or 0, d.soldier_target or d.army_base or 0,
+    d.army_base or 0, math.max(0, (d.soldier_target or 0) - (d.army_base or 0)), key, have, d.army_key_short and "OUI" or "non"))
 end
 
 --- Ce que cette règle a accordé ou engagé, par matière : défense accordée + laboratoires et soldats encore à faire (répartis sur les

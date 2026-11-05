@@ -62,6 +62,7 @@ local FerEquipe = require("shared.team.fer_equipe") -- lot FER-EQUIPE : réserve
 local Rsv = require("script.ai3.reserve") -- lot INDUSTRIE I1 : besoin évalué et couvert = plus de réserve de croissance
 local JournauxDC = require("shared.team.journaux_dc") -- lot JOURNAUX-DC : plafond d'ouvriers et fer inemployé
 local General = require("script.ai3.general") -- lot SCALE : ressource la plus demandée (marge de la recrue)
+local Dep = require("script.ai3.depenses") -- lot DEPENSES2 (R1) : journal de la paie des soldats de votre équipe
 local Rg = require("shared.ai3.reglages") -- lot SCALE : ressources clés de repli
 local DefChoix = require("script.faction.defchoix") -- lot DEFENSE-CHOIX : base menacée ou envahie (tourelles du QG avant les soldats)
 local Mu = require("shared.team.munitions") -- lot MUNITIONS : chargeurs voulus par tourelle (cible riche quand le fer la paie)
@@ -1013,6 +1014,7 @@ function Team.think(f, surface, tick)
     local kit = T.kits[tr.unit]
     remove_list(f, tr_pay, tr.uses and 1 or tr.count)
     local made = Military.train(f, surface, tr.unit, tr.count)
+    if f.is_player then Dep.on_trained(f, tr.unit, made, game.tick) end -- lot DEPENSES2 (R1) : journal de la paie des soldats de votre équipe
     if made < tr.count then
       for _, it in ipairs(kit) do Stock.insert(f, it[1], it[2] * (tr.count - made)) end
     end
