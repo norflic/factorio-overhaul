@@ -24,6 +24,7 @@ local PlacesQG = require("script.ai3.places_qg")
 local Br = require("shared.ai3.bras")
 local Ad = require("shared.team.adopte")
 local FQ = require("shared.ai3.fonderie_qg") -- lot PD-FONDERIEQG (D77) : fonderie du QG bornée par l'automatisation
+local Sg = require("shared.team.stockage") -- lot STOCKAGE (essai 2) : poser le plus grand, améliorer, anneaux (règle pure)
 
 -- Entrées de la fonderie du QG, triées (données de shared/team/config.lua), pour FQ.automated.
 local SMELT_INPUTS = {}
@@ -78,8 +79,49 @@ function Stock.insert(f, item, n)
     end
   end
   -- Lot STOCKAGE : un dépôt refusé = plus de place pour cet objet (quel qu'il soit) ; déclenche la pose anticipée d'un coffre.
-  if put < n then f.refused_at = game.tick or 0 end
+  if put < n then
+    f.refused_at = game.tick or 0
+    -- Lot STOCKAGE (essai 2, « les ressources se posent par terre ») : le reste n'est JAMAIS perdu ni posé au sol : il attend (f.stock_pending,
+    -- nombres seuls) et entre au stock dès qu'un coffre a de la place (Stock.flush, à chaque pensée de l'équipe, après la pose d'un coffre).
+    -- Avant : 19 appels ignoraient le refus (objets perdus), 3 chemins les posaient au sol, le dépôt les laissait dans le sac du PNJ.
+    f.stock_pending = f.stock_pending or {}
+    f.stock_pending[item] = (f.stock_pending[item] or 0) + (n - put)
+    f.stats = f.stats or {}
+    f.stats.stock_pending_in = (f.stats.stock_pending_in or 0) + (n - put)
+    return n
+  end
   return put
+end
+
+--- Lot STOCKAGE (essai 2) : objets EN ATTENTE (refusés par un stock plein) remis au coffre du QG puis aux annexes, dans l'ordre des noms.
+--- Rend le nombre d'objets encore en attente.
+function Stock.flush(f)
+  local p = f.stock_pending
+  if not p or not (f.hq and f.hq.valid) then return 0 end
+  local names = {}
+  for name in pairs(p) do names[#names + 1] = name end
+  table.sort(names)
+  local left = 0
+  for _, name in ipairs(names) do
+    local n = p[name]
+    local put = f.hq.insert({ name = name, count = n })
+    if put < n then
+      for _, e in ipairs(Stock.annexes(f)) do
+        put = put + e.insert({ name = name, count = n - put })
+        if put >= n then break end
+      end
+    end
+    if put >= n then p[name] = nil else p[name] = n - put; left = left + n - put end
+  end
+  if left == 0 then f.stock_pending = nil end
+  return left
+end
+
+--- Objets en attente (0 sans attente).
+function Stock.pending(f)
+  local n = 0
+  for _, v in pairs(f.stock_pending or {}) do n = n + v end
+  return n
 end
 
 --- Contenu du stock { [objet] = nombre } : coffre du QG et annexes.
@@ -182,21 +224,55 @@ local function side(f)
   return f.annex_sy
 end
 
---- Plafond d'annexes : les places du bloc pour l'emprise du premier coffre posable (borné par la place du lot du QG).
+--- Lot STOCKAGE (essai 2) : anneaux ouverts (f.annex_rings, 1 au départ : le bloc d'avant) et places de tous les anneaux ouverts.
+local function rings(f) return math.max(1, math.min(Sg.MAX_RINGS, f.annex_rings or 1)) end
+
+--- Plafond d'annexes : les places des anneaux OUVERTS pour l'emprise du premier coffre de l'échelle (avant le lot STOCKAGE, essai 2 : le seul
+--- bloc de 48 places).
 local function capacity(f)
   local k = T.annex.kinds[1]
   local w, h = footprint(k.item)
-  return A.capacity(side(f), w, h)
+  return Sg.capacity(side(f), w, h, rings(f))
+end
+
+--- Échelle des coffres (Sg) : { { slots }, ... } du plus grand au plus petit (T.annex.kinds) ; rang d'un nom d'entité dans l'échelle (un coffre
+--- hors échelle compte comme le plus petit).
+local LADDER = {}
+for i, k in ipairs(T.annex.kinds) do LADDER[i] = { slots = k.slots } end
+local function rank_of(name)
+  for i, k in ipairs(T.annex.kinds) do if k.item == name then return i end end
+  return nil -- coffre hors échelle : ni compté ni amélioré
+end
+
+--- Coffres en main par rang, annexes posées par rang.
+local function hand_of(f)
+  local out = {}
+  for i, k in ipairs(T.annex.kinds) do out[i] = chests_in_hand(f, k.item) end
+  return out
+end
+local function posed_of(f)
+  local out = {}
+  for _, e in ipairs(Stock.annexes(f)) do
+    local r = rank_of(e.name)
+    if r then out[r] = (out[r] or 0) + 1 end
+  end
+  return out
 end
 
 function Stock.wanted(f)
   if not (f.hq and f.hq.valid) then return 0 end
   local used, size, n = totals(f)
   if size <= 0 then return 0 end -- capacité inconnue (moteur simulé)
-  local have = 0
-  for _, k in ipairs(T.annex.kinds) do have = have + chests_in_hand(f, k.item) end
   local tick = game.tick or 0
-  return A.wanted(used, size, n, have, A.early_due(f.stock_watch, tick, f.refused_at), capacity(f))
+  local early = A.early_due(f.stock_watch, tick, f.refused_at)
+  local hand = hand_of(f)
+  local have = 0
+  -- Lot STOCKAGE (essai 2) : anneaux pleins (f.annex_full) : seuls comptent les coffres PLUS GRANDS que le plus petit posé (ceux qui
+  -- améliorent) ; le fond fabrique alors le premier coffre fabricable de l'échelle (l'acier d'abord, shared/team/fond.lua).
+  local smallest = 0
+  if f.annex_full then for r, c in pairs(posed_of(f)) do if c > 0 and r > smallest then smallest = r end end end
+  for i = 1, #hand do if not f.annex_full or i < smallest then have = have + hand[i] end end
+  return A.wanted(used, size, n, have, early, Sg.capacity(side(f), 1, 1, Sg.MAX_RINGS))
 end
 
 --- Stock LIBRE (coffre et annexes moins ce que les tâches ont réservé) : posé par script/team/board.lua au chargement
@@ -270,43 +346,141 @@ end
 --- stock à 60 % depuis 5 min, ou dépôt refusé). Les places viennent du bloc de T.annex.block, du plus proche du QG au plus
 --- lointain, côté extérieur ; une place réservée par le plan directeur (Stock.reserved) est sautée, sans passe de secours.
 --- Rend vrai si un coffre a été posé.
+--- Lot STOCKAGE (essai 2) : places de tous les anneaux ouverts, pour un coffre w × h, face sy.
+local function ring_places(f, sy, w, h)
+  local out = {}
+  for r = 1, rings(f) do
+    for _, p in ipairs(Sg.ring_slots(sy, w, h, r)) do out[#out + 1] = p end
+  end
+  return out
+end
+
+--- Lot STOCKAGE (essai 2) : pose du coffre de rang k sur la première place libre des anneaux ouverts ; rend vrai si posé.
+local function place_kind(f, surface, k, tick, n, used, size, st)
+  local item = T.annex.kinds[k].item
+  local w, h = footprint(item)
+  local placed = PlacesQG.place_list(surface, item, f.force, f.hq_pos, ring_places(f, side(f), w, h), 0, 1, function(pos)
+    if Stock.reserved and Stock.reserved(f, item, pos) then return false end
+    local e = surface.create_entity({ name = item, position = pos, force = f.force })
+    if not (e and e.valid) then return false end
+    Stock.remove(f, item, 1)
+    f.annex = f.annex or {}
+    f.annex[#f.annex + 1] = e
+    return true
+  end)
+  if placed <= 0 then return false end
+  f.stats = f.stats or {}
+  f.stats.annex_placed = (f.stats.annex_placed or 0) + 1
+  st.since, st.retry, st.placed_at, f.refused_at = tick, nil, tick, nil -- la fenêtre repart : au plus un coffre toutes les 5 min par anticipation
+  log(string.format("[FO-ANNEXE] %s : coffre %d pose (%s), stock %d/%d cases a %.1f min", f.key or "player", n + 1, item,
+    used, size, (tick - (f.started or 0)) / 3600))
+  Stock.flush(f) -- les objets en attente entrent dans le coffre neuf
+  return true
+end
+
+--- Lot STOCKAGE (essai 2) : AMÉLIORATION du plus petit coffre posé en coffre de rang k, À LA MÊME PLACE, contenu gardé : remplacement rapide
+--- (create_entity fast_replace, F39 : contenu, recette et munitions conservés) ; si le moteur n'a pas remplacé l'ancien (encore valide),
+--- le contenu est transféré à la main et l'ancien retiré seulement VIDE. Le coffre retiré revient au stock. Rend vrai si fait.
+local function upgrade(f, surface, k, tick)
+  local list = Stock.annexes(f)
+  local idx, worst = nil, 0
+  for i, e in ipairs(list) do
+    local r = rank_of(e.name)
+    if r and r > k and r > worst then idx, worst = i, r end
+  end
+  if not idx then return false end
+  local old = list[idx]
+  local old_name, pos = old.name, old.position
+  local before = old.get_inventory(defines.inventory.chest).get_contents()
+  local item = T.annex.kinds[k].item
+  local e = surface.create_entity({ name = item, position = pos, force = f.force, fast_replace = true, spill = false })
+  if not (e and e.valid) then return false end
+  if old.valid then
+    local names = {}
+    for name in pairs(before) do names[#names + 1] = name end
+    table.sort(names)
+    for _, name in ipairs(names) do
+      local moved = e.insert({ name = name, count = before[name] })
+      if moved > 0 then old.remove_item({ name = name, count = moved }) end
+    end
+    if next(old.get_inventory(defines.inventory.chest).get_contents()) == nil then old.destroy() end
+  end
+  Stock.remove(f, item, 1)
+  if not old.valid then
+    f.annex[idx] = e
+    Stock.insert(f, old_name, 1)
+  else
+    f.annex[#f.annex + 1] = e -- l'ancien garde ce qui n'a pas tenu (jamais perdu) : il reste annexe
+  end
+  f.stats = f.stats or {}
+  f.stats.annex_upgraded = (f.stats.annex_upgraded or 0) + 1
+  log(string.format("[FO-STOCKAGE] %s : coffre %s ameliore en %s a la meme place (contenu garde) a %.1f min", f.key or "player", old_name, item,
+    (tick - (f.started or 0)) / 3600))
+  return true
+end
+
+--- Pose un coffre du stock (au plus une action par appel) quand les cases se remplissent (70 %) ou par ANTICIPATION (lot STOCKAGE :
+--- stock à 60 % depuis 5 min, ou dépôt refusé). Lot STOCKAGE (essai 2, shared/team/stockage.lua) : le PLUS GRAND coffre en main est posé
+--- sur une place libre des anneaux ouverts ; sans place libre, le plus petit coffre posé est AMÉLIORÉ (bois -> fer -> acier) ; sinon un
+--- ANNEAU de plus s'ouvre (le même bloc 8 tuiles plus loin, Sg.MAX_RINGS au plus : journal [FO-STOCKAGE] quand la borne est atteinte).
+--- Une place réservée par le plan directeur (Stock.reserved) est sautée. Les objets en attente (refusés) entrent d'abord (Stock.flush).
+--- Rend vrai si un coffre a été posé ou amélioré.
 function Stock.grow(f, surface, tick)
   if not (f.hq and f.hq.valid) then return false end
   if Stock.on_think then Stock.on_think(f, tick) end -- lot FANTOMES : balayage des aperçus (posé par script/team/board.lua)
   Stock.deploy_idle(f, surface, tick)
+  local waiting = Stock.flush(f)
   local used, size, n = totals(f)
   if size <= 0 then return false end
   f.stock_watch = f.stock_watch or {}
   local st = A.watch(f.stock_watch, used, size, tick)
-  if not A.need_chest(used, size, n, A.early_due(st, tick, f.refused_at), capacity(f)) then return false end
-  if st.retry and tick < st.retry then return false end
-  local sy = side(f)
-  local blocked = false
-  for _, k in ipairs(T.annex.kinds) do
-    if chests_in_hand(f, k.item) >= 1 then
-      local w, h = footprint(k.item)
-      local placed = PlacesQG.place_list(surface, k.item, f.force, f.hq_pos, A.slots(sy, w, h), 0, 1, function(pos)
-        if Stock.reserved and Stock.reserved(f, k.item, pos) then return false end
-        local e = surface.create_entity({ name = k.item, position = pos, force = f.force })
-        if not (e and e.valid) then return false end
-        Stock.remove(f, k.item, 1)
-        f.annex = f.annex or {}
-        f.annex[#f.annex + 1] = e
-        return true
-      end)
-      if placed > 0 then
-        f.stats = f.stats or {}
-        f.stats.annex_placed = (f.stats.annex_placed or 0) + 1
-        st.since, st.retry, st.placed_at, f.refused_at = tick, nil, tick, nil -- la fenêtre repart : au plus un coffre toutes les 5 min par anticipation
-        log(string.format("[FO-ANNEXE] %s : coffre %d pose (%s), stock %d/%d cases a %.1f min", f.key or "player", n + 1, k.item,
-          used, size, (tick - (f.started or 0)) / 3600))
-        return true
-      end
-      blocked = true
+  if waiting > 0 then
+    f.refused_at = f.refused_at or tick -- des objets attendent : il faut de la place
+    if tick - (f.pending_said or -1000000) >= 5 * 3600 then
+      f.pending_said = tick
+      log(string.format("[FO-STOCKAGE] %s : %d objet(s) en attente d'une place au stock (refuses, ni perdus ni au sol), %d annexe(s), " ..
+        "anneaux %d/%d, a %.1f min", f.key or "player", waiting, n, rings(f), Sg.MAX_RINGS, (tick - (f.started or 0)) / 3600))
     end
   end
-  -- Un coffre en main mais plus une place libre dans le bloc : on ne refait pas la recherche à chaque pensée.
-  if blocked then st.retry = tick + T.annex.retry end
+  local early = A.early_due(st, tick, f.refused_at)
+  side(f) -- la face du bloc se fixe à la première pensée où la position du QG est connue (comme avant)
+  if not (early or A.fill(used, size) >= T.annex.grow_at) then -- (plus de plafond fixe : les anneaux et leur borne décident plus bas)
+    f.annex_full = nil
+    return false
+  end
+  if st.retry and tick < st.retry then return false end
+  local hand, posed = hand_of(f), posed_of(f)
+  local c = { used = used, size = size, n = n, early = true, hand = hand, annexes = posed, rings = rings(f),
+    free_places = n < capacity(f) and 1 or 0 }
+  local action, k = Sg.decide(c, LADDER)
+  if action == "poser" then
+    if place_kind(f, surface, k, tick, n, used, size, st) then f.annex_full = nil return true end
+    c.free_places = 0 -- toutes les places des anneaux ouverts sont prises ou réservées
+    action, k = Sg.decide(c, LADDER)
+  end
+  if action == "ameliorer" then
+    f.annex_full = true
+    if upgrade(f, surface, k, tick) then st.retry = nil return true end
+  elseif action == "anneau" then
+    f.annex_full = true
+    f.annex_rings = rings(f) + 1
+    log(string.format("[FO-STOCKAGE] %s : anneau %d/%d ouvert (bloc plein : %d annexe(s), stock %d/%d cases) a %.1f min", f.key or "player",
+      f.annex_rings, Sg.MAX_RINGS, n, used, size, (tick - (f.started or 0)) / 3600))
+    local kh = nil
+    for i = 1, #hand do if hand[i] > 0 then kh = i break end end
+    if kh and place_kind(f, surface, kh, tick, n, used, size, st) then return true end
+  elseif k == nil and action == "rien" and rings(f) >= Sg.MAX_RINGS and n >= capacity(f) then
+    f.annex_full = true
+    if not f.annex_cap_said then
+      f.annex_cap_said = tick
+      log(string.format("[FO-STOCKAGE] %s : BORNE atteinte : %d anneaux, %d annexe(s), stock %d/%d cases, %d objet(s) en attente, a %.1f min",
+        f.key or "player", Sg.MAX_RINGS, n, used, size, Stock.pending(f), (tick - (f.started or 0)) / 3600))
+    end
+  elseif action == "fabriquer" then
+    f.annex_full = n >= capacity(f) or nil
+  end
+  -- Rien posé : on ne refait pas la recherche à chaque pensée.
+  st.retry = tick + T.annex.retry
   return false
 end
 

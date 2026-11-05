@@ -56,7 +56,9 @@ section("1. Règle d'avant (production) sur les cas du DC : constat (test ROUGE 
 check(old_rule(DC) == "bloque", "constat : stock plein, bloc saturé, coffres en fer en main : la règle d'avant ne pose RIEN (" .. old_rule(DC) .. ")")
 check(old_rule({ used = 1600, size = 1600, n = 48, cap = 48, free_places = 0, early = true }) == "rien",
   "constat : 48 annexes, la règle d'avant ne demande même plus de coffre (plafond T.annex.max = " .. T.annex.max .. ")")
-check(T.annex.kinds[1].slots == 32 and #T.annex.kinds == 2, "constat : l'échelle d'avant est fer (32 cases) puis bois (16), sans acier (48)")
+-- (constat d'avant, au test rouge : échelle fer 32 puis bois 16, sans acier) ; branchement du lot : l'acier en tête.
+check(T.annex.kinds[1].slots == 48 and T.annex.kinds[2].slots == 32 and T.annex.kinds[3].slots == 16,
+  "échelle des annexes du lot : acier (48), fer (32), bois (16), du plus grand au plus petit")
 
 ---------------------------------------------------------------------------------------------------
 section("2. Règle du lot (shared/team/stockage.lua)")
