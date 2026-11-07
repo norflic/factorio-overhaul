@@ -55,6 +55,7 @@
 
 local T = require("shared.team.config")
 local Ca = require("shared.ai3.capitalisation")
+local Rf = require("shared.ai3.refus") -- lot VIDEO-REFUS (C6) : décompte des refus par sorte, ligne [FO-CAPI-REFUS]
 local RangTrace = require("script.ai3.rang_trace") -- lot VIDEO-TRACES (G34) : journal [FO-RANG]
 local Cf = require("shared.ai3.confirmation") -- lot VIDEO-L5 : capacité CONFIRMÉE (première production observée)
 local Sante = require("script.team.sante_centrale") -- étape 5a de VIDEO-INTEG : consommateurs en chantier (vue de la porte du plan directeur)
@@ -1839,6 +1840,7 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
     local d = cs.deps[id]
     deps[#deps + 1] = string.format("%s:%d/%d%s", id, d.covered or 0, d.tiles, d.danger and "!" or "")
   end
+  log(Rf.line(f.key or "?", math.floor(minutes(f, tick) + 0.5), res.refus or {})) -- lot VIDEO-REFUS (C6) : refus par sorte, somme = nombre de refus
   log(string.format("[FO-CAPI] %s minute %d | tick %d | %s | envoyes [%s] | executant refuse [%s] | depots {%s} | foreuse_par_ressource {%s} | recherche_voulue [%s]",
     f.key or "?", math.floor(minutes(f, tick) + 0.5), tick, Ca.text(res), table.concat(sent, ", "), table.concat(refused, ", "),
     table.concat(deps, " "), (function()
