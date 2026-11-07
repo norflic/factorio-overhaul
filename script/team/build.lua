@@ -113,7 +113,9 @@ Build.SITES = {}               -- lot PETROLE : planificateurs de sites { [nom] 
 local REACH = P.BUILD_DISTANCE
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (réserve des modules neufs, agrandissement, tapis)
 local Rr = require("shared.team.rebuild_rapide") -- lot REBUILD-RAPIDE : projet rouvert sans attendre toute sa matière, ordre, foreuse de secours
-local Tj = require("script.team.tourelle_journal") -- lot TOURELLE-JOURNAL : [FO-TOURELLE-RETIREE] (tourelles de l'équipe déplacées ou reprises)
+-- Lot TOURELLE-JOURNAL : [FO-TOURELLE-RETIREE] (tourelles de l'équipe déplacées ou reprises). Champ de Build, pas une locale
+-- (limite de 200 locales du bloc principal, relecture de la 0.6.59).
+Build.Tj = require("script.team.tourelle_journal")
 -- Lot ÉTAGE 5 : couloir d'accès réservé des avant-postes (règle pure). Champ de Build, pas une locale : le bloc principal de ce fichier est
 -- à la limite de 200 locales de Lua 5.2 (fusion avec le lot PERIMETRE2).
 Build.Co = require("shared.team.couloir")
@@ -3285,14 +3287,14 @@ local function move_turrets_off(f, surface, p, e)
       local pos = Blocage.first_free(spots,
         function(c) return surface.find_non_colliding_position(x.name, { x = c.x, y = c.y }, 4, 1) end,
         function(q) return Build.reserved_entity(f, x.name, q) or Build.axis_entity(cors, x.name, q) ~= nil end)
-      local d = Tj.describe(x) -- lot TOURELLE-JOURNAL (avant le téléport)
+      local d = Build.Tj.describe(x) -- lot TOURELLE-JOURNAL (avant le téléport)
       if not (pos and x.teleport(pos)) then
         Build.axe_log(f, string.format("projet %d : tourelle en (%g, %g) sur l'emprise de %s en (%g, %g), aucune place libre hors des couloirs : non deplacee",
           p.id, from.x, from.y, tostring(e.name), e.x, e.y))
         return false
       end
       f.build.stats.turrets_moved = (f.build.stats.turrets_moved or 0) + 1
-      Tj.removed(d, "chantier de l'equipe " .. tostring(f.key), "emprise de " .. tostring(e.name) .. " (projet " .. tostring(p.id) .. ")",
+      Build.Tj.removed(d, "chantier de l'equipe " .. tostring(f.key), "emprise de " .. tostring(e.name) .. " (projet " .. tostring(p.id) .. ")",
         string.format("deplacee en (%.1f, %.1f)", x.position.x, x.position.y))
       Build.axe_log(f, string.format("projet %d : tourelle deplacee de (%g, %g) a (%g, %g) : elle occupait l'emprise de %s en (%g, %g) ; %d couloir(s) d'extension",
         p.id, from.x, from.y, x.position.x, x.position.y, tostring(e.name), e.x, e.y, #cors))
@@ -4329,14 +4331,14 @@ local function free_own_turrets(f, surface, p)
             -- cuivre et 80 de fer de munitions, sans remboursement) ; coffre plein ou aucun coffre : détruite comme avant, pour que le
             -- chantier reprenne. Même effet sur le registre qu'avant (aucun événement levé).
             local taken = false
-            local d = Tj.describe(x) -- lot TOURELLE-JOURNAL (avant la reprise)
+            local d = Build.Tj.describe(x) -- lot TOURELLE-JOURNAL (avant la reprise)
             if f.hq and f.hq.valid then
               for _, inv in ipairs(Stock.inventories(f)) do
                 if inv and inv.valid and x.mine({ inventory = inv, force = false, raise_destroyed = false }) then taken = true break end
               end
             end
             if taken then n_back = n_back + 1 elseif x.valid then x.destroy() end
-            Tj.removed(d, "chantier de l'equipe " .. tostring(f.key), "emprise de " .. tostring(e.name) .. " (projet " .. tostring(p.id) .. "), aucune place a cote",
+            Build.Tj.removed(d, "chantier de l'equipe " .. tostring(f.key), "emprise de " .. tostring(e.name) .. " (projet " .. tostring(p.id) .. "), aucune place a cote",
               taken and "reprise au coffre de l'equipe" or "DETRUITE (coffre plein ou absent)")
             n = n + 1
           end
