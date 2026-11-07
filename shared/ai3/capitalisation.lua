@@ -149,6 +149,16 @@ Ca.MAX_ORDERS = 24      -- ordres nouveaux au plus par cycle (coût de calcul)
 Ca.OPEN_MAX = 16        -- ordres ouverts au plus (plafond de sûreté du dépliage ; le travail disponible borne avant)
 Ca.HQ = "qg"
 Ca.EPS = 1e-9
+-- Lot VIDEO-L5 (confirmation observée, shared/ai3/confirmation.lua) : sortes d'ordres SUSPENDUES tant qu'une unité posée de leur
+-- objet attend sa première production (input.hold = { [objet] = raison }, relevé du runtime ; absent : rien de suspendu).
+Ca.HOLD_KINDS = { couvrir = true, ouvrir = true, fours = true, chaine = true, packs = true }
+-- Lot VIDEO-L13 (plafond par objet, shared/ai3/plafonds.lua) : sortes PLAFONNÉES (posé nominal + ouvert + ajouté ≤ Pf.K × la demande ;
+-- Pf.HARD unités au plus). couvrir et ouvrir n'y sont pas : décision du DC sur Q-CAPI-1, « foreuses partout » (Ca.COVER_LEAD = nil).
+Ca.CAPPED = { fours = true, chaine = true, packs = true }
+-- Plafond ABSOLU par objet, en unités posées + ouvertes (Pf.fits, s.hard) : HORS D'ATTEINTE ici. Avec Pf.HARD (64), le témoin A/B de
+-- l'étape 3 de VIDEO-INTEG (fo-logs/2026-11-07_VIDEO-INTEG/CRITERES.md, K6) change 116 rendus sur 502 : §3 (arrivée de 1 800/min :
+-- 64 fours au lieu de 96) et la simulation de §9 ; le plafond RELATIF (2 × la demande) n'en change aucun. À trancher (lead, DC).
+Ca.CAP_HARD = 1e6
 
 ---------------------------------------------------------------------------------------------------
 -- Outils
@@ -945,10 +955,29 @@ end
 --- Clé déjà prise (ordre ouvert ou décidé dans ce cycle) : un seul ordre ouvert par clé.
 function Ca.taken(plan, key) return plan.taken[key] == true end
 
+--- Lot VIDEO-L5 : part CONFIRMÉE d'un groupe posé (n_cap ÷ n, relevé du runtime) ; 1 sans relevé de confirmation (input.hold
+--- absent, ou groupe sans n_cap : la capacité reste comptée à la pose, comme avant). Ne pèse que sur la CAPACITÉ (plan.N, plan.K) :
+--- consommation, combustible et courant restent comptés sur n (une machine sans courant tire encore dans le plan).
+function Ca.cap_factor(ctx, g)
+  if ctx.input.hold == nil or g.n_cap == nil or (g.n or 0) <= 0 then return 1 end
+  return clamp(g.n_cap / g.n, 0, 1)
+end
+
+--- Lot VIDEO-L13 : débit d'un ordre ouvert d'une sorte plafonnée, pour son reste à poser (n_left ; le posé est déjà relevé).
+local function open_cap(plan, o)
+  if not (Ca.CAPPED[o.kind] and o.item) then return end
+  local n, left = o.n or 0, o.n_left or o.n or 0
+  local rate = (type(o.rate) == "number" and n > 0) and o.rate * left / n or 0
+  plan.O[o.item] = (plan.O[o.item] or 0) + rate
+  plan.NO[o.item] = (plan.NO[o.item] or 0) + left
+end
+
 local function new_plan(ctx)
   local D = ctx.D
   local plan = { N = {}, cons = {}, cons_by = {}, cons_at = {}, burn = 0, cover = {}, opened = {}, dead = {},
-    drills_on = {}, rate_on = {}, labs = 0, lab_cap = 0, kw_used = 0, kw_have = 0, taken = {}, K = 0, hand = {} }
+    drills_on = {}, rate_on = {}, labs = 0, lab_cap = 0, kw_used = 0, kw_have = 0, taken = {}, K = 0, hand = {},
+    -- lot VIDEO-L13 : posé NOMINAL de tous les états (P débit, NP nombre) et ordres ouverts (O, NO), par objet
+    P = {}, NP = {}, O = {}, NO = {} }
   -- La MAIN n'est pas du capital (consigne du DC : « ils craftent beaucoup à la main ») : elle nourrit les machines
   -- aujourd'hui (couverture d'un ingrédient), mais le manque d'un objet se compte sans elle.
   for _, k in ipairs(sorted_keys(ctx.flows)) do
@@ -973,19 +1002,27 @@ local function new_plan(ctx)
   for _, m in ipairs(ctx.machines) do
     local mm, r = D.maker_by[m.entity], D.recipes[m.recipe]
     local fs, fp = Lv.factors(D, m)
-    add_machines(ctx, plan, mm, r, m.n, m.where, fs, fp)
+    local fc = Ca.cap_factor(ctx, m) -- lot VIDEO-L5 (1 exactement sans relevé : mêmes flottants qu'avant)
+    add_machines(ctx, plan, mm, r, m.n, m.where, fs, fp * fc)
     if mm and r then
-      for _, p in ipairs(r.products) do plan.K = plan.K + Ca.crafts_per_min(mm, r) * m.n * fs * fp * p.amount * Ca.va(D, p.name, r.name) end
+      for _, p in ipairs(r.products) do
+        plan.K = plan.K + Ca.crafts_per_min(mm, r) * m.n * fs * fp * fc * p.amount * Ca.va(D, p.name, r.name)
+        plan.P[p.name] = (plan.P[p.name] or 0) + Ca.crafts_per_min(mm, r) * m.n * fs * p.amount * fp
+        plan.NP[p.name] = (plan.NP[p.name] or 0) + m.n
+      end
     end
   end
   for _, d in ipairs(ctx.drills_in) do
     local dd = D.drill_by[d.entity]
     local key = d.deposit ~= nil and tostring(d.deposit) or nil
     local fs, fp = Lv.factors(D, d)
-    add_drills(ctx, plan, dd, d.resource, d.n, d.deposit, not (key and measured[key]), fs * fp)
+    local fc = Ca.cap_factor(ctx, d)
+    add_drills(ctx, plan, dd, d.resource, d.n, d.deposit, not (key and measured[key]), fs * fp * fc)
     if key then plan.opened[key] = true end
     if dd and D.res[d.resource] and not (key and plan.dead[key]) then
-      plan.K = plan.K + d.n * fs * fp * Ca.drill_per_min(D, dd, d.resource) * (D.mu[d.resource] or 0)
+      plan.K = plan.K + d.n * fs * fp * fc * Ca.drill_per_min(D, dd, d.resource) * (D.mu[d.resource] or 0)
+      plan.P[d.resource] = (plan.P[d.resource] or 0) + d.n * Ca.drill_per_min(D, dd, d.resource) * fs * fp
+      plan.NP[d.resource] = (plan.NP[d.resource] or 0) + d.n
     end
   end
   for _, l in ipairs(ctx.labs_in) do
@@ -999,7 +1036,10 @@ local function new_plan(ctx)
     if pw.used_kw then plan.kw_used = pw.used_kw end
   end
   plan.lab_cap0 = plan.lab_cap
-  for _, o in ipairs(ctx.open) do Ca.apply(ctx, plan, o) end
+  for _, o in ipairs(ctx.open) do
+    Ca.apply(ctx, plan, o)
+    open_cap(plan, o)
+  end
   -- Lot LEVIERS : clés que l'exécutant a refusées (input.skip = { [clé] = vrai }) : jamais réémises tant qu'elles y sont.
   for k, v in pairs(ctx.input.skip or {}) do if v then plan.taken[k] = true end end
   return plan
@@ -1975,7 +2015,43 @@ function Ca.decide_begin(input, st)
   local room, why_open = Pf.open_room(input.open, Ca.OPEN_MAX)
   if room <= 0 then refuse(ctx, "capi", "capi", nil, why_open) end
   J.turns = math.min(Ca.MAX_ORDERS, math.max(0, room))
+  -- Lot VIDEO-L13 : registre des plafonds de la décision (mémoire seulement, jamais dans st ni dans global).
+  J.caps = Pf.ledger(Ca.cap_states(ctx, J.plan, J.req))
   return J
+end
+
+--- Lot VIDEO-L13 : relevé du plafond de chaque objet demandé (R > 0) : demande, posé nominal de tous les états (P, NP), ordres
+--- ouverts (O, NO). Rend { [objet] = { demand, posed, open, n_posed, n_open } }.
+function Ca.cap_states(ctx, plan, req)
+  local out = {}
+  for _, i in ipairs(req.list) do
+    local Ri = req.R[i] or 0
+    if Ri > 0 then
+      out[i] = { demand = Ri, posed = plan.P[i] or 0, open = plan.O[i] or 0, n_posed = plan.NP[i] or 0, n_open = plan.NO[i] or 0,
+        hard = Ca.CAP_HARD }
+    end
+  end
+  return out
+end
+
+--- Lot VIDEO-L13 : la demande suit les besoins recalculés après chaque ordre (le combustible des machines décidées) ; un objet
+--- devenu demandé entre au registre avec son posé et ses ordres ouverts (aucun ordre de la décision ne l'a encore touché).
+local function caps_refresh(J)
+  local R, plan = J.req.R, J.plan
+  for _, i in ipairs(sorted_keys(J.caps)) do J.caps[i].demand = R[i] or 0 end
+  for _, i in ipairs(J.req.list) do
+    if J.caps[i] == nil and (R[i] or 0) > 0 then
+      J.caps[i] = { demand = R[i], posed = plan.P[i] or 0, open = plan.O[i] or 0, n_posed = plan.NP[i] or 0,
+        n_open = plan.NO[i] or 0, hard = Ca.CAP_HARD }
+    end
+  end
+end
+
+--- Lot VIDEO-L5 : raison de suspendre l'option `o` (une unité de son objet attend sa première production), ou nil.
+function Ca.held(ctx, o)
+  local h = ctx.input.hold
+  if h == nil or not Ca.HOLD_KINDS[o.kind] or o.item == nil then return nil end
+  return h[o.item]
 end
 
 --- Lot VIDEO-L13 (garde fermée par défaut) : listes sans lesquelles la règle ne décide pas. Une liste absente ne vaut jamais
@@ -1992,9 +2068,16 @@ function Ca.absent_input(input)
   return nil
 end
 
+--- Lot VIDEO-L13 : l'option passe-t-elle le plafond de son objet ? (sortes non plafonnées : oui ; entrée absente : non)
+local function cap_ok(J, o)
+  if not Ca.CAPPED[o.kind] then return true end
+  return Pf.fits_item(J.caps, o.item, { rate = o.rate, n = o.n })
+end
+
 local function fits(J, o)
   return o.cost_m <= J.b_left + Ca.EPS
     and ((o.work or 0) <= J.l_left + Ca.EPS or (o.kind == "chaine" and Ca.unblocks(o, J.blocked)))
+    and cap_ok(J, o)
 end
 
 --- Un tour de la boucle des ordres : rend faux si aucun ordre ne passe (la boucle s'arrête).
@@ -2004,24 +2087,36 @@ local function decide_turn(J)
   local pick = nil
   for _, c in ipairs(opts) do
     local o = c.o
-    if fits(J, o) then pick = o break end
-    -- Trop grand pour le budget ou les bras : la plus grande taille qui passe (dichotomie ; le coût croît avec la
-    -- taille). Les bras règlent le rythme, pas la taille du capital.
-    if c.mk and o.n > 1 then
-      local lo, hi, best = 1, o.n - 1, nil
-      while lo <= hi do
-        local mid = math.floor((lo + hi) / 2)
-        local o2 = c.mk(mid)
-        if o2 and fits(J, o2) then best, lo = o2, mid + 1 else hi = mid - 1 end
+    local hold = Ca.held(ctx, o) -- lot VIDEO-L5 : une unité de cet objet attend sa première production
+    if hold then
+      refuse(ctx, o.key, o.kind, o.item, "confirmation : " .. hold)
+    else
+      if fits(J, o) then pick = o break end
+      -- Trop grand pour le budget, les bras ou le plafond : la plus grande taille qui passe (dichotomie ; le coût et le débit
+      -- croissent avec la taille). Les bras règlent le rythme, pas la taille du capital.
+      if c.mk and o.n > 1 then
+        local lo, hi, best = 1, o.n - 1, nil
+        while lo <= hi do
+          local mid = math.floor((lo + hi) / 2)
+          local o2 = c.mk(mid)
+          if o2 and fits(J, o2) then best, lo = o2, mid + 1 else hi = mid - 1 end
+        end
+        if best then pick = best break end
       end
-      if best then pick = best break end
+      local why
+      if o.cost_m > J.b_left + Ca.EPS then why = string.format("budget : %s MU > %s", fmt(o.cost_m), fmt(J.b_left))
+      elseif (o.work or 0) > J.l_left + Ca.EPS and not (o.kind == "chaine" and Ca.unblocks(o, J.blocked)) then
+        why = string.format("bras : %s PNJ-s > %s", fmt(o.work), fmt(J.l_left))
+      else
+        local _, wc = cap_ok(J, o)
+        why = wc or "plafond"
+      end
+      refuse(ctx, o.key, o.kind, o.item, why)
     end
-    refuse(ctx, o.key, o.kind, o.item, (o.cost_m > J.b_left + Ca.EPS) and
-      string.format("budget : %s MU > %s", fmt(o.cost_m), fmt(J.b_left)) or
-      string.format("bras : %s PNJ-s > %s", fmt(o.work), fmt(J.l_left)))
   end
   if not pick then return false end
   Ca.apply(ctx, plan, pick)
+  if Ca.CAPPED[pick.kind] then Pf.take(J.caps, pick.item, { rate = pick.rate, n = pick.n }) end -- lot VIDEO-L13 : décision entière
   ctx.refus[pick.key] = nil
   J.b_left = J.b_left - pick.cost_m
   J.l_left = J.l_left - (pick.work or 0)
@@ -2029,6 +2124,7 @@ local function decide_turn(J)
   J.orders[#J.orders + 1] = pick
   if ctx.dm and pick.dormant_mu then ctx.dm.left = math.max(0, (ctx.dm.left or 0) - pick.dormant_mu) end
   J.req = Ca.requirements(ctx, plan) -- le combustible des machines décidées entre dans la demande
+  caps_refresh(J)
   return true
 end
 
