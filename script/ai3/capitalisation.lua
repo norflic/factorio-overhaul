@@ -885,7 +885,7 @@ function Capi.power_input(f, plant_state)
   if Capi.MUT.sans_courant or plant_state ~= "fini" then return nil end
   local g = f.build and f.build.grow
   local cap = g and g.capacity
-  if type(cap) ~= "number" or cap <= 0 then return nil end
+  if type(cap) ~= "number" or cap <= 0 then return type(cap) ~= "number" and {} or nil end -- W02 (lot VIDEO-COUVERTURE 5) : capacité non lue = relevé VIDE (garde fermée), pas « aucune borne »
   if Capi.MUT.nominal then return { have_kw = cap * JTICK_KW } end -- mutant : la somme nominale de la règle (plan.kw_used)
   local measured = type(g.power) == "number" and g.power > 0 and g.power * JTICK_KW or 0
   return { have_kw = cap * JTICK_KW, used_kw = measured + Sc.DRAW * Sante.committed(f) }
@@ -1789,6 +1789,7 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
   local full = room ~= nil and room <= 0
   -- Lot VIDEO-L6 : portes avant d'étendre (transport saturé, bras à seuil croissant), AVANT la boucle d'envoi ; nil : réglage éteint.
   -- Un ordre retenu suit le chemin des refus ci-dessous (« porte L6 : », épargne rendue, cs.refused).
+  res.orders = AmRt.after_decision(f, cs, res, tick, minutes(f, tick)) -- lot VIDEO-COUVERTURE 5 : cycles publiés, MÊME plan re-émis après l'exécutant occupé
   local gate_why = Capi.portes(f, cs, res, view, tick)
   for _, o in ipairs(res.orders) do
     local rec, why
@@ -1825,6 +1826,7 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
     else
       refused[#refused + 1] = o.key .. " (" .. tostring(why) .. ")"
       cs.refused[o.key] = tick
+      AmRt.defer(cs, o, why, tick) -- lot VIDEO-COUVERTURE 5 : refusé par l'exécutant occupé = mis de côté, re-émis à l'identique
       -- lot LEVIERS : pas redemandé tout de suite (lot FUITES-PILE : sauf un refus de la pile, redemandé dès qu'elle se vide)
       if allowed and (o.kind == "equiper" or o.kind == "techno") then hold(cs, o.key, why, tick) end
       -- l'ordre n'a rien coûté : l'épargne débitée par la règle lui est rendue
