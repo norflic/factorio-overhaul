@@ -131,7 +131,7 @@ do
     local b2, n = body(name):gsub(old:gsub("%p", "%%%0"), (new:gsub("%%", "%%%%")))
     if n ~= 1 then return false end
     local env = setmetatable({}, { __index = _G })
-    local chunk = assert(load("local Capi, Pl, Ca, sorted_keys, minutes = ...\n" .. b2, "=mut", "t", env))
+    local chunk = assert(load("local Capi, Pal, Ca, sorted_keys, minutes = ...\n" .. b2, "=mut", "t", env))
     local saved = Capi[name]
     chunk(Capi, require("shared.ai3.palier"), Ca, function(t) local k = {} for x in next, t or {} do k[#k + 1] = x end table.sort(k) return k end,
       function() return 0 end)

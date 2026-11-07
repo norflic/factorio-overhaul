@@ -94,7 +94,7 @@ local Ind = require("script.ai3.industrie") -- lot INDUSTRIE I6 : choix du patro
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (ordres neufs, équipement en modules)
 local Pi = require("shared.ai3.pile")
 local Pe = require("shared.ai3.portes_extension") -- lot VIDEO-L6 : portes avant d'étendre (Capi.portes, decide_finish)
-local Pl = require("shared.ai3.palier") -- lot VIDEO-L10 : marches de stabilité, variante B (Capi.palier, decide_start)
+local Pal = require("shared.ai3.palier") -- lot VIDEO-L10 : marches de stabilité, variante B (Capi.palier, decide_start)
 local Ext = require("script.ai3.extension") -- lot C3 EXTENSION : rayon de base (étendue des avant-postes)
 local MigChamp = require("script.team.migration_champ") -- lot CHAMP : « couvrir / ouvrir » d'un minerai à fondre passent par le champ
 
@@ -1052,12 +1052,12 @@ end
 --- qu'à la décision de la marche. État : cs.palier (Pl : nombres et booléens ; batis_prev).
 function Capi.palier(f, cs, view, input, tick)
   if not Capi.paliers_on() then cs.palier = nil return nil end
-  cs.palier = cs.palier or Pl.new()
+  cs.palier = cs.palier or Pal.new()
   local st = cs.palier
   local a, batis = Capi.palier_inputs(f, cs, view, input)
   st.batis_prev = batis
   local had = st.until_tick
-  local mk, ev = Pl.step(st, a, tick)
+  local mk, ev = Pal.step(st, a, tick)
   input.demande = (input.demande and mk ~= nil) and true or false
   if ev == "marche" or ev == "arme" or ev == "annule" or (had and not st.until_tick) then
     log(string.format("[FO-PALIER] %s minute %d : %s (minuteur %s, marches %d, annulations %d) ; manques %s, crise %s, bras libres %d, pose %s, arbre fini %s%s",
