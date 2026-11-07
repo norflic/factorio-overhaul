@@ -357,6 +357,7 @@ end
 
 do
   print("== Lot STOCKAGE-VITAL : reserve des matieres vitales au depot, matieres ecartees du ramassage")
+  local DEP = { reserve = true } -- dépôt d'un PNJ au QG (script/team/worker.lua) : la réserve des vitales s'applique
   local f = team(20) -- 20 cases ; reserve 15 % = 3 cases gardees au fer et au charbon
   local inv = f.hq.get_inventory()
   inv.get_insertable_count = function(name)
@@ -367,16 +368,17 @@ do
   local ss, si = STACK.stone or 50, STACK["iron-plate"] or 50
   f.hq.items.coal = (STACK.coal or 50) * 15 -- 15 cases prises, 5 vides
   f.refused_at = nil
-  local put = Stock.insert(f, "stone", 10 * ss)
+  local put = Stock.insert(f, "stone", 10 * ss, DEP)
   check(put == 2 * ss, "pierre : 2 cases seulement (5 vides moins 3 gardees)", put)
   check(f.refused_at ~= nil, "pierre limitee : depot refuse note (pose anticipee d'un coffre)")
-  local put2 = Stock.insert(f, "iron-plate", 10 * si)
+  local put2 = Stock.insert(f, "iron-plate", 10 * si, DEP)
   check(put2 == 3 * si, "fer : les 3 cases gardees", put2)
   -- un coffre d'annexe est du stockage : il entre dans les cases gardées (lot STOCKAGE-VITAL)
   f.hq.items["iron-plate"], f.hq.items.stone = nil, nil
   f.hq.items.coal = (STACK.coal or 50) * 18 -- 18 cases prises, 2 vides (sous la réserve de 3)
-  check(Stock.insert(f, "stone", ss) == 0, "temoin : la pierre n'entre pas dans les 2 cases gardees")
-  check(Stock.insert(f, "wooden-chest", 1) == 1 and f.hq.items["wooden-chest"] == 1, "coffre en bois : pris dans les cases gardees")
+  check(Stock.insert(f, "stone", ss, DEP) == 0, "temoin : la pierre n'entre pas dans les 2 cases gardees (depot d'un PNJ)")
+  check(Stock.insert(f, "stone", 5) == 5 and Stock.remove(f, "stone", 5) == 5, "hors depot d'un PNJ (remboursement d'un script) : la reserve ne s'applique pas")
+  check(Stock.insert(f, "wooden-chest", 1, DEP) == 1 and f.hq.items["wooden-chest"] == 1, "coffre en bois : pris dans les cases gardees")
   f.hq.items["wooden-chest"] = nil
   -- Dépôt d'une non vitale : sortie tôt quand le dépôt tient dans les piles entamées du QG (aucune annexe lue), et piles entamées
   -- d'abord, coffre par coffre (déposer d'un bloc au QG prenait ses cases vides alors que la place était dans une annexe).
@@ -401,7 +403,7 @@ do
   g2.hq.items.coal = (STACK.coal or 50) * 18 -- 18 cases sur 20, 2 vides (réserve du total de 30 cases : 5)
   g2.hq.items.stone = ss / 2 -- une pile entamée de la moitié
   local before_empty = g2.hq.get_inventory().count_empty_stacks()
-  check(Stock.insert(g2, "stone", ss / 2 - 1) == ss / 2 - 1 and ian.reads == 0 and g2.hq.get_inventory().count_empty_stacks() == before_empty,
+  check(Stock.insert(g2, "stone", ss / 2 - 1, DEP) == ss / 2 - 1 and ian.reads == 0 and g2.hq.get_inventory().count_empty_stacks() == before_empty,
     "non vitale qui tient dans la pile entamee du QG : deposee, aucune annexe lue (" .. ian.reads .. " lecture(s))")
   local g3 = team(20)
   readable(g3.hq)
@@ -412,7 +414,7 @@ do
   an3.items.coal = (STACK.coal or 50) * 9
   an3.items.stone = ss / 2 -- annexe : pleine, une pile de pierre entamée
   local hq_empty = g3.hq.get_inventory().count_empty_stacks()
-  local put3 = Stock.insert(g3, "stone", ss / 2 - 1)
+  local put3 = Stock.insert(g3, "stone", ss / 2 - 1, DEP)
   check(put3 == ss / 2 - 1 and an3.items.stone == ss - 1 and g3.hq.get_inventory().count_empty_stacks() == hq_empty and (g3.hq.items.stone or 0) == 0,
     "non vitale : la pile entamee de l'annexe d'abord, les cases vides du QG (sous la reserve) restent libres (" .. put3 .. ", QG vides " ..
     g3.hq.get_inventory().count_empty_stacks() .. "/" .. hq_empty .. ")")

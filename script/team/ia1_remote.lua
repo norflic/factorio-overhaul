@@ -394,9 +394,10 @@ remote.add_interface("fo-ia1", {
     local saved_at, saved_log = f.refused_at, f.refused_log
     local ni, nc, put = 0, 0, 0
     local function hook(ev) if ev == "count" then ni = ni + 1 else nc = nc + 1 end end
+    local dep = { reserve = true } -- comme le dépôt d'un PNJ (script/team/worker.lua) : la réserve des vitales s'applique
     for _ = 1, reps do
       dbg.sethook(hook, "c", 1)
-      local p = Stock.insert(f, item, n)
+      local p = Stock.insert(f, item, n, dep)
       dbg.sethook()
       put = put + p
       if p > 0 then Stock.remove(f, item, p) end

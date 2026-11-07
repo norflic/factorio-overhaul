@@ -395,6 +395,12 @@ function Poles.think(f, view, book, tick, plan)
   for _, m in ipairs(Fond.MINE_TARGETS) do
     if not Mi.hand_verdict({ stock = view.stock[m[1]] or 0, count = Fond.MINE_BATCH, fuel = m[1] == T.fuel }) then skip[m[1]] = true end
   end
+  -- Lot STOCKAGE-VITAL (relecture revue-0659, (b)) : pas de minage de fond de ce que le dépôt refuserait (non vitale saturée, ou toute
+  -- non vitale au-delà de T.stockage.stop_at : Stock.skip_fn) ; sinon le PNJ la mine et la garde dans son sac.
+  local stock_skip = Stock.skip_fn and Stock.skip_fn(f)
+  if stock_skip then
+    for _, m in ipairs(Fond.MINE_TARGETS) do if stock_skip(m[1]) then skip[m[1]] = true end end
+  end
   local free = Fond.free_stock(view.stock, list)
   local epoch = (f.tech or 0) + 1
   local mine_cap = O.manual_cap(n_exec, epoch)

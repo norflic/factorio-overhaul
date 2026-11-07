@@ -214,6 +214,9 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Transferts avec le stock (QG)
 ---------------------------------------------------------------------------------------------------
+-- Lot STOCKAGE-VITAL : le dépôt d'un PNJ au QG est le seul appelant de Stock.insert soumis à la réserve des vitales (ce qui est refusé
+-- reste en poche, rien n'est perdu).
+local DEPOSIT_OPTS = { reserve = true }
 local function deposit_inventory(f, inv, keep)
   local contents = inv.get_contents()
   local names = {}
@@ -222,7 +225,7 @@ local function deposit_inventory(f, inv, keep)
   for _, name in ipairs(names) do
     local n = contents[name] - (keep and keep[name] or 0)
     if n > 0 then
-      local moved = Stock.insert(f, name, n)
+      local moved = Stock.insert(f, name, n, DEPOSIT_OPTS)
       if moved > 0 then
         inv.remove({ name = name, count = moved })
         f.team.delivered[name] = (f.team.delivered[name] or 0) + moved

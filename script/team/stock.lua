@@ -142,10 +142,13 @@ function Stock.fill(f)
 end
 
 --- Dépose jusqu'à `n` objets (coffre du QG d'abord, puis les annexes) ; rend le nombre déposé.
-function Stock.insert(f, item, n)
-  -- Lot STOCKAGE-VITAL : une matière non vitale ne prend pas les dernières cases (gardées au fer et au charbon) ; un coffre d'annexe, si.
+--- opts.reserve (lot STOCKAGE-VITAL) : la réserve des vitales s'applique (une matière non vitale ne prend pas les dernières cases).
+--- SEUL le dépôt d'un PNJ au QG la demande (script/team/worker.lua, deposit_inventory : ce qui est refusé reste en poche). Tout autre
+--- appelant (remboursement d'un script, retour d'une prise, rangement) garde l'ancien chemin : relecture revue-0659 du 7/11, un objet
+--- non vital pris puis rendu tombait sur une case libérée DANS la réserve, était refusé, et l'appelant qui ignore le retour le perdait.
+function Stock.insert(f, item, n, opts)
   local want, put = n, 0
-  local plan = not VITAL[item] and not ANNEX[item] and non_vital_plan(f, item, n) or nil
+  local plan = opts and opts.reserve and not VITAL[item] and not ANNEX[item] and non_vital_plan(f, item, n) or nil
   if plan then
     -- Les piles entamées d'abord, coffre par coffre (un dépôt du moteur remplit les piles avant les cases vides : déposer d'un bloc au
     -- coffre du QG prenait ses cases vides même quand la place était dans les piles d'une annexe), puis au plus `allowed` cases neuves.
