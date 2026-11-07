@@ -26,6 +26,7 @@ local KIT_EGAL = {
   ["x10-recensement"] = true, ["x10-sans-biters"] = true, ["x10-sans-pnj"] = true, ["x10-sans-soldats"] = true,
   ["x10-sans-usines"] = true, ["x10-sans-equipe"] = true, ["x10-fige-tout"] = true,
   ["x10-rendu"] = true, -- lot X10, M2 : rendu de la partie du DC (session avec images)
+  ["x10-sprites"] = true, ["x10-sol"] = true, -- lot X10, L-R2 : composition des sprites de la vue du DC, objets au sol
 }
 
 -- Lot FOREUSES-THERMIQUES (A) : la sauvegarde du DC rejouée telle quelle (aucun réglage posé sur sa partie).
