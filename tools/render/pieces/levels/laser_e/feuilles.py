@@ -62,8 +62,11 @@ LIGNE = 8
 NDIR_MAX = 64
 LIMITE_PX = 8192        # F144
 SAMPLES_PASSES_TETE = {"shadow": 32}     # D-7 (lot A3)
-# Variantes « HORS REGLE » (trou enfermé > 8 px) acceptées après regard : aucune à ce jour.
-HORS_REGLE_OK_DEFAUT = ()
+# Variantes « HORS REGLE » (trou enfermé > 8 px) acceptées après regard. Production du 5/11 : e06-tete-d17 (15 px) et
+# e06-tete-d47 (16 px), REGARDÉES (fo-logs/2026-11-04_LASER-F1C/trous_prod/e06_zoom.png, avec leurs voisines d16, d18,
+# d46, d48 : 1 à 4 px) : jour mécanique entre le tore de porcelaine et le bout de la bobine de cuivre, vu de biais, environ
+# 4 × 4 px en hr (2 × 2 en normale) ; aucun manque de matière. Verdict du DC NON rendu.
+HORS_REGLE_OK_DEFAUT = ("e06-tete-d17", "e06-tete-d47")
 COMMANDE = ("py -3.9 tools/render/pieces/levels/laser_e/feuilles.py   (depuis la racine du mod ; sources par défaut : "
             "en tête de feuilles.py)")
 
