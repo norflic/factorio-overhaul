@@ -33,8 +33,8 @@ local Swap = {}
 Swap.SAFE = 30       -- tuiles : pas de remplacement si un ennemi est plus pres
 Swap.RETRY = 18000   -- 5 min : emplacement laisse tranquille apres un echec de pose
 Swap.LOGS = 20
--- Lot FOREUSES-THERMIQUES : poteaux posés par le remplacement (petit d'abord : le moyen manque aux bandes du champ dans la partie du DC)
-Swap.POLES = { "small-electric-pole", "medium-electric-pole" }
+-- Lot FOREUSES-THERMIQUES : poteaux posés par le remplacement, lus dans T (petit d'abord)
+Swap.POLES = T.swap.poles
 Swap.POLE_CAP = 12   -- poteaux fabriqués d'avance au plus
 Swap.REPORT = 10 * 3600 -- bilan [FO-FOREUSES-ETAT] par tranche de 10 min
 Swap.JTICK_KW = 60 / 1000
