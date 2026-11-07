@@ -30,3 +30,4 @@ require("prototypes.gui") -- lot IA1-i : raccourci et touche de l'interface « �
 require("prototypes.dezoom") -- dézoom étendu : Ctrl + molette, deux touches
 require("prototypes.bourdon") -- lot BOURDON : l'expérimental de l'âge 15, sprites, effets, son, touche
 require("prototypes.experimentaux") -- lot EXPERIMENTAUX : les expérimentaux de la famille EXP2 (Mât-Foudre, Géode, Sarracénie, Demi-Vie, Veilleuse) ; après prototypes.robots
+require("prototypes.attaques2") -- lot DESIGN-ATTAQUES (5/11) : la 2e attaque des géants (0 image neuve) ; après prototypes.experimentaux et prototypes.bourdon

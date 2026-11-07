@@ -73,6 +73,7 @@ require("script.robots.outils") -- lot RB-2 : outils de sélection, ralliement, 
 -- Le Bourdon, expérimental de l'âge 15 (lot BOURDON) : démonstration, /fo-bourdon, /fo-glas
 require("script.robots.bourdon")
 require("script.robots.experimentaux") -- lot EXPERIMENTAUX : effets, lancer des capsules, interface « fo-xp »
+require("script.robots.attaques2") -- lot DESIGN-ATTAQUES (5/11) : la 2e attaque des géants, interface « fo-att2 »
 
 -- Pilotage sans joueur (tests automatisés, scénarios)
 require("script.remote")
