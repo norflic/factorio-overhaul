@@ -263,6 +263,39 @@ remote.add_interface("fo-ia1", {
     return string.format("faites=%d chaine=%d poteaux=%d echanges=%d pretes=%d melange=%d echecs=%d refus=%s", st.done or 0, st.chained or 0, st.poles or 0, st.exchanged or 0,
       st.ready or 0, st.mixed or 0, st.failed or 0, #w > 0 and table.concat(w, ",") or "-")
   end,
+  -- Lot FOREUSES-THERMIQUES (A), bancs seulement : foreuses des avant-postes de l'equipe (thermique = a bruleur, sinon electrique),
+  -- electriques reliees a un reseau et au travail, poteaux poses par le remplacement (o.swap_poles) et ceux sur un couloir d'acces, et la
+  -- liste « unit_number x y reliee travaille » des electriques (ordre des avant-postes trie ; 1 ou 0). Rend une table, ou nil.
+  swap_outposts = function(key)
+    local f = team_of(key)
+    if not (f and f.outposts) then return nil end
+    local cor = Build.couloirs(f)
+    local r = { outposts = 0, burners = 0, electrics = 0, connected = 0, working = 0, poles = 0, poles_cor = 0, list = {} }
+    for _, oid in ipairs(State.sorted_keys(f.outposts)) do
+      local o = f.outposts[oid]
+      r.outposts = r.outposts + 1
+      for _, d in ipairs(o.drill_list or {}) do
+        if d.valid then
+          if d.burner then
+            r.burners = r.burners + 1
+          else
+            r.electrics = r.electrics + 1
+            local c = d.is_connected_to_electric_network() and 1 or 0
+            local w = d.status == defines.entity_status.working and 1 or 0
+            r.connected, r.working = r.connected + c, r.working + w
+            r.list[#r.list + 1] = string.format("%d %.1f %.1f %d %d", d.unit_number or 0, d.position.x, d.position.y, c, w)
+          end
+        end
+      end
+      for _, p in ipairs(o.swap_poles or {}) do
+        if p.valid then
+          r.poles = r.poles + 1
+          if cor[Pl.tkey(math.floor(p.position.x), math.floor(p.position.y))] then r.poles_cor = r.poles_cor + 1 end
+        end
+      end
+    end
+    return r
+  end,
   set_regle_chaine = function(key, on)
     if type(on) ~= "boolean" then return nil end
     local f = team_of(key)
