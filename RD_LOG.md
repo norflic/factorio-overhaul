@@ -10,7 +10,7 @@
 
 ## 2026-11-07 : défauts de la partie du DC (0.6.58), feuille de route vidéo, disque F:
 
-> Prochains identifiants libres (7/11, 18 h 40) : **F399** et **E264** hors blocs. Attribués ici : F389 à F398, E258 à E263.
+> Prochains identifiants libres (7/11, 18 h 55) : **F400** et **E264** hors blocs. Attribués ici : F389 à F399, E258 à E263.
 
 - **F394 · FAIT** (moteur réel, `f1-lasers` avec images, 48 sites, lot F1-C) : le faisceau d'une electric-turret part de
   position + (L sin θ, −L cos θ · cos 45°) + (0, −H). `attack_parameters.source_offset` = {0, −L} tourne avec la tête
@@ -56,6 +56,19 @@
     0,86 ms. Avec le script à 0,5 ms, cela donne ×12,3 sans le rendu, ×10,8 avec un rendu de 2 ms, ×9,6 avec 4 ms. Le rendu n'est
     pas encore mesuré (lot M2).
   - Décisions du DC qui en découlent : QCM-7/11-X10 et QCM-7/11-X10-M1 (OBJECTIFS §4).
+- **F399 · DÉDUIT** (lot LOURD, S6 point 1, `d4679c46`, versé dans essai-0659 `b064ff7d` ; non prouvé en moteur réel) : le relevé
+  des générateurs au début du raccordement se fait maintenant par bandes de chunks, une bande par passe du pouls, sous le jeton.
+  - Limite : un générateur posé, pendant le relevé, dans une bande DÉJÀ relevée n'est pas vu avant le relevé suivant
+    (R.PERIOD). Pendant un cycle, une demande de raccord en trop est donc possible pour une machine que ce générateur alimente.
+    Elle est rattrapée au cycle suivant, et la relecture au moment de « relier » (`live_networks` d'un bloc) l'écarte déjà si
+    elle tombe après la pose. C'est la même limite qu'au relevé du réseau par bandes (lot POULS).
+  - Capacité, mesurée sur la sauvegarde du DC (autosave1-2121, 255 min, détail B-0659) : la boîte des chunks est commune à toutes
+    les équipes, avec R = 75 à 76 lignes de chunks (38 bandes par relevé à `Rv.BAND = 2`). Après le point 1, la demande est de
+    5 équipes × R = 380 passes par minute sur 720, soit 53 %. La file sature à R = 144 : marge de 1,9, contre 576 avant.
+  - Au pire, les 10 relevés en même temps, un relevé du réseau dure 3 800 ticks (sous 7 200) et un relevé des générateurs
+    1 900 ticks (sous 3 600).
+  - Décision pour le point 2 : le jeton passe d'un travail par tick à un BUDGET par tick, chaque travail déclarant un coût
+    déterministe (`fo-logs/2026-11-07_LOURD/CRITERES.md` §2).
 - **E261 · VALIDÉ** (moteur réel, lot F1-C ; archives `fo-logs/2026-11-04_LASER-F1C/`) : la tourelle laser des âges 2 à 15 en
   jeu → `content` 554 OK et `f1-lasers` 4 OK sur 0.6.58 + laser ; `f1-lasers` 4 OK sur essai-0659 + laser (`laser-0659`) ;
   migration depuis une carte 0.6.41, 4 OK, faisceau vu 48 fois sur 48. Production : 925 rendus à 128 échantillons, 0 erreur,
