@@ -9,9 +9,10 @@
     attaquants LANCÉS (capsule : le script pose l'unité au point visé, de la force du lanceur, puis l'envoie sur l'ennemi le plus proche).
   - Chaque petit sort d'une usine de robots de son âge (shared/content/robots.lua, Ro.FACTORIES) et d'une technologie d'époque égale à son âge,
     après la technologie de robot de la même époque (Ro.TECHS).
-  - CHIFFRES PROVISOIRES, NON CALIBRÉS par rb-duel : « valeur pour la valeur ». Un expérimental vaut, en PV et en dégâts par seconde, le robot
-    de référence de son âge (`ref`, lu dans Ro.ROBOTS) multiplié par le rapport des coûts en MU (mu / ref.mu) ; une défense posée a HP_POSE fois
-    ces PV. Si robotsjeu recalibre ses robots, ces chiffres suivent.
+  - Dégâts par seconde et coup : « valeur pour la valeur » (robot de référence de son âge, `ref`, × mu / ref.mu ; provisoire, non calibré).
+  - PV, résistances, salve par cible, zone, cratère : RÈGLE D'ÉCHELLE PAR ÂGE (lot EXPERIMENTAUX-PUISSANCE, QCM du DC du 5/11,
+    shared/robots/echelle.lua) : tenir 3 min sous 10 déchiqueteurs de son âge ; « mouche » à 4 âges de moins ; 5 salves pour un déchiqueteur
+    de son âge ; zone 15 × (âge − 9) pour les géants.
   - TOUS les dégâts passent par le script (entity.damage, jamais sur la force du tireur ni ses amis, ni en cessez-le-feu) : l'attaque du moteur
     ne lève qu'un effet `script` ; on mesure donc exactement ce qui est infligé (journal [FO-XP]). Seules les flaques de la Sarracénie
     (feu d'acide vanilla) piquent aussi par le moteur, sur les unités au sol ennemies.
@@ -19,6 +20,7 @@
 ]]
 
 local Ro = require("shared.content.robots")
+local Ech = require("shared.robots.echelle")
 
 local Xp = {}
 
@@ -26,7 +28,6 @@ Xp.PREFIX = "fo-xp-"
 Xp.AMMO_CATEGORY = "fo-xp"
 Xp.SUBGROUP = "fo-robots-xp"
 Xp.LOG = "[FO-XP]"
-Xp.HP_POSE = 3        -- une défense posée a 3 fois les PV de la valeur (elle ne fuit pas, elle encaisse)
 Xp.BURST_SECONDS = 30 -- usage unique : la charge vaut 30 s de dégâts de la valeur
 
 --- Unités de recherche de la technologie d'un expérimental : le double de la technologie de robot qui la précède (`after`).
@@ -127,7 +128,7 @@ Xp.GEANTS = {
   },
   {
     id = "trombe", src = "trombe", age = 12, kind = "giant", factory = "fo-robot-dock", after = "fo-robot-levite", ref = "levite", mu = 137000,
-    time = 60, range = 40, cooldown = 300, dtype = "physical", speed = 0.1, effect = "gel", radius = 22, freeze = 120,
+    time = 60, range = 40, cooldown = 300, dtype = "physical", speed = 0.1, effect = "gel", freeze = 120,
     segment = { ingredients = { { "fo-superconducting-coil", 100 }, { "processing-unit", 50 }, { "fo-magnetic-actuator", 30 },
       { "fo-titanium-plate", 50 }, { "fo-graphics-card", 10 } }, time = 30 },
     lueur = { r = 0.6, g = 0.95, b = 1.0 },
@@ -162,17 +163,25 @@ local function round(x, step)
   return math.floor(x / step + 0.5) * step
 end
 
---- Statistiques d'un expérimental : PV, dégâts par seconde, dégâts d'un coup (cadence), charge d'un usage unique.
---- Valeur pour la valeur : référence × mu / ref.mu ; une défense posée a HP_POSE fois les PV.
+--- Statistiques d'un expérimental. Dégâts par seconde, coup (cadence) et charge d'un usage unique : valeur pour la valeur (référence × mu /
+--- ref.mu). PV, résistances, salve par cible (et, pour un géant, zone, cratère, cadence de zone) : règle d'échelle par âge (Ech).
+--- Un petit garde la forme de son attaque : chaque cible touchée prend au moins la salve de son âge (coup × nombre de jets).
 function Xp.stats(r)
   local ref = Ro.robot(r.ref)
   assert(ref, "experimentaux : robot de reference absent " .. tostring(r.ref))
   local k = r.mu / ref.mu
   local dps = ref.dps * k
-  local hp = ref.hp * k
-  if r.kind == "turret" or r.kind == "turret-electric" then hp = hp * Xp.HP_POSE end
-  local out = { k = k, dps = round(dps, 0.1), hp = round(hp), shot = round(dps * r.cooldown / 60, 0.1) }
+  local out = { k = k, dps = round(dps, 0.1), shot = round(dps * r.cooldown / 60, 0.1) }
   if r.single_use then out.burst = round(dps * Xp.BURST_SECONDS) end
+  out.hp = Ech.pv(r.age)
+  out.resistances = Ech.resistances(r.age)
+  out.salve = Ech.salve(r.age, r.dtype)
+  if r.kind == "giant" then
+    out.zone, out.cratere = Ech.rayon(r.age), Ech.cratere(r.age)
+    out.zone_cooldown = math.max(r.cooldown, Ech.CADENCE_ZONE)
+  else
+    out.shot = math.max(out.shot, out.salve * ((r.jets and r.jets.count) or 1))
+  end
   return out
 end
 
@@ -183,7 +192,7 @@ for _, r in ipairs(Xp.ROBOTS) do
   r.is_unit = r.kind == "unit-capsule"
   r.is_turret = not r.is_unit
   local s = Xp.stats(r)
-  r.hp, r.dps, r.shot, r.burst = s.hp, s.dps, s.shot, s.burst
+  r.hp, r.dps, r.shot, r.burst, r.resistances, r.salve = s.hp, s.dps, s.shot, s.burst, s.resistances, s.salve
   by_id[r.id] = r
 end
 for _, r in ipairs(Xp.GEANTS) do
@@ -195,7 +204,8 @@ for _, r in ipairs(Xp.GEANTS) do
   r.segment_recipe = Xp.segment_recipe_name(r.id)
   r.ingredients = { { r.segment_item, Xp.SEGMENTS } }
   local s = Xp.stats(r)
-  r.hp, r.dps, r.shot = s.hp, s.dps, s.shot
+  r.hp, r.dps, r.shot, r.resistances, r.salve = s.hp, s.dps, s.shot, s.resistances, s.salve
+  r.zone, r.cratere, r.zone_cooldown = s.zone, s.cratere, s.zone_cooldown
   by_id[r.id] = r
 end
 

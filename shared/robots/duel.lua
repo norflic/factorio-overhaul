@@ -39,6 +39,10 @@ Duel.WEIGHT_MIN = 0.10   -- poids d'apparition minimal pour qu'un palier compte 
 Duel.SCREEN_SECONDS = 12 -- un écran (artillerie) tient 12 s sous la morsure des trois déchiqueteurs
 Duel.HEAL_BASE_MARGIN = 0.08 -- soutien : le robot de ligne de référence gagne seul d'extrême justesse
 Duel.HEAL_TARGET = 0.45  -- soutien : avec le soin, la marge visée
+-- Règle d'échelle des géants (lot EXPERIMENTAUX-PUISSANCE, 5/11) : salve de zone sur tous les déchiqueteurs vivants (ils sont dans la zone :
+-- 60 tuiles au moins, départ à 40). Premier coup DÉDUIT du code, non mesuré : balayage des géants toutes les 30 ticks (départ du banc
+-- rb-geant au tick 200, premier balayage au tick 210), puis 2 ticks (recherche, rangement) avant la tranche de dégâts.
+Duel.ZONE_DELAY = 12
 
 ---------------------------------------------------------------------------------------------------
 -- 2. Déchiqueteurs
@@ -143,7 +147,7 @@ function Duel.fight(team, biter, count, opts)
   opts = opts or {}
   local members = {}
   for i, m in ipairs(team) do
-    members[i] = { hp = m.hp, maxhp = m.hp, back = m.back or 0, shot = m.shot, heal = m.heal, ready = nil, idx = i }
+    members[i] = { hp = m.hp, maxhp = m.hp, back = m.back or 0, shot = m.shot, heal = m.heal, ready = nil, idx = i, res = m.res, zone = m.zone }
   end
   table.sort(members, function(a, b)
     if a.back ~= b.back then return a.back < b.back end
@@ -195,6 +199,22 @@ function Duel.fight(team, biter, count, opts)
           m.ready = nil
         end
       end
+      -- salve de zone (géants, règle d'échelle) : chaque déchiqueteur vivant, toutes les zone.cooldown ticks
+      local z = m.zone
+      if m.hp > 0 and z and alive_b > 0 then
+        if m.zready == nil then m.zready = Duel.ZONE_DELAY end
+        if t >= m.zready then
+          local dz = Duel.after_resist(z.damage, z.dtype, biter.res)
+          alive_b = 0
+          for _, b in ipairs(bs) do
+            if b.hp > 0 then
+              b.hp = b.hp - dz
+              if b.hp > 0 then alive_b = alive_b + 1 end
+            end
+          end
+          m.zready = t + z.cooldown
+        end
+      end
     end
     if alive_b == 0 then break end
     -- morsures
@@ -205,7 +225,7 @@ function Duel.fight(team, biter, count, opts)
         if b.hp > 0 then
           if b.ready == nil then b.ready = t + Duel.CONTACT_DELAY end
           if t >= b.ready then
-            tg.hp = tg.hp - biter.dmg
+            tg.hp = tg.hp - (tg.res and Duel.after_resist(biter.dmg, biter.dtype, tg.res) or biter.dmg)
             b.ready = t + biter.cd
             if tg.hp <= 0 then
               tg = target()
@@ -252,12 +272,20 @@ function Duel.shot_of(r)
     range = r.range, min_range = r.min_range }
 end
 
+--- Résistances d'une liste du prototype ({ type, decrease, percent }) au format du duel ({ [type] = { retrait, fraction } }).
+function Duel.res_of(list)
+  local out = {}
+  for _, x in ipairs(list or {}) do out[x.type] = { x.decrease or 0, (x.percent or 0) / 100 } end
+  return out
+end
+
 --- Équipe d'un duel pour le robot `r` : { team, subject (indice du membre dont la marge compte), kind }.
 --- - ligne (tireur, assaut, géant) : le robot seul contre les déchiqueteurs ; sujet : lui-même ;
 --- - artillerie (portée minimale) : un ÉCRAN sans arme qui tient SCREEN_SECONDS sous la morsure des déchiqueteurs, l'artillerie
 ---   à min_range + 2 derrière ; sujet : l'écran (l'artillerie tient tant que l'écran tient) ;
 --- - soutien (soin) : un robot de ligne de référence (`ref`, { hp, shot }) devant, le soutien 6 tuiles derrière ; sujet : la ligne.
-function Duel.team_of(r, biter, hp, shot, ref)
+--- `echelle` (facultatif, géants) : { res = liste de résistances, zone = { damage, cooldown, dtype } } du membre de ligne.
+function Duel.team_of(r, biter, hp, shot, ref, echelle)
   if r.heal then
     return { team = { { hp = ref.hp, back = 0, shot = ref.shot },
       { hp = hp, back = 6, heal = { amount = r.heal.amount, period = r.heal.period, max = r.heal.max } } }, subject = 1, kind = "soutien" }
@@ -266,7 +294,12 @@ function Duel.team_of(r, biter, hp, shot, ref)
     local screen = biter.dmg * Duel.BITERS * 60 / biter.cd * Duel.SCREEN_SECONDS
     return { team = { { hp = screen, back = 0 }, { hp = hp, back = r.min_range + 2, shot = shot } }, subject = 1, kind = "artillerie" }
   end
-  return { team = { { hp = hp, back = 0, shot = shot } }, subject = 1, kind = "ligne" }
+  local m = { hp = hp, back = 0, shot = shot }
+  if echelle then
+    m.res = echelle.res and Duel.res_of(echelle.res) or nil
+    m.zone = echelle.zone
+  end
+  return { team = { m }, subject = 1, kind = "ligne" }
 end
 
 local function sig3(v)
@@ -278,18 +311,25 @@ end
 Duel.sig3 = sig3
 
 --- Résultat du duel d'un robot pour un PV et un dégât par tir donnés.
-function Duel.run(r, hp, damage, tier, ref, family)
+--- `echelle` (facultatif) : résistances et salve de zone d'un géant (Duel.echelle_of) ; sans lui, le duel du calibrage (canon seul).
+function Duel.run(r, hp, damage, tier, ref, family, echelle)
   local biter = Duel.biter(tier, family)
   local shot = Duel.shot_of(r)
   if shot then
     shot = { damage = damage, cooldown = shot.cooldown, dtype = shot.dtype, area = shot.area, area_share = shot.area_share, range = shot.range,
       min_range = shot.min_range }
   end
-  local d = Duel.team_of(r, biter, hp, shot, ref)
+  local d = Duel.team_of(r, biter, hp, shot, ref, echelle)
   local res = Duel.fight(d.team, biter, Duel.BITERS)
   res.fraction_subject = res.fraction[d.subject]
   res.kind = d.kind
   return res
+end
+
+--- Résistances et salve de zone d'un géant de données (shared/content/robots.lua, règle d'échelle) ; nil pour un robot sans règle.
+function Duel.echelle_of(r)
+  if not r.salve then return nil end
+  return { res = r.resistances, zone = { damage = r.salve, cooldown = r.zone_cooldown, dtype = r.dtype or "physical" } }
 end
 
 local function bisect(f, lo, hi, iterations)

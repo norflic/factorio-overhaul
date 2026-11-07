@@ -11,6 +11,7 @@
 
 local lib = require("prototypes.lib")
 local Xp = require("shared.robots.experimentaux")
+local Ech = require("shared.robots.echelle")
 local Ro = require("shared.content.robots")
 local C = require("shared.content.crafts")
 local SPR = require("__factorio-overhaul__/graphics/robots/experimentaux/sprites")
@@ -103,6 +104,31 @@ do
   }
 end
 
+-- E4 (règle d'échelle, shared/robots/echelle.lua) : explosion du cratère au point visé, un prototype par âge à zone (10 à 15 : géants de cette
+-- famille ET de robotsjeu). Elle ne pose plus le sol : le SOL du cratère est posé et rendu par script (séquelles d'1 h, QCM-7/11,
+-- script/robots/experimentaux_geants.lua cratere/resorber) ; elle retire les décoratifs.
+for age = Ech.AGE_ZONE_MIN, Ech.AGE_MAX do
+  local rc = Ech.cratere(age)
+  local x = table.deepcopy(data.raw.explosion["big-explosion"])
+  x.name = Xp.PREFIX .. "cratere-" .. age
+  x.localised_name = { "entity-name." .. Xp.PREFIX .. "cratere" }
+  x.created_effect = { type = "direct", action_delivery = { type = "instant", target_effects = {
+    { type = "destroy-decoratives", radius = rc },
+  } } }
+  out[#out + 1] = x
+end
+
+-- Brûlures au sol d'1 h (séquelles, QCM-7/11) : copies des brûlures du jeu de base (10 min), même image, durée Ech.TRACE_TICKS.
+for _, x in ipairs({ { "small-scorchmark", Xp.PREFIX .. "small-scorchmark" }, { "medium-scorchmark", Xp.PREFIX .. "medium-scorchmark" },
+    { "big-scorchmark", Xp.PREFIX .. "big-scorchmark" }, { "huge-scorchmark", Xp.PREFIX .. "huge-scorchmark" } }) do
+  local nom = x[1]
+  local b = table.deepcopy(data.raw.corpse[nom])
+  b.name = x[2]
+  b.localised_name = { "entity-name." .. nom }
+  b.time_before_removed = Ech.TRACE_TICKS
+  out[#out + 1] = b
+end
+
 for i, r in ipairs(Xp.GEANTS) do
   local s = SPR.corps[r.id]
   assert(s, "experimentaux : geant sans feuille " .. r.id)
@@ -128,7 +154,7 @@ for i, r in ipairs(Xp.GEANTS) do
     drawing_box = { { -30, -60 }, { 30, 20 } },
     flags = { "placeable-neutral", "player-creation", "placeable-off-grid", "not-blueprintable", "not-flammable" },
     minable = { mining_time = 2, result = r.name },
-    max_health = r.hp, healing_per_tick = r.hp / 60 / 600,
+    max_health = r.hp, healing_per_tick = r.hp / 60 / 600, resistances = table.deepcopy(r.resistances), -- règle d'échelle par âge
     dying_explosion = "massive-explosion",
     map_color = { r = r.lueur.r, g = r.lueur.g, b = r.lueur.b }, friendly_map_color = { r = r.lueur.r, g = r.lueur.g, b = r.lueur.b },
     enemy_map_color = { r = 1.0, g = 0.2, b = 0.1 },

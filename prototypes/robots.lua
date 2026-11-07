@@ -544,8 +544,8 @@ for _, g in ipairs(STUB) do
   s.order = string.format("z[fo-robot]-giant-%02d", i)
   s.subgroup = Ro.SUBGROUP
   s.minable = { mining_time = 1, result = r.kit }
-  s.max_health = r.hp
-  s.resistances = nil
+  s.max_health = r.hp -- règle d'échelle (shared/content/robots.lua : Ech.pv de l'âge)
+  s.resistances = table.deepcopy(r.resistances) -- E1 : résistances d'écart d'âge (Ech.resistances)
   s.equipment_grid = nil
   s.inventory_size = 4
   s.trash_inventory_size = 0
