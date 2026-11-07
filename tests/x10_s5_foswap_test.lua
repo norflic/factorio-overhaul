@@ -282,12 +282,49 @@ do
     print(string.format("[X10-S5-FOSWAP] Q4 modèle dense %d thermiques, %d poteaux : instructions %d -> %d (/%.1f) ; conversions nombre -> chaîne %d -> 0 ; mémoire %.0f -> %.0f Ko",
       sz, #poles, i0, i1, i0 / math.max(1, i1), 2 * keys, k0, k1))
     check(deep_eq(o0, o1) and r0 == r1 and h0 == h1 and deep_eq(c0.refused, c1.refused), "Q4 " .. sz .. " : même plan")
+    -- Condition de versement du lead (7/11) : sorties identiques sur un cas où un POTEAU MANQUE. Ici aucune thermique n'est couverte : chaque
+    -- remplacement retenu porte sa chaîne de poteaux neufs (out[i].poles non vide).
+    local chains = 0
+    for _, o in ipairs(o0) do if #o.poles > 0 then chains = chains + 1 end end
+    print(string.format("[X10-S5-FOSWAP] Q4 %d : %d remplacement(s), dont %d avec chaîne de poteaux neufs (poteau manquant) ; n_chain %d ; %d refus",
+      sz, #o0, chains, h0, #(c0.refused or {})))
+    check(chains > 0 and chains == #o0, "Q4 " .. sz .. " : les remplacements retenus posent leur chaîne (poteau manquant)")
+    -- Variante : AUCUN poteau à poser (objet poteau ni au stock ni fabricable : ctx.pole = nil) ; mêmes sorties et mêmes refus.
+    local function no_pole(SS)
+      local c = ctx(SS)
+      c.pole, c.free_for = nil, nil
+      return c
+    end
+    local d0, d1 = no_pole(R), no_pole(S)
+    local p0, q0, s0 = R.plan(entries, d0)
+    local p1, q1, s1 = S.plan(entries, d1)
+    check(deep_eq(p0, p1) and q0 == q1 and s0 == s1 and deep_eq(d0.refused, d1.refused), "Q4 " .. sz .. " sans poteau à poser : même plan")
     if sz == 328 then
       check(i0 >= 2 * i1, "Q4 328 : instructions de S.plan divisées par au moins 2")
       check(k1 * 2 <= k0, "Q4 328 : mémoire allouée divisée par au moins 2")
     end
   end
   check(new_conv == 0, "Q4 : plus aucune clé « a:b » construite dans shared/team/foreuse_swap.lua (" .. new_conv .. ")")
+end
+
+-- Q5 : cas construit, une thermique à 31 tuiles du réseau alimenté (le cas du DC de tests/foreuse_chaine_test.lua) ---------------------
+do
+  local e1 = { id = 7, x = 10, y = 10, dir = 0, sink = { x = 9, y = 8, w = 2, h = 2 }, o = 1 }
+  local net = { { id = 1, x = 41.5, y = 10.5, dist = 2.5, wire = 7.5, powered = true }, { id = 2, x = 12.5, y = 40.5, dist = 2.5, wire = 7.5, powered = false } }
+  local function ctx(SS)
+    return { poles = net, electric = T.drill_electric, have = 1, obtainable = true, limit = 2, pole = { supply = 2.5, wire = 7.5 },
+      free_for = function(e, box) return function(x, y)
+        local pb = { x = x, y = y, w = 1, h = 1 }
+        return not (SS.overlap(pb, box) or SS.overlap(pb, e.sink))
+      end end, chain = P.pole_chain, chain_max = S.CHAIN_MAX, fits = function() return true end, reserve = {} }
+  end
+  local c0, c1 = ctx(R), ctx(S)
+  local o0, r0, h0 = R.plan({ e1 }, c0)
+  local o1, r1, h1 = S.plan({ e1 }, c1)
+  print(string.format("[X10-S5-FOSWAP] Q5 thermique à 31 tuiles du réseau : %d remplacement, %d poteau(x) neuf(s) posé(s) par la chaîne", #o0,
+    o0[1] and #o0[1].poles or 0))
+  check(#o0 == 1 and #o0[1].poles > 0, "Q5 : la référence pose une chaîne (poteau manquant)")
+  check(deep_eq(o0, o1) and r0 == r1 and h0 == h1 and deep_eq(c0.refused, c1.refused), "Q5 : même plan, même chaîne de poteaux")
 end
 
 print(string.format("[X10-S5-FOSWAP] BILAN : %d OK, %d ECHEC(S)", ok_n, ko_n))
