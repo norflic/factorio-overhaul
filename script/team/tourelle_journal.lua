@@ -14,10 +14,15 @@ local Storage = require("script.core.storage")
 
 local Tj = {}
 
+-- Types journalisés : ceux de shared/ai3/reglages.lua, plus l'artillerie (relecture de la 0.6.59 : « toute tourelle »). La liste partagée
+-- Rg.TURRET_TYPES n'est PAS modifiée : la prévision, l'espacement des avant-postes et le reste de l'IA la lisent.
+local TYPES = {}
+for _, ty in ipairs(Rg.TURRET_TYPES) do TYPES[#TYPES + 1] = ty end
+TYPES[#TYPES + 1] = "artillery-turret"
 local TURRET = {}
-for _, ty in ipairs(Rg.TURRET_TYPES) do TURRET[ty] = true end
+for _, ty in ipairs(TYPES) do TURRET[ty] = true end
 Tj.TURRET = TURRET
-Tj.TURRET_TYPES = Rg.TURRET_TYPES
+Tj.TURRET_TYPES = TYPES
 
 -- sec, skipped : limite des morts ; msec, mskipped : limite des minages refusés (une ligne par seconde de jeu chacune).
 Storage.declare("tourelle_journal", function() return { sec = -1, skipped = 0, msec = -1, mskipped = 0 } end)
