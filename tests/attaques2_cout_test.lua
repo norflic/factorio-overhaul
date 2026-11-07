@@ -102,10 +102,14 @@ surface.create_particle = function() C.particle = C.particle + 1 end
 surface.set_tiles = function(t) C.set_tiles = C.set_tiles + 1; C.tiles = C.tiles + #t
   for _, q in ipairs(t) do W.tiles[(q.position[1] or q.position.x) .. ":" .. (q.position[2] or q.position.y)] = q.name end -- {x, y} ou {x =, y =}
 end
+local TUILE = {} -- une table par nom de tuile, partagée : le moteur simulé n'alloue rien par lecture (mesure de la mémoire, plus bas)
+local function non() return false end
 surface.get_tile = function(x, y)
   C.get_tile = C.get_tile + 1
   local n = W.tiles[x .. ":" .. y] or "grass-1"
-  return { valid = true, name = n, hidden_tile = nil, collides_with = function() return false end }
+  local t = TUILE[n]
+  if not t then t = { valid = true, name = n, hidden_tile = nil, collides_with = non }; TUILE[n] = t end
+  return t
 end
 surface.play_sound = function() end
 surface.find_nearest_enemy_entity_with_owner = function() return nil end
@@ -204,6 +208,96 @@ local ok, ko = 0, 0
 local function check(cond, nom, det)
   if cond then ok = ok + 1 else ko = ko + 1 end
   print(string.format("%s %s%s", cond and "OK   " or "ECHEC", nom, det and (" : " .. det) or ""))
+end
+
+-- ------------------------------------------------------------------ MESURE d'une grande attaque, tick par tick (demande du lead, 7/11, 20 h 20 :
+-- le tick de script à 10,9 ms du Tournesol au tick +493 du banc att2-perf v7, « en instructions ET en mémoire allouée », F398) :
+--   FO_ATT2_MESURE=tournesol [FO_ATT2_RT=493] lua5.2 tests/attaques2_cout_test.lua
+-- Instructions du script du MOD comptées par paquets de 100 (debug.sethook), à part celles du moteur simulé (ce fichier) ; par section :
+-- plan (A.u_zenith, A.tuiles_zenith, A.point_zenith, A.tuiles_lave), registre (Ech.trace_marquer), voisinage (A.voisinage), effets (rendus
+-- de attaques2_effets), autre (le reste du script). Mémoire allouée par tick : collectgarbage("count"), ramasse-miettes ARRÊTÉ (rien n'est
+-- libéré pendant la mesure ; le moteur simulé alloue aussi : clés de tuiles, entités créées). Déterministe ; aucun temps mesuré.
+local MES = os.getenv("FO_ATT2_MESURE")
+if MES then
+  local ICI = debug.getinfo(1, "S").source
+  local PAQ = 100
+  local SEC = "autre"
+  local INS = { banc = 0, plan = 0, registre = 0, voisinage = 0, effets = 0, autre = 0 }
+  local SECTIONS = { "plan", "registre", "voisinage", "effets", "autre" }
+  local function crochet()
+    if debug.getinfo(2, "S").source == ICI then INS.banc = INS.banc + PAQ else INS[SEC] = INS[SEC] + PAQ end
+  end
+  local KO = { plan = 0, registre = 0, voisinage = 0, effets = 0 } -- mémoire allouée par section (Ko), sections jamais imbriquées entre elles
+  local function sortir(s0, k0, nom, ...) SEC = s0; KO[nom] = KO[nom] + collectgarbage("count") - k0; return ... end
+  local function envelopper(t, k, nom)
+    local f = t[k]
+    if not f then return end
+    t[k] = function(...) local s0 = SEC; SEC = nom; return sortir(s0, collectgarbage("count"), nom, f(...)) end
+  end
+  local V = require("script.robots.attaques2_effets")
+  for _, k in ipairs({ "u_zenith", "tuiles_zenith", "point_zenith", "tuiles_lave" }) do envelopper(A, k, "plan") end
+  envelopper(A.Ech, "trace_marquer", "registre")
+  envelopper(A, "voisinage", "voisinage")
+  local noms = {}
+  for k, f in pairs(V) do if type(f) == "function" then noms[#noms + 1] = k end end
+  table.sort(noms)
+  for _, k in ipairs(noms) do envelopper(V, k, "effets") end
+  local RT = tonumber(os.getenv("FO_ATT2_RT") or "493")
+  base(0)
+  local e = geant(MES)
+  collectgarbage("collect")
+  collectgarbage("stop")
+  assert(M.lancer(e, 0.3, 0.2, true), "lancement")
+  local job = NS.attaques2.jobs[1]
+  local L = {}
+  debug.sethook(crochet, "", PAQ)
+  for _ = 1, 6000 do
+    if #NS.attaques2.jobs == 0 then break end
+    local i0 = {}
+    for k, v in pairs(INS) do i0[k] = v end
+    local a0 = {}
+    for k, v in pairs(KO) do a0[k] = v end
+    local k0, c0, t0 = collectgarbage("count"), C.damage + C.die, C.tiles
+    run(1)
+    local ko = collectgarbage("count") - k0
+    local r = { rt = W.tick - job.t0, ko = ko, coups = C.damage + C.die - c0, tuiles = C.tiles - t0, banc = INS.banc - i0.banc, mod = 0, ka = {} }
+    for _, s in ipairs(SECTIONS) do r[s] = INS[s] - i0[s]; r.mod = r.mod + r[s] end
+    for k, v in pairs(KO) do r.ka[k] = v - a0[k] end
+    L[#L + 1] = r
+  end
+  debug.sethook()
+  collectgarbage("restart")
+  local function ligne(r)
+    return string.format("%+6d %8d %7d %7d %6d %6d %7d | %7d %8.1f %5d %5d", r.rt, r.mod, r.plan, r.registre, r.voisinage, r.effets, r.autre,
+      r.banc, r.ko, r.coups, r.tuiles)
+  end
+  local tete = string.format("%6s %8s %7s %7s %6s %6s %7s | %7s %8s %5s %5s", "rt", "mod", "plan", "registre", "vois", "effets", "autre",
+    "banc", "Ko", "coups", "tuiles")
+  local function mediane(t) table.sort(t); return t[math.max(1, math.floor((#t + 1) / 2))] or 0 end
+  local mi, mk, tot_i, tot_k, n = {}, {}, 0, 0, 0
+  for _, r in ipairs(L) do
+    if r.rt >= 0 then mi[#mi + 1] = r.mod; mk[#mk + 1] = r.ko; tot_i = tot_i + r.mod; tot_k = tot_k + r.ko; n = n + 1 end
+  end
+  print(string.format("[ATT2-MESURE] %s : %d ticks d'attaque (rt >= 0) ; instructions du mod %d (médiane %d par tick) ; mémoire allouée %.0f Ko "
+    .. "(médiane %.1f Ko par tick)", MES, n, tot_i, mediane(mi), tot_k, mediane(mk)))
+  print("[ATT2-MESURE] autour de rt " .. RT .. " :")
+  print(tete)
+  for _, r in ipairs(L) do if math.abs(r.rt - RT) <= 6 then print(ligne(r)) end end
+  -- où va la mémoire pendant l'attaque (rt >= 0), par section ; « reste » : le reste du script ET le moteur simulé
+  local S = { plan = 0, registre = 0, voisinage = 0, effets = 0 }
+  for _, r in ipairs(L) do if r.rt >= 0 then for k, v in pairs(r.ka) do S[k] = S[k] + v end end end
+  local somme = S.plan + S.registre + S.voisinage + S.effets
+  print(string.format("[ATT2-MESURE] mémoire allouée pendant l'attaque, par section (Ko) : plan %.0f, registre %.0f, voisinage %.0f, effets %.0f, "
+    .. "reste %.0f (script hors sections et moteur simulé)", S.plan, S.registre, S.voisinage, S.effets, tot_k - somme))
+  for _, cle in ipairs({ "mod", "ko" }) do
+    local T = {}
+    for _, r in ipairs(L) do T[#T + 1] = r end
+    table.sort(T, function(a, b) if a[cle] ~= b[cle] then return a[cle] > b[cle] end return a.rt < b.rt end)
+    print("[ATT2-MESURE] 8 pires ticks en " .. (cle == "mod" and "instructions du mod" or "mémoire allouée") .. " :")
+    print(tete)
+    for i = 1, math.min(8, #T) do print(ligne(T[i])) end
+  end
+  os.exit(0)
 end
 
 print(string.format("%-10s %4s %6s %6s %6s %6s %6s %6s %7s %7s %6s %8s %6s %6s %6s %6s", "geant", "rech", "cand", "coups", "morts", "creat", "fal",

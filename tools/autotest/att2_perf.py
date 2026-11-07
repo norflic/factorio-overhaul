@@ -82,7 +82,7 @@ def main():
             for t in v:
                 x = T[t]
                 print("  %-9s %+5d  entier %6.2f  script %5.2f  GC %5.2f  particules %5.2f | %s" % (g, t - frappe[g], x[wi] / 1e6, x[si] / 1e6,
-                      x[gi] / 1e6, x[pi] / 1e6, prof.get(t, "(pas de chrono)")[:220]))
+                      x[gi] / 1e6, x[pi] / 1e6, prof.get(t, "(pas de chrono)")[:640]))
     return 0
 
 

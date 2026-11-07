@@ -51,16 +51,20 @@ A.FACTEUR = 2           -- repli : coup plein par cible = FACTEUR × coup de la 
 -- 6 à 9 fois trop bas. Une mort déclenche une vingtaine de gestionnaires on_entity_died du mod (ruines, journaux, factions) ; un poteau
 -- grillé recoupe le réseau électrique ; une bande de 32 tuiles de haut rendait 1 300 entités (4 à 5 ms). Poids recalés sur cette mesure,
 -- en µs ; budget de 2 000 (environ 2 ms de script par tick pour toutes les grandes attaques ensemble).
+-- v8 (mesure seule du 7/11 à 15 h 03, v7 ; tools/autotest/att2_poids.py, moindres carrés par type) : µs de SCRIPT mesurés par opération :
+-- rang 3,5, bande 69, coup 120, feu 12,6, tuile 50, poteau 412. Recalés (accord du lead, 7/11, 20 h 20) : rang 8 → 4 et bande 300 → 80.
+-- Coup (400) et feu (150) GARDÉS au-dessus du script : une mort coûte aussi 1 à 1,2 ms de particules au moteur (particleUpdate, hors
+-- chronomètre), qui firent les pics de 6 ms ; les baisser mettrait plus de morts par tick.
 A.BUDGET = 2000
 A.POIDS = {
   coup = 400,    -- un coup (damage ou die) : ruines, explosion de mort, gestionnaires on_entity_died du mod (synchrones)
   feu = 150,     -- un feu au sol et sa brûlure
   eclat = 50,    -- une explosion, un éclat, un rocher
   poteau = 700,  -- un poteau qui saute au climax du Cairn : mort, réseau électrique recoupé, grosse explosion, éclat
-  rang = 8,      -- une entité rangée pendant la charge (position, type, santé)
+  rang = 4,      -- une entité rangée pendant la charge (position, type, santé) ; 3,5 µs mesurés (v7)
   tuile = 40,    -- une tuile vérifiée, posée et notée au registre des séquelles
   abattre = 200, -- un arbre ou un rocher abattu
-  bande = 300,   -- une bande de recherche d'entités (A.BANDE_AIRE tuiles², trois recherches : ennemies, arbres et rochers, autres forces)
+  bande = 80,    -- une bande de recherche d'entités (A.BANDE_AIRE tuiles², trois recherches : ennemies, arbres et rochers, autres forces) ; 69 µs (v7)
   vide = 20,     -- un accumulateur, une tourelle laser, un roboport vidés
 }
 A.BANDE_AIRE = 400      -- surface d'une bande de recherche (tuiles²) : environ 0,3 ms (0,7 µs par tuile² sur une base dense, mesuré)

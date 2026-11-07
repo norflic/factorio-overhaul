@@ -552,6 +552,15 @@ local function enfiler(q, liste, nom, seule)
   for _, t in ipairs(liste) do q.file[#q.file + 1] = { x = t.x, y = t.y, nom = nom, seule = seule } end
 end
 
+--- PROFIL (bancs seulement) : chronomètres du tick en cours (voir avancer) ; 4 : tuiles posées, 5 : plan des tuiles (pas d'Ixion et du
+--- Tournesol). KO : mémoire Lua NETTE par section (collectgarbage « count » à l'entrée et à la sortie) : allouée moins libérée ; une valeur
+--- négative dit que le ramasse-miettes a travaillé DANS la section (demande du lead, 7/11 : le pic du Tournesol, ramasse-miettes ou arc de
+--- verre ? F398). Lecture seule : rien n'en dépend.
+local PR, KO = nil, nil
+local function ko() local ok, v = pcall(collectgarbage, "count"); return ok and v or 0 end
+local function chrono(k) if PR then PR[k].restart(); KO[k + 5] = ko() end end
+local function arret(k) if PR then PR[k].stop(); KO[k] = KO[k] + ko() - KO[k + 5] end end
+
 local poser_tuiles
 local function vider_file(q, j)
   if not q.file or #q.file == 0 then return 0 end
@@ -611,7 +620,9 @@ local function pas_ixion(j, r, a, rt)
     local f1 = (j.anneau + 1) / a.anneaux
     if a.lance + A.t_fonte(f1, j.rl, a.fonte) > rt then break end
     local f0 = (j.anneau == 0) and -1 or j.anneau / a.anneaux
+    chrono(5)
     enfiler(j, A.tuiles_lave(j.c, j.bords, f0, f1), A.PREFIX .. "lave", nil)
+    arret(5)
     j.anneau = j.anneau + 1
     V.anneau(j, f1)
     if j.anneau == a.anneaux then
@@ -620,7 +631,9 @@ local function pas_ixion(j, r, a, rt)
       V.lac(j, a)
     end
   end
+  chrono(4)
   local n = vider_file(j, j)
+  arret(4)
   st.tuiles = st.tuiles + n
   ops(j, math.ceil(n / 16))
   while j.arbres[j.ka] and j.arbres[j.ka].t <= rt and peut(P.abattre) do
@@ -643,12 +656,16 @@ end
 
 local function pas_tournesol(j, r, a, rt)
   local st = stat(j.id)
+  chrono(4)
   local n = vider_file(j, j)
+  arret(4)
   st.tuiles = st.tuiles + n
   ops(j, math.ceil(n / 16))
   if rt > a.duree then return end
+  chrono(5)
   local u = A.u_zenith(rt, a.duree, j.U)
   enfiler(j, A.tuiles_zenith(j.c, a.pas, j.u_prec, u, a.pinceau), A.PREFIX .. "verre-chaud", nil)
+  arret(5)
   local x, y = A.point_zenith(j.c, a.pas, u)
   V.zenith(j, rt, x, y, j.u_prec, u)
   j.u_prec = u
@@ -738,22 +755,25 @@ end
 --- Un tick d'une grande attaque ; rend vrai quand elle est finie (ou abandonnée : géant détruit).
 --- PROFIL (bancs seulement, remote fo-att2 « profil ») : trois chronomètres du moteur (LuaProfiler) par tick d'une grande attaque, écrits au
 --- journal avec les comptes du tick, pour savoir OÙ va le temps de script. Rien n'en dépend (lecture seule, déterminisme sauf).
-local PR = nil
-local function chrono(k) if PR then PR[k].restart() end end
-local function arret(k) if PR then PR[k].stop() end end
 
 local avancer_
 local function avancer(j, tick)
   if not S().profil then return avancer_(j, tick) end
-  PR = { game.create_profiler(true), game.create_profiler(true), game.create_profiler(true) }
+  PR = { game.create_profiler(true), game.create_profiler(true), game.create_profiler(true), game.create_profiler(true),
+    game.create_profiler(true) }
+  KO = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }
   local st = stat(j.id)
   local c0, t0, f0, g0, b0, p0 = st.cibles, st.tuiles, st.feux, st.rangees or 0, st.bandes or 0, st.poteaux
+  local k0 = ko()
   local fini = avancer_(j, tick)
+  local kt = ko() - k0
   log({ "", string.format("[FO-ATT2-PROFIL] tick %d %s rt %d : coups %d, tuiles %d, feux %d, rangees %d, bandes %d, poteaux %d, jetons %d ; preparation ",
     tick, j.id, tick - j.t0, st.cibles - c0, st.tuiles - t0, st.feux - f0, (st.rangees or 0) - g0, (st.bandes or 0) - b0, st.poteaux - p0,
     j.cout or 0),
-    PR[1], " ; pas ", PR[2], " ; coups ", PR[3] })
-  PR = nil
+    PR[1], " ; pas ", PR[2], " (dont tuiles ", PR[4], ", plan ", PR[5], ") ; coups ", PR[3],
+    string.format(" ; Ko nets : preparation %+.1f, pas %+.1f (tuiles %+.1f, plan %+.1f), coups %+.1f, attaque %+.1f", KO[1], KO[2], KO[4], KO[5],
+      KO[3], kt) })
+  PR, KO = nil, nil
   return fini
 end
 
