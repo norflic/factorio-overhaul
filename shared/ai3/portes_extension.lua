@@ -147,6 +147,47 @@ function Pe.decide(st, a, orders)
   return { kept = kept, refused = refused, closed = g.closed, room = g.room, limit = g.limit, cause = g.cause }
 end
 
+--- Traduction d'un ordre de la capitalisation (shared/ai3/capitalisation.lua, res.orders) en ordre de la porte. ctx = {
+---   family_of = fonction (kind -> famille, Pi.order_family), family_rank = { [famille] = rang } (Pi.FAMILY_RANK),
+---   site_kinds = { [kind] = vrai } : ordres qui OUVRENT un chantier du plan directeur (Capi.MODULE_KINDS, champ compris),
+---   tours_kinds = { [kind] = vrai } : ordres qui AJOUTENT des tournées de PNJ (chantiers, laboratoires servis à la main),
+---   measured = { [objet] = n } : manque net MESURÉ de L3 (view.mq.build, shared/ai3/manque_local.lua ; nil : L3 éteint, rien n'est
+---   mesuré), measured_n = nombre d'objets en manque mesuré (un seul : la répétition est permise, G27) }.
+--- `belt` reste faux : aucun ordre de la capitalisation n'est une voie à tapis seule.
+function Pe.translate(o, ctx)
+  local fam = ctx.family_of and ctx.family_of(o.kind) or nil
+  local site = (ctx.site_kinds or {})[o.kind] == true
+  local item = o.item or o.resource
+  local measured = item ~= nil and ((ctx.measured or {})[item] or 0) > 0
+  return { key = o.key, item = item, n = o.n, rank = (fam ~= nil and (ctx.family_rank or {})[fam]) or 3,
+    site = site, tours = (ctx.tours_kinds or {})[o.kind] == true, belt = false, measured = measured,
+    alone = measured and (ctx.measured_n or 0) == 1 }
+end
+
+--- Filtre d'une décision (branchement dans le runtime, script/ai3/capitalisation.lua decide_finish, AVANT la boucle d'envoi). Rend
+--- { why = { [clé] = raison } (ordres retenus), kept (nombre), refused (nombre), reduced (ordres qu'une petite marche aurait réduits :
+--- la taille ne se change pas après la décision, coût et objets étant calculés pour o.n ; mesure seulement), closed, room, limit, cause }.
+function Pe.filter(st, a, orders, ctx)
+  local g = Pe.gate(st, a)
+  local why, kept, refused, reduced = {}, 0, 0, 0
+  for _, o in ipairs(orders or {}) do
+    local p = Pe.translate(o, ctx)
+    local w = Pe.check(g, p)
+    if w then
+      why[o.key] = w
+      refused = refused + 1
+    else
+      local _, red = Pe.units(g, p)
+      if red then reduced = reduced + 1 end
+      Pe.take(g, p)
+      kept = kept + 1
+    end
+  end
+  Pe.finish(st, g)
+  return { why = why, kept = kept, refused = refused, reduced = reduced, closed = g.closed, room = g.room, limit = g.limit,
+    cause = g.cause }
+end
+
 --- Ligne de journal (aucune décision ne la lit).
 function Pe.describe(st, res)
   return string.format("transport %s (%d fermeture(s)), %d ordre(s) gardes, %d retenu(s), places de chantier %d sur %d ; %s",

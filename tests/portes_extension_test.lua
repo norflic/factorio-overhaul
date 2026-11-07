@@ -92,6 +92,31 @@ local function suite(Pe)
   local why_full = Pe.check(g, ord("c3", { site = true }))
   local n_def = Pe.units(g, ord("def", { rank = 1, n = 5 }))
   want(why_site == nil and why_full ~= nil and n_def == 5, "API option par option : places decomptees, R1 non reduit")
+  -- 7 ter. Traduction des ordres de la capitalisation (Pe.translate) et filtre du runtime (Pe.filter).
+  local CTX = { family_of = function(k) return (k == "garde") and "defense" or "capi" end, family_rank = { defense = 1, capi = 3 },
+    site_kinds = { chaine = true, couvrir = true }, tours_kinds = { chaine = true, couvrir = true, labos = true } }
+  local pc = Pe.translate({ key = "k", kind = "chaine", item = "x", n = 3 }, CTX)
+  local pg = Pe.translate({ key = "g", kind = "garde", n = 2 }, CTX)
+  local pl = Pe.translate({ key = "l", kind = "labos", n = 1 }, CTX)
+  local pr = Pe.translate({ key = "r", kind = "couvrir", resource = "minerai", n = 1 }, CTX)
+  want(pc.rank == 3 and pc.site and pc.tours and not pc.belt and not pc.measured, "traduction : chaine = rang 3, chantier, tournees")
+  want(pg.rank == 1 and not pg.site, "traduction : rang lu par la famille (garde -> defense -> 1)")
+  want(pl.tours and not pl.site, "traduction : laboratoires = tournees sans chantier")
+  want(pr.item == "minerai", "traduction : objet = ressource a defaut d'objet")
+  want(not pc.measured and not pc.alone, "traduction sans manque mesure (L3 eteint) : ni mesure ni seul")
+  local CTXM = { family_of = CTX.family_of, family_rank = CTX.family_rank, site_kinds = CTX.site_kinds, tours_kinds = CTX.tours_kinds,
+    measured = { x = 12, y = 0 }, measured_n = 1 }
+  local pm = Pe.translate({ key = "k", kind = "chaine", item = "x", n = 3 }, CTXM)
+  local pn = Pe.translate({ key = "n", kind = "chaine", item = "y", n = 3 }, CTXM)
+  want(pm.measured and pm.alone and not pn.measured, "traduction : manque mesure de L3 (x : 12) ; y a 0 n'est pas mesure ; seul en manque")
+  CTXM.measured_n = 2
+  want(not Pe.translate({ key = "k", kind = "chaine", item = "x" }, CTXM).alone, "traduction : deux objets en manque, pas seul")
+  local s7f = Pe.new()
+  local ords = { { key = "c", kind = "chaine", n = 2 }, { key = "g", kind = "garde", n = 2 }, { key = "e", kind = "equiper", n = 1 } }
+  Pe.filter(s7f, D1, ords, CTX)
+  local rf = Pe.filter(s7f, D1, ords, CTX)
+  want(rf.closed and rf.why.c and not rf.why.g and not rf.why.e and rf.refused == 1 and rf.kept == 2,
+    "filtre : chaine retenue, garde (rang 1) et levier gardes")
   -- 8. Déterminisme : mêmes entrées, mêmes sorties.
   local sa, sb = Pe.new(), Pe.new()
   local ra8 = Pe.decide(sa, D1, orders)
@@ -105,6 +130,17 @@ local bad = suite(Pe)
 for _, m in ipairs(bad) do check(false, m) end
 check(#bad == 0, "suite du module")
 print(string.format("[L6] suite : %d defaut(s)", #bad))
+-- Fait relevé (pas une règle) : avec la vraie pile, chaque sorte d'ordre de la capitalisation est de rang 3 (Pi.order_family rend
+-- « capi » ou « recherche ») : l'invariant I2 (R0 et R1 jamais retenus) est donc VIDE pour la capitalisation : aucun ordre R0 ou R1 n'y passe.
+do
+  local Pi = require("shared.ai3.pile")
+  local all3 = true
+  for _, k in ipairs({ "couvrir", "ouvrir", "chaine", "packs", "labos", "fours", "energie", "equiper", "techno" }) do
+    if (Pi.FAMILY_RANK[Pi.order_family(k)] or 3) ~= 3 then all3 = false end
+  end
+  print("[L6] fait : toutes les sortes d'ordres de la capitalisation sont de rang 3 avec la vraie pile : " .. tostring(all3))
+  check(all3, "fait releve : ordres de la capitalisation au rang 3 (I2 vide pour elle)")
+end
 
 local MUTANTS = {
   { "porte du transport retiree", "if g.closed and o.tours and not o.belt then", "if false then" },
@@ -119,6 +155,11 @@ local MUTANTS = {
   { "fermee des la 1re mesure tendue", "if st.tense_n >= Pe.SAT_THINKS then", "if st.tense_n >= 1 then" },
   { "places de chantier non decomptees (I1 rompu)", "if o.site and rank > Pe.SAFE_RANK then g.room = g.room - 1 end", "" },
   { "anti-repetition sans memoire d'une decision a l'autre", "function Pe.finish(st, g) st.last_item = g.measured_item end", "function Pe.finish(st, g) end" },
+  { "traduction : rang 3 pour tous", "rank = (fam ~= nil and (ctx.family_rank or {})[fam]) or 3,", "rank = 3," },
+  { "traduction : chantier ignore", "local site = (ctx.site_kinds or {})[o.kind] == true", "local site = false" },
+  { "traduction : tournees ignorees", "tours = (ctx.tours_kinds or {})[o.kind] == true", "tours = false" },
+  { "traduction : manque mesure ignore", "local measured = item ~= nil and ((ctx.measured or {})[item] or 0) > 0", "local measured = false" },
+  { "traduction : seul toujours vrai", "alone = measured and (ctx.measured_n or 0) == 1 }", "alone = measured }" },
 }
 local refused = 0
 for _, m in ipairs(MUTANTS) do
