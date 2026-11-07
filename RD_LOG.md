@@ -10,7 +10,7 @@
 
 ## 2026-11-07 : défauts de la partie du DC (0.6.58), feuille de route vidéo, disque F:
 
-> Prochains identifiants libres (7/11, 19 h) : **F400** et **E265** hors blocs. Attribués ici : F389 à F399, E258 à E264.
+> Prochains identifiants libres (7/11, 19 h 35) : **F402** et **E265** hors blocs. Attribués ici : F389 à F401, E258 à E264.
 
 - **F394 · FAIT** (moteur réel, `f1-lasers` avec images, 48 sites, lot F1-C) : le faisceau d'une electric-turret part de
   position + (L sin θ, −L cos θ · cos 45°) + (0, −H). `attack_parameters.source_offset` = {0, −L} tourne avec la tête
@@ -80,6 +80,13 @@
     1 900 ticks (sous 3 600).
   - Décision pour le point 2 : le jeton passe d'un travail par tick à un BUDGET par tick, chaque travail déclarant un coût
     déterministe (`fo-logs/2026-11-07_LOURD/CRITERES.md` §2).
+- **F400 · FAIT** (moteur réel, micro-banc `x10-morts` de x10-moteur sur la sauvegarde du DC, branche x10-q5 `0f914515`) : un
+  effet `{type = "script", effect_id = …}` placé dans le `dying_trigger_effect` d'une unité est levé PENDANT `die()`, avec un
+  point (la position de la mort, à 0 près).
+- **F401 · FAIT** (moteur réel, même lot, archive `Q5-morts-essai1-0f914515`) : sur une SAUVEGARDE, le `on_init` d'un mod
+  AJOUTÉ (notre mod de test) passe AVANT le `on_configuration_changed` de factorio-overhaul. Au premier essai, une interface du
+  mod appelée dans ce `on_init` a levé une erreur, parce que son espace de `global` n'existait pas encore. Règle : un scénario de
+  banc sur sauvegarde qui appelle une interface du mod à l'init doit la garder, ou attendre le premier tick.
 - **E264 · MESURÉ** (moteur réel, M2 du x10, 7/11 18 h 44, `--seul`, sauvegarde du DC, personnage dans sa base, vitesse 10,
   fenêtre 1920×1080, VSync à 144 Hz ; `fo-logs/2026-11-07_X10/M2-rendu`, MOTEUR.md §13) : le rendu, mesuré.
   - Par zoom :
