@@ -43,6 +43,11 @@ local ORDERS = { { "packs", "automation-science-pack", 6 }, { "chaine", "burner-
 -- fabricable à la main OU au coffre. La prémisse n'avait été essayée qu'à blanc. Mise en place (décision du lead, 7/11 vers
 -- 19 h 05) : ces objets de l'âge 3 sont posés au coffre, contrôle à part ; les objets de fer de l'âge 1 restent retirés.
 local AGE3 = { { "assembling-machine-1", 10 }, { "long-handed-inserter", 10 } }
+-- Passage de DIAGNOSTIC (1467ad2a, 7/11 20:10) : la centrale restait « reserve » : « manques {iron-chest 1 (coffre brut 0)} » à chaque relevé,
+-- du tick 600 au tick 3 300 : le coffre de fer de son quai d'entrée, retiré par REMOVE (objets de fer), à refaire avec 8 plaques absentes.
+-- Artefact du banc, pas de réservation de tâche. 3e version (accordée par le lead ; coffre seul au lieu des 100 plaques, proposé au vu du
+-- diagnostic le 7/11 vers 21 h 05) : CE coffre seul est posé, contrôle à part ; le fer reste à 0 (cas B).
+local PLANT_IRON = { { "iron-chest", 1 } }
 
 local function set_setting(ctx, name, value)
   local v = ctx.call("war_setting", name, value)
@@ -118,6 +123,9 @@ return function(temoin)
         ctx.check(inv ~= nil and put3 ~= nil and #short3 == 0 and inv.get_item_count("iron-plate") == 0,
           "objets de l'age 3 poses au coffre (assembling-machine-1 10, long-handed-inserter 10 ; recettes fermees a l'age 1)",
           #short3 > 0 and ("insere en partie : " .. table.concat(short3, " ")) or "")
+        local putc = ctx.remote("fo-ind", "stock", st.key, PLANT_IRON)
+        ctx.check(inv ~= nil and putc ~= nil and (putc["iron-chest"] or 0) >= 1 and inv.get_item_count("iron-plate") == 0,
+          "coffre de fer du quai de la centrale pose (1 ; diagnostic 1467ad2a), fer toujours a 0", putc and tostring(putc["iron-chest"]) or "nil")
         local left = {}
         local cont = inv and inv.get_contents() or {}
         local names = {}
