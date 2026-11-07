@@ -19,6 +19,17 @@
 local S = {}
 
 local EPS = 1e-6
+local abs, floor = math.abs, math.floor
+-- Lot S5 (×10) : décalages des centres candidats de S.electric_centers, sans table littérale à chaque appel, et leur ordre (même
+-- comparateur qu'avant, une seule fermeture pour tous les appels)
+local OFFS = { -1.5, -0.5, 0.5, 1.5 }
+local function centers_before(a, b)
+  if a[5] ~= b[5] then return a[5] < b[5] end
+  if math.abs(a[3] - b[3]) > EPS then return a[3] < b[3] end
+  if a[1] ~= b[1] then return a[1] < b[1] end
+  if a[2] ~= b[2] then return a[2] < b[2] end
+  return a[4] < b[4]
+end
 
 --- Vecteur (x, y) tourne selon la direction (sens horaire, depuis le nord) : meme regle que le depot d'une foreuse du moteur.
 function S.rotate(dir, x, y)
@@ -56,31 +67,43 @@ end
 --- recepteur, la boite ne le recouvre pas et recouvre l'ancienne emprise 2 x 2 (remplacement SUR PLACE), dans les 4 directions. Ordre : la
 --- direction de la thermique d'abord, puis le plus proche de l'ancien centre, puis x, puis y.
 function S.electric_centers(bx, by, dir, sink, spec)
+  -- Lot S5 (×10, mesure hors jeu sur le modèle du banc dense : 62 % des instructions de S.plan, une boîte par candidat) : même liste, sans
+  -- table par candidat. Les boîtes { cx, cy, size, size } (nouvelle), { bx, by, 2, 2 } (ancienne emprise) de S.overlap sont écrites en
+  -- ligne, mêmes opérations flottantes dans le même ordre. Directions : celle de la thermique, puis 0, 2, 4, 6 ; le passage d'une direction
+  -- égale à celle de la thermique est sauté : il redonnait EXACTEMENT les candidats du premier passage, que le contrôle de doublon écartait
+  -- tous (même (cx, cy, d)), et deux candidats d'un même passage n'ont jamais le même (cx, cy). Ordre d'avant le tri inchangé.
+  -- S.inside(sink, cx + vx, cy + vy) est écrit en ligne et coupé en deux : sa partie x ne dépend que de ox, elle est lue une fois par
+  -- colonne (même valeur) et saute les 4 lignes quand elle est fausse.
   local out = {}
-  local old = { x = bx, y = by, w = 2, h = 2 }
-  for _, d in ipairs({ dir, 0, 2, 4, 6 }) do
-    do
+  -- (revue-s, note sur 6c02464a : l'ancien ipairs({ dir, 0, 2, 4, 6 }) s'arrêtait au premier élément quand dir était nil : aucun candidat.
+  -- Aucun appelant ne passe nil ; gardé tel quel pour rester égal dans tous les cas.)
+  if dir == nil then return out end
+  local size, sx, sy, sw, sh = spec.size, sink.x, sink.y, sink.w, sink.h
+  local hw, hh = sw / 2 - EPS, sh / 2 - EPS
+  local lim_sx, lim_sy = (size + sw) / 2 - EPS, (size + sh) / 2 - EPS
+  local lim_old = (size + 2) / 2 - EPS
+  for i = 0, 4 do
+    local d = (i == 0) and dir or (i - 1) * 2
+    if i == 0 or d ~= dir then
       local vx, vy = S.rotate(d, spec.drop[1], spec.drop[2])
-      for _, ox in ipairs({ -1.5, -0.5, 0.5, 1.5 }) do
-        for _, oy in ipairs({ -1.5, -0.5, 0.5, 1.5 }) do
-          local cx, cy = bx + ox, by + oy
-          local box = { x = cx, y = cy, w = spec.size, h = spec.size }
-          if S.inside(sink, cx + vx, cy + vy) and not S.overlap(box, sink) and S.overlap(box, old) then
-            local dup = false
-            for _, c in ipairs(out) do if c[1] == cx and c[2] == cy and c[4] == d then dup = true end end
-            if not dup then out[#out + 1] = { cx, cy, ox * ox + oy * oy, d, d == dir and 0 or 1 } end
+      for a = 1, 4 do
+        local ox = OFFS[a]
+        local cx = bx + ox
+        if abs(cx + vx - sx) < hw then
+          local in_sx = abs(cx - sx) < lim_sx
+          local in_old = abs(cx - bx) < lim_old
+          for b = 1, 4 do
+            local oy = OFFS[b]
+            local cy = by + oy
+            if abs(cy + vy - sy) < hh and not (in_sx and abs(cy - sy) < lim_sy) and (in_old and abs(cy - by) < lim_old) then
+              out[#out + 1] = { cx, cy, ox * ox + oy * oy, d, d == dir and 0 or 1 }
+            end
           end
         end
       end
     end
   end
-  table.sort(out, function(a, b)
-    if a[5] ~= b[5] then return a[5] < b[5] end
-    if math.abs(a[3] - b[3]) > EPS then return a[3] < b[3] end
-    if a[1] ~= b[1] then return a[1] < b[1] end
-    if a[2] ~= b[2] then return a[2] < b[2] end
-    return a[4] < b[4]
-  end)
+  table.sort(out, centers_before)
   return out
 end
 
@@ -114,20 +137,32 @@ function S.plan(entries, ctx)
   -- Lot FOREUSES-THERMIQUES (coût) : poteaux ALIMENTÉS rangés par cases de S.CELL tuiles ; une foreuse ne lit que les cases voisines
   -- (couverture : la case et ses 8 voisines ; chaîne : les cases à portée de S.CHAIN_MAX fils). Réponses inchangées : seuls des poteaux
   -- trop loin pour compter sont sautés (rayon relevé élargi, des centaines de poteaux par équipe).
+  -- Lot S5 (×10, mesure hors jeu sur le modèle du banc dense : 70 860 conversions nombre -> chaîne par passe pour les clés « gx:gy ») :
+  -- clé NUMÉRIQUE de case, gx * 2^22 + gy (injective pour |gy| < 2^21 cases, soit 33 millions de tuiles ; au-delà, une collision
+  -- n'ajouterait que des poteaux à plus de 2^21 cases, qui ne couvrent rien et dont la chaîne dépasse S.CHAIN_MAX fils : mêmes réponses).
+  -- Mêmes cases, mêmes listes, même ordre ; une case vide n'alloue plus de table.
+  local CELL = S.CELL
   local grid = {}
   for _, p in ipairs(ctx.poles) do
     if p.powered then
-      local k = math.floor(p.x / S.CELL) .. ":" .. math.floor(p.y / S.CELL)
-      grid[k] = grid[k] or {}
-      grid[k][#grid[k] + 1] = p
+      local k = floor(p.x / CELL) * 4194304 + floor(p.y / CELL)
+      local g = grid[k]
+      if not g then
+        g = {}
+        grid[k] = g
+      end
+      g[#g + 1] = p
     end
   end
   local function near(box, r)
     local out = {}
-    local gx, gy = math.floor(box.x / S.CELL), math.floor(box.y / S.CELL)
+    local gx, gy = floor(box.x / CELL), floor(box.y / CELL)
     for dy = -r, r do
       for dx = -r, r do
-        for _, p in ipairs(grid[(gx + dx) .. ":" .. (gy + dy)] or {}) do out[#out + 1] = p end
+        local g = grid[(gx + dx) * 4194304 + (gy + dy)]
+        if g then
+          for i = 1, #g do out[#out + 1] = g[i] end
+        end
       end
     end
     return out
@@ -136,9 +171,23 @@ function S.plan(entries, ctx)
   local far_r = ctx.pole and math.ceil((maxn * ctx.pole.wire + ctx.pole.supply + ctx.electric.size) / S.CELL) or 0
   local size = ctx.electric.size
   local function box_at(c) return { x = c[1], y = c[2], w = size, h = size } end
+  -- Lot S5 : S.covered(p.x, p.y, p.dist, box_at(c)) sur les cases voisines, sans liste ni boîte (mêmes opérations flottantes) ; « au moins
+  -- un poteau couvre » ne dépend pas de l'ordre de lecture.
   local function powered_at(c)
-    local box = box_at(c)
-    for _, p in ipairs(near(box, 1)) do if S.covered(p.x, p.y, p.dist, box) then return true end end
+    local cx, cy = c[1], c[2]
+    local gx, gy = floor(cx / CELL), floor(cy / CELL)
+    for dy = -1, 1 do
+      for dx = -1, 1 do
+        local g = grid[(gx + dx) * 4194304 + (gy + dy)]
+        if g then
+          for i = 1, #g do
+            local p = g[i]
+            local l = (2 * p.dist + size) / 2 - EPS
+            if abs(p.x - cx) < l and abs(p.y - cy) < l then return true end
+          end
+        end
+      end
+    end
     return false
   end
   -- Réserve d'amorçage (S.coal_reserve) : d'un avant-poste de combustible, au plus burners - keep candidats (ordre des numéros) ; les autres
@@ -161,7 +210,8 @@ function S.plan(entries, ctx)
           ready[#ready + 1] = { id = e.id, e = e, cs = cs }
           classed = true
         elseif ctx.obtainable and ctx.pole then
-          local est = S.reach_estimate(box_at(cs[1]), near(box_at(cs[1]), far_r), ctx.pole, ctx.chain_max)
+          local b1 = box_at(cs[1]) -- (lot S5 : une boîte au lieu de deux, mêmes valeurs)
+          local est = S.reach_estimate(b1, near(b1, far_r), ctx.pole, ctx.chain_max)
           if est then chained[#chained + 1] = { id = e.id, est = est, e = e, cs = cs } classed = true end
         end
         if rv and classed then quota[e.o] = quota[e.o] - 1 end
