@@ -233,11 +233,117 @@ local function d1(f, label)
   undo()
 end
 
+--- §12 Lot VIDEO-COUVERTURE 3 (V59, C3.1) : un module de laboratoires sans pack, une technologie en file : le manque de packs est MESURÉ
+--- (avant : Mv.read_module ne lisait que les assembleurs et les fours, le module de labos était refusé « courant inconnu »). La technologie
+--- est lue aux prototypes du moteur (research_unit_ingredients, research_unit_energy), la vitesse au prototype du labo et au bonus de la force.
+local PID_LAB = 9003
+local PACK_R = "automation-science-pack"
+local function labs(f, label)
+  local s = f.hq.surface
+  local hq = f.hq.position
+  local made = {}
+  local qx, qy = math.floor(hq.x) + 80.5, math.floor(hq.y) + 10.5
+  local q = s.create_entity({ name = CHEST, position = { x = qx, y = qy }, force = f.force })
+  made[#made + 1] = q
+  local lx, ly = math.floor(hq.x) + 84, math.floor(hq.y) + 10
+  local lab = s.create_entity({ name = "lab", position = { x = lx + 1.5, y = ly + 1.5 }, force = f.force })
+  made[#made + 1] = lab
+  local had_build = f.build ~= nil
+  f.build = f.build or { order = {}, projects = {} }
+  local b = f.build
+  b.order[#b.order + 1] = PID_LAB
+  b.projects[PID_LAB] = { id = PID_LAB, state = "fini", outs = {}, quais = { { x = qx, y = qy, item = PACK_R } }, inflow = { [PACK_R] = 0.5 },
+    prio = 60, parts = { { ox = lx, oy = ly, w = 3, h = 3 } }, ents = {}, spec = { gen = "labs" } }
+  local ia3_0 = f.team.ia3
+  f.team.ia3 = f.team.ia3 or {}
+  local lab0 = f.team.ia3.lab
+  local function tech(name) f.team.ia3.lab = { tech = name } end
+  local function need()
+    local view = fresh_view(f)
+    local res = f.team.mq and f.team.mq.res
+    local n
+    for _, e in ipairs(res and res.short_by or {}) do if e.key == "m:" .. PID_LAB and e.item == PACK_R then n = e.n end end
+    return n, res, view
+  end
+  -- « optics » : 1 pack rouge par unité, 15 s ; un labo de vitesse 1 : 4 packs par minute.
+  tech("optics")
+  local n, res = need()
+  check(eq(n, 4), label .. " §12 : labo sans pack rouge, technologie en file : manque de 4/min publie (" .. tostring(n) .. ")")
+  local sk
+  for _, x in ipairs(Mq.sinks(res, {})) do if x.item == PACK_R then sk = x end end
+  check(sk ~= nil and eq(sk.rate, 4), label .. " §12 : puits de la capitalisation 4/min (" .. ser(sk) .. ")")
+  -- le bonus de vitesse de la force compte
+  local force = game.forces[f.force]
+  local m0 = force.laboratory_speed_modifier
+  force.laboratory_speed_modifier = 0.5
+  n = need()
+  force.laboratory_speed_modifier = m0
+  check(eq(n, 6), label .. " §12 : bonus de recherche de 50 % : 6 par minute (" .. tostring(n) .. ")")
+  -- un quai garni : plus de manque
+  q.get_inventory(defines.inventory.chest).insert({ name = PACK_R, count = 4 })
+  n = need()
+  check(n == nil, label .. " §12 : quai garni d'une minute de packs : labo plein, manque nul (" .. tostring(n) .. ")")
+  -- aucune technologie en file : rien à consommer
+  q.get_inventory(defines.inventory.chest).remove({ name = PACK_R, count = 4 })
+  f.team.ia3.lab = {}
+  n, res = need()
+  check(n == nil and #res.refused == 0, label .. " §12 : aucune technologie en file : aucun manque, aucun refus")
+  -- technologie inconnue du moteur : refusée (garde fermée), jamais un manque inventé
+  tech("technologie-inconnue")
+  n, res = need()
+  check(n == nil and #res.refused >= 1, label .. " §12 : technologie inconnue du moteur : refusee, aucun manque")
+  f.team.ia3.lab = lab0
+  if ia3_0 == nil then f.team.ia3 = nil end
+  for _, c in ipairs(made) do if c.valid then c.destroy() end end
+  local keep = {}
+  for _, id in ipairs(b.order) do if id ~= PID_LAB then keep[#keep + 1] = id end end
+  b.order = keep
+  b.projects[PID_LAB] = nil
+  if not had_build then f.build = nil end
+  fresh_view(f)
+end
+
+--- §13 Lot VIDEO-COUVERTURE 3 (V10, C3.4) : les munitions manquantes d'une tourelle sont un but (key « but:<munition> ») à la priorité de l'armée.
+local Outposts = require("script.faction.outposts")
+local function munitions(label)
+  local ff = { engineers_count = 8, team = { floor = 4, missing = {} } }
+  local ammo = Outposts.ammo_name(nil, ff)
+  local groups = {
+    { key = "hq", low = 2, short = 3, missing = 40, has_task = false, n = 8 },
+    { key = "o1", low = 0, short = 2, missing = 25, has_task = false, n = 4 },
+    { key = "o2", low = 4, short = 4, missing = 100, has_task = true, n = 4 },    -- une tournee de recharge le sert deja
+    { key = "o3", low = 0, short = 0, missing = 0, has_task = false, n = 4 },     -- rien ne manque
+  }
+  local function by_key(w) local o = {} for _, x in ipairs(w) do o[x.key] = x end return o end
+  local w = by_key(Mv.wants(ff, { turret_groups = groups }))
+  check(w["but:" .. ammo] and eq(w["but:" .. ammo].n, 65) and w["but:" .. ammo].prio == T.defend_prio and not w["but:" .. ammo].net,
+    label .. " §13 : 40 + 25 chargeurs manquent (le groupe servi par une tournee ne compte pas) : but:" .. ammo .. " a la priorite de l'armee " ..
+    T.defend_prio .. " (" .. ser(w["but:" .. ammo]) .. ")")
+  w = by_key(Mv.wants(ff, { turret_groups = { groups[3], groups[4] } }))
+  check(w["but:" .. ammo] == nil, label .. " §13 : tournee prise ou rien ne manque : aucune demande")
+  -- règle des munitions éteinte : seuil bas (g.low x cible)
+  local on = T.munitions_on
+  T.munitions_on = false
+  w = by_key(Mv.wants(ff, { turret_groups = { { key = "hq", low = 2, n = 8 }, { key = "o1", low = 0, n = 4 } } }))
+  T.munitions_on = on
+  check(w["but:" .. ammo] and eq(w["but:" .. ammo].n, 2 * T.turret_ammo_target), label .. " §13 : regle eteinte : 2 tourelles sous le seuil bas, " ..
+    2 * T.turret_ammo_target .. " chargeurs (" .. ser(w["but:" .. ammo]) .. ")")
+  -- dans le calcul : le manque en munitions est a construire quand le stock libre ne le couvre pas
+  local Mqr = Mq.step(Mq.new(), { mods = {}, wants = Mv.wants(ff, { turret_groups = groups }), stock = { [ammo] = 30 }, sources = {} }, 10 * MIN)
+  check(eq(Mqr.build[ammo], 35) and eq(Mqr.net[ammo], -35), label .. " §13 : 65 voulus, 30 au stock libre : 35 a construire")
+  -- sans tourelle (jeu reel) : aucune demande
+  local wr = by_key(Mv.wants(fac, nil))
+  check(wr["but:" .. ammo] == nil, label .. " §13 : aucune tourelle posee : aucune demande de munitions")
+end
+
 local function all_scenes()
   scenes(fac, "faction")
   if pf then scenes(pf, "votre equipe") end
   d1(fac, "faction")
   if pf then d1(pf, "votre equipe") end
+  labs(fac, "faction")
+  if pf then labs(pf, "votre equipe") end
+  munitions("faction")
 end
 all_scenes()
 
@@ -269,6 +375,56 @@ do
   check(has(surv, "Sv.uncovered(Sv.shortages(missing, KEYS), view.avail_out)"), "§8 : la survie ne deduit que la collecte prise (view.avail_out)")
   check(has(capi, "Mq.sinks(mq_fresh(f, tick), Ml.sinks(st.mall))"), "§8 : build_input ajoute les puits mesures (input.sinks)")
   check(not has(capi, "Ca.requirements(") or true, "§8 : Ca.requirements n'est pas touche (puits par input.sinks)")
+end
+
+-- §14 Lot VIDEO-COUVERTURE 3 : l'interface de banc (script/team/manque_banc.lua) et le journal [FO-MANQUE] d'un module de laboratoires affamé.
+do
+  local f = fac
+  local hq = f.hq.position
+  local qx, qy = math.floor(hq.x) + 90.5, math.floor(hq.y) + 20.5
+  local lx, ly = math.floor(hq.x) + 94, math.floor(hq.y) + 20
+  local ia3_0 = f.team.ia3
+  f.team.ia3 = f.team.ia3 or {}
+  local lab0 = f.team.ia3.lab
+  f.team.ia3.lab = { tech = "optics" }
+  local p0 = Mv.PERIOD
+  local r = remote.call("fo-manque", "bench_labo", f.key, PACK_R, "lab", qx, qy, lx, ly)
+  check(r ~= nil and r.project ~= nil, "§14 : bench_labo pose le projet de laboratoires")
+  check(Mv.PERIOD == 120, "§14 : le manque est recalcule toutes les 2 s le temps du banc")
+  local logs0 = #M.world().logs
+  Team.view(f, game.tick)
+  local st = remote.call("fo-manque", "labo_state", f.key, r.project, PACK_R)
+  check(st ~= nil and eq(st.need, 4) and st.starved == PACK_R and st.refused == 0,
+    "§14 : labo_state lit le manque (4/min) et le module affame (" .. ser(st) .. ")")
+  check(st.quai == 0 and st.hq_packs ~= nil, "§14 : quai vide")
+  local line
+  for i = logs0 + 1, #M.world().logs do
+    local l = M.world().logs[i]
+    if l:find("[FO-MANQUE]", 1, true) and l:find("laboratoires", 1, true) then line = l end
+  end
+  check(line ~= nil and line:find("module " .. r.project, 1, true) ~= nil and line:find(PACK_R, 1, true) ~= nil,
+    "§14 : le journal [FO-MANQUE] cite le module de laboratoires et le pack (" .. tostring(line) .. ")")
+  -- le journal ne se repete pas tant que la liste ne change pas
+  Mv.PERIOD = 0
+  local n_before = #M.world().logs
+  Team.view(f, game.tick + 1)
+  local again = 0
+  for i = n_before + 1, #M.world().logs do if M.world().logs[i]:find("[FO-MANQUE]", 1, true) then again = again + 1 end end
+  check(again == 0, "§14 : pas de repetition du journal [FO-MANQUE] quand rien ne change")
+  Mv.PERIOD = p0
+  -- nettoyage
+  local b = f.build
+  local keep = {}
+  for _, id in ipairs(b.order) do if id ~= r.project then keep[#keep + 1] = id end end
+  b.order = keep
+  b.projects[r.project] = nil
+  local s0 = f.hq.surface
+  for _, e in ipairs(s0.find_entities_filtered({ area = { { qx - 1, qy - 1 }, { lx + 4, ly + 4 } }, force = f.force })) do
+    if e.valid and (e.name == "lab" or e.name == CHEST) then e.destroy() end
+  end
+  f.team.ia3.lab = lab0
+  if ia3_0 == nil then f.team.ia3 = nil end
+  if f.team.mq then f.team.mq.tick = nil end
 end
 
 -- §9 Coût.
@@ -315,6 +471,18 @@ do
       end
       return function() Sv.uncovered = o end end,
       function() d1(fac, "faction") if pf then d1(pf, "votre equipe") end end },
+    { "technologie en cours ignoree (labo sans entree)", function()
+      local o = Mv.lab_tech
+      Mv.lab_tech = function() return false end
+      return function() Mv.lab_tech = o end end },
+    { "module de labos lu comme un module ordinaire", function()
+      local o = Mv.read_module
+      Mv.read_module = function(...) local r = o(...) r.consumes = nil r.inputs = r.inputs or {} return r end
+      return function() Mv.read_module = o end end },
+    { "munitions absentes des demandes", function()
+      local o = Mv.wants
+      Mv.wants = function(...) local w = o(...) local out = {} for _, x in ipairs(w) do if x.item ~= "firearm-magazine" then out[#out + 1] = x end end return out end
+      return function() Mv.wants = o end end },
     { "objectif lu brut (stock compte deux fois)", function()
       local o = Mv.wants
       Mv.wants = function(...) local w = o(...) for _, x in ipairs(w) do x.net = nil end return w end

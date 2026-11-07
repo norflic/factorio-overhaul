@@ -381,10 +381,16 @@ local okm, errm = pcall(function()
     "Team.view : 3 tâches en attente, personne de libre, fer : recrue, frein levé (" .. tostring(de and de.reason) .. ", "
       .. tostring(de and de.waiting) .. ")")
   -- Un PNJ libre pour une seule tâche : inactifs, frein tenu.
+  -- Lot ROUGES-0659 : un PNJ LIBRE n'a ni tâche ni fabrication en arrière-plan (Worker.idle_count, script/team/worker.lua:1897, lot
+  -- CRAFT-PARALLELE). Depuis 0.6.53 (fusion 8f75bc53), le PNJ 1 du moteur simulé fabrique en arrière-plan à ce tick : lui retirer sa
+  -- tâche seule ne le libérait plus (0 PNJ libre, raison « recrue » : 3 ECHEC de 0.6.53 à 0.6.59). Il est vraiment libéré ici.
   b.list = { list[1] }
   local a1 = Registry.get(ids[1])
-  if a1 then a1.task = nil end
+  local a1_bg = a1 and a1.bg
+  if a1 then a1.task, a1.bg = nil, nil end
   view = Team.view(f, tick + 2)
+  check(view.workers_waiting == 1, "précondition : exactement un PNJ libre, sans tâche ni fabrication en arrière-plan ("
+    .. tostring(view.workers_waiting) .. ")")
   check(view.effectif and view.effectif.reason == "inactifs" and view.recruit_held == true,
     "Team.view : un PNJ libre pour la seule tâche en attente : aucune recrue (" .. tostring(view.effectif and view.effectif.reason) .. ")")
   check(view.workers_enough == true, "Team.view : PNJ libres, effectif visé atteint (économie « faite » possible)")
@@ -393,6 +399,25 @@ local okm, errm = pcall(function()
   local txt = Team.effectif_text(f)
   check(type(txt) == "table" and txt[1] == "fo-ia3d.recruit-line" and type(txt[2]) == "table" and txt[2][1] == "fo-ia3d.why-inactifs",
     "fenêtre : ligne « Recrutement : … » de la raison")
+  -- ÉCART CONNU (lot ROUGES-0659 ; point ouvert du lead, 7/11, correctif de code différé) : le même PNJ, SANS tâche mais qui fabrique
+  -- en arrière-plan (un travail), pourrait prendre ce craft (shared/team/craft_bg.lua C.allowed et C.fits ; script/team/board.lua:485-489
+  -- et 577-578 ; script/team/worker.lua:1249 et 1256 : il est « idle » et réclame). Mais Worker.idle_count (script/team/worker.lua:1897)
+  -- ne le compte pas libre, ni donc les bras de la règle (shared/ai3/effectif.lua:154) : la vue dit « recrue », une recrue de trop.
+  -- Ce contrôle attend le comportement d'AUJOURD'HUI. Quand le PNJ sera compté comme bras pour les seules tâches qu'il peut prendre, il
+  -- devra attendre « inactifs ».
+  do
+    local CB = require("shared.team.craft_bg")
+    local URGENT = require("shared.ai3.marche").URGENT
+    if a1 then a1.bg = { jobs = { { task = { key = "test:bg", kind = "craft" }, list = {}, i = 1, at = tick } }, hold = {}, last = tick } end
+    local v3 = Team.view(f, tick + 3)
+    local why = v3.effectif and v3.effectif.reason
+    local can = CB.allowed("craft", false) and CB.fits("craft", 0, 60, URGENT, 0)
+    check(can and v3.workers_waiting == 0 and why == "recrue", "ÉCART CONNU (worker.lua:1897, effectif.lua:154) : PNJ sans tâche qui "
+      .. "fabrique en arrière-plan, un craft attend : il pourrait le prendre, la vue dit « recrue » (" .. tostring(why) .. ")")
+    print("[AI3-EFFECTIF] ÉCART CONNU (contrôle compté) : un PNJ qui fabrique en arrière-plan n'est pas un bras pour un craft qui attend ("
+      .. tostring(why) .. ") ; correctif de code différé")
+    if a1 then a1.bg = a1_bg end
+  end
   b.list = saved_list
   for _, id in ipairs(ids) do local a = Registry.get(id); if a then a.task = saved_tasks[id] end end
   -- Charge INJECTÉE (interface « fo-ia1 » inject_crisis d'IA1-b, comme le scénario ia3d-charge en moteur réel) :

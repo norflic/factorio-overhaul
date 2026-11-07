@@ -253,6 +253,8 @@ local function battery(C)
   local ko = decide_off(C, kovarex(C), {})
   local kn, _, Jk = decide(C, kovarex(C), {}, true, false)
   check(#Jk.ctx.rang.cycles >= 1, "§2 Kovarex : le cycle de l'uranium est vu")
+  -- (intégrateur, 7/11 23 h 55) : le champ rang_cycles de la décision (lot 5, graine de l'amorce) n'existe QUE s'il y a un cycle
+  check(kn.rang_cycles ~= nil and ko.rang_cycles == nil, "§2 Kovarex : rang_cycles rendu avec un cycle (rang allumé), absent rang éteint")
   -- 2 piles/min : 0,2 fabrication de 10 piles, donc 0,2 uranium 235 et 3,8 uranium 238. Le 235 se fait par Kovarex (boucle sur
   -- lui-même : l'arc 235 -> 235 est l'amorce, non propagé) ; le 238 par le retraitement (hors du cycle) : l'arc Kovarex -> 238 est
   -- EXTERNE et se propage, 0,2 ÷ 41 fabrications × 5 = 1/41.

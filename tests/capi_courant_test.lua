@@ -79,7 +79,9 @@ local function run(mutant)
   local u90, uw = P(1500, "fini"), P(1500, "fini", true)
   out.unit = u90 ~= nil and u90.have_kw == 90 and math.abs((u90.used_kw or -1) - 36) < 1e-9 and u90.plant == nil
     and uw ~= nil and math.abs((uw.used_kw or -1) - (36 + 0.6 * 500)) < 1e-9
-    and P(1500, "chantier") == nil and P(0, "fini") == nil and P("x", "fini") == nil and power_input({}, "fini") == nil
+    and P(1500, "chantier") == nil and P(0, "fini") == nil
+    -- lot VIDEO-COUVERTURE 5 (W02) : centrale finie mais capacité NON LUE (texte, rien) = relevé vide, la garde de la règle se ferme
+    and type(P("x", "fini")) == "table" and next(P("x", "fini")) == nil and type(power_input({}, "fini")) == "table" and next(power_input({}, "fini")) == nil
   out.unit_txt = string.format("used_kw %s, avec 500 kW en chantier %s", tostring(u90 and u90.used_kw), tostring(uw and uw.used_kw))
   Capi.power_input = function(f, plant_state)
     if f1 and f == f1 then return P(1500, "fini") end

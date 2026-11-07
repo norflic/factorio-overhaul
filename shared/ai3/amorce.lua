@@ -13,6 +13,16 @@
     (c) COMPTEUR D'AMORCE : cumul par objet de ce que la main a fourni avant la 1re production (V56, M39) ; gardé après le retrait
         (jamais remis à zéro) : c'est ce qui dimensionne un vrai kit de départ (C11). Ligne [FO-AMORCE] par objet au retrait.
 
+  (d) CYCLE (lot VIDEO-COUVERTURE 5, critère C5.1, TODO V39) : une recette qui consomme son propre produit (catalyseur, enrichissement)
+        ne démarre jamais sans une première quantité d'amorçage. rang.lua détecte les cycles de la décision (Rg.chain : seed = ingrédients
+        INTERNES au cycle, quantité par fabrication) ; Am.flatten les met en liste, Am.seed y ajoute, pour chaque objet de cycle, de quoi
+        faire Am.CYCLE_RUNS fabrications (au plus Am.CYCLE_HARD), moins le stock, AVEC sa cause écrite. Sans cycle : rien.
+
+  (e) REMISE DIRECTE (correctif C3 de fo-logs/2026-11-07_VIDEO-COUVERTURE/DIAG_CONSO.md, M2 à M4) : un module de chaîne exige des assembleurs 2,
+        qui exigent des circuits, que fabrique un module de chaîne : le cycle se coupait au coffre, qui refuse tout objet non vital quand il est
+        plein (M0). Am.direct partage ce qu'un PNJ PORTE entre les modules en réserve qui l'attendent (leur manque), dans l'ordre de la file,
+        pour qu'il aille à p.stock du module SANS passer par le coffre. Jamais plus que le manque ; rien pour un module qui n'attend pas.
+
   PUR : aucune API du jeu, aucun nom d'objet (anti-échelle de tests/iag_test.lua §8). État dans st.amorce (sérialisable, aucune
   fonction). Déterminisme : listes triées, entiers, ticks de jeu, aucune horloge mesurée. Testé hors jeu : tests/amorce_test.lua.
 ]]
@@ -22,6 +32,8 @@ local Am = {}
 Am.K = 3              -- projets du plan directeur dont la liste de matériel sert de graine
 Am.HORIZON_MIN = 10   -- le manque de la graine doit être couvert en 10 minutes de jeu (même horizon que Ml.HORIZON_MIN)
 Am.SRC = "amorce"     -- source de la demande notée par Ml.want
+Am.CYCLE_RUNS = 2     -- fabrications d'amorçage d'un cycle (de quoi tourner deux fois)
+Am.CYCLE_HARD = 400   -- objets semés au plus pour un objet de cycle (borne absolue, recettes par lots comprises)
 
 local function sorted_keys(t)
   local ks = {}
@@ -52,15 +64,53 @@ function Am.bom(projets, k)
   return sum, sorted_keys(sum)
 end
 
+local function pos(n) return type(n) == "number" and n == n and n > 0 and n < math.huge end
+
+--- (d) Les objets de cycle d'une décision (Rg.chain) en liste triée et sérialisable : c = { seed = { [membre] = { { ingrédient interne,
+--- quantité par fabrication } } }, cyc = { [membre] = id du cycle } } (nil ou sans cycle : liste vide). Un objet n'y est qu'une fois (la
+--- plus grande quantité) ; une entrée sans nom ou à quantité invalide est écartée (fermé par défaut : on ne sème pas une mesure illisible).
+function Am.flatten(c)
+  local out = {}
+  if type(c) ~= "table" or type(c.seed) ~= "table" then return out end
+  local best = {}
+  for _, m in ipairs(sorted_keys(c.seed)) do
+    for _, e in ipairs(c.seed[m]) do
+      local it, n = e[1], e[2]
+      if type(it) == "string" and it ~= "" and pos(n) and (best[it] == nil or n > best[it].amount) then
+        best[it] = { item = it, member = m, amount = n, id = (type(c.cyc) == "table" and c.cyc[m]) or m }
+      end
+    end
+  end
+  for _, it in ipairs(sorted_keys(best)) do out[#out + 1] = best[it] end
+  return out
+end
+
 --- (a) La graine. projets : file du plan directeur (les K premiers comptent) ; have = { [objet] = stock } ; book : livre (recipe_for) ;
---- Ml : la règle du mall (injectée : aucun require croisé). Rend la liste triée { { item, need, rate } } des objets semés.
-function Am.seed(st, tick, projets, have, book, Ml)
+--- Ml : la règle du mall (injectée : aucun require croisé) ; cyc : (d) liste de Am.flatten (nil : aucun cycle). Rend la liste triée
+--- { { item, need, rate, cause } } des objets semés (cause : le texte écrit, qui dit d'où vient la graine), puis la liste des objets
+--- de CYCLE non semés faute de recette à la main { { item, need, cause } } (le journal les écrit).
+function Am.seed(st, tick, projets, have, book, Ml, cyc)
   local a = state(st)
   local sum, items = Am.bom(projets, Am.K)
-  local out = {}
+  local want, cause = {}, {}
+  local bom_why = "materiel des " .. Am.K .. " prochains projets"
+  for _, it in ipairs(items) do want[it], cause[it] = sum[it], bom_why end
+  for _, e in ipairs(cyc or {}) do
+    if type(e) == "table" and type(e.item) == "string" and e.item ~= "" and pos(e.amount) then
+      local n = math.min(Am.CYCLE_HARD, math.ceil(e.amount * Am.CYCLE_RUNS))
+      local why = string.format("cycle %s : %s consomme %s (%g par fabrication, %d fabrications d'amorcage)", tostring(e.id),
+        tostring(e.member), e.item, e.amount, Am.CYCLE_RUNS)
+      if want[e.item] == nil then want[e.item], cause[e.item] = n, why
+      else
+        want[e.item] = math.max(want[e.item], n)
+        cause[e.item] = cause[e.item] .. " ; " .. why
+      end
+    end
+  end
+  local out, skipped = {}, {}
   a.seed = {}
-  for _, it in ipairs(items) do
-    local need = sum[it] - math.floor((have or {})[it] or 0)
+  for _, it in ipairs((cyc and #cyc > 0) and sorted_keys(want) or items) do
+    local need = want[it] - math.floor((have or {})[it] or 0)
     if need > 0 and book and book.recipe_for and book:recipe_for(it) ~= nil then -- la demande reste après le retrait de la main
       local rate = need / Am.HORIZON_MIN
       local cur = st.want and st.want[it]
@@ -69,10 +119,44 @@ function Am.seed(st, tick, projets, have, book, Ml)
         Ml.want(st, tick, it, rate, Am.SRC)
       end
       a.seed[it] = need
-      out[#out + 1] = { item = it, need = need, rate = rate }
+      out[#out + 1] = { item = it, need = need, rate = rate, cause = cause[it] }
+    elseif need > 0 and cause[it]:find("cycle ", 1, true) then
+      -- un objet de cycle que la main ne sait pas fabriquer (aucune recette à la main) : refus ÉCRIT, jamais une graine muette
+      skipped[#skipped + 1] = { item = it, need = need, cause = cause[it] }
+    end
+  end
+  return out, skipped
+end
+
+--- (e) Remise directe. projects : file du plan directeur { { id, state, reason, missing = { { objet, manque } } } } ; item, n : ce que le PNJ
+--- porte. Rend la liste { { id, item, n } } des remises (somme <= n, chacune <= le manque restant du module, premier de la file d'abord).
+--- Seul un module en état « reserve » attend ; un module suspendu par la pile ou le QG (raison « pile », « qg » : objets rendus, manques
+--- effacés) n'attend rien. Fermé par défaut : quantité nulle, négative, NaN, infinie ou absente = rien ; manque illisible écarté.
+function Am.direct(projects, item, n)
+  local out = {}
+  if type(item) ~= "string" or item == "" or not pos(n) then return out end
+  local left = math.floor(n)
+  for _, p in ipairs(projects or {}) do
+    if left <= 0 then break end
+    if p.state == "reserve" and p.reason ~= "pile" and p.reason ~= "qg" then
+      local want = 0
+      for _, m in ipairs(p.missing or {}) do
+        if m[1] == item and pos(m[2]) then want = want + math.floor(m[2]) end
+      end
+      local k = math.min(left, want)
+      if k > 0 then
+        out[#out + 1] = { id = p.id, item = item, n = k }
+        left = left - k
+      end
     end
   end
   return out
+end
+
+--- Ligne du journal [FO-AMORCE] d'une remise directe (aucune décision ne la lit).
+function Am.describe_direct(a, tick_min)
+  return string.format("remise directe : %d %s au module %s sans passer par le coffre (il les attendait en reserve) a %.1f min", a.n, a.item,
+    tostring(a.id), tick_min or 0)
 end
 
 --- (b) et (c) Relevé d'une minute : flows[objet] = { made, hand } (tout ce qui est produit, dont la main) ; alive = { [objet] = vrai }

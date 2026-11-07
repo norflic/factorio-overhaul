@@ -78,6 +78,7 @@ local Gi = require("shared.team.gisement") -- lot GISEMENTS : matière la plus e
 local Dm = require("shared.ai3.demande") -- lot C2 : puits ouvert (le stock qui dort devient une demande)
 local Pf = require("shared.ai3.plafonds") -- lot VIDEO-L13 : gardes fermées par défaut (places des ordres ouverts)
 local Rg = require("shared.ai3.rang") -- lot VIDEO-L1b : rang de la décision (Rg.chain), ordre de propagation des besoins
+local Cf = require("shared.ai3.confirmation") -- lot VIDEO-COUVERTURE 5 : module suivant retenu en amont (Cf.upstream)
 local Pr = require("shared.ai3.porte_rang") -- lot VIDEO-L2 : porte de rang ciblée
 
 local Ca = {}
@@ -1511,6 +1512,7 @@ local function extraction_options(ctx, plan, req, item, def, out)
   -- Courant : une foreuse électrique ne se pose que si la centrale la porte ; le débit bloqué donne sa valeur à la
   -- centrale (levier « energie »).
   local pw = ctx.input.power
+  local pw_why = Pf.power_why(pw) -- lot VIDEO-COUVERTURE 5 (W02) : relevé du courant sans capacité lue : refus qui nomme l'entrée
   local function power_cap(n, key)
     if d.energy ~= "electric" or not pw or (d.kw or 0) <= 0 then return n end
     local np = math.max(0, math.floor((plan.kw_have - plan.kw_used) / d.kw + Ca.EPS))
@@ -1557,7 +1559,7 @@ local function extraction_options(ctx, plan, req, item, def, out)
         local why_not = Ca.usable(ctx, f, "couvrir")
         if why_not then refuse(ctx, key, "couvrir", item, why_not)
         elseif no_power then
-          refuse(ctx, key, "couvrir", item, "courant insuffisant (aucune centrale possible)")
+          refuse(ctx, key, "couvrir", item, pw_why or "courant insuffisant (aucune centrale possible)")
           -- étape 5a de VIDEO-INTEG : kW retenus, comme power_cap (la centrale les compte pour grandir : Ca.blocked_kw ; power_options
           -- ne lit power_block qu'avec une centrale à proposer, pw.plant : aucune décision ne change)
           ctx.power_block[#ctx.power_block + 1] = { key = key, kw = n * d.kw, n = n, item = item, p = rho, va = D.mu[item] or 0, share = 1 }
@@ -1567,7 +1569,7 @@ local function extraction_options(ctx, plan, req, item, def, out)
             ext_unit = (o.cost_m + ctx.lambda * o.work / 60) / (n * rho)
           end
           local np = power_cap(n, key)
-          if np <= 0 then refuse(ctx, key, "couvrir", item, "courant insuffisant")
+          if np <= 0 then refuse(ctx, key, "couvrir", item, pw_why or "courant insuffisant")
           else
             if np ~= n then o = mk_drills("couvrir", f, np) end
             local why = ahead and "couverture d'avance" or nil
@@ -1633,7 +1635,7 @@ local function extraction_options(ctx, plan, req, item, def, out)
         if why_not then refuse(ctx, key, "ouvrir", item, why_not)
         else
           local np = power_cap(n, key)
-          if np <= 0 then refuse(ctx, key, "ouvrir", item, "courant insuffisant")
+          if np <= 0 then refuse(ctx, key, "ouvrir", item, pw_why or "courant insuffisant")
           else
             local mk = function(k)
               local o = mk_drills("ouvrir", f, k, ctx.input.site_items)
@@ -1761,7 +1763,7 @@ local function fabric_options(ctx, plan, req, item, r, def, out)
       ctx.power_block[#ctx.power_block + 1] = { key = key, kw = (n - np) * m.kw, n = n - np, item = item, p = p, va = va,
         share = sh }
       n = np
-      if n <= 0 then refuse(ctx, key, kind, item, "courant insuffisant") return end
+      if n <= 0 then refuse(ctx, key, kind, item, Pf.power_why(ctx.input.power) or "courant insuffisant") return end
     end
   end
   -- Valeur de l'objet × part de cet étage dans le capital de sa chaîne (Ca.share) : un étage plein a le retour du
@@ -2227,7 +2229,7 @@ end
 function Ca.held(ctx, o)
   local h = ctx.input.hold
   if h == nil or not Ca.HOLD_KINDS[o.kind] or o.item == nil then return nil end
-  return h[o.item]
+  return h[o.item] or Cf.upstream(h, o.recipe and ctx.D.recipes[o.recipe] or nil, o.recipe and o.item or nil) -- C5.2 : le module N+1 attend la 1re production de N
 end
 
 --- Lot VIDEO-L13 (garde fermée par défaut) : listes sans lesquelles la règle ne décide pas. Une liste absente ne vaut jamais
@@ -2353,6 +2355,10 @@ local function decide_report(J)
     u_star = ctx.u_star, labs_target = ctx.lab_rate > 0 and math.ceil(ctx.u_star / ctx.lab_rate - Ca.EPS) or 0,
     coverage = coverage, bottleneck = bottleneck and { item = bottleneck, theta = theta } or nil, R = req.R,
     open_n = #ctx.open, rstar = ctx.rstar, rang_held = ctx.rang_held, -- lot VIDEO-L2 : porte de rang (nil quand elle est éteinte)
+    -- lot VIDEO-COUVERTURE 5 (C5.1) : cycles de la décision, graine de l'amorce. Seulement s'il y a un cycle ou une graine (intégrateur,
+    -- 7/11 23 h 55) : sinon le champ casserait l'identité de la décision rang allumé / éteint (rang_cablage_test §2) sans rien semer.
+    rang_cycles = ctx.rang and (next(ctx.rang.cyc or {}) ~= nil or next(ctx.rang.seed or {}) ~= nil)
+      and { seed = ctx.rang.seed, cyc = ctx.rang.cyc } or nil,
     -- Étape 5a de VIDEO-INTEG (RD_LOG F391) : courant du plan quand le runtime donne input.power (sinon nil : rendu d'avant)
     kw = ctx.input.power and { have = plan.kw_have, used = plan.kw_used, nominal = plan.kw_nominal, blocked = Ca.blocked_kw(ctx) } or nil }
 end

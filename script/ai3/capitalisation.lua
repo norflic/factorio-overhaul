@@ -55,6 +55,7 @@
 
 local T = require("shared.team.config")
 local Ca = require("shared.ai3.capitalisation")
+local Rf = require("shared.ai3.refus") -- lot VIDEO-REFUS (C6) : décompte des refus par sorte, ligne [FO-CAPI-REFUS]
 local RangTrace = require("script.ai3.rang_trace") -- lot VIDEO-TRACES (G34) : journal [FO-RANG]
 local Cf = require("shared.ai3.confirmation") -- lot VIDEO-L5 : capacité CONFIRMÉE (première production observée)
 local Sante = require("script.team.sante_centrale") -- étape 5a de VIDEO-INTEG : consommateurs en chantier (vue de la porte du plan directeur)
@@ -445,8 +446,11 @@ local function scan(f, cs, tick)
   local surface = f.hq.surface
   local hq = f.hq_pos
   local scan_r = scan_radius(f)
+  Profiler.fstart("scan:find") -- lot X10-S0 : mesure seulement
   local found = surface.find_entities_filtered({ area = { { hq.x - scan_r, hq.y - scan_r },
     { hq.x + scan_r, hq.y + scan_r } }, force = f.force, type = SCAN_TYPES })
+  Profiler.fstop("scan:find")
+  Profiler.fstart("scan:liste")
   local seen = {}
   local list = {}
   for _, e in ipairs(found) do
@@ -459,6 +463,8 @@ local function scan(f, cs, tick)
     end
   end
   table.sort(list, function(a, b) return a.unit_number < b.unit_number end)
+  Profiler.fstop("scan:liste")
+  Profiler.fstart("scan:types")
   local machines, drills, labs = {}, {}, {}
   local mk, dk, lk = {}, {}, {}
   local drill_pos = {}
@@ -536,6 +542,7 @@ local function scan(f, cs, tick)
       end
     end
   end
+  Profiler.fstop("scan:types")
   -- Lot VIDEO-L5 : un pas de la confirmation (toutes les unités suivies vues : une absente est perdue), unités confirmées de chaque
   -- groupe (n_cap), objets dont une décision attend (hold, lu par la décision : build_input) ; nil sans confirmation (comme avant).
   local hold = nil
@@ -558,6 +565,7 @@ local function scan(f, cs, tick)
     end
   end
   cs.scan = { tick = tick, machines = machines, drills = drills, labs = labs, drill_pos = drill_pos, hold = hold }
+  Profiler.fstart("scan:graines")
   -- Graines de gisements : avant-postes, foreuses, gisements connus (carte d'IA3-f), sites prospectés, lots de gisement
   -- du plan directeur. Une graine déjà dans un gisement recensé n'est pas relue (sauf à l'échéance du recensement).
   local seeds = {}
@@ -599,6 +607,7 @@ local function scan(f, cs, tick)
     return a.y < c.y
   end)
   cs.seeds = seeds
+  Profiler.fstop("scan:graines")
   -- graines oubliées après deux échéances du recensement
   for _, k in ipairs(sorted_keys(cs.seed_seen or {})) do
     if tick - cs.seed_seen[k] >= 2 * Capi.CENSUS_EVERY then cs.seed_seen[k] = nil end
@@ -627,10 +636,12 @@ local function coverage(f, cs)
   for _, id in ipairs(sorted_keys(by_dep)) do
     local d = cs.deps[id]
     if d then
+      Profiler.fstart("cov:find") -- lot X10-S0 : mesure seulement
       local idx = {}
       for _, e in ipairs(surface.find_entities_filtered({ area = { { d.x0, d.y0 }, { d.x1, d.y1 } }, name = d.resource })) do
         idx[tkey(math.floor(e.position.x), math.floor(e.position.y))] = true
       end
+      Profiler.fstop("cov:find")
       local seen, n = {}, 0
       for _, dp in ipairs(by_dep[id]) do
         local r = dp.r
@@ -885,7 +896,7 @@ function Capi.power_input(f, plant_state)
   if Capi.MUT.sans_courant or plant_state ~= "fini" then return nil end
   local g = f.build and f.build.grow
   local cap = g and g.capacity
-  if type(cap) ~= "number" or cap <= 0 then return nil end
+  if type(cap) ~= "number" or cap <= 0 then return type(cap) ~= "number" and {} or nil end -- W02 (lot VIDEO-COUVERTURE 5) : capacité non lue = relevé VIDE (garde fermée), pas « aucune borne »
   if Capi.MUT.nominal then return { have_kw = cap * JTICK_KW } end -- mutant : la somme nominale de la règle (plan.kw_used)
   local measured = type(g.power) == "number" and g.power > 0 and g.power * JTICK_KW or 0
   return { have_kw = cap * JTICK_KW, used_kw = measured + Sc.DRAW * Sante.committed(f) }
@@ -1851,6 +1862,7 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
   local full = room ~= nil and room <= 0
   -- Lot VIDEO-L6 : portes avant d'étendre (transport saturé, bras à seuil croissant), AVANT la boucle d'envoi ; nil : réglage éteint.
   -- Un ordre retenu suit le chemin des refus ci-dessous (« porte L6 : », épargne rendue, cs.refused).
+  res.orders = AmRt.after_decision(f, cs, res, tick, minutes(f, tick)) -- lot VIDEO-COUVERTURE 5 : cycles publiés, MÊME plan re-émis après l'exécutant occupé
   local gate_why = Capi.portes(f, cs, res, view, tick)
   local seat_why
   res.orders, seat_why = Capi.arbitre(f, cs, res, input, view, tick) -- lot VIDEO-SIEGES (C4/C5) : qui prend le siège d'abord, qui n'ouvre pas
@@ -1891,6 +1903,7 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
     else
       refused[#refused + 1] = o.key .. " (" .. tostring(why) .. ")"
       cs.refused[o.key] = tick
+      AmRt.defer(cs, o, why, tick) -- lot VIDEO-COUVERTURE 5 : refusé par l'exécutant occupé = mis de côté, re-émis à l'identique
       if cs.st.posed and o.item ~= nil then cs.st.posed[o.item] = nil end -- lot VIDEO-ORDRE : un ordre refusé n'a rien posé, l'objet reste ordonnable
       -- lot LEVIERS : pas redemandé tout de suite (lot FUITES-PILE : sauf un refus de la pile, redemandé dès qu'elle se vide)
       if allowed and (o.kind == "equiper" or o.kind == "techno") then hold(cs, o.key, why, tick) end
@@ -1906,6 +1919,7 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
     local d = cs.deps[id]
     deps[#deps + 1] = string.format("%s:%d/%d%s", id, d.covered or 0, d.tiles, d.danger and "!" or "")
   end
+  log(Rf.line(f.key or "?", math.floor(minutes(f, tick) + 0.5), res.refus or {})) -- lot VIDEO-REFUS (C6) : refus par sorte, somme = nombre de refus
   log(string.format("[FO-CAPI] %s minute %d | tick %d | %s | envoyes [%s] | executant refuse [%s] | depots {%s} | foreuse_par_ressource {%s} | recherche_voulue [%s]",
     f.key or "?", math.floor(minutes(f, tick) + 0.5), tick, Ca.text(res), table.concat(sent, ", "), table.concat(refused, ", "),
     table.concat(deps, " "), (function()
