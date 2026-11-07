@@ -1033,6 +1033,7 @@ local function new_plan(ctx)
   local pw = ctx.input.power
   if pw then
     plan.kw_have = pw.have_kw or 0
+    plan.kw_nominal = plan.kw_used -- étape 5a de VIDEO-INTEG : somme nominale des machines relevées (journal, comparée à used_kw)
     if pw.used_kw then plan.kw_used = pw.used_kw end
   end
   plan.lab_cap0 = plan.lab_cap
@@ -1513,7 +1514,11 @@ local function extraction_options(ctx, plan, req, item, def, out)
       if n > 0 then
         local why_not = Ca.usable(ctx, f, "couvrir")
         if why_not then refuse(ctx, key, "couvrir", item, why_not)
-        elseif no_power then refuse(ctx, key, "couvrir", item, "courant insuffisant (aucune centrale possible)")
+        elseif no_power then
+          refuse(ctx, key, "couvrir", item, "courant insuffisant (aucune centrale possible)")
+          -- étape 5a de VIDEO-INTEG : kW retenus, comme power_cap (la centrale les compte pour grandir : Ca.blocked_kw ; power_options
+          -- ne lit power_block qu'avec une centrale à proposer, pw.plant : aucune décision ne change)
+          ctx.power_block[#ctx.power_block + 1] = { key = key, kw = n * d.kw, n = n, item = item, p = rho, va = D.mu[item] or 0, share = 1 }
         else
           local o = mk_drills("couvrir", f, n)
           if not ahead and ext_unit == nil and o.cost_m and o.gain > 0 then
@@ -2047,6 +2052,15 @@ local function caps_refresh(J)
   end
 end
 
+--- Étape 5a de VIDEO-INTEG : kW nominaux des machines et foreuses électriques que le courant a retenues (ctx.power_block du dernier
+--- tour : état final du plan). La centrale en tient compte pour grandir AVANT d'être saturée (shared/team/sante_centrale.lua,
+--- S.capi_kw) : sans cela, la décision attend du courant et la centrale attend une saturation qui ne vient pas.
+function Ca.blocked_kw(ctx)
+  local kw = 0
+  for _, b in ipairs(ctx.power_block or {}) do kw = kw + (b.kw or 0) end
+  return kw
+end
+
 --- Lot VIDEO-L5 : raison de suspendre l'option `o` (une unité de son objet attend sa première production), ou nil.
 function Ca.held(ctx, o)
   local h = ctx.input.hold
@@ -2174,7 +2188,9 @@ local function decide_report(J)
     reserve = ctx.reserve and true or nil, free_mu = J.free_mu, demande = ctx.dm,
     u_star = ctx.u_star, labs_target = ctx.lab_rate > 0 and math.ceil(ctx.u_star / ctx.lab_rate - Ca.EPS) or 0,
     coverage = coverage, bottleneck = bottleneck and { item = bottleneck, theta = theta } or nil, R = req.R,
-    open_n = #ctx.open }
+    open_n = #ctx.open,
+    -- Étape 5a de VIDEO-INTEG (RD_LOG F391) : courant du plan quand le runtime donne input.power (sinon nil : rendu d'avant)
+    kw = ctx.input.power and { have = plan.kw_have, used = plan.kw_used, nominal = plan.kw_nominal, blocked = Ca.blocked_kw(ctx) } or nil }
 end
 
 --- Une unité de plus (un tour de la boucle, ou le compte rendu) ; rend vrai quand la décision est finie (J.res).

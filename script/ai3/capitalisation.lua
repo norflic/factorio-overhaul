@@ -56,6 +56,8 @@
 local T = require("shared.team.config")
 local Ca = require("shared.ai3.capitalisation")
 local Cf = require("shared.ai3.confirmation") -- lot VIDEO-L5 : capacité CONFIRMÉE (première production observée)
+local Sante = require("script.team.sante_centrale") -- étape 5a de VIDEO-INTEG : consommateurs en chantier (vue de la porte du plan directeur)
+local Sc = require("shared.team.sante_centrale") -- étape 5a : S.DRAW (part de sa puissance nominale qu'un chantier tire)
 local Rs = require("shared.ai3.reserve") -- lot INDUSTRIE I1 : description du besoin évalué (journal [FO-RESERVE])
 local L = require("shared.levels.config") -- intégration 0.6.28 : vitesse de plan des bâtiments à niveaux
 local Rp = require("shared.ai3.repli") -- lot CAPI-REPLI : repli par (produit, gisement), matériaux, plafond
@@ -84,6 +86,8 @@ local Sv = require("shared.team.survie")
 local Pv = require("shared.ai3.prevision") -- lot PREVISION (C12) : prix de la défense induite
 local Prev = require("script.ai3.prevision") -- lot PREVISION : estimateur unique de la menace (relevé de l'équipe)
 local Ml = require("shared.ai3.mall") -- lot PILE-MALL (relecture) : la demande du mall est un puits de la capitalisation
+local Mq = require("shared.ai3.manque_local") -- lot VIDEO-L3 : manques mesurés des modules finis, puits de la capitalisation (Mq.sinks)
+local AmRt = require("script.ai3.amorce_rt") -- lot VIDEO L7 : retrait de la main à la 1re production observée (L5)
 local TC = require("script.ai3.trace_carte") -- lot VIDEO L11 : trace des ordres sur la carte (réglage fo-debug-trace-carte)
 local Rsv = require("script.ai3.reserve") -- lot INDUSTRIE I1 : le besoin évalué, le stock hors besoin s'investit
 local Dm = require("shared.ai3.demande") -- lot C2 : puits ouvert, emplacements selon les bras libres
@@ -539,6 +543,12 @@ local function scan(f, cs, tick)
       for _, g in ipairs(drills) do conf_group(cs, g) end
       hold = cfr.hold
       conf_log(f, cs, cfr, tick)
+      -- lot VIDEO L7 : la main de l'amorce est retirée à la 1re production d'une MACHINE (confirmed_now de L5), jamais sur les
+      -- statistiques de la force (votre équipe partage la force du joueur : ses fabrications à la main y entrent)
+      local ml = f.team.ia3 and f.team.ia3.mall
+      if ml then
+        for _, line in ipairs(AmRt.lines(f, ml, AmRt.observe(f, cs, ml, cfr, cs.cf, tick), minutes(f, tick))) do log(line) end
+      end
     else
       for _, g in ipairs(machines) do g.ids = nil end
       for _, g in ipairs(drills) do g.ids = nil end
@@ -860,6 +870,24 @@ local function defense_input(f, D)
   return { price = price, hp_per_emit = dv.hp_per_emit, turret_mu = mu }
 end
 
+--- Étape 5a de VIDEO-INTEG (RD_LOG F391 : input.power n'était jamais rempli, la branche du courant de Ca.decide était morte en jeu) :
+--- courant disponible = machines à vapeur VIVANTES des centrales finies (PA.watch, script/team/plant_arms.lua : f.build.grow.capacity,
+--- J/tick, toutes les 300 ticks). nil sans centrale finie (make_can_exec refuse déjà les modules électriques) ou sans capacité relevée.
+--- used_kw : la vue de la PORTE du plan directeur (S.admit, script/team/sante_centrale.lua) : puissance MESURÉE + S.DRAW × consommateurs
+--- en chantier (choix (a) du lead, 7/11 vers 17 h 05 : la somme nominale des machines relevées dépasse vite la capacité, la capitalisation
+--- refuserait des foreuses que la porte admet) ; la somme nominale va au journal [FO-CAPI-KW], pour comparer. plant : nil (la centrale
+--- grandit par C.growth et Sante, pas par un levier de la capitalisation). Capi.MUT.sans_courant, Capi.MUT.nominal : tests seulement.
+local JTICK_KW = 60 / 1000 -- J/tick -> kW
+function Capi.power_input(f, plant_state)
+  if Capi.MUT.sans_courant or plant_state ~= "fini" then return nil end
+  local g = f.build and f.build.grow
+  local cap = g and g.capacity
+  if type(cap) ~= "number" or cap <= 0 then return nil end
+  if Capi.MUT.nominal then return { have_kw = cap * JTICK_KW } end -- mutant : la somme nominale de la règle (plan.kw_used)
+  local measured = type(g.power) == "number" and g.power > 0 and g.power * JTICK_KW or 0
+  return { have_kw = cap * JTICK_KW, used_kw = measured + Sc.DRAW * Sante.committed(f) }
+end
+
 --- Lot CAPI-DEBIT : emplacements du plan directeur (règle pure shared/ai3/emplacements.lua). Les ordres « module » ouverts, avec
 --- l'état de chacun de leurs modules (Auto.module), leur dernier progrès (follow : entités bâties) ; le stock libre des produits des
 --- fonderies. Journal [FO-CAPI-EMPLACEMENTS] quand le plafond, le compte ou les modules figés changent (jamais à l'horloge).
@@ -978,6 +1006,14 @@ local function make_can_exec(d, book)
     ce_memo[item] = res or false
     return res
   end
+end
+
+--- Lot VIDEO-L3 : résultat du manque mesuré de l'équipe (script/team/manque_vue.lua, f.team.mq.res) s'il a moins de 2 min, sinon nil.
+--- Ses manques de MODULES (consommation d'un module fini qu'aucun autre puits ne voit) deviennent des puits (Mq.sinks).
+local function mq_fresh(f, tick)
+  local m = f.team and f.team.mq
+  if m and m.res and m.tick and tick - m.tick <= 2 * 3600 then return m.res end
+  return nil
 end
 
 local function build_input(f, cs, view, book, tick, D, w)
@@ -1105,7 +1141,8 @@ local function build_input(f, cs, view, book, tick, D, w)
     -- lot VIDEO-L13 : plus de `or {}` (une liste absente ferme la décision, decide_start ; cs.scan existe : Capi.think)
     machines = cs.scan and cs.scan.machines, drills = cs.scan and cs.scan.drills, labs = labs,
     hold = cs.scan and cs.scan.hold, -- lot VIDEO-L5 : objets suspendus (nil : sans confirmation, la capacité compte à la pose)
-    deposits = deposits, open = open, sinks = cs.bench_sinks or Ml.sinks(st.mall), need = need, research = research, drill_for = drill_for,
+    -- lot VIDEO-L3 : les manques mesurés des modules finis s'ajoutent aux puits (Mq.sinks ; Ca.requirements n'est pas touché)
+    deposits = deposits, open = open, sinks = cs.bench_sinks or Mq.sinks(mq_fresh(f, tick), Ml.sinks(st.mall)), need = need, research = research, drill_for = drill_for,
     limits = Rsv.on() and {} or { max_ingredients = 2 }, workers = view.workers or 0, idle = Ca.idle_of(g and g.idle_ema or 0),
     can_grow = (view.workers or 0) < (view.workers_wanted or 0), traits = f.traits or {},
     weights = w or {}, threat = threat, dt = 1, lag = cs.lag, starved = Pi.threat_exempt(st.pile, st.starved_open), -- (intégration 0.6.28)
@@ -1117,6 +1154,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     -- ne ferme plus les leviers hors du QG (Sv.capi) ; les gisements dangereux restent exclus (`danger` de chaque gisement).
     production_first = production_first,
     defense = defense_input(f, D), -- lot PREVISION (C12) : « oui, compter la défense » dans le coût de chaque investissement
+    power = Capi.power_input(f, plant_state), -- étape 5a de VIDEO-INTEG : courant des centrales finies (nil : aucune borne, comme avant)
   }, cex
 end
 
@@ -1608,6 +1646,16 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
       log(string.format("[FO-CAPI-CONF] %s : refus %s : %s a %.1f min", f.key or "?", tostring(r.key), why, minutes(f, tick)))
     end
   end
+  -- Étape 5a de VIDEO-INTEG : le courant de la décision (capacité des centrales finies, somme nominale du relevé, puissance MESURÉE pour
+  -- comparer, sans décider, et kW retenus faute de courant).
+  if res.kw then
+    local g = f.build and f.build.grow
+    log(string.format("[FO-CAPI-KW] %s : capacite %.0f kW, vue de la porte %.0f kW (mesure %.0f kW + chantiers), nominal %.0f kW, retenu %.0f kW a %.1f min",
+      f.key or "?", res.kw.have, res.kw.used, (g and g.power or 0) * JTICK_KW, res.kw.nominal or 0, res.kw.blocked, minutes(f, tick)))
+  end
+  -- kW retenus, datés de cette décision : la centrale les compte pour grandir AVANT d'être saturée (script/team/sante_centrale.lua,
+  -- Sante.growth, S.capi_kw ; valables S.CAPI_TTL). Aucun courant donné à la règle : rien de retenu.
+  cs.kw_blocked = (res.kw and res.kw.blocked > 0) and { kw = res.kw.blocked, tick = tick } or nil
   if input.reserve then
     -- Lot INDUSTRIE I1 : journal du besoin évalué et de ce qui s'investit (une ligne par décision, au plus une par minute et par équipe).
     local stk = 0

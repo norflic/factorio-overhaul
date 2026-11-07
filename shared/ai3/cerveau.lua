@@ -30,6 +30,7 @@ local Planner = require("shared.team.planner")
 local B = require("shared.ai3.buts")
 local P = require("shared.ai3.projets")
 local Ml = require("shared.ai3.mall") -- lot PILE-MALL
+local Am = require("shared.ai3.amorce") -- lot VIDEO L7 : la main reste refusée après la 1re production (verrou de l'amorce)
 local R = require("shared.ai3.reglages") -- lot IA-G : ressources clés de repli
 local A = require("shared.ai3.automatiser") -- lot IA3-e : modules demandés au plan directeur (projets « module »)
 local Bi = require("shared.ai3.bilan") -- lot BILAN : fabrications pondérées par production moins consommation
@@ -368,8 +369,8 @@ function C.think(view, book, st, ctx)
     Ml.note(st.mall, tick, now)
     Ml.decide(st.mall, book, { have = view.stock })
     -- Relecture : la main ne refait plus ce que le mall produit (après Ml.note : la demande reste comptée ; défense et réparations gardent la main).
-    base.tasks = Ml.filter_crafts(st.mall, base.tasks, view.stock, Pi.INJECT_PRIO)
-    E.tasks = Ml.filter_crafts(st.mall, E.tasks, view.stock, Pi.INJECT_PRIO)
+    base.tasks = Am.filter_crafts(st.mall, base.tasks, view.stock, Pi.INJECT_PRIO, Ml) -- lot VIDEO L7 (Ml.filter_crafts + verrou)
+    E.tasks = Am.filter_crafts(st.mall, E.tasks, view.stock, Pi.INJECT_PRIO, Ml)
   end
   -- Relecture FUITES-PILE : manques propres (sans ceux des améliorations hors des cadres ouverts), lus par la porte de la pile
   st.short_core = Pi.short_core(E.raw, order, pile.focus)
