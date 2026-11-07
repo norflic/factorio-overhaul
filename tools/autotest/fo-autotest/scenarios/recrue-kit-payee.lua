@@ -135,7 +135,10 @@ return {
     local sp, sf = st.s_paid, st.s_free
     ctx.check(sp ~= nil and sp.n == 1 and sp.gun == 1 and sp.ammo >= 10, "le corps de la recrue payee garde pistolet 1 et au moins 10 chargeurs",
       sp and text(sp) or "pas de releve")
-    ctx.check(sf ~= nil and sf.n == 1 and sf.gun == 0, "le corps du PNJ de depart (kit offert) n'a plus son pistolet (chargeurs fabriques : limite F29)",
-      sf and text(sf) or "pas de releve")
+    -- 3e version (7/11 21:51) : un PNJ de départ qui ne porte que son kit, vidé par la parade, ne laisse AUCUN corps (le moteur retire un
+    -- character-corpse vide : passage c5d9fe61, « 0 corps ») : « aucun pistolet », corps retiré compris ; le PNJ a bien été tué (st.free_unit).
+    ctx.check(st.free_unit ~= nil and sf ~= nil and sf.n <= 1 and sf.gun == 0,
+      "le PNJ de depart (kit offert) tue au meme tick ne laisse aucun pistolet (corps vide retire par le moteur compris ; chargeurs fabriques : limite F29)",
+      sf and (text(sf) .. ", PNJ " .. tostring(st.free_unit)) or "pas de releve")
   end,
 }
