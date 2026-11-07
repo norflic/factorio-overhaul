@@ -10,7 +10,7 @@
 
 ## 2026-11-07 : défauts de la partie du DC (0.6.58), feuille de route vidéo, disque F:
 
-> Prochains identifiants libres (7/11, 19 h 35) : **F402** et **E265** hors blocs. Attribués ici : F389 à F401, E258 à E264.
+> Prochains identifiants libres (7/11, 19 h 25) : **F403** et **E265** hors blocs. Attribués ici : F389 à F402, E258 à E264.
 
 - **F394 · FAIT** (moteur réel, `f1-lasers` avec images, 48 sites, lot F1-C) : le faisceau d'une electric-turret part de
   position + (L sin θ, −L cos θ · cos 45°) + (0, −H). `attack_parameters.source_offset` = {0, −L} tourne avec la tête
@@ -87,6 +87,13 @@
   AJOUTÉ (notre mod de test) passe AVANT le `on_configuration_changed` de factorio-overhaul. Au premier essai, une interface du
   mod appelée dans ce `on_init` a levé une erreur, parce que son espace de `global` n'existait pas encore. Règle : un scénario de
   banc sur sauvegarde qui appelle une interface du mod à l'init doit la garder, ou attendre le premier tick.
+- **F402 · FAIT** (moteur réel, micro-banc `kit-cadavre` d'effondrement, `9ee2b12d`, 4 personnages sans joueur tués par dégâts,
+  archive `fo-logs/2026-11-05_EFFONDREMENT/bancs/kit-cadavre-9ee2b12d`) :
+  - un personnage sans joueur tué laisse un `character-corpse` avec son arme, ses munitions et sa cargaison ;
+  - PENDANT `on_entity_died`, ses inventaires sont DÉJÀ vides : `remove` rend 0, et tout est dans le corps ;
+  - `on_post_entity_died` vient ensuite, avec l'`unit_number` et le corps dans `corpses`. On peut y retirer des objets de
+    l'inventaire `character_corpse`.
+  Règle : pour toucher au contenu d'un personnage mort, passer par `on_post_entity_died` et son corps, pas par `on_entity_died`.
 - **E264 · MESURÉ** (moteur réel, M2 du x10, 7/11 18 h 44, `--seul`, sauvegarde du DC, personnage dans sa base, vitesse 10,
   fenêtre 1920×1080, VSync à 144 Hz ; `fo-logs/2026-11-07_X10/M2-rendu`, MOTEUR.md §13) : le rendu, mesuré.
   - Par zoom :
