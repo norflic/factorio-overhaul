@@ -22,6 +22,8 @@ local F = require("shared.faction.config")
 local Ro = require("shared.content.robots")
 local Mo = require("shared.robots.modele")
 local XpG = require("script.robots.experimentaux_geants") -- règle d'échelle : salve de zone (lot EXPERIMENTAUX-PUISSANCE)
+local Mod = require("shared.robots.experimentaux_modules") -- modules des géants (lot DESIGN-MODULES) : Mod.bonus_age
+local State = require("script.faction.state")
 
 local Geant = {}
 
@@ -52,7 +54,29 @@ function Geant.top_up(u)
   return inv.insert({ name = shell, count = Ro.GIANT_AMMO.top - have })
 end
 
---- Pose d'un géant : couleur de la faction (une araignée se teint à l'exécution), munition.
+--- Modules d'un géant de FACTION (QCM-7/11 du DC : modules « posés aussi sur les géants des factions selon leur âge » ; lead, 7/11 : prix
+--- unique par palier, bonus ajusté au géant porteur) : r.xp_modules emplacements (Ro.XP_MODULES : 3 au Torique, 4 à l'Héliaste et au
+--- Couronné) garnis des modules de l'âge du géant, comptés à leur valeur sur lui (Mod.bonus_age) ; bonus écrit par XpG.set_bonus, lu à
+--- chaque salve de zone. Une seule fois par géant (rien si son bonus est déjà écrit). Rien pour un géant du joueur (pas de grille), ni tant
+--- que les modules n'existent pas en jeu (prototypes du lot DESIGN-MODULES absents : un géant ennemi ne porte pas ce que le joueur ne peut
+--- pas fabriquer). La faction se lit à la FORCE (`f`, ou State.by_force) : le prototype d'un géant est le même pour tous (Ro.proto_name).
+--- Rend le bonus posé, ou nil.
+function Geant.modules(u, f)
+  local un = u.unit_number
+  if not un or XpG.bonus_de(un) then return nil end
+  f = f or State.by_force(u.force.name)
+  local _, id = Ro.parse_unit(u.name)
+  local r = id and Ro.robot(id)
+  if not (f and r and (r.xp_modules or 0) > 0) then return nil end
+  if not game.equipment_prototypes[Mod.MODULES[1].name] then return nil end
+  local b = Mod.bonus_age(r.age, r.xp_modules)
+  if not XpG.set_bonus(un, b.portee, b.puissance) then return nil end
+  log(string.format("[FO-XP] modules du geant %d %s (faction %s, age %d) : %d pose(s), puissance +%d %%, portee +%d %%", un, id,
+    tostring(f.key), r.age, #b.modules, b.pct.puissance, b.pct.portee))
+  return b
+end
+
+--- Pose d'un géant : couleur de la faction (une araignée se teint à l'exécution), munition, modules (faction seulement).
 function Geant.setup(u, f)
   if f then
     for _, fc in ipairs(F.factions) do
@@ -60,6 +84,7 @@ function Geant.setup(u, f)
     end
   end
   Geant.top_up(u)
+  if f then Geant.modules(u, f) end
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -170,14 +195,17 @@ function Geant.salves(tick)
   local s = Armee.S()
   if not s then return 0 end -- un géant inscrit tire ses salves même si le réglage des robots a été coupé depuis
   local old = Armee.table_of("salves")
-  local nxt, n = {}, 0
+  local nxt, n, vivants = {}, 0, {}
   for _, r in ipairs(GIANTS) do
     for _, un in ipairs(Mo.units_with(s.ledger, r.id)) do
       local u = Armee.entity(un)
       if u then
+        vivants[#vivants + 1] = un
         local at = old[un] or 0
         if tick >= at and not XpG.zone_active(un) then
-          local b = XpG.bonus_de(un) -- modules (DESIGN-MODULES), nil sans module
+          -- modules (DESIGN-MODULES), nil sans module ; un géant de faction posé avant les modules les reçoit ici, une fois
+          if not XpG.bonus_de(un) then Geant.modules(u) end
+          local b = XpG.bonus_de(un)
           local t = XpG.cible(u, r, b)
           if t then
             XpG.salve(u, un, r, { x = t.position.x, y = t.position.y }, tick, b)
@@ -190,6 +218,7 @@ function Geant.salves(tick)
     end
   end
   s.salves = nxt
+  XpG.bonus_garder(vivants)
   return n
 end
 
@@ -212,6 +241,7 @@ remote.add_interface("fo-robots-geant", {
       autopilot = #u.autopilot_destinations, arrived = g and g.arrived or false, goal = g and { x = g.x, y = g.y } or nil,
       kind = g and g.kind or nil, tries = g and g.tries or 0, req = g and g.req or nil,
       shells = (inv and id) and inv.get_item_count(Ro.shell_name(id)) or 0,
+      bonus = XpG.bonus_de(unit_number),
     }
   end,
   sweep = function() return Geant.sweep() end,

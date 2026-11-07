@@ -94,6 +94,15 @@ function G.bonus_de(unit_number)
   return s and s.bonus_ro and s.bonus_ro[unit_number] or nil
 end
 
+--- Oublie les bonus des géants de robotsjeu morts : ne garde que ceux de la LISTE `vivants` (numéros d'unité ; Geant.salves).
+function G.bonus_garder(vivants)
+  local s = K.S()
+  if not (s and s.bonus_ro and next(s.bonus_ro) ~= nil) then return end
+  local nb = {}
+  for _, un in ipairs(vivants) do nb[un] = s.bonus_ro[un] end
+  s.bonus_ro = nb
+end
+
 --- Écouteurs d'une salve de zone (lot DESIGN-MODULES : marque visible des modules, UNE fois par salve). Fonctions gardées dans le module,
 --- réinscrites à chaque chargement par le `require` de leur auteur : rien en storage. Appel : f(e, r, bonus, c, eff), bonus pouvant être nil
 --- (géants de robotsjeu, géant sans module), eff = Ech.effectif(r, bonus).

@@ -245,6 +245,11 @@ function Ro.segment_recipe_name(id) return Ro.PREFIX .. "make-segment-" .. id en
 function Ro.shell_name(id) return Ro.PREFIX .. "shell-" .. id end
 function Ro.gun_name(id) return Ro.PREFIX .. "gun-" .. id end
 
+--- Emplacements de modules des géants de robotsjeu quand une FACTION les pose (QCM-7/11 du DC : modules « posés aussi sur les géants des
+--- factions selon leur âge » ; nombres du lead, 7/11) : garnis par script/robots/geant.lua (Geant.modules, Mod.bonus_age). Ces géants n'ont
+--- pas de grille : un géant du joueur n'en porte pas.
+Ro.XP_MODULES = { toroid = 3, heliast = 4, crowned = 4 }
+
 for _, r in ipairs(Ro.ROBOTS) do
   r.kit = Ro.kit_name(r.id)
   r.recipe = Ro.recipe_name(r.id)
@@ -261,6 +266,7 @@ for _, r in ipairs(Ro.ROBOTS) do
     r.zone = Ech.rayon(r.age)
     r.cratere = Ech.cratere(r.age)
     r.zone_cooldown = Ech.CADENCE_ZONE
+    r.xp_modules = Ro.XP_MODULES[r.id] or 0
   end
   if r.segment then
     r.segment_item = Ro.segment_name(r.id)
