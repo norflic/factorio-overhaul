@@ -294,6 +294,10 @@ local function setup(opts)
   local namespaces = {}
   package.loaded["script.core.events"] = {
     on = function(id, fn) handlers.on[id] = handlers.on[id] or {}; table.insert(handlers.on[id], fn) end,
+    on_died = function(fn) -- lot MORTS (Events.on_died)
+      local id = defines.events.on_entity_died
+      handlers.on[id] = handlers.on[id] or {}; table.insert(handlers.on[id], fn)
+    end,
     on_nth_tick = function(n, fn) handlers.nth[n] = handlers.nth[n] or {}; table.insert(handlers.nth[n], fn) end,
     on_init = function(fn) table.insert(handlers.init, fn) end,
     on_configuration_changed = function(fn) table.insert(handlers.config, fn) end,

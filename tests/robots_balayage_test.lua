@@ -34,7 +34,7 @@ local function balayer(armee_src, usine_src, age, kits)
     package.preload[m] = nil
   end
   package.preload["script.core.events"] = function()
-    return { on = function() end, on_nth_tick = function() end, on_init = function() end, on_configuration_changed = function() end }
+    return { on = function() end, on_died = function() end, on_nth_tick = function() end, on_init = function() end, on_configuration_changed = function() end }
   end
   package.preload["script.core.storage"] = function()
     return { declare = function(name, f) store[name] = f() end, ns = function(name) return store[name] end }
