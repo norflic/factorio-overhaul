@@ -10,7 +10,20 @@
 
 ## 2026-11-07 : défauts de la partie du DC (0.6.58), feuille de route vidéo, disque F:
 
-> Prochains identifiants libres (7/11, 16 h 25) : **F392** et **E260** hors blocs. Attribués ici : F389 à F391, E258, E259.
+> Prochains identifiants libres (7/11, 17 h 20) : **F394** et **E261** hors blocs. Attribués ici : F389 à F393, E258 à E260.
+
+- **F392 · FAIT** (moteur réel, session avec images `panneau-e4`, essai-0659 `c3ce6c0d`, 7/11 17 h 11) : écrire
+  `player.opened = <tourelle laser>` (electric-turret) laisse `opened` à nil, avec `opened_gui_type` 0. Le moteur n'ouvre AUCUNE
+  interface pour une electric-turret. Sur un laser, le panneau des niveaux ne peut donc s'ouvrir que par le clic lié
+  (`fo-level-open`) ou par Maj+U.
+- **F393 · FAIT** (même session, images regardées une par une par le lot PANNEAU-E4) : avec `take_screenshot{show_gui = true}`,
+  la couche d'interface est celle du dernier rendu AVANT la demande, alors que le décor est à jour. Une capture d'une interface
+  doit donc se prendre quelques ticks après le geste ; la v2 du scénario, `606b0240`, attend 30 ticks.
+- **E260 · VALIDÉ** (même session ; archive `fo-logs/2026-11-07_PANNEAU-E4/captures-c3ce6c0d`) : le panneau des niveaux, en partie
+  réelle avec un vrai joueur → « [FO-PANNEAU-E4] BILAN : 29 OK, 0 ECHEC(S) », étapes E0 à E11. R2 est prouvé : après un clic sur
+  « Améliorer », la tourelle devient une nouvelle entité (unit 83 → 130), et dans le même tick `opened` est la nouvelle
+  entité, ciblée par le panneau ; c'est encore vrai 70 ticks plus tard. Limite : les touches passent par la remote `fo-panneau`,
+  qui appelle les mêmes gestionnaires. R3 (Maj+U déclenche-t-il aussi U ?) reste à essayer à la main.
 
 - **F389 · FAIT** (moteur réel, banc `minage-tourelle`, TÉMOIN 0.6.58 `a4fc500b`, 7/11 16 h 22 ; archive
   `fo-logs/2026-11-07_DANGER/minage-tourelle-temoin-a4fc500b`) : un PNJ de votre équipe a pris une mitrailleuse de la force du

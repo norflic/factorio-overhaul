@@ -71,7 +71,7 @@
 | E1 | Échelons façon Clash of Clans | 🟨 Q-V2c-1 ouverte ; centre de l'âge 5 recalé (5/11) |
 | E2 | Chaque niveau se voit | ❌ 4 familles sur 7 ; tests D1 (gris, vignette, recouvrement) non prouvés sur elles |
 | E3 | Boucle « presque idle game » | 🟨 ; Q-T4-1 ouverte |
-| E4 | Interface des niveaux | 🟨 panneau au clic livré (0.6.52, 5/11) ; en partie réelle : non prouvé |
+| E4 | Interface des niveaux | 🟨 panneau au clic livré (0.6.52, 5/11) ; **prouvé en partie réelle avec images le 7/11** (29 OK, R2 compris, RD_LOG E260) ; reste : R3 et R4 à essayer à la main, et votre verdict sur la planche |
 | F1 | Jeu continu en 15 époques | 🟨 ; titane en jeu (0.4.21), X2 non fusionné (25/10), X3 hors jeu (27/10) |
 | IA | Feuille de route vidéo (7/11) | ⏳ validée par vous (15 h 20) ; à 16 h 20 : L0 mesuré ; règles pures testées, NON branchées : L1, L2, L3, L4, L5, L6, L7, L10, L12, L13 ; L11, L8, L9 en cours ; plan d'intégration écrit (`fo-logs/2026-11-07_VIDEO-AUTOMATISATION/INTEGRATION_VIDEO.md`) ; rien en jeu |
 
