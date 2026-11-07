@@ -578,7 +578,7 @@ end
 -- Ia3.plan_capi et Ia3.plan_b.
 do
   local readL, errL = {}, {}
-  for _, spec in ipairs({ { file = "script/ai3/cerveau.lua", header = "function Ia3.plan_capi(f, view, book, tick, L)" },
+  for _, spec in ipairs({ { file = "script/ai3/cerveau.lua", header = "function Ia3.plan_capi(f, view, book, tick, L, run)" },
     { file = "script/ai3/cerveau.lua", header = "function Ia3.plan_b(f, view, book, surface, tick, L)" } }) do
     local body, why = source_body(spec)
     if not body then errL[#errL + 1] = spec.header .. " : " .. why

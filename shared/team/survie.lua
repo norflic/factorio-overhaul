@@ -108,6 +108,22 @@ function Sv.shortages(missing, keys)
   return out
 end
 
+--- Lot VIDEO-L3 (D0 : « pas de mode survie pour un fer qui attend dans un coffre de sortie ») : la part des manques (liste de
+--- Sv.shortages) que le MANQUE MESURÉ ne couvre pas. mq = { need, build } (view.mq, shared/ai3/manque_local.lua : besoin par objet et
+--- part à construire, après le stock, les sorties dont la collecte est prise et celles à collecter). Pour un objet dont mq connaît le
+--- besoin, le manque devient min(manque, part à construire) ; un objet inconnu de mq, ou mq absent : inchangé. Même ordre que Sv.shortages.
+function Sv.uncovered(short, mq)
+  if type(mq) ~= "table" or type(mq.need) ~= "table" or type(mq.build) ~= "table" then return short end
+  local out = {}
+  for _, s in ipairs(short or {}) do
+    local item, n = s[1], num(s[2])
+    if mq.need[item] ~= nil then n = math.min(n, num(mq.build[item])) end
+    if n > 0 then out[#out + 1] = { item, n } end
+  end
+  table.sort(out, function(a, b) if a[2] ~= b[2] then return a[2] > b[2] end return a[1] < b[1] end)
+  return out
+end
+
 --- L'équipe est-elle paralysée ? a = { workers, idle, threatened }. Rend vrai et la raison ("porte" | "menace"), ou faux.
 function Sv.paralysed(st, a, tick)
   local workers, idle = num(a.workers), num(a.idle)

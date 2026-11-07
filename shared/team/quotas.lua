@@ -78,13 +78,16 @@ end
 ---   nominal, inputs : { [objet] = objets/s } (gabarit) ;
 ---   outs : liste des coffres de sortie { items = { objets } } (vide : produit principal) ;
 ---   ins : liste des coffres d'entrée { item } ;
----   opts = { stack = fonction ou table objet -> pile, slots = cases d'un coffre, collect_at = seuil de collecte de l'appelant,
----            lot_min = charge minimale d'un voyage d'alimentation (objets ; 0 par défaut), sortie_min, entree_min }.
+---   opts = { stack = fonction ou table objet -> pile, slots = cases ouvertes d'un coffre de sortie (sous sa barre, s'il en a une),
+---            in_slots = cases d'un coffre d'entrée (défaut : slots), collect_at = seuil de collecte de l'appelant,
+---            lot_min = charge minimale d'un voyage d'alimentation (objets, ou fonction objet -> objets ; 0 par défaut : nos PNJ portent
+---            par voyages, une minute d'un ingrédient lent ferait des voyages de 3 objets), sortie_min, entree_min }.
 --- Rend { main, outs = { { items, cases, cap, collect_at } } (même ordre que `outs`), ins = { { item, want, low, cap } ou
 --- { item, free = true } } (même ordre que `ins` : `free` = objet sans consommation nominale, l'appelant garde sa règle) }.
 function Q.quotas(nominal, inputs, outs, ins, opts)
   opts = opts or {}
   local slots = (type(opts.slots) == "number" and opts.slots >= 1) and floor(opts.slots) or 1
+  local in_slots = (type(opts.in_slots) == "number" and opts.in_slots >= 1) and floor(opts.in_slots) or slots
   local smin = opts.sortie_min or Q.SORTIE_MIN
   local emin = opts.entree_min or Q.ENTREE_MIN
   local main = Q.main(nominal, opts)
@@ -130,9 +133,11 @@ function Q.quotas(nominal, inputs, outs, ins, opts)
     if not (st and type(r) == "number" and r > 0) then
       res.ins[j] = { item = it, free = true }
     else
-      local cap = slots * st                                       -- I2 : ce que le coffre d'entrée tient
+      local cap = in_slots * st                                    -- I2 : ce que le coffre d'entrée tient
       local want = ceil(emin * 60 * r / nin[it] - EPS)
-      local lot = (type(opts.lot_min) == "number" and opts.lot_min > 0) and floor(opts.lot_min) or 0
+      local lot = opts.lot_min
+      if type(lot) == "function" then lot = lot(it) end
+      lot = (type(lot) == "number" and lot > 0) and floor(lot) or 0
       want = min(cap, max(1, want, lot))
       res.ins[j] = { item = it, want = want, low = max(1, ceil(want * Q.LOW_PM / 1000 - EPS)), cap = cap }
     end
