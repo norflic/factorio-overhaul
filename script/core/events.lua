@@ -24,9 +24,38 @@ local function guard(what)
   if bound then error("Events." .. what .. " appelé après Events.bind() : abonnement dynamique interdit") end
 end
 
+-- Lot MORTS (7/11, fo-logs\2026-11-07_MORTS\CRITERES.md) : les abonnés à on_entity_died ont une liste à part, avec leur INTÉRÊT
+-- déclaré (Events.on_died). Mesuré par design-attaques : une mort appelait les 23 abonnés du mod, environ 80 µs ; chacun relisait
+-- l'entité. L'aiguillage lit type et force UNE fois et n'appelle que les abonnés concernés, dans l'ordre d'enregistrement.
+-- Un abonné par Events.on(on_entity_died) n'a rien déclaré : il reçoit TOUTES les morts (rien n'est filtré par erreur).
+-- { { fn, types = { [type] = true } | nil (tous), noms = { nom } | nil, ennemi = true | false | nil } }, ordre d'enregistrement
+local died = {}
+Events.MORTS_TRIES = true -- false (bancs) : chaque mort appelle tous les abonnés, comme avant ce lot
+
+--- Abonné à on_entity_died avec son intérêt :
+---   `interet.types` : liste de types du moteur (nil : tous) ;
+---   `interet.noms` : liste de noms d'entités, dont les TYPES s'ajoutent à `types` (lus aux prototypes à la première mort : ils sont fixés
+---     pour la session ; un nom sans prototype n'ajoute rien) ;
+---   `interet.ennemi` : true, force « enemy » seulement ; false, jamais la force « enemy » ; nil, toutes.
+--- Hors de son intérêt, l'abonné n'est pas appelé : il doit n'y rien faire (preuve : tests/morts_test.lua, P1).
+function Events.on_died(fn, interet)
+  guard("on_died")
+  interet = interet or {}
+  local d = { fn = fn, noms = interet.noms, ennemi = interet.ennemi }
+  if interet.types or interet.noms then
+    d.types = {}
+    for _, t in ipairs(interet.types or {}) do d.types[t] = true end
+  end
+  died[#died + 1] = d
+end
+
 function Events.on(event_id, fn)
   guard("on")
   assert(event_id ~= nil, "Events.on : event_id nil")
+  if event_id == defines.events.on_entity_died then
+    died[#died + 1] = { fn = fn } -- rien de déclaré : toutes les morts
+    return
+  end
   local list = handlers[event_id]
   if not list then
     list = {}
@@ -64,6 +93,60 @@ local function dispatcher(list, scope)
   end
 end
 
+--- Lot MORTS : types des noms déclarés, lus une fois aux prototypes (pendant un événement : `game` existe).
+local function resolve_names(d)
+  if not d.noms or d.noms_lus then return end
+  local protos = game.entity_prototypes
+  for _, n in ipairs(d.noms) do
+    local p = protos[n]
+    if p then d.types[p.type] = true end
+  end
+  d.noms_lus = true
+end
+
+--- Lot MORTS : abonnés d'une clé (type, force « enemy » ou non), dans l'ordre d'enregistrement.
+local function died_select(etype, enemy)
+  local out = {}
+  for i = 1, #died do
+    local d = died[i]
+    resolve_names(d)
+    if (d.types == nil or d.types[etype]) and (d.ennemi == nil or d.ennemi == enemy) then out[#out + 1] = d.fn end
+  end
+  return out
+end
+
+-- Listes par clé, gardées en table LOCALE : elles ne dépendent que des intérêts déclarés (du code) et des prototypes, donc elles sont
+-- les mêmes sur tous les clients et après un chargement. Deux tables (force « enemy » ou non) : aucune chaîne fabriquée par mort.
+local died_cache = { [true] = {}, [false] = {} }
+
+--- Abonnés appelés pour une mort de ce type et de cette force (« enemy » ou non), dans l'ordre d'enregistrement. Lu par les bancs.
+function Events.died_for(etype, enemy)
+  local by = died_cache[enemy and true or false]
+  local list = by[etype]
+  if not list then
+    list = died_select(etype, enemy and true or false)
+    by[etype] = list
+  end
+  return list
+end
+
+--- Bancs hors jeu : la liste des abonnés à on_entity_died (fn, types, noms, ennemi), dans l'ordre d'enregistrement.
+function Events.died_list() return died end
+
+--- Lot MORTS : gestionnaire de on_entity_died. Entité absente ou invalide, ou aiguillage éteint : tous les abonnés, comme avant ce lot.
+local function died_dispatcher(scope)
+  local all = {}
+  for i = 1, #died do all[i] = died[i].fn end
+  return function(e)
+    Profiler.start(scope)
+    local list = all
+    local ent = e.entity
+    if Events.MORTS_TRIES and ent and ent.valid then list = Events.died_for(ent.type, ent.force.name == "enemy") end
+    for i = 1, #list do list[i](e) end
+    Profiler.stop(scope)
+  end
+end
+
 function Events.bind()
   guard("bind")
   bound = true
@@ -82,6 +165,10 @@ function Events.bind()
   for i = 1, #event_order do
     local id = event_order[i]
     script.on_event(id, dispatcher(handlers[id], "event:" .. tostring(names[id] or id)))
+  end
+  if #died > 0 then
+    local id = defines.events.on_entity_died
+    script.on_event(id, died_dispatcher("event:" .. tostring(names[id] or id)))
   end
   for i = 1, #nth_order do
     local n = nth_order[i]
