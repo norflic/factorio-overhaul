@@ -582,7 +582,17 @@ do
   for _, fn in ipairs(bit) do names[#names + 1] = src_of(fn):match("([^/]+)%.lua$") end
   print(string.format("   biter de la force enemy : %d abonné(s) sur %d (%s)", #bit, #died, table.concat(names, ", ")))
   if #tout == 0 then
-    check(#bit == 5, "P2 : un biter de la force enemy appelle 5 abonnés sur 23 (prevision, armee, outils, director, enemy_mechanics)")
+    -- Le moteur simulé donne le type « unit » à tout nom fo-* inconnu de lui, centres de données compris (en jeu : assembling-machine,
+    -- prototypes/compute.lua et compute_v2.lua) : compute est alors dans la liste du biter, ici seulement.
+    local want_names = { prevision = true, armee = true, outils = true, director = true, enemy_mechanics = true }
+    local mock_dc = game.entity_prototypes["fo-data-center"]
+    if mock_dc and mock_dc.type == "unit" then want_names.compute = true end
+    local same = true
+    for _, n in ipairs(names) do if not want_names[n] then same = false end end
+    local nw = 0
+    for _ in pairs(want_names) do nw = nw + 1 end
+    check(same and #names == nw, string.format("P2 : un biter de la force enemy appelle %d abonnés sur 23 : prevision, armee, outils, " ..
+      "director, enemy_mechanics%s", nw, want_names.compute and " (+ compute, au moteur simulé seulement : en jeu 5 sur 23)" or ""))
   end
   for _, ty in ipairs({ "unit", "character", "electric-pole", "ammo-turret", "assembling-machine", "container", "unit-spawner" }) do
     print(string.format("   %-20s autre force : %2d abonné(s) ; force enemy : %2d", ty, #Events.died_for(ty, false), #Events.died_for(ty, true)))
