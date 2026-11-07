@@ -5,7 +5,7 @@
   Une salve de zone se fait, comme dans script/robots/experimentaux_geants.lua, en ticks SÉPARÉS :
     tick 0      : UNE recherche d'entités du moteur (find_entities_filtered, C++) : aucune boucle Lua. Ici, une recherche simulée (parcours
                   d'une liste, comme tests/mock_engine.lua) est donnée pour mémoire, HORS du pire tick Lua ;
-    ticks 1..m  : rangement par anneaux (Ech.poser), au plus Ech.LOT_RANGEMENT entités par tick ;
+    ticks 1..m  : rangement par anneaux (Ech.poser), au plus LOT entités par tick ;
     ticks m+1.. : dégâts, au plus Ech.BUDGET entités par tick (budget de toutes les salves ; ici une seule), lues en parcourant les anneaux (Ech.suivants : aucune copie de la file) ;
                   en jeu, `damage` et les morts coûtent en C++ : NON mesuré ici.
   Pire tick Lua = max(un lot de rangement, une tranche). Chaque temps est une moyenne sur REP répétitions du MÊME
@@ -58,6 +58,7 @@ local function ranger_lot(p, found, i, b)
 end
 
 local REP = 20
+local LOT = 500 -- entités rangées par tick dans ce modèle (en jeu : un secteur de Ech.SECTEUR tuiles par tick)
 
 local function mesure(n, r, salve)
   local ents = monde(n, r)
@@ -68,7 +69,7 @@ local function mesure(n, r, salve)
   for _ = 1, REP do found = chercher(ents, c, r) end
   local rech = (os.clock() - t0) / REP
   local nf = #found
-  local lots = math.max(1, math.ceil(nf / Ech.LOT_RANGEMENT))
+  local lots = math.max(1, math.ceil(nf / LOT))
   -- rangement : salve entière REP fois, divisée par le nombre de lots
   local p
   t0 = os.clock()
@@ -76,7 +77,7 @@ local function mesure(n, r, salve)
     p = Ech.nouveau_plan(c)
     local i = 1
     while i <= nf do
-      local b = math.min(nf, i + Ech.LOT_RANGEMENT - 1)
+      local b = math.min(nf, i + LOT - 1)
       ranger_lot(p, found, i, b)
       i = b + 1
     end
@@ -111,7 +112,7 @@ end
 
 local fail = 0
 print(string.format("[ECHELLE-COUT] rangement %d entités par tick, tranche %d coups par tick, plafond %d par salve, cadence de zone %d ticks ;"
-  .. " moyennes sur %d répétitions", Ech.LOT_RANGEMENT, Ech.BUDGET, Ech.PLAFOND, Ech.CADENCE_ZONE, REP))
+  .. " moyennes sur %d répétitions", LOT, Ech.BUDGET, Ech.PLAFOND, Ech.CADENCE_ZONE, REP))
 print("[ECHELLE-COUT] entités | dans la zone | frappées | recherche simulée ms (moteur en jeu) | lots | ms/lot | tranches"
   .. " | ms/tranche | PIRE TICK LUA ms | ticks par salve")
 for _, n in ipairs({ 1000, 2000, 3000, 6000, 10000 }) do

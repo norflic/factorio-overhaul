@@ -233,6 +233,65 @@ local function suite(Ech)
   end
   check(#lot == Ech.RESORPTION_LOT and tout == 5000 and R2.n < 5000 and Ech.trace_compte(R2) == 0,
     "§12 rendu par lots bornés, file compactée, rien d'oublié", string.format("lot %d, tout %d, n %d", #lot, tout, R2.n))
+  -- §4 quater budget de MORTS par tick (diagnostic du 7/11 : le coût du moteur suit les morts) et frappe sans allocation
+  check(Ech.MORTS == 15, "§4 quater 15 morts par tick, en tout")
+  local pf = Ech.nouveau_plan({ x = 0, y = 0 })
+  local cibles = {}
+  for i = 1, 300 do
+    local c = { x = (i % 30) - 15, y = math.floor(i / 30) - 5, id = i, pv = (i % 3 == 0) and 1000 or 1, touche = 0 }
+    cibles[i] = c
+    Ech.poser(pf, c.x, c.y, c)
+  end
+  local cf = Ech.curseur()
+  local function frappe(c) c.touche = c.touche + 1; c.pv = c.pv - 10; return c.pv <= 0 end
+  local ticks, morts_ok, coups_ok, fin = 0, true, true, false
+  while not fin and ticks < 1000 do
+    local co, mo, ep = Ech.frapper(pf, cf, 40, 15, frappe)
+    ticks = ticks + 1
+    if mo > 15 then morts_ok = false end
+    if co > 40 then coups_ok = false end
+    fin = ep
+  end
+  local une_fois = true
+  for _, c in ipairs(cibles) do if c.touche ~= 1 then une_fois = false end end
+  check(morts_ok and coups_ok and une_fois and fin, "§4 quater au plus 15 morts et 40 coups par tick ; chaque cible frappée une fois ; épuisé à la fin",
+    string.format("%d ticks", ticks))
+  check(ticks == math.ceil(200 / 15), "§4 quater 200 morts à 15 par tick : 14 ticks (les survivants ne comptent pas)", tostring(ticks))
+  local vide = true
+  for k = 1, pf.top do
+    local r = pf.rings[k]
+    if r then for i = 1, pf.cnt[k] do if r[i] ~= nil then vide = false end end end
+  end
+  check(vide, "§4 quater les anneaux frappés sont vidés (rien ne reste pour le ramasse-miettes)")
+  local pg = Ech.nouveau_plan({ x = 0, y = 0 })
+  for i = 1, 300 do Ech.poser(pg, i % 17, i % 13, { pv = 1e9 }) end
+  local cg, tg, max_co, eg = Ech.curseur(), 0, 0, false
+  while not eg and tg < 100 do
+    local co, _, ep = Ech.frapper(pg, cg, 40, 15, function(c) c.pv = c.pv - 1; return false end)
+    if co > max_co then max_co = co end
+    tg, eg = tg + 1, ep
+  end
+  check(max_co == 40 and tg == 8, "§4 quater sans mort, 40 coups par tick au plus : 300 cibles en 8 ticks", string.format("%d coups, %d ticks", max_co, tg))
+  -- §4 quinquies recherche par secteurs : chaque point du disque dans UN seul secteur, aucun secteur hors du disque
+  local sc, rr = { x = 12000.3, y = 4200.7 }, 90
+  local secs = Ech.secteurs(sc, rr, Ech.SECTEUR)
+  local un_seul, hors = true, false
+  for gx = -91, 91, 1.5 do
+    for gy = -91, 91, 1.5 do
+      if gx * gx + gy * gy <= rr * rr then
+        local n = 0
+        for _, q in ipairs(secs) do if Ech.dans_secteur(q, sc.x + gx, sc.y + gy) then n = n + 1 end end
+        if n ~= 1 then un_seul = false end
+      end
+    end
+  end
+  for _, q in ipairs(secs) do
+    local px, py = math.max(q.x0, math.min(sc.x, q.x1)), math.max(q.y0, math.min(sc.y, q.y1))
+    if (px - sc.x) ^ 2 + (py - sc.y) ^ 2 > rr * rr then hors = true end
+  end
+  local bord = Ech.dans_secteur(secs[1], secs[1].x1, secs[1].y0)
+  check(un_seul and not hors and not bord and #secs < 36 and #secs >= 28, "§4 quinquies secteurs demi-ouverts : un point du disque dans un seul secteur ; coins hors du disque écartés",
+    tostring(#secs))
   -- §10 IMPACT, variante B : brûlures
   local unit = true
   for k = 1, 24 do
@@ -304,8 +363,11 @@ check(PB:find("healing_per_tick = Ech.soin(Ech.pv(AGE_BOURDON), 0.5, 60000)", 1,
 local SXG = read("script/robots/experimentaux_geants.lua")
 check(SXG:find("K.candidates(e.surface, e.force, e.position, eff.range), r.marks, eff.range)", 1, true) ~= nil
   and SXG:find("radius = eff.zone, width = 4", 1, true) ~= nil, "§7 bis Cairn : marques et anneau à la portée et à la zone EFFECTIVES (modules)")
-check(SXG:find("local parts = Ech.partage(#zj, Ech.BUDGET, ev.tick)", 1, true) ~= nil and SXG:find("Ech.suivants(j.plan, j.cur, q)", 1, true) ~= nil
-  and not SXG:find("Ech.TRANCHE", 1, true), "§4 ter jeu : chaque salve frappe sa PART du budget du tick (aucun budget par salve)")
+check(SXG:find("local parts = Ech.partage(#zj, Ech.BUDGET, ev.tick)", 1, true) ~= nil and SXG:find("local morts = Ech.partage(#zj, Ech.MORTS, ev.tick)", 1, true) ~= nil
+  and SXG:find("Ech.frapper(j.plan, j.cur, qh, qm, function(t)", 1, true) ~= nil and not SXG:find("Ech.TRANCHE", 1, true),
+  "§4 ter jeu : chaque salve frappe sa PART des budgets de coups et de morts du tick (aucun budget par salve)")
+check(SXG:find("secteurs = Ech.secteurs(c, eff.zone, Ech.SECTEUR)", 1, true) ~= nil and SXG:find("if Ech.dans_secteur(q, p.x, p.y) then", 1, true) ~= nil
+  and not SXG:find("radius = eff.zone, force = forces", 1, true), "§4 ter jeu : recherche par secteurs demi-ouverts, plus de recherche de tout le disque en un tick")
 check(SXG:find("if ev.tick >= g.next and not G.zone_active(g.un) then", 1, true) ~= nil
   and SG:find("if tick >= at and not XpG.zone_active(un) then", 1, true) ~= nil, "§4 ter jeu : pas de nouvelle salve tant que la précédente frappe")
 -- §12 bis séquelles branchées (QCM-7/11)
@@ -347,10 +409,15 @@ local MUTANTS = {
   { "brûlures : 6 points au lieu de 12", "part = 0.7, pas = 2", "part = 0.7, pas = 4" },
   { "brûlures : rotation de quart de tour fausse", "for _ = 1, q do x, y = -y, x end", "for _ = 1, q do x, y = y, -x end" },
   { "brûlures sans plafond", "return math.max(1, math.ceil(n / Ech.BRULURES_MAX))", "return 1" },
-  { "parcours sans plafond","while #out < n and cur.pris < Ech.PLAFOND and cur.k <= p.top do", "while #out < n and cur.k <= p.top do" },
-  { "parcours qui saute un anneau", "      cur.k, cur.i = cur.k + 1, 1", "      cur.k, cur.i = cur.k + 2, 1" },
-  { "parcours épuisé trop tôt", "if r and i <= #r then fini = false; break end", "if r and i < #r then fini = false; break end" },
-  { "parcours jamais épuisé par le reste vide", "    fini = true\n    while k <= p.top do", "    fini = false\n    while k <= p.top do" },
+  { "parcours sans plafond", "  while cur.pris < Ech.PLAFOND and cur.k <= p.top do", "  while cur.k <= p.top do" },
+  { "parcours qui saute un anneau", "    cur.k, cur.i = cur.k + 1, 1\n  end\n  return nil", "    cur.k, cur.i = cur.k + 2, 1\n  end\n  return nil" },
+  { "parcours épuisé trop tôt", "    if p.rings[k] and i <= p.cnt[k] then return false end", "    if p.rings[k] and i < p.cnt[k] then return false end" },
+  { "parcours jamais épuisé par le reste vide", "    k, i = k + 1, 1\n  end\n  return true", "    k, i = k + 1, 1\n  end\n  return false" },
+  { "budget de morts ignoré", "  while coups < qh and morts < qm do", "  while coups < qh do" },
+  { "budget de coups ignoré", "  while coups < qh and morts < qm do", "  while morts < qm do" },
+  { "secteur fermé (doublons de bord)", "  return x >= q.x0 and x < q.x1 and y >= q.y0 and y < q.y1", "  return x >= q.x0 and x <= q.x1 and y >= q.y0 and y <= q.y1" },
+  { "secteurs : coins gardés", "      if dx * dx + dy * dy <= r * r then out[#out + 1] = q end", "      out[#out + 1] = q" },
+  { "secteurs : une ligne de moins", "  local n = math.ceil(2 * r / cote)", "  local n = math.floor(2 * r / cote)" },
   { "module de portée sans effet sur la zone", "zone = r.zone and r.zone * (1 + bp)", "zone = r.zone" },
   { "puissance en somme au lieu du produit", "salve = r.salve and r.salve * (1 + bf)", "salve = r.salve and r.salve + bf" },
   { "balayage de 36°", "local COS15, SIN15 = 0.96592582628906829, 0.25881904510252074", "local COS15, SIN15 = 0.95105651629515353, 0.30901699437494740" },
