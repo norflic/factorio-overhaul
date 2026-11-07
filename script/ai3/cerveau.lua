@@ -775,7 +775,11 @@ end
 
 ---------------------------------------------------------------------------------------------------
 --- Plan d'une équipe (bascule allumée), au format du planificateur.
-function Ia3.plan(f, view, book, surface, tick)
+--- Lot DÉCOUPAGE-PENSÉE (E1 en trois tranches, 7/11) : le plan du cerveau en TROIS parties, jouées à trois ticks par la pensée en
+--- étapes (script/team/team.lua) : Ia3.plan_a (E1a : recherche, gisements, plancher, armée visée, prévision, automatisation) rend
+--- ses valeurs dans une table L (données seules) ; Ia3.plan_capi (E1b) la capitalisation, gardée dans L.capi ; Ia3.plan_b (E1c :
+--- bilan, pétrole, cerveau, journaux) les reprend. Ia3.plan enchaîne les trois, d'un appel (même calcul, même ordre qu'avant).
+function Ia3.plan_a(f, view, book, surface, tick)
   local t = f.team
   local st = t.ia3
   Profiler.start("ia3:research")
@@ -849,10 +853,28 @@ function Ia3.plan(f, view, book, surface, tick)
   Prev.think(f, tick, { book = book, key_item = floor_item, iron_floor = iron_floor,
     production_first = (f.team and f.team.priorite_pf) or false, recruit_ok = not view.recruit_blocked })
   local auto = Auto.think(f, view, book, tick, research) -- lot IA3-e : modules demandés, leur état (nil : éteint)
+  return { w = w, harvest = harvest, reach = reach, known = known, research = research, mines_open = mines_open, key = key,
+    floor_item = floor_item, iron_floor = iron_floor, army_target = army_target, spare_hands = spare_hands, at_war = at_war,
+    home = home, auto = auto }
+end
+
+--- Tranche E1b : la capitalisation seule (sa plus grosse pièce, capi:decide, ne se coupe pas : une décision entière par tick).
+function Ia3.plan_capi(f, view, book, tick, L)
   -- Lot CAPIB : la capitalisation (une étape par pensée, décision une fois par minute) ; nil réglage éteint.
   Profiler.fstart("ia3:capi")
-  local capi = Capi.think(f, view, book, tick, research, w)
+  local capi = Capi.think(f, view, book, tick, L.research, L.w)
   Profiler.fstop("ia3:capi")
+  return capi
+end
+
+--- Tranche E1c. L : sortie de plan_a, plus L.capi (plan_capi) ; ses clés sont celles de shared/team/etapes.lua (Et.L), lues ICI
+--- seulement (contrôle statique de tests/decoupage_pensee_test.lua).
+function Ia3.plan_b(f, view, book, surface, tick, L)
+  local t = f.team
+  local st = t.ia3
+  local w, harvest, reach, known, research, mines_open, key = L.w, L.harvest, L.reach, L.known, L.research, L.mines_open, L.key
+  local floor_item, iron_floor, army_target, spare_hands, at_war = L.floor_item, L.iron_floor, L.army_target, L.spare_hands, L.at_war
+  local home, auto, capi = L.home, L.auto, L.capi
   local bilan = Bilan.think(f, view, tick) -- lot BILAN : pondération des récoltes et fabrications (nil : éteint)
   -- lot PETROLE (réglage fo-war-petrole, ÉTEINT par défaut ; éteint, rend `auto` tel quel) : sites des chaînes à fluides
   auto = Pet.think(f, view, book, tick, auto, General, Ia3.known_deposits)
@@ -953,6 +975,12 @@ function Ia3.plan(f, view, book, surface, tick)
   if st.army_done then t.done.army = true end
   st.last_plan = { active = plan.ia3.active, productive = plan.ia3.productive, K = plan.ia3.K, dominant = plan.ia3.dominant }
   return plan
+end
+
+function Ia3.plan(f, view, book, surface, tick)
+  local L = Ia3.plan_a(f, view, book, surface, tick)
+  L.capi = Ia3.plan_capi(f, view, book, tick, L)
+  return Ia3.plan_b(f, view, book, surface, tick, L)
 end
 
 --- Après le travail de fond (script/team/poles.lua) : retire du tableau les tâches de FOND LIBRES qui extraient une

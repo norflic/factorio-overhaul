@@ -818,17 +818,31 @@ function Team.measure(f, view, tick)
 end
 
 ---------------------------------------------------------------------------------------------------
--- Lot DÉCOUPAGE-PENSÉE (7/11, accord du lead) : une pensée en QUATRE étapes (shared/team/etapes.lua). E1 (tick T) : vue, plan,
--- journaux, tableau, pôles ; E2 (T + 1) : plan directeur ; E3 (T + 2) : reconstruction et réparations ; E4 (T + 3) : marché,
--- stock, recrues, armée, pièces, champ, capital, fin ; puis la « queue » de l'appelant (commandant : chef, veille, attaque).
--- L'ordre des appels est celui d'avant ; E4 lit la COPIE gardée de la vue et du plan (Et.freeze), dans global
--- (f.team.etape) entre T et T + 3. Team.ETAPES = false : les quatre étapes au tick T, d'un appel (ancien comportement).
+-- Lot DÉCOUPAGE-PENSÉE (7/11, accord du lead) : une pensée en HUIT étapes, une par tick (shared/team/etapes.lua, Et.STAGES ;
+-- critères : fo-logs/2026-11-07_DECOUPAGE-PENSEE/CRITERES.md et CRITERES-E1-E4.md). E1a (tick T) : vue, bascule, début du plan du
+-- cerveau (Ia3.plan_a : recherche, prévision, automatisation) ; E1b (T + 1) : capitalisation (Ia3.plan_capi) ; E1c (T + 2) : fin du
+-- plan (Ia3.plan_b, ou Planner.plan), journaux, tableau, pôles ; E2 (T + 3) : plan directeur ; E3 (T + 4) : reconstruction et
+-- réparations ; E4 (T + 5) : marché, stock, recrues, armée, pièces, gisement ; E5 (T + 6) : foreuses ; E6 (T + 7) : champ, capital,
+-- fin ; puis la « queue » de l'appelant (commandant : chef, veille, attaque). L'ordre des appels est celui d'avant. L'état gardé
+-- (f.team.etape, global) porte des COPIES : vue entière et L de E1a à E1c, vue et plan gelés (Et.freeze) de E1c à E6, stock libre
+-- de E4 à E6. Team.ETAPES = false : les huit étapes au tick T, d'un appel, par les mêmes fonctions et les mêmes copies.
 ---------------------------------------------------------------------------------------------------
 local TT = { tails = {} }
 Team.ETAPES = true
 TT.TIMER = "fo-team-etape"
 
-TT.e1 = function(f, surface, tick)
+--- Fonctions laissées de côté par une copie gardée (une fonction n'est pas gardable dans global) : dit une fois par équipe.
+TT.note_lost = function(f, tick, lost, where)
+  if (lost or 0) > 0 and not f.team.etape_lost then
+    f.team.etape_lost = tick
+    log(string.format("[FO-ETAPES] %s : %d fonction(s) laissee(s) de cote dans la copie gardee (premiere : %s)", tostring(f.key or "player"),
+      lost, tostring(where)))
+  end
+end
+
+--- E1a (tick T) : vue, bascule, début du plan du cerveau. Rend l'état gardé de la pensée (prochaine étape : E1b) : COPIE entière de la
+--- vue et des clés Et.L de L, d'une seule copie (une table partagée par la vue et L le reste).
+TT.e1a = function(f, surface, tick, tail)
   Trace.log("team", f.key, #State.sorted_keys(f.outposts))
   Profiler.start("team:view")
   local view = Team.view(f, tick)
@@ -837,10 +851,36 @@ TT.e1 = function(f, surface, tick)
   local base_state = (not f.is_player) and DefChoix.base(f, surface, tick) or nil
   view.base_alert = (base_state and base_state.insecure) or nil
   Profiler.stop("team:view")
-  Profiler.start("team:plan")
+  Profiler.start("team:plan_a")
   -- Lot IA3-c : bascule figée par équipe à sa première pensée (script/ai3/cerveau.lua) ; éteinte : planificateur d'avant.
   local ia3 = Ia3.active(f, tick)
-  local plan = ia3 and Ia3.plan(f, view, book_for(f), surface, tick) or Planner.plan(view, book_for(f))
+  local L = ia3 and Ia3.plan_a(f, view, book_for(f), surface, tick) or nil
+  Profiler.stop("team:plan_a")
+  local et = { n = 2, t0 = tick, tail = tail, sig = Et.SIG, ia3 = ia3, base_why = base_state and base_state.why or nil }
+  local lost, where
+  if Team.KEEP_HOOK then et.view, et.L = Team.KEEP_HOOK("e1a", view, L)
+  else et.view, et.L, lost, where = Et.keep_e1(view, L) end
+  TT.note_lost(f, tick, lost, where)
+  return et
+end
+
+--- E1b (T + 1) : la capitalisation (L.capi, copie).
+TT.e1b = function(f, surface, tick, et)
+  if not et.ia3 then return end
+  Profiler.start("team:plan_capi")
+  local capi = Ia3.plan_capi(f, et.view, book_for(f), tick, et.L)
+  local lost, where
+  if Team.KEEP_HOOK then et.L.capi = Team.KEEP_HOOK("capi", capi)
+  else et.L.capi, lost, where = Et.keep(capi, "capi") end
+  TT.note_lost(f, tick, lost, where)
+  Profiler.stop("team:plan_capi")
+end
+
+--- E1c (T + 2) : fin du plan, journaux, objectifs, tableau, pôles, couloirs ; puis le gel de la vue et du plan pour E4 à E6.
+TT.e1c = function(f, surface, tick, et)
+  local view, ia3 = et.view, et.ia3
+  Profiler.start("team:plan")
+  local plan = ia3 and Ia3.plan_b(f, view, book_for(f), surface, tick, et.L) or Planner.plan(view, book_for(f))
   -- Lot BRIQUES (bancs seulement, f.team.bench_smelt posé par fo-ia1 bench_smelt_demand) : demande de fonte imposée, ajoutée au plan.
   if f.team.bench_smelt then
     plan.smelt = f.team.bench_smelt_seul and {} or plan.smelt or {}
@@ -878,7 +918,7 @@ TT.e1 = function(f, surface, tick)
     f.team.defchoix_first = dfirst
     log(string.format("[FO-DEFCHOIX] %s : %s a %.1f min : base %s, QG %d tourelle(s) sur %d voulue(s), %d payable(s) au-dessus des planchers, soldats %d",
       f.key or "?", dfirst and "TOURELLES DU QG AVANT LES SOLDATS" or "fin des tourelles d'abord", tick / 3600,
-      tostring(base_state and base_state.why or "sure"), view.hq_turrets or 0, dcp and dcp.want or 0, dcp and dcp.paid or 0, view.soldiers or 0))
+      tostring(et.base_why or "sure"), view.hq_turrets or 0, dcp and dcp.want or 0, dcp and dcp.paid or 0, view.soldiers or 0))
   end
 
   for _, key in ipairs(plan.reached) do
@@ -939,7 +979,10 @@ TT.e1 = function(f, surface, tick)
   for _, a in ipairs(Poles.sur_stops(f)) do Worker.abort(a, f, tick, "preempte") end -- intégration 0.6.30 : la file sûre cède au travail du cerveau
   Profiler.stop("team:poles")
   Build.couloir_report(f, tick) -- lot ÉTAGE 5 (revue B3, 2e relecture) : bilan [FO-COULOIR] de TOUTES les équipes, plan directeur ou non
-  return view, plan, ia3
+  -- Gel pour E4 à E6 : seuls les champs de Et.VIEW et Et.PLAN (la vue entière et L ne servent plus).
+  local fz = TT.freeze(view, plan, ia3)
+  TT.note_lost(f, tick, fz.lost, fz.lost_where)
+  et.view, et.plan, et.L = fz.view, fz.plan, nil
 end
 
 TT.e2 = function(f, surface, tick)
@@ -964,8 +1007,9 @@ TT.e3 = function(f, surface, tick)
   Profiler.fstop("tt:repair")
 end
 
-TT.e4 = function(f, surface, tick, fz)
-  local view, plan, ia3 = fz.view, fz.plan, fz.ia3
+--- E4 (T + 5) : marché, mesures, stock (recrues, armée), pièces, gisement. Garde une COPIE du stock libre et pile_hold pour E5 et E6.
+TT.e4 = function(f, surface, tick, et)
+  local view, plan, ia3 = et.view, et.plan, et.ia3
   Profiler.fstart("tt:inter")
   Inter.think(f, tick) -- lot MAIN-ET-INTERMEDIAIRES (D09, D10) : tâches libres retirées AVANT le marché (minage à la main fourni par les machines, quais d'un module au plafond)
   -- Lot IA3-b : meilleures paires PNJ inactif × tâche (place de marché, réglage allumé). Fusion IA-V2 : APRÈS le plan
@@ -1076,11 +1120,26 @@ TT.e4 = function(f, surface, tick, fz)
   Profiler.fstart("tt:gisement")
   Gisement.think(f, surface, tick, book_for(f)) -- lot GISEMENTS (retour du DC du 31/10) : foreuses à combustion à l'arrêt rebranchées ou retirées du gisement (rend tout au stock)
   Profiler.fstop("tt:gisement")
-  if not pile_hold then
+  -- Le stock libre passe à E5 et E6 sans être relu, comme avant le découpage (il était passé tel quel à FoSwap, MigChamp et au capital).
+  local lost, where
+  if Team.KEEP_HOOK then et.stock = Team.KEEP_HOOK("stock", stock)
+  else et.stock, lost, where = Et.keep(stock, "stock") end
+  TT.note_lost(f, tick, lost, where)
+  et.pile_hold = pile_hold
+end
+
+--- E5 (T + 6) : foreuses thermiques remplacées par des électriques (retenu par la pile).
+TT.e5 = function(f, surface, tick, et)
+  if not et.pile_hold then
     Profiler.fstart("tt:foswap")
-    FoSwap.think(f, surface, book_for(f), stock, tick) -- lot FOREUSES (retour du DC du 29/10) : foreuses thermiques remplacées par des électriques alimentées
+    FoSwap.think(f, surface, book_for(f), et.stock, tick) -- lot FOREUSES (retour du DC du 29/10) : foreuses thermiques remplacées par des électriques alimentées
     Profiler.fstop("tt:foswap")
   end
+end
+
+--- E6 (T + 7) : migration du champ, capital, fin.
+TT.e6 = function(f, surface, tick, et)
+  local view, plan, ia3, stock, pile_hold = et.view, et.plan, et.ia3, et.stock, et.pile_hold
   -- lot MIGRATION-CHAMP (retour du DC du 29/10) : champ thermique migré par parties en rangées électriques. Lot THERMIQUE5 (revue du 3/11 : la
   -- retenue gelait balayage, dégel et chantier ; Azure et Scarlet retenues 99 à 100 % du temps, 139 thermiques et 0 électrique sur 271828182) :
   -- toujours pensée ; pendant la retenue, seul le départ d'une bande neuve est retenu (shared/team/thermique.lua, Th.pile_permits)
@@ -1153,20 +1212,30 @@ TT.count = function(t, k)
   c[k] = (c[k] or 0) + 1
 end
 
---- Joue l'étape et.n (2, 3 ou 4) ; après E4, l'état gardé est effacé et la queue de l'appelant jouée.
-TT.play = function(f, surface, tick, et)
+--- Joue l'étape et.n (2 = E1b … 8 = E6, Et.STAGES) ; rend true après la dernière.
+TT.run = function(f, surface, tick, et)
   local n = et.n
-  if n == 2 then TT.e2(f, surface, tick)
-  elseif n == 3 then TT.e3(f, surface, tick)
-  else
-    TT.e4(f, surface, tick, et)
-    f.team.etape = nil
-    TT.count(f.team, "pensees")
-    local tl = et.tail and TT.tails[et.tail]
-    if tl then tl(f, tick) end
-    return
+  if n == 2 then TT.e1b(f, surface, tick, et)
+  elseif n == 3 then TT.e1c(f, surface, tick, et)
+  elseif n == 4 then TT.e2(f, surface, tick)
+  elseif n == 5 then TT.e3(f, surface, tick)
+  elseif n == 6 then TT.e4(f, surface, tick, et)
+  elseif n == 7 then TT.e5(f, surface, tick, et)
+  else -- n == 8 (Et.SIG garde le sens des numéros : un état d'une autre version est effacé au changement de configuration)
+    TT.e6(f, surface, tick, et)
+    return true
   end
   et.n = n + 1
+  return false
+end
+
+--- Joue l'étape attendue ; après E6, l'état gardé est effacé et la queue de l'appelant jouée.
+TT.play = function(f, surface, tick, et)
+  if not TT.run(f, surface, tick, et) then return end
+  f.team.etape = nil
+  TT.count(f.team, "pensees")
+  local tl = et.tail and TT.tails[et.tail]
+  if tl then tl(f, tick) end
 end
 
 --- Minuteur d'une étape : { key, n, t0 } ; une charge utile périmée (pensée déjà rattrapée) ne fait rien.
@@ -1193,8 +1262,12 @@ Scheduler.define_timer(TT.TIMER, TT.step)
 --- changement de configuration, un état d'une autre signature (autre version de ces listes, ou d'avant la signature) est EFFACÉ,
 --- avec une ligne au journal : E4 ne rejoue jamais une copie qui n'a pas les champs qu'il lit (en jeu, la copie n'est pas stricte :
 --- un champ manquant vaudrait nil sans rien dire). La pensée suivante de l'équipe repart d'E1 (300 ticks au plus). Même signature :
---- l'état est gardé, ses étapes se jouent à leur tick (CRITERES.md P5).
-TT.config_changed = function()
+--- l'état est gardé, ses étapes se jouent à leur tick (CRITERES.md P5). Suite E1-E4 (CRITERES-E1-E4.md) : un changement de VERSION
+--- du mod efface aussi toute pensée en cours, même à signature égale (la vue gardée en entier n'a pas de liste de champs).
+TT.MOD = "factorio-overhaul"
+TT.config_changed = function(data)
+  local mc = data and data.mod_changes and data.mod_changes[TT.MOD]
+  local version = mc and mc.old_version ~= mc.new_version and (tostring(mc.old_version) .. " -> " .. tostring(mc.new_version)) or nil
   local list = {}
   local war = State.war()
   if war and war.factions then
@@ -1203,16 +1276,21 @@ TT.config_changed = function()
   list[#list + 1] = State.faction("player")
   for _, f in ipairs(list) do
     local et = f and f.team and f.team.etape
-    if et and et.sig ~= Et.SIG then
+    if et and (version or et.sig ~= Et.SIG) then
       f.team.etape = nil
       TT.count(f.team, "effaces")
-      log(string.format("[FO-ETAPES] %s : pensee du tick %s effacee a l'etape %s au changement de configuration (champs gardes : %s, attendus : %s)",
-        tostring(f.key or "player"), tostring(et.t0), tostring(et.n), tostring(et.sig), Et.SIG))
+      if version then
+        log(string.format("[FO-ETAPES] %s : pensee du tick %s effacee a l'etape %s au changement de version du mod (%s)",
+          tostring(f.key or "player"), tostring(et.t0), tostring(et.n), version))
+      else
+        log(string.format("[FO-ETAPES] %s : pensee du tick %s effacee a l'etape %s au changement de configuration (champs gardes : %s, attendus : %s)",
+          tostring(f.key or "player"), tostring(et.t0), tostring(et.n), tostring(et.sig), Et.SIG))
+      end
     end
   end
 end
 Team.etapes_config_changed = TT.config_changed -- (champ du module : mutant « signature ignorée » des tests)
-Events.on_configuration_changed(function() Team.etapes_config_changed() end)
+Events.on_configuration_changed(function(data) Team.etapes_config_changed(data) end)
 
 --- Queue de l'appelant, jouée après E4 (une fonction n'est pas gardable dans global : la pensée garde son NOM).
 function Team.define_tail(name, fn)
@@ -1231,22 +1309,14 @@ function Team.think(f, surface, tick, tail)
     TT.count(f.team, "rattrapages")
     while f.team.etape do TT.play(f, surface, tick, f.team.etape) end
   end
-  local view, plan, ia3 = TT.e1(f, surface, tick)
-  local fz = TT.freeze(view, plan, ia3)
-  if fz.lost and not f.team.etape_lost then
-    -- une fonction dans la vue ou le plan n'est pas gardable dans global (Et.freeze la laisse de côté) : dit une fois par équipe
-    f.team.etape_lost = tick
-    log(string.format("[FO-ETAPES] %s : %d fonction(s) laissee(s) de cote dans la copie pour E4 (premiere : %s)", tostring(f.key or "player"),
-      fz.lost, tostring(fz.lost_where)))
-  end
+  local et = TT.e1a(f, surface, tick, tail)
   if Team.ETAPES then
-    f.team.etape = { n = 2, t0 = tick, tail = tail, sig = Et.SIG, ia3 = fz.ia3, view = fz.view, plan = fz.plan }
-    Scheduler.after(1, TT.TIMER, { key = TT.key(f), n = 2, t0 = tick })
+    f.team.etape = et
+    Scheduler.after(1, TT.TIMER, { key = TT.key(f), n = et.n, t0 = tick })
     return false
   end
-  TT.e2(f, surface, tick)
-  TT.e3(f, surface, tick)
-  TT.e4(f, surface, tick, fz)
+  -- Mode « tout au tick T » : les mêmes étapes et les mêmes copies, d'un appel ; la queue est jouée par l'appelant.
+  repeat until TT.run(f, surface, tick, et)
   return true
 end
 

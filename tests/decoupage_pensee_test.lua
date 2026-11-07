@@ -1,25 +1,34 @@
 --[[
-  Lot DÉCOUPAGE-PENSÉE (7/11) : une pensée d'équipe en quatre étapes (script/team/team.lua, shared/team/etapes.lua). Critères :
-  fo-logs/2026-11-07_DECOUPAGE-PENSEE/CRITERES.md.
+  Lot DÉCOUPAGE-PENSÉE (7/11) : une pensée d'équipe en huit étapes, une par tick (script/team/team.lua, shared/team/etapes.lua).
+  Critères : fo-logs/2026-11-07_DECOUPAGE-PENSEE/CRITERES.md (quatre étapes) et CRITERES-E1-E4.md (E1 en trois tranches, E4 en
+  trois ticks).
 
   Partie de banc au moteur simulé : 4 factions (plan directeur, centrale sur un étang, modules), ia3e allumé, votre équipe (coffre
   posé au centre). Chaque passage est un PROCESSUS à part (`--run`), pour partir d'un moteur et de modules neufs :
     lua5.2 tests/decoupage_pensee_test.lua --run <mode> <minutes> <sortie> [--sans <view.x|plan.x>]
-  modes : bloc (les quatre étapes au tick T, copie STRICTE), etapes (T à T + 3), charge (etapes, sauvegarde et chargement simulés
+  modes : bloc (les huit étapes au tick T, copies STRICTES), etapes (T à T + 7), charge (etapes, sauvegarde et chargement simulés
   à chaque tick où une étape attend), config (charge + on_configuration_changed à ces ticks), config-ref (mêmes chargements, même
   nombre d'appels à on_configuration_changed, au premier tick sans étape en attente), bascule (bloc puis etapes à mi-partie),
-  releve (bloc, copie remplacée par un enregistreur des champs lus). Sorties : <sortie>_global.txt, _journal.txt, _trace.txt,
-  _info.txt. FO_MUT_CFG=efface|ligne : mutants du mode config.
+  releve (bloc, copie remplacée par un enregistreur des champs lus), sonde (bloc : tables des copies gardées atteignables depuis
+  global ?), unites (etapes : instructions Lua comptées par étape). Sorties : <sortie>_global.txt, _journal.txt, _trace.txt,
+  _info.txt. FO_MUT_CFG=efface|ligne : mutants du mode config ; FO_MUT_SIG=ignore|version : mutants du mode sig ; FO_L_LACHE=1 :
+  L non strict (mutants de L, jugés sur le résultat).
 
   Sans argument, le banc complet (environ 45 min sur un PC chargé ; FO_RAPIDE=1 : parties 3 à 6 ; FO_SEULE5=1 : partie 5) :
-    1. relevé : les champs lus en E4 sont tous dans Et.VIEW et Et.PLAN ;
+    0. contrôle statique : champs lus en E4 à E6 (vue, plan) et dans Ia3.plan_capi et Ia3.plan_b (L) contre les listes ;
+    1. relevé : les champs lus en E4 à E6 sont tous dans Et.VIEW et Et.PLAN ;
     2. mutants : chaque champ retiré à tour de rôle fait échouer la partie (copie stricte) ; ceux d'Et.RARES peuvent survivre ;
-    3. etapes : deux parties identiques (déterminisme) ; ordre des portées de chaque pensée et ticks T à T + 3 ;
+       chaque clé de Et.L retirée (L non strict) change le résultat ;
+    3. etapes : deux parties identiques (déterminisme) ; ordre des portées de chaque pensée et ticks T à T + 7 ;
     4. charge : identique à la partie continue ;
     5. config : chaque pensée coupée par un changement de configuration finit, sans abandon ni rattrapage ; global identique à
        config-ref SANS filtre ; journal identique hors d'une liste blanche exacte (5 préfixes), avec autant de lignes de chaque
        sorte des deux côtés ; mutants « efface » (la migration perd les étapes) et « ligne » (ligne de décision) refusés ;
-    6. bascule : une partie commencée d'un bloc (état d'une 0.6.56) passe aux étapes sans erreur.
+    6. bascule : une partie commencée d'un bloc (état d'une 0.6.56) passe aux étapes sans erreur ;
+    7. signature et version : autre signature (dont celle d'a1090657), sans signature, changement de version du mod : effacées ;
+       même signature : gardée ; mutants « signature ignorée » et « version ignorée » ;
+    8. sonde : aucune table des copies gardées (vue entière, L, capi, stock) n'est atteignable depuis global ;
+    9. unités de travail par étape (information).
   Avant chaque passage, le banc attend que le PC compte moins de 8 lua (FO_LUA_MAX) ; il ne relance jamais un passage tué.
   L'A/B « mode bloc = ancien code » se joue à part (ancien code dans un autre dossier, même fichier de test) : voir CRITERES.md P1.
 ]]
@@ -76,13 +85,13 @@ local function run(mode, min, out, sans)
   if Et then
     if sans then
       local list, key = sans:match("^(%a+)%.(.+)$")
-      local L = list == "view" and Et.VIEW or Et.PLAN
+      local L = list == "view" and Et.VIEW or list == "L" and Et.L or Et.PLAN
       local j
       for i, k in ipairs(L) do if k == key then j = i end end
       assert(j, "champ inconnu des listes : " .. tostring(sans))
       table.remove(L, j)
     end
-    Team.ETAPES = (mode == "etapes" or mode == "charge" or mode == "config" or mode == "config-ref" or mode == "sig")
+    Team.ETAPES = (mode == "etapes" or mode == "charge" or mode == "config" or mode == "config-ref" or mode == "sig" or mode == "unites")
     if mode == "releve" then
       local function recorder(src, name)
         return setmetatable({}, {
@@ -98,6 +107,66 @@ local function run(mode, min, out, sans)
       Et.STRICT = true -- une fonction dans la copie : erreur
       Team.FREEZE_HOOK = function(view, plan, ia3) return Et.strict(Et.freeze(view, plan, ia3)) end
     end
+    -- Copies gardées de E1a, E1b et E4 : STRICTES (L : lire une clé hors Et.L lève une erreur ; FO_L_LACHE=1 : non strict) ; les
+    -- clés rendues par Ia3.plan_a doivent être dans Et.L (une clé de plus serait perdue sans bruit).
+    local lache = os.getenv("FO_L_LACHE") == "1"
+    Team.KEEP_HOOK = function(kind, a, b)
+      if kind == "e1a" then
+        if b then
+          for k in pairs(b) do
+            local ok = false
+            for _, x in ipairs(Et.L) do if x == k then ok = true end end
+            if not ok and not (sans and sans == "L." .. k) then error("etapes : Ia3.plan_a rend une cle hors de Et.L : " .. tostring(k)) end
+          end
+        end
+        local v, l = Et.keep_e1(a, b)
+        if mode == "sonde" then
+          SONDE(kind, a, b)
+          -- les champs déclarés (Et.REF_VIEW, Et.REF_L) sont gardés PAR RÉFÉRENCE dans la copie
+          for _, k in ipairs(Et.REF_VIEW) do
+            if type(a[k]) == "table" then ALIAS.ref = ALIAS.ref + 1; if not rawequal(v[k], a[k]) then ALIAS.ref_bad = ALIAS.ref_bad + 1 end end
+          end
+          for _, k in ipairs(b and Et.REF_L or {}) do
+            if type(b[k]) == "table" then ALIAS.ref = ALIAS.ref + 1; if not rawequal(l[k], b[k]) then ALIAS.ref_bad = ALIAS.ref_bad + 1 end end
+          end
+        end
+        return v, (l and not lache) and Et.strict_L(l) or l
+      end
+      if mode == "sonde" then SONDE(kind, a) end
+      if kind == "capi" and sans == "L.capi" then return nil end -- mutant de L : capi (posée par E1b, hors de la copie de E1a)
+      return (Et.keep(a, kind))
+    end
+  end
+
+  -- Sonde (mode sonde) : une table d'une copie gardée est-elle une table atteignable depuis global (alias) ? Comptées par sorte.
+  ALIAS = { n = 0, calls = 0, where = {}, declared = 0, ref = 0, ref_bad = 0 }
+  local DECL = {}
+  for _, k in ipairs(Et and Et.REF_VIEW or {}) do DECL["vue." .. k] = true end
+  for _, k in ipairs(Et and Et.REF_L or {}) do DECL["L." .. k] = true end
+  function SONDE(kind, a, b)
+    ALIAS.calls = ALIAS.calls + 1
+    local reach = {}
+    local function mark(v, path)
+      if type(v) ~= "table" or rawget(v, "_lua_object") or reach[v] then return end
+      reach[v] = path
+      for k, x in pairs(v) do mark(x, path .. "." .. tostring(k)) end
+    end
+    mark(global, "global")
+    local seen = {}
+    local function walk(v, path)
+      if type(v) ~= "table" or rawget(v, "_lua_object") or seen[v] then return end
+      seen[v] = true
+      if reach[v] then
+        local decl = kind == "e1a" and DECL[path]
+        if decl then ALIAS.declared = ALIAS.declared + 1 else ALIAS.n = ALIAS.n + 1 end
+        local key = (decl and "(par reference) " or "") .. kind .. " " .. path:gsub("%[%d+%]", "[i]") .. " = " .. reach[v]:gsub("%.%d+", ".i")
+        ALIAS.where[key] = (ALIAS.where[key] or 0) + 1
+        return
+      end
+      for k, x in pairs(v) do walk(x, path .. "." .. tostring(k)) end
+    end
+    walk(a, kind == "e1a" and "vue" or kind)
+    if b then walk(b, "L") end
   end
 
   -- Montage (tests/etalement_plan_test.lua) : has_flag des tapis et eau comptée, à l'identique pour tous les codes comparés.
@@ -149,7 +218,7 @@ local function run(mode, min, out, sans)
 
   -- Trace des portées des pensées (nom, tick)
   local WANT = {}
-  for _, n in ipairs({ "team:view", "team:plan", "team:board", "team:poles", "team:build", "tt:recon", "tt:reparation", "tt:repair",
+  for _, n in ipairs({ "team:view", "team:plan_a", "team:plan_capi", "team:plan", "team:board", "team:poles", "team:build", "tt:recon", "tt:reparation", "tt:repair",
     "tt:inter", "team:market", "tt:idle", "team:scale", "tt:stock", "tt:spares", "tt:gisement", "tt:foswap", "tt:migchamp",
     "tt:capital", "tt:fin", "faction:attack" }) do WANT[n] = true end
   local trace = {}
@@ -158,6 +227,34 @@ local function run(mode, min, out, sans)
     Profiler[fname] = function(name, ...)
       if WANT[name] then trace[#trace + 1] = game.tick .. " " .. name end
       return o(name, ...)
+    end
+  end
+
+  UNITS = {}
+  if mode == "unites" then
+    local count = 0
+    debug.sethook(function() count = count + 1 end, "", 100)
+    local open = {}
+    local o_start, o_stop = Profiler.start, Profiler.stop
+    Profiler.start = function(name, ...)
+      local n = name:match("^team:etape(%d)$")
+      if n then open[name] = count end
+      return o_start(name, ...)
+    end
+    Profiler.stop = function(name, ...)
+      local n = name:match("^team:etape(%d)$")
+      if n and open[name] then
+        UNITS[#UNITS + 1] = { n = tonumber(n), t0 = game.tick - (tonumber(n) - 1), u = (count - open[name]) * 100 }
+        open[name] = nil
+      end
+      return o_stop(name, ...)
+    end
+    local think = Team.think
+    Team.think = function(f, surface, tick, tail)
+      local c0 = count
+      local r = think(f, surface, tick, tail)
+      UNITS[#UNITS + 1] = { n = 1, t0 = tick, u = (count - c0) * 100 }
+      return r
     end
   end
 
@@ -214,13 +311,19 @@ local function run(mode, min, out, sans)
     -- Signature des listes (relecture de 6fcfe757) : trois changements de configuration, chacun pendant la pensée en cours d'une
     -- équipe différente : signature d'une autre version, puis aucune signature (partie d'avant la signature), puis la même.
     local done, step = 0, 1
-    if os.getenv("FO_MUT_SIG") == "ignore" then Team.etapes_config_changed = function() end end -- mutant : signature ignorée
-    local HOW = { "autre", "sans", "meme" }
+    local mut_sig = os.getenv("FO_MUT_SIG")
+    if mut_sig == "ignore" then Team.etapes_config_changed = function() end end -- mutant : signature ignorée
+    if mut_sig == "version" then -- mutant : version ignorée (la règle de la signature seule)
+      local real = Team.etapes_config_changed
+      Team.etapes_config_changed = function() return real({ mod_changes = {} }) end
+    end
+    local HOW = { "autre", "sans", "version", "meme" }
+    local SIG_A109 = "view:" .. table.concat(Et.VIEW, ",") .. "|plan:" .. table.concat(Et.PLAN, ",") -- signature d'a1090657
     local used = {}
     for _ = 1, total do
       M.run_ticks(1)
       done = done + 1
-      if step <= 3 then
+      if step <= #HOW then
         local pick
         for _, id in ipairs(State.alive()) do
           local f = State.faction(id)
@@ -231,9 +334,13 @@ local function run(mode, min, out, sans)
         if pick then
           used[pick] = true
           local how = HOW[step]
-          if how == "autre" then pick.team.etape.sig = "view:x|plan:y" elseif how == "sans" then pick.team.etape.sig = nil end
-          local s = { f = pick, how = how, t0 = pick.team.etape.t0 }
-          W.on_config({ mod_changes = {} })
+          if how == "autre" then pick.team.etape.sig = SIG_A109 elseif how == "sans" then pick.team.etape.sig = nil end
+          local s = { f = pick, how = how, t0 = pick.team.etape.t0, n = pick.team.etape.n }
+          if how == "version" then
+            W.on_config({ mod_changes = { ["factorio-overhaul"] = { old_version = "0.6.58", new_version = "0.6.59" } } })
+          else
+            W.on_config({ mod_changes = {} })
+          end
           configs = configs + 1
           s.after = pick.team.etape and "garde" or "efface"
           s.p0 = (pick.team.etapes or {}).pensees or 0
@@ -262,8 +369,8 @@ local function run(mode, min, out, sans)
   wr("_trace.txt", table.concat(trace, "\n"))
   local info = { "mode " .. mode, "chargements " .. loads, "configurations " .. configs }
   for _, s in ipairs(SIGS) do
-    info[#info + 1] = string.format("sig %s %s %s pensees_apres %d", tostring(s.f.key or "player"), s.how, s.after,
-      ((s.f.team.etapes or {}).pensees or 0) - s.p0)
+    info[#info + 1] = string.format("sig %s %s %s pensees_apres %d etape %s", tostring(s.f.key or "player"), s.how, s.after,
+      ((s.f.team.etapes or {}).pensees or 0) - s.p0, tostring(s.n))
   end
   local function counts(f)
     local c = f and f.team and f.team.etapes or {}
@@ -276,6 +383,15 @@ local function run(mode, min, out, sans)
   for k in pairs(REC) do rk[#rk + 1] = k end
   table.sort(rk)
   for _, k in ipairs(rk) do info[#info + 1] = "lu " .. k end
+  if mode == "sonde" then
+    info[#info + 1] = string.format("sonde appels %d alias %d declares %d references %d fausses %d", ALIAS.calls, ALIAS.n, ALIAS.declared,
+      ALIAS.ref, ALIAS.ref_bad)
+    local wk = {}
+    for k in pairs(ALIAS.where) do wk[#wk + 1] = k end
+    table.sort(wk)
+    for _, k in ipairs(wk) do info[#info + 1] = "alias " .. k .. " x" .. ALIAS.where[k] end
+  end
+  for _, r in ipairs(UNITS) do info[#info + 1] = string.format("unites %d %d %d", r.n, r.t0, r.u) end
   wr("_info.txt", table.concat(info, "\n"))
   print("[DECOUPAGE-RUN] " .. mode .. " fini")
 end
@@ -340,9 +456,11 @@ local MIN = tonumber(os.getenv("FO_MIN") or "") or 10
 -- `plan.X` lu doit être dans Et.VIEW / Et.PLAN, chaque champ listé doit être lu quelque part, et la vue ou le plan ne doit être
 -- transmis à AUCUNE fonction hors de la table SUIVIES (sinon : l'y ajouter, avec le nom de son paramètre).
 ---------------------------------------------------------------------------------------------------
-section("0. Contrôle statique des champs lus en E4 (source de TT.e4 et des fonctions qui reçoivent la vue ou le plan)")
+section("0. Contrôle statique des champs lus en E4 à E6 (sources de TT.e4, TT.e5, TT.e6 et des fonctions qui reçoivent la vue ou le plan)")
 local SUIVIES = {
-  ["TT.e4"] = { file = "script/team/team.lua", header = "TT.e4 = function(f, surface, tick, fz)", params = { view = "view", plan = "plan" } },
+  ["TT.e4"] = { file = "script/team/team.lua", header = "TT.e4 = function(f, surface, tick, et)", params = { view = "view", plan = "plan" } },
+  ["TT.e5"] = { file = "script/team/team.lua", header = "TT.e5 = function(f, surface, tick, et)", params = { view = "view", plan = "plan" } },
+  ["TT.e6"] = { file = "script/team/team.lua", header = "TT.e6 = function(f, surface, tick, et)", params = { view = "view", plan = "plan" } },
   ["Team.measure"] = { file = "script/team/team.lua", header = "function Team.measure(f, view, tick)", params = { view = "view" } },
   ["Team.effectif_journal"] = { file = "script/team/team.lua", header = "function Team.effectif_journal(f, view, tick)", params = { view = "view" } },
   ["Team.plafond_journal"] = { file = "script/team/team.lua", header = "function Team.plafond_journal(f, view, stock, tick)", params = { view = "view" } },
@@ -399,7 +517,7 @@ local function SCAN(body, pname)
 end
 local static = { view = {}, plan = {} }
 local errs, seen_fn = {}, {}
-local queue = { { name = "TT.e4", lists = { view = "view", plan = "plan" } } }
+local queue = { { name = "TT.e4" }, { name = "TT.e5" }, { name = "TT.e6" } }
 while #queue > 0 do
   local item = table.remove(queue, 1)
   local spec = SUIVIES[item.name]
@@ -455,6 +573,60 @@ do
   check(fld.champ_nouveau and not fld.dans_un_commentaire and #cal == 1 and cal[1] == "Autre.fonction",
     "mutants du source : champ nouveau vu, commentaire ignoré, transmission à une fonction nouvelle vue")
 end
+-- 0 bis. L (E1a -> E1b -> E1c) : Ia3.plan_capi et Ia3.plan_b ne lisent que des clés de Et.L, toutes lues ; L ne passe à aucune
+-- autre fonction ; Ia3.plan_a rend EXACTEMENT les clés de Et.L sauf capi (posée par E1b) ; dans team.lua, l'état et.L ne passe qu'à
+-- Ia3.plan_capi et Ia3.plan_b.
+do
+  local readL, errL = {}, {}
+  for _, spec in ipairs({ { file = "script/ai3/cerveau.lua", header = "function Ia3.plan_capi(f, view, book, tick, L)" },
+    { file = "script/ai3/cerveau.lua", header = "function Ia3.plan_b(f, view, book, surface, tick, L)" } }) do
+    local body, why = source_body(spec)
+    if not body then errL[#errL + 1] = spec.header .. " : " .. why
+    else
+      local fields, callees = SCAN((body:gsub("^[^\n]*\n", "", 1)), "L") -- (sans l'en-tête, qui déclare L)
+      for k in pairs(fields) do readL[k] = true end
+      for _, c in ipairs(callees) do errL[#errL + 1] = spec.header .. " transmet L à " .. c end
+    end
+  end
+  local ml, ul = diff(readL, Et.L)
+  check(#errL == 0, "L lu dans plan_capi et plan_b seulement, transmis à aucune autre fonction : " .. table.concat(errL, " ; "))
+  check(#ml == 0 and #ul == 0, "clés de L : lues et non gardées [" .. table.concat(ml, ", ") .. "], gardées jamais lues [" .. table.concat(ul, ", ") .. "]")
+  local body = source_body({ file = "script/ai3/cerveau.lua", header = "function Ia3.plan_a(f, view, book, surface, tick)" })
+  local ret = body and body:match("\n%s*return (%b{})%s*\nend") or ""
+  local rk = {}
+  for k in ret:gmatch("([%a_][%w_]*)%s*=") do rk[k] = true end
+  rk.capi = true
+  local mr, ur = diff(rk, Et.L)
+  check(ret ~= "" and #mr == 0 and #ur == 0, "Ia3.plan_a rend les clés de Et.L sauf capi : hors liste [" .. table.concat(mr, ", ") .. "], absentes [" .. table.concat(ur, ", ") .. "]")
+  local tsrc = slurp("script/team/team.lua") or ""
+  local users, bad = {}, {}
+  local pos = 1
+  while true do
+    local a, b = tsrc:find("%f[%w_]et%.L%f[^%w_]", pos)
+    if not a then break end
+    local after = tsrc:sub(b + 1, b + 1)
+    if after ~= "." then
+      local c = callee_at(tsrc, a)
+      if c then users[c] = true end
+    end
+    pos = b + 1
+  end
+  for c in pairs(users) do if c ~= "Ia3.plan_capi" and c ~= "Ia3.plan_b" then bad[#bad + 1] = c end end
+  table.sort(bad)
+  check(users["Ia3.plan_capi"] and users["Ia3.plan_b"] and #bad == 0, "et.L passé à Ia3.plan_capi et Ia3.plan_b seulement (autres : " .. table.concat(bad, ", ") .. ")")
+  -- mutants : liste L privée d'une clé lue ; source de plan_b qui lit une clé nouvelle ; plan_a qui rend une clé de plus
+  local shortL = {}
+  for i = 2, #Et.L do shortL[#shortL + 1] = Et.L[i] end
+  local m3 = diff(readL, shortL)
+  check(#m3 == 1 and m3[1] == Et.L[1], "mutant : liste L sans « " .. Et.L[1] .. " » refusée")
+  local f2 = SCAN("  local x = L.cle_nouvelle\n", "L")
+  check(f2.cle_nouvelle == true, "mutant du source : clé nouvelle de L vue")
+  local rk2 = {}
+  for k in ("{ w = w, nouvelle = 1 }"):gmatch("([%a_][%w_]*)%s*=") do rk2[k] = true end
+  local m4 = diff(rk2, Et.L)
+  check(#m4 == 1 and m4[1] == "nouvelle", "mutant : plan_a qui rend une clé hors liste refusé")
+end
+
 if os.getenv("FO_STATIQUE") then
   print(string.format("[DECOUPAGE-PENSEE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
   os.exit(failures == 0 and 0 or 1)
@@ -508,6 +680,27 @@ for _, k in ipairs(survivors) do if Et.RARES[k] then rares[#rares + 1] = k else 
 print(string.format("  %d mutant(s), %d survivant(s) dont %d de branche rare (Et.RARES)%s", #all, #survivors, #rares,
   #rares > 0 and (" : " .. table.concat(rares, ", ")) or ""))
 check(#plain == 0, "aucun champ gardé inutile en 3 min (survivants hors Et.RARES : " .. table.concat(plain, ", ") .. ")")
+-- Mutants de L : chaque clé retirée de Et.L, L NON strict (FO_L_LACHE=1 : la clé vaut nil en E1b et E1c) ; jugés sur le résultat.
+local survL, unkL, diffL = {}, {}, 0
+for _, k in ipairs(Et.L) do
+  local out = TMP .. "/decoupage_mutL_" .. k
+  while lua_count() >= LUA_MAX do os.execute("ping -n 16 127.0.0.1 > nul") end
+  local hh = io.popen(string.format('set "FO_L_LACHE=1" && %s %s --run bloc 3 "%s" --sans L.%s 2>&1', LUA, SELF, out, k))
+  local text = hh:read("*a")
+  hh:close()
+  if text:find("[DECOUPAGE-RUN] bloc fini", 1, true) then
+    if slurp(out .. "_global.txt") == refg and slurp(out .. "_journal.txt") == refj then survL[#survL + 1] = k else diffL = diffL + 1 end
+  elseif text:find("%S") then
+    diffL = diffL + 1 -- erreur de la partie (clé nil lue) : refusé
+  else
+    unkL[#unkL + 1] = k .. " (tué, sans sortie)"
+  end
+end
+print(string.format("  L : %d mutant(s), %d refusé(s), %d survivant(s)%s", #Et.L, diffL, #survL, #survL > 0 and (" : " .. table.concat(survL, ", ")) or ""))
+check(#unkL == 0, "aucun mutant de L sans verdict : " .. table.concat(unkL, " ; "))
+local rareL = {}
+for _, k in ipairs(survL) do if not Et.RARES["L." .. k] then rareL[#rareL + 1] = k end end
+check(#rareL == 0, "aucune clé de L inutile en 3 min (survivantes hors Et.RARES : " .. table.concat(rareL, ", ") .. ")")
 
 end
 
@@ -519,11 +712,12 @@ check(ok1 and ok2, "deux parties jouées" .. ((ok1 and ok2) and "" or (" : " .. 
 local g1, j1 = slurp(o1 .. "_global.txt"), slurp(o1 .. "_journal.txt")
 check(g1 and g1 == slurp(o2 .. "_global.txt"), "global identique d'une partie à l'autre")
 check(j1 and j1 == slurp(o2 .. "_journal.txt"), "journal identique d'une partie à l'autre")
--- Ordre : chaque pensée commence par team:view ; ses portées suivent l'ordre canonique, à T (E1), T + 1 (E2), T + 2 (E3), T + 3 (E4)
-local ORDER = { { "team:view", 0 }, { "team:plan", 0 }, { "team:board", 0 }, { "team:poles", 0 }, { "team:build", 1 }, { "tt:recon", 2 },
-  { "tt:reparation", 2 }, { "tt:repair", 2 }, { "tt:inter", 3 }, { "team:market", 3 }, { "tt:idle", 3 }, { "team:scale", 3 },
-  { "tt:stock", 3 }, { "tt:spares", 3 }, { "tt:gisement", 3 }, { "tt:foswap", 3 }, { "tt:migchamp", 3 }, { "tt:capital", 3 },
-  { "tt:fin", 3 }, { "faction:attack", 3 } }
+-- Ordre : chaque pensée commence par team:view ; ses portées suivent l'ordre canonique, à T (E1a), T + 1 (E1b), T + 2 (E1c),
+-- T + 3 (E2), T + 4 (E3), T + 5 (E4), T + 6 (E5), T + 7 (E6 et la queue)
+local ORDER = { { "team:view", 0 }, { "team:plan_a", 0 }, { "team:plan_capi", 1 }, { "team:plan", 2 }, { "team:board", 2 },
+  { "team:poles", 2 }, { "team:build", 3 }, { "tt:recon", 4 }, { "tt:reparation", 4 }, { "tt:repair", 4 }, { "tt:inter", 5 },
+  { "team:market", 5 }, { "tt:idle", 5 }, { "team:scale", 5 }, { "tt:stock", 5 }, { "tt:spares", 5 }, { "tt:gisement", 5 },
+  { "tt:foswap", 6 }, { "tt:migchamp", 7 }, { "tt:capital", 7 }, { "tt:fin", 7 }, { "faction:attack", 7 } }
 local rank = {}
 for i, o in ipairs(ORDER) do rank[o[1]] = i end
 local thinks, bad_order, bad_tick, complete = 0, 0, 0, 0
@@ -549,7 +743,7 @@ close()
 print(string.format("  %d pensée(s), %d complète(s) ; hors ordre %d, hors tick %d", thinks, complete, bad_order, bad_tick))
 check(thinks >= 20 and complete >= thinks - 5, "pensées jouées en entier (les dernières peuvent être en cours à la fin)")
 check(bad_order == 0, "ordre des appels gardé")
-check(bad_tick == 0, "étapes à T, T + 1, T + 2, T + 3")
+check(bad_tick == 0, "étapes à T, T + 1 … T + 7")
 local info1 = slurp(o1 .. "_info.txt") or ""
 local ab = 0
 for n in info1:gmatch("abandons (%d+)") do ab = ab + tonumber(n) end
@@ -634,26 +828,29 @@ check(pg > 0, "pensées en étapes après la bascule (" .. pg .. ")")
 end
 
 if not os.getenv("FO_SEULE5") or os.getenv("FO_SEULE7") then
-section("7. Signature des champs gardés au changement de configuration (relecture de 6fcfe757, 3 min)")
+section("7. Signature et version au changement de configuration (relecture de 6fcfe757 ; suite E1-E4, 3 min)")
 local oks, os7 = sub("sig", 3, "sig")
 check(oks, "partie jouée")
 local is = slurp(os7 .. "_info.txt") or ""
 local js = slurp(os7 .. "_journal.txt") or ""
-local seen = { autre = 0, sans = 0, meme = 0 }
+local seen = { autre = 0, sans = 0, version = 0, meme = 0 }
 local bad = {}
-for how, after, n in is:gmatch("sig %S+ (%a+) (%a+) pensees_apres (%d+)") do
+for how, after, n in is:gmatch("sig %S+ (%a+) (%a+) pensees_apres (%-?%d+)") do
   seen[how] = seen[how] + 1
   local want = (how == "meme") and "garde" or "efface"
   if after ~= want or tonumber(n) < 1 then bad[#bad + 1] = how .. " " .. after .. " " .. n end
 end
-print(string.format("  équipes : autre signature %d, sans signature %d, même signature %d", seen.autre, seen.sans, seen.meme))
-check(seen.autre == 1 and seen.sans == 1, "une pensée d'une autre signature et une sans signature au changement de configuration")
-check(#bad == 0, "autre ou sans signature : effacée ; même signature : gardée ; chaque équipe repense ensuite (" .. table.concat(bad, " ; ") .. ")")
-local nlog = 0
+print(string.format("  équipes : signature d'a1090657 %d, sans signature %d, version changée %d, même signature %d", seen.autre, seen.sans,
+  seen.version, seen.meme))
+check(seen.autre == 1 and seen.sans == 1 and seen.version == 1 and seen.meme == 1,
+  "une pensée de chaque sorte au changement de configuration (signature d'a1090657, sans signature, version changée, même)")
+check(#bad == 0, "autre signature, sans signature ou version changée : effacée ; même signature : gardée ; chaque équipe repense ensuite (" .. table.concat(bad, " ; ") .. ")")
+local nlog, nver = 0, 0
 for _, l in ipairs(lines_of(js)) do
   if l:find("[FO-ETAPES]", 1, true) and l:find("effacee a l'etape", 1, true) then nlog = nlog + 1 end
+  if l:find("[FO-ETAPES]", 1, true) and l:find("au changement de version du mod (0.6.58 -> 0.6.59)", 1, true) then nver = nver + 1 end
 end
-check(nlog == 2, "deux lignes [FO-ETAPES] « effacée » au journal (" .. nlog .. ")")
+check(nlog == 3 and nver == 1, "trois lignes [FO-ETAPES] « effacée » au journal, dont une de version (" .. nlog .. ", " .. nver .. ")")
 -- Mutant « signature ignorée » : la migration garde toute pensée en cours, quelle que soit sa signature ; le contrôle doit le voir
 do
   local out = TMP .. "/decoupage_sig_mut"
@@ -666,8 +863,57 @@ do
   for how, after in (slurp(out .. "_info.txt") or ""):gmatch("sig %S+ (%a+) (%a+) pensees_apres") do
     if how ~= "meme" and after == "garde" then kept = kept + 1 end
   end
-  check(okm and kept == 2, "mutant « signature ignorée » refusé : les 2 pensées d'une autre signature restent gardées et le contrôle le voit (" .. kept .. ")")
+  check(okm and kept == 3, "mutant « signature ignorée » refusé : les 3 pensées à effacer restent gardées et le contrôle le voit (" .. kept .. ")")
 end
+do -- mutant « version ignorée » : la migration n'applique que la règle de la signature
+  local out = TMP .. "/decoupage_sig_mutv"
+  while lua_count() >= LUA_MAX do os.execute("ping -n 16 127.0.0.1 > nul") end
+  local hh = io.popen(string.format('set "FO_MUT_SIG=version" && %s %s --run sig 3 "%s" 2>&1', LUA, SELF, out))
+  local text = hh:read("*a")
+  hh:close()
+  local okm = text:find("[DECOUPAGE-RUN] sig fini", 1, true) ~= nil
+  local vkept = (slurp(out .. "_info.txt") or ""):find("sig %S+ version garde") ~= nil
+  check(okm and vkept, "mutant « version ignorée » refusé : la pensée de la version changée reste gardée et le contrôle le voit")
+end
+end
+
+if not os.getenv("FO_SEULE5") then
+section("8. Sonde : tables des copies gardées atteignables depuis global (mode bloc, 3 min)")
+local okp, op = sub("sonde", 3, "sonde")
+check(okp, "partie jouée")
+local ip = slurp(op .. "_info.txt") or ""
+local calls, nal, ndecl, nref, nbad = ip:match("sonde appels (%d+) alias (%d+) declares (%d+) references (%d+) fausses (%d+)")
+print(string.format("  %s copie(s) sondée(s) ; alias non déclarés %s ; déclarés (gardés par référence, Et.REF_VIEW et Et.REF_L) %s ; références vérifiées %s, fausses %s",
+  tostring(calls), tostring(nal), tostring(ndecl), tostring(nref), tostring(nbad)))
+for l in ip:gmatch("\nalias ([^\n]+)") do print("    " .. l) end
+check(tonumber(calls or 0) > 0 and tonumber(nal or -1) == 0, "aucune table d'une copie gardée n'est une table de global, hors champs déclarés")
+check(tonumber(nref or 0) > 0 and tonumber(nbad or -1) == 0, "champs déclarés gardés par référence (même table que global)")
+
+section("9. Unités de travail par étape (mode étapes, " .. MIN .. " min ; instructions Lua ; information)")
+local oku, ou = sub("unites", MIN, "unites")
+check(oku, "partie jouée")
+local per, think = {}, {}
+for n, t0, u in (slurp(ou .. "_info.txt") or ""):gmatch("unites (%d+) (%d+) (%d+)") do
+  n, t0, u = tonumber(n), tonumber(t0), tonumber(u)
+  local s = per[n] or { max = 0, sum = 0, k = 0 }
+  per[n] = s
+  s.max, s.sum, s.k = math.max(s.max, u), s.sum + u, s.k + 1
+  local th = think[t0] or { e1 = 0, e4 = 0 }
+  think[t0] = th
+  if n <= 3 then th.e1 = th.e1 + u elseif n >= 6 then th.e4 = th.e4 + u end
+end
+local NAMES = Et.STAGES
+for n = 1, #NAMES do
+  local s = per[n]
+  if s then print(string.format("  %-4s %4d fois : max %10d, moyenne %10d", NAMES[n], s.k, s.max, math.floor(s.sum / s.k))) end
+end
+local e1max, e4max = 0, 0
+for _, th in pairs(think) do e1max = math.max(e1max, th.e1); e4max = math.max(e4max, th.e4) end
+local s1 = math.max((per[1] or {}).max or 0, (per[2] or {}).max or 0, (per[3] or {}).max or 0)
+local s4 = math.max((per[6] or {}).max or 0, (per[7] or {}).max or 0, (per[8] or {}).max or 0)
+print(string.format("  E1 entier : max %d ; plus grosse tranche E1a-E1c : %d (%.0f %%)", e1max, s1, e1max > 0 and 100 * s1 / e1max or 0))
+print(string.format("  E4 entier : max %d ; plus grosse tranche E4-E6 : %d (%.0f %%)", e4max, s4, e4max > 0 and 100 * s4 / e4max or 0))
+check(per[1] and per[2] and per[3] and per[6] and per[7] and per[8], "toutes les étapes comptées")
 end
 
 print(string.format("[DECOUPAGE-PENSEE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
