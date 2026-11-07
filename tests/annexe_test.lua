@@ -724,6 +724,40 @@ do
 end
 
 do
+  print("== Lot STOCKAGE-VITAL : compteurs des depots refuses et des poches pleines (une ligne chacun par minute)")
+  local DEPR = { reserve = true }
+  local f = team(10)
+  f.hq.items.coal = 50 * 10 -- stock plein
+  local saved_tick = game.tick
+  local function has(pat) for _, s in ipairs(logs) do if s:find(pat, 1, true) then return s end end return nil end
+  for i = #logs, 1, -1 do logs[i] = nil end
+  game.tick = 1000
+  Stock.insert(f, "stone", 30, DEPR)
+  Stock.insert(f, "copper-plate", 20, DEPR) -- meme passage au QG (meme tick)
+  Stock.insert(f, "stone", 5) -- hors depot d'un PNJ : pas compte
+  game.tick = 1600
+  Stock.insert(f, "stone", 10, DEPR) -- second passage
+  local w = f.stock_refused_win
+  check(w and w.visits == 2 and w.calls == 3 and w.items == 60, "depots refuses : 2 passages, 3 objets d'un depot, 60 objets (" .. (w and (w.visits .. "/" .. w.calls .. "/" .. w.items) or "nil") .. ")")
+  local function inv(size, empty)
+    local t = setmetatable({}, { __len = function() return size end })
+    t.count_empty_stacks = function() return empty end
+    return t
+  end
+  Stock.note_claim(f, inv(80, 4), 1000) -- 76/80 = 95 % : pleine
+  Stock.note_claim(f, inv(80, 10), 1000) -- 70/80 = 87,5 % : non
+  Stock.note_claim(f, inv(80, 8), 1000) -- 72/80 = 90 % : pleine (seuil compris)
+  local q = f.stock_claim_win
+  check(q and q.n == 3 and q.full == 2, "poches pleines : 2 prises sur 3 a 90 % ou plus (" .. (q and (q.full .. "/" .. q.n) or "nil") .. ")")
+  Stock.grow(f, {}, 1000 + 1800) -- fenetre pas finie : aucune ligne
+  check(not has("depots refuses de PNJ") and not has("poches pleines"), "fenetre en cours : aucune ligne")
+  Stock.grow(f, {}, 1000 + Stock.COUNT_LOG)
+  local l1, l2 = has("depots refuses de PNJ : 2 passage(s) au QG, 3 objet(s) d'un depot refuse(s), 60 objet(s)"), has("poches pleines : 2 prise(s) de tache sur 3")
+  check(l1 ~= nil and l2 ~= nil and f.stock_refused_win == nil and f.stock_claim_win == nil, "fin de fenetre : une ligne chacun, compteurs remis")
+  game.tick = saved_tick
+end
+
+do
   print("== Lot STOCKAGE-VITAL : le stock prend-il tout un contenu ? (Stock.room, Stock.can_take)")
   local function inv_readable(e)
     local iv = e.get_inventory()
