@@ -11,8 +11,12 @@
     P3. Par bandes (1 bande par passe), partie entière : à chaque fin de relevé, l'état est celui du relevé d'un bloc (monde figé pendant
         le relevé) ; décisions du journal identiques à P1, au décalage de quelques passes près.
     P4. Sauvegarde (copie de l'état) au milieu d'un relevé : même fin que la partie continue.
-    P5. Jeton : 3 équipes dont les horloges tombent au même tick ; jamais deux relevés lourds sur un tick ; chaque raccord finit par
-        partir.
+    P5. Jeton : 3 équipes dont les horloges tombent au même tick ; chaque raccord finit par partir. Lot LOURD (point 2) : au budget du
+        tick (script/core/lourd.lua), tout relevé lourd tombe sur un tick où son demandeur est servi, plusieurs par tick sans dépasser le
+        budget ; témoin J.COSTS = faux (règle de la 0.6.61) : jamais deux relevés lourds sur un tick.
+    P14. Témoin d'identité (lot LOURD, point 2) : la partie de P8 avec le jeton de la 0.6.61 (tests/fixtures/pouls_jeton_0661.lua) et avec
+        l'ordonnanceur à J.COSTS = faux : demandes, journal et fin identiques ; à budget infini : aucun refus, mêmes décisions et même fin.
+    P15. Coût déclaré au jeton (Rv.cout, Ra.cout) = chunks vraiment relevés au pas suivant.
     P6. Boîte des chunks (script/team/boite_chunks.lua) : relevée en entier à la première demande, puis tenue par on_chunk_generated.
     Mutants (texte de la source changé, par package.preload) : ils DOIVENT tous être vus.
   Usage : lua5.2 tests/pouls_test.lua
@@ -221,7 +225,8 @@ package.loaded["script.core.storage"] = {
 }
 
 local function load_mods(mut)
-  for _, m in ipairs({ "script.team.reseau_vivant", "script.team.raccord", "script.team.pouls_jeton", "script.team.boite_chunks" }) do
+  for _, m in ipairs({ "script.team.reseau_vivant", "script.team.raccord", "script.team.pouls_jeton", "script.team.boite_chunks",
+    "script.core.lourd" }) do
     package.loaded[m] = nil
     package.preload[m] = nil
   end
@@ -331,24 +336,29 @@ end
 
 local function p2(Rv, worlds)
   local diffs, runs, first = 0, 0, nil
-  local saved_band = Rv.BAND
+  local saved_band, saved_cols = Rv.BAND, Rv.COLS
   for seed = 1, worlds do
     local w, f = random_world(seed, "fo-test")
     local sfc = surface_of(w)
     local want = nr_str(ref_net_read(f, sfc, f.build))
     for _, band in ipairs({ 1, 2, 3 }) do
       Rv.BAND = band
-      for _, per in ipairs({ 1, 2, 3 }) do
-        local got = nr_str((banded(Rv, f, sfc, box_of(w), per)))
-        runs = runs + 1
-        if got ~= want then
-          diffs = diffs + 1
-          first = first or string.format("graine %d, bande %d, %d par passe : par bandes %s ; d'un bloc %s", seed, band, per, got, want)
+      -- lot LOURD (point 1 bis) : tranches de 1, 2, 3 chunks de large, et toute la largeur
+      for _, cols in ipairs({ 1, 2, 3, math.huge }) do
+        Rv.COLS = cols
+        for _, per in ipairs({ 1, 2, 3 }) do
+          local got = nr_str((banded(Rv, f, sfc, box_of(w), per)))
+          runs = runs + 1
+          if got ~= want then
+            diffs = diffs + 1
+            first = first or string.format("graine %d, bande %d, tranche %s, %d par passe : par bandes %s ; d'un bloc %s", seed, band,
+              tostring(cols), per, got, want)
+          end
         end
       end
     end
   end
-  Rv.BAND = saved_band
+  Rv.BAND, Rv.COLS = saved_band, saved_cols
   return diffs, runs, first
 end
 
@@ -468,29 +478,50 @@ local function p5(Rv, Ra, Jeton)
       end
     end, fstop = function() end }
   end
+  -- lot LOURD (point 2) : jetons donnés, par tick : nombre, somme des coûts déclarés (comptés comme l'ordonnanceur), demandeurs servis
+  local grants = {}
+  local JW = { take = function(t, who, per, cost)
+    local r = Jeton.take(t, who, per, cost)
+    if r then
+      local g = grants[t] or { n = 0, sum = 0, who = {} }
+      grants[t] = g
+      g.n = g.n + 1
+      g.sum = g.sum + ((Jeton.COSTS and cost) or Jeton.BUDGET)
+      g.who[who] = true
+    end
+    return r
+  end }
   local starts, due = {}, {}
   for t = 0, 16 * 3600, 5 do
     game.tick = t
     for i, f in ipairs(teams) do
       local p = prof_for(f.key)
-      Rv.step({ cancel = api_old.cancel, plant = api_old.plant, box = function() return box end, jeton = Jeton, prof = p }, f, sfc, t)
+      Rv.step({ cancel = api_old.cancel, plant = api_old.plant, box = function() return box end, jeton = JW, prof = p }, f, sfc, t)
       local st = f.build.raccord
       local before = st and st.next
-      Ra.step({ request = function() return nil end, prio = 50, champ_live = false, jeton = Jeton, prof = p, box = function() return box end }, f, sfc, t)
+      Ra.step({ request = function() return nil end, prio = 50, champ_live = false, jeton = JW, prof = p, box = function() return box end }, f, sfc, t)
       st = f.build.raccord
       if st and before and st.next ~= before then
         starts[#starts + 1] = { team = i, t = t, due = before }
       end
     end
   end
-  local clash, heavy_ticks = 0, 0
-  for _, l in pairs(per_tick) do
+  local clash, heavy_ticks, ungranted = 0, 0, 0
+  for t, l in pairs(per_tick) do
     heavy_ticks = heavy_ticks + 1
     if #l > 1 then clash = clash + 1 end
+    for _, who in ipairs(l) do if not (grants[t] and grants[t].who[who]) then ungranted = ungranted + 1 end end
+  end
+  local over, shared = 0, 0
+  for _, g in pairs(grants) do
+    if g.n > 1 then
+      shared = shared + 1
+      if g.sum > Jeton.BUDGET then over = over + 1 end
+    end
   end
   local late = 0
   for _, x in ipairs(starts) do if x.t - x.due > 600 then late = late + 1 end end
-  return { clash = clash, heavy_ticks = heavy_ticks, starts = #starts, late = late }
+  return { clash = clash, heavy_ticks = heavy_ticks, starts = #starts, late = late, ungranted = ungranted, over = over, shared = shared }
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -608,6 +639,34 @@ local function p12(Rv)
 end
 
 ---------------------------------------------------------------------------------------------------
+-- Lot LOURD (point 2, P14) : trace des demandes (tick, demandeur, réponse), journal et état final de chaque équipe, pour comparer deux
+-- ordonnanceurs sur la même partie
+---------------------------------------------------------------------------------------------------
+local function capture(asks, teams)
+  local tl = {}
+  for t in pairs(asks) do tl[#tl + 1] = t end
+  table.sort(tl)
+  local tr = {}
+  for _, t in ipairs(tl) do
+    local ws = {}
+    for who in pairs(asks[t]) do ws[#ws + 1] = who end
+    table.sort(ws)
+    for _, who in ipairs(ws) do tr[#tr + 1] = t .. ":" .. who .. "=" .. (asks[t][who] and "1" or "0") end
+  end
+  local finals = {}
+  for _, f in ipairs(teams) do
+    local sv, st = f.build.sante or {}, f.build.raccord or {}
+    local n = st.n or {}
+    finals[#finals + 1] = string.format("%s ilots %s sans %s demande %s sain %s perdus %s decisions %s ; raccord %s/%s/%s/%s/%s", f.key,
+      tostring(sv.islands), tostring(sv.uncovered), tostring(sv.demand), tostring(sv.healthy), tostring(sv.lost_links),
+      tostring(sv.decisions), tostring(n.demandes), tostring(n.finis), tostring(n.refuses), tostring(n.repares), tostring(n.fils))
+  end
+  local lg = {}
+  for i, l in ipairs(logs) do lg[i] = l end
+  return { trace = tr, logs = lg, finals = finals }
+end
+
+---------------------------------------------------------------------------------------------------
 -- P8 (revue de la 0.6.59, point 3) : jeton équitable, 4 factions et votre équipe (appelée la dernière) en relevés longs à la fois
 ---------------------------------------------------------------------------------------------------
 --- Rend, pour chaque demandeur, la plus longue suite de refus ET le plus grand nombre de demandeurs d'un même tick pendant cette suite ;
@@ -630,8 +689,8 @@ local function p8(Rv, Ra, Jeton)
   local saved_band = Rv.BAND
   Rv.BAND, Rv.BANDS_PER_PULSE = 1, 1
   local asks = {} -- [tick] = { [who] = vrai/faux }
-  local J = { take = function(t, who)
-    local r = Jeton.take(t, who)
+  local J = { take = function(t, who, per, cost)
+    local r = Jeton.take(t, who, per, cost)
     asks[t] = asks[t] or {}
     asks[t][who] = r
     return r
@@ -667,7 +726,7 @@ local function p8(Rv, Ra, Jeton)
       end
     end
   end
-  return worst, bands
+  return worst, bands, capture(asks, teams)
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -705,10 +764,12 @@ local function p9(Rv, Ra, Jeton)
   Jeton.reset()
   local saved_band = Rv.BAND
   Rv.BAND, Rv.BANDS_PER_PULSE = 1, 1
-  local grants = {}
-  local J = { take = function(t, who)
-    local r = Jeton.take(t, who)
+  local grants, asks = {}, {}
+  local J = { take = function(t, who, per, cost)
+    local r = Jeton.take(t, who, per, cost)
     if r then grants[t] = grants[t] or {}; grants[t][who] = true end
+    asks[t] = asks[t] or {}
+    asks[t][who] = r
     return r
   end }
   local fins, deferred = {}, 0
@@ -735,7 +796,8 @@ local function p9(Rv, Ra, Jeton)
   for _, x in ipairs(fins) do if not (grants[x.t] and grants[x.t][x.who]) then bad_fin = bad_fin + 1 end end
   local reliers = 0
   for _, l in ipairs(logs) do if l:find("reseau: production nulle", 1, true) then reliers = reliers + 1 end end
-  return { heavy = #heavy, bad = bad, first = first, fins = #fins, bad_fin = bad_fin, deferred = deferred, reliers = reliers }
+  return { heavy = #heavy, bad = bad, first = first, fins = #fins, bad_fin = bad_fin, deferred = deferred, reliers = reliers,
+    cap = capture(asks, teams) }
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -788,8 +850,8 @@ local function p11(Ra, Jeton)
   local sfc = surface_of(w)
   Jeton.reset()
   local got = {}
-  local J = { take = function(t, who)
-    local r = Jeton.take(t, who)
+  local J = { take = function(t, who, per, cost)
+    local r = Jeton.take(t, who, per, cost)
     if r then got[who] = (got[who] or 0) + 1 end
     return r
   end }
@@ -803,12 +865,93 @@ local function p11(Ra, Jeton)
 end
 
 ---------------------------------------------------------------------------------------------------
+-- P15 (lot LOURD, point 2) : le coût DÉCLARÉ au jeton (Rv.cout, Ra.cout) = les chunks que le pas suivant relève vraiment (somme des
+-- zones passées à find_entities_filtered), à chaque pas, réglages variés, boîte de 76 × 8 chunks (bords coupés en largeur et en hauteur)
+---------------------------------------------------------------------------------------------------
+local function p15(Rv, Ra)
+  logs = {}
+  local w = new_world()
+  local f = team(w, "c", "p15", 0, 0)
+  chunks_for(w, { { -5, -3 }, { 70, 4 } })
+  local base = surface_of(w)
+  local box = box_of(w)
+  local covered = 0
+  local sfc = setmetatable({ find_entities_filtered = function(q)
+    if q.area then covered = covered + (q.area[2][1] - q.area[1][1]) * (q.area[2][2] - q.area[1][2]) / 1024 end
+    return base.find_entities_filtered(q)
+  end }, { __index = base })
+  local saved = { Rv.BAND, Rv.COLS, Rv.BANDS_PER_PULSE, Ra.BAND, Ra.BANDS_PER_PULSE }
+  local bad, n, first = 0, 0, nil
+  local function note(what, want, got)
+    n = n + 1
+    if want ~= got then
+      bad = bad + 1
+      first = first or string.format("%s : déclaré %s, relevé %s", what, tostring(want), tostring(got))
+    end
+  end
+  for _, set in ipairs({ { 1, 32, 1 }, { 1, 32, 2 }, { 2, 7, 3 }, { 3, math.huge, 1 }, { 1, 1, 1 }, { 3, 5, 2 } }) do
+    Rv.BAND, Rv.COLS, Rv.BANDS_PER_PULSE = set[1], set[2], set[3]
+    local j = Rv.bandes.new(box)
+    local done = false
+    repeat
+      local want = Rv.cout(j)
+      covered = 0
+      for _ = 1, Rv.BANDS_PER_PULSE do
+        done = Rv.bandes.band(f, sfc, j)
+        if done then break end
+      end
+      note(string.format("rv %d×%s×%d ligne %d", set[1], tostring(set[2]), set[3], j.y), want, covered)
+    until done
+  end
+  for _, set in ipairs({ { 2, 1 }, { 3, 1 }, { 1, 2 }, { 3, 2 } }) do
+    Ra.BAND, Ra.BANDS_PER_PULSE = set[1], set[2]
+    local j = Ra.generateurs.new(box)
+    local done = false
+    repeat
+      local want = Ra.cout(j.y, j.y_end, j.x1 - j.x0)
+      covered = 0
+      for _ = 1, Ra.BANDS_PER_PULSE do
+        done = Ra.generateurs.band(f, sfc, j)
+        if done then break end
+      end
+      note(string.format("ra %d×%d ligne %d", set[1], set[2], j.y), want, covered)
+    until done
+  end
+  Rv.BAND, Rv.COLS, Rv.BANDS_PER_PULSE, Ra.BAND, Ra.BANDS_PER_PULSE = saved[1], saved[2], saved[3], saved[4], saved[5]
+  return bad, n, first
+end
+
+---------------------------------------------------------------------------------------------------
 -- Jeu de preuves sur la source du jeu
 ---------------------------------------------------------------------------------------------------
 local Rv, Ra, Jeton, Box = load_mods(nil)
 local d2, runs2, first2 = p2(Rv, 200)
-check(runs2 == 1800 and d2 == 0, string.format("P2 : 200 mondes × 9 réglages : par bandes = d'un bloc (%d écart(s) sur %d)%s", d2, runs2,
+check(runs2 == 7200 and d2 == 0, string.format("P2 : 200 mondes × 36 réglages (bandes de 1 à 3 lignes, tranches de 1, 2, 3 chunks ou toute la largeur, 1 à 3 par passe) : par bandes = d'un bloc (%d écart(s) sur %d)%s", d2, runs2,
   first2 and (" ; premier : " .. first2) or ""))
+-- Lot LOURD (point 1 bis) : ORDRE TOTAL des tranches (ligne puis colonne, chaque case une fois), et reprise d'un relevé d'avant ce point
+-- (sauvegarde : pas de j.x, toujours en début de ligne).
+do
+  local zones = {}
+  local stub = { find_entities_filtered = function(q) zones[#zones + 1] = string.format("%g,%g-%g,%g", q.area[1][1] / 32, q.area[1][2] / 32,
+    q.area[2][1] / 32, q.area[2][2] / 32); return {} end }
+  local saved_band, saved_cols = Rv.BAND, Rv.COLS
+  Rv.BAND, Rv.COLS = 1, 3
+  local j = Rv.bandes.new({ x0 = 0, y0 = 0, x1 = 6, y1 = 2 })
+  local n = 0
+  repeat n = n + 1 until Rv.bandes.band({ force = "x" }, stub, j) or n > 50
+  local want = { "0,0-3,1", "3,0-6,1", "6,0-7,1", "0,1-3,2", "3,1-6,2", "6,1-7,2", "0,2-3,3", "3,2-6,3", "6,2-7,3" }
+  check(table.concat(zones, " ") == table.concat(want, " "), "P13 : tranches dans l'ordre ligne puis colonne, chaque case une fois (" ..
+    table.concat(zones, " ") .. ")")
+  local w, f = random_world(5, "fo-test")
+  local sfc = surface_of(w)
+  local jo = Rv.bandes.new(box_of(w))
+  jo.x = nil -- relevé commencé avant ce point (sauvegarde) : début de ligne
+  local k = 0
+  repeat k = k + 1 until Rv.bandes.band(f, sfc, jo) or k > 10000
+  check(nr_str(Rv.bandes.finish(f.build, jo)) == nr_str(ref_net_read(f, sfc, f.build)),
+    "P13 : relevé d'une sauvegarde d'avant ce point (sans j.x) : même fin que net_read d'un bloc")
+  Rv.BAND, Rv.COLS = saved_band, saved_cols
+end
 local r13 = p1_p3(Rv)
 check(r13.same_trace, "P1 : mode bloc (boîte connue, toutes les bandes à la passe) = ancien chemin : état de santé identique à chaque passe")
 check(r13.same_logs and #r13.a.logs > 0, string.format("P1 : journal identique ligne à ligne (%d ligne(s))", #r13.a.logs))
@@ -824,11 +967,20 @@ do
   check(c2.mid_job == true and same and table.concat(c1.logs, NL) == table.concat(c2.logs, NL),
     "P4 : copie de l'état prise au milieu d'un relevé (" .. tostring(c2.mid_job) .. ") : même suite, même journal que la partie continue")
 end
+-- lot LOURD (point 2) : P5 au budget du tick (coûts déclarés : chunks couverts), puis le témoin à la règle de la 0.6.61 (J.COSTS = faux)
 local r5 = p5(Rv, Ra, Jeton)
-check(r5.clash == 0 and r5.heavy_ticks > 0, string.format("P5 : jamais deux relevés lourds sur un tick (%d tick(s) lourd(s), %d en conflit)", r5.heavy_ticks,
-  r5.clash))
+check(r5.heavy_ticks > 0 and r5.ungranted == 0 and r5.over == 0 and r5.shared > 0,
+  string.format("P5 : budget du tick (%d unités) : tout relevé lourd tombe sur un tick où son demandeur est servi (%d hors jeton) ; plusieurs servis sur %d tick(s), jamais au-delà du budget (%d dépassement(s)) ; %d tick(s) lourd(s)",
+    Jeton.BUDGET, r5.ungranted, r5.shared, r5.over, r5.heavy_ticks))
 check(r5.starts >= 30 and r5.late == 0, string.format("P5 : chaque raccord part (%d départs), au plus 600 ticks après son heure (%d en retard)", r5.starts,
   r5.late))
+Jeton.COSTS = false
+local r5b = p5(Rv, Ra, Jeton)
+Jeton.COSTS = true
+check(r5b.clash == 0 and r5b.heavy_ticks > 0 and r5b.ungranted == 0 and r5b.shared == 0,
+  string.format("P5 (témoin J.COSTS = faux, la règle de la 0.6.61) : jamais deux relevés lourds sur un tick (%d tick(s) lourd(s), %d en conflit)",
+    r5b.heavy_ticks, r5b.clash))
+check(r5b.starts >= 30 and r5b.late == 0, string.format("P5 (témoin) : chaque raccord part (%d départs, %d en retard)", r5b.starts, r5b.late))
 local ok6a, ok6b, g6, w6 = p6(Rv, Box)
 check(ok6a, "P6 : boîte relevée en entier à la première demande (surface.get_chunks)")
 check(ok6b, "P6 : chunk généré après : boîte agrandie, son consommateur compté (" .. g6 .. ")")
@@ -879,23 +1031,77 @@ do
   check((bands.player or 0) > 0 and worst["player:rv"] ~= nil and worst["player:rv"].len <= worst["player:rv"].k - 1,
     string.format("P8 : votre équipe, appelée la dernière, n'est jamais affamée (%d bande(s) faites)", bands.player or 0))
 end
+do
+  -- P14 (lot LOURD, point 2) : TÉMOIN D'IDENTITÉ. Deux parties, jouées avec le jeton de la 0.6.61 (tests/fixtures/pouls_jeton_0661.lua, copie
+  -- exacte de script/team/pouls_jeton.lua à a5df66a4), puis avec l'ordonnanceur : la partie de P8 (5 équipes, relevés du réseau et du
+  -- raccord à la fois) et celle de P9 (3 équipes, production nulle, « relier », fins du raccordement).
+  -- (1) J.COSTS = faux (chaque travail coûte tout le budget) : même trace de demandes tick par tick, même journal, même fin ;
+  -- (2) budget infini : rien n'est différé ; mêmes décisions au journal (heures retirées) et même état final que la 0.6.61.
+  local J61 = assert(loadfile("tests/fixtures/pouls_jeton_0661.lua"))("script.team.pouls_jeton")
+  local NL = string.char(10)
+  local worlds = {
+    { "P8 (5 équipes)", function(J) local _, _, cap = p8(Rv, Ra, J); return cap end },
+    { "P9 (3 équipes, relier)", function(J) return p9(Rv, Ra, J).cap end },
+  }
+  for _, wd in ipairs(worlds) do
+    local A = wd[2](J61)
+    Jeton.COSTS = false
+    local B = wd[2](Jeton)
+    Jeton.COSTS = true
+    local saved_budget = Jeton.BUDGET
+    Jeton.BUDGET = math.huge
+    local C = wd[2](Jeton)
+    Jeton.BUDGET = saved_budget
+    check(#A.trace > 0 and table.concat(A.trace, NL) == table.concat(B.trace, NL) and table.concat(A.logs, NL) == table.concat(B.logs, NL)
+      and table.concat(A.finals, NL) == table.concat(B.finals, NL),
+      string.format("P14 %s : J.COSTS = faux = jeton de la 0.6.61 : %d demandes identiques tick par tick, journal (%d lignes) et fin identiques",
+        wd[1], #A.trace, #A.logs))
+    local la, lc = {}, {}
+    for i, l in ipairs(A.logs) do la[i] = strip_time(l) end
+    for i, l in ipairs(C.logs) do lc[i] = strip_time(l) end
+    local refused = 0
+    for _, x in ipairs(C.trace) do if x:sub(-2) == "=0" then refused = refused + 1 end end
+    local same_end = table.concat(A.finals, NL) == table.concat(C.finals, NL)
+    local same_dec = table.concat(la, NL) == table.concat(lc, NL)
+    local diff1 = nil
+    for i = 1, math.max(#la, #lc) do if la[i] ~= lc[i] then diff1 = string.format("ligne %d : %s / %s", i, tostring(la[i]), tostring(lc[i])) break end end
+    check(refused == 0 and same_dec and same_end,
+      string.format("P14 %s : budget infini : %d refus ; mêmes décisions au journal que la 0.6.61 (%d lignes, heures retirées) et même état final%s%s",
+        wd[1], refused, #la, same_end and "" or (" ; 0.6.61 : " .. A.finals[1] .. " / infini : " .. C.finals[1]), diff1 and (" ; " .. diff1) or ""))
+  end
+end
+
+do
+  local bad15, n15, first15 = p15(Rv, Ra)
+  check(n15 > 30 and bad15 == 0, string.format("P15 : coût déclaré au jeton (Rv.cout, Ra.cout) = chunks vraiment relevés au pas suivant (%d pas, %d écart(s))%s",
+    n15, bad15, first15 and (" ; premier : " .. first15) or ""))
+end
 
 ---------------------------------------------------------------------------------------------------
 -- Mutants
 ---------------------------------------------------------------------------------------------------
 local MUT = {
   { "m1 intervalle fermé [y0, y1]", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
-    { { "if p.y >= top and p.y < bottom then", "if p.y >= top and p.y <= bottom then" } }, "p2" },
+    { { "if p.y >= top and p.y < bottom and p.x", "if p.y >= top and p.y <= bottom and p.x" } }, "p2" },
   { "m2 dernière ligne de chunks sautée", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
     { { "y_end = box.y1 + 1", "y_end = box.y1" } }, "p2" },
   { "m3 bande d'un chunk de large", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
-    { { "{ { j.x0 * 32, top }, { j.x1 * 32, bottom } }", "{ { j.x0 * 32, top }, { (j.x0 + 1) * 32, bottom } }" } }, "p2" },
+    { { "{ { left, top }, { right, bottom } }, force = f.force," .. string.char(10) .. "    type = BAND_TYPES",
+      "{ { left, top }, { left + 32, bottom } }, force = f.force," .. string.char(10) .. "    type = BAND_TYPES" } }, "p2" },
+  -- lot LOURD (point 1 bis) : tranches en largeur
+  { "m15 intervalle fermé en x [gauche, droite]", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
+    { { "and p.x >= left and p.x < right then", "and p.x >= left and p.x <= right then" } }, "p2" },
+  { "m16 dernière tranche d'une ligne sautée", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
+    { { "  if xb >= j.x1 then" .. string.char(10) .. "    j.x, j.y = j.x0, yb", "  if xb >= j.x1 - 1 then" .. string.char(10) .. "    j.x, j.y = j.x0, yb" } }, "p2" },
+  { "m17 tranche qui n'avance pas de toute sa largeur", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
+    { { "    j.x = xb" .. string.char(10), "    j.x = xa + 1" .. string.char(10) } }, "p2" },
   { "m4 jeton ignoré par le raccord", "script.team.raccord", "script/team/raccord.lua",
-    { { 'if api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":ra") then return end', "if false then return end" } }, "p5" },
+    { { '      if api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":ra", nil,' .. string.char(10),
+      '      if false and api.jeton.take(tick, (f.key or "player") .. ":ra", nil,' .. string.char(10) } }, "p5" },
   { "m5 boîte non tenue à on_chunk_generated", "script.team.boite_chunks", "script/team/boite_chunks.lua",
     { { "if b then grow(b, e.position.x, e.position.y) else", "if b then elseif false then" } }, "p6" },
   { "m6 jeton ignoré par le relevé du réseau", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
-    { { 'if api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":rv") then return nil end', "if false then return nil end" } }, "p5" },
+    { { 'if api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":rv", nil, Rv.cout(j)) then return nil end', "if false then return nil end" } }, "p5" },
   { "m9 relier sans relevé frais par net_read d'un bloc (hors jeton)", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
     { { "local rbox = api.box and api.box(surface)", "local rbox = nil" } }, "p9" },
   { "m10 fin du raccordement sans le jeton", "script.team.raccord", "script/team/raccord.lua",
@@ -905,8 +1111,15 @@ local MUT = {
   { "m12 raccord : jeton pris avant de lire la centrale (ordre d'avant)", "script.team.raccord", "script/team/raccord.lua",
     { { "    -- (revue de la 0.6.59, point 7 : la centrale est lue AVANT le jeton ; rien à relever, le jeton reste aux autres)",
       "    if api.jeton and not api.jeton.take(tick, (f.key or 'player') .. ':ra') then return end" } }, "p11" },
-  { "m8 jeton à priorité fixe (file ignorée)", "script.team.pouls_jeton", "script/team/pouls_jeton.lua",
-    { { "(s.q[1] ~= nil and s.q[1] ~= who)", "false" } }, "p8" },
+  { "m8 jeton à priorité fixe (file ignorée)", "script.core.lourd", "script/core/lourd.lua",
+    { { "local ok = (used + r + c <= J.BUDGET) or (used == 0 and not ahead)", "local ok = (used + c <= J.BUDGET) or (used == 0)" } }, "p8" },
+  -- lot LOURD (point 2) : coût déclaré = chunks vraiment relevés
+  { "m18 Rv.cout sans la tranche coupée au bord droit", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
+    { { "math.min(x + Rv.COLS, j.x1)", "(x + Rv.COLS)" } }, "p15" },
+  { "m19 Ra.cout sans la dernière bande coupée", "script.team.raccord", "script/team/raccord.lua",
+    { { "    n = n + (yb - y) * width", "    n = n + Ra.BAND * width" } }, "p15" },
+  { "m20 coût déclaré ignoré par l'ordonnanceur (un travail par tick)", "script.core.lourd", "script/core/lourd.lua",
+    { { "local c = (J.COSTS and cost) or J.BUDGET", "local c = J.BUDGET" } }, "p5budget" },
   { "m13 la centrale attend la fin du relevé (avant le point 4)", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
     { { "  do" .. string.char(10) .. "    if tick < sv.next then return end",
       "  if sv.nr_job then return end" .. string.char(10) .. "  do" .. string.char(10) .. "    if tick < sv.next then return end" } }, "p12" },
@@ -914,7 +1127,7 @@ local MUT = {
     { { "local out = { islands = 0, uncovered = 0, nets = {}, live = live }", "live = j.gn; local out = { islands = 0, uncovered = 0, nets = {}, live = live }" } }, "p7" },
   -- lot LOURD : les bandes suivantes du relevé des générateurs (début du raccord) prennent le jeton
   { "m14 raccord : bandes des générateurs sans le jeton", "script.team.raccord", "script/team/raccord.lua",
-    { { 'elseif api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":ra") then', "elseif false then" } }, "p9" },
+    { { 'elseif api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":ra", nil, Ra.cout(lj.y, lj.y_end, lj.x1 - lj.x0)) then', "elseif false then" } }, "p9" },
 }
 for _, m in ipairs(MUT) do
   local Rvm, Ram, Jm, Bm = load_mods({ m[2], m[3], m[4] })
@@ -923,7 +1136,11 @@ for _, m in ipairs(MUT) do
     local d = p2(Rvm, 60)
     seen = d > 0
   elseif m[5] == "p5" then
-    seen = p5(Rvm, Ram, Jm).clash > 0
+    seen = p5(Rvm, Ram, Jm).ungranted > 0
+  elseif m[5] == "p5budget" then
+    seen = p5(Rvm, Ram, Jm).shared == 0
+  elseif m[5] == "p15" then
+    seen = p15(Rvm, Ram) > 0
   elseif m[5] == "p12" then
     local lost_at, fixed_at = p12(Rvm)
     seen = not (lost_at and fixed_at and fixed_at - lost_at <= Rvm.PERIOD + 5)

@@ -43,6 +43,7 @@ require("script.ai3.soldats") -- lot IA3-k : rôles des soldats (patrouille, gar
 require("script.faction.commander")
 require("script.faction.war")
 require("script.ai3.exploration") -- lot IA3-f : carte de connaissance, yeux des PNJ, éclaireurs (exploration sous brouillard)
+require("script.ai3.jalons") -- lot VIDEO-TRACES (V03) : journal [FO-JALON], époque atteinte par chaque faction
 
 -- Mode défense de tours (activable à tout moment)
 require("script.td.director")

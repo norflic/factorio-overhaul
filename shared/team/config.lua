@@ -87,6 +87,9 @@ T.TURRET_TYPES = { "ammo-turret", "electric-turret", "fluid-turret", "turret", "
 -- au plus ; radius : tuiles autour d'un avant-poste ou l'on cherche les poteaux ; prio : priorite de la fabrication (sous le fer des
 -- objectifs, au-dessus de l'armee).
 T.swap = { every = 300, per_pass = 2, craft_cap = 4, radius = 24, prio = 47 }
+-- Lot FOREUSES-THERMIQUES : poteaux de la chaîne posée par le remplacement (petit d'abord : le moyen manque aux bandes du champ dans la
+-- partie du DC) ; lus par script/team/foreuse_swap.lua (Swap.POLES).
+T.swap.poles = { "small-electric-pole", "medium-electric-pole" }
 T.outposts = {
   coal   = { resource = "coal",       sink = "iron-chest",    product = "coal",         drills = 4 },
   iron   = { resource = "iron-ore",   sink = "stone-furnace", product = "iron-plate",   drills = 8 },

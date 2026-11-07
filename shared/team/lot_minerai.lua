@@ -1,8 +1,8 @@
 --[[
   Lot L9 de la feuille de route « Factorio Automated » (docs/VIDEO_AUTOMATISATION.md §6 L9 ; docs/TODO_VIDEO.md V45, V46, V47, G37, G42,
   G43, G57) : SONDER AVANT DE DÉCIDER, MINERAI D'ABORD. Règle PURE (aucune API Factorio, aucun nom d'objet : les ressources et leurs seuils
-  viennent de l'appelant, lus en données). Testée hors jeu : tests/lot_minerai_test.lua. NON BRANCHÉE (plan :
-  fo-logs/2026-11-07_VIDEO-AUTOMATISATION/PLAN_L9.md).
+  viennent de l'appelant, lus en données). Testée hors jeu : tests/lot_minerai_test.lua. BRANCHÉE EN PARTIE : Lm.states_for et Lm.allows, via
+  script/team/lots_minerai_glue.lua (:53 et :62) ; Lm.ores, Lm.role, Lm.reserve et Lm.needs_survey ne sont appelées par aucun script.
 
   La source : « If the resource scanner […] detects a large amount of ore in an upcoming Mega tile, that Mega tile will be built as a blank
   Mega tile even if we're in a power crisis », « because we don't know when we'll come across ore again » (M33) ; « whenever we build a tile
