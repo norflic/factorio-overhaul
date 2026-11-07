@@ -16,13 +16,6 @@
 ]]
 local E = {}
 
---- Nombre d'étapes d'une pensée (E1 à E4), une par tick (TT.play de script/team/team.lua), et ÉCART en ticks de E1 à la dernière :
---- une pensée commencée au tick T joue sa dernière étape à T + E.SPAN. Lu par la cadence des factions (shared/faction/cadence.lua,
---- Cd.recent : un créneau qui tombe dans les étapes de la pensée précédente est laissé) ; tests/cadence_moteur_test.lua vérifie au
---- moteur simulé que la dernière étape tombe bien à T + E.SPAN.
-E.STEPS = 4
-E.SPAN = E.STEPS - 1
-
 --- Champs de la vue (Team.view) lus par E4 (Team.measure, Team.effectif_journal et Team.plafond_journal compris). Liste TRIÉE.
 --- Relevé du 7/11 : lecture de TT.e4 et des fonctions qui reçoivent `view`, et passage d'enregistrement de 10 min.
 E.VIEW = { "effectif", "emergency", "grow_due", "iron_reserve", "recover_floor", "recruit_cost", "stock", "threatened", "workers",
@@ -35,6 +28,13 @@ E.PLAN = { "emergency_recruit", "emergency_unarmed", "grow_short", "ia3", "missi
 
 --- Étapes d'une pensée, dans l'ordre (une par tick). L'état gardé porte le numéro de la PROCHAINE (2 = E1b … 8 = E6).
 E.STAGES = { "E1a", "E1b", "E1c", "E2", "E3", "E4", "E5", "E6" }
+
+--- Lot X10-S10 : nombre d'étapes d'une pensée (une par tick, TT.play de script/team/team.lua) et ÉCART en ticks de la première à la
+--- dernière : une pensée commencée au tick T joue sa dernière étape à T + E.SPAN (7 pour les 8 étapes). TIRÉS de E.STAGES : une étape de
+--- plus ou de moins les suit. Lu par la cadence des factions (shared/faction/cadence.lua, Cd.recent : un créneau qui tombe dans les étapes
+--- de la pensée précédente est laissé) ; tests/cadence_moteur_test.lua vérifie au moteur simulé que la dernière étape tombe à T + E.SPAN.
+E.STEPS = #E.STAGES
+E.SPAN = E.STEPS - 1
 
 --- Clés de L : sortie d'Ia3.plan_a (script/ai3/cerveau.lua), plus `capi` (Ia3.plan_capi), lues par Ia3.plan_b. Liste TRIÉE.
 E.L = { "army_target", "at_war", "auto", "capi", "floor_item", "harvest", "home", "iron_floor", "key", "known", "mines_open",

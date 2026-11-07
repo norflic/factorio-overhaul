@@ -8,7 +8,7 @@
         pensée suivante tombe au tick du dégât ou au suivant (le mod de test passe après le mod dans un tick : le guet voit la cause au
         tick suivant et pense aussitôt). Une tourelle n'a pas de classe de réparation : c'est f.hit_t qui réveille (revue de 87ac84fe,
         point 2). Puis le rythme normal : pensée suivante au plus 300 ticks plus tard, sauf le cas borné du point 3 (créneau dans les
-        étapes E1 à E4 de la pensée du réveil : laissé, pensée suivante au plus 300 + SPAN ticks plus tard) ;
+        étapes de la pensée du réveil : laissé, pensée suivante au plus 300 + SPAN ticks plus tard) ;
     C : session avec images seulement (joueur connecté) : le joueur téléporté près du QG de la faction 2 ENDORMIE : pensée au tick de la
         téléportation ou au suivant, puis écart d'au plus 300 (même cas borné). Sans joueur (banc sans images) : partie non jouée, dite
         au journal.
@@ -16,7 +16,8 @@
 ]]
 
 local CALM_R, CALM_UNTIL = 250, 1450
-local P, SPAN = 300, 3 -- période des pensées des factions ; écart de E1 à E4 d'une pensée (Et.SPAN de shared/team/etapes.lua)
+local P, SPAN = 300, 7 -- période des pensées des factions ; écart de la première à la dernière des 8 étapes d'une pensée (Et.SPAN de
+                        -- shared/team/etapes.lua, 0.6.62)
 
 local function gaps(ticks, upto)
   local out = {}

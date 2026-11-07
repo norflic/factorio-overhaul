@@ -105,7 +105,7 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Une faction loin de tout joueur et sans menace SAUTE son créneau tant que sa dernière pensée date de moins de Cd.SLOW ticks
 -- (une pensée sur deux à la période de 300) ; endormie (créneau sauté), elle est guettée à chaque tick et repense AU TICK SUIVANT dès
--- qu'une cause la réveille (joueur proche, menace, attaque, perte). Les étapes E1 à E4 de sa pensée ne changent pas (Team.think).
+-- qu'une cause la réveille (joueur proche, menace, attaque, perte). Les étapes de sa pensée (Team.think, shared/team/etapes.lua) ne changent pas.
 -- État : f.cadence = { last, asleep, box, base_alert, mode, logs } (nombres, chaînes, booléens, une table de 4 nombres).
 Commander.CADENCE = true          -- faux : la cadence d'avant (une pensée par créneau), banc témoin
 Commander.CADENCE_LOGS = 20       -- lignes [FO-CADENCE] au plus par faction
@@ -194,7 +194,7 @@ function Commander.think(id, tick, woken)
     local cs = cadence_of(f)
     if cs.last == tick then return end -- déjà pensé à ce tick (réveil et créneau au même tick)
     cs.base_alert = DefChoix.base(f, surface, tick).insecure or nil
-    -- Revue de 87ac84fe : un créneau qui tombe PENDANT les étapes E1 à E4 de la pensée précédente (un réveil quelques ticks avant) est
+    -- Revue de 87ac84fe : un créneau qui tombe PENDANT les étapes de la pensée précédente (un réveil quelques ticks avant) est
     -- laissé, sans endormir la faction (sinon ces étapes se rejouent d'un bloc) ; seuil : l'écart des étapes (Cd.STEP_SPAN), pas la période.
     if not woken and Cd.recent(cs, tick) then return end
     local inp = cadence_input(f, Commander.players_on(war.surface))

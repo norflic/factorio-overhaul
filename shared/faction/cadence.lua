@@ -21,11 +21,11 @@
                           votre base loin de son QG n'est pas pilotée à Cd.SLOW (condition du lead, 7/11 ; IA3 : revue de 87ac84fe).
   Votre équipe garde son rythme (« votre equipe »).
   Au créneau, une faction dont la pensée précédente (un réveil) joue encore ses étapes laisse ce créneau (Cd.recent) : un réveil à
-  T + k suivi du créneau T + P referait penser la faction P − k ticks plus tard, PENDANT les étapes E2 à E4 de la première pour
-  k >= P − Cd.STEP_SPAN, qui se rejoueraient alors d'un bloc (revue de 87ac84fe). Le seuil est l'écart de E1 à E4
-  (shared/team/etapes.lua, E.SPAN = 3), pas la période : une faction réveillée garde son rythme (écart suivant au plus 300), sauf ce
-  cas borné, où sa pensée suivante tombe au plus P + Cd.STEP_SPAN ticks après le réveil (décision du lead, 7/11 : une pensée de plus
-  par réveil coûte peu, les réveils sont rares).
+  T + k suivi du créneau T + P referait penser la faction P − k ticks plus tard, PENDANT les étapes de la première pour
+  k >= P − Cd.STEP_SPAN, qui se rejoueraient alors d'un bloc (revue de 87ac84fe). Le seuil est l'écart de la première à la dernière
+  étape d'une pensée (shared/team/etapes.lua, E.SPAN, tiré de E.STAGES : 7 pour les 8 étapes de la 0.6.62), pas la période : une
+  faction réveillée garde son rythme (écart suivant au plus 300), sauf ce cas borné, où sa pensée suivante tombe au plus
+  P + Cd.STEP_SPAN ticks après le réveil (décision du lead, 7/11 : une pensée de plus par réveil coûte peu, les réveils sont rares).
 
   GARDE FERMÉE PAR DÉFAUT (comme le lot L13) : une entrée absente ne ralentit jamais. Zone inconnue (aucun QG relevé), liste des joueurs
   absente, état de l'armée non dit (army_out ni vrai ni faux) : la faction reste au rythme normal (causes « zone inconnue », « joueurs
@@ -34,7 +34,7 @@
   points de la zone triés par l'appelant, aucun hasard.
 ]]
 
-local Et = require("shared.team.etapes") -- étapes E1 à E4 d'une pensée (Et.SPAN)
+local Et = require("shared.team.etapes") -- étapes d'une pensée (Et.SPAN, tiré de Et.STAGES)
 
 local Cd = {}
 
@@ -42,7 +42,7 @@ Cd.SLOW = 600     -- ticks entre deux pensées d'une faction lointaine et calme 
 Cd.NEAR = 160     -- tuiles autour du QG et des avant-postes : au dézoom le plus large (0,3 à 1 920 px), l'écran montre environ 100 tuiles de
                   -- part et d'autre du joueur ; la faction se réveille avant d'entrer dans son champ (DÉDUIT, pas mesuré)
 Cd.ALERT = 900    -- ticks pendant lesquels une attaque ou une perte la garde éveillée (THREAT_TICKS de shared/team/defchoix.lua)
-Cd.STEP_SPAN = Et.SPAN -- ticks de E1 à la dernière étape d'une pensée (3) : un créneau à moins de cet écart d'un réveil est laissé
+Cd.STEP_SPAN = Et.SPAN -- ticks de la première à la dernière étape d'une pensée (7 en 0.6.62) : un créneau dans cet écart d'un réveil est laissé
 
 --- Zone d'une faction : boîte des points { {x, y}, ... } élargie de `near` tuiles ; nil sans point.
 function Cd.zone(points, near)

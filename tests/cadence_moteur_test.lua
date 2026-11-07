@@ -12,7 +12,7 @@
     §3 quater COUP SUR UNE TOURELLE (point 2) : une tourelle de la faction endormie touchée par une force adverse (sans cause mobile :
        f.attack_alert_t n'est pas écrit) la réveille au tick suivant (f.hit_t, cause « attaque ») ;
     §3 quinquies CRÉNEAU APRÈS UN RÉVEIL (point 3, seuil décidé par le lead) : réveillée 298 ticks après son créneau sauté S, la
-       faction ne repense PAS au créneau S + 300, qui tombe dans les étapes E1 à E4 de la pensée du réveil : sa pensée suivante est à
+       faction ne repense PAS au créneau S + 300, qui tombe dans les étapes de la pensée du réveil (Et.SPAN = 7 en 0.6.62) : sa pensée suivante est à
        S + 600 au plus tard (le seul cas borné) ; réveillée à S + 1, elle repense au créneau S + 300 (rythme gardé) ; la dernière étape
        de la pensée du réveil tombe bien Et.SPAN ticks après elle (shared/team/etapes.lua) ;
     §4 votre équipe garde son rythme (aucune cadence posée sur elle) ; Commander.CADENCE faux : une pensée par créneau ;
@@ -358,6 +358,8 @@ local SRC_MUTANTS = {
       old = "if not woken and Cd.recent(cs, tick) then return end", new = "" }, scene_double },
   { "seuil du creneau porte a la periode (point 3, correction refusee par le lead)", { module = "script.faction.commander", path = CMD,
       old = "Cd.recent(cs, tick)", new = "Cd.recent(cs, tick, Scheduler.period(Commander.LANE))" }, scene_double },
+  { "ecart des etapes fige a 3 (E1 a E4 d'avant la 0.6.62) au lieu d'etre tire de E.STAGES", { module = "shared.team.etapes",
+      path = "shared/team/etapes.lua", old = "E.SPAN = E.STEPS - 1", new = "E.SPAN = 3" }, scene_double },
   { "joueurs relus pour chaque faction endormie (reserve)", { module = "script.faction.commander", path = CMD,
       old = "players = players or Commander.players_on(war.surface)", new = "players = Commander.players_on(war.surface)" },
     function(c) scene_guard(c) end },

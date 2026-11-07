@@ -144,7 +144,8 @@ local function run_all(Cd)
   section("4 bis. creneau qui suit un reveil (Cd.recent) : jamais une pensee dans les etapes de la precedente, rythme garde")
   do
     local SP = Cd.STEP_SPAN
-    check(SP == 3, "4 bis : ecart des etapes lu dans shared/team/etapes.lua (E1 a E4 : 3 ticks) : " .. tostring(SP))
+    local Et = require("shared.team.etapes")
+    check(SP == Et.SPAN and SP == #Et.STAGES - 1 and SP >= 1, "4 bis : ecart des etapes lu dans shared/team/etapes.lua (tire de E.STAGES : " .. #Et.STAGES .. " etapes, " .. tostring(SP) .. " ticks)")
     check(Cd.recent({ last = 100 }, 100 + SP) == true and Cd.recent({ last = 100 }, 101 + SP) == false,
       "4 bis : creneau dans les etapes de la pensee precedente : laisse ; juste apres : la faction pense")
     check(Cd.recent({ last = 100 }, 100) == true, "4 bis : meme tick : creneau laisse")
