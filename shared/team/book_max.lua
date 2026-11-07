@@ -18,11 +18,19 @@
   sinon elle est LINÉAIRE, dans l'ordre n - 1 → 1 de l'ancien code (exacte sans hypothèse).
   Mémoire : la forme du sous-arbre est gardée dans le livre (book._s5), qui est un objet LOCAL (team.lua `books`), hors du global,
   comme book.made (Book:natural).
+
+  INVARIANT DU CACHE book._s5 (revue de 717c1d3f) : la forme gardée n'est juste que si le Book n'est JAMAIS modifié après Book.new
+  (book.recipes, book.by_product, leurs recettes, ingrédients et quantités). Aujourd'hui, aucun code ne le fait : team.lua construit
+  un livre neuf par clé force:tech (`books`), et Book:natural n'ajoute que book.made. Qui voudrait modifier un livre en place doit
+  vider book._s5 (book._s5 = nil) au même moment. Sinon la garde peut dire « théorème » pour un livre qui ne l'est plus, et la
+  dichotomie rendre un autre m que la boucle linéaire : décision changée, et désynchronisation possible en multijoueur entre un
+  client qui a gardé l'ancienne forme et un client qui vient de charger la partie (livre et cache rebâtis à neuf).
 ]]
+
+local Book = require("shared.team.book")
 
 local Bm = {}
 
-Bm.MAX_DEPTH = 12  -- = MAX_DEPTH de shared/team/book.lua (local là-bas ; tests/x10_s5_test.lua relit la source)
 Bm.DICHO = true    -- témoin : false = recherche linéaire seulement (toujours avec le test léger)
 
 local floor, ceil = math.floor, math.ceil
@@ -41,7 +49,7 @@ function Bm.feasible(book, item, n, stock, zero)
     if zero ~= nil then avail[zero] = 0 end
     return next(book:plan({ { item, n } }, avail).raw) == nil
   end
-  local MAXD = Bm.MAX_DEPTH
+  local MAXD = Book.MAX_DEPTH
   local ov, made = {}, {}
   local short = false
   local function need(it, k, depth)
@@ -122,7 +130,7 @@ function Bm.shape(book, item)
   end
   local h = visit(item)
   -- Profondeur d'un appel de `need` = longueur du chemin depuis la racine, au plus h : avec h < MAX_DEPTH, aucune coupure.
-  if h >= Bm.MAX_DEPTH then ok = false end
+  if h >= Book.MAX_DEPTH then ok = false end
   s = { ok = ok, items = items, height = h }
   memo[item] = s
   return s

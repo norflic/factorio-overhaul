@@ -55,6 +55,10 @@
 
 local T = require("shared.team.config")
 local Ca = require("shared.ai3.capitalisation")
+local RangTrace = require("script.ai3.rang_trace") -- lot VIDEO-TRACES (G34) : journal [FO-RANG]
+local Cf = require("shared.ai3.confirmation") -- lot VIDEO-L5 : capacité CONFIRMÉE (première production observée)
+local Sante = require("script.team.sante_centrale") -- étape 5a de VIDEO-INTEG : consommateurs en chantier (vue de la porte du plan directeur)
+local Sc = require("shared.team.sante_centrale") -- étape 5a : S.DRAW (part de sa puissance nominale qu'un chantier tire)
 local Rs = require("shared.ai3.reserve") -- lot INDUSTRIE I1 : description du besoin évalué (journal [FO-RESERVE])
 local L = require("shared.levels.config") -- intégration 0.6.28 : vitesse de plan des bâtiments à niveaux
 local Rp = require("shared.ai3.repli") -- lot CAPI-REPLI : repli par (produit, gisement), matériaux, plafond
@@ -68,6 +72,7 @@ local State = require("script.faction.state")
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Sites = require("script.faction.sites")
 local Profiler = require("script.core.profiler")
+local Events = require("script.core.events") -- lot CAPI-DECIDE : recherche finie pendant une décision, configuration changée
 local General = require("script.ai3.general")
 local Auto = require("script.ai3.automatisation")
 local Build = require("script.team.build")
@@ -82,11 +87,16 @@ local Sv = require("shared.team.survie")
 local Pv = require("shared.ai3.prevision") -- lot PREVISION (C12) : prix de la défense induite
 local Prev = require("script.ai3.prevision") -- lot PREVISION : estimateur unique de la menace (relevé de l'équipe)
 local Ml = require("shared.ai3.mall") -- lot PILE-MALL (relecture) : la demande du mall est un puits de la capitalisation
+local Mq = require("shared.ai3.manque_local") -- lot VIDEO-L3 : manques mesurés des modules finis, puits de la capitalisation (Mq.sinks)
+local AmRt = require("script.ai3.amorce_rt") -- lot VIDEO L7 : retrait de la main à la 1re production observée (L5)
+local TC = require("script.ai3.trace_carte") -- lot VIDEO L11 : trace des ordres sur la carte (réglage fo-debug-trace-carte)
 local Rsv = require("script.ai3.reserve") -- lot INDUSTRIE I1 : le besoin évalué, le stock hors besoin s'investit
 local Dm = require("shared.ai3.demande") -- lot C2 : puits ouvert, emplacements selon les bras libres
 local Ind = require("script.ai3.industrie") -- lot INDUSTRIE I6 : choix du patron (rangée ou bloc de mall), lecture des prototypes
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (ordres neufs, équipement en modules)
 local Pi = require("shared.ai3.pile")
+local Pe = require("shared.ai3.portes_extension") -- lot VIDEO-L6 : portes avant d'étendre (Capi.portes, decide_finish)
+local Pal = require("shared.ai3.palier") -- lot VIDEO-L10 : marches de stabilité, variante B (Capi.palier, decide_start)
 local Ext = require("script.ai3.extension") -- lot C3 EXTENSION : rayon de base (étendue des avant-postes)
 local MigChamp = require("script.team.migration_champ") -- lot CHAMP : « couvrir / ouvrir » d'un minerai à fondre passent par le champ
 
@@ -252,7 +262,8 @@ end
 local function state_of(f)
   local t = f.team
   t.capi = t.capi or { v = 1, n = 0, st = {}, deps = {}, seeds = {}, open = {}, done = {}, refused = {}, prod = {},
-    flows = {}, scan = nil, cov = {}, census_i = 0, decisions = 0, orders = 0, stats = {}, series = {} }
+    flows = {}, scan = nil, cov = {}, census_i = 0, decisions = 0, orders = 0, stats = {}, series = {}, cf = Cf.new() }
+  t.capi.cf = t.capi.cf or Cf.new() -- lot VIDEO-L5 : carnet de confirmation (partie sauvée avant lui : créé ici)
   return t.capi
 end
 
@@ -368,6 +379,68 @@ local function scan_radius(f)
   return es and es.radius and es.radius > Capi.SCAN_R and es.radius or Capi.SCAN_R
 end
 
+-- Lot VIDEO-L5 (confirmation observée, PLAN_L3_L5_L13 étape 3) : cause d'un arrêt lue au statut (noms de defines.entity_status,
+-- API 1.1.91) ; working et normal : aucune.
+local CONF_CAUSE = {}
+do
+  local by_cause = {
+    { "courant", { "no_power", "low_power", "not_plugged_in_electric_network" } },
+    { "entree", { "no_ingredients", "item_ingredient_shortage", "fluid_ingredient_shortage", "missing_required_fluid", "no_input_fluid",
+      "low_input_fluid", "no_fuel", "no_minable_resources", "waiting_for_source_items" } },
+    { "sortie", { "full_output", "waiting_for_space_in_destination" } },
+    { "recette", { "no_recipe" } },
+  }
+  for _, c in ipairs(by_cause) do
+    for _, name in ipairs(c[2]) do
+      local v = defines.entity_status[name]
+      if v ~= nil then CONF_CAUSE[v] = c[1] end
+    end
+  end
+end
+
+--- Lot VIDEO-L5 : suit une unité posée (id = numéro d'unité) sous l'objet `item`, compteur `count` (monotone : produits finis d'une
+--- machine ; ou non : objets d'un coffre). Engagée au premier relevé (base 0 : une machine qui a déjà produit est confirmée tout de
+--- suite) ; objet changé (recette changée) : intention nouvelle, comptée depuis le compteur d'aujourd'hui.
+local function conf_track(cs, obs, g, u, item, count, cause, tick)
+  local old = cs.cf.ids[u]
+  local base = 0
+  if old and old.item ~= item then
+    Cf.forget(cs.cf, u)
+    old, base = nil, count
+  end
+  if not old then Cf.engage(cs.cf, { id = u, item = item, base = base }, tick) end
+  obs[u] = { count = count, cause = cause }
+  g.ids[#g.ids + 1] = u
+end
+
+--- Lot VIDEO-L5 : unités CONFIRMÉES d'un groupe : n moins les unités suivies qui ne comptent pas (engagées, arrêtées hors sortie
+--- pleine, en échec) ; une unité sans compteur (foreuse sur un tapis, recette inconnue) reste comptée comme avant.
+local function conf_group(cs, g)
+  local off = 0
+  for _, u in ipairs(g.ids) do if not Cf.counts(cs.cf, u) then off = off + 1 end end
+  g.n_cap = math.max(0, g.n - off)
+  g.ids = nil
+end
+
+--- Lot VIDEO-L5 : journal [FO-CAPI-CONF] d'un relevé : échecs et arrêts qui retirent la capacité (avec la cause), puis le bilan.
+local function conf_log(f, cs, res, tick)
+  local key = f.key or "?"
+  local mn = minutes(f, tick)
+  for _, e in ipairs(res.failed_now) do
+    log(string.format("[FO-CAPI-CONF] %s : echec %s (unite %s) cause %s : %s a %.1f min", key, e.item, tostring(e.id), tostring(e.cause),
+      tostring(e.why), mn))
+  end
+  for _, e in ipairs(res.stopped_now) do
+    if not e.keep then
+      log(string.format("[FO-CAPI-CONF] %s : arret %s (unite %s) cause %s a %.1f min", key, e.item, tostring(e.id), tostring(e.cause), mn))
+    end
+  end
+  local held = sorted_keys(res.hold)
+  log(string.format("[FO-CAPI-CONF] %s : bilan : %d engage(s), %d confirme(s), %d arrete(s), %d echec(s), %d confirme(s) a ce releve, %d perdu(s) ; suspendus : %s a %.1f min",
+    key, res.n.engage, res.n.confirme, res.n.arrete, res.n.echec, #res.confirmed_now, #res.lost_now,
+    #held > 0 and table.concat(held, " ") or "aucun", mn))
+end
+
 local function scan(f, cs, tick)
   local surface = f.hq.surface
   local hq = f.hq_pos
@@ -389,6 +462,10 @@ local function scan(f, cs, tick)
   local machines, drills, labs = {}, {}, {}
   local mk, dk, lk = {}, {}, {}
   local drill_pos = {}
+  -- Lot VIDEO-L5 : observations du relevé (Capi.MUT.sans_conf : tests seulement, le relevé d'avant, sans confirmation)
+  local conf = not Capi.MUT.sans_conf
+  local obs = conf and {} or nil
+  local D = conf and Capi.data() or nil
   for _, e in ipairs(list) do
     local p = e.position
     local role = R.ENTITY_ROLE[e.type]
@@ -401,11 +478,24 @@ local function scan(f, cs, tick)
         local mods, sig = modules_of(e)
         local k = e.name .. "|" .. res .. "|" .. did .. "|" .. sig
         if not dk[k] then
-          dk[k] = { entity = e.name, resource = res, n = 0, deposit = did, mods = mods, sig = sig, units = {} }
+          dk[k] = { entity = e.name, resource = res, n = 0, deposit = did, mods = mods, sig = sig, units = {}, ids = conf and {} or nil }
           drills[#drills + 1] = dk[k]
         end
         dk[k].n = dk[k].n + 1
         if #dk[k].units < Capi.UNITS_MAX then dk[k].units[#dk[k].units + 1] = { x = p.x, y = p.y, u = e.unit_number } end
+        if conf then
+          -- compteur de la cible : produits finis du four nourri, ou minerai du coffre ; sans l'un ni l'autre (tapis), pas suivie
+          local t = get(e, "drop_target")
+          if t and t.valid then
+            local count = nil
+            if R.ENTITY_ROLE[t.type] == "fabrique" then count = get(t, "products_finished")
+            elseif R.KIT_TYPE[t.type] == "coffre" then
+              local ok, c = pcall(function() return t.get_item_count(res) end)
+              if ok then count = c end
+            end
+            if count ~= nil then conf_track(cs, obs, dk[k], e.unit_number, res, count, CONF_CAUSE[get(e, "status")], tick) end
+          end
+        end
         drill_pos[#drill_pos + 1] = { x = p.x, y = p.y, r = get(e.prototype, "mining_drill_radius") or 1, res = res, dep = did }
       end
     elseif role == "labo" then
@@ -430,15 +520,44 @@ local function scan(f, cs, tick)
         local mods, sig = modules_of(e)
         local k = e.name .. "|" .. r.name .. "|" .. where .. "|" .. sig
         if not mk[k] then
-          mk[k] = { entity = e.name, recipe = r.name, n = 0, where = where, mods = mods, sig = sig, units = {} }
+          mk[k] = { entity = e.name, recipe = r.name, n = 0, where = where, mods = mods, sig = sig, units = {}, ids = conf and {} or nil }
           machines[#machines + 1] = mk[k]
         end
         mk[k].n = mk[k].n + 1
         if #mk[k].units < Capi.UNITS_MAX then mk[k].units[#mk[k].units + 1] = { x = p.x, y = p.y, u = e.unit_number } end
+        if conf then
+          -- objet suivi : le premier produit de la recette (relevé des prototypes) ; compteur : produits finis de la machine (sans
+          -- compteur lisible : pas suivie, comptée comme avant)
+          local rr = D.recipes[r.name]
+          local item = rr and rr.products and rr.products[1] and rr.products[1].name
+          local count = item and get(e, "products_finished")
+          if count ~= nil then conf_track(cs, obs, mk[k], e.unit_number, item, count, CONF_CAUSE[get(e, "status")], tick) end
+        end
       end
     end
   end
-  cs.scan = { tick = tick, machines = machines, drills = drills, labs = labs, drill_pos = drill_pos }
+  -- Lot VIDEO-L5 : un pas de la confirmation (toutes les unités suivies vues : une absente est perdue), unités confirmées de chaque
+  -- groupe (n_cap), objets dont une décision attend (hold, lu par la décision : build_input) ; nil sans confirmation (comme avant).
+  local hold = nil
+  if conf then
+    local cfr = Cf.step(cs.cf, obs, tick, { complete = true })
+    if cfr then
+      for _, g in ipairs(machines) do conf_group(cs, g) end
+      for _, g in ipairs(drills) do conf_group(cs, g) end
+      hold = cfr.hold
+      conf_log(f, cs, cfr, tick)
+      -- lot VIDEO L7 : la main de l'amorce est retirée à la 1re production d'une MACHINE (confirmed_now de L5), jamais sur les
+      -- statistiques de la force (votre équipe partage la force du joueur : ses fabrications à la main y entrent)
+      local ml = f.team.ia3 and f.team.ia3.mall
+      if ml then
+        for _, line in ipairs(AmRt.lines(f, ml, AmRt.observe(f, cs, ml, cfr, cs.cf, tick), minutes(f, tick))) do log(line) end
+      end
+    else
+      for _, g in ipairs(machines) do g.ids = nil end
+      for _, g in ipairs(drills) do g.ids = nil end
+    end
+  end
+  cs.scan = { tick = tick, machines = machines, drills = drills, labs = labs, drill_pos = drill_pos, hold = hold }
   -- Graines de gisements : avant-postes, foreuses, gisements connus (carte d'IA3-f), sites prospectés, lots de gisement
   -- du plan directeur. Une graine déjà dans un gisement recensé n'est pas relue (sauf à l'échéance du recensement).
   local seeds = {}
@@ -754,6 +873,24 @@ local function defense_input(f, D)
   return { price = price, hp_per_emit = dv.hp_per_emit, turret_mu = mu }
 end
 
+--- Étape 5a de VIDEO-INTEG (RD_LOG F391 : input.power n'était jamais rempli, la branche du courant de Ca.decide était morte en jeu) :
+--- courant disponible = machines à vapeur VIVANTES des centrales finies (PA.watch, script/team/plant_arms.lua : f.build.grow.capacity,
+--- J/tick, toutes les 300 ticks). nil sans centrale finie (make_can_exec refuse déjà les modules électriques) ou sans capacité relevée.
+--- used_kw : la vue de la PORTE du plan directeur (S.admit, script/team/sante_centrale.lua) : puissance MESURÉE + S.DRAW × consommateurs
+--- en chantier (choix (a) du lead, 7/11 vers 17 h 05 : la somme nominale des machines relevées dépasse vite la capacité, la capitalisation
+--- refuserait des foreuses que la porte admet) ; la somme nominale va au journal [FO-CAPI-KW], pour comparer. plant : nil (la centrale
+--- grandit par C.growth et Sante, pas par un levier de la capitalisation). Capi.MUT.sans_courant, Capi.MUT.nominal : tests seulement.
+local JTICK_KW = 60 / 1000 -- J/tick -> kW
+function Capi.power_input(f, plant_state)
+  if Capi.MUT.sans_courant or plant_state ~= "fini" then return nil end
+  local g = f.build and f.build.grow
+  local cap = g and g.capacity
+  if type(cap) ~= "number" or cap <= 0 then return nil end
+  if Capi.MUT.nominal then return { have_kw = cap * JTICK_KW } end -- mutant : la somme nominale de la règle (plan.kw_used)
+  local measured = type(g.power) == "number" and g.power > 0 and g.power * JTICK_KW or 0
+  return { have_kw = cap * JTICK_KW, used_kw = measured + Sc.DRAW * Sante.committed(f) }
+end
+
 --- Lot CAPI-DEBIT : emplacements du plan directeur (règle pure shared/ai3/emplacements.lua). Les ordres « module » ouverts, avec
 --- l'état de chacun de leurs modules (Auto.module), leur dernier progrès (follow : entités bâties) ; le stock libre des produits des
 --- fonderies. Journal [FO-CAPI-EMPLACEMENTS] quand le plafond, le compte ou les modules figés changent (jamais à l'horloge).
@@ -822,7 +959,172 @@ function Capi.slots(f, cs, stock, tick, book)
     log(string.format("[FO-CAPI-EMPLACEMENTS] %s : %s ; libres %d ; stock {%s} ; figes [%s] ; pile [%s] a %.1f min", f.key or "?", sl.why, sl.room,
       table.concat(pl, " "), table.concat(sl.keys_stalled, ", "), table.concat(sl.keys_piled, ", "), minutes(f, tick)))
   end
+  -- Lot VIDEO-L6 (porte des bras, G12) : modules de la capitalisation POSÉS (tous leurs projets « fini ») et chantiers OUVERTS (un projet
+  -- ni fini, ni en réserve, ni refusé, ni perdu) ; lus par Capi.portes. Approximation déclarée : seuls les modules de la capitalisation
+  -- comptent (ni les autres projets du plan directeur, ni le QG).
+  -- (relu module par module : la liste `states` ci-dessus s'arrête au premier projet non fini)
+  local batis, open_sites = 0, 0
+  for _, o in ipairs(cs.open or {}) do
+    if o.exec == "module" then
+      for _, id in ipairs(o.mod_ids or { o.module }) do
+        local m = Auto.module(f, id)
+        local s = m and m.state
+        if s == "fini" then batis = batis + 1
+        elseif s ~= nil and s ~= "reserve" and s ~= "refuse" then open_sites = open_sites + 1 end
+      end
+    end
+  end
+  sl.batis, sl.open_sites = batis, open_sites
   return sl
+end
+
+---------------------------------------------------------------------------------------------------
+-- Lot VIDEO-L6 (étape 6 de VIDEO-INTEG) : PORTES AVANT D'ÉTENDRE (règle pure shared/ai3/portes_extension.lua, Pe). Réglage de carte
+-- fo-war-portes, ÉTEINT par défaut ; lu avec repli à « éteint » tant qu'il n'est pas déclaré (settings.lua : intégrateur).
+---------------------------------------------------------------------------------------------------
+Capi.PORTES_SETTING = "fo-war-portes"
+-- Ordres qui AJOUTENT des tournées de PNJ : les chantiers du plan directeur (et du champ) et les laboratoires servis à la main.
+local PORTES_TOURS = { couvrir = true, ouvrir = true, chaine = true, packs = true, labos = true }
+
+function Capi.portes_on()
+  local ok, v = pcall(function() return settings.global[Capi.PORTES_SETTING].value end)
+  return ok and v == true
+end
+
+--- Porte de la décision : { [clé d'ordre] = raison } des ordres retenus, ou nil (réglage éteint : la décision d'avant, inchangée).
+--- Entrées : PNJ et PNJ sans tâche de la vue (view.workers, view.workers_waiting), tâches libres qui attendent (view.backlog, écrit par
+--- Team.view), modules posés et chantiers ouverts (cs.slots, Capi.slots). État : cs.portes (nombres, booléens, une chaîne).
+function Capi.portes(f, cs, res, view, tick)
+  if not Capi.portes_on() then return nil end
+  cs.portes = cs.portes or Pe.new()
+  local sl = cs.slots or {}
+  local a = { workers = view.workers, idle = view.workers_waiting, free_tasks = view.backlog, batis = sl.batis, open_sites = sl.open_sites }
+  local was = cs.portes.closed
+  -- Lot L3 versé (étape 4) : manque net MESURÉ (view.mq.build) : un ordre sur un objet en manque mesuré est une petite marche (comptée)
+  -- et ne vise pas le même objet que l'ordre mesuré de la décision précédente, sauf s'il est seul en manque (Pe.check, anti-répétition).
+  local build = view.mq and view.mq.build or nil
+  local n_build = 0
+  for _, k in ipairs(sorted_keys(build)) do if (build[k] or 0) > 0 then n_build = n_build + 1 end end
+  local r = Pe.filter(cs.portes, a, res.orders, { family_of = Pi.order_family, family_rank = Pi.FAMILY_RANK,
+    site_kinds = Capi.MODULE_KINDS, tours_kinds = PORTES_TOURS, measured = build, measured_n = n_build })
+  if r.refused > 0 or r.closed ~= was then
+    log(string.format("[FO-PORTES] %s minute %d : transport %s (%d fermeture(s)) ; %d ordre(s) gardes, %d retenu(s), %d qu'une petite marche aurait reduit(s) ; places de chantier %d sur %d (%d pose(s), %d ouvert(s)) ; %s",
+      f.key or "?", math.floor(minutes(f, tick) + 0.5), r.closed and "SATURE" or "libre", cs.portes.closes or 0, r.kept, r.refused, r.reduced,
+      r.room, r.limit, sl.batis or 0, sl.open_sites or 0, tostring(r.cause)))
+  end
+  return r.why
+end
+
+---------------------------------------------------------------------------------------------------
+-- Lot VIDEO-L10 (étape 7 de VIDEO-INTEG) : MARCHES DE STABILITÉ, VARIANTE B de C2 (règle pure shared/ai3/palier.lua, Pl). Réglage de carte
+-- fo-war-paliers, ÉTEINT par défaut (repli à « éteint » tant qu'il n'est pas déclaré : settings.lua, intégrateur). Éteint : C2 (variante A)
+-- inchangé. Allumé : le puits élastique de C2 (input.demande) ne s'ouvre qu'à la décision où une marche tombe (5 min de stabilité
+-- continue sans pose) ; sa taille reste celle de C2 (Dm.step, Dm.extra_cap selon les bras : écart déclaré au « un laboratoire » de la
+-- source). Le critère A/B est Pl.verdict (3 graines, accord du DC : bancs longs).
+---------------------------------------------------------------------------------------------------
+Capi.PALIERS_SETTING = "fo-war-paliers"
+
+function Capi.paliers_on()
+  local ok, v = pcall(function() return settings.global[Capi.PALIERS_SETTING].value end)
+  return ok and v == true
+end
+
+--- Entrées de Pl.step lues dans l'état du jeu (aucun temps mesuré) : manques = objets en manque net MESURÉ (L3, view.mq.build ; nil si
+--- L3 est éteint : jamais stable) ; crise = mode survie ou QG menacé (L12) ; bras libres (comme Capi.slots) ; pose = un module de la
+--- capitalisation de plus est « fini » depuis la décision précédente (cs.slots.batis, Capi.slots) ; arbre fini = plus aucune technologie
+--- à la file (input.research.queue).
+function Capi.palier_inputs(f, cs, view, input)
+  local st = cs.palier
+  local batis = (cs.slots and cs.slots.batis) or 0
+  local pose = st.batis_prev ~= nil and batis > st.batis_prev
+  local build = view.mq and view.mq.build or nil
+  local manques = nil
+  if build then
+    manques = 0
+    for _, k in ipairs(sorted_keys(build)) do if (build[k] or 0) > 0 then manques = manques + 1 end end
+  end
+  local g_iag = f.team.iag
+  local arbre_fini = true
+  for _, q in ipairs((input.research or {}).queue or {}) do if (q.left or 0) > 0 then arbre_fini = false break end end
+  return { manques = manques, crise = (view.survie or view.hq_threat) and true or false,
+    bras_libres = math.floor(Ca.idle_of(g_iag and g_iag.idle_ema or 0)), pose = pose, arbre_fini = arbre_fini }, batis
+end
+
+--- Une décision (decide_start, après build_input, AVANT l'instantané) : rend la marche ou nil. Réglage allumé : input.demande n'est vrai
+--- qu'à la décision de la marche. État : cs.palier (Pl : nombres et booléens ; batis_prev).
+function Capi.palier(f, cs, view, input, tick)
+  if not Capi.paliers_on() then cs.palier = nil return nil end
+  cs.palier = cs.palier or Pal.new()
+  local st = cs.palier
+  local a, batis = Capi.palier_inputs(f, cs, view, input)
+  st.batis_prev = batis
+  local had = st.until_tick
+  local mk, ev = Pal.step(st, a, tick)
+  input.demande = (input.demande and mk ~= nil) and true or false
+  if ev == "marche" or ev == "arme" or ev == "annule" or (had and not st.until_tick) then
+    log(string.format("[FO-PALIER] %s minute %d : %s (minuteur %s, marches %d, annulations %d) ; manques %s, crise %s, bras libres %d, pose %s, arbre fini %s%s",
+      f.key or "?", math.floor(minutes(f, tick) + 0.5), tostring(ev), tostring(st.until_tick), st.marches or 0, st.annules or 0,
+      tostring(a.manques), tostring(a.crise), a.bras_libres, tostring(a.pose), tostring(a.arbre_fini),
+      mk and (" ; marche " .. mk.kind .. " : puits de C2 ouvert pour cette decision") or ""))
+  end
+  return mk
+end
+
+--- Lot CAPI-DECIDE : l'exécutant des chaînes sait-il les poser aujourd'hui ? (input.can_exec de la règle, mémo de la décision.)
+--- Faite depuis ses DONNÉES `d` (stock, objets voulus, repli, tick, emplacements, centrale, portée, débit des tapis) et le livre :
+--- une décision découpée la refait à l'identique depuis l'instantané, jamais depuis l'état vivant du jeu. Écrit dans d.wanted.
+local function make_can_exec(d, book)
+  local ce_memo = {}
+  local stock, wanted, repli, tick = d.stock, d.wanted, d.repli, d.tick
+  return function(kind, item)
+    -- fours du QG : nourris à la main par les PNJ (tâches de fonte du cerveau) ; leur nombre reste au décideur d'avant
+    -- (Br.smelters, SCALE). Moteur réel, banc p2 du lot : 25 fours du QG commandés « d'avance » pour les briques, 25
+    -- affamés sur 26 (aucune tâche de fonte ne les nourrit sans manque). La fonte au débit des foreuses passe par les
+    -- fonderies à foreuses (ordre « couvrir » : leurs fours sont dimensionnés par le gabarit sur le minerai des foreuses).
+    if kind == "fours" then return "fours du QG nourris par les PNJ : decideur SCALE (Br.smelters)" end
+    -- Lot LEVIERS : un module s'insère s'il est au coffre, ou si l'équipe sait le fabriquer à la main aujourd'hui (la
+    -- recherche qui le débloque est sinon DEMANDÉE : wanted, donnée à la recherche par Auto.want).
+    if kind == "equiper" then
+      local m2 = ce_memo[item]
+      if m2 ~= nil then return m2 or nil end
+      local res2 = nil
+      if (stock[item] or 0) <= 0 and not book:handcraftable(item) then
+        res2 = "recherche : " .. item
+        wanted[item] = true
+      end
+      ce_memo[item] = res2 or false
+      return res2
+    end
+    local m = ce_memo[item]
+    if m ~= nil then return m or nil end
+    local meth, why = A.method_for(item, book, function(n) return book:handcraftable(n) or (stock[n] or 0) > 0 end)
+    local res = nil
+    local hw = Rp.held(repli, Rp.key(item, nil), tick, nil) -- lot CAPI-REPLI : chaînes et packs, clé = l'objet seul
+    if not meth then res = tostring(why)
+    elseif hw then res = hw
+    elseif d.busy then res = d.busy_text
+    elseif d.wait_plant and ((A.template(meth.gen, meth.args) or {}).power_kw or 0) > 0 then
+      res = "centrale demandee, pas finie (" .. tostring(d.plant_state) .. ")"
+    elseif d.plant_state == "refuse" and ((A.template(meth.gen, meth.args) or {}).power_kw or 0) > 0 then
+      res = "centrale refusee (" .. tostring(d.plant_why) .. ")"
+    else
+      local ok, miss = module_ok(meth, book, stock, d.plant_state ~= nil, nil, d.reachable, d.belt_flow)
+      if not ok then
+        res = "recherche : " .. table.concat(miss, ",")
+        for _, x in ipairs(miss) do wanted[x] = true end
+      end
+    end
+    ce_memo[item] = res or false
+    return res
+  end
+end
+
+--- Lot VIDEO-L3 : résultat du manque mesuré de l'équipe (script/team/manque_vue.lua, f.team.mq.res) s'il a moins de 2 min, sinon nil.
+--- Ses manques de MODULES (consommation d'un module fini qu'aucun autre puits ne voit) deviennent des puits (Mq.sinks).
+local function mq_fresh(f, tick)
+  local m = f.team and f.team.mq
+  if m and m.res and m.tick and tick - m.tick <= 2 * 3600 then return m.res end
+  return nil
 end
 
 local function build_input(f, cs, view, book, tick, D, w)
@@ -833,6 +1135,10 @@ local function build_input(f, cs, view, book, tick, D, w)
   local stock = view.stock or {}
   local threat, production_first = Sv.capi(Survie.on(f) and not (view.qg_peril and view.qg_peril.peril), view.threatened or false, (f.team and f.team.priorite_pf) or false)
   if threat and R.PILE_BUDGET and Pi.threat_open(st.pile) then threat = false end -- lot PILE-BUDGET (relecture) : défense payée, l'évolution continue
+  -- Lot L12 (partie 3) : la menace TENUE (view.threat_held, script/team/menace_equipe.lua : jusqu'à 2 pensées calmes avec une tourelle armée
+  -- au QG, ou 5 min après la dernière perte) ferme aussi les gisements. Avant, la décision ne voyait la menace que par fenêtres de 15 s
+  -- (f.threatened_until). Ni le budget couvert (Pi.threat_open) ni l'échéance ne la lèvent : seule la règle tenue ; le mode survie, si (Sv.capi).
+  if not threat and view.threat_held then threat = (Sv.capi(Survie.on(f) and not (view.qg_peril and view.qg_peril.peril), true, production_first)) end
   -- foreuse imposée par ressource : électrique (fonderie du plan directeur) si le gabarit se pose aujourd'hui ; sinon
   -- AUCUNE (« » : la règle refuse « aucune foreuse disponible »). Les avant-postes à combustion restent au décideur
   -- d'avant (croissance des buts et vagues de SCALE) : leur combustible est porté par les PNJ, un travail récurrent que
@@ -930,49 +1236,11 @@ local function build_input(f, cs, view, book, tick, D, w)
   -- besoin des buts SANS les buts capi ni la recherche : le besoin de matière de la dernière pensée (manque + usage)
   local need = {}
   for _, k in ipairs(sorted_keys(st.need)) do need[k] = st.need[k] end
-  -- L'exécutant des chaînes (rangées du plan directeur) sait-il les poser aujourd'hui ? (mémo de la décision)
-  local ce_memo = {}
-  local function can_exec(kind, item)
-    -- fours du QG : nourris à la main par les PNJ (tâches de fonte du cerveau) ; leur nombre reste au décideur d'avant
-    -- (Br.smelters, SCALE). Moteur réel, banc p2 du lot : 25 fours du QG commandés « d'avance » pour les briques, 25
-    -- affamés sur 26 (aucune tâche de fonte ne les nourrit sans manque). La fonte au débit des foreuses passe par les
-    -- fonderies à foreuses (ordre « couvrir » : leurs fours sont dimensionnés par le gabarit sur le minerai des foreuses).
-    if kind == "fours" then return "fours du QG nourris par les PNJ : decideur SCALE (Br.smelters)" end
-    -- Lot LEVIERS : un module s'insère s'il est au coffre, ou si l'équipe sait le fabriquer à la main aujourd'hui (la
-    -- recherche qui le débloque est sinon DEMANDÉE : wanted, donnée à la recherche par Auto.want).
-    if kind == "equiper" then
-      local m2 = ce_memo[item]
-      if m2 ~= nil then return m2 or nil end
-      local res2 = nil
-      if (stock[item] or 0) <= 0 and not book:handcraftable(item) then
-        res2 = "recherche : " .. item
-        wanted[item] = true
-      end
-      ce_memo[item] = res2 or false
-      return res2
-    end
-    local m = ce_memo[item]
-    if m ~= nil then return m or nil end
-    local meth, why = A.method_for(item, book, function(n) return book:handcraftable(n) or (stock[n] or 0) > 0 end)
-    local res = nil
-    local hw = Rp.held(repli, Rp.key(item, nil), tick, nil) -- lot CAPI-REPLI : chaînes et packs, clé = l'objet seul
-    if not meth then res = tostring(why)
-    elseif hw then res = hw
-    elseif busy then res = busy_text
-    elseif wait_plant and ((A.template(meth.gen, meth.args) or {}).power_kw or 0) > 0 then
-      res = "centrale demandee, pas finie (" .. tostring(plant_state) .. ")"
-    elseif plant_state == "refuse" and ((A.template(meth.gen, meth.args) or {}).power_kw or 0) > 0 then
-      res = "centrale refusee (" .. tostring(plant_why) .. ")"
-    else
-      local ok, miss = module_ok(meth, book, stock, plant_state ~= nil, nil, Harvest.reachable(f), Auto.belt_flow(f))
-      if not ok then
-        res = "recherche : " .. table.concat(miss, ",")
-        for _, x in ipairs(miss) do wanted[x] = true end
-      end
-    end
-    ce_memo[item] = res or false
-    return res
-  end
+  -- L'exécutant des chaînes (rangées du plan directeur) sait-il les poser aujourd'hui ? Lot CAPI-DECIDE : la fonction est refaite
+  -- depuis ses DONNÉES (make_can_exec), gardées dans l'instantané d'une décision découpée.
+  local cex = { stock = stock, wanted = wanted, repli = repli, tick = tick, busy = busy, busy_text = busy_text, wait_plant = wait_plant,
+    plant_state = plant_state, plant_why = plant_why, reachable = Harvest.reachable(f), belt_flow = Auto.belt_flow(f) }
+  local can_exec = make_can_exec(cex, book)
   local g = f.team.iag
   -- Lot LEVIERS : clés d'ordres de leviers refusées par l'exécutant, en repli (Ca.decide : input.skip).
   local skip = {}
@@ -985,8 +1253,11 @@ local function build_input(f, cs, view, book, tick, D, w)
   return {
     can_exec = can_exec, skip = skip, successors = successors_for(cs),
     data = D, state = { techs = st.techs or {}, known = st.known }, stock = stock, flows = cs.flows or {},
-    machines = cs.scan and cs.scan.machines or {}, drills = cs.scan and cs.scan.drills or {}, labs = labs,
-    deposits = deposits, open = open, sinks = cs.bench_sinks or Ml.sinks(st.mall), need = need, research = research, drill_for = drill_for,
+    -- lot VIDEO-L13 : plus de `or {}` (une liste absente ferme la décision, decide_start ; cs.scan existe : Capi.think)
+    machines = cs.scan and cs.scan.machines, drills = cs.scan and cs.scan.drills, labs = labs,
+    hold = cs.scan and cs.scan.hold, -- lot VIDEO-L5 : objets suspendus (nil : sans confirmation, la capacité compte à la pose)
+    -- lot VIDEO-L3 : les manques mesurés des modules finis s'ajoutent aux puits (Mq.sinks ; Ca.requirements n'est pas touché)
+    deposits = deposits, open = open, sinks = cs.bench_sinks or Mq.sinks(mq_fresh(f, tick), Ml.sinks(st.mall)), need = need, research = research, drill_for = drill_for,
     limits = Rsv.on() and {} or { max_ingredients = 2 }, workers = view.workers or 0, idle = Ca.idle_of(g and g.idle_ema or 0),
     can_grow = (view.workers or 0) < (view.workers_wanted or 0), traits = f.traits or {},
     weights = w or {}, threat = threat, dt = 1, lag = cs.lag, starved = Pi.threat_exempt(st.pile, st.starved_open), -- (intégration 0.6.28)
@@ -998,7 +1269,8 @@ local function build_input(f, cs, view, book, tick, D, w)
     -- ne ferme plus les leviers hors du QG (Sv.capi) ; les gisements dangereux restent exclus (`danger` de chaque gisement).
     production_first = production_first,
     defense = defense_input(f, D), -- lot PREVISION (C12) : « oui, compter la défense » dans le coût de chaque investissement
-  }
+    power = Capi.power_input(f, plant_state), -- étape 5a de VIDEO-INTEG : courant des centrales finies (nil : aucune borne, comme avant)
+  }, cex
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -1394,15 +1666,10 @@ local function pile_ok(f, o)
   return PileRt.porte_any(f, Pi.order_family(o.kind), items)
 end
 
-local function decide(f, cs, view, book, tick, research, w)
+--- Suite de la décision (dernière tranche) : puits, journaux, ordres envoyés aux exécutants. `input` : l'entrée de la règle (refaite depuis
+--- l'instantané d'une décision découpée).
+local function decide_finish(f, cs, res, input, view, book, tick, research)
   local D = Capi.data()
-  cs.flows = flows_of(f, cs)
-  Dep.think(f, cs, tick, DEP_PRODUCTS, minutes(f, tick)) -- lot DEPENSES2 : budget du stock qui dort (Dep.defense, Dep.labs)
-  if f.team.ia3.mall then Ml.set_running(f.team.ia3.mall, cs.flows) end -- lot PILE-MALL (relecture)
-  local input = build_input(f, cs, view, book, tick, D, w)
-  Profiler.fstart("capi:decide")
-  local res = Ca.decide(input, cs.st)
-  Profiler.fstop("capi:decide")
   -- Lot C2 : le PUITS OUVERT. f.team.ia3.puits (débit de chaque matière, puits compris) est lu par la saturation du cerveau, la décision de
   -- l'automatisation et les capacités ; cs.blocked_slots (ordres retenus faute de place) règle les emplacements de chantier.
   do
@@ -1487,6 +1754,23 @@ local function decide(f, cs, view, book, tick, research, w)
     labs_target = res.labs_target, u_star = res.u_star, free = input.reserve and input.reserve.free or nil,
     zero = input.reserve and input.reserve.zero or nil,
     puits = res.demande and { p = res.demande.p, dormant = res.demande.dormant, left0 = res.demande.left0, cap = res.demande.cap } or nil }
+  -- Lots VIDEO-L5 et VIDEO-L13 : refus de la règle par la suspension (« confirmation : ») ou par le plafond d'un objet, au journal.
+  for _, r in ipairs(res.refus or {}) do
+    local why = tostring(r.why)
+    if why:sub(1, 15) == "confirmation : " or why:sub(1, 8) == "plafond " then
+      log(string.format("[FO-CAPI-CONF] %s : refus %s : %s a %.1f min", f.key or "?", tostring(r.key), why, minutes(f, tick)))
+    end
+  end
+  -- Étape 5a de VIDEO-INTEG : le courant de la décision (capacité des centrales finies, somme nominale du relevé, puissance MESURÉE pour
+  -- comparer, sans décider, et kW retenus faute de courant).
+  if res.kw then
+    local g = f.build and f.build.grow
+    log(string.format("[FO-CAPI-KW] %s : capacite %.0f kW, vue de la porte %.0f kW (mesure %.0f kW + chantiers), nominal %.0f kW, retenu %.0f kW a %.1f min",
+      f.key or "?", res.kw.have, res.kw.used, (g and g.power or 0) * JTICK_KW, res.kw.nominal or 0, res.kw.blocked, minutes(f, tick)))
+  end
+  -- kW retenus, datés de cette décision : la centrale les compte pour grandir AVANT d'être saturée (script/team/sante_centrale.lua,
+  -- Sante.growth, S.capi_kw ; valables S.CAPI_TTL). Aucun courant donné à la règle : rien de retenu.
+  cs.kw_blocked = (res.kw and res.kw.blocked > 0) and { kw = res.kw.blocked, tick = tick } or nil
   if input.reserve then
     -- Lot INDUSTRIE I1 : journal du besoin évalué et de ce qui s'investit (une ligne par décision, au plus une par minute et par équipe).
     local stk = 0
@@ -1503,6 +1787,9 @@ local function decide(f, cs, view, book, tick, research, w)
   -- Relecture du lead (18 h 10, point 1) : emplacements PLEINS au début de la décision : une foreuse n'a pu être accordée que par le
   -- siège du complément, le champ y passe lui aussi (Em.champ_seat).
   local full = room ~= nil and room <= 0
+  -- Lot VIDEO-L6 : portes avant d'étendre (transport saturé, bras à seuil croissant), AVANT la boucle d'envoi ; nil : réglage éteint.
+  -- Un ordre retenu suit le chemin des refus ci-dessous (« porte L6 : », épargne rendue, cs.refused).
+  local gate_why = Capi.portes(f, cs, res, view, tick)
   for _, o in ipairs(res.orders) do
     local rec, why
     -- (Intégration 0.6.25 : la porte de la pile de FUITES-PILE d'abord, puis le plafond des emplacements de CAPI-DEBIT.)
@@ -1511,7 +1798,10 @@ local function decide(f, cs, view, book, tick, research, w)
     local seat = Em.order_seat(room, room_comp, cs.slots and cs.slots.comp, meth_o and meth_o.product) -- (règle pure, testée)
     local champ = to_champ(f, cs, o) -- (lot CHAMP : le champ n'est pas un module)
     local cseat = champ and Em.champ_seat(full, room, room_comp, cs.slots and cs.slots.comp, meth_o and meth_o.product) or nil
-    if allowed and Capi.MODULE_KINDS[o.kind] and ((not champ and seat == nil) or (champ and cseat == nil)) then
+    local gw = gate_why and gate_why[o.key]
+    if gw then
+      rec, why = nil, "porte L6 : " .. gw
+    elseif allowed and Capi.MODULE_KINDS[o.kind] and ((not champ and seat == nil) or (champ and cseat == nil)) then
       rec, why = nil, Em.busy_text(cs.slots) .. " ; emplacements libres pris par cette decision"
       -- (intégration 0.6.32 : retenu faute de place lui aussi ; remarque 6 de la relecture de CORR-CHAMP-MANQUE : pas quand seul le
       -- siège unique du complément était pris, Em.blocked_counts)
@@ -1529,6 +1819,7 @@ local function decide(f, cs, view, book, tick, research, w)
     if rec then
       cs.open[#cs.open + 1] = rec
       cs.orders = cs.orders + 1
+      TC.note(f, TC.event(o, rec), tick) -- lot VIDEO L11 : ordre ENVOYÉ (après les portes de la boucle et le filtre de L6) : [FO-TRACE]
       sent[#sent + 1] = string.format("%s:%s(%s x%d)", o.kind, tostring(o.item or o.resource), tostring(rec.exec), o.n or 0)
       cs.stats[o.kind] = (cs.stats[o.kind] or 0) + 1
     else
@@ -1558,14 +1849,180 @@ local function decide(f, cs, view, book, tick, research, w)
 end
 
 ---------------------------------------------------------------------------------------------------
+-- Lot CAPI-DECIDE (7/11) : la décision en TRANCHES (critères : fo-logs/2026-11-07_CAPI-DECIDE/CRITERES.md)
+---------------------------------------------------------------------------------------------------
+-- Première tranche (tick t0) : entrée relevée (build_input, comme avant) et INSTANTANÉ dans global (cs.dj : copie de l'entrée sans les
+-- données ni la fonction, données de can_exec, bonus de la force) ; l'état de TRAVAIL (contexte, plan, besoins de la règle, copie de
+-- cs.st) vit en MÉMOIRE seulement (DJ_MEM), refait depuis l'instantané quand il manque (chargement) ou que sa clé (seq, t0, sig) ne
+-- correspond pas. Chaque tranche joue les unités dues à son tick (Capi.DECIDE_UNITS par tick depuis t0 ; toutes si `run` est nil ou
+-- run.rush) ; rien n'est écrit dans global ni au journal avant la dernière, qui réécrit cs.st, pose cs.wanted_set et joue la suite.
+-- Une recherche de la force finie, annulée ou remise à zéro pendant la décision (le livre de recettes change) l'abandonne, chez tous.
+Capi.DECIDE_UNITS = 1 -- unités par tranche (une unité : le début, un tour de la boucle des ordres, ou le compte rendu)
+Capi.DJ_SIG = "capi-decide:1"
+Capi.PENDING = {} -- marque rendue par Capi.think quand la décision attend sa tranche suivante (jamais gardée)
+Capi.MUT = {} -- tests seulement (mutants) : cle, vivant, st_tot, journal_tot, bonus
+local DJ_MEM = {} -- [clé d'équipe] = { seq, t0, sig, J, input, cex, st } : MÉMOIRE seulement, jamais dans global
+
+local function dj_key(f) return f.is_player and "player" or tostring(f.key or f.id) end
+
+local function is_object(v) return rawget(v, "__self") ~= nil or rawget(v, "_lua_object") ~= nil end
+local function dcopy(v, memo)
+  if type(v) ~= "table" or is_object(v) then return v end
+  memo = memo or {}
+  if memo[v] then return memo[v] end
+  local c = {}
+  memo[v] = c
+  for k, x in pairs(v) do c[dcopy(k, memo)] = dcopy(x, memo) end
+  return c
+end
+
+--- Remplace le contenu de `dst` par celui de `src` (même table : les lecteurs de cs.st gardent leur référence).
+local function replace_contents(dst, src)
+  for _, k in ipairs(sorted_keys(dst)) do dst[k] = nil end
+  for _, k in ipairs(sorted_keys(src)) do dst[k] = src[k] end
+end
+
+--- État de travail refait depuis l'instantané (mémoire).
+local function dj_build(dj, cs, book)
+  local D = Capi.data()
+  D.bonus.mining, D.bonus.lab = dj.bonus.mining, dj.bonus.lab
+  local input = dcopy(dj.input)
+  local cex = dcopy(dj.cex)
+  input.data = D
+  input.can_exec = make_can_exec(cex, book)
+  local st = dcopy(cs.st)
+  local J = Ca.decide_begin(input, st)
+  return { seq = dj.seq, t0 = dj.t0, sig = dj.sig, J = J, input = input, cex = cex, st = st }
+end
+
+--- Première tranche : relevé, instantané, état de travail. Rend faux (aucune décision, aucun instantané) quand une liste d'entrée
+--- manque (lot VIDEO-L13, garde fermée par défaut : Ca.absent_input).
+local function decide_start(f, cs, view, book, tick, w, run)
+  local D = Capi.data()
+  cs.flows = flows_of(f, cs)
+  Dep.think(f, cs, tick, DEP_PRODUCTS, minutes(f, tick)) -- lot DEPENSES2 : budget du stock qui dort (Dep.defense, Dep.labs)
+  if f.team.ia3.mall then Ml.set_running(f.team.ia3.mall, cs.flows) end -- lot PILE-MALL (relecture)
+  local input, cex = build_input(f, cs, view, book, tick, D, w)
+  local absent = Ca.absent_input(input)
+  if absent then
+    log(string.format("[FO-CAPI] %s : decision refusee : entree absente : %s a %.1f min", f.key or "?", absent, minutes(f, tick)))
+    return false
+  end
+  Capi.palier(f, cs, view, input, tick) -- lot VIDEO-L10 (variante B, réglage fo-war-paliers ALLUMÉ par défaut) : AVANT l'instantané
+  local snap = {}
+  for _, k in ipairs(sorted_keys(input)) do
+    if k ~= "data" and k ~= "can_exec" then snap[k] = input[k] end
+  end
+  -- numéro de la décision : celui qu'elle aura une fois finie (cs.decisions compte les décisions finies ; aucun champ de plus dans
+  -- global hors de l'instantané, qui disparaît à la fin : le mode bloc garde le global d'avant octet à octet)
+  cs.dj = { seq = (cs.decisions or 0) + 1, t0 = tick, t_think = run and run.t or tick, sig = Capi.DJ_SIG, input = dcopy(snap), cex = dcopy(cex),
+    bonus = { mining = D.bonus.mining or 0, lab = D.bonus.lab or 0 } }
+  if Capi.MUT.vivant then -- mutant : l'état de travail lit l'entrée VIVANTE (pas l'instantané)
+    local st = Capi.MUT.st_tot and cs.st or dcopy(cs.st)
+    DJ_MEM[dj_key(f)] = { seq = cs.dj.seq, t0 = tick, sig = Capi.DJ_SIG, J = Ca.decide_begin(input, st), input = input, cex = cex, st = st }
+  elseif Capi.MUT.st_tot then -- mutant : cs.st avancé dès la première tranche (prepare l'écrit)
+    local m = dj_build(cs.dj, cs, book)
+    m.st = cs.st
+    m.J = Ca.decide_begin(m.input, cs.st)
+    DJ_MEM[dj_key(f)] = m
+  else
+    DJ_MEM[dj_key(f)] = dj_build(cs.dj, cs, book)
+  end
+  return true
+end
+
+--- Tranche de la décision en cours (cs.dj) : rend vrai quand elle est finie (appliquée, ou abandonnée), faux sinon.
+local function decide_slice(f, cs, view, book, tick, research, run)
+  local dj = cs.dj
+  local key = dj_key(f)
+  local why = dj.abort or (dj.sig ~= Capi.DJ_SIG and "signature d'une autre version") or nil
+  if why then
+    cs.dj, DJ_MEM[key] = nil, nil
+    log(string.format("[FO-CAPI] %s : decision du tick %d abandonnee (%s) a %.1f min", f.key or "?", dj.t0, why, minutes(f, tick)))
+    return true
+  end
+  local mem = DJ_MEM[key]
+  if not (mem and ((mem.seq == dj.seq and mem.t0 == dj.t0 and mem.sig == dj.sig) or Capi.MUT.cle)) then
+    mem = dj_build(dj, cs, book)
+    DJ_MEM[key] = mem
+  end
+  local D = Capi.data()
+  if not Capi.MUT.bonus then D.bonus.mining, D.bonus.lab = dj.bonus.mining, dj.bonus.lab end
+  local due = (run == nil or run.rush) and math.huge or Capi.DECIDE_UNITS * (tick - dj.t0 + 1)
+  local J = mem.J
+  local done = J.res ~= nil
+  Profiler.fstart("capi:decide")
+  while not done and J.units < due do done = Ca.decide_step(J) end
+  Profiler.fstop("capi:decide")
+  if not done then
+    if Capi.MUT.journal_tot then log(string.format("[FO-CAPI] %s : MUTANT, tranche intermediaire au tick %d", f.key or "?", tick)) end
+    return false
+  end
+  replace_contents(cs.st, mem.st)
+  cs.wanted_set = mem.cex.wanted
+  cs.dj, DJ_MEM[key] = nil, nil
+  RangTrace.note(f, J.ctx.rang, tick) -- lot VIDEO-TRACES (G34) : journal [FO-RANG], une ligne par signature changée (rang de la décision, sans toucher au résultat)
+  decide_finish(f, cs, J.res, mem.input, view, book, tick, research)
+  return true
+end
+
+--- Équipes de la force `force` (factions de la guerre, puis votre équipe), dans un ordre fixe.
+local function teams_of_force(force)
+  local out = {}
+  local name = force and force.valid and force.name
+  local war = State.war()
+  if war and war.factions then
+    for _, id in ipairs(sorted_keys(war.factions)) do
+      local f = war.factions[id]
+      if f and (name == nil or f.force == name) then out[#out + 1] = f end
+    end
+  end
+  local p = State.faction("player")
+  if p and (name == nil or p.force == name) then out[#out + 1] = p end
+  return out
+end
+
+local function abort_research(force, why)
+  for _, f in ipairs(teams_of_force(force)) do
+    local cs = f.team and f.team.capi
+    if cs and cs.dj and not cs.dj.abort then cs.dj.abort = why end
+  end
+end
+Events.on(defines.events.on_research_finished, function(e) abort_research(e.research and e.research.force, "recherche finie") end)
+Events.on(defines.events.on_research_reversed, function(e) abort_research(e.research and e.research.force, "recherche annulee") end)
+Events.on(defines.events.on_technology_effects_reset, function(e) abort_research(e.force, "recherches remises a zero") end)
+Events.on(defines.events.on_force_reset, function(e) abort_research(e.force, "force remise a zero") end)
+-- Configuration changée : la mémoire est jetée (la tranche suivante la refait depuis l'instantané, ou abandonne une autre signature).
+Events.on_configuration_changed(function() DJ_MEM = {} end)
+
+--- Tests (moteur simulé) : un chargement simulé vide la mémoire, comme un vrai chargement.
+function Capi.forget_memory() DJ_MEM = {} end
+
+---------------------------------------------------------------------------------------------------
 -- Pensée
 ---------------------------------------------------------------------------------------------------
---- Appelé par le cerveau (Ia3.plan) avant la pensée pure. Rend ctx.capi = { res, open } (buts de fond), ou nil.
-function Capi.think(f, view, book, tick, research, w)
+--- Appelé par le cerveau (Ia3.plan) avant la pensée pure. Rend ctx.capi = { res, open } (buts de fond), ou nil ; Capi.PENDING quand la
+--- décision découpée attend sa tranche suivante (lot CAPI-DECIDE). `run` : nil (tout tout de suite) ou { t = tick de la pensée, rush }.
+function Capi.think(f, view, book, tick, research, w, run)
   if not Capi.on(f) then return nil end
   local cs = state_of(f)
+  if cs.dj and run and cs.dj.t_think ~= run.t then
+    -- décision d'une pensée perdue (effacée au changement de version du mod) : jetée, cette pensée repart comme d'habitude
+    log(string.format("[FO-CAPI] %s : decision du tick %d abandonnee (pensee du tick %d perdue) a %.1f min", f.key or "?", cs.dj.t0,
+      cs.dj.t_think, minutes(f, tick)))
+    cs.dj, DJ_MEM[dj_key(f)] = nil, nil
+  end
   Profiler.start("capi:think")
+  if cs.dj then
+    if not decide_slice(f, cs, view, book, tick, research, run) then
+      Profiler.stop("capi:think")
+      return Capi.PENDING
+    end
+    return Capi.think_tail(f, cs, tick)
+  end
   Ind.sweep(f, tick) -- lot INDUSTRIE I6 : sorties des patrons à la collecte, barre posée (à chaque pensée, pas seulement à la décision)
+  TC.capi(f, cs, tick) -- lot VIDEO L11 : étiquette des modules des ordres ouverts dès qu'ils ont un lieu (« pose » quand ils sont finis)
+  TC.flush(f, tick) -- lot VIDEO L11 : chunk cartographié depuis (F131), copies chez le joueur retirées quand le réglage est coupé
   local phase = cs.n % Capi.CYCLE
   cs.n = cs.n + 1
   if phase == 0 then
@@ -1579,8 +2036,16 @@ function Capi.think(f, view, book, tick, research, w)
   elseif phase >= 2 and phase <= 9 then
     census_one(f, cs, tick)
   elseif phase == 10 and cs.scan then
-    decide(f, cs, view, book, tick, research, w)
+    if decide_start(f, cs, view, book, tick, w, run) and not decide_slice(f, cs, view, book, tick, research, run) then
+      Profiler.stop("capi:think")
+      return Capi.PENDING
+    end
   end
+  return Capi.think_tail(f, cs, tick)
+end
+
+--- Suite de Capi.think après la décision (suivi des ordres, laboratoires, buts de fond) : chaque pensée.
+function Capi.think_tail(f, cs, tick)
   -- Suivi des ordres ouverts (chaque pensée : lectures sans appel coûteux du moteur).
   local keep = {}
   for _, rec in ipairs(cs.open) do

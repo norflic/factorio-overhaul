@@ -42,6 +42,7 @@ require("script.ai3.soldats") -- lot IA3-k : rôles des soldats (patrouille, gar
 require("script.faction.commander")
 require("script.faction.war")
 require("script.ai3.exploration") -- lot IA3-f : carte de connaissance, yeux des PNJ, éclaireurs (exploration sous brouillard)
+require("script.ai3.jalons") -- lot VIDEO-TRACES (V03) : journal [FO-JALON], époque atteinte par chaque faction
 
 -- Mode défense de tours (activable à tout moment)
 require("script.td.director")
@@ -73,6 +74,9 @@ require("script.robots.outils") -- lot RB-2 : outils de sélection, ralliement, 
 -- Le Bourdon, expérimental de l'âge 15 (lot BOURDON) : démonstration, /fo-bourdon, /fo-glas
 require("script.robots.bourdon")
 require("script.robots.experimentaux") -- lot EXPERIMENTAUX : effets, lancer des capsules, interface « fo-xp »
+
+-- Lot VIDEO (0.6.61) : migration UNIQUE des quatre réglages de carte de la vidéo dans une partie d'avant la 0.6.61
+require("script.ai3.video_reglages")
 
 -- Pilotage sans joueur (tests automatisés, scénarios)
 require("script.remote")
