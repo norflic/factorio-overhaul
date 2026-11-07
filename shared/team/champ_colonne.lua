@@ -253,7 +253,7 @@ function Co.place_run(st, spec, free, is_ore, J)
           if not ok then break end
         end
       end
-      if J then J.left = J.left - n * Co.PLACE_UNIT end
+      if J then Co.spend(J, n * Co.PLACE_UNIT) end
       if ok then
         st.list, st.len, st.info = Co.layout(spec, b, side, s_edge, st.count, st.mode)
         st.s_edge, st.done, st.base = s_edge, true, nil
@@ -321,6 +321,9 @@ Co.PREUVE_APRES = 2000  -- états développés par l'A* avant la tentative
 -- (tranches) unités de travail, calibrées hors jeu (environ 1 000 instructions Lua par unité ; tests/champ_tranches_test.lua, C3) :
 -- un état développé de l'A*, une tuile de la preuve d'impossibilité
 Co.EXP_UNIT = 1.9
+--- (tranches) une dépense de travail : le budget du pas (J.left) baisse, le travail fait (J.used, la même suite d'additions quel que soit le
+--- budget, donc identique d'un bloc ou en tranches) monte ; J.used borne l'essai de l'autre axe (R1, shared/team/champ.lua).
+function Co.spend(J, n) J.left = J.left - n; J.used = (J.used or 0) + n end
 Co.PROOF_UNIT = 0.7
 Co.PREUVE_TUILES = 3000 -- tuiles développées au plus par chacun des deux remplissages
 --- (coût, 7/11, voie des TRANCHES) preuve REPRENABLE : Co.unreachable_new(s, t, ug, box, cap) rend un état de données (remplissages,
@@ -422,7 +425,7 @@ function Co.unreachable_run(st, free, J)
     if st.fn > Co.PREUVE_TUILES and st.rn > Co.PREUVE_TUILES then return finish(nil) end
     if J and J.left <= 0 then return false end
     if (st.fn <= st.rn or st.rn > Co.PREUVE_TUILES) and st.fn <= Co.PREUVE_TUILES then fstep() else rstep() end
-    if J then J.left = J.left - Co.PROOF_UNIT end
+    if J then Co.spend(J, Co.PROOF_UNIT) end
   end
 end
 
@@ -530,7 +533,7 @@ function Co.route_run(st, free, span, tcost, J)
     if not closed[cur.k] then
       closed[cur.k] = true
       expanded = expanded + 1
-      if J then J.left = J.left - Co.EXP_UNIT end
+      if J then Co.spend(J, Co.EXP_UNIT) end
       if expanded > cap then return finish(nil, "trop long") end
       if expanded == Co.PREUVE_APRES and Co.PREUVE then
         -- lot PERF3 : impossibilité prouvée vite, même réponse que l'A* (preuve reprenable, ouverte ici, menée en tête de boucle)
@@ -684,12 +687,12 @@ function Co.coal_line_run(st, is_coal, free, is_foreign, J)
       if not st.per then
         if J and J.left <= 0 then return false end
         st.per = { side_drills(l, -1) }
-        if J then J.left = J.left - Co.LINE_UNITS * 0.45 end
+        if J then Co.spend(J, Co.LINE_UNITS * 0.45) end
       end
       if not st.k then
         if J and J.left <= 0 then return false end
         st.per[2], st.k = side_drills(l, 1), 1
-        if J then J.left = J.left - Co.LINE_UNITS * 0.45 end
+        if J then Co.spend(J, Co.LINE_UNITS * 0.45) end
       end
       local per = { [-1] = st.per[1], [1] = st.per[2] }
       while st.k <= 6 do
@@ -698,7 +701,7 @@ function Co.coal_line_run(st, is_coal, free, is_foreign, J)
         local set = LINE_SETS[set_i]
         local e = (st.k % 2 == 1) and 1 or -1
         st.k = st.k + 1
-        if J then J.left = J.left - Co.LINE_UNITS * 0.1 / 6 end
+        if J then Co.spend(J, Co.LINE_UNITS * 0.1 / 6) end
         local all = {}
         for _, sg in ipairs(set) do for _, a in ipairs(per[sg]) do all[#all + 1] = { a = a, sg = sg } end end
         if #all > 0 then
@@ -919,7 +922,7 @@ function Co.network_run(st, env, J)
           for _, c in ipairs(centers) do if math.abs(t[1] - c[1]) <= Co.WINDOW and math.abs(t[2] - c[2]) <= Co.WINDOW then inside = true end end
           if not inside and (not sel.best or before(t, sel.best)) then sel.best = t end
         end
-        if J then J.left = J.left - (stop - sel.i + 1) * Co.SEL_UNIT end
+        if J then Co.spend(J, (stop - sel.i + 1) * Co.SEL_UNIT) end
         sel.i = stop + 1
       end
       if not sel.best then break end
@@ -984,7 +987,7 @@ function Co.network_run(st, env, J)
       if tr.keep and #tr.keep == #cols then tr.full = true end
     end
     tr.t = t + 1
-    if J then J.left = J.left - n * Co.TRUNK_UNIT end
+    if J then Co.spend(J, n * Co.TRUNK_UNIT) end
   end
   local uT, keep = tr.uT, tr.keep
   st.tr = nil

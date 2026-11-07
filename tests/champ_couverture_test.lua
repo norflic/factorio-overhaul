@@ -273,7 +273,8 @@ do
       end, { "r30 + tourelles eparses sur le champ" } },
     { "tapis de bande poursuivi jusqu'a la fonderie malgre le trace", function(src)
         return src:gsub("if g%.route then s_end = g%.exit %- g%.side end", "")
-      end, { "r30 + lacs aux deux bouts", "r30 + anneau de tourelles (r34)" } },
+      -- (R1, 7/11) formes qui gardent des groupes tracés dans l'axe choisi (les lacs et l'anneau n'en ont plus)
+      end, { "r30 + grands lacs (33 a 100)", "r30 + anneau, sans souterrains" } },
   }
   for _, m in ipairs(smuts) do
     local M = mutant_module(m[2])
@@ -286,11 +287,103 @@ do
     fh:close()
     local msrc, n = src:gsub("local row = %(e%.role == \"colonne\" and g and g%.row%) or %(bd and bd%.b%)", "local row = bd and bd.b")
     local Cvm = n > 0 and assert(load(msrc, "=champ_verif_mutant"))() or nil
-    local s = by["r30 + lacs aux deux bouts"]
+    -- (R1, 7/11) une forme qui garde des fonderies déplacées dans l'axe choisi (8 sur les grands lacs ; les lacs aux deux bouts n'en ont plus)
+    local s = by["r30 + grands lacs (33 a 100)"]
     local sp = spec_of(s.ore, s.o)
     local p = Ch.plan(sp)
     check(Cvm ~= nil and Cvm.verify(p, sp).traverse > 0, "mutant du controle vu : colonne deplacee jugee sur la rangee de sa bande")
   end
+end
+
+section("6. R1 : les deux axes planifies ; reseau d'un seul tenant, puis le moins de coffres de tete, puis le plus de minerai couvert")
+do
+  -- axes attendus (MESURÉ le 7/11, chaque forme planifiée dans ses deux axes) : les autres formes gardent l'axe long (x)
+  local EXPECT = { ["ellipse 70 x 30"] = "y", ["L 60 x 14 + 14 x 50"] = "x", ["r30 + couloir horizontal"] = "y", ["r30 + lacs aux deux bouts"] = "y",
+    ["r12 + eau aux bouts, ouverture de 3"] = "y", ["r30 + eau aux bouts, ouverture de 5"] = "y", ["r30 brut + lacs aux deux bouts"] = "y" }
+  local LONG = { ["L 60 x 14 + 14 x 50"] = "y" }
+  local function forced(name, axis)
+    local s
+    for _, x in ipairs(shapes()) do if x.name == name then s = x end end
+    local sp = spec_of(s.ore, s.o)
+    sp.force_axis = axis
+    local p = Ch.plan(sp)
+    return p, p and Cv.verify(p, spec_of(s.ore, s.o))
+  end
+  for _, s in ipairs(shapes()) do
+    local r = results[s.name]
+    if r then
+      local want = EXPECT[s.name] or "x"
+      local other = (want == "x") and "y" or "x"
+      local _, ro = forced(s.name, other)
+      local same = r.p.axis == want and ((r.p.axis_choice ~= nil) == (want ~= (LONG[s.name] or "x")))
+      check(same and (not ro or r.rep.elec >= ro.elec - 1e-9 or (ro.unpowered or 0) > 0),
+        string.format("%s : axe %s (attendu %s%s), couverture %.1f %% ; l'autre axe %.1f %%", s.name, r.p.axis, want,
+          r.p.axis_choice and (", axe long " .. r.p.axis_choice.long) or "", 100 * r.rep.elec, ro and 100 * ro.elec or 0))
+    end
+  end
+  -- stabilité dans l'axe choisi (règle de tests/champ_colonne_test.lua §4) : chaque bande seule, rejouée du cadre (axe compris), ne pose
+  -- que des pièces du plan entier (poteaux exceptés : une rangée partagée par deux bandes en a d'autres, bâtie seule) ; toutes les pièces
+  -- du plan entier (hors poteaux) sont posées par une bande ; une bande bâtie seule marche seule (un réseau, rien sans courant)
+  local function sig(e) return string.format("%s:%.1f:%.1f:%d", e.kind, e.x, e.y, e.dir) end
+  local function stab(name, drop_axis)
+    local s
+    for _, x in ipairs(shapes()) do if x.name == name then s = x end end
+    local full = Ch.plan(spec_of(s.ore, s.o))
+    local in_full, need, seen = {}, {}, {}
+    for _, e in ipairs(full.ents) do
+      in_full[sig(e)] = true
+      if e.kind ~= "poteau" then need[sig(e)] = true end
+    end
+    local bad, total, lone_bad = 0, 0, 0
+    for _, bd in ipairs(full.bands) do
+      local fr = {}
+      for k, v in pairs(full.frame) do fr[k] = v end
+      fr.only = { [bd.pr] = true }
+      if drop_axis then fr.axis = nil end
+      local o = {}
+      for k, v in pairs(s.o) do o[k] = v end
+      local sp = spec_of(s.ore, o)
+      sp.frame = fr
+      local part = Ch.plan(sp)
+      if part and #part.ents > 0 then
+        local rp = Cv.verify(part, sp)
+        if not (rp.components <= 1 and rp.unpowered == 0 and rp.no_ore == 0 and rp.no_coal == 0 and rp.arms == 0 and rp.drops == 0) then lone_bad = lone_bad + 1 end
+      end
+      for _, e in ipairs(part and part.ents or {}) do
+        total = total + 1
+        seen[sig(e)] = true
+        if not in_full[sig(e)] and e.kind ~= "poteau" then bad = bad + 1 end
+      end
+    end
+    local missing = 0
+    for k in pairs(need) do if not seen[k] then missing = missing + 1 end end
+    return bad, total, missing, lone_bad
+  end
+  for _, n in ipairs({ "ellipse 70 x 30", "r30 + lacs aux deux bouts" }) do
+    local bad, total, missing, lone_bad = stab(n, false)
+    check(total > 0 and bad == 0 and missing == 0 and lone_bad == 0, string.format("%s (axe court), bandes seules : %d entites, %d absentes du plan entier (poteaux exceptes), %d pieces du plan entier jamais posees, %d bande(s) qui ne marchent pas seules",
+      n, total, bad, missing, lone_bad))
+  end
+  -- mutants : choix inversé, égalité tranchée par l'autre axe, axe absent du cadre
+  local function mut(pat, rep)
+    local fh = assert(io.open("shared/team/champ.lua", "rb"))
+    local src = fh:read("*a")
+    fh:close()
+    local msrc, n = src:gsub(pat, rep)
+    if n ~= 1 then return nil end
+    return assert(load(msrc, "=champ_mutant_r1"))()
+  end
+  local function axis_of(M, name)
+    for _, x in ipairs(shapes()) do if x.name == name then local p = M.plan(spec_of(x.ore, x.o)); return p and p.axis end end
+  end
+  local M1 = mut("else better = qc_ > pc_ end", "else better = qc_ < pc_ end")
+  check(M1 ~= nil and axis_of(M1, "ellipse 70 x 30") == "x", "mutant vu : choix inverse (l'ellipse garde l'axe qui couvre le moins)")
+  local M2 = mut("else better = qc_ > pc_ end", "else better = qc_ >= pc_ end")
+  check(M2 ~= nil and axis_of(M2, "disque r30") == "y", "mutant vu : egalite tranchee par l'autre axe (le disque change d'axe)")
+  -- (le mutant « coffres de tête ignorés » est dans tests/champ_colonne_test.lua §3, sur l'ellipse longue au charbon du sud)
+  local bad, total, missing = stab("ellipse 70 x 30", true)
+  check(bad > 0 or total == 0 or missing > 0, string.format("mutant vu : axe absent du cadre (bandes seules rejouees dans l'axe long : %d entites, %d absentes, %d jamais posees)",
+    total, bad, missing))
 end
 
 print(string.format("[CHAMP-COUVERTURE] BILAN : %d OK, %d ECHEC(S), %d ecart(s) connu(s)", passes, failures, known))

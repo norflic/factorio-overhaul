@@ -189,7 +189,7 @@ end
 function Cc.place_run(st, fns, J)
   local a, spec = st, st.spec
   local free, is_ore, forbid, span = fns.free, fns.is_ore, fns.forbid, fns.span
-  local function spend(n) if J then J.left = J.left - n end end
+  local function spend(n) if J then Co.spend(J, n) end end
   local function paused() return J ~= nil and J.left <= 0 end
   if st.stage == 1 then
     -- (coût, 7/11) emprise de la fonderie calculée UNE fois, à l'origine (rangée 0, premier bord 0) : Co.layout et Fd.layout ne dépendent

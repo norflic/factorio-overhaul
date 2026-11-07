@@ -70,6 +70,13 @@ Ch.CFG = {
   -- (shared/team/champ_couverture.lua). Seulement pour un cadre NEUF ; un cadre figé rejoue ses tracés (frame.routed) ou, sans eux
   -- (cadre d'avant le lot), le chemin d'avant. Faux : le chemin d'avant partout (bancs : tests/champ_couverture_test.lua §2).
   decouple = true,
+  -- lot CHAMP-COUVERTURE (R1, 7/11) : un cadre NEUF est planifié dans les deux axes, le plus de minerai couvert l'emporte (l'axe long à
+  -- égalité). Faux : l'axe long seul, comme avant.
+  both_axes = true,
+  -- (R1) l'autre axe est essayé avec au plus axis_work fois le travail de l'axe long (unités, J.used : même décision d'un bloc ou en
+  -- tranches) ; au-delà il est abandonné, l'axe long gardé. MESURÉ : l'autre axe des grands lacs et de la partie du joueur 271828182 coûte
+  -- 6 et 9 fois l'axe long (tracés qui échouent, colonnes refusées) pour un plan moins bon (44,1 et 57,8 % contre 70,3 et 81,6 %)
+  axis_work = 1.5,
   eps = 1e-9,
 }
 
@@ -119,7 +126,7 @@ local function ctx_fill(cx, spec, J)
         box.v0, box.v1 = math.min(box.v0, v), math.max(box.v1, v)
       end
     end
-    if J then J.left = J.left - (stop - cx.i + 2) / 2 * Ch.UNITS.ore end
+    if J then Co.spend(J, (stop - cx.i + 2) / 2 * Ch.UNITS.ore) end
     cx.i = stop + 2
   end
   return true
@@ -162,12 +169,17 @@ local function corridor_col(origin, u)
 end
 
 --- Foreuses d'une rangée (corps sur les rangées row..row+s-1), parcours glouton au décalage o. Rend { u0 } et le minerai miné.
-local function row_drills(c, spec, row, umin, umax, origin, o, fm)
+--- (lot CHAMP-COUVERTURE, R1, 7/11) prow : rangée des poteaux de ces foreuses, quand elle n'est pas libre de bout en bout ; une foreuse
+--- dont aucune tuile de cette rangée n'est libre à portée d'un poteau (eau, couloir de passage) n'aurait jamais de courant : refusée.
+--- MESURÉ avant : « r30 + couloir horizontal », 14 foreuses sans courant (le couloir sur une rangée de poteaux) ; l'autre axe de
+--- « r12 + eau aux bouts, ouverture de 3 », 1. nil : aucune condition (rangée propre : même plan qu'avant).
+local function row_drills(c, spec, row, umin, umax, origin, o, fm, prow)
   local s, r = spec.drill.size, spec.drill.reach
+  local R = spec.pole.reach
   local out, mined = {}, 0
   local counted = -math.huge -- dernière colonne dont le minerai est compté dans `mined`
   -- Lot PERF3 : place libre lue UNE fois par tuile (la fenêtre glisse d'une tuile, et les décalages et les rangées d'une même passe de
-  -- bands_for relisent les mêmes tuiles) : `fm`, mémoire tenue par bands_for, où rien n'est pris (c.taken inchangé pendant la passe) :
+  -- l'étape « choix de la phase » relisent les mêmes tuiles) : `fm`, mémoire de cette étape, où rien n'est pris (c.taken inchangé) :
   -- mêmes réponses que c.free
   fm = fm or {}
   local cfree, key = c.free, Ch.key
@@ -218,6 +230,11 @@ local function row_drills(c, spec, row, umin, umax, origin, o, fm)
       local x0, y0, x1, y1 = Mel.zone(a, row, s, r)
       if Mel.count(x0, y0, x1, y1, c.is_foreign) > 0 then ok = false end
     end
+    if ok and prow then
+      local pole = false
+      for u = a - R, a + s - 1 + R do if c_free(u, prow) then pole = true break end end
+      if not pole then ok = false end
+    end
     if ok then
       for u = a - r, a + s - 1 + r do n = n + col(u) end
     end
@@ -233,57 +250,6 @@ local function row_drills(c, spec, row, umin, umax, origin, o, fm)
     end
   end
   return out, mined
-end
-
---- Meilleur décalage d'une rangée (plus de minerai miné, puis moins de foreuses, puis le plus petit), ou le décalage figé `fixed`.
-local function best_row(c, spec, row, umin, umax, origin, fixed, fm)
-  local best, bm, bo
-  for o = 0, spec.drill.size - 1 do
-    if fixed == nil or fixed == o then
-      local l, m = row_drills(c, spec, row, umin, umax, origin, o, fm)
-      if not best or m > bm or (m == bm and #l < #best) then best, bm, bo = l, m, o end
-    end
-  end
-  return best, bm, bo
-end
-
---- Bandes d'une phase : { { pr, b, n = { u0 }, s = { u0 }, on, os } } et minerai miné (somme des rangées).
---- (coût, 7/11) `fm` et `rm` : mémoires PARTAGÉES par les phases d'un même choix (rien n'est pris pendant le choix : c.free et le meilleur
---- décalage d'une rangée ne dépendent que de la rangée). Chaque rangée de foreuses est vue par deux phases (rangée nord de l'une, sud d'une
---- autre) : `rm` garde son résultat (mesuré : le choix de la phase faisait 60 % du plan du géant 200 x 200). nil : mémoires de la passe seule.
---- (coût, 7/11) La bande de la rangée de poteaux `pr`, ou nil ; et son minerai miné (une unité du choix de la phase, reprenable).
-local function band_at(c, spec, pr, box, origin, frame, fm, rm)
-  local s = spec.drill.size
-  local function row_best(row, fixed)
-    if fixed ~= nil or not rm then return best_row(c, spec, row, box.u0, box.u1, origin, fixed, fm) end
-    local m = rm[row]
-    if not m then m = { best_row(c, spec, row, box.u0, box.u1, origin, nil, fm) }; rm[row] = m end
-    return m[1], m[2], m[3]
-  end
-  local off = frame and frame.offsets and frame.offsets[tostring(pr)]
-  local nl, nm, on = row_best(pr + 1, off and off[1])
-  local sl, sm, os_ = row_best(pr + s + 2, off and off[2])
-  if #nl + #sl > 0 then return { pr = pr, b = pr + s + 1, n = nl, s = sl, on = on, os = os_ }, nm + sm end
-  return nil, 0
-end
-
-local function bands_for(c, spec, phase, box, origin, frame, fm, rm)
-  local s = spec.drill.size
-  local pitch = 2 * s + 2
-  local bands, total = {}, 0
-  local pr = box.v0 - phase
-  fm = fm or {} -- lot PERF3 : place libre lue une fois par tuile pendant la passe (rien n'y est pris)
-  while pr <= box.v1 do
-    if not (frame and frame.only) or frame.only[pr] then
-      local bd, mined = band_at(c, spec, pr, box, origin, frame, fm, rm)
-      if bd then
-        bands[#bands + 1] = bd
-        total = total + mined
-      end
-    end
-    pr = pr + pitch
-  end
-  return bands, total
 end
 
 --- Groupe d'une bande du côté `side` : foreuses prises depuis le bord, au plus `cap` par côté, tant que le tapis est libre jusqu'au
@@ -440,7 +406,8 @@ local function br_new(multi) return { multi = multi and true or false, added = {
 local function br_next(st)
   st.ins, st.outs, st.cand, st.best, st.ba, st.bb, st.si, st.ci, st.cj = nil, nil, nil, nil, nil, nil, nil, nil, nil
   st.pass = st.pass + 1
-  if st.pass > 60 then st.stage = 0 else st.stage = 1 end
+  -- (R1) au plafond des passes, des réseaux peuvent rester séparés : compté comme tel
+  if st.pass > 60 then st.stage, st.split = 0, true else st.stage = 1 end
 end
 local function br_run(st, c, spec, poles, J)
   local wire = spec.pole.wire
@@ -476,7 +443,7 @@ local function br_run(st, c, spec, poles, J)
         if not cl then cl = {}; grid[gk] = cl end
         cl[#cl + 1] = k
         st.k = k + 1
-        if J then J.left = J.left - U.br_pole end
+        if J then Co.spend(J, U.br_pole) end
       end
     elseif st.stage == 2 then
       -- poteaux du réseau du premier poteau (ins) et des autres (outs), indices croissants
@@ -484,7 +451,7 @@ local function br_run(st, c, spec, poles, J)
       local stop = math.min(#poles, st.si + BR_CHUNK - 1)
       local ins, outs = st.ins, st.outs
       for i = st.si, stop do if br_root(parent, i) == main then ins[#ins + 1] = i else outs[#outs + 1] = i end end
-      if J then J.left = J.left - (stop - st.si + 1) * U.br_split end
+      if J then Co.spend(J, (stop - st.si + 1) * U.br_split) end
       st.si = stop + 1
       if st.si > #poles then st.stage, st.ci, st.cand = 3, 1, {} end
     elseif st.stage == 3 then
@@ -516,7 +483,7 @@ local function br_run(st, c, spec, poles, J)
           end
         end
         st.ci = st.ci + 1
-        if J then J.left = J.left - (1 + #outs) * U.br_pair end
+        if J then Co.spend(J, (1 + #outs) * U.br_pair) end
       end
     elseif st.multi then
       -- chaîne de relais d'une paire, essayée dans l'ordre ; posée seulement entière (une paire par morceau)
@@ -544,7 +511,7 @@ local function br_run(st, c, spec, poles, J)
             if not put then ok = false else chain[#chain + 1] = put; tmp[Ch.key(put[1], put[2])] = true; prev = put end
           end
         end
-        if J then J.left = J.left - (1 + math.max(n, 0)) * U.br_try end
+        if J then Co.spend(J, (1 + math.max(n, 0)) * U.br_try) end
         if ok and (prev[1] - b[1]) ^ 2 + (prev[2] - b[2]) ^ 2 <= w2 then
           for _, put in ipairs(chain) do
             c.take(put[1], put[2])
@@ -585,11 +552,13 @@ local function br_run(st, c, spec, poles, J)
           st.added[#st.added + 1] = put
           prev = put
         end
-        if J then J.left = J.left - (1 + math.max(n, 0)) * U.br_try end
+        if J then Co.spend(J, (1 + math.max(n, 0)) * U.br_try) end
         if ok then br_next(st) else st.stage = 0 end
       end
     end
   end
+  -- (R1) réseaux encore séparés à la fin : des poteaux hors du réseau du premier (aucune chaîne posée entre eux)
+  if st.outs and #st.outs > 0 then st.split = true end
   st.parent, st.grid, st.ins, st.outs, st.cand = nil, nil, nil, nil, nil
   return true
 end
@@ -612,13 +581,13 @@ Ch.bridge_new, Ch.bridge_run = br_new, br_run -- (tests) la machine des relais, 
 -- unités de travail (calibrées hors jeu : tests/champ_tranches_test.lua, C3) ; un pas s'arrête à la première borne d'unité de travail
 -- atteinte quand le budget est épuisé
 Ch.UNITS = { ore = 1 / 8, row = 1 / 6, band = 30, take = 2, ent = 1 / 16, pole_row = 6, pending = 9, cols = 4, side = 10,
-  axis = 1 / 40, br_pole = 0.26, br_split = 0.035, br_pair = 0.026, br_try = 2.6, emit = 0.3 }
+  axis = 1 / 40, br_pole = 0.26, br_split = 0.035, br_pair = 0.026, br_try = 2.6, emit = 0.3, cov = 0.6 }
 -- Budget d'un pas en jeu (unités ; une unité vaut environ 1 000 instructions Lua, calibrée hors jeu machine par machine). Mesuré hors jeu
 -- (tests/champ_tranches_test.lua, C3) : pire pas 211 000 instructions sur le corpus (environ 2,6 ms à 12 ns par instruction, PC au repos),
 -- morceau indivisible le plus gros 92 000 ; surcoût du découpage 0,3 à 0,9 %.
 Ch.STEP_BUDGET = 50
 
-local function spend(J, n) J.left = J.left - n end
+local spend = function(J, n) Co.spend(J, n) end
 local ENT_CHUNK = 512 -- entités lues par morceau (étapes 11 et 14)
 local function out_of(J) return J.left <= 0 end
 
@@ -765,7 +734,8 @@ ONCE[#ONCE + 1] = function(P, J)
     if spec.furnace and spec.furnace.fuel and spec.furnace.size < 2 then p, why = nil, "four trop petit pour son coffre de combustible" return "end" end
     if spec.furnace and 2 * spec.furnace.size + 3 > spec.pole.wire + Ch.CFG.eps then p, why = nil, "portee des poteaux" return "end" end
   end
-  if F and F.axis then axis = F.axis end
+  -- un cadre figé rejoue son axe ; (R1) le second plan d'un cadre neuf est fait dans l'axe imposé par le cadre « axes »
+  if F and F.axis then axis = F.axis elseif spec.force_axis then axis = spec.force_axis end
   return true
 end
 
@@ -804,18 +774,19 @@ ONCE[#ONCE + 1] = function(P, J)
   if F and F.phase then
     phase = F.phase
     box.v0 = F.v0 or box.v0
-    scan = { phs = { phase }, k = 1, frame = true }
+    scan = { phs = { phase }, k = 1, frame = true, pclean = {} }
   else
     local phs = {}
     for ph = 0, pitch - 1 do phs[#phs + 1] = ph end
-    scan = { phs = phs, k = 1, fm = {}, rm = {} }
+    scan = { phs = phs, k = 1, fm = {}, rm = {}, pclean = {} }
   end
   return true
 end
 
 -- 3. choix de la phase : phase par phase, bande par bande, et pour chaque bande ses deux rangées décalage par décalage (une rangée de
--- foreuses pour un décalage par unité de travail ; cadre figé : sa phase seule, sans les mémoires partagées, comme bands_for). Même
--- règle que band_at et best_row : le plus de minerai miné, puis le moins de foreuses, puis le plus petit décalage.
+-- foreuses pour un décalage par unité de travail ; cadre figé : sa phase seule, sans les mémoires partagées). Règle d'avant (best_row) :
+-- le plus de minerai miné, puis le moins de foreuses, puis le plus petit décalage ; une rangée vue par deux phases (nord de l'une, sud
+-- d'une autre) garde son résultat (scan.rm ; mesuré : le choix de la phase faisait 60 % du plan du géant 200 x 200).
 ONCE[#ONCE + 1] = function(P, J)
   local _ENV = P
   local c = ctx_of(cx, spec)
@@ -835,21 +806,35 @@ ONCE[#ONCE + 1] = function(P, J)
           local part = scan.part or 1
           local row = (part == 1) and (pr + 1) or (pr + d.size + 2)
           local fixed = off and off[part]
-          local memo = (fixed == nil and scan.rm) and scan.rm[row] or nil
+          -- (R1) rangée des poteaux de ces foreuses (pr au nord, pr + pas au sud) : libre de bout en bout (relevé une fois), ou la condition
+          -- de row_drills ; une rangée propre garde la mémoire partagée d'avant (même plan, même coût)
+          local prow = (part == 1) and pr or (pr + pitch)
+          local pc = scan.pclean[prow]
+          if pc == nil then
+            if out_of(J) then return false end
+            local R = spec.pole.reach
+            pc = true
+            for u = box.u0 - d.reach - d.size - R, box.u1 + d.reach + d.size + R do if not c.free(u, prow) then pc = false break end end
+            scan.pclean[prow] = pc
+            spend(J, row_cost * 0.3)
+          end
+          local cond = (not pc) and prow or nil
+          local mkey = cond and (row .. ":" .. cond) or row
+          local memo = (fixed == nil and scan.rm) and scan.rm[mkey] or nil
           if not memo then
             scan.o = scan.o or 0
             while scan.o <= d.size - 1 do
               if out_of(J) then return false end
               local o = scan.o
               if fixed == nil or fixed == o then
-                local l, m = row_drills(c, spec, row, box.u0, box.u1, origin, o, scan.fm)
+                local l, m = row_drills(c, spec, row, box.u0, box.u1, origin, o, scan.fm, cond)
                 if not scan.cb or m > scan.cbm or (m == scan.cbm and #l < #scan.cb) then scan.cb, scan.cbm, scan.cbo = l, m, o end
                 spend(J, row_cost)
               end
               scan.o = o + 1
             end
             memo = { scan.cb, scan.cbm, scan.cbo }
-            if fixed == nil and scan.rm then scan.rm[row] = memo end
+            if fixed == nil and scan.rm then scan.rm[mkey] = memo end
           end
           if part == 1 then scan.nb = memo else scan.sb = memo end
           scan.cb, scan.cbm, scan.cbo, scan.o = nil, nil, nil, nil
@@ -1495,6 +1480,7 @@ ONCE[#ONCE + 1] = function(P, J)
   local c, emit = K.c, K.emit
   if not br_run(br, c, spec, all_poles, J) then return false end
   for _, p_ in ipairs(br.added) do emit("poteau", p_[1], p_[2], 1, 0, 0, 0, 0, nil, "relais") end
+  br_split = br.split or nil
   br = nil
   return true
 end
@@ -1522,7 +1508,7 @@ ONCE[#ONCE + 1] = function(P, J)
     s14.i = stop + 1
   end
   local n = s14.n
-  nc = { hc = s14.hc, fd = s14.fd }
+  nc = { hc = s14.hc, fd = s14.fd, split = br_split or nil } -- split : (R1) réseaux de poteaux restés séparés
   s14 = nil
   local frame = { axis = axis, phase = phase, exit = exit, origin = origin, umin = umin, umax = umax, v0 = box.v0, offsets = offsets }
   if colonne then frame.design, frame.cols, frame.coal = "colonne", cols_frame, coal_frame
@@ -1564,6 +1550,8 @@ function RUN.once(J, P)
   while true do
     -- une étape commence sur un budget non épuisé (son travail d'entrée compte dans le pas suivant, pas dans celui qui finit)
     if J.left <= 0 then return "pause" end
+    -- (R1) essai de l'autre axe au-delà de son travail permis : abandonné (le travail fait est le même d'un bloc ou en tranches)
+    if J.cap and (J.used or 0) > J.cap.limit then return "abort" end
     local r = ONCE[P.pc](P, J)
     if r == false then return "pause" end
     if r == "end" then
@@ -1678,9 +1666,110 @@ function RUN.plan(J, fr)
   return "ret"
 end
 
+--- Tuiles de minerai couvertes par les zones de minage des foreuses du CHAMP (la ligne de charbon exclue) : le compte de Cv.verify (elec).
+--- (R1) relevé par morceaux dans le cadre « axes » : st = { i, ore, cov, n, ei } ; ore_set d'abord, puis les foreuses d'un plan.
+local COV_CHUNK = 256
+local function cov_run(st, spec, p, J)
+  local o = spec.ore
+  if not st.ore_done then
+    while st.i <= #o - 1 do
+      if J.left <= 0 then return false end
+      local stop = math.min(#o - 1, st.i + 2 * (CTX_CHUNK - 1))
+      for i = st.i, stop, 2 do st.ore[Ch.key(o[i], o[i + 1])] = true end
+      Co.spend(J, (stop - st.i + 2) / 2 * Ch.UNITS.axis)
+      st.i = stop + 2
+    end
+    st.ore_done = true
+  end
+  local r, ore, cov, ents = spec.drill.reach, st.ore, st.cov, p.ents
+  while st.ei <= #ents do
+    if J.left <= 0 then return false end
+    local stop = math.min(#ents, st.ei + COV_CHUNK - 1)
+    local nd = 0
+    for i = st.ei, stop do
+      local e = ents[i]
+      if e.kind == "foreuse" and e.role ~= "charbon" then
+        nd = nd + 1
+        local w = e.w or e.size
+        local h = e.h or e.size
+        local x0, y0 = math.floor(e.x - w / 2 + 0.5), math.floor(e.y - h / 2 + 0.5)
+        for x = x0 - r, x0 + e.size - 1 + r do
+          for y = y0 - r, y0 + e.size - 1 + r do
+            local k = Ch.key(x, y)
+            if ore[k] and not cov[k] then cov[k] = true; st.n = st.n + 1 end
+          end
+        end
+      end
+    end
+    Co.spend(J, (stop - st.ei + 1) * Ch.UNITS.ent - nd * Ch.UNITS.cov)
+    st.ei = stop + 1
+  end
+  return true
+end
+
+--- « axes » : (lot CHAMP-COUVERTURE, R1) un cadre NEUF est planifié dans ses deux axes ; le plus de tuiles de minerai couvertes par les
+--- zones des foreuses du champ l'emporte, l'axe long (le plan d'avant) à égalité. Un cadre figé (spec.frame, son axe est rejoué) ou un
+--- axe imposé : le plan tel quel. Le plan de l'autre axe, gardé, porte axis_choice = { long, long_cov, cov } (journal).
+function RUN.axes(J, fr)
+  local spec = fr.spec
+  if fr.pc == 1 then
+    fr.pc = (spec.frame or spec.force_axis or not Ch.CFG.both_axes) and 9 or 2
+    fr.w0 = J.used or 0
+    return push(J, { fn = "plan", pc = 1, spec = spec })
+  end
+  if fr.pc == 9 then fr.p, fr.why, fr.n = fr.got_p, fr.got_why, fr.got_n return "ret" end
+  if fr.pc == 2 then
+    fr.p, fr.why, fr.n = fr.got_p, fr.got_why, fr.got_n
+    -- sans plan (données, four, tapis : rien qui dépende de l'axe), rien à comparer
+    if not fr.p then return "ret" end
+    local sp = copy_spec(spec)
+    sp.force_axis = (fr.p.axis == "x") and "y" or "x"
+    -- travail permis à l'autre axe : axis_work fois celui de l'axe long
+    local used = J.used or 0
+    fr.limit = used + Ch.CFG.axis_work * (used - fr.w0)
+    J.cap = { limit = fr.limit, depth = #J.stack }
+    fr.pc = 3
+    return push(J, { fn = "plan", pc = 1, spec = sp })
+  end
+  if fr.pc == 3 then
+    J.cap = nil
+    fr.q, fr.qwhy, fr.qn = fr.got_p, fr.got_why, fr.got_n
+    -- abandonné en route, ou fini au-delà du travail permis (même décision d'un bloc ou en tranches) : l'axe long
+    if fr.got_abort or (J.used or 0) > fr.limit then fr.q, fr.qwhy, fr.qn = nil, nil, nil end
+    fr.got_abort = nil
+    if not fr.q then fr.q, fr.qwhy, fr.qn = nil, nil, nil return "ret" end
+    fr.cp = { i = 1, ore = {}, cov = {}, n = 0, ei = 1 }
+    fr.pc = 4
+  end
+  if fr.pc == 4 then
+    if not cov_run(fr.cp, spec, fr.p, J) then return "pause" end
+    -- le relevé du minerai sert aux deux plans
+    fr.cq = { i = fr.cp.i, ore = fr.cp.ore, ore_done = true, cov = {}, n = 0, ei = 1 }
+    fr.cp.ore, fr.cp.cov = nil, nil
+    fr.pc = 5
+  end
+  if not cov_run(fr.cq, spec, fr.q, J) then return "pause" end
+  -- un réseau de poteaux d'un seul tenant d'abord (mesuré : le lac et la rivière de tests/champ_test.lua, « eau », laissent deux réseaux
+  -- dans l'autre axe), puis le moins de coffres de tête (Ch.better_order ; mesuré : l'ellipse longue au charbon du sud de
+  -- tests/champ_colonne_test.lua garde 17 coffres de tête dans son axe court), puis le plus de minerai couvert ; l'axe long à égalité
+  local pc_, qc_ = fr.cp.n, fr.cq.n
+  local ps, qs = (fr.n and fr.n.split) and true or false, (fr.qn and fr.qn.split) and true or false
+  local ph, qh = fr.n and fr.n.hc or 0, fr.qn and fr.qn.hc or 0
+  local better
+  if ps ~= qs then better = not qs
+  elseif ph ~= qh then better = qh < ph
+  else better = qc_ > pc_ end
+  if better then
+    fr.q.axis_choice = { long = fr.p.axis, long_cov = pc_, cov = qc_ }
+    fr.p, fr.why, fr.n = fr.q, fr.qwhy, fr.qn
+  end
+  fr.q, fr.qwhy, fr.qn, fr.cp, fr.cq = nil, nil, nil, nil, nil
+  return "ret"
+end
+
 --- Travail du plan d'un champ (voir l'en-tête de cette partie) : { stack, done, p, why }, données seules.
 function Ch.plan_job(spec)
-  return { stack = { { fn = "plan", pc = 1, spec = spec } }, done = false }
+  return { stack = { { fn = "axes", pc = 1, spec = spec } }, done = false }
 end
 
 --- Fait avancer le travail d'au plus `budget` unités (nil : jusqu'au bout) ; rend vrai quand le plan est prêt (job.p, job.why).
@@ -1694,6 +1783,12 @@ function Ch.plan_step(J, budget)
     local fr = J.stack[#J.stack]
     local r = RUN[fr.fn](J, fr)
     if r == "pause" then J.spent, J.left = left0 - J.left, nil return false end
+    if r == "abort" then
+      -- (R1) l'essai de l'autre axe est abandonné : ses cadres sont retirés, le cadre « axes » reprend sans lui
+      while #J.stack > J.cap.depth do J.stack[#J.stack] = nil end
+      J.stack[#J.stack].got_abort = true
+      J.cap = nil
+    end
     if r == "ret" then
       J.stack[#J.stack] = nil
       local parent = J.stack[#J.stack]

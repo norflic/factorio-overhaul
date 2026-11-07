@@ -287,6 +287,17 @@ do
   local sides = 0
   for _, cs in ipairs(p2 and p2.stats.coal or {}) do if cs.voie then sides = sides + 1 end end
   check(sides == 2, "ellipse longue : charbon par tapis des deux côtés (" .. sides .. ")")
+  -- (lot CHAMP-COUVERTURE, R1, 7/11) l'axe court de cette ellipse couvre plus, mais garde des coffres de tête : l'axe long est gardé.
+  -- Mutant : le choix de l'axe ignore les coffres de tête
+  do
+    local src = io.open("shared/team/champ.lua"):read("*a")
+    local ms, nm = src:gsub("elseif ph ~= qh then better = qh < ph", "elseif false then better = qh < ph", 1)
+    local Mm = nm == 1 and assert(load(ms, "=champ_mutant_r1"))() or nil
+    local pm = Mm and Mm.plan(spec_of(ellipse(0, 0, 60, 14), { coal = disc(0, 60, 9), belts = { { lane = 7.5 } }, max_side = 30 }))
+    check(p2 and p2.axis == "x" and pm and pm.axis == "y" and Ch.head_chests(pm) > Ch.head_chests(p2),
+      string.format("mutant vu : coffres de tete ignores au choix de l'axe (axe %s, %d coffres de tete ; vrai module : axe %s, %d)",
+        tostring(pm and pm.axis), pm and Ch.head_chests(pm) or -1, tostring(p2 and p2.axis), p2 and Ch.head_chests(p2) or -1))
+  end
   -- rivière de 3 tuiles entre le champ et le charbon, sur toute la carte : sans souterrain, repli ; avec, franchie
   local river = {}
   for x = 36, 38 do for y = -400, 400 do river[Ch.key(x, y)] = true end end
@@ -752,6 +763,9 @@ do
   -- le cadre de scarlet n'a plus de coffre de tête dès le premier ordre (contrôlé plus bas)
   local dec_saved = Ch.CFG.decouple
   Ch.CFG.decouple = false
+  -- (R1, 7/11) et dans l'axe du cadre relevé en jeu (l'axe long) : le choix de l'axe est contrôlé plus bas
+  local axes_saved = Ch.CFG.both_axes
+  Ch.CFG.both_axes = false
   local ps = Ch.plan(scarlet())
   check(ps ~= nil and Ch.head_chests(ps) == 0 and ps.order_swapped and ps.order_swapped.chests == 4,
     string.format("scarlet 20261020 : 0 coffre de tete (%s ; avant : %s)", tostring(ps and Ch.head_chests(ps)), tostring(ps and ps.order_swapped and ps.order_swapped.chests)))
@@ -805,6 +819,7 @@ do
   Co.coal_line_new, Co.coal_line_run = keep_new, keep_run
   check(Ch.head_chests(pmut) == 5, "mutant « sortie enfermee acceptee » vu : 5 coffres de tete (" .. Ch.head_chests(pmut) .. ")")
   Ch.CFG.decouple = dec_saved
+  Ch.CFG.both_axes = axes_saved
   -- (lot CHAMP-COUVERTURE) avec le découplage, les deux cadres réels : 0 coffre de tête, au moins autant de foreuses du champ, chaque four
   -- nourri (minerai, charbon, plaques au quai)
   for _, it in ipairs({ { "scarlet 20261020", scarlet, ps }, { "joueur 271828182", player, pp2 } }) do
@@ -843,6 +858,9 @@ do
   local line2 = {}
   for y = -120, 120 do line2[Ch.key(45, y)] = true end
   local function lv() return spec_of(ORE, { coal = disc(70, 0, 8), blocked = line2, ug = 5 }) end
+  -- (R1, 7/11) dans l'axe long : l'autre axe n'a aucune colonne à reposer (99 %, 0 coffre de tête), le mécanisme serait sans objet
+  local axes_lv = Ch.CFG.both_axes
+  Ch.CFG.both_axes = false
   local pl = Ch.plan(lv())
   local rl = pl and Cv.verify(pl, lv())
   local dsv = Ch.CFG.decouple
@@ -855,7 +873,9 @@ do
       tostring(pl and pl.pushed), Ch.head_chests(pl), pl and Ch.field_drills(pl) or 0, Ch.field_drills(pl0), rl and Cv.line(rl) or "?"))
   -- (coût, 7/11) plan en tranches : le cadre « pushed » rend son plan sans le refaire
   local M2 = ch_mutant("if spec%.frame or spec%.push or not %(p and p%.cut and #p%.cut > 0%) then return \"ret\" end", "do return \"ret\" end")
+  M2.CFG.both_axes = false
   local plm = M2.plan(lv())
+  Ch.CFG.both_axes = axes_lv
   check(plm and Ch.field_drills(plm) < Ch.field_drills(pl), string.format("mutant « jamais reposee » vu : %d foreuses du champ (colonne refusee ; %d reposee)",
     plm and Ch.field_drills(plm) or 0, pl and Ch.field_drills(pl) or 0))
 end

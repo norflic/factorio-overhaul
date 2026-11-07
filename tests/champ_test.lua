@@ -108,9 +108,20 @@ end
 section("1. champs synthetiques")
 local pc = run("cercle r20", disc(0, 0, 20))
 local pe = run("ellipse 81 x 29", ellipse(0, 0, 40, 14), { target = { x = -500, y = 0 } })
-check(pe and pe.axis == "x" and pe.exit == -1, "ellipse : rangées dans l'axe long (x), sortie vers le site à l'ouest")
 local pv = run("ellipse verticale", ellipse(0, 0, 12, 35), { target = { x = 0, y = 400 } })
-check(pv and pv.axis == "y" and pv.exit == 1, "ellipse verticale : axe y, sortie au sud vers le site")
+-- (lot CHAMP-COUVERTURE, R1, 7/11) les deux axes sont planifiés, le plus de minerai couvert l'emporte : une ellipse prend l'axe COURT (des
+-- bandes courtes, chacune sous le plafond de 8 foreuses par côté ; l'axe long en laisse au milieu)
+check(pe and pe.axis == "y" and pe.axis_choice and pe.axis_choice.long == "x", "ellipse : (R1) rangées dans l'axe court (y), qui couvre plus que l'axe long")
+check(pv and pv.axis == "x" and pv.axis_choice and pv.axis_choice.long == "y", "ellipse verticale : (R1) rangées dans l'axe court (x)")
+-- l'axe long seul (Ch.CFG.both_axes = false, la règle d'avant R1) : sortie vers le site
+do
+  Ch.CFG.both_axes = false
+  local pe0 = Ch.plan(spec_of(ellipse(0, 0, 40, 14), { target = { x = -500, y = 0 } }))
+  local pv0 = Ch.plan(spec_of(ellipse(0, 0, 12, 35), { target = { x = 0, y = 400 } }))
+  Ch.CFG.both_axes = true
+  check(pe0 and pe0.axis == "x" and pe0.exit == -1, "ellipse, axe long seul : rangées dans l'axe long (x), sortie vers le site à l'ouest")
+  check(pv0 and pv0.axis == "y" and pv0.exit == 1, "ellipse verticale, axe long seul : axe y, sortie au sud vers le site")
+end
 local L = rect(0, 0, 60, 12)
 rect(0, 12, 12, 50, L)
 run("L", L)
@@ -228,7 +239,10 @@ for _, m in ipairs(rule_muts) do
   local ore = (m[4] and m[4].long) and ellipse(0, 0, 40, 14) or disc(0, 0, 20)
   local sp = spec_of(ore, m[4])
   if m[4] and m[4].plan_reach then sp.pole = { reach = m[4].plan_reach, wire = 7.5 } end
+  -- (R1) bandes LONGUES : l'axe long seul (dans l'axe court de l'ellipse, aucune bande ne dépasse une voie)
+  if m[4] and m[4].long then Ch.CFG.both_axes = false end
   local ok, p = pcall(Ch.plan, sp)
+  Ch.CFG.both_axes = true
   local r = ok and p and Cv.verify(p, spec_of(ore, m[4]))
   undo()
   check(r and m[3](r), "mutant de règle vu : " .. m[1])
@@ -243,7 +257,9 @@ do
 end
 -- sortie : un plan dont la sortie est forcée à l'opposé du site est vu par le contrôle de sortie
 do
+  Ch.CFG.both_axes = false -- (R1) l'axe long (x) : « à l'est » a un sens
   local p = Ch.plan(spec_of(ellipse(0, 0, 40, 14), { target = { x = -500, y = 0 } }))
+  Ch.CFG.both_axes = true
   local fr = {}
   for k, v in pairs(p.frame) do fr[k] = v end
   fr.exit = -p.exit

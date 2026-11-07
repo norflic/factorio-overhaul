@@ -7,7 +7,8 @@
     C3  pas borné : budget en UNITÉS de travail, jamais en temps ; pire pas mesuré sous 8 ms (géant, pire forme) ; mesuré en
         INSTRUCTIONS de la machine Lua (debug.sethook : déterministe, insensible à la charge du PC), borné à 250 000 au budget
         Ch.STEP_BUDGET, et converti en temps à la cadence du PC (bloc du géant sans compteur, le plus court de 2 passages) ;
-    C4  aucune décision changée : Ch.plan rend les empreintes de référence (tests/fixtures/champ_plans_ref.lua, commit 067a1bd3) ;
+    C4  aucune décision changée : Ch.plan rend les empreintes de référence (tests/fixtures/champ_plans_ref.lua : commit 067a1bd3, puis R1,
+        le choix de l'axe, qui ne change que les 9 formes dont l'autre axe l'emporte) ;
     C5  surcoût : total en tranches <= 1,3 x le bloc (en instructions) ;
     C6  mutants vus par C1 ou C2 (le vrai module rend la référence sur les mêmes essais).
   Usage, depuis la racine du mod :   lua5.2 tests/champ_tranches_test.lua [--court]
@@ -30,7 +31,7 @@ local ref_by = {}
 for _, r in ipairs(REF) do ref_by[r.name] = r end
 local QUICK = { ["disque r30"] = true, ["r30 + lacs aux deux bouts"] = true, ["joueur 271828182"] = true }
 
-section("1. C4 : Ch.plan rend les empreintes de reference (067a1bd3)")
+section("1. C4 : Ch.plan rend les empreintes de reference (067a1bd3 ; R1 pour les 9 formes qui changent d'axe)")
 for _, cs in ipairs(Fm.corpus()) do
   if not short or QUICK[cs.name] then
     local r = ref_by[cs.name]
@@ -190,10 +191,19 @@ do
     for _, cs in ipairs(Fm.corpus()) do names[#names + 1] = cs.name end
   end
   local worst_all, wname = 0, "?"
+  local R1_MAX, r1_worst, r1_name = 3.2, 0, "?"
   for _, name in ipairs(names) do
     local cs = by[name]
     local p, why, steps, worst, total, wat = counted_steps(Ch, cs.spec(), Ch.STEP_BUDGET)
     local blk = counted_block(Ch, cs.spec())
+    -- (R1) un cadre neuf est planifié dans ses deux axes ; l'autre axe a au plus Ch.CFG.axis_work fois le travail de l'axe long (en
+    -- unités) : en tranches, au plus R1_MAX fois le plan de l'axe long seul (en instructions ; l'écart vient des unités, calibrées en
+    -- moyenne, pas tracé par tracé)
+    Ch.CFG.both_axes = false
+    local blk1 = counted_block(Ch, cs.spec())
+    Ch.CFG.both_axes = true
+    check(total <= R1_MAX * blk1, string.format("%s : R1, deux axes en tranches = %.2f x l'axe long seul (%d ki contre %d)", name, total / blk1, total, blk1))
+    if total / blk1 > r1_worst then r1_worst, r1_name = total / blk1, name end
     local h = Sr.print(p, why)
     local ms = worst * KI * ns / 1e6
     check(h == ref_by[name].hash and worst <= C3_KI and ms < C3_MS, string.format("%s : %d pas, pire pas %d ki (%s), %.1f ms, plan = reference : %s",
@@ -203,6 +213,7 @@ do
     if worst > worst_all then worst_all, wname = worst, name end
   end
   print(string.format("  pire pas du corpus mesure : %d ki (%s), %.1f ms", worst_all, wname, worst_all * KI * ns / 1e6))
+  print(string.format("  R1 : deux axes, au plus %.2f x l'axe long seul (%s)", r1_worst, r1_name))
 end
 
 -- relais entre réseaux de poteaux : la machine reprenable (Ch.bridge_new / Ch.bridge_run) contre les passes de 067a1bd3, refaites de
