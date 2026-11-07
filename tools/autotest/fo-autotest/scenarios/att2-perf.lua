@@ -46,7 +46,7 @@ return {
         ss.g = s.create_entity({ name = "fo-xp-" .. ss.id, position = { sx(k) - C.PORTEE[ss.id], Y + 4 }, force = ss.force, raise_built = true })
         local okl, why = remote.call("fo-att2", "lancer", ss.g, sx(k) + 0.5, Y + 0.5, true)
         ctx.check(okl == true, ss.id .. " : grande attaque lancee", tostring(why))
-      elseif e.tick == lance(k) + FEN - 10 and ss.g and ss.g.valid then
+      elseif e.tick == lance(k) + FEN - 100 and ss.g and ss.g.valid then -- avant le contrôle final (FIN = dernier lancement + FEN - 50)
         ss.fini = remote.call("fo-att2", "en_cours") == 0
         ss.g.destroy()
       end
