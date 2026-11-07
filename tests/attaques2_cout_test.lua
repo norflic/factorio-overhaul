@@ -200,8 +200,8 @@ local function check(cond, nom, det)
   print(string.format("%s %s%s", cond and "OK   " or "ECHEC", nom, det and (" : " .. det) or ""))
 end
 
-print(string.format("%-10s %4s %6s %6s %6s %6s %6s %6s %7s %7s %6s %8s", "geant", "rech", "cand", "coups", "morts", "creat", "fal", "tuiles",
-  "rendus", "sets", "ops", "pire ms"))
+print(string.format("%-10s %4s %6s %6s %6s %6s %6s %6s %7s %7s %6s %8s %6s %6s %6s %6s", "geant", "rech", "cand", "coups", "morts", "creat", "fal",
+  "tuiles", "rendus", "sets", "ops", "pire ms", "c/tick", "t/tick", "jetons", "duree"))
 local LIGNES = {}
 for n, id in ipairs(A.ORDRE) do
   CX = (n - 1) * 1000
@@ -214,11 +214,18 @@ for n, id in ipairs(A.ORDRE) do
   local avant = C.find
   local fin = A.duree(id, { traits = A.balafre({ x = CX + 0.3, y = CY + 0.2 }, A.zone(Xp.robot(id).age), A.ATTAQUES.stylet.ecart), rl = A.zone(Xp.robot(id).age) / 3,
     R = A.zone(Xp.robot(id).age) }) + 5
-  for _ = 1, fin do
+  -- jusqu'à la fin de l'attaque (les files du budget peuvent la prolonger), 3 000 ticks de plus au plus
+  local cmax, tmax, duree = 0, 0, 0
+  for k = 1, fin + 3000 do
+    if k > fin and #NS.attaques2.jobs == 0 then break end
+    local c0, t0c = C.damage + C.die, C.tiles
     local t0 = os.clock()
     run(1)
     local dt = os.clock() - t0
     if dt > pire then pire, pire_t = dt, W.tick end
+    cmax = math.max(cmax, C.damage + C.die - c0)
+    tmax = math.max(tmax, C.tiles - t0c)
+    if #NS.attaques2.jobs > 0 then duree = k end
   end
   local st = NS.attaques2.stats[id]
   local intacts = 0
@@ -238,11 +245,19 @@ for n, id in ipairs(A.ORDRE) do
       end
     end
   end
-  LIGNES[#LIGNES + 1] = string.format("%-10s %4d %6d %6d %6d %6d %6d %6d %7d %7d %6d %8.2f", id, C.find - avant, st.candidats, C.damage, C.die,
-    C.create, C.cliff, C.tiles, C.draw, C.set, st.max_ops, pire * 1000)
+  LIGNES[#LIGNES + 1] = string.format("%-10s %4d %6d %6d %6d %6d %6d %6d %7d %7d %6d %8.2f %6d %6d %6d %6d", id, C.find - avant, st.candidats,
+    C.damage, C.die, C.create, C.cliff, C.tiles, C.draw, C.set, st.max_ops, pire * 1000, cmax, tmax, st.max_cout or 0, duree)
   print(LIGNES[#LIGNES])
   check(okl, id .. " : lancée")
-  check(C.find - avant == 1 and st.recherches == 1, id .. " : UNE recherche d'entités par salve", tostring(C.find - avant))
+  check(st.recherches == 1 and C.find - avant == st.bandes, id .. " : UNE recherche par salve, en bandes de " .. A.BANDE .. " tuiles",
+    string.format("%d bande(s), %d appel(s)", st.bandes or 0, C.find - avant))
+  -- le budget du tick : au plus BUDGET / coup coups par tick (le Cairn paie le poteau, plus cher), au plus A.TUILES tuiles par tick,
+  -- et les jetons comptés par le script ne dépassent pas le budget (marge : les arbres de la Trombe, payés après coup)
+  check(cmax <= math.floor(A.BUDGET / A.POIDS.coup), id .. " : coups par tick dans le budget", string.format("%d au plus (%d permis)", cmax,
+    math.floor(A.BUDGET / A.POIDS.coup)))
+  check(tmax <= A.TUILES, id .. " : tuiles par tick bornées", string.format("%d au plus", tmax))
+  check((st.max_cout or 0) <= A.BUDGET + 4 * A.POIDS.abattre, id .. " : jetons par tick dans le budget", tostring(st.max_cout))
+  check(duree <= fin + 600, id .. " : la file du budget ne prolonge pas l'attaque de plus de 10 s", string.format("%d ticks (prévu %d)", duree, fin))
   check(st.tues > 0, id .. " : des cibles tuées", string.format("tues %d, cibles %d", st.tues, st.cibles))
   check(intacts == nb_amis, id .. " : la base amie dans la zone est intacte", string.format("%d / %d", intacts, nb_amis))
   check(lave_sous_ami == 0, id .. " : ni lave ni falaise sous un bâtiment ami")

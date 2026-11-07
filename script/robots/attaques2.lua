@@ -56,6 +56,16 @@ end
 
 local function ops(j, n) j.ops = j.ops + (n or 1) end
 
+-- Budget de jetons du tick (A.BUDGET, A.POIDS), PARTAGÉ par toutes les grandes attaques en cours et les refroidissements ; remis à plein
+-- au début de chaque tick (sur_tick). Transitoire (jamais dans le stockage) : il ne vit que pendant un tick.
+local BUD = { reste = 0 }
+local P = A.POIDS
+local function peut(w) return BUD.reste >= w end
+local function paie(j, w)
+  BUD.reste = BUD.reste - w
+  if j then j.cout = (j.cout or 0) + w end
+end
+
 ---------------------------------------------------------------------------------------------------
 -- Dégâts
 ---------------------------------------------------------------------------------------------------
@@ -98,42 +108,54 @@ end
 -- Frappe : l'unique recherche, puis le plan
 ---------------------------------------------------------------------------------------------------
 local NEUTRES = { tree = true, ["simple-entity"] = true }
+local VIDE = { accumulator = true, ["electric-turret"] = true, roboport = true } -- réserves vidées par la Surtension
 local PASSAGERS = { corpse = true, ["item-entity"] = true, fire = true, cliff = true, explosion = true, ["entity-ghost"] = true,
   ["tile-ghost"] = true, ["particle-source"] = true, stream = true, beam = true, projectile = true, ["deconstructible-tile-proxy"] = true }
 
---- Range une tranche des entités trouvées (au plus A.PREP par tick) : ennemies (candidats, planifiés aussitôt), neutres (arbres, rochers),
---- autres (à protéger : jamais de falaise, lave ni verre dessous). Ordre : celui du moteur (déterministe), sans tri.
+--- Range les entités de la bande en cours, tant que le budget le permet (A.POIDS.rang chacune) : ennemies (candidats, planifiées
+--- aussitôt), neutres (arbres, rochers), autres (à protéger : jamais de falaise, lave ni verre dessous). Une entité n'est rangée que dans
+--- la bande qui contient sa position (A.dans_bande) et, pour une zone ronde, dans le cercle (les bâtiments à protéger : 6 tuiles de plus).
+--- Ordre : celui du moteur (déterministe), sans tri.
 local planifier
 local function ranger(j)
-  local enemy = {}
-  for _, n in ipairs(j.forces) do enemy[n] = true end
+  local enemy = j.enemy
   local cands, neutres, autres = j.cands, j.neutres, j.autres
-  local found = j.found
-  local fin = math.min(#found, j.fi + A.PREP - 1)
-  for i = j.fi, fin do
+  local found, b = j.found, j.fb
+  local cx, cy, r2, r2a = j.c.x, j.c.y, j.r2, j.r2a
+  while j.fi <= #found and peut(P.rang) do
+    local i = j.fi
     local e = found[i]
+    j.fi = i + 1
+    paie(j, P.rang)
+    ops(j)
     if e.valid then
       local p = e.position
-      local c = { x = p.x, y = p.y, id = e.unit_number or (1000000000 + i), e = e }
-      local fn = e.force.name
-      if enemy[fn] and e.health and e.destructible then
-        c.mobile = (e.type == "unit" or e.type == "character")
-        cands[#cands + 1] = c
-        planifier(j, c, #cands)
-      elseif NEUTRES[e.type] then
-        neutres[#neutres + 1] = c
-        if j.gn then A.grille_ajoute(j.gn, #neutres, c, 8) end
-      elseif not PASSAGERS[e.type] then
-        local bb = e.bounding_box
-        c.bb = { bb.left_top.x - 1, bb.left_top.y - 1, bb.right_bottom.x + 1, bb.right_bottom.y + 1 }
-        autres[#autres + 1] = c
-        A.grille_ajoute(j.ga, #autres, c, 8)
+      local d2 = r2 and ((p.x - cx) ^ 2 + (p.y - cy) ^ 2) or 0
+      if A.dans_bande(b, p.x, p.y) and (not r2 or d2 <= r2a) then
+        local ty = e.type
+        local c = { x = p.x, y = p.y, id = e.unit_number or (1000000000 + j.nf + i), e = e, type = ty }
+        local dedans = not r2 or d2 <= r2
+        if PASSAGERS[ty] then
+          -- rien : ni cible, ni obstacle
+        elseif dedans and enemy[e.force.name] and e.health and e.destructible then
+          c.mobile = (ty == "unit" or ty == "character")
+          cands[#cands + 1] = c
+          planifier(j, c, #cands)
+          if VIDE[ty] then j.vides[#j.vides + 1] = c end
+        elseif NEUTRES[ty] then
+          if dedans then
+            neutres[#neutres + 1] = c
+            if j.gn then A.grille_ajoute(j.gn, #neutres, c, 8) end
+          end
+        else
+          local bb = e.bounding_box
+          c.bb = { bb.left_top.x - 1, bb.left_top.y - 1, bb.right_bottom.x + 1, bb.right_bottom.y + 1 }
+          autres[#autres + 1] = c
+          A.grille_ajoute(j.ga, #autres, c, 8)
+        end
       end
     end
-    ops(j)
   end
-  j.fi = fin + 1
-  if j.fi > #found then j.found = nil end
 end
 
 local function boite_recouvre(bb, x0, y0, x1, y1)
@@ -160,14 +182,16 @@ planifier = function(j, c, i)
   end
 end
 
---- Au 1er tick de la charge : L'UNIQUE recherche de la salve, et la géométrie ; le rangement et le plan suivent par tranches.
+--- Au 1er tick de la charge : la géométrie et les bandes de LA recherche de la salve (une zone, découpée en bandes de A.BANDE tuiles
+--- de haut) ; recherche, rangement et plan suivent par jetons (preparer_pas), pendant la charge.
 local function preparer(j, r, a)
   local e = j.e
-  local s = j.surface
   local st = stat(j.id)
   j.forces = K.enemy_forces(e.force)
+  j.enemy = {}
+  for _, n in ipairs(j.forces) do j.enemy[n] = true end
   local c = j.c
-  j.cands, j.neutres, j.autres, j.ga, j.par, j.k, j.kk = {}, {}, {}, {}, {}, 0, 1
+  j.cands, j.neutres, j.autres, j.ga, j.par, j.k, j.kk, j.vides = {}, {}, {}, {}, {}, 0, 1, {}
   j.p = { c = c, R = j.R }
   if j.id == "trombe" then j.g, j.gn, j.vus, j.morts, j.attente, j.kq = {}, {}, {}, {}, {}, 1 end
   if j.id == "ixion" then
@@ -195,16 +219,46 @@ local function preparer(j, r, a)
   else
     q = { position = c, radius = j.R + 1 }
   end
-  -- toutes les forces, sans le minerai : arbres et bâtiments à protéger servent aux falaises, à la lave et au verre
-  j.found = s.find_entities_filtered({ area = q.area, position = q.position, radius = q.radius, type = { "resource" }, invert = true })
-  j.fi = 1
+  local x0, y0, x1, y1
+  if q.area then
+    x0, y0, x1, y1 = q.area[1][1], q.area[1][2], q.area[2][1], q.area[2][2]
+  else
+    local rr = q.radius
+    x0, y0, x1, y1 = c.x - rr - 6, c.y - rr - 6, c.x + rr + 6, c.y + rr + 6
+    j.r2, j.r2a = rr * rr, (rr + 6) * (rr + 6)
+  end
+  j.bandes, j.kb, j.nf, j.found, j.fi = A.bandes(x0, y0, x1, y1, A.BANDE), 1, 0, nil, 1
   st.recherches = st.recherches + 1
 end
 
---- À la frappe : la fin du rangement s'il en reste (charge trop courte pour la base), puis ce qui demande toute la liste.
+--- Pendant la charge : les bandes de recherche et le rangement, par jetons. Rend vrai quand toute la zone est rangée.
+local function preparer_pas(j)
+  while true do
+    if j.found and j.fi <= #j.found then
+      ranger(j)
+      if j.fi <= #j.found then return false end
+    elseif j.kb <= #j.bandes then
+      if not peut(P.bande) then return false end
+      local b = j.bandes[j.kb]
+      j.kb = j.kb + 1
+      paie(j, P.bande)
+      ops(j)
+      if j.found then j.nf = j.nf + #j.found end
+      -- toutes les forces, sans le minerai : arbres et bâtiments à protéger servent à la lave et au verre
+      j.found = j.surface.find_entities_filtered({ area = { { b.x0, b.y0 }, { b.x1, b.y1 } }, type = { "resource" }, invert = true })
+      j.fb, j.fi = b, 1
+      local st = stat(j.id)
+      st.bandes = (st.bandes or 0) + 1
+    else
+      j.found = nil
+      return true
+    end
+  end
+end
+
+--- À la frappe (toute la zone rangée) : ce qui demande toute la liste.
 local function frappe(j, r, a)
   local st = stat(j.id)
-  while j.found do ranger(j) end
   local c = j.c
   local cands, neutres = j.cands, j.neutres
   st.candidats = st.candidats + #cands
@@ -299,27 +353,29 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Pas de chaque grande attaque (après la frappe)
 ---------------------------------------------------------------------------------------------------
-local VIDE = { accumulator = true, ["electric-turret"] = true, roboport = true }
-
 local function pas_cairn(j, r, a, rt)
   local st = stat(j.id)
   local force = game.forces[j.force]
-  while j.fusee[j.kf] and j.fusee[j.kf].t <= rt do
+  while j.fusee[j.kf] and j.fusee[j.kf].t <= rt and peut(2 * P.eclat) do
     local h = j.fusee[j.kf]
     if h.e and h.e.valid then
-      V.saut(j, h.p, h.e, j.kf == 1, j.climax - h.t)
+      V.saut(j, h.p, h.e, j.kf == 1, math.max(1, j.climax - h.t))
+      paie(j, 2 * P.eclat)
       ops(j, 2)
     end
     j.kf = j.kf + 1
   end
-  if rt >= j.climax and (j.kc or 1) <= #j.fusee then
-    -- tous les poteaux atteints sautent en quelques ticks (A.POTEAUX par tick) ; les réserves du réseau sont vidées
-    if rt == j.climax then V.climax_son(j) end
-    local k0 = j.kc or 1
-    local k1 = math.min(#j.fusee, k0 + A.POTEAUX - 1)
-    for k = k0, k1 do
+  if rt >= j.climax and j.kf > #j.fusee and (j.kc or 1) <= #j.fusee then
+    -- tous les poteaux atteints sautent en vague, dans l'ordre de la cascade (au plus ce que le budget permet par tick, A.POIDS.poteau
+    -- chacun) ; puis les réserves du réseau sont vidées
+    if not j.son_climax then j.son_climax = true; V.climax_son(j) end
+    j.kc = j.kc or 1
+    while j.kc <= #j.fusee and peut(P.poteau) do
+      local k = j.kc
       local h = j.fusee[k]
+      j.kc = k + 1
       if h.e and h.e.valid then
+        paie(j, P.poteau)
         V.climax_poteau(j, h.e, k)
         if h.poteau then
           st.poteaux = st.poteaux + 1
@@ -329,17 +385,20 @@ local function pas_cairn(j, r, a, rt)
         end
       end
     end
-    j.kc = k1 + 1
-    if j.kc > #j.fusee then
-      for _, c in ipairs(j.cands) do
-        if c.e.valid and VIDE[c.e.type] then c.e.energy = 0; ops(j) end
-      end
+  end
+  if (j.kc or 1) > #j.fusee and rt >= j.climax then
+    j.kv = j.kv or 1
+    while j.kv <= #j.vides and peut(P.vide) do
+      local c = j.vides[j.kv]
+      j.kv = j.kv + 1
+      if c.e.valid then c.e.energy = 0; paie(j, P.vide); ops(j) end
     end
   end
-  while j.orage[j.ko] and j.orage[j.ko].t <= rt do
+  while j.orage[j.ko] and j.orage[j.ko].t <= rt and peut(2 * P.eclat + P.coup) do
     local b = j.orage[j.ko]
     if b.e and b.e.valid and force and force.is_enemy(b.e.force) then
       V.foudre(j, b.e.position)
+      paie(j, 2 * P.eclat + P.coup)
       ops(j, 2)
       st.foudres = st.foudres + 1
       toucher(j, r, a, b.e, 0, false, 0.5)
@@ -358,24 +417,35 @@ local function pas_balayage(j, r, a, rt)
   local st = stat(j.id)
   local s = j.surface
   local bl = j.bal
-  if rt > bl.ticks then V.balayage_fin(j, rt); return end
-  local x, y, k = A.bout_balayage(j.rayons, rt, bl.ticks, bl.pas)
-  while j.feux_pas < k do
-    j.feux_pas = j.feux_pas + 1
-    local e = j.rayons[j.feux_pas]
-    for n, p in ipairs(A.Ech.feux(j.o, e, bl.feu_pas)) do
-      if n <= 12 then
-        s.create_entity({ name = A.PREFIX .. "brasier-court", position = { p.x, p.y }, initial_ground_flame_count = 2 })
-        s.create_entity({ name = "medium-scorchmark", position = { p.x, p.y } })
-        st.feux = st.feux + 1
-        ops(j, 2)
+  -- les feux de chaque pas vont en file (A.POIDS.feu chacun) : 12 feux d'un coup coûtaient 1 à 1,5 ms (mesure du 7/11)
+  j.qfeux = j.qfeux or {}
+  if rt <= bl.ticks then
+    local _, _, k = A.bout_balayage(j.rayons, rt, bl.ticks, bl.pas)
+    while j.feux_pas < k do
+      j.feux_pas = j.feux_pas + 1
+      local e = j.rayons[j.feux_pas]
+      for n, p in ipairs(A.Ech.feux(j.o, e, bl.feu_pas)) do
+        if n <= 12 then j.qfeux[#j.qfeux + 1] = p end
       end
     end
   end
-  while j.arbres[j.ka] and j.arbres[j.ka].t <= rt do
+  j.kq = j.kq or 1
+  while j.kq <= #j.qfeux and peut(P.feu) do
+    local p = j.qfeux[j.kq]
+    j.kq = j.kq + 1
+    s.create_entity({ name = A.PREFIX .. "brasier-court", position = { p.x, p.y }, initial_ground_flame_count = 2 })
+    s.create_entity({ name = "medium-scorchmark", position = { p.x, p.y } })
+    paie(j, P.feu)
+    st.feux = st.feux + 1
+    ops(j, 2)
+  end
+  while j.arbres[j.ka] and j.arbres[j.ka].t <= rt and peut(P.abattre) do
     abattre(j, j.arbres[j.ka].e)
+    paie(j, P.abattre)
     j.ka = j.ka + 1
   end
+  if rt > bl.ticks then V.balayage_fin(j, rt); return end
+  local x, y = A.bout_balayage(j.rayons, rt, bl.ticks, bl.pas)
   V.balayage(j, rt, x, y)
 end
 
@@ -432,7 +502,7 @@ local function pas_trombe(j, r, a, rt)
         local p = c.mobile and e.position or c
         local dx, dy = p.x - x, p.y - y
         local d = math.sqrt(dx * dx + dy * dy)
-        -- les coups vont en file (A.COUPS par tick, plus bas) : un passage sur un îlot dense ne tue pas tout dans le même tick
+        -- les coups vont en file (budget du tick, plus bas) : un passage sur un îlot dense ne tue pas tout dans le même tick
         if d <= a.rayon then
           j.morts[i] = true
           j.attente[#j.attente + 1] = { i = i, f = 0, m = a.coeur }
@@ -444,41 +514,47 @@ local function pas_trombe(j, r, a, rt)
     end
     for _, i in ipairs(A.voisinage(j.gn, x, y, a.rayon, 8)) do
       local n = j.neutres[i]
-      if n.e.valid and (n.x - x) ^ 2 + (n.y - y) ^ 2 <= a.rayon * a.rayon then abattre(j, n.e) end
+      if n.e.valid and (n.x - x) ^ 2 + (n.y - y) ^ 2 <= a.rayon * a.rayon then abattre(j, n.e); paie(j, P.abattre) end
     end
   end
   local s, st = j.surface, stat(j.id)
-  local fin = math.min(#j.attente, j.kq + A.COUPS - 1)
-  for k = j.kq, fin do
-    local h = j.attente[k]
+  -- les coups en file, au plus ce que le budget permet (A.POIDS.coup, plus un rocher)
+  while j.kq <= #j.attente and peut(P.coup + P.eclat) do
+    local h = j.attente[j.kq]
+    j.kq = j.kq + 1
     local c = j.cands[h.i]
+    paie(j, P.coup)
     if toucher(j, r, a, c.e, h.f, false, h.m) and not c.mobile then
       local q = A.debris(c.id, j.graine, a.debris)
       if q then
         s.create_entity({ name = A.ROCHERS[q], position = { c.x, c.y } })
+        paie(j, P.eclat)
         st.rochers = st.rochers + 1
         ops(j)
       end
     end
   end
-  j.kq = fin + 1
   V.cyclone(j, rt, x, y)
 end
 
 local EAU = { ["water"] = true, ["deepwater"] = true, ["water-green"] = true, ["deepwater-green"] = true, ["water-shallow"] = true,
   ["water-mud"] = true, ["out-of-map"] = true }
 
---- File de tuiles : au plus A.TUILES vérifiées et posées par tick (`q` : { surface, ga, autres, file = { { x, y, nom, seule } }, i }).
+--- File de tuiles : au plus A.TUILES vérifiées et posées par tick, et ce que le budget permet (A.POIDS.tuile chacune) (`q` : { surface,
+--- ga, autres, file = { { x, y, nom, seule } }, i }).
 local function enfiler(q, liste, nom, seule)
   q.file = q.file or {}
   for _, t in ipairs(liste) do q.file[#q.file + 1] = { x = t.x, y = t.y, nom = nom, seule = seule } end
 end
 
 local poser_tuiles
-local function vider_file(q)
+local function vider_file(q, j)
   if not q.file or #q.file == 0 then return 0 end
+  local m = math.min(A.TUILES, math.floor(BUD.reste / P.tuile))
+  if m <= 0 then return 0 end
   q.i = q.i or 1
-  local fin = math.min(#q.file, q.i + A.TUILES - 1)
+  local fin = math.min(#q.file, q.i + m - 1)
+  paie(j, (fin - q.i + 1) * P.tuile)
   local n = 0
   local paquets = {}
   for k = q.i, fin do
@@ -511,7 +587,7 @@ poser_tuiles = function(j, liste, nom, seule)
     if ok then t[#t + 1] = { name = nom, position = { q.x, q.y } } end
   end
   -- sans retirer les entités : une cible ennemie sous la lave ou le verre meurt par le plan (ses ruines, sa mort comptée), au plus
-  -- A.COUPS par tick ; jamais retirée sans bruit (F135)
+  -- budget du tick ; jamais retirée sans bruit (F135)
   if #t > 0 then s.set_tiles(t, true, false, true, false) end
   return #t
 end
@@ -534,18 +610,20 @@ local function pas_ixion(j, r, a, rt)
       V.lac(j, a)
     end
   end
-  local n = vider_file(j)
+  local n = vider_file(j, j)
   st.tuiles = st.tuiles + n
   ops(j, math.ceil(n / 16))
-  while j.arbres[j.ka] and j.arbres[j.ka].t <= rt do
+  while j.arbres[j.ka] and j.arbres[j.ka].t <= rt and peut(P.abattre) do
     abattre(j, j.arbres[j.ka].e)
+    paie(j, P.abattre)
     j.ka = j.ka + 1
   end
-  while j.feux[j.kfeu] do
+  while j.feux[j.kfeu] and peut(P.feu) do
     local p = j.feux[j.kfeu]
     local dx, dy = p.x - j.c.x, p.y - j.c.y
     if a.lance + math.floor(math.sqrt(dx * dx + dy * dy) / a.onde) > rt then break end
     s.create_entity({ name = A.PREFIX .. "brasier", position = { p.x, p.y }, initial_ground_flame_count = 4 })
+    paie(j, P.feu)
     st.feux = st.feux + 1
     ops(j)
     j.kfeu = j.kfeu + 1
@@ -555,7 +633,7 @@ end
 
 local function pas_tournesol(j, r, a, rt)
   local st = stat(j.id)
-  local n = vider_file(j)
+  local n = vider_file(j, j)
   st.tuiles = st.tuiles + n
   ops(j, math.ceil(n / 16))
   if rt > a.duree then return end
@@ -578,6 +656,15 @@ local PAS = { cairn = pas_cairn, stylet = pas_balayage, trombe = pas_trombe, ixi
 -- Lancer, avancer, finir
 ---------------------------------------------------------------------------------------------------
 --- Lance la grande attaque du géant `e` sur le point (x, y). ordre : par le joueur (recharge courte). Rend vrai, ou faux et la raison.
+--- Le géant ne tire pas sa 1re attaque avant le tick `fin` : on repousse son prochain tir dans le registre de
+--- script/robots/experimentaux_geants.lua (seul champ écrit : `next`).
+function M.taire(un, fin)
+  local ks = K.S()
+  for _, g in ipairs(ks and ks.giants or {}) do
+    if g.un == un and (g.next or 0) < fin then g.next = fin end
+  end
+end
+
 function M.lancer(e, x, y, ordre)
   if not (e and e.valid) then return false, "geant absent" end
   local r = GEANT[e.name]
@@ -605,13 +692,10 @@ function M.lancer(e, x, y, ordre)
     j.o = (j.graine % 16) / 16
   end
   if r.id == "trombe" then e.autopilot_destination = nil end
-  -- pendant sa grande attaque, le géant ne tire pas sa 1re attaque (il est tout entier à la grande) : on repousse son prochain tir dans
-  -- le registre de script/robots/experimentaux_geants.lua (seul champ écrit : `next`)
+  -- pendant sa grande attaque, le géant ne tire pas sa 1re attaque (il est tout entier à la grande) ; repoussé encore tant qu'elle dure
+  -- (avancer : la file des coups peut la prolonger)
   local fin = t + A.duree(r.id, { traits = j.traits, rl = j.R * (a.lave or 0), R = j.R })
-  local ks = K.S()
-  for _, g in ipairs(ks and ks.giants or {}) do
-    if g.un == e.unit_number and (g.next or 0) < fin then g.next = fin end
-  end
+  M.taire(e.unit_number, fin)
   s.jobs[#s.jobs + 1] = j
   s.pret[e.unit_number] = t + a.charge + (ordre and A.RECHARGE_ORDRE or A.RECHARGE)
   local st = stat(r.id)
@@ -621,11 +705,24 @@ function M.lancer(e, x, y, ordre)
   return true
 end
 
-local function fin_job(j, r, a)
+local function fin_job(j, r, a, tick)
   V.fin(j)
   local st = stat(j.id)
-  journal("%s %s fin #%d : cibles %d, tues %d, degats %.0f, falaises %d, poteaux %d, foudres %d, tuiles %d, rochers %d, feux %d, max ops/tick %d",
-    j.id, a.nom, j.un, st.cibles, st.tues, st.degats, st.falaises, st.poteaux, st.foudres, st.tuiles, st.rochers, st.feux, st.max_ops)
+  journal("%s %s fin #%d (tick %d, frappe +%d) : cibles %d, tues %d, degats %.0f, falaises %d, poteaux %d, foudres %d, tuiles %d, rochers %d, feux %d, max ops/tick %d, max jetons/tick %d",
+    j.id, a.nom, j.un, tick, tick - j.t0, st.cibles, st.tues, st.degats, st.falaises, st.poteaux, st.foudres, st.tuiles, st.rochers, st.feux,
+    st.max_ops, st.max_cout or 0)
+end
+
+--- Reste-t-il du travail en file (coups, feux, tuiles, poteaux, foudres, arbres) ? Une attaque ne finit qu'une fois tout servi.
+local function en_file(j, rt)
+  if j.file and #j.file > 0 then return true end
+  if j.par and j.k <= rt then return true end
+  if j.attente and j.kq <= #j.attente then return true end
+  if j.qfeux and j.kq <= #j.qfeux then return true end
+  if j.fusee and (j.kf <= #j.fusee or (j.kc or 1) <= #j.fusee or (j.kv or 1) <= #j.vides or j.ko <= #j.orage) then return true end
+  if j.feux and j.kfeu <= #j.feux then return true end
+  if j.arbres and j.ka <= #j.arbres then return true end
+  return false
 end
 
 --- Un tick d'une grande attaque ; rend vrai quand elle est finie (ou abandonnée : géant détruit).
@@ -633,50 +730,56 @@ local function avancer(j, tick)
   local r = Xp.robot(j.id)
   local a = A.ATTAQUES[j.id]
   local rt = tick - j.t0
-  j.ops = 0
+  j.ops, j.cout = 0, 0
   if not (j.e and j.e.valid) then
     V.fin(j)
     journal("%s %s abandonnee : geant detruit (tick %d)", j.id, a.nom, tick)
     return true
   end
+  if tick % 60 == 0 then M.taire(j.un, tick + 120) end
+  if rt == 0 and not (j.cands and preparer_pas(j)) then
+    -- la zone n'est pas toute rangée (budget pris par d'autres attaques) : la frappe attend d'un tick
+    j.t0 = j.t0 + 1
+    rt = -1
+  end
   if rt < 0 then
-    if not j.cands then preparer(j, r, a) elseif j.found then ranger(j) end
+    if not j.cands then preparer(j, r, a) end
+    preparer_pas(j)
     V.charge(j, r, a, rt)
     if j.id == "trombe" then
       local u = 1 + rt / a.charge
       u = u * u * (3 - 2 * u)
       deplacer(j, j.depart.x + (j.c.x - j.depart.x) * u, j.depart.y + (j.c.y - j.depart.y) * u)
     end
-    return false
-  end
-  if rt == 0 then
-    if not j.cands then preparer(j, r, a) end
-    frappe(j, r, a)
-    V.frappe(j, r, a)
-    j.fin_rt = A.duree(j.id, { traits = j.traits, rl = j.rl, R = j.R }) - a.charge
-  end
-  if j.par then
-    -- dégâts des ticks échus, au plus A.COUPS par tick (le reste au tick suivant)
-    local n = 0
-    while j.k <= rt and n < A.COUPS do
-      local b = j.par[j.k]
-      if b and j.kk <= #b then
-        local it = b[j.kk]
-        local c = j.cands[it.i]
-        if c then toucher(j, r, a, c.e, it.f, it.tue) end
-        j.kk = j.kk + 1
-        n = n + 1
-      else
-        j.par[j.k] = nil
-        j.k, j.kk = j.k + 1, 1
+  else
+    if rt == 0 then
+      frappe(j, r, a)
+      V.frappe(j, r, a)
+      j.fin_rt = A.duree(j.id, { traits = j.traits, rl = j.rl, R = j.R }) - a.charge
+    end
+    -- les effets du pas (tuiles, feux, poteaux), puis les coups des ticks échus avec le reste du budget (A.POIDS.coup chacun)
+    PAS[j.id](j, r, a, rt)
+    if j.par then
+      while j.k <= rt do
+        local b = j.par[j.k]
+        if b and j.kk <= #b then
+          if not peut(P.coup) then break end
+          local it = b[j.kk]
+          local c = j.cands[it.i]
+          j.kk = j.kk + 1
+          if c then paie(j, P.coup); toucher(j, r, a, c.e, it.f, it.tue) end
+        else
+          j.par[j.k] = nil
+          j.k, j.kk = j.k + 1, 1
+        end
       end
     end
   end
-  PAS[j.id](j, r, a, rt)
   local st = stat(j.id)
   if j.ops > st.max_ops then st.max_ops = j.ops end
-  if rt >= j.fin_rt and not (j.file and #j.file > 0) and (not j.par or j.k > rt) and not (j.attente and j.kq <= #j.attente) then
-    fin_job(j, r, a)
+  if j.cout > (st.max_cout or 0) then st.max_cout = j.cout end
+  if rt >= 0 and rt >= j.fin_rt and not en_file(j, rt) then
+    fin_job(j, r, a, tick)
     return true
   end
   return false
@@ -726,15 +829,22 @@ end
 local function sur_tick(ev)
   local s = S()
   if not s then return end
-  if #s.jobs > 0 then
-    local keep = {}
-    for _, j in ipairs(s.jobs) do
-      if not avancer(j, ev.tick) then keep[#keep + 1] = j end
+  BUD.reste = A.BUDGET
+  local n = #s.jobs
+  if n > 0 then
+    -- chacune son tour en tête (le budget est partagé) : le départ tourne avec le tick ; l'ordre de la liste reste celui des lancements
+    local fini = {}
+    local d = ev.tick % n
+    for k = 1, n do
+      local i = (d + k - 1) % n + 1
+      fini[i] = avancer(s.jobs[i], ev.tick)
     end
+    local keep = {}
+    for i = 1, n do if not fini[i] then keep[#keep + 1] = s.jobs[i] end end
     s.jobs = keep
   end
   if ev.tick % 30 == 0 and (#s.laves > 0 or #s.verres > 0) then refroidir(ev.tick) end
-  -- refroidissement par tranches : une seule file servie par tick (A.TUILES tuiles au plus)
+  -- refroidissement par tranches : une seule file servie par tick, avec le reste du budget
   for _, L in ipairs(s.laves) do if L.q and #L.q.file > 0 then vider_file(L.q); return end end
   for _, G in ipairs(s.verres) do if G.q and #G.q.file > 0 then vider_file(G.q); return end end
 end

@@ -335,6 +335,31 @@ local function controles(A, bavard)
   end
   check(gok, "§9 grille : tout candidat dans le disque est rendu par le voisinage")
 
+  -- §12 bandes de la recherche (budget par tick, 7/11) : elles couvrent la boîte, et chaque position de la boîte (bords compris, positions
+  -- en 1/256 : F92) revient à UNE bande et une seule ; rien hors de la boîte
+  local bx0, by0, bx1, by1 = -84.5, -61.25, 84.5, 70.75
+  local bl = A.bandes(bx0, by0, bx1, by1, 32)
+  local couvre = (#bl >= 1) and bl[1].y0 == by0 and bl[#bl].y1 == by1 and bl[#bl].der
+  for k = 2, #bl do if bl[k].y0 ~= bl[k - 1].y1 or bl[k].y1 - bl[k].y0 > 32 then couvre = false end end
+  check(couvre, "§12 bandes : la boîte entière, sans trou, 32 tuiles au plus", tostring(#bl))
+  local une, hors = true, true
+  local ys = {}
+  for yy = by0 * 256 - 512, by1 * 256 + 512, 37 do ys[#ys + 1] = yy / 256 end
+  for _, b in ipairs(bl) do ys[#ys + 1] = b.y0; ys[#ys + 1] = b.y1; ys[#ys + 1] = b.y1 - 1 / 256 end -- les bords des bandes
+  for _, y in ipairs(ys) do
+    for _, xx in ipairs({ bx0 - 1, bx0, 0, bx1, bx1 + 0.5 }) do
+      local n = 0
+      for _, b in ipairs(bl) do if A.dans_bande(b, xx, y) then n = n + 1 end end
+      local dedans = xx >= bx0 and xx <= bx1 and y >= by0 and y <= by1
+      if dedans and n ~= 1 then une = false end
+      if not dedans and n ~= 0 then hors = false end
+    end
+  end
+  check(une, "§12 chaque position de la boîte revient à une seule bande (bords compris)")
+  check(hors, "§12 rien hors de la boîte")
+  local b1 = A.bandes(0, 0, 10, 10, 32)
+  check(#b1 == 1 and b1[1].der, "§12 une petite zone : une seule bande")
+
   return ok, ko
 end
 
@@ -388,6 +413,8 @@ local MUTANTS = {
   { "proximité sans borne", "if k ~= i and (o.x - c.x) * (o.x - c.x) + (o.y - c.y) * (o.y - c.y) <= r * r then", "if k ~= i then" },
   { "débris toujours", "if u >= part then return nil end", "if u >= 1 then return nil end" },
   { "Trombe qui tue d'office", "if tt then t, f, tue = tt, math.max(0, d - a.rayon) / (a.souffle - a.rayon), false end", "if tt then t, f, tue = tt, 0, d <= a.rayon end" },
+  { "bande qui garde son bord sud", "return y < b.y1 or b.der", "return true" },
+  { "dernière bande sans bord sud", "out[#out + 1] = { x0 = x0, y0 = y, x1 = x1, y1 = yb, der = (yb >= y1) }", "out[#out + 1] = { x0 = x0, y0 = y, x1 = x1, y1 = yb, der = false }" },
 }
 local refuses = 0
 for _, m in ipairs(MUTANTS) do

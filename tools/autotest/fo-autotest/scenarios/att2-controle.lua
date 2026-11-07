@@ -1,6 +1,7 @@
 -- Lot DESIGN-ATTAQUES (5/11) : MICRO-BANC des 5 grandes attaques en moteur réel, SANS images (palier 3, avant toute capture).
---   py -3.9 -B tools/autotest/banc.py --out <archive> --qui DESIGN-ATTAQUES -- 1300 att2-controle <source>
--- Les 5 géants frappent EN MÊME TEMPS (tick 100) leur base ennemie ; contrôles au tick 1 200 :
+--   py -3.9 -B tools/autotest/banc.py --out <archive> --qui DESIGN-ATTAQUES -- 2600 att2-controle <source>
+-- Les 5 géants frappent EN MÊME TEMPS (tick 100) leur base ennemie ; contrôles au tick 2 500 (depuis le budget par tick du 7/11, PARTAGÉ :
+-- cinq grandes attaques ensemble durent plus longtemps qu'une seule ; environ 1 300 ticks au moteur simulé) :
 --   le prototype charge (sprites, tuiles, falaises, rayons, jets, sons, touche) ; chaque attaque finit sans erreur et touche des cibles ;
 --   Cairn : 40 poteaux au moins grillés ; Stylet : balayage laser de 30° (idée du DC), sillage de sol brûlé ; Trombe : rochers posés, elle finit au centre ;
 --   Ixion : tuiles de lave posées, infranchissables (collision) ; Tournesol : verre chaud posé ; le bâtiment ami de chaque zone intact ;
@@ -11,7 +12,7 @@ local Y = 3000
 local IDS = { "cairn", "stylet", "trombe", "ixion", "tournesol" }
 local function sx(k) return 6000 + (k - 1) * 400 end
 local LANCE = 100
-local CHECK = 1200
+local CHECK = 2500
 
 return {
   description = "DESIGN-ATTAQUES : micro-banc des 5 grandes attaques (sans images)",

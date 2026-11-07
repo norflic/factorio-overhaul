@@ -225,7 +225,7 @@ function V.saut(j, de, vers, premier, reste)
     frame_speed = 1 })
 end
 
---- Le climax : tout ce qui a été atteint saute (en quelques ticks : script/robots/attaques2.lua, A.POTEAUX par tick).
+--- Le climax : tout ce qui a été atteint saute (en vague, dans l'ordre de la cascade : script/robots/attaques2.lua, budget du tick).
 function V.climax_son(j)
   son(j, "cairn-fin")
   lumiere(j, j.c, 40, COUL.cairn, 1.0, 40)
@@ -456,6 +456,10 @@ function V.zenith(j, rt, x, y, u1, u2)
     j.vis.trace = 0
     local o = A.pseudo_angle(x - qx, y - qy) / 4
     fissure(j, p, o, rt % 6 + 1, 300, a.tenue, 1.1)
+    -- captures du 7/11 : de nuit, la spirale de verre chaud (infranchissable 2 min) ne se voyait pas ; une lueur orange tous les 5 tuiles
+    -- tant que le verre est chaud (environ 220 lumières pour toute la spirale ; invisibles de jour)
+    j.vis.nl = (j.vis.nl or 0) + 1
+    if j.vis.nl % 2 == 0 then lumiere(j, p, 2.4, { 1.0, 0.5, 0.15 }, 0.6, a.tenue) end
   end
   if rt % 3 == 0 then s.create_entity({ name = "fo-bourdon-flamme", position = p }) end
   if rt % 5 == 0 then s.create_trivial_smoke({ name = "fo-bourdon-fumee", position = { x, y - 1 } }) end

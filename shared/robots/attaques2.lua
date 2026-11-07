@@ -40,12 +40,43 @@ A.LOG = "[FO-ATT2]"
 A.RECHARGE = 1800       -- automatique : une grande attaque toutes les 30 s au plus
 A.RECHARGE_ORDRE = 900  -- sur ordre du joueur : 15 s
 A.FACTEUR = 2           -- repli : coup plein par cible = FACTEUR × coup de la 1re attaque (non partagé)
--- Bornes PAR TICK (demande du lead, 7/11 : moins de 1 ms par tick ; experimentaux est à 0,3 ms) :
-A.PREP = 150            -- entités rangées (et planifiées) par tick, pendant la charge
-A.COUPS = 20            -- dégâts par tick (le reste passe au tick suivant) ; une mort coûte au moteur ses ruines et son explosion,
-                        -- environ 50 µs (micro-banc du 7/11 : 100 morts dans un tick du Cyclone, 7,7 ms) : 20 par tick, environ 1 ms
-A.TUILES = 64           -- tuiles vérifiées et posées par tick (file)
-A.POTEAUX = 10          -- poteaux qui sautent par tick au climax du Cairn (2 explosions chacun)
+-- COÛT PAR TICK (demande du lead, 7/11 : moins de 1 ms). Mesure en jeu du 7/11 (att2-perf, seul sur le PC), avec des bornes fixes
+-- (150 rangées, 20 coups, 64 tuiles, 10 poteaux par tick) : 2,2 à 4,0 ms au pire tick de la grande attaque. D'où un BUDGET de jetons par
+-- tick, PARTAGÉ par toutes les grandes attaques en cours et les refroidissements, remis à plein à chaque tick ; ce qui dépasse passe au
+-- tick suivant. Les poids sont FIXES (environ des µs, estimés sur cette mesure) : aucune décision sur un temps mesuré (déterminisme).
+A.BUDGET = 500
+A.POIDS = {
+  coup = 80,     -- un coup (damage ou die) : ruines, explosion de mort, gestionnaires on_entity_died du mod (synchrones)
+  feu = 60,      -- un feu au sol et sa brûlure
+  eclat = 20,    -- une explosion, un éclat, un rocher
+  poteau = 120,  -- un poteau qui saute au climax du Cairn (mort, grosse explosion, éclat)
+  rang = 6,      -- une entité rangée pendant la charge (position, force, type, santé)
+  tuile = 8,     -- une tuile vérifiée et posée
+  abattre = 40,  -- un arbre ou un rocher abattu
+  bande = 250,   -- une bande de recherche d'entités (A.BANDE tuiles de haut)
+  vide = 10,     -- un accumulateur, une tourelle laser, un roboport vidés
+}
+A.BANDE = 32            -- la recherche de la salve, par bandes de 32 tuiles de haut (1,0 à 1,8 ms d'un bloc pour le Tournesol, mesuré)
+A.TUILES = 32           -- tuiles posées par tick au plus (le reste du budget pour les coups)
+
+--- Les bandes de recherche d'une boîte (x0, y0, x1, y1), de `h` tuiles de haut au plus, du nord au sud. La dernière garde son bord sud.
+function A.bandes(x0, y0, x1, y1, h)
+  local out = {}
+  local y = y0
+  repeat
+    local yb = math.min(y1, y + h)
+    out[#out + 1] = { x0 = x0, y0 = y, x1 = x1, y1 = yb, der = (yb >= y1) }
+    y = yb
+  until y >= y1
+  return out
+end
+
+--- Une entité rendue par la recherche de la bande `b` lui revient-elle ? Chaque position n'appartient qu'à UNE bande (F96 : la recherche
+--- rend aussi ce qui touche la bande par un bord) : nord inclus, sud exclu sauf pour la dernière ; hors de la boîte en x, à personne.
+function A.dans_bande(b, x, y)
+  if x < b.x0 or x > b.x1 or y < b.y0 or y > b.y1 then return false end
+  return y < b.y1 or b.der
+end
 
 --- Zone d'un géant d'âge `age` (choix du DC transmis par le lead, 5/11 : 15 × (âge − 9) tuiles ; 15 à l'âge 10, 75 à l'âge 14).
 function A.zone(age) return 15 * (math.floor(age) - 9) end
