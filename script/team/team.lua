@@ -1189,6 +1189,30 @@ TT.step = function(pl, tick)
 end
 Scheduler.define_timer(TT.TIMER, TT.step)
 
+--- Relecture de 6fcfe757 (lead, 7/11) : une pensée en cours garde la SIGNATURE des listes de champs copiés pour E4 (Et.SIG). Au
+--- changement de configuration, un état d'une autre signature (autre version de ces listes, ou d'avant la signature) est EFFACÉ,
+--- avec une ligne au journal : E4 ne rejoue jamais une copie qui n'a pas les champs qu'il lit (en jeu, la copie n'est pas stricte :
+--- un champ manquant vaudrait nil sans rien dire). La pensée suivante de l'équipe repart d'E1 (300 ticks au plus). Même signature :
+--- l'état est gardé, ses étapes se jouent à leur tick (CRITERES.md P5).
+TT.config_changed = function()
+  local list = {}
+  local war = State.war()
+  if war and war.factions then
+    for _, id in ipairs(State.sorted_keys(war.factions)) do list[#list + 1] = war.factions[id] end
+  end
+  list[#list + 1] = State.faction("player")
+  for _, f in ipairs(list) do
+    local et = f and f.team and f.team.etape
+    if et and et.sig ~= Et.SIG then
+      f.team.etape = nil
+      TT.count(f.team, "effaces")
+      log(string.format("[FO-ETAPES] %s : pensee du tick %s effacee a l'etape %s au changement de configuration (champs gardes : %s, attendus : %s)",
+        tostring(f.key or "player"), tostring(et.t0), tostring(et.n), tostring(et.sig), Et.SIG))
+    end
+  end
+end
+Events.on_configuration_changed(TT.config_changed)
+
 --- Queue de l'appelant, jouée après E4 (une fonction n'est pas gardable dans global : la pensée garde son NOM).
 function Team.define_tail(name, fn)
   assert(not TT.tails[name], "queue deja definie : " .. tostring(name))
@@ -1215,7 +1239,7 @@ function Team.think(f, surface, tick, tail)
       fz.lost, tostring(fz.lost_where)))
   end
   if Team.ETAPES then
-    f.team.etape = { n = 2, t0 = tick, tail = tail, ia3 = fz.ia3, view = fz.view, plan = fz.plan }
+    f.team.etape = { n = 2, t0 = tick, tail = tail, sig = Et.SIG, ia3 = fz.ia3, view = fz.view, plan = fz.plan }
     Scheduler.after(1, TT.TIMER, { key = TT.key(f), n = 2, t0 = tick })
     return false
   end

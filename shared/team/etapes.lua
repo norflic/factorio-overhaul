@@ -23,6 +23,10 @@ E.VIEW = { "effectif", "emergency", "grow_due", "iron_reserve", "recover_floor",
 E.PLAN = { "emergency_recruit", "emergency_unarmed", "grow_short", "ia3", "missing", "recruit_blocked", "recruit_held",
   "recruit_unarmed", "recruit_uses", "recruit_workers", "research", "train" }
 
+--- Signature des deux listes, gardée avec chaque pensée en cours (script/team/team.lua, TT.config_changed) : une autre signature
+--- au changement de configuration efface l'état (E4 ne rejoue pas une copie aux champs d'une autre version).
+E.SIG = "view:" .. table.concat(E.VIEW, ",") .. "|plan:" .. table.concat(E.PLAN, ",")
+
 --- Champs lus seulement dans des branches RARES : relevés par la lecture du code, qu'une courte partie peut ne pas atteindre. Le
 --- banc les dit à part au lieu de les compter comme inutiles.
 --- - view.workers_idle : `view.workers_waiting or view.workers_idle` (workers_waiting absent seulement pour une vue sans tableau) ;

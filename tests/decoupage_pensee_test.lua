@@ -82,7 +82,7 @@ local function run(mode, min, out, sans)
       assert(j, "champ inconnu des listes : " .. tostring(sans))
       table.remove(L, j)
     end
-    Team.ETAPES = (mode == "etapes" or mode == "charge" or mode == "config" or mode == "config-ref")
+    Team.ETAPES = (mode == "etapes" or mode == "charge" or mode == "config" or mode == "config-ref" or mode == "sig")
     if mode == "releve" then
       local function recorder(src, name)
         return setmetatable({}, {
@@ -176,6 +176,7 @@ local function run(mode, min, out, sans)
   end
 
   local total = min * 3600
+  SIGS = {}
   local loads, configs = 0, 0
   -- config : on_configuration_changed À CHAQUE tick où une étape attend (400 fois au plus) ; config-ref : les mêmes chargements,
   -- et le même nombre d'appels à on_configuration_changed, mais au premier tick suivant SANS étape en attente. FO_MUT_CFG (mutants
@@ -209,6 +210,37 @@ local function run(mode, min, out, sans)
         owed = 0
       end
     end
+  elseif mode == "sig" then
+    -- Signature des listes (relecture de 6fcfe757) : trois changements de configuration, chacun pendant la pensée en cours d'une
+    -- équipe différente : signature d'une autre version, puis aucune signature (partie d'avant la signature), puis la même.
+    local done, step = 0, 1
+    local HOW = { "autre", "sans", "meme" }
+    local used = {}
+    for _ = 1, total do
+      M.run_ticks(1)
+      done = done + 1
+      if step <= 3 then
+        local pick
+        for _, id in ipairs(State.alive()) do
+          local f = State.faction(id)
+          if not pick and f and f.team and f.team.etape and not used[f] then pick = f end
+        end
+        local pl = State.faction("player")
+        if not pick and pl and pl.team and pl.team.etape and not used[pl] then pick = pl end
+        if pick then
+          used[pick] = true
+          local how = HOW[step]
+          if how == "autre" then pick.team.etape.sig = "view:x|plan:y" elseif how == "sans" then pick.team.etape.sig = nil end
+          local s = { f = pick, how = how, t0 = pick.team.etape.t0 }
+          W.on_config({ mod_changes = {} })
+          configs = configs + 1
+          s.after = pick.team.etape and "garde" or "efface"
+          s.p0 = (pick.team.etapes or {}).pensees or 0
+          SIGS[#SIGS + 1] = s
+          step = step + 1
+        end
+      end
+    end
   elseif mode == "bascule" then
     M.run_ticks(math.floor(total / 2))
     Team.ETAPES = true
@@ -228,6 +260,10 @@ local function run(mode, min, out, sans)
   wr("_journal.txt", table.concat(jl, "\n"))
   wr("_trace.txt", table.concat(trace, "\n"))
   local info = { "mode " .. mode, "chargements " .. loads, "configurations " .. configs }
+  for _, s in ipairs(SIGS) do
+    info[#info + 1] = string.format("sig %s %s %s pensees_apres %d", tostring(s.f.key or "player"), s.how, s.after,
+      ((s.f.team.etapes or {}).pensees or 0) - s.p0)
+  end
   local function counts(f)
     local c = f and f.team and f.team.etapes or {}
     return string.format("%s pensees %d abandons %d rattrapages %d", tostring(f and (f.key or "player")), c.pensees or 0,
@@ -296,6 +332,7 @@ end
 
 local Et = require("shared.team.etapes")
 local MIN = tonumber(os.getenv("FO_MIN") or "") or 10
+
 
 if not os.getenv("FO_RAPIDE") then -- FO_RAPIDE=1 : parties 3 à 6 seulement
 section("1. Relevé des champs lus en E4 (" .. MIN .. " min, mode bloc)")
@@ -404,6 +441,7 @@ check(slurp(oc .. "_journal.txt") == j1, "journal identique à la partie continu
 
 end
 
+if not os.getenv("FO_SEULE7") then -- FO_SEULE5=1 FO_SEULE7=1 : parties 0 et 7 seulement
 section("5. Changement de configuration en pleine étape (" .. MIN .. " min)")
 -- Référence : mêmes chargements et même nombre d'appels à on_configuration_changed, mais à un tick SANS étape en attente
 -- (config-ref). Global comparé TEL QUEL ; journal comparé hors d'une LISTE BLANCHE exacte des 5 sortes de lignes qu'écrit
@@ -456,6 +494,8 @@ for _, mc in ipairs({ "efface", "ligne" }) do
   check(okm and okr3 and not (mg and mj and mcnt), "mutant « " .. mc .. " » refusé par le contrôle (global " .. tostring(mg) .. ", journal " .. tostring(mj) .. ")")
 end
 
+end
+
 if not os.getenv("FO_SEULE5") then
 section("6. Bascule d'une partie commencée d'un bloc (" .. MIN .. " min)")
 local okg, og = sub("bascule", MIN, "bascule")
@@ -465,6 +505,29 @@ local pg = 0
 for n in ig:gmatch("pensees (%d+)") do pg = pg + tonumber(n) end
 check(pg > 0, "pensées en étapes après la bascule (" .. pg .. ")")
 
+end
+
+if not os.getenv("FO_SEULE5") or os.getenv("FO_SEULE7") then
+section("7. Signature des champs gardés au changement de configuration (relecture de 6fcfe757, 3 min)")
+local oks, os7 = sub("sig", 3, "sig")
+check(oks, "partie jouée")
+local is = slurp(os7 .. "_info.txt") or ""
+local js = slurp(os7 .. "_journal.txt") or ""
+local seen = { autre = 0, sans = 0, meme = 0 }
+local bad = {}
+for how, after, n in is:gmatch("sig %S+ (%a+) (%a+) pensees_apres (%d+)") do
+  seen[how] = seen[how] + 1
+  local want = (how == "meme") and "garde" or "efface"
+  if after ~= want or tonumber(n) < 1 then bad[#bad + 1] = how .. " " .. after .. " " .. n end
+end
+print(string.format("  équipes : autre signature %d, sans signature %d, même signature %d", seen.autre, seen.sans, seen.meme))
+check(seen.autre == 1 and seen.sans == 1, "une pensée d'une autre signature et une sans signature au changement de configuration")
+check(#bad == 0, "autre ou sans signature : effacée ; même signature : gardée ; chaque équipe repense ensuite (" .. table.concat(bad, " ; ") .. ")")
+local nlog = 0
+for _, l in ipairs(lines_of(js)) do
+  if l:find("[FO-ETAPES]", 1, true) and l:find("effacee a l'etape", 1, true) then nlog = nlog + 1 end
+end
+check(nlog == 2, "deux lignes [FO-ETAPES] « effacée » au journal (" .. nlog .. ")")
 end
 
 print(string.format("[DECOUPAGE-PENSEE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
