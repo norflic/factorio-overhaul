@@ -87,7 +87,7 @@ end
 local surface = {
   find_entities_filtered = function(flt)
     bump("find_entities_filtered")
-    bump(flt.type == "container" and "find_coffres" or "find_lignes")
+    bump(flt.type == "container" and "find_coffres" or flt.type == "inserter" and "find_bras_cj" or type(flt.type) == "table" and "find_zone_cj" or "find_lignes")
     local out = select(flt)
     bump("entites_rendues", #out)
     return out
@@ -111,8 +111,7 @@ package.loaded["script.ai3.places_qg"] = {
   end,
 }
 local CJs = require("script.team.coffres_joueur")
-CJs.chests = function() return {} end -- mesuré par COFFRES-JOUEUR (qgzone)
-CJs.depot = function() return {} end
+local PLAYER = { name = "DC" }
 local Stt = require("script.faction.state")
 Stt.owner = function() return nil end
 local A = require("shared.team.annexe")
@@ -122,12 +121,14 @@ local Stock = require("script.team.stock")
 
 -- Monde : QG plein, `n_annex` annexes en fer pleines sur les places des anneaux 1..rings, `n_line` coffres du joueur dans la zone, chacun
 -- avec un bras au contact (rejetés : « sur une ligne »).
+local N_FREE = 23
 local function build_world(n_annex, rings, n_line)
   WORLD = {}
   UNIT = 0
   local hq = new_chest("fo-team-chest", 96, 0, 0)
+  hq.surface = surface
   hq.items.stone = 50 * 96
-  local f = { key = "player", force = "player", hq = hq, hq_pos = { x = 0, y = 0 }, stats = {}, started = 0, annex = {}, annex_sy = 1,
+  local f = { key = "player", is_player = true, force = "player", hq = hq, hq_pos = { x = 0, y = 0 }, stats = {}, started = 0, annex = {}, annex_sy = 1,
     annex_rings = rings }
   local Sg = require("shared.team.stockage")
   local places = {}
@@ -143,8 +144,20 @@ local function build_world(n_annex, rings, n_line)
   for i = 1, n_line do
     local p = places[(i * 7) % #places + 1]
     local c = new_chest("iron-chest", 32, p[1] + 1.5, p[2] + 0.5)
+    c.last_user = PLAYER
+    c.bounding_box = { left_top = { x = c.position.x - 0.35, y = c.position.y - 0.35 }, right_bottom = { x = c.position.x + 0.35, y = c.position.y + 0.35 } }
     WORLD[#WORLD + 1] = c
-    WORLD[#WORLD + 1] = { valid = true, type = "inserter", force = "player", position = { x = c.position.x + 1, y = c.position.y } }
+    WORLD[#WORLD + 1] = { valid = true, type = "inserter", force = "player", position = { x = c.position.x + 1, y = c.position.y },
+      drop_position = { x = c.position.x, y = c.position.y }, pickup_position = { x = c.position.x + 2, y = c.position.y } }
+  end
+  -- Base du DC (journal du 7/11, 255,4 min) : 23 coffres du joueur retenus dont 18 de dépôt : ici 23 coffres libres hors de la zone de
+  -- stockage, à moins de 64 tuiles du QG.
+  for i = 1, (N_FREE or 0) do
+    local c = new_chest("iron-chest", 32, 40 + (i % 6) * 3, -20 + math.floor(i / 6) * 3)
+    c.last_user = PLAYER
+    c.bounding_box = { left_top = { x = c.position.x - 0.35, y = c.position.y - 0.35 }, right_bottom = { x = c.position.x + 0.35, y = c.position.y + 0.35 } }
+    c.items["iron-plate"] = 10
+    WORLD[#WORLD + 1] = c
   end
   return f
 end
