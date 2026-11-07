@@ -1,8 +1,8 @@
 --[[
   Lot L1 « le rang calculé » (tiers dynamiques). Demande du DC du 7/11 : reprendre au moins 50 % de la logique de la vidéo
   « Factorio Automated », dont les « tiers dynamiques » (docs/VIDEO_AUTOMATISATION.md §3 et §6 L1). PUR (aucune API Factorio),
-  testé hors jeu (tests/rang_test.lua). RIEN N'EST BRANCHÉ : la capitalisation garde son `depth` (Ca.requirements) tant que les
-  lots L1b et L2 ne sont pas faits.
+  testé hors jeu (tests/rang_test.lua). BRANCHÉ (lot L1b) : Ca.RANG = true (shared/ai3/capitalisation.lua:153) : le besoin suit
+  Rg.chain (requirements_by_rank, :768-816) et non plus le `depth` seul.
 
   DEUX RANGS, deux usages :
     - Rg.build : rang du LIVRE de la force (min sur les recettes retenues, fluides comptés) : les tiers du journal [FO-RANG] et

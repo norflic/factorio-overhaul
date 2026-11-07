@@ -1,7 +1,7 @@
 --[[
   IA3-c « le cerveau par besoins », côté RUNTIME (docs/IA3_CERVEAU.md §5) : relie la pensée pure
-  (shared/ai3/cerveau.lua) au jeu, derrière le réglage de carte « fo-war-ia3-cerveau » (settings/ia3c.lua ; éteint par
-  défaut, revue M10).
+  (shared/ai3/cerveau.lua) au jeu, derrière le réglage de carte « fo-war-ia3-cerveau » (settings/ia3c.lua ; allumé par
+  défaut depuis 0.5.0).
 
   - Bascule par équipe (f.team.ia3c) : relue à chaque pensée tant qu'elle est éteinte ; l'allumer en cours de partie
     MIGRE l'équipe (§5.4 : technologies reçues gardées, échelle oubliée, tâches libres retirées) ; une fois allumée,

@@ -1,7 +1,7 @@
 --[[
   Lot VIDEO-L5 « CONFIRMATION OBSERVÉE » (feuille de route validée par le DC le 7/11 : docs/VIDEO_AUTOMATISATION.md §6 L5,
   docs/TODO_VIDEO.md §G rang 4, lignes V54, V72, G17, G18, G29, G36). Règle PURE, testée hors jeu (tests/confirmation_test.lua).
-  Rien n'est branché en jeu : le plan de branchement est dans le rapport du lot.
+  BRANCHÉE : Cf.* dans script/ai3/capitalisation.lua (carnet cs.cf créé à :265 ; Cf.engage :410, Cf.counts :419, Cf.step :542).
 
   La leçon de l'auteur de la vidéo (gist l.219-225) : « we can't trust the input from the outside world … we wait for the
   numbers … to match ». Un COMPTEUR D'INTENTION (ce qu'on a engagé), une OBSERVATION SÉPARÉE (ce qui produit vraiment), la
