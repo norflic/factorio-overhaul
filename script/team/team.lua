@@ -1211,7 +1211,8 @@ TT.config_changed = function()
     end
   end
 end
-Events.on_configuration_changed(TT.config_changed)
+Team.etapes_config_changed = TT.config_changed -- (champ du module : mutant « signature ignorée » des tests)
+Events.on_configuration_changed(function() Team.etapes_config_changed() end)
 
 --- Queue de l'appelant, jouée après E4 (une fonction n'est pas gardable dans global : la pensée garde son NOM).
 function Team.define_tail(name, fn)

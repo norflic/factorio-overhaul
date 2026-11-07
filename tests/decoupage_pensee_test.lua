@@ -214,6 +214,7 @@ local function run(mode, min, out, sans)
     -- Signature des listes (relecture de 6fcfe757) : trois changements de configuration, chacun pendant la pensée en cours d'une
     -- équipe différente : signature d'une autre version, puis aucune signature (partie d'avant la signature), puis la même.
     local done, step = 0, 1
+    if os.getenv("FO_MUT_SIG") == "ignore" then Team.etapes_config_changed = function() end end -- mutant : signature ignorée
     local HOW = { "autre", "sans", "meme" }
     local used = {}
     for _ = 1, total do
@@ -653,6 +654,20 @@ for _, l in ipairs(lines_of(js)) do
   if l:find("[FO-ETAPES]", 1, true) and l:find("effacee a l'etape", 1, true) then nlog = nlog + 1 end
 end
 check(nlog == 2, "deux lignes [FO-ETAPES] « effacée » au journal (" .. nlog .. ")")
+-- Mutant « signature ignorée » : la migration garde toute pensée en cours, quelle que soit sa signature ; le contrôle doit le voir
+do
+  local out = TMP .. "/decoupage_sig_mut"
+  while lua_count() >= LUA_MAX do os.execute("ping -n 16 127.0.0.1 > nul") end
+  local hh = io.popen(string.format('set "FO_MUT_SIG=ignore" && %s %s --run sig 3 "%s" 2>&1', LUA, SELF, out))
+  local text = hh:read("*a")
+  hh:close()
+  local okm = text:find("[DECOUPAGE-RUN] sig fini", 1, true) ~= nil
+  local kept = 0
+  for how, after in (slurp(out .. "_info.txt") or ""):gmatch("sig %S+ (%a+) (%a+) pensees_apres") do
+    if how ~= "meme" and after == "garde" then kept = kept + 1 end
+  end
+  check(okm and kept == 2, "mutant « signature ignorée » refusé : les 2 pensées d'une autre signature restent gardées et le contrôle le voit (" .. kept .. ")")
+end
 end
 
 print(string.format("[DECOUPAGE-PENSEE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
