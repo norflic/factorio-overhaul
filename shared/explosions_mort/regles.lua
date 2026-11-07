@@ -28,6 +28,7 @@
     M.avec_effet(dte, noms) `dying_trigger_effect` complété par l'effet script
     M.cible(t, p)          le prototype p de type t est-il du lot ? (unités ; vers, pas nos tourelles)
     M.habiller(p)          transforme un prototype (data) ; rend ses noms, ou nil s'il est laissé au moteur
+    M.hors_grille(x)       donne « placeable-off-grid » au prototype d'explosion x (rend true s'il l'ajoute)
     M.proche(joueurs, s, x, y, r)  un joueur relevé est-il à moins de r tuiles du point, sur la surface s ?
 ]]
 
@@ -103,6 +104,18 @@ function M.habiller(p)
   p.dying_trigger_effect = M.avec_effet(p.dying_trigger_effect, noms)
   p.dying_explosion = nil
   return noms
+end
+
+--- Moteur réel, 7/11 (identité C8) : create_entity par script RECALE sur la grille une explosion sans le drapeau
+--- « placeable-off-grid » (écart mesuré (0,285, 0,035) puis (−0,215, −0,465) : point entier), alors que le moteur crée son
+--- `dying_explosion` au point exact, et ses déclencheurs aussi hors de la grille (« explosion-hit », sans ce drapeau, vu
+--- à (0,086, 0,984) du ver). Le drapeau ne change donc que la pose par script. Rend true s'il est ajouté.
+function M.hors_grille(x)
+  local fl = x.flags
+  if type(fl) ~= "table" then fl = {}; x.flags = fl end
+  for i = 1, #fl do if fl[i] == "placeable-off-grid" then return false end end
+  fl[#fl + 1] = "placeable-off-grid"
+  return true
 end
 
 --- Un joueur relevé est-il à moins de r tuiles (Tchebychev, bornes comprises) du point, sur la surface s ?

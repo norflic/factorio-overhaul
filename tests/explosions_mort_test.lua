@@ -94,6 +94,12 @@ local function verifier_regles(M, chk)
   c(#ig.dying_trigger_effect == 2 and ig.dying_trigger_effect[1].type == "create-fire", "Ignee : le feu reste (du jeu)")
   local dec = { type = "unit", name = "d", dying_explosion = { name = "x", offset = { 0, -1 } } }
   c(M.habiller(dec) == nil and dec.dying_explosion ~= nil and dec.dying_trigger_effect == nil, "decalage : inchange")
+  -- explosion posée hors de la grille (identité C8, moteur réel du 7/11)
+  local x1 = { flags = { "not-on-map", "hidden" } }
+  c(M.hors_grille(x1) == true and x1.flags[3] == "placeable-off-grid" and x1.flags[1] == "not-on-map", "drapeau ajoute, autres gardes")
+  c(M.hors_grille(x1) == false and #x1.flags == 3, "drapeau pas ajoute deux fois")
+  local x2 = {}
+  c(M.hors_grille(x2) == true and x2.flags and x2.flags[1] == "placeable-off-grid", "explosion sans drapeaux")
   -- proximité (Tchebychev, bornes comprises, même surface)
   local J = { { s = 1, x = 0, y = 0 } }
   c(M.proche(J, 1, 224, 0, 224), "borne est comprise")
@@ -251,6 +257,7 @@ local MUT_REGLES = {
   { "decalage accepte", "if k ~= \"name\" then return nil end", "if false then return nil end" },
   { "prefixe non controle", "effect_id:sub(1, #M.PREFIXE) ~= M.PREFIXE", "false" },
   { "rayon 96 (celui des tirs)", "M.RAYON = 224", "M.RAYON = 96" },
+  { "explosion laissee sur la grille", "  fl[#fl + 1] = \"placeable-off-grid\"\n", "" },
   { "nos tourelles reprises (player-creation ignore)", "and not a_drapeau(p, \"player-creation\")", "" },
   { "vers exclus", "return a_drapeau(p, \"placeable-enemy\") and", "return false and" },
   { "toute turret reprise", "if t == \"turret\" then return a_drapeau", "if t == \"turret\" then return true or a_drapeau" },
