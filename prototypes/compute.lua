@@ -41,6 +41,8 @@ local FLUID = {
   ["fo-helium-3"] = { "petroleum-gas", { r = 0.95, g = 0.95, b = 0.60 } },
 }
 
+local Vis = require("prototypes.calcul_visuels")
+
 local function icon_of(ptype, name, tint)
   local src = assert(data.raw[ptype][name], "calcul : icône source absente " .. ptype .. "/" .. name)
   return { { icon = src.icon, icon_size = src.icon_size, icon_mipmaps = src.icon_mipmaps, tint = tint } }
@@ -51,7 +53,7 @@ for i, it in ipairs(Cp.ITEMS) do
   out[#out + 1] = {
     type = "item", name = it.name,
     localised_name = { "item-name." .. it.name }, localised_description = { "item-description." .. it.name },
-    icons = icon_of(ic[1], ic[2], ic[3]), subgroup = "fo-compute", order = string.format("z[fo]-j[compute]-%02d", i),
+    icons = Vis.icones_objet(it.name) or icon_of(ic[1], ic[2], ic[3]), subgroup = "fo-compute", order = string.format("z[fo]-j[compute]-%02d", i),
     stack_size = it.stack,
   }
 end
@@ -67,7 +69,7 @@ for i, fl in ipairs(Cp.FLUIDS) do
   f.fuel_value = nil
   f.auto_barrel = false
   f.order = "a[fluid]-z[fo]-j[compute]-" .. i
-  lib.set_icons(f, { { icon = f.icon, icon_size = f.icon_size, icon_mipmaps = f.icon_mipmaps, tint = tint } })
+  lib.set_icons(f, Vis.icones_objet(fl.name) or { { icon = f.icon, icon_size = f.icon_size, icon_mipmaps = f.icon_mipmaps, tint = tint } })
   out[#out + 1] = f
 end
 
@@ -131,12 +133,12 @@ local function machine(name)
     end
     e.fluid_boxes = boxes
   end
-  lib.set_icons(e, icon_of("item", spec.copy, spec.tint))
+  lib.set_icons(e, Vis.icones_machine(name) or icon_of("item", spec.copy, spec.tint))
   out[#out + 1] = e
   out[#out + 1] = {
     type = "item", name = name,
     localised_name = { "entity-name." .. name }, localised_description = { "entity-description." .. name },
-    icons = icon_of("item", spec.copy, spec.tint), subgroup = "fo-compute-machines", order = "z[fo]-j[compute]-" .. name,
+    icons = Vis.icones_machine(name) or icon_of("item", spec.copy, spec.tint), subgroup = "fo-compute-machines", order = "z[fo]-j[compute]-" .. name,
     place_result = name, stack_size = 10,
   }
 end
@@ -216,7 +218,7 @@ for _, t in ipairs(Cp.TECHS) do
     name = t.name,
     localised_name = { "technology-name." .. t.name },
     localised_description = { "technology-description." .. t.name },
-    icons = (function()
+    icons = Vis.icones_tech(t.name) or (function()
       if src.icons then
         local l = table.deepcopy(src.icons)
         for _, layer in ipairs(l) do layer.tint = ti[2] end

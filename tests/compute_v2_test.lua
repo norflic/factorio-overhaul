@@ -272,13 +272,7 @@ do
     check(ok, "étape « " .. s[1] .. " » : " .. s[2] .. " dans " .. s[3])
   end
   check(#Cv.MACHINES == 13, #Cv.MACHINES .. " machines neuves (12 étapes + grand centre)")
-  do
-    local prov, miss = {}, {}
-    for _, n in ipairs(Cv.PROVISIONAL) do prov[n] = true end
-    for _, m in ipairs(Cv.MACHINES) do if not prov[m.name] then miss[#miss + 1] = m.name end end
-    for _, n in ipairs({ "fo-data-center", "fo-crystal-lithograph" }) do if not prov[n] then miss[#miss + 1] = n end end
-    check(#miss == 0 and #Cv.PROVISIONAL == #Cv.MACHINES + 2, "chaque machine neuve, le centre et le lithographe v1 sont marqués visuel PROVISOIRE", table.concat(miss, ", "))
-  end
+  check(#Cv.PROVISIONAL == 0, "plus aucun visuel provisoire depuis le lot CALCUL-DESIGN")
   -- âges des technologies
   local want = { ["fo-wafer-fab"] = 10, ["fo-data-centers"] = 10, ["fo-gpu-computing"] = 11, ["fo-data-centers-2"] = 12,
                  ["fo-quantum-computing"] = 13 }

@@ -1,13 +1,14 @@
 -- Lot CALCUL-V2 (30/10) : une machine par étape et le centre de calcul MODULAIRE. Données : shared/content/compute_chain.lua ;
 -- règle du centre : shared/content/compute_rack.lua ; script : script/compute/compute.lua.
 -- À charger JUSTE APRÈS prototypes/compute.lua (v1) : ce fichier y prend le centre, les baies v1 et les technologies v1.
--- Visuels et icônes PROVISOIRES (Cv.PROVISIONAL) : copies vanilla teintées (une teinte ne fait que multiplier, F36, F38),
--- à dessiner après le workflow design-calcul-* (aucun de ses fichiers graphiques n'est touché ici).
+-- Visuels et icônes : prototypes/calcul_visuels.lua (lot CALCUL-DESIGN) ; les copies teintées d'ici restent le gabarit
+-- (boîtes, sons, résistances) des machines, leurs couches sont remplacées à la passe finale.
 
 local lib = require("prototypes.lib")
 local Cv = require("shared.content.compute_chain")
 local Cr = require("shared.content.compute_rack")
 local Cp = require("shared.content.compute")
+local Vis = require("prototypes.calcul_visuels")
 
 local out = {}
 
@@ -43,7 +44,7 @@ for i, it in ipairs(Cv.ITEMS) do
   out[#out + 1] = {
     type = "item", name = it.name,
     localised_name = { "item-name." .. it.name }, localised_description = { "item-description." .. it.name },
-    icons = icon_of(ic[1], ic[2], ic[3]), subgroup = "fo-compute", order = string.format("z[fo]-j[compute]-v2-%02d", i),
+    icons = Vis.icones_objet(it.name) or icon_of(ic[1], ic[2], ic[3]), subgroup = "fo-compute", order = string.format("z[fo]-j[compute]-v2-%02d", i),
     stack_size = it.stack,
   }
 end
@@ -57,7 +58,7 @@ for i, fl in ipairs(Cv.FLUIDS) do
   f.fuel_value = nil
   f.auto_barrel = false
   f.order = "a[fluid]-z[fo]-j[compute]-v2-" .. i
-  lib.set_icons(f, { { icon = f.icon, icon_size = f.icon_size, icon_mipmaps = f.icon_mipmaps, tint = fl.tint } })
+  lib.set_icons(f, Vis.icones_objet(fl.name) or { { icon = f.icon, icon_size = f.icon_size, icon_mipmaps = f.icon_mipmaps, tint = fl.tint } })
   out[#out + 1] = f
 end
 
@@ -77,7 +78,7 @@ for i, rk in ipairs(Cv.RACKS) do
   out[#out + 1] = {
     type = "module", name = rk.name,
     localised_name = { "item-name." .. rk.name }, localised_description = { "item-description." .. rk.name },
-    icons = icon_of("item", "beacon", RACK_TINT[rk.name]),
+    icons = Vis.icones_objet(rk.name) or icon_of("item", "beacon", RACK_TINT[rk.name]),
     subgroup = "fo-compute-racks", order = string.format("z[fo]-j[compute]-rack-%02d", i),
     category = Cv.MODULE_CATEGORY, tier = 1, stack_size = rk.stack,
     effect = { pollution = { bonus = Cv.RACK_POLLUTION } },
@@ -150,12 +151,12 @@ local function machine(m)
       lib.tint_sprites(e[key], m.tint)
     end
   end
-  lib.set_icons(e, icon_of("item", m.copy, m.tint))
+  lib.set_icons(e, Vis.icones_machine(m.name) or icon_of("item", m.copy, m.tint))
   out[#out + 1] = e
   out[#out + 1] = {
     type = "item", name = m.name,
     localised_name = { "entity-name." .. m.name }, localised_description = { "entity-description." .. m.name },
-    icons = icon_of("item", m.copy, m.tint), subgroup = "fo-compute-machines", order = "z[fo]-j[compute]-v2-" .. m.name,
+    icons = Vis.icones_machine(m.name) or icon_of("item", m.copy, m.tint), subgroup = "fo-compute-machines", order = "z[fo]-j[compute]-v2-" .. m.name,
     place_result = m.name, stack_size = 10,
   }
 end
@@ -265,8 +266,10 @@ for _, t in ipairs(Cv.TECHS) do
   if t.new then
     local ti = TECH_ICON[t.name]
     local src = assert(data.raw.technology[ti[1]], "calcul v2 : technologie source absente " .. ti[1])
-    local icons
-    if src.icons then
+    local icons = Vis.icones_tech(t.name)
+    if icons then
+      -- dessinée (lot CALCUL-DESIGN)
+    elseif src.icons then
       icons = table.deepcopy(src.icons)
       for _, layer in ipairs(icons) do layer.tint = ti[2]; layer.icon_size = layer.icon_size or src.icon_size end
     else

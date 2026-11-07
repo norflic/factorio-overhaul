@@ -984,6 +984,10 @@ for _, l in ipairs(AsmSheets.lines(asm_sheets)) do print(l) end
 local DrillSheets = dofile(HERE .. "/drill_sheets.lua")
 local drill_sheets = DrillSheets.check(MOD_ROOT)
 for _, l in ipairs(DrillSheets.lines(drill_sheets)) do print(l) end
+-- Feuilles des machines du calcul hors de git (D-6, lot CALCUL-DESIGN) : même contrôle
+local CalcSheets = dofile(HERE .. "/calc_sheets.lua")
+local calc_sheets = CalcSheets.check(MOD_ROOT)
+for _, l in ipairs(CalcSheets.lines(calc_sheets)) do print(l) end
 -- Sons (lot S0)
 print(string.format("Sons : %d violation(s) (fichier manquant, format non lu par le moteur, en-tête faux, .ogg autre que "
   .. "Vorbis, en-têtes Vorbis invalides, fichier tronqué) ; étalonnage "
