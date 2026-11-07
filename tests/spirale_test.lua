@@ -105,6 +105,14 @@ local function suite_planner()
   check(not ph.recruit_workers and not ph.recruit_free, "recrues retenues (garde QGSURVIE ou perte récente) : aucune recrue, gardée")
   local pb = Planner.plan(pview({ workers = 2, stock = DC, recruit_blocked = true }), book)
   check(not pb.recruit_free and not (pb.recruit_workers and not pb.recruit_unarmed), "plafond d'agents atteint : aucune recrue gratuite")
+  -- filet de recul (décision du DC, 7/11 vers 16 h 56) : la vue dit « en recul » : ni recrue gratuite, ni recrue payée (§4), minage gardé
+  local pw = Planner.plan(pview({ workers = 2, stock = DC, recul_wait = true }), book)
+  check(not pw.recruit_workers and pw.recruit_recul and not pw.recruit_free and has_task(pw, "mine:iron-ore") ~= nil,
+    "en recul (2 sur 12, fer 0) : aucune recrue, minage d'urgence gardé")
+  local pk2 = Planner.plan(pview({ workers = 5, stock = KIT, recul_wait = true }), book)
+  check(not pk2.recruit_workers and pk2.recruit_recul, "en recul, kit et 2 000 fer au coffre : pas de recrue PAYÉE à la place (§4 sauté)")
+  local pu = Planner.plan(pview({ workers = 13, stock = KIT, recul_wait = true }), book)
+  check(pu.recruit_workers == 1 and not pu.recruit_recul, "au-delà du départ : le recul ne touche pas la recrue payée")
   local again = Planner.plan(pview({ workers = 2, stock = DC }), book)
   check(free_armed(again) and #again.tasks == #p2.tasks, "deux pensées identiques")
 end
@@ -130,16 +138,74 @@ local function suite_lecteurs()
   check(fz.plan.recruit_free == true, "copie d'E4 (shared/team/etapes.lua) : plan.recruit_free gardé de T à T + 3")
 end
 
+---------------------------------------------------------------------------------------------------
+-- §5 Filet de recul (NON branché) : la recrue gratuite recule seulement si elle meurt vite
+---------------------------------------------------------------------------------------------------
+--- Simulation : 2 PNJ sur 12, une recrue gratuite par pensée (tick % 300 == 177) sous le départ ; chaque recrue meurt `kill_after`
+--- ticks après son apparition tant que tick < camp_until (nil : jamais). Rend (recrues, effectif final, état).
+local function sim(kill_after, minutes, filet, camp_until)
+  local st, alive, workers, spawns = Sp.recul_new(), {}, 2, 0
+  for tick = 0, minutes * 3600 do
+    for i = #alive, 1, -1 do
+      if kill_after and (not camp_until or alive[i] < camp_until) and tick - alive[i] >= kill_after then
+        if filet then Sp.recul_death(st, alive[i], tick) end
+        table.remove(alive, i)
+        workers = workers - 1
+      end
+    end
+    if tick % 300 == 177 and workers < 12 and (not filet or Sp.recul_ready(st, tick)) then
+      spawns, workers = spawns + 1, workers + 1
+      alive[#alive + 1] = tick
+      if filet then Sp.recul_spawn(st, tick) end
+    end
+  end
+  return spawns, workers, st
+end
+local function suite_recul()
+  local st = Sp.recul_new()
+  check(Sp.recul_ready(st, 0) and st.wait == 0, "recul : sans mort, la recrue part tout de suite")
+  Sp.recul_death(st, 1000, 1600)
+  check(st.wait == 600 and not Sp.recul_ready(st, 2199) and Sp.recul_ready(st, 2200), "recul : morte 10 s après son apparition : 600 ticks d'attente")
+  for _, d in ipairs({ 3000, 5000, 9000, 14000 }) do Sp.recul_death(st, d - 600, d) end
+  check(st.wait == 3600 and st.quick == 5, "recul : 600, 1 200, 2 400, puis plafond 3 600 (" .. st.wait .. ")")
+  local slow = Sp.recul_new()
+  Sp.recul_death(slow, 0, 3600)
+  check(slow.wait == 0 and Sp.recul_ready(slow, 3600), "recul : une mort lente (60 s ou plus) ne change rien")
+  check(not Sp.recul_ready(st, 14000 + 17999) or st.wait == 3600, "recul : pas de remise à 0 avant 5 min")
+  check(Sp.recul_ready(st, 14000 + 18000) and st.wait == 0, "recul : 5 min sans mort rapide : attente remise à 0")
+  -- partie : sans campeur, la cadence est inchangée (le DC veut ses 12)
+  local n0, w0 = sim(nil, 2, true)
+  check(n0 == 10 and w0 == 12, "sans campeur : 10 recrues, effectif 12 (" .. n0 .. ", " .. w0 .. ")")
+  -- campeur qui tue chaque recrue 10 s après son apparition, 30 min (le cas de la partie du DC) : sans filet, ~ 12 morts par minute
+  local nn = sim(600, 30, false)
+  local nf, _, sf = sim(600, 30, true)
+  check(nn >= 300 and nf <= 40 and nf >= 20, string.format("campeur 30 min : %d recrues sans filet, %d avec (au plus 1 par minute environ)", nn, nf))
+  -- morts lentes (90 s) : le filet ne retient rien
+  check(sim(5400, 30, true) == sim(5400, 30, false), "morts lentes (90 s) : autant de recrues avec et sans filet")
+  -- le campeur part à 10 min : l'attente retombe à 0 et l'équipe revient à 12
+  local _, wr, sr = sim(600, 30, true, 10 * 3600)
+  local ready_after = Sp.recul_ready(sr, 30 * 3600)
+  check(wr == 12 and ready_after and sr.wait == 0, string.format("campeur parti à 10 min : effectif %d ; à 30 min, recrue prête %s, attente %d",
+    wr, tostring(ready_after), sr.wait))
+  check(sf.wait == 3600, "campeur jusqu'au bout : attente au plafond (" .. sf.wait .. ")")
+  local t1 = Sp.recul_text({ key = "player", age = 600, wait = 1200, minutes = 1.5 })
+  local t2 = Sp.recul_held_text({ key = "player", left = 900, wait = 1200, workers = 2, floor = 12, minutes = 1.6 })
+  check(t1 == "[FO-RECRUE] player : recrue gratuite tuee 10 s apres son arrivee : recul, attente 1200 ticks (20 s) avant la suivante a 1.5 min"
+    and t2:find("[FO-RECRUE] player : recrue gratuite en recul : prochaine dans 15 s (attente 1200 ticks), effectif 2/12", 1, true) == 1,
+    "journal [FO-RECRUE] du recul : " .. t1 .. " | " .. t2)
+end
+
 suite_regle()
 suite_planner()
 suite_lecteurs()
+suite_recul()
 local base_fail = failures
 
 ---------------------------------------------------------------------------------------------------
 -- Mutants
 ---------------------------------------------------------------------------------------------------
 local killed, total = 0, 0
-local function run_all() suite_regle() suite_planner() suite_lecteurs() end
+local function run_all() suite_regle() suite_planner() suite_lecteurs() suite_recul() end
 local function judge(name, ok, f0)
   local caught = (failures > f0) or not ok
   if caught then killed = killed + 1 else print("  MUTANT SURVIVANT : " .. name) end
@@ -173,6 +239,42 @@ do -- journal à chaque pensée au lieu d'une fois par minute
   quiet = false
   Sp.LOG_EVERY = real_every
   judge("[FO-RECRUE] a chaque pensee (300 ticks)", ok, f0)
+  passes, failures = p0, f0
+end
+-- mutants du filet de recul
+local real_death, real_ready = Sp.recul_death, Sp.recul_ready
+local function recul_mutant(name, death, ready)
+  total = total + 1
+  Sp.recul_death, Sp.recul_ready = death or real_death, ready or real_ready
+  local p0, f0 = passes, failures
+  quiet = true
+  local ok = pcall(run_all)
+  quiet = false
+  Sp.recul_death, Sp.recul_ready = real_death, real_ready
+  judge(name, ok, f0)
+  passes, failures = p0, f0
+end
+recul_mutant("recul : attente jamais doublee", function(st, b, d)
+  st = real_death(st, b, d) if st.wait > 0 then st.wait = Sp.RECUL_BASE st.next_at = d + Sp.RECUL_BASE end return st end)
+recul_mutant("recul : sans plafond", function(st, b, d)
+  st = st or Sp.recul_new()
+  if b == nil or d == nil or d - b >= Sp.RECUL_VITE then return st end
+  st.wait = (st.wait or 0) > 0 and st.wait * 2 or Sp.RECUL_BASE
+  st.next_at, st.last_quick, st.quick = math.max(st.next_at or 0, d + st.wait), d, (st.quick or 0) + 1
+  return st end)
+recul_mutant("recul : jamais remis a 0", nil, function(st, tick) return not st or tick >= (st.next_at or 0) end)
+recul_mutant("recul : les morts lentes comptent aussi", function(st, b, d) return real_death(st, b and (d - 1), d) end)
+recul_mutant("recul : aucun filet", function(st) return st or Sp.recul_new() end)
+do -- départ sans attente : deux recrues à une pensée d'écart avant la première mort
+  total = total + 1
+  local real_spawn = Sp.recul_spawn
+  Sp.recul_spawn = function(st) return st end
+  local p0, f0 = passes, failures
+  quiet = true
+  local ok = pcall(run_all)
+  quiet = false
+  Sp.recul_spawn = real_spawn
+  judge("recul : le depart ne repousse pas la suivante", ok, f0)
   passes, failures = p0, f0
 end
 
@@ -211,6 +313,9 @@ module_mutant("planificateur : garde des recrues retenues ignorée", "shared/tea
 module_mutant("planificateur : plafond d'agents ignoré", "shared/team/planner.lua",
   "if rf and not view.hold_recruits and not view.recruit_blocked and Sp.free(view) then",
   "if rf and not view.hold_recruits and Sp.free(view) then", set_planner)
+module_mutant("planificateur : recul ignore", "shared/team/planner.lua", "if view.recul_wait then", "if false then", set_planner)
+module_mutant("planificateur : recrue payee pendant le recul (§4 non saute)", "shared/team/planner.lua",
+  "and not out.recruit_recul then", "then", set_planner)
 module_mutant("cerveau : la recrue gratuite prend au stock virtuel", "shared/ai3/cerveau.lua",
   "and not base.recruit_free then", "then", set_cerveau)
 module_mutant("pile : les recrues gratuites réclament leur fer au budget", "shared/ai3/pile.lua",
@@ -233,7 +338,7 @@ local WIRES = {
   { "script/team/team.lua", "local free = f.is_player and plan.recruit_free or false" },
   { "script/team/team.lua", "and (free or has_list(stock, pay)) then" },
   { "script/team/team.lua", "if not free then remove_list(f, pay) end" },
-  { "script/team/team.lua", "if Worker.recruit(f, surface, tick, false, free) then" },
+  { "script/team/team.lua", "local recruit = Worker.recruit(f, surface, tick, false, free)" },
   { "script/team/team.lua", "elseif not free then" },
   { "shared/ai3/cerveau.lua", "cost = Sp.cost(view, view.recruit_cost)," },
   { "shared/ai3/cerveau.lua", "recruit_free = base.recruit_free," },
@@ -241,6 +346,13 @@ local WIRES = {
   { "script/team/team.lua", "if Sp.free({ workers = f.engineers_count or 0, recover_floor = floor }) and Sp.log_due(f.team.recrue_log, tick) then" },
   { "script/team/team.lua", "f.team.recrue_log = tick" },
   { "script/team/team.lua", "log(Sp.held_text({" },
+  -- filet de recul : mort rapide (worker.lua), vue et journal « en recul », arrivée datée et départ en E4 (team.lua)
+  { "script/team/worker.lua", "if f.is_player and f.team and agent.free_born and agent.death_cause then" },
+  { "script/team/worker.lua", "f.team.recul = Sp.recul_death(f.team.recul, agent.free_born, now)" },
+  { "script/team/team.lua", "and not Sp.recul_ready(f.team.recul, tick) then" },
+  { "script/team/team.lua", "recul_wait = recul_wait," },
+  { "script/team/team.lua", "recruit.free_born = tick" },
+  { "script/team/team.lua", "if f.team.recul then Sp.recul_spawn(f.team.recul, tick) end" },
 }
 local wired = true
 for _, w in ipairs(WIRES) do if count(src_of(w[1]), w[2]) ~= 1 then wired = false print("  CABLAGE ABSENT : " .. w[1] .. " : " .. w[2]) end end

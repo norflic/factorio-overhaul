@@ -753,6 +753,18 @@ function Team.view(f, tick)
         workers = f.engineers_count or 0, floor = floor, minutes = tick / 3600 })) -- minutes de partie, comme [FO-QGSURVIE]
     end
   end
+  -- EFFONDREMENT (filet de recul, décision du DC, 7/11 vers 16 h 56) : après des recrues gratuites tuées vite, la suivante attend
+  -- (shared/team/spirale.lua, f.team.recul écrit à la mort d'un PNJ, script/team/worker.lua) ; journal [FO-RECRUE] au plus 1 par minute.
+  local recul_wait = nil
+  if f.is_player and f.team.recul and Sp.free({ workers = f.engineers_count or 0, recover_floor = floor })
+    and not Sp.recul_ready(f.team.recul, tick) then
+    recul_wait = true
+    if Sp.log_due(f.team.recul_log, tick) then
+      f.team.recul_log = tick
+      log(Sp.recul_held_text({ key = f.key or "player", left = (f.team.recul.next_at or tick) - tick, wait = f.team.recul.wait,
+        workers = f.engineers_count or 0, floor = floor, minutes = tick / 3600 }))
+    end
+  end
   Profiler.fstop("view:4-fin") -- lot PERF (fusion de l'intégrateur : la mesure fine couvre aussi la règle d'effectif)
   return {
     tech = f.tech, personality = f.personality, done = f.team.done, deferred = f.team.deferred,
@@ -800,6 +812,7 @@ function Team.view(f, tick)
     -- Lot IA1-b2 (D-17) : défendre d'abord (tourelles avant les ouvriers ; shared/team/planner.lua) ; recrues retenues
     -- après une perte récente.
     defend_first = defend_first or nil, hold_recruits = hold_recruits or nil,
+    recul_wait = recul_wait, -- EFFONDREMENT : recrue gratuite en recul (planificateur, bloc de reprise)
     -- Tourelles du QG voulues : votre équipe seulement (une faction garde son QG avec ses soldats ; T.defend_first_factions).
     front = Front.view(f, fortify_open), -- lot DEFENSE-FRONT : tourelles en plus là où les pièces de l'équipe tombent, et près des laboratoires
     plant = GardeCentrale.view(f, fortify_open, iron0), -- lot CENTRALE-GARDE : tourelles armées à portée de toutes les pièces de la centrale finie
@@ -1040,8 +1053,13 @@ TT.e4 = function(f, surface, tick, fz)
   local free = f.is_player and plan.recruit_free or false
   if plan.recruit_workers and not plan.recruit_unarmed and (free or has_list(stock, pay)) then
     if not free then remove_list(f, pay) end
-    if Worker.recruit(f, surface, tick, false, free) then
+    local recruit = Worker.recruit(f, surface, tick, false, free)
+    if recruit then
       f.stats.recruited = (f.stats.recruited or 0) + 1
+      if free then -- EFFONDREMENT (filet de recul) : arrivée datée (mort rapide, script/team/worker.lua) ; en recul, la suivante attend
+        recruit.free_born = tick
+        if f.team.recul then Sp.recul_spawn(f.team.recul, tick) end
+      end
       if view.grow_due then f.team.last_grow = tick end -- lot IA1-b2 : rythme de la croissance
       -- Lot IA3-d : recrue de CROISSANCE d'une faction (rythme de la règle d'effectif).
       if view.effectif and view.effectif.reason == "recrue" and not plan.emergency_recruit then

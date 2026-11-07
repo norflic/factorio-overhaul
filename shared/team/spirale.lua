@@ -49,4 +49,68 @@ function Sp.held_text(a)
     a.minutes or 0)
 end
 
+--[[
+  Filet de RECUL de la recrue gratuite (demande du lead, 7/11 vers 17 h ; NON BRANCHÉ, en attente de garde-v4 et de la décision) :
+  sans le prix en fer, rien ne freinait une boucle de recrues tuées au QG par des mitrailleurs de faction qui campent à 6 tuiles
+  (partie du DC). Le DC veut toujours ses n ouvriers : le filet ne retient QUE si les recrues gratuites meurent vite.
+    - une recrue gratuite morte moins de Sp.RECUL_VITE ticks après son apparition DOUBLE l'attente de la suivante (première attente
+      Sp.RECUL_BASE, plafond Sp.RECUL_MAX), comptée depuis cette mort ;
+    - l'attente revient à 0 quand aucune recrue gratuite n'est morte vite pendant Sp.RECUL_RESET ticks (l'effectif a tenu 5 min) ;
+    - une mort lente (au-delà de Sp.RECUL_VITE) ne change rien.
+  État : { wait, next_at, last_quick, quick } (nombres seulement : vit dans global). Lua PUR, arithmétique seule.
+  Branchement proposé (à écrire seulement sur accord) : script/team/worker.lua, mort d'un PNJ (agent.free_born posé par E4 à une
+  recrue gratuite) → Sp.recul_death ; planificateur, bloc de reprise → Sp.recul_ready (journal [FO-RECRUE] « en recul »).
+]]
+Sp.RECUL_VITE = 3600    -- 60 s
+Sp.RECUL_BASE = 600     -- première attente : le double de la cadence d'une recrue par pensée (300 ticks)
+Sp.RECUL_MAX = 3600     -- plafond : au plus une recrue gratuite par minute sous une boucle de morts
+Sp.RECUL_RESET = 18000  -- 5 min sans mort rapide : attente remise à 0
+
+function Sp.recul_new()
+  return { wait = 0, next_at = 0, last_quick = nil, quick = 0 }
+end
+
+--- Mort d'une recrue gratuite apparue au tick `born`, morte au tick `died`. Rend l'état (modifié sur place).
+function Sp.recul_death(st, born, died)
+  st = st or Sp.recul_new()
+  if born == nil or died == nil or died - born >= Sp.RECUL_VITE then return st end
+  local w = (st.wait or 0) > 0 and st.wait * 2 or Sp.RECUL_BASE
+  if w > Sp.RECUL_MAX then w = Sp.RECUL_MAX end
+  st.wait = w
+  st.next_at = math.max(st.next_at or 0, died + w)
+  st.last_quick = died
+  st.quick = (st.quick or 0) + 1
+  return st
+end
+
+--- Journal [FO-RECRUE] d'une mort rapide. a = { key, age (ticks entre l'arrivée et la mort), wait (attente qui suit), minutes }.
+function Sp.recul_text(a)
+  a = a or {}
+  return string.format("[FO-RECRUE] %s : recrue gratuite tuee %d s apres son arrivee : recul, attente %d ticks (%d s) avant la suivante a %.1f min",
+    tostring(a.key or "?"), math.floor((a.age or 0) / 60), a.wait or 0, math.floor((a.wait or 0) / 60), a.minutes or 0)
+end
+
+--- Journal [FO-RECRUE] d'une recrue gratuite retenue par le recul. a = { key, left (ticks avant la suivante), wait, workers, floor, minutes }.
+function Sp.recul_held_text(a)
+  a = a or {}
+  return string.format("[FO-RECRUE] %s : recrue gratuite en recul : prochaine dans %d s (attente %d ticks), effectif %d/%d a %.1f min",
+    tostring(a.key or "?"), math.floor((a.left or 0) / 60), a.wait or 0, a.workers or 0, a.floor or 0, a.minutes or 0)
+end
+
+--- Une recrue gratuite part au tick `tick` : en recul (attente > 0), la suivante attend aussi `wait` depuis ce départ (sans cela, deux
+--- recrues partaient à une pensée d'écart avant la mort de la première : 50 recrues en 30 min sous un campeur au lieu de ~25).
+function Sp.recul_spawn(st, tick)
+  if st and (st.wait or 0) > 0 then st.next_at = math.max(st.next_at or 0, tick + st.wait) end
+  return st
+end
+
+--- Une recrue gratuite peut-elle partir au tick `tick` ? Remet l'attente à 0 après Sp.RECUL_RESET ticks sans mort rapide.
+function Sp.recul_ready(st, tick)
+  if not st then return true end
+  if st.last_quick and tick - st.last_quick >= Sp.RECUL_RESET then
+    st.wait, st.last_quick = 0, nil
+  end
+  return tick >= (st.next_at or 0)
+end
+
 return Sp

@@ -962,12 +962,18 @@ function P.plan(view, book)
   -- ressources ») : sous l'effectif de départ, la recrue est GRATUITE et équipée (shared/team/spirale.lua) : rien n'est pris au
   -- stock virtuel ni au coffre (out.recruit_free ; paiement sauté en E4, script/team/team.lua). Avant : payée avec les plaques du
   -- livre, et rien sans elles (partie du DC sur 0.6.58 : 2 PNJ sur 12, fer libre 0, de 133 à 177 min). Minage d'urgence comme les
-  -- factions (décision du lead, « parité ») : le stock ne paierait pas une recrue.
+  -- factions (décision du lead, « parité ») : le stock ne paierait pas une recrue. Filet de RECUL (décision du DC, 7/11 vers 16 h 56) :
+  -- view.recul_wait (recrues gratuites tuées vite, Sp.recul_ready au runtime) : la recrue attend, et aucune recrue payée ne la
+  -- remplace (§4 sauté : out.recruit_recul).
   local rf = (not em) and view.recover_floor or nil
   if rf and not view.hold_recruits and not view.recruit_blocked and Sp.free(view) then
-    out.recruit_workers = 1
-    out.recruit_free = true
-    out.emergency_recruit = true
+    if view.recul_wait then
+      out.recruit_recul = true
+    else
+      out.recruit_workers = 1
+      out.recruit_free = true
+      out.emergency_recruit = true
+    end
     local p = book:plan(view.recruit_cost or kit_list("worker", 1), real_avail())
     if next(p.raw) ~= nil then emergency_mine(p.raw) end
   end
@@ -1132,7 +1138,8 @@ function P.plan(view, book)
   -- avant-poste, recrue au prix du kit. `recruit_blocked` : garde d'agents (fo-agents-max) atteinte.
   local workers_wanted = view.workers_wanted or T.workers_wanted(#view.outposts, view.workers_max)
   local recruit_cost = view.recruit_cost or kit_list("worker", 1)
-  if view.workers < workers_wanted and not out.emergency_recruit and not view.hold_recruits then -- lot IA2-a2 : la survie a déjà décidé
+  if view.workers < workers_wanted and not out.emergency_recruit and not view.hold_recruits
+    and not out.recruit_recul then -- lot IA2-a2 : la survie a déjà décidé ; EFFONDREMENT : recrue gratuite en recul
     if view.recruit_blocked then
       out.recruit_blocked = true
       if view.workers == 0 then

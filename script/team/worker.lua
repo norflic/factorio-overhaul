@@ -47,6 +47,7 @@ local Mi = require("shared.team.main_inventaire") -- lot MAIN-INVENTAIRE : minag
 local Sorties = require("script.team.sorties") -- lot CHARBON-MAIN : la ressource qui dort dans les coffres des avant-postes bruts
 local CB = require("shared.team.craft_bg") -- lot CRAFT-PARALLELE : fabrication en arrière-plan (règles pures, bilan [FO-CRAFT])
 local Tp = require("shared.team.tri_proches") -- lot CERVEAU-CENTRAL (P1) : tri des tuiles de minage, positions lues une fois
+local Sp = require("shared.team.spirale") -- EFFONDREMENT : filet de recul de la recrue gratuite (mort rapide d'une recrue gratuite)
 
 local Worker = {}
 Worker.BUILD_LOGS = 30 -- lot SCALE-COMPLET : lignes [FO-AVANT-POSTE] au plus par équipe (f.stats.build_logs)
@@ -1848,6 +1849,15 @@ Registry.on_removed(function(agent)
   f.engineers[agent.id] = nil
   f.engineers_count = (f.engineers_count or 1) - 1
   if f.stats then f.stats.engineers_lost = (f.stats.engineers_lost or 0) + 1 end
+  -- EFFONDREMENT (filet de recul, décision du DC, 7/11 vers 16 h 56) : une recrue GRATUITE (agent.free_born, posé en E4) TUÉE moins de
+  -- Sp.RECUL_VITE ticks après son arrivée double l'attente de la suivante (shared/team/spirale.lua) ; un renvoi (sans cause) ne compte pas.
+  if f.is_player and f.team and agent.free_born and agent.death_cause then
+    local now = game.tick
+    f.team.recul = Sp.recul_death(f.team.recul, agent.free_born, now)
+    if now - agent.free_born < Sp.RECUL_VITE then
+      log(Sp.recul_text({ key = f.key or "player", age = now - agent.free_born, wait = f.team.recul.wait, minutes = now / 3600 }))
+    end
+  end
   -- Lot IA1-b2 (mesure) : PNJ TUÉ (cause connue) : tâche, distance au QG, cause ; tués par les ennemis comptés à part.
   if agent.death_cause and f.stats then
     if agent.death_cause:find("/enemy:", 1, true) then f.stats.lost_enemy = (f.stats.lost_enemy or 0) + 1 end
