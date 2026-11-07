@@ -455,10 +455,16 @@ local function p5(Rv, Ra, Jeton)
   local per_tick = {}
   local function prof_for(tag)
     return { fstart = function(name)
-      if name == "rv:bande" or name == "ra:debut" then
+      -- (lot LOURD : le début du raccord se fait par bandes, ra:bande ; à la dernière, ra:debut suit dans le MÊME tick, sous le même
+      -- jeton : un travail lourd est compté par DEMANDEUR du jeton, « équipe:rv » ou « équipe:ra »)
+      if name == "rv:bande" or name == "ra:debut" or name == "ra:bande" then
         local t = game.tick
-        per_tick[t] = per_tick[t] or {}
-        per_tick[t][#per_tick[t] + 1] = tag .. ":" .. name
+        local who = tag .. ":" .. name:sub(1, 2)
+        local l = per_tick[t] or {}
+        per_tick[t] = l
+        local seen = false
+        for _, x in ipairs(l) do if x == who then seen = true end end
+        if not seen then l[#l + 1] = who end
       end
     end, fstop = function() end }
   end
@@ -470,7 +476,7 @@ local function p5(Rv, Ra, Jeton)
       Rv.step({ cancel = api_old.cancel, plant = api_old.plant, box = function() return box end, jeton = Jeton, prof = p }, f, sfc, t)
       local st = f.build.raccord
       local before = st and st.next
-      Ra.step({ request = function() return nil end, prio = 50, champ_live = false, jeton = Jeton, prof = p }, f, sfc, t)
+      Ra.step({ request = function() return nil end, prio = 50, champ_live = false, jeton = Jeton, prof = p, box = function() return box end }, f, sfc, t)
       st = f.build.raccord
       if st and before and st.next ~= before then
         starts[#starts + 1] = { team = i, t = t, due = before }
@@ -636,7 +642,7 @@ local function p8(Rv, Ra, Jeton)
     for _, f in ipairs(teams) do
       local p = { fstart = function(name) if name == "rv:bande" then bands[f.key] = (bands[f.key] or 0) + 1 end end, fstop = function() end }
       Rv.step({ cancel = api_old.cancel, plant = api_old.plant, box = function() return box end, jeton = J, prof = p }, f, sfc, t)
-      Ra.step({ request = function() return nil end, prio = 50, champ_live = false, jeton = J, prof = p }, f, sfc, t)
+      Ra.step({ request = function() return nil end, prio = 50, champ_live = false, jeton = J, prof = p, box = function() return box end }, f, sfc, t)
     end
   end
   Rv.BAND = saved_band
@@ -714,7 +720,7 @@ local function p9(Rv, Ra, Jeton)
       Rv.step({ cancel = api_old.cancel, plant = api_old.plant, box = function() return box end, jeton = J, prof = p }, f, sfc, t)
       if f.build.sante and f.build.sante.relier then deferred = deferred + 1 end
       cur.who = f.key .. ":ra"
-      Ra.step({ request = function() return nil end, prio = 50, champ_live = false, jeton = J, prof = p }, f, sfc, t)
+      Ra.step({ request = function() return nil end, prio = 50, champ_live = false, jeton = J, prof = p, box = function() return box end }, f, sfc, t)
     end
   end
   Rv.BAND = saved_band
@@ -906,6 +912,9 @@ local MUT = {
       "  if sv.nr_job then return end" .. string.char(10) .. "  do" .. string.char(10) .. "    if tick < sv.next then return end" } }, "p12" },
   { "m7 réseaux des générateurs non relus à la fin (numéros des bandes)", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
     { { "local out = { islands = 0, uncovered = 0, nets = {}, live = live }", "live = j.gn; local out = { islands = 0, uncovered = 0, nets = {}, live = live }" } }, "p7" },
+  -- lot LOURD : les bandes suivantes du relevé des générateurs (début du raccord) prennent le jeton
+  { "m14 raccord : bandes des générateurs sans le jeton", "script.team.raccord", "script/team/raccord.lua",
+    { { 'elseif api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":ra") then', "elseif false then" } }, "p9" },
 }
 for _, m in ipairs(MUT) do
   local Rvm, Ram, Jm, Bm = load_mods({ m[2], m[3], m[4] })

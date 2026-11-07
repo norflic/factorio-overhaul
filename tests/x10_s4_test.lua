@@ -268,6 +268,7 @@ local function play(mode, mins)
     end
   end
   r.logs = W.logs
+  r.ready = Gens.ready() -- registre prêt (raccord.lua le lit au départ du relevé : d'un bloc par le registre, sinon par bandes)
   local saved = global.fo.gens
   global.fo.gens = nil
   r.glob = M.serialize(global)
@@ -288,6 +289,7 @@ check(a.diffs == 0, "Q1 : à chaque lecture, mêmes génératrices, dans le mêm
 check(a.ndiffs == 0, "Q1 : à chaque lecture, même ensemble de réseaux (" .. a.ndiffs .. " écart(s))")
 
 local b = play("ref", minutes)
+check(a.ready == true and b.ready == false, "Q1 : registre prêt en partie (raccord d'un bloc par le registre), pas prêt éteint (relevé par bandes du lot LOURD)")
 local same = #a.logs == #b.logs
 local fl
 for i = 1, math.max(#a.logs, #b.logs) do

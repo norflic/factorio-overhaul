@@ -151,6 +151,12 @@ function Gens.list(surface, force, types)
   return out
 end
 
+--- Vrai quand le registre sert : armé, allumé, espace « gens » créé (en jeu, toujours après on_init ou on_load). Faux : Gens.list fait
+--- l'ancienne recherche sur toute la surface, et raccord.lua garde son relevé par bandes (lot LOURD).
+function Gens.ready()
+  return Gens.ENABLED and root() ~= nil
+end
+
 --- Ensemble des numéros de réseau électrique des génératrices de `force` sur `surface` (types `types`) : { [id] = true }, nombre.
 function Gens.networks(surface, force, types)
   local live, n = {}, 0
