@@ -29,6 +29,7 @@ local A = require("shared.ai3.automatiser")
 local L = require("shared.ai3.lecture")
 local Pt = require("shared.team.patrons")
 local Book = require("shared.team.book")
+local Ca = require("shared.ai3.capitalisation") -- (a)-mall : Ca.module_usable, Ca.made_of (la règle du choix de la machine de la capitalisation)
 local State = require("script.faction.state")
 local Stock = require("script.team.stock")
 local General = require("script.ai3.general")
@@ -171,10 +172,9 @@ local function nominal_sum(g)
   return s
 end
 
---- Prépare le module d'une décision : { gen, args, items, product, rate, g, why_not }.
-local function prepare(f, lec, book, view, dec, kind)
+--- Prépare le module d'une décision : { gen, args, items, product, rate, g, why_not }. `usable` : Ca.module_usable de la décision (point (a)).
+local function prepare(f, lec, book, view, dec, kind, usable)
   local stock = view.stock or {}
-  local usable = function(n) return book:handcraftable(n) or (stock[n] or 0) > 0 end
   local kit, why = A.patron_kit(lec, usable)
   if not kit then return nil, why end
   local items, recs, cats, slots_chest = {}, {}, {}, 0
@@ -302,13 +302,17 @@ function Ind.think(f, cs, res, view, book, tick)
   end
   -- 3. la décision
   local stock = view.stock or {}
+  -- (a)-mall (décision du lead, 5/11 au soir) : machine et kit faisables aujourd'hui, la MÊME règle que les chaînes de la capitalisation
+  -- (Ca.module_usable : pas d'AM2 sans acier au stock ni produit ; votre équipe : sa main seulement, Ca.made_of). Partie du DC, MESURÉ : les 7 blocs
+  -- du mall de votre équipe ont pris l'AM2 ([FO-IA1D] bloc-assembling-machine-2-N), 5 annulés « materiaux introuvables ». Effet NON établi.
+  local usable = Ca.module_usable(book, stock, Ca.made_of(cs.flows, f.is_player))
   local sources = Ml.sources(ml, tick)
   local keep = {}
   for _, c in ipairs(sources) do if not (st.hold[c.item] and st.hold[c.item] > tick) then keep[#keep + 1] = c end end
   local width = {}
   for _, m in ipairs(lec.machines or {}) do width[m.entity] = m.w end
   local out = Id.decide(st.id, { tick = tick, sources = { keep }, fab = lec.fab, served = served, unites = General.catalogue().unites,
-    usable = function(n) return book:handcraftable(n) or (stock[n] or 0) > 0 end,
+    usable = usable,
     bloc_max = function(ent) return Pt.colonnes(width[ent] or 3) * 2 end })
   for _, r in ipairs(out.refus) do Ml.refuse(ml, tick, r.item) end -- intégration 0.6.33 : lu par la demande de robots (script/robots/faction.lua)
   local sig = Id.describe(out)
@@ -339,7 +343,7 @@ function Ind.think(f, cs, res, view, book, tick)
       local label = kind == "bloc" and ("[" .. table.concat(dec.items, ",") .. "]") or dec.item
       local allowed, pwhy = PileRt.porte_any(f, "capital", c.items)
       local mod, why
-      if allowed then mod, why = prepare(f, lec, book, view, dec, kind == "bloc" and "bloc" or "cellule") end
+      if allowed then mod, why = prepare(f, lec, book, view, dec, kind == "bloc" and "bloc" or "cellule", usable) end
       if not allowed then
         PileRt.refuse(f, "mall:" .. label, kind .. " " .. label .. " non demande (" .. tostring(pwhy) .. ")", tick)
       elseif not mod then
@@ -506,7 +510,8 @@ remote.add_interface("fo-ind", {
     end })
     local inv = f.hq.get_inventory(defines.inventory.chest)
     local contents = inv and inv.get_contents() or {}
-    local usable = function(n) return book:handcraftable(n) or (contents[n] or 0) > 0 end
+    local cs = f.team and f.team.capi
+    local usable = Ca.module_usable(book, contents, Ca.made_of(cs and cs.flows, f.is_player)) -- (a)-mall : comme les chaînes de la capitalisation
     local meth, why = A.method_for(item, book, usable)
     if not meth then return nil, why end
     local g, args = A.sized(meth, rate, A.choose_pole(book, contents, Harvest.reachable(f)))

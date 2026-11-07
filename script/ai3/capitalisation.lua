@@ -299,31 +299,16 @@ end
 --- dont les matières brutes fabriquées sont au stock ou produites (Ca.buildable, mémorisé pour l'appel). made = { [objet] = n } :
 --- production du dernier relevé (Capi.made_of). Règle de PRINCIPE : sans acier au stock ni produit, l'AM2 n'est pas choisie (l'AM1
 --- l'est) ; son effet sur la partie du DC N'EST PAS établi (débit réel d'acier non mesuré, Ca.buildable).
-function Capi.usable_of(book, stock, made)
-  local memo = {}
-  return function(n)
-    if ((stock or {})[n] or 0) > 0 then return true end
-    if not book:handcraftable(n) then return false end
-    local v = memo[n]
-    if v == nil then
-      v = (Ca.buildable(n, book, stock, made)) == true
-      memo[n] = v
-    end
-    return v
-  end
-end
+--- (a)-mall : la règle est Ca.module_usable (shared/ai3/capitalisation.lua), la même pour le mall (script/ai3/industrie.lua).
+Capi.usable_of = Ca.module_usable
 
 --- Production du dernier relevé de la capitalisation : { [objet] = n }, depuis cs.flows (flows_of : statistiques de la force et main).
 --- VOTRE ÉQUIPE (player = vrai, décision du lead 5/11, 21 h 45) : la main de l'équipe seulement (cs.flows[k].hand), jamais les
 --- statistiques de la force « player », qui comptent aussi l'usine du DC humain (comme D09, script/team/intermediaires.lua) : de l'acier
 --- fondu par le DC ne doit pas faire croire que l'équipe en produit. Factions : statistiques de leur force, main comprise.
+--- (a)-mall : la règle est Ca.made_of (shared/ai3/capitalisation.lua), la même pour le mall.
 function Capi.made_of(cs, player)
-  local out = {}
-  for _, k in ipairs(sorted_keys((cs and cs.flows) or {})) do
-    local fl = cs.flows[k]
-    out[k] = (player and (fl.hand or 0)) or (fl.made or 0)
-  end
-  return out
+  return Ca.made_of(cs and cs.flows, player)
 end
 
 local function fit_module(meth, rate, book, stock, has_plant, harvest, belt_flow, made)

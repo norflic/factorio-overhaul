@@ -1961,6 +1961,38 @@ function Ca.buildable(item, book, stock, made)
   return true, nil
 end
 
+--- Point (a), UNE règle pour tous les choix de machine et de pièces d'un module : capitalisation (script/ai3/capitalisation.lua :
+--- chaînes, packs, fonderies) et mall (script/ai3/industrie.lua : blocs, cellules, rangée de banc). Un objet `n` est utilisable s'il
+--- est au stock, ou si la main le fait ET qu'il est faisable (Ca.buildable). Rend une fonction objet -> bool, mémorisée pour l'appel
+--- (le stock et la production ne changent pas pendant une décision). made : Ca.made_of.
+function Ca.module_usable(book, stock, made)
+  local memo = {}
+  return function(n)
+    if ((stock or {})[n] or 0) > 0 then return true end
+    if not book:handcraftable(n) then return false end
+    local v = memo[n]
+    if v == nil then
+      v = (Ca.buildable(n, book, stock, made)) == true
+      memo[n] = v
+    end
+    return v
+  end
+end
+
+--- Production lue par la règle (a) : { [objet] = n }, depuis flows = { [objet] = { made, hand } } (cs.flows du dernier relevé de
+--- la capitalisation : statistiques de la force, et main). VOTRE ÉQUIPE (player = vrai, décision du lead 5/11, 21 h 45) : la main de
+--- l'équipe seulement, jamais les statistiques de la force « player », qui comptent aussi l'usine du DC humain (comme D09,
+--- script/team/intermediaires.lua) : de l'acier fondu par le DC ne doit pas faire croire que l'équipe en produit. Factions :
+--- statistiques de leur force, main comprise.
+function Ca.made_of(flows, player)
+  local out = {}
+  for _, k in ipairs(sorted_keys(flows or {})) do
+    local fl = flows[k]
+    out[k] = (player and (fl.hand or 0)) or (fl.made or 0)
+  end
+  return out
+end
+
 --- La décision d'un cycle. input = {
 ---   data (Ca.data), state = { techs = { [techno] = vrai }, known = { [ressource] = vrai } (absente : toutes) },
 ---   stock = { [objet] = n }, flows = { [objet] = { made = /min arrivés au QG (toutes sources), hand = /min faits ou minés à
