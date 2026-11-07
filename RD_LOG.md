@@ -10,7 +10,31 @@
 
 ## 2026-11-07 : défauts de la partie du DC (0.6.58), feuille de route vidéo, disque F:
 
-> Prochains identifiants libres (7/11, 17 h 20) : **F394** et **E261** hors blocs. Attribués ici : F389 à F393, E258 à E260.
+> Prochains identifiants libres (7/11, 18 h) : **F396** et **E263** hors blocs. Attribués ici : F389 à F395, E258 à E262.
+
+- **F394 · FAIT** (moteur réel, `f1-lasers` avec images, 48 sites, lot F1-C) : le faisceau d'une electric-turret part de
+  position + (L sin θ, −L cos θ · cos 45°) + (0, −H). `attack_parameters.source_offset` = {0, −L} tourne avec la tête
+  (`source_direction_count` 64) ; `action_delivery.source_offset` = {0, −H} ne tourne pas ; la projection écrase y par cos 45°.
+  Le défaut « le faisceau part du socle » de l'âge 15 venait du `source_offset` vanilla agrandi à l'emprise.
+- **F395 · FAIT** (moteur réel, `d4-geant --measure` au plancher, normal / low / DXT low-quality, sans cache, 7/11 17 h 13 et
+  17 h 40) : l'atlas virtuel ADRESSÉ fait 16 384 × 16 384, soit 16 pages de 4 096², et non 12 comme le disait F186 au 24/10 :
+  il a grandi avec le contenu (12 pages dans un atlas de 16 384 × 12 288 le 27/10). Pages utilisées : 14 sans la laser
+  (essai-0659 `c3ce6c0d`), 15 avec (`7d0c2be2`), donc 1 page de marge ; `d4-geant` 18 OK dans les deux cas. Toute addition
+  graphique se mesure encore au plancher avant d'être intégrée.
+- **E261 · VALIDÉ** (moteur réel, lot F1-C ; archives `fo-logs/2026-11-04_LASER-F1C/`) : la tourelle laser des âges 2 à 15 en
+  jeu → `content` 554 OK et `f1-lasers` 4 OK sur 0.6.58 + laser ; `f1-lasers` 4 OK sur essai-0659 + laser (`laser-0659`) ;
+  migration depuis une carte 0.6.41, 4 OK, faisceau vu 48 fois sur 48. Production : 925 rendus à 128 échantillons, 0 erreur,
+  318 PNG (70,8 Mo) hors de git. Fusionnée dans essai-0659 sous `b9a1da3f`.
+- **E262 · MESURÉ** (moteur réel, A/B --seul, sauvegarde du DC `autosave1-2121.zip`, 36 000 ticks, 2 tours ; A = 0.6.58 +
+  mod de test `44cda222`, B = essai-0659 `e0520c4e` ; archive `fo-logs/2026-11-07_AB-0659`, lu par perf3 ; les suites lua des
+  agents tournaient à côté) :
+  - total : A 4,02 et 4,02 ms par tick ; B 4,05 et 3,77, dans le bruit. UPS atteignable sans rendu : ×4,1 à ×4,4 ;
+  - moteur : 1,49 à 1,69 ms (entités 0,88 à 1,00) ; script : A 2,35 et 2,32, B 2,41 et 2,28 ms ;
+  - pire tick du script : A 235 et 188 ms → B 191 et 178 ; combat (scène lourde, 120 événements par tick) : script −27 % ;
+  - pouls : critère « %300 = 0 sous 30 ms » tenu (B : 9,8 et 27,7) ; NON tenus : « %300 = 5 sous 30 ms » (ra:debut, Ra.start_cycle
+    sur toute la surface, pire 83 ms) et « rv:bande sous 5 ms » (pire 8,15) ; bp:reseau, pire 12,5 ms (224 en 0.6.56) ;
+  - le jeton étale les départs du raccordement : plus de ticks au-dessus de 16 ms (92 et 91 → 126 et 118) mais un pire plus
+    bas. Suite : S6 (perf3, `corr-lourd`).
 
 - **F392 · FAIT** (moteur réel, session avec images `panneau-e4`, essai-0659 `c3ce6c0d`, 7/11 17 h 11) : écrire
   `player.opened = <tourelle laser>` (electric-turret) laisse `opened` à nil, avec `opened_gui_type` 0. Le moteur n'ouvre AUCUNE
