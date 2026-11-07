@@ -34,6 +34,7 @@ local function ns() return Storage.ns("champjobs") end
 local function team_id(f) return f.is_player and "player" or f.id end
 
 local function team_alive(tid)
+  if tid == "banc" then return true end -- travaux du micro-banc (interface « fo-champ-travaux » ci-dessous)
   local f = State.faction(tid)
   return f ~= nil and not f.eliminated and f.hq ~= nil and f.hq.valid
 end
@@ -130,6 +131,25 @@ function Jobs.reset(why)
   S.jobs, S.queue, S.done = {}, {}, {}
 end
 Events.on_configuration_changed(function() Jobs.reset("changement de configuration") end)
+
+--- Micro-banc en jeu (C7a, scénario champ-tranches du mod de test) : des specs du corpus de champ3 soumises au registre sous l'équipe
+--- « banc » ; le banc compare le plan repris à Ch.plan sur la même spec, et lit le coût de chaque pas au détail du profileur
+--- (portées champ:frame-plan, champ:band-plan). Ne sert qu'aux bancs.
+if remote and remote.add_interface then
+  local BANC = { id = "banc" }
+  remote.add_interface("fo-champ-travaux", {
+    soumettre = function(key, kind, spec)
+      local rec, why = Jobs.get(BANC, key, kind, function() return spec, {}, {} end)
+      return rec == nil and why or "pret"
+    end,
+    reprendre = function(key, kind)
+      local rec, why = Jobs.get(BANC, key, kind, function() return nil, "aucun travail" end)
+      if not rec then return { pending = true, why = why } end -- (remote.call ne rend qu'une valeur)
+      return { p = rec.p, why = rec.why, created = rec.created, ready_tick = rec.ready_tick, steps = rec.steps }
+    end,
+    etat = function() return Jobs.state() end,
+  })
+end
 
 --- Bancs : état du registre (en cours, prêts, comptes).
 function Jobs.state()
