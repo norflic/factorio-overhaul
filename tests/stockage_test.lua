@@ -31,6 +31,11 @@ local function suite(Sg)
   c("pierre saturee : plus ramassee", Sg.skipped(sk, "stone", V) == true)
   c("fer sature : toujours ramasse (vital), absent de l'ensemble", Sg.skipped(sk, "iron-plate", V) == false and sk["iron-plate"] == nil)
   c("cuivre non sature, stock a moitie : ramasse", Sg.skipped(sk, "copper-plate", V) == false)
+  -- une seule règle pour « ne plus ramasser une matière saturée » : le stop_stone de la sortie de spirale (pierre saturée ET fer qui
+  -- manque) s'y ramène ; rien ne manque (short = false, comme le cerveau) : la saturée reste ramassée tant que le stock a de la place
+  c("pierre saturee, rien ne manque : ramassee (stock a moitie)", Sg.skipped(Sg.skip({ stone = true }, 0.5, V, CFG, false), "stone", V) == false)
+  c("pierre saturee, fer qui manque (stop_stone de la spirale) : plus ramassee", Sg.skipped(Sg.skip({ stone = true }, 0.5, V, CFG, true), "stone", V) == true)
+  c("pierre saturee, rien ne manque, stock a 80 % : plus ramassee", Sg.skipped(Sg.skip({ stone = true }, 0.8, V, CFG, false), "stone", V) == true)
   local sk2 = Sg.skip({}, 0.80, V, CFG)
   c("stock a 80 % : aucune non vitale ramassee (cuivre)", Sg.skipped(sk2, "copper-plate", V) == true)
   c("stock a 80 % : le charbon reste ramasse", Sg.skipped(sk2, "coal", V) == false)
@@ -71,6 +76,7 @@ local MUT = {
   { "vitale soumise a la reserve", "  if vital and vital[item] then return empty end", "" },
   { "non vitale sans reserve", "  return math.max(0, empty - Sg.reserve_slots(size, cfg))", "  return empty" },
   { "vitale saturee plus ramassee", "    if not vital[item] then out[item] = true end", "    out[item] = true" },
+  { "saturee ecartee meme quand rien ne manque", "  if short ~= false then\n", "  if true then\n" },
   { "stock presque plein ignore", "  out.__all_non_vital = (fill or 0) >= cfg.stop_at or nil", "  out.__all_non_vital = nil" },
   { "seuil de plein a l'envers", "(fill or 0) >= cfg.stop_at", "(fill or 0) > cfg.stop_at" },
   { "vitale jamais protegee au ramassage", "  if not set or (vital and vital[item]) then return false end", "  if not set then return false end" },

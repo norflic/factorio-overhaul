@@ -7,8 +7,10 @@
 
     Sg.reserve_slots(size, cfg)                 cases gardées aux matières vitales (cfg.reserve des cases, arrondi au-dessus)
     Sg.new_stacks(item, empty, size, vital, cfg) cases VIDES que `item` peut prendre (vitale : toutes ; sinon au-delà de la réserve)
-    Sg.skip(saturated, fill, vital, cfg)        matières à NE PAS ramasser aux avant-postes : non vitales saturées, et toutes les
-                                                non vitales quand le stock est rempli à cfg.stop_at ou plus (ensemble { [objet] = true })
+    Sg.skip(saturated, fill, vital, cfg, short) matières à NE PAS ramasser aux avant-postes : non vitales saturées tant qu'une autre
+                                                matière manque (short ~= false : même règle que le cerveau, Ia3.after_poles, et que le
+                                                stop_stone de la sortie de spirale, shared/team/spirale.lua, qui s'y ramène), et toutes
+                                                les non vitales quand le stock est rempli à cfg.stop_at ou plus (ensemble { [objet] = true })
     Sg.urgent(fill, have_chest, cfg)            vrai : coffre à réclamer en urgence (rempli à cfg.urgent_at ou plus, aucun en main)
   `fill` = cases prises / cases ; `vital` = { [objet] = true } ; `saturated` = { [objet] = true } (cerveau, f.team.ia3.saturated).
   Données : T.stockage (shared/team/config.lua).
@@ -32,12 +34,14 @@ function Sg.new_stacks(item, empty, size, vital, cfg)
   return math.max(0, empty - Sg.reserve_slots(size, cfg))
 end
 
-function Sg.skip(saturated, fill, vital, cfg)
+function Sg.skip(saturated, fill, vital, cfg, short)
   cfg = cfg_of(cfg)
   local out = {}
   vital = vital or {}
-  for item in pairs(saturated or {}) do
-    if not vital[item] then out[item] = true end
+  if short ~= false then
+    for item in pairs(saturated or {}) do
+      if not vital[item] then out[item] = true end
+    end
   end
   out.__all_non_vital = (fill or 0) >= cfg.stop_at or nil
   return out

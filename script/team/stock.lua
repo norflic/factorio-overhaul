@@ -362,8 +362,8 @@ function Stock.skip_fn(f)
   if not (f.hq and f.hq.valid) then return nil end
   local used, size = totals(f)
   if size <= 0 then return nil end
-  local sat = f.team and f.team.ia3 and f.team.ia3.saturated
-  local set = Sg.skip(sat, used / size, VITAL, T.stockage)
+  local ia3 = f.team and f.team.ia3
+  local set = Sg.skip(ia3 and ia3.saturated, used / size, VITAL, T.stockage, ia3 and ia3.other_short)
   if next(set) == nil then return nil end
   return function(item) return Sg.skipped(set, item, VITAL) end
 end
