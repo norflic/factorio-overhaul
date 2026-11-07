@@ -38,6 +38,7 @@
 ]]
 
 local Events = require("script.core.events")
+local Tj = require("script.team.tourelle_journal") -- lot TOURELLE-JOURNAL : [FO-TOURELLE-RETIREE] (amélioration, agrandissement, migration)
 local Storage = require("script.core.storage")
 local L = require("shared.levels.config")
 local Foot = require("shared.levels.footprint")
@@ -309,9 +310,26 @@ local function manual_replace(old, name)
       saved[#saved + 1] = { index = i, items = list }
     end
   end
+  -- Lot TOURELLE-JOURNAL (7/11) : la tourelle (ou tout bâtiment) détruite ici puis NON recréée était perdue sans trace ni objet rendu. Objet
+  -- et contenus sont désormais rendus au sol à sa place (ramassables), et c'est écrit.
+  local d = Tj.describe(old)
+  local place = old.prototype.items_to_place_this
+  local item = place and place[1] and place[1].name or nil
   old.destroy({ raise_destroy = false })
   local new = surface.create_entity({ name = name, position = pos, direction = dir, force = force, raise_built = true, create_build_effect_smoke = false })
-  if not new then return nil end
+  if not new then
+    if item then surface.spill_item_stack(pos, { name = item, count = 1 }, true, force, false) end
+    for _, rec in ipairs(saved) do
+      for _, it in ipairs(rec.items) do surface.spill_item_stack(pos, { name = it[1], count = it[2] }, true, force, false) end
+    end
+    Tj.removed(d, "amelioration de niveau (remplacement de secours)", "creation de " .. name .. " refusee par le moteur",
+      "PERDUE : objet " .. tostring(item) .. " et contenu rendus au sol")
+    if not d then
+      log("[FO-LEVELS] amelioration : " .. name .. " refuse par le moteur en (" .. pos.x .. ", " .. pos.y .. ") ; objet " .. tostring(item) .. " et contenu rendus au sol")
+    end
+    return nil
+  end
+  Tj.removed(d, "amelioration de niveau (remplacement de secours)", "niveau suivant", "remplacee par " .. name .. " a la meme place")
   if recipe then new.set_recipe(recipe) end
   for _, rec in ipairs(saved) do
     local inv = new.get_inventory(rec.index)
@@ -997,6 +1015,8 @@ function Levels.resize_replace(entity, name, old_side, new_side, opts)
     st.stats.ground_left = (st.stats.ground_left or 0) + gl
     log("[FO-LEVELS] agrandissement : " .. gl .. " objet(s) au sol laissé(s) sous " .. name .. " (aucune place libre autour)")
   end
+  Tj.removed(Tj.describe(entity), opts.why or "amelioration de niveau (agrandissement)", "emprise " .. tostring(name),
+    (new and new.valid) and string.format("deplacee : remplacee par %s en (%.1f, %.1f)", name, new.position.x, new.position.y) or ("remplacee par " .. name))
   entity.destroy({ raise_destroy = false })
   -- Correction V3-T2 (moteur réel, 22/10) : le nouveau bâtiment, créé quand l'ancien existait encore, n'est PAS raccordé
   -- aux tuyaux que l'ancien occupait (le raccord du tuyau était pris ; personne ne le refait quand l'ancien disparaît) :
@@ -1070,6 +1090,7 @@ local function replace(entity, family, n, opts)
     if not new then return nil end
   else
     st.replacing = true
+    local d = Tj.describe(entity) -- lot TOURELLE-JOURNAL
     new = surface.create_entity({
       name = name, position = pos, direction = dir, force = force,
       fast_replace = true, spill = false, raise_built = true, create_build_effect_smoke = false,
@@ -1077,6 +1098,8 @@ local function replace(entity, family, n, opts)
     if not (new and new.valid and new.name == name) then
       if entity.valid then new = manual_replace(entity, name) end
       st.stats.fallback = (st.stats.fallback or 0) + 1
+    else
+      Tj.removed(d, "amelioration de niveau", "niveau suivant", "remplacee par " .. name .. " (remplacement rapide, meme place)")
     end
     st.replacing = false
     if not new then return nil end
@@ -1341,7 +1364,7 @@ function Levels.migrate_footprints()
               local old_unit, ratio = e.unit_number, e.get_health_ratio() or 1
               local cc0, force = Levels.cc(e.force), e.force
               local was_cc = cc0 == e -- (lu avant : `e` n'est plus valide après le remplacement)
-              new = Levels.resize_replace(e, name, from_d, to_d, { room = room })
+              new = Levels.resize_replace(e, name, from_d, to_d, { room = room, why = "migration des emprises (mise a jour du mod)" })
               -- Intégration 0.6.33 : on_built (raise_built) inscrit tout centre reposé comme LE centre de sa force : un centre qui ne l'était pas
               -- (galerie du banc content, posée sans raise_built) le lui volait (niveau faux, paiement sur le mauvais coffre). Seul le vrai centre passe la main.
               if cc0 and not was_cc then st.cc[force.name] = cc0 end
