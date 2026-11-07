@@ -588,6 +588,22 @@ Le DC veut des rangs CALCULÉS et recalculés quand le catalogue change (nouvel 
 | 14 | L9 sonder, minerai d'abord | V45, V46, V47, G37, G42, G43, G57 | Fabrique posée sur un gisement ; décision sur des faits périmés. | lots « gisement » `shared/team/plan.lua` l.9-11, l.42 | S | — | F + J |
 | 15 | L8 lot prêt avant l'ordre | V23, V72, G38 | Module bloqué en défrichage qui tient une place (en-tête d'`emplacements.lua`). | `Build.think` `build.lua:4846` ; `emplacements.lua` règle 2 | M | — | F + J |
 
+**Avancement (7/11, 16 h 25 ; mis à jour par l'intégrateur)**. Rien n'est encore EN JEU : une règle pure testée hors jeu ne
+change pas ce que vous verrez tant qu'elle n'est pas branchée. Plans de branchement et ordre de fusion :
+`fo-logs/2026-11-07_VIDEO-AUTOMATISATION/INTEGRATION_VIDEO.md`.
+
+| Lot | État | Preuve |
+|---|---|---|
+| L0 | ✅ mesuré | `L0_MESURES.md` |
+| L1 | règle pure ✅, branchement planifié | `shared/ai3/rang.lua` (rang-tiers 6888b86f) ; décision identique au bit près, 6 à 14 % moins d'instructions ; `PLAN_L1_L2.md` |
+| L2 | règle pure ✅, branchement planifié | `shared/ai3/porte_rang.lua` (8675011e) : 26 OK, 9 mutants sur 9 ; interblocage du fer couvert |
+| L3, L5, L13 | règles pures ✅, branchement planifié | `manque_local`, `confirmation`, `plafonds` (video-l5 5e720b38) ; `PLAN_L3_L5_L13.md` |
+| L4, L7 | règles pures ✅ | `quotas`, `amorce` (video-l4 a7395d7a) |
+| L6, L10, L12 | règles pures ✅, branchement planifié | `portes_extension` 14 OK, 11 mutants ; `palier` 12 OK, 10 ; `hysteresis` 11 OK, 9 (video-l6 b209dd30) ; `PLAN_L6_L10_L12.md` |
+| L11 | en cours | video-l4 |
+| L8, L9, saturation (rang 12) | lancés à 16 h 20 | rang-tiers, video-l6, video-l5 |
+| Branchement | lancé à 16 h 25, étapes 0 à 3 (prérequis capi-decide et corr-collecte, puis règles, L13, L5 avec son plafond), hors jeu | cerveau-central, branche `video-integ` |
+
 **Changement d'ordre depuis le rapport** : L3 monte au 3e rang. C'est le remède de D0 et de D1, que le lead a demandé de relier ;
 L2 en profite (le manque mesuré nourrit la porte de rang).
 
