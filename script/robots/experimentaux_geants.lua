@@ -196,7 +196,7 @@ end
 --- sur un sol posé par un joueur (tuile minable : béton, remblai…), entités jamais retirées.
 local function cratere(s, c, rc, tick)
   local R = traces(s)
-  local fin = tick + Ech.TRACE_TICKS
+  local fin = tick + (K.S().trace_ticks or Ech.TRACE_TICKS) -- trace_ticks : durée raccourcie par les bancs seulement (remote « fo-xp »)
   local pose = {}
   for _, t in ipairs(Ech.disque(c, rc)) do
     local tile = s.get_tile(t.x, t.y)

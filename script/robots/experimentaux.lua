@@ -307,6 +307,9 @@ remote.add_interface("fo-xp", {
   bonus = function(unit_number, portee, puissance) return Geants.set_bonus(unit_number, portee, puissance) end,
   --- Design IMPACT (bancs d'images) : trace d'une salve de zone, « A » (cratère et une brûlure, défaut) ou « B » (sol brûlé sur la zone).
   impact = function(v) S().impact = (v == "B") and "B" or nil end,
+  --- Bancs seulement : durée des cratères en ticks (nil : Ech.TRACE_TICKS, 1 h) ; cratère posé par script, pour un banc court.
+  trace_ticks = function(n) S().trace_ticks = tonumber(n) end,
+  cratere = function(x, y, r) Geants.cratere(game.surfaces[1], { x = x, y = y }, r, game.tick) end,
   noms = function() return NAMES end,
 })
 
