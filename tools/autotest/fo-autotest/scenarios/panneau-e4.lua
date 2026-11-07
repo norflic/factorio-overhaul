@@ -15,6 +15,10 @@
   Base : centre 15 de la force du joueur (paie), et en ligne : mitrailleuses niveau 2 G1 à G4, murs niveau 2 W1 et W2, une
   tourelle laser niveau 2 L1.
 
+  v2 (7/11, vers 17 h 50) : premier passage c3ce6c0d : BILAN 29 OK, 0 ECHEC, mais la couche d'interface de chaque capture
+  était celle du rendu PRÉCÉDENT (décor à jour) : captures prises 30 ticks après le geste, caméra décalée, gestes espacés.
+  Les attendus ci-dessous ne changent pas.
+
   ATTENDUS (écrits AVANT le premier passage, 7/11 ; un écart est un ECHEC, jamais un attendu réécrit après coup) :
     E0  joueur connecté ; réglage « clic » écrit par le mod et relu (state.mode = clic) ; centre 15 de la force du joueur.
     E1  survol en « clic » : p.selected = G1 accepté, AUCUN panneau.
@@ -39,7 +43,7 @@
 local LV = require("__factorio-overhaul__/shared/levels/config")
 
 local X, Y = 400, 400
-local CHECK = 560
+local CHECK = 760
 local G, W, LA, CC = LV.by_key.gun, LV.by_key.wall, LV.by_key.laser, LV.by_key.command
 
 local function P(ctx, fn, ...) return ctx.remote("fo-panneau", fn, ...) end
@@ -51,17 +55,29 @@ end
 
 local function gun_at(n, pos) return at(LV.name(G, n), pos) end
 
-local function shot(ctx, p, name, pos)
+-- v2 (7/11, après le passage c3ce6c0d) : la couche d'INTERFACE d'une capture est celle du dernier rendu AVANT la demande (le
+-- décor, lui, est à jour) : chaque capture est donc prise SHOT_DELAY ticks après le geste, l'état restant stable jusque-là ; la
+-- caméra est décalée de SHOT_DX tuiles vers l'est pour que le bâtiment visé sorte de sous l'interface et la fenêtre du journal.
+local SHOT_DELAY, SHOT_DX = 30, 12
+
+local function take(ctx, p, c)
   local st = ctx.state()
   local r = p.display_resolution
   local w, h = math.min(4096, math.max(640, r.width)), math.min(4096, math.max(360, r.height))
-  st.n = (st.n or 0) + 1
-  local file = string.format("x-panneau-%02d-%s.png", st.n, name)
-  game.take_screenshot({ path = "fo-shots/" .. file, player = p, show_gui = true, position = pos, zoom = 1.5,
+  game.take_screenshot({ path = "fo-shots/" .. c.file, player = p, show_gui = true, position = { c.x + SHOT_DX, c.y }, zoom = 1.5,
     resolution = { w, h }, daytime = 0, force_render = true, allow_in_replay = true })
   st.files = st.files or {}
-  st.files[#st.files + 1] = file
-  ctx.log(string.format("capture %s demandee au tick %d (%d x %d, echelle %.2f)", file, game.tick, w, h, p.display_scale))
+  st.files[#st.files + 1] = c.file
+  ctx.log(string.format("capture %s prise au tick %d (geste au tick %d ; %d x %d, echelle %.2f)", c.file, game.tick, c.asked, w, h,
+    p.display_scale))
+end
+
+local function shot(ctx, p, name, pos, delay)
+  local st = ctx.state()
+  st.n = (st.n or 0) + 1
+  st.pending = st.pending or {}
+  st.pending[#st.pending + 1] = { file = string.format("x-panneau-%02d-%s.png", st.n, name), x = pos.x, y = pos.y,
+    asked = game.tick, at = game.tick + (delay or SHOT_DELAY) }
 end
 
 --- Joueur près d'une position (portée de l'interface d'un personnage), sans le poser sur un bâtiment.
@@ -94,7 +110,7 @@ steps[60] = function(ctx, p, st)
   ctx.check(m == "clic" and s.mode == "clic" and not s.open, "E0 reglage par joueur ecrit par le mod et relu : clic", fmt_state(s))
 end
 
-steps[80] = function(ctx, p, st)
+steps[100] = function(ctx, p, st)
   local g1 = at(LV.name(G, 2), st.g1)
   near(p, g1.position)
   p.selected = g1
@@ -104,7 +120,7 @@ steps[80] = function(ctx, p, st)
   shot(ctx, p, "survol-clic", g1.position)
 end
 
-steps[100] = function(ctx, p, st)
+steps[140] = function(ctx, p, st)
   local g1 = at(LV.name(G, 2), st.g1)
   p.opened = g1
   local s = S(ctx, p)
@@ -114,13 +130,13 @@ steps[100] = function(ctx, p, st)
   shot(ctx, p, "interface-ouverte", g1.position)
 end
 
-steps[170] = function(ctx, p, st)
+steps[210] = function(ctx, p, st)
   local g1 = at(LV.name(G, 2), st.g1)
   local s = S(ctx, p)
   ctx.check(s.open and s.target == g1.unit_number and s.opened == g1.unit_number, "E3 70 ticks apres : panneau et interface tiennent", fmt_state(s))
 end
 
-steps[180] = function(ctx, p, st)
+steps[220] = function(ctx, p, st)
   local g1 = at(LV.name(G, 2), st.g1)
   p.opened = nil
   local s = S(ctx, p)
@@ -128,7 +144,7 @@ steps[180] = function(ctx, p, st)
   shot(ctx, p, "interface-fermee", g1.position)
 end
 
-steps[200] = function(ctx, p, st)
+steps[260] = function(ctx, p, st)
   local w1 = at(LV.name(W, 2), st.w1)
   near(p, w1.position)
   p.selected = w1
@@ -138,7 +154,7 @@ steps[200] = function(ctx, p, st)
   shot(ctx, p, "majU-mur", w1.position)
 end
 
-steps[230] = function(ctx, p, st)
+steps[300] = function(ctx, p, st)
   local w1 = at(LV.name(W, 2), st.w1)
   p.selected = w1
   P(ctx, "input", p.index, "fo-level-panel")
@@ -146,7 +162,7 @@ steps[230] = function(ctx, p, st)
   ctx.check(not s.open and not s.frame, "E5 Maj+U de nouveau : panneau ferme", fmt_state(s))
 end
 
-steps[250] = function(ctx, p, st)
+steps[340] = function(ctx, p, st)
   local g2 = at(LV.name(G, 2), st.g2)
   near(p, g2.position)
   p.selected = g2
@@ -158,7 +174,7 @@ steps[250] = function(ctx, p, st)
   shot(ctx, p, "U-sans-panneau", st.g2)
 end
 
-steps[280] = function(ctx, p, st)
+steps[380] = function(ctx, p, st)
   local g3 = at(LV.name(G, 2), st.g3)
   near(p, g3.position)
   p.opened = g3
@@ -168,7 +184,7 @@ steps[280] = function(ctx, p, st)
   shot(ctx, p, "avant-amelioration", g3.position)
 end
 
-steps[300] = function(ctx, p, st)
+steps[420] = function(ctx, p, st)
   local clicked = P(ctx, "click", p.index, "fo_lvl_up")
   local g3b = gun_at(3, st.g3)
   local s = S(ctx, p)
@@ -181,14 +197,14 @@ steps[300] = function(ctx, p, st)
   shot(ctx, p, "juste-apres-amelioration", st.g3)
 end
 
-steps[370] = function(ctx, p, st)
+steps[490] = function(ctx, p, st)
   local s = S(ctx, p)
   ctx.check(st.g3b_unit ~= nil and s.opened == st.g3b_unit and s.open and s.target == st.g3b_unit,
     "E7 R2 : 70 ticks apres, interface et panneau tiennent sur la nouvelle entite", fmt_state(s))
-  shot(ctx, p, "70-ticks-apres", st.g3)
+  shot(ctx, p, "70-ticks-apres", st.g3, 0)
 end
 
-steps[380] = function(ctx, p, st)
+steps[500] = function(ctx, p, st)
   local g3b = gun_at(3, st.g3)
   if g3b then p.selected = g3b end
   P(ctx, "input", p.index, "fo-level-up")
@@ -199,13 +215,13 @@ steps[380] = function(ctx, p, st)
   shot(ctx, p, "U-interface-ouverte", st.g3)
 end
 
-steps[400] = function(ctx, p, st)
+steps[540] = function(ctx, p, st)
   p.opened = nil
   local s = S(ctx, p)
   ctx.check(not s.open and not s.frame, "E8 interface fermee : panneau ferme", fmt_state(s))
 end
 
-steps[410] = function(ctx, p, st)
+steps[560] = function(ctx, p, st)
   local g4 = at(LV.name(G, 2), st.g4)
   near(p, g4.position)
   local m = P(ctx, "set_mode", p.index, "survol")
@@ -217,18 +233,18 @@ steps[410] = function(ctx, p, st)
   shot(ctx, p, "survol", g4.position)
 end
 
-steps[430] = function(ctx, p, st)
+steps[600] = function(ctx, p, st)
   local m = P(ctx, "set_mode", p.index, "clic")
   st.back_tick = game.tick
   ctx.check(m == "clic", "E9 reglage repasse a clic", tostring(m))
 end
 
-steps[470] = function(ctx, p, st)
+steps[640] = function(ctx, p, st)
   local s = S(ctx, p)
   ctx.check(not s.open and not s.frame, "E9 repasse en clic : panneau de survol ferme au rafraichissement", fmt_state(s))
 end
 
-steps[480] = function(ctx, p, st)
+steps[660] = function(ctx, p, st)
   local w2 = at(LV.name(W, 2), st.w2)
   near(p, w2.position)
   p.selected = w2
@@ -241,7 +257,7 @@ steps[480] = function(ctx, p, st)
   shot(ctx, p, "clic-mur", w2.position)
 end
 
-steps[500] = function(ctx, p, st)
+steps[700] = function(ctx, p, st)
   local closed = P(ctx, "click", p.index, "fo_lvl_close")
   local s = S(ctx, p)
   ctx.check(closed and not s.open and not s.frame, "E11 bouton Fermer : panneau ferme", fmt_state(s))
@@ -294,6 +310,15 @@ return {
   end,
 
   tick = function(ctx, e)
+    local st0 = ctx.state()
+    local p0 = game.connected_players[1]
+    if p0 and st0.pending and #st0.pending > 0 then
+      local keep = {}
+      for _, c in ipairs(st0.pending) do
+        if c.at <= e.tick then take(ctx, p0, c) else keep[#keep + 1] = c end
+      end
+      st0.pending = keep
+    end
     local fn = steps[e.tick]
     if not fn then return end
     local p = game.connected_players[1]
