@@ -75,6 +75,9 @@ require("script.robots.outils") -- lot RB-2 : outils de sélection, ralliement, 
 require("script.robots.bourdon")
 require("script.robots.experimentaux") -- lot EXPERIMENTAUX : effets, lancer des capsules, interface « fo-xp »
 
+-- Lot VIDEO (0.6.61) : migration UNIQUE des quatre réglages de carte de la vidéo dans une partie d'avant la 0.6.61
+require("script.ai3.video_reglages")
+
 -- Pilotage sans joueur (tests automatisés, scénarios)
 require("script.remote")
 

@@ -112,11 +112,20 @@ Build.SITES = {}               -- lot PETROLE : planificateurs de sites { [nom] 
 
 local REACH = P.BUILD_DISTANCE
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (réserve des modules neufs, agrandissement, tapis)
+Build.Colr = require("shared.team.collecte") -- lot COLLECTE : règle pure (états servis, voyage à vide) ; champ de Build, pas une locale (essai-0660 : bloc principal à 200 locales)
+local Collecte = require("script.team.collecte") -- lot COLLECTE : coffres de sortie du champ collectés en urgence quand le fer manque
 local Rr = require("shared.team.rebuild_rapide") -- lot REBUILD-RAPIDE : projet rouvert sans attendre toute sa matière, ordre, foreuse de secours
-local Tj = require("script.team.tourelle_journal") -- lot TOURELLE-JOURNAL : [FO-TOURELLE-RETIREE] (tourelles de l'équipe déplacées ou reprises)
+-- Lot TOURELLE-JOURNAL : [FO-TOURELLE-RETIREE] (tourelles de l'équipe déplacées ou reprises). Champ de Build, pas une locale
+-- (limite de 200 locales du bloc principal, relecture de la 0.6.59).
+Build.Tj = require("script.team.tourelle_journal")
 -- Lot ÉTAGE 5 : couloir d'accès réservé des avant-postes (règle pure). Champ de Build, pas une locale : le bloc principal de ce fichier est
 -- à la limite de 200 locales de Lua 5.2 (fusion avec le lot PERIMETRE2).
 Build.Co = require("shared.team.couloir")
+-- Lot VIDEO L4 : quotas du gabarit (colle de shared/team/quotas.lua) ; champ de Build, même raison (199 locales sur 200).
+Build.Quotas = require("script.team.quotas_glue")
+-- Lot VIDEO L9 : lots de minerai réservés au minerai (colle de shared/team/lot_minerai.lua, interrupteur éteint par défaut) ; champ
+-- de Build, même raison (199 locales sur 200).
+Build.LotsMinerai = require("script.team.lots_minerai_glue")
 local TREE_TYPES = { "tree", "simple-entity" }
 
 
@@ -2700,6 +2709,8 @@ local function plan_project(f, surface, p)
   p.consumes = {}
   p.inflow = {} -- lot INDUSTRIE I7 : débit nominal de chaque entrée (objets/s), lu par script/team/liaison.lua pour le prix d'une liaison de quai
   for _, k in ipairs(sorted_keys(g.inputs or {})) do p.consumes[k] = true; p.inflow[k] = g.inputs[k] end
+  p.outflow = {} -- lot VIDEO L4 : débit nominal de chaque sortie (objets/s, M.analyze), lu par les quotas (Build.Quotas)
+  for _, k in ipairs(sorted_keys(g.nominal or {})) do p.outflow[k] = g.nominal[k] end
   local main
   local is_plant = g.gen == "steam"
   local toward
@@ -2727,8 +2738,14 @@ local function plan_project(f, surface, p)
         local _, arms = out_arms(gx, Li.MAX_ARMS)
         if arms > 1 then fopts = fopts or {}; fopts.fan = arms end
       end
-      local m, w = place_module(f, surface, gx, { libre = true, defricher = true }, toward, nil, fopts)
-      if not m then m, w = place_module(f, surface, gx, { gisement = true }, toward, nil, fopts) end
+      -- lot VIDEO L9 : états de lots essayés par la règle (Build.LotsMinerai.states : le repli d'avant, libres puis gisement, quand elle est
+      -- éteinte, défaut ; Lm.states_for allumée : une fabrique ne se replie plus sur un gisement) ; replis et refus comptés ([FO-LOTS-MINERAI])
+      local m, w, mi, ms
+      for i, states in ipairs(Build.LotsMinerai.states(f, gx.gen)) do
+        m, w = place_module(f, surface, gx, states, toward, nil, fopts)
+        if m then mi, ms = i, states break end
+      end
+      Build.LotsMinerai.after(f, gx.gen, m, mi, ms)
       return m, w
     end
     main, why = try_place(g)
@@ -3285,14 +3302,14 @@ local function move_turrets_off(f, surface, p, e)
       local pos = Blocage.first_free(spots,
         function(c) return surface.find_non_colliding_position(x.name, { x = c.x, y = c.y }, 4, 1) end,
         function(q) return Build.reserved_entity(f, x.name, q) or Build.axis_entity(cors, x.name, q) ~= nil end)
-      local d = Tj.describe(x) -- lot TOURELLE-JOURNAL (avant le téléport)
+      local d = Build.Tj.describe(x) -- lot TOURELLE-JOURNAL (avant le téléport)
       if not (pos and x.teleport(pos)) then
         Build.axe_log(f, string.format("projet %d : tourelle en (%g, %g) sur l'emprise de %s en (%g, %g), aucune place libre hors des couloirs : non deplacee",
           p.id, from.x, from.y, tostring(e.name), e.x, e.y))
         return false
       end
       f.build.stats.turrets_moved = (f.build.stats.turrets_moved or 0) + 1
-      Tj.removed(d, "chantier de l'equipe " .. tostring(f.key), "emprise de " .. tostring(e.name) .. " (projet " .. tostring(p.id) .. ")",
+      Build.Tj.removed(d, "chantier de l'equipe " .. tostring(f.key), "emprise de " .. tostring(e.name) .. " (projet " .. tostring(p.id) .. ")",
         string.format("deplacee en (%.1f, %.1f)", x.position.x, x.position.y))
       Build.axe_log(f, string.format("projet %d : tourelle deplacee de (%g, %g) a (%g, %g) : elle occupait l'emprise de %s en (%g, %g) ; %d couloir(s) d'extension",
         p.id, from.x, from.y, x.position.x, x.position.y, tostring(e.name), e.x, e.y, #cors))
@@ -3709,14 +3726,28 @@ function Build.work(agent, f, tick)
     local chest = o and out_chest(o)
     if not chest then return "fail" end
     local got = 0
+    -- Lot COLLECTE : ce que le stock refuse (Stock.skip_fn, lot STOCKAGE-VITAL, absent avant lui) reste au coffre ; fer et charbon d'abord.
+    local skip = Stock.skip_fn and Stock.skip_fn(f) or nil
     local function take(c)
-      for _, it in ipairs(sorted_keys(c.get_inventory(defines.inventory.chest).get_contents())) do
+      for _, it in ipairs(Colr.take_list(sorted_keys(c.get_inventory(defines.inventory.chest).get_contents()), skip)) do
         local n = c.get_item_count(it)
         local put = inv.insert({ name = it, count = n })
         if put > 0 then c.remove_item({ name = it, count = put }); got = got + put end
       end
     end
+    local before = 0
+    for _, it in ipairs(Colr.take_list(sorted_keys(chest.get_inventory(defines.inventory.chest).get_contents()), skip)) do before = before + chest.get_item_count(it) end
     take(chest)
+    -- Lot COLLECTE : un voyage qui ne rapporte RIEN d'un coffre qui tient quelque chose (sac plein) n'est pas « done » : il échoue et la
+    -- tâche reprend après la pause d'échec (carte de l'IA, boucle B2 : voyages à vide sans pause).
+    if Build.Colr.outcome(before, got) == "fail" then
+      f.stats.collecte_vide = (f.stats.collecte_vide or 0) + 1
+      if f.stats.collecte_vide <= 12 then
+        log(string.format("[FO-COLLECTE] %s a %.1f min : voyage a vide, le coffre (%.0f, %.0f) tient %d objet(s) et le sac n'en prend aucun : echec, pause",
+          f.key or "player", tick / 3600, o.x, o.y, before))
+      end
+      return "fail"
+    end
     -- Lot PETROLE 2 : les autres sorties du MÊME projet, à portée de la première, se vident dans le même voyage (moteur réel,
     -- etape1-guide 1618033988 : la sortie du soufre, de clé plus petite, était toujours vidée la première, celle du plastique
     -- gardait 732 plaques et le pack chimique ne se fabriquait jamais).
@@ -3908,6 +3939,9 @@ end
 --- le PNJ la laisse, le coffre monte à sa barre et la machine s'arrête seule. Sans cette borne, la collecte (seuil 5) vidait le coffre à chaque
 --- voyage : la barre n'était jamais atteinte et le mall changeait tout le stock en pièces, en occupant les PNJ. Un objet hors de la table : collecté.
 local function out_wanted(f, p, chest)
+  -- Lot COLLECTE : un coffre dont tout est écarté par le stock (Stock.skip_fn) n'envoie personne (voyage à vide)
+  local skip = Stock.skip_fn and Stock.skip_fn(f) or nil
+  if skip and #Colr.take_list(sorted_keys(chest.get_inventory(defines.inventory.chest).get_contents()), skip) == 0 then return false end
   local keep = p.keep_stock
   if not keep then return true end
   for _, it in ipairs(sorted_keys(chest.get_inventory(defines.inventory.chest).get_contents())) do
@@ -3916,16 +3950,35 @@ local function out_wanted(f, p, chest)
   return false
 end
 
---- Lot INDUSTRIE I6 (relecture 0.6.31) : la sortie d'un bloc de mall se vide-t-elle vers le QG ? p.keep_stock = { [objet] = stock du QG visé } : au-delà,
---- le PNJ la laisse, le coffre monte à sa barre et la machine s'arrête seule. Sans cette borne, la collecte (seuil 5) vidait le coffre à chaque
---- voyage : la barre n'était jamais atteinte et le mall changeait tout le stock en pièces, en occupant les PNJ. Un objet hors de la table : collecté.
-local function out_wanted(f, p, chest)
-  local keep = p.keep_stock
-  if not keep then return true end
-  for _, it in ipairs(sorted_keys(chest.get_inventory(defines.inventory.chest).get_contents())) do
-    if keep[it] == nil or Stock.count(f, it) < keep[it] then return true end
+--- Tâches de COLLECTE des coffres de sortie d'un projet (une par coffre au seuil). Lot COLLECTE : appelée aussi pour un projet qui n'est ni
+--- « fini » ni « chantier » (bande du champ « reserve:pile », « refuse:migration »... dont les coffres posés se remplissent encore : journal du
+--- DC du 7/11, 8 coffres au seuil de 159 à 174 min) ; un coffre absent (rien de bâti) est ignoré.
+--- Lot VIDEO L4 : relève d'abord les coffres de sortie (quota du projet, Build.Quotas.of ; compte de chaque coffre), puis émet la collecte
+--- au seuil borné par le quota (jamais retenue : une sortie arrêtée par le quota reste vidée). Rend (quota ou nil, comptes par coffre).
+local function out_tasks(f, p, surface, out)
+  local chests, counts, slots, in_slots = {}, {}, nil, nil
+  for i, o in ipairs(p.outs) do
+    local chest = surface.find_entity("iron-chest", { o.x, o.y })
+    if chest and chest.force.name == f.force then
+      local inv = chest.get_inventory(defines.inventory.chest)
+      chests[i], counts[i] = chest, inv.get_item_count()
+      if not slots then in_slots = #inv; slots = math.min(in_slots, inv.get_bar() - 1) end -- F95 : sans barre, get_bar() = cases + 1
+    end
   end
-  return false
+  local q = Build.Quotas.of(p, slots, in_slots, Build.COLLECT_AT)
+  for i, o in ipairs(p.outs) do
+    local chest = chests[i]
+    -- lot PETROLE : seuil propre d'une sortie de site (o.at) ; lot VIDEO L4 : borné par le quota
+    if chest and counts[i] >= Build.Quotas.collect_at(q, i, o.at or Build.COLLECT_AT) and out_wanted(f, p, chest) then
+      local a = P.anchor_for(f.build.lat, o.x, o.y, seg_passable(f.build))
+      if not a then local fx, fy = free_spot(f.build, nil, o.x, o.y); a = { x = fx, y = fy } end
+      out[#out + 1] = {
+        key = "ia1d:" .. p.id .. ":o:" .. i, kind = "carry", prio = p.prio, domain = "logistique", work = 40,
+        ia1d = { pid = p.id, mode = "collect", idx = i, ax = a.x, ay = a.y },
+      }
+    end
+  end
+  return q, counts
 end
 
 local function quai_tasks(f, p, surface, out)
@@ -3943,6 +3996,10 @@ local function quai_tasks(f, p, surface, out)
       return a
     end)
   end
+  -- lot VIDEO L4 : sorties relevées AVANT les entrées (verdict « sortie pleine ») ; la collecte, jamais retenue, garde sa place en fin de liste
+  local collect = {}
+  local qta, counts = out_tasks(f, p, surface, collect)
+  local feed = Build.Quotas.feed_ok(qta, counts)
   for i, q in ipairs(p.quais) do
     local chest = surface.find_entity("iron-chest", { q.x, q.y })
     if chest and chest.force.name == f.force then
@@ -3961,31 +4018,21 @@ local function quai_tasks(f, p, surface, out)
             ia1d = { pid = p.id, mode = "fill", idx = i, ax = a.x, ay = a.y },
           }
         end
-      elseif n < Build.QUAI_LOW and have > 0 then
-        local a = P.anchor_for(f.build.lat, q.x, q.y, seg_passable(f.build))
-        if not a then local fx, fy = free_spot(f.build, nil, q.x, q.y); a = { x = fx, y = fy } end
-        out[#out + 1] = {
-          key = "ia1d:" .. p.id .. ":q:" .. i, kind = "carry", prio = p.prio + 3, domain = "logistique", work = 40,
-          items = { { q.item, math.min(Build.QUAI_FILL - n, have) } },
-          ia1d = { pid = p.id, mode = "fill", idx = i, ax = a.x, ay = a.y },
-        }
+      elseif feed then -- lot VIDEO L4 : module à sortie pleine, plus d'alimentation (V27) ; une minute d'ingrédients (V25), sinon l'ancienne règle
+        local r = Build.Quotas.refill(qta, i, n, have, Build.QUAI_LOW, Build.QUAI_FILL)
+        if r.due then
+          local a = P.anchor_for(f.build.lat, q.x, q.y, seg_passable(f.build))
+          if not a then local fx, fy = free_spot(f.build, nil, q.x, q.y); a = { x = fx, y = fy } end
+          out[#out + 1] = {
+            key = "ia1d:" .. p.id .. ":q:" .. i, kind = "carry", prio = p.prio + 3, domain = "logistique", work = 40,
+            items = { { q.item, r.count } },
+            ia1d = { pid = p.id, mode = "fill", idx = i, ax = a.x, ay = a.y },
+          }
+        end
       end
     end
   end
-  for i, o in ipairs(p.outs) do
-    local chest = surface.find_entity("iron-chest", { o.x, o.y })
-    if chest and chest.force.name == f.force then
-      local n = chest.get_inventory(defines.inventory.chest).get_item_count()
-      if n >= (o.at or Build.COLLECT_AT) and out_wanted(f, p, chest) then -- lot PETROLE : seuil propre d'une sortie de site
-        local a = P.anchor_for(f.build.lat, o.x, o.y, seg_passable(f.build))
-        if not a then local fx, fy = free_spot(f.build, nil, o.x, o.y); a = { x = fx, y = fy } end
-        out[#out + 1] = {
-          key = "ia1d:" .. p.id .. ":o:" .. i, kind = "carry", prio = p.prio, domain = "logistique", work = 40,
-          ia1d = { pid = p.id, mode = "collect", idx = i, ax = a.x, ay = a.y },
-        }
-      end
-    end
-  end
+  for _, t in ipairs(collect) do out[#out + 1] = t end
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -4329,14 +4376,14 @@ local function free_own_turrets(f, surface, p)
             -- cuivre et 80 de fer de munitions, sans remboursement) ; coffre plein ou aucun coffre : détruite comme avant, pour que le
             -- chantier reprenne. Même effet sur le registre qu'avant (aucun événement levé).
             local taken = false
-            local d = Tj.describe(x) -- lot TOURELLE-JOURNAL (avant la reprise)
+            local d = Build.Tj.describe(x) -- lot TOURELLE-JOURNAL (avant la reprise)
             if f.hq and f.hq.valid then
               for _, inv in ipairs(Stock.inventories(f)) do
                 if inv and inv.valid and x.mine({ inventory = inv, force = false, raise_destroyed = false }) then taken = true break end
               end
             end
             if taken then n_back = n_back + 1 elseif x.valid then x.destroy() end
-            Tj.removed(d, "chantier de l'equipe " .. tostring(f.key), "emprise de " .. tostring(e.name) .. " (projet " .. tostring(p.id) .. "), aucune place a cote",
+            Build.Tj.removed(d, "chantier de l'equipe " .. tostring(f.key), "emprise de " .. tostring(e.name) .. " (projet " .. tostring(p.id) .. "), aucune place a cote",
               taken and "reprise au coffre de l'equipe" or "DETRUITE (coffre plein ou absent)")
             n = n + 1
           end
@@ -4857,6 +4904,7 @@ end
 function Build.think(f, surface, tick)
   local b = f.build
   if not b then return end
+  Build.LotsMinerai.minute(f, tick) -- lot VIDEO L9 : [FO-LOTS-MINERAI], une ligne par équipe et par minute de jeu (la mesure avant la règle)
   local tasks = {}
   local free_cache -- relecture REBUILD-RAPIDE : stock libre lu une fois par pensée, au premier projet rouvert (batch_tasks)
   local function free_of()
@@ -4880,6 +4928,8 @@ function Build.think(f, surface, tick)
       -- toute la reconstruction) ; quai_tasks ne fait rien sans le coffre réel de l'équipe
       if p.state == "fini" or p.state == "chantier" or (p.reopened and p.state ~= "refuse" and is_plant_project(p)) then
         quai_tasks(f, p, surface, tasks)
+      elseif Build.Colr.collects_outs(p.state, #p.outs) then
+        out_tasks(f, p, surface, tasks) -- lot COLLECTE : les coffres de sortie d'une bande en réserve ou refusée sont vidés aussi
       end
     end
   end
@@ -4887,6 +4937,7 @@ function Build.think(f, surface, tick)
   if b.opts.seul then
     Board.drop_free(f, function(t) return t.ia1d ~= nil end)
   end
+  Collecte.apply(f, surface, b, tasks, tick) -- lot COLLECTE : fer libre sous le besoin et équipe sous son effectif
   if #tasks > 0 then Board.add(f, tasks, tick) end
   -- Lot FUITES-PILE : amélioration des tapis (R3, ses tapis pris au stock) suspendue pendant une retenue de la pile
   local conv_ok, conv_why = PileRt.porte(f, "upgrade", nil)
