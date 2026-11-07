@@ -40,6 +40,18 @@ local function suite(Sg)
   c("stock a 80 % : aucune non vitale ramassee (cuivre)", Sg.skipped(sk2, "copper-plate", V) == true)
   c("stock a 80 % : le charbon reste ramasse", Sg.skipped(sk2, "coal", V) == false)
   c("stock a 79 % : cuivre ramasse", Sg.skipped(Sg.skip({}, 0.79, V, CFG), "copper-plate", V) == false)
+  -- relecture du 7/11 : jamais une matière DEMANDÉE en ce moment (manque mesuré du cerveau, manque de l'objectif), même stock à 90 %
+  local LINKS = { { "iron-ore", "iron-plate" }, { "copper-ore", "copper-plate" }, { "stone", "stone" } }
+  local need = Sg.demanded({ ["copper-plate"] = 40, stone = 0 }, { { "site:copper", 1 }, { "wood", 0 } }, LINKS)
+  c("demande : cuivre manquant, son minerai aussi", need["copper-plate"] == true and need["copper-ore"] == true)
+  c("demande : un manque nul ne compte pas (pierre a 0, bois a 0), le fer non plus", need.stone == nil and need.wood == nil and need["iron-ore"] == nil)
+  c("demande : le manque de l'objectif compte", Sg.demanded(nil, { { "iron-gear-wheel", 12 } }, LINKS)["iron-gear-wheel"] == true)
+  c("demande : minerai qui manque -> sa plaque aussi", Sg.demanded({ ["copper-ore"] = 5 }, nil, LINKS)["copper-plate"] == true)
+  local sk9 = Sg.skip({ stone = true }, 0.9, V, CFG, true, need)
+  c("stock a 90 %, cuivre demande : cuivre ramasse et mine", Sg.skipped(sk9, "copper-plate", V) == false and Sg.skipped(sk9, "copper-ore", V) == false)
+  c("stock a 90 %, cuivre demande : pierre et bois toujours ecartes", Sg.skipped(sk9, "stone", V) == true and Sg.skipped(sk9, "wood", V) == true)
+  c("stock a 90 %, sans demande : cuivre ecarte (temoin)", Sg.skipped(Sg.skip({ stone = true }, 0.9, V, CFG, true), "copper-plate", V) == true)
+  c("cuivre sature mais demande : ramasse", Sg.skipped(Sg.skip({ ["copper-plate"] = true }, 0.5, V, CFG, true, need), "copper-plate", V) == false)
   -- coffre urgent : au-dessus de urgent_at, aucun en main
   c("coffre urgent a 85 % sans coffre en main", Sg.urgent(0.85, false, CFG) == true)
   c("pas d'urgence a 84 %", Sg.urgent(0.84, false, CFG) == false)
@@ -65,6 +77,9 @@ do
   check("cablage : collect ecarte les matieres refusees", op:find("if not (skip and skip(name)) then", 1, true) ~= nil
     and op:find("function Outposts.service(o, carrier, tick, fill, skip)", 1, true) ~= nil)
   check("cablage : la tournee passe Stock.skip_fn", wk:find("Stock.skip_fn and Stock.skip_fn(f))", 1, true) ~= nil)
+  check("cablage : Stock.skip_fn passe les matieres demandees (manque du cerveau, manque de l'objectif)",
+    sk:find("local need = Sg.demanded(ia3 and ia3.short, team and team.missing, LINKS)", 1, true) ~= nil
+    and sk:find("T.stockage, ia3 and ia3.other_short, need)", 1, true) ~= nil)
   check("cablage : Stock.insert borne les non vitales (Sg.new_stacks, reserve au seul coffre du QG), pas les coffres d'annexe", sk:find("local allowed = Sg.new_stacks(item, em, #hq_inv, VITAL, T.stockage)", 1, true) ~= nil
     and sk:find("local plan = opts and opts.reserve and not VITAL[item] and not ANNEX[item] and non_vital_plan(f, item, n) or nil", 1, true) ~= nil
     and wk:find("local moved = Stock.insert(f, name, n, DEPOSIT_OPTS)", 1, true) ~= nil and wk:find("local DEPOSIT_OPTS = { reserve = true }", 1, true) ~= nil)
@@ -236,7 +251,12 @@ local MUT = {
   { "reserve arrondie au-dessous", "  return math.ceil(cfg.reserve * size - 1e-9)", "  return math.floor(cfg.reserve * size + 1e-9)" },
   { "vitale soumise a la reserve", "  if vital and vital[item] then return empty end", "" },
   { "non vitale sans reserve", "  return math.max(0, empty - Sg.reserve_slots(size, cfg))", "  return empty" },
-  { "vitale saturee plus ramassee", "    if not vital[item] then out[item] = true end", "    out[item] = true" },
+  { "vitale saturee plus ramassee", "if not vital[item] and not need[item] then out[item] = true end", "if not need[item] then out[item] = true end" },
+  { "demande ignoree (stock presque plein)", "  if set.__keep and set.__keep[item] then return false end\n", "" },
+  { "demande ignoree (saturee)", "if not vital[item] and not need[item] then out[item] = true end", "if not vital[item] then out[item] = true end" },
+  { "demande ignoree (plaque sans son minerai)", "    if out[l[1]] or out[l[2]] then out[l[1]], out[l[2]] = true, true end", "" },
+  { "manque nul compte comme demande", "    if type(n) == \"number\" and n > 0 then out[item] = true end", "    if type(n) == \"number\" then out[item] = true end" },
+  { "manque de l'objectif ignore", "    if type(m[1]) == \"string\" and (tonumber(m[2]) or 0) > 0 then out[m[1]] = true end", "" },
   { "saturee ecartee meme quand rien ne manque", "  if short ~= false then\n", "  if true then\n" },
   { "stock presque plein ignore", "  out.__all_non_vital = (fill or 0) >= cfg.stop_at or nil", "  out.__all_non_vital = nil" },
   { "seuil de plein a l'envers", "(fill or 0) >= cfg.stop_at", "(fill or 0) > cfg.stop_at" },

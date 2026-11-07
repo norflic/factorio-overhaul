@@ -479,14 +479,22 @@ function Stock.urgent(f)
   return Sg.urgent(used / size, have > 0, T.stockage)
 end
 
+-- Minerai et plaque de chaque avant-poste (Sg.demanded : une plaque demandée garde son minerai au minage à la main, et l'inverse).
+local LINKS = {}
+for _, k in ipairs(T.OUTPOST_ORDER) do LINKS[#LINKS + 1] = { T.outposts[k].resource, T.outposts[k].product } end
+
 --- Lot STOCKAGE-VITAL : prédicat « ne pas ramasser `objet` » aux avant-postes (non vitale saturée par le cerveau, ou toute non vitale
---- quand le stock est rempli à T.stockage.stop_at), ou nil quand rien n'est écarté.
+--- quand le stock est rempli à T.stockage.stop_at ; jamais une matière demandée en ce moment), ou nil quand rien n'est écarté.
 function Stock.skip_fn(f)
   if not (f.hq and f.hq.valid) then return nil end
   local used, size = totals(f)
   if size <= 0 then return nil end
-  local ia3 = f.team and f.team.ia3
-  local set = Sg.skip(ia3 and ia3.saturated, used / size, VITAL, T.stockage, ia3 and ia3.other_short)
+  local team = f.team
+  local ia3 = team and team.ia3
+  -- relecture du 7/11 : jamais une matière que l'équipe demande en ce moment (manque mesuré du cerveau, manque de l'objectif
+  -- courant ; nets du stock), même stock presque plein et plafond d'annexes atteint
+  local need = Sg.demanded(ia3 and ia3.short, team and team.missing, LINKS)
+  local set = Sg.skip(ia3 and ia3.saturated, used / size, VITAL, T.stockage, ia3 and ia3.other_short, need)
   if next(set) == nil then return nil end
   return function(item) return Sg.skipped(set, item, VITAL) end
 end

@@ -466,6 +466,39 @@ do
   g.team = nil
   check(Stock.skip_fn(g) == nil, "stock a 25 % sans saturee : rien d'ecarte")
 end
+do
+  -- Relecture du 7/11 : stock à 90 %, plafond d'annexes atteint (48 annexes), cuivre demandé -> le cuivre est encore ramassé aux
+  -- avant-postes (plaque) et miné à la main (minerai : boucle de script/team/poles.lua sur Fond.MINE_TARGETS).
+  local Fond = require("shared.team.fond")
+  local ss = STACK.stone or 50
+  local h = team(52)
+  h.annex = {}
+  for i = 1, 48 do
+    local a = new_chest(1)
+    a.items.stone = ss
+    h.annex[i] = a
+  end
+  h.hq.items.coal = (STACK.coal or 50) * 42
+  local used, size = Stock.fill(h)
+  check(used == 90 and size == 100 and Stock.wanted(h) == 0, "scene : stock a 90 % (" .. used .. "/" .. size .. "), plafond d'annexes atteint")
+  local function mined(skip)
+    local out = {}
+    for _, m in ipairs(Fond.MINE_TARGETS) do if not skip(m[1]) then out[m[1]] = true end end
+    return out
+  end
+  h.team = { ia3 = { saturated = { stone = true }, short = { ["copper-plate"] = 40 }, other_short = true } }
+  local sk = Stock.skip_fn(h)
+  local mi = sk and mined(sk) or {}
+  check(sk ~= nil and not sk("copper-plate") and mi["copper-ore"] and not mi.stone and mi.coal and mi["iron-ore"],
+    "stock a 90 %, plafond atteint, cuivre manquant (cerveau) : le cuivre est encore ramasse et mine, la pierre non")
+  h.team = { ia3 = { saturated = { stone = true } }, missing = { { "copper-plate", 30 } } }
+  local sk2 = Stock.skip_fn(h)
+  check(sk2 ~= nil and not sk2("copper-plate") and not sk2("copper-ore") and sk2("stone"),
+    "stock a 90 %, plafond atteint, cuivre attendu par l'objectif : le cuivre est encore ramasse et mine")
+  h.team = { ia3 = { saturated = { stone = true }, short = { ["copper-plate"] = 0 } } }
+  local sk3 = Stock.skip_fn(h)
+  check(sk3 ~= nil and sk3("copper-plate") and sk3("copper-ore"), "temoin : cuivre sans manque, stock a 90 % : ecarte")
+end
 
 print(string.format("\nRésultat : %d OK, %d ECHEC(S)", passes, failures))
 if failures > 0 then os.exit(1) end
