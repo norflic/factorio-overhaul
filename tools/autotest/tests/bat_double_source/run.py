@@ -59,6 +59,10 @@ Cas de la sauvegarde donnée (lot PERF4 : FO_SAVE, banc sur la sauvegarde du DC)
      identique octet à octet), save-source.txt et create.log « pas de creation » écrits, l'original intact (contenu et date) ;
  20. FO_SAVE avec FO_CREATE_SRC : code 1, rien n'a tourné, fo-autotest\\ précédent intact, aucun verrou ;
  21. FO_SAVE absente du disque, ou pas en .zip : code 1, rien n'a tourné, aucun verrou.
+Cas du rendu sur la sauvegarde (lot X10, M2, 7/11 : banc.py --sauvegarde avec --captures) :
+ 22. par fo-captures.bat avec FO_SAVE=<zip> : code 0, AUCUNE création, la session visuelle (faux fo-visual.bat) est
+     appelée, et la carte qu'elle reçoit (fo-autotest\\fo-autotest-map.zip) est la copie octet à octet de la sauvegarde ;
+     l'original intact, aucun verrou.
 Code de sortie : 0 si tous les contrôles passent.
 """
 import argparse
@@ -433,6 +437,17 @@ def main():
         check(r["rc"] == 1 and r["create_out"] is None and r["bench"] is None and r["prev_text"] == "ancien"
               and r["locks"] == [] and "FO_SAVE" in r["stdout"],
               "21.%d FO_SAVE=[%s] refusee : code 1, rien n'a tourne" % (i, given), r)
+    # --- sauvegarde donnée par fo-captures.bat (lot X10, M2 : rendu mesuré sur la partie du DC) ---
+    if a.captures and os.path.exists(a.captures):
+        r = run_case(base, a.bat, bins, "22 captures sauvegarde", False, {"FO_SAVE": r"<root>\ma sauvegarde.zip"},
+                     captures=a.captures, files={"ma sauvegarde.zip": data})
+        orig = os.path.join(r["root"], "ma sauvegarde.zip")
+        check(r["rc"] == 0 and r["visual"] and r["create_out"] is None and r["map_zip"] == data
+              and "pas de creation" in r["create_log"] and open(orig, "rb").read() == data and r["locks"] == [],
+              "22. fo-captures.bat avec FO_SAVE : aucune creation, session visuelle sur la copie de la sauvegarde", r)
+    else:
+        fail += 1
+        print("ECHEC  22. fo-captures.bat introuvable : %s" % a.captures)
     print("BILAN : %d OK, %d ECHEC(S)  (bat : %s)" % (ok, fail, a.bat))
     if a.keep:
         print("racines gardees :", base)

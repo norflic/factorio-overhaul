@@ -39,10 +39,12 @@ Usage : python visual_session.py --root <racine du jeu> [--window min|small|hd|n
             nom lu dans le binaire ; valeurs supposées d'après le journal « [DXT: high-quality] » et la locale
             texture-compression-none/-high-quality/-low-quality : NON prouvées). Vérifiée dans le journal
             (« [DXT: …] ») : écart = code 9. Aucune option du binaire ne la règle.
-  --measure : mesure d'images par seconde : le jeu écrit ses statistiques de rendu (--output-perf-stats
-            fo-visual\perf-stats.csv, recopié dans fo-shots) et le pilote attend la FIN NATURELLE du mode
-            benchmark (budget --ticks) au lieu de fermer la session au marqueur. Fenêtre conseillée : hd
-            (1920×1080, sans prendre le focus) ; en fenêtre réduite, le jeu peut ne rien dessiner.
+  --measure : mesure d'images par seconde : le jeu écrit ses statistiques de rendu (--output-perf-stats, recopié dans
+            fo-shots\perf-stats.csv) et le pilote attend la FIN NATURELLE du mode benchmark (budget --ticks) au lieu
+            de fermer la session au marqueur. Fenêtre conseillée : hd (1920×1080, sans prendre le focus) ; en fenêtre
+            réduite, le jeu peut ne rien dessiner. Lot X10 (M2) : le jeu perd l'espace d'un chemin donné à
+            --output-perf-stats (F206 : aucun fichier écrit) ; le fichier va donc dans un dossier SANS espace
+            (<dossier temporaire>\fo-perf-visuel\perf-stats.csv, vidé avant chaque session), puis il est recopié.
 Son (lot S0, E69) : variable d'environnement FO_AUDIO (la même que fo-autotest.bat). Absente ou vide : session
             lancée avec --disable-audio, comme avant. « 1 » : SANS --disable-audio, pour que le jeu CHARGE les
             fichiers son (un son manquant y bloque les mods, F151), mais SANS SORTIE AUDIO :
@@ -73,6 +75,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 import time
 from ctypes import wintypes
 
@@ -260,6 +263,16 @@ def test_processes(vis_dir, procs=None):
     """factorio.exe de CETTE session de test : ceux dont la ligne de commande contient le dossier fo-visual."""
     key = os.path.normcase(os.path.abspath(vis_dir))
     return [(p, c) for p, c in (factorio_processes() if procs is None else procs) if key in os.path.normcase(c)]
+
+
+def perf_stats_path(vis, bases=None):
+    """Lot X10 (M2), F206 : chemin SANS espace pour --output-perf-stats (le jeu y perd l'espace et n'écrit rien). Premier
+    dossier sans espace parmi le dossier temporaire de Windows et LOCALAPPDATA ; à défaut, <fo-visual>\perf-stats.csv
+    (chemin à espaces : le fichier risque de manquer, ce que la session signale)."""
+    for base in (bases if bases is not None else (tempfile.gettempdir(), os.environ.get("LOCALAPPDATA", ""))):
+        if base and " " not in os.path.abspath(base):
+            return os.path.join(os.path.abspath(base), "fo-perf-visuel", "perf-stats.csv")
+    return os.path.join(vis, "perf-stats.csv")
 
 
 def prepare(root, vis, test, atlas_cache, quality=None, video_memory=None, texture_compression=None, audio=False):
@@ -536,10 +549,15 @@ def main():
         cmd += ["--graphics-quality", a.quality]
     if a.video_memory:
         cmd += ["--video-memory-usage", a.video_memory]
-    perf_path = os.path.join(vis, "perf-stats.csv")
+    perf_path = perf_stats_path(vis)
     if a.measure:
         # « path of file to which rendering performance statistics measurements should be saved » (binaire).
+        # F206 : dossier sans espace ; fichier de la session précédente retiré (il passerait pour celui-ci).
+        os.makedirs(os.path.dirname(perf_path), exist_ok=True)
+        if os.path.exists(perf_path):
+            os.remove(perf_path)
         cmd += ["--output-perf-stats", perf_path]
+        out("statistiques de rendu : %s%s" % (perf_path, " (ATTENTION : chemin avec espace, F206)" if " " in perf_path else ""))
     size = a.size or {"small": SMALL_SIZE, "hd": HD_SIZE}.get(a.window)
     if size and a.window != "min":
         cmd += ["--window-size", size]

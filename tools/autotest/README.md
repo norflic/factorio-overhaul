@@ -1125,6 +1125,31 @@ $env:FO_VISUAL_ARGS = $null`. Durée de chaque passage : **74 à 80 s** mesurée
     prouvé ici).
 11. Règles d'octets « alpha-mask » et « low-quality » : hypothèses (tableau ci-dessus) ; la mesure directe tranche.
 
+### 5.4 Rendu sur une SAUVEGARDE donnée (lot X10, M2, 7/11)
+
+Permis par le DC pour sa partie (7/11, 17 h 55 : « Oui, captures permises »). `banc.py --sauvegarde` va désormais AVEC
+`--captures`, mais toujours pas avec `--creation`. Chaîne :
+- `fo-captures.bat` hérite de `FO_SAVE` ;
+- `fo-autotest.bat` copie la sauvegarde en `fo-autotest-map.zip` (benchmark de 600 ticks, sans création) ;
+- `visual_session.py` rejoue cette COPIE en `--benchmark-graphics`. L'original n'est jamais ouvert.
+
+```
+py -3.9 -B tools/autotest/banc.py --seul --qui X10 --sauvegarde "<racine>\fo-logs\2026-11-05_PARTIE-DC-ESSAI\autosave1-2121.zip" --captures --visuel="--window hd --measure --pcores --ticks 8700" --out "<racine>\fo-logs\2026-11-07_X10\M2-rendu" -- 600 x10-rendu "<source>"
+```
+
+- Scénario `x10-rendu` :
+  - vitesse remise à 10 ;
+  - trois vues de 2 400 ticks devant le personnage du DC (zoom 1, 0,5 et 0,3) ;
+  - chaque vue est chronométrée au format `PHASE debut/fin` de d4-geant ; `vram.py` lit désormais toute étiquette de greffon ;
+  - puis une capture.
+- **F206** : `--output-perf-stats` reçoit un chemin SANS espace, `<dossier temporaire>\fo-perf-visuel\perf-stats.csv`, vidé
+  avant la session ; le pilote le recopie dans `fo-shots`. Contrôle : `driver_it.py` (étape 5 de `run_d4m.py`).
+- Fenêtre `hd`, jamais réduite (F57). `--pcores`. Son coupé (`--disable-audio`, interdit n° 7).
+- Lecture : `fo-shots\factorio.log`, lignes `[FO-X10-RENDU] PHASE fin … ticks N Duration: X ms`. UPS = N ÷ (X ÷ 1000), et
+  ×N = UPS ÷ 60. Le rapport `memoire.txt` et `session.txt` donnent les images/s par phase.
+- Bancs hors jeu : `test_banc_file.py` (cas 10 ter) ; `bat_double_source/run.py` (cas 22) ; `tests/x10_rendu_test.lua`
+  (11 OK).
+
 ## 6. Mesures fonctionnelles d'une base (lot MESURES, 28/10)
 
 `scenarios/fonction_common.lua` lit sur le moteur ce que font les machines (et non combien il y en a) : fours (production

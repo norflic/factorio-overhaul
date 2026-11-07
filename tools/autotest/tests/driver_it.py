@@ -85,6 +85,14 @@ check("graphics-quality=normal" in cfg, "cle graphics-quality=normal dans le con
 check("texture-compression-level=low-quality" in cfg, "cle texture-compression-level=low-quality dans le config.ini de test")
 check("--graphics-quality" in cmd and cmd[cmd.index("--graphics-quality") + 1] == "normal", "option --graphics-quality normal")
 check("--output-perf-stats" in cmd, "option --output-perf-stats")
+# Lot X10 (M2), F206 : le jeu perd l'espace du chemin de --output-perf-stats ; la racine factice en a une (« fakeroot »
+# sous un dossier de travail quelconque) : le chemin passé au jeu ne doit en avoir AUCUNE.
+pp = cmd[cmd.index("--output-perf-stats") + 1] if "--output-perf-stats" in cmd else ""
+check(pp and " " not in pp and pp.endswith("perf-stats.csv"), "F206 : --output-perf-stats sans espace (%s)" % pp)
+check(vs.perf_stats_path(r"C:\a b\fo-visual", bases=[r"C:\x y", ""]) == os.path.join(r"C:\a b\fo-visual", "perf-stats.csv")
+      and vs.perf_stats_path(r"C:\a b\fo-visual", bases=[r"C:\x y", r"C:\sansespace"]) ==
+      os.path.join(r"C:\sansespace", "fo-perf-visuel", "perf-stats.csv"),
+      "F206 : perf_stats_path prend le premier dossier sans espace, sinon fo-visual")
 check("--window-size" in cmd and cmd[cmd.index("--window-size") + 1] == "1920x1080", "fenetre hd 1920x1080")
 check(all(f in files for f in ("vram.tsv", "factorio.log", "stdout.txt", "perf-stats.csv", "memoire.txt", "session.txt")),
       "preuves recopiees dans fo-shots : " + ", ".join(files))

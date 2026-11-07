@@ -64,6 +64,9 @@
 #   --seul : banc seul sur le PC (mesures de performance K10 : TOUJOURS --seul).
 #   --sauvegarde <zip> : (lot PERF4) pas de création de carte : la sauvegarde (chemin absolu, .zip) est COPIÉE dans le
 #                dossier de la place et rejouée par --benchmark (variable FO_SAVE de fo-autotest.bat) ; jamais avec --creation.
+#                Lot X10 (M2, 7/11) : permise AVEC --captures. fo-captures.bat hérite de FO_SAVE, fo-autotest.bat copie la
+#                sauvegarde en fo-autotest-map.zip, et la session avec images (visual_session.py) rejoue cette copie :
+#                rendu mesuré sur la partie même du DC (--visuel="--window hd --measure ...").
 #   --places N : nombre de places vues par ce lanceur (1 à 3), au lieu de fo-banc-places.txt ; ce ticket ne prend
 #                alors aucune place au-delà de N.
 #   --file : affiche les places, la file et l'affectation, sans rien lancer.
@@ -670,8 +673,8 @@ def main(argv):
     if a.creation:
         env["FO_CREATE_SRC"] = a.creation
     if a.sauvegarde:
-        if a.creation or a.captures:
-            ap.error("--sauvegarde ne va ni avec --creation ni avec --captures")
+        if a.creation:
+            ap.error("--sauvegarde ne va pas avec --creation")
         env["FO_SAVE"] = os.path.abspath(a.sauvegarde)
     if a.son:
         env["FO_AUDIO"] = "1"
