@@ -104,6 +104,9 @@ return {
     ctx.check(st.temoin and st.temoin.valid and st.temoin.health == st.temoin.prototype.max_health, "temoin de sa force intact au milieu")
     local tile = s.get_tile(CX, Y)
     ctx.check(tile and tile.name == "nuclear-ground", "cratere au point vise", tile and tile.name or "?")
+    -- morts par tick des salves (coût des débris par mort, pics_zone.py) ; vide avant 2c381cd5
+    local ok_m, mpt = pcall(remote.call, "fo-xp", "morts_par_tick")
+    ctx.log("MORTS-PAR-TICK " .. (ok_m and tostring(mpt) or "indisponible"))
     local n2 = restants(s, Y2)
     ctx.check(n2 == 0, "Couronne : la base est rasee avant le controle", string.format("%d restantes sur %d, rasee au tick %s", n2, st.n2 or -1,
       tostring(st.rasee2)))

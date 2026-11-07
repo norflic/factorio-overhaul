@@ -13,8 +13,9 @@ local C = require("scenarios/xp_commun")
 local CHECK = 900
 local Y = 5200
 local R = 60
-local SITES = { { id = "tournesol", x = 13000, S = 240, pose = 231 }, { id = "crowned", x = 13400, S = 270, pose = 261 },
-  { id = "vanilla", x = 13800, S = 331, pose = 330 }, { id = "tournesol-B", x = 14200, S = 300, pose = 291 } }
+-- d : ticks de recherche par secteurs avant l'onde (7/11 : un secteur de Ech.SECTEUR = 32 tuiles par tick ; zone 75 : 25 secteurs, zone 90 : 33)
+local SITES = { { id = "tournesol", x = 13000, S = 240, pose = 231, d = 26 }, { id = "crowned", x = 13400, S = 270, pose = 261, d = 34 },
+  { id = "vanilla", x = 13800, S = 331, pose = 330, d = 0 }, { id = "tournesol-B", x = 14200, S = 300, pose = 291, d = 26 } }
 local IMPACT_B = 285 -- variante B (sol brûlé sur la zone, shared/robots/echelle.lua Ech.brulures) pour les salves lancées après ce tick
 local DX = 50 -- l'unité à 50 tuiles à l'ouest du centre de la base
 
@@ -26,12 +27,12 @@ local function vue(tick, nom, x, y, zoom, nuit)
   PLAN[#PLAN + 1] = { tick = tick, nom = nom, x = x, y = y, zoom = zoom, nuit = nuit }
 end
 for _, s in ipairs(SITES) do
-  local cx, S = s.x + DX, s.S
+  local cx, S, d = s.x + DX, s.S, s.d
   vue(S - 12, s.id .. "-0-avant", cx - 15, Y, 0.3)
-  vue(S + 3, s.id .. "-1-onde-3", cx - 15, Y, 0.3)
-  vue(S + 8, s.id .. "-2-onde-8", cx - 15, Y, 0.3)
-  vue(S + 15, s.id .. "-3-onde-15", cx - 15, Y, 0.3)
-  vue(S + 30, s.id .. "-4-onde-30", cx - 15, Y, 0.3)
+  vue(S + d + 3, s.id .. "-1-onde-3", cx - 15, Y, 0.3)
+  vue(S + d + 15, s.id .. "-2-onde-15", cx - 15, Y, 0.3)
+  vue(S + d + 45, s.id .. "-3-onde-45", cx - 15, Y, 0.3)
+  vue(S + d + 120, s.id .. "-4-onde-120", cx - 15, Y, 0.3)
   vue(S + 60, s.id .. "-5-apres-1s", cx - 15, Y, 0.3)
   vue(S + 600, s.id .. "-6-apres-10s", cx - 15, Y, 0.3)
   vue(S + 602, s.id .. "-7-apres-10s-nuit", cx - 15, Y, 0.3, true)

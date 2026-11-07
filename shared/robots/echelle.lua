@@ -10,8 +10,9 @@
   E3 salve : chaque cible de la zone prend un coup PLEIN qui, après la résistance du déchiqueteur du palier de son âge à ce type de dégâts,
      vaut PV / SALVES ; zone R(A) = PAS_ZONE × (A − AGE_ZONE0) pour A ≥ 10 (15 à l'âge 10, 90 à l'âge 15).
   E4 trace : cratère de rayon R(A) / 6 au point visé (2,5 à l'âge 10, 15 à l'âge 15).
-  COÛT : une recherche d'entités par salve, cibles rangées par anneau de distance (ordre fixe), au plus PLAFOND par salve, dégâts par TRANCHES de
-     TRANCHE entités par tick ; une salve de zone au plus toutes les CADENCE_ZONE ticks.
+  COÛT : une recherche d'entités par salve, cibles rangées par anneau de distance (ordre fixe), au plus PLAFOND par salve ; au plus BUDGET
+     coups de zone par tick EN TOUT, partagés par toutes les salves en cours (Ech.partage) ; une salve de zone au plus toutes les CADENCE_ZONE
+     ticks.
 
   SUPPOSÉ (à confirmer en jeu) : le palier des déchiqueteurs de l'âge A est A − DECALAGE_PALIER (âge 15 ↔ palier 12) ; la meilleure munition
   vanilla d'un âge est le chargeur perforant jusqu'à l'âge 8, l'uranium ensuite.
@@ -32,9 +33,13 @@ Ech.AGE_ZONE0 = 9
 Ech.AGE_ZONE_MIN = 10
 Ech.DECALAGE_PALIER = 3
 Ech.CRATERE_PART = 6
-Ech.TRANCHE = 120
+-- Coups de zone par tick, EN TOUT, partagés par les salves en cours. Mesuré le 7/11 (xp-zone en --seul) : 120 coups par SALVE, deux salves
+-- en même temps, donnaient 34 ms au pire tick (particleUpdate 15,7 : débris des morts ; scriptUpdate 15,4 : damage() et la mort dans le
+-- moteur, environ 0,06 ms par coup mortel). Décision du lead : budget PARTAGÉ, 40 pour commencer.
+Ech.BUDGET = 40
 Ech.ANNEAU = 3
-Ech.LOT_RANGEMENT = 500 -- 1 000 donnait 1,2 à 1,5 ms Lua par tick avec la liste (tests/echelle_cout.lua, 5/11) ; en jeu, + 4 lectures du pont C++ par entité
+Ech.SECTEUR = 32 -- côté d'un secteur de recherche (une recherche du moteur par tick ; le tick 0 du double tir coûtait 10,7 ms, 7/11)
+Ech.MORTS = 15 -- morts par tick EN TOUT, partagées par les salves en cours (débris : diagnostic du 7/11)
 Ech.PLAFOND = 4000
 Ech.CADENCE_ZONE = 180
 Ech.AGE_MAX = 15 -- dernier âge du jeu (15 époques) : cratères prototypés de AGE_ZONE_MIN à AGE_MAX
@@ -141,10 +146,12 @@ end
 --- Coût : cibles d'une salve rangées par ANNEAU de distance (largeur Ech.ANNEAU tuiles, du centre vers le bord : l'onde se voit), dans un
 --- anneau dans l'ordre d'entrée (celui de la recherche du moteur, le même sur toutes les machines) ; au plus PLAFOND. Rangement en temps
 --- linéaire, sans tri par comparaison (moteur simulé : un tri complet de 7 000 cibles coûtait 17 ms en un tick, tests/echelle_cout.lua),
---- et INCRÉMENTAL : Ech.poser (une entrée) ou Ech.ranger (entrées a à b), au plus Ech.LOT_RANGEMENT par tick en jeu ; puis Ech.suivants
---- rend la file par tranches en parcourant les anneaux (aucune copie de la file entière en un tick) ; Ech.liste rend la file en une fois.
+--- et INCRÉMENTAL : Ech.poser (une entrée), au fil de la recherche par SECTEURS (Ech.secteurs, un par tick en jeu) ; puis Ech.prochain rend
+--- les cibles une à une en parcourant les anneaux, sans rien allouer, et libère au passage les entrées rendues (moins de travail pour le
+--- ramasse-miettes : diagnostic du pic de 13,9 ms, 7/11). Les longueurs d'anneau sont gardées à part (jamais l'opérateur # sur un anneau
+--- à trous).
 function Ech.nouveau_plan(center)
-  return { c = { x = center.x, y = center.y }, rings = {}, top = 0 }
+  return { c = { x = center.x, y = center.y }, rings = {}, cnt = {}, top = 0 }
 end
 
 --- Range un élément `item` à la position (x, y) dans son anneau.
@@ -152,8 +159,10 @@ function Ech.poser(p, x, y, item)
   local dx, dy = x - p.c.x, y - p.c.y
   local k = math.floor(math.sqrt(dx * dx + dy * dy) / Ech.ANNEAU) + 1 -- sqrt est exactement arrondie (IEEE 754) : même anneau partout
   local r = p.rings[k]
-  if not r then r = {}; p.rings[k] = r end
-  r[#r + 1] = item
+  if not r then r = {}; p.rings[k] = r; p.cnt[k] = 0 end
+  local n = p.cnt[k] + 1
+  r[n] = item
+  p.cnt[k] = n
   if k > p.top then p.top = k end
 end
 
@@ -169,31 +178,43 @@ function Ech.curseur()
   return { k = 1, i = 1, pris = 0 }
 end
 
---- Les n éléments suivants du plan (du centre vers le bord), au plus Ech.PLAFOND en tout ; rend la tranche et vrai quand le plan est épuisé.
-function Ech.suivants(p, cur, n)
-  local out = {}
-  while #out < n and cur.pris < Ech.PLAFOND and cur.k <= p.top do
+--- La cible suivante (du centre vers le bord), nil quand le plan est épuisé ou le plafond atteint. `liberer` : l'entrée rendue est retirée
+--- de son anneau.
+function Ech.prochain(p, cur, liberer)
+  while cur.pris < Ech.PLAFOND and cur.k <= p.top do
     local r = p.rings[cur.k]
-    if r and cur.i <= #r then
-      out[#out + 1] = r[cur.i]
+    if r and cur.i <= p.cnt[cur.k] then
+      local x = r[cur.i]
+      if liberer then r[cur.i] = nil end
       cur.i = cur.i + 1
       cur.pris = cur.pris + 1
-    else
-      cur.k, cur.i = cur.k + 1, 1
+      return x
     end
+    cur.k, cur.i = cur.k + 1, 1
   end
-  local fini = cur.pris >= Ech.PLAFOND or cur.k > p.top
-  if not fini then
-    -- épuisé si le reste des anneaux est vide (la dernière tranche le dit, sans tick à vide)
-    local k, i = cur.k, cur.i
-    fini = true
-    while k <= p.top do
-      local r = p.rings[k]
-      if r and i <= #r then fini = false; break end
-      k, i = k + 1, 1
-    end
+  return nil
+end
+
+--- Vrai si plus rien ne reste à rendre (plafond atteint, ou anneaux restants vides).
+function Ech.epuise(p, cur)
+  if cur.pris >= Ech.PLAFOND then return true end
+  local k, i = cur.k, cur.i
+  while k <= p.top do
+    if p.rings[k] and i <= p.cnt[k] then return false end
+    k, i = k + 1, 1
   end
-  return out, fini
+  return true
+end
+
+--- Les n éléments suivants (tests, coût) ; rend la tranche et vrai quand le plan est épuisé.
+function Ech.suivants(p, cur, n)
+  local out = {}
+  while #out < n do
+    local x = Ech.prochain(p, cur)
+    if x == nil then break end
+    out[#out + 1] = x
+  end
+  return out, Ech.epuise(p, cur)
 end
 
 function Ech.liste(p)
@@ -201,13 +222,50 @@ function Ech.liste(p)
   for k = 1, p.top do
     local r = p.rings[k]
     if r then
-      for _, c in ipairs(r) do
+      for i = 1, p.cnt[k] do
         if #out >= Ech.PLAFOND then return out end
-        out[#out + 1] = c
+        out[#out + 1] = r[i]
       end
     end
   end
   return out
+end
+
+--- Un tick de frappe d'une salve : au plus `qh` coups et au plus `qm` MORTS (budget de morts : le coût du moteur, débris et morts, suit le
+--- nombre de morts par tick ; diagnostic du 7/11). `frappe(item)` frappe une cible et rend vrai si elle meurt. Rend coups, morts, épuisé.
+function Ech.frapper(p, cur, qh, qm, frappe)
+  local coups, morts = 0, 0
+  while coups < qh and morts < qm do
+    local x = Ech.prochain(p, cur, true)
+    if x == nil then break end
+    coups = coups + 1
+    if frappe(x) then morts = morts + 1 end
+  end
+  return coups, morts, Ech.epuise(p, cur)
+end
+
+--- RECHERCHE PAR SECTEURS : carrés de côté `cote` qui couvrent le disque (centre c, rayon r), ligne par ligne, sans ceux qui ne le touchent
+--- pas. Un secteur est DEMI-OUVERT : [x0, x1[ × [y0, y1[ (Ech.dans_secteur), pour qu'une entité posée sur un bord commun ne soit gardée
+--- qu'une fois (F96 : la recherche par zone rend aussi les entités qui touchent seulement la zone).
+function Ech.secteurs(c, r, cote)
+  local out = {}
+  local x0, y0 = c.x - r, c.y - r
+  local n = math.ceil(2 * r / cote)
+  for j = 0, n - 1 do
+    for i = 0, n - 1 do
+      local a, b = x0 + i * cote, y0 + j * cote
+      local q = { x0 = a, y0 = b, x1 = a + cote, y1 = b + cote }
+      local px = math.max(q.x0, math.min(c.x, q.x1))
+      local py = math.max(q.y0, math.min(c.y, q.y1))
+      local dx, dy = px - c.x, py - c.y
+      if dx * dx + dy * dy <= r * r then out[#out + 1] = q end
+    end
+  end
+  return out
+end
+
+function Ech.dans_secteur(q, x, y)
+  return x >= q.x0 and x < q.x1 and y >= q.y0 and y < q.y1
 end
 
 --- Le plan en une fois (même file que ranger + liste). `cands` : { x, y, ... } ; la table d'entrée n'est pas touchée.
@@ -217,15 +275,28 @@ function Ech.plan(cands, center)
   return Ech.liste(p)
 end
 
---- Coût : nombre de ticks pour traiter n cibles par tranches.
+--- Coût : nombre de ticks pour traiter n cibles d'une salve SEULE (tout le budget pour elle).
 function Ech.ticks(n)
-  return math.ceil(n / Ech.TRANCHE)
+  return math.ceil(n / Ech.BUDGET)
 end
 
---- Tranche k (1, 2, …) d'une liste : indices de début et de fin (fin < début : rien).
+--- Tranche k (1, 2, …) d'une liste, pour une salve seule : indices de début et de fin (fin < début : rien).
 function Ech.tranche(k, n)
-  local a = (k - 1) * Ech.TRANCHE + 1
-  return a, math.min(n, k * Ech.TRANCHE)
+  local a = (k - 1) * Ech.BUDGET + 1
+  return a, math.min(n, k * Ech.BUDGET)
+end
+
+--- Partage du budget du tick `tick` entre `n` salves en cours (dans l'ordre de la file) : liste de n parts dont la SOMME vaut `budget`.
+--- Chacune reçoit floor(budget / n) ; le reste (budget mod n) va à des salves qui tournent d'un tick à l'autre : sur n ticks, toutes
+--- reçoivent autant. Une salve à qui il reste moins que sa part laisse le surplus perdu pour ce tick (le budget est un maximum).
+function Ech.partage(n, budget, tick)
+  local out = {}
+  if n <= 0 then return out end
+  local base, reste = math.floor(budget / n), budget % n
+  for i = 1, n do
+    out[i] = base + (((i - 1 - tick) % n) < reste and 1 or 0)
+  end
+  return out
 end
 
 --- Modules (lot DESIGN-MODULES, PRODUIT accordé le 5/11) : portée, zone et salve effectives d'une unité avec ses bonus (0,2 = + 20 %).
@@ -344,6 +415,89 @@ end
 --- Régénération par tick d'un maximum `pv`, pour une régénération `soin0` par tick qui allait avec le maximum `pv0`.
 function Ech.soin(pv, soin0, pv0)
   return pv * soin0 / pv0
+end
+
+---------------------------------------------------------------------------------------------------
+-- SÉQUELLES (réponses du DC du 7/11, QCM-7/11) : « Cratère et verre, pas de falaises » ; « les dégâts visibles permanents devraient en
+-- réalité durer 1 heure, se résorber » ; le Glas du Bourdon : « non temporaire mais de 10 minutes ». Les traces des géants (cratère, verre,
+-- sol brûlé) durent TRACE_TICKS puis se résorbent ; celles du Glas, TRACE_GLAS_TICKS.
+-- Cratère : les tuiles du disque passent au sol `nuclear-ground` ; leur sol d'origine est noté dans un REGISTRE par surface, rendu à
+-- l'échéance, seulement si la tuile est encore un sol de cratère (un sol posé depuis par un joueur n'est jamais écrasé). Un nouveau cratère
+-- sur une tuile déjà marquée repousse son échéance et garde son sol d'origine. Rendu par lots de RESORPTION_LOT tuiles par tick.
+---------------------------------------------------------------------------------------------------
+Ech.TRACE_TICKS = 216000      -- 1 h
+Ech.TRACE_GLAS_TICKS = 36000  -- 10 min
+Ech.RESORPTION_LOT = 100
+
+--- Tuiles (coin entier) dont le CENTRE est dans le disque de centre c et de rayon r, ligne par ligne (ordre fixe).
+function Ech.disque(c, r)
+  local out = {}
+  local r2 = r * r
+  for y = math.floor(c.y - r), math.floor(c.y + r) do
+    local dy = y + 0.5 - c.y
+    for x = math.floor(c.x - r), math.floor(c.x + r) do
+      local dx = x + 0.5 - c.x
+      if dx * dx + dy * dy <= r2 then out[#out + 1] = { x = x, y = y } end
+    end
+  end
+  return out
+end
+
+--- Registre des tuiles marquées d'une surface : t[clé] = { x, y, orig, fin } ; file d'échéances en ordre croissant (n : dernier indice,
+--- tete : premier non traité ; jamais l'opérateur # sur une file à trous).
+function Ech.trace_nouveau()
+  return { t = {}, file = {}, tete = 1, n = 0 }
+end
+
+--- Marque la tuile (x, y), de sol `orig`, jusqu'au tick `fin`. Rend vrai si elle n'était pas marquée (le sol de cratère est à poser).
+--- Les `fin` successives doivent croître (en jeu : fin = tick + TRACE_TICKS) : la file est lue dans l'ordre.
+function Ech.trace_marquer(R, x, y, orig, fin)
+  local k = x .. "," .. y
+  local e = R.t[k]
+  if e then
+    if fin > e.fin then e.fin = fin end
+  else
+    R.t[k] = { x = x, y = y, orig = orig, fin = fin }
+  end
+  R.n = R.n + 1
+  R.file[R.n] = { k = k, fin = fin }
+  return e == nil
+end
+
+--- Tuiles échues au tick `tick`, au plus `max`, retirées du registre (une tuile repoussée par un cratère plus récent attend sa propre
+--- échéance). La file est compactée quand sa tête dépasse 4 096.
+function Ech.trace_echues(R, tick, max)
+  local out = {}
+  while R.tete <= R.n and #out < max do
+    local q = R.file[R.tete]
+    if q.fin > tick then break end
+    R.file[R.tete] = nil
+    R.tete = R.tete + 1
+    local e = R.t[q.k]
+    if e and e.fin <= tick then
+      out[#out + 1] = e
+      R.t[q.k] = nil
+    end
+  end
+  if R.tete > 4096 then
+    local f, m = {}, 0
+    for i = R.tete, R.n do m = m + 1; f[m] = R.file[i] end
+    R.file, R.tete, R.n = f, 1, m
+  end
+  return out
+end
+
+--- Nombre de tuiles encore marquées (contrôles).
+function Ech.trace_compte(R)
+  local n, vu = 0, {}
+  for i = R.tete, R.n do
+    local q = R.file[i]
+    if R.t[q.k] and not vu[q.k] then
+      vu[q.k] = true
+      n = n + 1
+    end
+  end
+  return n
 end
 
 return Ech

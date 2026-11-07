@@ -10,8 +10,8 @@
     portée (bâtiments compris : décision du DC du 5/11, « jusqu'à la fin »), et lance son effet, puis une SALVE DE ZONE (règle d'échelle,
     shared/robots/echelle.lua : coup plein par cible dans 15 × (âge − 9) tuiles, cratère, sol brûlé), au plus toutes les Ech.CADENCE_ZONE
     ticks. Effets et salves qui s'étirent dans le temps passent par la file `gjobs`, traitée à chaque tick tant qu'elle n'est pas vide ; une
-    salve de zone fait UNE recherche d'entités, puis range au plus Ech.LOT_RANGEMENT entités par tick, puis frappe au plus Ech.TRANCHE
-    entités par tick. Bonus des modules (portée, puissance) : g.bonus, écrit par G.set_bonus (remote « fo-xp », « bonus »).
+    salve de zone cherche ses cibles secteur par secteur (un par tick, Ech.SECTEUR), puis frappe ; toutes les salves en cours se partagent
+    Ech.BUDGET coups et Ech.MORTS morts par tick (Ech.partage), et une unité ne relance pas sa salve tant que la précédente frappe. Bonus des modules (portée, puissance) : g.bonus, écrit par G.set_bonus (remote « fo-xp », « bonus »).
   Dégâts : script/robots/experimentaux_commun.lua (jamais sur sa force, ses amis, en cessez-le-feu).
 ]]
 
@@ -77,7 +77,21 @@ function G.set_bonus(unit_number, portee, puissance)
       return true
     end
   end
+  -- géants de robotsjeu (ceux des factions compris, QCM-7/11 : modules « posés aussi sur les géants des factions selon leur âge ») :
+  -- bonus gardés à part, lus par Geant.salves (script/robots/geant.lua)
+  local u = Armee.entity(unit_number)
+  if u and u.type == "spider-vehicle" then
+    if not s.bonus_ro then s.bonus_ro = {} end
+    s.bonus_ro[unit_number] = { portee = tonumber(portee) or 0, puissance = tonumber(puissance) or 0 }
+    return true
+  end
   return false
+end
+
+--- Bonus d'un géant de robotsjeu (nil sans module).
+function G.bonus_de(unit_number)
+  local s = K.S()
+  return s and s.bonus_ro and s.bonus_ro[unit_number] or nil
 end
 
 --- Écouteurs d'une salve de zone (lot DESIGN-MODULES : marque visible des modules, UNE fois par salve). Fonctions gardées dans le module,
@@ -161,70 +175,161 @@ local function bonus_de(g)
   return { portee = b and b.portee or 0, puissance = b and b.puissance or 0 }
 end
 
+--- SÉQUELLES (QCM-7/11 : « durer 1 heure, se résorber ») : registre des tuiles de cratère de chaque surface (shared/robots/echelle.lua).
+local function traces(s)
+  local st = K.S()
+  if not st.traces then st.traces = {} end
+  local R = st.traces[s.index]
+  if not R then
+    R = Ech.trace_nouveau()
+    st.traces[s.index] = R
+  end
+  return R
+end
+
+--- Cratère de rayon `rc` au point `c` : sol `nuclear-ground` (sol de la bombe atomique vanilla) pendant Ech.TRACE_TICKS, jamais sur l'eau ni
+--- sur un sol posé par un joueur (tuile minable : béton, remblai…), entités jamais retirées.
+local function cratere(s, c, rc, tick)
+  local R = traces(s)
+  local fin = tick + (K.S().trace_ticks or Ech.TRACE_TICKS) -- trace_ticks : durée raccourcie par les bancs seulement (remote « fo-xp »)
+  local pose = {}
+  for _, t in ipairs(Ech.disque(c, rc)) do
+    local tile = s.get_tile(t.x, t.y)
+    if tile.valid and tile.name ~= "out-of-map" and not tile.collides_with("water-tile") and not tile.prototype.mineable_properties.minable then
+      if Ech.trace_marquer(R, t.x, t.y, tile.name, fin) and tile.name ~= "nuclear-ground" then
+        pose[#pose + 1] = { name = "nuclear-ground", position = { t.x, t.y } }
+      end
+    end
+  end
+  if #pose > 0 then s.set_tiles(pose, true, false, true, false) end
+end
+G.cratere = cratere
+
+--- Résorption : les tuiles échues reprennent leur sol d'origine si elles sont encore un sol de cratère (au plus Ech.RESORPTION_LOT par
+--- surface et par passage, toutes les RESORPTION ticks).
+local RESORPTION = 5
+local function resorber(ev)
+  local st = K.S()
+  if not (st and st.traces) then return end
+  local idx = {}
+  for i in pairs(st.traces) do idx[#idx + 1] = i end -- trié juste après
+  table.sort(idx)
+  for _, i in ipairs(idx) do
+    local s = game.surfaces[i]
+    if not s then
+      st.traces[i] = nil
+    else
+      local rend = {}
+      for _, e in ipairs(Ech.trace_echues(st.traces[i], ev.tick, Ech.RESORPTION_LOT)) do
+        local t = s.get_tile(e.x, e.y)
+        if t.valid and t.name == "nuclear-ground" and e.orig ~= "nuclear-ground" then rend[#rend + 1] = { name = e.orig, position = { e.x, e.y } } end
+      end
+      if #rend > 0 then s.set_tiles(rend, true, false, true, false) end
+    end
+  end
+end
+
+--- Salve de zone en cours d'une unité (numéro d'unité -> vrai) : une unité ne relance pas de salve tant que la précédente frappe encore
+--- (avec un budget partagé, deux salves d'un même géant pourraient sinon s'empiler sans fin). Rien d'autre n'y est gardé.
+local function actives()
+  local s = K.S()
+  if not s.zones_actives then s.zones_actives = {} end
+  return s.zones_actives
+end
+function G.zone_active(un) return actives()[un] == true end
+
 --- E3 et E4 (règle d'échelle, shared/robots/echelle.lua) : salve de ZONE au point visé `c`, lancée par `g` = { e, un, bonus }. Cratère et
 --- sol brûlé, puis un coup PLEIN (salve effective, jamais partagée) sur chaque entité ennemie de la zone effective, bâtiments compris.
---- Une seule recherche d'entités (moteur) par salve ; ensuite, par tick, ou bien le rangement par anneaux de Ech.LOT_RANGEMENT entités au
---- plus, ou bien une tranche de Ech.TRANCHE coups, du centre vers le bord (l'onde se voit), au plus Ech.PLAFOND cibles par salve.
+--- Recherche par secteurs (un par tick), puis, par tick, sa part des budgets de coups et de morts (Ech.BUDGET, Ech.MORTS pour toutes les
+--- salves), du centre vers le bord (l'onde se voit), au plus Ech.PLAFOND cibles par salve.
 local function zone(g, r, c, tick)
   local e = g.e
   local s = e.surface
+  actives()[g.un] = true
   local eff = Ech.effectif(r, g.bonus)
   for _, f in ipairs(ecouteurs) do f(e, r, g.bonus, c, eff) end
-  s.create_entity({ name = CRATERE .. r.age, position = { c.x, c.y } })
+  s.create_entity({ name = CRATERE .. r.age, position = { c.x, c.y } }) -- explosion et décoratifs retirés ; le sol, par cratere()
+  cratere(s, c, r.cratere, tick)
   local b = K.S().impact == "B" -- design IMPACT : variante B (sol brûlé sur la zone), posée par les bancs d'images seulement
   if b then
-    for _, x in ipairs(Ech.brulures(c, eff.zone)) do s.create_entity({ name = x.nom, position = { x.x, x.y } }) end
+    for _, x in ipairs(Ech.brulures(c, eff.zone)) do s.create_entity({ name = Xp.PREFIX .. x.nom, position = { x.x, x.y } }) end
   else
-    s.create_entity({ name = "big-scorchmark", position = { c.x, c.y } })
+    s.create_entity({ name = Xp.PREFIX .. "big-scorchmark", position = { c.x, c.y } })
   end
-  local forces = K.enemy_forces(e.force)
-  local found = #forces > 0 and s.find_entities_filtered({ position = { c.x, c.y }, radius = eff.zone, force = forces }) or {}
-  job({ kind = "zone", e = e, un = g.un, id = r.id, dtype = r.dtype, found = found, i = 1, plan = Ech.nouveau_plan(c), salve = eff.salve,
-        zone = eff.zone, at = tick, total = 0, tues = 0, debut = tick, brule = b or nil, nb = 0 })
+  -- recherche par SECTEURS (un par tick : le tick 0 du double tir coûtait 10,7 ms de script, 7/11), puis frappe
+  job({ kind = "zone", e = e, un = g.un, id = r.id, dtype = r.dtype, forces = K.enemy_forces(e.force), c = { x = c.x, y = c.y },
+        secteurs = Ech.secteurs(c, eff.zone, Ech.SECTEUR), si = 1, plan = Ech.nouveau_plan(c), salve = eff.salve, zone = eff.zone,
+        at = tick, total = 0, tues = 0, debut = tick, brule = b or nil, nb = 0 })
 end
 
---- Rangement : au plus Ech.LOT_RANGEMENT entités de la recherche par tick ; la liste est figée quand tout est rangé.
-local function zone_ranger(j)
-  local n = #j.found
-  local b = math.min(n, j.i + Ech.LOT_RANGEMENT - 1)
-  for i = j.i, b do
-    local x = j.found[i]
-    if x.valid and x.health and x.destructible then
-      local p = x.position
-      Ech.poser(j.plan, p.x, p.y, x)
-      j.nb = j.nb + 1
+--- Recherche d'UN secteur : entités ennemies du carré, gardées si leur position est dans le secteur demi-ouvert (aucun doublon de bord,
+--- F96) et dans le disque de la zone ; rangées par anneau. Quand tous les secteurs sont lus, le plan est figé.
+local function zone_chercher(j)
+  local q = j.secteurs[j.si]
+  local s = j.e.surface
+  if #j.forces > 0 then
+    local r2 = j.zone * j.zone
+    for _, x in ipairs(s.find_entities_filtered({ area = { { q.x0, q.y0 }, { q.x1, q.y1 } }, force = j.forces })) do
+      if x.valid and x.health and x.destructible then
+        local p = x.position
+        if Ech.dans_secteur(q, p.x, p.y) then
+          local dx, dy = p.x - j.c.x, p.y - j.c.y
+          if dx * dx + dy * dy <= r2 then
+            Ech.poser(j.plan, p.x, p.y, x)
+            j.nb = j.nb + 1
+          end
+        end
+      end
     end
   end
-  j.i = b + 1
-  if j.i > n then
-    j.found, j.cur = nil, Ech.curseur()
+  j.si = j.si + 1
+  if j.si > #j.secteurs then
+    j.secteurs, j.forces, j.cur = nil, nil, Ech.curseur()
     if j.brule then j.pas = Ech.pas_brulure(math.min(j.nb, Ech.PLAFOND)) end
   end
 end
 
 local function zone_pas(j, tick)
   local e = j.e
-  if not (e and e.valid) then return true end
-  if j.found then
-    zone_ranger(j)
+  if not (e and e.valid) then
+    actives()[j.un] = nil
+    return true
+  end
+  if j.secteurs then
+    zone_chercher(j)
     j.at = tick + 1
     return false
   end
   local r = { id = j.id } -- statistiques par robot (K.stat) : les géants de robotsjeu y ont aussi leur ligne
-  local list, fini = Ech.suivants(j.plan, j.cur, Ech.TRANCHE)
-  for _, t in ipairs(list) do
-    if t.valid then
-      local p = j.brule and t.position
-      j.total = j.total + K.hit(r, t, j.salve, j.dtype, e.force, e)
-      if not t.valid or t.health <= 0 then
-        j.tues = j.tues + 1
-        if p and j.tues % j.pas == 0 then e.surface.create_entity({ name = "small-scorchmark", position = { p.x, p.y } }) end
-      end
+  -- parts des budgets de ce tick (Ech.partage, posées par on_tick) : Ech.BUDGET coups et Ech.MORTS morts pour TOUTES les salves
+  local qh, qm = j.quota or 0, j.quota_m or 0
+  j.quota, j.quota_m = nil, nil
+  if qh <= 0 or qm <= 0 then
+    j.at = tick + 1
+    return false
+  end
+  local c, m, fini = Ech.frapper(j.plan, j.cur, qh, qm, function(t)
+    if not t.valid then return false end
+    local p = j.brule and t.position
+    j.total = j.total + K.hit(r, t, j.salve, j.dtype, e.force, e)
+    if not t.valid or t.health <= 0 then
+      j.tues = j.tues + 1
+      if p and j.tues % j.pas == 0 then e.surface.create_entity({ name = Xp.PREFIX .. "small-scorchmark", position = { p.x, p.y } }) end
+      return true
     end
+    return false
+  end)
+  -- bancs seulement (journal allumé) : coups et morts par tick, pour mesurer le coût du script et des débris par mort (pics_zone.py)
+  local st = K.S()
+  if st.journal and c > 0 then
+    if not st.morts_tick then st.morts_tick, st.coups_tick = {}, {} end
+    st.morts_tick[tick] = (st.morts_tick[tick] or 0) + m
+    st.coups_tick[tick] = (st.coups_tick[tick] or 0) + c
   end
   if fini then
     K.journal("%s zone #%d rayon %.0f cibles %d tues %d degats %.0f ticks %d tick %d", r.id, j.un, j.zone, j.cur.pris, j.tues, j.total,
       tick - j.debut + 1, tick)
+    actives()[j.un] = nil
     return true
   end
   j.at = tick + 1
@@ -349,7 +454,7 @@ local function ixion_pas(j, tick)
     return true
   end
   rendering.draw_line({ color = rgba(0.12, 0.07, 0.05, 0.95), width = 32 * r.width * 0.5, from = { j.prev.x, j.prev.y }, to = { p.x, p.y },
-    surface = e.surface, time_to_live = 900, draw_on_ground = true })
+    surface = e.surface, time_to_live = Ech.TRACE_TICKS, draw_on_ground = true }) -- séquelle : 1 h (QCM-7/11)
   rendering.draw_line({ color = { r = 1.0, g = 0.5, b = 0.12, a = 1 }, width = 32 * r.width * 0.15, from = { j.prev.x, j.prev.y }, to = { p.x, p.y },
     surface = e.surface, time_to_live = 240, draw_on_ground = true })
   e.surface.create_entity({ name = "big-explosion", position = { p.x, p.y } })
@@ -367,7 +472,7 @@ local function foyer(g, r, target, tick)
   rayon(e, FOYER, b, target, r.zone_cooldown)
   g.n = g.n + 1
   if g.n % r.glass_every == 0 and target.valid then
-    rendering.draw_sprite({ sprite = SPR_VERRE, target = target.position, surface = e.surface, time_to_live = 1200, render_layer = "decals",
+    rendering.draw_sprite({ sprite = SPR_VERRE, target = target.position, surface = e.surface, time_to_live = Ech.TRACE_TICKS, render_layer = "decals",
       tint = rgba(1, 0.9, 0.6, 0.8) })
   end
   K.journal("tournesol foyer #%d tick %d", g.un, tick)
@@ -404,7 +509,7 @@ local function scan(ev)
   for _, g in ipairs(s.giants) do
     if g.e.valid then
       keep[#keep + 1] = g
-      if ev.tick >= g.next then
+      if ev.tick >= g.next and not G.zone_active(g.un) then
         local r = Xp.robot(g.id)
         local t = cible(g, r)
         if t and EFFECTS[r.effect](g, r, t, ev.tick) then
@@ -425,6 +530,15 @@ local function on_tick(ev)
   if not s or #s.gjobs == 0 then return end
   local keep = {}
   local n0 = #s.gjobs
+  -- budget de coups de zone du tick, partagé par les salves qui frappent (dans l'ordre de la file ; le reste tourne d'un tick à l'autre)
+  local zj = {}
+  for i = 1, n0 do
+    local j = s.gjobs[i]
+    if j.kind == "zone" and not j.secteurs and j.at <= ev.tick then zj[#zj + 1] = j end
+  end
+  local parts = Ech.partage(#zj, Ech.BUDGET, ev.tick)
+  local morts = Ech.partage(#zj, Ech.MORTS, ev.tick)
+  for k, j in ipairs(zj) do j.quota, j.quota_m = parts[k], morts[k] end
   for i = 1, n0 do
     local j = s.gjobs[i]
     local done = false
@@ -446,5 +560,6 @@ Events.on(defines.events.script_raised_built, on_built)
 Events.on(defines.events.script_raised_revive, on_built)
 Events.on(defines.events.on_tick, on_tick)
 Events.on_nth_tick(SCAN, scan)
+Events.on_nth_tick(RESORPTION, resorber)
 
 return G
