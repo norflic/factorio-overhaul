@@ -61,10 +61,14 @@ for _, m in ipairs(Mod.MODULES) do
   local tc = ICONES.technos[m.tech]
   assert(ic and eq and tc, "experimentaux_modules : icones absentes pour " .. m.name .. " (icones_geants.py)")
   local icons = { { icon = DIR .. ic.fichier, icon_size = ic.icon_size, icon_mipmaps = ic.icon_mipmaps } }
-  local params = { tostring(m.bonus), tostring(Mod.type(m.type).cap) } -- F43 : paramètres en chaînes
+  -- F43 : paramètres en chaînes. Bonus du module sur chacun des 5 géants (prix selon l'âge, QCM-7/11), ramené au plafond, puis le plafond.
+  local params = {}
+  for _, g in ipairs(Mod.SLOTS) do params[#params + 1] = tostring(math.min(Mod.bonus_of(m, g.age), Mod.type(m.type).cap)) end
+  params[#params + 1] = tostring(Mod.type(m.type).cap)
+  local function desc(cle) return { cle, params[1], params[2], params[3], params[4], params[5], params[6] } end
   out[#out + 1] = {
     type = "battery-equipment", name = m.name,
-    localised_name = { "item-name." .. m.name }, localised_description = { "item-description." .. m.name, params[1], params[2] },
+    localised_name = { "item-name." .. m.name }, localised_description = desc("item-description." .. m.name),
     sprite = { filename = DIR .. eq.fichier, width = eq.largeur, height = eq.hauteur, priority = "medium",
       hr_version = { filename = DIR .. eq.hr_fichier, width = eq.hr_largeur, height = eq.hr_hauteur, priority = "medium", scale = 0.5 } },
     shape = { width = Mod.SIDE, height = Mod.SIDE, type = "full" },
@@ -75,7 +79,7 @@ for _, m in ipairs(Mod.MODULES) do
   }
   out[#out + 1] = {
     type = "item", name = m.name,
-    localised_name = { "item-name." .. m.name }, localised_description = { "item-description." .. m.name, params[1], params[2] },
+    localised_name = { "item-name." .. m.name }, localised_description = desc("item-description." .. m.name),
     icons = icons, subgroup = Mod.SUBGROUP, order = string.format("%s-%d", m.type, m.tier),
     placed_as_equipment_result = m.name, stack_size = 10,
   }
@@ -88,7 +92,7 @@ for _, m in ipairs(Mod.MODULES) do
   }
   out[#out + 1] = lib.technology({
     name = m.tech,
-    localised_name = { "technology-name." .. m.tech }, localised_description = { "technology-description." .. m.tech, params[1], params[2] },
+    localised_name = { "technology-name." .. m.tech }, localised_description = desc("technology-description." .. m.tech),
     -- icône : le géant qui ouvre le palier, et le module en surimpression dans le quart bas droit (critique du 5/11 : le seul glyphe
     -- agrandi était pauvre). Couches : 256 / 64 = × 4 pour le géant ; le module à moitié, décalé de 64 (unités de l'icône finale).
     icons = { { icon = giant_icon(m).filename, icon_size = giant_icon(m).size },

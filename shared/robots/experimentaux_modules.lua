@@ -14,6 +14,11 @@
 
   Règle : bonus en POURCENTS ENTIERS, additionnés par type, puis plafonnés (M.TYPES[*].cap). Portée effective = portée × (100 + bonus) / 100,
   coup effectif = coup × (100 + bonus) / 100. CHIFFRES PROVISOIRES, NON CALIBRÉS (pas de rb-duel) : à juger par le DC.
+  PRIX SELON L'ÂGE DU GÉANT (QCM-7/11 du DC : « Prix selon l'âge du géant », « Un module coûte une part fixe de la valeur du géant qui le
+  porte : juste pour tous les âges » ; lecture (b) du lead) : un objet n'a qu'un prix, donc c'est le BONUS qui suit le géant qui le porte.
+  Sur un géant de l'âge a, un module vaut bonus nominal × valeur(âge du palier) / valeur(a) (M.bonus_of) : nominal sur le géant de son
+  palier, plus fort sur un géant plus jeune (moins cher), plus faible sur un plus vieux ; arrondi, au moins 1. La valeur pour la valeur
+  tient ainsi sur CHAQUE géant (le module coûte toujours COST_SHARE du géant de son palier). Géants des factions : M.bonus_age.
   Déterminisme : listes, aucun pairs, aucun hasard ; sommes d'entiers (l'ordre de lecture de la grille ne change rien).
 ]]
 
@@ -71,12 +76,13 @@ M.MODULES = {
 }
 
 --- Emplacements par géant (2 × 2 cases chacun) : plus le géant est tardif, plus il en a. Les identifiants sont ceux de Xp.GEANTS.
+--- `age` : celui de Xp.GEANTS (contrôlé par le test).
 M.SLOTS = {
-  { id = "cairn", slots = 2 },
-  { id = "stylet", slots = 2 },
-  { id = "trombe", slots = 3 },
-  { id = "ixion", slots = 3 },
-  { id = "tournesol", slots = 4 },
+  { id = "cairn", slots = 2, age = 10 },
+  { id = "stylet", slots = 2, age = 11 },
+  { id = "trombe", slots = 3, age = 12 },
+  { id = "ixion", slots = 3, age = 13 },
+  { id = "tournesol", slots = 4, age = 14 },
 }
 
 ---------------------------------------------------------------------------------------------------
@@ -87,10 +93,10 @@ function M.recipe_name(type_id, tier) return M.PREFIX .. "make-" .. type_id .. "
 function M.tech_name(type_id, tier) return M.TECH_PREFIX .. type_id .. "-" .. tier end
 function M.grid_name(giant_id) return M.GRID_PREFIX .. giant_id end
 
-local type_by_id, tier_by_n, by_name, slots_by_id = {}, {}, {}, {}
+local type_by_id, tier_by_n, by_name, slots_by_id, age_by_id = {}, {}, {}, {}, {}
 for _, t in ipairs(M.TYPES) do type_by_id[t.id] = t end
 for _, t in ipairs(M.TIERS) do tier_by_n[t.tier] = t end
-for _, s in ipairs(M.SLOTS) do slots_by_id[s.id] = s.slots end
+for _, s in ipairs(M.SLOTS) do slots_by_id[s.id] = s.slots ; age_by_id[s.id] = s.age end
 for _, m in ipairs(M.MODULES) do
   local t = tier_by_n[m.tier]
   m.name = M.name(m.type, m.tier)
@@ -112,19 +118,56 @@ function M.of_name(name) return type(name) == "string" and by_name[name] or nil 
 function M.slots(giant_id) return slots_by_id[giant_id] or 0 end
 --- Taille de la grille d'un géant : largeur, hauteur (cases).
 function M.grid_size(giant_id) return M.SIDE * M.slots(giant_id), M.SIDE end
+--- Âge d'un géant à grille (nil pour un identifiant inconnu) ; identifiant d'un nom de grille (nil si ce n'en est pas une).
+function M.giant_age(giant_id) return age_by_id[giant_id] end
+function M.giant_of_grid(grid_name)
+  if type(grid_name) ~= "string" or grid_name:sub(1, #M.GRID_PREFIX) ~= M.GRID_PREFIX then return nil end
+  local id = grid_name:sub(#M.GRID_PREFIX + 1)
+  return slots_by_id[id] and id or nil
+end
+
+---------------------------------------------------------------------------------------------------
+-- Valeur d'un géant selon son âge (prix au prorata de l'âge, QCM-7/11)
+---------------------------------------------------------------------------------------------------
+--- Valeur (MU) d'un géant de l'âge `age` (entier) : courbe géométrique par les géants des paliers (Cairn 41 000 à l'âge 10, Trombe 137 000
+--- au 12, Tournesol 459 000 au 14 ; le Stylet, 75 000 au 11, et l'Ixion, 251 000 au 13, y tombent à 0,1 % près), prolongée au-delà du
+--- dernier palier par sa raison (environ 840 000 à l'âge 15) ; en deçà du premier palier, sa valeur. Paliers espacés de 2 âges (contrôlé
+--- par le test) : la raison d'un âge est une racine carrée, sans puissance fractionnaire (même résultat sur toute machine).
+function M.value(age)
+  age = math.floor(tonumber(age) or 0)
+  local T = M.TIERS
+  if age <= T[1].age then return T[1].ref_mu end
+  -- T[i] : dernier palier atteint (sa valeur exacte, sans arrondi de produit) ; raison : celle du segment qui suit (le dernier au-delà)
+  local i = 1
+  while i < #T and T[i + 1].age <= age do i = i + 1 end
+  local j = math.min(i, #T - 1)
+  local a, b = T[j], T[j + 1]
+  local r = math.sqrt(b.ref_mu / a.ref_mu)
+  local v = T[i].ref_mu
+  for _ = 1, age - T[i].age do v = v * r end
+  return v
+end
+
+--- Bonus (pourcents entiers) du module `m` posé sur un géant de l'âge `age` ; sans âge, le bonus nominal (sur le géant de son palier).
+function M.bonus_of(m, age)
+  if age == nil then return m.bonus end
+  local x = m.bonus * M.value(m.age) / M.value(age)
+  return math.max(1, math.floor(x + 0.5))
+end
 
 ---------------------------------------------------------------------------------------------------
 -- Règle du bonus
 ---------------------------------------------------------------------------------------------------
 --- Bonus d'une grille, à partir de la LISTE des noms des équipements posés (LuaEquipmentGrid::equipment, un nom par équipement) :
 --- { portee = pourcents, puissance = pourcents, brut = { portee =, puissance = } } ; les noms inconnus sont ignorés (un équipement d'un autre
---- mod ne compte pas). Somme d'entiers par type, puis plafond du type.
-function M.bonus(names)
+--- mod ne compte pas). Chaque module vaut M.bonus_of(m, age) (`age` : celui du géant qui porte la grille ; sans âge, le nominal). Somme
+--- d'entiers par type, puis plafond du type.
+function M.bonus(names, age)
   local brut = {}
   for _, t in ipairs(M.TYPES) do brut[t.id] = 0 end
   for _, n in ipairs(names or {}) do
     local m = by_name[n]
-    if m then brut[m.type] = brut[m.type] + m.bonus end
+    if m then brut[m.type] = brut[m.type] + M.bonus_of(m, age) end
   end
   local out = { brut = brut }
   for _, t in ipairs(M.TYPES) do out[t.id] = math.min(brut[t.id], t.cap) end
@@ -140,14 +183,17 @@ function M.apply(base, pct) return base * (100 + (pct or 0)) / 100 end
 function M.range(r, b) return M.apply(r.range, (b or M.ZERO).portee) end
 function M.shot(r, b) return M.apply(r.shot, (b or M.ZERO).puissance) end
 
---- Bonus le plus fort qu'un géant peut porter, par type (tous ses emplacements du meilleur palier ouvert à l'âge `age`, plafonné).
+--- Bonus le plus fort qu'un géant peut porter, par type (tous ses emplacements du meilleur palier ouvert à l'âge `age`, à la valeur de ce
+--- module SUR CE GÉANT, plafonné).
 function M.max_bonus(giant_id, age)
   local out = {}
   local n = M.slots(giant_id)
+  local g_age = M.giant_age(giant_id)
   for _, t in ipairs(M.TYPES) do
     local best = 0
     for _, m in ipairs(M.MODULES) do
-      if m.type == t.id and m.age <= (age or 99) and m.bonus > best then best = m.bonus end
+      local b = M.bonus_of(m, g_age)
+      if m.type == t.id and m.age <= (age or 99) and b > best then best = b end
     end
     out[t.id] = math.min(best * n, t.cap)
   end
@@ -159,15 +205,14 @@ end
 function M.beyond_base(r, d) return d > r.range end
 
 ---------------------------------------------------------------------------------------------------
--- Factions (réserve : aujourd'hui, aucune faction ne pose de géant expérimental, script/robots/armee.lua ne fait que les compter)
+-- Factions (QCM-7/11 du DC : « Oui, selon leur âge » ; leurs géants reçoivent les modules de leur âge)
 ---------------------------------------------------------------------------------------------------
---- Garniture d'un géant de faction à l'âge `age` : le meilleur palier ouvert, PUISSANCE d'abord jusqu'à son plafond, puis PORTÉE.
---- Rend la liste des noms de modules à poser (au plus M.slots(giant_id)).
-function M.loadout(giant_id, age)
+--- Garniture de `n` emplacements sur un géant de l'âge `g_age` : le meilleur palier ouvert à l'âge `age` (par défaut celui du géant),
+--- PUISSANCE d'abord jusqu'à son plafond, puis PORTÉE, chaque module compté à sa valeur sur ce géant. Rend la liste des noms à poser.
+function M.loadout_n(n, g_age, age)
   local out = {}
-  local n = M.slots(giant_id)
-  local order = { "puissance", "portee" }
-  for _, tid in ipairs(order) do
+  age = age or g_age
+  for _, tid in ipairs({ "puissance", "portee" }) do
     local best
     for _, m in ipairs(M.MODULES) do
       if m.type == tid and m.age <= (age or 0) and (not best or m.bonus > best.bonus) then best = m end
@@ -177,11 +222,30 @@ function M.loadout(giant_id, age)
       local sum = 0
       while #out < n and sum < cap do
         out[#out + 1] = best.name
-        sum = sum + best.bonus
+        sum = sum + M.bonus_of(best, g_age)
       end
     end
   end
   return out
+end
+
+--- Garniture d'un géant à grille (Cairn à Tournesol) quand son camp a ouvert l'âge `age`.
+function M.loadout(giant_id, age)
+  return M.loadout_n(M.slots(giant_id), M.giant_age(giant_id), age)
+end
+
+--- Bonus d'un géant de FACTION sans grille (Torique, Héliaste, Couronné de robotsjeu ; appel posé par le lot EXPERIMENTAUX dans
+--- script/robots/geant.lua, au crochet Armee.hooks.giant_setup) : `n` emplacements garnis des modules de son âge (M.loadout_n), comptés à
+--- leur valeur sur lui. Rend une table neuve, jamais nil : { portee = fraction, puissance = fraction (0,25 = +25 %, prêtes pour
+--- G.set_bonus), pct = { portee =, puissance = } (pourcents entiers), modules = { noms } } ; des zéros sous l'âge du premier palier ou
+--- sans emplacement.
+function M.bonus_age(age, n)
+  age = math.floor(tonumber(age) or 0)
+  n = math.floor(tonumber(n) or 0)
+  local names = {}
+  if age >= M.TIERS[1].age and n > 0 then names = M.loadout_n(n, age, age) end
+  local b = M.bonus(names, age)
+  return { portee = b.portee / 100, puissance = b.puissance / 100, pct = { portee = b.portee, puissance = b.puissance }, modules = names }
 end
 
 return M

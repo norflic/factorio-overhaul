@@ -41,11 +41,16 @@ local function noms(e)
   return out
 end
 
---- Bonus d'un géant (pourcents entiers par type, plafonnés).
+--- Âge du géant qui porte une grille (nom du prototype de grille : fo-xp-grille-<id>) ; nil pour une autre grille.
+local function age_de_grille(grid)
+  return Mod.giant_age(Mod.giant_of_grid(grid and grid.valid and grid.prototype.name) or "")
+end
+
+--- Bonus d'un géant (pourcents entiers par type, plafonnés), chaque module compté à sa valeur sur CE géant (prix selon l'âge, QCM-7/11).
 function XM.bonus(e)
   local n = noms(e)
   if not n then return Mod.ZERO end
-  return Mod.bonus(n)
+  return Mod.bonus(n, age_de_grille(e.grid))
 end
 
 --- Fractions envoyées au géant (0,25 = +25 %).
@@ -152,7 +157,7 @@ local function equipement(ev)
   if not (player and player.valid) then return end
   local names = {}
   for _, eq in ipairs(ev.grid.equipment) do names[#names + 1] = eq.name end
-  local b = Mod.bonus(names)
+  local b = Mod.bonus(names, age_de_grille(ev.grid))
   local pt, pu = Mod.type("portee"), Mod.type("puissance")
   player.create_local_flying_text({ create_at_cursor = true, time_to_live = 150,
     text = { "fo-xp-modules.bilan", tostring(b.portee), tostring(pt.cap), tostring(b.puissance), tostring(pu.cap) } })

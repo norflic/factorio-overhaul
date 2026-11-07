@@ -201,7 +201,7 @@ local function suite(M)
   local mc = M.max_bonus("cairn", 10)
   check(mc.portee == 20 and mc.puissance == 30, "§3 Cairn à l'âge 10 : 2 × palier I")
   local mc12 = M.max_bonus("cairn", 12)
-  check(mc12.portee == 30 and mc12.puissance == 60, "§3 Cairn à l'âge 12 : 2 × palier II")
+  check(mc12.portee == 50 and mc12.puissance == 100, "§3 Cairn à l'âge 12 : le palier II vaut +50 et +100 sur lui (prix selon l'âge), plafonds")
   -- propriété : chaque plafond est atteint EXACTEMENT par deux modules du meilleur palier (aucun point perdu)
   for _, t in ipairs(M.TYPES) do
     local best = 0
@@ -217,6 +217,57 @@ local function suite(M)
   check(#M.loadout("cairn", 9) == 0 and #M.loadout("inconnu", 15) == 0, "§3 garniture vide avant l'âge 10 ou sans grille")
   local lx = M.loadout("trombe", 12)
   check(#lx == 3 and lx[1] == M.name("puissance", 2) and lx[3] == M.name("puissance", 2), "§3 garniture de la Trombe à 12 : 3 puissance II (90 < 100)")
+
+  -- §3 ter prix selon l'âge du géant (QCM-7/11, lecture (b)) : le bonus suit la valeur du géant qui porte le module
+  check(M.value(10) == 41000 and M.value(12) == 137000 and M.value(14) == 459000 and M.value(9) == 41000 and M.value(nil) == 41000,
+    "§3 ter valeur : celle des géants des paliers, celle du premier en deçà")
+  local spaced = true
+  for i = 1, #M.TIERS - 1 do if M.TIERS[i + 1].age - M.TIERS[i].age ~= 2 then spaced = false end end
+  check(spaced, "§3 ter paliers espacés de 2 âges (raison d'un âge = racine carrée)")
+  for _, g in ipairs(M.SLOTS) do
+    local r = Xp.robot(g.id)
+    check(r and r.age == g.age, "§3 ter âge de " .. g.id .. " : celui de Xp.GEANTS")
+    check(r and r.mu and math.abs(M.value(g.age) - r.mu) <= 0.002 * r.mu, string.format("§3 ter valeur de %s : %.0f contre %s MU", g.id,
+      M.value(g.age), tostring(r and r.mu)))
+  end
+  check(M.value(15) > 839000 and M.value(15) < 841500, string.format("§3 ter âge 15 prolongé par la raison : %.0f", M.value(15)))
+  local croit = true
+  for a = 10, 17 do if not (M.value(a + 1) > M.value(a)) then croit = false end end
+  check(croit, "§3 ter valeur strictement croissante de 10 à 18")
+  local nominal, monotone, vpv = true, true, true
+  for _, m in ipairs(M.MODULES) do
+    if M.bonus_of(m, m.age) ~= m.bonus or M.bonus_of(m, nil) ~= m.bonus then nominal = false end
+    for a = 10, 15 do
+      local b = M.bonus_of(m, a)
+      if b < 1 or (a > 10 and b > M.bonus_of(m, a - 1)) then monotone = false end
+      -- valeur pour la valeur : bonus × valeur du porteur = nominal × valeur du palier, à l'arrondi près (ou au plancher de 1)
+      if b > 1 and math.abs(b * M.value(a) - m.bonus * M.value(m.age)) > 0.5 * M.value(a) + 1e-6 then vpv = false end
+    end
+  end
+  check(nominal, "§3 ter bonus nominal sur le géant de son palier, et sans âge")
+  check(monotone, "§3 ter bonus décroissant avec l'âge du porteur, jamais sous 1")
+  check(vpv, "§3 ter valeur pour la valeur sur chaque géant, à l'arrondi près")
+  local P, T = M.of_name(M.name("portee", 2)), M.of_name(M.name("puissance", 2))
+  check(M.bonus_of(P, 10) == 50 and M.bonus_of(T, 10) == 100 and M.bonus_of(M.of_name(M.name("portee", 3)), 13) == 46
+    and M.bonus_of(M.of_name(M.name("portee", 1)), 14) == 1 and M.bonus_of(T, 14) == 9 and M.bonus_of(M.of_name(M.name("portee", 1)), 15) == 1,
+    "§3 ter table : Cairn portée II +50, puissance II +100 ; Ixion portée III +46 ; Tournesol portée I +1, puissance II +9 ; âge 15 portée I +1")
+  local bc = M.bonus({ M.name("puissance", 3) }, 10)
+  check(bc.puissance == 100 and bc.brut.puissance == 560, "§3 ter une puissance III sur le Cairn : +560 brut, plafond 100")
+  check(M.bonus({ M.name("puissance", 3) }).puissance == 50, "§3 ter sans âge : nominal")
+  local ba13, ba14, ba15 = M.bonus_age(13, 3), M.bonus_age(14, 4), M.bonus_age(15, 4)
+  check(ba13.pct.portee == 0 and ba13.pct.puissance == 48 and math.abs(ba13.puissance - 0.48) < 1e-12 and #ba13.modules == 3
+    and ba13.modules[1] == M.name("puissance", 2), "§3 ter faction, âge 13, 3 emplacements : 3 puissance II à +16, soit +48 %")
+  check(ba14.pct.portee == 50 and ba14.pct.puissance == 100 and ba14.portee == 0.5 and ba14.puissance == 1 and #ba14.modules == 4,
+    "§3 ter faction, âge 14, 4 emplacements : plafonds (2 puissance III, 2 portée III)")
+  check(ba15.pct.portee == 0 and ba15.pct.puissance == 100 and #ba15.modules == 4 and ba15.modules[4] == M.name("puissance", 3),
+    "§3 ter faction, âge 15, 4 emplacements : 4 puissance III à +27, plafond 100")
+  local z9, z0, zx = M.bonus_age(9, 4), M.bonus_age(13, 0), M.bonus_age("x", nil)
+  check(z9.portee == 0 and z9.puissance == 0 and #z9.modules == 0 and z0.puissance == 0 and #z0.modules == 0 and zx.puissance == 0,
+    "§3 ter faction : rien sous l'âge 10 ni sans emplacement")
+  check(M.bonus_age(13, 3) ~= ba13 and M.bonus_age(13, 3).modules ~= ba13.modules, "§3 ter bonus_age rend une table neuve")
+  check(M.giant_of_grid(M.grid_name("ixion")) == "ixion" and M.giant_of_grid("fo-xp-grille-inconnu") == nil and M.giant_of_grid(nil) == nil
+    and M.giant_of_grid("energy-shield-equipment") == nil and M.giant_age("cairn") == 10 and M.giant_age("x") == nil,
+    "§3 ter géant d'une grille par son nom")
 
   return pass, fail, msgs
 end
@@ -397,18 +448,28 @@ local function suite_script(src)
     for _, n in ipairs(noms_eq or {}) do eqs[#eqs + 1] = { name = n } end
     return { un = un, e = { valid = valide ~= false, position = { x = 0, y = 0 }, surface = {}, grid = noms_eq and { equipment = eqs } or nil } }
   end
+  local function geant_age(un, id, noms_eq)
+    local g = geant(un, noms_eq)
+    g.e.grid.valid = true
+    g.e.grid.prototype = { name = Mod.grid_name(id) }
+    return g
+  end
   giants[1] = geant(11, { Mod.name("portee", 3), Mod.name("puissance", 2), "energy-shield-equipment" })
   giants[2] = geant(12, nil)
   giants[3] = geant(13, { Mod.name("puissance", 3), Mod.name("puissance", 3), Mod.name("puissance", 3) })
   giants[4] = geant(14, { Mod.name("portee", 1) }, false)
+  giants[5] = geant_age(15, "cairn", { Mod.name("portee", 2) })
+  giants[6] = geant_age(16, "tournesol", { Mod.name("puissance", 2) })
   local n = XM.sync()
-  chk(n == 3 and #bonus_ecrits == 3, "§5 bis synchronisation : 3 géants valides mis à jour, le géant invalide sauté")
+  chk(n == 5 and #bonus_ecrits == 5, "§5 bis synchronisation : 5 géants valides mis à jour, le géant invalide sauté")
   local w = {}
   for _, b in ipairs(bonus_ecrits) do w[b.un] = b end
   chk(w[11] and math.abs(w[11].p - 0.25) < 1e-12 and math.abs(w[11].f - 0.30) < 1e-12, "§5 bis Cairn portée III + puissance II : fractions 0,25 et 0,30")
   chk(w[12] and w[12].p == 0 and w[12].f == 0, "§5 bis géant sans grille : bonus nul écrit")
   chk(w[13] and math.abs(w[13].f - 1.0) < 1e-12, "§5 bis trois puissances III : plafond, fraction 1,0")
-  chk(#journal == 3 and journal[1] == "modules geant #11 portee +25 % puissance +30 %", "§5 bis journal [FO-XP] : une ligne par géant mis à jour : "
+  chk(w[15] and math.abs(w[15].p - 0.50) < 1e-12 and w[16] and math.abs(w[16].f - 0.09) < 1e-12,
+    "§5 bis prix selon l'âge : portée II sur le Cairn +50 %, puissance II sur le Tournesol +9 % (âge lu au nom de la grille)")
+  chk(#journal == 5 and journal[1] == "modules geant #11 portee +25 % puissance +30 %", "§5 bis journal [FO-XP] : une ligne par géant mis à jour : "
     .. tostring(journal[1]))
   -- marque d'une salve
   local cairn = Xp.robot("cairn")
@@ -459,6 +520,7 @@ local MUTANTS_SCRIPT = {
   { "fractions oubliées (pourcents envoyés)", "function XM.fractions(b) return b.portee / 100, b.puissance / 100 end", "function XM.fractions(b) return b.portee, b.puissance end" },
   { "portée et puissance inversées", "function XM.fractions(b) return b.portee / 100, b.puissance / 100 end", "function XM.fractions(b) return b.puissance / 100, b.portee / 100 end" },
   { "géant invalide synchronisé", "if g.e and g.e.valid then", "if g.e then" },
+  { "âge du porteur ignoré", "return Mod.bonus(n, age_de_grille(e.grid))", "return Mod.bonus(n)" },
   { "durée au-delà de la cadence", "return math.max(1, math.min(XM.TTL_MAX, cad))", "return XM.TTL_MAX" },
   { "trait de visée toujours tiré", "if dist(e.position, c) > r.range then", "if true then" },
   { "anneau à la zone de base", "radius = zone, width = 6", "radius = zone / (1 + bp), width = 6" },
@@ -515,7 +577,7 @@ for k in pairs(EN) do if not FR[k] then samek = false end end
 check(samek, "§6 FR et EN : mêmes clés")
 for _, m in ipairs(Mod.MODULES) do
   local d = FR["item-description." .. m.name] or ""
-  check(d:find("__1__", 1, true) and d:find("__2__", 1, true), "§6 " .. m.name .. " : description chiffrée (bonus, plafond)")
+  check(d:find("__5__", 1, true) and d:find("__6__", 1, true), "§6 " .. m.name .. " : description chiffrée (bonus sur les 5 géants, plafond)")
 end
 
 -- §7 icônes : icons.lua et MANIFEST d'accord, fichiers présents
@@ -532,15 +594,16 @@ check(ICONS.version == 1, "§7 version de l'outil")
 local MUTANTS = {
   { "plafond de portée oublié", "out[t.id] = math.min(brut[t.id], t.cap)", "out[t.id] = brut[t.id]" },
   { "plafond de portée à 60", '{ id = "portee", stat = "range", cap = 50 }', '{ id = "portee", stat = "range", cap = 60 }' },
-  { "un seul module compte", "brut[m.type] = brut[m.type] + m.bonus", "brut[m.type] = m.bonus" },
-  { "étranger compté", "if m then brut[m.type] = brut[m.type] + m.bonus end", "if m then brut[m.type] = brut[m.type] + m.bonus else brut.portee = brut.portee + 1 end" },
+  { "un seul module compte", "brut[m.type] = brut[m.type] + M.bonus_of(m, age)", "brut[m.type] = M.bonus_of(m, age)" },
+  { "étranger compté", "if m then brut[m.type] = brut[m.type] + M.bonus_of(m, age) end",
+    "if m then brut[m.type] = brut[m.type] + M.bonus_of(m, age) else brut.portee = brut.portee + 1 end" },
   { "bonus additif au lieu de multiplicatif", "return base * (100 + (pct or 0)) / 100", "return base + (pct or 0)" },
   { "portée lue dans la puissance", "return M.apply(r.range, (b or M.ZERO).portee)", "return M.apply(r.range, (b or M.ZERO).puissance)" },
   { "puissance III à +60", '{ type = "puissance", tier = 3, bonus = 50,', '{ type = "puissance", tier = 3, bonus = 60,' },
   { "portée I à l'âge 9", "{ tier = 1, age = 10, factory", "{ tier = 1, age = 9, factory" },
   { "palier III au Dock", '{ tier = 3, age = 14, factory = "fo-robot-gantry"', '{ tier = 3, age = 14, factory = "fo-robot-dock"' },
   { "palier II sans le palier I", "if m.tier > 1 then m.prerequisites[2] = M.tech_name(m.type, m.tier - 1) end", "" },
-  { "Tournesol à 3 emplacements", '{ id = "tournesol", slots = 4 }', '{ id = "tournesol", slots = 3 }' },
+  { "Tournesol à 3 emplacements", '{ id = "tournesol", slots = 4, age = 14 }', '{ id = "tournesol", slots = 3, age = 14 }' },
   { "module de 1 case", "M.SIDE = 2 ", "M.SIDE = 1 " },
   { "ingrédient au-delà de 100", '{ "fo-optical-sensor", 100 }, { "fo-guidance-core", 20 }', '{ "fo-optical-sensor", 101 }, { "fo-guidance-core", 20 }' },
   { "palier I avec une pièce de l'âge 12", '{ "battery", 100 }, { "fo-servo-motor", 30 }', '{ "fo-laser-module", 10 }, { "fo-servo-motor", 30 }' },
@@ -548,7 +611,15 @@ local MUTANTS = {
     '{ "fo-superconducting-coil", 10 }, { "fo-magnetic-actuator", 10 }, { "fo-laser-module", 10 }' },
   { "cible au-delà comptée au bord", "return d > r.range", "return d >= r.range" },
   { "garniture qui dépasse le plafond", "while #out < n and sum < cap do", "while #out < n do" },
-  { "garniture portée d'abord", 'local order = { "puissance", "portee" }', 'local order = { "portee", "puissance" }' },
+  { "garniture portée d'abord", 'for _, tid in ipairs({ "puissance", "portee" }) do', 'for _, tid in ipairs({ "portee", "puissance" }) do' },
+  { "prix fixe (bonus nominal sur tout géant)", "if age == nil then return m.bonus end", "if true then return m.bonus end" },
+  { "raison d'un âge sans racine", "local r = math.sqrt(b.ref_mu / a.ref_mu)", "local r = b.ref_mu / a.ref_mu" },
+  { "arrondi par défaut", "return math.max(1, math.floor(x + 0.5))", "return math.max(1, math.floor(x))" },
+  { "bonus nul permis", "return math.max(1, math.floor(x + 0.5))", "return math.floor(x + 0.5)" },
+  { "garniture comptée au nominal", "sum = sum + M.bonus_of(best, g_age)", "sum = sum + best.bonus" },
+  { "faction au nominal", "local b = M.bonus(names, age)", "local b = M.bonus(names)" },
+  { "faction : emplacements ignorés", "names = M.loadout_n(n, age, age)", "names = M.loadout_n(4, age, age)" },
+  { "Ixion à l'âge 12", '{ id = "ixion", slots = 3, age = 13 }', '{ id = "ixion", slots = 3, age = 12 }' },
   { "garniture d'un palier futur", "if m.type == tid and m.age <= (age or 0) and", "if m.type == tid and" },
   { "bonus maximal sans plafond", "out[t.id] = math.min(best * n, t.cap)", "out[t.id] = best * n" },
 }
