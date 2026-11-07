@@ -29,6 +29,12 @@
 ]]
 
 local CHECK = 9500
+-- Mode « longue » (demande du lead, 7/11 vers 21 h 30 : la guérison par la RÈGLE 5 n'est pas prouvée en jeu ; banc de plus de 10 000 ticks,
+-- à lancer SEULEMENT avec l'accord du DC) : la v4 prolongée, règle 8 éteinte. Les 2 modules suspendus par la pile depuis Em.PILE_HOLD
+-- (5 min, shared/ai3/emplacements.lua, règle 5) sortent du compte des emplacements ; la foreuse de fer n'est plus refusée « plan directeur
+-- occupe » et un ordre sur le fer s'ouvre. Décision hâtée par le banc à la libération (une décision par minute environ sinon).
+local CHECK_LONG = 21500
+local PILE_FREE_PAT = "(%d+) suspendu%(s%) par la pile hors du compte"
 local EVERY = 300
 local REMOVE = { "iron-plate", "iron-ore", "iron-gear-wheel", "iron-stick", "electronic-circuit", "assembling-machine-1",
   "assembling-machine-2", "inserter", "long-handed-inserter", "fast-inserter", "iron-chest", "steel-chest", "electric-mining-drill",
@@ -80,10 +86,11 @@ local function has(list, x)
 end
 
 return function(temoin)
+  local longue = temoin == "longue"
   return {
     description = "CORR-CHAMP-MANQUE : deux modules attendent du fer, le champ du fer a-t-il son siege ? (" ..
-      (temoin and "temoin, regle 8 eteinte" or "lot") .. ")",
-    check_tick = CHECK,
+      (longue and "longue, regle 8 eteinte : liberation par la regle 5" or (temoin and "temoin, regle 8 eteinte" or "lot")) .. ")",
+    check_tick = longue and CHECK_LONG or CHECK,
 
     init = function(ctx)
       local st = ctx.state()
@@ -186,8 +193,16 @@ return function(temoin)
           end
           local why = cs.drill_why and cs.drill_why["iron-ore"] or nil
           local rec = { tick = t, cap = sl.cap, counted = sl.counted, materials = sl.materials, comp = sl.comp or {}, why_iron = why,
-            iron_orders = iron_orders, decisions = cs.decisions or 0, after = st.fini ~= nil }
+            iron_orders = iron_orders, decisions = cs.decisions or 0, after = st.fini ~= nil,
+            piled_out = tonumber(type(sl.why) == "string" and sl.why:match(PILE_FREE_PAT) or nil) or 0 }
           st.rel[#st.rel + 1] = rec
+          -- mode « longue » : première libération par la pile (règle 5) ; décision hâtée une fois
+          if longue and not st.release_t and rec.piled_out >= 1 then
+            st.release_t, st.release_dec = t, rec.decisions
+            st.hastened2 = ctx.remote("fo-ind", "hasten", st.key) == true
+            ctx.log(string.format("LIBERATION par la pile (regle 5) au tick %d : %d module(s) suspendu(s) hors du compte ; decision hatee : %s", t,
+              rec.piled_out, tostring(st.hastened2)))
+          end
           ctx.log(string.format("tick %d : emplacements %s/%s (attente de matiere %s), siege {%s} ; foreuse de fer : %s ; ordres fer [%s] ; decisions %d%s",
             t, tostring(sl.counted), tostring(sl.cap), tostring(sl.materials), table.concat(rec.comp, " "), why and ('"' .. why .. '"') or "accordee",
             table.concat(iron_orders, ", "), rec.decisions, st.fini and " (centrale finie)" or ""))
@@ -224,11 +239,29 @@ return function(temoin)
         if r.cap and r.counted then max_over = math.max(max_over, r.counted - r.cap) end
       end
       local endr = st.rel and st.rel[#st.rel]
-      ctx.check(endr ~= nil and (endr.materials or 0) >= 2, "les deux modules de banc attendent toujours leur matiere a la fin",
-        endr and tostring(endr.materials) or "aucun releve")
+      if not longue then
+        ctx.check(endr ~= nil and (endr.materials or 0) >= 2, "les deux modules de banc attendent toujours leur matiere a la fin",
+          endr and tostring(endr.materials) or "aucun releve")
+      end
       ctx.check(after_dec, "au moins une decision apres la centrale finie", string.format("decisions %s -> %s", tostring(st.dec_fini),
         tostring(endr and endr.decisions)))
-      if temoin then
+      if longue then
+        local busy_before, after_ok, after_rel, order_after = false, false, nil, false
+        for _, r in ipairs(st.rel or {}) do
+          if r.after and busy_iron(r.why_iron) and (not st.release_t or r.tick < st.release_t) then busy_before = true end
+          if st.release_t and r.tick > st.release_t then
+            if #r.iron_orders > 0 then order_after = true end
+            if r.decisions > (st.release_dec or 0) then after_rel = r end
+          end
+        end
+        if after_rel then after_ok = not busy_iron(after_rel.why_iron) end
+        ctx.check(busy_before, "longue : avant la liberation, foreuse de fer refusee « plan directeur occupe » (centrale finie)")
+        ctx.check(st.release_t ~= nil and st.release_t <= 21000, "longue : modules suspendus par la pile sortis du compte (regle 5) avant le tick 21000",
+          tostring(st.release_t))
+        ctx.check(after_ok, "longue : apres la liberation et une decision, foreuse de fer plus refusee « plan directeur occupe »",
+          after_rel and tostring(after_rel.why_iron or "accordee") or "aucun releve apres decision")
+        ctx.check(order_after, "longue : un ordre sur le minerai de fer s'ouvre apres la liberation")
+      elseif temoin then
         ctx.check(last ~= nil and busy_iron(last.why_iron), "temoin : foreuse de fer refusee « plan directeur occupe »",
           last and tostring(last.why_iron) or "aucun releve apres decision")
         ctx.check(not iron_order, "temoin : aucun ordre sur le minerai de fer")
