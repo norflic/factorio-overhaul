@@ -997,7 +997,8 @@ local function build_input(f, cs, view, book, tick, D, w)
   return {
     can_exec = can_exec, skip = skip, successors = successors_for(cs),
     data = D, state = { techs = st.techs or {}, known = st.known }, stock = stock, flows = cs.flows or {},
-    machines = cs.scan and cs.scan.machines or {}, drills = cs.scan and cs.scan.drills or {}, labs = labs,
+    -- lot VIDEO-L13 : plus de `or {}` (une liste absente ferme la décision, decide_start ; cs.scan existe : Capi.think)
+    machines = cs.scan and cs.scan.machines, drills = cs.scan and cs.scan.drills, labs = labs,
     deposits = deposits, open = open, sinks = cs.bench_sinks or Ml.sinks(st.mall), need = need, research = research, drill_for = drill_for,
     limits = Rsv.on() and {} or { max_ingredients = 2 }, workers = view.workers or 0, idle = Ca.idle_of(g and g.idle_ema or 0),
     can_grow = (view.workers or 0) < (view.workers_wanted or 0), traits = f.traits or {},
@@ -1611,13 +1612,19 @@ local function dj_build(dj, cs, book)
   return { seq = dj.seq, t0 = dj.t0, sig = dj.sig, J = J, input = input, cex = cex, st = st }
 end
 
---- Première tranche : relevé, instantané, état de travail.
+--- Première tranche : relevé, instantané, état de travail. Rend faux (aucune décision, aucun instantané) quand une liste d'entrée
+--- manque (lot VIDEO-L13, garde fermée par défaut : Ca.absent_input).
 local function decide_start(f, cs, view, book, tick, w, run)
   local D = Capi.data()
   cs.flows = flows_of(f, cs)
   Dep.think(f, cs, tick, DEP_PRODUCTS, minutes(f, tick)) -- lot DEPENSES2 : budget du stock qui dort (Dep.defense, Dep.labs)
   if f.team.ia3.mall then Ml.set_running(f.team.ia3.mall, cs.flows) end -- lot PILE-MALL (relecture)
   local input, cex = build_input(f, cs, view, book, tick, D, w)
+  local absent = Ca.absent_input(input)
+  if absent then
+    log(string.format("[FO-CAPI] %s : decision refusee : entree absente : %s a %.1f min", f.key or "?", absent, minutes(f, tick)))
+    return false
+  end
   local snap = {}
   for _, k in ipairs(sorted_keys(input)) do
     if k ~= "data" and k ~= "can_exec" then snap[k] = input[k] end
@@ -1637,6 +1644,7 @@ local function decide_start(f, cs, view, book, tick, w, run)
   else
     DJ_MEM[dj_key(f)] = dj_build(cs.dj, cs, book)
   end
+  return true
 end
 
 --- Tranche de la décision en cours (cs.dj) : rend vrai quand elle est finie (appliquée, ou abandonnée), faux sinon.
@@ -1741,8 +1749,7 @@ function Capi.think(f, view, book, tick, research, w, run)
   elseif phase >= 2 and phase <= 9 then
     census_one(f, cs, tick)
   elseif phase == 10 and cs.scan then
-    decide_start(f, cs, view, book, tick, w, run)
-    if not decide_slice(f, cs, view, book, tick, research, run) then
+    if decide_start(f, cs, view, book, tick, w, run) and not decide_slice(f, cs, view, book, tick, research, run) then
       Profiler.stop("capi:think")
       return Capi.PENDING
     end

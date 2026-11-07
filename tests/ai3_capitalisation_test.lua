@@ -25,6 +25,8 @@
        module terminé, décroissant avec le temps, un échec de matériaux ne bloque pas (module réduit, objets en préparation),
        plafond de 5 min couverture basse et besoin non servi, le cas mesuré d'Azur (79,6 à 119,8 min sans ordre de fer) ;
        ses mutants sont dans §11.
+    §17 lot VIDEO-L13, garde fermée par défaut : liste des ordres ouverts absente → aucun ordre et un refus qui la nomme ;
+       liste présente → rendu identique à l'ancienne formule ; Ca.absent_input ; ses mutants sont dans §11.
   Usage : lua5.2 tests/ai3_capitalisation_test.lua   (depuis la racine du mod)
   Ce fichier est du TEST : il nomme les prototypes vanilla (comme le moteur) ; la règle n'en voit rien.
 ]]
@@ -37,6 +39,7 @@ local P = require("shared.ai3.projets")
 local K = require("shared.ai3.catalogue")
 local Rp = require("shared.ai3.repli")
 local Tr = require("shared.faction.traits")
+local Pf = require("shared.ai3.plafonds") -- lot VIDEO-L13 (§17)
 
 local pass, fail = 0, 0
 local quiet = false
@@ -1616,6 +1619,83 @@ local function s16()
   check(circuit_chain(r2) == nil, "§16 ordre ouvert sans manque : pas d'exemption, la règle des bras reste (" .. #r2.orders .. " ordre(s))")
 end
 
+-- §17 Lot VIDEO-L13, garde fermée par défaut (fo-logs/2026-11-07_VIDEO-INTEG/CRITERES.md, G1 à G3). Le rendu est sérialisé clés
+-- triées, nombres en %.17g : « identique » veut dire ligne pour ligne.
+local function canon(v, seen)
+  local t = type(v)
+  if t == "number" then return string.format("%.17g", v) end
+  if t == "string" then return string.format("%q", v) end
+  if t ~= "table" then return t == "function" and "<fonction>" or tostring(v) end
+  seen = seen or {}
+  if seen[v] then return "<cycle>" end
+  seen[v] = true
+  local ks = {}
+  for k in pairs(v) do ks[#ks + 1] = k end
+  table.sort(ks, function(a, b)
+    if type(a) ~= type(b) then return type(a) < type(b) end
+    return a < b
+  end)
+  local out = {}
+  for _, k in ipairs(ks) do out[#out + 1] = canon(k, seen) .. "=" .. canon(v[k], seen) end
+  seen[v] = nil
+  return "{" .. table.concat(out, ",") .. "}"
+end
+-- L'ancienne formule (Ca.OPEN_MAX - #ctx.open, ctx.open = {} quand la liste manque), remise par le test pour la comparaison G2.
+local function old_open_room(open, max)
+  local o = open or {}
+  local room = max - #o
+  if room <= 0 then return 0, string.format("%d ordres ouverts (au plus %d)", #o, max) end
+  return room
+end
+local function s17()
+  local D = vdata()
+  local function scene(open)
+    local inp = iron_scene(D, 1000)
+    inp.open = open
+    return inp
+  end
+  local function opens(n)
+    local l = {}
+    for i = 1, n do
+      l[#l + 1] = { key = string.format("x%02d", i), kind = "chaine", item = "pipe", n = 1, n_left = 1, missing = {}, work_left = 0 }
+    end
+    return l
+  end
+  -- G1 : liste absente, aucun ordre et un refus qui la nomme ; témoin : liste vide, des ordres.
+  local r_nil = Ca.decide(scene(nil), {})
+  local r_vide = Ca.decide(scene({}), {})
+  local why = (refus_of(r_nil, "capi") or {}).why
+  check(#r_vide.orders > 0, "§17 témoin : liste des ordres ouverts vide, la scène décide (" .. #r_vide.orders .. " ordre(s))")
+  check(#r_nil.orders == 0 and why == "ordres ouverts : entree absente",
+    string.format("§17 G1 : liste des ordres ouverts absente, aucun ordre (%d) et le refus « ordres ouverts : entree absente » (%s)",
+      #r_nil.orders, tostring(why)))
+  -- G2 : liste présente (vide, un ordre, au plafond) : rendu identique à l'ancienne formule, texte du refus au plafond compris.
+  for _, n in ipairs({ 0, 1, Ca.OPEN_MAX }) do
+    local new = canon(Ca.decide(scene(opens(n)), {}))
+    local cur = Pf.open_room
+    Pf.open_room = old_open_room
+    local ok, old = pcall(function() return canon(Ca.decide(scene(opens(n)), {})) end)
+    Pf.open_room = cur
+    check(ok and new == old, string.format("§17 G2 : %d ordre(s) ouvert(s), rendu identique à l'ancienne formule (%d octets)", n, #new))
+  end
+  local r_max = Ca.decide(scene(opens(Ca.OPEN_MAX)), {})
+  check((refus_of(r_max, "capi") or {}).why == string.format("%d ordres ouverts (au plus %d)", Ca.OPEN_MAX, Ca.OPEN_MAX) and #r_max.orders == 0,
+    "§17 G2 : au plafond, aucun ordre et le texte d'avant (" .. tostring((refus_of(r_max, "capi") or {}).why) .. ")")
+  -- G3 : la première liste absente, dans l'ordre machines, drills, stock, open.
+  check(Ca.absent_input(scene({})) == nil, "§17 G3 : les quatre listes présentes, rien d'absent")
+  local seen = {}
+  for _, k in ipairs({ "machines", "drills", "stock", "open" }) do
+    local inp = scene({})
+    inp[k] = nil
+    seen[#seen + 1] = tostring(Ca.absent_input(inp))
+  end
+  local bad = scene({})
+  bad.machines, bad.open = 5, nil
+  check(table.concat(seen, ",") == "machines,drills,stock,open" and Ca.absent_input(bad) == "machines" and Ca.absent_input(nil) == "entree",
+    "§17 G3 : liste absente nommée (" .. table.concat(seen, ",") .. ", " .. tostring(Ca.absent_input(bad)) .. ", "
+      .. tostring(Ca.absent_input(nil)) .. ")")
+end
+
 local function run_all()
   s1()
   s2()
@@ -1631,6 +1711,7 @@ local function run_all()
   s14()
   s15()
   s16()
+  s17()
 end
 
 local t0 = os.clock()
@@ -1748,6 +1829,14 @@ do
   MR("élagage qui garde tout", "prune", function() return function() return 0 end end)
   -- Lot PREVISION (C12).
   MF("défense induite ignorée", "option_emit", function() return function() return 0 end end)
+  -- Lot VIDEO-L13 (§17).
+  do
+    local orig = Pf.open_room
+    M("garde ouverte sur une liste absente (relire la liste vide, #ctx.open)", function()
+      Pf.open_room = function(open, max) return orig(open or {}, max) end
+    end, function() Pf.open_room = orig end)
+  end
+  MF("liste d'entrée absente ignorée", "absent_input", function() return function() return nil end end)
 end
 check(n_caught == n_mut, string.format("mutants : %d refusés sur %d", n_caught, n_mut))
 

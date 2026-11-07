@@ -76,6 +76,7 @@ local R = require("shared.ai3.reglages") -- types du moteur -> rôle (seules don
 local Lv = require("shared.ai3.leviers") -- lot LEVIERS : modules dans les machines posées, recherches à effet
 local Gi = require("shared.team.gisement") -- lot GISEMENTS : matière la plus en manque d'abord, pas d'avant-poste de trop
 local Dm = require("shared.ai3.demande") -- lot C2 : puits ouvert (le stock qui dort devient une demande)
+local Pf = require("shared.ai3.plafonds") -- lot VIDEO-L13 : gardes fermées par défaut (places des ordres ouverts)
 
 local Ca = {}
 
@@ -1969,10 +1970,26 @@ function Ca.decide_begin(input, st)
   -- ouvert ne passe pas par le budget de BRAS : les bras sont retenus par ces ordres mêmes, qui attendent sa matière. Elle reste
   -- bornée par le budget de matières et par la règle du goulot amont (Ca.options).
   J.blocked = Ca.blocked_items(ctx)
-  local room = Ca.OPEN_MAX - #ctx.open
-  if room <= 0 then refuse(ctx, "capi", "capi", nil, string.format("%d ordres ouverts (au plus %d)", #ctx.open, Ca.OPEN_MAX)) end
+  -- Lot VIDEO-L13 (garde fermée par défaut) : la LISTE d'entrée, pas ctx.open (sort_by en fait {} quand elle manque : la garde
+  -- s'ouvrirait sur une entrée absente). Liste présente : même nombre de places et même texte qu'avant.
+  local room, why_open = Pf.open_room(input.open, Ca.OPEN_MAX)
+  if room <= 0 then refuse(ctx, "capi", "capi", nil, why_open) end
   J.turns = math.min(Ca.MAX_ORDERS, math.max(0, room))
   return J
+end
+
+--- Lot VIDEO-L13 (garde fermée par défaut) : listes sans lesquelles la règle ne décide pas. Une liste absente ne vaut jamais
+--- « rien de posé » (les « silos sans fin » de la vidéo : une entrée à 0 laissait le manque vrai pour toujours).
+Ca.INPUT_LISTS = { "machines", "drills", "stock", "open" }
+
+--- Première liste d'entrée absente (pas une table), dans l'ordre de Ca.INPUT_LISTS ; nil quand toutes sont là. Le runtime refuse
+--- alors la décision (script/ai3/capitalisation.lua, decide_start).
+function Ca.absent_input(input)
+  if type(input) ~= "table" then return "entree" end
+  for _, k in ipairs(Ca.INPUT_LISTS) do
+    if type(input[k]) ~= "table" then return k end
+  end
+  return nil
 end
 
 local function fits(J, o)
