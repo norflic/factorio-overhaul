@@ -166,14 +166,18 @@ end
 -- Lot POULS : le même relevé par bandes. Une bande = Rv.BAND lignes de chunks sur toute la largeur de la boîte des chunks générés
 -- (api.box) ; une entité n'est comptée que dans la bande qui contient sa POSITION (y dans [y0, y1[ : la recherche par zone rend aussi
 -- ce qui touche ou chevauche la bande, F96). Générateurs et consommateurs dans la même recherche. Un consommateur dont le réseau n'a pas
--- encore de générateur vu est GARDÉ (position, par réseau) ; il est jugé à la dernière bande, comme net_read : réseau sans générateur
--- et hors chantier (in_construction lu à la fin, comme net_read le lit au relevé). Rien de l'état du jeu n'est lu entre deux bandes :
--- monde figé, même résultat que net_read (preuve : tests/pouls_test.lua). État : sv.nr_job (nombres et tables de nombres).
+-- encore de générateur vu est GARDÉ ; il est jugé à la dernière bande, comme net_read : réseau sans générateur et hors chantier
+-- (in_construction lu à la fin, comme net_read le lit au relevé). Monde figé : même résultat que net_read (tests/pouls_test.lua, P2).
+-- Revue de la 0.6.59, point 2 : le moteur RENUMÉROTE un réseau qui se coupe ou se joint (en attaque, en plein relevé). Les générateurs et
+-- les consommateurs gardés sont donc des ENTITÉS, dont le réseau est relu à la FIN : live et nets sont lus au même instant, celui de la
+-- décision (coupure_plan les compare aux poteaux lus au même tick ; P7). Limite : un consommateur écarté pendant les bandes (réseau vivant
+-- à sa lecture) n'est pas relu ; une coupure survenue après sa lecture ne le compte qu'au relevé suivant (jamais un faux îlot).
+-- État : sv.nr_job (nombres, et listes d'entités gens et cons).
 local BAND_TYPES = { "generator" }
 for _, t in ipairs(ELEC_TYPES) do BAND_TYPES[#BAND_TYPES + 1] = t end
 
 local function job_new(box)
-  return { y = box.y0, y_end = box.y1 + 1, x0 = box.x0, x1 = box.x1 + 1, gn = {}, pend = {}, free = {}, bands = 0 }
+  return { y = box.y0, y_end = box.y1 + 1, x0 = box.x0, x1 = box.x1 + 1, gn = {}, gens = {}, cons = {}, bands = 0 }
 end
 
 --- Une bande du relevé ; vrai quand la dernière est faite.
@@ -186,20 +190,10 @@ local function job_band(f, surface, j)
     if p.y >= top and p.y < bottom then
       local id = e.electric_network_id
       if e.type == "generator" then
-        if id then j.gn[id] = true end
+        if id then j.gn[id] = true end -- (écarte pendant les bandes les consommateurs d'un réseau déjà vu vivant)
+        j.gens[#j.gens + 1] = e
       elseif not (id and j.gn[id]) and e.prototype.electric_energy_source_prototype then
-        local l
-        if id then
-          l = j.pend[id]
-          if not l then
-            l = {}
-            j.pend[id] = l
-          end
-        else
-          l = j.free
-        end
-        l[#l + 1] = p.x
-        l[#l + 1] = p.y
+        j.cons[#j.cons + 1] = e
       end
     end
   end
@@ -208,23 +202,27 @@ local function job_band(f, surface, j)
   return j.y >= j.y_end
 end
 
---- Fin du relevé : la même table que net_read.
+--- Fin du relevé : la même table que net_read, réseaux RELUS maintenant (générateurs, puis consommateurs gardés ; entité disparue
+--- depuis sa bande : plus comptée, comme net_read lu maintenant ne la verrait pas).
 local function job_finish(b, j)
-  local out = { islands = 0, uncovered = 0, nets = {}, live = j.gn }
-  for _, id in ipairs(sorted_keys(j.pend)) do
-    if not j.gn[id] then
-      local l = j.pend[id]
-      for k = 1, #l, 2 do
-        if not in_construction(b, l[k], l[k + 1]) then
-          out.islands = out.islands + 1
-          out.nets[id] = true
+  local live = {}
+  for _, g in ipairs(j.gens) do
+    if g.valid then
+      local id = g.electric_network_id
+      if id then live[id] = true end
+    end
+  end
+  local out = { islands = 0, uncovered = 0, nets = {}, live = live }
+  for _, e in ipairs(j.cons) do
+    if e.valid then
+      local id = e.electric_network_id
+      if not (id and live[id]) then
+        local p = e.position
+        if not in_construction(b, p.x, p.y) then
+          if id then out.islands = out.islands + 1; out.nets[id] = true else out.uncovered = out.uncovered + 1 end
         end
       end
     end
-  end
-  local l = j.free
-  for k = 1, #l, 2 do
-    if not in_construction(b, l[k], l[k + 1]) then out.uncovered = out.uncovered + 1 end
   end
   return out
 end

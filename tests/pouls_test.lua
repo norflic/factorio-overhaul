@@ -188,6 +188,7 @@ end
 local function s(v) return table.concat(ser(v)) end
 local function deep(v)
   if type(v) ~= "table" then return v end
+  if v.box and v.position then return v end -- entité du monde simulé : une sauvegarde garde la RÉFÉRENCE (relevé par bandes, P4)
   local c = {}
   for k, x in pairs(v) do c[k] = deep(x) end
   return c
@@ -504,6 +505,58 @@ local function p6(Rv, Box)
 end
 
 ---------------------------------------------------------------------------------------------------
+-- P7 (revue de la 0.6.59, point 2) : le moteur renumérote un réseau qui se coupe ou se joint, en plein relevé
+---------------------------------------------------------------------------------------------------
+--- Monde : générateur (réseau 1) en haut (ligne de chunks −3), consommateurs du même réseau en bas (lignes 1 et 2), un îlot vrai (réseau
+--- 9). Bandes d'une ligne, une par passe. Après la bande `at` (0 : avant la première), `change` est appliqué au monde. Rend la fin du
+--- relevé par bandes et net_read lu à la fin (même instant).
+local function p7_case(Rv, at, change, gen_y, cons_y)
+  local w = new_world()
+  local f = team(w, "p7", "fo-p7", 2000, 2000) -- (la centrale de l'équipe, loin du relevé : son propre réseau 1 ne gêne pas)
+  for _, e in ipairs(w.ents) do e.valid = false end -- monde du cas seul
+  w.ents = {}
+  local g = add(w, ent("steam-engine", "generator", 10.5, gen_y, { net = 1, kw = 900, force = "fo-p7", hw = 1.5, hh = 2.5 }))
+  local cons = {}
+  for k = 0, 5 do cons[#cons + 1] = add(w, ent("assembler", "assembling-machine", 4 + k * 4, cons_y + (k % 2) * 33, { net = 1, consumer = true, force = "fo-p7", hw = 1.5, hh = 1.5 })) end
+  local isl = add(w, ent("lab", "lab", 60.5, cons_y, { net = 9, consumer = true, force = "fo-p7", hw = 1.5, hh = 1.5 }))
+  chunks_for(w, { { -3, -3 }, { 3, 3 } })
+  local sfc = surface_of(w)
+  local saved = Rv.BAND
+  Rv.BAND = 1
+  local j = Rv.bandes.new(box_of(w))
+  local n, done = 0, false
+  if at == 0 then change(g, cons, isl) end
+  repeat
+    done = Rv.bandes.band(f, sfc, j)
+    n = n + 1
+    if n == at then change(g, cons, isl) end
+  until done or n > 100
+  Rv.BAND = saved
+  local got = Rv.bandes.finish(f.build, j)
+  return nr_str(got), nr_str(ref_net_read(f, sfc, f.build)), got
+end
+
+local function p7(Rv)
+  local out = {}
+  -- (a) jonction : le réseau 1 devient 2 (générateur lu AVANT, consommateurs APRÈS) ; aucun îlot de plus que le vrai (9)
+  local function renum(g, cons) g.electric_network_id = 2; for _, c in ipairs(cons) do c.electric_network_id = 2 end end
+  local a1, r1 = p7_case(Rv, 1, renum, -90, 40)
+  out[#out + 1] = { "générateur lu, puis renumérotation, puis consommateurs", a1, r1 }
+  -- (b) les consommateurs lus AVANT la renumérotation, le générateur APRÈS
+  local a2, r2 = p7_case(Rv, 1, renum, 40, -90)
+  out[#out + 1] = { "consommateurs lus, puis renumérotation, puis générateur", a2, r2 }
+  -- (c) coupure vraie : les consommateurs passent sur un réseau 3 sans générateur (îlot vrai, à compter)
+  local function cut(g, cons) for _, c in ipairs(cons) do c.electric_network_id = 3 end end
+  local a3, r3 = p7_case(Rv, 1, cut, -90, 40)
+  out[#out + 1] = { "coupure vraie après le générateur", a3, r3 }
+  -- (d) une machine détruite pendant le relevé
+  local function gone(g, cons) cons[1].valid = false end
+  local a4, r4 = p7_case(Rv, 1, gone, 40, -90)
+  out[#out + 1] = { "machine détruite pendant le relevé", a4, r4 }
+  return out
+end
+
+---------------------------------------------------------------------------------------------------
 -- Jeu de preuves sur la source du jeu
 ---------------------------------------------------------------------------------------------------
 local Rv, Ra, Jeton, Box = load_mods(nil)
@@ -533,6 +586,10 @@ check(r5.starts >= 30 and r5.late == 0, string.format("P5 : chaque raccord part 
 local ok6a, ok6b, g6, w6 = p6(Rv, Box)
 check(ok6a, "P6 : boîte relevée en entier à la première demande (surface.get_chunks)")
 check(ok6b, "P6 : chunk généré après : boîte agrandie, son consommateur compté (" .. g6 .. ")")
+for _, c in ipairs(p7(Rv)) do
+  check(c[2] == c[3], string.format("P7 : %s : fin du relevé par bandes = net_read lu à la fin (%s)%s", c[1], c[2],
+    c[2] ~= c[3] and (" ; net_read : " .. c[3]) or ""))
+end
 
 ---------------------------------------------------------------------------------------------------
 -- Mutants
@@ -550,6 +607,8 @@ local MUT = {
     { { "if b then grow(b, e.position.x, e.position.y) end", "if false then grow(b, e.position.x, e.position.y) end" } }, "p6" },
   { "m6 jeton ignoré par le relevé du réseau", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
     { { "if api.jeton and not api.jeton.take(tick) then return nil end", "if false then return nil end" } }, "p5" },
+  { "m7 réseaux des générateurs non relus à la fin (numéros des bandes)", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
+    { { "local out = { islands = 0, uncovered = 0, nets = {}, live = live }", "live = j.gn; local out = { islands = 0, uncovered = 0, nets = {}, live = live }" } }, "p7" },
 }
 for _, m in ipairs(MUT) do
   local Rvm, Ram, Jm, Bm = load_mods({ m[2], m[3], m[4] })
@@ -559,6 +618,9 @@ for _, m in ipairs(MUT) do
     seen = d > 0
   elseif m[5] == "p5" then
     seen = p5(Rvm, Ram, Jm).clash > 0
+  elseif m[5] == "p7" then
+    seen = false
+    for _, c in ipairs(p7(Rvm)) do if c[2] ~= c[3] then seen = true end end
   else
     local _, okb = p6(Rvm, Bm)
     seen = not okb
