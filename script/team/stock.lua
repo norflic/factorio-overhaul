@@ -50,7 +50,10 @@ function Stock.annexes(f)
   for _, e in ipairs(a) do
     if e.valid then out[#out + 1] = e end
   end
-  if #out ~= #a then f.annex = out end
+  if #out ~= #a then
+    f.annex = out
+    f.annex_lost = true -- lot STOCKAGE (coût) : une annexe a disparu (détruite, minée, remplacée par-dessus) : relevé complet de la zone
+  end
   return out
 end
 
@@ -207,8 +210,14 @@ function Stock.balance(f)
   local inv = chest_inv(f.hq)
   local used, size = slots_of(inv)
   if size <= 0 or used < T.annex.park_at * size then return 0 end
+  -- Lot STOCKAGE (coût, 7/11) : la place des annexes n'est lue que jusqu'à ce qu'elle couvre ce qu'il faut libérer (le plan A.park_plan
+  -- est le même : il ne libère jamais plus que used - park_to × size).
+  local to_free = used - math.floor(T.annex.park_to * size)
   local room = 0
-  for _, e in ipairs(annex) do room = room + chest_inv(e).count_empty_stacks() end
+  for _, e in ipairs(annex) do
+    room = room + chest_inv(e).count_empty_stacks()
+    if room >= to_free then break end
+  end
   local contents = inv.get_contents()
   local stack_of = {}
   for name in pairs(contents) do
@@ -265,12 +274,28 @@ end
 --- Lot STOCKAGE (essai 2) : anneaux ouverts (f.annex_rings, 1 au départ : le bloc d'avant) et places de tous les anneaux ouverts.
 local function rings(f) return math.max(1, math.min(Sg.MAX_RINGS, f.annex_rings or 1)) end
 
+-- Lot STOCKAGE (coût, 7/11) : places des anneaux 1..r, fonction pure des données (T.annex), calculées UNE fois par face, emprise et
+-- nombre d'anneaux (cache LOCAL, le même chez tous les pairs ; jamais modifié par les appelants) ; boîte des places (zone) de même.
+local RING_MEMO, BOX_MEMO = {}, {}
+local function places_of(sy, w, h, r)
+  local key = sy .. ":" .. w .. ":" .. h .. ":" .. r
+  local out = RING_MEMO[key]
+  if not out then
+    out = {}
+    for k = 1, r do
+      for _, p in ipairs(Sg.ring_slots(sy, w, h, k)) do out[#out + 1] = p end
+    end
+    RING_MEMO[key] = out
+  end
+  return out
+end
+
 --- Plafond d'annexes : les places des anneaux OUVERTS pour l'emprise du premier coffre de l'échelle (avant le lot STOCKAGE, essai 2 : le seul
 --- bloc de 48 places).
 local function capacity(f)
   local k = T.annex.kinds[1]
   local w, h = footprint(k.item)
-  return Sg.capacity(side(f), w, h, rings(f))
+  return #places_of(side(f), w, h, rings(f)) -- = Sg.capacity(side(f), w, h, rings(f))
 end
 
 --- Échelle des coffres (Sg) : { { slots }, ... } du plus grand au plus petit (T.annex.kinds) ; rang d'un nom d'entité dans l'échelle (un coffre
@@ -310,7 +335,7 @@ function Stock.wanted(f)
   local smallest = 0
   if f.annex_full then for r, c in pairs(posed_of(f)) do if c > 0 and r > smallest then smallest = r end end end
   for i = 1, #hand do if not f.annex_full or i < smallest then have = have + hand[i] end end
-  return A.wanted(used, size, n, have, early, Sg.capacity(side(f), 1, 1, Sg.MAX_RINGS))
+  return A.wanted(used, size, n, have, early, #places_of(side(f), 1, 1, Sg.MAX_RINGS)) -- = Sg.capacity(side(f), 1, 1, Sg.MAX_RINGS)
 end
 
 --- Stock LIBRE (coffre et annexes moins ce que les tâches ont réservé) : posé par script/team/board.lua au chargement
@@ -386,22 +411,25 @@ end
 --- Rend vrai si un coffre a été posé.
 --- Lot STOCKAGE (essai 2) : places de tous les anneaux ouverts, pour un coffre w × h, face sy.
 local function ring_places(f, sy, w, h)
-  local out = {}
-  for r = 1, rings(f) do
-    for _, p in ipairs(Sg.ring_slots(sy, w, h, r)) do out[#out + 1] = p end
-  end
-  return out
+  return places_of(sy, w, h, rings(f))
 end
 
 --- Lot STOCKAGE (essai 3) : ZONE DE STOCKAGE : la boîte des places des anneaux ouverts autour du QG, une tuile de marge.
 local function zone(f)
-  local x0, y0, x1, y1
-  for _, p in ipairs(ring_places(f, side(f), 1, 1)) do
-    x0, x1 = math.min(x0 or p[1], p[1]), math.max(x1 or p[1], p[1])
-    y0, y1 = math.min(y0 or p[2], p[2]), math.max(y1 or p[2], p[2])
+  local sy, r = side(f), rings(f)
+  local key = sy .. ":" .. r
+  local b = BOX_MEMO[key]
+  if not b then
+    local x0, y0, x1, y1
+    for _, p in ipairs(places_of(sy, 1, 1, r)) do
+      x0, x1 = math.min(x0 or p[1], p[1]), math.max(x1 or p[1], p[1])
+      y0, y1 = math.min(y0 or p[2], p[2]), math.max(y1 or p[2], p[2])
+    end
+    b = { x0 or 0, y0 or 0, x1 or 0, y1 or 0 }
+    BOX_MEMO[key] = b
   end
   local hx, hy = f.hq_pos.x, f.hq_pos.y
-  return { { hx + (x0 or 0) - 1, hy + (y0 or 0) - 1 }, { hx + (x1 or 0) + 1, hy + (y1 or 0) + 1 } }
+  return { { hx + b[1] - 1, hy + b[2] - 1 }, { hx + b[3] + 1, hy + b[4] + 1 } }
 end
 
 --- Un coffre au contact d'un bras, d'un tapis ou d'une foreuse (R.ADOPT_BLOCKERS) appartient à une ligne du joueur : jamais une annexe.
@@ -415,17 +443,40 @@ end
 --- inscrit comme annexe : le coffre remplacé par-dessus par le joueur (le moteur lui donne un NOUVEAU numéro d'unité, l'ancien est purgé par
 --- Stock.annexes) comme le coffre qu'il pose lui-même dans la zone. Jamais : un coffre d'avant-poste (State.owner), sur une place du plan
 --- directeur (Stock.reserved), ou sur une ligne du joueur (bras, tapis, foreuse au contact). Rend le nombre de coffres inscrits.
+--- Lot STOCKAGE (coût, demande du lead du 7/11 : pire tick de 1 067 ms sur la sauvegarde du DC) : le relevé se relançait à CHAQUE pensée
+--- d'un stock plein, avec une recherche de bras par coffre du joueur sur une ligne. Désormais : (1) un compte des coffres de la zone
+--- (count_entities_filtered) ; inchangé depuis le relevé précédent, rien de neuf : fin ; (2) un coffre rejeté (sur une ligne, d'avant-poste,
+--- réservé, hors échelle) n'est réexaminé qu'au relevé COMPLET, toutes les Stock.SCAN_FULL ticks ou dès qu'une annexe a disparu
+--- (f.annex_lost : le coffre remplacé par-dessus du DC). Limite écrite : un coffre rejeté qui cesse de l'être (bras retiré) est vu au relevé
+--- complet suivant (5 min au plus).
+Stock.SCAN_FULL = 5 * 3600
 function Stock.scan(f, surface, tick)
   if not (surface and surface.find_entities_filtered and f.hq_pos) then return 0 end
+  local area = zone(f)
   local listed = {}
   for _, e in ipairs(Stock.annexes(f)) do if e.unit_number then listed[e.unit_number] = true end end
-  local found = surface.find_entities_filtered({ area = zone(f), type = "container", force = f.force })
-  table.sort(found, function(a, b) return (a.unit_number or 0) < (b.unit_number or 0) end)
-  local n = 0
+  local full = f.annex_lost or tick - (f.annex_full_scan_at or -1000000) >= Stock.SCAN_FULL or not f.annex_reject
+  if not full and surface.count_entities_filtered
+    and surface.count_entities_filtered({ area = area, type = "container", force = f.force }) == f.annex_zone_n then
+    return 0
+  end
+  if full then f.annex_full_scan_at, f.annex_lost, f.annex_reject = tick, nil, {} end
+  local reject = f.annex_reject
+  local found = surface.find_entities_filtered({ area = area, type = "container", force = f.force })
+  f.annex_zone_n = #found
+  local cands = {}
   for _, e in ipairs(found) do
     local u = e.valid and e.unit_number
-    if u and not listed[u] and e ~= f.hq and rank_of(e.name) and not State.owner(u)
-      and not (Stock.reserved and Stock.reserved(f, e.name, e.position)) and not on_a_line(surface, e) then
+    if u and not listed[u] and not reject[u] and e ~= f.hq then cands[#cands + 1] = e end
+  end
+  table.sort(cands, function(a, b) return a.unit_number < b.unit_number end)
+  local n = 0
+  for _, e in ipairs(cands) do
+    local u = e.unit_number
+    if not (rank_of(e.name) and not State.owner(u) and not (Stock.reserved and Stock.reserved(f, e.name, e.position))
+      and not on_a_line(surface, e)) then
+      reject[u] = true
+    else
       f.annex = f.annex or {}
       f.annex[#f.annex + 1] = e
       listed[u] = true
@@ -518,7 +569,9 @@ function Stock.grow(f, surface, tick)
   if size <= 0 then return false end
   -- Lot STOCKAGE (essai 3) : le registre se répare : à chaque pensée où le stock demande de la place (60 % ou un refus), et toutes les 5 min
   -- sinon, les coffres de la zone absents du registre sont retrouvés (Stock.scan) ; les objets en attente y entrent aussitôt.
-  if A.fill(used, size) >= T.annex.early_at or waiting > 0 or f.refused_at or tick - (f.annex_scan_at or -1000000) >= 5 * 3600 then
+  -- (lot STOCKAGE, coût, 7/11 : chaque relevé commence par un compte des coffres de la zone, Stock.scan ; une annexe disparue en lance un.)
+  if A.fill(used, size) >= T.annex.early_at or waiting > 0 or f.refused_at or f.annex_lost
+    or tick - (f.annex_scan_at or -1000000) >= 5 * 3600 then
     f.annex_scan_at = tick
     if Stock.scan(f, surface, tick) > 0 then
       waiting = Stock.flush(f)
