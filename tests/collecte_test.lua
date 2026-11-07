@@ -38,6 +38,8 @@ local function checks(C)
   check(C.safe({ loss = true }, 100000) == false, "perte récente alentour : pas sûr")
   check(C.safe({ lethal_tick = 100000 - C.LETHAL_TICKS + 1 }, 100000) == false, "avant-poste meurtrier : pas sûr")
   check(C.safe({ lethal_tick = 100000 - C.LETHAL_TICKS }, 100000) == true, "meurtrier depuis 10 min pile : sûr")
+  check(C.refusal({ enemy = true, loss = true }, 0) == "ennemi" and C.refusal({ loss = true }, 0) == "perte"
+    and C.refusal({ lethal_tick = 99999 }, 100000) == "meurtrier" and C.refusal({}, 0) == nil, "cause du refus : ennemi, perte, meurtrier, aucune")
   check(C.LETHAL_TICKS == T.lethal_ticks, "la copie de T.lethal_ticks suit les données")
 
   -- §3 choix : le plus proche d'abord, jamais un coffre dangereux, borné, arrêt quand le manque est couvert
@@ -105,6 +107,7 @@ local MUTANTS = {
   { "short-floor-le", function(C) C.shortfall = function(s) if (s.n or 0) > (s.floor or 0) then return 0 end local d = (s.reserve or 0) + (s.missing or 0) - (s.free or 0); return d > 0 and d or 0 end end },
   { "safe-enemy-ignored", function(C) C.safe = function(c, now) if c.loss then return false end return not (c.lethal_tick ~= nil and now - c.lethal_tick < C.LETHAL_TICKS) end end },
   { "safe-loss-ignored", function(C) C.safe = function(c, now) if c.enemy then return false end return not (c.lethal_tick ~= nil and now - c.lethal_tick < C.LETHAL_TICKS) end end },
+  { "refusal-wrong-cause", function(C) C.refusal = function(c, now) if c.enemy or c.loss then return "perte" end if c.lethal_tick ~= nil and now - c.lethal_tick < C.LETHAL_TICKS then return "meurtrier" end return nil end end },
   { "safe-lethal-ignored", function(C) C.safe = function(c) return not (c.enemy or c.loss) end end },
   { "safe-lethal-forever", function(C) C.safe = function(c) return not (c.enemy or c.loss or c.lethal_tick ~= nil) end end },
   { "pick-farthest-first", function(C) wrap(C, function(c) return copy(c, { d2 = -c.d2 }) end) end },

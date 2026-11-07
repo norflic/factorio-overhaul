@@ -15,7 +15,7 @@
   minage et le travail de fond, derrière la défense du QG), au plus C.MAX_TASKS à la fois, et seulement jusqu'à couvrir le manque.
 
     C.shortfall(s)   -> plaques qui manquent (0 : la règle dort).
-    C.safe(c, now)   -> le coffre est-il sûr ?
+    C.refusal(c, now) / C.safe(c, now) -> cause du refus, ou le coffre est-il sûr ?
     C.pick(cands, short) -> clés des coffres à collecter en urgence, le plus proche d'abord.
 ]]
 local C = {}
@@ -37,13 +37,17 @@ function C.shortfall(s)
   return short > 0 and short or 0
 end
 
---- Coffre sûr ? c = { lethal_tick (tick de la dernière mort d'un PNJ à cet avant-poste), enemy (nid ou ver à C.DANGER_RADIUS), loss
+--- Cause du refus d'un coffre (« ennemi » : un ennemi à C.DANGER_RADIUS tuiles DU COFFRE, quel que soit l'état du projet ailleurs ; « perte » ;
+--- « meurtrier »), nil si sûr. c = { lethal_tick (tick de la dernière mort d'un PNJ à cet avant-poste), enemy (nid ou ver à C.DANGER_RADIUS), loss
 --- (perte récente de l'équipe alentour : calculée par l'appelant avec C.LOSS_RADIUS et C.LOSS_TICKS) }.
-function C.safe(c, now)
-  if c.enemy or c.loss then return false end
-  if c.lethal_tick ~= nil and now - c.lethal_tick < C.LETHAL_TICKS then return false end
-  return true
+function C.refusal(c, now)
+  if c.enemy then return "ennemi" end
+  if c.loss then return "perte" end
+  if c.lethal_tick ~= nil and now - c.lethal_tick < C.LETHAL_TICKS then return "meurtrier" end
+  return nil
 end
+
+function C.safe(c, now) return C.refusal(c, now) == nil end
 
 --- Coffres à collecter en urgence. cands = { { key, d2 (distance au carré au QG), n (plaques du coffre), at (seuil de collecte), enemy,
 --- loss, lethal_tick }, ... } ; short = C.shortfall. Rend la liste des clés, le plus proche d'abord (puis clé croissante), au plus
