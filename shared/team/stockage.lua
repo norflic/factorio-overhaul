@@ -58,21 +58,4 @@ function Sg.urgent(fill, have_chest, cfg)
   return (fill or 0) >= cfg.urgent_at and not have_chest
 end
 
---- Rappel pour le coffre urgent (moteur réel, micro-banc stockage-plein v2 du 7/11 : la tâche à 90 restait au tableau 70 s, « inactifs
---- 0/4 », comme chez le DC, « 0 PNJ libre(s), 16 tache(s) libre(s) »). npcs = { { id, busy, prio, exempt, d2 }, ... } ; rend nil si un
---- PNJ est libre (il prendra la tâche) ; sinon l'identifiant du PNJ le plus proche du QG (d2) dont la tâche n'est pas exemptée
---- (défense, coffre urgent) et passe sous urgent_prio ; à distance égale, le plus petit identifiant ; nil si aucun.
-function Sg.recall_pick(npcs, urgent_prio)
-  local best
-  for _, n in ipairs(npcs or {}) do
-    if not n.busy then return nil end
-  end
-  for _, n in ipairs(npcs or {}) do
-    if not n.exempt and (n.prio or 0) < urgent_prio then
-      if not best or n.d2 < best.d2 or (n.d2 == best.d2 and n.id < best.id) then best = n end
-    end
-  end
-  return best and best.id or nil
-end
-
 return Sg

@@ -44,17 +44,6 @@ local function suite(Sg)
   c("coffre urgent a 85 % sans coffre en main", Sg.urgent(0.85, false, CFG) == true)
   c("pas d'urgence a 84 %", Sg.urgent(0.84, false, CFG) == false)
   c("pas d'urgence avec un coffre en main", Sg.urgent(0.95, true, CFG) == false)
-  -- rappel pour le coffre urgent (micro-banc v2 du 7/11 : « inactifs 0/4 », tâche à 90 jamais prise en 70 s)
-  local P = { { id = 3, busy = true, prio = 50, d2 = 900 }, { id = 1, busy = true, prio = 60, d2 = 100 },
-    { id = 2, busy = true, prio = 95, d2 = 4 }, { id = 4, busy = true, prio = 20, d2 = 1, exempt = true } }
-  c("rappel : le plus proche sous 90 et non exempte (1)", Sg.recall_pick(P, 90) == 1, tostring(Sg.recall_pick(P, 90)))
-  local P2 = { { id = 3, busy = true, prio = 50, d2 = 900 }, { id = 1, busy = false, d2 = 100 } }
-  c("rappel : un PNJ libre -> personne", Sg.recall_pick(P2, 90) == nil)
-  c("rappel : tous en urgence ou exemptes -> personne", Sg.recall_pick({ { id = 2, busy = true, prio = 95, d2 = 4 },
-    { id = 4, busy = true, prio = 20, d2 = 1, exempt = true } }, 90) == nil)
-  c("rappel : a distance egale, le plus petit identifiant", Sg.recall_pick({ { id = 7, busy = true, prio = 10, d2 = 25 },
-    { id = 5, busy = true, prio = 10, d2 = 25 } }, 90) == 5)
-  c("rappel : une tache a 90 pile n'est pas interrompue", Sg.recall_pick({ { id = 1, busy = true, prio = 90, d2 = 1 } }, 90) == nil)
   -- valeurs par défaut quand la configuration manque
   c("defauts : reserve 15 %", Sg.reserve_slots(100) == 15)
   return res
@@ -83,10 +72,6 @@ do
   check("cablage : depot refuse au journal, au plus une ligne par Stock.REFUSED_LOG", sk:find("tick - f.refused_log >= Stock.REFUSED_LOG", 1, true) ~= nil
     and sk:find("depot refuse", 1, true) ~= nil)
   local pl = read("script/team/poles.lua")
-  check("cablage : rappel d'un PNJ pour le coffre urgent (poles -> worker)", pl:find("local id, kind, d = Poles.stock_recall(f, tick, Fond.URGENT_PRIO)", 1, true) ~= nil
-    and pl:find("tick - (f.stock_recall_at or -math.huge) >= Poles.STOCK_RECALL", 1, true) ~= nil
-    and wk:find("Poles.stock_recall = function(f, tick, urgent_prio)", 1, true) ~= nil and wk:find("local id = Sg.recall_pick(list, urgent_prio)", 1, true) ~= nil
-    and wk:find('abort(a, f, tick, "stock")', 1, true) ~= nil)
   check("cablage D3 : le fond recoit les coffres BRUTS voulus et la demande du plan directeur", pl:find("annex_want = Stock.wanted(f, true)", 1, true) ~= nil
     and select(2, pl:gsub("annex_demand = Stock.annex_demand%(f%)", "")) == 2 and sk:find("gross and 0 or have", 1, true) ~= nil)
   check("cablage : coffre urgent ajoute au tableau hors du fond, raison au journal", pl:find("local urgent_on = stock_urgent(f, view, free, book, keys, tick)", 1, true) ~= nil
@@ -257,11 +242,6 @@ local MUT = {
   { "vitale jamais protegee au ramassage", "  if not set or (vital and vital[item]) then return false end", "  if not set then return false end" },
   { "urgence malgre un coffre en main", "  return (fill or 0) >= cfg.urgent_at and not have_chest", "  return (fill or 0) >= cfg.urgent_at" },
   { "urgence trop tard", "  return (fill or 0) >= cfg.urgent_at and not have_chest", "  return (fill or 0) > cfg.urgent_at and not have_chest" },
-  { "rappel malgre un PNJ libre", "    if not n.busy then return nil end", "" },
-  { "rappel d'une defense", "    if not n.exempt and (n.prio or 0) < urgent_prio then", "    if (n.prio or 0) < urgent_prio then" },
-  { "rappel d'une urgence", "    if not n.exempt and (n.prio or 0) < urgent_prio then", "    if not n.exempt then" },
-  { "rappel du plus loin", "      if not best or n.d2 < best.d2 or", "      if not best or n.d2 > best.d2 or" },
-  { "rappel : egalite par le plus grand", "(n.d2 == best.d2 and n.id < best.id)", "(n.d2 == best.d2 and n.id > best.id)" },
 }
 local refused, kept = 0, {}
 for _, m in ipairs(MUT) do
