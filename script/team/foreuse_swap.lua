@@ -212,6 +212,14 @@ local function survey_step(f, surface, pass, budget)
   return used, true
 end
 
+--- Relecture indépendante (revue-0657, 7/11, BLOQUANT) : case ACTUELLE de `e` dans `list`, par identité ; jamais l'index du relevé. Entre
+--- deux tranches, d'autres modules réécrivent la liste (migration_champ.lua retire : listes refaites ; adopte.lua : table.remove) ; écrire à
+--- l'index du relevé écrasait une AUTRE foreuse, ou laissait un trou que ipairs (compact) arrête. nil si `e` n'y est plus.
+local function slot_of(list, e)
+  for i, x in ipairs(list or {}) do if x == e then return i end end
+  return nil
+end
+
 --- Repose l'ancienne foreuse (l'electrique n'a pas pu etre posee). Revue du lead (7/11, (2)) : place verifiee d'abord (F70 : create_entity
 --- pose par-dessus sans verifier) ; nil si elle ne se repose pas (l'appelant rend l'objet et le combustible au stock).
 local function place_back(f, surface, d_pos, dir, fuel, o, index)
@@ -230,6 +238,12 @@ end
 local function swap_one(f, surface, ref, cx, cy, tick, prep, ndir)
   local d, o = ref.drill, ref.o
   if not d.valid then return false end
+  local st0 = f.swap
+  if not slot_of(o.drill_list, d) then -- (revue-0657 : la foreuse a quitté la liste depuis le relevé : plan périmé, rien n'est remplacé)
+    st0.why = st0.why or {}
+    st0.why["plan perime"] = (st0.why["plan perime"] or 0) + 1
+    return false
+  end
   local pos = { x = d.position.x, y = d.position.y }
   local dir = d.direction
   -- lot FOREUSES-THERMIQUES : direction de l'electrique (placement choisi par S.plan, peut-etre sur un autre cote du recepteur)
@@ -288,6 +302,13 @@ local function swap_one(f, surface, ref, cx, cy, tick, prep, ndir)
   if Stock.remove(f, item, 1) < 1 then return false end
   local inv = d.get_fuel_inventory()
   local fuel = inv and inv.get_item_count(T.fuel) or 0
+  local idx = slot_of(o.drill_list, d) -- (revue-0657 : relue après prep, juste avant le retrait)
+  if not idx then
+    Stock.insert(f, item, 1)
+    st0.why = st0.why or {}
+    st0.why["plan perime"] = (st0.why["plan perime"] or 0) + 1
+    return false
+  end
   State.disown(d.unit_number)
   d.destroy()
   -- L'ouvrier degage la place (arbres, rochers) comme a la pose de l'avant-poste.
@@ -304,7 +325,7 @@ local function swap_one(f, surface, ref, cx, cy, tick, prep, ndir)
     if new and not new.valid then new = nil end
   end
   if not new then
-    if not place_back(f, surface, pos, dir, fuel, o, ref.index) then
+    if not place_back(f, surface, pos, dir, fuel, o, idx) then
       Stock.insert(f, T.DRILL, 1)
       if fuel > 0 then Stock.insert(f, T.fuel, fuel) end
     end
@@ -314,7 +335,7 @@ local function swap_one(f, surface, ref, cx, cy, tick, prep, ndir)
     return false
   end
   State.own(new, f.id, "drill", o.id)
-  o.drill_list[ref.index] = new
+  o.drill_list[idx] = new
   Stock.insert(f, T.DRILL, 1)
   if fuel > 0 then Stock.insert(f, T.fuel, fuel) end
   st.done = (st.done or 0) + 1

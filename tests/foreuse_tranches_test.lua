@@ -60,6 +60,50 @@ local function suite(text)
   else
     c("tranches de 5 unites jouees", false)
   end
+  -- Relecture indépendante (revue-0657, 7/11, BLOQUANT) : la liste de l'avant-poste est RÉÉCRITE entre la tranche du plan et celle de
+  -- l'exécution (adopte.lua : table.remove ; migration_champ : listes refaites). L'exécution retrouve la case par identité : aucune autre
+  -- foreuse écrasée, aucun trou (compact, par ipairs, perdrait tout ce qui suit un trou).
+  local okD, D = pcall(fresh, text, true, 5)
+  if not okD then
+    c("liste reecrite entre deux tranches : module charge", false, tostring(D))
+  else
+    local removed, before, oid
+    D.hook = function(Q)
+      local p = Q.f.swap and Q.f.swap.pass
+      if removed == nil and p and p.phase == "remplacer" and p.k == 1 and p.out and p.out[1] then
+        local target = p.out[1].id
+        oid = p.refs[target] and p.refs[target].oid
+        local o = oid and Q.f.outposts[oid]
+        if not o then return end
+        local tpos
+        for i, d in ipairs(o.drill_list) do if d.valid and d.unit_number == target then tpos = i end end
+        for i = 1, (tpos or 1) - 1 do
+          if o.drill_list[i].valid then removed = table.remove(o.drill_list, i) break end -- (une foreuse AVANT la cible quitte la liste)
+        end
+        before = {}
+        for _, d in ipairs(o.drill_list) do if d.valid and d.unit_number ~= target then before[#before + 1] = d end end
+      end
+    end
+    local okp, perr = pcall(play, D, 1)
+    local o = oid and D.f.outposts[oid]
+    local hole, lost = false, 0
+    if o then
+      local maxk = 0
+      for k in pairs(o.drill_list) do if type(k) == "number" and k > maxk then maxk = k end end
+      for i = 1, maxk do if o.drill_list[i] == nil then hole = true end end
+      for _, d in ipairs(before or {}) do
+        if d.valid then
+          local seen = false
+          for _, x in ipairs(o.drill_list) do if x == d then seen = true break end end
+          if not seen then lost = lost + 1 end
+        end
+      end
+    end
+    c("liste reecrite entre deux tranches : une foreuse retiree de la liste avant l'execution (le cas a eu lieu)", okp and removed ~= nil and o ~= nil,
+      okp and tostring(removed) or tostring(perr))
+    c("liste reecrite entre deux tranches : aucune autre foreuse ecrasee ni perdue, aucun trou", okp and not hole and lost == 0,
+      string.format("trou %s, perdues %d", tostring(hole), lost))
+  end
   return res
 end
 
@@ -92,6 +136,7 @@ local MUT = {
   { "refus du plan dates au tick courant", "    if ref then st.retry[ref.key] = t0 + Swap.RETRY end", "    if ref then st.retry[ref.key] = game.tick + Swap.RETRY end" },
   { "releve qui lit le tick courant", "          if not (retry[key] and pass.t0 < retry[key]) then", "          if not (retry[key] and game.tick < retry[key]) then" },
   { "suite de la passe jamais programmee", "    if used >= budget then" .. CR .. "      Scheduler.after(1, Swap.TIMER, { fid = f.id })", "    if used >= budget then" .. CR .. "      do end" },
+  { "index du releve reutilise a l'execution (revue-0657)", "  o.drill_list[idx] = new", "  o.drill_list[ref.index] = new" },
   { "minuterie qui abandonne la passe", "  run_pass(f, f.hq.surface, book, pass)" .. CR .. "  Profiler.fstop(", "  f.swap.pass = nil" .. CR .. "  Profiler.fstop(" },
 }
 local refused, kept = 0, {}
