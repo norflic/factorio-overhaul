@@ -1,0 +1,106 @@
+{
+ "icones": {
+  "fo-crystal-laser": {
+   "age": 10,
+   "fichier": "fo-crystal-laser.png",
+   "hauteur": 64,
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "largeur": 120,
+   "sha256": "2bc6b60606cceb06d523a87ad3af2c56a525d41d75cb927de7670153bbee34d2",
+   "type": "item"
+  },
+  "fo-degassed-ilmenite": {
+   "age": 13,
+   "fichier": "fo-degassed-ilmenite.png",
+   "hauteur": 64,
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "largeur": 120,
+   "sha256": "c1bf8f691e65d835ed9be30d4c6189d509fdb9378ae751f30ab93ab9a891e0de",
+   "type": "item"
+  },
+  "fo-dram-die": {
+   "age": 10,
+   "fichier": "fo-dram-die.png",
+   "hauteur": 64,
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "largeur": 120,
+   "sha256": "1d748f0b7e0d1d9e4ca6f9587e4edb4882390d6fb62a98a952b2456d273fc4ad",
+   "type": "item"
+  },
+  "fo-etched-wafer": {
+   "age": 10,
+   "fichier": "fo-etched-wafer.png",
+   "hauteur": 64,
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "largeur": 120,
+   "sha256": "fb7bf5d53fb0faa6272d65bf2dea4585d4123d92a6b766b648998cf238afd5d2",
+   "type": "item"
+  },
+  "fo-heat-sink": {
+   "age": 10,
+   "fichier": "fo-heat-sink.png",
+   "hauteur": 64,
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "largeur": 120,
+   "sha256": "e252629323f6f10b8147f3b375a27a958eb815c085d5024f53a06b863933d20e",
+   "type": "item"
+  },
+  "fo-helium-3": {
+   "age": 13,
+   "fichier": "fo-helium-3.png",
+   "hauteur": 64,
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "largeur": 120,
+   "sha256": "6e945165a686031cb6ac885459f05c62c5fe0dc5debfae068b6069a4715eb0f1",
+   "type": "fluid"
+  },
+  "fo-logic-die": {
+   "age": 10,
+   "fichier": "fo-logic-die.png",
+   "hauteur": 64,
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "largeur": 120,
+   "sha256": "b8bf4e68cac114bc04ae4a416b0132caa2daaf82926f84811f79c950cf94337f",
+   "type": "item"
+  },
+  "fo-photomask": {
+   "age": 10,
+   "fichier": "fo-photomask.png",
+   "hauteur": 64,
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "largeur": 120,
+   "sha256": "66de5748f71ebfde0dd54f07e5afa103bfb93df66a2b6f008f0e4133c79bf7ca",
+   "type": "item"
+  },
+  "fo-photoresist": {
+   "age": 10,
+   "fichier": "fo-photoresist.png",
+   "hauteur": 64,
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "largeur": 120,
+   "sha256": "24568d53cc90d0edc5857d99d1b397e25eee4ceb05d5c1906c526d868cc4f637",
+   "type": "fluid"
+  },
+  "fo-sram-die": {
+   "age": 10,
+   "fichier": "fo-sram-die.png",
+   "hauteur": 64,
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "largeur": 120,
+   "sha256": "dfa8e5a2d7e67c200be61dd563ccbe6be03749cf2bd2ea6fe4da1f93917c2790",
+   "type": "item"
+  }
+ },
+ "outil": "tools/render/pieces/calcul/icones_composants.py",
+ "version": 1
+}
