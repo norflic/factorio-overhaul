@@ -45,6 +45,7 @@ local Ra = require("script.team.reserve_amorcage") -- lot FOREUSES-THERMIQUES : 
 local Sw = require("shared.team.foreuse_swap") -- (Sw.reserve_keepers : les K gardées d'un retrait de masse)
 local PileRt = require("script.team.pile") -- lot THERMIQUE5 : porte de la pile pour le départ d'une bande neuve pendant une retenue
 
+local Profiler = require("script.core.profiler") -- lot X10-S0 : portees fines (mesure seulement)
 local Mig = {}
 
 local CFG = Mg.CFG
@@ -1608,12 +1609,17 @@ function Mig.think(f, surface, book, free, tick, hold)
   ms.next = tick + CFG.every
   if tick >= (ms.report_next or 0) then -- lot CHAMP : état des bandes du champ au journal ([FO-CHAMP-ETAT])
     ms.report_next = tick + Champ.REPORT_EVERY
+    Profiler.fstart("mig:rapport") -- lot X10-S0 : mesure seulement
     Champ.report(f, surface, tick)
+    Profiler.fstop("mig:rapport")
   end
+  Profiler.fstart("mig:melange")
   Melange.pass(f, surface, tick) -- (sa propre horloge : Melange.EVERY)
+  Profiler.fstop("mig:melange")
   local item = T.DRILL_ELECTRIC
   if not game.entity_prototypes[item] then return 0 end
   local did = 0
+  Profiler.fstart("mig:creneaux")
   for _, slot in ipairs(SLOTS) do
     local id = ms[slot]
     if id then
@@ -1640,8 +1646,11 @@ function Mig.think(f, surface, book, free, tick, hold)
       end
     end
   end
+  Profiler.fstop("mig:creneaux")
   -- lot THERMIQUE : balayage des paires thermiques des gisements couverts (une fois par minute) ; lot THERMIQUE5 : aussi pendant une retenue
+  Profiler.fstart("mig:balayage")
   if free and Th.pile_permits("balayer", hold) and sweep(f, surface, ms, free, book, tick) > 0 then did = 1 end
+  Profiler.fstop("mig:balayage")
   -- un créneau libre : trois au plus, un seul par minerai (lot THERMIQUE ; lot CHAMP : deux), la migration du treillis (sans cadre) seule
   local busy = { total = 0, ids = {} }
   for _, slot in ipairs(SLOTS) do
@@ -1656,7 +1665,9 @@ function Mig.think(f, surface, book, free, tick, hold)
   if busy.total >= Th.CFG.slots then return did end
   local have = math.min(Stock.count(f, item), free and free[item] or 0)
   local obtainable = have > 0 or book:handcraftable(item)
+  Profiler.fstart("mig:depart")
   local started = start_next(f, surface, ms, free or {}, obtainable, tick, busy, book, hold)
+  Profiler.fstop("mig:depart")
   return (started or did == 1) and 1 or 0
 end
 

@@ -446,8 +446,11 @@ local function scan(f, cs, tick)
   local surface = f.hq.surface
   local hq = f.hq_pos
   local scan_r = scan_radius(f)
+  Profiler.fstart("scan:find") -- lot X10-S0 : mesure seulement
   local found = surface.find_entities_filtered({ area = { { hq.x - scan_r, hq.y - scan_r },
     { hq.x + scan_r, hq.y + scan_r } }, force = f.force, type = SCAN_TYPES })
+  Profiler.fstop("scan:find")
+  Profiler.fstart("scan:liste")
   local seen = {}
   local list = {}
   for _, e in ipairs(found) do
@@ -460,6 +463,8 @@ local function scan(f, cs, tick)
     end
   end
   table.sort(list, function(a, b) return a.unit_number < b.unit_number end)
+  Profiler.fstop("scan:liste")
+  Profiler.fstart("scan:types")
   local machines, drills, labs = {}, {}, {}
   local mk, dk, lk = {}, {}, {}
   local drill_pos = {}
@@ -537,6 +542,7 @@ local function scan(f, cs, tick)
       end
     end
   end
+  Profiler.fstop("scan:types")
   -- Lot VIDEO-L5 : un pas de la confirmation (toutes les unités suivies vues : une absente est perdue), unités confirmées de chaque
   -- groupe (n_cap), objets dont une décision attend (hold, lu par la décision : build_input) ; nil sans confirmation (comme avant).
   local hold = nil
@@ -559,6 +565,7 @@ local function scan(f, cs, tick)
     end
   end
   cs.scan = { tick = tick, machines = machines, drills = drills, labs = labs, drill_pos = drill_pos, hold = hold }
+  Profiler.fstart("scan:graines")
   -- Graines de gisements : avant-postes, foreuses, gisements connus (carte d'IA3-f), sites prospectés, lots de gisement
   -- du plan directeur. Une graine déjà dans un gisement recensé n'est pas relue (sauf à l'échéance du recensement).
   local seeds = {}
@@ -600,6 +607,7 @@ local function scan(f, cs, tick)
     return a.y < c.y
   end)
   cs.seeds = seeds
+  Profiler.fstop("scan:graines")
   -- graines oubliées après deux échéances du recensement
   for _, k in ipairs(sorted_keys(cs.seed_seen or {})) do
     if tick - cs.seed_seen[k] >= 2 * Capi.CENSUS_EVERY then cs.seed_seen[k] = nil end
@@ -628,10 +636,12 @@ local function coverage(f, cs)
   for _, id in ipairs(sorted_keys(by_dep)) do
     local d = cs.deps[id]
     if d then
+      Profiler.fstart("cov:find") -- lot X10-S0 : mesure seulement
       local idx = {}
       for _, e in ipairs(surface.find_entities_filtered({ area = { { d.x0, d.y0 }, { d.x1, d.y1 } }, name = d.resource })) do
         idx[tkey(math.floor(e.position.x), math.floor(e.position.y))] = true
       end
+      Profiler.fstop("cov:find")
       local seen, n = {}, 0
       for _, dp in ipairs(by_dep[id]) do
         local r = dp.r

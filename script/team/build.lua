@@ -3988,6 +3988,7 @@ local function quai_tasks(f, p, surface, out)
   -- lot CHARBON-CENTRALE : le coffre d'une centrale se remplit en URGENCE dès qu'il passe sous un seuil d'avance (consommation à pleine
   -- charge des chaudières × Cc.LEAD_S), jamais seulement au-dessous de Build.QUAI_LOW à la priorité du projet (63 : coffre oublié, centrale
   -- de scarlet à sec 8 fois dans la partie du DC en 0.6.18)
+  Profiler.fcount("e2:coffres", #p.quais + #p.outs) -- lot X10-S0 : coffres relus par pensée (mesure seulement, détail)
   local rate
   if is_plant_project(p) then
     local _, kw = plant_burn_kw(p)
@@ -4502,6 +4503,11 @@ local function charbon_step(f, tick)
   end
 end
 
+-- Lot X10-S0 : noms des portées fines de la passe par état du projet (constantes : aucune chaîne fabriquée par passe). Champ du
+-- module, pas une locale : la fonction principale de ce fichier est à 199 locales sur 200 (relecture de revue-s, 8/11).
+Build.BP_STATE_SCOPE = { attente = "bp:p-attente", plan = "bp:p-plan", reserve = "bp:p-reserve", defrichage = "bp:p-defrichage",
+  fantomes = "bp:p-fantomes", chantier = "bp:p-chantier", raccordement = "bp:p-raccordement" }
+
 local function pulse_team(f, tick)
   local b = f.build
   local surface = surface_of(f)
@@ -4525,6 +4531,7 @@ local function pulse_team(f, tick)
     local p = b.projects[pid]
     -- projet bloqué : il a rendu ses PNJ ; il reprend son chantier à l'heure dite (échecs remis à zéro)
     if p and p.state == "bloque" and p.retry_at and tick >= p.retry_at then
+      Profiler.fstart("bp:reprise") -- lot X10-S0 : portée fine (mesure seulement)
       p.retry_at = nil
       local freed, back, moved = free_own_turrets(f, surface, p) -- lot FACTIONS-BLOQUEES (TOURELLES-HORS-AXE : déplacées d'abord)
       if freed > 0 then
@@ -4534,10 +4541,14 @@ local function pulse_team(f, tick)
       for _, e in ipairs(p.ents) do if not e.built then e.fails, e.npc_blocks = 0, 0 end end
       p.state, p.reason = "chantier", nil
       log(string.format("[FO-IA1D] %s : projet %d reprend son chantier a %.1f min", f.key or "player", p.id, tick / 3600))
+      Profiler.fstop("bp:reprise")
     end
     if p and p.state ~= "fini" and p.state ~= "refuse" and p.state ~= "bloque" then
       local was = p.state
+      local scope = Build.BP_STATE_SCOPE[was] or "bp:p-autre" -- lot X10-S0 : temps de la passe par état du projet (mesure seulement)
+      Profiler.fstart(scope)
       advance(f, surface, p, tick)
+      Profiler.fstop(scope)
       if was == "plan" and p.state ~= "plan" then break end
     end
   end
@@ -4915,34 +4926,47 @@ function Build.think(f, surface, tick)
     if not free_cache then free_cache = free_stock(f) end
     return free_cache
   end
+  -- Lot X10-S0 : portées fines de la pensée E2 (mesure seulement ; mêmes appels, même ordre)
   for _, pid in ipairs(b.order) do
     local p = b.projects[pid]
     if p then
-      if p.state == "defrichage" then clear_tasks(f, p, tasks)
+      if p.state == "defrichage" then
+        Profiler.fstart("e2:batch")
+        clear_tasks(f, p, tasks)
+        Profiler.fstop("e2:batch")
       elseif p.state == "chantier" or (p.state == "fantomes" and b.opts.ghosts_ahead) then
+        Profiler.fstart("e2:batch")
         if #p.obstacles > 0 then
           local open = false
           for _, o in ipairs(p.obstacles) do if not o.done then open = true break end end
           if open then clear_tasks(f, p, tasks) end
         end
         batch_tasks(f, p, tasks, free_of)
+        Profiler.fstop("e2:batch")
       end
       -- lot CHARBON-CENTRALE (relecture) : une centrale ROUVERTE (pièce détruite : reserve, defrichage, fantomes, raccordement, bloque)
       -- garde ses chaudières debout qui brûlent : son coffre se remplit aussi (avant : seulement fini ou chantier, coffre oublié pendant
       -- toute la reconstruction) ; quai_tasks ne fait rien sans le coffre réel de l'équipe
       if p.state == "fini" or p.state == "chantier" or (p.reopened and p.state ~= "refuse" and is_plant_project(p)) then
+        Profiler.fstart("e2:quai")
         quai_tasks(f, p, surface, tasks)
+        Profiler.fstop("e2:quai")
       elseif Build.Colr.collects_outs(p.state, #p.outs) then
         out_tasks(f, p, surface, tasks) -- lot COLLECTE : les coffres de sortie d'une bande en réserve ou refusée sont vidés aussi
       end
     end
   end
+  Profiler.fstart("e2:rues")
   street_clear_tasks(f, tasks)
+  Profiler.fstop("e2:rues")
+  Profiler.fstart("e2:board")
   if b.opts.seul then
     Board.drop_free(f, function(t) return t.ia1d ~= nil end)
   end
   Collecte.apply(f, surface, b, tasks, tick) -- lot COLLECTE : fer libre sous le besoin et équipe sous son effectif
   if #tasks > 0 then Board.add(f, tasks, tick) end
+  Profiler.fstop("e2:board")
+  Profiler.fstart("e2:conv")
   -- Lot FUITES-PILE : amélioration des tapis (R3, ses tapis pris au stock) suspendue pendant une retenue de la pile
   local conv_ok, conv_why = PileRt.porte(f, "upgrade", nil)
   if conv_ok then
@@ -4950,7 +4974,11 @@ function Build.think(f, surface, tick)
   else
     PileRt.refuse(f, "convoyeurs", "amelioration des tapis suspendue (" .. tostring(conv_why) .. ")", tick)
   end
+  Profiler.fstop("e2:conv")
+  Profiler.fstart("e2:ligne")
   Build.ligne_step(f, surface, tick) -- lot FONDERIE-DYNAMIQUE : la ligne de fours suit ses foreuses (relevé borné)
+  Profiler.fstop("e2:ligne")
+  Profiler.fstart("e2:espace")
   -- tronçons encombrés : réévalués (défrichés par les PNJ)
   for _, key in ipairs(sorted_keys(b.segs)) do
     local s = b.segs[key]
@@ -4969,6 +4997,7 @@ function Build.think(f, surface, tick)
       revived = st.revived, cleared = st.cleared, ghosts = st.ghosts }
     if #st.minutes > 240 then table.remove(st.minutes, 1) end
   end
+  Profiler.fstop("e2:espace")
 end
 
 --- Un tronçon de rue défriché par un PNJ : réévalué à la pensée suivante.

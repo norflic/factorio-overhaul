@@ -844,20 +844,23 @@ local function run_pass(f, surface, book, pass)
       Scheduler.after(1, Swap.TIMER, { fid = f.id })
       return 0
     end
+    -- lot X10-S0 : portées fines des quatre phases (mesure seulement ; mêmes noms qu'avant les tranches)
     if pass.phase == "releve" then
+      Profiler.fstart("foswap:releve")
       local c, fin = survey_step(f, surface, pass, budget - used)
+      Profiler.fstop("foswap:releve")
       cost = c
       if fin then pass.phase = "plan" end
     elseif pass.phase == "plan" then
-      cost = plan_step(f, surface, book, pass)
+      cost = Profiler.fwrap("foswap:plan", plan_step, f, surface, book, pass)
     elseif pass.phase == "remplacer" then
-      cost = exec_step(f, surface, pass)
+      cost = Profiler.fwrap("foswap:poses", exec_step, f, surface, pass)
     else
       done = true
     end
     if done then
       f.swap.pass = nil
-      return finish_step(f, book, pass)
+      return Profiler.fwrap("foswap:fab", finish_step, f, book, pass)
     end
     used = used + cost
     if used >= budget then

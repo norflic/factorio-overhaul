@@ -25,6 +25,7 @@ local Plan = require("shared.team.plan") -- lot STOCKAGE-VITAL (a) : clé de tui
 local PlacesQG = require("script.ai3.places_qg")
 local Br = require("shared.ai3.bras")
 local Ad = require("shared.team.adopte")
+local Profiler = require("script.core.profiler") -- lot X10-S0 : compteurs d'appels (mode detail du profileur seulement, mesure)
 local FQ = require("shared.ai3.fonderie_qg") -- lot PD-FONDERIEQG (D77) : fonderie du QG bornée par l'automatisation
 
 -- Entrées de la fonderie du QG, triées (données de shared/team/config.lua), pour FQ.automated.
@@ -37,6 +38,21 @@ do
 end
 
 local Stock = {}
+
+-- Lot X10-S0 (demande de charbonmain pour le lot S1, 7/11) : APPELS AU MOTEUR du stock, comptés AUX SITES D'APPEL (pas à l'entrée des
+-- fonctions : un appel servi plus tard par un mémo ne touchera pas le moteur et ne doit pas compter). count : get_item_count ;
+-- contents : get_inventory et get_contents ; annexes : lectures de .valid. Mesure seulement, jamais lue par une décision : table du
+-- module (jamais dans global), tenue en mode fin du profileur seulement ; en mode détail, aussi écrite en compteurs « #stock:… » à la
+-- fin des lignes [FO-PERF3-T].
+Stock.engine_calls = { count = 0, contents = 0, annexes = 0 }
+local EC_NAME = { count = "stock:count", contents = "stock:contents", annexes = "stock:annexes" }
+local function ec(kind, n)
+  if Profiler.fine() then
+    local t = Stock.engine_calls
+    t[kind] = t[kind] + n
+    Profiler.fcount(EC_NAME[kind], n)
+  end
+end
 
 -- Lot STOCKAGE-VITAL : matières vitales { [objet] = true } (T.stock_vital : fer et charbon des avant-postes).
 local VITAL = {}
@@ -123,6 +139,7 @@ end
 function Stock.annexes(f)
   local a = f.annex
   if not a or #a == 0 then return {} end
+  ec("annexes", #a) -- #a lectures de .valid
   local out = {}
   for _, e in ipairs(a) do
     if e.valid then out[#out + 1] = e end
@@ -135,7 +152,9 @@ local function chest_inv(e) return e.get_inventory(defines.inventory.chest) end
 
 function Stock.count(f, item)
   local n = f.hq.get_item_count(item)
-  for _, e in ipairs(Stock.annexes(f)) do n = n + e.get_item_count(item) end
+  local annex = Stock.annexes(f)
+  ec("count", 1 + #annex)
+  for _, e in ipairs(annex) do n = n + e.get_item_count(item) end
   return n
 end
 
@@ -343,6 +362,7 @@ end
 function Stock.contents(f)
   local c = chest_inv(f.hq).get_contents()
   local annex = Stock.annexes(f)
+  ec("contents", 2 * (1 + #annex)) -- get_inventory et get_contents, du coffre du QG et de chaque annexe
   if #annex == 0 then return c end
   local out = {}
   for k, v in pairs(c) do out[k] = v end
