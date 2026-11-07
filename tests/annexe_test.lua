@@ -200,7 +200,7 @@ do
   local h = team(10)
   h.hq.items.coal = 50 * 10
   h.annex = {}
-  for i = 1, T.annex.max do h.annex[i] = new_chest(0) end
+  for i = 1, Stock.capacity(h) do h.annex[i] = new_chest(0) end
   h.hq.items["iron-chest"] = 1
   check(not Stock.grow(h, surface, 0), "maximum d'annexes atteint : plus de pose")
 end
@@ -233,7 +233,7 @@ do
   h.hq.surface = surface
   h.hq.items.stone = 50 * 10
   h.annex = {}
-  for i = 1, T.annex.max do h.annex[i] = new_chest(0) end
+  for i = 1, Stock.capacity(h) do h.annex[i] = new_chest(0) end
   check(Stock.insert(h, "wooden-chest", 1) == 0 and #made == 1, "plafond d'annexes : le coffre refuse n'est pas pose")
   local g = team(10)
   g.hq.items.stone = 50 * 10 -- sans surface lisible (moteur simulé d'autres bancs) : rien n'est posé, rien ne plante
@@ -504,18 +504,18 @@ do
   check(Stock.skip_fn(g) == nil, "stock a 25 % sans saturee : rien d'ecarte")
 end
 do
-  -- Relecture du 7/11 : stock à 90 %, plafond d'annexes atteint (48 annexes), cuivre demandé -> le cuivre est encore ramassé aux
+  -- Relecture du 7/11 : stock à 90 %, plafond d'annexes atteint (80 annexes, deux faces), cuivre demandé -> le cuivre est encore ramassé aux
   -- avant-postes (plaque) et miné à la main (minerai : boucle de script/team/poles.lua sur Fond.MINE_TARGETS).
   local Fond = require("shared.team.fond")
   local ss = STACK.stone or 50
-  local h = team(52)
+  local h = team(20)
   h.annex = {}
-  for i = 1, 48 do
+  for i = 1, Stock.capacity(h) do -- plafond des deux faces du lot (lot STOCKAGE-VITAL (d)) : 80 annexes d'une case
     local a = new_chest(1)
     a.items.stone = ss
     h.annex[i] = a
   end
-  h.hq.items.coal = (STACK.coal or 50) * 42
+  h.hq.items.coal = (STACK.coal or 50) * 10
   local used, size = Stock.fill(h)
   check(used == 90 and size == 100 and Stock.wanted(h) == 0, "scene : stock a 90 % (" .. used .. "/" .. size .. "), plafond d'annexes atteint")
   local function mined(skip)
@@ -591,6 +591,7 @@ do
   print("== Lot STOCKAGE-VITAL (b) : place du bloc tenue par des objets au sol seulement : degagee, coffre pose, objets dedans")
   local A = require("shared.team.annexe")
   local slots = A.slots(1, 1, 1)
+  local north = A.slots(-1, 1, 1)
   local function tile(p) return math.floor(p.x) .. "," .. math.floor(p.y) end
   local function make_world()
     local W = { ents = {}, spilled = {}, made = {} }
@@ -633,9 +634,11 @@ do
     return f
   end
   local function pos(i) return { x = slots[i][1] + 0.5, y = slots[i][2] + 0.5 } end
+  local function npos(i) return { x = north[i][1] + 0.5, y = north[i][2] + 0.5 } end
   -- toutes les places tenues par un four, sauf la 3e, tenue par 4 plaques et 2 charbons au sol
   local W = make_world()
   for i = 1, #slots do if i ~= 3 then W.block(pos(i), "stone-furnace") end end
+  for i = 1, #north do W.block(npos(i), "stone-furnace") end
   local g1, g2 = W.item(pos(3), "copper-plate", 4), W.item(pos(3), "coal", 2)
   local f = full_team()
   for i = #logs, 1, -1 do logs[i] = nil end
@@ -650,12 +653,14 @@ do
   -- une pile speciale (armure) ou une autre entite sur la place : on n'y touche pas
   local W2 = make_world()
   for i = 1, #slots do if i ~= 3 then W2.block(pos(i), "stone-furnace") end end
+  for i = 1, #north do W2.block(npos(i), "stone-furnace") end
   local arm = W2.item(pos(3), "modular-armor", 1)
   local p2 = W2.item(pos(3), "copper-plate", 4)
   check(not Stock.grow(full_team(), W2.surface, 100) and arm.valid and p2.valid and #W2.made == 0, "pile speciale sur la place : rien n'est touche")
   -- la pose echoue apres le releve : rien n'est perdu (au stock ou de nouveau au sol)
   local W3 = make_world()
   for i = 1, #slots do if i ~= 3 then W3.block(pos(i), "stone-furnace") end end
+  for i = 1, #north do W3.block(npos(i), "stone-furnace") end
   W3.item(pos(3), "copper-plate", 4)
   W3.refuse = true
   local f3 = full_team()
@@ -663,6 +668,35 @@ do
   local back = (f3.hq.items["copper-plate"] or 0)
   for _, s in ipairs(W3.spilled) do if s.name == "copper-plate" then back = back + s.count end end
   check(#W3.made == 0 and back == 4, "pose echouee : les 4 plaques reviennent (stock ou sol), aucune perdue (" .. back .. ")")
+  print("== Lot STOCKAGE-VITAL (d) : la face nord apres la face du bloc ; plafond = places reelles")
+  -- face sud tenue par le DC (coffres hors plan) sauf sa DERNIERE place : la derniere place sud passe avant la face nord
+  local W4 = make_world()
+  for i = 1, #slots - 1 do W4.block(pos(i), "steel-chest") end
+  local f4 = full_team()
+  check(Stock.grow(f4, W4.surface, 100) and W4.made[1] and tile(W4.made[1].position) == tile(pos(#slots)), "sud d'abord : la derniere place sud libre avant le nord")
+  -- face sud entierement tenue, une de nos tourelles sur la 1re place nord : coffre sur la 2e place nord, tourelle intacte
+  local W5 = make_world()
+  for i = 1, #slots do W5.block(pos(i), "steel-chest") end
+  W5.block(npos(1), "gun-turret")
+  local turret = W5.ents[#W5.ents]
+  local f5 = full_team()
+  check(Stock.grow(f5, W5.surface, 100) and W5.made[1] and tile(W5.made[1].position) == tile(npos(2)) and turret.valid,
+    "puis le nord : notre tourelle sautee, jamais retiree, coffre sur la place suivante")
+  -- plafond : 48 places sud tenues par le DC, 32 annexes a nous au nord -> plus aucune place, Stock.wanted = 0 (jamais une place qui n'existe pas)
+  local W6 = make_world()
+  for i = 1, #slots do W6.block(pos(i), "steel-chest") end
+  local f6 = full_team()
+  f6.hq.items["iron-chest"] = nil
+  f6.hq.items.coal = 50 * 10
+  for i = 1, #north do
+    local c = new_chest(0)
+    c.name, c.position, c.unit_number = "iron-chest", npos(i), 2000 + i
+    W6.ents[#W6.ents + 1] = c
+    f6.annex[i] = c
+  end
+  Stock.grow(f6, W6.surface, 100)
+  check(f6.annex_lost == #slots and Stock.capacity(f6) == #north and Stock.wanted(f6) == 0,
+    "plafond suivi : " .. tostring(f6.annex_lost) .. " places tenues, plafond " .. Stock.capacity(f6) .. ", coffres voulus " .. Stock.wanted(f6))
 end
 
 do

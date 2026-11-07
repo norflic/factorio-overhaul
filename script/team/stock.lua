@@ -374,12 +374,27 @@ local function side(f)
   return f.annex_sy
 end
 
---- Plafond d'annexes : les places du bloc pour l'emprise du premier coffre posable (borné par la place du lot du QG).
+--- Lot STOCKAGE-VITAL (d) : places des annexes : la face du bloc (side(f)), PUIS l'autre face du lot du QG, chacune dans son ordre de
+--- distance (décision du lead, 7/11 : impasse de la sauvegarde du DC, 46 annexes au sud et les 2 dernières places tenues par des
+--- steel-chest du DC ; la face nord reste dans le lot du QG et ne touche aucune rue). Une place tenue par une entité qui n'est pas à nous
+--- (tourelle de la défense, coffre du DC, réserve du plan) est sautée, jamais retirée.
+local function annex_slots(f, w, h)
+  local sy = side(f)
+  local out = {}
+  for _, o in ipairs(A.slots(sy, w, h)) do out[#out + 1] = o end
+  for _, o in ipairs(A.slots(-sy, w, h)) do out[#out + 1] = o end
+  return out
+end
+
+--- Plafond d'annexes : les places des deux faces pour l'emprise du premier coffre posable, MOINS celles tenues par autre chose que nous
+--- (dernier relevé de Stock.grow, au plus toutes les Stock.ANNEX_DIAG_LOG : f.annex_lost, tolérant à nil) : Stock.wanted ne croit
+--- jamais à une place qui n'existe pas.
 local function capacity(f)
   local k = T.annex.kinds[1]
   local w, h = footprint(k.item)
-  return A.capacity(side(f), w, h)
+  return math.max(0, #annex_slots(f, w, h) - (f.annex_lost or 0))
 end
+Stock.capacity = capacity
 
 --- Pose UN coffre `item` à la première place libre du bloc des annexes (une place réservée par le plan directeur est sautée) ;
 --- `take()` retire le coffre de sa source une fois l'entité créée. Rend 1 (posé) ou 0.
@@ -410,7 +425,7 @@ end
 local function place_on_ground(f, surface, item, take)
   if not (surface.can_place_entity and surface.find_entities_filtered and surface.spill_item_stack and f.hq_pos) then return 0 end
   local w, h = footprint(item)
-  for _, o in ipairs(A.slots(side(f), w, h)) do
+  for _, o in ipairs(annex_slots(f, w, h)) do
     local p = { x = Pl.snap(f.hq_pos.x + o[1], w), y = Pl.snap(f.hq_pos.y + o[2], h) }
     if not (Stock.reserved and Stock.reserved(f, item, p)) and not surface.can_place_entity({ name = item, position = p, force = f.force }) then
       local area = { { p.x - w / 2 + 0.01, p.y - h / 2 + 0.01 }, { p.x + w / 2 - 0.01, p.y + h / 2 - 0.01 } }
@@ -450,7 +465,7 @@ end
 
 local function place_one(f, surface, item, take)
   local w, h = footprint(item)
-  local placed = PlacesQG.place_list(surface, item, f.force, f.hq_pos, A.slots(side(f), w, h), 0, 1, annex_make(f, surface, item, take))
+  local placed = PlacesQG.place_list(surface, item, f.force, f.hq_pos, annex_slots(f, w, h), 0, 1, annex_make(f, surface, item, take))
   if placed == 0 then placed = place_on_ground(f, surface, item, take) end
   return placed
 end
@@ -466,7 +481,7 @@ function Stock.annex_blockers(f, surface, item)
     if e.unit_number then own[e.unit_number] = true end
   end
   local out = {}
-  for _, o in ipairs(A.slots(side(f), w, h)) do
+  for _, o in ipairs(annex_slots(f, w, h)) do
     local p = { x = Pl.snap(f.hq_pos.x + o[1], w), y = Pl.snap(f.hq_pos.y + o[2], h) }
     local reserved = (Stock.reserved and Stock.reserved(f, item, p)) and true or false
     if reserved or not surface.can_place_entity({ name = item, position = p, force = f.force }) then
@@ -700,6 +715,17 @@ function Stock.grow(f, surface, tick)
   Stock.pick_ground(f, surface, tick) -- lot STOCKAGE-VITAL : objets posés au sol autour du QG, repris quand le stock a la place
   local used, size, n = totals(f)
   if size <= 0 then return false end
+  -- Lot STOCKAGE-VITAL (d) : places tenues par autre chose que nous (tourelles, coffres du DC, réserve du plan ; le sol seul ne compte
+  -- pas, place_on_ground le dégage), relevées au plus toutes les Stock.ANNEX_DIAG_LOG quand le stock se remplit : capacity les retire.
+  if surface and surface.can_place_entity and surface.find_entities_filtered and f.hq_pos and A.fill(used, size) >= T.annex.grow_at
+    and (not f.annex_scan_at or tick - f.annex_scan_at >= Stock.ANNEX_DIAG_LOG) then
+    f.annex_scan_at = tick
+    local lost = 0
+    for _, r in ipairs(Stock.annex_blockers(f, surface, T.annex.kinds[1].item)) do
+      if not r.own and (#r.names > 0 or r.reserved) then lost = lost + 1 end
+    end
+    f.annex_lost = lost
+  end
   -- Lot STOCKAGE-VITAL : urgence au journal, une fois par tranche de 5 min et par équipe
   do
     local have = 0
@@ -738,6 +764,8 @@ function Stock.grow(f, surface, tick)
       and (not f.annex_diag_log or tick - f.annex_diag_log >= Stock.ANNEX_DIAG_LOG) then
       f.annex_diag_log = tick
       local rows = Stock.annex_blockers(f, surface, T.annex.kinds[1].item)
+      local kw, kh = footprint(T.annex.kinds[1].item)
+      local n_slots = #annex_slots(f, kw, kh)
       local n_own, n_ground, parts = 0, 0, {}
       for _, r in ipairs(rows) do
         if r.own then
@@ -747,8 +775,8 @@ function Stock.grow(f, surface, tick)
           if #parts < 8 then parts[#parts + 1] = blocker_text(r) end
         end
       end
-      log(string.format("[FO-ANNEXE] %s : coffre en main mais aucune place libre : %d place(s) du bloc, %d prise(s) par nos annexes, %d autre(s) "
-        .. "refusee(s) dont %d par des objets au sol : %s ; stock %d/%d cases, annexes %d, a %.1f min", f.key or "player", capacity(f), n_own,
+      log(string.format("[FO-ANNEXE] %s : coffre en main mais aucune place libre : %d place(s) (deux faces du lot), %d prise(s) par nos annexes, %d autre(s) "
+        .. "refusee(s) dont %d par des objets au sol : %s ; stock %d/%d cases, annexes %d, a %.1f min", f.key or "player", n_slots, n_own,
         #rows - n_own, n_ground, #parts > 0 and table.concat(parts, " ; ") or "aucune", used, size, n, (tick - (f.started or 0)) / 3600))
     end
   end
