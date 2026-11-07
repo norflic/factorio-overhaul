@@ -172,6 +172,56 @@ local function suite(S)
   -- 15. un poteau sur un réseau qui ne produit pas n'est jamais une source
   local w15, why15 = pole_plan(bx, off, SMALL, anyfree, { chain = chain })
   c("15 : poteau eteint : aucune source", w15 == nil and why15 == "aucun poteau alimente", tostring(why15))
+  -- 17. la 3×3 doit tenir AVANT tout poteau (banc du 7/11 : 23 poses sur 24 refusées, débord sur la paire voisine)
+  local function ctx_fit(poles, fits, o)
+    local cx_ = ctx_of(poles, o)
+    cx_.fits = fits
+    return cx_
+  end
+  -- premier centre (9,5 ; 10,5) bloqué, le suivant (10,5 ; 9,5)… seul celui en x = 10,5 tient
+  local seen_fit = 0
+  local only_east = function(e, cx, cy) seen_fit = seen_fit + 1 return cx > e.x + 1 end
+  local o17 = S.plan({ e1 }, ctx_fit(net, only_east))
+  c("17 : le placement qui tient est pris (autre cote du four, autre direction)", #o17 == 1 and o17[1].cx > 11 and o17[1].dir ~= nil and #o17[1].poles >= 1,
+    #o17 == 1 and (o17[1].cx .. "," .. o17[1].cy) or tostring(#o17))
+  if #o17 == 1 then c("17 : chaine planifiee pour CE centre (dernier poteau qui l'alimente)", props(o17[1], net, e1)) end
+  local ctx17 = ctx_fit(net, function() return false end)
+  local o17b = S.plan({ e1 }, ctx17)
+  c("17 : aucune place : aucun remplacement, refus « 3x3 bloquee », aucun plan de chaine", #o17b == 0 and (ctx17.refused or {})[1] ~= nil
+    and ctx17.refused[1].why == "3x3 bloquee", (ctx17.refused or {})[1] and ctx17.refused[1].why)
+  local o17c = S.plan({ e1 }, ctx_fit(near, function() return false end))
+  c("17 : deja alimentee mais bloquee : rien", #o17c == 0)
+  local many17 = {}
+  for i = 1, 20 do many17[i] = entry(200 + i, 10 + 6 * i, 10) end
+  local mnear = {}
+  for i = 1, 20 do mnear[i] = { x = 10 + 6 * i - 0.5, y = 14.5, dist = 3.5, wire = 9, powered = true } end
+  local nfit = 0
+  local ctx17d = ctx_fit(mnear, function() nfit = nfit + 1 return false end, { limit = 20, have = 20 })
+  S.plan(many17, ctx17d)
+  c("17 : au plus S.FIT_TRIES foreuses lues par passe", #(ctx17d.refused or {}) == (S.FIT_TRIES or 8), tostring(#(ctx17d.refused or {})))
+  -- 18. placements admissibles : dépôt dans le four, boîte hors du four, SUR l'ancienne emprise ; le premier est celui d'avant
+  local cs18 = S.electric_centers and S.electric_centers(10, 10, 0, e1.sink, E) or {}
+  local ok18, dirs = #cs18 > 1, {}
+  for _, c0 in ipairs(cs18) do
+    local vx, vy = S.rotate(c0[4], E.drop[1], E.drop[2])
+    local box = { x = c0[1], y = c0[2], w = 3, h = 3 }
+    if not (S.inside(e1.sink, c0[1] + vx, c0[2] + vy) and not S.overlap(box, e1.sink) and S.overlap(box, { x = 10, y = 10, w = 2, h = 2 })) then ok18 = false end
+    dirs[c0[4]] = true
+  end
+  local nd = 0
+  for _ in pairs(dirs) do nd = nd + 1 end
+  c("18 : placements admissibles (depot dans le four, hors du four, sur l'ancienne emprise), plusieurs directions", ok18 and nd >= 2, #cs18 .. " placements, " .. nd .. " direction(s)")
+  c("18 : le premier placement est celui de la regle d'avant (9,5 ; 10,5, nord)", cs18[1] ~= nil and cs18[1][1] == 9.5 and cs18[1][2] == 10.5 and cs18[1][4] == 0)
+  -- dans les 4 directions : le premier placement garde la direction de la thermique (et le centre de la règle d'avant)
+  local first_ok = true
+  for _, d0 in ipairs({ 0, 2, 4, 6 }) do
+    local sx, sy = S.rotate(d0, -1, -2)
+    local sk = { x = 10 + sx, y = 10 + sy, w = 2, h = 2 }
+    local ox, oy = S.electric_center(10, 10, d0, sk, E)
+    local l = S.electric_centers and S.electric_centers(10, 10, d0, sk, E) or {}
+    if not (l[1] and l[1][4] == d0 and l[1][1] == ox and l[1][2] == oy) then first_ok = false end
+  end
+  c("18 : 4 directions : le premier placement garde la direction et le centre d'avant", first_ok)
   -- 16. rangement des poteaux par cases (coût) : mêmes réponses que la lecture de TOUS les poteaux, sur 60 cartes pseudo-aléatoires
   local seed = 7
   local function rnd(n) seed = (seed * 1103515245 + 12345) % 2147483648 return math.floor(seed / 65536) % n end -- bits hauts (les bas bits d un LCG ont une courte periode)
@@ -189,12 +239,15 @@ local function suite(S)
     -- référence : tous les poteaux lus pour chaque foreuse
     local r2, c2 = 0, 0
     for _, e in ipairs(es) do
-      local cx, cy = S.electric_center(e.x, e.y, e.dir, e.sink, E)
-      if cx then
-        local box = { x = cx, y = cy, w = 3, h = 3 }
+      local cs = S.electric_centers and S.electric_centers(e.x, e.y, e.dir, e.sink, E) or {}
+      if #cs > 0 then
         local pw = false
-        for _, p in ipairs(ps) do if p.powered and S.covered(p.x, p.y, p.dist, box) then pw = true end end
-        if pw then r2 = r2 + 1 ; n_pw = n_pw + 1 elseif reach_estimate(box, ps, SMALL) then c2 = c2 + 1 ; n_ch = n_ch + 1 end
+        for _, c0 in ipairs(cs) do
+          local box = { x = c0[1], y = c0[2], w = 3, h = 3 }
+          for _, p in ipairs(ps) do if p.powered and S.covered(p.x, p.y, p.dist, box) then pw = true end end
+        end
+        local box1 = { x = cs[1][1], y = cs[1][2], w = 3, h = 3 }
+        if pw then r2 = r2 + 1 ; n_pw = n_pw + 1 elseif reach_estimate(box1, ps, SMALL) then c2 = c2 + 1 ; n_ch = n_ch + 1 end
       end
     end
     if r1 ~= r2 or c1 ~= c2 then diff = diff + 1 end
@@ -224,10 +277,14 @@ local MUT = {
   { "estimation sans borne", "if n <= maxn and (not best or n < best) then best = n end", "if not best or n < best then best = n end" },
   { "ordre des candidats ignore", "table.sort(chained, function(a, b) if a.est ~= b.est then return a.est < b.est end return a.id < b.id end)", "" },
   { "n_ready compte les chaines", "return out, #ready, #chained", "return out, #ready + #chained, #chained" },
-  { "essais sans borne", "if #out >= n or tries >= (ctx.tries or S.TRIES) then break end", "if #out >= n then break end" },
+  { "essais sans borne", "if #out >= n or tries >= (ctx.tries or S.TRIES) or fit_tries >= (ctx.fit_tries or S.FIT_TRIES) then break end", "if #out >= n or fit_tries >= (ctx.fit_tries or S.FIT_TRIES) then break end" },
+  { "place de la 3x3 ignoree", "and (not ctx.fits or ctx.fits(it.e, c[1], c[2], c[4])) then return c end", "then return c end" },
+  { "lectures de place sans borne", "    if #out >= n or fit_tries >= (ctx.fit_tries or S.FIT_TRIES) then break end", "    if #out >= n then break end" },
   { "puissance a l'envers", "<= c.capacity + EPS", ">= c.capacity - EPS" },
   { "cases voisines ignorees (couverture)", "for _, p in ipairs(near(box, 1)) do", "for _, p in ipairs(near(box, 0)) do" },
-  { "cases trop proches (chaine)", "local est = S.reach_estimate(box, near(box, far_r), ctx.pole, ctx.chain_max)", "local est = S.reach_estimate(box, near(box, 1), ctx.pole, ctx.chain_max)" },
+  { "cases trop proches (chaine)", "near(box_at(cs[1]), far_r)", "near(box_at(cs[1]), 1)" },
+  -- (mutants équivalents écartés, 7/11 : retirer « recouvre l'ancienne emprise » ou la priorité de la direction ne change aucun placement :
+  -- les décalages de ±1,5 recouvrent toujours la 2 × 2, et un placement d'une autre direction est toujours plus loin de l'ancien centre)
   { "poteau eteint compte", "  for _, s in ipairs(sources or {}) do\n    if s.powered then\n      if S.covered(s.x, s.y, s.dist, box) then return { poles = {}, source = s } end", "  for _, s in ipairs(sources or {}) do\n    if true then\n      if S.covered(s.x, s.y, s.dist, box) then return { poles = {}, source = s } end" },
 }
 local refused, kept = 0, {}

@@ -38,6 +38,7 @@ Swap.POLES = { "small-electric-pole", "medium-electric-pole" }
 Swap.POLE_CAP = 12   -- poteaux fabriqués d'avance au plus
 Swap.REPORT = 10 * 3600 -- bilan [FO-FOREUSES-ETAT] par tranche de 10 min
 Swap.JTICK_KW = 60 / 1000
+Swap.MIN_ORE = 3       -- tuiles de minerai au moins dans la zone de minage de l'electrique (comme Champ, Ch.CFG.min_ore)
 
 local function sorted_keys(t) return State.sorted_keys(t or {}) end
 
@@ -123,11 +124,13 @@ end
 
 --- Remplace UNE foreuse. Rend vrai si l'electrique est posee. `prep` (facultatif, lot FOREUSES-THERMIQUES) : pose des poteaux, appelee
 --- APRES les gardes (ennemi, place reservee, couloir, melange) et AVANT de retirer l'ancienne foreuse ; faux : rien n'est remplace.
-local function swap_one(f, surface, ref, cx, cy, tick, prep)
+local function swap_one(f, surface, ref, cx, cy, tick, prep, ndir)
   local d, o = ref.drill, ref.o
   if not d.valid then return false end
   local pos = { x = d.position.x, y = d.position.y }
   local dir = d.direction
+  -- lot FOREUSES-THERMIQUES : direction de l'electrique (placement choisi par S.plan, peut-etre sur un autre cote du recepteur)
+  local edir = ndir or dir
   if surface.find_nearest_enemy({ position = pos, max_distance = Swap.SAFE, force = f.force }) then return false end
   local item = T.DRILL_ELECTRIC
   local st = f.swap
@@ -158,7 +161,7 @@ local function swap_one(f, surface, ref, cx, cy, tick, prep)
     end
   end
   local blocked = function(x, y) return taken[x .. "," .. y] == true end
-  if Outposts.reserved and Outposts.reserved(f, item, { x = cx, y = cy }, dir, { keep = keep, blocked = blocked }) then
+  if Outposts.reserved and Outposts.reserved(f, item, { x = cx, y = cy }, edir, { keep = keep, blocked = blocked }) then
     st.retry[ref.key] = tick + Swap.RETRY
     return false
   end
@@ -191,10 +194,10 @@ local function swap_one(f, surface, ref, cx, cy, tick, prep)
     if e.valid then e.destroy() end
   end
   local new
-  if surface.can_place_entity({ name = item, position = { x = cx, y = cy }, direction = dir, force = f.force }) then
+  if surface.can_place_entity({ name = item, position = { x = cx, y = cy }, direction = edir, force = f.force }) then
     -- raise_built : les niveaux et les modules (famille « drill ») enregistrent la foreuse, comme pour les pieces refaites (F40 : nil si
     -- un gestionnaire la detruit).
-    new = surface.create_entity({ name = item, position = { x = cx, y = cy }, direction = dir, force = f.force, raise_built = true })
+    new = surface.create_entity({ name = item, position = { x = cx, y = cy }, direction = edir, force = f.force, raise_built = true })
     if new and not new.valid then new = nil end
   end
   if not new then
@@ -300,6 +303,31 @@ local function place_chain(f, surface, pole, list, src)
   return true, nil, placed
 end
 
+--- Lot FOREUSES-THERMIQUES (banc du 7/11) : la 3 x 3 en (cx, cy) tient-elle AVANT tout poteau ? Rien d'autre que l'ancienne foreuse et
+--- ce qui se defriche (arbres, rochers) sur la boite, pas d'eau, et au moins Swap.MIN_ORE tuiles du minerai de l'avant-poste dans la zone
+--- de minage (5 x 5). Lit le moteur : S.plan l'appelle au plus S.FIT_TRIES fois par passe.
+local function fits_for(f, surface, refs)
+  local item = T.DRILL_ELECTRIC
+  local pr = game.entity_prototypes[item]
+  local r = pr and pr.mining_drill_radius or 2.49
+  return function(e, cx, cy, dir)
+    local ref = refs[e.id]
+    if not (ref and ref.drill and ref.drill.valid) then return false end
+    local half = T.drill_electric.size / 2 - 0.01
+    local area = { { cx - half, cy - half }, { cx + half, cy + half } }
+    for _, x in ipairs(surface.find_entities_filtered({ area = area, collision_mask = "object-layer" })) do
+      if x.valid and x ~= ref.drill and x.type ~= "tree" and x.type ~= "simple-entity" then return false end
+    end
+    if surface.count_tiles_filtered({ area = area, collision_mask = "water-tile" }) > 0 then return false end
+    local sp = ref.o.kind and T.outposts[ref.o.kind]
+    if sp and sp.resource then
+      local n = surface.count_entities_filtered({ area = { { cx - r, cy - r }, { cx + r, cy + r } }, name = sp.resource })
+      if n < Swap.MIN_ORE then return false end
+    end
+    return true
+  end
+end
+
 --- Bilan de puissance de l'equipe (kW) : capacite et production de la centrale (plan directeur, f.build.grow), chantiers admis.
 local function power_of(f)
   local g = f.build and f.build.grow
@@ -355,7 +383,8 @@ function Swap.think(f, surface, book, free, tick)
   -- (bancs : f.team.chaine_off, interrupteur de ia1_remote.lua set_regle_chaine : comportement d'avant, temoin)
   local pole = not (f.team and f.team.chaine_off) and pole_choice(book, free) or nil
   local ctx = { poles = poles, electric = T.drill_electric, have = have, obtainable = obtainable, limit = T.swap.per_pass,
-    pole = pole, free_for = pole and free_for(f, surface, pole) or nil, chain = P.pole_chain, chain_max = S.CHAIN_MAX }
+    pole = pole, free_for = pole and free_for(f, surface, pole) or nil, chain = P.pole_chain, chain_max = S.CHAIN_MAX,
+    fits = fits_for(f, surface, refs) }
   local out, n_ready, n_chain = S.plan(entries, ctx)
   for _, rf in ipairs(ctx.refused or {}) do
     local ref = refs[rf.id]
@@ -393,7 +422,7 @@ function Swap.think(f, surface, book, free, tick)
           return ok
         end
       end
-      if swap_one(f, surface, ref, r.cx, r.cy, tick, prep) then
+      if swap_one(f, surface, ref, r.cx, r.cy, tick, prep, r.dir) then
         made = made + 1
         kw_new = kw_new + kw
         if placed_n > 0 then

@@ -44,22 +44,44 @@ end
 --- centres a demi-tuile), ne pas recouvrir le recepteur, et deposer dans le recepteur. Choix : le plus proche de l'ancien centre,
 --- puis x, puis y croissants (deterministe).
 function S.electric_center(bx, by, dir, sink, spec)
-  local best, best_d
-  local vx, vy = S.rotate(dir, spec.drop[1], spec.drop[2])
-  for _, ox in ipairs({ -0.5, 0.5 }) do
-    for _, oy in ipairs({ -0.5, 0.5 }) do
-      local cx, cy = bx + ox, by + oy
-      local box = { x = cx, y = cy, w = spec.size, h = spec.size }
-      if S.inside(sink, cx + vx, cy + vy) and not S.overlap(box, sink) then
-        local d = ox * ox + oy * oy
-        if not best_d or d < best_d - EPS or (math.abs(d - best_d) <= EPS and (cx < best[1] or (cx == best[1] and cy < best[2]))) then
-          best, best_d = { cx, cy }, d
+  for _, c in ipairs(S.electric_centers(bx, by, dir, sink, spec)) do
+    -- (regle d'avant : direction de la thermique, boite qui CONTIENT l'ancienne emprise)
+    if c[4] == dir and math.abs(c[1] - bx) <= 0.5 + EPS and math.abs(c[2] - by) <= 0.5 + EPS then return c[1], c[2] end
+  end
+  return nil
+end
+
+--- Lot FOREUSES-THERMIQUES (banc foreuses-chaine du 7/11 : 23 poses refusees sur 24, la 3 x 3 debordait sur la paire voisine ; le recepteur
+--- fixe le centre a UNE place dans la direction de la thermique) : TOUS les placements admissibles { cx, cy, dir } : le depot tombe dans le
+--- recepteur, la boite ne le recouvre pas et recouvre l'ancienne emprise 2 x 2 (remplacement SUR PLACE), dans les 4 directions. Ordre : la
+--- direction de la thermique d'abord, puis le plus proche de l'ancien centre, puis x, puis y.
+function S.electric_centers(bx, by, dir, sink, spec)
+  local out = {}
+  local old = { x = bx, y = by, w = 2, h = 2 }
+  for _, d in ipairs({ dir, 0, 2, 4, 6 }) do
+    do
+      local vx, vy = S.rotate(d, spec.drop[1], spec.drop[2])
+      for _, ox in ipairs({ -1.5, -0.5, 0.5, 1.5 }) do
+        for _, oy in ipairs({ -1.5, -0.5, 0.5, 1.5 }) do
+          local cx, cy = bx + ox, by + oy
+          local box = { x = cx, y = cy, w = spec.size, h = spec.size }
+          if S.inside(sink, cx + vx, cy + vy) and not S.overlap(box, sink) and S.overlap(box, old) then
+            local dup = false
+            for _, c in ipairs(out) do if c[1] == cx and c[2] == cy and c[4] == d then dup = true end end
+            if not dup then out[#out + 1] = { cx, cy, ox * ox + oy * oy, d, d == dir and 0 or 1 } end
+          end
         end
       end
     end
   end
-  if not best then return nil end
-  return best[1], best[2]
+  table.sort(out, function(a, b)
+    if a[5] ~= b[5] then return a[5] < b[5] end
+    if math.abs(a[3] - b[3]) > EPS then return a[3] < b[3] end
+    if a[1] ~= b[1] then return a[1] < b[1] end
+    if a[2] ~= b[2] then return a[2] < b[2] end
+    return a[4] < b[4]
+  end)
+  return out
 end
 
 --- La zone d'alimentation (carre de demi-cote `dist` autour du poteau) touche-t-elle la boite de la foreuse ?
@@ -110,36 +132,67 @@ function S.plan(entries, ctx)
   end
   local maxn = ctx.chain_max or S.CHAIN_MAX
   local far_r = ctx.pole and math.ceil((maxn * ctx.pole.wire + ctx.pole.supply + ctx.electric.size) / S.CELL) or 0
+  local size = ctx.electric.size
+  local function box_at(c) return { x = c[1], y = c[2], w = size, h = size } end
+  local function powered_at(c)
+    local box = box_at(c)
+    for _, p in ipairs(near(box, 1)) do if S.covered(p.x, p.y, p.dist, box) then return true end end
+    return false
+  end
   for _, e in ipairs(list) do
-    local cx, cy = S.electric_center(e.x, e.y, e.dir, e.sink, ctx.electric)
-    if cx then
-      local box = { x = cx, y = cy, w = ctx.electric.size, h = ctx.electric.size }
-      local powered = false
-      for _, p in ipairs(near(box, 1)) do
-        if S.covered(p.x, p.y, p.dist, box) then powered = true break end
-      end
-      if S.choose_type(ctx.obtainable, powered) == "electric" then
-        ready[#ready + 1] = { id = e.id, cx = cx, cy = cy, poles = {}, est = 0 }
+    local cs = S.electric_centers(e.x, e.y, e.dir, e.sink, ctx.electric)
+    if #cs > 0 then
+      -- classement sur les centres admissibles : alimentée si l'un d'eux l'est, sinon chaîne estimée depuis le premier
+      local any_pw = false
+      for _, c in ipairs(cs) do if powered_at(c) then any_pw = true break end end
+      if S.choose_type(ctx.obtainable, any_pw) == "electric" then
+        ready[#ready + 1] = { id = e.id, e = e, cs = cs }
       elseif ctx.obtainable and ctx.pole then
-        local est = S.reach_estimate(box, near(box, far_r), ctx.pole, ctx.chain_max)
-        if est then chained[#chained + 1] = { id = e.id, cx = cx, cy = cy, est = est, e = e, box = box } end
+        local est = S.reach_estimate(box_at(cs[1]), near(box_at(cs[1]), far_r), ctx.pole, ctx.chain_max)
+        if est then chained[#chained + 1] = { id = e.id, est = est, e = e, cs = cs } end
       end
     end
   end
   table.sort(chained, function(a, b) if a.est ~= b.est then return a.est < b.est end return a.id < b.id end)
   local out = {}
   local n = math.min(ctx.limit or (#ready + #chained), ctx.have or 0)
-  for i = 1, math.min(n, #ready) do out[#out + 1] = ready[i] end
   ctx.refused = ctx.refused or {}
-  local tries = 0
-  for _, c in ipairs(chained) do
-    if #out >= n or tries >= (ctx.tries or S.TRIES) then break end
-    tries = tries + 1
-    local plan, why = S.pole_plan(c.box, ctx.poles, ctx.pole, ctx.free_for(c.e, c.box), { max = ctx.chain_max, chain = ctx.chain })
-    if plan then
-      out[#out + 1] = { id = c.id, cx = c.cx, cy = c.cy, poles = plan.poles, source = plan.source, est = c.est }
+  -- (i) et (ii) : la 3 x 3 doit TENIR (ctx.fits : rien d'autre que l'ancienne foreuse et ce qui se defriche) AVANT tout poteau ; le premier
+  -- centre qui tient est pris ; aucun : refus « 3x3 bloquee » (l'executant la laisse tranquille Swap.RETRY). Au plus S.FIT_TRIES foreuses
+  -- essayees par passe (lecture du moteur).
+  local fit_tries = 0
+  local function first_fit(it, need_power)
+    for _, c in ipairs(it.cs) do
+      if (not need_power or powered_at(c)) and (not ctx.fits or ctx.fits(it.e, c[1], c[2], c[4])) then return c end
+    end
+    return nil
+  end
+  for _, r in ipairs(ready) do
+    if #out >= n or fit_tries >= (ctx.fit_tries or S.FIT_TRIES) then break end
+    fit_tries = fit_tries + 1
+    local c = first_fit(r, true)
+    if c then
+      out[#out + 1] = { id = r.id, cx = c[1], cy = c[2], dir = c[4], poles = {}, est = 0 }
     else
-      ctx.refused[#ctx.refused + 1] = { id = c.id, why = why }
+      ctx.refused[#ctx.refused + 1] = { id = r.id, why = "3x3 bloquee" }
+    end
+  end
+  local tries = 0
+  for _, ch in ipairs(chained) do
+    if #out >= n or tries >= (ctx.tries or S.TRIES) or fit_tries >= (ctx.fit_tries or S.FIT_TRIES) then break end
+    fit_tries = fit_tries + 1
+    local c = first_fit(ch, false)
+    if not c then
+      ctx.refused[#ctx.refused + 1] = { id = ch.id, why = "3x3 bloquee" }
+    else
+      tries = tries + 1
+      local box = box_at(c)
+      local plan, why = S.pole_plan(box, ctx.poles, ctx.pole, ctx.free_for(ch.e, box), { max = ctx.chain_max, chain = ctx.chain })
+      if plan then
+        out[#out + 1] = { id = ch.id, cx = c[1], cy = c[2], dir = c[4], poles = plan.poles, source = plan.source, est = ch.est }
+      else
+        ctx.refused[#ctx.refused + 1] = { id = ch.id, why = why }
+      end
     end
   end
   return out, #ready, #chained
@@ -160,6 +213,7 @@ S.CHAIN_MAX = 6      -- poteaux neufs au plus par remplacement (6 petits poteaux
 S.SOURCES = 4        -- poteaux alimentes essayes au plus (les plus proches)
 S.TARGETS = 3        -- places du dernier poteau essayees par source (les plus proches de la source)
 S.TRIES = 4          -- plans de chaine calcules au plus par passe (un refus est remis a plus tard par l'executant : Swap.RETRY)
+S.FIT_TRIES = 8      -- foreuses dont la place de la 3 x 3 est lue au moteur au plus par passe (ctx.fits)
 S.CELL = 16          -- cote (tuiles) des cases du rangement des poteaux alimentes (couverture : case et voisines ; supply + boite < 16)
 
 local function d2(a, b) local dx, dy = a.x - b.x, a.y - b.y; return dx * dx + dy * dy end
