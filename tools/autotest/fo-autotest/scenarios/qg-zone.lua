@@ -1,10 +1,13 @@
 --[[
-  Lot QG-ZONE (5/11) : « Toute la base qui grandit » (choix du DC) en moteur réel. Une faction (Écarlate, à 320 tuiles,
-  Normal) ; la base du joueur est une LIGNE d'assembleurs (un tous les 10 tuiles, trous de 7 tuiles au plus) qui part
+  Lot QG-ZONE (5/11) : « Toute la base qui grandit » (choix du DC) en moteur réel. Deux factions (le moteur du mod en lance 2
+  au moins) à 480 tuiles, la distance par défaut, Normal ; seule la première (Écarlate) est examinée. À 320 tuiles, le QG
+  tombait selon le terrain jusqu'à 139 tuiles du départ (banc du 7/11 : (98, -99), décalage (-128, 128) du choix du site) :
+  la ligne finissait à 50 tuiles, DANS le rayon de 64 de l'ancienne règle, et le banc ne départageait plus rien. À 480, le
+  QG est à 299 tuiles au moins. La base du joueur est une LIGNE d'assembleurs (un tous les 10 tuiles, trous de 7 tuiles au plus) qui part
   du point d'apparition vers le QG de la faction et s'arrête à 80 tuiles de lui (plus de 200 tuiles du départ) ; un
   avant-poste de 4 assembleurs est posé à 95 tuiles de côté du bout de la ligne : séparé de toute la base par plus de 51,2
   tuiles (au-delà, la zone ne relie jamais ; mesuré sur les bâtiments posés), et PLUS LOIN du QG de la faction que le bout de
-  la ligne. Les bâtiments du
+  la ligne. Un lac sur le tracé est remblayé (landfill) avant la pose : la ligne reste continue. Les bâtiments du
   joueur sont indestructibles (la cible ne change pas parce qu'un bâtiment tombe). Au tick 60, le banc abat un bâtiment
   de la faction au nom du joueur (provocation : guerre déclarée sans attendre la grâce).
 
@@ -34,6 +37,15 @@ end
 local function dist(a, b) return math.sqrt((a.x - b.x) ^ 2 + (a.y - b.y) ^ 2) end
 
 local function place(s, want)
+  -- Remblai d'un carré de 7 × 7 sous la position voulue s'il y a de l'eau (F135 : la tuile AVANT l'entité).
+  local area = { { want.x - 3, want.y - 3 }, { want.x + 4, want.y + 4 } }
+  if s.count_tiles_filtered({ area = area, collision_mask = "water-tile" }) > 0 then
+    local tiles = {}
+    for x = math.floor(want.x) - 3, math.floor(want.x) + 3 do
+      for y = math.floor(want.y) - 3, math.floor(want.y) + 3 do tiles[#tiles + 1] = { name = "landfill", position = { x, y } } end
+    end
+    s.set_tiles(tiles)
+  end
   local p = s.find_non_colliding_position(NAME, want, 6, 1)
   local e = p and s.create_entity({ name = NAME, position = p, force = "player" })
   if e then e.destructible = false end
@@ -52,13 +64,13 @@ return {
     ctx.check(ok == true, "difficulte Normal imposee avant la guerre", tostring(ok))
     game.forces.player.set_cease_fire("enemy", true)
     game.forces.enemy.set_cease_fire("player", true)
-    local started = ctx.call("war_start", 1, 40, 2, 320)
-    ctx.check(started == true, "guerre lancee (1 faction a 320 tuiles)", tostring(started))
+    local started = ctx.call("war_start", 2, 40, 2, 480)
+    ctx.check(started == true, "guerre lancee (2 factions a 480 tuiles)", tostring(started))
     ctx.call("profiler", true)
     local poi = ctx.call("points_of_interest")
     local fac = poi.factions[1]
-    ctx.check(fac ~= nil and poi.player == nil, "une faction, pas d'equipe du joueur (points du depart : le point d'apparition seul)",
-      fac and fac.key or "aucune")
+    ctx.check(fac ~= nil and poi.player == nil, "faction examinee, pas d'equipe du joueur (points du depart : le point d'apparition seul)",
+      string.format("%s sur %d faction(s)", fac and fac.key or "aucune", #poi.factions))
     if not fac then return end
     local sp = game.forces.player.get_spawn_position(s)
     local H = fac.hq
