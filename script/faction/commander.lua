@@ -112,16 +112,24 @@ function Commander.think(id, tick)
   Military.maintain(f, tick)
   Profiler.stop("faction:maintain")
   Profiler.start("faction:team")
-  Team.think(f, surface, tick)
+  -- Lot DÉCOUPAGE-PENSÉE : la pensée d'équipe se joue en 4 étapes (T à T + 3) ; la queue (chef, veille, attaque) suit sa
+  -- dernière étape, dans le même ordre qu'avant. Team.think rend false quand ses étapes restent à jouer.
+  local done = Team.think(f, surface, tick, "commander")
   Profiler.stop("faction:team")
+  if done ~= false then Commander.tail(f, surface, tick) end
+  Profiler.stop("faction:think")
+end
+
+--- Fin de la pensée d'une faction, après sa pensée d'équipe (lot DÉCOUPAGE-PENSÉE : jouée par la dernière étape, à T + 3).
+function Commander.tail(f, surface, tick)
   Chef.think(f, tick) -- lot IA2-a : une pensée par minute (rien avant l'échéance)
   Veille.report(f, tick) -- lot VEILLE : une ligne de bilan toutes les 10 min par faction
   Profiler.start("faction:attack")
   local view, target = Commander.view(f, tick)
   PvP.think(f, surface, tick, view, target)
   Profiler.stop("faction:attack")
-  Profiler.stop("faction:think")
 end
+Team.define_tail("commander", function(f, tick) Commander.tail(f, surface_of(State.war()), tick) end)
 
 Scheduler.define_lane(Commander.LANE, function()
   local s = State.war().settings
