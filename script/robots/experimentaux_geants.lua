@@ -219,6 +219,22 @@ local function cratere(s, c, rc, tick)
 end
 G.cratere = cratere
 
+--- Trace dessinée d'une heure (`id` : objet de rendu) : comptée par surface, les plus anciennes retirées au-delà de Ech.RENDUS_MAX (point 4).
+local function trace_rendu(s, id)
+  if not id then return end
+  local st = K.S()
+  if not st.rendus then st.rendus = {} end
+  local F = st.rendus[s.index]
+  if not F then
+    F = Ech.rendus_nouveau()
+    st.rendus[s.index] = F
+  end
+  for _, vieux in ipairs(Ech.rendus_ajouter(F, id, st.rendus_max or Ech.RENDUS_MAX)) do
+    if rendering.is_valid(vieux) then rendering.destroy(vieux) end
+  end
+end
+G.trace_rendu = trace_rendu
+
 --- Résorption : les tuiles échues reprennent leur sol d'origine si elles sont encore un sol de cratère (au plus Ech.RESORPTION_LOT par
 --- surface et par passage, toutes les RESORPTION ticks).
 local RESORPTION = 5
@@ -473,8 +489,8 @@ local function ixion_pas(j, tick)
     K.journal("ixion tranchee #%d points %d tick %d", j.un, #j.pts, tick)
     return true
   end
-  rendering.draw_line({ color = rgba(0.12, 0.07, 0.05, 0.95), width = 32 * r.width * 0.5, from = { j.prev.x, j.prev.y }, to = { p.x, p.y },
-    surface = e.surface, time_to_live = Ech.TRACE_TICKS, draw_on_ground = true }) -- séquelle : 1 h (QCM-7/11)
+  trace_rendu(e.surface, rendering.draw_line({ color = rgba(0.12, 0.07, 0.05, 0.95), width = 32 * r.width * 0.5, from = { j.prev.x, j.prev.y },
+    to = { p.x, p.y }, surface = e.surface, time_to_live = Ech.TRACE_TICKS, draw_on_ground = true })) -- séquelle : 1 h (QCM-7/11), plafonnée
   rendering.draw_line({ color = { r = 1.0, g = 0.5, b = 0.12, a = 1 }, width = 32 * r.width * 0.15, from = { j.prev.x, j.prev.y }, to = { p.x, p.y },
     surface = e.surface, time_to_live = 240, draw_on_ground = true })
   e.surface.create_entity({ name = "big-explosion", position = { p.x, p.y } })
@@ -492,8 +508,8 @@ local function foyer(g, r, target, tick)
   rayon(e, FOYER, b, target, r.zone_cooldown)
   g.n = g.n + 1
   if g.n % r.glass_every == 0 and target.valid then
-    rendering.draw_sprite({ sprite = SPR_VERRE, target = target.position, surface = e.surface, time_to_live = Ech.TRACE_TICKS, render_layer = "decals",
-      tint = rgba(1, 0.9, 0.6, 0.8) })
+    trace_rendu(e.surface, rendering.draw_sprite({ sprite = SPR_VERRE, target = target.position, surface = e.surface, time_to_live = Ech.TRACE_TICKS,
+      render_layer = "decals", tint = rgba(1, 0.9, 0.6, 0.8) })) -- séquelle : 1 h, plafonnée
   end
   K.journal("tournesol foyer #%d tick %d", g.un, tick)
   zone(g, r, pos_of(target), tick)

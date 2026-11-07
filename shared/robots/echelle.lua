@@ -528,6 +528,34 @@ function Ech.trace_echues(R, tick, max)
   return out
 end
 
+--- PLAFOND DES TRACES DESSINÉES d'une heure par surface (traits sombres de la tranchée d'Ixion, verre de la Tournesol ; revue de la 0.6.57,
+--- point 4 : en combat continu, environ 20 700 traits vivants par Ixion, 310 000 objets de rendu au pire). VALEUR PROVISOIRE, prudente :
+--- à remplacer par une mesure (coût de rendu de N objets à l'écran, avec images). Au-delà, les plus anciens sont retirés en premier.
+Ech.RENDUS_MAX = 4000
+
+function Ech.rendus_nouveau()
+  return { ids = {}, tete = 1, n = 0 }
+end
+
+--- Ajoute l'objet de rendu `id` à la file `F` ; rend la liste des plus anciens à retirer pour qu'il n'en reste pas plus de `max` (l'appelant
+--- ignore ceux qui ont déjà expiré). La file est compactée quand sa tête dépasse 4 096.
+function Ech.rendus_ajouter(F, id, max)
+  F.n = F.n + 1
+  F.ids[F.n] = id
+  local out = {}
+  while F.n - F.tete + 1 > max do
+    out[#out + 1] = F.ids[F.tete]
+    F.ids[F.tete] = nil
+    F.tete = F.tete + 1
+  end
+  if F.tete > 4096 then
+    local ids, m = {}, 0
+    for i = F.tete, F.n do m = m + 1; ids[m] = F.ids[i] end
+    F.ids, F.tete, F.n = ids, 1, m
+  end
+  return out
+end
+
 --- Nombre de tuiles encore marquées (contrôles).
 function Ech.trace_compte(R)
   local n, vu = 0, {}

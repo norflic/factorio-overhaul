@@ -325,6 +325,12 @@ remote.add_interface("fo-xp", {
     return table.concat(out, ",")
   end,
   cratere = function(x, y, r) Geants.cratere(game.surfaces[1], { x = x, y = y }, r, game.tick) end,
+  --- Bancs seulement (point 4) : autre plafond des traces dessinées d'1 h par surface (sans argument : Ech.RENDUS_MAX) ; traces comptées.
+  rendus_max = function(n) S().rendus_max = tonumber(n) end,
+  rendus = function(surface_index)
+    local F = S().rendus and S().rendus[surface_index or 1]
+    return F and (F.n - F.tete + 1) or 0
+  end,
   --- Bancs seulement (B1) : jobs de salve au format de la 0.6.56 posés pour le géant `un` ; nombre de jobs de zone ; salve active.
   ancien_job = function(un) return Geants.ancien_job(un) end,
   jobs_zone = function() return Geants.jobs_zone() end,

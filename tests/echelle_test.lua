@@ -386,6 +386,16 @@ local function suite(Ech)
   local egal = true
   for i = 1, 20 do if recu[i] ~= 15 then egal = false end end
   check(tot20 and egal, "§4 sexies plus de forces que de morts : le reste tourne, chacune reçoit autant sur 20 ticks")
+  -- §12 ter plafond des traces dessinées d'1 h par surface (revue de la 0.6.57, point 4), les plus anciennes retirées d'abord
+  local FR = Ech.rendus_nouveau()
+  local retires, ordre_ok = {}, true
+  for id = 1, 10000 do
+    for _, v in ipairs(Ech.rendus_ajouter(FR, id, 300)) do retires[#retires + 1] = v end
+  end
+  for i = 1, #retires do if retires[i] ~= i then ordre_ok = false end end
+  check(#retires == 9700 and ordre_ok and FR.n - FR.tete + 1 == 300 and FR.ids[FR.n] == 10000 and FR.tete <= 4097,
+    "§12 ter au plus 300 traces gardées sur 10 000 : les 9 700 plus anciennes retirées dans l'ordre, file compactée", tostring(#retires))
+  check(Ech.RENDUS_MAX == 4000, "§12 ter plafond PROVISOIRE de 4 000 traces par surface (à mesurer avec images)")
   -- §11 bis sauvegarde faite PENDANT une salve de la 0.6.56 (B1 de la revue de la 0.6.57) : jobs de l'ancien format refusés, jobs neufs gardés
   local vieux_found = { kind = "zone", found = { {}, {} }, i = 1, plan = { c = { x = 0, y = 0 }, rings = {}, top = 0 } }
   local vieux_plan = { kind = "zone", plan = { c = { x = 0, y = 0 }, rings = { { {} } }, top = 1 }, cur = { k = 1, i = 1, pris = 0 } }
@@ -462,6 +472,10 @@ check(SXG:find("cratere(s, c, r.cratere, tick)", 1, true) ~= nil and SXG:find("E
 local _, n_trace = SXG:gsub("time_to_live = Ech.TRACE_TICKS", "")
 check(n_trace == 2 and not SXG:find('name = "big-scorchmark"', 1, true) and not SXG:find('name = "small-scorchmark"', 1, true),
   "§12 bis verre de la Tournesol et tranchée de l'Ixion : 1 h ; brûlures d'1 h seulement")
+local _, n_plaf = SXG:gsub("trace_rendu%(e%.surface, rendering%.draw_", "")
+check(n_plaf == 2 and SXG:find("for _, vieux in ipairs(Ech.rendus_ajouter(F, id, st.rendus_max or Ech.RENDUS_MAX)) do", 1, true) ~= nil
+  and SXG:find("if rendering.is_valid(vieux) then rendering.destroy(vieux) end", 1, true) ~= nil,
+  "§12 ter jeu : traits de l'Ixion et verre de la Tournesol plafonnés par surface, les plus anciens détruits")
 check(SB:find("time_to_live = Ech.TRACE_GLAS_TICKS,", 1, true) ~= nil and SB:find("time_to_live = Ech.TRACE_GLAS_TICKS - GLAS_REFERME", 1, true) ~= nil
   and not SB:find("time_to_live = 4200", 1, true), "§12 bis Glas du Bourdon : sol balayé et cicatrices, 10 min")
 
@@ -471,6 +485,8 @@ check(not SRC:find("game%.") and not SRC:find("script%.") and not SRC:find("%f[%
 
 -- §6 mutants
 local MUTANTS = {
+  { "plafond des traces ignoré", "  while F.n - F.tete + 1 > max do", "  while false do" },
+  { "trace la plus récente retirée au lieu de la plus ancienne", "    out[#out + 1] = F.ids[F.tete]", "    out[#out + 1] = F.ids[F.n]" },
   { "part de force donnée à chaque salve", "local sous = Ech.partage(#m, parts[r], tick)", "local sous = Ech.partage(#m, budget, tick)" },
   { "part de force au prorata des salves", "local parts = Ech.partage(#ordre, budget, tick)", "local parts = {} for r = 1, #ordre do parts[r] = math.floor(budget * #membres[r] / #forces) end" },
   { "job de la 0.6.56 sans cnt accepté", "(j.cur ~= nil and j.plan ~= nil and j.plan.cnt ~= nil)", "(j.cur ~= nil and j.plan ~= nil)" },
