@@ -183,8 +183,8 @@ function Col.apply(f, surface, b, tasks, tick)
   return n
 end
 
---- PROPOSITION, NON BRANCHÉE (carte de l'IA, maillon 1 : la vue ne lit que o.sinks des avant-postes, jamais les coffres de sortie du plan
---- directeur) : plaques de fer qui attendent dans les coffres de sortie des projets de `b`, { total, chests }. À lire par Team.view
+--- PROPOSITION, NON BRANCHÉE en jeu (Col.waiting n'a pour appelant que tests/collecte_glue_test.lua ; la vue lit les sorties par
+--- Col.waiting_all, manque_vue.lua:163) : plaques de fer qui attendent dans les coffres de sortie des projets de `b`, { total, chests }. À lire par Team.view
 --- (champ séparé `view.champ_out`, pour le journal et le manque), PAS à ajouter au stock « attendu » du planificateur : le lot FLUX l'a mesuré
 --- (compter des plaques dormantes comme disponibles sans tournée qui les ramène a fait tomber Écarlate de 30 686 à 14 074 plaques).
 function Col.waiting(f, surface, b)

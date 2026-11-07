@@ -14,7 +14,7 @@ local function read(p) local f = assert(io.open(p, "rb")) local s = f:read("*a")
 local SRC = read(PATH)
 local function load_mod(src) return assert(load(src, "=" .. PATH, "t", _ENV))() end
 
-local SEUILS = { min_tiles = 24, tiles = { r_rare = 4 }, amount = { r_profond = 100000 } }
+local SEUILS = { min_tiles = 24, tiles = { r_rare = 4 }, amount = { r_profond = 100000 }, sum = 1000000 }
 
 local function suite(Lm)
   local bad = {}
@@ -71,6 +71,31 @@ local function suite(Lm)
   }
   local rv = Lm.reserve(lots, SEUILS)
   want(#rv == 2 and rv[1].key == "1:0" and rv[1].res == "r_rare" and rv[2].key == "2:0", "reservations : 1:0 (rare) et 2:0, triees")
+  -- 6 bis. MINERAI-SONDE : somme des minerais (G43), réservation sans crise (C4.2), relevé refait une fois (C4.3).
+  role = Lm.role({ res = { r_commun = 20 }, amount = { r_commun = 1000001 } }, SEUILS)
+  want(role == "minerai", "C4.2 : somme des quantites > 1 000 000 : minerai meme sous 24 tuiles")
+  role = Lm.role({ res = { r_commun = 20 }, amount = { r_commun = 1000000 } }, SEUILS)
+  want(role == "general", "C4.2 : somme egale au seuil : pas assez (strictement superieure)")
+  role = Lm.role({ res = { r_commun = 12, r_b = 10 }, amount = { r_commun = 600000, r_b = 500000 } }, SEUILS)
+  want(role == "minerai", "C4.2 : la somme se compte sur TOUS les minerais du lot (600 000 + 500 000)")
+  local _, mainres, ores = Lm.role({ res = { r_commun = 12, r_b = 10 }, amount = { r_commun = 600000, r_b = 500000 } }, SEUILS)
+  want(mainres == "r_commun" and #ores == 2 and ores[1].why == "somme", "C4.2 : minerai principal = le plus de tuiles, motif somme")
+  role = Lm.role({ res = { r_commun = 20 }, amount = { r_commun = 5000000 } }, { min_tiles = 24 })
+  want(role == "general", "C4.2 : sans seuil de somme en donnees, la quantite seule ne compte pas")
+  role = Lm.role({ res = { r_commun = 30 }, amount = { r_commun = 5 } }, SEUILS)
+  want(role == "minerai", "tuiles au-dessus du seuil : minerai meme avec une petite quantite")
+  local sum_lots = { { key = "9:9", s = { res = { r_commun = 20 }, amount = { r_commun = 2000000 } } } }
+  local rv1 = Lm.reserve(sum_lots, SEUILS)
+  local rv2 = Lm.reserve(sum_lots, SEUILS, { power_crisis = true })
+  local rv3 = Lm.reserve(sum_lots, SEUILS, { power_crisis = false })
+  want(#rv1 == 1 and #rv2 == 1 and #rv3 == 1 and rv2[1].key == "9:9" and rv2[1].why == "somme",
+    "C4.2 : lot a plus de 1 000 000 reserve MEME avec power_crisis=true (aucune crise ne lit la reservation)")
+  -- Relevé refait : vrai après l'événement, faux une fois refait (C4.3).
+  local lot = { tick = 100 }
+  local t1 = Lm.needs_survey(lot, 300, 250, nil)
+  lot.tick = 300 -- relevé refait au tick 300
+  local t2 = Lm.needs_survey(lot, 400, 250, nil)
+  want(t1 == true and t2 == false, "C4.3 : apres l'evenement le releve est a refaire, une fois refait il ne l'est plus")
   -- 7. Déterminisme.
   local a, b = Lm.reserve(lots, SEUILS), Lm.reserve(lots, SEUILS)
   want(#a == #b and a[1].key == b[1].key and a[2].key == b[2].key, "deterministe")
@@ -83,6 +108,25 @@ for _, m in ipairs(bad) do check(false, m) end
 check(#bad == 0, "suite du module")
 print(string.format("[L9] suite : %d defaut(s)", #bad))
 
+-- DONNÉES réelles (shared/team/lot_minerai_seuils.lua) : C4.1, 10 tuiles d'uranium à 120 000 = minerai, à 99 000 = libre.
+local D = require("shared.team.lot_minerai_seuils")
+local U = nil
+do
+  local ks = {}
+  for k in pairs(D.amount) do ks[#ks + 1] = k end
+  table.sort(ks)
+  for _, k in ipairs(ks) do if D.amount[k] == 100000 then U = k end end
+end
+check(U ~= nil and D.sum == 1000000, "donnees : un minerai a 100 000 et une somme de 1 000 000")
+check(D.min_tiles == 24, "donnees : seuil de tuiles par defaut 24")
+do
+  check(Lm.role({ res = { [U] = 10 }, amount = { [U] = 120000 } }, D) == "minerai", "C4.1 : 10 tuiles a 120 000 : minerai (avant : libre)")
+  check(Lm.role({ res = { [U] = 10 }, amount = { [U] = 99000 } }, D) == "general", "C4.1 : 10 tuiles a 99 000 : reste libre")
+  check(Lm.role({ res = { [U] = 10 }, amount = { [U] = 100000 } }, D) == "minerai", "C4.1 : le seuil lui-meme (100 000) compte")
+  check(Lm.role({ res = { r_fictif = 20 }, amount = { r_fictif = 1000001 } }, D) == "minerai", "C4.2 sur les donnees : plus de 1 000 000 en tout")
+  check(Lm.role({ res = { r_fictif = 20 }, amount = { r_fictif = 1000000 } }, D) == "general", "C4.2 sur les donnees : 1 000 000 pile ne suffit pas")
+end
+
 local MUTANTS = {
   { "fabrique permise sur le minerai", "if role == \"minerai\" and not Lm.ON_ORE[kind] then", "if false then" },
   { "fonte refusee sur le minerai", "Lm.ON_ORE = { extraction = true, fonte = true }", "Lm.ON_ORE = { extraction = true }" },
@@ -94,6 +138,9 @@ local MUTANTS = {
   { "lot jamais releve accepte", "if type(t) ~= \"number\" then return true, \"jamais releve\" end", "if type(t) ~= \"number\" then return false end" },
   { "age maximal ignore", "if type(max_age) == \"number\" and type(tick) == \"number\" and tick - t > max_age then", "if false then" },
   { "lot deja pris reserve", "if not l.used and not l.reserved then", "if not l.reserved then" },
+  { "somme ignoree", "if type(cap) == \"number\" and Lm.total(s) > cap then", "if false then" },
+  { "somme egale au seuil acceptee", "Lm.total(s) > cap", "Lm.total(s) >= cap" },
+  { "crise lue par la reservation", "function Lm.reserve(lots, seuils, ctx)\n  local out = {}", "function Lm.reserve(lots, seuils, ctx)\n  if ctx and ctx.power_crisis then return {} end\n  local out = {}" },
   { "principal sans departage par le nom", "return a.res < b.res", "return a.res > b.res" },
   { "copies partagees (states_for rend la table)", "for _, set in ipairs(Lm.STATES[kind] or {}) do\n    local c = {}\n    for _, k in ipairs(sorted_keys(set)) do c[k] = set[k] end\n    out[#out + 1] = c", "for _, set in ipairs(Lm.STATES[kind] or {}) do\n    out[#out + 1] = set" },
 }

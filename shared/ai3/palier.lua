@@ -1,8 +1,9 @@
 --[[
   Lot L10 de la feuille de route « Factorio Automated » (docs/VIDEO_AUTOMATISATION.md §6 L10 ; docs/TODO_VIDEO.md V57, V58, V65, V66, G30,
   G64, G66, G69) : CROISSANCE PAR MARCHES APRÈS STABILITÉ. Règle PURE (aucune API Factorio, aucun nom d'objet : anti-échelle de
-  tests/iag_test.lua §8). Testée hors jeu : tests/palier_test.lua. NON BRANCHÉE, et ne REMPLACE PAS C2 (Dm.step, shared/ai3/demande.lua) :
-  c'est la VARIANTE B, à comparer à C2 (variante A) par le critère Pl.verdict avant toute bascule.
+  tests/iag_test.lua §8). Testée hors jeu : tests/palier_test.lua. BRANCHÉE (Capi.palier, script/ai3/capitalisation.lua:1054), réglage fo-war-paliers
+  ALLUMÉ par défaut (settings/video.lua:31). Elle ne REMPLACE PAS C2 (Dm.step, shared/ai3/demande.lua) :
+  c'est la VARIANTE B, à comparer à C2 (variante A) par le critère Pl.verdict.
 
   La source (vidéo 7:44-8:40 ; gist l.486-511, 559-564) : quand plus rien ne manque, un minuteur de 5 minutes (18 000 ticks) démarre ; si
   rien ne manque pendant 5 minutes D'AFFILÉE, une tuile de recherche de plus est posée, et la cascade de demande pose ensuite ce qu'il faut

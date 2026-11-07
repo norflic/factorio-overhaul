@@ -29,6 +29,7 @@ require("script.companion.bench")
 require("script.world.hazards")
 require("script.world.enemy_mechanics")
 require("script.world.guarantee") -- lot M0 : monnaies des époques 5, 7 et 8 garanties sur toute carte
+require("script.world.explosions_mort") -- lot X10, Q5 et Q5b : explosions de mort recréées près d'un joueur seulement
 
 -- Factions IA (pilier 2) : état, équipes (cerveau d'équipe, tâches, ouvriers), commandant, guerre
 require("script.faction.state")
@@ -42,6 +43,7 @@ require("script.ai3.soldats") -- lot IA3-k : rôles des soldats (patrouille, gar
 require("script.faction.commander")
 require("script.faction.war")
 require("script.ai3.exploration") -- lot IA3-f : carte de connaissance, yeux des PNJ, éclaireurs (exploration sous brouillard)
+require("script.ai3.jalons") -- lot VIDEO-TRACES (V03) : journal [FO-JALON], époque atteinte par chaque faction
 
 -- Mode défense de tours (activable à tout moment)
 require("script.td.director")
