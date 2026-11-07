@@ -187,16 +187,30 @@ local function traces(s)
   return R
 end
 
+--- Sol qui peut recevoir un cratère : ni hors de la carte, ni eau, ni sol posé par un joueur (tuile minable : béton, remblai…). Mémorisé par
+--- NOM de tuile (revue de la 0.6.57, point 2 : get_tile, collides_with et la lecture du prototype sur 1 200 tuiles coûtaient 17 ms au tick
+--- du tir) ; table du module, refaite à chaque chargement, jamais dans global : les prototypes ne changent pas pendant une partie.
+local sol_cratere = {}
+local function cratere_possible(name)
+  local v = sol_cratere[name]
+  if v == nil then
+    local p = game.tile_prototypes[name]
+    v = p ~= nil and name ~= "out-of-map" and not p.collision_mask["water-tile"] and not p.mineable_properties.minable
+    sol_cratere[name] = v
+  end
+  return v
+end
+
 --- Cratère de rayon `rc` au point `c` : sol `nuclear-ground` (sol de la bombe atomique vanilla) pendant Ech.TRACE_TICKS, jamais sur l'eau ni
---- sur un sol posé par un joueur (tuile minable : béton, remblai…), entités jamais retirées.
+--- sur un sol posé par un joueur (cratere_possible), entités jamais retirées.
 local function cratere(s, c, rc, tick)
   local R = traces(s)
   local fin = tick + (K.S().trace_ticks or Ech.TRACE_TICKS) -- trace_ticks : durée raccourcie par les bancs seulement (remote « fo-xp »)
   local pose = {}
   for _, t in ipairs(Ech.disque(c, rc)) do
-    local tile = s.get_tile(t.x, t.y)
-    if tile.valid and tile.name ~= "out-of-map" and not tile.collides_with("water-tile") and not tile.prototype.mineable_properties.minable then
-      if Ech.trace_marquer(R, t.x, t.y, tile.name, fin) and tile.name ~= "nuclear-ground" then
+    local name = s.get_tile(t.x, t.y).name
+    if cratere_possible(name) then
+      if Ech.trace_marquer(R, t.x, t.y, name, fin) and name ~= "nuclear-ground" then
         pose[#pose + 1] = { name = "nuclear-ground", position = { t.x, t.y } }
       end
     end

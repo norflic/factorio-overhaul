@@ -414,7 +414,8 @@ local PXG = read("prototypes/experimentaux_geants.lua")
 check(not PXG:find('tile_name = "nuclear-ground"', 1, true) and PXG:find("b.time_before_removed = Ech.TRACE_TICKS", 1, true) ~= nil,
   "§12 bis prototypes : l'explosion ne pose plus de sol permanent ; brûlures d'1 h")
 check(SXG:find("cratere(s, c, r.cratere, tick)", 1, true) ~= nil and SXG:find("Events.on_nth_tick(RESORPTION, resorber)", 1, true) ~= nil
-  and SXG:find("not tile.prototype.mineable_properties.minable", 1, true) ~= nil and SXG:find('t.name == "nuclear-ground" and e.orig ~= "nuclear-ground"', 1, true) ~= nil,
+  and SXG:find('not p.collision_mask["water-tile"] and not p.mineable_properties.minable', 1, true) ~= nil
+  and SXG:find("local v = sol_cratere[name]", 1, true) ~= nil and not SXG:find("tile.prototype.mineable_properties", 1, true) and SXG:find('t.name == "nuclear-ground" and e.orig ~= "nuclear-ground"', 1, true) ~= nil,
   "§12 bis cratère posé par script, résorbé, jamais sur un sol de joueur ni sur un sol changé depuis")
 local _, n_trace = SXG:gsub("time_to_live = Ech.TRACE_TICKS", "")
 check(n_trace == 2 and not SXG:find('name = "big-scorchmark"', 1, true) and not SXG:find('name = "small-scorchmark"', 1, true),
