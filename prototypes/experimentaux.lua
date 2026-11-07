@@ -234,7 +234,7 @@ local function base_tourelle(r, type_)
     icons = icones(r.id),
     flags = { "placeable-player", "player-creation" },
     minable = { mining_time = 1, result = r.name },
-    max_health = r.hp,
+    max_health = r.hp, resistances = table.deepcopy(r.resistances), -- règle d'échelle par âge (shared/robots/echelle.lua)
     collision_box = boite(r.foot, 0.3), selection_box = boite(r.foot, 0),
     corpse = "big-remnants", dying_explosion = "big-explosion",
     call_for_help_radius = 40,
@@ -292,7 +292,7 @@ local function unite(r, effect_id)
     localised_name = { "entity-name." .. r.name }, localised_description = { "entity-description." .. r.name },
     icons = icones(r.id),
     flags = { "placeable-player", "placeable-off-grid", "not-repairable", "not-blueprintable", "not-deconstructable" },
-    max_health = r.hp, healing_per_tick = 0,
+    max_health = r.hp, healing_per_tick = 0, resistances = table.deepcopy(r.resistances),
     collision_box = { { -hb, -hb }, { hb, hb } }, selection_box = { { -hb - 0.3, -hb - 1.5 }, { hb + 0.3, hb + 0.3 } },
     sticker_box = { { -hb, -hb }, { hb, hb } },
     movement_speed = r.speed, distance_per_frame = 0.1, run_animation = body,
