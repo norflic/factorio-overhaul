@@ -345,6 +345,11 @@ Plus récents d'abord ; extraits mot pour mot (entier : archive, §5 et fin du �
   94) reste libre pendant 60 s et plus. Rien ne rappelle un PNJ occupé (`team.lua:939` ne vise que la file sûre). La règle
   de collecte choisit pourtant le bon coffre. Lot ajouté : rappel d'un seul PNJ, minage de pierre d'abord, jamais un PNJ
   en défense. La recrue gratuite réduit aussi ce cas.
+  ⏳ MESURÉ à nouveau le 7/11 vers 17 h (banc `stockage-plein` v2, charbonmain) : la règle du coffre urgent se déclenche
+  (« fabrication de wooden-chest »), mais en 70 s aucun PNJ ne la prend (« inactifs 0/4, libres 23 » : éclaireur, minage
+  de fer à 111 tuiles). Une tâche de priorité 90 n'interrompt aucune tâche en cours. C'est le maillon D1 d'IA_WORKFLOW
+  (« 0 PNJ libre, 16 tâches libres » dans votre partie). Une seule règle de rappel, générale (toute tâche de priorité 90
+  ou plus, quand aucun PNJ n'est libre), sert la collecte du fer et le coffre urgent (flux2).
 
 ### Lignes ouvertes ou sans état
 
