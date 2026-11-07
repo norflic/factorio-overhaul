@@ -155,6 +155,27 @@ local function suite()
   check(okc == false and rc == "copper-plate", "producteur du fer, mais le cuivre manque aussi : refusé pour le cuivre (" .. tostring(rc) .. ")")
   check(Ca.module_usable(B, CU, {}, "iron-plate")("electric-mining-drill") == true and Ca.module_usable(B, CU, {})("electric-mining-drill") == false,
     "Ca.module_usable suit le producteur (même règle)")
+  -- Demande du lead : la PLAQUE, pas seulement le minerai. Le module réel de la fonderie de fer (A.METHODS : produit iron-plate,
+  -- gabarit « smelter » : fours, bras, coffres, tapis, poteaux), sans fer au stock ni produit : toutes ses pièces passent.
+  local meth_fe
+  for _, m in ipairs(A.METHODS) do if m.product == "iron-plate" then meth_fe = m end end
+  local WOOD = { ["copper-plate"] = 100, wood = 50 } -- (du bois : le petit poteau, comme les PNJ qui récoltent ; sinon le poteau moyen, en acier)
+  local gfe = meth_fe and A.sized(meth_fe, 30, A.choose_pole(B, WOOD, nil))
+  local its = {}
+  if gfe then
+    local _, it2 = A.cost(meth_fe, gfe, { has_plant = true })
+    its = it2 or {}
+  end
+  local names, pass_all, refused_before = {}, true, 0
+  for k in pairs(its or {}) do names[#names + 1] = k end
+  table.sort(names)
+  for _, k in ipairs(names) do
+    if not Ca.buildable(k, B, WOOD, {}, meth_fe.product) then pass_all = false end
+    if not Ca.buildable(k, B, WOOD, {}) then refused_before = refused_before + 1 end
+  end
+  check(#names >= 4 and pass_all and refused_before >= 3,
+    string.format("fonderie de fer sans fer (%s) : toutes ses pièces passent ; %d auraient été refusées sans le cas limite",
+      table.concat(names, ","), refused_before))
   local FLP = { ["iron-plate"] = { made = 50, hand = 0 } }
   local MACH = { { recipe = "steel-plate", n = 2 }, { recipe = "iron-gear-wheel", n = 1 } }
   local mt = Ca.made_of(FLP, true, MACH, B)
@@ -315,8 +336,14 @@ mutant("(a)-ia3e : A.decide ignore input.usable (copie mutée de shared/ai3/auto
   AUT = Am
   restore_aut = function() AUT = old end
 end)
-mutant("cas limite : le producteur de la matière qui manque est refusé (avant)", function()
+mutant("cas limite : foreuse de fer refusée faute de fer (le producteur de la matière qui manque est refusé, avant)", function()
   patch(Ca, "buildable", function(i, b, s, m) return real(i, b, s, m) end)
+end)
+mutant("cas limite : le producteur ne vaut que pour le MINERAI, pas pour la plaque (four de fer refusé faute de fer)", function()
+  patch(Ca, "buildable", function(i, b, s, m, pr)
+    if pr and b and not b:natural(pr) then pr = nil end
+    return real(i, b, s, m, pr)
+  end)
 end)
 mutant("cas limite : la fonte de votre équipe ignorée (main seulement, avant)", function()
   local real_made2 = Ca.made_of
