@@ -828,6 +828,9 @@ function M.new_world(opts)
     walk_writes = 0, reg = 0, groups = {}, group_number = 0, occupied = {}, game_prints = {}, produced = {}, burned = 0,
     patches = opts.patches or {},
     tile_at = opts.tile_at or function() return "grass-1" end,
+    -- Lot X10-CHEMINS (option, éteinte par défaut : aucun autre banc ne change) : un chemin vers un but sans tuile de terre à
+    -- moins de radius + 0,71 (centre de tuile) échoue toujours, sans tirage au hasard (comme le moteur : aucun nœud final).
+    water_paths = opts.water_paths or false,
     settings = {
       ["fo-debug-render"] = true, ["fo-companion-steer-period"] = opts.steer or 4,
       ["fo-companion-brain-period"] = opts.brain or 60, ["fo-path-max-inflight"] = 6,
@@ -1142,6 +1145,26 @@ function M.new_world(opts)
   surface.request_path = function(t)
     assert(t.bounding_box and t.collision_mask and t.start and t.goal and t.force, "request_path : paramètres requis")
     W.path_id = W.path_id + 1
+    W.path_requests = (W.path_requests or 0) + 1 -- lot X10-CHEMINS : demandes reçues par le moteur
+    if W.water_paths then
+      -- Lot X10-CHEMINS : but sans aucune tuile de terre à moins de radius + 0,71 (centre de tuile) : échec certain, sans tirage.
+      local gx, gy, rr = t.goal.x, t.goal.y, (t.radius or 1) + 0.71
+      local land = false
+      for ty = math.floor(gy - rr), math.floor(gy + rr) do
+        for tx = math.floor(gx - rr), math.floor(gx + rr) do
+          local dx, dy = tx + 0.5 - gx, ty + 0.5 - gy
+          if dx * dx + dy * dy <= rr * rr then
+            local nm = tile_name_at(tx, ty)
+            if nm ~= "water" and nm ~= "deepwater" and nm ~= "out-of-map" then land = true end
+          end
+        end
+      end
+      if not land then
+        W.water_requests = (W.water_requests or 0) + 1
+        W.pending_paths[#W.pending_paths + 1] = { id = W.path_id, due = _G.game.tick + W.latency }
+        return W.path_id
+      end
+    end
     local r = math.random()
     if r < W.p_lost then return W.path_id end -- jamais de réponse : doit finir en timeout
     local ev = { id = W.path_id, due = _G.game.tick + W.latency }
@@ -1287,7 +1310,36 @@ function M.new_world(opts)
   end
   surface.count_tiles_filtered = function(t)
     assert(t.area or (t.position and t.radius), "count_tiles_filtered : zone attendue")
-    return 0
+    -- Lot X10-CHEMINS : la couche « player-layer » se compte (eau, eau profonde et hors carte l'ont), avec ou sans `invert`, par le
+    -- CENTRE de la tuile pour un disque ; toute autre question rend 0 comme avant (aucun autre banc ne change).
+    if t.collision_mask ~= "player-layer" then return 0 end
+    local x0, y0, x1, y1, cx, cy, r2
+    if t.area then
+      local lt, rb = t.area[1] or t.area.left_top, t.area[2] or t.area.right_bottom
+      x0, y0 = math.floor(lt[1] or lt.x), math.floor(lt[2] or lt.y)
+      x1, y1 = math.ceil(rb[1] or rb.x) - 1, math.ceil(rb[2] or rb.y) - 1
+    else
+      cx, cy = t.position.x or t.position[1], t.position.y or t.position[2]
+      r2 = t.radius * t.radius
+      x0, y0 = math.floor(cx - t.radius), math.floor(cy - t.radius)
+      x1, y1 = math.floor(cx + t.radius), math.floor(cy + t.radius)
+    end
+    local n = 0
+    for ty = y0, y1 do
+      for tx = x0, x1 do
+        local inside = true
+        if r2 then local dx, dy = tx + 0.5 - cx, ty + 0.5 - cy inside = dx * dx + dy * dy <= r2 end
+        if inside then
+          local nm = tile_name_at(tx, ty)
+          local blocking = nm == "water" or nm == "deepwater" or nm == "out-of-map"
+          if blocking ~= (t.invert == true) then
+            n = n + 1
+            if t.limit and n >= t.limit then return n end
+          end
+        end
+      end
+    end
+    return n
   end
   -- Lot M0 : tuiles d'une zone { {x0, y0}, {x1, y1} } (bornes du moteur : x0 <= x < x1), sans autre filtre.
   surface.find_tiles_filtered = function(t)
