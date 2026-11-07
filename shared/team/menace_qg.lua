@@ -14,9 +14,12 @@
     - SORTIE : plus aucune unité à moins de 64 tuiles pendant Mq.EXIT_THINKS (2) pensées DE SUITE (600 ticks à 300 ticks la pensée) ;
     - BESOIN (verrou de H) : vrai dès l'entrée, levé à la première pensée qui SUIT l'entrée où le QG a une tourelle armée (`armed`) ; journal seulement,
       aucune décision ne le lit dans cette partie.
-  Une seule recherche par pensée : le rayon sondé dépend de l'état (Mq.probe_radius) : 48 hors menace, 64 en menace.
-  Mesure codée pour H.update_haut(st, niveau, 1, 1, ...) : niveau 2 = unité vue au rayon d'entrée (hors menace), 1 = unité vue au rayon
-  de sortie (en menace), 0 = rien.
+    - BORNE : entre 48 et 64 tuiles, le maintien ne dure que si une unité est revenue sous 48 tuiles dans les Mq.HOLD_THINKS (6)
+      dernières pensées ; sinon, sortie à cette pensée.
+  Recherches du moteur : une par pensée hors menace (rayon 48) ; en menace, une à 48, plus une à 64 seulement si rien n'est à 48
+  (Mq.needs_outer).
+  Mesure codée pour H.update_haut(st, niveau, 1, 1, ...) : niveau 2 = unité vue au rayon d'entrée (hors menace), 1 = unité qui tient la
+  menace (en menace), 0 = rien (ou borne échue).
   Déterminisme : aucune table parcourue, aucun hasard, aucun temps mesuré ; la cadence est celle de la pensée (ticks de jeu).
 ]]
 
@@ -26,21 +29,35 @@ local Mq = {}
 
 Mq.EXIT_RADIUS = 64  -- tuiles : la menace dure tant qu'une unité reste à cette distance du coffre
 Mq.EXIT_THINKS = 2   -- pensées de suite sans unité à Mq.EXIT_RADIUS avant la sortie
+-- BORNE du maintien (acceptation du lead, 7/11 vers 17 h : « le DC veut ses 12 ouvriers ») : entre r_in et Mq.EXIT_RADIUS, la menace ne
+-- dure que si une unité est revenue sous r_in au moins une fois dans les Mq.HOLD_THINKS dernières pensées ; sinon, sortie. Sans elle, un
+-- nid entre 48 et 64 tuiles du coffre tenait la menace ouverte sans fin (fond coupé, toute l'équipe au coffre, recrues retenues).
+Mq.HOLD_THINKS = 6   -- pensées (30 s à 300 ticks la pensée) : donnée, non mesurée en partie
 
-function Mq.new() return H.new() end
+function Mq.new() local st = H.new() st.since_in = 0 return st end
 
---- Rayon à sonder à cette pensée : r_in hors menace, max(r_in, Mq.EXIT_RADIUS) en menace.
-function Mq.probe_radius(st, r_in)
-  if st and st.crise then return math.max(r_in, Mq.EXIT_RADIUS) end
-  return r_in
+--- Faut-il sonder aussi le rayon de sortie à cette pensée ? Seulement en menace et sans unité au rayon d'entrée.
+function Mq.needs_outer(st, found_in)
+  return (st and st.crise and not found_in) and true or false
 end
 
---- Une pensée. found = une unité ennemie a été vue au rayon de Mq.probe_radius ; armed = le QG a une tourelle armée. Rend
---- (menace, evenement de H).
-function Mq.update(st, found, armed)
-  local lvl = 0
-  if found then lvl = st.crise and 1 or 2 end
-  local _, ev = H.update_haut(st, lvl, 1, 1, armed and true or false, { sortie_n = Mq.EXIT_THINKS })
+--- Une pensée. found_in = une unité ennemie à r_in tuiles ou moins ; found_out = une unité à Mq.EXIT_RADIUS ou moins (lu seulement
+--- quand Mq.needs_outer le demande ; sinon found_out = found_in) ; armed = le QG a une tourelle armée. Rend (menace, evenement de H).
+function Mq.update(st, found_in, found_out, armed)
+  st.since_in = st.since_in or 0
+  local lvl, opts = 0, { sortie_n = Mq.EXIT_THINKS }
+  if found_in then
+    lvl = st.crise and 1 or 2
+    st.since_in = 0
+  elseif st.crise then
+    st.since_in = st.since_in + 1
+    if found_out then
+      if st.since_in >= Mq.HOLD_THINKS then opts = { sortie_n = 1 } -- borne échue : sortie à cette pensée
+      else lvl = 1 end
+    end
+  end
+  local _, ev = H.update_haut(st, lvl, 1, 1, armed and true or false, opts)
+  if not st.crise then st.since_in = 0 end
   return st.crise, ev
 end
 

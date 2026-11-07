@@ -20,8 +20,10 @@ check(T.hq_threat_radius == R_IN, "T.hq_threat_radius vaut 48 (" .. tostring(T.h
 
 -- Une pensée de la règle pure, distance d (nil : aucune unité) : found selon le rayon sondé.
 local function think(Mq, st, d, armed)
-  local r = Mq.probe_radius(st, R_IN)
-  return (Mq.update(st, d ~= nil and d <= r, armed))
+  local fin = d ~= nil and d <= R_IN
+  local fout = fin
+  if Mq.needs_outer(st, fin) then fout = d ~= nil and d <= Mq.EXIT_RADIUS end
+  return (Mq.update(st, fin, fout, armed))
 end
 -- Règle d'AVANT (0.6.58, team.lua:571-575) : une unité à 48 tuiles ou moins à cette pensée.
 local function old(d) return d ~= nil and d <= R_IN end
@@ -58,11 +60,21 @@ local function suite(Mq)
   want(st.besoin == true, "besoin a l'entree")
   think(Mq, st, 40, true)
   want(st.besoin == false and st.crise == true, "tourelle armee : besoin libere, menace tenue")
-  -- rayon sondé selon l'état
+  -- rayon de sortie sondé seulement en menace et sans unité au rayon d'entrée
   local s0 = Mq.new()
-  want(Mq.probe_radius(s0, R_IN) == 48, "hors menace : rayon 48")
+  want(Mq.needs_outer(s0, false) == false, "hors menace : pas de second sondage")
   think(Mq, s0, 40, false)
-  want(Mq.probe_radius(s0, R_IN) == 64, "en menace : rayon 64")
+  want(Mq.needs_outer(s0, true) == false and Mq.needs_outer(s0, false) == true, "en menace : second sondage seulement sans unite a 48")
+  -- BORNE : un biter entré à 40 puis FIXE à 55 : la menace tient 6 pensées (Mq.HOLD_THINKS) puis sort ; pas de rentrée à 55.
+  local fixe = seq(Mq, { 40, 55, 55, 55, 55, 55, 55, 55, 55 })
+  want(str(fixe) == "TTTTTTfff", "borne : biter fixe a 55 apres l'entree, sortie a la 7e pensee (" .. str(fixe) .. ")")
+  local fixe40 = seq(Mq, { 40, 40, 40, 40, 40, 40, 40, 40, 40, 40 })
+  want(str(fixe40) == "TTTTTTTTTT", "biter fixe a 40 : la menace tient (la borne ne joue pas sous 48) (" .. str(fixe40) .. ")")
+  local fixe0 = seq(Mq, { 55, 55, 55 })
+  want(str(fixe0) == "fff", "biter fixe a 55 des le debut : jamais de menace")
+  -- la borne repart à chaque retour sous 48
+  local back = seq(Mq, { 40, 55, 55, 55, 55, 55, 47, 55, 55, 55, 55, 55, 55 })
+  want(str(back) == "TTTTTTTTTTTTf", "borne : un retour sous 48 la relance (" .. str(back) .. ")")
   return bad
 end
 
@@ -104,12 +116,19 @@ local c0 = W.count_calls or 0
 local mp = run(PASSAGE)
 local calls = (W.count_calls or 0) - c0
 check(str(mp) == "fTTTf", "§2 moteur simule, passage 50, 40, 60, rien, rien : fTTTf (" .. str(mp) .. ")")
-check(calls == #PASSAGE, "§2 un seul comptage du moteur par pensee (" .. calls .. " pour " .. #PASSAGE .. ")")
+-- comptages : 1 par pensée hors menace (pensées 1 et 2) ; en menace, 1 à 48 plus 1 à 64 sans unité à 48 (pensées 3 à 5) : 1 + 1 + 2 + 2 + 2
+check(calls == 8, "§2 comptages du moteur : 1 hors menace, 2 au plus en menace (" .. calls .. " pour " .. #PASSAGE .. " pensees, 8 attendus)")
+print(string.format("[L12A] §2 comptages du moteur sur le passage : %d pour %d pensees (avant : %d)", calls, #PASSAGE, #PASSAGE))
+local mf = run({ 40, 55, 55, 55, 55, 55, 55, 55 })
+check(str(mf) == "TTTTTTff", "§2 moteur simule, biter fixe a 55 apres l'entree : sortie apres 6 pensees (" .. str(mf) .. ")")
 local mo = run(OSC)
 check(str(mo) == "TTTTTTTTTff" and toggles(mo) == 2, "§2 moteur simule, oscillation 47/50 : 2 bascules (" .. str(mo) .. ")")
 local n_log = 0
 for _, l in ipairs(W.logs or {}) do if l:find("[FO-QG-MENACE]", 1, true) then n_log = n_log + 1 end end
-check(n_log == 4, "§2 journal [FO-QG-MENACE] : entree et sortie de chaque suite (" .. n_log .. " lignes)")
+check(n_log == 6, "§2 journal [FO-QG-MENACE] : entree et sortie de chaque suite (" .. n_log .. " lignes)")
+local n_borne = 0
+for _, l in ipairs(W.logs or {}) do if l:find("[FO-QG-MENACE]", 1, true) and l:find("borne", 1, true) then n_borne = n_borne + 1 end end
+check(n_borne == 1, "§2 journal : la sortie par la borne est ecrite comme telle (" .. n_borne .. ")")
 QG_ARMED = 1
 run({ 40, 40 }) -- (entrée à la 1re pensée ; la pose ne libère qu'à la pensée suivante : shared/ai3/hysteresis.lua)
 check(f.team.hq_menace.besoin == false and f.team.hq_menace.crise == true, "§2 tourelle armee au QG : besoin libere, menace tenue")
@@ -139,6 +158,16 @@ print(string.format("[L12A] §3 QGSURVIE sans tourelle armee : passage %d pensee
 check(hP0 == 1 and hP1 == 3, "§3 passage : 1 pensee de retenue avant, 3 apres")
 check(hO0 == 4 and hO1 == 9, "§3 oscillation : 4 pensees de retenue (8 bascules) avant, 9 d'affilee apres")
 check(held_armed(newP) == 0 and held_armed(newO) == 0, "§3 avec une tourelle armee au QG : aucune retenue, avant comme apres")
+do -- nid entre 48 et 64 tuiles : un biter entré à 40 puis qui reste à 55 pendant 20 pensées
+  local nid = { 40 }
+  for i = 2, 21 do nid[i] = 55 end
+  local oldN = {}
+  for i, d in ipairs(nid) do oldN[i] = old(d) end
+  local hN0, hN1 = held(oldN), held((seq(Mq, nid)))
+  print(string.format("[L12A] §3 nid a 55 tuiles (21 pensees) : retenue %d pensee(s) avant, %d apres (borne de %d pensees ; sans borne : 21)",
+    hN0, hN1, Mq.HOLD_THINKS))
+  check(hN0 == 1 and hN1 == Mq.HOLD_THINKS, "§3 nid a 55 tuiles : retenue bornee a Mq.HOLD_THINKS pensees (" .. hN1 .. ")")
+end
 
 -- §4 Câblage de team.lua (lecture du source) : l'ancien comptage a disparu, un seul appel de MenaceQg.observe, require en tête.
 do
@@ -153,12 +182,14 @@ end
 -- §5 Mutants (règle pure ; un du runtime).
 local SRC = read("shared/team/menace_qg.lua")
 local MUT = {
-  { "pas de rayon de sortie (seuil unique)", "if st and st.crise then return math.max(r_in, Mq.EXIT_RADIUS) end", "" },
+  { "pas de rayon de sortie (seuil unique)", "else lvl = 1 end", "end" },
+  { "sans borne (maintien sans fin entre 48 et 64)", "if st.since_in >= Mq.HOLD_THINKS then opts = { sortie_n = 1 } -- borne échue : sortie à cette pensée\n      else lvl = 1 end", "lvl = 1" },
+  { "borne non relancee par un retour sous 48", "lvl = st.crise and 1 or 2\n    st.since_in = 0", "lvl = st.crise and 1 or 2" },
   { "sortie a la premiere pensee sans unite", "Mq.EXIT_THINKS = 2 ", "Mq.EXIT_THINKS = 1 " },
-  { "unite vue en menace comptee pour rien", "if found then lvl = st.crise and 1 or 2 end", "if found then lvl = st.crise and 0 or 2 end" },
-  { "jamais d'entree (niveau 1 hors menace)", "if found then lvl = st.crise and 1 or 2 end", "if found then lvl = 1 end" },
+  { "unite vue a 48 en menace comptee pour rien", "lvl = st.crise and 1 or 2\n", "lvl = st.crise and 0 or 2\n" },
+  { "jamais d'entree (niveau 1 hors menace)", "lvl = st.crise and 1 or 2\n", "lvl = 1\n" },
   { "tourelle armee ignoree (besoin jamais libere)", "armed and true or false", "false" },
-  { "sortie sans attente (sortie_n ignore)", "{ sortie_n = Mq.EXIT_THINKS }", "nil" },
+  { "sortie sans attente (sortie_n ignore)", "local lvl, opts = 0, { sortie_n = Mq.EXIT_THINKS }", "local lvl, opts = 0, nil" },
 }
 local refused = 0
 for _, m in ipairs(MUT) do
@@ -177,7 +208,7 @@ end
 -- mutant du runtime : rayon fixe (l'état n'est pas lu).
 do
   local RS = read("script/team/menace_qg.lua")
-  local s2, n = RS:gsub(("local r = Mq.probe_radius(st, T.hq_threat_radius)"):gsub("%p", "%%%0"), "local r = T.hq_threat_radius")
+  local s2, n = RS:gsub(("if Mq.needs_outer(st, found_in) then"):gsub("%p", "%%%0"), "if false then")
   local killed = false
   if n == 1 then
     package.loaded["script.team.menace_qg"] = nil
@@ -189,7 +220,7 @@ do
     killed = str(out) ~= "fTTTf"
   end
   if killed then refused = refused + 1 end
-  check(n == 1 and killed, "§5 mutant du runtime refuse : rayon fixe")
+  check(n == 1 and killed, "§5 mutant du runtime refuse : rayon de sortie jamais sonde")
 end
 print(string.format("[L12A] §5 mutants refuses : %d sur %d", refused, #MUT + 1))
 

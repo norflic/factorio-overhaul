@@ -25,12 +25,21 @@ end
 function MenaceQg.observe(f, tick)
   local st = f.team.hq_menace
   if not st then st = Mq.new() f.team.hq_menace = st end
-  local r = Mq.probe_radius(st, T.hq_threat_radius)
-  local found = f.hq.surface.count_entities_filtered({ position = f.hq_pos, radius = r, force = "enemy", type = "unit", limit = 1 }) > 0
-  local on, ev = Mq.update(st, found, armed_of(f, tick) > 0)
+  local surface = f.hq.surface
+  local found_in = surface.count_entities_filtered({ position = f.hq_pos, radius = T.hq_threat_radius, force = "enemy", type = "unit",
+    limit = 1 }) > 0
+  local found_out = found_in
+  if Mq.needs_outer(st, found_in) then
+    found_out = surface.count_entities_filtered({ position = f.hq_pos, radius = Mq.EXIT_RADIUS, force = "enemy", type = "unit",
+      limit = 1 }) > 0
+  end
+  local since = st.since_in or 0
+  local on, ev = Mq.update(st, found_in, found_out, armed_of(f, tick) > 0)
   if ev == "entree" or ev == "sortie" then
-    log(string.format("[FO-QG-MENACE] %s : %s a %.1f min (rayon sonde %d) ; %s", tostring(f.key or (f.is_player and "player") or "?"),
-      ev == "entree" and "QG MENACE" or "menace levee", tick / 3600, r, Mq.describe(st)))
+    log(string.format("[FO-QG-MENACE] %s : %s a %.1f min%s ; %s", tostring(f.key or (f.is_player and "player") or "?"),
+      ev == "entree" and "QG MENACE" or "menace levee", tick / 3600,
+      (ev == "sortie" and found_out) and string.format(" (borne : aucune unite sous %d tuiles depuis %d pensee(s))", T.hq_threat_radius, since + 1) or "",
+      Mq.describe(st)))
   end
   return on
 end
