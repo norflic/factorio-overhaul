@@ -697,6 +697,30 @@ do
   Stock.grow(f6, W6.surface, 100)
   check(f6.annex_lost == #slots and Stock.capacity(f6) == #north and Stock.wanted(f6) == 0,
     "plafond suivi : " .. tostring(f6.annex_lost) .. " places tenues, plafond " .. Stock.capacity(f6) .. ", coffres voulus " .. Stock.wanted(f6))
+  -- Garde de place_held (revue-s, lead, 7/11) : 100 dépôts refusés d'un coffre, bloc plein (deux faces tenues) : une seule recherche
+  -- de place (au plus une vérification par place), pas une par dépôt ; T.annex.retry plus tard, une recherche de nouveau
+  local W7 = make_world()
+  for i = 1, #slots do W7.block(pos(i), "steel-chest") end
+  for i = 1, #north do W7.block(npos(i), "steel-chest") end
+  local calls = 0
+  local cpe = W7.surface.can_place_entity
+  W7.surface.can_place_entity = function(t) calls = calls + 1 return cpe(t) end
+  local f7 = full_team()
+  f7.hq.items["iron-chest"] = nil
+  f7.hq.items.coal = 50 * 10 -- stock plein, aucun coffre en main
+  f7.hq.surface = W7.surface
+  f7.hq_pos = { x = 0, y = 0 }
+  local saved_tick = game.tick
+  game.tick = 5000
+  local put7 = 0
+  for _ = 1, 100 do put7 = put7 + Stock.insert(f7, "wooden-chest", 1, { reserve = true }) end
+  local first = calls
+  game.tick = 5000 + T.annex.retry
+  Stock.insert(f7, "wooden-chest", 1, { reserve = true })
+  local again = calls - first
+  game.tick = saved_tick
+  check(put7 == 0 and #W7.made == 0 and first >= 1 and first <= #slots + #north and again >= 1,
+    "garde de place_held : 100 depots refuses, " .. first .. " verification(s) de place (une recherche), puis une recherche de nouveau apres T.annex.retry (" .. again .. ")")
 end
 
 do
