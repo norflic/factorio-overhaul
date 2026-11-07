@@ -33,6 +33,8 @@ local Build = require("script.team.build")
 local Conv = require("script.team.convoyeurs")
 local Fal = require("script.team.falaise") -- lot OBSTACLES : emprise réelle des falaises
 local Profiler = require("script.core.profiler") -- lot PERF3 : portées fines (mesure seulement)
+local Fo = require("shared.team.champ_forme") -- lot CHAMP-COUVERTURE : forme du champ en une ligne, rejouée hors jeu
+local Vo = require("shared.team.champ_voisins") -- lot CHAMP-COUVERTURE (R7) : un gisement, un champ
 
 local Champ = {}
 
@@ -64,6 +66,10 @@ Champ.CFG = {
   charge_tete = 200,-- charbon posé avec le coffre de tête d'une colonne SANS voie de charbon (24 fours de pierre : 6 min)
   amorce = 5,       -- charbon posé avec chaque four d'une colonne (une fois) : la limite d'insertion d'un bras (mesurée, banc-2) ; sans elle,
                     -- les fours se garnissent un à un depuis la tête et la queue attend plusieurs minutes
+  -- lot CHAMP-COUVERTURE (étape 0, accord du lead du 5/11) : forme du champ ([FO-CHAMP-FORME], shared/team/champ_forme.lua) écrite pour un
+  -- plan qui couvre moins que forme_below du gisement ou ne pose aucune bande, au plus forme_max lignes par équipe et par partie
+  forme_below = 0.6,
+  forme_max = 10,
 }
 
 local function sorted_keys(t) return State.sorted_keys(t or {}) end
@@ -281,14 +287,38 @@ local function add_box(set, e, what)
   end
 end
 
---- Tuiles NÔTRES (libres pour le plan) : paires de l'avant-poste et de ses voisins du même minerai sur le gisement (Champ.SIB_R), et
---- entités des bandes déjà demandées pour lui.
-local function mine_of(f, o)
-  local mine = {}
-  local r2 = Champ.SIB_R * Champ.SIB_R
+--- Lot CHAMP-COUVERTURE (R7) : numéros des avant-postes du même minerai POSÉS sur le gisement `ore` de `o` (leur position ou une tuile
+--- d'une de leurs paires est une tuile du gisement), à toute distance (shared/team/champ_voisins.lua). Liste triée.
+local function deposit_sibs(f, o, ore)
+  local cands = {}
   for _, oid in ipairs(sorted_keys(f.outposts)) do
     local q = f.outposts[oid]
-    if q == o or (q.kind == o.kind and (q.pos.x - o.pos.x) ^ 2 + (q.pos.y - o.pos.y) ^ 2 <= r2) then
+    if q ~= o and q.kind == o.kind and q.pos then
+      local t = { math.floor(q.pos.x), math.floor(q.pos.y) }
+      for _, d in ipairs(q.drill_list or {}) do
+        if d.valid then
+          local box = {}
+          add_box(box, d)
+          for _, k in ipairs(sorted_keys(box)) do t[#t + 1] = math.floor(k / 100000) - 50000; t[#t + 1] = k % 100000 - 50000 end
+        end
+      end
+      cands[#cands + 1] = { id = oid, tiles = t }
+    end
+  end
+  return Vo.on_deposit(ore, cands)
+end
+Champ.deposit_sibs = deposit_sibs
+
+--- Tuiles NÔTRES (libres pour le plan) : paires de l'avant-poste et de ses voisins du même minerai sur le gisement (Champ.SIB_R ; lot
+--- CHAMP-COUVERTURE, R7 : et les avant-postes `sibs` posés sur le gisement, à toute distance), et entités des bandes déjà demandées pour lui.
+local function mine_of(f, o, sibs)
+  local mine = {}
+  local r2 = Champ.SIB_R * Champ.SIB_R
+  local on = {}
+  for _, id in ipairs(sibs or {}) do on[id] = true end
+  for _, oid in ipairs(sorted_keys(f.outposts)) do
+    local q = f.outposts[oid]
+    if q == o or (q.kind == o.kind and ((q.pos.x - o.pos.x) ^ 2 + (q.pos.y - o.pos.y) ^ 2 <= r2 or on[oid])) then
       for _, l in ipairs({ q.drill_list or {}, q.sinks or {} }) do
         for _, e in ipairs(l) do if e.valid then add_box(mine, e) end end
       end
@@ -389,7 +419,8 @@ local function spec_of(f, surface, o, frame, only)
       x0, y0, x1, y1 = math.min(x0, box[1] - m), math.min(y0, box[2] - m), math.max(x1, box[3] + m), math.max(y1, box[4] + m)
     end
   end
-  local mine = mine_of(f, o)
+  local sibs = deposit_sibs(f, o, ore) -- lot CHAMP-COUVERTURE (R7) : avant-postes posés sur le même gisement, à toute distance
+  local mine = mine_of(f, o, sibs)
   local soft = coal and {} or nil
   -- lot MELANGE : autres ressources minables autour du gisement (une foreuse se pose au plus côté + portée hors du minerai)
   local ox0, oy0, ox1, oy1 = math.huge, math.huge, -math.huge, -math.huge
@@ -431,16 +462,17 @@ local function spec_of(f, surface, o, frame, only)
     fr.only = only
     spec.frame = fr
   end
-  return spec, names
+  return spec, names, sibs
 end
 
 ---------------------------------------------------------------------------------------------------
 -- Plans
 ---------------------------------------------------------------------------------------------------
---- Plan entier : (cadre, ordre des bandes { pr }, plan) ou nil, raison. Journal : une ligne [FO-CHAMP] par plan.
+--- Plan entier : (cadre, ordre des bandes { pr }, plan, avant-postes du même gisement { numéro }) ou nil, raison. Journal : une ligne [FO-CHAMP]
+--- par plan.
 function Champ.frame(f, surface, o)
   Profiler.fstart("champ:frame-spec")
-  local spec, names = spec_of(f, surface, o, nil, nil)
+  local spec, names, sibs = spec_of(f, surface, o, nil, nil)
   Profiler.fstop("champ:frame-spec")
   if not spec then return nil, names end
   Profiler.dump("champ-frame", { spec = spec, cfg = Ch.CFG }) -- lot PERF3 : entrées du plan, bancs de détail seulement
@@ -498,7 +530,17 @@ function Champ.frame(f, surface, o)
     .. string.format(" ; fonderie %s, %d souterrain(s), %d repartiteur(s)%s", plan.design or "a coffres", plan.stats.undergrounds or 0,
       plan.stats.splitters or 0, #cs > 0 and (", " .. table.concat(cs, ", ")) or "")
     .. string.format(" ; autres ressources minables autour : %d tuile(s) du champ, %d de la ligne de charbon", spec.nforeign or 0,
-      spec.coal and spec.coal.nforeign or 0))
+      spec.coal and spec.coal.nforeign or 0)
+    -- lot CHAMP-COUVERTURE (étape 0) : foreuses possibles sur les rangées mais hors des groupes (tapis plein, tapis bloqué avant le bout du
+    -- champ), groupes retirés faute de place pour leur fonderie
+    .. string.format(" ; coupees %d, sans fonderie %d", plan.stats.capped or 0, plan.stats.no_smelter or 0))
+  -- lot CHAMP-COUVERTURE (étape 0) : la FORME du champ (entrées du plan), rejouée hors jeu par tools/champ_forme.lua, pour un plan qui couvre
+  -- peu ou ne pose rien (hors du plafond des lignes [FO-CHAMP] de say ; son propre plafond par équipe)
+  if (rep.elec < Champ.CFG.forme_below or #prs == 0) and (f.champ_formes or 0) < Champ.CFG.forme_max then
+    f.champ_formes = (f.champ_formes or 0) + 1
+    log(string.format("[FO-CHAMP-FORME] %s : avant-poste %d (%s) a %.1f min : %s", f.key or "player", o.id, o.kind, game.tick / 3600,
+      Fo.encode(spec, { covered = rep.covered, tiles = rep.tiles, drills = plan.stats.drills, bands = #prs })))
+  end
   -- (revue-fonderie, 3/11) réseau du charbon calculé dans l'autre ordre des côtés : moins de coffres de tête
   if plan.order_swapped then
     log(string.format("[FO-CHAMP] %s : avant-poste %d : reseau du charbon calcule cote %s d'abord : coffres de tete %d -> %d, foreuses du champ %d -> %d a %.1f min",
@@ -517,7 +559,9 @@ function Champ.frame(f, surface, o)
     log(string.format("[FO-CHAMP] %s : colonne refusee : pas de voie de charbon (avant-poste %d, bande %d, cote %s : %s) a %.1f min", f.key or "player",
       o.id, x.pr, x.side > 0 and "+" or "-", tostring(x.why), game.tick / 3600))
   end
-  return plan.frame, prs, plan
+  -- lot CHAMP-COUVERTURE (R7) : 4e valeur, les avant-postes posés sur le même gisement (gardés par la migration : leurs paires sont
+  -- retirées sous les bandes, et ils ne planifient pas un second champ sur ce gisement)
+  return plan.frame, prs, plan, sibs
 end
 
 --- Lot FONDERIE : vrai si une bande du champ de `o` a déjà été demandée au plan directeur (un cadre d'avant le lot, sans `design`, n'est

@@ -41,6 +41,7 @@ local Build = require("script.team.build")
 local Champ = require("script.team.champ") -- lot CHAMP : la partie migrée est une BANDE du champ en rangées (shared/team/champ.lua), hors du treillis
 local Melange = require("script.team.melange") -- lot MELANGE : foreuses des bandes sur une zone mêlée, tapis encombrés d'un autre minerai
 local PileRt = require("script.team.pile") -- lot THERMIQUE5 : porte de la pile pour le départ d'une bande neuve pendant une retenue
+local Ry = require("shared.team.champ_rythme") -- lot CHAMP-COUVERTURE (R5a, R5c) : porte des plaques d'un agrandissement, part bâtie du champ
 
 local Mig = {}
 
@@ -49,7 +50,8 @@ local CFG = Mg.CFG
 --   min_pairs 1    une seule paire suffit (un avant-poste neuf de paires passe au champ dès que le courant et les objets le permettent) ;
 --   keep_pairs 0   la bande qui remplace les paires produit plus qu'elles : un petit avant-poste n'est plus bloqué par la garde
 --                  (« garde » annulait la demande : un champ d'une seule bande ne migrait jamais) ;
---   EXT_PLATES     une bande SANS paire (agrandissement du champ) n'est demandée que si la plaque du champ est sous ce stock libre.
+--   EXT_PLATES     une bande SANS paire (agrandissement du champ) n'est demandée que si la plaque du champ est sous ce stock libre ; lot
+--                  CHAMP-COUVERTURE (R5a) : seulement pour un champ bâti à Ry.CFG.share (80 %) au moins de son plan (shared/team/champ_rythme.lua).
 local CHAMP_CFG = {}
 for _, k in ipairs(State.sorted_keys(CFG)) do CHAMP_CFG[k] = CFG[k] end
 CHAMP_CFG.min_pairs, CHAMP_CFG.keep_pairs = 1, 0
@@ -64,7 +66,7 @@ local CHAMP_RAW_CFG = {}
 for _, k in ipairs(State.sorted_keys(CHAMP_CFG)) do CHAMP_RAW_CFG[k] = CHAMP_CFG[k] end
 CHAMP_RAW_CFG.min_plates = Th.min_plates(true, CHAMP_CFG.min_plates)
 CHAMP_CFG.min_plates = Th.min_plates(false, CHAMP_CFG.min_plates)
-local EXT_PLATES = 3000
+local EXT_PLATES = Ry.CFG.plates
 local FURNACE_INVENTORIES = { "furnace_source", "furnace_result", "fuel" }
 local CHEST_INVENTORIES = { "chest" }
 
@@ -170,9 +172,17 @@ local function siblings(f, o)
     if q.box then return in_box(q.box, o.pos) end
     return (q.pos.x - o.pos.x) ^ 2 + (q.pos.y - o.pos.y) ^ 2 <= r2
   end
+  -- lot CHAMP-COUVERTURE (R7) : et les avant-postes POSÉS sur le même gisement, à toute distance (relevés au cadre, Champ.frame : st.sibs),
+  -- dans les deux sens (l'avant-poste dont le cadre nous compte, et ceux que notre cadre compte)
+  local ms = f.migration
+  local on = {}
+  for _, id in ipairs((ms and ms.o and ms.o[o.id] and ms.o[o.id].sibs) or {}) do on[id] = true end
+  for _, oid in ipairs(sorted_keys(ms and ms.o)) do
+    for _, id in ipairs(ms.o[oid].sibs or {}) do if id == o.id then on[oid] = true end end
+  end
   for _, oid in ipairs(sorted_keys(f.outposts)) do
     local q = f.outposts[oid]
-    if q ~= o and q.kind == o.kind and near(q) then out[#out + 1] = q end
+    if q ~= o and q.kind == o.kind and (near(q) or on[oid]) then out[#out + 1] = q end
   end
   -- gisements sans avant-poste demandés par la capitalisation (Mig.want) : voisins eux aussi (un seul champ par gisement)
   local fields = f.migration and f.migration.fields
@@ -182,6 +192,8 @@ local function siblings(f, o)
   end
   return out
 end
+
+Mig.siblings = siblings -- (bancs hors jeu : tests/migration_champ_test.lua, section CC1)
 
 --- Paires de `o` et de ses voisins du même gisement (lot CHAMP), comme survey(o).
 local function survey_field(f, o)
@@ -613,6 +625,25 @@ local function failed(f, ms, o, st, tick, why)
   end
 end
 
+--- Lot CHAMP-COUVERTURE (R5a, R5c) : part BÂTIE du champ de `o` : chaque bande demandée (projet du champ, réseau du charbon exclu) compte au
+--- prorata de ses foreuses POSÉES sur ses foreuses prévues ; les bandes du cadre jamais demandées comptent 0 (shared/team/champ_rythme.lua).
+local function built_share(f, o, st)
+  local bands = {}
+  local b = f.build
+  for _, pid in ipairs(b and b.order or {}) do
+    local p = b.projects[pid]
+    if p and p.spec and p.spec.champ and p.spec.champ.oid == o.id and not p.spec.champ.coal then
+      local planned, built = 0, 0
+      for _, e in ipairs(p.ents or {}) do
+        if e.role == "champ-foreuse" then planned = planned + 1; if e.built then built = built + 1 end end
+      end
+      bands[#bands + 1] = { planned = planned, built = built }
+    end
+  end
+  return Ry.share(bands, #(st.order or {}))
+end
+Mig.built_share = built_share -- (bancs hors jeu : tests/migration_champ_test.lua, section CC2)
+
 --- Lot CHAMP : la bande suivante du champ de l'avant-poste `o` (cadre figé au premier appel), demandée au plan directeur comme un SITE
 --- (Build.SITES.champ, script/team/champ.lua). Les paires dont une tuile est sous la bande sont celles que le dégel retire. Rend vrai si la
 --- demande est partie.
@@ -622,7 +653,7 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
   -- colonne à tapis ; dès qu'une bande est posée ou demandée, le cadre garde son motif (les bandes voisines partagent leurs rangées)
   if Champ.tapis() and st.frame and st.frame.design == nil and not Champ.has_band(f, o) then st.frame, st.order, st.done_pr = nil, nil, nil end
   if not st.frame then
-    local frame, order = Champ.frame(f, surface, o)
+    local frame, order, _, sibs = Champ.frame(f, surface, o)
     if not frame then
       st.fails, st.retry = st.fails + 1, tick + CFG.retry
       say_why(f, ms, st, "champ:" .. tostring(order), string.format("avant-poste %d : pas de plan de champ (%s), essai %d/%d", o.id, tostring(order), st.fails, CFG.max_fails))
@@ -630,6 +661,10 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
       return false
     end
     st.frame, st.order, st.done_pr = frame, order, {}
+    -- lot CHAMP-COUVERTURE (R7) : avant-postes posés sur ce gisement ; leurs paires sont aussi sous les bandes (relevé refait : `list` venait
+    -- de siblings() d'avant le cadre)
+    st.sibs = sibs
+    if sibs and #sibs > 0 then list = survey_field(f, o) end
   end
   local bad = {}
   for _, k in ipairs(st.bad or {}) do bad[k] = true end
@@ -712,9 +747,11 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
   end
   -- une bande voulue par la capitalisation (Mig.want) n'attend pas que la plaque manque : la règle a déjà jugé l'agrandissement rentable
   local wanted = (st.want_until or 0) > tick
-  if #ids == 0 and (free[product] or 0) >= EXT_PLATES and not wanted then
-    say_why(f, ms, st, "ext:" .. pr, string.format("avant-poste %d : bande %d sans paire en attente (%d %s libres, agrandissement sous %d)", o.id, pr,
-      free[product] or 0, product, EXT_PLATES))
+  -- lot CHAMP-COUVERTURE (R5a, R5c) : la porte des plaques ne retient l'agrandissement que d'un champ déjà bâti à Ry.CFG.share de son plan
+  local share = (#ids == 0 and (free[product] or 0) >= EXT_PLATES and not wanted) and built_share(f, o, st) or nil
+  if share and Ry.ext_wait({ under = #ids, free = free[product] or 0, wanted = wanted, share = share }) then
+    say_why(f, ms, st, "ext:" .. pr, string.format("avant-poste %d : bande %d sans paire en attente (%d %s libres, agrandissement sous %d ; champ bati a %d %%, porte a partir de %d %%)",
+      o.id, pr, free[product] or 0, product, EXT_PLATES, math.floor(100 * share + 0.5), math.floor(100 * Ry.CFG.share + 0.5)))
     st.retry = tick + CFG.retry
     return false
   end
@@ -768,9 +805,11 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
   ms.requests = (ms.requests or 0) + 1
   local nd, nf = 0, 0
   for _, e in ipairs(bd.plan.ents) do if e.kind == "foreuse" then nd = nd + 1 elseif e.kind == "four" then nf = nf + 1 end end
-  say(f, ms, string.format("%s %d (%s) : bande %d du champ demandee, projet %d : %d foreuse(s) electrique(s), %d four(s), %d paire(s) thermique(s) dessous (%s), %d paire(s) ailleurs%s",
+  say(f, ms, string.format("%s %d (%s) : bande %d du champ demandee, projet %d : %d foreuse(s) electrique(s), %d four(s), %d paire(s) thermique(s) dessous (%s), %d paire(s) ailleurs%s%s",
     o.field and "gisement" or "avant-poste", o.id, o.kind, pr, id, nd, nf, #ids, table.concat(ids, ","), #list - #ids,
-    wanted and " (voulue par la capitalisation)" or ""), true)
+    wanted and " (voulue par la capitalisation)" or "",
+    -- lot CHAMP-COUVERTURE (R5a) : agrandissement que la porte des plaques retenait avant le lot
+    share and string.format(" (agrandissement malgre %d %s libres : champ bati a %d %%)", free[product] or 0, product, math.floor(100 * share + 0.5)) or ""), true)
   return true
 end
 
@@ -1368,7 +1407,9 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy, book, ho
     local owner
     for _, q in ipairs(siblings(f, o)) do
       local sq = ms.o[q.id]
-      if not owner and sq and sq.frame and not sq.abandoned then owner = q end
+      -- lot CHAMP-COUVERTURE (R7) : deux avant-postes du même gisement qui ont CHACUN un cadre (sauvegarde d'avant le lot, voisins au-delà de
+      -- SIB_R) : le plus petit numéro garde le sien, l'autre s'efface (sans cette règle, chacun verrait l'autre comme le champ et aucun n'avancerait)
+      if not owner and sq and sq.frame and not sq.abandoned and not (st and st.frame and not st.abandoned and q.id > oid) then owner = q end
     end
     if owner then
       if st then say_why(f, ms, st, "champ-de:" .. owner.id, string.format("avant-poste %d (%s) : son gisement est le champ de l'avant-poste %d", o.id, o.kind, owner.id)) end

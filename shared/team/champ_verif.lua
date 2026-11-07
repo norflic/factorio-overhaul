@@ -336,7 +336,10 @@ function Cv.verify(plan, spec)
       local x0, y0 = origin(e)
       local u, v = uv(x0, y0)
       local du, dv = uv(DIRS[e.dir][1], DIRS[e.dir][2])
-      if not (bd and g and v == bd.b and dv == 0 and du == g.side) then rep.traverse = rep.traverse + 1 end
+      -- (lot CHAMP-COUVERTURE) la colonne (ou le quai) d'un groupe tracé est sur SA rangée (g.row), pas forcément celle de la bande ; le
+      -- tracé lui-même (rôle « trace ») est jugé par les voies (Cv.flow : minerai jusqu'aux fours)
+      local row = (e.role == "colonne" and g and g.row) or (bd and bd.b)
+      if not (bd and g and v == row and dv == 0 and du == g.side) then rep.traverse = rep.traverse + 1 end
       local key = e.band .. ":" .. e.group
       if not last[key] or (g and ((g.side > 0 and u > last[key].u) or (g.side < 0 and u < last[key].u))) then last[key] = { u = u, g = g } end
     end

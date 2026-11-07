@@ -1438,19 +1438,19 @@ do
   end
   local E, st = setup("bloque")
   E.think()
-  check(st.stage == "chantier" and st.block_t0 ~= nil, "W3 : bande bloquee : le minuteur part, la bande garde son creneau")
+  check(st.stage == "chantier" and st.block_t0 ~= nil, "CC1 : bande bloquee : le minuteur part, la bande garde son creneau")
   game.tick = game.tick + 15 * 3600
   E.think()
   local said = false
   for _, l in ipairs(E.logs) do if l:find("laissee au plan, bande suivante") then said = true end end
   check(st.done_pr["5"] == true and said,
-    "W3 : apres 15 min, la bande bloquee est laissee au plan et comptee posee (journal)")
+    "CC1 : apres 15 min, la bande bloquee est laissee au plan et comptee posee (journal)")
   E.restore()
   local E2, st2 = setup("chantier")
   E2.think()
   game.tick = game.tick + 16 * 3600
   E2.think()
-  check(st2.stage == "chantier" and not st2.done_pr["5"], "W3 : une bande en chantier ordinaire n'est pas laissee (16 min)")
+  check(st2.stage == "chantier" and not st2.done_pr["5"], "CC1 : une bande en chantier ordinaire n'est pas laissee (16 min)")
   E2.restore()
 end
 
@@ -2069,6 +2069,201 @@ do
   end
   check(caught == #muts, string.format("AZURE : mutants de l'exécutant refusés %d sur %d", caught, #muts))
   print(string.format("[MIGRATION-CHAMP] AZURE : exécutant, mutants %d refusés sur %d", caught, #muts))
+end
+
+---------------------------------------------------------------------------------------------------
+-- Lot CHAMP-COUVERTURE (accord du lead du 5/11) : R7 (un gisement, un champ) et R5a / R5c (porte des plaques d'un agrandissement)
+---------------------------------------------------------------------------------------------------
+--- Moteur simulé du champ : Champ.data, Champ.frame, Champ.band et Champ.has_band remplacés (le moteur simulé n'a ni minerai ni foreuse
+--- électrique) ; `frame_of(oo)` rend (cadre, ordre, plan, voisins du gisement) ; `band_tiles(oo, pr)` les tuiles de la bande.
+local function champ_stubs(frame_of, band_tiles)
+  local Chm = package.loaded["script.team.champ"]
+  local saved = { data = Chm.data, frame = Chm.frame, band = Chm.band, has_band = Chm.has_band, powered_pole = Chm.powered_pole }
+  local asked = {}
+  Chm.data = function() return { stub = true }, {} end
+  Chm.powered_pole = function() return { x = 0, y = 0 } end
+  Chm.has_band = function() return false end
+  Chm.frame = function(_, _, oo)
+    asked[#asked + 1] = oo.id
+    return frame_of(oo)
+  end
+  Chm.band = function(_, _, oo, _, pr)
+    local t = band_tiles(oo, pr)
+    local ents = {}
+    for k = 1, 3 do ents[#ents + 1] = { name = T.DRILL_ELECTRIC, x = t[1] + 0.5 + k, y = t[2] + 0.5, dir = 0, role = "champ-foreuse" } end
+    return { ents = ents, quais = {}, outs = {}, tiles = t, plan = { ents = { { kind = "foreuse" }, { kind = "foreuse" }, { kind = "foreuse" } }, bands = {} },
+      defer = {} }
+  end
+  return asked, function() for k, v in pairs(saved) do Chm[k] = v end end
+end
+
+--- Second avant-poste de fer `id`, n paires posées en (cx, cy) (entités comme celles du moteur simulé, boîte comprise).
+local function second_outpost(E, id, n, cx, cy)
+  local pl = field(n, cx, cy, "loin", 5000)
+  local q = { id = id, kind = "iron", pos = { x = cx, y = cy }, drills = #pl, drill_list = {}, sinks = {}, turret_list = {}, last_service = 0 }
+  local un = 5000 + 100 * id
+  local function ent(name, etype, x, y, dir)
+    un = un + 1
+    local e = { valid = true, name = name, type = etype, unit_number = un, position = { x = x, y = y }, direction = dir or 0,
+      prototype = { tile_width = 2, tile_height = 2 }, products_finished = 0, inv = {}, fuel_n = 5, force = { name = "player" },
+      bounding_box = { left_top = { x = x - 1, y = y - 1 }, right_bottom = { x = x + 1, y = y + 1 } } }
+    e.get_fuel_inventory = function()
+      return { get_contents = function() return { coal = e.fuel_n } end, is_empty = function() return e.fuel_n <= 0 end,
+        insert = function(st) e.fuel_n = e.fuel_n + st.count; return st.count end }
+    end
+    e.get_inventory = function() return { get_contents = function() return {} end } end
+    e.destroy = function() e.valid = false end
+    return e
+  end
+  for _, pr in ipairs(pl) do
+    q.drill_list[#q.drill_list + 1] = ent(T.DRILL, "mining-drill", pr.drill.x, pr.drill.y, pr.dir)
+    q.sinks[#q.sinks + 1] = ent(T.outposts.iron.sink, "furnace", pr.sink.x, pr.sink.y, 0)
+  end
+  E.f.outposts[id] = q
+  return q, pl
+end
+
+local function cw_run(opts)
+  opts = opts or {}
+  local E = executor_run({ pairs = 8, plates = opts.plates or 800, mutant = opts.mutant })
+  if opts.alone then return E, E.f, E.o end
+  local q, qpl = second_outpost(E, 14, 2, E.o.pos.x + 90, E.o.pos.y)
+  return E, E.f, E.o, q, qpl
+end
+
+local function w3_battery(mutant)
+  local res = {}
+  local E, f, o, q, qpl = cw_run({ mutant = mutant })
+  local Mig = E.Mig
+  -- les tuiles de la première bande : une paire de l'avant-poste 1 ET une paire de l'avant-poste 14 (le même gisement)
+  local tiles = {}
+  for _, t in ipairs({ pair_tiles(E.pl[1]), pair_tiles(qpl[1]) }) do for i = 1, #t do tiles[#tiles + 1] = t[i] end end
+  local asked, restore = champ_stubs(function(oo)
+    return { axis = "x" }, { 10, 20 }, { stats = {} }, (oo.id == 1) and { 14 } or { 1 }
+  end, function() return tiles end)
+  res.before = #Mig.siblings(f, o) == 0
+  E.think()
+  local p = E.project()
+  res.one_request = #E.Build.requests == 1 and p ~= nil and p.spec.site == "champ" and p.spec.champ.oid == 1
+  res.sibs_kept = f.migration.o[1] ~= nil and f.migration.o[1].sibs ~= nil and f.migration.o[1].sibs[1] == 14
+  local sib_o, sib_q = Mig.siblings(f, o), Mig.siblings(f, q)
+  res.sym = #sib_o == 1 and sib_o[1] == q and #sib_q == 1 and sib_q[1] == o
+  -- le dégel de la bande retire la paire de l'avant-poste 14 posée dessous
+  local thaw = tile_set(p and p.spec.degel and p.spec.degel.tiles or {})
+  local qt = pair_tiles(qpl[1])
+  local covered = #qt > 0
+  for i = 1, #qt - 1, 2 do if not thaw[qt[i] .. ":" .. qt[i + 1]] then covered = false end end
+  res.thaw_q = covered
+  local jr = table.concat(E.logs, "\n")
+  local under = jr:match("bande 10 du champ demandee, projet %d+ : %d+ foreuse%(s%) electrique%(s%), %d+ four%(s%), (%d+) paire")
+  res.under2 = tonumber(under) == 2
+  -- un seul cadre par gisement : la bande annulée, l'avant-poste 14 n'en planifie pas un second
+  if p then E.Build.cancel(f, p.id, "essai") end
+  for _ = 1, 4 do E.think() end
+  local q_asked = false
+  for _, id in ipairs(asked) do if id == 14 then q_asked = true end end
+  res.one_frame = not q_asked
+  jr = table.concat(E.logs, "\n")
+  res.q_state = f.migration.o[14] == nil or f.migration.o[14].frame == nil
+  -- sauvegarde d'avant le lot : les DEUX avant-postes ont déjà un cadre ; le plus petit numéro garde le sien et redemande sa bande, l'autre
+  -- s'efface (sans départage, chacun voit l'autre comme le champ et aucun n'avance)
+  f.migration.o[14] = { stage = "veille", fails = 0, noop = 0, done = 0, produced = 0, retry = 0, frame = { axis = "x" }, order = { 10, 20 },
+    done_pr = {}, sibs = { 1 } }
+  local n_req = #E.Build.requests
+  for _ = 1, 30 do E.think() end
+  local by = {}
+  for k = n_req + 1, #E.Build.requests do local pp = E.project(E.Build.requests[k]); by[pp.spec.champ.oid] = (by[pp.spec.champ.oid] or 0) + 1 end
+  res.tie = (by[1] or 0) >= 1 and (by[14] or 0) == 0
+  res.logs = E.logs
+  restore()
+  E.restore()
+  return res, asked
+end
+
+do
+  section("CC1. CHAMP-COUVERTURE R7 : un gisement, un champ, sous moteur simulé")
+  local r, asked = w3_battery(nil)
+  check(r.before, "CC1 : avant le cadre, l'avant-poste 14 (90 tuiles, au-delà de SIB_R) n'est pas voisin")
+  check(r.one_request, "CC1 : une bande du champ de l'avant-poste 1 demandée")
+  check(r.sibs_kept, "CC1 : le cadre garde les avant-postes du même gisement (st.sibs = { 14 })")
+  check(r.sym, "CC1 : voisins dans les deux sens une fois le cadre posé")
+  check(r.thaw_q, "CC1 : la paire de l'avant-poste 14 sous la bande est dans le dégel")
+  check(r.under2, "CC1 : journal : 2 paires dessous (une de chaque avant-poste)")
+  check(r.one_frame, "CC1 : l'avant-poste 14 ne planifie pas de second cadre (cadres demandés : " .. table.concat(asked, ",") .. ")")
+  check(r.q_state, "CC1 : l'avant-poste 14 n'a ni état ni cadre de migration (son gisement est le champ de l'avant-poste 1)")
+  check(r.tie, "CC1 : deux cadres d'une sauvegarde d'avant le lot : l'avant-poste 1 redemande sa bande, le 14 s'efface")
+  if os.getenv("FO_W3_LOGS") then for _, l in ipairs(r.logs) do print("    " .. l) end end
+  -- l'ancienne règle (64 tuiles seulement, relevé des paires d'avant le cadre) : rouge
+  local muts = {
+    { "voisins à 64 tuiles seulement", function(src) return (src:gsub("%(near%(q%) or on%[oid%]%)", "near(q)")) end, { "sym", "one_frame", "q_state" } },
+    { "propriétaire sans départage", function(src) return (src:gsub("and not %(st and st%.frame and not st%.abandoned and q%.id > oid%)", "")) end, { "tie" } },
+    { "relevé des paires d'avant le cadre", function(src) return (src:gsub("if sibs and #sibs > 0 then list = survey_field%(f, o%) end", "")) end, { "thaw_q", "under2" } },
+  }
+  for _, m in ipairs(muts) do
+    local ok, mr = pcall(w3_battery, m[2])
+    local seen = not ok
+    if ok then for _, k in ipairs(m[3]) do if not mr[k] then seen = true end end end
+    check(seen, "CC1 : mutant vu : " .. m[1])
+  end
+end
+
+local function w4_battery(mutant, built_bands, nbands)
+  local res = {}
+  local E, f, o = cw_run({ plates = 20000, mutant = mutant, alone = true })
+  local Mig = E.Mig
+  local order = {}
+  for k = 1, nbands do order[k] = 1000 + 10 * k end
+  -- bandes déjà posées du champ (projets du plan directeur) : `built_bands` = { { foreuses prévues, posées } }
+  for _, bb in ipairs(built_bands) do
+    local id = f.build.next_id
+    f.build.next_id = id + 1
+    local ents = {}
+    for k = 1, bb[1] do ents[k] = { name = T.DRILL_ELECTRIC, x = 9000 + k, y = 9000 + id, role = "champ-foreuse", built = k <= bb[2] } end
+    f.build.projects[id] = { id = id, spec = { site = "champ", champ = { oid = 1, pr = 0 } }, state = "fini", ents = ents, parts = {} }
+    f.build.order[#f.build.order + 1] = id
+  end
+  -- bande d'AGRANDISSEMENT : ses tuiles ne portent aucune paire
+  local _, restore = champ_stubs(function() return { axis = "x" }, order, { stats = {} }, {} end,
+    function() return { 7000, 7000, 7001, 7000 } end)
+  local n0 = #E.Build.requests
+  E.think()
+  res.requested = #E.Build.requests == n0 + 1
+  local jr = table.concat(E.logs, "\n")
+  res.wait_log = jr:find("sans paire en attente %(20000") ~= nil
+  res.malgre_log = jr:find("agrandissement malgre 20000") ~= nil
+  res.share = (f.migration and f.migration.o[1] and Mig.built_share) and Mig.built_share(f, o, f.migration.o[1]) or nil
+  res.logs = E.logs
+  restore()
+  E.restore()
+  return res
+end
+
+do
+  section("CC2. CHAMP-COUVERTURE R5a / R5c : porte des plaques d'un agrandissement, sous moteur simulé")
+  -- 20 000 plaques libres (au-delà de 3 000), champ de 5 bandes dont aucune n'est posée : l'agrandissement part (R5a)
+  local r = w4_battery(nil, {}, 5)
+  check(r.requested and r.malgre_log, "CC2 : champ bâti à 0 %, 20 000 plaques : la bande d'agrandissement est demandée")
+  if os.getenv("FO_W4_LOGS") then for _, l in ipairs(r.logs) do print("    " .. l) end end
+  -- 4 bandes sur 5 posées avec toutes leurs foreuses : 80 %, la porte retient
+  r = w4_battery(nil, { { 10, 10 }, { 10, 10 }, { 10, 10 }, { 10, 10 } }, 5)
+  check(not r.requested and r.wait_log, "CC2 : champ bâti à 80 % : la porte des plaques retient l'agrandissement")
+  check(r.share and math.abs(r.share - 0.8) < 1e-9, "CC2 : part bâtie 0,8 (" .. tostring(r.share) .. ")")
+  if os.getenv("FO_W4_LOGS") then for _, l in ipairs(r.logs) do print("    " .. l) end end
+  -- R5c : 4 bandes finies SANS leurs foreuses (posées en dernier, manquantes) : la part bâtie est 0, l'agrandissement part
+  r = w4_battery(nil, { { 10, 0 }, { 10, 0 }, { 10, 0 }, { 10, 0 } }, 5)
+  check(r.requested and r.share == 0, "CC2 : bandes finies sans foreuses : comptées 0, l'agrandissement part (" .. tostring(r.share) .. ")")
+  -- prorata : 3 bandes pleines + une à moitié sur 5 -> 0,7 : sous 80 %, l'agrandissement part
+  r = w4_battery(nil, { { 10, 10 }, { 10, 10 }, { 10, 10 }, { 10, 5 } }, 5)
+  check(r.requested and math.abs((r.share or -1) - 0.7) < 1e-9, "CC2 : prorata des foreuses posées : 0,7, l'agrandissement part (" .. tostring(r.share) .. ")")
+  -- l'ancienne règle (porte des plaques seule) : rouge sur le champ vide
+  local mr = w4_battery(function(src)
+    return (src:gsub("if share and Ry%.ext_wait%(", "if share and share >= 0 or Ry.ext_wait(", 1))
+  end, {}, 5)
+  check(not mr.requested, "CC2 : mutant vu : porte des plaques sans la part bâtie (la bande attend sur un champ vide)")
+  local mr2 = w4_battery(function(src)
+    return (src:gsub("if e%.built then built = built %+ 1 end", "built = built + 1", 1))
+  end, { { 10, 0 }, { 10, 0 }, { 10, 0 }, { 10, 0 } }, 5)
+  check(not mr2.requested, "CC2 : mutant vu : foreuses prévues comptées pour posées (R5c retiré)")
 end
 
 print(string.format("[MIGRATION-CHAMP] BILAN : %d OK, %d ECHEC(S)", passes, failures))
