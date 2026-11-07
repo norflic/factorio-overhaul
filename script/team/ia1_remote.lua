@@ -28,6 +28,7 @@ local Outposts = require("script.faction.outposts") -- lot FOURS (bancs : fours 
 local Build = require("script.team.build") -- lot ÉTAGE 5 (bancs : couloir d'un accès écrit) ; déjà chargé par script/team/worker.lua
 local T = require("shared.team.config")
 local Pl = require("shared.team.plan") -- lot FOREUSES-THERMIQUES (bancs : clé de tuile des couloirs, couloir_hits)
+local Board = require("script.team.board") -- lot FOREUSES-THERMIQUES (bancs : tournées des avant-postes, collect_probe) ; déjà chargé par team.lua
 
 -- Lot IA1-b (docs §8.6, pilotage sans clic) :
 --   team_status(key)                 -> état d'organisation publié (Poles.status) ou nil ;
@@ -295,6 +296,66 @@ remote.add_interface("fo-ia1", {
           r.poles = r.poles + 1
           if cor[Pl.tkey(math.floor(p.position.x), math.floor(p.position.y))] then r.poles_cor = r.poles_cor + 1 end
         end
+      end
+    end
+    return r
+  end,
+  -- Lot FOREUSES-THERMIQUES (bancs seulement, mesure du lead du 7/11 : la collecte s'arrete-t-elle parce que le stockage est plein ?).
+  -- LECTURE seule. stock : coffres (QG + annexes), cases, cases vides, place libre / en stock pour chaque produit et minerai des
+  -- avant-postes (T.outposts), age du dernier depot refuse (f.refused_at, -1 : aucun). outposts : par avant-poste, production en attente,
+  -- receptacles pleins, foreuses a sec, tournee ouverte, age de la tournee libre, echecs du flux, et histogrammes « statut:nombre » des
+  -- thermiques, des electriques et des receptacles (defines.entity_status). workers : « id:tache:cases vides/cases » de chaque PNJ.
+  collect_probe = function(key)
+    local f = team_of(key)
+    if not (f and f.hq and f.hq.valid) then return nil end
+    local tick = game.tick
+    local function hist(h)
+      local ks, out = {}, {}
+      for k in pairs(h) do ks[#ks + 1] = k end
+      table.sort(ks)
+      for _, k in ipairs(ks) do out[#out + 1] = k .. ":" .. h[k] end
+      return table.concat(out, ",")
+    end
+    local invs = Stock.inventories(f)
+    local slots, empty = 0, 0
+    for _, inv in ipairs(invs) do slots, empty = slots + #inv, empty + inv.count_empty_stacks() end
+    local items, seen_it = {}, {}
+    for _, k in ipairs(T.OUTPOST_ORDER) do
+      local sp = T.outposts[k]
+      for _, it in ipairs({ sp.product, sp.resource }) do
+        if it and not seen_it[it] and game.item_prototypes[it] then seen_it[it] = true; items[#items + 1] = it end
+      end
+    end
+    local room = {}
+    for _, it in ipairs(items) do
+      local n = 0
+      for _, inv in ipairs(invs) do n = n + inv.get_insertable_count(it) end
+      room[#room + 1] = it .. "=" .. n .. "/" .. Stock.count(f, it)
+    end
+    local r = { tick = tick, outposts = {}, workers = {},
+      stock = { chests = #invs, slots = slots, empty = empty, room = table.concat(room, " "), refused_ago = f.refused_at and (tick - f.refused_at) or -1 } }
+    for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
+      local o = f.outposts[oid]
+      local st = Outposts.status(o, tick)
+      local hb, he, hs = {}, {}, {}
+      for _, d in ipairs(o.drill_list or {}) do
+        if d.valid then
+          local h = d.burner and hb or he
+          h[d.status or -1] = (h[d.status or -1] or 0) + 1
+        end
+      end
+      for _, s in ipairs(o.sinks or {}) do if s.valid then hs[s.status or -1] = (hs[s.status or -1] or 0) + 1 end end
+      r.outposts[#r.outposts + 1] = { id = oid, kind = o.kind or "?", output = st.output, stuck = st.stuck, dry = st.dry, fuel_low = st.fuel_low and 1 or 0,
+        idle_s = math.floor((st.idle_ticks or 0) / 60), task = Board.has(f, "service:" .. oid) and 1 or 0,
+        free_age = Board.free_age(f, "service:" .. oid, tick) or -1, fails = o.flux_fails or 0, migr = o.migr or "-",
+        burners = hist(hb), electrics = hist(he), sinks = hist(hs) }
+    end
+    for _, id in ipairs(State.sorted_keys(f.engineers or {})) do
+      local a = Registry.get(id)
+      if a and a.entity and a.entity.valid then
+        local inv = a.entity.get_main_inventory()
+        r.workers[#r.workers + 1] = string.format("%s:%s:%d/%d", tostring(id), tostring((a.task and a.task.kind) or a.state or "?"),
+          inv and inv.count_empty_stacks() or -1, inv and #inv or -1)
       end
     end
     return r
