@@ -54,7 +54,10 @@ return {
     local src = s.create_entity({ name = "small-electric-pole", position = { ex + 3.5, ey + 1.5 }, force = "player" })
     s.create_entity({ name = "radar", position = { ex + 5.5, ey + 1.5 }, force = "player" })
     ctx.check(eei ~= nil and src ~= nil, "reseau source pose (interface, poteau, radar)")
-    ctx.check(src ~= nil and ctx.remote("fo-ia1", "bench_own", "player", src) == true, "poteau source enregistre a votre equipe (revue (4))")
+    -- revue (4) : seul un poteau de l'équipe sert de source ; une source d'avant la revue (mesure « avant » de B2) n'a pas ce remote
+    if remote.interfaces["fo-ia1"] and remote.interfaces["fo-ia1"].bench_own then
+      ctx.check(src ~= nil and ctx.remote("fo-ia1", "bench_own", "player", src) == true, "poteau source enregistre a votre equipe (revue (4))")
+    end
     st.cc, st.hq, st.src = cc, hq, src
     st.acc = { x = cc.x - 35 + 0.5, y = cc.y + 0.5 }
   end,
