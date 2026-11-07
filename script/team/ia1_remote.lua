@@ -27,7 +27,8 @@ local Config = require("script.core.config")
 local Outposts = require("script.faction.outposts") -- lot FOURS (bancs : fours posés, interrupteur, compteurs de visites)
 local Build = require("script.team.build") -- lot ÉTAGE 5 (bancs : couloir d'un accès écrit) ; déjà chargé par script/team/worker.lua
 local T = require("shared.team.config")
-local Board = require("script.team.board") -- lot COLLECTE (bancs : état des tâches de collecte)
+local Pl = require("shared.team.plan") -- lot FOREUSES-THERMIQUES (bancs : clé de tuile des couloirs, couloir_hits)
+local Board = require("script.team.board") -- lots FOREUSES-THERMIQUES (collect_probe) et COLLECTE (état des tâches de collecte) ; déjà chargé par team.lua
 
 -- Lot IA1-b (docs §8.6, pilotage sans clic) :
 --   team_status(key)                 -> état d'organisation publié (Poles.status) ou nil ;
@@ -238,6 +239,142 @@ remote.add_interface("fo-ia1", {
     end
     return { id = o.id, drills = #o.drill_list, sinks = #o.sinks }
   end,
+  -- Lot FOREUSES-THERMIQUES (bancs seulement) : chaine de poteaux du remplacement sur place allumee (vrai, defaut) ou coupee (faux :
+  -- comportement de 0.6.53, temoin du micro-scenario foreuses-chaine). Rend l'etat lu, ou nil.
+  -- Lot FOREUSES-THERMIQUES (bancs seulement) : entites `name` de l'equipe posees sur une tuile de couloir d'acces (Build.couloirs). Rend le
+  -- nombre, ou nil.
+  couloir_hits = function(key, name)
+    local f = team_of(key)
+    local chest = f and (f.hq or f.chest)
+    if not (chest and chest.valid) or type(name) ~= "string" then return nil end
+    local cor = Build.couloirs(f)
+    local n = 0
+    for _, e in ipairs(chest.surface.find_entities_filtered({ name = name, force = f.force })) do
+      if cor[Pl.tkey(math.floor(e.position.x), math.floor(e.position.y))] then n = n + 1 end
+    end
+    return n
+  end,
+  -- Lot FOREUSES-THERMIQUES (bancs seulement) : etat du remplacement sur place (f.swap) en une chaine lisible, ou nil.
+  swap_state = function(key)
+    local f = team_of(key)
+    local st = f and f.swap
+    if not st then return "aucun releve" end
+    local w = {}
+    for _, k in ipairs(State.sorted_keys(st.why or {})) do w[#w + 1] = k .. "=" .. st.why[k] end
+    return string.format("faites=%d chaine=%d poteaux=%d echanges=%d pretes=%d melange=%d echecs=%d refus=%s", st.done or 0, st.chained or 0, st.poles or 0, st.exchanged or 0,
+      st.ready or 0, st.mixed or 0, st.failed or 0, #w > 0 and table.concat(w, ",") or "-")
+  end,
+  -- Lot FOREUSES-THERMIQUES (A), bancs seulement : foreuses des avant-postes de l'equipe (thermique = a bruleur, sinon electrique),
+  -- electriques reliees a un reseau et au travail, poteaux poses par le remplacement (o.swap_poles) et ceux sur un couloir d'acces, et la
+  -- liste « unit_number x y reliee travaille dans_recepteur statut » des electriques (ordre des avant-postes trie ; 1 ou 0 ; statut :
+  -- defines.entity_status). Rend une table, ou nil.
+  swap_outposts = function(key)
+    local f = team_of(key)
+    if not (f and f.outposts) then return nil end
+    local cor = Build.couloirs(f)
+    local r = { outposts = 0, burners = 0, electrics = 0, connected = 0, working = 0, poles = 0, poles_cor = 0, list = {} }
+    for _, oid in ipairs(State.sorted_keys(f.outposts)) do
+      local o = f.outposts[oid]
+      r.outposts = r.outposts + 1
+      for _, d in ipairs(o.drill_list or {}) do
+        if d.valid then
+          if d.burner then
+            r.burners = r.burners + 1
+          else
+            r.electrics = r.electrics + 1
+            local c = d.is_connected_to_electric_network() and 1 or 0
+            local w = d.status == defines.entity_status.working and 1 or 0
+            local t = d.drop_target
+            local k = (t and t.valid and (t.type == "furnace" or t.type == "container")) and 1 or 0
+            r.connected, r.working = r.connected + c, r.working + w
+            r.list[#r.list + 1] = string.format("%d %.1f %.1f %d %d %d %d", d.unit_number or 0, d.position.x, d.position.y, c, w, k, d.status or -1)
+          end
+        end
+      end
+      for _, p in ipairs(o.swap_poles or {}) do
+        if p.valid then
+          r.poles = r.poles + 1
+          if cor[Pl.tkey(math.floor(p.position.x), math.floor(p.position.y))] then r.poles_cor = r.poles_cor + 1 end
+        end
+      end
+    end
+    return r
+  end,
+  -- Lot FOREUSES-THERMIQUES (bancs seulement, mesure du lead du 7/11 : la collecte s'arrete-t-elle parce que le stockage est plein ?).
+  -- LECTURE seule. stock : coffres (QG + annexes), cases, cases vides, place libre / en stock pour chaque produit et minerai des
+  -- avant-postes (T.outposts), age du dernier depot refuse (f.refused_at, -1 : aucun). outposts : par avant-poste, production en attente,
+  -- receptacles pleins, foreuses a sec, tournee ouverte, age de la tournee libre, echecs du flux, et histogrammes « statut:nombre » des
+  -- thermiques, des electriques et des receptacles (defines.entity_status). workers : « id:tache:cases vides/cases » de chaque PNJ.
+  collect_probe = function(key)
+    local f = team_of(key)
+    if not (f and f.hq and f.hq.valid) then return nil end
+    local tick = game.tick
+    local function hist(h)
+      local ks, out = {}, {}
+      for k in pairs(h) do ks[#ks + 1] = k end
+      table.sort(ks)
+      for _, k in ipairs(ks) do out[#out + 1] = k .. ":" .. h[k] end
+      return table.concat(out, ",")
+    end
+    local invs = Stock.inventories(f)
+    local slots, empty = 0, 0
+    for _, inv in ipairs(invs) do slots, empty = slots + #inv, empty + inv.count_empty_stacks() end
+    local items, seen_it = {}, {}
+    for _, k in ipairs(T.OUTPOST_ORDER) do
+      local sp = T.outposts[k]
+      for _, it in ipairs({ sp.product, sp.resource }) do
+        if it and not seen_it[it] and game.item_prototypes[it] then seen_it[it] = true; items[#items + 1] = it end
+      end
+    end
+    local room = {}
+    for _, it in ipairs(items) do
+      local n = 0
+      for _, inv in ipairs(invs) do n = n + inv.get_insertable_count(it) end
+      room[#room + 1] = it .. "=" .. n .. "/" .. Stock.count(f, it)
+    end
+    local r = { tick = tick, outposts = {}, workers = {},
+      stock = { chests = #invs, slots = slots, empty = empty, room = table.concat(room, " "), refused_ago = f.refused_at and (tick - f.refused_at) or -1 } }
+    for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
+      local o = f.outposts[oid]
+      local st = Outposts.status(o, tick)
+      local hb, he, hs = {}, {}, {}
+      for _, d in ipairs(o.drill_list or {}) do
+        if d.valid then
+          local h = d.burner and hb or he
+          h[d.status or -1] = (h[d.status or -1] or 0) + 1
+        end
+      end
+      for _, s in ipairs(o.sinks or {}) do if s.valid then hs[s.status or -1] = (hs[s.status or -1] or 0) + 1 end end
+      r.outposts[#r.outposts + 1] = { id = oid, kind = o.kind or "?", output = st.output, stuck = st.stuck, dry = st.dry, fuel_low = st.fuel_low and 1 or 0,
+        idle_s = math.floor((st.idle_ticks or 0) / 60), task = Board.has(f, "service:" .. oid) and 1 or 0,
+        free_age = Board.free_age(f, "service:" .. oid, tick) or -1, fails = o.flux_fails or 0, migr = o.migr or "-",
+        burners = hist(hb), electrics = hist(he), sinks = hist(hs) }
+    end
+    for _, id in ipairs(State.sorted_keys(f.engineers or {})) do
+      local a = Registry.get(id)
+      if a and a.entity and a.entity.valid then
+        local inv = a.entity.get_main_inventory()
+        r.workers[#r.workers + 1] = string.format("%s:%s:%d/%d", tostring(id), tostring((a.task and a.task.kind) or a.state or "?"),
+          inv and inv.count_empty_stacks() or -1, inv and #inv or -1)
+      end
+    end
+    return r
+  end,
+  -- Lot FOREUSES-THERMIQUES (bancs seulement, revue du lead (4), 7/11) : enregistre `ent` (poteau pose par le banc) comme piece de l'equipe
+  -- (State.own) : seul un poteau de l'equipe sert de source a la chaine. Rend vrai, ou nil.
+  bench_own = function(key, ent)
+    local f = team_of(key)
+    if not (f and ent and ent.valid and ent.unit_number) then return nil end
+    State.own(ent, f.id, "pole")
+    return true
+  end,
+  set_regle_chaine = function(key, on)
+    if type(on) ~= "boolean" then return nil end
+    local f = team_of(key)
+    if not (f and f.team) then return nil end
+    f.team.chaine_off = not on
+    return on
+  end,
   -- Lot NAV2 (bancs seulement) : agrandit `rounds` fois l'avant-poste `oid` (Outposts.extend, objets fournis) : champ DENSE comme une
   -- partie longue (29 foreuses chez Écarlate). Rend le nombre de foreuses de l'avant-poste, ou nil.
   bench_extend = function(key, oid, rounds)
@@ -433,6 +570,43 @@ remote.add_interface("fo-ia1", {
     if not (f and f.engineers and f.engineers[id]) then return false end
     Registry.remove(id, true)
     return true
+  end,
+  -- Lot STOCKAGE-VITAL (bancs seulement) : coût de Stock.insert compté en INSTRUCTIONS de la machine Lua (crochet de compte de
+  -- debug.sethook, période 1 : déterministe, indépendant de la charge du PC ; jamais os.clock) et en APPELS de fonctions (Lua et
+  -- moteur : un appel au moteur compte pour 1, son travail interne n'est pas mesuré). Dépôt de `n` `item`, `reps` fois ; chaque
+  -- dépôt est repris aussitôt, hors du compte (le stock revient à son état). Le crochet d'avant et les dates de refus sont remis.
+  -- Rend { hook = vrai, instr = instructions par appel, calls = appels par appel, put = objets déposés au total, reps, inventaires,
+  -- annexes } ou { hook = false } quand la bibliothèque debug n'a pas sethook. Un coffre d'annexe n'est pas mesuré (il serait posé).
+  stock_cost = function(key, item, n, reps)
+    local f = team_of(key)
+    if not (f and f.hq and f.hq.valid) or type(item) ~= "string" or (Stock.ANNEX_ITEM and Stock.ANNEX_ITEM(item)) then return nil end
+    local dbg = rawget(_G, "debug")
+    if not (type(dbg) == "table" and type(dbg.sethook) == "function" and type(dbg.gethook) == "function") then return { hook = false } end
+    reps = math.max(1, math.min(1000, math.floor(tonumber(reps) or 100)))
+    n = math.max(1, math.floor(tonumber(n) or 1))
+    local old_fn, old_mask, old_count = dbg.gethook()
+    local saved_at, saved_log = f.refused_at, f.refused_log
+    local ni, nc, put = 0, 0, 0
+    local function hook(ev) if ev == "count" then ni = ni + 1 else nc = nc + 1 end end
+    local dep = { reserve = true } -- comme le dépôt d'un PNJ (script/team/worker.lua) : la réserve des vitales s'applique
+    for _ = 1, reps do
+      dbg.sethook(hook, "c", 1)
+      local p = Stock.insert(f, item, n, dep)
+      dbg.sethook()
+      put = put + p
+      if p > 0 then Stock.remove(f, item, p) end
+    end
+    if old_fn then dbg.sethook(old_fn, old_mask, old_count) end
+    f.refused_at, f.refused_log = saved_at, saved_log
+    -- Lecture seule, pour le banc : verdicts du ramassage (Stock.skip_fn) et compteurs du coffre urgent (nil avant le lot).
+    local skip = Stock.skip_fn and Stock.skip_fn(f)
+    local st = f.stats or {}
+    local fill_used, fill_size = Stock.fill(f)
+    return { hook = true, fill_used = fill_used, fill_size = fill_size, instr = ni / reps, calls = nc / reps, put = put, reps = reps, inventaires = #Stock.inventories(f),
+      annexes = #Stock.annexes(f), skip_item = skip and skip(item) or false, skip_fn = skip ~= nil,
+      stock_logs = st.stock_logs, annex_placed = st.annex_placed, annex_held = st.annex_held,
+      why = f.stock_why and f.stock_why.why or nil, refused = st.refused,
+      ground_taken = st.ground_taken, ground_passes = st.ground_passes } -- lot STOCKAGE-VITAL : objets au sol du QG repris (Stock.pick_ground)
   end,
 })
 

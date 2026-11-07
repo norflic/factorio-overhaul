@@ -82,10 +82,14 @@ local Book = require("shared.team.book")
 local Bm = require("shared.team.book_max")
 local T = require("shared.team.config")
 
--- 0. MAX_DEPTH de book_max = celui de book.lua (local là-bas) ----------------------------------------------------------------------
+-- 0. MAX_DEPTH : exporté par book.lua (Book.MAX_DEPTH = la locale de `need`), lu par book_max sans copie ----------------------------
 do
   local d = read("shared/team/book.lua"):match("local MAX_DEPTH = (%d+)")
-  check(tonumber(d) == Bm.MAX_DEPTH, "Bm.MAX_DEPTH (" .. Bm.MAX_DEPTH .. ") = MAX_DEPTH de shared/team/book.lua (" .. tostring(d) .. ")")
+  check(type(Book.MAX_DEPTH) == "number" and tonumber(d) == Book.MAX_DEPTH,
+    "Book.MAX_DEPTH (" .. tostring(Book.MAX_DEPTH) .. ") = la locale MAX_DEPTH de shared/team/book.lua (" .. tostring(d) .. ")")
+  local src = read("shared/team/book_max.lua")
+  check(not src:find("MAX_DEPTH%s*=%s*%d") and select(2, src:gsub("Book%.MAX_DEPTH", "")) >= 2,
+    "book_max.lua lit Book.MAX_DEPTH et n'en garde aucune copie")
 end
 
 -- 1. Cas : livres, objets, stocks ---------------------------------------------------------------------------------------------------
@@ -396,7 +400,7 @@ do
     { "dichotomie décalée de 1 (lo = mid + 1 sur un succès)", "then lo = mid else", "then lo = mid + 1 else" },
     { "bornes inversées", "local lo, hi = 0, n - 1", "local lo, hi = n - 1, 0" },
     { "garde toujours vraie", "if Bm.DICHO and Bm.monotone(book, item, stock) then", "if Bm.DICHO then" },
-    { "hauteur non contrôlée (coupure de profondeur)", "if h >= Bm.MAX_DEPTH then ok = false end", "" },
+    { "hauteur non contrôlée (coupure de profondeur)", "if h >= Book.MAX_DEPTH then ok = false end", "" },
     { "quantités non entières admises", "if type(per) ~= \"number\" or per <= 0 or per ~= floor(per) then ok = false end", "", prudence = true },
     { "test léger sans surcouche (écrit dans le stock)", "ov[it] = have - take", "stock[it] = have - take" },
     { "surplus partagé entre deux tests", "local ov, made = {}, {}", "local ov = {}" , "local Bm = {}", "local Bm = {}\nlocal made = {}" },

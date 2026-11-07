@@ -326,6 +326,25 @@ local function run_all(Pf)
     check(i_fits < 1500, "14 : Pf.fits sous 1 500 instructions (" .. i_fits .. ")")
     check(i_room < 12 * i_fits, "14 : Pf.room en O(log n) appels (" .. i_room .. ")")
   end
+
+  -- 16. Lot VIDEO-COUVERTURE 5 (critère C5.4, TODO W02) : le relevé du courant. Écrit avant le code.
+  --     nil = AUCUNE centrale finie (amorçage : le premier ordre électrique la demande, script/ai3/automatisation.lua submit) ;
+  --     un relevé PRÉSENT sans capacité (centrale finie, capacité pas encore lue) ferme la garde et nomme l'entrée.
+  section("16. releve du courant : fermé quand la mesure manque")
+  do
+    check(Pf.power_missing(nil) == nil, "16 : pas de releve (aucune centrale finie) : amorcage, pas un refus de cette garde")
+    local why = Pf.power_missing({})
+    check(type(why) == "string" and why:find("entree absente", 1, true) and why:find("power.have_kw", 1, true),
+      "16 : releve sans capacite : refus ecrit qui nomme l'entree (" .. tostring(why) .. ")")
+    check(Pf.power_missing({ used_kw = 12 }) ~= nil, "16 : used_kw seul ne remplace pas la capacite")
+    check(Pf.power_missing({ have_kw = 0 / 0 }) ~= nil and Pf.power_missing({ have_kw = -5 }) ~= nil
+      and Pf.power_missing({ have_kw = "90" }) ~= nil and Pf.power_missing({ have_kw = math.huge }) ~= nil,
+      "16 : capacite NaN, negative, texte ou infinie : refus")
+    check(Pf.power_missing({ have_kw = 0 }) == nil and Pf.power_missing({ have_kw = 90, used_kw = 36 }) == nil,
+      "16 : capacite lue (meme 0 kW) : la garde est ouverte, le calcul du courant decide")
+    check(Pf.power_why({}) == "courant : entree absente : power.have_kw" and Pf.power_why(nil) == nil and Pf.power_why({ have_kw = 5 }) == nil,
+      "16 : texte du refus pour le journal (" .. tostring(Pf.power_why({})) .. ")")
+  end
 end
 
 local Pf0 = assert(load_pf())
@@ -346,6 +365,10 @@ local MUTANTS = {
   { "places ouvertes sur liste absente", { 'if type(open) ~= "table" then return 0, "ordres ouverts : entree absente" end', 'if type(open) ~= "table" then open = {} end' } },
   { "decompte qui remplace une entree absente", { "if o == nil or no == nil or r == nil or n == nil then return false end", "o, no, r, n = o or 0, no or 0, r or 0, n or 0" } },
   { "comparaison ouverte sur limite absente", { "if b == nil then return false, wb end", "if b == nil then b = 0 end" } },
+  { "releve du courant sans capacite : garde ouverte (W02)", { 'local _, why = Pf.input(pw.have_kw, "power.have_kw")', 'local _, why = 0, nil' } },
+  { "releve du courant : capacite lue comme 0 (W02)", { 'local _, why = Pf.input(pw.have_kw, "power.have_kw")', 'local _, why = Pf.input(pw.have_kw or 0, "power.have_kw")' } },
+  { "texte du refus sans l'entree nommee (W02)", { '(\"courant : \" .. why)', '(\"courant\")' } },
+  { "releve absent refuse (amorcage bloque, W02)", { "if pw == nil then return nil end", 'if pw == nil then return "entree absente : power" end' } },
 }
 local killed = 0
 quiet = true

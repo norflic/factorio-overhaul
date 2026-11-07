@@ -96,11 +96,14 @@ end
 local function clear_line(f, line, clear, s)
   local n = 0
   for _, it in ipairs(clear) do
-    local got = line.remove_item({ name = it[1], count = it[2] })
+    -- Lot STOCKAGE-VITAL (objets au sol, 7/11) : seulement ce que le stock prend (le reste reste sur le tapis, rien au sol du QG)
+    local room = Stock.room and Stock.room(f, it[1])
+    local want = room and math.min(it[2], room) or it[2]
+    local got = want > 0 and line.remove_item({ name = it[1], count = want }) or 0
     if got > 0 then
       local put = Stock.insert(f, it[1], got)
-      if put < got and f.hq and f.hq.valid then
-        f.hq.surface.spill_item_stack(f.hq.position, { name = it[1], count = got - put }, false, nil, false)
+      if put < got and f.hq and f.hq.valid then -- dernier recours, marqué à ramasser (Stock.pick_ground)
+        f.hq.surface.spill_item_stack(f.hq.position, { name = it[1], count = got - put }, true, f.force, false)
       end
       s.by[it[1]] = (s.by[it[1]] or 0) + got
       n = n + got

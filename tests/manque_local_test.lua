@@ -21,6 +21,8 @@
     p. coût en INSTRUCTIONS (debug.sethook, jamais os.clock) ;
     r. demande nette (manque de l'objectif) : ne puise pas au stock une seconde fois ;
     s. puits mesurés pour la capitalisation (Mq.sinks) : manques des modules seuls ;
+    t. laboratoires (lot VIDEO-COUVERTURE 3, V59, C3.1) : manque de packs d'un module qui consomme la recherche en cours ;
+    u. munitions manquantes d'une tourelle (V10, C3.4) : demande « but:<munition> » à la priorité de l'armée ;
     q. mutants : chaque règle retirée fait échouer au moins un contrôle.
   Les objets sont des chaînes opaques (aucun nom du jeu).
 ]]
@@ -419,6 +421,93 @@ local function run_all(Mq)
     if not quiet then print(string.format("   couverture : %d instructions pour 100 demandes et 100 sorties, %d pour 200", c100, c200)) end
     check(c200 < 2.6 * c100, "p : couverture lineaire (200 contre 100 : x " .. string.format("%.2f", c200 / c100) .. ")")
   end
+
+  -- Lot VIDEO-COUVERTURE 3 (V59, C3.1) : un module de type « lab » publie son manque de packs.
+  section("t. laboratoires (V59, C3.1)")
+  do
+    -- 2 labos de vitesse 1 + 1 labo de vitesse 2 : vitesse totale 4 ; unité de 30 s ; 1 pack rouge et 1 pack vert par unité.
+    local function lab_mod(have, tech, extra)
+      local m = { consumes = "research", id = "L1", power = true, read_tick = T0, prio = 60, have = have or {}, speed = 4, tech = tech }
+      for k, v in pairs(extra or {}) do m[k] = v end
+      return m
+    end
+    local TECH = { unit_time = 30, ingredients = { { item = "pack-r", n = 1 }, { item = "pack-v", n = 1 } } }
+    -- 4 × 60 / 30 = 8 packs par minute de chaque sorte.
+    local r = Mq.step(Mq.new(), { mods = { lab_mod({ ["pack-v"] = 8 }, TECH) }, stock = {}, sources = {} }, T0)
+    check(eq(r.need["pack-r"], 8), "t : labo a 0 pack rouge, technologie en file : manque de 8/min (" .. tostring(r.need["pack-r"]) .. ")")
+    check(eq(r.net["pack-r"], -8) and eq(r.build["pack-r"], 8), "t : manque net signe negatif (-8), a construire 8")
+    check(r.need["pack-v"] == nil, "t : packs verts couverts par l'entree : aucun manque")
+    check(find(r.starved, function(x) return x.id == "L1" end) ~= nil, "t : labo affame (pack rouge a 0)")
+    check(eq((r.by_module.L1 or {})["pack-r"], 8) and (r.by_module.L1 or {})["pack-v"] == nil, "t : le manque de CE module est publie a part (by_module)")
+    check((find(r.starved, function(x) return x.id == "L1" end) or {}).consumes == "research", "t : le module affame dit qu'il consomme la recherche")
+    check((find(Mq.step(Mq.new(), { mods = { circuit_mod(1, T0, {}) }, stock = {}, sources = {} }, T0).starved, function(x) return x.id == 1 end) or {}).consumes == nil,
+      "t : un module ordinaire affame ne porte pas ce champ")
+    check(#r.refused == 0, "t : rien de refuse")
+    -- labo plein : 0 publie
+    local rf = Mq.step(Mq.new(), { mods = { lab_mod({ ["pack-r"] = 8, ["pack-v"] = 20 }, TECH) }, stock = {}, sources = {} }, T0)
+    check(rf.need["pack-r"] == nil and rf.need["pack-v"] == nil and next(rf.build) == nil, "t : labo plein : manque nul")
+    -- en route (une tache fill vers le labo) : deduit
+    local rt = Mq.step(Mq.new(), { mods = { lab_mod({}, TECH) }, stock = {}, sources = {},
+      transit = { { task = "t1", module = "L1", item = "pack-r", n = 5 } } }, T0)
+    check(eq(rt.need["pack-r"], 3) and eq(rt.need["pack-v"], 8), "t : 5 packs rouges en route : manque 3 (" .. tostring(rt.need["pack-r"]) .. ")")
+    -- aucune technologie en file : rien a consommer
+    local rn = Mq.step(Mq.new(), { mods = { lab_mod({}, false) }, stock = {}, sources = {} }, T0)
+    check(next(rn.need) == nil and #rn.refused == 0, "t : aucune technologie en file : aucun manque, aucun refus")
+    -- la vitesse du labo compte : vitesse 2 = moitie
+    local r2 = Mq.step(Mq.new(), { mods = { lab_mod({}, TECH, { speed = 2 }) }, stock = {}, sources = {} }, T0)
+    check(eq(r2.need["pack-r"], 4), "t : vitesse totale 2 : 4 par minute (" .. tostring(r2.need["pack-r"]) .. ")")
+    -- plusieurs packs par unite et unite plus longue : 3 packs, 60 s, vitesse 4 -> 12
+    local r3 = Mq.step(Mq.new(), { mods = { lab_mod({}, { unit_time = 60, ingredients = { { item = "pack-r", n = 3 } } }) }, stock = {},
+      sources = {} }, T0)
+    check(eq(r3.need["pack-r"], 12), "t : 3 packs par unite de 60 s a vitesse 4 : 12 par minute (" .. tostring(r3.need["pack-r"]) .. ")")
+    -- garde fermee : technologie non lue, vitesse ou duree invalide, courant inconnu, lecture perimee
+    local rc = Mq.step(Mq.new(), { mods = { lab_mod({}, nil, { id = "L2" }), lab_mod({}, TECH, { id = "L3", speed = 0 }),
+      lab_mod({}, { unit_time = 0, ingredients = TECH.ingredients }, { id = "L4" }), lab_mod({}, TECH, { id = "L5", power = "?" }),
+      lab_mod({}, TECH, { id = "L6", read_tick = T0 - 3 * MIN }) }, stock = {}, sources = {} }, T0)
+    check(next(rc.need) == nil, "t : garde fermee : aucun manque publie (" .. ser(rc.need) .. ")")
+    check(#rc.refused == 4 and #rc.stale == 1, "t : 4 refus (technologie, vitesse, duree, courant) et 1 lecture perimee (" .. #rc.refused .. ", " .. #rc.stale .. ")")
+    local rp = Mq.step(Mq.new(), { mods = { lab_mod({}, TECH, { power = false }) }, stock = {}, sources = {} }, T0)
+    check(#rp.no_power == 1 and next(rp.need) == nil, "t : labo sans courant : ecrit a part, aucun manque d'entree")
+    -- un module ordinaire n'est pas touche, un labo cote a cote avec lui non plus
+    local ro = Mq.step(Mq.new(), { mods = { circuit_mod(1, T0, { plaque = 10 }), lab_mod({}, TECH) }, stock = {}, sources = {} }, T0)
+    check(eq(ro.need.cable, 30) and eq(ro.need["pack-r"], 8), "t : un module de circuits et un labo cote a cote")
+    -- puits mesures : les packs manquants du labo sont un puits de la capitalisation
+    local sk = Mq.sinks(r, {})
+    check(#sk == 1 and sk[1].item == "pack-r" and eq(sk[1].rate, 8), "t : puits mesure : 8 packs rouges par minute")
+    -- Mq.module : un module ordinaire est rendu tel quel (meme table) ; l'entree n'est pas modifiee
+    local plain = circuit_mod(9, T0, {})
+    check(Mq.module(plain) == plain, "t : Mq.module rend un module ordinaire tel quel")
+    local lm = lab_mod({}, TECH)
+    local before = ser(lm)
+    local nm = Mq.module(lm)
+    check(ser(lm) == before and nm ~= lm and #nm.inputs == 2, "t : Mq.module ne modifie pas son entree")
+    check(not has_function(Mq.step(Mq.new(), { mods = { lab_mod({}, TECH) }, stock = {}, sources = {} }, T0)), "t : le resultat ne porte aucune fonction")
+  end
+
+  -- Lot VIDEO-COUVERTURE 3 (V10, C3.4) : les munitions manquantes sont un but.
+  section("u. munitions (V10, C3.4)")
+  do
+    local groups = { { key = "hq", due = true, missing = 40, has_task = false }, { key = "o1", due = true, missing = 25, has_task = false },
+      { key = "o2", due = true, missing = 100, has_task = true }, { key = "o3", due = false, missing = 30 } }
+    local w = Mq.ammo_want(groups, { item = "mag", prio = 90 })
+    check(w and w.key == "but:mag" and w.item == "mag" and eq(w.n, 65) and w.prio == 90,
+      "u : 40 + 25 chargeurs (le groupe servi par une tournee et celui qui n'est pas du ne comptent pas) : but:mag a 90 (" .. ser(w) .. ")")
+    check(Mq.ammo_want({ { key = "hq", due = true, missing = 0 } }, { item = "mag", prio = 90 }) == nil, "u : rien ne manque : pas de demande")
+    check(Mq.ammo_want(groups, { item = "mag" }) == nil and Mq.ammo_want(groups, { prio = 90 }) == nil, "u : sans objet ou sans priorite : refuse")
+    check(Mq.ammo_want({ { key = "hq", due = "oui", missing = 5 } }, { item = "mag", prio = 90 }) == nil, "u : due non booleen vrai : refuse")
+    check(Mq.ammo_want({ { key = "hq", due = true, missing = -5 }, { key = "o", due = true, missing = 0 / 0 } }, { item = "mag", prio = 90 }) == nil,
+      "u : manque negatif ou NaN : refuse")
+    -- chaine : la demande entre dans Mq.step a la priorite de l'armee, devant une demande de priorite ordinaire, et se couvre par le stock libre
+    local wants = { Mq.ammo_want(groups, { item = "mag", prio = 90 }), { key = "but:plaque", item = "plaque", n = 50, prio = 55, net = true } }
+    local r = Mq.step(Mq.new(), { mods = {}, wants = wants, stock = { mag = 20 }, sources = {} }, T0)
+    check(eq(r.need.mag, 65) and eq(r.build.mag, 45) and eq(r.net.mag, -45), "u : 65 voulus, 20 au stock libre : 45 a construire (net -45)")
+    local rs = Mq.step(Mq.new(), { mods = {}, wants = wants, stock = { mag = 65 }, sources = {} }, T0)
+    check(rs.build.mag == nil and eq(rs.net.mag, 0), "u : couvert par le stock libre : rien a construire")
+    local src = { id = "s1", items = { mag = 30 }, read_tick = T0, ok = true, d = 40 }
+    local rc = Mq.step(Mq.new(), { mods = {}, wants = wants, stock = {}, sources = { src } }, T0)
+    check(#rc.collect == 1 and rc.collect[1].item == "mag" and rc.collect[1].prio == 90 and eq(rc.collect[1].n, 30),
+      "u : des munitions dorment dans une sortie : collecte a la priorite de l'armee (" .. ser(rc.collect) .. ")")
+  end
 end
 
 local Mq0 = assert(load_mq())
@@ -441,6 +530,13 @@ local MUTANTS = {
   { "demande nette qui puise encore au stock (double compte)", { "local q = nd.net and 0 or math.min(n, s_left)", "local q = math.min(n, s_left)" } },
   { "puits avec les demandes hors module (double compte avec input.need)", { 'e.key:sub(1, 2) == "m:"', 'e.key ~= ""' } },
   { "puits donnes perdus", { "for _, s in ipairs(base or {}) do out[#out + 1] = s end", "" } },
+  { "labo : technologie non lue prise pour aucune technologie (garde ouverte)", { "  if m.tech == false then", "  if m.tech == false or m.tech == nil then" } },
+  { "labo : vitesse ignoree", { "add(per, ing.item, n * speed * 60 / ut)", "add(per, ing.item, n * 60 / ut)" } },
+  { "labo : duree de l unite ignoree", { "add(per, ing.item, n * speed * 60 / ut)", "add(per, ing.item, n * speed * 60)" } },
+  { "labo : type ignore (module ordinaire)", { "if type(m) ~= \"table\" or m.consumes ~= Mq.RESEARCH then return m end", "do return m end" } },
+  { "munitions : tournee deja au tableau comptee", { "if miss and g.due == true and not g.has_task then", "if miss and g.due == true then" } },
+  { "munitions : recharge non due comptee", { "if miss and g.due == true and not g.has_task then", "if miss and not g.has_task then" } },
+  { "munitions : priorite de l armee perdue", { "return { key = \"but:\" .. o.item, item = o.item, n = n, prio = o.prio }", "return { key = \"but:\" .. o.item, item = o.item, n = n, prio = 0 }" } },
   { "offres relues depuis le debut sans curseur, sans sauter les vides", { "      while i <= #list and list[i].left <= Mq.EPS do i = i + 1 end\n      list.i = i\n      for j = i, #list do\n        local o = list[j]\n        if n <= Mq.EPS then break end\n        if o.left > Mq.EPS then", "      for j = 1, #list do\n        local o = list[j]\n        if n <= Mq.EPS then break end\n        if true then" } },
 }
 local killed = 0

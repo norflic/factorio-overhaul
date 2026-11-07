@@ -157,6 +157,122 @@ for _, w in ipairs({ "petroleum", "crude", "water", "sulfur", "plastic", "chemic
   check_src(not added:lower():find(w), "§7 nom du jeu dans Ca.obtainable : " .. w)
 end
 
+-- §8 SOUPAPE (lot 6 FLUIDES-SOUPAPE, Fl.valve et Fl.valve_recipe, shared/ai3/fluides.lua) : règle pure, relevé inventé.
+local function valve_suite(M)
+  local vp, vf, vmsg = 0, 0, {}
+  local function vok(c, m) if c then vp = vp + 1 else vf = vf + 1 vmsg[#vmsg + 1] = m end end
+  local function run(st, rem, deb, sur) return M.valve(st, "fz", rem, deb, sur) end
+  -- C6.1 : cuve à 95 % sans débouché : ouverte à la K-ième mesure, pas avant
+  local st, opened_at = M.valve_new(), nil
+  for k = 1, M.VALVE_K + 2 do
+    if run(st, 0.95, 0, "rec-surplus").open and not opened_at then opened_at = k end
+  end
+  vok(opened_at == M.VALVE_K, "C6.1 cuve à 95 % sans débouché : ouverte à la mesure K (" .. tostring(opened_at) .. ")")
+  -- C6.1 : à 95 % avec un débouché ouvert : rien
+  st = M.valve_new()
+  local any = false
+  for _ = 1, 3 * M.VALVE_K do if run(st, 0.95, 1, "rec-surplus").open then any = true end end
+  vok(not any, "C6.1 cuve à 95 % avec débouché ouvert : rien")
+  -- seuil strict : 90 % exact et 50 % n'ouvrent jamais
+  st = M.valve_new(); any = false
+  for _ = 1, 3 * M.VALVE_K do
+    if run(st, 0.9, 0, "rec").open or run(st, 0.5, 0, "rec").open then any = true end
+  end
+  vok(not any, "seuil strict : 90 % exact et 50 % n'ouvrent pas")
+  -- un débouché ouvert remet le compteur à zéro
+  st = M.valve_new()
+  for _ = 1, M.VALVE_K - 1 do run(st, 0.95, 0, "rec") end
+  run(st, 0.95, 1, "rec")
+  any = false
+  for _ = 1, M.VALVE_K - 1 do if run(st, 0.95, 0, "rec").open then any = true end end
+  vok(not any, "débouché ouvert : compteur remis à zéro")
+  -- une mesure sous le seuil remet aussi le compteur à zéro
+  st = M.valve_new()
+  for _ = 1, M.VALVE_K - 1 do run(st, 0.95, 0, "rec") end
+  run(st, 0.5, 0, "rec")
+  any = false
+  for _ = 1, M.VALVE_K - 1 do if run(st, 0.95, 0, "rec").open then any = true end end
+  vok(not any, "mesure sous le seuil : compteur remis à zéro")
+  -- sans recette de surplus : jamais ouverte, refus écrit
+  st = M.valve_new()
+  local r
+  for _ = 1, M.VALVE_K do r = run(st, 0.95, 0, nil) end
+  vok(r.open == false and r.why:find("surplus", 1, true) ~= nil, "pas de recette de surplus : refus écrit")
+  -- débouché inconnu (nil) : pas compté comme fermé
+  st = M.valve_new(); any = false
+  for _ = 1, M.VALVE_K + 1 do if M.valve(st, "fz", 0.95, nil, "rec").open then any = true end end
+  vok(not any, "débouché inconnu : pas compté comme fermé")
+  -- mesure absente : refus
+  vok(M.valve(M.valve_new(), "fz", nil, 0, "rec").open == false, "mesure absente : refus")
+  -- recette de surplus lue dans le relevé : visible, un seul fluide en entrée, produits solides, triée
+  local rel = { recipes = {
+    ["aa-cache"] = { hidden = true, ingredients = { { type = "fluid", name = "fz", amount = 1 } }, products = { { type = "item", name = "sol", amount = 1 } } },
+    ["bb-deux"] = { hidden = false, ingredients = { { type = "fluid", name = "fz", amount = 1 }, { type = "fluid", name = "eau2", amount = 1 } }, products = { { type = "item", name = "sol", amount = 1 } } },
+    ["cc-fluide"] = { hidden = false, ingredients = { { type = "fluid", name = "fz", amount = 1 } }, products = { { type = "fluid", name = "gaz", amount = 1 } } },
+    ["dd-autre"] = { hidden = false, ingredients = { { type = "fluid", name = "autre", amount = 1 } }, products = { { type = "item", name = "sol", amount = 1 } } },
+    ["zz-solide"] = { hidden = false, ingredients = { { type = "fluid", name = "fz", amount = 1 } }, products = { { type = "item", name = "sol", amount = 1 } } },
+  } }
+  vok(M.valve_recipe(rel, "fz") == "zz-solide", "recette de surplus : visible, un seul fluide, produits solides (la première retenue)")
+  vok(M.valve_recipe({ recipes = {} }, "fz") == nil, "aucune recette : nil")
+  -- recette non débloquée (enabled = false) : jamais choisie ; seule, elle donne un refus écrit
+  local rel2 = { recipes = {
+    ["aa-verrou"] = { hidden = false, enabled = false, ingredients = { { type = "fluid", name = "fz", amount = 1 } }, products = { { type = "item", name = "sol", amount = 1 } } },
+    ["bb-ouverte"] = { hidden = false, ingredients = { { type = "fluid", name = "fz", amount = 1 } }, products = { { type = "item", name = "sol", amount = 1 } } },
+  } }
+  vok(M.valve_recipe(rel2, "fz") == "bb-ouverte", "recette non débloquée écartée : la débloquée est choisie")
+  local rel3 = { recipes = { ["aa-verrou"] = rel2.recipes["aa-verrou"] } }
+  vok(M.valve_recipe(rel3, "fz") == nil, "seule recette non débloquée : aucune")
+  local rv, vst = nil, M.valve_new()
+  for _ = 1, M.VALVE_K do rv = M.valve(vst, "fz", 0.95, 0, M.valve_recipe(rel3, "fz")) end
+  vok(rv.open == false and rv.why:find("surplus", 1, true) ~= nil, "seule recette non débloquée : refus écrit")
+  return vp, vf, vmsg
+end
+
+local VSRC = read("shared/ai3/fluides.lua")
+local VM = assert(load(VSRC, "=fluides", "t"))()
+local vp, vf, vmsg = valve_suite(VM)
+pass, fail = pass + vp, fail + vf
+for _, m in ipairs(vmsg) do msgs[#msgs + 1] = m end
+-- anti-échelle : la règle ajoutée ne nomme aucun objet du jeu
+local vblock = VSRC:match("Fl%.VALVE_FILL.*$") or ""
+for _, w in ipairs({ "petroleum", "crude", "water", "sulfur", "plastic", "chemical", "pumpjack", "refinery", "solid%-fuel", "fuel", "gas" }) do
+  check_src(not vblock:lower():find(w), "C6.2 nom du jeu dans Fl.valve : " .. w)
+end
+-- C6.3 : mutants refusés
+local VMUT = {
+  { "seuil ignoré (toute cuve pleine ouvre)", "remplissage > Fl.VALVE_FILL", "remplissage >= 0" },
+  { "débouché ignoré", " and debouches == 0", "" },
+  { "K ignoré (ouverture à la première mesure)", "if st.n < Fl.VALVE_K then", "if st.n < 1 then" },
+  { "compteur non remis à zéro", "    st.n = 0\n    return { open = false, why = \"cuve non pleine", "    return { open = false, why = \"cuve non pleine" },
+  { "recette de surplus ignorée", "  if not surplus then", "  if false then" },
+  { "entrée fluide non comptée", "          fluid_in = fluid_in + 1", "          fluid_in = fluid_in + 0" },
+  { "produit fluide accepté comme surplus", "if p.type ~= \"item\" then only_item_out = false end", "" },
+  { "recette non débloquée choisie", " and r.enabled ~= false and", " and" },
+}
+local vrefused, vkept = 0, {}
+for _, m in ipairs(VMUT) do
+  local a, b = VSRC:find(m[2], 1, true)
+  if not a then
+    vkept[#vkept + 1] = m[1] .. " (motif absent)"
+  else
+    local mod = load(VSRC:sub(1, a - 1) .. m[3] .. VSRC:sub(b + 1), "=fluides", "t")
+    local bad = 1
+    if mod then
+      local okm, MM = pcall(mod)
+      if okm and type(MM) == "table" then
+        local _, ff = valve_suite(MM)
+        bad = ff
+      end
+    end
+    if bad > 0 then vrefused = vrefused + 1 else vkept[#vkept + 1] = m[1] end
+  end
+end
+if #vkept == 0 then pass = pass + 1 else
+  fail = fail + 1
+  print("[AI3-FLUIDE] ECHEC C6.3 mutants NON refusés : " .. table.concat(vkept, " ; "))
+end
+print(string.format("[AI3-FLUIDE] C6 soupape : mutants refusés %d sur %d", vrefused, #VMUT))
+
 for _, m in ipairs(msgs) do print("[AI3-FLUIDE] ECHEC " .. m) end
 
 -- §7 Mutants.

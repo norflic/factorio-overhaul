@@ -1,7 +1,8 @@
 --[[
   Lot VIDEO-L13 « PLAFONDS ET GARDES FERMÉES PAR DÉFAUT » (feuille de route validée par le DC le 7/11 :
   docs/VIDEO_AUTOMATISATION.md §6 L13, docs/TODO_VIDEO.md §G rang 12, lignes W01, C13, G02). Règle PURE, testée hors jeu
-  (tests/plafonds_test.lua). Rien n'est branché en jeu : le plan de branchement est dans le rapport du lot.
+  (tests/plafonds_test.lua). BRANCHÉE : shared/ai3/capitalisation.lua:2109-2222 (Pf.open_room, Pf.ledger,
+  Pf.fits_item, Pf.take) pour les sortes de Ca.CAPPED (:164).
 
   Référence : le bug des « silos sans fin » de la vidéo de suite (V2 0:56-2:36 ; commentaire C13) : une garde lisait le signal
   d'un mod absent, l'entrée valait 0, la condition « en manque » restait vraie et l'usine posait des silos sans fin. Ici :
@@ -44,6 +45,24 @@ function Pf.input(v, name)
   if v ~= v or v == math.huge or v == -math.huge then return nil, "entree invalide : " .. name end
   if v < 0 then return nil, "entree negative : " .. name end
   return v
+end
+
+--- Relevé du courant d'une décision (lot VIDEO-COUVERTURE 5, critère C5.4, TODO W02) : rend nil quand la garde est ouverte, sinon la
+--- raison du refus, qui NOMME l'entrée. `pw` = input.power de Ca.decide :
+---   nil          aucune centrale finie : l'AMORÇAGE (le premier ordre électrique demande la centrale, script/ai3/automatisation.lua,
+---                submit ; fermer ici empêcherait l'électrification de jamais commencer) ; l'exécutant refuse déjà ce qui ne se pose pas ;
+---   table        un relevé existe : sa capacité (have_kw) doit être un nombre fini ≥ 0. Absente, une centrale FINIE dont la capacité n'est
+---                pas encore lue ouvrait des foreuses sans borne (garde ouverte sur mesure manquante : les « silos sans fin » de C13).
+function Pf.power_missing(pw)
+  if pw == nil then return nil end
+  local _, why = Pf.input(pw.have_kw, "power.have_kw")
+  return why
+end
+
+--- Le même refus, en texte de journal (« courant : entree absente : power.have_kw »), ou nil.
+function Pf.power_why(pw)
+  local why = Pf.power_missing(pw)
+  return why and ("courant : " .. why) or nil
 end
 
 local OPS = {
