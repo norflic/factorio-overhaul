@@ -170,6 +170,7 @@ exit /b 0
 FAUX_CAPTURES = r"""@echo off
 setlocal
 > "%~dp0captures-%1.txt" echo %1 FO_PLACE[%FO_PLACE%] FO_LOCK_HELD[%FO_LOCK_HELD%]
+> "%~dp0captures-save-%1.txt" echo FO_SAVE[%FO_SAVE%]
 call "%~dp0fo-autotest.bat" nopause %FAKE_CAPTURES_S% %1 %2
 exit /b %errorlevel%
 """
@@ -481,6 +482,24 @@ with open(vide, "wb") as fh:
     fh.write(b"t1,12345,6789\n" * 200000)
 verifie(not banc.fin_de_benchmark(vide), "fin_de_benchmark : fichier sans « Performed » (jeu interrompu) = faux")
 verifie(not banc.fin_de_benchmark(os.path.join(tmp, "absent-stdout.txt")), "fin_de_benchmark : fichier absent = faux")
+
+# 10 ter. Lot X10 (M2, 7/11) : --sauvegarde AVEC --captures est permise. fo-captures.bat reçoit FO_SAVE (chemin absolu,
+# espaces compris) et banc.txt l'écrit ; avec --creation, la sauvegarde reste refusée (erreur d'argparse, code 2) et
+# rien ne tourne.
+zipf = os.path.join(tmp, "ma sauvegarde.zip")
+with open(zipf, "wb") as fh:
+    fh.write(b"PK")
+codes = attendre([lancer("S1", "LS1", 0, "--captures", "--sauvegarde", zipf, *MEM, extra={"FAKE_CAPTURES_S": "1"})])
+sv = lignes(os.path.join(tmp, "captures-save-S1.txt"))
+bt = " ".join(lignes(os.path.join(tmp, "out", "S1", "banc.txt")))
+verifie(codes == [0] and sv == ["FO_SAVE[%s]" % zipf] and ("sauvegarde " + zipf) in bt and place_de("S1") == 1,
+        "--sauvegarde avec --captures : fo-captures.bat reçoit FO_SAVE (%s), banc.txt l'écrit, place 1" % sv)
+p = subprocess.run([sys.executable, "-B", BANC, "--out", os.path.join(tmp, "out", "S2"), "--qui", "LS2", "--sauvegarde",
+                    zipf, "--creation", tmp, "--", "1", "S2", tmp], env=env, capture_output=True, text=True,
+                   encoding="utf-8", errors="replace")
+verifie(p.returncode == 2 and "ne va pas avec --creation" in p.stderr and not trace("S2")
+        and not os.path.exists(os.path.join(tmp, "out", "S2", "banc.txt")),
+        "--sauvegarde avec --creation : refusée (code %d), rien n'a tourné" % p.returncode)
 
 # 11. Rien ne reste.
 reste = [d for d in os.listdir(tmp) if d.endswith(".lock")]

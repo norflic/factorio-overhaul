@@ -25,6 +25,7 @@ local KIT_EGAL = {
   -- Lot X10 (moteur) : même sauvegarde, classes figées par soustraction (scenarios/x10_common.lua).
   ["x10-recensement"] = true, ["x10-sans-biters"] = true, ["x10-sans-pnj"] = true, ["x10-sans-soldats"] = true,
   ["x10-sans-usines"] = true, ["x10-sans-equipe"] = true, ["x10-fige-tout"] = true,
+  ["x10-rendu"] = true, -- lot X10, M2 : rendu de la partie du DC (session avec images)
 }
 
 -- Lot IA0 : les scénarios de guerre intégrés restent en « Paisible » (pvp = "peaceful"), comportement des
