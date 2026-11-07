@@ -150,10 +150,10 @@ local function planner_mutant(name, from, to, from2, to2)
   if caught then killed = killed + 1 else print("  MUTANT SURVIVANT : " .. name) end
 end
 planner_mutant("branchement : fer garde jamais retire (avant : ni retire ni rendu)",
-  'if spir.hold > 0 then avail["iron-plate"] = avail["iron-plate"] - spir.hold end', "",
-  'if spir.hold > 0 then avail["iron-plate"] = (avail["iron-plate"] or 0) + spir.hold end', "")
+  'if spir.hold > 0 then avail[FE] = avail[FE] - spir.hold end', "",
+  'if spir.hold > 0 then avail[FE] = (avail[FE] or 0) + spir.hold end', "")
 planner_mutant("branchement : fer garde jamais rendu a la recrue",
-  'if spir.hold > 0 then avail["iron-plate"] = (avail["iron-plate"] or 0) + spir.hold end', "")
+  'if spir.hold > 0 then avail[FE] = (avail[FE] or 0) + spir.hold end', "")
 planner_mutant("branchement : pas de minage d'urgence (avant)", "if spir.mine then emergency_mine(p.raw) end", "")
 planner_mutant("branchement : pas de recrue sans arme (avant)", "if spir.unarmed then", "if false then")
 

@@ -431,9 +431,11 @@ local build_src = read_src("script/team/build.lua")
 check(has(src.team, "f.team.qg_reserve = Sq.qg_reserve({ floor = T.defend_iron_floor, turret_iron = rt[fe], mag_iron = rm[fe] })")
   and has(src.team, "if f.is_player and T.qg_reserve_on then"),
   "maillon 10 (vue, QGSURVIE) : la réserve du QG est calculée au livre de recettes, votre équipe seulement, sous interrupteur")
-check(has(build_src, "local held = Sq.module_held({ iron = iron, reserve = f.team.qg_reserve, rebuild = false })")
+-- (lot SPIRALE, 7/11 : la réserve est celle du QG, sous son interrupteur, PLUS le fer gardé pour une recrue, f.team.spirale_hold)
+check(has(build_src, "local held = Sq.module_held({ iron = iron, reserve = reserve, rebuild = false })")
   and has(build_src, "if qg_held(f, p, \"reserve\", tick) then") and has(build_src, "if qg_held(f, p, \"ligne\", tick) then")
-  and has(build_src, "if not (T.qg_reserve_on and f.is_player and f.team and f.team.qg_reserve) then return false end"),
+  and has(build_src, "local reserve = ((T.qg_reserve_on and f.team and f.team.qg_reserve) or 0) + ((f.team and f.team.spirale_hold) or 0)")
+  and has(build_src, "if not (f.is_player and reserve > 0) then return false end"),
   "maillon 11 (chantiers, QGSURVIE) : la réserve d'un module neuf et l'agrandissement d'une ligne passent par Sq.module_held")
 do -- la porte du QG vient AVANT celle de la pile (qui laisse passer un module qui produit une matière qui manque, le fer)
   local a = build_src:find("if qg_held(f, p, \"reserve\", tick) then", 1, true)

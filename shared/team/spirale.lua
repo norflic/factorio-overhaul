@@ -23,6 +23,8 @@
   Déterminisme : arithmétique seule.
 ]]
 
+local T = require("shared.team.config") -- (le nom du fer : T.outposts.iron.product, jamais écrit ici)
+
 local Sp = {}
 
 function Sp.decide(s)
@@ -42,7 +44,7 @@ end
 --- Fer d'UNE recrue tiré du stock : le kit planifié au livre SANS le fer du stock (les chargeurs au coffre comptent, le pistolet
 --- absent se fabrique) ; le fer brut qui en reste, (10 + effectif) compris. Sans livre : le fer écrit dans le coût.
 function Sp.recruit_iron(cost, stock, book, iron_name)
-  iron_name = iron_name or "iron-plate"
+  iron_name = iron_name or T.outposts.iron.product
   if not book then
     local n = 0
     for _, it in ipairs(cost or {}) do if it[1] == iron_name then n = n + (it[2] or 0) end end
@@ -58,11 +60,11 @@ end
 
 --- La décision depuis une vue du planificateur (shared/team/planner.lua) : votre équipe seulement (view.recover_floor ; nil pour les
 --- factions, qui ont leur survie). `iron` : le fer du stock virtuel au début du plan.
-function Sp.view(view, book, iron)
+function Sp.view(view, book, iron, iron_name)
   local floor = view and view.recover_floor
   if not floor then return Sp.decide(nil) end
   return Sp.decide({ workers = view.workers, floor = floor, iron = iron,
-    recruit_iron = Sp.recruit_iron(view.recruit_cost, view.stock, book, "iron-plate") })
+    recruit_iron = Sp.recruit_iron(view.recruit_cost, view.stock, book, iron_name) })
 end
 
 --- Fer que voit un autre consommateur que la recrue (tâches, capitalisation, défense) : le fer libre moins la part gardée.

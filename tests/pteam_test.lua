@@ -133,11 +133,16 @@ check(pk.recruit_workers == 1 and not pk.recruit_unarmed and pk.recruit_uses == 
 local pb = Planner.plan(pview({ workers = 8, stock = plates, recover_floor = 8 }), book)
 local pb0 = Planner.plan(pview({ workers = 8, stock = plates }), book)
 check(sig(pb) == sig(pb0) and pb.recruit_uses == nil, "effectif de départ atteint : plan inchangé (" .. sig(pb):sub(1, 60) .. ")")
--- 3. Fer insuffisant : rien de plus que la règle ordinaire (ni recrue, ni plaques prélevées).
+-- 3. Fer insuffisant. Lot SPIRALE (décision du lead, 7/11 : parité de votre équipe avec les factions, directive du DC) : à 2 PNJ,
+-- rien de plus que la règle ordinaire (pas de fonderie du QG ici : smelters 0, donc pas de minage d'urgence) ; SOUS 2 PNJ, la recrue
+-- sans arme des factions (shared/team/spirale.lua ; avant le lot : aucune recrue).
 local poor = { ["iron-plate"] = 20, ["copper-plate"] = 20 }
-local pc = Planner.plan(pview({ workers = 1, stock = poor, recover_floor = 8 }), book)
-local pc0 = Planner.plan(pview({ workers = 1, stock = poor }), book)
-check(not pc.recruit_workers and pc.recruit_uses == nil and sig(pc) == sig(pc0), "fer insuffisant : aucune recrue, plan inchangé")
+local pc = Planner.plan(pview({ workers = 2, stock = poor, recover_floor = 8 }), book)
+local pc0 = Planner.plan(pview({ workers = 2, stock = poor }), book)
+check(not pc.recruit_workers and pc.recruit_uses == nil and sig(pc) == sig(pc0), "fer insuffisant a 2 PNJ : aucune recrue, plan inchangé")
+local pc1 = Planner.plan(pview({ workers = 1, stock = poor, recover_floor = 8 }), book)
+check(pc1.recruit_workers == 1 and pc1.recruit_unarmed and pc1.emergency_unarmed and pc1.recruit_uses == nil,
+  "fer insuffisant SOUS 2 PNJ : recrue sans arme, comme les factions (lot SPIRALE)")
 -- 4. Équipe vide, sans plaques : le secours ordinaire (ouvrier sans arme) reste.
 local pd = Planner.plan(pview({ workers = 0, stock = {}, recover_floor = 8 }), book)
 check(pd.recruit_workers == 1 and pd.recruit_unarmed, "équipe vide sans plaques : embauche de secours sans arme (inchangé)")

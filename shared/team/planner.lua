@@ -260,9 +260,10 @@ function P.plan(view, book)
   -- Lot SPIRALE (décision du lead, 7/11 : parité de votre équipe avec les factions, directive du DC) : sous son effectif de départ,
   -- le fer d'UNE recrue est GARDÉ ; les besoins servis avant elle (entretien) ne le voient pas, il lui est rendu juste avant sa recrue
   -- (§1 bis). Partie du DC (0.6.58) : 2 PNJ, fer libre 0 de 133 à 177 min, aucune recrue (shared/team/spirale.lua).
-  local spir = Sp.view(view, book, avail["iron-plate"] or 0)
+  local FE = T.outposts.iron.product
+  local spir = Sp.view(view, book, avail[FE] or 0, FE)
   out.spirale_hold = spir.hold
-  if spir.hold > 0 then avail["iron-plate"] = avail["iron-plate"] - spir.hold end
+  if spir.hold > 0 then avail[FE] = avail[FE] - spir.hold end
 
   local raw_short = {}   -- matières premières manquantes (toutes demandes confondues)
   local raw_prio = {}    -- lot PILE-PRIORITE : priorité la plus haute des demandes de chaque matière manquante (out.raw_need)
@@ -966,7 +967,7 @@ function P.plan(view, book)
   -- D1) reposait la fonderie du QG et minait à la main ; coffre vidé (fer 11) et équipe perdue à 57 min. Plaques
   -- insuffisantes : rien de plus, la règle ordinaire (§4) s'applique.
   local rf = (not em) and view.recover_floor or nil
-  if spir.hold > 0 then avail["iron-plate"] = (avail["iron-plate"] or 0) + spir.hold end -- (lot SPIRALE : le fer gardé revient à la recrue)
+  if spir.hold > 0 then avail[FE] = (avail[FE] or 0) + spir.hold end -- (lot SPIRALE : le fer gardé revient à la recrue)
   if rf and not view.hold_recruits and not view.recruit_blocked and view.workers < rf then
     local cost0 = view.recruit_cost or kit_list("worker", 1)
     if take(cost0) then
