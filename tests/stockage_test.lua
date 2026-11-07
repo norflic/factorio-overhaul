@@ -71,6 +71,81 @@ do
     and sk:find("[FO-STOCKAGE]", 1, true) ~= nil)
 end
 
+-- coffre URGENT (shared/team/fond.lua, F.annex_urgent) : fabriqué cerveau en manque et fond coupé, planchers compris
+local function urgent_suite(F)
+  local res = {}
+  local function check(name, cond, detail) res[#res + 1] = { name, cond and true or false, detail } end
+  do
+    local T = require("shared.team.config")
+    local IRON, WOOD = T.outposts.iron.product, "wood"
+    local CH = T.annex.kinds[1].item
+    local function book(ok_items)
+      return {
+        handcraftable = function(_, item) return ok_items[item] == true end,
+        plan = function(_, list, avail)
+          local item = list[1][1]
+          local need = (item == CH) and { [IRON] = 8 } or { [WOOD] = 2 }
+          local raw = {}
+          for k, v in pairs(need) do if (avail[k] or 0) < v then raw[k] = v end end
+          return { raw = raw, crafts = {}, uses = need }
+        end,
+      }
+    end
+    local B = book({ [CH] = true, [T.annex.kinds[2].item] = true })
+    local t = F.annex_urgent({}, { [IRON] = 8 }, { book = B, annex_urgent = true })
+    check("urgent : coffre de fer fabrique avec 8 plaques (cerveau en manque ou non)", #t == 1 and t[1].item == CH and t[1].prio == F.URGENT_PRIO and t[1].prio > F.PRIO.extend, #t)
+    check("urgent : rien sans urgence", #F.annex_urgent({}, { [IRON] = 8 }, { book = B, annex_urgent = false }) == 0)
+    check("urgent : rien avec un coffre en main", #F.annex_urgent({}, { [IRON] = 8, [CH] = 1 }, { book = B, annex_urgent = true }) == 0)
+    check("urgent : rien quand la tache est deja au tableau", #F.annex_urgent({}, { [IRON] = 8 }, { book = B, annex_urgent = true,
+      keys = { ["fond:craft:" .. CH .. ":annexe-urgente"] = true } }) == 0)
+    local tw = F.annex_urgent({}, { [IRON] = 0, [WOOD] = 4 }, { book = B, annex_urgent = true })
+    check("urgent : sans fer, le coffre en bois", #tw == 1 and tw[1].item == T.annex.kinds[2].item, #tw)
+    -- par le fond : cerveau EN MANQUE et fer au seul plancher (F.FLOOR) : le coffre de fer passe quand même (planchers rendus)
+    local c = F.candidates({ incoming = {} }, { [IRON] = F.FLOOR[IRON], ["copper-plate"] = 0, stone = 0 },
+      { book = B, keys = {}, brain_short = true, annex_want = 1, annex_urgent = true })
+    local found = false
+    for _, x in ipairs(c.base) do if x.key == "fond:craft:" .. CH .. ":annexe-urgente" then found = true end end
+    check("fond, cerveau en manque, fer au plancher : coffre de fer urgent propose", found)
+    local c2 = F.candidates({ incoming = {} }, { [IRON] = F.FLOOR[IRON], ["copper-plate"] = 0, stone = 0 },
+      { book = B, keys = {}, brain_short = true, annex_want = 1 })
+    local plain = false
+    for _, x in ipairs(c2.base) do if x.item == CH then plain = true end end
+    check("temoin : sans urgence, cerveau en manque, aucun coffre de fer (comportement de 0.6.58)", not plain)
+  end
+  return res
+end
+package.path = "./?.lua;" .. package.path
+local FOND_PATH = "shared/team/fond.lua"
+local FOND_SRC = read(FOND_PATH)
+local function run_fond(text)
+  local chunk, err = load(text, "=" .. FOND_PATH)
+  if not chunk then return { { "fond illisible : " .. tostring(err), false } } end
+  local okm, F = pcall(chunk)
+  if not okm then return { { "fond : " .. tostring(F), false } } end
+  local okr, res = pcall(urgent_suite, F)
+  if not okr then return { { "suite fond : " .. tostring(res), false } } end
+  return res
+end
+for _, r in ipairs(run_fond(FOND_SRC)) do check(r[1], r[2], r[3]) end
+local FMUT = {
+  { "fond : planchers non rendus au coffre urgent", "    for k, v in pairs(floors) do all[k] = (all[k] or 0) + v end\n", "" },
+  { "fond : urgence ignoree par le fond", "  if ctx.annex_urgent then\n    -- lot STOCKAGE-VITAL", "  if false then\n    -- lot STOCKAGE-VITAL" },
+  { "fond : coffre en main ignore", "    if (free[k.item] or 0) > 0 or (incoming[k.item] or 0) > 0 or keys", "    if keys" },
+  { "fond : coffre urgent sous la priorite du fond", "F.URGENT_PRIO = F.PRIO.extend + 1", "F.URGENT_PRIO = F.PRIO.craft" },
+}
+local frefused, fkept = 0, {}
+for _, m in ipairs(FMUT) do
+  local a1, z1 = FOND_SRC:find(m[2], 1, true)
+  if not a1 then fkept[#fkept + 1] = m[1] .. " (motif introuvable)" else
+    local res = run_fond(FOND_SRC:sub(1, a1 - 1) .. m[3] .. FOND_SRC:sub(z1 + 1))
+    local seen = false
+    for _, r in ipairs(res) do if not r[2] then seen = true break end end
+    if seen then frefused = frefused + 1 else fkept[#fkept + 1] = m[1] end
+  end
+end
+check(string.format("mutants du fond refuses %d/%d%s", frefused, #FMUT, #fkept > 0 and (" ; survivants : " .. table.concat(fkept, ", ")) or ""), frefused == #FMUT)
+print(string.format("[STOCKAGE] mutants du fond refuses %d/%d", frefused, #FMUT))
+
 local MUT = {
   { "reserve arrondie au-dessous", "  return math.ceil(cfg.reserve * size - 1e-9)", "  return math.floor(cfg.reserve * size + 1e-9)" },
   { "vitale soumise a la reserve", "  if vital and vital[item] then return empty end", "" },

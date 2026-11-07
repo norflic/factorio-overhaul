@@ -438,6 +438,7 @@ function Poles.think(f, view, book, tick, plan)
       -- avant-poste meurtrier non défendu et la prudence (pertes récentes) l'arrêtent.
       transport = player or nil, reserve = player and Fond.PLAYER_RESERVE or nil,
       mine_radius = player and T.near_mine or nil, annex_want = Stock.wanted(f), iron_extra = iron_extra,
+      annex_urgent = Stock.urgent and Stock.urgent(f) or nil, -- lot STOCKAGE-VITAL : coffre urgent (shared/team/fond.lua, F.annex_urgent)
       saturated = f.team.ia3 and f.team.ia3.saturated or nil, -- lot SITE-PROCHE (R4)
       plate_map = PLATE_MAP, repat = view.repat } -- lot FLUX
     cands = Fond.candidates(view, free, fctx)
@@ -462,6 +463,10 @@ function Poles.think(f, view, book, tick, plan)
     end
   else
     cands = { extraction = {}, base = {}, territoire = {} }
+    -- Lot STOCKAGE-VITAL : fond coupé, le coffre URGENT se fabrique quand même (un coffre plein arrête toute l'équipe, fer compris)
+    if Stock.urgent and Stock.urgent(f) then
+      cands.base = Fond.annex_urgent(view, free, { book = book, keys = keys, annex_urgent = true })
+    end
     -- Lot FER-EQUIPE : fond coupé pour votre équipe SOUS son effectif de départ (hors QG menacé) : seul le renfort de fer reste.
     if iron_extra and fer_off then
       cands.extraction = Fond.iron_extra_tasks({ iron_extra = iron_extra, keys = keys, mine_skip = skip, prudent = prudent,

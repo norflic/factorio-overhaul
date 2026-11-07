@@ -356,6 +356,17 @@ function Stock.grow(f, surface, tick)
   return false
 end
 
+--- Lot STOCKAGE-VITAL : coffre URGENT (stock rempli à T.stockage.urgent_at, aucun coffre en main) : lu par le fond (shared/team/fond.lua,
+--- F.annex_urgent), qui le fabrique même cerveau en manque et fond coupé.
+function Stock.urgent(f)
+  if not (f.hq and f.hq.valid) then return false end
+  local used, size, n = totals(f)
+  if size <= 0 or n >= capacity(f) then return false end
+  local have = 0
+  for _, k in ipairs(T.annex.kinds) do have = have + chests_in_hand(f, k.item) end
+  return Sg.urgent(used / size, have > 0, T.stockage)
+end
+
 --- Lot STOCKAGE-VITAL : prédicat « ne pas ramasser `objet` » aux avant-postes (non vitale saturée par le cerveau, ou toute non vitale
 --- quand le stock est rempli à T.stockage.stop_at), ou nil quand rien n'est écarté.
 function Stock.skip_fn(f)

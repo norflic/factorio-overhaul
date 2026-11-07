@@ -351,6 +351,38 @@ function F.potential(view, ctx, free)
   return math.min((ctx.reserve ~= nil and ctx.reserve == F.PLAYER_RESERVE) and F.PLAYER_AHEAD or F.AHEAD, n)
 end
 
+--- Lot STOCKAGE-VITAL (retour du DC sur 0.6.58 : coffre du QG plein de pierre, aucune annexe de toute la partie) : coffre URGENT
+--- (ctx.annex_urgent : stock rempli à T.stockage.urgent_at sans coffre en main, script/team/stock.lua Stock.urgent). Une fabrication
+--- d'UN coffre, même quand le cerveau manque de plaques (sinon seul le coffre en bois, qui demande du bois, était permis) et même fond
+--- coupé (script/team/poles.lua : votre équipe sous son effectif de départ), prise sur TOUT le stock libre (planchers compris : les
+--- 8 plaques d'un coffre de fer). Rien si un coffre est déjà en main ou en route, ou si la tâche est déjà au tableau. Rend la liste
+--- des tâches (0 ou 1), priorité au-dessus du fond.
+F.URGENT_PRIO = F.PRIO.extend + 1
+function F.annex_urgent(view, free, ctx)
+  local out = {}
+  local book = ctx and ctx.book
+  if not (book and ctx.annex_urgent) then return out end
+  local keys = ctx.keys or {}
+  local incoming = (view and view.incoming) or {}
+  for _, k in ipairs(T.annex.kinds) do
+    if (free[k.item] or 0) > 0 or (incoming[k.item] or 0) > 0 or keys["fond:craft:" .. k.item .. ":annexe-urgente"] then return out end
+  end
+  for _, k in ipairs(T.annex.kinds) do
+    if book:handcraftable(k.item) then
+      local avail = {}
+      for n, v in pairs(free) do avail[n] = v end
+      avail[k.item] = 0
+      local p = book:plan({ { k.item, 1 } }, avail)
+      if next(p.raw) == nil then
+        out[1] = { key = "fond:craft:" .. k.item .. ":annexe-urgente", kind = "craft", prio = F.URGENT_PRIO, item = k.item, count = 1,
+          steps = p.crafts, uses = sorted_uses(p.uses), fond = true, domain = "production", tag = "fond" }
+        return out
+      end
+    end
+  end
+  return out
+end
+
 local function base(view, free, ctx, out)
   local book = ctx.book
   if not book then return end
@@ -407,6 +439,14 @@ local function base(view, free, ctx, out)
   -- Lot COFFRE (K-C) : coffres pour les ANNEXES du QG (script/team/stock.lua) quand les cases se remplissent. Cerveau en
   -- manque : seulement ceux qui ne coûtent aucune plaque (T.annex.kinds[].cheap), le coffre plein bloque tout le monde.
   local need = ctx.annex_want or 0
+  if ctx.annex_urgent then
+    -- lot STOCKAGE-VITAL : coffre urgent, planchers rendus au stock libre le temps de cette fabrication seule
+    local all = {}
+    for k, v in pairs(free) do all[k] = v end
+    for k, v in pairs(floors) do all[k] = (all[k] or 0) + v end
+    for _, t in ipairs(F.annex_urgent(view, all, ctx)) do out[#out + 1] = t end
+    need = 0
+  end
   if need > 0 then
     for _, k in ipairs(T.annex.kinds) do
       need = need - (free[k.item] or 0) - (incoming[k.item] or 0) - (planned[k.item] or 0)
