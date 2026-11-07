@@ -128,8 +128,10 @@ local function cadence_input(f, tick)
     end
   end
   local cs = cadence_of(f)
+  -- « armée dehors » : un groupe armé (attaque, retour, éclaireur : Military.maintain les entretient DANS la pensée) ou une attaque préparée.
+  local army_out = (f.groups ~= nil and next(f.groups) ~= nil) or f.route_pending ~= nil
   return { is_player = f.is_player, box = cs.box, players = players, threatened_until = f.threatened_until,
-    attack_t = f.attack_alert_t, lost_t = f.lost_t, base_alert = cs.base_alert }
+    attack_t = f.attack_alert_t, lost_t = f.lost_t, base_alert = cs.base_alert, army_out = army_out }
 end
 
 --- Zone de la faction (QG et avant-postes, triés par clé) : relue à chaque pensée jouée.
@@ -246,9 +248,17 @@ function Commander.spread()
   return moved
 end
 
--- Lot X10-S10 : guet des factions endormies, à chaque tick : au premier tick où une cause la réveille (le joueur entré dans sa zone, une
--- attaque, une perte), la faction repense TOUT DE SUITE (Commander.think, puis ses étapes E2 à E4 aux ticks suivants, comme d'habitude).
--- Aucune faction endormie : une boucle sur la liste des factions, sans lecture du moteur.
+--- Lot X10-S10 : RÉVEIL d'une faction endormie (rang `id` dans war.factions) pour la cause `cause`, au tick `tick`. SEUL point d'appel de
+--- la pensée hors créneau : le lot S6 (jeton des travaux lourds, script/core/lourd.lua) le fera passer par son minuteur (Cd.skip décide
+--- SI la faction pense, le jeton décide QUAND ; consigne du lead, 7/11). Aujourd'hui : la pensée tout de suite (Commander.think, puis ses
+--- étapes E2 à E4 aux ticks suivants, comme d'habitude).
+function Commander.wake(f, id, cause, tick)
+  cadence_say(f, cadence_of(f), "normale", cause, tick)
+  Commander.think(id, tick)
+end
+
+-- Lot X10-S10 : GUET des factions endormies, à chaque tick : au premier tick où une cause la réveille (le joueur entré dans sa zone, une
+-- attaque, une perte), Commander.wake. Aucune faction endormie : une boucle sur la liste des factions, sans lecture du moteur.
 Events.on_nth_tick(1, function(e)
   if not Commander.CADENCE then return end
   local war = State.war()
@@ -257,10 +267,7 @@ Events.on_nth_tick(1, function(e)
     local cs = f.cadence
     if cs and cs.asleep and not f.eliminated then
       local up, why = Cd.wake(cs, cadence_input(f, e.tick), e.tick)
-      if up then
-        cadence_say(f, cs, "normale", why, e.tick)
-        Commander.think(id, e.tick)
-      end
+      if up then Commander.wake(f, id, why, e.tick) end
     end
   end
 end)
