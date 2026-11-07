@@ -17,7 +17,8 @@ local C = require("scenarios/xp_commun")
 
 local CHECK = 2450
 local Y = 5200
-local LU = 170                  -- PV relus : après la première salve (vers le tick 60 à 100), avant la seconde (cadence de zone 180 et plus)
+local LU = 170                  -- PV relus : après la première salve (Stylet vers le tick 2, Cairn vers 32), avant la seconde (212)
+local LM = 45                   -- marques relues : après les premières salves, avant la fin de leur durée (au plus 90 ticks)
 local CIBLE = "fo-xpm-cible"
 local PU1, PO3 = "fo-xp-module-puissance-1", "fo-xp-module-portee-3"
 local SITES = {
@@ -149,15 +150,18 @@ return {
   tick = function(ctx, e)
     local st = ctx.state()
     if not st.pret then return end
+    if e.tick == LM then
+      st.tirets, st.anneaux = rendus()
+      ctx.log(string.format("marques des modules au tick %d : traits en tirets %d, anneaux au sol %d", LM, st.tirets, st.anneaux))
+    end
     if e.tick == LU then
       local S = st.sites
       st.l = { a = perdu(S.a.cibles[1]), p = perdu(S.p.cibles[1]), z0 = perdu(S.z0.cibles[2]), z = perdu(S.z.cibles[2]),
         s0 = perdu(S.s0.cibles[1]), s = perdu(S.s.cibles[1]), c = perdu(S.c.cibles[1]), z0c = perdu(S.z0.cibles[1]), zc = perdu(S.z.cibles[1]) }
-      st.tirets, st.anneaux = rendus()
       local l = st.l
       ctx.log(string.format("PV perdus au tick %d : sans module %.0f, puissance I %.0f ; zone : 19 tuiles sans %.0f, avec %.0f (centre %.0f / %.0f) ;"
-        .. " Stylet a 55 : sans %.0f, avec %.0f ; Cairn a 50 avec portee %.0f ; tirets %d, anneaux au sol %d",
-        LU, l.a, l.p, l.z0, l.z, l.z0c, l.zc, l.s0, l.s, l.c, st.tirets, st.anneaux))
+        .. " Stylet a 55 : sans %.0f, avec %.0f ; Cairn a 50 avec portee %.0f",
+        LU, l.a, l.p, l.z0, l.z, l.z0c, l.zc, l.s0, l.s, l.c))
     end
   end,
 
