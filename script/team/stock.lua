@@ -395,6 +395,52 @@ local function place_one(f, surface, item, take)
   end)
 end
 
+--- Lot STOCKAGE-VITAL (impasse vue le 7/11 sur la sauvegarde du DC : stock plein, 46 annexes sur 48, coffre en main, aucune pose) :
+--- pourquoi les places du bloc des annexes refusent `item` ? Rend les places refusées, dans l'ordre du bloc : { x, y, ground = objets
+--- au sol sur la place, names = autres entités (noms triés), reserved = gardée par le plan directeur, own = une de nos annexes y est }.
+--- Boîte de la place rétrécie de 0,01 (F96 : une entité qui touche seulement le bord serait rendue).
+function Stock.annex_blockers(f, surface, item)
+  local w, h = footprint(item)
+  local own = {}
+  for _, e in ipairs(Stock.annexes(f)) do
+    if e.unit_number then own[e.unit_number] = true end
+  end
+  local out = {}
+  for _, o in ipairs(A.slots(side(f), w, h)) do
+    local p = { x = Pl.snap(f.hq_pos.x + o[1], w), y = Pl.snap(f.hq_pos.y + o[2], h) }
+    local reserved = (Stock.reserved and Stock.reserved(f, item, p)) and true or false
+    if reserved or not surface.can_place_entity({ name = item, position = p, force = f.force }) then
+      local row = { x = p.x, y = p.y, ground = 0, names = {}, reserved = reserved, own = false }
+      local seen = {}
+      local area = { { p.x - w / 2 + 0.01, p.y - h / 2 + 0.01 }, { p.x + w / 2 - 0.01, p.y + h / 2 - 0.01 } }
+      for _, e in ipairs(surface.find_entities_filtered({ area = area })) do
+        if e.name == "item-on-ground" then
+          row.ground = row.ground + 1
+        elseif e.unit_number and own[e.unit_number] then
+          row.own = true
+        elseif not seen[e.name] then
+          seen[e.name] = true
+          row.names[#row.names + 1] = e.name
+        end
+      end
+      table.sort(row.names)
+      out[#out + 1] = row
+    end
+  end
+  return out
+end
+
+--- Texte d'une place refusée (journal [FO-ANNEXE]).
+local function blocker_text(r)
+  local parts = {}
+  if r.ground > 0 then parts[#parts + 1] = "sol " .. r.ground end
+  if #r.names > 0 then parts[#parts + 1] = table.concat(r.names, "+") end
+  if r.reserved then parts[#parts + 1] = "reserve du plan" end
+  if #parts == 0 then parts[1] = "refusee sans entite" end
+  return string.format("(%.1f, %.1f) %s", r.x, r.y, table.concat(parts, ", "))
+end
+Stock.ANNEX_DIAG_LOG = 5 * 3600 -- ticks entre deux lignes « aucune place libre » d'une équipe
+
 --- Lot STOCKAGE-VITAL : `k` coffres qu'un PNJ dépose et que le stock plein refuse sont posés en annexes sur-le-champ (au plus jusqu'au
 --- plafond d'annexes) : sans cela, un coffre fabriqué pour un stock PLEIN restait en poche et le stock ne grandissait jamais. Le
 --- PNJ retire de sa poche le nombre rendu. Une ligne [FO-ANNEXE] par pose.
@@ -617,7 +663,28 @@ function Stock.grow(f, surface, tick)
     end
   end
   -- Un coffre en main mais plus une place libre dans le bloc : on ne refait pas la recherche à chaque pensée.
-  if blocked then st.retry = tick + T.annex.retry end
+  if blocked then
+    st.retry = tick + T.annex.retry
+    -- Lot STOCKAGE-VITAL : la raison au journal (au plus une ligne par Stock.ANNEX_DIAG_LOG) : places prises par nos annexes, et pour
+    -- les autres ce qui les bloque (objets au sol, entités, réserve du plan directeur).
+    if surface and surface.can_place_entity and surface.find_entities_filtered and f.hq_pos
+      and (not f.annex_diag_log or tick - f.annex_diag_log >= Stock.ANNEX_DIAG_LOG) then
+      f.annex_diag_log = tick
+      local rows = Stock.annex_blockers(f, surface, T.annex.kinds[1].item)
+      local n_own, n_ground, parts = 0, 0, {}
+      for _, r in ipairs(rows) do
+        if r.own then
+          n_own = n_own + 1
+        else
+          if r.ground > 0 then n_ground = n_ground + 1 end
+          if #parts < 8 then parts[#parts + 1] = blocker_text(r) end
+        end
+      end
+      log(string.format("[FO-ANNEXE] %s : coffre en main mais aucune place libre : %d place(s) du bloc, %d prise(s) par nos annexes, %d autre(s) "
+        .. "refusee(s) dont %d par des objets au sol : %s ; stock %d/%d cases, annexes %d, a %.1f min", f.key or "player", capacity(f), n_own,
+        #rows - n_own, n_ground, #parts > 0 and table.concat(parts, " ; ") or "aucune", used, size, n, (tick - (f.started or 0)) / 3600))
+    end
+  end
   return false
 end
 

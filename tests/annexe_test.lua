@@ -538,6 +538,51 @@ do
 end
 
 do
+  print("== Lot STOCKAGE-VITAL (a) : coffre en main, aucune place libre dans le bloc : pourquoi (Stock.annex_blockers, [FO-ANNEXE])")
+  local A = require("shared.team.annexe")
+  local slots = A.slots(1, 1, 1)
+  local function at(i) return { x = math.floor(slots[i][1]) + 0.5, y = math.floor(slots[i][2]) + 0.5 } end
+  local mine = new_chest(16)
+  mine.unit_number, mine.name, mine.position = 901, "iron-chest", at(1)
+  local world = { mine }
+  for k = 1, 3 do world[#world + 1] = { valid = true, name = "item-on-ground", position = { x = at(2).x + 0.1 * k, y = at(2).y } } end
+  world[#world + 1] = { valid = true, name = "stone-furnace", unit_number = 902, position = at(3) }
+  local function inside(p, a) return p.x > a[1][1] and p.x < a[2][1] and p.y > a[1][2] and p.y < a[2][2] end
+  local function key(p) return p.x .. "," .. p.y end
+  local blocked = { [key(at(1))] = true, [key(at(2))] = true, [key(at(3))] = true }
+  local surface = {
+    can_place_entity = function(t) return not blocked[key(t.position)] end,
+    find_entities_filtered = function(t)
+      local out = {}
+      if t.area then for _, e in ipairs(world) do if e.valid and inside(e.position, t.area) then out[#out + 1] = e end end end
+      return out
+    end,
+    create_entity = function() return nil end,
+  }
+  local f = team(10)
+  f.annex = { mine }
+  f.annex_sy = 1
+  local saved_reserved = Stock.reserved
+  Stock.reserved = function(_, _, p) return key(p) == key(at(4)) end
+  local rows = Stock.annex_blockers(f, surface, "iron-chest")
+  check(#rows == 4 and rows[1].own and rows[2].ground == 3 and #rows[2].names == 0 and rows[3].names[1] == "stone-furnace" and rows[4].reserved,
+    "places refusees : la notre, 3 objets au sol, un four, une reserve du plan (" .. #rows .. ")")
+  -- Stock.grow : coffre en main, stock plein, aucune pose -> une ligne [FO-ANNEXE] « aucune place libre », bornée
+  f.hq.items["iron-chest"] = 1
+  f.hq.items.coal = (STACK.coal or 50) * 9
+  mine.items.coal = (STACK.coal or 50) * 16 -- stock plein : QG et annexe
+  for i = #logs, 1, -1 do logs[i] = nil end
+  Stock.grow(f, surface, 100)
+  f.stock_watch.retry = nil
+  Stock.grow(f, surface, 200)
+  local n, line = 0, nil
+  for _, s in ipairs(logs) do if s:find("aucune place libre", 1, true) then n, line = n + 1, s end end
+  check(n == 1 and line and line:find("sol 3", 1, true) and line:find("stone-furnace", 1, true) and line:find("reserve du plan", 1, true)
+    and line:find("1 prise(s) par nos annexes", 1, true), "journal : une ligne bornee, avec chaque raison (" .. tostring(line) .. ")")
+  Stock.reserved = saved_reserved
+end
+
+do
   print("== Lot STOCKAGE-VITAL : le stock prend-il tout un contenu ? (Stock.room, Stock.can_take)")
   local function inv_readable(e)
     local iv = e.get_inventory()

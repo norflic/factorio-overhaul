@@ -108,6 +108,8 @@ do
     and mc:find("spill_item_stack(f.hq_pos, { name = name, count = n - put }, true, f.force, false)", 1, true) ~= nil)
   check("cablage A : melange ne releve du tapis que ce que le stock prend", ml:find("local room = Stock.room and Stock.room(f, it[1])", 1, true) ~= nil
     and ml:find("{ name = it[1], count = got - put }, true, f.force, false)", 1, true) ~= nil)
+  check("cablage (a) : coffre en main sans place libre : la raison au journal [FO-ANNEXE], bornee", sk:find("coffre en main mais aucune place libre", 1, true) ~= nil
+    and sk:find("local rows = Stock.annex_blockers(f, surface, T.annex.kinds[1].item)", 1, true) ~= nil)
   check("cablage : le stock reprend les objets au sol du QG a chaque passage (Stock.grow -> Stock.pick_ground)",
     sk:find("  Stock.pick_ground(f, surface, tick) -- lot STOCKAGE-VITAL", 1, true) ~= nil
     and sk:find('find_entities_filtered({ name = "item-on-ground", position = f.hq_pos, radius = Stock.GROUND_RADIUS,', 1, true) ~= nil)
