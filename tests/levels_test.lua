@@ -2490,6 +2490,13 @@ if not okc then for _, l in ipairs(CentreSheets.lines(rc)) do print(l) end end
 check(okc and rc.n > 0, string.format("graphics/levels/centre : %d PNG du manifeste présents, à la taille et aux "
   .. "dimensions du manifeste, %d image(s) de sprites.lua relue(s) (%d manquant(s), %d écart(s)%s)", rc.n, rc.refs or 0,
   #rc.manquants, #rc.ecarts, rc.erreur and (", " .. rc.erreur) or ""))
+local MurSheets = dofile("tests/datastage/mur_sheets.lua")
+local rm = MurSheets.check(".")
+local okm = MurSheets.ok(rm)
+if not okm then for _, x in ipairs(MurSheets.lines(rm)) do print(x) end end
+check(okm and rm.n > 0, string.format("graphics/levels/mur : %d PNG du manifeste présents, à la taille et aux dimensions "
+  .. "du manifeste, %d rectangle(s) de sprites.lua relu(s) (%d manquant(s), %d écart(s)%s)", rm.n, rm.refs or 0,
+  #rm.manquants, #rm.ecarts, rm.erreur and (", " .. rm.erreur) or ""))
 end)()
 
 ---------------------------------------------------------------------------------------------------

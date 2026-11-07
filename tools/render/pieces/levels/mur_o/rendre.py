@@ -123,7 +123,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", required=True)
     ap.add_argument("--cache", default="")
-    ap.add_argument("--ages", default="2,8,15")
+    ap.add_argument("--ages", default="1,2,3,4,5,6,7,8,9,10,11,12,13,14,15")
     ap.add_argument("--formes", default=",".join(piece.ORDRE))
     ap.add_argument("--samples", type=int, default=12)
     ap.add_argument("--post-only", action="store_true")
@@ -132,7 +132,8 @@ def main():
     a.out = os.path.abspath(a.out)
     a.cache = os.path.abspath(a.cache or os.path.join(os.path.dirname(a.out), "cache_" + os.path.basename(a.out)))
     os.makedirs(a.cache, exist_ok=True)
-    names = [piece.nom(int(e), f) for e in a.ages.split(",") if e for f in a.formes.split(",") if f]
+    names = [n for n in (piece.nom(int(e), f) for e in a.ages.split(",") if e for f in a.formes.split(",") if f)
+             if n in piece.PIECE["variants"]]
     t0 = time.time()
     rc = 0
     if not a.post_only:

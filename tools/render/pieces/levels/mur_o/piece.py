@@ -1,22 +1,14 @@
-"""Pièce du pipeline : MUR, méthode MUR-OPUS (29/10). Trois âges clés d'abord (2, 8, 15), 8 formes de raccord chacun.
+"""Pièce du pipeline : MUR, méthode MUR-OPUS (29/10), série des 15 âges (1/11).
 
 Formes (comme le mur vanilla, WallPictures) : une case ne dessine que ses bras EST, OUEST et SUD ; le bras nord est
 dessiné par le voisin du nord (son bras sud va jusqu'au centre de cette case, sous le nœud de cette case).
   single (aucun), vert (S), horiz (E, O), corR (E, S), corL (O, S), tee (E, O, S), endR (E), endL (O).
 Croix = tee + voisin nord ; coin bas-gauche = endR + voisin nord, etc.
 
-Contrat d'un module d'âge aNN.py (S'exécute DANS Blender) :
-  EPOQUE, NOM ; def mats(S) -> dict ; def bras(g, M, L, k) ; def noeud(g, M, forme, bras)
-  bras : repère local, le bras part du centre (x = 0) et va jusqu'à x = L ; y latéral, y < 0 = côté AVANT (sud pour
-         les bras est et ouest) ; k = échelle latérale (une tuile de profondeur = k unités : 1,414 pour E et O, 1,0 pour
-         le bras sud) ; z vers le haut. Le bras ouest est le MIROIR du bras est (même face avant au sud).
-  noeud : centré sur l'origine du monde. Formes « tour » (single, corR, corL, endR, endL : extrémités et angles) : un
-         pilier qui recouvre la section du bras sud du voisin du nord. horiz : pilastre ; tee et vert : rien de plus que
-         les bras (le bras sud commence 0,03 tuile AU NORD du centre et recouvre le bout du bras sud du voisin).
-  Pourquoi pas de tour aux T : un mur de 2 cases d'épaisseur (courant en jeu) a une rangée de T, elle deviendrait une
-  rangée de tours.
+Contrat d'un âge : classe de chassis.py (ere1.py à ere5.py) ; mats(S), bras(g, M, B), noeud(g, M, forme, bras).
+  bras : repère local, le bras part du centre (x = 0) ; y latéral, y < 0 = côté AVANT ; z vers le haut. Le bras ouest est
+         le MIROIR du bras est.
 """
-import importlib
 import math
 import os
 import sys
@@ -25,16 +17,18 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-AGES = (2, 8, 15)
-TYPES = {"single": (), "vert": ("S",), "horiz": ("E", "O"), "horiz2": ("E", "O"), "horiz3": ("E", "O"), "horiz4": ("E", "O"),
-         "corR": ("E", "S"),
-         "corL": ("O", "S"), "tee": ("E", "O", "S"), "endR": ("E",), "endL": ("O",)}
-# horiz2 : deuxième variante du segment droit est-ouest (le vanilla en a 6 ; le moteur tire la variante par case)
-ORDRE = ("single", "vert", "horiz", "horiz2", "horiz3", "horiz4", "corR", "corL", "tee", "endR", "endL")
+AGES = tuple(range(2, 16))
+TYPES = {"single": (), "vert": ("S",), "horiz": ("E", "O"), "horiz2": ("E", "O"), "horiz3": ("E", "O"),
+         "corR": ("E", "S"), "corL": ("O", "S"), "tee": ("E", "O", "S"), "endR": ("E",), "endL": ("O",),
+         # série 1/11 : bouche-trou, raccords vers une porte ou l'eau (4 directions), pièce du niveau pair
+         "filling": (), "jN": (), "jE": (), "jS": (), "jO": (), "piece": ()}
+# horiz, horiz2, horiz3 : trois variantes du segment droit est-ouest (DESIGN_EPOQUES §4.7 : 3 pour les droits)
+ORDRE = ("single", "vert", "horiz", "horiz2", "horiz3", "corR", "corL", "tee", "endR", "endL", "filling", "jN", "jE",
+         "jS", "jO", "piece")
 # v3 : graine des motifs (taches, coulures) par forme : trois segments droits qui ne se répètent pas à l'identique
-GRAINES = {"single": 1.7, "vert": 2.9, "horiz": 0.0, "horiz2": 5.3, "horiz3": 8.1, "horiz4": 11.3, "corR": 3.7, "corL": 4.4,
-           "tee": 6.2, "endR": 7.4, "endL": 9.6}
-K_SUD = 0.88       # v2 : échelle latérale du bras sud ; le mur vanilla nord-sud fait 47-48 px HR de large au pied
+GRAINES = {"single": 1.7, "vert": 2.9, "horiz": 0.0, "horiz2": 5.3, "horiz3": 8.1, "corR": 3.7, "corL": 4.4, "tee": 6.2,
+           "endR": 7.4, "endL": 9.6, "filling": 12.1, "jN": 13.3, "jE": 14.7, "jS": 15.9, "jO": 16.3, "piece": 17.9}
+K_SUD = 0.74       # v2 : échelle latérale du bras sud ; le mur vanilla nord-sud fait 47-48 px HR de large au pied
                    # (0,75 tuile), le v1 en faisait 62-68 (+35 %)
 OMBRE_SOLEIL = (342.0, 37.0)   # v5b (C1) : (azimut, élévation) du soleil de la seule passe d'ombre ; None = F47
 EPS = 0.02          # les bras est et ouest dépassent de 0,02 tuile : pas de colonne demi-transparente au raccord
@@ -46,7 +40,7 @@ def nom(e, f):
 
 
 def _variants():
-    v = {}
+    v = {nom(1, "piece"): {"epoch": 1, "forme": "piece", "bras": ()}}     # âge 1 : le mur vanilla, sa pièce paire seule
     for e in AGES:
         for f in ORDRE:
             v[nom(e, f)] = {"epoch": e, "forme": f, "bras": TYPES[f]}
@@ -76,6 +70,10 @@ class Bras:
     def x(self, t):
         return t * self.ka
 
+    def ts(self, *ts):
+        """Positions (unités) des instants t (tuiles) qui tombent dans ce bras."""
+        return [t * self.ka for t in ts if self.t0 <= t <= self.Lt]
+
     def y(self, u):
         return u * self.k
 
@@ -85,7 +83,8 @@ def margin_px(name):
 
 
 def module(e):
-    return importlib.import_module("a%02d" % e)
+    import chassis
+    return chassis.age(e)
 
 
 def build(S, C, variant):
@@ -93,11 +92,11 @@ def build(S, C, variant):
     v = PIECE["variants"][variant]
     ep = module(v["epoch"])
     geo.GRAINE = GRAINES[v["forme"]]
-    ep.FORME = v["forme"]       # v2 : certaines matières tirent leur motif d'après la forme (horiz / horiz2)
+    ep.FORME = v["forme"]       # certaines matières et détails tirent leur motif d'après la forme
     M = ep.mats(S)
-    g = geo.G(S, C, seed=100 + v["epoch"])
+    g = geo.G(S, C, seed=100 + v["epoch"] + int(GRAINES[v["forme"]] * 10))
     for b in v["bras"]:
-        # A(t) : position le long du bras pour t tuiles ; le bras couvre t de 0 à Lt (+ EPS pour E et O)
+        # le bras couvre t de 0 à Lt (+ EPS pour E et O)
         if b == "E":
             g.push(g.T(0, 0, 0))
             ep.bras(g, M, Bras(0.5, 1.0, SQ2, EPS, b))

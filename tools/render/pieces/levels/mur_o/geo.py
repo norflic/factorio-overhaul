@@ -192,7 +192,7 @@ def _nn(N, kind, **kw):
 
 def surface(name, col, col2=None, rough=0.75, metal=0.0, var=0.5, var_scale=6.0, grain=0.12, grain_scale=90.0,
             bump=0.25, bump_scale=70.0, edge=None, cavity=0.45, cavity_dist=0.10, streak=0.0, top=None,
-            bottom=None, brick=None, rough2=None, spec=0.5, seed=0.0, stain=None, veins=None, cracks=None):
+            bottom=None, brick=None, rough2=None, spec=0.5, seed=0.0, stain=None, veins=None, cracks=None, grad=None, rayures=None):
     """Surface « usée » :
     col, col2  : couleurs (linéaires) mêlées par un bruit lent (var : part de col2 au plus) ;
     grain      : ± grain fin ; bump : relief fin ;
@@ -311,6 +311,13 @@ def surface(name, col, col2=None, rough=0.75, metal=0.0, var=0.5, var_scale=6.0,
         # teinte par brique (Color de la texture) modulée par le bruit lent
         color = mix(0.5, b.outputs["Color"], color) if brick.get("blend", True) else b.outputs["Color"]
         height = b.outputs["Fac"]
+    if rayures:
+        # série 1/11 : bandes peintes (couleur, pas, pente) périodiques par case (coordonnées Object, sans graine)
+        rcol, rpas, rpente = rayures
+        srt = N.new("ShaderNodeSeparateXYZ")
+        L.new(tc.outputs["Object"], srt.inputs["Vector"])
+        rv = math_("ADD", math_("ADD", srt.outputs["X"], srt.outputs["Y"]), math_("MULTIPLY", srt.outputs["Z"], rpente))
+        color = mix(math_("GREATER_THAN", math_("FRACT", math_("DIVIDE", rv, rpas), 0.0), 0.5), color, tuple(rcol))
     # grain fin
     g = rng(noise(grain_scale, 6.0, 0.65), 0.3, 0.7, 1.0 - grain, 1.0 + grain, smooth=False)
     color = mulc(color, g)
@@ -339,10 +346,17 @@ def surface(name, col, col2=None, rough=0.75, metal=0.0, var=0.5, var_scale=6.0,
         bz = rng(sep2.outputs["Z"], 0.0, z1, bpart, 0.0)
         bnz = rng(noise(10.0, 3.0, 0.6), 0.3, 0.7, 0.85, 1.0)      # v4 : pied noir franc
         color = mix(math_("MULTIPLY", bz, bnz), color, tuple(bcol))
-    if stain:
-        scol, spart, sscale = stain
+    # série 1/11 : plusieurs taches possibles (crasse lente, rouille fine)
+    for scol, spart, sscale in ([stain] if stain and not isinstance(stain, list) else (stain or [])):
         sn = rng(noise(sscale, 6.0, 0.7, distortion=0.6), 0.5, 0.72, 0.0, spart)
         color = mix(sn, color, tuple(scol))
+    if grad:
+        # série 1/11 : valeur selon la hauteur (z0, m0, z1, z2, m2) : sombre au pied, sombre sous la crête
+        gz0, gm0, gz1, gz2, gm2 = grad
+        sep3 = N.new("ShaderNodeSeparateXYZ")
+        L.new(geo.outputs["Position"], sep3.inputs["Vector"])
+        color = mulc(color, math_("MULTIPLY", rng(sep3.outputs["Z"], gz0, gz1, gm0, 1.0),
+                                  rng(sep3.outputs["Z"], gz1, gz2, 1.0, gm2)))
     if edge:
         # arêtes : écart entre la normale arrondie (nœud Bevel, rayon edge[2]) et la normale vraie
         ecol, epart = edge[0], edge[1]
