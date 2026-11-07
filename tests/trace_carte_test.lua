@@ -217,5 +217,55 @@ source_mutant("pas de nouvel essai après la cartographie", "script/ai3/trace_ca
 source_mutant("copies chez le joueur gardées quand le réglage est coupé", "script/ai3/trace_carte.lua", "script.ai3.trace_carte",
   "if not allowed%[fname%] then", "if false then", TC)
 
+-- 8. branchement dans la capitalisation (INTEGRATION_VIDEO.md, L11)
+print("[TRACE] 8. branchement : ordres envoyes, modules des ordres ouverts")
+local function capi_battery(TCm, verbose)
+  local fails = 0
+  local function ck(c, msg)
+    if not c then fails = fails + 1 if verbose then print("  ECHEC : " .. msg) end end
+    if verbose then check(c, msg) end
+  end
+  boot(); chart_all()
+  W.settings[TC.SETTING] = true
+  local f = faction()
+  local n0 = #W.logs
+  TCm.note(f, TCm.event({ key = "chaine:iron-plate", kind = "chaine", item = "iron-plate", rank = 2 }, { exec = "module" }), 60)
+  ck(#W.logs == n0 + 1 and W.logs[#W.logs]:find("chaine module", 1, true) and #live("enemy") == 0,
+    "ordre envoye : une ligne [FO-TRACE], aucune etiquette (le module n'a pas encore de lieu)")
+  f.build = { projects = { [5] = { state = "chantier", parts = { { ox = 10, oy = 20, w = 4, h = 4 } } }, [6] = { state = "attente", parts = {} } } }
+  local cs = { open = { { key = "chaine:iron-plate", kind = "chaine", exec = "module", mod_ids = { 5, 6 }, item = "iron-plate", rank = 2 },
+    { key = "techno:x", kind = "techno", exec = "techno" } } }
+  ck(TCm.capi(f, cs, 120) == 2 and #live("enemy") == 1 and #live("player") == 1, "module avec un lieu : etiquette (faction, et chez le joueur avec le reglage)")
+  local t = live("enemy")[1]
+  ck(t and t.position.x == 12 and t.position.y == 22 and t.text:find("ordre", 1, true) and t.text:sub(1, 3) == "R2 ",
+    "etiquette au centre du module, « R2 ordre » (" .. tostring(t and t.text) .. ")")
+  local c0, n1 = calls, #W.logs
+  TCm.capi(f, cs, 180)
+  ck(calls == c0 and #W.logs == n1, "pensee suivante, rien de change : aucun appel au moteur, aucune ligne")
+  f.build.projects[5].state = "fini"
+  TCm.capi(f, cs, 240)
+  local tags = live("enemy")
+  ck(#tags == 1 and tags[1].text:find("pose", 1, true), "projet fini : la meme etiquette passe a « pose » (" .. tostring(tags[1] and tags[1].text) .. ")")
+  return fails
+end
+check(capi_battery(TC, true) == 0, "branchement sans echec")
+do
+  local fh2 = assert(io.open("script/ai3/capitalisation.lua", "rb")); local capi = fh2:read("*a"); fh2:close()
+  local a = capi:find("      cs.orders = cs.orders + 1" .. string.char(10) .. "      TC.note(f, TC.event(o, rec), tick)", 1, true)
+  check(a ~= nil, "capitalisation.lua : TC.note dans la boucle des ordres de decide_finish, pour un ordre ENVOYE (if rec then)")
+  local s1 = capi:find("  Ind.sweep(f, tick)", 1, true)
+  local s2 = capi:find("  TC.capi(f, cs, tick)", 1, true)
+  local s3 = capi:find("  TC.flush(f, tick)", 1, true)
+  check(s1 and s2 and s3 and s1 < s2 and s2 < s3 and s3 - s1 < 400, "capitalisation.lua : TC.capi puis TC.flush a chaque pensee, a cote d'Ind.sweep")
+  local saved = TC.capi
+  local src = assert(io.open("script/ai3/trace_carte.lua", "rb")):read("*a")
+  local ms, k = src:gsub('kind = %(p%.state == "fini"%) and Tr%.KINDS%.pose or Tr%.KINDS%.decide', "kind = Tr.KINDS.decide")
+  assert(k == 1)
+  TC.capi = assert(load(ms, "@trace_carte (mutant)"))().capi
+  local ok, fl = pcall(capi_battery, TC, false)
+  TC.capi = saved
+  check((not ok) or fl > 0, "mutant refuse : « pose » jamais ecrite a la fin du projet")
+end
+
 print(string.format("[TRACE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

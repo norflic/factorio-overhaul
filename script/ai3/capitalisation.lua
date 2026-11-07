@@ -84,6 +84,7 @@ local Sv = require("shared.team.survie")
 local Pv = require("shared.ai3.prevision") -- lot PREVISION (C12) : prix de la défense induite
 local Prev = require("script.ai3.prevision") -- lot PREVISION : estimateur unique de la menace (relevé de l'équipe)
 local Ml = require("shared.ai3.mall") -- lot PILE-MALL (relecture) : la demande du mall est un puits de la capitalisation
+local TC = require("script.ai3.trace_carte") -- lot VIDEO L11 : trace des ordres sur la carte (réglage fo-debug-trace-carte)
 local Rsv = require("script.ai3.reserve") -- lot INDUSTRIE I1 : le besoin évalué, le stock hors besoin s'investit
 local Dm = require("shared.ai3.demande") -- lot C2 : puits ouvert, emplacements selon les bras libres
 local Ind = require("script.ai3.industrie") -- lot INDUSTRIE I6 : choix du patron (rangée ou bloc de mall), lecture des prototypes
@@ -1649,6 +1650,7 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
     if rec then
       cs.open[#cs.open + 1] = rec
       cs.orders = cs.orders + 1
+      TC.note(f, TC.event(o, rec), tick) -- lot VIDEO L11 : ordre ENVOYÉ (après les portes de la boucle et le filtre de L6) : [FO-TRACE]
       sent[#sent + 1] = string.format("%s:%s(%s x%d)", o.kind, tostring(o.item or o.resource), tostring(rec.exec), o.n or 0)
       cs.stats[o.kind] = (cs.stats[o.kind] or 0) + 1
     else
@@ -1848,6 +1850,8 @@ function Capi.think(f, view, book, tick, research, w, run)
     return Capi.think_tail(f, cs, tick)
   end
   Ind.sweep(f, tick) -- lot INDUSTRIE I6 : sorties des patrons à la collecte, barre posée (à chaque pensée, pas seulement à la décision)
+  TC.capi(f, cs, tick) -- lot VIDEO L11 : étiquette des modules des ordres ouverts dès qu'ils ont un lieu (« pose » quand ils sont finis)
+  TC.flush(f, tick) -- lot VIDEO L11 : chunk cartographié depuis (F131), copies chez le joueur retirées quand le réglage est coupé
   local phase = cs.n % Capi.CYCLE
   cs.n = cs.n + 1
   if phase == 0 then

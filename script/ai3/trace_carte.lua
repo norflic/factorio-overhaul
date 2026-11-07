@@ -9,8 +9,8 @@
       étiquette refusée reste « à poser » dans l'état et TC.flush la retente (appel par décision de la capitalisation).
     - État dans f.team.trace (sérialisable : numéros d'étiquette, jamais un objet du moteur ni une fonction) ; retrait par
       find_chart_tags autour de la position et tag_number.
-  Branchement (non fait, voir le rapport du lot) : TC.note à la pose (Build.request) et à la décision de capitalisation, TC.flush
-  une fois par décision.
+  Branchement (INTEGRATION_VIDEO.md, L11) : TC.note(f, TC.event(o, rec), tick) pour chaque ordre envoyé par decide_finish (après le
+  filtre de L6) ; TC.capi puis TC.flush à chaque pensée, à côté d'Ind.sweep (script/ai3/capitalisation.lua). build.lua n'est pas touché.
 ]]
 
 local Tr = require("shared.ai3.trace")
@@ -86,9 +86,10 @@ end
 
 --- Un événement ev = { key, item, x, y, why, rank, kind = "decide" | "pose" } de l'équipe f. Rend le nombre d'étiquettes posées.
 function TC.note(f, ev, tick)
-  log(Tr.line(f.key or f.force, ev, tick))
   local st = TC.state(f)
   local acts = Tr.push(st, ev, tick)
+  -- une ligne par événement neuf : un ordre sans lieu (décision), ou une étiquette posée ou changée (rien quand elle est la même)
+  if acts.add or not Tr.wants_tag(ev) then log(Tr.line(f.key or f.force, ev, tick)) end
   local surface = surface_of(f)
   if not surface then return 0 end
   for _, e in ipairs(acts.remove) do
@@ -121,6 +122,39 @@ function TC.flush(f, tick)
     for _, e in ipairs(Tr.pending(st, force.name)) do if place(e, force, surface) then put = put + 1 end end
   end
   return put, gone
+end
+
+--- Branchement (INTEGRATION_VIDEO.md, L11) : l'événement d'un ordre ENVOYÉ par la décision de capitalisation (o : ordre de Ca.decide,
+--- rec : son suivi, script/ai3/capitalisation.lua decide_finish). À la décision, le module n'a pas encore de lieu : une ligne de journal.
+function TC.event(o, rec)
+  return { key = "capi:" .. tostring(o.key), item = o.item or o.resource, why = tostring(o.kind) .. " " .. tostring(rec and rec.exec or "?"),
+    rank = type(o.rank) == "number" and o.rank or nil, kind = Tr.KINDS.decide }
+end
+
+--- Une fois par pensée (à côté d'Ind.sweep) : les modules des ordres ouverts (cs.open, exec « module ») qui ont un lieu au plan
+--- directeur (f.build.projects[id].parts[1]) reçoivent leur étiquette, « ordre » tant que le projet n'est pas fini, « pose » ensuite.
+--- Une étiquette inchangée ne coûte aucun appel au moteur (Tr.push). Rend le nombre d'étiquettes posées.
+function TC.capi(f, cs, tick)
+  local b = f.build
+  if not (b and b.projects and cs and cs.open) then return 0 end
+  local n = 0
+  for _, rec in ipairs(cs.open) do
+    if rec.exec == "module" then
+      for _, id in ipairs(rec.mod_ids or { rec.module }) do
+        local p = b.projects[id]
+        local part = p and p.parts and p.parts[1]
+        if part and part.w and part.h then
+          local x0, y0 = part.ox or part.x, part.oy or part.y
+          if x0 and y0 then
+            n = n + TC.note(f, { key = "capi:" .. tostring(rec.key) .. ":" .. tostring(id), item = rec.item or rec.resource,
+              why = tostring(rec.kind) .. " " .. tostring(p.state), rank = type(rec.rank) == "number" and rec.rank or nil,
+              kind = (p.state == "fini") and Tr.KINDS.pose or Tr.KINDS.decide, x = x0 + part.w / 2, y = y0 + part.h / 2 }, tick)
+          end
+        end
+      end
+    end
+  end
+  return n
 end
 
 return TC
