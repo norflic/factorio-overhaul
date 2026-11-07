@@ -1,7 +1,8 @@
 --[[
   Lot VIDEO-L13 « PLAFONDS ET GARDES FERMÉES PAR DÉFAUT » (feuille de route validée par le DC le 7/11 :
   docs/VIDEO_AUTOMATISATION.md §6 L13, docs/TODO_VIDEO.md §G rang 12, lignes W01, C13, G02). Règle PURE, testée hors jeu
-  (tests/plafonds_test.lua). Rien n'est branché en jeu : le plan de branchement est dans le rapport du lot.
+  (tests/plafonds_test.lua). BRANCHÉE : shared/ai3/capitalisation.lua:2109-2222 (Pf.open_room, Pf.ledger,
+  Pf.fits_item, Pf.take) pour les sortes de Ca.CAPPED (:164).
 
   Référence : le bug des « silos sans fin » de la vidéo de suite (V2 0:56-2:36 ; commentaire C13) : une garde lisait le signal
   d'un mod absent, l'entrée valait 0, la condition « en manque » restait vraie et l'usine posait des silos sans fin. Ici :

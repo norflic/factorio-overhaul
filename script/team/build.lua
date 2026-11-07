@@ -2742,7 +2742,7 @@ local function plan_project(f, surface, p)
         if arms > 1 then fopts = fopts or {}; fopts.fan = arms end
       end
       -- lot VIDEO L9 : états de lots essayés par la règle (Build.LotsMinerai.states : le repli d'avant, libres puis gisement, quand elle est
-      -- éteinte, défaut ; Lm.states_for allumée : une fabrique ne se replie plus sur un gisement) ; replis et refus comptés ([FO-LOTS-MINERAI])
+      -- éteinte (repli d'avant) ; Lm.states_for allumée (défaut depuis 0.6.60) : une fabrique ne se replie plus sur un gisement) ; replis et refus comptés ([FO-LOTS-MINERAI])
       local m, w, mi, ms
       for i, states in ipairs(Build.LotsMinerai.states(f, gx.gen)) do
         m, w = place_module(f, surface, gx, states, toward, nil, fopts)

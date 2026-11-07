@@ -1,8 +1,8 @@
 --[[
   Lot L1 « le rang calculé » (tiers dynamiques). Demande du DC du 7/11 : reprendre au moins 50 % de la logique de la vidéo
   « Factorio Automated », dont les « tiers dynamiques » (docs/VIDEO_AUTOMATISATION.md §3 et §6 L1). PUR (aucune API Factorio),
-  testé hors jeu (tests/rang_test.lua). RIEN N'EST BRANCHÉ : la capitalisation garde son `depth` (Ca.requirements) tant que les
-  lots L1b et L2 ne sont pas faits.
+  testé hors jeu (tests/rang_test.lua). BRANCHÉ (lot L1b) : Ca.RANG = true (shared/ai3/capitalisation.lua:153) : le besoin suit
+  Rg.chain (requirements_by_rank, :768-816) et non plus le `depth` seul.
 
   DEUX RANGS, deux usages :
     - Rg.build : rang du LIVRE de la force (min sur les recettes retenues, fluides comptés) : les tiers du journal [FO-RANG] et
@@ -560,6 +560,42 @@ function Rg.text(R, who)
   end
   return string.format("[FO-RANG] %s : %d recettes ouvertes sur %d, %d objets, rangs 0 a %d (%s), cycles %d [%s], sans rang %d",
     tostring(who), R.n_recipes, R.n_cand, R.n_items, R.max, table.concat(per, " "), #R.cycles, table.concat(cy, " "), #R.none)
+end
+
+---------------------------------------------------------------------------------------------------
+-- Journal et signature du rang de la DÉCISION (lot VIDEO-TRACES, G34). Entrée : résultat de Rg.chain (champs rank, list, cycles,
+-- max, n_items, rec, why). Pur : aucun cache, aucune horloge, listes triées (list est déjà dans l'ordre rang croissant, nom).
+---------------------------------------------------------------------------------------------------
+--- Signature du rang : chaîne courte et déterministe ; change si un objet change de rang, entre ou sort de la fermeture, ou si la
+--- liste des cycles change. Empreinte FNV modulo 2^31-1 (entiers, aucun bit à bit) sur « objet=rang; » dans l'ordre de `list`.
+function Rg.chain_signature(res)
+  local h = 0
+  for _, i in ipairs(res.list) do
+    local s = i .. "=" .. tostring(res.rank[i]) .. ";"
+    for j = 1, #s do h = (h * 31 + s:byte(j)) % 2147483647 end
+  end
+  return string.format("%d/%d/%d/%d", res.n_items, res.max, #res.cycles, h)
+end
+
+--- Ligne [FO-RANG] du rang de la décision (Rg.chain). who = clé de la faction. Le nombre d'objets par rang vient de `list` ;
+--- les cycles de plus d'un membre (ou amorcés) sont nommés.
+function Rg.text_chain(res, who)
+  local per, count = {}, {}
+  for _, i in ipairs(res.list) do count[res.rank[i]] = (count[res.rank[i]] or 0) + 1 end
+  for k = 0, res.max do per[k + 1] = k .. ":" .. (count[k] or 0) end
+  local cy = {}
+  for _, c in ipairs(res.cycles) do
+    if #c.members > 1 or (res.seed[c.id] ~= nil) then
+      cy[#cy + 1] = string.format("%s(%d, rang %s)", c.id, #c.members, tostring(c.rank))
+    end
+  end
+  local nrec, nwhy = 0, 0
+  for _, i in ipairs(res.list) do
+    if res.rec[i] then nrec = nrec + 1 end
+    if res.why[i] ~= nil then nwhy = nwhy + 1 end
+  end
+  return string.format("[FO-RANG] %s : %d objets, %d recettes choisies, %d sans recette ou a fluide, rangs 0 a %d (%s), cycles %d [%s]",
+    tostring(who), res.n_items, nrec, nwhy, res.max, table.concat(per, " "), #res.cycles, table.concat(cy, " "))
 end
 
 return Rg

@@ -55,6 +55,7 @@
 
 local T = require("shared.team.config")
 local Ca = require("shared.ai3.capitalisation")
+local RangTrace = require("script.ai3.rang_trace") -- lot VIDEO-TRACES (G34) : journal [FO-RANG]
 local Cf = require("shared.ai3.confirmation") -- lot VIDEO-L5 : capacité CONFIRMÉE (première production observée)
 local Sante = require("script.team.sante_centrale") -- étape 5a de VIDEO-INTEG : consommateurs en chantier (vue de la porte du plan directeur)
 local Sc = require("shared.team.sante_centrale") -- étape 5a : S.DRAW (part de sa puissance nominale qu'un chantier tire)
@@ -1907,7 +1908,7 @@ local function decide_start(f, cs, view, book, tick, w, run)
     log(string.format("[FO-CAPI] %s : decision refusee : entree absente : %s a %.1f min", f.key or "?", absent, minutes(f, tick)))
     return false
   end
-  Capi.palier(f, cs, view, input, tick) -- lot VIDEO-L10 (variante B, réglage fo-war-paliers ÉTEINT) : AVANT l'instantané
+  Capi.palier(f, cs, view, input, tick) -- lot VIDEO-L10 (variante B, réglage fo-war-paliers ALLUMÉ par défaut) : AVANT l'instantané
   local snap = {}
   for _, k in ipairs(sorted_keys(input)) do
     if k ~= "data" and k ~= "can_exec" then snap[k] = input[k] end
@@ -1960,6 +1961,7 @@ local function decide_slice(f, cs, view, book, tick, research, run)
   replace_contents(cs.st, mem.st)
   cs.wanted_set = mem.cex.wanted
   cs.dj, DJ_MEM[key] = nil, nil
+  RangTrace.note(f, J.ctx.rang, tick) -- lot VIDEO-TRACES (G34) : journal [FO-RANG], une ligne par signature changée (rang de la décision, sans toucher au résultat)
   decide_finish(f, cs, J.res, mem.input, view, book, tick, research)
   return true
 end
