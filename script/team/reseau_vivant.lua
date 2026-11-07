@@ -29,6 +29,10 @@ Rv.POLE_ENEMY_R = 28      -- jamais de pose de poteau avec un ennemi à cette po
 Rv.CAND_MAX = 40          -- poteaux perdus examinés par cycle
 Rv.LOG_EVERY = 5 * 3600   -- une ligne de synthèse par équipe et par 5 min
 Rv.LOT_AVOID_R = 16       -- tuiles : rayon écarté autour du lot de la centrale perdue (le lot fait 32 de côté)
+-- Lot POULS (7/11, fo-logs\2026-11-07_POULS\CRITERES.md) : le relevé du réseau (net_read) par BANDES de lignes de chunks, sur plusieurs
+-- passes du pouls, au lieu de deux recherches sur toute la surface d'un bloc (bp:reseau jusqu'à 224 ms sur la sauvegarde du DC).
+Rv.BAND = 2               -- lignes de chunks par bande
+Rv.BANDS_PER_PULSE = 1    -- bandes par passe ; math.huge : tout le relevé dans la passe où il commence (l'horaire d'avant)
 
 local TYPES = {
   source = { "boiler" }, gen = { "generator" }, eau = { "offshore-pump" }, tuyau = { "pipe", "pipe-to-ground" },
@@ -159,6 +163,97 @@ local function net_read(f, surface, b)
   return out
 end
 
+-- Lot POULS : le même relevé par bandes. Une bande = Rv.BAND lignes de chunks sur toute la largeur de la boîte des chunks générés
+-- (api.box) ; une entité n'est comptée que dans la bande qui contient sa POSITION (y dans [y0, y1[ : la recherche par zone rend aussi
+-- ce qui touche ou chevauche la bande, F96). Générateurs et consommateurs dans la même recherche. Un consommateur dont le réseau n'a pas
+-- encore de générateur vu est GARDÉ (position, par réseau) ; il est jugé à la dernière bande, comme net_read : réseau sans générateur
+-- et hors chantier (in_construction lu à la fin, comme net_read le lit au relevé). Rien de l'état du jeu n'est lu entre deux bandes :
+-- monde figé, même résultat que net_read (preuve : tests/pouls_test.lua). État : sv.nr_job (nombres et tables de nombres).
+local BAND_TYPES = { "generator" }
+for _, t in ipairs(ELEC_TYPES) do BAND_TYPES[#BAND_TYPES + 1] = t end
+
+local function job_new(box)
+  return { y = box.y0, y_end = box.y1 + 1, x0 = box.x0, x1 = box.x1 + 1, gn = {}, pend = {}, free = {}, bands = 0 }
+end
+
+--- Une bande du relevé ; vrai quand la dernière est faite.
+local function job_band(f, surface, j)
+  local ya, yb = j.y, math.min(j.y + Rv.BAND, j.y_end)
+  local top, bottom = ya * 32, yb * 32
+  for _, e in ipairs(surface.find_entities_filtered({ area = { { j.x0 * 32, top }, { j.x1 * 32, bottom } }, force = f.force,
+    type = BAND_TYPES })) do
+    local p = e.position
+    if p.y >= top and p.y < bottom then
+      local id = e.electric_network_id
+      if e.type == "generator" then
+        if id then j.gn[id] = true end
+      elseif not (id and j.gn[id]) and e.prototype.electric_energy_source_prototype then
+        local l
+        if id then
+          l = j.pend[id]
+          if not l then
+            l = {}
+            j.pend[id] = l
+          end
+        else
+          l = j.free
+        end
+        l[#l + 1] = p.x
+        l[#l + 1] = p.y
+      end
+    end
+  end
+  j.y = yb
+  j.bands = j.bands + 1
+  return j.y >= j.y_end
+end
+
+--- Fin du relevé : la même table que net_read.
+local function job_finish(b, j)
+  local out = { islands = 0, uncovered = 0, nets = {}, live = j.gn }
+  for _, id in ipairs(sorted_keys(j.pend)) do
+    if not j.gn[id] then
+      local l = j.pend[id]
+      for k = 1, #l, 2 do
+        if not in_construction(b, l[k], l[k + 1]) then
+          out.islands = out.islands + 1
+          out.nets[id] = true
+        end
+      end
+    end
+  end
+  local l = j.free
+  for k = 1, #l, 2 do
+    if not in_construction(b, l[k], l[k + 1]) then out.uncovered = out.uncovered + 1 end
+  end
+  return out
+end
+
+--- Avance le relevé en cours de Rv.BANDS_PER_PULSE bandes au plus (jeton du tick pris d'abord : api.jeton, script/team/pouls_jeton.lua).
+--- Rend la table du relevé quand il est fini, nil sinon.
+local function job_step(api, f, surface, sv, tick)
+  local j = sv.nr_job
+  if api.jeton and not api.jeton.take(tick) then return nil end
+  local P = api.prof
+  local done = false
+  for _ = 1, Rv.BANDS_PER_PULSE do
+    if P then P.fstart("rv:bande") end
+    done = job_band(f, surface, j)
+    if P then P.fstop("rv:bande") end
+    if done then break end
+  end
+  if not done then return nil end
+  sv.nr_job = nil
+  if P then P.fstart("rv:fin") end
+  local nr = job_finish(f.build, j)
+  if P then P.fstop("rv:fin") end
+  return nr
+end
+
+-- Bancs hors jeu (tests/pouls_test.lua) : le relevé par bandes et le relevé d'un bloc, pour les comparer sur un même monde.
+Rv.bandes = { new = job_new, band = job_band, finish = job_finish }
+Rv.net_read = net_read
+
 --- Poteaux perdus : { { e, q } } (entité du plan, projet) pour tous les projets finis ou en cours.
 local function lost_poles(f, surface, b)
   local out = {}
@@ -251,7 +346,23 @@ local function say(f, tick, what)
   log(string.format("[FO-RESEAU] %s : %s a %.1f min", f.key or "player", what, tick / 3600))
 end
 
---- api = { plant = Build.plant } (fourni par build.lua : ce module ne requiert pas build.lua).
+--- Le relevé du réseau `nr` (net_read, ou la fin d'un relevé par bandes) appliqué à l'état de santé : îlots, demande nominale,
+--- poteaux perdus. Inchangé depuis le lot ENERGIE (sorti de Rv.step au lot POULS, pour servir aux deux chemins).
+local function apply_net(f, surface, b, sv, nr, api)
+  sv.islands, sv.uncovered = nr.islands, nr.uncovered
+  sv.demand = nominal_demand(b)
+  sv.lost_links = 0
+  if nr.islands + nr.uncovered > 0 then
+    local P = api and api.prof
+    if P then P.fstart("rv:pertes") end
+    sv.lost_links = #lost_poles(f, surface, b)
+    if P then P.fstop("rv:pertes") end
+  end
+end
+
+--- api = { plant = Build.plant } (fourni par build.lua : ce module ne requiert pas build.lua). Lot POULS : api.box (boîte des chunks
+--- générés, script/team/boite_chunks.lua), api.jeton (script/team/pouls_jeton.lua), api.prof (profileur, portées fines rv:*) ; sans
+--- api.box, le relevé du réseau se fait d'un bloc (bancs hors jeu d'avant ce lot).
 function Rv.step(api, f, surface, tick)
   local b = f.build
   if not b then return end
@@ -262,47 +373,65 @@ function Rv.step(api, f, surface, tick)
       demand = 0, healthy = false, log_next = tick + Rv.LOG_EVERY, last_why = "", decisions = 0 }
     b.sante = sv
   end
-  if tick < sv.next then return end
-  sv.next = tick + Rv.PERIOD
-  -- une centrale de remplacement refusée : retour à la centrale d'origine, rouverte sur place (dernier recours)
-  if sv.reloc then
-    local np = b.projects[sv.reloc.new]
-    local foe0 = sv.reloc.x and surface.find_nearest_enemy({ position = { x = sv.reloc.x, y = sv.reloc.y }, max_distance = S.DANGER_R,
-      force = f.force })
-    local verdict, vwhy = S.reloc_verdict({ new_state = np and np.state or nil, enemies = foe0 and 1 or 0 }, sv.st)
-    if verdict == "rentrer" then
-      local old = b.projects[sv.reloc.old]
-      -- un remplacement pas commencé est annulé (matières rendues au coffre) ; l'automatisation suit la centrale qui reste
-      if np and np.state ~= "refuse" and api.cancel then api.cancel(f, np.id, "reseau: retour au site d'origine") end
-      if np then np.abandoned = true end
-      b.avoid = nil
-      if old then
-        old.abandoned = nil
-        b.plant = old.id
-        local _, lost = plant_read(f, surface, old)
-        Rv.reopen(old, lost, "reseau: retour sur place", surface)
-        say(f, tick, string.format("retour au site d'origine : %s ; %d piece(s) rouverte(s)", vwhy, #lost))
+  local pp, nr
+  -- Lot POULS : un relevé du réseau commencé à une passe précédente avance ; fini, la passe reprend là où elle l'avait laissé (la
+  -- décision de la centrale, avec ce relevé frais, comme avant au tick échu). Projet de la centrale relu : il a pu changer depuis.
+  if sv.nr_job then
+    nr = job_step(api, f, surface, sv, tick)
+    if not nr then return end
+    pp = b.plant and b.projects[b.plant]
+    if not pp or pp.state == "refuse" or pp.state == "attente" or pp.state == "plan" then return end
+    apply_net(f, surface, b, sv, nr, api)
+  else
+    if tick < sv.next then return end
+    sv.next = tick + Rv.PERIOD
+    -- une centrale de remplacement refusée : retour à la centrale d'origine, rouverte sur place (dernier recours)
+    if sv.reloc then
+      local np = b.projects[sv.reloc.new]
+      local foe0 = sv.reloc.x and surface.find_nearest_enemy({ position = { x = sv.reloc.x, y = sv.reloc.y }, max_distance = S.DANGER_R,
+        force = f.force })
+      local verdict, vwhy = S.reloc_verdict({ new_state = np and np.state or nil, enemies = foe0 and 1 or 0 }, sv.st)
+      if verdict == "rentrer" then
+        local old = b.projects[sv.reloc.old]
+        -- un remplacement pas commencé est annulé (matières rendues au coffre) ; l'automatisation suit la centrale qui reste
+        if np and np.state ~= "refuse" and api.cancel then api.cancel(f, np.id, "reseau: retour au site d'origine") end
+        if np then np.abandoned = true end
+        b.avoid = nil
+        if old then
+          old.abandoned = nil
+          b.plant = old.id
+          local _, lost = plant_read(f, surface, old)
+          Rv.reopen(old, lost, "reseau: retour sur place", surface)
+          say(f, tick, string.format("retour au site d'origine : %s ; %d piece(s) rouverte(s)", vwhy, #lost))
+        end
+        sv.reloc = nil
+        return
+      elseif verdict == "fini" then
+        say(f, tick, "centrale de remplacement FINIE (projet " .. np.id .. ")")
+        sv.reloc = nil
       end
-      sv.reloc = nil
-      return
-    elseif verdict == "fini" then
-      say(f, tick, "centrale de remplacement FINIE (projet " .. np.id .. ")")
-      sv.reloc = nil
+    end
+    pp = b.plant and b.projects[b.plant]
+    if not pp or pp.state == "refuse" or pp.state == "attente" or pp.state == "plan" then return end
+    -- consommateurs sur îlot (période longue)
+    if tick >= sv.net_next then
+      sv.net_next = tick + Rv.NET_PERIOD
+      -- lot POULS : par bandes quand la boîte des chunks est connue (api.box, build.lua) ; d'un bloc sinon (bancs hors jeu sans boîte)
+      local box = api.box and api.box(surface)
+      if box then
+        sv.nr_job = job_new(box)
+        nr = job_step(api, f, surface, sv, tick)
+        if not nr then return end
+      else
+        nr = net_read(f, surface, b)
+      end
+      apply_net(f, surface, b, sv, nr, api)
     end
   end
-  local pp = b.plant and b.projects[b.plant]
-  if not pp or pp.state == "refuse" or pp.state == "attente" or pp.state == "plan" then return end
-  -- consommateurs sur îlot (période longue)
-  local nr
-  if tick >= sv.net_next then
-    sv.net_next = tick + Rv.NET_PERIOD
-    nr = net_read(f, surface, b)
-    sv.islands, sv.uncovered = nr.islands, nr.uncovered
-    sv.demand = nominal_demand(b)
-    sv.lost_links = 0
-    if nr.islands + nr.uncovered > 0 then sv.lost_links = #lost_poles(f, surface, b) end
-  end
+  local P = api.prof
+  if P then P.fstart("rv:centrale") end
   local inp, lost = plant_read(f, surface, pp)
+  if P then P.fstop("rv:centrale") end
   inp.demand_kw = sv.demand
   inp.islands, inp.uncovered, inp.lost_links = sv.islands, sv.uncovered, sv.lost_links
   local site = site_of(pp)

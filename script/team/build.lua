@@ -56,6 +56,8 @@ local PlantArms = require("script.team.plant_arms") -- lot PLANDIR : moniteur de
 local Sante = require("script.team.sante_centrale") -- lot ENERGIE (2/11) : amorce à la main des chaudières à sec, porte des consommateurs
 local Rv = require("script.team.reseau_vivant") -- lot CORR-RESEAU : santé de la centrale et du réseau après « fini »
 local Raccord = require("script.team.raccord") -- lot PD-ELEC (D05) : machines sans courant hors poteau perdu, raccordement
+local Jeton = require("script.team.pouls_jeton") -- lot POULS : un seul relevé lourd du pouls par tick (réseau ou raccord)
+local BoiteChunks = require("script.team.boite_chunks") -- lot POULS : boîte des chunks générés (relevé du réseau par bandes)
 local Liaison = require("script.team.liaison") -- lot INDUSTRIE I7 : un tapis du coffre de sortie d'un module au quai d'entrée d'un autre (le PNJ ne porte plus)
 local Sweep = require("shared.team.rebuild_sweep") -- lot INTEG-RECONSTRUCTION : règles pures du relevé (refus répété d'un projet rouvert)
 local Outposts = require("script.faction.outposts") -- lot AUTO : crochet des tuiles réservées (Outposts.reserved)
@@ -4491,12 +4493,13 @@ local function pulse_team(f, tick)
   -- 4. lot CORR-RESEAU : santé de la centrale et du réseau (horloge propre, rien si pas l'heure)
   Profiler.fstop("bp:suivi")
   Profiler.fstart("bp:reseau")
-  Rv.step({ plant = Build.plant, cancel = Build.cancel }, f, surface, tick)
+  Rv.step({ plant = Build.plant, cancel = Build.cancel, box = BoiteChunks.get, jeton = Jeton, prof = Profiler }, f, surface, tick)
   Profiler.fstop("bp:reseau")
   Profiler.fstart("bp:raccord")
   -- 4 bis. lot PD-ELEC (D05) : machines des modules finis sans courant HORS poteau perdu (île, sous aucun poteau) : raccordement
   -- (lot FONDERIE, 0.6.43) champ_live : les bandes de champ en cours sont relevées aussi (fonderie à tapis allumée)
-  Raccord.step({ request = Build.request, prio = Build.PRIO + 4, champ_live = (Build.TAPIS and Build.TAPIS()) or false }, f, surface, tick)
+  Raccord.step({ request = Build.request, prio = Build.PRIO + 4, champ_live = (Build.TAPIS and Build.TAPIS()) or false, jeton = Jeton,
+    prof = Profiler }, f, surface, tick)
   -- 4 ter. lot INDUSTRIE I7 : un quai d'entrée porté à la main par un PNJ, relié par un tapis à la sortie d'un module du même objet
   Profiler.fstop("bp:raccord")
   Profiler.fstart("bp:liaison")
