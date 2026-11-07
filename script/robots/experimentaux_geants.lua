@@ -77,7 +77,21 @@ function G.set_bonus(unit_number, portee, puissance)
       return true
     end
   end
+  -- géants de robotsjeu (ceux des factions compris, QCM-7/11 : modules « posés aussi sur les géants des factions selon leur âge ») :
+  -- bonus gardés à part, lus par Geant.salves (script/robots/geant.lua)
+  local u = Armee.entity(unit_number)
+  if u and u.type == "spider-vehicle" then
+    if not s.bonus_ro then s.bonus_ro = {} end
+    s.bonus_ro[unit_number] = { portee = tonumber(portee) or 0, puissance = tonumber(puissance) or 0 }
+    return true
+  end
   return false
+end
+
+--- Bonus d'un géant de robotsjeu (nil sans module).
+function G.bonus_de(unit_number)
+  local s = K.S()
+  return s and s.bonus_ro and s.bonus_ro[unit_number] or nil
 end
 
 --- Écouteurs d'une salve de zone (lot DESIGN-MODULES : marque visible des modules, UNE fois par salve). Fonctions gardées dans le module,
