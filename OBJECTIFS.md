@@ -331,7 +331,10 @@ Plus récents d'abord ; extraits mot pour mot (entier : archive, §5 et fin du �
   ✅ Piste PROUVÉE le 7/11 à 16 h 22 (moteur réel, témoin 0.6.58, RD_LOG F389) : un PNJ de votre équipe mine à la main une
   mitrailleuse posée sur du minerai en 7,5 s, et elle finit dans son sac. Vous aviez vu juste (« très fortes chances que ce
   soit les pnj »). Les deux causes s'ajoutent : le minage à la main, et les tirs hors de portée. Correctifs pour la 0.6.59 :
-  portée 16 (E258, 15 OK) et refus de miner une tuile qui porte un bâtiment (`8e34b8c4`, passe moteur en file).
+  portée 16 (E258, 15 OK) et refus de miner une tuile qui porte un bâtiment (`8e34b8c4`).
+  ✅ PROUVÉ en moteur réel le 7/11 vers 16 h 55 (`minage-tourelle`, témoin 2 OK 2 ECHEC → branche **4 OK, 0 ECHEC**) :
+  la tourelle reste en place, la tuile libre voisine est minée, et le refus est journalisé (« minage refuse : selection =
+  gun-turret … batiment sur la tuile de minerai »). Fusionné dans essai-0659 (`85a673b9`), relecture statique en cours.
 - **Vidéo d'automatisation** (14 h 40 et 14 h 50, écrit ; https://www.youtube.com/watch?v=PGiTkkMOfiw) :
   « Analysez la vidéo pour en tirer les bons aspets qui nous feront avancer rapidement. […] » ; « […] on peut au moins récupérer 50% de la logique globale. […] doit être exhaustif et surtout qu'on puisse l'implémenter dans notre logique (tiers dynamique, etc...) »
   ✅ Analyse validée ; ⏳ lots en cours (commit 2c46a377). Vidéo de Chris Uehlinger. Livrés vers 15 h 10 : `docs/IA_WORKFLOW.md` (carte de l'IA de faction,
