@@ -51,7 +51,7 @@
 
 | ID | Objectif | État actuel (dernière mention datée) |
 |---|---|---|
-| A1 | Performance 60 UPS | ❌ sur votre partie : script 2,87 ms par tick, p99 45,2, pire 302 ms (0.6.58, B58-detail, 7/11) |
+| A1 | Performance 60 UPS, puis ×10 réel (7/11) | ❌ sur votre partie : script 2,87 ms par tick, p99 45,2, pire 302 ms (0.6.58, B58-detail, 7/11) ; ×10 visé : au plus 1,67 ms par tick, moteur compris |
 | B1 | Logistique « Compaction ×4 », usines à paliers | ❌ rien en jeu (22/10) |
 | B2 | Modules à nombreux paliers | ✅ ; multipliés, icônes validées (0.4.27) ; icônes à redessiner (7/11) |
 | B3 | Déchiqueteurs supérieurs, « nouveaux designs » | 🟨 teinte, échelle, lueur seulement (22/10) |
@@ -90,6 +90,12 @@ Demandes, essais, preuves : archive, §3.
   `sched:timers` 37 %, `team:build` 32 %. Mesure seule de 0.6.58 (7/11 13 h 06) : 3,658 ms, p99 37,9, pire 199,7.
   Étape E1 de la pensée d'équipe : 41 à 51 ms en moyenne (chiffre de perf3 transmis par le lead, non relu).
 - Reste : PERF4, CERVEAU-CENTRAL, MORTS ; remesurer chaque version sur votre sauvegarde.
+- **Nouvelle cible (7/11, 17 h 13)** : « Ce que j'aimerai c'est faire tourner le jeu en x10 naturellement quoi, surtout
+  avec la configuration de mon PC (qui est quand même assez puissante) » ; et avant : « comment optimiser tellement qu'il
+  est vraiment plus possible de trouver une autre idée ou logique ». Critère ajouté : **×10 réel sur votre sauvegarde**,
+  soit 600 UPS, donc au plus 1,67 ms par tick en moyenne, moteur ET script compris. Le 5/11 (0.6.53), ×10 ne donnait que ×2,2
+  à ×2,9. Inventaire en cours, script (x10-script) et moteur (x10-moteur), dans `fo-logs/2026-11-07_X10/` ; mesure A/B de la
+  0.6.59 lancée (perf3), avec le temps du moteur par catégorie.
 
 ### B1 · Logistique « Compaction ×4 » et usines à paliers
 - Critères ❔ : tapis T2 à T5 au débit de BALANCE_SHEET §3 (±2 %) ; objets denses faits et défaits en T2 et T3 ; une
