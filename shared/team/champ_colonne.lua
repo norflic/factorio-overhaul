@@ -745,7 +745,7 @@ function Co.network(cols, side, env)
     for v = v_start, last_v, dv do if not env.free(u, v) then ok = false end end
     if ok then
       local net = { uT = u, dv = dv, split = env.split }
-      local kept, dropped = {}, {}
+      local kept, dropped, dropped_at = {}, {}, {}
       for _, c in ipairs(cols) do
         local fine, at = true, nil
         for _, tl in ipairs(branch_tiles(c, net, side, env.pole.wire)) do
@@ -754,9 +754,12 @@ function Co.network(cols, side, env)
         if fine and net.split then
           if not env.free(u - side, c.b - sf - dv) then fine, at = false, { u - side, c.b - sf - dv } end
         end
-        if fine then kept[#kept + 1] = c else dropped[#dropped + 1] = string.format("bande %s : derivation occupee en (u %d, v %d)", c.key, at[1], at[2]) end
+        if fine then kept[#kept + 1] = c else
+          dropped[#dropped + 1] = string.format("bande %s : derivation occupee en (u %d, v %d)", c.key, at[1], at[2])
+          dropped_at[c.key] = { at[1], at[2] } -- (lot CHAMP-COUVERTURE) tuile occupée, lue par plan_once (colonne déplacée reposée au-delà)
+        end
       end
-      if #kept > 0 and (not keep or #kept > #keep) then uT, keep, res.dropped = u, kept, dropped end
+      if #kept > 0 and (not keep or #kept > #keep) then uT, keep, res.dropped, res.dropped_at = u, kept, dropped, dropped_at end
       if keep and #keep == #cols then break end
     end
   end
