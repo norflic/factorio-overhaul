@@ -20,7 +20,10 @@
     SENS   aucune tâche dont le but est dans la zone de la meute ET plus près d'elle que le PNJ à son départ (vers l'attaque), hors défense
            du QG (garde, recharge, pose de tourelles) et hors retour au QG (but EXACTEMENT une case du QG : home_spot + Scale.HOME_SLOTS,
            étape « home » de script/team/worker.lua), ET aucun relevé de PNJ à moins de 12 tuiles de la meute (décision B du lead, 7/11) ;
-    TRAV   du travail fait pendant l'attaque : au moins une tâche hors défense prise entre T_ATT + 600 et T_END.
+    TRAV   du travail fait pendant l'attaque : au moins une tâche hors défense prise entre T_ATT + 600 et T_END ;
+    BANDE  (relecture de f4015377, 7/11) : aucun PNJ hors défense ne reste dans la zone de la meute, entre 12 tuiles d'elle et le bord, hors du QG
+           (plus loin que la case du QG la plus éloignée de home_spot), plus longtemps que la traversée de la zone par son diamètre à sa vitesse
+           de course (2 x zone / running_speed) : SENS ne voit pas un PNJ déjà exposé qui s'éloigne un peu en restant dans la zone.
   Lancement : py -3.9 -B tools/autotest/banc.py --out <archive> --qui DANGER-ACTIF -- 9700 da-meute <source>. Journal : [FO-DA-MEUTE].
 ]]
 
@@ -92,6 +95,36 @@ local function sonde_case(hs, p)
     if p.x == hs.x + o[1] and p.y == hs.y + o[2] then return i end
   end
   return nil
+end
+
+--- BANDE : rayon du QG = plus grande distance d'une case du QG (Scale.HOME_SLOTS) à home_spot ; nil si les cases sont illisibles.
+local function band_ring()
+  if not HOME_SLOTS then return nil end
+  local r2 = 0
+  for _, o in ipairs(HOME_SLOTS) do
+    local q = o[1] * o[1] + o[2] * o[2]
+    if q > r2 then r2 = q end
+  end
+  return math.sqrt(r2)
+end
+
+--- BANDE : un relevé (pendant l'attaque) ; suite par PNJ hors défense, entre 12 tuiles de la meute et le bord de sa zone, hors du QG.
+local function band_note(st, a, t)
+  local bd = st.band
+  local dc = d2(a, st.c)
+  local hs, ring = st.home_spot, st.home_ring
+  local in_band = not DEFENSE[a.task] and dc > 12 * 12 and dc <= st.zone * st.zone
+    and not (hs and ring and d2(a, hs) <= ring * ring)
+  if not in_band then
+    bd.since[a.id] = nil
+    return
+  end
+  local since = bd.since[a.id]
+  if not since then
+    bd.since[a.id] = t
+    return
+  end
+  if t - since > bd.max then bd.max, bd.id, bd.at = t - since, a.id, since end
 end
 
 local function goal_key(a)
@@ -215,12 +248,18 @@ return {
     st.free_since, st.streaks, st.toward, st.toward_seen, st.home_back = {}, {}, 0, {}, 0
     st.max_free, st.max_free_id, st.max_free_at = 0, nil, nil
     st.work_ids, st.contact = {}, 0
+    -- BANDE : suites de relevés dans la bande, par PNJ ; seuil = traversée de la zone par son diamètre (CRITERES.md, « trou de la bande »).
+    local body = game.entity_prototypes["fo-companion"] or game.entity_prototypes["character"]
+    st.speed = body and body.running_speed or nil
+    st.band = { since = {}, max = 0 }
+    st.band_limit = st.speed and st.speed > 0 and (2 * st.zone / st.speed) or nil
     ctx.log(string.format("[FO-%s] coffre en (%.1f, %.1f) ; meute prevue en (%.1f, %.1f), rayon %.1f, zone de la porte %.1f (coffre a %d tuiles du centre)",
       TAG, st.hq.x, st.hq.y, st.c.x, st.c.y, st.r, st.zone, DX))
     -- SONDE SENS : relevés et case du QG estimée (même recherche que script/team/team.lua pour votre équipe).
     st.sonde = { goal = {}, task = {}, last = {}, n = 0, home = 0, slot = 0, closer_prev = 0, closer_first = 0, closer_task = 0 }
     local hs = s.find_non_colliding_position("fo-companion", { x = st.hq.x, y = st.hq.y + 3 }, 20, 0.5)
     st.home_spot = hs and { x = hs.x, y = hs.y } or nil
+    st.home_ring = band_ring()
     ctx.log(string.format("[FO-%s] SONDE SENS : case du QG estimee %s ; cases du QG lues dans le code (Scale.HOME_SLOTS) : %s", TAG,
       hs and string.format("(%.4f, %.4f)", hs.x, hs.y) or "introuvable", HOME_SLOTS and tostring(#HOME_SLOTS) or "illisibles"))
   end,
@@ -297,6 +336,7 @@ return {
         end
       end
       if t < T_END and d2(a, st.c) <= 12 * 12 then st.contact = st.contact + 1 end
+      if t < T_END then band_note(st, a, t) end
     end
     if (t - T_ATT) % 1800 == 0 then
       local free = 0
@@ -358,6 +398,12 @@ return {
       string.format("%d tache(s) vers l'attaque ; %d retour(s) au QG non compte(s) ; %d releve(s) de PNJ a moins de 12 tuiles de la meute%s", st.toward,
         st.home_back, st.contact, (HOME_SLOTS and st.home_spot) and "" or " ; cases du QG illisibles : SENS non jugeable"))
     ctx.check(#sorted_keys(st.work_ids) > 0, "TRAV : du travail hors defense pendant l'attaque", #sorted_keys(st.work_ids) .. " PNJ")
+    local bd = st.band or { max = 0 }
+    ctx.check(st.home_ring ~= nil and st.home_spot ~= nil and st.band_limit ~= nil and bd.max <= st.band_limit,
+      "BANDE : aucun PNJ hors defense dans la zone de la meute (12 tuiles - bord, hors QG) plus longtemps que la traversee de la zone",
+      string.format("plus longue suite %.1f s (PNJ %s des %.1f s), seuil %s (2 x zone %.1f / vitesse %s) ; QG : %s", bd.max / 60, tostring(bd.id),
+        (bd.at or 0) / 60, st.band_limit and string.format("%.1f s", st.band_limit / 60) or "illisible", st.zone or 0, tostring(st.speed),
+        st.home_ring and string.format("%.2f tuiles autour de la case du QG", st.home_ring) or "cases du QG illisibles : BANDE non jugeable"))
   end,
 }
 end

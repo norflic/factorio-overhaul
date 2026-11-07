@@ -10,9 +10,13 @@
     M3  retour de l'ouest sur la case du QG 1 -> vert ;
     M4  retour sur la case du QG 1 qui passe à 7,5 tuiles de la meute -> rouge (relevé) ;
     M6  départ du coffre vers (0, 6.5), à l'opposé de la meute mais dans sa zone (s'éloigne) -> vert ;
-    M5  cases du QG illisibles (module du mod introuvable) -> rouge partout (SENS non jugeable).
+    M7  (relecture de f4015377) PNJ déjà exposé en (19.5, 6.5), à 13 tuiles de la meute, qui va vers (14.5, 2) (plus près que le coffre, plus
+        loin que son départ) et y reste -> SENS vert, BANDE rouge ;
+    M5  cases du QG illisibles (module du mod introuvable) -> rouge partout (SENS et BANDE non jugeables).
+  Contrôle BANDE (même scénario) : aucun PNJ hors défense entre 12 tuiles de la meute et le bord de sa zone, hors du QG, plus longtemps que
+  2 x zone / vitesse de course ; attendu par cas (champ band).
   Mutants du source (chacun doit faire échouer au moins un cas) : sans « contact == 0 », sans l'exclusion des cases du QG, sans la
-  comparaison au départ.
+  comparaison au départ, sans le contrôle BANDE, BANDE sans l'exclusion du QG.
   Usage (racine du mod) : lua5.2 tests/da_meute_sens_test.lua [racine du mod] [fichier du scenario]
 ]]
 -- Arguments facultatifs : racine du mod (défaut « . »), puis un autre fichier de scénario (brouillon).
@@ -41,7 +45,7 @@ local WEST = { x = -93, y = 112 }
 local tick_now = 0
 _G.game = {
   forces = { player = { get_spawn_position = function() return { x = 0, y = 0 } end } },
-  entity_prototypes = { ["medium-biter"] = { vision_distance = 30 } },
+  entity_prototypes = { ["medium-biter"] = { vision_distance = 30 }, ["fo-companion"] = { running_speed = 0.15 } },
 }
 setmetatable(game, { __index = function(_, k) if k == "tick" then return tick_now end end })
 
@@ -67,21 +71,26 @@ local function from_hq(id, goal)
 end
 
 local CASES = {
-  { key = "T0", name = "retours de l'ouest sur les cases du QG 1, 8 et 9 (cas mesures)", green = true,
+  { key = "T0", name = "retours de l'ouest sur les cases du QG 1, 8 et 9 (cas mesures)", green = true, band = true,
     pnj = { back_from_west(1, { x = 9.0, y = 9.5 }), back_from_west(7, { x = 8.25, y = 7.75 }), back_from_west(8, { x = 10.875, y = 10.625 }) } },
-  { key = "M1", name = "depart du coffre vers (30, 6.5), a 2.5 tuiles de la meute", green = false, pnj = { from_hq(2, { x = 30, y = 6.5 }) } },
-  { key = "M2", name = "retour de l'ouest vers (10.5, 6.5), hors case du QG", green = false, pnj = { back_from_west(3, { x = 10.5, y = 6.5 }) } },
-  { key = "M3", name = "retour de l'ouest sur la case du QG 1", green = true, pnj = { back_from_west(4, { x = 9.0, y = 9.5 }) } },
-  { key = "M4", name = "retour sur la case du QG 1 qui passe a 7.5 tuiles de la meute", green = false,
+  { key = "M1", name = "depart du coffre vers (30, 6.5), a 2.5 tuiles de la meute", green = false, band = false, pnj = { from_hq(2, { x = 30, y = 6.5 }) } },
+  { key = "M2", name = "retour de l'ouest vers (10.5, 6.5), hors case du QG", green = false, band = true, pnj = { back_from_west(3, { x = 10.5, y = 6.5 }) } },
+  { key = "M3", name = "retour de l'ouest sur la case du QG 1", green = true, band = true, pnj = { back_from_west(4, { x = 9.0, y = 9.5 }) } },
+  { key = "M4", name = "retour sur la case du QG 1 qui passe a 7.5 tuiles de la meute", green = false, band = false,
     pnj = { function(t)
       local near = { x = 25, y = 6.5 }
       local p = t < 3000 and { x = 45, y = 6.5 } or (t < 3600 and near or walk(near, { x = 9.0, y = 9.5 }, 3600, 4400, t))
       return { id = 5, x = p.x, y = p.y, task = "mine", final = t < 3000 and { x = 60, y = 6.5 } or { x = 9.0, y = 9.5 } }
     end } },
-  { key = "M6", name = "depart du coffre vers (0, 6.5), dans la zone mais a l'oppose de la meute", green = true, pnj = { from_hq(6, { x = 0, y = 6.5 }) } },
+  { key = "M6", name = "depart du coffre vers (0, 6.5), dans la zone mais a l'oppose de la meute", green = true, band = true, pnj = { from_hq(6, { x = 0, y = 6.5 }) } },
+  { key = "M7", name = "PNJ deja expose (13 tuiles) vers (14.5, 2), plus pres que le coffre, plus loin que son depart, et qui y reste", green = true,
+    band = false, pnj = { function(t)
+      local p = walk({ x = 19.5, y = 6.5 }, { x = 14.5, y = 2 }, 3000, 3300, t)
+      return { id = 9, x = p.x, y = p.y, task = "mine", final = { x = 14.5, y = 2 } }
+    end } },
 }
 
---- Joue le scénario (texte source `src`) sur un cas ; rend le contrôle SENS { ok, detail } ou nil.
+--- Joue le scénario (texte source `src`) sur un cas ; rend les contrôles SENS et BANDE ({ ok, detail } ou nil).
 local function play(src, case)
   local checks, st = {}, {}
   local surface = {
@@ -128,8 +137,12 @@ local function play(src, case)
     sc.tick(ctx, { tick = t })
   end
   sc.finish(ctx)
-  for _, c in ipairs(checks) do if c.name:sub(1, 4) == "SENS" then return c end end
-  return nil
+  local sens, band
+  for _, c in ipairs(checks) do
+    if c.name:sub(1, 4) == "SENS" then sens = c end
+    if c.name:sub(1, 5) == "BANDE" then band = c end
+  end
+  return sens, band
 end
 
 local ok_n, bad_n = 0, 0
@@ -142,13 +155,15 @@ end
 local function run_cases(src, all_red, report)
   local wrong = 0
   for _, case in ipairs(CASES) do
-    local c = play(src, case)
-    local want = case.green and not all_red
-    local good = c ~= nil and c.ok == want
-    if not good then wrong = wrong + 1 end
-    if report then
-      check(good, string.format("%s%s %s : SENS %s (attendu %s)", all_red and "M5/" or "", case.key, case.name,
-        c and (c.ok and "vert" or "rouge") or "absent", want and "vert" or "rouge"), c and c.detail)
+    local sens, band = play(src, case)
+    for _, k in ipairs({ { "SENS", sens, case.green }, { "BANDE", band, case.band } }) do
+      local c, want = k[2], k[3] and not all_red
+      local good = c ~= nil and c.ok == want
+      if not good then wrong = wrong + 1 end
+      if report then
+        check(good, string.format("%s%s %s : %s %s (attendu %s)", all_red and "M5/" or "", case.key, case.name, k[1],
+          c and (c.ok and "vert" or "rouge") or "absent", want and "vert" or "rouge"), c and c.detail)
+      end
     end
   end
   return wrong
@@ -167,6 +182,8 @@ local MUTANTS = {
   { "sans contact == 0", " and st.toward == 0 and st.contact == 0,", " and st.toward == 0," },
   { "sans exclusion des cases du QG", "local slot = sonde_case(st.home_spot, a.final)\n", "local slot = nil\n" },
   { "sans comparaison au depart", "and dep and df < d2(dep, st.c) and", "and dep and" },
+  { "sans controle BANDE", "and st.band_limit ~= nil and bd.max <= st.band_limit,", "and st.band_limit ~= nil," },
+  { "BANDE sans exclusion du QG", "\n    and not (hs and ring and d2(a, hs) <= ring * ring)\n", "\n" },
 }
 for _, m in ipairs(MUTANTS) do
   local a, b = SRC:find(m[2], 1, true)
