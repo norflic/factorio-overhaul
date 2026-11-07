@@ -686,6 +686,7 @@ local function raccord_tous(f, surface, bd, ents, cx, cy)
   for _, c in ipairs(added) do ents[#ents + 1] = { name = bd.names.pole, x = c.x, y = c.y, dir = 0, role = "liaison" } end
   return #added, nil, nil, nc
 end
+Champ._raccord_tous = raccord_tous -- (lot X10-S4) appel direct du micro-banc x10-s4-ombre (script/team/generateurs.lua) ; aucun autre usage
 
 Build.SITES.champ = function(f, surface, p, h)
   local cs = p.spec.champ

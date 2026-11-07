@@ -78,7 +78,7 @@ local function lcg(seed)
 end
 
 --- mode : "jeu" (registre, contrôlé), "ref" (Gens.ENABLED = false) ou un nom de MUTANTS.
-local function play(mode, mins)
+local function play(mode, mins, ombre)
   package.preload["script.team.generateurs"] = nil
   local mut = MUTANTS[mode]
   if mut then
@@ -145,6 +145,7 @@ local function play(mode, mins)
     return Gens
   end
   local Gens = install()
+  if ombre then remote.call("fo-x10-gens", "ombre", true) end
 
   assert(remote.call("factorio-overhaul", "war_start", 4, 100, nil, 320) == true)
   remote.call("factorio-overhaul", "war_fund", 3000)
@@ -227,6 +228,10 @@ local function play(mode, mins)
       end
     end
     r.test_reading = false
+    if ombre then
+      local pf = State.faction("player")
+      if pf and pf.hq_pos then remote.call("fo-x10-gens", "appels", pf.force, pf.hq_pos.x, pf.hq_pos.y, "medium-electric-pole") end
+    end
     -- appels du MOD lui-même (les deux fonctions exportées ; la partie simulée n'atteint pas les autres) : comparés entre registre
     -- et ancienne recherche par Q2 (r.calls), et à chaque lecture par Q1
     for _, t in ipairs(ts) do
@@ -248,6 +253,7 @@ local function play(mode, mins)
       M.load_mod()
       _G.global = saved
       Gens = install()
+      if ombre then remote.call("fo-x10-gens", "ombre", true) end -- (l'ombre est une copie locale : rechargée éteinte, comptes remis à 0)
       State = require("script.faction.state")
       Rv = require("script.team.reseau_vivant")
       Champ = require("script.team.champ")
@@ -268,6 +274,7 @@ local function play(mode, mins)
     end
   end
   r.logs = W.logs
+  if ombre then r.ombre = remote.call("fo-x10-gens", "bilan", "player") end
   r.ready = Gens.ready() -- registre prêt (raccord.lua le lit au départ du relevé : d'un bloc par le registre, sinon par bandes)
   local saved = global.fo.gens
   global.fo.gens = nil
@@ -307,6 +314,21 @@ for i = 1, #a.calls do if a.calls[i] ~= b.calls[i] then cs = false print("   pre
 check(#a.calls > 100 and cs, string.format("Q2 : Rv.net_read et Champ.powered_pole rendent la même chose qu'avec l'ancienne recherche (%d appel(s))", #a.calls))
 
 local mm = math.max(2, math.floor(minutes / 2))
+-- Ombre du micro-banc en moteur réel (x10-s4-ombre) : elle doit passer par les 6 sites d'appel sans erreur, ne rien voir sur le vrai
+-- registre, et VOIR les écarts d'un registre faux (mutant pose_ignoree) : elle compare bien à l'ancienne recherche, pas à elle-même.
+local SITES = { "raccord:live_networks", "reseau_vivant:net_read", "champ:powered_pole", "champ:raccord_tous", "migration_champ:fuel_burn",
+  "petrole:nearest_network" }
+local o = play("jeu", 1, true).ombre
+local all_sites = true
+for _, k in ipairs(SITES) do if (o.sites[k] or 0) == 0 then all_sites = false end end
+check(o.lectures > 0 and o.ecarts == 0 and o.erreurs == 0 and all_sites, string.format("Q1 : ombre du micro-banc, 6 sites d'appel lus, %d lecture(s), %d écart(s), %d erreur(s)",
+  o.lectures, o.ecarts, o.erreurs))
+check((o.poses.on_built_entity or 0) > 0 and (o.poses.script_raised_built or 0) > 0 and (o.poses.script_raised_revive or 0) > 0,
+  string.format("Q1 : ombre, poses comptées par événement (joueur %d, raise_built %d, raise_revive %d)", o.poses.on_built_entity or 0,
+    o.poses.script_raised_built or 0, o.poses.script_raised_revive or 0))
+local om = play("pose_ignoree", 1, true).ombre
+check(om.ecarts > 0, "Q3 : l'ombre VOIT un registre faux (mutant pose_ignoree : " .. om.ecarts .. " écart(s) sur " .. om.lectures .. " lecture(s))")
+
 for _, name in ipairs({ "sans_releve", "pose_ignoree", "invalides_gardees", "config_gardee" }) do
   local ok, m = pcall(play, name, mm)
   local seen = (not ok) or (m.diffs + m.ndiffs > 0)

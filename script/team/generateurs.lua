@@ -101,12 +101,21 @@ local function full_scan(S, surface, force)
   return b
 end
 
---- Pose d'une entité : notée si son type est tenu et que son seau existe (sinon le relevé complet la verra).
-function Gens.built(e)
+-- Micro-banc en moteur réel (x10-s4-ombre, fo-logs/2026-11-07_X10/S4_CRITERES.md §3 quater) : OMBRE, allumée par l'interface distante
+-- « fo-x10-gens » (bancs seulement). Chaque lecture refait alors l'ancienne recherche au même instant, compare, écrit une ligne
+-- [FO-GENS-OMBRE] et compte. Copies LOCALES (jamais dans global), jamais lues par une décision.
+local shadow = false
+local sh = nil
+local site = "?"
+local depth = 0
+
+--- Pose d'une entité : notée si son type est tenu et que son seau existe (sinon le relevé complet la verra). `kind` : nom de l'événement.
+function Gens.built(e, kind)
   local ent = e.created_entity or e.entity
   if not (ent and ent.valid) then return end
   local etype = ent.type
   if not TRACKED[etype] then return end
+  if shadow and kind then sh.poses[kind] = (sh.poses[kind] or 0) + 1 end
   local S = root()
   if not S then return end
   local b = bucket(S, ent.surface.index, ent.force.name)
@@ -115,7 +124,7 @@ end
 
 local ev = (defines and defines.events) or {}
 for _, k in ipairs({ "on_built_entity", "on_robot_built_entity", "script_raised_built", "script_raised_revive" }) do
-  if ev[k] then Events.on(ev[k], function(e) Gens.built(e) end) end
+  if ev[k] then Events.on(ev[k], function(e) Gens.built(e, k) end) end
 end
 
 local function type_set(types)
@@ -125,9 +134,7 @@ local function type_set(types)
   return w
 end
 
---- Génératrices VALIDES de `force` (nom) sur `surface`, des types `types` (chaîne ou liste), triées par unit_number. Retire au passage
---- les entités invalides du registre.
-function Gens.list(surface, force, types)
+local function list_impl(surface, force, types)
   if not Gens.ENABLED then return surface.find_entities_filtered({ force = force, type = types }) end
   local S = root()
   if not S then return surface.find_entities_filtered({ force = force, type = types }) end
@@ -151,6 +158,52 @@ function Gens.list(surface, force, types)
   return out
 end
 
+--- Ombre : l'ancienne recherche, triée par unit_number, comparée à ce que rend le registre (`got`, et `live` pour les réseaux).
+local function shadow_check(surface, force, types, got, live)
+  local want = {}
+  for _, e in ipairs(surface.find_entities_filtered({ force = force, type = types })) do
+    if e.valid and e.unit_number then want[#want + 1] = e end
+  end
+  table.sort(want, function(a, b) return a.unit_number < b.unit_number end)
+  local function units(l)
+    local t = {}
+    for i, e in ipairs(l) do t[i] = tostring(e.valid and e.unit_number or "X") end
+    return table.concat(t, ",")
+  end
+  local function nets(set)
+    local t = {}
+    for id in pairs(set) do t[#t + 1] = id end
+    table.sort(t)
+    return table.concat(t, ",")
+  end
+  local a, b = units(got), units(want)
+  local same = a == b
+  local txt = ""
+  if live then
+    local wl = {}
+    for _, g in ipairs(want) do
+      local id = g.electric_network_id
+      if id then wl[id] = true end
+    end
+    local la, lb = nets(live), nets(wl)
+    same = same and la == lb
+    txt = " ; reseaux registre {" .. la .. "} recherche {" .. lb .. "}"
+  end
+  sh.lectures = sh.lectures + 1
+  sh.sites[site] = (sh.sites[site] or 0) + 1
+  if not same then sh.ecarts = sh.ecarts + 1 end
+  log("[FO-GENS-OMBRE] tick " .. tostring(game.tick) .. " site " .. site .. " force " .. tostring(force) .. " : registre [" .. a
+    .. "] recherche [" .. b .. "]" .. txt .. (same and " : EGAL" or " : ECART") .. (Gens.ready() and "" or " (repli)"))
+end
+
+--- Génératrices VALIDES de `force` (nom) sur `surface`, des types `types` (chaîne ou liste), triées par unit_number. Retire au passage
+--- les entités invalides du registre.
+function Gens.list(surface, force, types)
+  local out = list_impl(surface, force, types)
+  if shadow and depth == 0 then shadow_check(surface, force, types, out, nil) end
+  return out
+end
+
 --- Vrai quand le registre sert : armé, allumé, espace « gens » créé (en jeu, toujours après on_init ou on_load). Faux : Gens.list fait
 --- l'ancienne recherche sur toute la surface, et raccord.lua garde son relevé par bandes (lot LOURD).
 function Gens.ready()
@@ -160,14 +213,68 @@ end
 --- Ensemble des numéros de réseau électrique des génératrices de `force` sur `surface` (types `types`) : { [id] = true }, nombre.
 function Gens.networks(surface, force, types)
   local live, n = {}, 0
-  for _, g in ipairs(Gens.list(surface, force, types)) do
+  depth = depth + 1
+  local list = Gens.list(surface, force, types)
+  depth = depth - 1
+  for _, g in ipairs(list) do
     local id = g.electric_network_id
     if id and not live[id] then
       live[id] = true
       n = n + 1
     end
   end
+  if shadow and depth == 0 then shadow_check(surface, force, types, list, live) end
   return live, n
+end
+
+-- Interface du micro-banc (bancs seulement) : ombre(vrai|faux) ; appels(force, x, y, poteau) passe par les six sites d'appel avec le
+-- vrai moteur (modules lus dans package.loaded : aucun require pendant un événement) ; bilan(force) rend les compteurs et le registre.
+local function appels(force, x, y, pole)
+  local s = game.surfaces[1]
+  local f = { force = force, key = "x10" }
+  local b = { order = {}, projects = {} }
+  local L = package.loaded
+  local Ra, Rv, Ch = L["script.team.raccord"], L["script.team.reseau_vivant"], L["script.team.champ"]
+  local Mg, Pe = L["script.team.migration_champ"], L["script.ai3.petrole"]
+  local calls = {
+    { "raccord:live_networks", function() return Ra.generateurs.bloc(f, s) end },
+    { "reseau_vivant:net_read", function() return Rv.net_read(f, s, b) end },
+    { "champ:powered_pole", function() return Ch.powered_pole(f, s, x, y, 64) end },
+    { "champ:raccord_tous", function() -- loin de tout poteau : la lecture du registre faite, sortie « aucun réseau alimenté »
+      return Ch._raccord_tous(f, s, { spec = { pole = { wire = 9 } }, names = { pole = pole } }, { { name = pole, x = x + 2000, y = y } }, x + 2000, y)
+    end },
+    { "migration_champ:fuel_burn", function() return Mg._fuel_burn(f, s) end },
+    { "petrole:nearest_network", function() return Pe._nearest_network(f, s, x, y, b) end },
+  }
+  for _, c in ipairs(calls) do
+    site = c[1]
+    local ok, err = pcall(c[2])
+    if not ok then
+      sh.erreurs = sh.erreurs + 1
+      log("[FO-GENS-OMBRE] tick " .. tostring(game.tick) .. " site " .. site .. " : ERREUR " .. tostring(err))
+    end
+  end
+  site = "?"
+end
+
+if remote and remote.add_interface then
+  remote.add_interface("fo-x10-gens", {
+    ombre = function(on)
+      shadow = on and true or false
+      if shadow then sh = { lectures = 0, ecarts = 0, erreurs = 0, sites = {}, poses = {} } end
+    end,
+    appels = function(force, x, y, pole) if shadow then appels(force, x, y, pole) end end,
+    bilan = function(force)
+      local reg = {}
+      if sh then
+        site = "bilan"
+        for _, e in ipairs(Gens.list(game.surfaces[1], force, Gens.TYPES)) do reg[#reg + 1] = e.unit_number end
+        site = "?"
+      end
+      return { ombre = shadow, pret = Gens.ready(), lectures = sh and sh.lectures or 0, ecarts = sh and sh.ecarts or 0,
+        erreurs = sh and sh.erreurs or 0, sites = sh and sh.sites or {}, poses = sh and sh.poses or {}, registre = reg }
+    end,
+  })
 end
 
 local function arm() armed = true end

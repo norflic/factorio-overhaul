@@ -403,6 +403,7 @@ local function nearest_network(f, surface, x, y, b)
   end
   return best
 end
+Pet._nearest_network = nearest_network -- (lot X10-S4) appel direct du micro-banc x10-s4-ombre (script/team/generateurs.lua) ; aucun autre usage
 
 local function pole_of(f, rel)
   for _, n in ipairs(D.POLES) do
