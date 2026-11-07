@@ -27,8 +27,8 @@ local MIN = 3600
 local function stable_view() return { mq = { build = {} } } end
 local function input_research(left) return { demande = true, research = { queue = { { left = left } } } } end
 local function team(hands) return { key = "f1", team = { iag = { idle_ema = hands } } } end
--- bras libres comptés comme Capi.slots (Ca.idle_of) : idle_ema choisi pour en avoir au moins 1
-local EMA = 3
+-- bras libres comptés comme Capi.slots (Ca.idle_of : idle_ema en dixièmes) : idle_ema choisi pour en avoir au moins 1
+local EMA = 30
 check(math.floor(Ca.idle_of(EMA)) >= 1, "idle_ema " .. EMA .. " donne au moins 1 bras libre (" .. tostring(Ca.idle_of(EMA)) .. ")")
 
 -- §1 réglage absent puis éteint
@@ -113,7 +113,7 @@ end
 -- §5 câblage (lecture du source)
 do
   local src = read("script/ai3/capitalisation.lua"):gsub("%-%-[^\n]*", "")
-  local a = src:find("Capi.palier(f, cs, view, input, tick)", 1, true)
+  local a = src:find("\n  Capi.palier(f, cs, view, input, tick)", 1, true) -- l'appel (pas la définition « function Capi.palier(… »)
   local b = src:find("local snap = {}", a or 1, true)
   local c = src:find("local input, cex = build_input(", 1, true)
   check(a and b and c and c < a and a < b, "§5 decide_start : Capi.palier apres build_input et AVANT l'instantane")
