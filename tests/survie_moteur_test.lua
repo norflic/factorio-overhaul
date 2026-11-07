@@ -161,17 +161,39 @@ local function run_all()
   local function burst(n)
     for _ = 1, n do C.gate(f, ag, { key = "test:service-in", kind = "service" }, steps_in, game.tick) end
   end
-  -- Cinq minutes et plus de manque durable de fer ET de refus de la porte, mais les PNJ du moteur simulé travaillent : pas d'entrée.
-  local busy_checks, idle_seen = 0, 0
+  -- Cinq minutes et plus de manque durable de fer ET de refus de la porte, mais les PNJ travaillent : pas d'entrée.
+  -- Lot ROUGES-0659 : « les PNJ travaillent » est POSÉ par le banc, et non plus supposé du moteur simulé : ses PNJ sont 0 à 3 sur 8
+  -- sans tâche à l'instant de la pensée, selon la phase (mesure du 7/11). À la phase 174 de votre équipe (578fc2c6), une pensée
+  -- d'après les 5 min de manque tombait sur 3 sur 8 (37,5 % >= Sv.IDLE_PCT) et le mode s'allumait À BON DROIT (2 ECHEC de 0.6.53 à
+  -- 0.6.59). La vue lue par Survie.think dit donc 0 PNJ sans tâche pendant cette phase ; refus de la porte, manque, pensée et règle
+  -- restent réels. La règle du seuil est prouvée dans survie_test.lua, et le seuil levé juste après.
+  local Sv_decide, Sv_think = Sv.decide, Survie.think
+  local busy_ok, real_idle_max = 0, 0
+  Survie.think = function(ff, view, plan, tick)
+    if ff == f then
+      real_idle_max = math.max(real_idle_max, view.workers_idle or 0)
+      view = setmetatable({ workers_idle = 0 }, { __index = view })
+    end
+    return Sv_think(ff, view, plan, tick)
+  end
+  Sv.decide = function(st, a)
+    local was = st.on
+    local d = Sv_decide(st, a)
+    if st == s2 and not was and not st.on and a.idle == 0 and Sv.waits(st, a.tick) >= Sv.PARA_WAITS and st.short_since
+      and a.tick - st.short_since >= Sv.SHORT_TICKS then busy_ok = busy_ok + 1 end
+    return d
+  end
   for _ = 1, 24 do
     M.run_ticks(900)
     burst(3)
-    busy_checks = busy_checks + 1
   end
+  Survie.think, Sv.decide = Sv_think, Sv_decide
+  check(busy_ok >= 3, "pensées jugées PNJ occupés, refus de la porte au seuil et manque de plus de 5 min, sans entrée : " .. busy_ok
+    .. " (le moteur simulé avait jusqu'à " .. real_idle_max .. " PNJ sans tâche par pensée, ramenés à 0 par le banc)")
   check(s2.short_since ~= nil and game.tick - s2.short_since >= Sv.SHORT_TICKS, "le fer manque depuis plus de 5 min (" .. string.format("%.1f", (game.tick - (s2.short_since or game.tick)) / 3600) .. " min)")
   check(Sv.waits(s2, game.tick) >= Sv.PARA_WAITS, "la porte a refusé " .. Sv.waits(s2, game.tick) .. " tâches dans la fenêtre")
   check(not s2.on, "PNJ occupés (aucun sans tâche) : pas de paralysie, le mode ne s'allume PAS")
-  -- Les PNJ restent sans tâche : seuil réglé à 0 % (le moteur simulé tient ses PNJ occupés ; la règle de seuil est testée dans survie_test.lua).
+  -- Seuil réglé à 0 % : les PNJ du moteur simulé, réels de nouveau, sont « assez » sans tâche (la règle de seuil est testée dans survie_test.lua).
   local keep_pct = Sv.IDLE_PCT
   Sv.IDLE_PCT = 0
   M.run_ticks(900)

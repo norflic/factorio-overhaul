@@ -507,6 +507,7 @@ do
     ["shared/team/modules.lua"] = { "EXEC", 203, "gabarits de modules : catalogue d'usines posables, noms de leurs pièces" },
     ["shared/team/petrole_donnees.lua"] = { "EXEC", 4, "pièces de l'exécutant des chaînes à fluides (tuyau, coffre des quais, bras, poteaux) : briques du plan directeur, comme automatisation_donnees" },
     ["shared/team/automatisation_donnees.lua"] = { "EXEC", 11, "données de l'exécutant d'IA3-e (machines et pièces posables)" },
+    ["shared/team/lot_minerai_seuils.lua"] = { "EXEC", 1, "SEUILS de la règle pure shared/team/lot_minerai.lua en DONNÉES (lot MINERAI-SONDE) : le seul nom est le minerai à seuil de quantité (G42) ; la règle, elle, ne nomme rien" },
     ["shared/team/plan.lua"] = { "EXEC", 12, "empreintes des pièces et pièces du plan (tapis, coffre, poteaux)" },
     ["script/team/build.lua"] = { "EXEC", 23, "construction : pièces posées (tapis, coffre, poteaux, bras)" },
     ["script/team/reseau_vivant.lua"] = { "TYPE", 3, "types du moteur lus par la santé de la centrale et du réseau (boiler, generator, offshore-pump, inserter) : le GENRE de la pièce, jamais un niveau" },

@@ -23,6 +23,7 @@ local Acc = require("shared.team.acces_champ") -- lot NAV2 : point d'accès atte
 local Co = require("shared.team.couloir") -- lot ÉTAGE 5 : le bâtiment qui ferme la dernière issue d'un accès (journal [FO-NAV-ACCES])
 local Rc = require("shared.team.repli_chemin") -- lot CHARBON3 (B2) : essais de marche d'un PNJ (règle pure)
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
+local AmRt = require("script.ai3.amorce_rt") -- lot VIDEO-COUVERTURE (C3) : remise directe aux modules en réserve avant le coffre
 local Mu = require("shared.team.munitions") -- lot MUNITIONS (revue M3) : prise bornée de la munition de base (Mu.split_take)
 local Ra = require("shared.team.rearmement") -- lot REARMEMENT : emplacement des munitions complété au dépôt au QG (règle pure)
 local Tj = require("script.team.tourelle_journal") -- lot TOURELLE-JOURNAL : minage refusé sous une tourelle, journal [FO-TOURELLE-RETIREE]
@@ -262,6 +263,9 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Transferts avec le stock (QG)
 ---------------------------------------------------------------------------------------------------
+-- Lot STOCKAGE-VITAL : le dépôt d'un PNJ au QG est le seul appelant de Stock.insert soumis à la réserve des vitales (ce qui est refusé
+-- reste en poche, rien n'est perdu).
+local DEPOSIT_OPTS = { reserve = true }
 local function deposit_inventory(f, inv, keep)
   local contents = inv.get_contents()
   local names = {}
@@ -269,8 +273,9 @@ local function deposit_inventory(f, inv, keep)
   table.sort(names)
   for _, name in ipairs(names) do
     local n = contents[name] - (keep and keep[name] or 0)
+    if n > 0 then n = n - AmRt.deliver(f, inv, name, n) end -- C3 : ce qu'un module en réserve attend lui est remis AVANT le coffre
     if n > 0 then
-      local moved = Stock.insert(f, name, n)
+      local moved = Stock.insert(f, name, n, DEPOSIT_OPTS)
       if moved > 0 then
         inv.remove({ name = name, count = moved })
         f.team.delivered[name] = (f.team.delivered[name] or 0) + moved
@@ -795,10 +800,19 @@ function Worker.program(f, task, surface, tick)
     if best then claim_tile(f, best.position, tick) end
     -- Lot IA3-f (constat du DC, 25/10 vers 18 h 45) : rien à portée du coffre : gisement CONNU et sûr plus loin (carte de
     -- connaissance, crochet posé par script/ai3/exploration.lua ; sinon il demande une exploration). Pas pour le fond.
+    -- Lot STOCKAGE-VITAL : récolte d'un coffre urgent (shared/team/fond.lua, F.annex_urgent) : le coffre est fabriqué SUR PLACE avec la
+    -- matière récoltée, avant le retour (un stock plein refuserait le bois au dépôt ; le coffre, lui, est posé en annexe au dépôt).
+    local function mine_steps()
+      local steps = { { "home" }, { "goto", task.target, 1.5 }, { "mine", task.resource, task.count } }
+      local tc = task.then_craft
+      if tc then steps[#steps + 1] = { "craft_now", tc.crafts, tc.ticks, tc.item } end
+      steps[#steps + 1] = { "home" }
+      return steps
+    end
     local far = not best and not task.fond and Worker.far_mine and Worker.far_mine(f, task, surface, tick)
     if far then
       task.target = far
-      return { { "home" }, { "goto", task.target, 1.5 }, { "mine", task.resource, task.count }, { "home" } }
+      return mine_steps()
     end
     if not best then
       -- Lot KIT (diagnostic) : un minage à la main sans tuile libre ni sûre à portée (au plus une ligne par ressource et par
@@ -813,7 +827,7 @@ function Worker.program(f, task, surface, tick)
       return nil
     end
     task.target = { x = best.position.x, y = best.position.y }
-    return { { "home" }, { "goto", task.target, 1.5 }, { "mine", task.resource, task.count }, { "home" } }
+    return mine_steps()
   end
   return nil
 end
@@ -909,7 +923,7 @@ end
 ACTS.service = function(agent, f, task, surface, tick)
   local o = f.outposts[task.outpost]
   if not o then return false end
-  local n = Outposts.service(o, main_inv(agent), tick, f.team and f.team.flux_fill)
+  local n = Outposts.service(o, main_inv(agent), tick, f.team and f.team.flux_fill, Stock.skip_fn and Stock.skip_fn(f))
   f.stats.serviced = (f.stats.serviced or 0) + 1
   f.team.collected = (f.team.collected or 0) + n
   return true
@@ -1416,6 +1430,30 @@ local function run_steps(agent, tick)
       agent.wait_until = tick + (step[2] or 0)
       set(agent, "wait", tick)
       return
+    elseif kind == "craft_now" then
+      -- Lot STOCKAGE-VITAL : fabrication sur place avec ce que le PNJ porte (coffre urgent après sa récolte), puis attente de la durée
+      -- de fabrication ; jamais derrière une fabrication en arrière-plan (sa file est à elle : rien n'est lancé, le bois rentre au QG).
+      local e = agent.entity
+      local n, why = 0, "file de fabrication occupee"
+      if not agent.bg and e.crafting_queue_size == 0 then
+        why = "matiere absente"
+        for _, c in ipairs(step[2] or {}) do
+          local ok, k = pcall(e.begin_crafting, { count = c.runs, recipe = c.recipe, silent = true })
+          if ok and type(k) == "number" then n = n + k end
+        end
+      end
+      f.stats.stock_craft_logs = (f.stats.stock_craft_logs or 0) + 1
+      if f.stats.stock_craft_logs <= 40 then
+        log(string.format("[FO-STOCKAGE] %s : coffre urgent %s fabrique sur place par le PNJ %s : %s a %.1f min", f.key or "player",
+          tostring(step[4]), tostring(agent.id), n > 0 and (n .. " fabrication(s) lancee(s)") or ("rien de lance (" .. why .. ")"),
+          (tick - (f.started or 0)) / 3600))
+      end
+      if n > 0 then
+        agent.wait_until = tick + (step[3] or 0)
+        set(agent, "wait", tick)
+        return
+      end
+      agent.pc = agent.pc + 1
     elseif kind == "goto" then
       if not goto_step(agent, step[2], step[3] or 4, tick) then return end
       agent.street_off = nil -- lot IA1-d : le repli vers le PathService ne vaut que pour ce trajet
@@ -1541,6 +1579,7 @@ FSM.define(MACHINE, {
         Profiler.fcredit("idle", "idle:sans-tache")
         return
       end
+      Stock.note_claim(f, main_inv(agent), tick) -- lot STOCKAGE-VITAL : prise de tâche avec la poche pleine (compteur, aucune décision)
       Profiler.fstart("worker:program")
       local steps = Worker.program(f, task, agent.entity.surface, tick)
       Profiler.fstop("worker:program")
@@ -1963,8 +2002,9 @@ Events.on_died(function(e)
 end, { types = { "character" }, ennemi = false })
 
 -- 2. le corps rendu (on_post_entity_died) : le kit offert en est retiré (Sp.kit_take), détruit ; la cargaison reste.
--- Sans filtre (décision du lead, option 1 : le noyau events.lua n'est pas touché) : TOUTE mort de la partie passe ici ; une recherche
--- dans la table des morts notées, puis return (quelques µs par mort).
+-- Le bus (events.lua) ne filtre pas ; le FILTRE MOTEUR est posé ici, à on_init et on_load (comme script/team/reparation.lua) : le
+-- moteur ne lève plus l'événement que pour les personnages (relecture de revue-0657, accord du lead, 7/11). LIMITE : tout autre abonné du
+-- bus à on_post_entity_died ne verrait plus, lui aussi, que les personnages (noté dans script/core/events.lua).
 Events.on(defines.events.on_post_entity_died, function(e)
   local u = e.unit_number
   if not u then return end
@@ -1991,6 +2031,10 @@ Events.on(defines.events.on_post_entity_died, function(e)
     end
   end
 end)
+Worker.KIT_POST_FILTER = { { filter = "type", type = "character" } }
+local function kit_post_filter() script.set_event_filter(defines.events.on_post_entity_died, Worker.KIT_POST_FILTER) end
+Events.on_init(kit_post_filter)
+Events.on_load(kit_post_filter)
 
 Registry.on_removed(function(agent)
   -- EFFONDREMENT (parade du kit offert) : un PNJ renvoyé (sans mort) n'a plus de fiche ; mort, sa fiche est déjà passée à `dead`
