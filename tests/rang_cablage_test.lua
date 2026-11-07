@@ -1,10 +1,12 @@
 --[[
-  Étape 2b d'INTEGRATION_VIDEO.md : L1b (Ca.RANG) et L2 (Ca.PORTE_RANG) BRANCHÉS dans shared/ai3/capitalisation.lua, ÉTEINTS
-  par défaut. Plan : fo-logs/2026-11-07_VIDEO-AUTOMATISATION/PLAN_L1_L2.md §2 et §3. Test hors jeu de la décision entière (Ca.decide).
-    §0 interrupteurs éteints par défaut ;
+  Étape 2b d'INTEGRATION_VIDEO.md : L1b (Ca.RANG) et L2 (Ca.PORTE_RANG) BRANCHÉS dans shared/ai3/capitalisation.lua ; étape 8 :
+  ALLUMÉS par défaut. Plan : fo-logs/2026-11-07_VIDEO-AUTOMATISATION/PLAN_L1_L2.md §2 et §3. Test hors jeu de la décision entière
+  (Ca.decide). Chaque décision pose ses interrupteurs (decide, decide_off) ; seul §0 lit les défauts.
+    §0 étape 8 : interrupteurs allumés par défaut, et Ca.decide sans rien poser = la décision allumée ;
     §1 éteints : la règle du rang et la porte ne sont JAMAIS appelées, rien de nouveau au compte rendu, à `st` ni au journal ;
     §2 A/B de L1b : rang allumé contre éteint, décision ENTIÈRE identique (ordres, refus, besoins, `st`) sur 3 décisions de suite
-       de chaque scène sans cycle ; Kovarex (cycle) : l'arc interne n'est pas propagé ;
+       de chaque scène sans cycle ; Kovarex (cycle) : l'arc interne n'est pas propagé ; §2 bis A/B de L2 (orders_sig) : la porte
+       ne change les ordres que d'une décision où elle a retenu une option ;
     §3 l'interblocage du fer (EFFONDREMENT) : minerai de fer en manque, foreuse possible, chaîne d'engrenages qui en dépend ;
        éteint, la chaîne passe devant ; allumé, la foreuse est le premier ordre, la chaîne est retenue au tour 1 puis décidée ;
     §4 emplacements : la suite res.orders du §3, passée à Em.order_seat comme le runtime (script/ai3/capitalisation.lua), une
@@ -148,6 +150,7 @@ end
 
 --- Une décision entière, interrupteurs posés le temps de l'appel. Rend res, les refus « rang » et « anti-répétition » du TOUR 1, J.
 local function decide(C, inp, st, rang, porte)
+  local r0, p0 = C.RANG, C.PORTE_RANG
   C.RANG, C.PORTE_RANG = rang, porte
   local ok, res, t1, J = pcall(function()
     local J0 = C.decide_begin(inp, st or {})
@@ -160,10 +163,11 @@ local function decide(C, inp, st, rang, porte)
     while not C.decide_step(J0) do end
     return J0.res, r1, J0
   end)
-  C.RANG, C.PORTE_RANG = false, false
+  C.RANG, C.PORTE_RANG = r0, p0
   if not ok then error(res, 0) end
   return res, t1, J
 end
+local function decide_off(C, inp, st) return (decide(C, inp, st, false, false)) end
 local function keys(res)
   local t = {}
   for _, o in ipairs(res.orders) do t[#t + 1] = o.key end
@@ -202,8 +206,12 @@ end
 local function battery(C)
   local p0, f0 = pass, fail
 
-  -- §0
-  check(C.RANG == false and C.PORTE_RANG == false, "§0 Ca.RANG et Ca.PORTE_RANG eteints par defaut")
+  -- §0 Étape 8 : allumés par défaut ; la décision des défauts est celle qu'on teste allumée.
+  check(C.RANG == true and C.PORTE_RANG == true, "§0 etape 8 : Ca.RANG et Ca.PORTE_RANG allumes par defaut")
+  local def_res, def_st, on_st = nil, {}, {}
+  local okd, errd = pcall(function() def_res = C.decide(eff(C), def_st) end)
+  check(okd and ser(def_res) == ser((decide(C, eff(C), on_st, true, true))) and ser(def_st) == ser(on_st),
+    "§0 Ca.decide sans rien poser = la decision allumee (" .. tostring(errd) .. ")")
 
   -- §1 Éteints : aucun appel, rien de nouveau.
   local calls = { chain = 0, decide = 0, deps = 0 }
@@ -213,10 +221,10 @@ local function battery(C)
   Pr.deps = function(...) calls.deps = calls.deps + 1 return e0(...) end
   local okspy, err = pcall(function()
     local st = {}
-    local r = C.decide(eff(C), st)
+    local r = decide_off(C, eff(C), st)
     check(r.rstar == nil and r.rang_held == nil and st.last_item == nil and not C.text(r):find("porte=", 1, true),
       "§1 eteints : ni r*, ni retenue, ni st.last_item, ni « porte= » au journal")
-    for _, s in ipairs(CORPUS) do C.decide(s[2](C), {}) end
+    for _, s in ipairs(CORPUS) do decide_off(C, s[2](C), {}) end
     check(calls.chain == 0 and calls.decide == 0 and calls.deps == 0, string.format(
       "§1 eteints : Rg.chain, Pr.decide, Pr.deps jamais appeles (%d, %d, %d)", calls.chain, calls.decide, calls.deps))
     decide(C, eff(C), {}, true, true)
@@ -231,7 +239,7 @@ local function battery(C)
     local stA, stB = {}, {}
     for rep = 1, 3 do
       total = total + 1
-      local a = C.decide(s[2](C), stA)
+      local a = decide_off(C, s[2](C), stA)
       local b, _, J = decide(C, s[2](C), stB, true, false)
       if #J.ctx.rang.cycles == 0 then
         acyclic = acyclic + 1
@@ -242,7 +250,7 @@ local function battery(C)
   end
   check(acyclic == total and same == acyclic, string.format("§2 rang allume : decision entiere identique sur %d decisions sans cycle "
     .. "sur %d (%d identiques)", acyclic, total, same))
-  local ko = C.decide(kovarex(C), {})
+  local ko = decide_off(C, kovarex(C), {})
   local kn, _, Jk = decide(C, kovarex(C), {}, true, false)
   check(#Jk.ctx.rang.cycles >= 1, "§2 Kovarex : le cycle de l'uranium est vu")
   -- 2 piles/min : 0,2 fabrication de 10 piles, donc 0,2 uranium 235 et 3,8 uranium 238. Le 235 se fait par Kovarex (boucle sur
@@ -254,8 +262,29 @@ local function battery(C)
     .. "3,8 + 1/41)", u5, u8))
   check((ko.R["uranium-235"] or 0) > 0.2 + 1e-9, "§2 Kovarex eteint : l'ancienne propagation ajoute l'arc interne (difference connue)")
 
+  -- §2 bis A/B de L2 (orders_sig), rang allumé des deux côtés, 3 décisions de suite : sans retenue, mêmes ordres.
+  local scenes = {}
+  for _, s in ipairs(CORPUS) do scenes[#scenes + 1] = s end
+  scenes[#scenes + 1] = { "effondrement", function(Cx) return eff(Cx) end }
+  scenes[#scenes + 1] = { "sans manque", function(Cx) return eff_full(Cx) end }
+  local n_ab, n_same, n_held, bad = 0, 0, 0, {}
+  for _, s in ipairs(scenes) do
+    local stA, stB = {}, {}
+    for rep = 1, 3 do
+      n_ab = n_ab + 1
+      local a = decide(C, s[2](C), stA, true, false)
+      local b = decide(C, s[2](C), stB, true, true)
+      if (b.rang_held or 0) > 0 then n_held = n_held + 1
+      elseif orders_sig(a) == orders_sig(b) then n_same = n_same + 1
+      else bad[#bad + 1] = s[1] .. " #" .. rep end
+    end
+  end
+  say(string.format("§2 bis porte : %d decisions, %d identiques sans retenue, %d avec retenue", n_ab, n_same, n_held))
+  check(#bad == 0 and n_held >= 1 and n_same >= 1, "§2 bis porte : ordres identiques quand rien n'est retenu (ecarts : "
+    .. table.concat(bad, ", ") .. ")")
+
   -- §3 Interblocage du fer.
-  local off = C.decide(eff(C), {})
+  local off = decide_off(C, eff(C), {})
   local on, t1 = decide(C, eff(C), {}, true, true)
   check(off.orders[1] and off.orders[1].key == "chaine:iron-gear-wheel" and index_of(off, "couvrir:fer"),
     "§3 eteint (temoin) : la chaine d'engrenages passe devant la foreuse de fer (" .. keys(off) .. ")")
@@ -284,7 +313,7 @@ local function battery(C)
     return eff(C, { hold = { ["iron-ore"] = "foreuse posee, sans minerai" },
       drills = { { entity = "electric-mining-drill", resource = "iron-ore", n = 1, n_cap = 0, deposit = "fer" } } })
   end
-  local p_off = C.decide(pending(), {})
+  local p_off = decide_off(C, pending(), {})
   local p_on, tp = decide(C, pending(), {}, true, true)
   check(keys(p_off) == "chaine:iron-gear-wheel" and keys(p_on) == "" and tp["chaine:iron-gear-wheel"] == "rang : iron-ore (rang 0) d'abord",
     "§4 bis L5 + L2 : foreuse en attente de confirmation, la chaine attend le fer (eteint : " .. keys(p_off) .. " ; allume : "
@@ -302,7 +331,7 @@ local function battery(C)
     "§5 briques permises au tour 1, engrenages retenus, foreuse avant engrenages (" .. keys(rb) .. ")")
 
   -- §6 Fer en manque SANS gisement connu : aucune option qui le serve, rien n'est retenu, l'exploration est émise.
-  local c_off = C.decide(eff(C, { deposits = {}, drills = {} }), {})
+  local c_off = decide_off(C, eff(C, { deposits = {}, drills = {} }), {})
   local c_on, tc = decide(C, eff(C, { deposits = {}, drills = {} }), {}, true, true)
   local explored = false
   for _, e in ipairs(c_on.explore) do if e.resource == "iron-ore" then explored = true end end
@@ -314,7 +343,7 @@ local function battery(C)
     { "stock de minerai", function() return eff(C, { stock = { ["electronic-circuit"] = 1000, ["iron-ore"] = 3000 } }) end },
     { "stock de plaques", function() return eff_full(C, { machines = { { entity = "stone-furnace", recipe = "iron-plate", n = 2,
       where = "qg" } }, stock = { ["electronic-circuit"] = 1000, ["iron-plate"] = 3000 } }) end } }) do
-    local x = C.decide(v[2](), {})
+    local x = decide_off(C, v[2](), {})
     local y, ty = decide(C, v[2](), {}, true, true)
     check(ser(x.orders) == ser(y.orders) and ser(x.refus) == ser(y.refus) and next(ty) == nil and y.rang_held == nil,
       "§7 " .. v[1] .. " : decision identique allume et eteint (" .. keys(y) .. ")")
@@ -335,7 +364,7 @@ local function battery(C)
   check(d3.orders[1] and d3.orders[1].key == "chaine:iron-gear-wheel" and next(t3) == nil,
     "§8 seule option de son rang : l'engrenage passe quand meme (" .. keys(d3) .. ")")
   local st4 = {}
-  C.decide(eff_full(C), st4)
+  decide_off(C, eff_full(C), st4)
   check(st4.last_item == nil, "§8 porte eteinte : st.last_item n'est pas ecrit")
 
   return pass - p0, fail - f0
@@ -370,7 +399,7 @@ do
   local rows, worst = {}, 0
   for _, s in ipairs(scenes) do
     local i1, i2, i3 = s[2](Ca0), s[2](Ca0), s[2](Ca0)
-    local a = cost(function() Ca0.decide(i1, {}) end)
+    local a = cost(function() decide_off(Ca0, i1, {}) end)
     local b = cost(function() decide(Ca0, i2, {}, true, false) end)
     local c = cost(function() decide(Ca0, i3, {}, true, true) end)
     rows[#rows + 1] = string.format("%s : eteint %d, rang %d (%+.1f %%), rang + porte %d (%+.1f %%)", s[1], a, b, 100 * (b - a) / a, c,
@@ -407,8 +436,8 @@ local MUTANTS = {
   { "st.last_item jamais lu", "  if Ca.PORTE_RANG then ctx.last_item = st.last_item end", "" },
   { "manque sans le stock", "      local def = Ri - (plan.N[i] or 0) - (ctx.stock[i] or 0) / Ca.H_STOCK\n      if def > Ca.EPS then short",
     "      local def = Ri - (plan.N[i] or 0)\n      if def > Ca.EPS then short" },
-  { "rang allume par defaut", "Ca.RANG = false ", "Ca.RANG = true " },
-  { "porte allumee par defaut", "Ca.PORTE_RANG = false ", "Ca.PORTE_RANG = true " },
+  { "rang eteint par defaut", "Ca.RANG = true ", "Ca.RANG = false " },
+  { "porte eteinte par defaut", "Ca.PORTE_RANG = true ", "Ca.PORTE_RANG = false " },
   { "propagation sans le stock", "    local net = (Rq[i] or 0) - (ctx.stock[i] or 0) / Ca.H_STOCK\n    if r and net > 0 then\n      local crafts = net / amount_of(r.products, i)\n      local ci",
     "    local net = (Rq[i] or 0)\n    if r and net > 0 then\n      local crafts = net / amount_of(r.products, i)\n      local ci" },
 }

@@ -147,10 +147,11 @@ Ca.NEAR_SITE = Gi.NEAR -- tuiles : un gisement ouvert plus près que cela d'un s
 -- recherche (B.RESEARCH 62) et l'extraction ; but de FOND (lot CAPITAL : bancs c1 et c1-témoin, un but de capital servi
 -- comme un projet ordinaire retardait la recherche).
 Ca.V_MIN, Ca.V_SPAN, Ca.V_MAX, Ca.V_SHAPE = 35, 15, 50, 7
--- Lots VIDEO-L1b et VIDEO-L2 (docs/TODO_VIDEO.md §H ; fo-logs/2026-11-07_VIDEO-AUTOMATISATION/PLAN_L1_L2.md) : ÉTEINTS par défaut,
--- éteints la décision est celle d'avant ligne pour ligne (tests/rang_cablage_test.lua §1).
-Ca.RANG = false         -- L1b : le besoin se propage dans l'ordre du RANG de la décision (Rg.chain), calculé une fois par jeu de graines
-Ca.PORTE_RANG = false   -- L2 : un ordre de production qui dépend d'un manque d'un rang plus bas attend (Pr.decide) ; demande Ca.RANG
+-- Lots VIDEO-L1b et VIDEO-L2 (docs/TODO_VIDEO.md §H ; fo-logs/2026-11-07_VIDEO-AUTOMATISATION/PLAN_L1_L2.md) : ALLUMÉS à l'étape 8
+-- d'INTEGRATION_VIDEO, Ca.RANG d'abord, puis Ca.PORTE_RANG. Éteints (false), la décision est celle d'avant ligne pour ligne
+-- (tests/rang_cablage_test.lua §1) : c'est le repli si l'un des deux doit être coupé.
+Ca.RANG = true          -- L1b : le besoin se propage dans l'ordre du RANG de la décision (Rg.chain), calculé une fois par jeu de graines
+Ca.PORTE_RANG = true    -- L2 : un ordre de production qui dépend d'un manque d'un rang plus bas attend (Pr.decide) ; demande Ca.RANG
 Ca.MAX_ORDERS = 24      -- ordres nouveaux au plus par cycle (coût de calcul)
 Ca.OPEN_MAX = 16        -- ordres ouverts au plus (plafond de sûreté du dépliage ; le travail disponible borne avant)
 Ca.HQ = "qg"
@@ -812,7 +813,7 @@ function Ca.requirements(ctx, plan)
   end
   for _, it in ipairs(ctx.pack_rates) do add(it[1], it[2]) end
   if ctx.D.fuel and plan.burn > 0 then add(ctx.D.fuel, plan.burn) end
-  if Ca.RANG then return requirements_by_rank(ctx, fin) end -- lot VIDEO-L1b (éteint par défaut)
+  if Ca.RANG then return requirements_by_rank(ctx, fin) end -- lot VIDEO-L1b (allumé à l'étape 8)
   local depth, rec, why, seen = {}, {}, {}, {}
   local items = {}
   local function visit(i)
@@ -1944,7 +1945,7 @@ function Ca.options(ctx, plan, req)
   lab_options(ctx, plan, out)
   power_options(ctx, plan, out)
   Lv.options(Ca, ctx, plan, req, out) -- lot LEVIERS : modules dans les machines posées, recherches à effet
-  if Ca.PORTE_RANG and Ca.RANG and ctx.rang then out = rank_gate(ctx, plan, req, out) end -- lot VIDEO-L2 (éteint par défaut)
+  if Ca.PORTE_RANG and Ca.RANG and ctx.rang then out = rank_gate(ctx, plan, req, out) end -- lot VIDEO-L2 (allumé à l'étape 8)
   table.sort(out, function(a, b) return Ca.before(a.o, b.o) end)
   -- Lot GISEMENTS (DC 31/10 : « la gestion des ressources […] on doit l'appliquer à toutes les ressources ») : la matière la plus en manque
   -- par rapport au besoin passe devant (cuivre, pierre, charbon comme le fer) ; laboratoires, courant et leviers gardent leur place.
