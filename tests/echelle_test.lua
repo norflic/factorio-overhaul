@@ -386,6 +386,20 @@ local function suite(Ech)
   local egal = true
   for i = 1, 20 do if recu[i] ~= 15 then egal = false end end
   check(tot20 and egal, "§4 sexies plus de forces que de morts : le reste tourne, chacune reçoit autant sur 20 ticks")
+  -- §12 bis cratère par lots : mêmes tuiles que le disque, du centre vers le bord, ordre total
+  local cc = { x = 10.3, y = -4.6 }
+  local dr, dd = Ech.disque_radial(cc, 15), Ech.disque(cc, 15)
+  local vu, meme, croit = {}, #dr == #dd, true
+  for _, t in ipairs(dd) do vu[t.x .. "," .. t.y] = true end
+  for i, t in ipairs(dr) do
+    if not vu[t.x .. "," .. t.y] then meme = false end
+    if i > 1 then
+      local p = dr[i - 1]
+      if p.d > t.d or (p.d == t.d and (p.y > t.y or (p.y == t.y and p.x >= t.x))) then croit = false end
+    end
+  end
+  check(meme and croit and Ech.CRATERE_LOT == 100 and math.ceil(#dr / Ech.CRATERE_LOT) <= 8,
+    "§12 bis cratère par lots de 100 tuiles, du centre vers le bord (709 tuiles au rayon 15 : 8 ticks)", tostring(#dr))
   -- §12 ter plafond des traces dessinées d'1 h par surface (revue de la 0.6.57, point 4), les plus anciennes retirées d'abord
   local FR = Ech.rendus_nouveau()
   local retires, ordre_ok = {}, true
@@ -465,7 +479,8 @@ check(SXG:find("if ev.tick >= g.next and not G.zone_active(g.un) then", 1, true)
 local PXG = read("prototypes/experimentaux_geants.lua")
 check(not PXG:find('tile_name = "nuclear-ground"', 1, true) and PXG:find("b.time_before_removed = Ech.TRACE_TICKS", 1, true) ~= nil,
   "§12 bis prototypes : l'explosion ne pose plus de sol permanent ; brûlures d'1 h")
-check(SXG:find("cratere(s, c, r.cratere, tick)", 1, true) ~= nil and SXG:find("Events.on_nth_tick(RESORPTION, resorber)", 1, true) ~= nil
+check(SXG:find("local cr = Ech.disque_radial(c, r.cratere)", 1, true) ~= nil and SXG:find("if j.cr then cratere_suite(j, tick, not (e and e.valid)) end", 1, true) ~= nil
+  and SXG:find("local b = tout and n or math.min(n, j.ci + Ech.CRATERE_LOT - 1)", 1, true) ~= nil and SXG:find("Events.on_nth_tick(RESORPTION, resorber)", 1, true) ~= nil
   and SXG:find('not p.collision_mask["water-tile"] and not p.mineable_properties.minable', 1, true) ~= nil
   and SXG:find("local v = sol_cratere[name]", 1, true) ~= nil and not SXG:find("tile.prototype.mineable_properties", 1, true) and SXG:find('t.name == "nuclear-ground" and e.orig ~= "nuclear-ground"', 1, true) ~= nil,
   "§12 bis cratère posé par script, résorbé, jamais sur un sol de joueur ni sur un sol changé depuis")
@@ -485,6 +500,8 @@ check(not SRC:find("game%.") and not SRC:find("script%.") and not SRC:find("%f[%
 
 -- §6 mutants
 local MUTANTS = {
+  { "cratère du bord vers le centre", "if a.d ~= b.d then return a.d < b.d end", "if a.d ~= b.d then return a.d > b.d end" },
+  { "cratère d'un bloc", "Ech.CRATERE_LOT = 100", "Ech.CRATERE_LOT = 100000" },
   { "plafond des traces ignoré", "  while F.n - F.tete + 1 > max do", "  while false do" },
   { "trace la plus récente retirée au lieu de la plus ancienne", "    out[#out + 1] = F.ids[F.tete]", "    out[#out + 1] = F.ids[F.n]" },
   { "part de force donnée à chaque salve", "local sous = Ech.partage(#m, parts[r], tick)", "local sous = Ech.partage(#m, budget, tick)" },

@@ -201,13 +201,14 @@ local function cratere_possible(name)
   return v
 end
 
---- Cratère de rayon `rc` au point `c` : sol `nuclear-ground` (sol de la bombe atomique vanilla) pendant Ech.TRACE_TICKS, jamais sur l'eau ni
---- sur un sol posé par un joueur (cratere_possible), entités jamais retirées.
-local function cratere(s, c, rc, tick)
+--- Tuiles a à b de la liste `tiles` passées en sol de cratère `nuclear-ground` (sol de la bombe atomique vanilla) pendant Ech.TRACE_TICKS,
+--- jamais sur l'eau ni sur un sol posé par un joueur (cratere_possible), entités jamais retirées.
+local function cratere_lot(s, tiles, a, b, tick)
   local R = traces(s)
   local fin = tick + (K.S().trace_ticks or Ech.TRACE_TICKS) -- trace_ticks : durée raccourcie par les bancs seulement (remote « fo-xp »)
   local pose = {}
-  for _, t in ipairs(Ech.disque(c, rc)) do
+  for i = a, b do
+    local t = tiles[i]
     local name = s.get_tile(t.x, t.y).name
     if cratere_possible(name) then
       if Ech.trace_marquer(R, t.x, t.y, name, fin) and name ~= "nuclear-ground" then
@@ -217,7 +218,26 @@ local function cratere(s, c, rc, tick)
   end
   if #pose > 0 then s.set_tiles(pose, true, false, true, false) end
 end
+
+--- Cratère entier de rayon `rc` au point `c`, en une fois (remote de banc « cratere ») ; une salve le pose par lots (cratere_suite).
+local function cratere(s, c, rc, tick)
+  local tiles = Ech.disque(c, rc)
+  cratere_lot(s, tiles, 1, #tiles, tick)
+end
 G.cratere = cratere
+
+--- Lot suivant du cratère d'une salve (`j.cr` : tuiles du centre vers le bord, `j.ci` : prochaine), au plus Ech.CRATERE_LOT tuiles, ou
+--- tout le reste si `tout` (le géant est mort : le cratère est fini quand même). Rend vrai quand le cratère est posé.
+local function cratere_suite(j, tick, tout)
+  local s = game.surfaces[j.surf]
+  if not s then j.cr = nil; return true end
+  local n = #j.cr
+  local b = tout and n or math.min(n, j.ci + Ech.CRATERE_LOT - 1)
+  cratere_lot(s, j.cr, j.ci, b, tick)
+  j.ci = b + 1
+  if j.ci > n then j.cr = nil end
+  return j.cr == nil
+end
 
 --- Trace dessinée d'une heure (`id` : objet de rendu) : comptée par surface, les plus anciennes retirées au-delà de Ech.RENDUS_MAX (point 4).
 local function trace_rendu(s, id)
@@ -279,7 +299,7 @@ local function zone(g, r, c, tick)
   local eff = Ech.effectif(r, g.bonus)
   for _, f in ipairs(ecouteurs) do f(e, r, g.bonus, c, eff) end
   s.create_entity({ name = CRATERE .. r.age, position = { c.x, c.y } }) -- explosion et décoratifs retirés ; le sol, par cratere()
-  cratere(s, c, r.cratere, tick)
+  local cr = Ech.disque_radial(c, r.cratere) -- cratère posé par lots du centre vers le bord (premier lot ici, la suite par zone_pas)
   local b = K.S().impact == "B" -- design IMPACT : variante B (sol brûlé sur la zone), posée par les bancs d'images seulement
   if b then
     for _, x in ipairs(Ech.brulures(c, eff.zone)) do s.create_entity({ name = Xp.PREFIX .. x.nom, position = { x.x, x.y } }) end
@@ -289,7 +309,8 @@ local function zone(g, r, c, tick)
   -- recherche par SECTEURS (un par tick : le tick 0 du double tir coûtait 10,7 ms de script, 7/11), puis frappe
   job({ kind = "zone", e = e, un = g.un, id = r.id, dtype = r.dtype, force = e.force.name, forces = K.enemy_forces(e.force), c = { x = c.x, y = c.y },
         secteurs = Ech.secteurs(c, eff.zone, Ech.SECTEUR), si = 1, plan = Ech.nouveau_plan(c), salve = eff.salve, zone = eff.zone,
-        at = tick, total = 0, tues = 0, debut = tick, brule = b or nil, nb = 0 })
+        at = tick, total = 0, tues = 0, debut = tick, brule = b or nil, nb = 0, cr = cr, ci = 1, surf = s.index })
+  cratere_suite(K.S().gjobs[#K.S().gjobs], tick, false)
 end
 
 --- Recherche d'UN secteur : entités ennemies du carré, gardées si leur position est dans le secteur demi-ouvert (aucun doublon de bord,
@@ -321,6 +342,7 @@ end
 
 local function zone_pas(j, tick)
   local e = j.e
+  if j.cr then cratere_suite(j, tick, not (e and e.valid)) end
   if not (e and e.valid) then
     actives()[j.un] = nil
     return true

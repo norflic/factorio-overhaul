@@ -475,6 +475,26 @@ function Ech.disque(c, r)
   return out
 end
 
+--- Les mêmes tuiles, du CENTRE VERS LE BORD (distance du centre de la tuile, puis ligne, puis colonne : ordre total, le même partout) :
+--- un cratère posé par lots grandit depuis le point d'impact.
+function Ech.disque_radial(c, r)
+  local out = Ech.disque(c, r)
+  for _, t in ipairs(out) do
+    local dx, dy = t.x + 0.5 - c.x, t.y + 0.5 - c.y
+    t.d = dx * dx + dy * dy
+  end
+  table.sort(out, function(a, b)
+    if a.d ~= b.d then return a.d < b.d end
+    if a.y ~= b.y then return a.y < b.y end
+    return a.x < b.x
+  end)
+  return out
+end
+
+--- Tuiles de cratère posées par tick et par salve (revue de la 0.6.57, point 2 : la pose de 1 193 tuiles en un tick coûtait 15,6 ms de
+--- script, set_tiles avec correction des bords compris ; la mémoire des sols n'en gagnait que 1,5).
+Ech.CRATERE_LOT = 100
+
 --- Registre des tuiles marquées d'une surface : t[clé] = { x, y, orig, fin } ; file d'échéances en ordre croissant (n : dernier indice,
 --- tete : premier non traité ; jamais l'opérateur # sur une file à trous).
 function Ech.trace_nouveau()
