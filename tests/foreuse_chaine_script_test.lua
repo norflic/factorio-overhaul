@@ -201,6 +201,30 @@ local function suite(text)
       c("H : l'electrique ne passe pas : paire reposee, objets repris", #o.drill_list == 1 and #o.sinks == 1 and (Wx.stock["burner-mining-drill"] or 0) == 0
         and (Wx.stock["stone-furnace"] or 0) == 0 and #owned == 2)
     end
+    -- (2) revue du lead : la foreuse reposee reprend la case de la retiree (le compte de foreuses ne tombe pas) ; place prise : rien n'est
+    -- pose par-dessus (F70), l'objet reste au stock et la case morte compte perdue
+    local compact2 = load_fn(text, "local function compact(o)", {})
+    if ex_undo and compact2 then
+      local Wy = world({ ["30,8"] = true })
+      local ex_undo2 = load_fn(text, "local function exchange_undo(f, surface, o, undo)", { Stock = Wy.Stock, State = Statex })
+      Wy.stock["burner-mining-drill"], Wy.stock["stone-furnace"] = 1, 1
+      local alive, dead = { valid = true }, { valid = false }
+      local o2 = { id = 4, drill_list = { alive, dead }, sinks = { { valid = false } }, drills = 2 }
+      ex_undo2({ force = "player" }, Wy.surface, o2, { { name = "burner-mining-drill", x = 20, y = 10, dir = 0, kind = "drill" },
+        { name = "stone-furnace", x = 30, y = 8, dir = 0, kind = "sink" } })
+      compact2(o2)
+      c("H (2) : foreuse reposee dans la case de la retiree : compte de foreuses tenu", o2.drills == 2 and #o2.drill_list == 2 and o2.drill_list[2].valid == true,
+        tostring(o2.drills))
+      c("H (2) : place prise : rien pose par-dessus, objet garde au stock", (Wy.stock["stone-furnace"] or 0) == 1 and #o2.sinks == 0, tostring(Wy.stock["stone-furnace"]))
+    end
+    local place_back = load_fn(text, "local function place_back(f, surface, d_pos, dir, fuel, o, index)", { T = { DRILL = "burner-mining-drill", fuel = "coal" }, State = Statex })
+    c("H (2) : place_back extraite", place_back ~= nil)
+    if place_back then
+      local Wz = world({ ["20,10"] = true })
+      local oz = { id = 5, drill_list = { { valid = false } } }
+      local back = place_back({ force = "player", id = 1 }, Wz.surface, { x = 20.5, y = 10.5 }, 0, 0, oz, 1)
+      c("H (2) : ancienne foreuse sur une place prise : pas reposee par-dessus", back == nil and (Wz.created or 0) == 0)
+    end
     local compact = load_fn(text, "local function compact(o)", {})
     c("H : compact extraite", compact ~= nil)
     if compact then
@@ -319,6 +343,9 @@ local MUT = {
   { "four permis", "if S.overlap(pb, box) or S.overlap(pb, e.sink) then return false end", "if S.overlap(pb, box) then return false end" },
   { "echange : contenus perdus", "            Stock.insert(f, n, cnt[n])", "" },
   { "echange : sans desappropriation", "      if e.unit_number then State.disown(e.unit_number) end", "" },
+  { "(2) repose sans verifier la place", "and surface.can_place_entity({ name = u.name, position = { x = u.x, y = u.y }, direction = u.dir, force = f.force })", "" },
+  { "(2) case de la retiree non reprise", "        for i, x in ipairs(list) do if not x.valid then slot = i break end end", "" },
+  { "(2) ancienne reposee sans verifier la place", "  if not surface.can_place_entity({ name = T.DRILL, position = d_pos, direction = dir, force = f.force }) then return nil end", "" },
   { "echange : compte de foreuses non tenu", "  o.drills = math.max(0, (o.drills or 0) - lost)", "" },
   -- (echange coupe en entier : vu au banc foreuses-chaine, pas ici ; l ordre chaine puis retrait est controle au texte, cas I)
   { "couloir et plan ignores", "      if Outposts.reserved and Outposts.reserved(f, pole.name, { x = x, y = y }, 0) then return false end", "" },

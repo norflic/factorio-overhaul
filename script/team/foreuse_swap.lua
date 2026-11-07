@@ -116,7 +116,10 @@ local function survey(f, surface)
   return entries, refs, poles
 end
 
+--- Repose l'ancienne foreuse (l'electrique n'a pas pu etre posee). Revue du lead (7/11, (2)) : place verifiee d'abord (F70 : create_entity
+--- pose par-dessus sans verifier) ; nil si elle ne se repose pas (l'appelant rend l'objet et le combustible au stock).
 local function place_back(f, surface, d_pos, dir, fuel, o, index)
+  if not surface.can_place_entity({ name = T.DRILL, position = d_pos, direction = dir, force = f.force }) then return nil end
   local old = surface.create_entity({ name = T.DRILL, position = d_pos, direction = dir, force = f.force })
   if old then
     if fuel > 0 then old.get_fuel_inventory().insert({ name = T.fuel, count = fuel }) end
@@ -205,7 +208,10 @@ local function swap_one(f, surface, ref, cx, cy, tick, prep, ndir)
     if new and not new.valid then new = nil end
   end
   if not new then
-    place_back(f, surface, pos, dir, fuel, o, ref.index)
+    if not place_back(f, surface, pos, dir, fuel, o, ref.index) then
+      Stock.insert(f, T.DRILL, 1)
+      if fuel > 0 then Stock.insert(f, T.fuel, fuel) end
+    end
     Stock.insert(f, item, 1)
     st.retry[ref.key] = tick + Swap.RETRY
     st.failed = (st.failed or 0) + 1
@@ -446,13 +452,20 @@ local function exchange_remove(f, plan)
 end
 
 --- Repose ce que `exchange_remove` a retire (l'electrique n'a pas pu etre posee) ; objets repris au stock, contenus non (ils y restent).
+--- Revue du lead (7/11, (2)) : place verifiee avant la pose (F70) ; une piece reposee reprend la case d'une retiree dans sa liste, sinon
+--- compact la comptait perdue et le compte de foreuses tombait (outposts.lua : avant-poste vivant efface a 0). Ce qui ne se repose pas reste
+--- au stock, et sa case morte est comptee perdue par compact.
 local function exchange_undo(f, surface, o, undo)
   for _, u in ipairs(undo or {}) do
-    if Stock.remove(f, u.name, 1) >= 1 then
+    if Stock.count(f, u.name) >= 1 and surface.can_place_entity({ name = u.name, position = { x = u.x, y = u.y }, direction = u.dir, force = f.force })
+        and Stock.remove(f, u.name, 1) >= 1 then
       local e = surface.create_entity({ name = u.name, position = { x = u.x, y = u.y }, direction = u.dir, force = f.force })
       if e then
         State.own(e, f.id, u.kind, o.id)
-        if u.kind == "drill" then o.drill_list[#o.drill_list + 1] = e else o.sinks[#o.sinks + 1] = e end
+        local list = u.kind == "drill" and o.drill_list or o.sinks
+        local slot
+        for i, x in ipairs(list) do if not x.valid then slot = i break end end
+        list[slot or (#list + 1)] = e
       else
         Stock.insert(f, u.name, 1)
       end
@@ -589,6 +602,7 @@ function Swap.think(f, surface, book, free, tick)
         end
       end
       local done_swap = swap_one(f, surface, ref, r.cx, r.cy, tick, prep, r.dir)
+      touched[ref.o.id] = ref.o -- (2) : listes compactees aussi apres un remplacement rate (ancienne qui ne se repose pas)
       if not done_swap and undo then
         exchange_undo(f, surface, ref.o, undo)
         count(st, "echange repris")
