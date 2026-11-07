@@ -78,6 +78,29 @@ def parse_calib(lines):
     return out
 
 
+RE_DEBUT = re.compile(r"\[FO-PERF4\] debut tick (\d+)")
+
+
+def aligner(rows, a_dir):
+    """Lot PERF4 (banc sur une SAUVEGARDE donnée) : la partie commence au tick D (ligne « [FO-PERF4] debut tick D » du
+    scénario). Si les lignes tN de --benchmark-verbose comptent depuis 0, elles sont décalées sur les ticks du jeu (la première
+    mise à jour est le tick D + 1) : phases (tick % 300...), étalon [FO-CALIB] et détail [FO-PERF3-T] sont en ticks du jeu."""
+    if not rows:
+        return rows
+    with opn(a_dir, "benchmark.log") as f:
+        debut = None
+        for line in f:
+            m = RE_DEBUT.search(line)
+            if m:
+                debut = int(m.group(1))
+                break
+    if debut is None or min(rows) > debut:
+        return rows
+    shift = debut + 1 - min(rows)
+    print("   (banc sur une sauvegarde : partie commencée au tick %d ; lignes du benchmark décalées de %+d)" % (debut, shift))
+    return {t + shift: v for t, v in rows.items()}
+
+
 def script_ms(rows, calib):
     """{tick: ms} du script, étalon [FO-CALIB] soustrait au tick où il tourne (jamais sous 0)."""
     out = {}
@@ -176,6 +199,7 @@ def fmt_stats(s):
 def rapport(a_dir, b_dir, seuil, top, ref=None):
     with opn(a_dir, "benchmark-stdout.txt") as f:
         rows = parse_verbose(f)
+    rows = aligner(rows, a_dir)
     with opn(a_dir, "benchmark.log") as f:
         calib = parse_calib(f)
     sc = script_ms(rows, calib)
@@ -191,7 +215,8 @@ def rapport(a_dir, b_dir, seuil, top, ref=None):
     ent = {t: rows[t].get("entityUpdate", 0) / 1e6 for t in ticks}
     gc = {t: rows[t].get("luaGarbageIncremental", 0) / 1e6 for t in ticks}
     pf = {t: rows[t].get("pathFinder", 0) / 1e6 for t in ticks}
-    sans0 = [t for t in ticks if t >= 60]  # les premiers ticks (lancement de la guerre) à part
+    t0 = ticks[0]  # lot PERF4 : 0 pour une carte créée, le tick de la sauvegarde sinon
+    sans0 = [t for t in ticks if t - t0 >= 60]  # les premiers ticks (lancement de la guerre, chargement) à part
     print("   ticks 0 à 59 (lancement) : script %s" % ", ".join("t%d=%.0f" % (t, sc[t]) for t in ticks[:60] if sc[t] > 16))
     minute_banc = [t for t in sans0 if t % 3600 == 0]
     hors_banc = [t for t in sans0 if t % 3600 != 0]
@@ -207,12 +232,12 @@ def rapport(a_dir, b_dir, seuil, top, ref=None):
         print("   %s : %s" % (label, fmt_stats(stats([d[t] for t in sans0]))))
     print("   par tranche de 10 min (script, sans les minutes du banc) :")
     for k in range(0, 6):
-        sel = [sc[t] for t in hors_banc if k * 36000 <= t < (k + 1) * 36000]
+        sel = [sc[t] for t in hors_banc if k * 36000 <= t - t0 < (k + 1) * 36000]
         if sel:
             s, c = stats(sel), comptes(sel)
             print("      %2d-%2d min : moy %.3f p99 %.2f max %.1f | >16 ms %d, >8 ms %d, >4 ms %d | whole moy %.3f" % (
                 k * 10, k * 10 + 10, s["moy"], s["p99"], s["max"], c[16.0], c[8.0], c[4.0],
-                sum(whole[t] for t in hors_banc if k * 36000 <= t < (k + 1) * 36000) / len(sel)))
+                sum(whole[t] for t in hors_banc if k * 36000 <= t - t0 < (k + 1) * 36000) / len(sel)))
     pics = [t for t in hors_banc if sc[t] > 4.0]
     print("   phases des ticks > 4 ms (%d) : " % len(pics) + " ; ".join(
         "mod %d : %s" % (p, ", ".join("%d×%d" % (r, n) for r, n in collections.Counter(t % p for t in pics).most_common(4)))
@@ -234,7 +259,7 @@ def rapport(a_dir, b_dir, seuil, top, ref=None):
         mx = collections.defaultdict(float)
         mothers = {}
         for t in sorted(det):
-            if t < 60:
+            if t < t0 + 60:
                 continue
             d = det[t]
             pr = propre(d)
@@ -251,7 +276,7 @@ def rapport(a_dir, b_dir, seuil, top, ref=None):
                     n16[name] += 1
                 if ms > mx[name]:
                     mx[name] = ms
-        nt = max(1, len([t for t in ticks if t >= 60]))
+        nt = max(1, len([t for t in ticks if t - t0 >= 60]))
         print("   portées par temps PROPRE (ms par tick de jeu = total / %d ticks) :" % nt)
         print("   %-34s %-22s %9s %9s %9s %7s %7s %8s  %s" % ("portée", "mère", "propre/t", "incl/t", "max ms", ">4ms", ">16ms",
                                                          "passages", "période des passages > 2 ms"))

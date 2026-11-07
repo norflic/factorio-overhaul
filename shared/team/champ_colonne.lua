@@ -495,49 +495,48 @@ function Co.coal_line(coal, is_coal, free, d, want, target, R, wire, per_side, c
     local amin, amax, lmin, lmax
     if orient == "u" then amin, amax, lmin, lmax = u0, u1, v0, v1 else amin, amax, lmin, lmax = v0, v1, u0, u1 end
     -- foreuses possibles d'un côté sg de la rangée l (corps sur les rangées l + sg .. l + sg * s), glouton le long de a
-    -- Lot PERF3 : lectures par COLONNE x (corps libre sur les s rangées, tuile étrangère, charbon compté sur les s + 2r rangées de la
-    -- zone), gardées pour la rangée l et le côté sg : mêmes réponses que tuile par tuile, sans relire une colonne à chaque position
+    -- Lot PERF3 : SOMMES CUMULÉES 2D, une fois par orientation, de la place occupée, des tuiles étrangères et du charbon sur toute la
+    -- fenêtre lue (positions a de amin - s - r à amax + r, zones de a - r à a + s - 1 + r ; rangées l + sg * y, y de 1 - r à s + r,
+    -- l de lmin - s à lmax + s) : chaque position se juge en temps constant ; les comptes sont entiers et exacts, la règle (corps
+    -- libre, aucune tuile étrangère dans la zone, au moins Co.MIN_COAL tuiles de charbon) est celle d'avant, mêmes réponses
+    local X0, X1 = amin - s - 2 * r, amax + s - 1 + 2 * r
+    local Y0, Y1 = lmin - 2 * s - r, lmax + 2 * s + r
+    local H = Y1 - Y0 + 2
+    local NF, FO, CO = {}, {}, {}
+    for i = 0, H - 1 do NF[i] = 0; FO[i] = 0; CO[i] = 0 end -- colonne x = X0 - 1 (bord)
+    for x = X0, X1 do
+      local base, prev = (x - X0 + 1) * H, (x - X0) * H
+      NF[base], FO[base], CO[base] = 0, 0, 0 -- rangée y = Y0 - 1 (bord)
+      local cnf, cfo, cco = 0, 0, 0
+      for y = Y0, Y1 do
+        local pu, pv = P(x, y)
+        if not free(pu, pv) then cnf = cnf + 1 end
+        if is_foreign and is_foreign(pu, pv) then cfo = cfo + 1 end
+        if cc(pu, pv) then cco = cco + 1 end
+        local j = y - Y0 + 1
+        NF[base + j] = NF[prev + j] + cnf
+        FO[base + j] = FO[prev + j] + cfo
+        CO[base + j] = CO[prev + j] + cco
+      end
+    end
+    local function rect(S, xa, xb, ya, yb)
+      local i1, i0 = (xb - X0 + 1) * H, (xa - X0) * H
+      local j1, j0 = yb - Y0 + 1, ya - Y0
+      return S[i1 + j1] - S[i0 + j1] - S[i1 + j0] + S[i0 + j0]
+    end
     local function side_drills(l, sg)
       local A = {}
-      local bodyc, forc, coalc = {}, {}, {}
-      local function body_free(x)
-        local v = bodyc[x]
-        if v == nil then
-          v = true
-          for y = 1, s do local pu, pv = P(x, l + sg * y); if not free(pu, pv) then v = false break end end
-          bodyc[x] = v
-        end
-        return v
-      end
-      local function col_foreign(x)
-        local v = forc[x]
-        if v == nil then
-          v = false
-          for y = 1 - r, s + r do local pu, pv = P(x, l + sg * y); if is_foreign(pu, pv) then v = true break end end
-          forc[x] = v
-        end
-        return v
-      end
-      local function col_coal(x)
-        local v = coalc[x]
-        if v == nil then
-          v = 0
-          for y = 1 - r, s + r do local pu, pv = P(x, l + sg * y); if cc(pu, pv) then v = v + 1 end end
-          coalc[x] = v
-        end
-        return v
-      end
+      local by0, by1, zy0, zy1
+      if sg > 0 then by0, by1, zy0, zy1 = l + 1, l + s, l + 1 - r, l + s + r
+      else by0, by1, zy0, zy1 = l - s, l - 1, l - s - r, l - 1 + r end
       local a = amin - s - r
       while a <= amax + r do
-        local ok = true
-        for x = a, a + s - 1 do if ok and not body_free(x) then ok = false end end
+        local ok = rect(NF, a, a + s - 1, by0, by1) == 0
         local n = 0
         if ok and is_foreign then -- lot MELANGE
-          for x = a - r, a + s - 1 + r do if ok and col_foreign(x) then ok = false end end
+          ok = rect(FO, a - r, a + s - 1 + r, zy0, zy1) == 0
         end
-        if ok then
-          for x = a - r, a + s - 1 + r do n = n + col_coal(x) end
-        end
+        if ok then n = rect(CO, a - r, a + s - 1 + r, zy0, zy1) end
         if ok and n >= Co.MIN_COAL then A[#A + 1] = a; a = a + s else a = a + 1 end
       end
       return A

@@ -207,8 +207,8 @@ local function machine_cost(cat, st, list)
   return best
 end
 
-local function evaluate(cat, st)
-  -- Faisabilité : plus petit point fixe (tout faux au départ, on ne fait que passer à vrai).
+--- Faisabilité : plus petit point fixe (tout faux au départ, on ne fait que passer à vrai). Ne lit ni n'écrit les coûts.
+local function evaluate_feas(cat, st)
   local passes = 0
   local changed = true
   while changed and passes < G.MAX_PASSES do
@@ -245,9 +245,12 @@ local function evaluate(cat, st)
     end
   end
   st.passes = passes
-  -- Coût de choix : min-plus, itéré jusqu'à stabilité (borne MAX_PASSES).
+end
+
+--- Coût de choix : min-plus, itéré jusqu'à stabilité (borne MAX_PASSES), APRÈS la faisabilité (il la lit).
+local function evaluate_cost(cat, st)
   for _, res in ipairs(cat.resource_list) do st.cost[res] = st.known[res] and 1 or G.EXPLORE_COST end
-  changed, passes = true, 0
+  local changed, passes = true, 0
   while changed and passes < G.MAX_PASSES do
     changed, passes = false, passes + 1
     for _, rname in ipairs(cat.recipe_list) do
@@ -272,6 +275,11 @@ local function evaluate(cat, st)
       end
     end
   end
+end
+
+local function evaluate(cat, st)
+  evaluate_feas(cat, st)
+  evaluate_cost(cat, st)
 end
 
 --- Meilleur producteur d'un objet : faisable d'abord, puis le moins cher, puis le nom (ressource avant recette).
@@ -647,6 +655,19 @@ function G.prepare(cat, state)
   -- objets du stock sont pris par le dépliage (étape « take ») mais n'amorcent pas la faisabilité (revue M2).
   for _, item in ipairs(G.durable_kinds(cat, state)) do st.feas[item], st.order[item] = true, 0 end
   evaluate(cat, st)
+  return st
+end
+
+--- Lot PERF4 : la FAISABILITÉ seule (feas, tfeas, order, nfeas, passes : exactement ceux de G.prepare, la même boucle, qui ne lit
+--- pas les coûts), SANS les coûts de choix (cost reste vide, feas_only vrai). Pour qui ne lit que feas et tfeas : les dépliages
+--- d'essai de Gen.resource_values (une ressource supposée connue). Ne JAMAIS passer ce résultat à G.unfold ni lire ses coûts.
+function G.prepare_feas(cat, state)
+  local st = {
+    known = copy(state.known), techs = copy(state.techs), built = copy(state.built),
+    feas = {}, tfeas = {}, cost = {}, passes = 0, order = {}, nfeas = 0, feas_only = true,
+  }
+  for _, item in ipairs(G.durable_kinds(cat, state)) do st.feas[item], st.order[item] = true, 0 end
+  evaluate_feas(cat, st)
   return st
 end
 

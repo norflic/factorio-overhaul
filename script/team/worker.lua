@@ -46,6 +46,7 @@ local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces 
 local Mi = require("shared.team.main_inventaire") -- lot MAIN-INVENTAIRE : minage à la main, inventaire plein, minerai au sol
 local Sorties = require("script.team.sorties") -- lot CHARBON-MAIN : la ressource qui dort dans les coffres des avant-postes bruts
 local CB = require("shared.team.craft_bg") -- lot CRAFT-PARALLELE : fabrication en arrière-plan (règles pures, bilan [FO-CRAFT])
+local Tp = require("shared.team.tri_proches") -- lot CERVEAU-CENTRAL (P1) : tri des tuiles de minage, positions lues une fois
 
 local Worker = {}
 Worker.BUILD_LOGS = 30 -- lot SCALE-COMPLET : lignes [FO-AVANT-POSTE] au plus par équipe (f.stats.build_logs)
@@ -671,12 +672,8 @@ function Worker.program(f, task, surface, tick)
     local names = Harvest.names_for(f, task.resource, task.trees)
     if #names == 0 then return nil end -- lot KIT : un objet sans entité récoltable ne se mine pas à la main
     local res = surface.find_entities_filtered({ position = f.hq_pos, radius = task.radius or 96, name = names, limit = 256 }) -- lot KIT : minerai = l'entité du même nom, bois = arbres
-    table.sort(res, function(a, b)
-      local da, db = dist2(a.position, f.hq_pos), dist2(b.position, f.hq_pos)
-      if da ~= db then return da < db end
-      if a.position.x ~= b.position.x then return a.position.x < b.position.x end
-      return a.position.y < b.position.y
-    end)
+    -- Lot CERVEAU-CENTRAL (P1) : même ordre (distance au QG, puis x, puis y), positions lues une fois (shared/team/tri_proches.lua).
+    Tp.sort(res, f.hq_pos, dist2)
     -- Tuile LIBRE : sous un four ou une foreuse (avant-poste détruit, restes), l'ouvrier sélectionnait le
     -- bâtiment et ne minait rien (moteur réel, E16 it. 11 : 4 minerais livrés en 50 min).
     local best, first_free, free_d
@@ -1422,7 +1419,13 @@ local function defend(agent, tick)
   agent.defense_tick = tick
   local e = agent.entity
   Profiler.fstart("worker:defend")
-  local enemy = e.surface.find_nearest_enemy({ position = e.position, max_distance = DEFENSE_RADIUS, force = e.force })
+  -- Lot CERVEAU-CENTRAL (P2) : le regard de cette pensée (M.sense) n'a rien vu dans un disque qui contient celui-ci : la recherche
+  -- rendrait nil (25,4 % des recherches au moteur simulé, 4 factions × 30 PNJ) ; elle est sautée, même suite.
+  local p = e.position
+  local enemy = nil
+  if not (H and H.look_clear and H.look_clear(agent.id, tick, p, DEFENSE_RADIUS)) then
+    enemy = e.surface.find_nearest_enemy({ position = p, max_distance = DEFENSE_RADIUS, force = e.force })
+  end
   Profiler.fstop("worker:defend")
   if enemy and e.get_item_count(T.worker_ammo) + e.get_item_count("piercing-rounds-magazine") > 0 then
     e.shooting_state = { state = defines.shooting.shooting_enemies, position = enemy.position }
