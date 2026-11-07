@@ -9,8 +9,8 @@
   (120 × 67,5 tuiles, MOTEUR.md §13.3). Rectangle d'action : la vue + 3 tuiles de marge (sprites qui débordent).
 
   Phases (300 ticks mesurés chacune ; d'abord les RÉVERSIBLES, puis les soustractions définitives, sur la COPIE de la partie) :
-    temoin-a ; alt-inverse (mode Alt inversé) ; rendu-mod-cache (objets de rendu du mod invisibles) ; nuit (daytime 0,5 figé :
-    les couches draw_as_light comptent-elles ?) ; temoin-b ;
+    temoin-a ; alt-inverse (mode Alt inversé) ; rendu-mod-cache (objets de rendu du mod invisibles) ; nuit (daytime 0,5 ; toutes les autres phases à midi, heure
+    figée : les couches draw_as_light comptent-elles de jour ?) ; temoin-b ;
     pnj-figes (tous les fo-companion active = false ; 700 ticks d'attente : traces de pas, 600 ticks de vie) ;
     machines-figees (fours, foreuses, chaudières, machines à vapeur, bras, assembleurs, labos de la vue : fumée et couches
     de travail ; 700 ticks d'attente : fumée, 600 ticks) ;
@@ -286,6 +286,12 @@ S.init = function(ctx)
   log(string.format("[FO-PERF4] debut tick %d (%.1f min de jeu) ; mode x10-sprites ; mods : %s", t, t / 3600, table.concat(mods, ", ")))
   ctx.call("profiler", false, false)
   game.speed = VITESSE
+  -- Heure FIGÉE à midi pour toutes les phases (la sauvegarde part en pleine nuit, daytime 0,473 : des phases à des heures
+  -- différentes compteraient des lumières différentes) ; seule la phase « nuit » passe à minuit, puis revient à midi.
+  local s = ctx.surface()
+  ctx.log(string.format("heure de la sauvegarde %.3f (figee %s) ; figee a midi (0) pour le banc", s.daytime, tostring(s.freeze_daytime)))
+  s.freeze_daytime = true
+  s.daytime = 0
   ctx.check(t > 0, "partie chargee depuis une sauvegarde (tick de depart > 0)", t)
 end
 
