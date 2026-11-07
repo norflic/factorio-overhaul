@@ -14,6 +14,9 @@
 package.loaded["shared.team.champ_fonderie"] = package.loaded["shared.team.champ_fonderie"] or require("__factorio-overhaul__/shared/team/champ_fonderie")
 package.loaded["shared.team.melange"] = package.loaded["shared.team.melange"] or require("__factorio-overhaul__/shared/team/melange")
 package.loaded["shared.team.champ_colonne"] = package.loaded["shared.team.champ_colonne"] or require("__factorio-overhaul__/shared/team/champ_colonne")
+-- (36f3a424 : champ.lua requiert aussi champ_couverture ; un require de l'autre mod se résout depuis CE mod : chaque dépendance
+-- est chargée ici d'abord, feuilles avant le reste)
+package.loaded["shared.team.champ_couverture"] = package.loaded["shared.team.champ_couverture"] or require("__factorio-overhaul__/shared/team/champ_couverture")
 package.loaded["shared.team.champ"] = package.loaded["shared.team.champ"] or require("__factorio-overhaul__/shared/team/champ")
 local Ch = package.loaded["shared.team.champ"]
 local Fm = require("__factorio-overhaul__/tests/champ_formes")
