@@ -745,10 +745,11 @@ local function avancer(j, tick)
   if not S().profil then return avancer_(j, tick) end
   PR = { game.create_profiler(true), game.create_profiler(true), game.create_profiler(true) }
   local st = stat(j.id)
-  local c0, t0, f0, g0, b0 = st.cibles, st.tuiles, st.feux, st.rangees or 0, st.bandes or 0
+  local c0, t0, f0, g0, b0, p0 = st.cibles, st.tuiles, st.feux, st.rangees or 0, st.bandes or 0, st.poteaux
   local fini = avancer_(j, tick)
-  log({ "", string.format("[FO-ATT2-PROFIL] tick %d %s rt %d : coups %d, tuiles %d, feux %d, rangees %d, bandes %d, jetons %d ; preparation ",
-    tick, j.id, tick - j.t0, st.cibles - c0, st.tuiles - t0, st.feux - f0, (st.rangees or 0) - g0, (st.bandes or 0) - b0, j.cout or 0),
+  log({ "", string.format("[FO-ATT2-PROFIL] tick %d %s rt %d : coups %d, tuiles %d, feux %d, rangees %d, bandes %d, poteaux %d, jetons %d ; preparation ",
+    tick, j.id, tick - j.t0, st.cibles - c0, st.tuiles - t0, st.feux - f0, (st.rangees or 0) - g0, (st.bandes or 0) - b0, st.poteaux - p0,
+    j.cout or 0),
     PR[1], " ; pas ", PR[2], " ; coups ", PR[3] })
   PR = nil
   return fini
