@@ -38,7 +38,7 @@ end
 local function run_all(Cd)
   local box = Cd.zone({ { x = 0, y = 0 }, { x = 100, y = -50 } }, Cd.NEAR)
   local function calm(extra)
-    local s = { box = box, players = { { x = 5000, y = 5000 } } }
+    local s = { box = box, players = { { x = 5000, y = 5000 } }, army_out = false }
     for k, v in pairs(extra or {}) do s[k] = v end
     return s
   end
@@ -71,14 +71,18 @@ local function run_all(Cd)
     check(up and why == "joueur proche", "2 : un des joueurs dans la zone (bord compris)")
     check(not Cd.awake(calm({ players = { { x = 100 + Cd.NEAR + 1, y = 0 } } }), T), "2 : joueur juste hors de la zone : loin")
     check(not Cd.awake(calm({ players = {} }), T), "2 : aucun joueur connecte : loin")
+    up, why = Cd.awake(calm({ army_out = true }), T)
+    check(up and why == "armee dehors", "2 : une armee dehors (attaque, retour, eclaireur, attaque preparee) : rythme normal")
   end
 
   section("3. garde fermee, votre equipe")
   do
     local up, why = Cd.awake({ players = {} }, 0)
     check(up and why == "zone inconnue", "3 : zone inconnue : rythme normal")
-    up, why = Cd.awake({ box = box }, 0)
+    up, why = Cd.awake({ box = box, army_out = false }, 0)
     check(up and why == "joueurs inconnus", "3 : joueurs inconnus : rythme normal")
+    up, why = Cd.awake({ box = box, players = {} }, 0)
+    check(up and why == "armee inconnue", "3 : etat de l'armee non dit : rythme normal")
     up, why = Cd.awake({ is_player = true, box = box, players = {} }, 0)
     check(up and why == "votre equipe", "3 : votre equipe garde son rythme")
     check(Cd.skip({ last = 0 }, { is_player = true, box = box, players = {} }, 300) == false, "3 : votre equipe ne saute jamais")
@@ -100,6 +104,8 @@ local function run_all(Cd)
     check(Cd.SLOW == 600, "4 : Cd.SLOW vaut 600 ticks (decision du DC)")
     local t2 = slots(function(tick) return calm({ threatened_until = tick + 900 }) end, 8)
     check(#t2 == 9, "4 : menace : aucune pensee sautee")
+    local t3 = slots(function(tick) return calm({ army_out = tick >= 600 and tick < 1500 }) end, 8)
+    check(table.concat(t3, " ") == "0 600 900 1200 1800 2400", "4 : armee dehors de 600 a 1500 : aucune pensee sautee pendant ce temps (" .. table.concat(t3, " ") .. ")")
     check(Cd.skip({}, calm(), 300) == false, "4 : premiere pensee jamais sautee")
   end
 
@@ -112,7 +118,7 @@ local function run_all(Cd)
     local pending
     for tick = 0, 1300 do
       if tick == 950 then player = { x = 50, y = 0 } end
-      local s = { box = box, players = { player } }
+      local s = { box = box, players = { player }, army_out = false }
       if pending and tick == pending then
         st.asleep, st.last, pending = false, tick, nil
         thinks[#thinks + 1] = tick
@@ -123,7 +129,7 @@ local function run_all(Cd)
     end
     check(thinks[1] == 0 and thinks[2] == 600 and thinks[3] == 951, "5 : endormie a 900, joueur a 950 : repense a 951 (" .. table.concat(thinks, " ") .. ")")
     check(thinks[4] == 1200, "5 : puis au rythme normal (" .. tostring(thinks[4]) .. ")")
-    local up = Cd.wake({ asleep = false }, { box = box, players = { { x = 0, y = 0 } } }, 0)
+    local up = Cd.wake({ asleep = false }, { box = box, players = { { x = 0, y = 0 } }, army_out = false }, 0)
     check(up == false, "5 : une faction eveillee n'est pas reveillee (rien a faire)")
     check(Cd.wake({ asleep = true }, calm(), 0) == false, "5 : endormie et calme : reste endormie")
   end
@@ -171,6 +177,8 @@ local MUTANTS = {
   { "votre equipe ralentie", { 'if s.is_player then return true, "votre equipe" end', "" } },
   { "saute toujours (SLOW ignore)", { "if tick - st.last >= Cd.SLOW then return false, why end", "" } },
   { "zone sans elargissement", { "local d = near or Cd.NEAR", "local d = 0" } },
+  { "armee dehors ignoree", { 'if s.army_out ~= false then return true, s.army_out == true and "armee dehors" or "armee inconnue" end', "" } },
+  { "armee inconnue lue comme rentree (garde ouverte)", { "if s.army_out ~= false then", "if s.army_out == true then" } },
   { "premiere pensee sautee", { 'if type(st.last) ~= "number" then return false, "premiere pensee" end', 'if type(st.last) ~= "number" then return true, "premiere pensee" end' } },
 }
 local killed = 0

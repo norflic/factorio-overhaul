@@ -11,11 +11,15 @@
     « attaque »           un bâtiment touché par une unité ou un personnage adverse depuis moins de Cd.ALERT ticks (f.attack_alert_t,
                           script/team/reparation.lua) ;
     « perte »             une entité de la faction morte, où qu'elle soit, depuis moins de Cd.ALERT ticks (f.lost_t, on_died) ;
-    « ennemi pres du QG » la base menacée ou envahie à la dernière pensée (DefChoix.base, view.base_alert), tenue jusqu'à la suivante.
+    « ennemi pres du QG » la base menacée ou envahie à la dernière pensée (DefChoix.base, view.base_alert), tenue jusqu'à la suivante ;
+    « armee dehors »      un groupe armé de la faction en route ou au combat (attaque, retour, éclaireur : f.groups, entretenus par
+                          Military.maintain DANS la pensée) ou une attaque en préparation (f.route_pending, itinéraire demandé) : une
+                          armée qui attaque votre base loin de son QG n'est pas pilotée à Cd.SLOW (condition du lead, 7/11).
   Votre équipe garde son rythme (« votre equipe »).
 
   GARDE FERMÉE PAR DÉFAUT (comme le lot L13) : une entrée absente ne ralentit jamais. Zone inconnue (aucun QG relevé), liste des joueurs
-  absente : la faction reste au rythme normal (causes « zone inconnue », « joueurs inconnus »).
+  absente, état de l'armée non dit (army_out ni vrai ni faux) : la faction reste au rythme normal (causes « zone inconnue », « joueurs
+  inconnus », « armee inconnue »).
   Aucun temps mesuré : seulement des ticks de jeu et des positions. Déterminisme : joueurs dans l'ordre donné (game.connected_players),
   points de la zone triés par l'appelant, aucun hasard.
 ]]
@@ -49,7 +53,7 @@ end
 local function inside(b, x, y) return x >= b.x0 and x <= b.x1 and y >= b.y0 and y <= b.y1 end
 
 --- La faction doit-elle penser à son rythme normal ? s = { is_player, box (Cd.zone), players = { {x, y}, ... }, threatened_until,
---- attack_t, lost_t, base_alert }. Rend (vrai, cause) ou (faux, « loin et calme »).
+--- attack_t, lost_t, base_alert, army_out (booléen) }. Rend (vrai, cause) ou (faux, « loin et calme »).
 function Cd.awake(s, tick)
   if s.is_player then return true, "votre equipe" end
   if type(s.box) ~= "table" then return true, "zone inconnue" end
@@ -58,6 +62,7 @@ function Cd.awake(s, tick)
   if type(s.attack_t) == "number" and tick - s.attack_t < Cd.ALERT then return true, "attaque" end
   if type(s.lost_t) == "number" and tick - s.lost_t < Cd.ALERT then return true, "perte" end
   if s.base_alert then return true, "ennemi pres du QG" end
+  if s.army_out ~= false then return true, s.army_out == true and "armee dehors" or "armee inconnue" end
   for _, p in ipairs(s.players) do
     local x, y = p.x or p[1], p.y or p[2]
     if type(x) == "number" and type(y) == "number" and inside(s.box, x, y) then return true, "joueur proche" end
