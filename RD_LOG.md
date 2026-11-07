@@ -10,7 +10,31 @@
 
 ## 2026-11-07 : défauts de la partie du DC (0.6.58), feuille de route vidéo, disque F:
 
-> Prochains identifiants libres (7/11, 19 h 25) : **F403** et **E265** hors blocs. Attribués ici : F389 à F402, E258 à E264.
+> Prochains identifiants libres (7/11, 22 h 40) : **F407** et **E265** hors blocs. Attribués ici : F389 à F406, E258 à E264.
+
+- **F403 · FAIT** (hors jeu, lua5.2 5.2.4, bisection de x10-script, `scratchpad\x10-script\mod_min*.lua`, `h1.lua`, `h3.lua` ;
+  `fo-logs/2026-11-07_X10/M8_CRITERES.md`) [mesuré hors jeu ; même signature en jeu, d'où déduit pour Factorio] : une table NEUVE
+  rangée à chaque tick dans un LOCAL DE MODULE (upvalue fermée dès le chargement par require, dofile ou le jeu) bloque le
+  ramasse-miettes de Lua 5.2. Même boucle, 1 700 tables par tick pendant 1 300 ticks : upvalue 9 fins de cycle, tas 516 Mo ;
+  champ de table (`M.x = t`) 21 cycles, 57 Mo ; jamais rangée 58 Mo. Lecture [déduit du code de Lua 5.2] : la barrière AVANT
+  d'une upvalue fermée marque aussitôt l'objet et son contenu, et la phase de marquage ne finit plus. Règle : un état réécrit
+  à chaque tick va dans un CHAMP de table, jamais dans un local de module (dt_flush du profileur et le regard du tick de
+  comportement.lua corrigés par x10-script, test `upvalue_gc_test`). Le banc M8 d'avant cette cause est SUSPECT.
+- **F404 · FAIT** (moteur réel, micro-banc `sol-place` de charbonmain, archive `fo-logs/2026-11-07_STOCKAGE-VITAL/sol-place`) :
+  un `item-on-ground` sur une tuile fait rendre `false` à `can_place_entity` d'un coffre en mode par défaut (`ghost_revive`), même
+  à 0,35 du centre, mais `true` en modes `script` et `manual` ; une tuile libre rend `true` dans les trois modes. Un
+  `create_entity` sans contrôle pose le coffre PAR-DESSUS l'objet, qui reste au sol (le coffre ne l'avale pas). D'où les
+  places d'annexes perdues autour du coffre de l'équipe sur la partie du DC.
+- **F405 · FAIT** (moteur réel, x10-moteur, `fo-logs/2026-11-07_X10/MOTEUR.md` §17) : `create_entity` par script RECALE sur la
+  grille une explosion sans le drapeau « placeable-off-grid » (écart (0,285, 0,035) pour les unités, (−0,215, −0,465) pour le
+  ver), alors que le moteur pose son `dying_explosion` et ses déclencheurs au point exact. Correctif de Q5 (3ef892dc) : les
+  explosions recréées reçoivent le drapeau ; effet de bord : « explosion » et « big-explosion » posées par script ailleurs
+  (Bourdon, géants) tombent au point demandé.
+- **F406 · FAIT** (moteur réel, même lot, archives `Q5-identite-*`, `Q5b-identite-*`) : l'`on_script_trigger_effect` levé par un
+  `dying_trigger_effect` n'a NI `target_position` NI `source_position` ; `source_entity` et `target_entity` sont l'entité
+  mourante, encore valide. Unités et bâtiments : levé PENDANT `die()`, explosion vanilla à +0 ; ver : explosion et cadavre à
+  +42 ticks (l'effet est levé à la fin de l'animation de mort). **Corrige F400** sur un point : le « point » de F400 n'est pas
+  un champ de l'événement, c'est la position de l'entité mourante lue par le script.
 
 - **F394 · FAIT** (moteur réel, `f1-lasers` avec images, 48 sites, lot F1-C) : le faisceau d'une electric-turret part de
   position + (L sin θ, −L cos θ · cos 45°) + (0, −H). `attack_parameters.source_offset` = {0, −L} tourne avec la tête
