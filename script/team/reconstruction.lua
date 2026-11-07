@@ -571,8 +571,8 @@ function Recon.gather(f, s, book, free, r, tick, memo)
 end
 
 --- Poteau perdu dont l'objet manque ET ne peut être fabriqué : on pose le poteau du meilleur niveau fabricable (r.place / r.item).
-local function substitute_poles(f, s, book, free, tick, memo)
-  for _, k in ipairs(State.sorted_keys(s.lost)) do
+local function substitute_poles(f, s, book, free, tick, memo, keys)
+  for _, k in ipairs(keys or State.sorted_keys(s.lost)) do
     local r = s.lost[k]
     if r.infra and r.etype == "electric-pole" and not r.place and not r.abandoned and not r.claimed
       and tick - r.tick >= Rc.calm_for(r) and not available_or_craftable(book, free, r.item, memo) then
@@ -596,8 +596,11 @@ function Recon.craft_spares(f, book, free, tick)
   RrRt.drill_swap(f, book, free, tick) -- lot REBUILD-RAPIDE (d) : foreuse thermique de secours (avant la sortie anticipée : registre vide compris)
   local s = f.recon
   if not (s and s.lost and next(s.lost) and book and free) then return 0 end
-  substitute_poles(f, s, book, free, tick, Recon.S5 and { ok = {}, raw = {} } or nil) -- lot S5 : mémo de cet appel seulement
-  local wanted = Rc.demand(s, tick, function(item) return free[item] or 0 end)
+  -- Lot S5 : mémo de cet appel seulement ; clés du registre triées UNE fois pour substitute_poles et Rc.demand (substitute_poles
+  -- ne change que r.place et r.item, pas les clés ; avant : deux tris des clés et le tri de Rc.due, jusqu'à 635 pièces)
+  local keys = Recon.S5 and State.sorted_keys(s.lost) or nil
+  substitute_poles(f, s, book, free, tick, Recon.S5 and { ok = {}, raw = {} } or nil, keys)
+  local wanted = Rc.demand(s, tick, function(item) return free[item] or 0 end, keys)
   if #wanted == 0 then return 0 end
   local added = {}
   local avail = {}

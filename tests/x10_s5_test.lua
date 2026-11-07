@@ -6,7 +6,8 @@
     P4 coût en instructions (debug.sethook, compte 1) et mémoire allouée par appel, avant et après ;
     P5, P6 (relevé de FoSwap, S.plan) : partie foswap, reportée après la fusion de corr-foreuses-th (consigne du lead, 7/11) ;
     P7 Recon.craft_spares avec le mémo (Recon.S5) = sans (témoin) : tâches, registre, journaux ;
-    P8 mutants de P7.
+    P8 mutants de P7 ;
+    P9 Rc.demand avec les clés triées une fois (sans le tri de Rc.due) = Rc.demand d'avant ; mutants ; coût à 635 pièces.
   Graine fixe, déterministe. Usage : lua5.2 tests/x10_s5_test.lua [--court]   (depuis la racine du mod)
 ]]
 package.path = "./?.lua;" .. package.path
@@ -663,6 +664,87 @@ do
   load_recon(RECON_SRC)
   print(string.format("[X10-S5] P8 : mutants vus %d sur %d", seen, total))
   check(seen == total, "P8 : tous les mutants du mémo sont vus (" .. seen .. " sur " .. total .. ")")
+end
+
+-- 9. Rc.demand : clés triées une fois, sans le tri de Rc.due (P9) ----------------------------------------------------------------
+do
+  local RC_SRC = read("shared/team/reconstruction.lua")
+  local function load_rc(src)
+    local fn = assert(load(src, "=reconstruction_regles", "t"))
+    return fn()
+  end
+  local Rc0 = load_rc(RC_SRC)
+  local function registry(r, n)
+    local lost = {}
+    local items = { "small-electric-pole", "medium-electric-pole", "boiler", "steam-engine", "offshore-pump", "lab", "assembler" }
+    for k = 1, n do
+      local key = "k" .. r.int(1, 99999) .. "-" .. k
+      local e = { key = key, item = (r.int(1, 30) > 1) and r.pick(items) or nil, infra = r.int(1, 3) > 1, value = r.int(0, 6) * 2,
+        tick = r.int(0, 20000), losses = r.int(1, 4) }
+      if r.int(1, 8) == 1 then e.claimed = true end
+      if r.int(1, 10) == 1 then e.abandoned = true end
+      if r.int(1, 5) == 1 then e.retry = r.int(0, 30000) end
+      lost[key] = e
+    end
+    return { lost = lost }
+  end
+  local function have_of(r)
+    local h = {}
+    for _, it in ipairs({ "small-electric-pole", "medium-electric-pole", "boiler", "steam-engine", "offshore-pump", "lab", "assembler" }) do
+      h[it] = r.int(0, 3) == 0 and r.int(1, 7) or 0
+    end
+    return function(item) return h[item] or 0 end
+  end
+  local function p9_run(RcN, n_cases, quiet)
+    local r = Rng(909)
+    local bad = 0
+    for _ = 1, n_cases do
+      local st = registry(r, r.int(0, 80))
+      local tick = r.int(0, 32000)
+      local have = have_of(r)
+      local a = Rc0.demand(st, tick, have)
+      local keys = sorted_keys(st.lost)
+      local b = RcN.demand(st, tick, have, keys)
+      for i = #keys, 2, -1 do local j = r.int(1, i) keys[i], keys[j] = keys[j], keys[i] end -- ordre quelconque : même résultat
+      local c = RcN.demand(st, tick, have, keys)
+      if not (deep_eq(a, b) and deep_eq(a, c)) then bad = bad + 1 end
+    end
+    if not quiet then print(string.format("[X10-S5] P9 Rc.demand : %d registres, %d écarts (clés triées puis mêlées)", n_cases, bad)) end
+    return bad
+  end
+  local bad = p9_run(Rc0, COURT and 1000 or 5000)
+  check(bad == 0, "P9 : Rc.demand avec les clés = Rc.demand d'avant (" .. bad .. " écarts)")
+  local seen, total = 0, 0
+  for _, mu in ipairs({
+    { "infrastructure non filtrée", "if r and is_due(r, tick) and r.infra then", "if r and is_due(r, tick) then" },
+    { "délai de reprise oublié", "and (not r.retry or tick >= r.retry) and tick - r.tick >= Rc.calm_for(r)", "and tick - r.tick >= Rc.calm_for(r)" },
+    { "patience oubliée", "and (not r.retry or tick >= r.retry) and tick - r.tick >= Rc.calm_for(r)", "and (not r.retry or tick >= r.retry)" },
+    { "dernière valeur au lieu de la plus haute", "        if r.value > (top[r.item] or -1) then top[r.item] = r.value end\n      end\n    end\n  else",
+      "        top[r.item] = r.value\n      end\n    end\n  else" },
+  }) do
+    local i, j = RC_SRC:find(mu[2], 1, true)
+    assert(i, "mutant introuvable : " .. mu[1])
+    local ok, M = pcall(load_rc, RC_SRC:sub(1, i - 1) .. mu[3] .. RC_SRC:sub(j + 1))
+    local caught = not ok
+    if ok then
+      local ok2, b2 = pcall(p9_run, M, COURT and 1000 or 3000, true)
+      caught = (not ok2) or b2 > 0
+    end
+    total = total + 1
+    if caught then seen = seen + 1 end
+    print(string.format("[X10-S5] P9 mutant « %s » : %s", mu[1], caught and "vu" or "NON VU"))
+  end
+  check(seen == total, "P9 : mutants vus (" .. seen .. " sur " .. total .. ")")
+  -- Coût à 635 pièces (emerald, sauvegarde du DC) : tri des clés une fois de moins, plus de tri de Rc.due.
+  local r = Rng(635)
+  local st = registry(r, 635)
+  local have = have_of(r)
+  local i0 = count_instr(function() local _ = sorted_keys(st.lost) return Rc0.demand(st, 25000, have) end)
+  local keys = sorted_keys(st.lost)
+  local i1 = count_instr(function() return Rc0.demand(st, 25000, have, keys) end)
+  print(string.format("[X10-S5] P9 635 pièces : Rc.demand %d -> %d instructions (/%.1f ; le tri des clés en C n'est pas compté)", i0, i1,
+    i0 / math.max(1, i1)))
+  check(i0 >= 2 * i1, "P9 : Rc.demand à 635 pièces, instructions divisées par au moins 2")
 end
 
 print(string.format("[X10-S5] BILAN : %d OK, %d ECHEC(S)", ok_n, ko_n))
