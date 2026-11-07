@@ -27,6 +27,7 @@ local Config = require("script.core.config")
 local Outposts = require("script.faction.outposts") -- lot FOURS (bancs : fours posés, interrupteur, compteurs de visites)
 local Build = require("script.team.build") -- lot ÉTAGE 5 (bancs : couloir d'un accès écrit) ; déjà chargé par script/team/worker.lua
 local T = require("shared.team.config")
+local Pl = require("shared.team.plan") -- lot FOREUSES-THERMIQUES (bancs : clé de tuile des couloirs, couloir_hits)
 
 -- Lot IA1-b (docs §8.6, pilotage sans clic) :
 --   team_status(key)                 -> état d'organisation publié (Poles.status) ou nil ;
@@ -236,6 +237,38 @@ remote.add_interface("fo-ia1", {
       Build.couloirs_reset(f)
     end
     return { id = o.id, drills = #o.drill_list, sinks = #o.sinks }
+  end,
+  -- Lot FOREUSES-THERMIQUES (bancs seulement) : chaine de poteaux du remplacement sur place allumee (vrai, defaut) ou coupee (faux :
+  -- comportement de 0.6.53, temoin du micro-scenario foreuses-chaine). Rend l'etat lu, ou nil.
+  -- Lot FOREUSES-THERMIQUES (bancs seulement) : entites `name` de l'equipe posees sur une tuile de couloir d'acces (Build.couloirs). Rend le
+  -- nombre, ou nil.
+  couloir_hits = function(key, name)
+    local f = team_of(key)
+    local chest = f and (f.hq or f.chest)
+    if not (chest and chest.valid) or type(name) ~= "string" then return nil end
+    local cor = Build.couloirs(f)
+    local n = 0
+    for _, e in ipairs(chest.surface.find_entities_filtered({ name = name, force = f.force })) do
+      if cor[Pl.tkey(math.floor(e.position.x), math.floor(e.position.y))] then n = n + 1 end
+    end
+    return n
+  end,
+  -- Lot FOREUSES-THERMIQUES (bancs seulement) : etat du remplacement sur place (f.swap) en une chaine lisible, ou nil.
+  swap_state = function(key)
+    local f = team_of(key)
+    local st = f and f.swap
+    if not st then return "aucun releve" end
+    local w = {}
+    for _, k in ipairs(State.sorted_keys(st.why or {})) do w[#w + 1] = k .. "=" .. st.why[k] end
+    return string.format("faites=%d chaine=%d poteaux=%d echanges=%d pretes=%d melange=%d echecs=%d refus=%s", st.done or 0, st.chained or 0, st.poles or 0, st.exchanged or 0,
+      st.ready or 0, st.mixed or 0, st.failed or 0, #w > 0 and table.concat(w, ",") or "-")
+  end,
+  set_regle_chaine = function(key, on)
+    if type(on) ~= "boolean" then return nil end
+    local f = team_of(key)
+    if not (f and f.team) then return nil end
+    f.team.chaine_off = not on
+    return on
   end,
   -- Lot NAV2 (bancs seulement) : agrandit `rounds` fois l'avant-poste `oid` (Outposts.extend, objets fournis) : champ DENSE comme une
   -- partie longue (29 foreuses chez Écarlate). Rend le nombre de foreuses de l'avant-poste, ou nil.

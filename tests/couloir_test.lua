@@ -111,7 +111,7 @@ check("lecteur 4 : masque de la migration du champ", CH:find('blocked[Ch.key(x, 
 check("les tapis traversent (cout du tapis sans couloir)", B:find("if masks.water[k] or masks.blocked[k] or b.occ[k] or planned[k] then return nil end", 1, true) ~= nil)
 check("interrupteur de banc f.team.couloir_off", B:find("(f.team and f.team.couloir_off) then return Build.NO_COULOIR end", 1, true) ~= nil)
 check("journal : derniere issue fermee par", W:find("derniere issue fermee par %s", 1, true) ~= nil and W:find("Co.closer(boxes, tiles, base, rect, order)", 1, true) ~= nil)
-check("B1 : le remplacement sur place passe l'ancienne emprise", FS:find("Outposts.reserved(f, item, { x = cx, y = cy }, dir, { keep = keep, blocked = blocked })", 1, true) ~= nil
+check("B1 : le remplacement sur place passe l'ancienne emprise", FS:find("Outposts.reserved(f, item, { x = cx, y = cy }, edir, { keep = keep, blocked = blocked })", 1, true) ~= nil
   and B:find("if by_cor and keep then by_cor = Build.Co.cuts(", 1, true) ~= nil)
 local _, nad = AD:gsub("Outposts%.reserved%(f, ent%.name, ent%.position, ent%.direction, { couloir = false }%)", "")
 check("B2 : les deux adoptions ignorent le couloir", nad == 2, tostring(nad))
