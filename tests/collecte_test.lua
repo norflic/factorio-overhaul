@@ -66,6 +66,14 @@ local function checks(C)
     "jamais plus de C.MAX_TASKS (2) coffres à la fois")
   check(same(C.pick({ { key = "x", d2 = 1, n = 0, at = 0 } }, 100, 0), {}), "un coffre vide n'est jamais choisi, même à seuil 0")
 
+  -- §3 bis : états servis et voyage à vide (cartes de l'IA, maillons 2 et 3)
+  check(C.collects_outs("fini", 3) and C.collects_outs("chantier", 1), "bandes finies et en chantier : coffres vidés")
+  check(C.collects_outs("reserve", 8) and C.collects_outs("refuse", 2), "bandes en réserve ou refusées : coffres vidés aussi")
+  check(not C.collects_outs("reserve", 0) and not C.collects_outs(nil, 3), "sans coffre de sortie, ou sans état : rien")
+  check(C.outcome(600, 0) == "fail", "coffre plein de plaques, rien entré dans le sac : voyage à vide = échec")
+  check(C.outcome(600, 120) == "done" and C.outcome(0, 0) == "done", "voyage utile ou coffre déjà vidé : done")
+  check(C.outcome(5, -1) == "fail" and C.outcome(nil, nil) == "done", "bornes : retour négatif = échec, valeurs absentes = done")
+
   -- §4 priorité : devant le minage urgent du fer à la place de marché, derrière la garde du QG
   local npc = { id = 1, pos = { x = 0, y = 0 } }
   local home = { x = 0, y = 0 }
@@ -118,6 +126,11 @@ local MUTANTS = {
   { "pick-when-no-shortfall", function(C) local o = C.pick; C.pick = function(cands, short, now) return o(cands, 1000000, now) end end },
   { "pick-key-desc", function(C) wrap(C, function(c) return copy(c, { d2 = 0 }) end); local o = C.pick; C.pick = function(cands, short, now)
       local r = o(cands, short, now); table.sort(r, function(a, b) return a > b end); return r end end },
+  { "serves-only-built", function(C) C.collects_outs = function(s, n) return (n or 0) > 0 and (s == "fini" or s == "chantier") end end },
+  { "serves-no-outs", function(C) C.collects_outs = function(s) return s ~= nil end end },
+  { "outcome-always-done", function(C) C.outcome = function() return "done" end end },
+  { "outcome-ignores-before", function(C) C.outcome = function(b, g) if (g or 0) <= 0 then return "fail" end return "done" end end },
+  { "outcome-partial-fails", function(C) C.outcome = function(b, g) if (b or 0) > 0 and (g or 0) < b then return "fail" end return "done" end end },
   { "prio-too-low", function(C) C.PRIO = 55 end },
   { "prio-not-critical", function(C) C.CRITICAL = false end },
   { "prio-above-guard", function(C) C.PRIO = 99 end },

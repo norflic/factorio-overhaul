@@ -72,4 +72,17 @@ function C.pick(cands, short, now)
   return out
 end
 
+--- Un projet dans l'état `state` avec `n_outs` coffres de sortie voit-il ses coffres vidés ? Tout état : un coffre posé se remplit tant que son
+--- four tourne, que la bande soit « fini », « chantier », « reserve:pile » ou « refuse:migration » (les coffres absents sont ignorés plus loin).
+function C.collects_outs(state, n_outs)
+  return (n_outs or 0) > 0 and state ~= nil
+end
+
+--- Résultat d'un voyage de collecte : `before` objets dans le coffre à l'arrivée, `got` rapportés (sac). « fail » quand le coffre en tenait et
+--- que rien n'est entré (sac plein, QG plein) ; « done » sinon (coffre déjà vidé par un autre, ou voyage utile).
+function C.outcome(before, got)
+  if (before or 0) > 0 and (got or 0) <= 0 then return "fail" end
+  return "done"
+end
+
 return C
