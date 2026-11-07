@@ -1313,6 +1313,24 @@ local function away_state(f, tick)
   return H and H.away_state and H.away_state(f, tick) or nil
 end
 
+--- Relecture revue-0659 (7/11) : borne de l'attente d'un PNJ CHARGÉ à l'étape « home » pendant « away » quand aucun coffre n'est sûr ;
+--- ensuite il garde son sac et passe à la suite. = SD.SHELTER_TICKS (script/ai3/soldats.lua, sans require : le test vérifie l'égalité).
+Worker.AWAY_WAIT_TICKS = 600
+
+--- Le PNJ porte-t-il quelque chose que deposit_all déposerait (tout, sauf son arme et sa dotation de munitions) ? Sans `pairs` : comptes
+--- totaux de chaque inventaire, moins ce qui est gardé.
+local function has_deposit(agent)
+  local e = agent.entity
+  local function over(inv, keep_name, keep_n)
+    if not inv then return false end
+    local kept = keep_name and math.min(keep_n, inv.get_item_count(keep_name)) or 0
+    return inv.get_item_count() > kept
+  end
+  return over(main_inv(agent)) or over(e.get_inventory(defines.inventory.character_guns), T.worker_gun, 1)
+    or over(e.get_inventory(defines.inventory.character_ammo), T.worker_ammo, T.worker_ammo_keep)
+    or over(e.get_inventory(defines.inventory.character_armor))
+end
+
 --- Coffre du stock (QG, puis annexes) le plus proche du PNJ et HORS de portée de la menace `w` (Da.safe_chest), ou nil.
 local function safe_stock_chest(f, agent, w)
   local chests = {}
@@ -1340,16 +1358,36 @@ local function run_steps(agent, tick)
     local away = kind == "home" and away_state(f, tick) or nil
     if away then
       -- Lot CORR-RALLIEMENT (tenue, 7/11 ; RAPPORT EFFONDREMENT §12) : QG débordé (« away ») : pas de retour au QG. Dépôt dans le coffre du stock le
-      -- plus proche HORS de portée de la menace ; sans coffre sûr, le PNJ attend sur place (étape rejugée à chaque pensée ; l'état expire seul).
-      local chest = safe_stock_chest(f, agent, away)
-      if not chest then
+      -- plus proche HORS de portée de la menace.
+      -- Relecture revue-0659 (7/11) : l'attente sans coffre sûr n'avait pas de sortie bornée et, presque tout programme commençant par « home »,
+      -- ARRÊTAIT TOUTE L'ÉQUIPE tant qu'un campeur débordait le QG. Désormais (critères : CRITERES.md EFFONDREMENT, « TENUE, correction ») :
+      --   (a) rien à déposer : l'étape est sautée (début de tâche, retour après un dépôt, fin) ;
+      --   (c) à déposer, aucun coffre sûr : attente au plus Worker.AWAY_WAIT_TICKS, puis le PNJ GARDE son sac et passe à la suite ;
+      --   (b) l'étape suivante exige le QG (« take ») : la tâche est abandonnée (raison « away », pause courte de la peur, shared/team/actif.lua).
+      local carry = has_deposit(agent)
+      local chest = carry and safe_stock_chest(f, agent, away) or nil
+      local st = f.team and f.team.tenue
+      if f.team and not st then st = { skip = 0, kept = 0, abort = 0 } f.team.tenue = st end
+      if chest then
+        agent.away_wait = nil
+        if not goto_step(agent, chest.position, 2, tick) then return end
+        deposit_all(agent, f, chest)
+      elseif carry then
         agent.away_wait = agent.away_wait or tick
+        if tick - agent.away_wait < Worker.AWAY_WAIT_TICKS then return end
+        agent.away_wait = nil
+        if st then st.kept = st.kept + 1 end
+      else
+        agent.away_wait = nil
+        if st then st.skip = st.skip + 1 end
+      end
+      agent.pc = agent.pc + 1
+      local nxt = agent.steps[agent.pc]
+      if nxt and nxt[1] == "take" then
+        if st then st.abort = st.abort + 1 end
+        abort(agent, f, tick, "away")
         return
       end
-      agent.away_wait = nil
-      if not goto_step(agent, chest.position, 2, tick) then return end
-      deposit_all(agent, f, chest)
-      agent.pc = agent.pc + 1
     elseif kind == "home" then
       agent.away_wait = nil
       if not goto_step(agent, home_slot(agent, f), 1, tick) then return end
@@ -1948,5 +1986,7 @@ Registry.on_removed(function(agent)
     for _, j in ipairs(jobs) do bg_close_job(agent, f, j, false, game.tick, "mort") end
   end
 end)
+
+Worker._has_deposit = has_deposit -- tests hors jeu seulement (tests/ia3k_moteur_test.lua, tenue : C3)
 
 return Worker

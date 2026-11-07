@@ -1014,6 +1014,9 @@ local function hold_case(ff, key, chk)
   local inv1 = a1.entity.get_inventory(defines.inventory.character_main)
   local ore0 = inv1.get_item_count("iron-ore")
   inv1.insert({ name = "iron-ore", count = 20 })
+  -- Relecture revue-0659 : le PNJ sans tâche porte aussi quelque chose. À sac vide, le « home » qu'il recevrait sans (b) serait sauté par
+  -- (a) et il resterait libre : le mutant (b) ne se verrait plus ; chargé, il attendrait à ce « home » (c) et ne serait plus libre.
+  if key == "player" then a2.entity.get_inventory(defines.inventory.character_main).insert({ name = "copper-ore", count = 5 }) end
   local del0 = (ff.team and ff.team.delivered and ff.team.delivered["iron-ore"]) or 0
   -- Étape « home » donnée directement (une faction redonne une tâche à un ouvrier libre : la tournée du banc serait refusée).
   a1.task, a1.steps, a1.pc, a1.failed = nil, { { "home" } }, 1, nil
@@ -1025,7 +1028,7 @@ local function hold_case(ff, key, chk)
   local del1 = (ff.team and ff.team.delivered and ff.team.delivered["iron-ore"]) or 0
   -- (un travail de fond peut AJOUTER du minerai au sac pendant l'attente : on juge « rien déposé », pas un compte exact)
   chk(trip and ore1 >= ore0 + 20 and del1 == del0 and p1.x < hq.x - 60, string.format(
-    "%s : chargé, sans coffre hors de portée : il attend au loin, rien déposé (minerai %d, au moins %d ; livré %d -> %d ; à %.0f tuiles du QG)", key, ore1,
+    "%s : chargé, sans coffre hors de portée : rien déposé, il reste au loin (attente bornée, puis sac gardé ; minerai %d, au moins %d ; livré %d -> %d ; à %.0f tuiles du QG)", key, ore1,
     ore0 + 20, del0, del1, hq.x - p1.x))
   if key == "player" then -- une faction redonne une tâche à son ouvrier libre : le cas « sans tâche » n'existe que chez votre équipe retenue
     chk(p2.x < hq.x - 60, string.format("%s : sans tâche, au loin, il ne rentre pas pendant « away » (à %.0f tuiles du QG)", key, hq.x - p2.x))
@@ -1066,10 +1069,94 @@ do
   if fac then hold_case(fac, fac.key) end
 end
 
+-- Relecture revue-0659 (7/11) : l'attente « away » sans coffre sûr arrêtait TOUTE l'équipe (presque tout programme commence par « home »).
+-- Critères écrits AVANT (CRITERES.md EFFONDREMENT, « TENUE, correction ») : un campeur qui déborde (portée 20) reste CAMP_TICKS à 30 tuiles
+-- du QG, sans annexe (aucun coffre sûr) ; l'équipe NON retenue continue ses tâches loin du QG (C1) ; aucun PNJ n'attend plus que la borne
+-- (C2) ; aucun PNJ à sac vide n'attend (C3).
+local CAMP_TICKS = 36000 -- 10 min (demande de la relecture)
+--- Moteur simulé : face à un campeur, l'équipe de 9 PNJ armés y répond « stand » (garnison), pas « away » (diagnostic du 7/11,
+--- scratchpad/diag_camper3.lua : 7 PNJ en garnison, 2 au minage). L'état « away » est donc posé directement pour toute la durée, dans la
+--- MÊME table que hq_threat (M.team(f).away), comme hold_case : c'est ce que produirait un campeur qui déborde, renouvelé 10 min. Aucun
+--- coffre n'est sûr : le coffre du QG est à portée (menace à 20 tuiles, atteinte 52), et il n'y a aucune annexe. L'équipe n'est pas
+--- retenue. Au tick 120, chaque PNJ hors défense reçoit { home, goto à 60 tuiles à l'ouest, home }, comme les programmes du tableau
+--- qui commencent par « home ». Le premier porte 20 minerais (cas (c)). Avant le correctif, tous restaient au premier « home ».
+local function camper_run(ticks)
+  local fc = setup()
+  local Reg = require("script.companion.registry")
+  local Wk = require("script.team.worker")
+  local Cm = require("script.ai3.comportement")
+  local hq = fc.hq_pos
+  remote.call("fo-ia3k", "hold", "player", false) -- l'équipe prend ses tâches (setup la retient)
+  fc.annex = {}
+  local tm = Cm.team(fc)
+  tm.away = { x = hq.x + 20, y = hq.y, reach = 52, ["until"] = game.tick + ticks + 600 }
+  local ok0 = 0
+  for _, s0 in pairs(fc.team.task_stats or {}) do ok0 = ok0 + (s0.ok or 0) end
+  local out = { maxwait = 0, empty_wait = 0, injected = 0, arrived = 0, arr = {} }
+  local goal = { x = hq.x - 60, y = hq.y }
+  local inj = {}
+  local t = 0
+  while t < ticks do
+    M.run_ticks(10)
+    t = t + 10
+    if t == 120 then
+      local first = true
+      for _, id in ipairs(agent_ids(fc)) do
+        local ag = Reg.get(id)
+        if ag and ag.entity.valid and not (ag.task and Da.DEFENSE_KINDS[ag.task.kind]) then
+          if ag.task then Wk.abort(ag, fc, game.tick, "banc") end
+          if first then ag.entity.get_inventory(defines.inventory.character_main).insert({ name = "iron-ore", count = 20 }) first = false end
+          ag.task, ag.steps, ag.pc, ag.failed = nil, { { "home" }, { "goto", goal, 1.5 }, { "home" } }, 1, nil
+          require("script.core.fsm").set(Cm.MACHINE, ag, "step", game.tick)
+          inj[#inj + 1] = id
+        end
+      end
+      out.injected = #inj
+    end
+    for _, id in ipairs(inj) do
+      local ag = Reg.get(id)
+      local q = ag and ag.entity.valid and ag.entity.position
+      if q and not out.arr[id] and (q.x - goal.x) ^ 2 + (q.y - goal.y) ^ 2 <= 3 * 3 then out.arr[id] = true out.arrived = out.arrived + 1 end
+    end
+    for _, id in ipairs(agent_ids(fc)) do
+      local ag = Reg.get(id)
+      if ag and ag.entity.valid and ag.away_wait then
+        out.maxwait = math.max(out.maxwait, game.tick - ag.away_wait)
+        if not Wk._has_deposit(ag) then out.empty_wait = out.empty_wait + 1 end
+      end
+    end
+  end
+  local ok1 = 0
+  for _, s1 in pairs(fc.team.task_stats or {}) do ok1 = ok1 + (s1.ok or 0) end
+  out.done = ok1 - ok0
+  out.live = Cm.away_state(fc, game.tick) ~= nil
+  out.tenue = fc.team.tenue or {}
+  tm.away = nil
+  return out
+end
+
+do
+  local Wk = require("script.team.worker")
+  check(Wk.AWAY_WAIT_TICKS == require("script.ai3.soldats").SHELTER_TICKS,
+    string.format("borne de l'attente « away » = SD.SHELTER_TICKS (%s = %s)", tostring(Wk.AWAY_WAIT_TICKS), tostring(require("script.ai3.soldats").SHELTER_TICKS)))
+  local r = camper_run(CAMP_TICKS)
+  local bound = Wk.AWAY_WAIT_TICKS + require("script.core.config").get("brain_period")
+  check(r.live, "état « away » vivant pendant les 10 min (posé dans la table de hq_threat)")
+  -- C1 (critère corrigé, CRITERES.md : « du minerai miné » était impossible dans ce moteur simulé, qui ne réussit aucun minage à la main) :
+  -- tous les programmes injectés qui commencent par « home » arrivent au loin pendant le campeur.
+  check(r.injected >= 2 and r.arrived == r.injected, string.format(
+    "C1 : sans coffre sûr, l'équipe continue ses tâches loin du QG (%d programmes « home, goto, home » injectés, %d arrivés à 60 tuiles ; %d tâches du tableau finies, lu)",
+    r.injected, r.arrived, r.done))
+  check(r.maxwait <= bound, string.format("C2 : aucun PNJ n'attend plus que la borne (le plus long : %d ticks, borne %d)", r.maxwait, bound))
+  check(r.empty_wait == 0, string.format("C3 : aucun PNJ à sac vide en attente (%d relevés)", r.empty_wait))
+  print(string.format("  (tenue, journal : %d « home » sautés, %d sacs gardés après la borne, %d tâches abandonnées « away »)",
+    r.tenue.skip or 0, r.tenue.kept or 0, r.tenue.abort or 0))
+end
+
 ---------------------------------------------------------------------------------------------------
 section("Mutants de la tenue (chacun refusé)")
 -- Source relue, un motif remplacé, le module chargé à sa place (package.preload) dans une partie neuve.
-local function tenue_mutant(path, modname, old, new)
+local function tenue_mutant(path, modname, old, new, runner)
   local fh = assert(io.open(path, "rb"))
   local src = fh:read("*a")
   fh:close()
@@ -1077,7 +1164,7 @@ local function tenue_mutant(path, modname, old, new)
   if not (a and src:find(old, b + 1, true) == nil) then return nil end
   local msrc = src:sub(1, a - 1) .. new .. src:sub(b + 1)
   package.preload[modname] = function() return assert(load(msrc, "=" .. modname .. "-mutant", "t"))() end
-  local ok, r = pcall(tenue_run)
+  local ok, r = pcall(runner or tenue_run)
   package.preload[modname] = nil
   if not ok then print("  (mutant : erreur " .. tostring(r) .. ")") return { crashed = true } end
   return r
@@ -1115,6 +1202,16 @@ do
   local m5 = tenue_mutant("shared/team/danger_actif.lua", "shared.team.danger_actif", 'return w ~= nil and tick < (w["until"] or -1)', "return w ~= nil")
   check(m5 ~= nil and (m5.crashed or m5.missing > 0 or m5.worst > TENUE_N), string.format(
     "mutant « état sans fin » refusé par T2 (jamais repris : %s)", m5 and tostring(m5.missing) or "motif absent"))
+  -- Relecture revue-0659 : la borne de l'attente et le saut du « home » à sac vide (campeur court : 3 000 ticks suffisent à les voir).
+  local cbound = require("script.team.worker").AWAY_WAIT_TICKS + require("script.core.config").get("brain_period")
+  local m6 = tenue_mutant("script/team/worker.lua", "script.team.worker", "if tick - agent.away_wait < Worker.AWAY_WAIT_TICKS then return end",
+    "do return end", function() return camper_run(3000) end)
+  check(m6 ~= nil and (m6.crashed or m6.maxwait > cbound), string.format(
+    "mutant « borne ignorée » refusé par C2 (attente la plus longue %s ticks, borne %d)", m6 and tostring(m6.maxwait) or "motif absent", cbound))
+  local m7 = tenue_mutant("script/team/worker.lua", "script.team.worker", "local carry = has_deposit(agent)", "local carry = true",
+    function() return camper_run(3000) end)
+  check(m7 ~= nil and (m7.crashed or m7.empty_wait > 0), string.format(
+    "mutant « home de début non sauté » refusé par C3 (%s relevés de PNJ à sac vide en attente)", m7 and tostring(m7.empty_wait) or "motif absent"))
 end
 
 ---------------------------------------------------------------------------------------------------
