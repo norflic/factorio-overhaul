@@ -55,10 +55,11 @@ for _, k in ipairs(T.OUTPOST_ORDER) do LINKS[#LINKS + 1] = { T.outposts[k].resou
 
 --- Lot STOCKAGE-VITAL : matières que l'équipe demande en ce moment { [objet] = q } (manque mesuré du cerveau, manque de l'objectif
 --- courant ; nets du stock) : jamais écartées du ramassage (Stock.skip_fn), reçues au dépôt jusqu'à q (Stock.insert).
+--- Rend aussi les deux tables sources de la pensée (Sg.demand_room compte le dépôt par pensée).
 local function demanded(f)
   local team = f.team
   local ia3 = team and team.ia3
-  return Sg.demanded(ia3 and ia3.short, team and team.missing, LINKS)
+  return Sg.demanded(ia3 and ia3.short, team and team.missing, LINKS), ia3 and ia3.short or false, team and team.missing or false
 end
 
 --- Annexes valides (la liste est purgée des entités disparues).
@@ -198,7 +199,8 @@ function Stock.insert(f, item, n, opts)
     -- au plus la quantité demandée (f.stock_dem[objet], Sg.demand_room) : refusée, elle restait en poche et la demande, nette du stock,
     -- ne baissait jamais.
     if put < n then
-      local room, rec = Sg.demand_room(f.stock_dem and f.stock_dem[item], demanded(f)[item])
+      local need, src_s, src_m = demanded(f)
+      local room, rec = Sg.demand_room(f.stock_dem and f.stock_dem[item], need[item], src_s, src_m)
       local k = math.min(n - put, room)
       if k > 0 then
         local got = plain_insert(f, item, k)
@@ -508,18 +510,25 @@ local GROUND_OPTS = { reserve = true } -- la réserve des vitales s'applique, co
 --- Lot STOCKAGE-VITAL (objets au sol, 7/11 : 1 774 objets au pied du coffre de l'équipe dans la partie du DC, répandus quand le stock
 --- refusait ; source : script/team/migration_champ.lua, give) : le stock reprend les objets posés au sol à Stock.GROUND_RADIUS tuiles au
 --- plus du QG, Stock.GROUND_LIMIT au plus par passage, piles triées par position (x, y, puis nom) ; un seul dépôt par objet. Une pile
---- entrée en partie garde son reste au sol (compte réduit), jamais détruite. Une ligne [FO-STOCKAGE] par passage qui trouve des objets.
+--- entrée en partie garde son reste au sol (compte réduit), jamais détruite. PILES SIMPLES seulement (relecture de 3a276733, B2 :
+--- recréer la pile à neuf perdrait grille d'équipement, inventaire, étiquette, santé) : prototype de type « item » (plaques, minerais,
+--- charbon, coffres : tout ce que migration_champ et melange répandaient) et santé pleine ; le reste (armure, munitions entamées, objets
+--- abîmés, plans) reste au sol. Une ligne [FO-STOCKAGE] par passage qui reprend quelque chose, au plus une par Stock.REFUSED_LOG sinon.
 --- Rend le nombre d'objets repris.
 function Stock.pick_ground(f, surface, tick)
   if not (f.hq and f.hq.valid and f.hq_pos and surface and surface.find_entities_filtered) then return 0 end
   local ents = surface.find_entities_filtered({ name = "item-on-ground", position = f.hq_pos, radius = Stock.GROUND_RADIUS,
     limit = Stock.GROUND_LIMIT })
   if #ents == 0 then return 0 end
-  local rows, names, by = {}, {}, {}
+  local rows, names, by, simple = {}, {}, {}, {}
   for _, e in ipairs(ents) do
     local st = e.valid and e.stack
-    if st and st.valid_for_read then
-      local name = st.name
+    local name = st and st.valid_for_read and st.name
+    if name and simple[name] == nil then
+      local proto = game.item_prototypes[name]
+      simple[name] = proto ~= nil and proto.type == "item"
+    end
+    if name and simple[name] and (st.health or 1) >= 1 then
       if not by[name] then
         by[name] = { n = 0, put = 0 }
         names[#names + 1] = name
@@ -555,8 +564,12 @@ function Stock.pick_ground(f, surface, tick)
     parts[#parts + 1] = string.format("%s %d", name, by[name].n)
     seen = seen + by[name].n
   end
-  log(string.format("[FO-STOCKAGE] %s : sol du QG : %d objet(s) repris sur %d lu(s) (%s), %d pile(s) au plus par passage, rayon %d, a %.1f min",
-    f.key or "player", took, seen, table.concat(parts, ", "), Stock.GROUND_LIMIT, Stock.GROUND_RADIUS, ((tick or 0) - (f.started or 0)) / 3600))
+  if #names == 0 then return 0 end -- aucune pile simple : rien à reprendre, rien à écrire
+  if took > 0 or not f.ground_log or (tick or 0) - f.ground_log >= Stock.REFUSED_LOG then
+    f.ground_log = tick or 0
+    log(string.format("[FO-STOCKAGE] %s : sol du QG : %d objet(s) repris sur %d lu(s) (%s), %d pile(s) au plus par passage, rayon %d, a %.1f min",
+      f.key or "player", took, seen, table.concat(parts, ", "), Stock.GROUND_LIMIT, Stock.GROUND_RADIUS, ((tick or 0) - (f.started or 0)) / 3600))
+  end
   f.stats = f.stats or {}
   f.stats.ground_taken = (f.stats.ground_taken or 0) + took
   f.stats.ground_passes = (f.stats.ground_passes or 0) + 1

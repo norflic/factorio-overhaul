@@ -14,7 +14,8 @@
                                                 jamais une matière de `need` (Sg.demanded), même stock presque plein
     Sg.demanded(short, missing, links)          matières demandées en ce moment et leur quantité (manque mesuré, manque de l'objectif ;
                                                 plaque <-> minerai) : { [objet] = q }
-    Sg.demand_room(rec, q)                      part d'une matière demandée qui peut encore entrer dans la réserve des vitales (borne q)
+    Sg.demand_room(rec, q, s, m)                part d'une matière demandée qui peut encore entrer dans la réserve des vitales (borne q,
+                                                comptée par pensée : s et m, tables de la demande de cette pensée)
     Sg.urgent(fill, have_chest, cfg)            vrai : coffre à réclamer en urgence (rempli à cfg.urgent_at ou plus, aucun en main)
     Sg.fits(rows, empty)                        un contenu tient-il au stock (piles entamées, puis cases vides) ; (vrai/faux, cases)
   `fill` = cases prises / cases ; `vital` = { [objet] = true } ; `saturated` = { [objet] = true } (cerveau, f.team.ia3.saturated).
@@ -63,12 +64,15 @@ function Sg.demanded(short, missing, links)
 end
 
 --- Relecture revue-0659 (D1) : une matière demandée entre au dépôt dans la réserve des vitales, comme une vitale, jusqu'à la quantité
---- demandée `q` et pas au-delà (sinon elle mangerait la réserve du fer et du charbon). `rec` = { q = quantité lue, used = déjà entrée
---- dans la réserve pour elle } : remis à zéro quand la demande change (le cerveau la recompte NETTE du stock à chaque pensée : la somme
---- des dépôts d'une même pensée ne dépasse pas q). Rend (place, rec) ; (0, rec) sans demande.
-function Sg.demand_room(rec, q)
+--- demandée `q` et pas au-delà (sinon elle mangerait la réserve du fer et du charbon). `rec` = { q, used = déjà entrée dans la réserve
+--- pour elle, s, m } : compté PAR PENSÉE (relecture de 3a276733, B1 : lié à la seule valeur q, une demande revenue à la même quantité
+--- après un creux trouvait used = q et la matière était refusée de nouveau) ; `s` et `m` sont les tables de la demande de la pensée
+--- (f.team.ia3.short et f.team.missing, refaites à neuf à chaque pensée : shared/ai3/cerveau.lua, st.short ; script/team/team.lua,
+--- f.team.missing), comparées par identité : une pensée neuve remet le compte à zéro, la demande y étant recomptée NETTE du stock ; la
+--- somme des dépôts d'une même pensée ne dépasse pas q. Rend (place, rec) ; (0, rec) sans demande.
+function Sg.demand_room(rec, q, s, m)
   if not q or q <= 0 then return 0, rec end
-  if not rec or rec.q ~= q then rec = { q = q, used = 0 } end
+  if not rec or rec.q ~= q or rec.s ~= s or rec.m ~= m then rec = { q = q, used = 0, s = s, m = m } end
   return math.max(0, q - rec.used), rec
 end
 

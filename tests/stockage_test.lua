@@ -56,6 +56,10 @@ local function suite(Sg)
   local r3, rec3 = Sg.demand_room({ q = 200, used = 200 }, 100)
   c("borne : demande recomptee a 100 -> 100, compte remis a zero", r3 == 100 and rec3.used == 0 and rec3.q == 100)
   c("borne : sans demande -> 0", Sg.demand_room({ q = 200, used = 0 }, nil) == 0 and Sg.demand_room(nil, 0) == 0)
+  local A1, A2 = {}, {}
+  local r4, rec4 = Sg.demand_room({ q = 200, used = 200, s = A1, m = false }, 200, A2, false)
+  c("borne : meme quantite redemandee a une pensee NEUVE -> 200, compte remis a zero (B1)", r4 == 200 and rec4.used == 0 and rec4.s == A2)
+  c("borne : meme pensee, meme quantite -> 0", Sg.demand_room({ q = 200, used = 200, s = A1, m = false }, 200, A1, false) == 0)
   local sk9 = Sg.skip({ stone = true }, 0.9, V, CFG, true, need)
   c("stock a 90 %, cuivre demande : cuivre ramasse et mine", Sg.skipped(sk9, "copper-plate", V) == false and Sg.skipped(sk9, "copper-ore", V) == false)
   c("stock a 90 %, cuivre demande : pierre et bois toujours ecartes", Sg.skipped(sk9, "stone", V) == true and Sg.skipped(sk9, "wood", V) == true)
@@ -108,7 +112,7 @@ do
     sk:find("  Stock.pick_ground(f, surface, tick) -- lot STOCKAGE-VITAL", 1, true) ~= nil
     and sk:find('find_entities_filtered({ name = "item-on-ground", position = f.hq_pos, radius = Stock.GROUND_RADIUS,', 1, true) ~= nil)
   check("cablage D1 : au depot, la matiere demandee prend la reserve, bornee (Sg.demand_room, f.stock_dem)",
-    sk:find("local room, rec = Sg.demand_room(f.stock_dem and f.stock_dem[item], demanded(f)[item])", 1, true) ~= nil
+    sk:find("local room, rec = Sg.demand_room(f.stock_dem and f.stock_dem[item], need[item], src_s, src_m)", 1, true) ~= nil
     and sk:find("rec.used = rec.used + got", 1, true) ~= nil)
   check("cablage : Stock.insert borne les non vitales (Sg.new_stacks, reserve au seul coffre du QG), pas les coffres d'annexe", sk:find("local allowed = Sg.new_stacks(item, em, #hq_inv, VITAL, T.stockage)", 1, true) ~= nil
     and sk:find("local plan = opts and opts.reserve and not VITAL[item] and not ANNEX[item] and non_vital_plan(f, item, n) or nil", 1, true) ~= nil
@@ -287,7 +291,8 @@ local MUT = {
   { "demande ignoree (plaque sans son minerai)", "    if q > 0 then out[l[1]], out[l[2]] = q, q end", "" },
   { "quantites additionnees au lieu du maximum", "out[m[1]] = math.max(out[m[1]] or 0, n) end", "out[m[1]] = (out[m[1]] or 0) + n end" },
   { "au-dela de la quantite demandee (borne ignoree)", "  return math.max(0, q - rec.used), rec", "  return q, rec" },
-  { "demande jamais recomptee (compte jamais remis a zero)", "  if not rec or rec.q ~= q then rec = { q = q, used = 0 } end", "  if not rec then rec = { q = q, used = 0 } end" },
+  { "demande jamais recomptee (compte jamais remis a zero)", "  if not rec or rec.q ~= q or rec.s ~= s or rec.m ~= m then rec = { q = q, used = 0, s = s, m = m } end", "  if not rec then rec = { q = q, used = 0, s = s, m = m } end" },
+  { "borne liee a la valeur, pas a la pensee (B1)", "  if not rec or rec.q ~= q or rec.s ~= s or rec.m ~= m then rec = { q = q, used = 0, s = s, m = m } end", "  if not rec or rec.q ~= q then rec = { q = q, used = 0, s = s, m = m } end" },
   { "manque nul compte comme demande", "    if type(n) == \"number\" and n > 0 then out[item] = math.max(out[item] or 0, n) end", "    if type(n) == \"number\" then out[item] = math.max(out[item] or 0, n) end" },
   { "manque de l'objectif ignore", "    if type(m[1]) == \"string\" and n > 0 then out[m[1]] = math.max(out[m[1]] or 0, n) end", "" },
   { "saturee ecartee meme quand rien ne manque", "  if short ~= false then\n", "  if true then\n" },

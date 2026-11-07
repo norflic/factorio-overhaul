@@ -54,7 +54,8 @@ check(table.concat(sa, ",") == table.concat(sb, ","), "déterminisme")
 section("Stock avec des coffres simulés")
 defines = { inventory = { chest = 1 } }
 local STACK = stack_of
-game = { item_prototypes = setmetatable({}, { __index = function(_, k) return { stack_size = STACK[k] or 50 } end }) }
+local TYPES = { ["modular-armor"] = "armor", ["firearm-magazine"] = "ammo" } -- type de prototype (le reste : « item »)
+game = { item_prototypes = setmetatable({}, { __index = function(_, k) return { stack_size = STACK[k] or 50, type = TYPES[k] or "item" } end }) }
 local logs = {}
 function log(s) logs[#logs + 1] = s end
 
@@ -480,6 +481,16 @@ do
   h1.team = { missing = { { "copper-plate", cs } } } -- pensee suivante : la demande recomptee nette du stock
   local d3 = Stock.insert(h1, "copper-plate", 2 * cs, DEP)
   check(d3 == cs and h1.hq.get_inventory().count_empty_stacks() == 0, "D1 : demande recomptee (objectif, 1 pile) : 1 pile de plus (" .. d3 .. ")")
+  -- B1 (relecture de 3a276733) : 2 piles entrees, consommees, creux sans demande, puis la MEME quantite redemandee a une pensee neuve
+  local h2 = scene_d1()
+  h2.team = { ia3 = { short = { ["copper-plate"] = 2 * cs } } }
+  local e1 = Stock.insert(h2, "copper-plate", 2 * cs, DEP)
+  Stock.remove(h2, "copper-plate", 2 * cs) -- consommees par les fabrications
+  h2.team = { ia3 = { short = {} } } -- pensee suivante : le stock couvrait, plus de demande
+  local e2 = Stock.insert(h2, "copper-plate", cs, DEP)
+  h2.team = { ia3 = { short = { ["copper-plate"] = 2 * cs } } } -- pensee neuve : la meme quantite revient
+  local e3 = Stock.insert(h2, "copper-plate", 3 * cs, DEP)
+  check(e1 == 2 * cs and e2 == 0 and e3 == 2 * cs, "B1 : la meme quantite redemandee a une pensee neuve entre de nouveau, bornee (" .. e1 .. ", " .. e2 .. ", " .. e3 .. ")")
   f.team = { ia3 = { saturated = { stone = true } } }
   local skip = Stock.skip_fn(f)
   check(skip ~= nil and skip("stone") and skip("copper-plate") and not skip("coal") and not skip("iron-plate"),
@@ -623,6 +634,22 @@ do
   r.hq.items.coal = (STACK.coal or 50) * 18 -- 2 cases vides, sous la réserve de 3
   local st = ground("stone", 1, 0, 1)
   check(Stock.pick_ground(r, surface_of({ st }), 0) == 0 and st.valid and st.stack.count == 1, "pierre refusee (reserve des vitales) : la pile reste au sol")
+  -- 5 bis) B2 (relecture de 3a276733) : seules les piles simples sont reprises (armure, munitions entamées, objet abîmé : au sol)
+  local sp = team(20)
+  local armor, mag, hurt, plate = ground("modular-armor", 1, 1, 0), ground("firearm-magazine", 1, 2, 0), ground("iron-chest", 1, 3, 0),
+    ground("copper-plate", 1, 4, 0)
+  hurt.stack.health = 0.5
+  local t5 = Stock.pick_ground(sp, surface_of({ armor, mag, hurt, plate }), 0)
+  check(t5 == 1 and armor.valid and mag.valid and hurt.valid and not plate.valid and (sp.hq.items["modular-armor"] or 0) == 0,
+    "piles simples seulement : armure, munitions et coffre abime restent au sol, la plaque est reprise (" .. t5 .. ")")
+  -- 5 ter) journal : un passage qui ne reprend rien écrit au plus une ligne par Stock.REFUSED_LOG
+  for i = #logs, 1, -1 do logs[i] = nil end
+  local st2 = ground("stone", 1, 0, 2)
+  Stock.pick_ground(r, surface_of({ st2 }), 100)
+  Stock.pick_ground(r, surface_of({ st2 }), 200)
+  local nl = 0
+  for _, s in ipairs(logs) do if s:find("sol du QG", 1, true) then nl = nl + 1 end end
+  check(nl <= 1, "journal : sans reprise, au plus une ligne par minute (" .. nl .. ")")
   -- 6) appelé par Stock.grow à chaque passage du stock
   local q = team(20)
   local z = ground("copper-plate", 1, 2, 2)
