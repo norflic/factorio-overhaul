@@ -110,6 +110,7 @@ Build.SITES = {}               -- lot PETROLE : planificateurs de sites { [nom] 
 
 local REACH = P.BUILD_DISTANCE
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (réserve des modules neufs, agrandissement, tapis)
+local Collecte = require("script.team.collecte") -- lot COLLECTE : coffres de sortie du champ collectés en urgence quand le fer manque
 local Rr = require("shared.team.rebuild_rapide") -- lot REBUILD-RAPIDE : projet rouvert sans attendre toute sa matière, ordre, foreuse de secours
 -- Lot ÉTAGE 5 : couloir d'accès réservé des avant-postes (règle pure). Champ de Build, pas une locale : le bloc principal de ce fichier est
 -- à la limite de 200 locales de Lua 5.2 (fusion avec le lot PERIMETRE2).
@@ -4876,6 +4877,7 @@ function Build.think(f, surface, tick)
   if b.opts.seul then
     Board.drop_free(f, function(t) return t.ia1d ~= nil end)
   end
+  Collecte.apply(f, surface, b, tasks, tick) -- lot COLLECTE : fer libre sous le besoin et équipe sous son effectif
   if #tasks > 0 then Board.add(f, tasks, tick) end
   -- Lot FUITES-PILE : amélioration des tapis (R3, ses tapis pris au stock) suspendue pendant une retenue de la pile
   local conv_ok, conv_why = PileRt.porte(f, "upgrade", nil)
