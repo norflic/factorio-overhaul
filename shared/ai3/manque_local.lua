@@ -15,7 +15,9 @@
        on garde le plus grand des deux, jamais leur somme. Une entrée de transit sans tâche est refusée (rien ne permet de la
        dédoublonner).
     3. COURANT : un module à l'arrêt faute de courant n'a pas de manque d'entrée ; il est écrit à part (no_power).
-    4. Demandes hors module (recrue, manque du cerveau) : `wants`, chacune avec sa priorité.
+    4. Demandes hors module (recrue, manque du cerveau) : `wants`, chacune avec sa priorité. Une demande NETTE (`net = true` : le
+       manque de l'objectif, que le planificateur a déjà calculé contre le stock libre) ne puise pas au stock une seconde fois ; elle
+       passe directement aux sorties, puis à la construction.
     5. COUVERTURE d'un manque, par priorité décroissante (puis clé), dans cet ordre :
          a. le STOCK libre ;
          b. les SORTIES dont la collecte est PRISE par un PNJ (en route vers le QG) : disponibles ;
@@ -226,7 +228,7 @@ function Mq.step(st, input, tick)
   for _, w in ipairs(wl) do
     needs[w.item] = needs[w.item] or {}
     needs[w.item][#needs[w.item] + 1] = { key = "w:" .. tostring(w.key), n = w.n,
-      prio = (type(w.prio) == "number" and w.prio == w.prio) and w.prio or 0 }
+      prio = (type(w.prio) == "number" and w.prio == w.prio) and w.prio or 0, net = w.net == true or nil }
   end
   -- Stock libre : seulement les quantités valides.
   local stock = {}
@@ -330,7 +332,7 @@ function Mq.step(st, input, tick)
     local build = 0
     for _, nd in ipairs(nl) do
       local n = nd.n
-      local q = math.min(n, s_left)
+      local q = nd.net and 0 or math.min(n, s_left) -- une demande NETTE a déjà compté le stock (règle 4)
       s_left, n = s_left - q, n - q
       n = from(taken, n, nd, nil)
       n = from(fresh_c, n, nd, "fresh")
@@ -371,6 +373,27 @@ function Mq.step(st, input, tick)
     if used[s.id] and s.collect ~= "taken" and st.wait[s.id] == nil then st.wait[s.id] = tick end
   end
   return res
+end
+
+--- Puits MESURÉS pour la capitalisation (input.sinks, objets par minute) : la part NON couverte des manques des MODULES qui tournent
+--- (res.short_by, clés « m: ») ÷ Mq.H_NEED, ajoutée après la liste `base` (recopiée telle quelle). Les demandes hors module (« w: »,
+--- objectif et recrue) n'y vont pas : la capitalisation les lit déjà (input.need). La consommation d'un module FINI n'est dans aucun
+--- autre puits (Ca.requirements ne propage que puits, buts, ordres ouverts et packs : shared/ai3/demande.lua, en-tête). Sans
+--- résultat (res absent) : `base` seule.
+function Mq.sinks(res, base)
+  local out = {}
+  for _, s in ipairs(base or {}) do out[#out + 1] = s end
+  if type(res) ~= "table" or type(res.short_by) ~= "table" then return out end
+  local per = {}
+  for _, e in ipairs(res.short_by) do
+    local n = type(e) == "table" and num(e.n) or nil
+    if n and n > Mq.EPS and type(e.key) == "string" and e.key:sub(1, 2) == "m:" and type(e.item) == "string" then add(per, e.item, n) end
+  end
+  for _, it in ipairs(sorted_keys(per)) do
+    local r = per[it] / Mq.H_NEED
+    out[#out + 1] = { item = it, rate = r, want = r, src = "mq" }
+  end
+  return out
 end
 
 return Mq
