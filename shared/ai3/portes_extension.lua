@@ -81,40 +81,70 @@ function Pe.site_room(batis, open_sites)
   return math.max(0, limit - math.max(0, int(open_sites) or 0)), limit
 end
 
---- Une décision. a = { workers, idle, free_tasks, batis (modules et bâtiments posés), open_sites } (état du jeu à cette pensée) ; orders = liste triée de
---- { key, item, n, rank, tours, belt, site, measured, alone }. Rend { kept = { ordres (copies, n réduit) }, refused = { { key, why } },
---- closed, room, limit, cause }. Met st à jour (porte du transport, dernier objet mesuré).
-function Pe.decide(st, a, orders)
+--- Porte d'UNE décision (unité 1 d'une décision découpée : Ca.decide_begin). a = { workers, idle, free_tasks, batis (modules et
+--- bâtiments posés), open_sites } (état du jeu à cette pensée). Met la porte du transport à jour (st) et rend g = { closed, tense,
+--- room, limit, batis, last_item, cause } : table de TRAVAIL de la décision (nombres, booléens, une chaîne), lue option par option.
+function Pe.gate(st, a)
   local closed, cause = Pe.transport(st, a)
-  local tense = closed or st.tense_now or st.unknown
   local room, limit = Pe.site_room(a and a.batis, a and a.open_sites)
-  local kept, refused = {}, {}
-  local last_measured = nil
-  for _, o in ipairs(orders or {}) do
-    local rank = int(o.rank) or 3
-    local why = nil
-    if rank > Pe.SAFE_RANK then
-      if closed and o.tours and not o.belt then
-        why = "transport sature : " .. tostring(cause)
-      elseif o.site and room <= 0 then
-        why = string.format("bras : %d chantier(s) ouvert(s) au plus pour %d module(s)", limit, int(a and a.batis) or 0)
-      elseif o.measured and o.item ~= nil and o.item == st.last_item and not o.alone then
-        why = "repetition : meme objet qu'a la decision precedente (signal en retard sur la pose)"
-      end
+  return { closed = closed, tense = closed or st.tense_now or st.unknown or false, room = room, limit = limit,
+    batis = int(a and a.batis) or 0, last_item = st.last_item, measured_item = nil, cause = cause }
+end
+
+--- Une option (un tour de la boucle des ordres : decide_turn) : nil si elle passe, sinon la raison. o = { item, n, rank, tours,
+--- belt, site, measured, alone }.
+function Pe.check(g, o)
+  local rank = int(o.rank) or 3
+  if rank > Pe.SAFE_RANK then
+    if g.closed and o.tours and not o.belt then
+      return "transport sature : " .. tostring(g.cause)
+    elseif o.site and g.room <= 0 then
+      return string.format("bras : %d chantier(s) ouvert(s) au plus pour %d module(s)", g.limit, g.batis)
+    elseif o.measured and o.item ~= nil and o.item == g.last_item and not o.alone then
+      return "repetition : meme objet qu'a la decision precedente (signal en retard sur la pose)"
     end
+  end
+  return nil
+end
+
+--- Unités permises pour une option qui passe : 1 si tendu ou manque mesuré (petite marche), sinon o.n. Rend (n, réduit).
+function Pe.units(g, o)
+  local rank = int(o.rank) or 3
+  if rank > Pe.SAFE_RANK and (g.tense or o.measured) and (int(o.n) or 1) > 1 then return 1, true end
+  return o.n, false
+end
+
+--- L'option choisie est prise : une place de chantier de moins, objet mesuré noté.
+function Pe.take(g, o)
+  local rank = int(o.rank) or 3
+  if o.site and rank > Pe.SAFE_RANK then g.room = g.room - 1 end
+  if o.measured and rank > Pe.SAFE_RANK then g.measured_item = o.item end
+end
+
+--- Fin de la décision (compte rendu) : l'objet mesuré de cette décision devient celui de l'anti-répétition suivante.
+function Pe.finish(st, g) st.last_item = g.measured_item end
+
+--- Une décision sur une liste déjà triée (branchement après coup, ou banc) : Pe.gate, puis Pe.check, Pe.units, Pe.take par ordre,
+--- puis Pe.finish. orders = { { key, item, n, rank, tours, belt, site, measured, alone } }. Rend { kept = { copies, n réduit },
+--- refused = { { key, why } }, closed, room, limit, cause }.
+function Pe.decide(st, a, orders)
+  local g = Pe.gate(st, a)
+  local kept, refused = {}, {}
+  for _, o in ipairs(orders or {}) do
+    local why = Pe.check(g, o)
     if why then
       refused[#refused + 1] = { key = o.key, why = why }
     else
       local c = {}
       for _, k in ipairs({ "key", "item", "n", "rank", "tours", "belt", "site", "measured", "alone" }) do c[k] = o[k] end
-      if rank > Pe.SAFE_RANK and (tense or o.measured) and (int(o.n) or 1) > 1 then c.n, c.reduced = 1, true end
-      if o.site and rank > Pe.SAFE_RANK then room = room - 1 end
-      if o.measured and rank > Pe.SAFE_RANK then last_measured = o.item end
+      c.n, c.reduced = Pe.units(g, o)
+      if not c.reduced then c.reduced = nil end
+      Pe.take(g, o)
       kept[#kept + 1] = c
     end
   end
-  st.last_item = last_measured
-  return { kept = kept, refused = refused, closed = closed, room = room, limit = limit, cause = cause }
+  Pe.finish(st, g)
+  return { kept = kept, refused = refused, closed = g.closed, room = g.room, limit = g.limit, cause = g.cause }
 end
 
 --- Ligne de journal (aucune décision ne la lit).

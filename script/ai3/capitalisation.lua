@@ -55,6 +55,7 @@
 
 local T = require("shared.team.config")
 local Ca = require("shared.ai3.capitalisation")
+local Cf = require("shared.ai3.confirmation") -- lot VIDEO-L5 : capacité CONFIRMÉE (première production observée)
 local Rs = require("shared.ai3.reserve") -- lot INDUSTRIE I1 : description du besoin évalué (journal [FO-RESERVE])
 local L = require("shared.levels.config") -- intégration 0.6.28 : vitesse de plan des bâtiments à niveaux
 local Rp = require("shared.ai3.repli") -- lot CAPI-REPLI : repli par (produit, gisement), matériaux, plafond
@@ -253,7 +254,8 @@ end
 local function state_of(f)
   local t = f.team
   t.capi = t.capi or { v = 1, n = 0, st = {}, deps = {}, seeds = {}, open = {}, done = {}, refused = {}, prod = {},
-    flows = {}, scan = nil, cov = {}, census_i = 0, decisions = 0, orders = 0, stats = {}, series = {} }
+    flows = {}, scan = nil, cov = {}, census_i = 0, decisions = 0, orders = 0, stats = {}, series = {}, cf = Cf.new() }
+  t.capi.cf = t.capi.cf or Cf.new() -- lot VIDEO-L5 : carnet de confirmation (partie sauvée avant lui : créé ici)
   return t.capi
 end
 
@@ -369,6 +371,68 @@ local function scan_radius(f)
   return es and es.radius and es.radius > Capi.SCAN_R and es.radius or Capi.SCAN_R
 end
 
+-- Lot VIDEO-L5 (confirmation observée, PLAN_L3_L5_L13 étape 3) : cause d'un arrêt lue au statut (noms de defines.entity_status,
+-- API 1.1.91) ; working et normal : aucune.
+local CONF_CAUSE = {}
+do
+  local by_cause = {
+    { "courant", { "no_power", "low_power", "not_plugged_in_electric_network" } },
+    { "entree", { "no_ingredients", "item_ingredient_shortage", "fluid_ingredient_shortage", "missing_required_fluid", "no_input_fluid",
+      "low_input_fluid", "no_fuel", "no_minable_resources", "waiting_for_source_items" } },
+    { "sortie", { "full_output", "waiting_for_space_in_destination" } },
+    { "recette", { "no_recipe" } },
+  }
+  for _, c in ipairs(by_cause) do
+    for _, name in ipairs(c[2]) do
+      local v = defines.entity_status[name]
+      if v ~= nil then CONF_CAUSE[v] = c[1] end
+    end
+  end
+end
+
+--- Lot VIDEO-L5 : suit une unité posée (id = numéro d'unité) sous l'objet `item`, compteur `count` (monotone : produits finis d'une
+--- machine ; ou non : objets d'un coffre). Engagée au premier relevé (base 0 : une machine qui a déjà produit est confirmée tout de
+--- suite) ; objet changé (recette changée) : intention nouvelle, comptée depuis le compteur d'aujourd'hui.
+local function conf_track(cs, obs, g, u, item, count, cause, tick)
+  local old = cs.cf.ids[u]
+  local base = 0
+  if old and old.item ~= item then
+    Cf.forget(cs.cf, u)
+    old, base = nil, count
+  end
+  if not old then Cf.engage(cs.cf, { id = u, item = item, base = base }, tick) end
+  obs[u] = { count = count, cause = cause }
+  g.ids[#g.ids + 1] = u
+end
+
+--- Lot VIDEO-L5 : unités CONFIRMÉES d'un groupe : n moins les unités suivies qui ne comptent pas (engagées, arrêtées hors sortie
+--- pleine, en échec) ; une unité sans compteur (foreuse sur un tapis, recette inconnue) reste comptée comme avant.
+local function conf_group(cs, g)
+  local off = 0
+  for _, u in ipairs(g.ids) do if not Cf.counts(cs.cf, u) then off = off + 1 end end
+  g.n_cap = math.max(0, g.n - off)
+  g.ids = nil
+end
+
+--- Lot VIDEO-L5 : journal [FO-CAPI-CONF] d'un relevé : échecs et arrêts qui retirent la capacité (avec la cause), puis le bilan.
+local function conf_log(f, cs, res, tick)
+  local key = f.key or "?"
+  local mn = minutes(f, tick)
+  for _, e in ipairs(res.failed_now) do
+    log(string.format("[FO-CAPI-CONF] %s : echec %s (unite %s) cause %s : %s a %.1f min", key, e.item, tostring(e.id), tostring(e.cause),
+      tostring(e.why), mn))
+  end
+  for _, e in ipairs(res.stopped_now) do
+    if not e.keep then
+      log(string.format("[FO-CAPI-CONF] %s : arret %s (unite %s) cause %s a %.1f min", key, e.item, tostring(e.id), tostring(e.cause), mn))
+    end
+  end
+  local held = sorted_keys(res.hold)
+  log(string.format("[FO-CAPI-CONF] %s : bilan : %d engage(s), %d confirme(s), %d arrete(s), %d echec(s), %d confirme(s) a ce releve, %d perdu(s) ; suspendus : %s a %.1f min",
+    key, res.n.engage, res.n.confirme, res.n.arrete, res.n.echec, #res.confirmed_now, #res.lost_now,
+    #held > 0 and table.concat(held, " ") or "aucun", mn))
+end
+
 local function scan(f, cs, tick)
   local surface = f.hq.surface
   local hq = f.hq_pos
@@ -390,6 +454,10 @@ local function scan(f, cs, tick)
   local machines, drills, labs = {}, {}, {}
   local mk, dk, lk = {}, {}, {}
   local drill_pos = {}
+  -- Lot VIDEO-L5 : observations du relevé (Capi.MUT.sans_conf : tests seulement, le relevé d'avant, sans confirmation)
+  local conf = not Capi.MUT.sans_conf
+  local obs = conf and {} or nil
+  local D = conf and Capi.data() or nil
   for _, e in ipairs(list) do
     local p = e.position
     local role = R.ENTITY_ROLE[e.type]
@@ -402,11 +470,24 @@ local function scan(f, cs, tick)
         local mods, sig = modules_of(e)
         local k = e.name .. "|" .. res .. "|" .. did .. "|" .. sig
         if not dk[k] then
-          dk[k] = { entity = e.name, resource = res, n = 0, deposit = did, mods = mods, sig = sig, units = {} }
+          dk[k] = { entity = e.name, resource = res, n = 0, deposit = did, mods = mods, sig = sig, units = {}, ids = conf and {} or nil }
           drills[#drills + 1] = dk[k]
         end
         dk[k].n = dk[k].n + 1
         if #dk[k].units < Capi.UNITS_MAX then dk[k].units[#dk[k].units + 1] = { x = p.x, y = p.y, u = e.unit_number } end
+        if conf then
+          -- compteur de la cible : produits finis du four nourri, ou minerai du coffre ; sans l'un ni l'autre (tapis), pas suivie
+          local t = get(e, "drop_target")
+          if t and t.valid then
+            local count = nil
+            if R.ENTITY_ROLE[t.type] == "fabrique" then count = get(t, "products_finished")
+            elseif R.KIT_TYPE[t.type] == "coffre" then
+              local ok, c = pcall(function() return t.get_item_count(res) end)
+              if ok then count = c end
+            end
+            if count ~= nil then conf_track(cs, obs, dk[k], e.unit_number, res, count, CONF_CAUSE[get(e, "status")], tick) end
+          end
+        end
         drill_pos[#drill_pos + 1] = { x = p.x, y = p.y, r = get(e.prototype, "mining_drill_radius") or 1, res = res, dep = did }
       end
     elseif role == "labo" then
@@ -431,15 +512,38 @@ local function scan(f, cs, tick)
         local mods, sig = modules_of(e)
         local k = e.name .. "|" .. r.name .. "|" .. where .. "|" .. sig
         if not mk[k] then
-          mk[k] = { entity = e.name, recipe = r.name, n = 0, where = where, mods = mods, sig = sig, units = {} }
+          mk[k] = { entity = e.name, recipe = r.name, n = 0, where = where, mods = mods, sig = sig, units = {}, ids = conf and {} or nil }
           machines[#machines + 1] = mk[k]
         end
         mk[k].n = mk[k].n + 1
         if #mk[k].units < Capi.UNITS_MAX then mk[k].units[#mk[k].units + 1] = { x = p.x, y = p.y, u = e.unit_number } end
+        if conf then
+          -- objet suivi : le premier produit de la recette (relevé des prototypes) ; compteur : produits finis de la machine (sans
+          -- compteur lisible : pas suivie, comptée comme avant)
+          local rr = D.recipes[r.name]
+          local item = rr and rr.products and rr.products[1] and rr.products[1].name
+          local count = item and get(e, "products_finished")
+          if count ~= nil then conf_track(cs, obs, mk[k], e.unit_number, item, count, CONF_CAUSE[get(e, "status")], tick) end
+        end
       end
     end
   end
-  cs.scan = { tick = tick, machines = machines, drills = drills, labs = labs, drill_pos = drill_pos }
+  -- Lot VIDEO-L5 : un pas de la confirmation (toutes les unités suivies vues : une absente est perdue), unités confirmées de chaque
+  -- groupe (n_cap), objets dont une décision attend (hold, lu par la décision : build_input) ; nil sans confirmation (comme avant).
+  local hold = nil
+  if conf then
+    local cfr = Cf.step(cs.cf, obs, tick, { complete = true })
+    if cfr then
+      for _, g in ipairs(machines) do conf_group(cs, g) end
+      for _, g in ipairs(drills) do conf_group(cs, g) end
+      hold = cfr.hold
+      conf_log(f, cs, cfr, tick)
+    else
+      for _, g in ipairs(machines) do g.ids = nil end
+      for _, g in ipairs(drills) do g.ids = nil end
+    end
+  end
+  cs.scan = { tick = tick, machines = machines, drills = drills, labs = labs, drill_pos = drill_pos, hold = hold }
   -- Graines de gisements : avant-postes, foreuses, gisements connus (carte d'IA3-f), sites prospectés, lots de gisement
   -- du plan directeur. Une graine déjà dans un gisement recensé n'est pas relue (sauf à l'échéance du recensement).
   local seeds = {}
@@ -999,6 +1103,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     data = D, state = { techs = st.techs or {}, known = st.known }, stock = stock, flows = cs.flows or {},
     -- lot VIDEO-L13 : plus de `or {}` (une liste absente ferme la décision, decide_start ; cs.scan existe : Capi.think)
     machines = cs.scan and cs.scan.machines, drills = cs.scan and cs.scan.drills, labs = labs,
+    hold = cs.scan and cs.scan.hold, -- lot VIDEO-L5 : objets suspendus (nil : sans confirmation, la capacité compte à la pose)
     deposits = deposits, open = open, sinks = cs.bench_sinks or Ml.sinks(st.mall), need = need, research = research, drill_for = drill_for,
     limits = Rsv.on() and {} or { max_ingredients = 2 }, workers = view.workers or 0, idle = Ca.idle_of(g and g.idle_ema or 0),
     can_grow = (view.workers or 0) < (view.workers_wanted or 0), traits = f.traits or {},
@@ -1495,6 +1600,13 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
     labs_target = res.labs_target, u_star = res.u_star, free = input.reserve and input.reserve.free or nil,
     zero = input.reserve and input.reserve.zero or nil,
     puits = res.demande and { p = res.demande.p, dormant = res.demande.dormant, left0 = res.demande.left0, cap = res.demande.cap } or nil }
+  -- Lots VIDEO-L5 et VIDEO-L13 : refus de la règle par la suspension (« confirmation : ») ou par le plafond d'un objet, au journal.
+  for _, r in ipairs(res.refus or {}) do
+    local why = tostring(r.why)
+    if why:sub(1, 15) == "confirmation : " or why:sub(1, 8) == "plafond " then
+      log(string.format("[FO-CAPI-CONF] %s : refus %s : %s a %.1f min", f.key or "?", tostring(r.key), why, minutes(f, tick)))
+    end
+  end
   if input.reserve then
     -- Lot INDUSTRIE I1 : journal du besoin évalué et de ce qui s'investit (une ligne par décision, au plus une par minute et par équipe).
     local stk = 0

@@ -83,6 +83,15 @@ local function suite(Pe)
   want(keys(r7.kept) == "b", "repetition : x retenu, y passe (" .. keys(r7.kept) .. ")")
   local r7b = Pe.decide(s7, calm2, { ord("a", { item = "y", measured = true, alone = true }) })
   want(keys(r7b.kept) == "a", "repetition : seul en manque de son rang, permis")
+  -- 7 bis. API option par option (decide_turn de la décision découpée) : places décomptées, R1 non réduit.
+  local s7c = Pe.new()
+  local g = Pe.gate(s7c, calm2)
+  local why_site = Pe.check(g, ord("c", { site = true }))
+  Pe.take(g, ord("c", { site = true }))
+  Pe.take(g, ord("c2", { site = true }))
+  local why_full = Pe.check(g, ord("c3", { site = true }))
+  local n_def = Pe.units(g, ord("def", { rank = 1, n = 5 }))
+  want(why_site == nil and why_full ~= nil and n_def == 5, "API option par option : places decomptees, R1 non reduit")
   -- 8. Déterminisme : mêmes entrées, mêmes sorties.
   local sa, sb = Pe.new(), Pe.new()
   local ra8 = Pe.decide(sa, D1, orders)
@@ -98,17 +107,18 @@ check(#bad == 0, "suite du module")
 print(string.format("[L6] suite : %d defaut(s)", #bad))
 
 local MUTANTS = {
-  { "porte du transport retiree", "if closed and o.tours and not o.belt then", "if false then" },
-  { "tapis non exempte", "if closed and o.tours and not o.belt then", "if closed and o.tours then" },
+  { "porte du transport retiree", "if g.closed and o.tours and not o.belt then", "if false then" },
+  { "tapis non exempte", "if g.closed and o.tours and not o.belt then", "if g.closed and o.tours then" },
   { "seuil fixe au lieu du seuil qui suit l'effectif", "local y = Pe.BACKLOG_PER * w + Pe.BACKLOG_BASE", "local y = 8" },
   { "bras : seuil fixe (sans les modules)", "local limit = math.floor(math.max(0, int(batis) or 0) / Pe.MODULES_PER_SITE) + 1", "local limit = 1" },
   { "R0 et R1 retenus (I2 rompu)", "if rank > Pe.SAFE_RANK then\n", "if true then\n" },
-  { "petites marches retirees", "and (tense or o.measured) and", "and false and" },
-  { "anti-repetition retiree", "elseif o.measured and o.item ~= nil and o.item == st.last_item and not o.alone then", "elseif false then" },
+  { "petites marches retirees", "and (g.tense or o.measured) and", "and false and" },
+  { "anti-repetition retiree", "elseif o.measured and o.item ~= nil and o.item == g.last_item and not o.alone then", "elseif false then" },
   { "sans hysteresis (rouvre des que non tendu)", "st.calm_n = calm and (st.calm_n or 0) + 1 or 0", "st.calm_n = (not tense) and 99 or 0" },
   { "mesure absente = porte ouverte", "return true, cause -- garde fermée", "return false, cause -- garde fermée" },
   { "fermee des la 1re mesure tendue", "if st.tense_n >= Pe.SAT_THINKS then", "if st.tense_n >= 1 then" },
-  { "places de chantier non decomptees (I1 rompu)", "if o.site and rank > Pe.SAFE_RANK then room = room - 1 end", "" },
+  { "places de chantier non decomptees (I1 rompu)", "if o.site and rank > Pe.SAFE_RANK then g.room = g.room - 1 end", "" },
+  { "anti-repetition sans memoire d'une decision a l'autre", "function Pe.finish(st, g) st.last_item = g.measured_item end", "function Pe.finish(st, g) end" },
 }
 local refused = 0
 for _, m in ipairs(MUTANTS) do
