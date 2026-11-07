@@ -17,8 +17,9 @@
     C1     aucun PNJ sans tâche plus de 30 s de suite pendant l'attaque et après, alors que le tableau a du travail (cause « rien » nulle) ;
     C1-da  repos pour cause de danger (stats.dact : refus de la porte -> départ suivant) : aucun au-delà de 30 s ;
     C2     aucun PNJ perdu ;
-    SENS   aucune tâche dont le but est dans la zone de la meute ET plus près d'elle que le coffre (vers l'attaque), hors défense du QG
-           (garde, recharge, pose de tourelles) ;
+    SENS   aucune tâche dont le but est dans la zone de la meute ET plus près d'elle que le PNJ à son départ (vers l'attaque), hors défense
+           du QG (garde, recharge, pose de tourelles) et hors retour au QG (but EXACTEMENT une case du QG : home_spot + Scale.HOME_SLOTS,
+           étape « home » de script/team/worker.lua), ET aucun relevé de PNJ à moins de 12 tuiles de la meute (décision B du lead, 7/11) ;
     TRAV   du travail fait pendant l'attaque : au moins une tâche hors défense prise entre T_ATT + 600 et T_END.
   Lancement : py -3.9 -B tools/autotest/banc.py --out <archive> --qui DANGER-ACTIF -- 9700 da-meute <source>. Journal : [FO-DA-MEUTE].
 ]]
@@ -211,7 +212,7 @@ return {
     end
     st.r = (pr and pr.vision_distance or 30) + spread -- rayon de la meute de M.sense : vue + étendue du groupe
     st.zone = st.r + 4                                -- D.EXACT_MARGIN : zone jugée par la porte
-    st.free_since, st.streaks, st.toward, st.toward_seen = {}, {}, 0, {}
+    st.free_since, st.streaks, st.toward, st.toward_seen, st.home_back = {}, {}, 0, {}, 0
     st.max_free, st.max_free_id, st.max_free_at = 0, nil, nil
     st.work_ids, st.contact = {}, 0
     ctx.log(string.format("[FO-%s] coffre en (%.1f, %.1f) ; meute prevue en (%.1f, %.1f), rayon %.1f, zone de la porte %.1f (coffre a %d tuiles du centre)",
@@ -271,16 +272,27 @@ return {
           st.free_since[a.id] = nil
         end
         if t > T_ATT + 600 and t < T_END and not DEFENSE[a.task] then st.work_ids[a.id] = true end
-        -- SENS : but de la tâche (destination de l'itinéraire) dans la zone de la meute ET plus près d'elle que le coffre.
+        -- SENS (décision B du lead, 7/11 ; fo-logs/2026-11-04_DANGER-ACTIF/CRITERES.md) : but de la tâche (destination de l'itinéraire) dans la
+        -- zone de la meute ET plus près d'elle que le PNJ à son départ (relevé qui précède le but, à défaut premier relevé du but : sonde_suivre),
+        -- hors défense du QG ; un but qui est EXACTEMENT une case du QG (étape « home » de script/team/worker.lua) est un retour au QG, pas compté.
         if t < T_END and a.final and not DEFENSE[a.task] then
           local df, dh = d2(a.final, st.c), d2(st.hq, st.c)
-          local key = a.id .. ":" .. math.floor(a.final.x) .. ":" .. math.floor(a.final.y)
-          if df <= st.zone * st.zone and df < dh and not st.toward_seen[key] then
+          local key = goal_key(a)
+          local g = st.sonde.goal[a.id]
+          local dep = g and g.key == key and (g.prev or g.first) or nil
+          if df <= st.zone * st.zone and dep and df < d2(dep, st.c) and not st.toward_seen[key] then
             st.toward_seen[key] = true
-            st.toward = st.toward + 1
-            ctx.log(string.format("[FO-%s] PNJ %d tache %s vers (%.0f, %.0f), a %.0f tuiles de la meute (coffre a %.0f) : vers l'attaque",
-              TAG, a.id, tostring(a.task), a.final.x, a.final.y, math.sqrt(df), math.sqrt(dh)))
-            if st.sonde then sonde_noter(ctx, TAG, st, a, key, df) end
+            local slot = sonde_case(st.home_spot, a.final)
+            if slot then
+              st.home_back = st.home_back + 1
+              ctx.log(string.format("[FO-%s] PNJ %d tache %s vers (%.0f, %.0f), a %.0f tuiles de la meute : retour au QG (case %d), non compte",
+                TAG, a.id, tostring(a.task), a.final.x, a.final.y, math.sqrt(df), slot))
+            else
+              st.toward = st.toward + 1
+              ctx.log(string.format("[FO-%s] PNJ %d tache %s vers (%.0f, %.0f), a %.0f tuiles de la meute (depart a %.0f, coffre a %.0f) : vers l'attaque",
+                TAG, a.id, tostring(a.task), a.final.x, a.final.y, math.sqrt(df), math.sqrt(d2(dep, st.c)), math.sqrt(dh)))
+            end
+            sonde_noter(ctx, TAG, st, a, key, df)
           end
         end
       end
@@ -337,12 +349,14 @@ return {
     ctx.check(lost == 0, "C2 : aucun PNJ perdu", lost)
     local so = st.sonde
     if so then
-      ctx.log(string.format("[FO-%s] SONDE SENS (hors bilan) : %d but(s) compte(s) par SENS ; case du QG exacte %d ; au QG de M.leg (<= %d tuiles du coffre) %d ; "
+      ctx.log(string.format("[FO-%s] SONDE SENS (hors bilan) : %d but(s) dans la zone plus pres de la meute que le depart ; case du QG exacte %d (non comptes) ; au QG de M.leg (<= %d tuiles du coffre) %d ; "
           .. "but plus pres de la meute que le PNJ : au releve d'avant %d, au premier releve %d, au debut de la tache %d",
         TAG, so.n, so.slot, SONDE_HOME, so.home, so.closer_prev, so.closer_first, so.closer_task))
     end
-    ctx.check(st.toward == 0, "SENS : aucune tache vers l'attaque (but dans la zone de la meute, plus pres d'elle que le coffre), hors defense du QG",
-      string.format("%d tache(s) vers l'attaque ; %d releve(s) de PNJ a moins de 12 tuiles de la meute", st.toward, st.contact))
+    ctx.check(HOME_SLOTS ~= nil and st.home_spot ~= nil and st.toward == 0 and st.contact == 0,
+      "SENS : aucune tache vers l'attaque (but dans la zone de la meute, plus pres d'elle que le PNJ a son depart, hors defense et retour au QG) et aucun PNJ a moins de 12 tuiles de la meute",
+      string.format("%d tache(s) vers l'attaque ; %d retour(s) au QG non compte(s) ; %d releve(s) de PNJ a moins de 12 tuiles de la meute%s", st.toward,
+        st.home_back, st.contact, (HOME_SLOTS and st.home_spot) and "" or " ; cases du QG illisibles : SENS non jugeable"))
     ctx.check(#sorted_keys(st.work_ids) > 0, "TRAV : du travail hors defense pendant l'attaque", #sorted_keys(st.work_ids) .. " PNJ")
   end,
 }
