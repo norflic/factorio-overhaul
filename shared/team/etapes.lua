@@ -45,8 +45,19 @@ E.SIG = "etapes:" .. table.concat(E.STAGES, ",") .. "|view:" .. table.concat(E.V
 --- - view.emergency, view.recover_floor : journal d'une recrue de survie (plan.recruit_uses) ;
 --- - plan.emergency_recruit : recrue de croissance d'une faction (Effectif.grown) ;
 --- - plan.emergency_unarmed : recrue sans arme quand il reste au plus un PNJ.
+--- Clés de L (mutants de 10 min du banc, L non strict ; relevé des valeurs du 7/11, 602 copies, tests/decoupage_pensee_test.lua) dont
+--- l'absence (nil) ne change rien sur la partie du banc, et pourquoi :
+--- - L.at_war : faux toute la partie (aucune guerre déclarée au joueur) ; Ia3.plan_b lit `at_war and true or false` : nil = faux ;
+--- - L.home : vrai sauf aux 13 premières pensées ; nil vaut vrai (`home ~= false`), et à ces pensées aucune exploration n'est
+---   demandée (le seul effet de faux : vider E.explore) ;
+--- - L.floor_item : iron-plate toute la partie, qui est aussi le repli de la règle (`ctx.floor_item or P.IRON`) sur ces données ;
+--- - L.known : 4 gisements connus, tous dans la portée (L.reach) ; known ne sert qu'à ne pas explorer un gisement connu hors portée ;
+--- - L.harvest : [] ou [wood], et aucun but ne demande de bois en 10 min (le seul effet : marquer le bois récoltable) ;
+--- - L.capi : la capitalisation est éteinte au montage du banc, et allumée (FO_CAPI=1) elle n'ouvre AUCUN ordre en 10 min (50
+---   décisions, « ouverts=0 ») : ses buts (Ca.goals des ordres ouverts) et ses tâches sont vides.
 E.RARES = { ["view.workers_idle"] = true, ["view.emergency"] = true, ["view.recover_floor"] = true,
-  ["plan.emergency_recruit"] = true, ["plan.emergency_unarmed"] = true }
+  ["plan.emergency_recruit"] = true, ["plan.emergency_unarmed"] = true,
+  ["L.at_war"] = true, ["L.home"] = true, ["L.floor_item"] = true, ["L.known"] = true, ["L.harvest"] = true, ["L.capi"] = true }
 
 local function is_object(v)
   return rawget(v, "__self") ~= nil or rawget(v, "_lua_object") ~= nil
