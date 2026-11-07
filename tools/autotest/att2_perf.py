@@ -83,7 +83,42 @@ def main():
                 x = T[t]
                 print("  %-9s %+5d  entier %6.2f  script %5.2f  GC %5.2f  particules %5.2f | %s" % (g, t - frappe[g], x[wi] / 1e6, x[si] / 1e6,
                       x[gi] / 1e6, x[pi] / 1e6, prof.get(t, "(pas de chrono)")[:640]))
+    ramasse_miettes(log)
     return 0
+
+
+KO_RE = re.compile(r"\[FO-ATT2-PROFIL\] tick (\d+) (\w+) rt (-?\d+) .*? ; pas Duration: ([0-9.]+)\s*ms.*?Ko nets : preparation ([-+0-9.]+), "
+                   r"pas ([-+0-9.]+) \(tuiles ([-+0-9.]+), plan ([-+0-9.]+)\), coups ([-+0-9.]+), attaque ([-+0-9.]+)")
+
+
+def ramasse_miettes(log):
+    """Preuve du ramasse-miettes (demande du lead, 7/11) : mémoire Lua NETTE par section, écrite par le profil depuis la v8. Un pas lent
+    dont la mémoire nette est NÉGATIVE (ou très en dessous des autres pas) a vu le ramasse-miettes travailler dans le pas ; un pas lent
+    à mémoire nette normale vient d'autre chose. Rien si le banc est plus ancien que la v8."""
+    L = [(int(m.group(1)), m.group(2), int(m.group(3)), float(m.group(4)), float(m.group(6))) for m in KO_RE.finditer(log)]
+    if not L:
+        print("\n(mémoire nette par section absente : profil antérieur à la v8)")
+        return
+    if all(r[4] == 0 for r in L):
+        print("\n(mémoire nette toujours nulle : collectgarbage(\"count\") indisponible dans le jeu ; pas de preuve par cette voie)")
+        return
+    print("\nRAMASSE-MIETTES : pas lents et mémoire Lua nette du pas (Ko), par géant")
+    for g in IDS:
+        v = [r for r in L if r[1] == g and r[2] >= 0]
+        if not v:
+            continue
+        pas = sorted(r[3] for r in v)
+        med = pas[len(pas) // 2]
+        kos = sorted(r[4] for r in v)
+        kmed = kos[len(kos) // 2]
+        neg = [r for r in v if r[4] < 0]
+        lents = sorted([r for r in v if r[3] >= max(3 * med, 1.0)], key=lambda r: -r[3])
+        print("  %-9s pas médian %.3f ms, Ko net médian %+.1f ; %d pas à Ko net négatif ; %d pas lents (>= 3 x médiane et >= 1 ms)"
+              % (g, med, kmed, len(neg), len(lents)))
+        for r in lents[:6]:
+            print("    lent      rt %+5d  pas %6.3f ms  Ko net %+9.1f%s" % (r[2], r[3], r[4], "  <- ramasse-miettes dans le pas" if r[4] < 0 else ""))
+        for r in sorted(neg, key=lambda r: r[4])[:6]:
+            print("    négatif   rt %+5d  pas %6.3f ms  Ko net %+9.1f" % (r[2], r[3], r[4]))
 
 
 if __name__ == "__main__":
