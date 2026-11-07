@@ -188,6 +188,7 @@ end
 local function s(v) return table.concat(ser(v)) end
 local function deep(v)
   if type(v) ~= "table" then return v end
+  if v.box and v.position then return v end -- entité du monde simulé : une sauvegarde garde la RÉFÉRENCE (relevé par bandes, P4)
   local c = {}
   for k, x in pairs(v) do c[k] = deep(x) end
   return c
@@ -211,7 +212,9 @@ end
 
 local events = {}
 local store = {}
-package.loaded["script.core.events"] = { on = function(id, fn) events[id] = fn end }
+local inits, configs = {}, {}
+package.loaded["script.core.events"] = { on = function(id, fn) events[id] = fn end,
+  on_init = function(fn) inits[#inits + 1] = fn end, on_configuration_changed = function(fn) configs[#configs + 1] = fn end }
 package.loaded["script.core.storage"] = {
   declare = function(name, init) store[name] = store[name] or init() end,
   ns = function(name) return store[name] end,
@@ -227,6 +230,7 @@ local function load_mods(mut)
     package.preload[mut[1]] = function(name) return assert(load(src, "=" .. mut[2]))(name) end
   end
   store = {}
+  inits, configs = {}, {}
   return require("script.team.reseau_vivant"), require("script.team.raccord"), require("script.team.pouls_jeton"),
     require("script.team.boite_chunks")
 end
@@ -504,6 +508,253 @@ local function p6(Rv, Box)
 end
 
 ---------------------------------------------------------------------------------------------------
+-- P7 (revue de la 0.6.59, point 2) : le moteur renumérote un réseau qui se coupe ou se joint, en plein relevé
+---------------------------------------------------------------------------------------------------
+--- Monde : générateur (réseau 1) en haut (ligne de chunks −3), consommateurs du même réseau en bas (lignes 1 et 2), un îlot vrai (réseau
+--- 9). Bandes d'une ligne, une par passe. Après la bande `at` (0 : avant la première), `change` est appliqué au monde. Rend la fin du
+--- relevé par bandes et net_read lu à la fin (même instant).
+local function p7_case(Rv, at, change, gen_y, cons_y)
+  local w = new_world()
+  local f = team(w, "p7", "fo-p7", 2000, 2000) -- (la centrale de l'équipe, loin du relevé : son propre réseau 1 ne gêne pas)
+  for _, e in ipairs(w.ents) do e.valid = false end -- monde du cas seul
+  w.ents = {}
+  local g = add(w, ent("steam-engine", "generator", 10.5, gen_y, { net = 1, kw = 900, force = "fo-p7", hw = 1.5, hh = 2.5 }))
+  local cons = {}
+  for k = 0, 5 do cons[#cons + 1] = add(w, ent("assembler", "assembling-machine", 4 + k * 4, cons_y + (k % 2) * 33, { net = 1, consumer = true, force = "fo-p7", hw = 1.5, hh = 1.5 })) end
+  local isl = add(w, ent("lab", "lab", 60.5, cons_y, { net = 9, consumer = true, force = "fo-p7", hw = 1.5, hh = 1.5 }))
+  chunks_for(w, { { -3, -3 }, { 3, 3 } })
+  local sfc = surface_of(w)
+  local saved = Rv.BAND
+  Rv.BAND = 1
+  local j = Rv.bandes.new(box_of(w))
+  local n, done = 0, false
+  if at == 0 then change(g, cons, isl) end
+  repeat
+    done = Rv.bandes.band(f, sfc, j)
+    n = n + 1
+    if n == at then change(g, cons, isl) end
+  until done or n > 100
+  Rv.BAND = saved
+  local got = Rv.bandes.finish(f.build, j)
+  return nr_str(got), nr_str(ref_net_read(f, sfc, f.build)), got
+end
+
+local function p7(Rv)
+  local out = {}
+  -- (a) jonction : le réseau 1 devient 2 (générateur lu AVANT, consommateurs APRÈS) ; aucun îlot de plus que le vrai (9)
+  local function renum(g, cons) g.electric_network_id = 2; for _, c in ipairs(cons) do c.electric_network_id = 2 end end
+  local a1, r1 = p7_case(Rv, 1, renum, -90, 40)
+  out[#out + 1] = { "générateur lu, puis renumérotation, puis consommateurs", a1, r1 }
+  -- (b) les consommateurs lus AVANT la renumérotation, le générateur APRÈS
+  local a2, r2 = p7_case(Rv, 1, renum, 40, -90)
+  out[#out + 1] = { "consommateurs lus, puis renumérotation, puis générateur", a2, r2 }
+  -- (c) coupure vraie : les consommateurs passent sur un réseau 3 sans générateur (îlot vrai, à compter)
+  local function cut(g, cons) for _, c in ipairs(cons) do c.electric_network_id = 3 end end
+  local a3, r3 = p7_case(Rv, 1, cut, -90, 40)
+  out[#out + 1] = { "coupure vraie après le générateur", a3, r3 }
+  -- (d) une machine détruite pendant le relevé
+  local function gone(g, cons) cons[1].valid = false end
+  local a4, r4 = p7_case(Rv, 1, gone, 40, -90)
+  out[#out + 1] = { "machine détruite pendant le relevé", a4, r4 }
+  return out
+end
+
+---------------------------------------------------------------------------------------------------
+-- P8 (revue de la 0.6.59, point 3) : jeton équitable, 4 factions et votre équipe (appelée la dernière) en relevés longs à la fois
+---------------------------------------------------------------------------------------------------
+--- Rend, pour chaque demandeur, la plus longue suite de refus ET le plus grand nombre de demandeurs d'un même tick pendant cette suite ;
+--- et le nombre de bandes faites par équipe.
+local function p8(Rv, Ra, Jeton)
+  logs = {}
+  local w = new_world()
+  local teams = {}
+  local keys = { "f1", "f2", "f3", "f4", "player" }
+  for i, key in ipairs(keys) do
+    local force = "p8-" .. key
+    local f = team(w, key, force, (i - 1) * 96, 0)
+    for k = 0, 30 do add(w, ent("assembler", "assembling-machine", (i - 1) * 96 + (k % 8) * 4, -300 + k * 20, { net = 1, consumer = true, force = force, hw = 1.5, hh = 1.5 })) end
+    teams[i] = f
+  end
+  chunks_for(w, { { -10, -10 }, { 16, 8 } })
+  local sfc = surface_of(w)
+  local box = box_of(w)
+  Jeton.reset()
+  local saved_band = Rv.BAND
+  Rv.BAND, Rv.BANDS_PER_PULSE = 1, 1
+  local asks = {} -- [tick] = { [who] = vrai/faux }
+  local J = { take = function(t, who)
+    local r = Jeton.take(t, who)
+    asks[t] = asks[t] or {}
+    asks[t][who] = r
+    return r
+  end }
+  local bands = {}
+  for t = 0, 4 * 3600, 5 do
+    game.tick = t
+    for _, f in ipairs(teams) do
+      local p = { fstart = function(name) if name == "rv:bande" then bands[f.key] = (bands[f.key] or 0) + 1 end end, fstop = function() end }
+      Rv.step({ cancel = api_old.cancel, plant = api_old.plant, box = function() return box end, jeton = J, prof = p }, f, sfc, t)
+      Ra.step({ request = function() return nil end, prio = 50, champ_live = false, jeton = J, prof = p }, f, sfc, t)
+    end
+  end
+  Rv.BAND = saved_band
+  -- suites de refus par demandeur (demandes à des pouls successifs)
+  local tl = {}
+  for t in pairs(asks) do tl[#tl + 1] = t end
+  table.sort(tl)
+  local worst = {} -- [who] = { len, k }
+  local run = {}
+  for _, t in ipairs(tl) do
+    local n = 0
+    for _ in pairs(asks[t]) do n = n + 1 end
+    for who, r in pairs(asks[t]) do
+      local cur = run[who]
+      if r then
+        run[who] = nil
+      else
+        if cur and cur.t == t - 5 then cur.len, cur.t, cur.k = cur.len + 1, t, math.max(cur.k, n) else cur = { len = 1, t = t, k = n } end
+        run[who] = cur
+        local wv = worst[who]
+        if not wv or cur.len > wv.len then worst[who] = { len = cur.len, k = cur.k } end
+      end
+    end
+  end
+  return worst, bands
+end
+
+---------------------------------------------------------------------------------------------------
+-- P9 (revue de la 0.6.59, point 1) : les chemins lourds sous le jeton, « relier » sans relevé frais et fin du raccordement compris
+---------------------------------------------------------------------------------------------------
+--- 3 équipes : centrale finie à production NULLE (demande nominale 75 kW), un îlot vrai : « production nulle » confirmée, puis « relier »
+--- (avec le relevé du NET_PERIOD, puis 5 min plus tard sans relevé frais). Toute recherche lourde (sur toute la surface, ou une bande de
+--- toute la largeur) faite par Rv.step ou Ra.step d'une équipe X à un tick t, et toute fin du raccordement (ra:fin), DOIT tomber sur un
+--- tick où le jeton est allé à X (« X:rv » ou « X:ra »).
+local function p9(Rv, Ra, Jeton)
+  logs = {}
+  local w = new_world()
+  local teams = {}
+  for i = 1, 3 do
+    local force = "p9-" .. i
+    local f, parts = team(w, "q" .. i, force, (i - 1) * 96, 0)
+    parts.engine.energy_generated_last_tick = 0
+    local q2 = f.build.projects[2]
+    q2.ents[#q2.ents + 1] = { name = "assembling-machine-1", x = (i - 1) * 96 + 20, y = 20, built = true }
+    for k = 0, 5 do add(w, ent("lab", "lab", (i - 1) * 96 + 30 + k * 4, 90, { net = 70 + i, consumer = true, force = force, hw = 1.5, hh = 1.5 })) end
+    for k = 0, 10 do add(w, ent("assembler", "assembling-machine", (i - 1) * 96 + k * 3, -200 + k * 30, { net = 1, consumer = true, force = force, hw = 1.5, hh = 1.5 })) end
+    teams[i] = f
+  end
+  chunks_for(w, { { -8, -8 }, { 10, 6 } })
+  local base = surface_of(w)
+  local box = box_of(w)
+  local width = (box.x1 - box.x0 + 1) * 32
+  local cur = {}
+  local heavy = {} -- { t, who }
+  local sfc = setmetatable({ find_entities_filtered = function(q)
+    local wide = (q.area == nil and q.position == nil) or (q.area and q.area[2][1] - q.area[1][1] >= width)
+    if wide then heavy[#heavy + 1] = { t = game.tick, who = cur.who } end
+    return base.find_entities_filtered(q)
+  end }, { __index = base })
+  Jeton.reset()
+  local saved_band = Rv.BAND
+  Rv.BAND, Rv.BANDS_PER_PULSE = 1, 1
+  local grants = {}
+  local J = { take = function(t, who)
+    local r = Jeton.take(t, who)
+    if r then grants[t] = grants[t] or {}; grants[t][who] = true end
+    return r
+  end }
+  local fins, deferred = {}, 0
+  for t = 0, 20 * 3600, 5 do
+    game.tick = t
+    for _, f in ipairs(teams) do
+      local p = { fstart = function(name) if name == "ra:fin" then fins[#fins + 1] = { t = t, who = f.key .. ":ra" } end end, fstop = function() end }
+      cur.who = f.key .. ":rv"
+      Rv.step({ cancel = api_old.cancel, plant = api_old.plant, box = function() return box end, jeton = J, prof = p }, f, sfc, t)
+      if f.build.sante and f.build.sante.relier then deferred = deferred + 1 end
+      cur.who = f.key .. ":ra"
+      Ra.step({ request = function() return nil end, prio = 50, champ_live = false, jeton = J, prof = p }, f, sfc, t)
+    end
+  end
+  Rv.BAND = saved_band
+  local bad, first = 0, nil
+  for _, h in ipairs(heavy) do
+    if not (grants[h.t] and grants[h.t][h.who]) then
+      bad = bad + 1
+      first = first or string.format("tick %d, %s", h.t, tostring(h.who))
+    end
+  end
+  local bad_fin = 0
+  for _, x in ipairs(fins) do if not (grants[x.t] and grants[x.t][x.who]) then bad_fin = bad_fin + 1 end end
+  local reliers = 0
+  for _, l in ipairs(logs) do if l:find("reseau: production nulle", 1, true) then reliers = reliers + 1 end end
+  return { heavy = #heavy, bad = bad, first = first, fins = #fins, bad_fin = bad_fin, deferred = deferred, reliers = reliers }
+end
+
+---------------------------------------------------------------------------------------------------
+-- P10 (revue de la 0.6.59, point 6) : boîte relevée au chargement, jamais au premier pouls
+---------------------------------------------------------------------------------------------------
+local function counted(sfc, idx)
+  local n = { 0 }
+  local inner = sfc.get_chunks
+  sfc.get_chunks = function() n[1] = n[1] + 1; return inner() end
+  sfc.index = idx
+  return n
+end
+
+local function p10(Box)
+  -- partie d'avant ce point (aucune boîte), puis chargement : on_configuration_changed
+  local w1 = random_world(11, "fo-test")
+  local s1 = surface_of(w1)
+  local n1 = counted(s1, 1)
+  game.surfaces = { [1] = s1 }
+  store.boite_chunks = { by = {} }
+  for _, fn in ipairs(configs) do fn({ mod_changes = {} }) end
+  local at_load = n1[1]
+  local b1 = Box.get(s1)
+  local want1 = box_of(w1)
+  local same1 = b1 and b1.x0 == want1.x0 and b1.y0 == want1.y0 and b1.x1 == want1.x1 and b1.y1 == want1.y1
+  local after_get = n1[1] - at_load
+  -- surface neuve après le chargement : ses chunks arrivent par on_chunk_generated seul
+  local w2 = random_world(12, "fo-test")
+  local s2 = surface_of(w2)
+  local n2 = counted(s2, 2)
+  game.surfaces[2] = s2
+  for _, c in ipairs(w2.chunks) do events[defines.events.on_chunk_generated]({ surface = s2, position = { x = c[1], y = c[2] } }) end
+  local b2 = Box.get(s2)
+  local want2 = box_of(w2)
+  local same2 = b2 and b2.x0 == want2.x0 and b2.y0 == want2.y0 and b2.x1 == want2.x1 and b2.y1 == want2.y1
+  game.surfaces = nil
+  return { at_load = at_load, after_get = after_get, same1 = same1, same2 = same2, n2 = n2[1] }
+end
+
+---------------------------------------------------------------------------------------------------
+-- P11 (revue de la 0.6.59, point 7) : une équipe sans centrale finie ne prend jamais le jeton du raccordement
+---------------------------------------------------------------------------------------------------
+local function p11(Ra, Jeton)
+  logs = {}
+  local w = new_world()
+  local fa = team(w, "sans", "p11-a", 0, 0)
+  fa.build.projects[1].state = "chantier"
+  local fb = team(w, "avec", "p11-b", 96, 0)
+  chunks_for(w, { { -2, -2 }, { 4, 2 } })
+  local sfc = surface_of(w)
+  Jeton.reset()
+  local got = {}
+  local J = { take = function(t, who)
+    local r = Jeton.take(t, who)
+    if r then got[who] = (got[who] or 0) + 1 end
+    return r
+  end }
+  for t = 0, 3 * 3600, 5 do
+    game.tick = t
+    for _, f in ipairs({ fa, fb }) do
+      Ra.step({ request = function() return nil end, prio = 50, champ_live = false, jeton = J }, f, sfc, t)
+    end
+  end
+  return got["sans:ra"] or 0, got["avec:ra"] or 0
+end
+
+---------------------------------------------------------------------------------------------------
 -- Jeu de preuves sur la source du jeu
 ---------------------------------------------------------------------------------------------------
 local Rv, Ra, Jeton, Box = load_mods(nil)
@@ -533,6 +784,47 @@ check(r5.starts >= 30 and r5.late == 0, string.format("P5 : chaque raccord part 
 local ok6a, ok6b, g6, w6 = p6(Rv, Box)
 check(ok6a, "P6 : boîte relevée en entier à la première demande (surface.get_chunks)")
 check(ok6b, "P6 : chunk généré après : boîte agrandie, son consommateur compté (" .. g6 .. ")")
+for _, c in ipairs(p7(Rv)) do
+  check(c[2] == c[3], string.format("P7 : %s : fin du relevé par bandes = net_read lu à la fin (%s)%s", c[1], c[2],
+    c[2] ~= c[3] and (" ; net_read : " .. c[3]) or ""))
+end
+local function p8_ok(worst, bands)
+  local bad, txt = {}, {}
+  local whos = {}
+  for who in pairs(worst) do whos[#whos + 1] = who end
+  table.sort(whos)
+  for _, who in ipairs(whos) do
+    local x = worst[who]
+    txt[#txt + 1] = string.format("%s %d/%d", who, x.len, x.k - 1)
+    if x.len > x.k - 1 then bad[#bad + 1] = who end
+  end
+  return #bad == 0 and #whos > 0, table.concat(txt, ", "), bad
+end
+do
+  local sans, avec = p11(Ra, Jeton)
+  check(sans == 0 and avec > 0, string.format("P11 : sans centrale finie, le raccordement ne prend jamais le jeton (%d fois ; l'équipe à la centrale finie : %d)", sans, avec))
+end
+do
+  local r10 = p10(Box)
+  check(r10.at_load == 1 and r10.after_get == 0 and r10.same1, string.format("P10 : boîte relevée au chargement (on_configuration_changed : %d passage(s)), plus aucun au premier Box.get (%d), juste",
+    r10.at_load, r10.after_get))
+  check(r10.same2 and r10.n2 == 0, string.format("P10 : surface neuve tenue par on_chunk_generated seul (%d passage(s) de get_chunks), boîte juste", r10.n2))
+end
+do
+  local r9 = p9(Rv, Ra, Jeton)
+  check(r9.reliers >= 3 and r9.deferred > 0, string.format("P9 : « relier » joué (%d fois), dont sans relevé frais par un relevé par bandes (%d passe(s) en attente)",
+    r9.reliers, r9.deferred))
+  check(r9.heavy > 0 and r9.bad == 0, string.format("P9 : toute recherche lourde de Rv.step et Ra.step tombe sur un tick où le jeton est à l'équipe (%d, %d hors jeton%s)",
+    r9.heavy, r9.bad, r9.first and (" ; premier : " .. r9.first) or ""))
+  check(r9.fins > 0 and r9.bad_fin == 0, string.format("P9 : chaque fin du raccordement prend le jeton (%d fin(s), %d sans)", r9.fins, r9.bad_fin))
+end
+do
+  local worst, bands = p8(Rv, Ra, Jeton)
+  local ok8, txt8 = p8_ok(worst, bands)
+  check(ok8, "P8 : jeton équitable : plus longue attente de chaque demandeur <= demandeurs simultanés - 1 (attente/borne : " .. txt8 .. ")")
+  check((bands.player or 0) > 0 and worst["player:rv"] ~= nil and worst["player:rv"].len <= worst["player:rv"].k - 1,
+    string.format("P8 : votre équipe, appelée la dernière, n'est jamais affamée (%d bande(s) faites)", bands.player or 0))
+end
 
 ---------------------------------------------------------------------------------------------------
 -- Mutants
@@ -545,11 +837,24 @@ local MUT = {
   { "m3 bande d'un chunk de large", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
     { { "{ { j.x0 * 32, top }, { j.x1 * 32, bottom } }", "{ { j.x0 * 32, top }, { (j.x0 + 1) * 32, bottom } }" } }, "p2" },
   { "m4 jeton ignoré par le raccord", "script.team.raccord", "script/team/raccord.lua",
-    { { "if api.jeton and not api.jeton.take(tick) then return end", "if false then return end" } }, "p5" },
+    { { 'if api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":ra") then return end', "if false then return end" } }, "p5" },
   { "m5 boîte non tenue à on_chunk_generated", "script.team.boite_chunks", "script/team/boite_chunks.lua",
-    { { "if b then grow(b, e.position.x, e.position.y) end", "if false then grow(b, e.position.x, e.position.y) end" } }, "p6" },
+    { { "if b then grow(b, e.position.x, e.position.y) else", "if b then elseif false then" } }, "p6" },
   { "m6 jeton ignoré par le relevé du réseau", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
-    { { "if api.jeton and not api.jeton.take(tick) then return nil end", "if false then return nil end" } }, "p5" },
+    { { 'if api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":rv") then return nil end', "if false then return nil end" } }, "p5" },
+  { "m9 relier sans relevé frais par net_read d'un bloc (hors jeton)", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
+    { { "local rbox = api.box and api.box(surface)", "local rbox = nil" } }, "p9" },
+  { "m10 fin du raccordement sans le jeton", "script.team.raccord", "script/team/raccord.lua",
+    { { "if api.jeton and not api.jeton.take(tick, fin_par) then return end", "if false then return end" } }, "p9fin" },
+  { "m11 boîte non relevée à on_configuration_changed", "script.team.boite_chunks", "script/team/boite_chunks.lua",
+    { { "Events.on_configuration_changed(rebuild_all)", "" } }, "p10" },
+  { "m12 raccord : jeton pris avant de lire la centrale (ordre d'avant)", "script.team.raccord", "script/team/raccord.lua",
+    { { "    -- (revue de la 0.6.59, point 7 : la centrale est lue AVANT le jeton ; rien à relever, le jeton reste aux autres)",
+      "    if api.jeton and not api.jeton.take(tick, (f.key or 'player') .. ':ra') then return end" } }, "p11" },
+  { "m8 jeton à priorité fixe (file ignorée)", "script.team.pouls_jeton", "script/team/pouls_jeton.lua",
+    { { "(s.q[1] ~= nil and s.q[1] ~= who)", "false" } }, "p8" },
+  { "m7 réseaux des générateurs non relus à la fin (numéros des bandes)", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
+    { { "local out = { islands = 0, uncovered = 0, nets = {}, live = live }", "live = j.gn; local out = { islands = 0, uncovered = 0, nets = {}, live = live }" } }, "p7" },
 }
 for _, m in ipairs(MUT) do
   local Rvm, Ram, Jm, Bm = load_mods({ m[2], m[3], m[4] })
@@ -559,6 +864,23 @@ for _, m in ipairs(MUT) do
     seen = d > 0
   elseif m[5] == "p5" then
     seen = p5(Rvm, Ram, Jm).clash > 0
+  elseif m[5] == "p11" then
+    local sans = p11(Ram, Jm)
+    seen = sans > 0
+  elseif m[5] == "p10" then
+    local r = p10(Bm)
+    seen = not (r.at_load == 1 and r.after_get == 0)
+  elseif m[5] == "p9" then
+    local r = p9(Rvm, Ram, Jm)
+    seen = r.bad > 0
+  elseif m[5] == "p9fin" then
+    local r = p9(Rvm, Ram, Jm)
+    seen = r.bad_fin > 0
+  elseif m[5] == "p8" then
+    seen = not (p8_ok(p8(Rvm, Ram, Jm)))
+  elseif m[5] == "p7" then
+    seen = false
+    for _, c in ipairs(p7(Rvm)) do if c[2] ~= c[3] then seen = true end end
   else
     local _, okb = p6(Rvm, Bm)
     seen = not okb

@@ -166,14 +166,18 @@ end
 -- Lot POULS : le même relevé par bandes. Une bande = Rv.BAND lignes de chunks sur toute la largeur de la boîte des chunks générés
 -- (api.box) ; une entité n'est comptée que dans la bande qui contient sa POSITION (y dans [y0, y1[ : la recherche par zone rend aussi
 -- ce qui touche ou chevauche la bande, F96). Générateurs et consommateurs dans la même recherche. Un consommateur dont le réseau n'a pas
--- encore de générateur vu est GARDÉ (position, par réseau) ; il est jugé à la dernière bande, comme net_read : réseau sans générateur
--- et hors chantier (in_construction lu à la fin, comme net_read le lit au relevé). Rien de l'état du jeu n'est lu entre deux bandes :
--- monde figé, même résultat que net_read (preuve : tests/pouls_test.lua). État : sv.nr_job (nombres et tables de nombres).
+-- encore de générateur vu est GARDÉ ; il est jugé à la dernière bande, comme net_read : réseau sans générateur et hors chantier
+-- (in_construction lu à la fin, comme net_read le lit au relevé). Monde figé : même résultat que net_read (tests/pouls_test.lua, P2).
+-- Revue de la 0.6.59, point 2 : le moteur RENUMÉROTE un réseau qui se coupe ou se joint (en attaque, en plein relevé). Les générateurs et
+-- les consommateurs gardés sont donc des ENTITÉS, dont le réseau est relu à la FIN : live et nets sont lus au même instant, celui de la
+-- décision (coupure_plan les compare aux poteaux lus au même tick ; P7). Limite : un consommateur écarté pendant les bandes (réseau vivant
+-- à sa lecture) n'est pas relu ; une coupure survenue après sa lecture ne le compte qu'au relevé suivant (jamais un faux îlot).
+-- État : sv.nr_job (nombres, et listes d'entités gens et cons).
 local BAND_TYPES = { "generator" }
 for _, t in ipairs(ELEC_TYPES) do BAND_TYPES[#BAND_TYPES + 1] = t end
 
 local function job_new(box)
-  return { y = box.y0, y_end = box.y1 + 1, x0 = box.x0, x1 = box.x1 + 1, gn = {}, pend = {}, free = {}, bands = 0 }
+  return { y = box.y0, y_end = box.y1 + 1, x0 = box.x0, x1 = box.x1 + 1, gn = {}, gens = {}, cons = {}, bands = 0 }
 end
 
 --- Une bande du relevé ; vrai quand la dernière est faite.
@@ -186,20 +190,10 @@ local function job_band(f, surface, j)
     if p.y >= top and p.y < bottom then
       local id = e.electric_network_id
       if e.type == "generator" then
-        if id then j.gn[id] = true end
+        if id then j.gn[id] = true end -- (écarte pendant les bandes les consommateurs d'un réseau déjà vu vivant)
+        j.gens[#j.gens + 1] = e
       elseif not (id and j.gn[id]) and e.prototype.electric_energy_source_prototype then
-        local l
-        if id then
-          l = j.pend[id]
-          if not l then
-            l = {}
-            j.pend[id] = l
-          end
-        else
-          l = j.free
-        end
-        l[#l + 1] = p.x
-        l[#l + 1] = p.y
+        j.cons[#j.cons + 1] = e
       end
     end
   end
@@ -208,23 +202,27 @@ local function job_band(f, surface, j)
   return j.y >= j.y_end
 end
 
---- Fin du relevé : la même table que net_read.
+--- Fin du relevé : la même table que net_read, réseaux RELUS maintenant (générateurs, puis consommateurs gardés ; entité disparue
+--- depuis sa bande : plus comptée, comme net_read lu maintenant ne la verrait pas).
 local function job_finish(b, j)
-  local out = { islands = 0, uncovered = 0, nets = {}, live = j.gn }
-  for _, id in ipairs(sorted_keys(j.pend)) do
-    if not j.gn[id] then
-      local l = j.pend[id]
-      for k = 1, #l, 2 do
-        if not in_construction(b, l[k], l[k + 1]) then
-          out.islands = out.islands + 1
-          out.nets[id] = true
+  local live = {}
+  for _, g in ipairs(j.gens) do
+    if g.valid then
+      local id = g.electric_network_id
+      if id then live[id] = true end
+    end
+  end
+  local out = { islands = 0, uncovered = 0, nets = {}, live = live }
+  for _, e in ipairs(j.cons) do
+    if e.valid then
+      local id = e.electric_network_id
+      if not (id and live[id]) then
+        local p = e.position
+        if not in_construction(b, p.x, p.y) then
+          if id then out.islands = out.islands + 1; out.nets[id] = true else out.uncovered = out.uncovered + 1 end
         end
       end
     end
-  end
-  local l = j.free
-  for k = 1, #l, 2 do
-    if not in_construction(b, l[k], l[k + 1]) then out.uncovered = out.uncovered + 1 end
   end
   return out
 end
@@ -233,7 +231,7 @@ end
 --- Rend la table du relevé quand il est fini, nil sinon.
 local function job_step(api, f, surface, sv, tick)
   local j = sv.nr_job
-  if api.jeton and not api.jeton.take(tick) then return nil end
+  if api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":rv") then return nil end
   local P = api.prof
   local done = false
   for _ = 1, Rv.BANDS_PER_PULSE do
@@ -360,6 +358,56 @@ local function apply_net(f, surface, b, sv, nr, api)
   end
 end
 
+--- La décision « relier » (poteaux perdus rouverts, chemin le plus court du lot ENERGIE) avec le relevé du réseau `nr`, frais. Inchangée
+--- depuis le lot ENERGIE (sortie de Rv.step par la revue de la 0.6.59, point 1, pour être jouée à la fin d'un relevé par bandes).
+local function do_relier(f, surface, b, sv, nr, why, tick)
+  if nr.islands + nr.uncovered == 0 then
+    -- le relevé qui a déclenché la décision est périmé : les poteaux posés depuis couvrent tout, rien à faire
+    sv.islands, sv.uncovered, sv.lost_links = 0, 0, 0
+    return
+  end
+  -- les poteaux PERDUS (jamais un poteau neuf) : ceux de leurs projets sont rouverts, sauf sous le feu
+  local per, n = {}, 0
+  local cands = lost_poles(f, surface, b)
+  -- lot ENERGIE (2/11) : d'abord le CHEMIN LE PLUS COURT du réseau alimenté vers les îlots (sûr : aucun poteau tenu par un ennemi) ;
+  -- s'il n'y en a pas, la règle d'avant (tous les poteaux que personne ne tient)
+  local plan, enemies, n_read = coupure_plan(f, surface, b, nr, cands)
+  local chosen
+  if plan and plan.action == "chemin" then
+    chosen = {}
+    for _, i in ipairs(plan.order) do chosen[i] = true end
+  elseif plan and plan.action == "second" then
+    -- aucun chemin sûr, aucun poteau perdu ne relie l'îlot : en reposer d'autres ne sert à rien (et ouvre un chantier de la centrale qui
+    -- retient le raccordement, mesuré au banc energie-ilot-ennemi) ; le raccordement bâtit une chaîne neuve
+    chosen = {}
+  end
+  if plan and #plan.second > 0 then sv.second_tick = tick end -- le raccordement (script/team/raccord.lua) ne laisse plus la main à ces poteaux
+  for i, c in ipairs(cands) do
+    if not chosen or chosen[i] then
+      local foe = Rv.foe_near(f, surface, c.e.x, c.e.y)
+      if not foe then
+        per[c.q.id] = per[c.q.id] or { q = c.q, ents = {} }
+        per[c.q.id].ents[#per[c.q.id].ents + 1] = c.e
+        n = n + 1
+      end
+    end
+  end
+  if plan then
+    say(f, tick, string.format("coupure: %s ; %d poteau(x) perdu(s) lu(s), %d ennemi(s) vu(s), %d poteau(x) du graphe, %d rouvert(s) maintenant%s",
+      plan.reason ~= "" and plan.reason or plan.action, #cands, #enemies, n_read or 0, n,
+      #plan.second > 0 and string.format(" ; %d ilot(s) sans chemin sur : chaine neuve par le raccordement", #plan.second) or ""))
+  end
+  for _, pid in ipairs(sorted_keys(per)) do
+    local q = per[pid].q
+    Rv.reopen(q, per[pid].ents, "reseau: poteaux perdus", surface)
+    q.poles_reopened = (q.poles_reopened or 0) + 1 -- le plafond des poteaux ne se mêle pas aux reposes de la centrale
+  end
+  -- un essai qui ne rouvre rien n'est pas un essai : on se tait 5 min (le compte d'essais ne s'use que sur du travail fait)
+  if n > 0 then S.applied(sv.st, "relier", tick) else sv.idle_until = tick + 18000 end
+  say(f, tick, string.format("reseau: %s ; %d poteau(x) perdu(s) rouvert(s) (les autres : ennemi a moins de %d tuiles)", why, n, Rv.POLE_ENEMY_R))
+  sv.net_next = tick + 1200 -- relire vite après la remise en état
+end
+
 --- api = { plant = Build.plant } (fourni par build.lua : ce module ne requiert pas build.lua). Lot POULS : api.box (boîte des chunks
 --- générés, script/team/boite_chunks.lua), api.jeton (script/team/pouls_jeton.lua), api.prof (profileur, portées fines rv:*) ; sans
 --- api.box, le relevé du réseau se fait d'un bloc (bancs hors jeu d'avant ce lot).
@@ -379,6 +427,13 @@ function Rv.step(api, f, surface, tick)
   if sv.nr_job then
     nr = job_step(api, f, surface, sv, tick)
     if not nr then return end
+    -- revue de la 0.6.59, point 1 : une décision « relier » attendait ce relevé frais (lancé par elle, plus bas) ; elle est jouée
+    -- maintenant, sans décider une seconde fois (S.decide compte ses relevés)
+    if sv.relier then
+      local why = sv.relier
+      sv.relier = nil
+      return do_relier(f, surface, b, sv, nr, why, tick)
+    end
     pp = b.plant and b.projects[b.plant]
     if not pp or pp.state == "refuse" or pp.state == "attente" or pp.state == "plan" then return end
     apply_net(f, surface, b, sv, nr, api)
@@ -493,52 +548,22 @@ function Rv.step(api, f, surface, tick)
       tostring(id), site and site.x or 0, site and site.y or 0,
       sv.enemy_x and string.format("%.0f,%.0f ecarte de %d tuiles", sv.enemy_x, sv.enemy_y, S.DANGER_R + 16) or "non vu"))
   elseif action == "relier" then
-    nr = nr or net_read(f, surface, b)
-    if nr.islands + nr.uncovered == 0 then
-      -- le relevé qui a déclenché la décision est périmé : les poteaux posés depuis couvrent tout, rien à faire
-      sv.islands, sv.uncovered, sv.lost_links = 0, 0, 0
-      return
-    end
-    -- les poteaux PERDUS (jamais un poteau neuf) : ceux de leurs projets sont rouverts, sauf sous le feu
-    local per, n = {}, 0
-    local cands = lost_poles(f, surface, b)
-    -- lot ENERGIE (2/11) : d'abord le CHEMIN LE PLUS COURT du réseau alimenté vers les îlots (sûr : aucun poteau tenu par un ennemi) ;
-    -- s'il n'y en a pas, la règle d'avant (tous les poteaux que personne ne tient)
-    local plan, enemies, n_read = coupure_plan(f, surface, b, nr, cands)
-    local chosen
-    if plan and plan.action == "chemin" then
-      chosen = {}
-      for _, i in ipairs(plan.order) do chosen[i] = true end
-    elseif plan and plan.action == "second" then
-      -- aucun chemin sûr, aucun poteau perdu ne relie l'îlot : en reposer d'autres ne sert à rien (et ouvre un chantier de la centrale qui
-      -- retient le raccordement, mesuré au banc energie-ilot-ennemi) ; le raccordement bâtit une chaîne neuve
-      chosen = {}
-    end
-    if plan and #plan.second > 0 then sv.second_tick = tick end -- le raccordement (script/team/raccord.lua) ne laisse plus la main à ces poteaux
-    for i, c in ipairs(cands) do
-      if not chosen or chosen[i] then
-        local foe = Rv.foe_near(f, surface, c.e.x, c.e.y)
-        if not foe then
-          per[c.q.id] = per[c.q.id] or { q = c.q, ents = {} }
-          per[c.q.id].ents[#per[c.q.id].ents + 1] = c.e
-          n = n + 1
-        end
+    -- revue de la 0.6.59, point 1 : sans relevé frais à cette passe (production nulle confirmée, ou îlots d'un relevé ancien), le relevé
+    -- se fait PAR BANDES, sous le jeton ; la décision est jouée à sa fin (sv.relier). Sans boîte des chunks (bancs d'avant ce lot) : d'un
+    -- bloc, comme avant.
+    if not nr then
+      local rbox = api.box and api.box(surface)
+      if rbox then
+        sv.nr_job = job_new(rbox)
+        sv.relier = why
+        nr = job_step(api, f, surface, sv, tick)
+        if not nr then return end
+        sv.relier = nil
+      else
+        nr = net_read(f, surface, b)
       end
     end
-    if plan then
-      say(f, tick, string.format("coupure: %s ; %d poteau(x) perdu(s) lu(s), %d ennemi(s) vu(s), %d poteau(x) du graphe, %d rouvert(s) maintenant%s",
-        plan.reason ~= "" and plan.reason or plan.action, #cands, #enemies, n_read or 0, n,
-        #plan.second > 0 and string.format(" ; %d ilot(s) sans chemin sur : chaine neuve par le raccordement", #plan.second) or ""))
-    end
-    for _, pid in ipairs(sorted_keys(per)) do
-      local q = per[pid].q
-      Rv.reopen(q, per[pid].ents, "reseau: poteaux perdus", surface)
-      q.poles_reopened = (q.poles_reopened or 0) + 1 -- le plafond des poteaux ne se mêle pas aux reposes de la centrale
-    end
-    -- un essai qui ne rouvre rien n'est pas un essai : on se tait 5 min (le compte d'essais ne s'use que sur du travail fait)
-    if n > 0 then S.applied(sv.st, action, tick) else sv.idle_until = tick + 18000 end
-    say(f, tick, string.format("reseau: %s ; %d poteau(x) perdu(s) rouvert(s) (les autres : ennemi a moins de %d tuiles)", why, n, Rv.POLE_ENEMY_R))
-    sv.net_next = tick + 1200 -- relire vite après la remise en état
+    do_relier(f, surface, b, sv, nr, why, tick)
   elseif action == "combustible" then
     say(f, tick, "centrale: " .. why .. " (combustible : pas un probleme de reseau, les bras de la centrale s'en chargent)")
   end
