@@ -3931,12 +3931,15 @@ local function quai_tasks(f, p, surface, out)
     local _, kw = plant_burn_kw(p)
     rate = Cc.rate(kw, M.COAL_J)
     -- lot ENERGIE (2/11) : chaudières à sec = amorce à la main (charbon du stock versé dans la chaudière), en tête de pile
+    Profiler.fstart("tq:sante")
     Sante.tasks(f, p, out, function(x, y)
       local a = P.anchor_for(f.build.lat, x, y, seg_passable(f.build))
       if not a then local fx, fy = free_spot(f.build, nil, x, y); a = { x = fx, y = fy } end
       return a
     end)
+    Profiler.fstop("tq:sante")
   end
+  Profiler.fstart("tq:entrees")
   for i, q in ipairs(p.quais) do
     local chest = surface.find_entity("iron-chest", { q.x, q.y })
     if chest and chest.force.name == f.force then
@@ -3966,6 +3969,8 @@ local function quai_tasks(f, p, surface, out)
       end
     end
   end
+  Profiler.fstop("tq:entrees")
+  Profiler.fstart("tq:sorties")
   for i, o in ipairs(p.outs) do
     local chest = surface.find_entity("iron-chest", { o.x, o.y })
     if chest and chest.force.name == f.force then
@@ -3980,6 +3985,7 @@ local function quai_tasks(f, p, surface, out)
       end
     end
   end
+  Profiler.fstop("tq:sorties")
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -4852,39 +4858,58 @@ function Build.think(f, surface, tick)
     if not free_cache then free_cache = free_stock(f) end
     return free_cache
   end
+  -- lot MESURE-BUILD (7/11, accord du lead) : portées fines de Build.think, MESURE seulement (rien quand le mode fin est éteint)
+  Profiler.fstart("tb:projets")
   for _, pid in ipairs(b.order) do
     local p = b.projects[pid]
     if p then
-      if p.state == "defrichage" then clear_tasks(f, p, tasks)
+      if p.state == "defrichage" then
+        Profiler.fstart("tb:defriche")
+        clear_tasks(f, p, tasks)
+        Profiler.fstop("tb:defriche")
       elseif p.state == "chantier" or (p.state == "fantomes" and b.opts.ghosts_ahead) then
+        Profiler.fstart("tb:chantier")
         if #p.obstacles > 0 then
           local open = false
           for _, o in ipairs(p.obstacles) do if not o.done then open = true break end end
           if open then clear_tasks(f, p, tasks) end
         end
         batch_tasks(f, p, tasks, free_of)
+        Profiler.fstop("tb:chantier")
       end
       -- lot CHARBON-CENTRALE (relecture) : une centrale ROUVERTE (pièce détruite : reserve, defrichage, fantomes, raccordement, bloque)
       -- garde ses chaudières debout qui brûlent : son coffre se remplit aussi (avant : seulement fini ou chantier, coffre oublié pendant
       -- toute la reconstruction) ; quai_tasks ne fait rien sans le coffre réel de l'équipe
       if p.state == "fini" or p.state == "chantier" or (p.reopened and p.state ~= "refuse" and is_plant_project(p)) then
+        Profiler.fstart("tb:quais")
         quai_tasks(f, p, surface, tasks)
+        Profiler.fstop("tb:quais")
       end
     end
   end
+  Profiler.fstop("tb:projets")
+  Profiler.fstart("tb:rues")
   street_clear_tasks(f, tasks)
+  Profiler.fstop("tb:rues")
   if b.opts.seul then
     Board.drop_free(f, function(t) return t.ia1d ~= nil end)
   end
+  Profiler.fstart("tb:tableau")
   if #tasks > 0 then Board.add(f, tasks, tick) end
+  Profiler.fstop("tb:tableau")
   -- Lot FUITES-PILE : amélioration des tapis (R3, ses tapis pris au stock) suspendue pendant une retenue de la pile
   local conv_ok, conv_why = PileRt.porte(f, "upgrade", nil)
   if conv_ok then
+    Profiler.fstart("tb:tapis")
     Conv.step(f, surface, tick) -- lot CONVOYEURS : amélioration des tapis saturés, tâche de fond bornée
   else
     PileRt.refuse(f, "convoyeurs", "amelioration des tapis suspendue (" .. tostring(conv_why) .. ")", tick)
   end
+  if conv_ok then Profiler.fstop("tb:tapis") end
+  Profiler.fstart("tb:ligne")
   Build.ligne_step(f, surface, tick) -- lot FONDERIE-DYNAMIQUE : la ligne de fours suit ses foreuses (relevé borné)
+  Profiler.fstop("tb:ligne")
+  Profiler.fstart("tb:segs")
   -- tronçons encombrés : réévalués (défrichés par les PNJ)
   for _, key in ipairs(sorted_keys(b.segs)) do
     local s = b.segs[key]
@@ -4893,7 +4918,10 @@ function Build.think(f, surface, tick)
       s.cleared_tick = nil
     end
   end
+  Profiler.fstop("tb:segs")
+  Profiler.fstart("tb:place")
   Build.space_step(f, surface, tick)
+  Profiler.fstop("tb:place")
   -- mesures par minute
   local st = b.stats
   local m = math.floor(tick / 3600)
