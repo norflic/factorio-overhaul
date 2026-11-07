@@ -47,6 +47,7 @@ local Mi = require("shared.team.main_inventaire") -- lot MAIN-INVENTAIRE : minag
 local Sorties = require("script.team.sorties") -- lot CHARBON-MAIN : la ressource qui dort dans les coffres des avant-postes bruts
 local CB = require("shared.team.craft_bg") -- lot CRAFT-PARALLELE : fabrication en arrière-plan (règles pures, bilan [FO-CRAFT])
 local Tp = require("shared.team.tri_proches") -- lot CERVEAU-CENTRAL (P1) : tri des tuiles de minage, positions lues une fois
+local Sg = require("shared.team.stockage") -- lot STOCKAGE-VITAL : rappel d'un PNJ pour le coffre urgent (Sg.recall_pick)
 
 local Worker = {}
 Worker.BUILD_LOGS = 30 -- lot SCALE-COMPLET : lignes [FO-AVANT-POSTE] au plus par équipe (f.stats.build_logs)
@@ -937,6 +938,29 @@ local function abort(agent, f, tick, reason)
   set(agent, "step", tick)
 end
 Worker.abort = abort -- lot IA3-k : demi-tour et fuite
+
+--- Lot STOCKAGE-VITAL : coffre urgent au tableau sans PNJ libre (shared/team/stockage.lua, Sg.recall_pick) : le PNJ choisi rentre au QG
+--- (abort, raison « stock ») et prend la tâche à sa prochaine prise. Posé ici (poles.lua est requis par ce fichier, pas l'inverse).
+--- Rend (identifiant, genre de la tâche abandonnée, distance au QG en tuiles) ou nil.
+Poles.stock_recall = function(f, tick, urgent_prio)
+  if not (f.engineers and f.hq_pos) then return nil end
+  local list = {}
+  for _, id in ipairs(State.sorted_keys(f.engineers)) do
+    local a = Registry.get(id)
+    local e = a and a.entity
+    if e and e.valid then
+      local t = a.task
+      list[#list + 1] = { id = id, busy = t ~= nil, prio = t and t.prio or 0, d2 = dist2(e.position, f.hq_pos),
+        exempt = t ~= nil and (t.tag == "annexe-urgente" or Re.recall_exempt(t.kind, t.defend)) }
+    end
+  end
+  local id = Sg.recall_pick(list, urgent_prio)
+  local a = id and Registry.get(id)
+  if not (a and a.task) then return nil end
+  local kind = a.task.kind
+  abort(a, f, tick, "stock")
+  return id, kind, math.floor(math.sqrt(dist2(a.entity.position, f.hq_pos)))
+end
 
 --- Lot ETAGE4 : bail échu d'une tâche (shared/team/bail.lua, appelé par script/team/bail.lua). 1re fois : abandon (programme « rentrer »,
 --- la machine repart de l'étape : une marche ou un état sans issue est remis à zéro) ; encore sans progrès au bail suivant (il ne peut même

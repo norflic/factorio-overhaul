@@ -52,6 +52,7 @@ Poles.DANGER_RADIUS = 40      -- nid ou ver à moins de 40 tuiles : avant-poste 
 Poles.FAR_LOGS = 20           -- lot SCALE-COMPLET : lignes [FO-LOIN] du fond au plus par équipe (f.stats.far_logs)
 local POLE_KEYS = { "extraction", "base", "territoire" }
 Poles.STOCK_LOGS = 120        -- lot STOCKAGE-VITAL : lignes [FO-STOCKAGE] du coffre urgent au plus par équipe (f.stats.stock_logs)
+Poles.STOCK_RECALL = 1800     -- lot STOCKAGE-VITAL : au plus un PNJ rappelé pour le coffre urgent toutes les 30 s
 
 --- Lot STOCKAGE-VITAL : une matière que seules des entités du monde donnent SANS gisement de minerai (le bois : arbres) ? Même
 --- règle que script/team/reconstruction.lua (from_trees).
@@ -73,6 +74,23 @@ local function stock_urgent(f, view, free, book, keys, tick)
     tasks, why = Fond.annex_urgent(view, free, { book = book, keys = keys, annex_urgent = true, harvestable = from_trees,
       annex_demand = Stock.annex_demand(f) })
     if #tasks > 0 then Board.add(f, tasks, tick) end
+    -- Rappel : la tâche attend au tableau depuis une pensée et aucun PNJ n'est libre (Poles.stock_recall, posé par script/team/worker.lua)
+    local b = Board.get(f)
+    local pending
+    for _, t in ipairs(b.list or {}) do
+      if t.tag == "annexe-urgente" and not t.worker and t.created and tick - t.created >= Poles.PERIOD then pending = t break end
+    end
+    if pending and Poles.stock_recall and tick - (f.stock_recall_at or -math.huge) >= Poles.STOCK_RECALL then
+      local id, kind, d = Poles.stock_recall(f, tick, Fond.URGENT_PRIO)
+      if id then
+        f.stock_recall_at = tick
+        f.stats.stock_recalls = (f.stats.stock_recalls or 0) + 1
+        if f.stats.stock_recalls <= Poles.STOCK_LOGS then
+          log(string.format("[FO-STOCKAGE] %s : aucun PNJ libre pour le coffre urgent (%s) : PNJ %s rappele (tache %s abandonnee, a %d tuiles du QG) a %.1f min",
+            f.key or "player", tostring(pending.key), tostring(id), tostring(kind), d or -1, (tick - (f.started or 0)) / 3600))
+        end
+      end
+    end
   end
   f.stats.stock_logs = f.stats.stock_logs or 0
   local last = f.stock_why
