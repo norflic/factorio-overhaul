@@ -36,6 +36,7 @@ local Fr = require("shared.team.front")
 local P = require("shared.team.plan")
 local State = require("script.faction.state")
 local Outposts = require("script.faction.outposts")
+local VT = require("script.team.vue_tourelles") -- lot S7 (X10) : relevé des tourelles d'une vue
 
 local Il = {}
 
@@ -267,7 +268,10 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Tourelles
 ---------------------------------------------------------------------------------------------------
-local function turrets_of(f)
+--- Lot S7 (X10) : `releve` (tourelles de la vue, script/team/vue_tourelles.lua, passé par Team.view) évite de relire f.turrets ; sans
+--- lui (Il.state, bancs), la lecture d'avant.
+local function turrets_of(f, releve)
+  if releve then return VT.positions(releve, Il.OID) end
   local list, placed = {}, 0
   for _, id in ipairs(State.sorted_keys(f.turrets or {})) do
     local t = f.turrets[id]
@@ -298,12 +302,12 @@ function Il.state(f)
   return out
 end
 
-function Il.view(f, fortify_open, iron)
+function Il.view(f, fortify_open, iron, releve)
   local b = f.build
   local h = b and b.ilots
   if not (h and #h.list > 0) then return nil end
   local tick = game.tick
-  local turrets, placed = turrets_of(f)
+  local turrets, placed = turrets_of(f, releve)
   local cells = front_cells(f)
   local list = {}
   for _, il in ipairs(h.list) do

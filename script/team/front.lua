@@ -10,6 +10,18 @@
   Outposts.turret_groups : une cellule, un groupe, donc le ravitaillement va au bon endroit). Une tourelle détruite fait baisser le compte de
   sa cellule : elle est refaite par le même mécanisme (« reconstruire les tourelles »).
   État : f.front_mem (tables simples : nombres et chaînes, dans la sauvegarde ; jamais lu ni écrit à on_load). Aucun temps mesuré.
+
+  Lot S7 (X10, queue de la vue ; critères : fo-logs/2026-11-07_X10/S7_CRITERES.md), aucune décision changée :
+    - tourelles : Front.view lit le RELEVÉ de la vue (script/team/vue_tourelles.lua) quand Team.view le passe ; sans lui, il relit f.turrets ;
+    - fer et cuivre du stock : passés par Team.view (le stock déjà lu par la vue) ; sans eux, Stock.count ;
+    - laboratoires : REGISTRE f.front_mem.labs = { set = { [unit_number] = { e, x, y, s } }, scans } au lieu de la recherche sur TOUTE la
+      surface toutes les Fr.COVER_EVERY ticks. Tenu par les événements de pose (on_built_entity, on_robot_built_entity,
+      script_raised_built, script_raised_revive, on_entity_cloned) ; les laboratoires posés SANS événement par le cerveau
+      (script/ai3/cerveau.lua, place_labs : f.team.ia3.labs) sont ajoutés à la lecture. CONTRÔLE EXACT à chaque relevé : le nombre
+      d'entrées valides de la force doit égaler le compteur du moteur (LuaForce.get_entity_count, O(1), toutes surfaces) ; sinon (pose
+      sans événement par un banc ou un autre mod, force changée), l'ancienne recherche reconstruit le registre. Le relevé rend donc
+      toujours ce que rendait la recherche. Relevé complet aussi à la première lecture et après on_configuration_changed (registre
+      effacé). Front.LABS_REGISTRY = false : l'ancienne recherche (témoin des bancs).
 ]]
 local Events = require("script.core.events")
 local State = require("script.faction.state")
@@ -21,18 +33,23 @@ local Outposts = require("script.faction.outposts")
 local Sec = require("shared.team.site_securise") -- lot INTEG-ECONOMIE (D5) : sites proches bloqués à couvrir
 local Rr = require("shared.team.rebuild_rapide") -- lot REBUILD-RAPIDE (c) : cellule réattaquée chez une équipe riche
 local Stock = require("script.team.stock")
+local VT = require("script.team.vue_tourelles") -- lot S7 : relevé des tourelles d'une vue
 
 local Front = {}
 
 Front.LOGS = 60
+Front.LABS_REGISTRY = true -- lot S7 : faux = l'ancienne recherche des laboratoires sur toute la surface (témoin)
 
-local LAB_TYPES, ASSET_TYPES
+local LAB_TYPES, ASSET_TYPES, LAB_SET
 local function types()
   if LAB_TYPES then return end
-  LAB_TYPES, ASSET_TYPES = {}, {}
+  LAB_TYPES, ASSET_TYPES, LAB_SET = {}, {}, {}
   for _, ty in ipairs(R.ENTITY_TYPES) do
     local role = R.ENTITY_ROLE[ty]
-    if role == "labo" then LAB_TYPES[#LAB_TYPES + 1] = ty end
+    if role == "labo" then
+      LAB_TYPES[#LAB_TYPES + 1] = ty
+      LAB_SET[ty] = true
+    end
     if Pose.role_factor(role) > 0 then ASSET_TYPES[#ASSET_TYPES + 1] = ty end
   end
 end
@@ -90,8 +107,10 @@ for _, t in ipairs(R.ENTITY_TYPES) do
 end
 Events.on_died(on_died, { types = PIECE_TYPES, ennemi = false })
 
---- Tourelles de l'équipe { x, y } et nombre de celles du front.
-local function turrets_of(f)
+--- Tourelles de l'équipe { x, y } et nombre de celles du front. Lot S7 : `releve` (vue_tourelles, passé par Team.view) évite de relire
+--- f.turrets ; sans lui (appels hors vue, bancs), la lecture d'avant.
+local function turrets_of(f, releve)
+  if releve then return VT.positions(releve, "front") end
   local list, placed = {}, 0
   for _, id in ipairs(State.sorted_keys(f.turrets or {})) do
     local t = f.turrets[id]
@@ -104,15 +123,135 @@ local function turrets_of(f)
   return list, placed
 end
 
+---------------------------------------------------------------------------------------------------
+-- Lot S7 : registre des laboratoires (en-tête du fichier)
+---------------------------------------------------------------------------------------------------
+local LAB_NAMES -- noms des prototypes de type laboratoire, triés (lus aux prototypes à la première lecture, jamais dans global)
+local function lab_names()
+  if LAB_NAMES then return LAB_NAMES end
+  types()
+  local names = {}
+  for name in pairs(game.get_filtered_entity_prototypes({ { filter = "type", type = LAB_TYPES } })) do names[#names + 1] = name end
+  table.sort(names)
+  LAB_NAMES = names
+  return names
+end
+
+local function lab_entry(e)
+  local p = e.position
+  return { e = e, x = p.x, y = p.y, s = e.surface.index }
+end
+
+local function sorted_surfaces()
+  local list, seen = {}, {}
+  for _, s in pairs(game.surfaces) do
+    if not seen[s.index] then
+      seen[s.index] = true
+      list[#list + 1] = s
+    end
+  end
+  table.sort(list, function(a, b) return a.index < b.index end)
+  return list
+end
+
+--- Relevé complet (l'ancienne recherche, sur chaque surface) : le registre de l'équipe est refait.
+local function labs_full_scan(f, st)
+  types()
+  local reg = st.labs or { set = {}, scans = 0 }
+  reg.set = {}
+  for _, s in ipairs(sorted_surfaces()) do
+    if s.valid then
+      for _, e in ipairs(s.find_entities_filtered({ force = f.force, type = LAB_TYPES })) do
+        if e.valid and e.unit_number then reg.set[e.unit_number] = lab_entry(e) end
+      end
+    end
+  end
+  reg.scans = (reg.scans or 0) + 1
+  st.labs = reg
+  return reg
+end
+
+--- Laboratoires posés par l'équipe sans événement (cerveau, place_labs) : notés dans le registre.
+local function note_brain_labs(f, set)
+  local ia3 = f.team and f.team.ia3
+  local list = ia3 and ia3.labs
+  if not list then return end
+  for _, e in ipairs(list) do
+    if e.valid and LAB_SET[e.type] and e.force.name == f.force then
+      local u = e.unit_number
+      if u and not set[u] then set[u] = lab_entry(e) end
+    end
+  end
+end
+
+--- Positions { x, y } des laboratoires de la force de `f` sur `surface` : ce que rendait surface.find_entities_filtered{force, type}.
+local function lab_positions(f, st, surface)
+  types()
+  local pos = {}
+  if not Front.LABS_REGISTRY then
+    for _, e in ipairs(surface.find_entities_filtered({ force = f.force, type = LAB_TYPES })) do
+      if e.valid then pos[#pos + 1] = { x = e.position.x, y = e.position.y } end
+    end
+    return pos
+  end
+  local reg = st.labs or labs_full_scan(f, st)
+  local set = reg.set
+  note_brain_labs(f, set)
+  local keys = {}
+  for _, u in ipairs(State.sorted_keys(set)) do
+    local r = set[u]
+    if r.e.valid and r.e.force.name == f.force then keys[#keys + 1] = u else set[u] = nil end
+  end
+  local n = #keys
+  local want = 0
+  local force = game.forces[f.force]
+  for _, name in ipairs(lab_names()) do want = want + force.get_entity_count(name) end
+  if n ~= want then
+    reg = labs_full_scan(f, st)
+    set = reg.set
+    keys = State.sorted_keys(set)
+  end
+  local idx = surface.index
+  for _, u in ipairs(keys) do
+    local r = set[u]
+    if r.s == idx then pos[#pos + 1] = { x = r.x, y = r.y } end
+  end
+  return pos
+end
+
+--- Pose d'un laboratoire (événements de pose, clonage) : noté au registre de son équipe. Rien tant que l'équipe n'a pas de registre : son
+--- premier relevé complet le verra.
+local function on_lab_built(e)
+  local ent = e.created_entity or e.entity or e.destination
+  if not (ent and ent.valid) then return end
+  types()
+  if not LAB_SET[ent.type] then return end
+  local f = team_of(ent.force.name)
+  local st = f and f.front_mem
+  local reg = st and st.labs
+  local u = ent.unit_number
+  if reg and u then reg.set[u] = lab_entry(ent) end
+end
+for _, id in ipairs({ defines.events.on_built_entity, defines.events.on_robot_built_entity, defines.events.script_raised_built,
+  defines.events.script_raised_revive, defines.events.on_entity_cloned }) do
+  Events.on(id, on_lab_built)
+end
+
+-- Données changées (types ou prototypes de laboratoire d'un autre mod) : registre effacé, relevé complet à la prochaine lecture.
+Events.on_configuration_changed(function()
+  local list = {}
+  for _, id in ipairs(State.alive()) do list[#list + 1] = State.faction(id) end
+  list[#list + 1] = State.faction("player")
+  for _, f in ipairs(list) do
+    if f and f.front_mem then f.front_mem.labs = nil end
+  end
+end)
+
 --- Laboratoires de l'équipe (bâtiments d'amélioration), regroupés par cellule, relevés toutes les Fr.COVER_EVERY ticks.
 local function refresh_cover(f, st, surface, tick)
   if tick - st.cover_tick < Fr.COVER_EVERY then return end
   st.cover_tick = tick
-  types()
-  local pos = {}
-  for _, e in ipairs(surface.find_entities_filtered({ force = f.force, type = LAB_TYPES })) do
-    if e.valid then pos[#pos + 1] = { x = e.position.x, y = e.position.y } end
-  end
+  local pos = lab_positions(f, st, surface)
   table.sort(pos, function(a, b) if a.x ~= b.x then return a.x < b.x end return a.y < b.y end)
   st.cover = Fr.cover_clusters(pos)
 end
@@ -124,7 +263,9 @@ local function range_near()
   return nil
 end
 
-function Front.view(f, fortify_open)
+--- Lot S7 : `releve` (tourelles de la vue, script/team/vue_tourelles.lua), `iron` et `copper` (plaques au stock, déjà lues par la vue) :
+--- facultatifs ; sans eux, Front.view les relit (bancs, appels hors vue).
+function Front.view(f, fortify_open, releve, iron, copper)
   local surface = f.hq and f.hq.valid and f.hq.surface or nil
   if not surface or f.eliminated then return nil end
   local tick = game.tick
@@ -137,7 +278,9 @@ function Front.view(f, fortify_open)
   -- fer ») : chez une équipe riche (fer >= Rr.RICH_IRON × le plancher de la défense, cuivre au plancher), une cellule attaquée par au moins
   -- Rr.WAVES vagues veut Rr.RICH_EXTRA tourelle(s) de plus et reçoit tout son manque d'un coup (plus bas, après Fr.plan).
   Rr.wave_prune(st, tick)
-  local rich = Rr.rich(Stock.count(f, T.outposts.iron.product), Stock.count(f, T.outposts.copper.product), T.defend_iron_floor, T.defend_copper_floor)
+  iron = iron or Stock.count(f, T.outposts.iron.product)
+  copper = copper or Stock.count(f, T.outposts.copper.product)
+  local rich = Rr.rich(iron, copper, T.defend_iron_floor, T.defend_copper_floor)
   local boosted
   cells, boosted = Rr.boost(cells, st.waves, rich, tick, Fr.want, Fr.BASE, Fr.PER_TURRET)
   -- Lot INTEG-ECONOMIE (D5) : le site proche BLOQUÉ (signal f.site_blocked de script/faction/sites.lua) est un lieu à couvrir, comme un
@@ -173,7 +316,7 @@ function Front.view(f, fortify_open)
     st.chk[row.key] = { t = tick, ok = ok }
     return ok
   end
-  local turrets, placed = turrets_of(f)
+  local turrets, placed = turrets_of(f, releve)
   -- Lot REBUILD-RAPIDE (c) : une équipe riche a Rr.RICH_CAP places de plus sous le plafond d'équipe du front (Rr.cap_placed).
   local plan = Fr.plan({ cells = cells, cover = cover, turrets = turrets, placed = Rr.cap_placed(placed, rich), near = range_near(), rest = rest,
     allow = allow, hq = f.hq_pos, prevu = prevu })
@@ -188,7 +331,7 @@ function Front.view(f, fortify_open)
         st.rr_sig, st.rr_logs = sig, (st.rr_logs or 0) + 1
         log(string.format("[FO-REBUILD-RAPIDE] %s : cellule %s reattaquee (%d vagues) chez une equipe riche (fer %d) : %d tourelle(s) posee(s) d'un coup " ..
           "(%d a portee, %d voulues, regle du front +%d ; front de l'equipe %d sur %d au plus) a %.1f min", f.key or "player", pick.key,
-          w and w.n or 0, Stock.count(f, T.outposts.iron.product), n, pick.have, pick.want, Rr.RICH_EXTRA, placed, Fr.TEAM_CAP + Rr.RICH_CAP,
+          w and w.n or 0, iron, n, pick.have, pick.want, Rr.RICH_EXTRA, placed, Fr.TEAM_CAP + Rr.RICH_CAP,
           tick / 3600))
       end
     end

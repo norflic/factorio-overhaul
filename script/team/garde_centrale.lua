@@ -8,6 +8,12 @@
   Les tourelles posées appartiennent au poste « plant » (State.own, groupe de ravitaillement « oplant » de Outposts.turret_groups).
   Lot GARDE-MULTI : la vue porte TOUTES les centrales finies (la principale b.plant et celles de CORR-ENERGIE, b.extra_plants) ; la règle
   (Guard.plan) choisit la moins gardée, une seule tâche à la fois, sous le plafond de l'équipe.
+  Lot S7 (X10, queue de la vue ; critères : fo-logs/2026-11-07_X10/S7_CRITERES.md), aucune décision changée :
+    - tourelles : GC.view lit le RELEVÉ de la vue (script/team/vue_tourelles.lua) quand Team.view le passe ; GC.place relit f.turrets ;
+    - pièces : la pièce trouvée par find_entity(nom, {x, y}) est GARDÉE (b.garde_refs[id de projet][rang dans p.ents] = { n, x, y, e }) ;
+      tant qu'elle est valide, au même nom et aux mêmes x, y, elle tient lieu de find_entity (une entité ne change pas de place, deux
+      entités du même nom ne se recouvrent pas) ; invalide ou absente : find_entity, comme avant. GC.REFS = false : find_entity à
+      chaque lecture (témoin).
 ]]
 local T = require("shared.team.config")
 local M = require("shared.team.modules")
@@ -15,8 +21,11 @@ local D = require("shared.team.automatisation_donnees")
 local Guard = require("shared.team.garde_centrale")
 local State = require("script.faction.state")
 local Outposts = require("script.faction.outposts")
+local VT = require("script.team.vue_tourelles") -- lot S7 : relevé des tourelles d'une vue
 
 local GC = {}
+
+GC.REFS = true -- lot S7 : faux = find_entity à chaque lecture des pièces (témoin)
 
 local function range_of_turret()
   local proto = game.entity_prototypes[T.turret]
@@ -27,15 +36,30 @@ end
 --- Pièces VIVANTES (chaudières, machines à vapeur, pompes) de la centrale du projet `pid` (finie) et nombre de chaudières vivantes ;
 --- nil sans centrale finie ou sans chaudière vivante (centrale détruite : on ne remplace pas des tourelles autour des ruines). Une centrale
 --- par lecture : deux projets éloignés ne donneraient aucun emplacement qui couvre tout (correctif du 2e relecteur).
+--- Lot S7 : la pièce `e` (rang `i` de p.ents) du projet, par sa référence gardée ou par find_entity (qui est alors gardée).
+local function find_piece(surface, refs, i, e)
+  local r = refs and refs[i]
+  if r and r.n == e.name and r.x == e.x and r.y == e.y and r.e.valid then return r.e end
+  local real = surface.find_entity(e.name, { e.x, e.y })
+  if refs then refs[i] = real and { n = e.name, x = e.x, y = e.y, e = real } or nil end
+  return real
+end
+
 local function pieces_of(f, surface, pid)
   local b = f.build
   local p = b and pid and b.projects[pid]
   if not (p and p.state == "fini" and p.spec and p.spec.gen == D.PLANT.gen) then return nil end
   local pieces, boilers = {}, 0
-  for _, e in ipairs(p.ents) do
+  local refs
+  if GC.REFS then
+    b.garde_refs = b.garde_refs or {}
+    refs = b.garde_refs[pid] or {}
+    b.garde_refs[pid] = refs
+  end
+  for i, e in ipairs(p.ents) do
     local sp = M.spec(e.name) or {}
     if sp.water or sp.power_out or sp.kind == "offshore" then
-      local real = surface.find_entity(e.name, { e.x, e.y })
+      local real = find_piece(surface, refs, i, e)
       if real and real.valid and real.force.name == f.force then
         pieces[#pieces + 1] = { x = e.x, y = e.y }
         if sp.water then boilers = boilers + 1 end
@@ -63,10 +87,19 @@ local function plants_of(f, surface)
       if pieces then plants[#plants + 1] = { id = pid, pieces = pieces, boilers = boilers } end
     end
   end
+  -- lot S7 : références des centrales qui ne sont plus dans la liste, retirées
+  local refs = b.garde_refs
+  if refs then
+    for _, pid in ipairs(State.sorted_keys(refs)) do
+      if not done[pid] then refs[pid] = nil end
+    end
+  end
   return plants
 end
 
-local function turrets_of(f)
+--- Lot S7 : `releve` (tourelles de la vue, passé par Team.view) évite de relire f.turrets ; sans lui (GC.place, bancs), la lecture d'avant.
+local function turrets_of(f, releve)
+  if releve then return VT.armed(releve) end
   local turrets = {}
   for _, id in ipairs(State.sorted_keys(f.turrets or {})) do
     local t = f.turrets[id]
@@ -95,14 +128,15 @@ function GC.on_lost(f, agent_id, cause)
     f.key or "player", tostring(agent_id), tostring(cause), tick / 3600, b.garde.pause_until / 3600, b.garde.lost))
 end
 
-function GC.view(f, fortify_open, iron)
+--- Lot S7 : `releve` (tourelles de la vue, script/team/vue_tourelles.lua) facultatif.
+function GC.view(f, fortify_open, iron, releve)
   local surface = f.hq and f.hq.valid and f.hq.surface or nil
   if not surface then return nil end
   local plants = plants_of(f, surface)
   if #plants == 0 then return nil end
   local range = range_of_turret()
   if not range then return nil end
-  local turrets = turrets_of(f)
+  local turrets = turrets_of(f, releve)
   local b = f.build
   b.garde = b.garde or { poses = 0 }
   local g, tick = b.garde, game.tick

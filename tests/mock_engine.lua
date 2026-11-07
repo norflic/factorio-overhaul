@@ -130,6 +130,15 @@ local function new_force(name)
     local n = type(other) == "string" and other or other.name
     return f._cease[n] or false
   end
+  -- Lot S7 (X10) : LuaForce.get_entity_count(nom) (compteur du moteur, toutes surfaces) : entités valides de ce nom et de cette force.
+  f.get_entity_count = function(ename)
+    assert(type(ename) == "string", "get_entity_count : nom attendu")
+    local n = 0
+    for _, e in ipairs(W.entities) do
+      if e.valid and e.name == ename and e.force == f then n = n + 1 end
+    end
+    return n
+  end
   f._friends = {}
   f.set_friend = function(other, v) f._friends[type(other) == "string" and other or other.name] = v end
   f._tags = {}
@@ -1015,6 +1024,8 @@ function M.new_world(opts)
     -- lot EXPERIMENTAUX : capsules qui lancent la Géode et la Demi-Vie (script/robots/experimentaux.lua) ; le mock n'en lève aucune,
     -- le moteur réel est prouvé par « xp-petits » (joueur de la session avec images)
     on_player_used_capsule = 40,
+    -- lot S7 (X10) : registre des laboratoires (script/team/front.lua) ; le mock ne clone rien : levé à la main par tests/x10_s7_test.lua
+    on_entity_cloned = 41,
   }
   _G.defines = {
     -- Lot PANNEAU : type de l'interface ouverte (LuaControl.opened_gui_type) ; noms de l'API 1.1.91, valeurs opaques.

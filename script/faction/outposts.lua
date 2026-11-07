@@ -1239,32 +1239,44 @@ function Outposts.ammo_target(f)
   return (type(v) == "number" and v > 0) and v or T.turret_ammo_target
 end
 
+--- Ajoute la tourelle `t` (poste `oid`, `a` chargeurs, munition de rang `rank`) à son groupe. `x`, `y` : sa position si déjà lue.
+local function group_add(f, groups, by_key, t, oid, a, rank, x, y)
+  local key = oid and ("o" .. oid) or "hq"
+  local g = by_key[key]
+  if not g then
+    local pos = f.hq_pos
+    if oid then pos = f.outposts[oid] and f.outposts[oid].pos or (x and { x = x, y = y }) or t.position end
+    g = { key = key, pos = pos, list = {}, low = 0, have = {}, ranks = {} }
+    by_key[key] = g
+    groups[#groups + 1] = g
+  end
+  g.list[#g.list + 1] = t
+  g.have[#g.have + 1] = a
+  g.ranks[#g.ranks + 1] = rank
+  if a < T.turret_ammo_low then g.low = g.low + 1 end
+end
+
 --- Groupes de tourelles : { key, pos, list, low, short, missing, ammo } ; key = "hq" ou "o<id d'avant-poste>". low : tourelles sous le seuil bas ;
 --- short / missing (lot MUNITIONS, Mu.group) : tourelles à recharger au plein et chargeurs qui leur manquent pour la cible ; ammo : chargeurs.
-function Outposts.turret_groups(f)
+--- Lot S7 (X10) : `releve` (facultatif) = le relevé des tourelles de la vue (script/team/vue_tourelles.lua : tourelles valides triées, entrées
+--- mortes déjà retirées de f.turrets, chargeurs et rang lus) ; sans lui (PNJ, bancs), f.turrets est relu comme avant.
+function Outposts.turret_groups(f, releve)
   local groups, by_key = {}, {}
   local target = Outposts.ammo_target(f)
-  for _, id in ipairs(State.sorted_keys(f.turrets)) do
-    local t = f.turrets[id]
-    if t.valid then
-      local owner = State.owner(id)
-      local oid = owner and owner.oid
-      local key = oid and ("o" .. oid) or "hq"
-      local g = by_key[key]
-      if not g then
-        local pos = f.hq_pos
-        if oid then pos = f.outposts[oid] and f.outposts[oid].pos or t.position end
-        g = { key = key, pos = pos, list = {}, low = 0, have = {}, ranks = {} }
-        by_key[key] = g
-        groups[#groups + 1] = g
+  if releve then
+    for i = 1, #releve do
+      local r = releve[i]
+      group_add(f, groups, by_key, r.t, r.oid, r.rounds, r.rank, r.x, r.y)
+    end
+  else
+    for _, id in ipairs(State.sorted_keys(f.turrets)) do
+      local t = f.turrets[id]
+      if t.valid then
+        local owner = State.owner(id)
+        group_add(f, groups, by_key, t, owner and owner.oid, ammo_of(t), ammo_rank(t))
+      else
+        f.turrets[id] = nil
       end
-      g.list[#g.list + 1] = t
-      local a = ammo_of(t)
-      g.have[#g.have + 1] = a
-      g.ranks[#g.ranks + 1] = ammo_rank(t)
-      if a < T.turret_ammo_low then g.low = g.low + 1 end
-    else
-      f.turrets[id] = nil
     end
   end
   local best = AMMO_RANK[Outposts.ammo_name(nil, f)] or 1

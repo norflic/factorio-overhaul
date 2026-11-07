@@ -367,8 +367,11 @@ end
 do
   local handlers = {}
   package.loaded["script.core.events"] = { on = function(id, fn) handlers[id] = fn end,
-    on_died = function(fn) handlers[defines.events.on_entity_died] = fn end } -- lot MORTS (Events.on_died)
-  defines = { events = { on_entity_died = 1 } }
+    on_died = function(fn) handlers[defines.events.on_entity_died] = fn end, -- lot MORTS (Events.on_died)
+    on_configuration_changed = function() end } -- lot S7 (X10) : registre des laboratoires
+  -- (lot S7 : événements de pose du registre des laboratoires, abonnés au chargement de script/team/front.lua)
+  defines = { events = { on_entity_died = 1, on_built_entity = 2, on_robot_built_entity = 3, script_raised_built = 4,
+    script_raised_revive = 5, on_entity_cloned = 6 } }
   local team_f
   package.loaded["script.faction.state"] = {
     sorted_keys = function(t) local k = {} for key in next, t do k[#k + 1] = key end table.sort(k) return k end,
@@ -378,6 +381,7 @@ do
   }
   package.loaded["script.faction.outposts"] = { fortify_at = function() return 0 end }
   local Front = require("script.team.front")
+  Front.LABS_REGISTRY = false -- lot S7 : la recherche d'avant (ce moteur réduit n'a ni game.surfaces ni compteur d'entités)
   local died = handlers[1]
   check(died ~= nil, "le front s'abonne à on_entity_died")
   local surf = {

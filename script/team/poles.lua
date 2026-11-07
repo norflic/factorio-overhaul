@@ -39,6 +39,7 @@ local State = require("script.faction.state")
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Registry = require("script.companion.registry")
 local Board = require("script.team.board")
+local DangerAp = require("script.team.danger_ap") -- lot S7 (X10) : le danger lu par la vue au même tick, gardé tant que son nid vit
 
 local Poles = {}
 
@@ -362,8 +363,7 @@ function Poles.think(f, view, book, tick, plan)
     for _, o in ipairs(view.outposts or {}) do
       local real = f.outposts and f.outposts[o.id]
       local pos = real and (real.access or real.pos)
-      if pos and surface.count_entities_filtered({ position = pos, radius = Poles.DANGER_RADIUS, force = "enemy",
-        type = { "unit-spawner", "turret" }, limit = 1 }) > 0 then
+      if pos and DangerAp.near(f, surface, o.id, pos, tick, Poles.DANGER_RADIUS) then
         danger[o.id] = true
       end
       -- Lot IA1-b2 : votre équipe, avant-poste près d'une perte récente : pas de fond vers lui (prudence par zone).

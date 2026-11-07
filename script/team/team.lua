@@ -41,6 +41,8 @@ local BriquesLog = require("script.team.briques") -- lot BRIQUES : journal [FO-B
 local FluxLog = require("script.team.flux") -- lot FLUX : journal des sorties qui dorment et des brûleurs vitaux à sec
 local SortiesLog = require("script.team.sorties") -- lot CHARBON-MAIN : journal [FO-SEC] (brûleurs à sec et état de leur tournée)
 local Front = require("script.team.front") -- lot DEFENSE-FRONT : la défense suit les attaques
+local VT = require("script.team.vue_tourelles") -- lot S7 (X10) : tourelles lues une fois par vue
+local DangerAp = require("script.team.danger_ap") -- lot S7 (X10) : danger d'un avant-poste lu une fois par tick, gardé tant que son nid vit
 local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : tourelles des îlots isolés hors de l'enceinte
 local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites avant d'améliorer
 local Objectif = require("script.team.objectif") -- lot AGES : libellé d'un objectif (aucune clé de traduction inconnue)
@@ -536,8 +538,9 @@ function Team.view(f, tick)
     local unsafe
     if fsurface and (st.fuel_low or (st.stuck or 0) > 0 or st.output >= T.collect_at) then
       local pos = o.access or o.pos
-      unsafe = (pos and (fsurface.count_entities_filtered({ position = pos, radius = Poles.DANGER_RADIUS, force = "enemy",
-        type = { "unit-spawner", "turret" }, limit = 1 }) > 0 or (f.is_player and Poles.near_loss(f, pos, tick)))) or nil
+      -- Lot S7 : la même recherche (nid ou ver à Poles.DANGER_RADIUS tuiles), lue une fois par tick et gardée tant que son nid vit
+      -- (script/team/danger_ap.lua) ; les pôles relisent le même résultat au même tick.
+      unsafe = (pos and (DangerAp.near(f, fsurface, oid, pos, tick, Poles.DANGER_RADIUS) or (f.is_player and Poles.near_loss(f, pos, tick)))) or nil
     end
     outposts[#outposts + 1] = {
       -- lot MIGRATION-CHAMP : un champ migré (o.migr) n'est jamais « agrandissable » en paires thermiques, même quand la fin d'une attente
@@ -557,6 +560,7 @@ function Team.view(f, tick)
       d2 = math.floor((o.pos.x - f.hq_pos.x) ^ 2 + (o.pos.y - f.hq_pos.y) ^ 2),
     }
   end
+  DangerAp.prune(f) -- lot S7 : mémoire des avant-postes disparus retirée
   -- R-QCM-25c (b) « L'équipe le défend » : dès qu'une faction a déclaré la guerre au joueur, des PNJ armés restent au
   -- coffre (T.hq_guards). Factions vivantes dans l'ordre des id.
   local hq_guards = 0
@@ -584,13 +588,16 @@ function Team.view(f, tick)
   -- Lot MUNITIONS (shared/team/munitions.lua, Mu.per_turret) : chargeurs voulus par tourelle, relus à chaque pensée (fer au coffre, tourelles
   -- de l'équipe ; fer d'un chargeur lu au livre quand la technologie change). Lu par Outposts.turret_groups, Outposts.refill_group et la
   -- tournée de recharge (script/team/worker.lua).
+  -- Lot S7 (X10) : les tourelles de l'équipe sont lues UNE fois pour toute la vue (position, propriétaire, chargeurs, rang de la munition ;
+  -- entrées mortes retirées de f.turrets comme le faisait Outposts.turret_groups) ; le relevé sert au compte ci-dessous, aux groupes, au
+  -- front, à la garde de la centrale et aux îlots (avant : 5 relectures, 17 à 20 appels au moteur par tourelle). Variable locale de la vue.
+  local tur = VT.releve(f, Outposts.rank_of)
   if T.munitions_on then
     if f.team.mag_iron == nil or f.team.mag_iron_tech ~= f.tech then
       local rm = book_for(f):raw_cost({ { T.turret_ammo, 1 } })
       f.team.mag_iron, f.team.mag_iron_tech = rm[T.outposts.iron.product] or 0, f.tech
     end
-    local n_turrets = 0
-    for _, id in ipairs(State.sorted_keys(f.turrets or {})) do if f.turrets[id].valid then n_turrets = n_turrets + 1 end end
+    local n_turrets = #tur
     -- (hystérésis : f.team.ammo_rich garde l'état d'une pensée à l'autre ; essai 1, la cible basculait avec le fer)
     f.team.ammo_per_turret, f.team.ammo_rich = Mu.per_turret({ base = T.turret_ammo_target,
       rich = T.turret_ammo_rich_on and T.turret_ammo_rich or T.turret_ammo_target, turrets = n_turrets, -- (essai 3 : cible riche éteinte)
@@ -624,7 +631,7 @@ function Team.view(f, tick)
   local groups = {}
   local hq_turrets = 0
   local mj = { n = 0, ammo = 0, low = 0, short = 0, missing = 0, hq_n = 0, hq_ammo = 0 } -- lot MUNITIONS : journal [FO-MUNITIONS]
-  for _, g in ipairs(Outposts.turret_groups(f)) do
+  for _, g in ipairs(Outposts.turret_groups(f, tur)) do
     groups[#groups + 1] = { key = g.key, low = g.low, has_task = Board.has(f, "refill:" .. g.key),
       n = #g.list, short = T.munitions_on and g.short or nil, missing = T.munitions_on and g.missing or nil, -- lot MUNITIONS
       missing_base = T.munitions_on and g.missing_base or nil, short_base = T.munitions_on and g.short_base or nil,
@@ -814,9 +821,10 @@ function Team.view(f, tick)
     defend_first = defend_first or nil, hold_recruits = hold_recruits or nil,
     recul_wait = recul_wait, -- EFFONDREMENT : recrue gratuite en recul (planificateur, bloc de reprise)
     -- Tourelles du QG voulues : votre équipe seulement (une faction garde son QG avec ses soldats ; T.defend_first_factions).
-    front = Front.view(f, fortify_open), -- lot DEFENSE-FRONT : tourelles en plus là où les pièces de l'équipe tombent, et près des laboratoires
-    plant = GardeCentrale.view(f, fortify_open, iron0), -- lot CENTRALE-GARDE : tourelles armées à portée de toutes les pièces de la centrale finie
-    ilot = Ilots.view(f, fortify_open, iron0), -- lot ILOTS-MURS : 1 ou 2 tourelles par îlot isolé (poste facultatif, « ressources d'abord »)
+    -- (lot S7 : relevé des tourelles de la vue et plaques du stock déjà lu, `stock0`, passés : rien n'est relu)
+    front = Front.view(f, fortify_open, tur, stock0[T.outposts.iron.product] or 0, stock0[T.outposts.copper.product] or 0), -- lot DEFENSE-FRONT : tourelles en plus là où les pièces de l'équipe tombent, et près des laboratoires
+    plant = GardeCentrale.view(f, fortify_open, iron0, tur), -- lot CENTRALE-GARDE : tourelles armées à portée de toutes les pièces de la centrale finie
+    ilot = Ilots.view(f, fortify_open, iron0, tur), -- lot ILOTS-MURS : 1 ou 2 tourelles par îlot isolé (poste facultatif, « ressources d'abord »)
     hq_turrets = hq_turrets, hq_fortify = fortify_open["hq"] or false, hq_defend = f.is_player and T.defend_hq or Front.hq_post(f, hq_turrets, tick), -- une faction garde son QG avec ses 4 tourelles offertes (Fondation.grant) et ses soldats ; lot DEFENSE-FACTIONS D3 : 2 tourelles refaites si une a été perdue ET que le QG a été attaqué
     iron_flow = ((not f.is_player) and iron_flow(f)) or nil, -- lot INTEG-DEFENSE D-A : lu par shared/team/planner.lua (iron_producing) ; factions seulement : les statistiques de la force « player » comptent l'usine du joueur, pas le coffre de l'équipe
     -- Lot INTEG-DEFENSE D-D : dernier choix « production d'abord » retenu et nombre de pensées de suite qui ont demandé le contraire (hystérésis
