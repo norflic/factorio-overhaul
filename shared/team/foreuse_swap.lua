@@ -420,6 +420,18 @@ function S.coal_reserve(d)
   return math.max(1, math.ceil(margin * (bkw / kj) / net - EPS))
 end
 
+--- Retrait de MASSE (balayage et retrait à sec du champ, script/team/migration_champ.lua) : thermiques GARDÉES d'un avant-poste de combustible,
+--- les `keep` plus grands numéros de `ids` (déterministe). Rend la liste triée (toutes si keep >= #ids, aucune si keep <= 0).
+function S.reserve_keepers(ids, keep)
+  local l = {}
+  for i, u in ipairs(ids or {}) do l[i] = u end
+  table.sort(l)
+  local n = math.min(#l, math.max(0, math.floor(keep or 0)))
+  local out = {}
+  for i = #l - n + 1, #l do out[#out + 1] = l[i] end
+  return out
+end
+
 --- Un remplacement qui retire `cost` thermiques (l'ancienne et celles de l'échange) d'un avant-poste qui en a `burners` debout garde-t-il
 --- la réserve `keep` ? (keep nil : avant-poste sans réserve, toujours vrai.)
 function S.reserve_ok(burners, keep, cost)

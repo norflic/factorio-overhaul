@@ -24,6 +24,7 @@ end
 local function read(p) local h = assert(io.open(p, "rb")); local s = h:read("*a"); h:close(); return s end
 local PURE = read("shared/team/foreuse_swap.lua")
 local SCRIPT = read("script/team/foreuse_swap.lua")
+local RA = read("script/team/reserve_amorcage.lua")
 
 local function load_pure(src)
   local fn = load(src, "=foreuse_swap", "t", setmetatable({ require = require }, { __index = _G }))
@@ -296,12 +297,12 @@ local MUT = {
   { "script", "releve qui ne compte pas les thermiques", { { "        if fuel and d.valid and d.name == T.DRILL then pass.burners[oid] = (pass.burners[oid] or 0) + 1 end",
       "        if false then end" } } },
   { "script", "plan sans reserve", { { "    fits = fits_for(f, surface, refs), reserve = reserve }", "    fits = fits_for(f, surface, refs) }" } } },
-  { "script", "K par defaut au lieu des donnees", { { "  return S.coal_reserve(d), d" .. CR, "  return S.coal_reserve(nil), d" .. CR } } },
-  { "script", "avant-poste de combustible jamais reconnu", { { "  return sp ~= nil and sp.product == T.fuel" .. CR, "  return false" .. CR } } },
+  { "ra", "K par defaut au lieu des donnees", { { "  return S.coal_reserve(d), d", "  return S.coal_reserve(nil), d" } } },
+  { "ra", "avant-poste de combustible jamais reconnu", { { "  return sp ~= nil and (sp.resource == T.fuel or sp.product == T.fuel)", "  return false" } } },
 }
 local refused, kept = 0, {}
 for _, m in ipairs(MUT) do
-  local src = m[1] == "pur" and PURE or SCRIPT
+  local src = (m[1] == "pur" and PURE) or (m[1] == "ra" and RA) or SCRIPT
   local found = true
   for _, rp in ipairs(m[3]) do
     local a, z = src:find(rp[1], 1, true)
@@ -311,7 +312,15 @@ for _, m in ipairs(MUT) do
   if not found then
     kept[#kept + 1] = m[2] .. " (motif introuvable)"
   else
-    local res = m[1] == "pur" and run_pure(src) or run_script(src)
+    local res
+    if m[1] == "pur" then res = run_pure(src)
+    elseif m[1] == "ra" then
+      -- module léger mutant, servi par require à l'exécutant (puis le vrai module rendu)
+      local real = package.loaded["script.team.reserve_amorcage"]
+      package.loaded["script.team.reserve_amorcage"] = assert(load(src, "=reserve_amorcage_mutant"))()
+      res = run_script(SCRIPT)
+      package.loaded["script.team.reserve_amorcage"] = real
+    else res = run_script(src) end
     local seen
     for _, r in ipairs(res) do if not r[2] then seen = r[1] break end end
     if seen then
