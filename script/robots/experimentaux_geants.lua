@@ -271,7 +271,7 @@ local function zone(g, r, c, tick)
     s.create_entity({ name = Xp.PREFIX .. "big-scorchmark", position = { c.x, c.y } })
   end
   -- recherche par SECTEURS (un par tick : le tick 0 du double tir coûtait 10,7 ms de script, 7/11), puis frappe
-  job({ kind = "zone", e = e, un = g.un, id = r.id, dtype = r.dtype, forces = K.enemy_forces(e.force), c = { x = c.x, y = c.y },
+  job({ kind = "zone", e = e, un = g.un, id = r.id, dtype = r.dtype, force = e.force.name, forces = K.enemy_forces(e.force), c = { x = c.x, y = c.y },
         secteurs = Ech.secteurs(c, eff.zone, Ech.SECTEUR), si = 1, plan = Ech.nouveau_plan(c), salve = eff.salve, zone = eff.zone,
         at = tick, total = 0, tues = 0, debut = tick, brule = b or nil, nb = 0 })
 end
@@ -586,14 +586,18 @@ local function on_tick(ev)
   local keep = {}
   local n0 = #s.gjobs
   -- budget de coups de zone du tick, partagé par les salves qui frappent (dans l'ordre de la file ; le reste tourne d'un tick à l'autre)
-  local zj = {}
+  local zj, fz = {}, {}
   for i = 1, n0 do
     local j = s.gjobs[i]
-    if j.kind == "zone" and not j.secteurs and j.at <= ev.tick and Ech.zone_jouable(j) then zj[#zj + 1] = j end
+    if j.kind == "zone" and not j.secteurs and j.at <= ev.tick and Ech.zone_jouable(j) then
+      zj[#zj + 1] = j
+      fz[#zj] = j.force or (j.e and j.e.valid and j.e.force.name) or "?" -- j.force : posée par zone() depuis le partage par force
+    end
   end
-  -- s.budgets : autres budgets, bancs de mesure seulement (remote « fo-xp », « budgets ») ; en jeu, Ech.BUDGET et Ech.MORTS
-  local parts = Ech.partage(#zj, s.budgets and s.budgets.coups or Ech.BUDGET, ev.tick)
-  local morts = Ech.partage(#zj, s.budgets and s.budgets.morts or Ech.MORTS, ev.tick)
+  -- parts équitables PAR FORCE, puis par salve (Ech.partage_forces) ; s.budgets : autres budgets, bancs de mesure seulement (remote
+  -- « fo-xp », « budgets ») ; en jeu, Ech.BUDGET et Ech.MORTS
+  local parts = Ech.partage_forces(fz, s.budgets and s.budgets.coups or Ech.BUDGET, ev.tick)
+  local morts = Ech.partage_forces(fz, s.budgets and s.budgets.morts or Ech.MORTS, ev.tick)
   for k, j in ipairs(zj) do j.quota, j.quota_m = parts[k], morts[k] end
   for i = 1, n0 do
     local j = s.gjobs[i]

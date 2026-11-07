@@ -356,6 +356,36 @@ local function suite(Ech)
   -- §11 sauvegardes existantes : proportion de vie ; régénération proportionnelle au maximum
   check(math.abs(Ech.soin(8260200, 0.5, 60000) - 68.835) < 1e-9 and math.abs(Ech.soin(8260200, 0.5, 60000) / 8260200 - 0.5 / 60000) < 1e-15,
     "§11 régénération du Bourdon : même part du maximum qu'avant (68,835 PV par tick)")
+  -- §4 sexies partage ÉQUITABLE PAR FORCE (décision du lead, 7/11) : même total, la force du DC garde sa part
+  local dc_min, fac_tot, somme_ok = 99, 0, true
+  for tk = 0, 39 do
+    local fz = { "joueur" }
+    for _ = 1, 10 do fz[#fz + 1] = "faction" end
+    local pf = Ech.partage_forces(fz, 15, tk)
+    local tot = 0
+    for i = 1, #fz do tot = tot + pf[i] end
+    if tot ~= 15 then somme_ok = false end
+    if pf[1] < dc_min then dc_min = pf[1] end
+    for i = 2, #fz do fac_tot = fac_tot + pf[i] end
+  end
+  check(somme_ok and dc_min >= 7 and fac_tot <= 40 * 8 and fac_tot >= 40 * 7,
+    "§4 sexies une salve du joueur contre 10 d'une faction : le joueur garde 7 ou 8 morts par tick sur 15, total exact", tostring(dc_min))
+  local p5 = Ech.partage_forces({ "a", "b", "c", "d", "e" }, 15, 3)
+  local mix = Ech.partage_forces({ "b", "a", "b", "c", "b" }, 15, 0)
+  check(p5[1] == 3 and p5[5] == 3 and mix[1] + mix[3] + mix[5] == 5 and mix[2] == 5 and mix[4] == 5,
+    "§4 sexies 5 forces : 3 chacune ; parts alignées sur la file, salves d'une force entre elles", table.concat(mix, ","))
+  local recu, tot20 = {}, true
+  for tk = 0, 19 do
+    local fz = {}
+    for i = 1, 20 do fz[i] = "f" .. i end
+    local pf = Ech.partage_forces(fz, 15, tk)
+    local t = 0
+    for i = 1, 20 do recu[i] = (recu[i] or 0) + pf[i]; t = t + pf[i] end
+    if t ~= 15 then tot20 = false end
+  end
+  local egal = true
+  for i = 1, 20 do if recu[i] ~= 15 then egal = false end end
+  check(tot20 and egal, "§4 sexies plus de forces que de morts : le reste tourne, chacune reçoit autant sur 20 ticks")
   -- §11 bis sauvegarde faite PENDANT une salve de la 0.6.56 (B1 de la revue de la 0.6.57) : jobs de l'ancien format refusés, jobs neufs gardés
   local vieux_found = { kind = "zone", found = { {}, {} }, i = 1, plan = { c = { x = 0, y = 0 }, rings = {}, top = 0 } }
   local vieux_plan = { kind = "zone", plan = { c = { x = 0, y = 0 }, rings = { { {} } }, top = 1 }, cur = { k = 1, i = 1, pris = 0 } }
@@ -410,13 +440,14 @@ check(PB:find("healing_per_tick = Ech.soin(Ech.pv(AGE_BOURDON), 0.5, 60000)", 1,
 local SXG = read("script/robots/experimentaux_geants.lua")
 check(SXG:find("K.candidates(e.surface, e.force, e.position, eff.range), r.marks, eff.range)", 1, true) ~= nil
   and SXG:find("radius = eff.zone, width = 4", 1, true) ~= nil, "§7 bis Cairn : marques et anneau à la portée et à la zone EFFECTIVES (modules)")
-check(SXG:find("local parts = Ech.partage(#zj, s.budgets and s.budgets.coups or Ech.BUDGET, ev.tick)", 1, true) ~= nil
-  and SXG:find("local morts = Ech.partage(#zj, s.budgets and s.budgets.morts or Ech.MORTS, ev.tick)", 1, true) ~= nil
+check(SXG:find("local parts = Ech.partage_forces(fz, s.budgets and s.budgets.coups or Ech.BUDGET, ev.tick)", 1, true) ~= nil
+  and SXG:find("local morts = Ech.partage_forces(fz, s.budgets and s.budgets.morts or Ech.MORTS, ev.tick)", 1, true) ~= nil
+  and SXG:find("force = e.force.name, forces = K.enemy_forces(e.force)", 1, true) ~= nil
   and SXG:find("Ech.frapper(j.plan, j.cur, qh, qm, function(t)", 1, true) ~= nil and not SXG:find("Ech.TRANCHE", 1, true),
   "§4 ter jeu : chaque salve frappe sa PART des budgets de coups et de morts du tick (aucun budget par salve)")
 check(SXG:find("secteurs = Ech.secteurs(c, eff.zone, Ech.SECTEUR)", 1, true) ~= nil and SXG:find("if Ech.dans_secteur(q, p.x, p.y) then", 1, true) ~= nil
   and not SXG:find("radius = eff.zone, force = forces", 1, true), "§4 ter jeu : recherche par secteurs demi-ouverts, plus de recherche de tout le disque en un tick")
-check(SXG:find("if not Ech.zone_jouable(j) then", 1, true) ~= nil and SXG:find("and j.at <= ev.tick and Ech.zone_jouable(j) then zj[#zj + 1] = j end", 1, true) ~= nil,
+check(SXG:find("if not Ech.zone_jouable(j) then", 1, true) ~= nil and SXG:find("and not j.secteurs and j.at <= ev.tick and Ech.zone_jouable(j) then", 1, true) ~= nil,
   "§11 bis jeu : un job de salve de l'ancien format est abandonné (zone_pas) et ne reçoit aucune part des budgets (on_tick)")
 check(SXG:find("if ev.tick >= g.next and not G.zone_active(g.un) then", 1, true) ~= nil
   and SG:find("if tick >= at and not XpG.zone_active(un) then", 1, true) ~= nil, "§4 ter jeu : pas de nouvelle salve tant que la précédente frappe")
@@ -440,6 +471,8 @@ check(not SRC:find("game%.") and not SRC:find("script%.") and not SRC:find("%f[%
 
 -- §6 mutants
 local MUTANTS = {
+  { "part de force donnée à chaque salve", "local sous = Ech.partage(#m, parts[r], tick)", "local sous = Ech.partage(#m, budget, tick)" },
+  { "part de force au prorata des salves", "local parts = Ech.partage(#ordre, budget, tick)", "local parts = {} for r = 1, #ordre do parts[r] = math.floor(budget * #membres[r] / #forces) end" },
   { "job de la 0.6.56 sans cnt accepté", "(j.cur ~= nil and j.plan ~= nil and j.plan.cnt ~= nil)", "(j.cur ~= nil and j.plan ~= nil)" },
   { "job de la 0.6.56 à liste found accepté", "return j.secteurs ~= nil or", "return j.found ~= nil or j.secteurs ~= nil or" },
   { "écart de 3 âges", "Ech.ECART = 4", "Ech.ECART = 3" },

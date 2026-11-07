@@ -306,6 +306,31 @@ function Ech.partage(n, budget, tick)
   return out
 end
 
+--- Partage ÉQUITABLE PAR FORCE (décision du lead du 7/11, revue de la 0.6.57, point 3) : `forces` = liste des forces des salves en cours,
+--- dans l'ordre de la file. Le budget du tick est d'abord partagé entre les forces distinctes (Ech.partage, dans l'ordre de leur première
+--- salve), puis la part de chaque force entre ses salves. Même total (le coût ne change pas) ; une force qui tire beaucoup de salves ne
+--- réduit pas la part des autres (le géant du DC garde la sienne). Rend la liste des parts, alignée sur `forces`.
+function Ech.partage_forces(forces, budget, tick)
+  local ordre, rang, membres = {}, {}, {}
+  for i, f in ipairs(forces) do
+    local r = rang[f]
+    if not r then
+      r = #ordre + 1
+      ordre[r], rang[f], membres[r] = f, r, {}
+    end
+    local m = membres[r]
+    m[#m + 1] = i
+  end
+  local out = {}
+  local parts = Ech.partage(#ordre, budget, tick)
+  for r = 1, #ordre do
+    local m = membres[r]
+    local sous = Ech.partage(#m, parts[r], tick)
+    for k, i in ipairs(m) do out[i] = sous[k] end
+  end
+  return out
+end
+
 --- Modules (lot DESIGN-MODULES, PRODUIT accordé le 5/11) : portée, zone et salve effectives d'une unité avec ses bonus (0,2 = + 20 %).
 --- La cadence n'est pas touchée. `bonus` : { portee, puissance } ou nil.
 function Ech.effectif(r, bonus)
