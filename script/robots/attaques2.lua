@@ -85,13 +85,15 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Dégâts
 ---------------------------------------------------------------------------------------------------
---- Frappe une entité ennemie : morte d'office (tue), ou coup × mult × chute(f). Rend vrai si elle est morte. Les cibles sont ennemies PAR
---- CONSTRUCTION (recherche par forces ennemies, voisins de cuivre filtrés) : ni lecture de leur force ni objet LuaForce par coup (v7 : le
---- ramasse-miettes Lua montait à 14 ms) ; la force du géant est gardée dans le travail (j.fo).
+--- Frappe une entité ennemie : morte d'office (tue), ou coup × mult × chute(f). Rend vrai si elle est morte. Les ennemis sont relus à CHAQUE
+--- TICK par index de force (K.ennemis_du_tick, mémorisé pour le tick) : une paix ou un cessez-le-feu déclaré pendant la grande attaque compte
+--- dès le tick suivant (décision du lead, 7/11) ; aucun objet LuaForce par coup (v7 : le ramasse-miettes Lua montait à 14 ms) ; la force du
+--- géant est gardée dans le travail (j.fo).
 local function toucher(j, r, a, ent, f, tue, mult)
   if not (ent and ent.valid and ent.health and ent.destructible) then return false end
   local force = j.fo
   if not (force and force.valid) then return false end
+  if not K.ennemis_du_tick(j.force)[ent.force_index] then return false end
   local st = stat(j.id)
   local src = j.e.valid and j.e or nil
   st.cibles = st.cibles + 1

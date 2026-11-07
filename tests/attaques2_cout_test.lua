@@ -17,10 +17,11 @@ local W = { ents = {}, tick = 0, tiles = {}, cliffs = {}, crees = {} }
 local next_un, next_rid = 1, 1
 
 local forces = {}
+local PAIX = false -- paix déclarée (contrôle « paix en pleine attaque »)
 local function new_force(name, index)
   local f = { name = name, valid = true, index = index }
   forces[index] = f -- le jeu indexe aussi les forces par numéro (player 1, enemy 2, neutral 3)
-  f.is_enemy = function(o) return (o.name == "enemy" and name == "player") or (o.name == "player" and name == "enemy") end
+  f.is_enemy = function(o) return not PAIX and ((o.name == "enemy" and name == "player") or (o.name == "player" and name == "enemy")) end
   forces[name] = f
   return f
 end
@@ -29,7 +30,8 @@ new_force("player", 1); new_force("enemy", 2); new_force("neutral", 3)
 local DEAD = setmetatable({}, { __index = function(_, k) if k == "valid" then return false end return nil end })
 
 local function new_entity(t)
-  local e = { name = t.name, type = t.type or t.name, position = { x = t.x, y = t.y }, force = forces[t.force or "neutral"], valid = true,
+  local e = { name = t.name, type = t.type or t.name, position = { x = t.x, y = t.y }, force = forces[t.force or "neutral"],
+    force_index = forces[t.force or "neutral"].index, valid = true,
     health = t.health or 1000, destructible = true, active = true, unit_number = next_un, half = t.half or 0.5 }
   next_un = next_un + 1
   e.bounding_box = { left_top = { x = t.x - e.half, y = t.y - e.half }, right_bottom = { x = t.x + e.half, y = t.y + e.half } }
@@ -308,5 +310,19 @@ check(rv0 > 0 and rochers_vivants() == 0, "trombe : les rochers s'effacent au bo
 check(reste == 0, "séquelles : au bout d'1 h, cratère et verre ont rendu le sol d'origine (herbe)", tostring(reste) .. " tuile(s) encore marquées")
 local Rr = NS.attaques2.traces[1] and NS.attaques2.traces[1].R
 check(Rr and A.Ech.trace_compte(Rr) == 0, "séquelles : le registre est vide", Rr and tostring(A.Ech.trace_compte(Rr)) or "aucun registre")
+-- paix en pleine attaque (décision du lead, 7/11) : les ennemis sont relus à chaque tick, plus aucun coup dès le tick suivant
+CX = 9000
+base(CX)
+for k in pairs(C) do C[k] = 0 end -- remise à zéro des compteurs (ordre sans effet)
+NS.attaques2.pret = {}
+local e9 = geant("ixion")
+check(M.lancer(e9, CX + 0.3, CY + 0.2, true) == true, "paix : Ixion lancée")
+run(A.ATTAQUES.ixion.charge + 70)
+local avant_paix = C.damage + C.die
+PAIX = true
+run(900)
+check(avant_paix > 0 and C.damage + C.die == avant_paix, "paix déclarée en pleine attaque : plus aucun coup dès le tick suivant",
+  string.format("%d coups avant, %d après", avant_paix, C.damage + C.die - avant_paix))
+PAIX = false
 print(string.format("[ATT2-COUT] BILAN : %d OK, %d ECHEC(S)", ok, ko))
 os.exit(ko == 0 and 0 or 1)
