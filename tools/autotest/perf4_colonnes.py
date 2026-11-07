@@ -25,6 +25,7 @@ def charger(d):
     rows = perf3.aligner(rows, d)
     with perf3.opn(d, "benchmark.log") as f:
         calib = perf3.parse_calib(f)
+    perf3.dire_alignement(rows, calib)
     ms = {}
     for t, r in rows.items():
         c = calib.get(t, 0.0)

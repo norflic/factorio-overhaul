@@ -32,7 +32,7 @@ function S.damaged(e)
     acc = game.create_profiler(true)
     tmp = game.create_profiler(true)
   end
-  tmp.restart()
+  tmp.reset()  -- reset : remet à zéro ET relance (restart ne remet pas à zéro : C0-coups cumulait les cumuls)
   local fname = ent.force.name
   if fname ~= "enemy" and fname ~= "neutral" then
     local ty = ent.type
