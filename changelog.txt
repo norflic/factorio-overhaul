@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Version: 0.6.59
+Date: 2026-11-07
+  Changes:
+    - Centrale des equipes, changement de comportement allume (lot VIDEO-L12 partie 2, sans reglage) : une centrale saturee le reste tant qu elle produit au moins 70 % de sa capacite (C.SAT_EXIT = 0,7) ; l entree ne change pas (80 % pendant 6 releves, 30 s). Avant, un seul releve sous 80 % effacait la saturation et remettait a zero la duree qui leve le repli (C.HOLD_PASS). Joue pour les factions et votre equipe (C.observe, script/team/plant_arms.lua:224) ; ancienne sauvegarde : centrale non saturee au chargement.
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Version: 0.6.58
 Date: 2026-11-07
   Changes:
