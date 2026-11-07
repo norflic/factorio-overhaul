@@ -227,6 +227,8 @@ end
 
 --- Filtre E2 des tournées du plan directeur : retire l'ALIMENTATION (t.ia1d.mode == "fill") d'un projet dont le verdict est faux
 --- (verdicts[pid] == false) ; garde la collecte et tout le reste. Liste neuve, même ordre.
+--- ORPHELIN (inventaire W04, point 10) : aucun appelant à l'exécution, seulement tests/quotas_test.lua. Chemin réel : Build.Quotas.feed_ok,
+--- script/team/build.lua:4002 (une sortie pleine n'émet plus de tournée de remplissage, build.lua:4018 ; la collecte n'est jamais retenue).
 function Q.filter(tasks, verdicts)
   local out = {}
   for _, t in ipairs(tasks or {}) do
