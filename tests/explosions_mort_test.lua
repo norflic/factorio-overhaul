@@ -39,7 +39,20 @@ local function verifier_regles(M, chk)
   local function c(cond, quoi, d) if not cond then n0 = n0 + 1 end; if chk then chk(cond, quoi, d) end end
   c(M.RAYON == 224, "rayon 224 tuiles (3 840 px au zoom 0,3)", M.RAYON)
   c(M.RELEVE == 60, "releve toutes les 60 ticks", M.RELEVE)
-  c(M.TYPES[1] == "unit" and #M.TYPES == 1, "type unit seul (pas turret : nos tourelles experimentales en sont)")
+  c(M.TYPES[1] == "turret" and M.TYPES[2] == "unit" and #M.TYPES == 2, "types turret et unit, tries")
+  -- perimetre (lead, 7/11 : « unites et vers seulement, nos tourelles exclues »)
+  c(M.cible("unit", { flags = { "placeable-player", "player-creation" } }), "toute unit (nos robots compris)")
+  c(M.cible("unit", {}), "unit sans drapeaux")
+  c(M.cible("turret", { flags = { "placeable-enemy", "placeable-off-grid", "not-repairable", "breaths-air" } }),
+    "ver vanilla (small-worm-turret : placeable-enemy)")
+  c(M.cible("turret", { flags = { "placeable-player", "placeable-enemy", "placeable-off-grid", "not-repairable", "breaths-air" } }),
+    "ver vanilla (medium a behemoth : placeable-player et placeable-enemy)")
+  c(not M.cible("turret", { flags = { "placeable-player", "player-creation" } }),
+    "notre tourelle experimentale (crachat : player-creation) exclue")
+  c(not M.cible("turret", { flags = { "placeable-enemy", "player-creation" } }), "player-creation exclut meme ennemie")
+  c(not M.cible("turret", {}), "turret sans drapeaux exclue")
+  c(not M.cible("ammo-turret", { flags = { "placeable-enemy" } }) and not M.cible("electric-turret", {}),
+    "autres types de tourelles exclus")
   -- formes de dying_explosion
   local n = M.noms_explosion("small-biter-die")
   c(n and #n == 1 and n[1] == "small-biter-die", "chaine")
@@ -238,7 +251,9 @@ local MUT_REGLES = {
   { "decalage accepte", "if k ~= \"name\" then return nil end", "if false then return nil end" },
   { "prefixe non controle", "effect_id:sub(1, #M.PREFIXE) ~= M.PREFIXE", "false" },
   { "rayon 96 (celui des tirs)", "M.RAYON = 224", "M.RAYON = 96" },
-  { "tourelles reprises (type turret)", "M.TYPES = { \"unit\" }", "M.TYPES = { \"turret\", \"unit\" }" },
+  { "nos tourelles reprises (player-creation ignore)", "and not a_drapeau(p, \"player-creation\")", "" },
+  { "vers exclus", "return a_drapeau(p, \"placeable-enemy\") and", "return false and" },
+  { "toute turret reprise", "if t == \"turret\" then return a_drapeau", "if t == \"turret\" then return true or a_drapeau" },
 }
 for _, mu in ipairs(MUT_REGLES) do
   local Mm = charger_regles(remplacer(TEXTE_REGLES, mu[2], mu[3]))

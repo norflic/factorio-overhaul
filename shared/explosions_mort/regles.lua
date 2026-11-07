@@ -12,9 +12,10 @@
   connecté est à moins de RAYON tuiles (distance de Tchebychev). Le cadavre (`corpse`) reste partout : seule l'explosion
   change. Les effets déjà présents dans `dying_trigger_effect` (feu de l'Ignée : c'est du JEU) restent, devant.
 
-  PÉRIMÈTRE (lead, 7/11) : le type `unit` SEULEMENT. Le type `turret` porte les vers, mais aussi nos tourelles
-  expérimentales (`prototypes/experimentaux.lua`, « crachat ») ; la mort des tourelles a été dessinée avec le DC (lot A4,
-  F157) : elle n'est pas touchée.
+  PÉRIMÈTRE (lead, 7/11 : « unités et vers seulement, nos tourelles exclues ») : toutes les `unit` ; parmi les `turret`,
+  les VERS seulement, reconnus à leurs drapeaux (« placeable-enemy » sans « player-creation »). Le type `turret` porte aussi
+  nos tourelles expérimentales (`prototypes/experimentaux.lua`, « crachat » : « placeable-player », « player-creation »),
+  dont la mort a été dessinée avec le DC (lot A4, F157) : elles ne sont pas touchées.
 
   RAYON = 224 : le DC joue en 3 840 × 2 160 ; au zoom 0,3, la demi-largeur vue fait 3 840 ÷ (32 × 0,3) ÷ 2 = 200 tuiles.
   Relevé des joueurs toutes les RELEVE ticks (état du jeu, gardé dans global : déterministe en multijoueur).
@@ -25,6 +26,7 @@
     M.effect_id(noms)      « fo-mort|a|b »
     M.noms(effect_id)      noms portés par un identifiant de ce lot, ou nil
     M.avec_effet(dte, noms) `dying_trigger_effect` complété par l'effet script
+    M.cible(t, p)          le prototype p de type t est-il du lot ? (unités ; vers, pas nos tourelles)
     M.habiller(p)          transforme un prototype (data) ; rend ses noms, ou nil s'il est laissé au moteur
     M.proche(joueurs, s, x, y, r)  un joueur relevé est-il à moins de r tuiles du point, sur la surface s ?
 ]]
@@ -34,7 +36,22 @@ local M = {}
 M.PREFIXE = "fo-mort|"
 M.RAYON = 224
 M.RELEVE = 60
-M.TYPES = { "unit" } -- biters, soldats, robots ; PAS « turret » (nos tourelles expérimentales en sont)
+M.TYPES = { "turret", "unit" } -- trié ; « turret » filtré par M.cible (vers seulement)
+
+local function a_drapeau(p, f)
+  local fl = p.flags
+  if type(fl) ~= "table" then return false end
+  for i = 1, #fl do if fl[i] == f then return true end end
+  return false
+end
+
+--- Le prototype p (type t) est-il du lot ? Toute `unit` ; une `turret` seulement si c'est un ver : « placeable-enemy » et
+--- pas « player-creation » (nos tourelles expérimentales sont « player-creation »).
+function M.cible(t, p)
+  if t == "unit" then return true end
+  if t == "turret" then return a_drapeau(p, "placeable-enemy") and not a_drapeau(p, "player-creation") end
+  return false
+end
 
 --- Noms d'explosion d'un `dying_explosion` de prototype : chaîne, liste de chaînes, { name = … } ou liste de { name = … }
 --- SANS autre champ. Rend nil si la forme n'est pas sûre (décalage, champ inconnu, nom vide ou portant « | ») : le
