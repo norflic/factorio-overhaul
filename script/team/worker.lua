@@ -25,6 +25,7 @@ local Rc = require("shared.team.repli_chemin") -- lot CHARBON3 (B2) : essais de 
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Mu = require("shared.team.munitions") -- lot MUNITIONS (revue M3) : prise bornée de la munition de base (Mu.split_take)
 local Ra = require("shared.team.rearmement") -- lot REARMEMENT : emplacement des munitions complété au dépôt au QG (règle pure)
+local Tj = require("script.team.tourelle_journal") -- lot TOURELLE-JOURNAL : minage refusé sous une tourelle, journal [FO-TOURELLE-RETIREE]
 local Outposts = require("script.faction.outposts")
 local Sites = require("script.faction.sites")
 local Board = require("script.team.board")
@@ -79,20 +80,64 @@ Worker.CLAIM_SLACK = 8    -- tuiles : écart de distance au QG toléré entre la
 --- recherche de rayon 2,5 : le moteur la rend dans un ordre quelconque, et une tuile à 2 tuiles de la cible est hors de
 --- portée de l'ouvrier arrêté à 1,5 tuile de l'autre côté (relevé en moteur réel, kit égal : les mineurs d'un même gisement
 --- rendaient 44 ou 0 sur 50 en 91 s, au hasard de la tuile rendue ; le charbon d'Azur, graine 1618033988, 0 huit fois de suite).
-local function mining_entity(surface, target, names, f)
-  if not names or #names == 0 then return nil end -- rien à récolter (Harvest.names vide) : jamais de recherche sans nom
-  if not Harvest.applies(f) then return surface.find_entities_filtered({ position = target, radius = 2.5, name = names, limit = 1 })[1] end
-  local list = surface.find_entities_filtered({ position = target, radius = 0.9, name = names, limit = 8 })
-  if #list == 0 then list = surface.find_entities_filtered({ position = target, radius = 2.5, name = names, limit = 16 }) end
-  local best, bd
-  for _, r in ipairs(list) do
-    local dx, dy = r.position.x - target.x, r.position.y - target.y
-    local d = dx * dx + dy * dy
-    if not best or d < bd or (d == bd and (r.position.x < best.position.x or (r.position.x == best.position.x and r.position.y < best.position.y))) then
-      best, bd = r, d
-    end
+-- Lot TOURELLE-JOURNAL : types qui ne bloquent pas le minage d'une tuile (ce ne sont pas des bâtiments ; le moteur ne les sélectionne pas à la
+-- place de la ressource) : PNJ et unités qui passent, corps, objets au sol, fantômes, effets.
+local MINE_IGNORE = { character = true, unit = true, corpse = true, ["character-corpse"] = true, ["item-entity"] = true, ["entity-ghost"] = true,
+  ["tile-ghost"] = true, sticker = true, ["flying-text"] = true, ["highlight-box"] = true, ["smoke-with-trigger"] = true, projectile = true,
+  stream = true, beam = true, explosion = true, ["particle-source"] = true, fire = true, ["speech-bubble"] = true }
+
+--- Lot TOURELLE-JOURNAL : le bâtiment qui recouvre la tuile de la ressource `r` (nil : tuile libre). `free` : types qui ne comptent pas
+--- (ressources, arbres récoltables : Harvest.free_types).
+local function covering(surface, r, free)
+  local rp = r.position
+  for _, x in ipairs(surface.find_entities_filtered({ area = { { rp.x - 0.1, rp.y - 0.1 }, { rp.x + 0.1, rp.y + 0.1 } }, type = free,
+    invert = true, limit = 8 })) do
+    if x.valid and not MINE_IGNORE[x.type] then return x end
   end
-  return best
+  return nil
+end
+
+--- Rend la ressource à miner et, si des tuiles ont été écartées parce qu'un bâtiment les recouvre (lot TOURELLE-JOURNAL), le premier de ces
+--- bâtiments (journal). `free` nil : aucune tuile écartée (ancien comportement). Sans tuile écartée, le choix est celui d'avant, à l'identique :
+--- premier rendu par le moteur (hors Harvest.applies), sinon le plus proche de la cible (égalités : x puis y croissants, premier rendu).
+local function mining_entity(surface, target, names, f, free)
+  if not names or #names == 0 then return nil end -- rien à récolter (Harvest.names vide) : jamais de recherche sans nom
+  local cover
+  if not Harvest.applies(f) then
+    for _, r in ipairs(surface.find_entities_filtered({ position = target, radius = 2.5, name = names, limit = 16 })) do
+      local c = free and covering(surface, r, free)
+      if not c then return r, cover end
+      cover = cover or c
+    end
+    return nil, cover
+  end
+  -- La plus proche de la cible parmi `list` dont la tuile est libre (égalités : x puis y croissants, premier rendu).
+  local function pick(list)
+    local out = {} -- tuiles écartées (indices de `list`)
+    for _ = 1, #list do
+      local best, bd, bi
+      for i, r in ipairs(list) do
+        if not out[i] then
+          local dx, dy = r.position.x - target.x, r.position.y - target.y
+          local d = dx * dx + dy * dy
+          if not best or d < bd or (d == bd and (r.position.x < best.position.x or (r.position.x == best.position.x and r.position.y < best.position.y))) then
+            best, bd, bi = r, d, i
+          end
+        end
+      end
+      if not best then break end
+      local c = free and covering(surface, best, free)
+      if not c then return best end
+      cover = cover or c
+      out[bi] = true
+    end
+    return nil
+  end
+  local list = surface.find_entities_filtered({ position = target, radius = 0.9, name = names, limit = 8 })
+  local best = #list > 0 and pick(list) or nil
+  -- Rayon 2,5 : aucune ressource à 0,9 tuile (comme avant), ou (lot TOURELLE-JOURNAL) toutes recouvertes par un bâtiment.
+  if not best then best = pick(surface.find_entities_filtered({ position = target, radius = 2.5, name = names, limit = 16 })) end
+  return best, cover
 end
 
 local function claims_of(f)
@@ -1706,7 +1751,34 @@ FSM.define(MACHINE, {
       local got = e.get_item_count(item) - (agent.mine_base or 0)
       local target = agent.task and agent.task.target
       local f = faction_of(agent)
-      local res = target and mining_entity(e.surface, target, Harvest.names_for(f, item, agent.task and agent.task.trees), f)
+      local res, cover
+      if target then
+        res, cover = mining_entity(e.surface, target, Harvest.names_for(f, item, agent.task and agent.task.trees), f,
+          Harvest.free_types(agent.task and agent.task.resource or item, f, agent.task and agent.task.trees))
+      end
+      -- Lot TOURELLE-JOURNAL (7/11, DC : « très fortes chances que ce soit les pnj qui les aient prises ») : update_selected_entity(position),
+      -- plus bas, sélectionne ce que la souris survolerait ; une TOURELLE posée sur la tuile de minerai (par le joueur après la création de la
+      -- tâche, ou sous le repli à 2,5 tuiles de mining_entity) serait minée puis portée au coffre (votre équipe a la force du joueur). Une tuile
+      -- couverte par une tourelle n'est jamais minée : le minage finit comme sans minerai, et c'est écrit.
+      -- (relevé en moteur réel, script/team/harvest.lua Harvest.foreign_resource : sous un cristal posé sur du charbon, le moteur sélectionnait
+      -- l'AUTRE entité et le PNJ la minait : 2 cristaux au coffre, 0 charbon.) Deux gardes, pour TOUT bâtiment (lead, 7/11) :
+      --   1. une tuile dont le centre est recouvert par un bâtiment (ni ressource, ni arbre récoltable, ni corps, ni objet au sol) est
+      --      écartée par mining_entity, qui prend la tuile libre suivante dans le même ordre (sans tuile écartée : choix d'avant à l'identique) ;
+      --      plus aucune tuile libre : pas de minage ;
+      --   2. la ressource est sélectionnée ELLE-MÊME (LuaControl.selected, en écriture) et relue : une autre sélection, pas de minage.
+      -- Refus : le minage finit comme sans minerai ; ligne [FO-TOURELLE-RETIREE] « minage refuse : selection = <nom> » (une par seconde au plus).
+      local function who() return "PNJ " .. tostring(agent.id) .. " (" .. tostring(f and f.key or "?") .. ", minage a la main)" end
+      if not res and cover then
+        Tj.mine_refused(cover, who(), item, "batiment sur la tuile de minerai, aucune tuile libre a portee")
+      elseif res then
+        local rp = res.position
+        e.selected = res
+        local sel = e.selected
+        if not (sel and sel.valid and sel.name == res.name and math.abs(sel.position.x - rp.x) < 0.01 and math.abs(sel.position.y - rp.y) < 0.01) then
+          Tj.mine_refused(sel, who(), res.name, "la selection n'est pas la ressource visee")
+          res = nil
+        end
+      end
       -- Lot MAIN-INVENTAIRE : inventaire plein -> on dépose l'utile au coffre puis on revient finir (au lieu de laisser le moteur
       -- lâcher le minerai au sol) ; en fin de minage, le minerai tombé au sol autour du mineur est ramassé.
       local over = got >= count or not res or tick - agent.mine_started > MINE_TIMEOUT
@@ -1749,8 +1821,7 @@ FSM.define(MACHINE, {
         set(agent, "step", tick)
         return
       end
-      e.update_selected_entity(res.position)
-      e.mining_state = { mining = true, position = res.position }
+      e.mining_state = { mining = true, position = res.position } -- (ressource déjà sélectionnée plus haut : e.selected = res)
     end,
   },
 })
@@ -1915,5 +1986,7 @@ Registry.on_removed(function(agent)
     for _, j in ipairs(jobs) do bg_close_job(agent, f, j, false, game.tick, "mort") end
   end
 end)
+
+Worker._mining_entity = mining_entity -- tests hors jeu seulement (tests/tourelle_journal_test.lua, lot TOURELLE-JOURNAL)
 
 return Worker
