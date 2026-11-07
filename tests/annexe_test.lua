@@ -463,6 +463,10 @@ do
   local found = 0
   for i = nl + 1, #logs do if logs[i]:find("FO%-STOCKAGE") and logs[i]:find("retrouve") then found = found + 1 end end
   check(found == 2, "journal [FO-STOCKAGE] : 2 coffres retrouvés (" .. found .. ")")
+  -- Banc stockage-remplace du 5/11, 22 h 15 (1 ECHEC) : A retrouvé à 0,3 min, encore vide au tick 1 300 : le rangement (team.lua, AVANT
+  -- Stock.grow) ne le voyait qu'à la pensée suivante (300 ticks). Un coffre retrouvé est rempli DANS LA MÊME pensée.
+  check((replaced.items.stone or 0) + (posed.items.stone or 0) > 0, "remplis dans la MÊME pensée que la réparation (" ..
+    tostring(replaced.items.stone) .. ", " .. tostring(posed.items.stone) .. ")")
   Stock.balance(q)
   check((replaced.items.stone or 0) > 0 or (posed.items.stone or 0) > 0, "ils se REMPLISSENT : le rangement du QG plein y verse ses piles (" ..
     tostring(replaced.items.stone) .. ", " .. tostring(posed.items.stone) .. ")")
@@ -476,6 +480,17 @@ do
   Stock.grow(q2, surf_scan, 900)
   check(#Stock.annexes(q2) == 0, "mutant (réparation retirée) : aucun coffre retrouvé, la règle d'avant")
   Stock.scan = sc0
+  -- mutant : sans le rangement dans la même pensée, le coffre retrouvé reste vide jusqu'à la pensée suivante (le banc du 5/11)
+  local bal0 = Stock.balance
+  Stock.balance = function() return 0 end
+  local q3 = team(10)
+  q3.hq_pos = { x = 0, y = 0 }
+  q3.hq.items.stone = 50 * 10
+  local r3 = ent(9101, "steel-chest", 1, 5)
+  world = { r3 }
+  Stock.grow(q3, surf_scan, 900)
+  check(#Stock.annexes(q3) == 1 and (r3.items.stone or 0) == 0, "mutant (rangement de la même pensée retiré) : retrouvé mais vide")
+  Stock.balance = bal0
   Stt.owner = owner0
   game.tick = nil
 end
