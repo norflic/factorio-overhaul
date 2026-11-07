@@ -1729,8 +1729,9 @@ do
     local saved_fuel2 = T.fuel
     E = setup({ working = 1 })
     T.fuel = T.outposts.iron.resource
-    game.item_prototypes = { [T.fuel] = { fuel_value = 1e6 } }
-    E.gens = { { valid = true, energy_generated_last_tick = 10 * 1e6 / 60 } }
+    -- (lot FOREUSES-THERMIQUES : combustible de 4 MJ, réserve d'amorçage K = 3 < 8 : la PROTECTION seule garde les 8, mutant visible)
+    game.item_prototypes = { [T.fuel] = { fuel_value = 4e6 } }
+    E.gens = { { valid = true, energy_generated_last_tick = 10 * 4e6 / 60 } }
     for k, d in ipairs(E.o.drill_list) do if k <= 3 then d.fuel_n = 0 end end
     for _ = 1, nmin + 4 do E.sweep() end
     check(E.alive() == 8, "T10d : minerai de la centrale sous son plancher : les brûleurs à sec restent (" .. E.alive() .. ")")
