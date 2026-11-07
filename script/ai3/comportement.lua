@@ -548,6 +548,19 @@ function M.plan(f, agent, p, goal, tick, opts)
   res.exact_goal = D.exact_at(prep, goal.x, goal.y)
   res.threat_goal = D.exact_at(prep, goal.x, goal.y, true) -- lot INTEG-DEFENSE : le même sans les morts de PNJ (menaces seules)
   Profiler.fstop("plan:exact")
+  -- Lot X10-CHEMINS (relevé de S8a, mesure seulement) : une ligne par itinéraire quand le journal des chemins est allumé
+  -- (interface « fo-chemins », bancs) : cases du départ et du but, seuil, graine, empreinte du champ (somme indépendante de l'ordre),
+  -- A* et développements. Coupé par défaut : un test par appel ; aucune décision ne le lit.
+  if Storage.ns("path").journal then
+    local h, nk = 0, 0
+    for k, v in pairs(field) do -- somme commutative : l'empreinte ne dépend pas de l'ordre de pairs
+      h = (h + ((k % 65521) * 65537 + v) * (v % 997 + 3)) % 2147483647
+      nk = nk + 1
+    end
+    log(string.format("[FO-CHEMINS-P] %d %s %d %s %s %d %d %d %d %s %s %d %d %s %d %s %d", tick, tostring(f.key), agent and agent.id or 0,
+      opts.draw and "var" or "-", opts.same and "same" or "-", D.cell(p.x), D.cell(p.y), D.cell(goal.x), D.cell(goal.y), tostring(B),
+      tostring(seed or 0), h, nk, res.astar and "astar" or "via", res.expand or 0, res.blocked and "bloque" or "-", #res.pts))
+  end
   return res
 end
 

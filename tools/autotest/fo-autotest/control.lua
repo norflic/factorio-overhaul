@@ -24,6 +24,8 @@ local KIT_EGAL = {
   ["perf4-partie"] = true, ["perf4-partie-prof"] = true, ["perf4-partie-detail"] = true, ["perf4-coups"] = true,
   -- Lot X10 (moteur) : même sauvegarde, classes figées par soustraction (scenarios/x10_common.lua).
   ["x10-recensement"] = true, ["x10-sans-usines"] = true, ["x10-sans-pnj"] = true, ["x10-fige-tout"] = true,
+  -- Lot X10-CHEMINS : relevé des demandes de chemin sur la même sauvegarde (scenarios/x10-chemins-releve.lua).
+  ["x10-chemins-releve"] = true,
 }
 
 -- Lot IA0 : les scénarios de guerre intégrés restent en « Paisible » (pvp = "peaceful"), comportement des
