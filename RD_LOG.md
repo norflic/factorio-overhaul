@@ -10,7 +10,7 @@
 
 ## 2026-11-07 : défauts de la partie du DC (0.6.58), feuille de route vidéo, disque F:
 
-> Prochains identifiants libres (7/11, 18 h 55) : **F400** et **E264** hors blocs. Attribués ici : F389 à F399, E258 à E263.
+> Prochains identifiants libres (7/11, 19 h) : **F400** et **E265** hors blocs. Attribués ici : F389 à F399, E258 à E264.
 
 - **F394 · FAIT** (moteur réel, `f1-lasers` avec images, 48 sites, lot F1-C) : le faisceau d'une electric-turret part de
   position + (L sin θ, −L cos θ · cos 45°) + (0, −H). `attack_parameters.source_offset` = {0, −L} tourne avec la tête
@@ -69,6 +69,22 @@
     1 900 ticks (sous 3 600).
   - Décision pour le point 2 : le jeton passe d'un travail par tick à un BUDGET par tick, chaque travail déclarant un coût
     déterministe (`fo-logs/2026-11-07_LOURD/CRITERES.md` §2).
+- **E264 · MESURÉ** (moteur réel, M2 du x10, 7/11 18 h 44, `--seul`, sauvegarde du DC, personnage dans sa base, vitesse 10,
+  fenêtre 1920×1080, VSync à 144 Hz ; `fo-logs/2026-11-07_X10/M2-rendu`, MOTEUR.md §13) : le rendu, mesuré.
+  - Par zoom :
+    - zoom 1 : 233 UPS (×3,88), 111 images/s, 3 306 sprites, prepare + cpu-render 0,78 ms par image ;
+    - zoom 0,5 : 284 UPS (×4,73), 127 images/s, 15 825 sprites, 1,33 ms par image ;
+    - zoom 0,3 : 230 UPS (×3,84), 119 images/s, 29 358 sprites, 2,21 ms par image.
+  - Contre les mêmes ticks sans images (témoins de M1, corrigés à l'étalon), le surcoût vaut 0,80 ± 0,36 ms par tick au zoom 1 et
+    0,47 ± 0,19 ms au zoom 0,5.
+  - Modèle déduit : UPS = (1000 − images/s × R) ÷ tick, à +12 % et −4 % des mesures, avec R ≈ 0,3 ms + 0,065 µs par sprite. À
+    vitesse 10, le jeu dessine jusqu'à 144 images/s : le rendu se paie à chaque image, et ne s'intercale pas tous les 10 ticks
+    comme le supposait MOTEUR.md §4 (corrigé).
+  - Budget du tick total pour ×10 à 144 images/s : 1,35 ms à la vue habituelle du DC (4K, équivalente à notre zoom 0,5), 1,14 ms
+    dézoomé. Avec le moteur à 0,86 ms et le script à 0,5 ms (cibles), cela donne ×9,9 à sa vue habituelle et ×8,4 dézoomé.
+  - Non mesurés : le GPU en 4K (plafonné par la synchronisation), et le zoom 0,3 sans images.
+  - Leviers ouverts : moins de sprites par bâtiment (L-R2, recensement confié à x10-sprites), et un plafond de 60 images/s.
+    Factorio 1.1.91 n'a que « Wait for VSync », donc ce plafond est un réglage du PC du DC, hors du mod (supposé, non mesuré).
 - **E261 · VALIDÉ** (moteur réel, lot F1-C ; archives `fo-logs/2026-11-04_LASER-F1C/`) : la tourelle laser des âges 2 à 15 en
   jeu → `content` 554 OK et `f1-lasers` 4 OK sur 0.6.58 + laser ; `f1-lasers` 4 OK sur essai-0659 + laser (`laser-0659`) ;
   migration depuis une carte 0.6.41, 4 OK, faisceau vu 48 fois sur 48. Production : 925 rendus à 128 échantillons, 0 erreur,
