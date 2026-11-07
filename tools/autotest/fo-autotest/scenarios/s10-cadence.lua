@@ -34,8 +34,10 @@ end
 
 return {
   description = "X10-S10 : factions lointaines et calmes plus lentes, reveil au tick meme",
-  check_tick = 2450,
-  shots_delay = 2300,
+  -- La session avec images se ferme dès ses captures prises : elles viennent APRÈS le bilan (premier passage : captures à 2 300,
+  -- bilan à 2 450 jamais joué).
+  check_tick = 2300,
+  shots_delay = 2350,
 
   -- Session avec images : une capture du QG de chaque faction (le joueur est près de la faction 2 depuis la partie C).
   shots = function(ctx, add)
@@ -80,18 +82,21 @@ return {
     local f1 = list[1]
     if not st.dmg and e.tick >= 1500 and f1 and f1.asleep and f1.hq then
       local s = ctx.surface()
+      -- (premier passage : un petit biter posé à 220 tuiles n'a pas trouvé de place, chunks non générés ; il est posé près de la
+      -- tourelle, le temps du coup, et le coup part sans cause s'il manque : f.hit_t n'a pas besoin de cause)
       local pos = s.find_non_colliding_position("gun-turret", { f1.hq.x + 12, f1.hq.y }, 30, 1)
       local tur = pos and s.create_entity({ name = "gun-turret", position = pos, force = f1.force })
-      local bpos = s.find_non_colliding_position("small-biter", { f1.hq.x + 220, f1.hq.y + 220 }, 60, 1)
+      local bpos = tur and s.find_non_colliding_position("small-biter", { tur.position.x + 8, tur.position.y + 8 }, 20, 1)
       local biter = bpos and s.create_entity({ name = "small-biter", position = bpos, force = "enemy" })
-      if tur and biter then
-        tur.damage(5, "enemy", "physical", biter)
-        biter.destroy()
+      if tur then
+        if biter then tur.damage(5, "enemy", "physical", biter) else tur.damage(5, "enemy", "physical") end
+        if biter and biter.valid then biter.destroy() end
         st.dmg, st.dmg_key = e.tick, f1.key
-        ctx.log(string.format("tick %d : degat force sur une tourelle de %s (faction endormie, derniere pensee %s)", e.tick, tostring(f1.key), tostring(f1.last)))
+        ctx.log(string.format("tick %d : degat force sur une tourelle de %s en (%.1f, %.1f), cause %s (faction endormie, derniere pensee %s)",
+          e.tick, tostring(f1.key), tur.position.x, tur.position.y, biter and "petit biter" or "aucune", tostring(f1.last)))
       else
         st.dmg = -1
-        ctx.fail("degat force", "tourelle ou cause impossible a poser")
+        ctx.fail("degat force", string.format("tourelle impossible a poser (place %s)", pos and "trouvee" or "introuvable"))
       end
     end
     -- C : le joueur (session avec images) téléporté près de la faction 2 endormie.
