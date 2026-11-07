@@ -1,8 +1,10 @@
 --[[
   Lot L9 de la feuille de route « Factorio Automated » (docs/VIDEO_AUTOMATISATION.md §6 L9 ; docs/TODO_VIDEO.md V45, V46, V47, G37, G42,
   G43, G57) : SONDER AVANT DE DÉCIDER, MINERAI D'ABORD. Règle PURE (aucune API Factorio, aucun nom d'objet : les ressources et leurs seuils
-  viennent de l'appelant, lus en données). Testée hors jeu : tests/lot_minerai_test.lua. BRANCHÉE EN PARTIE : Lm.states_for et Lm.allows, via
-  script/team/lots_minerai_glue.lua (:53 et :62) ; Lm.ores, Lm.role, Lm.reserve et Lm.needs_survey ne sont appelées par aucun script.
+  viennent de l'appelant, lus en données). Testée hors jeu : tests/lot_minerai_test.lua. BRANCHÉE EN ENTIER par
+  le lot video-minerai (script/team/lots_minerai_glue.lua, crochets Build.LotsMinerai de script/team/build.lua) : Lm.states_for et
+  Lm.allows (try_place, lot video-l6), Lm.ores / Lm.role par P.classify_lot (classement d'un lot avec les seuils de
+  shared/team/lot_minerai_seuils.lua), Lm.reserve (à l'évaluation d'un lot neuf), Lm.needs_survey (relevé refait après un événement).
 
   La source : « If the resource scanner […] detects a large amount of ore in an upcoming Mega tile, that Mega tile will be built as a blank
   Mega tile even if we're in a power crisis », « because we don't know when we'll come across ore again » (M33) ; « whenever we build a tile
@@ -25,7 +27,8 @@
     5. Lm.needs_survey(l, tick, ev_tick, max_age) : le relevé précède la décision ; un relevé plus ancien que le dernier événement qui
        change la place (porte fermée, bâtiment détruit, ennemi vu : G l.568-570) ou que max_age ticks de jeu est refait ;
     6. Lm.reserve(lots, seuils) : à la croissance du treillis, chaque lot de minerai neuf est RÉSERVÉ tout de suite (V45, V46),
-       indépendamment de toute crise ; rend les réservations triées.
+       indépendamment de toute crise ; rend les réservations triées ;
+    7. Lm.total(s) : somme des quantités de tous les minerais du lot ; au-dessus de seuils.sum, le lot est de minerai (G43).
   Déterminisme : listes triées (nombre décroissant, puis nom), aucun `pairs` décisionnel, aucun hasard, aucun temps mesuré.
   Coût : O(ressources du relevé) par lot.
 ]]
@@ -50,19 +53,35 @@ local function sorted_keys(t)
 end
 local function num(v) if type(v) ~= "number" or v ~= v then return 0 end return v end
 
+--- Somme des quantités de tous les minerais d'un relevé (G43). s.amount = { [r] = quantité } (facultatif ; nil : 0).
+function Lm.total(s)
+  local t = 0
+  for _, r in ipairs(sorted_keys(s and s.amount)) do t = t + num(s.amount[r]) end
+  return t
+end
+
 --- Minerais au-dessus de leur seuil. s = { res = { [r] = tuiles }, amount = { [r] = quantité } (facultatif) } ; seuils = { tiles =
---- { [r] = n }, amount = { [r] = q }, min_tiles = défaut }. Rend { { res, tiles, amount, why = "tuiles" | "quantite" } } trié.
+--- { [r] = n }, amount = { [r] = q }, min_tiles = défaut, sum = somme des quantités }. Rend { { res, tiles, amount, why = "tuiles" |
+--- "quantite" | "somme" } } trié. « somme » : la somme des quantités de TOUS les minerais du relevé dépasse (strictement) seuils.sum, alors
+--- chaque ressource présente qui n'est pas déjà citée l'est (G43).
 function Lm.ores(s, seuils)
   seuils = seuils or {}
   local st, sa = seuils.tiles or {}, seuils.amount or {}
   local def = seuils.min_tiles or Lm.MIN_TILES
-  local out = {}
+  local out, listed = {}, {}
   for _, r in ipairs(sorted_keys(s and s.res)) do
     local n, q = num(s.res[r]), num(s.amount and s.amount[r])
     local why = nil
     if n > 0 and n >= (st[r] or def) then why = "tuiles"
     elseif sa[r] and q >= sa[r] then why = "quantite" end
-    if why then out[#out + 1] = { res = r, tiles = n, amount = q, why = why } end
+    if why then out[#out + 1] = { res = r, tiles = n, amount = q, why = why } listed[r] = true end
+  end
+  local cap = seuils.sum
+  if type(cap) == "number" and Lm.total(s) > cap then
+    for _, r in ipairs(sorted_keys(s and s.res)) do
+      local n = num(s.res[r])
+      if n > 0 and not listed[r] then out[#out + 1] = { res = r, tiles = n, amount = num(s.amount and s.amount[r]), why = "somme" } end
+    end
   end
   table.sort(out, function(a, b)
     if a.tiles ~= b.tiles then return a.tiles > b.tiles end
@@ -110,8 +129,9 @@ function Lm.needs_survey(l, tick, ev_tick, max_age)
 end
 
 --- Réservations à la croissance du treillis. lots = { { key, s (relevé), used, reserved } } (ordre de l'appelant) ; rend
---- { { key, res, why } } triés par clé : chaque lot neuf de minerai, ni pris ni déjà réservé. Aucune crise n'y entre (V45).
-function Lm.reserve(lots, seuils)
+--- { { key, res, why } } triés par clé : chaque lot neuf de minerai, ni pris ni déjà réservé. Aucune crise n'y entre (V45) : le troisième
+--- paramètre (contexte de l'appelant, par exemple { power_crisis = true }) est ACCEPTÉ ET IGNORÉ, c'est voulu (« même en crise », M33).
+function Lm.reserve(lots, seuils, ctx)
   local out = {}
   for _, l in ipairs(lots or {}) do
     if not l.used and not l.reserved then

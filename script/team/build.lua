@@ -282,6 +282,7 @@ local function survey(surface, force, x0, y0, x1, y1, seg)
   end
   for _, e in ipairs(surface.find_entities_filtered({ area = { { x0 + 0.01, y0 + 0.01 }, { x1 - 0.01, y1 - 0.01 } }, type = "resource" })) do
     bump(s.res, e.name)
+    Build.LotsMinerai.amount(s, e, seg) -- lot VIDEO MINERAI-SONDE : la quantité de minerai du lot (seuils par ressource et somme, G42, G43)
   end
   return s
 end
@@ -371,7 +372,7 @@ local function eval_one(f, surface, item, tick)
     -- le lot du QG est toujours « occupé »
     if l.i == 0 and l.j == 0 then s.own = math.max(1, s.own) end
     local old = l.state
-    l.state, l.reason = P.classify_lot(s)
+    l.state, l.reason = P.classify_lot(s, Build.LotsMinerai.seuils()) -- lot VIDEO MINERAI-SONDE : seuils par ressource lus en données (règle éteinte : nil, le seuil unique d'avant)
     -- Lot AUTO : un lot de GISEMENT qui porte déjà nos bâtiments (avant-poste à combustion posé sur le minerai par le
     -- cerveau) restait « occupe » : ses tuiles libres de minerai n'étaient plus proposées aux foreuses électriques
     -- (« tapis des foreuses (pas de lot) »). Il reste un gisement PARTAGÉ : P.fit n'y pose rien sur une tuile bâtie
@@ -383,6 +384,7 @@ local function eval_one(f, surface, item, tick)
     end
     l.res = (l.state == "gisement") and l.reason or nil
     l.water, l.trees, l.rocks, l.tick = s.water, s.trees + s.rocks, s.rocks, tick
+    Build.LotsMinerai.evaluated(f, tick, item[2], l, s, old) -- lot VIDEO MINERAI-SONDE : le lot de minerai neuf est RESERVE tout de suite (même en crise) ; un nid neuf est un ennemi vu
     if old == "inconnu" then
       bump(st.lots, l.state)
       if l.state == "refuse" then bump(st.lots_refused, l.reason) end
@@ -393,6 +395,7 @@ local function eval_one(f, surface, item, tick)
     local s = survey(surface, f.force, x0, y0, x1, y1, true)
     local old = g.state
     g.state, g.reason = P.classify_segment(s)
+    Build.LotsMinerai.seg_changed(f, tick, old, g.state) -- lot VIDEO MINERAI-SONDE : une rue qui se ferme (porte) fait refaire le relevé des lots
     g.trees, g.tick = s.trees + s.rocks, tick
     if g.state ~= old then b.seg_ver = (b.seg_ver or 0) + 1 end
     if old == "inconnu" then
@@ -3729,14 +3732,14 @@ function Build.work(agent, f, tick)
     -- Lot COLLECTE : ce que le stock refuse (Stock.skip_fn, lot STOCKAGE-VITAL, absent avant lui) reste au coffre ; fer et charbon d'abord.
     local skip = Stock.skip_fn and Stock.skip_fn(f) or nil
     local function take(c)
-      for _, it in ipairs(Colr.take_list(sorted_keys(c.get_inventory(defines.inventory.chest).get_contents()), skip)) do
+      for _, it in ipairs(Build.Colr.take_list(sorted_keys(c.get_inventory(defines.inventory.chest).get_contents()), skip)) do
         local n = c.get_item_count(it)
         local put = inv.insert({ name = it, count = n })
         if put > 0 then c.remove_item({ name = it, count = put }); got = got + put end
       end
     end
     local before = 0
-    for _, it in ipairs(Colr.take_list(sorted_keys(chest.get_inventory(defines.inventory.chest).get_contents()), skip)) do before = before + chest.get_item_count(it) end
+    for _, it in ipairs(Build.Colr.take_list(sorted_keys(chest.get_inventory(defines.inventory.chest).get_contents()), skip)) do before = before + chest.get_item_count(it) end
     take(chest)
     -- Lot COLLECTE : un voyage qui ne rapporte RIEN d'un coffre qui tient quelque chose (sac plein) n'est pas « done » : il échoue et la
     -- tâche reprend après la pause d'échec (carte de l'IA, boucle B2 : voyages à vide sans pause).
@@ -3941,7 +3944,7 @@ end
 local function out_wanted(f, p, chest)
   -- Lot COLLECTE : un coffre dont tout est écarté par le stock (Stock.skip_fn) n'envoie personne (voyage à vide)
   local skip = Stock.skip_fn and Stock.skip_fn(f) or nil
-  if skip and #Colr.take_list(sorted_keys(chest.get_inventory(defines.inventory.chest).get_contents()), skip) == 0 then return false end
+  if skip and #Build.Colr.take_list(sorted_keys(chest.get_inventory(defines.inventory.chest).get_contents()), skip) == 0 then return false end
   local keep = p.keep_stock
   if not keep then return true end
   for _, it in ipairs(sorted_keys(chest.get_inventory(defines.inventory.chest).get_contents())) do
@@ -4905,6 +4908,7 @@ function Build.think(f, surface, tick)
   local b = f.build
   if not b then return end
   Build.LotsMinerai.minute(f, tick) -- lot VIDEO L9 : [FO-LOTS-MINERAI], une ligne par équipe et par minute de jeu (la mesure avant la règle)
+  Build.LotsMinerai.think(f, tick) -- lot VIDEO MINERAI-SONDE : pièce détruite, ennemi vu ou porte fermée : le relevé des lots est refait (Lm.needs_survey)
   local tasks = {}
   local free_cache -- relecture REBUILD-RAPIDE : stock libre lu une fois par pensée, au premier projet rouvert (batch_tasks)
   local function free_of()
@@ -5158,6 +5162,7 @@ remote.add_interface("fo-ia1d", {
   end,
   status = function(key, id) return Build.status(team_of_key(key), id) end,
   report = function(key) return Build.report(team_of_key(key)) end,
+  lots_minerai = function(key, cmd, arg) return Build.LotsMinerai.remote(team_of_key(key), cmd, arg) end, -- lot VIDEO MINERAI-SONDE : lots reserves, événements, relevés refaits (bancs)
   layout = function(key) return Build.layout(team_of_key(key)) end,
   -- banc seulement (migration des bras de la centrale, lot PLANDIR) : reproduit la conversion électrique des versions 0.6.5 à 0.6.7
   legacy_electric_arms = function(key)

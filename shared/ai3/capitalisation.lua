@@ -78,6 +78,7 @@ local Gi = require("shared.team.gisement") -- lot GISEMENTS : matière la plus e
 local Dm = require("shared.ai3.demande") -- lot C2 : puits ouvert (le stock qui dort devient une demande)
 local Pf = require("shared.ai3.plafonds") -- lot VIDEO-L13 : gardes fermées par défaut (places des ordres ouverts)
 local Rg = require("shared.ai3.rang") -- lot VIDEO-L1b : rang de la décision (Rg.chain), ordre de propagation des besoins
+local Cf = require("shared.ai3.confirmation") -- lot VIDEO-COUVERTURE 5 : module suivant retenu en amont (Cf.upstream)
 local Pr = require("shared.ai3.porte_rang") -- lot VIDEO-L2 : porte de rang ciblée
 
 local Ca = {}
@@ -1512,6 +1513,7 @@ local function extraction_options(ctx, plan, req, item, def, out)
   -- Courant : une foreuse électrique ne se pose que si la centrale la porte ; le débit bloqué donne sa valeur à la
   -- centrale (levier « energie »).
   local pw = ctx.input.power
+  local pw_why = Pf.power_why(pw) -- lot VIDEO-COUVERTURE 5 (W02) : relevé du courant sans capacité lue : refus qui nomme l'entrée
   local function power_cap(n, key)
     if d.energy ~= "electric" or not pw or (d.kw or 0) <= 0 then return n end
     local np = math.max(0, math.floor((plan.kw_have - plan.kw_used) / d.kw + Ca.EPS))
@@ -1558,7 +1560,7 @@ local function extraction_options(ctx, plan, req, item, def, out)
         local why_not = Ca.usable(ctx, f, "couvrir")
         if why_not then refuse(ctx, key, "couvrir", item, why_not)
         elseif no_power then
-          refuse(ctx, key, "couvrir", item, "courant insuffisant (aucune centrale possible)")
+          refuse(ctx, key, "couvrir", item, pw_why or "courant insuffisant (aucune centrale possible)")
           -- étape 5a de VIDEO-INTEG : kW retenus, comme power_cap (la centrale les compte pour grandir : Ca.blocked_kw ; power_options
           -- ne lit power_block qu'avec une centrale à proposer, pw.plant : aucune décision ne change)
           ctx.power_block[#ctx.power_block + 1] = { key = key, kw = n * d.kw, n = n, item = item, p = rho, va = D.mu[item] or 0, share = 1 }
@@ -1568,7 +1570,7 @@ local function extraction_options(ctx, plan, req, item, def, out)
             ext_unit = (o.cost_m + ctx.lambda * o.work / 60) / (n * rho)
           end
           local np = power_cap(n, key)
-          if np <= 0 then refuse(ctx, key, "couvrir", item, "courant insuffisant")
+          if np <= 0 then refuse(ctx, key, "couvrir", item, pw_why or "courant insuffisant")
           else
             if np ~= n then o = mk_drills("couvrir", f, np) end
             local why = ahead and "couverture d'avance" or nil
@@ -1634,7 +1636,7 @@ local function extraction_options(ctx, plan, req, item, def, out)
         if why_not then refuse(ctx, key, "ouvrir", item, why_not)
         else
           local np = power_cap(n, key)
-          if np <= 0 then refuse(ctx, key, "ouvrir", item, "courant insuffisant")
+          if np <= 0 then refuse(ctx, key, "ouvrir", item, pw_why or "courant insuffisant")
           else
             local mk = function(k)
               local o = mk_drills("ouvrir", f, k, ctx.input.site_items)
@@ -1762,7 +1764,7 @@ local function fabric_options(ctx, plan, req, item, r, def, out)
       ctx.power_block[#ctx.power_block + 1] = { key = key, kw = (n - np) * m.kw, n = n - np, item = item, p = p, va = va,
         share = sh }
       n = np
-      if n <= 0 then refuse(ctx, key, kind, item, "courant insuffisant") return end
+      if n <= 0 then refuse(ctx, key, kind, item, Pf.power_why(ctx.input.power) or "courant insuffisant") return end
     end
   end
   -- Valeur de l'objet × part de cet étage dans le capital de sa chaîne (Ca.share) : un étage plein a le retour du
@@ -1869,11 +1871,18 @@ local function power_options(ctx, plan, out)
   cand(out, mk(n), mk)
 end
 
---- Ordre des options : retour (arrondi au millionième), profondeur (l'amont d'abord), clé.
+--- Lot VIDEO-ORDRE (lot 1 de la couverture vidéo, 7/11) : ALLUMÉ par défaut ; éteint, rank_gate ne fait que ce qu'il faisait en 0.6.61
+--- (l'ordre ne change pas, aucune mémoire des objets posés, aucune règle de grosse unité). Demande Ca.PORTE_RANG et Ca.RANG.
+Ca.ORDRE_RANG = true
+
+--- Ordre des options : retour (arrondi au millionième), profondeur (l'amont d'abord), clé. Lot VIDEO-ORDRE : rank_gate donne aux options
+--- du rang retenu la PLACE (oTq, odepth, okey) d'une autre option du même rang (Pr.order) : le reste de la liste ne bouge pas.
 function Ca.before(a, b)
-  if a.Tq ~= b.Tq then return a.Tq < b.Tq end
-  if a.depth ~= b.depth then return a.depth < b.depth end
-  return a.key < b.key
+  local at, bt = a.oTq or a.Tq, b.oTq or b.Tq
+  if at ~= bt then return at < bt end
+  local ad, bd = a.odepth or a.depth, b.odepth or b.depth
+  if ad ~= bd then return ad < bd end
+  return (a.okey or a.key) < (b.okey or b.key)
 end
 
 --- Lot VIDEO-L2 (Ca.PORTE_RANG, demande Ca.RANG) : PORTE DE RANG CIBLÉE (shared/ai3/porte_rang.lua). Une option de fabrication
@@ -1882,6 +1891,11 @@ end
 --- Manque = R − N − stock ÷ H_STOCK (la formule de Ca.options) ; un manque qu'aucune option de ce tour ne sert ne bloque rien.
 --- L'extraction (rang 0) n'est jamais retenue ; anti-répétition : l'objet du dernier ordre (ctx.last_item) cède sa place à un
 --- autre objet de son rang. Cas visé : l'interblocage du fer (EFFONDREMENT, Ca.blocked_items) ; la foreuse passe devant.
+--- Lot VIDEO-ORDRE (Ca.ORDRE_RANG) : (1) dans le rang retenu r*, les options changent de place entre elles, le plus gros manque net
+--- d'abord (Pr.order ; le reste de la liste ne bouge pas) ; (2) un objet de fabrication posé n'est pas re-ordonné tant que le manque
+--- MESURÉ (input.mq_build, L3) n'a pas bougé, ni avant Pr.RETRY_MIN décisions (Pr.recent ; st.posed, st.clock) ; (3) après une grosse
+--- unité (coût > Pr.BIG_K fois la médiane des options), les grosses cèdent à une autre option (Pr.big_hold ; st.last_big). Le pas de
+--- l'ordre posé est lu au tour suivant dans plan.taken : le dernier ordre d'une décision qui atteint Ca.MAX_ORDERS n'est pas noté.
 local function rank_gate(ctx, plan, req, out)
   local Rk = ctx.rang
   if ctx.rang_deps == nil then ctx.rang_deps = Pr.deps(Rk) end
@@ -1890,12 +1904,12 @@ local function rank_gate(ctx, plan, req, out)
     if c.o.item ~= nil then served[c.o.item] = true end
     if c.o.resource ~= nil then served[c.o.resource] = true end
   end
-  local short = {}
+  local short, net = {}, {}
   for _, i in ipairs(req.list) do
     local Ri = req.R[i] or 0
     if Ri > 0 and Rk.rank[i] ~= nil then
       local def = Ri - (plan.N[i] or 0) - (ctx.stock[i] or 0) / Ca.H_STOCK
-      if def > Ca.EPS then short[#short + 1] = { item = i, rank = Rk.rank[i], option = served[i] == true } end
+      if def > Ca.EPS then short[#short + 1] = { item = i, rank = Rk.rank[i], option = served[i] == true } net[i] = def end
     end
   end
   local orders = {}
@@ -1909,14 +1923,75 @@ local function rank_gate(ctx, plan, req, out)
   -- r* de la décision (compte rendu) : le rang le plus bas d'un manque à option sur TOUS les tours (le dernier tour, manque couvert,
   -- n'en a souvent plus).
   if g.rstar ~= nil and (ctx.rstar == nil or g.rstar < ctx.rstar) then ctx.rstar = g.rstar end
-  if #g.held == 0 then return out end
-  ctx.rang_held = (ctx.rang_held or 0) + #g.held
-  local cause = {}
+  local cause, nheld = {}, #g.held
   for _, h in ipairs(g.held) do cause[h.order.key] = h.cause end
+  -- Lot VIDEO-ORDRE : l'ordre dans le rang retenu, la mémoire des objets posés, les grosses unités (shared/ai3/porte_rang.lua).
+  local st = ctx.st
+  local on = Ca.ORDRE_RANG and st ~= nil
+  local sig = ctx.input and ctx.input.mq_build -- manque net MESURÉ par objet (L3, view.mq.build) ; nil : rien n'est mesuré (objet absent : 0)
+  if on then
+    -- Une décision = une minute de plus pour la mémoire ; l'ordre posé au tour précédent (une clé de plus dans plan.taken parmi les
+    -- options du tour précédent) y entre : la mémoire des objets posés et la grosse unité.
+    local prev = ctx.rg_list
+    if prev == nil then
+      Pr.tick(st, ctx.dt)
+    else
+      for _, e in ipairs(prev) do
+        if plan.taken[e.key] and not e.was then
+          st.last_big = e.big
+          if e.item ~= nil and sig ~= nil then Pr.note(st, e.item, sig[e.item] or 0) end
+        end
+      end
+    end
+    -- Un objet posé dont le signal mesuré n'a pas bougé n'est pas re-ordonné (avant Pr.RETRY_MIN minutes).
+    if sig ~= nil and st.posed ~= nil then
+      for _, o in ipairs(g.allowed) do
+        if cause[o.key] == nil and Pr.recent(st, o.item, sig[o.item] or 0) then
+          cause[o.key] = string.format("anti-repetition : %s pose, manque mesure inchange (%s)", o.item, fmt(sig[o.item] or 0))
+          nheld = nheld + 1
+        end
+      end
+    end
+    -- Pas deux grosses unités de suite : la médiane des coûts des options de ce tour juge « grosse ».
+    local items = {}
+    for _, c in ipairs(out) do
+      if cause[c.o.key] == nil then items[#items + 1] = { key = c.o.key, cost = c.o.cost_m } end
+    end
+    local big_hold, med = Pr.big_hold(st.last_big == true, items)
+    ctx.rg_list = {}
+    for _, c in ipairs(out) do
+      local o = c.o
+      local fab = o.kind == "chaine" or o.kind == "packs" or o.kind == "fours"
+      ctx.rg_list[#ctx.rg_list + 1] = { key = o.key, was = plan.taken[o.key] == true, item = fab and o.item or nil, big = Pr.big(o.cost_m, med) }
+      if big_hold[o.key] and cause[o.key] == nil then
+        cause[o.key] = string.format("grosse unite : %s MU, plus de %s fois la mediane (%s), une autre option d'abord",
+          fmt(o.cost_m), tostring(Pr.BIG_K), fmt(med))
+        nheld = nheld + 1
+      end
+    end
+  end
+  if nheld == 0 and not on then return out end
+  if nheld > 0 then ctx.rang_held = (ctx.rang_held or 0) + nheld end
   local kept = {}
   for _, c in ipairs(out) do
     local why = cause[c.o.key]
     if why then refuse(ctx, c.o.key, c.o.kind, c.o.item, why) else kept[#kept + 1] = c end
+  end
+  if on and g.rstar ~= nil then
+    -- Dans le rang retenu, le plus gros manque net d'abord : chaque option du rang prend la place d'une autre du rang.
+    local recs, in_rank = {}, 0
+    for _, c in ipairs(kept) do
+      local it = c.o.item or c.o.resource
+      local rk = it ~= nil and Rk.rank[it] or nil
+      if rk == g.rstar then in_rank = in_rank + 1 end
+      recs[#recs + 1] = { c = c, key = c.o.key, item = it, rank = rk, Tq = c.o.Tq, depth = c.o.depth }
+    end
+    if in_rank >= 2 then
+      local new, old = Pr.order(recs, g.rstar, net)
+      for j, r in ipairs(new) do
+        if r ~= old[j] then r.c.o.oTq, r.c.o.odepth, r.c.o.okey = old[j].Tq, old[j].depth, old[j].key end
+      end
+    end
   end
   return kept
 end
@@ -2156,7 +2231,7 @@ end
 function Ca.held(ctx, o)
   local h = ctx.input.hold
   if h == nil or not Ca.HOLD_KINDS[o.kind] or o.item == nil then return nil end
-  return h[o.item]
+  return h[o.item] or Cf.upstream(h, o.recipe and ctx.D.recipes[o.recipe] or nil, o.recipe and o.item or nil) -- C5.2 : le module N+1 attend la 1re production de N
 end
 
 --- Lot VIDEO-L13 (garde fermée par défaut) : listes sans lesquelles la règle ne décide pas. Une liste absente ne vaut jamais
@@ -2282,6 +2357,7 @@ local function decide_report(J)
     u_star = ctx.u_star, labs_target = ctx.lab_rate > 0 and math.ceil(ctx.u_star / ctx.lab_rate - Ca.EPS) or 0,
     coverage = coverage, bottleneck = bottleneck and { item = bottleneck, theta = theta } or nil, R = req.R,
     open_n = #ctx.open, rstar = ctx.rstar, rang_held = ctx.rang_held, -- lot VIDEO-L2 : porte de rang (nil quand elle est éteinte)
+    rang_cycles = ctx.rang and { seed = ctx.rang.seed, cyc = ctx.rang.cyc } or nil, -- lot VIDEO-COUVERTURE 5 (C5.1) : cycles de la décision, graine de l'amorce
     -- Étape 5a de VIDEO-INTEG (RD_LOG F391) : courant du plan quand le runtime donne input.power (sinon nil : rendu d'avant)
     kw = ctx.input.power and { have = plan.kw_have, used = plan.kw_used, nominal = plan.kw_nominal, blocked = Ca.blocked_kw(ctx) } or nil }
 end

@@ -6,6 +6,8 @@
     2. retrait à la 1re production OBSERVÉE (jamais à la pose), verrou tenu quand la machine s'arrête (sortie pleine),
        jamais à stock nul, levé quand plus aucun module ne produit l'objet ;
     3. compteur d'amorce (cumul avant la 1re production, gardé après) ; journal [FO-AMORCE] ;
+    7. cycles (lot VIDEO-COUVERTURE 5, critère C5.1) : une recette qui consomme son produit reçoit une graine bornée, avec sa cause ;
+       sans cycle, rien ; le stock se déduit ; une mesure illisible n'est pas semée ;
     4. sérialisable, déterministe ;
     5. coût en instructions (debug.sethook) ;
     6. mutants refusés.
@@ -93,6 +95,48 @@ local function battery(Am, verbose)
   ck(#Am.filter_crafts(s4, tasks, { bras = 0, tapis = 2 }, 90, Ml) == 3, "filtre : stock nul, la main reste")
   local line = r2[1] and Am.describe(r2[1], s) or ""
   ck(line:find("bras", 1, true) and line:find("8 fourni", 1, true), "ligne [FO-AMORCE] : objet et compteur (" .. line .. ")")
+
+  -- 7. cycles (C5.1). Rg.chain rend seed = { [membre] = { { ingrédient interne, quantité par fabrication } } } et cyc = { [membre] = id }.
+  local rg = { seed = { cata = { { "cata", 40 }, { "autre", 5 } } }, cyc = { cata = "cata" } }
+  local cyc = Am.flatten(rg)
+  ck(#cyc == 2 and cyc[1].item == "autre" and cyc[2].item == "cata" and cyc[2].amount == 40 and cyc[2].id == "cata",
+    "cycle : la liste est triee, un objet une fois (" .. #cyc .. ")")
+  local sc = Ml.new()
+  local out = Am.seed(sc, 60, {}, {}, BOOK, Ml, cyc)
+  local by = {}
+  for _, o in ipairs(out) do by[o.item] = o end
+  ck(by.cata and by.cata.need == 40 * Am.CYCLE_RUNS and by.autre and by.autre.need == 5 * Am.CYCLE_RUNS,
+    "cycle : de quoi faire " .. Am.CYCLE_RUNS .. " fabrications (" .. tostring(by.cata and by.cata.need) .. ")")
+  local s_cata = source_of(sc, 60, "cata")
+  ck(s_cata ~= nil and s_cata.src == "amorce" and math.abs(s_cata.rate * Id.HORIZON_MIN - 80) < 1e-9, "cycle : la graine entre au mall, couverte en 10 min")
+  ck(by.cata and type(by.cata.cause) == "string" and by.cata.cause:find("cycle cata", 1, true) and by.cata.cause:find("cata consomme cata", 1, true),
+    "cycle : la cause est ecrite (" .. tostring(by.cata and by.cata.cause) .. ")")
+  local big = Am.seed(Ml.new(), 60, {}, {}, BOOK, Ml, Am.flatten({ seed = { m = { { "cata", 1e6 } } }, cyc = { m = "m" } }))
+  ck(#big == 1 and big[1].need == Am.CYCLE_HARD and Id.barre(big[1].rate, 1, 1000) <= Am.CYCLE_HARD, "cycle : graine bornee (" .. tostring(big[1] and big[1].need) .. ")")
+  local none = Am.seed(Ml.new(), 60, {}, {}, BOOK, Ml, Am.flatten({ seed = {}, cyc = {} }))
+  ck(#none == 0 and #Am.seed(Ml.new(), 60, {}, {}, BOOK, Ml, nil) == 0 and #Am.flatten(nil) == 0, "sans cycle, rien")
+  local stocked = Am.seed(Ml.new(), 60, {}, { cata = 100, autre = 3 }, BOOK, Ml, cyc)
+  ck(#stocked == 1 and stocked[1].item == "autre" and stocked[1].need == 7, "cycle : le stock est deduit (cata couvert, autre 10 - 3)")
+  local raw, rawskip = Am.seed(Ml.new(), 60, {}, {}, BOOK, Ml, Am.flatten({ seed = { m = { { "brut", 10 } } }, cyc = { m = "m" } }))
+  ck(#raw == 0, "cycle : un objet sans recette n'est pas seme")
+  ck(#rawskip == 1 and rawskip[1].item == "brut" and rawskip[1].need == 20 and tostring(rawskip[1].cause):find("cycle m", 1, true),
+    "cycle : le refus faute de recette a la main est rendu pour le journal, avec sa cause")
+  local _, nobom = Am.seed(Ml.new(), 60, { { bom = { brut = 3 } } }, {}, BOOK, Ml, nil)
+  ck(#nobom == 0, "liste de materiel sans recette : ecartee comme avant (pas de refus ecrit)")
+  local bad = Am.flatten({ seed = { m = { { "x", 0 / 0 }, { "y", -3 }, { "z", "9" }, { 7, 4 }, { "w", math.huge }, { "ok", 2 } } }, cyc = {} })
+  ck(#bad == 1 and bad[1].item == "ok" and bad[1].id == "m", "cycle : mesure illisible (NaN, negative, texte, infinie) ecartee")
+  local both = Am.seed(Ml.new(), 60, { { bom = { cata = 100 } } }, {}, BOOK, Ml, cyc)
+  local bb = {}
+  for _, o in ipairs(both) do bb[o.item] = o end
+  ck(bb.cata and bb.cata.need == 100 and tostring(bb.cata.cause):find("materiel", 1, true) and tostring(bb.cata.cause):find("cycle cata", 1, true),
+    "cycle : dans la liste de materiel ET dans un cycle, le plus grand besoin, les deux causes")
+  local st2 = Ml.new()
+  Ml.want(st2, 50, "cata", 99, "capi")
+  Am.seed(st2, 60, {}, {}, BOOK, Ml, cyc)
+  ck(st2.want.cata.src == "capi" and st2.want.cata.rate == 99, "cycle : une demande plus forte d'une autre source n'est pas ecrasee")
+  for _, o in ipairs(Am.seed(Ml.new(), 60, { { bom = { bras = 6 } } }, {}, BOOK, Ml)) do
+    ck(type(o.cause) == "string" and o.cause:find("materiel", 1, true), "graine de la liste de materiel : cause ecrite (" .. o.item .. ")")
+  end
   return fails
 end
 
@@ -206,6 +250,55 @@ mutant("graine qui écrase une demande plus forte", function(Am)
       if need > 0 and book:recipe_for(it) then ml.want(st, tick, it, need / Am.HORIZON_MIN, Am.SRC); out[#out + 1] = { item = it, need = need } end
     end
     return out
+  end
+end)
+
+mutant("graine de cycle non bornee", function(Am)
+  local base = Am.seed
+  Am.seed = function(st, tick, projets, have, book, ml, c)
+    local out = base(st, tick, projets, have, book, ml, nil)
+    for _, e in ipairs(c or {}) do
+      local need = e.amount * 1e6
+      ml.want(st, tick, e.item, need / Am.HORIZON_MIN, Am.SRC)
+      out[#out + 1] = { item = e.item, need = need, rate = need / Am.HORIZON_MIN, cause = "cycle " .. tostring(e.id) .. " : cata consomme cata" }
+    end
+    return out
+  end
+end)
+mutant("graine de cycle sans cause", function(Am)
+  local base = Am.seed
+  Am.seed = function(...)
+    local out = base(...)
+    for _, o in ipairs(out) do o.cause = nil end
+    return out
+  end
+end)
+mutant("cycle ignore", function(Am)
+  local base = Am.seed
+  Am.seed = function(st, tick, projets, have, book, ml) return base(st, tick, projets, have, book, ml, nil) end
+end)
+mutant("graine de cycle sans deduire le stock", function(Am)
+  local base = Am.seed
+  Am.seed = function(st, tick, projets, have, book, ml, c)
+    local out = base(st, tick, projets, {}, book, ml, c)
+    return out
+  end
+end)
+mutant("mesure de cycle illisible semee", function(Am)
+  Am.flatten = function(c)
+    local out = {}
+    for m, list in pairs((c or {}).seed or {}) do
+      for _, e in ipairs(list) do out[#out + 1] = { item = tostring(e[1]), member = m, amount = tonumber(e[2]) or 1, id = m } end
+    end
+    table.sort(out, function(a, b) return a.item < b.item end)
+    return out
+  end
+end)
+mutant("cycle semé même sans cycle (graine fantome)", function(Am)
+  local base = Am.seed
+  Am.seed = function(st, tick, projets, have, book, ml, c)
+    if c == nil or #c == 0 then c = { { item = "fantome", member = "f", amount = 3, id = "f" } } end
+    return base(st, tick, projets, have, book, ml, c)
   end
 end)
 

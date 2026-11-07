@@ -262,6 +262,9 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Transferts avec le stock (QG)
 ---------------------------------------------------------------------------------------------------
+-- Lot STOCKAGE-VITAL : le dépôt d'un PNJ au QG est le seul appelant de Stock.insert soumis à la réserve des vitales (ce qui est refusé
+-- reste en poche, rien n'est perdu).
+local DEPOSIT_OPTS = { reserve = true }
 local function deposit_inventory(f, inv, keep)
   local contents = inv.get_contents()
   local names = {}
@@ -270,7 +273,7 @@ local function deposit_inventory(f, inv, keep)
   for _, name in ipairs(names) do
     local n = contents[name] - (keep and keep[name] or 0)
     if n > 0 then
-      local moved = Stock.insert(f, name, n)
+      local moved = Stock.insert(f, name, n, DEPOSIT_OPTS)
       if moved > 0 then
         inv.remove({ name = name, count = moved })
         f.team.delivered[name] = (f.team.delivered[name] or 0) + moved
@@ -795,10 +798,19 @@ function Worker.program(f, task, surface, tick)
     if best then claim_tile(f, best.position, tick) end
     -- Lot IA3-f (constat du DC, 25/10 vers 18 h 45) : rien à portée du coffre : gisement CONNU et sûr plus loin (carte de
     -- connaissance, crochet posé par script/ai3/exploration.lua ; sinon il demande une exploration). Pas pour le fond.
+    -- Lot STOCKAGE-VITAL : récolte d'un coffre urgent (shared/team/fond.lua, F.annex_urgent) : le coffre est fabriqué SUR PLACE avec la
+    -- matière récoltée, avant le retour (un stock plein refuserait le bois au dépôt ; le coffre, lui, est posé en annexe au dépôt).
+    local function mine_steps()
+      local steps = { { "home" }, { "goto", task.target, 1.5 }, { "mine", task.resource, task.count } }
+      local tc = task.then_craft
+      if tc then steps[#steps + 1] = { "craft_now", tc.crafts, tc.ticks, tc.item } end
+      steps[#steps + 1] = { "home" }
+      return steps
+    end
     local far = not best and not task.fond and Worker.far_mine and Worker.far_mine(f, task, surface, tick)
     if far then
       task.target = far
-      return { { "home" }, { "goto", task.target, 1.5 }, { "mine", task.resource, task.count }, { "home" } }
+      return mine_steps()
     end
     if not best then
       -- Lot KIT (diagnostic) : un minage à la main sans tuile libre ni sûre à portée (au plus une ligne par ressource et par
@@ -813,7 +825,7 @@ function Worker.program(f, task, surface, tick)
       return nil
     end
     task.target = { x = best.position.x, y = best.position.y }
-    return { { "home" }, { "goto", task.target, 1.5 }, { "mine", task.resource, task.count }, { "home" } }
+    return mine_steps()
   end
   return nil
 end
@@ -909,7 +921,7 @@ end
 ACTS.service = function(agent, f, task, surface, tick)
   local o = f.outposts[task.outpost]
   if not o then return false end
-  local n = Outposts.service(o, main_inv(agent), tick, f.team and f.team.flux_fill)
+  local n = Outposts.service(o, main_inv(agent), tick, f.team and f.team.flux_fill, Stock.skip_fn and Stock.skip_fn(f))
   f.stats.serviced = (f.stats.serviced or 0) + 1
   f.team.collected = (f.team.collected or 0) + n
   return true
@@ -1416,6 +1428,30 @@ local function run_steps(agent, tick)
       agent.wait_until = tick + (step[2] or 0)
       set(agent, "wait", tick)
       return
+    elseif kind == "craft_now" then
+      -- Lot STOCKAGE-VITAL : fabrication sur place avec ce que le PNJ porte (coffre urgent après sa récolte), puis attente de la durée
+      -- de fabrication ; jamais derrière une fabrication en arrière-plan (sa file est à elle : rien n'est lancé, le bois rentre au QG).
+      local e = agent.entity
+      local n, why = 0, "file de fabrication occupee"
+      if not agent.bg and e.crafting_queue_size == 0 then
+        why = "matiere absente"
+        for _, c in ipairs(step[2] or {}) do
+          local ok, k = pcall(e.begin_crafting, { count = c.runs, recipe = c.recipe, silent = true })
+          if ok and type(k) == "number" then n = n + k end
+        end
+      end
+      f.stats.stock_craft_logs = (f.stats.stock_craft_logs or 0) + 1
+      if f.stats.stock_craft_logs <= 40 then
+        log(string.format("[FO-STOCKAGE] %s : coffre urgent %s fabrique sur place par le PNJ %s : %s a %.1f min", f.key or "player",
+          tostring(step[4]), tostring(agent.id), n > 0 and (n .. " fabrication(s) lancee(s)") or ("rien de lance (" .. why .. ")"),
+          (tick - (f.started or 0)) / 3600))
+      end
+      if n > 0 then
+        agent.wait_until = tick + (step[3] or 0)
+        set(agent, "wait", tick)
+        return
+      end
+      agent.pc = agent.pc + 1
     elseif kind == "goto" then
       if not goto_step(agent, step[2], step[3] or 4, tick) then return end
       agent.street_off = nil -- lot IA1-d : le repli vers le PathService ne vaut que pour ce trajet
@@ -1541,6 +1577,7 @@ FSM.define(MACHINE, {
         Profiler.fcredit("idle", "idle:sans-tache")
         return
       end
+      Stock.note_claim(f, main_inv(agent), tick) -- lot STOCKAGE-VITAL : prise de tâche avec la poche pleine (compteur, aucune décision)
       Profiler.fstart("worker:program")
       local steps = Worker.program(f, task, agent.entity.surface, tick)
       Profiler.fstop("worker:program")

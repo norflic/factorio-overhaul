@@ -18,7 +18,7 @@
     13. déterminisme ;
     14. coût en INSTRUCTIONS (debug.sethook, jamais os.clock) ;
     15. mutants : chaque règle retirée fait échouer au moins un contrôle.
-    16. lot VIDEO-PLAFONDS (G02, G03, G64) : plafond de sûreté PAR SORTE d'ordre, en données (Pf.HARD_KIND, Pf.hard_for,
+    17. lot VIDEO-PLAFONDS (G02, G03, G64) : plafond de sûreté PAR SORTE d'ordre, en données (Pf.HARD_KIND, Pf.hard_for,
         Pf.kind_room) : 40 unités voulues sont bornées, motif écrit, garde fermée sur entrée absente.
   Les objets sont des chaînes opaques (aucun nom du jeu).
 ]]
@@ -329,47 +329,66 @@ local function run_all(Pf)
     check(i_room < 12 * i_fits, "14 : Pf.room en O(log n) appels (" .. i_room .. ")")
   end
 
-  -- 16. Plafond de sûreté par sorte d'ordre (lot VIDEO-PLAFONDS).
-  section("16. plafond de surete par sorte d'ordre")
+  -- 16. Lot VIDEO-COUVERTURE 5 (critère C5.4, TODO W02) : le relevé du courant. Écrit avant le code.
+  --     nil = AUCUNE centrale finie (amorçage : le premier ordre électrique la demande, script/ai3/automatisation.lua submit) ;
+  --     un relevé PRÉSENT sans capacité (centrale finie, capacité pas encore lue) ferme la garde et nomme l'entrée.
+  section("16. releve du courant : fermé quand la mesure manque")
   do
-    check(type(Pf.HARD_KIND) == "table" and Pf.HARD_KIND.labos == 25, "16 : donnees : labos = 25 (G03, MAX_RESEARCH_TILES)")
-    check(Pf.hard_for("labos") == 25, "16 : hard_for(labos) = 25")
+    check(Pf.power_missing(nil) == nil, "16 : pas de releve (aucune centrale finie) : amorcage, pas un refus de cette garde")
+    local why = Pf.power_missing({})
+    check(type(why) == "string" and why:find("entree absente", 1, true) and why:find("power.have_kw", 1, true),
+      "16 : releve sans capacite : refus ecrit qui nomme l'entree (" .. tostring(why) .. ")")
+    check(Pf.power_missing({ used_kw = 12 }) ~= nil, "16 : used_kw seul ne remplace pas la capacite")
+    check(Pf.power_missing({ have_kw = 0 / 0 }) ~= nil and Pf.power_missing({ have_kw = -5 }) ~= nil
+      and Pf.power_missing({ have_kw = "90" }) ~= nil and Pf.power_missing({ have_kw = math.huge }) ~= nil,
+      "16 : capacite NaN, negative, texte ou infinie : refus")
+    check(Pf.power_missing({ have_kw = 0 }) == nil and Pf.power_missing({ have_kw = 90, used_kw = 36 }) == nil,
+      "16 : capacite lue (meme 0 kW) : la garde est ouverte, le calcul du courant decide")
+    check(Pf.power_why({}) == "courant : entree absente : power.have_kw" and Pf.power_why(nil) == nil and Pf.power_why({ have_kw = 5 }) == nil,
+      "16 : texte du refus pour le journal (" .. tostring(Pf.power_why({})) .. ")")
+  end
+
+  -- 17. Plafond de sûreté par sorte d'ordre (lot VIDEO-PLAFONDS).
+  section("17. plafond de surete par sorte d'ordre")
+  do
+    check(type(Pf.HARD_KIND) == "table" and Pf.HARD_KIND.labos == 25, "17 : donnees : labos = 25 (G03, MAX_RESEARCH_TILES)")
+    check(Pf.hard_for("labos") == 25, "17 : hard_for(labos) = 25")
     check(Pf.hard_for("fours") == Pf.NO_HARD and Pf.hard_for("sorte-inconnue") == Pf.NO_HARD and Pf.hard_for(nil) == Pf.NO_HARD,
-      "16 : une sorte sans plafond de surete est hors d'atteinte (Pf.NO_HARD), comme avant")
+      "17 : une sorte sans plafond de surete est hors d'atteinte (Pf.NO_HARD), comme avant")
     local room, why = Pf.kind_room("labos", 40, 0)
     check(room == 25 and has(why, "plafond labos") and has(why, "> 25 au plus") and has(why, "40 voulues"),
-      "16 : 40 laboratoires voulus, 0 poses : 25, motif ecrit (" .. tostring(room) .. " ; " .. tostring(why) .. ")")
+      "17 : 40 laboratoires voulus, 0 poses : 25, motif ecrit (" .. tostring(room) .. " ; " .. tostring(why) .. ")")
     room, why = Pf.kind_room("labos", 10, 20)
-    check(room == 5 and has(why, "20 posees ou ouvertes"), "16 : 10 voulus, 20 poses : 5 (" .. tostring(room) .. " ; " .. tostring(why) .. ")")
+    check(room == 5 and has(why, "20 posees ou ouvertes"), "17 : 10 voulus, 20 poses : 5 (" .. tostring(room) .. " ; " .. tostring(why) .. ")")
     room, why = Pf.kind_room("labos", 10, 25)
-    check(room == 0 and why ~= nil and why:sub(1, 8) == "plafond ", "16 : au plafond : 0 et le motif commence par « plafond »")
+    check(room == 0 and why ~= nil and why:sub(1, 8) == "plafond ", "17 : au plafond : 0 et le motif commence par « plafond »")
     room, why = Pf.kind_room("labos", 10, 40)
-    check(room == 0 and why ~= nil, "16 : au-dessus du plafond (migration, sauvegarde) : 0, jamais negatif (" .. tostring(room) .. ")")
+    check(room == 0 and why ~= nil, "17 : au-dessus du plafond (migration, sauvegarde) : 0, jamais negatif (" .. tostring(room) .. ")")
     room, why = Pf.kind_room("labos", 10, 3)
-    check(room == 10 and why == nil, "16 : sous le plafond : tout passe, aucun motif")
+    check(room == 10 and why == nil, "17 : sous le plafond : tout passe, aucun motif")
     room, why = Pf.kind_room("labos", 25, 0)
-    check(room == 25 and why == nil, "16 : pile le plafond : tout passe")
+    check(room == 25 and why == nil, "17 : pile le plafond : tout passe")
     room, why = Pf.kind_room("fours", 40, 0)
-    check(room == 40 and why == nil, "16 : sorte sans plafond de surete : 40 passent")
+    check(room == 40 and why == nil, "17 : sorte sans plafond de surete : 40 passent")
     -- Garde fermee par defaut : aucune entree absente ou invalide n'est lue comme 0.
     for _, bad in ipairs({ "absent", 0 / 0, -1, math.huge, "12" }) do
       local w = (bad ~= "absent") and bad or nil
       local r1, w1 = Pf.kind_room("labos", w, 0)
       local r2, w2 = Pf.kind_room("labos", 5, w)
       check(r1 == 0 and has(w1, "plafond labos") and r2 == 0 and has(w2, "plafond labos"),
-        "16 : entree " .. tostring(bad) .. " : garde fermee, motif (" .. tostring(w1) .. " ; " .. tostring(w2) .. ")")
+        "17 : entree " .. tostring(bad) .. " : garde fermee, motif (" .. tostring(w1) .. " ; " .. tostring(w2) .. ")")
     end
     -- Les donnees se changent sans toucher la regle : 40 laboratoires deviennent permis avec un plafond de 64.
     local old = Pf.HARD_KIND.labos
     Pf.HARD_KIND.labos = 64
     room, why = Pf.kind_room("labos", 40, 0)
     Pf.HARD_KIND.labos = old
-    check(room == 40 and why == nil, "16 : le plafond est une DONNEE (64 : 40 passent)")
+    check(room == 40 and why == nil, "17 : le plafond est une DONNEE (64 : 40 passent)")
     -- Determinisme et aucun nom du jeu : meme appel, meme rendu.
     local a, b = {}, {}
     for i = 0, 60 do a[#a + 1] = table.concat({ Pf.kind_room("labos", i, 60 - i) }, "|") end
     for i = 0, 60 do b[#b + 1] = table.concat({ Pf.kind_room("labos", i, 60 - i) }, "|") end
-    check(table.concat(a, "|") == table.concat(b, "|"), "16 : deterministe")
+    check(table.concat(a, "|") == table.concat(b, "|"), "17 : deterministe")
     -- Monotone : plus on en a, moins il reste de places ; jamais plus que voulu.
     local mono = true
     for want = 0, 60 do
@@ -380,7 +399,7 @@ local function run_all(Pf)
         prev = r
       end
     end
-    check(mono, "16 : 0 <= places <= voulu, decroissant avec le nombre deja pose")
+    check(mono, "17 : 0 <= places <= voulu, decroissant avec le nombre deja pose")
   end
 end
 
@@ -402,6 +421,10 @@ local MUTANTS = {
   { "places ouvertes sur liste absente", { 'if type(open) ~= "table" then return 0, "ordres ouverts : entree absente" end', 'if type(open) ~= "table" then open = {} end' } },
   { "decompte qui remplace une entree absente", { "if o == nil or no == nil or r == nil or n == nil then return false end", "o, no, r, n = o or 0, no or 0, r or 0, n or 0" } },
   { "comparaison ouverte sur limite absente", { "if b == nil then return false, wb end", "if b == nil then b = 0 end" } },
+  { "releve du courant sans capacite : garde ouverte (W02)", { 'local _, why = Pf.input(pw.have_kw, "power.have_kw")', 'local _, why = 0, nil' } },
+  { "releve du courant : capacite lue comme 0 (W02)", { 'local _, why = Pf.input(pw.have_kw, "power.have_kw")', 'local _, why = Pf.input(pw.have_kw or 0, "power.have_kw")' } },
+  { "texte du refus sans l'entree nommee (W02)", { '(\"courant : \" .. why)', '(\"courant\")' } },
+  { "releve absent refuse (amorcage bloque, W02)", { "if pw == nil then return nil end", 'if pw == nil then return "entree absente : power" end' } },
   { "plafond de surete par sorte retire", { "local room = math.max(0, math.min(w, math.floor(hard + Pf.EPS) - math.floor(h + Pf.EPS)))", "local room = w" } },
   { "unites deja posees non comptees (sorte)", { "- math.floor(h + Pf.EPS)))", "- 0))" } },
   { "places negatives possibles (sorte)", { "local room = math.max(0, math.min(w,", "local room = (0 + math.min(w," } },

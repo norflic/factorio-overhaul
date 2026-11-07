@@ -57,6 +57,24 @@ function Pf.input(v, name)
   return v
 end
 
+--- Relevé du courant d'une décision (lot VIDEO-COUVERTURE 5, critère C5.4, TODO W02) : rend nil quand la garde est ouverte, sinon la
+--- raison du refus, qui NOMME l'entrée. `pw` = input.power de Ca.decide :
+---   nil          aucune centrale finie : l'AMORÇAGE (le premier ordre électrique demande la centrale, script/ai3/automatisation.lua,
+---                submit ; fermer ici empêcherait l'électrification de jamais commencer) ; l'exécutant refuse déjà ce qui ne se pose pas ;
+---   table        un relevé existe : sa capacité (have_kw) doit être un nombre fini ≥ 0. Absente, une centrale FINIE dont la capacité n'est
+---                pas encore lue ouvrait des foreuses sans borne (garde ouverte sur mesure manquante : les « silos sans fin » de C13).
+function Pf.power_missing(pw)
+  if pw == nil then return nil end
+  local _, why = Pf.input(pw.have_kw, "power.have_kw")
+  return why
+end
+
+--- Le même refus, en texte de journal (« courant : entree absente : power.have_kw »), ou nil.
+function Pf.power_why(pw)
+  local why = Pf.power_missing(pw)
+  return why and ("courant : " .. why) or nil
+end
+
 local OPS = {
   ["<"] = function(a, b) return a < b end,
   ["<="] = function(a, b) return a <= b end,
