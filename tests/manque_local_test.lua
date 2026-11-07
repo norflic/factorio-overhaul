@@ -19,6 +19,8 @@
     n. le défaut D0/D1 du 7/11 (fer au champ, recrue qui attend, collecte à 52 non servie) ;
     o. déterminisme, état sans fonction ;
     p. coût en INSTRUCTIONS (debug.sethook, jamais os.clock) ;
+    r. demande nette (manque de l'objectif) : ne puise pas au stock une seconde fois ;
+    s. puits mesurés pour la capitalisation (Mq.sinks) : manques des modules seuls ;
     q. mutants : chaque règle retirée fait échouer au moins un contrôle.
   Les objets sont des chaînes opaques (aucun nom du jeu).
 ]]
@@ -314,6 +316,37 @@ local function run_all(Mq)
     check(eq(got, 1932), "n : collectes jusqu'a couvrir le manque, pas plus (" .. got .. ")")
   end
 
+  section("r. demande nette (manque de l'objectif, deja calcule contre le stock)")
+  do
+    local r = Mq.step(Mq.new(), { wants = { { key = "but", item = "plaque", n = 300, prio = 50, net = true } }, stock = { plaque = 500 }, sources = {} }, T0)
+    check(eq(r.build.plaque, 300), "r : une demande nette ne puise pas au stock (a construire " .. tostring(r.build.plaque) .. ")")
+    local r2 = Mq.step(Mq.new(), { wants = { { key = "but", item = "plaque", n = 300, prio = 50 } }, stock = { plaque = 500 }, sources = {} }, T0)
+    check(r2.build.plaque == nil, "r : temoin : la meme demande brute est couverte par le stock")
+    local r3 = Mq.step(Mq.new(), { wants = { { key = "recrue", item = "plaque", n = 400, prio = 60 }, { key = "but", item = "plaque", n = 300, prio = 50, net = true } },
+      stock = { plaque = 500 }, sources = {} }, T0)
+    check(eq(r3.build.plaque, 300), "r : la recrue (brute) prend 400 au stock, l'objectif (net) reste a construire (" .. tostring(r3.build.plaque) .. ")")
+    local r4 = Mq.step(Mq.new(), { wants = { { key = "but", item = "plaque", n = 300, prio = 50, net = true } }, stock = { plaque = 500 },
+      sources = { { id = "s1", items = { plaque = 400 }, read_tick = T0, ok = true, d = 10, task = "c1" } } }, T0)
+    check(r4.build.plaque == nil and r4.collect[1] and eq(r4.collect[1].n, 300), "r : une demande nette se couvre par une sortie (collecte de 300)")
+  end
+
+  section("s. puits mesures pour la capitalisation (Mq.sinks)")
+  do
+    local mods = { circuit_mod(1, T0, { plaque = 10 }), circuit_mod(2, T0, {}) }
+    local r = Mq.step(Mq.new(), { mods = mods, wants = { { key = "recrue", item = "plaque", n = 50, prio = 60 } }, stock = {}, sources = {} }, T0)
+    local base = { { item = "zz-base", rate = 3, want = 3 } }
+    local s = Mq.sinks(r, base)
+    check(s[1] == base[1], "s : les puits donnes restent en tete, tels quels")
+    local by = {}
+    for i = 2, #s do by[s[i].item] = s[i] end
+    check(by.cable and eq(by.cable.rate, 60) and eq(by.cable.want, 60), "s : cable des 2 modules : 60 par minute (" .. tostring(by.cable and by.cable.rate) .. ")")
+    check(by.plaque and eq(by.plaque.rate, 10), "s : plaque du seul module 2 : 10 par minute, sans la recrue (" .. tostring(by.plaque and by.plaque.rate) .. ")")
+    check(#s == 3 and s[2].item == "cable" and s[3].item == "plaque", "s : puits mesures tries par objet, apres la base")
+    local s0 = Mq.sinks(nil, base)
+    check(#s0 == 1 and s0[1] == base[1] and s0 ~= base, "s : sans resultat, la base seule (copie)")
+    check(#Mq.sinks(r, nil) == 2, "s : sans base, les seuls puits mesures")
+  end
+
   section("o. determinisme, etat sans fonction")
   do
     local function scene(rev)
@@ -405,6 +438,9 @@ local MUTANTS = {
   { "courant inconnu accepte (garde ouverte)", { 'if type(m.power) ~= "boolean" then', "if false then" } },
   { "tourniquet sans curseur", { "  if st.cursor ~= nil then\n    start = #list + 1", "  if false then\n    start = #list + 1" } },
   { "priorite de la collecte ecrasee par le dernier besoin", { "if nd.prio > a.prio then a.prio = nd.prio end", "a.prio = nd.prio" } },
+  { "demande nette qui puise encore au stock (double compte)", { "local q = nd.net and 0 or math.min(n, s_left)", "local q = math.min(n, s_left)" } },
+  { "puits avec les demandes hors module (double compte avec input.need)", { 'e.key:sub(1, 2) == "m:"', 'e.key ~= ""' } },
+  { "puits donnes perdus", { "for _, s in ipairs(base or {}) do out[#out + 1] = s end", "" } },
   { "offres relues depuis le debut sans curseur, sans sauter les vides", { "      while i <= #list and list[i].left <= Mq.EPS do i = i + 1 end\n      list.i = i\n      for j = i, #list do\n        local o = list[j]\n        if n <= Mq.EPS then break end\n        if o.left > Mq.EPS then", "      for j = 1, #list do\n        local o = list[j]\n        if n <= Mq.EPS then break end\n        if true then" } },
 }
 local killed = 0
