@@ -1,47 +1,52 @@
 --[[
-  Sortie de spirale (EFFONDREMENT, demande du lead du 7/11 : partie du DC sur 0.6.58, votre équipe tombée à 2 PNJ, fer libre à 0
-  de 133 à 177 min, aucune recrue). Règle PURE, NON BRANCHÉE (le lead tranche ; l'équilibre va au DC).
-  La recrue de votre équipe paie son kit et (10 + effectif) plaques de fer AU STOCK LIBRE (script/team/team.lua:1016-1017,
-  has_list ; shared/team/org.lua:1083). Sous son effectif de départ, le fer qui arrive (minage à la main, tournées) est pris par
-  d'autres avant elle : réservations des tâches (script/team/board.lua:258-264), modules en attente de matière, postes de défense.
-  Et, contrairement aux factions (shared/team/planner.lua:943-949), elle n'a ni recrue sans arme sous 2 PNJ, ni minage d'urgence
-  (planner.lua:958-960 : « RIEN d'autre de la survie des factions »).
-  Sp.decide(s), s = {
-    workers      = PNJ de l'équipe,
-    floor        = effectif de départ (view.recover_floor),
-    iron         = fer LIBRE au coffre (après les réservations),
-    recruit_iron = fer d'UNE recrue (kit planifié au livre + 10 + effectif),
-    stone_saturated = vrai si la pierre est saturée (cerveau : « sature [… stone] »),
-  }
-  Rend {
-    hold       = plaques de fer gardées pour la recrue : les autres consommateurs voient iron − hold (jamais plus que le besoin
-                 d'UNE recrue ; 0 à l'effectif de départ ou au-dessus),
-    unarmed    = recrue sans arme (moins de 2 PNJ et pas assez de fer : parité avec les factions, planner.lua:943-947),
-    mine       = minage d'urgence du fer (pas assez de fer pour une recrue : parité avec les factions, planner.lua:949),
-    stop_stone = plus de collecte de pierre tant que la pierre est saturée et que le fer manque (le temps des PNJ va au fer),
-  }.
-  Déterminisme : arithmétique seule.
+  Sortie de spirale (EFFONDREMENT, partie du DC sur 0.6.58, 7/11 : votre équipe tombée à 2 PNJ, fer libre à 0 de 133 à
+  177 min, aucune recrue). Décision du DC (QCM, 7/11 vers 14 h 25), mot pour mot : « je veux toujours n ouvriers minimum,
+  donc 12 si 12 au départ. Au delas ça coute des ressources ».
+  Lecture du lead : tant que votre équipe est SOUS son effectif de départ (view.recover_floor), la recrue est GRATUITE (ni
+  plaques ni kit pris au stock) et ÉQUIPÉE comme une recrue ordinaire (Worker.recruit, free : kit offert, jamais rendu au
+  coffre). Au-delà de l'effectif de départ, la recrue est payée comme avant (kit + (10 + effectif) fer, shared/team/org.lua).
+  Les factions (view.emergency) ne changent pas.
+  Avant (0.6.58) : la recrue de reprise n'était faite que si le livre trouvait TOUTES ses plaques au stock libre
+  (shared/team/planner.lua, « Correction VERIF-NUIT ») ; sans elles, rien (boucle B1 de docs/IA_WORKFLOW.md).
+  Lecteurs de la règle : le planificateur (recrue de reprise), le stock virtuel et le besoin évalué du cerveau
+  (shared/ai3/cerveau.lua), le budget de la pile (shared/ai3/pile.lua), le paiement en E4 (script/team/team.lua).
+  Lua PUR, arithmétique seule.
 ]]
 
 local Sp = {}
 
-function Sp.decide(s)
-  local out = { hold = 0, unarmed = false, mine = false, stop_stone = false }
-  local floor = (s and s.floor) or 0
-  local workers = (s and s.workers) or 0
-  if floor <= 0 or workers >= floor then return out end
-  local iron, need = math.max(0, s.iron or 0), math.max(0, s.recruit_iron or 0)
-  out.hold = math.min(iron, need)
-  local short = iron < need
-  out.unarmed = short and workers < 2
-  out.mine = short
-  out.stop_stone = short and s.stone_saturated == true
-  return out
+--- La recrue de cette vue est-elle gratuite ? v = { workers, recover_floor (votre équipe), emergency (factions) }.
+function Sp.free(v)
+  if not v or v.emergency then return false end
+  local floor = v.recover_floor
+  return floor ~= nil and (v.workers or 0) < floor
 end
 
---- Fer que voit un autre consommateur que la recrue (tâches, capitalisation, défense) : le fer libre moins la part gardée.
-function Sp.iron_for_others(iron, d)
-  return math.max(0, (iron or 0) - ((d and d.hold) or 0))
+--- Coût d'une recrue sous la règle : liste vide si elle est gratuite, sinon `cost` tel quel.
+function Sp.cost(v, cost)
+  if Sp.free(v) then return {} end
+  return cost
+end
+
+--[[
+  Journal [FO-RECRUE] (choix (1) du lead, 7/11 : la garde QGSURVIE est GARDÉE, la recrue gratuite attend la fin de la menace) : pour
+  que le DC voie pourquoi personne ne revient, une ligne « recrue gratuite retenue : garde QG (biters à N tuiles, 0 tourelle armée) »,
+  au plus une par Sp.LOG_EVERY ticks. Journal seul : aucune décision ne le lit.
+]]
+Sp.LOG_EVERY = 3600 -- 1 min
+
+--- Une ligne [FO-RECRUE] est-elle due ? last = tick de la dernière ligne (nil : jamais), tick = maintenant.
+function Sp.log_due(last, tick)
+  return last == nil or (tick or 0) - last >= Sp.LOG_EVERY
+end
+
+--- Texte de la ligne. a = { key, dist (tuiles du coffre au biter le plus proche, nil : inconnu), biters, armed, workers, floor, minutes }.
+function Sp.held_text(a)
+  a = a or {}
+  return string.format("[FO-RECRUE] %s : recrue gratuite retenue : garde QG (biters a %s tuiles, %d tourelle(s) armee(s)) ; " ..
+    "%d biter(s) a portee du coffre, effectif %d/%d a %.1f min", tostring(a.key or "?"),
+    a.dist and string.format("%d", math.floor(a.dist + 0.5)) or "?", a.armed or 0, a.biters or 0, a.workers or 0, a.floor or 0,
+    a.minutes or 0)
 end
 
 return Sp

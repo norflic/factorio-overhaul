@@ -69,6 +69,7 @@ local DefChoix = require("script.faction.defchoix") -- lot DEFENSE-CHOIX : base 
 local Mu = require("shared.team.munitions") -- lot MUNITIONS : chargeurs voulus par tourelle (cible riche quand le fer la paie)
 local Scheduler = require("script.core.scheduler") -- lot DÉCOUPAGE-PENSÉE : minuteurs des étapes d'une pensée
 local Et = require("shared.team.etapes") -- lot DÉCOUPAGE-PENSÉE : état gardé de la vue et du plan pour E4
+local Sp = require("shared.team.spirale") -- EFFONDREMENT : recrue gratuite sous l'effectif de départ (journal [FO-RECRUE])
 
 local Team = {}
 
@@ -734,7 +735,24 @@ function Team.view(f, tick)
   else
     f.team.qg_reserve, f.team.qg_reserve_tech, f.team.qg_reserve_full = nil, nil, nil
   end
-  if f.is_player and T.qg_recruit_hold_on and SurvieQg.recruit_hold(f, tick, hq_threat) then hold_recruits = true end
+  if f.is_player and T.qg_recruit_hold_on and SurvieQg.recruit_hold(f, tick, hq_threat) then
+    hold_recruits = true
+    -- EFFONDREMENT (choix (1) du lead, 7/11 : garde GARDÉE) : journal [FO-RECRUE] d'une recrue gratuite retenue, au plus 1 par minute
+    -- (shared/team/spirale.lua). Retenue ⇒ 0 tourelle armée au QG (Sq.recruit_hold). Journal seul.
+    if Sp.free({ workers = f.engineers_count or 0, recover_floor = floor }) and Sp.log_due(f.team.recrue_log, tick) then
+      f.team.recrue_log = tick
+      local near, n = nil, 0
+      for _, u in ipairs(f.hq.surface.find_entities_filtered({ position = f.hq_pos, radius = T.hq_threat_radius, force = "enemy",
+        type = "unit" })) do
+        local dx, dy = u.position.x - f.hq_pos.x, u.position.y - f.hq_pos.y
+        local d2 = dx * dx + dy * dy
+        n = n + 1
+        if not near or d2 < near then near = d2 end
+      end
+      log(Sp.held_text({ key = f.key or "player", dist = near and math.sqrt(near) or nil, biters = n, armed = 0,
+        workers = f.engineers_count or 0, floor = floor, minutes = tick / 3600 })) -- minutes de partie, comme [FO-QGSURVIE]
+    end
+  end
   Profiler.fstop("view:4-fin") -- lot PERF (fusion de l'intégrateur : la mesure fine couvre aussi la règle d'effectif)
   return {
     tech = f.tech, personality = f.personality, done = f.team.done, deferred = f.team.deferred,
@@ -1016,24 +1034,30 @@ TT.e4 = function(f, surface, tick, fz)
   local cost = view.recruit_cost
   -- Lot IA2-a2 (survie) : recrue équipée AU QG avec les plaques du stock (plan.recruit_uses : objets prélevés).
   local pay = plan.recruit_uses or cost
-  if plan.recruit_workers and not plan.recruit_unarmed and has_list(stock, pay) then
-    remove_list(f, pay)
-    if Worker.recruit(f, surface, tick) then
+  -- EFFONDREMENT (décision du DC, 7/11 : « je veux toujours n ouvriers minimum, donc 12 si 12 au départ. Au delas ça coute des
+  -- ressources ») : votre équipe sous son effectif de départ recrute GRATUITEMENT (plan.recruit_free, shared/team/spirale.lua) :
+  -- rien n'est pris au coffre ; la recrue est équipée comme une autre (Worker.recruit, free : kit offert, jamais rendu au coffre).
+  local free = f.is_player and plan.recruit_free or false
+  if plan.recruit_workers and not plan.recruit_unarmed and (free or has_list(stock, pay)) then
+    if not free then remove_list(f, pay) end
+    if Worker.recruit(f, surface, tick, false, free) then
       f.stats.recruited = (f.stats.recruited or 0) + 1
       if view.grow_due then f.team.last_grow = tick end -- lot IA1-b2 : rythme de la croissance
       -- Lot IA3-d : recrue de CROISSANCE d'une faction (rythme de la règle d'effectif).
       if view.effectif and view.effectif.reason == "recrue" and not plan.emergency_recruit then
         Effectif.grown(f.team.effectif, tick)
       end
-      if plan.recruit_uses then
+      if free then f.stats.free_recruits = (f.stats.free_recruits or 0) + 1 end
+      if plan.recruit_uses or free then
         f.stats.emergency_recruits = (f.stats.emergency_recruits or 0) + 1
         -- Votre équipe peut travailler sans guerre (State.war().started nil) : minutes comptées depuis sa fondation,
         -- comme « objectif atteint » plus haut.
-        log(string.format("[FO-TEAM] %s : survie, recrue equipee au QG (effectif %d, depart %d) a %.1f min", f.key,
-          f.engineers_count or 0, (view.emergency and view.emergency.floor) or view.recover_floor or 0,
+        log(string.format("[FO-TEAM] %s : survie, recrue %s au QG (effectif %d, depart %d) a %.1f min", f.key,
+          free and "GRATUITE equipee" or "equipee", f.engineers_count or 0,
+          (view.emergency and view.emergency.floor) or view.recover_floor or 0,
           (tick - (f.started or State.war().started or 0)) / 3600))
       end
-    else
+    elseif not free then
       for _, it in ipairs(pay) do Stock.insert(f, it[1], it[2]) end
     end
     stock = Board.view_stock(f, stock_of(f), tick)
