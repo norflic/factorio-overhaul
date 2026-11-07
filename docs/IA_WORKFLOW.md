@@ -99,7 +99,7 @@ Maillons fragiles de la chaîne :
 | avant-poste dangereux (nid, ver, perte récente) | `team.lua:535-540` ; `poles.lua:360-371` | `board.lua:346` ; fond | ni urgence de tournée, ni fond | lu |
 | QG occupé (factions) | `worker.lua:1869-1881` | `team.lua:514` | aucune recrue ; 3 morts en 2 min à 24 tuiles → 10 min (`config.lua:258-260`) | lu |
 | QG menacé (votre équipe) | `team.lua:571-575` | `poles.lua:406` | fond coupé, tout le monde garde à 96 (`config.lua:293-295`) | lu |
-| QG en péril sans tourelle armée | `SurvieQg.recruit_hold` (`team.lua:737`) | `team.lua:1042-1043` | pas de recrue sans arme | lu |
+| QG en péril sans tourelle armée (biters de la force « enemy » à 48 tuiles du coffre ou moins, `survie_qg.lua:220`) | `SurvieQg.recruit_hold` → `hold_recruits` (`team.lua:737`) | `planner.lua:962`, `1138` (ni recrue de reprise ni recrue ordinaire) ; second verrou sur la recrue sans arme `team.lua:1042-1043` | AUCUNE recrue, armée ou non, tant que la menace dure ; ne voit PAS les soldats des factions (correction d'effondrement, 7/11) | lu |
 | rappel | perte loin du QG (`worker.lua:1892-1894`, `1218`) ; file sûre (`team.lua:939`) | PNJ | tâche abandonnée, retour au QG | lu |
 | pause d'échec | `Board.finish` (`board.lua:997-1004`) | `Board.sync` (335), `Board.add` (416) | 1 800 t (48), plus court pour un danger, croissant pour un chemin | lu |
 | bail | `Bail.think` (`team.lua:930`) | PNJ | tournée sans progrès rendue | lu |
