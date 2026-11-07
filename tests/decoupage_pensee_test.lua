@@ -333,6 +333,131 @@ end
 local Et = require("shared.team.etapes")
 local MIN = tonumber(os.getenv("FO_MIN") or "") or 10
 
+---------------------------------------------------------------------------------------------------
+-- 0. Contrôle STATIQUE (relecture de 6fcfe757) : en jeu la copie n'est pas stricte, un champ oublié vaudrait nil sans rien dire.
+-- On lit le SOURCE de TT.e4 et de chaque fonction qui reçoit la vue ou le plan (suivies de proche en proche) : chaque `view.X` et
+-- `plan.X` lu doit être dans Et.VIEW / Et.PLAN, chaque champ listé doit être lu quelque part, et la vue ou le plan ne doit être
+-- transmis à AUCUNE fonction hors de la table SUIVIES (sinon : l'y ajouter, avec le nom de son paramètre).
+---------------------------------------------------------------------------------------------------
+section("0. Contrôle statique des champs lus en E4 (source de TT.e4 et des fonctions qui reçoivent la vue ou le plan)")
+local SUIVIES = {
+  ["TT.e4"] = { file = "script/team/team.lua", header = "TT.e4 = function(f, surface, tick, fz)", params = { view = "view", plan = "plan" } },
+  ["Team.measure"] = { file = "script/team/team.lua", header = "function Team.measure(f, view, tick)", params = { view = "view" } },
+  ["Team.effectif_journal"] = { file = "script/team/team.lua", header = "function Team.effectif_journal(f, view, tick)", params = { view = "view" } },
+  ["Team.plafond_journal"] = { file = "script/team/team.lua", header = "function Team.plafond_journal(f, view, stock, tick)", params = { view = "view" } },
+  ["Ia3.capital_pay"] = { file = "script/ai3/cerveau.lua", header = "function Ia3.capital_pay(f, surface, tick, plan, stock, only_center)", params = { plan = "plan" } },
+  ["Ia3.measure"] = { file = "script/ai3/cerveau.lua", header = "function Ia3.measure(f, tick, plan)", params = { plan = "plan" } },
+  ["Capital.pay"] = { file = "script/ai3/capital.lua", header = "function Capital.pay(f, surface, tick, plan, stock, only_center)", params = { plan = "plan" } },
+  ["Recon.upgrade_stock"] = { file = "script/team/reconstruction.lua", header = "function Recon.upgrade_stock(f, book, stock, tick, plan)", params = { plan = "plan" } },
+}
+local function source_body(spec)
+  local h = io.open(spec.file, "r")
+  if not h then return nil, "fichier absent" end
+  local s = h:read("*a")
+  h:close()
+  local i = s:find(spec.header, 1, true)
+  if not i then return nil, "en-tête introuvable" end
+  local j = s:find("\nend\n", i, true) or s:find("\nend\r\n", i, true)
+  if not j then return nil, "fin introuvable" end
+  local body = s:sub(i, j + 4)
+  body = body:gsub("%-%-%[%[.-%]%]", "") -- commentaires longs
+  local lines = {}
+  for l in (body .. "\n"):gmatch("(.-)\r?\n") do lines[#lines + 1] = (l:gsub("%-%-.*$", "")) end -- commentaires de ligne
+  return table.concat(lines, "\n")
+end
+-- Appel qui reçoit l'identifiant en position `pos` : la parenthèse ouvrante non fermée qui le précède, et le nom juste avant.
+local function callee_at(body, pos)
+  local depth = 0
+  for k = pos - 1, 1, -1 do
+    local c = body:sub(k, k)
+    if c == ")" then depth = depth + 1
+    elseif c == "(" then
+      if depth == 0 then return body:sub(1, k - 1):match("([%w_%.:]+)%s*$") end
+      depth = depth - 1
+    elseif c == "\n" and depth == 0 and body:sub(k + 1, pos - 1):match("^%s*local ") then return nil
+    end
+  end
+  return nil
+end
+-- Champs lus (`pname.X`) et fonctions qui reçoivent `pname` seul (ni champ lu, ni index, hors déclaration) dans un source.
+local function SCAN(body, pname)
+  local fields, callees = {}, {}
+  for fld in body:gmatch("%f[%w_]" .. pname .. "%.([%a_][%w_]*)") do fields[fld] = true end
+  local pos = 1
+  while true do
+    local a, b = body:find("%f[%w_]" .. pname .. "%f[^%w_]", pos)
+    if not a then break end
+    local before, after = body:sub(a - 1, a - 1), body:sub(b + 1, b + 1)
+    if before ~= "." and after ~= "." and after ~= "[" then
+      local callee = callee_at(body, a)
+      if callee and callee ~= "function" then callees[#callees + 1] = callee end
+    end
+    pos = b + 1
+  end
+  return fields, callees
+end
+local static = { view = {}, plan = {} }
+local errs, seen_fn = {}, {}
+local queue = { { name = "TT.e4", lists = { view = "view", plan = "plan" } } }
+while #queue > 0 do
+  local item = table.remove(queue, 1)
+  local spec = SUIVIES[item.name]
+  local key = item.name
+  if not seen_fn[key] then
+    seen_fn[key] = true
+    local body, why = source_body(spec)
+    if not body then
+      errs[#errs + 1] = item.name .. " : " .. why
+    else
+      for list, pname in pairs(spec.params) do -- (ordre sans effet : ensembles)
+        local fields, callees = SCAN(body, pname)
+        for fld in pairs(fields) do static[list][fld] = true end
+        for _, callee in ipairs(callees) do
+          if SUIVIES[callee] then
+            if SUIVIES[callee].params[list] then queue[#queue + 1] = { name = callee }
+            else errs[#errs + 1] = callee .. " reçoit " .. list .. " sans paramètre suivi" end
+          else
+            errs[#errs + 1] = item.name .. " transmet " .. list .. " à " .. callee .. ", fonction non suivie"
+          end
+        end
+      end
+    end
+  end
+end
+local function diff(set, listed)
+  local missing, unused = {}, {}
+  local L = {}
+  for _, k in ipairs(listed) do L[k] = true end
+  for k in pairs(set) do if not L[k] then missing[#missing + 1] = k end end
+  for _, k in ipairs(listed) do if not set[k] then unused[#unused + 1] = k end end
+  table.sort(missing)
+  return missing, unused
+end
+local mv, uv = diff(static.view, Et.VIEW)
+local mp, up = diff(static.plan, Et.PLAN)
+local nfn = 0
+for _ in pairs(seen_fn) do nfn = nfn + 1 end
+print(string.format("  %d fonction(s) lues ; champs lus : vue %d, plan %d", nfn, (function() local n = 0 for _ in pairs(static.view) do n = n + 1 end return n end)(),
+  (function() local n = 0 for _ in pairs(static.plan) do n = n + 1 end return n end)()))
+check(#errs == 0, "sources lues, aucune transmission à une fonction non suivie : " .. table.concat(errs, " ; "))
+check(#mv == 0 and #mp == 0, "champs lus et non gardés : vue [" .. table.concat(mv, ", ") .. "], plan [" .. table.concat(mp, ", ") .. "]")
+check(#uv == 0 and #up == 0, "champs gardés jamais lus : vue [" .. table.concat(uv, ", ") .. "], plan [" .. table.concat(up, ", ") .. "]")
+-- Mutant du contrôle statique : une liste privée d'un champ lu doit être vue
+do
+  local short = {}
+  for i = 2, #Et.PLAN do short[#short + 1] = Et.PLAN[i] end
+  local m2 = diff(static.plan, short)
+  check(#m2 == 1 and m2[1] == Et.PLAN[1], "mutant : liste du plan sans « " .. Et.PLAN[1] .. " » refusée par le contrôle statique")
+  -- mutants du SOURCE : un champ nouveau lu en E4, et le plan transmis à une fonction nouvelle
+  local src = "  local x = plan.champ_nouveau or 0 -- plan.dans_un_commentaire\n  Autre.fonction(f, tick, plan)\n  local y = view.stock\n"
+  local fld, cal = SCAN(src:gsub("%-%-[^\n]*", ""), "plan")
+  check(fld.champ_nouveau and not fld.dans_un_commentaire and #cal == 1 and cal[1] == "Autre.fonction",
+    "mutants du source : champ nouveau vu, commentaire ignoré, transmission à une fonction nouvelle vue")
+end
+if os.getenv("FO_STATIQUE") then
+  print(string.format("[DECOUPAGE-PENSEE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
+  os.exit(failures == 0 and 0 or 1)
+end
 
 if not os.getenv("FO_RAPIDE") then -- FO_RAPIDE=1 : parties 3 à 6 seulement
 section("1. Relevé des champs lus en E4 (" .. MIN .. " min, mode bloc)")
