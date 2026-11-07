@@ -560,6 +560,48 @@ local function p7(Rv)
 end
 
 ---------------------------------------------------------------------------------------------------
+-- P12 (revue de la 0.6.59, point 4) : la centrale est lue et réparée PENDANT un relevé long du réseau
+---------------------------------------------------------------------------------------------------
+--- Une équipe, 301 lignes de chunks, une bande d'une ligne par passe : le relevé du NET_PERIOD (tick 7 200) dure 301 passes (1 505 ticks,
+--- plus que Rv.PERIOD). La machine à vapeur est perdue au début du relevé. Rend le tick de la perte, celui de la repose décidée, et si le
+--- relevé était encore en cours à la repose.
+local function p12(Rv)
+  logs = {}
+  local w = new_world()
+  local f, parts = team(w, "p12", "fo-test", 0, 0)
+  for k = 0, 40 do add(w, ent("assembler", "assembling-machine", -60 + k * 3, -100 + k * 6, { net = 1, consumer = true, hw = 1.5, hh = 1.5 })) end
+  chunks_for(w, { { -150, -150 }, { 150, 150 } })
+  local sfc = surface_of(w)
+  local box = box_of(w)
+  local Jeton = require("script.team.pouls_jeton")
+  Jeton.reset()
+  local api = { cancel = api_old.cancel, plant = api_old.plant, box = function() return box end, jeton = Jeton }
+  local saved = Rv.BAND
+  Rv.BAND, Rv.BANDS_PER_PULSE = 1, 1
+  local lost_at, fixed_at, during
+  for t = 0, 4 * 3600, 5 do
+    game.tick = t
+    local sv = f.build.sante
+    if not lost_at and sv and sv.nr_job and sv.nr_job.bands >= 5 then
+      lost_at = t
+      parts.engine.valid = false
+    end
+    local n0 = #logs
+    Rv.step(api, f, sfc, t)
+    if lost_at and not fixed_at then
+      for i = n0 + 1, #logs do
+        if logs[i]:find("centrale:", 1, true) and logs[i]:find("rouverte", 1, true) then
+          fixed_at = t
+          during = f.build.sante.nr_job ~= nil
+        end
+      end
+    end
+  end
+  Rv.BAND = saved
+  return lost_at, fixed_at, during
+end
+
+---------------------------------------------------------------------------------------------------
 -- P8 (revue de la 0.6.59, point 3) : jeton équitable, 4 factions et votre équipe (appelée la dernière) en relevés longs à la fois
 ---------------------------------------------------------------------------------------------------
 --- Rend, pour chaque demandeur, la plus longue suite de refus ET le plus grand nombre de demandeurs d'un même tick pendant cette suite ;
@@ -784,6 +826,12 @@ check(r5.starts >= 30 and r5.late == 0, string.format("P5 : chaque raccord part 
 local ok6a, ok6b, g6, w6 = p6(Rv, Box)
 check(ok6a, "P6 : boîte relevée en entier à la première demande (surface.get_chunks)")
 check(ok6b, "P6 : chunk généré après : boîte agrandie, son consommateur compté (" .. g6 .. ")")
+do
+  local lost_at, fixed_at, during = p12(Rv)
+  check(lost_at and fixed_at and fixed_at - lost_at <= Rv.PERIOD + 5 and during,
+    string.format("P12 : machine à vapeur perdue au tick %s pendant un relevé de 301 passes : repose décidée au tick %s (%s ticks après, au plus Rv.PERIOD), relevé encore en cours : %s",
+      tostring(lost_at), tostring(fixed_at), tostring(fixed_at and lost_at and fixed_at - lost_at), tostring(during)))
+end
 for _, c in ipairs(p7(Rv)) do
   check(c[2] == c[3], string.format("P7 : %s : fin du relevé par bandes = net_read lu à la fin (%s)%s", c[1], c[2],
     c[2] ~= c[3] and (" ; net_read : " .. c[3]) or ""))
@@ -853,6 +901,9 @@ local MUT = {
       "    if api.jeton and not api.jeton.take(tick, (f.key or 'player') .. ':ra') then return end" } }, "p11" },
   { "m8 jeton à priorité fixe (file ignorée)", "script.team.pouls_jeton", "script/team/pouls_jeton.lua",
     { { "(s.q[1] ~= nil and s.q[1] ~= who)", "false" } }, "p8" },
+  { "m13 la centrale attend la fin du relevé (avant le point 4)", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
+    { { "  do" .. string.char(10) .. "    if tick < sv.next then return end",
+      "  if sv.nr_job then return end" .. string.char(10) .. "  do" .. string.char(10) .. "    if tick < sv.next then return end" } }, "p12" },
   { "m7 réseaux des générateurs non relus à la fin (numéros des bandes)", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
     { { "local out = { islands = 0, uncovered = 0, nets = {}, live = live }", "live = j.gn; local out = { islands = 0, uncovered = 0, nets = {}, live = live }" } }, "p7" },
 }
@@ -864,6 +915,9 @@ for _, m in ipairs(MUT) do
     seen = d > 0
   elseif m[5] == "p5" then
     seen = p5(Rvm, Ram, Jm).clash > 0
+  elseif m[5] == "p12" then
+    local lost_at, fixed_at = p12(Rvm)
+    seen = not (lost_at and fixed_at and fixed_at - lost_at <= Rvm.PERIOD + 5)
   elseif m[5] == "p11" then
     local sans = p11(Ram, Jm)
     seen = sans > 0

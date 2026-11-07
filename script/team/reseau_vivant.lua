@@ -422,22 +422,25 @@ function Rv.step(api, f, surface, tick)
     b.sante = sv
   end
   local pp, nr
-  -- Lot POULS : un relevé du réseau commencé à une passe précédente avance ; fini, la passe reprend là où elle l'avait laissé (la
-  -- décision de la centrale, avec ce relevé frais, comme avant au tick échu). Projet de la centrale relu : il a pu changer depuis.
+  -- Lot POULS : un relevé du réseau commencé à une passe précédente avance (sous le jeton). Fini, il met à jour l'état du réseau (îlots,
+  -- demande, poteaux perdus), si la centrale est là. Revue de la 0.6.59, point 4 (« une électricité coupée est une priorité n° 1 du DC ») :
+  -- le relevé ne retient plus la centrale. Sa lecture, ses reposes, le retour d'une relocalisation et la décision gardent leur horloge
+  -- (Rv.PERIOD) pendant le relevé ; seul l'état du réseau attend la fin du relevé (une décision prise pendant le relevé lit le précédent).
   if sv.nr_job then
     nr = job_step(api, f, surface, sv, tick)
-    if not nr then return end
-    -- revue de la 0.6.59, point 1 : une décision « relier » attendait ce relevé frais (lancé par elle, plus bas) ; elle est jouée
-    -- maintenant, sans décider une seconde fois (S.decide compte ses relevés)
-    if sv.relier then
-      local why = sv.relier
-      sv.relier = nil
-      return do_relier(f, surface, b, sv, nr, why, tick)
+    if nr then
+      -- revue de la 0.6.59, point 1 : une décision « relier » attendait ce relevé frais (lancé par elle, ou pris pendant le relevé) ; elle
+      -- est jouée maintenant, sans décider une seconde fois (S.decide compte ses relevés)
+      if sv.relier then
+        local why = sv.relier
+        sv.relier = nil
+        return do_relier(f, surface, b, sv, nr, why, tick)
+      end
+      pp = b.plant and b.projects[b.plant]
+      if pp and pp.state ~= "refuse" and pp.state ~= "attente" and pp.state ~= "plan" then apply_net(f, surface, b, sv, nr, api) end
     end
-    pp = b.plant and b.projects[b.plant]
-    if not pp or pp.state == "refuse" or pp.state == "attente" or pp.state == "plan" then return end
-    apply_net(f, surface, b, sv, nr, api)
-  else
+  end
+  do
     if tick < sv.next then return end
     sv.next = tick + Rv.PERIOD
     -- une centrale de remplacement refusée : retour à la centrale d'origine, rouverte sur place (dernier recours)
@@ -468,19 +471,19 @@ function Rv.step(api, f, surface, tick)
     end
     pp = b.plant and b.projects[b.plant]
     if not pp or pp.state == "refuse" or pp.state == "attente" or pp.state == "plan" then return end
-    -- consommateurs sur îlot (période longue)
-    if tick >= sv.net_next then
+    -- consommateurs sur îlot (période longue) ; pas de second relevé tant qu'un relevé est en cours
+    if not sv.nr_job and tick >= sv.net_next then
       sv.net_next = tick + Rv.NET_PERIOD
-      -- lot POULS : par bandes quand la boîte des chunks est connue (api.box, build.lua) ; d'un bloc sinon (bancs hors jeu sans boîte)
+      -- lot POULS : par bandes quand la boîte des chunks est connue (api.box, build.lua) ; d'un bloc sinon (bancs hors jeu sans boîte).
+      -- Pas fini à cette passe : la décision de la centrale est prise quand même (point 4), avec l'état du relevé précédent.
       local box = api.box and api.box(surface)
       if box then
         sv.nr_job = job_new(box)
         nr = job_step(api, f, surface, sv, tick)
-        if not nr then return end
       else
         nr = net_read(f, surface, b)
       end
-      apply_net(f, surface, b, sv, nr, api)
+      if nr then apply_net(f, surface, b, sv, nr, api) end
     end
   end
   local P = api.prof
@@ -550,7 +553,11 @@ function Rv.step(api, f, surface, tick)
   elseif action == "relier" then
     -- revue de la 0.6.59, point 1 : sans relevé frais à cette passe (production nulle confirmée, ou îlots d'un relevé ancien), le relevé
     -- se fait PAR BANDES, sous le jeton ; la décision est jouée à sa fin (sv.relier). Sans boîte des chunks (bancs d'avant ce lot) : d'un
-    -- bloc, comme avant.
+    -- bloc, comme avant. Un relevé déjà en cours (décision prise pendant le relevé, point 4) : la décision attend SA fin.
+    if not nr and sv.nr_job then
+      sv.relier = why
+      return
+    end
     if not nr then
       local rbox = api.box and api.box(surface)
       if rbox then
