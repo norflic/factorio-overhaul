@@ -18,6 +18,8 @@
     C.refusal(c, now) / C.safe(c, now) -> cause du refus, ou le coffre est-il sûr ?
     C.pick(cands, short) -> clés des coffres à collecter en urgence, le plus proche d'abord.
 ]]
+local T = require("shared.team.config")
+
 local C = {}
 
 C.PRIO = 94            -- sous la défense d'urgence du QG (96) ; marquée « critique » (x 1,5 = 141) : devant le minage urgent du fer (90 x 1,5 = 135)
@@ -83,6 +85,22 @@ end
 function C.outcome(before, got)
   if (before or 0) > 0 and (got or 0) <= 0 then return "fail" end
   return "done"
+end
+
+--- Matières vitales d'une collecte (le fer et le charbon : plaque du fer, produit de l'avant-poste de charbon), lues dans les données.
+C.VITAL = { [T.outposts.iron.product] = true, [T.outposts.coal.product] = true }
+
+--- Objets à prendre d'un coffre, dans l'ordre : `items` = noms triés ; `skipped` = prédicat (Stock.skip_fn) ou nil : ce qu'il écarte reste au coffre ;
+--- les matières vitales d'abord (le sac plein de pierre ne bloque plus le fer), puis l'ordre des noms.
+function C.take_list(items, skipped)
+  local vital, rest = {}, {}
+  for _, it in ipairs(items or {}) do
+    if not (skipped and skipped(it)) then
+      if C.VITAL[it] then vital[#vital + 1] = it else rest[#rest + 1] = it end
+    end
+  end
+  for _, it in ipairs(rest) do vital[#vital + 1] = it end
+  return vital
 end
 
 return C

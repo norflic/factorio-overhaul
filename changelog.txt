@@ -1,4 +1,14 @@
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Version: 0.6.61
+Date: 2026-11-07
+  Changes:
+    - Regles de la video : les quatre reglages de carte (portes, paliers, lots de minerai, trace sur la carte) sont allumes une fois dans une partie sauvegardee avant la 0.6.61 (journal [FO-VIDEO-REGLAGES]) ; un reglage eteint ensuite reste eteint.
+    - Rappel des PNJ pour une urgence : quand une tache urgente (collecte, coffre) attend depuis 5 s avec sa matiere libre et qu aucun PNJ n est libre, l equipe rappelle le PNJ de la tache la moins prioritaire (jamais la defense), au plus un toutes les 30 s, jamais deux fois pour la meme tache (journal [FO-RAPPEL]). Prouve hors jeu ; pas encore vu en jeu (la recrue gratuite comble l equipe avant).
+    - Collecte : fer et charbon d abord ; un coffre dont tout est ecarte ne cree plus de voyage a vide.
+    - Correctifs de la fusion de la video : marge retrouvee sous la limite de 200 locales de build.lua ; test de la menace du QG recale.
+    - Preuves : content 554 OK sur afe02de7 (fo-logs/2026-11-07_ESSAI-0661) ; harness 0 erreur ; api_lint 2 886 usages 0 erreur ; run 114, quotas_glue 22, video_reglages 18.
+    - En cours : coffres pleins et objets au sol (impasse trouvee sur votre sauvegarde : stock plein et places d annexe occupees), foreuses electriques, couverture complete de la TODO video (78 + 106 points), leviers du x10.
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Version: 0.6.60
 Date: 2026-11-07
   Changes:
