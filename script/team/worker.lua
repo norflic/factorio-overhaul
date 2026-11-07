@@ -267,6 +267,8 @@ end
 -- Lot STOCKAGE-VITAL : le dépôt d'un PNJ au QG est le seul appelant de Stock.insert soumis à la réserve des vitales (ce qui est refusé
 -- reste en poche, rien n'est perdu).
 local DEPOSIT_OPTS = { reserve = true }
+-- Lot CORR-RALLIEMENT (tenue) : `chest` = un coffre du stock précis, hors de portée pendant « away » (sans la réserve des vitales ; note de
+-- revue-0659 : un coffre sûr qui serait le QG la contournerait) ; sans `chest`, le stock comme avant.
 local function deposit_inventory(f, inv, keep, chest)
   local contents = inv.get_contents()
   local names = {}
@@ -275,9 +277,13 @@ local function deposit_inventory(f, inv, keep, chest)
   for _, name in ipairs(names) do
     local n = contents[name] - (keep and keep[name] or 0)
     if n > 0 then n = n - AmRt.deliver(f, inv, name, n) end -- C3 : ce qu'un module en réserve attend lui est remis AVANT le coffre
+    if n > 0 and chest then
+      local put = chest.insert({ name = name, count = n })
+      if put > 0 then inv.remove({ name = name, count = put }) f.team.delivered[name] = (f.team.delivered[name] or 0) + put end
+      n = 0
+    end
     if n > 0 then
-      -- `chest` (tenue) : coffre précis hors de portée pendant « away », sans la réserve des vitales ; sinon le stock (revue-0659).
-      local moved = chest and chest.insert({ name = name, count = n }) or (not chest and Stock.insert(f, name, n, DEPOSIT_OPTS)) or 0
+      local moved = Stock.insert(f, name, n, DEPOSIT_OPTS)
       if moved > 0 then
         inv.remove({ name = name, count = moved })
         f.team.delivered[name] = (f.team.delivered[name] or 0) + moved

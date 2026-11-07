@@ -287,8 +287,6 @@ do -- crochet du depot des PNJ (C3) : la remise directe AVANT le coffre
   local wk = read("script/team/worker.lua")
   local d1 = wk:find("AmRt.deliver(f, inv, name, n)", 1, true)
   local d2 = wk:find("local moved = Stock.insert(f, name, n", 1, true) -- (intégrateur : STOCKAGE-VITAL y ajoute DEPOSIT_OPTS)
-    -- (fusion CORR-RALLIEMENT, tenue : « local moved = chest and chest.insert(...) or (not chest and Stock.insert(f, name, n, DEPOSIT_OPTS)) »)
-    or wk:find("Stock.insert(f, name, n, DEPOSIT_OPTS)", 1, true)
   local d0 = wk:find("local function deposit_inventory", 1, true)
   check(d0 and d1 and d2 and d0 < d1 and d1 < d2 and d2 - d1 < 400, "worker.lua : deposit_inventory offre d'abord l'objet aux modules en reserve (AmRt.deliver), puis au coffre")
   local _, k = wk:gsub("AmRt%.deliver", "")
