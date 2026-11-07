@@ -24,6 +24,8 @@ local PvP = require("script.faction.pvp")
 local Character = require("script.faction.character")
 local Chef = require("script.faction.chef")
 local Veille = require("script.faction.veille") -- lot VEILLE : bilans de la reconnaissance régulière (mission : script/ai3/exploration.lua)
+local Cd = require("shared.faction.cadence") -- lot X10-S10 : factions lointaines et calmes plus lentes (règle pure)
+local DefChoix = require("script.faction.defchoix") -- lot X10-S10 : ennemi près du QG (lu au créneau)
 
 local Commander = {}
 
@@ -96,6 +98,60 @@ function Commander.view(f, tick)
   }, target
 end
 
+---------------------------------------------------------------------------------------------------
+-- Lot X10-S10 : cadence des factions lointaines et calmes (shared/faction/cadence.lua ; décision du DC du 7/11, 17 h 47)
+---------------------------------------------------------------------------------------------------
+-- Une faction loin de tout joueur et sans menace SAUTE son créneau tant que sa dernière pensée date de moins de Cd.SLOW ticks
+-- (une pensée sur deux à la période de 300) ; endormie (créneau sauté), elle est guettée à chaque tick et repense AU TICK SUIVANT dès
+-- qu'une cause la réveille (joueur proche, menace, attaque, perte). Les étapes E1 à E4 de sa pensée ne changent pas (Team.think).
+-- État : f.cadence = { last, asleep, box, base_alert, mode, logs } (nombres, chaînes, booléens, une table de 4 nombres).
+Commander.CADENCE = true          -- faux : la cadence d'avant (une pensée par créneau), banc témoin
+Commander.CADENCE_LOGS = 20       -- lignes [FO-CADENCE] au plus par faction
+
+local function cadence_of(f)
+  local cs = f.cadence
+  if not cs then
+    cs = { logs = 0 }
+    f.cadence = cs
+  end
+  return cs
+end
+
+--- Entrée de la règle : joueurs connectés de la surface de la guerre (ordre du moteur), zone et alertes de la faction.
+local function cadence_input(f, tick)
+  local war = State.war()
+  local players = {}
+  for _, p in ipairs(game.connected_players) do
+    if p.valid and p.surface and p.surface.index == war.surface then
+      local pos = p.position
+      players[#players + 1] = { x = pos.x, y = pos.y }
+    end
+  end
+  local cs = cadence_of(f)
+  return { is_player = f.is_player, box = cs.box, players = players, threatened_until = f.threatened_until,
+    attack_t = f.attack_alert_t, lost_t = f.lost_t, base_alert = cs.base_alert }
+end
+
+--- Zone de la faction (QG et avant-postes, triés par clé) : relue à chaque pensée jouée.
+local function cadence_zone(f)
+  local pts = {}
+  if f.hq_pos then pts[1] = { x = f.hq_pos.x, y = f.hq_pos.y } end
+  for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
+    local o = f.outposts[oid]
+    if o and o.pos then pts[#pts + 1] = { x = o.pos.x, y = o.pos.y } end
+  end
+  return Cd.zone(pts, Cd.NEAR)
+end
+
+local function cadence_say(f, cs, mode, why, tick)
+  if cs.mode == mode then return end
+  cs.mode = mode
+  cs.logs = (cs.logs or 0) + 1
+  if cs.logs > Commander.CADENCE_LOGS then return end
+  log(string.format("[FO-CADENCE] %s : cadence %s (%s) a %.1f min", tostring(f.key), mode == "lente" and ("LENTE, une pensee toutes les " .. Cd.SLOW .. " ticks") or "NORMALE",
+    tostring(why), tick / 3600))
+end
+
 function Commander.think(id, tick)
   local war = State.war()
   local f = war.factions[id]
@@ -105,8 +161,23 @@ function Commander.think(id, tick)
   end
   if not (f.hq and f.hq.valid) then return end -- l'élimination est traitée par l'événement de destruction
   if not Scheduler.has(Sites.LANE, id) then Sites.track(f) end
-  Profiler.start("faction:think")
   local surface = surface_of(war)
+  -- Lot X10-S10 : au créneau, l'ennemi près du QG est relu (DefChoix.base, compte limité à 1) ; une faction lointaine et calme saute la pensée.
+  if Commander.CADENCE then
+    local cs = cadence_of(f)
+    if cs.last == tick then return end -- déjà pensé à ce tick (réveil et créneau au même tick)
+    cs.base_alert = DefChoix.base(f, surface, tick).insecure or nil
+    local skip, why = Cd.skip(cs, cadence_input(f, tick), tick)
+    if skip then
+      cs.asleep = true
+      cadence_say(f, cs, "lente", why, tick)
+      return
+    end
+    cs.asleep, cs.last = false, tick
+    if why ~= "loin et calme" and why ~= "premiere pensee" then cadence_say(f, cs, "normale", why, tick) end
+    cs.box = cadence_zone(f)
+  end
+  Profiler.start("faction:think")
   f.last_think = tick
   Profiler.start("faction:maintain")
   Military.maintain(f, tick)
@@ -175,6 +246,25 @@ function Commander.spread()
   return moved
 end
 
+-- Lot X10-S10 : guet des factions endormies, à chaque tick : au premier tick où une cause la réveille (le joueur entré dans sa zone, une
+-- attaque, une perte), la faction repense TOUT DE SUITE (Commander.think, puis ses étapes E2 à E4 aux ticks suivants, comme d'habitude).
+-- Aucune faction endormie : une boucle sur la liste des factions, sans lecture du moteur.
+Events.on_nth_tick(1, function(e)
+  if not Commander.CADENCE then return end
+  local war = State.war()
+  if not (war and war.active and war.factions) then return end
+  for id, f in ipairs(war.factions) do
+    local cs = f.cadence
+    if cs and cs.asleep and not f.eliminated then
+      local up, why = Cd.wake(cs, cadence_input(f, e.tick), e.tick)
+      if up then
+        cadence_say(f, cs, "normale", why, e.tick)
+        Commander.think(id, e.tick)
+      end
+    end
+  end
+end)
+
 -- Migration : une partie d'avant ce lot a ses factions à des créneaux consécutifs ; elles sont replacées au chargement du mod changé.
 Events.on_configuration_changed(function()
   local war = State.war()
@@ -224,6 +314,7 @@ Events.on_died(function(e)
   local entity = e.entity
   local f = State.by_force(entity.force.name)
   if not f or f.eliminated then return end
+  f.lost_t = e.tick -- lot X10-S10 : une perte, où qu'elle soit, réveille une faction endormie (shared/faction/cadence.lua, « perte »)
   local p = entity.position
   local dx, dy = p.x - f.hq_pos.x, p.y - f.hq_pos.y
   if dx * dx + dy * dy < THREAT_RADIUS * THREAT_RADIUS then
