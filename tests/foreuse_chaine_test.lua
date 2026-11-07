@@ -307,7 +307,7 @@ local MUT = {
   { "borne de la chaine ignoree", "if mid and #mid + 1 <= maxn then", "if mid then" },
   { "estimation sans borne", "if n <= maxn and (not best or n < best) then best = n end", "if not best or n < best then best = n end" },
   { "ordre des candidats ignore", "table.sort(chained, function(a, b) if a.est ~= b.est then return a.est < b.est end return a.id < b.id end)", "" },
-  { "n_ready compte les chaines", "return out, #ready, #chained", "return out, #ready + #chained, #chained" },
+  { "n_ready compte les chaines", "return out, #ready - held_ready, #chained - held_chain", "return out, #ready - held_ready + #chained - held_chain, #chained - held_chain" },
   { "essais sans borne", "if #out >= n or tries >= (ctx.tries or S.TRIES) or fit_tries >= (ctx.fit_tries or S.FIT_TRIES) then break end", "if #out >= n or fit_tries >= (ctx.fit_tries or S.FIT_TRIES) then break end" },
   { "place de la 3x3 ignoree", "local fit = not ctx.fits or ctx.fits(it.e, c[1], c[2], c[4])", "local fit = true" },
   { "echange : debit ignore", "if 1 + #dl > max then return nil, \"debit\" end", "" },

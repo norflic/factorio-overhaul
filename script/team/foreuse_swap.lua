@@ -28,6 +28,7 @@ local Melange = require("script.team.melange") -- lot MELANGE : zone de la futur
 local P = require("shared.team.plan") -- lot FOREUSES-THERMIQUES : chaine de poteaux (P.pole_chain, recherche de chemin bornee)
 local Sante = require("script.team.sante_centrale") -- lot FOREUSES-THERMIQUES : puissance des chantiers (bilan d'energie existant)
 local Scheduler = require("script.core.scheduler") -- lot TRANCHES : suite d'une passe au tick suivant (minuterie)
+local M = require("shared.team.modules") -- réserve d'amorçage : chaudière et thermique lues aux DONNÉES (M.spec, niveaux compris)
 
 local Swap = {}
 
@@ -105,6 +106,44 @@ local function team_pole(f, p, plan_set)
   return (f.swap and f.swap.pole_pos and f.swap.pole_pos[k]) == true or plan_set[k] == true
 end
 
+--- Réserve d'amorçage (décision du lead, 7/11, exception de sûreté) : l'avant-poste produit-il le COMBUSTIBLE des brûleurs et des chaudières ?
+local function fuel_outpost(o)
+  local sp = o and o.kind and T.outposts[o.kind]
+  return sp ~= nil and sp.product == T.fuel
+end
+
+--- Réserve d'amorçage : thermiques gardées par avant-poste de combustible (S.coal_reserve). Chaudière : la plus puissante des centrales du plan
+--- directeur de l'équipe (première partie « centrale », comme le bilan du charbon de build.lua ; une chaudière boit de l'eau et brûle) ;
+--- thermique : cadence au prototype (productivité de la force comprise) et combustion aux données ; charbon : valeur de l'objet. Rend keep et
+--- la donnée lue (journal).
+local function reserve_keep(f)
+  local boiler_kw = 0
+  local b = f.build
+  for _, id in ipairs(b and b.order or {}) do
+    local p = b.projects and b.projects[id]
+    if p and p.parts and p.parts[1] and p.parts[1].kind == "centrale" then
+      for _, e in ipairs(p.ents or {}) do
+        local sp = M.spec(e.name)
+        if sp and sp.water and sp.burner_kw and sp.burner_kw > boiler_kw then boiler_kw = sp.burner_kw end
+      end
+    end
+  end
+  if boiler_kw <= 0 and M.BASE and M.BASE.boiler then boiler_kw = M.BASE.boiler.burner_kw or 0 end
+  local fuel_kind
+  for _, k in ipairs(T.OUTPOST_ORDER) do if not fuel_kind and T.outposts[k].product == T.fuel then fuel_kind = k end end
+  local dp = game.entity_prototypes[T.DRILL]
+  local rp = fuel_kind and game.entity_prototypes[T.outposts[fuel_kind].resource]
+  local mt = rp and rp.mineable_properties and rp.mineable_properties.mining_time
+  local force = game.forces and game.forces[f.force]
+  local prod = force and force.mining_drill_productivity_bonus or 0
+  local rate = (dp and dp.mining_speed and mt and mt > 0) and dp.mining_speed / mt * (1 + prod) or nil
+  local dsp = M.spec(T.DRILL)
+  local ip = game.item_prototypes[T.fuel]
+  local d = { boiler_kw = boiler_kw, fuel_kj = (ip and ip.fuel_value and ip.fuel_value > 0) and ip.fuel_value / 1000 or M.COAL_J,
+    drill_rate = rate, drill_kw = dsp and dsp.burner_kw }
+  return S.coal_reserve(d), d
+end
+
 --- Releve : foreuses a combustion des avant-postes avec leur recepteur, poteaux a portee et leur etat. Lot TRANCHES (lead, 7/11 : tt:foswap
 --- jusqu'a 125 ms d'un bloc) : releve REPRENABLE, dans l'etat de passe `pass` (global : f.swap.pass) ; avant-postes dans l'ordre trie fixe au
 --- depart de la passe (pass.oids), curseur pass.oi / pass.di. Une foreuse lue coute 1 unite de travail, une recherche de poteaux
@@ -113,6 +152,7 @@ end
 --- pass.entries (pour S.plan), pass.refs { [id] = { oid, index, drill, key, sink_ent } }, pass.poles.
 local function survey_step(f, surface, pass, budget)
   local used = 0
+  pass.burners = pass.burners or {} -- (réserve d'amorçage ; une passe gardée dans global par une version d'avant n'en a pas)
   local retry = (f.swap and f.swap.retry) or {}
   while pass.oi <= #pass.oids do
     local oid = pass.oids[pass.oi]
@@ -123,11 +163,13 @@ local function survey_step(f, surface, pass, budget)
       local sink_set
       -- lot MIGRATION-CHAMP : un champ en cours de migration (rangees electriques du plan directeur) ne recoit pas de remplacement sur place
       local list = o.migr == "en cours" and {} or (o.drill_list or {})
+      local fuel = fuel_outpost(o) -- réserve d'amorçage : thermiques DEBOUT de l'avant-poste (toutes, refus et attentes compris)
       while pass.di <= #list do
         local i = pass.di
         local d = list[i]
         pass.di = i + 1
         used = used + 1
+        if fuel and d.valid and d.name == T.DRILL then pass.burners[oid] = (pass.burners[oid] or 0) + 1 end
         if d.valid and d.name == T.DRILL and d.unit_number and not pass.refs[d.unit_number] then
           local pos = d.position
           local key = pos.x .. ":" .. pos.y
@@ -141,7 +183,7 @@ local function survey_step(f, surface, pass, budget)
             if t and t.valid and t.unit_number and sink_set[t.unit_number] then sink = box_of(t) end
             if sink then
               pass.any = true
-              pass.entries[#pass.entries + 1] = { id = d.unit_number, x = pos.x, y = pos.y, dir = d.direction, sink = sink }
+              pass.entries[#pass.entries + 1] = { id = d.unit_number, x = pos.x, y = pos.y, dir = d.direction, sink = sink, o = oid }
               pass.refs[d.unit_number] = { oid = oid, index = i, drill = d, key = key, sink_ent = t }
             end
           end
@@ -594,9 +636,19 @@ local function plan_step(f, surface, book, pass)
   local pole = not (f.team and f.team.chaine_off) and pole_choice(book, free) or nil
   local refs = {}
   for _, e in ipairs(pass.entries) do refs[e.id] = ref_of(f, pass, e.id) end
+  -- réserve d'amorçage : avant-postes de combustible et leurs thermiques debout (relevé), thermiques gardées (pass.keep, relu à l'exécution)
+  local keep, kd = reserve_keep(f)
+  pass.keep = keep
+  local reserve = {}
+  for _, oid in ipairs(sorted_keys(pass.burners or {})) do reserve[oid] = { burners = pass.burners[oid], keep = keep } end
+  if st.keep_said ~= keep and next(reserve) ~= nil then
+    st.keep_said = keep
+    log(string.format("[FO-FOREUSES-RESERVE] %s : %d thermique(s) gardee(s) par avant-poste de combustible (chaudiere %.0f kW, combustible %.0f kJ, thermique %s/s extraits, %s kW brules) a %.1f min",
+      f.key or "player", keep, kd.boiler_kw or 0, kd.fuel_kj or 0, tostring(kd.drill_rate), tostring(kd.drill_kw), (t0 - (f.started or 0)) / 3600))
+  end
   local ctx = { poles = pass.poles, electric = T.drill_electric, have = pass.have, obtainable = pass.obtainable, limit = T.swap.per_pass,
     pole = pole, free_for = pole and free_for(f, surface, pole) or nil, chain = P.pole_chain, chain_max = S.CHAIN_MAX,
-    fits = fits_for(f, surface, refs) }
+    fits = fits_for(f, surface, refs), reserve = reserve }
   local out, n_ready, n_chain = S.plan(pass.entries, ctx)
   for _, rf in ipairs(ctx.refused or {}) do
     local ref = refs[rf.id]
@@ -639,6 +691,16 @@ local function exec_step(f, surface, pass)
     count(st, "courant")
     pass.k = #pass.out + 1 -- comme le « break » de la passe d'un bloc : plus aucun remplacement dans cette passe
     return 1
+  end
+  -- réserve d'amorçage relue au moteur : le monde change entre deux tranches (une thermique détruite depuis le plan)
+  if fuel_outpost(ref.o) then
+    if pass.keep == nil then pass.keep = (reserve_keep(f)) end -- (passe d'une version d'avant, déjà au remplacement)
+    local live = 0
+    for _, d in ipairs(ref.o.drill_list or {}) do if d.valid and d.name == T.DRILL then live = live + 1 end end
+    if not S.reserve_ok(live, pass.keep, 1 + ((r.exchange and r.exchange.drills) and #r.exchange.drills or 0)) then
+      count(st, "reserve charbon")
+      return Swap.EXEC_COST
+    end
   end
   local placed_n = #(r.poles or {})
   local prep
@@ -819,7 +881,7 @@ function Swap.think(f, surface, book, free, tick)
   local fr = {}
   for _, k in ipairs(sorted_keys(free or {})) do fr[k] = free[k] end
   local pass = { t0 = tick, phase = "releve", oids = sorted_keys(f.outposts), oi = 1, di = 1, any = false, entries = {}, refs = {}, poles = {},
-    seen = {}, nets = {}, have = have, obtainable = obtainable, free = fr }
+    seen = {}, nets = {}, have = have, obtainable = obtainable, free = fr, burners = {} }
   st.pass = pass
   return run_pass(f, surface, book, pass)
 end

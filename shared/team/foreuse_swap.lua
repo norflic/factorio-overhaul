@@ -104,6 +104,8 @@ end
 --- les deja alimentees d'abord, puis les moins de poteaux estimes, puis l'id. Chaque sortie porte `poles` (liste a poser, vide si deja
 --- alimentee). Rend aussi le nombre de candidats a chaine (`n_chain`, estime). `n_ready` garde son sens : candidats DEJA alimentes (lu par
 --- script/team/gisement.lua : la politique des paires thermiques ne change pas).
+--- Reserve d'amorcage (S.coal_reserve) : avec ctx.reserve = { [avant-poste] = { burners, keep } } et `o` (avant-poste) dans chaque entree, un
+--- avant-poste de combustible garde ses `keep` dernieres thermiques (refus « reserve charbon », hors de n_ready et de n_chain).
 function S.plan(entries, ctx)
   local ready, chained = {}, {}
   local list = {}
@@ -139,17 +141,30 @@ function S.plan(entries, ctx)
     for _, p in ipairs(near(box, 1)) do if S.covered(p.x, p.y, p.dist, box) then return true end end
     return false
   end
+  -- Réserve d'amorçage (S.coal_reserve) : d'un avant-poste de combustible, au plus burners - keep candidats (ordre des numéros) ; les autres
+  -- ne sont pas des candidats (ni n_ready, ni fabrication d'avance : lu par script/team/gisement.lua) et sont refusés « reserve charbon ».
+  ctx.refused = ctx.refused or {}
+  local quota = {}
   for _, e in ipairs(list) do
-    local cs = S.electric_centers(e.x, e.y, e.dir, e.sink, ctx.electric)
-    if #cs > 0 then
-      -- classement sur les centres admissibles : alimentée si l'un d'eux l'est, sinon chaîne estimée depuis le premier
-      local any_pw = false
-      for _, c in ipairs(cs) do if powered_at(c) then any_pw = true break end end
-      if S.choose_type(ctx.obtainable, any_pw) == "electric" then
-        ready[#ready + 1] = { id = e.id, e = e, cs = cs }
-      elseif ctx.obtainable and ctx.pole then
-        local est = S.reach_estimate(box_at(cs[1]), near(box_at(cs[1]), far_r), ctx.pole, ctx.chain_max)
-        if est then chained[#chained + 1] = { id = e.id, est = est, e = e, cs = cs } end
+    local rv = ctx.reserve and e.o ~= nil and ctx.reserve[e.o]
+    if rv and quota[e.o] == nil then quota[e.o] = math.max(0, (rv.burners or 0) - (rv.keep or 0)) end
+    if rv and quota[e.o] <= 0 then
+      ctx.refused[#ctx.refused + 1] = { id = e.id, why = "reserve charbon" }
+    else
+      local cs = S.electric_centers(e.x, e.y, e.dir, e.sink, ctx.electric)
+      if #cs > 0 then
+        -- classement sur les centres admissibles : alimentée si l'un d'eux l'est, sinon chaîne estimée depuis le premier
+        local any_pw = false
+        local classed = false
+        for _, c in ipairs(cs) do if powered_at(c) then any_pw = true break end end
+        if S.choose_type(ctx.obtainable, any_pw) == "electric" then
+          ready[#ready + 1] = { id = e.id, e = e, cs = cs }
+          classed = true
+        elseif ctx.obtainable and ctx.pole then
+          local est = S.reach_estimate(box_at(cs[1]), near(box_at(cs[1]), far_r), ctx.pole, ctx.chain_max)
+          if est then chained[#chained + 1] = { id = e.id, est = est, e = e, cs = cs } classed = true end
+        end
+        if rv and classed then quota[e.o] = quota[e.o] - 1 end
       end
     end
   end
@@ -157,6 +172,20 @@ function S.plan(entries, ctx)
   local out = {}
   local n = math.min(ctx.limit or (#ready + #chained), ctx.have or 0)
   ctx.refused = ctx.refused or {}
+  -- Réserve d'amorçage (S.coal_reserve) : ctx.reserve = { [avant-poste] = { burners, keep } } pour les avant-postes de COMBUSTIBLE ; chaque
+  -- entrée porte son avant-poste (`o`). Un remplacement qui ferait passer l'avant-poste sous `keep` thermiques est refusé « reserve charbon »,
+  -- AVANT toute lecture de place (rien n'est dépensé), puis encore après, quand l'échange (iii) retire des thermiques voisines.
+  local left = {}
+  local function reserve_blocks(e, cost)
+    local rv = ctx.reserve and e.o ~= nil and ctx.reserve[e.o]
+    if not rv then return false end
+    if left[e.o] == nil then left[e.o] = rv.burners or 0 end
+    return not S.reserve_ok(left[e.o], rv.keep, cost)
+  end
+  local function reserve_take(e, cost)
+    if left[e.o] ~= nil then left[e.o] = left[e.o] - cost end
+  end
+  local function cost_of(ex) return 1 + ((ex and ex.drills) and #ex.drills or 0) end
   -- (i) et (ii) : la 3 x 3 doit TENIR (ctx.fits : rien d'autre que l'ancienne foreuse et ce qui se defriche) AVANT tout poteau ; le premier
   -- centre qui tient est pris ; aucun : refus « 3x3 bloquee » (l'executant la laisse tranquille Swap.RETRY). Au plus S.FIT_TRIES foreuses
   -- essayees par passe (lecture du moteur).
@@ -170,35 +199,54 @@ function S.plan(entries, ctx)
     end
     return nil
   end
+  local held_ready, held_chain = 0, 0 -- candidats retenus par la réserve : ni comptés pour la fabrication d'avance, ni pour n_ready
   for _, r in ipairs(ready) do
     if #out >= n or fit_tries >= (ctx.fit_tries or S.FIT_TRIES) then break end
-    fit_tries = fit_tries + 1
-    local c, ex = first_fit(r, true)
-    if c then
-      out[#out + 1] = { id = r.id, cx = c[1], cy = c[2], dir = c[4], poles = {}, est = 0, exchange = ex }
+    if reserve_blocks(r.e, 1) then
+      held_ready = held_ready + 1
+      ctx.refused[#ctx.refused + 1] = { id = r.id, why = "reserve charbon" }
     else
-      ctx.refused[#ctx.refused + 1] = { id = r.id, why = "3x3 bloquee" }
+      fit_tries = fit_tries + 1
+      local c, ex = first_fit(r, true)
+      if c and reserve_blocks(r.e, cost_of(ex)) then
+        held_ready = held_ready + 1
+        ctx.refused[#ctx.refused + 1] = { id = r.id, why = "reserve charbon" }
+      elseif c then
+        reserve_take(r.e, cost_of(ex))
+        out[#out + 1] = { id = r.id, cx = c[1], cy = c[2], dir = c[4], poles = {}, est = 0, exchange = ex }
+      else
+        ctx.refused[#ctx.refused + 1] = { id = r.id, why = "3x3 bloquee" }
+      end
     end
   end
   local tries = 0
   for _, ch in ipairs(chained) do
     if #out >= n or tries >= (ctx.tries or S.TRIES) or fit_tries >= (ctx.fit_tries or S.FIT_TRIES) then break end
-    fit_tries = fit_tries + 1
-    local c, ex = first_fit(ch, false)
-    if not c then
-      ctx.refused[#ctx.refused + 1] = { id = ch.id, why = "3x3 bloquee" }
+    if reserve_blocks(ch.e, 1) then
+      held_chain = held_chain + 1
+      ctx.refused[#ctx.refused + 1] = { id = ch.id, why = "reserve charbon" }
     else
-      tries = tries + 1
-      local box = box_at(c)
-      local plan, why = S.pole_plan(box, ctx.poles, ctx.pole, ctx.free_for(ch.e, box), { max = ctx.chain_max, chain = ctx.chain })
-      if plan then
-        out[#out + 1] = { id = ch.id, cx = c[1], cy = c[2], dir = c[4], poles = plan.poles, source = plan.source, est = ch.est, exchange = ex }
+      fit_tries = fit_tries + 1
+      local c, ex = first_fit(ch, false)
+      if not c then
+        ctx.refused[#ctx.refused + 1] = { id = ch.id, why = "3x3 bloquee" }
+      elseif reserve_blocks(ch.e, cost_of(ex)) then
+        held_chain = held_chain + 1
+        ctx.refused[#ctx.refused + 1] = { id = ch.id, why = "reserve charbon" }
       else
-        ctx.refused[#ctx.refused + 1] = { id = ch.id, why = why }
+        tries = tries + 1
+        local box = box_at(c)
+        local plan, why = S.pole_plan(box, ctx.poles, ctx.pole, ctx.free_for(ch.e, box), { max = ctx.chain_max, chain = ctx.chain })
+        if plan then
+          reserve_take(ch.e, cost_of(ex))
+          out[#out + 1] = { id = ch.id, cx = c[1], cy = c[2], dir = c[4], poles = plan.poles, source = plan.source, est = ch.est, exchange = ex }
+        else
+          ctx.refused[#ctx.refused + 1] = { id = ch.id, why = why }
+        end
       end
     end
   end
-  return out, #ready, #chained
+  return out, #ready - held_ready, #chained - held_chain
 end
 
 --- Objets electriques a fabriquer : les candidats alimentes (au plus `cap`) moins ceux deja au stock.
@@ -340,6 +388,43 @@ end
 function S.power_ok(c, kw, draw)
   if not (c and c.capacity and c.capacity > 0) then return true end
   return (c.used or 0) + (draw or 0.6) * (c.committed or 0) + (kw or 0) <= c.capacity + EPS
+end
+
+---------------------------------------------------------------------------------------------------
+-- Lot FOREUSES-THERMIQUES, RÉSERVE D'AMORÇAGE du combustible (décision du lead, 7/11 vers 19 h 10 : exception de SÛRETÉ à « Remplacer au fur
+-- et à mesure », dite au DC, qui peut la refuser). Interblocage évité : réseau tombé → foreuses de charbon électriques arrêtées → centrale
+-- sans charbon → réseau mort (la centrale ne repartirait qu'au minage à la main, une fois le coffre du QG vide). Un avant-poste de
+-- COMBUSTIBLE garde toujours ses `keep` dernières thermiques : leur charbon NET (extrait moins brûlé), sans aucun courant, nourrit au moins
+-- UNE chaudière de la centrale à pleine charge, de quoi la relancer depuis zéro. Les autres avant-postes et le reste de la règle : inchangés.
+---------------------------------------------------------------------------------------------------
+S.RESERVE_MARGIN = 1  -- charbon net des thermiques gardées / consommation d'une chaudière à pleine charge, au moins
+S.RESERVE_DEFAULT = 3 -- données illisibles : la valeur des données vanilla. Chaudière 1 800 kW, charbon 4 MJ : 0,45/s ; thermique 0,25/s
+                      -- extraits moins 150 kW / 4 MJ = 0,0375/s brûlés : 0,2125/s nets ; 0,45 / 0,2125 = 2,12, soit 3 (0,64/s : 1,42 chaudière)
+S.RESERVE_ALL = 1e9   -- « toutes gardées » (une thermique ne nourrit pas plus qu'elle ne brûle)
+
+local function finite(x) return type(x) == "number" and x == x and x > -math.huge and x < math.huge end
+
+--- Thermiques à garder sur un avant-poste de combustible. d = { boiler_kw (UNE chaudière à pleine charge), fuel_kj (un combustible),
+--- drill_rate (combustible extrait par seconde par une thermique, productivité comprise), drill_kw (sa combustion), margin (facultatif) }.
+--- Rend un entier >= 1 ; S.RESERVE_DEFAULT si une donnée manque ou est fausse ; S.RESERVE_ALL si une thermique brûle autant qu'elle extrait
+--- (aucune ne se remplace alors : rien ne relancerait la centrale ; un nombre fini, gardé dans global, jamais math.huge).
+function S.coal_reserve(d)
+  d = d or {}
+  local bkw, kj, rate, dkw = d.boiler_kw, d.fuel_kj, d.drill_rate, d.drill_kw
+  if not (finite(bkw) and bkw > 0 and finite(kj) and kj > 0 and finite(rate) and rate > 0 and finite(dkw) and dkw >= 0) then
+    return S.RESERVE_DEFAULT
+  end
+  local net = rate - dkw / kj
+  if net <= EPS then return S.RESERVE_ALL end
+  local margin = finite(d.margin) and d.margin > 0 and d.margin or S.RESERVE_MARGIN
+  return math.max(1, math.ceil(margin * (bkw / kj) / net - EPS))
+end
+
+--- Un remplacement qui retire `cost` thermiques (l'ancienne et celles de l'échange) d'un avant-poste qui en a `burners` debout garde-t-il
+--- la réserve `keep` ? (keep nil : avant-poste sans réserve, toujours vrai.)
+function S.reserve_ok(burners, keep, cost)
+  if keep == nil then return true end
+  return (burners or 0) - (cost or 1) >= keep
 end
 
 --- Lot FOREUSES-THERMIQUES (iii), accord du lead (7/11, dans la ligne du QCM du DC « Remplacer au fur et a mesure ») : la 3 x 3 d'un
