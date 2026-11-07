@@ -405,13 +405,15 @@ Source : `IA_WORKFLOW.md` §2 (« maillons fragiles ») et §5 (D1 à D4), lus.
   - pas de nouvelle mine au-delà d'un plafond de stock (G59, G60) ;
   - une sortie pleine ARRÊTE la production du module : c'est voulu (M18, M21) ;
   - une soupape n'existe que pour un co-produit COUPLÉ (M32).
-- **CONFLIT à trancher par le DC [LU N]** :
-  - le lot FLUX garde la tournée des sorties PLEINES d'un produit saturé ou couvert (`shared/ai3/cerveau.lua:441`, « le four
-    s'arrête : 17 fours à 100 plaques de cuivre » ; `Fx.drop_service`, `shared/team/flux.lua:164-168`) ;
-  - la règle de la vidéo dirait au contraire : un produit saturé n'est PLUS collecté, sa sortie se remplit et l'extraction s'arrête
-    d'elle-même ;
-  - **[DÉDUIT]** c'est la pierre qui « dort » et remplit le coffre ;
-  - **question au DC** : une sortie pleine d'un produit saturé doit-elle s'arrêter (vidéo) ou rester servie (FLUX) ?
+- **Conflit avec FLUX, TRANCHÉ (7/11, lead) par le lot STOCKAGE-VITAL** (charbonmain, 82d29f9a), d'après la remarque du jour du DC
+  (« coffres remplis de pierres ») :
+  - le conflit : le lot FLUX garde la tournée des sorties PLEINES d'un produit saturé ou couvert (`shared/ai3/cerveau.lua:441`,
+    « le four s'arrête : 17 fours à 100 plaques de cuivre » ; `Fx.drop_service`, `shared/team/flux.lua:164-168`), alors que la
+    règle de la vidéo ne collecte plus un produit saturé : sa sortie se remplit et l'extraction s'arrête d'elle-même ;
+  - ce que fait STOCKAGE-VITAL : une matière NON vitale saturée n'est plus ramassée tant qu'une autre matière manque, ou dès que le
+    stock dépasse 80 %. Le fer et le charbon sont toujours ramassés ;
+  - **écart restant avec la vidéo, voulu** : ce n'est pas l'arrêt complet de la vidéo. Une sortie pleine qui ne gêne rien reste
+    collectée quand rien ne manque. Aucune décision du DC n'est plus nécessaire sur ce point.
 - **Lots** :
   - **L4** quotas de sortie : la production s'arrête par la barre ;
   - revue de la saturation (V79) ;
@@ -578,7 +580,7 @@ Le DC veut des rangs CALCULÉS et recalculés quand le catalogue change (nouvel 
 | 4 | L2 porte de rang ciblée | V15, V16, V19, V20, V30, G24, G26, G28, G29, G63 | Des modules en attente de fer qui tiennent les places de la foreuse de fer (`emplacements.lua` règle 8 ; `REPRISE.md` l.22). | `Ca.options` l.1791, `Ca.before` l.1784, `fabric_options` l.1571 | M | L1, L0 | F + J |
 | 5 | L5 confirmation observée | V54, V72, G32, G35, G58, G68 | **D2** : un module qui ne produit pas compte comme capacité. | entrée `machines` de `Ca.decide` l.1941 ; `advance` `build.lua:4098` ; `emplacements.lua` | M | — (mieux avec L3) | F + J |
 | 6 | L6 portes et petites marches | V21, V73, V77, V78, G12, G13, G27, G47, G51 | **D1** : « 0 PNJ libre, 16 tâches libres » ; pics d'amont. | `Ca.decide` l.1973, `Dm.slots` `shared/ai3/demande.lua`, `Ex.guard` `shared/ai3/extension.lua` | S | L0 (L3 pour l'anti-répétition) | F + J |
-| 7 | L4 quotas du gabarit | V24, V25, V27, C08 | **D2** : fours à sortie pleine, ingrédients avalés ; **D3** en partie (arrêt par la barre). | `shared/team/patrons.lua` ; `keep_stock` `build.lua:3904-3911` ; quais `build.lua:3925-3983` | M | — (D3 : choix du DC sur FLUX) | F + J |
+| 7 | L4 quotas du gabarit | V24, V25, V27, C08 | **D2** : fours à sortie pleine, ingrédients avalés ; **D3** en partie (arrêt par la barre). | `shared/team/patrons.lua` ; `keep_stock` `build.lua:3904-3911` ; quais `build.lua:3925-3983` | M | — (D3 : tranché par STOCKAGE-VITAL, §G) | F + J |
 | 8 | L11 trace sur la carte | G67, C14 | Le DC voit les décisions là où elles sont posées. | runtime `script/ai3/capitalisation.lua` ; `add_chart_tag` comme `script/world/guarantee.lua` | S | — | F + J |
 | 9 | L7 amorce et retrait | V51, V52, V53, V55, V56, C11 | La dépendance à la main ; un kit de départ dimensionné par la mesure. | `Ml.decide` `shared/ai3/mall.lua:98`, `Ml.hand_allowed` l.168 ; file de `Build.request` | S | L5 | F + J |
 | 10 | L12 hystérésis et verrou | G15, G16, G17 | Crises qui oscillent ou « guérissent » trop tôt. | `power_options` ; `Pi.signals` `shared/ai3/pile.lua:424` | S | (L5) | F + J |
@@ -600,7 +602,7 @@ change pas ce que vous verrez tant qu'elle n'est pas branchée. Plans de branche
 | L3, L5, L13 | règles pures ✅, branchement planifié | `manque_local`, `confirmation`, `plafonds` (video-l5 5e720b38) ; `PLAN_L3_L5_L13.md` |
 | L4, L7 | règles pures ✅ | `quotas`, `amorce` (video-l4 a7395d7a) |
 | L6, L10, L12 | règles pures ✅, branchement planifié | `portes_extension` 14 OK, 11 mutants ; `palier` 12 OK, 10 ; `hysteresis` 11 OK, 9 (video-l6 b209dd30) ; `PLAN_L6_L10_L12.md` |
-| L11 | en cours | video-l4 |
+| L11 | règle pure et module ✅, branchement planifié | `shared/ai3/trace.lua`, `script/ai3/trace_carte.lua` (video-l4 79edf454) : 30 OK, 8 mutants ; réglage `fo-debug-trace-carte` à déclarer |
 | L8, L9, saturation (rang 12) | lancés à 16 h 20 | rang-tiers, video-l6, video-l5 |
 | Branchement | lancé à 16 h 25, étapes 0 à 3 (prérequis capi-decide et corr-collecte, puis règles, L13, L5 avec son plafond), hors jeu | cerveau-central, branche `video-integ` |
 
