@@ -204,8 +204,14 @@ local function read_list(f, st, field)
   for i = 1, #list do if not list[i].valid then clean = false break end end
   local annex = annex_changed(f, st) and f.annex or nil
   if clean and not annex then return list end
+  -- Coût : annexes ajoutées EN QUEUE depuis la pensée (cas courant : Stock.scan, pose d'une annexe) : seules les nouvelles sont lues.
+  local first, n0 = 1, st.annex_n or 0
+  if annex and #annex > n0 and (n0 == 0 or annex[n0] == st.annex_last) then first = n0 + 1 end
   local skip = {}
-  for _, e in ipairs(annex or EMPTY) do if e.valid and e.unit_number then skip[e.unit_number] = true end end
+  for i = first, annex and #annex or 0 do
+    local e = annex[i]
+    if e.valid and e.unit_number then skip[e.unit_number] = true end
+  end
   local out = {}
   for _, e in ipairs(list) do if e.valid and not skip[e.unit_number] then out[#out + 1] = e end end
   return out

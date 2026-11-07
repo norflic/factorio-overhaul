@@ -424,6 +424,16 @@ do
   local inside = 0
   for _, e in ipairs(CJs.chests(f)) do for _, a in ipairs(f.annex) do if a == e then inside = inside + 1 end end end
   check(inside == 0, "coût : sans rafraîchissement, une annexe nouvelle sort quand même de la liste du joueur (jamais comptée deux fois)")
+  -- Entre deux pensées (lecture seule) : annexe ajoutée en queue (lecture des seules nouvelles), puis registre réordonné (lecture entière).
+  local function counted(e) for _, x in ipairs(CJs.chests(f)) do if x == e then return true end end return false end
+  local t1, t2 = CJs.chests(f)[1], CJs.chests(f)[2]
+  local was1, was2 = counted(t1), counted(t2)
+  f.annex[#f.annex + 1] = t1
+  local tail = not counted(t1) and counted(t2)
+  table.remove(f.annex, 1)
+  f.annex[#f.annex + 1] = t2
+  check(was1 and was2 and tail and not counted(t1) and not counted(t2) and #f.annex == 70,
+    "lecture : annexe ajoutée en queue, puis registre changé en tête : jamais comptées deux fois")
 end
 
 print(string.format("\nRésultat : %d OK, %d ECHEC(S)", passes, failures))
