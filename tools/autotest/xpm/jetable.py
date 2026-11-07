@@ -113,7 +113,7 @@ def main():
         k = g.find("\n", j) + 1
         g = g[:k] + "  for _, f in ipairs(ecouteurs) do f(e, r, g.bonus, c, eff) end -- COPIE JETABLE DESIGN-MODULES\n" + g[k:]
         poses.append("crochet G.ecoute")
-    if "eq in ipairs(e.grid.equipment) do rendre(" not in g:
+    if "eq in ipairs(e.grid.equipment) do rendre(" not in g and "take_result" not in g:
         g = inserer_avant(g, "    rendre(player, e, name)\n",
                           "    if e.grid then for _, eq in ipairs(e.grid.equipment) do rendre(player, e, eq.name) end end -- COPIE JETABLE DESIGN-MODULES\n", gp)
         poses.append("modules rendus au refus")

@@ -135,8 +135,8 @@ def _union(sds):
 def geo_portee_viseur(k):
     """VISEUR DE VERROUILLAGE : la lentille d'une optique vue de face, verre violet profond dont la lueur monte vers le centre, bague
     épaisse, réticule à montants (« duplex »). Le palier se lit à la forme :
-    I : réticule simple ; II : points de mesure, anneau de distance et un crochet de verrouillage ; III : trois crochets hors de la
-    bague (le cercle de verrouillage du tir en jeu).
+    I : réticule simple ; II : points de mesure, anneau de distance et deux crochets de verrouillage (en bas) ; III : trois crochets hors
+    de la bague et index allumés (le cercle de verrouillage du tir en jeu).
     Jets écartés : « wifi » (générique), « rapporteur » (banal, bruit à 32 px), « anneau percé » (lu ♂), « optique à tourelles » (lue
     chronomètre), bague crantée (lue engrenage, le module de productivité)."""
     cx, cy = 32.5, 33.0
@@ -144,8 +144,8 @@ def geo_portee_viseur(k):
     bague = I.sd_cercle(cx, cy, R_ext)
     pieces = [bague]
     dessus = []
-    # crochets de verrouillage : II un (bas droit), III trois (jamais en haut à gauche : la plaque du palier y est)
-    coins = {1: (), 2: ((1, 1),), 3: ((1, 1), (-1, 1), (1, -1))}[k]
+    # crochets de verrouillage : II deux (en bas), III trois (jamais en haut à gauche : la plaque du palier y est)
+    coins = {1: (), 2: ((1, 1), (-1, 1)), 3: ((1, 1), (-1, 1), (1, -1))}[k]
     if coins:
         crochets = []
         for sx, sy in coins:
@@ -244,114 +244,96 @@ def geo_portee(k):
     return PORTEE_VARIANTES[PORTEE_VARIANTE](k)
 
 
-def _zigzag(p0, p1, amp, n=3, signe=1.0):
-    """Ligne brisée de p0 à p1 (fissure), n coudes alternés de part et d'autre."""
+def _bezier(p0, p1, courbe, n=10):
+    """Courbe douce de p0 à p1 (quadratique), bombée de `courbe` unités vers la gauche du trajet."""
     dx, dy = p1[0] - p0[0], p1[1] - p0[1]
     L = math.hypot(dx, dy)
     nx, ny = -dy / L, dx / L
-    pts = [p0]
-    for i in range(1, n + 1):
-        t = i / (n + 1.0)
-        s = amp * signe * (1 if i % 2 else -1)
-        pts.append((p0[0] + dx * t + nx * s, p0[1] + dy * t + ny * s))
-    pts.append(p1)
+    c = ((p0[0] + p1[0]) / 2 + nx * courbe, (p0[1] + p1[1]) / 2 + ny * courbe)
+    out = []
+    for i in range(n + 1):
+        t = i / float(n)
+        out.append(((1 - t) ** 2 * p0[0] + 2 * (1 - t) * t * c[0] + t * t * p1[0],
+                    (1 - t) ** 2 * p0[1] + 2 * (1 - t) * t * c[1] + t * t * p1[1]))
+    return out
+
+
+def _quad(cx, cy, r, a_deg, allonge):
+    """Débris irrégulier : quadrilatère tourné de a_deg, allongé de `allonge`."""
+    pts = []
+    for k, (ang, rr) in enumerate(((0, 1.0), (100, 0.7), (190, allonge), (275, 0.55))):
+        a = math.radians(a_deg + ang)
+        pts.append((cx + r * rr * math.cos(a), cy + r * rr * math.sin(a)))
     return pts
 
 
 def geo_puissance(k):
-    """CŒUR DE RUPTURE (2e jet, après la critique du 5/11) : un cristal cramoisi taillé (losange à facettes) qui se fissure puis éclate.
-    I : losange entier, deux fissures incandescentes ; II : quatre fissures, les quatre pointes détachées en éclats ; III : le cristal
-    éclate en quatre quartiers écartés, cœur chauffé à blanc dans les failles, débris projetés hors de la silhouette.
-    Jet écarté : étoile à huit pointes (lue « rose des vents » ; son anneau du palier III lu « viseur »)."""
+    """CŒUR DE RUPTURE (3e jet, après la 2e critique du 5/11) : un CRISTAL cramoisi taillé, hexagone allongé à deux faces (arête au milieu,
+    face droite plus claire), qui se fend puis éclate.
+    I : cristal entier, une fissure courbe incandescente ; II : trois fissures courbes jusqu'aux bords, une épaule ébréchée (encoche, aucun
+    éclat détaché) ; III : le cristal éclate en trois morceaux inégaux écartés, cœur chauffé à blanc dans les failles, débris irréguliers.
+    Jets écartés : étoile à 8 pointes (« rose des vents », anneau lu « viseur ») ; losange (lu panneau de danger, carreau de carte ; son X
+    blanc au palier II lu « supprimer », ses 4 pointes détachées lues croix de direction ; son palier III lu insecte)."""
     cx, cy = 32.0, 33.5
-    T, R, B, L = (32.0, 5.5), (56.0, 33.5), (32.0, 61.5), (8.0, 33.5)
-    coins = [T, R, B, L]
-
-    def milieu(p, q, f=0.5):
-        return (p[0] + (q[0] - p[0]) * f, p[1] + (q[1] - p[1]) * f)
-    # fissures : du centre vers le milieu de chaque arête (diagonales du losange), en zigzag
-    M = [milieu(T, R), milieu(R, B), milieu(B, L), milieu(L, T)]       # haut droit, bas droit, bas gauche, haut gauche
-    fiss = [_zigzag((cx, cy), M[j], 1.8, 3, 1.0 if j % 2 == 0 else -1.0) for j in range(4)]
+    T, TR, BR, B, BL, TL = (32.0, 3.5), (51.5, 17.0), (51.5, 49.5), (32.0, 62.5), (12.5, 49.5), (12.5, 17.0)
+    hexa = [T, TR, BR, B, BL, TL]
+    C0 = (cx, cy)
+    face_droite = np.maximum(I.sd_poly([T, TR, BR, B]), -(X - 32.0))     # moitié droite, vers la lumière
     logements, coeurs = [], []
-    facette_pts = [milieu((cx, cy), c, 0.42) for c in coins]
     if k == 1:
-        corps = I.sd_poly(coins) - 0.8
+        corps = I.sd_poly(hexa) - 0.8
         morceaux = [corps]
-        champ = corps + 2.8
-        facette = I.sd_poly(facette_pts) - 0.4
-        for j in (0, 2):                                   # deux fissures : haut droit et bas gauche
-            pts = fiss[j][:-1] + [milieu((cx, cy), M[j], 0.86)]
-            logements.append(I.sd_polyligne(pts, 2.1))
-            coeurs.append((I.sd_polyligne(pts, 1.05), True))
+        champ = corps + 2.7
+        f1 = _bezier(C0, (45.5, 14.0), 3.5)
+        f1b = _bezier(f1[5], (47.5, 30.0), -2.0, 6)
+        for pts, w in ((f1, 1.0), (f1b, 0.8)):
+            logements.append(I.sd_polyligne(pts, w + 1.0))
+            coeurs.append((I.sd_polyligne(pts, w), True))
         noyau = None
     elif k == 2:
-        f = 0.30
-        corps_pts = []
-        for i, c in enumerate(coins):
-            prev, nxt = coins[i - 1], coins[(i + 1) % 4]
-            corps_pts += [milieu(c, prev, f), milieu(c, nxt, f)]
-        # ordre : pour T : vers L puis vers R ; on tourne T, R, B, L
-        corps = I.sd_poly(corps_pts) - 0.6
+        # épaule haute droite ébréchée : encoche taillée dans la silhouette (pas d'éclat posé à côté)
+        encoche = I.sd_poly([(44.0, 9.0), (54.0, 15.0), (52.0, 25.0), (45.5, 17.5)])
+        corps = np.maximum(I.sd_poly(hexa) - 0.8, -encoche)
         morceaux = [corps]
-        champ_l = [corps + 2.8]
-        for i, c in enumerate(coins):
-            prev, nxt = coins[i - 1], coins[(i + 1) % 4]
-            ux, uy = c[0] - cx, c[1] - cy
-            n = math.hypot(ux, uy)
-            ux, uy = ux / n, uy / n
-            d = 3.2
-            tri = [(p[0] + ux * d, p[1] + uy * d) for p in (c, milieu(c, nxt, f), milieu(c, prev, f))]
-            pointe = I.sd_poly(tri) - 0.5
-            morceaux.append(pointe)
-            champ_l.append(pointe + 1.6)
-        champ = _union(champ_l)
-        facette = I.sd_poly(facette_pts) - 0.4
-        for j in range(4):
-            pts = fiss[j][:-1] + [milieu((cx, cy), M[j], 0.93)]
-            logements.append(I.sd_polyligne(pts, 2.0))
-            coeurs.append((I.sd_polyligne(pts, 1.0), True))
-        noyau = None
-    else:
-        # quatre quartiers (un coin chacun), bordés par les fissures, écartés vers leur coin
-        morceaux, champ_l = [], []
-        quart = [(3, 0, T), (0, 1, R), (1, 2, B), (2, 3, L)]   # (fissure d'un côté, fissure de l'autre, coin)
-        for ja, jb, c in quart:
-            ux, uy = c[0] - cx, c[1] - cy
-            n = math.hypot(ux, uy)
-            ux, uy = ux / n, uy / n
-            d = 3.4
-            poly = list(fiss[ja]) + [c] + list(reversed(fiss[jb]))
-            # le quartier : centre, fissure a jusqu'au milieu d'arête, coin, milieu d'arête de la fissure b, retour au centre
-            poly = [(p[0] + ux * d, p[1] + uy * d) for p in poly[:-1]]
-            q = I.sd_poly(poly) - 0.5
-            morceaux.append(q)
-            champ_l.append(q + 2.4)
-        # noyau chauffé à blanc et failles de lave entre les quartiers
-        noyau = I.sd_cercle(cx, cy, 6.8)
-        failles = _union([I.sd_polyligne(fiss[j], 1.9) for j in range(4)])
-        morceaux += [noyau, failles]
-        # débris projetés hors de la silhouette, dans l'axe des failles (pas en haut à gauche : la plaque du palier y est)
-        for j in (0, 1, 2):
-            mx, my = M[j]
-            ux, uy = mx - cx, my - cy
-            n = math.hypot(ux, uy)
-            ux, uy = ux / n, uy / n
-            px, py = mx + ux * 6.5, my + uy * 6.5
-            tri = [(px + ux * 3.2, py + uy * 3.2), _rot(px - ux * 2.0 + uy * 2.6, py - uy * 2.0 - ux * 2.6, px, py, 0),
-                   (px - ux * 2.0 - uy * 2.6, py - uy * 2.0 + ux * 2.6)]
-            deb = I.sd_poly(tri) - 0.3
-            morceaux.append(deb)
-            champ_l.append(deb + 0.9)
-        champ = _union(champ_l)
-        facette = None
-        logements.append(noyau + 1.2)
+        champ = np.maximum(I.sd_poly(hexa) + 1.9, -(encoche - 2.7))
+        fiss = [_bezier(C0, (46.0, 17.5), 3.0), _bezier(C0, (17.0, 50.0), -4.0), _bezier(C0, (12.5, 30.0), 2.5),
+                _bezier(C0, (44.0, 56.0), -2.5)]
+        for j, pts in enumerate(fiss):
+            w = 1.05 if j < 2 else 0.8
+            logements.append(I.sd_polyligne(pts, w + 1.0))
+            coeurs.append((I.sd_polyligne(pts, w), True))
+        noyau = I.sd_cercle(cx, cy, 3.6)
+        logements.append(noyau + 1.0)
         coeurs.append((noyau, True))
-        coeurs.append((failles + 0.6, True))
-        for j in range(4):
-            coeurs.append((I.sd_polyligne(fiss[j], 1.0), True))
+    else:
+        # trois failles inégales (angles irréguliers : ni « Y », ni croix) ; P2 sur l'arête haute droite, P1 et P3 sur les flancs
+        P1, P2, P3 = (12.5, 41.0), (41.0, 9.8), (51.5, 44.0)
+        c1, c2, c3 = _bezier(C0, P1, 3.5), _bezier(C0, P2, -3.0), _bezier(C0, P3, 2.5)
+        haut = [C0] + c1[1:] + [TL, T] + list(reversed(c2))[:-1]
+        gauche = [C0] + c1[1:] + [BL, B, BR] + list(reversed(c3))[:-1]
+        droite = [C0] + c3[1:] + [TR] + list(reversed(c2))[:-1]
+        morceaux, champ_l = [], []
+        for poly, (dx, dy) in ((haut, (-3.2, -3.0)), (gauche, (-1.0, 3.6)), (droite, (4.4, -1.2))):
+            q = I.sd_poly([(px + dx, py + dy) for px, py in poly]) - 0.5
+            morceaux.append(q)
+            champ_l.append(q + 2.3)
+        noyau = I.sd_cercle(cx, cy, 6.6)
+        failles = _union([I.sd_polyligne(c, 2.0) for c in (c1, c2, c3)])
+        morceaux += [noyau, failles]
+        for d in (_quad(58.5, 52.0, 4.2, 20, 1.5), _quad(52.0, 3.8, 3.4, 140, 1.2), _quad(5.0, 55.0, 3.0, 250, 1.6),
+                  _quad(58.0, 26.0, 2.6, 300, 1.3), _quad(26.0, 62.0, 2.2, 60, 1.4)):
+            q = I.sd_poly(d) - 0.25
+            morceaux.append(q)
+            champ_l.append(q + 0.8)
+        champ = _union(champ_l)
+        logements.append(noyau + 1.1)
+        coeurs.append((noyau, True))
+        coeurs.append((failles + 0.7, True))
+        for c in (c1, c2, c3):
+            coeurs.append((I.sd_polyligne(c, 1.0), True))
     sil = _union(morceaux)
-    return dict(sil=sil, champ=champ, logements=logements, coeurs=coeurs, grad=None, centre=(cx, cy), slots=[], facette=facette,
-                noyau=noyau)
+    return dict(sil=sil, champ=champ, logements=logements, coeurs=coeurs, grad=None, centre=(cx, cy), slots=[],
+                faces=[(face_droite, 1.28)], arete=I.sd_segment(32.0, 5.5, 32.0, 60.5, 0.5) if k < 3 else None, noyau=noyau)
 
 
 GEO = {"portee": geo_portee, "puissance": geo_puissance}
@@ -406,6 +388,15 @@ def rendre_art(t, k, avec_plaque_vecteur=False):
         a_dc = I.couv(sd + 1.9)
         poser(a_dc, R["champ"])
         H += 0.9 * I.profil(sd + 1.9, 1.2) * a_dc
+    for sd, mult in g.get("faces") or []:
+        # face du cristal tournée vers la lumière : plus claire, plus lisse
+        a_f = I.couv(sd) * a_champ
+        poser(a_f, dict(rgb=tuple(min(1.0, v * mult + 0.01) for v in R["champ"]["rgb"]), rough=0.26, met=0.14))
+    if g.get("arete") is not None:
+        # arête du cristal : reflet fin
+        a_a = I.couv(g["arete"]) * a_champ
+        alb = I._melange(alb, tuple(min(1.0, v * 1.9 + 0.08) for v in R["champ"]["rgb"]), a_a * 0.8)
+        H += 0.6 * a_a
     if g.get("facette") is not None:
         # table du cristal : facette plus claire et plus lisse
         a_f = I.couv(g["facette"]) * a_champ

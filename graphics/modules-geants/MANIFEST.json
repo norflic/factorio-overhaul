@@ -40,10 +40,10 @@
    "hr_fichier": "equipement/hr-fo-xp-module-portee-2.png",
    "hr_hauteur": 128,
    "hr_largeur": 128,
-   "hr_sha256": "7e0b525b03c550dfc521626750b4d2c6da2fa3f170366ab0252225c62d7cdf89",
+   "hr_sha256": "661274ed8f43557e8b9403efc9c663a101c33214cc031e271a1a290a1b6db620",
    "largeur": 64,
    "palier": 2,
-   "sha256": "f7be008399d6d83901e35ff8bd75acb3121eb7077092c8ce71048eef8c9945d2",
+   "sha256": "4d88ae1e9996e391b3ac5dd5d321217a8e205fd4045e0fc4db64a82a717c4876",
    "type": "portee"
   },
   "fo-xp-module-portee-3": {
@@ -86,10 +86,10 @@
    "hr_fichier": "equipement/hr-fo-xp-module-puissance-1.png",
    "hr_hauteur": 128,
    "hr_largeur": 128,
-   "hr_sha256": "1ca053ffce3d776c04eb1b9df68020a0c013cc9bb276b215df1b46901a312b78",
+   "hr_sha256": "f965acd183a3e90f7b781a97056c941029cfe3b78fbb6250c39a908a906855e1",
    "largeur": 64,
    "palier": 1,
-   "sha256": "f4ec8d8ffcfdbe2a7bdb717cc88338a4ebbb916b355c58f0acbf47c546a7f8da",
+   "sha256": "10b47bc682947716354a29b729d867f36642ce0f04185e5706c13e4ab3bc4950",
    "type": "puissance"
   },
   "fo-xp-module-puissance-2": {
@@ -109,10 +109,10 @@
    "hr_fichier": "equipement/hr-fo-xp-module-puissance-2.png",
    "hr_hauteur": 128,
    "hr_largeur": 128,
-   "hr_sha256": "720db92eb82a3a17f768f2e4769414c58eaead59c64c27138098d2ec28c8d2d3",
+   "hr_sha256": "5802434453467d92f773dd22c285fae65ee05b6e4ae95141acef509787e5caa1",
    "largeur": 64,
    "palier": 2,
-   "sha256": "035c6e50ce91ba699afd0a5b273a9cccd759a69a6b9c9b57d974bc1586fbf637",
+   "sha256": "78c1b078918136a57147cd569dfd9ecf5c0df50cbe35296bd662497ba55d27ee",
    "type": "puissance"
   },
   "fo-xp-module-puissance-3": {
@@ -132,10 +132,10 @@
    "hr_fichier": "equipement/hr-fo-xp-module-puissance-3.png",
    "hr_hauteur": 128,
    "hr_largeur": 128,
-   "hr_sha256": "a9ca9d279563502a68260d620b2722b151a6d62eed6169416a3b25f1597389dd",
+   "hr_sha256": "5cb398c85b8a736e96b2313f481d68abb76ae88490924b059428d79ee8e5c40f",
    "largeur": 64,
    "palier": 3,
-   "sha256": "1766aac8f993d07b2d4745dd7daf2a32a7c73b9d1604b3fbd44f595cc1973b85",
+   "sha256": "ea7768afb56336a3b083f355eb7c9b07828414a70de5a614240e7a1519248491",
    "type": "puissance"
   }
  },
@@ -155,7 +155,7 @@
    "icon_mipmaps": 4,
    "icon_size": 64,
    "palier": 2,
-   "sha256": "d7b5e5566a7ad1d2d459bf4c1a7deaed6e94402cb112b92da635b85510702ce1",
+   "sha256": "10d9f0e49f05bfedc109333829b0b2c6603558ada83a4c593884bf47a00eb5a4",
    "type": "portee"
   },
   "fo-xp-module-portee-3": {
@@ -173,7 +173,7 @@
    "icon_mipmaps": 4,
    "icon_size": 64,
    "palier": 1,
-   "sha256": "ba602730538e7bbb0511cf7ebafe7a285dae64e4382ddfc63446f29a6fa2142f",
+   "sha256": "d5588a1912f6ddc62c5cde929445881320669f4ccc7029bad1adb6526701d62e",
    "type": "puissance"
   },
   "fo-xp-module-puissance-2": {
@@ -182,7 +182,7 @@
    "icon_mipmaps": 4,
    "icon_size": 64,
    "palier": 2,
-   "sha256": "5dc7316375b3a291f673bba74c1ce59879d0c4b14069367a88e8cc313a62838f",
+   "sha256": "894f1a4075bf3b894dd90b2447bc6cc8b0bf8ee10f2cbbd75370bc1170afccbc",
    "type": "puissance"
   },
   "fo-xp-module-puissance-3": {
@@ -191,7 +191,7 @@
    "icon_mipmaps": 4,
    "icon_size": 64,
    "palier": 3,
-   "sha256": "f1a0b484784703e015260270f60b42a3895d5d8fca1a188bbeb18eafa6538493",
+   "sha256": "b5e3edbcbedc80a3dd33320ae1ef7d5034ce427424fb0938d5d113830ce9dda8",
    "type": "puissance"
   }
  },
@@ -210,7 +210,7 @@
    "icon_mipmaps": 4,
    "icon_size": 256,
    "palier": 2,
-   "sha256": "5a5e3241e3e37e6f0dd080d1954aafc8525bd43927d8b14f524c1b9ecaabc7c7",
+   "sha256": "a3970184b217a499349ade1ec6c0c75a410b57b60b452f4405db11754d2d246b",
    "type": "portee"
   },
   "fo-xp-modules-portee-3": {
@@ -226,7 +226,7 @@
    "icon_mipmaps": 4,
    "icon_size": 256,
    "palier": 1,
-   "sha256": "28539dae61d34b4656e5f507670f0ff294411da418476c29511b5005922b936c",
+   "sha256": "969c9d5181516eca2ae4e486f5889966bcda329e645c3478ca064f56f10598f6",
    "type": "puissance"
   },
   "fo-xp-modules-puissance-2": {
@@ -234,7 +234,7 @@
    "icon_mipmaps": 4,
    "icon_size": 256,
    "palier": 2,
-   "sha256": "a71caf189b4865564592d4a8180567a3586fb742fe344c4281e45836f77b7aa2",
+   "sha256": "5995f4909cf21343cb68b1383a3fe84ce4b00bc5ed9a17fb168a6ed3983b1234",
    "type": "puissance"
   },
   "fo-xp-modules-puissance-3": {
@@ -242,7 +242,7 @@
    "icon_mipmaps": 4,
    "icon_size": 256,
    "palier": 3,
-   "sha256": "d41c1fdb687c53a8cc5675f04f811da1404483e5e4a510492a54ba65519d07d6",
+   "sha256": "0b65008ee9c3fe5b0f8aa730eb53c443eae6aa84f387e3f21f90a1aee83e798a",
    "type": "puissance"
   }
  },
