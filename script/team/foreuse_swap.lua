@@ -577,7 +577,14 @@ function Swap.think(f, surface, book, free, tick)
             -- poteaux de l'avant-poste (o.swap_poles) : a compter comme NOTRES par le plan du champ (mine_of), comme ses paires
             if ok and placed then
               ref.o.swap_poles = ref.o.swap_poles or {}
-              for _, e in ipairs(placed) do ref.o.swap_poles[#ref.o.swap_poles + 1] = e end
+              st.pole_pos = st.pole_pos or {}
+              for _, e in ipairs(placed) do
+                ref.o.swap_poles[#ref.o.swap_poles + 1] = e
+                -- revue du lead (7/11, (5)) : poteau de l'equipe au registre (State.own), et sa tuile retenue : un poteau refait par la
+                -- reconstruction (numero neuf, non enregistre) reste reconnu comme une source de l'equipe (releve, revue (4))
+                State.own(e, f.id, "pole", ref.o.id)
+                st.pole_pos[P.tkey(math.floor(e.position.x), math.floor(e.position.y))] = true
+              end
             end
             if not ok then
               count(st, why)
