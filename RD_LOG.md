@@ -31,9 +31,20 @@
   baisser en priorité. Avec la suspension, les 11 passages du 2e tour sont tous valides (étalon de 2,01 à 2,37).
 - **F397 · FAIT** (hors jeu, sonde `pvp_hook.lua` de perf3, une ligne toutes les 2e8 instructions) : `pvp_test` n'est pas
   bloqué, il est LENT. Il fait 2,2e11 instructions Lua en environ 6 500 s de processeur (31 à 34 M instructions par seconde, le
-  tick simulé avance à chaque ligne), contre 180 à 387 s en 0.4.x. Le mod coûte 17 à 35 fois plus d'instructions par tick
-  simulé ; les sections « Runtime » vont de 0,5 à 5,2 ms par tick simulé. Trois passages arrêtés à tort par le lead le 7/11 à
-  18 h 07 (pris pour des blocages). Un bisect compté en instructions (de 0.4.30 à essai-0659) est en cours chez perf3.
+  tick simulé avance à chaque ligne), contre 180 à 387 s en 0.4.x. Trois passages arrêtés à tort par le lead le 7/11 à 18 h 07,
+  pris pour des blocages.
+  **CORRECTION du même jour, 19 h 30** : la première lecture, « le mod coûte 17 à 35 fois plus », était FAUSSE. Le bisect compté
+  en instructions (1re partie Runtime, 216 000 ticks) le montre, mesures en instructions par tick simulé :
+  - de 0.4.30 à 0.6.0 : de 9,4 k à 11,5 k, plat ;
+  - 0.6.20 : 51,6 k, en croissance linéaire avec la partie ;
+  - 0.6.40 : 95,0 k ;
+  - 0.6.58 et c3ce6c0d : environ 76 k et 78 k.
+  Le profil par échantillonnage de la pile met la plus grande part dans le MOTEUR SIMULÉ du test, pas dans le Lua du mod :
+  - `tests/mock_engine.lua` `step_economy` : 51,7 % inclusif. `entity_at` reparcourt toutes les entités pour chaque foreuse à
+    combustible (quadratique), et `W.entities` n'est jamais compacté ;
+  - `find_entities_filtered` en parcours complet : 27,6 %.
+  Le saut de 0.6.20 vient des champs thermiques des factions (beaucoup de foreuses). Ce n'est donc pas un défaut du mod ; le
+  correctif relève du test (lot mock-rapide, perf3). Les instructions du moteur simulé ne mesurent pas le coût du mod en jeu.
 - **F398 · DÉDUIT** (hors jeu, rejeu du plan de champ en tranches, champ3, mesures alignées tick à tick sur le profil en jeu
   `[FO-PERF3-T]`) : les pics de 16 à 42 ms tombent par paquets de 2 à 4 ticks, chaque paquet tous les 30 à 43 Mo alloués quel que
   soit l'écart en ticks. Un tick de pic alloue en moyenne 786 Ko contre 197 Ko, pour seulement 1,2 fois plus d'instructions.
