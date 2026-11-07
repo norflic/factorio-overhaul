@@ -28,6 +28,9 @@ function Rp.stops(f, tick)
         ok = not O.DESIGN_KINDS[t.kind] and Board.prenable(f, t) }
     end
   end
+  -- Garde : la tâche déjà servie reste servie tant qu'elle est libre au tableau (rend nil quand elle est prise ou partie : réarmée).
+  -- Les tâches sous le seuil ne comptent pas, mais la clé servie en vient : on relit toute la liste libre pour la réarmer.
+  f.team.rappel_key = R.rearm(f.team.rappel_key, tasks)
   if #tasks == 0 then return {} end
   local npcs = {}
   for _, id in ipairs(State.sorted_keys(f.engineers)) do
@@ -41,11 +44,12 @@ function Rp.stops(f, tick)
         explore = t ~= nil and t.kind == "explore" }
     end
   end
-  local pick = R.pick({ tick = tick, last_at = f.team.rappel_at, tasks = tasks, npcs = npcs })
+  local pick = R.pick({ tick = tick, last_at = f.team.rappel_at, served = f.team.rappel_key, tasks = tasks, npcs = npcs })
   if not pick then return {} end
   local a = Registry.get(pick.npc)
   if not (a and a.task) then return {} end
   f.team.rappel_at = tick
+  f.team.rappel_key = pick.urgent
   f.stats.rappels = (f.stats.rappels or 0) + 1
   if f.stats.rappels <= Rp.LOGS then
     log(string.format("[FO-RAPPEL] %s a %.1f min : tache urgente %s (priorite libre au tableau), PNJ %d rappele, tache abandonnee %s (%s, priorite %d)",
