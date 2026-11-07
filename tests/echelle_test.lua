@@ -531,8 +531,8 @@ check(not PXG:find('tile_name = "nuclear-ground"', 1, true) and PXG:find("b.time
 check(SXG:find("local cr = Ech.disque_radial(c, r.cratere)", 1, true) ~= nil and SXG:find("if j.cr then cratere_suite(j, tick, not (e and e.valid)) end", 1, true) ~= nil
   and SXG:find("local a, b, suite = Ech.lot_cratere(j.ci, n, tout)", 1, true) ~= nil and SXG:find("j.ci = suite", 1, true) ~= nil and SXG:find("Events.on_nth_tick(RESORPTION, resorber)", 1, true) ~= nil
   and SXG:find('not p.collision_mask["water-tile"] and not p.mineable_properties.minable', 1, true) ~= nil
-  and SXG:find("local v = sol_cratere[name]", 1, true) ~= nil and not SXG:find("tile.prototype.mineable_properties", 1, true) and SXG:find('t.name == "nuclear-ground" and e.orig ~= "nuclear-ground"', 1, true) ~= nil,
-  "§12 bis cratère posé par script, résorbé, jamais sur un sol de joueur ni sur un sol changé depuis")
+  and SXG:find("local v = sol_cratere[name]", 1, true) ~= nil and not SXG:find("tile.prototype.mineable_properties", 1, true) and SXG:find('t.name == "nuclear-ground" and e.orig ~= "nuclear-ground" and game.tile_prototypes[e.orig] then', 1, true) ~= nil,
+  "§12 bis cratère posé par script, résorbé, jamais sur un sol de joueur ni sur un sol changé depuis ; sol d'origine disparu : le cratère reste")
 local _, n_trace = SXG:gsub("time_to_live = Ech.TRACE_TICKS", "")
 check(n_trace == 2 and not SXG:find('name = "big-scorchmark"', 1, true) and not SXG:find('name = "small-scorchmark"', 1, true),
   "§12 bis verre de la Tournesol et tranchée de l'Ixion : 1 h ; brûlures d'1 h seulement")

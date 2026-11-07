@@ -117,6 +117,32 @@ local function suite(Pe)
   local rf = Pe.filter(s7f, D1, ords, CTX)
   want(rf.closed and rf.why.c and not rf.why.g and not rf.why.e and rf.refused == 1 and rf.kept == 2,
     "filtre : chaine retenue, garde (rang 1) et levier gardes")
+  -- 9. Lot VIDEO-COUVERTURE 3 (G73, C3.3) : sous saturation, la recherche est coupée EXPLICITEMENT (packs, laboratoires), sans dépendre de la
+  -- liste de tournées de l'appelant ; elle reprend dès que la saturation tombe (hystérésis comprise).
+  local CTXR = { family_of = function() return "recherche" end, family_rank = { recherche = 3 }, site_kinds = {}, tours_kinds = {} } -- l'appelant ne déclare AUCUNE tournée
+  local pk = Pe.translate({ key = "p", kind = "packs", item = "x", n = 2 }, CTXR)
+  local lb = Pe.translate({ key = "l", kind = "labos", n = 1 }, CTXR)
+  local ch = Pe.translate({ key = "c", kind = "fours", item = "y", n = 1 }, CTXR)
+  want(pk.research and lb.research and not ch.research, "traduction : packs et labos nourrissent la recherche, pas les fours")
+  want(pk.tours and lb.tours and not ch.tours, "traduction : la recherche ajoute des tournees meme si l'appelant ne les declare pas")
+  local sr = Pe.new()
+  local rord = { { key = "p", kind = "packs", item = "x", n = 2 }, { key = "l", kind = "labos", n = 1 }, { key = "f", kind = "fours", item = "y", n = 1 },
+    { key = "t", kind = "techno", n = 1 } }
+  Pe.filter(sr, D1, rord, CTXR)
+  local rc = Pe.filter(sr, D1, rord, CTXR)
+  want(rc.closed and rc.why.p and rc.why.l and not rc.why.f and not rc.why.t and rc.refused == 2,
+    "sous saturation : 0 ordre packs ni labos emis (ni fours, ni techno retenus)")
+  want(rc.why.p and rc.why.p:find("recherche coupee", 1, true) ~= nil, "la raison dit que la recherche est coupee (" .. tostring(rc.why.p) .. ")")
+  local calm9 = { workers = 10, idle = 3, free_tasks = 10, batis = 10, open_sites = 0 }
+  local rk1 = Pe.filter(sr, calm9, rord, CTXR)
+  want(rk1.closed and rk1.why.p, "une mesure detendue ne rouvre pas la recherche")
+  local rk2 = Pe.filter(sr, calm9, rord, CTXR)
+  want(not rk2.closed and rk2.why.p == nil and rk2.why.l == nil and rk2.kept == 4, "des que la saturation tombe : les ordres packs et labos sont emis")
+  -- la recherche d'un rang sur (R1) n'est jamais coupee (I2) ; un tapis non plus
+  local s9 = Pe.new()
+  Pe.decide(s9, D1, {})
+  local r9 = Pe.decide(s9, D1, { ord("r1", { rank = 1, research = true }), ord("rb", { research = true, belt = true }), ord("rx", { research = true }) })
+  want(keys(r9.kept) == "r1,rb", "recherche : R1 et tapis gardes, l'autre retenu (" .. keys(r9.kept) .. ")")
   -- 8. Déterminisme : mêmes entrées, mêmes sorties.
   local sa, sb = Pe.new(), Pe.new()
   local ra8 = Pe.decide(sa, D1, orders)
@@ -157,9 +183,12 @@ local MUTANTS = {
   { "anti-repetition sans memoire d'une decision a l'autre", "function Pe.finish(st, g) st.last_item = g.measured_item end", "function Pe.finish(st, g) end" },
   { "traduction : rang 3 pour tous", "rank = (fam ~= nil and (ctx.family_rank or {})[fam]) or 3,", "rank = 3," },
   { "traduction : chantier ignore", "local site = (ctx.site_kinds or {})[o.kind] == true", "local site = false" },
-  { "traduction : tournees ignorees", "tours = (ctx.tours_kinds or {})[o.kind] == true", "tours = false" },
+  { "recherche : coupure explicite retiree", "if g.closed and o.research and not o.belt then", "if false then" },
+  { "recherche : sortes d'ordres oubliees", "Pe.RESEARCH_KINDS = { packs = true, labos = true }", "Pe.RESEARCH_KINDS = {}" },
+  { "recherche : labos oublies", "Pe.RESEARCH_KINDS = { packs = true, labos = true }", "Pe.RESEARCH_KINDS = { packs = true }" },
+  { "traduction : tournees ignorees", "tours = research or (ctx.tours_kinds or {})[o.kind] == true", "tours = research" },
   { "traduction : manque mesure ignore", "local measured = item ~= nil and ((ctx.measured or {})[item] or 0) > 0", "local measured = false" },
-  { "traduction : seul toujours vrai", "alone = measured and (ctx.measured_n or 0) == 1 }", "alone = measured }" },
+  { "traduction : seul toujours vrai", "alone = measured and (ctx.measured_n or 0) == 1, research = research }", "alone = measured, research = research }" },
 }
 local refused = 0
 for _, m in ipairs(MUTANTS) do

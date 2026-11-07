@@ -18,6 +18,11 @@
         INTERNES au cycle, quantité par fabrication) ; Am.flatten les met en liste, Am.seed y ajoute, pour chaque objet de cycle, de quoi
         faire Am.CYCLE_RUNS fabrications (au plus Am.CYCLE_HARD), moins le stock, AVEC sa cause écrite. Sans cycle : rien.
 
+  (e) REMISE DIRECTE (correctif C3 de fo-logs/2026-11-07_VIDEO-COUVERTURE/DIAG_CONSO.md, M2 à M4) : un module de chaîne exige des assembleurs 2,
+        qui exigent des circuits, que fabrique un module de chaîne : le cycle se coupait au coffre, qui refuse tout objet non vital quand il est
+        plein (M0). Am.direct partage ce qu'un PNJ PORTE entre les modules en réserve qui l'attendent (leur manque), dans l'ordre de la file,
+        pour qu'il aille à p.stock du module SANS passer par le coffre. Jamais plus que le manque ; rien pour un module qui n'attend pas.
+
   PUR : aucune API du jeu, aucun nom d'objet (anti-échelle de tests/iag_test.lua §8). État dans st.amorce (sérialisable, aucune
   fonction). Déterminisme : listes triées, entiers, ticks de jeu, aucune horloge mesurée. Testé hors jeu : tests/amorce_test.lua.
 ]]
@@ -121,6 +126,37 @@ function Am.seed(st, tick, projets, have, book, Ml, cyc)
     end
   end
   return out, skipped
+end
+
+--- (e) Remise directe. projects : file du plan directeur { { id, state, reason, missing = { { objet, manque } } } } ; item, n : ce que le PNJ
+--- porte. Rend la liste { { id, item, n } } des remises (somme <= n, chacune <= le manque restant du module, premier de la file d'abord).
+--- Seul un module en état « reserve » attend ; un module suspendu par la pile ou le QG (raison « pile », « qg » : objets rendus, manques
+--- effacés) n'attend rien. Fermé par défaut : quantité nulle, négative, NaN, infinie ou absente = rien ; manque illisible écarté.
+function Am.direct(projects, item, n)
+  local out = {}
+  if type(item) ~= "string" or item == "" or not pos(n) then return out end
+  local left = math.floor(n)
+  for _, p in ipairs(projects or {}) do
+    if left <= 0 then break end
+    if p.state == "reserve" and p.reason ~= "pile" and p.reason ~= "qg" then
+      local want = 0
+      for _, m in ipairs(p.missing or {}) do
+        if m[1] == item and pos(m[2]) then want = want + math.floor(m[2]) end
+      end
+      local k = math.min(left, want)
+      if k > 0 then
+        out[#out + 1] = { id = p.id, item = item, n = k }
+        left = left - k
+      end
+    end
+  end
+  return out
+end
+
+--- Ligne du journal [FO-AMORCE] d'une remise directe (aucune décision ne la lit).
+function Am.describe_direct(a, tick_min)
+  return string.format("remise directe : %d %s au module %s sans passer par le coffre (il les attendait en reserve) a %.1f min", a.n, a.item,
+    tostring(a.id), tick_min or 0)
 end
 
 --- (b) et (c) Relevé d'une minute : flows[objet] = { made, hand } (tout ce qui est produit, dont la main) ; alive = { [objet] = vrai }
