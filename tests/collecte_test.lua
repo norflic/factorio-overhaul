@@ -74,6 +74,17 @@ local function checks(C)
   check(C.outcome(600, 120) == "done" and C.outcome(0, 0) == "done", "voyage utile ou coffre déjà vidé : done")
   check(C.outcome(5, -1) == "fail" and C.outcome(nil, nil) == "done", "bornes : retour négatif = échec, valeurs absentes = done")
 
+  -- §3 ter : ce que le stock écarte reste au coffre, fer et charbon d'abord
+  local skip = function(it) return it == "stone" or it == "copper-plate" end
+  local T = require("shared.team.config")
+  local fe, cl = T.outposts.iron.product, T.outposts.coal.product
+  check(same(C.take_list({ "copper-plate", "stone", fe, "wood" }, skip), { fe, "wood" }), "pierre et cuivre écartés restent au coffre")
+  check(same(C.take_list({ "stone", "wood", fe, cl }, nil), { cl, fe, "stone", "wood" }) or same(C.take_list({ "stone", "wood", fe, cl }, nil), { fe, cl, "stone", "wood" }),
+    "sans prédicat : tout est pris, le fer et le charbon d'abord")
+  check(C.take_list({ "stone", fe }, nil)[1] == fe, "le fer passe avant la pierre même si la pierre est triée avant")
+  check(same(C.take_list({ "stone", "copper-plate" }, skip), {}), "tout écarté : rien à prendre")
+  check(same(C.take_list(nil, nil), {}), "liste absente : rien")
+
   -- §4 priorité : devant le minage urgent du fer à la place de marché, derrière la garde du QG
   local npc = { id = 1, pos = { x = 0, y = 0 } }
   local home = { x = 0, y = 0 }
@@ -131,6 +142,9 @@ local MUTANTS = {
   { "outcome-always-done", function(C) C.outcome = function() return "done" end end },
   { "outcome-ignores-before", function(C) C.outcome = function(b, g) if (g or 0) <= 0 then return "fail" end return "done" end end },
   { "outcome-partial-fails", function(C) C.outcome = function(b, g) if (b or 0) > 0 and (g or 0) < b then return "fail" end return "done" end end },
+  { "take-ignores-skip", function(C) local o = C.take_list; C.take_list = function(items) return o(items, nil) end end },
+  { "take-vital-last", function(C) C.take_list = function(items, skipped) local r = {} for _, it in ipairs(items or {}) do if not (skipped and skipped(it)) then r[#r + 1] = it end end table.sort(r, function(a, b) return (C.VITAL[a] and 1 or 0) < (C.VITAL[b] and 1 or 0) end) return r end end },
+  { "take-no-order", function(C) C.take_list = function(items, skipped) local r = {} for _, it in ipairs(items or {}) do if not (skipped and skipped(it)) then r[#r + 1] = it end end return r end end },
   { "prio-too-low", function(C) C.PRIO = 55 end },
   { "prio-not-critical", function(C) C.CRITICAL = false end },
   { "prio-above-guard", function(C) C.PRIO = 99 end },
