@@ -62,6 +62,7 @@ local function on_died(e)
   log(C.line(rec))
 end
 
-Events.on(defines.events.on_entity_died, on_died)
+-- Lot MORTS : les types de la centrale (ceux du test PLANT ci-dessus), jamais la force « enemy » (team_of : player ou une faction).
+Events.on_died(on_died, { types = Rg.PLANT_TYPES, ennemi = false })
 
 return {}
