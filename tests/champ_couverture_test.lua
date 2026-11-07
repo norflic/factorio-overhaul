@@ -295,7 +295,7 @@ do
   end
 end
 
-section("6. R1 : les deux axes planifies ; reseau d'un seul tenant, puis le moins de coffres de tete, puis le plus de minerai couvert")
+section("6. R1 : les deux axes planifies ; l'autre axe seulement s'il couvre STRICTEMENT plus, sans reseau coupe ni coffre de tete de plus")
 do
   -- axes attendus (MESURÉ le 7/11, chaque forme planifiée dans ses deux axes) : les autres formes gardent l'axe long (x)
   local EXPECT = { ["ellipse 70 x 30"] = "y", ["L 60 x 14 + 14 x 50"] = "x", ["r30 + couloir horizontal"] = "y", ["r30 + lacs aux deux bouts"] = "y",
@@ -376,9 +376,9 @@ do
   local function axis_of(M, name)
     for _, x in ipairs(shapes()) do if x.name == name then local p = M.plan(spec_of(x.ore, x.o)); return p and p.axis end end
   end
-  local M1 = mut("else better = qc_ > pc_ end", "else better = qc_ < pc_ end")
+  local M1 = mut("local better = qc_ > pc_ and", "local better = qc_ < pc_ and")
   check(M1 ~= nil and axis_of(M1, "ellipse 70 x 30") == "x", "mutant vu : choix inverse (l'ellipse garde l'axe qui couvre le moins)")
-  local M2 = mut("else better = qc_ > pc_ end", "else better = qc_ >= pc_ end")
+  local M2 = mut("local better = qc_ > pc_ and", "local better = qc_ >= pc_ and")
   check(M2 ~= nil and axis_of(M2, "disque r30") == "y", "mutant vu : egalite tranchee par l'autre axe (le disque change d'axe)")
   -- (le mutant « coffres de tête ignorés » est dans tests/champ_colonne_test.lua §3, sur l'ellipse longue au charbon du sud)
   local bad, total, missing = stab("ellipse 70 x 30", true)

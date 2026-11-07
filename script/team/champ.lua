@@ -326,6 +326,20 @@ local function mine_of(f, o, sibs)
       end
     end
   end
+  -- (lot FOREUSES-THERMIQUES, charbonmain c94eb8f7) tuiles des poteaux du remplacement retenues par l'équipe (f.swap.pole_pos, clés
+  -- P.tkey) : un poteau refait par la reconstruction a un numéro neuf et n'est plus dans o.swap_poles, sa tuile reste nôtre ; seulement
+  -- à Champ.SIB_R de l'avant-poste, comme les paires de ses voisins (clés triées : aucun ordre de pairs)
+  local pp = f.swap and f.swap.pole_pos
+  if pp then
+    local ks = {}
+    for k, v in pairs(pp) do if v then ks[#ks + 1] = k end end -- valeur vraie (aujourd'hui true ; un oid plus tard, charbonmain)
+    table.sort(ks)
+    for _, k in ipairs(ks) do
+      local x = math.floor(k / 2097152) - 1048576
+      local y = k - (x + 1048576) * 2097152 - 1048576
+      if (x + 0.5 - o.pos.x) ^ 2 + (y + 0.5 - o.pos.y) ^ 2 <= r2 then mine[Ch.key(x, y)] = true end
+    end
+  end
   local b = f.build
   for _, pid in ipairs(b and b.order or {}) do
     local p = b.projects[pid]

@@ -1701,7 +1701,7 @@ local function cov_run(st, spec, p, J)
         end
       end
     end
-    Co.spend(J, (stop - st.ei + 1) * Ch.UNITS.ent - nd * Ch.UNITS.cov)
+    Co.spend(J, (stop - st.ei + 1) * Ch.UNITS.ent + nd * Ch.UNITS.cov)
     st.ei = stop + 1
   end
   return true
@@ -1749,16 +1749,15 @@ function RUN.axes(J, fr)
     fr.pc = 5
   end
   if not cov_run(fr.cq, spec, fr.q, J) then return "pause" end
-  -- un réseau de poteaux d'un seul tenant d'abord (mesuré : le lac et la rivière de tests/champ_test.lua, « eau », laissent deux réseaux
-  -- dans l'autre axe), puis le moins de coffres de tête (Ch.better_order ; mesuré : l'ellipse longue au charbon du sud de
-  -- tests/champ_colonne_test.lua garde 17 coffres de tête dans son axe court), puis le plus de minerai couvert ; l'axe long à égalité
+  -- (décision du lead, 7/11) l'autre axe ne l'emporte que s'il couvre STRICTEMENT plus de minerai ; et jamais s'il est pire sur le
+  -- réseau de poteaux (mesuré : le lac et la rivière de tests/champ_test.lua, « eau », laissent deux réseaux dans l'autre axe) ou sur
+  -- les coffres de tête (mesuré : l'ellipse longue au charbon du sud de tests/champ_colonne_test.lua en garde 17 dans son axe court).
+  -- À égalité ou en dessous : l'axe long, son plan identique entité par entité
   local pc_, qc_ = fr.cp.n, fr.cq.n
   local ps, qs = (fr.n and fr.n.split) and true or false, (fr.qn and fr.qn.split) and true or false
   local ph, qh = fr.n and fr.n.hc or 0, fr.qn and fr.qn.hc or 0
-  local better
-  if ps ~= qs then better = not qs
-  elseif ph ~= qh then better = qh < ph
-  else better = qc_ > pc_ end
+  -- (les coffres de tête ne se comptent qu'en colonne : dans le motif à coffres, chaque four a son coffre de combustible)
+  local better = qc_ > pc_ and (ps or not qs) and (fr.p.design ~= "colonne" or qh <= ph)
   if better then
     fr.q.axis_choice = { long = fr.p.axis, long_cov = pc_, cov = qc_ }
     fr.p, fr.why, fr.n = fr.q, fr.qwhy, fr.qn

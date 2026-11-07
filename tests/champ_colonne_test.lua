@@ -287,16 +287,23 @@ do
   local sides = 0
   for _, cs in ipairs(p2 and p2.stats.coal or {}) do if cs.voie then sides = sides + 1 end end
   check(sides == 2, "ellipse longue : charbon par tapis des deux côtés (" .. sides .. ")")
-  -- (lot CHAMP-COUVERTURE, R1, 7/11) l'axe court de cette ellipse couvre plus, mais garde des coffres de tête : l'axe long est gardé.
+  -- (lot CHAMP-COUVERTURE, R1, 7/11) l'axe court de cette ellipse couvre plus (100 % contre 44 %), mais garde 17 coffres de tête :
+  -- l'axe long est gardé. Contrôlé sans le plafond de travail de l'autre axe (cet axe court en demande 4 fois plus : abandonné, sinon).
   -- Mutant : le choix de l'axe ignore les coffres de tête
   do
+    local function sp_e() return spec_of(ellipse(0, 0, 60, 14), { coal = disc(0, 60, 9), belts = { { lane = 7.5 } }, max_side = 30 }) end
+    local aw = Ch.CFG.axis_work
+    Ch.CFG.axis_work = 1e9
+    local pr = Ch.plan(sp_e())
+    Ch.CFG.axis_work = aw
     local src = io.open("shared/team/champ.lua"):read("*a")
-    local ms, nm = src:gsub("elseif ph ~= qh then better = qh < ph", "elseif false then better = qh < ph", 1)
+    local ms, nm = src:gsub("%(fr%.p%.design ~= \"colonne\" or qh <= ph%)", "true", 1)
     local Mm = nm == 1 and assert(load(ms, "=champ_mutant_r1"))() or nil
-    local pm = Mm and Mm.plan(spec_of(ellipse(0, 0, 60, 14), { coal = disc(0, 60, 9), belts = { { lane = 7.5 } }, max_side = 30 }))
-    check(p2 and p2.axis == "x" and pm and pm.axis == "y" and Ch.head_chests(pm) > Ch.head_chests(p2),
+    if Mm then Mm.CFG.axis_work = 1e9 end
+    local pm = Mm and Mm.plan(sp_e())
+    check(pr and pr.axis == "x" and pm and pm.axis == "y" and Ch.head_chests(pm) > Ch.head_chests(pr),
       string.format("mutant vu : coffres de tete ignores au choix de l'axe (axe %s, %d coffres de tete ; vrai module : axe %s, %d)",
-        tostring(pm and pm.axis), pm and Ch.head_chests(pm) or -1, tostring(p2 and p2.axis), p2 and Ch.head_chests(p2) or -1))
+        tostring(pm and pm.axis), pm and Ch.head_chests(pm) or -1, tostring(pr and pr.axis), pr and Ch.head_chests(pr) or -1))
   end
   -- rivière de 3 tuiles entre le champ et le charbon, sur toute la carte : sans souterrain, repli ; avec, franchie
   local river = {}

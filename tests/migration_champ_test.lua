@@ -2283,6 +2283,13 @@ do
   check(mine[K(3, 4)] == true and mine[K(12, 1)] == true,
     "CC3 : poteaux du remplacement de l'avant-poste et de son voisin du même minerai : nôtres")
   check(not mine[K(9, 9)] and not mine[K(6, 6)], "CC3 : poteau détruit, poteau d'un avant-poste d'un autre minerai : pas nôtres")
+  -- tuiles retenues par l'équipe (f.swap.pole_pos, clés P.tkey, charbonmain c94eb8f7) : un poteau refait par la reconstruction (numéro
+  -- neuf, hors de o.swap_poles) reste nôtre près de l'avant-poste ; loin de lui (au-delà de Champ.SIB_R), non
+  local Pl = require("shared.team.plan")
+  local far = Chm.SIB_R + 20
+  local mine2 = Chm.mine_of({ outposts = { [1] = o }, swap = { pole_pos = { [Pl.tkey(-7, 3)] = true, [Pl.tkey(far, 0)] = true } } }, o, {})
+  check(mine2[K(-7, 3)] == true and not mine2[K(far, 0)], "CC3 : tuile d'un poteau du remplacement refait : nôtre près de l'avant-poste, pas au loin")
+  check(mine2[K(3, 4)] == true, "CC3 : et les poteaux de o.swap_poles toujours")
 end
 
 print(string.format("[MIGRATION-CHAMP] BILAN : %d OK, %d ECHEC(S)", passes, failures))

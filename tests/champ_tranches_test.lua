@@ -380,5 +380,93 @@ do
   end
 end
 
+section("7. _ENV = P : une etape ne lit ni n'ecrit aucune globale du jeu ; une faute de frappe leve une erreur (garde du test)")
+do
+  -- (demande du lead, 7/11) Le module est rechargé avec `local _ENV = GARDE(P)` : GARDE rend une façade (jamais gardée dans le travail :
+  -- C2 inchangé) qui relève chaque nom libre lu ou écrit par une étape. Les noms permis sont ceux de l'état du cadre « once », déclarés
+  -- ICI : un nom nouveau (champ d'état ajouté sans être déclaré, ou faute de frappe) fait échouer ce contrôle ; sous la garde stricte, il
+  -- lève une erreur au lieu d'écrire ou de lire en silence dans l'état.
+  local STATE = {}
+  for w in ([[F all_poles axis bands bi1 box br br_split bstate bt cap cap_all capped coal_frame coal_stats coal_uv colonne cols_frame cut
+    cx cz d decouple_new ents exit fallback fci fck flow_all fuelled hop la link_on n_moved n_routed nc net nets no_smelter offsets origin
+    out_bands p p1 p2 pa pending phase pi pitch pmode r23 rd reach_to ri route_max routed_frame row_list rows s11 s14 scan shared_done shq
+    sides spec ti total ug ugs_set umax umin used_rows why why_routed]]):gmatch("%S+") do STATE[w] = true end
+  local GAME = { "game", "global", "script", "defines", "log", "serpent", "settings", "remote", "commands", "rendering", "rcon", "storage" }
+  local seen, strict = {}, false
+  local function GARDE(P)
+    return setmetatable({}, {
+      __index = function(_, k)
+        if strict and not STATE[k] then error("nom libre inconnu lu dans l'etat : " .. tostring(k), 2) end
+        seen[k] = true
+        return P[k]
+      end,
+      __newindex = function(_, k, v)
+        if strict and not STATE[k] then error("nom libre inconnu ecrit dans l'etat : " .. tostring(k), 2) end
+        seen[k] = true
+        P[k] = v
+      end })
+  end
+  local fh = assert(io.open("shared/team/champ.lua", "rb"))
+  local SRC = fh:read("*a")
+  fh:close()
+  local function guarded(src)
+    local ms, n = src:gsub("local _ENV = P\n", "local _ENV = GARDE(P)\n")
+    local env = setmetatable({ GARDE = GARDE }, { __index = _G })
+    return assert(load(ms, "=champ_garde", "t", env))(), n
+  end
+  local by = {}
+  for _, cs in ipairs(Fm.corpus()) do by[cs.name] = cs end
+  -- 1. relevé : formes qui passent par toutes les étapes (colonne et charbon, tracés, coffres, cadre réel, R1), en tranches, et une bande
+  -- seule rejouée de son cadre figé
+  local G, nrep = guarded(SRC)
+  local names = short and { "disque r20" } or { "disque r20", "r30 + anneau, sans souterrains", "r30 brut + lacs aux deux bouts", "joueur 271828182" }
+  local same = true
+  for _, n in ipairs(names) do
+    local p, why = stepped(G, by[n].spec(), 64)
+    if Sr.print(p, why) ~= ref_by[n].hash then same = false end
+  end
+  do
+    local sp = by["disque r30"].spec()
+    local full = Ch.plan(sp)
+    local fr = {}
+    for k, v in pairs(full.frame) do fr[k] = v end
+    fr.only = { [full.bands[1].pr] = true }
+    local sp2 = by["disque r30"].spec()
+    sp2.frame = fr
+    local p = G.plan(sp2)
+    local q = Ch.plan(sp2)
+    if Sr.print(p) ~= Sr.print(q) then same = false end
+  end
+  local unknown, libs = {}, {}
+  for k in pairs(seen) do
+    if not STATE[k] then unknown[#unknown + 1] = tostring(k) end
+    if _G[k] ~= nil then libs[#libs + 1] = tostring(k) end
+  end
+  for _, g in ipairs(GAME) do if seen[g] then libs[#libs + 1] = g end end
+  table.sort(unknown)
+  table.sort(libs)
+  check(nrep >= 17 and same, string.format("module garde (%d etapes) : memes plans que le vrai module", nrep))
+  check(#libs == 0, "aucune globale du jeu ni de Lua lue ou ecrite par une etape (" .. table.concat(libs, ", ") .. ")")
+  check(#unknown == 0, "tous les noms libres des etapes sont declares (" .. table.concat(unknown, ", ") .. ")")
+  -- 2. mutants : une faute de frappe SILENCIEUSE sans la garde (aucune erreur, et le plan change : un nom absent se lit nil, une
+  -- écriture crée un champ de plus dans l'état), en lecture puis en écriture ; sous la garde stricte, une erreur à la ligne fautive
+  strict = true
+  for _, m in ipairs({ { "lecture", "  total = fuelled and Ch.lane_drills(", "  total = fueled and Ch.lane_drills(" },
+      { "ecriture", "flow_all, cap_all = flow_all + g.flow, cap_all + capa", "flow_all, cap_al = flow_all + g.flow, cap_all + capa" } }) do
+    local ms, n = SRC:gsub(m[2]:gsub("%p", "%%%0"), m[3], 1)
+    local Gm = n == 1 and guarded(ms) or nil
+    local ok, err = true, nil
+    if Gm then ok, err = pcall(stepped, Gm, by["disque r20"].spec(), 64) end
+    local plain = n == 1 and assert(load(ms, "=champ_faute"))() or nil
+    local ok2, pp, pwhy = false, nil, nil
+    if plain then ok2, pp, pwhy = pcall(stepped, plain, by["disque r20"].spec(), 64) end
+    local silent = ok2 and pp ~= nil and Sr.print(pp, pwhy) ~= ref_by["disque r20"].hash
+    check(Gm ~= nil and not ok and tostring(err):find("nom libre inconnu", 1, true) ~= nil and silent,
+      string.format("mutant vu : faute de frappe en %s ; sous la garde : %s ; sans elle : aucune erreur et plan change (%s, %s)", m[1],
+        tostring(err):match("nom libre.*") or tostring(err), tostring(ok2), ok2 and "" or tostring(pp)))
+  end
+  strict = false
+end
+
 print(string.format("[CHAMP-TRANCHES] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 if failures > 0 then os.exit(1) end
