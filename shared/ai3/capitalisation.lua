@@ -77,6 +77,8 @@ local Lv = require("shared.ai3.leviers") -- lot LEVIERS : modules dans les machi
 local Gi = require("shared.team.gisement") -- lot GISEMENTS : matière la plus en manque d'abord, pas d'avant-poste de trop
 local Dm = require("shared.ai3.demande") -- lot C2 : puits ouvert (le stock qui dort devient une demande)
 local Pf = require("shared.ai3.plafonds") -- lot VIDEO-L13 : gardes fermées par défaut (places des ordres ouverts)
+local Rg = require("shared.ai3.rang") -- lot VIDEO-L1b : rang de la décision (Rg.chain), ordre de propagation des besoins
+local Pr = require("shared.ai3.porte_rang") -- lot VIDEO-L2 : porte de rang ciblée
 
 local Ca = {}
 
@@ -145,6 +147,11 @@ Ca.NEAR_SITE = Gi.NEAR -- tuiles : un gisement ouvert plus près que cela d'un s
 -- recherche (B.RESEARCH 62) et l'extraction ; but de FOND (lot CAPITAL : bancs c1 et c1-témoin, un but de capital servi
 -- comme un projet ordinaire retardait la recherche).
 Ca.V_MIN, Ca.V_SPAN, Ca.V_MAX, Ca.V_SHAPE = 35, 15, 50, 7
+-- Lots VIDEO-L1b et VIDEO-L2 (docs/TODO_VIDEO.md §H ; fo-logs/2026-11-07_VIDEO-AUTOMATISATION/PLAN_L1_L2.md) : ALLUMÉS à l'étape 8
+-- d'INTEGRATION_VIDEO, Ca.RANG d'abord, puis Ca.PORTE_RANG. Éteints (false), la décision est celle d'avant ligne pour ligne
+-- (tests/rang_cablage_test.lua §1) : c'est le repli si l'un des deux doit être coupé.
+Ca.RANG = true          -- L1b : le besoin se propage dans l'ordre du RANG de la décision (Rg.chain), calculé une fois par jeu de graines
+Ca.PORTE_RANG = true    -- L2 : un ordre de production qui dépend d'un manque d'un rang plus bas attend (Pr.decide) ; demande Ca.RANG
 Ca.MAX_ORDERS = 24      -- ordres nouveaux au plus par cycle (coût de calcul)
 Ca.OPEN_MAX = 16        -- ordres ouverts au plus (plafond de sûreté du dépliage ; le travail disponible borne avant)
 Ca.HQ = "qg"
@@ -758,6 +765,40 @@ local function choose_recipe(ctx, item)
   return best, why
 end
 
+--- Lot VIDEO-L1b (Ca.RANG) : le même besoin que Ca.requirements, propagé dans l'ordre du RANG de la décision (shared/ai3/rang.lua,
+--- Rg.chain sur la recette CHOISIE par choose_recipe), au lieu du parcours `visit` refait à chaque appel. Le rang est calculé une fois
+--- par JEU DE GRAINES (ctx.rang ; refait quand une graine change, le combustible d'une machine décidée par exemple). Sans cycle :
+--- même fermeture, même ordre, même liste, mêmes besoins au bit près (tests/rang_test.lua §9, tests/rang_cablage_test.lua). Un arc
+--- INTERNE à un cycle (recette qui consomme son produit, Kovarex) n'est pas propagé : c'est l'amorce (ctx.rang.seed).
+local function requirements_by_rank(ctx, fin)
+  local seeds = sorted_keys(fin)
+  local key = table.concat(seeds, "\n")
+  local Rk = ctx.rang
+  if Rk == nil or ctx.rang_key ~= key then
+    Rk = Rg.chain(ctx.D, function(i) return choose_recipe(ctx, i) end, seeds)
+    ctx.rang, ctx.rang_key, ctx.rang_deps = Rk, key, nil
+  end
+  local Rq, used_by = {}, {}
+  for _, k in ipairs(seeds) do Rq[k] = fin[k] end
+  for _, i in ipairs(Rk.order) do
+    local r = Rk.rec[i]
+    local net = (Rq[i] or 0) - (ctx.stock[i] or 0) / Ca.H_STOCK
+    if r and net > 0 then
+      local crafts = net / amount_of(r.products, i)
+      local ci = Rk.cyc[i]
+      for _, ing in ipairs(r.ingredients) do
+        if ci == nil or Rk.cyc[ing.name] ~= ci then
+          local x = crafts * ing.amount
+          Rq[ing.name] = (Rq[ing.name] or 0) + x
+          used_by[ing.name] = used_by[ing.name] or {}
+          used_by[ing.name][i] = (used_by[ing.name][i] or 0) + x
+        end
+      end
+    end
+  end
+  return { R = Rq, list = Rk.list, depth = Rk.rank, rec = Rk.rec, why = Rk.why, fin = fin, used_by = used_by }
+end
+
 --- Besoin par objet (objets/min) : la demande finale propagée dans le graphe des recettes. Rend { R, list (profondeur
 --- croissante, puis le nom), depth, rec, why, fin, used_by = { [ingrédient] = { [objet] = /min } } }.
 function Ca.requirements(ctx, plan)
@@ -772,6 +813,7 @@ function Ca.requirements(ctx, plan)
   end
   for _, it in ipairs(ctx.pack_rates) do add(it[1], it[2]) end
   if ctx.D.fuel and plan.burn > 0 then add(ctx.D.fuel, plan.burn) end
+  if Ca.RANG then return requirements_by_rank(ctx, fin) end -- lot VIDEO-L1b (allumé à l'étape 8)
   local depth, rec, why, seen = {}, {}, {}, {}
   local items = {}
   local function visit(i)
@@ -1833,6 +1875,51 @@ function Ca.before(a, b)
   return a.key < b.key
 end
 
+--- Lot VIDEO-L2 (Ca.PORTE_RANG, demande Ca.RANG) : PORTE DE RANG CIBLÉE (shared/ai3/porte_rang.lua). Une option de fabrication
+--- (chaîne, packs, fours) dont la chaîne DÉPEND, par les recettes choisies, d'un objet EN MANQUE d'un rang plus bas est refusée
+--- « rang : <objet> (rang k) d'abord » : elle ne prend ni budget ni emplacement tant que ce manque n'est pas couvert par le plan.
+--- Manque = R − N − stock ÷ H_STOCK (la formule de Ca.options) ; un manque qu'aucune option de ce tour ne sert ne bloque rien.
+--- L'extraction (rang 0) n'est jamais retenue ; anti-répétition : l'objet du dernier ordre (ctx.last_item) cède sa place à un
+--- autre objet de son rang. Cas visé : l'interblocage du fer (EFFONDREMENT, Ca.blocked_items) ; la foreuse passe devant.
+local function rank_gate(ctx, plan, req, out)
+  local Rk = ctx.rang
+  if ctx.rang_deps == nil then ctx.rang_deps = Pr.deps(Rk) end
+  local served = {}
+  for _, c in ipairs(out) do
+    if c.o.item ~= nil then served[c.o.item] = true end
+    if c.o.resource ~= nil then served[c.o.resource] = true end
+  end
+  local short = {}
+  for _, i in ipairs(req.list) do
+    local Ri = req.R[i] or 0
+    if Ri > 0 and Rk.rank[i] ~= nil then
+      local def = Ri - (plan.N[i] or 0) - (ctx.stock[i] or 0) / Ca.H_STOCK
+      if def > Ca.EPS then short[#short + 1] = { item = i, rank = Rk.rank[i], option = served[i] == true } end
+    end
+  end
+  local orders = {}
+  for _, c in ipairs(out) do
+    local o = c.o
+    if (o.kind == "chaine" or o.kind == "packs" or o.kind == "fours") and o.item ~= nil then
+      orders[#orders + 1] = { key = o.key, item = o.item, rank = Rk.rank[o.item], pile = 2 }
+    end
+  end
+  local g = Pr.decide({ orders = orders, short = short, deps = ctx.rang_deps, last = ctx.last_item })
+  -- r* de la décision (compte rendu) : le rang le plus bas d'un manque à option sur TOUS les tours (le dernier tour, manque couvert,
+  -- n'en a souvent plus).
+  if g.rstar ~= nil and (ctx.rstar == nil or g.rstar < ctx.rstar) then ctx.rstar = g.rstar end
+  if #g.held == 0 then return out end
+  ctx.rang_held = (ctx.rang_held or 0) + #g.held
+  local cause = {}
+  for _, h in ipairs(g.held) do cause[h.order.key] = h.cause end
+  local kept = {}
+  for _, c in ipairs(out) do
+    local why = cause[c.o.key]
+    if why then refuse(ctx, c.o.key, c.o.kind, c.o.item, why) else kept[#kept + 1] = c end
+  end
+  return kept
+end
+
 --- Toutes les options du plan courant.
 function Ca.options(ctx, plan, req)
   local D = ctx.D
@@ -1858,6 +1945,7 @@ function Ca.options(ctx, plan, req)
   lab_options(ctx, plan, out)
   power_options(ctx, plan, out)
   Lv.options(Ca, ctx, plan, req, out) -- lot LEVIERS : modules dans les machines posées, recherches à effet
+  if Ca.PORTE_RANG and Ca.RANG and ctx.rang then out = rank_gate(ctx, plan, req, out) end -- lot VIDEO-L2 (allumé à l'étape 8)
   table.sort(out, function(a, b) return Ca.before(a.o, b.o) end)
   -- Lot GISEMENTS (DC 31/10 : « la gestion des ressources […] on doit l'appliquer à toutes les ressources ») : la matière la plus en manque
   -- par rapport au besoin passe devant (cuivre, pierre, charbon comme le fer) ; laboratoires, courant et leviers gardent leur place.
@@ -2006,6 +2094,7 @@ function Ca.decide_begin(input, st)
   st = st or {}
   local ctx = prepare(input, st)
   local J = { st = st, ctx = ctx, units = 1, turn = 0, orders = {} }
+  if Ca.PORTE_RANG then ctx.last_item = st.last_item end -- lot VIDEO-L2 : anti-répétition d'une décision à l'autre
   J.plan = new_plan(ctx)
   J.req = Ca.requirements(ctx, J.plan)
   J.free_mu = free_stock_mu(ctx, J.req)
@@ -2132,6 +2221,7 @@ local function decide_turn(J)
   Ca.apply(ctx, plan, pick)
   if Ca.CAPPED[pick.kind] then Pf.take(J.caps, pick.item, { rate = pick.rate, n = pick.n }) end -- lot VIDEO-L13 : décision entière
   ctx.refus[pick.key] = nil
+  if Ca.PORTE_RANG then ctx.last_item = pick.item end -- lot VIDEO-L2 : objet du dernier ordre (anti-répétition)
   J.b_left = J.b_left - pick.cost_m
   J.l_left = J.l_left - (pick.work or 0)
   J.work_used = J.work_used + (pick.work or 0)
@@ -2149,6 +2239,7 @@ local function decide_report(J)
   -- Épargne : le stock libre paie d'abord (il est là), le reste vient de l'épargne du flux.
   local spent = budget - J.b_left
   st.bank = math.max(0, bank - math.max(0, spent - stock_part))
+  if Ca.PORTE_RANG then st.last_item = ctx.last_item end -- lot VIDEO-L2 : un nom (rien d'interdit dans global)
   -- Retour moyen (médiane) des ordres de ce cycle : il règle la croissance des cycles suivants.
   if #orders > 0 then
     local ts = {}
@@ -2188,7 +2279,7 @@ local function decide_report(J)
     reserve = ctx.reserve and true or nil, free_mu = J.free_mu, demande = ctx.dm,
     u_star = ctx.u_star, labs_target = ctx.lab_rate > 0 and math.ceil(ctx.u_star / ctx.lab_rate - Ca.EPS) or 0,
     coverage = coverage, bottleneck = bottleneck and { item = bottleneck, theta = theta } or nil, R = req.R,
-    open_n = #ctx.open,
+    open_n = #ctx.open, rstar = ctx.rstar, rang_held = ctx.rang_held, -- lot VIDEO-L2 : porte de rang (nil quand elle est éteinte)
     -- Étape 5a de VIDEO-INTEG (RD_LOG F391) : courant du plan quand le runtime donne input.power (sinon nil : rendu d'avant)
     kw = ctx.input.power and { have = plan.kw_have, used = plan.kw_used, nominal = plan.kw_nominal, blocked = Ca.blocked_kw(ctx) } or nil }
 end
@@ -2321,6 +2412,8 @@ function Ca.text(res)
     fmt(res.bank), fmt(res.stock_part), fmt(res.labor_used), fmt(res.labor), fmt(res.lambda), fmt(res.u_star),
     res.labs_target, res.open_n or 0, res.bottleneck and (res.bottleneck.item .. " " .. fmt(res.bottleneck.theta)) or "-",
     table.concat(parts, ", "), table.concat(cov, ", "), table.concat(rf, ", ")) .. rp
+    -- Lot VIDEO-L2 : la porte de rang (interrupteur éteint : rien d'écrit, la ligne est celle d'avant).
+    .. ((res.rstar ~= nil or (res.rang_held or 0) > 0) and string.format(" porte=[r*=%s retenus=%d]", tostring(res.rstar), res.rang_held or 0) or "")
 end
 
 --- Recherches à effet retenues (res.orders de la sorte « techno ») ou ouvertes : { [technologie] = valeur (35 à 50) }.

@@ -29,6 +29,7 @@
        liste présente → rendu identique à l'ancienne formule ; Ca.absent_input ; ses mutants sont dans §11.
     §18 lots VIDEO-L5 et VIDEO-L13 : capacité confirmée (n_cap, hold), suspension, plafond par objet, 30 décisions sans
        confirmation bornées, couvrir et ouvrir exemptées ; ses mutants sont dans §11. Témoin A/B : FO_CAPI_SRC et FO_CAPI_DUMP.
+    Étape 8 (L1b et L2 allumés) : FO_CAPI_RANG=0 (éteints) ou rang (le rang seul) ; FO_CAPI_DUMP_SIG=1 (signature des ordres).
   Usage : lua5.2 tests/ai3_capitalisation_test.lua   (depuis la racine du mod)
   Ce fichier est du TEST : il nomme les prototypes vanilla (comme le moteur) ; la règle n'en voit rien.
 ]]
@@ -45,6 +46,11 @@ local K = require("shared.ai3.catalogue")
 local Rp = require("shared.ai3.repli")
 local Tr = require("shared.faction.traits")
 local Pf = require("shared.ai3.plafonds") -- lot VIDEO-L13 (§17)
+-- Étape 8 d'INTEGRATION_VIDEO (L1b et L2 ALLUMÉS par défaut) : FO_CAPI_RANG=0 rejoue la suite interrupteurs ÉTEINTS (la décision
+-- d'avant), FO_CAPI_RANG=rang avec le rang seul, sans la porte ; absent : les défauts. Les mutants de §11 gardent ce choix.
+-- FO_CAPI_DUMP_SIG=1 (avec FO_CAPI_DUMP) : le témoin n'écrit que la signature des ordres et les retenues de la porte (A/B orders_sig).
+local AB_RANG, AB_SIG = os.getenv("FO_CAPI_RANG"), os.getenv("FO_CAPI_DUMP_SIG")
+if AB_RANG == "0" then Ca.RANG, Ca.PORTE_RANG = false, false elseif AB_RANG == "rang" then Ca.RANG, Ca.PORTE_RANG = true, false end
 
 local pass, fail = 0, 0
 local quiet = false
@@ -1814,10 +1820,36 @@ if AB_DUMP then -- témoin A/B (K6) : §1 à §17 seulement, rendus écrits, pui
   local fh = assert(io.open(AB_DUMP, "w"))
   local dec = Ca.decide
   local n = 0
+  -- Empreinte FNV-1a 32 bits (étape 8) : l'ENTRÉE d'une décision (input sans le livre, et st avant l'appel), pour savoir si un écart
+  -- vient de cette décision ou d'une décision d'avant de la même suite (épargne, ordres ouverts).
+  local function fnv(s)
+    local h = 2166136261
+    for i = 1, #s do
+      h = bit32.bxor(h, s:byte(i))
+      h = (bit32.lshift(h, 24) + h * 403) % 4294967296
+    end
+    return string.format("%08x", h)
+  end
   Ca.decide = function(input, st)
+    local entry
+    if AB_SIG then
+      -- (st.last_item, l'anti-répétition de la porte, est laissé hors de l'empreinte : son effet compte dans les retenues)
+      local data, last = input.data, st and st.last_item
+      input.data = nil
+      if st then st.last_item = nil end
+      entry = fnv(canon(input) .. canon(st or {}))
+      input.data = data
+      if st then st.last_item = last end
+    end
     local r = dec(input, st)
     n = n + 1
-    fh:write(input.power and "courant|" or "-|", canon(r), "\n") -- (étape 5a : rendus avec input.power marqués)
+    local line = canon(r)
+    if AB_SIG then
+      local t = {}
+      for _, o in ipairs(r.orders) do t[#t + 1] = string.format("%s|%d|%.17g", tostring(o.key), o.n or 0, o.cost_m or 0) end
+      line = "entree=" .. entry .. " | " .. table.concat(t, ";") .. " | retenues=" .. tostring(r.rang_held or 0)
+    end
+    fh:write(input.power and "courant|" or "-|", line, "\n") -- (étape 5a : rendus avec input.power marqués)
     return r
   end
   run_all()
@@ -2037,5 +2069,7 @@ do
     "§13 sans `short` : un but de fond, servi en dernier")
 end
 
+print(string.format("[CAPI] interrupteurs : Ca.RANG=%s, Ca.PORTE_RANG=%s (FO_CAPI_RANG=%s)", tostring(Ca.RANG), tostring(Ca.PORTE_RANG),
+  tostring(AB_RANG)))
 print(string.format("[CAPI] BILAN : %d OK, %d ECHEC(S) (dont %d mutants refusés sur %d)", pass, fail, n_caught, n_mut))
 if fail > 0 then os.exit(1) end
