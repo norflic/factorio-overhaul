@@ -21,6 +21,19 @@
     short = { { item, rank, option } } (manques ; option = vrai : une option existe pour le servir),
     deps = { [objet] = { [amont] = vrai } }, last = objet posé au tour précédent (ou nil) }.
   Aucun nom du jeu ; listes triées, causes départagées par (rang, nom) ; aucun pairs qui décide sans tri.
+
+  Lot VIDEO-ORDRE (7/11, lot 1 de la couverture ; DC : « dans le rang retenu, construire d'abord ce qui couvre le PLUS GROS manque
+  net mesuré […] ne pas reposer le même objet tant que le manque mesuré n'a pas bougé […] pas deux grosses unités de suite ») :
+    Pr.order(options, rstar, manque) -> ordonnées, anciennes : les options du rang retenu `rstar` changent de place ENTRE ELLES, au
+      plus gros manque net d'abord (arrondi au millionième), puis l'ancien ordre (retour Tq, profondeur, clé). Les autres options
+      gardent leur place : `ordonnees[j]` prend la place de `anciennes[j]` (Ca.before lit ces places) ;
+    Pr.tick / Pr.note / Pr.recent : mémoire des objets posés (st.posed, st.clock, des nombres) ; un objet posé n'est re-ordonné
+      que si le signal MESURÉ (view.mq.build) a bougé depuis la pose (Pr.SIG_MOVE) OU après Pr.RETRY_MIN minutes (= Cf.RETRY) ;
+      sans signal (L3 éteint) : jamais « récent », la règle d'avant ;
+    Pr.big / Pr.median / Pr.big_hold : une option dont le coût dépasse Pr.BIG_K fois la médiane des options est une grosse unité ;
+      la suivante d'un ordre qui en était une cède sa place à une autre option (si une autre existe).
+  Le manque net est celui de Ca.options (R − N − stock ÷ H_STOCK) : un FLUIDE se juge sur ses stocks (barils, cuves) exactement
+  comme un objet, aucune branche particulière.
 ]]
 
 local Pr = {}
@@ -88,6 +101,111 @@ function Pr.decide(input)
     allowed = kept
   end
   return { allowed = allowed, held = held, rstar = rstar }
+end
+
+---------------------------------------------------------------------------------------------------
+-- Lot VIDEO-ORDRE
+---------------------------------------------------------------------------------------------------
+Pr.BIG_K = 2        -- une option est une GROSSE unité quand son coût dépasse 2 fois la médiane des options du tour (donnée)
+Pr.RETRY_MIN = 5    -- minutes : un objet posé peut être re-ordonné après ce délai même si le signal n'a pas bougé (= Cf.RETRY ÷ 3600)
+Pr.SIG_MOVE = 0.5   -- le signal mesuré (objets par minute) a bougé quand il s'écarte de plus que cela de celui de la pose
+
+local function micro(x) return math.floor((x or 0) * 1e6 + 0.5) end
+
+local function sorted_keys(t)
+  local ks = {}
+  for k in pairs(t or {}) do ks[#ks + 1] = k end
+  table.sort(ks)
+  return ks
+end
+
+--- Ancien ordre des options (Ca.before) : retour (Tq, arrondi au millionième), profondeur (l'amont d'abord), clé.
+function Pr.old_before(a, b)
+  local at, bt = a.Tq or 0, b.Tq or 0
+  if at ~= bt then return at < bt end
+  local ad, bd = a.depth or 0, b.depth or 0
+  if ad ~= bd then return ad < bd end
+  return a.key < b.key
+end
+
+--- options = { { key, item, rank, Tq, depth } } (dans un ordre quelconque), rstar = rang retenu (nil : rien ne change),
+--- manque = { [objet] = manque net } (absent : 0). Rend (ordonnees, anciennes), deux listes des MÊMES options : `anciennes` est
+--- l'ancien ordre ; `ordonnees` le nouveau, où seules les options du rang retenu ont changé de place, entre elles.
+function Pr.order(options, rstar, manque)
+  local old = {}
+  for _, o in ipairs(options or {}) do old[#old + 1] = o end
+  table.sort(old, Pr.old_before)
+  if rstar == nil then return old, old end
+  local slots, at = {}, {}
+  for j, o in ipairs(old) do
+    if o.rank == rstar then slots[#slots + 1] = o at[#at + 1] = j end
+  end
+  if #slots < 2 then return old, old end
+  local m = manque or {}
+  table.sort(slots, function(a, b)
+    local am, bm = micro(m[a.item]), micro(m[b.item])
+    if am ~= bm then return am > bm end
+    return Pr.old_before(a, b)
+  end)
+  local new = {}
+  for j, o in ipairs(old) do new[j] = o end
+  for k, j in ipairs(at) do new[j] = slots[k] end
+  return new, old
+end
+
+--- Horloge de la mémoire des objets posés : `dt` minutes de plus ; oublie ce qui a plus de Pr.RETRY_MIN minutes.
+function Pr.tick(st, dt)
+  st.clock = (st.clock or 0) + (dt or 0)
+  for _, k in ipairs(sorted_keys(st.posed)) do
+    if st.clock - st.posed[k].at >= Pr.RETRY_MIN then st.posed[k] = nil end
+  end
+end
+
+--- L'objet vient d'être posé, le signal mesuré valait `sig` (nil : rien n'est mesuré, rien n'est retenu).
+function Pr.note(st, item, sig)
+  if item == nil or sig == nil then return end
+  st.posed = st.posed or {}
+  st.posed[item] = { sig = sig, at = st.clock or 0 }
+end
+
+--- Vrai quand l'objet a été posé il y a moins de Pr.RETRY_MIN minutes et que le signal mesuré n'a pas bougé depuis.
+function Pr.recent(st, item, sig)
+  if sig == nil or st == nil or st.posed == nil then return false end
+  local p = st.posed[item]
+  if p == nil then return false end
+  if (st.clock or 0) - p.at >= Pr.RETRY_MIN then return false end
+  return math.abs(sig - p.sig) <= Pr.SIG_MOVE
+end
+
+--- Coût `cost` d'une grosse unité par rapport à la médiane `median` des options (médiane nulle : aucune n'est grosse).
+function Pr.big(cost, median, k)
+  if cost == nil or median == nil or median <= 0 then return false end
+  return cost > (k or Pr.BIG_K) * median
+end
+
+--- Médiane (valeur inférieure quand le nombre est pair) d'une liste de nombres ; nil si vide.
+function Pr.median(values)
+  local v = {}
+  for _, x in ipairs(values or {}) do v[#v + 1] = x end
+  if #v == 0 then return nil end
+  table.sort(v)
+  return v[math.floor((#v + 1) / 2)]
+end
+
+--- Pas deux grosses unités de suite. items = { { key, cost } } ; last_big = l'ordre précédent en était une. Rend { [clé] = vrai }
+--- des options à retenir (les grosses, quand la précédente l'était) et la médiane jugée. L'option médiane n'est jamais grosse
+--- (coût > K × elle-même, K ≥ 1) : quand une option est retenue, une autre existe toujours pour prendre sa place.
+function Pr.big_hold(last_big, items, k)
+  local costs = {}
+  for _, it in ipairs(items or {}) do if it.cost ~= nil then costs[#costs + 1] = it.cost end end
+  local med = Pr.median(costs)
+  local hold = {}
+  if last_big then
+    for _, it in ipairs(items or {}) do
+      if Pr.big(it.cost, med, k) then hold[it.key] = true end
+    end
+  end
+  return hold, med
 end
 
 return Pr

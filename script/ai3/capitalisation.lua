@@ -1269,6 +1269,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     production_first = production_first,
     defense = defense_input(f, D), -- lot PREVISION (C12) : « oui, compter la défense » dans le coût de chaque investissement
     power = Capi.power_input(f, plant_state), -- étape 5a de VIDEO-INTEG : courant des centrales finies (nil : aucune borne, comme avant)
+    mq_build = view.mq and view.mq.build or nil, -- lot VIDEO-ORDRE : manque net MESURÉ par objet (L3) ; un objet posé n'est re-ordonné qu'une fois ce signal bougé (nil : règle d'avant)
   }, cex
 end
 
@@ -1824,6 +1825,7 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
     else
       refused[#refused + 1] = o.key .. " (" .. tostring(why) .. ")"
       cs.refused[o.key] = tick
+      if cs.st.posed and o.item ~= nil then cs.st.posed[o.item] = nil end -- lot VIDEO-ORDRE : un ordre refusé n'a rien posé, l'objet reste ordonnable
       -- lot LEVIERS : pas redemandé tout de suite (lot FUITES-PILE : sauf un refus de la pile, redemandé dès qu'elle se vide)
       if allowed and (o.kind == "equiper" or o.kind == "techno") then hold(cs, o.key, why, tick) end
       -- l'ordre n'a rien coûté : l'épargne débitée par la règle lui est rendue
