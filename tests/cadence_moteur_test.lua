@@ -6,6 +6,7 @@
     §2 RÉVEIL : le joueur entre dans la zone de la faction endormie : elle repense AU TICK SUIVANT (le premier tick joué après son
        arrivée), puis reprend la période de 300 tant qu'il reste ; journal « NORMALE (joueur proche) » ;
     §3 PERTE : une entité de la faction meurt loin de tout : la faction endormie repense au tick suivant (cause « perte ») ;
+    §3 bis ARMÉE DEHORS (condition du lead) : une attaque en préparation (f.route_pending) tient la faction au rythme de 300 ;
     §4 votre équipe garde son rythme (aucune cadence posée sur elle) ; Commander.CADENCE faux : une pensée par créneau ;
     §5 mutant « jamais réveillée » (Cd.wake rend toujours faux) : le §2 échoue (la faction attend son créneau).
   Usage : lua5.2 tests/cadence_moteur_test.lua   (depuis la racine du mod)
@@ -96,6 +97,16 @@ local function scenes()
   f.lost_t = T3 -- (ce qu'écrit on_died pour toute entité de la faction : la mort elle-même est jouée par le moteur réel)
   M.run_ticks(1)
   check(f.last_think == T3 + 1, string.format("§3 : perte : la faction repense au tick suivant (%s, attendu %d)", tostring(f.last_think), T3 + 1))
+  -- §3 bis armée dehors : le joueur reste loin, aucune alerte, mais une attaque est en préparation (itinéraire demandé).
+  M.run_ticks(Cd.ALERT + 10)
+  f.threatened_until, f.attack_alert_t, f.lost_t = 0, nil, nil
+  local saved = f.route_pending
+  f.route_pending = { ticket = -1, target_faction = -1, test = true }
+  local th3 = thinks_over(1300)
+  f.route_pending = saved
+  local every = #th3 >= 4
+  for i = 2, #th3 do if th3[i] - th3[i - 1] > 300 then every = false end end
+  check(every, "§3 bis : armee dehors : rythme normal, aucun ecart au-dela de 300 (" .. table.concat(th3, " ") .. ")")
 end
 
 scenes()
