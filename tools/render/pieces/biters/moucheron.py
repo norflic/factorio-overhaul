@@ -10,6 +10,10 @@ DENSITE = 340.0
 CREUX = 0.016
 AO = 0.075
 ETIQUETTE = "Moucheron"
+SERIE = {"course": 6, "attaque": 3, "densite": 340.0, "R": 0.54, "zmax": 0.56}   # lot BI-V1 : images, densité, rayon et hauteur du cadre
+K_JEU = 4.23           # unités du modèle -> tuiles = K_JEU × échelle de jeu (0,94 tuile de pattes à pattes à l'échelle 0,3 du palier 1)
+FOULEE = 0.548         # tuiles du modèle par cycle : pied d'appui fixe au sol
+MASQUE = ("carapace",) # ce que la lueur d'évolution éclaire
 ECHELLE_Z1 = 1.3      # k = 0,6 du small-biter (PLAN §5 ter), soit 0,96 tuile de pattes à pattes
 
 PALETTES = {
@@ -42,13 +46,19 @@ def _aile(rep, L, W, graine):
     return Fn(fn, rep, k=0.004)
 
 
-def construire(phase=0.0):
+def construire(phase=0.0, attaque=None):
     f = sdf.Forme(NOM, ((-0.64, -0.60, -0.01), (0.66, 0.60, 0.78)), 0.004)
     f.marge = 0.03
+    pa = phase
+    ou = 0.0
+    if attaque is not None:           # morsure : pattes fixes, le corps plonge vers l'avant, mandibules grandes ouvertes
+        phase = 0.14
+        pa = attaque
+        ou = float(np.sin(np.pi * attaque))
     t = 2.0 * np.pi * phase
     # Le corps BONDIT : tangage et rebond forts, c'est ce qui se lit à zoom 1.
-    corps = Repere((0.012 * np.sin(2 * t), 0.0, 0.215 + 0.034 * np.cos(2 * t)), rot_y(-0.20 + 0.07 * np.sin(2 * t)) @ rot_x(0.05 * np.sin(t)))
-    tete = corps.compose((0.155, 0.0, 0.015), rot_y(0.30 + 0.05 * np.cos(2 * t)))
+    corps = Repere((0.012 * np.sin(2 * t) + 0.050 * ou, 0.0, 0.215 + 0.034 * np.cos(2 * t) - 0.040 * ou), rot_y(-0.20 + 0.07 * np.sin(2 * t) + 0.36 * ou) @ rot_x(0.05 * np.sin(t)))
+    tete = corps.compose((0.155, 0.0, 0.015), rot_y(0.30 + 0.05 * np.cos(2 * t) + 0.16 * ou))
 
     carapace = f.groupe("carapace", k=0.012)
     chair = f.groupe("chair", k=0.012)
@@ -75,7 +85,7 @@ def construire(phase=0.0):
     for s in (-1.0, 1.0):
         m0 = tete.monde((0.105, 0.045 * s, -0.045))
         m1 = tete.monde((0.190, 0.058 * s, -0.052))
-        m2 = tete.monde((0.235, 0.010 * s, -0.068))
+        m2 = tete.monde((0.235, (0.010 + 0.040 * ou) * s, -0.068))
         griffes.append(Os(m0, m1, 0.0270, 0.0170, k=0.008, g0=0.2, g1=0.7, graine=3 * s))
         griffes.append(Os(m1, m2, 0.0170, 0.0040, k=0.005, g0=0.7, g1=1.0, graine=5 * s))
         # antennes courtes, coudées
@@ -141,7 +151,7 @@ def construire(phase=0.0):
     # Deux moignons par côté ; battement rapide (dérive 3 fois par foulée) : c'est leur signature.
     for s in (-1.0, 1.0):
         for ia, (rx0, L, W, azim, leve, dep) in enumerate(((0.010, 0.225, 0.074, -0.70, 0.46, 0.0), (-0.040, 0.150, 0.052, -1.42, 0.26, 0.30))):
-            bat = np.sin(2.0 * np.pi * (phase * 3.0 + dep + (0.08 if s > 0 else 0.0)))
+            bat = np.sin(2.0 * np.pi * (pa * 3.0 + dep + (0.08 if s > 0 else 0.0)))
             base = corps.monde((rx0, 0.058 * s, 0.100))
             R = corps.R @ rot_z(s * (np.pi * 0.5 + azim * -1.0)) @ rot_x(s * (leve + 0.48 * bat))
             rep = Repere(base, R)
