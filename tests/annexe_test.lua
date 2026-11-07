@@ -454,6 +454,32 @@ do
   local put7 = Stock.insert(g6, "stone", ss * 3, DEP)
   check(put7 == ss * 3 and an6.items.stone == ss * 2 and g6.hq.items.stone == ss and g6.hq.get_inventory().count_empty_stacks() == 5,
     "non vitale : l'annexe d'abord, puis le QG au-dela de sa reserve (" .. put7 .. ", QG vides " .. g6.hq.get_inventory().count_empty_stacks() .. ")")
+  -- D1 (relecture revue-0659) : annexe pleine, QG dans sa reserve (3 cases vides sur 20), cuivre DEMANDE 2 piles : il entre au depot
+  -- jusqu'a la quantite demandee, pas au-dela ; temoin sans demande : refuse (reserve gardee au fer et au charbon)
+  local cs = STACK["copper-plate"] or 50
+  local function scene_d1()
+    local h = team(20)
+    readable(h.hq)
+    local an = new_chest(10)
+    readable(an)
+    h.annex = { an }
+    h.hq.items.coal = (STACK.coal or 50) * 17
+    an.items.coal = (STACK.coal or 50) * 10
+    return h
+  end
+  local t0 = scene_d1()
+  check(Stock.insert(t0, "copper-plate", 3 * cs, DEP) == 0 and t0.hq.get_inventory().count_empty_stacks() == 3,
+    "D1 temoin : cuivre non demande, annexe pleine, QG dans sa reserve : refuse")
+  local h1 = scene_d1()
+  h1.team = { ia3 = { short = { ["copper-plate"] = 2 * cs } } }
+  local d1 = Stock.insert(h1, "copper-plate", 3 * cs, DEP)
+  check(d1 == 2 * cs and h1.hq.items["copper-plate"] == 2 * cs and h1.hq.get_inventory().count_empty_stacks() == 1,
+    "D1 : cuivre demande (2 piles) mais refuse jusqu'ici : 2 piles entrent dans la reserve, pas 3 (" .. d1 .. ")")
+  local d2 = Stock.insert(h1, "copper-plate", cs, DEP)
+  check(d2 == 0, "D1 : au-dela de la quantite demandee (demande inchangee, deja entree) : refuse (" .. d2 .. ")")
+  h1.team = { missing = { { "copper-plate", cs } } } -- pensee suivante : la demande recomptee nette du stock
+  local d3 = Stock.insert(h1, "copper-plate", 2 * cs, DEP)
+  check(d3 == cs and h1.hq.get_inventory().count_empty_stacks() == 0, "D1 : demande recomptee (objectif, 1 pile) : 1 pile de plus (" .. d3 .. ")")
   f.team = { ia3 = { saturated = { stone = true } } }
   local skip = Stock.skip_fn(f)
   check(skip ~= nil and skip("stone") and skip("copper-plate") and not skip("coal") and not skip("iron-plate"),

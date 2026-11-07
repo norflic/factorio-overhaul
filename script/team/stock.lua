@@ -49,6 +49,18 @@ function Stock.ANNEX_ITEM(item) return ANNEX[item] == true end
 Stock.REFUSED_LOG = 3600 -- ticks entre deux lignes « dépôt refusé » d'une équipe
 local place_held -- (défini plus bas : il lit l'emprise et la face du bloc des annexes)
 
+-- Minerai et plaque de chaque avant-poste (Sg.demanded : une plaque demandée garde son minerai au minage à la main, et l'inverse).
+local LINKS = {}
+for _, k in ipairs(T.OUTPOST_ORDER) do LINKS[#LINKS + 1] = { T.outposts[k].resource, T.outposts[k].product } end
+
+--- Lot STOCKAGE-VITAL : matières que l'équipe demande en ce moment { [objet] = q } (manque mesuré du cerveau, manque de l'objectif
+--- courant ; nets du stock) : jamais écartées du ramassage (Stock.skip_fn), reçues au dépôt jusqu'à q (Stock.insert).
+local function demanded(f)
+  local team = f.team
+  local ia3 = team and team.ia3
+  return Sg.demanded(ia3 and ia3.short, team and team.missing, LINKS)
+end
+
 --- Annexes valides (la liste est purgée des entités disparues).
 function Stock.annexes(f)
   local a = f.annex
@@ -145,11 +157,24 @@ function Stock.fill(f)
   return totals(f)
 end
 
+-- Dépôt ordinaire de `k` objets : coffre du QG d'abord, puis les annexes (sans réserve). Rend le nombre déposé.
+local function plain_insert(f, item, k)
+  local put = k > 0 and f.hq.insert({ name = item, count = k }) or 0
+  if put < k then
+    for _, e in ipairs(Stock.annexes(f)) do
+      put = put + e.insert({ name = item, count = k - put })
+      if put >= k then break end
+    end
+  end
+  return put
+end
+
 --- Dépose jusqu'à `n` objets (coffre du QG d'abord, puis les annexes) ; rend le nombre déposé.
 --- opts.reserve (lot STOCKAGE-VITAL) : la réserve des vitales s'applique (une matière non vitale ne prend pas les dernières cases).
 --- SEUL le dépôt d'un PNJ au QG la demande (script/team/worker.lua, deposit_inventory : ce qui est refusé reste en poche). Tout autre
 --- appelant (remboursement d'un script, retour d'une prise, rangement) garde l'ancien chemin : relecture revue-0659 du 7/11, un objet
 --- non vital pris puis rendu tombait sur une case libérée DANS la réserve, était refusé, et l'appelant qui ignore le retour le perdait.
+--- Une matière DEMANDÉE en ce moment entre dans la réserve comme une vitale, jusqu'à la quantité demandée (relecture revue-0659, D1).
 function Stock.insert(f, item, n, opts)
   local want, put = n, 0
   local plan = opts and opts.reserve and not VITAL[item] and not ANNEX[item] and non_vital_plan(f, item, n) or nil
@@ -169,14 +194,24 @@ function Stock.insert(f, item, n, opts)
       local k = math.min(want - put, plan.news[j])
       if k > 0 then put = put + plan.ents[j].insert({ name = item, count = k }) end
     end
-  else
-    put = want > 0 and f.hq.insert({ name = item, count = want }) or 0
-    if put < want then
-      for _, e in ipairs(Stock.annexes(f)) do
-        put = put + e.insert({ name = item, count = want - put })
-        if put >= want then break end
+    -- Relecture revue-0659 (D1) : une matière DEMANDÉE (Stock.skip_fn la laisse ramasser et miner) prend la réserve comme une vitale,
+    -- au plus la quantité demandée (f.stock_dem[objet], Sg.demand_room) : refusée, elle restait en poche et la demande, nette du stock,
+    -- ne baissait jamais.
+    if put < n then
+      local room, rec = Sg.demand_room(f.stock_dem and f.stock_dem[item], demanded(f)[item])
+      local k = math.min(n - put, room)
+      if k > 0 then
+        local got = plain_insert(f, item, k)
+        put, want = put + got, want + got
+        rec.used = rec.used + got
+      end
+      if rec then
+        f.stock_dem = f.stock_dem or {}
+        f.stock_dem[item] = rec
       end
     end
+  else
+    put = plain_insert(f, item, want)
   end
   -- Lot STOCKAGE-VITAL : un coffre que le stock plein refuse est posé en annexe (le PNJ qui le porte ne le garde pas en poche).
   if put < n and ANNEX[item] then put = put + place_held(f, item, n - put) end
@@ -479,21 +514,16 @@ function Stock.urgent(f)
   return Sg.urgent(used / size, have > 0, T.stockage)
 end
 
--- Minerai et plaque de chaque avant-poste (Sg.demanded : une plaque demandée garde son minerai au minage à la main, et l'inverse).
-local LINKS = {}
-for _, k in ipairs(T.OUTPOST_ORDER) do LINKS[#LINKS + 1] = { T.outposts[k].resource, T.outposts[k].product } end
-
 --- Lot STOCKAGE-VITAL : prédicat « ne pas ramasser `objet` » aux avant-postes (non vitale saturée par le cerveau, ou toute non vitale
 --- quand le stock est rempli à T.stockage.stop_at ; jamais une matière demandée en ce moment), ou nil quand rien n'est écarté.
 function Stock.skip_fn(f)
   if not (f.hq and f.hq.valid) then return nil end
   local used, size = totals(f)
   if size <= 0 then return nil end
-  local team = f.team
-  local ia3 = team and team.ia3
+  local ia3 = f.team and f.team.ia3
   -- relecture du 7/11 : jamais une matière que l'équipe demande en ce moment (manque mesuré du cerveau, manque de l'objectif
   -- courant ; nets du stock), même stock presque plein et plafond d'annexes atteint
-  local need = Sg.demanded(ia3 and ia3.short, team and team.missing, LINKS)
+  local need = demanded(f)
   local set = Sg.skip(ia3 and ia3.saturated, used / size, VITAL, T.stockage, ia3 and ia3.other_short, need)
   if next(set) == nil then return nil end
   return function(item) return Sg.skipped(set, item, VITAL) end

@@ -12,7 +12,9 @@
                                                 stop_stone de la sortie de spirale, shared/team/spirale.lua, qui s'y ramène), et toutes
                                                 les non vitales quand le stock est rempli à cfg.stop_at ou plus (ensemble { [objet] = true }) ;
                                                 jamais une matière de `need` (Sg.demanded), même stock presque plein
-    Sg.demanded(short, missing, links)          matières demandées en ce moment (manque mesuré, manque de l'objectif ; plaque <-> minerai)
+    Sg.demanded(short, missing, links)          matières demandées en ce moment et leur quantité (manque mesuré, manque de l'objectif ;
+                                                plaque <-> minerai) : { [objet] = q }
+    Sg.demand_room(rec, q)                      part d'une matière demandée qui peut encore entrer dans la réserve des vitales (borne q)
     Sg.urgent(fill, have_chest, cfg)            vrai : coffre à réclamer en urgence (rempli à cfg.urgent_at ou plus, aucun en main)
   `fill` = cases prises / cases ; `vital` = { [objet] = true } ; `saturated` = { [objet] = true } (cerveau, f.team.ia3.saturated).
   Données : T.stockage (shared/team/config.lua).
@@ -40,19 +42,33 @@ end
 --- pas arrêter le cuivre que l'équipe attend) : manque brut mesuré du cerveau (`short` = { [objet] = n }, f.team.ia3.short, net du
 --- stock) et manque de l'objectif courant (`missing` = { {objet, n}, ... }, f.team.missing, net du stock lui aussi) ; une plaque
 --- demandée rend son minerai demandé, et l'inverse (`links` = { {minerai, plaque}, ... }, T.outposts : le minage à la main vise le
---- minerai, le ramassage des avant-postes la plaque). Ensemble { [objet] = true } (l'ordre de pairs ne change pas un ensemble).
+--- minerai, le ramassage des avant-postes la plaque). Rend { [objet] = q } : la plus grande des quantités demandées (les deux manques se
+--- recouvrent : celui de l'objectif est une part du manque brut), q partagée par la plaque et son minerai (1 pour 1, fonte vanilla) ;
+--- l'ordre de pairs ne change pas le résultat (maximum).
 function Sg.demanded(short, missing, links)
   local out = {}
   for item, n in pairs(short or {}) do
-    if type(n) == "number" and n > 0 then out[item] = true end
+    if type(n) == "number" and n > 0 then out[item] = math.max(out[item] or 0, n) end
   end
   for _, m in ipairs(missing or {}) do
-    if type(m[1]) == "string" and (tonumber(m[2]) or 0) > 0 then out[m[1]] = true end
+    local n = tonumber(m[2]) or 0
+    if type(m[1]) == "string" and n > 0 then out[m[1]] = math.max(out[m[1]] or 0, n) end
   end
   for _, l in ipairs(links or {}) do
-    if out[l[1]] or out[l[2]] then out[l[1]], out[l[2]] = true, true end
+    local q = math.max(out[l[1]] or 0, out[l[2]] or 0)
+    if q > 0 then out[l[1]], out[l[2]] = q, q end
   end
   return out
+end
+
+--- Relecture revue-0659 (D1) : une matière demandée entre au dépôt dans la réserve des vitales, comme une vitale, jusqu'à la quantité
+--- demandée `q` et pas au-delà (sinon elle mangerait la réserve du fer et du charbon). `rec` = { q = quantité lue, used = déjà entrée
+--- dans la réserve pour elle } : remis à zéro quand la demande change (le cerveau la recompte NETTE du stock à chaque pensée : la somme
+--- des dépôts d'une même pensée ne dépasse pas q). Rend (place, rec) ; (0, rec) sans demande.
+function Sg.demand_room(rec, q)
+  if not q or q <= 0 then return 0, rec end
+  if not rec or rec.q ~= q then rec = { q = q, used = 0 } end
+  return math.max(0, q - rec.used), rec
 end
 
 function Sg.skip(saturated, fill, vital, cfg, short, need)

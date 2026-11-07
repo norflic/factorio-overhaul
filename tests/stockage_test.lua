@@ -43,10 +43,19 @@ local function suite(Sg)
   -- relecture du 7/11 : jamais une matière DEMANDÉE en ce moment (manque mesuré du cerveau, manque de l'objectif), même stock à 90 %
   local LINKS = { { "iron-ore", "iron-plate" }, { "copper-ore", "copper-plate" }, { "stone", "stone" } }
   local need = Sg.demanded({ ["copper-plate"] = 40, stone = 0 }, { { "site:copper", 1 }, { "wood", 0 } }, LINKS)
-  c("demande : cuivre manquant, son minerai aussi", need["copper-plate"] == true and need["copper-ore"] == true)
+  c("demande : cuivre manquant (40), son minerai aussi", need["copper-plate"] == 40 and need["copper-ore"] == 40)
   c("demande : un manque nul ne compte pas (pierre a 0, bois a 0), le fer non plus", need.stone == nil and need.wood == nil and need["iron-ore"] == nil)
-  c("demande : le manque de l'objectif compte", Sg.demanded(nil, { { "iron-gear-wheel", 12 } }, LINKS)["iron-gear-wheel"] == true)
-  c("demande : minerai qui manque -> sa plaque aussi", Sg.demanded({ ["copper-ore"] = 5 }, nil, LINKS)["copper-plate"] == true)
+  c("demande : le manque de l'objectif compte", Sg.demanded(nil, { { "iron-gear-wheel", 12 } }, LINKS)["iron-gear-wheel"] == 12)
+  c("demande : minerai qui manque -> sa plaque aussi", Sg.demanded({ ["copper-ore"] = 5 }, nil, LINKS)["copper-plate"] == 5)
+  c("demande : la plus grande des deux quantites (cerveau 40, objectif 60)", Sg.demanded({ ["copper-plate"] = 40 }, { { "copper-plate", 60 } }, LINKS)["copper-plate"] == 60)
+  -- D1 (relecture revue-0659) : au depot, une matiere demandee prend la reserve jusqu'a la quantite demandee, pas au-dela
+  local r1, rec1 = Sg.demand_room(nil, 200)
+  c("borne : demande neuve de 200 -> 200 en reserve", r1 == 200 and rec1.q == 200 and rec1.used == 0)
+  local r2 = Sg.demand_room({ q = 200, used = 200 }, 200)
+  c("borne : 200 deja entres a demande inchangee -> 0 (au-dela de la quantite demandee)", r2 == 0)
+  local r3, rec3 = Sg.demand_room({ q = 200, used = 200 }, 100)
+  c("borne : demande recomptee a 100 -> 100, compte remis a zero", r3 == 100 and rec3.used == 0 and rec3.q == 100)
+  c("borne : sans demande -> 0", Sg.demand_room({ q = 200, used = 0 }, nil) == 0 and Sg.demand_room(nil, 0) == 0)
   local sk9 = Sg.skip({ stone = true }, 0.9, V, CFG, true, need)
   c("stock a 90 %, cuivre demande : cuivre ramasse et mine", Sg.skipped(sk9, "copper-plate", V) == false and Sg.skipped(sk9, "copper-ore", V) == false)
   c("stock a 90 %, cuivre demande : pierre et bois toujours ecartes", Sg.skipped(sk9, "stone", V) == true and Sg.skipped(sk9, "wood", V) == true)
@@ -78,8 +87,11 @@ do
     and op:find("function Outposts.service(o, carrier, tick, fill, skip)", 1, true) ~= nil)
   check("cablage : la tournee passe Stock.skip_fn", wk:find("Stock.skip_fn and Stock.skip_fn(f))", 1, true) ~= nil)
   check("cablage : Stock.skip_fn passe les matieres demandees (manque du cerveau, manque de l'objectif)",
-    sk:find("local need = Sg.demanded(ia3 and ia3.short, team and team.missing, LINKS)", 1, true) ~= nil
+    sk:find("return Sg.demanded(ia3 and ia3.short, team and team.missing, LINKS)", 1, true) ~= nil and sk:find("local need = demanded(f)", 1, true) ~= nil
     and sk:find("T.stockage, ia3 and ia3.other_short, need)", 1, true) ~= nil)
+  check("cablage D1 : au depot, la matiere demandee prend la reserve, bornee (Sg.demand_room, f.stock_dem)",
+    sk:find("local room, rec = Sg.demand_room(f.stock_dem and f.stock_dem[item], demanded(f)[item])", 1, true) ~= nil
+    and sk:find("rec.used = rec.used + got", 1, true) ~= nil)
   check("cablage : Stock.insert borne les non vitales (Sg.new_stacks, reserve au seul coffre du QG), pas les coffres d'annexe", sk:find("local allowed = Sg.new_stacks(item, em, #hq_inv, VITAL, T.stockage)", 1, true) ~= nil
     and sk:find("local plan = opts and opts.reserve and not VITAL[item] and not ANNEX[item] and non_vital_plan(f, item, n) or nil", 1, true) ~= nil
     and wk:find("local moved = Stock.insert(f, name, n, DEPOSIT_OPTS)", 1, true) ~= nil and wk:find("local DEPOSIT_OPTS = { reserve = true }", 1, true) ~= nil)
@@ -254,9 +266,12 @@ local MUT = {
   { "vitale saturee plus ramassee", "if not vital[item] and not need[item] then out[item] = true end", "if not need[item] then out[item] = true end" },
   { "demande ignoree (stock presque plein)", "  if set.__keep and set.__keep[item] then return false end\n", "" },
   { "demande ignoree (saturee)", "if not vital[item] and not need[item] then out[item] = true end", "if not vital[item] then out[item] = true end" },
-  { "demande ignoree (plaque sans son minerai)", "    if out[l[1]] or out[l[2]] then out[l[1]], out[l[2]] = true, true end", "" },
-  { "manque nul compte comme demande", "    if type(n) == \"number\" and n > 0 then out[item] = true end", "    if type(n) == \"number\" then out[item] = true end" },
-  { "manque de l'objectif ignore", "    if type(m[1]) == \"string\" and (tonumber(m[2]) or 0) > 0 then out[m[1]] = true end", "" },
+  { "demande ignoree (plaque sans son minerai)", "    if q > 0 then out[l[1]], out[l[2]] = q, q end", "" },
+  { "quantites additionnees au lieu du maximum", "out[m[1]] = math.max(out[m[1]] or 0, n) end", "out[m[1]] = (out[m[1]] or 0) + n end" },
+  { "au-dela de la quantite demandee (borne ignoree)", "  return math.max(0, q - rec.used), rec", "  return q, rec" },
+  { "demande jamais recomptee (compte jamais remis a zero)", "  if not rec or rec.q ~= q then rec = { q = q, used = 0 } end", "  if not rec then rec = { q = q, used = 0 } end" },
+  { "manque nul compte comme demande", "    if type(n) == \"number\" and n > 0 then out[item] = math.max(out[item] or 0, n) end", "    if type(n) == \"number\" then out[item] = math.max(out[item] or 0, n) end" },
+  { "manque de l'objectif ignore", "    if type(m[1]) == \"string\" and n > 0 then out[m[1]] = math.max(out[m[1]] or 0, n) end", "" },
   { "saturee ecartee meme quand rien ne manque", "  if short ~= false then\n", "  if true then\n" },
   { "stock presque plein ignore", "  out.__all_non_vital = (fill or 0) >= cfg.stop_at or nil", "  out.__all_non_vital = nil" },
   { "seuil de plein a l'envers", "(fill or 0) >= cfg.stop_at", "(fill or 0) > cfg.stop_at" },
