@@ -48,6 +48,13 @@ local AGE3 = { { "assembling-machine-1", 10 }, { "long-handed-inserter", 10 } }
 -- Artefact du banc, pas de réservation de tâche. 3e version (accordée par le lead ; coffre seul au lieu des 100 plaques, proposé au vu du
 -- diagnostic le 7/11 vers 21 h 05) : CE coffre seul est posé, contrôle à part ; le fer reste à 0 (cas B).
 local PLANT_IRON = { { "iron-chest", 1 } }
+-- 3e version (9143c6dc, 7/11 21:11) : témoin 17 OK (prémisse reproduite), lot 16 OK 3 ECHEC : dès 0,3 min la pile est « ameliorer SUSPENDU »
+-- (« noyau non couvert (manque iron-plate 74) », poste de défense à 34 fer) ; les 2 modules de banc sont suspendus, Build.reserve_suspended
+-- VIDE leurs manques, et la règle 8 (Ca.seat_plate, sur les MANQUES des ordres ouverts) ne voit rien ; ils gardent leurs emplacements
+-- jusqu'à Em.PILE_HOLD (5 min, règle 5). LIMITE de la règle 8 : elle ne couvre que « noyau couvert, modules affamés de fer » ; le fer à 0
+-- complet relève de la pile et de la règle 5. 4e version (choix (A) du lead) : 100 plaques de fer au coffre (plus que le manque du
+-- noyau, 74 ; bien moins qu'Em.PER_SLOT, 1000) : la pile laisse « ameliorer », les modules attendent le fer AVEC leurs manques.
+local IRON_SEED = 100
 
 local function set_setting(ctx, name, value)
   local v = ctx.call("war_setting", name, value)
@@ -126,6 +133,9 @@ return function(temoin)
         local putc = ctx.remote("fo-ind", "stock", st.key, PLANT_IRON)
         ctx.check(inv ~= nil and putc ~= nil and (putc["iron-chest"] or 0) >= 1 and inv.get_item_count("iron-plate") == 0,
           "coffre de fer du quai de la centrale pose (1 ; diagnostic 1467ad2a), fer toujours a 0", putc and tostring(putc["iron-chest"]) or "nil")
+        local puti = ctx.remote("fo-ind", "stock", st.key, { { "iron-plate", IRON_SEED } })
+        ctx.check(inv ~= nil and puti ~= nil and (puti["iron-plate"] or 0) == IRON_SEED and inv.get_item_count("iron-plate") == IRON_SEED,
+          "fer pose : " .. IRON_SEED .. " plaques (plus que le manque du noyau, 74 ; moins qu'Em.PER_SLOT)", inv and tostring(inv.get_item_count("iron-plate")) or "nil")
         local left = {}
         local cont = inv and inv.get_contents() or {}
         local names = {}
