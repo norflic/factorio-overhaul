@@ -1830,8 +1830,9 @@ local function s20()
   check(find(lu, "couvrir:d1") ~= nil, "§20 C5.4 : capacité lue (1 000 kW) : les foreuses sont décidées")
   check(r1.kw ~= nil and r1.kw.have == 0, "§20 C5.4 : le courant rendu reste celui d'avant (capacité 0)")
   -- les cycles de la décision sont rendus pour l'amorce (C5.1) ; aucun sans cycle
-  check(base.rang_cycles ~= nil and type(base.rang_cycles.seed) == "table" and next(base.rang_cycles.seed) == nil,
-    "§20 C5.1 : sans cycle, la décision ne rend aucune graine de cycle")
+  -- (intégrateur, 7/11 23 h 55 : sans cycle ni graine, le champ est absent, pour garder l'identité rang allumé / éteint de
+  -- rang_cablage_test §2 ; le cas AVEC cycle est contrôlé par amorce_test et amorce_glue_test)
+  check(base.rang_cycles == nil, "§20 C5.1 : sans cycle, la décision ne rend aucune graine de cycle (champ absent)")
 end
 
 local function run_all()
