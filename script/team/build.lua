@@ -3931,18 +3931,6 @@ local function out_wanted(f, p, chest)
   return false
 end
 
---- Lot INDUSTRIE I6 (relecture 0.6.31) : la sortie d'un bloc de mall se vide-t-elle vers le QG ? p.keep_stock = { [objet] = stock du QG visé } : au-delà,
---- le PNJ la laisse, le coffre monte à sa barre et la machine s'arrête seule. Sans cette borne, la collecte (seuil 5) vidait le coffre à chaque
---- voyage : la barre n'était jamais atteinte et le mall changeait tout le stock en pièces, en occupant les PNJ. Un objet hors de la table : collecté.
-local function out_wanted(f, p, chest)
-  local keep = p.keep_stock
-  if not keep then return true end
-  for _, it in ipairs(sorted_keys(chest.get_inventory(defines.inventory.chest).get_contents())) do
-    if keep[it] == nil or Stock.count(f, it) < keep[it] then return true end
-  end
-  return false
-end
-
 --- Tâches de COLLECTE des coffres de sortie d'un projet (une par coffre au seuil). Lot COLLECTE : appelée aussi pour un projet qui n'est ni
 --- « fini » ni « chantier » (bande du champ « reserve:pile », « refuse:migration »... dont les coffres posés se remplissent encore : journal du
 --- DC du 7/11, 8 coffres au seuil de 159 à 174 min) ; un coffre absent (rien de bâti) est ignoré.
