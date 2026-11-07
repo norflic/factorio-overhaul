@@ -858,12 +858,15 @@ function Ia3.plan_a(f, view, book, surface, tick)
     home = home, auto = auto }
 end
 
---- Tranche E1b : la capitalisation seule (sa plus grosse pièce, capi:decide, ne se coupe pas : une décision entière par tick).
-function Ia3.plan_capi(f, view, book, tick, L)
+--- Tranche E1b : la capitalisation seule. Lot CAPI-DECIDE : sa décision (capi:decide) se joue en tranches, une par tick ; rend
+--- (nil, true) tant qu'elle attend sa tranche suivante (E1b se rejoue au tick d'après). `run` : nil (tout tout de suite) ou
+--- { t = tick de la pensée, rush = vrai pour tout finir d'un coup }.
+function Ia3.plan_capi(f, view, book, tick, L, run)
   -- Lot CAPIB : la capitalisation (une étape par pensée, décision une fois par minute) ; nil réglage éteint.
   Profiler.fstart("ia3:capi")
-  local capi = Capi.think(f, view, book, tick, L.research, L.w)
+  local capi = Capi.think(f, view, book, tick, L.research, L.w, run)
   Profiler.fstop("ia3:capi")
+  if capi == Capi.PENDING then return nil, true end
   return capi
 end
 

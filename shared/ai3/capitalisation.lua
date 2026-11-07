@@ -1951,58 +1951,76 @@ end
 --- st : état persistant de la règle (nombres et tables : bank, T_hist, sink_t, u_target). Rend { orders, refus,
 --- explore, s, delta, alpha, tmax, g, lambda, Y, K, budget, bank, flow_part, stock_part, spent, labor, labor_used,
 --- u_star, labs_target, coverage, bottleneck, R, open_n }.
-function Ca.decide(input, st)
+--- Lot CAPI-DECIDE (7/11 ; critères : fo-logs/2026-11-07_CAPI-DECIDE/CRITERES.md) : la décision en UNITÉS de travail, reprenable.
+--- J = travail en cours, table EN MÉMOIRE seulement (contexte, plan, besoins, ordres : des références au livre de données D, jamais
+--- dans global). Unité 1 : Ca.decide_begin (contexte, plan, besoins, budget) ; puis Ca.decide_step : un tour de la boucle des ordres
+--- par appel, puis le compte rendu (J.res). Ca.decide enchaîne toutes les unités d'un appel : même calcul, même ordre qu'avant.
+--- `st` est écrit par prepare (dm, sink_t, u_target) et par le compte rendu (bank, T_hist) : l'appelant qui découpe passe une COPIE.
+function Ca.decide_begin(input, st)
   st = st or {}
   local ctx = prepare(input, st)
-  local plan = new_plan(ctx)
-  local req = Ca.requirements(ctx, plan)
-  local free_mu = free_stock_mu(ctx, req)
-  local budget, bank, stock_part = Ca.budget(ctx.ch, ctx.Y, free_mu, ctx.dt, st.bank, ctx.reserve)
-  local b_left, l_left, work_used = budget, ctx.labor, 0
+  local J = { st = st, ctx = ctx, units = 1, turn = 0, orders = {} }
+  J.plan = new_plan(ctx)
+  J.req = Ca.requirements(ctx, J.plan)
+  J.free_mu = free_stock_mu(ctx, J.req)
+  J.budget, J.bank, J.stock_part = Ca.budget(ctx.ch, ctx.Y, J.free_mu, ctx.dt, st.bank, ctx.reserve)
+  J.b_left, J.l_left, J.work_used = J.budget, ctx.labor, 0
   -- Lot AGEBLOCAGE, étage chantiers (prédicat partagé ci-dessus) : une option de CHAÎNE (rangée d'assembleurs) qui débloque un ordre
   -- ouvert ne passe pas par le budget de BRAS : les bras sont retenus par ces ordres mêmes, qui attendent sa matière. Elle reste
   -- bornée par le budget de matières et par la règle du goulot amont (Ca.options).
-  local blocked = Ca.blocked_items(ctx)
-  local function fits(o)
-    return o.cost_m <= b_left + Ca.EPS
-      and ((o.work or 0) <= l_left + Ca.EPS or (o.kind == "chaine" and Ca.unblocks(o, blocked)))
-  end
+  J.blocked = Ca.blocked_items(ctx)
   local room = Ca.OPEN_MAX - #ctx.open
   if room <= 0 then refuse(ctx, "capi", "capi", nil, string.format("%d ordres ouverts (au plus %d)", #ctx.open, Ca.OPEN_MAX)) end
-  local orders = {}
-  for _ = 1, math.min(Ca.MAX_ORDERS, math.max(0, room)) do
-    local opts = Ca.options(ctx, plan, req)
-    local pick = nil
-    for _, c in ipairs(opts) do
-      local o = c.o
-      if fits(o) then pick = o break end
-      -- Trop grand pour le budget ou les bras : la plus grande taille qui passe (dichotomie ; le coût croît avec la
-      -- taille). Les bras règlent le rythme, pas la taille du capital.
-      if c.mk and o.n > 1 then
-        local lo, hi, best = 1, o.n - 1, nil
-        while lo <= hi do
-          local mid = math.floor((lo + hi) / 2)
-          local o2 = c.mk(mid)
-          if o2 and fits(o2) then best, lo = o2, mid + 1 else hi = mid - 1 end
-        end
-        if best then pick = best break end
+  J.turns = math.min(Ca.MAX_ORDERS, math.max(0, room))
+  return J
+end
+
+local function fits(J, o)
+  return o.cost_m <= J.b_left + Ca.EPS
+    and ((o.work or 0) <= J.l_left + Ca.EPS or (o.kind == "chaine" and Ca.unblocks(o, J.blocked)))
+end
+
+--- Un tour de la boucle des ordres : rend faux si aucun ordre ne passe (la boucle s'arrête).
+local function decide_turn(J)
+  local ctx, plan = J.ctx, J.plan
+  local opts = Ca.options(ctx, plan, J.req)
+  local pick = nil
+  for _, c in ipairs(opts) do
+    local o = c.o
+    if fits(J, o) then pick = o break end
+    -- Trop grand pour le budget ou les bras : la plus grande taille qui passe (dichotomie ; le coût croît avec la
+    -- taille). Les bras règlent le rythme, pas la taille du capital.
+    if c.mk and o.n > 1 then
+      local lo, hi, best = 1, o.n - 1, nil
+      while lo <= hi do
+        local mid = math.floor((lo + hi) / 2)
+        local o2 = c.mk(mid)
+        if o2 and fits(J, o2) then best, lo = o2, mid + 1 else hi = mid - 1 end
       end
-      refuse(ctx, o.key, o.kind, o.item, (o.cost_m > b_left + Ca.EPS) and
-        string.format("budget : %s MU > %s", fmt(o.cost_m), fmt(b_left)) or
-        string.format("bras : %s PNJ-s > %s", fmt(o.work), fmt(l_left)))
+      if best then pick = best break end
     end
-    if not pick then break end
-    Ca.apply(ctx, plan, pick)
-    ctx.refus[pick.key] = nil
-    b_left = b_left - pick.cost_m
-    l_left = l_left - (pick.work or 0)
-    work_used = work_used + (pick.work or 0)
-    orders[#orders + 1] = pick
-    if ctx.dm and pick.dormant_mu then ctx.dm.left = math.max(0, (ctx.dm.left or 0) - pick.dormant_mu) end
-    req = Ca.requirements(ctx, plan) -- le combustible des machines décidées entre dans la demande
+    refuse(ctx, o.key, o.kind, o.item, (o.cost_m > J.b_left + Ca.EPS) and
+      string.format("budget : %s MU > %s", fmt(o.cost_m), fmt(J.b_left)) or
+      string.format("bras : %s PNJ-s > %s", fmt(o.work), fmt(J.l_left)))
   end
+  if not pick then return false end
+  Ca.apply(ctx, plan, pick)
+  ctx.refus[pick.key] = nil
+  J.b_left = J.b_left - pick.cost_m
+  J.l_left = J.l_left - (pick.work or 0)
+  J.work_used = J.work_used + (pick.work or 0)
+  J.orders[#J.orders + 1] = pick
+  if ctx.dm and pick.dormant_mu then ctx.dm.left = math.max(0, (ctx.dm.left or 0) - pick.dormant_mu) end
+  J.req = Ca.requirements(ctx, plan) -- le combustible des machines décidées entre dans la demande
+  return true
+end
+
+--- Compte rendu de la décision (dernière unité).
+local function decide_report(J)
+  local ctx, plan, req, orders, st = J.ctx, J.plan, J.req, J.orders, J.st
+  local budget, bank, stock_part = J.budget, J.bank, J.stock_part
   -- Épargne : le stock libre paie d'abord (il est là), le reste vient de l'épargne du flux.
-  local spent = budget - b_left
+  local spent = budget - J.b_left
   st.bank = math.max(0, bank - math.max(0, spent - stock_part))
   -- Retour moyen (médiane) des ordres de ce cycle : il règle la croissance des cycles suivants.
   if #orders > 0 then
@@ -2039,11 +2057,33 @@ function Ca.decide(input, st)
   local repli = Lv.repli(Ca, ctx, plan, req, orders) -- lot LEVIERS : pourquoi ces leviers, ou pourquoi aucun
   return { repli = repli, want = Lv.wanted(ctx), unlocks = ctx.lv_unlock or {}, orders = orders, refus = refus, explore = explore, s = ctx.ch.s, delta = ctx.ch.delta, alpha = ctx.ch.alpha,
     tmax = ctx.ch.tmax, g = ctx.g, lambda = ctx.lambda, Y = ctx.Y, K = plan.K, budget = budget, bank = st.bank,
-    flow_part = bank, stock_part = stock_part, spent = spent, labor = ctx.labor, labor_used = work_used,
-    reserve = ctx.reserve and true or nil, free_mu = free_mu, demande = ctx.dm,
+    flow_part = bank, stock_part = stock_part, spent = spent, labor = ctx.labor, labor_used = J.work_used,
+    reserve = ctx.reserve and true or nil, free_mu = J.free_mu, demande = ctx.dm,
     u_star = ctx.u_star, labs_target = ctx.lab_rate > 0 and math.ceil(ctx.u_star / ctx.lab_rate - Ca.EPS) or 0,
     coverage = coverage, bottleneck = bottleneck and { item = bottleneck, theta = theta } or nil, R = req.R,
     open_n = #ctx.open }
+end
+
+--- Une unité de plus (un tour de la boucle, ou le compte rendu) ; rend vrai quand la décision est finie (J.res).
+function Ca.decide_step(J)
+  if J.res then return true end
+  J.units = J.units + 1
+  if not J.loop_done then
+    if J.turn < J.turns then
+      J.turn = J.turn + 1
+      if not decide_turn(J) then J.loop_done = true end
+      return false
+    end
+    J.loop_done = true
+  end
+  J.res = decide_report(J)
+  return true
+end
+
+function Ca.decide(input, st)
+  local J = Ca.decide_begin(input, st)
+  while not Ca.decide_step(J) do end
+  return J.res
 end
 
 ---------------------------------------------------------------------------------------------------

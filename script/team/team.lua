@@ -864,16 +864,22 @@ TT.e1a = function(f, surface, tick, tail)
   return et
 end
 
---- E1b (T + 1) : la capitalisation (L.capi, copie).
-TT.e1b = function(f, surface, tick, et)
-  if not et.ia3 then return end
+--- E1b (T + 1, et les ticks suivants tant que la décision de capitalisation découpée n'est pas finie : lot CAPI-DECIDE) : la
+--- capitalisation (L.capi, copie). Rend vrai si l'étape est à rejouer au tick suivant. `rush` : tout finir dans ce tick.
+TT.e1b = function(f, surface, tick, et, rush)
+  if not et.ia3 then return false end
   Profiler.start("team:plan_capi")
-  local capi = Ia3.plan_capi(f, et.view, book_for(f), tick, et.L)
+  local capi, pending = Ia3.plan_capi(f, et.view, book_for(f), tick, et.L, { t = et.t0, rush = rush or false })
+  if pending then
+    Profiler.stop("team:plan_capi")
+    return true
+  end
   local lost, where
   if Team.KEEP_HOOK then et.L.capi = Team.KEEP_HOOK("capi", capi)
   else et.L.capi, lost, where = Et.keep(capi, "capi") end
   TT.note_lost(f, tick, lost, where)
   Profiler.stop("team:plan_capi")
+  return false
 end
 
 --- E1c (T + 2) : fin du plan, journaux, objectifs, tableau, pôles, couloirs ; puis le gel de la vue et du plan pour E4 à E6.
@@ -1212,10 +1218,12 @@ TT.count = function(t, k)
   c[k] = (c[k] or 0) + 1
 end
 
---- Joue l'étape et.n (2 = E1b … 8 = E6, Et.STAGES) ; rend true après la dernière.
-TT.run = function(f, surface, tick, et)
+--- Joue l'étape et.n (2 = E1b … 8 = E6, Et.STAGES) ; rend true après la dernière. E1b peut se rejouer (décision de capitalisation
+--- découpée) : et.n reste alors à 2. `rush` : toute tranche restante dans ce tick (mode bloc, rattrapage).
+TT.run = function(f, surface, tick, et, rush)
   local n = et.n
-  if n == 2 then TT.e1b(f, surface, tick, et)
+  if n == 2 then
+    if TT.e1b(f, surface, tick, et, rush) then return false end
   elseif n == 3 then TT.e1c(f, surface, tick, et)
   elseif n == 4 then TT.e2(f, surface, tick)
   elseif n == 5 then TT.e3(f, surface, tick)
@@ -1230,8 +1238,8 @@ TT.run = function(f, surface, tick, et)
 end
 
 --- Joue l'étape attendue ; après E6, l'état gardé est effacé et la queue de l'appelant jouée.
-TT.play = function(f, surface, tick, et)
-  if not TT.run(f, surface, tick, et) then return end
+TT.play = function(f, surface, tick, et, rush)
+  if not TT.run(f, surface, tick, et, rush) then return end
   f.team.etape = nil
   TT.count(f.team, "pensees")
   local tl = et.tail and TT.tails[et.tail]
@@ -1255,7 +1263,7 @@ TT.step = function(pl, tick)
   -- nom de l'étape suivante, chronomètres faux et pile du détail laissée ouverte jusqu'à la fin du tick)
   local scope = "team:etape" .. et.n
   Profiler.start(scope)
-  TT.play(f, TT.surface_of(f), tick, et)
+  TT.play(f, TT.surface_of(f), tick, et, false)
   Profiler.stop(scope)
   if t.etape then Scheduler.after(1, TT.TIMER, { key = pl.key, n = t.etape.n, t0 = t.etape.t0 }) end
 end
@@ -1310,7 +1318,7 @@ function Team.think(f, surface, tick, tail)
   if f.team.etape then
     -- pensée précédente pas finie (ne devrait pas arriver : période de 300 ticks) : ses étapes d'abord, d'un bloc
     TT.count(f.team, "rattrapages")
-    while f.team.etape do TT.play(f, surface, tick, f.team.etape) end
+    while f.team.etape do TT.play(f, surface, tick, f.team.etape, true) end
   end
   local et = TT.e1a(f, surface, tick, tail)
   if Team.ETAPES then
@@ -1319,7 +1327,7 @@ function Team.think(f, surface, tick, tail)
     return false
   end
   -- Mode « tout au tick T » : les mêmes étapes et les mêmes copies, d'un appel ; la queue est jouée par l'appelant.
-  repeat until TT.run(f, surface, tick, et)
+  repeat until TT.run(f, surface, tick, et, true)
   return true
 end
 

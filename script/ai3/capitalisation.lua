@@ -68,6 +68,7 @@ local State = require("script.faction.state")
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Sites = require("script.faction.sites")
 local Profiler = require("script.core.profiler")
+local Events = require("script.core.events") -- lot CAPI-DECIDE : recherche finie pendant une décision, configuration changée
 local General = require("script.ai3.general")
 local Auto = require("script.ai3.automatisation")
 local Build = require("script.team.build")
@@ -825,6 +826,55 @@ function Capi.slots(f, cs, stock, tick, book)
   return sl
 end
 
+--- Lot CAPI-DECIDE : l'exécutant des chaînes sait-il les poser aujourd'hui ? (input.can_exec de la règle, mémo de la décision.)
+--- Faite depuis ses DONNÉES `d` (stock, objets voulus, repli, tick, emplacements, centrale, portée, débit des tapis) et le livre :
+--- une décision découpée la refait à l'identique depuis l'instantané, jamais depuis l'état vivant du jeu. Écrit dans d.wanted.
+local function make_can_exec(d, book)
+  local ce_memo = {}
+  local stock, wanted, repli, tick = d.stock, d.wanted, d.repli, d.tick
+  return function(kind, item)
+    -- fours du QG : nourris à la main par les PNJ (tâches de fonte du cerveau) ; leur nombre reste au décideur d'avant
+    -- (Br.smelters, SCALE). Moteur réel, banc p2 du lot : 25 fours du QG commandés « d'avance » pour les briques, 25
+    -- affamés sur 26 (aucune tâche de fonte ne les nourrit sans manque). La fonte au débit des foreuses passe par les
+    -- fonderies à foreuses (ordre « couvrir » : leurs fours sont dimensionnés par le gabarit sur le minerai des foreuses).
+    if kind == "fours" then return "fours du QG nourris par les PNJ : decideur SCALE (Br.smelters)" end
+    -- Lot LEVIERS : un module s'insère s'il est au coffre, ou si l'équipe sait le fabriquer à la main aujourd'hui (la
+    -- recherche qui le débloque est sinon DEMANDÉE : wanted, donnée à la recherche par Auto.want).
+    if kind == "equiper" then
+      local m2 = ce_memo[item]
+      if m2 ~= nil then return m2 or nil end
+      local res2 = nil
+      if (stock[item] or 0) <= 0 and not book:handcraftable(item) then
+        res2 = "recherche : " .. item
+        wanted[item] = true
+      end
+      ce_memo[item] = res2 or false
+      return res2
+    end
+    local m = ce_memo[item]
+    if m ~= nil then return m or nil end
+    local meth, why = A.method_for(item, book, function(n) return book:handcraftable(n) or (stock[n] or 0) > 0 end)
+    local res = nil
+    local hw = Rp.held(repli, Rp.key(item, nil), tick, nil) -- lot CAPI-REPLI : chaînes et packs, clé = l'objet seul
+    if not meth then res = tostring(why)
+    elseif hw then res = hw
+    elseif d.busy then res = d.busy_text
+    elseif d.wait_plant and ((A.template(meth.gen, meth.args) or {}).power_kw or 0) > 0 then
+      res = "centrale demandee, pas finie (" .. tostring(d.plant_state) .. ")"
+    elseif d.plant_state == "refuse" and ((A.template(meth.gen, meth.args) or {}).power_kw or 0) > 0 then
+      res = "centrale refusee (" .. tostring(d.plant_why) .. ")"
+    else
+      local ok, miss = module_ok(meth, book, stock, d.plant_state ~= nil, nil, d.reachable, d.belt_flow)
+      if not ok then
+        res = "recherche : " .. table.concat(miss, ",")
+        for _, x in ipairs(miss) do wanted[x] = true end
+      end
+    end
+    ce_memo[item] = res or false
+    return res
+  end
+end
+
 local function build_input(f, cs, view, book, tick, D, w)
   local st = f.team.ia3
   local force = game.forces[f.force]
@@ -930,49 +980,11 @@ local function build_input(f, cs, view, book, tick, D, w)
   -- besoin des buts SANS les buts capi ni la recherche : le besoin de matière de la dernière pensée (manque + usage)
   local need = {}
   for _, k in ipairs(sorted_keys(st.need)) do need[k] = st.need[k] end
-  -- L'exécutant des chaînes (rangées du plan directeur) sait-il les poser aujourd'hui ? (mémo de la décision)
-  local ce_memo = {}
-  local function can_exec(kind, item)
-    -- fours du QG : nourris à la main par les PNJ (tâches de fonte du cerveau) ; leur nombre reste au décideur d'avant
-    -- (Br.smelters, SCALE). Moteur réel, banc p2 du lot : 25 fours du QG commandés « d'avance » pour les briques, 25
-    -- affamés sur 26 (aucune tâche de fonte ne les nourrit sans manque). La fonte au débit des foreuses passe par les
-    -- fonderies à foreuses (ordre « couvrir » : leurs fours sont dimensionnés par le gabarit sur le minerai des foreuses).
-    if kind == "fours" then return "fours du QG nourris par les PNJ : decideur SCALE (Br.smelters)" end
-    -- Lot LEVIERS : un module s'insère s'il est au coffre, ou si l'équipe sait le fabriquer à la main aujourd'hui (la
-    -- recherche qui le débloque est sinon DEMANDÉE : wanted, donnée à la recherche par Auto.want).
-    if kind == "equiper" then
-      local m2 = ce_memo[item]
-      if m2 ~= nil then return m2 or nil end
-      local res2 = nil
-      if (stock[item] or 0) <= 0 and not book:handcraftable(item) then
-        res2 = "recherche : " .. item
-        wanted[item] = true
-      end
-      ce_memo[item] = res2 or false
-      return res2
-    end
-    local m = ce_memo[item]
-    if m ~= nil then return m or nil end
-    local meth, why = A.method_for(item, book, function(n) return book:handcraftable(n) or (stock[n] or 0) > 0 end)
-    local res = nil
-    local hw = Rp.held(repli, Rp.key(item, nil), tick, nil) -- lot CAPI-REPLI : chaînes et packs, clé = l'objet seul
-    if not meth then res = tostring(why)
-    elseif hw then res = hw
-    elseif busy then res = busy_text
-    elseif wait_plant and ((A.template(meth.gen, meth.args) or {}).power_kw or 0) > 0 then
-      res = "centrale demandee, pas finie (" .. tostring(plant_state) .. ")"
-    elseif plant_state == "refuse" and ((A.template(meth.gen, meth.args) or {}).power_kw or 0) > 0 then
-      res = "centrale refusee (" .. tostring(plant_why) .. ")"
-    else
-      local ok, miss = module_ok(meth, book, stock, plant_state ~= nil, nil, Harvest.reachable(f), Auto.belt_flow(f))
-      if not ok then
-        res = "recherche : " .. table.concat(miss, ",")
-        for _, x in ipairs(miss) do wanted[x] = true end
-      end
-    end
-    ce_memo[item] = res or false
-    return res
-  end
+  -- L'exécutant des chaînes (rangées du plan directeur) sait-il les poser aujourd'hui ? Lot CAPI-DECIDE : la fonction est refaite
+  -- depuis ses DONNÉES (make_can_exec), gardées dans l'instantané d'une décision découpée.
+  local cex = { stock = stock, wanted = wanted, repli = repli, tick = tick, busy = busy, busy_text = busy_text, wait_plant = wait_plant,
+    plant_state = plant_state, plant_why = plant_why, reachable = Harvest.reachable(f), belt_flow = Auto.belt_flow(f) }
+  local can_exec = make_can_exec(cex, book)
   local g = f.team.iag
   -- Lot LEVIERS : clés d'ordres de leviers refusées par l'exécutant, en repli (Ca.decide : input.skip).
   local skip = {}
@@ -998,7 +1010,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     -- ne ferme plus les leviers hors du QG (Sv.capi) ; les gisements dangereux restent exclus (`danger` de chaque gisement).
     production_first = production_first,
     defense = defense_input(f, D), -- lot PREVISION (C12) : « oui, compter la défense » dans le coût de chaque investissement
-  }
+  }, cex
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -1394,15 +1406,10 @@ local function pile_ok(f, o)
   return PileRt.porte_any(f, Pi.order_family(o.kind), items)
 end
 
-local function decide(f, cs, view, book, tick, research, w)
+--- Suite de la décision (dernière tranche) : puits, journaux, ordres envoyés aux exécutants. `input` : l'entrée de la règle (refaite depuis
+--- l'instantané d'une décision découpée).
+local function decide_finish(f, cs, res, input, view, book, tick, research)
   local D = Capi.data()
-  cs.flows = flows_of(f, cs)
-  Dep.think(f, cs, tick, DEP_PRODUCTS, minutes(f, tick)) -- lot DEPENSES2 : budget du stock qui dort (Dep.defense, Dep.labs)
-  if f.team.ia3.mall then Ml.set_running(f.team.ia3.mall, cs.flows) end -- lot PILE-MALL (relecture)
-  local input = build_input(f, cs, view, book, tick, D, w)
-  Profiler.fstart("capi:decide")
-  local res = Ca.decide(input, cs.st)
-  Profiler.fstop("capi:decide")
   -- Lot C2 : le PUITS OUVERT. f.team.ia3.puits (débit de chaque matière, puits compris) est lu par la saturation du cerveau, la décision de
   -- l'automatisation et les capacités ; cs.blocked_slots (ordres retenus faute de place) règle les emplacements de chantier.
   do
@@ -1558,13 +1565,168 @@ local function decide(f, cs, view, book, tick, research, w)
 end
 
 ---------------------------------------------------------------------------------------------------
+-- Lot CAPI-DECIDE (7/11) : la décision en TRANCHES (critères : fo-logs/2026-11-07_CAPI-DECIDE/CRITERES.md)
+---------------------------------------------------------------------------------------------------
+-- Première tranche (tick t0) : entrée relevée (build_input, comme avant) et INSTANTANÉ dans global (cs.dj : copie de l'entrée sans les
+-- données ni la fonction, données de can_exec, bonus de la force) ; l'état de TRAVAIL (contexte, plan, besoins de la règle, copie de
+-- cs.st) vit en MÉMOIRE seulement (DJ_MEM), refait depuis l'instantané quand il manque (chargement) ou que sa clé (seq, t0, sig) ne
+-- correspond pas. Chaque tranche joue les unités dues à son tick (Capi.DECIDE_UNITS par tick depuis t0 ; toutes si `run` est nil ou
+-- run.rush) ; rien n'est écrit dans global ni au journal avant la dernière, qui réécrit cs.st, pose cs.wanted_set et joue la suite.
+-- Une recherche de la force finie, annulée ou remise à zéro pendant la décision (le livre de recettes change) l'abandonne, chez tous.
+Capi.DECIDE_UNITS = 1 -- unités par tranche (une unité : le début, un tour de la boucle des ordres, ou le compte rendu)
+Capi.DJ_SIG = "capi-decide:1"
+Capi.PENDING = {} -- marque rendue par Capi.think quand la décision attend sa tranche suivante (jamais gardée)
+Capi.MUT = {} -- tests seulement (mutants) : cle, vivant, st_tot, journal_tot, bonus
+local DJ_MEM = {} -- [clé d'équipe] = { seq, t0, sig, J, input, cex, st } : MÉMOIRE seulement, jamais dans global
+
+local function dj_key(f) return f.is_player and "player" or tostring(f.key or f.id) end
+
+local function is_object(v) return rawget(v, "__self") ~= nil or rawget(v, "_lua_object") ~= nil end
+local function dcopy(v, memo)
+  if type(v) ~= "table" or is_object(v) then return v end
+  memo = memo or {}
+  if memo[v] then return memo[v] end
+  local c = {}
+  memo[v] = c
+  for k, x in pairs(v) do c[dcopy(k, memo)] = dcopy(x, memo) end
+  return c
+end
+
+--- Remplace le contenu de `dst` par celui de `src` (même table : les lecteurs de cs.st gardent leur référence).
+local function replace_contents(dst, src)
+  for _, k in ipairs(sorted_keys(dst)) do dst[k] = nil end
+  for _, k in ipairs(sorted_keys(src)) do dst[k] = src[k] end
+end
+
+--- État de travail refait depuis l'instantané (mémoire).
+local function dj_build(dj, cs, book)
+  local D = Capi.data()
+  D.bonus.mining, D.bonus.lab = dj.bonus.mining, dj.bonus.lab
+  local input = dcopy(dj.input)
+  local cex = dcopy(dj.cex)
+  input.data = D
+  input.can_exec = make_can_exec(cex, book)
+  local st = dcopy(cs.st)
+  local J = Ca.decide_begin(input, st)
+  return { seq = dj.seq, t0 = dj.t0, sig = dj.sig, J = J, input = input, cex = cex, st = st }
+end
+
+--- Première tranche : relevé, instantané, état de travail.
+local function decide_start(f, cs, view, book, tick, w, run)
+  local D = Capi.data()
+  cs.flows = flows_of(f, cs)
+  Dep.think(f, cs, tick, DEP_PRODUCTS, minutes(f, tick)) -- lot DEPENSES2 : budget du stock qui dort (Dep.defense, Dep.labs)
+  if f.team.ia3.mall then Ml.set_running(f.team.ia3.mall, cs.flows) end -- lot PILE-MALL (relecture)
+  local input, cex = build_input(f, cs, view, book, tick, D, w)
+  local snap = {}
+  for _, k in ipairs(sorted_keys(input)) do
+    if k ~= "data" and k ~= "can_exec" then snap[k] = input[k] end
+  end
+  -- numéro de la décision : celui qu'elle aura une fois finie (cs.decisions compte les décisions finies ; aucun champ de plus dans
+  -- global hors de l'instantané, qui disparaît à la fin : le mode bloc garde le global d'avant octet à octet)
+  cs.dj = { seq = (cs.decisions or 0) + 1, t0 = tick, t_think = run and run.t or tick, sig = Capi.DJ_SIG, input = dcopy(snap), cex = dcopy(cex),
+    bonus = { mining = D.bonus.mining or 0, lab = D.bonus.lab or 0 } }
+  if Capi.MUT.vivant then -- mutant : l'état de travail lit l'entrée VIVANTE (pas l'instantané)
+    local st = Capi.MUT.st_tot and cs.st or dcopy(cs.st)
+    DJ_MEM[dj_key(f)] = { seq = cs.dj.seq, t0 = tick, sig = Capi.DJ_SIG, J = Ca.decide_begin(input, st), input = input, cex = cex, st = st }
+  elseif Capi.MUT.st_tot then -- mutant : cs.st avancé dès la première tranche (prepare l'écrit)
+    local m = dj_build(cs.dj, cs, book)
+    m.st = cs.st
+    m.J = Ca.decide_begin(m.input, cs.st)
+    DJ_MEM[dj_key(f)] = m
+  else
+    DJ_MEM[dj_key(f)] = dj_build(cs.dj, cs, book)
+  end
+end
+
+--- Tranche de la décision en cours (cs.dj) : rend vrai quand elle est finie (appliquée, ou abandonnée), faux sinon.
+local function decide_slice(f, cs, view, book, tick, research, run)
+  local dj = cs.dj
+  local key = dj_key(f)
+  local why = dj.abort or (dj.sig ~= Capi.DJ_SIG and "signature d'une autre version") or nil
+  if why then
+    cs.dj, DJ_MEM[key] = nil, nil
+    log(string.format("[FO-CAPI] %s : decision du tick %d abandonnee (%s) a %.1f min", f.key or "?", dj.t0, why, minutes(f, tick)))
+    return true
+  end
+  local mem = DJ_MEM[key]
+  if not (mem and ((mem.seq == dj.seq and mem.t0 == dj.t0 and mem.sig == dj.sig) or Capi.MUT.cle)) then
+    mem = dj_build(dj, cs, book)
+    DJ_MEM[key] = mem
+  end
+  local D = Capi.data()
+  if not Capi.MUT.bonus then D.bonus.mining, D.bonus.lab = dj.bonus.mining, dj.bonus.lab end
+  local due = (run == nil or run.rush) and math.huge or Capi.DECIDE_UNITS * (tick - dj.t0 + 1)
+  local J = mem.J
+  local done = J.res ~= nil
+  Profiler.fstart("capi:decide")
+  while not done and J.units < due do done = Ca.decide_step(J) end
+  Profiler.fstop("capi:decide")
+  if not done then
+    if Capi.MUT.journal_tot then log(string.format("[FO-CAPI] %s : MUTANT, tranche intermediaire au tick %d", f.key or "?", tick)) end
+    return false
+  end
+  replace_contents(cs.st, mem.st)
+  cs.wanted_set = mem.cex.wanted
+  cs.dj, DJ_MEM[key] = nil, nil
+  decide_finish(f, cs, J.res, mem.input, view, book, tick, research)
+  return true
+end
+
+--- Équipes de la force `force` (factions de la guerre, puis votre équipe), dans un ordre fixe.
+local function teams_of_force(force)
+  local out = {}
+  local name = force and force.valid and force.name
+  local war = State.war()
+  if war and war.factions then
+    for _, id in ipairs(sorted_keys(war.factions)) do
+      local f = war.factions[id]
+      if f and (name == nil or f.force == name) then out[#out + 1] = f end
+    end
+  end
+  local p = State.faction("player")
+  if p and (name == nil or p.force == name) then out[#out + 1] = p end
+  return out
+end
+
+local function abort_research(force, why)
+  for _, f in ipairs(teams_of_force(force)) do
+    local cs = f.team and f.team.capi
+    if cs and cs.dj and not cs.dj.abort then cs.dj.abort = why end
+  end
+end
+Events.on(defines.events.on_research_finished, function(e) abort_research(e.research and e.research.force, "recherche finie") end)
+Events.on(defines.events.on_research_reversed, function(e) abort_research(e.research and e.research.force, "recherche annulee") end)
+Events.on(defines.events.on_technology_effects_reset, function(e) abort_research(e.force, "recherches remises a zero") end)
+Events.on(defines.events.on_force_reset, function(e) abort_research(e.force, "force remise a zero") end)
+-- Configuration changée : la mémoire est jetée (la tranche suivante la refait depuis l'instantané, ou abandonne une autre signature).
+Events.on_configuration_changed(function() DJ_MEM = {} end)
+
+--- Tests (moteur simulé) : un chargement simulé vide la mémoire, comme un vrai chargement.
+function Capi.forget_memory() DJ_MEM = {} end
+
+---------------------------------------------------------------------------------------------------
 -- Pensée
 ---------------------------------------------------------------------------------------------------
---- Appelé par le cerveau (Ia3.plan) avant la pensée pure. Rend ctx.capi = { res, open } (buts de fond), ou nil.
-function Capi.think(f, view, book, tick, research, w)
+--- Appelé par le cerveau (Ia3.plan) avant la pensée pure. Rend ctx.capi = { res, open } (buts de fond), ou nil ; Capi.PENDING quand la
+--- décision découpée attend sa tranche suivante (lot CAPI-DECIDE). `run` : nil (tout tout de suite) ou { t = tick de la pensée, rush }.
+function Capi.think(f, view, book, tick, research, w, run)
   if not Capi.on(f) then return nil end
   local cs = state_of(f)
+  if cs.dj and run and cs.dj.t_think ~= run.t then
+    -- décision d'une pensée perdue (effacée au changement de version du mod) : jetée, cette pensée repart comme d'habitude
+    log(string.format("[FO-CAPI] %s : decision du tick %d abandonnee (pensee du tick %d perdue) a %.1f min", f.key or "?", cs.dj.t0,
+      cs.dj.t_think, minutes(f, tick)))
+    cs.dj, DJ_MEM[dj_key(f)] = nil, nil
+  end
   Profiler.start("capi:think")
+  if cs.dj then
+    if not decide_slice(f, cs, view, book, tick, research, run) then
+      Profiler.stop("capi:think")
+      return Capi.PENDING
+    end
+    return Capi.think_tail(f, cs, tick)
+  end
   Ind.sweep(f, tick) -- lot INDUSTRIE I6 : sorties des patrons à la collecte, barre posée (à chaque pensée, pas seulement à la décision)
   local phase = cs.n % Capi.CYCLE
   cs.n = cs.n + 1
@@ -1579,8 +1741,17 @@ function Capi.think(f, view, book, tick, research, w)
   elseif phase >= 2 and phase <= 9 then
     census_one(f, cs, tick)
   elseif phase == 10 and cs.scan then
-    decide(f, cs, view, book, tick, research, w)
+    decide_start(f, cs, view, book, tick, w, run)
+    if not decide_slice(f, cs, view, book, tick, research, run) then
+      Profiler.stop("capi:think")
+      return Capi.PENDING
+    end
   end
+  return Capi.think_tail(f, cs, tick)
+end
+
+--- Suite de Capi.think après la décision (suivi des ordres, laboratoires, buts de fond) : chaque pensée.
+function Capi.think_tail(f, cs, tick)
   -- Suivi des ordres ouverts (chaque pensée : lectures sans appel coûteux du moteur).
   local keep = {}
   for _, rec in ipairs(cs.open) do
