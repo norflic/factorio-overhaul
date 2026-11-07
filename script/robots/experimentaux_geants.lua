@@ -308,7 +308,7 @@ local function zone_pas(j, tick)
     j.at = tick + 1
     return false
   end
-  local _, m, fini = Ech.frapper(j.plan, j.cur, qh, qm, function(t)
+  local c, m, fini = Ech.frapper(j.plan, j.cur, qh, qm, function(t)
     if not t.valid then return false end
     local p = j.brule and t.position
     j.total = j.total + K.hit(r, t, j.salve, j.dtype, e.force, e)
@@ -319,11 +319,12 @@ local function zone_pas(j, tick)
     end
     return false
   end)
-  -- bancs seulement (journal allumé) : morts par tick, pour mesurer le coût des débris par mort (pics_zone.py)
+  -- bancs seulement (journal allumé) : coups et morts par tick, pour mesurer le coût du script et des débris par mort (pics_zone.py)
   local st = K.S()
-  if st.journal and m > 0 then
-    if not st.morts_tick then st.morts_tick = {} end
+  if st.journal and c > 0 then
+    if not st.morts_tick then st.morts_tick, st.coups_tick = {}, {} end
     st.morts_tick[tick] = (st.morts_tick[tick] or 0) + m
+    st.coups_tick[tick] = (st.coups_tick[tick] or 0) + c
   end
   if fini then
     K.journal("%s zone #%d rayon %.0f cibles %d tues %d degats %.0f ticks %d tick %d", r.id, j.un, j.zone, j.cur.pris, j.tues, j.total,
