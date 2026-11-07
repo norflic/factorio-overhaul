@@ -212,7 +212,9 @@ end
 
 local events = {}
 local store = {}
-package.loaded["script.core.events"] = { on = function(id, fn) events[id] = fn end }
+local inits, configs = {}, {}
+package.loaded["script.core.events"] = { on = function(id, fn) events[id] = fn end,
+  on_init = function(fn) inits[#inits + 1] = fn end, on_configuration_changed = function(fn) configs[#configs + 1] = fn end }
 package.loaded["script.core.storage"] = {
   declare = function(name, init) store[name] = store[name] or init() end,
   ns = function(name) return store[name] end,
@@ -228,6 +230,7 @@ local function load_mods(mut)
     package.preload[mut[1]] = function(name) return assert(load(src, "=" .. mut[2]))(name) end
   end
   store = {}
+  inits, configs = {}, {}
   return require("script.team.reseau_vivant"), require("script.team.raccord"), require("script.team.pouls_jeton"),
     require("script.team.boite_chunks")
 end
@@ -730,6 +733,43 @@ local function p9(Rv, Ra, Jeton)
 end
 
 ---------------------------------------------------------------------------------------------------
+-- P10 (revue de la 0.6.59, point 6) : boîte relevée au chargement, jamais au premier pouls
+---------------------------------------------------------------------------------------------------
+local function counted(sfc, idx)
+  local n = { 0 }
+  local inner = sfc.get_chunks
+  sfc.get_chunks = function() n[1] = n[1] + 1; return inner() end
+  sfc.index = idx
+  return n
+end
+
+local function p10(Box)
+  -- partie d'avant ce point (aucune boîte), puis chargement : on_configuration_changed
+  local w1 = random_world(11, "fo-test")
+  local s1 = surface_of(w1)
+  local n1 = counted(s1, 1)
+  game.surfaces = { [1] = s1 }
+  store.boite_chunks = { by = {} }
+  for _, fn in ipairs(configs) do fn({ mod_changes = {} }) end
+  local at_load = n1[1]
+  local b1 = Box.get(s1)
+  local want1 = box_of(w1)
+  local same1 = b1 and b1.x0 == want1.x0 and b1.y0 == want1.y0 and b1.x1 == want1.x1 and b1.y1 == want1.y1
+  local after_get = n1[1] - at_load
+  -- surface neuve après le chargement : ses chunks arrivent par on_chunk_generated seul
+  local w2 = random_world(12, "fo-test")
+  local s2 = surface_of(w2)
+  local n2 = counted(s2, 2)
+  game.surfaces[2] = s2
+  for _, c in ipairs(w2.chunks) do events[defines.events.on_chunk_generated]({ surface = s2, position = { x = c[1], y = c[2] } }) end
+  local b2 = Box.get(s2)
+  local want2 = box_of(w2)
+  local same2 = b2 and b2.x0 == want2.x0 and b2.y0 == want2.y0 and b2.x1 == want2.x1 and b2.y1 == want2.y1
+  game.surfaces = nil
+  return { at_load = at_load, after_get = after_get, same1 = same1, same2 = same2, n2 = n2[1] }
+end
+
+---------------------------------------------------------------------------------------------------
 -- Jeu de preuves sur la source du jeu
 ---------------------------------------------------------------------------------------------------
 local Rv, Ra, Jeton, Box = load_mods(nil)
@@ -782,6 +822,12 @@ local function p8_ok(worst, bands)
   return #bad == 0 and #whos > 0, table.concat(txt, ", "), bad
 end
 do
+  local r10 = p10(Box)
+  check(r10.at_load == 1 and r10.after_get == 0 and r10.same1, string.format("P10 : boîte relevée au chargement (on_configuration_changed : %d passage(s)), plus aucun au premier Box.get (%d), juste",
+    r10.at_load, r10.after_get))
+  check(r10.same2 and r10.n2 == 0, string.format("P10 : surface neuve tenue par on_chunk_generated seul (%d passage(s) de get_chunks), boîte juste", r10.n2))
+end
+do
   local r9 = p9(Rv, Ra, Jeton)
   check(r9.reliers >= 3 and r9.deferred > 0, string.format("P9 : « relier » joué (%d fois), dont sans relevé frais par un relevé par bandes (%d passe(s) en attente)",
     r9.reliers, r9.deferred))
@@ -810,13 +856,15 @@ local MUT = {
   { "m4 jeton ignoré par le raccord", "script.team.raccord", "script/team/raccord.lua",
     { { 'if api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":ra") then return end', "if false then return end" } }, "p5" },
   { "m5 boîte non tenue à on_chunk_generated", "script.team.boite_chunks", "script/team/boite_chunks.lua",
-    { { "if b then grow(b, e.position.x, e.position.y) end", "if false then grow(b, e.position.x, e.position.y) end" } }, "p6" },
+    { { "if b then grow(b, e.position.x, e.position.y) else", "if b then elseif false then" } }, "p6" },
   { "m6 jeton ignoré par le relevé du réseau", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
     { { 'if api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":rv") then return nil end', "if false then return nil end" } }, "p5" },
   { "m9 relier sans relevé frais par net_read d'un bloc (hors jeton)", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
     { { "local rbox = api.box and api.box(surface)", "local rbox = nil" } }, "p9" },
   { "m10 fin du raccordement sans le jeton", "script.team.raccord", "script/team/raccord.lua",
     { { "if api.jeton and not api.jeton.take(tick, fin_par) then return end", "if false then return end" } }, "p9fin" },
+  { "m11 boîte non relevée à on_configuration_changed", "script.team.boite_chunks", "script/team/boite_chunks.lua",
+    { { "Events.on_configuration_changed(rebuild_all)", "" } }, "p10" },
   { "m8 jeton à priorité fixe (file ignorée)", "script.team.pouls_jeton", "script/team/pouls_jeton.lua",
     { { "(s.q[1] ~= nil and s.q[1] ~= who)", "false" } }, "p8" },
   { "m13 la centrale attend la fin du relevé (avant le point 4)", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
@@ -836,6 +884,9 @@ for _, m in ipairs(MUT) do
   elseif m[5] == "p12" then
     local lost_at, fixed_at = p12(Rvm)
     seen = not (lost_at and fixed_at and fixed_at - lost_at <= Rvm.PERIOD + 5)
+  elseif m[5] == "p10" then
+    local r = p10(Bm)
+    seen = not (r.at_load == 1 and r.after_get == 0)
   elseif m[5] == "p9" then
     local r = p9(Rvm, Ram, Jm)
     seen = r.bad > 0
