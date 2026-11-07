@@ -2355,7 +2355,10 @@ local function decide_report(J)
     u_star = ctx.u_star, labs_target = ctx.lab_rate > 0 and math.ceil(ctx.u_star / ctx.lab_rate - Ca.EPS) or 0,
     coverage = coverage, bottleneck = bottleneck and { item = bottleneck, theta = theta } or nil, R = req.R,
     open_n = #ctx.open, rstar = ctx.rstar, rang_held = ctx.rang_held, -- lot VIDEO-L2 : porte de rang (nil quand elle est éteinte)
-    rang_cycles = ctx.rang and { seed = ctx.rang.seed, cyc = ctx.rang.cyc } or nil, -- lot VIDEO-COUVERTURE 5 (C5.1) : cycles de la décision, graine de l'amorce
+    -- lot VIDEO-COUVERTURE 5 (C5.1) : cycles de la décision, graine de l'amorce. Seulement s'il y a un cycle ou une graine (intégrateur,
+    -- 7/11 23 h 55) : sinon le champ casserait l'identité de la décision rang allumé / éteint (rang_cablage_test §2) sans rien semer.
+    rang_cycles = ctx.rang and (next(ctx.rang.cyc or {}) ~= nil or next(ctx.rang.seed or {}) ~= nil)
+      and { seed = ctx.rang.seed, cyc = ctx.rang.cyc } or nil,
     -- Étape 5a de VIDEO-INTEG (RD_LOG F391) : courant du plan quand le runtime donne input.power (sinon nil : rendu d'avant)
     kw = ctx.input.power and { have = plan.kw_have, used = plan.kw_used, nominal = plan.kw_nominal, blocked = Ca.blocked_kw(ctx) } or nil }
 end
