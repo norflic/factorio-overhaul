@@ -45,14 +45,22 @@ local function scan_source(src)
       if names then for n in names:gmatch("[%a_][%w_]*") do tops[n] = true end end
     end
   end
+  local KW = { ["local"] = true, ["if"] = true, ["elseif"] = true, ["return"] = true, ["while"] = true, ["until"] = true, ["for"] = true }
   local out = {}
   for i, l in ipairs(lines) do
     local code = l:gsub("%-%-.*$", "")
-    if code:match("^%s+") and not code:match("^%s*local%s") then
-      local lhs, rhs = code:match("^%s+([%a_][%w_]*%s*[,%w_%s]*)=%s*(.-)%s*$")
-      if lhs and not lhs:find("[%.%[]") and rhs and rhs:sub(1, 1) == "{" then
-        for n in lhs:gmatch("[%a_][%w_]*") do
-          if tops[n] then out[#out + 1] = { i, n, (code:gsub("^%s+", "")):sub(1, 100) } end
+    if code:match("^%s+") then
+      -- une ligne peut porter plusieurs instructions : « if c then x = {} end » ; chaque morceau est lu à part
+      local cut = (" " .. code .. " "):gsub(" then ", "\1"):gsub(" else ", "\1"):gsub(" do ", "\1"):gsub(";", "\1")
+      for seg in cut:gmatch("[^\1]+") do
+        local lhs, rhs = seg:match("^%s*([%a_][%w_%s,]-)%s*=%s*(.-)%s*$")
+        if lhs and rhs and rhs:sub(1, 1) == "{" and lhs:gsub("[%a_][%w_]*", ""):match("^[%s,]*$") then
+          local first = lhs:match("^[%a_][%w_]*")
+          if not KW[first] then
+            for n in lhs:gmatch("[%a_][%w_]*") do
+              if tops[n] then out[#out + 1] = { i, n, (code:gsub("^%s+", "")):sub(1, 100) } end
+            end
+          end
         end
       end
     end
@@ -103,8 +111,10 @@ check(#files > 100 and #bad == 0, string.format("règle : aucune table neuve aff
 
 -- 2. mutant : la forme exacte de l'ancien profileur doit être vue
 local MUT = "local dt_names = {}\nlocal function flush()\n  dt_names = {}\nend\n"
-local FIELD = "local DT = { names = {} }\nlocal function flush()\n  DT.names = {}\nend\n"
-check(#scan_source(MUT) == 1 and #scan_source(FIELD) == 0, "mutant : la table neuve dans un local de module est vue, le champ de table ne l'est pas")
+local MUT2 = "local a, sh = nil, nil\nlocal function on(x)\n  if x then sh = { n = 0 } end\nend\n"
+local FIELD = "local DT = { names = {} }\nlocal function flush()\n  DT.names = {}\n  local x = {}\n  if DT.names == x then return end\nend\n"
+check(#scan_source(MUT) == 1 and #scan_source(MUT2) == 1 and #scan_source(FIELD) == 0,
+  "mutant : la table neuve dans un local de module est vue (aussi après « if … then »), le champ de table et le local de fonction ne le sont pas")
 
 -- 3. le fait, hors jeu, à petite échelle (chunks chargés : upvalues FERMÉES, comme un fichier du mod)
 local function play(store)
