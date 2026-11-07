@@ -218,17 +218,26 @@ local function best_row(c, spec, row, umin, umax, origin, fixed, fm)
 end
 
 --- Bandes d'une phase : { { pr, b, n = { u0 }, s = { u0 }, on, os } } et minerai miné (somme des rangées).
-local function bands_for(c, spec, phase, box, origin, frame)
+--- (coût, 7/11) `fm` et `rm` : mémoires PARTAGÉES par les phases d'un même choix (rien n'est pris pendant le choix : c.free et le meilleur
+--- décalage d'une rangée ne dépendent que de la rangée). Chaque rangée de foreuses est vue par deux phases (rangée nord de l'une, sud d'une
+--- autre) : `rm` garde son résultat (mesuré : le choix de la phase faisait 60 % du plan du géant 200 x 200). nil : mémoires de la passe seule.
+local function bands_for(c, spec, phase, box, origin, frame, fm, rm)
   local s = spec.drill.size
   local pitch = 2 * s + 2
   local bands, total = {}, 0
   local pr = box.v0 - phase
-  local fm = {} -- lot PERF3 : place libre lue une fois par tuile pendant la passe (rien n'y est pris)
+  fm = fm or {} -- lot PERF3 : place libre lue une fois par tuile pendant la passe (rien n'y est pris)
+  local function row_best(row, fixed)
+    if fixed ~= nil or not rm then return best_row(c, spec, row, box.u0, box.u1, origin, fixed, fm) end
+    local m = rm[row]
+    if not m then m = { best_row(c, spec, row, box.u0, box.u1, origin, nil, fm) }; rm[row] = m end
+    return m[1], m[2], m[3]
+  end
   while pr <= box.v1 do
     if not (frame and frame.only) or frame.only[pr] then
       local off = frame and frame.offsets and frame.offsets[tostring(pr)]
-      local nl, nm, on = best_row(c, spec, pr + 1, box.u0, box.u1, origin, off and off[1], fm)
-      local sl, sm, os_ = best_row(c, spec, pr + s + 2, box.u0, box.u1, origin, off and off[2], fm)
+      local nl, nm, on = row_best(pr + 1, off and off[1])
+      local sl, sm, os_ = row_best(pr + s + 2, off and off[2])
       if #nl + #sl > 0 then
         bands[#bands + 1] = { pr = pr, b = pr + s + 1, n = nl, s = sl, on = on, os = os_ }
         total = total + nm + sm
@@ -581,8 +590,9 @@ local function plan_once(spec)
     bands = bands_for(c, spec, phase, box, origin, F)
   else
     local bt
+    local fm, rm = {}, {}
     for ph = 0, pitch - 1 do
-      local bs, total = bands_for(c, spec, ph, box, origin, nil)
+      local bs, total = bands_for(c, spec, ph, box, origin, nil, fm, rm)
       if not bands or total > bt then bands, bt, phase = bs, total, ph end
     end
   end

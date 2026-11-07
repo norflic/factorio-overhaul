@@ -26,42 +26,8 @@ local function known_gap(cond, msg, why)
   if cond then passes = passes + 1 else known = known + 1; print("  ECART CONNU : " .. msg .. " -- " .. why) end
 end
 
-local function disc(cx, cy, r, skip, out)
-  out = out or {}
-  for x = cx - r, cx + r do for y = cy - r, cy + r do
-    if (x - cx) ^ 2 + (y - cy) ^ 2 <= r * r and not (skip and skip(x, y)) then out[#out + 1] = x; out[#out + 1] = y end
-  end end
-  return out
-end
-local function ellipse(a, b)
-  local o = {}
-  for x = -a, a do for y = -b, b do if (x / a) ^ 2 + (y / b) ^ 2 <= 1 then o[#o + 1] = x; o[#o + 1] = y end end end
-  return o
-end
-local function rect(x0, y0, w, h, out)
-  out = out or {}
-  for x = x0, x0 + w - 1 do for y = y0, y0 + h - 1 do out[#out + 1] = x; out[#out + 1] = y end end
-  return out
-end
-
---- Spec du jeu (voir l'en-tête). o.brut : minerai porté brut (coffres) ; o.blocked ; o.target.
-local function spec_of(ore, o)
-  o = o or {}
-  local sp = { ore = ore, blocked = o.blocked or {}, mine = {}, foreign = {}, drill = { size = 3, reach = 1, rate = 0.5 }, pole = { reach = 2, wire = 7.5 },
-    belts = { { lane = 7.5 } }, inserter = { rate = 0.83 }, target = o.target or { x = 0, y = 400 }, max_side = 8,
-    logistics = { splitter = false, underground = (o.ug ~= false) and (o.ug or 5) or nil } }
-  if not o.brut then
-    sp.furnace = { size = 2, rate = 0.3125, fuel = true, fuel_rate = 0.0225 }
-    sp.design = "colonne"
-    local bx, by = 0, 0
-    for i = 1, #ore - 1, 2 do bx = math.max(bx, ore[i]); by = math.max(by, ore[i + 1]) end
-    -- charbon : gisement de rayon 12 (452 tuiles) à ~45 tuiles en diagonale du coin du champ (au-delà des fonderies déplacées : la zone
-    -- interdite au tracé du charbon est la boîte du champ ET des colonnes)
-    sp.coal = { tiles = disc(bx + 45, by + 45, 12), rate = 0.5, foreign = {} }
-    sp.soft, sp.ug_tiles = {}, {}
-  end
-  return sp
-end
+local Fm = require("tests.champ_formes")
+local disc, ellipse, rect, spec_of, shapes = Fm.disc, Fm.ellipse, Fm.rect, Fm.spec_of, Fm.shapes
 
 local function sig(e) return string.format("%s:%.2f:%.2f:%d:%s:%s:%s", e.kind, e.x, e.y, e.dir, tostring(e.band), tostring(e.group), tostring(e.role)) end
 local function serial(p)
@@ -71,79 +37,6 @@ local function serial(p)
   return table.concat(t, ";")
 end
 
---- Formes (nom, minerai, options, cible de couverture, valeur d'essai-a).
-local function shapes()
-  local L = {}
-  local function add(name, ore, o, target, before) L[#L + 1] = { name = name, ore = ore, o = o or {}, target = target, before = before } end
-  add("disque r11", disc(0, 0, 11), nil, 0.98, 1.000)
-  add("disque r20", disc(0, 0, 20), nil, 0.97, 0.990)
-  add("disque r30", disc(0, 0, 30), nil, 0.80, 0.809)
-  add("ellipse 70 x 30", ellipse(35, 15), nil, 0.73, 0.737)
-  do
-    local Lr = rect(0, 0, 60, 14)
-    rect(0, 14, 14, 50, Lr)
-    add("L 60 x 14 + 14 x 50", Lr, nil, 0.82, 0.826)
-  end
-  do
-    local b = {}
-    for x = -40, 40 do for y = 0, 1 do b[Ch.key(x, y)] = "couloir" end end
-    add("r30 + couloir horizontal", disc(0, 0, 30), { blocked = b }, 0.77, 0.774)
-  end
-  do
-    local b, w = {}, {}
-    for x = -40, 40 do for y = -40, 40 do if math.abs(x - y) <= 2 then b[Ch.key(x, y)] = "eau"; w[Ch.key(x, y)] = true end end end
-    -- (écart connu : la rivière fait 5 tuiles ; un souterrain jaune n'en saute que 4 ; le long tronçon d'une bande coupée n'a alors
-    -- qu'une sortie et porte au plus une voie de tête de colonne, 15 foreuses au tapis jaune)
-    add("r30 + riviere diagonale", disc(0, 0, 30, function(x, y) return w[Ch.key(x, y)] end), { blocked = b, known = "riviere de 5 tuiles, souterrain jaune de portee 5 (4 tuiles sautees) : le troncon long n'a qu'une sortie, 15 foreuses au plus" }, 0.75, 0.681)
-    add("r30 + riviere, souterrain rapide (portee 7)", disc(0, 0, 30, function(x, y) return w[Ch.key(x, y)] end), { blocked = b, ug = 7 }, 0.75, nil)
-  end
-  do
-    local b = {}
-    for x = -36, 36, 12 do for y = -36, 36, 12 do for dx = 0, 1 do for dy = 0, 1 do b[Ch.key(x + dx, y + dy)] = "gun-turret" end end end end
-    add("r30 + tourelles eparses sur le champ", disc(0, 0, 30), { blocked = b }, 0.72, 0.615)
-  end
-  do
-    local b = {}
-    for x = -40, 40 do for y = -40, 40 do
-      local d2 = x * x + y * y
-      if d2 >= 34 * 34 and d2 < 35 * 35 and (x + y) % 8 == 0 then for dx = 0, 1 do for dy = 0, 1 do b[Ch.key(x + dx, y + dy)] = "gun-turret" end end end
-    end end
-    add("r30 + anneau de tourelles (r34)", disc(0, 0, 30), { blocked = b }, 0.76, 0.485)
-    -- sans souterrain débloqué (début de partie) : la sortie bouchée par une tourelle recule d'une foreuse (Cc.trim)
-    add("r30 + anneau, sans souterrains", disc(0, 0, 30), { blocked = b, ug = false }, 0.75, nil)
-  end
-  -- (écart connu, mesuré le 7/11, accordé par le lead) entre le bout du champ et un lac, le couloir x = ±32 n'a qu'une tuile (x = ±31 : les
-  -- foreuses du bout ; x = ±33 : le lac) : le tapis tracé l'occupe et aucun petit poteau ne s'y pose (fil 7,5 ; rangées de poteaux à 8 tuiles).
-  -- La colonne déplacée d'une bande entre les lacs n'a de courant que par une AUTRE bande : refusée (une bande se bâtit seule en jeu).
-  local LACS = "couloir d'une tuile entre le champ et le lac : aucun petit poteau de liaison (fil 7,5 < 8 tuiles entre rangees) ; "
-    .. "colonne deplacee sans courant si sa bande est batie seule, donc refusee"
-  do
-    local b = {}
-    for x = 33, 60 do for y = -15, 15 do b[Ch.key(x, y)] = "eau"; b[Ch.key(-x, y)] = "eau" end end
-    add("r30 + lacs aux deux bouts", disc(0, 0, 30), { blocked = b, known = LACS }, 0.75, 0.230)
-    -- lacs plus longs que le recul de la fonderie (48 tuiles) : elle passe sur une autre rangée de bande
-    local b2 = {}
-    for x = 33, 100 do for y = -15, 15 do b2[Ch.key(x, y)] = "eau"; b2[Ch.key(-x, y)] = "eau" end end
-    add("r30 + grands lacs (33 a 100)", disc(0, 0, 30), { blocked = b2, known = LACS }, 0.75, nil)
-  end
-  do
-    local b = {}
-    for x = 14, 50 do for y = -20, 20 do if math.abs(y) > 1 then b[Ch.key(x, y)] = "eau"; b[Ch.key(-x, y)] = "eau" end end end
-    add("r12 + eau aux bouts, ouverture de 3", disc(0, 0, 12), { blocked = b }, 0.85, 0.000)
-  end
-  do
-    local b = {}
-    for x = 33, 70 do for y = -40, 40 do if math.abs(y) > 2 then b[Ch.key(x, y)] = "eau"; b[Ch.key(-x, y)] = "eau" end end end
-    add("r30 + eau aux bouts, ouverture de 5", disc(0, 0, 30), { blocked = b }, 0.70, 0.000)
-  end
-  add("r30 brut (coffres)", disc(0, 0, 30), { brut = true }, 0.84, 0.848)
-  do
-    local b = {}
-    for x = 33, 60 do for y = -15, 15 do b[Ch.key(x, y)] = "eau"; b[Ch.key(-x, y)] = "eau" end end
-    add("r30 brut + lacs aux deux bouts", disc(0, 0, 30), { blocked = b, brut = true, known = LACS }, 0.75, nil)
-  end
-  return L
-end
 
 local CLEAN = { ["disque r11"] = true, ["disque r20"] = true, ["disque r30"] = true, ["ellipse 70 x 30"] = true, ["L 60 x 14 + 14 x 50"] = true,
   ["r30 brut (coffres)"] = true }
