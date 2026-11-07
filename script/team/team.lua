@@ -49,6 +49,7 @@ local Gisement = require("script.team.gisement") -- lot GISEMENTS : foreuses à 
 local FoSwap = require("script.team.foreuse_swap") -- lot FOREUSES : foreuse à combustion remplacée par l'électrique quand le courant arrive
 local Survie = require("script.team.survie") -- lot SURVIE-PENURIE : mode survie d'une équipe en pénurie (entrée, sortie, tâches, journal)
 local SurvieQg = require("script.team.survie_qg") -- lot S1 : QG en péril (défense armée contre la menace reçue, journal [FO-SURVIE])
+local MenaceQg = require("script.team.menace_qg") -- lot L12 (partie 1) : hystérésis de la menace sur le QG (hq_threat)
 local Sq = require("shared.team.survie_qg") -- lot QGSURVIE : réserve de fer du QG (règle pure)
 local PileRt = require("script.team.pile") -- lot PILE-PRIORITE : la pile retient l'amélioration (réparer + protéger d'abord)
 local Flux = require("shared.team.flux") -- lot FLUX : sorties des avant-postes comptées comme objets attendus (règle pure)
@@ -69,6 +70,7 @@ local DefChoix = require("script.faction.defchoix") -- lot DEFENSE-CHOIX : base 
 local Mu = require("shared.team.munitions") -- lot MUNITIONS : chargeurs voulus par tourelle (cible riche quand le fer la paie)
 local Scheduler = require("script.core.scheduler") -- lot DÉCOUPAGE-PENSÉE : minuteurs des étapes d'une pensée
 local Et = require("shared.team.etapes") -- lot DÉCOUPAGE-PENSÉE : état gardé de la vue et du plan pour E4
+local ManqueVue = require("script.team.manque_vue") -- lot VIDEO-L3 : manque mesuré (modules, sorties, transit), à côté du stock
 
 local Team = {}
 
@@ -568,8 +570,9 @@ function Team.view(f, tick)
     -- QG MENACÉ (unités ennemies à moins de T.hq_threat_radius tuiles du coffre) : tout le monde garde le coffre, le fond
     -- s'arrête. Moteur réel : avant le lot, les PNJ inactifs restés au coffre le défendaient ; occupés au loin, le coffre
     -- tombait sous une attaque de biters (verif-guide 577215664, 33 min ; ia1b-scale10, 24 min).
-    if f.hq and f.hq.valid and f.hq.surface.count_entities_filtered({ position = f.hq_pos, radius = T.hq_threat_radius,
-      force = "enemy", type = "unit", limit = 1 }) > 0 then
+    -- Lot L12 (partie 1) : HYSTÉRÉSIS (script/team/menace_qg.lua) : entrée à T.hq_threat_radius tuiles, sortie quand plus aucune unité à
+    -- 64 tuiles pendant 2 pensées de suite (avant : seuil unique, la garde et la retenue des recrues clignotaient avec un biter à 48 tuiles).
+    if f.hq and f.hq.valid and MenaceQg.observe(f, tick) then
       hq_threat = true
       hq_guards = math.max(hq_guards, f.engineers_count or 0)
     end
@@ -735,10 +738,16 @@ function Team.view(f, tick)
     f.team.qg_reserve, f.team.qg_reserve_tech, f.team.qg_reserve_full = nil, nil, nil
   end
   if f.is_player and T.qg_recruit_hold_on and SurvieQg.recruit_hold(f, tick, hq_threat) then hold_recruits = true end
+  -- Lot VIDEO-L3 : manque mesuré (script/team/manque_vue.lua, une fois par minute) sur le stock LIBRE, rendu À CÔTÉ de view.stock, jamais
+  -- dedans (piège du lot FLUX) ; lu par la collecte (f.team.mq), la survie (view.mq) et la capitalisation (Mq.sinks).
+  local mq = ManqueVue.think(f, tick, stock_free, { effectif = effectif, recruit_prio = recruit_prio })
   Profiler.fstop("view:4-fin") -- lot PERF (fusion de l'intégrateur : la mesure fine couvre aussi la règle d'effectif)
   return {
     tech = f.tech, personality = f.personality, done = f.team.done, deferred = f.team.deferred,
     stock = stock_free, incoming = incoming, repat = repat,
+    -- lot VIDEO-L3 : manque mesuré (nil : éteint) : besoins et part à construire par objet (le résultat entier reste dans f.team.mq.res :
+    -- la vue est COPIÉE à chaque pensée par Et.keep_e1) ; sorties dont la collecte est prise (disponibles) et sorties qui dorment
+    mq = mq and { need = mq.need, build = mq.build } or nil, avail_out = mq and mq.dispo_sorties or nil, dort = mq and mq.dort or nil,
     sorties_on = f.team.sorties_regle ~= false or nil, -- lot CHARBON-MAIN : règle « sorties brutes d'abord » (shared/team/sorties_main.lua)
     outposts = outposts, pending = pend, sites = sites, sites_near = sites_near, -- lot SITE-PROCHE (R1)
     smelters = #Outposts.smelters(f), smelters_pending = smelters_pending,
