@@ -231,7 +231,9 @@ local function suite(text)
   }
   local BUR, ELE = "burner-mining-drill", "electric-mining-drill"
   local Tj = { DRILL = BUR, DRILL_ELECTRIC = ELE, drill_electric = { size = 3 }, drill_drop = { 100, 100 }, outposts = { iron = { resource = "iron-ore" } } }
-  local fits_for = load_fn(text, "local function fits_for(f, surface, refs)", { T = Tj, S = S, Swap = { MIN_ORE = 3 },
+  local fed_by_electric = load_fn(text, "local function fed_by_electric(surface, k, except)", {})
+  c("J : fed_by_electric extraite", fed_by_electric ~= nil)
+  local fits_for = load_fn(text, "local function fits_for(f, surface, refs)", { T = Tj, S = S, Swap = { MIN_ORE = 3 }, fed_by_electric = fed_by_electric,
     game = { entity_prototypes = { [ELE] = { mining_drill_radius = 2.49 } } },
     sorted_keys = function(t) local k = {} for n in pairs(t) do k[#k + 1] = n end table.sort(k) return k end })
   c("J : fits_for extraite", fits_for ~= nil)
@@ -259,6 +261,26 @@ local function suite(text)
     local p4 = fit(e, 17.5, 12.5, 0)
     c("J : thermique qui partage le four d'une electrique : elle seule au plan, le four reste", type(p4) == "table" and #p4.drills == 1
       and p4.drills[1] == d12.unit_number and #p4.sinks == 0, type(p4) == "table" and (#p4.drills .. " / " .. #p4.sinks) or tostring(p4))
+    -- B2 (revue du lead, 7/11, cout) : les paires de l'avant-poste sont relues UNE fois par passe (une fermeture fits_for = une passe)
+    J.reads = 0
+    local fit2 = fits_for({ force = "player" }, jsurf, refs)
+    fit2(e, 11.5, 10.5, 0)
+    fit2(e, 19.5, 8.5, 0)
+    fit2(e, 17.5, 12.5, 0)
+    c("J B2 : 3 lectures de place, recepteurs lus une seule fois (4 foreuses)", J.reads == 4, tostring(J.reads))
+    -- plan perime a l'execution : four de l'entree retire plus tot dans la passe, ou electrique posee depuis qui depose dans un four du plan
+    local stale_plan = load_fn(text, "local function stale_plan(surface, ref, ex)", { T = Tj, fed_by_electric = fed_by_electric })
+    c("J : stale_plan extraite", stale_plan ~= nil)
+    if stale_plan then
+      local ref1 = { drill = self, sink_ent = s10 }
+      c("J : plan intact : bon", stale_plan(jsurf, ref1, p1) == false)
+      s10.valid = false
+      c("J : four de l'entree retire dans la passe : perime", stale_plan(jsurf, ref1, p1) == true)
+      s10.valid = true
+      local late = jent(ELE, "mining-drill", 13, 4.5, 3, { drop_target = s50 })
+      c("J : electrique posee depuis, qui depose dans le four du plan : perime", stale_plan(jsurf, ref1, p1) == true)
+      late.valid = false
+    end
   end
   -- I. câblage : l'échange vient APRÈS la chaîne posée et reliée (courant amené), et l'électrique ratée repose la paire
   local i_chain = text:find("local ok, why, placed = place_chain(f, surface, pole, r.poles, src)", 1, true)
@@ -266,6 +288,7 @@ local function suite(text)
   c("I : retrait apres la chaine reliee", i_chain ~= nil and i_ex ~= nil and i_chain < i_ex)
   c("I : electrique ratee : paire reposee", text:find("if not done_swap and undo then", 1, true) ~= nil and text:find("exchange_undo(f, surface, ref.o, undo)", 1, true) ~= nil)
   c("I : une ligne [FO-FOREUSES-ECHANGE] par echange", text:find("[FO-FOREUSES-ECHANGE]", 1, true) ~= nil)
+  c("I : plan relu a l'execution (B2 : paires lues une fois par passe)", text:find("if ref and stale_plan(surface, ref, r.exchange) then", 1, true) ~= nil)
   c("I : listes compactees en fin de passe", text:find("for _, oid in ipairs(sorted_keys(touched)) do compact(touched[oid]) end", 1, true) ~= nil)
   return res
 end
@@ -289,7 +312,9 @@ local MUT = {
   -- (echange coupe en entier : vu au banc foreuses-chaine, pas ici ; l ordre chaine puis retrait est controle au texte, cas I)
   { "couloir et plan ignores", "      if Outposts.reserved and Outposts.reserved(f, pole.name, { x = x, y = y }, 0) then return false end", "" },
   { "B1 : recepteur lu au vecteur de la thermique (drop_target ignore)", "      local tgt = d.drop_target", "      local tgt = nil" },
-  { "B1 : relecture du four au moteur oubliee", "        if x.valid and x ~= ref.drill and not x.burner and x.drop_target == k then return false end", "" },
+  { "B1 : relecture du four au moteur oubliee", "    if x.valid and x ~= except and not x.burner and x.drop_target == k then return true end", "" },
+  { "B2 : paires relues a chaque appel", "    if info then return info end", "" },
+  { "B2 : four de l'entree non relu a l'execution", "  if ref.sink_ent and not ref.sink_ent.valid then return true end", "" },
   { "B1 : electriques non fixes", "      if d.name ~= T.DRILL then fixed[du] = true end", "" },
 }
 local refused, kept = 0, {}

@@ -76,22 +76,26 @@ local function survey(f, surface)
   for _, oid in ipairs(sorted_keys(f.outposts)) do
     local o = f.outposts[oid]
     local any = false
+    -- revue du lead (7/11, B2, cout) : recepteur de chaque thermique lu au moteur (drop_target) dans l'ensemble des fours de l'avant-poste,
+    -- au lieu d'un parcours de tous les fours par foreuse (171 x 171 lectures sur un avant-poste dense)
+    local sink_set
     -- lot MIGRATION-CHAMP : un champ en cours de migration (rangees electriques du plan directeur) ne recoit pas de remplacement sur place
     for i, d in ipairs(o.migr == "en cours" and {} or (o.drill_list or {})) do
       if d.valid and d.name == T.DRILL and d.unit_number then
         local pos = d.position
         local key = pos.x .. ":" .. pos.y
         if not (retry[key] and game.tick < retry[key]) then
-          local v = T.drill_drop
-          local rx, ry = S.rotate(d.direction, v[1], v[2])
-          local sink
-          for _, s in ipairs(o.sinks or {}) do
-            if s.valid and S.inside(box_of(s), pos.x + rx, pos.y + ry) then sink = box_of(s) break end
+          if not sink_set then
+            sink_set = {}
+            for _, s in ipairs(o.sinks or {}) do if s.valid and s.unit_number then sink_set[s.unit_number] = true end end
           end
+          local t = d.drop_target
+          local sink
+          if t and t.valid and t.unit_number and sink_set[t.unit_number] then sink = box_of(t) end
           if sink then
             any = true
             entries[#entries + 1] = { id = d.unit_number, x = pos.x, y = pos.y, dir = d.direction, sink = sink }
-            refs[d.unit_number] = { o = o, index = i, drill = d, key = key }
+            refs[d.unit_number] = { o = o, index = i, drill = d, key = key, sink_ent = t }
           end
         end
       end
@@ -303,6 +307,28 @@ local function place_chain(f, surface, pole, list, src)
   return true, nil, placed
 end
 
+--- Revue du lead (7/11, B1) : une electrique (de l'avant-poste ou d'ailleurs : bandes du champ) depose-t-elle dans le four `k` ? Lu au
+--- moteur (drop_target des foreuses electriques autour du four), `except` exclue.
+local function fed_by_electric(surface, k, except)
+  local kb = k.bounding_box
+  for _, x in ipairs(surface.find_entities_filtered({ area = { { kb.left_top.x - 3, kb.left_top.y - 3 }, { kb.right_bottom.x + 3, kb.right_bottom.y + 3 } },
+      type = "mining-drill" })) do
+    if x.valid and x ~= except and not x.burner and x.drop_target == k then return true end
+  end
+  return false
+end
+
+--- Revue du lead (7/11, B1 et B2) : le plan d'une entree a ete fait AVANT toute pose de la passe (paires relues une fois par passe). Encore
+--- bon a l'execution ? Le four de l'entree est toujours la, et aucune electrique (posee plus tot dans la passe, ou d'ailleurs) ne depose
+--- dans un four que son echange retirerait.
+local function stale_plan(surface, ref, ex)
+  if ref.sink_ent and not ref.sink_ent.valid then return true end
+  for _, e in ipairs(ex and ex.ents or {}) do
+    if e.valid and e.name ~= T.DRILL and fed_by_electric(surface, e, ref.drill) then return true end
+  end
+  return false
+end
+
 --- Lot FOREUSES-THERMIQUES (banc du 7/11) : la 3 x 3 en (cx, cy) tient-elle AVANT tout poteau ? Rien d'autre que l'ancienne foreuse et
 --- ce qui se defriche (arbres, rochers) sur la boite, pas d'eau, et au moins Swap.MIN_ORE tuiles du minerai de l'avant-poste dans la zone
 --- de minage (5 x 5). Lit le moteur : S.plan l'appelle au plus S.FIT_TRIES fois par passe.
@@ -310,6 +336,43 @@ local function fits_for(f, surface, refs)
   local item = T.DRILL_ELECTRIC
   local pr = game.entity_prototypes[item]
   local r = pr and pr.mining_drill_radius or 2.49
+  -- Revue du lead (7/11, B2, cout) : les paires d'un avant-poste sont relues UNE fois par avant-poste et par passe (S.plan appelle fits
+  -- jusqu'a S.FIT_TRIES fois, plusieurs placements par entree : jusqu'a 64 relectures de 171 foreuses avant). Valable le temps de la
+  -- passe : S.plan decide avant toute pose ou tout retrait.
+  local lists, infos = {}, {}
+  local function lists_of(o)
+    local l = lists[o]
+    if l then return l end
+    local mine_d, mine_s = {}, {}
+    for _, d in ipairs(o.drill_list or {}) do if d.valid and d.unit_number then mine_d[d.unit_number] = d end end
+    for _, k in ipairs(o.sinks or {}) do if k.valid and k.unit_number then mine_s[k.unit_number] = k end end
+    l = { d = mine_d, s = mine_s }
+    lists[o] = l
+    return l
+  end
+  -- paires de l'avant-poste : recepteur de chaque foreuse, foreuses de chaque recepteur. Revue du lead (7/11, B1) : le recepteur REEL lu
+  -- au moteur (drop_target : l'entite ou la foreuse depose), pour la thermique comme pour l'electrique ; le vecteur de depot de la
+  -- thermique (T.drill_drop) tombait dans la 3 x 3 d'une electrique, et le four de celle-ci etait retire. Les electriques ne se
+  -- retirent jamais (fixed) : un four qui recoit d'une electrique est garde (S.exchange, « recepteur d'une electrique »).
+  local function info_of(o, l)
+    local info = infos[o]
+    if info then return info end
+    local sink_of, feeders, fixed = {}, {}, {}
+    for _, du in ipairs(sorted_keys(l.d)) do
+      local d = l.d[du]
+      if d.name ~= T.DRILL then fixed[du] = true end
+      local tgt = d.drop_target
+      local su = tgt and tgt.valid and tgt.unit_number
+      if su and l.s[su] then
+        sink_of[du] = su
+        feeders[su] = feeders[su] or {}
+        feeders[su][#feeders[su] + 1] = du
+      end
+    end
+    info = { sink_of = sink_of, feeders = feeders, fixed = fixed }
+    infos[o] = info
+    return info
+  end
   return function(e, cx, cy, dir)
     local ref = refs[e.id]
     if not (ref and ref.drill and ref.drill.valid) then return false end
@@ -322,17 +385,14 @@ local function fits_for(f, surface, refs)
       if n < Swap.MIN_ORE then return false end
     end
     -- lot FOREUSES-THERMIQUES (iii) : ce qui recouvre la 3 x 3 ; seules des paires du MEME avant-poste peuvent etre echangees (S.exchange)
-    local o = ref.o
-    local mine_d, mine_s = {}, {}
-    for _, d in ipairs(o.drill_list or {}) do if d.valid and d.unit_number then mine_d[d.unit_number] = d end end
-    for _, k in ipairs(o.sinks or {}) do if k.valid and k.unit_number then mine_s[k.unit_number] = k end end
+    local l = lists_of(ref.o)
     local blockers = {}
     for _, x in ipairs(surface.find_entities_filtered({ area = area, collision_mask = "object-layer" })) do
       if x.valid and x ~= ref.drill and x.type ~= "tree" and x.type ~= "simple-entity" then
         local u = x.unit_number
-        if u and x.name == T.DRILL and mine_d[u] then
+        if u and x.name == T.DRILL and l.d[u] then
           blockers[#blockers + 1] = { kind = "drill", id = u }
-        elseif u and mine_s[u] then
+        elseif u and l.s[u] then
           blockers[#blockers + 1] = { kind = "sink", id = u }
         else
           return false
@@ -340,36 +400,16 @@ local function fits_for(f, surface, refs)
       end
     end
     if #blockers == 0 then return true end
-    -- paires de l'avant-poste : recepteur de chaque foreuse, foreuses de chaque recepteur. Revue du lead (7/11, B1) : le recepteur REEL lu
-    -- au moteur (drop_target : l'entite ou la foreuse depose), pour la thermique comme pour l'electrique ; le vecteur de depot de la
-    -- thermique (T.drill_drop) tombait dans la 3 x 3 d'une electrique, et le four de celle-ci etait retire. Les electriques ne se
-    -- retirent jamais (fixed) : un four qui recoit d'une electrique est garde (S.exchange, « recepteur d'une electrique »).
-    local sink_of, feeders, fixed = {}, {}, {}
-    for _, du in ipairs(sorted_keys(mine_d)) do
-      local d = mine_d[du]
-      if d.name ~= T.DRILL then fixed[du] = true end
-      local tgt = d.drop_target
-      local su = tgt and tgt.valid and tgt.unit_number
-      if su and mine_s[su] then
-        sink_of[du] = su
-        feeders[su] = feeders[su] or {}
-        feeders[su][#feeders[su] + 1] = du
-      end
-    end
-    local plan = S.exchange(blockers, { sink_of = sink_of, feeders = feeders, fixed = fixed }, sink_of[ref.drill.unit_number], ref.drill.unit_number)
+    local info = info_of(ref.o, l)
+    local plan = S.exchange(blockers, info, info.sink_of[ref.drill.unit_number], ref.drill.unit_number)
     if not plan then return false end
     -- B1 : relecture au moteur des fours a retirer : aucune electrique (de l'avant-poste ou d'ailleurs : bandes du champ) n'y depose
     for _, su in ipairs(plan.sinks) do
-      local k = mine_s[su]
-      local kb = k.bounding_box
-      for _, x in ipairs(surface.find_entities_filtered({ area = { { kb.left_top.x - 3, kb.left_top.y - 3 }, { kb.right_bottom.x + 3, kb.right_bottom.y + 3 } },
-          type = "mining-drill" })) do
-        if x.valid and x ~= ref.drill and not x.burner and x.drop_target == k then return false end
-      end
+      if fed_by_electric(surface, l.s[su], ref.drill) then return false end
     end
     plan.ents = {}
-    for _, du in ipairs(plan.drills) do plan.ents[#plan.ents + 1] = mine_d[du] end
-    for _, su in ipairs(plan.sinks) do plan.ents[#plan.ents + 1] = mine_s[su] end
+    for _, du in ipairs(plan.drills) do plan.ents[#plan.ents + 1] = l.d[du] end
+    for _, su in ipairs(plan.sinks) do plan.ents[#plan.ents + 1] = l.s[su] end
     return plan
   end
 end
@@ -499,6 +539,10 @@ function Swap.think(f, surface, book, free, tick)
   local pc = power_of(f)
   for _, r in ipairs(out) do
     local ref = refs[r.id]
+    if ref and stale_plan(surface, ref, r.exchange) then
+      count(st, "plan perime")
+      ref = nil
+    end
     if ref then
       if pc and not S.power_ok({ capacity = pc.capacity, used = pc.used + kw_new, committed = pc.committed }, kw, 0.6) then
         count(st, "courant")
