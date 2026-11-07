@@ -3726,14 +3726,17 @@ function Build.work(agent, f, tick)
     local chest = o and out_chest(o)
     if not chest then return "fail" end
     local got = 0
+    -- Lot COLLECTE : ce que le stock refuse (Stock.skip_fn, lot STOCKAGE-VITAL, absent avant lui) reste au coffre ; fer et charbon d'abord.
+    local skip = Stock.skip_fn and Stock.skip_fn(f) or nil
     local function take(c)
-      for _, it in ipairs(sorted_keys(c.get_inventory(defines.inventory.chest).get_contents())) do
+      for _, it in ipairs(Colr.take_list(sorted_keys(c.get_inventory(defines.inventory.chest).get_contents()), skip)) do
         local n = c.get_item_count(it)
         local put = inv.insert({ name = it, count = n })
         if put > 0 then c.remove_item({ name = it, count = put }); got = got + put end
       end
     end
-    local before = chest.get_inventory(defines.inventory.chest).get_item_count()
+    local before = 0
+    for _, it in ipairs(Colr.take_list(sorted_keys(chest.get_inventory(defines.inventory.chest).get_contents()), skip)) do before = before + chest.get_item_count(it) end
     take(chest)
     -- Lot COLLECTE : un voyage qui ne rapporte RIEN d'un coffre qui tient quelque chose (sac plein) n'est pas « done » : il échoue et la
     -- tâche reprend après la pause d'échec (carte de l'IA, boucle B2 : voyages à vide sans pause).
@@ -3936,6 +3939,9 @@ end
 --- le PNJ la laisse, le coffre monte à sa barre et la machine s'arrête seule. Sans cette borne, la collecte (seuil 5) vidait le coffre à chaque
 --- voyage : la barre n'était jamais atteinte et le mall changeait tout le stock en pièces, en occupant les PNJ. Un objet hors de la table : collecté.
 local function out_wanted(f, p, chest)
+  -- Lot COLLECTE : un coffre dont tout est écarté par le stock (Stock.skip_fn) n'envoie personne (voyage à vide)
+  local skip = Stock.skip_fn and Stock.skip_fn(f) or nil
+  if skip and #Colr.take_list(sorted_keys(chest.get_inventory(defines.inventory.chest).get_contents()), skip) == 0 then return false end
   local keep = p.keep_stock
   if not keep then return true end
   for _, it in ipairs(sorted_keys(chest.get_inventory(defines.inventory.chest).get_contents())) do
