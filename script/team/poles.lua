@@ -39,6 +39,7 @@ local State = require("script.faction.state")
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Registry = require("script.companion.registry")
 local Board = require("script.team.board")
+local Harvest = require("script.team.harvest") -- lot STOCKAGE-VITAL : matière d'un coffre urgent récoltable (le bois des arbres)
 
 local Poles = {}
 
@@ -50,6 +51,48 @@ Poles.ROOM_WINDOW = 60        -- capacité de fond lissée sur 60 pensées (5 mi
 Poles.DANGER_RADIUS = 40      -- nid ou ver à moins de 40 tuiles : avant-poste écarté du fond (garde, agrandissement)
 Poles.FAR_LOGS = 20           -- lot SCALE-COMPLET : lignes [FO-LOIN] du fond au plus par équipe (f.stats.far_logs)
 local POLE_KEYS = { "extraction", "base", "territoire" }
+Poles.STOCK_LOGS = 120        -- lot STOCKAGE-VITAL : lignes [FO-STOCKAGE] du coffre urgent au plus par équipe (f.stats.stock_logs)
+
+--- Lot STOCKAGE-VITAL : une matière que seules des entités du monde donnent SANS gisement de minerai (le bois : arbres) ? Même
+--- règle que script/team/reconstruction.lua (from_trees).
+local function from_trees(item)
+  local names = Harvest.names(item)
+  return #names > 0 and not (#names == 1 and names[1] == item)
+end
+
+--- Lot STOCKAGE-VITAL : coffre URGENT (Stock.urgent : stock rempli à T.stockage.urgent_at sans coffre en main). La tâche (fabrication,
+--- ou récolte du bois puis fabrication sur place : shared/team/fond.lua, F.annex_urgent) va DIRECTEMENT au tableau, fond allumé ou
+--- coupé, hors de la capacité du fond (Board.add, comme la récolte de la reconstruction) : à sa priorité, elle passe avant le fond.
+--- Journal [FO-STOCKAGE] : la raison (faite, déjà là, refusée et pourquoi) quand elle change, sinon au plus une ligne par minute ;
+--- la fin de l'urgence aussi. Rend vrai pendant l'urgence.
+local function stock_urgent(f, view, free, book, keys, tick)
+  local on = Stock.urgent and Stock.urgent(f) or false
+  local why
+  if on then
+    local tasks
+    tasks, why = Fond.annex_urgent(view, free, { book = book, keys = keys, annex_urgent = true, harvestable = from_trees })
+    if #tasks > 0 then Board.add(f, tasks, tick) end
+  end
+  f.stats.stock_logs = f.stats.stock_logs or 0
+  local last = f.stock_why
+  local line
+  if on and (why ~= (last and last.why) or tick - (last and last.at or -math.huge) >= 3600) then
+    local used, size, n = Stock.fill(f)
+    line = string.format("[FO-STOCKAGE] %s : coffre urgent (stock %d/%d cases, annexes %d) : %s a %.1f min", f.key or "player", used, size, n,
+      tostring(why), (tick - (f.started or 0)) / 3600)
+    f.stock_why = { why = why, at = tick }
+  elseif not on and last then
+    local used, size, n = Stock.fill(f)
+    line = string.format("[FO-STOCKAGE] %s : fin de l'urgence (stock %d/%d cases, annexes %d) a %.1f min", f.key or "player", used, size, n,
+      (tick - (f.started or 0)) / 3600)
+    f.stock_why = nil
+  end
+  if line and f.stats.stock_logs < Poles.STOCK_LOGS then
+    f.stats.stock_logs = f.stats.stock_logs + 1
+    log(line)
+  end
+  return on
+end
 
 local function new_stats()
   return {
@@ -429,6 +472,7 @@ function Poles.think(f, view, book, tick, plan)
   -- shared/team/priorite.lua) : le fond agrandit et bâtit sans attendre les tourelles, seul un avant-poste meurtrier reste exclu.
   local prod_first = plan ~= nil and plan.priorite ~= nil and plan.priorite.production_first == true
   local block_turrets = turrets_ok and not prod_first
+  local urgent_on = stock_urgent(f, view, free, book, keys, tick) -- lot STOCKAGE-VITAL : coffre urgent, fond allumé ou coupé
   if fond_on then
     local fctx = { book = book, keys = keys, mine_skip = skip, danger = danger,
       prudent = prudent, brain_short = Poles.brain_short(plan, book), mine_left = math.max(0, mine_cap - mine_fond_busy),
@@ -438,7 +482,7 @@ function Poles.think(f, view, book, tick, plan)
       -- avant-poste meurtrier non défendu et la prudence (pertes récentes) l'arrêtent.
       transport = player or nil, reserve = player and Fond.PLAYER_RESERVE or nil,
       mine_radius = player and T.near_mine or nil, annex_want = Stock.wanted(f), iron_extra = iron_extra,
-      annex_urgent = Stock.urgent and Stock.urgent(f) or nil, -- lot STOCKAGE-VITAL : coffre urgent (shared/team/fond.lua, F.annex_urgent)
+      annex_urgent = urgent_on or nil, -- lot STOCKAGE-VITAL : pendant le coffre urgent, le fond ne fabrique pas d'autre coffre
       saturated = f.team.ia3 and f.team.ia3.saturated or nil, -- lot SITE-PROCHE (R4)
       plate_map = PLATE_MAP, repat = view.repat } -- lot FLUX
     cands = Fond.candidates(view, free, fctx)
@@ -463,10 +507,6 @@ function Poles.think(f, view, book, tick, plan)
     end
   else
     cands = { extraction = {}, base = {}, territoire = {} }
-    -- Lot STOCKAGE-VITAL : fond coupé, le coffre URGENT se fabrique quand même (un coffre plein arrête toute l'équipe, fer compris)
-    if Stock.urgent and Stock.urgent(f) then
-      cands.base = Fond.annex_urgent(view, free, { book = book, keys = keys, annex_urgent = true })
-    end
     -- Lot FER-EQUIPE : fond coupé pour votre équipe SOUS son effectif de départ (hors QG menacé) : seul le renfort de fer reste.
     if iron_extra and fer_off then
       cands.extraction = Fond.iron_extra_tasks({ iron_extra = iron_extra, keys = keys, mine_skip = skip, prudent = prudent,

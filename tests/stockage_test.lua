@@ -65,52 +65,115 @@ do
   check("cablage : collect ecarte les matieres refusees", op:find("if not (skip and skip(name)) then", 1, true) ~= nil
     and op:find("function Outposts.service(o, carrier, tick, fill, skip)", 1, true) ~= nil)
   check("cablage : la tournee passe Stock.skip_fn", wk:find("Stock.skip_fn and Stock.skip_fn(f))", 1, true) ~= nil)
-  check("cablage : Stock.insert borne les non vitales (Sg.new_stacks)", sk:find("local allowed = Sg.new_stacks(item, empty, size, VITAL, T.stockage)", 1, true) ~= nil
-    and sk:find("if not VITAL[item] then", 1, true) ~= nil)
+  check("cablage : Stock.insert borne les non vitales (Sg.new_stacks), pas les coffres d'annexe", sk:find("local allowed = Sg.new_stacks(item, empty, size, VITAL, T.stockage)", 1, true) ~= nil
+    and sk:find("if not VITAL[item] and not ANNEX[item] then", 1, true) ~= nil)
+  check("cablage : un coffre refuse au depot est pose en annexe (place_held)", sk:find("if put < n and ANNEX[item] then put = put + place_held(f, item, n - put) end", 1, true) ~= nil
+    and sk:find("place_held = function(f, item, k)", 1, true) ~= nil)
+  check("cablage : depot refuse au journal, au plus une ligne par Stock.REFUSED_LOG", sk:find("tick - f.refused_log >= Stock.REFUSED_LOG", 1, true) ~= nil
+    and sk:find("depot refuse", 1, true) ~= nil)
+  local pl = read("script/team/poles.lua")
+  check("cablage : coffre urgent ajoute au tableau hors du fond, raison au journal", pl:find("local urgent_on = stock_urgent(f, view, free, book, keys, tick)", 1, true) ~= nil
+    and pl:find("if #tasks > 0 then Board.add(f, tasks, tick) end", 1, true) ~= nil and pl:find("harvestable = from_trees", 1, true) ~= nil
+    and pl:find("fin de l'urgence", 1, true) ~= nil)
+  check("cablage : recolte urgente puis fabrication sur place (worker)", wk:find('if tc then steps[#steps + 1] = { "craft_now", tc.crafts, tc.ticks, tc.item } end', 1, true) ~= nil
+    and wk:find('elseif kind == "craft_now" then', 1, true) ~= nil)
   check("cablage : coffre urgent demande (Stock.wanted) et journal [FO-STOCKAGE]", sk:find("if Sg.urgent(used / size, have > 0, T.stockage) and n < capacity(f) then w = math.max(w, 1) end", 1, true) ~= nil
     and sk:find("[FO-STOCKAGE]", 1, true) ~= nil)
 end
 
--- coffre URGENT (shared/team/fond.lua, F.annex_urgent) : fabriqué cerveau en manque et fond coupé, planchers compris
+-- configuration : l'urgence se déclenche AVANT le plafond des non vitales (sinon une pierre arrêtée par la réserve ne la déclencherait
+-- jamais) ; le ramassage des non vitales s'arrête au plus tard à l'urgence
+do
+  local T = require("shared.team.config")
+  local Sg = load(SRC, "=" .. PATH)()
+  local cfg, bad_sizes = T.stockage, {}
+  for size = 16, 784, 16 do
+    if cfg.urgent_at * size > size - Sg.reserve_slots(size, cfg) + 1e-9 then bad_sizes[#bad_sizes + 1] = size end
+  end
+  check("configuration : urgent_at sous le plafond des non vitales (16 a 784 cases)", #bad_sizes == 0, table.concat(bad_sizes, " "))
+  check("configuration : stop_at <= urgent_at (plus de ramassage des non vitales au plus tard a l'urgence)", cfg.stop_at <= cfg.urgent_at)
+end
+
+-- coffre URGENT (shared/team/fond.lua, F.annex_urgent) : sans fer (coffre en bois d'abord), récolte du bois puis fabrication sur place,
+-- raison écrite (faite, déjà là, refusée et pourquoi), hors capacité du fond
 local function urgent_suite(F)
   local res = {}
   local function check(name, cond, detail) res[#res + 1] = { name, cond and true or false, detail } end
   do
     local T = require("shared.team.config")
     local IRON, WOOD = T.outposts.iron.product, "wood"
-    local CH = T.annex.kinds[1].item
+    local CH, WCH = T.annex.kinds[1].item, T.annex.kinds[2].item
+    check("donnees : le coffre en bois est le coffre sans plaque (cheap)", T.annex.kinds[2].cheap == true and not T.annex.kinds[1].cheap)
     local function book(ok_items)
       return {
         handcraftable = function(_, item) return ok_items[item] == true end,
         plan = function(_, list, avail)
           local item = list[1][1]
           local need = (item == CH) and { [IRON] = 8 } or { [WOOD] = 2 }
-          local raw = {}
-          for k, v in pairs(need) do if (avail[k] or 0) < v then raw[k] = v end end
-          return { raw = raw, crafts = {}, uses = need }
+          local raw, uses = {}, {}
+          for k, v in pairs(need) do
+            local have = math.max(0, avail[k] or 0)
+            if have < v then raw[k] = v - have end
+            uses[k] = math.min(v, have)
+          end
+          return { raw = raw, crafts = { { recipe = item, runs = 1, energy = 0.5 } }, uses = uses }
         end,
       }
     end
-    local B = book({ [CH] = true, [T.annex.kinds[2].item] = true })
-    local t = F.annex_urgent({}, { [IRON] = 8 }, { book = B, annex_urgent = true })
-    check("urgent : coffre de fer fabrique avec 8 plaques (cerveau en manque ou non)", #t == 1 and t[1].item == CH and t[1].prio == F.URGENT_PRIO and t[1].prio > F.PRIO.extend, #t)
-    check("urgent : rien sans urgence", #F.annex_urgent({}, { [IRON] = 8 }, { book = B, annex_urgent = false }) == 0)
-    check("urgent : rien avec un coffre en main", #F.annex_urgent({}, { [IRON] = 8, [CH] = 1 }, { book = B, annex_urgent = true }) == 0)
-    check("urgent : rien quand la tache est deja au tableau", #F.annex_urgent({}, { [IRON] = 8 }, { book = B, annex_urgent = true,
-      keys = { ["fond:craft:" .. CH .. ":annexe-urgente"] = true } }) == 0)
-    local tw = F.annex_urgent({}, { [IRON] = 0, [WOOD] = 4 }, { book = B, annex_urgent = true })
-    check("urgent : sans fer, le coffre en bois", #tw == 1 and tw[1].item == T.annex.kinds[2].item, #tw)
-    -- par le fond : cerveau EN MANQUE et fer au seul plancher (F.FLOOR) : le coffre de fer passe quand même (planchers rendus)
-    local c = F.candidates({ incoming = {} }, { [IRON] = F.FLOOR[IRON], ["copper-plate"] = 0, stone = 0 },
-      { book = B, keys = {}, brain_short = true, annex_want = 1, annex_urgent = true })
-    local found = false
-    for _, x in ipairs(c.base) do if x.key == "fond:craft:" .. CH .. ":annexe-urgente" then found = true end end
-    check("fond, cerveau en manque, fer au plancher : coffre de fer urgent propose", found)
-    local c2 = F.candidates({ incoming = {} }, { [IRON] = F.FLOOR[IRON], ["copper-plate"] = 0, stone = 0 },
-      { book = B, keys = {}, brain_short = true, annex_want = 1 })
-    local plain = false
-    for _, x in ipairs(c2.base) do if x.item == CH then plain = true end end
-    check("temoin : sans urgence, cerveau en manque, aucun coffre de fer (comportement de 0.6.58)", not plain)
+    local B = book({ [CH] = true, [WCH] = true })
+    local U = { book = B, annex_urgent = true }
+    local function ctx(extra)
+      local c = { book = B, annex_urgent = true }
+      for k, v in pairs(extra or {}) do c[k] = v end
+      return c
+    end
+    local yes = function(item) return item == WOOD end
+    local no = function() return false end
+    -- 1. le coffre en bois d'abord, même quand le fer est là (le coffre urgent ne dépend pas du fer)
+    local t, why = F.annex_urgent({}, { [IRON] = 8, [WOOD] = 4 }, U)
+    check("urgent : bois et fer au stock -> coffre en bois (pas de fer)", #t == 1 and t[1].item == WCH and t[1].kind == "craft", t[1] and t[1].item)
+    check("urgent : raison ecrite (fabrication)", type(why) == "string" and why:find("fabrication de " .. WCH, 1, true) ~= nil, why)
+    check("urgent : priorite vitale (celle des urgences du tableau), hors capacite du fond", t[1] ~= nil and t[1].prio == F.URGENT_PRIO and t[1].prio == require("shared.team.org").URGENT_PRIO
+      and t[1].fond == nil, t[1] and tostring(t[1].fond))
+    -- 2. fer à 0, bois au stock
+    t = F.annex_urgent({}, { [IRON] = 0, [WOOD] = 4 }, U)
+    check("urgent : fer a 0, bois au stock -> coffre en bois", #t == 1 and t[1].item == WCH, #t)
+    -- 3. sans bois, fer au stock : coffre de fer en secours
+    t, why = F.annex_urgent({}, { [IRON] = 8 }, ctx({ harvestable = no }))
+    check("urgent : sans bois, 8 plaques -> coffre de fer en secours", #t == 1 and t[1].item == CH and t[1].kind == "craft", why)
+    -- 4. ni bois ni fer, bois récoltable : récolte puis fabrication sur place
+    t, why = F.annex_urgent({}, { [IRON] = 0 }, ctx({ harvestable = yes }))
+    local m = t[1] or {}
+    check("urgent : ni bois ni fer -> recolte du bois sur les arbres (prudente)", #t == 1 and m.kind == "mine" and m.resource == WOOD and m.trees == true
+      and m.prudent == true and (m.count or 0) >= 2 and m.short == m.count and m.prio == F.URGENT_PRIO and m.fond == nil, m.kind)
+    check("urgent : la recolte fabrique le coffre en bois sur place", m.then_craft ~= nil and m.then_craft.item == WCH
+      and #m.then_craft.crafts == 1 and m.then_craft.ticks >= 30 + F.URGENT_CRAFT_SLACK, m.then_craft and m.then_craft.ticks)
+    check("urgent : raison ecrite (recolte)", type(why) == "string" and why:find("recolte de " .. tostring(m.count) .. " " .. WOOD, 1, true) ~= nil, why)
+    -- 5. ni bois ni fer, rien de récoltable : refus et pourquoi
+    t, why = F.annex_urgent({}, { [IRON] = 0 }, ctx({ harvestable = no }))
+    check("urgent : rien de recoltable -> aucune tache, refus ecrit avec la matiere qui manque", #t == 0 and type(why) == "string"
+      and why:find("refuse", 1, true) == 1 and why:find(WCH .. " manque " .. WOOD .. " 2", 1, true) ~= nil
+      and why:find(CH .. " manque " .. IRON .. " 8", 1, true) ~= nil, why)
+    t, why = F.annex_urgent({}, { [IRON] = 0 }, U)
+    check("urgent : sans regle de recolte -> refus (recolte inconnue)", #t == 0 and type(why) == "string" and why:find("recolte inconnue", 1, true) ~= nil, why)
+    -- 6. déjà là : en main, en route, au tableau
+    t, why = F.annex_urgent({}, { [IRON] = 8, [CH] = 1 }, U)
+    check("urgent : coffre en main -> rien (raison)", #t == 0 and type(why) == "string" and why:find("deja en main", 1, true) ~= nil, why)
+    t, why = F.annex_urgent({ incoming = { [WCH] = 1 } }, { [WOOD] = 4 }, U)
+    check("urgent : coffre en route -> rien (raison)", #t == 0 and type(why) == "string" and why:find("deja en route", 1, true) ~= nil, why)
+    t, why = F.annex_urgent({}, { [WOOD] = 4 }, ctx({ keys = { ["fond:craft:" .. WCH .. ":annexe-urgente"] = true } }))
+    check("urgent : fabrication deja au tableau -> rien (raison)", #t == 0 and type(why) == "string" and why:find("fabrication deja au tableau", 1, true) ~= nil, why)
+    t, why = F.annex_urgent({}, {}, ctx({ harvestable = yes, keys = { ["fond:mine:" .. WOOD .. ":annexe-urgente"] = true } }))
+    check("urgent : recolte deja au tableau -> rien (raison)", #t == 0 and type(why) == "string" and why:find("recolte deja au tableau", 1, true) ~= nil, why)
+    t, why = F.annex_urgent({}, { [IRON] = 8 }, { book = B, annex_urgent = false })
+    check("urgent : rien sans urgence (ni tache ni raison)", #t == 0 and why == nil)
+    -- 7. par le fond : pendant l'urgence, le fond ne fabrique pas d'autre coffre ; sans urgence, il en fabrique (annex_want)
+    local stock = { [IRON] = 400, ["copper-plate"] = 0, stone = 0, [WOOD] = 0 }
+    local c1 = F.candidates({ incoming = {} }, stock, { book = B, keys = {}, annex_want = 1, annex_urgent = true })
+    local c2 = F.candidates({ incoming = {} }, stock, { book = B, keys = {}, annex_want = 1 })
+    local function chests(c) local n = 0 for _, x in ipairs(c.base) do if x.item == CH or x.item == WCH then n = n + 1 end end return n end
+    check("fond : pendant l'urgence, aucun autre coffre", chests(c1) == 0, chests(c1))
+    check("temoin : sans urgence, le fond fabrique son coffre (annex_want)", chests(c2) >= 1, chests(c2))
   end
   return res
 end
@@ -127,11 +190,19 @@ local function run_fond(text)
   return res
 end
 for _, r in ipairs(run_fond(FOND_SRC)) do check(r[1], r[2], r[3]) end
+local NL = string.char(10)
 local FMUT = {
-  { "fond : planchers non rendus au coffre urgent", "    for k, v in pairs(floors) do all[k] = (all[k] or 0) + v end\n", "" },
-  { "fond : urgence ignoree par le fond", "  if ctx.annex_urgent then\n    -- lot STOCKAGE-VITAL", "  if false then\n    -- lot STOCKAGE-VITAL" },
-  { "fond : coffre en main ignore", "    if (free[k.item] or 0) > 0 or (incoming[k.item] or 0) > 0 or keys", "    if keys" },
-  { "fond : coffre urgent sous la priorite du fond", "F.URGENT_PRIO = F.PRIO.extend + 1", "F.URGENT_PRIO = F.PRIO.craft" },
+  { "fond : ordre de T.annex.kinds (fer d'abord)", "  local list = {}" .. NL .. "  for _, k in ipairs(T.annex.kinds) do if k.cheap then", "  do return T.annex.kinds end" .. NL .. "  local list = {}" .. NL .. "  for _, k in ipairs(T.annex.kinds) do if k.cheap then" },
+  { "fond : coffre en main ignore", '    if (free[k.item] or 0) > 0 then return out, "deja en main : " .. k.item end' .. NL, "" },
+  { "fond : coffre en route ignore", '    if (incoming[k.item] or 0) > 0 then return out, "deja en route : " .. k.item end' .. NL, "" },
+  { "fond : pas de recolte", "    if m.k.cheap and #raws == 1 and ctx.harvestable and ctx.harvestable(raws[1][1]) then", "    if false then" },
+  { "fond : recolte d'une matiere non recoltable", "ctx.harvestable and ctx.harvestable(raws[1][1]) then", "ctx.harvestable ~= nil then" },
+  { "fond : recolte sans fabrication sur place", "          then_craft = { item = m.k.item,", "          no_craft = { item = m.k.item," },
+  { "fond : recolte trop petite", "      local n = math.max(raws[1][2], F.URGENT_GATHER)", "      local n = 1" },
+  { "fond : recolte deja au tableau ignoree", '      if keys[key] then return out, "recolte deja au tableau', '      if false then return out, "recolte deja au tableau' },
+  { "fond : coffre urgent sous la priorite des urgences", "F.URGENT_PRIO = 90", "F.URGENT_PRIO = F.PRIO.extend + 1" },
+  { "fond : coffre urgent compte au fond", 'uses = sorted_uses(p.uses), domain = "production", tag = "annexe-urgente" }', 'uses = sorted_uses(p.uses), domain = "production", tag = "annexe-urgente", fond = true }' },
+  { "fond : autre coffre pendant l'urgence", "  if ctx.annex_urgent then need = 0 end", "" },
 }
 local frefused, fkept = 0, {}
 for _, m in ipairs(FMUT) do

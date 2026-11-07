@@ -195,6 +195,42 @@ do
   h.hq.items["iron-chest"] = 1
   check(not Stock.grow(h, surface, 0), "maximum d'annexes atteint : plus de pose")
 end
+do
+  -- Lot STOCKAGE-VITAL : un coffre qu'un PNJ dépose dans un stock PLEIN est posé en annexe sur-le-champ (Stock.insert -> place_held) ;
+  -- un dépôt refusé est au journal, au plus une ligne par Stock.REFUSED_LOG ticks.
+  local made = {}
+  local surface = { create_entity = function(s) local e = new_chest(16); e.name = s.name; made[#made + 1] = e; return e end }
+  local f = team(10)
+  f.hq.surface = surface
+  f.hq.items.stone = 50 * 10 -- 10 cases sur 10 : plein de pierre
+  local n0 = #logs
+  check(Stock.insert(f, "wooden-chest", 1) == 1, "stock plein : le coffre en bois depose est pris (pose en annexe)")
+  check(#made == 1 and made[1].name == "wooden-chest" and f.annex and #f.annex == 1 and f.hq.items["wooden-chest"] == nil,
+    "le coffre refuse au depot est pose, pas range")
+  local seen = false
+  for i = n0 + 1, #logs do if logs[i]:find("FO%-ANNEXE") and logs[i]:find("depot d'un PNJ", 1, true) then seen = true end end
+  check(seen, "journal [FO-ANNEXE] : pose au depot d'un PNJ")
+  f.annex[1].items.stone = 16 * 50 -- l'annexe pleine aussi
+  game.tick = 100
+  local n1 = #logs
+  check(Stock.insert(f, "stone", 10) == 0, "pierre refusee : stock plein")
+  Stock.insert(f, "stone", 10)
+  game.tick = 100 + Stock.REFUSED_LOG
+  Stock.insert(f, "stone", 10)
+  local nref = 0
+  for i = n1 + 1, #logs do if logs[i]:find("FO%-STOCKAGE") and logs[i]:find("depot refuse", 1, true) then nref = nref + 1 end end
+  check(nref == 2, "depot refuse au journal : une ligne par minute au plus (" .. nref .. " pour 3 refus sur 2 minutes)")
+  local h = team(10)
+  h.hq.surface = surface
+  h.hq.items.stone = 50 * 10
+  h.annex = {}
+  for i = 1, T.annex.max do h.annex[i] = new_chest(0) end
+  check(Stock.insert(h, "wooden-chest", 1) == 0 and #made == 1, "plafond d'annexes : le coffre refuse n'est pas pose")
+  local g = team(10)
+  g.hq.items.stone = 50 * 10 -- sans surface lisible (moteur simulé d'autres bancs) : rien n'est posé, rien ne plante
+  check(Stock.insert(g, "wooden-chest", 1) == 0, "sans surface : refus simple")
+  game.tick = nil
+end
 
 ---------------------------------------------------------------------------------------------------
 section("Lot STOCKAGE : règles pures (bloc, fenêtre, plafond)")
@@ -328,6 +364,12 @@ do
   check(f.refused_at ~= nil, "pierre limitee : depot refuse note (pose anticipee d'un coffre)")
   local put2 = Stock.insert(f, "iron-plate", 10 * si)
   check(put2 == 3 * si, "fer : les 3 cases gardees", put2)
+  -- un coffre d'annexe est du stockage : il entre dans les cases gardées (lot STOCKAGE-VITAL)
+  f.hq.items["iron-plate"], f.hq.items.stone = nil, nil
+  f.hq.items.coal = (STACK.coal or 50) * 18 -- 18 cases prises, 2 vides (sous la réserve de 3)
+  check(Stock.insert(f, "stone", ss) == 0, "temoin : la pierre n'entre pas dans les 2 cases gardees")
+  check(Stock.insert(f, "wooden-chest", 1) == 1 and f.hq.items["wooden-chest"] == 1, "coffre en bois : pris dans les cases gardees")
+  f.hq.items["wooden-chest"] = nil
   f.team = { ia3 = { saturated = { stone = true } } }
   local skip = Stock.skip_fn(f)
   check(skip ~= nil and skip("stone") and skip("copper-plate") and not skip("coal") and not skip("iron-plate"),

@@ -41,6 +41,13 @@ local Stock = {}
 local VITAL = {}
 for _, it in ipairs(T.stock_vital or {}) do VITAL[it] = true end
 Stock.VITAL = VITAL
+-- Lot STOCKAGE-VITAL : coffres des annexes { [objet] = true } : un coffre est du stockage, il entre dans la réserve des vitales, et un
+-- coffre refusé au dépôt (stock plein) est posé en annexe sur-le-champ (place_held).
+local ANNEX = {}
+for _, k in ipairs(T.annex.kinds) do ANNEX[k.item] = true end
+function Stock.ANNEX_ITEM(item) return ANNEX[item] == true end
+Stock.REFUSED_LOG = 3600 -- ticks entre deux lignes « dépôt refusé » d'une équipe
+local place_held -- (défini plus bas : il lit l'emprise et la face du bloc des annexes)
 
 --- Annexes valides (la liste est purgée des entités disparues).
 function Stock.annexes(f)
@@ -94,11 +101,33 @@ local function non_vital_cap(f, item)
   return partial + allowed * stack
 end
 
+-- Cases prises et cases du coffre du QG, puis du total.
+local function slots_of(inv)
+  local size = #inv
+  return size - inv.count_empty_stacks(), size
+end
+
+local function totals(f)
+  local used, size = slots_of(chest_inv(f.hq))
+  local annex = Stock.annexes(f)
+  for _, e in ipairs(annex) do
+    local u, s = slots_of(chest_inv(e))
+    used, size = used + u, size + s
+  end
+  return used, size, #annex
+end
+
+--- Lot STOCKAGE-VITAL : cases prises, cases et annexes du stock (0, 0, 0 sans inventaire lisible : moteur simulé).
+function Stock.fill(f)
+  if not (f.hq and f.hq.valid and f.hq.get_inventory) then return 0, 0, 0 end
+  return totals(f)
+end
+
 --- Dépose jusqu'à `n` objets (coffre du QG d'abord, puis les annexes) ; rend le nombre déposé.
 function Stock.insert(f, item, n)
-  -- Lot STOCKAGE-VITAL : une matière non vitale ne prend pas les dernières cases (gardées au fer et au charbon).
+  -- Lot STOCKAGE-VITAL : une matière non vitale ne prend pas les dernières cases (gardées au fer et au charbon) ; un coffre d'annexe, si.
   local want = n
-  if not VITAL[item] then
+  if not VITAL[item] and not ANNEX[item] then
     local cap = non_vital_cap(f, item)
     if cap and cap < want then want = cap end
   end
@@ -109,8 +138,21 @@ function Stock.insert(f, item, n)
       if put >= want then break end
     end
   end
+  -- Lot STOCKAGE-VITAL : un coffre que le stock plein refuse est posé en annexe (le PNJ qui le porte ne le garde pas en poche).
+  if put < n and ANNEX[item] then put = put + place_held(f, item, n - put) end
   -- Lot STOCKAGE : un dépôt refusé = plus de place pour cet objet (quel qu'il soit) ; déclenche la pose anticipée d'un coffre.
-  if put < n then f.refused_at = game.tick or 0 end
+  if put < n then
+    local tick = game.tick or 0
+    f.refused_at = tick
+    -- Lot STOCKAGE-VITAL : au journal, au plus une ligne par équipe et par Stock.REFUSED_LOG ticks.
+    if f.hq.get_inventory and (not f.refused_log or tick - f.refused_log >= Stock.REFUSED_LOG) then
+      f.refused_log = tick
+      local used, size, na = totals(f)
+      log(string.format("[FO-STOCKAGE] %s : depot refuse : %d/%d %s pris (%s), stock %d/%d cases, annexes %d, a %.1f min", f.key or "player",
+        put, n, item, VITAL[item] and "vitale" or (want < n and "non vitale, reserve des vitales" or "plus de place"), used, size, na,
+        (tick - (f.started or 0)) / 3600))
+    end
+  end
   return put
 end
 
@@ -133,22 +175,6 @@ function Stock.inventories(f)
   local list = { chest_inv(f.hq) }
   for _, e in ipairs(Stock.annexes(f)) do list[#list + 1] = chest_inv(e) end
   return list
-end
-
--- Cases prises et cases du coffre du QG, puis du total.
-local function slots_of(inv)
-  local size = #inv
-  return size - inv.count_empty_stacks(), size
-end
-
-local function totals(f)
-  local used, size = slots_of(chest_inv(f.hq))
-  local annex = Stock.annexes(f)
-  for _, e in ipairs(annex) do
-    local u, s = slots_of(chest_inv(e))
-    used, size = used + u, size + s
-  end
-  return used, size, #annex
 end
 
 --- Rangement : l'excédent du coffre du QG passe aux annexes quand le coffre dépasse T.annex.park_at. Rend le nombre
@@ -220,6 +246,46 @@ local function capacity(f)
   local k = T.annex.kinds[1]
   local w, h = footprint(k.item)
   return A.capacity(side(f), w, h)
+end
+
+--- Pose UN coffre `item` à la première place libre du bloc des annexes (une place réservée par le plan directeur est sautée) ;
+--- `take()` retire le coffre de sa source une fois l'entité créée. Rend 1 (posé) ou 0.
+local function place_one(f, surface, item, take)
+  local w, h = footprint(item)
+  return PlacesQG.place_list(surface, item, f.force, f.hq_pos, A.slots(side(f), w, h), 0, 1, function(pos)
+    if Stock.reserved and Stock.reserved(f, item, pos) then return false end
+    local e = surface.create_entity({ name = item, position = pos, force = f.force })
+    if not (e and e.valid) then return false end
+    take()
+    f.annex = f.annex or {}
+    f.annex[#f.annex + 1] = e
+    return true
+  end)
+end
+
+--- Lot STOCKAGE-VITAL : `k` coffres qu'un PNJ dépose et que le stock plein refuse sont posés en annexes sur-le-champ (au plus jusqu'au
+--- plafond d'annexes) : sans cela, un coffre fabriqué pour un stock PLEIN restait en poche et le stock ne grandissait jamais. Le
+--- PNJ retire de sa poche le nombre rendu. Une ligne [FO-ANNEXE] par pose.
+place_held = function(f, item, k)
+  local surface = f.hq.surface
+  if not (surface and f.hq_pos and f.hq.get_inventory) then return 0 end -- moteur simulé sans inventaire
+  local tick = game.tick or 0
+  local placed = 0
+  for _ = 1, k do
+    local used, size, n = totals(f)
+    if n >= capacity(f) or place_one(f, surface, item, function() end) == 0 then break end
+    placed = placed + 1
+    f.stats = f.stats or {}
+    f.stats.annex_placed = (f.stats.annex_placed or 0) + 1
+    f.stats.annex_held = (f.stats.annex_held or 0) + 1
+    log(string.format("[FO-ANNEXE] %s : coffre %d pose (%s) au depot d'un PNJ (stock plein pour ce coffre), stock %d/%d cases a %.1f min",
+      f.key or "player", n + 1, item, used, size, (tick - (f.started or 0)) / 3600))
+  end
+  if placed > 0 then
+    f.stock_watch = f.stock_watch or {}
+    f.stock_watch.since, f.stock_watch.retry, f.stock_watch.placed_at = tick, nil, tick
+  end
+  return placed
 end
 
 function Stock.wanted(f)
@@ -326,20 +392,10 @@ function Stock.grow(f, surface, tick)
   local st = A.watch(f.stock_watch, used, size, tick)
   if not A.need_chest(used, size, n, A.early_due(st, tick, f.refused_at), capacity(f)) then return false end
   if st.retry and tick < st.retry then return false end
-  local sy = side(f)
   local blocked = false
   for _, k in ipairs(T.annex.kinds) do
     if chests_in_hand(f, k.item) >= 1 then
-      local w, h = footprint(k.item)
-      local placed = PlacesQG.place_list(surface, k.item, f.force, f.hq_pos, A.slots(sy, w, h), 0, 1, function(pos)
-        if Stock.reserved and Stock.reserved(f, k.item, pos) then return false end
-        local e = surface.create_entity({ name = k.item, position = pos, force = f.force })
-        if not (e and e.valid) then return false end
-        Stock.remove(f, k.item, 1)
-        f.annex = f.annex or {}
-        f.annex[#f.annex + 1] = e
-        return true
-      end)
+      local placed = place_one(f, surface, k.item, function() Stock.remove(f, k.item, 1) end)
       if placed > 0 then
         f.stats = f.stats or {}
         f.stats.annex_placed = (f.stats.annex_placed or 0) + 1

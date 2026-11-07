@@ -377,6 +377,40 @@ remote.add_interface("fo-ia1", {
     Registry.remove(id, true)
     return true
   end,
+  -- Lot STOCKAGE-VITAL (bancs seulement) : coût de Stock.insert compté en INSTRUCTIONS de la machine Lua (crochet de compte de
+  -- debug.sethook, période 1 : déterministe, indépendant de la charge du PC ; jamais os.clock) et en APPELS de fonctions (Lua et
+  -- moteur : un appel au moteur compte pour 1, son travail interne n'est pas mesuré). Dépôt de `n` `item`, `reps` fois ; chaque
+  -- dépôt est repris aussitôt, hors du compte (le stock revient à son état). Le crochet d'avant et les dates de refus sont remis.
+  -- Rend { hook = vrai, instr = instructions par appel, calls = appels par appel, put = objets déposés au total, reps, inventaires,
+  -- annexes } ou { hook = false } quand la bibliothèque debug n'a pas sethook. Un coffre d'annexe n'est pas mesuré (il serait posé).
+  stock_cost = function(key, item, n, reps)
+    local f = team_of(key)
+    if not (f and f.hq and f.hq.valid) or type(item) ~= "string" or (Stock.ANNEX_ITEM and Stock.ANNEX_ITEM(item)) then return nil end
+    local dbg = rawget(_G, "debug")
+    if not (type(dbg) == "table" and type(dbg.sethook) == "function" and type(dbg.gethook) == "function") then return { hook = false } end
+    reps = math.max(1, math.min(1000, math.floor(tonumber(reps) or 100)))
+    n = math.max(1, math.floor(tonumber(n) or 1))
+    local old_fn, old_mask, old_count = dbg.gethook()
+    local saved_at, saved_log = f.refused_at, f.refused_log
+    local ni, nc, put = 0, 0, 0
+    local function hook(ev) if ev == "count" then ni = ni + 1 else nc = nc + 1 end end
+    for _ = 1, reps do
+      dbg.sethook(hook, "c", 1)
+      local p = Stock.insert(f, item, n)
+      dbg.sethook()
+      put = put + p
+      if p > 0 then Stock.remove(f, item, p) end
+    end
+    if old_fn then dbg.sethook(old_fn, old_mask, old_count) end
+    f.refused_at, f.refused_log = saved_at, saved_log
+    -- Lecture seule, pour le banc : verdicts du ramassage (Stock.skip_fn) et compteurs du coffre urgent (nil avant le lot).
+    local skip = Stock.skip_fn and Stock.skip_fn(f)
+    local st = f.stats or {}
+    return { hook = true, instr = ni / reps, calls = nc / reps, put = put, reps = reps, inventaires = #Stock.inventories(f),
+      annexes = #Stock.annexes(f), skip_item = skip and skip(item) or false, skip_fn = skip ~= nil,
+      stock_logs = st.stock_logs, annex_placed = st.annex_placed, annex_held = st.annex_held,
+      why = f.stock_why and f.stock_why.why or nil }
+  end,
 })
 
 return {}

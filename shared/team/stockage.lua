@@ -18,7 +18,7 @@
 
 local Sg = {}
 
-Sg.DEFAULT = { reserve = 0.15, stop_at = 0.80, urgent_at = 0.85 }
+Sg.DEFAULT = { reserve = 0.15, stop_at = 0.80, urgent_at = 0.80 }
 
 local function cfg_of(cfg) return cfg or Sg.DEFAULT end
 

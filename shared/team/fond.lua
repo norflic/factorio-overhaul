@@ -352,35 +352,86 @@ function F.potential(view, ctx, free)
 end
 
 --- Lot STOCKAGE-VITAL (retour du DC sur 0.6.58 : coffre du QG plein de pierre, aucune annexe de toute la partie) : coffre URGENT
---- (ctx.annex_urgent : stock rempli à T.stockage.urgent_at sans coffre en main, script/team/stock.lua Stock.urgent). Une fabrication
---- d'UN coffre, même quand le cerveau manque de plaques (sinon seul le coffre en bois, qui demande du bois, était permis) et même fond
---- coupé (script/team/poles.lua : votre équipe sous son effectif de départ), prise sur TOUT le stock libre (planchers compris : les
---- 8 plaques d'un coffre de fer). Rien si un coffre est déjà en main ou en route, ou si la tâche est déjà au tableau. Rend la liste
---- des tâches (0 ou 1), priorité au-dessus du fond.
-F.URGENT_PRIO = F.PRIO.extend + 1
+--- (ctx.annex_urgent : stock rempli à T.stockage.urgent_at sans coffre en main, script/team/stock.lua Stock.urgent). UN coffre, même
+--- quand le cerveau manque de plaques et même fond coupé (script/team/poles.lua : votre équipe sous son effectif de départ), pris sur
+--- TOUT le stock libre (planchers compris). Il ne dépend PAS du fer (relecture du lead, 7/11) : les coffres qui ne coûtent aucune
+--- plaque (T.annex.kinds[].cheap : le coffre en bois) passent d'abord, les autres ensuite. Sans la matière d'aucun coffre : RÉCOLTE de
+--- la matière qui manque au premier coffre « cheap » dont c'est la seule matière et qui se récolte (ctx.harvestable(objet) : le bois
+--- des arbres), et le coffre est fabriqué SUR PLACE avec ce que le PNJ porte (then_craft, script/team/worker.lua : un coffre plein
+--- refuserait le bois au dépôt). Rien si un coffre est déjà en main ou en route, ou si la tâche est déjà au tableau.
+--- Rend (tâches, raison) : 0 ou 1 tâche, priorité au-dessus du fond, hors capacité du fond (fond = nil : ajoutée telle quelle au
+--- tableau par script/team/poles.lua) ; raison = texte du journal [FO-STOCKAGE] (fait, déjà là, ou refusé et pourquoi), nil sans urgence.
+-- Priorité VITALE (relecture du lead, 7/11) : celle des urgences du tableau (O.URGENT_PRIO de shared/team/org.lua = M.URGENT de
+-- shared/ai3/marche.lua = 90 ; tests/stockage_test.lua le contrôle) : un stock plein arrête toute l'équipe, le coffre passe avant le reste.
+F.URGENT_PRIO = 90
+F.URGENT_GATHER = 4      -- matière récoltée au moins (un arbre donne 4 bois ; le coffre en bois en demande 2)
+F.URGENT_CRAFT_SLACK = 30 -- ticks d'attente en plus de la durée de fabrication sur place (vitesse de fabrication 1)
+
+--- Coffres des annexes, ceux qui ne coûtent aucune plaque d'abord (ordre de T.annex.kinds gardé à rang égal).
+function F.urgent_kinds()
+  local list = {}
+  for _, k in ipairs(T.annex.kinds) do if k.cheap then list[#list + 1] = k end end
+  for _, k in ipairs(T.annex.kinds) do if not k.cheap then list[#list + 1] = k end end
+  return list
+end
+
+local function raw_text(raw)
+  local parts = {}
+  for _, u in ipairs(sorted_uses(raw)) do parts[#parts + 1] = u[1] .. " " .. u[2] end
+  return table.concat(parts, ", ")
+end
+
 function F.annex_urgent(view, free, ctx)
   local out = {}
   local book = ctx and ctx.book
-  if not (book and ctx.annex_urgent) then return out end
+  if not (book and ctx.annex_urgent) then return out, nil end
   local keys = ctx.keys or {}
   local incoming = (view and view.incoming) or {}
-  for _, k in ipairs(T.annex.kinds) do
-    if (free[k.item] or 0) > 0 or (incoming[k.item] or 0) > 0 or keys["fond:craft:" .. k.item .. ":annexe-urgente"] then return out end
+  local kinds = F.urgent_kinds()
+  for _, k in ipairs(kinds) do
+    if (free[k.item] or 0) > 0 then return out, "deja en main : " .. k.item end
+    if (incoming[k.item] or 0) > 0 then return out, "deja en route : " .. k.item end
+    if keys["fond:craft:" .. k.item .. ":annexe-urgente"] then return out, "fabrication deja au tableau : " .. k.item end
   end
-  for _, k in ipairs(T.annex.kinds) do
+  local avail = {}
+  for _, u in ipairs(sorted_uses(free)) do avail[u[1]] = u[2] end
+  local missing = {}
+  for _, k in ipairs(kinds) do
     if book:handcraftable(k.item) then
-      local avail = {}
-      for n, v in pairs(free) do avail[n] = v end
       avail[k.item] = 0
       local p = book:plan({ { k.item, 1 } }, avail)
       if next(p.raw) == nil then
         out[1] = { key = "fond:craft:" .. k.item .. ":annexe-urgente", kind = "craft", prio = F.URGENT_PRIO, item = k.item, count = 1,
-          steps = p.crafts, uses = sorted_uses(p.uses), fond = true, domain = "production", tag = "fond" }
-        return out
+          steps = p.crafts, uses = sorted_uses(p.uses), domain = "production", tag = "annexe-urgente" }
+        return out, "fabrication de " .. k.item .. " (" .. raw_text(p.uses) .. " du stock)"
+      end
+      missing[#missing + 1] = { k = k, raw = p.raw }
+    end
+  end
+  for _, m in ipairs(missing) do
+    local raws = sorted_uses(m.raw)
+    if m.k.cheap and #raws == 1 and ctx.harvestable and ctx.harvestable(raws[1][1]) then
+      local r = raws[1][1]
+      local key = "fond:mine:" .. r .. ":annexe-urgente"
+      if keys[key] then return out, "recolte deja au tableau : " .. r .. " pour " .. m.k.item end
+      local n = math.max(raws[1][2], F.URGENT_GATHER)
+      -- Fabrication sur place : avec la seule matière récoltée (le PNJ n'emporte rien d'autre du stock).
+      local p = book:plan({ { m.k.item, 1 } }, { [r] = n })
+      if next(p.raw) == nil then
+        local secs = 0
+        for _, c in ipairs(p.crafts) do secs = secs + (c.energy or 0) end
+        out[1] = { key = key, kind = "mine", prio = F.URGENT_PRIO, resource = r, count = n, short = n, trees = true, prudent = true,
+          domain = "production", tag = "annexe-urgente",
+          then_craft = { item = m.k.item, crafts = p.crafts, ticks = math.ceil(secs * 60) + F.URGENT_CRAFT_SLACK } }
+        return out, string.format("recolte de %d %s puis fabrication sur place de %s", n, r, m.k.item)
       end
     end
   end
-  return out
+  local parts = {}
+  for _, m in ipairs(missing) do
+    parts[#parts + 1] = m.k.item .. " manque " .. raw_text(m.raw) .. ((m.k.cheap and not ctx.harvestable) and " (recolte inconnue)" or "")
+  end
+  return out, "refuse : " .. (#parts > 0 and table.concat(parts, " ; ") or "aucun coffre fabricable a la main")
 end
 
 local function base(view, free, ctx, out)
@@ -439,14 +490,9 @@ local function base(view, free, ctx, out)
   -- Lot COFFRE (K-C) : coffres pour les ANNEXES du QG (script/team/stock.lua) quand les cases se remplissent. Cerveau en
   -- manque : seulement ceux qui ne coûtent aucune plaque (T.annex.kinds[].cheap), le coffre plein bloque tout le monde.
   local need = ctx.annex_want or 0
-  if ctx.annex_urgent then
-    -- lot STOCKAGE-VITAL : coffre urgent, planchers rendus au stock libre le temps de cette fabrication seule
-    local all = {}
-    for k, v in pairs(free) do all[k] = v end
-    for k, v in pairs(floors) do all[k] = (all[k] or 0) + v end
-    for _, t in ipairs(F.annex_urgent(view, all, ctx)) do out[#out + 1] = t end
-    need = 0
-  end
+  -- Lot STOCKAGE-VITAL : coffre urgent : fabriqué hors du fond (F.annex_urgent, ajouté au tableau par script/team/poles.lua) ; le fond
+  -- n'en fabrique pas d'autres en même temps.
+  if ctx.annex_urgent then need = 0 end
   if need > 0 then
     for _, k in ipairs(T.annex.kinds) do
       need = need - (free[k.item] or 0) - (incoming[k.item] or 0) - (planned[k.item] or 0)
