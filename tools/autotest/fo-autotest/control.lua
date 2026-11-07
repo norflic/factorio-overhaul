@@ -24,6 +24,8 @@ local KIT_EGAL = {
   ["perf4-partie"] = true, ["perf4-partie-prof"] = true, ["perf4-partie-detail"] = true, ["perf4-coups"] = true,
   -- Lot X10 (moteur) : même sauvegarde, classes figées par soustraction (scenarios/x10_common.lua).
   ["x10-recensement"] = true, ["x10-sans-usines"] = true, ["x10-sans-pnj"] = true, ["x10-fige-tout"] = true,
+  ["x10-explosions-batiments"] = true, -- lot X10, Q5b : identite des explosions de mort des batiments
+  ["x10-explosions"] = true, -- lot X10, Q5 : identite de l'explosion de mort recreee (sauvegarde du DC)
 }
 
 -- Lot FOREUSES-THERMIQUES (A) : la sauvegarde du DC rejouée telle quelle (aucun réglage posé sur sa partie).
