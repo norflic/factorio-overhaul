@@ -42,9 +42,10 @@ A.RECHARGE_ORDRE = 900  -- sur ordre du joueur : 15 s
 A.FACTEUR = 2           -- repli : coup plein par cible = FACTEUR × coup de la 1re attaque (non partagé)
 -- Bornes PAR TICK (demande du lead, 7/11 : moins de 1 ms par tick ; experimentaux est à 0,3 ms) :
 A.PREP = 150            -- entités rangées (et planifiées) par tick, pendant la charge
-A.COUPS = 120           -- dégâts par tick (le reste passe au tick suivant)
+A.COUPS = 20            -- dégâts par tick (le reste passe au tick suivant) ; une mort coûte au moteur ses ruines et son explosion,
+                        -- environ 50 µs (micro-banc du 7/11 : 100 morts dans un tick du Cyclone, 7,7 ms) : 20 par tick, environ 1 ms
 A.TUILES = 64           -- tuiles vérifiées et posées par tick (file)
-A.POTEAUX = 20          -- poteaux qui sautent par tick au climax du Cairn
+A.POTEAUX = 10          -- poteaux qui sautent par tick au climax du Cairn (2 explosions chacun)
 
 --- Zone d'un géant d'âge `age` (choix du DC transmis par le lead, 5/11 : 15 × (âge − 9) tuiles ; 15 à l'âge 10, 75 à l'âge 14).
 function A.zone(age) return 15 * (math.floor(age) - 9) end

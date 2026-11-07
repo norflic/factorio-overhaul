@@ -169,7 +169,7 @@ local function preparer(j, r, a)
   local c = j.c
   j.cands, j.neutres, j.autres, j.ga, j.par, j.k, j.kk = {}, {}, {}, {}, {}, 0, 1
   j.p = { c = c, R = j.R }
-  if j.id == "trombe" then j.g, j.gn, j.vus, j.morts = {}, {}, {}, {} end
+  if j.id == "trombe" then j.g, j.gn, j.vus, j.morts, j.attente, j.kq = {}, {}, {}, {}, {}, 1 end
   if j.id == "ixion" then
     j.rl = j.R * a.lave
     j.bords = A.bords_lave(j.rl, a.secteurs, j.graine)
@@ -422,8 +422,7 @@ local function pas_trombe(j, r, a, rt)
   local t = math.min(rt, a.duree)
   local x, y = A.cyclone(j.c, j.w, j.o, t, a.duree)
   deplacer(j, x, y)
-  if rt > a.duree then V.cyclone(j, rt, x, y); return end
-  if rt % a.pas == 0 then
+  if rt <= a.duree and rt % a.pas == 0 then
     local st = stat(j.id)
     local s = j.surface
     for _, i in ipairs(A.voisinage(j.g, x, y, a.souffle, 8)) do
@@ -433,21 +432,13 @@ local function pas_trombe(j, r, a, rt)
         local p = c.mobile and e.position or c
         local dx, dy = p.x - x, p.y - y
         local d = math.sqrt(dx * dx + dy * dy)
-        local mort = false
+        -- les coups vont en file (A.COUPS par tick, plus bas) : un passage sur un îlot dense ne tue pas tout dans le même tick
         if d <= a.rayon then
           j.morts[i] = true
-          mort = toucher(j, r, a, e, 0, false, a.coeur)
+          j.attente[#j.attente + 1] = { i = i, f = 0, m = a.coeur }
         elseif d <= a.souffle and not j.vus[i] then
           j.vus[i] = true
-          mort = toucher(j, r, a, e, (d - a.rayon) / (a.souffle - a.rayon), false)
-        end
-        if mort and not c.mobile then
-          local k = A.debris(c.id, j.graine, a.debris)
-          if k then
-            s.create_entity({ name = A.ROCHERS[k], position = { c.x, c.y } })
-            st.rochers = st.rochers + 1
-            ops(j)
-          end
+          j.attente[#j.attente + 1] = { i = i, f = (d - a.rayon) / (a.souffle - a.rayon), m = 1 }
         end
       end
     end
@@ -456,6 +447,21 @@ local function pas_trombe(j, r, a, rt)
       if n.e.valid and (n.x - x) ^ 2 + (n.y - y) ^ 2 <= a.rayon * a.rayon then abattre(j, n.e) end
     end
   end
+  local s, st = j.surface, stat(j.id)
+  local fin = math.min(#j.attente, j.kq + A.COUPS - 1)
+  for k = j.kq, fin do
+    local h = j.attente[k]
+    local c = j.cands[h.i]
+    if toucher(j, r, a, c.e, h.f, false, h.m) and not c.mobile then
+      local q = A.debris(c.id, j.graine, a.debris)
+      if q then
+        s.create_entity({ name = A.ROCHERS[q], position = { c.x, c.y } })
+        st.rochers = st.rochers + 1
+        ops(j)
+      end
+    end
+  end
+  j.kq = fin + 1
   V.cyclone(j, rt, x, y)
 end
 
@@ -504,7 +510,9 @@ poser_tuiles = function(j, liste, nom, seule)
     end
     if ok then t[#t + 1] = { name = nom, position = { q.x, q.y } } end
   end
-  if #t > 0 then s.set_tiles(t, true, true, true, false) end
+  -- sans retirer les entités : une cible ennemie sous la lave ou le verre meurt par le plan (ses ruines, sa mort comptée), au plus
+  -- A.COUPS par tick ; jamais retirée sans bruit (F135)
+  if #t > 0 then s.set_tiles(t, true, false, true, false) end
   return #t
 end
 
@@ -667,7 +675,7 @@ local function avancer(j, tick)
   PAS[j.id](j, r, a, rt)
   local st = stat(j.id)
   if j.ops > st.max_ops then st.max_ops = j.ops end
-  if rt >= j.fin_rt and not (j.file and #j.file > 0) and (not j.par or j.k > rt) then
+  if rt >= j.fin_rt and not (j.file and #j.file > 0) and (not j.par or j.k > rt) and not (j.attente and j.kq <= #j.attente) then
     fin_job(j, r, a)
     return true
   end
