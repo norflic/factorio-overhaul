@@ -49,6 +49,9 @@ function Events.on_died(fn, interet)
   died[#died + 1] = d
 end
 
+-- EFFONDREMENT (parade du kit offert, 7/11) : on_post_entity_died est FILTRÉ AU MOTEUR (type « character ») par script/team/worker.lua,
+-- à on_init et on_load (script.set_event_filter). Un nouvel abonné Events.on(on_post_entity_died) ne recevrait donc QUE les morts de
+-- personnages : élargir le filtre de worker.lua (Worker.KIT_POST_FILTER) avant de s'abonner pour d'autres types.
 function Events.on(event_id, fn)
   guard("on")
   assert(event_id ~= nil, "Events.on : event_id nil")
