@@ -505,7 +505,9 @@ local function on_gone(ev)
   local e = ev.entity
   if e and e.valid and e.unit_number then release(e.unit_number, nil, e) end
 end
-Events.on(defines.events.on_entity_died, on_gone)
+-- Lot MORTS : jamais la force « enemy » (elle n'a pas de machine à réserve). Tous types : la réserve suit une machine remplacée
+-- (Levels.on_replaced), dont le type n'est pas borné ici.
+Events.on_died(on_gone, { ennemi = false })
 Events.on(defines.events.script_raised_destroy, on_gone)
 
 -- Amélioration de niveau : la réserve suit la nouvelle machine.

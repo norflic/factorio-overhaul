@@ -1622,7 +1622,8 @@ end
 
 Events.on(defines.events.on_player_mined_entity, on_removed)
 Events.on(defines.events.on_robot_mined_entity, on_removed)
-Events.on(defines.events.on_entity_died, on_removed)
+-- Lot MORTS : jamais la force « enemy » (elle ne possède ni bâtiment à niveaux ni centre de commandement).
+Events.on_died(on_removed, { ennemi = false })
 Events.on(defines.events.script_raised_destroy, on_removed)
 
 -- Lot CAPITAL : lien avec l'exécutant des factions (script/ai3/capital.lua), sans changer l'ordre de chargement de
