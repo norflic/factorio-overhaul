@@ -104,19 +104,29 @@ do
   }
 end
 
--- E4 (règle d'échelle, shared/robots/echelle.lua) : cratère au point visé d'une salve de zone, sol vanilla de la bombe atomique
--- (`nuclear-ground`, jamais sur l'eau) posé par le moteur à la création, décoratifs retirés. Un prototype par âge à zone (10 à 15) :
--- géants de cette famille ET géants de robotsjeu (Torique, Héliaste, Couronné : âges 13 à 15, script/robots/geant.lua).
+-- E4 (règle d'échelle, shared/robots/echelle.lua) : explosion du cratère au point visé, un prototype par âge à zone (10 à 15 : géants de cette
+-- famille ET de robotsjeu). Elle ne pose plus le sol : le SOL du cratère est posé et rendu par script (séquelles d'1 h, QCM-7/11,
+-- script/robots/experimentaux_geants.lua cratere/resorber) ; elle retire les décoratifs.
 for age = Ech.AGE_ZONE_MIN, Ech.AGE_MAX do
   local rc = Ech.cratere(age)
   local x = table.deepcopy(data.raw.explosion["big-explosion"])
   x.name = Xp.PREFIX .. "cratere-" .. age
   x.localised_name = { "entity-name." .. Xp.PREFIX .. "cratere" }
   x.created_effect = { type = "direct", action_delivery = { type = "instant", target_effects = {
-    { type = "set-tile", tile_name = "nuclear-ground", radius = rc, apply_projection = true, tile_collision_mask = { "water-tile" } },
     { type = "destroy-decoratives", radius = rc },
   } } }
   out[#out + 1] = x
+end
+
+-- Brûlures au sol d'1 h (séquelles, QCM-7/11) : copies des brûlures du jeu de base (10 min), même image, durée Ech.TRACE_TICKS.
+for _, x in ipairs({ { "small-scorchmark", Xp.PREFIX .. "small-scorchmark" }, { "medium-scorchmark", Xp.PREFIX .. "medium-scorchmark" },
+    { "big-scorchmark", Xp.PREFIX .. "big-scorchmark" }, { "huge-scorchmark", Xp.PREFIX .. "huge-scorchmark" } }) do
+  local nom = x[1]
+  local b = table.deepcopy(data.raw.corpse[nom])
+  b.name = x[2]
+  b.localised_name = { "entity-name." .. nom }
+  b.time_before_removed = Ech.TRACE_TICKS
+  out[#out + 1] = b
 end
 
 for i, r in ipairs(Xp.GEANTS) do

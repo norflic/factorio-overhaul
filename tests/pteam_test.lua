@@ -116,35 +116,42 @@ local function sig(plan)
     .. tostring(plan.recruit_unarmed) .. "|" .. table.concat(u, ",")
 end
 local plates = { ["iron-plate"] = 2000, ["copper-plate"] = 500, coal = 100 }
--- 1. Sous le départ (1 sur 8), plaques au coffre, aucun pistolet : recrue équipée tout de suite, rien à fabriquer.
+-- EFFONDREMENT (décision du DC, 7/11 : « je veux toujours n ouvriers minimum, donc 12 si 12 au départ. Au delas ça coute des
+-- ressources ») : sous l'effectif de départ, la recrue est GRATUITE et équipée (shared/team/spirale.lua ; tests/spirale_test.lua).
+-- Avant : payée avec les plaques du coffre (recruit_uses), et rien sans elles.
+local function free_armed(p)
+  local craft = false
+  for _, t in ipairs(p.tasks) do if t.kind == "craft" and t.tag == "ouvrier" then craft = true end end
+  return p.recruit_workers == 1 and p.recruit_free == true and not p.recruit_unarmed and p.recruit_uses == nil and not craft
+end
+-- 1. Sous le départ (1 sur 8), plaques au coffre, aucun pistolet : recrue équipée tout de suite, rien de prélevé ni à fabriquer.
 local pa = Planner.plan(pview({ workers = 1, stock = plates, recover_floor = 8 }), book)
-local iron_used, craft_recruit = 0, false
-for _, it in ipairs(pa.recruit_uses or {}) do if it[1] == "iron-plate" then iron_used = it[2] end end
-for _, t in ipairs(pa.tasks) do if t.kind == "craft" and t.tag == "ouvrier" then craft_recruit = true end end
-check(pa.recruit_workers == 1 and not pa.recruit_unarmed and iron_used > 0 and not craft_recruit,
-  "1 ouvrier sur 8, plaques au coffre : recrue équipée au QG (" .. iron_used .. " fer), sans fabrication par un ouvrier")
+check(free_armed(pa), "1 ouvrier sur 8, plaques au coffre : recrue GRATUITE équipée au QG, rien de prélevé, sans fabrication")
 local pa0 = Planner.plan(pview({ workers = 1, stock = plates }), book)
 check(not pa0.recruit_workers, "même vue sans la règle (avant la correction) : aucune recrue, pistolet demandé à un ouvrier")
--- 1 bis. Le kit complet au coffre : recrue payée comme avant (pas de plaques transformées).
+-- 1 bis. Le kit complet au coffre : gratuite aussi (le kit reste au coffre).
 local pk = Planner.plan(pview({ workers = 1, stock = { ["iron-plate"] = 100, pistol = 2, ["firearm-magazine"] = 30 },
   recover_floor = 8 }), book)
-check(pk.recruit_workers == 1 and not pk.recruit_unarmed and pk.recruit_uses == nil, "kit au coffre : recrue payée avec le kit")
+check(free_armed(pk), "kit au coffre : recrue gratuite, le kit n'est pas pris")
 -- 2. À l'effectif de départ (8 sur 8) : plan identique à celui d'avant la correction.
 local pb = Planner.plan(pview({ workers = 8, stock = plates, recover_floor = 8 }), book)
 local pb0 = Planner.plan(pview({ workers = 8, stock = plates }), book)
-check(sig(pb) == sig(pb0) and pb.recruit_uses == nil, "effectif de départ atteint : plan inchangé (" .. sig(pb):sub(1, 60) .. ")")
--- 3. Fer insuffisant : rien de plus que la règle ordinaire (ni recrue, ni plaques prélevées).
+check(sig(pb) == sig(pb0) and pb.recruit_uses == nil and not pb.recruit_free,
+  "effectif de départ atteint : plan inchangé (" .. sig(pb):sub(1, 60) .. ")")
+-- 3. Fer insuffisant : gratuite et équipée, à 2 PNJ comme à 1 (consigne du lead) ; ici sans fonderie (smelters 0) : pas de
+-- minage d'urgence (il est joué dans tests/spirale_test.lua).
 local poor = { ["iron-plate"] = 20, ["copper-plate"] = 20 }
-local pc = Planner.plan(pview({ workers = 1, stock = poor, recover_floor = 8 }), book)
-local pc0 = Planner.plan(pview({ workers = 1, stock = poor }), book)
-check(not pc.recruit_workers and pc.recruit_uses == nil and sig(pc) == sig(pc0), "fer insuffisant : aucune recrue, plan inchangé")
--- 4. Équipe vide, sans plaques : le secours ordinaire (ouvrier sans arme) reste.
+local pc = Planner.plan(pview({ workers = 2, stock = poor, recover_floor = 8 }), book)
+local pc1 = Planner.plan(pview({ workers = 1, stock = poor, recover_floor = 8 }), book)
+check(free_armed(pc) and free_armed(pc1), "fer insuffisant, 2 PNJ et 1 PNJ sur 8 : recrue gratuite et équipée (pas sans arme)")
+-- 4. Équipe vide, sans plaques : gratuite et équipée (avant : embauche de secours sans arme).
 local pd = Planner.plan(pview({ workers = 0, stock = {}, recover_floor = 8 }), book)
-check(pd.recruit_workers == 1 and pd.recruit_unarmed, "équipe vide sans plaques : embauche de secours sans arme (inchangé)")
--- 5. Garde d'agents atteinte : aucune recrue payée.
+check(free_armed(pd), "équipe vide sans plaques : recrue gratuite et équipée")
+-- 5. Garde d'agents atteinte : aucune recrue gratuite ni payée.
 local pe = Planner.plan(pview({ workers = 1, stock = plates, recover_floor = 8, recruit_blocked = true }), book)
-check(not pe.recruit_uses and not (pe.recruit_workers and not pe.recruit_unarmed), "garde d'agents : aucune recrue équipée")
--- 6. Ni fonderie du QG ni minage à la main ni garde (survie des factions) pour votre équipe (forme large, essai D1).
+check(not pe.recruit_uses and not pe.recruit_free and not (pe.recruit_workers and not pe.recruit_unarmed), "garde d'agents : aucune recrue équipée")
+-- 6. Ni fonderie du QG ni garde (survie des factions) pour votre équipe (forme large, essai D1). Le minage d'urgence (EFFONDREMENT,
+-- parité) ne part qu'avec une fonderie au QG : smelters 0 ici, donc aucun.
 local pf = Planner.plan(pview({ workers = 1, smelters = 0, stock = { stone = 100, coal = 100 }, recover_floor = 8,
   done = { army = true } }), book)
 local extra = false
@@ -182,10 +189,21 @@ M.run_ticks(2)
 check(g.engineers_count == 1 and chest2.get_item_count("pistol") == 0, "1 ouvrier restant, aucun pistolet au coffre ("
   .. g.engineers_count .. ")")
 local r0 = g.stats.emergency_recruits or 0
+local fr0 = g.stats.free_recruits or 0
 local ok3, err3 = pcall(M.run_ticks, 4 * 3600)
 check(ok3, "4 min sans erreur, sans guerre (" .. tostring(err3) .. ")")
 check((g.stats.emergency_recruits or 0) - r0 >= 7 and g.engineers_count >= 8, "équipe reconstruite au QG : "
   .. tostring((g.stats.emergency_recruits or 0) - r0) .. " recrues équipées, " .. g.engineers_count .. " PNJ")
+-- EFFONDREMENT : les 7 recrues sous l'effectif de départ sont GRATUITES (paiement sauté en E4, script/team/team.lua) et armées.
+local armed = 0
+local GUN = require("shared.team.config").worker_gun
+for id in pairs(g.engineers) do
+  local a = Registry.get(id)
+  local e = a and a.entity
+  if e and e.valid and e.get_inventory(defines.inventory.character_guns).get_item_count(GUN) > 0 then armed = armed + 1 end
+end
+check((g.stats.free_recruits or 0) - fr0 >= 7 and armed >= 8, "recrues gratuites au moteur simulé : "
+  .. tostring((g.stats.free_recruits or 0) - fr0) .. ", PNJ armés " .. armed)
 
 section("Lot IA-V2 : PNJ tué loin du QG : les PNJ au travail à moins de 64 tuiles rentrent (moteur réel, ia1b2-guide 1618033988)")
 M.new_game({ patches = patches(), p_busy = 0, p_nopath = 0, p_lost = 0 })

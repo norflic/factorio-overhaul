@@ -32,11 +32,21 @@ C.COOL = 36000       -- ticks (10 min) de pause après un abandon ou un refus du
 C.HOLD_PASS = 60     -- relevés (5 min) de saturation au-delà desquels le repli de l'équipe ne retient plus la centrale de plus
 C.STALE_REASON = "delai" -- raison du projet annulé (ne compte pas comme un refus du plan)
 
+-- Lot VIDEO-L12, partie 2 (fo-logs/2026-11-07_VIDEO-AUTOMATISATION/PLAN_L6_L10_L12.md §3.3, point 2 ; gist l.48-53) : HYSTÉRÉSIS. Avant, un
+-- seul relevé sous C.SAT effaçait la saturation (seuil unique : une charge qui oscille autour de 80 % allumait et éteignait la saturation, et
+-- remettait à zéro la durée qui lève le repli, C.HOLD_PASS). Une centrale SATURÉE le reste tant qu'elle produit au moins C.SAT_EXIT de sa
+-- capacité ; l'entrée ne change pas (C.SAT pendant C.SAT_CHECKS relevés). C.requested (la demande partie) remesure toujours : le chantier
+-- ouvert retient déjà une deuxième demande (C.growth, n.pending), et la centrale posée change la capacité : la mesure qui suit la pose
+-- décide d'une centrale de plus (pas de double commande, V77).
+C.SAT_EXIT = 0.7
+
 --- Un relevé : power et capacity en J/tick (production totale et capacité des machines à vapeur bâties). Rend vrai quand la
---- saturation dure depuis C.SAT_CHECKS relevés. Une capacité nulle ou une production nulle (panne : 0 < 80 % de la capacité) n'est pas une demande.
+--- saturation dure depuis C.SAT_CHECKS relevés, et tant qu'ensuite la production reste au moins à C.SAT_EXIT de la capacité. Une
+--- capacité nulle ou une production nulle (panne : 0 < 70 % de la capacité) n'est pas une demande.
 function C.observe(st, power, capacity)
-  if capacity > 0 and power >= C.SAT * capacity then st.sat = (st.sat or 0) + 1 else st.sat = 0 end
-  st.saturated = st.sat >= C.SAT_CHECKS
+  local lim = st.saturated and C.SAT_EXIT or C.SAT
+  if capacity > 0 and power >= lim * capacity then st.sat = (st.sat or 0) + 1 else st.sat = 0 end
+  st.saturated = (st.saturated and st.sat > 0) or st.sat >= C.SAT_CHECKS
   return st.saturated
 end
 

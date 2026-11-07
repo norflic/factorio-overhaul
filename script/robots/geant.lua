@@ -176,10 +176,11 @@ function Geant.salves(tick)
       local u = Armee.entity(un)
       if u then
         local at = old[un] or 0
-        if tick >= at then
-          local t = XpG.cible(u, r)
+        if tick >= at and not XpG.zone_active(un) then
+          local b = XpG.bonus_de(un) -- modules (DESIGN-MODULES), nil sans module
+          local t = XpG.cible(u, r, b)
           if t then
-            XpG.salve(u, un, r, { x = t.position.x, y = t.position.y }, tick)
+            XpG.salve(u, un, r, { x = t.position.x, y = t.position.y }, tick, b)
             at = tick + r.zone_cooldown
             n = n + 1
           end

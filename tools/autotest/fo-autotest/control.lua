@@ -22,7 +22,14 @@ local KIT_EGAL = {
   ["content"] = true, ["ia1-scale"] = true, ["verif-tourelles"] = true, ["etape1-guide"] = true, ["kit-egal"] = true,
   -- Lot PERF4 : la sauvegarde du DC rejouée telle quelle (aucun réglage posé sur sa partie).
   ["perf4-partie"] = true, ["perf4-partie-prof"] = true, ["perf4-partie-detail"] = true, ["perf4-coups"] = true,
+  -- Lot X10 (moteur) : même sauvegarde, classes figées par soustraction (scenarios/x10_common.lua).
+  ["x10-recensement"] = true, ["x10-sans-usines"] = true, ["x10-sans-pnj"] = true, ["x10-fige-tout"] = true,
 }
+
+-- Lot FOREUSES-THERMIQUES (A) : la sauvegarde du DC rejouée telle quelle (aucun réglage posé sur sa partie).
+KIT_EGAL["foreuses-partie-dc"] = true
+KIT_EGAL["foreuses-partie-dc-temoin"] = true
+KIT_EGAL["foreuses-stock-dc"] = true
 
 -- Lot IA0 : les scénarios de guerre intégrés restent en « Paisible » (pvp = "peaceful"), comportement des
 -- sessions 4-5, pour rester comparables à E17-E22 (sinon, au niveau Normal par défaut, les factions
