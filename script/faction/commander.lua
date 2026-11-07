@@ -26,6 +26,8 @@ local Chef = require("script.faction.chef")
 local Veille = require("script.faction.veille") -- lot VEILLE : bilans de la reconnaissance régulière (mission : script/ai3/exploration.lua)
 local Cd = require("shared.faction.cadence") -- lot X10-S10 : factions lointaines et calmes plus lentes (règle pure)
 local DefChoix = require("script.faction.defchoix") -- lot X10-S10 : ennemi près du QG (lu au créneau)
+local Storage = require("script.core.storage") -- lot X10-S10 : état des soldats de l'IA3 (nettoyage, expédition), lu sans le créer
+local Ia3k = require("script.ai3.comportement") -- lot X10-S10 : clé de l'équipe dans cet état (Ia3k.team_key)
 
 local Commander = {}
 
@@ -117,21 +119,43 @@ local function cadence_of(f)
   return cs
 end
 
---- Entrée de la règle : joueurs connectés de la surface de la guerre (ordre du moteur), zone et alertes de la faction.
-local function cadence_input(f, tick)
-  local war = State.war()
-  local players = {}
+--- Joueurs connectés de la surface d'index `surface_index` (ordre du moteur) : { {x, y}, ... }. Appels au moteur : 1 (la liste), puis
+--- 2 par joueur connecté (surface_index, position). Le guet la lit UNE fois par tick pour toutes les factions (réserve de la revue).
+function Commander.players_on(surface_index)
+  local out = {}
   for _, p in ipairs(game.connected_players) do
-    if p.valid and p.surface and p.surface.index == war.surface then
+    if p.surface_index == surface_index then
       local pos = p.position
-      players[#players + 1] = { x = pos.x, y = pos.y }
+      out[#out + 1] = { x = pos.x, y = pos.y }
     end
   end
+  return out
+end
+
+--- Une force de la faction est-elle hors du QG, ou s'y prépare-t-elle ? (Cd.army_out : groupes armés, attaque préparée, opération de
+--- nettoyage et expédition des soldats de l'IA3, armée de la prévision en alerte ou au regroupement.) Lecture seule, aucun appel au
+--- moteur : l'état des soldats de l'IA3 n'est pas créé s'il manque. Rend (dehors, cause). Réutilisable (lot x10-gel).
+function Commander.army_out(f)
+  local ns = Storage.ns("ia3k")
+  local t = ns and ns.teams and ns.teams[Ia3k.team_key(f)]
+  local sd = t and t.sd
+  return Cd.army_out({ groups = f.groups, route_pending = f.route_pending, nt = sd and sd.nt, clearing = sd and sd.clearing,
+    armee = f.armee })
+end
+
+--- Entrée de la règle : joueurs `players` (Commander.players_on), zone et alertes de la faction, état de son armée.
+local function cadence_input(f, players)
   local cs = cadence_of(f)
-  -- « armée dehors » : un groupe armé (attaque, retour, éclaireur : Military.maintain les entretient DANS la pensée) ou une attaque préparée.
-  local army_out = (f.groups ~= nil and next(f.groups) ~= nil) or f.route_pending ~= nil
+  local army_out, army_why = Commander.army_out(f)
   return { is_player = f.is_player, box = cs.box, players = players, threatened_until = f.threatened_until,
-    attack_t = f.attack_alert_t, lost_t = f.lost_t, base_alert = cs.base_alert, army_out = army_out }
+    attack_t = f.attack_alert_t, hit_t = f.hit_t, lost_t = f.lost_t, base_alert = cs.base_alert, army_out = army_out,
+    army_why = army_why }
+end
+
+--- Cause écrite au journal : celle de la règle, et le détail de l'armée dehors.
+local function cause_of(why, inp)
+  if why == "armee dehors" and inp.army_why then return why .. " : " .. inp.army_why end
+  return why
 end
 
 --- Zone de la faction (QG et avant-postes, triés par clé) : relue à chaque pensée jouée.
@@ -154,7 +178,8 @@ local function cadence_say(f, cs, mode, why, tick)
     tostring(why), tick / 3600))
 end
 
-function Commander.think(id, tick)
+--- Pensée d'une faction : à son créneau (voie fo-commander, `woken` nil), ou réveillée par le guet (Commander.wake, `woken` vrai).
+function Commander.think(id, tick, woken)
   local war = State.war()
   local f = war.factions[id]
   if not war.active or not f or f.eliminated then
@@ -169,14 +194,18 @@ function Commander.think(id, tick)
     local cs = cadence_of(f)
     if cs.last == tick then return end -- déjà pensé à ce tick (réveil et créneau au même tick)
     cs.base_alert = DefChoix.base(f, surface, tick).insecure or nil
-    local skip, why = Cd.skip(cs, cadence_input(f, tick), tick)
+    -- Revue de 87ac84fe : un créneau qui tombe moins d'une période après la dernière pensée (un réveil) est laissé, sans endormir la
+    -- faction (sinon : deux pensées P − k ticks l'une de l'autre, et pour k >= P − 3 les étapes E1 à E4 rejouées d'un bloc).
+    if not woken and Cd.recent(cs, tick, Scheduler.period(Commander.LANE)) then return end
+    local inp = cadence_input(f, Commander.players_on(war.surface))
+    local skip, why = Cd.skip(cs, inp, tick)
     if skip then
       cs.asleep = true
       cadence_say(f, cs, "lente", why, tick)
       return
     end
     cs.asleep, cs.last = false, tick
-    if why ~= "loin et calme" and why ~= "premiere pensee" then cadence_say(f, cs, "normale", why, tick) end
+    if why ~= "loin et calme" and why ~= "premiere pensee" then cadence_say(f, cs, "normale", cause_of(why, inp), tick) end
     cs.box = cadence_zone(f)
   end
   Profiler.start("faction:think")
@@ -254,23 +283,43 @@ end
 --- étapes E2 à E4 aux ticks suivants, comme d'habitude).
 function Commander.wake(f, id, cause, tick)
   cadence_say(f, cadence_of(f), "normale", cause, tick)
-  Commander.think(id, tick)
+  Commander.think(id, tick, true)
 end
 
--- Lot X10-S10 : GUET des factions endormies, à chaque tick : au premier tick où une cause la réveille (le joueur entré dans sa zone, une
--- attaque, une perte), Commander.wake. Aucune faction endormie : une boucle sur la liste des factions, sans lecture du moteur.
-Events.on_nth_tick(1, function(e)
+--- Lot X10-S10 : GUET des factions endormies, joué à chaque tick : au premier tick où une cause la réveille (le joueur entré dans sa
+--- zone, une attaque, un coup sur une tourelle, une perte, une armée sortie), Commander.wake. Aucune faction endormie : une boucle sur
+--- la liste des factions, sans appel au moteur ; sinon les joueurs sont lus UNE fois pour toutes les factions de ce tick.
+function Commander.guard(tick)
   if not Commander.CADENCE then return end
   local war = State.war()
   if not (war and war.active and war.factions) then return end
+  local players = nil
   for id, f in ipairs(war.factions) do
     local cs = f.cadence
     if cs and cs.asleep and not f.eliminated then
-      local up, why = Cd.wake(cs, cadence_input(f, e.tick), e.tick)
-      if up then Commander.wake(f, id, why, e.tick) end
+      players = players or Commander.players_on(war.surface)
+      local inp = cadence_input(f, players)
+      local up, why = Cd.wake(cs, inp, tick)
+      if up then Commander.wake(f, id, cause_of(why, inp), tick) end
     end
   end
-end)
+end
+Events.on_nth_tick(1, function(e) Commander.guard(e.tick) end)
+
+-- Lot X10-S10 : lecture de la cadence par le mod de test (scénario s10-cadence ; aucune écriture).
+remote.add_interface("fo-cadence", {
+  --- Une entrée par faction, dans l'ordre de la guerre : { key, force, last (dernière pensée), asleep, mode, hq = { x, y } }.
+  list = function()
+    local war = State.war()
+    local out = {}
+    for _, f in ipairs((war and war.factions) or {}) do
+      local cs = f.cadence
+      out[#out + 1] = { key = f.key, force = f.force, last = f.last_think, asleep = (cs and cs.asleep) == true,
+        mode = cs and cs.mode, hq = f.hq_pos and { x = f.hq_pos.x, y = f.hq_pos.y } or nil }
+    end
+    return out
+  end,
+})
 
 -- Migration : une partie d'avant ce lot a ses factions à des créneaux consécutifs ; elles sont replacées au chargement du mod changé.
 Events.on_configuration_changed(function()
