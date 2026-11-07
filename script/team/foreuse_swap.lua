@@ -29,6 +29,7 @@ local P = require("shared.team.plan") -- lot FOREUSES-THERMIQUES : chaine de pot
 local Sante = require("script.team.sante_centrale") -- lot FOREUSES-THERMIQUES : puissance des chantiers (bilan d'energie existant)
 local Scheduler = require("script.core.scheduler") -- lot TRANCHES : suite d'une passe au tick suivant (minuterie)
 local M = require("shared.team.modules") -- réserve d'amorçage : chaudière et thermique lues aux DONNÉES (M.spec, niveaux compris)
+local Profiler = require("script.core.profiler") -- mesure des tranches jouées par la minuterie (hors de la portée tt:foswap de la pensée)
 
 local Swap = {}
 
@@ -893,7 +894,10 @@ Scheduler.define_timer(Swap.TIMER, function(p)
     log(string.format("[FO-FOREUSES] %s : passe du tick %d abandonnee (equipe, QG ou livre de recettes disparu)", tostring(f.key or "player"), pass.t0))
     return
   end
+  -- (banc foreuses-dense du 7/11 : la portée tt:foswap de la pensée ne voyait que la PREMIÈRE tranche ; les suivantes, ici)
+  Profiler.fstart("tt:foswap-tranche")
   run_pass(f, f.hq.surface, book, pass)
+  Profiler.fstop("tt:foswap-tranche")
 end)
 
 --- Une pensee d'equipe : releve, remplacements, fabrication d'avance. `free` : stock libre ({ [objet] = n }) de la pensee.

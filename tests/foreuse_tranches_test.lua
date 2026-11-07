@@ -92,7 +92,7 @@ local MUT = {
   { "refus du plan dates au tick courant", "    if ref then st.retry[ref.key] = t0 + Swap.RETRY end", "    if ref then st.retry[ref.key] = game.tick + Swap.RETRY end" },
   { "releve qui lit le tick courant", "          if not (retry[key] and pass.t0 < retry[key]) then", "          if not (retry[key] and game.tick < retry[key]) then" },
   { "suite de la passe jamais programmee", "    if used >= budget then" .. CR .. "      Scheduler.after(1, Swap.TIMER, { fid = f.id })", "    if used >= budget then" .. CR .. "      do end" },
-  { "minuterie qui abandonne la passe", "  run_pass(f, f.hq.surface, book, pass)" .. CR .. "end)", "  f.swap.pass = nil" .. CR .. "end)" },
+  { "minuterie qui abandonne la passe", "  run_pass(f, f.hq.surface, book, pass)" .. CR .. "  Profiler.fstop(", "  f.swap.pass = nil" .. CR .. "  Profiler.fstop(" },
 }
 local refused, kept = 0, {}
 for _, m in ipairs(MUT) do
