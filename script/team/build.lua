@@ -4503,8 +4503,9 @@ local function charbon_step(f, tick)
   end
 end
 
--- Lot X10-S0 : noms des portées fines de la passe par état du projet (constantes : aucune chaîne fabriquée par passe).
-local BP_STATE_SCOPE = { attente = "bp:p-attente", plan = "bp:p-plan", reserve = "bp:p-reserve", defrichage = "bp:p-defrichage",
+-- Lot X10-S0 : noms des portées fines de la passe par état du projet (constantes : aucune chaîne fabriquée par passe). Champ du
+-- module, pas une locale : la fonction principale de ce fichier est à 199 locales sur 200 (relecture de revue-s, 8/11).
+Build.BP_STATE_SCOPE = { attente = "bp:p-attente", plan = "bp:p-plan", reserve = "bp:p-reserve", defrichage = "bp:p-defrichage",
   fantomes = "bp:p-fantomes", chantier = "bp:p-chantier", raccordement = "bp:p-raccordement" }
 
 local function pulse_team(f, tick)
@@ -4544,7 +4545,7 @@ local function pulse_team(f, tick)
     end
     if p and p.state ~= "fini" and p.state ~= "refuse" and p.state ~= "bloque" then
       local was = p.state
-      local scope = BP_STATE_SCOPE[was] or "bp:p-autre" -- lot X10-S0 : temps de la passe par état du projet (mesure seulement)
+      local scope = Build.BP_STATE_SCOPE[was] or "bp:p-autre" -- lot X10-S0 : temps de la passe par état du projet (mesure seulement)
       Profiler.fstart(scope)
       advance(f, surface, p, tick)
       Profiler.fstop(scope)
