@@ -402,6 +402,11 @@ def rendre_art(t, k, avec_plaque_vecteur=False):
         a_f = I.couv(g["facette"]) * a_champ
         poser(a_f, dict(rgb=tuple(min(1.0, v * 1.55 + 0.02) for v in R["champ"]["rgb"]), rough=0.22, met=0.12))
         H += 0.7 * I.profil(g["facette"], 2.5) * a_f
+    for sd, mat, haut in g.get("matieres") or []:
+        # pièces d'une autre matière (contacts dorés, griffes de sertissage) : matière propre, relief propre
+        a_m = I.couv(sd)
+        poser(a_m, mat)
+        H = H * (1 - a_m) + (H + haut * I.profil(sd, 1.2)) * a_m
 
     emis = np.zeros((N, N, 3))
     a_coeur_tot = np.zeros((N, N))
