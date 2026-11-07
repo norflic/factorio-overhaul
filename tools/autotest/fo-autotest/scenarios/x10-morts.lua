@@ -1,7 +1,7 @@
 --[[
   Lot X10, Q5 (7/11) : morts habillées par script, en MOTEUR RÉEL sur la sauvegarde du DC (banc.py --sauvegarde ; un
   joueur connecté existe en --benchmark sur une sauvegarde : le personnage du DC, immobile). Nom dans KIT_EGAL.
-  Au tick D (init) : relevé des joueurs tout de suite (interface « fo-morts »). Puis, un biter « small-biter » (force enemy)
+  Au tick D + 10 : relevé des joueurs tout de suite (interface « fo-morts » ; pas à l'init, voir S.init). Puis, un biter « small-biter » (force enemy)
   posé et tué par die() à chaque étape, à l'est du joueur :
       D + 30  PRES   à  12 tuiles  -> explosion recréée (crees + 1)
       D + 40  BORD   à 200 tuiles  -> recréée (encore dans la vue du DC en 4K au zoom 0,3)
@@ -45,18 +45,25 @@ S.init = function(ctx)
     surf.request_to_generate_chunks({ st.px + e.dx, st.py + (e.dy or 0) }, 1)
   end
   surf.force_generate_chunk_requests()
-  ctx.remote("fo-morts", "releve")
-  local s0 = stats(ctx)
-  ctx.log(string.format("joueur %s en (%.1f, %.1f) surface %d ; fo-morts : actif %s, joueurs releves %d, crees %d, loin %d",
-    p.name, st.px, st.py, st.s, tostring(s0.actif), s0.joueurs, s0.crees, s0.loin))
-  ctx.check(s0.actif == true and s0.joueurs >= 1, "releve fait, regle active", s0.joueurs)
-  st.s0 = s0
+  st.nom = p.name
+  -- Pas d'appel à « fo-morts » ici : moteur réel, 7/11, le on_init de ce mod de test (ajouté à la sauvegarde) passe AVANT
+  -- le on_configuration_changed de factorio-overhaul, qui crée l'espace « morts ». Relevé et compteurs au tick D + 10.
+  local s = stats(ctx)
+  ctx.log("a l'init : fo-morts actif " .. tostring(s.actif) .. ", joueurs releves " .. s.joueurs)
 end
 
 S.tick = function(ctx, e)
   local st = ctx.state()
   if not st.debut or not st.px then return end
   local rel = e.tick - st.debut
+  if rel == 10 then
+    ctx.remote("fo-morts", "releve")
+    local s0 = stats(ctx)
+    ctx.log(string.format("joueur %s en (%.1f, %.1f) surface %d ; fo-morts : actif %s, joueurs releves %d, crees %d, loin %d",
+      st.nom, st.px, st.py, st.s, tostring(s0.actif), s0.joueurs, s0.crees, s0.loin))
+    ctx.check(s0.actif == true and s0.joueurs >= 1, "releve fait, regle active", s0.joueurs)
+    st.s0 = s0
+  end
   for _, et in ipairs(ETAPES) do
     if rel == et.t then
       local surf = game.surfaces[st.s]

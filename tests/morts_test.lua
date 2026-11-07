@@ -206,6 +206,15 @@ local function verifier_jeu(texte_jeu, chk)
   local st = J.H.remote.stats()
   c(st.crees == 8 and st.loin == 4 and st.sans_point == 1 and st.joueurs == 0 and st.ratees == 0, "stats de l'interface",
     string.format("crees %d loin %d sans_point %d joueurs %d", st.crees, st.loin, st.sans_point, st.joueurs))
+  -- espace « morts » absent (sauvegarde d'avant le lot, avant son on_configuration_changed ; moteur réel, 7/11 : le
+  -- on_init d'un mod ajouté passe avant) : interface et événements sans erreur, rien de créé
+  J.ST.morts = nil
+  local ok1, s2 = pcall(J.H.remote.stats)
+  c(ok1 and s2 and s2.crees == 0 and s2.joueurs == -1, "stats sans espace : sans erreur, a zero", tostring(s2))
+  c(pcall(J.H.remote.actif, false) and pcall(J.H.remote.releve), "actif et releve sans espace : sans erreur")
+  local n_avant = #J.crees
+  c(pcall(J.effet, { effect_id = "fo-mort|a-die", surface_index = 1, target_position = { x = 0, y = 0 } })
+    and #J.crees == n_avant, "mort sans espace : sans erreur, rien de cree")
   return n0
 end
 
@@ -239,6 +248,8 @@ local MUT_JEU = {
   { "releve ignore", "if s.actif and not M.proche(s.joueurs,", "if s.actif and not M.proche(nil," },
   { "point source ignore", "local pos = e.target_position or e.source_position", "local pos = e.target_position" },
   { "un seul nom", "for i = 1, #noms do", "for i = 1, 1 do" },
+  { "stats sans garde (erreur du 7/11 en moteur reel)", "    if not s then return { actif = nil,", "    if false then return { actif = nil," },
+  { "actif sans garde", "    if s then s.actif = v and true or false end", "    s.actif = v and true or false" },
 }
 for _, mu in ipairs(MUT_JEU) do
   check(verifier_jeu(remplacer(TEXTE_JEU, mu[2], mu[3]), nil) > 0, "mutant vu (jeu) : " .. mu[1])

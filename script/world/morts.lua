@@ -71,14 +71,19 @@ Events.on_nth_tick(M.RELEVE, releve)
 
 remote.add_interface("fo-morts", {
   --- Compteurs : explosions créées et ratées, morts loin de tout joueur, morts sans point ; relevé (nombre de joueurs, -1
-  --- avant le premier) ; réglage actif.
+  --- avant le premier) ; réglage actif. Avant la création de l'espace « morts » (sauvegarde d'avant ce lot, jusqu'à son
+  --- on_configuration_changed ; moteur réel, 7/11 : le on_init d'un mod ajouté passe AVANT) : tout à 0, actif nil.
   stats = function()
     local s = S()
+    if not s then return { actif = nil, crees = 0, ratees = 0, loin = 0, sans_point = 0, joueurs = -1 } end
     return { actif = s.actif, crees = s.crees, ratees = s.ratees, loin = s.loin, sans_point = s.sans_point,
       joueurs = s.joueurs and #s.joueurs or -1 }
   end,
   --- true : règle de distance (défaut) ; false : explosion partout, comme le moteur (témoin de banc).
-  actif = function(v) S().actif = v and true or false end,
+  actif = function(v)
+    local s = S()
+    if s then s.actif = v and true or false end
+  end,
   --- Relevé des joueurs tout de suite (bancs : après un téléport).
   releve = function() releve() end,
 })
