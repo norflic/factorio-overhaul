@@ -615,36 +615,36 @@ En plus, le drapeau d'artillerie se lève au-delà de 36 mégatuiles, à un coin
 **Module cible** : nouveau fichier `shared/ai3/rang.lua`, lu par la capitalisation (`Ca.requirements` l.752, `Ca.before` l.1784)
 et par l'automatisation.
 
-**Règle pure `Rg.build(D, open, opts)`** :
+**Règle pure `Rg.build(D, pick, seeds)`** : **la spécification complète et à jour est `TODO_VIDEO.md` §H**. Elle remplace
+celle de la première version de ce rapport (point fixe sur toutes les recettes ouvertes). En bref :
 - **entrées** :
-  - `D` = relevé de `Ca.data` : `recipes`, `producers`, `res`, `hand`, catégories ;
-  - `open(rn)` = recette ouverte pour la force (même prédicat que `Ca.recipe_open`) ;
-  - `opts.fluids` = les fluides comptent comme des objets (rang de la recette qui les produit ; l'eau pompée est au rang 0).
-- **sorties** :
-  - `rank[objet]` (entier ≥ 0) ;
-  - `tiers[k]` = liste triée des objets du rang k ;
-  - `cyc[objet]` = vrai pour un objet qui n'a de rang que par un cycle (recette qui consomme son produit, comme l'amorce
-    d'huile lourde de M30) ;
-  - `seed[objet]` = quantité d'amorce nécessaire (ingrédient du cycle).
-- **calcul** : plus petit point fixe de type Jacobi, rang par rang, sans récursion :
-  - passe k : un objet sans rang reçoit le rang k si une de ses recettes ouvertes a tous ses ingrédients classés à des rangs
-    strictement inférieurs à k ;
-  - itération sur `D.recipe_list` triée ;
-  - arrêt quand une passe ne classe rien, ou à `Rg.MAX` passes.
-  - Les objets restés sans rang sont soit des cycles (marqués `cyc`, rang = 1 + max des ingrédients classés), soit impayables.
-- **invariants testés** :
-  - (I1) pour toute recette retenue r d'un objet i, rang(ingrédient) < rang(i), sauf `cyc` ;
-  - (I2) rang des ressources = 0 ;
-  - (I3) déterministe : même sortie quel que soit l'ordre d'insertion des tables ;
-  - (I4) aucun nom du jeu dans le fichier ;
-  - (I5) une recette ouverte en plus ne fait jamais MONTER un rang (le min ne peut que baisser).
+  - `D` = relevé de `Ca.data` ;
+  - `pick` = la recette que la capitalisation UTILISERA (`choose_recipe`, l.730, mémoïsée par décision) ;
+  - `seeds` = les graines de `Ca.requirements` (l.756-763).
+- **calcul** :
+  - fermeture itérative depuis les graines ;
+  - contraction des cycles par Tarjan itératif, déterministe ;
+  - rang = 1 + max des rangs des ingrédients EXTERNES à la composante, par Kahn ;
+  - l'arc qui referme un cycle n'est pas propagé : sa quantité est l'amorce (`seed`).
+- **sorties** : `rank`, `tiers`, `order` (ordre de propagation), `cyc`, `seed`, `why`, `n_tiers`.
+- **invariants** (§H.4) :
+  - (I1) rang strict hors composante ;
+  - (I2) ressources au rang 0 ;
+  - (I3) cycles au même rang, arcs internes non propagés ;
+  - (I4) déterminisme sous permutation ;
+  - (I5) égal au `depth` actuel sans cycle (A/B octet à octet) ;
+  - (I6) dynamique : une recherche ou une machine nouvelle change le rang à la décision suivante ;
+  - (I7) aucun nom du jeu ;
+  - (I8) aucune récursion, itérations ≤ |V| + |E|.
 
 **Runtime** :
-- calcul paresseux à la première décision qui en a besoin, gardé en mémoire de module avec la clé (force, génération du livre) ;
+- calcul UNE fois par décision de capitalisation, dans `Ca.decide`, sans cache d'une décision à l'autre (`TODO_VIDEO.md` §H.1) :
+  un changement du catalogue (recherche, âge, machine nouvelle) est pris à la décision suivante, sans invalidation à oublier ;
+- option d'affichage : calcul « livre entier » par génération du livre, en mémoire de module avec la clé (force, génération) ;
 - la génération change à `on_research_finished`, `on_research_reversed`, `on_technology_effects_reset`, `on_force_reset` et
   `on_configuration_changed`, comme le livre de recettes (ARCHITECTURE §5) ;
-- rien dans `global`, sauf peut-être la génération (un nombre) ;
-- une ligne `[FO-RANG]` par recalcul : nombre de rangs, objets par rang, cycles.
+- rien dans `global` ;
+- une ligne `[FO-RANG]` quand le nombre de rangs ou les cycles changent.
 
 **L1b (perf, même lot)** : remplacer, dans `Ca.requirements`, le parcours `visit` qui recalcule `depth` à chaque appel
 (l.764-788) par `rank`.
@@ -658,23 +658,25 @@ et par l'automatisation.
   (et non 4 comme la table de l'auteur, §3.2) ;
 - (b) cycle synthétique (A depuis B, B depuis A, plus une recette de départ) ;
 - (c) recette qui consomme son produit (amorce) ;
-- (d) recette ouverte par une recherche : le rang change, la génération est invalidée ;
-- (e) relevé du mod sur les 15 âges : nombre de rangs écrit, aucun objet fabricable sans rang hors `cyc` ;
-- (f) mesure des instructions.
+- (d) recherche jouée entre deux décisions : le rang change à la décision suivante (I6) ;
+- (e) relevé du mod sur les 15 âges : nombre de rangs écrit, aucun objet fabricable sans rang hors cycles ;
+- (f) A/B de `Ca.decide` sans cycle (I5) ;
+- (g) mesure des instructions.
 
-**Mutants** (chacun doit faire échouer un test) :
+**Mutants** (chacun doit faire échouer un test ; liste complète au §H.8 de `TODO_VIDEO.md`) :
 1. rang = max au lieu de 1 + max ;
-2. fluides ignorés ;
-3. cycle non traité (récursion sans garde) ;
-4. cache non invalidé après une recherche ;
-5. itération par `pairs` (le test permute l'ordre d'insertion) ;
-6. min remplacé par « première recette ».
+2. arc de cycle propagé ;
+3. Tarjan par `pairs` (le test permute les tables) ;
+4. recette de la porte différente de celle de la propagation ;
+5. extension oubliée pour une graine nouvelle ;
+6. récursion à la place de la pile.
 
-**Coût [DÉDUIT]** :
-- construction : passes × (recettes + ingrédients). Avec environ 1 200 recettes, environ 4 000 arêtes et 10 à 25 rangs : quelques
-  10⁵ à 10⁶ instructions, une fois par recherche finie et par force ;
-- si une mesure dépasse le budget d'une tranche : découper par passes (une passe par tick) ;
-- consultation : O(1).
+**Coût [DÉDUIT]** (§H.6) :
+- O(|V| + |E|), environ 30 à 60 instructions par arc ;
+- environ 3 à 6 × 10⁴ instructions par décision ordinaire, une fois par décision au lieu de 1 + nombre d'ordres fermetures ;
+- environ 2 × 10⁵ pour le livre entier (affichage seulement) ;
+- au-delà de `Rg.MAX`, découpage en unités de la décision en tranches ;
+- gain net attendu, à prouver par H-VID-3.
 
 ### L2. PORTE DE RANG dans la capitalisation : « le plus bas rang en manque d'abord » — M12, M14, M15, M23 — taille M
 **Dépend de L1.**
@@ -1025,9 +1027,9 @@ barils (§8).
 |---|---|---|---|---|
 | 1 | L0 mesures | Sans elles, L2 et L6 sont des paris. Rien ne change en jeu. | S | — |
 | 2 | L1 et L1b rang | Règle pure, sans effet de décision tant que L2 n'est pas branché ; L1b peut réduire le coût de `Ca.decide`, point chaud du jour. | S à M | — |
-| 3 | L2 porte de rang | Seul mécanisme de la vidéo qui attaque une CAUSE déjà mesurée : des modules en attente de fer qui tiennent les places de la foreuse de fer (`emplacements.lua`, règle 8 ; `REPRISE.md` l.22). | M | L1, L0 |
-| 4 | L5 confirmation | Une machine posée et non nourrie compte aujourd'hui comme capacité (D1, D2 de W) ; la remplacer par l'observation ferme la boucle. | M | — (mieux avec L3) |
-| 5 | L3 manque mesuré | Rend visible le fer des coffres du plan directeur (D1 de W) et donne le vrai signal de la vidéo. | M | — |
+| 3 | L3 manque mesuré | Remède naturel du maillon D0 (« la vue ne voit pas les coffres du plan directeur ») et de D1 ; donne le vrai signal de la vidéo et nourrit L2. Remonté au 3e rang à la demande du lead : `TODO_VIDEO.md` §G. | M | — |
+| 4 | L2 porte de rang | Le mécanisme de la vidéo qui attaque une CAUSE déjà mesurée : des modules en attente de fer qui tiennent les places de la foreuse de fer (`emplacements.lua`, règle 8 ; `REPRISE.md` l.22). | M | L1, L0 |
+| 5 | L5 confirmation | Une machine posée et non nourrie compte aujourd'hui comme capacité (D1, D2 de W) ; la remplacer par l'observation ferme la boucle. | M | — (mieux avec L3) |
 | 6 | L6 portes et petites marches | Le « choc logistique » colle à D1 (0 PNJ libre, 16 tâches libres). | S | L0 |
 | 7 | L4 quotas du gabarit | Fours « sortie pleine » (D2) ; peu de code. | M | — |
 | 8 | L11 trace | Peu cher ; le DC juge sur ce qu'il voit. | S | — |
@@ -1105,5 +1107,5 @@ barils (§8).
    `depth` existe déjà mais ne sert qu'à départager. La porte manque.
 5. **Spéculatif (à mesurer d'abord, L0)** : que la porte de rang ciblée (L2) règle l'interblocage du fer ; que la confirmation (L5)
    et le manque mesuré (L3) règlent D1 et D2 ; que L1b allège `Ca.decide`.
-6. **Ordre proposé** : L0 → L1 → L2 → L5 → L3 → L6 → L4, puis le reste. Détails et tests aux §6 et §7 ; une ligne par élément dans
+6. **Ordre proposé** : L0 → L1 → L3 → L2 → L5 → L6 → L4, puis le reste (L3 remonté : remède de D0 et D1, `TODO_VIDEO.md` §G). Détails et tests aux §6 et §7 ; une ligne par élément dans
    `TODO_VIDEO.md`.
