@@ -54,6 +54,7 @@ local Bilan = require("script.ai3.bilan") -- lot BILAN : production moins consom
 local PileRt = require("script.team.pile") -- lot PILE-PRIORITE : entrées du runtime de la pile (pièces détruites, projet rouvert)
 local Rsv = require("script.ai3.reserve") -- lot INDUSTRIE I1 : le besoin évalué (réglage fo-war-industrie)
 local Dm = require("shared.ai3.demande") -- lot C2 : puits ouvert (capacités de plus selon les bras libres, journal de la saturation)
+local Sa = require("shared.ai3.saturation") -- lot VIDEO-SAT (V79) : horizon de la projection (journal [FO-SAT])
 local SurvieQg = require("script.team.survie_qg") -- lot S1 : réserve de chargeurs sur la menace reçue, recherche de la tourelle
 local Dep = require("script.ai3.depenses") -- lot DEPENSES2 : laboratoires de plus quand les plaques dorment
 local Prev = require("script.ai3.prevision") -- lot PREVISION : estimateur unique de la menace (cadres « preparer », défense induite)
@@ -1162,7 +1163,33 @@ function Ia3.measure(f, tick, plan)
       log(string.format("[FO-DEMANDE] %s : SATURATION relative au puits ouvert (besoin = plancher, buts ou debit du puits x %d min, jamais le plancher seul) : [%s] ne sont plus saturees ; saturees [%s] a %.1f min",
         f.key or "player", Dm.SAT_H, hsig, table.concat(sat, " "), minutes(f, tick)))
     end
+    Ia3.sat_journal(f, st, tick)
   end
+end
+
+--- Lot VIDEO-SAT (V79, étape 4 bis) : journal [FO-SAT], une ligne par matière dont la saturation est LEVÉE par la pente (au-dessus du
+--- seuil, mais le stock fond : projeté à Sa.H minutes sous le seuil) ou RENDUE (saturée de nouveau, ou passée sous le seuil), contre ce
+--- qui est déjà écrit (st.sat_said). Appelé une fois par minute au plus (Ia3.measure). Lecture : la mesure de Sa.H (délai entre la levée et
+--- la première livraison de la capacité qu'elle a permise) se fait sur ces lignes.
+function Ia3.sat_journal(f, st, tick)
+  local lifted, said = st.sat_lifted or {}, st.sat_said or {}
+  local items = st.sat and st.sat.items or {}
+  for _, k in ipairs(sorted_keys(lifted)) do
+    if said[k] == nil then
+      log(string.format("[FO-SAT] %s : saturation de %s LEVEE par la pente (V79) : stock libre %d qui fond de %d/min, projete a %d min sous le seuil, a %.1f min",
+        f.key or "player", k, math.floor((items[k] and items[k].s or 0) + 0.5), lifted[k], Sa.H, minutes(f, tick)))
+    end
+  end
+  for _, k in ipairs(sorted_keys(said)) do
+    if lifted[k] == nil then
+      log(string.format("[FO-SAT] %s : saturation de %s RENDUE (%s), a %.1f min", f.key or "player", k,
+        (st.saturated or {})[k] and "saturee de nouveau : la fonte s'est arretee ou le stock la couvre a l'horizon" or "sous le seuil : plus saturee du tout",
+        minutes(f, tick)))
+    end
+  end
+  local keep = {}
+  for _, k in ipairs(sorted_keys(lifted)) do keep[k] = lifted[k] end
+  st.sat_said = keep
 end
 
 return Ia3

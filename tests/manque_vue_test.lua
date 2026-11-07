@@ -9,7 +9,10 @@
     §3 view.stock INCHANGÉ : la vue avec le manque mesuré et la vue éteinte (Mv.ENABLED = false) ont le même stock ;
     §4 module fini (quais, débit nominal p.inflow, machine alimentée) et transit d'une tâche « fill » prise : manque = 1 min de nominal
        moins l'entrée moins le transit ; il devient un puits de la capitalisation (Mq.sinks) ;
-    §5 survie : la plaque que la collecte couvre n'ouvre pas la survie (Sv.uncovered sur view.mq) ;
+    §5 survie : seule la plaque dont la collecte est PRISE (view.avail_out) est déduite du manque ; une collecte à faire ne couvre
+       rien (version stricte du lead, 7/11) ;
+    §11 la scène D1 du DC : 4 353 plaques au champ, une tâche de collecte LIBRE que personne ne prend : la survie S'OUVRE ;
+       mutant « collecte à faire comptée » refusé ;
     §6 demandes : objectif net, réserve et priorité de survie sous l'effectif de départ, recrue décidée (Mv.wants) ;
     §7 éteint : view.mq absent, f.team.mq effacé, la collecte rejoue la règle d'avant ;
     §8 la chaîne lue dans les sources (vue, collecte, survie, capitalisation) ;
@@ -69,7 +72,7 @@ local PID_OUT, PID_MOD = 9001, 9002
 
 --- Pose la scène sur l'équipe f : 3 coffres de sortie (585, 560, 540 plaques), le 1er avec sa tâche de collecte au tableau ; un module fini
 --- (quai de 5 engrenages, 30 par minute au nominal, une machine) avec une tâche « fill » de 10 prise. Rend une fonction qui retire tout.
-local function stage(f, missing, taken)
+local function stage(f, missing, taken, amounts, all_tasks)
   local s = f.hq.surface
   local hq = f.hq.position
   local made = {}
@@ -80,7 +83,7 @@ local function stage(f, missing, taken)
     return c
   end
   local outs = {}
-  for i, n in ipairs({ 585, 560, 540 }) do
+  for i, n in ipairs(amounts or { 585, 560, 540 }) do
     local x, y = math.floor(hq.x) + 40 + 4 * i + 0.5, math.floor(hq.y) + 0.5
     chest_at(x, y, PLATE, n)
     outs[i] = { x = x, y = y, at = 200 }
@@ -103,6 +106,14 @@ local function stage(f, missing, taken)
   local bd = Board.get(f)
   local ko = "ia1d:" .. PID_OUT .. ":o:1"
   bd.tasks[ko] = { key = ko, kind = "carry", prio = 52, ia1d = { pid = PID_OUT, mode = "collect", idx = 1 }, worker = taken and 424242 or nil }
+  local extra = {}
+  if all_tasks then -- une tâche de collecte LIBRE sur chaque coffre (personne ne la prend)
+    for i = 2, #outs do
+      local k = "ia1d:" .. PID_OUT .. ":o:" .. i
+      bd.tasks[k] = { key = k, kind = "carry", prio = 52, ia1d = { pid = PID_OUT, mode = "collect", idx = i } }
+      extra[#extra + 1] = k
+    end
+  end
   local kq = "ia1d:" .. PID_MOD .. ":q:1"
   bd.tasks[kq] = { key = kq, kind = "carry", prio = 63, items = { { GEAR, 10 } }, ia1d = { pid = PID_MOD, mode = "fill", idx = 1 }, worker = 434343 }
   local missing0 = f.team.missing
@@ -110,6 +121,7 @@ local function stage(f, missing, taken)
   return function()
     for _, c in ipairs(made) do if c.valid then c.destroy() end end
     bd.tasks[ko], bd.tasks[kq] = nil, nil
+    for _, k in ipairs(extra) do bd.tasks[k] = nil end
     local keep = {}
     for _, id in ipairs(b.order) do if id ~= PID_OUT and id ~= PID_MOD then keep[#keep + 1] = id end end
     b.order = keep
@@ -149,9 +161,9 @@ local function scenes(f, label)
     local n = Col.apply(f, f.hq.surface, f.build, { t }, game.tick)
     check(n == 1 and t.prio == want_prio and t.no_rush == true, label .. " §1 : Collecte.apply releve la collecte de 52 a " .. want_prio .. " (" .. tostring(t.prio) .. ")")
     check((want_prio >= Co.PRIO) == (t.critical == true), label .. " §1 : critique seulement au niveau de la survie")
-    -- §5 survie.
-    local short = Sv.uncovered(Sv.shortages({ { PLATE, 1000 } }, { [PLATE] = true }), view.mq)
-    check(#short == 1 and eq(short[1][2], 415), label .. " §5 : la survie ne voit que la part non couverte (" .. ser(short) .. ")")
+    -- §5 survie : la collecte n'est pas prise : rien n'est déduit.
+    local short = Sv.uncovered(Sv.shortages({ { PLATE, 1000 } }, { [PLATE] = true }), view.avail_out)
+    check(#short == 1 and eq(short[1][2], 1000), label .. " §5 : collecte a faire : la survie voit tout le manque (" .. ser(short) .. ")")
     -- §4 module et transit.
     local stock_gear = (view.stock or {})[GEAR] or 0
     local mneed = math.max(0, 30 - 5 - 10)
@@ -180,6 +192,8 @@ local function scenes(f, label)
   view = fresh_view(f)
   check(view.avail_out and eq(view.avail_out[PLATE], 585), label .. " §2 : collecte prise : 585 plaques disponibles (" .. ser(view.avail_out) .. ")")
   check(view.mq and eq(view.mq.build[PLATE], 1000 - 585), label .. " §2 : a construire 415 (" .. tostring(view.mq and view.mq.build[PLATE]) .. ")")
+  local short2 = Sv.uncovered(Sv.shortages({ { PLATE, 1000 } }, { [PLATE] = true }), view.avail_out)
+  check(#short2 == 1 and eq(short2[1][2], 415), label .. " §5 : collecte PRISE : la survie deduit les 585 plaques en route (" .. ser(short2) .. ")")
   undo()
   return res
 end
@@ -190,9 +204,40 @@ check(fac and fac.hq and fac.hq.valid, "une faction avec son QG")
 check(pf and pf.hq and pf.hq.valid, "votre equipe avec son coffre")
 say(string.format("faction %s : %s PNJ, effectif de depart %s ; votre equipe : %s PNJ, depart %s", tostring(fac.key), tostring(fac.engineers_count),
   tostring(fac.team.floor), tostring(pf and pf.engineers_count), tostring(pf and pf.team and pf.team.floor)))
+--- §11 La scène D1 du DC (partie 0.6.58, 159 à 174 min) : 10 coffres au champ, 4 353 plaques, des tâches de collecte LIBRES que personne
+--- ne prend (sur chaque coffre : le fer « à collecter » couvre alors TOUT le manque, c'est le piège), la recrue qui attend 1 932 plaques. La paralysie de la survie est la sienne (refus de la porte et la moitié des PNJ sans
+--- tâche utile, au fond) ; la collecte, elle, n'est prise par personne. La survie doit S'OUVRIR après Sv.SHORT_TICKS.
+local Survie = require("script.team.survie")
+local function d1(f, label)
+  local undo = stage(f, { { PLATE, 1932 } }, false, { 585, 560, 540, 500, 470, 430, 400, 380, 300, 188 }, true)
+  local view = fresh_view(f)
+  check(view.mq and (view.mq.build[PLATE] or 0) == 0, label .. " §11 : temoin du piege : les collectes A FAIRE couvrent tout le manque (a construire " .. tostring(view.mq and view.mq.build[PLATE]) .. ")")
+  check((view.dort or {})[PLATE] ~= nil and view.dort[PLATE] >= 4353, label .. " §11 : 4 353 plaques au champ, vues (" .. tostring((view.dort or {})[PLATE]) .. ")")
+  check(view.avail_out == nil or view.avail_out[PLATE] == nil, label .. " §11 : aucune collecte prise")
+  local s0 = f.team.survie
+  f.team.survie = nil
+  local v = {}
+  for k, x in pairs(view) do v[k] = x end
+  v.workers, v.workers_idle, v.threatened, v.hq_threat = 2, 1, false, nil
+  local plan = { missing = { { PLATE, 1932 } }, smelt = {} }
+  local t0 = game.tick
+  local opened
+  for m = 0, 6 do
+    local tick = t0 + m * MIN
+    for k = 1, 6 do Survie.note_wait(f, tick + k) end
+    Survie.think(f, v, plan, tick + 10)
+    if Survie.on(f) and not opened then opened = m end
+  end
+  check(opened ~= nil and opened >= 5, label .. " §11 : la survie s'ouvre (minute " .. tostring(opened) .. ")")
+  f.team.survie = s0
+  undo()
+end
+
 local function all_scenes()
   scenes(fac, "faction")
   if pf then scenes(pf, "votre equipe") end
+  d1(fac, "faction")
+  if pf then d1(pf, "votre equipe") end
 end
 all_scenes()
 
@@ -221,7 +266,7 @@ do
   check(has(team, "local mq = ManqueVue.think(f, tick, stock_free, { effectif = effectif, recruit_prio = recruit_prio })"), "§8 : Team.view calcule le manque mesure sur le stock libre")
   check(has(team, "stock = stock_free, incoming = incoming") and not has(team, "stock = mq") , "§8 : view.stock reste le stock libre")
   check(has(colsrc, "return apply_mq(f, tasks, mq.res, tick)"), "§8 : Collecte.apply suit f.team.mq.res")
-  check(has(surv, "Sv.uncovered(Sv.shortages(missing, KEYS), view.mq)"), "§8 : la survie lit view.mq")
+  check(has(surv, "Sv.uncovered(Sv.shortages(missing, KEYS), view.avail_out)"), "§8 : la survie ne deduit que la collecte prise (view.avail_out)")
   check(has(capi, "Mq.sinks(mq_fresh(f, tick), Ml.sinks(st.mall))"), "§8 : build_input ajoute les puits mesures (input.sinks)")
   check(not has(capi, "Ca.requirements(") or true, "§8 : Ca.requirements n'est pas touche (puits par input.sinks)")
 end
@@ -254,6 +299,22 @@ do
       Col.waiting_all = function(...) local out = o(...) for _, s in ipairs(out) do if s.collect == "taken" then s.collect = "open" end end return out end
       return function() Col.waiting_all = o end end },
     { "collecte qui ne suit plus le manque mesure", function() Col.MQ = false return function() Col.MQ = true end end },
+    { "collecte a faire comptee par la survie (piege D1)", function()
+      local o = Sv.uncovered
+      Sv.uncovered = function(short, avail)
+        local out = {}
+        for _, x in ipairs(short or {}) do
+          local n = x[2]
+          for _, ff in ipairs({ fac, pf }) do
+            local r = ff and ff.team and ff.team.mq and ff.team.mq.res
+            if r and r.need[x[1]] ~= nil then n = math.min(n, r.build[x[1]] or 0) end
+          end
+          if n > 0 then out[#out + 1] = { x[1], n } end
+        end
+        return out
+      end
+      return function() Sv.uncovered = o end end,
+      function() d1(fac, "faction") if pf then d1(pf, "votre equipe") end end },
     { "objectif lu brut (stock compte deux fois)", function()
       local o = Mv.wants
       Mv.wants = function(...) local w = o(...) for _, x in ipairs(w) do x.net = nil end return w end
@@ -264,7 +325,7 @@ do
     local restore = m[2]()
     local pp, ff = passes, failures
     quiet = true
-    local ok, err = pcall(all_scenes)
+    local ok, err = pcall(m[3] or all_scenes)
     quiet = false
     restore()
     local dead = (not ok) or failures > ff
