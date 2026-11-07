@@ -37,6 +37,7 @@ end
 
 --- Entrée d'une garde (règle 1). Rend v (nombre fini, ≥ 0) ou nil et la raison du refus.
 function Pf.input(v, name)
+  if type(v) == "number" and v == v and v >= 0 and v ~= math.huge then return v end -- (cas courant : aucun texte formaté)
   name = tostring(name or "?")
   if v == nil then return nil, "entree absente : " .. name end
   if type(v) ~= "number" then return nil, "entree non numerique : " .. name end
