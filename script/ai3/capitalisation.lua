@@ -307,8 +307,9 @@ Capi.usable_of = Ca.module_usable
 --- statistiques de la force « player », qui comptent aussi l'usine du DC humain (comme D09, script/team/intermediaires.lua) : de l'acier
 --- fondu par le DC ne doit pas faire croire que l'équipe en produit. Factions : statistiques de leur force, main comprise.
 --- (a)-mall : la règle est Ca.made_of (shared/ai3/capitalisation.lua), la même pour le mall.
-function Capi.made_of(cs, player)
-  return Ca.made_of(cs and cs.flows, player)
+--- Cas limite (7/11) : votre équipe compte aussi sa fonte (machines du relevé, cs.scan.machines ; livre de la force pour leurs produits).
+function Capi.made_of(cs, player, book)
+  return Ca.made_of(cs and cs.flows, player, cs and cs.scan and cs.scan.machines, book)
 end
 
 local function fit_module(meth, rate, book, stock, has_plant, harvest, belt_flow, made)
@@ -323,7 +324,7 @@ local function fit_module(meth, rate, book, stock, has_plant, harvest, belt_flow
       if not (book:handcraftable(name) or (stock[name] or 0) > 0) then miss[#miss + 1] = name
       elseif (stock[name] or 0) <= 0 then
         -- point (a) : faisable à la main, mais une matière brute fabriquée n'est ni au stock ni produite (acier des AM2)
-        local ok, r = Ca.buildable(name, book, stock, made)
+        local ok, r = Ca.buildable(name, book, stock, made, meth.product) -- (cas limite : le producteur du produit passe)
         if not ok then raw[#raw + 1] = name .. " (" .. tostring(r) .. ")" end
       end
     end
@@ -853,7 +854,7 @@ local function build_input(f, cs, view, book, tick, D, w)
   D.bonus.mining = (force and force.mining_drill_productivity_bonus) or 0
   D.bonus.lab = (force and force.laboratory_speed_modifier) or 0
   local stock = view.stock or {}
-  local made = Capi.made_of(cs, f.is_player) -- (point (a) du lead : production du dernier relevé ; votre équipe : sa main seulement)
+  local made = Capi.made_of(cs, f.is_player, book) -- (point (a) : production du dernier relevé ; votre équipe : sa main et sa fonte)
   local threat, production_first = Sv.capi(Survie.on(f) and not (view.qg_peril and view.qg_peril.peril), view.threatened or false, (f.team and f.team.priorite_pf) or false)
   if threat and R.PILE_BUDGET and Pi.threat_open(st.pile) then threat = false end -- lot PILE-BUDGET (relecture) : défense payée, l'évolution continue
   -- foreuse imposée par ressource : électrique (fonderie du plan directeur) si le gabarit se pose aujourd'hui ; sinon
@@ -982,7 +983,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     end
     local m = ce_memo[item]
     if m ~= nil then return m or nil end
-    local meth, why = A.method_for(item, book, Capi.usable_of(book, stock, made)) -- (point (a) : machine faisable aujourd'hui)
+    local meth, why = A.method_for(item, book, Capi.usable_of(book, stock, made, item)) -- (point (a) : machine faisable aujourd'hui)
     local res = nil
     local hw = Rp.held(repli, Rp.key(item, nil), tick, nil) -- lot CAPI-REPLI : chaînes et packs, clé = l'objet seul
     if not meth then res = tostring(why)
@@ -1106,7 +1107,7 @@ local function execute(f, cs, o, view, book, tick, research)
       local shrunk = Rp.factor(repli, rkey, tick) < 1 -- lot INTEG-ECONOMIE (D2) : module réduit après un échec de matériaux
       for _, part in ipairs(Capi.split(rate, Rp.factor(repli, rkey, tick))) do
         local g, args, raw = fit_module(meth, part, book, view.stock or {}, Auto.plant_state(f) ~= nil, Harvest.reachable(f),
-          Auto.belt_flow(f), Capi.made_of(cs, f.is_player))
+          Auto.belt_flow(f), Capi.made_of(cs, f.is_player, book))
         if not g then
           local all = {}
           for _, x in ipairs(args or {}) do all[#all + 1] = x end
@@ -1181,9 +1182,9 @@ local function execute(f, cs, o, view, book, tick, research)
     return rec
   elseif o.kind == "chaine" or o.kind == "packs" then
     local vstock = view.stock or {}
-    local made = Capi.made_of(cs, f.is_player)
+    local made = Capi.made_of(cs, f.is_player, book)
     -- point (a) du lead : machine et kit faisables aujourd'hui (Capi.usable_of : pas d'AM2 sans acier)
-    local meth, why = A.method_for(o.item, book, Capi.usable_of(book, vstock, made))
+    local meth, why = A.method_for(o.item, book, Capi.usable_of(book, vstock, made, o.item))
     if not meth then return nil, tostring(why) end
     local ids, why2 = {}, nil
     local rkey = Rp.key(o.item, nil)

@@ -18,6 +18,8 @@
        introuvables (15 min sans progres) » ; à 157,9 min, « bloc [submachine-gun] attend : … (manque steel-plate 2) ». Le bloc du
        test est celui du projet 40 ([burner-mining-drill, submachine-gun, transport-belt], 118,9 min). Même HYPOTHÈSE d'acier ;
        le câblage de script/ai3/industrie.lua est contrôlé par sa STRUCTURE, avec 3 mutants de texte ;
+    §7 cas limite (décision du lead, 7/11) : le producteur de la matière qui manque n'est jamais refusé (sans fer, la foreuse de la
+       fonderie de fer passe) ; pour votre équipe, sa fonte (machines du relevé de la capitalisation) compte comme production ;
     §6 (a)-ia3e (accord du lead) : le module de l'automatisation (A.decide, shared/ai3/automatiser.lua) choisit sa machine par
        la MÊME règle (input.usable = Ca.module_usable) ; ses objets impossibles et sa recherche restent jugés par obtainable.
   Lancement : lua5.2 tests/machine_faisable_test.lua (depuis la racine du mod ; quelques secondes).
@@ -142,6 +144,26 @@ local function suite()
     "APRÈS (usable = Ca.module_usable, 0 acier) : la même demande prend l'AM1 (" .. tostring(i1) .. ")")
   check(ia3e_machine("pipe", Ca.module_usable(B, with(STOCK, "steel-plate", 50), MADE)) == "assembling-machine-2",
     "acier au stock : l'automatisation reprend l'AM2")
+
+  section("§7 cas limite : le producteur de la matière qui manque passe ; la fonte de votre équipe compte")
+  local CU = { ["copper-plate"] = 100 }
+  check(Ca.buildable("electric-mining-drill", B, CU, {}) == false,
+    "témoin : sans fer au stock ni produit, la foreuse électrique n'est pas faisable pour un autre module")
+  check(Ca.buildable("electric-mining-drill", B, CU, {}, "iron-plate") == true,
+    "la foreuse de la FONDERIE DE FER (produit : iron-plate) passe sans fer : c'est elle qui le fera")
+  local okc, rc = Ca.buildable("electric-mining-drill", B, {}, {}, "iron-plate")
+  check(okc == false and rc == "copper-plate", "producteur du fer, mais le cuivre manque aussi : refusé pour le cuivre (" .. tostring(rc) .. ")")
+  check(Ca.module_usable(B, CU, {}, "iron-plate")("electric-mining-drill") == true and Ca.module_usable(B, CU, {})("electric-mining-drill") == false,
+    "Ca.module_usable suit le producteur (même règle)")
+  local FLP = { ["iron-plate"] = { made = 50, hand = 0 } }
+  local MACH = { { recipe = "steel-plate", n = 2 }, { recipe = "iron-gear-wheel", n = 1 } }
+  local mt = Ca.made_of(FLP, true, MACH, B)
+  check(mt["steel-plate"] == 2 and mt["iron-gear-wheel"] == 1 and mt["iron-plate"] == 0,
+    "votre équipe : ses 2 fours d'acier comptent (fonte), les statistiques de la force player toujours pas")
+  check(Ca.module_usable(B, STOCK, mt)("assembling-machine-2") == true,
+    "votre équipe qui fond de l'acier : l'AM2 redevient utilisable")
+  check(Ca.made_of(FLP, false, MACH, B)["steel-plate"] == nil and Ca.made_of(FLP, true, MACH, nil)["steel-plate"] == nil,
+    "factions : inchangé (leurs statistiques) ; sans livre : la fonte n'est pas lue")
 end
 
 suite()
@@ -164,23 +186,27 @@ local function plain_count(src, pat)
 end
 -- vrai si la décision, le kit et la rangée de banc passent tous par Ca.module_usable, et plus aucun « utilisable » ancien (main ou coffre)
 local function mall_wired(src)
-  return plain_count(src, "local usable = Ca.module_usable(book, stock, Ca.made_of(cs.flows, f.is_player))") == 1
+  return plain_count(src, "local usable = Ca.module_usable(book, stock, Ca.made_of(cs.flows, f.is_player, cs.scan and cs.scan.machines, book))") == 1
     and plain_count(src, "    usable = usable,\n") == 1
     and plain_count(src, "prepare(f, lec, book, view, dec, kind == \"bloc\" and \"bloc\" or \"cellule\", usable)") == 1
     and plain_count(src, "local function prepare(f, lec, book, view, dec, kind, usable)") == 1
-    and plain_count(src, "Ca.module_usable(book, contents, Ca.made_of(cs and cs.flows, f.is_player))") == 1
+    and plain_count(src, "Ca.module_usable(book, contents, Ca.made_of(cs and cs.flows, f.is_player, cs and cs.scan and cs.scan.machines, book))") == 1
     and plain_count(src, "handcraftable(n) or") == 0
 end
 local IND = read_file("script/ai3/industrie.lua")
 check(mall_wired(IND), "industrie.lua : décision (Id.decide), kit (prepare) et rangée de banc par Ca.module_usable, aucun ancien « utilisable »")
 local CAPI = read_file("script/ai3/capitalisation.lua")
-check(plain_count(CAPI, "Capi.usable_of = Ca.module_usable") == 1 and plain_count(CAPI, "return Ca.made_of(cs and cs.flows, player)") == 1
+check(plain_count(CAPI, "Capi.usable_of = Ca.module_usable") == 1
+  and plain_count(CAPI, "return Ca.made_of(cs and cs.flows, player, cs and cs.scan and cs.scan.machines, book)") == 1
+  and plain_count(CAPI, "Ca.buildable(name, book, stock, made, meth.product)") == 1
+  and plain_count(CAPI, "Capi.usable_of(book, stock, made, item)") == 1 and plain_count(CAPI, "Capi.usable_of(book, vstock, made, o.item)") == 1
+  and plain_count(CAPI, "Capi.made_of(cs, f.is_player)") == 0
   and plain_count(CAPI, "handcraftable(n) or") == 0, "capitalisation.lua : Capi.usable_of et Capi.made_of délèguent à la règle partagée (pas de copie)")
 local text_killed = 0
 local TEXT_MUT = {
   { "décision du mall : ancien utilisable", "    usable = usable,\n", "    usable = function(n) return book:handcraftable(n) or (stock[n] or 0) > 0 end,\n" },
   { "kit du patron sans la règle", "\"cellule\", usable)", "\"cellule\")" },
-  { "rangée de banc : ancien utilisable", "Ca.module_usable(book, contents, Ca.made_of(cs and cs.flows, f.is_player))",
+  { "rangée de banc : ancien utilisable", "Ca.module_usable(book, contents, Ca.made_of(cs and cs.flows, f.is_player, cs and cs.scan and cs.scan.machines, book))",
     "function(n) return book:handcraftable(n) or (contents[n] or 0) > 0 end" },
 }
 for _, m in ipairs(TEXT_MUT) do
@@ -191,7 +217,8 @@ end
 check(text_killed == #TEXT_MUT, string.format("mutants de texte du câblage : %d / %d refusés", text_killed, #TEXT_MUT))
 local AUTO_SRC = read_file("script/ai3/automatisation.lua")
 local function ia3e_wired(src)
-  return plain_count(src, "usable = Ca.module_usable(book, stock, Ca.made_of(f.team.capi and f.team.capi.flows, f.is_player)),") == 1
+  return plain_count(src, "usable = Ca.module_usable(book, stock, made_now(f, book)),") == 1
+    and plain_count(src, "return Ca.made_of(cs and cs.flows, f.is_player, cs and cs.scan and cs.scan.machines, book)") == 1
 end
 local AUTOMATISER_SRC = read_file("shared/ai3/automatiser.lua")
 check(ia3e_wired(AUTO_SRC) and plain_count(AUTOMATISER_SRC, "A.method_for(item, book, input.usable or input.obtainable)") == 1,
@@ -236,6 +263,9 @@ do
     and Capi.usable_of(fb2, st0, Capi.made_of(fl, true))("assembling-machine-2") == false,
     "acier fondu par le DC (statistiques de la force player) : AM2 utilisable pour une faction, PAS pour votre équipe")
   check(next(Capi.made_of({})) == nil and next(Capi.made_of(nil)) == nil, "Capi.made_of sans relevé : vide")
+  local cs_f = { flows = { ["steel-plate"] = { made = 7, hand = 0 } }, scan = { machines = { { recipe = "steel-plate", n = 1 } } } }
+  check(Capi.made_of(cs_f, true, fb2)["steel-plate"] == 1 and Capi.made_of(cs_f, false, fb2)["steel-plate"] == 7,
+    "cas limite, runtime : Capi.made_of lit la fonte de votre équipe au relevé (cs.scan.machines), les factions gardent leurs statistiques")
 end
 
 -- §4 mutants de la règle pure (chacun doit faire échouer §1 ou §2)
@@ -284,6 +314,13 @@ mutant("(a)-ia3e : A.decide ignore input.usable (copie mutée de shared/ai3/auto
   local old = AUT
   AUT = Am
   restore_aut = function() AUT = old end
+end)
+mutant("cas limite : le producteur de la matière qui manque est refusé (avant)", function()
+  patch(Ca, "buildable", function(i, b, s, m) return real(i, b, s, m) end)
+end)
+mutant("cas limite : la fonte de votre équipe ignorée (main seulement, avant)", function()
+  local real_made2 = Ca.made_of
+  patch(Ca, "made_of", function(fl, pl) return real_made2(fl, pl) end)
 end)
 mutant("plaques seules (fer et cuivre)", function()
   patch(Ca, "buildable", function(i, b, s, m)

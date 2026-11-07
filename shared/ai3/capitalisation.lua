@@ -1948,15 +1948,20 @@ end
 --- Sinon l'objet n'est pas faisable. On rend aussi cette matière, la première dans l'ordre trié.
 --- Les matières NATURELLES (book:natural : bois, pierre, charbon, minerais) ne comptent pas : les PNJ les récoltent ou les extraient
 --- (lot KIT). Seules comptent les matières FABRIQUÉES hors de la main, par un four ou une usine.
+--- Cas limite (décision du lead, 7/11) : on ne refuse JAMAIS le producteur de la matière qui manque. `producing` (facultatif) : le
+--- produit du module qui pose l'objet (la plaque d'une fonderie, l'objet d'une chaîne) ; une matière brute égale à `producing` n'est
+--- jamais un refus (sans fer, la foreuse de la fonderie de fer passe : c'est elle qui fera le fer).
 --- Pur : livre, stock { [objet] = n } et made { [objet] = n } donnés par l'appelant. Sans livre : vrai, comme avant.
-function Ca.buildable(item, book, stock, made)
+function Ca.buildable(item, book, stock, made, producing)
   if not book then return true end
   local raw = book:plan({ { item, 1 } }, stock or {}).raw
   local keys = {}
   for k in next, raw do keys[#keys + 1] = k end
   table.sort(keys)
   for _, r in ipairs(keys) do
-    if r ~= item and (raw[r] or 0) > 0 and not book:natural(r) and ((made or {})[r] or 0) <= 0 then return false, r end
+    if r ~= item and r ~= producing and (raw[r] or 0) > 0 and not book:natural(r) and ((made or {})[r] or 0) <= 0 then
+      return false, r
+    end
   end
   return true, nil
 end
@@ -1964,15 +1969,16 @@ end
 --- Point (a), UNE règle pour tous les choix de machine et de pièces d'un module : capitalisation (script/ai3/capitalisation.lua :
 --- chaînes, packs, fonderies) et mall (script/ai3/industrie.lua : blocs, cellules, rangée de banc). Un objet `n` est utilisable s'il
 --- est au stock, ou si la main le fait ET qu'il est faisable (Ca.buildable). Rend une fonction objet -> bool, mémorisée pour l'appel
---- (le stock et la production ne changent pas pendant une décision). made : Ca.made_of.
-function Ca.module_usable(book, stock, made)
+--- (le stock et la production ne changent pas pendant une décision). made : Ca.made_of. producing : comme Ca.buildable (le produit
+--- du module : son producteur n'est jamais refusé).
+function Ca.module_usable(book, stock, made, producing)
   local memo = {}
   return function(n)
     if ((stock or {})[n] or 0) > 0 then return true end
     if not book:handcraftable(n) then return false end
     local v = memo[n]
     if v == nil then
-      v = (Ca.buildable(n, book, stock, made)) == true
+      v = (Ca.buildable(n, book, stock, made, producing)) == true
       memo[n] = v
     end
     return v
@@ -1984,11 +1990,23 @@ end
 --- l'équipe seulement, jamais les statistiques de la force « player », qui comptent aussi l'usine du DC humain (comme D09,
 --- script/team/intermediaires.lua) : de l'acier fondu par le DC ne doit pas faire croire que l'équipe en produit. Factions :
 --- statistiques de leur force, main comprise.
-function Ca.made_of(flows, player)
+--- Cas limite (décision du lead, 7/11) : pour votre équipe, la FONTE compte comme production. `machines` : les machines de l'équipe
+--- au dernier relevé de la capitalisation (cs.scan.machines : { recipe, n }, celles qu'elle sert ; lot ADOPTE écarte les machines du
+--- DC isolées et non servies) ; chaque produit de leur recette (book.recipes) compte n. Ce n'est pas un débit, c'est une capacité :
+--- la règle ne lit que « produit ou non » (made > 0). Factions : inchangé (leurs statistiques comptent déjà leur fonte).
+function Ca.made_of(flows, player, machines, book)
   local out = {}
   for _, k in ipairs(sorted_keys(flows or {})) do
     local fl = flows[k]
     out[k] = (player and (fl.hand or 0)) or (fl.made or 0)
+  end
+  if player and book and book.recipes then
+    for _, m in ipairs(machines or {}) do
+      local r = m.recipe and book.recipes[m.recipe]
+      for _, p in ipairs((r and r.products) or {}) do
+        if p.name and p.type ~= "fluid" then out[p.name] = (out[p.name] or 0) + (m.n or 0) end
+      end
+    end
   end
   return out
 end

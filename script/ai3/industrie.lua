@@ -305,7 +305,7 @@ function Ind.think(f, cs, res, view, book, tick)
   -- (a)-mall (décision du lead, 5/11 au soir) : machine et kit faisables aujourd'hui, la MÊME règle que les chaînes de la capitalisation
   -- (Ca.module_usable : pas d'AM2 sans acier au stock ni produit ; votre équipe : sa main seulement, Ca.made_of). Partie du DC, MESURÉ : les 7 blocs
   -- du mall de votre équipe ont pris l'AM2 ([FO-IA1D] bloc-assembling-machine-2-N), 5 annulés « materiaux introuvables ». Effet NON établi.
-  local usable = Ca.module_usable(book, stock, Ca.made_of(cs.flows, f.is_player))
+  local usable = Ca.module_usable(book, stock, Ca.made_of(cs.flows, f.is_player, cs.scan and cs.scan.machines, book))
   local sources = Ml.sources(ml, tick)
   local keep = {}
   for _, c in ipairs(sources) do if not (st.hold[c.item] and st.hold[c.item] > tick) then keep[#keep + 1] = c end end
@@ -511,7 +511,7 @@ remote.add_interface("fo-ind", {
     local inv = f.hq.get_inventory(defines.inventory.chest)
     local contents = inv and inv.get_contents() or {}
     local cs = f.team and f.team.capi
-    local usable = Ca.module_usable(book, contents, Ca.made_of(cs and cs.flows, f.is_player)) -- (a)-mall : comme les chaînes de la capitalisation
+    local usable = Ca.module_usable(book, contents, Ca.made_of(cs and cs.flows, f.is_player, cs and cs.scan and cs.scan.machines, book)) -- (a)-mall
     local meth, why = A.method_for(item, book, usable)
     if not meth then return nil, why end
     local g, args = A.sized(meth, rate, A.choose_pole(book, contents, Harvest.reachable(f)))
