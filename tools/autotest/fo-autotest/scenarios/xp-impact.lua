@@ -125,8 +125,10 @@ return {
       else
         ctx.check(n == 0, site.id .. " : base rasee", string.format("%d restantes sur %d, rasee au tick %s", n, st.n[i], tostring(st["rasee" .. i])))
       end
-      local tile = s.get_tile(cx, Y)
-      ctx.check(tile and tile.name == "nuclear-ground", site.id .. " : cratere au point vise", tile and tile.name or "?")
+      -- le point visé n'est pas toujours le centre : le canon du Couronné peut tuer la tourelle avant la salve, qui vise alors une lampe
+      -- (banc du 5/11 23 h 07 : cratère hors du centre) ; on compte le sol de cratère dans la base
+      local n_crat = s.count_tiles_filtered({ position = { cx, Y }, radius = R, name = "nuclear-ground" })
+      ctx.check(n_crat > 0, site.id .. " : cratere dans la base", string.format("%d tuile(s) de cratere", n_crat))
     end
   end,
 
