@@ -363,4 +363,87 @@ function Ech.soin(pv, soin0, pv0)
   return pv * soin0 / pv0
 end
 
+---------------------------------------------------------------------------------------------------
+-- SÉQUELLES (réponses du DC du 7/11, QCM-7/11) : « Cratère et verre, pas de falaises » ; « les dégâts visibles permanents devraient en
+-- réalité durer 1 heure, se résorber » ; le Glas du Bourdon : « non temporaire mais de 10 minutes ». Les traces des géants (cratère, verre,
+-- sol brûlé) durent TRACE_TICKS puis se résorbent ; celles du Glas, TRACE_GLAS_TICKS.
+-- Cratère : les tuiles du disque passent au sol `nuclear-ground` ; leur sol d'origine est noté dans un REGISTRE par surface, rendu à
+-- l'échéance, seulement si la tuile est encore un sol de cratère (un sol posé depuis par un joueur n'est jamais écrasé). Un nouveau cratère
+-- sur une tuile déjà marquée repousse son échéance et garde son sol d'origine. Rendu par lots de RESORPTION_LOT tuiles par tick.
+---------------------------------------------------------------------------------------------------
+Ech.TRACE_TICKS = 216000      -- 1 h
+Ech.TRACE_GLAS_TICKS = 36000  -- 10 min
+Ech.RESORPTION_LOT = 100
+
+--- Tuiles (coin entier) dont le CENTRE est dans le disque de centre c et de rayon r, ligne par ligne (ordre fixe).
+function Ech.disque(c, r)
+  local out = {}
+  local r2 = r * r
+  for y = math.floor(c.y - r), math.floor(c.y + r) do
+    local dy = y + 0.5 - c.y
+    for x = math.floor(c.x - r), math.floor(c.x + r) do
+      local dx = x + 0.5 - c.x
+      if dx * dx + dy * dy <= r2 then out[#out + 1] = { x = x, y = y } end
+    end
+  end
+  return out
+end
+
+--- Registre des tuiles marquées d'une surface : t[clé] = { x, y, orig, fin } ; file d'échéances en ordre croissant (n : dernier indice,
+--- tete : premier non traité ; jamais l'opérateur # sur une file à trous).
+function Ech.trace_nouveau()
+  return { t = {}, file = {}, tete = 1, n = 0 }
+end
+
+--- Marque la tuile (x, y), de sol `orig`, jusqu'au tick `fin`. Rend vrai si elle n'était pas marquée (le sol de cratère est à poser).
+--- Les `fin` successives doivent croître (en jeu : fin = tick + TRACE_TICKS) : la file est lue dans l'ordre.
+function Ech.trace_marquer(R, x, y, orig, fin)
+  local k = x .. "," .. y
+  local e = R.t[k]
+  if e then
+    if fin > e.fin then e.fin = fin end
+  else
+    R.t[k] = { x = x, y = y, orig = orig, fin = fin }
+  end
+  R.n = R.n + 1
+  R.file[R.n] = { k = k, fin = fin }
+  return e == nil
+end
+
+--- Tuiles échues au tick `tick`, au plus `max`, retirées du registre (une tuile repoussée par un cratère plus récent attend sa propre
+--- échéance). La file est compactée quand sa tête dépasse 4 096.
+function Ech.trace_echues(R, tick, max)
+  local out = {}
+  while R.tete <= R.n and #out < max do
+    local q = R.file[R.tete]
+    if q.fin > tick then break end
+    R.file[R.tete] = nil
+    R.tete = R.tete + 1
+    local e = R.t[q.k]
+    if e and e.fin <= tick then
+      out[#out + 1] = e
+      R.t[q.k] = nil
+    end
+  end
+  if R.tete > 4096 then
+    local f, m = {}, 0
+    for i = R.tete, R.n do m = m + 1; f[m] = R.file[i] end
+    R.file, R.tete, R.n = f, 1, m
+  end
+  return out
+end
+
+--- Nombre de tuiles encore marquées (contrôles).
+function Ech.trace_compte(R)
+  local n, vu = 0, {}
+  for i = R.tete, R.n do
+    local q = R.file[i]
+    if R.t[q.k] and not vu[q.k] then
+      vu[q.k] = true
+      n = n + 1
+    end
+  end
+  return n
+end
+
 return Ech

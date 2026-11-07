@@ -166,6 +166,60 @@ end
 --- Une seule recherche d'entités (moteur) par salve ; ensuite, par tick, ou bien le rangement par anneaux de Ech.LOT_RANGEMENT entités au
 --- plus, ou bien sa part du budget de coups du tick (Ech.BUDGET pour toutes les salves), du centre vers le bord (l'onde se voit), au plus
 --- Ech.PLAFOND cibles par salve.
+--- SÉQUELLES (QCM-7/11 : « durer 1 heure, se résorber ») : registre des tuiles de cratère de chaque surface (shared/robots/echelle.lua).
+local function traces(s)
+  local st = K.S()
+  if not st.traces then st.traces = {} end
+  local R = st.traces[s.index]
+  if not R then
+    R = Ech.trace_nouveau()
+    st.traces[s.index] = R
+  end
+  return R
+end
+
+--- Cratère de rayon `rc` au point `c` : sol `nuclear-ground` (sol de la bombe atomique vanilla) pendant Ech.TRACE_TICKS, jamais sur l'eau ni
+--- sur un sol posé par un joueur (tuile minable : béton, remblai…), entités jamais retirées.
+local function cratere(s, c, rc, tick)
+  local R = traces(s)
+  local fin = tick + Ech.TRACE_TICKS
+  local pose = {}
+  for _, t in ipairs(Ech.disque(c, rc)) do
+    local tile = s.get_tile(t.x, t.y)
+    if tile.valid and tile.name ~= "out-of-map" and not tile.collides_with("water-tile") and not tile.prototype.mineable_properties.minable then
+      if Ech.trace_marquer(R, t.x, t.y, tile.name, fin) and tile.name ~= "nuclear-ground" then
+        pose[#pose + 1] = { name = "nuclear-ground", position = { t.x, t.y } }
+      end
+    end
+  end
+  if #pose > 0 then s.set_tiles(pose, true, false, true, false) end
+end
+G.cratere = cratere
+
+--- Résorption : les tuiles échues reprennent leur sol d'origine si elles sont encore un sol de cratère (au plus Ech.RESORPTION_LOT par
+--- surface et par passage, toutes les RESORPTION ticks).
+local RESORPTION = 5
+local function resorber(ev)
+  local st = K.S()
+  if not (st and st.traces) then return end
+  local idx = {}
+  for i in pairs(st.traces) do idx[#idx + 1] = i end -- trié juste après
+  table.sort(idx)
+  for _, i in ipairs(idx) do
+    local s = game.surfaces[i]
+    if not s then
+      st.traces[i] = nil
+    else
+      local rend = {}
+      for _, e in ipairs(Ech.trace_echues(st.traces[i], ev.tick, Ech.RESORPTION_LOT)) do
+        local t = s.get_tile(e.x, e.y)
+        if t.valid and t.name == "nuclear-ground" and e.orig ~= "nuclear-ground" then rend[#rend + 1] = { name = e.orig, position = { e.x, e.y } } end
+      end
+      if #rend > 0 then s.set_tiles(rend, true, false, true, false) end
+    end
+  end
+end
+
 --- Salve de zone en cours d'une unité (numéro d'unité -> vrai) : une unité ne relance pas de salve tant que la précédente frappe encore
 --- (avec un budget partagé, deux salves d'un même géant pourraient sinon s'empiler sans fin). Rien d'autre n'y est gardé.
 local function actives()
@@ -181,12 +235,13 @@ local function zone(g, r, c, tick)
   actives()[g.un] = true
   local eff = Ech.effectif(r, g.bonus)
   for _, f in ipairs(ecouteurs) do f(e, r, g.bonus, c, eff) end
-  s.create_entity({ name = CRATERE .. r.age, position = { c.x, c.y } })
+  s.create_entity({ name = CRATERE .. r.age, position = { c.x, c.y } }) -- explosion et décoratifs retirés ; le sol, par cratere()
+  cratere(s, c, r.cratere, tick)
   local b = K.S().impact == "B" -- design IMPACT : variante B (sol brûlé sur la zone), posée par les bancs d'images seulement
   if b then
-    for _, x in ipairs(Ech.brulures(c, eff.zone)) do s.create_entity({ name = x.nom, position = { x.x, x.y } }) end
+    for _, x in ipairs(Ech.brulures(c, eff.zone)) do s.create_entity({ name = Xp.PREFIX .. x.nom, position = { x.x, x.y } }) end
   else
-    s.create_entity({ name = "big-scorchmark", position = { c.x, c.y } })
+    s.create_entity({ name = Xp.PREFIX .. "big-scorchmark", position = { c.x, c.y } })
   end
   local forces = K.enemy_forces(e.force)
   local found = #forces > 0 and s.find_entities_filtered({ position = { c.x, c.y }, radius = eff.zone, force = forces }) or {}
@@ -239,7 +294,7 @@ local function zone_pas(j, tick)
       j.total = j.total + K.hit(r, t, j.salve, j.dtype, e.force, e)
       if not t.valid or t.health <= 0 then
         j.tues = j.tues + 1
-        if p and j.tues % j.pas == 0 then e.surface.create_entity({ name = "small-scorchmark", position = { p.x, p.y } }) end
+        if p and j.tues % j.pas == 0 then e.surface.create_entity({ name = Xp.PREFIX .. "small-scorchmark", position = { p.x, p.y } }) end
       end
     end
   end
@@ -371,7 +426,7 @@ local function ixion_pas(j, tick)
     return true
   end
   rendering.draw_line({ color = rgba(0.12, 0.07, 0.05, 0.95), width = 32 * r.width * 0.5, from = { j.prev.x, j.prev.y }, to = { p.x, p.y },
-    surface = e.surface, time_to_live = 900, draw_on_ground = true })
+    surface = e.surface, time_to_live = Ech.TRACE_TICKS, draw_on_ground = true }) -- séquelle : 1 h (QCM-7/11)
   rendering.draw_line({ color = { r = 1.0, g = 0.5, b = 0.12, a = 1 }, width = 32 * r.width * 0.15, from = { j.prev.x, j.prev.y }, to = { p.x, p.y },
     surface = e.surface, time_to_live = 240, draw_on_ground = true })
   e.surface.create_entity({ name = "big-explosion", position = { p.x, p.y } })
@@ -389,7 +444,7 @@ local function foyer(g, r, target, tick)
   rayon(e, FOYER, b, target, r.zone_cooldown)
   g.n = g.n + 1
   if g.n % r.glass_every == 0 and target.valid then
-    rendering.draw_sprite({ sprite = SPR_VERRE, target = target.position, surface = e.surface, time_to_live = 1200, render_layer = "decals",
+    rendering.draw_sprite({ sprite = SPR_VERRE, target = target.position, surface = e.surface, time_to_live = Ech.TRACE_TICKS, render_layer = "decals",
       tint = rgba(1, 0.9, 0.6, 0.8) })
   end
   K.journal("tournesol foyer #%d tick %d", g.un, tick)
@@ -476,5 +531,6 @@ Events.on(defines.events.script_raised_built, on_built)
 Events.on(defines.events.script_raised_revive, on_built)
 Events.on(defines.events.on_tick, on_tick)
 Events.on_nth_tick(SCAN, scan)
+Events.on_nth_tick(RESORPTION, resorber)
 
 return G

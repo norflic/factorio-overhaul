@@ -201,6 +201,38 @@ local function suite(Ech)
   local uns, zeros = 0, 0
   for i = 1, 60 do if q60[i] == 1 then uns = uns + 1 elseif q60[i] == 0 then zeros = zeros + 1 end end
   check(uns == 40 and zeros == 20 and #Ech.partage(0, Ech.BUDGET, 0) == 0, "§4 bis plus de salves que de coups : 40 salves frappent une fois, les autres attendent")
+  -- §12 SÉQUELLES (QCM-7/11) : traces des géants 1 h, du Glas 10 min ; cratère rendu à son sol d'origine
+  check(Ech.TRACE_TICKS == 216000 and Ech.TRACE_GLAS_TICKS == 36000, "§12 traces des géants 1 h, du Glas 10 min")
+  local dq = Ech.disque({ x = 0, y = 0 }, 15)
+  local dq_ok, attendu = true, 0
+  for _, t in ipairs(dq) do
+    if (t.x + 0.5) ^ 2 + (t.y + 0.5) ^ 2 > 225 then dq_ok = false end
+  end
+  for y = -17, 17 do for x = -17, 17 do if (x + 0.5) ^ 2 + (y + 0.5) ^ 2 <= 225 then attendu = attendu + 1 end end end
+  check(#dq == attendu and attendu == 716 and dq_ok and #Ech.disque({ x = 0.5, y = 0.5 }, 0.4) == 1 and #Ech.disque({ x = 0, y = 0 }, 0.4) == 0,
+    "§12 disque : les tuiles dont le centre est dans le cercle (716 au rayon 15)", tostring(#dq))
+  local R = Ech.trace_nouveau()
+  -- en jeu, fin = tick + TRACE_TICKS : les échéances arrivent dans l'ordre croissant
+  local n1 = Ech.trace_marquer(R, 3, 4, "grass-1", 100)
+  Ech.trace_marquer(R, 5, 5, "sand-1", 120)
+  local n2 = Ech.trace_marquer(R, 3, 4, "nuclear-ground", 250) -- second cratère sur la même tuile
+  check(n1 == true and n2 == false and Ech.trace_compte(R) == 2, "§12 une tuile marquée deux fois n'est posée qu'une fois")
+  local e100 = Ech.trace_echues(R, 100, 10)
+  local e120 = Ech.trace_echues(R, 120, 10)
+  local e250 = Ech.trace_echues(R, 250, 10)
+  check(#e100 == 0 and #e120 == 1 and e120[1].orig == "sand-1" and #e250 == 1 and e250[1].orig == "grass-1" and e250[1].fin == 250
+    and Ech.trace_compte(R) == 0, "§12 échéance repoussée par le second cratère ; le sol d'origine du PREMIER est rendu")
+  local R2 = Ech.trace_nouveau()
+  for i = 1, 5000 do Ech.trace_marquer(R2, i, 0, "grass-1", i) end
+  local lot = Ech.trace_echues(R2, 5000, Ech.RESORPTION_LOT)
+  local tout = #lot
+  while true do
+    local l = Ech.trace_echues(R2, 5000, Ech.RESORPTION_LOT)
+    if #l == 0 then break end
+    tout = tout + #l
+  end
+  check(#lot == Ech.RESORPTION_LOT and tout == 5000 and R2.n < 5000 and Ech.trace_compte(R2) == 0,
+    "§12 rendu par lots bornés, file compactée, rien d'oublié", string.format("lot %d, tout %d, n %d", #lot, tout, R2.n))
   -- §10 IMPACT, variante B : brûlures
   local unit = true
   for k = 1, 24 do
@@ -276,6 +308,18 @@ check(SXG:find("local parts = Ech.partage(#zj, Ech.BUDGET, ev.tick)", 1, true) ~
   and not SXG:find("Ech.TRANCHE", 1, true), "§4 ter jeu : chaque salve frappe sa PART du budget du tick (aucun budget par salve)")
 check(SXG:find("if ev.tick >= g.next and not G.zone_active(g.un) then", 1, true) ~= nil
   and SG:find("if tick >= at and not XpG.zone_active(un) then", 1, true) ~= nil, "§4 ter jeu : pas de nouvelle salve tant que la précédente frappe")
+-- §12 bis séquelles branchées (QCM-7/11)
+local PXG = read("prototypes/experimentaux_geants.lua")
+check(not PXG:find('tile_name = "nuclear-ground"', 1, true) and PXG:find("b.time_before_removed = Ech.TRACE_TICKS", 1, true) ~= nil,
+  "§12 bis prototypes : l'explosion ne pose plus de sol permanent ; brûlures d'1 h")
+check(SXG:find("cratere(s, c, r.cratere, tick)", 1, true) ~= nil and SXG:find("Events.on_nth_tick(RESORPTION, resorber)", 1, true) ~= nil
+  and SXG:find("not tile.prototype.mineable_properties.minable", 1, true) ~= nil and SXG:find('t.name == "nuclear-ground" and e.orig ~= "nuclear-ground"', 1, true) ~= nil,
+  "§12 bis cratère posé par script, résorbé, jamais sur un sol de joueur ni sur un sol changé depuis")
+local _, n_trace = SXG:gsub("time_to_live = Ech.TRACE_TICKS", "")
+check(n_trace == 2 and not SXG:find('name = "big-scorchmark"', 1, true) and not SXG:find('name = "small-scorchmark"', 1, true),
+  "§12 bis verre de la Tournesol et tranchée de l'Ixion : 1 h ; brûlures d'1 h seulement")
+check(SB:find("time_to_live = Ech.TRACE_GLAS_TICKS,", 1, true) ~= nil and SB:find("time_to_live = Ech.TRACE_GLAS_TICKS - GLAS_REFERME", 1, true) ~= nil
+  and not SB:find("time_to_live = 4200", 1, true), "§12 bis Glas du Bourdon : sol balayé et cicatrices, 10 min")
 
 -- §5 forme
 check(not SRC:gsub("ipairs%(", ""):find("pairs%("), "§5 aucun pairs")
@@ -321,6 +365,11 @@ local MUTANTS = {
   { "reste jamais distribué", "    out[i] = base + (((i - 1 - tick) % n) < reste and 1 or 0)", "    out[i] = base" },
   { "reste toujours aux mêmes salves", "    out[i] = base + (((i - 1 - tick) % n) < reste and 1 or 0)", "    out[i] = base + ((i - 1) < reste and 1 or 0)" },
   { "budget de 120", "Ech.BUDGET = 40", "Ech.BUDGET = 120" },
+  { "traces de 10 min pour les géants", "Ech.TRACE_TICKS = 216000", "Ech.TRACE_TICKS = 36000" },
+  { "second cratère qui écrase le sol d'origine", "    if fin > e.fin then e.fin = fin end", "    e.orig = orig; if fin > e.fin then e.fin = fin end" },
+  { "échéance non repoussée", "    if fin > e.fin then e.fin = fin end", "" },
+  { "rendu sans lot", "  while R.tete <= R.n and #out < max do", "  while R.tete <= R.n do" },
+  { "disque au coin des tuiles", "    local dy = y + 0.5 - c.y", "    local dy = y - c.y" },
   { "cratère au quart de la zone", "Ech.CRATERE_PART = 6", "Ech.CRATERE_PART = 4" },
   { "petits avec une zone", "if age < Ech.AGE_ZONE_MIN then return nil end", "" },
 }
