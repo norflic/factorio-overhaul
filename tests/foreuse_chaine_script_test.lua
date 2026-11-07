@@ -47,6 +47,13 @@ local function world(blocked)
       end
     end
     if k == "destroy" then return function() t.valid = false; W.destroyed = (W.destroyed or 0) + 1 end end
+    if k == "neighbours" then return { copper = t.wires } end
+    if k == "disconnect_neighbour" then
+      return function(o)
+        for i = #t.wires, 1, -1 do if t.wires[i] == o then table.remove(t.wires, i) end end
+        for i = #o.wires, 1, -1 do if o.wires[i] == t then table.remove(o.wires, i) end end
+      end
+    end
   end }
   function W.pole(x, y, source)
     W.next_net = W.next_net + 1
@@ -63,7 +70,15 @@ local function world(blocked)
     create_entity = function(o)
       if W.refuse_create then return nil end
       W.created = (W.created or 0) + 1
-      return W.pole(o.position.x, o.position.y, nil)
+      local e = W.pole(o.position.x, o.position.y, nil)
+      if W.autoconnect then -- le moteur relie de lui-meme un poteau pose aux voisins a portee (deduit)
+        for _, n in ipairs(W.ents) do
+          if n ~= e and n.valid and (n.position.x - e.position.x) ^ 2 + (n.position.y - e.position.y) ^ 2 <= 7.5 ^ 2 then
+            e.wires[#e.wires + 1] = n; n.wires[#n.wires + 1] = e
+          end
+        end
+      end
+      return e
     end,
   }
   W.Stock = {
@@ -91,7 +106,7 @@ local function suite(text)
   local f = { force = "player" }
   -- A. chaîne de 3 poteaux depuis une source alimentée : posés, reliés, stock débité
   local W = world()
-  local place_chain = load_fn(text, "local function place_chain(f, surface, pole, list, src, free)", { Stock = W.Stock })
+  local place_chain = load_fn(text, "local function place_chain(f, surface, pole, list, src, free, mine)", { Stock = W.Stock })
   c("A : place_chain extraite", place_chain ~= nil)
   if not place_chain then return res end
   local src = W.pole(30.5, 10.5, 1)
@@ -105,21 +120,21 @@ local function suite(text)
   c("A (3) : stock libre debite de la chaine", freeA.n == 2, tostring(freeA.n))
   -- B. stock insuffisant : rien n'est posé
   local W2 = world()
-  place_chain = load_fn(text, "local function place_chain(f, surface, pole, list, src, free)", { Stock = W2.Stock })
+  place_chain = load_fn(text, "local function place_chain(f, surface, pole, list, src, free, mine)", { Stock = W2.Stock })
   local src2 = W2.pole(30.5, 10.5, 1)
   W2.stock[POLE.name] = 2
   local ok2, why2 = place_chain(f, W2.surface, POLE, list, src2, { n = 2 })
   c("B : poteaux manquants : rien pose, raison", ok2 == false and why2 == "poteaux au stock" and (W2.created or 0) == 0 and W2.stock[POLE.name] == 2, tostring(why2))
   -- B'. (3) revue du lead : 5 poteaux au stock mais 2 seulement LIBRES (le reste reserve par le plan directeur) : rien n'est pose
   local W2b = world()
-  place_chain = load_fn(text, "local function place_chain(f, surface, pole, list, src, free)", { Stock = W2b.Stock })
+  place_chain = load_fn(text, "local function place_chain(f, surface, pole, list, src, free, mine)", { Stock = W2b.Stock })
   local src2b = W2b.pole(30.5, 10.5, 1)
   W2b.stock[POLE.name] = 5
   local ok2b, why2b = place_chain(f, W2b.surface, POLE, list, src2b, { n = 2 })
   c("B' (3) : stock reserve : rien pose, raison", ok2b == false and why2b == "poteaux au stock" and (W2b.created or 0) == 0 and W2b.stock[POLE.name] == 5, tostring(why2b))
   -- C. une place prise en route : tout est repris (poteaux retirés, stock rendu)
   local W3 = world({ ["12,10"] = true })
-  place_chain = load_fn(text, "local function place_chain(f, surface, pole, list, src, free)", { Stock = W3.Stock })
+  place_chain = load_fn(text, "local function place_chain(f, surface, pole, list, src, free, mine)", { Stock = W3.Stock })
   local src3 = W3.pole(30.5, 10.5, 1)
   W3.stock[POLE.name] = 5
   local ok3, why3 = place_chain(f, W3.surface, POLE, list, src3, { n = 5 })
@@ -130,7 +145,7 @@ local function suite(text)
   -- D. maillon trop long (le fil ne passe pas) : réseau non relié, tout repris
   local W4 = world()
   W4.reach = 7.5
-  place_chain = load_fn(text, "local function place_chain(f, surface, pole, list, src, free)", { Stock = W4.Stock })
+  place_chain = load_fn(text, "local function place_chain(f, surface, pole, list, src, free, mine)", { Stock = W4.Stock })
   local src4 = W4.pole(30.5, 10.5, 1)
   W4.stock[POLE.name] = 5
   local ok4, why4 = place_chain(f, W4.surface, POLE, { { x = 20.5, y = 10.5 }, { x = 12.5, y = 10.5 } }, src4, { n = 5 })
@@ -140,11 +155,49 @@ local function suite(text)
   -- E. pose refusée par le moteur : rien ne reste
   local W5 = world()
   W5.refuse_create = true
-  place_chain = load_fn(text, "local function place_chain(f, surface, pole, list, src, free)", { Stock = W5.Stock })
+  place_chain = load_fn(text, "local function place_chain(f, surface, pole, list, src, free, mine)", { Stock = W5.Stock })
   local src5 = W5.pole(30.5, 10.5, 1)
   W5.stock[POLE.name] = 5
   local ok5, why5 = place_chain(f, W5.surface, POLE, list, src5, { n = 5 })
   c("E : pose refusee : stock rendu", ok5 == false and why5 == "pose refusee" and W5.stock[POLE.name] == 5, tostring(why5) .. " " .. tostring(W5.stock[POLE.name]))
+  -- K. (4) revue du lead : le poteau neuf ne garde de fil que vers l'equipe (poteau du joueur a portee : fil retire)
+  local function chain_with(mine)
+    local Wk = world()
+    Wk.autoconnect = true
+    local pc = load_fn(text, "local function place_chain(f, surface, pole, list, src, free, mine)", { Stock = Wk.Stock })
+    local srck = Wk.pole(30.5, 10.5, 1)
+    local foreign = Wk.pole(24.5, 13.5, nil) -- poteau du joueur (son reseau a lui ; ici sans source, pour lire le seul fil)
+    Wk.stock[POLE.name] = 5
+    local okk = pc(f, Wk.surface, POLE, list, srck, { n = 5 }, mine and function(p) return p == srck end or nil)
+    local wired = false
+    for _, w in ipairs(foreign.wires) do if w.valid and w ~= srck then wired = true end end
+    return okk, wired
+  end
+  local ok_k0, wired0 = chain_with(false)
+  c("K (4) temoin : sans filtre, le poteau neuf se relie au poteau du joueur", ok_k0 ~= nil and wired0 == true)
+  local ok_k1, wired1 = chain_with(true)
+  c("K (4) : fil vers le poteau du joueur retire, chaine reliee a la source", ok_k1 == true and wired1 == false, tostring(ok_k1) .. " " .. tostring(wired1))
+  -- team_pole et plan_pole_tiles : poteau de l'equipe (enregistre, tuile d'une chaine, piece du plan), jamais un poteau du joueur
+  local Pl = require("shared.team.plan")
+  local owners = { [1] = { f = 7 }, [2] = { f = 9 } }
+  local Sk = { owner = function(u) return owners[u] end }
+  local team_pole = load_fn(text, "local function team_pole(f, p, plan_set)", { P = Pl, State = Sk })
+  local plan_pole_tiles = load_fn(text, "local function plan_pole_tiles(f)", { P = Pl, plan_poles = {} })
+  c("K : team_pole et plan_pole_tiles extraites", team_pole ~= nil and plan_pole_tiles ~= nil)
+  if team_pole and plan_pole_tiles then
+    local fk = { id = 7, key = "player", swap = { pole_pos = { [Pl.tkey(5, 5)] = true } },
+      build = { order = { 1, 2 }, projects = { [1] = { ents = { { name = "small-electric-pole", x = 10.5, y = 3.5 }, { name = "assembling-machine-1", x = 20.5, y = 3.5 } } },
+        [2] = { ents = {} } } } }
+    local set = plan_pole_tiles(fk)
+    local function pl(u, x, y) return { unit_number = u, position = { x = x, y = y } } end
+    c("K : poteau enregistre a l'equipe : source", team_pole(fk, pl(1, 40.5, 40.5), set) == true)
+    c("K : poteau enregistre a une autre force du mod, hors plan : pas source", team_pole(fk, pl(2, 41.5, 40.5), set) == false)
+    c("K : poteau d'une chaine refait (tuile retenue) : source", team_pole(fk, pl(3, 5.5, 5.5), set) == true)
+    c("K : poteau du plan directeur : source ; machine du plan : rien", team_pole(fk, pl(4, 10.5, 3.5), set) == true and set[Pl.tkey(20, 3)] == nil)
+    c("K : poteau du joueur : jamais source", team_pole(fk, pl(5, 60.5, 60.5), set) == false)
+    fk.build.projects[2].ents[1] = { name = "medium-electric-pole", x = 60.5, y = 60.5 }
+    c("K : projets changes : tuiles refaites", team_pole(fk, pl(5, 60.5, 60.5), plan_pole_tiles(fk)) == true)
+  end
   -- F. free_for : ni sur la foreuse, ni sur le four, ni sur une tuile réservée (couloir, plan directeur)
   local reserved = {}
   local free_for = load_fn(text, "local function free_for(f, surface, pole)", { S = S, Outposts = { reserved = function(_, _, p) return reserved[p.x .. ":" .. p.y] == true end } })
@@ -316,7 +369,7 @@ local function suite(text)
     end
   end
   -- I. câblage : l'échange vient APRÈS la chaîne posée et reliée (courant amené), et l'électrique ratée repose la paire
-  local i_chain = text:find("local ok, why, placed = place_chain(f, surface, pole, r.poles, src, pole_free)", 1, true)
+  local i_chain = text:find("local ok, why, placed = place_chain(f, surface, pole, r.poles, src, pole_free, mine)", 1, true)
   local i_ex = text:find("undo, got = exchange_remove(f, ex)", 1, true)
   c("I : retrait apres la chaine reliee", i_chain ~= nil and i_ex ~= nil and i_chain < i_ex)
   c("I : electrique ratee : paire reposee", text:find("if not done_swap and undo then", 1, true) ~= nil and text:find("exchange_undo(f, surface, ref.o, undo)", 1, true) ~= nil)
@@ -348,6 +401,9 @@ local MUT = {
   { "(2) repose sans verifier la place", "and surface.can_place_entity({ name = u.name, position = { x = u.x, y = u.y }, direction = u.dir, force = f.force })", "" },
   { "(2) case de la retiree non reprise", "        for i, x in ipairs(list) do if not x.valid then slot = i break end end", "" },
   { "(2) ancienne reposee sans verifier la place", "  if not surface.can_place_entity({ name = T.DRILL, position = d_pos, direction = dir, force = f.force }) then return nil end", "" },
+  { "(4) fil vers le joueur garde", "        if n.valid and n ~= prev and not mine(n) then e.disconnect_neighbour(n) end", "" },
+  { "(4) poteau d'une autre equipe accepte", "  if ow and ow.f == f.id then return true end", "  if ow then return true end" },
+  { "(4) tuiles du plan jamais refaites", "  if c and c.sig == s then return c.set end", "  if c then return c.set end" },
   { "echange : compte de foreuses non tenu", "  o.drills = math.max(0, (o.drills or 0) - lost)", "" },
   -- (echange coupe en entier : vu au banc foreuses-chaine, pas ici ; l ordre chaine puis retrait est controle au texte, cas I)
   { "couloir et plan ignores", "      if Outposts.reserved and Outposts.reserved(f, pole.name, { x = x, y = y }, 0) then return false end", "" },

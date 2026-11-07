@@ -59,6 +59,8 @@ return function(rule)
       end
       local src = s.create_entity({ name = "small-electric-pole", position = { ex + 3.5, ey + 1.5 }, force = "player" })
       ctx.check(src ~= nil, "poteau source pose")
+      -- revue du lead (4), 7/11 : seul un poteau de l'ÉQUIPE sert de source (votre équipe partage la force du joueur)
+      ctx.check(src ~= nil and ctx.remote("fo-ia1", "bench_own", "player", src) == true, "poteau source enregistre a votre equipe")
       -- un consommateur sur le réseau (radar, 300 kW) : sans charge, l'interface ne produit rien et le réseau n'est pas « alimenté »
       -- (statistiques de flux nulles : producing() de script/team/foreuse_swap.lua), comme une centrale sans machine branchée
       local radar = s.create_entity({ name = "radar", position = { ex + 5.5, ey + 1.5 }, force = "player" })

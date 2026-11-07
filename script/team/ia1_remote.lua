@@ -299,6 +299,14 @@ remote.add_interface("fo-ia1", {
     end
     return r
   end,
+  -- Lot FOREUSES-THERMIQUES (bancs seulement, revue du lead (4), 7/11) : enregistre `ent` (poteau pose par le banc) comme piece de l'equipe
+  -- (State.own) : seul un poteau de l'equipe sert de source a la chaine. Rend vrai, ou nil.
+  bench_own = function(key, ent)
+    local f = team_of(key)
+    if not (f and ent and ent.valid and ent.unit_number) then return nil end
+    State.own(ent, f.id, "pole")
+    return true
+  end,
   set_regle_chaine = function(key, on)
     if type(on) ~= "boolean" then return nil end
     local f = team_of(key)

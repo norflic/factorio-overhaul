@@ -67,10 +67,48 @@ local function box_of(e)
   return { x = e.position.x, y = e.position.y, w = p.tile_width or 1, h = p.tile_height or 1 }
 end
 
+--- Revue du lead (7/11, (4)) : votre equipe partage la FORCE du joueur ; ses poteaux ne sont pas les notres. Tuiles des poteaux du plan
+--- directeur de l'equipe (ses projets : centrale, liaisons, champs), memoire par equipe hors de global (recalculee apres un chargement), refaite
+--- quand les projets changent (signature : numero et nombre de pieces de chaque projet).
+local plan_poles = {}
+local function plan_pole_tiles(f)
+  local b = f.build
+  if not (b and b.order and b.projects) then return {} end
+  local sig = {}
+  for _, pid in ipairs(b.order) do
+    local p = b.projects[pid]
+    sig[#sig + 1] = tostring(pid) .. ":" .. tostring(p and p.ents and #p.ents or 0)
+  end
+  local key = tostring(f.key or f.id)
+  local s = table.concat(sig, ";")
+  local c = plan_poles[key]
+  if c and c.sig == s then return c.set end
+  local set = {}
+  for _, pid in ipairs(b.order) do
+    local p = b.projects[pid]
+    for _, e in ipairs(p and p.ents or {}) do
+      if e.name and e.x and P.kind_rank(e.name) == 1 then set[P.tkey(math.floor(e.x), math.floor(e.y))] = true end
+    end
+  end
+  plan_poles[key] = { sig = s, set = set }
+  return set
+end
+
+--- (4) : poteau de l'EQUIPE ? Enregistre a son nom (State.own), pose par une chaine du remplacement (tuile retenue, f.swap.pole_pos) ou
+--- piece de son plan directeur. Jamais un poteau du joueur : la chaine ne part pas de son reseau et ne tire pas sur sa centrale.
+local function team_pole(f, p, plan_set)
+  local u = p.unit_number
+  local ow = u and State.owner(u)
+  if ow and ow.f == f.id then return true end
+  local k = P.tkey(math.floor(p.position.x), math.floor(p.position.y))
+  return (f.swap and f.swap.pole_pos and f.swap.pole_pos[k]) == true or plan_set[k] == true
+end
+
 --- Releve : foreuses a combustion des avant-postes avec leur recepteur, poteaux a portee et leur etat.
 --- Rend entries (pour S.plan), refs { [id] = { o, index, drill } }, poles.
 local function survey(f, surface)
   local entries, refs, poles, seen = {}, {}, {}, {}
+  local plan_set -- (4) : tuiles des poteaux du plan de l'equipe, lues au premier avant-poste candidat
   local cache = {}
   local retry = (f.swap and f.swap.retry) or {}
   for _, oid in ipairs(sorted_keys(f.outposts)) do
@@ -106,8 +144,11 @@ local function survey(f, surface)
           force = f.force })) do
         if p.valid and p.unit_number and not seen[p.unit_number] then
           seen[p.unit_number] = true
-          poles[#poles + 1] = { id = p.unit_number, x = p.position.x, y = p.position.y, dist = p.prototype.supply_area_distance,
-            wire = p.prototype.max_wire_distance, powered = producing(p, cache), ent = p }
+          plan_set = plan_set or plan_pole_tiles(f)
+          if team_pole(f, p, plan_set) then
+            poles[#poles + 1] = { id = p.unit_number, x = p.position.x, y = p.position.y, dist = p.prototype.supply_area_distance,
+              wire = p.prototype.max_wire_distance, powered = producing(p, cache), ent = p }
+          end
         end
       end
     end
@@ -282,8 +323,10 @@ end
 
 --- Pose la chaine `list` depuis le poteau `src` (entite). Rend vrai si le dernier poteau est sur le reseau de la source ; sinon tout est
 --- repris (poteaux retires, objets rendus au stock) et rend faux, raison. `free` = { n = poteaux au stock LIBRE de la pensee } (revue du
---- lead, 7/11, (3) : ce que le plan directeur a reserve n'est pas pris) ; debite de la chaine posee.
-local function place_chain(f, surface, pole, list, src, free)
+--- lead, 7/11, (3) : ce que le plan directeur a reserve n'est pas pris) ; debite de la chaine posee. `mine(poteau)` (facultatif, revue (4)) :
+--- vrai pour un poteau de l'equipe ; le poteau neuf ne garde de fil de cuivre que vers l'equipe et sa chaine (le moteur relie de lui-meme
+--- un poteau pose aux voisins a portee : deduit, non mesure ; le retrait est sans effet s'il ne le fait pas).
+local function place_chain(f, surface, pole, list, src, free, mine)
   if #list == 0 then return true end
   if (free and free.n or 0) < #list or Stock.count(f, pole.name) < #list then return false, "poteaux au stock" end
   local placed = {}
@@ -304,6 +347,12 @@ local function place_chain(f, surface, pole, list, src, free)
       return undo("pose refusee")
     end
     placed[#placed + 1] = e
+    if mine then
+      local nb = e.neighbours
+      for _, n in ipairs(nb and nb.copper or {}) do
+        if n.valid and n ~= prev and not mine(n) then e.disconnect_neighbour(n) end
+      end
+    end
     if prev and prev.valid then prev.connect_neighbour(e) end -- (F101 : raccord seul, deduit ; le fil est pose de toute facon)
     prev = e
   end
@@ -538,6 +587,8 @@ function Swap.think(f, surface, book, free, tick)
   -- (bancs : f.team.chaine_off, interrupteur de ia1_remote.lua set_regle_chaine : comportement d'avant, temoin)
   local pole = not (f.team and f.team.chaine_off) and pole_choice(book, free) or nil
   local pole_free = { n = pole and free and free[pole.name] or 0 } -- (3) : stock libre des poteaux, debite chaine par chaine
+  local pset = plan_pole_tiles(f)
+  local function mine(p) return team_pole(f, p, pset) end -- (4) : poteaux de l'equipe (fils du poteau neuf)
   local ctx = { poles = poles, electric = T.drill_electric, have = have, obtainable = obtainable, limit = T.swap.per_pass,
     pole = pole, free_for = pole and free_for(f, surface, pole) or nil, chain = P.pole_chain, chain_max = S.CHAIN_MAX,
     fits = fits_for(f, surface, refs) }
@@ -573,7 +624,7 @@ function Swap.think(f, surface, book, free, tick)
         prep = function()
           if placed_n > 0 then
             local src = r.source and (r.source.ent or by_pos[r.source.x .. ":" .. r.source.y])
-            local ok, why, placed = place_chain(f, surface, pole, r.poles, src, pole_free)
+            local ok, why, placed = place_chain(f, surface, pole, r.poles, src, pole_free, mine)
             -- poteaux de l'avant-poste (o.swap_poles) : a compter comme NOTRES par le plan du champ (mine_of), comme ses paires
             if ok and placed then
               ref.o.swap_poles = ref.o.swap_poles or {}
