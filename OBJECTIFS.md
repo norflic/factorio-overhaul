@@ -154,7 +154,7 @@ Demandes, essais, preuves : archive, §3.
   alignement au pixel (R4).
 - État : 🟨. En jeu par âge : mitrailleuse (0.4.13 ; « Ok pour les mitrailleuses j'aime bien »), four (0.4.30),
   assembleur (0.4.31 ; « les assemblages sont bons finalement », 27/10), foreuse (0.6.2, provisoire). Pas en jeu : laser
-  (validé le 4/11, production à 291 sur 477 le soir), centre-vaisseau (âges 0, 8, 15 validés ; 14 et 15 à refaire), mur
+  (validé le 4/11 ; production FINIE le 5/11 à 22 h 12, 925 rendus sur 925, 0 erreur ; feuilles 318 PNG ; pas encore fusionnée : mesure au plancher puis fusion, lot laser-f1c, 7/11), centre-vaisseau (âges 0, 8, 15 validés ; 14 et 15 à refaire), mur
   (arrêté le 29/10). Tests du gris, de la vignette, du recouvrement sur les nouvelles familles : non prouvés.
 - Reste : votre verdict en jeu sur le four et la foreuse ; laser, centre, mur.
 
