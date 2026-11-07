@@ -49,6 +49,7 @@ local Gisement = require("script.team.gisement") -- lot GISEMENTS : foreuses à 
 local FoSwap = require("script.team.foreuse_swap") -- lot FOREUSES : foreuse à combustion remplacée par l'électrique quand le courant arrive
 local Survie = require("script.team.survie") -- lot SURVIE-PENURIE : mode survie d'une équipe en pénurie (entrée, sortie, tâches, journal)
 local SurvieQg = require("script.team.survie_qg") -- lot S1 : QG en péril (défense armée contre la menace reçue, journal [FO-SURVIE])
+local MenaceQg = require("script.team.menace_qg") -- lot L12 (partie 1) : hystérésis de la menace sur le QG (hq_threat)
 local Sq = require("shared.team.survie_qg") -- lot QGSURVIE : réserve de fer du QG (règle pure)
 local PileRt = require("script.team.pile") -- lot PILE-PRIORITE : la pile retient l'amélioration (réparer + protéger d'abord)
 local Flux = require("shared.team.flux") -- lot FLUX : sorties des avant-postes comptées comme objets attendus (règle pure)
@@ -569,8 +570,9 @@ function Team.view(f, tick)
     -- QG MENACÉ (unités ennemies à moins de T.hq_threat_radius tuiles du coffre) : tout le monde garde le coffre, le fond
     -- s'arrête. Moteur réel : avant le lot, les PNJ inactifs restés au coffre le défendaient ; occupés au loin, le coffre
     -- tombait sous une attaque de biters (verif-guide 577215664, 33 min ; ia1b-scale10, 24 min).
-    if f.hq and f.hq.valid and f.hq.surface.count_entities_filtered({ position = f.hq_pos, radius = T.hq_threat_radius,
-      force = "enemy", type = "unit", limit = 1 }) > 0 then
+    -- Lot L12 (partie 1) : HYSTÉRÉSIS (script/team/menace_qg.lua) : entrée à T.hq_threat_radius tuiles, sortie quand plus aucune unité à
+    -- 64 tuiles pendant 2 pensées de suite (avant : seuil unique, la garde et la retenue des recrues clignotaient avec un biter à 48 tuiles).
+    if f.hq and f.hq.valid and MenaceQg.observe(f, tick) then
       hq_threat = true
       hq_guards = math.max(hq_guards, f.engineers_count or 0)
     end
