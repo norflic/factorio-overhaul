@@ -388,8 +388,10 @@ function F.annex_urgent(view, free, ctx)
   local keys = ctx.keys or {}
   local incoming = (view and view.incoming) or {}
   local kinds = F.urgent_kinds()
+  local demand = ctx.annex_demand or {}
   for _, k in ipairs(kinds) do
-    if (free[k.item] or 0) > 0 then return out, "deja en main : " .. k.item end
+    -- point D3 de docs/IA_WORKFLOW.md : « en main » = libre MOINS ce que le plan directeur réclame (comme Stock.wanted et Stock.urgent)
+    if (free[k.item] or 0) - (demand[k.item] or 0) > 0 then return out, "deja en main : " .. k.item end
     if (incoming[k.item] or 0) > 0 then return out, "deja en route : " .. k.item end
     if keys["fond:craft:" .. k.item .. ":annexe-urgente"] then return out, "fabrication deja au tableau : " .. k.item end
   end
@@ -490,12 +492,14 @@ local function base(view, free, ctx, out)
   -- Lot COFFRE (K-C) : coffres pour les ANNEXES du QG (script/team/stock.lua) quand les cases se remplissent. Cerveau en
   -- manque : seulement ceux qui ne coûtent aucune plaque (T.annex.kinds[].cheap), le coffre plein bloque tout le monde.
   local need = ctx.annex_want or 0
+  local demand = ctx.annex_demand or {}
   -- Lot STOCKAGE-VITAL : coffre urgent : fabriqué hors du fond (F.annex_urgent, ajouté au tableau par script/team/poles.lua) ; le fond
   -- n'en fabrique pas d'autres en même temps.
   if ctx.annex_urgent then need = 0 end
   if need > 0 then
     for _, k in ipairs(T.annex.kinds) do
-      need = need - (free[k.item] or 0) - (incoming[k.item] or 0) - (planned[k.item] or 0)
+      -- point D3 de docs/IA_WORKFLOW.md : un coffre réservé au plan directeur n'est pas en main (Stock.wanted le retire déjà)
+      need = need - math.max(0, (free[k.item] or 0) - (demand[k.item] or 0)) - (incoming[k.item] or 0) - (planned[k.item] or 0)
     end
     for _, k in ipairs(T.annex.kinds) do
       if need <= 0 then break end

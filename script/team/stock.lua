@@ -220,6 +220,14 @@ local function chests_in_hand(f, item)
   return math.max(0, Stock.count(f, item) - (Stock.demand and Stock.demand(f, item) or 0))
 end
 
+--- Lot STOCKAGE-VITAL (point D3 de docs/IA_WORKFLOW.md) : coffres d'annexe que le plan directeur va encore réclamer { [objet] = n },
+--- pour que le fond compte « en main » comme Stock.wanted et Stock.urgent (stock moins cette demande).
+function Stock.annex_demand(f)
+  local out = {}
+  for _, k in ipairs(T.annex.kinds) do out[k.item] = Stock.demand and Stock.demand(f, k.item) or 0 end
+  return out
+end
+
 --- Emprise (largeur, hauteur en tuiles) d'un coffre du stock, lue au prototype (1 × 1 sans prototype : moteur simulé).
 local function footprint(item)
   local protos = game and game.entity_prototypes
@@ -288,14 +296,17 @@ place_held = function(f, item, k)
   return placed
 end
 
-function Stock.wanted(f)
+--- Coffres à avoir en main pour agrandir le stock, NETS des coffres en main ; `gross` vrai : BRUTS (le fond, shared/team/fond.lua,
+--- retire lui-même les coffres en main hors demande du plan directeur : sans cela ils étaient retirés deux fois, point D3 de
+--- docs/IA_WORKFLOW.md).
+function Stock.wanted(f, gross)
   if not (f.hq and f.hq.valid) then return 0 end
   local used, size, n = totals(f)
   if size <= 0 then return 0 end -- capacité inconnue (moteur simulé)
   local have = 0
   for _, k in ipairs(T.annex.kinds) do have = have + chests_in_hand(f, k.item) end
   local tick = game.tick or 0
-  local w = A.wanted(used, size, n, have, A.early_due(f.stock_watch, tick, f.refused_at), capacity(f))
+  local w = A.wanted(used, size, n, gross and 0 or have, A.early_due(f.stock_watch, tick, f.refused_at), capacity(f))
   -- Lot STOCKAGE-VITAL : au-dessus de T.stockage.urgent_at sans coffre en main, au moins un coffre à fabriquer (avant la saturation).
   if Sg.urgent(used / size, have > 0, T.stockage) and n < capacity(f) then w = math.max(w, 1) end
   return w

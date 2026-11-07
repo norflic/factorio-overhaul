@@ -72,6 +72,8 @@ do
   check("cablage : depot refuse au journal, au plus une ligne par Stock.REFUSED_LOG", sk:find("tick - f.refused_log >= Stock.REFUSED_LOG", 1, true) ~= nil
     and sk:find("depot refuse", 1, true) ~= nil)
   local pl = read("script/team/poles.lua")
+  check("cablage D3 : le fond recoit les coffres BRUTS voulus et la demande du plan directeur", pl:find("annex_want = Stock.wanted(f, true)", 1, true) ~= nil
+    and select(2, pl:gsub("annex_demand = Stock.annex_demand%(f%)", "")) == 2 and sk:find("gross and 0 or have", 1, true) ~= nil)
   check("cablage : coffre urgent ajoute au tableau hors du fond, raison au journal", pl:find("local urgent_on = stock_urgent(f, view, free, book, keys, tick)", 1, true) ~= nil
     and pl:find("if #tasks > 0 then Board.add(f, tasks, tick) end", 1, true) ~= nil and pl:find("harvestable = from_trees", 1, true) ~= nil
     and pl:find("fin de l'urgence", 1, true) ~= nil)
@@ -174,6 +176,16 @@ local function urgent_suite(F)
     local function chests(c) local n = 0 for _, x in ipairs(c.base) do if x.item == CH or x.item == WCH then n = n + 1 end end return n end
     check("fond : pendant l'urgence, aucun autre coffre", chests(c1) == 0, chests(c1))
     check("temoin : sans urgence, le fond fabrique son coffre (annex_want)", chests(c2) >= 1, chests(c2))
+    -- 8. point D3 de docs/IA_WORKFLOW.md : un coffre que le plan directeur réclame n'est pas « en main » (Stock.wanted le retire déjà)
+    t, why = F.annex_urgent({}, { [CH] = 2, [WOOD] = 4 }, ctx({ annex_demand = { [CH] = 2 } }))
+    check("D3 urgent : 2 coffres de fer reserves au plan directeur -> le coffre urgent se fabrique", #t == 1 and t[1].item == WCH, why)
+    t, why = F.annex_urgent({}, { [CH] = 3, [WOOD] = 4 }, ctx({ annex_demand = { [CH] = 2 } }))
+    check("temoin D3 urgent : un coffre de plus que la demande -> deja en main", #t == 0 and type(why) == "string" and why:find("deja en main", 1, true) ~= nil, why)
+    local function sD3() return { [IRON] = 400, [CH] = 2, ["copper-plate"] = 0, stone = 0 } end
+    local d1 = F.candidates({ incoming = {} }, sD3(), { book = B, keys = {}, annex_want = 2, annex_demand = { [CH] = 2 } })
+    local d2 = F.candidates({ incoming = {} }, sD3(), { book = B, keys = {}, annex_want = 2 })
+    check("D3 fond : coffres reserves au plan directeur -> le fond en fabrique", chests(d1) >= 1, chests(d1))
+    check("temoin D3 fond : 2 coffres libres en main pour 2 voulus -> aucun de plus", chests(d2) == 0, chests(d2))
   end
   return res
 end
@@ -193,7 +205,7 @@ for _, r in ipairs(run_fond(FOND_SRC)) do check(r[1], r[2], r[3]) end
 local NL = string.char(10)
 local FMUT = {
   { "fond : ordre de T.annex.kinds (fer d'abord)", "  local list = {}" .. NL .. "  for _, k in ipairs(T.annex.kinds) do if k.cheap then", "  do return T.annex.kinds end" .. NL .. "  local list = {}" .. NL .. "  for _, k in ipairs(T.annex.kinds) do if k.cheap then" },
-  { "fond : coffre en main ignore", '    if (free[k.item] or 0) > 0 then return out, "deja en main : " .. k.item end' .. NL, "" },
+  { "fond : coffre en main ignore", '    if (free[k.item] or 0) - (demand[k.item] or 0) > 0 then return out, "deja en main : " .. k.item end' .. NL, "" },
   { "fond : coffre en route ignore", '    if (incoming[k.item] or 0) > 0 then return out, "deja en route : " .. k.item end' .. NL, "" },
   { "fond : pas de recolte", "    if m.k.cheap and #raws == 1 and ctx.harvestable and ctx.harvestable(raws[1][1]) then", "    if false then" },
   { "fond : recolte d'une matiere non recoltable", "ctx.harvestable and ctx.harvestable(raws[1][1]) then", "ctx.harvestable ~= nil then" },
@@ -203,6 +215,8 @@ local FMUT = {
   { "fond : coffre urgent sous la priorite des urgences", "F.URGENT_PRIO = 90", "F.URGENT_PRIO = F.PRIO.extend + 1" },
   { "fond : coffre urgent compte au fond", 'uses = sorted_uses(p.uses), domain = "production", tag = "annexe-urgente" }', 'uses = sorted_uses(p.uses), domain = "production", tag = "annexe-urgente", fond = true }' },
   { "fond : autre coffre pendant l'urgence", "  if ctx.annex_urgent then need = 0 end", "" },
+  { "D3 urgent : coffres reserves comptes en main", "    if (free[k.item] or 0) - (demand[k.item] or 0) > 0 then return out", "    if (free[k.item] or 0) > 0 then return out" },
+  { "D3 fond : coffres reserves comptes en main", "      need = need - math.max(0, (free[k.item] or 0) - (demand[k.item] or 0))", "      need = need - (free[k.item] or 0)" },
 }
 local frefused, fkept = 0, {}
 for _, m in ipairs(FMUT) do

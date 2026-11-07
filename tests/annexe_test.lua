@@ -172,6 +172,14 @@ do
   check(Stock.wanted(f) == T.annex.want, "plein sans coffre : on en demande " .. T.annex.want)
   f.hq.items["iron-chest"] = 3
   check(Stock.wanted(f) == 0, "coffres en main : on n'en redemande pas")
+  -- lot STOCKAGE-VITAL (point D3 de docs/IA_WORKFLOW.md) : le fond reçoit le besoin BRUT et retire lui-même les coffres en main hors
+  -- demande du plan directeur ; des coffres réservés au plan ne sont pas en main
+  check(Stock.wanted(f, true) == T.annex.want, "brut : coffres voulus sans retirer ceux en main (" .. Stock.wanted(f, true) .. ")")
+  local saved_demand = Stock.demand
+  Stock.demand = function(_, item) return item == "iron-chest" and 3 or 0 end
+  check(Stock.wanted(f) == T.annex.want and Stock.annex_demand(f)["iron-chest"] == 3 and Stock.annex_demand(f)["wooden-chest"] == 0,
+    "D3 : 3 coffres reserves au plan directeur -> pas en main, demande transmise au fond")
+  Stock.demand = saved_demand
   check(Stock.grow(f, surface, 3600) and #made == 1 and made[1].name == "iron-chest", "plein avec un coffre : posé")
   check(#f.annex == 1 and f.hq.items["iron-chest"] == 2, "le coffre posé sort du stock et entre dans les annexes")
   -- lot STOCKAGE-VITAL : plein sans coffre en main, l'urgence est aussi au journal ([FO-STOCKAGE], avant la pose)

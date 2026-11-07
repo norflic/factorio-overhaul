@@ -70,7 +70,8 @@ local function stock_urgent(f, view, free, book, keys, tick)
   local why
   if on then
     local tasks
-    tasks, why = Fond.annex_urgent(view, free, { book = book, keys = keys, annex_urgent = true, harvestable = from_trees })
+    tasks, why = Fond.annex_urgent(view, free, { book = book, keys = keys, annex_urgent = true, harvestable = from_trees,
+      annex_demand = Stock.annex_demand(f) })
     if #tasks > 0 then Board.add(f, tasks, tick) end
   end
   f.stats.stock_logs = f.stats.stock_logs or 0
@@ -481,7 +482,8 @@ function Poles.think(f, view, book, tick, plan)
       -- Transport sans limite de distance (essai 7 : à 64 tuiles, presque aucun avant-poste n'était assez proche) ; un
       -- avant-poste meurtrier non défendu et la prudence (pertes récentes) l'arrêtent.
       transport = player or nil, reserve = player and Fond.PLAYER_RESERVE or nil,
-      mine_radius = player and T.near_mine or nil, annex_want = Stock.wanted(f), iron_extra = iron_extra,
+      mine_radius = player and T.near_mine or nil, annex_want = Stock.wanted(f, true), iron_extra = iron_extra,
+      annex_demand = Stock.annex_demand(f), -- lot STOCKAGE-VITAL (point D3) : coffres réclamés par le plan directeur, pas en main
       annex_urgent = urgent_on or nil, -- lot STOCKAGE-VITAL : pendant le coffre urgent, le fond ne fabrique pas d'autre coffre
       saturated = f.team.ia3 and f.team.ia3.saturated or nil, -- lot SITE-PROCHE (R4)
       plate_map = PLATE_MAP, repat = view.repat } -- lot FLUX
