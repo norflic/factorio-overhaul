@@ -11,14 +11,16 @@
        prévision réveillent la faction endormie au tick suivant (cause « armee dehors : ... ») ;
     §3 quater COUP SUR UNE TOURELLE (point 2) : une tourelle de la faction endormie touchée par une force adverse (sans cause mobile :
        f.attack_alert_t n'est pas écrit) la réveille au tick suivant (f.hit_t, cause « attaque ») ;
-    §3 quinquies CRÉNEAU APRÈS UN RÉVEIL (point 3) : réveillée 298 ticks après son créneau sauté, la faction ne repense PAS au créneau
-       suivant (2 ticks plus tard) : sa pensée d'après tombe une période plus loin ;
+    §3 quinquies CRÉNEAU APRÈS UN RÉVEIL (point 3, seuil décidé par le lead) : réveillée 298 ticks après son créneau sauté S, la
+       faction ne repense PAS au créneau S + 300, qui tombe dans les étapes E1 à E4 de la pensée du réveil : sa pensée suivante est à
+       S + 600 au plus tard (le seul cas borné) ; réveillée à S + 1, elle repense au créneau S + 300 (rythme gardé) ; la dernière étape
+       de la pensée du réveil tombe bien Et.SPAN ticks après elle (shared/team/etapes.lua) ;
     §4 votre équipe garde son rythme (aucune cadence posée sur elle) ; Commander.CADENCE faux : une pensée par créneau ;
     §5 mutant « jamais réveillée » (Cd.wake rend toujours faux) : le §2 échoue (la faction attend son créneau) ;
     §6 COÛT DU GUET (réserve de la revue) : deux factions endormies, un joueur : la liste des joueurs est lue UNE fois par tick ; appels
        au moteur comptés (liste des joueurs, champs du joueur) et instructions Lua (debug.sethook, champs du moteur simulé compris) ;
     §7 mutants de SOURCE (fichiers chargés modifiés, un monde neuf chacun) : l'IA3 non lue, le coup noté après le filtre des classes,
-       la garde du créneau récent retirée, les joueurs relus par faction : chacun fait échouer sa scène.
+       la garde du créneau récent retirée, son seuil porté à la période, les joueurs relus par faction : chacun fait échouer sa scène.
   Usage : lua5.2 tests/cadence_moteur_test.lua   (depuis la racine du mod ; FO_VERBOSE=1 : contrôles réussis affichés)
 ]]
 package.path = "./?.lua;" .. package.path
@@ -77,19 +79,6 @@ local function logs_since(i0, pat)
   for i = i0 + 1, #W().logs do local l = W().logs[i] if type(l) == "string" and l:find(pat, 1, true) then out[#out + 1] = l end end
   return out
 end
---- Rythme normal d'une faction éveillée (pensées `list`, la dernière à son créneau) : jamais deux pensées à moins de 300 ticks ; 300 tout
---- juste entre deux créneaux ; après un RÉVEIL hors créneau, le créneau suivant est laissé (Cd.recent, revue de 87ac84fe) : écart de
---- 301 à 599 ticks jusqu'au créneau d'après.
-local function rhythm_ok(list)
-  local ref = list[#list]
-  for i = 2, #list do
-    local g = list[i] - list[i - 1]
-    local woke = (list[i - 1] - ref) % 300 ~= 0
-    if g < 300 then return false end
-    if g > 300 and not (woke and g < 600 and (list[i] - ref) % 300 == 0) then return false end
-  end
-  return true
-end
 local function calm_down(f)
   f.threatened_until, f.attack_alert_t, f.lost_t, f.hit_t = 0, nil, nil, nil
 end
@@ -133,11 +122,10 @@ local function scene_player(ctx)
   ctx.char.teleport({ x = f.hq_pos.x + 20, y = f.hq_pos.y })
   M.run_ticks(1)
   check(f.last_think == T + 1 and f.last_think ~= before, string.format("§2 : joueur arrive apres le tick %d : la faction repense au tick suivant (%s)", T, tostring(f.last_think)))
-  local list = { f.last_think == T + 1 and T + 1 or nil } -- (le réveil, s'il a eu lieu, ouvre la liste)
   local th2 = thinks_over(f, 1300)
-  for _, x in ipairs(th2) do list[#list + 1] = x end
-  check(#th2 >= 3 and rhythm_ok(list), "§2 : le joueur reste : rythme normal (300 entre deux creneaux, creneau qui suit le reveil laisse) ("
-    .. table.concat(list, " ") .. ")")
+  local normal = #th2 >= 4
+  for i = 2, #th2 do if th2[i] - th2[i - 1] > 300 then normal = false end end
+  check(normal, "§2 : le joueur reste : rythme normal, aucun ecart au-dela de 300 (" .. table.concat(th2, " ") .. ")")
   local nor = logs_since(i1, "[FO-CADENCE] " .. tostring(f.key) .. " : cadence NORMALE (joueur proche)")
   check(#nor == 1, "§2 : journal « NORMALE (joueur proche) » (" .. #nor .. ")")
 end
@@ -159,8 +147,9 @@ local function scene_route(ctx)
   f.route_pending = { ticket = -1, target_faction = -1, test = true }
   local th3 = thinks_over(f, 1300)
   f.route_pending = saved
-  check(#th3 >= 3 and rhythm_ok(th3), "§3 bis : armee dehors : rythme normal (300 entre deux creneaux, creneau qui suit le reveil laisse) ("
-    .. table.concat(th3, " ") .. ")")
+  local every = #th3 >= 4
+  for i = 2, #th3 do if th3[i] - th3[i - 1] > 300 then every = false end end
+  check(every, "§3 bis : armee dehors : rythme normal, aucun ecart au-dela de 300 (" .. table.concat(th3, " ") .. ")")
 end
 
 --- §3 ter : chaque état d'armée de l'IA3 posé sur la faction endormie la réveille au tick suivant.
@@ -218,24 +207,46 @@ local function scene_hit(ctx)
   if tur and tur.valid then tur.health = 400 end
 end
 
---- §3 quinquies : réveil 298 ticks après le créneau sauté S ; le créneau S + 300 est laissé, la pensée suivante tombe à S + 600.
-local function scene_double(ctx)
+--- §3 quinquies : réveil k ticks après le créneau sauté S (perte notée à S + k − 1, vue par le guet au tick suivant). Rend la pensée du
+--- réveil, la liste des pensées des 700 ticks suivants et le tick de la dernière étape de la pensée du réveil.
+local function wake_at(ctx, k)
   local f = ctx.f
   local ok = sleep(ctx)
   local S = game.tick
-  M.run_ticks(297 - 0)
+  if k > 1 then M.run_ticks(k - 1) end
   calm_down(f)
-  ok = ok and f.cadence.asleep and game.tick == S + 297
+  ok = ok and f.cadence.asleep and game.tick == S + k - 1
   f.lost_t = game.tick
   M.run_ticks(1)
   local woke = f.last_think
-  local th = thinks_over(f, 700)
-  local min_gap = math.huge
-  local prev = woke
-  for _, x in ipairs(th) do if x - prev < min_gap then min_gap = x - prev end prev = x end
+  local last_step
+  local th, last = {}, f.last_think
+  for _ = 1, 700 do
+    local busy = f.team and f.team.etape ~= nil
+    M.run_ticks(1)
+    if busy and not last_step and not (f.team and f.team.etape) then last_step = game.tick end
+    if f.last_think ~= last then th[#th + 1] = f.last_think last = f.last_think end
+  end
+  return ok, S, woke, th, last_step
+end
+
+local function scene_double(ctx)
+  local Et = require("shared.team.etapes")
+  -- Le seul cas borné : le créneau S + 300 tombe dans les étapes de la pensée du réveil (S + 298 à S + 301).
+  local ok, S, woke, th, last_step = wake_at(ctx, 298)
   check(ok and woke == S + 298, string.format("§3 quinquies : reveillee a S + 298 (S = %d, pensee a %s)", S, tostring(woke)))
-  check(ok and th[1] == S + 600 and min_gap >= 300, string.format("§3 quinquies : creneau S + 300 laisse, pensee suivante a S + 600 (%s), aucun ecart sous 300 (min %s)",
-    table.concat(th, " "), tostring(min_gap)))
+  check(ok and last_step == woke + Et.SPAN, string.format("§3 quinquies : derniere etape de la pensee du reveil a + %s ticks (Et.SPAN = %d)",
+    tostring(last_step and woke and last_step - woke), Et.SPAN))
+  local nxt = th[1]
+  check(ok and nxt ~= S + 300 and nxt ~= nil and nxt <= S + 600 and th[2] and th[2] - nxt == 300,
+    string.format("§3 quinquies : creneau S + 300 laisse (dans les etapes), pensee suivante a S + 600 au plus tard (%s), puis 300", table.concat(th, " ")))
+  -- Réveil juste après le créneau sauté : le créneau suivant n'est pas dans les étapes, la faction y pense (rythme gardé).
+  ok, S, woke, th = wake_at(ctx, 1)
+  check(ok and woke == S + 1 and th[1] == S + 300, string.format("§3 quinquies : reveillee a S + 1 (%s), pensee suivante au creneau S + 300 (%s ; S = %d)",
+    tostring(woke), table.concat(th, " "), S))
+  local every = #th >= 2
+  for i = 2, #th do if th[i] - th[i - 1] ~= 300 then every = false end end
+  check(every, "§3 quinquies : puis 300 (" .. table.concat(th, " ") .. ")")
 end
 
 --- §6 : coût d'un tick de guet, deux factions endormies et calmes, un joueur connecté. Rend { lists, fields, instr }.
@@ -344,7 +355,9 @@ local SRC_MUTANTS = {
       old = "  if fname ~= \"player\" then\n    local fh = State.by_force(fname)\n    if fh and e.force ~= eforce then fh.hit_t = e.tick end\n  end\n  if not Rp.ENABLED then return end\n  if not CLASS[false][etype] then return end",
       new = "  if not Rp.ENABLED then return end\n  if not CLASS[false][etype] then return end\n  if fname ~= \"player\" then\n    local fh = State.by_force(fname)\n    if fh and e.force ~= eforce then fh.hit_t = e.tick end\n  end" }, scene_hit },
   { "garde du creneau recent retiree (point 3, garde du meme tick seule)", { module = "script.faction.commander", path = CMD,
-      old = "if not woken and Cd.recent(cs, tick, Scheduler.period(Commander.LANE)) then return end", new = "" }, scene_double },
+      old = "if not woken and Cd.recent(cs, tick) then return end", new = "" }, scene_double },
+  { "seuil du creneau porte a la periode (point 3, correction refusee par le lead)", { module = "script.faction.commander", path = CMD,
+      old = "Cd.recent(cs, tick)", new = "Cd.recent(cs, tick, Scheduler.period(Commander.LANE))" }, scene_double },
   { "joueurs relus pour chaque faction endormie (reserve)", { module = "script.faction.commander", path = CMD,
       old = "players = players or Commander.players_on(war.surface)", new = "players = Commander.players_on(war.surface)" },
     function(c) scene_guard(c) end },

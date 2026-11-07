@@ -7,14 +7,16 @@
     B : dégât forcé sur une TOURELLE posée pour la faction 1 ENDORMIE (cause : un petit biter ennemi posé loin, puis retiré) : sa
         pensée suivante tombe au tick du dégât ou au suivant (le mod de test passe après le mod dans un tick : le guet voit la cause au
         tick suivant et pense aussitôt). Une tourelle n'a pas de classe de réparation : c'est f.hit_t qui réveille (revue de 87ac84fe,
-        point 2). Puis le créneau qui suit le réveil est laissé : pensée suivante 300 à 599 ticks plus tard (point 3) ;
+        point 2). Puis le rythme normal : pensée suivante au plus 300 ticks plus tard, sauf le cas borné du point 3 (créneau dans les
+        étapes E1 à E4 de la pensée du réveil : laissé, pensée suivante au plus 300 + SPAN ticks plus tard) ;
     C : session avec images seulement (joueur connecté) : le joueur téléporté près du QG de la faction 2 ENDORMIE : pensée au tick de la
-        téléportation ou au suivant, puis le créneau suivant laissé (300 à 599 ticks). Sans joueur (banc sans images) : partie non
-        jouée, dite au journal.
+        téléportation ou au suivant, puis écart d'au plus 300 (même cas borné). Sans joueur (banc sans images) : partie non jouée, dite
+        au journal.
   Lancement : banc.py --captures --visuel="--ticks 2600" --qui X10-S10 -- 2500 s10-cadence <source>.
 ]]
 
 local CALM_R, CALM_UNTIL = 250, 1450
+local P, SPAN = 300, 3 -- période des pensées des factions ; écart de E1 à E4 d'une pensée (Et.SPAN de shared/team/etapes.lua)
 
 local function gaps(ticks, upto)
   local out = {}
@@ -122,17 +124,28 @@ return {
     local w = (st.dmg or 0) > 0 and t1 and first_after(t1.ticks, st.dmg) or nil
     ctx.check(w ~= nil and (w == st.dmg or w == st.dmg + 1), "B1 degat sur une tourelle de la faction endormie : pensee au tick du degat ou au suivant",
       string.format("degat %s, pensee %s", tostring(st.dmg), tostring(w)))
+    --- Écart permis après un réveil au tick `w` (créneaux de la faction : premier créneau `s0` + k P) : 300, ou 300 + SPAN si le créneau
+    --- suivant tombe dans les étapes de la pensée du réveil (le seul cas borné).
+    local function allowed(s0, w)
+      local to_slot = (s0 - w) % P
+      if to_slot <= SPAN then return P + SPAN, "cas borne (creneau dans les etapes)" end
+      return P, "rythme normal"
+    end
     local n1 = w and next_of(t1.ticks, w)
-    ctx.check(n1 ~= nil and n1 - w >= 300 and n1 - w < 600, "B3 creneau qui suit le reveil laisse : pensee suivante 300 a 599 ticks plus tard",
-      string.format("%s puis %s", tostring(w), tostring(n1)))
+    local lim1, why1 = P, "?"
+    if w then lim1, why1 = allowed(t1.ticks[1], w) end
+    ctx.check(n1 ~= nil and n1 - w > SPAN and n1 - w <= lim1, "B3 puis rythme normal : pensee suivante au plus 300 ticks apres le reveil (sauf cas borne : 300 + SPAN)",
+      string.format("%s puis %s (ecart %s, limite %d : %s)", tostring(w), tostring(n1), tostring(n1 and w and n1 - w), lim1, why1))
     if st.has_player then
       local t2 = st.th and st.th[2]
       local w2 = st.tp and t2 and first_after(t2.ticks, st.tp) or nil
       ctx.check(w2 ~= nil and (w2 == st.tp or w2 == st.tp + 1), "C1 joueur teleporte pres de la faction endormie : pensee au tick meme ou au suivant",
         string.format("teleportation %s, pensee %s", tostring(st.tp), tostring(w2)))
       local nxt = w2 and next_of(t2.ticks, w2)
-      ctx.check(nxt ~= nil and nxt - w2 >= 300 and nxt - w2 < 600, "C2 le joueur reste : creneau qui suit le reveil laisse, pensee suivante 300 a 599 ticks plus tard",
-        string.format("%s puis %s", tostring(w2), tostring(nxt)))
+      local lim2, why2 = P, "?"
+      if w2 then lim2, why2 = allowed(t2.ticks[1], w2) end
+      ctx.check(nxt ~= nil and nxt - w2 > SPAN and nxt - w2 <= lim2, "C2 le joueur reste : rythme normal (ecart <= 300, sauf cas borne : 300 + SPAN)",
+        string.format("%s puis %s (ecart %s, limite %d : %s)", tostring(w2), tostring(nxt), tostring(nxt and nxt - w2), lim2, why2))
     else
       ctx.log("aucun joueur connecte (banc sans images) : la partie C (teleportation) se joue dans la session avec images")
     end

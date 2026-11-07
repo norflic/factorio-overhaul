@@ -141,32 +141,39 @@ local function run_all(Cd)
     check(Cd.skip({}, calm(), 300) == false, "4 : premiere pensee jamais sautee")
   end
 
-  section("4 bis. creneau qui suit un reveil (Cd.recent) : jamais deux pensees a moins d'une periode")
+  section("4 bis. creneau qui suit un reveil (Cd.recent) : jamais une pensee dans les etapes de la precedente, rythme garde")
   do
-    check(Cd.recent({ last = 100 }, 399, 300) == true and Cd.recent({ last = 100 }, 400, 300) == false, "4 bis : moins d'une periode : creneau laisse ; une periode : la faction pense")
-    check(Cd.recent({ last = 100 }, 100, 300) == true, "4 bis : meme tick : creneau laisse")
-    check(Cd.recent({}, 0, 300) == false and Cd.recent({ last = 0 }, 10, nil) == false, "4 bis : sans derniere pensee ou sans periode : la faction pense")
+    local SP = Cd.STEP_SPAN
+    check(SP == 3, "4 bis : ecart des etapes lu dans shared/team/etapes.lua (E1 a E4 : 3 ticks) : " .. tostring(SP))
+    check(Cd.recent({ last = 100 }, 100 + SP) == true and Cd.recent({ last = 100 }, 101 + SP) == false,
+      "4 bis : creneau dans les etapes de la pensee precedente : laisse ; juste apres : la faction pense")
+    check(Cd.recent({ last = 100 }, 100) == true, "4 bis : meme tick : creneau laisse")
+    check(Cd.recent({}, 0) == false, "4 bis : sans derniere pensee : la faction pense")
+    check(Cd.recent({ last = 100 }, 399) == false, "4 bis : 299 ticks apres un reveil : la faction pense (rythme garde)")
     -- Comme au runtime : créneau (Cd.recent, puis Cd.skip) aux multiples de 300, puis guet (Cd.wake) au même tick. La faction dort au
     -- créneau de 900 ; une menace naît à 900 + k et tient jusqu'à la fin.
-    for _, k in ipairs({ 1, 150, 297, 298, 299 }) do
+    for _, k in ipairs({ 1, 150, 300 - SP - 1, 300 - SP, 298, 299 }) do
       local st, thinks = {}, {}
       local A = 900 + k
       for tick = 0, 2400 do
         local s = calm({ threatened_until = tick >= A and 1e9 or nil })
-        if tick % 300 == 0 and not Cd.recent(st, tick, 300) then
+        if tick % 300 == 0 and not Cd.recent(st, tick) then
           if Cd.skip(st, s, tick) then st.asleep = true else st.asleep, st.last = false, tick thinks[#thinks + 1] = tick end
         end
         if Cd.wake(st, s, tick) then st.asleep, st.last = false, tick thinks[#thinks + 1] = tick end
       end
-      local min_gap, after = math.huge, nil
+      local min_gap, after, others = math.huge, nil, true
       for i = 2, #thinks do
         local g = thinks[i] - thinks[i - 1]
         if g < min_gap then min_gap = g end
-        if thinks[i - 1] == A then after = g end
+        if thinks[i - 1] == A then after = g elseif thinks[i - 1] > A and g ~= 300 then others = false end
       end
-      check(thinks[3] == A and min_gap >= 300 and after and after <= 599,
-        string.format("4 bis : reveil a 900 + %d : pense a %d, puis aucun ecart sous 300 (min %s), %s ticks apres le reveil (%s)", k, A,
-          tostring(min_gap), tostring(after), table.concat(thinks, " ")))
+      -- Attendu : pensée suivante au créneau 1 200 (300 − k ticks plus tard), sauf si ce créneau tombe dans les étapes du réveil
+      -- (k >= 300 − SP) : alors au créneau 1 500, au plus 300 + SP ticks plus tard.
+      local want = (1200 - A <= SP) and (1500 - A) or (1200 - A)
+      check(thinks[3] == A and min_gap > SP and after == want and after <= 300 + SP and others,
+        string.format("4 bis : reveil a 900 + %d : pense a %d, pensee suivante %s ticks plus tard (attendu %d), aucune dans les etapes (min %s), puis 300 (%s)",
+          k, A, tostring(after), want, tostring(min_gap), table.concat(thinks, " ")))
     end
   end
 
@@ -253,7 +260,8 @@ local MUTANTS = {
   { "attaque preparee ignoree", { 'if a.route_pending ~= nil and a.route_pending ~= false then return true, "attaque preparee" end', "" } },
   { "alerte inconnue lue comme fausse (garde ouverte)", { "if ar.alert ~= nil and ar.alert ~= false then", "if ar.alert == true then" } },
   { "prevision inconnue lue comme rentree (garde ouverte)", { 'if type(ar) ~= "table" then return true, "armee inconnue" end', 'if type(ar) ~= "table" then return false, nil end' } },
-  { "pensee recente ignoree (garde du meme tick seule)", { "tick - st.last < period", "tick - st.last < 1" } },
+  { "pensee recente ignoree (garde du meme tick seule)", { "tick - st.last <= (span or Cd.STEP_SPAN)", "tick - st.last < 1" } },
+  { "seuil du creneau = la periode (correction refusee par le lead)", { "Cd.STEP_SPAN = Et.SPAN", "Cd.STEP_SPAN = 300" } },
 }
 local killed = 0
 quiet = true

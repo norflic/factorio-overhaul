@@ -194,9 +194,9 @@ function Commander.think(id, tick, woken)
     local cs = cadence_of(f)
     if cs.last == tick then return end -- déjà pensé à ce tick (réveil et créneau au même tick)
     cs.base_alert = DefChoix.base(f, surface, tick).insecure or nil
-    -- Revue de 87ac84fe : un créneau qui tombe moins d'une période après la dernière pensée (un réveil) est laissé, sans endormir la
-    -- faction (sinon : deux pensées P − k ticks l'une de l'autre, et pour k >= P − 3 les étapes E1 à E4 rejouées d'un bloc).
-    if not woken and Cd.recent(cs, tick, Scheduler.period(Commander.LANE)) then return end
+    -- Revue de 87ac84fe : un créneau qui tombe PENDANT les étapes E1 à E4 de la pensée précédente (un réveil quelques ticks avant) est
+    -- laissé, sans endormir la faction (sinon ces étapes se rejouent d'un bloc) ; seuil : l'écart des étapes (Cd.STEP_SPAN), pas la période.
+    if not woken and Cd.recent(cs, tick) then return end
     local inp = cadence_input(f, Commander.players_on(war.surface))
     local skip, why = Cd.skip(cs, inp, tick)
     if skip then
