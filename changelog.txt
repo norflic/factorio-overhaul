@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Version: 0.6.57
+Date: 2026-11-07
+  Changes:
+    - Reparation des equipes : ensemble des batiments abimes tenu par equipe (coups recus, poses, releve au chargement) au lieu d une recherche sur toute la carte ; meme lots de reparation, 13 ms -> 0,1 ms par pensee de faction.
+    - Bancs : test du danger aligne sur la regle (retour exact sur une case du QG exclu, 0 PNJ a moins de 12 tuiles de la meute) ; test de l armee aligne sur le premier site touche ; types moteur de foreuse_swap au registre.
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Version: 0.6.56
 Date: 2026-11-07
   Changes:
