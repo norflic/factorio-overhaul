@@ -20,10 +20,11 @@
     - ordre : hors exploration d'abord (le minage à la main avant l'éclaireur, qui coûte une mission), puis priorité de la tâche croissante, puis
       distance (au carré) du PNJ à la tâche urgente croissante, puis numéro du PNJ croissant ; les tâches urgentes sont essayées par priorité
       décroissante, la plus ancienne d'abord, puis clé.
-      Garde (relecture d'effondrement) : une tâche urgente DÉJÀ servie par un rappel (ctx.served = sa clé) n'en déclenche pas un second tant qu'elle
-      reste libre au tableau : le PNJ rappelé ne la prend pas toujours (autre pôle, plafond d'urgences hors pôle, distance qui bat la priorité) et
-      rappeler un PNJ de plus toutes les 30 s ferait faire demi-tour à l'équipe en boucle. R.rearm(served, tasks) rend la clé à garder : nil quand
-      la tâche est prise ou n'est plus au tableau (la garde se réarme).
+      Garde (relectures d'effondrement) : une tâche urgente DÉJÀ servie par un rappel (ctx.served = LISTE de clés servies) n'en déclenche pas un
+      second tant qu'elle reste libre au tableau : le PNJ rappelé ne la prend pas toujours (autre pôle, plafond d'urgences hors pôle, distance
+      qui bat la priorité) et rappeler un PNJ de plus toutes les 30 s ferait faire demi-tour à l'équipe en boucle. Un ENSEMBLE de clés, pas une
+      seule : avec deux urgences A et B jamais prises, une clé unique alternait A, B, A, B. R.rearm(served, tasks) rend la liste filtrée : une clé
+      part quand sa tâche est prise ou n'est plus au tableau. La liste ne dépasse jamais le nombre d'urgences libres.
   R.pick rend { npc, urgent, dropped_prio } ou nil et la raison de l'abstention.
 ]]
 local R = {}
@@ -46,9 +47,11 @@ function R.pick(ctx)
   for _, n in ipairs(ctx.npcs or {}) do
     if not n.busy then return nil, "libre" end
   end
+  local served = {}
+  for _, k in ipairs(ctx.served or {}) do served[k] = true end
   local urgents = {}
   for _, t in ipairs(ctx.tasks or {}) do
-    if (t.prio or 0) >= R.URGENT and t.ok ~= false and ctx.tick - (t.created or ctx.tick) >= R.AGE and t.key ~= ctx.served then urgents[#urgents + 1] = t end
+    if (t.prio or 0) >= R.URGENT and t.ok ~= false and ctx.tick - (t.created or ctx.tick) >= R.AGE and not served[t.key] then urgents[#urgents + 1] = t end
   end
   if #urgents == 0 then return nil, "aucune urgence" end
   table.sort(urgents, function(a, b)
@@ -74,13 +77,14 @@ function R.pick(ctx)
   return nil, "aucun candidat"
 end
 
---- Clé servie à garder : `served` si une tâche LIBRE de cette clé est encore au tableau (tasks = tâches libres), sinon nil (prise ou partie).
+--- Clés servies à garder : celles de `served` (liste, dans l'ordre d'ajout) dont une tâche LIBRE est encore au tableau (tasks = tâches libres).
 function R.rearm(served, tasks)
-  if served == nil then return nil end
-  for _, t in ipairs(tasks or {}) do
-    if t.key == served then return served end
+  local free, out = {}, {}
+  for _, t in ipairs(tasks or {}) do free[t.key] = true end
+  for _, k in ipairs(served or {}) do
+    if free[k] then out[#out + 1] = k end
   end
-  return nil
+  return out
 end
 
 return R

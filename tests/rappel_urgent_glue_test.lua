@@ -33,15 +33,15 @@ check(f.team.rappel_at == 100000 and f.stats.rappels == 1, "date et compte du ra
 check(#logs == 1 and logs[1]:find("ia1d:1:o:1", 1, true) and logs[1]:find("PNJ 2", 1, true) and logs[1]:find("ia3:mine:stone:2", 1, true),
   "une ligne de journal nomme la tâche urgente, le PNJ rappelé et sa tâche abandonnée")
 check(#Rp.stops(f, 100000 + 600) == 0, "30 s de pause : pas de second rappel 600 ticks après")
-check(#Rp.stops(f, 100000 + 1800) == 0 and f.team.rappel_key == "ia1d:1:o:1", "30 s écoulées mais MÊME tâche urgente encore libre : pas de second rappel (boucle de rappels)")
+check(#Rp.stops(f, 100000 + 1800) == 0 and f.team.rappel_keys[1] == "ia1d:1:o:1", "30 s écoulées mais MÊME tâche urgente encore libre : pas de second rappel (boucle de rappels)")
 tasks_list[1].worker = 2
 Rp.stops(f, 100000 + 3600)
-check(f.team.rappel_key == nil, "la tâche est prise : la garde est réarmée")
+check(#f.team.rappel_keys == 0, "la tâche est prise : la garde est réarmée")
 tasks_list[1].worker = nil
 check(#Rp.stops(f, 100000 + 5400) == 1, "tâche de nouveau libre après réarmement : rappel permis")
 
 agents[2].task.defend = true
-f.team.rappel_at, f.team.rappel_key = nil, nil
+f.team.rappel_at, f.team.rappel_keys = nil, nil
 r = Rp.stops(f, 200000)
 check(#r == 1 and r[1] == agents[1], "PNJ 2 en défense : seul l'éclaireur reste rappelable")
 agents[1].task.kind = "garrison"
@@ -58,5 +58,19 @@ check(#Rp.stops(f, 600000) == 0, "tâche sans matière libre : aucun rappel inut
 tasks_list[1].prenable = true
 tasks_list[1].prio = 80
 check(#Rp.stops(f, 700000) == 0, "sous 90 : pas une urgence")
+-- Âge depuis la première apparition : `created` remis à « maintenant » à chaque pensée ne bloque pas le rappel
+tasks_list[1].prio, tasks_list[1].created = 94, nil
+f.team = {}
+agents[2].task = { kind = "mine", key = "m", prio = 70 }
+tasks_list[1].created = 1000000
+check(#Rp.stops(f, 1000000) == 0, "tâche vue pour la première fois : trop jeune")
+tasks_list[1].created = 1000300
+check(#Rp.stops(f, 1000300) == 1, "created remis à zéro à chaque pensée : l'âge compte depuis la première apparition (300 ticks)")
+f.team = {}
+tasks_list[1].created = 2000000
+Rp.stops(f, 2000000)
+tasks_list[1] = nil
+Rp.stops(f, 2000300)
+check(next(f.team.rappel_seen) == nil, "tâche partie du tableau : sa première apparition est oubliée")
 print(string.format("[RAPPEL-GLUE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
