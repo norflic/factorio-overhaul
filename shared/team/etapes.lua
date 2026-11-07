@@ -117,7 +117,10 @@ end
 --- garde le sens d'avant le découpage, et global garde les références partagées à la sauvegarde (doc 1.1.91, auxiliary/global.html :
 --- « Circular references are handled properly »). Vue : f.team.deferred, f.team.done (Team.view). L : f.team.iag.key (General.key),
 --- f.team.ia3.known et f.team.ia3.reach (reach_of).
-E.REF_VIEW = { "deferred", "done" }
+--- Lot VIDEO-L3 (fusionné dans video-integ, étape 4 ; sonde du 7/11 vers 18 h 50 : 728 alias non déclarés) : view.avail_out et view.dort
+--- SONT f.team.mq.res.dispo_sorties et f.team.mq.res.dort, et view.mq = { need, build } porte f.team.mq.res.need et .build
+--- (script/team/team.lua, Team.view ; script/team/manque_vue.lua). Gardés par référence comme les autres : le sens d'avant le découpage.
+E.REF_VIEW = { "deferred", "done", "avail_out", "dort", "mq" }
 E.REF_L = { "key", "known", "reach" }
 
 --- État gardé de E1a : copie ENTIÈRE de la vue et copie des clés de L listées dans E.L (L nil : bascule éteinte), d'une seule copie
