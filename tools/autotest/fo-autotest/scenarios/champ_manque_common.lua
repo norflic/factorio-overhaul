@@ -97,6 +97,7 @@ return function(temoin)
         local s = ctx.surface()
         -- (premier passage, 5/11 22 h 05 : les lignes de « fo-ia1 teams » n'ont pas de position ; le QG se trouve par sa FORCE)
         local hq = r.force and s.find_entities_filtered({ name = "fo-faction-hq", force = r.force, limit = 1 })[1] or nil
+        st.hq_ent = hq -- (diagnostic de la centrale : compte BRUT du coffre des objets qui lui manquent)
         local inv = hq and hq.valid and hq.get_inventory(defines.inventory.chest)
         local removed = {}
         if inv then
@@ -173,6 +174,21 @@ return function(temoin)
             t, tostring(sl.counted), tostring(sl.cap), tostring(sl.materials), table.concat(rec.comp, " "), why and ('"' .. why .. '"') or "accordee",
             table.concat(iron_orders, ", "), rec.decisions, st.fini and " (centrale finie)" or ""))
           if not st.cap0 and sl.cap then st.cap0 = sl.cap end
+          -- DIAGNOSTIC (accord du lead, 7/11 vers 19 h 35), HORS BILAN : la centrale restait « reserve » jusqu'au bout (passage 8a2bb5cd).
+          -- État, raison, manques du projet (fo-ia1d status) et compte BRUT du coffre de chaque objet manquant : présent au coffre brut,
+          -- l'objet est tenu par une réservation de tâche (stock libre, Board.view_stock) ; absent, il a été consommé ou n'y a jamais été.
+          local ia = ctx.remote("fo-ia3e", "status", st.key)
+          local ps = ia and ia.plant and ctx.remote("fo-ia1d", "status", st.key, ia.plant)
+          if ps then
+            local inv = st.hq_ent and st.hq_ent.valid and st.hq_ent.get_inventory(defines.inventory.chest)
+            local miss = {}
+            for _, m in ipairs(ps.missing or {}) do
+              miss[#miss + 1] = string.format("%s %s (coffre brut %s)", tostring(m[1]), tostring(m[2]), inv and tostring(inv.get_item_count(m[1])) or "?")
+            end
+            ctx.log(string.format("DIAG centrale tick %d : projet %s etat %s raison %s ; manques {%s} ; baties %s/%s ; obstacles ouverts %s",
+              t, tostring(ps.id), tostring(ps.state), tostring(ps.reason), table.concat(miss, ", "), tostring(ps.built), tostring(ps.total),
+              tostring(ps.open_obstacles)))
+          end
         end
       end
     end,
