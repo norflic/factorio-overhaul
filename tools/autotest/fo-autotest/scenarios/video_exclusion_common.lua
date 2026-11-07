@@ -6,9 +6,9 @@
   de la capitalisation vient vers le tick 3000 (minute 1) ; contrôle au tick 3900.
     variante « exclusion » : fo-war-exclusion = « iron-plate » AVANT la guerre. Attendu : chaque faction a décidé au moins une fois,
                              aucun ordre ouvert ni fini ne porte sur les plaques de fer ; le journal du mod porte « [FO-EXCLU] »
-                             (lu par tools/autotest/video_exclusion.py sur l'archive du banc).
+                             (lu par grep dans benchmark.log de l'archive du banc).
     variante « temoin »    : réglage VIDE (la valeur par défaut est relue vide avant tout). Même protocole ; la ligne [FO-CAPI] de la
-                             décision montre l'ordre sur les plaques (lu par le même outil) : sans lui, l'attendu de la variante
+                             décision montre l'ordre sur les plaques (lue de même) : sans lui, l'attendu de la variante
                              « exclusion » ne prouverait rien.
   Lancement : banc.py --out <archive> --qui video-plafonds -- 4000 video-exclusion <source> (puis video-exclusion-temoin).
   Journal : [FO-VIDEO-EXCLUSION] / [FO-VIDEO-EXCLUSION-TEMOIN].
