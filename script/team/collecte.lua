@@ -15,6 +15,7 @@ local Col = {}
 Col.EVERY = 300     -- ticks entre deux choix (le choix tient entre-temps)
 Col.LOGS = 12       -- lignes [FO-COLLECTE] au plus par partie, pour les choix, et 12 de plus pour les refus (une par coffre et par cause)
 local PLATE = T.outposts.iron.product
+local CHEST = T.outposts.coal.sink -- coffre des avant-postes bruts (shared/team/config.lua) : le coffre de sortie des projets du plan directeur
 
 local function loss_near(f, x, y, tick)
   local org = f.team and f.team.org
@@ -55,7 +56,7 @@ local function candidates(f, surface, b, tasks, tick)
     if is_collect(t) then
       local p = b.projects[t.ia1d.pid]
       local o = p and p.outs and p.outs[t.ia1d.idx]
-      local chest = o and surface.find_entity("iron-chest", { o.x, o.y })
+      local chest = o and surface.find_entity(CHEST, { o.x, o.y })
       if chest and chest.valid then
         local n = chest.get_item_count(PLATE)
         local at = o.at or 200
@@ -141,7 +142,7 @@ function Col.waiting(f, surface, b)
   for _, pid in ipairs(b.order or {}) do
     local p = b.projects[pid]
     for _, o in ipairs((p and p.outs) or {}) do
-      local c = surface.find_entity("iron-chest", { o.x, o.y })
+      local c = surface.find_entity(CHEST, { o.x, o.y })
       if c and c.valid and c.force.name == f.force then
         local n = c.get_item_count(PLATE)
         if n > 0 then total, chests = total + n, chests + 1 end
