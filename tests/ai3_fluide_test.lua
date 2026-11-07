@@ -214,6 +214,17 @@ local function valve_suite(M)
   } }
   vok(M.valve_recipe(rel, "fz") == "zz-solide", "recette de surplus : visible, un seul fluide, produits solides (la première retenue)")
   vok(M.valve_recipe({ recipes = {} }, "fz") == nil, "aucune recette : nil")
+  -- recette non débloquée (enabled = false) : jamais choisie ; seule, elle donne un refus écrit
+  local rel2 = { recipes = {
+    ["aa-verrou"] = { hidden = false, enabled = false, ingredients = { { type = "fluid", name = "fz", amount = 1 } }, products = { { type = "item", name = "sol", amount = 1 } } },
+    ["bb-ouverte"] = { hidden = false, ingredients = { { type = "fluid", name = "fz", amount = 1 } }, products = { { type = "item", name = "sol", amount = 1 } } },
+  } }
+  vok(M.valve_recipe(rel2, "fz") == "bb-ouverte", "recette non débloquée écartée : la débloquée est choisie")
+  local rel3 = { recipes = { ["aa-verrou"] = rel2.recipes["aa-verrou"] } }
+  vok(M.valve_recipe(rel3, "fz") == nil, "seule recette non débloquée : aucune")
+  local rv, vst = nil, M.valve_new()
+  for _ = 1, M.VALVE_K do rv = M.valve(vst, "fz", 0.95, 0, M.valve_recipe(rel3, "fz")) end
+  vok(rv.open == false and rv.why:find("surplus", 1, true) ~= nil, "seule recette non débloquée : refus écrit")
   return vp, vf, vmsg
 end
 
@@ -236,6 +247,7 @@ local VMUT = {
   { "recette de surplus ignorée", "  if not surplus then", "  if false then" },
   { "entrée fluide non comptée", "          fluid_in = fluid_in + 1", "          fluid_in = fluid_in + 0" },
   { "produit fluide accepté comme surplus", "if p.type ~= \"item\" then only_item_out = false end", "" },
+  { "recette non débloquée choisie", " and r.enabled ~= false and", " and" },
 }
 local vrefused, vkept = 0, {}
 for _, m in ipairs(VMUT) do

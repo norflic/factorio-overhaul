@@ -1452,14 +1452,15 @@ Fl.VALVE_FILL = 0.9 -- remplissage STRICTEMENT au-delà duquel la cuve est plein
 Fl.VALVE_K = 5      -- mesures pleines consécutives avant d'ouvrir la soupape
 
 --- Recette de surplus d'un fluide, lue dans le relevé : la première recette VISIBLE (ordre des noms) dont l'unique entrée
---- fluide est ce fluide et dont tous les produits sont des objets (solides). Aucun nom n'est écrit ici (anti-échelle).
+--- fluide est ce fluide, dont tous les produits sont des objets (solides), et qui est DÉBLOQUÉE (enabled ~= false : absent = permis,
+--- comme capitalisation.lua:391). Aucun nom n'est écrit ici (anti-échelle).
 function Fl.valve_recipe(rel, fluide)
   local names = {}
   for name in pairs((rel and rel.recipes) or {}) do names[#names + 1] = name end
   table.sort(names)
   for _, name in ipairs(names) do
     local r = rel.recipes[name]
-    if not r.hidden and r.ingredients and r.products and #r.products > 0 then
+    if not r.hidden and r.enabled ~= false and r.ingredients and r.products and #r.products > 0 then
       local fluid_in, only_item_out = 0, true
       local takes = false
       for _, i in ipairs(r.ingredients) do
