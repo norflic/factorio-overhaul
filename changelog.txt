@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Version: 0.6.56
+Date: 2026-11-07
+  Changes:
+    - Unites experimentales : la migration de vie de 0.6.55 est retiree. Le moteur garde deja seul la proportion de vie quand le maximum change (mesure en jeu : 50 % avant, 50 % apres) ; 0.6.55 l'appliquait une seconde fois. Regeneration du Bourdon proportionnelle a son maximum.
+    - Couloir de l'enceinte : un remplacement sur place n'est refuse que s'il coupe le couloir ; tout ce qui arrete un PNJ compte (toutes forces, rochers, falaises, arbres, eau). Le PNJ mure par l'enceinte est libere (banc etage5-couloir).
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Version: 0.6.55
 Date: 2026-11-07
   Changes:
