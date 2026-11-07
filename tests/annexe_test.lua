@@ -565,8 +565,13 @@ do
   local saved_reserved = Stock.reserved
   Stock.reserved = function(_, _, p) return key(p) == key(at(4)) end
   local rows = Stock.annex_blockers(f, surface, "iron-chest")
-  check(#rows == 4 and rows[1].own and rows[2].ground == 3 and #rows[2].names == 0 and rows[3].names[1] == "stone-furnace" and rows[4].reserved,
-    "places refusees : la notre, 3 objets au sol, un four, une reserve du plan (" .. #rows .. ")")
+  check(#rows == 4 and rows[1].own and rows[2].ground == 3 and #rows[2].names == 0 and rows[3].names[1] == "stone-furnace[-, hors plan]"
+    and rows[4].reserved, "places refusees : la notre, 3 objets au sol, un four (force, hors plan), une reserve du plan (" .. #rows .. ")")
+  f.build = { occ = { [require("shared.team.plan").tkey(math.floor(at(3).x), math.floor(at(3).y))] = 7 } }
+  world[#world].force = { name = "player" }
+  local rows2 = Stock.annex_blockers(f, surface, "iron-chest")
+  check(rows2[3].names[1] == "stone-furnace[player, projet 7]", "entite bloquante : sa force et le projet du plan (" .. tostring(rows2[3].names[1]) .. ")")
+  f.build = nil
   -- Stock.grow : coffre en main, stock plein, aucune pose -> une ligne [FO-ANNEXE] « aucune place libre », bornée
   f.hq.items["iron-chest"] = 1
   f.hq.items.coal = (STACK.coal or 50) * 9
@@ -580,6 +585,84 @@ do
   check(n == 1 and line and line:find("sol 3", 1, true) and line:find("stone-furnace", 1, true) and line:find("reserve du plan", 1, true)
     and line:find("1 prise(s) par nos annexes", 1, true), "journal : une ligne bornee, avec chaque raison (" .. tostring(line) .. ")")
   Stock.reserved = saved_reserved
+end
+
+do
+  print("== Lot STOCKAGE-VITAL (b) : place du bloc tenue par des objets au sol seulement : degagee, coffre pose, objets dedans")
+  local A = require("shared.team.annexe")
+  local slots = A.slots(1, 1, 1)
+  local function tile(p) return math.floor(p.x) .. "," .. math.floor(p.y) end
+  local function make_world()
+    local W = { ents = {}, spilled = {}, made = {} }
+    local function on(p)
+      local out = {}
+      for _, e in ipairs(W.ents) do if e.valid and tile(e.position) == tile(p) then out[#out + 1] = e end end
+      return out
+    end
+    W.surface = {
+      can_place_entity = function(t) return #on(t.position) == 0 end,
+      find_entities_filtered = function(t)
+        if not t.area then return {} end
+        return on({ x = (t.area[1][1] + t.area[2][1]) / 2, y = (t.area[1][2] + t.area[2][2]) / 2 })
+      end,
+      create_entity = function(t)
+        if W.refuse or #on(t.position) > 0 then return nil end
+        local e = new_chest(16)
+        e.name, e.position, e.unit_number = t.name, t.position, 1000 + #W.made
+        W.made[#W.made + 1] = e
+        W.ents[#W.ents + 1] = e
+        return e
+      end,
+      spill_item_stack = function(p, st) W.spilled[#W.spilled + 1] = { p = p, name = st.name, count = st.count } end,
+    }
+    function W.item(p, name, n, extra)
+      local g = { valid = true, name = "item-on-ground", position = { x = p.x, y = p.y }, stack = { valid_for_read = true, name = name, count = n } }
+      for k, v in pairs(extra or {}) do g.stack[k] = v end
+      g.destroy = function() g.valid = false end
+      W.ents[#W.ents + 1] = g
+      return g
+    end
+    function W.block(p, name) W.ents[#W.ents + 1] = { valid = true, name = name, position = { x = p.x, y = p.y } } end
+    return W
+  end
+  local function full_team()
+    local f = team(10)
+    f.hq.items.coal = 50 * 9
+    f.hq.items["iron-chest"] = 1
+    f.annex, f.annex_sy = {}, 1
+    return f
+  end
+  local function pos(i) return { x = slots[i][1] + 0.5, y = slots[i][2] + 0.5 } end
+  -- toutes les places tenues par un four, sauf la 3e, tenue par 4 plaques et 2 charbons au sol
+  local W = make_world()
+  for i = 1, #slots do if i ~= 3 then W.block(pos(i), "stone-furnace") end end
+  local g1, g2 = W.item(pos(3), "copper-plate", 4), W.item(pos(3), "coal", 2)
+  local f = full_team()
+  for i = #logs, 1, -1 do logs[i] = nil end
+  local placed = Stock.grow(f, W.surface, 100)
+  local chest = W.made[1]
+  check(placed and chest and tile(chest.position) == tile(pos(3)) and not g1.valid and not g2.valid
+    and chest.items["copper-plate"] == 4 and chest.items.coal == 2 and #W.spilled == 0,
+    "place degagee : coffre pose sur la place aux objets, les 4 plaques et 2 charbons DANS le coffre, rien au sol")
+  local seen = false
+  for _, s in ipairs(logs) do if s:find("degagee : 6 objet(s) au sol releve(s), 6 mis dans le coffre", 1, true) then seen = true end end
+  check(seen, "journal : [FO-ANNEXE] place degagee")
+  -- une pile speciale (armure) ou une autre entite sur la place : on n'y touche pas
+  local W2 = make_world()
+  for i = 1, #slots do if i ~= 3 then W2.block(pos(i), "stone-furnace") end end
+  local arm = W2.item(pos(3), "modular-armor", 1)
+  local p2 = W2.item(pos(3), "copper-plate", 4)
+  check(not Stock.grow(full_team(), W2.surface, 100) and arm.valid and p2.valid and #W2.made == 0, "pile speciale sur la place : rien n'est touche")
+  -- la pose echoue apres le releve : rien n'est perdu (au stock ou de nouveau au sol)
+  local W3 = make_world()
+  for i = 1, #slots do if i ~= 3 then W3.block(pos(i), "stone-furnace") end end
+  W3.item(pos(3), "copper-plate", 4)
+  W3.refuse = true
+  local f3 = full_team()
+  Stock.grow(f3, W3.surface, 100)
+  local back = (f3.hq.items["copper-plate"] or 0)
+  for _, s in ipairs(W3.spilled) do if s.name == "copper-plate" then back = back + s.count end end
+  check(#W3.made == 0 and back == 4, "pose echouee : les 4 plaques reviennent (stock ou sol), aucune perdue (" .. back .. ")")
 end
 
 do

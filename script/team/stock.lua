@@ -21,6 +21,7 @@ local T = require("shared.team.config")
 local A = require("shared.team.annexe")
 local Sg = require("shared.team.stockage") -- lot STOCKAGE-VITAL : réserve des matières vitales, ramassage, coffre urgent
 local Pl = require("shared.ai3.places")
+local Plan = require("shared.team.plan") -- lot STOCKAGE-VITAL (a) : clé de tuile du plan directeur (f.build.occ), projet d'une entité bloquante
 local PlacesQG = require("script.ai3.places_qg")
 local Br = require("shared.ai3.bras")
 local Ad = require("shared.team.adopte")
@@ -382,9 +383,8 @@ end
 
 --- Pose UN coffre `item` à la première place libre du bloc des annexes (une place réservée par le plan directeur est sautée) ;
 --- `take()` retire le coffre de sa source une fois l'entité créée. Rend 1 (posé) ou 0.
-local function place_one(f, surface, item, take)
-  local w, h = footprint(item)
-  return PlacesQG.place_list(surface, item, f.force, f.hq_pos, A.slots(side(f), w, h), 0, 1, function(pos)
+local function annex_make(f, surface, item, take)
+  return function(pos)
     if Stock.reserved and Stock.reserved(f, item, pos) then return false end
     local e = surface.create_entity({ name = item, position = pos, force = f.force })
     if not (e and e.valid) then return false end
@@ -392,7 +392,67 @@ local function place_one(f, surface, item, take)
     f.annex = f.annex or {}
     f.annex[#f.annex + 1] = e
     return true
-  end)
+  end
+end
+
+-- Pile simple (prototype de type « item », santé pleine) : seule sorte qu'on relève du sol sans rien perdre (relecture de 3a276733, B2).
+local function is_simple(st)
+  if not (st and st.valid_for_read) then return false end
+  local proto = game.item_prototypes[st.name]
+  return proto ~= nil and proto.type == "item" and (st.health or 1) >= 1
+end
+
+--- Lot STOCKAGE-VITAL (b) : une place du bloc que SEULS des objets au sol refusent (F404 : un item-on-ground sur la tuile suffit à
+--- refuser can_place_entity au contrôle par défaut, ghost_revive, celui de script/ai3/places_qg.lua) : ses objets (piles simples
+--- seulement ; une autre entité ou une pile spéciale sur la place : on n'y touche pas) sont relevés, le coffre posé, et les objets mis
+--- DEDANS ; si la pose échoue, ils retournent au stock ou, à défaut, au sol de la place (rien n'est perdu). Première place qui convient,
+--- dans l'ordre du bloc. Rend 1 si un coffre a été posé, 0 sinon. Une ligne [FO-ANNEXE] « place degagee ».
+local function place_on_ground(f, surface, item, take)
+  if not (surface.can_place_entity and surface.find_entities_filtered and surface.spill_item_stack and f.hq_pos) then return 0 end
+  local w, h = footprint(item)
+  for _, o in ipairs(A.slots(side(f), w, h)) do
+    local p = { x = Pl.snap(f.hq_pos.x + o[1], w), y = Pl.snap(f.hq_pos.y + o[2], h) }
+    if not (Stock.reserved and Stock.reserved(f, item, p)) and not surface.can_place_entity({ name = item, position = p, force = f.force }) then
+      local area = { { p.x - w / 2 + 0.01, p.y - h / 2 + 0.01 }, { p.x + w / 2 - 0.01, p.y + h / 2 - 0.01 } }
+      local ents = surface.find_entities_filtered({ area = area })
+      local held, ok = {}, #ents > 0
+      for _, e in ipairs(ents) do
+        if not (e.valid and e.name == "item-on-ground" and is_simple(e.stack)) then
+          ok = false
+          break
+        end
+        held[#held + 1] = { e = e, name = e.stack.name, count = e.stack.count }
+      end
+      if ok then
+        for _, it in ipairs(held) do it.e.destroy() end
+        local placed = PlacesQG.place_list(surface, item, f.force, f.hq_pos, { o }, 0, 1, annex_make(f, surface, item, take))
+        local chest = placed > 0 and f.annex and f.annex[#f.annex] or nil
+        local inside, n = 0, 0
+        for _, it in ipairs(held) do
+          local put = chest and chest.valid and chest.insert({ name = it.name, count = it.count }) or 0
+          inside = inside + put
+          n = n + it.count
+          if put < it.count then put = put + Stock.insert(f, it.name, it.count - put) end
+          if put < it.count then surface.spill_item_stack(p, { name = it.name, count = it.count - put }, false, nil, false) end
+        end
+        if placed > 0 then
+          log(string.format("[FO-ANNEXE] %s : place (%.1f, %.1f) degagee : %d objet(s) au sol releve(s), %d mis dans le coffre pose", f.key or "player",
+            p.x, p.y, n, inside))
+          f.stats = f.stats or {}
+          f.stats.annex_cleared = (f.stats.annex_cleared or 0) + 1
+          return 1
+        end
+      end
+    end
+  end
+  return 0
+end
+
+local function place_one(f, surface, item, take)
+  local w, h = footprint(item)
+  local placed = PlacesQG.place_list(surface, item, f.force, f.hq_pos, A.slots(side(f), w, h), 0, 1, annex_make(f, surface, item, take))
+  if placed == 0 then placed = place_on_ground(f, surface, item, take) end
+  return placed
 end
 
 --- Lot STOCKAGE-VITAL (impasse vue le 7/11 sur la sauvegarde du DC : stock plein, 46 annexes sur 48, coffre en main, aucune pose) :
@@ -418,9 +478,16 @@ function Stock.annex_blockers(f, surface, item)
           row.ground = row.ground + 1
         elseif e.unit_number and own[e.unit_number] then
           row.own = true
-        elseif not seen[e.name] then
-          seen[e.name] = true
-          row.names[#row.names + 1] = e.name
+        else
+          -- force et projet du plan directeur qui tient la tuile de l'entité (f.build.occ) : un coffre du DC n'est jamais touché
+          local force = type(e.force) == "table" and e.force.name or tostring(e.force or "-")
+          local occ = f.build and f.build.occ
+          local pid = occ and e.position and occ[Plan.tkey(math.floor(e.position.x), math.floor(e.position.y))]
+          local label = string.format("%s[%s%s]", e.name, force, pid and (", projet " .. tostring(pid)) or ", hors plan")
+          if not seen[label] then
+            seen[label] = true
+            row.names[#row.names + 1] = label
+          end
         end
       end
       table.sort(row.names)
