@@ -89,6 +89,7 @@ local Dm = require("shared.ai3.demande") -- lot C2 : puits ouvert, emplacements 
 local Ind = require("script.ai3.industrie") -- lot INDUSTRIE I6 : choix du patron (rangée ou bloc de mall), lecture des prototypes
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (ordres neufs, équipement en modules)
 local Pi = require("shared.ai3.pile")
+local Pe = require("shared.ai3.portes_extension") -- lot VIDEO-L6 : portes avant d'étendre (Capi.portes, decide_finish)
 local Ext = require("script.ai3.extension") -- lot C3 EXTENSION : rayon de base (étendue des avant-postes)
 local MigChamp = require("script.team.migration_champ") -- lot CHAMP : « couvrir / ouvrir » d'un minerai à fondre passent par le champ
 
@@ -927,7 +928,55 @@ function Capi.slots(f, cs, stock, tick, book)
     log(string.format("[FO-CAPI-EMPLACEMENTS] %s : %s ; libres %d ; stock {%s} ; figes [%s] ; pile [%s] a %.1f min", f.key or "?", sl.why, sl.room,
       table.concat(pl, " "), table.concat(sl.keys_stalled, ", "), table.concat(sl.keys_piled, ", "), minutes(f, tick)))
   end
+  -- Lot VIDEO-L6 (porte des bras, G12) : modules de la capitalisation POSÉS (tous leurs projets « fini ») et chantiers OUVERTS (un projet
+  -- ni fini, ni en réserve, ni refusé, ni perdu) ; lus par Capi.portes. Approximation déclarée : seuls les modules de la capitalisation
+  -- comptent (ni les autres projets du plan directeur, ni le QG).
+  -- (relu module par module : la liste `states` ci-dessus s'arrête au premier projet non fini)
+  local batis, open_sites = 0, 0
+  for _, o in ipairs(cs.open or {}) do
+    if o.exec == "module" then
+      for _, id in ipairs(o.mod_ids or { o.module }) do
+        local m = Auto.module(f, id)
+        local s = m and m.state
+        if s == "fini" then batis = batis + 1
+        elseif s ~= nil and s ~= "reserve" and s ~= "refuse" then open_sites = open_sites + 1 end
+      end
+    end
+  end
+  sl.batis, sl.open_sites = batis, open_sites
   return sl
+end
+
+---------------------------------------------------------------------------------------------------
+-- Lot VIDEO-L6 (étape 6 de VIDEO-INTEG) : PORTES AVANT D'ÉTENDRE (règle pure shared/ai3/portes_extension.lua, Pe). Réglage de carte
+-- fo-war-portes, ÉTEINT par défaut ; lu avec repli à « éteint » tant qu'il n'est pas déclaré (settings.lua : intégrateur).
+---------------------------------------------------------------------------------------------------
+Capi.PORTES_SETTING = "fo-war-portes"
+-- Ordres qui AJOUTENT des tournées de PNJ : les chantiers du plan directeur (et du champ) et les laboratoires servis à la main.
+local PORTES_TOURS = { couvrir = true, ouvrir = true, chaine = true, packs = true, labos = true }
+
+function Capi.portes_on()
+  local ok, v = pcall(function() return settings.global[Capi.PORTES_SETTING].value end)
+  return ok and v == true
+end
+
+--- Porte de la décision : { [clé d'ordre] = raison } des ordres retenus, ou nil (réglage éteint : la décision d'avant, inchangée).
+--- Entrées : PNJ et PNJ sans tâche de la vue (view.workers, view.workers_waiting), tâches libres qui attendent (view.backlog, écrit par
+--- Team.view), modules posés et chantiers ouverts (cs.slots, Capi.slots). État : cs.portes (nombres, booléens, une chaîne).
+function Capi.portes(f, cs, res, view, tick)
+  if not Capi.portes_on() then return nil end
+  cs.portes = cs.portes or Pe.new()
+  local sl = cs.slots or {}
+  local a = { workers = view.workers, idle = view.workers_waiting, free_tasks = view.backlog, batis = sl.batis, open_sites = sl.open_sites }
+  local was = cs.portes.closed
+  local r = Pe.filter(cs.portes, a, res.orders, { family_of = Pi.order_family, family_rank = Pi.FAMILY_RANK,
+    site_kinds = Capi.MODULE_KINDS, tours_kinds = PORTES_TOURS })
+  if r.refused > 0 or r.closed ~= was then
+    log(string.format("[FO-PORTES] %s minute %d : transport %s (%d fermeture(s)) ; %d ordre(s) gardes, %d retenu(s), %d qu'une petite marche aurait reduit(s) ; places de chantier %d sur %d (%d pose(s), %d ouvert(s)) ; %s",
+      f.key or "?", math.floor(minutes(f, tick) + 0.5), r.closed and "SATURE" or "libre", cs.portes.closes or 0, r.kept, r.refused, r.reduced,
+      r.room, r.limit, sl.batis or 0, sl.open_sites or 0, tostring(r.cause)))
+  end
+  return r.why
 end
 
 --- Lot CAPI-DECIDE : l'exécutant des chaînes sait-il les poser aujourd'hui ? (input.can_exec de la règle, mémo de la décision.)
@@ -1623,6 +1672,9 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
   -- Relecture du lead (18 h 10, point 1) : emplacements PLEINS au début de la décision : une foreuse n'a pu être accordée que par le
   -- siège du complément, le champ y passe lui aussi (Em.champ_seat).
   local full = room ~= nil and room <= 0
+  -- Lot VIDEO-L6 : portes avant d'étendre (transport saturé, bras à seuil croissant), AVANT la boucle d'envoi ; nil : réglage éteint.
+  -- Un ordre retenu suit le chemin des refus ci-dessous (« porte L6 : », épargne rendue, cs.refused).
+  local gate_why = Capi.portes(f, cs, res, view, tick)
   for _, o in ipairs(res.orders) do
     local rec, why
     -- (Intégration 0.6.25 : la porte de la pile de FUITES-PILE d'abord, puis le plafond des emplacements de CAPI-DEBIT.)
@@ -1631,7 +1683,10 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
     local seat = Em.order_seat(room, room_comp, cs.slots and cs.slots.comp, meth_o and meth_o.product) -- (règle pure, testée)
     local champ = to_champ(f, cs, o) -- (lot CHAMP : le champ n'est pas un module)
     local cseat = champ and Em.champ_seat(full, room, room_comp, cs.slots and cs.slots.comp, meth_o and meth_o.product) or nil
-    if allowed and Capi.MODULE_KINDS[o.kind] and ((not champ and seat == nil) or (champ and cseat == nil)) then
+    local gw = gate_why and gate_why[o.key]
+    if gw then
+      rec, why = nil, "porte L6 : " .. gw
+    elseif allowed and Capi.MODULE_KINDS[o.kind] and ((not champ and seat == nil) or (champ and cseat == nil)) then
       rec, why = nil, Em.busy_text(cs.slots) .. " ; emplacements libres pris par cette decision"
       -- (intégration 0.6.32 : retenu faute de place lui aussi ; remarque 6 de la relecture de CORR-CHAMP-MANQUE : pas quand seul le
       -- siège unique du complément était pris, Em.blocked_counts)
