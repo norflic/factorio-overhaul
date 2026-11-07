@@ -50,6 +50,7 @@ local FoSwap = require("script.team.foreuse_swap") -- lot FOREUSES : foreuse à 
 local Survie = require("script.team.survie") -- lot SURVIE-PENURIE : mode survie d'une équipe en pénurie (entrée, sortie, tâches, journal)
 local SurvieQg = require("script.team.survie_qg") -- lot S1 : QG en péril (défense armée contre la menace reçue, journal [FO-SURVIE])
 local MenaceQg = require("script.team.menace_qg") -- lot L12 (partie 1) : hystérésis de la menace sur le QG (hq_threat)
+local MenaceEq = require("script.team.menace_equipe") -- lot L12 (partie 3) : menace TENUE (view.threat_held), lue par la capitalisation seulement
 local Sq = require("shared.team.survie_qg") -- lot QGSURVIE : réserve de fer du QG (règle pure)
 local PileRt = require("script.team.pile") -- lot PILE-PRIORITE : la pile retient l'amélioration (réparer + protéger d'abord)
 local Flux = require("shared.team.flux") -- lot FLUX : sorties des avant-postes comptées comme objets attendus (règle pure)
@@ -769,6 +770,7 @@ function Team.view(f, tick)
     -- prérequis gardés) ; sans chef (avant sa première pensée), T.ladder.
     ladder = f.is_player and T.player_ladder or ChefRules.ladder_entries(f.chef), no_research = f.is_player or false,
     threatened = threatened,
+    threat_held = MenaceEq.observe(f, tick) or nil, -- lot L12 (partie 3) : menace tenue (une mesure par pensée), lue SEULEMENT par la capitalisation
     -- Lot ARMEE-ANTICIPATION : vague annoncée (script/ai3/soldats.lua, f.armee) : l'armée visée monte au besoin estimé, avec la
     -- priorité de la défense (shared/team/planner.lua). Factions seulement (votre équipe n'a pas de soldats : soldiers_max = 0).
     -- Lot PREVISION : alerte d'ÉTAT (cadre « préparer » de la première vague ouvert, script/ai3/prevision.lua ; plus d'horloge) ;
