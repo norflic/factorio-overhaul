@@ -34,6 +34,7 @@ local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG 
 local Worker = require("script.team.worker")
 local Bail = require("script.team.bail") -- lot ETAGE4 : bail des tournées prises (shared/team/bail.lua)
 local Poles = require("script.team.poles") -- lot IA1-b : pôles, managers, généralistes, travail de fond
+local Rappel = require("script.team.rappel_urgent") -- lot COLLECTE : rappel d'un PNJ occupé pour une tâche urgente que personne ne prend
 local Build = require("script.team.build") -- lot IA1-d : plan directeur et construction (rien sans f.build)
 local GardeCentrale = require("script.team.garde_centrale") -- lot CENTRALE-GARDE : la centrale finie est un poste à défendre
 local DefenseLog = require("script.team.defense_log") -- lot DEFENSE-FACTIONS : journal des blocages de la défense
@@ -1026,6 +1027,7 @@ TT.e1c = function(f, surface, tick, et)
   Poles.think(f, view, book_for(f), tick, plan)
   if ia3 then Ia3.after_poles(f, tick) end -- lot IA3-c : pas de fond sur une matière saturée
   for _, a in ipairs(Poles.sur_stops(f)) do Worker.abort(a, f, tick, "preempte") end -- intégration 0.6.30 : la file sûre cède au travail du cerveau
+  for _, a in ipairs(Rappel.stops(f, tick)) do Worker.abort(a, f, tick, "preempte") end -- lot COLLECTE : une tâche >= 90 libre sans PNJ libre rappelle un PNJ occupé
   Profiler.stop("team:poles")
   Build.couloir_report(f, tick) -- lot ÉTAGE 5 (revue B3, 2e relecture) : bilan [FO-COULOIR] de TOUTES les équipes, plan directeur ou non
   -- Gel pour E4 à E6 : seuls les champs de Et.VIEW et Et.PLAN (la vue entière et L ne servent plus).
