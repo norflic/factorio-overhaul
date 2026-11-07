@@ -1907,7 +1907,7 @@ local function decide_start(f, cs, view, book, tick, w, run)
     log(string.format("[FO-CAPI] %s : decision refusee : entree absente : %s a %.1f min", f.key or "?", absent, minutes(f, tick)))
     return false
   end
-  Capi.palier(f, cs, view, input, tick) -- lot VIDEO-L10 (variante B, réglage fo-war-paliers ÉTEINT) : AVANT l'instantané
+  Capi.palier(f, cs, view, input, tick) -- lot VIDEO-L10 (variante B, réglage fo-war-paliers ALLUMÉ par défaut) : AVANT l'instantané
   local snap = {}
   for _, k in ipairs(sorted_keys(input)) do
     if k ~= "data" and k ~= "can_exec" then snap[k] = input[k] end
