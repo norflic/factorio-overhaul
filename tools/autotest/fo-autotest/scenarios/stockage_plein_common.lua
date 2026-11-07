@@ -171,19 +171,34 @@ return {
           if q and s.create_entity({ name = name, position = q }) then st.planted = st.planted + 1 end
         end
       end
-      -- fer en poche des PNJ restants
-      st.pocket = 0
+      -- Scène v2 (premier passage du 7/11, 16 h 20 : 2 coffres de fer EN POCHE d'un PNJ, fabriqués avant la scène, posés au dépôt
+      -- en 2 s : le coffre urgent ne servait jamais) : fabrications des PNJ annulées et coffres d'annexe retirés de leurs poches,
+      -- puis fer en poche des PNJ restants
+      st.pocket, st.cancelled, st.pocket_chests = 0, 0, 0
       for _, ch in ipairs(s.find_entities_filtered({ position = qg.position, radius = 80, type = "character", force = "player" })) do
+        for i = ch.crafting_queue_size, 1, -1 do
+          local q = ch.crafting_queue and ch.crafting_queue[i]
+          if q then
+            ch.cancel_crafting({ index = i, count = q.count })
+            st.cancelled = st.cancelled + q.count
+          end
+        end
         local mi = ch.get_inventory(defines.inventory.character_main)
-        if mi then st.pocket = st.pocket + mi.insert({ name = "iron-plate", count = POCKET }) end
+        if mi then
+          for _, nm in ipairs(ANNEX_NAMES) do
+            local k = mi.get_item_count(nm)
+            if k > 0 then st.pocket_chests = st.pocket_chests + mi.remove({ name = nm, count = k }) end
+          end
+          st.pocket = st.pocket + mi.insert({ name = "iron-plate", count = POCKET })
+        end
       end
       st.iron0 = delivered_iron(ctx)
       local after = ctx.remote("fo-ia1", "team_status", "player")
       st.n1 = after and #after.npcs or -1
       st.annex0 = #annexes(s, qg)
-      ctx.log(string.format("scene : coffre %d/%d cases, pierre %d, bois %d, fer %d ; PNJ %d -> %d (depart %d) ; arbres retires %d, plantes %d (%s) ; fer en poche %d ; annexes %d",
+      ctx.log(string.format("scene v2 : coffre %d/%d cases, pierre %d, bois %d, fer %d ; PNJ %d -> %d (depart %d) ; arbres retires %d, plantes %d (%s) ; fer en poche %d ; coffres retires des poches %d, fabrications annulees %d ; annexes %d",
         u, n, st.stone0, qg.get_item_count("wood"), qg.get_item_count("iron-plate"), st.n0, st.n1, st.floor, removed, st.planted,
-        tostring(st.tree), st.pocket, st.annex0))
+        tostring(st.tree), st.pocket, st.pocket_chests, st.cancelled, st.annex0))
     elseif t == SETUP + 60 then
       probe_line(ctx, "plein", "iron-plate", probe(ctx, "iron-plate"))
       probe_line(ctx, "plein", "stone", probe(ctx, "stone"))
