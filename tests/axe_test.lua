@@ -108,7 +108,8 @@ local function extract(src, from, to)
   local b = assert(src:find(to, a, true), "repère absent : " .. to)
   return src:sub(a, b - 1)
 end
-local Build = {}
+-- Lot ÉTAGE 5 : Build.reserved_entity lit aussi les couloirs d'accès (Build.couloirs, hors du bloc extrait) : aucun couloir dans ce banc.
+local Build = { couloirs = function() return {} end, NO_COULOIR = {} }
 local Outposts, Stock = {}, {}
 local function load_build(src, A)
   local chunk_src = extract(src, "--- Lot AUTO : l'emprise d'une entité `name`", "Build.ROUTE_WEIGHT")

@@ -326,6 +326,25 @@ local function wanted_items(f, General, c)
   return out, seen, diag
 end
 
+--- Lot PERF3 : recettes du catalogue qui produisent au moins un PACK, triées, avec ces packs dans leur ordre ({ rn, packs }) ;
+--- gardées par catalogue (General.catalogue rend la même table tant que les réglages ne changent pas ; table locale, rebâtie après
+--- un chargement : déduite des seuls prototypes, la même sur tous les clients). Pet.think les parcourait TOUTES (377 recettes : tri des
+--- noms et deux appels au moteur par recette, à chaque pensée de faction) pour n'en garder que celles-ci.
+local pack_rows_cat, pack_rows = nil, nil
+local function pack_recipes(c)
+  if pack_rows_cat ~= c then
+    pack_rows = {}
+    for _, rn in ipairs(sorted_keys(c.products)) do
+      local pks = {}
+      for _, pk in ipairs(c.products[rn]) do if c.packs[pk] then pks[#pks + 1] = pk end end
+      if #pks > 0 then pack_rows[#pack_rows + 1] = { rn = rn, packs = pks } end
+    end
+    pack_rows_cat = c
+  end
+  return pack_rows
+end
+Pet.pack_recipes = pack_recipes -- (tests)
+
 --- Objets produits par la force depuis le début (statistiques de production ; 0 si le moteur simulé n'en a pas).
 local function produced(force, item)
   local ok, n = pcall(function() return force.item_production_statistics.get_input_count(item) end)
@@ -897,10 +916,13 @@ function Pet.think(f, view, book, tick, auto, General, deposits)
   if not Pet.on() or not (f.team and f.hq and f.hq.valid) then return auto end
   Profiler.start("petrole:think")
   local st = state_of(f)
+  Profiler.fstart("pet:decide") -- lot PERF3 : portées fines (mesure seulement)
   if tick >= (st.next or 0) then
     st.next = tick + Pet.EVERY
     decide(f, st, General, deposits, tick)
   end
+  Profiler.fstop("pet:decide")
+  Profiler.fstart("pet:centrale")
   local mods, feeds = {}, {}
   local stock = view.stock or {}
   -- La centrale du plan directeur (demandée par un site électrique) est un projet du cerveau comme un site : ses manques
@@ -917,6 +939,8 @@ function Pet.think(f, view, book, tick, auto, General, deposits)
   -- il n'est plus plafonné sous la recherche (moteur réel, petrole-partie 1618033988 : site du pétrole en « réserve » de
   -- 74 à 120 min, raffinerie, chevalets et poteaux jamais fabriqués, la recherche passant devant). Un site au plus par
   -- pack (le premier : celui du gisement, demandé après la cellule sans fluide, passe d'abord dans la liste triée).
+  Profiler.fstop("pet:centrale")
+  Profiler.fstart("pet:packs")
   local lab = f.team.ia3 and f.team.ia3.lab
   local consumes, used_pack = {}, {}
   local cspec = lab and lab.tech and General.catalogue().techs[lab.tech]
@@ -926,17 +950,20 @@ function Pet.think(f, view, book, tick, auto, General, deposits)
   do
     local force = game.forces[f.force]
     local c = General.catalogue()
-    for _, rn in ipairs(sorted_keys(c.products)) do
-      local fr = force and force.recipes[rn]
+    -- Lot PERF3 : seules les recettes qui font un pack (mêmes recettes, même ordre, mêmes packs : le même ensemble `consumes`)
+    for _, row in ipairs(pack_recipes(c)) do
+      local fr = force and force.recipes[row.rn]
       if fr and fr.enabled then
-        for _, pk in ipairs(c.products[rn]) do
-          if c.packs[pk] and (stock[pk] or 0) == 0 and produced(force, pk) == 0 then
+        for _, pk in ipairs(row.packs) do
+          if (stock[pk] or 0) == 0 and produced(force, pk) == 0 then
             consumes[pk] = true
           end
         end
       end
     end
   end
+  Profiler.fstop("pet:packs")
+  Profiler.fstart("pet:sites")
   local order_sites = {}
   for i, s in ipairs(st.sites) do order_sites[i] = s end
   table.sort(order_sites, function(a, b2)
@@ -983,6 +1010,7 @@ function Pet.think(f, view, book, tick, auto, General, deposits)
       end
     end
   end
+  Profiler.fstop("pet:sites")
   Profiler.stop("petrole:think")
   if #mods == 0 and #feeds == 0 then return auto end
   auto = auto or { mods = {}, cap = {}, covered = {}, feeds = {} }

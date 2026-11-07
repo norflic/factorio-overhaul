@@ -56,12 +56,14 @@
 # ancien lanceur, celui-ci garde la place 1 et le premier nouveau ticket fait les places 2 et 3).
 #
 # Usage (depuis n'importe quel dossier ; racine du jeu trouvée en remontant depuis ce fichier) :
-#   py -3.9 -B tools/autotest/banc.py --out <dossier> [--graine N] [--creation <source>] [--son] [--carte]
+#   py -3.9 -B tools/autotest/banc.py --out <dossier> [--graine N] [--creation <source>] [--sauvegarde <zip>] [--son] [--carte]
 #          [--visuel "<FO_VISUAL_ARGS>"] [--qui <étiquette>] [--captures] [--seul] [--places N]
 #          -- <ticks> <scenario> <source du mod>
 #   --captures : fo-captures.bat <scenario> <source> au lieu de fo-autotest.bat (ticks ignorés) ; archive aussi
 #                fo-visual\write\script-output\fo-shots\ dans <out>\fo-shots.
 #   --seul : banc seul sur le PC (mesures de performance K10 : TOUJOURS --seul).
+#   --sauvegarde <zip> : (lot PERF4) pas de création de carte : la sauvegarde (chemin absolu, .zip) est COPIÉE dans le
+#                dossier de la place et rejouée par --benchmark (variable FO_SAVE de fo-autotest.bat) ; jamais avec --creation.
 #   --places N : nombre de places vues par ce lanceur (1 à 3), au lieu de fo-banc-places.txt ; ce ticket ne prend
 #                alors aucune place au-delà de N.
 #   --file : affiche les places, la file et l'affectation, sans rien lancer.
@@ -594,6 +596,39 @@ def montrer_file(option_places, memoire_min_go):
         print(f"[BANC] file {i + 1} : {x} {textes[x]}{quoi}")
 
 
+def deployer_bat(src=None, dst=None):
+    """Lot PERF4 (accord du lead, 5/11 21 h 53) : sous --seul SEULEMENT, les 3 places tenues (personne d'autre n'exécute le .bat :
+    cmd relit un .bat en cours de route), recopie tools/autotest/fo-autotest.bat de la source de CE banc.py vers
+    <racine>/fo-autotest.bat s'il diffère, de façon atomique (fichier temporaire, puis os.replace). Rend une ligne de journal."""
+    import hashlib
+    if src is None and os.environ.get("FO_ROOT"):
+        return "fo-autotest.bat : racine jetable (FO_ROOT), rien déployé"  # les bancs hors jeu gardent leur faux .bat
+    src = src or os.path.join(os.path.dirname(os.path.abspath(__file__)), "fo-autotest.bat")
+    dst = dst or os.path.join(RACINE, "fo-autotest.bat")
+    if not os.path.exists(src):
+        return "fo-autotest.bat : source absente (%s), rien déployé" % src
+    new = open(src, "rb").read()
+    old = open(dst, "rb").read() if os.path.exists(dst) else b""
+    if new == old:
+        return "fo-autotest.bat : déjà à jour (sha256 %s)" % hashlib.sha256(new).hexdigest()[:12]
+    tmp = dst + ".tmp-%d" % os.getpid()
+    with open(tmp, "wb") as f:
+        f.write(new)
+    os.replace(tmp, dst)
+    return "fo-autotest.bat DÉPLOYÉ depuis %s (sha256 %s -> %s)" % (src, hashlib.sha256(old).hexdigest()[:12],
+                                                                  hashlib.sha256(new).hexdigest()[:12])
+
+
+def blender_actifs():
+    """Lot PERF4 : nombre de blender.exe au début d'un passage --seul (une mesure prise avec Blender actif est FAUSSE)."""
+    try:
+        out = subprocess.run(["tasklist", "/FI", "IMAGENAME eq blender.exe", "/FO", "CSV", "/NH"], capture_output=True,
+                             text=True, errors="replace", creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)).stdout
+    except OSError:
+        return -1
+    return sum(1 for l in out.splitlines() if "blender.exe" in l.lower())
+
+
 def main(argv):
     if hasattr(sans_fenetre, "cacher_ma_console"):
         sans_fenetre.cacher_ma_console()  # lot OUTILLAGE : lanceur sans console -> pas de fenêtre ouverte pendant des heures
@@ -601,6 +636,7 @@ def main(argv):
     ap.add_argument("--out")
     ap.add_argument("--graine")
     ap.add_argument("--creation")
+    ap.add_argument("--sauvegarde")
     ap.add_argument("--son", action="store_true")
     ap.add_argument("--carte", action="store_true")
     ap.add_argument("--captures", action="store_true")
@@ -627,12 +663,16 @@ def main(argv):
     ticks, scenario, source = a.reste
     out = os.path.abspath(a.out)
     env = dict(os.environ)
-    for k in ("FO_MAP_SEED", "FO_CREATE_SRC", "FO_AUDIO", "FO_VISUAL_ARGS", "FO_LOCK_HELD", "FO_PLACE"):
+    for k in ("FO_MAP_SEED", "FO_CREATE_SRC", "FO_SAVE", "FO_AUDIO", "FO_VISUAL_ARGS", "FO_LOCK_HELD", "FO_PLACE"):
         env.pop(k, None)
     if a.graine:
         env["FO_MAP_SEED"] = a.graine
     if a.creation:
         env["FO_CREATE_SRC"] = a.creation
+    if a.sauvegarde:
+        if a.creation or a.captures:
+            ap.error("--sauvegarde ne va ni avec --creation ni avec --captures")
+        env["FO_SAVE"] = os.path.abspath(a.sauvegarde)
     if a.son:
         env["FO_AUDIO"] = "1"
     if a.visuel:
@@ -700,6 +740,13 @@ def main(argv):
             env["FO_PLACE"] = str(place)
         print(f"[BANC] {qui} : place {place} ({genre}{', toutes les places' if genre == 'seul' else ''}), "
               f"attente {attente:.0f} s", flush=True)
+        notes = []
+        if genre == "seul":
+            notes.append(deployer_bat())
+            nb = blender_actifs()
+            notes.append("blender.exe actifs au debut du passage : %d%s" % (nb, " (MESURE FAUSSE)" if nb != 0 else ""))
+            for x in notes:
+                print(f"[BANC] {qui} : {x}", flush=True)
         sig_avant = signature(dossier(place))
         t1 = time.time()
         if a.captures:
@@ -728,8 +775,10 @@ def main(argv):
             p.returncode = CODE_SANS_RESULTAT
         with open(os.path.join(out, "banc.txt"), "w", encoding="utf-8") as f:
             f.write(f"{qui}\ncommande : {' '.join(cmd)}\ngraine {a.graine or '-'} ; creation {a.creation or '-'} ; "
+                    f"sauvegarde {env.get('FO_SAVE', '-')} ; "
                     f"son {a.son} ; visuel {a.visuel or '-'}\ncode {p.returncode} ; attente {attente:.0f} s ; "
                     f"banc {t2 - t1:.0f} s ; fin {time.strftime('%d/%m/%Y %H:%M:%S')}\n"
+                    + "".join(x + "\n" for x in notes) +
                     f"place {place} ; verrous {' '.join(map(str, mes))} ; genre {genre} ; dossier {dossier(place)} ; "
                     f"prise {t1:.3f} ; fin {t2:.3f}\n")
     finally:

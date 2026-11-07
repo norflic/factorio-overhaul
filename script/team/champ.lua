@@ -32,6 +32,7 @@ local State = require("script.faction.state")
 local Build = require("script.team.build")
 local Conv = require("script.team.convoyeurs")
 local Fal = require("script.team.falaise") -- lot OBSTACLES : emprise réelle des falaises
+local Profiler = require("script.core.profiler") -- lot PERF3 : portées fines (mesure seulement)
 
 local Champ = {}
 
@@ -348,9 +349,15 @@ local function blocked_in(f, surface, x0, y0, x1, y1, mine, soft_out)
   Fal.mark(surface, x0, y0, x1, y1, function(tx, ty) blocked[Ch.key(tx, ty)] = "cliff" end)
   Fal.mark_learned(f.build and f.build.hard, function(tx, ty) blocked[Ch.key(tx, ty)] = "cliff" end)
   local occ = f.build and f.build.occ or {}
+  local cor = Build.couloirs(f) -- lot ÉTAGE 5 : la bande ne se pose pas sur un couloir d'accès d'avant-poste
   for x = math.floor(x0), math.ceil(x1) do
     for y = math.floor(y0), math.ceil(y1) do
-      if occ[P.tkey(x, y)] and not blocked[Ch.key(x, y)] then blocked[Ch.key(x, y)] = "reserve" end
+      local k = P.tkey(x, y)
+      if occ[k] and not blocked[Ch.key(x, y)] then blocked[Ch.key(x, y)] = "reserve" end
+      if cor[k] and not blocked[Ch.key(x, y)] then
+        blocked[Ch.key(x, y)] = "couloir"
+        if f.stats then f.stats.couloir_champ = (f.stats.couloir_champ or 0) + 1 end -- revue (B3)
+      end
     end
   end
   return blocked
@@ -392,8 +399,11 @@ local function spec_of(f, surface, o, frame, only)
   end
   local fm = data.drill.size + 2 * data.drill.reach + 1
   local foreign, nforeign = foreign_in(surface, names.resource, names.cats, ox0 - fm, oy0 - fm, ox1 + fm, oy1 + fm)
+  Profiler.fstart("champ:blocked")
+  local blocked = blocked_in(f, surface, x0, y0, x1, y1, mine, soft)
+  Profiler.fstop("champ:blocked")
   local spec = {
-    ore = ore, blocked = blocked_in(f, surface, x0, y0, x1, y1, mine, soft), mine = mine, soft = soft, foreign = foreign, nforeign = nforeign,
+    ore = ore, blocked = blocked, mine = mine, soft = soft, foreign = foreign, nforeign = nforeign,
     drill = data.drill, pole = data.pole, belts = data.belts, furnace = data.furnace, inserter = data.inserter,
     target = f.hq_pos, max_side = Champ.CFG.side,
     design = data.design, logistics = data.logistics,
@@ -429,11 +439,18 @@ end
 ---------------------------------------------------------------------------------------------------
 --- Plan entier : (cadre, ordre des bandes { pr }, plan) ou nil, raison. Journal : une ligne [FO-CHAMP] par plan.
 function Champ.frame(f, surface, o)
+  Profiler.fstart("champ:frame-spec")
   local spec, names = spec_of(f, surface, o, nil, nil)
+  Profiler.fstop("champ:frame-spec")
   if not spec then return nil, names end
+  Profiler.dump("champ-frame", { spec = spec, cfg = Ch.CFG }) -- lot PERF3 : entrées du plan, bancs de détail seulement
+  Profiler.fstart("champ:frame-plan")
   local plan, why = Ch.plan(spec)
+  Profiler.fstop("champ:frame-plan")
   if not plan then return nil, why end
+  Profiler.fstart("champ:frame-verify")
   local rep = Cv.verify(plan, spec)
+  Profiler.fstop("champ:frame-verify")
   -- ce qui occupe le gisement (hors de nos paires) : cause des tuiles que le champ ne couvre pas
   local why, keys = {}, {}
   for i = 1, #spec.ore - 1, 2 do
@@ -561,9 +578,14 @@ end
 
 --- La bande `pr` seule : { ents, quais, outs, tiles (liste plate de son emprise), plan } ou nil, raison.
 function Champ.band(f, surface, o, frame, pr, coal_side)
+  Profiler.fstart("champ:band-spec")
   local spec, names = spec_of(f, surface, o, frame, { [pr] = true })
+  Profiler.fstop("champ:band-spec")
   if not spec then return nil, names end
+  Profiler.dump("champ-band", { spec = spec, cfg = Ch.CFG }) -- lot PERF3 : entrées du plan, bancs de détail seulement
+  Profiler.fstart("champ:band-plan")
   local plan, why = Ch.plan(spec)
+  Profiler.fstop("champ:band-plan")
   if not plan then return nil, why end
   if #plan.ents == 0 then
     return nil, string.format("bande vide : %d foreuse(s) possibles sur ses rangees, %d groupe(s) sans place de fonderie", plan.stats.band_drills or 0,

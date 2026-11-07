@@ -39,6 +39,8 @@ local Ad = require("shared.team.adopte") -- lot ADOPTE : règles pures (mise en 
 local Fantomes = require("script.team.fantomes") -- lot FANTOMES : aperçu en fantômes des paires que le PNJ va poser
 local Outposts = require("script.faction.outposts") -- lot ADOPTE : fours du QG (pose des fours dormants, Stock.place_smelters)
 local Ac = require("shared.team.actif") -- lot COMPAGNONS-ACTIFS : retour rapide après un danger, délai d'affectation mesuré
+local State = require("script.faction.state") -- lot AGEBLOCAGE : interrupteur de la sonde [FO-BRAS] (État de la guerre)
+local Profiler = require("script.core.profiler") -- lot DANGER-ACTIF : mesure [FO-PRISE-VIDE] seulement avec le profileur
 local Rc = require("shared.team.repli_chemin") -- lot NAV2 : délai croissant pour une tâche dont le chemin échoue de suite (règle pure)
 
 local Board = {}
@@ -460,13 +462,21 @@ local CB = require("shared.team.craft_bg") -- lot CRAFT-PARALLELE : genres refus
 -- Lot CRAFT-PARALLELE : crochet posé par script/team/worker.lua (seul lecteur de agent.bg) : nil ou { left = s de file restante }.
 Board.bg_view = nil
 
+--- PNJ ARMÉ : munitions CHARGÉES (emplacement des munitions du personnage), la règle de la porte des tâches (script/ai3/comportement.lua,
+--- M.has_ammo, qui la reprend). Lot DANGER-ACTIF (relecture du lead, 5/11) : la place de marché comptait les chargeurs de TOUS les inventaires (sac
+--- compris) et donnait la garde à un PNJ dont l'arme était vide, que la porte envoyait ensuite défendre sous une meute.
+function Board.has_ammo(e)
+  local inv = e.get_inventory(defines.inventory.character_ammo)
+  return inv ~= nil and not inv.is_empty()
+end
+
 --- PNJ vu par la place de marché : rôle (sans organisation : neutre, comme NEUTRAL), pôle EFFECTIF, position, projet
---- précédent (ou celui qu'il mène), ce qu'il ne sait pas faire (conception : exécutant ; garde : sans munitions).
+--- précédent (ou celui qu'il mène), ce qu'il ne sait pas faire (conception : exécutant ; garde : sans munitions chargées).
 local function market_npc(agent)
   local org = agent.org
   local role = org and (org.role or "executant") or "generalist"
   local e = agent.entity
-  local armed = e.get_item_count(T.worker_ammo) + e.get_item_count("piercing-rounds-magazine") > 0
+  local armed = Board.has_ammo(e)
   local cannot
   if role ~= "generalist" then cannot = armed and CANNOT_EXEC or CANNOT_EXEC_UNARMED
   elseif not armed then cannot = CANNOT_UNARMED end
@@ -478,6 +488,7 @@ local function market_npc(agent)
   return { id = agent.id, role = role, pole = org and O.effective_pole(org) or nil, pos = { x = p.x, y = p.y },
     last_project = (org and org.project) or agent.last_project, cannot = cannot, bg_left = bv and bv.left or nil }
 end
+Board.market_npc = market_npc -- (bancs hors jeu : lecture seule)
 
 --- Point de départ d'une tâche (trajet de la note) : la case du QG pour toute tâche qui commence au coffre ; le poste
 --- pour une garde. Facteur de besoin d'une tâche d'extraction (minage, tournée ordinaire d'un avant-poste).
@@ -522,6 +533,37 @@ Board.MARKET_TRIES = 8 -- tâches strictes refusées (matière non libre) essay�
 -- 52 prises vides sur 52 avaient toutes leurs tâches libres indiquées à d'AUTRES PNJ).
 Board.HINT_TICKS = 60
 
+--- Lot DANGER-ACTIF (mesure demandée par le lead, 5/11 : « craft 138 libres non prises » pendant les repos de verif-guide 271828182, essai 2) : une
+--- prise de la place de marché qui ne rend RIEN classe chaque tâche libre par la raison qui l'a écartée pour ce PNJ, dans l'ordre des tests de la
+--- prise : « absente » (retirée du tableau), « role » (le PNJ ne sait pas la faire : garde sans munitions, conception), « indice » (indiquée à un autre
+--- PNJ libre, ou trop longue pour sa fabrication en arrière-plan), « reserve » (essayée, matière refusée au registre), « matiere » (matière stricte non
+--- libre au registre, jamais essayée), « essais » (Board.MARKET_TRIES épuisés avant elle). Cumuls dans b.miss, lus et remis à zéro par le bilan
+--- [FO-PRISE-VIDE] (Board.actif_report, toutes les 5 min). Lecture seule : aucune décision ne change ; profileur allumé seulement (verif-guide l'allume).
+local function note_miss(b, list, npc, ctx, reg, tried)
+  local m = b.miss or { n = 0, why = {} }
+  b.miss = m
+  m.n = m.n + 1
+  for _, t in ipairs(list) do
+    if not t.worker then
+      local why
+      if b.tasks[t.key] ~= t then why = "absente"
+      elseif npc.cannot and npc.cannot[t.kind] then why = "role"
+      elseif ctx.skip(t) then why = "indice"
+      elseif tried[t.key] then why = "reserve"
+      else
+        why = "essais"
+        if (t.prio or 0) < M.URGENT then
+          for _, it in ipairs(Board.strict_list(t) or {}) do
+            if R.free(reg, it[1]) < it[2] then why = "matiere" break end
+          end
+        end
+      end
+      local k = tostring(t.kind) .. ":" .. why
+      m.why[k] = (m.why[k] or 0) + 1
+    end
+  end
+end
+
 local function claim_market(f, agent, tick, b)
   local list = b.list
   local reg = reg_of(f)
@@ -551,6 +593,7 @@ local function claim_market(f, agent, tick, b)
     end
   end
   local seen, tries = {}, 0
+  local tried = {} -- lot DANGER-ACTIF (mesure) : tâches essayées dont la réservation a été refusée
   for _, j in ipairs(idx) do
     local t = list[j]
     -- Lot IA-V2 : tri préalable sans lecture du coffre : une tâche dont la matière stricte n'est pas libre au registre
@@ -571,10 +614,12 @@ local function claim_market(f, agent, tick, b)
         if t.fond then bump(f, "market_fond") end
         return t
       end
+      tried[t.key] = true
       tries = tries + 1
       if tries >= Board.MARKET_TRIES then break end
     end
   end
+  if Profiler.enabled() then note_miss(b, list, npc, ctx, reg, tried) end -- (relecture de revue-danger : mesure, jamais sans profileur)
   return nil
 end
 
@@ -599,6 +644,97 @@ end
 
 --- Lot COMPAGNONS-ACTIFS : bilan [FO-ACTIF] toutes les Ac.REPORT_EVERY ticks par équipe (PNJ libres, tâches libres, délai d'affectation
 --- des tâches prises dans la fenêtre, tâches proches jugées sans morts anciennes par la porte). Lecture seule hors f.team.actif.
+--- Lot AGEBLOCAGE, étage chantiers (diagnostic, LECTURE SEULE ; aucune décision n'en dépend) : où vont les bras. À chaque pensée
+--- (Board.assign), le temps écoulé depuis la pensée d'avant est compté pour chaque PNJ de l'équipe : à sa tâche (genre et projet, sans
+--- numéros), ou « libre » ; et, à part, la fabrication en arrière-plan en cours (premier travail de agent.bg, file du personnage non
+--- vide). Journal [FO-BRAS] toutes les Ac.REPORT_EVERY ticks (5 min) depuis son propre début, puis remise à zéro. État : f.team.bras
+--- (nombres et chaînes). ÉTEINTE par défaut (relecture) : allumée par les seuls scénarios de mesure (remote « fo-bras », set), rangé dans
+--- l'état de la guerre (State.war().bras_on) ; en lecture seule, les décisions sont identiques allumée ou éteinte.
+local function bras_cat(t)
+  if not t then return "libre" end
+  local s = tostring(t.why or t.key or t.kind or "?"):gsub(":%-?%d+%.?%d*", ""):gsub(",%-?%d+", ""):gsub("@%-?%d+", "")
+  return (t.kind or "?") .. ":" .. s:sub(1, 40)
+end
+
+function Board.bras_on()
+  local w = State.war()
+  return w ~= nil and w.bras_on == true
+end
+
+local bras_report
+
+function Board.bras_sample(f, tick)
+  local team = f.team
+  if not team or not Board.bras_on() then return end
+  local s = team.bras
+  if not s then
+    team.bras = { last = tick, t0 = tick, work = {}, bg = {}, n = 0 }
+    return
+  end
+  local dt = tick - (s.last or tick)
+  s.last = tick
+  if dt <= 0 then return end
+  local n = 0
+  for _, id in ipairs(sorted_keys(f.engineers or {})) do
+    local ag = Registry.get(id)
+    if ag then
+      n = n + 1
+      local k = bras_cat(ag.task)
+      s.work[k] = (s.work[k] or 0) + dt
+      local bg, e = ag.bg, ag.entity
+      if bg and bg.jobs and bg.jobs[1] and e and e.valid and e.crafting_queue_size > 0 then
+        local kb = bras_cat(bg.jobs[1].task)
+        s.bg[kb] = (s.bg[kb] or 0) + dt
+      end
+    end
+  end
+  s.n = math.max(s.n or 0, n)
+  if tick - (s.t0 or tick) >= Ac.REPORT_EVERY then bras_report(f, tick) end
+end
+
+bras_report = function(f, tick)
+  local s = f.team and f.team.bras
+  if not s then return end
+  local function top(t, nmax)
+    local rows, total = {}, 0
+    for _, k in ipairs(sorted_keys(t)) do rows[#rows + 1] = { k, t[k] } total = total + t[k] end
+    table.sort(rows, function(a, b) if a[2] ~= b[2] then return a[2] > b[2] end return a[1] < b[1] end)
+    local out = {}
+    for i = 1, math.min(nmax, #rows) do out[#out + 1] = string.format("%s %d", rows[i][1], math.floor(rows[i][2] / 60 + 0.5)) end
+    return table.concat(out, ", "), math.floor(total / 60 + 0.5)
+  end
+  local w, wt = top(s.work, 14)
+  local g, gt = top(s.bg, 8)
+  -- Tâches LIBRES du tableau par tranche de priorité (genre x nombre).
+  local bands = { { 90, "90+" }, { 80, "80-89" }, { 70, "70-79" }, { 60, "60-69" }, { -1e9, "<60" } }
+  local cnt = {}
+  for _, t in ipairs((Board.get(f).list) or {}) do
+    if not t.worker then
+      local p = t.prio or 0
+      for _, b in ipairs(bands) do
+        if p >= b[1] then
+          cnt[b[2]] = cnt[b[2]] or {}
+          cnt[b[2]][t.kind or "?"] = (cnt[b[2]][t.kind or "?"] or 0) + 1
+          break
+        end
+      end
+    end
+  end
+  local parts = {}
+  for _, b in ipairs(bands) do
+    local c = cnt[b[2]]
+    if c then
+      local kk = {}
+      for _, k in ipairs(sorted_keys(c)) do kk[#kk + 1] = k .. "x" .. c[k] end
+      parts[#parts + 1] = b[2] .. " {" .. table.concat(kk, " ") .. "}"
+    end
+  end
+  log(string.format("[FO-BRAS] %s a %.1f min (fenetre %.1f min) : PNJ %d ; travail (s, total %d) [%s] ; fabrication de fond (s, total %d) [%s] ; taches libres %s",
+    f.key or (f.is_player and "player") or tostring(f.id), tick / 3600, (tick - (s.t0 or tick)) / 3600, s.n or 0, wt, w, gt, g,
+    #parts > 0 and table.concat(parts, " ; ") or "aucune"))
+  f.team.bras = { last = s.last, t0 = tick, work = {}, bg = {}, n = 0 }
+end
+
 function Board.actif_report(f, tick)
   local a = Board.actif(f)
   if a.t and tick - a.t < Ac.REPORT_EVERY then return end
@@ -616,10 +752,20 @@ function Board.actif_report(f, tick)
   local gate = (Board.gate_actif and Board.gate_actif(f)) or {}
   log(Ac.report_line(key, tick, a.win, idle, free, gate))
   a.win = {}
+  -- Lot DANGER-ACTIF (mesure) : prises vides de la place de marché et raisons des tâches libres non prises (note_miss), sur les 5 dernières minutes.
+  local m = b.miss
+  if m and m.n > 0 then
+    local parts = {}
+    for _, k in ipairs(sorted_keys(m.why)) do parts[#parts + 1] = string.format("%s %d", k, m.why[k]) end
+    log(string.format("[FO-PRISE-VIDE] %s : bilan a %.1f min (5 min) : %d prise(s) sans tache ; taches libres non prises, par genre et raison {%s}",
+      tostring(key), tick / 3600, m.n, table.concat(parts, ", ")))
+  end
+  b.miss = nil
 end
 
 function Board.assign(f, tick)
   local b = Board.get(f)
+  Board.bras_sample(f, tick) -- lot AGEBLOCAGE (diagnostic, lecture seule) : où vont les bras
   Board.actif_report(f, tick) -- lot COMPAGNONS-ACTIFS : bilan [FO-ACTIF] (au plus toutes les 5 min)
   b.hint, b.hinted = nil, nil
   if not Board.market(f) then return 0 end
@@ -854,7 +1000,8 @@ function Board.finish(f, task, ok, tick)
       -- Lot CHARBON3 (B1, Q2) : le facteur ne vaut que pour un échec de CHEMIN ; une tâche vitale (priorité >= Rc.VITAL_PRIO) reprend au
       -- plus après Rc.VITAL_CAP (shared/team/repli_chemin.lua, Rc.delay).
       local delay, k_path = Rc.delay(Ac.retry(task.fail, task.fond, RETRY_TICKS), n_path, task.fail, task.prio, f.team.repli_off)
-      b.cooldown[task.key] = tick + delay
+      -- Lot ETAGE4 (m4) : une pause plus longue déjà posée (tournée en pause après des bails de suite, script/team/bail.lua) n'est pas raccourcie.
+      b.cooldown[task.key] = math.max(tick + delay, b.cooldown[task.key] or 0)
       if k_path > 1 then
         f.team.repli_logs = (f.team.repli_logs or 0) + 1
         if f.team.repli_logs <= 12 then
@@ -985,5 +1132,13 @@ function Board.drop_free(f, keep)
   if n > 0 then rebuild_list(b) end
   return n
 end
+
+-- Lot AGEBLOCAGE (diagnostic, lecture seule) : interrupteur de la sonde [FO-BRAS], posé par les scénarios de mesure.
+remote.add_interface("fo-bras", {
+  set = function(on)
+    State.war().bras_on = (on == true) or nil
+    return Board.bras_on()
+  end,
+})
 
 return Board

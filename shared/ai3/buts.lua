@@ -78,7 +78,7 @@ B.SMELTERS = 45
 B.SMELTERS_WANT = 4
 B.AMMO = 55
 B.AMMO_STOCK = 60   -- réserve de munitions visée (ancienne marche « defense »)
-B.AMMO_MIN = 20     -- lot INTEG-ECONOMIE (D1) : réserve MINIMALE de munitions, jamais retenue par « production d'abord » (shared/team/priorite.lua)
+B.AMMO_MIN = T.ammo_min -- lot INTEG-ECONOMIE (D1) : réserve MINIMALE de munitions (20), jamais retenue par « production d'abord » (lot REARMEMENT : lue dans T)
 B.RESEARCH = 62
 B.RESEARCH_PALIER = 14 -- la technologie suivante ouvre un pack (« la recherche vaut ce qu'elle débloque », H9)
 B.RESEARCH_PRE = 44    -- plafond avant « fer II » (économie d'abord, revue B3)
@@ -92,6 +92,15 @@ B.ARMY_MORE = 46       -- l'armée qui grandit (l'ancien cerveau : 45, sous l'ob
 B.ARMY_ALERT = 86
 B.ARMY_WAR_PCT = 150   -- en guerre : × 1,5 (pvp_test allumé, essai 2 : sans cette règle, Difficile et Impitoyable
                        -- n'attaquaient pas plus que Normal, ordre strict perdu : 2 < 3 = 3 attaques)
+-- Lot DEPENSES2 (relecture de 26268e60, réserve sérieuse) : VOTRE ÉQUIPE ne paie jamais ses soldats avant son fer vital. La garde
+-- « matière clé qui manque » lit le manque de la pensée PRÉCÉDENTE et un lot de soldats n'ajoute aucun manque : la valeur de ses buts
+-- « armée » (alerte, premiers soldats, encore) est donc B.ARMY_PLAYER, sans × B.ARMY_WAR_PCT (menace ou guerre), et ils ne sont pas
+-- « minimaux » (« production d'abord » leur retient le pas de production, projets.lua with_hold) ; `late` : servis APRÈS les projets
+-- ordinaires (P.update ; la valeur seule ne suffit pas : une famille permanente passe juste après le premier projet). 42 : sous le plus petit module ou
+-- centrale d'AUTO (A.VALUE 64, ramené sous la recherche : 44 - 1 = 43 avant le fer II, A.goals), sous la recherche plafonnée
+-- (B.RESEARCH_PRE 44), la fonderie (B.SMELTERS 45), la réserve de chargeurs (B.AMMO 55) et la croissance (B.GROW 55) ; au-dessus de la
+-- seule couverture (B.COVER 40 : un gisement ouvert AU-DELÀ du besoin, but de fond).
+B.ARMY_PLAYER = 42
 -- Besoin prévu d'une matière brute (horizon) : au-delà de SAT_FACTOR fois ce besoin, plus aucune extraction n'est
 -- bâtie ni faite au fond (constat du DC). Un plancher évite qu'un besoin nul sature tout.
 B.NEED_FLOOR = 100
@@ -415,22 +424,30 @@ function B.generate(s, st)
     goals[#goals + 1] = { key = "recherche", family = "recherche", kind = "research", tech = r.tech, value = v,
       short = (cheap or r.for_defense) or nil } -- lot S1 : la recherche de la tourelle est servie d'abord, sans plancher de fer (EMIT.research)
   end
-  -- Armée (factions).
+  -- Armée (factions, et votre équipe depuis le lot DEPENSES2).
   -- Une faction EN GUERRE (déclarée au joueur, ou posture guerrière du chef) s'arme d'abord : valeur × B.ARMY_WAR_PCT.
-  if boot and not s.is_player and (s.soldiers_max or 0) > 0 then
-    local first = math.min(B.ARMY_FIRST_N, s.soldiers_max)
+  -- Lot DEPENSES2 (R1, décision du lead sur « Oui, comme les factions » du DC) : votre équipe a la MÊME défense minimale (armée d'alerte,
+  -- B.ARMY_FIRST_N premiers soldats) et le même « encore » (sa cible : la base plus le stock qui dort, script/ai3/cerveau.lua), au plafond
+  -- des factions (s.army_cap ; son soldiers_max reste 0 : la prévision et le planificateur d'avant ne lui font pas d'armée). Son plafond
+  -- est aussi sa cible (s.army_target, 0 quand sa matière clé manque) : aucun de ses buts « armée » ne passe avant son fer vital.
+  local army_cap = s.is_player and math.min(s.army_cap or 0, s.army_target or 0) or (s.soldiers_max or 0)
+  if boot and army_cap > 0 then
+    local first = math.min(B.ARMY_FIRST_N, army_cap)
+    local pl = s.is_player == true
     local war = s.at_war and B.ARMY_WAR_PCT or 100
-    local alert_need = s.army_alert and math.min(s.army_need or 0, s.soldiers_max) or 0
+    local alert_need = s.army_alert and math.min(s.army_need or 0, army_cap) or 0
+    local minimal = (not pl) or nil
+    local pv = pl and math.min(B.ARMY_PLAYER, val(B.ARMY_PLAYER, w.armee)) or nil -- votre équipe : sous son fer vital, sans × war
     if (s.soldiers or 0) < alert_need then
       goals[#goals + 1] = { key = "armee", family = "armee", kind = "army", target = alert_need,
-        value = val(B.ARMY_ALERT, w.armee), permanent = true, minimal = true, alert = true }
+        value = pv or val(B.ARMY_ALERT, w.armee), permanent = true, minimal = minimal, late = pl or nil, alert = true }
     elseif (s.soldiers or 0) < first then
-      -- lot INTEG-ECONOMIE (D1) : les premiers soldats sont la défense MINIMALE, jamais retenue par « production d'abord »
+      -- lot INTEG-ECONOMIE (D1) : les premiers soldats sont la défense MINIMALE, jamais retenue par « production d'abord » (factions)
       goals[#goals + 1] = { key = "armee", family = "armee", kind = "army", target = first,
-        value = val(math.floor(B.ARMY_FIRST * war / 100), w.armee), permanent = true, minimal = true }
+        value = pv or val(math.floor(B.ARMY_FIRST * war / 100), w.armee), permanent = true, minimal = minimal, late = pl or nil }
     elseif (s.soldiers or 0) < (s.army_target or 0) then
       goals[#goals + 1] = { key = "armee", family = "armee", kind = "army", target = s.army_target,
-        value = val(math.floor(B.ARMY_MORE * war / 100), w.armee), permanent = true }
+        value = pv or val(math.floor(B.ARMY_MORE * war / 100), w.armee), permanent = true, late = pl or nil }
     end
   end
   table.sort(goals, function(a, b)

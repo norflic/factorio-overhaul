@@ -9,7 +9,9 @@
        MANIFEST.json cite chaque fichier ;
     §5 forme des fichiers : aucun pairs dans shared/robots/experimentaux.lua, aucun require dans une fonction (F24), `global` jamais nommé ;
     §6 traductions : chaque clé citée par le prototype existe en FR et EN, mêmes clés des deux côtés ;
-    §7 mutants : chaque règle a un mutant, tous doivent être refusés.
+    §7 mutants : chaque règle a un mutant, tous doivent être refusés ;
+    §9 coûts (lot XP-COUTS, décisions du DC du 4/11, 19 h 48) : technologie = le double de la technologie de robot prérequise, packs de
+       l'âge (C.packs) ; aucun ingrédient plus tardif que l'âge du robot (âges lus sur la page du graphe du 4/11).
 ]]
 
 package.path = "./?.lua;" .. package.path
@@ -19,6 +21,8 @@ local Lv = require("shared.levels.config")
 local Cp = require("shared.content.compute")
 local Pt = require("shared.content.robot_parts")
 local Ro = require("shared.content.robots")
+local C = require("shared.content.crafts")
+local Ech = require("shared.robots.echelle")
 
 local function read(p)
   local f = assert(io.open(p, "rb"), "lecture impossible : " .. p)
@@ -53,6 +57,39 @@ local function near(a, b, eps) return math.abs(a - b) <= (eps or 1e-6) * math.ma
 
 -- feuilles générées (D-6) : l'échelle écrite par feuilles_xp.py doit être celle des données (contrôlé aussi sur les mutants)
 local okspr0, SPR0 = pcall(dofile, "graphics/robots/experimentaux/sprites.lua")
+
+-- §9 coûts des technologies, figés (décisions du DC du 4/11, 19 h 48) : unités = 2 × la technologie de robot prérequise ; packs de
+-- l'âge. R rouge, V vert, M militaire, B bleu, P production, J utilité, S spatial.
+local TECH_WANT = {
+  ["mat-foudre"] = { 36, "RVMBP" }, geode = { 300, "RVMBP" }, sarracenie = { 300, "RVMBP" }, ["demi-vie"] = { 300, "RVMBP" },
+  veilleuse = { 600, "RVMBPJ" }, cairn = { 100, "RVMBPJ" }, stylet = { 400, "RVMBPJ" }, trombe = { 500, "RVMBPJ" },
+  ixion = { 600, "RVMBPJ" }, tournesol = { 600, "RVMBPJS" },
+}
+local PACK_LETTER = { ["automation-science-pack"] = "R", ["logistic-science-pack"] = "V", ["military-science-pack"] = "M",
+  ["chemical-science-pack"] = "B", ["production-science-pack"] = "P", ["utility-science-pack"] = "J", ["space-science-pack"] = "S" }
+local function letters(packs)
+  local o = {}
+  for _, p in ipairs(packs) do o[#o + 1] = PACK_LETTER[p] or "?" end
+  return table.concat(o)
+end
+-- Âge des ingrédients (page du graphe du 4/11, fo-logs/2026-11-04_GRAPHE, données finales : âge de la première recette en jeu).
+-- Un ingrédient absent de cette table est refusé : ajouter son âge en l'ajoutant à une recette.
+local INGREDIENT_AGE = {
+  ["copper-cable"] = 1, ["electronic-circuit"] = 1, ["fo-methane-barrel"] = 1, ["steel-plate"] = 2, ["engine-unit"] = 3,
+  ["advanced-circuit"] = 4, ["plastic-bar"] = 4, battery = 6, ["fo-controller"] = 7, ["fo-optical-sensor"] = 7, ["fo-titanium-composite"] = 8,
+  ["fo-resonance-crystal"] = 7, ["fo-servo-motor"] = 7, ["fo-lead-plate"] = 9, ["uranium-238"] = 9, ["fo-guidance-core"] = 10,
+  ["processing-unit"] = 10, ["low-density-structure"] = 10, ["fo-graphics-card"] = 11, ["fo-titanium-plate"] = 11, ["fo-laser-module"] = 12,
+  ["fo-magnetic-actuator"] = 12, ["fo-superconducting-coil"] = 12,
+}
+--- Ingrédients plus tardifs que l'âge `age` (ou d'âge inconnu) : liste de noms.
+local function late_ingredients(list, age)
+  local bad = {}
+  for _, g in ipairs(list) do
+    local a = INGREDIENT_AGE[g[1]]
+    if not a or a > age then bad[#bad + 1] = g[1] .. " (" .. tostring(a) .. ")" end
+  end
+  return bad
+end
 
 --- La suite : rend (ok, échecs, messages). `Xp` : le module (réel ou mutant).
 local function suite(Xp)
@@ -105,28 +142,44 @@ local function suite(Xp)
       check(okspr0 and SPR0.corps[r.id] and SPR0.corps[r.id].echelle == r.scale and r.scale > 0 and r.scale < 0.5,
         "§1 " .. r.id .. " : réduit (échelle " .. tostring(r.scale) .. ", celle des feuilles)")
       check((r.single_use == true) == (r.id == "demi-vie"), "§1 " .. r.id .. " : usage unique pour la seule Demi-Vie")
+      local tw = TECH_WANT[r.id]
+      local units = t and Xp.tech_units and Xp.tech_units(C.tech_count(t))
+      check(tw and units == tw[1] and units == 2 * C.tech_count(t), string.format("§9 %s : technologie à %s unités (2 × %s), attendu %s",
+        r.id, tostring(units), t and tostring(C.tech_count(t)) or "?", tw and tostring(tw[1]) or "?"))
+      check(tw and letters(C.packs(r.age)) == tw[2], "§9 " .. r.id .. " : packs de l'âge " .. letters(C.packs(r.age)))
+      local bad = late_ingredients(r.ingredients, r.age)
+      check(#bad == 0, "§9 " .. r.id .. " : aucun ingrédient plus tardif que l'âge " .. r.age .. " : " .. table.concat(bad, ", "))
     end
   end
 
-  -- §2 valeur pour la valeur
+  -- §2 dégâts par seconde : valeur pour la valeur ; PV, résistances et salve : règle d'échelle par âge (QCM du DC du 5/11)
+  local function same_res(a, b)
+    if #a ~= #b then return false end
+    for i = 1, #a do if a[i].type ~= b[i].type or a[i].decrease ~= b[i].decrease or a[i].percent ~= b[i].percent then return false end end
+    return true
+  end
   for _, r in ipairs(Xp.ROBOTS) do
     local ref = Ro.robot(r.ref)
     check(ref ~= nil, "§2 " .. r.id .. " : robot de référence " .. tostring(r.ref))
     if ref then
       check(ref.age <= r.age and (ref.dps or 0) > 0, "§2 " .. r.id .. " : référence d'âge au plus égal, qui tire")
       local k = r.mu / ref.mu
-      local hp = ref.hp * k * (r.is_unit and 1 or Xp.HP_POSE)
-      check(near(r.hp, math.floor(hp + 0.5), 1e-9), string.format("§2 %s : PV %s = %.0f", r.id, tostring(r.hp), hp))
+      check(r.hp == Ech.pv(r.age), string.format("§2 %s : PV %s = règle d'échelle de l'âge %d (%d)", r.id, tostring(r.hp), r.age, Ech.pv(r.age)))
+      check(same_res(r.resistances, Ech.resistances(r.age)), "§2 " .. r.id .. " : résistances d'écart d'âge de son âge")
       check(near(r.dps, ref.dps * k, 1e-3), "§2 " .. r.id .. " : dégâts par seconde = référence × coût")
-      check(near(r.shot, r.dps * r.cooldown / 60, 1e-3), "§2 " .. r.id .. " : coup = dégâts par seconde × cadence")
+      local base = math.floor(r.dps * r.cooldown / 60 / 0.1 + 0.5) * 0.1
+      local salve = Ech.salve(r.age, r.dtype)
+      check(r.salve == salve and near(r.shot, math.max(base, salve * ((r.jets and r.jets.count) or 1)), 1e-3),
+        string.format("§2 %s : coup %s = le plus grand de la valeur (%.1f) et de la salve de l'âge par cible touchée (%s)", r.id, tostring(r.shot), base, tostring(salve)))
       if r.single_use then
         check(near(r.burst, ref.dps * k * Xp.BURST_SECONDS, 1e-3), "§2 " .. r.id .. " : charge = 30 s de dégâts")
       else
         check(r.burst == nil, "§2 " .. r.id .. " : pas de charge hors usage unique")
       end
+      check(r.zone == nil, "§2 " .. r.id .. " : un petit garde la forme de son attaque (pas de salve de zone)")
     end
   end
-  check(Xp.HP_POSE == 3 and Xp.BURST_SECONDS == 30, "§2 constantes : défense posée × 3, charge de 30 s")
+  check(Xp.BURST_SECONDS == 30 and Xp.HP_POSE == nil, "§2 constantes : charge de 30 s ; plus de facteur des défenses posées (règle d'échelle)")
 
   -- §3 règles
   local P = function(x, y, id) return { x = x, y = y, id = id } end
@@ -213,9 +266,19 @@ local function suite(Xp)
       check(r.ingredients[1][1] == r.segment_item and r.ingredients[1][2] == Xp.SEGMENTS and #r.ingredients == 1, "§8 " .. r.id .. " : assemblage = 10 segments")
       check(r.is_giant and not r.is_unit and not r.is_turret and Xp.of_name(r.name) == r, "§8 " .. r.id .. " : géant, retrouvé par son nom")
       local ref = Ro.robot(r.ref)
-      check(ref and ref.age == r.age and near(r.hp, math.floor(ref.hp * r.mu / ref.mu + 0.5), 1e-9) and near(r.dps, ref.dps * r.mu / ref.mu, 1e-3),
-        "§8 " .. r.id .. " : valeur pour la valeur (référence de son âge, PV sans facteur)")
+      check(ref and ref.age == r.age and near(r.dps, ref.dps * r.mu / ref.mu, 1e-3), "§8 " .. r.id .. " : dégâts par seconde, valeur pour la valeur")
+      check(r.hp == Ech.pv(r.age) and same_res(r.resistances, Ech.resistances(r.age)), "§8 " .. r.id .. " : PV et résistances de la règle d'échelle")
+      check(r.salve == Ech.salve(r.age, r.dtype) and r.zone == Ech.rayon(r.age) and r.zone == 15 * (r.age - 9) and r.cratere == Ech.cratere(r.age),
+        string.format("§8 %s : salve %s par cible, zone %s (15 × (âge − 9)), cratère %s", r.id, tostring(r.salve), tostring(r.zone), tostring(r.cratere)))
+      check(r.zone_cooldown == math.max(r.cooldown, Ech.CADENCE_ZONE) and r.zone_cooldown >= 180, "§8 " .. r.id .. " : une salve de zone au plus toutes les 3 s")
       check(r.range > 0 and r.cooldown > 0 and r.speed > 0, "§8 " .. r.id .. " : portée, cadence, vitesse")
+      local tw = TECH_WANT[r.id]
+      local units = t and Xp.tech_units and Xp.tech_units(C.tech_count(t))
+      check(tw and units == tw[1] and units == 2 * C.tech_count(t), string.format("§9 %s : technologie à %s unités (2 × %s), attendu %s",
+        r.id, tostring(units), t and tostring(C.tech_count(t)) or "?", tw and tostring(tw[1]) or "?"))
+      check(tw and letters(C.packs(r.age)) == tw[2], "§9 " .. r.id .. " : packs de l'âge " .. letters(C.packs(r.age)))
+      local bad = late_ingredients(r.segment.ingredients, r.age)
+      check(#bad == 0, "§9 " .. r.id .. " : aucun ingrédient de segment plus tardif que l'âge " .. r.age .. " : " .. table.concat(bad, ", "))
     end
   end
   check(Xp.giant_cap(9) == 0 and Xp.giant_cap(10) == 1 and Xp.giant_cap(12) == 1 and Xp.giant_cap(13) == 1 and Xp.giant_cap(14) == 2
@@ -343,6 +406,11 @@ local function declared_names()
 end
 local DECL = declared_names()
 check(PROTO:find("ipairs%(Xp%.EFFET_SPRITES%)") ~= nil, "§5 prototypes : les sprites d'effet sont bouclés sur Xp.EFFET_SPRITES")
+for _, p in ipairs({ "prototypes/experimentaux.lua", "prototypes/experimentaux_geants.lua" }) do
+  local src = read(p)
+  check(src:find("count = Xp.tech_units(C.tech_count(after)), packs = C.packs(r.age),", 1, true) ~= nil,
+    "§9 " .. p .. " : unités par Xp.tech_units, packs de l'âge")
+end
 for _, p in ipairs({ "script/robots/experimentaux.lua", "script/robots/experimentaux_commun.lua", "script/robots/experimentaux_geants.lua" }) do
   local used, list = prefix_names(read(p)), {}
   for n in pairs(used) do list[#list + 1] = n end
@@ -397,9 +465,17 @@ local MUTANTS = {
   { "Veilleuse après une technologie d'un autre âge", 'factory = "fo-robot-gantry", after = "fo-robot-gantry"', 'factory = "fo-robot-gantry", after = "fo-robot-levite"' },
   { "ingrédient au-delà de 100", '{ "battery", 100 }, { "steel-plate", 100 }, { "engine-unit", 60 }', '{ "battery", 101 }, { "steel-plate", 100 }, { "engine-unit", 60 }' },
   { "coût de la Sarracénie divisé", '{ "fo-methane-barrel", 100 }, { "fo-servo-motor", 50 }', '{ "fo-methane-barrel", 10 }, { "fo-servo-motor", 5 }' },
-  { "ingrédient en double", '{ "fo-lead-plate", 100 }, { "processing-unit", 40 }', '{ "uranium-238", 100 }, { "processing-unit", 40 }' },
-  { "PV sans le facteur des défenses", 'if r.kind == "turret" or r.kind == "turret-electric" then hp = hp * Xp.HP_POSE end', '' },
-  { "géant compté comme défense posée", 'if r.kind == "turret" or r.kind == "turret-electric" then', 'if r.kind ~= "unit-capsule" then' },
+  { "ingrédient en double", '{ "fo-lead-plate", 100 }, { "advanced-circuit", 100 }', '{ "uranium-238", 100 }, { "advanced-circuit", 100 }' },
+  { "technologie au prix du robot", "Xp.TECH_FACTOR = 2", "Xp.TECH_FACTOR = 1" },
+  { "Demi-Vie au processeur (âge 10)", '{ "advanced-circuit", 100 }, { "fo-servo-motor", 70 },', '{ "processing-unit", 40 }, { "fo-servo-motor", 70 },' },
+  { "Demi-Vie à 30 servomoteurs", '{ "advanced-circuit", 100 }, { "fo-servo-motor", 70 },', '{ "advanced-circuit", 100 }, { "fo-servo-motor", 30 },' },
+  { "segment du Cairn avec une pièce de l'âge 11", '{ "processing-unit", 30 }, { "fo-guidance-core", 10 }', '{ "fo-graphics-card", 30 }, { "fo-guidance-core", 10 }' },
+  { "PV de la valeur au lieu de la règle d'échelle", "out.hp = Ech.pv(r.age)", "out.hp = ref.hp * k" },
+  { "résistances oubliées", "out.resistances = Ech.resistances(r.age)", "out.resistances = {}" },
+  { "salve d'un âge de moins", "out.salve = Ech.salve(r.age, r.dtype)", "out.salve = Ech.salve(r.age - 1, r.dtype)" },
+  { "zone d'un âge de moins", "out.zone, out.cratere = Ech.rayon(r.age), Ech.cratere(r.age)", "out.zone, out.cratere = Ech.rayon(r.age - 1), Ech.cratere(r.age)" },
+  { "salve de zone à la cadence de l'effet", "out.zone_cooldown = math.max(r.cooldown, Ech.CADENCE_ZONE)", "out.zone_cooldown = r.cooldown" },
+  { "petit sans la salve de son âge", "out.shot = math.max(out.shot, out.salve * ((r.jets and r.jets.count) or 1))", "out.shot = out.shot" },
   { "géants admis avant l'âge 10", "Xp.GIANT_EARLY_AGE = 10", "Xp.GIANT_EARLY_AGE = 9" },
   { "plafond des géants sans Ro", "return math.max(Ro.giant_allowed(age), early)", "return early" },
   { "géant admis au plafond", "return (have or 0) < Xp.giant_cap(age)", "return (have or 0) <= Xp.giant_cap(age)" },

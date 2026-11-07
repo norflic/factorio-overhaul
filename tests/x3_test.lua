@@ -363,7 +363,7 @@ local function run_checks(F, g, X0)
     local cmp = idx.item["fo-compute"]
     if cmp then
       c(cmp.type == "fluid" and cmp.barrel == false, "baril", "fo-compute : fluide SANS baril (auto_barrel = false)")
-      local dc, rb = idx.building["fo-data-center"], idx.building["fo-robotics-bay"]
+      local dc, rb = idx.building["fo-data-center"], idx.building["fo-x3-robotics-bay"]
       local function has(list, n) return set_of(list or {})[n] == true end
       c(dc and dc.fluid_filters and has(dc.fluid_filters.input, "water") and has(dc.fluid_filters.output, "fo-compute"), "baril",
         "centre de calcul : entrée filtrée sur l'eau, sortie filtrée sur le calcul (FluidBox.filter)")
@@ -1406,7 +1406,7 @@ do
           ingredients = { { "steel-plate", 5 } }, results = { { "fo-x3-useless", 1 } } })
         table.insert(tech(d, "fo-printed-circuits").unlocks, "fo-x3-useless") end },
     { "boîte à fluide manquante (atelier de robotique sans entrée : le calcul n'entre pas)", "moteur", function(d)
-        bld(d, "fo-robotics-bay").fluid_in = nil end },
+        bld(d, "fo-x3-robotics-bay").fluid_in = nil end },
     { "four à deux entrées (étain au four avec du charbon)", "moteur", function(d)
         table.insert(rec(d, "fo-tin-plate").ingredients, { "coal", 1 }) end },
     { "nom en double (un objet X3 « fo-glass », déjà dans X0)", "doublon", function(d)

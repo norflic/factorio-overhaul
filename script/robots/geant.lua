@@ -21,6 +21,7 @@ local Armee = require("script.robots.armee")
 local F = require("shared.faction.config")
 local Ro = require("shared.content.robots")
 local Mo = require("shared.robots.modele")
+local XpG = require("script.robots.experimentaux_geants") -- règle d'échelle : salve de zone (lot EXPERIMENTAUX-PUISSANCE)
 
 local Geant = {}
 
@@ -155,6 +156,43 @@ function Geant.sweep()
 end
 
 Events.on_nth_tick(PERIOD, function() Geant.sweep() end)
+
+---------------------------------------------------------------------------------------------------
+-- Règle d'échelle (lot EXPERIMENTAUX-PUISSANCE ; réponses du DC du 5/11, appliquée aux géants de robotsjeu avec l'accord du lead) :
+-- en plus du canon (qui ne vise que le militaire), toutes les r.zone_cooldown ticks au plus, une SALVE DE ZONE au point visé : cible
+-- militaire la plus proche à portée, sinon toute entité ennemie à portée (« jusqu'à la fin ») ; coup plein (Ech.salve de l'âge) sur
+-- chaque ennemi dans 15 × (âge − 9) tuiles, cratère et sol brûlé (script/robots/experimentaux_geants.lua). État : s.salves[un] = tick
+-- de la prochaine salve, refait à chaque balayage pour les seuls géants vivants (aucune itération par `pairs`).
+---------------------------------------------------------------------------------------------------
+local SALVE_SCAN = 30
+
+function Geant.salves(tick)
+  local s = Armee.S()
+  if not s then return 0 end -- un géant inscrit tire ses salves même si le réglage des robots a été coupé depuis
+  local old = Armee.table_of("salves")
+  local nxt, n = {}, 0
+  for _, r in ipairs(GIANTS) do
+    for _, un in ipairs(Mo.units_with(s.ledger, r.id)) do
+      local u = Armee.entity(un)
+      if u then
+        local at = old[un] or 0
+        if tick >= at then
+          local t = XpG.cible(u, r)
+          if t then
+            XpG.salve(u, un, r, { x = t.position.x, y = t.position.y }, tick)
+            at = tick + r.zone_cooldown
+            n = n + 1
+          end
+        end
+        nxt[un] = at
+      end
+    end
+  end
+  s.salves = nxt
+  return n
+end
+
+Events.on_nth_tick(SALVE_SCAN, function(ev) Geant.salves(ev.tick) end)
 
 Armee.hooks.giant_go = Geant.go
 Armee.hooks.giant_setup = Geant.setup

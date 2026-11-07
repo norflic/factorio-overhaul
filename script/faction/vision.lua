@@ -21,7 +21,8 @@
       pénalisés).
 
   État (nombres et tables seulement) : f.pvp.vision = { known, looked, queue, qi, reports, static, static_at,
-  static_i, next_scout, scout_i, model, stream } ; war.pvp : tempo, first_done, looks (compteur `sweeps`).
+  static_i, next_scout, scout_i, model, stream } ; war.pvp : tempo, first_done, looks (compteur `sweeps`), zone (lot QG-ZONE :
+  zone du départ, toute la base reliée au départ, Vision.zone_pass).
   Flux : Tr.new_stream(graine, 300 + id) (sels 300 à 399 : lot IA2-c ; 300 = partie, tempo de la 1re attaque).
 ]]
 
@@ -270,9 +271,72 @@ function Vision.known_list(f)
   return list, turrets
 end
 
+--- Lot QG-DERNIER : points du DÉPART du joueur, visés en dernier (A.is_home) : son point d'apparition, lu en direct, et le QG de
+--- votre équipe (coffre d'équipe, script/team/player_team.lua) s'il existe : posé d'office à 6 tuiles du point d'apparition, ou
+--- ailleurs par le joueur (et reposé là où il était s'il est détruit). Liste triée par construction (apparition, puis QG).
+local function player_homes(surface)
+  local out = {}
+  if surface and surface.valid then
+    local sp = game.forces.player.get_spawn_position(surface)
+    out[#out + 1] = { x = sp.x, y = sp.y }
+  end
+  local pt = State.faction("player")
+  if pt and pt.hq and pt.hq.valid and pt.hq_pos then out[#out + 1] = { x = pt.hq_pos.x, y = pt.hq_pos.y } end
+  return out
+end
+
+---------------------------------------------------------------------------------------------------
+-- Zone du départ (lot QG-ZONE ; choix du DC du 5/11 : « Toute la base qui grandit », « Le coffre protège toujours ») : toute la base
+-- reliée au point d'apparition ou au QG de votre équipe, sans trou de plus d'environ 32 tuiles (règle pure : A.zone_begin,
+-- A.zone_step). État war.pvp.zone = { cells (maille -> true), n, at (tick du dernier calcul), tests, capped, work (calcul en cours) },
+-- créé au premier passage ; une sauvegarde antérieure ne l'a pas : la règle du rayon seule (QG-DERNIER) jusqu'au premier calcul,
+-- quelques secondes de jeu. Partagé par toutes les factions (c'est la base du joueur, pas ce qu'une faction en sait).
+---------------------------------------------------------------------------------------------------
+function Vision.zone_state(p)
+  local z = p.zone
+  if not z then
+    z = { cells = {}, n = 0, at = nil, tests = 0, capped = nil, work = nil }
+    p.zone = z
+  end
+  return z
+end
+
+--- Installations qui RELIENT la zone : les cibles des factions sans les coffres (revue du lot : un coffre tous les 31 tuiles faisait de
+--- toute la carte le départ ; les coffres restent des cibles).
+Vision.LINK_TYPES = A.link_types(Vision.INSTALL_TYPES)
+
+--- Une maille est occupée : une installation du joueur qui relie (Vision.LINK_TYPES) la touche (un comptage, limit 1).
+local function zone_occupied(surface, cx, cy)
+  local c = A.ZONE_CELL
+  local x0, y0 = cx * c, cy * c
+  return surface.count_entities_filtered({ area = { { x0, y0 }, { x0 + c, y0 + c } }, force = "player", type = Vision.LINK_TYPES, limit = 1 }) > 0
+end
+
+--- Un pas du calcul de la zone (voie « fo-pvp-scan », toutes les 8 ticks) : A.ZONE_STEP comptages au plus ; un calcul neuf
+--- A.ZONE_TTL ticks après le précédent. Renvoie le nombre de comptages faits.
+function Vision.zone_pass(surface, p, tick)
+  local z = Vision.zone_state(p)
+  if not z.work then
+    if z.at and tick - z.at < A.ZONE_TTL then return 0 end
+    z.work = A.zone_begin(player_homes(surface))
+  end
+  local done, used = A.zone_step(z.work, zone_occupied, A.ZONE_STEP, surface)
+  if done then
+    local w = z.work
+    -- Une ligne quand la zone change de taille ou d'état (plafond atteint ou levé), pas à chaque recalcul (revue du lot).
+    if w.n ~= z.n or (w.capped or false) ~= (z.capped or false) then
+      log(string.format("[FO-PVP] zone du depart tick %d : %d maille(s) de %d tuiles (avant %d), %d comptage(s)%s", tick, w.n,
+        A.ZONE_CELL, z.n, w.tests, w.capped and ", PLAFOND atteint (zone partielle)" or ""))
+    end
+    z.cells, z.n, z.at, z.tests, z.capped, z.work = w.cells, w.n, tick, w.tests, w.capped or nil, nil
+  end
+  return used
+end
+
 --- Vue « joueur » pour S.decide : territoire VU (secteurs), défense vue de la cible choisie par le style. nil si la
 --- faction ne sait rien du joueur. Met à jour fp.target (pos, secteur, défense ; réévaluée toutes les target_ttl).
-function Vision.player_view(f, p, fp, tick)
+--- `surface` (lot QG-DERNIER) : surface de la guerre (nil : relue dans l'état de la guerre).
+function Vision.player_view(f, p, fp, tick, surface)
   local v = Vision.state(f)
   local list = Vision.known_list(f)
   if #list == 0 then
@@ -282,7 +346,9 @@ function Vision.player_view(f, p, fp, tick)
   local t = fp.target
   if not t or tick - t.tick >= R.target_ttl or not v.known[t.sector] then
     local home = A.key(p.home.x, p.home.y)
-    local s = A.pick_target(list, f.hq_pos, home, v.model.style)
+    surface = surface or game.surfaces[State.war().surface]
+    local z = p.zone -- lot QG-ZONE : toute la base reliée au départ, visée en dernier
+    local s = A.pick_target(list, f.hq_pos, home, v.model.style, player_homes(surface), z and z.cells)
     t = { pos = { x = s.x, y = s.y }, sector = s.key, defense = s.def, tick = tick }
     fp.target = t
   end

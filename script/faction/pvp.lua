@@ -274,6 +274,10 @@ Scheduler.define_lane(PvP.SCAN_LANE, R.scan_period, function(_, tick)
   Profiler.start("pvp:scan")
   Vision.pass(surface, p, tick)
   Profiler.stop("pvp:scan")
+  -- Lot QG-ZONE : zone du départ (toute la base reliée au départ), A.ZONE_STEP comptages au plus par passe.
+  Profiler.start("pvp:zone")
+  Vision.zone_pass(surface, p, tick)
+  Profiler.stop("pvp:zone")
 end)
 
 --- Vue « joueur » d'une faction, évaluée seulement quand elle peut servir (niveau agressif, guerre
@@ -288,7 +292,7 @@ local function player_view(f, surface, p, fp, tick, level)
     if n == 0 then return nil end
     return { score = n, defense = 0, reachable = false }
   end
-  return Vision.player_view(f, p, fp, tick)
+  return Vision.player_view(f, p, fp, tick, surface) -- lot QG-DERNIER : la surface, pour le point d'apparition
 end
 
 local function player_groups(f)
@@ -528,6 +532,8 @@ function PvP.status(tick)
     sectors = 0, factions = {}, rally_until = p and p.rally_until,
     tempo = p and p.tempo, first_done = p and p.first_done,
     rally_target = p and p.rally_target and { x = p.rally_target.x, y = p.rally_target.y, defense = p.rally_target.defense } or nil,
+    -- Lot QG-ZONE : zone du départ (dernier calcul fini ; nil avant le premier).
+    zone = p and p.zone and p.zone.at and { n = p.zone.n, at = p.zone.at, tests = p.zone.tests, capped = p.zone.capped or false } or nil,
   }
   -- Lot IA2-c : plus de comptage global ; `sectors` = secteurs du joueur vus par la faction qui en voit le plus,
   -- `score` = la même chose (compatibilité des bancs d'IA0).
@@ -592,6 +598,11 @@ end
 remote.add_interface("fo-pvp", {
   status = function() return PvP.status(game.tick) end,
   set_difficulty = function(level) return PvP.set_difficulty(level) end,
+  -- Lot QG-ZONE (bancs) : le point (x, y) est-il dans la zone du départ (toute la base reliée au départ, visée en dernier) ?
+  in_zone = function(x, y)
+    local p = State.war().pvp
+    return p ~= nil and p.zone ~= nil and A.in_zone(p.zone.cells, x, y)
+  end,
 })
 
 return PvP

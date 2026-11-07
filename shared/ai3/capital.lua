@@ -87,6 +87,17 @@ Cap.REPLACE_BATCH = 4
 -- (Essai 2, mesuré : compté en COÛT, le report d'un centre de l'époque 3 — 80 acier — dépassait l'heure pour une faction
 -- qui paie 40 de travail par minute ; en valeur, il faut la valeur d'environ 25 tourelles.)
 Cap.DEFER_PCT = 100
+-- Lot DEFAUT7, étage 3 (« la matière du centre quand il passe devant » ; sonde [FO-FER-DIAG], banc fd-croiss-123456789 sur
+-- 16f1b3e0) : le centre d'Émeraude passe devant à 31,0 min, mais (1) « alim:logistic-science-pack », PREMIER projet, prend avant lui
+-- tout le fer du stock virtuel (fer à son tour : 0 à 2 dans 25 relevés ; 738 des 908 plaques entrées en 28 min parties en fabrications
+-- de ce projet), et (2) à 36,0 min la valeur du centre monte (218 -> 356 : les tourelles payées débloquent plus), le report retombe
+-- sous le seuil et le centre redevient un but de fond servi EN DERNIER. Règle : un centre qui a passé devant RESTE devant (collant)
+-- et il est servi EN TÊTE du stock virtuel (Cap.ahead_first), sauf les projets qui produisent la matière qui lui manque (exemption :
+-- sinon une faction sans autre source ne sortirait jamais de l'impasse). BORNE : au plus Cap.AHEAD_TICKS ; ensuite il retombe à la
+-- règle d'avant (Cap.starved sur les reports), sans se réarmer pour la même cible. 15 min : le plus lent des cas mesurés couvre son
+-- manque en 11,6 min (Émeraude, 370 plaques de fer à 32 plaques/min de fonte à la main) ; au-delà, c'est la PRODUCTION qui manque (la
+-- tournée de charbon tenue par un PNJ coincé, étage 4), et le centre ne doit pas geler la faction.
+Cap.AHEAD_TICKS = 15 * 3600
 
 local function sorted_keys(t)
   local ks = {}
@@ -411,11 +422,13 @@ function Cap.choose(Ld, census, ctx)
   local first = res.cands[1]
   local starved = false
   for _, c in ipairs(res.cands) do
-    if c.center and (Cap.starved(ctx.defer, c) or ctx.thaw) then first, starved = c, true end -- ctx.thaw : le gel du centre est levé (shared/team/degel.lua)
+    if c.center and (Cap.starved(ctx.defer, c, ctx.tick) or ctx.thaw) then first, starved = c, true end -- ctx.thaw : le gel du centre est levé (shared/team/degel.lua)
   end
   local d = first and {} or { none = true }
   for k, v in pairs(first or {}) do d[k] = v end
   d.starved = starved or nil
+  -- Lot DEFAUT7, étage 3 : le centre passé devant est servi en tête, tant que la borne de sa cible n'est pas atteinte.
+  d.ahead = (starved and not Cap.ahead_expired(ctx.defer, first.key, ctx.tick)) or nil
   d.gate_open = Cap.gate_open(res.centre)
   d.gate_key = res.centre and res.centre.key or nil
   d.ranked = {}
@@ -437,11 +450,46 @@ end
 
 --- Le centre a-t-il été reporté assez longtemps ? defer = { key, spent } (VALEUR des améliorations payées pendant que le centre
 --- `key` était payable, tenue par le runtime), gate = le candidat centre (gate.value : sa valeur).
-function Cap.starved(defer, gate)
+function Cap.starved(defer, gate, now)
   if not (defer and gate and gate.center and gate.key and defer.key == gate.key) then return false end
+  if Cap.ahead_active(defer, gate, now) then return true end -- lot DEFAUT7, étage 3 : passé devant, il y reste (borné)
   local value = gate.value or 0
   if value <= 0 then return false end
   return (defer.spent or 0) * 100 >= value * Cap.DEFER_PCT
+end
+
+--- Lot DEFAUT7, étage 3 : le centre `gate` est-il encore « collant » ? defer.ahead_since = tick où il a passé devant (posé par
+--- Cap.ahead_step), defer.ahead_done = borne atteinte pour cette cible (jamais réarmé).
+function Cap.ahead_active(defer, gate, now)
+  if not (defer and gate and gate.center and gate.key and defer.key == gate.key) then return false end
+  if defer.ahead_since == nil or defer.ahead_done then return false end
+  return ((now or 0) - defer.ahead_since) < Cap.AHEAD_TICKS
+end
+
+--- Lot DEFAUT7, étage 3 : un pas de l'état collant après la décision d (tenue par le runtime dans defer, nombres et booléens).
+--- Rend l'événement : "debut" (le centre passe devant : la borne court), "borne" (Cap.AHEAD_TICKS atteint : retour à la règle des
+--- reports), ou nil.
+function Cap.ahead_step(defer, d, now)
+  if not defer or defer.ahead_done then return nil end
+  if defer.ahead_since ~= nil then
+    if (now or 0) - defer.ahead_since >= Cap.AHEAD_TICKS then
+      defer.ahead_done = true
+      return "borne"
+    end
+    return nil
+  end
+  if d and d.center and d.key and d.key == defer.key and d.starved then
+    defer.ahead_since = now or 0
+    return "debut"
+  end
+  return nil
+end
+
+--- Étage 3 : la borne de la cible `key` est-elle atteinte (ou déjà passée) ?
+function Cap.ahead_expired(defer, key, now)
+  if not (defer and key and defer.key == key) then return false end
+  if defer.ahead_done then return true end
+  return defer.ahead_since ~= nil and ((now or 0) - defer.ahead_since) >= Cap.AHEAD_TICKS
 end
 
 --- Le centre est-il PAYABLE à cette décision (aucune condition qui le bloque, pas de refus récent) ? centre = res.centre de
@@ -464,7 +512,14 @@ function Cap.goal(d, weights)
   local w = math.max(1000, (weights or {}).capital or 1000) -- le caractère avance l'investissement, sans le retarder
   return { key = "capital:" .. d.key, family = "capital", kind = "upgrade", cost = d.cost, target = d.key,
     value = clamp(math.floor(base * w / 1000), 1, 100), center = d.center or nil, fond = true,
-    short = (d.center and d.work ~= nil and (d.work <= Cap.SHORT_WORK or d.starved)) or nil, replace = d.replace and true or nil }
+    short = (d.center and d.work ~= nil and (d.work <= Cap.SHORT_WORK or d.starved)) or nil, replace = d.replace and true or nil,
+    -- lot DEFAUT7 : bâtiment de la chaîne Q16 (sa montée est la condition du centre) ; essai 2 : aussi l'amélioration d'un bâtiment
+    -- pendant que le centre est PAYABLE (porte ouverte) : ses paiements sont le chemin du centre (règle du loueur de skis, Cap.starved).
+    -- Étage 3 (relecture de 16f1b3e0, point 2) : porte ouverte, un REMPLACEMENT de machines n'est pas « sur le chemin » (pas un bâtiment
+    -- à niveaux) ; seule la chaîne Q16 le met en tête.
+    opens = (not d.center and (d.chain ~= nil or (d.gate_open == true and not d.replace))) or nil,
+    -- Étage 3 : le centre passé devant, servi en tête du stock virtuel (Cap.ahead_first) tant que la borne n'est pas atteinte.
+    ahead = (d.center and d.ahead) or nil }
 end
 
 --- Émission du projet (enregistrée dans P.EMIT.upgrade par shared/ai3/cerveau.lua) : tout le coût au stock virtuel ->
@@ -476,15 +531,144 @@ end
 --- engrenages et demandait son fer, palier 3 de recherche à 20,8 / 40,0 / 51,4 min contre 16,5 / 24,5 / 28,3 au témoin.
 function Cap.emit(P)
   return function(E, proj, g)
+    -- Étage CIRCUITS : le centre collant ne compte que ce qui est AU COFFRE (Cap.ahead_clamp) et ses tâches ont la priorité du
+    -- projet le plus fort (Cap.ahead_prio). Les arrivées mises de côté sont rendues au stock virtuel des projets suivants.
+    local aside = g.ahead and Cap.ahead_clamp(E, g.cost) or nil
+    local prio = g.ahead and Cap.ahead_prio(P, proj.prio) or proj.prio
+    local res
     if P.take(E, g.cost) then
       E.pay = E.pay or {}
       E.pay[#E.pay + 1] = { key = g.key, target = g.target, cost = g.cost }
-      return "ok"
+      res = "ok"
+    elseif not g.center and not g.opens and not g.replace and ((E.view and E.view.workers_idle) or 0) <= 0 then
+      res = "matiere"
+    else
+      P.want(E, proj, g.cost, prio, false, "niveau")
+      res = "matiere"
     end
-    if not g.center and not g.replace and ((E.view and E.view.workers_idle) or 0) <= 0 then return "matiere" end
-    P.want(E, proj, g.cost, proj.prio, false, "niveau")
-    return "matiere"
+    for _, k in ipairs(sorted_keys(aside)) do E.avail[k] = (E.avail[k] or 0) + aside[k] end
+    return res
   end
+end
+
+--- Lot DEFAUT7, étage CIRCUITS (sonde [FO-FER-DIAG] sur 5d4d0aa4 : fd2-guide-271828182, fd2-dc-717152950). Le centre collant manquait
+--- de CIRCUITS, pas de fer : (1) ses fabrications à la main (60 circuits demandés à chaque pensée) n'étaient jamais faites, à la
+--- priorité de son projet (59 à 67) quand l'équipe n'a aucun bras libre (Azur 32 à 36 min, Ambre 27 à 29 min : 0 circuit entré) ;
+--- (2) les circuits ATTENDUS au coffre (view.incoming : 200 pour Azur de 43 à 46 min, coffre à 0) couvraient son coût au stock virtuel :
+--- aucune fabrication, et ces circuits partaient à leur arrivée vers les quais des modules. Règle : le centre collant ne compte que le
+--- stock libre au coffre, et ses tâches prennent la priorité du projet le plus fort (P.prio_of(100)), sous les urgences de défense et
+--- l'amorçage. Borné par l'état collant (Cap.AHEAD_TICKS).
+--- (Relecture de d18d1531, remarque 1 : un cran SOUS le plus fort, 84, pour ne jamais être à égalité avec l'armée d'alerte, 85.)
+function Cap.ahead_prio(P, prio)
+  return math.max(prio or 0, P.prio_of(100) - 1)
+end
+
+--- Étage CIRCUITS : ramène le stock virtuel des objets du coût au stock LIBRE du coffre (E.view.stock) moins ce que le planificateur
+--- permanent a déjà pris à cette pensée (E.base_used : recrues, plein des tourelles ; relecture de d18d1531, remarque 2 : sans cela, le
+--- centre comptait des objets promis ailleurs, P.take rendait « ok » et Capital.pay échouait en boucle) ; rend l'excédent mis de côté
+--- ({ [objet] = n }), que Cap.emit rend ensuite au stock virtuel.
+function Cap.ahead_clamp(E, cost)
+  local aside = {}
+  local stock = (E.view and E.view.stock) or {}
+  local used = E.base_used or {}
+  for _, it in ipairs(cost or {}) do
+    local k = it[1]
+    local here = math.max(0, (stock[k] or 0) - (used[k] or 0))
+    local over = (E.avail[k] or 0) - here
+    if over > 0 and not aside[k] then
+      aside[k] = over
+      E.avail[k] = E.avail[k] - over
+    end
+  end
+  return aside
+end
+
+--- Lot DEFAUT7 (journal du DC du 3/11 et banc ageblocage-dc 717152950 sur 0.6.50, [FO-CAPITAL-DIAG]) : l'amélioration EXIGÉE par le
+--- centre (bâtiment de la chaîne Q16, g.opens) était servie EN DERNIER (rang 10 à 14 sur 14) : à son tour, le fer et les engrenages du
+--- stock virtuel étaient déjà pris par les projets servis avant (fer épuisé dans 23 relevés sur 33), et Cap.emit ne fabriquait rien sans
+--- bras libre : 0 fabrication émise pour elle dans 31 relevés sur 33, Azur une amélioration payée en 60 min, jamais l'âge 2.
+--- Essai 2 (dc-croissance 123456789, essai 1 : une fois la chaîne payée, le centre devient payable mais l'amélioration suivante
+--- d'Émeraude, une tourelle ordinaire, reste impayée 38 min : 0 engrenage à son tour, 2 améliorations en 60 min, la règle du loueur de
+--- skis ne passe jamais ; 0 âge 2 contre 2 au témoin) : `opens` vaut aussi pour l'amélioration d'un bâtiment quand le centre est payable.
+--- Règle : le projet du bâtiment de la chaîne passe EN TÊTE de l'ordre de service (ses quelques objets pris au stock virtuel avant les
+--- autres projets) ; les autres projets gardent leur ordre. Sa valeur et sa priorité ne changent pas ; le centre n'est pas concerné.
+--- order = liste des projets (P.update) ; rend une nouvelle liste.
+function Cap.chain_first(order)
+  local out, chain = {}, nil
+  for _, p in ipairs(order or {}) do
+    if not chain and p.goal and p.goal.opens then chain = p else out[#out + 1] = p end
+  end
+  if chain then table.insert(out, 1, chain) end
+  return out
+end
+
+--- Lot DEFAUT7, étage 3 : ce que PRODUIT un but (sans nom d'objet) : son produit (module, bande), l'objet ou la ressource de son ordre
+--- (capitalisation : ouvrir, couvrir, chaîne), le produit et la ressource de son avant-poste (extraction, couverture, relève).
+--- outposts = T.outposts (types d'avant-poste -> { product, resource }).
+function Cap.products(g, outposts)
+  local out = {}
+  if not g then return out end
+  if g.product then out[#out + 1] = g.product end
+  if g.item then out[#out + 1] = g.item end
+  local o = g.order
+  if type(o) == "table" then
+    if o.item then out[#out + 1] = o.item end
+    if o.resource then out[#out + 1] = o.resource end
+  end
+  local sp = g.outpost and outposts and outposts[g.outpost]
+  if sp then
+    if sp.product then out[#out + 1] = sp.product end
+    if sp.resource then out[#out + 1] = sp.resource end
+  end
+  return out
+end
+
+--- Étage 3 : matières qui MANQUENT au coût `cost` au stock virtuel `avail`, et l'entrée de leur fonte (inputs = T.smelter_inputs :
+--- produit -> { entrée, quantité }) : { [objet] = true }.
+function Cap.missing_set(cost, avail, inputs)
+  local m = {}
+  for _, it in ipairs(cost or {}) do
+    if ((avail or {})[it[1]] or 0) < it[2] then
+      m[it[1]] = true
+      local inp = inputs and inputs[it[1]]
+      if inp then m[inp[1]] = true end
+    end
+  end
+  return m
+end
+
+--- Étage 3 : ordre de SERVICE (une copie ; l'ordre d'origine garde le projet dominant) quand un centre est passé devant (g.ahead) :
+--- d'abord, dans leur ordre relatif, les projets EXEMPTÉS : la DÉFENSE MINIMALE (règle D1 de shared/ai3/buts.lua, « jamais retenue » :
+--- premiers soldats et armée d'alerte g.minimal / g.alert, part minimale de la réserve de munitions g.minimal_n > 0) et ceux qui
+--- PRODUISENT une matière qui manque au centre ; puis le centre ; puis tous les autres dans leur ordre. Sans centre passé devant :
+--- l'ordre tel quel. Le planificateur permanent et la pile (réparer, protéger) sont servis avant les projets (shared/ai3/cerveau.lua).
+--- (Essai 1 de l'étage, 3c9666e7, relecture : la défense minimale passait APRÈS le centre ; moteur simulé, 57 soldats en vie contre 62.)
+function Cap.minimal_defense(g)
+  return g ~= nil and (g.minimal == true or g.alert == true or (g.minimal_n or 0) > 0)
+end
+
+function Cap.ahead_first(order, avail, outposts, inputs)
+  local centre = nil
+  for _, p in ipairs(order or {}) do
+    if p.goal and p.goal.ahead then centre = p break end
+  end
+  if not centre then return order end
+  local missing = Cap.missing_set(centre.goal.cost, avail, inputs)
+  local out, rest = {}, {}
+  for _, p in ipairs(order) do
+    if p ~= centre then
+      local feeds = Cap.minimal_defense(p.goal)
+      if not feeds then
+        for _, item in ipairs(Cap.products(p.goal, outposts)) do
+          if missing[item] then feeds = true break end
+        end
+      end
+      if feeds then out[#out + 1] = p else rest[#rest + 1] = p end
+    end
+  end
+  out[#out + 1] = centre
+  for _, p in ipairs(rest) do out[#out + 1] = p end
+  return out
 end
 
 --- Texte de journal d'une décision (ASCII).

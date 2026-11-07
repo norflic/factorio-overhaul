@@ -20,9 +20,11 @@ local Nav = require("script.agents.nav")
 local State = require("script.faction.state")
 local Ar = require("shared.team.arrivee") -- lot C4 PLATEAU 3 : tournée arrivée malgré un chemin refusé (règle pure)
 local Acc = require("shared.team.acces_champ") -- lot NAV2 : point d'accès atteignable depuis l'extérieur du champ (règle pure)
+local Co = require("shared.team.couloir") -- lot ÉTAGE 5 : le bâtiment qui ferme la dernière issue d'un accès (journal [FO-NAV-ACCES])
 local Rc = require("shared.team.repli_chemin") -- lot CHARBON3 (B2) : essais de marche d'un PNJ (règle pure)
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Mu = require("shared.team.munitions") -- lot MUNITIONS (revue M3) : prise bornée de la munition de base (Mu.split_take)
+local Ra = require("shared.team.rearmement") -- lot REARMEMENT : emplacement des munitions complété au dépôt au QG (règle pure)
 local Outposts = require("script.faction.outposts")
 local Sites = require("script.faction.sites")
 local Board = require("script.team.board")
@@ -44,6 +46,7 @@ local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces 
 local Mi = require("shared.team.main_inventaire") -- lot MAIN-INVENTAIRE : minage à la main, inventaire plein, minerai au sol
 local Sorties = require("script.team.sorties") -- lot CHARBON-MAIN : la ressource qui dort dans les coffres des avant-postes bruts
 local CB = require("shared.team.craft_bg") -- lot CRAFT-PARALLELE : fabrication en arrière-plan (règles pures, bilan [FO-CRAFT])
+local Tp = require("shared.team.tri_proches") -- lot CERVEAU-CENTRAL (P1) : tri des tuiles de minage, positions lues une fois
 
 local Worker = {}
 Worker.BUILD_LOGS = 30 -- lot SCALE-COMPLET : lignes [FO-AVANT-POSTE] au plus par équipe (f.stats.build_logs)
@@ -252,6 +255,43 @@ local function ingredients_of(name)
   return v
 end
 
+--- Lot REARMEMENT : plancher de la défense pour le rechargement des armes (Ra.floor) : la réserve minimale de munitions, ou la part urgente
+--- des tourelles de l'équipe (chargeurs qui leur manquent jusqu'à la cible ordinaire, Outposts.turret_groups) : les tourelles d'abord.
+local function rearm_floor(f)
+  local urgent = 0
+  for _, g in ipairs(Outposts.turret_groups(f)) do urgent = urgent + (g.missing_base or 0) end
+  -- QG en péril (f.team.s1.was, pensée d'avant) : la réserve sur la menace reçue (f.team.s1.reserve_said, Sq.ammo_reserve) entre au plancher
+  local s1 = f.team and f.team.s1
+  return Ra.floor(T.ammo_min, urgent, s1 ~= nil and s1.was == true, s1 and s1.reserve_said or 0)
+end
+
+--- Lot REARMEMENT : au dépôt au QG, l'emplacement des munitions d'un PNJ ARMÉ (pistolet en main) est complété jusqu'à la dotation
+--- (T.worker_ammo_keep) avec des chargeurs du coffre au-dessus du plancher (Ra.take). Avant : jamais (seul le recrutement le remplissait).
+--- Compte : f.team.rearm = { n = rechargements, mags = chargeurs } (journal [FO-REARMEMENT], Worker.rearm_report).
+local function rearm(agent, f)
+  if not T.rearm_on then return end
+  local e = agent.entity
+  local guns = e.get_inventory(defines.inventory.character_guns)
+  if not (guns and guns.get_item_count(T.worker_gun) > 0) then return end
+  local ammo = e.get_inventory(defines.inventory.character_ammo)
+  if not ammo then return end
+  local slot = ammo.get_item_count(T.worker_ammo)
+  if slot >= T.worker_ammo_keep then return end -- (emplacement plein : ni registre ni tourelles relus à chaque dépôt)
+  -- Stock LIBRE du registre (Stock.free_view : ce que les tâches n'ont pas réservé, tourelles neuves et fabrications comprises), pas le compte
+  -- brut du coffre : un rechargement ne fait jamais échouer une prise réservée.
+  local free = Stock.free_view and Stock.free_view(f, game.tick) or nil
+  local stock = free and (free[T.worker_ammo] or 0) or Stock.count(f, T.worker_ammo)
+  local n = Ra.take(slot, T.worker_ammo_keep, stock, rearm_floor(f))
+  if n <= 0 then return end
+  local got = Stock.remove(f, T.worker_ammo, n)
+  local put = got > 0 and ammo.insert({ name = T.worker_ammo, count = got }) or 0
+  if put < got then Stock.insert(f, T.worker_ammo, got - put) end
+  if put > 0 then
+    f.team.rearm = f.team.rearm or { n = 0, mags = 0 }
+    f.team.rearm.n, f.team.rearm.mags = f.team.rearm.n + 1, f.team.rearm.mags + put
+  end
+end
+
 local function deposit_all(agent, f)
   if not (f.hq and f.hq.valid) then return end
   local e = agent.entity
@@ -262,6 +302,7 @@ local function deposit_all(agent, f)
   if ammo then deposit_inventory(f, ammo, KEEP_AMMO) end
   local armor = e.get_inventory(defines.inventory.character_armor)
   if armor then deposit_inventory(f, armor, nil) end
+  rearm(agent, f) -- lot REARMEMENT : après le dépôt (la dotation de 10 n'est jamais reprise : deposit et bg_absorb s'arrêtent à KEEP_AMMO)
 end
 
 --- Prend au QG la liste { {objet, n} }. Renvoie true si tout a été pris.
@@ -325,11 +366,12 @@ local function access(o, f)
   end
   local rect = Acc.rect(own_boxes, base, Acc.MARGIN)
   local area = { { rect[1], rect[2] }, { rect[3] + 1, rect[4] + 1 } }
-  local boxes = {}
+  local boxes, ents = {}, {}
   for _, e in ipairs(surface.find_entities_filtered({ area = area, collision_mask = "player-layer" })) do
     if e.valid and not ACC_MOVING[e.type] then
       local bb = e.bounding_box
       boxes[#boxes + 1] = { bb.left_top.x, bb.left_top.y, bb.right_bottom.x, bb.right_bottom.y }
+      ents[#boxes] = e
     end
   end
   local tiles = {}
@@ -337,14 +379,35 @@ local function access(o, f)
     tiles[#tiles + 1] = { x = t.position.x, y = t.position.y }
   end
   local r = Acc.reach(boxes, tiles, base, rect)
+  local was = c and c.moved
   o.acces_cache = { n = #own, t = tick, bx = base.x, by = base.y, p = { x = r.x, y = r.y }, moved = r.moved,
     side = math.max(rect[3] - rect[1], rect[4] - rect[2]) + 1 }
   if r.moved and f.stats then
     f.stats.acces_moved = (f.stats.acces_moved or 0) + 1
     if f.stats.acces_moved <= ACC_LOGS then
-      log(string.format("[FO-NAV-ACCES] %s : avant-poste %d %s : acces (%.1f,%.1f) ferme par le champ (%d batiment(s)), but deplace en (%.1f,%.1f) a %.1f tuile(s), %d tuile(s) atteignable(s) (n. %d) a %.1f min",
+      -- Lot ÉTAGE 5 (accord du lead) : à la fermeture (ou quand le champ a changé), le bâtiment le plus récent, à 10 tuiles au plus de l'accès,
+      -- dont le retrait seul rouvre l'accès (Co.closer) : celui qui ferme la DERNIÈRE issue. Un seul relevé de plus par ligne de journal.
+      local closer = "-"
+      if not was or not c or c.n ~= #own then
+        local order = {}
+        for i, e in ipairs(ents) do
+          local bb = boxes[i]
+          local cx, cy = (bb[1] + bb[3]) / 2, (bb[2] + bb[4]) / 2
+          if (cx - base.x) ^ 2 + (cy - base.y) ^ 2 <= 100 then order[#order + 1] = i end
+        end
+        table.sort(order, function(i, j)
+          local ui, uj = ents[i].unit_number or -1, ents[j].unit_number or -1
+          if ui ~= uj then return ui > uj end
+          return i < j
+        end)
+        local k = Co.closer(boxes, tiles, base, rect, order)
+        local e = k and ents[k]
+        closer = e and string.format("%s n. %s en (%.1f,%.1f) %s", e.name, tostring(e.unit_number), e.position.x, e.position.y,
+          e.force.name == own[1].force.name and "de l'equipe" or e.force.name) or "aucun seul"
+      end
+      log(string.format("[FO-NAV-ACCES] %s : avant-poste %d %s : acces (%.1f,%.1f) ferme par le champ (%d batiment(s)), but deplace en (%.1f,%.1f) a %.1f tuile(s), %d tuile(s) atteignable(s), derniere issue fermee par %s (n. %d) a %.1f min",
         tostring(f.key), o.id or 0, tostring(o.kind), base.x, base.y, #own, r.x, r.y, math.sqrt((r.x - base.x) ^ 2 + (r.y - base.y) ^ 2), r.reached,
-        f.stats.acces_moved, tick / 3600))
+        closer, f.stats.acces_moved, tick / 3600))
     end
   end
   return { x = r.x, y = r.y }
@@ -588,7 +651,7 @@ function Worker.program(f, task, surface, tick)
       -- Lot CHARBON-MAIN (retour du DC du 3/11 : « des milliers de charbons réunis dans les coffres [des foreuses] et ils minent à la main
       -- juste à côté ») : jamais à la main ce qui attend dans les coffres de sortie d'un avant-poste brut sûr ; sa tournée est une urgence
       -- au planificateur (shared/team/sorties_main.lua, Sm.fetch_prio). Survie comprise ; seule une crise injectée par un banc passe.
-      local ok2, why2, dormant = Sorties.hand_ok(f, task.resource, tick, task.crisis)
+      local ok2, why2, dormant, tours = Sorties.hand_ok(f, task.resource, tick, task.crisis)
       if not ok2 then
         f.stats.main_sorties = (f.stats.main_sorties or 0) + 1
         f.stats.main_refus = f.stats.main_refus or {}
@@ -596,8 +659,8 @@ function Worker.program(f, task, surface, tick)
         local last = f.stats.main_refus[key]
         if not last or tick - last >= 3600 then
           f.stats.main_refus[key] = tick
-          log(string.format("[FO-MAIN] %s : minage a la main de '%s' REFUSE (%s) : %d dans les coffres de sortie des avant-postes, tache %s, a %.1f min (refus %d)",
-            f.key or "?", tostring(task.resource), why2, dormant, tostring(task.key), tick / 3600, f.stats.main_sorties))
+          log(string.format("[FO-MAIN] %s : minage a la main de '%s' REFUSE (%s) : %d dans les coffres de sortie des avant-postes, tache %s, a %.1f min (refus %d) ; tournees {%s}",
+            f.key or "?", tostring(task.resource), why2, dormant, tostring(task.key), tick / 3600, f.stats.main_sorties, tours or ""))
         end
         task.fail = task.fail or "main:sorties"
         return nil
@@ -609,12 +672,8 @@ function Worker.program(f, task, surface, tick)
     local names = Harvest.names_for(f, task.resource, task.trees)
     if #names == 0 then return nil end -- lot KIT : un objet sans entité récoltable ne se mine pas à la main
     local res = surface.find_entities_filtered({ position = f.hq_pos, radius = task.radius or 96, name = names, limit = 256 }) -- lot KIT : minerai = l'entité du même nom, bois = arbres
-    table.sort(res, function(a, b)
-      local da, db = dist2(a.position, f.hq_pos), dist2(b.position, f.hq_pos)
-      if da ~= db then return da < db end
-      if a.position.x ~= b.position.x then return a.position.x < b.position.x end
-      return a.position.y < b.position.y
-    end)
+    -- Lot CERVEAU-CENTRAL (P1) : même ordre (distance au QG, puis x, puis y), positions lues une fois (shared/team/tri_proches.lua).
+    Tp.sort(res, f.hq_pos, dist2)
     -- Tuile LIBRE : sous un four ou une foreuse (avant-poste détruit, restes), l'ouvrier sélectionnait le
     -- bâtiment et ne minait rien (moteur réel, E16 it. 11 : 4 minerais livrés en 50 min).
     local best, first_free, free_d
@@ -729,6 +788,7 @@ ACTS.build = function(agent, f, task, surface, tick)
   end
   local p = agent.entity.position
   o.access = { x = p.x, y = p.y }
+  Build.couloirs_reset(f) -- lot ÉTAGE 5 : le couloir de ce nouvel accès vaut dès ce tick
   task.site_used = true
   f.stats.built = (f.stats.built or 0) + 1
   -- Lot SCALE-COMPLET : origine et distance de chaque NOUVEL avant-poste (partie du DC, 0.6.18 : l'avant-poste de charbon n° 5
@@ -868,6 +928,58 @@ local function abort(agent, f, tick, reason)
   set(agent, "step", tick)
 end
 Worker.abort = abort -- lot IA3-k : demi-tour et fuite
+
+--- Lot ETAGE4 : bail échu d'une tâche (shared/team/bail.lua, appelé par script/team/bail.lua). 1re fois : abandon (programme « rentrer »,
+--- la machine repart de l'étape : une marche ou un état sans issue est remis à zéro) ; encore sans progrès au bail suivant (il ne peut même
+--- pas rentrer : enfermé, état sans issue) : DÉGAGÉ, téléporté près du QG (comme le secours de l'étape « home »), dépôt, et la tâche finit en
+--- échec. Rend "abandon" | "degage".
+--- Place près de `center` pour le personnage `e` : sans bâtiment (find_non_colliding_position) ni fantôme sur la case (F293). Centres essayés
+--- dans un ordre fixe : `center`, puis 8 à 3 tuiles et 8 à 6 tuiles. Aucune sans fantôme : la première place sans bâtiment ; aucune : nil.
+local GHOST_RING = { { 0, 0 }, { 3, 0 }, { 0, 3 }, { -3, 0 }, { 0, -3 }, { 3, 3 }, { -3, 3 }, { -3, -3 }, { 3, -3 },
+  { 6, 0 }, { 0, 6 }, { -6, 0 }, { 0, -6 }, { 6, 6 }, { -6, 6 }, { -6, -6 }, { 6, -6 } }
+function Worker.ghost_free_spot(e, center)
+  local s = e.surface
+  local first
+  for _, o in ipairs(GHOST_RING) do
+    local spot = s.find_non_colliding_position(e.name, { x = center.x + o[1], y = center.y + o[2] }, 20, 0.5)
+    if spot then
+      first = first or spot
+      if s.count_entities_filtered({ type = "entity-ghost", limit = 1,
+        area = { { spot.x - 0.5, spot.y - 0.5 }, { spot.x + 0.5, spot.y + 0.5 } } }) == 0 then
+        return spot
+      end
+    end
+  end
+  return first
+end
+
+--- Revue du lead (m5) : le motif d'un abandon antérieur (fuite, danger) est gardé ; « bail » seulement s'il n'y en avait pas.
+--- Accord du lead (F293) : la place du dégagement est libre de bâtiments (find_non_colliding_position) ET de fantômes (un personnage debout
+--- sur l'emprise d'un fantôme en empêche le ravivage) : Worker.ghost_free_spot.
+function Worker.release_stuck(agent, f, tick)
+  local task = agent.task
+  if task and not task.bailed then
+    task.bailed = true
+    local why = task.fail
+    abort(agent, f, tick, "bail")
+    if why then task.fail = why end
+    return "abandon"
+  end
+  local e = agent.entity
+  if e and e.valid then
+    if agent.nav then Nav.stop(agent, tick) end
+    local spot = f.hq and f.hq.valid and Worker.ghost_free_spot(e, home_slot(agent, f))
+    if spot then
+      e.teleport(spot)
+      f.stats.rescued = (f.stats.rescued or 0) + 1
+      deposit_all(agent, f)
+    end
+  end
+  if task then task.fail = task.fail or "bail" end
+  agent.failed = nil
+  finish(agent, f, false, tick)
+  return "degage"
+end
 
 ---------------------------------------------------------------------------------------------------
 -- Lot CRAFT-PARALLELE : fabrication en arrière-plan
@@ -1110,7 +1222,11 @@ function Worker.recall_near(f, p, radius, tick, except)
     local a = Registry.get(id)
     local at = a and a.task
     local e = a and a.entity
-    if a ~= except and at and e and e.valid and not Re.recall_exempt(at.kind, at.defend)
+    -- Lot DANGER-ACTIF (relecture du lead, 5/11) : un ouvrier ARMÉ n'est pas rappelé : il défend (Re.decide, Re.SITE_RATIO), comme le veut le DC (19 h 12).
+    local armed = e and e.valid and Worker.hook and Worker.hook.has_ammo and Worker.hook.has_ammo(e)
+    if armed and a ~= except and at and not at.fail and dist2(e.position, p) <= r2 then
+      f.stats.recall_armed_kept = (f.stats.recall_armed_kept or 0) + 1
+    elseif a ~= except and at and e and e.valid and not Re.recall_exempt(at.kind, at.defend)
       and not at.fail and dist2(e.position, p) <= r2 then
       -- Lot MAIN-INVENTAIRE : le service des fours du QG (charbon, sortie, relance) reste prioritaire après une attaque.
       if Mi.keep_working(at.kind, dist2(e.position, f.hq_pos)) then
@@ -1303,7 +1419,13 @@ local function defend(agent, tick)
   agent.defense_tick = tick
   local e = agent.entity
   Profiler.fstart("worker:defend")
-  local enemy = e.surface.find_nearest_enemy({ position = e.position, max_distance = DEFENSE_RADIUS, force = e.force })
+  -- Lot CERVEAU-CENTRAL (P2) : le regard de cette pensée (M.sense) n'a rien vu dans un disque qui contient celui-ci : la recherche
+  -- rendrait nil (25,4 % des recherches au moteur simulé, 4 factions × 30 PNJ) ; elle est sautée, même suite.
+  local p = e.position
+  local enemy = nil
+  if not (H and H.look_clear and H.look_clear(agent.id, tick, p, DEFENSE_RADIUS)) then
+    enemy = e.surface.find_nearest_enemy({ position = p, max_distance = DEFENSE_RADIUS, force = e.force })
+  end
   Profiler.fstop("worker:defend")
   if enemy and e.get_item_count(T.worker_ammo) + e.get_item_count("piercing-rounds-magazine") > 0 then
     e.shooting_state = { state = defines.shooting.shooting_enemies, position = enemy.position }
@@ -1667,6 +1789,32 @@ end
 
 --- Lot CRAFT-PARALLELE : le PNJ a-t-il une fabrication en arrière-plan (file en cours ou produits pas encore déposés) ?
 function Worker.crafting(agent) return agent.bg ~= nil end
+
+--- Lot REARMEMENT : journal de MESURE [FO-REARMEMENT], toutes les 5 min par équipe (aucune décision ne le lit) : PNJ, armés (pistolet),
+--- armés à emplacement VIDE, rechargements et chargeurs depuis le début, plancher, chargeurs au coffre.
+function Worker.rearm_report(f, tick)
+  if not (f and f.team) or tick - (f.team.rearm_log or -1000000) < 5 * 3600 then return end
+  f.team.rearm_log = tick
+  local n, gun, empty = 0, 0, 0
+  for _, id in ipairs(State.sorted_keys(f.engineers or {})) do
+    local a = Registry.get(id)
+    local e = a and a.entity
+    if e and e.valid then
+      n = n + 1
+      local guns = e.get_inventory(defines.inventory.character_guns)
+      if guns and guns.get_item_count(T.worker_gun) > 0 then
+        gun = gun + 1
+        local ammo = e.get_inventory(defines.inventory.character_ammo)
+        if not ammo or ammo.is_empty() then empty = empty + 1 end
+      end
+    end
+  end
+  local r = f.team.rearm or { n = 0, mags = 0 }
+  log(string.format("[FO-REARMEMENT] %s minute %.1f | PNJ %d, armes %d, arme vide %d ; rechargements %d (%d chargeurs) depuis le debut ; " ..
+    "plancher %d, coffre %d chargeur(s), regle %s", tostring(f.key or "?"), tick / 3600, n, gun, empty, r.n, r.mags,
+    (f.hq and f.hq.valid) and rearm_floor(f) or 0, (f.hq and f.hq.valid) and Stock.count(f, T.worker_ammo) or 0,
+    T.rearm_on and "rechargement" or "avant"))
+end
 
 function Worker.idle_count(f)
   local n = 0

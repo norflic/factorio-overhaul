@@ -321,9 +321,10 @@ end
 
 --- Unités et packs d'une technologie (règles des lots CRAFTS).
 function Cp.tech_count(t) return C.tech_count(t) end
--- Âge 13 : la fenêtre X0 n'a plus que des packs du mod (absents du jeu) et C.packs(13) rend rouge, vert, militaire
--- seulement (moins que l'âge 10) ; ÉCART déclaré : les packs vanilla de l'âge 12 (tous sauf le spatial).
-function Cp.packs(k) return C.packs(math.min(k, 12)) end
+-- Avant le lot XP-COUTS (4/11), C.packs(13) rendait rouge, vert, militaire seulement et ce relais prenait l'âge 12 (ÉCART
+-- déclaré). C.packs rend désormais tous les packs vanilla de l'âge : C.packs(13) = celui de l'âge 12, le relais est retiré ;
+-- les packs des technologies du calcul (âges 10 à 13) ne changent pas (tests/xp_couts_test.lua).
+function Cp.packs(k) return C.packs(k) end
 
 ---------------------------------------------------------------------------------------------------
 -- LE CALCUL PAR SCRIPT (D-20 (4)) : règles pures, appelées par script/compute/compute.lua

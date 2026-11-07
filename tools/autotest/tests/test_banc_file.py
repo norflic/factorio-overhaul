@@ -95,6 +95,26 @@ verifie(banc.lire_places(None) == 1 and banc.lire_places(3) == 1,
 with open(os.path.join(tmp, "fo-autotest.bat"), "w", newline="\r\n") as f:
     f.write("@echo off\nif \"%FO_PLACE%\"==\"2\" rem place 2\nexit /b 0\n")
 verifie(banc.lire_places(None) == 3, "fo-autotest.bat qui connaît FO_PLACE : le fichier compte (3)")
+# Lot PERF4 : déploiement du .bat sous --seul (banc.deployer_bat) : atomique, seulement s'il diffère, jamais dans une racine
+# jetable (FO_ROOT : les bancs hors jeu gardent leur faux .bat).
+dep = tempfile.mkdtemp(prefix="banc deploie ")
+src_bat, dst_bat = os.path.join(dep, "source.bat"), os.path.join(dep, "racine.bat")
+with open(src_bat, "wb") as f:
+    f.write(b"@echo off\r\nrem nouveau\r\n")
+with open(dst_bat, "wb") as f:
+    f.write(b"@echo off\r\nrem ancien\r\n")
+m1 = banc.deployer_bat(src_bat, dst_bat)
+verifie("DÉPLOYÉ" in m1 and open(dst_bat, "rb").read() == open(src_bat, "rb").read()
+        and sorted(os.listdir(dep)) == ["racine.bat", "source.bat"],
+        "deployer_bat : .bat différent recopié octet à octet, aucun fichier temporaire laissé")
+m2 = banc.deployer_bat(src_bat, dst_bat)
+verifie("déjà à jour" in m2, "deployer_bat : .bat identique laissé tel quel")
+avant_jetable = open(os.path.join(tmp, "fo-autotest.bat"), "rb").read()
+m3 = banc.deployer_bat()
+verifie("racine jetable" in m3 and open(os.path.join(tmp, "fo-autotest.bat"), "rb").read() == avant_jetable,
+        "deployer_bat sans chemin sous FO_ROOT : rien déployé, faux .bat intact")
+shutil.rmtree(dep, ignore_errors=True)
+
 os.remove(banc.FICHIER_PLACES)
 verifie(banc.places_ouvertes(None, None) == 2, "fo-banc-places.txt absent : 2 places")
 verifie([banc.places_ouvertes(None, x) for x in ("1", "2", "3\r\n", " 3 ")] == [1, 2, 3, 3], "fichier « 1 » à « 3 »")

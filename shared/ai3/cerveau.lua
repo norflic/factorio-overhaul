@@ -109,6 +109,7 @@ function C.situation(view, st, ctx)
   return {
     is_player = ctx.is_player or false, workers = view.workers or 0, soldiers = view.soldiers or 0,
     soldiers_max = view.soldiers_max or 0, stock = view.stock or {}, cap = cap, pending = view.pending or {},
+    army_cap = view.army_cap or 0, -- lot DEPENSES2 (R1) : plafond des factions, celui de l'armée de votre équipe (B.generate)
     sites = view.sites or {}, sites_near = view.sites_near or {}, nout = nout, undef_n = undef_n, lethal_n = lethal_n,
     threatened = view.threatened or false, expansion = ctx.expansion or 0, dominant = ctx.dominant or false,
     desired = ctx.desired, extension = ctx.industrie or false, room = room, smelters = view.smelters or 0, smelters_pending = view.smelters_pending or 0,
@@ -317,6 +318,7 @@ function C.think(view, book, st, ctx)
   local order, K = P.update(st, goals, tick, s.workers)
   -- 5. Dépliage.
   local E = P.context(avail, book, view, st)
+  E.base_used = used -- étage CIRCUITS : ce que le planificateur permanent a pris (Cap.ahead_clamp)
   E.priorite = base.priorite -- lot PRIORITE-RESSOURCES : production d'abord quand le fer ne paie pas la défense et la production
   -- Lot PILE-PRIORITE : les manques des rangs R0 et R1 (fer des tourelles, survie, reconstruction d'un avant-poste) entrent
   -- dans E.raw AVEC leur priorité : P.supply en fait la fonte, le minage par plusieurs PNJ, l'exploration ; st.short_n en fait
@@ -331,7 +333,11 @@ function C.think(view, book, st, ctx)
   local repair_proj = { id = 0, key = "pile:reparer" }
   for _, it in ipairs(pile.crafts or {}) do P.want(E, repair_proj, { { it[1], it[2] } }, it[3], false, "pile") end
   P.boot_smelters(E, st, s.cap) -- lot IA-V2 : fours du QG avant les projets (chemin critique)
-  for _, proj in ipairs(order) do P.emit(E, proj, ctx, tick) end
+  -- Ordre de SERVICE du stock virtuel : une COPIE de l'ordre (l'ordre d'origine garde le projet dominant, plus bas ; relecture de
+  -- 16f1b3e0, point 1). Lot DEFAUT7 : l'amélioration exigée par le centre (chaîne Q16) servie d'abord ; étage 3 : le centre passé
+  -- devant servi en tête, après les seuls projets qui produisent la matière qui lui manque (Cap.ahead_first).
+  local served = Cap.ahead_first(Cap.chain_first(order), E.avail, T.outposts, T.smelter_inputs)
+  for _, proj in ipairs(served) do P.emit(E, proj, ctx, tick) end
   -- 6. Approvisionnement.
   local raw, minable = C.raw_items()
   -- Lot KIT : matières naturelles récoltables (le bois des poteaux, lu par le runtime sur les arbres) : à miner à la main

@@ -1,4 +1,47 @@
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Version: 0.6.58
+Date: 2026-11-07
+  Changes:
+    - Pensee des equipes decoupee en 4 etapes sur 4 ticks (factions et votre equipe), memes decisions qu un bloc ; sauvegarde et chargement possibles a chaque etape. Sur la sauvegarde de reference, 1 % des pires ticks 64 -> 38 ms, pire tick 242 -> 200 ms.
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Version: 0.6.57
+Date: 2026-11-07
+  Changes:
+    - Reparation des equipes : ensemble des batiments abimes tenu par equipe (coups recus, poses, releve au chargement) au lieu d une recherche sur toute la carte ; meme lots de reparation, 13 ms -> 0,1 ms par pensee de faction.
+    - Bancs : test du danger aligne sur la regle (retour exact sur une case du QG exclu, 0 PNJ a moins de 12 tuiles de la meute) ; types moteur de foreuse_swap au registre.
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Version: 0.6.56
+Date: 2026-11-07
+  Changes:
+    - Unites experimentales : la migration de vie de 0.6.55 est retiree. Le moteur garde deja seul la proportion de vie quand le maximum change (mesure en jeu : 50 % avant, 50 % apres) ; 0.6.55 l'appliquait une seconde fois. Regeneration du Bourdon proportionnelle a son maximum.
+    - Couloir de l'enceinte : un remplacement sur place n'est refuse que s'il coupe le couloir ; tout ce qui arrete un PNJ compte (toutes forces, rochers, falaises, arbres, eau). Le PNJ mure par l'enceinte est libere (banc etage5-couloir).
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Version: 0.6.55
+Date: 2026-11-07
+  Changes:
+    - Gels periodiques (remarque du DC du 5/11) : les pensees d'equipe des 4 factions tombaient a 4 ticks consecutifs toutes les 300 ticks ; elles sont maintenant espacees (phases 7, 82, 157, 232), parties en cours migrees. Sauvegarde du DC a 255 min : pire tick 768 ms -> 263 ms.
+    - Calcul allege a decisions identiques : choix du cerveau general (-25 % par appel, 1 ms au mur au lieu de 26), petrole (6 recettes parcourues au lieu de 246), ligne de charbon des champs en temps constant, tri des tuiles de minage et autodefense des PNJ.
+    - Unites experimentales (QCM du DC du 5/11) : resistance au coup d'une mitrailleuse de 4 ages de moins, vie pour tenir 3 min sous 10 dechiqueteurs de leur age, 5 salves pour tuer un biter de leur age, zone des geants 15 x (age - 9) tuiles, cratere ; les geants frappent tout ce qui est ennemi jusqu'a la fin, salve decoupee sur plusieurs ticks. Bourdon et geants : vie et resistances de leur age. Parties en cours : proportion de vie gardee, regeneration proportionnelle au maximum.
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Version: 0.6.52
+Date: 2026-11-05
+  Changes:
+    - Panneau Evolution au clic (demande du DC du 4/11) : le survol n'ouvre plus rien. Le panneau s'ouvre avec l'interface d'un batiment a niveaux de votre force (clic gauche, murs et tourelles laser compris) et se ferme avec elle ; apres une amelioration depuis le panneau, l'interface du nouveau batiment se rouvre ; U ameliore sans rien ouvrir ; Maj+U ouvre ou ferme le panneau du batiment survole. Reglage par joueur fo-levels-panneau : clic (defaut) ou survol (comportement d'avant).
+    - Trait de ralliement des ateliers de robots au clic aussi (choix du DC du 5/11) : en reglage clic, le trait ambre n'apparait que quand l'interface de l'atelier est ouverte, plus au survol ; avec l'outil de ralliement en main, il reste visible.
+    - Noms affiches sans rho8 (choix du DC du 5/11) : concentres, billettes, chaine du titane, monazite et la technologie Billettes ; les noms internes ne changent pas (sauvegardes intactes).
+    - A essayer en jeu (prouve au moteur simule, pas encore par un banc avec images) : clic sur un mur ; amelioration depuis le panneau puis interface rouverte ; touche U panneau ouvert ; Maj+U au survol ; clic sur un atelier de robots (trait ambre), Echap (le trait disparait).
+    - Base de depart toujours visee en dernier (choix du DC du 4/11) : le depart est une zone de 64 tuiles autour du point d'apparition et du QG d'equipe. Avant, seul le secteur du point d'apparition etait protege : la base, au coin de 4 secteurs, etait attaquee des les premieres minutes de guerre. Mesure (pvp_test) : 0 attaque sur le QG, 9 sur l'avant-poste.
+    - Technologies des robots experimentaux (choix du DC du 4/11) : tous les packs de l'age (ages 9 et 13, 6 technologies), cout au double de la technologie de robot prerequise ; Demi-Vie : 100 circuits avances et 70 servomoteurs au lieu de 40 processeurs (age 10) et 30 servomoteurs.
+    - Proposition X3 (non jouee) : sa machine Atelier de robotique s'appelle fo-x3-robotics-bay (conflit de nom avec le Hall de montage en jeu).
+    - Pas encore dans cette version (en cours) : defense et travail continus pendant les attaques (fin du blocage Trop dangereux / A l'abri) ; enceinte de murs de votre equipe ; soldats de votre equipe recrutes sur le stock qui dort ; plastique de l'age 4 et processeur de l'age 10 alignes (choix du DC du 5/11) ; zone de depart qui suit la base ; rechargement des armes des PNJ ; gels du plan des champs ; tourelle laser redessinee.
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Version: 0.6.51
+Date: 2026-11-04
+  Changes:
+    - Factions bloquees a l'age 1 (Azur dans la partie du DC) : quand le centre de commandement est payable, l'amelioration de batiment qu'il exige (chaine de l'age suivant) est servie d'abord et demande ses pieces meme sans bras libre. Mesure sur la partie du DC (graine 717152950) : Azur fait 54 ameliorations et passe l'age 2 a 43,3 min ; 3 factions a l'age 2 contre 0 avant.
+    - Pas encore dans cette version (relectures du 4/11 18 h 20) : enceinte de murs de votre equipe (un mur que vous retirez serait repose, l'anneau peut couper votre usine, rayon fige sur une partie en cours) et depenses du stock qui dort (laboratoires sans plafond) : corriges en version suivante.
+    - Limites connues : sur la graine 123456789 a 30 ouvriers, 2 factions perdent leur age 2 (4 passages a l'age 2 au total, comme avant : le gain n'est pas general) ; la tourelle laser redessinee est en production (version suivante).
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Version: 0.6.50
 Date: 2026-11-04
   Changes:

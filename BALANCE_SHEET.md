@@ -885,39 +885,39 @@ en moteur réel.
 | 1 | Pionnier | fer, cuivre, pierre (panier de base) | panier de base | — | — | 0 | panier seul | 1 | 1-2 | un bâtiment de chaque famille possédée au niveau 2 |
 | 2 | Forge | acier | `steel-plate` | 5 | 100 | 1,43 | 407 | 2 | 3-4 | un bâtiment de chaque famille possédée au niveau 4 |
 | 3 | Vapeur | moteur (mécanique de l'ère vapeur) | `engine-unit` | 9 | 50 | 1,46 | 1 050 | 3 | 5-6 | un bâtiment de chaque famille possédée au niveau 6 |
-| 4 | Pétrole | plastique | `plastic-bar` | 3 | 100 | 4,5 | 6 000 | 4 | 7-8 | un bâtiment de chaque famille possédée au niveau 8 |
-| 5 | Volcan | plaque de tungstène | `fo-tungsten-plate` | 4 | 100 | 15,5 | 6 060 | 5 | 9-10 | un bâtiment de chaque famille possédée au niveau 10 |
-| 6 | Électricité | batterie | `battery` | 9 | 200 | 29,2 | 6 160 | 6 | 11-12 | un bâtiment de chaque famille possédée au niveau 12 |
-| 7 | Cristal | cristal de résonance | `fo-resonance-crystal` | 3 | 50 | 57,9 | 6 290 | 7 | 13-14 | un bâtiment de chaque famille possédée au niveau 14 |
-| 8 | Marais | méthane (baril) | `fo-methane-barrel` | 10 | 10 | 110 | 6 380 | 8 | 15-16 | un bâtiment de chaque famille possédée au niveau 16 |
-| 9 | Atome | uranium | `uranium-238` | 14 | 100 | 204 | 14 100 | 9 | 17-18 | un bâtiment de chaque famille possédée au niveau 18 |
-| 10 | Haute technologie | processeur | `processing-unit` | 75 | 100 | 371 | 46 000 | 10 | 19-20 | un bâtiment de chaque famille possédée au niveau 20 |
-| 11 | Titane | plaque de titane | `low-density-structure` **provisoire** (voulu : `fo-titanium-plate`) | 45 | 10 | 675 | 47 300 | 11 | 21-22 | un bâtiment de chaque famille possédée au niveau 22 |
-| 12 | Supraconducteurs | supraconducteur (terres rares) | `electric-engine-unit` **provisoire** (voulu : `fo-superconductor`) | 16 | 50 | 1 250 | 48 700 | 12 | 23-24 | un bâtiment de chaque famille possédée au niveau 24 |
-| 13 | Fusion | hélium-3 | `uranium-235` **provisoire** (voulu : `fo-helium-3`) | 45 | 100 | 2 270 | 80 100 | 13 | 25-26 | un bâtiment de chaque famille possédée au niveau 26 |
-| 14 | Orbite | fragment de météorite | `rocket-control-unit` **provisoire** (voulu : `fo-meteorite`) | 150 | 10 | 4 140 | 190 000 | 14 | 27-28 | un bâtiment de chaque famille possédée au niveau 28 |
+| 4 | Pétrole | plastique | `plastic-bar` | 1 | 100 | 5,8 | 3 980 | 4 | 7-8 | un bâtiment de chaque famille possédée au niveau 8 |
+| 5 | Volcan | plaque de tungstène | `fo-tungsten-plate` | 2 | 100 | 16,2 | 4 000 | 5 | 9-10 | un bâtiment de chaque famille possédée au niveau 10 |
+| 6 | Électricité | batterie | `battery` | 5,5 | 200 | 28,9 | 6 420 | 6 | 11-12 | un bâtiment de chaque famille possédée au niveau 12 |
+| 7 | Cristal | cristal de résonance | `fo-resonance-crystal` | 3 | 50 | 57,3 | 6 560 | 7 | 13-14 | un bâtiment de chaque famille possédée au niveau 14 |
+| 8 | Marais | méthane (baril) | `fo-methane-barrel` | 10 | 10 | 110 | 6 660 | 8 | 15-16 | un bâtiment de chaque famille possédée au niveau 16 |
+| 9 | Atome | uranium | `uranium-238` | 14 | 100 | 204 | 11 600 | 9 | 17-18 | un bâtiment de chaque famille possédée au niveau 18 |
+| 10 | Haute technologie | processeur | `processing-unit` | 46 | 100 | 365 | 56 000 | 10 | 19-20 | un bâtiment de chaque famille possédée au niveau 20 |
+| 11 | Titane | plaque de titane | `fo-titanium-plate` | 20 | 100 | 675 | 77 800 | 11 | 21-22 | un bâtiment de chaque famille possédée au niveau 22 |
+| 12 | Supraconducteurs | bobine supraconductrice | `fo-superconducting-coil` | 60 | 100 | 1 250 | 79 300 | 12 | 23-24 | un bâtiment de chaque famille possédée au niveau 24 |
+| 13 | Fusion | hélium-3 | `uranium-235` **provisoire** (voulu : `fo-helium-3`) | 45 | 100 | 2 250 | 174 000 | 13 | 25-26 | un bâtiment de chaque famille possédée au niveau 26 |
+| 14 | Orbite | fragment de météorite | `rocket-control-unit` **provisoire** (voulu : `fo-meteorite`) | 150 | 10 | 4 140 | 180 000 | 14 | 27-28 | un bâtiment de chaque famille possédée au niveau 28 |
 | 15 | Légende | matière exotique | `space-science-pack` **provisoire** (voulu : `fo-exotic-matter`) | 250 | 2 000 | 7 070 | — | 15 | 29-30 | — |
 
 #### Repères : niveau 1, niveau 10 (maximum de 0.3.0), dernier niveau, comparés au vanilla et au contenu du mod
 
 | Famille | Statistique | Niveau 1 | Niveau 10 | Dernier niveau | Repère |
 |---|---|---|---|---|---|
-| Centre de commandement | max_health | 3 000 | 8 400 | 11 400 (niveau 15) | — |
+| Centre de commandement | max_health | 3 000 | 10553,629 | 21227,117 (niveau 15) | — |
 | Centre de commandement | inventory_size | 48 | 192 | 272 (niveau 15) | coffre en acier : 48 cases |
-| Mitrailleuse | max_health | 400 | 940 | 2 140 (niveau 30) | tourelle lourde (mod) : 2 000 |
-| Mitrailleuse | damage_modifier | 1 | 1,85 | 7,49 (niveau 30) | tourelle lourde (mod) : 1,5 |
-| Mitrailleuse | dps | 1 | 1,85 | 7,49 (niveau 30) | tourelle lourde (mod) : 2,25 (dégâts 1,5 × cadence 1,5) |
-| Mitrailleuse | range | 18 | 20,25 | 25,25 (niveau 30) | tourelle lourde (mod) : 24 ; ver géant : 48 |
-| Tourelle laser | max_health | 1 000 | 2 350 | 5 350 (niveau 30) | tourelle laser lourde (mod) : 3 000 |
-| Tourelle laser | damage_modifier | 2 | 3,7 | 14,98 (niveau 30) | tourelle laser lourde (mod) : 4 |
-| Tourelle laser | dps | 1 | 1,85 | 7,49 (niveau 30) | tourelle laser lourde (mod) : 2 (même cadence) |
+| Mitrailleuse | max_health | 400 | 1407,151 | 23030,182 (niveau 30) | tourelle lourde (mod) : 2 000 |
+| Mitrailleuse | damage_modifier | 1 | 3,52 | 57,58 (niveau 30) | tourelle lourde (mod) : 1,5 |
+| Mitrailleuse | dps | 1 | 3,52 | 57,58 (niveau 30) | tourelle lourde (mod) : 2,25 (dégâts 1,5 × cadence 1,5) |
+| Mitrailleuse | range | 18 | 21,6 | 29,6 (niveau 30) | tourelle lourde (mod) : 24 ; ver géant : 48 |
+| Tourelle laser | max_health | 1 000 | 3517,876 | 57575,454 (niveau 30) | tourelle laser lourde (mod) : 3 000 |
+| Tourelle laser | damage_modifier | 2 | 7,04 | 115,16 (niveau 30) | tourelle laser lourde (mod) : 4 |
+| Tourelle laser | dps | 1 | 3,52 | 57,58 (niveau 30) | tourelle laser lourde (mod) : 2 (même cadence) |
 | Tourelle laser | energy_consumption | 800 | 1 088 | 1 728 (niveau 30) | tourelle laser lourde (mod) : 2 000 kJ |
-| Tourelle laser | range | 24 | 26,25 | 31,25 (niveau 30) | tourelle laser lourde (mod) : 32 |
-| Mur | max_health | 350 | 1 925 | 5 425 (niveau 30) | mur renforcé : 1 200 ; mur blindé : 3 500 |
+| Tourelle laser | range | 24 | 27,6 | 35,6 (niveau 30) | tourelle laser lourde (mod) : 32 |
+| Mur | max_health | 350 | 1231,257 | 20151,409 (niveau 30) | mur renforcé : 1 200 ; mur blindé : 3 500 |
 | Mur | physical | 3 | 7,5 | 17,5 (niveau 30) | mur blindé : 3 + 15 = 18 (et 50 %) |
-| Foreuse électrique | mining_speed | 0,5 | 0,95 | 1,95 (niveau 30) | vanilla + 3 modules de vitesse 3 : 1,25 minerai/s ; niveau 30 + 3 modules de vitesse palier 10 : 15,99 minerai/s (tapis jaune : 15/s) |
-| Four en acier | crafting_speed | 2 | 3,44 | 6,64 (niveau 30) | four électrique vanilla : 2, avec 2 emplacements de module (le four en acier n'en a aucun) |
-| Machine d'assemblage 2 | crafting_speed | 0,75 | 1,29 | 2,49 (niveau 30) | machine d'assemblage 3 vanilla : 1,25, avec 4 emplacements (la machine 2 en a 2) |
+| Foreuse électrique | mining_speed | 0,5 | 1,759 | 28,788 (niveau 30) | niveau 1 (5 cases) plein de modules de vitesse 3 multipliés : 2,69 minerai/s ; niveau 30 (34 cases) plein de modules de vitesse palier 10 : 9461,66 minerai/s, plafond × 328,67 du moteur (tapis jaune : 15/s ; tools/calc/equilibre.lua) |
+| Four en acier | crafting_speed | 2 | 7,036 | 115,151 (niveau 30) | four électrique vanilla : 2, avec 2 emplacements de module (le four en acier n'en a aucun) |
+| Machine d'assemblage 2 | crafting_speed | 0,75 | 2,638 | 43,182 (niveau 30) | machine d'assemblage 3 vanilla : 1,25, 4 emplacements ; la machine 2 (niveau 1) en a 5 depuis MOD-1, 34 au niveau 30 |
 
 #### Modèle de durée de jeu (calendrier du scénario X0 ; hypothèses de `L.target`, à valider en partie réelle)
 
@@ -925,86 +925,86 @@ en moteur réel.
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 1 | 30 min | 0 h | 2 | 4 054 | 1 216 | 1 222 | 1 | 940 | 23,18 % | 30 min 08 s | 30 min 08 s |
 | 2 | 1 h 00 | 30 min | 4 | 14 826 | 4 448 | 4 464 | 1 | 1 475 | 9,95 % | 1 h 00 | 1 h 30 |
-| 3 | 1 h 30 | 1 h 30 | 8 | 40 662 | 12 199 | 12 202 | 1 | 2 285 | 5,62 % | 1 h 30 | 3 h 00 |
-| 4 | 2 h 00 | 3 h 00 | 14 | 99 130 | 29 739 | 29 860 | 1 | 7 383 | 7,45 % | 2 h 00 | 5 h 00 |
-| 5 | 2 h 30 | 5 h 00 | 25 | 226 561 | 67 968 | 67 917 | 1 | 7 588 | 3,35 % | 2 h 29 | 7 h 30 |
-| 6 | 3 h 00 | 7 h 30 | 46 | 497 094 | 149 128 | 147 996 | 0,99 | 7 825 | 1,57 % | 2 h 58 | 10 h 29 |
-| 7 | 3 h 30 | 10 h 30 | 84 | 1 060 369 | 318 111 | 320 788 | 1,01 | 8 065 | 0,76 % | 3 h 31 | 14 h 01 |
-| 8 | 4 h 00 | 14 h 00 | 154 | 2 215 750 | 664 725 | 672 400 | 1,01 | 8 280 | 0,37 % | 4 h 02 | 18 h 03 |
-| 9 | 4 h 30 | 18 h 00 | 281 | 4 557 694 | 1 367 308 | 1 364 437 | 1 | 16 055 | 0,35 % | 4 h 29 | 22 h 33 |
-| 10 | 5 h 00 | 22 h 30 | 514 | 9 259 223 | 2 777 767 | 2 778 380 | 1 | 48 310 | 0,52 % | 5 h 00 | 27 h 33 |
-| 11 | 5 h 30 | 27 h 30 | 941 | 18 622 549 | 5 586 765 | 5 610 201 | 1 | 49 455 | 0,27 % | 5 h 31 | 33 h 04 |
-| 12 | 6 h 00 | 33 h 00 | 1 720 | 37 144 935 | 11 143 481 | 11 221 590 | 1,01 | 51 110 | 0,14 % | 6 h 02 | 39 h 07 |
-| 13 | 6 h 30 | 39 h 00 | 3 144 | 73 575 568 | 22 072 670 | 22 060 978 | 1 | 82 795 | 0,11 % | 6 h 29 | 45 h 37 |
-| 14 | 7 h 00 | 45 h 30 | 5 749 | 144 873 923 | 43 462 177 | 43 409 954 | 1 | 192 820 | 0,13 % | 6 h 59 | 52 h 36 |
-| 15 | 7 h 00 | 52 h 30 | 10 511 | 264 887 907 | 79 466 372 | 79 293 152 | 1 | — | — | 6 h 59 | 59 h 35 |
+| 3 | 1 h 30 | 1 h 30 | 8 | 40 662 | 12 199 | 12 237 | 1 | 2 320 | 5,71 % | 1 h 30 | 3 h 00 |
+| 4 | 2 h 00 | 3 h 00 | 14 | 99 130 | 29 739 | 29 823 | 1 | 5 323 | 5,37 % | 2 h 00 | 5 h 00 |
+| 5 | 2 h 30 | 5 h 00 | 25 | 226 561 | 67 968 | 68 440 | 1,01 | 5 518 | 2,44 % | 2 h 31 | 7 h 32 |
+| 6 | 3 h 00 | 7 h 30 | 46 | 497 094 | 149 128 | 149 291 | 1 | 8 065 | 1,62 % | 3 h 00 | 10 h 32 |
+| 7 | 3 h 30 | 10 h 30 | 84 | 1 060 369 | 318 111 | 318 499 | 1 | 8 335 | 0,79 % | 3 h 30 | 14 h 02 |
+| 8 | 4 h 00 | 14 h 00 | 154 | 2 215 750 | 664 725 | 672 317 | 1,01 | 8 560 | 0,39 % | 4 h 02 | 18 h 05 |
+| 9 | 4 h 30 | 18 h 00 | 281 | 4 557 694 | 1 367 308 | 1 361 166 | 1 | 13 595 | 0,3 % | 4 h 28 | 22 h 34 |
+| 10 | 5 h 00 | 22 h 30 | 514 | 9 259 223 | 2 777 767 | 2 783 087 | 1 | 58 280 | 0,63 % | 5 h 00 | 27 h 34 |
+| 11 | 5 h 30 | 27 h 30 | 941 | 18 622 549 | 5 586 765 | 5 598 078 | 1 | 80 455 | 0,43 % | 5 h 30 | 33 h 05 |
+| 12 | 6 h 00 | 33 h 00 | 1 720 | 37 144 935 | 11 143 481 | 11 198 171 | 1 | 81 680 | 0,22 % | 6 h 01 | 39 h 07 |
+| 13 | 6 h 30 | 39 h 00 | 3 144 | 73 575 568 | 22 072 670 | 22 087 621 | 1 | 176 495 | 0,24 % | 6 h 30 | 45 h 37 |
+| 14 | 7 h 00 | 45 h 30 | 5 749 | 144 873 923 | 43 462 177 | 43 382 291 | 1 | 182 770 | 0,13 % | 6 h 59 | 52 h 36 |
+| 15 | 7 h 00 | 52 h 30 | 10 511 | 264 887 907 | 79 466 372 | 79 274 979 | 1 | — | — | 6 h 58 | 59 h 35 |
 
 #### Sensibilité de la durée impliquée totale (15 époques)
 
 | Production supposée | Durée impliquée totale |
 |---|---|
-| × 0,7 | 85 h 08 |
+| × 0,7 | 85 h 07 |
 | × 1 | 59 h 35 |
 | × 1,3 | 45 h 50 |
 
-Chemin « centre seul » (centre 1 → 15) : 484 385 u, soit 0,29 % de la dépense de la base de référence. Avec la condition Q16 (un bâtiment de chaque famille possédée monté jusqu'au niveau visé, ici les 6 familles jusqu'au niveau 28) : 1 602 362 u, soit 0,96 % (V2, sans condition : 0,9 %).
+Chemin « centre seul » (centre 1 → 15) : 633 810 u, soit 0,38 % de la dépense de la base de référence. Avec la condition Q16 (un bâtiment de chaque famille possédée monté jusqu'au niveau visé, ici les 6 familles jusqu'au niveau 28) : 1 749 846 u, soit 1,05 % (V2, sans condition : 0,9 %).
 
-En heures (chemin le plus court, payé au débit moyen X0 de chaque époque) : centre 15 atteint en **3 h 27** avec 30 % de la production X0 et les 6 familles possédées (1 h 02 avec 100 % ; centre seul, aucune famille possédée : 2 h 20), pour **52 h 30** au calendrier X0. Le calendrier n'est tenu que si le joueur monte toute la base de référence : rien ne l'y oblige (écart connu, compté par `levels_test`).
+En heures (chemin le plus court, payé au débit moyen X0 de chaque époque) : centre 15 atteint en **3 h 20** avec 30 % de la production X0 et les 6 familles possédées (1 h 00 avec 100 % ; centre seul, aucune famille possédée : 2 h 13), pour **52 h 30** au calendrier X0. Le calendrier n'est tenu que si le joueur monte toute la base de référence : rien ne l'y oblige (écart connu, compté par `levels_test`).
 
 #### Centre de commandement (15 niveaux)
 
 | Niveau | Époque | PV | cases | Coût du passage à ce niveau | Valeur (u) | Cases / coffre du centre payeur |
 |---|---|---|---|---|---|---|
 | 1 | 1 Pionnier | 3 000 | 48 | — | — | — |
-| 2 | 2 Forge | 3 600 | 64 | 310 iron-plate, 160 copper-plate, 160 stone-brick, 60 electronic-circuit | 940 | 9 / 48 |
-| 3 | 3 Vapeur | 4 200 | 80 | 360 iron-plate, 180 copper-plate, 180 stone-brick, 70 electronic-circuit, 80 steel-plate | 1 475 | 10 / 64 |
-| 4 | 4 Pétrole | 4 800 | 96 | 400 iron-plate, 210 copper-plate, 210 stone-brick, 80 electronic-circuit, 70 engine-unit, 85 steel-plate | 2 285 | 14 / 80 |
-| 5 | 5 Volcan | 5 400 | 112 | 450 iron-plate, 230 copper-plate, 230 stone-brick, 85 electronic-circuit, 1 200 plastic-bar, 270 engine-unit | 7 383 | 30 / 96 |
-| 6 | 6 Électricité | 6 000 | 128 | 500 iron-plate, 260 copper-plate, 260 stone-brick, 95 electronic-circuit, 910 fo-tungsten-plate, 810 plastic-bar | 7 588 | 31 / 112 |
-| 7 | 7 Cristal | 6 600 | 144 | 540 iron-plate, 280 copper-plate, 280 stone-brick, 110 electronic-circuit, 410 battery, 620 fo-tungsten-plate | 7 825 | 23 / 128 |
-| 8 | 8 Marais | 7 200 | 160 | 590 iron-plate, 300 copper-plate, 300 stone-brick, 110 electronic-circuit, 1 260 fo-resonance-crystal, 280 battery | 8 065 | 41 / 144 |
-| 9 | 9 Atome | 7 800 | 176 | 640 iron-plate, 330 copper-plate, 330 stone-brick, 120 electronic-circuit, 380 fo-methane-barrel, 850 fo-resonance-crystal | 8 280 | 71 / 160 |
-| 10 | 10 Haute technologie | 8 400 | 192 | 680 iron-plate, 350 copper-plate, 350 stone-brick, 130 electronic-circuit, 600 uranium-238, 560 fo-methane-barrel | 16 055 | 78 / 176 |
-| 11 | 11 Titane | 9 000 | 208 | 730 iron-plate, 380 copper-plate, 380 stone-brick, 140 electronic-circuit, 370 processing-unit, 1 310 uranium-238 | 48 310 | 35 / 192 |
-| 12 | 12 Supraconducteurs | 9 600 | 224 | 780 iron-plate, 400 copper-plate, 400 stone-brick, 150 electronic-circuit, 630 low-density-structure, 250 processing-unit | 49 455 | 83 / 208 |
-| 13 | 13 Fusion | 10 200 | 240 | 820 iron-plate, 420 copper-plate, 420 stone-brick, 160 electronic-circuit, 1 830 electric-engine-unit, 430 low-density-structure | 51 110 | 100 / 224 |
-| 14 | 14 Orbite | 10 800 | 256 | 870 iron-plate, 450 copper-plate, 450 stone-brick, 170 electronic-circuit, 1 070 uranium-235, 2 000 electric-engine-unit | 82 795 | 71 / 240 |
-| 15 | 15 Légende | 11 400 | 272 | 910 iron-plate, 470 copper-plate, 470 stone-brick, 180 electronic-circuit, 760 rocket-control-unit, 1 690 uranium-235 | 192 820 | 114 / 256 |
+| 2 | 2 Forge | 3 450 | 64 | 310 iron-plate, 160 copper-plate, 160 stone-brick, 60 electronic-circuit | 940 | 9 / 48 |
+| 3 | 3 Vapeur | 3967,5 | 80 | 360 iron-plate, 180 copper-plate, 180 stone-brick, 70 electronic-circuit, 80 steel-plate | 1 475 | 10 / 64 |
+| 4 | 4 Pétrole | 4562,6 | 96 | 400 iron-plate, 210 copper-plate, 210 stone-brick, 80 electronic-circuit, 60 engine-unit, 110 steel-plate | 2 320 | 15 / 80 |
+| 5 | 5 Volcan | 5247 | 112 | 450 iron-plate, 230 copper-plate, 230 stone-brick, 85 electronic-circuit, 1 990 plastic-bar, 220 engine-unit | 5 323 | 37 / 96 |
+| 6 | 6 Électricité | 6034,1 | 128 | 500 iron-plate, 260 copper-plate, 260 stone-brick, 95 electronic-circuit, 1 000 fo-tungsten-plate, 2 000 plastic-bar | 5 518 | 42 / 112 |
+| 7 | 7 Cristal | 6939,2 | 144 | 540 iron-plate, 280 copper-plate, 280 stone-brick, 110 electronic-circuit, 580 battery, 1 610 fo-tungsten-plate | 8 065 | 33 / 128 |
+| 8 | 8 Marais | 7980,1 | 160 | 590 iron-plate, 300 copper-plate, 300 stone-brick, 110 electronic-circuit, 1 090 fo-resonance-crystal, 600 battery | 8 335 | 38 / 144 |
+| 9 | 9 Atome | 9177,1 | 176 | 640 iron-plate, 330 copper-plate, 330 stone-brick, 120 electronic-circuit, 330 fo-methane-barrel, 1 110 fo-resonance-crystal | 8 560 | 72 / 160 |
+| 10 | 10 Haute technologie | 10553,6 | 192 | 680 iron-plate, 350 copper-plate, 350 stone-brick, 130 electronic-circuit, 410 uranium-238, 580 fo-methane-barrel | 13 595 | 79 / 176 |
+| 11 | 11 Titane | 12136,7 | 208 | 730 iron-plate, 380 copper-plate, 380 stone-brick, 140 electronic-circuit, 610 processing-unit, 2 000 uranium-238 | 58 280 | 44 / 192 |
+| 12 | 12 Supraconducteurs | 13957,2 | 224 | 780 iron-plate, 400 copper-plate, 400 stone-brick, 150 electronic-circuit, 1 950 fo-titanium-plate, 850 processing-unit | 80 455 | 46 / 208 |
+| 13 | 13 Fusion | 16050,8 | 240 | 820 iron-plate, 420 copper-plate, 420 stone-brick, 160 electronic-circuit, 660 fo-superconducting-coil, 1 980 fo-titanium-plate | 81 680 | 47 / 224 |
+| 14 | 14 Orbite | 18458,4 | 256 | 870 iron-plate, 450 copper-plate, 450 stone-brick, 170 electronic-circuit, 1 930 uranium-235, 1 450 fo-superconducting-coil | 176 495 | 55 / 240 |
+| 15 | 15 Légende | 21227,1 | 272 | 910 iron-plate, 470 copper-plate, 470 stone-brick, 180 electronic-circuit, 600 rocket-control-unit, 2 000 uranium-235 | 182 770 | 101 / 256 |
 
 #### Mitrailleuse (30 niveaux)
 
 | Niveau | Époque | PV | dégâts × | portée | Coût du passage à ce niveau | Valeur (u) | Cases / coffre du centre payeur |
 |---|---|---|---|---|---|---|---|
 | 1 | 1 Pionnier (vanilla) | 400 | 1 | 18 | — | — | — |
-| 2 | 1 Pionnier (+ pièce) | 460 | 1,08 | 18,25 | 6 iron-plate, 3 iron-gear-wheel, 3 copper-plate | 15 | 3 / 48 |
-| 3 | 2 Forge (silhouette) | 520 | 1,16 | 18,5 | 7 iron-plate, 3 iron-gear-wheel, 3 copper-plate, 3 steel-plate | 31 | 4 / 64 |
-| 4 | 2 Forge (+ pièce) | 580 | 1,24 | 18,75 | 8 iron-plate, 4 iron-gear-wheel, 4 copper-plate, 4 steel-plate | 40 | 4 / 64 |
-| 5 | 3 Vapeur (silhouette) | 640 | 1,32 | 19 | 9 iron-plate, 4 iron-gear-wheel, 4 copper-plate, 2 engine-unit, 1 steel-plate | 44 | 5 / 80 |
-| 6 | 3 Vapeur (+ pièce) | 700 | 1,4 | 19,25 | 10 iron-plate, 5 iron-gear-wheel, 5 copper-plate, 2 engine-unit, 2 steel-plate | 53 | 5 / 80 |
-| 7 | 4 Pétrole (silhouette) | 760 | 1,5 | 19,5 | 11 iron-plate, 5 iron-gear-wheel, 5 copper-plate, 11 plastic-bar, 2 engine-unit | 77 | 5 / 96 |
-| 8 | 4 Pétrole (+ pièce) | 820 | 1,61 | 19,75 | 11 iron-plate, 6 iron-gear-wheel, 6 copper-plate, 14 plastic-bar, 3 engine-unit | 98 | 5 / 96 |
-| 9 | 5 Volcan (silhouette) | 880 | 1,73 | 20 | 12 iron-plate, 6 iron-gear-wheel, 6 copper-plate, 30 fo-tungsten-plate, 25 plastic-bar | 225 | 5 / 112 |
-| 10 | 5 Volcan (+ pièce) | 940 | 1,85 | 20,25 | 13 iron-plate, 7 iron-gear-wheel, 7 copper-plate, 35 fo-tungsten-plate, 30 plastic-bar | 264 | 5 / 112 |
-| 11 | 6 Électricité (silhouette) | 1 000 | 1,99 | 20,5 | 14 iron-plate, 7 iron-gear-wheel, 7 copper-plate, 25 battery, 35 fo-tungsten-plate | 400 | 5 / 128 |
-| 12 | 6 Électricité (+ pièce) | 1 060 | 2,13 | 20,75 | 15 iron-plate, 8 iron-gear-wheel, 8 copper-plate, 30 battery, 45 fo-tungsten-plate | 489 | 5 / 128 |
-| 13 | 7 Cristal (silhouette) | 1 120 | 2,28 | 21 | 16 iron-plate, 8 iron-gear-wheel, 8 copper-plate, 140 fo-resonance-crystal, 30 battery | 730 | 7 / 144 |
-| 14 | 7 Cristal (+ pièce) | 1 180 | 2,45 | 21,25 | 17 iron-plate, 8 iron-gear-wheel, 8 copper-plate, 170 fo-resonance-crystal, 40 battery | 911 | 8 / 144 |
-| 15 | 8 Marais (silhouette) | 1 240 | 2,63 | 21,5 | 18 iron-plate, 9 iron-gear-wheel, 9 copper-plate, 80 fo-methane-barrel, 180 fo-resonance-crystal | 1 385 | 15 / 160 |
-| 16 | 8 Marais (+ pièce) | 1 300 | 2,82 | 21,75 | 19 iron-plate, 9 iron-gear-wheel, 9 copper-plate, 100 fo-methane-barrel, 220 fo-resonance-crystal | 1 706 | 18 / 160 |
-| 17 | 9 Atome (silhouette) | 1 360 | 3,02 | 22 | 20 iron-plate, 10 iron-gear-wheel, 10 copper-plate, 100 uranium-238, 100 fo-methane-barrel | 2 450 | 14 / 176 |
-| 18 | 9 Atome (+ pièce) | 1 420 | 3,24 | 22,25 | 20 iron-plate, 10 iron-gear-wheel, 10 copper-plate, 130 uranium-238, 120 fo-methane-barrel | 3 070 | 17 / 176 |
-| 19 | 10 Haute technologie (silhouette) | 1 480 | 3,47 | 22,5 | 20 iron-plate, 11 iron-gear-wheel, 11 copper-plate, 35 processing-unit, 130 uranium-238 | 4 498 | 6 / 192 |
-| 20 | 10 Haute technologie (+ pièce) | 1 540 | 3,72 | 22,75 | 20 iron-plate, 11 iron-gear-wheel, 11 copper-plate, 45 processing-unit, 160 uranium-238 | 5 668 | 6 / 192 |
-| 21 | 11 Titane (silhouette) | 1 600 | 3,99 | 23 | 25 iron-plate, 12 iron-gear-wheel, 12 copper-plate, 110 low-density-structure, 45 processing-unit | 8 386 | 15 / 208 |
-| 22 | 11 Titane (+ pièce) | 1 660 | 4,28 | 23,25 | 25 iron-plate, 12 iron-gear-wheel, 12 copper-plate, 140 low-density-structure, 55 processing-unit | 10 486 | 18 / 208 |
-| 23 | 12 Supraconducteurs (silhouette) | 1 720 | 4,59 | 23,5 | 25 iron-plate, 12 iron-gear-wheel, 12 copper-plate, 560 electric-engine-unit, 130 low-density-structure | 14 871 | 28 / 224 |
-| 24 | 12 Supraconducteurs (+ pièce) | 1 780 | 4,93 | 23,75 | 25 iron-plate, 13 iron-gear-wheel, 13 copper-plate, 700 electric-engine-unit, 170 low-density-structure | 18 914 | 34 / 224 |
-| 25 | 13 Fusion (silhouette) | 1 840 | 5,28 | 24 | 25 iron-plate, 13 iron-gear-wheel, 13 copper-plate, 360 uranium-235, 680 electric-engine-unit | 27 144 | 21 / 240 |
-| 26 | 13 Fusion (+ pièce) | 1 900 | 5,66 | 24,25 | 30 iron-plate, 14 iron-gear-wheel, 14 copper-plate, 450 uranium-235, 850 electric-engine-unit | 33 922 | 25 / 240 |
-| 27 | 14 Orbite (silhouette) | 1 960 | 6,07 | 24,5 | 30 iron-plate, 14 iron-gear-wheel, 14 copper-plate, 200 rocket-control-unit, 440 uranium-235 | 49 872 | 28 / 256 |
-| 28 | 14 Orbite (+ pièce) | 2 020 | 6,51 | 24,75 | 30 iron-plate, 15 iron-gear-wheel, 15 copper-plate, 250 rocket-control-unit, 550 uranium-235 | 62 325 | 34 / 256 |
-| 29 | 15 Légende (silhouette) | 2 080 | 6,98 | 25 | 30 iron-plate, 15 iron-gear-wheel, 15 copper-plate, 200 space-science-pack, 230 rocket-control-unit | 84 575 | 27 / 272 |
-| 30 | 15 Légende (+ pièce) | 2 140 | 7,49 | 25,25 | 30 iron-plate, 16 iron-gear-wheel, 16 copper-plate, 250 space-science-pack, 280 rocket-control-unit | 104 578 | 32 / 272 |
+| 2 | 1 Pionnier (+ pièce) | 460 | 1,15 | 18,4 | 6 iron-plate, 3 iron-gear-wheel, 3 copper-plate | 15 | 3 / 48 |
+| 3 | 2 Forge (silhouette) | 529 | 1,32 | 18,8 | 7 iron-plate, 3 iron-gear-wheel, 3 copper-plate, 3 steel-plate | 31 | 4 / 64 |
+| 4 | 2 Forge (+ pièce) | 608,3 | 1,52 | 19,2 | 8 iron-plate, 4 iron-gear-wheel, 4 copper-plate, 4 steel-plate | 40 | 4 / 64 |
+| 5 | 3 Vapeur (silhouette) | 699,6 | 1,75 | 19,6 | 9 iron-plate, 4 iron-gear-wheel, 4 copper-plate, 2 engine-unit, 1 steel-plate | 44 | 5 / 80 |
+| 6 | 3 Vapeur (+ pièce) | 804,5 | 2,01 | 20 | 10 iron-plate, 5 iron-gear-wheel, 5 copper-plate, 2 engine-unit, 2 steel-plate | 53 | 5 / 80 |
+| 7 | 4 Pétrole (silhouette) | 925,2 | 2,31 | 20,4 | 11 iron-plate, 5 iron-gear-wheel, 5 copper-plate, 40 plastic-bar, 3 engine-unit | 93 | 5 / 96 |
+| 8 | 4 Pétrole (+ pièce) | 1064 | 2,66 | 20,8 | 11 iron-plate, 6 iron-gear-wheel, 6 copper-plate, 50 plastic-bar, 4 engine-unit | 115 | 5 / 96 |
+| 9 | 5 Volcan (silhouette) | 1223,6 | 3,06 | 21,2 | 12 iron-plate, 6 iron-gear-wheel, 6 copper-plate, 60 fo-tungsten-plate, 80 plastic-bar | 230 | 5 / 112 |
+| 10 | 5 Volcan (+ pièce) | 1407,2 | 3,52 | 21,6 | 13 iron-plate, 7 iron-gear-wheel, 7 copper-plate, 75 fo-tungsten-plate, 95 plastic-bar | 279 | 5 / 112 |
+| 11 | 6 Électricité (silhouette) | 1618,2 | 4,05 | 22 | 14 iron-plate, 7 iron-gear-wheel, 7 copper-plate, 40 battery, 70 fo-tungsten-plate | 395 | 5 / 128 |
+| 12 | 6 Électricité (+ pièce) | 1861 | 4,65 | 22,4 | 15 iron-plate, 8 iron-gear-wheel, 8 copper-plate, 45 battery, 85 fo-tungsten-plate | 457 | 5 / 128 |
+| 13 | 7 Cristal (silhouette) | 2140,1 | 5,35 | 22,8 | 16 iron-plate, 8 iron-gear-wheel, 8 copper-plate, 140 fo-resonance-crystal, 50 battery | 735 | 7 / 144 |
+| 14 | 7 Cristal (+ pièce) | 2461,1 | 6,15 | 23,2 | 17 iron-plate, 8 iron-gear-wheel, 8 copper-plate, 170 fo-resonance-crystal, 65 battery | 909 | 8 / 144 |
+| 15 | 8 Marais (silhouette) | 2830,3 | 7,08 | 23,6 | 18 iron-plate, 9 iron-gear-wheel, 9 copper-plate, 80 fo-methane-barrel, 180 fo-resonance-crystal | 1 385 | 15 / 160 |
+| 16 | 8 Marais (+ pièce) | 3254,8 | 8,14 | 24 | 19 iron-plate, 9 iron-gear-wheel, 9 copper-plate, 100 fo-methane-barrel, 220 fo-resonance-crystal | 1 706 | 18 / 160 |
+| 17 | 9 Atome (silhouette) | 3743 | 9,36 | 24,4 | 20 iron-plate, 10 iron-gear-wheel, 10 copper-plate, 100 uranium-238, 100 fo-methane-barrel | 2 450 | 14 / 176 |
+| 18 | 9 Atome (+ pièce) | 4304,5 | 10,76 | 24,8 | 20 iron-plate, 10 iron-gear-wheel, 10 copper-plate, 130 uranium-238, 120 fo-methane-barrel | 3 070 | 17 / 176 |
+| 19 | 10 Haute technologie (silhouette) | 4950,2 | 12,38 | 25,2 | 20 iron-plate, 11 iron-gear-wheel, 11 copper-plate, 55 processing-unit, 130 uranium-238 | 4 403 | 6 / 192 |
+| 20 | 10 Haute technologie (+ pièce) | 5692,7 | 14,23 | 25,6 | 20 iron-plate, 11 iron-gear-wheel, 11 copper-plate, 70 processing-unit, 160 uranium-238 | 5 513 | 6 / 192 |
+| 21 | 11 Titane (silhouette) | 6546,6 | 16,37 | 26 | 25 iron-plate, 12 iron-gear-wheel, 12 copper-plate, 240 fo-titanium-plate, 70 processing-unit | 8 081 | 7 / 208 |
+| 22 | 11 Titane (+ pièce) | 7528,6 | 18,82 | 26,4 | 25 iron-plate, 12 iron-gear-wheel, 12 copper-plate, 300 fo-titanium-plate, 90 processing-unit | 10 201 | 7 / 208 |
+| 23 | 12 Supraconducteurs (silhouette) | 8657,9 | 21,64 | 26,8 | 25 iron-plate, 12 iron-gear-wheel, 12 copper-plate, 150 fo-superconducting-coil, 300 fo-titanium-plate | 15 061 | 8 / 224 |
+| 24 | 12 Supraconducteurs (+ pièce) | 9956,6 | 24,89 | 27,2 | 25 iron-plate, 13 iron-gear-wheel, 13 copper-plate, 190 fo-superconducting-coil, 380 fo-titanium-plate | 19 064 | 9 / 224 |
+| 25 | 13 Fusion (silhouette) | 11450,1 | 28,63 | 27,6 | 25 iron-plate, 13 iron-gear-wheel, 13 copper-plate, 360 uranium-235, 180 fo-superconducting-coil | 27 064 | 9 / 240 |
+| 26 | 13 Fusion (+ pièce) | 13167,6 | 32,92 | 28 | 30 iron-plate, 14 iron-gear-wheel, 14 copper-plate, 450 uranium-235, 230 fo-superconducting-coil | 34 122 | 11 / 240 |
+| 27 | 14 Orbite (silhouette) | 15142,7 | 37,86 | 28,4 | 30 iron-plate, 14 iron-gear-wheel, 14 copper-plate, 200 rocket-control-unit, 440 uranium-235 | 49 872 | 28 / 256 |
+| 28 | 14 Orbite (+ pièce) | 17414,1 | 43,54 | 28,8 | 30 iron-plate, 15 iron-gear-wheel, 15 copper-plate, 250 rocket-control-unit, 550 uranium-235 | 62 325 | 34 / 256 |
+| 29 | 15 Légende (silhouette) | 20026,2 | 50,07 | 29,2 | 30 iron-plate, 15 iron-gear-wheel, 15 copper-plate, 200 space-science-pack, 230 rocket-control-unit | 84 575 | 27 / 272 |
+| 30 | 15 Légende (+ pièce) | 23030,2 | 57,58 | 29,6 | 30 iron-plate, 16 iron-gear-wheel, 16 copper-plate, 250 space-science-pack, 280 rocket-control-unit | 104 578 | 32 / 272 |
 
 #### Emprise au sol par niveau (lot V3-T, Q23 et Q24, intégré le 22/10 à 14 h 50, version 0.4.2 ; toutes les familles depuis le lot V3-T2, Q-S1, intégré le 22/10 à 19 h 05, version 0.4.3)
 
@@ -1112,175 +1112,175 @@ lot est intégré, après la fusion et un nouveau `--calibrate`.
 | Niveau | Époque | PV | dégâts × | portée | Coût du passage à ce niveau | Valeur (u) | Cases / coffre du centre payeur |
 |---|---|---|---|---|---|---|---|
 | 1 | 1 Pionnier (vanilla) | 1 000 | 2 | 24 | — | — | — |
-| 2 | 1 Pionnier (+ pièce) | 1 150 | 2,16 | 24,25 | 3 steel-plate, 3 electronic-circuit, 2 battery | 41 | 3 / 48 |
-| 3 | 2 Forge (silhouette) | 1 300 | 2,32 | 24,5 | 9 steel-plate, 3 electronic-circuit, 2 battery | 71 | 3 / 64 |
-| 4 | 2 Forge (+ pièce) | 1 450 | 2,48 | 24,75 | 11 steel-plate, 4 electronic-circuit, 3 battery | 92 | 3 / 64 |
-| 5 | 3 Vapeur (silhouette) | 1 600 | 2,64 | 25 | 6 steel-plate, 4 electronic-circuit, 3 battery, 3 engine-unit | 94 | 4 / 80 |
-| 6 | 3 Vapeur (+ pièce) | 1 750 | 2,8 | 25,25 | 8 steel-plate, 5 electronic-circuit, 3 battery, 2 engine-unit | 98 | 4 / 80 |
-| 7 | 4 Pétrole (silhouette) | 1 900 | 3,06 | 25,5 | 5 steel-plate, 5 electronic-circuit, 4 battery, 18 plastic-bar, 4 engine-unit | 164 | 5 / 96 |
-| 8 | 4 Pétrole (+ pièce) | 2 050 | 3,36 | 25,75 | 6 steel-plate, 6 electronic-circuit, 4 battery, 25 plastic-bar, 5 engine-unit | 201 | 5 / 96 |
-| 9 | 5 Volcan (silhouette) | 2 200 | 3,68 | 26 | 6 steel-plate, 6 electronic-circuit, 4 battery, 45 fo-tungsten-plate, 40 plastic-bar | 381 | 5 / 112 |
-| 10 | 5 Volcan (+ pièce) | 2 350 | 4,04 | 26,25 | 7 steel-plate, 7 electronic-circuit, 4 battery, 60 fo-tungsten-plate, 50 plastic-bar | 479 | 5 / 112 |
-| 11 | 6 Électricité (silhouette) | 2 500 | 4,42 | 26,5 | 7 steel-plate, 7 electronic-circuit, 45 battery, 60 fo-tungsten-plate | 698 | 4 / 128 |
-| 12 | 6 Électricité (+ pièce) | 2 650 | 4,84 | 26,75 | 8 steel-plate, 8 electronic-circuit, 55 battery, 75 fo-tungsten-plate | 855 | 4 / 128 |
-| 13 | 7 Cristal (silhouette) | 2 800 | 5,3 | 27 | 8 steel-plate, 8 electronic-circuit, 55 battery, 230 fo-resonance-crystal | 1 245 | 8 / 144 |
-| 14 | 7 Cristal (+ pièce) | 2 950 | 5,8 | 27,25 | 8 steel-plate, 8 electronic-circuit, 71 battery, 290 fo-resonance-crystal | 1 569 | 9 / 144 |
-| 15 | 8 Marais (silhouette) | 3 100 | 6,36 | 27,5 | 9 steel-plate, 9 electronic-circuit, 6 battery, 130 fo-methane-barrel, 290 fo-resonance-crystal | 2 292 | 22 / 160 |
-| 16 | 8 Marais (+ pièce) | 3 250 | 6,96 | 27,75 | 9 steel-plate, 9 electronic-circuit, 6 battery, 170 fo-methane-barrel, 370 fo-resonance-crystal | 2 932 | 28 / 160 |
-| 17 | 9 Atome (silhouette) | 3 400 | 7,64 | 28 | 10 steel-plate, 10 electronic-circuit, 7 battery, 170 uranium-238, 160 fo-methane-barrel | 4 118 | 21 / 176 |
-| 18 | 9 Atome (+ pièce) | 3 550 | 8,36 | 28,25 | 10 steel-plate, 10 electronic-circuit, 7 battery, 220 uranium-238, 200 fo-methane-barrel | 5 218 | 26 / 176 |
-| 19 | 10 Haute technologie (silhouette) | 3 700 | 9,16 | 28,5 | 11 steel-plate, 11 electronic-circuit, 7 battery, 60 processing-unit, 210 uranium-238 | 7 586 | 7 / 192 |
-| 20 | 10 Haute technologie (+ pièce) | 3 850 | 10,04 | 28,75 | 11 steel-plate, 11 electronic-circuit, 7 battery, 75 processing-unit, 270 uranium-238 | 9 551 | 7 / 192 |
-| 21 | 11 Titane (silhouette) | 4 000 | 11 | 29 | 12 steel-plate, 12 electronic-circuit, 8 battery, 180 low-density-structure, 70 processing-unit | 13 512 | 22 / 208 |
-| 22 | 11 Titane (+ pièce) | 4 150 | 12,04 | 29,25 | 12 steel-plate, 12 electronic-circuit, 8 battery, 230 low-density-structure, 90 processing-unit | 17 262 | 27 / 208 |
-| 23 | 12 Supraconducteurs (silhouette) | 4 300 | 13,18 | 29,5 | 12 steel-plate, 12 electronic-circuit, 8 battery, 940 electric-engine-unit, 220 low-density-structure | 25 102 | 44 / 224 |
-| 24 | 12 Supraconducteurs (+ pièce) | 4 450 | 14,44 | 29,75 | 13 steel-plate, 13 electronic-circuit, 9 battery, 1 170 electric-engine-unit, 280 low-density-structure | 31 499 | 55 / 224 |
-| 25 | 13 Fusion (silhouette) | 4 600 | 15,82 | 30 | 13 steel-plate, 13 electronic-circuit, 9 battery, 610 uranium-235, 1 140 electric-engine-unit | 45 869 | 33 / 240 |
-| 26 | 13 Fusion (+ pièce) | 4 750 | 17,34 | 30,25 | 14 steel-plate, 14 electronic-circuit, 9 battery, 760 uranium-235, 1 420 electric-engine-unit | 57 106 | 40 / 240 |
-| 27 | 14 Orbite (silhouette) | 4 900 | 19 | 30,5 | 14 steel-plate, 14 electronic-circuit, 10 battery, 330 rocket-control-unit, 740 uranium-235 | 82 995 | 44 / 256 |
-| 28 | 14 Orbite (+ pièce) | 5 050 | 20,8 | 30,75 | 15 steel-plate, 15 electronic-circuit, 10 battery, 410 rocket-control-unit, 920 uranium-235 | 103 103 | 54 / 256 |
-| 29 | 15 Légende (silhouette) | 5 200 | 22,78 | 31 | 15 steel-plate, 15 electronic-circuit, 10 battery, 340 space-science-pack, 380 rocket-control-unit | 142 203 | 42 / 272 |
-| 30 | 15 Légende (+ pièce) | 5 350 | 24,96 | 31,25 | 16 steel-plate, 16 electronic-circuit, 10 battery, 420 space-science-pack, 470 rocket-control-unit | 175 710 | 51 / 272 |
+| 2 | 1 Pionnier (+ pièce) | 1 150 | 2,3 | 24,4 | 3 steel-plate, 3 electronic-circuit, 2 battery | 34 | 3 / 48 |
+| 3 | 2 Forge (silhouette) | 1322,5 | 2,64 | 24,8 | 9 steel-plate, 3 electronic-circuit, 2 battery | 64 | 3 / 64 |
+| 4 | 2 Forge (+ pièce) | 1520,9 | 3,04 | 25,2 | 11 steel-plate, 4 electronic-circuit, 3 battery | 82 | 3 / 64 |
+| 5 | 3 Vapeur (silhouette) | 1749 | 3,5 | 25,6 | 6 steel-plate, 4 electronic-circuit, 3 battery, 3 engine-unit | 84 | 4 / 80 |
+| 6 | 3 Vapeur (+ pièce) | 2011,4 | 4,02 | 26 | 8 steel-plate, 5 electronic-circuit, 3 battery, 2 engine-unit | 87 | 4 / 80 |
+| 7 | 4 Pétrole (silhouette) | 2313,1 | 4,62 | 26,4 | 5 steel-plate, 5 electronic-circuit, 4 battery, 70 plastic-bar, 5 engine-unit | 175 | 5 / 96 |
+| 8 | 4 Pétrole (+ pièce) | 2660 | 5,32 | 26,8 | 6 steel-plate, 6 electronic-circuit, 4 battery, 85 plastic-bar, 6 engine-unit | 206 | 5 / 96 |
+| 9 | 5 Volcan (silhouette) | 3059 | 6,12 | 27,2 | 6 steel-plate, 6 electronic-circuit, 4 battery, 95 fo-tungsten-plate, 130 plastic-bar | 387 | 6 / 112 |
+| 10 | 5 Volcan (+ pièce) | 3517,9 | 7,04 | 27,6 | 7 steel-plate, 7 electronic-circuit, 4 battery, 120 fo-tungsten-plate, 160 plastic-bar | 475 | 7 / 112 |
+| 11 | 6 Électricité (silhouette) | 4045,6 | 8,1 | 28 | 7 steel-plate, 7 electronic-circuit, 70 battery, 120 fo-tungsten-plate | 678 | 5 / 128 |
+| 12 | 6 Électricité (+ pièce) | 4652,4 | 9,3 | 28,4 | 8 steel-plate, 8 electronic-circuit, 85 battery, 140 fo-tungsten-plate | 808 | 5 / 128 |
+| 13 | 7 Cristal (silhouette) | 5350,3 | 10,7 | 28,8 | 8 steel-plate, 8 electronic-circuit, 90 battery, 230 fo-resonance-crystal | 1 245 | 8 / 144 |
+| 14 | 7 Cristal (+ pièce) | 6152,8 | 12,3 | 29,2 | 8 steel-plate, 8 electronic-circuit, 106 battery, 290 fo-resonance-crystal | 1 513 | 9 / 144 |
+| 15 | 8 Marais (silhouette) | 7075,7 | 14,16 | 29,6 | 9 steel-plate, 9 electronic-circuit, 6 battery, 130 fo-methane-barrel, 290 fo-resonance-crystal | 2 271 | 22 / 160 |
+| 16 | 8 Marais (+ pièce) | 8137,1 | 16,28 | 30 | 9 steel-plate, 9 electronic-circuit, 6 battery, 170 fo-methane-barrel, 370 fo-resonance-crystal | 2 911 | 28 / 160 |
+| 17 | 9 Atome (silhouette) | 9357,6 | 18,72 | 30,4 | 10 steel-plate, 10 electronic-circuit, 7 battery, 170 uranium-238, 160 fo-methane-barrel | 4 094 | 21 / 176 |
+| 18 | 9 Atome (+ pièce) | 10761,3 | 21,52 | 30,8 | 10 steel-plate, 10 electronic-circuit, 7 battery, 220 uranium-238, 200 fo-methane-barrel | 5 194 | 26 / 176 |
+| 19 | 10 Haute technologie (silhouette) | 12375,5 | 24,76 | 31,2 | 11 steel-plate, 11 electronic-circuit, 7 battery, 95 processing-unit, 210 uranium-238 | 7 431 | 7 / 192 |
+| 20 | 10 Haute technologie (+ pièce) | 14231,8 | 28,46 | 31,6 | 11 steel-plate, 11 electronic-circuit, 7 battery, 120 processing-unit, 260 uranium-238 | 9 281 | 8 / 192 |
+| 21 | 11 Titane (silhouette) | 16366,5 | 32,74 | 32 | 12 steel-plate, 12 electronic-circuit, 8 battery, 410 fo-titanium-plate, 120 processing-unit | 13 854 | 10 / 208 |
+| 22 | 11 Titane (+ pièce) | 18821,5 | 37,64 | 32,4 | 12 steel-plate, 12 electronic-circuit, 8 battery, 510 fo-titanium-plate, 150 processing-unit | 17 234 | 11 / 208 |
+| 23 | 12 Supraconducteurs (silhouette) | 21644,7 | 43,28 | 32,8 | 12 steel-plate, 12 electronic-circuit, 8 battery, 250 fo-superconducting-coil, 500 fo-titanium-plate | 25 134 | 11 / 224 |
+| 24 | 12 Supraconducteurs (+ pièce) | 24891,5 | 49,78 | 33,2 | 13 steel-plate, 13 electronic-circuit, 9 battery, 310 fo-superconducting-coil, 630 fo-titanium-plate | 31 347 | 14 / 224 |
+| 25 | 13 Fusion (silhouette) | 28625,2 | 57,26 | 33,6 | 13 steel-plate, 13 electronic-circuit, 9 battery, 600 uranium-235, 300 fo-superconducting-coil | 45 147 | 12 / 240 |
+| 26 | 13 Fusion (+ pièce) | 32919 | 65,84 | 34 | 14 steel-plate, 14 electronic-circuit, 9 battery, 750 uranium-235, 380 fo-superconducting-coil | 56 705 | 15 / 240 |
+| 27 | 14 Orbite (silhouette) | 37856,8 | 75,72 | 34,4 | 14 steel-plate, 14 electronic-circuit, 10 battery, 330 rocket-control-unit, 740 uranium-235 | 82 960 | 44 / 256 |
+| 28 | 14 Orbite (+ pièce) | 43535,3 | 87,08 | 34,8 | 15 steel-plate, 15 electronic-circuit, 10 battery, 410 rocket-control-unit, 920 uranium-235 | 103 068 | 54 / 256 |
+| 29 | 15 Légende (silhouette) | 50065,6 | 100,14 | 35,2 | 15 steel-plate, 15 electronic-circuit, 10 battery, 340 space-science-pack, 380 rocket-control-unit | 142 168 | 42 / 272 |
+| 30 | 15 Légende (+ pièce) | 57575,5 | 115,16 | 35,6 | 16 steel-plate, 16 electronic-circuit, 10 battery, 420 space-science-pack, 470 rocket-control-unit | 175 675 | 51 / 272 |
 
 #### Mur (30 niveaux)
 
 | Niveau | Époque | PV | réduction physique | réduction explosion | Coût du passage à ce niveau | Valeur (u) | Cases / coffre du centre payeur |
 |---|---|---|---|---|---|---|---|
 | 1 | 1 Pionnier (vanilla) | 350 | 3 | 10 | — | — | — |
-| 2 | 1 Pionnier (+ pièce) | 525 | 3,5 | 10,5 | 3 stone-brick | 6 | 1 / 48 |
-| 3 | 2 Forge (silhouette) | 700 | 4 | 11 | 3 stone-brick, 1 steel-plate | 11 | 2 / 64 |
-| 4 | 2 Forge (+ pièce) | 875 | 4,5 | 11,5 | 4 stone-brick, 1 steel-plate | 13 | 2 / 64 |
-| 5 | 3 Vapeur (silhouette) | 1 050 | 5 | 12 | 4 stone-brick, 1 engine-unit | 17 | 2 / 80 |
-| 6 | 3 Vapeur (+ pièce) | 1 225 | 5,5 | 12,5 | 5 stone-brick, 1 engine-unit | 19 | 2 / 80 |
-| 7 | 4 Pétrole (silhouette) | 1 400 | 6 | 13 | 5 stone-brick, 4 plastic-bar | 22 | 2 / 96 |
-| 8 | 4 Pétrole (+ pièce) | 1 575 | 6,5 | 13,5 | 6 stone-brick, 4 plastic-bar | 24 | 2 / 96 |
-| 9 | 5 Volcan (silhouette) | 1 750 | 7 | 14 | 6 stone-brick, 8 fo-tungsten-plate | 44 | 2 / 112 |
-| 10 | 5 Volcan (+ pièce) | 1 925 | 7,5 | 14,5 | 7 stone-brick, 10 fo-tungsten-plate | 54 | 2 / 112 |
-| 11 | 6 Électricité (silhouette) | 2 100 | 8 | 15 | 7 stone-brick, 6 battery | 68 | 2 / 128 |
-| 12 | 6 Électricité (+ pièce) | 2 275 | 8,5 | 15,5 | 8 stone-brick, 8 battery | 88 | 2 / 128 |
-| 13 | 7 Cristal (silhouette) | 2 450 | 9 | 16 | 8 stone-brick, 40 fo-resonance-crystal | 136 | 2 / 144 |
-| 14 | 7 Cristal (+ pièce) | 2 625 | 9,5 | 16,5 | 8 stone-brick, 50 fo-resonance-crystal | 166 | 2 / 144 |
-| 15 | 8 Marais (silhouette) | 2 800 | 10 | 17 | 9 stone-brick, 20 fo-methane-barrel | 218 | 3 / 160 |
-| 16 | 8 Marais (+ pièce) | 2 975 | 10,5 | 17,5 | 9 stone-brick, 30 fo-methane-barrel | 318 | 4 / 160 |
-| 17 | 9 Atome (silhouette) | 3 150 | 11 | 18 | 10 stone-brick, 30 uranium-238 | 440 | 2 / 176 |
-| 18 | 9 Atome (+ pièce) | 3 325 | 11,5 | 18,5 | 10 stone-brick, 35 uranium-238 | 510 | 2 / 176 |
-| 19 | 10 Haute technologie (silhouette) | 3 500 | 12 | 19 | 11 stone-brick, 10 processing-unit | 772 | 2 / 192 |
-| 20 | 10 Haute technologie (+ pièce) | 3 675 | 12,5 | 19,5 | 11 stone-brick, 12 processing-unit | 922 | 2 / 192 |
-| 21 | 11 Titane (silhouette) | 3 850 | 13 | 20 | 12 stone-brick, 30 low-density-structure | 1 374 | 4 / 208 |
-| 22 | 11 Titane (+ pièce) | 4 025 | 13,5 | 20,5 | 12 stone-brick, 40 low-density-structure | 1 824 | 5 / 208 |
-| 23 | 12 Supraconducteurs (silhouette) | 4 200 | 14 | 21 | 12 stone-brick, 160 electric-engine-unit | 2 584 | 5 / 224 |
-| 24 | 12 Supraconducteurs (+ pièce) | 4 375 | 14,5 | 21,5 | 13 stone-brick, 200 electric-engine-unit | 3 226 | 5 / 224 |
-| 25 | 13 Fusion (silhouette) | 4 550 | 15 | 22 | 13 stone-brick, 100 uranium-235 | 4 526 | 2 / 240 |
-| 26 | 13 Fusion (+ pièce) | 4 725 | 15,5 | 22,5 | 14 stone-brick, 130 uranium-235 | 5 878 | 3 / 240 |
-| 27 | 14 Orbite (silhouette) | 4 900 | 16 | 23 | 14 stone-brick, 55 rocket-control-unit | 8 278 | 7 / 256 |
-| 28 | 14 Orbite (+ pièce) | 5 075 | 16,5 | 23,5 | 15 stone-brick, 70 rocket-control-unit | 10 530 | 8 / 256 |
-| 29 | 15 Légende (silhouette) | 5 250 | 17 | 24 | 15 stone-brick, 55 space-science-pack | 13 780 | 2 / 272 |
-| 30 | 15 Légende (+ pièce) | 5 425 | 17,5 | 24,5 | 16 stone-brick, 70 space-science-pack | 17 532 | 2 / 272 |
+| 2 | 1 Pionnier (+ pièce) | 402,5 | 3,5 | 10,5 | 3 stone-brick | 6 | 1 / 48 |
+| 3 | 2 Forge (silhouette) | 462,9 | 4 | 11 | 3 stone-brick, 1 steel-plate | 11 | 2 / 64 |
+| 4 | 2 Forge (+ pièce) | 532,3 | 4,5 | 11,5 | 4 stone-brick, 1 steel-plate | 13 | 2 / 64 |
+| 5 | 3 Vapeur (silhouette) | 612,2 | 5 | 12 | 4 stone-brick, 1 engine-unit | 17 | 2 / 80 |
+| 6 | 3 Vapeur (+ pièce) | 704 | 5,5 | 12,5 | 5 stone-brick, 1 engine-unit | 19 | 2 / 80 |
+| 7 | 4 Pétrole (silhouette) | 809,6 | 6 | 13 | 5 stone-brick, 12 plastic-bar | 22 | 2 / 96 |
+| 8 | 4 Pétrole (+ pièce) | 931 | 6,5 | 13,5 | 6 stone-brick, 15 plastic-bar | 27 | 2 / 96 |
+| 9 | 5 Volcan (silhouette) | 1070,7 | 7 | 14 | 6 stone-brick, 16 fo-tungsten-plate | 44 | 2 / 112 |
+| 10 | 5 Volcan (+ pièce) | 1231,3 | 7,5 | 14,5 | 7 stone-brick, 20 fo-tungsten-plate | 54 | 2 / 112 |
+| 11 | 6 Électricité (silhouette) | 1415,9 | 8 | 15 | 7 stone-brick, 11 battery | 75 | 2 / 128 |
+| 12 | 6 Électricité (+ pièce) | 1628,3 | 8,5 | 15,5 | 8 stone-brick, 13 battery | 88 | 2 / 128 |
+| 13 | 7 Cristal (silhouette) | 1872,6 | 9 | 16 | 8 stone-brick, 40 fo-resonance-crystal | 136 | 2 / 144 |
+| 14 | 7 Cristal (+ pièce) | 2153,5 | 9,5 | 16,5 | 8 stone-brick, 50 fo-resonance-crystal | 166 | 2 / 144 |
+| 15 | 8 Marais (silhouette) | 2476,5 | 10 | 17 | 9 stone-brick, 20 fo-methane-barrel | 218 | 3 / 160 |
+| 16 | 8 Marais (+ pièce) | 2848 | 10,5 | 17,5 | 9 stone-brick, 30 fo-methane-barrel | 318 | 4 / 160 |
+| 17 | 9 Atome (silhouette) | 3275,2 | 11 | 18 | 10 stone-brick, 30 uranium-238 | 440 | 2 / 176 |
+| 18 | 9 Atome (+ pièce) | 3766,4 | 11,5 | 18,5 | 10 stone-brick, 35 uranium-238 | 510 | 2 / 176 |
+| 19 | 10 Haute technologie (silhouette) | 4331,4 | 12 | 19 | 11 stone-brick, 16 processing-unit | 758 | 2 / 192 |
+| 20 | 10 Haute technologie (+ pièce) | 4981,1 | 12,5 | 19,5 | 11 stone-brick, 20 processing-unit | 942 | 2 / 192 |
+| 21 | 11 Titane (silhouette) | 5728,3 | 13 | 20 | 12 stone-brick, 70 fo-titanium-plate | 1 424 | 2 / 208 |
+| 22 | 11 Titane (+ pièce) | 6587,5 | 13,5 | 20,5 | 12 stone-brick, 85 fo-titanium-plate | 1 724 | 2 / 208 |
+| 23 | 12 Supraconducteurs (silhouette) | 7575,7 | 14 | 21 | 12 stone-brick, 40 fo-superconducting-coil | 2 424 | 2 / 224 |
+| 24 | 12 Supraconducteurs (+ pièce) | 8712 | 14,5 | 21,5 | 13 stone-brick, 50 fo-superconducting-coil | 3 026 | 2 / 224 |
+| 25 | 13 Fusion (silhouette) | 10018,8 | 15 | 22 | 13 stone-brick, 100 uranium-235 | 4 526 | 2 / 240 |
+| 26 | 13 Fusion (+ pièce) | 11521,6 | 15,5 | 22,5 | 14 stone-brick, 130 uranium-235 | 5 878 | 3 / 240 |
+| 27 | 14 Orbite (silhouette) | 13249,9 | 16 | 23 | 14 stone-brick, 55 rocket-control-unit | 8 278 | 7 / 256 |
+| 28 | 14 Orbite (+ pièce) | 15237,4 | 16,5 | 23,5 | 15 stone-brick, 70 rocket-control-unit | 10 530 | 8 / 256 |
+| 29 | 15 Légende (silhouette) | 17523 | 17 | 24 | 15 stone-brick, 55 space-science-pack | 13 780 | 2 / 272 |
+| 30 | 15 Légende (+ pièce) | 20151,4 | 17,5 | 24,5 | 16 stone-brick, 70 space-science-pack | 17 532 | 2 / 272 |
 
 #### Foreuse électrique (30 niveaux)
 
 | Niveau | Époque | PV | minage | kW | Coût du passage à ce niveau | Valeur (u) | Cases / coffre du centre payeur |
 |---|---|---|---|---|---|---|---|
 | 1 | 1 Pionnier (vanilla) | 300 | 0,5 | 90 | — | — | — |
-| 2 | 1 Pionnier (+ pièce) | 345 | 0,55 | 96,3 | 6 iron-plate, 3 iron-gear-wheel, 2 electronic-circuit | 17 | 3 / 48 |
-| 3 | 2 Forge (silhouette) | 390 | 0,6 | 102,6 | 7 iron-plate, 3 iron-gear-wheel, 2 electronic-circuit, 2 steel-plate | 28 | 4 / 64 |
-| 4 | 2 Forge (+ pièce) | 435 | 0,65 | 108,9 | 8 iron-plate, 4 iron-gear-wheel, 3 electronic-circuit, 3 steel-plate | 39 | 4 / 64 |
-| 5 | 3 Vapeur (silhouette) | 480 | 0,7 | 115,2 | 9 iron-plate, 4 iron-gear-wheel, 3 electronic-circuit, 2 engine-unit, 1 steel-plate | 48 | 5 / 80 |
-| 6 | 3 Vapeur (+ pièce) | 525 | 0,75 | 121,5 | 10 iron-plate, 5 iron-gear-wheel, 3 electronic-circuit, 2 engine-unit, 1 steel-plate | 51 | 5 / 80 |
-| 7 | 4 Pétrole (silhouette) | 570 | 0,8 | 127,8 | 11 iron-plate, 5 iron-gear-wheel, 4 electronic-circuit, 6 plastic-bar, 1 engine-unit | 58 | 5 / 96 |
-| 8 | 4 Pétrole (+ pièce) | 615 | 0,85 | 134,1 | 11 iron-plate, 6 iron-gear-wheel, 4 electronic-circuit, 8 plastic-bar, 2 engine-unit | 75 | 5 / 96 |
-| 9 | 5 Volcan (silhouette) | 660 | 0,9 | 140,4 | 12 iron-plate, 6 iron-gear-wheel, 4 electronic-circuit, 16 fo-tungsten-plate, 14 plastic-bar | 140 | 5 / 112 |
-| 10 | 5 Volcan (+ pièce) | 705 | 0,95 | 146,7 | 13 iron-plate, 7 iron-gear-wheel, 4 electronic-circuit, 20 fo-tungsten-plate, 18 plastic-bar | 171 | 5 / 112 |
-| 11 | 6 Électricité (silhouette) | 750 | 1 | 153 | 14 iron-plate, 7 iron-gear-wheel, 5 electronic-circuit, 14 battery, 20 fo-tungsten-plate | 247 | 5 / 128 |
-| 12 | 6 Électricité (+ pièce) | 795 | 1,05 | 159,3 | 15 iron-plate, 8 iron-gear-wheel, 5 electronic-circuit, 17 battery, 25 fo-tungsten-plate | 297 | 5 / 128 |
-| 13 | 7 Cristal (silhouette) | 840 | 1,1 | 165,6 | 16 iron-plate, 8 iron-gear-wheel, 5 electronic-circuit, 80 fo-resonance-crystal, 18 battery | 447 | 6 / 144 |
-| 14 | 7 Cristal (+ pièce) | 885 | 1,15 | 171,9 | 17 iron-plate, 8 iron-gear-wheel, 6 electronic-circuit, 100 fo-resonance-crystal, 25 battery | 573 | 6 / 144 |
-| 15 | 8 Marais (silhouette) | 930 | 1,2 | 178,2 | 18 iron-plate, 9 iron-gear-wheel, 6 electronic-circuit, 45 fo-methane-barrel, 100 fo-resonance-crystal | 801 | 10 / 160 |
-| 16 | 8 Marais (+ pièce) | 975 | 1,25 | 184,5 | 19 iron-plate, 9 iron-gear-wheel, 6 electronic-circuit, 60 fo-methane-barrel, 130 fo-resonance-crystal | 1 042 | 12 / 160 |
-| 17 | 9 Atome (silhouette) | 1 020 | 1,3 | 190,8 | 20 iron-plate, 10 iron-gear-wheel, 7 electronic-circuit, 60 uranium-238, 55 fo-methane-barrel | 1 448 | 10 / 176 |
-| 18 | 9 Atome (+ pièce) | 1 065 | 1,35 | 197,1 | 20 iron-plate, 10 iron-gear-wheel, 7 electronic-circuit, 75 uranium-238, 70 fo-methane-barrel | 1 808 | 11 / 176 |
-| 19 | 10 Haute technologie (silhouette) | 1 110 | 1,4 | 203,4 | 20 iron-plate, 11 iron-gear-wheel, 7 electronic-circuit, 20 processing-unit, 75 uranium-238 | 2 610 | 5 / 192 |
-| 20 | 10 Haute technologie (+ pièce) | 1 155 | 1,45 | 209,7 | 20 iron-plate, 11 iron-gear-wheel, 7 electronic-circuit, 25 processing-unit, 95 uranium-238 | 3 265 | 5 / 192 |
-| 21 | 11 Titane (silhouette) | 1 200 | 1,5 | 216 | 25 iron-plate, 12 iron-gear-wheel, 8 electronic-circuit, 65 low-density-structure, 25 processing-unit | 4 869 | 11 / 208 |
-| 22 | 11 Titane (+ pièce) | 1 245 | 1,55 | 222,3 | 25 iron-plate, 12 iron-gear-wheel, 8 electronic-circuit, 80 low-density-structure, 30 processing-unit | 5 919 | 12 / 208 |
-| 23 | 12 Supraconducteurs (silhouette) | 1 290 | 1,6 | 228,6 | 25 iron-plate, 12 iron-gear-wheel, 8 electronic-circuit, 330 electric-engine-unit, 80 low-density-structure | 8 949 | 18 / 224 |
-| 24 | 12 Supraconducteurs (+ pièce) | 1 335 | 1,65 | 234,9 | 25 iron-plate, 13 iron-gear-wheel, 9 electronic-circuit, 410 electric-engine-unit, 95 low-density-structure | 10 909 | 22 / 224 |
-| 25 | 13 Fusion (silhouette) | 1 380 | 1,7 | 241,2 | 25 iron-plate, 13 iron-gear-wheel, 9 electronic-circuit, 210 uranium-235, 400 electric-engine-unit | 15 924 | 14 / 240 |
-| 26 | 13 Fusion (+ pièce) | 1 425 | 1,75 | 247,5 | 30 iron-plate, 14 iron-gear-wheel, 9 electronic-circuit, 260 uranium-235, 500 electric-engine-unit | 19 781 | 16 / 240 |
-| 27 | 14 Orbite (silhouette) | 1 470 | 1,8 | 253,8 | 30 iron-plate, 14 iron-gear-wheel, 10 electronic-circuit, 120 rocket-control-unit, 260 uranium-235 | 29 783 | 18 / 256 |
-| 28 | 14 Orbite (+ pièce) | 1 515 | 1,85 | 260,1 | 30 iron-plate, 15 iron-gear-wheel, 10 electronic-circuit, 140 rocket-control-unit, 320 uranium-235 | 35 485 | 21 / 256 |
-| 29 | 15 Légende (silhouette) | 1 560 | 1,9 | 266,4 | 30 iron-plate, 15 iron-gear-wheel, 10 electronic-circuit, 120 space-science-pack, 130 rocket-control-unit | 49 585 | 17 / 272 |
-| 30 | 15 Légende (+ pièce) | 1 605 | 1,95 | 272,7 | 30 iron-plate, 16 iron-gear-wheel, 10 electronic-circuit, 150 space-science-pack, 160 rocket-control-unit | 61 587 | 20 / 272 |
+| 2 | 1 Pionnier (+ pièce) | 345 | 0,575 | 100,8 | 6 iron-plate, 3 iron-gear-wheel, 2 electronic-circuit | 17 | 3 / 48 |
+| 3 | 2 Forge (silhouette) | 396,7 | 0,661 | 112,896 | 7 iron-plate, 3 iron-gear-wheel, 2 electronic-circuit, 2 steel-plate | 28 | 4 / 64 |
+| 4 | 2 Forge (+ pièce) | 456,3 | 0,76 | 126,444 | 8 iron-plate, 4 iron-gear-wheel, 3 electronic-circuit, 3 steel-plate | 39 | 4 / 64 |
+| 5 | 3 Vapeur (silhouette) | 524,7 | 0,875 | 141,617 | 9 iron-plate, 4 iron-gear-wheel, 3 electronic-circuit, 2 engine-unit, 1 steel-plate | 48 | 5 / 80 |
+| 6 | 3 Vapeur (+ pièce) | 603,4 | 1,006 | 158,611 | 10 iron-plate, 5 iron-gear-wheel, 3 electronic-circuit, 2 engine-unit, 1 steel-plate | 51 | 5 / 80 |
+| 7 | 4 Pétrole (silhouette) | 693,9 | 1,157 | 177,644 | 11 iron-plate, 5 iron-gear-wheel, 4 electronic-circuit, 25 plastic-bar, 2 engine-unit | 74 | 5 / 96 |
+| 8 | 4 Pétrole (+ pièce) | 798 | 1,33 | 198,961 | 11 iron-plate, 6 iron-gear-wheel, 4 electronic-circuit, 30 plastic-bar, 2 engine-unit | 81 | 5 / 96 |
+| 9 | 5 Volcan (silhouette) | 917,7 | 1,53 | 222,837 | 12 iron-plate, 6 iron-gear-wheel, 4 electronic-circuit, 35 fo-tungsten-plate, 45 plastic-bar | 149 | 5 / 112 |
+| 10 | 5 Volcan (+ pièce) | 1055,4 | 1,759 | 249,577 | 13 iron-plate, 7 iron-gear-wheel, 4 electronic-circuit, 45 fo-tungsten-plate, 55 plastic-bar | 182 | 5 / 112 |
+| 11 | 6 Électricité (silhouette) | 1213,7 | 2,023 | 279,526 | 14 iron-plate, 7 iron-gear-wheel, 5 electronic-circuit, 20 battery, 40 fo-tungsten-plate | 231 | 5 / 128 |
+| 12 | 6 Électricité (+ pièce) | 1395,7 | 2,326 | 313,069 | 15 iron-plate, 8 iron-gear-wheel, 5 electronic-circuit, 30 battery, 50 fo-tungsten-plate | 309 | 5 / 128 |
+| 13 | 7 Cristal (silhouette) | 1605,1 | 2,675 | 350,638 | 16 iron-plate, 8 iron-gear-wheel, 5 electronic-circuit, 80 fo-resonance-crystal, 30 battery | 450 | 6 / 144 |
+| 14 | 7 Cristal (+ pièce) | 1845,8 | 3,076 | 392,714 | 17 iron-plate, 8 iron-gear-wheel, 6 electronic-circuit, 100 fo-resonance-crystal, 35 battery | 541 | 6 / 144 |
+| 15 | 8 Marais (silhouette) | 2122,7 | 3,538 | 439,84 | 18 iron-plate, 9 iron-gear-wheel, 6 electronic-circuit, 45 fo-methane-barrel, 100 fo-resonance-crystal | 801 | 10 / 160 |
+| 16 | 8 Marais (+ pièce) | 2441,1 | 4,069 | 492,621 | 19 iron-plate, 9 iron-gear-wheel, 6 electronic-circuit, 60 fo-methane-barrel, 130 fo-resonance-crystal | 1 042 | 12 / 160 |
+| 17 | 9 Atome (silhouette) | 2807,3 | 4,679 | 551,735 | 20 iron-plate, 10 iron-gear-wheel, 7 electronic-circuit, 60 uranium-238, 55 fo-methane-barrel | 1 448 | 10 / 176 |
+| 18 | 9 Atome (+ pièce) | 3228,4 | 5,381 | 617,944 | 20 iron-plate, 10 iron-gear-wheel, 7 electronic-circuit, 75 uranium-238, 70 fo-methane-barrel | 1 808 | 11 / 176 |
+| 19 | 10 Haute technologie (silhouette) | 3712,6 | 6,188 | 692,097 | 20 iron-plate, 11 iron-gear-wheel, 7 electronic-circuit, 35 processing-unit, 75 uranium-238 | 2 720 | 5 / 192 |
+| 20 | 10 Haute technologie (+ pièce) | 4269,5 | 7,116 | 775,149 | 20 iron-plate, 11 iron-gear-wheel, 7 electronic-circuit, 40 processing-unit, 90 uranium-238 | 3 160 | 5 / 192 |
+| 21 | 11 Titane (silhouette) | 4910 | 8,183 | 868,166 | 25 iron-plate, 12 iron-gear-wheel, 8 electronic-circuit, 140 fo-titanium-plate, 40 processing-unit | 4 709 | 6 / 208 |
+| 22 | 11 Titane (+ pièce) | 5646,5 | 9,411 | 972,346 | 25 iron-plate, 12 iron-gear-wheel, 8 electronic-circuit, 180 fo-titanium-plate, 50 processing-unit | 5 969 | 6 / 208 |
+| 23 | 12 Supraconducteurs (silhouette) | 6493,4 | 10,822 | 1089,028 | 25 iron-plate, 12 iron-gear-wheel, 8 electronic-circuit, 90 fo-superconducting-coil, 180 fo-titanium-plate | 9 069 | 6 / 224 |
+| 24 | 12 Supraconducteurs (+ pièce) | 7467,4 | 12,446 | 1219,711 | 25 iron-plate, 13 iron-gear-wheel, 9 electronic-circuit, 110 fo-superconducting-coil, 220 fo-titanium-plate | 11 074 | 8 / 224 |
+| 25 | 13 Fusion (silhouette) | 8587,6 | 14,313 | 1366,077 | 25 iron-plate, 13 iron-gear-wheel, 9 electronic-circuit, 210 uranium-235, 110 fo-superconducting-coil | 16 124 | 8 / 240 |
+| 26 | 13 Fusion (+ pièce) | 9875,7 | 16,459 | 1530,006 | 30 iron-plate, 14 iron-gear-wheel, 9 electronic-circuit, 260 uranium-235, 130 fo-superconducting-coil | 19 581 | 8 / 240 |
+| 27 | 14 Orbite (silhouette) | 11357 | 18,928 | 1713,606 | 30 iron-plate, 14 iron-gear-wheel, 10 electronic-circuit, 120 rocket-control-unit, 260 uranium-235 | 29 783 | 18 / 256 |
+| 28 | 14 Orbite (+ pièce) | 13060,6 | 21,768 | 1919,239 | 30 iron-plate, 15 iron-gear-wheel, 10 electronic-circuit, 140 rocket-control-unit, 320 uranium-235 | 35 485 | 21 / 256 |
+| 29 | 15 Légende (silhouette) | 15019,7 | 25,033 | 2149,548 | 30 iron-plate, 15 iron-gear-wheel, 10 electronic-circuit, 120 space-science-pack, 130 rocket-control-unit | 49 585 | 17 / 272 |
+| 30 | 15 Légende (+ pièce) | 17272,6 | 28,788 | 2407,494 | 30 iron-plate, 16 iron-gear-wheel, 10 electronic-circuit, 150 space-science-pack, 160 rocket-control-unit | 61 587 | 20 / 272 |
 
 #### Four en acier (30 niveaux)
 
 | Niveau | Époque | PV | vitesse | kW | Coût du passage à ce niveau | Valeur (u) | Cases / coffre du centre payeur |
 |---|---|---|---|---|---|---|---|
 | 1 | 1 Pionnier (vanilla) | 300 | 2 | 90 | — | — | — |
-| 2 | 1 Pionnier (+ pièce) | 345 | 2,16 | 95,4 | 2 steel-plate, 3 stone-brick | 16 | 2 / 48 |
-| 3 | 2 Forge (silhouette) | 390 | 2,32 | 100,8 | 4 steel-plate, 3 stone-brick | 26 | 2 / 64 |
-| 4 | 2 Forge (+ pièce) | 435 | 2,48 | 106,2 | 5 steel-plate, 4 stone-brick | 33 | 2 / 64 |
-| 5 | 3 Vapeur (silhouette) | 480 | 2,64 | 111,6 | 4 steel-plate, 4 stone-brick, 1 engine-unit | 37 | 3 / 80 |
-| 6 | 3 Vapeur (+ pièce) | 525 | 2,8 | 117 | 4 steel-plate, 5 stone-brick, 1 engine-unit | 39 | 3 / 80 |
-| 7 | 4 Pétrole (silhouette) | 570 | 2,96 | 122,4 | 4 steel-plate, 5 stone-brick, 5 plastic-bar, 1 engine-unit | 54 | 4 / 96 |
-| 8 | 4 Pétrole (+ pièce) | 615 | 3,12 | 127,8 | 4 steel-plate, 6 stone-brick, 7 plastic-bar, 2 engine-unit | 71 | 4 / 96 |
-| 9 | 5 Volcan (silhouette) | 660 | 3,28 | 133,2 | 4 steel-plate, 6 stone-brick, 14 fo-tungsten-plate, 12 plastic-bar | 124 | 4 / 112 |
-| 10 | 5 Volcan (+ pièce) | 705 | 3,44 | 138,6 | 4 steel-plate, 7 stone-brick, 17 fo-tungsten-plate, 16 plastic-bar | 150 | 4 / 112 |
-| 11 | 6 Électricité (silhouette) | 750 | 3,6 | 144 | 5 steel-plate, 7 stone-brick, 12 battery, 18 fo-tungsten-plate | 219 | 4 / 128 |
-| 12 | 6 Électricité (+ pièce) | 795 | 3,76 | 149,4 | 5 steel-plate, 8 stone-brick, 15 battery, 20 fo-tungsten-plate | 256 | 4 / 128 |
-| 13 | 7 Cristal (silhouette) | 840 | 3,92 | 154,8 | 5 steel-plate, 8 stone-brick, 70 fo-resonance-crystal, 15 battery | 386 | 5 / 144 |
-| 14 | 7 Cristal (+ pièce) | 885 | 4,08 | 160,2 | 6 steel-plate, 8 stone-brick, 85 fo-resonance-crystal, 19 battery | 472 | 5 / 144 |
-| 15 | 8 Marais (silhouette) | 930 | 4,24 | 165,6 | 6 steel-plate, 9 stone-brick, 40 fo-methane-barrel, 90 fo-resonance-crystal | 718 | 8 / 160 |
-| 16 | 8 Marais (+ pièce) | 975 | 4,4 | 171 | 6 steel-plate, 9 stone-brick, 50 fo-methane-barrel, 110 fo-resonance-crystal | 878 | 10 / 160 |
-| 17 | 9 Atome (silhouette) | 1 020 | 4,56 | 176,4 | 7 steel-plate, 10 stone-brick, 50 uranium-238, 50 fo-methane-barrel | 1 255 | 8 / 176 |
-| 18 | 9 Atome (+ pièce) | 1 065 | 4,72 | 181,8 | 7 steel-plate, 10 stone-brick, 65 uranium-238, 60 fo-methane-barrel | 1 565 | 9 / 176 |
-| 19 | 10 Haute technologie (silhouette) | 1 110 | 4,88 | 187,2 | 7 steel-plate, 11 stone-brick, 18 processing-unit, 65 uranium-238 | 2 317 | 4 / 192 |
-| 20 | 10 Haute technologie (+ pièce) | 1 155 | 5,04 | 192,6 | 7 steel-plate, 11 stone-brick, 20 processing-unit, 80 uranium-238 | 2 677 | 4 / 192 |
-| 21 | 11 Titane (silhouette) | 1 200 | 5,2 | 198 | 8 steel-plate, 12 stone-brick, 55 low-density-structure, 20 processing-unit | 4 039 | 9 / 208 |
-| 22 | 11 Titane (+ pièce) | 1 245 | 5,36 | 203,4 | 8 steel-plate, 12 stone-brick, 70 low-density-structure, 25 processing-unit | 5 089 | 10 / 208 |
-| 23 | 12 Supraconducteurs (silhouette) | 1 290 | 5,52 | 208,8 | 8 steel-plate, 12 stone-brick, 280 electric-engine-unit, 65 low-density-structure | 7 469 | 15 / 224 |
-| 24 | 12 Supraconducteurs (+ pièce) | 1 335 | 5,68 | 214,2 | 9 steel-plate, 13 stone-brick, 350 electric-engine-unit, 85 low-density-structure | 9 496 | 18 / 224 |
-| 25 | 13 Fusion (silhouette) | 1 380 | 5,84 | 219,6 | 9 steel-plate, 13 stone-brick, 180 uranium-235, 340 electric-engine-unit | 13 611 | 11 / 240 |
-| 26 | 13 Fusion (+ pièce) | 1 425 | 6 | 225 | 9 steel-plate, 14 stone-brick, 230 uranium-235, 430 electric-engine-unit | 17 303 | 14 / 240 |
-| 27 | 14 Orbite (silhouette) | 1 470 | 6,16 | 230,4 | 10 steel-plate, 14 stone-brick, 100 rocket-control-unit, 220 uranium-235 | 24 978 | 15 / 256 |
-| 28 | 14 Orbite (+ pièce) | 1 515 | 6,32 | 235,8 | 10 steel-plate, 15 stone-brick, 120 rocket-control-unit, 280 uranium-235 | 30 680 | 17 / 256 |
-| 29 | 15 Légende (silhouette) | 1 560 | 6,48 | 241,2 | 10 steel-plate, 15 stone-brick, 100 space-science-pack, 110 rocket-control-unit | 41 580 | 14 / 272 |
-| 30 | 15 Légende (+ pièce) | 1 605 | 6,64 | 246,6 | 10 steel-plate, 16 stone-brick, 130 space-science-pack, 140 rocket-control-unit | 53 582 | 17 / 272 |
+| 2 | 1 Pionnier (+ pièce) | 345 | 2,3 | 100,8 | 2 steel-plate, 3 stone-brick | 16 | 2 / 48 |
+| 3 | 2 Forge (silhouette) | 396,7 | 2,645 | 112,896 | 4 steel-plate, 3 stone-brick | 26 | 2 / 64 |
+| 4 | 2 Forge (+ pièce) | 456,3 | 3,042 | 126,444 | 5 steel-plate, 4 stone-brick | 33 | 2 / 64 |
+| 5 | 3 Vapeur (silhouette) | 524,7 | 3,498 | 141,617 | 4 steel-plate, 4 stone-brick, 1 engine-unit | 37 | 3 / 80 |
+| 6 | 3 Vapeur (+ pièce) | 603,4 | 4,023 | 158,611 | 4 steel-plate, 5 stone-brick, 1 engine-unit | 39 | 3 / 80 |
+| 7 | 4 Pétrole (silhouette) | 693,9 | 4,626 | 177,644 | 4 steel-plate, 5 stone-brick, 20 plastic-bar, 2 engine-unit | 68 | 4 / 96 |
+| 8 | 4 Pétrole (+ pièce) | 798 | 5,32 | 198,961 | 4 steel-plate, 6 stone-brick, 25 plastic-bar, 2 engine-unit | 75 | 4 / 96 |
+| 9 | 5 Volcan (silhouette) | 917,7 | 6,118 | 222,837 | 4 steel-plate, 6 stone-brick, 30 fo-tungsten-plate, 40 plastic-bar | 132 | 4 / 112 |
+| 10 | 5 Volcan (+ pièce) | 1055,4 | 7,036 | 249,577 | 4 steel-plate, 7 stone-brick, 35 fo-tungsten-plate, 50 plastic-bar | 154 | 4 / 112 |
+| 11 | 6 Électricité (silhouette) | 1213,7 | 8,091 | 279,526 | 5 steel-plate, 7 stone-brick, 19 battery, 35 fo-tungsten-plate | 214 | 4 / 128 |
+| 12 | 6 Électricité (+ pièce) | 1395,7 | 9,305 | 313,069 | 5 steel-plate, 8 stone-brick, 25 battery, 45 fo-tungsten-plate | 269 | 4 / 128 |
+| 13 | 7 Cristal (silhouette) | 1605,1 | 10,701 | 350,638 | 5 steel-plate, 8 stone-brick, 70 fo-resonance-crystal, 25 battery | 389 | 5 / 144 |
+| 14 | 7 Cristal (+ pièce) | 1845,8 | 12,306 | 392,714 | 6 steel-plate, 8 stone-brick, 85 fo-resonance-crystal, 30 battery | 466 | 5 / 144 |
+| 15 | 8 Marais (silhouette) | 2122,7 | 14,151 | 439,84 | 6 steel-plate, 9 stone-brick, 40 fo-methane-barrel, 90 fo-resonance-crystal | 718 | 8 / 160 |
+| 16 | 8 Marais (+ pièce) | 2441,1 | 16,274 | 492,621 | 6 steel-plate, 9 stone-brick, 50 fo-methane-barrel, 110 fo-resonance-crystal | 878 | 10 / 160 |
+| 17 | 9 Atome (silhouette) | 2807,3 | 18,715 | 551,735 | 7 steel-plate, 10 stone-brick, 50 uranium-238, 50 fo-methane-barrel | 1 255 | 8 / 176 |
+| 18 | 9 Atome (+ pièce) | 3228,4 | 21,523 | 617,944 | 7 steel-plate, 10 stone-brick, 65 uranium-238, 60 fo-methane-barrel | 1 565 | 9 / 176 |
+| 19 | 10 Haute technologie (silhouette) | 3712,6 | 24,751 | 692,097 | 7 steel-plate, 11 stone-brick, 30 processing-unit, 65 uranium-238 | 2 347 | 4 / 192 |
+| 20 | 10 Haute technologie (+ pièce) | 4269,5 | 28,464 | 775,149 | 7 steel-plate, 11 stone-brick, 35 processing-unit, 80 uranium-238 | 2 787 | 4 / 192 |
+| 21 | 11 Titane (silhouette) | 4910 | 32,733 | 868,166 | 8 steel-plate, 12 stone-brick, 120 fo-titanium-plate, 35 processing-unit | 4 074 | 5 / 208 |
+| 22 | 11 Titane (+ pièce) | 5646,5 | 37,643 | 972,346 | 8 steel-plate, 12 stone-brick, 150 fo-titanium-plate, 45 processing-unit | 5 134 | 5 / 208 |
+| 23 | 12 Supraconducteurs (silhouette) | 6493,4 | 43,289 | 1089,028 | 8 steel-plate, 12 stone-brick, 75 fo-superconducting-coil, 150 fo-titanium-plate | 7 564 | 5 / 224 |
+| 24 | 12 Supraconducteurs (+ pièce) | 7467,4 | 49,783 | 1219,711 | 9 steel-plate, 13 stone-brick, 95 fo-superconducting-coil, 190 fo-titanium-plate | 9 571 | 5 / 224 |
+| 25 | 13 Fusion (silhouette) | 8587,6 | 57,25 | 1366,077 | 9 steel-plate, 13 stone-brick, 180 uranium-235, 90 fo-superconducting-coil | 13 571 | 5 / 240 |
+| 26 | 13 Fusion (+ pièce) | 9875,7 | 65,838 | 1530,006 | 9 steel-plate, 14 stone-brick, 230 uranium-235, 110 fo-superconducting-coil | 17 023 | 7 / 240 |
+| 27 | 14 Orbite (silhouette) | 11357 | 75,714 | 1713,606 | 10 steel-plate, 14 stone-brick, 100 rocket-control-unit, 220 uranium-235 | 24 978 | 15 / 256 |
+| 28 | 14 Orbite (+ pièce) | 13060,6 | 87,071 | 1919,239 | 10 steel-plate, 15 stone-brick, 120 rocket-control-unit, 280 uranium-235 | 30 680 | 17 / 256 |
+| 29 | 15 Légende (silhouette) | 15019,7 | 100,131 | 2149,548 | 10 steel-plate, 15 stone-brick, 100 space-science-pack, 110 rocket-control-unit | 41 580 | 14 / 272 |
+| 30 | 15 Légende (+ pièce) | 17272,6 | 115,151 | 2407,494 | 10 steel-plate, 16 stone-brick, 130 space-science-pack, 140 rocket-control-unit | 53 582 | 17 / 272 |
 
 #### Machine d'assemblage 2 (30 niveaux)
 
 | Niveau | Époque | PV | vitesse | kW | Coût du passage à ce niveau | Valeur (u) | Cases / coffre du centre payeur |
 |---|---|---|---|---|---|---|---|
 | 1 | 1 Pionnier (vanilla) | 350 | 0,75 | 150 | — | — | — |
-| 2 | 1 Pionnier (+ pièce) | 402,5 | 0,81 | 159 | 6 iron-plate, 3 iron-gear-wheel, 3 electronic-circuit | 20 | 3 / 48 |
-| 3 | 2 Forge (silhouette) | 455 | 0,87 | 168 | 7 iron-plate, 3 iron-gear-wheel, 3 electronic-circuit, 2 steel-plate | 31 | 4 / 64 |
-| 4 | 2 Forge (+ pièce) | 507,5 | 0,93 | 177 | 8 iron-plate, 4 iron-gear-wheel, 4 electronic-circuit, 3 steel-plate | 41 | 4 / 64 |
-| 5 | 3 Vapeur (silhouette) | 560 | 0,99 | 186 | 9 iron-plate, 4 iron-gear-wheel, 4 electronic-circuit, 2 engine-unit, 1 steel-plate | 50 | 5 / 80 |
-| 6 | 3 Vapeur (+ pièce) | 612,5 | 1,05 | 195 | 10 iron-plate, 5 iron-gear-wheel, 5 electronic-circuit, 2 engine-unit, 1 steel-plate | 56 | 5 / 80 |
-| 7 | 4 Pétrole (silhouette) | 665 | 1,11 | 204 | 11 iron-plate, 5 iron-gear-wheel, 5 electronic-circuit, 6 plastic-bar, 1 engine-unit | 61 | 5 / 96 |
-| 8 | 4 Pétrole (+ pièce) | 717,5 | 1,17 | 213 | 11 iron-plate, 6 iron-gear-wheel, 6 electronic-circuit, 8 plastic-bar, 2 engine-unit | 80 | 5 / 96 |
-| 9 | 5 Volcan (silhouette) | 770 | 1,23 | 222 | 12 iron-plate, 6 iron-gear-wheel, 6 electronic-circuit, 16 fo-tungsten-plate, 14 plastic-bar | 145 | 5 / 112 |
-| 10 | 5 Volcan (+ pièce) | 822,5 | 1,29 | 231 | 13 iron-plate, 7 iron-gear-wheel, 7 electronic-circuit, 20 fo-tungsten-plate, 18 plastic-bar | 179 | 5 / 112 |
-| 11 | 6 Électricité (silhouette) | 875 | 1,35 | 240 | 14 iron-plate, 7 iron-gear-wheel, 7 electronic-circuit, 14 battery, 20 fo-tungsten-plate | 252 | 5 / 128 |
-| 12 | 6 Électricité (+ pièce) | 927,5 | 1,41 | 249 | 15 iron-plate, 8 iron-gear-wheel, 8 electronic-circuit, 17 battery, 25 fo-tungsten-plate | 304 | 5 / 128 |
-| 13 | 7 Cristal (silhouette) | 980 | 1,47 | 258 | 16 iron-plate, 8 iron-gear-wheel, 8 electronic-circuit, 80 fo-resonance-crystal, 18 battery | 454 | 6 / 144 |
-| 14 | 7 Cristal (+ pièce) | 1032,5 | 1,53 | 267 | 17 iron-plate, 8 iron-gear-wheel, 8 electronic-circuit, 100 fo-resonance-crystal, 25 battery | 578 | 6 / 144 |
-| 15 | 8 Marais (silhouette) | 1 085 | 1,59 | 276 | 18 iron-plate, 9 iron-gear-wheel, 9 electronic-circuit, 45 fo-methane-barrel, 100 fo-resonance-crystal | 809 | 10 / 160 |
-| 16 | 8 Marais (+ pièce) | 1137,5 | 1,65 | 285 | 19 iron-plate, 9 iron-gear-wheel, 9 electronic-circuit, 60 fo-methane-barrel, 130 fo-resonance-crystal | 1 050 | 12 / 160 |
-| 17 | 9 Atome (silhouette) | 1 190 | 1,71 | 294 | 20 iron-plate, 10 iron-gear-wheel, 10 electronic-circuit, 60 uranium-238, 55 fo-methane-barrel | 1 455 | 10 / 176 |
-| 18 | 9 Atome (+ pièce) | 1242,5 | 1,77 | 303 | 20 iron-plate, 10 iron-gear-wheel, 10 electronic-circuit, 75 uranium-238, 70 fo-methane-barrel | 1 815 | 11 / 176 |
-| 19 | 10 Haute technologie (silhouette) | 1 295 | 1,83 | 312 | 20 iron-plate, 11 iron-gear-wheel, 11 electronic-circuit, 20 processing-unit, 75 uranium-238 | 2 620 | 5 / 192 |
-| 20 | 10 Haute technologie (+ pièce) | 1347,5 | 1,89 | 321 | 20 iron-plate, 11 iron-gear-wheel, 11 electronic-circuit, 25 processing-unit, 95 uranium-238 | 3 275 | 5 / 192 |
-| 21 | 11 Titane (silhouette) | 1 400 | 1,95 | 330 | 25 iron-plate, 12 iron-gear-wheel, 12 electronic-circuit, 65 low-density-structure, 25 processing-unit | 4 879 | 11 / 208 |
-| 22 | 11 Titane (+ pièce) | 1452,5 | 2,01 | 339 | 25 iron-plate, 12 iron-gear-wheel, 12 electronic-circuit, 80 low-density-structure, 30 processing-unit | 5 929 | 12 / 208 |
-| 23 | 12 Supraconducteurs (silhouette) | 1 505 | 2,07 | 348 | 25 iron-plate, 12 iron-gear-wheel, 12 electronic-circuit, 330 electric-engine-unit, 80 low-density-structure | 8 959 | 18 / 224 |
-| 24 | 12 Supraconducteurs (+ pièce) | 1557,5 | 2,13 | 357 | 25 iron-plate, 13 iron-gear-wheel, 13 electronic-circuit, 410 electric-engine-unit, 95 low-density-structure | 10 919 | 22 / 224 |
-| 25 | 13 Fusion (silhouette) | 1 610 | 2,19 | 366 | 25 iron-plate, 13 iron-gear-wheel, 13 electronic-circuit, 210 uranium-235, 400 electric-engine-unit | 15 934 | 14 / 240 |
-| 26 | 13 Fusion (+ pièce) | 1662,5 | 2,25 | 375 | 30 iron-plate, 14 iron-gear-wheel, 14 electronic-circuit, 260 uranium-235, 500 electric-engine-unit | 19 793 | 16 / 240 |
-| 27 | 14 Orbite (silhouette) | 1 715 | 2,31 | 384 | 30 iron-plate, 14 iron-gear-wheel, 14 electronic-circuit, 120 rocket-control-unit, 260 uranium-235 | 29 793 | 18 / 256 |
-| 28 | 14 Orbite (+ pièce) | 1767,5 | 2,37 | 393 | 30 iron-plate, 15 iron-gear-wheel, 15 electronic-circuit, 140 rocket-control-unit, 320 uranium-235 | 35 498 | 21 / 256 |
-| 29 | 15 Légende (silhouette) | 1 820 | 2,43 | 402 | 30 iron-plate, 15 iron-gear-wheel, 15 electronic-circuit, 120 space-science-pack, 130 rocket-control-unit | 49 598 | 17 / 272 |
-| 30 | 15 Légende (+ pièce) | 1872,5 | 2,49 | 411 | 30 iron-plate, 16 iron-gear-wheel, 16 electronic-circuit, 150 space-science-pack, 160 rocket-control-unit | 61 602 | 20 / 272 |
+| 2 | 1 Pionnier (+ pièce) | 402,5 | 0,862 | 168 | 6 iron-plate, 3 iron-gear-wheel, 3 electronic-circuit | 20 | 3 / 48 |
+| 3 | 2 Forge (silhouette) | 462,9 | 0,992 | 188,16 | 7 iron-plate, 3 iron-gear-wheel, 3 electronic-circuit, 2 steel-plate | 31 | 4 / 64 |
+| 4 | 2 Forge (+ pièce) | 532,3 | 1,141 | 210,739 | 8 iron-plate, 4 iron-gear-wheel, 4 electronic-circuit, 3 steel-plate | 41 | 4 / 64 |
+| 5 | 3 Vapeur (silhouette) | 612,2 | 1,312 | 236,028 | 9 iron-plate, 4 iron-gear-wheel, 4 electronic-circuit, 2 engine-unit, 1 steel-plate | 50 | 5 / 80 |
+| 6 | 3 Vapeur (+ pièce) | 704 | 1,509 | 264,351 | 10 iron-plate, 5 iron-gear-wheel, 5 electronic-circuit, 2 engine-unit, 1 steel-plate | 56 | 5 / 80 |
+| 7 | 4 Pétrole (silhouette) | 809,6 | 1,735 | 296,073 | 11 iron-plate, 5 iron-gear-wheel, 5 electronic-circuit, 25 plastic-bar, 2 engine-unit | 77 | 5 / 96 |
+| 8 | 4 Pétrole (+ pièce) | 931 | 1,995 | 331,602 | 11 iron-plate, 6 iron-gear-wheel, 6 electronic-circuit, 30 plastic-bar, 2 engine-unit | 86 | 5 / 96 |
+| 9 | 5 Volcan (silhouette) | 1070,7 | 2,294 | 371,394 | 12 iron-plate, 6 iron-gear-wheel, 6 electronic-circuit, 35 fo-tungsten-plate, 45 plastic-bar | 154 | 5 / 112 |
+| 10 | 5 Volcan (+ pièce) | 1231,3 | 2,638 | 415,962 | 13 iron-plate, 7 iron-gear-wheel, 7 electronic-circuit, 45 fo-tungsten-plate, 55 plastic-bar | 190 | 5 / 112 |
+| 11 | 6 Électricité (silhouette) | 1415,9 | 3,034 | 465,877 | 14 iron-plate, 7 iron-gear-wheel, 7 electronic-circuit, 20 battery, 40 fo-tungsten-plate | 236 | 5 / 128 |
+| 12 | 6 Électricité (+ pièce) | 1628,3 | 3,489 | 521,782 | 15 iron-plate, 8 iron-gear-wheel, 8 electronic-circuit, 30 battery, 50 fo-tungsten-plate | 316 | 5 / 128 |
+| 13 | 7 Cristal (silhouette) | 1872,6 | 4,013 | 584,396 | 16 iron-plate, 8 iron-gear-wheel, 8 electronic-circuit, 80 fo-resonance-crystal, 30 battery | 457 | 6 / 144 |
+| 14 | 7 Cristal (+ pièce) | 2153,5 | 4,615 | 654,524 | 17 iron-plate, 8 iron-gear-wheel, 8 electronic-circuit, 100 fo-resonance-crystal, 35 battery | 546 | 6 / 144 |
+| 15 | 8 Marais (silhouette) | 2476,5 | 5,307 | 733,067 | 18 iron-plate, 9 iron-gear-wheel, 9 electronic-circuit, 45 fo-methane-barrel, 100 fo-resonance-crystal | 809 | 10 / 160 |
+| 16 | 8 Marais (+ pièce) | 2848 | 6,103 | 821,035 | 19 iron-plate, 9 iron-gear-wheel, 9 electronic-circuit, 60 fo-methane-barrel, 130 fo-resonance-crystal | 1 050 | 12 / 160 |
+| 17 | 9 Atome (silhouette) | 3275,2 | 7,018 | 919,559 | 20 iron-plate, 10 iron-gear-wheel, 10 electronic-circuit, 60 uranium-238, 55 fo-methane-barrel | 1 455 | 10 / 176 |
+| 18 | 9 Atome (+ pièce) | 3766,4 | 8,071 | 1029,906 | 20 iron-plate, 10 iron-gear-wheel, 10 electronic-circuit, 75 uranium-238, 70 fo-methane-barrel | 1 815 | 11 / 176 |
+| 19 | 10 Haute technologie (silhouette) | 4331,4 | 9,282 | 1153,495 | 20 iron-plate, 11 iron-gear-wheel, 11 electronic-circuit, 35 processing-unit, 75 uranium-238 | 2 730 | 5 / 192 |
+| 20 | 10 Haute technologie (+ pièce) | 4981,1 | 10,674 | 1291,914 | 20 iron-plate, 11 iron-gear-wheel, 11 electronic-circuit, 40 processing-unit, 90 uranium-238 | 3 170 | 5 / 192 |
+| 21 | 11 Titane (silhouette) | 5728,3 | 12,275 | 1446,944 | 25 iron-plate, 12 iron-gear-wheel, 12 electronic-circuit, 140 fo-titanium-plate, 40 processing-unit | 4 719 | 6 / 208 |
+| 22 | 11 Titane (+ pièce) | 6587,5 | 14,116 | 1620,577 | 25 iron-plate, 12 iron-gear-wheel, 12 electronic-circuit, 180 fo-titanium-plate, 50 processing-unit | 5 979 | 6 / 208 |
+| 23 | 12 Supraconducteurs (silhouette) | 7575,7 | 16,234 | 1815,047 | 25 iron-plate, 12 iron-gear-wheel, 12 electronic-circuit, 90 fo-superconducting-coil, 180 fo-titanium-plate | 9 079 | 6 / 224 |
+| 24 | 12 Supraconducteurs (+ pièce) | 8712 | 18,669 | 2032,852 | 25 iron-plate, 13 iron-gear-wheel, 13 electronic-circuit, 110 fo-superconducting-coil, 220 fo-titanium-plate | 11 084 | 8 / 224 |
+| 25 | 13 Fusion (silhouette) | 10018,8 | 21,469 | 2276,794 | 25 iron-plate, 13 iron-gear-wheel, 13 electronic-circuit, 210 uranium-235, 110 fo-superconducting-coil | 16 134 | 8 / 240 |
+| 26 | 13 Fusion (+ pièce) | 11521,6 | 24,689 | 2550,01 | 30 iron-plate, 14 iron-gear-wheel, 14 electronic-circuit, 260 uranium-235, 130 fo-superconducting-coil | 19 593 | 8 / 240 |
+| 27 | 14 Orbite (silhouette) | 13249,9 | 28,393 | 2856,011 | 30 iron-plate, 14 iron-gear-wheel, 14 electronic-circuit, 120 rocket-control-unit, 260 uranium-235 | 29 793 | 18 / 256 |
+| 28 | 14 Orbite (+ pièce) | 15237,4 | 32,651 | 3198,732 | 30 iron-plate, 15 iron-gear-wheel, 15 electronic-circuit, 140 rocket-control-unit, 320 uranium-235 | 35 498 | 21 / 256 |
+| 29 | 15 Légende (silhouette) | 17523 | 37,549 | 3582,58 | 30 iron-plate, 15 iron-gear-wheel, 15 electronic-circuit, 120 space-science-pack, 130 rocket-control-unit | 49 598 | 17 / 272 |
+| 30 | 15 Légende (+ pièce) | 20151,4 | 43,182 | 4012,49 | 30 iron-plate, 16 iron-gear-wheel, 16 electronic-circuit, 150 space-science-pack, 160 rocket-control-unit | 61 602 | 20 / 272 |
 
 ## 13. Sons (lot S0, S0-suite ; version 0.4.8)
 

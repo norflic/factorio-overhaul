@@ -31,7 +31,8 @@ local function say(s) if not quiet then print("[LEVIERS] " .. s) end end
 
 local sorted_keys, deep = C.sorted_keys, C.deep
 
--- Les modules du test existent au stock (recette de module : 180 MU) ; le coffre porte des circuits (financement).
+-- Les modules du test existent au stock (recette de module : 298,41 MU depuis le lot VALEURS, tests/valeurs_test.lua ; 180 MU
+-- quand ce test a été écrit, prix tiré vers le bas par le cycle du baril de pétrole brut) ; le coffre porte des circuits (financement).
 local function stock(extra)
   local s = { ["electronic-circuit"] = 1000, ["speed-module"] = 40, ["productivity-module"] = 40, ["speed-module-2"] = 40,
     ["productivity-module-2"] = 40, ["effectivity-module"] = 40 }
@@ -59,9 +60,9 @@ local function fours_reserves(kind)
   return nil
 end
 
--- Scène « tous les sites interdits » : un gisement de fer dangereux, 6 fours électriques et 6 foreuses électriques posés,
--- une demande de plaques que le minerai livré ne suffit pas à servir.
-local function blocked_scene(D, over)
+-- Ancienne scène « tous les sites interdits » (lot LEVIERS) : un gisement de fer dangereux, 6 fours électriques et 6 foreuses
+-- électriques posés, une demande de plaques que le minerai livré ne suffit pas à servir. Gardée pour le fait daté du §1 seulement.
+local function furnace_blocked_scene(D, over)
   local inp = C.input(D, {
     stock = stock(),
     deposits = { { id = "d1", resource = "iron-ore", tiles = 270, amount = 1e6, open = true, dist = 60, danger = true } },
@@ -73,11 +74,50 @@ local function blocked_scene(D, over)
   return inp
 end
 
+-- Scène « tous les sites interdits », refaite au lot VALEURS (corr-valeurs, 5/11, accord du lead) sur des ASSEMBLEURS DE CÂBLES.
+-- Pourquoi : au prix des recettes (module 298,41 MU), 2 modules de productivité sur un four électrique de plaques de fer
+-- rapportent en 77,8 min, au-delà de l'horizon du repli (Ca.H_LIFE = 60) : aucun ordre, la scène des fours ne testait plus rien
+-- (fait daté au §1). Pourquoi pas des engrenages : un assembleur 2 d'engrenages fait 90/min, +14,54/min avec 2 modules, à
+-- 2,69 MU (recette : 2 x 1,32 + 0,05) : retour 15,3 min, SOUS T_max du caractère (20) ; le repli n'y serait plus nécessaire et
+-- le contrôle « retour au-delà de T_max » du §2 et les mutants « retour en repli = T_max » et « repli jamais déclaré » ne
+-- verraient plus rien. Câbles : un assembleur 2 fait 60 x 0,75 / 0,5 s x 2 = 180 câbles/min, +29,09/min avec 2 modules
+-- (barème D-17 : 0,96 x 1,21 = 1,1616), à 0,685 MU (recette copper-cable : (1,32 + 0,5 x 0,1) / 2) : 19,9 MU/min moins l'énergie
+-- (0,27 charbon/min par machine), retour 30,4 min, entre T_max (20) et l'horizon (60), comme la scène des fours au prix de
+-- 180 MU qu'elle remplace (45 min environ).
+-- Un gisement de cuivre dangereux, 6 assembleurs 2 de câbles et 6 foreuses électriques posés ; demande de 1 440 câbles/min,
+-- 360 au-delà des 6 x 180 = 1 080 que font les machines (les fours : 300 demandées, 75 au-delà de 225), soit 720 plaques et
+-- 720 minerais de cuivre par minute contre 180 livrés. Plaques de fer au coffre (400) : les foreuses électriques restent
+-- fabricables (le fer est leur matière ; la scène des fours l'avait par ses plaques), donc l'extraction reste une option.
+local SINK_CABLE, CAP_CABLE, ORE_CABLE = 1440, 6 * 180, 720
+local function blocked_scene(D, over)
+  local inp = C.input(D, {
+    stock = stock({ ["iron-plate"] = 400 }),
+    deposits = { { id = "d1", resource = "copper-ore", tiles = 270, amount = 1e6, open = true, dist = 60, danger = true } },
+    drills = { { entity = "electric-mining-drill", resource = "copper-ore", n = 6, deposit = "d1" } },
+    machines = { { entity = "assembling-machine-2", recipe = "copper-cable", n = 6, where = "qg" } },
+    flows = { ["copper-ore"] = { made = 180 }, ["copper-plate"] = { made = 180 }, ["copper-cable"] = { made = 360 } },
+    sinks = { { item = "copper-cable", rate = SINK_CABLE } }, can_exec = fours_reserves })
+  for k, v in pairs(over or {}) do inp[k] = v end
+  return inp
+end
+-- Entrée de plus pour un module de vitesse : 20 000 plaques de cuivre au coffre, 2 000/min sur Ca.H_STOCK = 10 min (la scène
+-- des fours livrait 600 minerais/min au lieu de 180). Sans modules de productivité au stock.
+local function speed_stock() return stock({ ["productivity-module"] = 0, ["productivity-module-2"] = 0, ["copper-plate"] = 20000 }) end
+-- Levier des FOREUSES seul : les assembleurs ont déjà leurs 2 emplacements pleins. Au prix de 298,41 MU, le budget du cycle de
+-- cette scène (3 071,7 MU, mesuré le 5/11) va d'abord aux câbles (5 machines, 2 984,1 MU, retour 30,4 min, contre 41,9 min pour
+-- 3 modules de vitesse par foreuse : 30 x (1,2^3 - 1) = 21,8 minerais/min à 1 MU, moins 0,55 charbon/min, pour 3 x 298,41 MU) ;
+-- il reste 87,6 MU, pas de quoi payer les 895 MU d'une foreuse. Au prix de 180 MU (écriture du test), les deux leviers tenaient
+-- dans le même budget.
+local function drills_only(inp)
+  inp.machines[1].mods = { ["productivity-module"] = 2 }
+  return inp
+end
+
 -- Scène « un site libre » : même usine, mais le gisement connu est sûr et à couvrir.
 local function free_scene(D, over)
   local inp = blocked_scene(D, over)
-  inp.deposits = { { id = "d1", resource = "iron-ore", tiles = 270, amount = 1e6, open = true, dist = 60 },
-    { id = "s2", resource = "iron-ore", tiles = 270, amount = 1e6, dist = 100 } }
+  inp.deposits = { { id = "d1", resource = "copper-ore", tiles = 270, amount = 1e6, open = true, dist = 60 },
+    { id = "s2", resource = "copper-ore", tiles = 270, amount = 1e6, dist = 100 } }
   for k, v in pairs(over or {}) do inp[k] = v end
   return inp
 end
@@ -122,6 +162,18 @@ local function s1()
   check(L.techs["mining-productivity-1"].count > 0 and #L.techs["mining-productivity-1"].ingredients > 0,
     "§1 coût de recherche lu au relevé des technologies")
   check(D0.mu["productivity-module"] > 100 and D0.mu["productivity-module"] == D0.mu["speed-module"], "§1 valeur d'un module : ses recettes")
+  -- Fait daté (lot VALEURS, 5/11) : fours électriques de plaques de fer, 2 modules de productivité : retour 77,8 min > 60, refusé
+  -- même en repli. Calcul : coût 12 x 298,41 = 3 580,9 MU ; gain 6 x 37,5 x 0,1616 = 36,36 plaques/min x 1,32 = 48,0 MU/min,
+  -- moins l'énergie 6 x 180 kW x 0,12 = 129,6 kW = 1,94 charbon/min : 46,05 MU/min ; 3 580,9 / 46,05 = 77,8 min. L'horizon
+  -- (Ca.H_LIFE = 60) ne bouge pas (décision du lead) : les factions ne mettent plus de modules de productivité sur ces fours.
+  local res_f = require("shared.ai3.capitalisation").decide(furnace_blocked_scene(D0), {})
+  local why_f = ""
+  for _, r in ipairs(res_f.refus) do if r.key:find("equiper:electric-furnace:iron-plate", 1, true) then why_f = r.why end end
+  local t_f = tonumber(why_f:match("productivity%-module : retour ([%d.]+) min > 60"))
+  check(t_f ~= nil and t_f >= 77.7 and t_f <= 77.9, "§1 fait daté 5/11 : fours de fer, productivité refusée, retour 77,8 min > 60 (" .. why_f .. ")")
+  local any_f = false
+  for _, o in ipairs(res_f.orders) do if o.key:find("equiper:electric-furnace", 1, true) then any_f = true end end
+  check(not any_f and res_f.repli and res_f.repli.none ~= nil, "§1 fait daté 5/11 : fours de fer en repli, aucun module, et le repli dit pourquoi")
   local D1 = C.data(nil, nil, nil, function(lv) lv.equip = nil end)
   check(#D1.lv.cand == 0 and next(D1.lv.slots) ~= nil, "§1 relevé sans module : aucun candidat")
   local D2 = Ca_data_no_lv and nil
@@ -135,14 +187,14 @@ end
 local Ca = require("shared.ai3.capitalisation")
 local function s2()
   local res = Ca.decide(blocked_scene(D0), {})
-  local o = find(res, "equiper:electric-furnace:iron-plate")
-  check(o ~= nil, "§2 tous les sites interdits : un ordre de module sur les fours")
+  local o = find(res, "equiper:assembling-machine-2:copper-cable")
+  check(o ~= nil, "§2 tous les sites interdits : un ordre de module sur les assembleurs de câbles")
   check(o and o.module == "productivity-module" and o.per == 2, "§2 la productivité : la vitesse n'a pas d'entrée de plus (" .. tostring(o and o.module) .. ")")
-  check(res.repli and #res.repli.blocked >= 1 and res.repli.blocked[#res.repli.blocked].resource == "iron-ore"
+  check(res.repli and #res.repli.blocked >= 1 and res.repli.blocked[#res.repli.blocked].resource == "copper-ore"
     and #res.repli.levers >= 1, "§2 compte rendu du repli : ressource bloquée et levier retenu")
-  check(res.repli and res.repli.text:find("1 dangereux", 1, true) and res.repli.text:find("equiper:electric-furnace", 1, true),
+  check(res.repli and res.repli.text:find("1 dangereux", 1, true) and res.repli.text:find("equiper:assembling-machine-2", 1, true),
     "§2 le texte dit pourquoi (gisement dangereux) et quoi")
-  check(o and o.why:find("repli : 1 gisement(s) de iron-ore", 1, true), "§2 la raison de l'ordre porte le repli")
+  check(o and o.why:find("repli : 1 gisement(s) de copper-ore", 1, true), "§2 la raison de l'ordre porte le repli")
   -- Ordre émis dans les 5 pensées (une par minute), ordres ouverts rendus à la pensée suivante.
   local st, open, first = {}, {}, nil
   for cycle = 1, 5 do
@@ -170,7 +222,7 @@ local function s2()
     o3 and string.format("%.1f", o3.T) or "-", string.format("%.1f", res3.tmax)))
   -- Hors repli (site libre), le même module n'est PAS accepté à ce retour : T_max du caractère.
   local r4 = Ca.decide(free_scene(D0, { deposits = {
-    { id = "d1", resource = "iron-ore", tiles = 270, amount = 1e6, open = true, dist = 60, covered = 270 } } }), {})
+    { id = "d1", resource = "copper-ore", tiles = 270, amount = 1e6, open = true, dist = 60, covered = 270 } } }), {})
   check(r4.repli ~= nil, "§2 gisement couvert à 100 % : plus aucune place = repli")
 end
 
@@ -179,28 +231,31 @@ end
 ---------------------------------------------------------------------------------------------------
 local function s3()
   local res = Ca.decide(blocked_scene(D0), {})
-  local o = find(res, "equiper:electric-furnace:iron-plate")
+  local o = find(res, "equiper:assembling-machine-2:copper-cable")
   if not o then check(false, "§3 ordre absent") return end
   -- Recalcul par le test : liste des effets des modules posés (2 de productivité par machine), barème MULTIPLICATIF.
   local list = { { speed = -2, consumption = 6, productivity = 10 }, { speed = -2, consumption = 6, productivity = 10 } }
   local c = MM.complements(list)
   local s_n, p_n, e_n = c.speed.t, c.productivity.t, c.consumption.t
   check(s_n == 96 and p_n == 121 and e_n == 112, string.format("§3 facteurs du barème : vitesse %d, productivité %d, énergie %d", s_n, p_n, e_n))
-  local rho = 60 * 2 / 3.2 -- plaques par minute d'un four de vitesse 2
+  -- Câbles par minute d'un assembleur 2 : vitesse 0,75 (leviers_common V_SPEED), recette copper-cable 0,5 s, 2 câbles par fabrication.
+  local rho = 60 * 0.75 / 0.5 * 2
   local d_out = o.n * rho * (s_n * p_n - 100 * 100) / 10000
   check(math.abs(o.d_out - d_out) < 1e-6, string.format("§3 sortie de plus %.4f = formule %.4f", o.d_out, d_out))
-  check(math.abs(o.d_kw - o.n * 180 * (e_n - 100) / 100) < 1e-6, "§3 énergie de plus = puissance × (facteur − 1)")
+  -- 150 kW : puissance de l'assembleur 2 (leviers_common V_KW ; four électrique : 180).
+  check(math.abs(o.d_kw - o.n * 150 * (e_n - 100) / 100) < 1e-6, "§3 énergie de plus = puissance × (facteur − 1)")
   local cost = o.n * 2 * D0.mu["productivity-module"]
   check(math.abs(o.cost_m - cost) < 1e-6, "§3 coût = modules posés × valeur du module")
-  local va = D0.mu["iron-plate"]
-  local gain = math.min(d_out, 300 - 225 - 0) * va - (o.d_kw * 60 / D0.fuel_kj) * D0.mu[D0.fuel]
+  local va = D0.mu["copper-cable"]
+  -- Manque servi : 1 440 demandés moins 1 080 faits par les 6 machines (blocked_scene), aucun stock de câbles.
+  local gain = math.min(d_out, SINK_CABLE - CAP_CABLE - 0) * va - (o.d_kw * 60 / D0.fuel_kj) * D0.mu[D0.fuel]
   check(math.abs(o.gain - gain) < 1e-6, string.format("§3 gain %.4f = utile × valeur − énergie (%.4f)", o.gain, gain))
   check(math.abs(o.T - (o.cost_m + res.lambda * o.work / 60) / o.gain) < 1e-9, "§3 retour = coût ÷ gain")
   -- Des modules déjà posés entrent dans le plan (les machines qui en portent fournissent davantage).
   local inp = blocked_scene(D0)
   inp.machines[1].mods = { ["productivity-module"] = 1 }
   local r1 = Ca.decide(inp, {})
-  local o1 = find(r1, "equiper:electric-furnace:iron-plate:qg:productivity-module*1")
+  local o1 = find(r1, "equiper:assembling-machine-2:copper-cable:qg:productivity-module*1")
   check(o1 ~= nil and o1.per == 1, "§3 un emplacement pris : un module de plus au plus par machine (" .. tostring(o1 and o1.per) .. ")")
   local list2 = { { speed = -2, consumption = 6, productivity = 10 }, { speed = -2, consumption = 6, productivity = 10 } }
   local cc = MM.complements(list2)
@@ -210,7 +265,7 @@ local function s3()
     check(math.abs(o1.d_out - want) < 1e-6, string.format("§3 sortie de plus avec un module déjà posé %.4f = %.4f", o1.d_out, want))
   end
   -- Foreuses : la vitesse multiplie le minerai (pas d'entrée à fournir).
-  local inp2 = blocked_scene(D0, { deposits = { { id = "d1", resource = "iron-ore", tiles = 270, amount = 1e6, open = true, dist = 60 } } })
+  local inp2 = drills_only(blocked_scene(D0, { deposits = { { id = "d1", resource = "copper-ore", tiles = 270, amount = 1e6, open = true, dist = 60 } } }))
   inp2.deposits[1].covered = 270
   local r2 = Ca.decide(inp2, {})
   local od = find(r2, "equiper:electric-mining-drill")
@@ -227,17 +282,16 @@ end
 -- §4 Limites
 ---------------------------------------------------------------------------------------------------
 local function s4()
-  -- L'entrée manque : un four n'a pas de minerai de plus (minerai livré = consommé) -> la vitesse n'ajoute rien.
+  -- L'entrée manque : un assembleur de câbles n'a pas de plaques de plus (aucune au coffre, aucun four) -> la vitesse n'ajoute rien.
   local res = Ca.decide(blocked_scene(D0, { stock = stock({ ["productivity-module"] = 0, ["productivity-module-2"] = 0 }) }), {})
-  check(not find(res, "equiper:electric-furnace"), "§4 sans module de productivité : pas de module de vitesse sur des fours sans minerai de plus")
-  local rf = refus_of(res, "equiper:electric-furnace")
+  check(not find(res, "equiper:assembling-machine-2"), "§4 sans module de productivité : pas de module de vitesse sur des assembleurs sans plaques de plus")
+  local rf = refus_of(res, "equiper:assembling-machine-2")
   check(rf and rf.why:find("entree", 1, true), "§4 refus écrit : l'entrée manque (" .. tostring(rf and rf.why) .. ")")
-  -- Du minerai en surplus : le module de vitesse sert.
-  local inp = blocked_scene(D0, { stock = stock({ ["productivity-module"] = 0, ["productivity-module-2"] = 0 }),
-    flows = { ["iron-ore"] = { made = 600 }, ["iron-plate"] = { made = 180 } } })
+  -- Des plaques en surplus (speed_stock : 2 000/min) : le module de vitesse sert.
+  local inp = blocked_scene(D0, { stock = speed_stock() })
   local r2 = Ca.decide(inp, {})
-  local o2 = find(r2, "equiper:electric-furnace")
-  check(o2 and o2.module:find("speed", 1, true), "§4 minerai livré en surplus : un module de vitesse (" .. tostring(o2 and o2.module) .. ")")
+  local o2 = find(r2, "equiper:assembling-machine-2")
+  check(o2 and o2.module:find("speed", 1, true), "§4 plaques en surplus : un module de vitesse (" .. tostring(o2 and o2.module) .. ")")
   -- Recette non permise à la productivité (assembleur de moteurs) : aucun module de productivité.
   local r3 = Ca.decide(pipe_scene(D0), {})
   local o3 = find(r3, "equiper:assembling-machine-2")
@@ -248,20 +302,20 @@ local function s4()
   local g3 = find(Ca.decide(gear_scene(D0), {}), "equiper:assembling-machine-2")
   check(g3 ~= nil and g3.module:find("productivity", 1, true), "§4 recette de la liste (engrenages) : productivité (" .. tostring(g3 and g3.module) .. ")")
   -- Effet non permis : une machine qui ne permet pas la productivité.
-  local Dn = C.data(nil, nil, nil, function(lv) lv.slots["electric-furnace"].allowed.productivity = nil end)
+  local Dn = C.data(nil, nil, nil, function(lv) lv.slots["assembling-machine-2"].allowed.productivity = nil end)
   local r4 = Ca.decide(blocked_scene(Dn, { stock = stock() }), {})
-  local o4 = find(r4, "equiper:electric-furnace")
+  local o4 = find(r4, "equiper:assembling-machine-2")
   check(not o4 or o4.module:find("speed", 1, true), "§4 productivité non permise : aucun module de productivité")
-  -- Emplacements pleins.
+  -- Emplacements pleins (assembleur 2 : 2 emplacements, leviers_common C.SLOTS).
   local inp5 = blocked_scene(D0)
   inp5.machines[1].mods = { ["productivity-module"] = 2 }
-  check(not find(Ca.decide(inp5, {}), "equiper:electric-furnace"), "§4 emplacements pleins : aucun ordre")
+  check(not find(Ca.decide(inp5, {}), "equiper:assembling-machine-2"), "§4 emplacements pleins : aucun ordre")
   -- Courant : la puissance de plus dépasse la réserve.
   local inp6 = blocked_scene(D0, { power = { have_kw = 1000, used_kw = 1000 } })
   local r6 = Ca.decide(inp6, {})
-  check(not find(r6, "equiper:electric-furnace") and ((refus_of(r6, "equiper:electric-furnace") or {}).why or ""):find("courant", 1, true),
+  check(not find(r6, "equiper:assembling-machine-2") and ((refus_of(r6, "equiper:assembling-machine-2") or {}).why or ""):find("courant", 1, true),
     "§4 courant insuffisant : refus écrit")
-  -- Menace : leviers du QG seulement (les fours du QG restent permis, les foreuses d'un gisement non).
+  -- Menace : leviers du QG seulement (les machines du QG restent permises, les foreuses d'un gisement non).
   local inp7 = blocked_scene(D0, { threat = true })
   inp7.deposits[1].danger = nil
   inp7.deposits[1].covered = 270
@@ -286,7 +340,7 @@ end
 local function s5()
   local st = {}
   local r1 = Ca.decide(blocked_scene(D0), st)
-  local o = find(r1, "equiper:electric-furnace")
+  local o = find(r1, "equiper:assembling-machine-2")
   if not o then check(false, "§5 ordre absent") return end
   local c = deep(o)
   c.n_left = c.n
@@ -299,14 +353,16 @@ local function s5()
   c2.n_left = 0
   local r3 = Ca.decide(blocked_scene(D0, { open = { c2 } }), {})
   local r0 = Ca.decide(blocked_scene(D0, { open = { c } }), {})
-  check(r3.R["iron-plate"] ~= nil and r0.R["iron-plate"] ~= nil, "§5 plan avec ordre ouvert calculé")
+  check(r3.R["copper-cable"] ~= nil and r0.R["copper-cable"] ~= nil, "§5 plan avec ordre ouvert calculé")
   local ok = true
   for _, oo in ipairs(r3.orders) do if oo.key == o.key then ok = false end end
   check(ok, "§5 ordre fini (n_left 0) : clé gardée (un seul ordre par clé)")
   -- Le plan applique l'ordre : le manque baisse (une seconde décision ne redemande pas la même sortie).
   local tot = 0
   for _, oo in ipairs(r1.orders) do if oo.kind == "equiper" then tot = tot + oo.d_out end end
-  check(tot > 0 and tot <= 75 + 1e-6 + (Ca.LEAD * 300 - 225), "§5 la sortie de plus ne dépasse pas la demande servie (+ l'avance)")
+  -- Manque 1 440 - 1 080 = 360 (fours : 300 - 225 = 75), avance Ca.LEAD x 1 440 - 1 080 (fours : Ca.LEAD x 300 - 225).
+  check(tot > 0 and tot <= (SINK_CABLE - CAP_CABLE) + 1e-6 + (Ca.LEAD * SINK_CABLE - CAP_CABLE),
+    "§5 la sortie de plus ne dépasse pas la demande servie (+ l'avance)")
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -321,10 +377,11 @@ local function s6()
   local o = find(res, "techno:mining-productivity-1")
   check(o ~= nil, "§6 recherche des foreuses retenue quand les gisements sont pris")
   if o then
+    -- Bonus 0,1 (C.TECHS) x 180 minerais livrés ; besoin de minerai de cuivre 720/min (1 440 câbles / 2 par plaque, 1 minerai par
+    -- plaque), 540 non servis (fours : 300 - 180 = 120) ; minerai à 1 MU (Ca.RAW_MU x temps de minage 1). Même gain qu'avant : 18.
     local d_ore = 0.1 * 180
-    local want_gain = math.min(d_ore, 300 - 180) * D0.mu["iron-ore"]
-    check(math.abs(o.gain - want_gain) < 1e-6 or math.abs(o.gain - (math.min(d_ore, 300 - 180) * D0.mu["iron-ore"])) < 1e-6,
-      string.format("§6 gain %.3f = bonus × minerai × valeur (%.3f)", o.gain, want_gain))
+    local want_gain = math.min(d_ore, ORE_CABLE - 180) * D0.mu["copper-ore"]
+    check(math.abs(o.gain - want_gain) < 1e-6, string.format("§6 gain %.3f = bonus × minerai × valeur (%.3f)", o.gain, want_gain))
     check(o.cost_m == 0 and o.cost > 0 and o.delay ~= nil, "§6 coût payé en recherche (hors budget du cycle), retard compté")
     check(res.repli and #res.repli.levers >= 1, "§6 le repli compte la recherche parmi ses leviers")
     local tw = Ca.techs_wanted(res, {})
@@ -379,12 +436,10 @@ local function s7()
       if m.effects.speed then m.effects.speed = m.effects.speed * 2 end
     end
   end)
-  local inp = blocked_scene(D2, { stock = stock({ ["productivity-module"] = 0, ["productivity-module-2"] = 0 }),
-    flows = { ["iron-ore"] = { made = 600 }, ["iron-plate"] = { made = 180 } } })
-  local o = find(Ca.decide(inp, {}), "equiper:electric-furnace")
-  local inp1 = blocked_scene(D0, { stock = stock({ ["productivity-module"] = 0, ["productivity-module-2"] = 0 }),
-    flows = { ["iron-ore"] = { made = 600 }, ["iron-plate"] = { made = 180 } } })
-  local o1 = find(Ca.decide(inp1, {}), "equiper:electric-furnace")
+  local inp = blocked_scene(D2, { stock = speed_stock() })
+  local o = find(Ca.decide(inp, {}), "equiper:assembling-machine-2")
+  local inp1 = blocked_scene(D0, { stock = speed_stock() })
+  local o1 = find(Ca.decide(inp1, {}), "equiper:assembling-machine-2")
   check(o and o1 and o.d_out > o1.d_out, "§7 modules plus rapides : sortie de plus plus grande, même code")
   -- Plus d'emplacement : aucun levier, et le compte rendu le dit.
   local D3 = C.data(nil, nil, nil, function(lv) lv.slots = {} end)
@@ -392,7 +447,7 @@ local function s7()
   check(count_kind(r3, "equiper") == 0 and r3.repli and r3.repli.none and r3.repli.text:find("aucun levier", 1, true),
     "§7 sans emplacement dans les données : aucun levier, dit pourquoi (" .. tostring(r3.repli and r3.repli.none) .. ")")
   -- TOUS les noms changés (objets, recettes, machines, ressources, technologies, modules, recettes permises) : mêmes ordres
-  -- au renommage près, sur trois scènes (repli de fours, repli de foreuses couvertes, recherche à effet).
+  -- au renommage près, sur trois scènes (repli des assembleurs de câbles, vitesse avec plaques en surplus, recherche à effet).
   local d0 = C.dump()
   local map = C.name_map(d0)
   local unmap = {}
@@ -418,8 +473,7 @@ local function s7()
   local scenes = {
     function(D) return blocked_scene(D) end,
     function(D)
-      local inp = blocked_scene(D, { stock = stock({ ["productivity-module"] = 0, ["productivity-module-2"] = 0 }),
-        flows = { ["iron-ore"] = { made = 600 }, ["iron-plate"] = { made = 180 } } })
+      local inp = blocked_scene(D, { stock = speed_stock() })
       return inp
     end,
     function(D) return tech_scene(D) end,
@@ -569,8 +623,7 @@ end
 --- Chaque mutant renvoie vrai quand ce qu'il casse est VU par au moins un contrôle (comparaison à la règle d'origine).
 local function mutants()
   local base_blocked = orders_text(Ca.decide(blocked_scene(D0), {}))
-  local base_speed = orders_text(Ca.decide(blocked_scene(D0, { stock = stock({ ["productivity-module"] = 0, ["productivity-module-2"] = 0 }),
-    flows = { ["iron-ore"] = { made = 600 }, ["iron-plate"] = { made = 180 } } }), {}))
+  local base_speed = orders_text(Ca.decide(blocked_scene(D0, { stock = speed_stock() }), {}))
   local base_nospeed = orders_text(Ca.decide(blocked_scene(D0, { stock = stock({ ["productivity-module"] = 0, ["productivity-module-2"] = 0 }) }), {})) -- vide
   local base_free = orders_text(Ca.decide(free_scene(D0), {}))
   local n_mut, n_caught = 0, 0
@@ -592,23 +645,24 @@ local function mutants()
     end)
   M("effets permis ignorés", "if slots.allowed[ef] ~= true then return false end", "",
     function(CaM)
-      local Dn = C.data(nil, nil, nil, function(lv) lv.slots["electric-furnace"].allowed.productivity = nil end)
-      local o = find(CaM.decide(blocked_scene(Dn, { stock = stock() }), {}), "equiper:electric-furnace")
+      local Dn = C.data(nil, nil, nil, function(lv) lv.slots["assembling-machine-2"].allowed.productivity = nil end)
+      local o = find(CaM.decide(blocked_scene(Dn, { stock = stock() }), {}), "equiper:assembling-machine-2")
       return o ~= nil and o.module:find("productivity", 1, true) ~= nil
     end)
   M("emplacements pleins ignorés", "local free = sl.n - filled_count(mods)", "local free = sl.n",
     function(CaM)
       local inp5 = blocked_scene(D0)
       inp5.machines[1].mods = { ["productivity-module"] = 2 }
-      return find(CaM.decide(inp5, {}), "equiper:electric-furnace") ~= nil
+      return find(CaM.decide(inp5, {}), "equiper:assembling-machine-2") ~= nil
     end)
   M("énergie de plus gratuite", "o.gain = (useful + extra) * va * sh * wf - d_fuel * ctx.fuel_mu", "o.gain = (useful + extra) * va * sh * wf",
     differs(function() return blocked_scene(D0) end, base_blocked))
+  -- Demande de 1 084 câbles/min : 4 au-delà des 1 080 des machines (fours : 229, 4 au-delà de 225).
   M("sortie utile non bornée par la demande", "local useful = math.min(d_out, math.max(0, def))", "local useful = d_out",
-    differs(function() return blocked_scene(D0, { sinks = { { item = "iron-plate", rate = 229 } } }) end,
-      orders_text(Ca.decide(blocked_scene(D0, { sinks = { { item = "iron-plate", rate = 229 } } }), {}))))
+    differs(function() return blocked_scene(D0, { sinks = { { item = "copper-cable", rate = CAP_CABLE + 4 } } }) end,
+      orders_text(Ca.decide(blocked_scene(D0, { sinks = { { item = "copper-cable", rate = CAP_CABLE + 4 } } }), {}))))
   M("courant ignoré", "if d_kw > room_kw + Ca.EPS then", "if false then",
-    function(CaM) return find(CaM.decide(blocked_scene(D0, { power = { have_kw = 1000, used_kw = 1000 } }), {}), "equiper:electric-furnace") ~= nil end)
+    function(CaM) return find(CaM.decide(blocked_scene(D0, { power = { have_kw = 1000, used_kw = 1000 } }), {}), "equiper:assembling-machine-2") ~= nil end)
   M("menace ignorée", "if ctx.threat then H.refuse(ctx, key, \"equiper\", item, \"menace : leviers du QG seulement\") return end", "",
     function(CaM)
       local Dc = C.data()
@@ -619,7 +673,7 @@ local function mutants()
       return find(CaM.decide(inp7, {}), "equiper:electric-mining-drill") ~= nil
     end)
   M("gisement dangereux ignoré", "local why = Ca.usable(ctx, f, \"equiper\")\n      if why then", "local why = nil\n      if why then",
-    function(CaM) return find(CaM.decide(blocked_scene(D0), {}), "equiper:electric-mining-drill") ~= nil end)
+    function(CaM) return find(CaM.decide(drills_only(blocked_scene(D0)), {}), "equiper:electric-mining-drill") ~= nil end)
   M("repli jamais déclaré", "if st.blocked then blocked[#blocked + 1] = { resource = k, text = st.text, absent = st.absent or nil } end",
     "", function(CaM) return find(CaM.decide(blocked_scene(D0), {}), "equiper:") == nil end)
   M("gisement dangereux compté libre", "if why then\n      if f.danger then st.danger = st.danger + 1 else st.forbid = st.forbid + 1 end",
@@ -649,8 +703,8 @@ local function mutants()
     function(CaM)
       local inp = blocked_scene(D0)
       inp.machines[1].mods = { ["productivity-module"] = 1 }
-      local a = find(CaM.decide(inp, {}), "equiper:electric-furnace")
-      local b = find(Ca.decide(inp, {}), "equiper:electric-furnace")
+      local a = find(CaM.decide(inp, {}), "equiper:assembling-machine-2")
+      local b = find(Ca.decide(inp, {}), "equiper:assembling-machine-2")
       return (a and a.d_out or -1) ~= (b and b.d_out or -1)
     end)
   M("retard de la recherche d'une machine ignoré", "local T = cost / b.gain + delay", "local T = cost / b.gain",

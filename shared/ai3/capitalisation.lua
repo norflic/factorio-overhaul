@@ -417,16 +417,42 @@ function Ca.data(dump, opts)
   return D
 end
 
+--- Lot VALEURS (5/11) : recettes qui DÉFONT exactement ce qu'une autre assemble : mêmes objets aux mêmes quantités, ingrédients
+--- et produits échangés, et plus de sortes de produits que d'ingrédients (le vidage d'un contenant). Elles ne fixent aucun prix
+--- (Ca.values) : le couple formerait un cycle où le coût partagé à parts égales entre les produits tire le prix d'un contenu
+--- vers celui du contenu le moins cher passé par le même contenant (mesuré : gaz 0,05 MU par un fluide de 0,003 MU, au lieu de
+--- 2,23 par sa recette). Un couple qui a autant de sortes des deux côtés garde ses deux recettes. Rend { [recette] = true }.
+function Ca.unpackers(D)
+  local function sig(list)
+    local t = {}
+    for _, x in ipairs(list) do t[#t + 1] = x.name .. "=" .. x.amount end
+    table.sort(t)
+    return table.concat(t, ",")
+  end
+  local fwd, out = {}, {}
+  for _, rn in ipairs(D.recipe_list) do
+    local r = D.recipes[rn]
+    fwd[sig(r.ingredients) .. ">" .. sig(r.products)] = true
+  end
+  for _, rn in ipairs(D.recipe_list) do
+    local r = D.recipes[rn]
+    if #r.products > #r.ingredients and fwd[sig(r.products) .. ">" .. sig(r.ingredients)] then out[rn] = true end
+  end
+  return out
+end
+
 --- Valeur de chaque objet (MU) : point fixe min-plus sur les recettes (ordre des noms), jusqu'à stabilité (au plus une
---- passe par recette, plus une). Rend aussi la recette la moins chère de chaque objet.
+--- passe par recette, plus une). Rend aussi la recette la moins chère de chaque objet. Les recettes de Ca.unpackers n'y
+--- entrent pas.
 function Ca.values(D)
   local mu, best = {}, {}
+  local skip = Ca.unpackers(D)
   for _, name in ipairs(D.res_list) do mu[name] = Ca.RAW_MU * D.res[name].mining_time end
   for _ = 1, #D.recipe_list + 1 do
     local changed = false
     for _, rn in ipairs(D.recipe_list) do
       local r = D.recipes[rn]
-      local input, ok = r.energy * Ca.TIME_MU, true
+      local input, ok = r.energy * Ca.TIME_MU, not skip[rn]
       for _, i in ipairs(r.ingredients) do
         local m = mu[i.name]
         if m == nil then ok = false break end
@@ -1824,6 +1850,91 @@ local function free_stock_mu(ctx, req)
   return v
 end
 
+--- PRÉDICAT PARTAGÉ « ce qui débloque un manque » (lots AGEBLOCAGE, étage chantiers, et EFFONDREMENT, CORR-CHAMP-MANQUE ; accord du
+--- lead du 5/11 : un seul prédicat pour les deux verrous de la capitalisation). Matières qui MANQUENT aux ordres ouverts (o.missing,
+--- n > 0) et leurs ingrédients DIRECTS dans les recettes du jeu (D.producers, D.recipes ; sans fluide) : { [objet] = vrai }.
+--- ctx = { open = { { missing = { {objet, n} } } }, D = { producers, recipes } }. Mesurés :
+---   - AGEBLOCAGE (journal lot-guide-271828182 de DEPENSES2, 4 ouvriers) : 4 ordres ouverts bloqués en « matériaux » retenaient tout le
+---     budget de bras de la minute 20 à 59 ; la chaîne des circuits qui les aurait débloqués ne sortait qu'à la minute 60 ;
+---   - EFFONDREMENT (partie du DC 717152950 en 0.6.51, fo-logs/2026-11-05_EFFONDREMENT/RAPPORT.md §2 bis) : 2 modules qui attendaient
+---     du fer tenaient les 2 emplacements du plan directeur de 11 à 31 min ; la foreuse de fer était refusée « plan directeur occupe »
+---     (12 foreuses de fer contre 18 à 28 dans la partie 0.6.50).
+function Ca.blocked_items(ctx)
+  local out = {}
+  local D = ctx and ctx.D
+  for _, o in ipairs((ctx and ctx.open) or {}) do
+    for _, m in ipairs(o.missing or {}) do
+      local it = m[1]
+      if it and (m[2] or 0) > 0 then
+        out[it] = true
+        for _, rn in ipairs((D and D.producers and D.producers[it]) or {}) do
+          local r = D.recipes and D.recipes[rn]
+          for _, i in ipairs((r and r.ingredients) or {}) do
+            if not i.fluid then out[i.name] = true end
+          end
+        end
+      end
+    end
+  end
+  return out
+end
+
+--- Une option (ou un module, un champ) DÉBLOQUE-t-elle un manque ? Vrai si ce qu'elle fait (o.item, o.product) ou la ressource qu'elle
+--- extrait (o.resource) est dans `blocked` (Ca.blocked_items). Aucune condition de genre : chaque règle choisit où elle l'applique
+--- (AGEBLOCAGE : les chaînes, hors du budget de bras ; EFFONDREMENT : les champs, au siège +1 des emplacements).
+function Ca.unblocks(o, blocked)
+  if o == nil or blocked == nil then return false end
+  return (o.item ~= nil and blocked[o.item] == true) or (o.product ~= nil and blocked[o.product] == true)
+    or (o.resource ~= nil and blocked[o.resource] == true)
+end
+
+--- Lot CORR-CHAMP-MANQUE (relecture du lead, 18 h 10, point 2) : SECOND prédicat, celui du SIÈGE du complément (règle 8 de
+--- shared/ai3/emplacements.lua). Ca.blocked_items reste celui d'AGEBLOCAGE, tel quel : ses chaînes ont besoin de tout l'ensemble,
+--- circuits et câbles compris. Pour le siège, les ingrédients DIRECTS penchent vers le fer : un module qui attend des circuits manque
+--- en fait de CUIVRE, par le câble. Ici :
+---   - on prend le coût BRUT des manques des ordres ouverts (book:plan : recettes de la main du LIVRE donné ; le livre d'une force
+---     n'a que ses recettes ouvertes, D.producers les a toutes) ;
+---   - on retire le stock libre des plaques ;
+---   - on garde les seules plaques `names`.
+--- Rend UNE plaque, celle du plus grand déficit (égalité : l'ordre de `names`), ou nil ; second retour : { [plaque] = déficit }.
+--- ctx = {
+---   open : ordres ouverts, chacun avec missing = { { objet, n } } ;
+---   book : livre (shared/team/book.lua) ;
+---   names : plaques, dans l'ordre ;
+---   free : { [plaque] = n } ;
+---   prev : la plaque rendue la fois d'avant (hystérésis, Ca.SEAT_MARGIN), ou nil }.
+--- Pur : aucune API Factorio, le livre est donné par l'appelant.
+Ca.SEAT_MARGIN = 25 -- % : seconde relecture, point 2 : la plaque qui tient le siège le garde tant que l'autre ne la dépasse pas de plus
+
+function Ca.seat_plate(ctx)
+  local def = {}
+  local book = ctx and ctx.book
+  if not book then return nil, def end
+  local wants = {}
+  for _, o in ipairs(ctx.open or {}) do
+    for _, m in ipairs(o.missing or {}) do
+      if m[1] ~= nil and (m[2] or 0) > 0 then wants[#wants + 1] = { m[1], m[2] } end
+    end
+  end
+  if #wants == 0 then return nil, def end
+  local stock = {}
+  for _, n in ipairs(ctx.names or {}) do stock[n] = math.max(0, (ctx.free or {})[n] or 0) end
+  local raw = book:plan(wants, stock).raw
+  local best, bv = nil, 0
+  for _, n in ipairs(ctx.names or {}) do
+    local v = raw[n] or 0
+    def[n] = v
+    if v > bv then best, bv = n, v end
+  end
+  -- Seconde relecture (revue-depenses2, point 2) : HYSTÉRÉSIS. La plaque qui tenait le siège (ctx.prev) le garde tant qu'elle manque
+  -- encore et que la meilleure ne la dépasse pas de plus de Ca.SEAT_MARGIN % ; sinon la porte des foreuses basculerait fer, cuivre,
+  -- fer d'une minute à l'autre sur deux déficits proches. (Entiers : best × 100 <= prev × (100 + marge).)
+  local prev = ctx.prev
+  local pv = prev ~= nil and def[prev] or nil
+  if best ~= nil and pv ~= nil and pv > 0 and best ~= prev and bv * 100 <= pv * (100 + Ca.SEAT_MARGIN) then best = prev end
+  return best, def
+end
+
 --- La décision d'un cycle. input = {
 ---   data (Ca.data), state = { techs = { [techno] = vrai }, known = { [ressource] = vrai } (absente : toutes) },
 ---   stock = { [objet] = n }, flows = { [objet] = { made = /min arrivés au QG (toutes sources), hand = /min faits ou minés à
@@ -1848,7 +1959,14 @@ function Ca.decide(input, st)
   local free_mu = free_stock_mu(ctx, req)
   local budget, bank, stock_part = Ca.budget(ctx.ch, ctx.Y, free_mu, ctx.dt, st.bank, ctx.reserve)
   local b_left, l_left, work_used = budget, ctx.labor, 0
-  local function fits(o) return o.cost_m <= b_left + Ca.EPS and (o.work or 0) <= l_left + Ca.EPS end
+  -- Lot AGEBLOCAGE, étage chantiers (prédicat partagé ci-dessus) : une option de CHAÎNE (rangée d'assembleurs) qui débloque un ordre
+  -- ouvert ne passe pas par le budget de BRAS : les bras sont retenus par ces ordres mêmes, qui attendent sa matière. Elle reste
+  -- bornée par le budget de matières et par la règle du goulot amont (Ca.options).
+  local blocked = Ca.blocked_items(ctx)
+  local function fits(o)
+    return o.cost_m <= b_left + Ca.EPS
+      and ((o.work or 0) <= l_left + Ca.EPS or (o.kind == "chaine" and Ca.unblocks(o, blocked)))
+  end
   local room = Ca.OPEN_MAX - #ctx.open
   if room <= 0 then refuse(ctx, "capi", "capi", nil, string.format("%d ordres ouverts (au plus %d)", #ctx.open, Ca.OPEN_MAX)) end
   local orders = {}

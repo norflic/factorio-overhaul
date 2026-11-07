@@ -2087,6 +2087,9 @@ local function captions(el, out)
   end
   return out
 end
+-- Lot PANNEAU : ces cas sont ceux du comportement d'avant (le survol ouvre le panneau) : le joueur est mis en « survol »
+-- explicitement (défaut du jeu : « clic », cas dans tests/levels_panneau_cases.lua).
+M.set_player_setting(1, "fo-levels-panneau", "survol")
 local gpanel = s.create_entity({ name = L.name(G, 4), position = { x = 120, y = 10 }, force = "player" })
 rawset(player, "selected", gpanel)
 local ok_panel, err_panel = pcall(M.dispatch, ev[defines.events.on_selected_entity_changed], { player_index = 1, tick = game.tick })
@@ -3337,6 +3340,7 @@ local function texts(el, out)
 end
 rawset(player, "selected", nil)
 rawset(player, "selected", gp)
+M.set_player_setting(1, "fo-levels-panneau", "survol") -- lot PANNEAU : comportement d'avant, explicitement
 local okp, errp = pcall(M.dispatch, ev[defines.events.on_selected_entity_changed], { player_index = 1, tick = game.tick })
 local fr = player.gui.left["fo_lvl_panel"]
 local txt = fr and table.concat(texts(fr), "\n") or ""
@@ -3575,6 +3579,12 @@ end)()
 local ClearCases = require("tests.levels_clear_cases")
 ClearCases.pure(check, section)
 ClearCases.runtime(check, section)
+
+-- Lot PANNEAU (4/11) : panneau « Évolution » au clic (réglage par joueur fo-levels-panneau) : règle pure, cas « clic » en moteur
+-- simulé et leurs mutants, réglage, touche Maj+U et traductions (fichier à part : limite des 200 locales).
+require("tests.levels_panneau_cases").pure(check, section)
+require("tests.levels_panneau_cases").runtime(check, section)
+require("tests.levels_panneau_cases").data(check, section, game_data_dir())
 
 print(string.format("Écarts connus au contrat (non conformes, à trancher par le Directeur Créatif) : %d", #gaps))
 print(string.format("Résultat : %d OK, %d ECHEC(S)", passes, failures))

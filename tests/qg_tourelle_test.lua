@@ -24,6 +24,15 @@ local function facts(Q)
   r.reach, r.armed = reach, armed
   local u, total = Q.units({ ["small-spitter"] = 3, ["small-biter"] = 2 })
   r.units, r.total = u, total
+  -- Lot corr-tests (5/11) : deux clés seules laissent l'ordre de pairs au hasard du hachage des chaînes de Lua 5.2 (graine tirée à
+  -- chaque lancement) ; le mutant « unités non triées » n'était refusé qu'un passage sur deux environ. Ici l'ordre de parcours est
+  -- IMPOSÉ à l'envers (__pairs) : sans le tri, la chaîne sort « c, b, a » à tous les coups.
+  local raw = { ["a-unit"] = 1, ["b-unit"] = 2, ["c-unit"] = 3 }
+  local rev = setmetatable({}, { __index = raw, __pairs = function()
+    local ks, i = { "c-unit", "b-unit", "a-unit" }, 0
+    return function() i = i + 1; if ks[i] then return ks[i], raw[ks[i]] end end, nil, nil
+  end })
+  r.units_rev, r.total_rev = Q.units(rev)
   r.none = Q.units({})
   r.line = Q.line({ minute = 47.5, team = "player", name = "gun-turret", dx = -10, dy = 10, rounds = 0, range = 18,
     cause = { name = "small-spitter", type = "unit", force = "enemy" }, damage = "acid", cause_dist = 13.2, cause_range = 13,
@@ -39,6 +48,7 @@ check(F.edge_e == "E" and F.edge_ne == "NE", "bord du secteur à tan(22,5°) = 0
 check(F.centre == "centre", "moins d'une tuile : centre")
 check(F.reach == 3 and F.armed == 2, "appui : portée bord compris (18 <= 18), 18,1 hors portée ; vide non armée ; sans munitions (électrique) armée")
 check(F.units == "small-biter x2, small-spitter x3" and F.total == 5 and F.none == "aucune", "unités triées par nom, total")
+check(F.units_rev == "a-unit x1, b-unit x2, c-unit x3" and F.total_rev == 6, "unités triées par nom quel que soit l'ordre de pairs (rendu à l'envers)")
 check(F.line:find("[FO-QG-TOURELLE] player minute 47.5 | gun-turret cote SO a 14.1 tuiles du QG", 1, true) ~= nil, "ligne : tête, côté, distance")
 check(F.line:find("chargeurs restants 0 (portee 18.0) | cause small-spitter/unit/enemy, degats acid, a 13.2 tuiles (portee de son attaque 13.0)", 1, true) ~= nil,
   "ligne : chargeurs, cause, distance et portée")

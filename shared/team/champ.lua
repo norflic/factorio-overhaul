@@ -87,11 +87,20 @@ local function context(spec, axis)
     c.uv = function(x, y) return y, x end
   end
   local o = spec.ore
+  -- Lot PERF3 : le minerai aussi en clés du repère de l'axe (u, v) : is_ore sans changement de repère (même réponse : xy et uv sont
+  -- deux bijections inverses l'une de l'autre ; c.ore n'est plus modifié après ce relevé)
+  local ore_uv = {}
   for i = 1, #o - 1, 2 do
     local k = Ch.key(o[i], o[i + 1])
-    if not c.ore[k] then c.ore[k] = true; local u, v = c.uv(o[i], o[i + 1]); c.list[#c.list + 1] = { u, v } end
+    if not c.ore[k] then
+      c.ore[k] = true
+      local u, v = c.uv(o[i], o[i + 1])
+      c.list[#c.list + 1] = { u, v }
+      ore_uv[Ch.key(u, v)] = true
+    end
   end
-  c.is_ore = function(u, v) local x, y = c.xy(u, v); return c.ore[Ch.key(x, y)] == true end
+  c.is_ore = function(u, v) return ore_uv[Ch.key(u, v)] == true end
+  c.ore_uv = ore_uv
   -- lot MELANGE : une tuile d'une autre ressource minable (jamais une tuile du minerai visé : celui-ci gagne s'il y est aussi)
   c.has_foreign = next(c.foreign) ~= nil
   c.is_foreign = function(u, v) local x, y = c.xy(u, v); local k = Ch.key(x, y); return c.foreign[k] == true and not c.ore[k] end
@@ -117,15 +126,55 @@ local function corridor_col(origin, u)
 end
 
 --- Foreuses d'une rangée (corps sur les rangées row..row+s-1), parcours glouton au décalage o. Rend { u0 } et le minerai miné.
-local function row_drills(c, spec, row, umin, umax, origin, o)
+local function row_drills(c, spec, row, umin, umax, origin, o, fm)
   local s, r = spec.drill.size, spec.drill.reach
-  local out, seen, mined = {}, {}, 0
+  local out, mined = {}, 0
+  local counted = -math.huge -- dernière colonne dont le minerai est compté dans `mined`
+  -- Lot PERF3 : place libre lue UNE fois par tuile (la fenêtre glisse d'une tuile, et les décalages et les rangées d'une même passe de
+  -- bands_for relisent les mêmes tuiles) : `fm`, mémoire tenue par bands_for, où rien n'est pris (c.taken inchangé pendant la passe) :
+  -- mêmes réponses que c.free
+  fm = fm or {}
+  local cfree, key = c.free, Ch.key
+  local c_free = function(u, v)
+    local k = key(u, v)
+    local x = fm[k]
+    if x == nil then x = cfree(u, v) and true or false; fm[k] = x end
+    return x
+  end
+  local c_is_ore = c.is_ore
+  -- corps libre colonne par colonne (s tuiles de la rangée), gardé dans la même mémoire de passe
+  fm.cols = fm.cols or {}
+  local fcol = fm.cols[row]
+  if not fcol then fcol = {}; fm.cols[row] = fcol end
+  local function body_free(u)
+    local x = fcol[u]
+    if x == nil then
+      x = true
+      for v = row, row + s - 1 do if not c_free(u, v) then x = false break end end
+      fcol[u] = x
+    end
+    return x
+  end
+  -- Lot PERF3 : minerai de la zone d'une foreuse compté par COLONNES (le minerai ne change pas pendant le plan : sommes gardées dans
+  -- le contexte par rangée), au lieu de (s + 2r)² lectures par position : même nombre, entier exact
+  c.ore_cols = c.ore_cols or {}
+  local cols = c.ore_cols[row]
+  if not cols then cols = {}; c.ore_cols[row] = cols end
+  local v0, v1 = row - r, row + s - 1 + r
+  local function col(u)
+    local n = cols[u]
+    if n == nil then
+      n = 0
+      for v = v0, v1 do if c_is_ore(u, v) then n = n + 1 end end
+      cols[u] = n
+    end
+    return n
+  end
   local a = umin - r - s + 1 + o
   while a <= umax + r do
     local ok = true
     for u = a, a + s - 1 do
-      if ok and corridor_col(origin, u) then ok = false end
-      for v = row, row + s - 1 do if ok and not c.free(u, v) then ok = false end end
+      if ok and (corridor_col(origin, u) or not body_free(u)) then ok = false end
     end
     local n = 0
     -- lot MELANGE : zone qui touche une autre ressource minable -> refusée (la foreuse en déverserait sur le tapis de la bande)
@@ -134,16 +183,14 @@ local function row_drills(c, spec, row, umin, umax, origin, o)
       if Mel.count(x0, y0, x1, y1, c.is_foreign) > 0 then ok = false end
     end
     if ok then
-      for u = a - r, a + s - 1 + r do for v = row - r, row + s - 1 + r do if c.is_ore(u, v) then n = n + 1 end end end
+      for u = a - r, a + s - 1 + r do n = n + col(u) end
     end
     if ok and n >= Ch.CFG.min_ore then
       out[#out + 1] = a
-      for u = a - r, a + s - 1 + r do
-        for v = row - r, row + s - 1 + r do
-          local k = u * 100003 + v
-          if c.is_ore(u, v) and not seen[k] then seen[k] = true; mined = mined + 1 end
-        end
-      end
+      -- Lot PERF3 : minerai miné compté par colonnes ; les zones vont de gauche à droite (a croît), une colonne déjà comptée est
+      -- à gauche de la dernière comptée (`counted`) : même total que l'ensemble des tuiles vues d'avant
+      for u = math.max(a - r, counted + 1), a + s - 1 + r do mined = mined + col(u) end
+      if a + s - 1 + r > counted then counted = a + s - 1 + r end
       a = a + s
     else
       a = a + 1
@@ -153,11 +200,11 @@ local function row_drills(c, spec, row, umin, umax, origin, o)
 end
 
 --- Meilleur décalage d'une rangée (plus de minerai miné, puis moins de foreuses, puis le plus petit), ou le décalage figé `fixed`.
-local function best_row(c, spec, row, umin, umax, origin, fixed)
+local function best_row(c, spec, row, umin, umax, origin, fixed, fm)
   local best, bm, bo
   for o = 0, spec.drill.size - 1 do
     if fixed == nil or fixed == o then
-      local l, m = row_drills(c, spec, row, umin, umax, origin, o)
+      local l, m = row_drills(c, spec, row, umin, umax, origin, o, fm)
       if not best or m > bm or (m == bm and #l < #best) then best, bm, bo = l, m, o end
     end
   end
@@ -170,11 +217,12 @@ local function bands_for(c, spec, phase, box, origin, frame)
   local pitch = 2 * s + 2
   local bands, total = {}, 0
   local pr = box.v0 - phase
+  local fm = {} -- lot PERF3 : place libre lue une fois par tuile pendant la passe (rien n'y est pris)
   while pr <= box.v1 do
     if not (frame and frame.only) or frame.only[pr] then
       local off = frame and frame.offsets and frame.offsets[tostring(pr)]
-      local nl, nm, on = best_row(c, spec, pr + 1, box.u0, box.u1, origin, off and off[1])
-      local sl, sm, os_ = best_row(c, spec, pr + s + 2, box.u0, box.u1, origin, off and off[2])
+      local nl, nm, on = best_row(c, spec, pr + 1, box.u0, box.u1, origin, off and off[1], fm)
+      local sl, sm, os_ = best_row(c, spec, pr + s + 2, box.u0, box.u1, origin, off and off[2], fm)
       if #nl + #sl > 0 then
         bands[#bands + 1] = { pr = pr, b = pr + s + 1, n = nl, s = sl, on = on, os = os_ }
         total = total + nm + sm
@@ -322,16 +370,19 @@ local function bridge_0641(c, spec, poles)
         end
       end
     end
+    -- Lot PERF3 : racine de chaque poteau calculée UNE fois (avant : root() dans la double boucle, N² appels), puis les mêmes paires
+    -- dans le même ordre (i puis j croissants) : même paire retenue, à égalité comprise.
     local main = root(1)
+    local ins, outs = {}, {}
+    for i = 1, #poles do if root(i) == main then ins[#ins + 1] = i else outs[#outs + 1] = i end end
     local best, ba, bb
-    for i, p in ipairs(poles) do
-      if root(i) == main then
-        for j, q in ipairs(poles) do
-          if root(j) ~= main then
-            local d2 = (p[1] - q[1]) ^ 2 + (p[2] - q[2]) ^ 2
-            if not best or d2 < best then best, ba, bb = d2, i, j end
-          end
-        end
+    for _, i in ipairs(ins) do
+      local p = poles[i]
+      local p1, p2 = p[1], p[2]
+      for _, j in ipairs(outs) do
+        local q = poles[j]
+        local d2 = (p1 - q[1]) ^ 2 + (p2 - q[2]) ^ 2
+        if not best or d2 < best then best, ba, bb = d2, i, j end
       end
     end
     if not best then return added end
@@ -398,19 +449,22 @@ local function bridge(c, spec, poles)
     -- (lot FONDERIE) les Ch.BRIDGE_TRIES paires (réseau principal, autre réseau) les plus proches, essayées dans l'ordre : avant, seule la plus
     -- proche l'était, et un échec arrêtait tout (deux rangées de poteaux d'une ligne de charbon à 8 tuiles : leur milieu est sur le tapis et
     -- les foreuses, aucun relais possible là, mais au bout de la ligne oui)
+    -- Lot PERF3 : racines calculées une fois, mêmes paires dans le même ordre (voir bridge_0641)
+    local ins, outs = {}, {}
+    for i = 1, #poles do if root(i) == main then ins[#ins + 1] = i else outs[#outs + 1] = i end end
     local cand = {}
-    for i, p in ipairs(poles) do
-      if root(i) == main then
-        for j, q in ipairs(poles) do
-          if root(j) ~= main then
-            local d2 = (p[1] - q[1]) ^ 2 + (p[2] - q[2]) ^ 2
-            if #cand < Ch.BRIDGE_TRIES or d2 < cand[#cand][1] then
-              local pos = #cand + 1
-              while pos > 1 and cand[pos - 1][1] > d2 do pos = pos - 1 end
-              table.insert(cand, pos, { d2, i, j })
-              if #cand > Ch.BRIDGE_TRIES then cand[#cand] = nil end
-            end
-          end
+    local tries = Ch.BRIDGE_TRIES
+    for _, i in ipairs(ins) do
+      local p = poles[i]
+      local p1, p2 = p[1], p[2]
+      for _, j in ipairs(outs) do
+        local q = poles[j]
+        local d2 = (p1 - q[1]) ^ 2 + (p2 - q[2]) ^ 2
+        if #cand < tries or d2 < cand[#cand][1] then
+          local pos = #cand + 1
+          while pos > 1 and cand[pos - 1][1] > d2 do pos = pos - 1 end
+          table.insert(cand, pos, { d2, i, j })
+          if #cand > tries then cand[#cand] = nil end
         end
       end
     end

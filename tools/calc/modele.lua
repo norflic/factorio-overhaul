@@ -30,6 +30,11 @@ local recipe_epoch = {}
 for _, row in ipairs(X.base_recipe_epochs) do
   for _, r in ipairs(row[2]) do recipe_epoch[r] = row[1] end
 end
+-- Recettes du mod datées par epochs.lua (R(nom, époque, ...)) : « H0e » ne doit pas choisir une chaîne débloquée plus tard
+-- (PLASTIQUE, 5/11 : le tungstène valait 1 MU par la fonte de concentré de l'époque 10 ; à l'époque 5, la fonte coûte 2).
+for _, r in ipairs(X.recipes) do
+  if recipe_epoch[r.name] == nil and type(r.epoch) == "number" then recipe_epoch[r.name] = r.epoch end
+end
 Mo.recipe_epoch = recipe_epoch
 
 --- Meilleur palier de module de la famille `fam` disponible à l'époque e (nil : aucun).
@@ -113,6 +118,10 @@ end
 
 --- Options du graphe pour l'hypothèse h à l'époque e : { prod = fonction, mining_prod = facteur }.
 function Mo.graph_opts(D, h, e)
+  if h == "H0e" then
+    -- Sans module, recettes débloquées à l'époque e seulement (la valeur d'une monnaie est jugée à SON époque).
+    return { allow = function(name) local re = recipe_epoch[name]; return re == nil or re <= e end }
+  end
   if h ~= "H2" and h ~= "H2r" then return {} end
   local k = Mo.tier_available("productivity", e)
   if not k then return {} end
@@ -140,7 +149,7 @@ end
 function Mo.new_cache(D)
   local cache = { D = D, graphs = {}, values = {} }
   function cache.graph(h, e)
-    local key = h .. ":" .. ((h == "H2" or h == "H2r") and e or 0)
+    local key = h .. ":" .. ((h == "H2" or h == "H2r" or h == "H0e") and e or 0)
     if not cache.graphs[key] then cache.graphs[key] = MU.graph(D, Mo.graph_opts(D, h, e)) end
     return cache.graphs[key], key
   end

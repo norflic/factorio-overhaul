@@ -197,26 +197,35 @@ for _, it in ipairs({ { "iron-plate", 2000 }, { "copper-plate", 500 }, { "coal",
 end
 W().events[defines.events.on_built_entity]({ created_entity = chest3, player_index = 1, tick = game.tick })
 local g3 = global.fo.pteam.team
-M.run_ticks(1200)
+-- Lot PERF3 : votre équipe pense à la phase 174 du cycle de 300 ticks (script/team/player_team.lua) et non plus au tick % 300 = 0 :
+-- ses premières tâches partent à un autre moment ; on attend qu'au moins 4 PNJ travaillent (40 s au plus) au lieu de 20 s fixes.
 local busy = {}
 local ids3 = {}
-for id in pairs(g3.engineers) do ids3[#ids3 + 1] = id end
-table.sort(ids3)
-for _, id in ipairs(ids3) do
-  local a = Registry.get(id)
-  if a and a.entity and a.entity.valid and a.task and a.task.kind ~= "garrison" and a.task.kind ~= "fortify"
-    and not a.task.fail then busy[#busy + 1] = a end
-end
-check(#busy >= 3, "au moins 3 PNJ au travail après 20 s (" .. #busy .. ")")
+local waited = 0
+repeat
+  M.run_ticks(60)
+  waited = waited + 60
+  busy, ids3 = {}, {}
+  for id in pairs(g3.engineers) do ids3[#ids3 + 1] = id end
+  table.sort(ids3)
+  for _, id in ipairs(ids3) do
+    local a = Registry.get(id)
+    if a and a.entity and a.entity.valid and a.task and a.task.kind ~= "garrison" and a.task.kind ~= "fortify"
+      and not a.task.fail then busy[#busy + 1] = a end
+  end
+until (waited >= 1200 and #busy >= 4) or waited >= 2400 -- 4 : la victime, le PNJ proche, le lointain et un témoin (2e partie)
+check(#busy >= 3, "au moins 3 PNJ au travail en 40 s (" .. #busy .. " après " .. waited / 60 .. " s)")
 if #busy >= 3 then
   local victim, near, far = busy[1], busy[2], busy[3]
   victim.entity.teleport({ x = 120, y = 120 })
   near.entity.teleport({ x = 140, y = 120 })
   far.entity.teleport({ x = 300, y = 300 })
   local recalls0 = g3.stats.danger_recalls or 0
+  -- Lot DANGER-ACTIF (relecture du lead, 5/11) : le rappel ne vise que les PNJ DÉSARMÉS ; un ouvrier armé défend (voir tests/danger_actif_test.lua) : celui-ci n'a plus de munitions.
+  near.entity.get_inventory(defines.inventory.character_ammo).clear()
   victim.entity.die()
   M.run_ticks(1)
-  check(near.task and near.task.fail == "danger", "PNJ à 20 tuiles de la perte : rappelé au QG (« danger »)")
+  check(near.task and near.task.fail == "danger", "PNJ désarmé à 20 tuiles de la perte : rappelé au QG (« danger »)")
   check(not (far.task and far.task.fail == "danger"), "PNJ à plus de 64 tuiles : continue")
   check((g3.stats.danger_recalls or 0) - recalls0 >= 1, "rappel compté (" .. tostring(g3.stats.danger_recalls) .. ")")
   -- Perte près du QG (moins de 24 tuiles) : personne n'est rappelé.
