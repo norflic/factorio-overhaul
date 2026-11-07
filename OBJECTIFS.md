@@ -96,6 +96,15 @@ Demandes, essais, preuves : archive, §3.
   soit 600 UPS, donc au plus 1,67 ms par tick en moyenne, moteur ET script compris. Le 5/11 (0.6.53), ×10 ne donnait que ×2,2
   à ×2,9. Inventaire en cours, script (x10-script) et moteur (x10-moteur), dans `fo-logs/2026-11-07_X10/` ; mesure A/B de la
   0.6.59 lancée (perf3), avec le temps du moteur par catégorie.
+  MESURÉ (relu par perf3 le 7/11 à 17 h 25 dans `--benchmark-verbose all`, archive `fo-logs/2026-11-05_PERF4/A2-base0656-off`,
+  0.6.56, votre sauvegarde, profileur éteint, `--seul`) :
+  - total : 4,68 ms en moyenne, p50 2,27, p99 91,5, pire 337, soit 214 UPS ;
+  - **moteur seul : 1,83 ms en moyenne** (entités 1,09 ; chemins 0,18 ; électricité 0,13 ; carte 0,12 ; particules 0,08 ;
+    ramasse-miettes Lua 0,08, pire 29,6), soit 547 UPS ;
+  - script : 2,85 ms en moyenne, mais p50 0,33 : le coût du script est surtout dans les PICS.
+  Déduit : même avec un script à 0, le moteur seul dépasse 1,67 ms sur cette sauvegarde. ×10 demande donc AUSSI de baisser le
+  coût des entités. Ce qui le baisse beaucoup risque de changer ce que vous voyez ; ce sera votre décision. Le rendu, absent de
+  `--benchmark`, s'ajoute en jeu.
 
 ### B1 · Logistique « Compaction ×4 » et usines à paliers
 - Critères ❔ : tapis T2 à T5 au débit de BALANCE_SHEET §3 (±2 %) ; objets denses faits et défaits en T2 et T3 ; une
