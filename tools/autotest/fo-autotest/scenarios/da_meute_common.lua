@@ -59,6 +59,77 @@ local function sorted_keys(t)
   return keys
 end
 
+--[[ SONDE SENS (7/11, accord du lead ; journal seulement, HORS BILAN : aucun contrôle ajouté ni changé).
+  Question : d'où part chaque PNJ dont le but est compté par SENS ? Le diagnostic sur l'archive (RAPPORT.md, « da-meute : diagnostic du
+  contrôle SENS ») DÉDUIT des retours au QG (règle « home » de M.leg, script/ai3/comportement.lua : but à moins de 24 tuiles de
+  f.hq_pos, qui est la position du coffre pour votre équipe, script/team/player_team.lua). La sonde relève à chaque relevé (60 ticks,
+  dès le tick 60) la position de chaque PNJ ; pour chaque but neuf (même clé que SENS), elle garde la position au relevé PRÉCÉDENT
+  (départ, au plus 60 ticks avant que le but soit posé) et au PREMIER relevé du but (au plus 60 ticks après) ; pour chaque tâche
+  neuve (genre + numéro de trajet), la position à son premier relevé. Case du QG estimée : la même recherche que team.lua pour votre
+  équipe (find_non_colliding_position de « fo-companion » à 3 tuiles au sud du coffre, rayon 20, pas 0,5), faite à l'init. ]]
+local SONDE_HOME = 24 -- M.leg : « home » = but à moins de 24 tuiles du QG (lu dans le code, pas une marge du banc)
+
+local function goal_key(a)
+  if not a.final then return nil end
+  return a.id .. ":" .. math.floor(a.final.x) .. ":" .. math.floor(a.final.y)
+end
+
+local function sonde_suivre(st, agents, t)
+  local so = st.sonde
+  for _, a in ipairs(agents) do
+    local here = { x = a.x, y = a.y, t = t }
+    local k = goal_key(a)
+    local g = so.goal[a.id]
+    if k and not (g and g.key == k) then
+      so.goal[a.id] = { key = k, prev = so.last[a.id], first = here }
+    elseif not k then
+      so.goal[a.id] = nil
+    end
+    local tk = a.task and (tostring(a.task) .. ":" .. tostring(a.trip)) or nil
+    local ts = so.task[a.id]
+    if tk and not (ts and ts.key == tk) then
+      so.task[a.id] = { key = tk, at = here }
+    elseif not tk then
+      so.task[a.id] = nil
+    end
+    so.last[a.id] = here
+  end
+end
+
+local function sonde_noter(ctx, tag, st, a, key, df)
+  local so = st.sonde
+  local g = so.goal[a.id]
+  if g and g.key ~= key then g = nil end
+  local ts = so.task[a.id]
+  local dgoal = math.sqrt(df)
+  local dhq = math.sqrt(d2(a.final, st.hq))
+  local home = dhq <= SONDE_HOME
+  local function at(p)
+    if not p then return "inconnu", nil end
+    local dp = math.sqrt(d2(p, st.c))
+    return string.format("releve %d (%.1f, %.1f) a %.1f de la meute, %.1f du coffre", p.t, p.x, p.y, dp, math.sqrt(d2(p, st.hq))), dp
+  end
+  local s_prev, d_prev = at(g and g.prev)
+  local s_first, d_first = at(g and g.first)
+  local s_task, d_task = at(ts and ts.at)
+  local function closer(dp)
+    if not dp then return "?" end
+    return dgoal < dp and "oui" or "non"
+  end
+  local hs = st.home_spot
+  local off = hs and string.format("(%+.2f, %+.2f), %.2f tuile(s)", a.final.x - hs.x, a.final.y - hs.y, math.sqrt(d2(a.final, hs))) or "?"
+  so.n = so.n + 1
+  if home then so.home = so.home + 1 end
+  if d_prev and dgoal < d_prev then so.closer_prev = so.closer_prev + 1 end
+  if d_first and dgoal < d_first then so.closer_first = so.closer_first + 1 end
+  if d_task and dgoal < d_task then so.closer_task = so.closer_task + 1 end
+  ctx.log(string.format("[FO-%s] SONDE SENS : PNJ %d tache %s (trajet %s) but (%.2f, %.2f) a %.1f de la meute, %.1f du coffre (but au QG de M.leg, <= %d : %s), "
+      .. "ecart a la case du QG estimee %s ; depart du but : avant %s ; premier %s ; debut de la tache : %s ; "
+      .. "but plus pres de la meute que le PNJ : avant %s, premier %s, debut de tache %s",
+    tag, a.id, tostring(a.task), tostring(a.trip), a.final.x, a.final.y, dgoal, dhq, SONDE_HOME, home and "oui" or "non",
+    off, s_prev, s_first, s_task, closer(d_prev), closer(d_first), closer(d_task)))
+end
+
 local function player_row(ctx)
   for _, r in ipairs(ctx.remote("fo-ia1", "teams") or {}) do
     if r.key == "player" then return r end
@@ -118,6 +189,12 @@ return {
     st.work_ids, st.contact = {}, 0
     ctx.log(string.format("[FO-%s] coffre en (%.1f, %.1f) ; meute prevue en (%.1f, %.1f), rayon %.1f, zone de la porte %.1f (coffre a %d tuiles du centre)",
       TAG, st.hq.x, st.hq.y, st.c.x, st.c.y, st.r, st.zone, DX))
+    -- SONDE SENS : relevés et case du QG estimée (même recherche que script/team/team.lua pour votre équipe).
+    st.sonde = { goal = {}, task = {}, last = {}, n = 0, home = 0, closer_prev = 0, closer_first = 0, closer_task = 0 }
+    local hs = s.find_non_colliding_position("fo-companion", { x = st.hq.x, y = st.hq.y + 3 }, 20, 0.5)
+    st.home_spot = hs and { x = hs.x, y = hs.y } or nil
+    ctx.log(string.format("[FO-%s] SONDE SENS : case du QG estimee %s", TAG,
+      hs and string.format("(%.2f, %.2f)", hs.x, hs.y) or "introuvable"))
   end,
 
   tick = function(ctx, e)
@@ -151,8 +228,10 @@ return {
       st.sur1 = sur_tot(ctx)
       ctx.log(string.format("[FO-%s] fin de l'attaque au tick %d : unites retirees", TAG, t))
     end
-    if t < T_ATT or t % POLL ~= 0 then return end
+    if t % POLL ~= 0 then return end
     local agents = ctx.remote("fo-ia3k", "agents", "player") or {}
+    if st.sonde then sonde_suivre(st, agents, t) end -- SONDE SENS : dès le tick 60 (départs des buts posés avant l'attaque)
+    if t < T_ATT then return end
     for _, a in ipairs(agents) do
       if not a.task then
         if not st.free_since[a.id] then st.free_since[a.id] = t end
@@ -174,6 +253,7 @@ return {
             st.toward = st.toward + 1
             ctx.log(string.format("[FO-%s] PNJ %d tache %s vers (%.0f, %.0f), a %.0f tuiles de la meute (coffre a %.0f) : vers l'attaque",
               TAG, a.id, tostring(a.task), a.final.x, a.final.y, math.sqrt(df), math.sqrt(dh)))
+            if st.sonde then sonde_noter(ctx, TAG, st, a, key, df) end
           end
         end
       end
@@ -228,6 +308,12 @@ return {
         (da.rest_max or 0) / 60, da.rest_over or 0, da.aside or 0, da.go or 0, table.concat(why, ", ")))
     local lost = ((player_row(ctx) or {}).lost or 0) - (st.lost0 or 0)
     ctx.check(lost == 0, "C2 : aucun PNJ perdu", lost)
+    local so = st.sonde
+    if so then
+      ctx.log(string.format("[FO-%s] SONDE SENS (hors bilan) : %d but(s) compte(s) par SENS ; au QG de M.leg (<= %d tuiles du coffre) %d ; "
+          .. "but plus pres de la meute que le PNJ : au releve d'avant %d, au premier releve %d, au debut de la tache %d",
+        TAG, so.n, SONDE_HOME, so.home, so.closer_prev, so.closer_first, so.closer_task))
+    end
     ctx.check(st.toward == 0, "SENS : aucune tache vers l'attaque (but dans la zone de la meute, plus pres d'elle que le coffre), hors defense du QG",
       string.format("%d tache(s) vers l'attaque ; %d releve(s) de PNJ a moins de 12 tuiles de la meute", st.toward, st.contact))
     ctx.check(#sorted_keys(st.work_ids) > 0, "TRAV : du travail hors defense pendant l'attaque", #sorted_keys(st.work_ids) .. " PNJ")
