@@ -1,8 +1,7 @@
 # OBJECTIFS : cahier des charges et suivi
 
-> **Version compressée du 7/11/2026** (source : commit 341d43f9, 1 164 lignes, 321 Ko). Historique complet (essais,
-> preuves, citations entières, lots clos) : archive figée `docs/archives/OBJECTIFS_ARCHIVE_2026-11-07.md`, où mène
-> chaque renvoi « archive ». Ici : les exigences, l'état actuel, toutes les décisions, ce qui reste ouvert.
+> **Version compressée du 7/11/2026** (source : 341d43f9, 321 Ko). Historique complet : archive figée
+> `docs/archives/OBJECTIFS_ARCHIVE_2026-11-07.md` (chaque renvoi « archive »).
 >
 > **Règles de tenue**
 > - Vous corrigez librement les critères. Nous n'en changeons aucun sans votre accord : nous proposons,
@@ -22,9 +21,7 @@
 > **Citations.** Les guillemets « » reproduisent vos messages ; (r) signale une demande consignée en
 > la reformulant dans le RD_LOG.
 >
-> **États du §2 et du §3** : le dernier état écrit pour l'objectif, avec sa date ; les mentions plus récentes sont
-> ajoutées, datées. La compression n'a changé aucun état ; un état que contredit une mention plus récente porte « à
-> revoir ». Documents liés : `REPRISE.md`, `CLAUDE.md`, ARCHITECTURE.md, BALANCE_SHEET.md, RD_LOG.md.
+> **États du §2 et du §3** : le dernier état écrit, daté ; A1, C2, C5, D1, E2, E4 mis à jour le 7/11 vers 16 h. Documents liés : `REPRISE.md`, `CLAUDE.md`, ARCHITECTURE.md, BALANCE_SHEET.md, RD_LOG.md.
 
 ---
 
@@ -54,7 +51,7 @@
 
 | ID | Objectif | État actuel (dernière mention datée) |
 |---|---|---|
-| A1 | Performance 60 UPS | ✅ sauf niveaux (22/10) ; à revoir : votre partie à environ 6 à 7 ms par tick (5/11) |
+| A1 | Performance 60 UPS | ❌ sur votre partie : script 2,87 ms par tick, p99 45,2, pire 302 ms (0.6.58, B58-detail, 7/11) |
 | B1 | Logistique « Compaction ×4 », usines à paliers | ❌ rien en jeu (22/10) |
 | B2 | Modules à nombreux paliers | ✅ ; multipliés, icônes validées (0.4.27) ; icônes à redessiner (7/11) |
 | B3 | Déchiqueteurs supérieurs, « nouveaux designs » | 🟨 teinte, échelle, lueur seulement (22/10) |
@@ -63,32 +60,36 @@
 | B6 | Ressources à effets | ✅ ; monnaies garanties (0.4.5), titane (0.4.21), 4 minerais refaits (30/10) |
 | B7 | Biomes vraiment différents | ✅ 👁 ; « Les biomes sont mieux également » (30/10) |
 | C1 | Guerre « 100 contre 100 contre 100 contre 100 » | 🟨 23 à 48 soldats par faction à 59 min (24/10) |
-| C2 | Des PNJ qui jouent | 🟨 recherche 3, pas de pétrole (22/10) ; à revoir : pétrole allumé en 0.6.30 (31/10) |
+| C2 | Des PNJ qui jouent | 🟨 âge 2 atteint par 3 factions (4/11) ; pétrole et pack chimique non prouvés ; maillons D0 à D3 (7/11) |
 | C3 | Défense de tours | ✅ (E19) |
 | C4 | PvP | 🟨 critères ❔ à valider (22/10) |
-| C5 | Équipes de PNJ organisées | ❌ (22/10) ; à revoir : IA1-a à IA1-d fusionnés ; votre équipe tombée à 2 PNJ (7/11) |
-| D1 | Des designs qui changent | ❌ niveaux (22/10) ; à revoir : 4 familles par âge en jeu ; « je valide tous les designs » (4/11) |
+| C5 | Équipes de PNJ organisées | 🟨 30 PNJ, pôles, fenêtre en jeu ; ❌ votre équipe bloquée à 2 PNJ dans votre partie du 7/11 (0.6.58) |
+| D1 | Des designs qui changent | 🟨 4 familles sur 7 par âge en jeu ; laser, centre et mur pas en jeu (7/11) |
 | D2 | Effets lumineux | 🟨 la nuit ; socle animé (0.4.18) |
 | D3 | Précision du rendu | 🟨 aucune revue en gros plan (22/10) |
 | D4 | Optimisation graphique | 🟨 (22/10) ; plancher tenu (27/10) ; mémoire vidéo non limitante (5/11) |
 | E1 | Échelons façon Clash of Clans | 🟨 Q-V2c-1 ouverte ; centre de l'âge 5 recalé (5/11) |
-| E2 | Chaque niveau se voit | ❌ (22/10) ; à revoir, comme D1 |
+| E2 | Chaque niveau se voit | ❌ 4 familles sur 7 ; tests D1 (gris, vignette, recouvrement) non prouvés sur elles |
 | E3 | Boucle « presque idle game » | 🟨 ; Q-T4-1 ouverte |
-| E4 | Interface des niveaux | 🟨 jamais vue (22/10) ; à revoir : panneau au clic (PANNEAU, 4/11) |
+| E4 | Interface des niveaux | 🟨 panneau au clic livré (0.6.52, 5/11) ; en partie réelle : non prouvé |
 | F1 | Jeu continu en 15 époques | 🟨 ; titane en jeu (0.4.21), X2 non fusionné (25/10), X3 hors jeu (27/10) |
+| IA | Feuille de route vidéo (7/11) | ⏳ validée par vous (15 h 20) ; à 16 h 20 : L0 mesuré ; règles pures testées, NON branchées : L1, L2, L3, L4, L5, L6, L7, L10, L12, L13 ; L11, L8, L9 en cours ; plan d'intégration écrit (`fo-logs/2026-11-07_VIDEO-AUTOMATISATION/INTEGRATION_VIDEO.md`) ; rien en jeu |
 
 ---
 
 ## 3. Détail des objectifs
 
-Demandes citées, essais et preuves détaillées : archive, §3.
+Demandes, essais, preuves : archive, §3.
 
 ### A1 · Performance : 60 UPS
 - Critères : script ≤ 1,5 ms/tick en moyenne ; p99 ≤ 2 ms ; moins de 0,01 % des ticks au-delà de 16,7 ms sur 30 à
   60 min ; banc épinglé sur les cœurs P, étalon `[FO-CALIB]`.
-- État : ✅ (E17 0,10 ms ; E21 0,14 ms ; E22 0,50 ms à 402 agents), niveaux non mesurés (H-L1). À revoir : K10 non tenu
-  (IA-G, 0,441 ms, p99 6,6 ms, 27/10) ; votre partie (0.6.53) à environ 6 à 7 ms par tick, ×2,2 à ×2,9 pour ×10 (5/11).
-- Reste : PERF3, PERF4, CERVEAU-CENTRAL ; remesurer toute nouvelle famille, époque ou logistique.
+- État : ❌ sur votre sauvegarde (`autosave1-2121.zip`, 255 min, 4 factions, votre équipe à 30 PNJ) : les trois critères
+  manquent. B58-detail (0.6.58, `--seul`, profileur détaillé qui ajoute son coût, 36 000 ticks, 7/11 15 h 21, relu par
+  `perf3.py`) : script 2,87 ms en moyenne, p99 45,2, pire tick 302,1 ms, 3,9 % des ticks au-delà de 16 ms ;
+  `sched:timers` 37 %, `team:build` 32 %. Mesure seule de 0.6.58 (7/11 13 h 06) : 3,658 ms, p99 37,9, pire 199,7.
+  Étape E1 de la pensée d'équipe : 41 à 51 ms en moyenne (chiffre de perf3 transmis par le lead, non relu).
+- Reste : PERF4, CERVEAU-CENTRAL, MORTS ; remesurer chaque version sur votre sauvegarde.
 
 ### B1 · Logistique « Compaction ×4 » et usines à paliers
 - Critères ❔ : tapis T2 à T5 au débit de BALANCE_SHEET §3 (±2 %) ; objets denses faits et défaits en T2 et T3 ; une
@@ -125,32 +126,37 @@ Demandes citées, essais et preuves détaillées : archive, §3.
 
 ### C2 · Des PNJ qui jouent
 - Critères : un cerveau par équipe ✅ ; armes fabriquées ✅ ; pose, minage, fonte ✅ ; recherche en packs ✅ ; pétrole
-  et pack chimique ❌ ; ❔ époques franchies par les IA ❌.
-- État : 🟨 jusqu'à la recherche 3 (H-E1, 22/10). À revoir : pétrole allumé par défaut (0.6.30, 31/10), éteint dans
-  les réglages de votre partie (5/11) ; le cerveau des PNJ est le chantier principal depuis le 26/10.
+  et pack chimique : non prouvé ; ❔ époques franchies par les IA : en partie.
+- État : 🟨. Âge 2 atteint par 3 factions à 43 min sur la graine de votre partie (corr-defaut7, 4/11 ; 123456789 en perd
+  2) ; au-delà : non prouvé. Pétrole allumé par défaut (0.6.30), éteint dans vos réglages le 5/11 ; pétrole et pack
+  chimique des factions : non prouvés. 7/11 : maillons cassés D0 à D3 (`docs/IA_WORKFLOW.md` §5), factions et votre équipe.
+- Reste : L3 à L6 (TODO_VIDEO §G) ; question D3 au DC (sortie pleine d'un produit saturé : arrêt ou service).
 
 ### C3 · Défense de tours
 - État : ✅ (E19) : vagues, boss, défaite détectée, 0,06 ms/tick.
 
 ### C4 · PvP
 - Q4 : « oui (et différents niveaux de difficulté) ». Critères ❔ à valider : 5 difficultés ; ciblage du joueur après
-  une grâce ; effet mesurable de la difficulté ; base témoin attaquée en Normal, pas en Paisible ; budget A1.
+  une grâce ; effet mesurable ; base témoin attaquée en Normal, pas en Paisible ; budget A1.
 - État : 🟨 C4-1, C4-2, C4-4, C4-5 ✅ ; C4-3 🟨 (ordre strict non prouvé hors du modèle nominal) (22/10) ; QX3.
 
 ### C5 · Équipes de PNJ organisées (nouveau, 21/10, 21 h 35)
-- Critères ❔ : 30 PNJ par faction et 4 factions par défaut ; un cerveau et des managers ; de vraies lignes
-  automatisées ; une interface pour votre équipe ; résurrection chiffrée ; progression mesurée contre le joueur ;
-  4 × 30 PNJ en moteur réel, budget A1.
-- État : ❌ conception (22/10). À revoir : IA1-a (0.4.17), IA1-b (0.4.26 ; 30 PNJ ne livrent pas plus que 10), IA1-i
-  (0.4.28, validée), IA1-b2 (0.4.29), IA1-d (0.4.32). 7/11 : votre équipe tombée à 2 PNJ ; SPIRALE-FER.
+- Critères ❔ : 30 PNJ par faction, 4 factions ; cerveau et managers ; lignes automatisées ; interface ; résurrection
+  chiffrée ; progression mesurée ; 4 × 30 PNJ en moteur réel, budget A1.
+- État : 🟨. Tenus : 30 PNJ et 4 factions (`ia1-scale` 17 OK, 24/10), interface (IA1-i, validée). En partie : pôles
+  (`ia1-poles` 15 OK, 2 ECHEC depuis 0.4.29). ❌ dans votre partie du 7/11 (0.6.58) : équipe tombée à 2 PNJ, fer à 0,
+  aucune recrue depuis 123 min (recrue payée en fer, D1 de TODO_VIDEO §G) ; budget A1 non tenu. Non prouvés : lignes
+  automatisées à 30 PNJ, progression.
+- Reste : recrue gratuite sous l'effectif de départ (SPIRALE-FER) ; L3, L6 ; portée 16 (`portee-16` 15 OK, 7/11 15 h 39).
 
 ### D1 · Des designs qui changent, pas seulement la couleur
-- Critères ❔ : test du gris ; test de la vignette ; recouvrement < 50 % amendé par Q13 ; emprise croissante avec un
-  détail croissant (Q23) ; regard naïf ; ombres et calques alignés au pixel (R4).
-- État : ❌ niveaux (22/10). À revoir : par âge en jeu, mitrailleuse (0.4.13), four (0.4.30), assembleur (0.4.31),
-  foreuse (0.6.2) ; « je valide tous les designs » (4/11) ; laser validé (4/11) ; centre : âges 0, 8, 15 validés (31/10).
-- Reste : votre verdict EN JEU sur le four, l'assembleur et la foreuse ; laser et centre à mettre en jeu ; mur (rendus
-  arrêtés le 29/10).
+- Critères ❔ : test du gris ; vignette ; recouvrement < 50 % (Q13) ; emprise et détail croissants (Q23) ; regard naïf ;
+  alignement au pixel (R4).
+- État : 🟨. En jeu par âge : mitrailleuse (0.4.13 ; « Ok pour les mitrailleuses j'aime bien »), four (0.4.30),
+  assembleur (0.4.31 ; « les assemblages sont bons finalement », 27/10), foreuse (0.6.2, provisoire). Pas en jeu : laser
+  (validé le 4/11, production à 291 sur 477 le soir), centre-vaisseau (âges 0, 8, 15 validés ; 14 et 15 à refaire), mur
+  (arrêté le 29/10). Tests du gris, de la vignette, du recouvrement sur les nouvelles familles : non prouvés.
+- Reste : votre verdict en jeu sur le four et la foreuse ; laser, centre, mur.
 
 ### D2 · Effets lumineux (« glowing »)
 - Critères ❔ : lumière visible de jour dès l'époque 3 ; animations aux époques hautes ; halo de nuit selon le niveau.
@@ -160,7 +166,7 @@ Demandes citées, essais et preuves détaillées : archive, §3.
 - Critères ❔ : PC à 8 Go de mémoire vidéo, atlas ≤ 6 Go ; basse qualité rendue et lisible (Q21) ; chargement + 30 s au
   plus ; temps de rendu chiffré ; usine géante à 60 images/s dans les deux qualités.
 - État : 🟨 (E40, 22/10) ; plancher tenu à 12 pages (27/10) ; laser à 14 pages sur 16 (4/11) ; 5/11 : la mémoire vidéo
-  n'est plus une contrainte des designs.
+  ne limite plus les designs.
 
 ### D3 · Précision du rendu
 - Critères ❔ : aucun calque décalé ni ombre fausse ; revue en gros plan aux zooms 1 et 2.
@@ -173,7 +179,8 @@ Demandes citées, essais et preuves détaillées : archive, §3.
   plastique et passage vers l'âge 5 recalés.
 
 ### E2 · Qualité des niveaux : chaque niveau se voit
-- Critères : D1 à D3 pour toutes les familles et époques. État : ❌ (22/10) ; voir D1.
+- Critères : D1 à D3 pour toutes les familles et époques. État : ❌ 4 familles sur 7 par âge en jeu ; D1 à D3 non prouvés
+  sur elles.
 
 ### E3 · Boucle « presque idle game »
 - Critères ❔ : alimentation par tapis ✅ ; score de puissance ❌ ; objectifs par époque ❌ ; plus de familles à
@@ -181,7 +188,9 @@ Demandes citées, essais et preuves détaillées : archive, §3.
 
 ### E4 · Interface des niveaux
 - Critères : panneau (niveau, gains, coût, condition du centre) ; touche U et bouton ; rangée de murs en une fois.
-- État : 🟨 jamais vu à l'écran (22/10). À revoir : fenêtres au survol jugées par vous (4/11) ; PANNEAU : au clic.
+- État : 🟨. Vu par vous le 4/11, gênant au survol. Depuis 0.6.52 (5/11, `content` 554 OK) : au clic par défaut, réglage
+  par joueur, Maj+U ; à vérifier en jeu : `player.opened` après un remplacement. U, bouton, rangée de murs : prouvés en
+  moteur simulé ; en partie réelle : non prouvé.
 
 ### F1 · Jeu continu en 15 époques (nouveau, 21/10, 17 h 35)
 - Critères ❔ : 15 époques à la suite ; par époque une ressource, un bâtiment, une silhouette ; durée longue (époque 15
@@ -193,9 +202,8 @@ Demandes citées, essais et preuves détaillées : archive, §3.
 
 ## 4. Questions et réponses
 
-Toutes les décisions. Vos mots entre « » ; au-delà de 300 caractères, un extrait avec « […] » (citation complète :
-archive, §4). Hors guillemets, la lecture de l'orchestrateur. En fin de tableau, les décisions que la source rangeait
-au §5 ; ensuite, les questions ouvertes.
+Toutes les décisions. Vos mots entre « » (au-delà de 300 caractères, extrait avec « […] » ; entier : archive, §4) ;
+hors guillemets, la lecture de l'orchestrateur. Puis les questions ouvertes.
 
 | ID | Date | Sujet | Votre réponse | Conséquence |
 |---|---|---|---|---|
@@ -212,13 +220,13 @@ au §5 ; ensuite, les questions ouvertes.
 | Q11 | 21/10 18 h 49 | Niveau 1 vanilla ; centre 1 en poste de pionnier | « oui » | Appliqué |
 | Q12 | 21/10 18 h 49 | Moins d'images de tir | « oui si vous voulez, je sais pas vraiment l'impact que ça aura en vérité. » | Pas d'économie par défaut (R4) |
 | Q13 | 21/10 18 h 54 | Amender D1-3 | « Oui, j'accepte l'amendement de D1-3 : socle exclu de la silhouette et mesure insensible à la taille (seuil à étalonner sur les premières pièces). » | D1-3 amendé |
-| Q14 à Q17, QX1 à QX9 | 21/10 21 h 25 | Recommandations de l'architecte | « OK pour toutes vos recommandations sur Q14 à Q17 et QX1 à QX9. » | Q14 option A (niveau 30 ≈ tourelles lourdes) ; Q15 PV des murs 0.3.0 ramenés ; Q16 condition légère du centre ; Q17 sans objet (Q19) ; QX1 phase brûleur ; QX2 oui ; QX3 défaite en Impitoyable seulement ; QX4 énergie nette ; QX5 noms gardés ; QX6 sans objet (Q-V2c-2) ; QX7 60 h = Porte ; QX8 naissance au niveau 1 ; QX9 recherche vanilla allégée |
+| Q14 à Q17, QX1 à QX9 | 21/10 21 h 25 | Recommandations de l'architecte | « OK pour toutes vos recommandations sur Q14 à Q17 et QX1 à QX9. » | Q14 option A ; Q15 PV ramenés ; Q16 condition légère ; Q17 sans objet ; QX1 brûleur ; QX2 oui ; QX3 défaite en Impitoyable ; QX4 énergie nette ; QX5 noms gardés ; QX6 sans objet ; QX7 60 h = Porte ; QX8 niveau 1 ; QX9 recherche allégée |
 | Q18 | 21/10 21 h 38 | Quand construire IA1 | « Oui : IA1 se construit en parallèle de la Compaction, juste après le visuel. » | V, puis C et IA1, puis X, puis I |
 | Q19 | 21/10 21 h 45 | Amélioration, PNJ, scénario | « […] Alors que là, l'idée, c'est si on a les ressources, on améliore, terminé. […] j'ai relu votre scénario et le scénario est bien […] » (citation complète : archive) | Amélioration instantanée ; C5 précisé ; X0 approuvé ; D4 |
 | Q20 | 21/10 21 h 52 | Synthèse de Q19 ; mémoire vidéo | « Ok, oui, continuez, la synthèse est parfaite. […] Concernant la mémoire vidéo, partez du principe que je jouerai sur des PC qui auront au minimum 8 Go de VRAM. Ce PC actuel en a 16. C'est une RX 6900 XT […] globalement 8 Go de VRAM, c'est bien pour la mémoire vidéo. » | D4-1 : 8 Go minimum |
 | Q21 | 21/10 21 h 55 | Basse qualité | « veillez vraiment à ce que la version basse qualité soit pas si basse que ça […] » (citation complète : archive) | D4-2 renforcé ; D4-5 |
 | Q22 | 21/10 22 h | Autonomie de la nuit | « vous avez carte blanche, je valide entièrement toutes vos décisions. Seulement, voilà, évitez en fait les utilisations d'outils MCP qui nécessitent une validation préalable […] puisque bah, je serai en train de dormir » | Design validé seulement par votre verdict |
-| Q-IA1-1 à Q-IA1-7 | 24/10 10 h 25 | Équipes de PNJ organisées | « A » (construire IA1 maintenant) | Défauts réversibles (D-14) : Q-IA1-1 coûts X0 inchangés ; Q-IA1-2 30 PNJ dès l'époque 1 ; Q-IA1-3 profil léger ; Q-IA1-4 gabarits en Lua ; Q-IA1-5 mode Assisté ; Q-IA1-6 une partie durable par généraliste ; Q-IA1-7 rangs, avantage de vitesse gardé |
+| Q-IA1-1 à Q-IA1-7 | 24/10 10 h 25 | Équipes de PNJ organisées | « A » (construire IA1 maintenant) | Défauts réversibles (D-14) : Q-IA1-1 coûts X0 ; Q-IA1-2 30 dès l'époque 1 ; Q-IA1-3 profil léger ; Q-IA1-4 gabarits ; Q-IA1-5 mode Assisté ; Q-IA1-6 partie durable ; Q-IA1-7 rangs |
 | Q23 | 22/10 7 h 20 | Puissance perçue et taille | « […] on a vraiment l'impression que ce niveau-là est plus puissant que le niveau du dessous […] c'est pas que on agrandir l'échelle finalement, c'est on augmente aussi les détails, voilà. » (citation complète : archive) | D1-4 révisé ; D1-4 bis |
 | Q24 | 22/10 7 h 40 | Changement de taille | « Q24 : agrandissement sur place si la place autour est libre ; sinon l'amélioration est refusée et le contour nécessaire s'affiche. Aussi, notez bien l'avancée du projet quelque part, histoire que si un autre agent doit reprendre la gestion du projet, elle ne recommence pas tout » | V3-T, V3-T2 ; `REPRISE.md` |
 | Q25 | 22/10 15 h 48 | Délégation des choix visuels | « je verrai les templates àlus tard car vous savez parfaitement quoi faire » | Choix provisoires, réversibles |
@@ -294,7 +302,7 @@ au §5 ; ensuite, les questions ouvertes.
 - **Q-M0-2** (23/10). **Aspect du site garanti** (lot M0, captures `<racine>\fo-logs\2026-10-23_suite\M0\captures-2\`, critère B7). Le site se voit comme un disque net de cendres (ou de plaine de cristal, ou de marais) posé sur le sol voisin. A = le garder ainsi ; B = l'adoucir (bord fondu, décor du biome) avec le kit sol et décor du lot M2 → Recommandation : B, avec le kit sol de M2.
 - **Q-T3-1** (23/10). **Rangées collées et bouton « Libérer la place »** (lot V3-T3, E59). Le bouton ne libère que les bâtiments qui ont un côté libre : au milieu d'une rangée collée, un voisin gêne toujours (usine dense de test : 5 libérables sur 19 ; défense dense : 2 sur 13). Posée sur la page des planches V3-E le 23/10 à 0 h 20 : A = garder ainsi ; B = le bouton déplace aussi les voisins, en cascade ; C = agrandir une rangée entière d'un coup, mise en page refaite → Recommandation de l'orchestrateur : C (gros lot)
 - **Q-T4-1** (22/10). **Rentabilité des améliorations et « idle massif »** (lot V3-T4, 22/10, 22 h 40 ; branche `worktree-wf_9d38a6df-249-1`, tête `2b18742`, NON intégrée). Le lot V3-T4 applique Q-T2-2 (A) pour la DENSITÉ : un bâtiment agrandi vaut au moins les petits posés à sa place, production par tuile croissante, mesurée en moteur réel. Mais pour tenir le calendrier (époque 15 vers 60 h), il a multiplié les coûts (jusqu'à × 6 au niveau 30), et une amélioration ne se rembourse plus : passer la foreuse du niveau 29 au niveau 30 coûte l'équivalent de 510 heures de sa production supplémentaire (342 h en 0.4.3, déjà non rentable). 12 nouveaux écarts connus (23 en tout), dont la place des coûts dans le coffre du centre et le DPS des tourelles (Q14). Posée dans le chat le 22/10 vers 22 h 45 : A = vrai idle (chaque niveau produit nettement plus que le précédent, les coûts montent aussi vite, chaque amélioration se rembourse en moins d'une heure de jeu, la partie garde environ 60 h ; gros rééquilibrage) ; B = garder la progression actuelle (on améliore pour avancer d'époque, pas pour la rentabilité) → Recommandation : A ; V3-T4 non intégré en attendant.
-- **Q-S0-1** (23/10). **Sons de tir de la mitrailleuse par ère** (lot S0 ; page d'écoute https://claude.ai/artifact/Ap4JoXCgvxJJR29b5QceU3 , le son du jeu de base d'abord, puis les 5 ères, un tir seul et une rafale chacune). Pour chaque ère : A = garder ; B = changer (dites quoi : plus grave, plus sec, moins de basse…) ; C = refaire → Sons provisoires en jeu depuis 0.4.7, réversibles ; jamais plus forts que la vanilla (mesuré)
+- **Q-S0-1** (23/10). **Sons de tir de la mitrailleuse par ère** (lot S0 ; page d'écoute https://claude.ai/artifact/Ap4JoXCgvxJJR29b5QceU3 , le son du jeu de base d'abord, puis les 5 ères, un tir seul et une rafale chacune). Pour chaque ère : A = garder ; B = changer (dites quoi : plus grave, plus sec, moins de basse…) ; C = refaire → Sons provisoires depuis 0.4.7, réversibles ; jamais plus forts que la vanilla (mesuré).
 - Q-X3-1 à Q-X3-3 (27/10, archive §7) ; R-QCM-27a répond à quatre questions « X3 ». Attendent aussi votre décision
   (§5) : Meshy (27/10), le TIROIR (5/11), le géant et les icônes des modules (7/11), votre super robot (1/11).
 
@@ -302,8 +310,7 @@ au §5 ; ensuite, les questions ouvertes.
 
 ## 5. Historique des écarts signalés par vous
 
-Plus récents d'abord ; extraits mot pour mot ; texte entier : archive, §5 et fin de son §7. État : celui de la
-source, « — » s'il n'y en a pas. R-QCM-27a, R-QCM-27b, D-19 et les QCU des 29 et 30/10 sont au §4.
+Plus récents d'abord ; extraits mot pour mot (entier : archive, §5 et fin du §7) ; « — » : sans état écrit.
 
 ### Les quatre écarts du 7/11 (votre partie 0.6.58, `0e340b99`)
 
@@ -412,11 +419,10 @@ noté ✅ · 31/10, pétrole des factions allumé, clos (0.6.30) · 27/10 21 h 3
 En cours et à venir ; plan détaillé du 23/10 et étapes faites : archive, §6.
 
 1. Phase 0, reprise : faite (21/10).
-2. Phase V, visuel des 7 familles : quatre en jeu par âge (D1) ; laser validé le 4/11 ; centre-vaisseau en cours ;
-   mur : rendus arrêtés le 29/10.
+2. Phase V, visuel des 7 familles : 4 en jeu par âge ; détail en D1.
 3. Phase C, Compaction ×4 (B1) : pas commencée.
-4. Phase X, contenu des époques : monnaies des âges 5, 7, 8 et titane en jeu ; X2 non fusionné ; X3 hors jeu ;
-   calcul (CALCUL-V2) ; robots et unités expérimentales : designs validés (4/11), puissance en cours.
+4. Phase X : monnaies des âges 5, 7, 8 et titane en jeu ; X2 non fusionné, X3 hors jeu ; calcul (CALCUL-V2) ;
+   robots et unités expérimentales : designs validés (4/11), puissance en cours.
 5. Phase I, idle (E3) : pas commencée.
 6. Phase IA (C1, C2, C4, C5) : chantier principal depuis le 26/10 (« concentrez-vous là-dessus […] »).
 
@@ -429,8 +435,7 @@ En cours et à venir ; plan détaillé du 23/10 et étapes faites : archive, §6
 
 ## 7. Reprise dans Claude Code (multi-agent)
 
-Ordre de lecture à jour : `CLAUDE.md` §2 (`REPRISE.md` d'abord). Découpage d'origine, suivi des lots de la session 6
-(70 lignes), tâches ouvertes du 22/10 : archive, §7.
+Lecture : `CLAUDE.md` §2 (`REPRISE.md` d'abord). Suivi des lots de la session 6 et tâches du 22/10 : archive, §7.
 
 **Règle d'or** : un seul agent intégrateur modifie les fichiers partagés :
 - `data.lua`, `control.lua`, `settings.lua`, `info.json` ;
@@ -440,7 +445,7 @@ Ordre de lecture à jour : `CLAUDE.md` §2 (`REPRISE.md` d'abord). Découpage d'
 Chaque lot crée ses **propres fichiers de traduction** (`locale/fr/<lot>.cfg`, `locale/en/<lot>.cfg`) :
 Factorio charge tous les `.cfg` du dossier, ce qui évite les conflits de fusion.
 
-**Définition de « terminé »** (d'origine ; porte de fusion allégée par vous le 29/10, preuves renforcées le 5/11) :
+**Définition de « terminé »** (d'origine ; allégée le 29/10, preuves renforcées le 5/11) :
 1. Bancs hors jeu verts.
 2. Étape data sans nouvelle erreur, api_lint à 0.
 3. Banc `content` vert en moteur réel.
@@ -452,13 +457,13 @@ Factorio charge tous les `.cfg` du dossier, ce qui évite les conflits de fusion
 
 | Date | Lots (branche, commit ou agent) | État |
 |---|---|---|
-| 7/11 | SPIRALE-FER (effondrement) ; COFFRES (charbonmain) ; tourelles retirées (danger5 ; b142714d dans la 0.6.59) ; fer des coffres de sortie (flux2) ; lots L0 et L1 de TODO_VIDEO (après video-auto, carte-ia) ; titan, icônes des modules (design-titan, design-modules) ; décisions de QCM-7/11 | ⏳ |
+| 7/11 | SPIRALE-FER (effondrement) ; COFFRES (charbonmain) ; tourelles retirées (danger5 ; b142714d dans la 0.6.59) ; fer des coffres de sortie (flux2) ; lots L0 et L1 de TODO_VIDEO (après video-auto, carte-ia) ; titan, icônes des modules (design-titan, design-modules) | ⏳ |
 | 5/11 | EXPERIMENTAUX-PUISSANCE (experimentaux, design-attaques) ; PERF3, PERF4 (perf3) ; CERVEAU-CENTRAL ; FOREUSES-THERMIQUES (charbonmain) ; STOCKAGE (munitions) ; COFFRES-JOUEUR, QG-ZONE (qgzone) ; CHAMP-COUVERTURE ; TIROIR (à valider) ; corr-plastique (calculv2) ; ÉTAGE 5 ; PERIMETRE2 G3 repris (`diag-perimetre2` 46e6b0e9) | ⏳ |
 | 4/11 | DEPENSES2 (361803ea / 3a50bb3b bloquant ; ddd82445 refusé) ; PANNEAU (`corr-panneau`, `corr-panneau2`) ; DANGER-ACTIF (defense3, puis danger5) ; AGEBLOCAGE (`corr-defaut7` 16f1b3e0 intégré) ; F1-C (`design-laser-f1c` 9fb91918) ; BOURDON-SORTIE, RB16 (robotsjeu) ; QG-GROUPE2 (qggroupe) ; AZURE règle B (0.6.50) ; corr-xp-couts ; graphe (page-dc) | état écrit le 4 ou le 5/11 |
 | 3/11 | malls par tapis, ECHELON, DEFENSE (contour des champs) | parqués, absents de main |
 | 2/11 | REGARD, CHAMP, FLUX, ENERGIE, DEFENSE, AGES, PARITE, C4 | ⏳ |
 | 31/10 et 1/11 | INDUSTRIE (plan) ; C1 centre, C2 demande, C3 extension ; QG des 15 âges ; robots | ⏳ |
-| 29/10 | 22 lots lancés, dont AGENCEMENT (`corr-agencement`), PILE-PRIORITE, PREVISION, CALCUL-V2, CENTRE-FUSEE (liste complète : archive, fin du §7) | état non repris |
+| 29/10 | 22 lots lancés (liste : archive, fin du §7) | état non repris |
 | 29/10 | réseau, poteaux (2 voies), reconstruction, nids, refill, minage à la main, fortification, CAPI-annulation | parqués sur branche |
 | 28/10 | `ia-lots-reponses-dc` (worktrees `centrale`, `kit`, `recon`) ; `ia-optimiseurs-dc` | ⏳ |
 | 27/10 | tirs ronde 5 (`tirs` 43aab26), pétrole (`petrole`), PERF2 (`perf2`), X3 (`x3`), robots, 3D ; CAPIB (`capib` 6bbbb05) | gelés sur leurs branches ; CAPIB ⏳ |
