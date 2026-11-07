@@ -61,12 +61,15 @@ end
 
 local G = "script/team/generateurs.lua"
 local MUTANTS = {
-  sans_releve = { { "local b = bucket(S, surface.index, fname) or full_scan(S, surface, fname)",
-    "local b = bucket(S, surface.index, fname) or (function() S.by[surface.index] = S.by[surface.index] or {}; " ..
-    "S.by[surface.index][fname] = { list = {}, type = {}, unit = {}, seen = {} }; return S.by[surface.index][fname] end)()" } },
-  pose_ignoree = { { "  if b then add(b, ent, etype) end", "  if false then add(b, ent, etype) end" } },
+  sans_releve = { { "  local bs = S.by[surface.index] or scan_all(S, surface)\n",
+    "  local bs = S.by[surface.index] or (function() S.by[surface.index] = {}; return S.by[surface.index] end)()\n" },
+    { "  for _, i in ipairs(idx) do scan_all(S, game.surfaces[i]) end\n", "" } },
+  pose_ignoree = { { "  add(b, ent, etype)\nend", "end" } },
   invalides_gardees = { { "    if e.valid then\n      j = j + 1", "    if true then\n      j = j + 1" } },
-  config_gardee = { { "  if S then S.by = {} end", "  if S then end" } },
+  config_gardee = { { "  if S then rescan_all(S) end", "  if S then end" } },
+  -- relecture revue-0659 : réserve 1 (relevé dans on_configuration_changed, pas à la première lecture) et réserve 2 (type non tenu)
+  config_paresseuse = { { "  for _, i in ipairs(idx) do scan_all(S, game.surfaces[i]) end\n", "" } },
+  type_non_tenu = { { "    if not TRACKED[t] then\n", "    if false then\n" } },
 }
 
 local function lcg(seed)
@@ -258,7 +261,10 @@ local function play(mode, mins, ombre)
       Rv = require("script.team.reseau_vivant")
       Champ = require("script.team.champ")
       M.dispatch(W.on_load)
+      local sc0 = Gens.stats.scans
       M.dispatch(W.on_config, { mod_changes = {} })
+      r.cfg_scans = r.cfg_scans or {}
+      r.cfg_scans[#r.cfg_scans + 1] = Gens.stats.scans - sc0
       r.reloads = (r.reloads or 0) + 1
     end
     if step == config_at then
@@ -269,10 +275,17 @@ local function play(mode, mins, ombre)
         if e then rawset(e, "electric_network_id", 9) end
       end
       -- registre EN PLACE ici : un registre gardé (mutant config_gardee) ne verrait pas cette machine
+      local sc0 = Gens.stats.scans
       M.dispatch(W.on_config, { mod_changes = {} })
+      r.cfg_scans = r.cfg_scans or {}
+      r.cfg_scans[#r.cfg_scans + 1] = Gens.stats.scans - sc0
       r.configs = (r.configs or 0) + 1
     end
   end
+  -- relecture revue-0659, réserve 2 : un type que le registre ne tient pas (le coffre d'équipe, « container ») rend l'ancienne recherche
+  -- (comparée par l'enveloppe de Gens.list, comme toute lecture)
+  r.untracked = #Gens.list(s, "player", "container")
+  r.scans_after_reload = Gens.stats.scans -- module rechargé : relevés faits depuis le rechargement (attendu : ceux des deux on_configuration_changed)
   r.logs = W.logs
   if ombre then r.ombre = remote.call("fo-x10-gens", "bilan", "player") end
   r.ready = Gens.ready() -- registre prêt (raccord.lua le lit au départ du relevé : d'un bloc par le registre, sinon par bandes)
@@ -297,12 +310,19 @@ check(a.ndiffs == 0, "Q1 : à chaque lecture, même ensemble de réseaux (" .. a
 
 local b = play("ref", minutes)
 check(a.ready == true and b.ready == false, "Q1 : registre prêt en partie (raccord d'un bloc par le registre), pas prêt éteint (relevé par bandes du lot LOURD)")
-local same = #a.logs == #b.logs
+-- (la ligne de diagnostic [FO-GENS] « type non tenu » n'existe qu'avec le registre allumé : hors décisions, retirée des deux côtés)
+local function decisions(logs)
+  local out = {}
+  for _, l in ipairs(logs) do if not tostring(l):find("[FO-GENS]", 1, true) then out[#out + 1] = l end end
+  return out
+end
+local al, bl = decisions(a.logs), decisions(b.logs)
+local same = #al == #bl
 local fl
-for i = 1, math.max(#a.logs, #b.logs) do
-  if a.logs[i] ~= b.logs[i] then
+for i = 1, math.max(#al, #bl) do
+  if al[i] ~= bl[i] then
     same = false
-    fl = string.format("ligne %d : [%s] / [%s]", i, tostring(a.logs[i]):sub(1, 160), tostring(b.logs[i]):sub(1, 160))
+    fl = string.format("ligne %d : [%s] / [%s]", i, tostring(al[i]):sub(1, 160), tostring(bl[i]):sub(1, 160))
     break
   end
 end
@@ -329,11 +349,25 @@ check((o.poses.on_built_entity or 0) > 0 and (o.poses.script_raised_built or 0) 
 local om = play("pose_ignoree", 1, true).ombre
 check(om.ecarts > 0, "Q3 : l'ombre VOIT un registre faux (mutant pose_ignoree : " .. om.ecarts .. " écart(s) sur " .. om.lectures .. " lecture(s))")
 
-for _, name in ipairs({ "sans_releve", "pose_ignoree", "invalides_gardees", "config_gardee" }) do
+-- Relecture revue-0659 : réserve 1, le relevé complet se fait DANS on_configuration_changed, une recherche par surface (toutes forces),
+-- et plus aucun après dans la partie ; réserve 2, un type non tenu rend l'ancienne recherche.
+local cs = a.cfg_scans or {}
+check(#cs == 2 and cs[1] == 1 and cs[2] == 1 and a.scans_after_reload == 2,
+  string.format("Q1 : relevé complet dans on_configuration_changed, un par surface (relevés par appel : %s ; depuis le rechargement : %s)",
+    table.concat(cs, ", "), tostring(a.scans_after_reload)))
+check(a.untracked > 0, "Q1 : type non tenu (« container ») : l'ancienne recherche rend " .. a.untracked .. " entité(s), comparée à chaque lecture (Q1)")
+
+for _, name in ipairs({ "sans_releve", "pose_ignoree", "invalides_gardees", "config_gardee", "config_paresseuse", "type_non_tenu" }) do
   local ok, m = pcall(play, name, mm)
   local seen = (not ok) or (m.diffs + m.ndiffs > 0)
-  check(seen, string.format("Q3 : mutant %s vu (%s)", name, ok and (m.diffs .. " écart(s) de liste, " .. m.ndiffs .. " de réseaux")
-    or ("la partie plante : " .. tostring(m):sub(1, 80))))
+  local why = ok and (m.diffs .. " écart(s) de liste, " .. m.ndiffs .. " de réseaux") or ("la partie plante : " .. tostring(m):sub(1, 80))
+  if ok and name == "config_paresseuse" then
+    -- listes justes (relevé paresseux), mais pas de relevé DANS on_configuration_changed : vu par le compte des relevés
+    local c = m.cfg_scans or {}
+    seen = seen or not (#c == 2 and c[1] == 1 and c[2] == 1)
+    why = why .. " ; relevés dans on_configuration_changed : " .. table.concat(c, ", ")
+  end
+  check(seen, string.format("Q3 : mutant %s vu (%s)", name, why))
 end
 
 print(string.format("[X10-S4] BILAN : %d OK%s", ok_n, fail_n > 0 and (", " .. fail_n .. " ECHEC(S)") or ""))
