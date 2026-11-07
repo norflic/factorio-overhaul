@@ -339,6 +339,11 @@ Plus récents d'abord ; extraits mot pour mot (entier : archive, §5 et fin du �
 - **Coffres pleins** (14 h 12, dicté) : « ils se sont retrouvés avec des coffres remplis de pierres. Ils avaient plus de place pour visiblement mutualiser les ressources et du coup, ils ont pas pensé à poser des coffres. […] Donc les coffres, il faudrait prévoir en fait. »
   ⏳ MESURÉ : « sature [copper-plate stone] » pendant des dizaines de minutes ; même défaut que le 5/11 (STOCKAGE,
   ouvert). COFFRES (charbonmain) : stockage prévu avant la saturation, place gardée au fer et au charbon.
+  ⏳ MESURÉ en moteur réel le 7/11 (banc `collecte-fer`, flux2, archive `fo-logs/2026-11-07_COLLECTE/lot`) : avec 2 PNJ,
+  l'un explore et l'autre mine de la PIERRE à la main pendant que le fer est à 0. La collecte urgente du fer (priorité
+  94) reste libre pendant 60 s et plus. Rien ne rappelle un PNJ occupé (`team.lua:939` ne vise que la file sûre). La règle
+  de collecte choisit pourtant le bon coffre. Lot ajouté : rappel d'un seul PNJ, minage de pierre d'abord, jamais un PNJ
+  en défense. La recrue gratuite réduit aussi ce cas.
 
 ### Lignes ouvertes ou sans état
 
