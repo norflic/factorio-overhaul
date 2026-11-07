@@ -66,7 +66,8 @@ function Pf.test(v, op, limit, name)
 end
 
 --- Le plafond d'un objet accepte-t-il l'ajout ? s = { demand, posed, open (débits), n_posed, n_open (nombres), k, hard
---- (facultatifs) } ; add = { rate, n }. Rend ok, raison (du refus, ou du plafond tenu).
+--- (facultatifs) } ; add = { rate, n }. Rend ok, raison (celle du refus ; nil quand l'ajout passe sous le plafond, le texte
+--- « premiere unite » quand il passe par l'exception de la règle 2).
 function Pf.fits(s, add, item)
   local who = tostring(item or "?")
   if type(s) ~= "table" then return false, "plafond " .. who .. " : aucun releve" end
@@ -98,10 +99,7 @@ function Pf.fits(s, add, item)
   if vals.demand <= Pf.EPS then return false, "plafond " .. who .. " : demande nulle" end
   local cap = k * vals.demand
   local after = vals.posed + vals.open + vals["add.rate"]
-  if after <= cap + Pf.EPS then
-    return true, string.format("plafond %s : %s/min sur %s/min (%s x demande %s/min)", who, fmt(after), fmt(cap), fmt(k),
-      fmt(vals.demand))
-  end
+  if after <= cap + Pf.EPS then return true end -- (aucune raison formatée : appelé pour chaque option essayée)
   local first = vals.posed <= Pf.EPS and vals.open <= Pf.EPS and vals.n_posed <= Pf.EPS and vals.n_open <= Pf.EPS
   if first and vals["add.n"] <= 1 + Pf.EPS then
     return true, string.format("plafond %s : premiere unite (%s/min pour une demande de %s/min)", who, fmt(vals["add.rate"]),
