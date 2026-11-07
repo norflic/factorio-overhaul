@@ -6,7 +6,9 @@
   Mise en place (même départ que ind-mall : 2 factions, la première par ordre de clé, géographie connue de la graine du banc) :
     1. coffre de la faction : fer et objets de fer RETIRÉS (plaques, minerai, engrenages, circuits, machines, bras, coffres, foreuses,
        laboratoires) ; posés : 900 cuivre (sous Em.PER_SLOT : aucun emplacement de plus par le stock), du charbon et les pièces d'une
-       centrale (pompe, chaudières, machines à vapeur, bras à combustion, tapis, poteaux, tuyaux) ;
+       centrale (pompe, chaudières, machines à vapeur, bras à combustion, tapis, poteaux, tuyaux) ; puis (7/11, après le premier
+       passage en jeu) 10 assembling-machine-1 et 10 long-handed-inserter, objets de l'âge 3 que la faction ne sait pas encore
+       fabriquer : sans eux, les deux ordres de banc sont refusés « objets impossibles » (contrôle à part) ;
     2. dès que la capitalisation existe : interrupteur de la règle 8 (fo-capi, manque : allumé au lot, éteint au témoin), puis DEUX
        ordres de banc (fo-capi, bench_order : packs automation-science-pack et chaîne burner-mining-drill, les deux ordres de B) par
        l'exécutant des ordres de la décision : leurs modules attendent leur matière (machines, bras, coffres : pas de fer pour les faire) ;
@@ -35,6 +37,12 @@ local REMOVE = { "iron-plate", "iron-ore", "iron-gear-wheel", "iron-stick", "ele
 local PARTS = { { "copper-plate", 900 }, { "coal", 300 }, { "offshore-pump", 2 }, { "boiler", 2 }, { "steam-engine", 4 },
   { "burner-inserter", 4 }, { "transport-belt", 40 }, { "small-electric-pole", 150 }, { "pipe", 40 } }
 local ORDERS = { { "packs", "automation-science-pack", 6 }, { "chaine", "burner-mining-drill", 2 } }
+-- Premier passage en jeu (7/11, 18 h 51, src-cm-5511fd6f) : les deux ordres refusés au tick 300, « objets impossibles :
+-- assembling-machine-1 » et « fo-lvl-assembler-30, long-handed-inserter » : ces recettes sont de l'âge 3
+-- (shared/content/epochs.lua), la faction est à l'âge 1, et fit_module (script/ai3/capitalisation.lua) exige chaque objet
+-- fabricable à la main OU au coffre. La prémisse n'avait été essayée qu'à blanc. Mise en place (décision du lead, 7/11 vers
+-- 19 h 05) : ces objets de l'âge 3 sont posés au coffre, contrôle à part ; les objets de fer de l'âge 1 restent retirés.
+local AGE3 = { { "assembling-machine-1", 10 }, { "long-handed-inserter", 10 } }
 
 local function set_setting(ctx, name, value)
   local v = ctx.call("war_setting", name, value)
@@ -103,6 +111,12 @@ return function(temoin)
         ctx.check(inv ~= nil and put ~= nil and #short == 0 and inv.get_item_count("iron-plate") == 0,
           "coffre : fer retire, cuivre et pieces de centrale poses", "retire {" .. table.concat(removed, ", ") .. "}" ..
           (#short > 0 and (" ; insere en partie : " .. table.concat(short, " ")) or ""))
+        local put3 = ctx.remote("fo-ind", "stock", st.key, AGE3)
+        local short3 = {}
+        for _, p in ipairs(AGE3) do if not put3 or (put3[p[1]] or 0) < p[2] then short3[#short3 + 1] = p[1] end end
+        ctx.check(inv ~= nil and put3 ~= nil and #short3 == 0 and inv.get_item_count("iron-plate") == 0,
+          "objets de l'age 3 poses au coffre (assembling-machine-1 10, long-handed-inserter 10 ; recettes fermees a l'age 1)",
+          #short3 > 0 and ("insere en partie : " .. table.concat(short3, " ")) or "")
         local left = {}
         local cont = inv and inv.get_contents() or {}
         local names = {}
