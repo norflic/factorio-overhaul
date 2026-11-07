@@ -606,7 +606,7 @@ change pas ce que vous verrez tant qu'elle n'est pas branchée. Plans de branche
 | L8 | ✅ déjà corrigé : règle 2 d'`emplacements.lua` (CAPI-DEBIT, 30/10), `capi_debit_test` 74 OK (16 h 22) . **Clos** : sur votre partie 0.6.58 (177 min), 21 défrichages, tous de moins de 2 min, et 0 place tenue plus de 5 min. Le volet préventif n'est pas utile | `PLAN_L8.md` §5 (rang-tiers) |
 | L9 | règle pure ✅, branchement planifié | `shared/team/lot_minerai.lua` (video-l9 646aeac2) : 14 OK, 12 mutants. Trois défauts trouvés : une fabrique se repliait sur un gisement (`build.lua:2727-2728`) ; un seuil unique sans quantité (`plan.lua:42`) ; un relevé jamais refait (l.373). À mesurer avant de brancher, par [FO-LOTS-MINERAI] : une faction à rayon maximal perd-elle une chaîne ? `PLAN_L9.md` |
 | Saturation (rang 12) | lancée à 16 h 20 | video-l5 |
-| Branchement | lancé à 16 h 20, étapes 0 à 3 (prérequis capi-decide et corr-collecte, puis règles, L13, L5 avec son plafond), hors jeu | cerveau-central, branche `video-integ` |
+| Branchement | étapes 0 et 1 ✅ (3a437d4a : capi-decide, corr-collecte et les règles réunies, 16 suites vertes, aucun effet en jeu) ; étape 2 ✅ (e96c41b3 : L13 garde fermée, une décision sur une entrée absente est refusée et journalisée) ; étape 3 (L5 et son plafond) en cours ; hors jeu, aucun banc | cerveau-central, branche `video-integ` |
 
 **Changement d'ordre depuis le rapport** : L3 monte au 3e rang. C'est le remède de D0 et de D1, que le lead a demandé de relier ;
 L2 en profite (le manque mesuré nourrit la porte de rang).
