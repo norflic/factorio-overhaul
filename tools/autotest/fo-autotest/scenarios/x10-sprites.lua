@@ -1,7 +1,7 @@
 --[[
   Lot X10, levier L-R2 (7/11) : DE QUOI sont faits les sprites de la vue du DC ? Soustraction par classe, dans UNE session avec
   images sur la SAUVEGARDE du DC (même lancement que x10-rendu : banc.py --sauvegarde ... --captures
-  --visuel="--window hd --measure --ticks 6600"). On lit `sprite-count` de perf-stats.csv phase par phase (m2_lecture.py) :
+  --visuel="--window hd --measure --ticks 7000"). On lit `sprite-count` de perf-stats.csv phase par phase (m2_lecture.py) :
   le nombre de sprites ne dépend PAS de la charge du PC (seules les durées en dépendent) ; --seul n'est utile que pour lire
   aussi R (prepare + cpu-render) par phase.
 
@@ -14,7 +14,8 @@
     pnj-figes (tous les fo-companion active = false ; 700 ticks d'attente : traces de pas, 600 ticks de vie) ;
     machines-figees (fours, foreuses, chaudières, machines à vapeur, bras, assembleurs, labos de la vue : fumée et couches
     de travail ; 700 ticks d'attente : fumée, 600 ticks) ;
-    objets-tapis (objets des tapis de la vue vidés tous les 5 ticks) ; decoratifs (détruits dans la vue) ; restes (corpse
+    objets-tapis (objets des tapis de la vue vidés tous les 5 ticks, jusqu'à la fin) ; objets-sol (objets posés au sol
+    de la vue détruits : 1 774 à l'essai à blanc, autour du coffre d'équipe) ; decoratifs (détruits dans la vue) ; restes (corpse
     détruits) ; batiments-mod (fo-lvl-*, tourelles lourdes, centre, expérimentaux, Bourdon de la vue détruits ; prédiction
     écrite au journal : nombre × couches de LR2_SPRITES.md) ; ressources (détruites) ; arbres-roches (détruits).
   Recensement de la vue au départ et à la fin (entités par nom, décoratifs, ressources, restes, objets sur les tapis,
@@ -34,14 +35,15 @@ local PHASES = {
   { name = "pnj-figes", at = 2570, set = "pnj", lead = 700 },
   { name = "machines-figees", at = 3580, set = "machines", lead = 700 },
   { name = "objets-tapis", at = 3950, set = "tapis", lead = 60 },
-  { name = "decoratifs", at = 4320, set = "decoratifs", lead = 60 },
-  { name = "restes", at = 4690, set = "restes", lead = 60 },
-  { name = "batiments-mod", at = 5060, set = "mod", lead = 60 },
-  { name = "ressources", at = 5430, set = "ressources", lead = 60 },
-  { name = "arbres-roches", at = 5800, set = "arbres", lead = 60 },
+  { name = "objets-sol", at = 4320, set = "sol", lead = 60 },
+  { name = "decoratifs", at = 4690, set = "decoratifs", lead = 60 },
+  { name = "restes", at = 5060, set = "restes", lead = 60 },
+  { name = "batiments-mod", at = 5430, set = "mod", lead = 60 },
+  { name = "ressources", at = 5800, set = "ressources", lead = 60 },
+  { name = "arbres-roches", at = 6170, set = "arbres", lead = 60 },
 }
 local DUREE = 300
-local FIN = 6200
+local FIN = 6570
 local PROF -- chronomètre de la phase : local au chargement, jamais dans global
 
 local MACHINES = { "assembling-machine", "boiler", "burner-generator", "furnace", "generator", "inserter", "lab", "mining-drill",
@@ -51,7 +53,7 @@ local MOD_PREFIXES = { "fo-lvl-", "fo-heavy-gun-turret", "fo-command", "fo-facti
 local S = {
   description = "X10 L-R2 : composition des sprites de la vue du DC, soustraction par classe",
   check_tick = -1,
-  shots_delay = 6300,
+  shots_delay = 6670,
 }
 
 local function player() return game.connected_players[1] end
@@ -112,6 +114,7 @@ local function census(ctx, label)
   local list = s.find_entities_filtered({ area = area })
   local by_name, by_type = {}, {}
   local belts, items, walking, pnj = 0, 0, 0, 0
+  local ground, gb = {}, { math.huge, math.huge, -math.huge, -math.huge }
   for i = 1, #list do
     local e = list[i]
     by_name[e.name] = (by_name[e.name] or 0) + 1
@@ -119,6 +122,14 @@ local function census(ctx, label)
     if e.type == "transport-belt" or e.type == "underground-belt" or e.type == "splitter" then
       belts = belts + 1
       for k = 1, e.get_max_transport_line_index() do items = items + e.get_transport_line(k).get_item_count() end
+    end
+    if e.type == "item-entity" then
+      local ok, it = pcall(function() return e.stack.name end)
+      it = ok and it or "?"
+      ground[it] = (ground[it] or 0) + 1
+      local p = e.position
+      gb[1], gb[2] = math.min(gb[1], p.x), math.min(gb[2], p.y)
+      gb[3], gb[4] = math.max(gb[3], p.x), math.max(gb[4], p.y)
     end
     if e.name == "fo-companion" or e.type == "character" then
       pnj = pnj + 1
@@ -131,6 +142,8 @@ local function census(ctx, label)
   ctx.log(string.format("RECENSEMENT-VUE %s : tick %d, rectangle (%.1f, %.1f) a (%.1f, %.1f), entites %d, decoratifs %d, tapis %d, objets sur les tapis %d, personnages %d dont en marche %d, rendu du mod %d dont dans la vue %d (visibles %d) : %s",
     label, game.tick, area[1][1], area[1][2], area[2][1], area[2][2], #list, deco, belts, items, pnj, walking, n_ids, #inside, rvis,
     tally_text(rtypes)))
+  ctx.log(string.format("RECENSEMENT-VUE %s : objets au sol par objet : %s ; boite (%.1f, %.1f) a (%.1f, %.1f)", label,
+    tally_text(ground), gb[1], gb[2], gb[3], gb[4]))
   ctx.log(string.format("RECENSEMENT-VUE %s : types : %s", label, tally_text(by_type)))
   ctx.log(string.format("RECENSEMENT-VUE %s : noms : %s", label, tally_text(by_name)))
   local p = player()
@@ -227,6 +240,11 @@ local function destroy_all(list, keep)
   return n, by
 end
 
+APPLY.sol = function(ctx)
+  local n, by = destroy_all(ctx.surface().find_entities_filtered({ area = rect(), type = "item-entity" }))
+  return n .. " objet(s) au sol detruit(s)"
+end
+
 APPLY.decoratifs = function(ctx)
   local s, area = ctx.surface(), rect()
   local n = #s.find_decoratives_filtered({ area = area })
@@ -304,7 +322,6 @@ S.tick = function(ctx, e)
         local ok, msg = pcall(APPLY[ph.set], ctx, st, false)
         ctx.log(string.format("RETOUR %s tick %d : %s", ph.name, e.tick, ok and msg or ("ERREUR " .. tostring(msg))))
       end
-      if ph.set == "tapis" then st.tapis_on = false end
     end
   end
 end
