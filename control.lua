@@ -29,6 +29,7 @@ require("script.companion.bench")
 require("script.world.hazards")
 require("script.world.enemy_mechanics")
 require("script.world.guarantee") -- lot M0 : monnaies des époques 5, 7 et 8 garanties sur toute carte
+require("script.world.explosions_mort") -- lot X10, Q5 : explosions de mort des unités recréées près d'un joueur seulement
 
 -- Factions IA (pilier 2) : état, équipes (cerveau d'équipe, tâches, ouvriers), commandant, guerre
 require("script.faction.state")
