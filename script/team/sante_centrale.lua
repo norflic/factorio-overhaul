@@ -278,7 +278,8 @@ end
 function Sante.growth(f, tick, plants, used_j, capacity_j)
   local sm = mem(f)
   if Sante.off(f) then sm.ant_n = 0 return false, {}, 0, 0, 0 end
-  local committed = Sante.committed(f) + Sante.held(f)
+  -- étape 5a de VIDEO-INTEG : + les kW que la capitalisation a retenus faute de courant (S.capi_kw ; boucle B)
+  local committed = Sante.committed(f) + Sante.held(f) + S.capi_kw(f.team and f.team.capi and f.team.capi.kw_blocked, tick)
   local used, cap = used_j * JTICK_KW, capacity_j * JTICK_KW
   local stalled = {}
   for _, p in ipairs(plants) do
