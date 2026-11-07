@@ -196,6 +196,15 @@ local function suite(Ech)
     "§10 brûlures : 1 au centre, 6 à 0,35 du rayon, 12 à 0,7")
   check(Ech.pas_brulure(100) == 1 and Ech.pas_brulure(300) == 1 and Ech.pas_brulure(301) == 2 and Ech.pas_brulure(4000) == 14 and Ech.pas_brulure(0) == 1,
     "§10 une petite brûlure sur k cibles tuées : au plus 300 par salve")
+  -- §11 sauvegardes existantes : proportion de vie ; régénération proportionnelle au maximum
+  check(Ech.vie_gardee(60000, 60000, 8260200) == 8260200 and Ech.vie_gardee(2660000, 2660000, 8260200) == 8260200,
+    "§11 un géant à pleine vie le reste quand son maximum monte (Bourdon, Couronné)")
+  check(math.abs(Ech.vie_gardee(417000, 834000, 3026000) - 1513000) < 1e-6 and math.abs(Ech.vie_gardee(1000, 4000, 2000) - 500) < 1e-9,
+    "§11 la moitié de la vie reste la moitié (maximum en hausse ou en baisse)")
+  check(Ech.vie_gardee(5000, nil, 3000) == 3000 and Ech.vie_gardee(700, 1000, 1000) == 700, "§11 sans ancien maximum ou sans changement : vie bornée, inchangée")
+  check(Ech.vie_gardee(1200, 1000, 2000) == 2000, "§11 jamais au-delà du nouveau maximum")
+  check(math.abs(Ech.soin(8260200, 0.5, 60000) - 68.835) < 1e-9 and math.abs(Ech.soin(8260200, 0.5, 60000) / 8260200 - 0.5 / 60000) < 1e-15,
+    "§11 régénération du Bourdon : même part du maximum qu'avant (68,835 PV par tick)")
   return pass, fail, msgs
 end
 
@@ -238,6 +247,24 @@ local SG = read("script/robots/geant.lua")
 check(SG:find("XpG.salve(u, un, r,", 1, true) ~= nil and SG:find("at = tick + r.zone_cooldown", 1, true) ~= nil,
   "§9 géants de robotsjeu : salve de zone à la cadence de la règle")
 
+-- §11 bis branchement : la migration suit tous les noms, avec les anciens maxima d'avant la règle ; le Bourdon régénère en proportion
+local SV = read("script/robots/echelle_vie.lua")
+local anc = {}
+for nom, v in SV:gmatch('%["([%w%-]+)"%] = (%d+)') do anc[nom] = tonumber(v) end
+local suivis = {}
+for _, r in ipairs(require("shared.robots.experimentaux").ROBOTS) do suivis[#suivis + 1] = r.name end
+for _, r in ipairs(require("shared.robots.experimentaux").GEANTS) do suivis[#suivis + 1] = r.name end
+for _, r in ipairs(Ro.giants()) do suivis[#suivis + 1] = Ro.unit_name(Ro.PLAYER_OWNER, r.id) end
+suivis[#suivis + 1] = "fo-bourdon"
+local tous = #suivis == 14
+for _, n in ipairs(suivis) do if not anc[n] then tous = false end end
+check(tous and anc["fo-bourdon"] == 60000 and anc["fo-robot-player-crowned"] == 2660000 and anc["fo-xp-tournesol"] == 1870000,
+  "§11 bis migration : 14 noms suivis, chacun avec son maximum d'avant la règle")
+check(SV:find("e.health = Ech.vie_gardee(e.health, a, b)", 1, true) ~= nil and SV:find("Events.on_configuration_changed", 1, true) ~= nil
+  and read("script/robots/experimentaux.lua"):find('require("script.robots.echelle_vie")', 1, true) ~= nil,
+  "§11 bis migration branchée au changement de configuration")
+check(PB:find("healing_per_tick = Ech.soin(Ech.pv(AGE_BOURDON), 0.5, 60000)", 1, true) ~= nil, "§11 bis Bourdon : régénération proportionnelle (prototype)")
+
 -- §5 forme
 check(not SRC:gsub("ipairs%(", ""):find("pairs%("), "§5 aucun pairs")
 check(not SRC:find("game%.") and not SRC:find("script%.") and not SRC:find("%f[%w]global%f[%W]"), "§5 Lua pur (ni game, ni script, ni global)")
@@ -259,7 +286,10 @@ local MUTANTS = {
   { "salve sans la part fixe", "return math.ceil(net / (1 - r[2] / 100) + r[1])", "return math.ceil(net / (1 - r[2] / 100))" },
   { "plan du bord vers le centre", "  for k = 1, p.top do", "  for k = p.top, 1, -1 do" },
   { "rangement qui oublie la dernière entrée", "local c = cands[i]\n    Ech.poser(p, c.x, c.y, c)", "local c = cands[i]\n    if i == b then break end\n    Ech.poser(p, c.x, c.y, c)" },
-  { "brûlures : anneau extérieur à 0,6", "part = 0.7, pas = 2", "part = 0.6, pas = 2" },
+  { "vie absolue gardée (0,7 % du Bourdon)", "  return math.min(nouveau, vie * nouveau / ancien)", "  return math.min(nouveau, vie)" },
+  { "vie gardée sans plafond", "  return math.min(nouveau, vie * nouveau / ancien)", "  return vie * nouveau / ancien" },
+  { "régénération fixe", "  return pv * soin0 / pv0", "  return soin0" },
+  { "brûlures : anneau extérieur à 0,6","part = 0.7, pas = 2", "part = 0.6, pas = 2" },
   { "brûlures : 6 points au lieu de 12", "part = 0.7, pas = 2", "part = 0.7, pas = 4" },
   { "brûlures : rotation de quart de tour fausse", "for _ = 1, q do x, y = -y, x end", "for _ = 1, q do x, y = y, -x end" },
   { "brûlures sans plafond", "return math.max(1, math.ceil(n / Ech.BRULURES_MAX))", "return 1" },

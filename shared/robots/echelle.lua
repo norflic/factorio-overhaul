@@ -336,4 +336,19 @@ function Ech.pas_brulure(n)
   return math.max(1, math.ceil(n / Ech.BRULURES_MAX))
 end
 
+---------------------------------------------------------------------------------------------------
+-- Sauvegardes existantes et régénération (demandes du lead du 6/11) : quand le maximum de PV change, la PROPORTION de vie est gardée
+-- (un géant à pleine vie reste à pleine vie) ; la régénération suit le maximum (même part du maximum par tick qu'avant la règle).
+---------------------------------------------------------------------------------------------------
+--- Vie d'une entité dont le maximum passe de `ancien` à `nouveau` : même part du maximum, jamais au-delà du nouveau maximum.
+function Ech.vie_gardee(vie, ancien, nouveau)
+  if not ancien or ancien <= 0 or ancien == nouveau then return math.min(vie, nouveau) end
+  return math.min(nouveau, vie * nouveau / ancien)
+end
+
+--- Régénération par tick d'un maximum `pv`, pour une régénération `soin0` par tick qui allait avec le maximum `pv0`.
+function Ech.soin(pv, soin0, pv0)
+  return pv * soin0 / pv0
+end
+
 return Ech

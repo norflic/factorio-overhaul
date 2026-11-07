@@ -86,7 +86,7 @@ protos[#protos + 1] = {
   -- Règle d'échelle (lot EXPERIMENTAUX-PUISSANCE ; réponses du DC du 5/11, accord du lead) : PV et résistances de son âge (15) ;
   -- avant : 60 000 PV, résistances 10 à 50 fixes et 50 à 90 % par type. L'attaque (Glas) reste telle quelle.
   max_health = Ech.pv(AGE_BOURDON),
-  healing_per_tick = 0.5,
+  healing_per_tick = Ech.soin(Ech.pv(AGE_BOURDON), 0.5, 60000), -- même part du maximum qu'avant (0,5 pour 60 000 : 33 min 20 s pour tout reprendre)
   resistances = Ech.resistances(AGE_BOURDON),
   dying_explosion = "massive-explosion",
   map_color = { r = 0.95, g = 0.8, b = 0.42 },
