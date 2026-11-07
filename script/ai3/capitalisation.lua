@@ -901,17 +901,20 @@ function Capi.slots(f, cs, stock, tick, book)
       local states = {}
       -- lot DIAG-USINE : suspendu par la pile = chaque module non fini est en réserve « pile » (objets rendus au coffre)
       local suspended = false
+      local nmiss = 0 -- lot VIDEO-SIEGES (C4) : objets qui manquent encore aux modules en réserve
       for _, id in ipairs(o.mod_ids or { o.module }) do
         local m = Auto.module(f, id)
         states[#states + 1] = m and tostring(m.state) or "perdu"
+        if m and m.state == "reserve" then for _, it in ipairs(m.missing or {}) do nmiss = nmiss + (it[2] or 0) end end
         if m and m.state == "reserve" and m.reason == "pile" then suspended = true
         elseif not (m and m.state == "fini") then suspended = false break end
       end
       -- relecture : entrée en chantier (aussi tenue par follow à chaque pensée) ; sauvegarde 0.6.21 : nil -> posée ici, prudente
       o.work_tick = Em.work_tick(o.work_tick, states, tick)
       o.pile_tick = Em.pile_tick(o.pile_tick, suspended, tick)
+      o.mat_tick, o.mat_n, o.mat_s = Em.mat_tick(o.mat_tick, o.mat_n, o.mat_s, states, nmiss, tick) -- lot VIDEO-SIEGES (C4)
       mods[#mods + 1] = { key = o.key, states = states, progress_tick = o.progress_tick, opened = o.opened, work_tick = o.work_tick,
-        pile_tick = o.pile_tick }
+        pile_tick = o.pile_tick, mat_tick = o.mat_tick }
     end
   end
   local plates = {}
@@ -1669,6 +1672,64 @@ end
 
 --- Suite de la décision (dernière tranche) : puits, journaux, ordres envoyés aux exécutants. `input` : l'entrée de la règle (refaite depuis
 --- l'instantané d'une décision découpée).
+--- Lot VIDEO-SIEGES (C5, règle 10 de shared/ai3/emplacements.lua) : l'ordre dans lequel les ordres « module » de la décision prennent leur
+--- siège, et ceux qui n'ouvrent pas. Les ordres qui DÉBLOQUENT un manque des ordres ouverts (Ca.blocked_items, Ca.unblocks) d'abord, puis le
+--- moins couvert (θ = (débit mesuré + stock ÷ H_STOCK) ÷ besoin) ; une chaîne dont le manque d'ouverture (ce que ses machines ont en trop
+--- peu au coffre) recoupe à plus de Em.OVERLAP_MAX % celui d'une chaîne ouverte, ou d'une chaîne qui a déjà son siège, n'ouvre pas.
+--- Rend la liste des ordres (seules les places des ordres « module » changent) et { [clé] = raison } ; nil, nil : réglage éteint.
+Capi.ARBITRE = true
+
+function Capi.arbitre(f, cs, res, input, view, tick)
+  if not Capi.ARBITRE then return res.orders, nil end
+  local stock = view.stock or {}
+  local flows, R = input.flows or {}, res.R or {}
+  local blocked = Ca.blocked_items({ open = cs.open, D = input.data })
+  local cands, by_key = {}, {}
+  for _, o in ipairs(res.orders) do
+    if Capi.MODULE_KINDS[o.kind] then
+      local miss = {}
+      for _, it in ipairs(o.items or {}) do
+        if (stock[it[1]] or 0) < (it[2] or 0) then miss[it[1]] = true end
+      end
+      local item = o.item or o.resource
+      local theta = nil
+      if item ~= nil and (R[item] or 0) > 0 then
+        theta = (((flows[item] or {}).made or 0) + (stock[item] or 0) / Ca.H_STOCK) / R[item]
+      end
+      cands[#cands + 1] = { key = o.key, kind = o.kind, miss = miss, unblocks = Ca.unblocks(o, blocked), theta = theta }
+      by_key[o.key] = o
+    end
+  end
+  if #cands == 0 then return res.orders, nil end
+  local open = {}
+  for _, rec in ipairs(cs.open or {}) do
+    if rec.exec == "module" and rec.kind == "chaine" then
+      local miss = {}
+      for _, m in ipairs(rec.missing or {}) do if m[1] ~= nil and (m[2] or 0) > 0 then miss[m[1]] = true end end
+      open[#open + 1] = { key = rec.key, miss = miss }
+    end
+  end
+  local _, refused, sorted = Em.arbitrate(cands, open)
+  local out, j, moved = {}, 0, false
+  for i, o in ipairs(res.orders) do
+    if Capi.MODULE_KINDS[o.kind] then
+      j = j + 1
+      out[i] = by_key[sorted[j].key]
+      if out[i] ~= o then moved = true end
+    else
+      out[i] = o
+    end
+  end
+  if moved or next(refused) ~= nil then
+    local seq, rf = {}, {}
+    for _, o in ipairs(out) do if Capi.MODULE_KINDS[o.kind] then seq[#seq + 1] = o.key end end
+    for _, k in ipairs(sorted_keys(refused)) do rf[#rf + 1] = k .. " (" .. refused[k] .. ")" end
+    log(string.format("[FO-CAPI-SIEGES] %s minute %d : sieges dans l'ordre [%s] ; sans siege [%s]", f.key or "?",
+      math.floor(minutes(f, tick) + 0.5), table.concat(seq, ", "), table.concat(rf, ", ")))
+  end
+  return out, refused
+end
+
 local function decide_finish(f, cs, res, input, view, book, tick, research)
   local D = Capi.data()
   -- Lot C2 : le PUITS OUVERT. f.team.ia3.puits (débit de chaque matière, puits compris) est lu par la saturation du cerveau, la décision de
@@ -1791,6 +1852,8 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
   -- Lot VIDEO-L6 : portes avant d'étendre (transport saturé, bras à seuil croissant), AVANT la boucle d'envoi ; nil : réglage éteint.
   -- Un ordre retenu suit le chemin des refus ci-dessous (« porte L6 : », épargne rendue, cs.refused).
   local gate_why = Capi.portes(f, cs, res, view, tick)
+  local seat_why
+  res.orders, seat_why = Capi.arbitre(f, cs, res, input, view, tick) -- lot VIDEO-SIEGES (C4/C5) : qui prend le siège d'abord, qui n'ouvre pas
   for _, o in ipairs(res.orders) do
     local rec, why
     -- (Intégration 0.6.25 : la porte de la pile de FUITES-PILE d'abord, puis le plafond des emplacements de CAPI-DEBIT.)
@@ -1802,6 +1865,8 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
     local gw = gate_why and gate_why[o.key]
     if gw then
       rec, why = nil, "porte L6 : " .. gw
+    elseif seat_why and seat_why[o.key] then
+      rec, why = nil, seat_why[o.key]
     elseif allowed and Capi.MODULE_KINDS[o.kind] and ((not champ and seat == nil) or (champ and cseat == nil)) then
       rec, why = nil, Em.busy_text(cs.slots) .. " ; emplacements libres pris par cette decision"
       -- (intégration 0.6.32 : retenu faute de place lui aussi ; remarque 6 de la relecture de CORR-CHAMP-MANQUE : pas quand seul le
