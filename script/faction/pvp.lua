@@ -498,8 +498,8 @@ end)
 
 -- Pertes du joueur causées par les factions (preuve des attaques, statut). Coût : le tueur est testé
 -- d'abord (champ de l'événement, puis un seul appel d'API pour son nom) ; l'entité morte n'est lue que si
--- le tueur est une faction.
-Events.on(defines.events.on_entity_died, function(e)
+-- le tueur est une faction. Lot MORTS : jamais la force « enemy » (seule une entité de la force « player » compte).
+Events.on_died(function(e)
   local killer = e.force
   if not killer then return end
   local war = State.war()
@@ -511,7 +511,7 @@ Events.on(defines.events.on_entity_died, function(e)
   war.pvp.losses = (war.pvp.losses or 0) + 1
   local fp = faction_state(f)
   fp.kills = fp.kills + 1
-end)
+end, { ennemi = false })
 
 -- Sauvegarde d'une version antérieure avec une guerre en cours : état PvP créé au chargement.
 Events.on_configuration_changed(function()

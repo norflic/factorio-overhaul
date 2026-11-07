@@ -187,7 +187,7 @@ local function on_gone(e)
     st.stats.lost = st.stats.lost + 1
   end
 end
-Events.on(defines.events.on_entity_died, on_gone)
+Events.on_died(on_gone, { ennemi = false }) -- lot MORTS : la force « enemy » n'a pas d'épave de centre
 Events.on(defines.events.on_player_mined_entity, on_gone)
 Events.on(defines.events.on_robot_mined_entity, on_gone)
 Events.on(defines.events.script_raised_destroy, on_gone)

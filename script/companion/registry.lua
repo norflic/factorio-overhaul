@@ -123,7 +123,7 @@ function Registry.sorted_keys(t)
   return ks
 end
 
-Events.on(defines.events.on_entity_died, function(e)
+Events.on_died(function(e) -- lot MORTS : personnages seulement (le test ci-dessous)
   local ent = e.entity
   if not (ent and ent.valid and ent.type == "character") then return end
   local S = Storage.ns("companion")
@@ -137,7 +137,7 @@ Events.on(defines.events.on_entity_died, function(e)
   -- Lot IA1-b2 : cause gardée sur l'agent (lue par les crochets on_removed, qui viennent après, à la destruction du corps).
   local agent = S.agents[id]
   if agent then agent.death_cause, agent.death_pos = key, { x = ent.position.x, y = ent.position.y } end
-end)
+end, { types = { "character" } })
 
 -- Mort, minage ou destruction par un autre mod : le corps disparaît, l'agent aussi.
 Events.on(defines.events.on_entity_destroyed, function(e)

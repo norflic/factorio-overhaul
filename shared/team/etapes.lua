@@ -20,17 +20,18 @@ E.VIEW = { "effectif", "emergency", "grow_due", "iron_reserve", "recover_floor",
 
 --- Champs du plan lus par E4. `ia3` (plan.ia3.pay) est lu par Capital.pay et Recon.upgrade_stock ; Ia3.measure reçoit le plan
 --- sans le lire. Liste TRIÉE.
-E.PLAN = { "emergency_recruit", "emergency_unarmed", "grow_short", "ia3", "missing", "recruit_blocked", "recruit_held",
-  "recruit_unarmed", "recruit_uses", "recruit_workers", "research", "train" }
+E.PLAN = { "emergency_recruit", "emergency_unarmed", "grow_short", "ia3", "missing", "recruit_blocked", "recruit_free",
+  "recruit_held", "recruit_unarmed", "recruit_uses", "recruit_workers", "research", "train" }
 
 --- Champs lus seulement dans des branches RARES : relevés par la lecture du code, qu'une courte partie peut ne pas atteindre. Le
 --- banc les dit à part au lieu de les compter comme inutiles.
 --- - view.workers_idle : `view.workers_waiting or view.workers_idle` (workers_waiting absent seulement pour une vue sans tableau) ;
 --- - view.emergency, view.recover_floor : journal d'une recrue de survie (plan.recruit_uses) ;
 --- - plan.emergency_recruit : recrue de croissance d'une faction (Effectif.grown) ;
---- - plan.emergency_unarmed : recrue sans arme quand il reste au plus un PNJ.
+--- - plan.emergency_unarmed : recrue sans arme quand il reste au plus un PNJ ;
+--- - plan.recruit_free : recrue gratuite de votre équipe sous son effectif de départ (EFFONDREMENT, décision du DC du 7/11).
 E.RARES = { ["view.workers_idle"] = true, ["view.emergency"] = true, ["view.recover_floor"] = true,
-  ["plan.emergency_recruit"] = true, ["plan.emergency_unarmed"] = true }
+  ["plan.emergency_recruit"] = true, ["plan.emergency_unarmed"] = true, ["plan.recruit_free"] = true }
 
 local function is_object(v)
   return rawget(v, "__self") ~= nil or rawget(v, "_lua_object") ~= nil

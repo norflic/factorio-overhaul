@@ -624,6 +624,7 @@ local EntityMT = {
       end
     end
     if k == "update_selected_entity" then return function(pos) assert(pos.x and pos.y, "update_selected_entity : position") end end
+    if k == "selected" then return rawget(t, "_selected") end -- lot TOURELLE-JOURNAL : LuaControl.selected (lecture et écriture)
     if k == "mining_state" then return t._mining or { mining = false } end
     if k == "shooting_state" then return t._shooting or { state = 0 } end
     if k == "set_command" then
@@ -643,6 +644,7 @@ local EntityMT = {
       return
     end
     if k == "color" then rawset(t, "_color", v) return end
+    if k == "selected" then rawset(t, "_selected", v) return end -- lot TOURELLE-JOURNAL : sélection assignée (le moteur la garde si sélectionnable)
     if k == "mining_state" then
       assert(type(v) == "table" and type(v.mining) == "boolean", "mining_state invalide")
       rawset(t, "_mining", v)

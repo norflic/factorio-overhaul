@@ -11,7 +11,7 @@ Palette 60/30/10 (ages.PALETTE[9]) : béton blanc cassé / plomb gris-bleu / ver
 """
 import math
 
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 import ages
 import corps
@@ -32,6 +32,8 @@ FAISCEAU = dict(rgb=(0.36, 1.0, 0.29), forme="trait vert uranium épais, halo pu
 # affût en TRÈFLE (quatrième jet, M-6 : 3 lobes chanfreinés, epoques.MAQUETTES[9]) ; avant : octogone chanfreiné, la
 # même silhouette que l'âge 7 (temple octogonal)
 HABILLAGE = dict(ages.CORPS[9], **E_.MAQUETTES[9])
+# LOT F1-C ronde 3c (critique : en pose N, joues claires lues « poteaux dressés ») : joues et paliers SOMBRES (corps.support)
+JOUES = ("plomb_sombre", "lead")
 
 
 def matieres(metal, M):
@@ -62,6 +64,13 @@ def _hublot(g, p, nrm, r, M):
     g.cyl(p + a * 0.012, a, r + 0.03, 0.03, M["plomb_sombre"], n=20, style="hard", what="sertissure")
     F.bolts_ring(g, p + a * 0.03, a, r + 0.012, 8, M["rivet"], r=0.012)
     g.cyl(p + a * 0.03, a, r, 0.012, M["emit"], n=20, style="flat", what="coeur")
+    # LOT F1-C ronde 3b (critique : disques verts « autocollants plats ») : lunette en relief et grille de barreaux
+    # devant le cœur (hublot ENFONCÉ)
+    g.tube_shell(p + a * 0.045, a, r + 0.012, r - 0.004, 0.03, M["plomb_sombre"], n=20, what="lunette")
+    u = a.orthogonal().normalized()
+    for j in (-1, 0, 1):
+        g.cyl(p + a * 0.05 + u * (j * r * 0.5), a.cross(u), 0.008, 2 * r * (0.95 if j == 0 else 0.8), M["plomb_sombre"],
+              n=6, what="barreau")
 
 
 def condensateur(g, c, x, y, z, r, h):
@@ -82,32 +91,77 @@ def condensateur(g, c, x, y, z, r, h):
 def socle(g, c):
     """Coins arrière : blocs de blindage de plomb à évents et trèfles ; gaines vers le pivot ; halos verts."""
     M = g.M
+    # LOT F1-C (production) : dalles d'appui sous les coins arrière (trous enfermés du post-traitement, orne.dalle_coin)
+    for nom in ("coin_NO", "coin_NE"):
+        O.dalle_coin(g, c, nom)
+    for av in (30.0, 150.0):
+        O.dalle_angle(g, c, math.radians(av), 0.9)
     zp = c.gradins[-1][3]
     for nom, sx in (("coin_NO", -1), ("coin_NE", 1)):
         p = corps.place(c, nom)
         x, yn = p["x"] - sx * 0.05, p["yn"] - 0.05
         w = 1.25 * p["r"]
-        PT.hull(g, x - w, x + w, Y(yn - w), Y(yn + w), 0.0, 0.55, ins=(0.06, 0.06, 0.06), panel=0.26,
+        # LOT F1-C (« la tête reste une boîte entre deux gros blocs de plomb carrés », lecteur de la ronde 2) : le bloc
+        # devient une AIRE DE STOCKAGE : socle de plomb bas à évents, et dessus TROIS CHÂTEAUX de combustible (fûts de
+        # plomb cerclés, couvercles de béton boulonnés, trèfle) ; plus haut que le bloc (masse)
+        PT.hull(g, x - w, x + w, Y(yn - w), Y(yn + w), 0.0, 0.2, ins=(0.04, 0.04, 0.04), panel=0.26,
                 mats=[M["lead"], M["plomb_sombre"]], rivet_step=0.12)
-        for k in range(3):
-            g.box((x, Y(yn - w) - 0.005, 0.12 + 0.11 * k), (w * 1.2, 0.02, 0.05), M["plomb_sombre"], "hard",
+        for k in range(2):
+            g.box((x, Y(yn - w) - 0.005, 0.06 + 0.08 * k), (w * 1.5, 0.02, 0.04), M["plomb_sombre"], "hard",
                   what="event")
-        F.trefoil(g, (x, Y(yn - w) - 0.02, 0.44), (0, -1, 0.15), 0.07)
+        for j, (dx, dy) in enumerate(((-0.4, -0.36), (0.4, -0.36), (0.0, 0.36))):
+            cx, cy = x + dx * w, yn + dy * w
+            r, h = 0.215, 0.98       # ronde 3b : plus hauts (masse), serrés (aucun jour entre deux châteaux) ; 3c : 0,98
+            g.cyl((cx, Y(cy), 0.2 + h / 2), "z", r, h, M["lead"], n=24, style="soft", what="chateau")
+            for f in (0.12, 0.5, 0.88):
+                g.tube_shell((cx, Y(cy), 0.2 + h * f), "z", r + 0.016, r - 0.01, 0.045, M["plomb_sombre"], n=24,
+                             what="cerclage")
+            g.cyl((cx, Y(cy), 0.2 + h + 0.025), "z", r * 1.06, 0.05, M["beton_capot"], n=24, style="soft",
+                  what="couvercle")
+            F.bolts_ring(g, (cx, Y(cy), 0.2 + h + 0.051), (0, 0, 1), r * 0.85, 8, M["plomb_sombre"], r=0.012)
+            if j < 2:
+                _hublot(g, (cx, Y(cy) - r, 0.2 + h * 0.55), (0, -1, 0), 0.06, M)
+        F.trefoil(g, (x, Y(yn - w) - 0.02, 0.12), (0, -1, 0.15), 0.06)
         # lot F1-B : la gaine ne monte plus au-dessus de l'affût (trou enfermé de 16 à 35 px entre le bloc de plomb, la
         # gaine et le gradin, essais r0b et correction du lot F1-A) : elle suit les dessus des gradins
         g1 = c.gradins[1][3]
         liaison(g, [(x - sx * 0.25, Y(yn - 0.35), 0.3), (x * 0.62, Y(yn * 0.6), g1 + 0.06),
                     (x * 0.4, Y(yn * 0.36), zp + 0.05)], 0.05)
         # lampe verte et pancarte de danger sur la face sud du bloc
-        O.lampe(g, (x + w * 0.55, Y(yn - w) - 0.01, 0.42), (0, -1, 0), 0.026, M["emit"], M["plomb_sombre"])
+        O.lampe(g, (x + w * 0.72, Y(yn - w) - 0.01, 0.12), (0, -1, 0), 0.026, M["emit"], M["plomb_sombre"])   # LOT F1-C : sur le socle bas
     # lot F1-B (enrichissement) : conduite de plomb qui ceint le premier gradin, plaques de danger au trèfle, voyants
     # verts, fûts de déchets et regards sur les dessus
     O.ceinture(g, c, 0, 0.3, 0.022, M["lead"], colliers=M["plomb_sombre"], pas=0.4)
     O.ceinture(g, c, 1, 0.4, 0.018, M["lead"], colliers=M["plomb_sombre"], pas=0.35)
     O.sur_flanc(g, c, 0, [math.radians(a) for a in (205, 245, 295, 335)], _pancarte, f=0.62, dr=0.006)
+    # ronde 3c (critique : « aucun signe radioactif lisible ») : trois GRANDS trèfles jaune et noir sur le flanc avant
+    for a in (232, 270, 308):
+        p, nrm, _ = O.flanc(c, 0, math.radians(a), 0.5, 0.012)
+        F.trefoil(g, p, nrm + V((0, 0, 0.35)), 0.15)
     O.sur_flanc(g, c, 1, [math.radians(a) for a in (230, 270, 310)], _pancarte, f=0.55, dr=0.006)
     O.sur_dessus(g, c, 1, [math.radians(a) for a in (200, 235, 270, 305, 340)], _dessus2)
     O.sur_dessus(g, c, 0, O.visibles(O.entre_condensateurs(c), nord=0.2), _regard, t=0.5)
+    # LOT F1-C (masse sous l'âge 8 en ronde 2) : dans les TROIS CREUX du trèfle, au sol, fûts de déchets de plomb et
+    # blindages bas (le trèfle se lit toujours d'en haut : ils restent sous le premier gradin)
+    R1 = c.gradins[0][0]
+    z1 = c.gradins[0][3]
+    for av in (30.0, 150.0, 270.0):
+        a = math.radians(av)
+        rv = R1 * 0.7
+        for j, (dr, dt) in enumerate(((0.28, 0.0), (0.2, -0.36), (0.2, 0.36), (0.5, -0.18), (0.5, 0.18))):
+            rr = rv + dr
+            aa = a + dt / max(rr, 0.5)
+            x, yn = rr * math.cos(aa), rr * math.sin(aa)
+            if not corps._hors_coins(c, x, yn, 0.12):
+                continue
+            if j < 3:
+                F.drum(g, (x, Y(yn), 0.0), 0.15, min(0.36, z1 * 1.5), M["lead"], M["plomb_sombre"],
+                       top=M["beton_capot"], trefoil=(j == 0))
+            else:
+                g.box((x, Y(yn), 0.09), (0.22, 0.16, 0.18), M["plomb_sombre"], "hard", R=Matrix.Rotation(aa, 3, "Z"),
+                      what="blindage")
+                g.box((x, Y(yn), 0.185), (0.18, 0.12, 0.012), M["lead"], "flat", R=Matrix.Rotation(aa, 3, "Z"),
+                      what="couvercle_blindage")
     for (x, yn) in ((0.0, -1.7), (-1.5, -0.6), (1.5, -0.6)):
         g.halo((x, Y(yn), 0.5), M["_emit_rgb"], 12.0)
 
@@ -206,6 +260,6 @@ def emetteur(g, c):
     # étaient cachés derrière les joues de l'étrier ; un pan diagonal du haut regarde la caméra en pose E)
     for sx in (-1, 1):
         k = 0.93 * math.cos(math.pi / 4)
-        _hublot(g, (sx * R * k, 0.15 * re, zh + R * k), (sx, 0, 1), 0.24 * re, M)
-    _hublot(g, (0, 0.15 * re, zh + R * 0.93), (0, 0, 1), 0.3 * re, M)
+        _hublot(g, (sx * R * k, 0.15 * re, zh + R * k), (sx, 0, 1), 0.18 * re, M)   # ronde 3b : 0,24 → 0,18
+    _hublot(g, (0, 0.15 * re, zh + R * 0.93), (0, 0, 1), 0.22 * re, M)               # ronde 3b : 0,30 → 0,22
     F.trefoil(g, (0, -0.5 * re, zh + R * 0.93), (0, 0, 1), 0.1)

@@ -441,7 +441,8 @@ do -- la porte du QG vient AVANT celle de la pile (qui laisse passer un module q
   local c = build_src:find("local fam = pile_family(f, p)\n  if not fam then return false end\n  -- Lot QGSURVIE", 1, true)
   check(a and b and c and c < a and a < b, "maillon 11 bis (QGSURVIE) : la porte du QG suit pile_family (pas les reconstructions) et précède celle de la pile")
 end
-check(has(src.team, "if f.is_player and T.qg_recruit_hold_on and SurvieQg.recruit_hold(f, tick, hq_threat) then hold_recruits = true end")
+-- EFFONDREMENT (7/11) : la branche de la retenue écrit aussi le journal [FO-RECRUE] d'une recrue gratuite retenue (tests/spirale_test.lua).
+check(has(src.team, "if f.is_player and T.qg_recruit_hold_on and SurvieQg.recruit_hold(f, tick, hq_threat) then\n    hold_recruits = true\n")
   and has(src.glue, "held = Sq.recruit_hold({ armed = v.qg.armed, threat = threat, workers = f.engineers_count })")
   and has(src.glue, "[FO-QGSURVIE]"),
   "maillon 12 (recrues, QGSURVIE) : la retenue passe par Sq.recruit_hold avec le recensement et la menace, view.hold_recruits, journal")

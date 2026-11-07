@@ -56,6 +56,8 @@ local PlantArms = require("script.team.plant_arms") -- lot PLANDIR : moniteur de
 local Sante = require("script.team.sante_centrale") -- lot ENERGIE (2/11) : amorce à la main des chaudières à sec, porte des consommateurs
 local Rv = require("script.team.reseau_vivant") -- lot CORR-RESEAU : santé de la centrale et du réseau après « fini »
 local Raccord = require("script.team.raccord") -- lot PD-ELEC (D05) : machines sans courant hors poteau perdu, raccordement
+local Jeton = require("script.team.pouls_jeton") -- lot POULS : un seul relevé lourd du pouls par tick (réseau ou raccord)
+local BoiteChunks = require("script.team.boite_chunks") -- lot POULS : boîte des chunks générés (relevé du réseau par bandes)
 local Liaison = require("script.team.liaison") -- lot INDUSTRIE I7 : un tapis du coffre de sortie d'un module au quai d'entrée d'un autre (le PNJ ne porte plus)
 local Sweep = require("shared.team.rebuild_sweep") -- lot INTEG-RECONSTRUCTION : règles pures du relevé (refus répété d'un projet rouvert)
 local Outposts = require("script.faction.outposts") -- lot AUTO : crochet des tuiles réservées (Outposts.reserved)
@@ -111,6 +113,9 @@ Build.SITES = {}               -- lot PETROLE : planificateurs de sites { [nom] 
 local REACH = P.BUILD_DISTANCE
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (réserve des modules neufs, agrandissement, tapis)
 local Rr = require("shared.team.rebuild_rapide") -- lot REBUILD-RAPIDE : projet rouvert sans attendre toute sa matière, ordre, foreuse de secours
+-- Lot TOURELLE-JOURNAL : [FO-TOURELLE-RETIREE] (tourelles de l'équipe déplacées ou reprises). Champ de Build, pas une locale
+-- (limite de 200 locales du bloc principal, relecture de la 0.6.59).
+Build.Tj = require("script.team.tourelle_journal")
 -- Lot ÉTAGE 5 : couloir d'accès réservé des avant-postes (règle pure). Champ de Build, pas une locale : le bloc principal de ce fichier est
 -- à la limite de 200 locales de Lua 5.2 (fusion avec le lot PERIMETRE2).
 Build.Co = require("shared.team.couloir")
@@ -3282,12 +3287,15 @@ local function move_turrets_off(f, surface, p, e)
       local pos = Blocage.first_free(spots,
         function(c) return surface.find_non_colliding_position(x.name, { x = c.x, y = c.y }, 4, 1) end,
         function(q) return Build.reserved_entity(f, x.name, q) or Build.axis_entity(cors, x.name, q) ~= nil end)
+      local d = Build.Tj.describe(x) -- lot TOURELLE-JOURNAL (avant le téléport)
       if not (pos and x.teleport(pos)) then
         Build.axe_log(f, string.format("projet %d : tourelle en (%g, %g) sur l'emprise de %s en (%g, %g), aucune place libre hors des couloirs : non deplacee",
           p.id, from.x, from.y, tostring(e.name), e.x, e.y))
         return false
       end
       f.build.stats.turrets_moved = (f.build.stats.turrets_moved or 0) + 1
+      Build.Tj.removed(d, "chantier de l'equipe " .. tostring(f.key), "emprise de " .. tostring(e.name) .. " (projet " .. tostring(p.id) .. ")",
+        string.format("deplacee en (%.1f, %.1f)", x.position.x, x.position.y))
       Build.axe_log(f, string.format("projet %d : tourelle deplacee de (%g, %g) a (%g, %g) : elle occupait l'emprise de %s en (%g, %g) ; %d couloir(s) d'extension",
         p.id, from.x, from.y, x.position.x, x.position.y, tostring(e.name), e.x, e.y, #cors))
     end
@@ -4323,12 +4331,15 @@ local function free_own_turrets(f, surface, p)
             -- cuivre et 80 de fer de munitions, sans remboursement) ; coffre plein ou aucun coffre : détruite comme avant, pour que le
             -- chantier reprenne. Même effet sur le registre qu'avant (aucun événement levé).
             local taken = false
+            local d = Build.Tj.describe(x) -- lot TOURELLE-JOURNAL (avant la reprise)
             if f.hq and f.hq.valid then
               for _, inv in ipairs(Stock.inventories(f)) do
                 if inv and inv.valid and x.mine({ inventory = inv, force = false, raise_destroyed = false }) then taken = true break end
               end
             end
             if taken then n_back = n_back + 1 elseif x.valid then x.destroy() end
+            Build.Tj.removed(d, "chantier de l'equipe " .. tostring(f.key), "emprise de " .. tostring(e.name) .. " (projet " .. tostring(p.id) .. "), aucune place a cote",
+              taken and "reprise au coffre de l'equipe" or "DETRUITE (coffre plein ou absent)")
             n = n + 1
           end
         end
@@ -4491,12 +4502,14 @@ local function pulse_team(f, tick)
   -- 4. lot CORR-RESEAU : santé de la centrale et du réseau (horloge propre, rien si pas l'heure)
   Profiler.fstop("bp:suivi")
   Profiler.fstart("bp:reseau")
-  Rv.step({ plant = Build.plant, cancel = Build.cancel }, f, surface, tick)
+  Rv.step({ plant = Build.plant, cancel = Build.cancel, box = BoiteChunks.get, jeton = Jeton, prof = Profiler }, f, surface, tick)
   Profiler.fstop("bp:reseau")
   Profiler.fstart("bp:raccord")
   -- 4 bis. lot PD-ELEC (D05) : machines des modules finis sans courant HORS poteau perdu (île, sous aucun poteau) : raccordement
   -- (lot FONDERIE, 0.6.43) champ_live : les bandes de champ en cours sont relevées aussi (fonderie à tapis allumée)
-  Raccord.step({ request = Build.request, prio = Build.PRIO + 4, champ_live = (Build.TAPIS and Build.TAPIS()) or false }, f, surface, tick)
+  -- (lot LOURD) box : le relevé des générateurs du début de cycle se fait par bandes de la boîte des chunks
+  Raccord.step({ request = Build.request, prio = Build.PRIO + 4, champ_live = (Build.TAPIS and Build.TAPIS()) or false, jeton = Jeton,
+    prof = Profiler, box = BoiteChunks.get }, f, surface, tick)
   -- 4 ter. lot INDUSTRIE I7 : un quai d'entrée porté à la main par un PNJ, relié par un tapis à la sortie d'un module du même objet
   Profiler.fstop("bp:raccord")
   Profiler.fstart("bp:liaison")

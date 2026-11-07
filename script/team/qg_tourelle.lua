@@ -8,6 +8,7 @@ local Events = require("script.core.events")
 local State = require("script.faction.state")
 local Rg = require("shared.ai3.reglages")
 local Q = require("shared.team.qg_tourelle")
+local Tj = require("script.team.tourelle_journal") -- lot TOURELLE-JOURNAL : [FO-TOURELLE-MORTE], toute tourelle de la force player
 
 local TURRET = {}
 for _, ty in ipairs(Rg.TURRET_TYPES) do TURRET[ty] = true end
@@ -35,6 +36,7 @@ local function dist(a, b)
 end
 
 local function on_died(e)
+  Tj.died(e) -- lot TOURELLE-JOURNAL : où qu'elle soit (la ligne [FO-QG-TOURELLE] ne voit que le rayon du QG)
   local ent = e.entity
   if not (ent and ent.valid and TURRET[ent.type]) then return end
   local force = ent.force and ent.force.name
@@ -75,6 +77,9 @@ local function on_died(e)
   log(Q.line(rec))
 end
 
-Events.on(defines.events.on_entity_died, on_died)
+-- Lot MORTS : les types de tourelle, jamais la force « enemy » (team_of : player ou une faction). Lot TOURELLE-JOURNAL (relecture de la
+-- 0.6.59) : les types du JOURNAL (Tj.TURRET_TYPES = Rg.TURRET_TYPES + artillerie), sans quoi la mort d'une artillerie n'arrive jamais à
+-- Tj.died ; le test TURRET[ent.type] de on_died garde [FO-QG-TOURELLE] tel quel (types de Rg.TURRET_TYPES).
+Events.on_died(on_died, { types = Tj.TURRET_TYPES, ennemi = false })
 
 return {}
