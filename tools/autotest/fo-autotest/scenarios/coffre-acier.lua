@@ -69,9 +69,15 @@ return {
       st.d = put("iron-chest", 36, -20, { ["iron-plate"] = 30 }, p)
       st.t = put("iron-chest", 40, -20, { ["iron-plate"] = 40 }, nil)
       -- Bras qui DÉPOSE dans D (au nord de D) : la direction qui le fait déposer dans D.
+      -- drop_target reste vide tant que le bras n'a pas tourné (moteur réel, 7/11) : la direction se choisit sur drop_position.
+      local box = st.d and st.d.bounding_box
       for _, dir in ipairs({ defines.direction.north, defines.direction.south }) do
         local ins = s.create_entity({ name = "inserter", position = at(36, -21), direction = dir, force = "player", player = p })
-        if ins and ins.drop_target == st.d then st.ins = ins break end
+        local q = ins and ins.drop_position
+        if q and box and q.x >= box.left_top.x and q.x <= box.right_bottom.x and q.y >= box.left_top.y and q.y <= box.right_bottom.y then
+          st.ins = ins
+          break
+        end
         if ins then ins.destroy() end
       end
       st.r_unit = st.r and st.r.unit_number

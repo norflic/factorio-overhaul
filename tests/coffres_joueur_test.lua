@@ -309,6 +309,25 @@ do
   check(w1 == 0 and w2 > 0, string.format("capacité : QG plein + coffre de dépôt vide -> %d coffre(s) demandé(s) ; sortie de chaîne -> %d", w1, w2))
 end
 
+-- Bras NEUF (moteur réel, banc coffre-acier du 7/11) : pickup_target et drop_target restent vides tant que le bras n'a pas tourné ;
+-- seule sa position de dépôt (ou de prise) tombe sur le coffre. Le coffre doit quand même sortir du dépôt (ou de la prise).
+do
+  game.tick = 0
+  local s = new_surface()
+  local f = team(s, {})
+  local fed = player_chest(s, 12, 4, {})
+  local fed2 = player_chest(s, 16, 4, { ["iron-plate"] = 40 })
+  local free = player_chest(s, 20, 4, {})
+  s.inserters[1] = { valid = true, drop_position = { x = 12.1, y = 4.2 }, pickup_position = { x = 12, y = 2.8 } }
+  s.inserters[2] = { valid = true, pickup_position = { x = 16, y = 4 }, drop_position = { x = 16, y = 5.2 } }
+  CJs.update(f, game.tick)
+  local take, depot = CJs.chests(f), CJs.depot(f)
+  local function has(list, e) for _, x in ipairs(list) do if x == e then return true end end return false end
+  check(not has(depot, fed) and has(take, fed), "bras neuf qui dépose (drop_target vide, drop_position sur le coffre) : hors dépôt")
+  check(not has(take, fed2), "bras neuf qui prend (pickup_target vide, pickup_position sur le coffre) : hors prise")
+  check(has(depot, free) and has(take, free), "coffre voisin sans bras : prise et dépôt")
+end
+
 -- Un seul registre (accord avec STOCKAGE) : un coffre du joueur inscrit comme ANNEXE (Stock.scan, adoption) sort AUSSITÔT de la liste
 -- des coffres du joueur : jamais compté deux fois, même avant la minute de rafraîchissement.
 do

@@ -61,10 +61,15 @@ local function arms(surface, chest, force)
   local b = chest.bounding_box
   local area = { { b.left_top.x - 3, b.left_top.y - 3 }, { b.right_bottom.x + 3, b.right_bottom.y + 3 } }
   local takes, drops = false, false
+  -- Moteur réel (banc coffre-acier, 7/11) : pickup_target et drop_target restent VIDES tant que le bras n'a pas tourné (bras neuf, sans
+  -- courant) ; la position de prise ou de dépôt dans la boîte du coffre suffit.
+  local function inside(q)
+    return q ~= nil and q.x >= b.left_top.x and q.x <= b.right_bottom.x and q.y >= b.left_top.y and q.y <= b.right_bottom.y
+  end
   for _, ins in ipairs(surface.find_entities_filtered({ area = area, type = "inserter", force = force })) do
     if ins.valid then
-      if ins.pickup_target == chest then takes = true end
-      if ins.drop_target == chest then drops = true end
+      if ins.pickup_target == chest or inside(ins.pickup_position) then takes = true end
+      if ins.drop_target == chest or inside(ins.drop_position) then drops = true end
     end
   end
   return takes, drops
