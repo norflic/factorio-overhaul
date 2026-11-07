@@ -15,7 +15,10 @@
        fictives, parce que la fixture ne connaît ni les machines ni les ressources du mod) : rien sans rang, cycles du mod ;
     §5 comparaison au `depth` de Ca.requirements (shared/ai3/capitalisation.lua:764-788) : écarts et raison de chacun ;
     §6 coût en INSTRUCTIONS (debug.sethook) : calcul complet, lecture du cache, part de Ca.requirements dans Ca.decide ;
-    §7 aucun pairs sans tri dans la règle ; §8 mutants appliqués au SOURCE de la règle (chacun doit faire échouer §1 à §4).
+    §7 aucun pairs sans tri dans la règle ; §8 mutants appliqués au SOURCE de la règle (chacun doit faire échouer §1 à §4 ou §9) ;
+    §9 rang de la DÉCISION (Rg.chain, docs/TODO_VIDEO.md §H) : recette choisie, feuilles à 0, cycles contractés et amorcés,
+       I5 (égal au depth sur des appels RÉELS de Ca.requirements sans cycle), I1, I6, chemin rapide = chemin complet,
+       déterminisme (relevé permuté, graines inversées), borne linéaire sur une chaîne de 6 000 objets (I8).
   Usage : lua5.2 tests/rang_test.lua [--livre <relevé de harness.lua --dump-recipes>] [--ecarts]   (depuis la racine du mod)
   Ce fichier est du TEST : il nomme les prototypes vanilla (comme le moteur) ; la règle n'en voit rien.
 ]]
@@ -119,6 +122,118 @@ local ALL = {}
 for _, t in ipairs(sorted_keys(DUMP.techs)) do ALL[t] = true end
 local ADUMP, A_CATS, A_RES = augmented_dump()
 local DA = Ca.data(ADUMP, {})
+
+-- Relevé vanilla RÉALISTE (vitesses, aires, puissances de data/base 1.1.91 : copie de tests/ai3_capitalisation_test.lua) pour
+-- des décisions réelles de la capitalisation (§6, §9).
+local V_SPEED = { ["stone-furnace"] = 1, ["steel-furnace"] = 2, ["electric-furnace"] = 2, ["assembling-machine-1"] = 0.5,
+  ["assembling-machine-2"] = 0.75, ["assembling-machine-3"] = 1.25, ["burner-mining-drill"] = 0.25,
+  ["electric-mining-drill"] = 0.5, ["pumpjack"] = 1, ["lab"] = 1, ["chemical-plant"] = 1, ["oil-refinery"] = 1, ["centrifuge"] = 1 }
+local V_AREA = { ["burner-mining-drill"] = 2, ["electric-mining-drill"] = 5, ["pumpjack"] = 1 }
+local V_SIZE = { ["burner-mining-drill"] = 2, ["electric-mining-drill"] = 3, ["stone-furnace"] = 2, ["steel-furnace"] = 2 }
+local V_KW = { ["stone-furnace"] = 90, ["steel-furnace"] = 90, ["electric-furnace"] = 180, ["burner-mining-drill"] = 150,
+  ["electric-mining-drill"] = 90, ["assembling-machine-1"] = 75, ["assembling-machine-2"] = 150,
+  ["assembling-machine-3"] = 375, ["lab"] = 60, ["boiler"] = 1800 }
+local function vanilla(d)
+  for _, e in ipairs(d.entities) do
+    if V_SPEED[e.name] then e.speed = V_SPEED[e.name] end
+    e.mining_area = V_AREA[e.name]
+    e.size = V_SIZE[e.name] or 3
+    e.energy_kw = V_KW[e.name]
+  end
+  for _, r in ipairs(d.resources) do r.mining_time = r.entity == "uranium-ore" and 2 or 1 end
+  return d
+end
+local EXEC = { ["stone-furnace"] = true, ["steel-furnace"] = true, ["burner-mining-drill"] = true,
+  ["electric-mining-drill"] = true, ["assembling-machine-1"] = true, ["assembling-machine-2"] = true }
+local DV = Ca.data(vanilla(real_dump()), { exec = EXEC, exec_roles = { main = true, labo = true } })
+local DVA = Ca.data(vanilla((augmented_dump())), {})
+
+--- Entrée d'une décision (scène riche de tests/ai3_capitalisation_test.lua §12, puits et recherches au choix).
+local function scene(Dx, techs, sinks)
+  return { data = Dx, state = { techs = techs }, stock = { ["electronic-circuit"] = 3000 }, workers = 30, idle = 10,
+    can_grow = true, traits = {}, weights = {}, open = {},
+    deposits = { { id = "d1", resource = "iron-ore", tiles = 270, amount = 1e6, open = true, dist = 60 },
+      { id = "s2", resource = "iron-ore", tiles = 270, amount = 1e6, dist = 150 },
+      { id = "dc", resource = "copper-ore", tiles = 200, amount = 5e5, open = true, dist = 80, smelt = "copper-plate",
+        smelter = "stone-furnace" },
+      { id = "dk", resource = "coal", tiles = 200, amount = 5e5, open = true, dist = 50 } },
+    drills = { { entity = "electric-mining-drill", resource = "iron-ore", n = 4, deposit = "d1" },
+      { entity = "burner-mining-drill", resource = "copper-ore", n = 4, deposit = "dc" },
+      { entity = "burner-mining-drill", resource = "coal", n = 2, deposit = "dk" } },
+    machines = { { entity = "stone-furnace", recipe = "iron-plate", n = 6, where = "qg" },
+      { entity = "stone-furnace", recipe = "iron-plate", n = 8, where = "d1" },
+      { entity = "stone-furnace", recipe = "copper-plate", n = 4, where = "dc" } },
+    labs = { { entity = "lab", n = 8 } },
+    research = { queue = { { tech = "electronics", left = 27, time = 15, packs = { { "automation-science-pack", 1 } } },
+      { tech = "fast-inserter", left = 2000, time = 15, packs = { { "automation-science-pack", 1 } } } }, rate = 450 },
+    flows = { ["iron-ore"] = { made = 120 }, ["iron-plate"] = { made = 110 }, ["copper-plate"] = { made = 60 },
+      ["coal"] = { made = 30 }, ["iron-gear-wheel"] = { made = 20, hand = 20 } },
+    sinks = sinks }
+end
+
+--- Tous les appels de Ca.requirements d'une décision réelle (ctx, plan, besoin rendu). `hook` (facultatif) : appelée autour de
+--- chaque appel (mesure).
+local function capture(inp, around)
+  local calls, orig = {}, Ca.requirements
+  Ca.requirements = function(cx, pl)
+    local req = around and around(function() return orig(cx, pl) end, cx) or orig(cx, pl)
+    calls[#calls + 1] = { ctx = cx, plan = pl, req = req }
+    return req
+  end
+  local ok, res = pcall(Ca.decide, inp, {})
+  Ca.requirements = orig
+  assert(ok, res)
+  return calls, res
+end
+
+--- Besoin de TOUS les objets du livre ouvert (pire fermeture d'une décision), par Ca.requirements.
+local function all_req(Dx, techs)
+  local need = {}
+  for _, rn in ipairs(Dx.recipe_list) do
+    if Ca.recipe_open({ D = Dx, techs = techs }, rn) then
+      for _, p in ipairs(Dx.recipes[rn].products) do if not Dx.res[p.name] then need[p.name] = 1 end end
+    end
+  end
+  local cats = {}
+  for c in pairs(Dx.hand) do cats[c] = true end
+  local ctx = { D = Dx, input = { need = need }, sinks = {}, open = {}, pack_rates = {}, stock = {}, rec_memo = {},
+    cats_present = cats, techs = techs, best_m = {}, best_d = {}, obt = {}, fuel_mu = 0 }
+  return { ctx = ctx, plan = { burn = 0 }, req = Ca.requirements(ctx, { burn = 0 }) }
+end
+
+--- La recette CHOISIE par la capitalisation pendant la décision (mémo de choose_recipe) ; D2 : relevé permuté (ses copies).
+local function pick_of(ctx, D2)
+  return function(i)
+    local m = ctx.rec_memo[i]
+    if not m then return nil, "hors memo" end
+    if m.r and D2 then return D2.recipes[m.r.name], m.why end
+    return m.r, m.why
+  end
+end
+
+-- Corpus des décisions : départ, toutes recherches (packs hauts, uranium), livre complété (objets des rangs hauts), et la
+-- fermeture de TOUS les objets (fixture et livre complété).
+local CORPUS = {}
+do
+  local auto = { automation = true }
+  local top = {}
+  local RVA = Rg0.build(DVA, nil)
+  for k = 6, RVA.max do for _, n in ipairs(RVA.tiers[k]) do top[#top + 1] = { item = n, rate = 1 } end end
+  local scenes = {
+    { "riche", scene(DV, auto, { { item = "firearm-magazine", rate = 20, elastic = true } }) },
+    { "packs hauts", scene(DV, ALL, { { item = "utility-science-pack", rate = 5 }, { item = "production-science-pack", rate = 5 } }) },
+    { "uranium", scene(DV, ALL, { { item = "uranium-fuel-cell", rate = 2 }, { item = "rocket-control-unit", rate = 2 } }) },
+    { "livre complet, rangs hauts", scene(DVA, ALL, top) },
+  }
+  for _, s in ipairs(scenes) do
+    local calls = capture(s[2])
+    for j, c in ipairs(calls) do CORPUS[#CORPUS + 1] = { label = s[1] .. " #" .. j, ctx = c.ctx, plan = c.plan, req = c.req } end
+  end
+  local a = all_req(D, ALL)
+  CORPUS[#CORPUS + 1] = { label = "tous les objets (fixture)", ctx = a.ctx, plan = a.plan, req = a.req }
+  local b = all_req(DA, ALL)
+  CORPUS[#CORPUS + 1] = { label = "tous les objets (livre complet)", ctx = b.ctx, plan = b.plan, req = b.req }
+end
 
 --- Relevé jouet au format du moteur, passé par Ca.data. recipes = { nom = { cat, ingrédients, produits, [tech] } }.
 local function toy(recipes, extra)
@@ -474,6 +589,140 @@ local function battery(Rg)
   check(one, "§4 cycle du titane (4 membres) : un seul rang pour tous ses membres")
   say(string.format("§4 livre complété (%d fabrique(s) et %d ressource(s) fictives) : %s", A_CATS, A_RES, Rg.text(RA, "complet")))
 
+  -- §9 Rang de la DÉCISION (Rg.chain, docs/TODO_VIDEO.md §H) : recette choisie, fermeture des graines.
+  -- a. Données jouets ; pick = la première recette ouverte au plus petit nom.
+  local function first_pick(Dx, open)
+    return function(i)
+      for _, rn in ipairs(Dx.producers[i] or {}) do
+        if open == nil or open(rn) then return Dx.recipes[rn], nil end
+      end
+      return nil, "aucune recette"
+    end
+  end
+  local T9 = toy({ a = { "c", { { "o1", 2 } }, { { "a", 1 } } }, b = { "c", { { "a", 1 } }, { { "b", 1 } } },
+    c = { "c", { { "a", 1 }, { "b", 1 } }, { { "c", 1 } } }, f1 = { "c", { { "fl", 5 }, { "a", 1 } }, { { "f", 1 } } },
+    g1 = { "c", { { "f", 1 }, { "w", 1 } }, { { "g", 1 } } },
+    h1 = { "c", { { "o1", 1 }, { "h", 2 } }, { { "h", 3 } } }, k1 = { "c", { { "h", 1 } }, { { "k", 1 } } },
+    x1 = { "c", { { "y", 1 } }, { { "x", 1 } } }, y1 = { "c", { { "x", 1 }, { "o1", 1 } }, { { "y", 2 } } } })
+  local C9 = Rg.chain(T9, first_pick(T9), { "c", "g", "k", "x" })
+  check(C9.rank.o1 == 0 and C9.rank.a == 1 and C9.rank.b == 2 and C9.rank.c == 3, "§9a chaîne sur la recette choisie : a 1, b 2, c 3")
+  check(C9.rank.f == 0 and C9.why.f == "limite : fluide (f1)" and C9.rank.w == 0 and C9.why.w == "aucune recette" and C9.rank.g == 1,
+    "§9a feuilles au rang 0 comme depth : recette à fluide et objet sans recette, avec leur raison")
+  check(C9.rank.h == 1 and C9.cyc.h == "h" and C9.seed.h and C9.seed.h[1] and C9.seed.h[1][1] == "h" and C9.seed.h[1][2] == 2 and C9.rank.k == 2,
+    "§9a boucle sur lui-même : un rang (1 + ingrédients externes), amorce de 2, l'aval au-dessus")
+  check(C9.rank.x == 1 and C9.rank.y == 1 and C9.cyc.x == "x" and C9.cyc.y == "x" and C9.seed.x and C9.seed.x[1] and C9.seed.x[1][1] == "y" and C9.seed.y and C9.seed.y[1] and C9.seed.y[1][1] == "x",
+    "§9a cycle à deux objets : un seul rang, chacun amorcé par l'autre")
+  local ok_ord = true
+  for j = 2, #C9.order do
+    local a, b = C9.order[j - 1], C9.order[j]
+    if not (C9.rank[a] > C9.rank[b] or (C9.rank[a] == C9.rank[b] and a < b)) then ok_ord = false end
+  end
+  for j = 2, #C9.list do
+    local a, b = C9.list[j - 1], C9.list[j]
+    if not (C9.rank[a] < C9.rank[b] or (C9.rank[a] == C9.rank[b] and a < b)) then ok_ord = false end
+  end
+  check(ok_ord and #C9.order == C9.n_items, "§9a ordre de propagation (rang décroissant, nom) et liste (rang croissant, nom)")
+  -- I6 : une recherche entre deux décisions change la recette choisie, donc le rang.
+  local T9b = toy({ a = { "c", { { "o1", 2 } }, { { "a", 1 } } }, b = { "c", { { "a", 1 } }, { { "b", 1 } } },
+    c2 = { "c", { { "a", 1 }, { "b", 1 } }, { { "c", 1 } } }, c1 = { "c", { { "a", 3 } }, { { "c", 1 } }, "t1" } })
+  local before = Rg.chain(T9b, first_pick(T9b, Rg.open_of(T9b, {})), { "c" }).rank.c
+  local after = Rg.chain(T9b, first_pick(T9b, Rg.open_of(T9b, { t1 = true })), { "c" }).rank.c
+  check(before == 3 and after == 2, "§9a I6 : la recherche ouvre une recette choisie de plus bas rang (c de 3 à 2)")
+  -- b. I5 : sur des décisions RÉELLES de la capitalisation, même fermeture, même rang que depth hors de l'influence d'un cycle,
+  --    même recette, même raison, même liste ; I1 : ingrédient externe strictement plus bas.
+  local n_cyc, n_free, bad_tot = 0, 0, {}
+  for _, c in ipairs(CORPUS) do
+    local req = c.req
+    local R = Rg.chain(c.ctx.D, pick_of(c.ctx), sorted_keys(req.fin))
+    local errs = {}
+    local nd = 0
+    for i, d in pairs(req.depth) do
+      nd = nd + 1
+      if R.rank[i] == nil then errs[#errs + 1] = "fermeture : " .. i end
+    end
+    if nd ~= R.n_items then errs[#errs + 1] = "fermeture " .. nd .. " contre " .. R.n_items end
+    local aff = {}
+    for _, i in ipairs(R.list) do
+      if R.cyc[i] then aff[i] = true end
+      for _, ing in ipairs((R.rec[i] or {}).ingredients or {}) do
+        if aff[ing.name] then aff[i] = true end
+        if R.cyc[ing.name] == nil or R.cyc[ing.name] ~= R.cyc[i] then
+          if not (R.rank[ing.name] < R.rank[i]) then errs[#errs + 1] = "I1 " .. i .. " <- " .. ing.name end
+        end
+      end
+    end
+    for _, i in ipairs(R.list) do
+      if not aff[i] and R.rank[i] ~= req.depth[i] then errs[#errs + 1] = string.format("rang %s %s, depth %s", i, R.rank[i], tostring(req.depth[i])) end
+      if ((R.rec[i] or {}).name) ~= ((req.rec[i] or {}).name) then errs[#errs + 1] = "recette " .. i end
+      if R.why[i] ~= req.why[i] then errs[#errs + 1] = "raison " .. i end
+    end
+    if #R.cycles == 0 then
+      n_free = n_free + 1
+      if table.concat(R.list, ",") ~= table.concat(req.list, ",") then errs[#errs + 1] = "liste differente de req.list" end
+    else
+      n_cyc = n_cyc + 1
+      for _, cy in ipairs(R.cycles) do for _, m in ipairs(cy.members) do
+        if R.rank[m] ~= cy.rank or not R.seed[m] or #R.seed[m] == 0 then errs[#errs + 1] = "cycle " .. cy.id .. " : " .. m end
+      end end
+    end
+    if #errs > 0 then bad_tot[#bad_tot + 1] = c.label .. " : " .. table.concat(errs, " ; ", 1, math.min(#errs, 3)) end
+  end
+  check(#bad_tot == 0, string.format("§9b I5 et I1 sur %d appels réels de Ca.requirements : %s", #CORPUS, table.concat(bad_tot, " | ", 1, math.min(#bad_tot, 3))))
+  check(n_cyc >= 1 and n_free >= 1, string.format("§9b le corpus a des fermetures avec cycle (%d) et sans cycle (%d)", n_cyc, n_free))
+  say(string.format("§9b I5 : %d appels réels de Ca.requirements, %d sans cycle (rang = depth, même liste), %d avec cycle (égaux hors de l'aval du cycle)",
+    #CORPUS, n_free, n_cyc))
+  -- c. Déterminisme : relevé permuté (ingrédients compris), graines inversées : même résultat.
+  local function ser_chain(R)
+    local t = {}
+    for _, k in ipairs(sorted_keys(R.rank)) do
+      t[#t + 1] = string.format("%s=%d/%s/%s/%s", k, R.rank[k], tostring((R.rec[k] or {}).name), tostring(R.why[k]), tostring(R.cyc[k]))
+    end
+    t[#t + 1] = "O:" .. table.concat(R.order, ",")
+    t[#t + 1] = "L:" .. table.concat(R.list, ",")
+    for _, k in ipairs(sorted_keys(R.seed)) do
+      local s = {}
+      for _, x in ipairs(R.seed[k]) do s[#s + 1] = x[1] .. "x" .. x[2] end
+      t[#t + 1] = "S" .. k .. ":" .. table.concat(s, ",")
+    end
+    for _, c in ipairs(R.cycles) do t[#t + 1] = "C" .. c.id .. ":" .. table.concat(c.members, ",") .. ":" .. c.rank end
+    return table.concat(t, "\n")
+  end
+  -- Chemin rapide (un parcours) et chemin complet (Tarjan) : même résultat sur toute fermeture.
+  local same_path = 0
+  for _, c in ipairs(CORPUS) do
+    local seeds = sorted_keys(c.req.fin)
+    if ser_chain(Rg.chain(c.ctx.D, pick_of(c.ctx), seeds)) == ser_chain(Rg.chain(c.ctx.D, pick_of(c.ctx), seeds, true)) then same_path = same_path + 1 end
+  end
+  check(same_path == #CORPUS, string.format("§9c chemin rapide = chemin complet (%d sur %d)", same_path, #CORPUS))
+  local same_det = 0
+  for _, c in ipairs(CORPUS) do
+    local seeds = sorted_keys(c.req.fin)
+    local rev = {}
+    for j = #seeds, 1, -1 do rev[#rev + 1] = seeds[j] end
+    local D2 = shuffled(c.ctx.D, 11)
+    if ser_chain(Rg.chain(c.ctx.D, pick_of(c.ctx), seeds)) == ser_chain(Rg.chain(D2, pick_of(c.ctx, D2), rev)) then same_det = same_det + 1 end
+  end
+  check(same_det == #CORPUS, string.format("§9c relevé permuté et graines inversées : même résultat (%d sur %d)", same_det, #CORPUS))
+  -- d. Borne (I8) : chaîne synthétique de N objets, coût linéaire (sans récursion).
+  local function long_chain(n, full)
+    local Dl = { res = { o = true }, recipes = {} }
+    local recs = {}
+    for k = 1, n do
+      recs["x" .. k] = { name = "x" .. k, fluid = false, ingredients = { { name = k == 1 and "o" or ("x" .. (k - 1)), amount = 1 } } }
+    end
+    local cnt = 0
+    debug.sethook(function() cnt = cnt + 1 end, "", 1)
+    local R = Rg.chain(Dl, function(i) return recs[i] end, { "x" .. n }, full)
+    debug.sethook()
+    return cnt, R.rank["x" .. n]
+  end
+  for _, full in ipairs({ false, true }) do
+    local c1, r1 = long_chain(3000, full)
+    local c2, r2 = long_chain(6000, full)
+    check(r1 == 3000 and r2 == 6000 and c2 <= 2.4 * c1, string.format("§9d chaîne de 3 000 et 6 000 objets (chemin %s) : rangs justes, coût %d puis %d (rapport %.2f, borne 2,4)",
+      full and "complet" or "rapide", c1, c2, c2 / c1))
+  end
+
   return pass - p0, fail - f0
 end
 
@@ -587,6 +836,40 @@ do
   check(COST.build_all <= 225000, "§6 calcul complet sous 225 000 instructions (" .. COST.build_all .. ")")
   check(COST.hit <= 18000, "§6 lecture du cache sous 18 000 instructions (" .. COST.hit .. ")")
 
+  -- Rang de la DÉCISION (Rg.chain) contre Ca.requirements, sur les mêmes appels réels (mémo de choose_recipe chaud, comme aux
+  -- appels 2 à N d'une décision). Par scène : appels, plus grande fermeture, médiane et maximum.
+  local groups, gorder = {}, {}
+  for _, c in ipairs(CORPUS) do
+    local g = c.label:gsub(" #%d+$", "")
+    if not groups[g] then groups[g] = { n = 0, items = 0, ch = {}, rq = {} } gorder[#gorder + 1] = g end
+    local G = groups[g]
+    local seeds = sorted_keys(c.req.fin)
+    local pk = pick_of(c.ctx)
+    local nd = 0
+    for _ in pairs(c.req.depth) do nd = nd + 1 end
+    G.n = G.n + 1
+    if nd > G.items then G.items = nd end
+    G.ch[#G.ch + 1] = instr(function() Rg.chain(c.ctx.D, pk, seeds) end)
+    G.rq[#G.rq + 1] = instr(function() Ca.requirements(c.ctx, c.plan) end)
+  end
+  local function med(l)
+    local s = {}
+    for j, v in ipairs(l) do s[j] = v end
+    table.sort(s)
+    return s[math.floor((#s + 1) / 2)], s[#s]
+  end
+  COST.chain_max = 0
+  for _, g in ipairs(gorder) do
+    local G = groups[g]
+    local cm, cx = med(G.ch)
+    local rm, rx = med(G.rq)
+    if cx > COST.chain_max then COST.chain_max = cx end
+    print(string.format("[RANG] §6 rang de la décision, %s : %d appel(s), fermeture %d objets au plus ; Rg.chain médiane %d, max %d ; Ca.requirements médiane %d, max %d",
+      g, G.n, G.items, cm, cx, rm, rx))
+  end
+  -- Garde : le double du pire mesuré le 7/11 (115 255, fermeture de TOUS les objets, avec le cycle de l'uranium).
+  check(COST.chain_max <= 231000, "§6 rang de la décision sous 231 000 instructions, pire fermeture (" .. COST.chain_max .. ")")
+
   -- H-VID-3 : part de Ca.requirements dans une décision réelle de la capitalisation (scène riche de
   -- tests/ai3_capitalisation_test.lua §12, recopiée : relevé vanilla réaliste, recherche aux packs rouges, 4 gisements).
   local V_SPEED = { ["stone-furnace"] = 1, ["steel-furnace"] = 2, ["electric-furnace"] = 2, ["assembling-machine-1"] = 0.5,
@@ -666,6 +949,19 @@ if LIVRE then
   debug.sethook()
   print(string.format("[RANG] §6 bis livre %s : %d recettes au relevé ; %s ; %d violation(s) ; %d instructions", LIVRE, #DL.recipe_list, Rg.text(R, "fixture+livre"), nv, c))
   print(string.format("[RANG] §6 bis livre complété : %s ; %d violation(s) ; %d instructions", Rg.text(RA, "complet"), (invariants(Rg, DLA, RA)), c2))
+  local a = all_req(DLA, all)
+  local pk = pick_of(a.ctx)
+  local seeds = sorted_keys(a.req.fin)
+  local c3 = 0
+  debug.sethook(function() c3 = c3 + 1 end, "", 1)
+  local RC = Rg.chain(DLA, pk, seeds)
+  debug.sethook()
+  local c4 = 0
+  debug.sethook(function() c4 = c4 + 1 end, "", 1)
+  Ca.requirements(a.ctx, a.plan)
+  debug.sethook()
+  print(string.format("[RANG] §6 bis livre complété, rang de la décision sur TOUS les objets : %d objets, %d cycle(s), Rg.chain %d instructions ; Ca.requirements %d",
+    RC.n_items, #RC.cycles, c3, c4))
   check(nv == 0, "§6 bis invariants du livre frais")
 end
 
@@ -693,7 +989,18 @@ do
     { "cycle non contracté", "if rank[m] then rank[m] = K end", "if rank[m] then rank[m] = rank[m] end" },
     { "tri des recettes retiré", "for _, rn in ipairs(sorted_copy(D.recipe_list)) do\n    local r = D.recipes[rn]\n    local made",
       "for _, rn in ipairs(D.recipe_list) do\n    local r = D.recipes[rn]\n    local made" },
-    { "tri des objets retiré", "  table.sort(nodes)\n", "\n" },
+    { "tri des objets retiré", "  table.sort(nodes)\n  local comps = components(nodes, succ)\n  local rank, rec, level",
+      "  local comps = components(nodes, succ)\n  local rank, rec, level" },
+    -- Rang de la décision (Rg.chain).
+    { "chaîne (rapide) : max au lieu de 1 + max", "local k = fr[3] + 1", "local k = fr[3]" },
+    { "chaîne (cycles) : max au lieu de 1 + max", "local k = leaf and 0 or top + 1", "local k = leaf and 0 or top" },
+    { "chaîne (rapide) : cycle non détecté", "if s == 1 then return nil end", "if s == 1 then s = 2 rank[w] = rank[w] or 0 end" },
+    { "chaîne : amorce du cycle oubliée", "if comp_of[ing.name] == ci then s[#s + 1]", "if false then s[#s + 1]" },
+    { "chaîne : recette choisie contournée (pick ignoré)", "local r, w = pick(i)",
+      "local r, w = D.producers and D.recipes[(D.producers[i] or {})[1] or \"\"], nil" },
+    { "chaîne : ordre de propagation inversé", "if rank[a] ~= rank[b] then return rank[a] > rank[b] end",
+      "if rank[a] ~= rank[b] then return rank[a] < rank[b] end" },
+    { "chaîne : fluide non coupé", "elseif r.fluid then\n    why[i] =", "elseif false then\n    why[i] =" },
     { "cache jamais invalidé", "if e and e.content == bk.content and e.open == ok then", "if e then" },
     { "rang brut différent de 0", "rank[n], level[n] = 0, 0", "rank[n], level[n] = 1, 0" },
     { "signature qui ignore une recette (la dernière)", "for i, rn in ipairs(bk.cand) do\n    if is_open(open, rn) then idx",
@@ -723,6 +1030,7 @@ do
       local p0, f0 = pass, fail
       quiet = true
       local ok, err = pcall(battery, Rm)
+      debug.sethook()
       quiet = false
       local fails = fail - f0
       pass, fail = p0, f0

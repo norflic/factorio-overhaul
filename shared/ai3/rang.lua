@@ -4,6 +4,13 @@
   testé hors jeu (tests/rang_test.lua). RIEN N'EST BRANCHÉ : la capitalisation garde son `depth` (Ca.requirements) tant que les
   lots L1b et L2 ne sont pas faits.
 
+  DEUX RANGS, deux usages :
+    - Rg.build : rang du LIVRE de la force (min sur les recettes retenues, fluides comptés) : les tiers du journal [FO-RANG] et
+      du DC. Calcul complet mesuré à 1,1 à 1,8 × 10⁵ instructions sur le livre réel : gardé par Rg.get (cache par signature).
+    - Rg.chain : rang de la DÉCISION (recette choisie par la capitalisation, fermeture des besoins de la décision) : l'ordre de
+      propagation des besoins et la porte de rang (L1b, L2). Égal au `depth` d'aujourd'hui sans cycle. Calculé à chaque
+      décision, sans cache (quelques milliers d'instructions, mesuré par tests/rang_test.lua §9).
+
   RANG d'un objet = 1 + le plus grand rang des ingrédients de sa recette la plus basse, sur les recettes RETENUES :
     - recettes du relevé (Ca.data : visibles, actives au départ ou débloquables), OUVERTES pour la force (prédicat `open`,
       même règle que Ca.recipe_open : Rg.open_of) ;
@@ -375,6 +382,155 @@ function Rg.build(D, open, opts)
   table.sort(cycles, function(a, b) return a.id < b.id end)
   return { rank = rank, rec = rec, level = level, tiers = tiers, max = maxk, cyc = cyc, cycles = cycles, seed = seed,
     none = none, why = why, recipes = recs, n_recipes = #recs, n_cand = #bk.cand, n_items = #nodes }
+end
+
+---------------------------------------------------------------------------------------------------
+-- Rang de la DÉCISION : recette choisie, fermeture des graines (docs/TODO_VIDEO.md §H)
+---------------------------------------------------------------------------------------------------
+--- Classe un objet de la fermeture : vrai s'il a une recette choisie (rec[i]) ; sinon feuille au rang 0, avec sa raison.
+local function classify(D, pick, i, rec, why)
+  if D.res[i] then return false end
+  local r, w = pick(i)
+  if not r then
+    why[i] = w or "aucune recette"
+    return false
+  elseif r.fluid then
+    why[i] = "limite : fluide (" .. r.name .. ")"
+    return false
+  end
+  rec[i] = r
+  return true
+end
+
+--- Ordre de propagation (rang décroissant, nom), liste (rang croissant, nom), plus grand rang.
+local function chain_result(nodes, rank, rec, why, cyc, seed, cycles)
+  local order, list, maxk = {}, {}, 0
+  for j, n in ipairs(nodes) do
+    order[j], list[j] = n, n
+    if rank[n] > maxk then maxk = rank[n] end
+  end
+  table.sort(order, function(a, b)
+    if rank[a] ~= rank[b] then return rank[a] > rank[b] end
+    return a < b
+  end)
+  table.sort(list, function(a, b)
+    if rank[a] ~= rank[b] then return rank[a] < rank[b] end
+    return a < b
+  end)
+  return { rank = rank, rec = rec, why = why, cyc = cyc, seed = seed, cycles = cycles, order = order, list = list,
+    max = maxk, n_items = #nodes }
+end
+
+--- Chemin RAPIDE : un parcours en profondeur (pile explicite) calcule le rang en post-ordre ; rend nil dès qu'un ingrédient
+--- est un objet en cours de parcours (arc de retour : la fermeture a un cycle, le chemin complet le contracte).
+local function chain_fast(D, pick, seeds)
+  local rec, why, rank, state, nodes = {}, {}, {}, {}, {}
+  local function enter(i)
+    state[i] = 1
+    nodes[#nodes + 1] = i
+    if classify(D, pick, i, rec, why) then return true end
+    rank[i], state[i] = 0, 2
+    return false
+  end
+  for _, s0 in ipairs(sorted_copy(seeds)) do
+    if state[s0] == nil and enter(s0) then
+      local stack = { { s0, 0, 0 } } -- objet, ingrédient suivant, plus grand rang des ingrédients vus
+      while #stack > 0 do
+        local fr = stack[#stack]
+        local ings = rec[fr[1]].ingredients
+        local j = fr[2] + 1
+        if j <= #ings then
+          fr[2] = j
+          local w = ings[j].name
+          local s = state[w]
+          if s == 1 then return nil end
+          if s == nil and enter(w) then stack[#stack + 1] = { w, 0, 0 }
+          elseif rank[w] > fr[3] then fr[3] = rank[w] end
+        else
+          local k = fr[3] + 1
+          rank[fr[1]], state[fr[1]] = k, 2
+          stack[#stack] = nil
+          local up = stack[#stack]
+          if up and k > up[3] then up[3] = k end
+        end
+      end
+    end
+  end
+  return chain_result(nodes, rank, rec, why, {}, {}, {})
+end
+
+--- Chemin COMPLET (fermeture avec cycle) : composantes de Tarjan sur la fermeture, un rang par composante.
+local function chain_full(D, pick, seeds)
+  local rec, why, nodes, seen, stack = {}, {}, {}, {}, {}
+  local sl = sorted_copy(seeds)
+  for j = #sl, 1, -1 do stack[#stack + 1] = sl[j] end
+  while #stack > 0 do
+    local i = stack[#stack]
+    stack[#stack] = nil
+    if not seen[i] then
+      seen[i] = true
+      nodes[#nodes + 1] = i
+      if classify(D, pick, i, rec, why) then
+        for _, ing in ipairs(rec[i].ingredients) do if not seen[ing.name] then stack[#stack + 1] = ing.name end end
+      end
+    end
+  end
+  table.sort(nodes)
+  local succ, loops = {}, {}
+  for _, i in ipairs(nodes) do succ[i] = {} end
+  for _, i in ipairs(nodes) do
+    for _, ing in ipairs((rec[i] or {}).ingredients or {}) do
+      local s = succ[ing.name]
+      s[#s + 1] = i
+      if ing.name == i then loops[i] = true end
+    end
+  end
+  local comps = components(nodes, succ)
+  local rank, cyc, seed, comp_of, cycles = {}, {}, {}, {}, {}
+  for ci, c in ipairs(comps) do for _, m in ipairs(c) do comp_of[m] = ci end end
+  for ci, c in ipairs(comps) do
+    local top, leaf = 0, true
+    for _, m in ipairs(c) do
+      if rec[m] then
+        leaf = false
+        for _, ing in ipairs(rec[m].ingredients) do
+          if comp_of[ing.name] ~= ci and rank[ing.name] > top then top = rank[ing.name] end
+        end
+      end
+    end
+    local k = leaf and 0 or top + 1
+    for _, m in ipairs(c) do rank[m] = k end
+    if #c > 1 or loops[c[1]] then
+      for _, m in ipairs(c) do
+        cyc[m] = c[1]
+        local s = {}
+        for _, ing in ipairs(rec[m].ingredients) do
+          if comp_of[ing.name] == ci then s[#s + 1] = { ing.name, ing.amount } end
+        end
+        table.sort(s, function(a, b) return a[1] < b[1] end)
+        seed[m] = s
+      end
+      cycles[#cycles + 1] = { id = c[1], members = c, rank = k }
+    end
+  end
+  table.sort(cycles, function(a, b) return a.id < b.id end)
+  return chain_result(nodes, rank, rec, why, cyc, seed, cycles)
+end
+
+--- Rang sur la recette que la capitalisation UTILISE, pick(objet) -> recette | nil, raison (en jeu : choose_recipe de
+--- shared/ai3/capitalisation.lua, la même que la propagation des besoins), sur la fermeture des graines `seeds` (liste de
+--- noms : puits, besoins des buts, manques des ordres ouverts, packs, combustible). Feuilles au rang 0, comme `depth` de
+--- Ca.requirements : ressource, objet sans recette choisie (raison de pick), recette à fluide (« limite : fluide »). Cycles
+--- (composantes de Tarjan, boucle comprise) : un seul rang, 1 + max des ingrédients EXTERNES ; seed[objet] = ingrédients
+--- internes de sa recette (quantité par fabrication) : l'arc qui referme le cycle ne se propage pas, c'est l'amorce.
+--- Chemin rapide sans cycle (un parcours), chemin complet (Tarjan) dès qu'un cycle est vu ; `full` = vrai : chemin complet
+--- d'office (test d'égalité des deux chemins). Sans cycle, rang = `depth` et `list` = `req.list` (tests/rang_test.lua §9).
+--- Aucun cache : pick dépend de l'état de la décision (catégories présentes, machines disponibles), pas du seul livre.
+--- Rend { rank, rec = { [objet] = recette (table) }, why, cyc, seed, cycles = { { id, members, rank } }, order (rang
+--- décroissant puis nom : ordre de propagation), list (rang croissant puis nom), max, n_items }.
+function Rg.chain(D, pick, seeds, full)
+  local R = (not full) and chain_fast(D, pick, seeds) or nil
+  return R or chain_full(D, pick, seeds)
 end
 
 ---------------------------------------------------------------------------------------------------
