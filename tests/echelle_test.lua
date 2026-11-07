@@ -104,7 +104,7 @@ local function suite(Ech)
   end
   local all = true
   for i = 1, n do all = all and seen[i] == true end
-  check(all and not dup and Ech.ticks(n) == math.ceil(n / Ech.TRANCHE), "§4 tranches : chaque cible une fois")
+  check(all and not dup and Ech.ticks(n) == math.ceil(n / Ech.BUDGET), "§4 tranches : chaque cible une fois")
   -- §4 rangement incrémental : par lots, la même file qu'en une fois
   local p = Ech.nouveau_plan({ x = 0, y = 0 })
   for a = 1, #cands, 7 do Ech.ranger(p, cands, a, math.min(#cands, a + 6)) end
@@ -122,11 +122,13 @@ local function suite(Ech)
   end
   local pb = Ech.nouveau_plan({ x = 0, y = 0 })
   Ech.ranger(pb, big, 1, #big)
-  local lb, tb = parcours(pb, Ech.TRANCHE)
+  local lb, tb = parcours(pb, Ech.BUDGET)
   local lbl = Ech.liste(pb)
-  local sb = #lb == #lbl and #lb == Ech.PLAFOND and tb == math.ceil(Ech.PLAFOND / Ech.TRANCHE)
+  local sb = #lb == #lbl and #lb == Ech.PLAFOND and tb == math.ceil(Ech.PLAFOND / Ech.BUDGET)
   for i = 1, #lbl do sb = sb and lb[i] == lbl[i] end
   check(sb, "§4 parcours par tranches = liste en une fois (plafond, dernière tranche)")
+  local lb33 = parcours(pb, 33) -- 4 000 n'est pas un multiple de 33 : le plafond tombe au milieu d'une tranche
+  check(#lb33 == Ech.PLAFOND, "§4 parcours : le plafond tient au milieu d'une tranche", tostring(#lb33))
   local pc = Ech.nouveau_plan({ x = 0, y = 0 })
   local sparse = {}
   for i = 1, 25 do sparse[i] = { x = (i % 5) * 20, y = 0, id = i } end -- anneaux vides entre les pleins
@@ -138,7 +140,7 @@ local function suite(Ech)
   check(sc, "§4 parcours : anneaux vides sautés, dernière tranche partielle")
   local _, t5 = parcours(pc, 5)
   check(t5 == 5, "§4 parcours : file multiple de la tranche, aucune tranche vide à la fin")
-  local _, f0 = Ech.suivants(Ech.nouveau_plan({ x = 0, y = 0 }), Ech.curseur(), Ech.TRANCHE)
+  local _, f0 = Ech.suivants(Ech.nouveau_plan({ x = 0, y = 0 }), Ech.curseur(), Ech.BUDGET)
   check(f0 == true, "§4 parcours d'un plan vide : épuisé tout de suite")
   local l2 = Ech.liste(p)
   local same = #l2 == #plan
@@ -175,6 +177,30 @@ local function suite(Ech)
     "§8 balayage : bande de 1,5 autour du rayon, bout compris")
   local fx = Ech.feux(o, { x = 45, y = 0 }, 4)
   check(#fx == 11 and math.abs(fx[1].x - 4) < 1e-9 and math.abs(fx[11].x - 44) < 1e-9, "§8 balayage : un feu tous les 4 tuiles le long du rayon")
+  -- §4 bis budget de coups PARTAGÉ par les salves en cours (décision du lead du 7/11 : 40 par tick en tout)
+  check(Ech.BUDGET == 40, "§4 bis budget de 40 coups de zone par tick, en tout")
+  local somme_ok, borne_ok = true, true
+  for n = 1, 50 do
+    for t = 0, 7 do
+      local q, s = Ech.partage(n, Ech.BUDGET, t), 0
+      for i = 1, n do
+        s = s + q[i]
+        if q[i] < math.floor(Ech.BUDGET / n) or q[i] > math.ceil(Ech.BUDGET / n) then borne_ok = false end
+      end
+      if #q ~= n or s ~= Ech.BUDGET then somme_ok = false end
+    end
+  end
+  check(somme_ok and borne_ok, "§4 bis la somme des parts vaut le budget, quel que soit le nombre de salves (1 à 50) ; parts égales à 1 près")
+  local tot = { 0, 0, 0 }
+  for t = 0, 2 do
+    local q = Ech.partage(3, Ech.BUDGET, t)
+    for i = 1, 3 do tot[i] = tot[i] + q[i] end
+  end
+  check(tot[1] == tot[2] and tot[2] == tot[3] and tot[1] == Ech.BUDGET, "§4 bis sur n ticks, chaque salve reçoit autant (le reste tourne)")
+  local q60 = Ech.partage(60, Ech.BUDGET, 5)
+  local uns, zeros = 0, 0
+  for i = 1, 60 do if q60[i] == 1 then uns = uns + 1 elseif q60[i] == 0 then zeros = zeros + 1 end end
+  check(uns == 40 and zeros == 20 and #Ech.partage(0, Ech.BUDGET, 0) == 0, "§4 bis plus de salves que de coups : 40 salves frappent une fois, les autres attendent")
   -- §10 IMPACT, variante B : brûlures
   local unit = true
   for k = 1, 24 do
@@ -246,6 +272,10 @@ check(PB:find("healing_per_tick = Ech.soin(Ech.pv(AGE_BOURDON), 0.5, 60000)", 1,
 local SXG = read("script/robots/experimentaux_geants.lua")
 check(SXG:find("K.candidates(e.surface, e.force, e.position, eff.range), r.marks, eff.range)", 1, true) ~= nil
   and SXG:find("radius = eff.zone, width = 4", 1, true) ~= nil, "§7 bis Cairn : marques et anneau à la portée et à la zone EFFECTIVES (modules)")
+check(SXG:find("local parts = Ech.partage(#zj, Ech.BUDGET, ev.tick)", 1, true) ~= nil and SXG:find("Ech.suivants(j.plan, j.cur, q)", 1, true) ~= nil
+  and not SXG:find("Ech.TRANCHE", 1, true), "§4 ter jeu : chaque salve frappe sa PART du budget du tick (aucun budget par salve)")
+check(SXG:find("if ev.tick >= g.next and not G.zone_active(g.un) then", 1, true) ~= nil
+  and SG:find("if tick >= at and not XpG.zone_active(un) then", 1, true) ~= nil, "§4 ter jeu : pas de nouvelle salve tant que la précédente frappe")
 
 -- §5 forme
 check(not SRC:gsub("ipairs%(", ""):find("pairs%("), "§5 aucun pairs")
@@ -286,7 +316,11 @@ local MUTANTS = {
   { "feux à la mauvaise distance", "local t = i * pas / l", "local t = (i - 0.5) * pas / l" },
   { "anneaux de 6 tuiles", "Ech.ANNEAU = 3", "Ech.ANNEAU = 6" },
   { "plafond ignoré", "if #out >= Ech.PLAFOND then return out end", "" },
-  { "tranche qui saute une cible", "local a = (k - 1) * Ech.TRANCHE + 1", "local a = (k - 1) * Ech.TRANCHE + 2" },
+  { "tranche qui saute une cible", "local a = (k - 1) * Ech.BUDGET + 1", "local a = (k - 1) * Ech.BUDGET + 2" },
+  { "budget par salve (chaque salve prend tout le budget)", "    out[i] = base + (((i - 1 - tick) % n) < reste and 1 or 0)", "    out[i] = budget" },
+  { "reste jamais distribué", "    out[i] = base + (((i - 1 - tick) % n) < reste and 1 or 0)", "    out[i] = base" },
+  { "reste toujours aux mêmes salves", "    out[i] = base + (((i - 1 - tick) % n) < reste and 1 or 0)", "    out[i] = base + ((i - 1) < reste and 1 or 0)" },
+  { "budget de 120", "Ech.BUDGET = 40", "Ech.BUDGET = 120" },
   { "cratère au quart de la zone", "Ech.CRATERE_PART = 6", "Ech.CRATERE_PART = 4" },
   { "petits avec une zone", "if age < Ech.AGE_ZONE_MIN then return nil end", "" },
 }

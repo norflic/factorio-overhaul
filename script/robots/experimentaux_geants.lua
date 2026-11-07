@@ -10,8 +10,8 @@
     portée (bâtiments compris : décision du DC du 5/11, « jusqu'à la fin »), et lance son effet, puis une SALVE DE ZONE (règle d'échelle,
     shared/robots/echelle.lua : coup plein par cible dans 15 × (âge − 9) tuiles, cratère, sol brûlé), au plus toutes les Ech.CADENCE_ZONE
     ticks. Effets et salves qui s'étirent dans le temps passent par la file `gjobs`, traitée à chaque tick tant qu'elle n'est pas vide ; une
-    salve de zone fait UNE recherche d'entités, puis range au plus Ech.LOT_RANGEMENT entités par tick, puis frappe au plus Ech.TRANCHE
-    entités par tick. Bonus des modules (portée, puissance) : g.bonus, écrit par G.set_bonus (remote « fo-xp », « bonus »).
+    salve de zone fait UNE recherche d'entités, puis range au plus Ech.LOT_RANGEMENT entités par tick, puis frappe ; toutes les salves en
+    cours se partagent Ech.BUDGET coups par tick (Ech.partage), et une unité ne relance pas sa salve tant que la précédente frappe. Bonus des modules (portée, puissance) : g.bonus, écrit par G.set_bonus (remote « fo-xp », « bonus »).
   Dégâts : script/robots/experimentaux_commun.lua (jamais sur sa force, ses amis, en cessez-le-feu).
 ]]
 
@@ -164,10 +164,21 @@ end
 --- E3 et E4 (règle d'échelle, shared/robots/echelle.lua) : salve de ZONE au point visé `c`, lancée par `g` = { e, un, bonus }. Cratère et
 --- sol brûlé, puis un coup PLEIN (salve effective, jamais partagée) sur chaque entité ennemie de la zone effective, bâtiments compris.
 --- Une seule recherche d'entités (moteur) par salve ; ensuite, par tick, ou bien le rangement par anneaux de Ech.LOT_RANGEMENT entités au
---- plus, ou bien une tranche de Ech.TRANCHE coups, du centre vers le bord (l'onde se voit), au plus Ech.PLAFOND cibles par salve.
+--- plus, ou bien sa part du budget de coups du tick (Ech.BUDGET pour toutes les salves), du centre vers le bord (l'onde se voit), au plus
+--- Ech.PLAFOND cibles par salve.
+--- Salve de zone en cours d'une unité (numéro d'unité -> vrai) : une unité ne relance pas de salve tant que la précédente frappe encore
+--- (avec un budget partagé, deux salves d'un même géant pourraient sinon s'empiler sans fin). Rien d'autre n'y est gardé.
+local function actives()
+  local s = K.S()
+  if not s.zones_actives then s.zones_actives = {} end
+  return s.zones_actives
+end
+function G.zone_active(un) return actives()[un] == true end
+
 local function zone(g, r, c, tick)
   local e = g.e
   local s = e.surface
+  actives()[g.un] = true
   local eff = Ech.effectif(r, g.bonus)
   for _, f in ipairs(ecouteurs) do f(e, r, g.bonus, c, eff) end
   s.create_entity({ name = CRATERE .. r.age, position = { c.x, c.y } })
@@ -204,14 +215,24 @@ end
 
 local function zone_pas(j, tick)
   local e = j.e
-  if not (e and e.valid) then return true end
+  if not (e and e.valid) then
+    actives()[j.un] = nil
+    return true
+  end
   if j.found then
     zone_ranger(j)
     j.at = tick + 1
     return false
   end
   local r = { id = j.id } -- statistiques par robot (K.stat) : les géants de robotsjeu y ont aussi leur ligne
-  local list, fini = Ech.suivants(j.plan, j.cur, Ech.TRANCHE)
+  -- part du budget de ce tick (Ech.partage, posée par on_tick) : au plus Ech.BUDGET coups de zone par tick pour TOUTES les salves
+  local q = j.quota or 0
+  j.quota = nil
+  if q <= 0 then
+    j.at = tick + 1
+    return false
+  end
+  local list, fini = Ech.suivants(j.plan, j.cur, q)
   for _, t in ipairs(list) do
     if t.valid then
       local p = j.brule and t.position
@@ -225,6 +246,7 @@ local function zone_pas(j, tick)
   if fini then
     K.journal("%s zone #%d rayon %.0f cibles %d tues %d degats %.0f ticks %d tick %d", r.id, j.un, j.zone, j.cur.pris, j.tues, j.total,
       tick - j.debut + 1, tick)
+    actives()[j.un] = nil
     return true
   end
   j.at = tick + 1
@@ -404,7 +426,7 @@ local function scan(ev)
   for _, g in ipairs(s.giants) do
     if g.e.valid then
       keep[#keep + 1] = g
-      if ev.tick >= g.next then
+      if ev.tick >= g.next and not G.zone_active(g.un) then
         local r = Xp.robot(g.id)
         local t = cible(g, r)
         if t and EFFECTS[r.effect](g, r, t, ev.tick) then
@@ -425,6 +447,14 @@ local function on_tick(ev)
   if not s or #s.gjobs == 0 then return end
   local keep = {}
   local n0 = #s.gjobs
+  -- budget de coups de zone du tick, partagé par les salves qui frappent (dans l'ordre de la file ; le reste tourne d'un tick à l'autre)
+  local zj = {}
+  for i = 1, n0 do
+    local j = s.gjobs[i]
+    if j.kind == "zone" and not j.found and j.at <= ev.tick then zj[#zj + 1] = j end
+  end
+  local parts = Ech.partage(#zj, Ech.BUDGET, ev.tick)
+  for k, j in ipairs(zj) do j.quota = parts[k] end
   for i = 1, n0 do
     local j = s.gjobs[i]
     local done = false
