@@ -459,6 +459,68 @@ function Stock.deploy_idle(f, surface, tick)
   return placed
 end
 
+Stock.GROUND_RADIUS = 10  -- tuiles autour de f.hq_pos où le stock reprend les objets posés au sol
+Stock.GROUND_LIMIT = 200  -- objets au sol lus au plus par passage
+local GROUND_OPTS = { reserve = true } -- la réserve des vitales s'applique, comme au dépôt d'un PNJ (une matière demandée la prend : D1)
+
+--- Lot STOCKAGE-VITAL (objets au sol, 7/11 : 1 774 objets au pied du coffre de l'équipe dans la partie du DC, répandus quand le stock
+--- refusait ; source : script/team/migration_champ.lua, give) : le stock reprend les objets posés au sol à Stock.GROUND_RADIUS tuiles au
+--- plus du QG, Stock.GROUND_LIMIT au plus par passage, piles triées par position (x, y, puis nom) ; un seul dépôt par objet. Une pile
+--- entrée en partie garde son reste au sol (compte réduit), jamais détruite. Une ligne [FO-STOCKAGE] par passage qui trouve des objets.
+--- Rend le nombre d'objets repris.
+function Stock.pick_ground(f, surface, tick)
+  if not (f.hq and f.hq.valid and f.hq_pos and surface and surface.find_entities_filtered) then return 0 end
+  local ents = surface.find_entities_filtered({ name = "item-on-ground", position = f.hq_pos, radius = Stock.GROUND_RADIUS,
+    limit = Stock.GROUND_LIMIT })
+  if #ents == 0 then return 0 end
+  local rows, names, by = {}, {}, {}
+  for _, e in ipairs(ents) do
+    local st = e.valid and e.stack
+    if st and st.valid_for_read then
+      local name = st.name
+      if not by[name] then
+        by[name] = { n = 0, put = 0 }
+        names[#names + 1] = name
+      end
+      by[name].n = by[name].n + st.count
+      rows[#rows + 1] = { e = e, x = e.position.x, y = e.position.y, name = name }
+    end
+  end
+  table.sort(rows, function(a, b)
+    if a.x ~= b.x then return a.x < b.x end
+    if a.y ~= b.y then return a.y < b.y end
+    return a.name < b.name
+  end)
+  table.sort(names)
+  for _, name in ipairs(names) do by[name].put = Stock.insert(f, name, by[name].n, GROUND_OPTS) end
+  local took = 0
+  for _, r in ipairs(rows) do
+    local b = by[r.name]
+    if b.put > 0 and r.e.valid then
+      local st = r.e.stack
+      local n = st.count
+      if n <= b.put then
+        r.e.destroy()
+        b.put, took = b.put - n, took + n
+      else
+        st.count = n - b.put
+        b.put, took = 0, took + b.put
+      end
+    end
+  end
+  local parts, seen = {}, 0
+  for _, name in ipairs(names) do
+    parts[#parts + 1] = string.format("%s %d", name, by[name].n)
+    seen = seen + by[name].n
+  end
+  log(string.format("[FO-STOCKAGE] %s : sol du QG : %d objet(s) repris sur %d lu(s) (%s), %d pile(s) au plus par passage, rayon %d, a %.1f min",
+    f.key or "player", took, seen, table.concat(parts, ", "), Stock.GROUND_LIMIT, Stock.GROUND_RADIUS, ((tick or 0) - (f.started or 0)) / 3600))
+  f.stats = f.stats or {}
+  f.stats.ground_taken = (f.stats.ground_taken or 0) + took
+  f.stats.ground_passes = (f.stats.ground_passes or 0) + 1
+  return took
+end
+
 --- Pose un coffre du stock (au plus un par appel) quand les cases se remplissent (70 %) ou par ANTICIPATION (lot STOCKAGE :
 --- stock à 60 % depuis 5 min, ou dépôt refusé). Les places viennent du bloc de T.annex.block, du plus proche du QG au plus
 --- lointain, côté extérieur ; une place réservée par le plan directeur (Stock.reserved) est sautée, sans passe de secours.
@@ -467,6 +529,7 @@ function Stock.grow(f, surface, tick)
   if not (f.hq and f.hq.valid) then return false end
   if Stock.on_think then Stock.on_think(f, tick) end -- lot FANTOMES : balayage des aperçus (posé par script/team/board.lua)
   Stock.deploy_idle(f, surface, tick)
+  Stock.pick_ground(f, surface, tick) -- lot STOCKAGE-VITAL : objets posés au sol autour du QG, repris quand le stock a la place
   local used, size, n = totals(f)
   if size <= 0 then return false end
   -- Lot STOCKAGE-VITAL : urgence au journal, une fois par tranche de 5 min et par équipe

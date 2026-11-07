@@ -526,5 +526,79 @@ do
   check(sk3 ~= nil and sk3("copper-plate") and sk3("copper-ore"), "temoin : cuivre sans manque, stock a 90 % : ecarte")
 end
 
+do
+  print("== Lot STOCKAGE-VITAL : objets au sol autour du QG repris par le stock (Stock.pick_ground)")
+  local function ground(name, n, x, y)
+    local g = { valid = true, position = { x = x, y = y }, stack = { valid_for_read = true, name = name, count = n } }
+    g.destroy = function() g.valid = false end
+    return g
+  end
+  local function surface_of(list)
+    return { find_entities_filtered = function(q)
+      local out = {}
+      for _, g in ipairs(list) do
+        if g.valid and q.name == "item-on-ground" then
+          local dx, dy = g.position.x - q.position.x, g.position.y - q.position.y
+          if not q.radius or dx * dx + dy * dy <= q.radius * q.radius then
+            if q.limit and #out >= q.limit then break end
+            out[#out + 1] = g
+          end
+        end
+      end
+      return out
+    end }
+  end
+  local function has_log(pat)
+    for _, s in ipairs(logs) do if s:find(pat, 1, true) then return true end end
+    return false
+  end
+  -- 1) les piles du rayon reprises, celle de 12 tuiles laissée ; une ligne au journal
+  local h = team(20)
+  local a, b, c3, far = ground("copper-plate", 1, 3, 0), ground("copper-plate", 1, -2, 1), ground("coal", 1, 0, 5), ground("copper-plate", 1, 12, 0)
+  for i = #logs, 1, -1 do logs[i] = nil end
+  local took = Stock.pick_ground(h, surface_of({ a, b, c3, far }), 0)
+  check(took == 3 and not a.valid and not b.valid and not c3.valid and far.valid and h.hq.items["copper-plate"] == 2 and h.hq.items.coal == 1,
+    "sol du QG : 3 piles du rayon reprises, celle a 12 tuiles laissee (" .. took .. ")")
+  check(has_log("[FO-STOCKAGE] test : sol du QG : 3 objet(s) repris sur 3"), "sol du QG : une ligne [FO-STOCKAGE] par passage")
+  for i = #logs, 1, -1 do logs[i] = nil end
+  check(Stock.pick_ground(h, surface_of({ far }), 0) == 0 and not has_log("sol du QG"), "rien dans le rayon : rien repris, aucune ligne")
+  -- 2) pile entrée en partie : le reste au sol, compte réduit, jamais détruite
+  local g = team(1)
+  g.hq.items.coal = 47 -- place pour 3 charbons
+  local p = ground("coal", 5, 1, 1)
+  local t2 = Stock.pick_ground(g, surface_of({ p }), 0)
+  check(t2 == 3 and p.valid and p.stack.count == 2 and g.hq.items.coal == 50, "pile entree en partie : 3 repris, 2 restent au sol (" .. t2 .. ")")
+  -- 3) piles triées par position : place pour 1, la pile la plus à l'ouest d'abord
+  local k = team(1)
+  k.hq.items.coal = 49
+  local east, west = ground("coal", 1, 4, 0), ground("coal", 1, -3, 0)
+  Stock.pick_ground(k, surface_of({ east, west }), 0)
+  check(not west.valid and east.valid, "piles triees par position : la pile en (-3, 0) avant celle en (4, 0)")
+  -- 4) au plus Stock.GROUND_LIMIT par passage
+  local m = team(20)
+  local many = {}
+  for i = 1, Stock.GROUND_LIMIT + 50 do many[i] = ground("coal", 1, (i % 9) - 4, math.floor(i / 9) % 9 - 4) end
+  local t4 = Stock.pick_ground(m, surface_of(many), 0)
+  local left = 0
+  for _, x in ipairs(many) do if x.valid then left = left + 1 end end
+  check(t4 == Stock.GROUND_LIMIT and left == 50, "au plus " .. Stock.GROUND_LIMIT .. " objets par passage (" .. t4 .. ", " .. left .. " restent)")
+  -- 5) refusé (pierre, réserve des vitales du QG) : la pile reste entière
+  local r = team(20)
+  local rinv = r.hq.get_inventory()
+  rinv.get_insertable_count = function(name)
+    local stack = STACK[name] or 50
+    local have = r.hq.items[name] or 0
+    return math.ceil(have / stack) * stack - have + rinv.count_empty_stacks() * stack
+  end
+  r.hq.items.coal = (STACK.coal or 50) * 18 -- 2 cases vides, sous la réserve de 3
+  local st = ground("stone", 1, 0, 1)
+  check(Stock.pick_ground(r, surface_of({ st }), 0) == 0 and st.valid and st.stack.count == 1, "pierre refusee (reserve des vitales) : la pile reste au sol")
+  -- 6) appelé par Stock.grow à chaque passage du stock
+  local q = team(20)
+  local z = ground("copper-plate", 1, 2, 2)
+  Stock.grow(q, surface_of({ z }), 0)
+  check(not z.valid and q.hq.items["copper-plate"] == 1, "Stock.grow reprend les objets au sol du QG")
+end
+
 print(string.format("\nRésultat : %d OK, %d ECHEC(S)", passes, failures))
 if failures > 0 then os.exit(1) end

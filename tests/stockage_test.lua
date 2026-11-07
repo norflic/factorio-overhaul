@@ -89,6 +89,9 @@ do
   check("cablage : Stock.skip_fn passe les matieres demandees (manque du cerveau, manque de l'objectif)",
     sk:find("return Sg.demanded(ia3 and ia3.short, team and team.missing, LINKS)", 1, true) ~= nil and sk:find("local need = demanded(f)", 1, true) ~= nil
     and sk:find("T.stockage, ia3 and ia3.other_short, need)", 1, true) ~= nil)
+  check("cablage : le stock reprend les objets au sol du QG a chaque passage (Stock.grow -> Stock.pick_ground)",
+    sk:find("  Stock.pick_ground(f, surface, tick) -- lot STOCKAGE-VITAL", 1, true) ~= nil
+    and sk:find('find_entities_filtered({ name = "item-on-ground", position = f.hq_pos, radius = Stock.GROUND_RADIUS,', 1, true) ~= nil)
   check("cablage D1 : au depot, la matiere demandee prend la reserve, bornee (Sg.demand_room, f.stock_dem)",
     sk:find("local room, rec = Sg.demand_room(f.stock_dem and f.stock_dem[item], demanded(f)[item])", 1, true) ~= nil
     and sk:find("rec.used = rec.used + got", 1, true) ~= nil)
