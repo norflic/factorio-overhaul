@@ -563,11 +563,21 @@ end
 --- militaire 40, machine 30, logistique 10, pondérés comme Gen.value). Rend une liste triée { {ressource, valeur,
 --- technologies débloquées} } (valeur décroissante, puis le nom). Coût : un point fixe par ressource inconnue
 --- extractible (2 à 3 ms hors jeu chacun) : appelé seulement aux décisions.
-function Gen.resource_values(cat, ev, state, ctx)
+function Gen.resource_values(cat, ev, state, ctx, memo)
   ctx = ctx or {}
   local w = ctx.weights
   local out = {}
   local base_role = { pack = Gen.V_PACK, militaire = Gen.V_MIL, machine = Gen.V_MACHINE, logistique = Gen.V_LOG }
+  -- Lot PERF4 : chaque ressource inconnue coûtait un dépliage COMPLET (G.prepare : faisabilité PUIS coûts de choix) à chaque choix de
+  -- recherche (46 ms par appel au moteur simulé, 11 ressources), donc toutes les 300 ticks par équipe au mur des recherches.
+  -- 1. Seule la faisabilité est lue ici (ev2.feas, ev2.tfeas ; Gen.value ne lit que feas) : G.prepare_feas, la même boucle sans
+  --    les coûts.
+  -- 2. `memo` facultatif ({ [ressource] = { key, ev } }, table LOCALE de l'appelant, jamais dans global) : l'état essayé (s2) ne
+  --    diffère de la base que par known[res] ; sa clé G.state_key est fonction de la clé de la base (sans `durable`, que s2 n'a
+  --    pas) et de res ; deux états de même clé ont les mêmes points fixes (contrat de G.state_key, revue M2, déjà celui de
+  --    Gen.prepare).
+  -- Même résultat qu'avant, avec ou sans mémo (tests/perf4_rv_test.lua).
+  local kbase = memo and G.state_key(cat.g, { stock = state.stock, techs = state.techs, built = state.built, known = state.known })
   for _, res in ipairs(cat.resource_list) do
     local r = cat.resources[res]
     if not state.known[res] and r and cat.g.by_rescat[r.category] then
@@ -575,7 +585,18 @@ function Gen.resource_values(cat, ev, state, ctx)
       for _, k in ipairs(sorted_keys(state.known)) do known[k] = state.known[k] end
       known[res] = true
       local s2 = { stock = state.stock, techs = state.techs, built = state.built, known = known }
-      local ev2 = G.prepare(cat.g, s2)
+      local ev2
+      if memo then
+        local m = memo[res]
+        if m and m.key == kbase then
+          ev2 = m.ev
+        else
+          ev2 = G.prepare_feas(cat.g, s2)
+          memo[res] = { key = kbase, ev = ev2 }
+        end
+      else
+        ev2 = G.prepare_feas(cat.g, s2)
+      end
       local v, techs = 0, {}
       for _, t in ipairs(cat.tech_list) do
         if not state.techs[t] and ev2.tfeas[t] and not ev.tfeas[t] then

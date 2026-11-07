@@ -111,6 +111,19 @@ local function suite(Build)
   c("E : bout du couloir : passe", refuse({ x = 8.5, y = 0.5 }, { keep = keep_of(9, 1) }) == false)
   -- F. B2 inchangé : adoption (couloir = false) jamais refusée par le couloir
   c("F : adoption hors couloir", refuse({ x = 30.5, y = 1.5 }, { couloir = false }) == false)
+  -- G. couloir en COUDE (relecture du lead : fenêtre de 2 tuiles face à un coude). Accès (20,5 ; 30,5), QG (0,5 ; 0,5) : axe y d'abord,
+  -- colonnes 19-20 de y 30 à 0, puis rangées 0 et -1 de x 19 à 15 ; la tuile (19, 0) est le coin.
+  local setG = corridor(20.5, 30.5, 0.5, 0.5)
+  c("G : couloir en coude (colonnes 19-20, rangees -1/0, coin (19,0))", setG[P.tkey(20, 0)] and setG[P.tkey(19, 0)] and setG[P.tkey(19, -1)]
+    and setG[P.tkey(15, -1)] and setG[P.tkey(20, 30)] and not setG[P.tkey(20, -1)] and not setG[P.tkey(21, 5)])
+  Build.couloirs = function() return setG end
+  c("G : section deja fermee par la 2x2 au pied du coude : la 3x3 qui prend le coin passe",
+    refuse({ x = 19.5, y = 1.5 }, { keep = keep_of(20, 2) }) == false)
+  c("G : 2x2 hors du couloir, la 3x3 retrecit la colonne 20 au coude : passe", refuse({ x = 21.5, y = 1.5 }, { keep = keep_of(22, 2) }) == false)
+  c("G : meme retrecissement face a un rocher sur la colonne 19 : refus",
+    refuse({ x = 21.5, y = 1.5 }, { keep = keep_of(22, 2), blocked = function(x, y) return x == 19 and y == 1 end }) == true)
+  c("G : la 3x3 prend le coin (19,0) : la colonne 20 ne rejoint plus les rangees du coude (diagonale seule) : refus",
+    refuse({ x = 18.5, y = 1.5 }, { keep = keep_of(18, 2) }) == true)
   return res
 end
 
@@ -133,8 +146,11 @@ end
 check("Co.cuts present et pur", type(Co.cuts) == "function" and not CO_SRC:find("game%.") and not CO_SRC:find("surface"))
 -- Câblage : foreuse_swap passe l'ancienne emprise ET les voisins
 local FS = read("script/team/foreuse_swap.lua")
-check("foreuse_swap passe keep et blocked", FS:find("{ keep = keep, blocked = blocked }", 1, true) ~= nil
-  and FS:find('collision_mask = "player-layer"', 1, true) ~= nil and FS:find('e ~= d and e.type ~= "character"', 1, true) ~= nil)
+check("foreuse_swap passe keep et blocked (toutes forces, rochers, falaises, eau ; ni l'ancienne foreuse ni ce qui bouge)",
+  FS:find("{ keep = keep, blocked = blocked }", 1, true) ~= nil
+  and FS:find('surface.find_entities_filtered({ area = area, collision_mask = "player-layer" })', 1, true) ~= nil
+  and FS:find('surface.find_tiles_filtered({ area = area, collision_mask = "player-layer" })', 1, true) ~= nil
+  and FS:find("e ~= d and not MOVING[e.type]", 1, true) ~= nil)
 
 -- Mutants : de la règle (couloir.lua) et de build.lua ; chacun doit faire échouer la suite
 local function load_co(src)

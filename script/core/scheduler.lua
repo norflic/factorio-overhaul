@@ -116,6 +116,33 @@ function Scheduler.add(lane, id)
   st.count = st.count + 1
 end
 
+--- Lot ÉTALEMENT (5/11) : place `id` au créneau `slot` (1..P, ramené dans la période) de la voie, au lieu du créneau tournant ; un id
+--- déjà présent est DÉPLACÉ (son ancienne entrée devient périmée, nettoyée au passage de son créneau, comme un retrait). Sert à
+--- espacer quelques ids lourds sur la période (pensées des factions, script/faction/commander.lua). Un id déplacé a UN intervalle
+--- différent de P entre deux passages (au moins 1 tick : jamais deux passages dans un tick), puis P exactement ; aucun passage
+--- n'est sauté au-delà d'une période plus l'écart du déplacement.
+function Scheduler.add_at(lane, id, slot)
+  local st = lane_state(lane)
+  local s = (math.floor(slot) - 1) % st.period + 1
+  local cur = st.slot_of[id]
+  if cur == s then return end
+  if not cur then st.count = st.count + 1 end
+  st.slot_of[id] = s
+  local b = st.buckets[s]
+  b[#b + 1] = id
+end
+
+--- Lot ÉTALEMENT : période courante d'une voie (ticks).
+function Scheduler.period(lane)
+  return lane_state(lane).period
+end
+
+--- Lot ÉTALEMENT : créneau d'un id (nil s'il n'est pas dans la voie).
+function Scheduler.slot(lane, id)
+  local st = Storage.ns("sched").lanes[lane]
+  return st and st.slot_of[id] or nil
+end
+
 function Scheduler.has(lane, id)
   local st = Storage.ns("sched").lanes[lane]
   return st ~= nil and st.slot_of[id] ~= nil
