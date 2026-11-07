@@ -6,7 +6,7 @@
     tick 0      : UNE recherche d'entités du moteur (find_entities_filtered, C++) : aucune boucle Lua. Ici, une recherche simulée (parcours
                   d'une liste, comme tests/mock_engine.lua) est donnée pour mémoire, HORS du pire tick Lua ;
     ticks 1..m  : rangement par anneaux (Ech.poser), au plus Ech.LOT_RANGEMENT entités par tick ;
-    ticks m+1.. : dégâts, au plus Ech.TRANCHE entités par tick, lues en parcourant les anneaux (Ech.suivants : aucune copie de la file) ;
+    ticks m+1.. : dégâts, au plus Ech.BUDGET entités par tick (budget de toutes les salves ; ici une seule), lues en parcourant les anneaux (Ech.suivants : aucune copie de la file) ;
                   en jeu, `damage` et les morts coûtent en C++ : NON mesuré ici.
   Pire tick Lua = max(un lot de rangement, une tranche). Chaque temps est une moyenne sur REP répétitions du MÊME
   travail (os.clock n'a qu'une milliseconde de résolution sous Windows).
@@ -95,7 +95,7 @@ local function mesure(n, r, salve)
     local t1 = os.clock()
     local nb = 0
     repeat
-      local l, fini = Ech.suivants(q, cur, Ech.TRANCHE)
+      local l, fini = Ech.suivants(q, cur, Ech.BUDGET)
       nb = nb + 1
       for _, e in ipairs(l) do
         if e.valid then e:damage(salve) end
@@ -111,7 +111,7 @@ end
 
 local fail = 0
 print(string.format("[ECHELLE-COUT] rangement %d entités par tick, tranche %d coups par tick, plafond %d par salve, cadence de zone %d ticks ;"
-  .. " moyennes sur %d répétitions", Ech.LOT_RANGEMENT, Ech.TRANCHE, Ech.PLAFOND, Ech.CADENCE_ZONE, REP))
+  .. " moyennes sur %d répétitions", Ech.LOT_RANGEMENT, Ech.BUDGET, Ech.PLAFOND, Ech.CADENCE_ZONE, REP))
 print("[ECHELLE-COUT] entités | dans la zone | frappées | recherche simulée ms (moteur en jeu) | lots | ms/lot | tranches"
   .. " | ms/tranche | PIRE TICK LUA ms | ticks par salve")
 for _, n in ipairs({ 1000, 2000, 3000, 6000, 10000 }) do

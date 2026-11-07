@@ -10,8 +10,9 @@
   E3 salve : chaque cible de la zone prend un coup PLEIN qui, après la résistance du déchiqueteur du palier de son âge à ce type de dégâts,
      vaut PV / SALVES ; zone R(A) = PAS_ZONE × (A − AGE_ZONE0) pour A ≥ 10 (15 à l'âge 10, 90 à l'âge 15).
   E4 trace : cratère de rayon R(A) / 6 au point visé (2,5 à l'âge 10, 15 à l'âge 15).
-  COÛT : une recherche d'entités par salve, cibles rangées par anneau de distance (ordre fixe), au plus PLAFOND par salve, dégâts par TRANCHES de
-     TRANCHE entités par tick ; une salve de zone au plus toutes les CADENCE_ZONE ticks.
+  COÛT : une recherche d'entités par salve, cibles rangées par anneau de distance (ordre fixe), au plus PLAFOND par salve ; au plus BUDGET
+     coups de zone par tick EN TOUT, partagés par toutes les salves en cours (Ech.partage) ; une salve de zone au plus toutes les CADENCE_ZONE
+     ticks.
 
   SUPPOSÉ (à confirmer en jeu) : le palier des déchiqueteurs de l'âge A est A − DECALAGE_PALIER (âge 15 ↔ palier 12) ; la meilleure munition
   vanilla d'un âge est le chargeur perforant jusqu'à l'âge 8, l'uranium ensuite.
@@ -32,7 +33,10 @@ Ech.AGE_ZONE0 = 9
 Ech.AGE_ZONE_MIN = 10
 Ech.DECALAGE_PALIER = 3
 Ech.CRATERE_PART = 6
-Ech.TRANCHE = 120
+-- Coups de zone par tick, EN TOUT, partagés par les salves en cours. Mesuré le 7/11 (xp-zone en --seul) : 120 coups par SALVE, deux salves
+-- en même temps, donnaient 34 ms au pire tick (particleUpdate 15,7 : débris des morts ; scriptUpdate 15,4 : damage() et la mort dans le
+-- moteur, environ 0,06 ms par coup mortel). Décision du lead : budget PARTAGÉ, 40 pour commencer.
+Ech.BUDGET = 40
 Ech.ANNEAU = 3
 Ech.LOT_RANGEMENT = 500 -- 1 000 donnait 1,2 à 1,5 ms Lua par tick avec la liste (tests/echelle_cout.lua, 5/11) ; en jeu, + 4 lectures du pont C++ par entité
 Ech.PLAFOND = 4000
@@ -217,15 +221,28 @@ function Ech.plan(cands, center)
   return Ech.liste(p)
 end
 
---- Coût : nombre de ticks pour traiter n cibles par tranches.
+--- Coût : nombre de ticks pour traiter n cibles d'une salve SEULE (tout le budget pour elle).
 function Ech.ticks(n)
-  return math.ceil(n / Ech.TRANCHE)
+  return math.ceil(n / Ech.BUDGET)
 end
 
---- Tranche k (1, 2, …) d'une liste : indices de début et de fin (fin < début : rien).
+--- Tranche k (1, 2, …) d'une liste, pour une salve seule : indices de début et de fin (fin < début : rien).
 function Ech.tranche(k, n)
-  local a = (k - 1) * Ech.TRANCHE + 1
-  return a, math.min(n, k * Ech.TRANCHE)
+  local a = (k - 1) * Ech.BUDGET + 1
+  return a, math.min(n, k * Ech.BUDGET)
+end
+
+--- Partage du budget du tick `tick` entre `n` salves en cours (dans l'ordre de la file) : liste de n parts dont la SOMME vaut `budget`.
+--- Chacune reçoit floor(budget / n) ; le reste (budget mod n) va à des salves qui tournent d'un tick à l'autre : sur n ticks, toutes
+--- reçoivent autant. Une salve à qui il reste moins que sa part laisse le surplus perdu pour ce tick (le budget est un maximum).
+function Ech.partage(n, budget, tick)
+  local out = {}
+  if n <= 0 then return out end
+  local base, reste = math.floor(budget / n), budget % n
+  for i = 1, n do
+    out[i] = base + (((i - 1 - tick) % n) < reste and 1 or 0)
+  end
+  return out
 end
 
 --- Modules (lot DESIGN-MODULES, PRODUIT accordé le 5/11) : portée, zone et salve effectives d'une unité avec ses bonus (0,2 = + 20 %).
