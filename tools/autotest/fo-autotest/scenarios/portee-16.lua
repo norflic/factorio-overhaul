@@ -4,7 +4,7 @@
   attaque SEUL une cible, sur cinq arènes séparées de 200 tuiles :
     A : mitrailleuse de base « gun-turret » garnie (18, centre à centre, ± 0,7), approche EN DIAGONALE (du nord-est) ;
     B : la même, approche sur l'AXE (de l'est) ;
-    E : la mitrailleuse à niveaux de niveau 1 (fo-lvl-gun-1) garnie, en diagonale ;
+    E : la mitrailleuse à niveaux de niveau 2 (fo-lvl-gun-2, le niveau 1 est la gun-turret vanilla) garnie, en diagonale ;
     C : une gun-turret SANS munitions (elle ne tire pas : mesure seule), en diagonale ;
     D : la même sans munitions, sur l'axe.
   Calcul (shared/ai3/reaction.lua, Re.gap ; tests/portee_mitrailleur_test.lua) : le mitrailleur frappe le centre d'une tourelle
@@ -28,7 +28,7 @@ local DIAG = math.sqrt(0.5)
 local ARENES = {
   { key = "A", name = "gun-turret", ammo = true, dx = D0 * DIAG, dy = -D0 * DIAG },
   { key = "B", name = "gun-turret", ammo = true, dx = D0, dy = 0 },
-  { key = "E", name = "fo-lvl-gun-1", ammo = true, dx = D0 * DIAG, dy = -D0 * DIAG },
+  { key = "E", name = "fo-lvl-gun-2", ammo = true, dx = D0 * DIAG, dy = -D0 * DIAG },
   { key = "C", name = "gun-turret", ammo = false, dx = D0 * DIAG, dy = -D0 * DIAG },
   { key = "D", name = "gun-turret", ammo = false, dx = D0, dy = 0 },
 }
