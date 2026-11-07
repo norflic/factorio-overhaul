@@ -75,6 +75,9 @@ function S.electric_centers(bx, by, dir, sink, spec)
   -- S.inside(sink, cx + vx, cy + vy) est écrit en ligne et coupé en deux : sa partie x ne dépend que de ox, elle est lue une fois par
   -- colonne (même valeur) et saute les 4 lignes quand elle est fausse.
   local out = {}
+  -- (revue-s, note sur 6c02464a : l'ancien ipairs({ dir, 0, 2, 4, 6 }) s'arrêtait au premier élément quand dir était nil : aucun candidat.
+  -- Aucun appelant ne passe nil ; gardé tel quel pour rester égal dans tous les cas.)
+  if dir == nil then return out end
   local size, sx, sy, sw, sh = spec.size, sink.x, sink.y, sink.w, sink.h
   local hw, hh = sw / 2 - EPS, sh / 2 - EPS
   local lim_sx, lim_sy = (size + sw) / 2 - EPS, (size + sh) / 2 - EPS

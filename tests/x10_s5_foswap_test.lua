@@ -70,6 +70,7 @@ local function q1_run(SS, n, seed)
     if r.int(1, 8) == 1 then bx = bx + r.int(1, 255) / 256 end
     if r.int(1, 8) == 1 then by = by + r.int(1, 255) / 256 end
     local dir = r.pick({ 0, 2, 4, 6 })
+    if r.int(1, 40) == 1 then dir = nil end -- (revue-s : direction nil, aucun candidat avant comme après)
     local rx, ry = R.rotate(dir, T.drill_drop[1], T.drill_drop[2])
     local px, py = bx + rx, by + ry
     local sink
@@ -192,6 +193,7 @@ end
 do
   local MUT = {
     { "centres : passage en double non sauté", "if i == 0 or d ~= dir then", "if true then", "q1" },
+    { "centres : direction nil acceptée", "if dir == nil then return out end", "", "q1" },
     -- (mutant de l'ancienne emprise écarté : les décalages de ±1,5 recouvrent toujours la 2 × 2, test toujours vrai ; même remarque que
     -- tests/foreuse_chaine_test.lua, 7/11)
     { "centres : recouvrement du récepteur en x seulement", "not (in_sx and abs(cy - sy) < lim_sy)", "not (in_sx)", "q1" },
