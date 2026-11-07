@@ -491,7 +491,11 @@ local EntityMT = {
     if k == "get_main_inventory" then return function() return inv_of(t, defines.inventory.character_main) end end
     if k == "burner" then return W.prototype(t.name).burner_prototype and {} or nil end -- LuaEntity.burner : seulement une machine a combustion (pvp_test, lot FOREUSES)
     if k == "get_fuel_inventory" then return function() return inv_of(t, defines.inventory.fuel) end end
-    if k == "status" then return defines.entity_status.working end -- lot GISEMENTS : toute machine du mock travaille
+    -- lot GISEMENTS : toute machine du mock travaille ; lot VIDEO-L5 : un banc impose un statut par rawset(e, "_status", …)
+    if k == "status" then return rawget(t, "_status") or defines.entity_status.working end
+    -- lot VIDEO-L5 : produits finis d'une machine de fabrication (four du mock : une plaque par fonte ; un assembleur ne fabrique
+    -- rien au mock, 0), sur demande du monde (opts.products_finished)
+    if k == "products_finished" and W.products_finished and CRAFTERS[t.type] then return rawget(t, "_finished") or 0 end
     if k == "get_module_inventory" then return function() return nil end end -- lot MOD-1 : pas de modules au mock
     -- Étape 1 : service_smelters lit is_crafting ; un four du mock fond d'un coup (pas de fabrication en cours entre deux ticks)
     if k == "is_crafting" then return function() return false end end
@@ -823,6 +827,9 @@ function M.new_world(opts)
     return_delay = opts.return_delay or 300,
     unit = 0, entities = {}, events = {}, nth = {}, commands = {},
     raise_damaged = opts.raise_damaged or false, -- lot PERF4 : LuaEntity.damage lève on_entity_damaged (fire_damaged)
+    -- lot VIDEO-L5 : LuaEntity.products_finished SUR DEMANDE seulement (sans l'option : nil, comme avant ; la mesure des modules
+    -- d'IA3-e la lit aussi)
+    products_finished = opts.products_finished or false,
     pending_paths = {}, path_id = 0, destroyed_queue = {},
     renders = {}, render_id = 0, lines_drawn = 0, prints = {}, logs = {}, files = {},
     walk_writes = 0, reg = 0, groups = {}, group_number = 0, occupied = {}, game_prints = {}, produced = {}, burned = 0,
@@ -1703,6 +1710,7 @@ local function step_economy(tick)
           if src.get_item_count(item) >= need and burn(e, tick) then
             src.remove({ name = item, count = need })
             inv_of(e, defines.inventory.furnace_result).insert({ name = out, count = 1 })
+            rawset(e, "_finished", (rawget(e, "_finished") or 0) + 1) -- lot VIDEO-L5 : products_finished
             break
           end
         end

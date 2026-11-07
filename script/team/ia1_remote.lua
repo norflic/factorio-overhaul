@@ -27,6 +27,7 @@ local Config = require("script.core.config")
 local Outposts = require("script.faction.outposts") -- lot FOURS (bancs : fours posés, interrupteur, compteurs de visites)
 local Build = require("script.team.build") -- lot ÉTAGE 5 (bancs : couloir d'un accès écrit) ; déjà chargé par script/team/worker.lua
 local T = require("shared.team.config")
+local Board = require("script.team.board") -- lot COLLECTE (bancs : état des tâches de collecte)
 
 -- Lot IA1-b (docs §8.6, pilotage sans clic) :
 --   team_status(key)                 -> état d'organisation publié (Poles.status) ou nil ;
@@ -370,6 +371,62 @@ remote.add_interface("fo-ia1", {
     local f = team_of(key)
     if not (f and f.team) then return nil end
     return Poles.set_sur(f, on)
+  end,
+  -- Lot COLLECTE (bancs seulement, scenarios/collecte-fer.lua) : l'équipe `key` est réduite à `keep` PNJ, son coffre vidé de fer, et un projet
+  -- « fini » de banc tient les coffres de sortie `spots` = { { x, y, plaques }, ... } (coffres de fer posés ici, garnis de plaques de fer).
+  -- Rend { project, kept, iron, outs } ou nil. Aucune règle du lot n'est nommée ici : la même interface sert le témoin.
+  bench_collecte = function(key, keep, spots)
+    local f = team_of(key)
+    if not (f and f.team and f.hq and f.hq.valid and type(keep) == "number" and type(spots) == "table") then return nil end
+    local ids = State.sorted_keys(f.engineers or {})
+    for i = #ids, keep + 1, -1 do Registry.remove(ids[i], true) end
+    local fe = T.outposts.iron.product
+    local have = Stock.count(f, fe)
+    if have > 0 then Stock.remove(f, fe, have) end
+    local surface = f.hq.surface
+    local id = Build.request(f, { bench = "collecte" })
+    local p = f.build and f.build.projects[id]
+    if not p then return nil end
+    p.state, p.finished, p.counted = "fini", game.tick, true
+    for _, s in ipairs(spots) do
+      local c = surface.create_entity({ name = T.outposts.coal.sink, position = { x = s[1], y = s[2] }, force = f.force })
+      if c then
+        c.get_inventory(defines.inventory.chest).insert({ name = fe, count = s[3] })
+        p.outs[#p.outs + 1] = { x = c.position.x, y = c.position.y }
+      end
+    end
+    return { project = id, kept = math.min(#ids, keep), iron = Stock.count(f, fe), outs = #p.outs }
+  end,
+  -- Lot COLLECTE (bancs seulement) : état des tâches ia1d:<projet>:o:<i> au tableau ({ prio, critical, prise }), et, si la règle du lot existe,
+  -- ses choix (f.team.collecte : picked, refused). Lecture seule.
+  collecte_state = function(key, pid)
+    local f = team_of(key)
+    if not (f and f.team) then return nil end
+    local tasks = {}
+    local b = Board.get(f)
+    for i = 1, 20 do
+      local t = b.tasks["ia1d:" .. tostring(pid) .. ":o:" .. i]
+      if t then tasks[i] = { prio = t.prio, critical = t.critical == true, prise = t.worker ~= nil, urgent = t.urgent_collect == true } end
+    end
+    local c = f.team.collecte
+    local refused = {}
+    if c and c.refused then for _, k in ipairs(State.sorted_keys(c.refused)) do refused[#refused + 1] = k end end
+    local picked = {}
+    if c and c.picked then for _, k in ipairs(State.sorted_keys(c.picked)) do picked[#picked + 1] = k end end
+    -- PNJ : état et tâche tenue ; tâches libres en tête de liste ; raisons des prises vides (profileur allumé seulement)
+    local npcs = {}
+    for _, id in ipairs(State.sorted_keys(f.engineers or {})) do
+      local ag = Registry.get(id)
+      if ag then npcs[#npcs + 1] = tostring(id) .. ":" .. tostring(ag.state) .. ":" .. tostring(ag.task and ag.task.key or "-") end
+    end
+    local free = {}
+    for _, t in ipairs(b.list or {}) do
+      if not t.worker and #free < 6 then free[#free + 1] = string.format("%s p%d%s", tostring(t.key), t.prio or 0, t.fond and " fond" or "") end
+    end
+    local miss = {}
+    if b.miss and b.miss.why then for _, k in ipairs(State.sorted_keys(b.miss.why)) do miss[#miss + 1] = k .. "=" .. b.miss.why[k] end end
+    return { tasks = tasks, rule = c ~= nil, picked = picked, refused = refused, engineers = f.engineers_count or 0,
+      floor = f.team.floor or 0, iron = Stock.count(f, T.outposts.iron.product), npcs = npcs, free = free, miss = miss }
   end,
   kill_npc = function(key, id)
     local f = team_of(key)
