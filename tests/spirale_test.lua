@@ -2,7 +2,8 @@
   Sortie de spirale (shared/team/spirale.lua) : recrue GRATUITE de votre équipe sous son effectif de départ. Décision du DC (QCM,
   7/11 vers 14 h 25), mot pour mot : « je veux toujours n ouvriers minimum, donc 12 si 12 au départ. Au delas ça coute des
   ressources ». Lecture du lead : sous l'effectif de départ, ni plaques ni kit pris au stock, recrue équipée comme une autre, à
-  2 PNJ comme à 1 ; au-delà, payée comme avant ; factions inchangées ; minage d'urgence gardé (parité avec les factions).
+  2 PNJ comme à 1 ; au-delà, payée comme avant ; factions inchangées. Aucun minage d'urgence pour le kit d'une recrue gratuite
+  (relecture du lead après la fusion de 0102eb36 : le kit ne coûte rien, la parité avec les factions ne tient pas, leur recrue est payée).
   État de la partie du DC sur 0.6.58 (fo-logs/2026-11-07_PARTIE-DC-0658/factorio-current-1415.log, votre équipe, 157,7 à 177 min) :
   2 PNJ sur 12, fer libre 0 ([FO-DEFENSE]), 194 chargeurs ([FO-REARMEMENT]), pierre et cuivre saturés ([FO-IA3C]).
   Sections : §1 règle pure ; §2 planificateur ; §3 lecteurs du cerveau (stock virtuel, budget de la pile) et copie d'E4 ;
@@ -88,7 +89,7 @@ local function suite_planner()
   local p2 = Planner.plan(pview({ workers = 2, stock = DC }), book)
   local mt = has_task(p2, "mine:iron-ore")
   check(free_armed(p2), "partie du DC (2 PNJ sur 12, fer 0) : recrue gratuite et équipée, rien de prélevé ni de fabriqué")
-  check(mt ~= nil and mt.prio == 90, "partie du DC : minage d'urgence du fer à 90 (parité avec les factions)")
+  check(mt == nil or mt.prio < 90, "partie du DC : AUCUN minage d'urgence pour le kit d'une recrue gratuite (le kit ne coûte rien)")
   check(free_armed(Planner.plan(pview({ workers = 1, stock = DC }), book)), "1 PNJ sur 12, fer 0 : gratuite et équipée (pas sans arme)")
   check(free_armed(Planner.plan(pview({ workers = 0, stock = {} }), book)), "équipe vide, coffre vide : gratuite et équipée")
   local pr = Planner.plan(pview({ workers = 5, stock = RICH }), book)
@@ -105,10 +106,12 @@ local function suite_planner()
   check(not ph.recruit_workers and not ph.recruit_free, "recrues retenues (garde QGSURVIE ou perte récente) : aucune recrue, gardée")
   local pb = Planner.plan(pview({ workers = 2, stock = DC, recruit_blocked = true }), book)
   check(not pb.recruit_free and not (pb.recruit_workers and not pb.recruit_unarmed), "plafond d'agents atteint : aucune recrue gratuite")
-  -- filet de recul (décision du DC, 7/11 vers 16 h 56) : la vue dit « en recul » : ni recrue gratuite, ni recrue payée (§4), minage gardé
+  -- filet de recul (décision du DC, 7/11 vers 16 h 56) : la vue dit « en recul » : ni recrue gratuite, ni recrue payée (§4), ni minage
+  -- d'urgence pour un kit
   local pw = Planner.plan(pview({ workers = 2, stock = DC, recul_wait = true }), book)
-  check(not pw.recruit_workers and pw.recruit_recul and not pw.recruit_free and has_task(pw, "mine:iron-ore") ~= nil,
-    "en recul (2 sur 12, fer 0) : aucune recrue, minage d'urgence gardé")
+  local mw = has_task(pw, "mine:iron-ore")
+  check(not pw.recruit_workers and pw.recruit_recul and not pw.recruit_free and (mw == nil or mw.prio < 90),
+    "en recul (2 sur 12, fer 0) : aucune recrue, aucun minage d'urgence")
   local pk2 = Planner.plan(pview({ workers = 5, stock = KIT, recul_wait = true }), book)
   check(not pk2.recruit_workers and pk2.recruit_recul, "en recul, kit et 2 000 fer au coffre : pas de recrue PAYÉE à la place (§4 sauté)")
   local pu = Planner.plan(pview({ workers = 13, stock = KIT, recul_wait = true }), book)
@@ -305,8 +308,12 @@ local function set_pile(M) local r = Pi Pi = M return function() Pi = r end end
 local function set_etapes(M) local r = Et Et = M return function() Et = r end end
 module_mutant("planificateur : pas de drapeau recruit_free (E4 paierait)", "shared/team/planner.lua",
   "out.recruit_free = true", "", set_planner)
-module_mutant("planificateur : pas de minage d'urgence", "shared/team/planner.lua",
-  "if next(p.raw) ~= nil then emergency_mine(p.raw) end", "", set_planner)
+module_mutant("planificateur : minage d'urgence pour le kit gratuit (0102eb36)", "shared/team/planner.lua",
+  "      out.emergency_recruit = true\n    end\n  end",
+  "      out.emergency_recruit = true\n    end\n"
+    .. "    local p = book:plan(view.recruit_cost or kit_list(\"worker\", 1), real_avail())\n"
+    .. "    if next(p.raw) ~= nil then emergency_mine(p.raw) end\n  end",
+  set_planner)
 module_mutant("planificateur : garde des recrues retenues ignorée", "shared/team/planner.lua",
   "if rf and not view.hold_recruits and not view.recruit_blocked and Sp.free(view) then",
   "if rf and not view.recruit_blocked and Sp.free(view) then", set_planner)

@@ -961,8 +961,9 @@ function P.plan(view, book)
   -- EFFONDREMENT (décision du DC, 7/11 : « je veux toujours n ouvriers minimum, donc 12 si 12 au départ. Au delas ça coute des
   -- ressources ») : sous l'effectif de départ, la recrue est GRATUITE et équipée (shared/team/spirale.lua) : rien n'est pris au
   -- stock virtuel ni au coffre (out.recruit_free ; paiement sauté en E4, script/team/team.lua). Avant : payée avec les plaques du
-  -- livre, et rien sans elles (partie du DC sur 0.6.58 : 2 PNJ sur 12, fer libre 0, de 133 à 177 min). Minage d'urgence comme les
-  -- factions (décision du lead, « parité ») : le stock ne paierait pas une recrue. Filet de RECUL (décision du DC, 7/11 vers 16 h 56) :
+  -- livre, et rien sans elles (partie du DC sur 0.6.58 : 2 PNJ sur 12, fer libre 0, de 133 à 177 min). AUCUN minage d'urgence pour
+  -- le kit d'une recrue gratuite (relecture du lead, 7/11 après la fusion de 0102eb36 : le PNJ partait miner du fer pour un kit qui ne
+  -- coûte rien ; la parité ne tient pas, la recrue des factions est payée). Filet de RECUL (décision du DC, 7/11 vers 16 h 56) :
   -- view.recul_wait (recrues gratuites tuées vite, Sp.recul_ready au runtime) : la recrue attend, et aucune recrue payée ne la
   -- remplace (§4 sauté : out.recruit_recul).
   local rf = (not em) and view.recover_floor or nil
@@ -974,8 +975,6 @@ function P.plan(view, book)
       out.recruit_free = true
       out.emergency_recruit = true
     end
-    local p = book:plan(view.recruit_cost or kit_list("worker", 1), real_avail())
-    if next(p.raw) ~= nil then emergency_mine(p.raw) end
   end
   if em and (em.rebuild or view.threatened or view.army_alert) and (view.done or {})["army"] then
     local guard = math.min(math.max(5, math.floor(P.army_target(view) / 3)), view.soldiers_max)
