@@ -8,13 +8,17 @@
     3. retrait à la 1re production d'une MACHINE (confirmed_now de L5), compteur d'amorce = la main des PNJ d'avant ;
     4. verrou levé quand l'unité est perdue (plus aucun producteur) ;
     5. câblage (source) : capitalisation.lua après conf_log, industrie.lua avant Ml.sources, cerveau.lua (Am.filter_crafts) ;
-    6. mutants refusés.
+    6. mutants refusés ;
+    7. lot VIDEO-COUVERTURE 5 : cycles de la décision -> graine (C5.1), 1re production écrite [FO-CONFIRMATION] (C5.2), ordre refusé par
+       l'exécutant occupé re-émis à l'identique après Cf.RETRY (C5.3), crochets de capitalisation.lua.
 ]]
 package.path = "./?.lua;" .. package.path
 local Ml = require("shared.ai3.mall")
 local Am = require("shared.ai3.amorce")
 local Cf = require("shared.ai3.confirmation")
 local AmRt0 = require("script.ai3.amorce_rt")
+local LOGS = {}
+log = function(s) LOGS[#LOGS + 1] = s end -- le `log` du moteur, pour la colle
 local passes, failures = 0, 0
 local function check(cond, msg)
   if cond then passes = passes + 1 else failures = failures + 1 print("  ECHEC : " .. msg) end
@@ -79,7 +83,9 @@ local function battery(AmRt, verbose)
   ck(#r == 1 and r[1].item == BRAS and r[1].hand == 3, "retrait a la 1re production de la machine ; la main de ce releve n'entre pas au compteur")
   ck(not Am.hand_allowed(ml, BRAS, 4, Ml) and Am.hand_allowed(ml, BRAS, 0, Ml), "main refusee apres, toujours permise a stock nul")
   local lines = AmRt.lines(f, ml, r, 3.0)
-  ck(#lines == 1 and lines[1]:find("[FO-AMORCE] player", 1, true) and lines[1]:find("3 fourni", 1, true), "ligne [FO-AMORCE]")
+  ck(#lines == 2 and lines[1]:find("[FO-AMORCE] player", 1, true) and lines[1]:find("3 fourni", 1, true), "ligne [FO-AMORCE]")
+  ck(lines[2] and lines[2]:find("[FO-CONFIRMATION] player", 1, true) and lines[2]:find("101", 1, true) and lines[2]:find("1re fois", 1, true),
+    "ligne [FO-CONFIRMATION] : la 1re production de l'unite 101 leve la retenue du module suivant (" .. tostring(lines[2]) .. ")")
   -- verrou tenu quand la machine s'arrête (aucune production à ce relevé)
   cfr = Cf.step(cs.cf, { [101] = { count = 2, cause = "sortie" } }, 14400, { complete = true })
   AmRt.observe(f, cs, ml, cfr, cs.cf, 14400)
@@ -96,6 +102,120 @@ end
 print("[AMORCE-GLUE] 1-4. colle, confirmation de L5, regle")
 check(battery(AmRt0, true) == 0, "batterie sans echec")
 
+-- 7. lot VIDEO-COUVERTURE 5
+local function battery7(AmRt, verbose)
+  local fails = 0
+  local function ck(c, msg)
+    if not c then fails = fails + 1 if verbose then print("  ECHEC : " .. msg) end end
+    if verbose then check(c, msg) end
+  end
+  local RETRY = Cf.RETRY
+  -- C5.1 : les cycles de la décision deviennent la graine du mall, bornée, avec sa cause
+  local f = team()
+  f.team.capi = {}
+  local cs = f.team.capi
+  cs.st = { bank = 500 }
+  cs.open = {}
+  local res = { orders = {}, refus = {}, rang_cycles = { seed = { cata = { { "cata", 40 }, { "autre", 5 } } }, cyc = { cata = "cata" } } }
+  local out = AmRt.after_decision(f, cs, res, 100, 1.0)
+  ck(out == res.orders and #out == 0, "after_decision : sans ordre mis de cote, la liste des ordres est rendue telle quelle")
+  ck(type(cs.cyc) == "table" and #cs.cyc == 2 and cs.cyc[2].item == "cata", "C5.1 : les cycles de la decision sont publies (cs.cyc, liste triee)")
+  local ml = f.team.ia3.mall
+  local seeded = AmRt.seed(f, ml, 120, BOOK, function(it) return it == "autre" and 3 or 0 end)
+  local need = {}
+  for _, s in ipairs(seeded) do need[s.item] = s end
+  ck(need.cata and need.cata.need == 80 and need.autre and need.autre.need == 7, "C5.1 : graine du cycle (80 cata, 10 - 3 autre) en plus du materiel")
+  ck(need.cata and tostring(need.cata.cause):find("cycle cata", 1, true), "C5.1 : la cause du cycle est ecrite")
+  ck(ml.want.cata and ml.want.cata.src == Am.SRC, "C5.1 : la graine du cycle entre au mall")
+  local said = 0
+  for _, l in ipairs(LOGS) do if l:find("[FO-AMORCE] player : graine de cycle cata : 80 a fabriquer ; cause : cycle cata", 1, true) then said = said + 1 end end
+  ck(said == 1, "C5.1 : la graine du cycle et sa cause sont ecrites au journal (" .. said .. ")")
+  AmRt.seed(f, ml, 180, BOOK, function(it) return it == "autre" and 3 or 0 end)
+  said = 0
+  for _, l in ipairs(LOGS) do if l:find("graine de cycle cata", 1, true) then said = said + 1 end end
+  ck(said == 1, "C5.1 : la meme graine n'est pas reecrite a chaque pensee")
+  AmRt.after_decision(f, cs, { orders = {}, refus = {}, rang_cycles = { seed = {}, cyc = {} } }, 200, 1.0)
+  ck(cs.cyc == nil, "C5.1 : sans cycle, cs.cyc est efface (le global reste celui d'avant)")
+  do -- objet de cycle sans recette a la main : refus ecrit une fois
+    local f3 = team()
+    f3.team.capi = { cyc = Am.flatten({ seed = { m = { { "brut", 10 } } }, cyc = { m = "m" } }) }
+    LOGS = {}
+    AmRt.seed(f3, f3.team.ia3.mall, 120, { recipe_for = function(_, it) return it ~= "brut" and { name = it } or nil end }, function() return 0 end)
+    AmRt.seed(f3, f3.team.ia3.mall, 180, { recipe_for = function(_, it) return it ~= "brut" and { name = it } or nil end }, function() return 0 end)
+    ck(#LOGS == 1 and LOGS[1]:find("cycle brut non seme (20 voulus) : aucune recette a la main ; cause : cycle m", 1, true),
+      "C5.1 : cycle non fabricable a la main : refus ecrit une seule fois (" .. #LOGS .. ")")
+  end
+  local f2 = team()
+  f2.team.capi = {}
+  local sd = AmRt.seed(f2, f2.team.ia3.mall, 120, BOOK, function() return 0 end)
+  local only = {}
+  for _, s in ipairs(sd) do only[s.item] = true end
+  ck(not only.cata and not only.autre, "C5.1 : sans cycle, aucune graine de cycle")
+
+  -- C5.3 : l'ordre refusé par l'exécutant occupé
+  local plan = { key = "chaine:x", kind = "chaine", item = "x", n = 3, cost_m = 100, recipe = "r", items = { { "y", 2 } } }
+  local busy = "executant : plan directeur occupe (2 module(s) ouvert(s), au plus 2)"
+  local csd = { st = { bank = 500 }, open = {} }
+  ck(AmRt.defer(csd, plan, "budget : 12 MU > 4", 0) == false and csd.cfo == nil, "C5.3 : un refus qui n'est pas l'executant occupe n'est pas mis de cote")
+  ck(AmRt.defer(csd, { key = "equiper:m", kind = "equiper", item = "m" }, busy, 0) == false, "C5.3 : seuls les ordres de module sont mis de cote")
+  ck(AmRt.defer(csd, plan, busy, 0) == true, "C5.3 : un ordre de module refuse par l'executant occupe est mis de cote")
+  local fx = { key = "player" }
+  local o1 = AmRt.after_decision(fx, csd, { orders = {}, refus = {} }, RETRY - 1, 4.9)
+  ck(#o1 == 0, "C5.3 : rien avant Cf.RETRY")
+  LOGS = {}
+  local o2 = AmRt.after_decision(fx, csd, { orders = {}, refus = {} }, RETRY, 5.0)
+  ck(#o2 == 1 and o2[1].key == "chaine:x" and o2[1].n == 3 and o2[1].cost_m == 100 and o2[1].items[1][1] == "y" and o2[1].relances == 1,
+    "C5.3 : apres Cf.RETRY, le MEME plan est re-emis en tete (relances 1)")
+  ck(csd.st.bank == 400, "C5.3 : l'epargne paie de nouveau le plan (500 - 100)")
+  ck(#LOGS == 1 and LOGS[1]:find("relance du MEME plan chaine:x", 1, true), "C5.3 : la relance est ecrite (" .. tostring(LOGS[1]) .. ")")
+  local o3 = AmRt.after_decision(fx, csd, { orders = {}, refus = {} }, RETRY + 3600, 6.0)
+  ck(#o3 == 0, "C5.3 : une seule relance par mise de cote")
+  -- refusé de nouveau : mis de côté de nouveau avec relances 1, puis une 2e relance, puis laissé à la décision
+  ck(AmRt.defer(csd, o2[1], busy, RETRY + 3600) == true, "C5.3 : refuse de nouveau : mis de cote encore (relances 1 < 2)")
+  local o4 = AmRt.after_decision(fx, csd, { orders = {}, refus = {} }, 2 * RETRY + 3600, 11.0)
+  ck(#o4 == 1 and o4[1].relances == 2, "C5.3 : 2e relance du meme plan")
+  ck(AmRt.defer(csd, o4[1], busy, 3 * RETRY) == false, "C5.3 : au-dela de RELANCES_MAX, l'ordre est laisse a la decision")
+  -- le plan n'est pas re-émis quand il n'a plus d'actualité
+  local function deferred()
+    local c = { st = { bank = 500 }, open = {} }
+    AmRt.defer(c, plan, busy, 0)
+    return c
+  end
+  local c1 = deferred()
+  local x1 = AmRt.after_decision(fx, c1, { orders = { { key = "chaine:x", kind = "chaine", n = 5, cost_m = 10 } }, refus = {} }, RETRY, 5.0)
+  ck(#x1 == 1 and x1[1].n == 5 and c1.st.bank == 500 and c1.cfo.ids["ordre:chaine:x"] == nil,
+    "C5.3 : la decision a refait l'ordre d'elle-meme : le sien est garde, rien n'est paye de plus, la mise de cote est levee")
+  local c2 = deferred()
+  c2.open = { { key = "chaine:x" } }
+  ck(#AmRt.after_decision(fx, c2, { orders = {}, refus = {} }, RETRY, 5.0) == 0 and c2.st.bank == 500, "C5.3 : un ordre de meme cle est deja ouvert : rien")
+  local c3 = deferred()
+  ck(#AmRt.after_decision(fx, c3, { orders = {}, refus = { { key = "chaine:x", why = "danger" } } }, RETRY, 5.0) == 0 and c3.st.bank == 500,
+    "C5.3 : une AUTRE raison (danger) refuse le plan maintenant : jamais re-emis")
+  ck(#AmRt.after_decision(fx, deferred(), { orders = {}, refus = { { key = "chaine:x", why = busy } } }, RETRY, 5.0) == 1,
+    "C5.3 : refuse encore pour la seule raison de l'executant occupe : re-emis")
+  local c4 = deferred()
+  c4.st.bank = 50
+  ck(#AmRt.after_decision(fx, c4, { orders = {}, refus = {} }, RETRY, 5.0) == 0 and c4.st.bank == 50, "C5.3 : l'epargne ne paie plus le plan : rien n'est re-emis ni debite")
+  LOGS = {}
+  ck(#AmRt.after_decision(fx, c4, { orders = {}, refus = {} }, Cf.STALL, 10.0) == 0 and #LOGS == 1 and LOGS[1]:find("abandonne", 1, true),
+    "C5.3 : abandon ecrit a Cf.STALL (" .. tostring(LOGS[1]) .. ")")
+  ck(next(c4.cfo.ids) == nil, "C5.3 : plus rien en suspens apres l'abandon")
+  local function has_fn(t, seen)
+    seen = seen or {}
+    if seen[t] then return false end
+    seen[t] = true
+    for _, v in pairs(t) do
+      if type(v) == "function" or (type(v) == "table" and has_fn(v, seen)) then return true end
+    end
+    return false
+  end
+  local c5 = deferred()
+  ck(not has_fn(c5) and not has_fn(cs), "C5.3 : etat sans fonction (global)")
+  return fails
+end
+print("[AMORCE-GLUE] 7. cycles, ordre mis de cote")
+check(battery7(AmRt0, true) == 0, "batterie 7 sans echec")
+
 -- 5. câblage
 print("[AMORCE-GLUE] 5. cablage")
 local function read(p) local fh = assert(io.open(p, "rb")); local s = fh:read("*a"); fh:close(); return s end
@@ -110,6 +230,18 @@ check(s1 and s2 and s1 < s2, "industrie.lua : graine (stock brut) avant Ml.sourc
 check(cer:find("Am.filter_crafts(st.mall, base.tasks", 1, true) and cer:find("Am.filter_crafts(st.mall, E.tasks", 1, true)
   and not cer:find("Ml.filter_crafts(st.mall", 1, true), "cerveau.lua : le filtre des fabrications garde le verrou (Am.filter_crafts)")
 
+do -- crochets de capitalisation.lua du lot VIDEO-COUVERTURE 5 : la décision, puis les portes L6, puis la boucle d'envoi
+  local h1 = capi:find("res.orders = AmRt.after_decision(f, cs, res, tick, minutes(f, tick))", 1, true)
+  local h2 = capi:find("local gate_why = Capi.portes(f, cs, res, view, tick)", 1, true)
+  local h3 = capi:find("AmRt.defer(cs, o, why, tick)", 1, true)
+  local h4 = capi:find("cs.refused[o.key] = tick", 1, true)
+  check(h1 and h2 and h1 < h2, "capitalisation.lua : after_decision AVANT les portes L6 (elles voient les ordres re-emis)")
+  check(h3 and h4 and h4 < h3 and h3 - h4 < 200, "capitalisation.lua : AmRt.defer dans la branche des ordres refuses (apres cs.refused)")
+  local _, n = capi:gsub("AmRt%.after_decision", "")
+  local _, m = capi:gsub("AmRt%.defer", "")
+  check(n == 1 and m == 1, "capitalisation.lua : un seul appel de chaque crochet (" .. n .. ", " .. m .. ")")
+end
+
 -- 6. mutants
 print("[AMORCE-GLUE] 6. mutants")
 local function mutant(name, patch)
@@ -120,7 +252,7 @@ local function mutant(name, patch)
   for k, v in pairs(AmRt0) do M[k] = v end
   patch(M)
   for k, v in pairs(M) do AmRt0[k] = v end
-  local ok, fl = pcall(battery, AmRt0, false)
+  local ok, fl = pcall(function() return battery(AmRt0, false) + battery7(AmRt0, false) end)
   for k in pairs(M) do AmRt0[k] = saved[k] end
   check((not ok) or fl > 0, "mutant refuse : " .. name)
 end
@@ -168,6 +300,75 @@ mutant("la main du releve de la confirmation entre au compteur", function(M)
     local r = base(f, cs, ml, cfr, book, tick)
     for _, x in ipairs(r) do ml.amorce.hand[x.item] = (ml.amorce.hand[x.item] or 0) + 1; x.hand = ml.amorce.hand[x.item] end
     return r
+  end
+end)
+
+-- mutants du lot VIDEO-COUVERTURE 5 (batterie 7)
+mutant("ordre refuse jamais mis de cote (C5.3)", function(M) M.defer = function() return false end end)
+mutant("toute raison de refus mise de cote, pas seulement l'executant occupe (C5.3)", function(M)
+  local base = M.defer
+  M.defer = function(cs, o, why, tick) return base(cs, o, "plan directeur occupe", tick) end
+end)
+mutant("relances sans limite (C5.3)", function(M)
+  local base = M.defer
+  M.defer = function(cs, o, why, tick)
+    local c = {}
+    for k, v in pairs(o) do c[k] = v end
+    c.relances = nil
+    return base(cs, c, why, tick)
+  end
+end)
+mutant("plan refait par la decision aussi re-emis (doublon, C5.3)", function(M)
+  local base = M.after_decision
+  M.after_decision = function(f, cs, res, tick, mn)
+    local fresh = res.orders
+    res.orders = {}
+    local out = base(f, cs, res, tick, mn)
+    res.orders = fresh
+    local o2 = {}
+    for _, o in ipairs(out) do o2[#o2 + 1] = o end
+    for _, o in ipairs(fresh) do o2[#o2 + 1] = o end
+    return o2
+  end
+end)
+mutant("relance qui ne debite pas l'epargne (C5.3)", function(M)
+  local base = M.after_decision
+  M.after_decision = function(f, cs, res, tick, mn)
+    local b = cs.st and cs.st.bank
+    local out = base(f, cs, res, tick, mn)
+    if cs.st then cs.st.bank = b end
+    return out
+  end
+end)
+mutant("relance malgre une autre raison de refus (C5.3)", function(M)
+  local base = M.after_decision
+  M.after_decision = function(f, cs, res, tick, mn) return base(f, cs, { orders = res.orders, refus = {}, rang_cycles = res.rang_cycles }, tick, mn) end
+end)
+mutant("cycles de la decision non publies (C5.1)", function(M)
+  local base = M.after_decision
+  M.after_decision = function(f, cs, res, tick, mn)
+    local out = base(f, cs, res, tick, mn)
+    cs.cyc = nil
+    return out
+  end
+end)
+mutant("graine qui ignore les cycles publies (C5.1)", function(M)
+  local base = M.seed
+  M.seed = function(f, ml, tick, book, count)
+    local cap = f.team and f.team.capi
+    local saved = cap and cap.cyc
+    if cap then cap.cyc = nil end
+    local r = base(f, ml, tick, book, count)
+    if cap then cap.cyc = saved end
+    return r
+  end
+end)
+mutant("1re production non ecrite (C5.2)", function(M)
+  local base = M.lines
+  M.lines = function(f, ml, retraits, mn)
+    local r2 = {}
+    for _, x in ipairs(retraits or {}) do r2[#r2 + 1] = x end
+    return base(f, ml, r2, mn)
   end
 end)
 
