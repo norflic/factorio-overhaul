@@ -415,6 +415,10 @@ function Ra.step(api, f, surface, tick)
     scan_unit(f, surface, b, c, u)
   end
   if c.i > #c.units then
+    -- revue de la 0.6.59, point 1 : la fin peut relire toute la surface (« relier » : live_networks) : sous le jeton du tick ; pris, elle
+    -- passe au pouls suivant (relevé fini, rien d'autre ne bouge)
+    local fin_par = (f.key or "player") .. ":ra"
+    if api.jeton and not api.jeton.take(tick, fin_par) then return end
     st.cyc = nil
     if P then P.fstart("ra:fin") end
     finish_cycle(api, f, surface, b, st, c, tick)
