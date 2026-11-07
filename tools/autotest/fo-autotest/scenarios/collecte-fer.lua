@@ -16,7 +16,7 @@
     la règle n'y existe pas (f.team.collecte absent) ; ce qu'il montre est le délai de prise (ou l'absence de prise), la priorité 55 et
     le fer au QG, à comparer.
   Lancement (par la file, quand le lead lève le gel) :
-    banc.py --out <archive> --qui COLLECTE -- 5400 collecte-fer <source>
+    banc.py --out <archive> --qui COLLECTE -- 5600 collecte-fer <source>   (check au tick 5400 : le banc doit durer plus)
   Journal : [FO-COLLECTE-FER] (le mod écrit [FO-COLLECTE] : choix et refus).
 ]]
 
@@ -48,8 +48,9 @@ local function state_text(s)
     local t = s.tasks[i]
     parts[#parts + 1] = t and string.format("o%d p%d%s%s", i, t.prio or 0, t.critical and " crit" or "", t.prise and " PRISE" or " libre") or ("o" .. i .. " absente")
   end
-  return string.format("%s | PNJ %d/%d | fer QG %d | regle %s | choisis [%s] refus [%s]", table.concat(parts, ", "), s.engineers, s.floor, s.iron,
-    tostring(s.rule), table.concat(s.picked, ","), table.concat(s.refused, ","))
+  return string.format("%s | PNJ %d/%d | fer QG %d | regle %s | choisis [%s] refus [%s] | pnj [%s] | libres [%s] | prises vides [%s]", table.concat(parts, ", "),
+    s.engineers, s.floor, s.iron, tostring(s.rule), table.concat(s.picked, ","), table.concat(s.refused, ","), table.concat(s.npcs or {}, " "),
+    table.concat(s.free or {}, " ; "), table.concat(s.miss or {}, " "))
 end
 
 return {
@@ -59,6 +60,7 @@ return {
   init = function(ctx)
     local st = ctx.state()
     ctx.check(ctx.remote("fo-ia1", "set_setting", "fo-npc-start", 8) == 8, "effectif de depart 8 a la fondation")
+    ctx.call("profiler", true) -- raisons des prises vides du marche ([FO-PRISE-VIDE], b.miss), lues par collecte_state
     local s = ctx.surface()
     local c0 = game.forces.player.get_spawn_position(s)
     local p = s.find_non_colliding_position("fo-team-chest", { x = c0.x + 6, y = c0.y + 6 }, 20, 1)

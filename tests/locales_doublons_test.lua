@@ -7,10 +7,11 @@
   valeur.
   Lancer depuis la racine du mod (git requis pour la liste des fichiers, suivis ou non ; sinon « dir /s /b ») :
     lua5.2 tests/locales_doublons_test.lua   -> [LOCALES] BILAN : N OK, 0 ECHEC(S)
-  §1 lecteur (cas écrits, chaînes et commentaires ignorés, blocs comptés) ; §2 tous les fichiers, exceptions encore utiles, mutant de
-  l'exception ; §3 mutant : l'ancien `local Pl` remis.
-  EXCEPTIONS (une seule le 7/11) : script/team/build.lua, out_wanted, deux copies IDENTIQUES (contrôlé à l'octet) ; une exception s'ajoute
-  ligne par ligne, chemin et nom, avec sa raison écrite à côté.
+  §1 lecteur (cas écrits, chaînes et commentaires ignorés, blocs comptés) ; §2 tous les fichiers, exceptions encore utiles, mutants de
+  l'exception (source synthétique) et de la seconde copie de out_wanted remise ; §3 mutant : l'ancien `local Pl` remis.
+  EXCEPTIONS : AUCUNE depuis la fusion de corr-collecte 413eaf16 dans video-integ (7/11 vers 21 h 20 : la seconde copie de out_wanted de
+  script/team/build.lua, seule exception d'avant, est retirée ; une locale de module de gagnée). Une exception s'ajoute ligne par ligne,
+  chemin et nom, avec sa raison écrite à côté.
 ]]
 package.path = "./?.lua;" .. package.path
 local pass, fail = 0, 0
@@ -21,9 +22,8 @@ local function read(p) local f = assert(io.open(p, "rb")) local s = f:read("*a")
 
 -- Exceptions, une par ligne : ["chemin:nom"] = { same = vrai si les deux déclarations doivent rester identiques à l'octet (contrôlé),
 -- why = raison }. Une exception qui ne correspond plus à aucun doublon est une ERREUR (à retirer).
+-- (vide depuis corr-collecte 413eaf16 : out_wanted de script/team/build.lua n'a plus qu'une copie)
 local EXCEPTIONS = {
-  ["script/team/build.lua:out_wanted"] = { same = true, why = "deux copies identiques (commentaire compris) posees par le meme commit "
-    .. "f917e95f du 1/11 (relecture I5 a I7), aussi sur main ; aucun masquage de valeur ; la seconde est a retirer par le proprietaire de build.lua" },
 }
 
 --- Jetons utiles d'un source Lua 5.2 : { {k = "id"|"kw"|"op", v = texte, line = n} } ; commentaires et chaînes retirés.
@@ -214,12 +214,33 @@ do
     check(USED[k] == true, "§2 exception encore utile (doublon present" .. (EXCEPTIONS[k].same and ", copies identiques" or "") .. ") : " .. k)
   end
 end
-do -- mutant de l'exception : la seconde copie de out_wanted modifiée d'un caractère n'est plus couverte
+do -- mutants de l'exception (source synthétique : la liste réelle est vide depuis corr-collecte) : deux copies identiques sont
+  -- couvertes ; une copie modifiée d'un caractère ne l'est plus ; une exception sans doublon reste « inutile » (USED vide)
+  local path, key = "synth/exception.lua", "synth/exception.lua:f"
+  local body = "local function f(x)\n  return false\nend\n"
+  local src = "local A = 1\n" .. body .. "local B = 2\n" .. body
+  EXCEPTIONS[key] = { same = true, why = "mutant" }
+  local covered = #doubles(src, path) == 0 and USED[key] == true
+  USED[key] = nil
+  local changed = src:sub(1, #src - #body) .. body:gsub("return false", "return nil", 1)
+  local uncovered = #doubles(changed, path) == 1
+  USED[key] = nil
+  local unused = #doubles("local A = 1\n" .. body, path) == 0 and USED[key] == nil
+  EXCEPTIONS[key], USED[key] = nil, nil
+  check(covered and uncovered and unused, "§2 mutants de l'exception : copies identiques couvertes (" .. tostring(covered)
+    .. "), copie modifiee refusee (" .. tostring(uncovered) .. "), exception sans doublon inutile (" .. tostring(unused) .. ")")
+end
+do -- mutant : la seconde copie de out_wanted remise dans script/team/build.lua (retirée par corr-collecte 413eaf16) est vue, sans exception
   local path = "script/team/build.lua"
   local okr, src = pcall(read, path)
-  local i = okr and src:find("local function out_wanted(", src:find("local function out_wanted(", 1, true) + 1, true)
-  local m = i and (src:sub(1, i - 1) .. src:sub(i):gsub("return false", "return nil", 1))
-  check(m ~= nil and #doubles(m, path) == 1, "§2 mutant refuse : copies de out_wanted devenues differentes, l'exception ne couvre plus")
+  local b = okr and bodies(src, "out_wanted") or {}
+  -- (bodies rend le texte jusqu'au saut de ligne AVANT le « end » final : la copie se pose après ce « end\n »)
+  local i = #b == 1 and src:find(b[1] .. "end\n", 1, true)
+  local e = i and (i + #b[1] + 4)
+  local m = e and (src:sub(1, e - 1) .. "\n" .. b[1] .. "end\n" .. src:sub(e))
+  local d = m and doubles(m, path) or {}
+  check(#b == 1 and #d == 1 and d[1]:find("^out_wanted %(") ~= nil,
+    "§2 mutant refuse : seconde copie de out_wanted remise (" .. #b .. " copie(s) aujourd'hui ; " .. table.concat(d, " ; ") .. ")")
 end
 
 -- §3 mutant : l'ancien `local Pl = require("shared.ai3.palier")` remis à côté de `local Pl = require("shared.team.plan")`
