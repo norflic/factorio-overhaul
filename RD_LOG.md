@@ -26,9 +26,18 @@
   `aswEngSrv`) fait environ 480 000 opérations d'E/S, contre environ 5 000 pour chaque `robocopy`. Que l'antivirus ralentisse
   la clé est DÉDUIT, non prouvé. « Pleine puissance » en parallèle ne fait pas aller les bancs plus vite : peu de worktrees,
   une suite à la fois.
-- **F391 · FAIT** (lu par video-l5, à reprouver par fichier:ligne) : `input.power` n'est jamais rempli par `build_input`
-  (`script/ai3/capitalisation.lua`) : la branche de puissance de `Ca.decide` est morte en jeu. À savoir avant de brancher L12
-  (hystérésis de la centrale).
+- **F391 · FAIT** (code lu sur `0e340b99` et sur `capi-decide` `9ad6ebd8`, par video-l6 puis par video-l5, 7/11) : la
+  branche de puissance de `Ca.decide` est MORTE en jeu. Aucune écriture : la table rendue par `build_input`
+  (`script/ai3/capitalisation.lua:985-1001` ; l.997-1013 sur capi-decide) n'a pas de clé `power`, et rien ne l'ajoute ensuite
+  (l.1402-1404 ; l.1607-1608). Lectures jamais prises (`shared/ai3/capitalisation.lua`) :
+  - l.995-999 : `kw_have` reste à 0 ;
+  - l.1429-1432 et l.1670 : aucune limite de courant sur les options électriques ;
+  - l.1757-1758 : l'option « energie » n'est jamais produite ;
+  - l.1070 : les pièces de la centrale ne sont jamais convertibles ;
+  - même garde dans `shared/ai3/leviers.lua:383`.
+  Seuls `ai3_capitalisation_test` et `leviers_test` passent `power` : ils couvrent une branche que le jeu n'exécute pas. En jeu,
+  la centrale vient de l'automatisation (`Auto.plant_state`, `wait_plant`, l.842-866) ; c'est déduit. Avant L12 (« kW posés »),
+  il faut remplir `input.power`, sinon L12 agit sur du code mort.
 - **E258 · VALIDÉ** (moteur réel, banc `portee-16`, branche `essai-0659` `14985a37`, 7/11 15 h 39 ; archive
   `fo-logs/2026-11-07_ESSAI-0659/portee16-b`) : la mitrailleuse et ses niveaux à portée 16 (décision du DC « Portée 16
   d'abord ») → « [FO-PORTEE-16] BILAN : 15 OK, 0 ECHEC(S) ». Avant, la tourelle était tuée hors de sa portée (31 tuiles contre
