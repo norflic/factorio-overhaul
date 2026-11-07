@@ -13,7 +13,7 @@ local Stock = require("script.team.stock")
 local Col = {}
 
 Col.EVERY = 300     -- ticks entre deux choix (le choix tient entre-temps)
-Col.LOGS = 12       -- lignes [FO-COLLECTE] au plus par partie
+Col.LOGS = 12       -- lignes [FO-COLLECTE] au plus par partie, pour les choix, et 12 de plus pour les refus (une par coffre et par cause)
 local PLATE = T.outposts.iron.product
 
 local function loss_near(f, x, y, tick)
@@ -62,8 +62,10 @@ local function candidates(f, surface, b, tasks, tick)
         if n >= at then
           local oid = p.spec and p.spec.champ and p.spec.champ.oid
           local ob = oid and f.outposts and f.outposts[oid]
-          local enemy = surface.count_entities_filtered({ position = { x = o.x, y = o.y }, radius = Co.DANGER_RADIUS, force = "enemy",
-            type = { "unit-spawner", "turret" }, limit = 1 }) > 0
+          -- Un ennemi QUELCONQUE (nid, ver, meute) à moins de Co.DANGER_RADIUS tuiles du coffre : le danger lu est celui du coffre, jamais
+          -- l'état « danger » du projet ailleurs (rebuild_sweep : 5 cases de danger sur le projet 12 de 146 à 176 min).
+          local foe = surface.find_nearest_enemy({ position = { x = o.x, y = o.y }, max_distance = Co.DANGER_RADIUS, force = f.force })
+          local enemy = foe ~= nil and foe.valid
           out[#out + 1] = { key = t.key, d2 = (o.x - hq.x) ^ 2 + (o.y - hq.y) ^ 2, n = n, at = at, enemy = enemy,
             loss = loss_near(f, o.x, o.y, tick), lethal_tick = ob and ob.lethal_tick or nil }
           by_key[t.key] = out[#out]
@@ -89,6 +91,18 @@ function Col.apply(f, surface, b, tasks, tick)
     if short > 0 then
       local cands, by_key = candidates(f, surface, b, tasks, tick)
       local keys = Co.pick(cands, short, tick)
+      st.refused = st.refused or {}
+      for _, c in ipairs(cands) do
+        local why = Co.refusal(c, tick)
+        if why and not st.refused[c.key .. ":" .. why] then
+          st.refused[c.key .. ":" .. why] = true
+          f.stats.collecte_refus = (f.stats.collecte_refus or 0) + 1
+          if f.stats.collecte_refus <= Col.LOGS then
+            log(string.format("[FO-COLLECTE] %s a %.1f min : %s REFUSEE (%s) : %d plaques, a %d tuiles du QG, ennemi a moins de %d tuiles du coffre : %s",
+              f.key or "player", tick / 3600, c.key, why, c.n, math.floor(math.sqrt(c.d2)), Co.DANGER_RADIUS, c.enemy and "oui" or "non"))
+          end
+        end
+      end
       local parts = {}
       for _, k in ipairs(keys) do
         picked[k] = true

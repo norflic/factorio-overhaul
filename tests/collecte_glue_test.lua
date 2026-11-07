@@ -1,5 +1,6 @@
 package.path = "./?.lua;" .. package.path
-log = function() end
+local logs = {}
+log = function(m) logs[#logs + 1] = m end
 defines = { inventory = { chest = 1 } }
 local ok, Col = pcall(require, "script.team.collecte")
 print(ok, ok and "loaded" or Col)
@@ -11,7 +12,7 @@ local chests = { ["10,0"] = chest(600), ["50,0"] = chest(300), ["5,0"] = chest(1
 local enemy_at = { ["10,0"] = true }
 local surface = {
   find_entity = function(_, p) return chests[p[1] .. "," .. p[2]] end,
-  count_entities_filtered = function(a) return enemy_at[a.position.x .. "," .. a.position.y] and 1 or 0 end,
+  find_nearest_enemy = function(a) if enemy_at[a.position.x .. "," .. a.position.y] then return { valid = true } end return nil end,
 }
 local f = { is_player = true, key = "player", stats = {}, engineers_count = 2, hq = { valid = true, position = { x = 0, y = 0 }, get_item_count = function() return 0 end },
   team = { floor = 5, missing = {} }, outposts = {} }
@@ -25,4 +26,11 @@ assert(n == 2 and tasks[2].prio == 94 and tasks[4].prio == 94 and tasks[1].prio 
 f.engineers_count = 5
 tasks = mk(); f.team.collecte.t = -999999
 assert(Col.apply(f, surface, b, tasks, 2000) == 0 and tasks[2].prio == 55, "equipe au complet : rien")
-print("[COLLECTE-GLUE] BILAN : 2 OK (choix des coffres, équipe au complet)")
+local refus = 0
+for _, m in ipairs(logs) do if m:find("REFUSEE %(ennemi%)") then refus = refus + 1 end end
+assert(refus == 1, "une ligne de refus par coffre et par cause, pas de doublon : " .. refus)
+for i = 1, 5 do f.engineers_count = 2; f.team.collecte.t = -999999; Col.apply(f, surface, b, mk(), 3000 + i) end
+refus = 0
+for _, m in ipairs(logs) do if m:find("REFUSEE") then refus = refus + 1 end end
+assert(refus == 1, "relances : toujours une seule ligne de refus : " .. refus)
+print("[COLLECTE-GLUE] BILAN : 4 OK (choix des coffres, équipe au complet, ligne de refus unique)")
