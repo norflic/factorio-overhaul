@@ -613,6 +613,8 @@ end
 --- RÉPARATION : l'infrastructure électrique ENDOMMAGÉE de votre équipe (santé sous Rc.REPAIR_BELOW %) est remise à neuf par un PNJ sur
 --- place (LuaEntity.health est en écriture, bornée à la santé max). Un balayage par Recon.REPAIR_SCAN ticks et par équipe ; une tâche « repair » à la fois.
 Recon.REPAIR_SCAN = 1800 -- 30 s (revue statique 29/10 : le balayage lit TOUS les poteaux de la surface ; 10 s coûtait un pic régulier sur une grosse usine)
+-- Lot PERF4 : crochet posé par script/team/abimes.lua (ensemble des endommagées, Ab.damaged) ; nil sans lui (ancienne recherche).
+Recon.damaged = nil
 function Recon.repair_think(f, surface, tick)
   -- Lot COMPAGNONS-ACTIFS (DC 29/10 : « il y a une tourelle qui est endommagée, ils l'ont même pas réparée ») : les TOURELLES endommagées
   -- de TOUTES les équipes (factions comprises) sont réparées, relevé toutes les Ac.TURRET_SCAN ticks (10 s), seuil Ac.TURRET_REPAIR_BELOW %.
@@ -629,7 +631,10 @@ function Recon.repair_think(f, surface, tick)
   end
   local function scan(types, below)
     local cands = {}
-    for _, e in ipairs(surface.find_entities_filtered({ force = f.force, type = types })) do
+    -- Lot PERF4 : l'ensemble des endommagées (script/team/abimes.lua, crochet Recon.damaged) remplace la recherche sur toute la
+    -- surface (13 à 20 ms par pensée sur la sauvegarde du DC) ; mêmes entités à santé < 1. Sans lui : l'ancienne recherche.
+    local list = Recon.damaged and Recon.damaged(f, surface, types) or surface.find_entities_filtered({ force = f.force, type = types })
+    for _, e in ipairs(list) do
       -- get_health_ratio : un seul appel par entité (revue statique 29/10 : e.health + e.prototype.max_health créaient un objet prototype pour
       -- CHAQUE poteau de la surface à chaque balayage) ; nil sans santé.
       local ratio = e.valid and e.get_health_ratio() or nil
