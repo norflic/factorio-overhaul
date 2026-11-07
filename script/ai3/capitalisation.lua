@@ -886,7 +886,13 @@ function Capi.power_input(f, plant_state)
   if Capi.MUT.sans_courant or plant_state ~= "fini" then return nil end
   local g = f.build and f.build.grow
   local cap = g and g.capacity
-  if type(cap) ~= "number" or cap <= 0 then return type(cap) ~= "number" and {} or nil end -- W02 (lot VIDEO-COUVERTURE 5) : capacité non lue = relevé VIDE (garde fermée), pas « aucune borne »
+  -- W02 (lots 5 et 5b) : capacité non lue = relevé VIDE (garde fermée), pas « aucune borne » ; capacité ≤ 0 (centrale finie, plus aucune machine à
+  -- vapeur vivante : centrale détruite) = de même (avant : nil, la base posait de l'électrique sans courant). La RECONSTRUCTION de la centrale ne passe
+  -- pas par une option de cette règle (plant_arms, Sante) ; les kW retenus par le relevé vide font même grandir la centrale (S.capi_kw).
+  if type(cap) ~= "number" or cap <= 0 then
+    if type(cap) == "number" and Capi.MUT.cap_ouvert then return nil end -- mutant (tests seulement) : l'ancien comportement
+    return {}
+  end
   if Capi.MUT.nominal then return { have_kw = cap * JTICK_KW } end -- mutant : la somme nominale de la règle (plan.kw_used)
   local measured = type(g.power) == "number" and g.power > 0 and g.power * JTICK_KW or 0
   return { have_kw = cap * JTICK_KW, used_kw = measured + Sc.DRAW * Sante.committed(f) }
