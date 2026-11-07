@@ -15,6 +15,7 @@ end
 local handlers, inits, loads, configs = {}, {}, {}, {}
 package.loaded["script.core.events"] = {
   on = function(id, fn) handlers[id] = fn end,
+  on_died = function(fn) handlers[defines.events.on_entity_died] = fn end, -- lot MORTS (Events.on_died)
   on_init = function(fn) inits[#inits + 1] = fn end,
   on_load = function(fn) loads[#loads + 1] = fn end,
   on_configuration_changed = function(fn) configs[#configs + 1] = fn end, -- lot PERF4 (script/team/abimes.lua)

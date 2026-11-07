@@ -183,7 +183,12 @@ local function on_died(e)
       ent.name, pos.x, pos.y, (e.tick - (f.started or 0)) / 3600, value, Rc.pending(s)))
   end
 end
-Events.on(defines.events.on_entity_died, on_died)
+-- Lot MORTS : les types d'une pièce (R.ENTITY_ROLE hors « main », le test de on_died), jamais la force « enemy » (team_of).
+local PIECE_TYPES = {}
+for _, t in ipairs(R.ENTITY_TYPES) do
+  if R.ENTITY_ROLE[t] ~= "main" then PIECE_TYPES[#PIECE_TYPES + 1] = t end
+end
+Events.on_died(on_died, { types = PIECE_TYPES, ennemi = false })
 
 --- Lot REBUILD-TOUT : ce que le joueur (ou ses robots) retire À LA MAIN n'est pas refait par ses PNJ (mémoire du relevé).
 local function on_hand_removed(e)

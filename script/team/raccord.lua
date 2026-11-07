@@ -389,16 +389,27 @@ function Ra.step(api, f, surface, tick)
   st.waited_lost = st.waited_lost or {} -- (lot COURANT2) relevés « laisser » derrière un poteau perdu, par groupe
   st.rot = st.rot or 0 -- (lot COURANT2) départ de la fenêtre tournante des groupes décidés
   local c = st.cyc
+  local P = api.prof
   if not c then
     if tick < st.next then return end
-    st.next = tick + R.PERIOD
+    -- (revue de la 0.6.59, point 7 : la centrale est lue AVANT le jeton ; rien à relever, le jeton reste aux autres)
     -- rien à relever tant que la centrale n'est pas finie (b.plant) : [FO-RESEAU] et la construction s'en chargent
     local pp = b.plant and b.projects[b.plant]
     -- lot ENERGIE (2/11) : une centrale rouverte pour un poteau (chantier) ne ferme plus le relevé : sans cela, un seul poteau sûr rouvert et
     -- jamais posé (PNJ qui évitent l'ennemi) retenait le raccordement du second chemin (mesuré au banc energie-ilot-ennemi)
     local reopened_ok = pp and (pp.reopened or 0) > 0 and pp.state ~= "attente" and pp.state ~= "plan" and pp.state ~= "refuse" and not Rv.coupure_off(b)
-    if not (pp and (pp.state == "fini" or reopened_ok)) then return end
+    if not (pp and (pp.state == "fini" or reopened_ok)) then
+      st.next = tick + R.PERIOD
+      return
+    end
+    -- Lot POULS : le début de relevé (live_networks : une recherche sur toute la surface) ne tombe jamais sur le tick d'une bande du relevé du
+    -- réseau (script/team/reseau_vivant.lua) ni sur un autre début (autre équipe) : jeton du tick (api.jeton, script/team/pouls_jeton.lua).
+    -- Jeton pris : rien de fait, l'horloge intacte, nouvel essai à la passe suivante.
+    if api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":ra") then return end
+    st.next = tick + R.PERIOD
+    if P then P.fstart("ra:debut") end
     st.cyc = start_cycle(f, surface, b, api.champ_live)
+    if P then P.fstop("ra:debut") end
     return
   end
   for _ = 1, R.UNITS_PER_PULSE do
@@ -408,8 +419,14 @@ function Ra.step(api, f, surface, tick)
     scan_unit(f, surface, b, c, u)
   end
   if c.i > #c.units then
+    -- revue de la 0.6.59, point 1 : la fin peut relire toute la surface (« relier » : live_networks) : sous le jeton du tick ; pris, elle
+    -- passe au pouls suivant (relevé fini, rien d'autre ne bouge)
+    local fin_par = (f.key or "player") .. ":ra"
+    if api.jeton and not api.jeton.take(tick, fin_par) then return end
     st.cyc = nil
+    if P then P.fstart("ra:fin") end
     finish_cycle(api, f, surface, b, st, c, tick)
+    if P then P.fstop("ra:fin") end
   end
 end
 

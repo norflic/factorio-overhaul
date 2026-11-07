@@ -217,7 +217,8 @@ Events.on(defines.events.on_entity_destroyed, function(e)
 end)
 
 -- Une perte près du QG ou d'un avant-poste met la faction en alerte (défense prioritaire).
-Events.on(defines.events.on_entity_died, function(e)
+-- Lot MORTS : jamais la force « enemy » (seules les entités d'une force de faction comptent : State.by_force).
+Events.on_died(function(e)
   local war = State.war()
   if not war.active then return end
   local entity = e.entity
@@ -239,6 +240,6 @@ Events.on(defines.events.on_entity_died, function(e)
   if e.force and e.force.name == "player" and Commander.on_player_hostility then
     Commander.on_player_hostility(f, e.tick)
   end
-end)
+end, { ennemi = false })
 
 return Commander

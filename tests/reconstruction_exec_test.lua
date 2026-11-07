@@ -13,7 +13,8 @@ end
 
 -- Doublures --------------------------------------------------------------------------------------------------------
 local handlers = {}
-package.loaded["script.core.events"] = { on = function(id, fn) handlers[id] = fn end }
+package.loaded["script.core.events"] = { on = function(id, fn) handlers[id] = fn end,
+  on_died = function(fn) handlers[defines.events.on_entity_died] = fn end } -- lot MORTS (Events.on_died)
 defines = { events = { on_entity_died = 1, on_player_mined_entity = 2, on_robot_mined_entity = 3 }, entity_status = { no_power = 7, working = 1 }, direction = { north = 0, east = 2, south = 4, west = 6 } }
 local ns = { ia3k = { teams = {} } }
 package.loaded["script.core.storage"] = { ns = function(n) ns[n] = ns[n] or {}; return ns[n] end }

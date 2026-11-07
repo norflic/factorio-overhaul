@@ -1182,9 +1182,11 @@ TT.step = function(pl, tick)
       et.t0, et.n))
     return
   end
-  Profiler.start("team:etape" .. et.n)
+  -- (le nom est pris AVANT l'étape : TT.play avance et.n ; sinon la portée était fermée sous le nom de l'étape suivante)
+  local scope = "team:etape" .. et.n
+  Profiler.start(scope)
   TT.play(f, TT.surface_of(f), tick, et)
-  Profiler.stop("team:etape" .. et.n)
+  Profiler.stop(scope)
   if t.etape then Scheduler.after(1, TT.TIMER, { key = pl.key, n = t.etape.n, t0 = t.etape.t0 }) end
 end
 Scheduler.define_timer(TT.TIMER, TT.step)
