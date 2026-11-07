@@ -386,7 +386,8 @@ Events.on_nth_tick(60, function(e)
   end
 end)
 
-Events.on(defines.events.on_entity_died, function(e)
+-- Lot MORTS : unités seulement (st.units ne garde que les unités des vagues, TD.compose), toutes forces (la horde a la sienne).
+Events.on_died(function(e)
   local st = S()
   local ent = e.entity
   if not st.active or not (ent and ent.unit_number) then return end
@@ -395,7 +396,7 @@ Events.on(defines.events.on_entity_died, function(e)
     st.alive = st.alive - 1
     st.stats.kills = st.stats.kills + 1
   end
-end)
+end, { types = { "unit" } })
 
 ---------------------------------------------------------------------------------------------------
 -- Interface : bouton, panneau, commande

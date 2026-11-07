@@ -131,7 +131,11 @@ function Cases.runtime(check, section)
       return el
     end
     c.clear = function() c._children, c._list = {}, {} end
-    return setmetatable(c, { __index = function(t, k) return rawget(t, "_children")[k] end })
+    -- children : LuaGuiElement.children (lot PANNEAU-E4 : interface distante fo-panneau, noms des boutons).
+    return setmetatable(c, { __index = function(t, k)
+      if k == "children" then return rawget(t, "_list") end
+      return rawget(t, "_children")[k]
+    end })
   end
   local function find_el(el, name)
     for _, ch in ipairs(el and rawget(el, "_list") or {}) do
@@ -532,6 +536,47 @@ function Cases.runtime(check, section)
   local uncovered = {}
   for _, id in ipairs(ORDER) do if not covered[id] then uncovered[#uncovered + 1] = id end end
   check(#uncovered == 0, "chaque cas « clic » a un mutant détecté (" .. #ORDER .. " cas" .. (#uncovered > 0 and (" ; sans : " .. table.concat(uncovered, ", ")) or "") .. ")")
+
+  -- Lot PANNEAU-E4 (7/11) : interface distante « fo-panneau » du banc en moteur réel (scénario panneau-e4 du mod de test). Elle
+  -- appelle les MÊMES gestionnaires que les touches et le clic ; ici, elle est relue contre l'état du panneau.
+  do
+    reset()
+    local function R(fn, ...) return remote.call("fo-panneau", fn, ...) end
+    -- player.mod_settings du joueur (le moteur simulé n'en a pas) : écrit le réglage par joueur du moteur simulé.
+    rawset(player, "mod_settings", setmetatable({}, {
+      __index = function(_, k) return settings.get_player_settings(1)[k] end,
+      __newindex = function(_, k, v) M.set_player_setting(1, k, v.value) end,
+    }))
+    local okm = R("set_mode", 1, "survol") == "survol" and R("set_mode", 1, "clic") == "clic" and R("set_mode", 1, "autre") == nil
+    check(okm, "fo-panneau : set_mode écrit le réglage par joueur (survol, clic) et refuse une autre valeur")
+    local g, pos = new_at(GUN, 2)
+    open_gui(g)
+    local s1 = R("state", 1)
+    local names = table.concat(s1.buttons or {}, ",")
+    check(s1.mode == "clic" and s1.open and s1.via == "gui" and s1.target == g.unit_number and s1.opened == g.unit_number
+      and s1.opened_type == GT.entity and s1.frame and names:find("fo_lvl_up", 1, true) and names:find("fo_lvl_close", 1, true),
+      "fo-panneau : state relit le panneau, l'interface ouverte et les boutons (" .. names .. ")")
+    local clicked = R("click", 1, "fo_lvl_up")
+    local g3 = s.find_entity(L.name(GUN, 3), pos)
+    local s2 = R("state", 1)
+    check(clicked and g3 ~= nil and s2.open and s2.target == g3.unit_number and s2.opened == g3.unit_number,
+      "fo-panneau : click « Améliorer » passe par le gestionnaire du clic (niveau 3, interface rouverte sur la nouvelle entité)")
+    check(R("click", 1, "fo_inconnu") == false and R("input", 1, "fo-touche-inconnue") == false,
+      "fo-panneau : bouton ou touche inconnus refusés")
+    close_gui(g3)
+    local w = new_at(WALL, 2)
+    rawset(player, "selected", w)
+    local okk = R("input", 1, "fo-level-panel")
+    local s3 = R("state", 1)
+    check(okk and s3.open and s3.via == "key" and s3.target == w.unit_number and s3.selected == w.unit_number,
+      "fo-panneau : input « fo-level-panel » appelle le gestionnaire de Maj+U sur le bâtiment survolé")
+    R("input", 1, "fo-level-open")
+    check(R("state", 1).via == "key", "fo-panneau : input « fo-level-open » sur la cible déjà montrée ne la bascule pas")
+    R("click", 1, "fo_lvl_close")
+    check(not R("state", 1).open, "fo-panneau : click « Fermer » ferme le panneau")
+    rawset(player, "mod_settings", nil)
+    reset()
+  end
 
   -- Relecture : changer le réglage PAR JOUEUR n'écrit pas de ligne [FO-REGLAGES] (script/faction/journaux_dc.lua) ; un réglage de
   -- carte en écrit toujours une (contraste).

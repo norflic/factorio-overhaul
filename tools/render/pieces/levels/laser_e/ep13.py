@@ -32,6 +32,10 @@ FOYER = ages.FOYER[13]
 FAISCEAU = dict(rgb=(0.561, 0.294, 1.0), rgb2=(0.29, 0.482, 1.0), forme="DOUBLE HÉLICE violet et bleu (annihilation), "
                 "éclairs à l'impact", largeur=1.0)
 HABILLAGE = dict(ages.CORPS[13], **E_.MAQUETTES[13])
+# LOT F1-C (CONCEPT §4) : (L2 0,85 t² en ronde 2) liserés CONTINUS de la lignée retirés, la lumière vit en POINTS ;
+# (masse 0,69 × la mitrailleuse) lobes moins creusés, 0,26 → 0,16 : même quadrupôle, plus de matière
+HABILLAGE["forme_affut"] = dict(HABILLAGE["forme_affut"], lisere=None,
+                                contour=dict(HABILLAGE["forme_affut"]["contour"], prof=0.16))
 
 
 def matieres(metal, M):
@@ -91,6 +95,22 @@ def _solenoide(g, k, w):
         g.box((0, s * 0.08, 0.02), (0.12, 0.03, 0.04), M["acier_noir"], "hard", what="berceau")
 
 
+def _grille_dessus(g, k, w):
+    """LOT F1-C ronde 3c : grille de ventilation d'acier noir couchée sur le dessus (repère du dessus)."""
+    M = g.M
+    g.box((0, 0, 0.01), (0.2, 0.16, 0.02), M["acier_noir"], "hard", what="cadre_grille")
+    for j in range(5):
+        g.box((0, -0.06 + 0.03 * j, 0.024), (0.17, 0.012, 0.01), M["acier_canon2"], "hard", what="lame")
+
+
+def _borne(g, k, w):
+    """LOT F1-C : borne de champ (repère du dessus) : plot d'acier noir, collier de cuivre, point violet ou bleu."""
+    M = g.M
+    g.cyl((0, 0, 0.04), "z", 0.035, 0.08, M["acier_noir"], n=10, style="soft", what="borne")
+    g.tube_shell((0, 0, 0.05), "z", 0.04, 0.03, 0.02, M["cuivre_bobine"], n=12, what="collier")
+    g.sphere((0, 0, 0.088), 0.018, M["emit"] if k % 3 else M["emit2"], n=8, m=5, what="point")
+
+
 def _bouteille(g, x, y, z, r, L, axis, M):
     """Bouteille magnétique couchée : capsule d'acier canon, bobinages, fente au point violet, berceaux."""
     a = V(axis).normalized()
@@ -124,10 +144,22 @@ def socle(g, c):
     O.sur_flanc(g, c, 1, [math.radians(a) for a in (225, 315, 250, 290)], _point, f=0.5, dr=0.02)
     O.sur_dessus(g, c, 1, [math.radians(a) for a in (200, 240, 300, 340)], _solenoide)
     O.sur_dessus(g, c, 0, O.visibles(O.entre_condensateurs(c), nord=0.2), _solenoide, t=0.5)
+    # LOT F1-C (D3 29,5 et P4 0,52 en ronde 2) : solénoïdes sur le dernier gradin, points violets et marques de danger
+    # sur le flanc du dernier gradin, rivets d'acier noir sur les flancs, jonc de cuivre au pied
+    O.sur_dessus(g, c, 2, [math.radians(a) for a in (210, 250, 290, 330)], _solenoide, t=0.5)
+    O.sur_dessus(g, c, 1, [math.radians(a) for a in (185, 220, 255, 285, 320, 355)], _borne, t=0.15)
+    O.sur_flanc(g, c, 2, [math.radians(a) for a in (215, 270, 325)], _point, f=0.5, dr=0.02)
+    for i in range(3):
+        O.rivets_flanc(g, c, i, 0.88, M["acier_noir"], pas=0.11, r=0.013)
+    O.ceinture(g, c, 0, 0.06, 0.018, M["cuivre_bobine"], colliers=M["acier_noir"], pas=0.35)
+    # ronde 3c (P4 0,54) : grilles de ventilation et bornes sur les dessus des lobes
+    O.sur_dessus(g, c, 0, [math.radians(a) for a in (200, 230, 250, 290, 310, 340)], _grille_dessus, t=0.8)
+    O.sur_dessus(g, c, 1, [math.radians(a) for a in (200, 340)], _grille_dessus, t=0.75)
+    O.sur_dessus(g, c, 2, [math.radians(a) for a in (190, 235, 305, 350)], _borne, t=0.2)
     for nom, sx in (("coin_NO", -1), ("coin_NE", 1)):
         p = corps.place(c, nom)
         x, y = p["x"] - sx * 0.05, Y(p["yn"] - 0.05)
-        _bouteille(g, x, y, 0.36, 0.3, 0.6, (1.0, 0.0, 0.0), M)
+        _bouteille(g, x, y, 0.44, 0.38, 0.78, (1.0, 0.0, 0.0), M)     # LOT F1-C : plus grande (masse)
         liaison(g, [(x - sx * 0.35, y - 0.3, 0.3), (x * 0.66, Y(p["yn"] * 0.62), c.gradins[0][3] + 0.1),
                     (x * 0.42, Y(p["yn"] * 0.4), zp + 0.06)], 0.045)
         g.halo((x, y - 0.4, 0.4), M["_emit_rgb"], 5.0)
@@ -198,9 +230,20 @@ def emetteur(g, c):
         g.sphere((0, yc + s * L / 2, zh), r, M["acier_canon2"], n=36, m=16, scale=(1.0, 0.62, 1.0), what="fond")
         F.bolts_ring(g, (0, yc + s * L / 2, zh), (0, s, 0), r * 0.98, 16, M["chrome_fin"], r=0.016)
     _manchons(g, (0, yc, zh), (0, 1, 0), r, L + 0.5 * r, 4, M, w=0.13 * re)
-    # fente du dessus et point violet
-    g.box((0, yc, zh + r * 1.13), (0.12 * re, L + 0.5 * r, 0.03), M["acier_noir"], "hard", what="fente")
-    g.box((0, yc, zh + r * 1.15), (0.05 * re, L + 0.4 * r, 0.01), M["emit2"], "flat", what="lueur_fente")
-    g.sphere((0, yc, zh + r * 1.16), 0.07 * re, M["emit"], n=12, m=6, what="point_violet")
+    # fente du dessus : LOT F1-C (pose N : la lueur continue le long de l'axe se lisait « aiguille violette » dressée,
+    # vue de dos) : rail d'acier noir, TROIS points violets séparés dans des hublots, aucune ligne de lumière
+    # ronde 3b (critique : les 3 points en colonne faisaient encore une aiguille en pointillés, et l'âge avait perdu
+    # son violet) : UN SEUL dôme violet au sommet, et le CŒUR violet se voit par des FENTES entre les bobinages (bandes
+    # de lumière douce sur la capsule, entre les manchons)
+    g.cyl((0, yc, zh + r * 1.1), "z", 0.13 * re, 0.04, M["acier_noir"], n=16, style="hard", what="hublot")
+    g.sphere((0, yc, zh + r * 1.13), 0.1 * re, M["emit"], n=14, m=7, scale=(1.0, 1.0, 0.7), what="point_violet")
+    # ronde 3c (L2 0,93 t² en pose E : les 5 anneaux de lumière se soudaient) : fentes COURTES, sur le dessus et les
+    # flancs seulement, entre les manchons, chacune séparée
+    for k in (1, 2, 3):
+        yy = yc - (L + 0.5 * r) / 2 + k * (L + 0.5 * r) / 4
+        for ang in (math.radians(55), math.radians(125), math.radians(0), math.radians(180)):
+            d = V((math.cos(ang), 0, math.sin(ang)))
+            g.box(V((0, yy, zh)) + d * (r * 1.0), (0.05 * re, 0.03 * re, 0.016), M["emit_soft"], "flat",
+                  R=Matrix.Rotation(-ang + math.pi / 2, 3, "Y"), what="fente_coeur")
     # lentille avant à cœur violet
     corps.lentille(g, c, yc + L / 2 + 0.62 * r - 0.02, 0.22 * re, verre=M["verre_fume"], cercle=M["acier_noir"])

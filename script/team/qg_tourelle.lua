@@ -77,6 +77,9 @@ local function on_died(e)
   log(Q.line(rec))
 end
 
-Events.on(defines.events.on_entity_died, on_died)
+-- Lot MORTS : les types de tourelle, jamais la force « enemy » (team_of : player ou une faction). Lot TOURELLE-JOURNAL (relecture de la
+-- 0.6.59) : les types du JOURNAL (Tj.TURRET_TYPES = Rg.TURRET_TYPES + artillerie), sans quoi la mort d'une artillerie n'arrive jamais à
+-- Tj.died ; le test TURRET[ent.type] de on_died garde [FO-QG-TOURELLE] tel quel (types de Rg.TURRET_TYPES).
+Events.on_died(on_died, { types = Tj.TURRET_TYPES, ennemi = false })
 
 return {}

@@ -373,7 +373,7 @@ local function on_removed(e)
 end
 Events.on(defines.events.on_player_mined_entity, on_removed)
 Events.on(defines.events.on_robot_mined_entity, on_removed)
-Events.on(defines.events.on_entity_died, on_removed)
+Events.on_died(on_removed, { types = Mult.TYPES }) -- lot MORTS : les types de TYPE_SET, le test de on_removed
 Events.on(defines.events.script_raised_destroy, on_removed)
 
 -- Agrandissement par script : modules versés AVANT les ingrédients (Levels.transfer) ; la balise de complément est

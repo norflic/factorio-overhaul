@@ -32,10 +32,21 @@ FOYER = ages.FOYER[11]
 FAISCEAU = dict(rgb=(0.85, 0.94, 1.0), rgb2=(0.749, 0.902, 1.0), forme="trait très fin et très long, blanc bleuté, "
                 "onde de choc (anneau) au départ", largeur=0.5)
 HABILLAGE = dict(ages.CORPS[11], **E_.MAQUETTES[11])
+# LOT F1-C (CONCEPT §4 : masse 0,66 × la mitrailleuse et sous l'âge 10 en ronde 2) : étoile moins creusée (0,16 → 0,09),
+# même étoile à 8 pointes, plus de matière
+HABILLAGE["forme_affut"] = dict(HABILLAGE["forme_affut"], lisere=None,
+                                rayons=dict(forme="aileron", n=8, mat="titane_dk", phase=101.25 + 22.5),
+                                contour=dict(HABILLAGE["forme_affut"]["contour"], prof=0.08))
+# ronde 3b (critique : liserés blancs CONTINUS en « toile d'araignée », et de nuit la lumière du socle traverse la tête
+# qui tourne) : liserés de la lignée retirés ; étoile encore moins creusée (0,09 → 0,08, le minimum du contrat : masse)
 
 
 def matieres(metal, M):
     ages.matieres(11, metal, M)
+    # LOT F1-C (écrêtage : un aileron d'alliage « ring » (0,62 à 0,84 linéaire) passait au blanc pur au soleil, tache de
+    # 0,063 t² en pose E) : alliage clair plus sombre, même teinte
+    metal("ring", (0.42, 0.48, 0.58), rough=0.38, met=0.3, grain=0.12, gscale=30.0, rust=(0.2, 0.1, 0.05), ra=0.05,
+          dirt=0.5, stain=0.2, sscale=6.0, wear=0.5, streak=0.5)
 
 
 def liaison(g, pts, r):
@@ -89,6 +100,29 @@ def _dessus(g, k, w):
         g.box((0, 0, 0.062), (0.1, 0.02, 0.005), M["orange_aero"], "flat", what="repere")
 
 
+def _feu_pointe(g, k, h):
+    """LOT F1-C ronde 3b : feu de pointe (boîtier de titane sombre, verre de lumière douce)."""
+    M = g.M
+    g.box((0, 0, 0.012), (0.12, h * 0.26, 0.024), M["titane_dk"], "hard", what="boitier_feu")
+    g.box((0, 0, 0.026), (0.09, h * 0.17, 0.006), M["emit_soft"], "flat", what="feu")     # ronde 3c : plus grands
+
+
+def _nacelle(g, x, y, z, r, M):
+    """LOT F1-C : nacelle d'alliage couchée dans l'axe nord-sud sur un berceau de titane sombre, 4 ailerons arrière,
+    cône orange vers le sud."""
+    L = 0.75
+    g.box((x, y, z + r * 0.45), (r * 1.6, L * 0.7, r * 0.9), M["titane_dk"], "hard", what="berceau_nacelle")
+    g.cyl((x, y, z + r * 1.05), "y", r, L, M["titane_cl"], n=24, style="soft", what="nacelle")
+    for f in (-0.3, 0.05, 0.3):
+        g.tube_shell((x, y + f * L, z + r * 1.05), "y", r + 0.012, r - 0.01, 0.03, M["ring"], n=24, what="bague")
+    g.cyl((x, y - L / 2 - r * 0.45, z + r * 1.05), "y", r * 0.9, r * 0.9, M["orange_aero"], n=24, r2=r * 0.1,
+          style="soft", what="cone")
+    for k in range(4):
+        a = TAU * k / 4 + math.pi / 4
+        g.box((x + math.cos(a) * r * 1.3, y + L * 0.4, z + r * 1.05 + math.sin(a) * r * 1.3), (0.03, 0.22, r * 0.9),
+              M["titane_md"], "hard", R=Matrix.Rotation(a + math.pi / 2, 3, "Y"), what="aileron_nacelle")
+
+
 def _derive(g, x, y, sx, h, L, M):
     """Dérive triangulaire pleine de titane, plantée dans le sol, bord d'attaque orange, rivets."""
     a = V((x - sx * L * 0.35, y + L * 0.25, 0.0))
@@ -116,10 +150,23 @@ def socle(g, c):
     O.ceinture(g, c, 0, 0.18, 0.014, M["bleu_nuit"])
     O.sur_dessus(g, c, 1, [math.radians(a) for a in (200, 230, 250, 290, 310, 340)], _dessus)
     O.sur_dessus(g, c, 0, O.visibles(O.entre_condensateurs(c), nord=0.2), _dessus, t=0.5)
+    # LOT F1-C (D3 32,9 en ronde 2) : rivets de titane sur les flancs des deux premiers gradins, bandes orange et
+    # caissons sur le dernier gradin, second jonc au pied
+    O.rivets_flanc(g, c, 0, 0.82, M["rivet_ti"], pas=0.12, r=0.013)
+    O.rivets_flanc(g, c, 1, 0.82, M["rivet_ti"], pas=0.12, r=0.013)
+    O.sur_dessus(g, c, 2, [math.radians(a) for a in (215, 270, 325)], _dessus, t=0.5)
+    O.ceinture(g, c, 0, 0.06, 0.016, M["titane_dk"], colliers=M["orange_aero"], pas=0.45)
+    # ronde 3b (critique : dominance 10 → 11 → 12 non tenue) : NACELLES à ailerons couchées sur le premier gradin, flancs
+    # est et ouest ; marques orange (non lumineuses) aux pointes au lieu des liserés
+    for nom, sx in (("flanc_O", -1), ("flanc_E", 1)):
+        p = corps.place(c, nom)
+        _nacelle(g, p["x"], Y(p["yn"] - 0.1), p["z_sol"], 0.17, M)
+    # feux de pointe (lumière douce blanc bleuté, un foyer par pointe, loin de la tête) : la nuit de l'âge
+    O.sur_flanc(g, c, 0, O.visibles(pointes, nord=0.4), _feu_pointe, f=0.85, dr=0.006)
     for nom, sx in (("coin_NO", -1), ("coin_NE", 1)):
         p = corps.place(c, nom)
         x, y = p["x"] - sx * 0.04, Y(p["yn"] - 0.04)
-        _derive(g, x, y, sx, 0.9, 0.85, M)
+        _derive(g, x, y, sx, 1.35, 1.2, M)     # LOT F1-C : dérive plus grande (masse ; ronde 3b : 1,1 → 1,35)
         # ronde 1 (F1-B) : la dérive était un ÎLOT détaché (1 479 px, ilots.py) : longeron de titane au sol de son pied
         # au flanc du premier gradin, et conduit qui part de son pied
         a = math.atan2(p["yn"], p["x"])
@@ -173,7 +220,8 @@ def arriere(g, c):
         a = V((sx * bx * 0.3, y0 + 0.02, z1 - 0.1))
         b = V((sx * bx * 0.3, y1 - 0.05, z1 - 0.1))
         top = V((sx * bx * 1.05, y0 + 0.04, z1 + 0.06))
-        P2.wedge(g, a, b, top, (b - a).cross(top - a).normalized() * 0.035, M["titane_cl"], what="derive")
+        # ronde 3c (écrêtage : cette dérive en titane clair, face au soleil, passait au blanc pur, 0,063 t²)
+        P2.wedge(g, a, b, top, (b - a).cross(top - a).normalized() * 0.035, M["titane_md"], what="derive")
         g.box(((a + top) / 2), (0.03, 0.03, 0.02), M["orange_aero"], "hard", what="repere")
 
 
@@ -205,6 +253,12 @@ def emetteur(g, c):
     for yy in (yh0 + 0.03, yh1 - 0.03):
         g.tube_shell((0, yy, zh), "y", 0.68 * re, 0.6 * re, 0.05, M["ring"], n=40, what="cercle_moyeu")
     F.bolts_ring(g, (0, yh1 + 0.002, zh), (0, 1, 0), 0.56 * re, 16, M["rivet_ti"], r=0.014)
+    # ronde 3c (nuit morte, critique) : six FENTES de lumière douce sur le pourtour du moyeu, entre les ailerons
+    for k in range(6):
+        a = TAU * k / 6 + 0.13 + TAU / 24
+        d = V((math.cos(a), 0, math.sin(a)))
+        g.box(V((0, (yh0 + yh1) / 2, zh)) + d * (0.665 * re), (0.03, 0.3 * re, 0.07 * re), M["emit_soft"], "flat",
+              R=Matrix.Rotation(-a, 3, "Y"), what="fente_moyeu")
     # ailerons vrillés (alliage clair à bout orange)
     for k in range(12):
         a = TAU * k / 12 + 0.13
