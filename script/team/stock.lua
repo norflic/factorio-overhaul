@@ -522,6 +522,9 @@ function Stock.grow(f, surface, tick)
     f.annex_scan_at = tick
     if Stock.scan(f, surface, tick) > 0 then
       waiting = Stock.flush(f)
+      -- Banc stockage-remplace (5/11, 22 h 15) : le rangement de team.lua passe AVANT Stock.grow ; sans cet appel, le coffre retrouvé
+      -- restait vide jusqu'à la pensée suivante (300 ticks). Il est rempli dans la même pensée.
+      Stock.balance(f)
       used, size, n = totals(f)
     end
   end
