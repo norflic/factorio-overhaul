@@ -153,11 +153,17 @@ def cout_pathfinder(arch, reqs):
             actifs[t][classes.index(c)] += 1
     ticks = sorted(rows)
     ticks = ticks[60:]
-    X = [[1.0] + [float(v) for v in actifs[t]] for t in ticks]
+    # Classes sans aucun tick actif : retirées (sinon le système est singulier).
+    keep = [i for i in range(len(classes)) if any(actifs[t][i] for t in ticks)]
+    X = [[1.0] + [float(actifs[t][i]) for i in keep] for t in ticks]
     y = [rows[t][col] / 1e6 for t in ticks]
     b = moindres_carres(X, y)
     moy = sum(y) / len(y) if y else 0.0
-    return classes, b, moy, len(ticks)
+    # Ticks avec au moins une recherche de PNJ en cours, contre les autres : moyenne du pathFinder.
+    with_r = [rows[t][col] / 1e6 for t in ticks if any(actifs[t])]
+    without = [rows[t][col] / 1e6 for t in ticks if not any(actifs[t])]
+    extra = (sum(with_r) / len(with_r) if with_r else 0, len(with_r), sum(without) / len(without) if without else 0, len(without))
+    return [classes[i] for i in keep], b, moy, len(ticks), extra
 
 
 RE_P = re.compile(r"\[FO-CHEMINS-P\] (.*)$")
@@ -224,7 +230,7 @@ def troncons(plans, reqs):
     """Demandes de chemin d'un PNJ entre deux itinéraires (M.plan) du même PNJ : tronçons par itinéraire, longueur et latence."""
     by_agent = collections.defaultdict(list)
     for p in plans:
-        if not p["same"]:
+        if p["var"]:  # allers seulement : la porte précède son aller de 60 ticks, sans demande entre les deux
             by_agent[p["agent"]].append(p["t"])
     nav = collections.defaultdict(list)
     for r in reqs:
@@ -244,7 +250,7 @@ def troncons(plans, reqs):
             sans_plan += len(rs)
     if counts:
         counts.sort()
-        print("  tronçons par itinéraire (demandes de chemin du PNJ jusqu'à son itinéraire suivant) : moyenne %.2f, médiane %d, p90 %d, pire %d (%d itinéraires) ; demandes de PNJ sans itinéraire dans la fenêtre : %d" % (
+        print("  tronçons par aller (demandes de chemin du PNJ d'un aller au suivant) : moyenne %.2f, médiane %d, p90 %d, pire %d (%d itinéraires) ; demandes de PNJ sans itinéraire dans la fenêtre : %d" % (
             sum(counts) / len(counts), counts[len(counts) // 2], counts[int(len(counts) * 0.9)], counts[-1], len(counts), sans_plan))
     by_len = collections.defaultdict(list)
     for r in reqs:
@@ -305,7 +311,8 @@ def main():
         troncons(plans, reqs)
         cp = cout_pathfinder(arch, reqs)
         if cp:
-            classes, b, moy, n = cp
+            classes, b, moy, n, extra = cp
+            print("  pathFinder : %.4f ms/tick quand une recherche de PNJ est en cours (%d ticks), %.4f sinon (%d ticks)" % extra)
             if b:
                 print("  pathFinder moyen %.4f ms/tick sur %d ticks ; moindres carrés (ms par tick et par recherche EN COURS) : constante %.4f ; %s" % (
                     moy, n, b[0], ", ".join("%s %.4f" % (c, v) for c, v in zip(classes, b[1:]))))
