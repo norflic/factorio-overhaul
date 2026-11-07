@@ -395,7 +395,7 @@ function Ra.step(api, f, surface, tick)
     -- Lot POULS : le début de relevé (live_networks : une recherche sur toute la surface) ne tombe jamais sur le tick d'une bande du relevé du
     -- réseau (script/team/reseau_vivant.lua) ni sur un autre début (autre équipe) : jeton du tick (api.jeton, script/team/pouls_jeton.lua).
     -- Jeton pris : rien de fait, l'horloge intacte, nouvel essai à la passe suivante.
-    if api.jeton and not api.jeton.take(tick) then return end
+    if api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":ra") then return end
     st.next = tick + R.PERIOD
     -- rien à relever tant que la centrale n'est pas finie (b.plant) : [FO-RESEAU] et la construction s'en chargent
     local pp = b.plant and b.projects[b.plant]

@@ -599,6 +599,69 @@ local function p12(Rv)
 end
 
 ---------------------------------------------------------------------------------------------------
+-- P8 (revue de la 0.6.59, point 3) : jeton équitable, 4 factions et votre équipe (appelée la dernière) en relevés longs à la fois
+---------------------------------------------------------------------------------------------------
+--- Rend, pour chaque demandeur, la plus longue suite de refus ET le plus grand nombre de demandeurs d'un même tick pendant cette suite ;
+--- et le nombre de bandes faites par équipe.
+local function p8(Rv, Ra, Jeton)
+  logs = {}
+  local w = new_world()
+  local teams = {}
+  local keys = { "f1", "f2", "f3", "f4", "player" }
+  for i, key in ipairs(keys) do
+    local force = "p8-" .. key
+    local f = team(w, key, force, (i - 1) * 96, 0)
+    for k = 0, 30 do add(w, ent("assembler", "assembling-machine", (i - 1) * 96 + (k % 8) * 4, -300 + k * 20, { net = 1, consumer = true, force = force, hw = 1.5, hh = 1.5 })) end
+    teams[i] = f
+  end
+  chunks_for(w, { { -10, -10 }, { 16, 8 } })
+  local sfc = surface_of(w)
+  local box = box_of(w)
+  Jeton.reset()
+  local saved_band = Rv.BAND
+  Rv.BAND, Rv.BANDS_PER_PULSE = 1, 1
+  local asks = {} -- [tick] = { [who] = vrai/faux }
+  local J = { take = function(t, who)
+    local r = Jeton.take(t, who)
+    asks[t] = asks[t] or {}
+    asks[t][who] = r
+    return r
+  end }
+  local bands = {}
+  for t = 0, 4 * 3600, 5 do
+    game.tick = t
+    for _, f in ipairs(teams) do
+      local p = { fstart = function(name) if name == "rv:bande" then bands[f.key] = (bands[f.key] or 0) + 1 end end, fstop = function() end }
+      Rv.step({ cancel = api_old.cancel, plant = api_old.plant, box = function() return box end, jeton = J, prof = p }, f, sfc, t)
+      Ra.step({ request = function() return nil end, prio = 50, champ_live = false, jeton = J, prof = p }, f, sfc, t)
+    end
+  end
+  Rv.BAND = saved_band
+  -- suites de refus par demandeur (demandes à des pouls successifs)
+  local tl = {}
+  for t in pairs(asks) do tl[#tl + 1] = t end
+  table.sort(tl)
+  local worst = {} -- [who] = { len, k }
+  local run = {}
+  for _, t in ipairs(tl) do
+    local n = 0
+    for _ in pairs(asks[t]) do n = n + 1 end
+    for who, r in pairs(asks[t]) do
+      local cur = run[who]
+      if r then
+        run[who] = nil
+      else
+        if cur and cur.t == t - 5 then cur.len, cur.t, cur.k = cur.len + 1, t, math.max(cur.k, n) else cur = { len = 1, t = t, k = n } end
+        run[who] = cur
+        local wv = worst[who]
+        if not wv or cur.len > wv.len then worst[who] = { len = cur.len, k = cur.k } end
+      end
+    end
+  end
+  return worst, bands
+end
+
+---------------------------------------------------------------------------------------------------
 -- Jeu de preuves sur la source du jeu
 ---------------------------------------------------------------------------------------------------
 local Rv, Ra, Jeton, Box = load_mods(nil)
@@ -638,6 +701,25 @@ for _, c in ipairs(p7(Rv)) do
   check(c[2] == c[3], string.format("P7 : %s : fin du relevé par bandes = net_read lu à la fin (%s)%s", c[1], c[2],
     c[2] ~= c[3] and (" ; net_read : " .. c[3]) or ""))
 end
+local function p8_ok(worst, bands)
+  local bad, txt = {}, {}
+  local whos = {}
+  for who in pairs(worst) do whos[#whos + 1] = who end
+  table.sort(whos)
+  for _, who in ipairs(whos) do
+    local x = worst[who]
+    txt[#txt + 1] = string.format("%s %d/%d", who, x.len, x.k - 1)
+    if x.len > x.k - 1 then bad[#bad + 1] = who end
+  end
+  return #bad == 0 and #whos > 0, table.concat(txt, ", "), bad
+end
+do
+  local worst, bands = p8(Rv, Ra, Jeton)
+  local ok8, txt8 = p8_ok(worst, bands)
+  check(ok8, "P8 : jeton équitable : plus longue attente de chaque demandeur <= demandeurs simultanés - 1 (attente/borne : " .. txt8 .. ")")
+  check((bands.player or 0) > 0 and worst["player:rv"] ~= nil and worst["player:rv"].len <= worst["player:rv"].k - 1,
+    string.format("P8 : votre équipe, appelée la dernière, n'est jamais affamée (%d bande(s) faites)", bands.player or 0))
+end
 
 ---------------------------------------------------------------------------------------------------
 -- Mutants
@@ -650,11 +732,13 @@ local MUT = {
   { "m3 bande d'un chunk de large", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
     { { "{ { j.x0 * 32, top }, { j.x1 * 32, bottom } }", "{ { j.x0 * 32, top }, { (j.x0 + 1) * 32, bottom } }" } }, "p2" },
   { "m4 jeton ignoré par le raccord", "script.team.raccord", "script/team/raccord.lua",
-    { { "if api.jeton and not api.jeton.take(tick) then return end", "if false then return end" } }, "p5" },
+    { { 'if api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":ra") then return end', "if false then return end" } }, "p5" },
   { "m5 boîte non tenue à on_chunk_generated", "script.team.boite_chunks", "script/team/boite_chunks.lua",
     { { "if b then grow(b, e.position.x, e.position.y) end", "if false then grow(b, e.position.x, e.position.y) end" } }, "p6" },
   { "m6 jeton ignoré par le relevé du réseau", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
-    { { "if api.jeton and not api.jeton.take(tick) then return nil end", "if false then return nil end" } }, "p5" },
+    { { 'if api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":rv") then return nil end', "if false then return nil end" } }, "p5" },
+  { "m8 jeton à priorité fixe (file ignorée)", "script.team.pouls_jeton", "script/team/pouls_jeton.lua",
+    { { "(s.q[1] ~= nil and s.q[1] ~= who)", "false" } }, "p8" },
   { "m13 la centrale attend la fin du relevé (avant le point 4)", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
     { { "  do" .. string.char(10) .. "    if tick < sv.next then return end",
       "  if sv.nr_job then return end" .. string.char(10) .. "  do" .. string.char(10) .. "    if tick < sv.next then return end" } }, "p12" },
@@ -672,6 +756,8 @@ for _, m in ipairs(MUT) do
   elseif m[5] == "p12" then
     local lost_at, fixed_at = p12(Rvm)
     seen = not (lost_at and fixed_at and fixed_at - lost_at <= Rvm.PERIOD + 5)
+  elseif m[5] == "p8" then
+    seen = not (p8_ok(p8(Rvm, Ram, Jm)))
   elseif m[5] == "p7" then
     seen = false
     for _, c in ipairs(p7(Rvm)) do if c[2] ~= c[3] then seen = true end end
