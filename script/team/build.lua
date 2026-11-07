@@ -112,7 +112,7 @@ Build.SITES = {}               -- lot PETROLE : planificateurs de sites { [nom] 
 
 local REACH = P.BUILD_DISTANCE
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (réserve des modules neufs, agrandissement, tapis)
-local Colr = require("shared.team.collecte") -- lot COLLECTE : règle pure (états servis, voyage à vide)
+Build.Colr = require("shared.team.collecte") -- lot COLLECTE : règle pure (états servis, voyage à vide) ; champ de Build, pas une locale (essai-0660 : bloc principal à 200 locales)
 local Collecte = require("script.team.collecte") -- lot COLLECTE : coffres de sortie du champ collectés en urgence quand le fer manque
 local Rr = require("shared.team.rebuild_rapide") -- lot REBUILD-RAPIDE : projet rouvert sans attendre toute sa matière, ordre, foreuse de secours
 -- Lot TOURELLE-JOURNAL : [FO-TOURELLE-RETIREE] (tourelles de l'équipe déplacées ou reprises). Champ de Build, pas une locale
@@ -3737,7 +3737,7 @@ function Build.work(agent, f, tick)
     take(chest)
     -- Lot COLLECTE : un voyage qui ne rapporte RIEN d'un coffre qui tient quelque chose (sac plein) n'est pas « done » : il échoue et la
     -- tâche reprend après la pause d'échec (carte de l'IA, boucle B2 : voyages à vide sans pause).
-    if Colr.outcome(before, got) == "fail" then
+    if Build.Colr.outcome(before, got) == "fail" then
       f.stats.collecte_vide = (f.stats.collecte_vide or 0) + 1
       if f.stats.collecte_vide <= 12 then
         log(string.format("[FO-COLLECTE] %s a %.1f min : voyage a vide, le coffre (%.0f, %.0f) tient %d objet(s) et le sac n'en prend aucun : echec, pause",
@@ -4922,7 +4922,7 @@ function Build.think(f, surface, tick)
       -- toute la reconstruction) ; quai_tasks ne fait rien sans le coffre réel de l'équipe
       if p.state == "fini" or p.state == "chantier" or (p.reopened and p.state ~= "refuse" and is_plant_project(p)) then
         quai_tasks(f, p, surface, tasks)
-      elseif Colr.collects_outs(p.state, #p.outs) then
+      elseif Build.Colr.collects_outs(p.state, #p.outs) then
         out_tasks(f, p, surface, tasks) -- lot COLLECTE : les coffres de sortie d'une bande en réserve ou refusée sont vidés aussi
       end
     end

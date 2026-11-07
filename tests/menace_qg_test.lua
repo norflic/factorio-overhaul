@@ -175,7 +175,15 @@ do
   local code = src:gsub("%-%-[^\n]*", "")
   local n_obs = select(2, code:gsub("MenaceQg%.observe%(f, tick%)", ""))
   check(n_obs == 1, "§4 team.lua appelle MenaceQg.observe une fois (" .. n_obs .. ")")
-  check(not code:find("radius = T.hq_threat_radius", 1, true), "§4 team.lua ne compte plus lui-meme a T.hq_threat_radius")
+  -- (essai-0660, fusion avec la 0.6.59 : le journal [FO-RECRUE] de la recrue gratuite retenue, EFFONDREMENT, compte les unités
+  -- à T.hq_threat_radius pour sa ligne seulement (Sp.held_text) ; aucune décision ne le lit. Ce comptage-là est permis ; tout autre
+  -- comptage au rayon, celui que l'hystérésis a remplacé, reste refusé.)
+  local other = 0
+  for pos in code:gmatch("()radius = T%.hq_threat_radius") do
+    local j = code:find("Sp.held_text(", pos, true)
+    if not (j and j - pos < 900) then other = other + 1 end
+  end
+  check(other == 0, "§4 team.lua ne compte plus lui-meme a T.hq_threat_radius (hors journal [FO-RECRUE]) : " .. other)
   check(code:find('local MenaceQg = require("script.team.menace_qg")', 1, true) ~= nil, "§4 require en tete de team.lua (jamais pendant un evenement, F24)")
 end
 
