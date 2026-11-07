@@ -157,7 +157,15 @@ local function run(mode, min, out, sans)
       if type(v) ~= "table" or rawget(v, "_lua_object") or seen[v] then return end
       seen[v] = true
       if reach[v] then
-        local decl = kind == "e1a" and DECL[path]
+        -- déclaré : le champ lui-même, ou une table sous un champ déclaré (view.mq gardé par référence porte mq.need et mq.build)
+        local decl = false
+        if kind == "e1a" then
+          local p = path
+          while p and not decl do
+            decl = DECL[p] or false
+            p = p:match("^(.*)%.[^.]*$")
+          end
+        end
         if decl then ALIAS.declared = ALIAS.declared + 1 else ALIAS.n = ALIAS.n + 1 end
         local key = (decl and "(par reference) " or "") .. kind .. " " .. path:gsub("%[%d+%]", "[i]") .. " = " .. reach[v]:gsub("%.%d+", ".i")
         ALIAS.where[key] = (ALIAS.where[key] or 0) + 1
