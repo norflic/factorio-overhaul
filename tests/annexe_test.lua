@@ -121,7 +121,9 @@ do
   local f = team(10)
   f.hq.items.coal = 120
   check(Stock.count(f, "coal") == 120 and Stock.remove(f, "coal", 20) == 20 and Stock.count(f, "coal") == 100, "sans annexe : le coffre")
-  check(Stock.insert(f, "coal", 450) == 400 and Stock.count(f, "coal") == 500, "dépôt : au plus la place du coffre")
+  -- Lot STOCKAGE (essai 2) : le refus n'est plus perdu : 400 entrent, 50 ATTENDENT (f.stock_pending) ; Stock.insert rend tout accepté.
+  check(Stock.insert(f, "coal", 450) == 450 and Stock.count(f, "coal") == 500 and Stock.pending(f) == 50,
+    "dépôt : le coffre prend sa place, le reste attend (ni perdu ni au sol)")
   check(Stock.balance(f) == 0 and #Stock.inventories(f) == 1, "sans annexe : rien à ranger")
 end
 do
@@ -186,7 +188,9 @@ do
   h.annex = {}
   for i = 1, T.annex.max do h.annex[i] = new_chest(0) end
   h.hq.items["iron-chest"] = 1
-  check(not Stock.grow(h, surface, 0), "maximum d'annexes atteint : plus de pose")
+  -- Lot STOCKAGE (essai 2) : le bloc plein n'arrête plus le stock : un anneau de plus s'ouvre et le coffre y est posé.
+  check(Stock.grow(h, surface, 0) and h.annex_rings == 2 and #h.annex == T.annex.max + 1, "bloc plein (48) : anneau 2 ouvert, coffre posé")
+  check(logs[#logs]:find("FO%-ANNEXE") and logs[#logs - 1]:find("FO%-STOCKAGE") and logs[#logs - 1]:find("anneau 2"), "journal [FO-STOCKAGE] anneau 2")
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -277,12 +281,12 @@ do
   h.hq.items.coal = 50 * 9
   h.hq.items["wooden-chest"] = 1
   game.tick = 500
-  check(Stock.insert(h, "coal", 500) == 0 and h.refused_at == 500, "dépôt refusé : noté")
+  check(Stock.insert(h, "coal", 500) == 500 and h.refused_at == 500 and Stock.pending(h) == 500, "dépôt refusé : noté, tout attend")
   check(Stock.wanted(h) == T.annex.want - 1, "un coffre en main : le fond en demande un de moins")
   check(Stock.grow(h, surface, 600) and #h.annex == 1 and h.refused_at == nil, "refus : coffre posé, refus consommé")
   local k = team(10)
   k.hq.items.coal = 50 * 10
-  check(Stock.insert(k, "coal", 50) == 0 and Stock.wanted(k) == T.annex.want, "refus sans coffre en main : le fond en fabrique")
+  check(Stock.insert(k, "coal", 50) == 50 and Stock.wanted(k) == T.annex.want, "refus sans coffre en main : le fond en fabrique")
   -- Plan directeur : une place réservée est sautée ; sans place libre on réessaie plus tard.
   local r = team(10)
   r.hq.items.coal = 50 * 9
@@ -301,6 +305,178 @@ do
   Stock.demand = function(_, item) return item == "iron-chest" and 1 or 0 end
   check(not Stock.grow(d, surface, 0) and Stock.wanted(d) == T.annex.want, "coffre déjà réclamé par le plan : ni posé ni compté en main")
   Stock.demand = nil
+  game.tick = nil
+end
+
+section("Lot STOCKAGE (essai 2) : amélioration au même endroit, contenu gardé ; objets en attente ; borne des anneaux")
+do
+  local Sg = require("shared.team.stockage")
+  game.tick = 0
+  local function sum(f, names)
+    local n = 0
+    for _, k in ipairs(names) do n = n + Stock.count(f, k) end
+    return n
+  end
+  local function named(size, name, x, y)
+    local e = new_chest(size)
+    e.name, e.position = name, { x = x, y = y }
+    e.destroy = function() e.valid = false end
+    return e
+  end
+  -- Bloc plein de 48 coffres en FER, chacun garni ; le QG plein ; un coffre en ACIER en main.
+  local function full_iron_team()
+    local f = team(10)
+    f.hq.items.coal = 50 * 9
+    f.hq.items["steel-chest"] = 1
+    f.annex = {}
+    for i = 1, T.annex.max do
+      local a = named(32, "iron-chest", i, 7)
+      a.items.wood = 100 * 30 -- 30 cases sur 32
+      f.annex[i] = a
+    end
+    return f
+  end
+  -- (a) moteur qui remplace (fast_replace, F39) : l'ancien coffre disparaît, son contenu passe au nouveau.
+  local f = full_iron_team()
+  local wood0, chests0 = sum(f, { "wood" }), #f.annex
+  local fr = 0
+  local surf_fr = { create_entity = function(s)
+    local e = named(48, s.name, s.position.x, s.position.y)
+    if s.fast_replace then
+      for _, o in ipairs(f.annex) do
+        if o.valid and o.position.x == s.position.x and o.position.y == s.position.y then
+          for k, v in pairs(o.items) do e.items[k] = v end
+          o.items, o.valid = {}, false
+          fr = fr + 1
+        end
+      end
+    end
+    return e
+  end }
+  check(Stock.grow(f, surf_fr, 0), "bloc plein de fer, acier en main : une action")
+  check(fr == 1 and #Stock.annexes(f) == chests0, "un coffre en fer REMPLACÉ en acier à la même place (fast_replace), même nombre d'annexes")
+  check(sum(f, { "wood" }) == wood0, "contenu GARDÉ : " .. sum(f, { "wood" }) .. " bois après, " .. wood0 .. " avant")
+  check(Stock.count(f, "steel-chest") == 0 and Stock.count(f, "iron-chest") >= 1, "l'acier sort du stock, le coffre en fer retiré y revient")
+  check(logs[#logs]:find("FO%-STOCKAGE") and logs[#logs]:find("ameliore"), "journal [FO-STOCKAGE] amélioration")
+  -- (b) moteur qui ne remplace pas : transfert à la main, l'ancien retiré seulement vide.
+  local g = full_iron_team()
+  local wood1 = sum(g, { "wood" })
+  local surf_plain = { create_entity = function(s) return named(48, s.name, s.position.x, s.position.y) end }
+  check(Stock.grow(g, surf_plain, 0), "sans remplacement par le moteur : une action")
+  check(sum(g, { "wood" }) == wood1, "contenu GARDÉ par transfert : " .. sum(g, { "wood" }) .. " sur " .. wood1)
+  check(#Stock.annexes(g) == T.annex.max, "l'ancien, vidé, est retiré ; le nouveau prend sa place dans la liste")
+  -- (c) objets en attente : un dépôt refusé attend, puis entre dès qu'un coffre est posé.
+  local h = team(10)
+  h.hq.items.coal = 50 * 10
+  h.hq.items["iron-chest"] = 0
+  game.tick = 100
+  check(Stock.insert(h, "stone", 120) == 120 and Stock.pending(h) == 120 and Stock.count(h, "stone") == 0, "stock plein : 120 pierres en attente")
+  h.hq.items.coal = 50 * 9 -- une case libérée (une prise), un coffre en main
+  h.hq.items["iron-chest"] = 1
+  local surf_new = { create_entity = function(s) return named(32, s.name, s.position.x, s.position.y) end }
+  Stock.grow(h, surf_new, 200)
+  check(Stock.pending(h) == 0 and Stock.count(h, "stone") == 120, "à la pensée suivante, les 120 pierres sont au stock (" .. Stock.pending(h) .. " en attente)")
+  -- (d) borne : 5 anneaux pleins de coffres en acier, coffres en fer en main : rien, et le journal le dit UNE fois.
+  local b = team(10)
+  b.hq.items.coal = 50 * 9
+  b.hq.items["iron-chest"] = 5
+  b.annex_rings = Sg.MAX_RINGS
+  b.annex = {}
+  for i = 1, Sg.capacity(1, 1, 1, Sg.MAX_RINGS) do b.annex[i] = named(1, "steel-chest", i, 99) end
+  for _, a in ipairs(b.annex) do a.items.wood = 100 end
+  local nlogs = #logs
+  check(not Stock.grow(b, surf_new, 300), "borne atteinte : rien posé")
+  local said = 0
+  for i = nlogs + 1, #logs do if logs[i]:find("FO%-STOCKAGE") and logs[i]:find("BORNE") then said = said + 1 end end
+  b.stock_watch.retry = nil
+  Stock.grow(b, surf_new, 300 + T.annex.retry)
+  for i = nlogs + 1, #logs do if logs[i]:find("BORNE") then said = said + (i > nlogs + 1 and 0 or 0) end end
+  local total = 0
+  for i = nlogs + 1, #logs do if logs[i]:find("BORNE") then total = total + 1 end end
+  check(said == 1 and total == 1, "journal [FO-STOCKAGE] BORNE écrit une seule fois (" .. total .. ")")
+  -- (e) à la borne, l'attente grossit : ALERTE au journal au-delà de 1 000 objets, une fois par dépassement, réarmée sous le seuil.
+  local function alerts(from)
+    local a = 0
+    for i = from + 1, #logs do if logs[i]:find("FO%-STOCKAGE") and logs[i]:find("ALERTE") then a = a + 1 end end
+    return a
+  end
+  local n0 = #logs
+  Stock.insert(b, "stone", 1500)
+  b.stock_watch.retry = nil
+  Stock.grow(b, surf_new, 400 + 2 * T.annex.retry)
+  b.stock_watch.retry = nil
+  Stock.grow(b, surf_new, 400 + 3 * T.annex.retry)
+  check(Stock.pending(b) == 1500 and alerts(n0) == 1, "1 500 objets en attente : une ALERTE [FO-STOCKAGE], pas deux (" .. alerts(n0) .. ")")
+  b.stock_pending = { stone = 10 }
+  b.stock_watch.retry = nil
+  Stock.grow(b, surf_new, 400 + 4 * T.annex.retry)
+  check(b.pending_alert == nil, "repassée sous le seuil : l'alerte est réarmée")
+  local n1 = #logs
+  Stock.insert(b, "stone", 1200)
+  b.stock_watch.retry = nil
+  Stock.grow(b, surf_new, 400 + 5 * T.annex.retry)
+  check(alerts(n1) == 1, "nouveau dépassement : nouvelle alerte")
+  -- (f) essai 3 (remarque du DC, 21 h 47) : le REGISTRE SE RÉPARE. Un coffre en fer remplacé par-dessus par un coffre en acier (nouveau numéro
+  -- d'unité, l'ancien devient invalide) et un coffre en acier posé par le joueur dans la zone sont RETROUVÉS et remplis ; jamais un coffre
+  -- d'avant-poste, ni un coffre sur une ligne du joueur (bras au contact), ni un coffre hors de la zone.
+  local Stt = require("script.faction.state")
+  local owner0 = Stt.owner
+  Stt.owner = function(u) return u == 9003 and { oid = 1 } or nil end
+  local q = team(10)
+  q.hq_pos = { x = 0, y = 0 }
+  q.hq.items.stone = 50 * 10 -- QG plein
+  local old = named(32, "iron-chest", 1, 5)
+  old.unit_number = 9000
+  q.annex = { old }
+  local function ent(u, name, x, y) local e = named(48, name, x, y); e.unit_number, e.force = u, "x"; return e end
+  local replaced = ent(9001, "steel-chest", 1, 5) -- par-dessus l'ancien
+  local posed = ent(9002, "steel-chest", 11, 11) -- posé par le joueur, coin du bloc
+  local owned = ent(9003, "steel-chest", -3, 7) -- réception d'avant-poste
+  local lined = ent(9004, "steel-chest", 5, 9) -- un bras au contact
+  local far = ent(9005, "steel-chest", 40, 40) -- hors de la zone
+  local world = { replaced, posed, owned, lined, far }
+  local surf_scan = {
+    create_entity = function(s) return named(32, s.name, s.position.x, s.position.y) end,
+    find_entities_filtered = function(flt)
+      local a = flt.area
+      local out = {}
+      if flt.type == "container" then
+        for _, e in ipairs(world) do
+          if e.valid and e.position.x >= a[1][1] and e.position.x <= a[2][1] and e.position.y >= a[1][2] and e.position.y <= a[2][2] then
+            out[#out + 1] = e
+          end
+        end
+      elseif a[1][1] < 5 and a[2][1] > 5 and a[1][2] < 9 and a[2][2] > 9 then
+        out[1] = { valid = true, type = "inserter" }
+      end
+      return out
+    end,
+  }
+  old.valid = false -- le joueur a posé le coffre en acier par-dessus : l'ancien n'existe plus
+  local nl = #logs
+  Stock.grow(q, surf_scan, 900)
+  local ids = {}
+  for _, e in ipairs(Stock.annexes(q)) do ids[#ids + 1] = e.unit_number end
+  table.sort(ids)
+  check(table.concat(ids, ",") == "9001,9002", "registre réparé : le coffre remplacé (9001) et celui posé par le joueur (9002) ; ni avant-poste, " ..
+    "ni ligne du joueur, ni hors zone (" .. table.concat(ids, ",") .. ")")
+  local found = 0
+  for i = nl + 1, #logs do if logs[i]:find("FO%-STOCKAGE") and logs[i]:find("retrouve") then found = found + 1 end end
+  check(found == 2, "journal [FO-STOCKAGE] : 2 coffres retrouvés (" .. found .. ")")
+  Stock.balance(q)
+  check((replaced.items.stone or 0) > 0 or (posed.items.stone or 0) > 0, "ils se REMPLISSENT : le rangement du QG plein y verse ses piles (" ..
+    tostring(replaced.items.stone) .. ", " .. tostring(posed.items.stone) .. ")")
+  -- mutant : sans la réparation, le registre reste vide
+  local sc0 = Stock.scan
+  Stock.scan = function() return 0 end
+  local q2 = team(10)
+  q2.hq_pos = { x = 0, y = 0 }
+  q2.hq.items.stone = 50 * 10
+  q2.annex = { old }
+  Stock.grow(q2, surf_scan, 900)
+  check(#Stock.annexes(q2) == 0, "mutant (réparation retirée) : aucun coffre retrouvé, la règle d'avant")
+  Stock.scan = sc0
+  Stt.owner = owner0
   game.tick = nil
 end
 

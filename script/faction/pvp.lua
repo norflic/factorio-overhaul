@@ -268,16 +268,17 @@ Scheduler.define_lane(PvP.SCAN_LANE, R.scan_period, function(_, tick)
     Scheduler.remove(PvP.SCAN_LANE, 1)
     return
   end
-  if not F.pvp_params(p.difficulty).aggressive then return end -- « Paisible » : aucun coût
   local surface = game.surfaces[war.surface]
   if not surface then return end
-  Profiler.start("pvp:scan")
-  Vision.pass(surface, p, tick)
-  Profiler.stop("pvp:scan")
-  -- Lot QG-ZONE : zone du départ (toute la base reliée au départ), A.ZONE_STEP comptages au plus par passe.
+  -- Lot QG-ZONE : zone du départ (toute la base reliée au départ), A.ZONE_STEP comptages au plus par passe. Lot COFFRES-JOUEUR : à
+  -- TOUS les niveaux, « Paisible » compris (la base du joueur, dont votre équipe lit les coffres, ne dépend pas de la guerre).
   Profiler.start("pvp:zone")
   Vision.zone_pass(surface, p, tick)
   Profiler.stop("pvp:zone")
+  if not F.pvp_params(p.difficulty).aggressive then return end -- « Paisible » : aucun regard des factions
+  Profiler.start("pvp:scan")
+  Vision.pass(surface, p, tick)
+  Profiler.stop("pvp:scan")
 end)
 
 --- Vue « joueur » d'une faction, évaluée seulement quand elle peut servir (niveau agressif, guerre
