@@ -590,7 +590,7 @@ Le DC veut des rangs CALCULÉS et recalculés quand le catalogue change (nouvel 
 | 14 | L9 sonder, minerai d'abord | V45, V46, V47, G37, G42, G43, G57 | Fabrique posée sur un gisement ; décision sur des faits périmés. | lots « gisement » `shared/team/plan.lua` l.9-11, l.42 | S | — | F + J |
 | 15 | L8 lot prêt avant l'ordre | V23, V72, G38 | Module bloqué en défrichage qui tient une place (en-tête d'`emplacements.lua`). | `Build.think` `build.lua:4846` ; `emplacements.lua` règle 2 | M | — | F + J |
 
-**Avancement (7/11, 16 h 25, heure réelle relue ; mis à jour par l'intégrateur)**. Rien n'est encore EN JEU : une règle pure testée hors jeu ne
+**Avancement (7/11, 16 h 23 ; mis à jour par l'intégrateur)**. Rien n'est encore EN JEU : une règle pure testée hors jeu ne
 change pas ce que vous verrez tant qu'elle n'est pas branchée. Plans de branchement et ordre de fusion :
 `fo-logs/2026-11-07_VIDEO-AUTOMATISATION/INTEGRATION_VIDEO.md`.
 
