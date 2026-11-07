@@ -407,7 +407,8 @@ remote.add_interface("fo-ia1", {
     -- Lecture seule, pour le banc : verdicts du ramassage (Stock.skip_fn) et compteurs du coffre urgent (nil avant le lot).
     local skip = Stock.skip_fn and Stock.skip_fn(f)
     local st = f.stats or {}
-    return { hook = true, instr = ni / reps, calls = nc / reps, put = put, reps = reps, inventaires = #Stock.inventories(f),
+    local fill_used, fill_size = Stock.fill(f)
+    return { hook = true, fill_used = fill_used, fill_size = fill_size, instr = ni / reps, calls = nc / reps, put = put, reps = reps, inventaires = #Stock.inventories(f),
       annexes = #Stock.annexes(f), skip_item = skip and skip(item) or false, skip_fn = skip ~= nil,
       stock_logs = st.stock_logs, annex_placed = st.annex_placed, annex_held = st.annex_held,
       why = f.stock_why and f.stock_why.why or nil, refused = st.refused,
