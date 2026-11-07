@@ -33,10 +33,15 @@ check(f.team.rappel_at == 100000 and f.stats.rappels == 1, "date et compte du ra
 check(#logs == 1 and logs[1]:find("ia1d:1:o:1", 1, true) and logs[1]:find("PNJ 2", 1, true) and logs[1]:find("ia3:mine:stone:2", 1, true),
   "une ligne de journal nomme la tâche urgente, le PNJ rappelé et sa tâche abandonnée")
 check(#Rp.stops(f, 100000 + 600) == 0, "30 s de pause : pas de second rappel 600 ticks après")
-check(#Rp.stops(f, 100000 + 1800) == 1, "30 s écoulées : le rappel est de nouveau permis")
+check(#Rp.stops(f, 100000 + 1800) == 0 and f.team.rappel_key == "ia1d:1:o:1", "30 s écoulées mais MÊME tâche urgente encore libre : pas de second rappel (boucle de rappels)")
+tasks_list[1].worker = 2
+Rp.stops(f, 100000 + 3600)
+check(f.team.rappel_key == nil, "la tâche est prise : la garde est réarmée")
+tasks_list[1].worker = nil
+check(#Rp.stops(f, 100000 + 5400) == 1, "tâche de nouveau libre après réarmement : rappel permis")
 
 agents[2].task.defend = true
-f.team.rappel_at = nil
+f.team.rappel_at, f.team.rappel_key = nil, nil
 r = Rp.stops(f, 200000)
 check(#r == 1 and r[1] == agents[1], "PNJ 2 en défense : seul l'éclaireur reste rappelable")
 agents[1].task.kind = "garrison"

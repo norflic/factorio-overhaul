@@ -78,6 +78,15 @@ local function checks(R)
   r = one({ { id = 1, busy = true, prio = 0, explore = true, x = 1, y = 0 } })
   check(r and r.npc == 1, "seule l'exploration est rappelable : elle l'est")
 
+  -- Garde de la tâche déjà servie (boucle de rappels)
+  c = { tick = T0, served = "ia1d:1:o:1", tasks = collecte.tasks, npcs = collecte.npcs }
+  x, why = R.pick(c)
+  check(x == nil and why == "aucune urgence", "la même tâche urgente ne rappelle pas deux fois tant qu'elle reste libre")
+  c.tasks = { collecte.tasks[1], { key = "autre", prio = 90, created = T0 - 600, ok = true, x = 0, y = 0 } }
+  check(R.pick(c) and R.pick(c).urgent == "autre", "une AUTRE tâche urgente peut rappeler")
+  check(R.rearm("ia1d:1:o:1", collecte.tasks) == "ia1d:1:o:1", "servie et encore libre : la garde reste")
+  check(R.rearm("ia1d:1:o:1", {}) == nil and R.rearm(nil, collecte.tasks) == nil, "prise ou partie du tableau : réarmée")
+
   -- Plusieurs urgences : la plus prioritaire, puis la plus ancienne
   c = { tick = T0, tasks = { { key = "b", prio = 90, created = T0 - 900, ok = true, x = 0, y = 0 }, { key = "a", prio = 94, created = T0 - 400, ok = true, x = 0, y = 0 } },
     npcs = { { id = 1, busy = true, prio = 50, x = 0, y = 0 } } }
@@ -131,6 +140,9 @@ local function clone(ctx, over)
 end
 
 local MUTANTS = {
+  { "meme-tache-deux-fois", function(R) wrap_ctx(R, function(c) return clone(c, function(o) o.served = nil end) end) end },
+  { "garde-jamais-rearmee", function(R) R.rearm = function(s) return s end end },
+  { "garde-toujours-rearmee", function(R) R.rearm = function() return nil end end },
   { "defense-rappelee", function(R) wrap_ctx(R, function(c) return clone(c, function(o) for _, n in ipairs(o.npcs) do n.defending = false end end) end) end },
   { "libre-ignore", function(R) wrap_ctx(R, function(c) return clone(c, function(o) for _, n in ipairs(o.npcs) do n.busy = true end end) end) end },
   { "pas-de-pause", function(R) wrap_ctx(R, function(c) return clone(c, function(o) o.last_at = nil end) end) end },
