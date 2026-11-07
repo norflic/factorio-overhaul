@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Version: 0.6.55
+Date: 2026-11-07
+  Changes:
+    - Gels periodiques (remarque du DC du 5/11) : les pensees d'equipe des 4 factions tombaient a 4 ticks consecutifs toutes les 300 ticks ; elles sont maintenant espacees (phases 7, 82, 157, 232), parties en cours migrees. Sauvegarde du DC a 255 min : pire tick 768 ms -> 263 ms.
+    - Calcul allege a decisions identiques : choix du cerveau general (-25 % par appel, 1 ms au mur au lieu de 26), petrole (6 recettes parcourues au lieu de 246), ligne de charbon des champs en temps constant, tri des tuiles de minage et autodefense des PNJ.
+    - Unites experimentales (QCM du DC du 5/11) : resistance au coup d'une mitrailleuse de 4 ages de moins, vie pour tenir 3 min sous 10 dechiqueteurs de leur age, 5 salves pour tuer un biter de leur age, zone des geants 15 x (age - 9) tuiles, cratere ; les geants frappent tout ce qui est ennemi jusqu'a la fin, salve decoupee sur plusieurs ticks. Bourdon et geants : vie et resistances de leur age. Parties en cours : proportion de vie gardee, regeneration proportionnelle au maximum.
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Version: 0.6.52
 Date: 2026-11-05
   Changes:
