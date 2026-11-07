@@ -33,19 +33,22 @@ local fine_on = false
 -- décision) ; mode allumé : le mode fin l'est aussi. Copie locale du drapeau, recopiée comme fine_on.
 local detail_on = false
 local dt_tick = -1
-local dt_names = {}   -- portées vues dans le tick, dans l'ordre de première fin
-local dt_acc = {}     -- [nom] = LuaProfiler accumulé dans le tick
-local dt_mother = {}  -- [nom] = portée mère à sa première ouverture dans le tick ("-" : premier niveau)
-local dt_run = {}     -- [nom] = chronomètre de l'ouverture en cours
-local dt_stack = {}   -- portées ouvertes (noms), la plus récente en haut
--- Lot X10-S0 (7/11) : COMPTEURS du tick (Profiler.fcount, détail seulement) : appels au stock, coffres lus... écrits à la fin de la
--- ligne [FO-PERF3-T] sous la forme « #nom=n » (pas une portée : perf3.py ne les lit pas comme telles). Tables LOCALES.
-local dt_cnt_names = {}
-local dt_cnt = {}
--- Lot X10-S0 : portées OUVERTES et pas encore fermées dans le tick. Une fermeture sans ouverture (build.lua ferme les quatre parties
--- du plan après un retour anticipé de plan_project, ouvertes ou non) ajoutait UNE SECONDE FOIS la durée de la dernière ouverture
--- fermée du même tick : compte double au détail. Elle ne compte plus rien.
-local dt_live = {}
+-- Lot X10-S0, fait F403 (7/11) : toutes les tables du détail sont des CHAMPS d'une seule table locale, jamais des locaux du module
+-- réaffectés : une table neuve rangée à chaque tick dans une upvalue fermée bloque le marquage du ramasse-miettes de Lua 5.2
+-- (fo-logs/2026-11-07_X10/M8_CRITERES.md §3 bis : 9 cycles contre 21, tas de 516 Mo contre 57).
+--   DT.names : portées vues dans le tick, dans l'ordre de première fin ; DT.acc : [nom] = LuaProfiler accumulé dans le tick ;
+--   DT.mother : [nom] = portée mère à sa première ouverture dans le tick ("-" : premier niveau) ; DT.run : [nom] = chronomètre de
+--   l'ouverture en cours ; DT.stack : portées ouvertes (noms), la plus récente en haut.
+--   DT.cnt_names, DT.cnt : COMPTEURS du tick (Profiler.fcount, détail seulement), écrits à la fin de la ligne [FO-PERF3-T] sous la
+--   forme « #nom=n » (pas une portée : perf3.py ne les lit pas comme telles).
+--   DT.live : portées OUVERTES et pas encore fermées dans le tick. Une fermeture sans ouverture (build.lua ferme les quatre parties
+--   du plan après un retour anticipé de plan_project, ouvertes ou non) ajoutait UNE SECONDE FOIS la durée de la dernière ouverture
+--   fermée du même tick : compte double au détail. Elle ne compte plus rien.
+local DT = { names = {}, acc = {}, mother = {}, run = {}, stack = {}, cnt_names = {}, cnt = {}, live = {} }
+local function dt_reset()
+  DT.names, DT.acc, DT.mother, DT.run, DT.stack = {}, {}, {}, {}, {}
+  DT.cnt_names, DT.cnt, DT.live = {}, {}, {}
+end
 
 local function refresh(p)
   detail_on = (p.enabled and p.detail == true) or false
@@ -53,17 +56,17 @@ local function refresh(p)
 end
 
 local function dt_flush()
-  local n = #dt_names
-  local nc = #dt_cnt_names
+  local n = #DT.names
+  local nc = #DT.cnt_names
   if n > 0 or nc > 0 then
     -- Une LocalisedString porte au plus 20 paramètres : paquets de 9 portées (18 paramètres), sous une table mère. Lot X10-S0 : plus de
     -- 17 paquets (portées fines par gestionnaire, par état...) : les paquets sont regroupés par 19 sous un niveau de plus (même texte).
     local items = {}
     local chunk = { "" }
     for i = 1, n do
-      local name = dt_names[i]
-      chunk[#chunk + 1] = " " .. name .. "<" .. dt_mother[name] .. " "
-      chunk[#chunk + 1] = dt_acc[name]
+      local name = DT.names[i]
+      chunk[#chunk + 1] = " " .. name .. "<" .. DT.mother[name] .. " "
+      chunk[#chunk + 1] = DT.acc[name]
       if #chunk >= 19 then
         items[#items + 1] = chunk
         chunk = { "" }
@@ -72,7 +75,7 @@ local function dt_flush()
     if #chunk > 1 then items[#items + 1] = chunk end
     if nc > 0 then
       local parts = {}
-      for i = 1, nc do parts[i] = " #" .. dt_cnt_names[i] .. "=" .. string.format("%d", dt_cnt[dt_cnt_names[i]]) end
+      for i = 1, nc do parts[i] = " #" .. DT.cnt_names[i] .. "=" .. string.format("%d", DT.cnt[DT.cnt_names[i]]) end
       items[#items + 1] = table.concat(parts)
     end
     local out = { "", "[FO-PERF3-T] ", tostring(dt_tick) }
@@ -91,8 +94,7 @@ local function dt_flush()
     end
     log(out)
   end
-  dt_names, dt_acc, dt_mother, dt_run, dt_stack = {}, {}, {}, {}, {}
-  dt_cnt_names, dt_cnt, dt_live = {}, {}, {}
+  dt_reset()
 end
 
 local function dt_open(name)
@@ -101,26 +103,26 @@ local function dt_open(name)
     dt_flush()
     dt_tick = tick
   end
-  if not dt_mother[name] then dt_mother[name] = dt_stack[#dt_stack] or "-" end
-  dt_stack[#dt_stack + 1] = name
-  local m = dt_run[name]
-  if m then m.reset() else dt_run[name] = game.create_profiler() end
-  dt_live[name] = true
+  if not DT.mother[name] then DT.mother[name] = DT.stack[#DT.stack] or "-" end
+  DT.stack[#DT.stack + 1] = name
+  local m = DT.run[name]
+  if m then m.reset() else DT.run[name] = game.create_profiler() end
+  DT.live[name] = true
 end
 
 local function dt_close(name)
-  local m = dt_run[name]
-  if not (m and dt_live[name]) then return end
-  dt_live[name] = nil
+  local m = DT.run[name]
+  if not (m and DT.live[name]) then return end
+  DT.live[name] = nil
   m.stop()
-  local a = dt_acc[name]
+  local a = DT.acc[name]
   if not a then
     a = game.create_profiler(true)
-    dt_acc[name] = a
-    dt_names[#dt_names + 1] = name
+    DT.acc[name] = a
+    DT.names[#DT.names + 1] = name
   end
   a.add(m)
-  if dt_stack[#dt_stack] == name then dt_stack[#dt_stack] = nil end
+  if DT.stack[#DT.stack] == name then DT.stack[#DT.stack] = nil end
 end
 
 function Profiler.enabled()
@@ -187,8 +189,7 @@ function Profiler.set_enabled(on, tick, fine)
   timers = {}
   counts = {}
   dt_tick = -1
-  dt_names, dt_acc, dt_mother, dt_run, dt_stack = {}, {}, {}, {}, {}
-  dt_cnt_names, dt_cnt, dt_live = {}, {}, {}
+  dt_reset()
 end
 
 function Profiler.fine()
@@ -231,12 +232,12 @@ function Profiler.fcount(name, n)
     dt_flush()
     dt_tick = tick
   end
-  local c = dt_cnt[name]
+  local c = DT.cnt[name]
   if not c then
-    dt_cnt_names[#dt_cnt_names + 1] = name
+    DT.cnt_names[#DT.cnt_names + 1] = name
     c = 0
   end
-  dt_cnt[name] = c + (n or 1)
+  DT.cnt[name] = c + (n or 1)
 end
 
 -- Lot PERF (correction après revue) : portée attribuée APRÈS COUP selon son issue (porte acceptée ou refusée, prise de
@@ -265,12 +266,12 @@ function Profiler.fcredit(slot, name)
       dt_flush()
       dt_tick = game.tick
     end
-    local a = dt_acc[name]
+    local a = DT.acc[name]
     if not a then
       a = game.create_profiler(true)
-      dt_acc[name] = a
-      dt_names[#dt_names + 1] = name
-      dt_mother[name] = dt_stack[#dt_stack] or "-"
+      DT.acc[name] = a
+      DT.names[#DT.names + 1] = name
+      DT.mother[name] = DT.stack[#DT.stack] or "-"
     end
     a.add(m)
   end

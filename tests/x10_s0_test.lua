@@ -340,7 +340,7 @@ end
 local prof_src = mutated("script/core/profiler.lua", {})
 local n_ok = adds_of(prof_src)
 check(n_ok == 2, "P3 : une fermeture sans ouverture ne compte rien au détail (" .. n_ok .. " ajout(s) pour 2 ouvertures, attendu 2)")
-local n_mut = adds_of(mutated("script/core/profiler.lua", { { "  if not (m and dt_live[name]) then return end\n  dt_live[name] = nil\n",
+local n_mut = adds_of(mutated("script/core/profiler.lua", { { "  if not (m and DT.live[name]) then return end\n  DT.live[name] = nil\n",
   "  if not m then return end\n" } }))
 check(n_mut ~= 2, "P4 : mutant « fermeture sans ouverture comptée » vu (" .. n_mut .. " ajout(s))")
 
