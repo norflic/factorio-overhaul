@@ -24,11 +24,21 @@
   chaînes, tables. Aucun nom du jeu ici (test anti-échelle, tests/iag_test.lua §8).
 ]]
 
+local Ex = require("shared.ai3.exclusion") -- lot VIDEO-PLAFONDS, partie d (V99) : objets exclus de la demande
+
 local Pf = {}
 
 Pf.K = 2      -- plafond = 2 fois la demande (même rapport que Ca.LEAD, Ca.CHAIN_LEAD, Ml.LEAD)
 Pf.HARD = 64  -- unités posées + ouvertes au plus par objet (Ml.MACHINES_MAX)
 Pf.EPS = 1e-9
+
+-- Lot VIDEO-PLAFONDS (G02, G03, G64) : PLAFOND DE SÛRETÉ PAR SORTE d'ordre, en DONNÉES (aucun nom d'objet : la sorte est le mot de
+-- la capitalisation, `Ca.CAPPED`). Unités posées + ouvertes + voulues au plus. Une sorte absente du tableau n'a PAS de plafond de
+-- sûreté ici (Pf.NO_HARD, hors d'atteinte : le témoin A/B de VIDEO-INTEG change 116 rendus sur 502 avec Pf.HARD = 64 pour les fours,
+-- les chaînes et les packs, et Ca.CAP_HARD le laisse hors d'atteinte, à trancher par le lead et le DC).
+--   labos = 25 : MAX_RESEARCH_TILES = 25 chez l'auteur (G03, « plafond du sommet » ; G64 : la recherche ne grandit plus au-delà).
+Pf.NO_HARD = 1e6
+Pf.HARD_KIND = { labos = 25 }
 
 local function fmt(x)
   if type(x) ~= "number" then return tostring(x) end
@@ -159,6 +169,66 @@ function Pf.room(s, unit, want, item)
   end
   if best >= w then why = nil end
   return best, why
+end
+
+--- Plafond de sûreté d'une sorte d'ordre (Pf.HARD_KIND ; Pf.NO_HARD quand la sorte n'en a pas).
+function Pf.hard_for(kind)
+  local h = Pf.HARD_KIND[kind]
+  if h == nil then return Pf.NO_HARD end
+  return h
+end
+
+--- Lot VIDEO-PLAFONDS : combien d'unités d'une sorte d'ordre passent le plafond de sûreté. `want` = unités voulues, `have` =
+--- unités déjà posées ou ouvertes. Rend room (0 à want), raison (nil quand tout passe ; sinon le refus, qui commence par
+--- « plafond » : le journal [FO-CAPI-CONF] de script/ai3/capitalisation.lua l'écrit). Garde FERMÉE par défaut : une entrée absente
+--- ou invalide rend 0 et le dit.
+function Pf.kind_room(kind, want, have)
+  local who = tostring(kind or "?")
+  local w, ww = Pf.input(want, "unites voulues")
+  if w == nil then return 0, "plafond " .. who .. " : " .. ww end
+  local h, wh = Pf.input(have, "unites posees ou ouvertes")
+  if h == nil then return 0, "plafond " .. who .. " : " .. wh end
+  w = math.floor(w + Pf.EPS)
+  local hard = Pf.hard_for(kind)
+  local room = math.max(0, math.min(w, math.floor(hard + Pf.EPS) - math.floor(h + Pf.EPS)))
+  if room >= w then return w end
+  return room, string.format("plafond %s : %s posees ou ouvertes + %s voulues > %s au plus", who, fmt(h), fmt(w), fmt(hard))
+end
+
+--- Lot VIDEO-PLAFONDS, partie d : l'objet est-il exclu de la demande (réglage fo-war-exclusion) ? Passerelle vers Ex.has, pour que
+--- shared/ai3/capitalisation.lua n'ait qu'un module de plus à connaître : ce fichier.
+function Pf.excluded(set, item) return Ex.has(set, item) end
+Pf.excluded_why = Ex.why
+
+--- Lot VIDEO-PLAFONDS : PORTE des options d'une décision (Ca.options), une seule fois par appel. out = liste { o = ordre, mk = fonction
+--- (n) -> ordre ou nil } ; excl = ensemble des objets exclus (nil : aucun) ; have = { [sorte] = unités posées ou ouvertes } (une sorte
+--- de Pf.HARD_KIND sans valeur ici : garde FERMÉE, le motif le dit) ; refuse(clé, sorte, objet, motif) écrit le refus.
+--- Rend une NOUVELLE liste :
+---   - une option dont l'objet (item, sinon resource) est exclu est RETIRÉE, refus « exclu : » (clé de l'option) ;
+---   - une option d'une sorte plafonnée (Pf.kind_room) est réduite à la taille qui passe (mk(room)), ou retirée à 0 place ; le refus
+---     « plafond ... » est écrit sous la clé « plafond:<clé de l'option> » (autre clé que l'ordre retenu : il survit à l'ordre) ;
+---   - toute autre option passe telle quelle (même table).
+function Pf.gate(out, excl, have, refuse)
+  local kept = {}
+  for _, c in ipairs(out) do
+    local o = c.o
+    local item = o.item or o.resource
+    if Ex.has(excl, item) then
+      refuse(o.key, o.kind, o.item, Ex.why(item))
+    elseif Pf.HARD_KIND[o.kind] == nil then
+      kept[#kept + 1] = c
+    else
+      local room, why = Pf.kind_room(o.kind, o.n, have and have[o.kind])
+      if why then refuse("plafond:" .. tostring(o.key), o.kind, nil, why) end
+      if room >= (o.n or 0) then
+        kept[#kept + 1] = c
+      elseif room > 0 and c.mk then
+        local o2 = c.mk(room)
+        if o2 and (o2.n or 0) <= room then kept[#kept + 1] = { o = o2, mk = c.mk } end
+      end
+    end
+  end
+  return kept
 end
 
 --- Places d'ordres ouverts (règle 5). open = LISTE des ordres ouverts (nil : fermée), max = plafond. Rend room (≥ 0), raison

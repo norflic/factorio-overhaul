@@ -18,6 +18,8 @@
     13. déterminisme ;
     14. coût en INSTRUCTIONS (debug.sethook, jamais os.clock) ;
     15. mutants : chaque règle retirée fait échouer au moins un contrôle.
+    16. lot VIDEO-PLAFONDS (G02, G03, G64) : plafond de sûreté PAR SORTE d'ordre, en données (Pf.HARD_KIND, Pf.hard_for,
+        Pf.kind_room) : 40 unités voulues sont bornées, motif écrit, garde fermée sur entrée absente.
   Les objets sont des chaînes opaques (aucun nom du jeu).
 ]]
 package.path = "./?.lua;" .. package.path
@@ -326,6 +328,60 @@ local function run_all(Pf)
     check(i_fits < 1500, "14 : Pf.fits sous 1 500 instructions (" .. i_fits .. ")")
     check(i_room < 12 * i_fits, "14 : Pf.room en O(log n) appels (" .. i_room .. ")")
   end
+
+  -- 16. Plafond de sûreté par sorte d'ordre (lot VIDEO-PLAFONDS).
+  section("16. plafond de surete par sorte d'ordre")
+  do
+    check(type(Pf.HARD_KIND) == "table" and Pf.HARD_KIND.labos == 25, "16 : donnees : labos = 25 (G03, MAX_RESEARCH_TILES)")
+    check(Pf.hard_for("labos") == 25, "16 : hard_for(labos) = 25")
+    check(Pf.hard_for("fours") == Pf.NO_HARD and Pf.hard_for("sorte-inconnue") == Pf.NO_HARD and Pf.hard_for(nil) == Pf.NO_HARD,
+      "16 : une sorte sans plafond de surete est hors d'atteinte (Pf.NO_HARD), comme avant")
+    local room, why = Pf.kind_room("labos", 40, 0)
+    check(room == 25 and has(why, "plafond labos") and has(why, "> 25 au plus") and has(why, "40 voulues"),
+      "16 : 40 laboratoires voulus, 0 poses : 25, motif ecrit (" .. tostring(room) .. " ; " .. tostring(why) .. ")")
+    room, why = Pf.kind_room("labos", 10, 20)
+    check(room == 5 and has(why, "20 posees ou ouvertes"), "16 : 10 voulus, 20 poses : 5 (" .. tostring(room) .. " ; " .. tostring(why) .. ")")
+    room, why = Pf.kind_room("labos", 10, 25)
+    check(room == 0 and why ~= nil and why:sub(1, 8) == "plafond ", "16 : au plafond : 0 et le motif commence par « plafond »")
+    room, why = Pf.kind_room("labos", 10, 40)
+    check(room == 0 and why ~= nil, "16 : au-dessus du plafond (migration, sauvegarde) : 0, jamais negatif (" .. tostring(room) .. ")")
+    room, why = Pf.kind_room("labos", 10, 3)
+    check(room == 10 and why == nil, "16 : sous le plafond : tout passe, aucun motif")
+    room, why = Pf.kind_room("labos", 25, 0)
+    check(room == 25 and why == nil, "16 : pile le plafond : tout passe")
+    room, why = Pf.kind_room("fours", 40, 0)
+    check(room == 40 and why == nil, "16 : sorte sans plafond de surete : 40 passent")
+    -- Garde fermee par defaut : aucune entree absente ou invalide n'est lue comme 0.
+    for _, bad in ipairs({ "absent", 0 / 0, -1, math.huge, "12" }) do
+      local w = (bad ~= "absent") and bad or nil
+      local r1, w1 = Pf.kind_room("labos", w, 0)
+      local r2, w2 = Pf.kind_room("labos", 5, w)
+      check(r1 == 0 and has(w1, "plafond labos") and r2 == 0 and has(w2, "plafond labos"),
+        "16 : entree " .. tostring(bad) .. " : garde fermee, motif (" .. tostring(w1) .. " ; " .. tostring(w2) .. ")")
+    end
+    -- Les donnees se changent sans toucher la regle : 40 laboratoires deviennent permis avec un plafond de 64.
+    local old = Pf.HARD_KIND.labos
+    Pf.HARD_KIND.labos = 64
+    room, why = Pf.kind_room("labos", 40, 0)
+    Pf.HARD_KIND.labos = old
+    check(room == 40 and why == nil, "16 : le plafond est une DONNEE (64 : 40 passent)")
+    -- Determinisme et aucun nom du jeu : meme appel, meme rendu.
+    local a, b = {}, {}
+    for i = 0, 60 do a[#a + 1] = table.concat({ Pf.kind_room("labos", i, 60 - i) }, "|") end
+    for i = 0, 60 do b[#b + 1] = table.concat({ Pf.kind_room("labos", i, 60 - i) }, "|") end
+    check(table.concat(a, "|") == table.concat(b, "|"), "16 : deterministe")
+    -- Monotone : plus on en a, moins il reste de places ; jamais plus que voulu.
+    local mono = true
+    for want = 0, 60 do
+      local prev = math.huge
+      for have = 0, 60 do
+        local r = Pf.kind_room("labos", want, have)
+        if r > want or r > prev or r < 0 then mono = false end
+        prev = r
+      end
+    end
+    check(mono, "16 : 0 <= places <= voulu, decroissant avec le nombre deja pose")
+  end
 end
 
 local Pf0 = assert(load_pf())
@@ -346,6 +402,11 @@ local MUTANTS = {
   { "places ouvertes sur liste absente", { 'if type(open) ~= "table" then return 0, "ordres ouverts : entree absente" end', 'if type(open) ~= "table" then open = {} end' } },
   { "decompte qui remplace une entree absente", { "if o == nil or no == nil or r == nil or n == nil then return false end", "o, no, r, n = o or 0, no or 0, r or 0, n or 0" } },
   { "comparaison ouverte sur limite absente", { "if b == nil then return false, wb end", "if b == nil then b = 0 end" } },
+  { "plafond de surete par sorte retire", { "local room = math.max(0, math.min(w, math.floor(hard + Pf.EPS) - math.floor(h + Pf.EPS)))", "local room = w" } },
+  { "unites deja posees non comptees (sorte)", { "- math.floor(h + Pf.EPS)))", "- 0))" } },
+  { "places negatives possibles (sorte)", { "local room = math.max(0, math.min(w,", "local room = (0 + math.min(w," } },
+  { "plafond de surete lu dans la regle, pas dans les donnees", { "local h = Pf.HARD_KIND[kind]", "local h = nil" } },
+  { "unites posees absentes lues comme 0 (sorte)", { 'if h == nil then return 0, "plafond " .. who .. " : " .. wh end', "if h == nil then h = 0 end" } },
 }
 local killed = 0
 quiet = true

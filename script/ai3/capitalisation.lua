@@ -56,6 +56,7 @@
 local T = require("shared.team.config")
 local Ca = require("shared.ai3.capitalisation")
 local RangTrace = require("script.ai3.rang_trace") -- lot VIDEO-TRACES (G34) : journal [FO-RANG]
+local Excl = require("script.ai3.exclusion") -- lot VIDEO-PLAFONDS (V99) : réglage fo-war-exclusion (objets exclus de la demande), journal [FO-EXCLU]
 local Cf = require("shared.ai3.confirmation") -- lot VIDEO-L5 : capacité CONFIRMÉE (première production observée)
 local Sante = require("script.team.sante_centrale") -- étape 5a de VIDEO-INTEG : consommateurs en chantier (vue de la porte du plan directeur)
 local Sc = require("shared.team.sante_centrale") -- étape 5a : S.DRAW (part de sa puissance nominale qu'un chantier tire)
@@ -1258,6 +1259,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     hold = cs.scan and cs.scan.hold, -- lot VIDEO-L5 : objets suspendus (nil : sans confirmation, la capacité compte à la pose)
     -- lot VIDEO-L3 : les manques mesurés des modules finis s'ajoutent aux puits (Mq.sinks ; Ca.requirements n'est pas touché)
     deposits = deposits, open = open, sinks = cs.bench_sinks or Mq.sinks(mq_fresh(f, tick), Ml.sinks(st.mall)), need = need, research = research, drill_for = drill_for,
+    excl = Excl.read(), -- lot VIDEO-PLAFONDS (V99) : objets exclus de la demande (nil : réglage vide, entrée inchangée)
     limits = Rsv.on() and {} or { max_ingredients = 2 }, workers = view.workers or 0, idle = Ca.idle_of(g and g.idle_ema or 0),
     can_grow = (view.workers or 0) < (view.workers_wanted or 0), traits = f.traits or {},
     weights = w or {}, threat = threat, dt = 1, lag = cs.lag, starved = Pi.threat_exempt(st.pile, st.starved_open), -- (intégration 0.6.28)
@@ -1761,6 +1763,7 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
       log(string.format("[FO-CAPI-CONF] %s : refus %s : %s a %.1f min", f.key or "?", tostring(r.key), why, minutes(f, tick)))
     end
   end
+  Excl.journal(f, input, res, tick, minutes(f, tick)) -- lot VIDEO-PLAFONDS (V99) : refus d'exclusion et puits retirés, [FO-EXCLU]
   -- Étape 5a de VIDEO-INTEG : le courant de la décision (capacité des centrales finies, somme nominale du relevé, puissance MESURÉE pour
   -- comparer, sans décider, et kW retenus faute de courant).
   if res.kw then
