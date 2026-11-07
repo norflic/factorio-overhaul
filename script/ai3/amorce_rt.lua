@@ -181,6 +181,44 @@ function AmRt.observe(f, cs, ml, cfr, book, tick)
   return out
 end
 
+--- Remise directe (correctif C3 de DIAG_CONSO) : appelée par le dépôt d'un PNJ au QG (script/team/worker.lua, deposit_inventory) AVANT le coffre
+--- pour l'objet `name` en quantité `n` qu'il porte (inventaire `inv`). Ce qu'un module du plan directeur EN RÉSERVE attend (son manque,
+--- p.missing, écrit par Build.reserve) va à p.stock du module, sans passer par le coffre : un coffre plein refuse tout objet non vital (M0), et le
+--- cycle « module de chaîne -> assembleurs 2 -> circuits -> module de chaîne » (M4) ne se coupait jamais. Rend le nombre d'objets remis
+--- (retirés de `inv`, comptés livrés au QG). La règle est Am.direct (shared/ai3/amorce.lua).
+function AmRt.deliver(f, inv, name, n)
+  local b = f and f.build
+  if not (b and b.order and b.projects and inv) then return 0 end
+  local list = {}
+  for _, id in ipairs(b.order) do
+    local p = b.projects[id]
+    if p and p.state == "reserve" then list[#list + 1] = { id = id, state = p.state, reason = p.reason, missing = p.missing } end
+  end
+  local given = 0
+  for _, a in ipairs(Am.direct(list, name, n)) do
+    local p = b.projects[a.id]
+    local got = inv.remove({ name = name, count = a.n }) or 0
+    if got > 0 then
+      p.stock[name] = (p.stock[name] or 0) + got
+      local rest, left = {}, got
+      for _, m in ipairs(p.missing or {}) do
+        if m[1] == name and left > 0 then
+          local take = math.min(left, m[2])
+          left = left - take
+          if m[2] - take > 0 then rest[#rest + 1] = { m[1], m[2] - take } end
+        else
+          rest[#rest + 1] = m
+        end
+      end
+      p.missing, p.reserve_next = rest, nil
+      given = given + got
+      log(string.format("[FO-AMORCE] %s : %s", f.key or "?", Am.describe_direct({ id = a.id, item = name, n = got }, (game and game.tick or 0) / 3600)))
+    end
+  end
+  if given > 0 then f.team.delivered[name] = (f.team.delivered[name] or 0) + given end
+  return given
+end
+
 --- Lignes [FO-AMORCE] des retraits.
 function AmRt.lines(f, ml, retraits, minutes)
   local out = {}
@@ -192,6 +230,50 @@ function AmRt.lines(f, ml, retraits, minutes)
       f.key or "?", tostring(ev.item), tostring(ev.id), minutes or 0)
   end
   return out
+end
+
+-- Interface distante (BANCS SEULEMENT) : l'état de la remise directe, et une remise comme le ferait le dépôt d'un PNJ. L'équipe est cherchée
+-- dans le module d'état déjà chargé (package.loaded : require est interdit pendant un événement, F24).
+if remote and remote.add_interface then
+  local function team_of(key)
+    local State = package.loaded["script.faction.state"]
+    if not State then return nil end
+    if key == "player" then return State.faction("player") end
+    for _, id in ipairs(State.alive()) do
+      local f = State.faction(id)
+      if f and (f.key == key or id == key) then return f end
+    end
+    return nil
+  end
+  remote.add_interface("fo-amorce", {
+    --- Les modules du plan directeur en réserve et ce qui leur manque : { { id, product, missing = { { objet, manque } }, stock = { [objet] = n } } }.
+    reserves = function(key)
+      local f = team_of(key)
+      local b = f and f.build
+      if not (b and b.order and b.projects) then return nil end
+      local out = {}
+      for _, id in ipairs(b.order) do
+        local p = b.projects[id]
+        if p and p.state == "reserve" then
+          local miss, stock = {}, {}
+          for _, m in ipairs(p.missing or {}) do miss[#miss + 1] = { m[1], m[2] } end
+          for k, v in pairs(p.stock or {}) do stock[k] = v end
+          out[#out + 1] = { id = id, product = p.spec and p.spec.product, reason = p.reason, missing = miss, stock = stock }
+        end
+      end
+      return out
+    end,
+    --- Un PNJ qui arrive au QG avec `n` objets `name` (un inventaire temporaire) : AmRt.deliver, puis le reste est rendu. Rend le nombre remis.
+    deliver = function(key, name, n)
+      local f = team_of(key)
+      if not (f and f.team and f.team.delivered) then return nil end
+      local inv = game.create_inventory(1)
+      local put = inv.insert({ name = name, count = n })
+      local given = AmRt.deliver(f, inv, name, put)
+      inv.destroy()
+      return given
+    end,
+  })
 end
 
 return AmRt

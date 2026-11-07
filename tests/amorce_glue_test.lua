@@ -213,6 +213,48 @@ local function battery7(AmRt, verbose)
   ck(not has_fn(c5) and not has_fn(cs), "C5.3 : etat sans fonction (global)")
   return fails
 end
+-- 8. remise directe (C3 de DIAG_CONSO)
+local function battery8(AmRt, verbose)
+  local fails = 0
+  local function ck(c, msg)
+    if not c then fails = fails + 1 if verbose then print("  ECHEC : " .. msg) end end
+    if verbose then check(c, msg) end
+  end
+  local function world()
+    local f = { key = "player", team = { delivered = {} }, build = { order = { 94, 95, 60 }, projects = {
+      [94] = { id = 94, state = "reserve", stock = { asm2 = 1 }, missing = { { "asm2", 3 }, { "belt", 23 } } },
+      [95] = { id = 95, state = "reserve", stock = {}, missing = { { "asm2", 4 } }, reserve_next = 99999 },
+      [60] = { id = 60, state = "chantier", stock = {}, missing = { { "asm2", 9 } } },
+    } } }
+    local inv = { has = { asm2 = 6, belt = 40 } }
+    function inv.remove(t) inv.has[t.name] = (inv.has[t.name] or 0) - t.count; return t.count end
+    return f, inv
+  end
+  local f, inv = world()
+  LOGS = {}
+  local took = AmRt.deliver(f, inv, "asm2", 6)
+  local p94, p95, p60 = f.build.projects[94], f.build.projects[95], f.build.projects[60]
+  ck(took == 6 and inv.has.asm2 == 0, "remise directe : 6 assembleurs 2 retires de l'inventaire du PNJ (" .. tostring(took) .. ")")
+  ck(p94.stock.asm2 == 4 and p95.stock.asm2 == 3, "remise directe : p.stock du module 94 (1 + 3) et du 95 (3)")
+  ck(#p94.missing == 1 and p94.missing[1][1] == "belt" and p94.missing[1][2] == 23, "remise directe : le manque du module 94 ne garde que les courroies")
+  ck(p95.missing[1][1] == "asm2" and p95.missing[1][2] == 1, "remise directe : le module 95 attend encore 1 assembleur 2")
+  ck(p95.reserve_next == nil, "remise directe : la reserve est relue au plus tot (reserve_next efface)")
+  ck(p60.stock.asm2 == nil and p60.missing[1][2] == 9, "remise directe : un projet en chantier n'est pas touche")
+  ck(f.team.delivered.asm2 == 6, "remise directe : comptee comme livree au QG (f.team.delivered)")
+  ck(#LOGS == 2 and LOGS[1]:find("[FO-AMORCE] player : remise directe : 3 asm2 au module 94", 1, true), "remise directe : une ligne [FO-AMORCE] par module (" .. #LOGS .. ")")
+  ck(AmRt.deliver(f, inv, "belt", 100) == 23 and f.build.projects[94].missing and #f.build.projects[94].missing == 0, "remise directe : les courroies, au plus le manque (23 sur 100)")
+  local f2, inv2 = world()
+  ck(AmRt.deliver(f2, inv2, "inconnu", 5) == 0 and inv2.has.asm2 == 6, "remise directe : objet que personne n'attend : rien retire")
+  ck(AmRt.deliver({ key = "x", team = {} }, inv2, "asm2", 5) == 0, "remise directe : equipe sans plan directeur : rien")
+  ck(AmRt.deliver(f2, inv2, "asm2", 0) == 0 and AmRt.deliver(f2, inv2, "asm2", nil) == 0, "remise directe : quantite nulle ou absente : rien")
+  local f3, inv3 = world()
+  inv3.remove = function() return 0 end -- l'inventaire ne rend rien (objet deja parti) : aucune remise inventee
+  ck(AmRt.deliver(f3, inv3, "asm2", 6) == 0 and f3.build.projects[94].stock.asm2 == 1, "remise directe : rien retire de l'inventaire = rien donne au module")
+  return fails
+end
+print("[AMORCE-GLUE] 8. remise directe")
+check(battery8(AmRt0, true) == 0, "batterie 8 sans echec")
+
 print("[AMORCE-GLUE] 7. cycles, ordre mis de cote")
 check(battery7(AmRt0, true) == 0, "batterie 7 sans echec")
 
@@ -241,6 +283,15 @@ do -- crochets de capitalisation.lua du lot VIDEO-COUVERTURE 5 : la décision, p
   local _, m = capi:gsub("AmRt%.defer", "")
   check(n == 1 and m == 1, "capitalisation.lua : un seul appel de chaque crochet (" .. n .. ", " .. m .. ")")
 end
+do -- crochet du depot des PNJ (C3) : la remise directe AVANT le coffre
+  local wk = read("script/team/worker.lua")
+  local d1 = wk:find("AmRt.deliver(f, inv, name, n)", 1, true)
+  local d2 = wk:find("local moved = Stock.insert(f, name, n)", 1, true)
+  local d0 = wk:find("local function deposit_inventory", 1, true)
+  check(d0 and d1 and d2 and d0 < d1 and d1 < d2 and d2 - d1 < 400, "worker.lua : deposit_inventory offre d'abord l'objet aux modules en reserve (AmRt.deliver), puis au coffre")
+  local _, k = wk:gsub("AmRt%.deliver", "")
+  check(k == 1, "worker.lua : un seul crochet (" .. k .. ")")
+end
 
 -- 6. mutants
 print("[AMORCE-GLUE] 6. mutants")
@@ -252,7 +303,7 @@ local function mutant(name, patch)
   for k, v in pairs(AmRt0) do M[k] = v end
   patch(M)
   for k, v in pairs(M) do AmRt0[k] = v end
-  local ok, fl = pcall(function() return battery(AmRt0, false) + battery7(AmRt0, false) end)
+  local ok, fl = pcall(function() return battery(AmRt0, false) + battery7(AmRt0, false) + battery8(AmRt0, false) end)
   for k in pairs(M) do AmRt0[k] = saved[k] end
   check((not ok) or fl > 0, "mutant refuse : " .. name)
 end
@@ -369,6 +420,40 @@ mutant("1re production non ecrite (C5.2)", function(M)
     local r2 = {}
     for _, x in ipairs(retraits or {}) do r2[#r2 + 1] = x end
     return base(f, ml, r2, mn)
+  end
+end)
+
+mutant("remise directe jamais faite (C3)", function(M) M.deliver = function() return 0 end end)
+mutant("remise directe sans retirer l'objet du PNJ (C3, duplication)", function(M)
+  local base = M.deliver
+  M.deliver = function(f, inv, name, n)
+    local fake = { remove = function(t) return t.count end }
+    return base(f, fake, name, n)
+  end
+end)
+mutant("remise directe a un projet qui n'est pas en reserve (C3)", function(M)
+  local base = M.deliver
+  M.deliver = function(f, inv, name, n)
+    for _, p in pairs(f.build.projects) do p.state = "reserve" end
+    return base(f, inv, name, n)
+  end
+end)
+mutant("remise directe sans mettre a jour le manque (C3)", function(M)
+  local base = M.deliver
+  M.deliver = function(f, inv, name, n)
+    local saved = {}
+    for id, p in pairs(f.build.projects) do saved[id] = p.missing end
+    local r = base(f, inv, name, n)
+    for id, p in pairs(f.build.projects) do p.missing = saved[id] end
+    return r
+  end
+end)
+mutant("remise directe non comptee comme livree (C3)", function(M)
+  local base = M.deliver
+  M.deliver = function(f, inv, name, n)
+    local r = base(f, inv, name, n)
+    f.team.delivered[name] = nil
+    return r
   end
 end)
 

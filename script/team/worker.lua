@@ -23,6 +23,7 @@ local Acc = require("shared.team.acces_champ") -- lot NAV2 : point d'accès atte
 local Co = require("shared.team.couloir") -- lot ÉTAGE 5 : le bâtiment qui ferme la dernière issue d'un accès (journal [FO-NAV-ACCES])
 local Rc = require("shared.team.repli_chemin") -- lot CHARBON3 (B2) : essais de marche d'un PNJ (règle pure)
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
+local AmRt = require("script.ai3.amorce_rt") -- lot VIDEO-COUVERTURE (C3) : remise directe aux modules en réserve avant le coffre
 local Mu = require("shared.team.munitions") -- lot MUNITIONS (revue M3) : prise bornée de la munition de base (Mu.split_take)
 local Ra = require("shared.team.rearmement") -- lot REARMEMENT : emplacement des munitions complété au dépôt au QG (règle pure)
 local Tj = require("script.team.tourelle_journal") -- lot TOURELLE-JOURNAL : minage refusé sous une tourelle, journal [FO-TOURELLE-RETIREE]
@@ -269,6 +270,7 @@ local function deposit_inventory(f, inv, keep)
   table.sort(names)
   for _, name in ipairs(names) do
     local n = contents[name] - (keep and keep[name] or 0)
+    if n > 0 then n = n - AmRt.deliver(f, inv, name, n) end -- C3 : ce qu'un module en réserve attend lui est remis AVANT le coffre
     if n > 0 then
       local moved = Stock.insert(f, name, n)
       if moved > 0 then

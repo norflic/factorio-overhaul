@@ -8,6 +8,9 @@
     3. compteur d'amorce (cumul avant la 1re production, gardé après) ; journal [FO-AMORCE] ;
     7. cycles (lot VIDEO-COUVERTURE 5, critère C5.1) : une recette qui consomme son produit reçoit une graine bornée, avec sa cause ;
        sans cycle, rien ; le stock se déduit ; une mesure illisible n'est pas semée ;
+    8. remise directe (lot VIDEO-COUVERTURE, correctif C3 de DIAG_CONSO : le cycle « module de chaîne -> assembleurs 2 -> circuits -> module de
+       chaîne ») : ce qu'un PNJ porte et qu'un module en réserve attend va à p.stock du module, sans passer par le coffre ; jamais plus que
+       le manque, jamais à un projet qui n'attend pas, premier de la file d'abord ;
     4. sérialisable, déterministe ;
     5. coût en instructions (debug.sethook) ;
     6. mutants refusés.
@@ -137,6 +140,37 @@ local function battery(Am, verbose)
   for _, o in ipairs(Am.seed(Ml.new(), 60, { { bom = { bras = 6 } } }, {}, BOOK, Ml)) do
     ck(type(o.cause) == "string" and o.cause:find("materiel", 1, true), "graine de la liste de materiel : cause ecrite (" .. o.item .. ")")
   end
+
+  -- 8. remise directe (C3). projects = file du plan directeur : { id, state, missing = { { objet, manque } } }.
+  local function file()
+    return {
+      { id = 94, state = "reserve", missing = { { "asm2", 3 }, { "belt", 23 } } },
+      { id = 95, state = "reserve", missing = { { "asm2", 4 }, { "long", 4 } } },
+      { id = 60, state = "chantier", missing = { { "asm2", 9 } } },
+      { id = 61, state = "reserve", missing = {} },
+    }
+  end
+  local al = Am.direct(file(), "asm2", 5)
+  ck(#al == 2 and al[1].id == 94 and al[1].n == 3 and al[2].id == 95 and al[2].n == 2, "directe : 5 assembleurs 2 portes : 3 au module 94 (son manque), 2 au 95 (premier de la file d'abord)")
+  local tot = 0
+  for _, a in ipairs(Am.direct(file(), "asm2", 50)) do tot = tot + a.n end
+  ck(tot == 7, "directe : jamais plus que le manque des modules en reserve (7 sur 50 portes)")
+  ck(#Am.direct(file(), "belt", 10) == 1 and Am.direct(file(), "belt", 10)[1].n == 10, "directe : un seul module attend les courroies")
+  ck(#Am.direct(file(), "inconnu", 5) == 0, "directe : aucun module n'attend cet objet : rien")
+  for _, p in ipairs(file()) do
+    if p.state ~= "reserve" then ck(#Am.direct({ p }, "asm2", 5) == 0, "directe : un projet en etat « " .. p.state .. " » n'attend pas de reserve") end
+  end
+  ck(#Am.direct(file(), "asm2", 0) == 0 and #Am.direct(file(), "asm2", -3) == 0 and #Am.direct(file(), "asm2", 0 / 0) == 0 and #Am.direct(file(), "asm2", math.huge) == 0
+    and #Am.direct(file(), "asm2", nil) == 0, "directe : quantite nulle, negative, NaN, infinie ou absente : rien (ferme par defaut)")
+  ck(#Am.direct(nil, "asm2", 5) == 0 and #Am.direct({ { id = 1, state = "reserve" } }, "asm2", 5) == 0, "directe : file ou manque absents : rien")
+  ck(#Am.direct({ { id = 1, state = "reserve", missing = { { "asm2", 0 / 0 }, { "asm2", -2 }, { "asm2", "4" } } } }, "asm2", 5) == 0,
+    "directe : manque illisible (NaN, negatif, texte) ecarte")
+  ck(#Am.direct({ { id = 1, state = "reserve", reason = "pile", missing = { { "asm2", 3 } } } }, "asm2", 5) == 0,
+    "directe : module suspendu par la pile (raison pile, objets rendus) : rien")
+  local a3 = Am.direct({ { id = 1, state = "reserve", missing = { { "asm2", 2 }, { "asm2", 3 } } } }, "asm2", 4)
+  ck(#a3 == 1 and a3[1].n == 4, "directe : deux lignes du meme objet dans un module : une remise, au plus le total")
+  local l = Am.describe_direct({ id = 94, item = "asm2", n = 3 }, 3)
+  ck(l:find("94", 1, true) and l:find("asm2", 1, true) and l:find("3", 1, true), "ligne [FO-AMORCE] de la remise directe (" .. l .. ")")
   return fails
 end
 
@@ -299,6 +333,42 @@ mutant("cycle semé même sans cycle (graine fantome)", function(Am)
   Am.seed = function(st, tick, projets, have, book, ml, c)
     if c == nil or #c == 0 then c = { { item = "fantome", member = "f", amount = 3, id = "f" } } end
     return base(st, tick, projets, have, book, ml, c)
+  end
+end)
+
+mutant("remise directe jamais faite", function(Am) Am.direct = function() return {} end end)
+mutant("remise directe au-dela du manque", function(Am)
+  local base = Am.direct
+  Am.direct = function(projects, item, n)
+    local out = base(projects, item, n)
+    if out[1] then out[1].n = out[1].n + 1 end
+    return out
+  end
+end)
+mutant("remise directe a un projet qui n'attend pas", function(Am)
+  Am.direct = function(projects, item, n)
+    local out = {}
+    for _, p in ipairs(projects or {}) do
+      for _, m in ipairs(p.missing or {}) do
+        if m[1] == item and n > 0 then out[#out + 1] = { id = p.id, item = item, n = math.min(n, m[2]) } n = n - out[#out].n end
+      end
+    end
+    return out
+  end
+end)
+mutant("remise directe qui accepte une quantite illisible", function(Am)
+  local base = Am.direct
+  Am.direct = function(projects, item, n)
+    if n ~= n or n == nil then n = 5 end
+    return base(projects, item, n)
+  end
+end)
+mutant("remise directe a un module suspendu par la pile", function(Am)
+  local base = Am.direct
+  Am.direct = function(projects, item, n)
+    local cp = {}
+    for i, p in ipairs(projects or {}) do cp[i] = { id = p.id, state = p.state, missing = p.missing } end
+    return base(cp, item, n)
   end
 end)
 
