@@ -222,6 +222,17 @@ local function suite(Ech)
   local e250 = Ech.trace_echues(R, 250, 10)
   check(#e100 == 0 and #e120 == 1 and e120[1].orig == "sand-1" and #e250 == 1 and e250[1].orig == "grass-1" and e250[1].fin == 250
     and Ech.trace_compte(R) == 0, "§12 échéance repoussée par le second cratère ; le sol d'origine du PREMIER est rendu")
+  -- point 1 de la revue de la 0.6.57 : une seule entrée de file par tuile, quel que soit le nombre de marques
+  local R3 = Ech.trace_nouveau()
+  for f = 1, 10000 do Ech.trace_marquer(R3, 7, 7, "grass-1", f) end
+  Ech.trace_marquer(R3, 8, 8, "sand-1", 10001)
+  local f_avant = R3.n
+  local r1 = Ech.trace_echues(R3, 1, 10)          -- l'entrée de (7, 7) est due, mais la tuile est repoussée à 10 000 : remise en file
+  local r2 = Ech.trace_echues(R3, 9999, 10)
+  local r3 = Ech.trace_echues(R3, 10001, 10)
+  check(f_avant == 2 and #r1 == 0 and #r2 == 0 and #r3 == 2 and r3[1].orig == "sand-1" and r3[2].orig == "grass-1" and Ech.trace_compte(R3) == 0,
+    "§12 une entrée de file par tuile (10 000 marques : 2 entrées) ; tuile repoussée remise en file et rendue à sa nouvelle échéance",
+    string.format("file %d, %d %d %d", f_avant, #r1, #r2, #r3))
   local R2 = Ech.trace_nouveau()
   for i = 1, 5000 do Ech.trace_marquer(R2, i, 0, "grass-1", i) end
   local lot = Ech.trace_echues(R2, 5000, Ech.RESORPTION_LOT)
@@ -476,6 +487,8 @@ local MUTANTS = {
   { "reste toujours aux mêmes salves", "    out[i] = base + (((i - 1 - tick) % n) < reste and 1 or 0)", "    out[i] = base + ((i - 1) < reste and 1 or 0)" },
   { "budget de 120", "Ech.BUDGET = 40", "Ech.BUDGET = 120" },
   { "traces de 10 min pour les géants", "Ech.TRACE_TICKS = 216000", "Ech.TRACE_TICKS = 36000" },
+  { "une entrée de file par marque", "    if fin > e.fin then e.fin = fin end\n    return false\n  end", "    if fin > e.fin then e.fin = fin end\n    R.n = R.n + 1\n    R.file[R.n] = { k = k, fin = fin }\n    return false\n  end" },
+  { "tuile repoussée jamais remise en file", "        R.n = R.n + 1\n        R.file[R.n] = { k = q.k, fin = e.fin }\n", "" },
   { "second cratère qui écrase le sol d'origine", "    if fin > e.fin then e.fin = fin end", "    e.orig = orig; if fin > e.fin then e.fin = fin end" },
   { "échéance non repoussée", "    if fin > e.fin then e.fin = fin end", "" },
   { "rendu sans lot", "  while R.tete <= R.n and #out < max do", "  while R.tete <= R.n do" },

@@ -457,22 +457,26 @@ function Ech.trace_nouveau()
 end
 
 --- Marque la tuile (x, y), de sol `orig`, jusqu'au tick `fin`. Rend vrai si elle n'était pas marquée (le sol de cratère est à poser).
---- Les `fin` successives doivent croître (en jeu : fin = tick + TRACE_TICKS) : la file est lue dans l'ordre.
+--- UNE seule entrée de file par tuile (revue de la 0.6.57, point 1 : une entrée par marque faisait 10^5 à 10^6 entrées en stockage en une
+--- heure de combat) : une tuile déjà marquée ne voit que son échéance repoussée, relue au dépilage (Ech.trace_echues). Les `fin` des
+--- nouvelles tuiles doivent croître (en jeu : fin = tick + TRACE_TICKS) : la file est lue dans l'ordre.
 function Ech.trace_marquer(R, x, y, orig, fin)
   local k = x .. "," .. y
   local e = R.t[k]
   if e then
     if fin > e.fin then e.fin = fin end
-  else
-    R.t[k] = { x = x, y = y, orig = orig, fin = fin }
+    return false
   end
+  R.t[k] = { x = x, y = y, orig = orig, fin = fin }
   R.n = R.n + 1
   R.file[R.n] = { k = k, fin = fin }
-  return e == nil
+  return true
 end
 
---- Tuiles échues au tick `tick`, au plus `max`, retirées du registre (une tuile repoussée par un cratère plus récent attend sa propre
---- échéance). La file est compactée quand sa tête dépasse 4 096.
+--- Tuiles échues au tick `tick`, au plus `max`, retirées du registre. Une tuile repoussée par un cratère plus récent (sa fin dépasse celle
+--- de son entrée) est remise UNE fois en fin de file avec sa nouvelle fin : elle se résorbe au plus tard quand la file l'atteint de nouveau
+--- (retard borné par l'écart entre sa dernière marque et la marque la plus récente de la file). La file est compactée quand sa tête dépasse
+--- 4 096.
 function Ech.trace_echues(R, tick, max)
   local out = {}
   while R.tete <= R.n and #out < max do
@@ -481,9 +485,14 @@ function Ech.trace_echues(R, tick, max)
     R.file[R.tete] = nil
     R.tete = R.tete + 1
     local e = R.t[q.k]
-    if e and e.fin <= tick then
-      out[#out + 1] = e
-      R.t[q.k] = nil
+    if e then
+      if e.fin <= tick then
+        out[#out + 1] = e
+        R.t[q.k] = nil
+      else
+        R.n = R.n + 1
+        R.file[R.n] = { k = q.k, fin = e.fin }
+      end
     end
   end
   if R.tete > 4096 then
