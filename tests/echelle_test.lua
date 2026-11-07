@@ -272,6 +272,35 @@ local function suite(Ech)
     tg, eg = tg + 1, ep
   end
   check(max_co == 40 and tg == 8, "§4 quater sans mort, 40 coups par tick au plus : 300 cibles en 8 ticks", string.format("%d coups, %d ticks", max_co, tg))
+  -- §4 quater ÉGALITÉ (demande du lead, 7/11) : à la fin de la salve, mêmes dégâts totaux et MÊMES cibles tuées avec ou sans budget de morts
+  local function salve_complete(qm, n)
+    local pl = Ech.nouveau_plan({ x = 0, y = 0 })
+    local cs = {}
+    for i = 1, n do
+      local c = { x = (i * 7) % 61 - 30, y = (i * 11) % 47 - 23, id = i, pv = (i % 4 == 0) and 5000 or (i % 5) * 40 + 10 }
+      cs[i] = c
+      Ech.poser(pl, c.x, c.y, c)
+    end
+    local cu, total, tues, fin2, t2 = Ech.curseur(), 0, {}, false, 0
+    while not fin2 and t2 < 100000 do
+      local _, _, ep = Ech.frapper(pl, cu, 40, qm, function(c)
+        local d = math.min(c.pv, 250)
+        total = total + d
+        c.pv = c.pv - d
+        if c.pv <= 0 then tues[#tues + 1] = c.id; return true end
+        return false
+      end)
+      t2, fin2 = t2 + 1, ep
+    end
+    table.sort(tues)
+    return total, tues, t2
+  end
+  local d1, k1, t1 = salve_complete(15, 4500)  -- au-delà du plafond : les mêmes 4 000 premières cibles
+  local d2, k2, t2b = salve_complete(1e9, 4500)
+  local meme = #k1 == #k2 and d1 == d2
+  for i = 1, #k1 do meme = meme and k1[i] == k2[i] end
+  check(meme and t1 > t2b and #k1 > 0, "§4 quater égalité : budget de morts ou non, mêmes dégâts totaux et mêmes cibles tuées (seule la durée change)",
+    string.format("%d / %d tuées, dégâts %d / %d, ticks %d / %d", #k1, #k2, d1, d2, t1, t2b))
   -- §4 quinquies recherche par secteurs : chaque point du disque dans UN seul secteur, aucun secteur hors du disque
   local sc, rr = { x = 12000.3, y = 4200.7 }, 90
   local secs = Ech.secteurs(sc, rr, Ech.SECTEUR)
@@ -415,6 +444,7 @@ local MUTANTS = {
   { "parcours jamais épuisé par le reste vide", "    k, i = k + 1, 1\n  end\n  return true", "    k, i = k + 1, 1\n  end\n  return false" },
   { "budget de morts ignoré", "  while coups < qh and morts < qm do", "  while coups < qh do" },
   { "budget de coups ignoré", "  while coups < qh and morts < qm do", "  while morts < qm do" },
+  { "budget qui saute la cible du bord", "    coups = coups + 1\n    if frappe(x) then morts = morts + 1 end", "    coups = coups + 1\n    if morts + 1 < qm and frappe(x) then morts = morts + 1 end" },
   { "secteur fermé (doublons de bord)", "  return x >= q.x0 and x < q.x1 and y >= q.y0 and y < q.y1", "  return x >= q.x0 and x <= q.x1 and y >= q.y0 and y <= q.y1" },
   { "secteurs : coins gardés", "      if dx * dx + dy * dy <= r * r then out[#out + 1] = q end", "      out[#out + 1] = q" },
   { "secteurs : une ligne de moins", "  local n = math.ceil(2 * r / cote)", "  local n = math.floor(2 * r / cote)" },
