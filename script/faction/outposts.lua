@@ -867,14 +867,17 @@ function Outposts.coal_needed(o, fill)
 end
 
 --- Ramasse la production des réceptacles dans l'inventaire de l'ouvrier. Renvoie le nombre d'objets.
-local function collect(sinks, carrier)
+local function collect(sinks, carrier, skip)
   local collected = 0
   for _, s in ipairs(sinks) do
     local inv = s.type == "container" and s.get_inventory(defines.inventory.chest) or s.get_output_inventory()
     for name, n in pairs(inv.get_contents()) do
-      local moved = carrier.insert({ name = name, count = n })
-      if moved > 0 then inv.remove({ name = name, count = moved }) end
-      collected = collected + moved
+      -- lot STOCKAGE-VITAL : une matière que le stock ne doit plus recevoir reste à l'avant-poste (script/team/stock.lua, Stock.skip_fn)
+      if not (skip and skip(name)) then
+        local moved = carrier.insert({ name = name, count = n })
+        if moved > 0 then inv.remove({ name = name, count = moved }) end
+        collected = collected + moved
+      end
     end
   end
   return collected
@@ -904,8 +907,8 @@ Outposts.COAL_SHORT_LOGS = 5 -- lot PLAFOND-FOREUSES : lignes [FO-CHARBON] au pl
 --- complète le charbon de chaque brûleur. Renvoie le nombre d'objets ramassés.
 --- Lot PLAFOND-FOREUSES : brûleurs laissés sous T.fuel_low faute de charbon porté comptés dans `o.coal_short` (tournées courtes ;
 --- lecteur : le journal [FO-CHARBON], les premières fois seulement, et tests/extension_fer_moteur_test.lua).
-function Outposts.service(o, carrier, tick, fill)
-  local collected = collect(valid_list(o.sinks), carrier)
+function Outposts.service(o, carrier, tick, fill, skip)
+  local collected = collect(valid_list(o.sinks), carrier, skip)
   local burners = Outposts.burners(o)
   local short = refuel(burners, carrier, fill)
   if short > 0 then

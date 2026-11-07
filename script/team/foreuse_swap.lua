@@ -31,6 +31,7 @@ local Scheduler = require("script.core.scheduler") -- lot TRANCHES : suite d'une
 local Ra = require("script.team.reserve_amorcage") -- réserve d'amorçage du combustible (K lu aux DONNÉES ; partagée avec le champ)
 local Rt = require("shared.team.repli_thermique") -- partie C : repli thermique quand le réseau tombe (règle pure)
 local Profiler = require("script.core.profiler") -- mesure des tranches jouées par la minuterie (hors de la portée tt:foswap de la pensée)
+local Bm = require("shared.team.book_max") -- lot S5 (×10) : plus grand nombre fabricable, sans la boucle de plans complets
 
 local Swap = {}
 
@@ -357,16 +358,12 @@ local function craft(f, book, free, want, tick, item)
   local avail = {}
   for _, k in ipairs(sorted_keys(free)) do avail[k] = free[k] end
   avail[item] = 0 -- besoin d'accumulation : l'objet lui-meme n'est pas pris au stock
-  local q = book:plan({ { item, want } }, avail)
-  if next(q.raw) ~= nil then
-    -- La matiere ne couvre pas toujours tout le besoin : on fabrique ce qu'elle permet (meme regle que Recon.craft_spares).
-    local found = false
-    for m = want - 1, 1, -1 do
-      local q2 = book:plan({ { item, m } }, avail)
-      if next(q2.raw) == nil then q, want, found = q2, m, true break end
-    end
-    if not found then return 0 end
-  end
+  -- La matiere ne couvre pas toujours tout le besoin : on fabrique ce qu'elle permet (meme regle que Recon.craft_spares). Lot S5 (×10) :
+  -- le plus grand nombre faisable de [1, want] par Bm.best (shared/team/book_max.lua), meme resultat que l'ancienne boucle de plans
+  -- complets (want - 1 -> 1) ; utile ici, craft sert aussi aux poteaux (jusqu'a Swap.POLE_CAP).
+  local m, q = Bm.best(book, item, want, avail)
+  if m == 0 then return 0 end
+  want = m
   local list = {}
   for _, k in ipairs(sorted_keys(q.uses)) do list[#list + 1] = { k, q.uses[k] } end
   return Board.add(f, { { key = "craft:" .. item .. ":foreuse", kind = "craft", prio = T.swap.prio, item = item, count = want,

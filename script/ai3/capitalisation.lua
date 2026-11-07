@@ -55,6 +55,8 @@
 
 local T = require("shared.team.config")
 local Ca = require("shared.ai3.capitalisation")
+local Rf = require("shared.ai3.refus") -- lot VIDEO-REFUS (C6) : décompte des refus par sorte, ligne [FO-CAPI-REFUS]
+local RangTrace = require("script.ai3.rang_trace") -- lot VIDEO-TRACES (G34) : journal [FO-RANG]
 local Cf = require("shared.ai3.confirmation") -- lot VIDEO-L5 : capacité CONFIRMÉE (première production observée)
 local Sante = require("script.team.sante_centrale") -- étape 5a de VIDEO-INTEG : consommateurs en chantier (vue de la porte du plan directeur)
 local Sc = require("shared.team.sante_centrale") -- étape 5a : S.DRAW (part de sa puissance nominale qu'un chantier tire)
@@ -884,7 +886,7 @@ function Capi.power_input(f, plant_state)
   if Capi.MUT.sans_courant or plant_state ~= "fini" then return nil end
   local g = f.build and f.build.grow
   local cap = g and g.capacity
-  if type(cap) ~= "number" or cap <= 0 then return nil end
+  if type(cap) ~= "number" or cap <= 0 then return type(cap) ~= "number" and {} or nil end -- W02 (lot VIDEO-COUVERTURE 5) : capacité non lue = relevé VIDE (garde fermée), pas « aucune borne »
   if Capi.MUT.nominal then return { have_kw = cap * JTICK_KW } end -- mutant : la somme nominale de la règle (plan.kw_used)
   local measured = type(g.power) == "number" and g.power > 0 and g.power * JTICK_KW or 0
   return { have_kw = cap * JTICK_KW, used_kw = measured + Sc.DRAW * Sante.committed(f) }
@@ -1269,6 +1271,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     production_first = production_first,
     defense = defense_input(f, D), -- lot PREVISION (C12) : « oui, compter la défense » dans le coût de chaque investissement
     power = Capi.power_input(f, plant_state), -- étape 5a de VIDEO-INTEG : courant des centrales finies (nil : aucune borne, comme avant)
+    mq_build = view.mq and view.mq.build or nil, -- lot VIDEO-ORDRE : manque net MESURÉ par objet (L3) ; un objet posé n'est re-ordonné qu'une fois ce signal bougé (nil : règle d'avant)
   }, cex
 end
 
@@ -1788,6 +1791,7 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
   local full = room ~= nil and room <= 0
   -- Lot VIDEO-L6 : portes avant d'étendre (transport saturé, bras à seuil croissant), AVANT la boucle d'envoi ; nil : réglage éteint.
   -- Un ordre retenu suit le chemin des refus ci-dessous (« porte L6 : », épargne rendue, cs.refused).
+  res.orders = AmRt.after_decision(f, cs, res, tick, minutes(f, tick)) -- lot VIDEO-COUVERTURE 5 : cycles publiés, MÊME plan re-émis après l'exécutant occupé
   local gate_why = Capi.portes(f, cs, res, view, tick)
   for _, o in ipairs(res.orders) do
     local rec, why
@@ -1824,6 +1828,8 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
     else
       refused[#refused + 1] = o.key .. " (" .. tostring(why) .. ")"
       cs.refused[o.key] = tick
+      AmRt.defer(cs, o, why, tick) -- lot VIDEO-COUVERTURE 5 : refusé par l'exécutant occupé = mis de côté, re-émis à l'identique
+      if cs.st.posed and o.item ~= nil then cs.st.posed[o.item] = nil end -- lot VIDEO-ORDRE : un ordre refusé n'a rien posé, l'objet reste ordonnable
       -- lot LEVIERS : pas redemandé tout de suite (lot FUITES-PILE : sauf un refus de la pile, redemandé dès qu'elle se vide)
       if allowed and (o.kind == "equiper" or o.kind == "techno") then hold(cs, o.key, why, tick) end
       -- l'ordre n'a rien coûté : l'épargne débitée par la règle lui est rendue
@@ -1838,6 +1844,7 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
     local d = cs.deps[id]
     deps[#deps + 1] = string.format("%s:%d/%d%s", id, d.covered or 0, d.tiles, d.danger and "!" or "")
   end
+  log(Rf.line(f.key or "?", math.floor(minutes(f, tick) + 0.5), res.refus or {})) -- lot VIDEO-REFUS (C6) : refus par sorte, somme = nombre de refus
   log(string.format("[FO-CAPI] %s minute %d | tick %d | %s | envoyes [%s] | executant refuse [%s] | depots {%s} | foreuse_par_ressource {%s} | recherche_voulue [%s]",
     f.key or "?", math.floor(minutes(f, tick) + 0.5), tick, Ca.text(res), table.concat(sent, ", "), table.concat(refused, ", "),
     table.concat(deps, " "), (function()
@@ -1907,7 +1914,7 @@ local function decide_start(f, cs, view, book, tick, w, run)
     log(string.format("[FO-CAPI] %s : decision refusee : entree absente : %s a %.1f min", f.key or "?", absent, minutes(f, tick)))
     return false
   end
-  Capi.palier(f, cs, view, input, tick) -- lot VIDEO-L10 (variante B, réglage fo-war-paliers ÉTEINT) : AVANT l'instantané
+  Capi.palier(f, cs, view, input, tick) -- lot VIDEO-L10 (variante B, réglage fo-war-paliers ALLUMÉ par défaut) : AVANT l'instantané
   local snap = {}
   for _, k in ipairs(sorted_keys(input)) do
     if k ~= "data" and k ~= "can_exec" then snap[k] = input[k] end
@@ -1960,6 +1967,7 @@ local function decide_slice(f, cs, view, book, tick, research, run)
   replace_contents(cs.st, mem.st)
   cs.wanted_set = mem.cex.wanted
   cs.dj, DJ_MEM[key] = nil, nil
+  RangTrace.note(f, J.ctx.rang, tick) -- lot VIDEO-TRACES (G34) : journal [FO-RANG], une ligne par signature changée (rang de la décision, sans toucher au résultat)
   decide_finish(f, cs, J.res, mem.input, view, book, tick, research)
   return true
 end

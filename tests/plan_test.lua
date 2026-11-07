@@ -106,6 +106,34 @@ do
   check(st == "libre", "quelques tuiles de minerai : libre")
   st = P.classify_lot(with({ trees = 12 }))
   check(st == "defricher", "arbres : à défricher")
+  -- Lot MINERAI-SONDE (C4.1, C4.2) : seuils par ressource lus en DONNÉES (shared/team/lot_minerai_seuils.lua) ; sans seuils, rien ne change.
+  local D = require("shared.team.lot_minerai_seuils")
+  check(D.min_tiles == P.MIN_RES_TILES, "seuils en donnees : tuiles par defaut = P.MIN_RES_TILES (" .. tostring(D.min_tiles) .. " / " .. P.MIN_RES_TILES .. ")")
+  local U
+  do
+    local ks = {}
+    for k in pairs(D.amount) do ks[#ks + 1] = k end
+    table.sort(ks)
+    for _, k in ipairs(ks) do if D.amount[k] == 100000 then U = k end end
+  end
+  st, why = P.classify_lot(with({ res = { [U] = 10 }, amount = { [U] = 120000 } }), D)
+  check(st == "gisement" and why == U, "C4.1 : 10 tuiles a 120 000 : gisement (avant : libre)")
+  st = P.classify_lot(with({ res = { [U] = 10 }, amount = { [U] = 99000 } }), D)
+  check(st == "libre", "C4.1 : 10 tuiles a 99 000 : reste libre")
+  st = P.classify_lot(with({ res = { [U] = 10 }, amount = { [U] = 120000 } }))
+  check(st == "libre", "C4.1 : sans seuils (regle eteinte), 10 tuiles a 120 000 : libre comme avant")
+  st, why = P.classify_lot(with({ res = { ["iron-ore"] = 20 }, amount = { ["iron-ore"] = 1500000 } }), D)
+  check(st == "gisement" and why == "iron-ore", "C4.2 : plus de 1 000 000 en tout, 20 tuiles : gisement")
+  st = P.classify_lot(with({ res = { ["iron-ore"] = 20 }, amount = { ["iron-ore"] = 900000 } }), D)
+  check(st == "libre", "C4.2 : 900 000 en 20 tuiles : libre")
+  st, why = P.classify_lot(with({ res = { ["iron-ore"] = 200, coal = 30 }, trees = 5 }), D)
+  check(st == "gisement" and why == "iron-ore", "avec seuils, sans quantites : la regle des 24 tuiles d'avant (principal par tuiles)")
+  st, why = P.classify_lot(with({ res = { [U] = 10 }, amount = { [U] = 120000 }, cliffs = 1 }), D)
+  check(st == "refuse" and why == "falaise", "un gisement precieux sur une falaise reste refuse (les refus passent avant)")
+  st = P.classify_lot(with({ res = { [U] = 10 }, amount = { [U] = 120000 }, own = 3 }), D)
+  check(st == "occupe", "un gisement precieux deja bati reste occupe (ordre des etats inchange)")
+  st = P.classify_lot(with({ res = { [U] = 10 }, amount = { [U] = 120000 }, trees = 5 }), D)
+  check(st == "gisement", "les arbres n'effacent pas un gisement precieux")
   local ss, sw = P.classify_segment(with({ trees = 3 }))
   check(ss == "encombre" and sw == nil, "tronçon boisé : encombré")
   ss, sw = P.classify_segment(with({ water = 1 }))

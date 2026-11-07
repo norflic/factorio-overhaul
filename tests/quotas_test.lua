@@ -95,6 +95,57 @@ local function battery(Q, verbose)
   for _, t in ipairs(kept) do keys[#keys + 1] = t.key end
   ck(table.concat(keys, ",") == "c1,f2,o", "filtre : alimentation du module plein retirée, collecte gardée (" .. table.concat(keys, ",") .. ")")
   ck(#Q.filter(tasks, nil) == 4, "sans verdict : rien retiré")
+
+  -- 8. Lot VIDEO-COUVERTURE 3 (C11, C3.2) : un coffre à PLUSIEURS produits partage ses cases en parts
+  local two = { a = 0.5, b = 0.1 }                  -- 300 a (3 cases de 100) et 60 b (2 cases de 50) en 10 min
+  local rP = Q.quotas(two, {}, { { items = { "a", "b" } } }, {}, OPTS)
+  local sh = rP.outs[1].shares or {}
+  ck(sh.a and sh.a.cases == 3 and sh.a.cap == 300 and sh.b and sh.b.cases == 2 and sh.b.cap == 100,
+    "coffre à 2 produits, place pour tout : chacun garde 10 min de son débit (a 3 cases, b 2)")
+  local sumcap = (sh.a and sh.a.cap or 0) + (sh.b and sh.b.cap or 0)
+  ck(rP.outs[1].cap == sumcap and rP.outs[1].cases == 5, "capacité du coffre = somme des parts (" .. tostring(rP.outs[1].cap) .. ")")
+  local o4 = { stack = STACK, slots = 4, collect_at = 200 }
+  local r4 = Q.quotas(two, {}, { { items = { "a", "b" } } }, {}, o4)
+  local s4 = r4.outs[1].shares
+  ck(s4.a.cases + s4.b.cases == 4 and r4.outs[1].cases == 4, "barre de 4 cases pour 5 voulues : la somme des parts = les 4 cases")
+  ck(s4.a.cases <= 3 and s4.b.cases <= 2 and s4.a.cases >= 1 and s4.b.cases >= 1, "chaque part borne à ce que le produit veut, au moins une case")
+  ck(s4.a.cap + s4.b.cap == r4.outs[1].cap and r4.outs[1].cap <= 4 * 100, "somme des capacités = capacité du coffre, sous la barre")
+  local r2c = Q.quotas(two, {}, { { items = { "a", "b" } } }, {}, { stack = STACK, slots = 2, collect_at = 200 })
+  ck(r2c.outs[1].shares.a.cases == 1 and r2c.outs[1].shares.b.cases == 1, "barre de 2 cases, 2 produits : une case chacun")
+  local r1c = Q.quotas(two, {}, { { items = { "a", "b" } } }, {}, { stack = STACK, slots = 1, collect_at = 200 })
+  ck(r1c.outs[1].shares.a.cases == 1 and r1c.outs[1].shares.b.cases == 0 and r1c.outs[1].cases == 1,
+    "une seule case pour 2 produits : au plus fort débit (a), jamais plus que la barre")
+  local rb1 = Q.quotas({ a = 0.1, b = 0.5 }, {}, { { items = { "a", "b" } } }, {}, { stack = STACK, slots = 1, collect_at = 200 })
+  ck(rb1.outs[1].shares.b.cases == 1 and rb1.outs[1].shares.a.cases == 0, "une case pour 2 produits : au plus fort débit (b), pas au premier nom")
+  local rswap = Q.quotas({ b = 0.1, a = 0.5 }, {}, { { items = { "b", "a" } } }, {}, o4)
+  ck(rswap.outs[1].shares.a.cases == s4.a.cases and rswap.outs[1].shares.b.cases == s4.b.cases, "l'ordre des produits ne change pas les parts")
+  -- 2 coffres × 2 produits : les parts sont par coffre (la cible d'un produit est partagée entre ses coffres)
+  local rQ = Q.quotas(two, {}, { { items = { "a", "b" } }, { items = { "a", "b" } } }, {}, OPTS)
+  ck(rQ.outs[1].shares.a.cases == 2 and rQ.outs[1].shares.b.cases == 1 and rQ.outs[2].shares.a.cases == 2,
+    "2 coffres à 2 produits : 150 a (2 cases) et 30 b (1 case) chacun")
+  -- propriété : sur 300 cas, jamais plus que la barre, jamais plus que voulu, une case chacun dès que la barre le permet
+  local seed = 12345
+  local function rnd(n) seed = (seed * 1103515245 + 12345) % 2147483648 return seed % n + 1 end
+  local stacks = { p1 = 100, p2 = 50, p3 = 200, p4 = 100, p5 = 50 }
+  local broken = 0
+  for _ = 1, 300 do
+    local nom, items = {}, {}
+    local k = rnd(5)
+    for j = 1, k do nom["p" .. j] = rnd(40) / 10 items[#items + 1] = "p" .. j end
+    local slots = rnd(20)
+    local rr = Q.quotas(nom, {}, { { items = items } }, {}, { stack = stacks, slots = slots, collect_at = 200 })
+    local o = rr.outs[1]
+    local sc, want_ok = 0, true
+    local lone = Q.quotas(nom, {}, { { items = items } }, {}, { stack = stacks, slots = 1000, collect_at = 200 }).outs[1]
+    for _, it in ipairs(items) do
+      local x = o.shares[it]
+      sc = sc + x.cases
+      if x.cases > lone.shares[it].cases or x.cap ~= x.cases * stacks[it] then want_ok = false end
+      if slots >= #items and x.cases < 1 then want_ok = false end
+    end
+    if sc > slots or o.cases ~= sc or not want_ok then broken = broken + 1 end
+  end
+  ck(broken == 0, "300 cas tires : parts toujours sous la barre, sous ce qui est voulu, une case chacun si possible (" .. broken .. " cas faux)")
   return fails
 end
 
@@ -168,8 +219,19 @@ print("[QUOTAS] 7. mutants")
 local function mutant(name, patch)
   local Q = copy(Q0)
   patch(Q)
-  local f = battery(Q, false)
-  check(f > 0, "mutant refusé : " .. name .. " (" .. f .. " échec(s))")
+  local ok, f = pcall(battery, Q, false)
+  check((not ok) or f > 0, "mutant refusé : " .. name .. " (" .. tostring(ok and f or "plantage") .. " échec(s))")
+end
+-- mutants SUR LA SOURCE (les fonctions de la règle s'appellent entre elles : un patch de copie ne les atteindrait pas)
+local function src_mutant(name, from, to)
+  local fh = assert(io.open("shared/team/quotas.lua", "rb"))
+  local src = fh:read("*a")
+  fh:close()
+  local i, j = src:find(from, 1, true)
+  assert(i, "mutant sans effet : " .. name)
+  local Q = assert(load(src:sub(1, i - 1) .. to .. src:sub(j + 1), "=mutant"))()
+  local ok, f = pcall(battery, Q, false)
+  check((not ok) or f > 0, "mutant refusé : " .. name .. " (" .. tostring(ok and f or "plantage") .. " échec(s))")
 end
 mutant("alimentation gardée quand la sortie est pleine", function(Q) Q.feed_ok = function() return true end end)
 mutant("barre constante", function(Q)
@@ -207,6 +269,14 @@ mutant("barre non partagée entre les coffres", function(Q)
     if #r.outs > 1 then local one = base(nominal, inputs, { {} }, ins, opts).outs[1]; for i = 1, #r.outs do r.outs[i] = one end end
     return r
   end
+end)
+src_mutant("parts non bornées par la barre (somme > cases ouvertes)", "if total <= slots then return alloc end", "do return alloc end")
+src_mutant("la première case de chaque produit oubliée", "for k = 1, n do alloc[k] = 1 extra_total", "for k = 1, n do alloc[k] = 0 extra_total")
+src_mutant("restes non servis (cases ouvertes perdues)", "if x.room > 0 and x.r > 0 then", "if false then")
+src_mutant("faible barre : les cases au hasard du nom, pas au plus fort débit", "if ra ~= rb then return ra > rb end", "")
+mutant("coffre à plusieurs produits sans parts", function(Q)
+  local base = Q.quotas
+  Q.quotas = function(...) local r = base(...) for _, o in ipairs(r.outs) do o.shares = {} end return r end
 end)
 mutant("entrée = coffre entier (ancienne règle QUAI_FILL)", function(Q)
   local base = Q.quotas
