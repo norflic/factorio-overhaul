@@ -101,6 +101,21 @@ function S.anticipate(used, committed, capacity)
   return (used or 0) + S.DRAW * (committed or 0) >= S.ANTICIPATE * capacity
 end
 
+-- Étape 5a de VIDEO-INTEG : kW nominaux que la CAPITALISATION a retenus faute de courant (dernière décision, une par minute) ; valables
+-- deux décisions, puis oubliés (capitalisation coupée, équipe disparue : jamais une avance pour toujours).
+S.CAPI_TTL = 2 * 3600
+
+--- kW retenus par la capitalisation, comptés avec les consommateurs retenus de l'avance (S.anticipate, à S.DRAW) : sans eux, la décision
+--- attend du courant et la centrale attend une saturation qui ne vient pas (boucle B). rec = { kw, tick } (f.team.capi.kw_blocked) ;
+--- 0 si absent, invalide, daté du futur ou plus vieux que S.CAPI_TTL.
+function S.capi_kw(rec, tick)
+  if type(rec) ~= "table" or type(tick) ~= "number" then return 0 end
+  local kw, t = rec.kw, rec.tick
+  if type(kw) ~= "number" or type(t) ~= "number" or kw ~= kw or kw <= 0 or kw == math.huge then return 0 end
+  if t > tick or tick - t > S.CAPI_TTL then return 0 end
+  return kw
+end
+
 --- Durée de l'avance. st : mémoire { ant_n } ; flag : S.anticipate à ce relevé. Rend vrai quand elle dure depuis S.ANTICIPATE_CHECKS relevés.
 function S.sustain(st, flag)
   if flag then st.ant_n = (st.ant_n or 0) + 1 else st.ant_n = 0 end
