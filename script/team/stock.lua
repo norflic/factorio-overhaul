@@ -530,10 +530,18 @@ place_held = function(f, item, k)
   local surface = f.hq.surface
   if not (surface and f.hq_pos and f.hq.get_inventory) then return 0 end -- moteur simulé sans inventaire
   local tick = game.tick or 0
-  local placed = 0
+  -- Garde (revue-s et lead, 7/11) : le bloc plein a été essayé il y a moins de T.annex.retry (ici ou par Stock.grow, même
+  -- f.stock_watch.retry) : aucune nouvelle recherche de place (jusqu'à 2 × 80 appels au moteur par essai) à chaque dépôt refusé.
+  local watch = f.stock_watch
+  if watch and watch.retry and tick < watch.retry then return 0 end
+  local placed, failed = 0, false
   for _ = 1, k do
     local used, size, n = totals(f)
-    if n >= capacity(f) or place_one(f, surface, item, function() end) == 0 then break end
+    if n >= capacity(f) then break end
+    if place_one(f, surface, item, function() end) == 0 then
+      failed = true
+      break
+    end
     placed = placed + 1
     f.stats = f.stats or {}
     f.stats.annex_placed = (f.stats.annex_placed or 0) + 1
@@ -544,6 +552,9 @@ place_held = function(f, item, k)
   if placed > 0 then
     f.stock_watch = f.stock_watch or {}
     f.stock_watch.since, f.stock_watch.retry, f.stock_watch.placed_at = tick, nil, tick
+  elseif failed then
+    f.stock_watch = f.stock_watch or {}
+    f.stock_watch.retry = tick + T.annex.retry
   end
   return placed
 end
