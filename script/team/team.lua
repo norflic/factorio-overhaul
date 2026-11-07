@@ -999,6 +999,16 @@ TT.e4 = function(f, surface, tick, fz)
   Team.measure(f, view, tick)
   Worker.check_slots(f, surface, Scale.SLOT_CHECKS_PER_THINK)
   if plan.recruit_blocked then f.stats.recruit_guard = (f.stats.recruit_guard or 0) + 1 end
+  -- Lot SPIRALE (7/11) : fer gardé pour une recrue de votre équipe sous son effectif de départ (shared/team/spirale.lua) ; lu par les
+  -- modules neufs (script/team/build.lua, qg_held). Journal à chaque changement.
+  if f.is_player then
+    local h = plan.spirale_hold or 0
+    if h ~= (f.team.spirale_hold or 0) then
+      log(string.format("[FO-SPIRALE] %s : fer garde pour une recrue %d -> %d (effectif %d, depart %s) a %.1f min", f.key or "player",
+        f.team.spirale_hold or 0, h, f.engineers_count or 0, tostring(view.recover_floor), tick / 3600))
+    end
+    f.team.spirale_hold = h > 0 and h or nil
+  end
   if plan.recruit_held then f.stats.recruit_held = (f.stats.recruit_held or 0) + 1 end
   -- Lot FER-EQUIPE : première recrue retenue par la réserve de fer (une fois par équipe ; journal seul, aucune décision).
   if plan.grow_short and view.iron_reserve and not f.team.fer_reserve_logged then

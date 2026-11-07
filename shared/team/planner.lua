@@ -46,6 +46,7 @@ local CHUNK_SECONDS = 30
 local MINE_BATCH = 50
 local VITAL = Fx.vital(T.outposts, T.fuel, T.smelter_inputs) -- lot FLUX : types d'avant-poste dont le ravitaillement passe en tête
 local Sm = require("shared.team.sorties_main") -- lot CHARBON-MAIN : sorties brutes rapportées avant de miner à la main
+local Sp = require("shared.team.spirale") -- lot SPIRALE (7/11, partie du DC 0.6.58) : sortie de spirale de votre équipe sous son effectif de départ
 local RAW = Sm.raw_kinds(T.outposts)
 local MINE_MIN = 20 -- une sortie de minage rapporte au moins 20 minerais (9 plaques manquantes : 9 minerais, trop peu)
 
@@ -256,6 +257,12 @@ function P.plan(view, book)
     for _, it in ipairs(list) do avail[it[1]] = avail[it[1]] - it[2] end
     return true
   end
+  -- Lot SPIRALE (décision du lead, 7/11 : parité de votre équipe avec les factions, directive du DC) : sous son effectif de départ,
+  -- le fer d'UNE recrue est GARDÉ ; les besoins servis avant elle (entretien) ne le voient pas, il lui est rendu juste avant sa recrue
+  -- (§1 bis). Partie du DC (0.6.58) : 2 PNJ, fer libre 0 de 133 à 177 min, aucune recrue (shared/team/spirale.lua).
+  local spir = Sp.view(view, book, avail["iron-plate"] or 0)
+  out.spirale_hold = spir.hold
+  if spir.hold > 0 then avail["iron-plate"] = avail["iron-plate"] - spir.hold end
 
   local raw_short = {}   -- matières premières manquantes (toutes demandes confondues)
   local raw_prio = {}    -- lot PILE-PRIORITE : priorité la plus haute des demandes de chaque matière manquante (out.raw_need)
@@ -959,6 +966,7 @@ function P.plan(view, book)
   -- D1) reposait la fonderie du QG et minait à la main ; coffre vidé (fer 11) et équipe perdue à 57 min. Plaques
   -- insuffisantes : rien de plus, la règle ordinaire (§4) s'applique.
   local rf = (not em) and view.recover_floor or nil
+  if spir.hold > 0 then avail["iron-plate"] = (avail["iron-plate"] or 0) + spir.hold end -- (lot SPIRALE : le fer gardé revient à la recrue)
   if rf and not view.hold_recruits and not view.recruit_blocked and view.workers < rf then
     local cost0 = view.recruit_cost or kit_list("worker", 1)
     if take(cost0) then
@@ -971,6 +979,15 @@ function P.plan(view, book)
         out.recruit_uses = sorted_uses(p.uses)
         consume(p.uses)
         out.emergency_recruit = true
+      else
+        -- Lot SPIRALE (parité avec les factions, planner.lua plus haut : recrue sans arme SOUS 2 PNJ, minage d'urgence du minerai qui
+        -- manque). Seulement ces deux gestes : ni fonderie du QG ni garde (la forme large de l'essai D1 avait vidé le coffre).
+        if spir.unarmed then
+          out.recruit_workers = 1
+          out.recruit_unarmed = true
+          out.emergency_unarmed = true
+        end
+        if spir.mine then emergency_mine(p.raw) end
       end
     end
   end

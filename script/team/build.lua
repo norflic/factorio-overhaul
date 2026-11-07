@@ -3013,14 +3013,16 @@ end
 --- (f.team.qg_reserve, écrite par Team.view) ? Un module rouvert pour reconstruction n'arrive pas ici (pile_family, appelant). Une ligne
 --- [FO-QGSURVIE] à l'entrée et à la sortie de la retenue de chaque projet (`what` : « reserve » ou « ligne »). Rend vrai si retenu.
 local function qg_held(f, p, what, tick)
-  if not (T.qg_reserve_on and f.is_player and f.team and f.team.qg_reserve) then return false end
+  -- Lot SPIRALE (7/11) : le fer gardé pour une recrue (f.team.spirale_hold, Team.think) s'ajoute à la réserve du QG, même règle coupée.
+  local reserve = ((T.qg_reserve_on and f.team and f.team.qg_reserve) or 0) + ((f.team and f.team.spirale_hold) or 0)
+  if not (f.is_player and reserve > 0) then return false end
   local iron = Stock.count(f, T.outposts.iron.product)
-  local held = Sq.module_held({ iron = iron, reserve = f.team.qg_reserve, rebuild = false })
+  local held = Sq.module_held({ iron = iron, reserve = reserve, rebuild = false })
   local key = what == "ligne" and "qg_hold_ln" or "qg_hold"
   if held ~= (p[key] == true) then
     log(string.format("[FO-QGSURVIE] %s : projet %d (%s, %s) %s a %.1f min : fer au coffre %d, reserve du QG %d", f.key or "player", p.id,
       tostring(p.spec and p.spec.pile), what, held and "RETENU (module neuf sous la reserve du QG)" or "libere", tick / 3600, iron,
-      f.team.qg_reserve))
+      reserve))
     f.team.qg_holds = (f.team.qg_holds or 0) + (held and 1 or 0)
   end
   p[key] = held or nil

@@ -39,6 +39,32 @@ function Sp.decide(s)
   return out
 end
 
+--- Fer d'UNE recrue tiré du stock : le kit planifié au livre SANS le fer du stock (les chargeurs au coffre comptent, le pistolet
+--- absent se fabrique) ; le fer brut qui en reste, (10 + effectif) compris. Sans livre : le fer écrit dans le coût.
+function Sp.recruit_iron(cost, stock, book, iron_name)
+  iron_name = iron_name or "iron-plate"
+  if not book then
+    local n = 0
+    for _, it in ipairs(cost or {}) do if it[1] == iron_name then n = n + (it[2] or 0) end end
+    return n
+  end
+  local keys = {}
+  for k in next, stock or {} do if k ~= iron_name then keys[#keys + 1] = k end end
+  table.sort(keys)
+  local s = {}
+  for _, k in ipairs(keys) do s[k] = stock[k] end
+  return book:plan(cost or {}, s).raw[iron_name] or 0
+end
+
+--- La décision depuis une vue du planificateur (shared/team/planner.lua) : votre équipe seulement (view.recover_floor ; nil pour les
+--- factions, qui ont leur survie). `iron` : le fer du stock virtuel au début du plan.
+function Sp.view(view, book, iron)
+  local floor = view and view.recover_floor
+  if not floor then return Sp.decide(nil) end
+  return Sp.decide({ workers = view.workers, floor = floor, iron = iron,
+    recruit_iron = Sp.recruit_iron(view.recruit_cost, view.stock, book, "iron-plate") })
+end
+
 --- Fer que voit un autre consommateur que la recrue (tâches, capitalisation, défense) : le fer libre moins la part gardée.
 function Sp.iron_for_others(iron, d)
   return math.max(0, (iron or 0) - ((d and d.hold) or 0))
