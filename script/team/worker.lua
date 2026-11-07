@@ -1577,6 +1577,7 @@ FSM.define(MACHINE, {
         Profiler.fcredit("idle", "idle:sans-tache")
         return
       end
+      Stock.note_claim(f, main_inv(agent), tick) -- lot STOCKAGE-VITAL : prise de tâche avec la poche pleine (compteur, aucune décision)
       Profiler.fstart("worker:program")
       local steps = Worker.program(f, task, agent.entity.surface, tick)
       Profiler.fstop("worker:program")
