@@ -996,7 +996,13 @@ function Ia3.after_poles(f, tick)
     end
   end
   if dropped > 0 then
+    -- Lot COLLECTE (7/11, carte de l'IA) : cette resynchronisation SANS plan ni vue remettait b.need_mult et b.hold_left à nil (board.lua,
+    -- Board.sync) jusqu'à la synchro suivante, 300 ticks plus tard : le marché (E4) ne voyait donc jamais le facteur de besoin des minages
+    -- (x 1,5 du fer qui manque) dès qu'une matière était saturée. Ils sont gardés (tests/need_mult_test.lua).
+    local b = Board.get(f)
+    local need_mult, hold_left = b.need_mult, b.hold_left
     Board.sync(f, keep, tick)
+    b.need_mult, b.hold_left = need_mult, hold_left
     st.fond_dropped = (st.fond_dropped or 0) + dropped
   end
   return dropped
