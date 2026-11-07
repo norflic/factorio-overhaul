@@ -2266,5 +2266,24 @@ do
   check(not mr2.requested, "CC2 : mutant vu : foreuses prévues comptées pour posées (R5c retiré)")
 end
 
+do
+  -- Poteaux posés par le remplacement d'une foreuse (lot FOREUSES-THERMIQUES, o.swap_poles, commit 18d7cfa9 de charbonmain) : bâtiments
+  -- de l'équipe, comptés NÔTRES par le plan du champ (mine_of), comme les paires ; rouge sur 36f3a424 (liste ignorée : obstacles)
+  section("CC3. CHAMP-COUVERTURE : poteaux du remplacement (o.swap_poles) comptés comme nôtres par le plan du champ")
+  local Chm = package.loaded["script.team.champ"] or require("script.team.champ")
+  local K = require("shared.team.champ").key
+  local function pole(x, y, valid)
+    return { valid = valid ~= false, bounding_box = { left_top = { x = x - 0.5, y = y - 0.5 }, right_bottom = { x = x + 0.5, y = y + 0.5 } } }
+  end
+  local o = { id = 1, kind = "iron", pos = { x = 0, y = 0 }, drill_list = {}, sinks = {}, swap_poles = { pole(3.5, 4.5), pole(9.5, 9.5, false) } }
+  local q = { id = 2, kind = "iron", pos = { x = 10, y = 0 }, drill_list = {}, sinks = {}, swap_poles = { pole(12.5, 1.5) } }
+  local w = { id = 3, kind = "copper", pos = { x = 5, y = 0 }, drill_list = {}, sinks = {}, swap_poles = { pole(6.5, 6.5) } }
+  local old = { id = 4, kind = "iron", pos = { x = -8, y = 0 }, drill_list = {}, sinks = {} } -- sauvegarde d'avant FOREUSES-THERMIQUES
+  local mine = Chm.mine_of({ outposts = { [1] = o, [2] = q, [3] = w, [4] = old } }, o, {})
+  check(mine[K(3, 4)] == true and mine[K(12, 1)] == true,
+    "CC3 : poteaux du remplacement de l'avant-poste et de son voisin du même minerai : nôtres")
+  check(not mine[K(9, 9)] and not mine[K(6, 6)], "CC3 : poteau détruit, poteau d'un avant-poste d'un autre minerai : pas nôtres")
+end
+
 print(string.format("[MIGRATION-CHAMP] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

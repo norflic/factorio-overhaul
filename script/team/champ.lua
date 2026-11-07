@@ -311,6 +311,8 @@ Champ.deposit_sibs = deposit_sibs
 
 --- Tuiles NÔTRES (libres pour le plan) : paires de l'avant-poste et de ses voisins du même minerai sur le gisement (Champ.SIB_R ; lot
 --- CHAMP-COUVERTURE, R7 : et les avant-postes `sibs` posés sur le gisement, à toute distance), et entités des bandes déjà demandées pour lui.
+--- (lot FOREUSES-THERMIQUES, o.swap_poles) les poteaux posés par le remplacement d'une foreuse sont aussi des bâtiments de l'avant-poste :
+--- nôtres, comme ses paires (absents d'une sauvegarde d'avant ce lot : rien de plus).
 local function mine_of(f, o, sibs)
   local mine = {}
   local r2 = Champ.SIB_R * Champ.SIB_R
@@ -319,7 +321,7 @@ local function mine_of(f, o, sibs)
   for _, oid in ipairs(sorted_keys(f.outposts)) do
     local q = f.outposts[oid]
     if q == o or (q.kind == o.kind and ((q.pos.x - o.pos.x) ^ 2 + (q.pos.y - o.pos.y) ^ 2 <= r2 or on[oid])) then
-      for _, l in ipairs({ q.drill_list or {}, q.sinks or {} }) do
+      for _, l in ipairs({ q.drill_list or {}, q.sinks or {}, q.swap_poles or {} }) do
         for _, e in ipairs(l) do if e.valid then add_box(mine, e) end end
       end
     end
@@ -333,6 +335,7 @@ local function mine_of(f, o, sibs)
   end
   return mine
 end
+Champ.mine_of = mine_of -- (tests)
 
 --- Lot MELANGE (retour du DC du 3/11 : « les minerais de charbon prennent la place des minerais de fer sur les convoyeurs ») : tuiles
 --- d'une AUTRE ressource que la foreuse sait miner (catégorie lue au prototype), dans le rectangle ; { [Ch.key] = true }, nombre.
