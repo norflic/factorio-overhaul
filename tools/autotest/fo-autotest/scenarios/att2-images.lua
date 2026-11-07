@@ -2,7 +2,7 @@
 -- poteaux moyens reliés en cuivre, lampes, une source d'énergie) ; un bâtiment de la force du géant DANS chaque zone (il doit rester debout,
 -- sans falaise ni lave dessous). Le repère : le Glas du Bourdon sur la même base, au même zoom (site 7). Jour jusqu'au tick 3 000, puis
 -- nuit : une 2e Surtension (la base s'éteint), le lac de lave et la spirale de nuit.
---   py -3.9 -B tools/autotest/banc.py --out <archive> --captures --visuel="--no-atlas-cache --ticks 4400" --qui DESIGN-ATTAQUES -- 4400 att2-images <source>
+--   py -3.9 -B tools/autotest/banc.py --out <archive> --captures --visuel="--no-atlas-cache --ticks 4500" --qui DESIGN-ATTAQUES -- 4500 att2-images <source>
 local C = require("scenarios/att2_commun")
 local Y = 3000
 local SITES = {
@@ -15,7 +15,9 @@ local SITES = {
   { id = "bourdon", x = 9100, lance = 2700 },
 }
 local NUIT = 3000
-local FIN = 4380
+-- Le marqueur de fin de shots.lua tombe à la dernière capture (4 330) + 10 + 1 + 60 (FLUSH) = 4 401 : il faut AU MOINS 4 402 ticks de budget
+-- (passage du 7/11 à 4 400 : code 7, « session fermée avant la fin sans marqueur », 92 captures et BILAN quand même). Jouer à 4 500.
+local CONTROLE = 4320
 
 local PLAN = {}
 local function vue(tick, nom, x, y, zoom, nuit, res)
@@ -58,7 +60,7 @@ table.sort(PLAN, function(a, b) return a.tick < b.tick end)
 
 return {
   description = "DESIGN-ATTAQUES : les 5 grandes attaques des geants (et le Glas en repere), en images, jour et nuit",
-  check_tick = FIN - 30,
+  check_tick = CONTROLE,
   shots_delay = PLAN[1].tick,
 
   init = function(ctx)
@@ -71,8 +73,8 @@ return {
     remote.call("fo-att2", "journal", true)
     st.sites = {}
     for k, site in ipairs(SITES) do
-      local ss = C.site(ctx, k, site.id, site.x, Y)
-      if site.id ~= "bourdon" then ctx.check(ss.g ~= nil and ss.g.valid, site.id .. " (site " .. k .. ") : geant pose") end
+      -- géant posé au lancement seulement (C.poser) : sa 1re attaque ne touche pas la base « avant »
+      local ss = C.site(ctx, k, site.id, site.x, Y, true)
       st.sites[k] = ss
       ctx.log(string.format("site %d %s : %d poteaux", k, site.id, ss.poles))
     end
@@ -92,7 +94,9 @@ return {
           ctx.check(remote.call("fo-bourdon", "glas", ss.b, site.x + 20, Y - 5) == true, "bourdon (site 7) : Glas (repere)")
         end
       elseif t == site.lance then
-        local okl, why = remote.call("fo-att2", "lancer", ss.g, site.x + 0.5, Y + 0.5, true)
+        local g = C.poser(s, ss)
+        ctx.check(g ~= nil and g.valid, string.format("%s (site %d) : geant pose", site.id, k))
+        local okl, why = remote.call("fo-att2", "lancer", g, site.x + 0.5, Y + 0.5, true)
         ctx.check(okl == true, string.format("%s (site %d) : grande attaque lancee", site.id, k), tostring(why))
       end
     end
@@ -111,7 +115,7 @@ return {
         x.rochers or 0, x.feux or 0, x.max_ops or 0))
     end
     ctx.check(((stats.cairn or {}).poteaux or 0) >= 40, "cairn : la surtension a grille le reseau")
-    ctx.check(((stats.stylet or {}).falaises or 0) >= 20, "stylet : canyon de falaises")
+    ctx.check(((stats.stylet or {}).feux or 0) >= 20, "stylet : le balayage a mis le feu sur son passage")
     ctx.check(((stats.trombe or {}).rochers or 0) >= 1, "trombe : rochers sur le couloir")
     ctx.check(((stats.ixion or {}).tuiles or 0) >= 500, "ixion : lac de lave")
     ctx.check(((stats.tournesol or {}).tuiles or 0) >= 800, "tournesol : spirale de verre")

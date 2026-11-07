@@ -231,10 +231,12 @@ function V.climax_son(j)
   lumiere(j, j.c, 40, COUL.cairn, 1.0, 40)
 end
 
-function V.climax_poteau(j, e)
+--- Captures du 7/11 : un grand éclat bleu par poteau (60 à 120 en 6 à 12 ticks, additifs) faisait une nappe blanche sur toute la base. Le grand
+--- éclat ne sort plus que sur un poteau sur six ; les autres prennent l'éclat sombre, qui laisse voir les explosions.
+function V.climax_poteau(j, e, k)
   local p = e.position
   j.surface.create_entity({ name = "big-explosion", position = { p.x, p.y } })
-  j.surface.create_entity({ name = P .. "eclat-bleu-grand", position = { p.x, p.y } })
+  j.surface.create_entity({ name = P .. ((k or 1) % 6 == 1 and "eclat-bleu-grand" or "eclat-bleu-sombre"), position = { p.x, p.y } })
 end
 
 ---------------------------------------------------------------------------------------------------

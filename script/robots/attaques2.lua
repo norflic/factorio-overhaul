@@ -320,7 +320,7 @@ local function pas_cairn(j, r, a, rt)
     for k = k0, k1 do
       local h = j.fusee[k]
       if h.e and h.e.valid then
-        V.climax_poteau(j, h.e)
+        V.climax_poteau(j, h.e, k)
         if h.poteau then
           st.poteaux = st.poteaux + 1
           toucher(j, r, a, h.e, 0, true)

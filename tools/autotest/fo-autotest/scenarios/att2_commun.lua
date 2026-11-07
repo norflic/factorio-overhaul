@@ -87,15 +87,23 @@ function C.base(s, cx, cy, R, graine)
   return #poles, lampes
 end
 
+--- Le géant du site, posé (raise_built) au pied de la base.
+function C.poser(s, ss)
+  ss.g = s.create_entity({ name = "fo-xp-" .. ss.id, position = { ss.x - C.PORTEE[ss.id], ss.y + 4 }, force = ss.force, raise_built = true })
+  return ss.g
+end
+
 --- Prépare un site complet : terrain, base, force, bâtiment ami, géant (raise_built). Rend { g, ami, poles, lampes, force }.
-function C.site(ctx, k, id, x, y)
+--- `tard` : le géant n'est PAS posé (C.poser au moment de la grande attaque) ; sinon sa 1re attaque frappe la base avant (captures du 7/11 :
+--- les pointes de glace du gel de la Trombe et des machines déjà mortes sur la base « avant »).
+function C.site(ctx, k, id, x, y, tard)
   local s = ctx.surface()
   local R = C.rayon_base(id)
   ctx.prepare_area(x - R - 70, y - R - 30, x + R + 25, y + R + 25, "dry-dirt")
   for _, en in ipairs(s.find_entities_filtered({ force = "enemy", area = { { x - R - 120, y - R - 120 }, { x + R + 120, y + R + 120 } } })) do en.destroy() end
   local f = C.force_geant(k)
   local np, lampes = C.base(s, x, y, R, k * 3)
-  local out = { id = id, x = x, poles = np, lampes = lampes, force = f.name }
+  local out = { id = id, x = x, y = y, poles = np, lampes = lampes, force = f.name }
   if id == "bourdon" then
     out.b = remote.call("fo-bourdon", "descendre", f.name, x, y)
     return out
@@ -103,7 +111,7 @@ function C.site(ctx, k, id, x, y)
   local ap = C.ami_pos(id, x, y)
   for _, en in ipairs(s.find_entities_filtered({ area = { { ap[1] - 2, ap[2] - 2 }, { ap[1] + 2, ap[2] + 2 } } })) do en.destroy() end
   out.ami = s.create_entity({ name = "lab", position = ap, force = f })
-  out.g = s.create_entity({ name = "fo-xp-" .. id, position = { x - C.PORTEE[id], y + 4 }, force = f, raise_built = true })
+  if not tard then C.poser(s, out) end
   return out
 end
 

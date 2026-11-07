@@ -40,7 +40,9 @@ local function eclat(nom, fichier, l, h, echelle, tint, duree, lumiere)
 end
 local HALO = "__core__/graphics/light-medium.png"
 eclat("eclat-bleu", HALO, 300, 300, 0.9, { r = 0.35, g = 0.65, b = 1.0, a = 1 }, 20, 14)
-eclat("eclat-bleu-grand", HALO, 300, 300, 2.6, { r = 0.45, g = 0.75, b = 1.0, a = 1 }, 36, 40)
+eclat("eclat-bleu-grand", HALO, 300, 300, 2.0, { r = 0.32, g = 0.55, b = 0.8, a = 1 }, 36, 30)
+-- éclat du climax du Cairn sur 5 poteaux sur 6 (additif : une teinte sombre = un éclat faible ; captures du 7/11, nappe blanche)
+eclat("eclat-bleu-sombre", HALO, 300, 300, 1.0, { r = 0.14, g = 0.26, b = 0.45, a = 1 }, 24, 8)
 eclat("eclat-glace", HALO, 300, 300, 1.2, { r = 0.7, g = 0.92, b = 1.0, a = 1 }, 24, 12)
 eclat("eclat-or", "etoile", nil, nil, 0.5, { r = 1, g = 1, b = 1, a = 1 }, 40, 30)
 eclat("eclat-feu", "etoile", nil, nil, 0.35, { r = 1.0, g = 0.7, b = 0.45, a = 1 }, 26, 16)
