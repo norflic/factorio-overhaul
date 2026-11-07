@@ -6,6 +6,8 @@
   Mo.fresh(text, sliced, slice, build) : module chargé depuis `text` (mutants), monde bâti par build(W) -> hq, avant-postes, source.
   Mo.play(R, passes) : R.hook(R), s'il existe, est appelé après chaque tranche jouée par la minuterie.
   W.no_targets = true : aucune foreuse n'a de drop_target (posée avant son récepteur, rien déposé encore).
+  Partie C (repli thermique) : statut d'une électrique lu à la couverture des poteaux d'un réseau vivant (au travail, ou no_power ;
+  W.low : low_power) ; e.mine (W.full : coffre plein) ; Stock.inventories ; defines.entity_status.
 ]]
 package.path = "./?.lua;" .. package.path
 local T = require("shared.team.config")
@@ -81,7 +83,32 @@ local function world()
       return { input_counts = live and { gen = 1 } or {}, get_flow_count = function() return live and 1 or 0 end }
     end
     if k == "neighbours" then return { copper = e.wires } end
-    if k == "status" then return 1 end
+    if k == "status" then
+      -- partie C : électrique sous la zone d'alimentation d'un poteau d'un réseau vivant : au travail (1), ou low_power (3) si W.low ;
+      -- sinon sans courant (2, no_power). Modèle PESSIMISTE : une foreuse figée (active == false) rend aussi no_power (le moteur rend
+      -- disabled_by_script) : le compte de l'exécutant doit l'exclure lui-même.
+      if p.type ~= "mining-drill" or p.burner then return 1 end
+      local b = box(e)
+      for _, q in ipairs(W.ents) do
+        local qp = PROTO[q.name]
+        if q.valid and qp.type == "electric-pole" and net_root(q) then
+          local r = qp.supply_area_distance
+          if q.position.x - r < b.right_bottom.x and q.position.x + r > b.left_top.x and q.position.y - r < b.right_bottom.y
+              and q.position.y + r > b.left_top.y then
+            return W.low and 3 or 1
+          end
+        end
+      end
+      return 2
+    end
+    if k == "mine" then
+      return function(o)
+        if W.full then return false end
+        o.inventory.insert({ name = e.name, count = 1 })
+        e.valid = false
+        return true
+      end
+    end
     if k == "destroy" then return function() e.valid = false end end
     if k == "connect_neighbour" then
       return function(o)
@@ -185,6 +212,7 @@ function Mo.fresh(text, sliced, slice, build)
     count = function(_, n) return env.stock[n] or 0 end,
     remove = function(_, n, c) local h = env.stock[n] or 0; local t = math.min(h, c); env.stock[n] = h - t; return t end,
     insert = function(_, n, c) env.stock[n] = (env.stock[n] or 0) + c; return c end,
+    inventories = function() return { { valid = true, insert = function(st) env.stock[st.name] = (env.stock[st.name] or 0) + st.count; return st.count end } } end,
   }
   local Board = { add = function(_, tasks, tick)
     for _, t in ipairs(tasks) do env.board[#env.board + 1] = string.format("%s %s %d @%d", t.key, t.item, t.count, tick) end
@@ -204,7 +232,8 @@ function Mo.fresh(text, sliced, slice, build)
   local saved = {}
   for k, v in pairs(stubs) do saved[k] = package.loaded[k]; package.loaded[k] = v end
   _G.game = { tick = 0, entity_prototypes = PROTO, item_prototypes = PROTO }
-  _G.defines = { inventory = { fuel = "fuel", furnace_source = 2, furnace_result = 3, chest = 4 }, flow_precision_index = { one_minute = 1 } }
+  _G.defines = { inventory = { fuel = "fuel", furnace_source = 2, furnace_result = 3, chest = 4 }, flow_precision_index = { one_minute = 1 },
+    entity_status = { working = 1, no_power = 2, low_power = 3, disabled_by_script = 4, no_fuel = 5 } }
   _G.log = function(s) W.logs[#W.logs + 1] = s end
   local chunk = assert(load(text, "=" .. SRC_PATH))
   local Swap = chunk()

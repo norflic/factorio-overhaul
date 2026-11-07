@@ -29,6 +29,7 @@ local Build = require("script.team.build") -- lot ÉTAGE 5 (bancs : couloir d'un
 local T = require("shared.team.config")
 local Pl = require("shared.team.plan") -- lot FOREUSES-THERMIQUES (bancs : clé de tuile des couloirs, couloir_hits)
 local Board = require("script.team.board") -- lots FOREUSES-THERMIQUES (collect_probe) et COLLECTE (état des tâches de collecte) ; déjà chargé par team.lua
+local Rt = require("shared.team.repli_thermique") -- lot FOREUSES-THERMIQUES, partie C (bancs : réglage effectif du repli, set_repli)
 
 -- Lot IA1-b (docs §8.6, pilotage sans clic) :
 --   team_status(key)                 -> état d'organisation publié (Poles.status) ou nil ;
@@ -374,6 +375,30 @@ remote.add_interface("fo-ia1", {
     if not (f and f.team) then return nil end
     f.team.chaine_off = not on
     return on
+  end,
+  -- Lot FOREUSES-THERMIQUES, partie C (bancs seulement) : réglage du repli thermique de l'équipe (f.team.repli, lu par Swap.repli ;
+  -- shared/team/repli_thermique.lua, Rt.cfg) : `on` (faux : témoin, règle éteinte), wait, hold, every (ticks), per_pass ; nil : défaut.
+  -- Rend le réglage effectif en une chaîne, ou nil.
+  set_repli = function(key, on, wait, hold, every, per_pass)
+    local f = team_of(key)
+    if not (f and f.team) or (on ~= nil and type(on) ~= "boolean") then return nil end
+    f.team.repli = { on = on, wait = wait, hold = hold, every = every, per_pass = per_pass }
+    local c = Rt.cfg(f.team.repli)
+    return string.format("on=%s wait=%d hold=%d every=%d per_pass=%d", tostring(c.on), c.wait, c.hold, c.every, c.per_pass)
+  end,
+  -- Partie C (bancs seulement) : état du repli de l'équipe : replis faits, attentes par raison, et par avant-poste (ordre trié)
+  -- « numéro:électriques:sans courant:début de la panne (-1 : aucune) ». Rend une chaîne, ou nil.
+  repli_state = function(key)
+    local f = team_of(key)
+    if not (f and f.outposts) then return nil end
+    local rp = f.swap and f.swap.repli
+    local w, op = {}, {}
+    for _, k in ipairs(State.sorted_keys(rp and rp.why or {})) do w[#w + 1] = k .. "=" .. rp.why[k] end
+    for _, oid in ipairs(State.sorted_keys(f.outposts)) do
+      local o = f.outposts[oid]
+      op[#op + 1] = string.format("%s:%d:%d:%d", tostring(oid), o.electric or 0, o.unpowered or 0, o.dark_since or -1)
+    end
+    return string.format("replis=%d attentes=%s avant-postes=%s", rp and rp.done or 0, #w > 0 and table.concat(w, ",") or "-", table.concat(op, " "))
   end,
   -- Lot NAV2 (bancs seulement) : agrandit `rounds` fois l'avant-poste `oid` (Outposts.extend, objets fournis) : champ DENSE comme une
   -- partie longue (29 foreuses chez Écarlate). Rend le nombre de foreuses de l'avant-poste, ou nil.

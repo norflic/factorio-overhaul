@@ -825,6 +825,7 @@ end
 --- État d'un avant-poste : brûleur à court de charbon, production en attente, tourelles.
 --- Lot FLUX : `outputs` = { [objet] = n } des sorties (ce que la tournée rapportera), `stuck` = réceptacles dont la sortie est
 --- pleine (shared/team/flux.lua, Fx.STUCK_AT : le four ne fond plus), `burners` / `dry` = brûleurs et brûleurs sans une braise.
+--- Partie C (FOREUSES-THERMIQUES) : `electric` / `unpowered` = électriques et électriques sans courant (signal du réseau tombé).
 function Outposts.status(o, tick)
   local low, output = false, 0
   local burners, dry = 0, 0
@@ -847,8 +848,10 @@ function Outposts.status(o, tick)
   -- Lot MIGRATION-CHAMP : un champ entièrement migré n'a plus rien à ravitailler ni à collecter ici (la fonderie du plan a ses coffres) :
   -- pas de tournée d'entretien « à l'heure » (les tourelles gardent leur ravitaillement par leurs propres tâches)
   local idle = (o.migr == "fini" and #valid_list(o.drill_list) == 0) and 0 or (tick - (o.last_service or 0))
+  -- Lot FOREUSES-THERMIQUES (partie C) : électriques de l'avant-poste et celles SANS COURANT, vues par la dernière passe de repli
+  -- (script/team/foreuse_swap.lua, Swap.repli : toutes les T.swap.every ticks environ ; aucune lecture du moteur ici).
   return { fuel_low = low, output = output, turrets = #o.turret_list, idle_ticks = idle,
-    outputs = outputs, stuck = stuck, burners = burners, dry = dry }
+    outputs = outputs, stuck = stuck, burners = burners, dry = dry, electric = o.electric or 0, unpowered = o.unpowered or 0 }
 end
 
 --- Charbon à apporter pour compléter tous les brûleurs d'une liste.
