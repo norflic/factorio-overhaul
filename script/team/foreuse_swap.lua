@@ -29,8 +29,8 @@ local P = require("shared.team.plan") -- lot FOREUSES-THERMIQUES : chaine de pot
 local Sante = require("script.team.sante_centrale") -- lot FOREUSES-THERMIQUES : puissance des chantiers (bilan d'energie existant)
 local Scheduler = require("script.core.scheduler") -- lot TRANCHES : suite d'une passe au tick suivant (minuterie)
 local Ra = require("script.team.reserve_amorcage") -- réserve d'amorçage du combustible (K lu aux DONNÉES ; partagée avec le champ)
-local Profiler = require("script.core.profiler") -- mesure des tranches jouées par la minuterie (hors de la portée tt:foswap de la pensée)
 local Rt = require("shared.team.repli_thermique") -- partie C : repli thermique quand le réseau tombe (règle pure)
+local Profiler = require("script.core.profiler") -- mesure des tranches jouées par la minuterie (hors de la portée tt:foswap de la pensée)
 
 local Swap = {}
 
