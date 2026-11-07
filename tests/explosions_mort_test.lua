@@ -39,7 +39,7 @@ local function verifier_regles(M, chk)
   local function c(cond, quoi, d) if not cond then n0 = n0 + 1 end; if chk then chk(cond, quoi, d) end end
   c(M.RAYON == 224, "rayon 224 tuiles (3 840 px au zoom 0,3)", M.RAYON)
   c(M.RELEVE == 60, "releve toutes les 60 ticks", M.RELEVE)
-  c(M.TYPES[1] == "turret" and M.TYPES[2] == "unit" and #M.TYPES == 2, "types turret et unit, tries")
+  c(M.lot("unit", {}) == "q5" and M.lot("turret", { flags = { "placeable-enemy" } }) == "q5", "Q5 : unites et vers")
   -- perimetre (lead, 7/11 : « unites et vers seulement, nos tourelles exclues »)
   c(M.cible("unit", { flags = { "placeable-player", "player-creation" } }), "toute unit (nos robots compris)")
   c(M.cible("unit", {}), "unit sans drapeaux")
@@ -53,6 +53,23 @@ local function verifier_regles(M, chk)
   c(not M.cible("turret", {}), "turret sans drapeaux exclue")
   c(not M.cible("ammo-turret", { flags = { "placeable-enemy" } }) and not M.cible("electric-turret", {}),
     "autres types de tourelles exclus")
+  -- Q5b (criteres figes B1) : batiments « player-creation » hors des types exclus
+  local PC = { flags = { "placeable-neutral", "placeable-player", "player-creation" } }
+  for _, t in ipairs({ "assembling-machine", "furnace", "mining-drill", "inserter", "transport-belt", "underground-belt",
+    "splitter", "electric-pole", "lamp", "pipe", "container", "logistic-container", "wall", "gate", "boiler", "generator",
+    "solar-panel", "accumulator", "lab", "radar", "roboport", "beacon", "storage-tank", "rocket-silo" }) do
+    c(M.lot(t, PC) == "q5b", "Q5b : batiment " .. t)
+  end
+  c(M.lot("assembling-machine", { flags = { "placeable-neutral", "placeable-player" } }) == nil,
+    "Q5b : sans player-creation, pas un batiment du lot")
+  c(M.lot("container", {}) == nil, "Q5b : sans drapeaux, rien")
+  for _, t in ipairs({ "ammo-turret", "electric-turret", "fluid-turret", "artillery-turret", "car", "spider-vehicle",
+    "locomotive", "cargo-wagon", "fluid-wagon", "artillery-wagon", "character", "unit-spawner", "combat-robot",
+    "construction-robot", "logistic-robot", "land-mine" }) do
+    c(M.lot(t, PC) == nil, "Q5b : type exclu " .. t)
+  end
+  c(M.lot("turret", PC) == nil, "Q5b : notre tourelle experimentale (turret, player-creation) toujours exclue")
+  c(M.lot("unit", PC) == "q5", "pas de double : une unit player-creation reste Q5")
   -- formes de dying_explosion
   local n = M.noms_explosion("small-biter-die")
   c(n and #n == 1 and n[1] == "small-biter-die", "chaine")
@@ -258,9 +275,13 @@ local MUT_REGLES = {
   { "prefixe non controle", "effect_id:sub(1, #M.PREFIXE) ~= M.PREFIXE", "false" },
   { "rayon 96 (celui des tirs)", "M.RAYON = 224", "M.RAYON = 96" },
   { "explosion laissee sur la grille", "  fl[#fl + 1] = \"placeable-off-grid\"\n", "" },
+  { "Q5b : tourelles de niveau reprises", "[\"ammo-turret\"] = true, ", "" },
+  { "Q5b : vehicules repris", "[\"car\"] = true, ", "" },
+  { "Q5b : player-creation non requis", "return a_drapeau(p, \"player-creation\") and \"q5b\" or nil", "return \"q5b\"" },
+  { "Q5b : batiments absents", "return a_drapeau(p, \"player-creation\") and \"q5b\" or nil", "return nil" },
   { "nos tourelles reprises (player-creation ignore)", "and not a_drapeau(p, \"player-creation\")", "" },
-  { "vers exclus", "return a_drapeau(p, \"placeable-enemy\") and", "return false and" },
-  { "toute turret reprise", "if t == \"turret\" then return a_drapeau", "if t == \"turret\" then return true or a_drapeau" },
+  { "vers exclus", "return (a_drapeau(p, \"placeable-enemy\") and", "return (false and" },
+  { "toute turret reprise", "return (a_drapeau(p, \"placeable-enemy\") and", "return (true or" },
 }
 for _, mu in ipairs(MUT_REGLES) do
   local Mm = charger_regles(remplacer(TEXTE_REGLES, mu[2], mu[3]))

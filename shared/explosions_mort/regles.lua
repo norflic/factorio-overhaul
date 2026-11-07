@@ -16,6 +16,9 @@
   les VERS seulement, reconnus à leurs drapeaux (« placeable-enemy » sans « player-creation »). Le type `turret` porte aussi
   nos tourelles expérimentales (`prototypes/experimentaux.lua`, « crachat » : « placeable-player », « player-creation »),
   dont la mort a été dessinée avec le DC (lot A4, F157) : elles ne sont pas touchées.
+  Q5b (lead, 7/11, même décision du DC ; critères figés : fo-logs6-11-07_X10\Q5b_CRITERES_2026-11-07.md, B1) : les
+  BÂTIMENTS, c'est-à-dire tout prototype « player-creation » d'un type hors de M.EXCLUS (toutes les tourelles, véhicules,
+  corps, nids, robots, mines). Même règle de jeu.
 
   RAYON = 224 : le DC joue en 3 840 × 2 160 ; au zoom 0,3, la demi-largeur vue fait 3 840 ÷ (32 × 0,3) ÷ 2 = 200 tuiles.
   Relevé des joueurs toutes les RELEVE ticks (état du jeu, gardé dans global : déterministe en multijoueur).
@@ -26,7 +29,8 @@
     M.effect_id(noms)      « fo-mort|a|b »
     M.noms(effect_id)      noms portés par un identifiant de ce lot, ou nil
     M.avec_effet(dte, noms) `dying_trigger_effect` complété par l'effet script
-    M.cible(t, p)          le prototype p de type t est-il du lot ? (unités ; vers, pas nos tourelles)
+    M.lot(t, p)            « q5 » (unités, vers), « q5b » (bâtiments) ou nil : le prototype p de type t est-il du lot ?
+    M.cible(t, p)          M.lot(t, p) ~= nil
     M.habiller(p)          transforme un prototype (data) ; rend ses noms, ou nil s'il est laissé au moteur
     M.hors_grille(x)       donne « placeable-off-grid » au prototype d'explosion x (rend true s'il l'ajoute)
     M.proche(joueurs, s, x, y, r)  un joueur relevé est-il à moins de r tuiles du point, sur la surface s ?
@@ -37,7 +41,16 @@ local M = {}
 M.PREFIXE = "fo-mort|"
 M.RAYON = 224
 M.RELEVE = 60
-M.TYPES = { "turret", "unit" } -- trié ; « turret » filtré par M.cible (vers seulement)
+
+-- Q5b, B1 : types jamais habillés comme bâtiments (« turret » et « unit » sont traités par Q5 avant cette liste).
+M.EXCLUS = {
+  ["ammo-turret"] = true, ["electric-turret"] = true, ["fluid-turret"] = true, ["artillery-turret"] = true, -- nos tourelles (A4)
+  ["car"] = true, ["spider-vehicle"] = true, ["locomotive"] = true, ["cargo-wagon"] = true, ["fluid-wagon"] = true,
+  ["artillery-wagon"] = true, -- véhicules
+  ["character"] = true, ["unit-spawner"] = true, ["combat-robot"] = true, ["construction-robot"] = true,
+  ["logistic-robot"] = true, -- corps, nids, robots
+  ["land-mine"] = true, -- son explosion fait partie de l'attaque
+}
 
 local function a_drapeau(p, f)
   local fl = p.flags
@@ -46,13 +59,19 @@ local function a_drapeau(p, f)
   return false
 end
 
---- Le prototype p (type t) est-il du lot ? Toute `unit` ; une `turret` seulement si c'est un ver : « placeable-enemy » et
---- pas « player-creation » (nos tourelles expérimentales sont « player-creation »).
-function M.cible(t, p)
-  if t == "unit" then return true end
-  if t == "turret" then return a_drapeau(p, "placeable-enemy") and not a_drapeau(p, "player-creation") end
-  return false
+--- Le prototype p (type t) est-il du lot, et lequel ? Q5 : toute `unit` ; une `turret` seulement si c'est un ver
+--- (« placeable-enemy » et pas « player-creation » : nos tourelles expérimentales sont « player-creation »). Q5b : un
+--- bâtiment, « player-creation », d'un type hors de M.EXCLUS.
+function M.lot(t, p)
+  if t == "unit" then return "q5" end
+  if t == "turret" then
+    return (a_drapeau(p, "placeable-enemy") and not a_drapeau(p, "player-creation")) and "q5" or nil
+  end
+  if M.EXCLUS[t] then return nil end
+  return a_drapeau(p, "player-creation") and "q5b" or nil
 end
+
+function M.cible(t, p) return M.lot(t, p) ~= nil end
 
 --- Noms d'explosion d'un `dying_explosion` de prototype : chaîne, liste de chaînes, { name = … } ou liste de { name = … }
 --- SANS autre champ. Rend nil si la forme n'est pas sûre (décalage, champ inconnu, nom vide ou portant « | ») : le
