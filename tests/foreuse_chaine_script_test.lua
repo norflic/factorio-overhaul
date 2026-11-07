@@ -201,6 +201,65 @@ local function suite(text)
       c("H : listes sans les retirees, compte tenu", #o.drill_list == 1 and o.drill_list[1] == a and #o.sinks == 0 and o.drills == 1)
     end
   end
+  -- J. B1 (revue du lead, 7/11) : fits_for lit le récepteur RÉEL de chaque foreuse (drop_target) et ne retire jamais le four d'une électrique
+  local J = { reads = 0 }
+  local jents = {}
+  local function jent(name, typ, x, y, w, extra)
+    local e = { name = name, type = typ, position = { x = x, y = y }, valid = true, unit_number = #jents + 100,
+      bounding_box = { left_top = { x = x - w / 2, y = y - w / 2 }, right_bottom = { x = x + w / 2, y = y + w / 2 } } }
+    for k, v in pairs(extra or {}) do e[k] = v end
+    local tgt = e.drop_target
+    e.drop_target = nil
+    local p = setmetatable(e, { __index = function(_, k) if k == "drop_target" then J.reads = J.reads + 1 return tgt end end })
+    jents[#jents + 1] = p
+    return p
+  end
+  local function inter(e, a)
+    local b = e.bounding_box
+    return b.left_top.x < a[2][1] and b.right_bottom.x > a[1][1] and b.left_top.y < a[2][2] and b.right_bottom.y > a[1][2]
+  end
+  local jsurf = {
+    count_tiles_filtered = function() return 0 end,
+    count_entities_filtered = function() return 25 end,
+    find_entities_filtered = function(o)
+      local out = {}
+      for _, e in ipairs(jents) do
+        if e.valid and inter(e, o.area) and (not o.type or o.type == e.type) then out[#out + 1] = e end
+      end
+      return out
+    end,
+  }
+  local BUR, ELE = "burner-mining-drill", "electric-mining-drill"
+  local Tj = { DRILL = BUR, DRILL_ELECTRIC = ELE, drill_electric = { size = 3 }, drill_drop = { 100, 100 }, outposts = { iron = { resource = "iron-ore" } } }
+  local fits_for = load_fn(text, "local function fits_for(f, surface, refs)", { T = Tj, S = S, Swap = { MIN_ORE = 3 },
+    game = { entity_prototypes = { [ELE] = { mining_drill_radius = 2.49 } } },
+    sorted_keys = function(t) local k = {} for n in pairs(t) do k[#k + 1] = n end table.sort(k) return k end })
+  c("J : fits_for extraite", fits_for ~= nil)
+  if fits_for then
+    local s50 = jent("stone-furnace", "furnace", 13, 8, 2)
+    local s70 = jent("stone-furnace", "furnace", 20, 8, 2)
+    local s10 = jent("stone-furnace", "furnace", 10, 8, 2)
+    local self = jent(BUR, "mining-drill", 10, 10, 2, { drop_target = s10, burner = {} })
+    local d5 = jent(BUR, "mining-drill", 13, 10, 2, { drop_target = s50, burner = {} })
+    local e11 = jent(ELE, "mining-drill", 22.5, 10.5, 3, { drop_target = s70 })
+    local d12 = jent(BUR, "mining-drill", 19, 11, 2, { drop_target = s70, burner = {} })
+    local o = { id = 1, kind = "iron", drill_list = { self, d5, e11, d12 }, sinks = { s10, s50, s70 } }
+    local refs = { [self.unit_number] = { o = o, drill = self } }
+    local fit = fits_for({ force = "player" }, jsurf, refs)
+    local e = { id = self.unit_number }
+    local p1 = fit(e, 11.5, 10.5, 0)
+    c("J : thermique voisine qui bloque : elle et son four (lu par drop_target) au plan", type(p1) == "table" and #p1.drills == 1 and p1.drills[1] == d5.unit_number
+      and #p1.sinks == 1 and p1.sinks[1] == s50.unit_number, type(p1) == "table" and (#p1.drills .. " / " .. #p1.sinks) or tostring(p1))
+    local p2 = fit(e, 19.5, 8.5, 0)
+    c("J : le four d'une electrique bloque : refus", p2 == false, tostring(p2))
+    local champ = jent(ELE, "mining-drill", 13, 4.5, 3, { drop_target = s50 })
+    local p3 = fit(e, 11.5, 10.5, 0)
+    c("J : une electrique hors de l'avant-poste depose dans le four a retirer : refus (relecture au moteur)", p3 == false, tostring(p3))
+    champ.valid = false
+    local p4 = fit(e, 17.5, 12.5, 0)
+    c("J : thermique qui partage le four d'une electrique : elle seule au plan, le four reste", type(p4) == "table" and #p4.drills == 1
+      and p4.drills[1] == d12.unit_number and #p4.sinks == 0, type(p4) == "table" and (#p4.drills .. " / " .. #p4.sinks) or tostring(p4))
+  end
   -- I. câblage : l'échange vient APRÈS la chaîne posée et reliée (courant amené), et l'électrique ratée repose la paire
   local i_chain = text:find("local ok, why, placed = place_chain(f, surface, pole, r.poles, src)", 1, true)
   local i_ex = text:find("undo, got = exchange_remove(f, ex)", 1, true)
@@ -229,6 +288,9 @@ local MUT = {
   { "echange : compte de foreuses non tenu", "  o.drills = math.max(0, (o.drills or 0) - lost)", "" },
   -- (echange coupe en entier : vu au banc foreuses-chaine, pas ici ; l ordre chaine puis retrait est controle au texte, cas I)
   { "couloir et plan ignores", "      if Outposts.reserved and Outposts.reserved(f, pole.name, { x = x, y = y }, 0) then return false end", "" },
+  { "B1 : recepteur lu au vecteur de la thermique (drop_target ignore)", "      local tgt = d.drop_target", "      local tgt = nil" },
+  { "B1 : relecture du four au moteur oubliee", "        if x.valid and x ~= ref.drill and not x.burner and x.drop_target == k then return false end", "" },
+  { "B1 : electriques non fixes", "      if d.name ~= T.DRILL then fixed[du] = true end", "" },
 }
 local refused, kept = 0, {}
 for _, m in ipairs(MUT) do

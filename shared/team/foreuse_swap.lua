@@ -348,36 +348,52 @@ end
 --- retire apres la chaine posee et reliee) ; le debit ne baisse pas : une electrique pour au plus S.EXCHANGE_MAX thermiques retirees,
 --- l'ancienne comprise (electrique 0,5/s, thermique 0,25/s).
 --- blockers : liste de { kind = "drill" | "sink" | "other", id } (ce qui recouvre la 3 x 3, l'ancienne foreuse et ce qui se defriche exclus) ;
---- info = { sink_of = { [foreuse] = recepteur }, feeders = { [recepteur] = { foreuses } } } (paires de l'avant-poste) ; own_sink : recepteur
---- de la future electrique (jamais retire) ; self_id : l'ancienne foreuse. Rend { drills = {...}, sinks = {...} } (ids tries ; listes vides :
---- rien a retirer) ou nil, raison : « 3x3 bloquee » (autre chose qu'une paire), « recepteur » (il faudrait retirer le sien), « debit ».
+--- info = { sink_of = { [foreuse] = recepteur }, feeders = { [recepteur] = { foreuses } }, fixed = { [foreuse] = true } } (paires de
+--- l'avant-poste ; fixed : foreuses qui ne se retirent jamais, les ELECTRIQUES) ; own_sink : recepteur de la future electrique (jamais
+--- retire) ; self_id : l'ancienne foreuse. Rend { drills = {...}, sinks = {...} } (ids tries ; listes vides : rien a retirer) ou nil, raison :
+--- « 3x3 bloquee » (autre chose qu'une paire thermique), « recepteur » (il faudrait retirer le sien), « recepteur d'une electrique » (revue du
+--- lead, 7/11, B1 : un four qui recoit d'une electrique deja posee n'est jamais retire, sinon elle depose au sol), « debit ».
 S.EXCHANGE_MAX = 2
 function S.exchange(blockers, info, own_sink, self_id, max)
   max = max or S.EXCHANGE_MAX
   info = info or {}
-  local sink_of, feeders = info.sink_of or {}, info.feeders or {}
+  local sink_of, feeders, fixed = info.sink_of or {}, info.feeders or {}, info.fixed or {}
   local drills, sinks = {}, {}
   local function add_sink(sid)
     if sid == nil or sinks[sid] then return true end
-    if sid == own_sink then return false end
+    if sid == own_sink then return false, "recepteur" end
     sinks[sid] = true
     for _, d in ipairs(feeders[sid] or {}) do
+      if fixed[d] then return false, "recepteur d'une electrique" end
       if d ~= self_id and not drills[d] then
         drills[d] = true
-        if not add_sink(sink_of[d]) then return false end
+        local ok, why = add_sink(sink_of[d])
+        if not ok then return false, why end
       end
     end
     return true
   end
+  -- four garde quand une foreuse voisine est retiree seule : celui de la future electrique, ou celui d'une electrique deja posee
+  local function kept(sid)
+    if sid == own_sink then return true end
+    for _, d in ipairs(feeders[sid] or {}) do if fixed[d] then return true end end
+    return false
+  end
   for _, b in ipairs(blockers or {}) do
-    if b.kind == "drill" then
+    if b.kind == "drill" and fixed[b.id] then
+      return nil, "3x3 bloquee"
+    elseif b.kind == "drill" then
       if b.id ~= self_id and not drills[b.id] then
         drills[b.id] = true
         local sid = sink_of[b.id]
-        if sid ~= nil and sid ~= own_sink and not add_sink(sid) then return nil, "recepteur" end
+        if sid ~= nil and not kept(sid) then
+          local ok, why = add_sink(sid)
+          if not ok then return nil, why end
+        end
       end
     elseif b.kind == "sink" then
-      if not add_sink(b.id) then return nil, "recepteur" end
+      local ok, why = add_sink(b.id)
+      if not ok then return nil, why end
     else
       return nil, "3x3 bloquee"
     end

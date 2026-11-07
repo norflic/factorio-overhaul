@@ -61,23 +61,36 @@ return function(rule)
     local r1 = ctx.remote("fo-ia1", "swap_outposts", "player")
     ctx.check(r1 ~= nil, "C1 releve des avant-postes de votre equipe lisible a la fin", summary(r1))
     if not r1 then return end
-    local new, linked, working = 0, 0, 0
+    local status_name = {}
+    for name, v in pairs(defines.entity_status) do status_name[v] = name end
+    local new, linked, working, into = 0, 0, 0, 0
+    local by_status = {}
     for _, line in ipairs(r1.list) do
-      local u, x, y, c, w = line:match("^(%d+) (%S+) (%S+) (%d) (%d)$")
+      local u, x, y, c, w, k, sv = line:match("^(%d+) (%S+) (%S+) (%d) (%d) (%d) (%-?%d+)$")
       if u and not st.known[u] then
         new = new + 1
         if c == "1" then linked = linked + 1 end
         if w == "1" then working = working + 1 end
-        ctx.log(string.format("[FO-%s] NOUVELLE electrique %s en (%s, %s) reliee=%s au_travail=%s", TAG, u, x, y, c, w))
+        if k == "1" then into = into + 1 end
+        local sn = status_name[tonumber(sv)] or sv
+        by_status[sn] = (by_status[sn] or 0) + 1
+        ctx.log(string.format("[FO-%s] NOUVELLE electrique %s en (%s, %s) reliee=%s au_travail=%s dans_recepteur=%s statut=%s", TAG, u, x, y, c, w, k, sn))
       end
     end
-    ctx.log(string.format("[FO-%s] RESULTAT regle=%s duree=%.1f min depart=[%s] fin=[%s] nouvelles=%d reliees=%d au_travail=%d swap=[%s]",
-      TAG, rule and "oui" or "non", DUR / 3600, st.r0 or "nil", summary(r1), new, linked, working,
+    local bs = {}
+    local names = {}
+    for n in pairs(by_status) do names[#names + 1] = n end
+    table.sort(names)
+    for _, n in ipairs(names) do bs[#bs + 1] = n .. "=" .. by_status[n] end
+    ctx.log(string.format("[FO-%s] RESULTAT regle=%s duree=%.1f min depart=[%s] fin=[%s] nouvelles=%d reliees=%d au_travail=%d dans_recepteur=%d statuts=[%s] swap=[%s]",
+      TAG, rule and "oui" or "non", DUR / 3600, st.r0 or "nil", summary(r1), new, linked, working, into, table.concat(bs, ","),
       tostring(ctx.remote("fo-ia1", "swap_state", "player"))))
     if rule then
       ctx.check(new >= 1, "C2 au moins une electrique nouvelle sur un avant-poste de votre equipe en 2,5 min", tostring(new))
       ctx.check(new > 0 and linked == new, "C3 toutes les electriques nouvelles reliees a un reseau", linked .. "/" .. new)
       ctx.check(r1.poles_cor == 0, "C4 aucun poteau pose par le remplacement sur un couloir d'acces", tostring(r1.poles_cor))
+      -- ajouté le 7/11 après partie-dc1 (revue du lead, B1) : critère plus strict, jamais relâché
+      ctx.check(new > 0 and into == new, "C5 (B1) chaque electrique nouvelle depose dans un recepteur", into .. "/" .. new)
     end
   end
   return S

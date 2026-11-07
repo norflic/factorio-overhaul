@@ -340,23 +340,33 @@ local function fits_for(f, surface, refs)
       end
     end
     if #blockers == 0 then return true end
-    -- paires de l'avant-poste : recepteur de chaque foreuse (point de depot), foreuses de chaque recepteur
-    local sink_of, feeders = {}, {}
-    local sids = sorted_keys(mine_s)
+    -- paires de l'avant-poste : recepteur de chaque foreuse, foreuses de chaque recepteur. Revue du lead (7/11, B1) : le recepteur REEL lu
+    -- au moteur (drop_target : l'entite ou la foreuse depose), pour la thermique comme pour l'electrique ; le vecteur de depot de la
+    -- thermique (T.drill_drop) tombait dans la 3 x 3 d'une electrique, et le four de celle-ci etait retire. Les electriques ne se
+    -- retirent jamais (fixed) : un four qui recoit d'une electrique est garde (S.exchange, « recepteur d'une electrique »).
+    local sink_of, feeders, fixed = {}, {}, {}
     for _, du in ipairs(sorted_keys(mine_d)) do
       local d = mine_d[du]
-      local rx, ry = S.rotate(d.direction, T.drill_drop[1], T.drill_drop[2])
-      for _, su in ipairs(sids) do
-        if S.inside(box_of(mine_s[su]), d.position.x + rx, d.position.y + ry) then
-          sink_of[du] = su
-          feeders[su] = feeders[su] or {}
-          feeders[su][#feeders[su] + 1] = du
-          break
-        end
+      if d.name ~= T.DRILL then fixed[du] = true end
+      local tgt = d.drop_target
+      local su = tgt and tgt.valid and tgt.unit_number
+      if su and mine_s[su] then
+        sink_of[du] = su
+        feeders[su] = feeders[su] or {}
+        feeders[su][#feeders[su] + 1] = du
       end
     end
-    local plan = S.exchange(blockers, { sink_of = sink_of, feeders = feeders }, sink_of[ref.drill.unit_number], ref.drill.unit_number)
+    local plan = S.exchange(blockers, { sink_of = sink_of, feeders = feeders, fixed = fixed }, sink_of[ref.drill.unit_number], ref.drill.unit_number)
     if not plan then return false end
+    -- B1 : relecture au moteur des fours a retirer : aucune electrique (de l'avant-poste ou d'ailleurs : bandes du champ) n'y depose
+    for _, su in ipairs(plan.sinks) do
+      local k = mine_s[su]
+      local kb = k.bounding_box
+      for _, x in ipairs(surface.find_entities_filtered({ area = { { kb.left_top.x - 3, kb.left_top.y - 3 }, { kb.right_bottom.x + 3, kb.right_bottom.y + 3 } },
+          type = "mining-drill" })) do
+        if x.valid and x ~= ref.drill and not x.burner and x.drop_target == k then return false end
+      end
+    end
     plan.ents = {}
     for _, du in ipairs(plan.drills) do plan.ents[#plan.ents + 1] = mine_d[du] end
     for _, su in ipairs(plan.sinks) do plan.ents[#plan.ents + 1] = mine_s[su] end

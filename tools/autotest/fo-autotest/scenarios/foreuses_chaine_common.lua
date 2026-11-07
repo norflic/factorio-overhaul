@@ -93,19 +93,30 @@ return function(rule)
       local elec = s.find_entities_filtered({ area = area, name = "electric-mining-drill", force = "player" })
       local burn = s.find_entities_filtered({ area = area, name = "burner-mining-drill", force = "player" })
       local net = st.src and st.src.valid and st.src.electric_network_id or nil
-      local on_net = 0
-      for _, d in ipairs(elec) do if net and d.electric_network_id == net then on_net = on_net + 1 end end
+      local on_net, into = 0, 0
+      for _, d in ipairs(elec) do
+        if net and d.electric_network_id == net then on_net = on_net + 1 end
+        -- revue du lead (7/11, B1) : chaque électrique dépose dans un récepteur (four ou coffre), jamais au sol
+        local t = d.drop_target
+        if t and t.valid and (t.type == "furnace" or t.type == "container") then
+          into = into + 1
+        else
+          ctx.log(string.format("[FO-%s] electrique en (%.1f, %.1f) direction %d SANS recepteur (depot en (%.2f, %.2f))", TAG, d.position.x,
+            d.position.y, d.direction, d.drop_position.x, d.drop_position.y))
+        end
+      end
       local poles = s.find_entities_filtered({ area = { { st.hq.x - 10, st.cc.y - 30 }, { st.cc.x + 20, st.cc.y + 30 } }, name = "small-electric-pole",
         force = "player" })
       local placed = #poles - 1 -- moins la source
       local on_cor = ctx.remote("fo-ia1", "couloir_hits", "player", "small-electric-pole")
       local sw = ctx.remote("fo-ia1", "swap_state", "player")
       local min = (CHECK - W0) / 3600
-      ctx.log(string.format("[FO-%s] RESULTAT regle=%s thermiques_W0=%d electriques=%d sur_reseau=%d thermiques_fin=%d poteaux_poses=%d poteaux_sur_couloir=%s rythme=%.1f/min swap=[%s]",
-        TAG, rule and "oui" or "non", st.burners_w0 or 0, #elec, on_net, #burn, placed, tostring(on_cor), #elec / min, tostring(sw)))
+      ctx.log(string.format("[FO-%s] RESULTAT regle=%s thermiques_W0=%d electriques=%d sur_reseau=%d dans_recepteur=%d thermiques_fin=%d poteaux_poses=%d poteaux_sur_couloir=%s rythme=%.1f/min swap=[%s]",
+        TAG, rule and "oui" or "non", st.burners_w0 or 0, #elec, on_net, into, #burn, placed, tostring(on_cor), #elec / min, tostring(sw)))
       if rule then
         ctx.check(#elec >= 6, "regle : au moins 6 electriques remplacent les thermiques en 1 min", tostring(#elec))
         ctx.check(#elec > 0 and on_net == #elec, "regle : toutes les electriques sont sur le reseau de la source", on_net .. "/" .. #elec)
+        ctx.check(#elec > 0 and into == #elec, "regle (B1) : chaque electrique depose dans un recepteur", into .. "/" .. #elec)
         ctx.check(placed >= 3, "regle : chaine de poteaux posee (au moins 3 petits poteaux)", tostring(placed))
         ctx.check(on_cor == nil or on_cor == 0, "regle : aucun poteau sur un couloir d'acces", tostring(on_cor))
       else

@@ -241,6 +241,16 @@ local function suite(S)
   c("19 : le recepteur de l'electrique n'est jamais retire", e6x == nil and w6 == "recepteur", tostring(w6))
   local e7x = ex({ { kind = "drill", id = 9 } }, info, 10, 1)
   c("19 : voisine qui nourrit le meme four que l'electrique : seule la foreuse est retiree", e7x ~= nil and #e7x.drills == 1 and e7x.drills[1] == 9 and #e7x.sinks == 0)
+  -- B1 (revue du lead, 7/11) : un four qui recoit d'une electrique deja posee (foreuse 11, fixe) n'est jamais retire
+  local infoB = { sink_of = { [11] = 70, [12] = 70, [5] = 50 }, feeders = { [70] = { 11, 12 }, [50] = { 5 } }, fixed = { [11] = true } }
+  local e8x, w8 = ex({ { kind = "sink", id = 70 } }, infoB, 10, 1)
+  c("19 B1 : four d'une electrique qui bloque : refus « recepteur d'une electrique »", e8x == nil and w8 == "recepteur d'une electrique", tostring(w8))
+  local e9x = ex({ { kind = "drill", id = 12 } }, infoB, 10, 1)
+  c("19 B1 : thermique qui partage le four d'une electrique : elle seule est retiree, le four reste", e9x ~= nil and #e9x.drills == 1 and e9x.drills[1] == 12 and #e9x.sinks == 0)
+  local e10x, w10 = ex({ { kind = "drill", id = 11 } }, infoB, 10, 1)
+  c("19 B1 : une electrique qui bloque n'est jamais retiree : « 3x3 bloquee »", e10x == nil and w10 == "3x3 bloquee", tostring(w10))
+  local e11x = ex({ { kind = "drill", id = 5 } }, infoB, 10, 1)
+  c("19 B1 : la paire thermique voisine reste echangeable", e11x ~= nil and e11x.drills[1] == 5 and e11x.sinks[1] == 50)
   local o19 = S.plan({ e1 }, ctx_fit(near, function() return { drills = { 5 }, sinks = { 50 } } end))
   c("19 : le plan d'echange suit la sortie (l'executant retire apres le courant amene)", #o19 == 1 and o19[1].exchange ~= nil and o19[1].exchange.drills[1] == 5)
   -- 16. rangement des poteaux par cases (coût) : mêmes réponses que la lecture de TOUS les poteaux, sur 60 cartes pseudo-aléatoires
@@ -301,7 +311,10 @@ local MUT = {
   { "essais sans borne", "if #out >= n or tries >= (ctx.tries or S.TRIES) or fit_tries >= (ctx.fit_tries or S.FIT_TRIES) then break end", "if #out >= n or fit_tries >= (ctx.fit_tries or S.FIT_TRIES) then break end" },
   { "place de la 3x3 ignoree", "local fit = not ctx.fits or ctx.fits(it.e, c[1], c[2], c[4])", "local fit = true" },
   { "echange : debit ignore", "if 1 + #dl > max then return nil, \"debit\" end", "" },
-  { "echange : recepteur de l'electrique retirable", "    if sid == own_sink then return false end\n", "" },
+  { "echange : recepteur de l'electrique retirable", "    if sid == own_sink then return false, \"recepteur\" end\n", "" },
+  { "B1 : four d'une electrique retirable", "      if fixed[d] then return false, \"recepteur d'une electrique\" end\n", "" },
+  { "B1 : electrique retirable", "    if b.kind == \"drill\" and fixed[b.id] then\n      return nil, \"3x3 bloquee\"\n    elseif b.kind == \"drill\" then", "    if b.kind == \"drill\" then" },
+  { "B1 : four d'une electrique non garde (thermique voisine retiree seule)", "    for _, d in ipairs(feeders[sid] or {}) do if fixed[d] then return true end end\n", "" },
   { "echange : autre batiment accepte", "    else\n      return nil, \"3x3 bloquee\"\n    end", "    end" },
   { "echange : fournisseurs du four oublies", "    for _, d in ipairs(feeders[sid] or {}) do", "    for _, d in ipairs({}) do" },
   { "echange : plan perdu en route", "out[#out + 1] = { id = r.id, cx = c[1], cy = c[2], dir = c[4], poles = {}, est = 0, exchange = ex }", "out[#out + 1] = { id = r.id, cx = c[1], cy = c[2], dir = c[4], poles = {}, est = 0 }" },

@@ -265,7 +265,8 @@ remote.add_interface("fo-ia1", {
   end,
   -- Lot FOREUSES-THERMIQUES (A), bancs seulement : foreuses des avant-postes de l'equipe (thermique = a bruleur, sinon electrique),
   -- electriques reliees a un reseau et au travail, poteaux poses par le remplacement (o.swap_poles) et ceux sur un couloir d'acces, et la
-  -- liste « unit_number x y reliee travaille » des electriques (ordre des avant-postes trie ; 1 ou 0). Rend une table, ou nil.
+  -- liste « unit_number x y reliee travaille dans_recepteur statut » des electriques (ordre des avant-postes trie ; 1 ou 0 ; statut :
+  -- defines.entity_status). Rend une table, ou nil.
   swap_outposts = function(key)
     local f = team_of(key)
     if not (f and f.outposts) then return nil end
@@ -282,8 +283,10 @@ remote.add_interface("fo-ia1", {
             r.electrics = r.electrics + 1
             local c = d.is_connected_to_electric_network() and 1 or 0
             local w = d.status == defines.entity_status.working and 1 or 0
+            local t = d.drop_target
+            local k = (t and t.valid and (t.type == "furnace" or t.type == "container")) and 1 or 0
             r.connected, r.working = r.connected + c, r.working + w
-            r.list[#r.list + 1] = string.format("%d %.1f %.1f %d %d", d.unit_number or 0, d.position.x, d.position.y, c, w)
+            r.list[#r.list + 1] = string.format("%d %.1f %.1f %d %d %d %d", d.unit_number or 0, d.position.x, d.position.y, c, w, k, d.status or -1)
           end
         end
       end
