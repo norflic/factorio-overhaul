@@ -202,6 +202,16 @@ local function fire_died(e, killer_force)
   if h then h({ entity = e, force = killer_force, cause = nil, tick = _G.game.tick }) end
 end
 
+-- EFFONDREMENT (opts.corpses) : corps d'un personnage tué (fait moteur du micro-banc kit-cadavre, 9ee2b12d) ; posé par die().
+local make_character_corpse -- défini après new_entity
+local function fire_post_died(e, unit, corpse, killer_force)
+  local h = W.events[defines.events.on_post_entity_died]
+  if h then
+    h({ unit_number = unit, corpses = { corpse }, prototype = { type = e.type, name = e.name }, position = { x = e._x, y = e._y },
+      force = killer_force, surface_index = 1, tick = _G.game.tick })
+  end
+end
+
 --- Lot PERF4 : on_entity_damaged, levé par LuaEntity.damage SUR DEMANDE seulement (opts.raise_damaged du monde), avec le filtre
 --- « type » posé par script.set_event_filter, comme le moteur. Sans la demande, rien n'est levé (comportement d'avant ce lot :
 --- les suites existantes ne changent pas) et l'ensemble des endommagées du mod est éteint (M.load_mod).
@@ -448,8 +458,13 @@ local EntityMT = {
     if k == "die" then
       return function(force, cause)
         if not t.valid then return false end
+        -- EFFONDREMENT (opts.corpses) : comme le moteur réel (micro-banc kit-cadavre, 9ee2b12d), un personnage tué laisse un
+        -- character-corpse qui reçoit ses inventaires AVANT on_entity_died (ils y sont déjà vides), puis on_post_entity_died le rend.
+        local corpse = W.corpses and t.type == "character" and make_character_corpse(t) or nil
+        local unit = t.unit_number
         fire_died(t, force and force_of(force) or nil)
         destroy_entity(t)
+        if corpse then fire_post_died(t, unit, corpse, force and force_of(force) or nil) end
         return true
       end
     end
@@ -679,6 +694,22 @@ new_entity = function(name, x, y, surface, force)
 end
 M.new_entity = function(...) return new_entity(...) end
 
+-- EFFONDREMENT (opts.corpses) : le corps reçoit armes, munitions, armure et inventaire principal ; le personnage est vidé.
+make_character_corpse = function(t)
+  local I = defines.inventory
+  local c = new_entity("character-corpse", t._x, t._y, t.surface, t.force)
+  c.type = "character-corpse"
+  local ci = inv_of(c, I.character_corpse)
+  for _, idx in ipairs({ I.character_main, I.character_guns, I.character_ammo, I.character_armor }) do
+    local inv = t._invs[idx]
+    if inv then
+      for n, v in pairs(inv._items) do ci.insert({ name = n, count = v }) end -- (somme : l'ordre ne compte pas)
+      inv._items = {}
+    end
+  end
+  return c
+end
+
 local function straight_path(s, g)
   local dx, dy = g.x - s.x, g.y - s.y
   local d = math.sqrt(dx * dx + dy * dy)
@@ -823,6 +854,7 @@ function M.new_world(opts)
     return_delay = opts.return_delay or 300,
     unit = 0, entities = {}, events = {}, nth = {}, commands = {},
     raise_damaged = opts.raise_damaged or false, -- lot PERF4 : LuaEntity.damage lève on_entity_damaged (fire_damaged)
+    corpses = opts.corpses or false, -- EFFONDREMENT : die() d'un personnage pose un character-corpse et lève on_post_entity_died
     pending_paths = {}, path_id = 0, destroyed_queue = {},
     renders = {}, render_id = 0, lines_drawn = 0, prints = {}, logs = {}, files = {},
     walk_writes = 0, reg = 0, groups = {}, group_number = 0, occupied = {}, game_prints = {}, produced = {}, burned = 0,
@@ -1015,6 +1047,9 @@ function M.new_world(opts)
     -- lot EXPERIMENTAUX : capsules qui lancent la Géode et la Demi-Vie (script/robots/experimentaux.lua) ; le mock n'en lève aucune,
     -- le moteur réel est prouvé par « xp-petits » (joueur de la session avec images)
     on_player_used_capsule = 40,
+    -- EFFONDREMENT (parade du kit offert, script/team/worker.lua) : corps d'un personnage mort ; levé par die() sur demande seulement
+    -- (opts.corpses du monde, fire_post_died), comme le moteur réel (micro-banc kit-cadavre, 9ee2b12d)
+    on_post_entity_died = 41,
   }
   _G.defines = {
     -- Lot PANNEAU : type de l'interface ouverte (LuaControl.opened_gui_type) ; noms de l'API 1.1.91, valeurs opaques.
@@ -1030,7 +1065,7 @@ function M.new_world(opts)
     group_state = strict({ gathering = 0, moving = 1, attacking_distraction = 2, attacking_target = 3, finished = 4, pathfinding = 5, wander_in_group = 6 }, "defines.group_state"),
     compound_command = strict({ logical_and = 0, logical_or = 1, return_last = 2 }, "defines.compound_command"),
     inventory = strict({ turret_ammo = 1, chest = 2, character_main = 3, character_guns = 4, character_ammo = 5,
-      fuel = 6, furnace_source = 7, furnace_result = 8, character_armor = 9, furnace_modules = 10 }, "defines.inventory"),
+      fuel = 6, furnace_source = 7, furnace_result = 8, character_armor = 9, furnace_modules = 10, character_corpse = 11 }, "defines.inventory"),
     -- Lot GISEMENTS (script/team/gisement.lua) : statut d'une machine ; le mock ne rend que « travaille » (aucune panne simulee), mais connait
     -- tous les noms de l'API 1.1.91 (doc-html/runtime-api.json) : build.lua lit low_power, reconstruction.lua no_power...
     entity_status = strict((function()
