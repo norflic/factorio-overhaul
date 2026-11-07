@@ -1770,6 +1770,24 @@ local function s18()
     "§18 K5 : 6 foreuses non confirmées (180/min) pour 10/min : aucune foreuse refusée au plafond (" .. tostring(ore and ore.key or why_dr) .. ")")
 end
 
+-- §19 Étape 5a de VIDEO-INTEG (RD_LOG F391) : le courant du plan rendu quand le runtime donne input.power, jamais sans.
+local function s19()
+  local D = vdata()
+  local r0 = Ca.decide(iron_scene(D, 150), {})
+  check(r0.kw == nil, "§19 sans input.power : aucun courant rendu (rendu d'avant)")
+  local r1 = Ca.decide(iron_scene(D, 150, { power = { have_kw = 0, used_kw = 0 } }), {})
+  check(r1.kw ~= nil and r1.kw.have == 0 and type(r1.kw.used) == "number" and type(r1.kw.blocked) == "number" and r1.kw.blocked >= 0,
+    string.format("§19 avec input.power : capacité %s, nominal %s, retenu %s", tostring(r1.kw and r1.kw.have), tostring(r1.kw and r1.kw.used),
+      tostring(r1.kw and r1.kw.blocked)))
+  check(Ca.blocked_kw({ power_block = { { kw = 90 }, { kw = 180 } } }) == 270 and Ca.blocked_kw({}) == 0,
+    "§19 kW retenus : somme des machines et foreuses retenues par le courant")
+  -- Foreuses électriques sans courant ni centrale à proposer (chemin no_power) : refusées comme avant, et leurs kW sont retenus.
+  local rf1 = refus_of(r1, "couvrir:d1")
+  check(rf1 and rf1.why:find("aucune centrale possible", 1, true) and r1.kw and r1.kw.blocked > 0 and r1.kw.blocked % 90 == 0,
+    string.format("§19 foreuses sans courant : refus « %s », %s kW retenus (90 kW par foreuse)", tostring(rf1 and rf1.why),
+      tostring(r1.kw and r1.kw.blocked)))
+end
+
 local function run_all()
   s1()
   s2()
@@ -1786,7 +1804,10 @@ local function run_all()
   s15()
   s16()
   s17()
-  if not AB_DUMP then s18() end
+  if not AB_DUMP then
+    s18()
+    s19()
+  end
 end
 
 if AB_DUMP then -- témoin A/B (K6) : §1 à §17 seulement, rendus écrits, puis fin
@@ -1796,7 +1817,7 @@ if AB_DUMP then -- témoin A/B (K6) : §1 à §17 seulement, rendus écrits, pui
   Ca.decide = function(input, st)
     local r = dec(input, st)
     n = n + 1
-    fh:write(canon(r), "\n")
+    fh:write(input.power and "courant|" or "-|", canon(r), "\n") -- (étape 5a : rendus avec input.power marqués)
     return r
   end
   run_all()
@@ -1932,6 +1953,8 @@ do
   MF("capacité posée sans confirmation (fc toujours 1)", "cap_factor", function() return function() return 1 end end)
   MF("suspension retirée", "held", function() return function() return nil end end)
   MV("plafond par objet retiré", "CAPPED", {})
+  -- Étape 5a (§19).
+  MF("kW retenus jamais comptés", "blocked_kw", function() return function() return 0 end end)
 end
 check(n_caught == n_mut, string.format("mutants : %d refusés sur %d", n_caught, n_mut))
 
