@@ -167,7 +167,11 @@ local function mall_journal(f, tick)
   return true
 end
 
---- Journal [FO-PILE] : à chaque changement de sommet ou de retenue, et toutes les Pi.LOG_EVERY ticks.
+--- Journal [FO-PILE] : à chaque changement de sommet ou de retenue, et toutes les Pi.LOG_EVERY ticks. Chaque mise à jour de la pile
+--- (Pi.update, st.tick) est lue UNE fois (st.logged_tick). Lot ROUGES-0659 : depuis le découpage des pensées (6fcfe757), la pile est
+--- mise à jour à l'étape E1 (tick T) et ce journal joue à E4 (T + 3) ; l'ancienne garde « st.tick ~= tick » ne passait plus jamais :
+--- 0 ligne d'état dans la partie du DC en 0.6.58, 410 en 0.6.53. Mode bloc (Team.ETAPES = false) : même comportement qu'avant (un
+--- journal par pensée, au tick de la mise à jour). Sauvegarde sans st.logged_tick : la première lecture compte comme nouvelle.
 function PileRt.journal(f, tick)
   local st = f.team and f.team.ia3 and f.team.ia3.pile
   -- Lot GISEMENTS : journal [FO-GISEMENT] quand l'ensemble des matières en manque (par rapport au besoin) change.
@@ -185,7 +189,8 @@ function PileRt.journal(f, tick)
   end
   PileRt.flush(f, tick) -- lot FUITES-PILE : refus notés par la pensée pure (buts suspendus)
   mall_journal(f, tick)
-  if not st or st.tick ~= tick then return false end
+  if not st or st.tick == nil or st.tick == st.logged_tick then return false end
+  st.logged_tick = st.tick
   if not st.changed and tick < (st.log_at or 0) then return false end
   st.log_at = tick + Pi.LOG_EVERY
   log(string.format("[FO-PILE] %s : %s a %.1f min", f.key or "player", Pi.describe(st),

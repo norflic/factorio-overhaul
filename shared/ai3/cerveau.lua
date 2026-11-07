@@ -44,6 +44,7 @@ local Gi = require("shared.team.gisement") -- lot GISEMENTS : matières en manqu
 local Pi = require("shared.ai3.pile") -- lot PILE-PRIORITE : réparer + protéger, puis produire, puis améliorer
 local Rs = require("shared.ai3.reserve") -- lot INDUSTRIE I1 : le besoin évalué, le reste du stock s'investit
 local Fx = require("shared.team.flux") -- lot FLUX : tournée des sorties pleines gardée (règle pure)
+local Sp = require("shared.team.spirale") -- EFFONDREMENT : recrue gratuite de votre équipe sous l'effectif de départ
 
 local C = {}
 
@@ -185,7 +186,8 @@ function C.consumed(base, view)
       used[a] = (used[a] or 0) + (t.count or g.missing or g.low * T.turret_ammo_target)
     end
   end
-  if base.recruit_workers and not base.recruit_unarmed then add(base.recruit_uses or view.recruit_cost) end
+  -- EFFONDREMENT : une recrue gratuite (base.recruit_free) ne prend rien au stock virtuel.
+  if base.recruit_workers and not base.recruit_unarmed and not base.recruit_free then add(base.recruit_uses or view.recruit_cost) end
   local tr = base.train
   if tr then
     if tr.uses then add(tr.uses) else add(T.kits[tr.unit], tr.count) end
@@ -229,7 +231,7 @@ function C.think(view, book, st, ctx)
     local floor = (view.emergency and view.emergency.floor) or view.recover_floor
     local eff = view.effectif
     local n_rec, rec = Rs.recruits({ workers = view.workers, wanted = view.workers_wanted, floor = floor, blocked = view.recruit_blocked,
-      held = view.recruit_held, reason = eff and eff.reason or nil, cost = view.recruit_cost,
+      held = view.recruit_held, reason = eff and eff.reason or nil, cost = Sp.cost(view, view.recruit_cost), -- EFFONDREMENT : gratuite sous le départ
       margin = eff and eff.margin_item and { eff.margin_item, eff.margin } or nil })
     st.noyau = Rs.state(book, view.stock, { posts = sig.posts, repair = sig.repair, plan_wants = sig.plan_wants,
       planned = used, recruit = rec, production_first = sig.production_first, raw_need = sig.raw_need,
@@ -499,6 +501,7 @@ function C.think(view, book, st, ctx)
     goal = dom and ("ia3-" .. dom.key:gsub(":", "-")) or nil,
     research = nil, train = base.train or E.train,
     recruit_workers = base.recruit_workers, recruit_uses = base.recruit_uses, recruit_unarmed = base.recruit_unarmed,
+    recruit_free = base.recruit_free, -- EFFONDREMENT : recrue gratuite (paiement sauté en E4, script/team/team.lua)
     emergency_unarmed = base.emergency_unarmed, emergency_recruit = base.emergency_recruit,
     recruit_blocked = base.recruit_blocked, recruit_held = base.recruit_held, unreachable = E.unreachable,
     grow_short = base.grow_short, -- lot FER-EQUIPE : la réserve de fer a retenu une recrue (journal [FO-FER])

@@ -1,4 +1,18 @@
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Version: 0.6.59
+Date: 2026-11-07
+  Changes:
+    - Votre equipe ne reste plus bloquee sous son effectif de depart (demande du DC du 7/11 : "je veux toujours n ouvriers minimum") : recrue gratuite et equipee, sans toucher au coffre ni miner du fer d urgence pour son kit ; filet contre un campeur (une recrue tuee moins de 60 s apres son apparition double l attente de la suivante : 10 s, 20 s, 40 s, puis 60 s au plus ; remise a zero apres 5 min sans mort rapide).
+    - Mitrailleur des factions a portee 16, comme le fusilier : votre mitrailleuse de base le touche, diagonale comprise.
+    - Tourelles qui disparaissaient : un PNJ ne demonte plus a la main un batiment (cause prouvee) ; journal [FO-TOURELLE-MORTE] et [FO-TOURELLE-RETIREE] de chaque tourelle morte ou retiree de votre force, artillerie comprise.
+    - Tourelle laser redessinee (design valide le 4/11), ages 2 a 15.
+    - Gels coupes : releve du reseau electrique par bandes (gel de 302 ms supprime), raccord par bandes (48 ms), evenements de mort routes vers les seuls modules interesses, pieces de rechange calculees sans refaire le plan complet (memes choix, instructions divisees par 7).
+    - Geants et unites experimentales (QCM du DC du 5/11 et du 7/11) : sequelles d une salve "cratere et verre, pas de falaises", qui se resorbent au bout d 1 h (beton, eau et sol pose par le joueur respectes) ; cratere pose par lots du centre vers le bord ; budgets de coups et de morts par tick partages entre les forces (un geant de faction ne prend plus la part de votre force) ; ennemis relus a chaque tick ; une salve d une sauvegarde 0.6.56 est abandonnee proprement. Mesure seule (banc xp-zone) : pire tick pendant une salve 15,2 ms, moyenne 4,8 ms ; un pic de 24,5 ms reste au tick 31 (generation de carte, cause en cours de recherche).
+    - Journal [FO-PILE] : la ligne d etat est de nouveau ecrite (elle ne l etait plus depuis le decoupage des pensees de la 0.6.58 ; aucune decision ne la lisait).
+    - Panneau Evolution au clic prouve en partie reelle.
+    - Preuves : content en moteur reel (voir l archive fo-logs/2026-11-07_ESSAI-0659) ; tests hors jeu des lots.
+    - Pas encore dans cette version (en cours) : coffres pleins (fer et charbon gardent leur place, objets au sol autour du coffre de l equipe ramasses) ; rappel des PNJ libres ; tenue face aux ennemis a longue portee ; foreuses electriques aux avant-postes ; regles de la TODO video ; leviers du x10 (usines lointaines figees, chemins, explosions allegees, traces de pas des PNJ retirees) ; nouveau concept du titan (choix du DC du 7/11 : pas de visage, ni pierre noire et or) ; grande attaque des 5 geants et rayon de 30 degres du Stylet (planche fo-logs/2026-11-06_DESIGNS/attaques, verdict du DC attendu) ; 16 directions des geants.
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Version: 0.6.58
 Date: 2026-11-07
   Changes:
