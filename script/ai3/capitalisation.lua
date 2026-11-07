@@ -997,8 +997,13 @@ function Capi.portes(f, cs, res, view, tick)
   local sl = cs.slots or {}
   local a = { workers = view.workers, idle = view.workers_waiting, free_tasks = view.backlog, batis = sl.batis, open_sites = sl.open_sites }
   local was = cs.portes.closed
+  -- Lot L3 versé (étape 4) : manque net MESURÉ (view.mq.build) : un ordre sur un objet en manque mesuré est une petite marche (comptée)
+  -- et ne vise pas le même objet que l'ordre mesuré de la décision précédente, sauf s'il est seul en manque (Pe.check, anti-répétition).
+  local build = view.mq and view.mq.build or nil
+  local n_build = 0
+  for _, k in ipairs(sorted_keys(build)) do if (build[k] or 0) > 0 then n_build = n_build + 1 end end
   local r = Pe.filter(cs.portes, a, res.orders, { family_of = Pi.order_family, family_rank = Pi.FAMILY_RANK,
-    site_kinds = Capi.MODULE_KINDS, tours_kinds = PORTES_TOURS })
+    site_kinds = Capi.MODULE_KINDS, tours_kinds = PORTES_TOURS, measured = build, measured_n = n_build })
   if r.refused > 0 or r.closed ~= was then
     log(string.format("[FO-PORTES] %s minute %d : transport %s (%d fermeture(s)) ; %d ordre(s) gardes, %d retenu(s), %d qu'une petite marche aurait reduit(s) ; places de chantier %d sur %d (%d pose(s), %d ouvert(s)) ; %s",
       f.key or "?", math.floor(minutes(f, tick) + 0.5), r.closed and "SATURE" or "libre", cs.portes.closes or 0, r.kept, r.refused, r.reduced,

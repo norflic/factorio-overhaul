@@ -150,14 +150,18 @@ end
 --- Traduction d'un ordre de la capitalisation (shared/ai3/capitalisation.lua, res.orders) en ordre de la porte. ctx = {
 ---   family_of = fonction (kind -> famille, Pi.order_family), family_rank = { [famille] = rang } (Pi.FAMILY_RANK),
 ---   site_kinds = { [kind] = vrai } : ordres qui OUVRENT un chantier du plan directeur (Capi.MODULE_KINDS, champ compris),
----   tours_kinds = { [kind] = vrai } : ordres qui AJOUTENT des tournées de PNJ (chantiers, laboratoires servis à la main) }.
---- `measured` reste FAUX tant que le manque mesuré de L3 n'est pas versé (point de branchement : measured = (mq.build[item] or 0) > 0,
---- shared/ai3/manque_local.lua) ; `belt` reste faux : aucun ordre de la capitalisation n'est une voie à tapis seule.
+---   tours_kinds = { [kind] = vrai } : ordres qui AJOUTENT des tournées de PNJ (chantiers, laboratoires servis à la main),
+---   measured = { [objet] = n } : manque net MESURÉ de L3 (view.mq.build, shared/ai3/manque_local.lua ; nil : L3 éteint, rien n'est
+---   mesuré), measured_n = nombre d'objets en manque mesuré (un seul : la répétition est permise, G27) }.
+--- `belt` reste faux : aucun ordre de la capitalisation n'est une voie à tapis seule.
 function Pe.translate(o, ctx)
   local fam = ctx.family_of and ctx.family_of(o.kind) or nil
   local site = (ctx.site_kinds or {})[o.kind] == true
-  return { key = o.key, item = o.item or o.resource, n = o.n, rank = (fam ~= nil and (ctx.family_rank or {})[fam]) or 3,
-    site = site, tours = (ctx.tours_kinds or {})[o.kind] == true, belt = false, measured = false, alone = false }
+  local item = o.item or o.resource
+  local measured = item ~= nil and ((ctx.measured or {})[item] or 0) > 0
+  return { key = o.key, item = item, n = o.n, rank = (fam ~= nil and (ctx.family_rank or {})[fam]) or 3,
+    site = site, tours = (ctx.tours_kinds or {})[o.kind] == true, belt = false, measured = measured,
+    alone = measured and (ctx.measured_n or 0) == 1 }
 end
 
 --- Filtre d'une décision (branchement dans le runtime, script/ai3/capitalisation.lua decide_finish, AVANT la boucle d'envoi). Rend

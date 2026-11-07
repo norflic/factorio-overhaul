@@ -103,6 +103,14 @@ local function suite(Pe)
   want(pg.rank == 1 and not pg.site, "traduction : rang lu par la famille (garde -> defense -> 1)")
   want(pl.tours and not pl.site, "traduction : laboratoires = tournees sans chantier")
   want(pr.item == "minerai", "traduction : objet = ressource a defaut d'objet")
+  want(not pc.measured and not pc.alone, "traduction sans manque mesure (L3 eteint) : ni mesure ni seul")
+  local CTXM = { family_of = CTX.family_of, family_rank = CTX.family_rank, site_kinds = CTX.site_kinds, tours_kinds = CTX.tours_kinds,
+    measured = { x = 12, y = 0 }, measured_n = 1 }
+  local pm = Pe.translate({ key = "k", kind = "chaine", item = "x", n = 3 }, CTXM)
+  local pn = Pe.translate({ key = "n", kind = "chaine", item = "y", n = 3 }, CTXM)
+  want(pm.measured and pm.alone and not pn.measured, "traduction : manque mesure de L3 (x : 12) ; y a 0 n'est pas mesure ; seul en manque")
+  CTXM.measured_n = 2
+  want(not Pe.translate({ key = "k", kind = "chaine", item = "x" }, CTXM).alone, "traduction : deux objets en manque, pas seul")
   local s7f = Pe.new()
   local ords = { { key = "c", kind = "chaine", n = 2 }, { key = "g", kind = "garde", n = 2 }, { key = "e", kind = "equiper", n = 1 } }
   Pe.filter(s7f, D1, ords, CTX)
@@ -150,6 +158,8 @@ local MUTANTS = {
   { "traduction : rang 3 pour tous", "rank = (fam ~= nil and (ctx.family_rank or {})[fam]) or 3,", "rank = 3," },
   { "traduction : chantier ignore", "local site = (ctx.site_kinds or {})[o.kind] == true", "local site = false" },
   { "traduction : tournees ignorees", "tours = (ctx.tours_kinds or {})[o.kind] == true", "tours = false" },
+  { "traduction : manque mesure ignore", "local measured = item ~= nil and ((ctx.measured or {})[item] or 0) > 0", "local measured = false" },
+  { "traduction : seul toujours vrai", "alone = measured and (ctx.measured_n or 0) == 1 }", "alone = measured }" },
 }
 local refused = 0
 for _, m in ipairs(MUTANTS) do

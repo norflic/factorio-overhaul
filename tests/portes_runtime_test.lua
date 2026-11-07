@@ -67,6 +67,20 @@ check(w4 and next(w4) == nil, "§2 60 poses, 1 ouvert : 2 places, les 2 chantier
 local w5 = Capi.portes(f, cs, { orders = orders() }, { workers = 10, workers_waiting = 5 }, 2400)
 check(w5 and w5["chaine:a"] ~= nil, "§2 backlog absent de la vue : porte fermee (garde fermee)")
 check(M.serialize(cs.portes) ~= nil, "§2 etat serialisable")
+-- manque mesuré de L3 (view.mq.build) : le même objet en manque deux décisions de suite est retenu (anti-répétition), sauf seul en manque
+do
+  local fm, cm = { key = "m2" }, { slots = { batis = 100, open_sites = 0 } }
+  local vm = { workers = 10, workers_waiting = 5, backlog = 0, mq = { build = { a = 7, z = 3 } } }
+  local om = function() return { { key = "chaine:a", kind = "chaine", item = "a", n = 1 }, { key = "chaine:q", kind = "chaine", item = "q", n = 1 } } end
+  Capi.portes(fm, cm, { orders = om() }, vm, 2700)
+  local wm = Capi.portes(fm, cm, { orders = om() }, vm, 3000)
+  check(wm and wm["chaine:a"] and tostring(wm["chaine:a"]):find("repetition", 1, true) ~= nil and not wm["chaine:q"],
+    "§2 manque mesure (L3) : meme objet deux decisions de suite retenu, objet non mesure garde")
+  Capi.portes(fm, cm, { orders = om() }, vm, 3300) -- (a repasse : la décision d'avant n'avait gardé aucun objet mesuré)
+  vm.mq.build = { a = 7 }
+  local wm2 = Capi.portes(fm, cm, { orders = om() }, vm, 3600)
+  check(wm2 and not wm2["chaine:a"], "§2 manque mesure : seul objet en manque, la repetition est permise")
+end
 W.settings["fo-war-portes"] = nil
 
 -- §3 Capi.slots : modules posés et chantiers ouverts (Auto.module remplacé : états imposés).
