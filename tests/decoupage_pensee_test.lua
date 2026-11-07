@@ -632,7 +632,7 @@ if os.getenv("FO_STATIQUE") then
   os.exit(failures == 0 and 0 or 1)
 end
 
-if not os.getenv("FO_RAPIDE") then -- FO_RAPIDE=1 : parties 3 à 6 seulement
+if not os.getenv("FO_RAPIDE") and not os.getenv("FO_SEULE5") then -- FO_RAPIDE=1 : parties 3 à 9 seulement ; FO_SEULE5=1 : 0 et 5
 section("1. Relevé des champs lus en E4 (" .. MIN .. " min, mode bloc)")
 local ok, out, text = sub("releve", MIN, "releve")
 check(ok, "partie de relevé jouée" .. (ok and "" or (" : " .. text:sub(-400))))
@@ -680,16 +680,21 @@ for _, k in ipairs(survivors) do if Et.RARES[k] then rares[#rares + 1] = k else 
 print(string.format("  %d mutant(s), %d survivant(s) dont %d de branche rare (Et.RARES)%s", #all, #survivors, #rares,
   #rares > 0 and (" : " .. table.concat(rares, ", ")) or ""))
 check(#plain == 0, "aucun champ gardé inutile en 3 min (survivants hors Et.RARES : " .. table.concat(plain, ", ") .. ")")
--- Mutants de L : chaque clé retirée de Et.L, L NON strict (FO_L_LACHE=1 : la clé vaut nil en E1b et E1c) ; jugés sur le résultat.
+-- Mutants de L : chaque clé retirée de Et.L, L NON strict (FO_L_LACHE=1 : la clé vaut nil en E1b et E1c) ; jugés sur le résultat,
+-- sur MIN minutes (3 min ne suffisent pas : army_target et auto n'y changent encore rien ; relance du 7/11, 15 h 45), contre une
+-- référence de même durée.
+local okLr, outLr = sub("bloc", MIN, "mutL_ref")
+check(okLr, "partie de référence des mutants de L (bloc, " .. MIN .. " min)")
+local refLg, refLj = slurp(outLr .. "_global.txt"), slurp(outLr .. "_journal.txt")
 local survL, unkL, diffL = {}, {}, 0
 for _, k in ipairs(Et.L) do
   local out = TMP .. "/decoupage_mutL_" .. k
   while lua_count() >= LUA_MAX do os.execute("ping -n 16 127.0.0.1 > nul") end
-  local hh = io.popen(string.format('set "FO_L_LACHE=1" && %s %s --run bloc 3 "%s" --sans L.%s 2>&1', LUA, SELF, out, k))
+  local hh = io.popen(string.format('set "FO_L_LACHE=1" && %s %s --run bloc %d "%s" --sans L.%s 2>&1', LUA, SELF, MIN, out, k))
   local text = hh:read("*a")
   hh:close()
   if text:find("[DECOUPAGE-RUN] bloc fini", 1, true) then
-    if slurp(out .. "_global.txt") == refg and slurp(out .. "_journal.txt") == refj then survL[#survL + 1] = k else diffL = diffL + 1 end
+    if slurp(out .. "_global.txt") == refLg and slurp(out .. "_journal.txt") == refLj then survL[#survL + 1] = k else diffL = diffL + 1 end
   elseif text:find("%S") then
     diffL = diffL + 1 -- erreur de la partie (clé nil lue) : refusé
   else
@@ -700,7 +705,10 @@ print(string.format("  L : %d mutant(s), %d refusé(s), %d survivant(s)%s", #Et.
 check(#unkL == 0, "aucun mutant de L sans verdict : " .. table.concat(unkL, " ; "))
 local rareL = {}
 for _, k in ipairs(survL) do if not Et.RARES["L." .. k] then rareL[#rareL + 1] = k end end
-check(#rareL == 0, "aucune clé de L inutile en 3 min (survivantes hors Et.RARES : " .. table.concat(rareL, ", ") .. ")")
+local rareSeen = {}
+for _, k in ipairs(survL) do if Et.RARES["L." .. k] then rareSeen[#rareSeen + 1] = k end end
+print("  L : survivantes déclarées (Et.RARES, chacune expliquée dans shared/team/etapes.lua) : " .. table.concat(rareSeen, ", "))
+check(#rareL == 0, "aucune clé de L inutile en " .. MIN .. " min (survivantes hors Et.RARES : " .. table.concat(rareL, ", ") .. ")")
 
 end
 
