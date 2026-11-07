@@ -80,6 +80,12 @@ function G.set_bonus(unit_number, portee, puissance)
   return false
 end
 
+--- Écouteurs d'une salve de zone (lot DESIGN-MODULES : marque visible des modules, UNE fois par salve). Fonctions gardées dans le module,
+--- réinscrites à chaque chargement par le `require` de leur auteur : rien en storage. Appel : f(e, r, bonus, c, eff), bonus pouvant être nil
+--- (géants de robotsjeu, géant sans module), eff = Ech.effectif(r, bonus).
+local ecouteurs = {}
+function G.ecoute(f) ecouteurs[#ecouteurs + 1] = f end
+
 local function corps(g, r)
   if Xp.GIANT_BODY ~= "rendering" then return end
   local e = g.e
@@ -110,6 +116,13 @@ local function on_built(ev)
   if not Xp.giant_ok(age, have) then
     K.journal("%s refuse : plafond des geants (%d deja, age %d, plafond %d)", r.id, have, age, Xp.giant_cap(age))
     local name = e.name
+    -- les modules de sa grille sont rendus aussi (DESIGN-MODULES : un objet neuf ne les porte pas)
+    if e.grid then
+      for _, eq in ipairs(e.grid.equipment) do
+        local it = eq.prototype.take_result
+        if it then rendre(player, e, it.name) end
+      end
+    end
     rendre(player, e, name)
     if player then player.print({ "fo-xp.plafond", { "entity-name." .. name }, Xp.giant_cap(age), age }) end
     e.destroy()
@@ -156,6 +169,7 @@ local function zone(g, r, c, tick)
   local e = g.e
   local s = e.surface
   local eff = Ech.effectif(r, g.bonus)
+  for _, f in ipairs(ecouteurs) do f(e, r, g.bonus, c, eff) end
   s.create_entity({ name = CRATERE .. r.age, position = { c.x, c.y } })
   local b = K.S().impact == "B" -- design IMPACT : variante B (sol brûlé sur la zone), posée par les bancs d'images seulement
   if b then
@@ -220,7 +234,8 @@ end
 --- Cairn : marque les cibles, puis (après `delay`) tire un arc sur chaque marque et la salve de zone autour de la cible.
 local function balayage(g, r, target, tick)
   local e = g.e
-  local marks = Xp.marks(pos_of(e), K.candidates(e.surface, e.force, e.position, r.range), r.marks, r.range)
+  local eff = Ech.effectif(r, g.bonus) -- portée et zone EFFECTIVES (modules), comme cible() (défaut vu par DESIGN-MODULES, 6/11)
+  local marks = Xp.marks(pos_of(e), K.candidates(e.surface, e.force, e.position, eff.range), r.marks, eff.range)
   if #marks == 0 then return false end
   local list = {}
   for _, m in ipairs(marks) do
@@ -228,7 +243,7 @@ local function balayage(g, r, target, tick)
       time_to_live = r.delay + 20 })
     list[#list + 1] = m.e
   end
-  rendering.draw_circle({ color = rgba(0.15, 0.4, 0.8, 0.25), radius = r.zone, width = 4, filled = false, target = pos_of(target),
+  rendering.draw_circle({ color = rgba(0.15, 0.4, 0.8, 0.25), radius = eff.zone, width = 4, filled = false, target = pos_of(target),
     surface = e.surface, time_to_live = r.delay + 10, draw_on_ground = true })
   job({ kind = "cairn", e = e, un = g.un, bonus = bonus_de(g), list = list, c = pos_of(target), at = tick + r.delay })
   return true
