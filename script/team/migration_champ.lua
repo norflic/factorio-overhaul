@@ -35,6 +35,7 @@ local Mg = require("shared.team.migration_champ")
 local Rb = require("shared.team.migration_retour") -- lot AZURE : retour en arrière d'une bande qui n'aboutit pas (règle pure)
 local Th = require("shared.team.thermique") -- lot THERMIQUE : couvert, balayage, protection, ordre, créneaux (règle pure)
 local Rc = require("shared.team.reconstruction")
+local Gens = require("script.team.generateurs") -- lot X10-S4 : registre des génératrices (plus de recherche sur toute la surface)
 local State = require("script.faction.state")
 local Stock = require("script.team.stock")
 local Build = require("script.team.build")
@@ -493,7 +494,9 @@ local function fuel_burn(f, surface)
   local value = proto and proto.fuel_value or 0
   if value <= 0 then return 0 end
   local watts = 0
-  for _, g in ipairs(surface.find_entities_filtered({ type = "generator", force = f.force })) do
+  -- Lot X10-S4 : registre des génératrices ; somme dans l'ordre des unit_number, au lieu de l'ordre du moteur (à l'arrondi près ;
+  -- fo-logs/2026-11-07_X10/S4_CRITERES.md §2)
+  for _, g in ipairs(Gens.list(surface, f.force, "generator")) do
     if g.valid then watts = watts + (g.energy_generated_last_tick or 0) * 60 end
   end
   return watts / value

@@ -19,6 +19,7 @@
 local M = require("shared.team.modules")
 local S = require("shared.team.reseau_sante")
 local Cr = require("shared.team.coupure_reseau") -- lot ENERGIE (2/11) : chemin le plus court des poteaux à reposer, second chemin
+local Gens = require("script.team.generateurs") -- lot X10-S4 : registre des génératrices (plus de recherche sur toute la surface)
 
 local Rv = {}
 
@@ -145,11 +146,7 @@ local function in_construction(b, x, y)
 end
 
 local function net_read(f, surface, b)
-  local gnets = {}
-  for _, g in ipairs(surface.find_entities_filtered({ force = f.force, type = "generator" })) do
-    local id = g.electric_network_id
-    if id then gnets[id] = true end
-  end
+  local gnets = Gens.networks(surface, f.force, "generator") -- lot X10-S4 : registre des génératrices
   local out = { islands = 0, uncovered = 0, nets = {}, live = gnets } -- (lot ENERGIE : nets = réseaux des îlots, live = réseaux alimentés)
   for _, e in ipairs(surface.find_entities_filtered({ force = f.force, type = ELEC_TYPES })) do
     -- Le réseau d'abord : la quasi-totalité des machines est sur un réseau avec centrale, et le prototype (objet créé à chaque lecture)

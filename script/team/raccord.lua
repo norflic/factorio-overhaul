@@ -17,6 +17,7 @@ local M = require("shared.team.modules")
 local P = require("shared.team.plan")
 local Rv = require("script.team.reseau_vivant")
 local Cr = require("shared.team.coupure_reseau") -- lot ENERGIE (2/11) : second chemin autour des ennemis
+local Gens = require("script.team.generateurs") -- lot X10-S4 : registre des génératrices (plus de recherche sur toute la surface)
 
 local Ra = {}
 
@@ -49,13 +50,9 @@ end
 -- Relevé
 ---------------------------------------------------------------------------------------------------
 --- Réseaux alimentés (au moins une machine génératrice de l'équipe) : { [numéro] = true }, nombre.
+--- Lot X10-S4 : lu au registre des génératrices (script/team/generateurs.lua), même ensemble que l'ancienne recherche sur toute la surface.
 local function live_networks(f, surface)
-  local live, n = {}, 0
-  for _, g in ipairs(surface.find_entities_filtered({ force = f.force, type = GEN_TYPES })) do
-    local id = g.electric_network_id
-    if id and not live[id] then live[id] = true; n = n + 1 end
-  end
-  return live, n
+  return Gens.networks(surface, f.force, GEN_TYPES)
 end
 
 --- Lot FONDERIE (3/11, 0.6.43) : une bande de champ EN COURS (réserve à chantier) dont des machines sont posées est relevée aussi, quand la

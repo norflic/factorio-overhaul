@@ -33,6 +33,7 @@ local Build = require("script.team.build")
 local Conv = require("script.team.convoyeurs")
 local Fal = require("script.team.falaise") -- lot OBSTACLES : emprise réelle des falaises
 local Profiler = require("script.core.profiler") -- lot PERF3 : portées fines (mesure seulement)
+local Gens = require("script.team.generateurs") -- lot X10-S4 : registre des génératrices (plus de recherche sur toute la surface)
 
 local Champ = {}
 
@@ -614,10 +615,7 @@ end
 ---------------------------------------------------------------------------------------------------
 --- Poteau alimenté le plus proche (réseau d'une génératrice de l'équipe), ou nil.
 local function powered_pole(f, surface, x, y, radius)
-  local powered = {}
-  for _, g in ipairs(surface.find_entities_filtered({ type = "generator", force = f.force })) do
-    if g.electric_network_id then powered[g.electric_network_id] = true end
-  end
+  local powered = Gens.networks(surface, f.force, "generator") -- lot X10-S4 : registre des génératrices
   local best, bd
   for _, e in ipairs(surface.find_entities_filtered({ position = { x, y }, radius = radius or Champ.CFG.chain_r, type = "electric-pole", force = f.force })) do
     if e.electric_network_id and powered[e.electric_network_id] then
@@ -639,10 +637,7 @@ local function raccord_tous(f, surface, bd, ents, cx, cy)
   local own = {}
   for _, e in ipairs(ents) do if e.name == bd.names.pole then own[#own + 1] = { x = e.x, y = e.y } end end
   if #own == 0 then return 0, nil, nil, 0 end
-  local powered = {}
-  for _, g in ipairs(surface.find_entities_filtered({ type = "generator", force = f.force })) do
-    if g.electric_network_id then powered[g.electric_network_id] = true end
-  end
+  local powered = Gens.networks(surface, f.force, "generator") -- lot X10-S4 : registre des génératrices
   local targets = {}
   for _, e in ipairs(surface.find_entities_filtered({ position = { cx, cy }, radius = Champ.CFG.chain_far, type = "electric-pole", force = f.force })) do
     if e.valid and e.electric_network_id and powered[e.electric_network_id] then targets[#targets + 1] = { x = e.position.x, y = e.position.y } end
