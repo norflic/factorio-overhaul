@@ -1133,6 +1133,10 @@ local function build_input(f, cs, view, book, tick, D, w)
   local stock = view.stock or {}
   local threat, production_first = Sv.capi(Survie.on(f) and not (view.qg_peril and view.qg_peril.peril), view.threatened or false, (f.team and f.team.priorite_pf) or false)
   if threat and R.PILE_BUDGET and Pi.threat_open(st.pile) then threat = false end -- lot PILE-BUDGET (relecture) : défense payée, l'évolution continue
+  -- Lot L12 (partie 3) : la menace TENUE (view.threat_held, script/team/menace_equipe.lua : jusqu'à 2 pensées calmes avec une tourelle armée
+  -- au QG, ou 5 min après la dernière perte) ferme aussi les gisements. Avant, la décision ne voyait la menace que par fenêtres de 15 s
+  -- (f.threatened_until). Ni le budget couvert (Pi.threat_open) ni l'échéance ne la lèvent : seule la règle tenue ; le mode survie, si (Sv.capi).
+  if not threat and view.threat_held then threat = (Sv.capi(Survie.on(f) and not (view.qg_peril and view.qg_peril.peril), true, production_first)) end
   -- foreuse imposée par ressource : électrique (fonderie du plan directeur) si le gabarit se pose aujourd'hui ; sinon
   -- AUCUNE (« » : la règle refuse « aucune foreuse disponible »). Les avant-postes à combustion restent au décideur
   -- d'avant (croissance des buts et vagues de SCALE) : leur combustible est porté par les PNJ, un travail récurrent que

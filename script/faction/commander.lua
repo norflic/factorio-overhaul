@@ -227,6 +227,7 @@ Events.on(defines.events.on_entity_died, function(e)
   local dx, dy = p.x - f.hq_pos.x, p.y - f.hq_pos.y
   if dx * dx + dy * dy < THREAT_RADIUS * THREAT_RADIUS then
     f.threatened_until = e.tick + THREAT_TICKS
+    f.threat_loss_t = e.tick -- lot L12 (partie 3) : dernière perte près du QG, lue par la menace tenue (script/team/menace_equipe.lua)
   end
   -- Lot VEILLE : mort d'un soldat de faction (cause, lieu, distance au QG) : un journal qui date les effondrements de garnison (la base
   -- n'avait pas ce journal : RECON, Azure 271828182).
