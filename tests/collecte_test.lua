@@ -81,7 +81,7 @@ local function checks(C)
   local flat = M.score(npc, { kind = "carry", prio = 55 }, 0, home, 1)
   local urgent = M.score(npc, { kind = "carry", prio = C.PRIO, critical = C.CRITICAL or nil, no_rush = true }, 0, home, 1)
   local mine45 = M.score(npc, { kind = "mine", prio = 45, resource = "iron-ore" }, 0, home, M.NEED_SHORT)
-  check(flat < mine45, "constat d'avant la règle : la collecte à 55 perd déjà contre un minage de fer à 45 quand la plaque manque")
+  check(flat < mine45, "constat d'avant la règle : la collecte à 55 perd contre un minage de fer à 45 quand le facteur de besoin (x 1,5) joue")
   check(urgent > mine, "avec la règle : la collecte en urgence passe devant le minage urgent du fer (90 x 1,5)")
   check(C.PRIO < 96, "elle reste sous la défense d'urgence du QG (96)")
 end
