@@ -35,7 +35,7 @@ local R = require("shared.ai3.reglages")
 
 local Mv = {}
 
-Mv.ENABLED = true     -- faux : aucune lecture, view.mq absent (la règle d'avant partout)
+Mv.ENABLED = true     -- vrai : la vue lit view.mq ; faux = aucune lecture (la règle d'avant partout, banc témoin)
 Mv.PERIOD = 3600      -- ticks entre deux calculs (1 min : Mq.H_NEED)
 Mv.MODS_MAX = 64      -- modules relus par calcul (tourniquet au-delà)
 Mv.PRIO_GOAL = 55     -- priorité du manque de l'objectif hors survie (Build.PRIO : celle d'une collecte ordinaire)

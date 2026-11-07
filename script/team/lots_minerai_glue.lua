@@ -8,7 +8,7 @@
   dont combien SANS ressource (fabrique et énergie : M33, « une fabrique se pose sur le minerai ») ; combien de replis sur un gisement
   depuis la ligne précédente, et combien de replis refusés par la règle.
 
-  LA RÈGLE, derrière un interrupteur ÉTEINT par défaut (réglage Lg.SETTING, déclaré par l'intégrateur ; absent : éteint, sans erreur) :
+  LA RÈGLE, derrière un interrupteur ALLUMÉ par défaut (réglage Lg.SETTING = fo-war-lots-minerai, settings/video.lua:38 ; absent : éteint, sans erreur) :
   allumée, try_place essaie les états de Lm.states_for(sorte) : une fabrique (chaîne, mall, laboratoires…) ne se replie plus sur un
   lot de gisement, la fonte garde son repli, l'extraction ne va que sur un gisement. Éteinte : le repli d'avant, à l'identique.
   Sorte d'un gabarit : Lg.kind (générateur du gabarit ; la centrale est passée par l'appelant, elle ne passe pas par try_place).

@@ -1,7 +1,8 @@
 --[[
   Lot L6 de la feuille de route « Factorio Automated » (docs/VIDEO_AUTOMATISATION.md §6 L6 ; docs/TODO_VIDEO.md V21, V73, V77, V78,
   G07, G12, G13, G27, G47, G51) : LES PORTES AVANT D'ÉTENDRE, à seuils qui suivent la taille. Règle PURE (aucune API Factorio, aucun nom
-  d'objet : anti-échelle de tests/iag_test.lua §8). Testée hors jeu : tests/portes_extension_test.lua. NON BRANCHÉE (plan dans le rapport).
+  d'objet : anti-échelle de tests/iag_test.lua §8). Testée hors jeu : tests/portes_extension_test.lua. BRANCHÉE : Pe.filter dans
+  script/ai3/capitalisation.lua:1007 (réglage fo-war-portes ALLUMÉ par défaut, settings/video.lua:24).
 
   Défaut visé, mesuré le 7/11 (docs/IA_WORKFLOW.md §5 D1, journal de la partie du DC, [FO-ACTIF] minute 175) : « 0 PNJ libre(s), 16 tache(s)
   libre(s) » : la base ajoute des chantiers et des tournées que personne ne peut servir ; la collecte du fer (priorité 52) perd.

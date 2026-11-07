@@ -8,8 +8,9 @@
   modes : bloc (tout au tick T), etapes (pensée en étapes, décision en tranches), charge (etapes, sauvegarde et chargement simulés à
   CHAQUE tick où une décision attend, mémoire du module vidée comme par un vrai chargement).
   Environnement : FO_CD_MUT=cle|vivant|st_tot|journal_tot|bonus (mutants du module) ; FO_CD_INJ=stock|bonus|snap (changements faits
-  entre deux tranches par le banc : stock de la vue gardée, bonus d'une autre force dans D.bonus, instantané changé d'une autre
-  décision) ; FO_CD_OUBLI=1 (avec snap : la mémoire est vidée au même moment, référence).
+  entre deux tranches par le banc : stock de la vue gardée, plaques ET l'objet du goulot de la dernière décision ; bonus d'une autre
+  force dans D.bonus ; instantané changé d'une autre décision) ; FO_CD_OUBLI=1 (avec snap : la mémoire est vidée au même moment,
+  référence) ; FO_TMP = dossier des sorties (absent : un dossier NEUF propre au passage du banc, jamais un chemin commun).
   Sorties : <sortie>_global.txt, _journal.txt, _info.txt.
 
   Sans argument, le banc complet (une partie à la fois, moins de 8 lua sur le PC ; jamais de relance d'un passage tué) :
@@ -18,6 +19,12 @@
        intermédiaires) ;
     C3 sauvegarde et chargement à chaque tick de tranche = partie continue, octet à octet ; décisions découpées comptées ;
     C4 mutants : cle, vivant, st_tot, journal_tot, bonus.
+       - vivant : PRÉCONDITION d'abord (l'objet injecté est relu par un chemin de sortie : le goulot écrit par la décision) ; sans
+         elle le banc était aveugle (7/11 : dans cette partie, aucune machine ni foreuse, les plaques injectées n'étaient relues par
+         rien après la première unité ; rouge depuis a3ea24ec) ;
+       - bonus : contrôle de la REMISE de D.bonus à chaque tranche (script/ai3/capitalisation.lua, decide_slice) : aucun tour de la
+         décision (Ca.decide_step) ne voit le bonus écrit par le banc ; l'effet du bonus sur la décision se juge hors de cette
+         partie (aucun chemin ne le relit ici), dans le test pur tests/capi_decide_bonus_test.lua.
   L'A/B C1 « mode bloc = ancien code » se joue à part (ancien code dans un autre dossier : voir CRITERES.md).
 ]]
 package.path = "./?.lua;" .. package.path
@@ -70,6 +77,19 @@ local function run(mode, min, out)
   if mut and mut ~= "" then Capi.MUT[mut] = true end
   local inj = os.getenv("FO_CD_INJ")
   local oubli = os.getenv("FO_CD_OUBLI") == "1"
+  -- Remise de D.bonus à chaque tranche (decide_slice) : chaque tour de la décision doit voir le bonus de l'instantané, jamais celui
+  -- que le banc écrit entre deux tranches (9). Le module chargé par M.new_game est celui que le runtime appelle (Ca.decide_step).
+  local Ca = require("shared.ai3.capitalisation")
+  local bonus_obs = { steps = 0, seen = 0 }
+  if inj == "bonus" then
+    local step0 = Ca.decide_step
+    Ca.decide_step = function(J)
+      bonus_obs.steps = bonus_obs.steps + 1
+      local B = J.ctx.D.bonus
+      if (B.mining or 0) == 9 or (B.lab or 0) == 9 then bonus_obs.seen = bonus_obs.seen + 1 end
+      return step0(J)
+    end
+  end
 
   for _, p in pairs(W.prototypes) do if p.has_flag == nil then p.has_flag = function() return false end end end
   W.settings["fo-recruit-idle-max"] = 60
@@ -137,7 +157,21 @@ local function run(mode, min, out)
     return n
   end
 
-  local info = { sliced = 0, slices = 0, c2_cs = 0, c2_log = 0, loads = 0, decisions = 0, inj = 0, abort = 0 }
+  local info = { sliced = 0, slices = 0, c2_cs = 0, c2_log = 0, loads = 0, decisions = 0, inj = 0, abort = 0, inj_goulot = 0,
+    goulot_lu = 0, goulot_manque = 0, bonus_steps = 0, bonus_seen = 0 }
+  -- (a) Le GOULOT de la dernière décision de chaque équipe (θ le plus bas du compte rendu, qui lit ctx.stock) : l'objet injecté avec
+  -- les plaques. Lu au journal, ligne « [FO-CAPI] <équipe> minute … goulot=<objet> θ … ».
+  local scan, goulot, inj_item = 1, {}, {}
+  local function goulot_of(line)
+    return tostring(line):match("^%[FO%-CAPI%] (%S+) minute .- goulot=(%S+) ")
+  end
+  local function read_goulots()
+    for i = scan, #W.logs do
+      local k, g = goulot_of(W.logs[i])
+      if k then goulot[k] = g end
+    end
+    scan = #W.logs + 1
+  end
   local seen_seq = {}
   local snap_done = {}
   local total = min * 3600
@@ -168,6 +202,13 @@ local function run(mode, min, out)
           local st = f.team.etape.view.stock
           st["iron-plate"] = (st["iron-plate"] or 0) + 5000
           st["copper-plate"] = (st["copper-plate"] or 0) + 5000
+          read_goulots()
+          local g = goulot[tostring(f.key)]
+          if g and g ~= "-" then
+            st[g] = (st[g] or 0) + 5000
+            inj_item[key] = g
+            info.inj_goulot = info.inj_goulot + 1
+          end
           info.inj = info.inj + 1
         elseif inj == "bonus" then
           local D = Capi.data()
@@ -184,6 +225,18 @@ local function run(mode, min, out)
         end
       elseif b then
         info.decisions = info.decisions + 1
+        -- précondition de (a) : l'objet injecté pendant cette décision est le goulot qu'elle écrit (un chemin de sortie le relit)
+        local dk = tostring(f.key or "player") .. ":" .. b.seq
+        local g = inj_item[dk]
+        if g then
+          local seen = nil
+          for i = b.log0, #W.logs do
+            local k, gg = goulot_of(W.logs[i])
+            if k == tostring(f.key) then seen = gg end
+          end
+          if seen == g then info.goulot_lu = info.goulot_lu + 1 else info.goulot_manque = info.goulot_manque + 1 end
+          inj_item[dk] = nil
+        end
       end
     end
     if mode == "charge" and pending then
@@ -193,6 +246,7 @@ local function run(mode, min, out)
     end
   end
   for _, l in ipairs(W.logs) do if tostring(l):find("abandonnee", 1, true) and tostring(l):sub(1, 9) == "[FO-CAPI]" then info.abort = info.abort + 1 end end
+  info.bonus_steps, info.bonus_seen = bonus_obs.steps, bonus_obs.seen
 
   local function wr(suffix, text)
     local h = assert(io.open(out .. suffix, "w"))
@@ -204,7 +258,8 @@ local function run(mode, min, out)
   for _, l in ipairs(W.logs) do jl[#jl + 1] = tostring(l) end
   wr("_journal.txt", table.concat(jl, "\n"))
   local il = {}
-  for _, k in ipairs({ "sliced", "slices", "decisions", "c2_cs", "c2_log", "loads", "inj", "abort" }) do il[#il + 1] = k .. " " .. info[k] end
+  for _, k in ipairs({ "sliced", "slices", "decisions", "c2_cs", "c2_log", "loads", "inj", "abort", "inj_goulot", "goulot_lu",
+    "goulot_manque", "bonus_steps", "bonus_seen" }) do il[#il + 1] = k .. " " .. info[k] end
   local ndec = 0
   for _, l in ipairs(W.logs) do if tostring(l):match("^%[FO%-CAPI%] %S+ minute") then ndec = ndec + 1 end end
   il[#il + 1] = "lignes_decision " .. ndec
@@ -225,7 +280,18 @@ local function check(cond, msg)
   if cond then passes = passes + 1 else failures = failures + 1; print("  ECHEC : " .. msg) end
 end
 local function section(name) print("== " .. name) end
-local TMP = os.getenv("FO_TMP") or os.getenv("TEMP") or "."
+-- (c) Sorties : FO_TMP, sinon un dossier NEUF propre à ce passage du banc (7/11 : %TEMP%/capidecide_* était commun à tous les agents ;
+-- deux bancs en même temps lisaient les sorties l'un de l'autre).
+local TMP = os.getenv("FO_TMP")
+if TMP == nil or TMP == "" then
+  local base = os.getenv("TEMP") or os.getenv("TMP") or "."
+  local tok = (os.tmpname() or ""):gsub("[^%w]", "")
+  for i = 0, 99 do
+    local dir = string.format("%s\\capidecide_%d_%s_%d", base, os.time(), tok, i)
+    if os.execute('mkdir "' .. dir .. '" 2>nul') == true then TMP = dir break end
+  end
+  assert(TMP, "aucun dossier de sorties neuf")
+end
 local LUA_MAX = tonumber(os.getenv("FO_LUA_MAX") or "") or 8
 local MIN = tonumber(os.getenv("FO_MIN") or "") or 10
 local function lua_count()
@@ -268,6 +334,7 @@ local function same(a, b)
   return ga ~= nil and ga == gb and ja ~= nil and ja == jb, ga == gb, ja == jb
 end
 
+print("  sorties : " .. TMP)
 section("C0. Contrôle statique : les unités de la décision sont pures (ni log, ni game, ni global)")
 for _, path in ipairs({ "shared/ai3/capitalisation.lua", "shared/ai3/leviers.lua", "shared/ai3/demande.lua", "shared/team/gisement.lua",
   "shared/ai3/reglages.lua", "shared/content/module_mult.lua" }) do
@@ -311,6 +378,10 @@ local ok1, o1 = sub("etapes", 3, "viv_e", { FO_CD_INJ = "stock" })
 local ok2, o2 = sub("charge", 3, "viv_c", { FO_CD_INJ = "stock" })
 local ok3, o3 = sub("etapes", 3, "viv_me", { FO_CD_INJ = "stock", FO_CD_MUT = "vivant" })
 local ok4, o4 = sub("charge", 3, "viv_mc", { FO_CD_INJ = "stock", FO_CD_MUT = "vivant" })
+local i1 = info_of(o1)
+check(ok1 and (i1.inj_goulot or 0) >= 1 and (i1.goulot_lu or 0) >= 1 and (i1.goulot_manque or -1) == 0, string.format(
+  "précondition : l'objet du goulot est injecté et relu par le compte rendu (%s injection(s), %s décision(s) au goulot injecté, %s non)",
+  tostring(i1.inj_goulot), tostring(i1.goulot_lu), tostring(i1.goulot_manque)))
 check(ok1 and ok2 and same(o1, o2), "stock changé entre deux tranches : continue = chargée (la décision ne lit que l'instantané)")
 check(ok3 and ok4 and not same(o3, o4), "mutant « entrée vivante » refusé (continue et chargée diffèrent)")
 -- st avancé dès la première tranche
@@ -320,10 +391,16 @@ check(ok5 and ok6 and not same(o5, o6), "mutant « st avancé » refusé (contin
 -- journal tôt
 local ok7, o7 = sub("etapes", 3, "jt", { FO_CD_MUT = "journal_tot" })
 check(ok7 and (info_of(o7).c2_log or 0) > 0, "mutant « journal tôt » refusé (" .. tostring(info_of(o7).c2_log) .. " ligne(s) avant la dernière tranche)")
--- D.bonus d'une autre équipe laissé en place
+-- D.bonus d'une autre équipe laissé en place : la REMISE à chaque tranche, observée à chaque tour (l'effet sur la décision : test pur
+-- tests/capi_decide_bonus_test.lua ; dans cette partie, aucun chemin ne relit le bonus, la comparaison des sorties était aveugle)
 local ok8, o8 = sub("etapes", 3, "bonus_n", { FO_CD_INJ = "bonus" })
 local ok9, o9 = sub("etapes", 3, "bonus_m", { FO_CD_INJ = "bonus", FO_CD_MUT = "bonus" })
-check(ok8 and ok9 and not same(o8, o9), "mutant « D.bonus d'une autre équipe laissé en place » refusé (le résultat diffère de la référence)")
+local b8, b9 = info_of(o8), info_of(o9)
+check(ok8 and (b8.inj or 0) >= 1 and (b8.bonus_steps or 0) >= 1 and (b8.bonus_seen or -1) == 0, string.format(
+  "D.bonus remis depuis l'instantané à chaque tranche : %s tour(s), %s avec le bonus écrit par le banc (%s écriture(s))",
+  tostring(b8.bonus_steps), tostring(b8.bonus_seen), tostring(b8.inj)))
+check(ok9 and (b9.bonus_seen or 0) > 0, "mutant « D.bonus d'une autre équipe laissé en place » refusé (" .. tostring(b9.bonus_seen)
+  .. " tour(s) avec le bonus du banc)")
 
 print(string.format("[CAPI-DECIDE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
