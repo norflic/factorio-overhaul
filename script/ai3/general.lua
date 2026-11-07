@@ -671,7 +671,11 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
   -- Ce que rapporterait chaque ressource inconnue qu'un exécutant sait extraire (« quelles ressources peuvent rapporter ») :
   -- la meilleure, si elle rapporte, est à explorer (A6 : explorer pour une raison).
   Profiler.fstart("iag:rv")
-  local rv = Gen.resource_values(c, ev, state, { weights = w, wanted = wanted })
+  -- Lot PERF4 : dépliages par ressource inconnue mémorisés par clé d'état (table locale du mémo de la force, vidée avec lui quand le
+  -- catalogue change) ; même résultat (Gen.resource_values).
+  local mf = memo_of(f)
+  mf.rv = mf.rv or {}
+  local rv = Gen.resource_values(c, ev, state, { weights = w, wanted = wanted }, mf.rv)
   Profiler.fstop("iag:rv")
   local rv_txt = {}
   for i = 1, math.min(4, #rv) do rv_txt[#rv_txt + 1] = rv[i][1] .. " " .. rv[i][2] end

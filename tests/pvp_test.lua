@@ -1423,9 +1423,12 @@ do
   check(kt > 0 and #at_out >= 1, string.format("garde : l'avant-poste connu à %d relevé(s) (faction × minute) et attaqué %d fois", kt, #at_out))
   -- Lot QG-ZONE (choix du DC du 5/11 : « Toute la base qui grandit ») : zone du départ mesurée sur le terrain ; le QG de l'équipe (6, 6) et la base
   -- de départ (machines en (10 à 18, 10)) y sont, l'avant-poste (-96, 96), à plus de 60 tuiles de tout bâtiment de la base, n'y est pas.
+  -- Le QG de l'équipe est un COFFRE (fo-team-chest, « container ») : il ne relie pas la zone (revue du lot) ; il reste protégé comme point du
+  -- départ (rayon de 64 tuiles, A.is_home). Moteur simulé, 6 min : 7 mailles, 247 comptages ; maille du coffre hors zone, is_home vrai.
   local z = pvp().zone
-  check(z and z.at and z.n >= 1 and A.in_zone(z.cells, 6, 6) and A.in_zone(z.cells, 10, 10) and not A.in_zone(z.cells, OUTPOST.x, OUTPOST.y)
-    and not z.capped, string.format("zone du départ : %s maille(s) de %d tuiles, %s comptage(s) au dernier calcul (tick %s), QG et base dedans, avant-poste dehors",
+  local hq_home = z and A.is_home({ key = -1, x = 6, y = 6 }, -2, { { x = 0, y = 0 }, { x = 6, y = 6 } }, z.cells)
+  check(z and z.at and z.n >= 1 and hq_home and A.in_zone(z.cells, 10, 10) and not A.in_zone(z.cells, OUTPOST.x, OUTPOST.y)
+    and not z.capped, string.format("zone du départ : %s maille(s) de %d tuiles, %s comptage(s) au dernier calcul (tick %s), base dedans, QG protégé, avant-poste dehors",
       tostring(z and z.n), A.ZONE_CELL, tostring(z and z.tests), tostring(z and z.at)))
   -- Revue du lot : les coffres restent des cibles mais ne relient pas la zone (le module chargé, pas une copie).
   local V = package.loaded["script.faction.vision"]

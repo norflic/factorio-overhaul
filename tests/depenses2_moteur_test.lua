@@ -159,27 +159,41 @@ check(a.spy.raise >= 1 and a.spy.raise <= 6, "§3 cible d'armée relevée de 1 �
 check(a.spy.over_max == 0, "§3 jamais au-delà du plafond de soldats")
 check(a.spy.above_brain >= 1, "§3 des recrues arrivent au-dessus de la cible du cerveau (" .. a.spy.above_brain .. ")")
 do -- §3 débit : 2 laboratoires encore à faire et 6 soldats au-dessus de la cible du cerveau (tous ceux du cerveau présents)
+  -- Intégration 0.6.53 (essai-0653) : l'état « centre en attente » (d.res.hold) de la 16e minute dépend du moment où la faction choisit son
+  -- centre (AGEBLOCAGE étage 3, d87b9768 : le centre passé devant y reste jusqu'à 15 min ; moteur simulé : centre en attente de la minute 4
+  -- à la fin, laboratoires 1 -> 5 dès la minute 9 contre 12 avant). Le débit attendu en dépend (essai 4 (a) : centre en attente, aucun
+  -- laboratoire débité). Le contrôle pose donc lui-même les DEUX états au lieu de lire celui du moment : hors attente, 2 laboratoires
+  -- (120) + 6 soldats ; en attente, les 6 soldats seuls, exactement 120 de moins.
   local Rsv, Dep, Dp = require("script.ai3.reserve"), require("script.ai3.depenses"), require("shared.ai3.depenses")
   local d = a.d
-  local save = { d.lab_now, d.soldier_target, d.soldier_brain, d.soldier_now, d.soldier_key }
+  local save = { d.lab_now, d.soldier_target, d.soldier_brain, d.soldier_now, d.soldier_key, d.res.hold }
   d.lab_now = (d.lab_target or 2) - 2
   d.soldier_brain, d.soldier_target, d.soldier_now, d.soldier_key = 18, 24, 18, "iron-plate"
-  local rin = Rsv.input(a.f, game.tick)
   local function sum(t) local n = 0 for _, v in pairs((t and t.free) or {}) do n = n + v end return n end
-  local before = sum(rin)
-  local out = Dep.capi_reserve(a.f, rin, game.tick)
-  local held = Dp.reserved(d.res, d.lab_target, d.lab_now, 24, 18, 18, "iron-plate", d.spent, d.soldier_cost)
-  local want = 0
-  for _, v in pairs(held) do want = want + v end
   local cfe = (d.soldier_cost or {})["iron-plate"] or 0
   local ccu = (d.soldier_cost or {})["copper-plate"] or 0
   say(string.format("§3 cout d'un soldat (equipement au livre de recettes) : %.0f fer, %.0f cuivre", cfe, ccu))
   check(cfe > 0 and ccu > 0, "§3 coût d'un soldat calculé depuis son équipement (fer et cuivre ; relecture, point 2)")
-  check(rin ~= nil and math.abs((before - sum(out)) - want) < 1e-6 and want >= 120 + 6 * (cfe + ccu) - 1e-6,
-    "§3 stock hors besoin de la capitalisation débité de l'engagé : 2 laboratoires (120) + 6 soldats au-dessus du cerveau au coût de leur équipement, défense comprise ("
-    .. string.format("%.1f", before - sum(out)) .. " = " .. string.format("%.1f", want) .. ")")
-  check(sum(rin) == before, "§3 l'entrée d'origine n'est pas modifiée (copie)")
-  d.lab_now, d.soldier_target, d.soldier_brain, d.soldier_now, d.soldier_key = save[1], save[2], save[3], save[4], save[5]
+  local got = {}
+  for _, hold in ipairs({ false, true }) do
+    d.res.hold = hold
+    local rin = Rsv.input(a.f, game.tick)
+    local before = sum(rin)
+    local out = Dep.capi_reserve(a.f, rin, game.tick)
+    local held = Dp.reserved(d.res, d.lab_target, d.lab_now, 24, 18, 18, "iron-plate", d.spent, d.soldier_cost)
+    local want = 0
+    for _, v in pairs(held) do want = want + v end
+    got[hold] = want
+    local labs = hold and 0 or 120
+    check(rin ~= nil and math.abs((before - sum(out)) - want) < 1e-6 and want >= labs + 6 * (cfe + ccu) - 1e-6,
+      "§3 stock hors besoin de la capitalisation débité de l'engagé" .. (hold and ", centre en attente : les 6 soldats seuls" or
+        " : 2 laboratoires (120) + 6 soldats") .. " au-dessus du cerveau au coût de leur équipement, défense comprise ("
+      .. string.format("%.1f", before - sum(out)) .. " = " .. string.format("%.1f", want) .. ")")
+    check(sum(rin) == before, "§3 l'entrée d'origine n'est pas modifiée (copie)")
+  end
+  check(math.abs(got[false] - got[true] - 120) < 1e-6,
+    string.format("§3 centre en attente : les 2 laboratoires (120) ne sont plus débités, les soldats si (%.1f -> %.1f)", got[false], got[true]))
+  d.lab_now, d.soldier_target, d.soldier_brain, d.soldier_now, d.soldier_key, d.res.hold = save[1], save[2], save[3], save[4], save[5], save[6]
 end
 
 say("§2 temoin du defaut (cible relative d'avant)")

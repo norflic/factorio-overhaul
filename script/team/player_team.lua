@@ -167,13 +167,14 @@ Events.on(defines.events.on_robot_built_entity, on_built)
 Events.on(defines.events.script_raised_built, on_built)
 
 -- Lot JOURNAUX-DC : qui détruit le coffre d'équipe (l'entité est encore valide ici ; la perte vient par on_entity_destroyed).
-Events.on(defines.events.on_entity_died, function(e)
+-- Lot MORTS : le type du coffre (nom CHEST, lu aux prototypes), jamais la force « enemy » (le coffre est à la force de l'équipe).
+Events.on_died(function(e)
   local ent = e.entity
   if not (ent and ent.valid and ent.name == CHEST) then return end
   local f = get()
   if not (f and f.hq and f.hq.valid and f.hq.unit_number == ent.unit_number) then return end
   f.lost_by = (e.force and e.force.name or "?") .. "/" .. (e.cause and e.cause.valid and e.cause.name or "?")
-end)
+end, { noms = { CHEST }, ennemi = false })
 
 --- Lot S1 : coffre détruit par l'ennemi alors que des PNJ vivent : un coffre neuf à la même place (ou à côté), l'équipe continue. Le contenu du
 --- coffre est perdu (les coffres annexes restent). Rend vrai si l'équipe continue.

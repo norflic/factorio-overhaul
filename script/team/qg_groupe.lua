@@ -63,7 +63,7 @@ local function on_died(e)
   local p = cause and cause.position or ep
   G.note(state(f).marks, e.tick, p.x - f.hq_pos.x, p.y - f.hq_pos.y, TURRET_TYPE[ent.type] and G.W_TURRET or G.W_OTHER)
 end
-Events.on(defines.events.on_entity_died, on_died)
+Events.on_died(on_died, { ennemi = false }) -- lot MORTS : seule une entité de la force « player » compte
 
 --- Tourelles du groupe « hq » valides, triées par numéro d'unité.
 local function hq_turrets(f)

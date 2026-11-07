@@ -184,3 +184,31 @@ def lampe(g, p, nrm, r, emat, cadre):
     p = V(p)
     g.cyl(p + a * 0.01, a, r * 1.45, 0.02, cadre, n=12, style="soft", what="boitier_voyant")
     g.cyl(p + a * 0.024, a, r, 0.012, emat, n=12, style="flat", what="voyant")
+
+
+def dalle_coin(g, c, nom, large=1.3):
+    """LOT F1-C (production, trous enfermés du post-traitement) : dalle d'appui au sol (corps.patin, motif du pont de
+    l'âge) sous la superstructure d'un coin arrière, du pied du premier gradin jusqu'au-delà du coin : vu de la caméra,
+    le sol entre la superstructure, sa liaison, un condensateur et le gradin n'apparaît plus en jour enfermé (socles 3,
+    6, 9 et 15 : 13 à 83 px sur l'alpha brut)."""
+    import corps
+    p = corps.place(c, nom)
+    x, yn, r = p["x"], p["yn"], p["r"]
+    a = math.atan2(yn, x)
+    r_in = c.gradins[0][0] * _k(c, a) - 0.12
+    r_out = math.hypot(x, yn) + 0.45 * r
+    m = (r_in + r_out) / 2.0
+    corps.patin(g, c, m * math.cos(a), m * math.sin(a), large * 2.0 * r, r_out - r_in,
+                rz=math.atan2(SQ2 * math.sin(a), math.cos(a)) - math.pi / 2)
+
+
+def dalle_angle(g, c, a, large, depasse=0.25):
+    """LOT F1-C (production) : dalle d'appui au sol à l'angle a (radians, 0 = est), du pied du premier gradin à
+    `depasse` tuile au-delà de son bord, de largeur `large` : bouche le jour enfermé entre deux condensateurs posés au
+    sol et le gradin (socles 6 et 9, côtés arrière à 30° et 150°)."""
+    import corps
+    r_in = c.gradins[0][0] * _k(c, a) - 0.15
+    r_out = c.gradins[0][0] + depasse
+    m = (r_in + r_out) / 2.0
+    corps.patin(g, c, m * math.cos(a), m * math.sin(a), large, r_out - r_in,
+                rz=math.atan2(SQ2 * math.sin(a), math.cos(a)) - math.pi / 2)

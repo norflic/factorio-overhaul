@@ -24,9 +24,9 @@ local function biter_name(tier) return "fo-" .. TIER_NAMES[tier] .. "-biter" end
 
 --MODELE-DEBUT
 local MODELE = {
-  ["toroid"] = { age = 13, tier = 10, frac = 0.35, ticks = 4670 },
-  ["heliast"] = { age = 14, tier = 12, frac = 0.35, ticks = 2660 },
-  ["crowned"] = { age = 15, tier = 12, frac = 0.35, ticks = 5570 },
+  ["toroid"] = { age = 13, tier = 10, frac = 0.99, ticks = 732 },
+  ["heliast"] = { age = 14, tier = 12, frac = 0.96, ticks = 1092 },
+  ["crowned"] = { age = 15, tier = 12, frac = 0.99, ticks = 732 },
 }
 --MODELE-FIN
 local DUEL = { "toroid", "heliast", "crowned" }

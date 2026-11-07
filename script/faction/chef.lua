@@ -478,8 +478,9 @@ end
 
 ---------------------------------------------------------------------------------------------------
 -- Rancune : qui détruit nos bâtiments et nos soldats
+-- Lot MORTS : jamais la force « enemy » (seules les entités d'une force de faction comptent : State.by_force).
 ---------------------------------------------------------------------------------------------------
-Events.on(defines.events.on_entity_died, function(e)
+Events.on_died(function(e)
   local war = State.war()
   if not war.active then return end
   local ent = e.entity
@@ -501,6 +502,6 @@ Events.on(defines.events.on_entity_died, function(e)
   C.record_hit(f.chef, by)
   local owner = ent.unit_number and State.owner(ent.unit_number)
   if owner and owner.kind == "drill" then f.chef.last_killer = by end
-end)
+end, { ennemi = false })
 
 return Chef

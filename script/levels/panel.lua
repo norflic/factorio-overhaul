@@ -451,7 +451,7 @@ Events.on(defines.events.on_selected_entity_changed, function(e)
   apply(player, sel, Panneau.decide("hover", state(player, sel)))
 end)
 
-Events.on("fo-level-up", function(e)
+local function on_key_up(e)
   local player = game.get_player(e.player_index)
   local sel = player and player.selected
   if not (sel and leveled(player, sel)) then return end
@@ -465,22 +465,24 @@ Events.on("fo-level-up", function(e)
   set_upgrading(player, false)
   follow(player)
   if act == "open" or act == "refresh" then refresh(player) end
-end)
+end
+Events.on("fo-level-up", on_key_up)
 
 -- Lot PANNEAU : Maj+U ouvre ou ferme le panneau du bâtiment survolé (bâtiments sans interface : murs…) ; sans bâtiment
 -- survolé, ferme le panneau ouvert.
-Events.on("fo-level-panel", function(e)
+local function on_key_panel(e)
   local player = game.get_player(e.player_index)
   if not player then return end
   local sel = player.selected
   if not (sel and leveled(player, sel)) then sel = nil end
   apply(player, sel, Panneau.decide("key-panel", state(player, sel)))
-end)
+end
+Events.on("fo-level-panel", on_key_panel)
 
 -- Relecture de dcccb525 : clic gauche (touche fo-level-open, liée à « open-gui », non consommée) sur un bâtiment à niveaux de sa
 -- force : ouvre son panneau en « clic », qu'il ait une interface ou non. Rien quand le joueur tient un objet ou un fantôme en
 -- main (le clic gauche pose alors un bâtiment).
-Events.on("fo-level-open", function(e)
+local function on_click_open(e)
   local player = game.get_player(e.player_index)
   if not player then return end
   local sel = player.selected
@@ -488,7 +490,8 @@ Events.on("fo-level-open", function(e)
   local cs = player.cursor_stack
   if (cs and cs.valid_for_read) or player.cursor_ghost then return end
   apply(player, sel, Panneau.decide("click", state(player, sel)))
-end)
+end
+Events.on("fo-level-open", on_click_open)
 
 -- Lot PANNEAU : en « clic », le panneau s'ouvre avec l'interface d'un bâtiment à niveaux de la force du joueur…
 Events.on(defines.events.on_gui_opened, function(e)
@@ -510,7 +513,7 @@ Events.on(defines.events.on_gui_closed, function(e)
   apply(player, ent, Panneau.decide("gui-closed", state(player, ent)))
 end)
 
-Events.on(defines.events.on_gui_click, function(e)
+local function on_gui_click_panel(e)
   local el = e.element
   if not (el and el.valid) then return end
   local name = el.name
@@ -546,7 +549,8 @@ Events.on(defines.events.on_gui_click, function(e)
   end
   follow(player)
   refresh(player)
-end)
+end
+Events.on(defines.events.on_gui_click, on_gui_click_panel)
 
 -- Rafraîchissement : l'aperçu du centre lit le recensement Q16 EN CACHE (Levels.census_cached : au plus un
 -- balayage des surfaces par force et par Levels.CENSUS_TTL ticks, ou après un retrait de bâtiment à niveaux).
@@ -580,5 +584,85 @@ table.insert(Levels.on_replaced, function(old_unit, new)
     end
   end
 end)
+
+---------------------------------------------------------------------------------------------------
+-- Banc en moteur réel (lot PANNEAU-E4, 7/11 : scénario panneau-e4 du mod de test, joué AVEC images)
+---------------------------------------------------------------------------------------------------
+-- Ouvrir et fermer l'interface d'un bâtiment, et le survol, passent par le moteur lui-même : écrire player.opened lève
+-- on_gui_opened (et prie l'interface ouverte de se fermer), écrire player.selected lève on_selected_entity_changed (doc 1.1.91).
+-- Un script ne lève en revanche ni une touche (U, Maj+U, clic gauche lié à « open-gui ») ni un clic d'interface, et seul ce mod
+-- peut écrire son réglage par joueur : ces fonctions appellent les MÊMES gestionnaires que le moteur. La touche elle-même (son
+-- raccourci, sa combinaison avec Maj) n'est pas jouée par elles : elle reste à essayer à la main.
+local INPUTS = { ["fo-level-up"] = on_key_up, ["fo-level-panel"] = on_key_panel, ["fo-level-open"] = on_click_open }
+
+local function find_named(el, name)
+  if not (el and el.valid) then return nil end
+  if el.name == name then return el end
+  for _, ch in ipairs(el.children) do
+    local f = find_named(ch, name)
+    if f then return f end
+  end
+  return nil
+end
+
+local function button_names(el, out)
+  for _, ch in ipairs(el.children) do
+    if ch.type == "button" then out[#out + 1] = ch.name end
+    button_names(ch, out)
+  end
+  return out
+end
+
+remote.add_interface("fo-panneau", {
+  --- État du panneau d'un joueur, en nombres et chaînes : mode (réglage), open, via, target (numéro d'unité de la cible),
+  --- target_name, frame (le cadre est affiché), buttons (noms des boutons du cadre), opened (numéro de l'entité dont l'interface
+  --- est ouverte, nil sinon), opened_type (LuaControl.opened_gui_type), selected (numéro de l'entité survolée).
+  state = function(player_index)
+    local player = game.get_player(player_index)
+    if not player then return nil end
+    local ui = UI()
+    local t = ui.target[player_index]
+    local frame = player.gui.left[FRAME]
+    local o = player.opened_gui_type == defines.gui_type.entity and player.opened or nil
+    local sel = player.selected
+    return {
+      mode = mode_of(player),
+      open = t ~= nil,
+      via = ui.via and ui.via[player_index],
+      target = t and t.valid and t.unit_number or nil,
+      target_name = t and t.valid and t.name or nil,
+      frame = frame ~= nil,
+      buttons = frame and button_names(frame, {}) or {},
+      opened = o and o.valid and o.unit_number or nil,
+      opened_type = player.opened_gui_type,
+      selected = sel and sel.valid and sel.unit_number or nil,
+    }
+  end,
+  --- Écrit le réglage par joueur fo-levels-panneau (« clic » ou « survol ») ; rend le mode relu, nil si refusé.
+  set_mode = function(player_index, mode)
+    local player = game.get_player(player_index)
+    if not (player and (mode == Panneau.CLIC or mode == Panneau.SURVOL)) then return nil end
+    player.mod_settings[Panneau.SETTING] = { value = mode }
+    return mode_of(player)
+  end,
+  --- Appelle le gestionnaire de la touche `input_name` (fo-level-up, fo-level-panel, fo-level-open) pour ce joueur, avec le
+  --- bâtiment qu'il survole (player.selected) ; rend faux pour une touche inconnue.
+  input = function(player_index, input_name)
+    local fn = INPUTS[input_name]
+    if not (fn and game.get_player(player_index)) then return false end
+    fn({ player_index = player_index, input_name = input_name, tick = game.tick })
+    return true
+  end,
+  --- Clic sur le bouton `name` du panneau affiché (fo_lvl_up, fo_lvl_row, fo_lvl_close…) : le gestionnaire du clic reçoit
+  --- l'élément réel ; rend faux si le panneau n'a pas ce bouton.
+  click = function(player_index, name)
+    local player = game.get_player(player_index)
+    local frame = player and player.gui.left[FRAME]
+    local el = frame and find_named(frame, name)
+    if not el then return false end
+    on_gui_click_panel({ element = el, player_index = player_index, tick = game.tick, name = defines.events.on_gui_click })
+    return true
+  end,
+})
 
 return {}

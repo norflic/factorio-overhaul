@@ -84,5 +84,30 @@ verifie(perf3.decisions(J1) != perf3.decisions(J2), "decisions : [FO-IA3K] gard�
 J3 = [J2[0].replace("3.0 min", "3.1 min")]
 verifie(perf3.decisions(J3) != perf3.decisions(J2), "mutant : une décision changée est vue")
 
+# Lot PERF4 : banc sur une sauvegarde : lignes du benchmark ramenées aux ticks du jeu.
+import tempfile  # noqa: E402
+with tempfile.TemporaryDirectory() as d:
+    with open(os.path.join(d, "benchmark.log"), "w", encoding="utf-8") as f:
+        f.write("  1.0 Script @__fo-autotest__/scenarios/perf4_partie_common.lua:1: [FO-PERF4] debut tick 919500 (x)\n")
+    rows = {0: {"a": 1}, 1: {"a": 2}, 599: {"a": 3}}
+    al = perf3.aligner(rows, d)
+    verifie(sorted(al) == [919500, 919501, 920099],
+            "aligner : t0 devient le tick 919500 (sauvegarde au tick 919500 : game.tick de la 1re mise à jour, mesuré sur B0)")
+    rows_abs = {919500: {"a": 1}}
+    verifie(perf3.aligner(rows_abs, d) == rows_abs, "aligner : des lignes déjà en ticks du jeu ne bougent pas")
+    with open(os.path.join(d, "benchmark.log"), "w", encoding="utf-8") as f:
+        f.write("rien\n")
+    verifie(perf3.aligner(rows, d) == rows, "aligner : sans ligne [FO-PERF4] (carte créée), rien ne bouge")
+
+# Lot PERF4 (7/11) : contrôle de l'alignement par l'étalon. Étalon de 2,1 ms aux ticks 600 et 1200, script de 0,3 ms
+# ailleurs : bien aligné, l'étalon est DANS la ligne de son tick ; décalé d'un tick, il tombe sur une ligne voisine.
+calib = {600: 2.1, 1200: 2.1}
+juste = {t: {"scriptUpdate": (2.4 if t in calib else 0.3) * 1e6} for t in range(590, 1210)}
+verifie(perf3.controle_etalon(juste, calib) == (0, 2), "alignement : étalon dans la ligne de son tick, 0 sur 2")
+decale = {t + 1: r for t, r in juste.items()}
+verifie(perf3.controle_etalon(decale, calib) == (2, 2), "mutant : lignes décalées d'un tick, 2 étalons sur 2 tombent")
+verifie(perf3.dire_alignement(juste, calib) is True, "alignement : juste, pas d'alerte")
+verifie(perf3.dire_alignement(decale, calib) is False, "mutant : décalé, ALIGNEMENT FAUX")
+
 print("BILAN : %d OK%s" % (ok, (", %d ECHEC(S)" % ko) if ko else ""))
 sys.exit(0 if ko == 0 else 1)

@@ -22,6 +22,7 @@ local Cp = require("shared.content.compute")
 local Pt = require("shared.content.robot_parts")
 local Ro = require("shared.content.robots")
 local C = require("shared.content.crafts")
+local Ech = require("shared.robots.echelle")
 
 local function read(p)
   local f = assert(io.open(p, "rb"), "lecture impossible : " .. p)
@@ -151,25 +152,34 @@ local function suite(Xp)
     end
   end
 
-  -- §2 valeur pour la valeur
+  -- §2 dégâts par seconde : valeur pour la valeur ; PV, résistances et salve : règle d'échelle par âge (QCM du DC du 5/11)
+  local function same_res(a, b)
+    if #a ~= #b then return false end
+    for i = 1, #a do if a[i].type ~= b[i].type or a[i].decrease ~= b[i].decrease or a[i].percent ~= b[i].percent then return false end end
+    return true
+  end
   for _, r in ipairs(Xp.ROBOTS) do
     local ref = Ro.robot(r.ref)
     check(ref ~= nil, "§2 " .. r.id .. " : robot de référence " .. tostring(r.ref))
     if ref then
       check(ref.age <= r.age and (ref.dps or 0) > 0, "§2 " .. r.id .. " : référence d'âge au plus égal, qui tire")
       local k = r.mu / ref.mu
-      local hp = ref.hp * k * (r.is_unit and 1 or Xp.HP_POSE)
-      check(near(r.hp, math.floor(hp + 0.5), 1e-9), string.format("§2 %s : PV %s = %.0f", r.id, tostring(r.hp), hp))
+      check(r.hp == Ech.pv(r.age), string.format("§2 %s : PV %s = règle d'échelle de l'âge %d (%d)", r.id, tostring(r.hp), r.age, Ech.pv(r.age)))
+      check(same_res(r.resistances, Ech.resistances(r.age)), "§2 " .. r.id .. " : résistances d'écart d'âge de son âge")
       check(near(r.dps, ref.dps * k, 1e-3), "§2 " .. r.id .. " : dégâts par seconde = référence × coût")
-      check(near(r.shot, r.dps * r.cooldown / 60, 1e-3), "§2 " .. r.id .. " : coup = dégâts par seconde × cadence")
+      local base = math.floor(r.dps * r.cooldown / 60 / 0.1 + 0.5) * 0.1
+      local salve = Ech.salve(r.age, r.dtype)
+      check(r.salve == salve and near(r.shot, math.max(base, salve * ((r.jets and r.jets.count) or 1)), 1e-3),
+        string.format("§2 %s : coup %s = le plus grand de la valeur (%.1f) et de la salve de l'âge par cible touchée (%s)", r.id, tostring(r.shot), base, tostring(salve)))
       if r.single_use then
         check(near(r.burst, ref.dps * k * Xp.BURST_SECONDS, 1e-3), "§2 " .. r.id .. " : charge = 30 s de dégâts")
       else
         check(r.burst == nil, "§2 " .. r.id .. " : pas de charge hors usage unique")
       end
+      check(r.zone == nil, "§2 " .. r.id .. " : un petit garde la forme de son attaque (pas de salve de zone)")
     end
   end
-  check(Xp.HP_POSE == 3 and Xp.BURST_SECONDS == 30, "§2 constantes : défense posée × 3, charge de 30 s")
+  check(Xp.BURST_SECONDS == 30 and Xp.HP_POSE == nil, "§2 constantes : charge de 30 s ; plus de facteur des défenses posées (règle d'échelle)")
 
   -- §3 règles
   local P = function(x, y, id) return { x = x, y = y, id = id } end
@@ -256,8 +266,11 @@ local function suite(Xp)
       check(r.ingredients[1][1] == r.segment_item and r.ingredients[1][2] == Xp.SEGMENTS and #r.ingredients == 1, "§8 " .. r.id .. " : assemblage = 10 segments")
       check(r.is_giant and not r.is_unit and not r.is_turret and Xp.of_name(r.name) == r, "§8 " .. r.id .. " : géant, retrouvé par son nom")
       local ref = Ro.robot(r.ref)
-      check(ref and ref.age == r.age and near(r.hp, math.floor(ref.hp * r.mu / ref.mu + 0.5), 1e-9) and near(r.dps, ref.dps * r.mu / ref.mu, 1e-3),
-        "§8 " .. r.id .. " : valeur pour la valeur (référence de son âge, PV sans facteur)")
+      check(ref and ref.age == r.age and near(r.dps, ref.dps * r.mu / ref.mu, 1e-3), "§8 " .. r.id .. " : dégâts par seconde, valeur pour la valeur")
+      check(r.hp == Ech.pv(r.age) and same_res(r.resistances, Ech.resistances(r.age)), "§8 " .. r.id .. " : PV et résistances de la règle d'échelle")
+      check(r.salve == Ech.salve(r.age, r.dtype) and r.zone == Ech.rayon(r.age) and r.zone == 15 * (r.age - 9) and r.cratere == Ech.cratere(r.age),
+        string.format("§8 %s : salve %s par cible, zone %s (15 × (âge − 9)), cratère %s", r.id, tostring(r.salve), tostring(r.zone), tostring(r.cratere)))
+      check(r.zone_cooldown == math.max(r.cooldown, Ech.CADENCE_ZONE) and r.zone_cooldown >= 180, "§8 " .. r.id .. " : une salve de zone au plus toutes les 3 s")
       check(r.range > 0 and r.cooldown > 0 and r.speed > 0, "§8 " .. r.id .. " : portée, cadence, vitesse")
       local tw = TECH_WANT[r.id]
       local units = t and Xp.tech_units and Xp.tech_units(C.tech_count(t))
@@ -457,8 +470,12 @@ local MUTANTS = {
   { "Demi-Vie au processeur (âge 10)", '{ "advanced-circuit", 100 }, { "fo-servo-motor", 70 },', '{ "processing-unit", 40 }, { "fo-servo-motor", 70 },' },
   { "Demi-Vie à 30 servomoteurs", '{ "advanced-circuit", 100 }, { "fo-servo-motor", 70 },', '{ "advanced-circuit", 100 }, { "fo-servo-motor", 30 },' },
   { "segment du Cairn avec une pièce de l'âge 11", '{ "processing-unit", 30 }, { "fo-guidance-core", 10 }', '{ "fo-graphics-card", 30 }, { "fo-guidance-core", 10 }' },
-  { "PV sans le facteur des défenses", 'if r.kind == "turret" or r.kind == "turret-electric" then hp = hp * Xp.HP_POSE end', '' },
-  { "géant compté comme défense posée", 'if r.kind == "turret" or r.kind == "turret-electric" then', 'if r.kind ~= "unit-capsule" then' },
+  { "PV de la valeur au lieu de la règle d'échelle", "out.hp = Ech.pv(r.age)", "out.hp = ref.hp * k" },
+  { "résistances oubliées", "out.resistances = Ech.resistances(r.age)", "out.resistances = {}" },
+  { "salve d'un âge de moins", "out.salve = Ech.salve(r.age, r.dtype)", "out.salve = Ech.salve(r.age - 1, r.dtype)" },
+  { "zone d'un âge de moins", "out.zone, out.cratere = Ech.rayon(r.age), Ech.cratere(r.age)", "out.zone, out.cratere = Ech.rayon(r.age - 1), Ech.cratere(r.age)" },
+  { "salve de zone à la cadence de l'effet", "out.zone_cooldown = math.max(r.cooldown, Ech.CADENCE_ZONE)", "out.zone_cooldown = r.cooldown" },
+  { "petit sans la salve de son âge", "out.shot = math.max(out.shot, out.salve * ((r.jets and r.jets.count) or 1))", "out.shot = out.shot" },
   { "géants admis avant l'âge 10", "Xp.GIANT_EARLY_AGE = 10", "Xp.GIANT_EARLY_AGE = 9" },
   { "plafond des géants sans Ro", "return math.max(Ro.giant_allowed(age), early)", "return early" },
   { "géant admis au plafond", "return (have or 0) < Xp.giant_cap(age)", "return (have or 0) <= Xp.giant_cap(age)" },

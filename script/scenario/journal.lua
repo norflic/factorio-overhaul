@@ -299,8 +299,8 @@ Levels.on_replaced[#Levels.on_replaced + 1] = function(_, new)
   end
 end
 
--- Jalon de défense : nids détruits, par force du tueur (forces suivies seulement).
-Events.on(defines.events.on_entity_died, function(e)
+-- Jalon de défense : nids détruits, par force du tueur (forces suivies seulement). Lot MORTS : nids seulement (le test ci-dessous).
+Events.on_died(function(e)
   local ent = e.entity
   if not (ent and ent.valid and ent.type == "unit-spawner") then return end
   local force = e.force
@@ -309,7 +309,7 @@ Events.on(defines.events.on_entity_died, function(e)
   if not st then return end
   st.nests = st.nests or {}
   st.nests[force.name] = (st.nests[force.name] or 0) + 1
-end)
+end, { types = { "unit-spawner" } })
 
 Events.on(defines.events.on_gui_click, function(e)
   local el = e.element

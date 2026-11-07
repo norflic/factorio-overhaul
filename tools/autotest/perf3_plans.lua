@@ -10,7 +10,7 @@
 
   Le temps de chaque appel n'est PAS écrit (il change d'une source à l'autre) ; la somme est affichée à la fin.
 ]]
-local test, outp = arg[1], arg[2]
+local test, outp, cap = arg[1], arg[2], tonumber(arg[3] or "")
 assert(test and outp, "usage : lua5.2 perf3_plans.lua <banc> <sortie>")
 package.path = "./?.lua;" .. package.path
 local Ch = require("shared.team.champ")
@@ -56,6 +56,11 @@ Ch.plan = function(spec)
   depth = depth - 1
   n_plan = n_plan + 1
   out:write("plan ", s({ p = p, why = why }), "\n")
+  if cap and os.clock() > cap then -- plafond de temps (gel du PC : préfixe seulement, comparé au préfixe de l'autre source)
+    out:close()
+    print(string.format("[PERF3-PLANS] %s : ARRET au plafond de %.0f s, %d plan(s) (prefixe seulement)", test, cap, n_plan))
+    os.exit(3)
+  end
   return p, why
 end
 Co.route = function(...)

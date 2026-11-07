@@ -112,21 +112,86 @@ function Commander.think(id, tick)
   Military.maintain(f, tick)
   Profiler.stop("faction:maintain")
   Profiler.start("faction:team")
-  Team.think(f, surface, tick)
+  -- Lot DÉCOUPAGE-PENSÉE : la pensée d'équipe se joue en 4 étapes (T à T + 3) ; la queue (chef, veille, attaque) suit sa
+  -- dernière étape, dans le même ordre qu'avant. Team.think rend false quand ses étapes restent à jouer.
+  local done = Team.think(f, surface, tick, "commander")
   Profiler.stop("faction:team")
+  if done ~= false then Commander.tail(f, surface, tick) end
+  Profiler.stop("faction:think")
+end
+
+--- Fin de la pensée d'une faction, après sa pensée d'équipe (lot DÉCOUPAGE-PENSÉE : jouée par la dernière étape, à T + 3).
+function Commander.tail(f, surface, tick)
   Chef.think(f, tick) -- lot IA2-a : une pensée par minute (rien avant l'échéance)
   Veille.report(f, tick) -- lot VEILLE : une ligne de bilan toutes les 10 min par faction
   Profiler.start("faction:attack")
   local view, target = Commander.view(f, tick)
   PvP.think(f, surface, tick, view, target)
   Profiler.stop("faction:attack")
-  Profiler.stop("faction:think")
 end
+Team.define_tail("commander", function(f, tick) Commander.tail(f, surface_of(State.war()), tick) end)
 
 Scheduler.define_lane(Commander.LANE, function()
   local s = State.war().settings
   return (s and s.think_period) or F.defaults.think_period
 end, Commander.think)
+
+---------------------------------------------------------------------------------------------------
+-- Lot ÉTALEMENT (5/11) : pensées des factions ESPACÉES sur la période
+---------------------------------------------------------------------------------------------------
+-- Le DC (5/11, 21 h 55) : « des freezes [...] d'une demi-seconde [...] très périodique [...] c'est vraiment que le mode ». MESURÉ par
+-- perf3 sur sa partie (0.6.53) : les 4 pensées de faction tombaient à 4 ticks CONSÉCUTIFS (créneaux tournants de Scheduler.add, phases
+-- 0 à 3 modulo 300), 55 ms chacune en début de partie, 124 ms à 175 min : un bloc de 0,22 à 0,5 s toutes les 300 ticks, soit toutes
+-- les 0,5 s à ×10. La faction de rang k (0 à n - 1) pense désormais à la phase floor(k × P / n) + PHASE0 (7, 82, 157, 232 pour 4) :
+-- un pic par faction, séparés de P / n ticks. PHASE0 = 7, comme la phase 174 de votre équipe (PERF3, script/team/player_team.lua) :
+-- hors des multiples de 5 (build:pulse, toutes les équipes), de 15, et des restes 0 à 3 de 30 (prospection) ; 157 et 232 restent
+-- à 17 et 58 ticks de 174. Décisions : même règle, autre horaire (accepté par le lead, déterministe : la place ne dépend que du rang
+-- de la faction et de la période).
+Commander.PHASE0 = 7
+
+--- Créneau (1..P) de la faction de rang `i` (1..n) sur une période de `P` ticks.
+function Commander.slot_for(i, n, P)
+  return (math.floor((i - 1) * P / n) + Commander.PHASE0) % P + 1
+end
+
+--- Place chaque faction de la guerre à son créneau espacé (appelé au lancement de la guerre, et au chargement d'une partie qui les
+--- avait à la suite : migration). Sans effet pour une faction déjà à sa place.
+function Commander.spread()
+  local war = State.war()
+  local list = war and war.factions
+  if not (list and #list > 0) then return 0 end
+  local n = #list
+  local P = Scheduler.period(Commander.LANE)
+  local moved = 0
+  for i = 1, n do
+    if Scheduler.has(Commander.LANE, i) then
+      local s = Commander.slot_for(i, n, P)
+      if Scheduler.slot(Commander.LANE, i) ~= s then
+        Scheduler.add_at(Commander.LANE, i, s)
+        moved = moved + 1
+      end
+    end
+  end
+  return moved
+end
+
+-- Migration : une partie d'avant ce lot a ses factions à des créneaux consécutifs ; elles sont replacées au chargement du mod changé.
+Events.on_configuration_changed(function()
+  local war = State.war()
+  if not (war and war.active) then return end
+  local moved = Commander.spread()
+  if moved > 0 then
+    log(string.format("[FO-ETALEMENT] pensees des factions replacees : %d faction(s) deplacee(s), phases (tick %% %d) : %s",
+      moved, Scheduler.period(Commander.LANE), (function()
+        local out = {}
+        for i = 1, #war.factions do
+          local s = Scheduler.slot(Commander.LANE, i)
+          if s then out[#out + 1] = tostring(war.factions[i].key) .. " " .. tostring(s - 1) end
+        end
+        return table.concat(out, ", ")
+      end)()))
+  end
+end)
 
 ---------------------------------------------------------------------------------------------------
 -- Destructions et menaces
@@ -152,7 +217,8 @@ Events.on(defines.events.on_entity_destroyed, function(e)
 end)
 
 -- Une perte près du QG ou d'un avant-poste met la faction en alerte (défense prioritaire).
-Events.on(defines.events.on_entity_died, function(e)
+-- Lot MORTS : jamais la force « enemy » (seules les entités d'une force de faction comptent : State.by_force).
+Events.on_died(function(e)
   local war = State.war()
   if not war.active then return end
   local entity = e.entity
@@ -174,6 +240,6 @@ Events.on(defines.events.on_entity_died, function(e)
   if e.force and e.force.name == "player" and Commander.on_player_hostility then
     Commander.on_player_hostility(f, e.tick)
   end
-end)
+end, { ennemi = false })
 
 return Commander
