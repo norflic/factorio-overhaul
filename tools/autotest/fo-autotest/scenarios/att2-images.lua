@@ -37,6 +37,8 @@ for k, s in ipairs(SITES) do
   local z = 1600 / (32 * (2 * R + 36))
   local frappe = s.lance + CHARGE[s.id]
   local tag = s.nuit and (s.id .. "-nuit") or s.id
+  -- « avant » (demande du 7/11, 19 h 55) : la base intacte et en marche, juste avant que le géant n'arrive (il est posé au lancement)
+  vue(s.lance - 4, string.format("%d-%s-avant", k, tag), s.x, Y - 6, z, s.nuit)
   for _, d in ipairs(INSTANTS[s.id]) do
     vue(frappe + d, string.format("%d-%s-t%+04d", k, tag, d), s.x, Y - 6, z, s.nuit)
   end
