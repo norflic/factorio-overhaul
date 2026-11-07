@@ -61,6 +61,13 @@ local function suite(Sg)
   c("stock a 90 %, cuivre demande : pierre et bois toujours ecartes", Sg.skipped(sk9, "stone", V) == true and Sg.skipped(sk9, "wood", V) == true)
   c("stock a 90 %, sans demande : cuivre ecarte (temoin)", Sg.skipped(Sg.skip({ stone = true }, 0.9, V, CFG, true), "copper-plate", V) == true)
   c("cuivre sature mais demande : ramasse", Sg.skipped(Sg.skip({ ["copper-plate"] = true }, 0.5, V, CFG, true, need), "copper-plate", V) == false)
+  -- objets au sol (7/11) : un contenu tient-il au stock (piles entamees, puis cases vides) ?
+  local f1, n1 = Sg.fits({ { n = 250, stack = 100, part = 30 } }, 3)
+  c("tient : 250 objets, 30 de place entamee, 3 cases vides -> 3 cases neuves", f1 == true and n1 == 3, tostring(n1))
+  c("ne tient pas : la meme chose dans 2 cases vides", Sg.fits({ { n = 250, stack = 100, part = 30 } }, 2) == false)
+  c("tient : 120 objets, 20 de place entamee, 1 case vide", Sg.fits({ { n = 120, stack = 100, part = 20 } }, 1) == true)
+  c("ne tient pas : 150 objets sans pile entamee dans 1 case (arrondi au-dessus)", Sg.fits({ { n = 150, stack = 100, part = 0 } }, 1) == false)
+  c("tient : tout dans les piles entamees, aucune case vide", Sg.fits({ { n = 10, stack = 50, part = 40 } }, 0) == true)
   -- coffre urgent : au-dessus de urgent_at, aucun en main
   c("coffre urgent a 85 % sans coffre en main", Sg.urgent(0.85, false, CFG) == true)
   c("pas d'urgence a 84 %", Sg.urgent(0.84, false, CFG) == false)
@@ -89,6 +96,14 @@ do
   check("cablage : Stock.skip_fn passe les matieres demandees (manque du cerveau, manque de l'objectif)",
     sk:find("return Sg.demanded(ia3 and ia3.short, team and team.missing, LINKS)", 1, true) ~= nil and sk:find("local need = demanded(f)", 1, true) ~= nil
     and sk:find("T.stockage, ia3 and ia3.other_short, need)", 1, true) ~= nil)
+  local mc, ml = read("script/team/migration_champ.lua"), read("script/team/melange.lua")
+  check("cablage A : retire verifie le contenu des paires avant tout retrait, ses 3 appelants attendent sans rien compter",
+    mc:find("  if not contents_fit(f, st.ids, list, ents) then return 0, {}, {}, true end", 1, true) ~= nil
+    and mc:find("local removed, got, undo, full = retire(f, surface, o, st, list, ents)", 1, true) ~= nil
+    and select(2, mc:gsub("local removed, got, _, full = retire%(f, surface, o, { ids = ids, frame = true }, list, ents%)", "")) == 2
+    and mc:find("spill_item_stack(f.hq_pos, { name = name, count = n - put }, true, f.force, false)", 1, true) ~= nil)
+  check("cablage A : melange ne releve du tapis que ce que le stock prend", ml:find("local room = Stock.room and Stock.room(f, it[1])", 1, true) ~= nil
+    and ml:find("{ name = it[1], count = got - put }, true, f.force, false)", 1, true) ~= nil)
   check("cablage : le stock reprend les objets au sol du QG a chaque passage (Stock.grow -> Stock.pick_ground)",
     sk:find("  Stock.pick_ground(f, surface, tick) -- lot STOCKAGE-VITAL", 1, true) ~= nil
     and sk:find('find_entities_filtered({ name = "item-on-ground", position = f.hq_pos, radius = Stock.GROUND_RADIUS,', 1, true) ~= nil)
@@ -276,6 +291,9 @@ local MUT = {
   { "manque nul compte comme demande", "    if type(n) == \"number\" and n > 0 then out[item] = math.max(out[item] or 0, n) end", "    if type(n) == \"number\" then out[item] = math.max(out[item] or 0, n) end" },
   { "manque de l'objectif ignore", "    if type(m[1]) == \"string\" and n > 0 then out[m[1]] = math.max(out[m[1]] or 0, n) end", "" },
   { "saturee ecartee meme quand rien ne manque", "  if short ~= false then\n", "  if true then\n" },
+  { "place des piles entamees ignoree (contenu au stock)", "    local rest = (r.n or 0) - (r.part or 0)", "    local rest = (r.n or 0)" },
+  { "cases neuves arrondies au-dessous", "need = need + math.ceil(rest / math.max(1, r.stack or 1))", "need = need + math.floor(rest / math.max(1, r.stack or 1))" },
+  { "contenu juste a la place refuse", "  return need <= (empty or 0), need", "  return need < (empty or 0), need" },
   { "stock presque plein ignore", "  out.__all_non_vital = (fill or 0) >= cfg.stop_at or nil", "  out.__all_non_vital = nil" },
   { "seuil de plein a l'envers", "(fill or 0) >= cfg.stop_at", "(fill or 0) > cfg.stop_at" },
   { "vitale jamais protegee au ramassage", "  if not set or (vital and vital[item]) then return false end", "  if not set then return false end" },

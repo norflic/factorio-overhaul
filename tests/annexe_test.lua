@@ -527,6 +527,36 @@ do
 end
 
 do
+  print("== Lot STOCKAGE-VITAL : le stock prend-il tout un contenu ? (Stock.room, Stock.can_take)")
+  local function inv_readable(e)
+    local iv = e.get_inventory()
+    iv.get_insertable_count = function(name)
+      local stack = STACK[name] or 50
+      local have = e.items[name] or 0
+      return math.ceil(have / stack) * stack - have + iv.count_empty_stacks() * stack
+    end
+  end
+  local cs = STACK["copper-plate"] or 50
+  local h = team(10)
+  inv_readable(h.hq)
+  h.hq.items.coal = (STACK.coal or 50) * 9
+  h.hq.items["copper-plate"] = cs / 2 -- 1 case entamee : place pour cs / 2
+  check(Stock.room(h, "copper-plate") == cs / 2 and Stock.room(h, "coal") == 0, "place : la pile entamee du cuivre, rien pour le charbon")
+  check(Stock.can_take(h, { { "copper-plate", cs / 2 } }) == true and Stock.can_take(h, { { "copper-plate", cs / 2 + 1 } }) == false,
+    "contenu : juste la place entamee, pas un de plus")
+  check(Stock.can_take(h, { { "copper-plate", cs / 4 }, { "copper-plate", cs / 4 + 1 } }) == false, "contenu : un objet en deux lignes, additionne")
+  check(Stock.can_take(h, { { "coal", 1 } }) == false, "contenu : charbon sans case vide ni pile entamee : refuse")
+  local an = new_chest(2)
+  inv_readable(an)
+  h.annex = { an }
+  check(Stock.can_take(h, { { "copper-plate", cs / 2 + 2 * cs } }) == true and Stock.can_take(h, { { "copper-plate", cs / 2 + 2 * cs + 1 } }) == false,
+    "contenu : pile entamee du QG puis les 2 cases vides de l'annexe")
+  check(Stock.room(h, "copper-plate") == cs / 2 + 2 * cs, "place : QG et annexe (" .. tostring(Stock.room(h, "copper-plate")) .. ")")
+  local bare = team(10) -- coffre simulé sans get_insertable_count : capacité inconnue, l'appelant garde son chemin
+  check(Stock.room(bare, "coal") == nil and Stock.can_take(bare, { { "coal", 1 } }) == true, "inventaire illisible : place inconnue, retrait permis")
+end
+
+do
   print("== Lot STOCKAGE-VITAL : objets au sol autour du QG repris par le stock (Stock.pick_ground)")
   local function ground(name, n, x, y)
     local g = { valid = true, position = { x = x, y = y }, stack = { valid_for_read = true, name = name, count = n } }

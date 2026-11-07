@@ -16,6 +16,7 @@
                                                 plaque <-> minerai) : { [objet] = q }
     Sg.demand_room(rec, q)                      part d'une matière demandée qui peut encore entrer dans la réserve des vitales (borne q)
     Sg.urgent(fill, have_chest, cfg)            vrai : coffre à réclamer en urgence (rempli à cfg.urgent_at ou plus, aucun en main)
+    Sg.fits(rows, empty)                        un contenu tient-il au stock (piles entamées, puis cases vides) ; (vrai/faux, cases)
   `fill` = cases prises / cases ; `vital` = { [objet] = true } ; `saturated` = { [objet] = true } (cerveau, f.team.ia3.saturated).
   Données : T.stockage (shared/team/config.lua).
 ]]
@@ -91,6 +92,17 @@ function Sg.skipped(set, item, vital)
   if not set or (vital and vital[item]) then return false end
   if set.__keep and set.__keep[item] then return false end
   return set[item] == true or set.__all_non_vital == true
+end
+
+--- Lot STOCKAGE-VITAL (objets au sol, 7/11) : `rows` = { { n = objets, stack = taille de pile, part = place des piles entamées de cet
+--- objet }, ... } (un objet par ligne) tient-il dans `empty` cases vides ? Rend (vrai/faux, cases neuves nécessaires).
+function Sg.fits(rows, empty)
+  local need = 0
+  for _, r in ipairs(rows or {}) do
+    local rest = (r.n or 0) - (r.part or 0)
+    if rest > 0 then need = need + math.ceil(rest / math.max(1, r.stack or 1)) end
+  end
+  return need <= (empty or 0), need
 end
 
 function Sg.urgent(fill, have_chest, cfg)

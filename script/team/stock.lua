@@ -237,6 +237,48 @@ function Stock.insert(f, item, n, opts)
 end
 
 
+--- Lot STOCKAGE-VITAL (objets au sol, 7/11) : objets de `item` que le stock prend encore (sans réserve, comme Stock.insert sans opts),
+--- ou nil quand un inventaire ne le dit pas (moteur simulé : l'appelant garde son ancien chemin).
+function Stock.room(f, item)
+  if not (f.hq and f.hq.valid and f.hq.get_inventory) then return nil end
+  local n = 0
+  for _, inv in ipairs(Stock.inventories(f)) do
+    if not inv.get_insertable_count then return nil end
+    n = n + inv.get_insertable_count(item)
+  end
+  return n
+end
+
+--- Lot STOCKAGE-VITAL (objets au sol, 7/11) : le stock prend-il TOUT `list` = { {objet, n}, ... } (un objet peut revenir plusieurs fois) ?
+--- Piles entamées de chaque objet, puis cases vides partagées (Sg.fits). Rend (vrai/faux, cases neuves nécessaires, cases vides) ; vrai
+--- quand un inventaire ne se lit pas (moteur simulé).
+function Stock.can_take(f, list)
+  if not (f.hq and f.hq.valid and f.hq.get_inventory) then return true, 0, 0 end
+  local invs = Stock.inventories(f)
+  local empty = 0
+  for _, inv in ipairs(invs) do
+    if not (inv.count_empty_stacks and inv.get_insertable_count) then return true, 0, 0 end
+    empty = empty + inv.count_empty_stacks()
+  end
+  local total, names = {}, {}
+  for _, it in ipairs(list or {}) do
+    if (it[2] or 0) > 0 then
+      if not total[it[1]] then names[#names + 1] = it[1] end
+      total[it[1]] = (total[it[1]] or 0) + it[2]
+    end
+  end
+  table.sort(names)
+  local rows = {}
+  for _, name in ipairs(names) do
+    local stack = stack_of(name) or 1
+    local part = 0
+    for _, inv in ipairs(invs) do part = part + math.max(0, inv.get_insertable_count(name) - inv.count_empty_stacks() * stack) end
+    rows[#rows + 1] = { n = total[name], stack = stack, part = part }
+  end
+  local ok, need = Sg.fits(rows, empty)
+  return ok, need, empty
+end
+
 --- Contenu du stock { [objet] = nombre } : coffre du QG et annexes.
 function Stock.contents(f)
   local c = chest_inv(f.hq).get_contents()
