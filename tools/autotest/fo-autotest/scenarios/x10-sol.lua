@@ -4,8 +4,8 @@
   preuve : il détruit lui-même ces objets et fige PNJ et machines. Ici, AUCUNE soustraction, aucun gel : la sauvegarde du DC
   joue telle quelle à vitesse 10, et l'on suit dans le temps ce que voit le DC.
 
-  Même lancement que x10-sprites (banc.py --sauvegarde ... --captures --visuel="--window hd --measure --ticks 18600") ; vue :
-  le joueur du DC, zoom 0,5 en HD (sa vue 4K au zoom 1), heure figée à midi. 30 phases CONSÉCUTIVES de 600 ticks (5 min de
+  Même lancement que x10-sprites (banc.py --sauvegarde ... --captures --visuel="--window hd --measure --ticks 4200") ; vue :
+  le joueur du DC, zoom 0,5 en HD (sa vue 4K au zoom 1), heure figée à midi. 6 phases CONSÉCUTIVES de 600 ticks (1 min de
   jeu) : sprite-count et R par phase (lr2_lecture.py, m2_lecture.py) ; au début de chaque phase, recensement : objets au sol
   dans la vue (par objet), objets au sol à 12 tuiles du coffre d'équipe, cases libres du coffre d'équipe et des coffres à 12
   tuiles. Rien n'est réécrit dans la sauvegarde du DC (la partie du banc est une COPIE).
@@ -14,7 +14,7 @@
 local VITESSE = 10
 local ZOOM = 0.5
 local HX, HY = 60 + 3, 33.75 + 3
-local N_PHASES, DUREE, DEBUT = 30, 600, 120
+local N_PHASES, DUREE, DEBUT = 6, 600, 120 -- 3 600 ticks : au-dela de 10 000, accord du DC (lead, 7/11)
 local FIN = DEBUT + N_PHASES * DUREE + 80
 local RAYON = 12
 local PROF
