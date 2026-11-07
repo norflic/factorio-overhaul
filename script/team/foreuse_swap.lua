@@ -315,17 +315,107 @@ local function fits_for(f, surface, refs)
     if not (ref and ref.drill and ref.drill.valid) then return false end
     local half = T.drill_electric.size / 2 - 0.01
     local area = { { cx - half, cy - half }, { cx + half, cy + half } }
-    for _, x in ipairs(surface.find_entities_filtered({ area = area, collision_mask = "object-layer" })) do
-      if x.valid and x ~= ref.drill and x.type ~= "tree" and x.type ~= "simple-entity" then return false end
-    end
     if surface.count_tiles_filtered({ area = area, collision_mask = "water-tile" }) > 0 then return false end
     local sp = ref.o.kind and T.outposts[ref.o.kind]
     if sp and sp.resource then
       local n = surface.count_entities_filtered({ area = { { cx - r, cy - r }, { cx + r, cy + r } }, name = sp.resource })
       if n < Swap.MIN_ORE then return false end
     end
-    return true
+    -- lot FOREUSES-THERMIQUES (iii) : ce qui recouvre la 3 x 3 ; seules des paires du MEME avant-poste peuvent etre echangees (S.exchange)
+    local o = ref.o
+    local mine_d, mine_s = {}, {}
+    for _, d in ipairs(o.drill_list or {}) do if d.valid and d.unit_number then mine_d[d.unit_number] = d end end
+    for _, k in ipairs(o.sinks or {}) do if k.valid and k.unit_number then mine_s[k.unit_number] = k end end
+    local blockers = {}
+    for _, x in ipairs(surface.find_entities_filtered({ area = area, collision_mask = "object-layer" })) do
+      if x.valid and x ~= ref.drill and x.type ~= "tree" and x.type ~= "simple-entity" then
+        local u = x.unit_number
+        if u and x.name == T.DRILL and mine_d[u] then
+          blockers[#blockers + 1] = { kind = "drill", id = u }
+        elseif u and mine_s[u] then
+          blockers[#blockers + 1] = { kind = "sink", id = u }
+        else
+          return false
+        end
+      end
+    end
+    if #blockers == 0 then return true end
+    -- paires de l'avant-poste : recepteur de chaque foreuse (point de depot), foreuses de chaque recepteur
+    local sink_of, feeders = {}, {}
+    local sids = sorted_keys(mine_s)
+    for _, du in ipairs(sorted_keys(mine_d)) do
+      local d = mine_d[du]
+      local rx, ry = S.rotate(d.direction, T.drill_drop[1], T.drill_drop[2])
+      for _, su in ipairs(sids) do
+        if S.inside(box_of(mine_s[su]), d.position.x + rx, d.position.y + ry) then
+          sink_of[du] = su
+          feeders[su] = feeders[su] or {}
+          feeders[su][#feeders[su] + 1] = du
+          break
+        end
+      end
+    end
+    local plan = S.exchange(blockers, { sink_of = sink_of, feeders = feeders }, sink_of[ref.drill.unit_number], ref.drill.unit_number)
+    if not plan then return false end
+    plan.ents = {}
+    for _, du in ipairs(plan.drills) do plan.ents[#plan.ents + 1] = mine_d[du] end
+    for _, su in ipairs(plan.sinks) do plan.ents[#plan.ents + 1] = mine_s[su] end
+    return plan
   end
+end
+
+--- Lot FOREUSES-THERMIQUES (iii) : retire les paires de l'echange `plan` (entites encore valides), contenus et objets au stock ; rend la
+--- liste de ce qu'il faut reposer si l'electrique ne passe pas (undo), et les objets rendus. L'ancienne n'est plus « possedee » AVANT
+--- d'etre retiree (on_entity_destroyed ne compte pas une perte d'avant-poste ; la reconstruction ne la refait pas).
+local INVS = { furnace = { "furnace_source", "furnace_result", "fuel" }, container = { "chest" } }
+local function exchange_remove(f, plan)
+  local undo, got = {}, {}
+  for _, e in ipairs(plan.ents or {}) do
+    if e and e.valid then
+      undo[#undo + 1] = { name = e.name, x = e.position.x, y = e.position.y, dir = e.direction, kind = e.name == T.DRILL and "drill" or "sink" }
+      local names = e.name == T.DRILL and { "fuel" } or (INVS[e.type] or {})
+      for _, iname in ipairs(names) do
+        local inv = e.get_inventory(defines.inventory[iname])
+        if inv then
+          local cnt = inv.get_contents()
+          for _, n in ipairs(sorted_keys(cnt)) do
+            Stock.insert(f, n, cnt[n])
+            got[n] = (got[n] or 0) + cnt[n]
+          end
+        end
+      end
+      if e.unit_number then State.disown(e.unit_number) end
+      Stock.insert(f, e.name, 1)
+      got[e.name] = (got[e.name] or 0) + 1
+      e.destroy()
+    end
+  end
+  return undo, got
+end
+
+--- Repose ce que `exchange_remove` a retire (l'electrique n'a pas pu etre posee) ; objets repris au stock, contenus non (ils y restent).
+local function exchange_undo(f, surface, o, undo)
+  for _, u in ipairs(undo or {}) do
+    if Stock.remove(f, u.name, 1) >= 1 then
+      local e = surface.create_entity({ name = u.name, position = { x = u.x, y = u.y }, direction = u.dir, force = f.force })
+      if e then
+        State.own(e, f.id, u.kind, o.id)
+        if u.kind == "drill" then o.drill_list[#o.drill_list + 1] = e else o.sinks[#o.sinks + 1] = e end
+      else
+        Stock.insert(f, u.name, 1)
+      end
+    end
+  end
+end
+
+--- Fin de passe : listes de l'avant-poste sans les entites retirees par un echange, compte de foreuses tenu.
+local function compact(o)
+  local kd, ks = {}, {}
+  for _, d in ipairs(o.drill_list or {}) do if d.valid then kd[#kd + 1] = d end end
+  for _, k in ipairs(o.sinks or {}) do if k.valid then ks[#ks + 1] = k end end
+  local lost = #(o.drill_list or {}) - #kd
+  o.drill_list, o.sinks = kd, ks
+  o.drills = math.max(0, (o.drills or 0) - lost)
 end
 
 --- Bilan de puissance de l'equipe (kW) : capacite et production de la centrale (plan directeur, f.build.grow), chantiers admis.
@@ -349,9 +439,9 @@ local function report(f, st, tick, n_ready, n_chain, n_burner)
   if first then return end
   local w = {}
   for _, k in ipairs(sorted_keys(st.why or {})) do w[#w + 1] = k .. " " .. st.why[k] end
-  log(string.format("[FO-FOREUSES-ETAT] %s min %d | remplacees %d (dont %d avec %d poteau(x) poses) | thermiques candidates %d, deja alimentees %d, a chaine %d | refus : %s | melange %d",
+  log(string.format("[FO-FOREUSES-ETAT] %s min %d | remplacees %d (dont %d avec %d poteau(x) poses) | thermiques candidates %d, deja alimentees %d, a chaine %d | echanges %d (%d thermique(s) voisine(s) retiree(s)) | refus : %s | melange %d",
     f.key or "player", math.floor((tick - (f.started or 0)) / 3600), st.done or 0, st.chained or 0, st.poles or 0, n_burner or 0,
-    n_ready or 0, n_chain or 0, #w > 0 and table.concat(w, ", ") or "aucun", st.mixed or 0))
+    n_ready or 0, n_chain or 0, st.exchanged or 0, st.ex_removed or 0, #w > 0 and table.concat(w, ", ") or "aucun", st.mixed or 0))
 end
 
 --- Une pensee d'equipe : releve, remplacements, fabrication d'avance. `free` : stock libre ({ [objet] = n }) de la pensee.
@@ -394,6 +484,7 @@ function Swap.think(f, surface, book, free, tick)
   local by_pos = {}
   for _, p in ipairs(poles) do by_pos[p.x .. ":" .. p.y] = p.ent end
   local made, kw_new, need_poles = 0, 0, 0
+  local touched = {}
   local kw = (game.entity_prototypes[item].energy_usage or 0) * Swap.JTICK_KW
   local pc = power_of(f)
   for _, r in ipairs(out) do
@@ -405,24 +496,47 @@ function Swap.think(f, surface, book, free, tick)
       end
       local placed_n = #(r.poles or {})
       local prep
-      if placed_n > 0 then
-        need_poles = need_poles + placed_n
+      local undo
+      local ex = r.exchange
+      if placed_n > 0 then need_poles = need_poles + placed_n end
+      if placed_n > 0 or (ex and ex.ents and #ex.ents > 0) then
         prep = function()
-          local src = r.source and (r.source.ent or by_pos[r.source.x .. ":" .. r.source.y])
-          local ok, why, placed = place_chain(f, surface, pole, r.poles, src)
-          -- poteaux de l'avant-poste (o.swap_poles) : a compter comme NOTRES par le plan du champ (mine_of), comme ses paires
-          if ok and placed then
-            ref.o.swap_poles = ref.o.swap_poles or {}
-            for _, e in ipairs(placed) do ref.o.swap_poles[#ref.o.swap_poles + 1] = e end
+          if placed_n > 0 then
+            local src = r.source and (r.source.ent or by_pos[r.source.x .. ":" .. r.source.y])
+            local ok, why, placed = place_chain(f, surface, pole, r.poles, src)
+            -- poteaux de l'avant-poste (o.swap_poles) : a compter comme NOTRES par le plan du champ (mine_of), comme ses paires
+            if ok and placed then
+              ref.o.swap_poles = ref.o.swap_poles or {}
+              for _, e in ipairs(placed) do ref.o.swap_poles[#ref.o.swap_poles + 1] = e end
+            end
+            if not ok then
+              count(st, why)
+              if why ~= "poteaux au stock" then st.retry[ref.key] = tick + Swap.RETRY end
+              return false
+            end
           end
-          if not ok then
-            count(st, why)
-            if why ~= "poteaux au stock" then st.retry[ref.key] = tick + Swap.RETRY end
+          -- (iii) courant amene (chaine posee et reliee, ou foreuse deja couverte) : les paires qui bloquent la 3 x 3 sont retirees
+          if ex and ex.ents and #ex.ents > 0 then
+            local got
+            undo, got = exchange_remove(f, ex)
+            touched[ref.o.id] = ref.o
+            st.exchanged = (st.exchanged or 0) + 1
+            st.ex_removed = (st.ex_removed or 0) + #ex.drills
+            local items = {}
+            for _, n in ipairs(sorted_keys(got)) do items[#items + 1] = got[n] .. " " .. n end
+            log(string.format("[FO-FOREUSES-ECHANGE] %s : electrique en (%.1f, %.1f) direction %d : %d thermique(s) voisine(s) et %d recepteur(s) retire(s) de l'avant-poste %d (1 electrique pour %d thermiques), repris au stock : %s a %.1f min",
+              f.key or "player", r.cx, r.cy, r.dir or -1, #ex.drills, #ex.sinks, ref.o.id, 1 + #ex.drills, #items > 0 and table.concat(items, ", ") or "rien",
+              (tick - (f.started or 0)) / 3600))
           end
-          return ok
+          return true
         end
       end
-      if swap_one(f, surface, ref, r.cx, r.cy, tick, prep, r.dir) then
+      local done_swap = swap_one(f, surface, ref, r.cx, r.cy, tick, prep, r.dir)
+      if not done_swap and undo then
+        exchange_undo(f, surface, ref.o, undo)
+        count(st, "echange repris")
+      end
+      if done_swap then
         made = made + 1
         kw_new = kw_new + kw
         if placed_n > 0 then
@@ -436,6 +550,7 @@ function Swap.think(f, surface, book, free, tick)
       end
     end
   end
+  for _, oid in ipairs(sorted_keys(touched)) do compact(touched[oid]) end
   st.ready = n_ready
   craft(f, book, free, S.demand(n_ready + n_chain, have - made, T.swap.craft_cap), tick)
   if pole and n_chain > 0 then

@@ -163,16 +163,19 @@ function S.plan(entries, ctx)
   local fit_tries = 0
   local function first_fit(it, need_power)
     for _, c in ipairs(it.cs) do
-      if (not need_power or powered_at(c)) and (not ctx.fits or ctx.fits(it.e, c[1], c[2], c[4])) then return c end
+      if not need_power or powered_at(c) then
+        local fit = not ctx.fits or ctx.fits(it.e, c[1], c[2], c[4])
+        if fit then return c, (type(fit) == "table") and fit or nil end
+      end
     end
     return nil
   end
   for _, r in ipairs(ready) do
     if #out >= n or fit_tries >= (ctx.fit_tries or S.FIT_TRIES) then break end
     fit_tries = fit_tries + 1
-    local c = first_fit(r, true)
+    local c, ex = first_fit(r, true)
     if c then
-      out[#out + 1] = { id = r.id, cx = c[1], cy = c[2], dir = c[4], poles = {}, est = 0 }
+      out[#out + 1] = { id = r.id, cx = c[1], cy = c[2], dir = c[4], poles = {}, est = 0, exchange = ex }
     else
       ctx.refused[#ctx.refused + 1] = { id = r.id, why = "3x3 bloquee" }
     end
@@ -181,7 +184,7 @@ function S.plan(entries, ctx)
   for _, ch in ipairs(chained) do
     if #out >= n or tries >= (ctx.tries or S.TRIES) or fit_tries >= (ctx.fit_tries or S.FIT_TRIES) then break end
     fit_tries = fit_tries + 1
-    local c = first_fit(ch, false)
+    local c, ex = first_fit(ch, false)
     if not c then
       ctx.refused[#ctx.refused + 1] = { id = ch.id, why = "3x3 bloquee" }
     else
@@ -189,7 +192,7 @@ function S.plan(entries, ctx)
       local box = box_at(c)
       local plan, why = S.pole_plan(box, ctx.poles, ctx.pole, ctx.free_for(ch.e, box), { max = ctx.chain_max, chain = ctx.chain })
       if plan then
-        out[#out + 1] = { id = ch.id, cx = c[1], cy = c[2], dir = c[4], poles = plan.poles, source = plan.source, est = ch.est }
+        out[#out + 1] = { id = ch.id, cx = c[1], cy = c[2], dir = c[4], poles = plan.poles, source = plan.source, est = ch.est, exchange = ex }
       else
         ctx.refused[#ctx.refused + 1] = { id = ch.id, why = why }
       end
@@ -337,6 +340,55 @@ end
 function S.power_ok(c, kw, draw)
   if not (c and c.capacity and c.capacity > 0) then return true end
   return (c.used or 0) + (draw or 0.6) * (c.committed or 0) + (kw or 0) <= c.capacity + EPS
+end
+
+--- Lot FOREUSES-THERMIQUES (iii), accord du lead (7/11, dans la ligne du QCM du DC « Remplacer au fur et a mesure ») : la 3 x 3 d'un
+--- avant-poste dense deborde sur la paire voisine. Echange : retirer les paires thermiques du MEME avant-poste qui la bloquent, a trois
+--- conditions (lead) : la place est verifiee AVANT tout retrait (cette regle, lue avant tout poteau) ; le courant est deja amene (l'executant
+--- retire apres la chaine posee et reliee) ; le debit ne baisse pas : une electrique pour au plus S.EXCHANGE_MAX thermiques retirees,
+--- l'ancienne comprise (electrique 0,5/s, thermique 0,25/s).
+--- blockers : liste de { kind = "drill" | "sink" | "other", id } (ce qui recouvre la 3 x 3, l'ancienne foreuse et ce qui se defriche exclus) ;
+--- info = { sink_of = { [foreuse] = recepteur }, feeders = { [recepteur] = { foreuses } } } (paires de l'avant-poste) ; own_sink : recepteur
+--- de la future electrique (jamais retire) ; self_id : l'ancienne foreuse. Rend { drills = {...}, sinks = {...} } (ids tries ; listes vides :
+--- rien a retirer) ou nil, raison : « 3x3 bloquee » (autre chose qu'une paire), « recepteur » (il faudrait retirer le sien), « debit ».
+S.EXCHANGE_MAX = 2
+function S.exchange(blockers, info, own_sink, self_id, max)
+  max = max or S.EXCHANGE_MAX
+  info = info or {}
+  local sink_of, feeders = info.sink_of or {}, info.feeders or {}
+  local drills, sinks = {}, {}
+  local function add_sink(sid)
+    if sid == nil or sinks[sid] then return true end
+    if sid == own_sink then return false end
+    sinks[sid] = true
+    for _, d in ipairs(feeders[sid] or {}) do
+      if d ~= self_id and not drills[d] then
+        drills[d] = true
+        if not add_sink(sink_of[d]) then return false end
+      end
+    end
+    return true
+  end
+  for _, b in ipairs(blockers or {}) do
+    if b.kind == "drill" then
+      if b.id ~= self_id and not drills[b.id] then
+        drills[b.id] = true
+        local sid = sink_of[b.id]
+        if sid ~= nil and sid ~= own_sink and not add_sink(sid) then return nil, "recepteur" end
+      end
+    elseif b.kind == "sink" then
+      if not add_sink(b.id) then return nil, "recepteur" end
+    else
+      return nil, "3x3 bloquee"
+    end
+  end
+  local dl, sl = {}, {}
+  for d in pairs(drills) do dl[#dl + 1] = d end
+  for k in pairs(sinks) do sl[#sl + 1] = k end
+  table.sort(dl)
+  table.sort(sl)
+  if 1 + #dl > max then return nil, "debit" end
+  return { drills = dl, sinks = sl }
 end
 
 --- Poteau a poser : le premier de `list` ({ name, have, craftable } dans l'ordre de preference) qui est au stock, sinon le premier fabricable.

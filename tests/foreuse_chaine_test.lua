@@ -222,6 +222,27 @@ local function suite(S)
     if not (l[1] and l[1][4] == d0 and l[1][1] == ox and l[1][2] == oy) then first_ok = false end
   end
   c("18 : 4 directions : le premier placement garde la direction et le centre d'avant", first_ok)
+  -- 19. (iii) échange : retirer les paires du même avant-poste qui bloquent la 3×3 ; au plus 2 thermiques retirées (l'ancienne comprise)
+  local ex = fn("exchange")
+  local info = { sink_of = { [5] = 50, [6] = 60, [7] = 60, [8] = 80, [9] = 10, [1] = 10 }, feeders = { [50] = { 5 }, [60] = { 6, 7 }, [80] = { 8 }, [10] = { 1, 9 } } }
+  local e0 = ex({}, info, 10, 1)
+  c("19 : rien ne bloque : echange vide", e0 ~= nil and #e0.drills == 0 and #e0.sinks == 0)
+  local e1x = ex({ { kind = "drill", id = 5 } }, info, 10, 1)
+  c("19 : une foreuse voisine : elle et son four retires (2 thermiques en tout)", e1x ~= nil and #e1x.drills == 1 and e1x.drills[1] == 5 and #e1x.sinks == 1 and e1x.sinks[1] == 50)
+  local e2x = ex({ { kind = "sink", id = 50 } }, info, 10, 1)
+  c("19 : le four voisin bloque : lui et sa foreuse retires", e2x ~= nil and e2x.drills[1] == 5 and e2x.sinks[1] == 50)
+  local e3x, w3 = ex({ { kind = "drill", id = 5 }, { kind = "drill", id = 8 } }, info, 10, 1)
+  c("19 : deux voisines : refus « debit » (3 thermiques pour 1 electrique)", e3x == nil and w3 == "debit", tostring(w3))
+  local e4x, w4 = ex({ { kind = "sink", id = 60 } }, info, 10, 1)
+  c("19 : four partage par deux foreuses : refus « debit »", e4x == nil and w4 == "debit", tostring(w4))
+  local e5x, w5 = ex({ { kind = "other", id = 99 } }, info, 10, 1)
+  c("19 : autre batiment : refus « 3x3 bloquee »", e5x == nil and w5 == "3x3 bloquee", tostring(w5))
+  local e6x, w6 = ex({ { kind = "sink", id = 10 } }, info, 10, 1)
+  c("19 : le recepteur de l'electrique n'est jamais retire", e6x == nil and w6 == "recepteur", tostring(w6))
+  local e7x = ex({ { kind = "drill", id = 9 } }, info, 10, 1)
+  c("19 : voisine qui nourrit le meme four que l'electrique : seule la foreuse est retiree", e7x ~= nil and #e7x.drills == 1 and e7x.drills[1] == 9 and #e7x.sinks == 0)
+  local o19 = S.plan({ e1 }, ctx_fit(near, function() return { drills = { 5 }, sinks = { 50 } } end))
+  c("19 : le plan d'echange suit la sortie (l'executant retire apres le courant amene)", #o19 == 1 and o19[1].exchange ~= nil and o19[1].exchange.drills[1] == 5)
   -- 16. rangement des poteaux par cases (coût) : mêmes réponses que la lecture de TOUS les poteaux, sur 60 cartes pseudo-aléatoires
   local seed = 7
   local function rnd(n) seed = (seed * 1103515245 + 12345) % 2147483648 return math.floor(seed / 65536) % n end -- bits hauts (les bas bits d un LCG ont une courte periode)
@@ -278,7 +299,12 @@ local MUT = {
   { "ordre des candidats ignore", "table.sort(chained, function(a, b) if a.est ~= b.est then return a.est < b.est end return a.id < b.id end)", "" },
   { "n_ready compte les chaines", "return out, #ready, #chained", "return out, #ready + #chained, #chained" },
   { "essais sans borne", "if #out >= n or tries >= (ctx.tries or S.TRIES) or fit_tries >= (ctx.fit_tries or S.FIT_TRIES) then break end", "if #out >= n or fit_tries >= (ctx.fit_tries or S.FIT_TRIES) then break end" },
-  { "place de la 3x3 ignoree", "and (not ctx.fits or ctx.fits(it.e, c[1], c[2], c[4])) then return c end", "then return c end" },
+  { "place de la 3x3 ignoree", "local fit = not ctx.fits or ctx.fits(it.e, c[1], c[2], c[4])", "local fit = true" },
+  { "echange : debit ignore", "if 1 + #dl > max then return nil, \"debit\" end", "" },
+  { "echange : recepteur de l'electrique retirable", "    if sid == own_sink then return false end\n", "" },
+  { "echange : autre batiment accepte", "    else\n      return nil, \"3x3 bloquee\"\n    end", "    end" },
+  { "echange : fournisseurs du four oublies", "    for _, d in ipairs(feeders[sid] or {}) do", "    for _, d in ipairs({}) do" },
+  { "echange : plan perdu en route", "out[#out + 1] = { id = r.id, cx = c[1], cy = c[2], dir = c[4], poles = {}, est = 0, exchange = ex }", "out[#out + 1] = { id = r.id, cx = c[1], cy = c[2], dir = c[4], poles = {}, est = 0 }" },
   { "lectures de place sans borne", "    if #out >= n or fit_tries >= (ctx.fit_tries or S.FIT_TRIES) then break end", "    if #out >= n then break end" },
   { "puissance a l'envers", "<= c.capacity + EPS", ">= c.capacity - EPS" },
   { "cases voisines ignorees (couverture)", "for _, p in ipairs(near(box, 1)) do", "for _, p in ipairs(near(box, 0)) do" },

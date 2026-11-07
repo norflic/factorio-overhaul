@@ -159,6 +159,55 @@ local function suite(text)
     c("G : 900 kW de capacite, 600 produits, 270 en chantier", pc and math.abs(pc.capacity - 900) < 1e-6 and math.abs(pc.used - 600) < 1e-6 and pc.committed == 270)
     c("G : sans centrale : nil", power_of({}) == nil and power_of({ build = { grow = { capacity = 0 } } }) == nil)
   end
+  -- H. (iii) échange : exchange_remove (contenus et objets au stock, désappropriés, détruits), exchange_undo (reposés, objets repris),
+  -- compact (listes sans les retirées, compte de foreuses)
+  local Wx = world()
+  local disowned, owned = {}, {}
+  local Statex = { disown = function(u) disowned[#disowned + 1] = u end, own = function(e, fid, kind, oid) owned[#owned + 1] = kind end }
+  local Tx = { DRILL = "burner-mining-drill" }
+  local function ent(name, typ, x, y, contents)
+    local inv = { get_contents = function() return contents or {} end }
+    local e = { name = name, type = typ, position = { x = x, y = y }, direction = 0, valid = true, unit_number = math.floor(x * 100 + y),
+      get_inventory = function() return inv end }
+    e.destroy = function() e.valid = false end
+    return e
+  end
+  local ex_remove = load_fn(text, "local function exchange_remove(f, plan)", { Stock = Wx.Stock, State = Statex, T = Tx, defines = { inventory = { fuel = 1, furnace_source = 2, furnace_result = 3, chest = 4 } },
+    sorted_keys = function(t) local k = {} for n in pairs(t) do k[#k + 1] = n end table.sort(k) return k end, INVS = { furnace = { "furnace_source", "furnace_result", "fuel" }, container = { "chest" } } })
+  c("H : exchange_remove extraite", ex_remove ~= nil)
+  if ex_remove then
+    local d5 = ent("burner-mining-drill", "mining-drill", 20, 10, { coal = 4 })
+    local s50 = ent("stone-furnace", "furnace", 20, 8, { ["iron-plate"] = 7 })
+    local undo, got = ex_remove({}, { ents = { d5, s50 } })
+    c("H : paire retiree (detruite, desappropriee)", d5.valid == false and s50.valid == false and #disowned == 2)
+    c("H : objets et contenus au stock", (Wx.stock["burner-mining-drill"] or 0) == 1 and (Wx.stock["stone-furnace"] or 0) == 1
+      and (Wx.stock.coal or 0) >= 4 and (Wx.stock["iron-plate"] or 0) >= 7, string.format("drill %s four %s charbon %s plaques %s",
+      tostring(Wx.stock["burner-mining-drill"]), tostring(Wx.stock["stone-furnace"]), tostring(Wx.stock.coal), tostring(Wx.stock["iron-plate"])))
+    c("H : de quoi reposer (2 entrees, positions et genres)", #undo == 2 and undo[1].kind == "drill" and undo[2].kind == "sink" and undo[1].x == 20)
+    local ex_undo = load_fn(text, "local function exchange_undo(f, surface, o, undo)", { Stock = Wx.Stock, State = Statex })
+    c("H : exchange_undo extraite", ex_undo ~= nil)
+    if ex_undo then
+      local o = { id = 3, drill_list = {}, sinks = {} }
+      ex_undo({ force = "player" }, Wx.surface, o, undo)
+      c("H : l'electrique ne passe pas : paire reposee, objets repris", #o.drill_list == 1 and #o.sinks == 1 and (Wx.stock["burner-mining-drill"] or 0) == 0
+        and (Wx.stock["stone-furnace"] or 0) == 0 and #owned == 2)
+    end
+    local compact = load_fn(text, "local function compact(o)", {})
+    c("H : compact extraite", compact ~= nil)
+    if compact then
+      local a, b, k = { valid = true }, { valid = false }, { valid = false }
+      local o = { drill_list = { a, b }, sinks = { k }, drills = 2 }
+      compact(o)
+      c("H : listes sans les retirees, compte tenu", #o.drill_list == 1 and o.drill_list[1] == a and #o.sinks == 0 and o.drills == 1)
+    end
+  end
+  -- I. câblage : l'échange vient APRÈS la chaîne posée et reliée (courant amené), et l'électrique ratée repose la paire
+  local i_chain = text:find("local ok, why, placed = place_chain(f, surface, pole, r.poles, src)", 1, true)
+  local i_ex = text:find("undo, got = exchange_remove(f, ex)", 1, true)
+  c("I : retrait apres la chaine reliee", i_chain ~= nil and i_ex ~= nil and i_chain < i_ex)
+  c("I : electrique ratee : paire reposee", text:find("if not done_swap and undo then", 1, true) ~= nil and text:find("exchange_undo(f, surface, ref.o, undo)", 1, true) ~= nil)
+  c("I : une ligne [FO-FOREUSES-ECHANGE] par echange", text:find("[FO-FOREUSES-ECHANGE]", 1, true) ~= nil)
+  c("I : listes compactees en fin de passe", text:find("for _, oid in ipairs(sorted_keys(touched)) do compact(touched[oid]) end", 1, true) ~= nil)
   return res
 end
 
@@ -175,6 +224,10 @@ local MUT = {
   { "stock non verifie", "  if Stock.count(f, pole.name) < #list then return false, \"poteaux au stock\" end", "" },
   { "fil non tire", "    if prev and prev.valid then prev.connect_neighbour(e) end", "" },
   { "four permis", "if S.overlap(pb, box) or S.overlap(pb, e.sink) then return false end", "if S.overlap(pb, box) then return false end" },
+  { "echange : contenus perdus", "            Stock.insert(f, n, cnt[n])", "" },
+  { "echange : sans desappropriation", "      if e.unit_number then State.disown(e.unit_number) end", "" },
+  { "echange : compte de foreuses non tenu", "  o.drills = math.max(0, (o.drills or 0) - lost)", "" },
+  -- (echange coupe en entier : vu au banc foreuses-chaine, pas ici ; l ordre chaine puis retrait est controle au texte, cas I)
   { "couloir et plan ignores", "      if Outposts.reserved and Outposts.reserved(f, pole.name, { x = x, y = y }, 0) then return false end", "" },
 }
 local refused, kept = 0, {}
