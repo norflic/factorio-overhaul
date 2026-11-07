@@ -174,7 +174,14 @@ do
   check(Stock.wanted(f) == 0, "coffres en main : on n'en redemande pas")
   check(Stock.grow(f, surface, 3600) and #made == 1 and made[1].name == "iron-chest", "plein avec un coffre : posé")
   check(#f.annex == 1 and f.hq.items["iron-chest"] == 2, "le coffre posé sort du stock et entre dans les annexes")
-  check(#logs == 1 and logs[1]:find("FO%-ANNEXE"), "journal [FO-ANNEXE]")
+  -- lot STOCKAGE-VITAL : plein sans coffre en main, l'urgence est aussi au journal ([FO-STOCKAGE], avant la pose)
+  local n_annexe, n_urgent = 0, 0
+  for _, l in ipairs(logs) do
+    if l:find("FO%-ANNEXE") then n_annexe = n_annexe + 1 end
+    if l:find("FO%-STOCKAGE") and l:find("URGENT") then n_urgent = n_urgent + 1 end
+  end
+  check(n_annexe == 1, "journal [FO-ANNEXE]")
+  check(n_urgent == 1, "journal [FO-STOCKAGE] : coffre urgent demande quand le stock est plein sans coffre en main")
   -- 9 cases + 0 sur 42 : 21 % : plus de pose
   check(not Stock.grow(f, surface, 3700), "le total QG + annexes a de la place : plus de pose")
   local g = team(10)
@@ -302,6 +309,36 @@ do
   check(not Stock.grow(d, surface, 0) and Stock.wanted(d) == T.annex.want, "coffre déjà réclamé par le plan : ni posé ni compté en main")
   Stock.demand = nil
   game.tick = nil
+end
+
+do
+  print("== Lot STOCKAGE-VITAL : reserve des matieres vitales au depot, matieres ecartees du ramassage")
+  local f = team(20) -- 20 cases ; reserve 15 % = 3 cases gardees au fer et au charbon
+  local inv = f.hq.get_inventory()
+  inv.get_insertable_count = function(name)
+    local stack = STACK[name] or 50
+    local have = f.hq.items[name] or 0
+    return math.ceil(have / stack) * stack - have + inv.count_empty_stacks() * stack
+  end
+  local ss, si = STACK.stone or 50, STACK["iron-plate"] or 50
+  f.hq.items.coal = (STACK.coal or 50) * 15 -- 15 cases prises, 5 vides
+  f.refused_at = nil
+  local put = Stock.insert(f, "stone", 10 * ss)
+  check(put == 2 * ss, "pierre : 2 cases seulement (5 vides moins 3 gardees)", put)
+  check(f.refused_at ~= nil, "pierre limitee : depot refuse note (pose anticipee d'un coffre)")
+  local put2 = Stock.insert(f, "iron-plate", 10 * si)
+  check(put2 == 3 * si, "fer : les 3 cases gardees", put2)
+  f.team = { ia3 = { saturated = { stone = true } } }
+  local skip = Stock.skip_fn(f)
+  check(skip ~= nil and skip("stone") and skip("copper-plate") and not skip("coal") and not skip("iron-plate"),
+    "stock plein : pierre (saturee) et cuivre plus ramasses, fer et charbon toujours")
+  local g = team(20)
+  g.hq.items.coal = (STACK.coal or 50) * 5 -- 25 % : seule la saturee est ecartee
+  g.team = { ia3 = { saturated = { stone = true } } }
+  local skip2 = Stock.skip_fn(g)
+  check(skip2 ~= nil and skip2("stone") and not skip2("copper-plate"), "stock a 25 % : seule la pierre saturee est ecartee")
+  g.team = nil
+  check(Stock.skip_fn(g) == nil, "stock a 25 % sans saturee : rien d'ecarte")
 end
 
 print(string.format("\nRésultat : %d OK, %d ECHEC(S)", passes, failures))

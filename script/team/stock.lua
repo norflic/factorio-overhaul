@@ -19,6 +19,7 @@
 
 local T = require("shared.team.config")
 local A = require("shared.team.annexe")
+local Sg = require("shared.team.stockage") -- lot STOCKAGE-VITAL : réserve des matières vitales, ramassage, coffre urgent
 local Pl = require("shared.ai3.places")
 local PlacesQG = require("script.ai3.places_qg")
 local Br = require("shared.ai3.bras")
@@ -35,6 +36,11 @@ do
 end
 
 local Stock = {}
+
+-- Lot STOCKAGE-VITAL : matières vitales { [objet] = true } (T.stock_vital : fer et charbon des avant-postes).
+local VITAL = {}
+for _, it in ipairs(T.stock_vital or {}) do VITAL[it] = true end
+Stock.VITAL = VITAL
 
 --- Annexes valides (la liste est purgée des entités disparues).
 function Stock.annexes(f)
@@ -68,19 +74,46 @@ function Stock.remove(f, item, n)
   return got
 end
 
+--- Lot STOCKAGE-VITAL : objets d'une matière NON vitale que le stock accepte encore (piles entamées + cases vides au-delà de la réserve des
+--- vitales, Sg.new_stacks), ou nil quand la réserve ne mord pas (ou que l'inventaire ne se lit pas : moteur simulé).
+local function non_vital_cap(f, item)
+  local protos = game and game.item_prototypes
+  local proto = protos and protos[item]
+  if not proto then return nil end
+  local stack = proto.stack_size or 50
+  if not f.hq.get_inventory then return nil end -- coffre simulé sans inventaire (tests hors jeu)
+  local empty, size, partial = 0, 0, 0
+  for _, inv in ipairs(Stock.inventories(f)) do
+    if not (inv.count_empty_stacks and inv.get_insertable_count) then return nil end
+    local e = inv.count_empty_stacks()
+    empty, size = empty + e, size + #inv
+    partial = partial + math.max(0, inv.get_insertable_count(item) - e * stack)
+  end
+  local allowed = Sg.new_stacks(item, empty, size, VITAL, T.stockage)
+  if allowed >= empty then return nil end
+  return partial + allowed * stack
+end
+
 --- Dépose jusqu'à `n` objets (coffre du QG d'abord, puis les annexes) ; rend le nombre déposé.
 function Stock.insert(f, item, n)
-  local put = f.hq.insert({ name = item, count = n })
-  if put < n then
+  -- Lot STOCKAGE-VITAL : une matière non vitale ne prend pas les dernières cases (gardées au fer et au charbon).
+  local want = n
+  if not VITAL[item] then
+    local cap = non_vital_cap(f, item)
+    if cap and cap < want then want = cap end
+  end
+  local put = want > 0 and f.hq.insert({ name = item, count = want }) or 0
+  if put < want then
     for _, e in ipairs(Stock.annexes(f)) do
-      put = put + e.insert({ name = item, count = n - put })
-      if put >= n then break end
+      put = put + e.insert({ name = item, count = want - put })
+      if put >= want then break end
     end
   end
   -- Lot STOCKAGE : un dépôt refusé = plus de place pour cet objet (quel qu'il soit) ; déclenche la pose anticipée d'un coffre.
   if put < n then f.refused_at = game.tick or 0 end
   return put
 end
+
 
 --- Contenu du stock { [objet] = nombre } : coffre du QG et annexes.
 function Stock.contents(f)
@@ -196,7 +229,10 @@ function Stock.wanted(f)
   local have = 0
   for _, k in ipairs(T.annex.kinds) do have = have + chests_in_hand(f, k.item) end
   local tick = game.tick or 0
-  return A.wanted(used, size, n, have, A.early_due(f.stock_watch, tick, f.refused_at), capacity(f))
+  local w = A.wanted(used, size, n, have, A.early_due(f.stock_watch, tick, f.refused_at), capacity(f))
+  -- Lot STOCKAGE-VITAL : au-dessus de T.stockage.urgent_at sans coffre en main, au moins un coffre à fabriquer (avant la saturation).
+  if Sg.urgent(used / size, have > 0, T.stockage) and n < capacity(f) then w = math.max(w, 1) end
+  return w
 end
 
 --- Stock LIBRE (coffre et annexes moins ce que les tâches ont réservé) : posé par script/team/board.lua au chargement
@@ -276,6 +312,16 @@ function Stock.grow(f, surface, tick)
   Stock.deploy_idle(f, surface, tick)
   local used, size, n = totals(f)
   if size <= 0 then return false end
+  -- Lot STOCKAGE-VITAL : urgence au journal, une fois par tranche de 5 min et par équipe
+  do
+    local have = 0
+    for _, k in ipairs(T.annex.kinds) do have = have + chests_in_hand(f, k.item) end
+    if Sg.urgent(used / size, have > 0, T.stockage) and (not f.stock_urgent_log or tick - f.stock_urgent_log >= 5 * 3600) then
+      f.stock_urgent_log = tick
+      log(string.format("[FO-STOCKAGE] %s : stock %d/%d cases (%.0f %%), aucun coffre en main : coffre URGENT demande (annexes %d) a %.1f min",
+        f.key or "player", used, size, 100 * used / size, n, (tick - (f.started or 0)) / 3600))
+    end
+  end
   f.stock_watch = f.stock_watch or {}
   local st = A.watch(f.stock_watch, used, size, tick)
   if not A.need_chest(used, size, n, A.early_due(st, tick, f.refused_at), capacity(f)) then return false end
@@ -308,6 +354,18 @@ function Stock.grow(f, surface, tick)
   -- Un coffre en main mais plus une place libre dans le bloc : on ne refait pas la recherche à chaque pensée.
   if blocked then st.retry = tick + T.annex.retry end
   return false
+end
+
+--- Lot STOCKAGE-VITAL : prédicat « ne pas ramasser `objet` » aux avant-postes (non vitale saturée par le cerveau, ou toute non vitale
+--- quand le stock est rempli à T.stockage.stop_at), ou nil quand rien n'est écarté.
+function Stock.skip_fn(f)
+  if not (f.hq and f.hq.valid) then return nil end
+  local used, size = totals(f)
+  if size <= 0 then return nil end
+  local sat = f.team and f.team.ia3 and f.team.ia3.saturated
+  local set = Sg.skip(sat, used / size, VITAL, T.stockage)
+  if next(set) == nil then return nil end
+  return function(item) return Sg.skipped(set, item, VITAL) end
 end
 
 return Stock
