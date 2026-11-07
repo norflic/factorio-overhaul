@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Version: 0.6.55
+Date: 2026-11-07
+  Changes:
+    - Unites experimentales (QCM du DC du 5/11) : resistance au coup d'une mitrailleuse de 4 ages de moins, vie pour tenir 3 min sous 10 dechiqueteurs de leur age, 5 salves pour tuer un biter de leur age, zone des geants 15 x (age - 9) tuiles, cratere et sol brule ; les geants frappent tout ce qui est ennemi jusqu'a la fin, salve decoupee sur plusieurs ticks. Bourdon et geants : vie et resistances de leur age. Parties en cours : la PROPORTION de vie est gardee, regeneration proportionnelle au maximum.
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Version: 0.6.54
 Date: 2026-11-07
   Changes:
