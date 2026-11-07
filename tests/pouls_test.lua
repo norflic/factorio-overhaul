@@ -620,6 +620,74 @@ local function p8(Rv, Ra, Jeton)
 end
 
 ---------------------------------------------------------------------------------------------------
+-- P9 (revue de la 0.6.59, point 1) : les chemins lourds sous le jeton, « relier » sans relevé frais et fin du raccordement compris
+---------------------------------------------------------------------------------------------------
+--- 3 équipes : centrale finie à production NULLE (demande nominale 75 kW), un îlot vrai : « production nulle » confirmée, puis « relier »
+--- (avec le relevé du NET_PERIOD, puis 5 min plus tard sans relevé frais). Toute recherche lourde (sur toute la surface, ou une bande de
+--- toute la largeur) faite par Rv.step ou Ra.step d'une équipe X à un tick t, et toute fin du raccordement (ra:fin), DOIT tomber sur un
+--- tick où le jeton est allé à X (« X:rv » ou « X:ra »).
+local function p9(Rv, Ra, Jeton)
+  logs = {}
+  local w = new_world()
+  local teams = {}
+  for i = 1, 3 do
+    local force = "p9-" .. i
+    local f, parts = team(w, "q" .. i, force, (i - 1) * 96, 0)
+    parts.engine.energy_generated_last_tick = 0
+    local q2 = f.build.projects[2]
+    q2.ents[#q2.ents + 1] = { name = "assembling-machine-1", x = (i - 1) * 96 + 20, y = 20, built = true }
+    for k = 0, 5 do add(w, ent("lab", "lab", (i - 1) * 96 + 30 + k * 4, 90, { net = 70 + i, consumer = true, force = force, hw = 1.5, hh = 1.5 })) end
+    for k = 0, 10 do add(w, ent("assembler", "assembling-machine", (i - 1) * 96 + k * 3, -200 + k * 30, { net = 1, consumer = true, force = force, hw = 1.5, hh = 1.5 })) end
+    teams[i] = f
+  end
+  chunks_for(w, { { -8, -8 }, { 10, 6 } })
+  local base = surface_of(w)
+  local box = box_of(w)
+  local width = (box.x1 - box.x0 + 1) * 32
+  local cur = {}
+  local heavy = {} -- { t, who }
+  local sfc = setmetatable({ find_entities_filtered = function(q)
+    local wide = (q.area == nil and q.position == nil) or (q.area and q.area[2][1] - q.area[1][1] >= width)
+    if wide then heavy[#heavy + 1] = { t = game.tick, who = cur.who } end
+    return base.find_entities_filtered(q)
+  end }, { __index = base })
+  Jeton.reset()
+  local saved_band = Rv.BAND
+  Rv.BAND, Rv.BANDS_PER_PULSE = 1, 1
+  local grants = {}
+  local J = { take = function(t, who)
+    local r = Jeton.take(t, who)
+    if r then grants[t] = grants[t] or {}; grants[t][who] = true end
+    return r
+  end }
+  local fins, deferred = {}, 0
+  for t = 0, 20 * 3600, 5 do
+    game.tick = t
+    for _, f in ipairs(teams) do
+      local p = { fstart = function(name) if name == "ra:fin" then fins[#fins + 1] = { t = t, who = f.key .. ":ra" } end end, fstop = function() end }
+      cur.who = f.key .. ":rv"
+      Rv.step({ cancel = api_old.cancel, plant = api_old.plant, box = function() return box end, jeton = J, prof = p }, f, sfc, t)
+      if f.build.sante and f.build.sante.relier then deferred = deferred + 1 end
+      cur.who = f.key .. ":ra"
+      Ra.step({ request = function() return nil end, prio = 50, champ_live = false, jeton = J, prof = p }, f, sfc, t)
+    end
+  end
+  Rv.BAND = saved_band
+  local bad, first = 0, nil
+  for _, h in ipairs(heavy) do
+    if not (grants[h.t] and grants[h.t][h.who]) then
+      bad = bad + 1
+      first = first or string.format("tick %d, %s", h.t, tostring(h.who))
+    end
+  end
+  local bad_fin = 0
+  for _, x in ipairs(fins) do if not (grants[x.t] and grants[x.t][x.who]) then bad_fin = bad_fin + 1 end end
+  local reliers = 0
+  for _, l in ipairs(logs) do if l:find("reseau: production nulle", 1, true) then reliers = reliers + 1 end end
+  return { heavy = #heavy, bad = bad, first = first, fins = #fins, bad_fin = bad_fin, deferred = deferred, reliers = reliers }
+end
+
+---------------------------------------------------------------------------------------------------
 -- Jeu de preuves sur la source du jeu
 ---------------------------------------------------------------------------------------------------
 local Rv, Ra, Jeton, Box = load_mods(nil)
@@ -666,6 +734,14 @@ local function p8_ok(worst, bands)
   return #bad == 0 and #whos > 0, table.concat(txt, ", "), bad
 end
 do
+  local r9 = p9(Rv, Ra, Jeton)
+  check(r9.reliers >= 3 and r9.deferred > 0, string.format("P9 : « relier » joué (%d fois), dont sans relevé frais par un relevé par bandes (%d passe(s) en attente)",
+    r9.reliers, r9.deferred))
+  check(r9.heavy > 0 and r9.bad == 0, string.format("P9 : toute recherche lourde de Rv.step et Ra.step tombe sur un tick où le jeton est à l'équipe (%d, %d hors jeton%s)",
+    r9.heavy, r9.bad, r9.first and (" ; premier : " .. r9.first) or ""))
+  check(r9.fins > 0 and r9.bad_fin == 0, string.format("P9 : chaque fin du raccordement prend le jeton (%d fin(s), %d sans)", r9.fins, r9.bad_fin))
+end
+do
   local worst, bands = p8(Rv, Ra, Jeton)
   local ok8, txt8 = p8_ok(worst, bands)
   check(ok8, "P8 : jeton équitable : plus longue attente de chaque demandeur <= demandeurs simultanés - 1 (attente/borne : " .. txt8 .. ")")
@@ -689,6 +765,10 @@ local MUT = {
     { { "if b then grow(b, e.position.x, e.position.y) end", "if false then grow(b, e.position.x, e.position.y) end" } }, "p6" },
   { "m6 jeton ignoré par le relevé du réseau", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
     { { 'if api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":rv") then return nil end', "if false then return nil end" } }, "p5" },
+  { "m9 relier sans relevé frais par net_read d'un bloc (hors jeton)", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
+    { { "local rbox = api.box and api.box(surface)", "local rbox = nil" } }, "p9" },
+  { "m10 fin du raccordement sans le jeton", "script.team.raccord", "script/team/raccord.lua",
+    { { "if api.jeton and not api.jeton.take(tick, fin_par) then return end", "if false then return end" } }, "p9fin" },
   { "m8 jeton à priorité fixe (file ignorée)", "script.team.pouls_jeton", "script/team/pouls_jeton.lua",
     { { "(s.q[1] ~= nil and s.q[1] ~= who)", "false" } }, "p8" },
   { "m7 réseaux des générateurs non relus à la fin (numéros des bandes)", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
@@ -702,6 +782,12 @@ for _, m in ipairs(MUT) do
     seen = d > 0
   elseif m[5] == "p5" then
     seen = p5(Rvm, Ram, Jm).clash > 0
+  elseif m[5] == "p9" then
+    local r = p9(Rvm, Ram, Jm)
+    seen = r.bad > 0
+  elseif m[5] == "p9fin" then
+    local r = p9(Rvm, Ram, Jm)
+    seen = r.bad_fin > 0
   elseif m[5] == "p8" then
     seen = not (p8_ok(p8(Rvm, Ram, Jm)))
   elseif m[5] == "p7" then
