@@ -413,8 +413,20 @@ remote.add_interface("fo-ia1", {
     if c and c.refused then for _, k in ipairs(State.sorted_keys(c.refused)) do refused[#refused + 1] = k end end
     local picked = {}
     if c and c.picked then for _, k in ipairs(State.sorted_keys(c.picked)) do picked[#picked + 1] = k end end
+    -- PNJ : état et tâche tenue ; tâches libres en tête de liste ; raisons des prises vides (profileur allumé seulement)
+    local npcs = {}
+    for _, id in ipairs(State.sorted_keys(f.engineers or {})) do
+      local ag = Registry.get(id)
+      if ag then npcs[#npcs + 1] = tostring(id) .. ":" .. tostring(ag.state) .. ":" .. tostring(ag.task and ag.task.key or "-") end
+    end
+    local free = {}
+    for _, t in ipairs(b.list or {}) do
+      if not t.worker and #free < 6 then free[#free + 1] = string.format("%s p%d%s", tostring(t.key), t.prio or 0, t.fond and " fond" or "") end
+    end
+    local miss = {}
+    if b.miss and b.miss.why then for _, k in ipairs(State.sorted_keys(b.miss.why)) do miss[#miss + 1] = k .. "=" .. b.miss.why[k] end end
     return { tasks = tasks, rule = c ~= nil, picked = picked, refused = refused, engineers = f.engineers_count or 0,
-      floor = f.team.floor or 0, iron = Stock.count(f, T.outposts.iron.product) }
+      floor = f.team.floor or 0, iron = Stock.count(f, T.outposts.iron.product), npcs = npcs, free = free, miss = miss }
   end,
   kill_npc = function(key, id)
     local f = team_of(key)
