@@ -70,7 +70,7 @@ moteur F21 à F295, historique des chiffres) est dans **`docs/MEMO_COMPLET.md`**
 - **La partie du DC filmée** (preuve des IA) : `py -3.9 -B tools/autotest/banc.py --out <archive> --qui <lot> --captures
   --visuel="--ticks 216200 --timeout 7200" -- 216200 etape1-guide <source>` (journal `[FO-ETAPE1-GUIDE]`, photos
   `etape1-<faction>-<10|20|40|60>min-<base|qg>.png`). Sur 2 graines (`--graine 271828182`, `--graine 1618033988`) avant de conclure.
-- Garde-fous avant une fusion : `lua5.2 tests/run.lua`, `lua5.2 tests/pvp_test.lua` (1305 OK, 3 à 6 min), le harness
+- Garde-fous avant une fusion : `lua5.2 tests/run.lua`, `lua5.2 tests/pvp_test.lua` (1305 OK ; environ 1 h 30 de processeur depuis 0.6.5x, F397 : en arrière-plan, délai de plus de 2 h, ce n'est pas un blocage ; `pure` en argument : 502 OK en quelques minutes), le harness
   `lua5.2 tests/datastage/harness.lua "<racine>/data" .` (code 0), et le banc `content` (331 OK). Les attendus de tous les
   autres bancs : `docs/MEMO_COMPLET.md` §5.
 - Écrire dans un document un texte qui contient une barre oblique inverse : outil Edit ou Write, jamais heredoc ni

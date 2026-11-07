@@ -10,7 +10,7 @@
 
 ## 2026-11-07 : défauts de la partie du DC (0.6.58), feuille de route vidéo, disque F:
 
-> Prochains identifiants libres (7/11, 18 h) : **F396** et **E263** hors blocs. Attribués ici : F389 à F395, E258 à E262.
+> Prochains identifiants libres (7/11, 18 h 40) : **F399** et **E264** hors blocs. Attribués ici : F389 à F398, E258 à E263.
 
 - **F394 · FAIT** (moteur réel, `f1-lasers` avec images, 48 sites, lot F1-C) : le faisceau d'une electric-turret part de
   position + (L sin θ, −L cos θ · cos 45°) + (0, −H). `attack_parameters.source_offset` = {0, −L} tourne avec la tête
@@ -23,6 +23,39 @@
   graphique se mesure encore au plancher avant d'être intégrée. Mémoire vidéo DÉDIÉE du jeu (compteurs Windows, mêmes passages,
   `vram/plancher-sans` et `vram/plancher`) : pic 0,48 → 0,72 Go, moyenne 0,44 → 0,58 Go (environ 156 relevés chacun), soit
   +0,24 Go au pic pour la laser au plancher (passages en `--seul`, un seul de chaque : pas de dispersion connue).
+- **F396 · FAIT** (moteur réel, série M1 du x10, 7/11 18 h) : 7 à 9 `lua5.2` des agents, en priorité Idle ET sur les seuls cœurs
+  E (affinité 0xF000), font encore monter le moteur seul de 27 à 34 % sur toutes ses colonnes (électricité comprise) et
+  l'étalon `[FO-CALIB]` de 2,2 à 2,55-2,76, alors que le banc est épinglé sur les cœurs P. Ce n'est donc pas le partage SMT d'un
+  cœur. Cause DÉDUITE : le budget de puissance et de turbo du boîtier, ou la mémoire et le L3 partagés. Règle : une mesure
+  `--seul` exige de SUSPENDRE les autres processus lourds (NtSuspendProcess, `scratchpad/lua_gel.ps1`), pas seulement de les
+  baisser en priorité. Avec la suspension, les 11 passages du 2e tour sont tous valides (étalon de 2,01 à 2,37).
+- **F397 · FAIT** (hors jeu, sonde `pvp_hook.lua` de perf3, une ligne toutes les 2e8 instructions) : `pvp_test` n'est pas
+  bloqué, il est LENT. Il fait 2,2e11 instructions Lua en environ 6 500 s de processeur (31 à 34 M instructions par seconde, le
+  tick simulé avance à chaque ligne), contre 180 à 387 s en 0.4.x. Le mod coûte 17 à 35 fois plus d'instructions par tick
+  simulé ; les sections « Runtime » vont de 0,5 à 5,2 ms par tick simulé. Trois passages arrêtés à tort par le lead le 7/11 à
+  18 h 07 (pris pour des blocages). Un bisect compté en instructions (de 0.4.30 à essai-0659) est en cours chez perf3.
+- **F398 · DÉDUIT** (hors jeu, rejeu du plan de champ en tranches, champ3, mesures alignées tick à tick sur le profil en jeu
+  `[FO-PERF3-T]`) : les pics de 16 à 42 ms tombent par paquets de 2 à 4 ticks, chaque paquet tous les 30 à 43 Mo alloués quel que
+  soit l'écart en ticks. Un tick de pic alloue en moyenne 786 Ko contre 197 Ko, pour seulement 1,2 fois plus d'instructions.
+  Cause déduite, non prouvée en moteur : le ramasse-miettes incrémental fait payer son travail aux pas qui allouent. Les pics se
+  mesurent donc en instructions ET en mémoire allouée par tick. Les 18 plans allouent 731 Mo, dont 42 % pour l'A* de la passe 2
+  (`shared/team/champ.lua:1053`).
+- **E263 · MESURÉ** (moteur réel, M1 du x10, sauvegarde du DC au tick 919 256, `fo-logs/2026-11-07_X10/MOTEUR.md` §12, source
+  `x10-m1` 711df043) : soustraction par classe d'entités. 27 passages, tous à code 0 ; 6 non valides (étalon supérieur à 2,45).
+  - Lecture : droite des 12 témoins valides, moteur seul = −1,550 + 1,294 × étalon (résidu 0,086 ms). Cette méthode a été
+    choisie APRÈS avoir vu les données, ce qui est signalé ; le Δ brut contre les témoins voisins est donné aussi. Moteur seul du
+    témoin : 1,30 ms à l'étalon 2,2.
+  - Coût du moteur par classe (ms par tick, part du moteur) :
+    - PNJ (58) : 0,24 à 0,43 (18 à 33 %), dont les chemins (−0,10 à −0,12, soit 60 à 65 % du pathFinder) et les particules
+      (−0,04 à −0,05, soit 90 % des particules : les traces de pas recopiées du personnage) ;
+    - usines des factions (2 479) : 0,27, en deux passages concordants (21 %) ;
+    - soldats (73) : 0,18 à 0,30 (14 à 23 %) ;
+    - production de la force player (701) : 0,03 à 0,12 ;
+    - biters (1 411) : 0,02 à 0,06. L'hypothèse « les biters font le gros du reste » est FAUSSE.
+  - ×N, déduit : avec les usines figées, la moitié des soldats et la moitié des chemins des PNJ, le moteur tombe à environ
+    0,86 ms. Avec le script à 0,5 ms, cela donne ×12,3 sans le rendu, ×10,8 avec un rendu de 2 ms, ×9,6 avec 4 ms. Le rendu n'est
+    pas encore mesuré (lot M2).
+  - Décisions du DC qui en découlent : QCM-7/11-X10 et QCM-7/11-X10-M1 (OBJECTIFS §4).
 - **E261 · VALIDÉ** (moteur réel, lot F1-C ; archives `fo-logs/2026-11-04_LASER-F1C/`) : la tourelle laser des âges 2 à 15 en
   jeu → `content` 554 OK et `f1-lasers` 4 OK sur 0.6.58 + laser ; `f1-lasers` 4 OK sur essai-0659 + laser (`laser-0659`) ;
   migration depuis une carte 0.6.41, 4 OK, faisceau vu 48 fois sur 48. Production : 925 rendus à 128 échantillons, 0 erreur,
