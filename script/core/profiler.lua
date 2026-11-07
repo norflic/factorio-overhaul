@@ -38,6 +38,14 @@ local dt_acc = {}     -- [nom] = LuaProfiler accumulé dans le tick
 local dt_mother = {}  -- [nom] = portée mère à sa première ouverture dans le tick ("-" : premier niveau)
 local dt_run = {}     -- [nom] = chronomètre de l'ouverture en cours
 local dt_stack = {}   -- portées ouvertes (noms), la plus récente en haut
+-- Lot X10-S0 (7/11) : COMPTEURS du tick (Profiler.fcount, détail seulement) : appels au stock, coffres lus... écrits à la fin de la
+-- ligne [FO-PERF3-T] sous la forme « #nom=n » (pas une portée : perf3.py ne les lit pas comme telles). Tables LOCALES.
+local dt_cnt_names = {}
+local dt_cnt = {}
+-- Lot X10-S0 : portées OUVERTES et pas encore fermées dans le tick. Une fermeture sans ouverture (build.lua ferme les quatre parties
+-- du plan après un retour anticipé de plan_project, ouvertes ou non) ajoutait UNE SECONDE FOIS la durée de la dernière ouverture
+-- fermée du même tick : compte double au détail. Elle ne compte plus rien.
+local dt_live = {}
 
 local function refresh(p)
   detail_on = (p.enabled and p.detail == true) or false
@@ -46,23 +54,45 @@ end
 
 local function dt_flush()
   local n = #dt_names
-  if n > 0 then
-    -- Une LocalisedString porte au plus 20 paramètres : paquets de 9 portées (18 paramètres), sous une table mère.
-    local out = { "", "[FO-PERF3-T] ", tostring(dt_tick) }
+  local nc = #dt_cnt_names
+  if n > 0 or nc > 0 then
+    -- Une LocalisedString porte au plus 20 paramètres : paquets de 9 portées (18 paramètres), sous une table mère. Lot X10-S0 : plus de
+    -- 17 paquets (portées fines par gestionnaire, par état...) : les paquets sont regroupés par 19 sous un niveau de plus (même texte).
+    local items = {}
     local chunk = { "" }
     for i = 1, n do
       local name = dt_names[i]
       chunk[#chunk + 1] = " " .. name .. "<" .. dt_mother[name] .. " "
       chunk[#chunk + 1] = dt_acc[name]
       if #chunk >= 19 then
-        out[#out + 1] = chunk
+        items[#items + 1] = chunk
         chunk = { "" }
       end
     end
-    if #chunk > 1 then out[#out + 1] = chunk end
+    if #chunk > 1 then items[#items + 1] = chunk end
+    if nc > 0 then
+      local parts = {}
+      for i = 1, nc do parts[i] = " #" .. dt_cnt_names[i] .. "=" .. string.format("%d", dt_cnt[dt_cnt_names[i]]) end
+      items[#items + 1] = table.concat(parts)
+    end
+    local out = { "", "[FO-PERF3-T] ", tostring(dt_tick) }
+    if #items <= 17 then
+      for i = 1, #items do out[#out + 1] = items[i] end
+    else
+      local sup = { "" }
+      for i = 1, #items do
+        sup[#sup + 1] = items[i]
+        if #sup >= 20 then
+          out[#out + 1] = sup
+          sup = { "" }
+        end
+      end
+      if #sup > 1 then out[#out + 1] = sup end
+    end
     log(out)
   end
   dt_names, dt_acc, dt_mother, dt_run, dt_stack = {}, {}, {}, {}, {}
+  dt_cnt_names, dt_cnt, dt_live = {}, {}, {}
 end
 
 local function dt_open(name)
@@ -75,11 +105,13 @@ local function dt_open(name)
   dt_stack[#dt_stack + 1] = name
   local m = dt_run[name]
   if m then m.reset() else dt_run[name] = game.create_profiler() end
+  dt_live[name] = true
 end
 
 local function dt_close(name)
   local m = dt_run[name]
-  if not m then return end
+  if not (m and dt_live[name]) then return end
+  dt_live[name] = nil
   m.stop()
   local a = dt_acc[name]
   if not a then
@@ -156,6 +188,7 @@ function Profiler.set_enabled(on, tick, fine)
   counts = {}
   dt_tick = -1
   dt_names, dt_acc, dt_mother, dt_run, dt_stack = {}, {}, {}, {}, {}
+  dt_cnt_names, dt_cnt, dt_live = {}, {}, {}
 end
 
 function Profiler.fine()
@@ -177,6 +210,33 @@ function Profiler.fstop(name)
   local t = timers[name]
   if t then t.stop() end
   if detail_on then dt_close(name) end
+end
+
+--- Lot X10-S0 : portée fine autour d'UN appel, au milieu d'une expression (champ d'un constructeur de table) : rend la PREMIÈRE
+--- valeur de fn(...), comme le constructeur la prendrait. Mode fin éteint : l'appel tel quel (une fonction de plus sur la pile).
+function Profiler.fwrap(name, fn, ...)
+  if not fine_on then return (fn(...)) end
+  Profiler.fstart(name)
+  local r = fn(...)
+  Profiler.fstop(name)
+  return r
+end
+
+--- Lot X10-S0 : compteur du tick (détail seulement) : `n` ajouté à « nom », écrit à la fin de la ligne [FO-PERF3-T] du tick
+--- (« #nom=n »). Mesure seulement, jamais lu par une décision ; un test sinon.
+function Profiler.fcount(name, n)
+  if not detail_on then return end
+  local tick = game.tick
+  if tick ~= dt_tick then
+    dt_flush()
+    dt_tick = tick
+  end
+  local c = dt_cnt[name]
+  if not c then
+    dt_cnt_names[#dt_cnt_names + 1] = name
+    c = 0
+  end
+  dt_cnt[name] = c + (n or 1)
 end
 
 -- Lot PERF (correction après revue) : portée attribuée APRÈS COUP selon son issue (porte acceptée ou refusée, prise de

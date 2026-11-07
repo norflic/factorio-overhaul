@@ -25,6 +25,7 @@ local Board = require("script.team.board")
 local Stock = require("script.team.stock")
 local Outposts = require("script.faction.outposts") -- crochet des tuiles reservees par le plan directeur (Outposts.reserved)
 local Melange = require("script.team.melange") -- lot MELANGE : zone de la future foreuse electrique (5 x 5) relue au moteur
+local Profiler = require("script.core.profiler") -- lot X10-S0 : portees fines (mesure seulement)
 
 local Swap = {}
 
@@ -247,17 +248,25 @@ function Swap.think(f, surface, book, free, tick)
     st.ready = 0
     return 0 -- objet pas encore debloque : pas de releve (le cas de presque toute la partie au debut)
   end
+  Profiler.fstart("foswap:releve") -- lot X10-S0 : mesure seulement
   local entries, refs, poles = survey(f, surface)
+  Profiler.fstop("foswap:releve")
   if #entries == 0 or #poles == 0 then st.ready = 0 return 0 end -- (lot GISEMENTS : st.ready relu par script/team/gisement.lua)
+  Profiler.fstart("foswap:plan")
   local out, n_ready = S.plan(entries, { poles = poles, electric = T.drill_electric, have = have, obtainable = obtainable,
     limit = T.swap.per_pass })
+  Profiler.fstop("foswap:plan")
   local made = 0
+  Profiler.fstart("foswap:poses")
   for _, r in ipairs(out) do
     local ref = refs[r.id]
     if ref and swap_one(f, surface, ref, r.cx, r.cy, tick) then made = made + 1 end
   end
+  Profiler.fstop("foswap:poses")
   st.ready = n_ready
+  Profiler.fstart("foswap:fab")
   craft(f, book, free, S.demand(n_ready, have - made, T.swap.craft_cap), tick)
+  Profiler.fstop("foswap:fab")
   return made
 end
 

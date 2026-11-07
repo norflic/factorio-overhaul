@@ -179,13 +179,26 @@ def parse_detail(lines):
     return out
 
 
+# Lot X10-S0 (7/11) : portées « après coup » (Profiler.fcredit, script/team/worker.lua) : elles INCLUENT les portées ouvertes pendant
+# leur mesure (board:claim, worker:program, ia3k:gate...), qui sont filles de la même mère. Comptées comme filles, elles retiraient deux
+# fois ce temps à leur mère (temps propre ramené à 0) et leur propre doublait celui des vraies filles : 0,14 ms par tick comptés deux
+# fois sur B58 (fo-logs/2026-11-07_X10/SCRIPT.md, C2). Elles ne sont plus des filles et leur propre vaut 0 ; leur durée reste lue
+# telle quelle (inclusive) par qui la demande. La part d'une portée inclusive qu'aucune fille ne couvre (le Lua entre les filles) va
+# donc au propre de sa MÈRE : pour le coût d'un départ lui-même, lire l'inclusif d'idle:depart, pas son propre. Liste tenue égale
+# aux appels de Profiler.fcredit par la garde de dérive de tests/test_perf3.py.
+INCLUSIVES = frozenset(("idle:depart", "idle:refus", "idle:sans-tache", "idle:sans-programme", "gate:accepte", "gate:refus"))
+
+
 def propre(scopes):
-    """{portée: ms propres} : durée moins celle des filles (mère = portée) du même tick, jamais sous 0."""
+    """{portée: ms propres} : durée moins celle des filles (mère = portée) du même tick, jamais sous 0. Une portée INCLUSIVE
+    (après coup) n'est la fille de personne et son propre vaut 0."""
     child = collections.defaultdict(float)
     for name, (mother, ms) in scopes.items():
+        if name in INCLUSIVES:
+            continue
         if mother != "-" and mother in scopes:
             child[mother] += ms
-    return {n: max(0.0, ms - child[n]) for n, (_, ms) in scopes.items()}
+    return {n: (0.0 if n in INCLUSIVES else max(0.0, ms - child[n])) for n, (_, ms) in scopes.items()}
 
 
 def premier_niveau(scopes):

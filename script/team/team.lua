@@ -535,8 +535,10 @@ function Team.view(f, tick)
     local unsafe
     if fsurface and (st.fuel_low or (st.stuck or 0) > 0 or st.output >= T.collect_at) then
       local pos = o.access or o.pos
+      Profiler.fstart("view:2-danger") -- lot X10-S0 : mesure seulement
       unsafe = (pos and (fsurface.count_entities_filtered({ position = pos, radius = Poles.DANGER_RADIUS, force = "enemy",
         type = { "unit-spawner", "turret" }, limit = 1 }) > 0 or (f.is_player and Poles.near_loss(f, pos, tick)))) or nil
+      Profiler.fstop("view:2-danger")
     end
     outposts[#outposts + 1] = {
       -- lot MIGRATION-CHAMP : un champ migré (o.migr) n'est jamais « agrandissable » en paires thermiques, même quand la fin d'une attente
@@ -736,15 +738,17 @@ function Team.view(f, tick)
   end
   if f.is_player and T.qg_recruit_hold_on and SurvieQg.recruit_hold(f, tick, hq_threat) then hold_recruits = true end
   Profiler.fstop("view:4-fin") -- lot PERF (fusion de l'intégrateur : la mesure fine couvre aussi la règle d'effectif)
-  return {
+  -- Lot X10-S0 : le constructeur final (appels compris, même ordre) mesuré par « view:5-queue » et ses sous-portées (mesure seulement)
+  Profiler.fstart("view:5-queue")
+  local out = {
     tech = f.tech, personality = f.personality, done = f.team.done, deferred = f.team.deferred,
     stock = stock_free, incoming = incoming, repat = repat,
     sorties_on = f.team.sorties_regle ~= false or nil, -- lot CHARBON-MAIN : règle « sorties brutes d'abord » (shared/team/sorties_main.lua)
     outposts = outposts, pending = pend, sites = sites, sites_near = sites_near, -- lot SITE-PROCHE (R1)
     smelters = #Outposts.smelters(f), smelters_pending = smelters_pending,
     smelter_task = Board.has(f, "smelt"), smelter_output = smelter_out, smelter_fuel_low = smelter_low,
-    smelter_coal = Outposts.coal_needed_for(Outposts.smelters(f)),
-    build_burn = Build.burn_rate(f, game.tick), -- lot INTEG-ECONOMIE (D4) : charbon/s des fours du plan directeur (bilan du charbon du planificateur)
+    smelter_coal = Profiler.fwrap("view:5-fours", Outposts.coal_needed_for, Outposts.smelters(f)),
+    build_burn = Profiler.fwrap("view:5-burn", Build.burn_rate, f, game.tick), -- lot INTEG-ECONOMIE (D4) : charbon/s des fours du plan directeur (bilan du charbon du planificateur)
     four_rule = four_rule, smelters_free = smelter_free, smelter_loads = smelter_loads, -- lot FOURS
     smelter_furnaces = smelter_furnaces, smelter_blocked = smelter_blocked, -- lot BRIQUES
     turret_groups = groups,
@@ -765,7 +769,7 @@ function Team.view(f, tick)
     -- army_soon : armée visée à moyen terme (vague à 15 min contre les tourelles), servie sans priorité de défense.
     army_alert = (f.armee and f.armee.alert == true) or nil, army_need = (f.armee and f.armee.alert and f.armee.need) or nil,
     army_soon = (f.prevision and f.prevision.pc and (f.prevision.pc.army_soon or 0) > 0 and f.prevision.pc.army_soon) or nil,
-    qg_peril = SurvieQg.update(f, tick), -- lot S1 : péril du QG (shared/team/survie_qg.lua) ; lu par le planificateur (priorité, planchers, tourelles du QG)
+    qg_peril = Profiler.fwrap("view:5-survieqg", SurvieQg.update, f, tick), -- lot S1 : péril du QG (shared/team/survie_qg.lua) ; lu par le planificateur (priorité, planchers, tourelles du QG)
     survie = Survie.on(f) or nil, -- lot SURVIE-PENURIE : mode survie (décidé à la pensée précédente) : la production passe avant la défense
     open = Board.open(f),
     effectif = effectif, -- lot IA3-d : décision et raison de la règle d'effectif (factions seulement)
@@ -783,18 +787,20 @@ function Team.view(f, tick)
     -- après une perte récente.
     defend_first = defend_first or nil, hold_recruits = hold_recruits or nil,
     -- Tourelles du QG voulues : votre équipe seulement (une faction garde son QG avec ses soldats ; T.defend_first_factions).
-    front = Front.view(f, fortify_open), -- lot DEFENSE-FRONT : tourelles en plus là où les pièces de l'équipe tombent, et près des laboratoires
-    plant = GardeCentrale.view(f, fortify_open, iron0), -- lot CENTRALE-GARDE : tourelles armées à portée de toutes les pièces de la centrale finie
-    ilot = Ilots.view(f, fortify_open, iron0), -- lot ILOTS-MURS : 1 ou 2 tourelles par îlot isolé (poste facultatif, « ressources d'abord »)
-    hq_turrets = hq_turrets, hq_fortify = fortify_open["hq"] or false, hq_defend = f.is_player and T.defend_hq or Front.hq_post(f, hq_turrets, tick), -- une faction garde son QG avec ses 4 tourelles offertes (Fondation.grant) et ses soldats ; lot DEFENSE-FACTIONS D3 : 2 tourelles refaites si une a été perdue ET que le QG a été attaqué
-    iron_flow = ((not f.is_player) and iron_flow(f)) or nil, -- lot INTEG-DEFENSE D-A : lu par shared/team/planner.lua (iron_producing) ; factions seulement : les statistiques de la force « player » comptent l'usine du joueur, pas le coffre de l'équipe
+    front = Profiler.fwrap("view:5-front", Front.view, f, fortify_open), -- lot DEFENSE-FRONT : tourelles en plus là où les pièces de l'équipe tombent, et près des laboratoires
+    plant = Profiler.fwrap("view:5-garde", GardeCentrale.view, f, fortify_open, iron0), -- lot CENTRALE-GARDE : tourelles armées à portée de toutes les pièces de la centrale finie
+    ilot = Profiler.fwrap("view:5-ilots", Ilots.view, f, fortify_open, iron0), -- lot ILOTS-MURS : 1 ou 2 tourelles par îlot isolé (poste facultatif, « ressources d'abord »)
+    hq_turrets = hq_turrets, hq_fortify = fortify_open["hq"] or false, hq_defend = f.is_player and T.defend_hq or Profiler.fwrap("view:5-hqpost", Front.hq_post, f, hq_turrets, tick), -- une faction garde son QG avec ses 4 tourelles offertes (Fondation.grant) et ses soldats ; lot DEFENSE-FACTIONS D3 : 2 tourelles refaites si une a été perdue ET que le QG a été attaqué
+    iron_flow = ((not f.is_player) and Profiler.fwrap("view:5-ironflow", iron_flow, f)) or nil, -- lot INTEG-DEFENSE D-A : lu par shared/team/planner.lua (iron_producing) ; factions seulement : les statistiques de la force « player » comptent l'usine du joueur, pas le coffre de l'équipe
     -- Lot INTEG-DEFENSE D-D : dernier choix « production d'abord » retenu et nombre de pensées de suite qui ont demandé le contraire (hystérésis
     -- de Pr.decide ; écrits plus bas par Team.think, f.team.priorite_pf et f.team.priorite_streak)
     priorite_pf = (f.team.priorite_pf or false), priorite_streak = f.team.priorite_streak or 0,
     hq_guards = hq_guards, hq_threat = hq_threat or nil, grow_reserve = (grow and not evaluated) and T.grow_iron_reserve or nil, iron_reserve = iron_reserve, grow_due = grow_due or nil,
     -- Lot IA2-b (F209) : orphelins à démonter (factions seulement).
-    orphans = (not f.is_player) and Outposts.orphan_groups(f, tick) or nil,
+    orphans = (not f.is_player) and Profiler.fwrap("view:5-orphelins", Outposts.orphan_groups, f, tick) or nil,
   }
+  Profiler.fstop("view:5-queue")
+  return out
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -834,7 +840,7 @@ TT.e1 = function(f, surface, tick)
   local view = Team.view(f, tick)
   -- Lot DEFENSE-CHOIX : base d'une FACTION menacée ou envahie (script/faction/defchoix.lua) ; lu par shared/team/planner.lua (Dc.turrets).
   -- Votre équipe garde sa règle (T.defend_hq tourelles au QG, toujours voulues).
-  local base_state = (not f.is_player) and DefChoix.base(f, surface, tick) or nil
+  local base_state = (not f.is_player) and Profiler.fwrap("view:defchoix", DefChoix.base, f, surface, tick) or nil -- (X10-S0 : mesure)
   view.base_alert = (base_state and base_state.insecure) or nil
   Profiler.stop("team:view")
   Profiler.start("team:plan")

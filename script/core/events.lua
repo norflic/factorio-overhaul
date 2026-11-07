@@ -84,11 +84,35 @@ function Events.on_configuration_changed(fn) guard("on_configuration_changed"); 
 -- c'est ainsi que l'on attribue les pics de temps script en moteur réel. Coût hors mesure : un test.
 local Profiler = nil
 
+-- Lot X10-S0 (7/11) : en mode FIN du profileur seulement, une sous-portée par gestionnaire (« <portée>@<fichier>:<ligne> »), pour
+-- attribuer le temps d'un événement à plusieurs abonnés (nth:30 : une dizaine ; event:on_tick : six). Noms calculés une fois
+-- (debug.getinfo), gardés en table LOCALE ; mesure seulement, jamais lus par une décision. Mode fin éteint : la boucle d'avant.
+local function handler_names(list, scope)
+  local out = {}
+  for i = 1, #list do
+    local info = debug.getinfo(list[i], "S")
+    local src = info and info.short_src or "?"
+    src = src:gsub("\\", "/"):gsub("^.*/script/", ""):gsub("^.*__/", "")
+    out[i] = scope .. "@" .. src .. ":" .. tostring(info and info.linedefined or i)
+  end
+  return out
+end
+
 local function dispatcher(list, scope)
   local n = #list
+  local sub = nil
   return function(e)
     Profiler.start(scope)
-    for i = 1, n do list[i](e) end
+    if n > 1 and Profiler.fine() then
+      sub = sub or handler_names(list, scope)
+      for i = 1, n do
+        Profiler.fstart(sub[i])
+        list[i](e)
+        Profiler.fstop(sub[i])
+      end
+    else
+      for i = 1, n do list[i](e) end
+    end
     Profiler.stop(scope)
   end
 end
