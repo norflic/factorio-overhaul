@@ -232,9 +232,9 @@ local function cratere_suite(j, tick, tout)
   local s = game.surfaces[j.surf]
   if not s then j.cr = nil; return true end
   local n = #j.cr
-  local b = tout and n or math.min(n, j.ci + Ech.CRATERE_LOT - 1)
-  cratere_lot(s, j.cr, j.ci, b, tick)
-  j.ci = b + 1
+  local a, b, suite = Ech.lot_cratere(j.ci, n, tout)
+  cratere_lot(s, j.cr, a, b, tick)
+  j.ci = suite
   if j.ci > n then j.cr = nil end
   return j.cr == nil
 end
@@ -318,7 +318,8 @@ end
 local function zone_chercher(j)
   local q = j.secteurs[j.si]
   local s = j.e.surface
-  if #j.forces > 0 then
+  -- un chunk non généré n'a pas d'entité : ne pas le chercher (la recherche par carré faisait générer les chunks de bord, revue 0.6.57)
+  if #j.forces > 0 and (q.cx == nil or s.is_chunk_generated({ x = q.cx, y = q.cy })) then
     local r2 = j.zone * j.zone
     for _, x in ipairs(s.find_entities_filtered({ area = { { q.x0, q.y0 }, { q.x1, q.y1 } }, force = j.forces })) do
       if x.valid and x.health and x.destructible then

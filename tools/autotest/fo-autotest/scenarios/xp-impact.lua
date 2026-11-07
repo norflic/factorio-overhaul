@@ -13,9 +13,10 @@ local C = require("scenarios/xp_commun")
 local CHECK = 900
 local Y = 5200
 local R = 60
--- d : ticks de recherche par secteurs avant l'onde (7/11 : un secteur de Ech.SECTEUR = 32 tuiles par tick ; zone 75 : 25 secteurs, zone 90 : 33)
-local SITES = { { id = "tournesol", x = 13000, S = 240, pose = 231, d = 26 }, { id = "crowned", x = 13400, S = 270, pose = 261, d = 34 },
-  { id = "vanilla", x = 13800, S = 331, pose = 330, d = 0 }, { id = "tournesol-B", x = 14200, S = 300, pose = 291, d = 26 } }
+-- d : ticks de recherche par secteurs avant l'onde (un secteur = un chunk par tick, alignés sur les chunks depuis la revue de la 0.6.57 :
+-- zone 75 ici : 26 secteurs, zone 90 : 39 ; d = secteurs + 1)
+local SITES = { { id = "tournesol", x = 13000, S = 240, pose = 231, d = 27 }, { id = "crowned", x = 13400, S = 270, pose = 261, d = 40 },
+  { id = "vanilla", x = 13800, S = 331, pose = 330, d = 0 }, { id = "tournesol-B", x = 14200, S = 300, pose = 291, d = 27 } }
 local IMPACT_B = 285 -- variante B (sol brûlé sur la zone, shared/robots/echelle.lua Ech.brulures) pour les salves lancées après ce tick
 local DX = 50 -- l'unité à 50 tuiles à l'ouest du centre de la base
 

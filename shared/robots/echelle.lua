@@ -38,7 +38,7 @@ Ech.CRATERE_PART = 6
 -- moteur, environ 0,06 ms par coup mortel). Décision du lead : budget PARTAGÉ, 40 pour commencer.
 Ech.BUDGET = 40
 Ech.ANNEAU = 3
-Ech.SECTEUR = 32 -- côté d'un secteur de recherche (une recherche du moteur par tick ; le tick 0 du double tir coûtait 10,7 ms, 7/11)
+Ech.SECTEUR = 32 -- côté d'un secteur de recherche = UN CHUNK (une recherche du moteur par tick ; le tick 0 du double tir coûtait 10,7 ms, 7/11)
 Ech.MORTS = 15 -- morts par tick EN TOUT, partagées par les salves en cours (débris : diagnostic du 7/11)
 Ech.PLAFOND = 4000
 Ech.CADENCE_ZONE = 180
@@ -251,17 +251,19 @@ function Ech.frapper(p, cur, qh, qm, frappe)
   return coups, morts, Ech.epuise(p, cur)
 end
 
---- RECHERCHE PAR SECTEURS : carrés de côté `cote` qui couvrent le disque (centre c, rayon r), ligne par ligne, sans ceux qui ne le touchent
---- pas. Un secteur est DEMI-OUVERT : [x0, x1[ × [y0, y1[ (Ech.dans_secteur), pour qu'une entité posée sur un bord commun ne soit gardée
---- qu'une fois (F96 : la recherche par zone rend aussi les entités qui touchent seulement la zone).
+--- RECHERCHE PAR SECTEURS : carrés de côté `cote` ALIGNÉS SUR SA GRILLE (cote = 32 : un secteur est un chunk, `cx`, `cy` ses coordonnées de
+--- chunk) qui couvrent le disque (centre c, rayon r), ligne par ligne, sans ceux qui ne le touchent pas. Le jeu saute les chunks non générés
+--- (revue de la 0.6.57 : une recherche par carré à cheval sur un chunk de bord qui n'a que ses tuiles faisait générer la carte, 11 à 25 ms ;
+--- un chunk non généré n'a pas d'entité). Un secteur est DEMI-OUVERT : [x0, x1[ × [y0, y1[ (Ech.dans_secteur), pour qu'une entité posée sur
+--- un bord commun ne soit gardée qu'une fois (F96 : la recherche par zone rend aussi les entités qui touchent seulement la zone).
 function Ech.secteurs(c, r, cote)
   local out = {}
-  local x0, y0 = c.x - r, c.y - r
-  local n = math.ceil(2 * r / cote)
-  for j = 0, n - 1 do
-    for i = 0, n - 1 do
-      local a, b = x0 + i * cote, y0 + j * cote
-      local q = { x0 = a, y0 = b, x1 = a + cote, y1 = b + cote }
+  local i0, i1 = math.floor((c.x - r) / cote), math.floor((c.x + r) / cote)
+  local j0, j1 = math.floor((c.y - r) / cote), math.floor((c.y + r) / cote)
+  for j = j0, j1 do
+    for i = i0, i1 do
+      local a, b = i * cote, j * cote
+      local q = { x0 = a, y0 = b, x1 = a + cote, y1 = b + cote, cx = i, cy = j }
       local px = math.max(q.x0, math.min(c.x, q.x1))
       local py = math.max(q.y0, math.min(c.y, q.y1))
       local dx, dy = px - c.x, py - c.y
@@ -489,6 +491,12 @@ function Ech.disque_radial(c, r)
     return a.x < b.x
   end)
   return out
+end
+
+--- Lot suivant d'une liste de `n` tuiles posée par lots, à partir de `ci` : tuiles a à b et indice suivant ; `tout` : le reste d'un coup.
+function Ech.lot_cratere(ci, n, tout)
+  local b = tout and n or math.min(n, ci + Ech.CRATERE_LOT - 1)
+  return ci, b, b + 1
 end
 
 --- Tuiles de cratère posées par tick et par salve (revue de la 0.6.57, point 2 : la pose de 1 193 tuiles en un tick coûtait 15,6 ms de

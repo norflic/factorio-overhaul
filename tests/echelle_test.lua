@@ -330,8 +330,55 @@ local function suite(Ech)
     if (px - sc.x) ^ 2 + (py - sc.y) ^ 2 > rr * rr then hors = true end
   end
   local bord = Ech.dans_secteur(secs[1], secs[1].x1, secs[1].y0)
-  check(un_seul and not hors and not bord and #secs < 36 and #secs >= 28, "§4 quinquies secteurs demi-ouverts : un point du disque dans un seul secteur ; coins hors du disque écartés",
+  local aligne = true
+  for _, q in ipairs(secs) do
+    if q.x0 % 32 ~= 0 or q.y0 % 32 ~= 0 or q.x1 - q.x0 ~= 32 or q.cx ~= q.x0 / 32 or q.cy ~= q.y0 / 32 then aligne = false end
+  end
+  check(un_seul and not hors and not bord and aligne and Ech.SECTEUR == 32 and #secs <= 42 and #secs >= 30,
+    "§4 quinquies secteurs demi-ouverts ALIGNÉS sur les chunks : un point du disque dans un seul secteur ; coins hors du disque écartés",
     tostring(#secs))
+  -- §4 quinquies égalité : chunks non générés sautés, mêmes cibles que la recherche par rayon dans le terrain généré (revue 0.6.57)
+  local function genere(cx, cy) return (cx * 7 + cy * 13) % 5 ~= 0 end
+  local graine, ents = 12345, {}
+  local function hasard()
+    graine = (graine * 1103515245 + 12345) % 2147483648
+    return graine / 2147483648
+  end
+  for k = 1, 4000 do
+    local x, y = sc.x - 100 + 200 * hasard(), sc.y - 100 + 200 * hasard()
+    if k % 10 == 0 then x = math.floor(x / 32 + 0.5) * 32 end -- sur un bord de chunk
+    if k % 17 == 0 then y = math.floor(y / 32 + 0.5) * 32 end
+    if genere(math.floor(x / 32), math.floor(y / 32)) then ents[#ents + 1] = { x = x, y = y, n = 0 } end
+  end
+  local rayon = 0
+  for _, en in ipairs(ents) do if (en.x - sc.x) ^ 2 + (en.y - sc.y) ^ 2 <= rr * rr then rayon = rayon + 1; en.r = true end end
+  local saute = 0
+  for _, q in ipairs(secs) do
+    if genere(q.cx, q.cy) then
+      for _, en in ipairs(ents) do -- recherche du moteur par zone : bords compris (F96)
+        if en.x >= q.x0 and en.x <= q.x1 and en.y >= q.y0 and en.y <= q.y1 and Ech.dans_secteur(q, en.x, en.y)
+          and (en.x - sc.x) ^ 2 + (en.y - sc.y) ^ 2 <= rr * rr then en.n = en.n + 1 end
+      end
+    else
+      saute = saute + 1
+    end
+  end
+  local egal = true
+  for _, en in ipairs(ents) do if en.n ~= (en.r and 1 or 0) then egal = false end end
+  check(egal and saute > 0 and rayon > 500, "§4 quinquies égalité : chunks non générés sautés, chaque cible du rayon trouvée une fois et une seule",
+    string.format("%d cibles, %d chunks sautes", rayon, saute))
+  -- §12 bis cratère par lots : complet à la fin, aucune tuile sautée ni posée deux fois
+  local vu_l, pas_l, ci = {}, 0, 1
+  while ci <= 709 do
+    local a, b, suite = Ech.lot_cratere(ci, 709, false)
+    for i = a, b do vu_l[i] = (vu_l[i] or 0) + 1 end
+    ci, pas_l = suite, pas_l + 1
+  end
+  local complet = true
+  for i = 1, 709 do if vu_l[i] ~= 1 then complet = false end end
+  local a2, b2, s2 = Ech.lot_cratere(201, 709, true)
+  check(complet and pas_l == 8 and a2 == 201 and b2 == 709 and s2 == 710,
+    "§12 bis cratère complet à la fin : 709 tuiles en 8 lots, chacune une fois ; géant mort : le reste d'un coup", tostring(pas_l))
   -- §10 IMPACT, variante B : brûlures
   local unit = true
   for k = 1, 24 do
@@ -469,6 +516,8 @@ check(SXG:find("local parts = Ech.partage_forces(fz, s.budgets and s.budgets.cou
   and SXG:find("force = e.force.name, forces = K.enemy_forces(e.force)", 1, true) ~= nil
   and SXG:find("Ech.frapper(j.plan, j.cur, qh, qm, function(t)", 1, true) ~= nil and not SXG:find("Ech.TRANCHE", 1, true),
   "§4 ter jeu : chaque salve frappe sa PART des budgets de coups et de morts du tick (aucun budget par salve)")
+check(SXG:find("if #j.forces > 0 and (q.cx == nil or s.is_chunk_generated({ x = q.cx, y = q.cy })) then", 1, true) ~= nil,
+  "§4 quinquies jeu : un secteur dont le chunk n'est pas généré n'est pas cherché")
 check(SXG:find("secteurs = Ech.secteurs(c, eff.zone, Ech.SECTEUR)", 1, true) ~= nil and SXG:find("if Ech.dans_secteur(q, p.x, p.y) then", 1, true) ~= nil
   and not SXG:find("radius = eff.zone, force = forces", 1, true), "§4 ter jeu : recherche par secteurs demi-ouverts, plus de recherche de tout le disque en un tick")
 check(SXG:find("if not Ech.zone_jouable(j) then", 1, true) ~= nil and SXG:find("and not j.secteurs and j.at <= ev.tick and Ech.zone_jouable(j) then", 1, true) ~= nil,
@@ -480,7 +529,7 @@ local PXG = read("prototypes/experimentaux_geants.lua")
 check(not PXG:find('tile_name = "nuclear-ground"', 1, true) and PXG:find("b.time_before_removed = Ech.TRACE_TICKS", 1, true) ~= nil,
   "§12 bis prototypes : l'explosion ne pose plus de sol permanent ; brûlures d'1 h")
 check(SXG:find("local cr = Ech.disque_radial(c, r.cratere)", 1, true) ~= nil and SXG:find("if j.cr then cratere_suite(j, tick, not (e and e.valid)) end", 1, true) ~= nil
-  and SXG:find("local b = tout and n or math.min(n, j.ci + Ech.CRATERE_LOT - 1)", 1, true) ~= nil and SXG:find("Events.on_nth_tick(RESORPTION, resorber)", 1, true) ~= nil
+  and SXG:find("local a, b, suite = Ech.lot_cratere(j.ci, n, tout)", 1, true) ~= nil and SXG:find("j.ci = suite", 1, true) ~= nil and SXG:find("Events.on_nth_tick(RESORPTION, resorber)", 1, true) ~= nil
   and SXG:find('not p.collision_mask["water-tile"] and not p.mineable_properties.minable', 1, true) ~= nil
   and SXG:find("local v = sol_cratere[name]", 1, true) ~= nil and not SXG:find("tile.prototype.mineable_properties", 1, true) and SXG:find('t.name == "nuclear-ground" and e.orig ~= "nuclear-ground"', 1, true) ~= nil,
   "§12 bis cratère posé par script, résorbé, jamais sur un sol de joueur ni sur un sol changé depuis")
@@ -500,6 +549,8 @@ check(not SRC:find("game%.") and not SRC:find("script%.") and not SRC:find("%f[%
 
 -- §6 mutants
 local MUTANTS = {
+  { "tuiles du cratère sautées", "  return ci, b, b + 1", "  return ci, b, b + 2" },
+  { "secteurs non alignés sur les chunks", "      local a, b = i * cote, j * cote", "      local a, b = i * cote + 5, j * cote" },
   { "cratère du bord vers le centre", "if a.d ~= b.d then return a.d < b.d end", "if a.d ~= b.d then return a.d > b.d end" },
   { "cratère d'un bloc", "Ech.CRATERE_LOT = 100", "Ech.CRATERE_LOT = 100000" },
   { "plafond des traces ignoré", "  while F.n - F.tete + 1 > max do", "  while false do" },
@@ -537,7 +588,7 @@ local MUTANTS = {
   { "budget qui saute la cible du bord", "    coups = coups + 1\n    if frappe(x) then morts = morts + 1 end", "    coups = coups + 1\n    if morts + 1 < qm and frappe(x) then morts = morts + 1 end" },
   { "secteur fermé (doublons de bord)", "  return x >= q.x0 and x < q.x1 and y >= q.y0 and y < q.y1", "  return x >= q.x0 and x <= q.x1 and y >= q.y0 and y <= q.y1" },
   { "secteurs : coins gardés", "      if dx * dx + dy * dy <= r * r then out[#out + 1] = q end", "      out[#out + 1] = q" },
-  { "secteurs : une ligne de moins", "  local n = math.ceil(2 * r / cote)", "  local n = math.floor(2 * r / cote)" },
+  { "secteurs : une ligne de moins", "  for j = j0, j1 do", "  for j = j0, j1 - 1 do" },
   { "module de portée sans effet sur la zone", "zone = r.zone and r.zone * (1 + bp)", "zone = r.zone" },
   { "puissance en somme au lieu du produit", "salve = r.salve and r.salve * (1 + bf)", "salve = r.salve and r.salve + bf" },
   { "balayage de 36°", "local COS15, SIN15 = 0.96592582628906829, 0.25881904510252074", "local COS15, SIN15 = 0.95105651629515353, 0.30901699437494740" },
