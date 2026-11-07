@@ -110,6 +110,8 @@ Build.SITES = {}               -- lot PETROLE : planificateurs de sites { [nom] 
 
 local REACH = P.BUILD_DISTANCE
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (réserve des modules neufs, agrandissement, tapis)
+local Colr = require("shared.team.collecte") -- lot COLLECTE : règle pure (états servis, voyage à vide)
+local Collecte = require("script.team.collecte") -- lot COLLECTE : coffres de sortie du champ collectés en urgence quand le fer manque
 local Rr = require("shared.team.rebuild_rapide") -- lot REBUILD-RAPIDE : projet rouvert sans attendre toute sa matière, ordre, foreuse de secours
 -- Lot ÉTAGE 5 : couloir d'accès réservé des avant-postes (règle pure). Champ de Build, pas une locale : le bloc principal de ce fichier est
 -- à la limite de 200 locales de Lua 5.2 (fusion avec le lot PERIMETRE2).
@@ -3710,7 +3712,18 @@ function Build.work(agent, f, tick)
         if put > 0 then c.remove_item({ name = it, count = put }); got = got + put end
       end
     end
+    local before = chest.get_inventory(defines.inventory.chest).get_item_count()
     take(chest)
+    -- Lot COLLECTE : un voyage qui ne rapporte RIEN d'un coffre qui tient quelque chose (sac plein) n'est pas « done » : il échoue et la
+    -- tâche reprend après la pause d'échec (carte de l'IA, boucle B2 : voyages à vide sans pause).
+    if Colr.outcome(before, got) == "fail" then
+      f.stats.collecte_vide = (f.stats.collecte_vide or 0) + 1
+      if f.stats.collecte_vide <= 12 then
+        log(string.format("[FO-COLLECTE] %s a %.1f min : voyage a vide, le coffre (%.0f, %.0f) tient %d objet(s) et le sac n'en prend aucun : echec, pause",
+          f.key or "player", tick / 3600, o.x, o.y, before))
+      end
+      return "fail"
+    end
     -- Lot PETROLE 2 : les autres sorties du MÊME projet, à portée de la première, se vident dans le même voyage (moteur réel,
     -- etape1-guide 1618033988 : la sortie du soufre, de clé plus petite, était toujours vidée la première, celle du plastique
     -- gardait 732 plaques et le pack chimique ne se fabriquait jamais).
@@ -3922,6 +3935,26 @@ local function out_wanted(f, p, chest)
   return false
 end
 
+--- Tâches de COLLECTE des coffres de sortie d'un projet (une par coffre au seuil). Lot COLLECTE : appelée aussi pour un projet qui n'est ni
+--- « fini » ni « chantier » (bande du champ « reserve:pile », « refuse:migration »... dont les coffres posés se remplissent encore : journal du
+--- DC du 7/11, 8 coffres au seuil de 159 à 174 min) ; un coffre absent (rien de bâti) est ignoré.
+local function out_tasks(f, p, surface, out)
+  for i, o in ipairs(p.outs) do
+    local chest = surface.find_entity("iron-chest", { o.x, o.y })
+    if chest and chest.force.name == f.force then
+      local n = chest.get_inventory(defines.inventory.chest).get_item_count()
+      if n >= (o.at or Build.COLLECT_AT) and out_wanted(f, p, chest) then -- lot PETROLE : seuil propre d'une sortie de site
+        local a = P.anchor_for(f.build.lat, o.x, o.y, seg_passable(f.build))
+        if not a then local fx, fy = free_spot(f.build, nil, o.x, o.y); a = { x = fx, y = fy } end
+        out[#out + 1] = {
+          key = "ia1d:" .. p.id .. ":o:" .. i, kind = "carry", prio = p.prio, domain = "logistique", work = 40,
+          ia1d = { pid = p.id, mode = "collect", idx = i, ax = a.x, ay = a.y },
+        }
+      end
+    end
+  end
+end
+
 local function quai_tasks(f, p, surface, out)
   -- lot CHARBON-CENTRALE : le coffre d'une centrale se remplit en URGENCE dès qu'il passe sous un seuil d'avance (consommation à pleine
   -- charge des chaudières × Cc.LEAD_S), jamais seulement au-dessous de Build.QUAI_LOW à la priorité du projet (63 : coffre oublié, centrale
@@ -3966,20 +3999,7 @@ local function quai_tasks(f, p, surface, out)
       end
     end
   end
-  for i, o in ipairs(p.outs) do
-    local chest = surface.find_entity("iron-chest", { o.x, o.y })
-    if chest and chest.force.name == f.force then
-      local n = chest.get_inventory(defines.inventory.chest).get_item_count()
-      if n >= (o.at or Build.COLLECT_AT) and out_wanted(f, p, chest) then -- lot PETROLE : seuil propre d'une sortie de site
-        local a = P.anchor_for(f.build.lat, o.x, o.y, seg_passable(f.build))
-        if not a then local fx, fy = free_spot(f.build, nil, o.x, o.y); a = { x = fx, y = fy } end
-        out[#out + 1] = {
-          key = "ia1d:" .. p.id .. ":o:" .. i, kind = "carry", prio = p.prio, domain = "logistique", work = 40,
-          ia1d = { pid = p.id, mode = "collect", idx = i, ax = a.x, ay = a.y },
-        }
-      end
-    end
-  end
+  out_tasks(f, p, surface, out)
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -4869,6 +4889,8 @@ function Build.think(f, surface, tick)
       -- toute la reconstruction) ; quai_tasks ne fait rien sans le coffre réel de l'équipe
       if p.state == "fini" or p.state == "chantier" or (p.reopened and p.state ~= "refuse" and is_plant_project(p)) then
         quai_tasks(f, p, surface, tasks)
+      elseif Colr.collects_outs(p.state, #p.outs) then
+        out_tasks(f, p, surface, tasks) -- lot COLLECTE : les coffres de sortie d'une bande en réserve ou refusée sont vidés aussi
       end
     end
   end
@@ -4876,6 +4898,7 @@ function Build.think(f, surface, tick)
   if b.opts.seul then
     Board.drop_free(f, function(t) return t.ia1d ~= nil end)
   end
+  Collecte.apply(f, surface, b, tasks, tick) -- lot COLLECTE : fer libre sous le besoin et équipe sous son effectif
   if #tasks > 0 then Board.add(f, tasks, tick) end
   -- Lot FUITES-PILE : amélioration des tapis (R3, ses tapis pris au stock) suspendue pendant une retenue de la pile
   local conv_ok, conv_why = PileRt.porte(f, "upgrade", nil)

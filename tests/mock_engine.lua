@@ -202,6 +202,27 @@ local function fire_died(e, killer_force)
   if h then h({ entity = e, force = killer_force, cause = nil, tick = _G.game.tick }) end
 end
 
+--- Lot PERF4 : on_entity_damaged, levé par LuaEntity.damage SUR DEMANDE seulement (opts.raise_damaged du monde), avec le filtre
+--- « type » posé par script.set_event_filter, comme le moteur. Sans la demande, rien n'est levé (comportement d'avant ce lot :
+--- les suites existantes ne changent pas) et l'ensemble des endommagées du mod est éteint (M.load_mod).
+local function fire_damaged(e, amount, force, dtype)
+  local h = W.events[defines.events.on_entity_damaged]
+  if not h then return end
+  local flt = W.filters and W.filters[defines.events.on_entity_damaged]
+  if flt then
+    local pass = false
+    for _, x in ipairs(flt) do
+      if x.filter == "type" and x.type == e.type then
+        pass = true
+        break
+      end
+    end
+    if not pass then return end
+  end
+  h({ entity = e, final_health = math.max(0, e._health), final_damage_amount = amount, original_damage_amount = amount,
+    damage_type = dtype, force = force and force_of(force) or nil, cause = nil, tick = _G.game.tick })
+end
+
 local function destroy_entity(e)
   if not e.valid then return end
   e.valid = false
@@ -443,6 +464,7 @@ local EntityMT = {
       return function(amount, force, dtype)
         assert(type(amount) == "number" and force, "damage : arguments")
         t._health = t._health - amount
+        if W.raise_damaged then fire_damaged(t, amount, force, dtype) end -- lot PERF4
         if t._health <= 0 then t.die(force) end
         return amount
       end
@@ -798,6 +820,7 @@ function M.new_world(opts)
     attack_delay = opts.attack_delay or 900,
     return_delay = opts.return_delay or 300,
     unit = 0, entities = {}, events = {}, nth = {}, commands = {},
+    raise_damaged = opts.raise_damaged or false, -- lot PERF4 : LuaEntity.damage lève on_entity_damaged (fire_damaged)
     pending_paths = {}, path_id = 0, destroyed_queue = {},
     renders = {}, render_id = 0, lines_drawn = 0, prints = {}, logs = {}, files = {},
     walk_writes = 0, reg = 0, groups = {}, group_number = 0, occupied = {}, game_prints = {}, produced = {}, burned = 0,
@@ -1554,6 +1577,10 @@ function M.load_mod()
   end
   W.events, W.nth, W.commands, W.remote = {}, {}, {}, {}
   dofile("control.lua")
+  -- Lot PERF4 : sans on_entity_damaged (opts.raise_damaged absent), l'ensemble des endommagées ne verrait aucun coup : il est
+  -- éteint, le mod fait l'ancienne recherche sur toute la surface (les suites existantes jouent la même partie qu'avant).
+  local Ab = package.loaded["script.team.abimes"]
+  if Ab and not W.raise_damaged then Ab.ENABLED = false end
 end
 
 function M.new_game(opts)

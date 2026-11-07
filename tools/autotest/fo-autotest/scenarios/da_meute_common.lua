@@ -17,8 +17,9 @@
     C1     aucun PNJ sans tâche plus de 30 s de suite pendant l'attaque et après, alors que le tableau a du travail (cause « rien » nulle) ;
     C1-da  repos pour cause de danger (stats.dact : refus de la porte -> départ suivant) : aucun au-delà de 30 s ;
     C2     aucun PNJ perdu ;
-    SENS   aucune tâche dont le but est dans la zone de la meute ET plus près d'elle que le coffre (vers l'attaque), hors défense du QG
-           (garde, recharge, pose de tourelles) ;
+    SENS   aucune tâche dont le but est dans la zone de la meute ET plus près d'elle que le PNJ à son départ (vers l'attaque), hors défense
+           du QG (garde, recharge, pose de tourelles) et hors retour au QG (but EXACTEMENT une case du QG : home_spot + Scale.HOME_SLOTS,
+           étape « home » de script/team/worker.lua), ET aucun relevé de PNJ à moins de 12 tuiles de la meute (décision B du lead, 7/11) ;
     TRAV   du travail fait pendant l'attaque : au moins une tâche hors défense prise entre T_ATT + 600 et T_END.
   Lancement : py -3.9 -B tools/autotest/banc.py --out <archive> --qui DANGER-ACTIF -- 9700 da-meute <source>. Journal : [FO-DA-MEUTE].
 ]]
@@ -57,6 +58,104 @@ local function sorted_keys(t)
   for k in pairs(t or {}) do keys[#keys + 1] = k end
   table.sort(keys)
   return keys
+end
+
+--[[ SONDE SENS (7/11, accord du lead ; journal seulement, HORS BILAN : aucun contrôle ajouté ni changé).
+  Question : d'où part chaque PNJ dont le but est compté par SENS ? Le diagnostic sur l'archive (RAPPORT.md, « da-meute : diagnostic du
+  contrôle SENS ») DÉDUIT des retours au QG (règle « home » de M.leg, script/ai3/comportement.lua : but à moins de 24 tuiles de
+  f.hq_pos, qui est la position du coffre pour votre équipe, script/team/player_team.lua). La sonde relève à chaque relevé (60 ticks,
+  dès le tick 60) la position de chaque PNJ ; pour chaque but neuf (même clé que SENS), elle garde la position au relevé PRÉCÉDENT
+  (départ, au plus 60 ticks avant que le but soit posé) et au PREMIER relevé du but (au plus 60 ticks après) ; pour chaque tâche
+  neuve (genre + numéro de trajet), la position à son premier relevé. Case du QG estimée : la même recherche que team.lua pour votre
+  équipe (find_non_colliding_position de « fo-companion » à 3 tuiles au sud du coffre, rayon 20, pas 0,5), faite à l'init. ]]
+local SONDE_HOME = 24 -- M.leg : « home » = but à moins de 24 tuiles du QG (lu dans le code, pas une marge du banc)
+
+-- Cases du QG lues dans le code : Scale.HOME_SLOTS (shared/team/scale.lua), où va l'étape « home » de script/team/worker.lua (home_spot + case).
+-- Les require internes d'un module du mod sont relatifs à la racine du mod de test (scenarios/champ-banc.lua) : ses dépendances (org, config)
+-- sont chargées d'abord sous leur nom. Sous pcall : sans elles, la sonde journalise l'écart seul.
+local function sonde_cases()
+  local ok = pcall(function()
+    package.loaded["shared.team.config"] = package.loaded["shared.team.config"] or require("__factorio-overhaul__/shared/team/config")
+    package.loaded["shared.team.org"] = package.loaded["shared.team.org"] or require("__factorio-overhaul__/shared/team/org")
+  end)
+  if not ok then return nil end
+  local ok2, Scale = pcall(require, "__factorio-overhaul__/shared/team/scale")
+  if ok2 and type(Scale) == "table" and type(Scale.HOME_SLOTS) == "table" then return Scale.HOME_SLOTS end
+  return nil
+end
+local HOME_SLOTS = sonde_cases()
+
+--- Numéro de la case du QG dont le but est EXACTEMENT la position (home_spot + case, mêmes opérations que worker.lua), ou nil.
+local function sonde_case(hs, p)
+  if not (hs and HOME_SLOTS) then return nil end
+  for i, o in ipairs(HOME_SLOTS) do
+    if p.x == hs.x + o[1] and p.y == hs.y + o[2] then return i end
+  end
+  return nil
+end
+
+local function goal_key(a)
+  if not a.final then return nil end
+  return a.id .. ":" .. math.floor(a.final.x) .. ":" .. math.floor(a.final.y)
+end
+
+local function sonde_suivre(st, agents, t)
+  local so = st.sonde
+  for _, a in ipairs(agents) do
+    local here = { x = a.x, y = a.y, t = t }
+    local k = goal_key(a)
+    local g = so.goal[a.id]
+    if k and not (g and g.key == k) then
+      so.goal[a.id] = { key = k, prev = so.last[a.id], first = here }
+    elseif not k then
+      so.goal[a.id] = nil
+    end
+    local tk = a.task and (tostring(a.task) .. ":" .. tostring(a.trip)) or nil
+    local ts = so.task[a.id]
+    if tk and not (ts and ts.key == tk) then
+      so.task[a.id] = { key = tk, at = here }
+    elseif not tk then
+      so.task[a.id] = nil
+    end
+    so.last[a.id] = here
+  end
+end
+
+local function sonde_noter(ctx, tag, st, a, key, df)
+  local so = st.sonde
+  local g = so.goal[a.id]
+  if g and g.key ~= key then g = nil end
+  local ts = so.task[a.id]
+  local dgoal = math.sqrt(df)
+  local dhq = math.sqrt(d2(a.final, st.hq))
+  local home = dhq <= SONDE_HOME
+  local function at(p)
+    if not p then return "inconnu", nil end
+    local dp = math.sqrt(d2(p, st.c))
+    return string.format("releve %d (%.1f, %.1f) a %.1f de la meute, %.1f du coffre", p.t, p.x, p.y, dp, math.sqrt(d2(p, st.hq))), dp
+  end
+  local s_prev, d_prev = at(g and g.prev)
+  local s_first, d_first = at(g and g.first)
+  local s_task, d_task = at(ts and ts.at)
+  local function closer(dp)
+    if not dp then return "?" end
+    return dgoal < dp and "oui" or "non"
+  end
+  local hs = st.home_spot
+  local slot = sonde_case(hs, a.final)
+  local off = hs and string.format("(%+.4f, %+.4f), %.2f tuile(s), %s", a.final.x - hs.x, a.final.y - hs.y, math.sqrt(d2(a.final, hs)),
+    slot and ("case du QG n " .. slot .. " exacte") or (HOME_SLOTS and "aucune case du QG" or "cases du QG illisibles")) or "?"
+  so.n = so.n + 1
+  if home then so.home = so.home + 1 end
+  if slot then so.slot = so.slot + 1 end
+  if d_prev and dgoal < d_prev then so.closer_prev = so.closer_prev + 1 end
+  if d_first and dgoal < d_first then so.closer_first = so.closer_first + 1 end
+  if d_task and dgoal < d_task then so.closer_task = so.closer_task + 1 end
+  ctx.log(string.format("[FO-%s] SONDE SENS : PNJ %d tache %s (trajet %s) but (%.2f, %.2f) a %.1f de la meute, %.1f du coffre (but au QG de M.leg, <= %d : %s), "
+      .. "ecart a la case du QG estimee %s ; depart du but : avant %s ; premier %s ; debut de la tache : %s ; "
+      .. "but plus pres de la meute que le PNJ : avant %s, premier %s, debut de tache %s",
+    tag, a.id, tostring(a.task), tostring(a.trip), a.final.x, a.final.y, dgoal, dhq, SONDE_HOME, home and "oui" or "non",
+    off, s_prev, s_first, s_task, closer(d_prev), closer(d_first), closer(d_task)))
 end
 
 local function player_row(ctx)
@@ -113,11 +212,17 @@ return {
     end
     st.r = (pr and pr.vision_distance or 30) + spread -- rayon de la meute de M.sense : vue + étendue du groupe
     st.zone = st.r + 4                                -- D.EXACT_MARGIN : zone jugée par la porte
-    st.free_since, st.streaks, st.toward, st.toward_seen = {}, {}, 0, {}
+    st.free_since, st.streaks, st.toward, st.toward_seen, st.home_back = {}, {}, 0, {}, 0
     st.max_free, st.max_free_id, st.max_free_at = 0, nil, nil
     st.work_ids, st.contact = {}, 0
     ctx.log(string.format("[FO-%s] coffre en (%.1f, %.1f) ; meute prevue en (%.1f, %.1f), rayon %.1f, zone de la porte %.1f (coffre a %d tuiles du centre)",
       TAG, st.hq.x, st.hq.y, st.c.x, st.c.y, st.r, st.zone, DX))
+    -- SONDE SENS : relevés et case du QG estimée (même recherche que script/team/team.lua pour votre équipe).
+    st.sonde = { goal = {}, task = {}, last = {}, n = 0, home = 0, slot = 0, closer_prev = 0, closer_first = 0, closer_task = 0 }
+    local hs = s.find_non_colliding_position("fo-companion", { x = st.hq.x, y = st.hq.y + 3 }, 20, 0.5)
+    st.home_spot = hs and { x = hs.x, y = hs.y } or nil
+    ctx.log(string.format("[FO-%s] SONDE SENS : case du QG estimee %s ; cases du QG lues dans le code (Scale.HOME_SLOTS) : %s", TAG,
+      hs and string.format("(%.4f, %.4f)", hs.x, hs.y) or "introuvable", HOME_SLOTS and tostring(#HOME_SLOTS) or "illisibles"))
   end,
 
   tick = function(ctx, e)
@@ -151,8 +256,10 @@ return {
       st.sur1 = sur_tot(ctx)
       ctx.log(string.format("[FO-%s] fin de l'attaque au tick %d : unites retirees", TAG, t))
     end
-    if t < T_ATT or t % POLL ~= 0 then return end
+    if t % POLL ~= 0 then return end
     local agents = ctx.remote("fo-ia3k", "agents", "player") or {}
+    if st.sonde then sonde_suivre(st, agents, t) end -- SONDE SENS : dès le tick 60 (départs des buts posés avant l'attaque)
+    if t < T_ATT then return end
     for _, a in ipairs(agents) do
       if not a.task then
         if not st.free_since[a.id] then st.free_since[a.id] = t end
@@ -165,15 +272,27 @@ return {
           st.free_since[a.id] = nil
         end
         if t > T_ATT + 600 and t < T_END and not DEFENSE[a.task] then st.work_ids[a.id] = true end
-        -- SENS : but de la tâche (destination de l'itinéraire) dans la zone de la meute ET plus près d'elle que le coffre.
+        -- SENS (décision B du lead, 7/11 ; fo-logs/2026-11-04_DANGER-ACTIF/CRITERES.md) : but de la tâche (destination de l'itinéraire) dans la
+        -- zone de la meute ET plus près d'elle que le PNJ à son départ (relevé qui précède le but, à défaut premier relevé du but : sonde_suivre),
+        -- hors défense du QG ; un but qui est EXACTEMENT une case du QG (étape « home » de script/team/worker.lua) est un retour au QG, pas compté.
         if t < T_END and a.final and not DEFENSE[a.task] then
           local df, dh = d2(a.final, st.c), d2(st.hq, st.c)
-          local key = a.id .. ":" .. math.floor(a.final.x) .. ":" .. math.floor(a.final.y)
-          if df <= st.zone * st.zone and df < dh and not st.toward_seen[key] then
+          local key = goal_key(a)
+          local g = st.sonde.goal[a.id]
+          local dep = g and g.key == key and (g.prev or g.first) or nil
+          if df <= st.zone * st.zone and dep and df < d2(dep, st.c) and not st.toward_seen[key] then
             st.toward_seen[key] = true
-            st.toward = st.toward + 1
-            ctx.log(string.format("[FO-%s] PNJ %d tache %s vers (%.0f, %.0f), a %.0f tuiles de la meute (coffre a %.0f) : vers l'attaque",
-              TAG, a.id, tostring(a.task), a.final.x, a.final.y, math.sqrt(df), math.sqrt(dh)))
+            local slot = sonde_case(st.home_spot, a.final)
+            if slot then
+              st.home_back = st.home_back + 1
+              ctx.log(string.format("[FO-%s] PNJ %d tache %s vers (%.0f, %.0f), a %.0f tuiles de la meute : retour au QG (case %d), non compte",
+                TAG, a.id, tostring(a.task), a.final.x, a.final.y, math.sqrt(df), slot))
+            else
+              st.toward = st.toward + 1
+              ctx.log(string.format("[FO-%s] PNJ %d tache %s vers (%.0f, %.0f), a %.0f tuiles de la meute (depart a %.0f, coffre a %.0f) : vers l'attaque",
+                TAG, a.id, tostring(a.task), a.final.x, a.final.y, math.sqrt(df), math.sqrt(d2(dep, st.c)), math.sqrt(dh)))
+            end
+            sonde_noter(ctx, TAG, st, a, key, df)
           end
         end
       end
@@ -228,8 +347,16 @@ return {
         (da.rest_max or 0) / 60, da.rest_over or 0, da.aside or 0, da.go or 0, table.concat(why, ", ")))
     local lost = ((player_row(ctx) or {}).lost or 0) - (st.lost0 or 0)
     ctx.check(lost == 0, "C2 : aucun PNJ perdu", lost)
-    ctx.check(st.toward == 0, "SENS : aucune tache vers l'attaque (but dans la zone de la meute, plus pres d'elle que le coffre), hors defense du QG",
-      string.format("%d tache(s) vers l'attaque ; %d releve(s) de PNJ a moins de 12 tuiles de la meute", st.toward, st.contact))
+    local so = st.sonde
+    if so then
+      ctx.log(string.format("[FO-%s] SONDE SENS (hors bilan) : %d but(s) dans la zone plus pres de la meute que le depart ; case du QG exacte %d (non comptes) ; au QG de M.leg (<= %d tuiles du coffre) %d ; "
+          .. "but plus pres de la meute que le PNJ : au releve d'avant %d, au premier releve %d, au debut de la tache %d",
+        TAG, so.n, so.slot, SONDE_HOME, so.home, so.closer_prev, so.closer_first, so.closer_task))
+    end
+    ctx.check(HOME_SLOTS ~= nil and st.home_spot ~= nil and st.toward == 0 and st.contact == 0,
+      "SENS : aucune tache vers l'attaque (but dans la zone de la meute, plus pres d'elle que le PNJ a son depart, hors defense et retour au QG) et aucun PNJ a moins de 12 tuiles de la meute",
+      string.format("%d tache(s) vers l'attaque ; %d retour(s) au QG non compte(s) ; %d releve(s) de PNJ a moins de 12 tuiles de la meute%s", st.toward,
+        st.home_back, st.contact, (HOME_SLOTS and st.home_spot) and "" or " ; cases du QG illisibles : SENS non jugeable"))
     ctx.check(#sorted_keys(st.work_ids) > 0, "TRAV : du travail hors defense pendant l'attaque", #sorted_keys(st.work_ids) .. " PNJ")
   end,
 }
