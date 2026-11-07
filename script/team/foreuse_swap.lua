@@ -216,7 +216,7 @@ end
 --- deux tranches, d'autres modules réécrivent la liste (migration_champ.lua retire : listes refaites ; adopte.lua : table.remove) ; écrire à
 --- l'index du relevé écrasait une AUTRE foreuse, ou laissait un trou que ipairs (compact) arrête. nil si `e` n'y est plus.
 local function slot_of(list, e)
-  for i, x in ipairs(list or {}) do if x == e then return i end end
+  for i, x in ipairs(list or {}) do if x.valid and x == e then return i end end -- (revue-0657 : cases mortes sautees)
   return nil
 end
 
