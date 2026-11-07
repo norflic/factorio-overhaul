@@ -78,9 +78,15 @@ function Cc.rects(bands, size, reach, pitch)
     end
     if lo then R[#R + 1] = { u0 = lo, u1 = hi, v0 = bd.pr, v1 = bd.pr + pitch, pr = bd.pr } end
   end
+  -- (coût, 7/11) rectangles rangés par rangée v (deux au plus par rangée : les bandes voisines partagent leur rangée de poteaux) : même
+  -- réponse que le parcours de tous les rectangles, sans lui (l'A* du tracé et les poteaux de liaison relisent chaque tuile)
+  local byv, none = {}, {}
+  for _, r in ipairs(R) do
+    for v = r.v0, r.v1 do byv[v] = byv[v] or {}; byv[v][#byv[v] + 1] = r end
+  end
   -- own = { pr, side, exit } : la bande du groupe tracé, libre au-delà de sa sortie (foreuses du bout retirées par Cc.trim, jamais posées)
   return function(u, v, own)
-    for _, r in ipairs(R) do
+    for _, r in ipairs(byv[v] or none) do
       if u >= r.u0 and u <= r.u1 and v >= r.v0 and v <= r.v1 then
         local mine = own and r.pr == own.pr and ((own.side > 0 and u >= own.exit) or (own.side < 0 and u <= own.exit))
         if not mine then return true end
@@ -136,59 +142,107 @@ end
 --- ug (portée des souterrains ou nil), span(u, v), own = { pr, side, exit } (la bande du groupe : libre au-delà de sa sortie), beyond (u ou
 --- nil : la fonderie commence au-delà, plan refait par plan_pushed) }. Rend { list, len, info, row, s_edge, route = { { u, v, d, kind, ug } } }
 --- ou nil, raison.
+--- (coût, 7/11, voie des TRANCHES) REPRENABLE : Cc.place_new(a) garde les DONNÉES de `a` (sans ses fonctions), Cc.place_run(st, fns, J)
+--- avance (balayage des places, puis un tracé A* reprenable par place retenue) tant que J.left > 0 et rend vrai à la fin : st.res ou
+--- st.why. fns = { free, is_ore, forbid, span }, redonnées à chaque appel. Cc.place_routed : la boucle jusqu'au bout.
+Cc.SCAN_UNITS = 1 -- unités par place balayée (et une par Cc.CFG.scan_tiles tuiles relues)
+Cc.CFG.scan_tiles = 40
+function Cc.place_new(a)
+  return { spec = a.spec, colonne = a.colonne, mode = a.mode, b = a.b, side = a.side, edge = a.edge, exit = a.exit, count = a.count,
+    gap = a.gap, pitch = a.pitch, used_rows = a.used_rows, ug = a.ug, own = a.own, beyond = a.beyond, stage = 1 }
+end
+
 function Cc.place_routed(a)
-  local spec = a.spec
-  local fits = {}
-  -- (coût, 7/11) emprise de la fonderie calculée UNE fois, à l'origine (rangée 0, premier bord 0) : Co.layout et Fd.layout ne dépendent de
-  -- la place que par translation (u = s_edge + side × colonne, v = rangée + décalage ; égalité contrôlée par tests/champ_couverture_test.lua).
-  -- Chaque candidat relit ces tuiles décalées et s'arrête à la première prise ; seule une place retenue refait la vraie disposition. Mesuré
-  -- avant : jusqu'à 4 606 dispositions par plan (r30, eau aux bouts, ouverture de 5 : 1,1 s sur 2,1 s).
-  local btiles = select(4, layout(spec, a.colonne, 0, a.side, 0, a.count, a.mode))
-  for pass = 1, 2 do
-    if #fits == 0 and btiles then
-      local per_row = {}
-      for _, c in ipairs(Cc.candidates(a.b, a.side, a.edge, a.gap, a.pitch, a.used_rows)) do
-        if #fits >= Cc.CFG.tries then break end
-        -- a.beyond (plan refait, dérivation du charbon coupée en u = a.beyond) : la fonderie commence au-delà de cette tuile
-        local far_enough = not a.beyond or (a.side > 0 and c.s_edge > a.beyond) or (a.side < 0 and c.s_edge < a.beyond)
-        -- au plus CFG.per_row emplacements par rangée : les essais du tracé couvrent plusieurs rangées (derrière un lac, toutes les places
-        -- les moins chères d'une même rangée échouent ensemble)
-        if far_enough and (per_row[c.row] or 0) < Cc.CFG.per_row then
-          -- l'entrée de la fonderie (une tuile avant son premier bord) et son emprise, libres (passe 1 : hors du minerai)
-          local entry = { u = c.s_edge - a.side, v = c.row }
-          local ok = a.free(entry.u, entry.v) and not a.forbid(entry.u, entry.v)
-          -- (Cc.CFG.fast_layout = false : la disposition refaite à chaque candidat, comme avant ; le test compare les deux plans)
-          local tl, su, sv = btiles, c.s_edge, c.row
-          if not Cc.CFG.fast_layout then tl, su, sv = select(4, layout(spec, a.colonne, c.row, a.side, c.s_edge, a.count, a.mode)), 0, 0 end
-          if ok then
-            for _, t in ipairs(tl) do
-              local u, v = t[1] + su, t[2] + sv
-              if not a.free(u, v) or a.forbid(u, v) or (pass == 1 and a.is_ore(u, v)) then ok = false break end
+  local st = Cc.place_new(a)
+  Cc.place_run(st, { free = a.free, is_ore = a.is_ore, forbid = a.forbid, span = a.span }, nil)
+  if st.res then return st.res end
+  return nil, st.why
+end
+
+function Cc.place_run(st, fns, J)
+  local a, spec = st, st.spec
+  local free, is_ore, forbid, span = fns.free, fns.is_ore, fns.forbid, fns.span
+  local function spend(n) if J then J.left = J.left - n end end
+  local function paused() return J ~= nil and J.left <= 0 end
+  if st.stage == 1 then
+    -- (coût, 7/11) emprise de la fonderie calculée UNE fois, à l'origine (rangée 0, premier bord 0) : Co.layout et Fd.layout ne dépendent
+    -- de la place que par translation (u = s_edge + side × colonne, v = rangée + décalage ; égalité contrôlée par
+    -- tests/champ_couverture_test.lua). Chaque candidat relit ces tuiles décalées et s'arrête à la première prise ; seule une place
+    -- retenue refait la vraie disposition. Mesuré avant : jusqu'à 4 606 dispositions par plan (r30, eau aux bouts, ouverture de 5 : 1,1 s
+    -- sur 2,1 s).
+    st.btiles = select(4, layout(spec, a.colonne, 0, a.side, 0, a.count, a.mode))
+    st.cands = Cc.candidates(a.b, a.side, a.edge, a.gap, a.pitch, a.used_rows)
+    st.fits, st.pass, st.ci, st.per_row = {}, 1, 1, {}
+    st.stage = 2
+  end
+  if st.stage == 2 then
+    local fits, btiles = st.fits, st.btiles
+    while st.pass <= 2 do
+      -- la passe s'ouvre sur l'état de SON début (sans place retenue) : gardé, une reprise en cours de passe ne la referme pas
+      if st.active == nil then st.active = (#fits == 0 and btiles ~= nil) end
+      if st.active then
+        local per_row = st.per_row
+        while st.ci <= #st.cands and #fits < Cc.CFG.tries do
+          if paused() then return false end
+          local c = st.cands[st.ci]
+          local pass = st.pass
+          local n_tiles = 0
+          -- a.beyond (plan refait, dérivation du charbon coupée en u = a.beyond) : la fonderie commence au-delà de cette tuile
+          local far_enough = not a.beyond or (a.side > 0 and c.s_edge > a.beyond) or (a.side < 0 and c.s_edge < a.beyond)
+          -- au plus CFG.per_row emplacements par rangée : les essais du tracé couvrent plusieurs rangées (derrière un lac, toutes les places
+          -- les moins chères d'une même rangée échouent ensemble)
+          if far_enough and (per_row[c.row] or 0) < Cc.CFG.per_row then
+            -- l'entrée de la fonderie (une tuile avant son premier bord) et son emprise, libres (passe 1 : hors du minerai)
+            local entry = { u = c.s_edge - a.side, v = c.row }
+            local ok = free(entry.u, entry.v) and not forbid(entry.u, entry.v)
+            -- (Cc.CFG.fast_layout = false : la disposition refaite à chaque candidat, comme avant ; le test compare les deux plans)
+            local tl, su, sv = btiles, c.s_edge, c.row
+            if not Cc.CFG.fast_layout then tl, su, sv = select(4, layout(spec, a.colonne, c.row, a.side, c.s_edge, a.count, a.mode)), 0, 0 end
+            if ok then
+              for _, t in ipairs(tl) do
+                local u, v = t[1] + su, t[2] + sv
+                n_tiles = n_tiles + 1
+                if not free(u, v) or forbid(u, v) or (pass == 1 and is_ore(u, v)) then ok = false break end
+              end
+            end
+            if ok then
+              local list, len, info, tiles = layout(spec, a.colonne, c.row, a.side, c.s_edge, a.count, a.mode)
+              fits[#fits + 1] = { c = c, list = list, len = len, info = info, tiles = tiles, entry = entry }
+              per_row[c.row] = (per_row[c.row] or 0) + 1
             end
           end
-          if ok then
-            local list, len, info, tiles = layout(spec, a.colonne, c.row, a.side, c.s_edge, a.count, a.mode)
-            fits[#fits + 1] = { c = c, list = list, len = len, info = info, tiles = tiles, entry = entry }
-            per_row[c.row] = (per_row[c.row] or 0) + 1
-          end
+          st.ci = st.ci + 1
+          spend(Cc.SCAN_UNITS + math.floor(n_tiles / Cc.CFG.scan_tiles))
         end
       end
+      st.pass, st.ci, st.per_row, st.active = st.pass + 1, 1, {}, nil
     end
+    st.cands, st.btiles = nil, nil
+    if #fits == 0 then st.why, st.stage = "aucune place pour la fonderie", 9 return true end
+    st.why = "trace vers la fonderie : aucun chemin"
+    st.fi, st.stage = 1, 3
   end
-  if #fits == 0 then return nil, "aucune place pour la fonderie" end
   local D = (a.side > 0) and 2 or 4 -- index de Co.D4 : le tapis avance le long de u, dans le sens du groupe
-  local why = "trace vers la fonderie : aucun chemin"
-  for _, ft in ipairs(fits) do
-    local foot = {}
-    for _, t in ipairs(ft.tiles) do foot[Co.tk(t[1], t[2])] = true end
+  while st.stage == 3 and st.fi <= #st.fits do
+    local ft = st.fits[st.fi]
+    if not ft.foot then
+      ft.foot = {}
+      for _, t in ipairs(ft.tiles) do ft.foot[Co.tk(t[1], t[2])] = true end
+    end
+    local foot = ft.foot
     local function rfree(u, v)
       if foot[Co.tk(u, v)] then return false end
-      return a.free(u, v) and not a.forbid(u, v, a.own)
+      return free(u, v) and not forbid(u, v, a.own)
     end
-    local s = { u = a.exit, v = a.b }
-    local box = { u0 = math.min(s.u, ft.entry.u) - Cc.CFG.margin, u1 = math.max(s.u, ft.entry.u) + Cc.CFG.margin,
-      v0 = math.min(s.v, ft.entry.v) - Cc.CFG.margin, v1 = math.max(s.v, ft.entry.v) + Cc.CFG.margin }
-    local route, w = Co.route(s, D, ft.entry, D, rfree, a.span, a.ug, box, Cc.CFG.cap, nil)
+    if not ft.rt then
+      local s = { u = a.exit, v = a.b }
+      local box = { u0 = math.min(s.u, ft.entry.u) - Cc.CFG.margin, u1 = math.max(s.u, ft.entry.u) + Cc.CFG.margin,
+        v0 = math.min(s.v, ft.entry.v) - Cc.CFG.margin, v1 = math.max(s.v, ft.entry.v) + Cc.CFG.margin }
+      ft.rt = Co.route_new(s, D, ft.entry, D, a.ug, box, Cc.CFG.cap)
+    end
+    if not Co.route_run(ft.rt, rfree, span, nil, J) then return false end
+    local route, w = ft.rt.out, ft.rt.why
+    ft.rt = nil
     -- l'A* suit des états (tuile, sens) : un tracé peut repasser sur une tuile qu'il occupe déjà (entrée de souterrain sur son propre
     -- tapis, mesuré sur le disque entre deux lacs) ; un tel tracé est refusé
     if route then
@@ -207,14 +261,20 @@ function Cc.place_routed(a)
       -- lac, un couloir d'une tuile n'a donc aucune place : mesuré, 17 tuiles du tracé sans voisine libre sur le disque entre deux lacs,
       -- et les rangées de poteaux sont à 8 tuiles pour un fil de 7,5 ; le groupe n'est pas posé)
       poles = Cc.link_poles(route, ft.list, function(u, v) return not on_route[Co.tk(u, v)] and rfree(u, v) end, spec.pole.wire)
+      spend(#route)
       if not poles then route, w = nil, "pas de poteaux le long du trace" end
     end
+    ft.foot = nil
     if route then
-      return { list = ft.list, len = ft.len, info = ft.info, row = ft.c.row, s_edge = ft.c.s_edge, route = route, tiles = ft.tiles, poles = poles }
+      st.res = { list = ft.list, len = ft.len, info = ft.info, row = ft.c.row, s_edge = ft.c.s_edge, route = route, tiles = ft.tiles, poles = poles }
+      st.why, st.stage, st.fits = nil, 9, nil
+      return true
     end
-    why = "trace vers la fonderie : " .. tostring(w)
+    st.why = "trace vers la fonderie : " .. tostring(w)
+    st.fi = st.fi + 1
   end
-  return nil, why
+  st.stage, st.fits = 9, nil
+  return true
 end
 
 --- Poteaux de LIAISON le long d'un tapis tracé (lot CHAMP-COUVERTURE) : la fonderie déplacée est reliée au réseau de SA bande par ses
@@ -236,8 +296,12 @@ function Cc.link_poles(route, list, free, wire)
     return false
   end
   local taken = {}
+  -- (coût, 7/11) une tuile du tracé à plus de fil + 2 du poteau précédent n'a aucun voisin (écart de 2 au plus) à portée : écartée sans
+  -- relire la place (même réponse ; la recherche du plus loin relisait tout le tracé à chaque poteau)
+  local far2 = (wire + 2) * (wire + 2) + 1e-6
   local function spot(i, prev)
     local t = route[i]
+    if prev and (t.u - prev[1]) ^ 2 + (t.v - prev[2]) ^ 2 > far2 then return nil end
     for _, o in ipairs(NEAR) do
       local u, v = t.u + o[1], t.v + o[2]
       if not taken[Co.tk(u, v)] and free(u, v) and (not prev or (u - prev[1]) ^ 2 + (v - prev[2]) ^ 2 <= w2) then return { u, v } end
