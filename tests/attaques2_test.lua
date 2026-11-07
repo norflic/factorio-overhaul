@@ -347,6 +347,112 @@ local function controles(A, bavard)
   check(A.encore_chaud(A.PREFIX .. "lave") and A.encore_chaud(A.PREFIX .. "verre-chaud") and not A.encore_chaud("nuclear-ground")
     and not A.encore_chaud(A.PREFIX .. "verre") and A.REPRISE > 0, "§13 une tuile échue encore chaude reprend une attente (rien n'est perdu)")
 
+  -- §14 tuiles en LISTES DE NOMBRES (v8, accord du lead du 7/11 : moins d'allocations, donc moins de ramasse-miettes) : les plans sont
+  -- IDENTIQUES à ceux de la v8 (copie mot pour mot ci-dessous, clés texte), mêmes tuiles dans le même ordre, sur 300 tirages ; l'ajout
+  -- après un indice n ne touche pas ce qui précède ; le voisinage dans une liste réutilisée rend la même liste ; les clés numériques des
+  -- cases ne se confondent jamais sur la carte (±10^6 tuiles).
+  local function zenith_v8(c, pas, u1, u2, pinceau)
+    local x1, y1 = A.point_zenith(c, pas, u1)
+    local x2, y2 = A.point_zenith(c, pas, u2)
+    local L = math.sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
+    local m = math.max(1, math.ceil(L / 0.75))
+    local vu, out = {}, {}
+    local lim = math.ceil(pinceau)
+    for i = 0, m do
+      local x, y = A.point_zenith(c, pas, u1 + (u2 - u1) * i / m)
+      local tx, ty = math.floor(x), math.floor(y)
+      for oy = -lim, lim do
+        for ox = -lim, lim do
+          local qx, qy = tx + ox, ty + oy
+          local ex, ey = qx + 0.5 - x, qy + 0.5 - y
+          if ex * ex + ey * ey <= pinceau * pinceau then
+            local k = qx .. ":" .. qy
+            if not vu[k] then vu[k] = true; out[#out + 1] = { x = qx, y = qy } end
+          end
+        end
+      end
+    end
+    return out
+  end
+  local function lave_v8(c, bords, f0, f1)
+    local rmax = 0
+    for _, r in ipairs(bords) do if r > rmax then rmax = r end end
+    local lim = math.ceil(rmax * f1) + 1
+    local cx, cy = math.floor(c.x), math.floor(c.y)
+    local out = {}
+    for y = cy - lim, cy + lim do
+      for x = cx - lim, cx + lim do
+        local f = A.f_lave(c, bords, x + 0.5, y + 0.5)
+        if f > f0 and f <= f1 then out[#out + 1] = { x = x, y = y } end
+      end
+    end
+    return out
+  end
+  local graine = 12345
+  local function tirage() graine = (graine * 1103515245 + 12345) % 2147483648; return graine / 2147483648 end
+  local function pareil(ref, xs, ys, n0, n)
+    if n - n0 ~= #ref then return false end
+    for i, q in ipairs(ref) do if xs[n0 + i] ~= q.x or ys[n0 + i] ~= q.y then return false end end
+    for i = 1, n0 do if xs[i] ~= -i or ys[i] ~= i then return false end end
+    return true
+  end
+  local function liste_pareille(a, b)
+    if #a ~= #b then return false end
+    for i = 1, #a do if a[i].x ~= b[i].x or a[i].y ~= b[i].y then return false end end
+    return true
+  end
+  local zid, lid, nz, nl = true, true, 0, 0
+  for essai = 1, 300 do
+    local loin = (essai % 3 == 0) and 500000 or 0
+    local c = { x = (tirage() - 0.5) * 200 + loin, y = (tirage() - 0.5) * 200 - loin }
+    local pas, pinceau = 8 + math.floor(tirage() * 16), 0.8 + tirage() * 3
+    local U = 2 + tirage() * 6
+    local u1 = U * tirage()
+    local u2 = u1 - tirage() * 0.4
+    if u2 < 0 then u2 = 0 end
+    local ref = zenith_v8(c, pas, u1, u2, pinceau)
+    local xs, ys, n0 = {}, {}, essai % 4
+    for i = 1, n0 do xs[i], ys[i] = -i, i end
+    local n = A.tuiles_zenith(c, pas, u1, u2, pinceau, xs, ys, n0)
+    if not (pareil(ref, xs, ys, n0, n) and liste_pareille(ref, A.tuiles_zenith(c, pas, u1, u2, pinceau))) then zid = false end
+    nz = nz + #ref
+    if essai <= 60 then
+      local bords = {}
+      for k = 1, 16 do bords[k] = 4 + tirage() * 12 end
+      local f1 = 0.2 + tirage() * 0.8
+      local f0 = (essai % 5 == 0) and -1 or f1 - 0.1 - tirage() * 0.2
+      local refl = lave_v8(c, bords, f0, f1)
+      local xl, yl, m0 = {}, {}, essai % 3
+      for i = 1, m0 do xl[i], yl[i] = -i, i end
+      local nl2 = A.tuiles_lave(c, bords, f0, f1, xl, yl, m0)
+      if not (pareil(refl, xl, yl, m0, nl2) and liste_pareille(refl, A.tuiles_lave(c, bords, f0, f1))) then lid = false end
+      nl = nl + #refl
+    end
+  end
+  check(zid and nz > 1000, "§14 verre : les MÊMES tuiles dans le même ordre que la v8, en listes de nombres comme en liste de tables (300 tirages)",
+    string.format("%d tuiles", nz))
+  check(lid and nl > 1000, "§14 lave : les MÊMES tuiles dans le même ordre que la v8 (60 tirages)", string.format("%d tuiles", nl))
+  local tampon = {}
+  local vok = true
+  for t = 1, 20 do
+    local px, py = cands[t].x + 3, cands[t].y - 2
+    local libre = A.voisinage(g, px, py, 10 + (t % 3) * 6, 8)
+    local l2, n2 = A.voisinage(g, px, py, 10 + (t % 3) * 6, 8, tampon)
+    local vu = 0
+    for i, v in ipairs(l2) do vu = i; if v ~= libre[i] then vok = false end end
+    if l2 ~= tampon or n2 ~= #libre or vu ~= #libre then vok = false end
+  end
+  check(vok, "§14 voisinage dans une liste réutilisée : la même liste, sans reste d'un appel plus long (ipairs s'arrête à n)")
+  local pts = { { 0, 0 }, { 1, 0 }, { 0, 1 }, { -1, 0 }, { 0, -1 }, { 1024, 0 }, { 0, 1024 }, { 0, 1048576 }, { 524288, -1048576 },
+    { -1000000, 1000000 }, { 1000000, -1000000 }, { 1000000, 1000000 }, { -1000000, -1000000 }, { 1, -1 }, { -1, 1 }, { 2, -2097151 } }
+  local cles, cok = {}, true
+  for _, p in ipairs(pts) do
+    local k = A.cle(p[1], p[2])
+    if cles[k] or k ~= math.floor(k) then cok = false end
+    cles[k] = true
+  end
+  check(cok, "§14 clés numériques des cases : distinctes et entières sur toute la carte (±10^6)")
+
   return ok, ko
 end
 
@@ -392,7 +498,11 @@ local MUTANTS = {
   { "anneaux qui se recouvrent", "if f > f0 and f <= f1 then", "if f >= f0 - 0.01 and f <= f1 then" },
   { "chute inversée", "return coup * (1 - (1 - bord) * f)", "return coup * (1 - (1 + bord) * f)" },
   { "voisinage trop court", "local x0, x1 = math.floor((x - r) / cell), math.floor((x + r) / cell)", "local x0, x1 = math.floor(x / cell), math.floor(x / cell)" },
-  { "pinceau oublié", "if ex * ex + ey * ey <= pinceau * pinceau then", "if ex * ex + ey * ey <= 4 * pinceau * pinceau then" },
+  { "pinceau oublié", "local p2 = pinceau * pinceau", "local p2 = 4 * pinceau * pinceau" },
+  { "clé de case trop courte", "local K22 = 4194304", "local K22 = 1024" },
+  { "voisinage sans fin de liste", "  out[n + 1] = nil\n  return out, n", "  return out, n" },
+  { "verre qui écrase la file", "  local out = (not xs) and {} or nil\n  n = n or 0\n  local lim = math.ceil(pinceau)",
+    "  local out = (not xs) and {} or nil\n  n = 0\n  local lim = math.ceil(pinceau)" },
   { "zone fausse", "return 15 * (math.floor(age) - 9)", "return 15 * (math.floor(age) - 10)" },
   { "proximité sans borne", "if k ~= i and (o.x - c.x) * (o.x - c.x) + (o.y - c.y) * (o.y - c.y) <= r * r then", "if k ~= i then" },
   { "débris toujours", "if u >= part then return nil end", "if u >= 1 then return nil end" },

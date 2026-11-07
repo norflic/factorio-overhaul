@@ -235,7 +235,11 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Grille de proximité (Trombe) : les candidats rangés par case de `cell` tuiles, lus par clé calculée (jamais parcourue)
 ---------------------------------------------------------------------------------------------------
-local function cle(cx, cy) return cx .. ":" .. cy end
+-- Clé NUMÉRIQUE d'une case (ou d'une tuile) : unique pour |cy| < 2^21 (la carte fait ±10^6 tuiles au plus), exacte en double (< 2^53).
+-- Une clé texte allouait une chaîne par lecture (grande attaque v8, mesure du 7/11 : le ramasse-miettes payé dans le pas du Tournesol).
+local K22 = 4194304
+local function cle(cx, cy) return cx * K22 + cy end
+A.cle = cle
 
 function A.grille(cands, cell)
   local g = {}
@@ -257,17 +261,20 @@ function A.grille_ajoute(g, i, c, cell)
   l[#l + 1] = i
 end
 
-function A.voisinage(g, x, y, r, cell)
-  local out = {}
+--- `out` (facultatif) : liste RÉUTILISÉE par l'appelant, remplie de 1 à n et fermée par out[n + 1] = nil (ipairs s'y arrête) ; rend aussi n.
+function A.voisinage(g, x, y, r, cell, out)
+  out = out or {}
+  local n = 0
   local x0, x1 = math.floor((x - r) / cell), math.floor((x + r) / cell)
   local y0, y1 = math.floor((y - r) / cell), math.floor((y + r) / cell)
   for cy = y0, y1 do
     for cx = x0, x1 do
       local l = g[cle(cx, cy)]
-      if l then for _, i in ipairs(l) do out[#out + 1] = i end end
+      if l then for _, i in ipairs(l) do n = n + 1; out[n] = i end end
     end
   end
-  return out
+  out[n + 1] = nil
+  return out, n
 end
 
 --- Les éclairs de l'orage : `n` indices dans 1..m (m candidats triés), tirés à la graine ; une même cible peut être frappée deux fois.
@@ -412,19 +419,25 @@ function A.f_lave(c, bords, x, y)
 end
 
 --- Tuiles (coins entiers x, y : centre en x + 0,5) dont la distance relative est dans ]f0, f1] ; parcours ligne par ligne (ordre fixe).
-function A.tuiles_lave(c, bords, f0, f1)
+--- Sans `xs` : une liste { { x, y } }. Avec `xs`, `ys`, `n` : les tuiles AJOUTÉES aux listes de nombres xs, ys après l'indice n, et le
+--- nouveau n (aucune table par tuile : moins de mémoire allouée, donc moins de ramasse-miettes ; même tuiles, même ordre).
+function A.tuiles_lave(c, bords, f0, f1, xs, ys, n)
   local rmax = 0
   for _, r in ipairs(bords) do if r > rmax then rmax = r end end
   local lim = math.ceil(rmax * f1) + 1
   local cx, cy = math.floor(c.x), math.floor(c.y)
-  local out = {}
+  local out = (not xs) and {} or nil
+  n = n or 0
   for y = cy - lim, cy + lim do
     for x = cx - lim, cx + lim do
       local f = A.f_lave(c, bords, x + 0.5, y + 0.5)
-      if f > f0 and f <= f1 then out[#out + 1] = { x = x, y = y } end
+      if f > f0 and f <= f1 then
+        n = n + 1
+        if out then out[n] = { x = x, y = y } else xs[n], ys[n] = x, y end
+      end
     end
   end
-  return out
+  return out or n
 end
 
 --- Tick relatif où la fonte atteint la distance relative f (le front avance de `fonte` tuiles par tick sur un rayon moyen rl).
@@ -479,13 +492,18 @@ function A.passage_zenith(p, c, pas, U, T)
 end
 
 --- Tuiles du verre entre u1 et u2 (u2 < u1) : échantillons tous les 0,75 tuile, disque de rayon `pinceau` ; sans doublon dans l'appel.
-function A.tuiles_zenith(c, pas, u1, u2, pinceau)
+--- Sans `xs` : une liste { { x, y } } ; avec `xs`, `ys`, `n` : ajoutées aux listes de nombres après l'indice n, rend le nouveau n (voir
+--- A.tuiles_lave). Doublons repérés par clé numérique (A.cle), jamais par une chaîne.
+function A.tuiles_zenith(c, pas, u1, u2, pinceau, xs, ys, n)
   local x1, y1 = A.point_zenith(c, pas, u1)
   local x2, y2 = A.point_zenith(c, pas, u2)
   local L = math.sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
   local m = math.max(1, math.ceil(L / 0.75))
-  local vu, out = {}, {}
+  local vu = {}
+  local out = (not xs) and {} or nil
+  n = n or 0
   local lim = math.ceil(pinceau)
+  local p2 = pinceau * pinceau
   for i = 0, m do
     local x, y = A.point_zenith(c, pas, u1 + (u2 - u1) * i / m)
     local tx, ty = math.floor(x), math.floor(y)
@@ -493,14 +511,18 @@ function A.tuiles_zenith(c, pas, u1, u2, pinceau)
       for ox = -lim, lim do
         local qx, qy = tx + ox, ty + oy
         local ex, ey = qx + 0.5 - x, qy + 0.5 - y
-        if ex * ex + ey * ey <= pinceau * pinceau then
-          local k = qx .. ":" .. qy
-          if not vu[k] then vu[k] = true; out[#out + 1] = { x = qx, y = qy } end
+        if ex * ex + ey * ey <= p2 then
+          local k = cle(qx, qy)
+          if not vu[k] then
+            vu[k] = true
+            n = n + 1
+            if out then out[n] = { x = qx, y = qy } else xs[n], ys[n] = qx, qy end
+          end
         end
       end
     end
   end
-  return out
+  return out or n
 end
 
 ---------------------------------------------------------------------------------------------------

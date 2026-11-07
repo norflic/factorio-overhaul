@@ -29,6 +29,20 @@ new_force("player", 1); new_force("enemy", 2); new_force("neutral", 3)
 
 local DEAD = setmetatable({}, { __index = function(_, k) if k == "valid" then return false end return nil end })
 
+-- EMPREINTES (lot DESIGN-ATTAQUES, 7/11 : preuve « plans identiques » avant et après une optimisation) : toutes les tuiles posées (tick, nom,
+-- x, y, dans l'ordre des appels) et tous les coups (tick, cible, dégâts) mélangés en deux nombres ; numéros des noms par 1re apparition.
+local EMP = { tuiles = 0, nt = 0, coups = 0, nc = 0, noms = {}, nn = 0 }
+local function melange(h, v) return (h * 1000003 + v) % 2147483647 end
+local function num_nom(n)
+  local i = EMP.noms[n]
+  if not i then EMP.nn = EMP.nn + 1; i = EMP.nn; EMP.noms[n] = i end
+  return i
+end
+local function emp_coup(e, sorte, v)
+  EMP.coups = melange(melange(melange(melange(EMP.coups, W.tick), e.unit_number), sorte), math.floor(v * 1000 + 0.5))
+  EMP.nc = EMP.nc + 1
+end
+
 local function new_entity(t)
   local e = { name = t.name, type = t.type or t.name, position = { x = t.x, y = t.y }, force = forces[t.force or "neutral"],
     force_index = forces[t.force or "neutral"].index, valid = true,
@@ -38,11 +52,13 @@ local function new_entity(t)
   e.neighbours = { copper = {}, red = {}, green = {} }
   e.die = function()
     C.die = C.die + 1
+    emp_coup(e, 1, 0)
     e.valid = false
     return true
   end
   e.damage = function(amount)
     C.damage = C.damage + 1
+    emp_coup(e, 2, amount)
     local d = math.min(e.health, amount)
     e.health = e.health - amount
     if e.health <= 0 then e.valid = false end
@@ -100,7 +116,12 @@ end
 surface.create_trivial_smoke = function() C.smoke = C.smoke + 1 end
 surface.create_particle = function() C.particle = C.particle + 1 end
 surface.set_tiles = function(t) C.set_tiles = C.set_tiles + 1; C.tiles = C.tiles + #t
-  for _, q in ipairs(t) do W.tiles[(q.position[1] or q.position.x) .. ":" .. (q.position[2] or q.position.y)] = q.name end -- {x, y} ou {x =, y =}
+  for _, q in ipairs(t) do
+    local x, y = q.position[1] or q.position.x, q.position[2] or q.position.y -- {x, y} ou {x =, y =}
+    W.tiles[x .. ":" .. y] = q.name
+    EMP.tuiles = melange(melange(melange(melange(EMP.tuiles, W.tick), num_nom(q.name)), x), y)
+    EMP.nt = EMP.nt + 1
+  end
 end
 local TUILE = {} -- une table par nom de tuile, partagée : le moteur simulé n'alloue rien par lecture (mesure de la mémoire, plus bas)
 local function non() return false end
@@ -212,11 +233,15 @@ end
 
 -- ------------------------------------------------------------------ MESURE d'une grande attaque, tick par tick (demande du lead, 7/11, 20 h 20 :
 -- le tick de script à 10,9 ms du Tournesol au tick +493 du banc att2-perf v7, « en instructions ET en mémoire allouée », F398) :
---   FO_ATT2_MESURE=tournesol [FO_ATT2_RT=493] lua5.2 tests/attaques2_cout_test.lua
--- Instructions du script du MOD comptées par paquets de 100 (debug.sethook), à part celles du moteur simulé (ce fichier) ; par section :
--- plan (A.u_zenith, A.tuiles_zenith, A.point_zenith, A.tuiles_lave), registre (Ech.trace_marquer), voisinage (A.voisinage), effets (rendus
--- de attaques2_effets), autre (le reste du script). Mémoire allouée par tick : collectgarbage("count"), ramasse-miettes ARRÊTÉ (rien n'est
--- libéré pendant la mesure ; le moteur simulé alloue aussi : clés de tuiles, entités créées). Déterministe ; aucun temps mesuré.
+--   FO_ATT2_MESURE=tournesol [FO_ATT2_RT=493] [FO_ATT2_INSTR=1] lua5.2 tests/attaques2_cout_test.lua
+-- DEUX passes séparées (lancer deux fois) :
+--  - sans FO_ATT2_INSTR : MÉMOIRE allouée par tick et par section, exacte : collectgarbage("count"), ramasse-miettes ARRÊTÉ (rien n'est
+--    libéré pendant la mesure ; le moteur simulé alloue aussi : clés de tuiles, entités créées) ; les colonnes d'instructions restent à 0 ;
+--  - FO_ATT2_INSTR=1 : INSTRUCTIONS du script du MOD comptées par paquets de 100 (debug.sethook), à part celles du moteur simulé (ce
+--    fichier). Le crochet alloue lui-même (debug.getinfo rend une table à chaque appel) : la mémoire de cette passe est FAUSSÉE.
+-- Sections : plan (A.u_zenith, A.tuiles_zenith, A.point_zenith, A.tuiles_lave ; un appel intérieur à la même section n'est compté qu'une
+-- fois), registre (Ech.trace_marquer), voisinage (A.voisinage), effets (rendus de attaques2_effets), autre (le reste du script).
+-- Empreintes des tuiles posées et des coups (preuve « plans identiques »). Déterministe ; aucun temps mesuré.
 local MES = os.getenv("FO_ATT2_MESURE")
 if MES then
   local ICI = debug.getinfo(1, "S").source
@@ -232,7 +257,10 @@ if MES then
   local function envelopper(t, k, nom)
     local f = t[k]
     if not f then return end
-    t[k] = function(...) local s0 = SEC; SEC = nom; return sortir(s0, collectgarbage("count"), nom, f(...)) end
+    t[k] = function(...)
+      if SEC == nom then return f(...) end -- appel intérieur à la même section : déjà compté par l'appel extérieur
+      local s0 = SEC; SEC = nom; return sortir(s0, collectgarbage("count"), nom, f(...))
+    end
   end
   local V = require("script.robots.attaques2_effets")
   for _, k in ipairs({ "u_zenith", "tuiles_zenith", "point_zenith", "tuiles_lave" }) do envelopper(A, k, "plan") end
@@ -250,7 +278,10 @@ if MES then
   assert(M.lancer(e, 0.3, 0.2, true), "lancement")
   local job = NS.attaques2.jobs[1]
   local L = {}
-  debug.sethook(crochet, "", PAQ)
+  local INSTR = os.getenv("FO_ATT2_INSTR") == "1"
+  print(INSTR and "[ATT2-MESURE] passe INSTRUCTIONS (crochet allumé : la mémoire de cette passe est faussée)"
+    or "[ATT2-MESURE] passe MÉMOIRE (sans crochet : instructions non comptées)")
+  if INSTR then debug.sethook(crochet, "", PAQ) end
   for _ = 1, 6000 do
     if #NS.attaques2.jobs == 0 then break end
     local i0 = {}
@@ -265,8 +296,21 @@ if MES then
     for k, v in pairs(KO) do r.ka[k] = v - a0[k] end
     L[#L + 1] = r
   end
+  local emp_attaque = string.format("tuiles %d (%d), coups %d (%d)", EMP.tuiles, EMP.nt, EMP.coups, EMP.nc)
+  -- puis le refroidissement (lave, verre) jusqu'au bout : instructions et mémoire en bloc, empreintes
+  local r0, k0r, nr = 0, collectgarbage("count"), 0
+  for _, s in ipairs(SECTIONS) do r0 = r0 + INS[s] end
+  local A2 = NS.attaques2
+  while (#A2.laves > 0 or #A2.verres > 0) and nr < 40000 do run(1); nr = nr + 1 end
+  local r1 = 0
+  for _, s in ipairs(SECTIONS) do r1 = r1 + INS[s] end
+  local ko_r = collectgarbage("count") - k0r
   debug.sethook()
   collectgarbage("restart")
+  print(string.format("[ATT2-MESURE] %s : refroidissement %d ticks (laves %d, verres %d restants) ; instructions du mod %d ; mémoire allouée %.0f Ko",
+    MES, nr, #A2.laves, #A2.verres, r1 - r0, ko_r))
+  print(string.format("[ATT2-MESURE] %s : EMPREINTES fin d'attaque : %s ; après refroidissement : tuiles %d (%d), coups %d (%d)", MES,
+    emp_attaque, EMP.tuiles, EMP.nt, EMP.coups, EMP.nc))
   local function ligne(r)
     return string.format("%+6d %8d %7d %7d %6d %6d %7d | %7d %8.1f %5d %5d", r.rt, r.mod, r.plan, r.registre, r.voisinage, r.effets, r.autre,
       r.banc, r.ko, r.coups, r.tuiles)

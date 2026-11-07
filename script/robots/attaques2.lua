@@ -545,11 +545,19 @@ end
 local EAU = { ["water"] = true, ["deepwater"] = true, ["water-green"] = true, ["deepwater-green"] = true, ["water-shallow"] = true,
   ["water-mud"] = true, ["out-of-map"] = true }
 
---- File de tuiles : au plus A.TUILES vérifiées et posées par tick, et ce que le budget permet (A.POIDS.tuile chacune) (`q` : { surface,
---- ga, autres, file = { { x, y, nom, seule } }, i }).
-local function enfiler(q, liste, nom, seule)
-  q.file = q.file or {}
-  for _, t in ipairs(liste) do q.file[#q.file + 1] = { x = t.x, y = t.y, nom = nom, seule = seule } end
+--- File de tuiles : au plus A.TUILES vérifiées et posées par tick, et ce que le budget permet (A.POIDS.tuile chacune). `q` : { surface, ga,
+--- autres } et la file en LISTES DE NOMBRES ET DE NOMS, sans table par tuile (v8, accord du lead du 7/11 : le ramasse-miettes payé dans le
+--- pas du Tournesol venait des allocations) : qx, qy (coins de tuile), qn (nom posé), qs (seule : ne remplacer que cette tuile, ou false),
+--- qi (tête), qm (dernier indice). Vidée, la file garde ses listes (qi = 1, qm = 0) : les cases au-delà de qm sont réécrites, jamais lues.
+local function file(q)
+  if not q.qx then q.qx, q.qy, q.qn, q.qs, q.qi, q.qm = {}, {}, {}, {}, 1, 0 end
+  return q
+end
+local function file_vide(q) return not q.qm or q.qi > q.qm end
+--- Les tuiles n0 + 1 .. qm (posées par A.tuiles_lave ou A.tuiles_zenith dans qx, qy) reçoivent leur sorte.
+local function sorte(q, n0, nom, seule)
+  local qn, qs, s = q.qn, q.qs, seule or false
+  for k = n0 + 1, q.qm do qn[k] = nom; qs[k] = s end
 end
 
 --- PROFIL (bancs seulement) : chronomètres du tick en cours (voir avancer) ; 4 : tuiles posées, 5 : plan des tuiles (pas d'Ixion et du
@@ -561,54 +569,75 @@ local function ko() local ok, v = pcall(collectgarbage, "count"); return ok and 
 local function chrono(k) if PR then PR[k].restart(); KO[k + 5] = ko() end end
 local function arret(k) if PR then PR[k].stop(); KO[k] = KO[k] + ko() - KO[k + 5] end end
 
+-- Tables RÉUTILISÉES d'un appel à l'autre (hors stockage ; entièrement réécrites avant chaque usage, donc sans effet d'un tick sur l'autre) :
+-- les sortes déjà posées d'un lot, le voisinage d'une tuile, et les tuiles passées à set_tiles (le moteur les lit pendant l'appel et n'en
+-- garde rien).
+local SORTES = {}
+local VOIS = {}
+local POSE, LISTE, LISTE_N = {}, {}, 0
+
 local poser_tuiles
 local function vider_file(q, j)
-  if not q.file or #q.file == 0 then return 0 end
+  if file_vide(q) then return 0 end
   local m = math.min(A.TUILES, math.floor(BUD.reste / P.tuile))
   if m <= 0 then return 0 end
-  q.i = q.i or 1
-  local fin = math.min(#q.file, q.i + m - 1)
-  paie(j, (fin - q.i + 1) * P.tuile)
-  local n = 0
-  local paquets = {}
-  for k = q.i, fin do
-    local t = q.file[k]
-    local cle = t.nom .. "|" .. (t.seule or "")
-    local p = paquets[cle]
-    if not p then p = { nom = t.nom, seule = t.seule, l = {} }; paquets[cle] = p; paquets[#paquets + 1] = p end
-    p.l[#p.l + 1] = t
+  local a = q.qi
+  local fin = math.min(q.qm, a + m - 1)
+  paie(j, (fin - a + 1) * P.tuile)
+  -- un paquet par sorte (nom, seule), dans l'ordre de sa 1re apparition dans le lot, chacun dans l'ordre de la file (une seule sorte par
+  -- file en pratique)
+  local n, ns = 0, 0
+  local qn, qs = q.qn, q.qs
+  for k = a, fin do
+    local nom, seule = qn[k], qs[k]
+    local deja = false
+    for x = 1, ns do if SORTES[2 * x - 1] == nom and SORTES[2 * x] == seule then deja = true end end
+    if not deja then
+      ns = ns + 1
+      SORTES[2 * ns - 1], SORTES[2 * ns] = nom, seule
+      n = n + poser_tuiles(q, k, fin, nom, seule)
+    end
   end
-  for _, p in ipairs(paquets) do n = n + poser_tuiles(q, p.l, p.nom, p.seule) end
-  q.i = fin + 1
-  if q.i > #q.file then q.file, q.i = {}, 1 end
+  q.qi = fin + 1
+  if q.qi > q.qm then q.qi, q.qm = 1, 0 end
   return n
 end
 
---- Pose une tuile sur une liste de tuiles, sans l'eau, sans un sol posé (tuile cachée dessous), sans ce qui touche un bâtiment protégé ;
---- `seule` : ne remplacer que cette tuile-là (refroidissement). Rend le nombre posé.
-poser_tuiles = function(j, liste, nom, seule)
+--- Pose la tuile `nom` sur les tuiles de sorte (nom, seule) de la file de `j`, indices a à b : sans l'eau, sans un sol posé (tuile cachée
+--- dessous), sans ce qui touche un bâtiment protégé ; `seule` : ne remplacer que cette tuile-là (refroidissement). Rend le nombre posé.
+poser_tuiles = function(j, a, b, nom, seule)
   local s = j.surface
-  local t = {}
+  local nt = 0
   -- séquelle d'1 h (QCM-7/11) : le sol d'origine de chaque tuile posée (lave, verre chaud) est noté au registre ; la résorption le rend
   local R, fin = (not seule) and registre(s) or nil, game.tick + A.TRACE
-  for _, q in ipairs(liste) do
-    local tile = s.get_tile(q.x, q.y)
-    local ok = tile.valid and (seule and tile.name == seule or (not seule and not EAU[tile.name] and not tile.hidden_tile))
-    if ok and j.ga and not seule then
-      for _, i in ipairs(A.voisinage(j.ga, q.x + 0.5, q.y + 0.5, 2, 8)) do
-        local o = j.autres[i]
-        if o.e.valid and boite_recouvre(o.bb, q.x, q.y, q.x + 1, q.y + 1) then ok = false end
+  local qx, qy, qn, qs = j.qx, j.qy, j.qn, j.qs
+  for k = a, b do
+    if qn[k] == nom and qs[k] == seule then
+      local x, y = qx[k], qy[k]
+      local tile = s.get_tile(x, y)
+      local ok = tile.valid and (seule and tile.name == seule or (not seule and not EAU[tile.name] and not tile.hidden_tile))
+      if ok and j.ga and not seule then
+        local _, nv = A.voisinage(j.ga, x + 0.5, y + 0.5, 2, 8, VOIS)
+        for v = 1, nv do
+          local o = j.autres[VOIS[v]]
+          if o.e.valid and boite_recouvre(o.bb, x, y, x + 1, y + 1) then ok = false end
+        end
+      end
+      if ok then
+        nt = nt + 1
+        local p = POSE[nt]
+        if p then p.name = nom; p.position.x = x; p.position.y = y else p = { name = nom, position = { x = x, y = y } }; POSE[nt] = p end
+        LISTE[nt] = p
+        if R then A.Ech.trace_marquer(R, x, y, tile.name, fin) end
       end
     end
-    if ok then
-      t[#t + 1] = { name = nom, position = q }
-      if R then A.Ech.trace_marquer(R, q.x, q.y, tile.name, fin) end
-    end
   end
+  for k = nt + 1, LISTE_N do LISTE[k] = nil end
+  LISTE_N = nt
   -- sans retirer les entités : une cible ennemie sous la lave ou le verre meurt par le plan (ses ruines, sa mort comptée), au plus
   -- budget du tick ; jamais retirée sans bruit (F135)
-  if #t > 0 then s.set_tiles(t, true, false, true, false) end
-  return #t
+  if nt > 0 then s.set_tiles(LISTE, true, false, true, false) end
+  return nt
 end
 
 local function pas_ixion(j, r, a, rt)
@@ -621,7 +650,10 @@ local function pas_ixion(j, r, a, rt)
     if a.lance + A.t_fonte(f1, j.rl, a.fonte) > rt then break end
     local f0 = (j.anneau == 0) and -1 or j.anneau / a.anneaux
     chrono(5)
-    enfiler(j, A.tuiles_lave(j.c, j.bords, f0, f1), A.PREFIX .. "lave", nil)
+    file(j)
+    local n0 = j.qm
+    j.qm = A.tuiles_lave(j.c, j.bords, f0, f1, j.qx, j.qy, n0)
+    sorte(j, n0, A.PREFIX .. "lave", nil)
     arret(5)
     j.anneau = j.anneau + 1
     V.anneau(j, f1)
@@ -664,7 +696,10 @@ local function pas_tournesol(j, r, a, rt)
   if rt > a.duree then return end
   chrono(5)
   local u = A.u_zenith(rt, a.duree, j.U)
-  enfiler(j, A.tuiles_zenith(j.c, a.pas, j.u_prec, u, a.pinceau), A.PREFIX .. "verre-chaud", nil)
+  file(j)
+  local n0 = j.qm
+  j.qm = A.tuiles_zenith(j.c, a.pas, j.u_prec, u, a.pinceau, j.qx, j.qy, n0)
+  sorte(j, n0, A.PREFIX .. "verre-chaud", nil)
   arret(5)
   local x, y = A.point_zenith(j.c, a.pas, u)
   V.zenith(j, rt, x, y, j.u_prec, u)
@@ -742,7 +777,7 @@ end
 
 --- Reste-t-il du travail en file (coups, feux, tuiles, poteaux, foudres, arbres) ? Une attaque ne finit qu'une fois tout servi.
 local function en_file(j, rt)
-  if j.file and #j.file > 0 then return true end
+  if j.qm and not file_vide(j) then return true end
   if j.par and j.k <= rt then return true end
   if j.attente and j.kq <= #j.attente then return true end
   if j.qfeux and j.kq <= #j.qfeux then return true end
@@ -859,12 +894,14 @@ local function refroidir(tick)
       while L.n < L.anneaux and tick >= L.debut + L.n * pas do
         local k = L.anneaux - L.n
         local f0 = (k == 1) and -1 or (k - 1) / L.anneaux
-        L.q = L.q or { surface = surf, ops = 0 }
-        enfiler(L.q, A.tuiles_lave(L.c, L.bords, f0, k / L.anneaux), "nuclear-ground", A.PREFIX .. "lave")
+        L.q = file(L.q or { surface = surf, ops = 0 })
+        local n0 = L.q.qm
+        L.q.qm = A.tuiles_lave(L.c, L.bords, f0, k / L.anneaux, L.q.qx, L.q.qy, n0)
+        sorte(L.q, n0, "nuclear-ground", A.PREFIX .. "lave")
         L.n = L.n + 1
         journal("ixion lave : anneau %d en file de refroidissement, tick %d", k, tick)
       end
-      if L.n < L.anneaux or (L.q and #L.q.file > 0) then keep[#keep + 1] = L end
+      if L.n < L.anneaux or (L.q and not file_vide(L.q)) then keep[#keep + 1] = L end
     end
   end
   s.laves = keep
@@ -877,12 +914,14 @@ local function refroidir(tick)
       while G.n < G.tranches and tick >= G.debut + G.n * pas do
         -- tranches qui se recouvrent, pinceau élargi : le tracé échantillonné par tick est couvert (seul le verre chaud est remplacé)
         local u1, u2 = G.U * (1 - G.n / G.tranches), G.U * (1 - (G.n + 1) / G.tranches)
-        G.q = G.q or { surface = surf, ops = 0 }
-        enfiler(G.q, A.tuiles_zenith(G.c, G.pas, math.min(G.U, u1 + 0.03), math.max(0, u2 - 0.03), G.pinceau + 0.6), A.PREFIX .. "verre", A.PREFIX .. "verre-chaud")
+        G.q = file(G.q or { surface = surf, ops = 0 })
+        local n0 = G.q.qm
+        G.q.qm = A.tuiles_zenith(G.c, G.pas, math.min(G.U, u1 + 0.03), math.max(0, u2 - 0.03), G.pinceau + 0.6, G.q.qx, G.q.qy, n0)
+        sorte(G.q, n0, A.PREFIX .. "verre", A.PREFIX .. "verre-chaud")
         G.n = G.n + 1
         journal("tournesol verre : tranche %d en file de refroidissement, tick %d", G.n, tick)
       end
-      if G.n < G.tranches or (G.q and #G.q.file > 0) then keep[#keep + 1] = G end
+      if G.n < G.tranches or (G.q and not file_vide(G.q)) then keep[#keep + 1] = G end
     end
   end
   s.verres = keep
@@ -949,8 +988,8 @@ local function sur_tick(ev)
   if ev.tick % A.RESORPTION == 0 then resorber(ev.tick) end
   if ev.tick % 30 == 0 and (#s.laves > 0 or #s.verres > 0) then refroidir(ev.tick) end
   -- refroidissement par tranches : une seule file servie par tick, avec le reste du budget
-  for _, L in ipairs(s.laves) do if L.q and #L.q.file > 0 then vider_file(L.q); return end end
-  for _, G in ipairs(s.verres) do if G.q and #G.q.file > 0 then vider_file(G.q); return end end
+  for _, L in ipairs(s.laves) do if L.q and not file_vide(L.q) then vider_file(L.q); return end end
+  for _, G in ipairs(s.verres) do if G.q and not file_vide(G.q) then vider_file(G.q); return end end
 end
 
 --- Les géants de cette famille d'une force, vivants, triés par numéro (lecture seule du registre de script/robots/experimentaux_geants.lua).
