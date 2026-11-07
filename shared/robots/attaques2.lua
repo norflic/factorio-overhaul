@@ -47,19 +47,26 @@ A.FACTEUR = 2           -- repli : coup plein par cible = FACTEUR × coup de la 
 -- (150 rangées, 20 coups, 64 tuiles, 10 poteaux par tick) : 2,2 à 4,0 ms au pire tick de la grande attaque. D'où un BUDGET de jetons par
 -- tick, PARTAGÉ par toutes les grandes attaques en cours et les refroidissements, remis à plein à chaque tick ; ce qui dépasse passe au
 -- tick suivant. Les poids sont FIXES (environ des µs, estimés sur cette mesure) : aucune décision sur un temps mesuré (déterminisme).
-A.BUDGET = 500
+-- v7 (mesure seule du 7/11 à 12 h 25, v6) : avec les poids de la v6, 500 jetons valaient 3 à 7 ms de script, pas 0,5 : les poids étaient
+-- 6 à 9 fois trop bas. Une mort déclenche une vingtaine de gestionnaires on_entity_died du mod (ruines, journaux, factions) ; un poteau
+-- grillé recoupe le réseau électrique ; une bande de 32 tuiles de haut rendait 1 300 entités (4 à 5 ms). Poids recalés sur cette mesure,
+-- en µs ; budget de 2 000 (environ 2 ms de script par tick pour toutes les grandes attaques ensemble).
+A.BUDGET = 2000
 A.POIDS = {
-  coup = 80,     -- un coup (damage ou die) : ruines, explosion de mort, gestionnaires on_entity_died du mod (synchrones)
-  feu = 60,      -- un feu au sol et sa brûlure
-  eclat = 20,    -- une explosion, un éclat, un rocher
-  poteau = 120,  -- un poteau qui saute au climax du Cairn (mort, grosse explosion, éclat)
-  rang = 6,      -- une entité rangée pendant la charge (position, force, type, santé)
-  tuile = 8,     -- une tuile vérifiée et posée
-  abattre = 40,  -- un arbre ou un rocher abattu
-  bande = 250,   -- une bande de recherche d'entités (A.BANDE tuiles de haut)
-  vide = 10,     -- un accumulateur, une tourelle laser, un roboport vidés
+  coup = 400,    -- un coup (damage ou die) : ruines, explosion de mort, gestionnaires on_entity_died du mod (synchrones)
+  feu = 150,     -- un feu au sol et sa brûlure
+  eclat = 50,    -- une explosion, un éclat, un rocher
+  poteau = 700,  -- un poteau qui saute au climax du Cairn : mort, réseau électrique recoupé, grosse explosion, éclat
+  rang = 8,      -- une entité rangée pendant la charge (position, type, santé)
+  tuile = 40,    -- une tuile vérifiée, posée et notée au registre des séquelles
+  abattre = 200, -- un arbre ou un rocher abattu
+  bande = 300,   -- une bande de recherche d'entités (A.BANDE_AIRE tuiles², trois recherches : ennemies, arbres et rochers, autres forces)
+  vide = 20,     -- un accumulateur, une tourelle laser, un roboport vidés
 }
-A.BANDE = 32            -- la recherche de la salve, par bandes de 32 tuiles de haut (1,0 à 1,8 ms d'un bloc pour le Tournesol, mesuré)
+A.BANDE_AIRE = 400      -- surface d'une bande de recherche (tuiles²) : environ 0,3 ms (0,7 µs par tuile² sur une base dense, mesuré)
+
+--- Hauteur des bandes de recherche pour une boîte de `largeur` tuiles : A.BANDE_AIRE / largeur, au moins 1.
+function A.hauteur_bande(largeur) return math.max(1, math.floor(A.BANDE_AIRE / math.max(1, largeur))) end
 A.TUILES = 32           -- tuiles posées par tick au plus (le reste du budget pour les coups)
 
 -- SÉQUELLES (QCM-7/11) : 1 h, puis le sol d'origine revient (registre Ech.trace_* de shared/robots/echelle.lua, par surface).

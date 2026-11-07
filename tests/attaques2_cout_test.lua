@@ -17,13 +17,14 @@ local W = { ents = {}, tick = 0, tiles = {}, cliffs = {}, crees = {} }
 local next_un, next_rid = 1, 1
 
 local forces = {}
-local function new_force(name)
-  local f = { name = name, valid = true }
+local function new_force(name, index)
+  local f = { name = name, valid = true, index = index }
+  forces[index] = f -- le jeu indexe aussi les forces par numéro (player 1, enemy 2, neutral 3)
   f.is_enemy = function(o) return (o.name == "enemy" and name == "player") or (o.name == "player" and name == "enemy") end
   forces[name] = f
   return f
 end
-new_force("player"); new_force("enemy"); new_force("neutral")
+new_force("player", 1); new_force("enemy", 2); new_force("neutral", 3)
 
 local DEAD = setmetatable({}, { __index = function(_, k) if k == "valid" then return false end return nil end })
 
@@ -97,7 +98,7 @@ end
 surface.create_trivial_smoke = function() C.smoke = C.smoke + 1 end
 surface.create_particle = function() C.particle = C.particle + 1 end
 surface.set_tiles = function(t) C.set_tiles = C.set_tiles + 1; C.tiles = C.tiles + #t
-  for _, q in ipairs(t) do W.tiles[q.position[1] .. ":" .. q.position[2]] = q.name end
+  for _, q in ipairs(t) do W.tiles[(q.position[1] or q.position.x) .. ":" .. (q.position[2] or q.position.y)] = q.name end -- {x, y} ou {x =, y =}
 end
 surface.get_tile = function(x, y)
   C.get_tile = C.get_tile + 1
@@ -251,7 +252,8 @@ for n, id in ipairs(A.ORDRE) do
     C.damage, C.die, C.create, C.cliff, C.tiles, C.draw, C.set, st.max_ops, pire * 1000, cmax, tmax, st.max_cout or 0, duree)
   print(LIGNES[#LIGNES])
   check(okl, id .. " : lancée")
-  check(st.recherches == 1 and C.find - avant == st.bandes, id .. " : UNE recherche par salve, en bandes de " .. A.BANDE .. " tuiles",
+  check(st.recherches == 1 and C.find - avant >= st.bandes and C.find - avant <= 3 * st.bandes,
+    id .. " : UNE recherche par salve, en bandes de " .. A.BANDE_AIRE .. " tuiles² (3 recherches par bande au plus)",
     string.format("%d bande(s), %d appel(s)", st.bandes or 0, C.find - avant))
   -- le budget du tick : au plus BUDGET / coup coups par tick (le Cairn paie le poteau, plus cher), au plus A.TUILES tuiles par tick,
   -- et les jetons comptés par le script ne dépassent pas le budget (marge : les arbres de la Trombe, payés après coup)

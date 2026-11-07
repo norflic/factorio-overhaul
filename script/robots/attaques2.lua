@@ -85,11 +85,13 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Dégâts
 ---------------------------------------------------------------------------------------------------
---- Frappe une entité ennemie : morte d'office (tue), ou coup × mult × chute(f). Rend vrai si elle est morte.
+--- Frappe une entité ennemie : morte d'office (tue), ou coup × mult × chute(f). Rend vrai si elle est morte. Les cibles sont ennemies PAR
+--- CONSTRUCTION (recherche par forces ennemies, voisins de cuivre filtrés) : ni lecture de leur force ni objet LuaForce par coup (v7 : le
+--- ramasse-miettes Lua montait à 14 ms) ; la force du géant est gardée dans le travail (j.fo).
 local function toucher(j, r, a, ent, f, tue, mult)
   if not (ent and ent.valid and ent.health and ent.destructible) then return false end
-  local force = game.forces[j.force]
-  if not (force and force.is_enemy(ent.force)) then return false end
+  local force = j.fo
+  if not (force and force.valid) then return false end
   local st = stat(j.id)
   local src = j.e.valid and j.e or nil
   st.cibles = st.cibles + 1
@@ -128,44 +130,49 @@ local VIDE = { accumulator = true, ["electric-turret"] = true, roboport = true }
 local PASSAGERS = { corpse = true, ["item-entity"] = true, fire = true, cliff = true, explosion = true, ["entity-ghost"] = true,
   ["tile-ghost"] = true, ["particle-source"] = true, stream = true, beam = true, projectile = true, ["deconstructible-tile-proxy"] = true }
 
---- Range les entités de la bande en cours, tant que le budget le permet (A.POIDS.rang chacune) : ennemies (candidats, planifiées
---- aussitôt), neutres (arbres, rochers), autres (à protéger : jamais de lave ni de verre dessous). Une entité n'est rangée que dans
---- la bande qui contient sa position (A.dans_bande) et, pour une zone ronde, dans le cercle (les bâtiments à protéger : 6 tuiles de plus).
+--- Range les entités d'une liste de la bande en cours, tant que le budget le permet (A.POIDS.rang chacune). `kind` : 1 les forces ennemies
+--- (candidats, planifiés aussitôt), 2 les arbres et rochers (neutres), 3 les autres forces (à protéger : jamais de lave ni de verre
+--- dessous). Une entité n'est rangée que dans la bande qui contient sa position (A.dans_bande) et, pour une zone ronde, dans le cercle (les
+--- bâtiments à protéger : 6 tuiles de plus). La référence est lâchée dès l'entité rangée (le ramasse-miettes la prend au fil de l'eau).
 --- Ordre : celui du moteur (déterministe), sans tri.
 local planifier
-local function ranger(j)
-  local enemy = j.enemy
+local function ranger(j, l, kind)
   local cands, neutres, autres = j.cands, j.neutres, j.autres
-  local found, b = j.found, j.fb
+  local b = j.fb
   local cx, cy, r2, r2a = j.c.x, j.c.y, j.r2, j.r2a
-  while j.fi <= #found and peut(P.rang) do
+  local st = stat(j.id)
+  while j.fi <= #l and peut(P.rang) do
     local i = j.fi
-    local e = found[i]
+    local e = l[i]
+    l[i] = false
     j.fi = i + 1
     paie(j, P.rang)
     ops(j)
+    st.rangees = (st.rangees or 0) + 1
     if e.valid then
       local p = e.position
       local d2 = r2 and ((p.x - cx) ^ 2 + (p.y - cy) ^ 2) or 0
       if A.dans_bande(b, p.x, p.y) and (not r2 or d2 <= r2a) then
         local ty = e.type
-        local c = { x = p.x, y = p.y, id = e.unit_number or (1000000000 + j.nf + i), e = e, type = ty }
         local dedans = not r2 or d2 <= r2
         if PASSAGERS[ty] then
           -- rien : ni cible, ni obstacle
-        elseif dedans and enemy[e.force.name] and e.health and e.destructible then
-          c.mobile = (ty == "unit" or ty == "character")
-          cands[#cands + 1] = c
-          planifier(j, c, #cands)
-          if VIDE[ty] then j.vides[#j.vides + 1] = c end
-        elseif NEUTRES[ty] then
+        elseif kind == 1 then
+          if dedans and e.health and e.destructible then
+            local c = { x = p.x, y = p.y, id = e.unit_number or (1000000000 + j.nf + i), e = e, type = ty, mobile = (ty == "unit" or ty == "character") }
+            cands[#cands + 1] = c
+            planifier(j, c, #cands)
+            if VIDE[ty] then j.vides[#j.vides + 1] = c end
+          end
+        elseif kind == 2 then
           if dedans then
+            local c = { x = p.x, y = p.y, id = e.unit_number or (1000000000 + j.nf + i), e = e }
             neutres[#neutres + 1] = c
             if j.gn then A.grille_ajoute(j.gn, #neutres, c, 8) end
           end
         else
           local bb = e.bounding_box
-          c.bb = { bb.left_top.x - 1, bb.left_top.y - 1, bb.right_bottom.x + 1, bb.right_bottom.y + 1 }
+          local c = { x = p.x, y = p.y, e = e, bb = { bb.left_top.x - 1, bb.left_top.y - 1, bb.right_bottom.x + 1, bb.right_bottom.y + 1 } }
           autres[#autres + 1] = c
           A.grille_ajoute(j.ga, #autres, c, 8)
         end
@@ -198,14 +205,20 @@ planifier = function(j, c, i)
   end
 end
 
---- Au 1er tick de la charge : la géométrie et les bandes de LA recherche de la salve (une zone, découpée en bandes de A.BANDE tuiles
---- de haut) ; recherche, rangement et plan suivent par jetons (preparer_pas), pendant la charge.
+--- Au 1er tick de la charge : la géométrie et les bandes de LA recherche de la salve (une zone, découpée en bandes de A.BANDE_AIRE
+--- tuiles²) ; recherche, rangement et plan suivent par jetons (preparer_pas), pendant la charge.
 local function preparer(j, r, a)
   local e = j.e
   local st = stat(j.id)
   j.forces = K.enemy_forces(e.force)
   j.enemy = {}
   for _, n in ipairs(j.forces) do j.enemy[n] = true end
+  -- les forces à protéger (ni ennemies ni neutre ; la neutre porte le minerai) : par index (table clairsemée, 64 forces au plus)
+  j.amis = {}
+  for i = 1, 64 do
+    local f = game.forces[i]
+    if f and f.name ~= "neutral" and not j.enemy[f.name] then j.amis[#j.amis + 1] = f.name end
+  end
   local c = j.c
   j.cands, j.neutres, j.autres, j.ga, j.par, j.k, j.kk, j.vides = {}, {}, {}, {}, {}, 0, 1, {}
   j.p = { c = c, R = j.R }
@@ -243,30 +256,40 @@ local function preparer(j, r, a)
     x0, y0, x1, y1 = c.x - rr - 6, c.y - rr - 6, c.x + rr + 6, c.y + rr + 6
     j.r2, j.r2a = rr * rr, (rr + 6) * (rr + 6)
   end
-  j.bandes, j.kb, j.nf, j.found, j.fi = A.bandes(x0, y0, x1, y1, A.BANDE), 1, 0, nil, 1
+  j.bandes, j.kb, j.nf, j.lots, j.kl, j.fi = A.bandes(x0, y0, x1, y1, A.hauteur_bande(x1 - x0)), 1, 0, nil, 4, 1
   st.recherches = st.recherches + 1
 end
 
---- Pendant la charge : les bandes de recherche et le rangement, par jetons. Rend vrai quand toute la zone est rangée.
+--- Pendant la charge : les bandes de recherche et le rangement, par jetons. Par bande, TROIS recherches (A.POIDS.bande pour les trois) :
+--- les forces ennemies, les arbres et rochers, les forces à protéger ; ni le minerai ni la force de chaque entité ne sont lus (v7).
+--- Rend vrai quand toute la zone est rangée.
 local function preparer_pas(j)
   while true do
-    if j.found and j.fi <= #j.found then
-      ranger(j)
-      if j.fi <= #j.found then return false end
+    if j.lots and j.kl <= 3 then
+      local l = j.lots[j.kl]
+      if j.fi <= #l then
+        ranger(j, l, j.kl)
+        if j.fi <= #l then return false end
+      else
+        j.nf = j.nf + #l
+        j.lots[j.kl] = {}
+        j.kl, j.fi = j.kl + 1, 1
+      end
     elseif j.kb <= #j.bandes then
       if not peut(P.bande) then return false end
       local b = j.bandes[j.kb]
       j.kb = j.kb + 1
       paie(j, P.bande)
       ops(j)
-      if j.found then j.nf = j.nf + #j.found end
-      -- toutes les forces, sans le minerai : arbres et bâtiments à protéger servent à la lave et au verre
-      j.found = j.surface.find_entities_filtered({ area = { { b.x0, b.y0 }, { b.x1, b.y1 } }, type = { "resource" }, invert = true })
-      j.fb, j.fi = b, 1
+      local s = j.surface
+      local en = #j.forces > 0 and s.find_entities_filtered({ area = { { b.x0, b.y0 }, { b.x1, b.y1 } }, force = j.forces }) or {}
+      local ne = s.find_entities_filtered({ area = { { b.x0, b.y0 }, { b.x1, b.y1 } }, type = { "tree", "simple-entity" } })
+      local am = #j.amis > 0 and s.find_entities_filtered({ area = { { b.x0, b.y0 }, { b.x1, b.y1 } }, force = j.amis }) or {}
+      j.lots, j.kl, j.fb, j.fi = { en, ne, am }, 1, b, 1
       local st = stat(j.id)
       st.bandes = (st.bandes or 0) + 1
     else
-      j.found = nil
+      j.lots = nil
       return true
     end
   end
@@ -319,7 +342,7 @@ function M.plan_cairn(j, r, a)
   for _, c in ipairs(j.cands) do
     if c.e.type == "electric-pole" then poles[#poles + 1] = c elseif not c.mobile then autres[#autres + 1] = c end
   end
-  local force = game.forces[j.force]
+  local force = j.fo
   j.fusee, j.kf = {}, 1
   local depart = Xp.nearest(j.c, poles, nil)
   if depart then
@@ -371,7 +394,6 @@ end
 ---------------------------------------------------------------------------------------------------
 local function pas_cairn(j, r, a, rt)
   local st = stat(j.id)
-  local force = game.forces[j.force]
   while j.fusee[j.kf] and j.fusee[j.kf].t <= rt and peut(2 * P.eclat) do
     local h = j.fusee[j.kf]
     if h.e and h.e.valid then
@@ -412,7 +434,7 @@ local function pas_cairn(j, r, a, rt)
   end
   while j.orage[j.ko] and j.orage[j.ko].t <= rt and peut(2 * P.eclat + P.coup) do
     local b = j.orage[j.ko]
-    if b.e and b.e.valid and force and force.is_enemy(b.e.force) then
+    if b.e and b.e.valid then
       V.foudre(j, b.e.position)
       paie(j, 2 * P.eclat + P.coup)
       ops(j, 2)
@@ -568,7 +590,7 @@ poser_tuiles = function(j, liste, nom, seule)
       end
     end
     if ok then
-      t[#t + 1] = { name = nom, position = { q.x, q.y } }
+      t[#t + 1] = { name = nom, position = q }
       if R then A.Ech.trace_marquer(R, q.x, q.y, tile.name, fin) end
     end
   end
@@ -664,7 +686,7 @@ function M.lancer(e, x, y, ordre)
   if pret and t < pret then return false, "recharge" end
   local a = A.ATTAQUES[r.id]
   local p0 = e.position
-  local j = { id = r.id, un = e.unit_number, e = e, surface = e.surface, force = e.force.name, c = { x = x, y = y }, t0 = t + a.charge,
+  local j = { id = r.id, un = e.unit_number, e = e, surface = e.surface, force = e.force.name, fo = e.force, c = { x = x, y = y }, t0 = t + a.charge,
     graine = (t * 7919 + e.unit_number * 104729) % 2147483646 + 1, R = A.zone(r.age), vis = {}, ops = 0, depart = { x = p0.x, y = p0.y } }
   if r.id == "stylet" then
     -- le rayon part du nez (au sol) ; longueur : la portée de l'unité (Ech.balayage), au moins jusqu'au point visé
@@ -712,7 +734,27 @@ local function en_file(j, rt)
 end
 
 --- Un tick d'une grande attaque ; rend vrai quand elle est finie (ou abandonnée : géant détruit).
+--- PROFIL (bancs seulement, remote fo-att2 « profil ») : trois chronomètres du moteur (LuaProfiler) par tick d'une grande attaque, écrits au
+--- journal avec les comptes du tick, pour savoir OÙ va le temps de script. Rien n'en dépend (lecture seule, déterminisme sauf).
+local PR = nil
+local function chrono(k) if PR then PR[k].restart() end end
+local function arret(k) if PR then PR[k].stop() end end
+
+local avancer_
 local function avancer(j, tick)
+  if not S().profil then return avancer_(j, tick) end
+  PR = { game.create_profiler(true), game.create_profiler(true), game.create_profiler(true) }
+  local st = stat(j.id)
+  local c0, t0, f0, g0, b0 = st.cibles, st.tuiles, st.feux, st.rangees or 0, st.bandes or 0
+  local fini = avancer_(j, tick)
+  log({ "", string.format("[FO-ATT2-PROFIL] tick %d %s rt %d : coups %d, tuiles %d, feux %d, rangees %d, bandes %d, jetons %d ; preparation ",
+    tick, j.id, tick - j.t0, st.cibles - c0, st.tuiles - t0, st.feux - f0, (st.rangees or 0) - g0, (st.bandes or 0) - b0, j.cout or 0),
+    PR[1], " ; pas ", PR[2], " ; coups ", PR[3] })
+  PR = nil
+  return fini
+end
+
+avancer_ = function(j, tick)
   local r = Xp.robot(j.id)
   local a = A.ATTAQUES[j.id]
   local rt = tick - j.t0
@@ -723,21 +765,29 @@ local function avancer(j, tick)
     return true
   end
   if tick % 60 == 0 then M.taire(j.un, tick + 120) end
-  if rt == 0 and not (j.cands and preparer_pas(j)) then
+  chrono(1)
+  local pret = rt == 0 and j.cands and preparer_pas(j)
+  arret(1)
+  if rt == 0 and not pret then
     -- la zone n'est pas toute rangée (budget pris par d'autres attaques) : la frappe attend d'un tick
     j.t0 = j.t0 + 1
     rt = -1
   end
   if rt < 0 then
+    chrono(1)
     if not j.cands then preparer(j, r, a) end
     preparer_pas(j)
+    arret(1)
+    chrono(2)
     V.charge(j, r, a, rt)
     if j.id == "trombe" then
       local u = 1 + rt / a.charge
       u = u * u * (3 - 2 * u)
       deplacer(j, j.depart.x + (j.c.x - j.depart.x) * u, j.depart.y + (j.c.y - j.depart.y) * u)
     end
+    arret(2)
   else
+    chrono(2)
     if rt == 0 then
       frappe(j, r, a)
       V.frappe(j, r, a)
@@ -745,6 +795,8 @@ local function avancer(j, tick)
     end
     -- les effets du pas (tuiles, feux, poteaux), puis les coups des ticks échus avec le reste du budget (A.POIDS.coup chacun)
     PAS[j.id](j, r, a, rt)
+    arret(2)
+    chrono(3)
     if j.par then
       while j.k <= rt do
         local b = j.par[j.k]
@@ -753,13 +805,14 @@ local function avancer(j, tick)
           local it = b[j.kk]
           local c = j.cands[it.i]
           j.kk = j.kk + 1
-          if c then paie(j, P.coup); toucher(j, r, a, c.e, it.f, it.tue) end
+          if c then paie(j, P.coup); toucher(j, r, a, c.e, it.f, it.tue); c.e = nil end
         else
           j.par[j.k] = nil
           j.k, j.kk = j.k + 1, 1
         end
       end
     end
+    arret(3)
   end
   local st = stat(j.id)
   if j.ops > st.max_ops then st.max_ops = j.ops end
@@ -937,6 +990,8 @@ remote.add_interface("fo-att2", {
   en_cours = function() return #S().jobs end,
   laves = function() return #S().laves end,
   verres = function() return #S().verres end,
+  -- BANCS SEULEMENT : chronomètres par tick des grandes attaques au journal ([FO-ATT2-PROFIL])
+  profil = function(v) S().profil = v and true or false end,
   -- BANCS SEULEMENT : avance de `d` ticks l'heure des séquelles (registres, rochers, refroidissements de la lave et du verre), pour prouver
   -- la résorption en moteur réel sans attendre 1 h (att2-controle)
   vieillir = function(d)

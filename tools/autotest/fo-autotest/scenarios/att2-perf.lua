@@ -23,6 +23,7 @@ return {
     local st = ctx.state()
     C.forces()
     remote.call("fo-att2", "journal", true)
+    remote.call("fo-att2", "profil", true) -- chronomètres par tick au journal ([FO-ATT2-PROFIL], att2_perf.py les montre aux pires ticks)
     st.sites = {}
     local s = ctx.surface()
     for k, id in ipairs(IDS) do

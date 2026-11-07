@@ -66,6 +66,23 @@ def main():
         else:
             print("%-18s journal incomplet (frappe %s, fin %s)" % (g + " (grande)", frappe.get(g), fin.get(g)))
         print(ligne(g + " (fenetre)", ticks(a, a + FEN - 1), frappe.get(g, a)))
+    # chronomètres du script aux 4 pires ticks de chaque grande attaque (remote fo-att2 « profil »)
+    wi = header[1:].index("wholeUpdate")
+    gi = header[1:].index("luaGarbageIncremental")
+    pi = header[1:].index("particleUpdate")
+    T = {t: x for t, x in rows}
+    prof = {int(m.group(1)): m.group(2) for m in re.finditer(r"\[FO-ATT2-PROFIL\] tick (\d+) (.*)", log)}
+    if prof:
+        print()
+        print("PIRES TICKS (tick entier) et chronomètres du script :")
+        for g in IDS:
+            if g not in frappe or g not in fin:
+                continue
+            v = sorted([t for t in range(frappe[g] - CHARGE[g], fin[g] + 1) if t in T and t % 600 != 0], key=lambda t: -T[t][wi])[:4]
+            for t in v:
+                x = T[t]
+                print("  %-9s %+5d  entier %6.2f  script %5.2f  GC %5.2f  particules %5.2f | %s" % (g, t - frappe[g], x[wi] / 1e6, x[si] / 1e6,
+                      x[gi] / 1e6, x[pi] / 1e6, prof.get(t, "(pas de chrono)")[:220]))
     return 0
 
 
