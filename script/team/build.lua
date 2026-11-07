@@ -4505,8 +4505,9 @@ local function pulse_team(f, tick)
   Profiler.fstart("bp:raccord")
   -- 4 bis. lot PD-ELEC (D05) : machines des modules finis sans courant HORS poteau perdu (île, sous aucun poteau) : raccordement
   -- (lot FONDERIE, 0.6.43) champ_live : les bandes de champ en cours sont relevées aussi (fonderie à tapis allumée)
+  -- (lot LOURD) box : le relevé des générateurs du début de cycle se fait par bandes de la boîte des chunks
   Raccord.step({ request = Build.request, prio = Build.PRIO + 4, champ_live = (Build.TAPIS and Build.TAPIS()) or false, jeton = Jeton,
-    prof = Profiler }, f, surface, tick)
+    prof = Profiler, box = BoiteChunks.get }, f, surface, tick)
   -- 4 ter. lot INDUSTRIE I7 : un quai d'entrée porté à la main par un PNJ, relié par un tapis à la sortie d'un module du même objet
   Profiler.fstop("bp:raccord")
   Profiler.fstart("bp:liaison")

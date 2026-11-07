@@ -31,7 +31,9 @@ Rv.LOG_EVERY = 5 * 3600   -- une ligne de synthèse par équipe et par 5 min
 Rv.LOT_AVOID_R = 16       -- tuiles : rayon écarté autour du lot de la centrale perdue (le lot fait 32 de côté)
 -- Lot POULS (7/11, fo-logs\2026-11-07_POULS\CRITERES.md) : le relevé du réseau (net_read) par BANDES de lignes de chunks, sur plusieurs
 -- passes du pouls, au lieu de deux recherches sur toute la surface d'un bloc (bp:reseau jusqu'à 224 ms sur la sauvegarde du DC).
-Rv.BAND = 2               -- lignes de chunks par bande
+-- Lot LOURD (fo-logs\2026-11-07_LOURD\CRITERES.md §1) : 1 ligne au lieu de 2. MESURÉ à 2 lignes sur la sauvegarde du DC (0.6.59, AB-0659) :
+-- rv:bande 2,30 ms en moyenne, 8,15 ms au pire, 22 bandes sur 1 026 au-dessus de 5 ms. Le relevé dure deux fois plus de passes.
+Rv.BAND = 1               -- lignes de chunks par bande
 Rv.BANDS_PER_PULSE = 1    -- bandes par passe ; math.huge : tout le relevé dans la passe où il commence (l'horaire d'avant)
 
 local TYPES = {
