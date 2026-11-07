@@ -330,8 +330,11 @@ do
       { { "disque r30", 7 }, { "joueur 271828182", 7 } } },
     { "choix de la phase : meilleure phase oubliee a la reprise", "shared/team/champ.lua", "local fr = scan%.frame and F or nil",
       "local fr = scan.frame and F or nil; bands = nil", { { "disque r30", 7 }, { "joueur 271828182", 64 } } },
-    { "ligne de charbon : rangee sautee a la reprise", "shared/team/champ_colonne.lua", "if st%.l == nil then st%.l = lmin %- s end",
-      "if st.l == nil then st.l = lmin - s elseif not st.per then st.l = st.l + 1 end", { { "disque r30", 7 }, { "joueur 271828182", 7 } } },
+    -- ligne de charbon : sommes cumulées gardées dans l'état (reprenables, une fois par orientation)
+    { "ligne de charbon : sommes refaites a chaque pas (le defaut de la fusion avec la 0.6.58)", "shared/team/champ_colonne.lua",
+      "if not sm or sm%.oi ~= st%.oi then", "if true then", { { "disque r30", 64 } } },
+    { "ligne de charbon : sommes d'une orientation gardees pour l'autre", "shared/team/champ_colonne.lua",
+      "if not sm or sm%.oi ~= st%.oi then", "if not sm then", { { "disque r30", 64 }, { "joueur 271828182", 64 } } },
   }
   -- les mêmes essais avec le VRAI module rendent la référence (sinon un mutant serait « vu » pour une autre raison)
   local done_try = {}

@@ -564,7 +564,8 @@ end
 --- tuiles étrangères, fenêtre, rangée en cours, meilleur choix), Co.coal_line_run(st, is_coal, free, is_foreign, J) avance rangée par
 --- rangée tant que J.left > 0 (Co.LINE_UNITS par rangée) et rend vrai à la fin ; st.res = la ligne ou nil. Co.coal_line : la boucle
 --- jusqu'au bout, mêmes rangées dans le même ordre.
-Co.LINE_UNITS = 72
+Co.LINE_UNITS = 17
+Co.SUM_UNIT = 0.17 -- (tranches) unités par tuile lue pour les sommes cumulées de la ligne de charbon
 local LINE_SETS = { { -1 }, { 1 }, { -1, 1 } } -- côtés d'une rangée de la ligne de charbon, dans l'ordre des essais
 function Co.coal_line_new(coal, d, want, target, R, wire, per_side, center)
   if #coal == 0 or want < 1 or R < 1 then return { done = true } end
@@ -632,12 +633,23 @@ function Co.coal_line_run(st, is_coal, free, is_foreign, J)
     -- fenêtre lue (positions a de amin - s - r à amax + r, zones de a - r à a + s - 1 + r ; rangées l + sg * y, y de 1 - r à s + r,
     -- l de lmin - s à lmax + s) : chaque position se juge en temps constant ; les comptes sont entiers et exacts, la règle (corps
     -- libre, aucune tuile étrangère dans la zone, au moins Co.MIN_COAL tuiles de charbon) est celle d'avant, mêmes réponses
-    local X0, X1 = amin - s - 2 * r, amax + s - 1 + 2 * r
-    local Y0, Y1 = lmin - 2 * s - r, lmax + 2 * s + r
-    local H = Y1 - Y0 + 2
-    local NF, FO, CO = {}, {}, {}
-    for i = 0, H - 1 do NF[i] = 0; FO[i] = 0; CO[i] = 0 end -- colonne x = X0 - 1 (bord)
-    for x = X0, X1 do
+    -- (coût, 7/11, voie des TRANCHES) sommes construites colonne par colonne et GARDÉES dans l'état (st.sum, données) : reprenables,
+    -- une fois par orientation (refaites d'un coup à chaque appel, elles faisaient un morceau de 1,26 million d'instructions et
+    -- recommençaient à chaque pas : mesuré par cerveau-central sur la fusion avec la 0.6.58, 8754d719) ; Co.SUM_UNIT par tuile lue
+    local sm = st.sum
+    if not sm or sm.oi ~= st.oi then
+      local X0, X1 = amin - s - 2 * r, amax + s - 1 + 2 * r
+      local Y0, Y1 = lmin - 2 * s - r, lmax + 2 * s + r
+      local H = Y1 - Y0 + 2
+      sm = { oi = st.oi, X0 = X0, X1 = X1, Y0 = Y0, Y1 = Y1, H = H, x = X0, NF = {}, FO = {}, CO = {} }
+      for i = 0, H - 1 do sm.NF[i] = 0; sm.FO[i] = 0; sm.CO[i] = 0 end -- colonne x = X0 - 1 (bord)
+      st.sum = sm
+    end
+    local X0, X1, Y0, Y1, H = sm.X0, sm.X1, sm.Y0, sm.Y1, sm.H
+    local NF, FO, CO = sm.NF, sm.FO, sm.CO
+    while sm.x <= X1 do
+      if J and J.left <= 0 then return false end
+      local x = sm.x
       local base, prev = (x - X0 + 1) * H, (x - X0) * H
       NF[base], FO[base], CO[base] = 0, 0, 0 -- rangée y = Y0 - 1 (bord)
       local cnf, cfo, cco = 0, 0, 0
@@ -651,6 +663,8 @@ function Co.coal_line_run(st, is_coal, free, is_foreign, J)
         FO[base + j] = FO[prev + j] + cfo
         CO[base + j] = CO[prev + j] + cco
       end
+      sm.x = x + 1
+      if J then J.left = J.left - (Y1 - Y0 + 1) * Co.SUM_UNIT end
     end
     local function rect(S, xa, xb, ya, yb)
       local i1, i0 = (xb - X0 + 1) * H, (xa - X0) * H
@@ -774,7 +788,7 @@ function Co.coal_line_run(st, is_coal, free, is_foreign, J)
     end
     st.oi, st.l = st.oi + 1, nil
   end
-  st.done, st.fmem, st.gmem = true, nil, nil
+  st.done, st.fmem, st.gmem, st.sum = true, nil, nil, nil
   local choice = st.choice
   if not choice then return true end
   local ch = choice
