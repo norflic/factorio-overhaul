@@ -2,10 +2,10 @@
   Lot DESIGN-ATTAQUES (5/11) : banc hors jeu des règles pures de la 2e attaque des géants (shared/robots/attaques2.lua). Lua 5.2, depuis la
   racine du mod :   lua5.2 tests/attaques2_test.lua
     §1 angles sans trigonométrie (pseudo-angle et son inverse) ;  §2 Surtension (parcours en largeur, parents, déterminisme) ;
-    §3 orage ;  §4 Balafre (canyon de 2 lignes de falaises sur la grille, bouts, sans trouée ni chevauchement ; vol du Stylet) ;
-    §5 passage du nez ; §5 bis réseau de proximité (sans poteaux) et débris ;  §6 Cyclone (huit qui part du centre, y repasse, y finit ; passage) ;  §7 Éruption (bords, anneaux de fonte
+    §3 orage ;  §4 Balayage du Stylet (une salve par cible de la bande, au premier pas) ;  §5 bis réseau de proximité (sans poteaux) et débris ;  §6 Cyclone (huit qui part du centre, y repasse, y finit ; passage) ;  §7 Éruption (bords, anneaux de fonte
     qui partitionnent le lac, feux) ;  §8 Zénith (spirale du bord au centre, passage EXACT, tuiles de verre près du tracé) ;
-    §9 plan d'une salve (tri, unicité, parts) ;  §10 forme des fichiers ;  §11 mutants (chaque règle a un mutant, tous refusés).
+    §9 plan d'une salve (tri, unicité, parts) ;  §10 forme des fichiers ;  §11 mutants (chaque règle a un mutant, tous refusés) ;
+    §12 bandes de la recherche ;  §13 séquelles d'1 h (QCM-7/11 : registre, sol d'origine rendu, jamais sur un sol changé depuis).
 ]]
 
 package.path = "./?.lua;" .. package.path
@@ -104,72 +104,35 @@ local function controles(A, bavard)
   check(#f1 == 24 and dans and egal, "§3 orage : 24 éclairs dans 1..17, déterministes")
   check(#A.foudres(0, 24, 1) == 0, "§3 orage sans cible : rien")
 
-  -- §4 Balafre (Stylet) : deux lignes nord-sud de falaises, faces opposées, continues, sans chevauchement
-  local cst = A.ATTAQUES.stylet
+  -- §4 Balayage (Stylet, idée du DC ; la Balafre et ses falaises sont abandonnées, QCM-7/11) : chaque cible de la bande prend la salve
+  -- UNE fois, au tick du premier pas qui la touche ; rien hors de la bande ; plan trié
   local c = { x = 13.3, y = -7.8 }
   local R = 30
-  local traits = A.balafre(c, R, cst.ecart)
-  local departs = { 0, 0 }
-  local grille = #traits == 2
-  for _, tr in ipairs(traits) do
-    if tr.axe ~= "v" or tr.x % 4 ~= 0 or (tr.de - 0.5) % 4 ~= 0 or (tr.a - 0.5) % 4 ~= 0 or tr.de > tr.a then grille = false end
+  local Ech = A.Ech
+  local o4 = { x = c.x - 40, y = c.y + 4 }
+  local bal = Ech.balayage(11, 45)
+  local ray = Ech.rayons(o4, c, bal.longueur)
+  local c4, e4 = {}, { v = 4242 }
+  for i = 1, 300 do c4[i] = { x = o4.x + B.alea(e4) * 60, y = o4.y + (B.alea(e4) - 0.5) * 60, id = 2000 + i } end
+  local pl4 = A.plan_balayage(o4, ray, c4, bal.demi, bal.ticks, bal.pas)
+  local vu4, ok4, last4 = {}, true, nil
+  for _, it in ipairs(pl4) do
+    if vu4[it.i] then ok4 = false end
+    vu4[it.i] = true
+    local premier
+    for k, e in ipairs(ray) do if Ech.dans_bande(c4[it.i], o4, e, bal.demi) then premier = k; break end end
+    if not premier or it.t ~= math.floor((premier - 1) * bal.ticks / bal.pas) then ok4 = false end
+    if last4 and (it.t < last4.t or (it.t == last4.t and it.id < last4.id)) then ok4 = false end
+    last4 = it
   end
-  check(grille and traits[2].x - traits[1].x == cst.ecart and traits[1].sens == 1 and traits[2].sens == -1,
-    "§4 balafre : 2 lignes nord-sud sur la grille des falaises (4, décalage 0,5), écart " .. cst.ecart .. ", faces opposées")
-  check(math.abs((traits[1].x + traits[2].x) / 2 - c.x) <= 2 and traits[1].de <= c.y - R + 2 and traits[1].a >= c.y + R - 2,
-    "§4 elle passe par la cible et couvre la zone du nord au sud")
-  local toutes, bouts, pas4, monot, nb = {}, true, true, true, {}
-  for i2, tr in ipairs(traits) do
-    local fl = A.falaises(tr, {}, 0, cst.vitesse)
-    nb[i2] = #fl
-    local lastt = -1
-    for k, f in ipairs(fl) do
-      toutes[#toutes + 1] = { f = f, axe = tr.axe }
-      if f.t < lastt then monot = false end
-      lastt = f.t
-      if k > 1 and math.abs(f.y - fl[k - 1].y) ~= 4 then pas4 = false end
-      local attendu
-      if tr.sens == 1 then
-        attendu = (k == 1 and "none-to-south") or (k == #fl and "north-to-none") or "north-to-south"
-      else
-        attendu = (k == 1 and "south-to-none") or (k == #fl and "none-to-north") or "south-to-north"
-      end
-      if f.o ~= attendu then bouts = false end
-    end
+  local hors4 = 0
+  for i, cc in ipairs(c4) do
+    local dedans = false
+    for _, e in ipairs(ray) do if Ech.dans_bande(cc, o4, e, bal.demi) then dedans = true end end
+    if dedans ~= (vu4[i] == true) then hors4 = hors4 + 1 end
   end
-  check(nb[1] >= 15 and nb[1] == nb[2], "§4 deux lignes continues, autant de falaises chacune", nb[1] .. " et " .. nb[2])
-  check(bouts, "§4 bouts et milieux : north-to-south à gauche (none-to-south, north-to-none), south-to-north à droite")
-  check(pas4, "§4 aucune trouée : une falaise tous les 4 tuiles")
-  check(monot, "§4 falaises dans l'ordre de passage du nez (du nord au sud)")
-  local chev = 0
-  local function bb(t)
-    local hx, hy = (t.axe == "h") and 2 or 1, (t.axe == "h") and 1.5 or 2
-    return t.f.x - hx, t.f.y - hy, t.f.x + hx, t.f.y + hy
-  end
-  for i2 = 1, #toutes do
-    for k = i2 + 1, #toutes do
-      local a0, b0, a1, b1 = bb(toutes[i2])
-      local c0, d0, c1, d1 = bb(toutes[k])
-      if a0 < c1 - 1e-9 and a1 > c0 + 1e-9 and b0 < d1 - 1e-9 and b1 > d0 + 1e-9 then chev = chev + 1 end
-    end
-  end
-  check(chev == 0, "§4 aucune falaise n'en chevauche une autre", tostring(chev))
-  -- le vol du Stylet : départ à sa place, au bord nord à la frappe, puis vers le sud à la vitesse du labour
-  local dep = { x = c.x - 40, y = c.y + 5 }
-  local vx0, vy0 = A.vol_stylet(dep, traits, -cst.charge, cst.charge, cst.vitesse)
-  local vx1, vy1 = A.vol_stylet(dep, traits, 0, cst.charge, cst.vitesse)
-  local vx2, vy2 = A.vol_stylet(dep, traits, 40, cst.charge, cst.vitesse)
-  local vx3, vy3 = A.vol_stylet(dep, traits, 100000, cst.charge, cst.vitesse)
-  check(math.abs(vx0 - dep.x) < 1e-9 and math.abs(vy0 - dep.y) < 1e-9 and math.abs(vy1 - traits[1].de) < 1e-9
-    and math.abs(vy2 - (traits[1].de + 40 * cst.vitesse)) < 1e-9 and math.abs(vy3 - traits[1].a) < 1e-9 and math.abs(vx2 - vx1) < 1e-9,
-    "§4 vol du Stylet : de sa place au bord nord pendant la charge, puis labour vers le sud, arrêt au bord sud")
-
-  -- §5 passage du nez
-  local tr1 = traits[1]
-  local p_on = { x = tr1.x, y = tr1.de + 9 }
-  local t5, d5 = A.passage_gravure(p_on, traits, departs, cst.vitesse, cst.brule)
-  check(d5 == 0 and t5 == math.floor(9 / cst.vitesse), "§5 point sur la ligne : distance 0, tick d'arrivée du nez", tostring(t5) .. " " .. tostring(d5))
-  check(A.passage_gravure({ x = c.x + 500, y = c.y }, traits, departs, cst.vitesse, cst.brule) == nil, "§5 point loin : aucun passage")
+  check(ok4 and hors4 == 0 and #pl4 > 10, "§4 balayage : une salve par cible de la bande, au premier pas qui la touche, aucune hors de la bande",
+    string.format("%d touchées sur %d, %d écart(s)", #pl4, #c4, hors4))
 
   -- §5 bis Surtension sans réseau : de proche en proche (nids)
   local nids = {}
@@ -293,14 +256,13 @@ local function controles(A, bavard)
     cands[i] = { x = c.x + (B.alea(e2) - 0.5) * 140, y = c.y + (B.alea(e2) - 0.5) * 140, id = 1000 + i * 3 }
   end
   local plans = {
-    stylet = { traits = traits, departs = departs, c = c, R = R },
     trombe = { c = c, w = w, o = o, R = 45 },
     ixion = { c = c, R = 60, bords = bords, rl = rl },
     tournesol = { c = c, R = RZ, U = U },
   }
   local pok = true
   local resume = {}
-  for _, id in ipairs({ "stylet", "trombe", "ixion", "tournesol" }) do
+  for _, id in ipairs({ "trombe", "ixion", "tournesol" }) do
     local pl = A.plan(id, plans[id], cands)
     local vu2, last = {}, nil
     local tues = 0
@@ -360,6 +322,31 @@ local function controles(A, bavard)
   local b1 = A.bandes(0, 0, 10, 10, 32)
   check(#b1 == 1 and b1[1].der, "§12 une petite zone : une seule bande")
 
+  -- §13 séquelles (QCM-7/11) : « Cratère et verre, pas de falaises » ; « durer 1 heure, se résorber »
+  check(A.TRACE == 216000, "§13 une trace dure 1 h (216 000 ticks)", tostring(A.TRACE))
+  check(A.ATTAQUES.stylet.ecart == nil and A.balafre == nil and A.falaises == nil, "§13 plus aucune falaise (Balafre abandonnée)")
+  local Rg = A.Ech.trace_nouveau()
+  local t0 = 1000
+  A.Ech.trace_marquer(Rg, 5, 6, "grass-1", t0 + A.TRACE)         -- lave posée sur de l'herbe
+  A.Ech.trace_marquer(Rg, 7, 6, "dry-dirt", t0 + A.TRACE)        -- verre chaud sur de la terre
+  A.Ech.trace_marquer(Rg, 9, 6, "nuclear-ground", t0 + A.TRACE)  -- lave sur un cratère d'experimentaux
+  A.Ech.trace_marquer(Rg, 11, 6, "sand-1", t0 + A.TRACE)         -- un joueur l'a pavée depuis
+  A.Ech.trace_marquer(Rg, 5, 6, A.PREFIX .. "lave", t0 + 50 + A.TRACE) -- une 2e attaque sur la même tuile : l'origine reste l'herbe
+  local avant = A.Ech.trace_echues(Rg, t0 + A.TRACE - 1, 100)
+  local echues = A.Ech.trace_echues(Rg, t0 + A.TRACE + 60, 100)
+  local actuel = { [5] = "nuclear-ground", [7] = A.PREFIX .. "verre", [9] = "nuclear-ground", [11] = "refined-concrete" }
+  local rendu = {}
+  for _, e in ipairs(echues) do rendu[e.x] = A.sol_a_rendre(e, actuel[e.x]) or false end
+  check(#avant == 0, "§13 rien n'est rendu avant l'heure")
+  check(rendu[5] == "grass-1" and rendu[7] == "dry-dirt", "§13 à l'heure, le cratère et le verre rendent leur sol d'ORIGINE (2e attaque comprise)",
+    tostring(rendu[5]) .. ", " .. tostring(rendu[7]))
+  check(rendu[9] == false, "§13 un cratère d'experimentaux dessous : rien (son propre registre le rendra)")
+  check(rendu[11] == false, "§13 une tuile pavée depuis par un joueur n'est jamais écrasée")
+  check(A.sol_a_rendre({ orig = "grass-1" }, A.PREFIX .. "lave") == nil and A.sol_a_rendre({ orig = "grass-1" }, A.PREFIX .. "verre-chaud") == nil,
+    "§13 une tuile encore chaude (lave, verre chaud) n'est pas rendue")
+  check(A.encore_chaud(A.PREFIX .. "lave") and A.encore_chaud(A.PREFIX .. "verre-chaud") and not A.encore_chaud("nuclear-ground")
+    and not A.encore_chaud(A.PREFIX .. "verre") and A.REPRISE > 0, "§13 une tuile échue encore chaude reprend une attente (rien n'est perdu)")
+
   return ok, ko
 end
 
@@ -399,9 +386,6 @@ end
 local MUTANTS = {
   { "pseudo-angle", "return 1 - dx / (-dx + dy)", "return 1 + dx / (-dx + dy)" },
   { "parcours sans marque", "          vu[v] = true\n", "\n" },
-  { "bout de la ligne remontante", '(k == j and "none-to-north")', '(k == j and "north-to-none")' },
-  { "canyon sans écart", "return { { axe = \"v\", x = x0, de = y0, a = y1, sens = 1 }, { axe = \"v\", x = x0 + ecart,", "return { { axe = \"v\", x = x0, de = y0, a = y1, sens = 1 }, { axe = \"v\", x = x0," },
-  { "vol sans labour", "return xm, math.min(y1, y0 + t * vitesse)", "return xm, y0" },
   { "huit qui ne part pas du centre", "local s = 0.25 + t / duree", "local s = t / duree" },
   { "spirale à vitesse non constante", "return U * math.sqrt(1 - t / T)", "return U * (1 - t / T)" },
   { "bras mal arrondi", "local k = math.floor(rr / pas - a + 0.5)", "local k = math.floor(rr / pas - a)" },
@@ -414,6 +398,10 @@ local MUTANTS = {
   { "débris toujours", "if u >= part then return nil end", "if u >= 1 then return nil end" },
   { "Trombe qui tue d'office", "if tt then t, f, tue = tt, math.max(0, d - a.rayon) / (a.souffle - a.rayon), false end", "if tt then t, f, tue = tt, 0, d <= a.rayon end" },
   { "bande qui garde son bord sud", "return y < b.y1 or b.der", "return true" },
+  { "trace d'une minute", "A.TRACE = Ech.TRACE_TICKS", "A.TRACE = 3600" },
+  { "sol rendu même pavé", "if A.SOLS_TRACE[nom] and e.orig ~= nom then return e.orig end", "if e.orig ~= nom then return e.orig end" },
+  { "lave chaude oubliée", 'A.CHAUDS = { [A.PREFIX .. "lave"] = true, [A.PREFIX .. "verre-chaud"] = true }', 'A.CHAUDS = { [A.PREFIX .. "verre-chaud"] = true }' },
+  { "cratère jamais rendu", 'A.SOLS_TRACE = { ["nuclear-ground"] = true, [A.PREFIX .. "verre"] = true }', 'A.SOLS_TRACE = { [A.PREFIX .. "verre"] = true }' },
   { "dernière bande sans bord sud", "out[#out + 1] = { x0 = x0, y0 = y, x1 = x1, y1 = yb, der = (yb >= y1) }", "out[#out + 1] = { x0 = x0, y0 = y, x1 = x1, y1 = yb, der = false }" },
 }
 local refuses = 0

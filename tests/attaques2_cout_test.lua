@@ -13,7 +13,7 @@ package.path = "./?.lua;" .. package.path
 -- ------------------------------------------------------------------ moteur simulé
 local C = { find = 0, found = 0, damage = 0, die = 0, create = 0, smoke = 0, particle = 0, tiles = 0, set_tiles = 0, draw = 0, set = 0,
   destroy = 0, get_tile = 0, cliff = 0 }
-local W = { ents = {}, tick = 0, tiles = {}, cliffs = {} }
+local W = { ents = {}, tick = 0, tiles = {}, cliffs = {}, crees = {} }
 local next_un, next_rid = 1, 1
 
 local forces = {}
@@ -89,7 +89,10 @@ surface.create_entity = function(t)
     C.cliff = C.cliff + 1
     W.cliffs[#W.cliffs + 1] = { x = t.position[1], y = t.position[2], h = t.cliff_orientation:find("east") or t.cliff_orientation:find("west") }
   end
-  return { valid = true, name = t.name }
+  local e = { valid = true, name = t.name, position = { x = t.position[1] or t.position.x, y = t.position[2] or t.position.y } }
+  e.destroy = function() e.valid = false; C.detruits = (C.detruits or 0) + 1 end
+  W.crees[#W.crees + 1] = e
+  return e
 end
 surface.create_trivial_smoke = function() C.smoke = C.smoke + 1 end
 surface.create_particle = function() C.particle = C.particle + 1 end
@@ -212,8 +215,7 @@ for n, id in ipairs(A.ORDRE) do
   local okl = M.lancer(e, CX + 0.3, CY + 0.2, true)
   local pire, pire_t = 0, 0
   local avant = C.find
-  local fin = A.duree(id, { traits = A.balafre({ x = CX + 0.3, y = CY + 0.2 }, A.zone(Xp.robot(id).age), A.ATTAQUES.stylet.ecart), rl = A.zone(Xp.robot(id).age) / 3,
-    R = A.zone(Xp.robot(id).age) }) + 5
+  local fin = A.duree(id, { rl = A.zone(Xp.robot(id).age) / 3, R = A.zone(Xp.robot(id).age) }) + 5
   -- jusqu'à la fin de l'attaque (les files du budget peuvent la prolonger), 3 000 ticks de plus au plus
   local cmax, tmax, duree = 0, 0, 0
   for k = 1, fin + 3000 do
@@ -285,5 +287,24 @@ for _, v in pairs(W.tiles) do -- compte seul (l'ordre ne sert pas)
   if v == A.PREFIX .. "verre-chaud" then chaud = chaud + 1 elseif v == A.PREFIX .. "verre" then froid = froid + 1 end
 end
 check(#NS.attaques2.verres == 0 and chaud == 0 and froid > 1500, "tournesol : le verre chaud a refroidi en verre doré", chaud .. " chaudes, " .. froid .. " froides")
+local cratere = 0
+for _, v in pairs(W.tiles) do if v == "nuclear-ground" then cratere = cratere + 1 end end -- compte seul
+check(cratere > 900, "ixion : le cratère est là après le refroidissement", tostring(cratere))
+-- séquelles d'1 h (QCM-7/11) : une heure après, le sol d'origine est revenu partout, les rochers de la Trombe se sont effacés
+local function rochers_vivants()
+  local n = 0
+  for _, e in ipairs(W.crees) do if e.valid and (e.name == "rock-big" or e.name == "sand-rock-big" or e.name == "rock-huge") then n = n + 1 end end
+  return n
+end
+local rv0 = rochers_vivants()
+run(A.TRACE + 600)
+local reste, autres = 0, 0
+for _, v in pairs(W.tiles) do -- compte seul (l'ordre ne sert pas)
+  if v ~= "grass-1" then reste = reste + 1 end
+end
+check(rv0 > 0 and rochers_vivants() == 0, "trombe : les rochers s'effacent au bout d'1 h", rv0 .. " avant, " .. rochers_vivants() .. " après")
+check(reste == 0, "séquelles : au bout d'1 h, cratère et verre ont rendu le sol d'origine (herbe)", tostring(reste) .. " tuile(s) encore marquées")
+local Rr = NS.attaques2.traces[1] and NS.attaques2.traces[1].R
+check(Rr and A.Ech.trace_compte(Rr) == 0, "séquelles : le registre est vide", Rr and tostring(A.Ech.trace_compte(Rr)) or "aucun registre")
 print(string.format("[ATT2-COUT] BILAN : %d OK, %d ECHEC(S)", ok, ko))
 os.exit(ko == 0 and 0 or 1)

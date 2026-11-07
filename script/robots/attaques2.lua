@@ -7,11 +7,14 @@
     (stockage `auto`, éteint par défaut : jamais près d'un bâtiment de sa force, jamais sur une unité seule).
   - Une à la fois par géant ; recharge A.RECHARGE (30 s), A.RECHARGE_ORDRE (15 s) sur ordre.
   - Phases : charge (le corps s'allume ; Stylet et Trombe VOLENT jusqu'au départ), frappe (L'UNIQUE recherche d'entités de la salve, puis le
-    plan : chaque cible reçoit son tick et sa part), puis tranches. Séquelles enregistrées (lave et verre qui refroidissent).
+    plan : chaque cible reçoit son tick et sa part), puis tranches, au budget de jetons du tick (A.BUDGET).
+  - SÉQUELLES (QCM-7/11 : « Cratère et verre, pas de falaises » ; « durer 1 heure, se résorber ») : lave qui refroidit en cratère, verre
+    chaud qui refroidit en verre doré ; le sol d'origine de chaque tuile est noté au registre (Ech.trace_*, par surface) et revient au bout
+    de A.TRACE (1 h) si la tuile porte encore la trace ; rochers de la Trombe retirés au bout d'1 h ; brûlures d'1 h d'experimentaux.
   - Dégâts : seulement aux forces ENNEMIES (force.is_enemy) ; damage() avec chute au bord (résistances comptées). Meurent d'office : ce que
-    la lave recouvre, ce qui est sous une falaise, les poteaux grillés par la Surtension.
-  - Jamais de falaise, de lave ni de verre sous un bâtiment qui n'est pas ennemi (marge d'une tuile), ni sur un sol posé (béton, dalles :
-    tuile cachée dessous), ni sur l'eau.
+    la lave recouvre, les poteaux grillés par la Surtension.
+  - Jamais de lave ni de verre sous un bâtiment qui n'est pas ennemi (marge d'une tuile), ni sur un sol posé (béton, dalles : tuile cachée
+    dessous), ni sur l'eau.
   - Coût mesuré par salve (stats[id]) : recherches, candidats, opérations au pire tick.
   Déterminisme : listes triées par numéro d'unité, graine maison, aucun pairs, aucun hasard du moteur.
 ]]
@@ -29,21 +32,34 @@ local GEANT = {}
 for _, r in ipairs(Xp.GEANTS) do GEANT[r.name] = r end
 
 Storage.declare("attaques2", function()
-  return { auto = false, journal = false, jobs = {}, pret = {}, stats = {}, laves = {}, verres = {} }
+  return { auto = false, journal = false, jobs = {}, pret = {}, stats = {}, laves = {}, verres = {}, traces = {}, rochers = { l = {}, i = 1, n = 0 } }
 end)
 
 local function S()
   local s = Storage.ns("attaques2")
   if s and not s.verres then s.verres = {} end
+  if s and not s.traces then s.traces, s.rochers = {}, { l = {}, i = 1, n = 0 } end
   return s
+end
+
+--- Registre des séquelles d'une surface (Ech.trace_nouveau) ; les registres sont rangés dans une LISTE, dans l'ordre de création (aucun
+--- parcours de table par clé).
+local function registre(surface)
+  local s = S()
+  for _, x in ipairs(s.traces) do
+    if x.si == surface.index then return x.R end
+  end
+  local R = A.Ech.trace_nouveau()
+  s.traces[#s.traces + 1] = { si = surface.index, R = R }
+  return R
 end
 
 local function stat(id)
   local s = S()
   local st = s.stats[id]
   if not st then
-    st = { salves = 0, cibles = 0, tues = 0, degats = 0, falaises = 0, poteaux = 0, foudres = 0, tuiles = 0, rochers = 0, feux = 0,
-      recherches = 0, candidats = 0, max_ops = 0 }
+    st = { salves = 0, cibles = 0, tues = 0, degats = 0, poteaux = 0, foudres = 0, tuiles = 0, rochers = 0, feux = 0, recherches = 0,
+      candidats = 0, max_ops = 0 }
     s.stats[id] = st
   end
   return st
@@ -113,7 +129,7 @@ local PASSAGERS = { corpse = true, ["item-entity"] = true, fire = true, cliff = 
   ["tile-ghost"] = true, ["particle-source"] = true, stream = true, beam = true, projectile = true, ["deconstructible-tile-proxy"] = true }
 
 --- Range les entités de la bande en cours, tant que le budget le permet (A.POIDS.rang chacune) : ennemies (candidats, planifiées
---- aussitôt), neutres (arbres, rochers), autres (à protéger : jamais de falaise, lave ni verre dessous). Une entité n'est rangée que dans
+--- aussitôt), neutres (arbres, rochers), autres (à protéger : jamais de lave ni de verre dessous). Une entité n'est rangée que dans
 --- la bande qui contient sa position (A.dans_bande) et, pour une zone ronde, dans le cercle (les bâtiments à protéger : 6 tuiles de plus).
 --- Ordre : celui du moteur (déterministe), sans tri.
 local planifier
@@ -434,7 +450,7 @@ local function pas_balayage(j, r, a, rt)
     local p = j.qfeux[j.kq]
     j.kq = j.kq + 1
     s.create_entity({ name = A.PREFIX .. "brasier-court", position = { p.x, p.y }, initial_ground_flame_count = 2 })
-    s.create_entity({ name = "medium-scorchmark", position = { p.x, p.y } })
+    s.create_entity({ name = Xp.PREFIX .. "medium-scorchmark", position = { p.x, p.y } }) -- brûlure d'1 h (QCM-7/11)
     paie(j, P.feu)
     st.feux = st.feux + 1
     ops(j, 2)
@@ -449,45 +465,6 @@ local function pas_balayage(j, r, a, rt)
   V.balayage(j, rt, x, y)
 end
 
-local function pas_stylet(j, r, a, rt)
-  local st = stat(j.id)
-  local s = j.surface
-  local nx, ny = A.vol_stylet(j.depart, j.traits, rt, a.charge, a.vitesse)
-  deplacer(j, nx, ny + 0.5)
-  while j.falaises[j.kf] and j.falaises[j.kf].t <= rt do
-    local f = j.falaises[j.kf]
-    j.kf = j.kf + 1
-    local hx, hy = (f.axe == "h") and 2 or 1, (f.axe == "h") and 1.5 or 2
-    local x0, y0, x1, y1 = f.x - hx, f.y - hy, f.x + hx, f.y + hy
-    local libre = true
-    for _, i in ipairs(A.voisinage(j.ga, f.x, f.y, 4, 8)) do
-      local o = j.autres[i]
-      if o.e.valid and boite_recouvre(o.bb, x0, y0, x1, y1) then libre = false end
-    end
-    local tile = s.get_tile(math.floor(f.x), math.floor(f.y))
-    if libre and tile.valid and not tile.hidden_tile and not tile.collides_with("water-tile") then
-      for _, i in ipairs(A.voisinage(j.gc, f.x, f.y, 4, 8)) do
-        local c = j.cands[i]
-        if c.e.valid then
-          local bb = c.e.bounding_box
-          if boite_recouvre({ bb.left_top.x, bb.left_top.y, bb.right_bottom.x, bb.right_bottom.y }, x0, y0, x1, y1) then
-            toucher(j, r, a, c.e, 0, true)
-          end
-        end
-      end
-      for _, i in ipairs(A.voisinage(j.gn, f.x, f.y, 3, 8)) do
-        local n = j.neutres[i]
-        if n.e.valid and math.abs(n.x - f.x) <= hx + 0.5 and math.abs(n.y - f.y) <= hy + 0.5 then abattre(j, n.e) end
-      end
-      local cl = s.create_entity({ name = "cliff", position = { f.x, f.y }, cliff_orientation = f.o })
-      ops(j, 3)
-      if cl then st.falaises = st.falaises + 1 end
-      V.falaise(j, f)
-    end
-  end
-  V.pointe(j, rt, nx, ny)
-end
-
 local function pas_trombe(j, r, a, rt)
   local t = math.min(rt, a.duree)
   local x, y = A.cyclone(j.c, j.w, j.o, t, a.duree)
@@ -495,6 +472,8 @@ local function pas_trombe(j, r, a, rt)
   if rt <= a.duree and rt % a.pas == 0 then
     local st = stat(j.id)
     local s = j.surface
+    -- le sol raclé sous son pied : une brûlure d'1 h tous les 3 pas (QCM-7/11)
+    if rt % (3 * a.pas) == 0 then s.create_entity({ name = Xp.PREFIX .. "medium-scorchmark", position = { x, y } }); paie(j, P.eclat) end
     for _, i in ipairs(A.voisinage(j.g, x, y, a.souffle, 8)) do
       local c = j.cands[i]
       local e = c.e
@@ -527,10 +506,12 @@ local function pas_trombe(j, r, a, rt)
     if toucher(j, r, a, c.e, h.f, false, h.m) and not c.mobile then
       local q = A.debris(c.id, j.graine, a.debris)
       if q then
-        s.create_entity({ name = A.ROCHERS[q], position = { c.x, c.y } })
+        local rk = s.create_entity({ name = A.ROCHERS[q], position = { c.x, c.y } })
         paie(j, P.eclat)
         st.rochers = st.rochers + 1
         ops(j)
+        -- séquelle d'1 h (QCM-7/11) : le rocher s'efface à l'heure s'il est encore là
+        if rk then local L = S().rochers; L.n = L.n + 1; L.l[L.n] = { e = rk, fin = game.tick + A.TRACE } end
       end
     end
   end
@@ -575,6 +556,8 @@ end
 poser_tuiles = function(j, liste, nom, seule)
   local s = j.surface
   local t = {}
+  -- séquelle d'1 h (QCM-7/11) : le sol d'origine de chaque tuile posée (lave, verre chaud) est noté au registre ; la résorption le rend
+  local R, fin = (not seule) and registre(s) or nil, game.tick + A.TRACE
   for _, q in ipairs(liste) do
     local tile = s.get_tile(q.x, q.y)
     local ok = tile.valid and (seule and tile.name == seule or (not seule and not EAU[tile.name] and not tile.hidden_tile))
@@ -584,7 +567,10 @@ poser_tuiles = function(j, liste, nom, seule)
         if o.e.valid and boite_recouvre(o.bb, q.x, q.y, q.x + 1, q.y + 1) then ok = false end
       end
     end
-    if ok then t[#t + 1] = { name = nom, position = { q.x, q.y } } end
+    if ok then
+      t[#t + 1] = { name = nom, position = { q.x, q.y } }
+      if R then A.Ech.trace_marquer(R, q.x, q.y, tile.name, fin) end
+    end
   end
   -- sans retirer les entités : une cible ennemie sous la lave ou le verre meurt par le plan (ses ruines, sa mort comptée), au plus
   -- budget du tick ; jamais retirée sans bruit (F135)
@@ -649,8 +635,8 @@ local function pas_tournesol(j, r, a, rt)
   end
 end
 
--- Stylet : le balayage (idée du DC) ; pas_stylet (la Balafre, falaises) reste écrit, en variante non branchée
-local PAS = { cairn = pas_cairn, stylet = pas_balayage, trombe = pas_trombe, ixion = pas_ixion, tournesol = pas_tournesol, balafre = pas_stylet }
+-- Stylet : le balayage (idée du DC) ; la Balafre (falaises) est abandonnée (QCM-7/11 : « Cratère et verre, pas de falaises »)
+local PAS = { cairn = pas_cairn, stylet = pas_balayage, trombe = pas_trombe, ixion = pas_ixion, tournesol = pas_tournesol }
 
 ---------------------------------------------------------------------------------------------------
 -- Lancer, avancer, finir
@@ -694,7 +680,7 @@ function M.lancer(e, x, y, ordre)
   if r.id == "trombe" then e.autopilot_destination = nil end
   -- pendant sa grande attaque, le géant ne tire pas sa 1re attaque (il est tout entier à la grande) ; repoussé encore tant qu'elle dure
   -- (avancer : la file des coups peut la prolonger)
-  local fin = t + A.duree(r.id, { traits = j.traits, rl = j.R * (a.lave or 0), R = j.R })
+  local fin = t + A.duree(r.id, { rl = j.R * (a.lave or 0), R = j.R })
   M.taire(e.unit_number, fin)
   s.jobs[#s.jobs + 1] = j
   s.pret[e.unit_number] = t + a.charge + (ordre and A.RECHARGE_ORDRE or A.RECHARGE)
@@ -708,8 +694,8 @@ end
 local function fin_job(j, r, a, tick)
   V.fin(j)
   local st = stat(j.id)
-  journal("%s %s fin #%d (tick %d, frappe +%d) : cibles %d, tues %d, degats %.0f, falaises %d, poteaux %d, foudres %d, tuiles %d, rochers %d, feux %d, max ops/tick %d, max jetons/tick %d",
-    j.id, a.nom, j.un, tick, tick - j.t0, st.cibles, st.tues, st.degats, st.falaises, st.poteaux, st.foudres, st.tuiles, st.rochers, st.feux,
+  journal("%s %s fin #%d (tick %d, frappe +%d) : cibles %d, tues %d, degats %.0f, poteaux %d, foudres %d, tuiles %d, rochers %d, feux %d, max ops/tick %d, max jetons/tick %d",
+    j.id, a.nom, j.un, tick, tick - j.t0, st.cibles, st.tues, st.degats, st.poteaux, st.foudres, st.tuiles, st.rochers, st.feux,
     st.max_ops, st.max_cout or 0)
 end
 
@@ -755,7 +741,7 @@ local function avancer(j, tick)
     if rt == 0 then
       frappe(j, r, a)
       V.frappe(j, r, a)
-      j.fin_rt = A.duree(j.id, { traits = j.traits, rl = j.rl, R = j.R }) - a.charge
+      j.fin_rt = A.duree(j.id, { rl = j.rl, R = j.R }) - a.charge
     end
     -- les effets du pas (tuiles, feux, poteaux), puis les coups des ticks échus avec le reste du budget (A.POIDS.coup chacun)
     PAS[j.id](j, r, a, rt)
@@ -826,6 +812,47 @@ local function refroidir(tick)
   s.verres = keep
 end
 
+--- Séquelles échues (1 h, QCM-7/11) : le sol d'origine revient sur les tuiles qui portent encore la trace (A.sol_a_rendre), et les rochers
+--- de la Trombe encore là s'effacent ; au budget du tick, ce qui reste attend le passage suivant.
+local function resorber(tick)
+  local s = S()
+  for _, x in ipairs(s.traces) do
+    local surf = game.surfaces[x.si]
+    local m = math.floor(BUD.reste / 2 / P.tuile) -- la moitié du reste du tick au plus : les rochers et le refroidissement passent aussi
+    if surf and surf.valid and m > 0 then
+      local rend = {}
+      for _, e in ipairs(A.Ech.trace_echues(x.R, tick, m)) do
+        local t = surf.get_tile(e.x, e.y)
+        local orig = t.valid and A.sol_a_rendre(e, t.name)
+        if orig then
+          rend[#rend + 1] = { name = orig, position = { e.x, e.y } }
+        elseif t.valid and A.encore_chaud(t.name) then
+          A.Ech.trace_marquer(x.R, e.x, e.y, e.orig, tick + A.REPRISE)
+        end
+      end
+      paie(nil, #rend * P.tuile)
+      s.rendues = (s.rendues or 0) + #rend
+      if #rend > 0 then
+        surf.set_tiles(rend, true, false, true, false)
+        journal("sequelles : %d tuile(s) rendues a leur sol d'origine sur la surface %d, tick %d", #rend, x.si, tick)
+      end
+    end
+  end
+  -- file des rochers (n : dernier indice, i : premier non traité ; jamais # sur une file à trous), compactée au-delà de 1 024
+  local L = s.rochers
+  while L.i <= L.n and L.l[L.i].fin <= tick and peut(P.eclat) do
+    local q = L.l[L.i]
+    L.l[L.i] = nil
+    L.i = L.i + 1
+    if q.e.valid then q.e.destroy(); paie(nil, P.eclat); s.effaces = (s.effaces or 0) + 1 end
+  end
+  if L.i > 1024 then
+    local f, m = {}, 0
+    for k = L.i, L.n do m = m + 1; f[m] = L.l[k] end
+    s.rochers = { l = f, i = 1, n = m }
+  end
+end
+
 local function sur_tick(ev)
   local s = S()
   if not s then return end
@@ -843,6 +870,7 @@ local function sur_tick(ev)
     for i = 1, n do if not fini[i] then keep[#keep + 1] = s.jobs[i] end end
     s.jobs = keep
   end
+  if ev.tick % A.RESORPTION == 0 then resorber(ev.tick) end
   if ev.tick % 30 == 0 and (#s.laves > 0 or #s.verres > 0) then refroidir(ev.tick) end
   -- refroidissement par tranches : une seule file servie par tick, avec le reste du budget
   for _, L in ipairs(s.laves) do if L.q and #L.q.file > 0 then vider_file(L.q); return end end
@@ -909,6 +937,30 @@ remote.add_interface("fo-att2", {
   en_cours = function() return #S().jobs end,
   laves = function() return #S().laves end,
   verres = function() return #S().verres end,
+  -- BANCS SEULEMENT : avance de `d` ticks l'heure des séquelles (registres, rochers, refroidissements de la lave et du verre), pour prouver
+  -- la résorption en moteur réel sans attendre 1 h (att2-controle)
+  vieillir = function(d)
+    local s = S()
+    for _, x in ipairs(s.traces) do
+      local R, vu = x.R, {}
+      for i = R.tete, R.n do
+        local q = R.file[i]
+        q.fin = q.fin - d
+        local e = R.t[q.k]
+        if e and not vu[q.k] then vu[q.k] = true; e.fin = e.fin - d end
+      end
+    end
+    local L = s.rochers
+    for i = L.i, L.n do L.l[i].fin = L.l[i].fin - d end
+    for _, x in ipairs(s.laves) do x.debut = x.debut - d end
+    for _, x in ipairs(s.verres) do x.debut = x.debut - d end
+  end,
+  -- séquelles d'1 h : tuiles encore au registre, tuiles rendues à leur sol, rochers en attente, rochers effacés
+  sequelles = function()
+    local s, n = S(), 0
+    for _, x in ipairs(s.traces) do n = n + A.Ech.trace_compte(x.R) end
+    return { marquees = n, rendues = s.rendues or 0, rochers = s.rochers.n - s.rochers.i + 1, effaces = s.effaces or 0 }
+  end,
 })
 
 return M

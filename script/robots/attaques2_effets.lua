@@ -237,38 +237,13 @@ function V.climax_poteau(j, e, k)
   local p = e.position
   j.surface.create_entity({ name = "big-explosion", position = { p.x, p.y } })
   j.surface.create_entity({ name = P .. ((k or 1) % 6 == 1 and "eclat-bleu-grand" or "eclat-bleu-sombre"), position = { p.x, p.y } })
+  -- séquelle (QCM-7/11) : la toile du réseau grillé, une brûlure d'1 h sous chaque poteau (brûlures d'experimentaux, Ech.TRACE_TICKS)
+  j.surface.create_entity({ name = Xp.PREFIX .. "small-scorchmark", position = { p.x, p.y } })
 end
 
 ---------------------------------------------------------------------------------------------------
 -- Stylet
 ---------------------------------------------------------------------------------------------------
---- Le nez laboure : fissure chaude qui refroidit en cicatrice, poussière et éclats des deux côtés, gerbes d'étincelles d'or.
-function V.pointe(j, rt, x, y)
-  local a = A.ATTAQUES.stylet
-  local s = j.surface
-  local fin = math.ceil(math.abs(j.traits[1].a - j.traits[1].de) / a.vitesse)
-  if ok(j.vis.nez_lum) then rendering.set_target(j.vis.nez_lum, { x, y }) end
-  if rt > fin then
-    if rt == fin + 1 then
-      s.create_entity({ name = P .. "eclat-blanc", position = { x, y } })
-      s.create_entity({ name = "big-explosion", position = { x, y } })
-      son(j, "stylet", { x = x, y = y })
-      detruit(j.vis.nez_lum)
-    end
-    return
-  end
-  declin(j, rt)
-  if rt % 3 == 0 then
-    fissure(j, { x, y }, 0.25, (rt / 3) % 6 + 1, 240, 4800, 1.0)
-    for k = -1, 1, 2 do
-      s.create_trivial_smoke({ name = "fo-bourdon-poussiere", position = { x + k * 4, y } })
-      s.create_particle({ name = "stone-particle", position = { x + k * 1.5, y }, movement = { k * 0.16, -0.03 }, height = 0.4,
-        vertical_speed = 0.12, frame_speed = 1 })
-    end
-  end
-  if rt % 4 == 0 then s.create_entity({ name = P .. "eclat-feu", position = { x, y } }) end
-end
-
 --- Le balayage, à chaque tick : le rayon suit son bout ; au bout, le sol explose et brûle ; le long du rayon, de la fumée.
 function V.balayage(j, rt, x, y)
   declin(j, rt)
@@ -301,19 +276,6 @@ function V.balayage_fin(j, rt)
   local e = j.rayons[#j.rayons]
   j.surface.create_entity({ name = P .. "eclat-blanc", position = { e.x, e.y } })
   son(j, "stylet", e)
-end
-
---- Une falaise se lève : explosion, poussière, éclats.
-function V.falaise(j, f)
-  local s = j.surface
-  s.create_entity({ name = "big-explosion", position = { f.x, f.y } })
-  s.create_trivial_smoke({ name = "fo-bourdon-poussiere", position = { f.x - 1.5, f.y } })
-  s.create_trivial_smoke({ name = "fo-bourdon-poussiere", position = { f.x + 1.5, f.y } })
-  for k = 0, 3 do
-    local cs, sn = B.dir(k / 4 + 0.125)
-    s.create_particle({ name = "stone-particle", position = { f.x, f.y }, movement = { cs * 0.12, sn * 0.12 }, height = 0.5,
-      vertical_speed = 0.12, frame_speed = 1 })
-  end
 end
 
 ---------------------------------------------------------------------------------------------------

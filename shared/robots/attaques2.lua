@@ -4,20 +4,23 @@
   au-dessus d'une base, j'ai pas envie que la base elle se dise bah c'est bon, je peux continuer après son passage » ; QCM : « De nouvelles
   attaques ». Repère : le Glas du Bourdon (shared/robots/bourdon.lua).
 
-  Une « grande attaque » par géant, chacune avec une FORME propre, LE CORPS DU GÉANT QUI AGIT, un climax, et une SÉQUELLE qui dure :
+  Une « grande attaque » par géant, chacune avec une FORME propre, LE CORPS DU GÉANT QUI AGIT, un climax, et une SÉQUELLE qui dure.
+  Séquelles (QCM-7/11, le DC) : « Cratère et verre, pas de falaises » ; « les dégâts visibles permanents devraient en réalité durer
+  1 heure, se résorber » : toute trace visible dure Ech.TRACE_TICKS (1 h) puis le sol d'origine revient (A.SOL_TRACE, registre Ech.trace_*).
     Cairn (10)     « La Surtension » : la foudre frappe le poteau ennemi le plus proche ; la surtension court le long des fils de cuivre
-                   (parcours en largeur, 60 poteaux au plus), chaque poteau atteint reste sous tension, puis TOUS sautent au même tick ;
+                   (parcours en largeur, 60 poteaux au plus), chaque poteau atteint reste sous tension, puis tous sautent en vague ;
                    l'orage frappe la zone. Sans réseau (nids de biters) : l'arc saute d'un bâtiment à l'autre (proximité).
                    Séquelle : le réseau coupé et ses accumulateurs vidés ; de nuit, la base s'éteint.
-    Stylet (11)    « La Balafre »    : le Stylet plonge, nez en avant, et laboure la base du nord au sud ; derrière lui, le sol se fend en un
-                   canyon de deux lignes de VRAIES falaises. Séquelle : la base coupée en deux (explosifs de falaise pour réparer).
+    Stylet (11)    « Le Balayage »   : l'idée du DC (5/11) : un gros rayon laser qui balaie 30° et brûle tout sur son passage.
+                   Séquelle : un éventail de sol brûlé (brûlures d'1 h). La Balafre (canyon de falaises) est abandonnée.
     Trombe (12)    « Le Cyclone »    : la Trombe elle-même descend sur la base et la parcourt en huit pendant 10 s ; elle arrache ce qu'elle
-                   touche et jette des rochers sur son couloir. Séquelle : un couloir rasé, encombré de rochers (à déblayer).
+                   touche et jette des rochers sur son couloir. Séquelle : un couloir rasé, encombré de rochers, qui s'effacent en 1 h.
     Ixion (13)     « L'Éruption »    : une lance de plasma part du cœur solaire ; le sol se fend, éclate, crache des bombes de lave ; un lac
-                   de croûte rougeoyante s'étend. Séquelle : un lac infranchissable et inconstructible, qui refroidit en cratère en 4 min.
+                   de croûte rougeoyante s'étend. Séquelle : un lac infranchissable 1 min, qui refroidit en cratère en 3 min ; le cratère
+                   dure 1 h puis le sol d'origine revient.
     Tournesol (14) « Le Zénith »     : le foyer concentre le soleil en un point qui grave une spirale de verre en fusion du bord vers le
                    centre, puis éclate au centre. Séquelle : la spirale reste infranchissable 2 min (la base coupée en anneaux), puis
-                   refroidit en verre doré constructible, qui reste sur la carte.
+                   refroidit en verre doré constructible ; le verre dure 1 h puis le sol d'origine revient.
   Critique sévère du 5/11 (sous-agent, notes 3 à 6 sur 10) prise en compte : corps qui agit, climax à la fin, plus de « bombe atomique »
   vanilla ni de lignes plates, couleurs pures par la lumière ronde (une teinte multiplie, F36), dégâts au lieu de morts d'office, un son
   par géant, une touche pour le joueur.
@@ -59,6 +62,27 @@ A.POIDS = {
 A.BANDE = 32            -- la recherche de la salve, par bandes de 32 tuiles de haut (1,0 à 1,8 ms d'un bloc pour le Tournesol, mesuré)
 A.TUILES = 32           -- tuiles posées par tick au plus (le reste du budget pour les coups)
 
+-- SÉQUELLES (QCM-7/11) : 1 h, puis le sol d'origine revient (registre Ech.trace_* de shared/robots/echelle.lua, par surface).
+A.TRACE = Ech.TRACE_TICKS
+A.RESORPTION = 5         -- un passage de résorption tous les 5 ticks, au budget du tick (A.POIDS.tuile par tuile, A.POIDS.eclat par rocher)
+--- Les sols que le temps efface : le cratère (la lave refroidie) et le verre doré (le verre chaud refroidi). La lave et le verre chaud
+--- refroidissent bien avant l'heure (4 et 3 min).
+A.SOLS_TRACE = { ["nuclear-ground"] = true, [A.PREFIX .. "verre"] = true }
+
+--- Le sol à rendre à une tuile échue `e` (registre : { x, y, orig, fin }) dont le sol actuel est `nom` : son sol d'origine si elle porte
+--- encore une trace des grandes attaques (cratère, verre) ; rien si autre chose l'a changée depuis (un joueur qui pave, une autre attaque
+--- encore chaude), ni si l'origine était déjà ce sol (un cratère d'experimentaux dessous : son propre registre le rendra).
+function A.sol_a_rendre(e, nom)
+  if A.SOLS_TRACE[nom] and e.orig ~= nom then return e.orig end
+  return nil
+end
+
+--- Une tuile échue encore CHAUDE (lave, verre chaud : une autre grande attaque l'a reprise, ou un banc a avancé l'heure) n'est pas perdue :
+--- elle reprend A.REPRISE ticks d'attente, son sol d'origine gardé.
+A.CHAUDS = { [A.PREFIX .. "lave"] = true, [A.PREFIX .. "verre-chaud"] = true }
+A.REPRISE = 600
+function A.encore_chaud(nom) return A.CHAUDS[nom] == true end
+
 --- Les bandes de recherche d'une boîte (x0, y0, x1, y1), de `h` tuiles de haut au plus, du nord au sud. La dernière garde son bord sud.
 function A.bandes(x0, y0, x1, y1, h)
   local out = {}
@@ -96,8 +120,9 @@ end
 
 A.ATTAQUES = {
   cairn = { nom = "surtension", charge = 90, sauts = 60, saut_ticks = 3, tenue = 30, foudres = 36, foudre_ticks = 5, bord = 0.5, proche = 12 },
-  -- Stylet : « Le Balayage » (idée du DC, 5/11, 21 h 43) sur la règle Ech.balayage d'experimentaux ; la Balafre (falaises) reste en variante
-  stylet = { nom = "balayage", charge = 60, bord = 1, vitesse = 0.75, ecart = 4, brule = 9 },
+  -- Stylet : « Le Balayage » (idée du DC, 5/11, 21 h 43) sur la règle Ech.balayage d'experimentaux ; la Balafre (falaises) est
+  -- ABANDONNÉE (QCM-7/11 : « Cratère et verre, pas de falaises ») ; son plan est A.plan_balayage
+  stylet = { nom = "balayage", charge = 60, bord = 1 },
   trombe = { nom = "cyclone", charge = 100, duree = 600, boucle = 0.6, rayon = 7, souffle = 15, bord = 0.3, pas = 2, debris = 0.35, coeur = 2 },
   ixion = { nom = "eruption", charge = 120, lance = 40, lave = 1 / 3, fonte = 0.5, onde = 0.9, bord = 0.3, tenue = 3600,
     refroidit = 10800, anneaux = 12, feux = 80, secteurs = 24, bombes = 18 },
@@ -291,105 +316,6 @@ function A.bout_balayage(rayons, t, ticks, pas)
 end
 
 ---------------------------------------------------------------------------------------------------
--- Stylet, variante : « La Balafre » (canyon de falaises), proposée en second
----------------------------------------------------------------------------------------------------
-A.FALAISE = 4 -- grille des falaises vanilla (grid_size 4, grid_offset { 0, 0,5 })
-local function gx(x) return math.floor(x / 4 + 0.5) * 4 end
-local function gy(y) return math.floor((y - 0.5) / 4 + 0.5) * 4 + 0.5 end
-A.grille_x, A.grille_y = gx, gy
-
---- La balafre : deux lignes de falaises nord-sud, à x0 et x0 + ecart (grille de 4), de c.y − R à c.y + R. La gauche descend
---- (north-to-south), la droite remonte (south-to-north) : deux faces qui se regardent, un canyon. La pointe les creuse ensemble, du nord
---- au sud (`de` = bord nord pour les deux).
-function A.balafre(c, R, ecart)
-  local x0 = gx(c.x - ecart / 2)
-  local y0, y1 = gy(c.y - R), gy(c.y + R)
-  return { { axe = "v", x = x0, de = y0, a = y1, sens = 1 }, { axe = "v", x = x0 + ecart, de = y0, a = y1, sens = -1 } }
-end
-
---- Le Stylet au tick relatif t (charge : t < 0) : il vole de `depart` au bord nord pendant la charge, laboure vers le sud, puis reste au sud.
---- Rend la position du NEZ (x, y).
-function A.vol_stylet(depart, traits, t, charge, vitesse)
-  local xm = (traits[1].x + traits[2].x) / 2
-  local y0, y1 = traits[1].de, traits[1].a
-  if t < 0 then
-    local u = 1 + t / charge
-    u = u * u * (3 - 2 * u)
-    return depart.x + (xm - depart.x) * u, depart.y + (y0 - depart.y) * u
-  end
-  return xm, math.min(y1, y0 + t * vitesse)
-end
-
---- Falaises d'un trait : cases de la grille, sans celles à moins de 4 tuiles d'une coordonnée de `perp` (passages ; vide pour la balafre),
---- en séries bouclées par des bouts (none-to-…, …-to-none). Rend { { x, y, o, t } } dans l'ordre de la gravure ; t = tick relatif d'arrivée de la pointe.
-function A.falaises(tr, perp, t0, vitesse)
-  local cases = {}
-  local lo, hi = math.min(tr.de, tr.a), math.max(tr.de, tr.a)
-  local pas = 4
-  local v = lo
-  while v <= hi + 1e-9 do
-    local libre = true
-    for _, p in ipairs(perp) do
-      if math.abs(v - p) <= 4 + 1e-9 then libre = false end
-    end
-    cases[#cases + 1] = { v = v, libre = libre }
-    v = v + pas
-  end
-  -- séries de cases libres, ouest→est ou nord→sud
-  local out = {}
-  local i = 1
-  while i <= #cases do
-    if cases[i].libre then
-      local j = i
-      while j + 1 <= #cases and cases[j + 1].libre do j = j + 1 end
-      if j > i then
-        for k = i, j do
-          local o
-          local inv = tr.sens == -1
-          if tr.axe == "h" and not inv then
-            o = (k == i and "none-to-east") or (k == j and "west-to-none") or "west-to-east"
-          elseif tr.axe == "h" then
-            o = (k == i and "east-to-none") or (k == j and "none-to-west") or "east-to-west"
-          elseif not inv then
-            o = (k == i and "none-to-south") or (k == j and "north-to-none") or "north-to-south"
-          else
-            o = (k == i and "south-to-none") or (k == j and "none-to-north") or "south-to-north"
-          end
-          local w = cases[k].v
-          local x, y = (tr.axe == "h") and w or tr.x, (tr.axe == "h") and tr.y or w
-          out[#out + 1] = { x = x, y = y, o = o, t = t0 + math.floor(math.abs(w - tr.de) / vitesse) }
-        end
-      end
-      i = j + 1
-    else
-      i = i + 1
-    end
-  end
-  table.sort(out, function(a, b)
-    if a.t ~= b.t then return a.t < b.t end
-    if a.x ~= b.x then return a.x < b.x end
-    return a.y < b.y
-  end)
-  return out
-end
-
---- Passage de la pointe près d'un point p : rend t (tick relatif), d (distance au trait le plus proche), ou nil si p est hors des
---- traits (au-delà de `brule`). Un point à égale distance de deux traits prend le plus tôt.
-function A.passage_gravure(p, traits, departs, vitesse, brule)
-  local bt, bd
-  for i, tr in ipairs(traits) do
-    local lo, hi = math.min(tr.de, tr.a), math.max(tr.de, tr.a)
-    local along, across = (tr.axe == "h") and p.x or p.y, math.abs((tr.axe == "h") and (p.y - tr.y) or (p.x - tr.x))
-    if along >= lo - 2 and along <= hi + 2 and across <= brule then
-      local w = math.max(lo, math.min(hi, along))
-      local t = departs[i] + math.floor(math.abs(w - tr.de) / vitesse)
-      if not bd or across < bd - 1e-9 or (math.abs(across - bd) <= 1e-9 and t < bt) then bt, bd = t, across end
-    end
-  end
-  return bt, bd
-end
-
----------------------------------------------------------------------------------------------------
 -- Trombe, « Le Cyclone »
 ---------------------------------------------------------------------------------------------------
 --- Position du tourbillon au tick relatif t (0..duree) : un huit (lemniscate de Gerono) de demi-largeur w autour de c, tourné de `o`
@@ -578,10 +504,7 @@ function A.plan(id, p, cands, sans_tri)
   local out = {}
   for i, c in ipairs(cands) do
     local t, f, tue
-    if id == "stylet" then
-      local tt, d = A.passage_gravure(c, p.traits, p.departs, a.vitesse, a.brule)
-      if tt then t, f, tue = tt, d / a.brule, false end
-    elseif id == "trombe" then
+    if id == "trombe" then
       local tt, d = A.passage_cyclone(c, p.c, p.w, p.o, a.duree, a.pas, a.souffle)
       if tt then t, f, tue = tt, math.max(0, d - a.rayon) / (a.souffle - a.rayon), false end
     elseif id == "ixion" then
