@@ -20,6 +20,7 @@ local T = require("shared.team.config")
 local D = require("shared.team.petrole_donnees")
 local P = require("shared.team.plan")
 local Ch = require("shared.team.champ")
+local Jobs = require("script.team.champ_jobs") -- lot CHAMP-TRANCHES : plan du champ par tranches (registre des travaux)
 local Cv = require("shared.team.champ_verif")
 local Sa = require("shared.team.champ_saut") -- lot FONDERIE : découpe d'une bande trop grosse en projets liés
 local Ln = require("shared.team.champ_lien") -- revue-fonderie (point 7) : lecteur des projets liés du réseau du charbon
@@ -471,14 +472,26 @@ end
 --- Plan entier : (cadre, ordre des bandes { pr }, plan, avant-postes du même gisement { numéro }) ou nil, raison. Journal : une ligne [FO-CHAMP]
 --- par plan.
 function Champ.frame(f, surface, o)
-  Profiler.fstart("champ:frame-spec")
-  local spec, names, sibs = spec_of(f, surface, o, nil, nil)
-  Profiler.fstop("champ:frame-spec")
-  if not spec then return nil, names end
-  Profiler.dump("champ-frame", { spec = spec, cfg = Ch.CFG }) -- lot PERF3 : entrées du plan, bancs de détail seulement
-  Profiler.fstart("champ:frame-plan")
-  local plan, why = Ch.plan(spec)
-  Profiler.fstop("champ:frame-plan")
+  local function make()
+    Profiler.fstart("champ:frame-spec")
+    local spec, names, sibs = spec_of(f, surface, o, nil, nil)
+    Profiler.fstop("champ:frame-spec")
+    if spec then Profiler.dump("champ-frame", { spec = spec, cfg = Ch.CFG }) end -- lot PERF3 : entrées du plan, bancs de détail seulement
+    return spec, names, sibs
+  end
+  local spec, names, sibs, plan, why
+  if Jobs.ON then
+    -- lot CHAMP-TRANCHES : le plan se calcule par tranches (script/team/champ_jobs.lua) ; « calcul » tant qu'il n'est pas prêt
+    local rec, err = Jobs.get(f, "frame:" .. tostring(o.id), "frame", make)
+    if not rec then return nil, err end
+    spec, names, sibs, plan, why = rec.spec, rec.names, rec.sibs, rec.p, rec.why
+  else
+    spec, names, sibs = make()
+    if not spec then return nil, names end
+    Profiler.fstart("champ:frame-plan")
+    plan, why = Ch.plan(spec)
+    Profiler.fstop("champ:frame-plan")
+  end
   if not plan then return nil, why end
   Profiler.fstart("champ:frame-verify")
   local rep = Cv.verify(plan, spec)
@@ -620,16 +633,49 @@ local function named(plan, names, coal_side, exclude)
   return ents, quais, outs
 end
 
+--- Lot CHAMP-TRANCHES : signature d'un cadre (clé d'un travail de bande) : ses champs simples, triés ; une table imbriquée par ses
+--- champs simples triés. Deux cadres de même signature donnent la même spec de bande au même terrain.
+function Champ.frame_sig(frame)
+  local function flat(t, depth)
+    if type(t) ~= "table" then return tostring(t) end
+    if depth > 2 then return "{...}" end
+    local ks = {}
+    for k in pairs(t) do ks[#ks + 1] = tostring(k) end
+    table.sort(ks)
+    local parts = {}
+    for _, k in ipairs(ks) do
+      local v = t[k]
+      if v == nil then v = t[tonumber(k)] end
+      parts[#parts + 1] = k .. "=" .. flat(v, depth + 1)
+    end
+    return "{" .. table.concat(parts, ",") .. "}"
+  end
+  return flat(frame, 0)
+end
+
 --- La bande `pr` seule : { ents, quais, outs, tiles (liste plate de son emprise), plan } ou nil, raison.
 function Champ.band(f, surface, o, frame, pr, coal_side)
-  Profiler.fstart("champ:band-spec")
-  local spec, names = spec_of(f, surface, o, frame, { [pr] = true })
-  Profiler.fstop("champ:band-spec")
-  if not spec then return nil, names end
-  Profiler.dump("champ-band", { spec = spec, cfg = Ch.CFG }) -- lot PERF3 : entrées du plan, bancs de détail seulement
-  Profiler.fstart("champ:band-plan")
-  local plan, why = Ch.plan(spec)
-  Profiler.fstop("champ:band-plan")
+  local function make()
+    Profiler.fstart("champ:band-spec")
+    local spec, names = spec_of(f, surface, o, frame, { [pr] = true })
+    Profiler.fstop("champ:band-spec")
+    if spec then Profiler.dump("champ-band", { spec = spec, cfg = Ch.CFG }) end -- lot PERF3 : entrées du plan, bancs de détail seulement
+    return spec, names
+  end
+  local spec, names, plan, why
+  if Jobs.ON then
+    -- lot CHAMP-TRANCHES : même registre que Champ.frame ; la clé porte la bande, le côté du charbon et la signature du cadre
+    local rec, err = Jobs.get(f, "band:" .. tostring(o.id) .. ":" .. tostring(pr) .. ":" .. tostring(coal_side) .. ":" .. Champ.frame_sig(frame),
+      "band", make)
+    if not rec then return nil, err end
+    spec, names, plan, why = rec.spec, rec.names, rec.p, rec.why
+  else
+    spec, names = make()
+    if not spec then return nil, names end
+    Profiler.fstart("champ:band-plan")
+    plan, why = Ch.plan(spec)
+    Profiler.fstop("champ:band-plan")
+  end
   if not plan then return nil, why end
   if #plan.ents == 0 then
     return nil, string.format("bande vide : %d foreuse(s) possibles sur ses rangees, %d groupe(s) sans place de fonderie", plan.stats.band_drills or 0,
@@ -747,7 +793,7 @@ Build.SITES.champ = function(f, surface, p, h)
     if #(lp.ents or {}) == 0 then return nil, "champ: bande liee pas encore planifiee", true end
   end
   local bd, why = Champ.band(f, surface, o, cs.frame, cs.pr, cs.coal)
-  if not bd then return nil, "champ: " .. tostring(why) end
+  if not bd then return nil, "champ: " .. tostring(why), (why == "calcul") and "calcul" or nil end -- lot CHAMP-TRANCHES : plan en calcul
   local b = f.build
   -- poteaux d'une bande voisine déjà demandée (rangée partagée, même place sur le treillis) : déjà au plan, pas deux fois
   local ents = {}

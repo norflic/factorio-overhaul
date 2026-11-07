@@ -654,6 +654,9 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
   if Champ.tapis() and st.frame and st.frame.design == nil and not Champ.has_band(f, o) then st.frame, st.order, st.done_pr = nil, nil, nil end
   if not st.frame then
     local frame, order, _, sibs = Champ.frame(f, surface, o)
+    -- lot CHAMP-TRANCHES : plan du cadre en calcul (script/team/champ_jobs.lua) : ni échec ni attente ; cet avant-poste garde son tour
+    -- (vrai : la pensée ne passe pas à l'avant-poste suivant, comme quand le plan d'un bloc lançait sa bande) et redemande à la suivante
+    if not frame and order == "calcul" then return true end
     if not frame then
       st.fails, st.retry = st.fails + 1, tick + CFG.retry
       say_why(f, ms, st, "champ:" .. tostring(order), string.format("avant-poste %d : pas de plan de champ (%s), essai %d/%d", o.id, tostring(order), st.fails, CFG.max_fails))
@@ -700,6 +703,7 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
     return false
   end
   local bd, why = Champ.band(f, surface, o, st.frame, pr)
+  if not bd and why == "calcul" then return true end -- lot CHAMP-TRANCHES : bande en calcul, ni écartée ni retardée ; son tour est gardé
   if not bd then
     st.bad = st.bad or {}
     st.bad[#st.bad + 1] = pr
