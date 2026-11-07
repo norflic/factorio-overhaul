@@ -41,6 +41,8 @@ local Stock = require("script.team.stock")
 local Build = require("script.team.build")
 local Champ = require("script.team.champ") -- lot CHAMP : la partie migrée est une BANDE du champ en rangées (shared/team/champ.lua), hors du treillis
 local Melange = require("script.team.melange") -- lot MELANGE : foreuses des bandes sur une zone mêlée, tapis encombrés d'un autre minerai
+local Ra = require("script.team.reserve_amorcage") -- lot FOREUSES-THERMIQUES : réserve d'amorçage du combustible (module léger)
+local Sw = require("shared.team.foreuse_swap") -- (Sw.reserve_keepers : les K gardées d'un retrait de masse)
 local PileRt = require("script.team.pile") -- lot THERMIQUE5 : porte de la pile pour le départ d'une bande neuve pendant une retenue
 
 local Mig = {}
@@ -1225,6 +1227,25 @@ local function sweep_list(f, o)
   return list, ents, owners
 end
 
+--- Lot FOREUSES-THERMIQUES, RÉSERVE D'AMORÇAGE (décision du lead, 7/11 ; exception de sûreté) : réseau tombé, les chaudières ne brûlent plus,
+--- le plancher lu au débit des générateurs (fuel_burn) tombe à 0 et Th.cut_ok laisse couper toutes les paires de charbon (champ3, 7/11,
+--- déduit). Un avant-poste de COMBUSTIBLE garde ses K dernières thermiques (Ra.keep, Sw.coal_reserve : une chaudière à pleine charge sans
+--- courant), quel que soit le débit lu. Rend les numéros retirables (ordre gardé) et le nombre retenu.
+local function reserve_filter(f, owners, ids)
+  local hold, keep = {}, nil
+  for _, q in ipairs(owners or {}) do
+    if Ra.fuel_outpost(q) then
+      keep = keep or (Ra.keep(f))
+      local mine = {}
+      for _, d in ipairs(q.drill_list or {}) do if d.valid and d.name == T.DRILL and d.unit_number then mine[#mine + 1] = d.unit_number end end
+      for _, u in ipairs(Sw.reserve_keepers(mine, keep)) do hold[u] = true end
+    end
+  end
+  local out = {}
+  for _, id in ipairs(ids) do if not hold[id] then out[#out + 1] = id end end
+  return out, #ids - #out
+end
+
 local function sweep(f, surface, ms, free, book, tick)
   if tick < (ms.sweep_next or 0) then return 0 end
   ms.sweep_next = tick + SWEEP_EVERY
@@ -1247,10 +1268,13 @@ local function sweep(f, surface, ms, free, book, tick)
     local st = ms.o[a.id]
     if o and st and st.stage ~= "projet" then -- (avant le retrait de sa partie, une bande a besoin de ses paires ; ensuite les restes ne gênent plus)
       local list, ents, owners = sweep_list(f, o)
-      if #list > 0 then
-        local ids = {}
-        for _, pr in ipairs(list) do ids[#ids + 1] = pr.id end
-        table.sort(ids)
+      local ids = {}
+      for _, pr in ipairs(list) do ids[#ids + 1] = pr.id end
+      table.sort(ids)
+      local held_s
+      ids, held_s = reserve_filter(f, owners, ids) -- (balayage : réserve d'amorçage)
+      ms.reserve_held = (ms.reserve_held or 0) + held_s
+      if #ids > 0 then
         local before = {}
         for i, q in ipairs(owners) do before[i] = q.drills or 0 end
         local fl = byid[a.id]
@@ -1293,8 +1317,9 @@ local function sweep(f, surface, ms, free, book, tick)
           if Th.dry_retire(dry[pr.id], tick, true, prot) then ids[#ids + 1] = pr.id end
         end
       end
+      table.sort(ids)
+      ids = (reserve_filter(f, owners, ids)) -- (retrait à sec : réserve d'amorçage)
       if #ids > 0 then
-        table.sort(ids)
         local before = {}
         for i, q in ipairs(owners) do before[i] = q.drills or 0 end
         local removed, got = retire(f, surface, o, { ids = ids, frame = true }, list, ents)

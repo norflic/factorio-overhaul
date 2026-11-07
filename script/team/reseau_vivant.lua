@@ -35,6 +35,10 @@ Rv.LOT_AVOID_R = 16       -- tuiles : rayon écarté autour du lot de la central
 -- Lot LOURD (fo-logs\2026-11-07_LOURD\CRITERES.md §1) : 1 ligne au lieu de 2. MESURÉ à 2 lignes sur la sauvegarde du DC (0.6.59, AB-0659) :
 -- rv:bande 2,30 ms en moyenne, 8,15 ms au pire, 22 bandes sur 1 026 au-dessus de 5 ms. Le relevé dure deux fois plus de passes.
 Rv.BAND = 1               -- lignes de chunks par bande
+-- Lot LOURD, point 1 bis (décision du lead, 7/11 ; fo-logs\2026-11-07_LOURD\CRITERES.md §1 bis) : une bande est aussi coupée en LARGEUR,
+-- par tranches de Rv.COLS chunks. MESURÉ à une ligne sur toute la largeur (LOURD-ABAB série 2) : rv:bande 7,13 ms au pire sur les lignes
+-- denses. math.huge : toute la largeur (le relevé d'avant ce point).
+Rv.COLS = 32              -- chunks de large par tranche
 Rv.BANDS_PER_PULSE = 1    -- bandes par passe ; math.huge : tout le relevé dans la passe où il commence (l'horaire d'avant)
 
 local TYPES = {
@@ -176,17 +180,22 @@ local BAND_TYPES = { "generator" }
 for _, t in ipairs(ELEC_TYPES) do BAND_TYPES[#BAND_TYPES + 1] = t end
 
 local function job_new(box)
-  return { y = box.y0, y_end = box.y1 + 1, x0 = box.x0, x1 = box.x1 + 1, gn = {}, gens = {}, cons = {}, bands = 0 }
+  return { y = box.y0, y_end = box.y1 + 1, x0 = box.x0, x1 = box.x1 + 1, x = box.x0, gn = {}, gens = {}, cons = {}, bands = 0 }
 end
 
 --- Une bande du relevé ; vrai quand la dernière est faite.
+--- Lot LOURD (point 1 bis) : une TRANCHE de Rv.BAND lignes × Rv.COLS chunks, dans l'ordre ligne puis colonne (gauche à droite) ; une
+--- entité n'est gardée que dans la tranche qui contient sa position, en y ET en x (intervalles demi-ouverts, F96). Un relevé commencé
+--- avant ce point (sauvegarde, sans j.x) reprend sa ligne en cours au début.
 local function job_band(f, surface, j)
   local ya, yb = j.y, math.min(j.y + Rv.BAND, j.y_end)
-  local top, bottom = ya * 32, yb * 32
-  for _, e in ipairs(surface.find_entities_filtered({ area = { { j.x0 * 32, top }, { j.x1 * 32, bottom } }, force = f.force,
+  local xa = j.x or j.x0
+  local xb = math.min(xa + Rv.COLS, j.x1)
+  local top, bottom, left, right = ya * 32, yb * 32, xa * 32, xb * 32
+  for _, e in ipairs(surface.find_entities_filtered({ area = { { left, top }, { right, bottom } }, force = f.force,
     type = BAND_TYPES })) do
     local p = e.position
-    if p.y >= top and p.y < bottom then
+    if p.y >= top and p.y < bottom and p.x >= left and p.x < right then
       local id = e.electric_network_id
       if e.type == "generator" then
         if id then j.gn[id] = true end -- (écarte pendant les bandes les consommateurs d'un réseau déjà vu vivant)
@@ -196,8 +205,12 @@ local function job_band(f, surface, j)
       end
     end
   end
-  j.y = yb
   j.bands = j.bands + 1
+  if xb >= j.x1 then
+    j.x, j.y = j.x0, yb -- (ligne finie : la suivante, depuis la gauche)
+  else
+    j.x = xb
+  end
   return j.y >= j.y_end
 end
 

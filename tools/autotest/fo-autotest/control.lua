@@ -26,6 +26,11 @@ local KIT_EGAL = {
   ["x10-recensement"] = true, ["x10-sans-usines"] = true, ["x10-sans-pnj"] = true, ["x10-fige-tout"] = true,
 }
 
+-- Lot FOREUSES-THERMIQUES (A) : la sauvegarde du DC rejouée telle quelle (aucun réglage posé sur sa partie).
+KIT_EGAL["foreuses-partie-dc"] = true
+KIT_EGAL["foreuses-partie-dc-temoin"] = true
+KIT_EGAL["foreuses-stock-dc"] = true
+
 -- Lot IA0 : les scénarios de guerre intégrés restent en « Paisible » (pvp = "peaceful"), comportement des
 -- sessions 4-5, pour rester comparables à E17-E22 (sinon, au niveau Normal par défaut, les factions
 -- deviennent hostiles aux compagnons et à la base du joueur après 20 à 43 min). Le PvP se mesure dans

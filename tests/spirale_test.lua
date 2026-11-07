@@ -198,17 +198,35 @@ local function suite_recul()
     "journal [FO-RECRUE] du recul : " .. t1 .. " | " .. t2)
 end
 
+-- §5 parade du KIT OFFERT (décision du lead, 7/11 vers 19 h 05) : au plus 1 pistolet et les chargeurs non payés ; rien d'un kit payé
+local function suite_kit()
+  local G = { gun = 1, ammo = 10 }
+  local function take(gift, pg, pa, paid) local g, a = Sp.kit_take(gift, { gun = pg, ammo = pa }, paid) return g .. "/" .. a end
+  check(take(nil, 1, 10, 0) == "0/0", "kit : kit payé (pas de don) : rien de retiré")
+  check(take(G, 1, 10, 0) == "1/10", "kit : mort sans tir ni réarmement : 1 pistolet, 10 chargeurs retirés")
+  check(take(G, 1, 6, 0) == "1/6", "kit : 4 chargeurs tirés : les 6 restants (offerts) retirés")
+  check(take(G, 1, 10, 4) == "1/6", "kit : 4 tirés puis 4 payés au réarmement : 6 retirés, les 4 payés laissés")
+  check(take(G, 1, 6, 10) == "1/0", "kit : plus de payés que présents : aucun chargeur retiré (les offerts sont partis au tir)")
+  check(take(G, 0, 10, 0) == "0/10", "kit : pistolet déjà absent du corps : rien à retirer pour lui")
+  check(take(G, 3, 50, 0) == "1/10", "kit : jamais au-delà du don (3 pistolets, 50 chargeurs : 1 et 10)")
+  local t = Sp.kit_text({ key = "player", unit = 77, gun = 1, ammo = 6, kept = 4, total_gun = 3, total_ammo = 26, minutes = 12.5 })
+  check(t == "[FO-KIT-OFFERT] player : corps du PNJ 77 : kit offert retire (pistolet 1, chargeurs 6 ; chargeurs payes laisses 4) ; "
+    .. "depuis le debut 3 pistolet(s), 26 chargeur(s) a 12.5 min", "journal [FO-KIT-OFFERT] : " .. t)
+  check(Sp.KIT_TTL == 600, "kit : fiche de mort oubliée après 600 ticks")
+end
+
 suite_regle()
 suite_planner()
 suite_lecteurs()
 suite_recul()
+suite_kit()
 local base_fail = failures
 
 ---------------------------------------------------------------------------------------------------
 -- Mutants
 ---------------------------------------------------------------------------------------------------
 local killed, total = 0, 0
-local function run_all() suite_regle() suite_planner() suite_lecteurs() suite_recul() end
+local function run_all() suite_regle() suite_planner() suite_lecteurs() suite_recul() suite_kit() end
 local function judge(name, ok, f0)
   local caught = (failures > f0) or not ok
   if caught then killed = killed + 1 else print("  MUTANT SURVIVANT : " .. name) end
@@ -257,6 +275,23 @@ local function recul_mutant(name, death, ready)
   judge(name, ok, f0)
   passes, failures = p0, f0
 end
+-- mutants de la parade du kit offert
+local real_take = Sp.kit_take
+local function kit_mutant(name, f)
+  total = total + 1
+  Sp.kit_take = f
+  local p0, f0 = passes, failures
+  quiet = true
+  local ok = pcall(run_all)
+  quiet = false
+  Sp.kit_take = real_take
+  judge(name, ok, f0)
+  passes, failures = p0, f0
+end
+kit_mutant("kit : chargeurs payés retirés aussi", function(g, p) if not g then return 0, 0 end return math.min(g.gun, p.gun or 0), math.min(g.ammo, p.ammo or 0) end)
+kit_mutant("kit : au-delà du don", function(g, p, paid) if not g then return 0, 0 end return p.gun or 0, math.max(0, (p.ammo or 0) - (paid or 0)) end)
+kit_mutant("kit : kit payé vidé aussi", function(g, p, paid) return real_take(g or { gun = 1, ammo = 10 }, p, paid) end)
+kit_mutant("kit : pistolet compté même absent", function(g, p, paid) local a, b = real_take(g, p, paid) return g and 1 or a, b end)
 recul_mutant("recul : attente jamais doublee", function(st, b, d)
   st = real_death(st, b, d) if st.wait > 0 then st.wait = Sp.RECUL_BASE st.next_at = d + Sp.RECUL_BASE end return st end)
 recul_mutant("recul : sans plafond", function(st, b, d)
@@ -360,6 +395,11 @@ local WIRES = {
   { "script/team/team.lua", "recul_wait = recul_wait," },
   { "script/team/team.lua", "recruit.free_born = tick" },
   { "script/team/team.lua", "if f.team.recul then Sp.recul_spawn(f.team.recul, tick) end" },
+  -- parade du kit offert (worker.lua) : fiche à la recrue au kit offert, chargeurs payés au réarmement, retrait du corps rendu
+  { "script/team/worker.lua", "if free and not unarmed then kit_give(f, e) end" },
+  { "script/team/worker.lua", "kit_paid(e, put)" },
+  { "script/team/worker.lua", "local gun, ammo = Sp.kit_take({ gun = 1, ammo = d.ammo }, present, d.paid)" },
+  { "script/team/worker.lua", "Events.on(defines.events.on_post_entity_died, function(e)" },
 }
 local wired = true
 for _, w in ipairs(WIRES) do if count(src_of(w[1]), w[2]) ~= 1 then wired = false print("  CABLAGE ABSENT : " .. w[1] .. " : " .. w[2]) end end
