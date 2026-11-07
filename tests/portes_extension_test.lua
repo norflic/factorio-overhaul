@@ -146,7 +146,7 @@ local MUTANTS = {
   { "porte du transport retiree", "if g.closed and o.tours and not o.belt then", "if false then" },
   { "tapis non exempte", "if g.closed and o.tours and not o.belt then", "if g.closed and o.tours then" },
   { "seuil fixe au lieu du seuil qui suit l'effectif", "local y = Pe.BACKLOG_PER * w + Pe.BACKLOG_BASE", "local y = 8" },
-  { "bras : seuil fixe (sans les modules)", "local limit = math.floor(math.max(0, int(batis) or 0) / Pe.MODULES_PER_SITE) + 1", "local limit = 1" },
+  { "bras : seuil fixe (sans les modules)", "local limit = math.floor(math.max(0, b) / Pe.MODULES_PER_SITE) + 1", "local limit = 1" },
   { "R0 et R1 retenus (I2 rompu)", "if rank > Pe.SAFE_RANK then\n", "if true then\n" },
   { "petites marches retirees", "and (g.tense or o.measured) and", "and false and" },
   { "anti-repetition retiree", "elseif o.measured and o.item ~= nil and o.item == g.last_item and not o.alone then", "elseif false then" },

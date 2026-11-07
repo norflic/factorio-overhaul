@@ -978,6 +978,10 @@ function Ia3.plan_b(f, view, book, surface, tick, L)
   for _, kind in ipairs(T.OUTPOST_ORDER) do if st.ever[kind] then t.done[kind] = true end end
   if st.army_done then t.done.army = true end
   st.last_plan = { active = plan.ia3.active, productive = plan.ia3.productive, K = plan.ia3.K, dominant = plan.ia3.dominant }
+  if (plan.ia3.kept_unmeasured or 0) > 0 and st.kept_said ~= plan.ia3.kept_unmeasured then -- lot 5b (W04 n°4) : refus écrit, une fois par changement
+    st.kept_said = plan.ia3.kept_unmeasured
+    log(string.format("[FO-FLUX] %s : %d tournee(s) de service gardee(s) : sorties non mesurees (rangee de l'avant-poste absente) a %.1f min", f.key or "player", st.kept_said, tick / 3600))
+  end
   return plan
 end
 
