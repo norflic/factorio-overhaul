@@ -77,6 +77,7 @@ local Lv = require("shared.ai3.leviers") -- lot LEVIERS : modules dans les machi
 local Gi = require("shared.team.gisement") -- lot GISEMENTS : matière la plus en manque d'abord, pas d'avant-poste de trop
 local Dm = require("shared.ai3.demande") -- lot C2 : puits ouvert (le stock qui dort devient une demande)
 local Pf = require("shared.ai3.plafonds") -- lot VIDEO-L13 : gardes fermées par défaut (places des ordres ouverts)
+local Rg = require("shared.ai3.rang") -- lot VIDEO-L1b : rang de la décision (Rg.chain), ordre de propagation des besoins
 
 local Ca = {}
 
@@ -145,6 +146,9 @@ Ca.NEAR_SITE = Gi.NEAR -- tuiles : un gisement ouvert plus près que cela d'un s
 -- recherche (B.RESEARCH 62) et l'extraction ; but de FOND (lot CAPITAL : bancs c1 et c1-témoin, un but de capital servi
 -- comme un projet ordinaire retardait la recherche).
 Ca.V_MIN, Ca.V_SPAN, Ca.V_MAX, Ca.V_SHAPE = 35, 15, 50, 7
+-- Lot VIDEO-L1b (docs/TODO_VIDEO.md §H ; fo-logs/2026-11-07_VIDEO-AUTOMATISATION/PLAN_L1_L2.md) : ÉTEINT par défaut ; éteint, la
+-- décision est celle d'avant ligne pour ligne (tests/rang_cablage_test.lua §1).
+Ca.RANG = false         -- L1b : le besoin se propage dans l'ordre du RANG de la décision (Rg.chain), calculé une fois par jeu de graines
 Ca.MAX_ORDERS = 24      -- ordres nouveaux au plus par cycle (coût de calcul)
 Ca.OPEN_MAX = 16        -- ordres ouverts au plus (plafond de sûreté du dépliage ; le travail disponible borne avant)
 Ca.HQ = "qg"
@@ -758,6 +762,40 @@ local function choose_recipe(ctx, item)
   return best, why
 end
 
+--- Lot VIDEO-L1b (Ca.RANG) : le même besoin que Ca.requirements, propagé dans l'ordre du RANG de la décision (shared/ai3/rang.lua,
+--- Rg.chain sur la recette CHOISIE par choose_recipe), au lieu du parcours `visit` refait à chaque appel. Le rang est calculé une fois
+--- par JEU DE GRAINES (ctx.rang ; refait quand une graine change, le combustible d'une machine décidée par exemple). Sans cycle :
+--- même fermeture, même ordre, même liste, mêmes besoins au bit près (tests/rang_test.lua §9, tests/rang_cablage_test.lua). Un arc
+--- INTERNE à un cycle (recette qui consomme son produit, Kovarex) n'est pas propagé : c'est l'amorce (ctx.rang.seed).
+local function requirements_by_rank(ctx, fin)
+  local seeds = sorted_keys(fin)
+  local key = table.concat(seeds, "\n")
+  local Rk = ctx.rang
+  if Rk == nil or ctx.rang_key ~= key then
+    Rk = Rg.chain(ctx.D, function(i) return choose_recipe(ctx, i) end, seeds)
+    ctx.rang, ctx.rang_key = Rk, key
+  end
+  local Rq, used_by = {}, {}
+  for _, k in ipairs(seeds) do Rq[k] = fin[k] end
+  for _, i in ipairs(Rk.order) do
+    local r = Rk.rec[i]
+    local net = (Rq[i] or 0) - (ctx.stock[i] or 0) / Ca.H_STOCK
+    if r and net > 0 then
+      local crafts = net / amount_of(r.products, i)
+      local ci = Rk.cyc[i]
+      for _, ing in ipairs(r.ingredients) do
+        if ci == nil or Rk.cyc[ing.name] ~= ci then
+          local x = crafts * ing.amount
+          Rq[ing.name] = (Rq[ing.name] or 0) + x
+          used_by[ing.name] = used_by[ing.name] or {}
+          used_by[ing.name][i] = (used_by[ing.name][i] or 0) + x
+        end
+      end
+    end
+  end
+  return { R = Rq, list = Rk.list, depth = Rk.rank, rec = Rk.rec, why = Rk.why, fin = fin, used_by = used_by }
+end
+
 --- Besoin par objet (objets/min) : la demande finale propagée dans le graphe des recettes. Rend { R, list (profondeur
 --- croissante, puis le nom), depth, rec, why, fin, used_by = { [ingrédient] = { [objet] = /min } } }.
 function Ca.requirements(ctx, plan)
@@ -772,6 +810,7 @@ function Ca.requirements(ctx, plan)
   end
   for _, it in ipairs(ctx.pack_rates) do add(it[1], it[2]) end
   if ctx.D.fuel and plan.burn > 0 then add(ctx.D.fuel, plan.burn) end
+  if Ca.RANG then return requirements_by_rank(ctx, fin) end -- lot VIDEO-L1b (éteint par défaut)
   local depth, rec, why, seen = {}, {}, {}, {}
   local items = {}
   local function visit(i)
