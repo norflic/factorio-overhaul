@@ -264,6 +264,9 @@ check(SV:find("e.health = Ech.vie_gardee(e.health, a, b)", 1, true) ~= nil and S
   and read("script/robots/experimentaux.lua"):find('require("script.robots.echelle_vie")', 1, true) ~= nil,
   "§11 bis migration branchée au changement de configuration")
 check(PB:find("healing_per_tick = Ech.soin(Ech.pv(AGE_BOURDON), 0.5, 60000)", 1, true) ~= nil, "§11 bis Bourdon : régénération proportionnelle (prototype)")
+local SXG = read("script/robots/experimentaux_geants.lua")
+check(SXG:find("K.candidates(e.surface, e.force, e.position, eff.range), r.marks, eff.range)", 1, true) ~= nil
+  and SXG:find("radius = eff.zone, width = 4", 1, true) ~= nil, "§7 bis Cairn : marques et anneau à la portée et à la zone EFFECTIVES (modules)")
 
 -- §5 forme
 check(not SRC:gsub("ipairs%(", ""):find("pairs%("), "§5 aucun pairs")
