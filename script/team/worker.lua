@@ -49,6 +49,8 @@ local Sorties = require("script.team.sorties") -- lot CHARBON-MAIN : la ressourc
 local CB = require("shared.team.craft_bg") -- lot CRAFT-PARALLELE : fabrication en arrière-plan (règles pures, bilan [FO-CRAFT])
 local Tp = require("shared.team.tri_proches") -- lot CERVEAU-CENTRAL (P1) : tri des tuiles de minage, positions lues une fois
 local Sp = require("shared.team.spirale") -- EFFONDREMENT : filet de recul de la recrue gratuite (mort rapide d'une recrue gratuite)
+local Events = require("script.core.events") -- EFFONDREMENT : parade du kit offert (mort d'un PNJ, corps rendu)
+local Storage = require("script.core.storage")
 
 local Worker = {}
 Worker.BUILD_LOGS = 30 -- lot SCALE-COMPLET : lignes [FO-AVANT-POSTE] au plus par équipe (f.stats.build_logs)
@@ -311,6 +313,35 @@ local function rearm_floor(f)
   return Ra.floor(T.ammo_min, urgent, s1 ~= nil and s1.was == true, s1 and s1.reserve_said or 0)
 end
 
+-- EFFONDREMENT, parade du KIT OFFERT (décision du lead, 7/11 vers 19 h 05 ; règle pure : Sp.kit_take, shared/team/spirale.lua) :
+-- le kit d'une recrue au kit OFFERT (effectif de départ, recrue gratuite sous l'effectif de départ) est retiré de son corps à sa mort,
+-- au plus 1 pistolet et les chargeurs non payés, détruits (jamais rendus au coffre) ; la cargaison du corps reste.
+-- Fait moteur (micro-banc kit-cadavre, 9ee2b12d, 7/11 19:20) : pendant on_entity_died, les inventaires armes et munitions du
+-- personnage sont DÉJÀ vides (remove rend 0) ; on_post_entity_died rend l'unit_number et le character-corpse (corpses), dont
+-- l'inventaire character_corpse se vide par script. D'où deux temps : la mort note le kit (units → dead), le corps rendu le retire.
+--   units[unit] = { fid, ammo = chargeurs offerts, paid = chargeurs payés reçus au réarmement } (recrue au kit offert, vivante) ;
+--   dead[unit]  = la même fiche, plus tick (mort notée, corps pas encore rendu ; oubliée après Sp.KIT_TTL) ;
+--   taken[fid]  = { gun, ammo } retirés depuis le début (journal [FO-KIT-OFFERT]).
+-- Une recrue SANS arme (unarmed) n'a pas de fiche : rien d'offert à retirer. Les PNJ recrutés avant cette version n'en ont pas non plus.
+Storage.declare("kit_offert", function() return { units = {}, dead = {}, taken = {} } end)
+
+local function kit_ns() return Storage.ns("kit_offert") end
+
+--- Recrue au kit offert : fiche ouverte (appelé par Worker.recruit après la pose du kit).
+local function kit_give(f, e)
+  local ns = kit_ns()
+  if ns and e and e.valid and e.unit_number then
+    ns.units[e.unit_number] = { fid = f.id, ammo = T.worker_ammo_keep, paid = 0 }
+  end
+end
+
+--- Chargeurs PAYÉS (pris au coffre) remis à un PNJ au kit offert : jamais retirés de son corps.
+local function kit_paid(e, n)
+  local ns = kit_ns()
+  local k = ns and e and e.valid and e.unit_number and ns.units[e.unit_number]
+  if k then k.paid = k.paid + n end
+end
+
 --- Lot REARMEMENT : au dépôt au QG, l'emplacement des munitions d'un PNJ ARMÉ (pistolet en main) est complété jusqu'à la dotation
 --- (T.worker_ammo_keep) avec des chargeurs du coffre au-dessus du plancher (Ra.take). Avant : jamais (seul le recrutement le remplissait).
 --- Compte : f.team.rearm = { n = rechargements, mags = chargeurs } (journal [FO-REARMEMENT], Worker.rearm_report).
@@ -335,6 +366,7 @@ local function rearm(agent, f)
   if put > 0 then
     f.team.rearm = f.team.rearm or { n = 0, mags = 0 }
     f.team.rearm.n, f.team.rearm.mags = f.team.rearm.n + 1, f.team.rearm.mags + put
+    kit_paid(e, put) -- EFFONDREMENT : chargeurs payés, jamais retirés du corps d'une recrue au kit offert
   end
 end
 
@@ -1852,6 +1884,7 @@ function Worker.recruit(f, surface, tick, unarmed, free)
     e.get_inventory(defines.inventory.character_ammo).insert({ name = T.worker_ammo, count = T.worker_ammo_keep })
   end
   if free or unarmed then agent.free_kit = true end
+  if free and not unarmed then kit_give(f, e) end -- EFFONDREMENT : kit offert, retiré du corps à la mort (parade du kit)
   f.engineers[agent.id] = true
   f.engineers_count = f.engineers_count + 1
   home_slot(agent, f) -- case attribuée dès le recrutement (lot IA1-a)
@@ -1911,7 +1944,58 @@ function Worker.counts(f)
   return states
 end
 
+-- EFFONDREMENT, parade du kit offert : 1. la mort note la fiche du kit (le personnage est encore valide, ses inventaires déjà vides) ;
+-- les fiches oubliées (mort sans corps rendu) partent après Sp.KIT_TTL.
+Events.on_died(function(e)
+  local ent = e.entity
+  local ns = kit_ns()
+  -- hors de l'intérêt déclaré (personnage d'une force autre que « enemy ») : rien, pas même la purge (lot MORTS, tests/morts_test.lua P3)
+  if not (ns and ent and ent.valid and ent.unit_number and ent.type == "character" and ent.force.name ~= "enemy") then return end
+  local tick = e.tick or game.tick
+  local old = {}
+  for u, d in pairs(ns.dead) do if tick - d.tick > Sp.KIT_TTL then old[#old + 1] = u end end
+  table.sort(old)
+  for _, u in ipairs(old) do ns.dead[u] = nil end
+  local k = ns.units[ent.unit_number]
+  if not k then return end
+  ns.units[ent.unit_number] = nil
+  ns.dead[ent.unit_number] = { fid = k.fid, ammo = k.ammo, paid = k.paid, tick = tick }
+end, { types = { "character" }, ennemi = false })
+
+-- 2. le corps rendu (on_post_entity_died) : le kit offert en est retiré (Sp.kit_take), détruit ; la cargaison reste.
+-- Sans filtre (décision du lead, option 1 : le noyau events.lua n'est pas touché) : TOUTE mort de la partie passe ici ; une recherche
+-- dans la table des morts notées, puis return (quelques µs par mort).
+Events.on(defines.events.on_post_entity_died, function(e)
+  local u = e.unit_number
+  if not u then return end
+  local ns = kit_ns()
+  local d = ns and ns.dead[u]
+  if not d then return end
+  ns.dead[u] = nil
+  for _, c in ipairs(e.corpses or {}) do
+    if c.valid and c.type == "character-corpse" then
+      local inv = c.get_inventory(defines.inventory.character_corpse)
+      if inv and inv.valid then
+        local present = { gun = inv.get_item_count(T.worker_gun), ammo = inv.get_item_count(T.worker_ammo) }
+        local gun, ammo = Sp.kit_take({ gun = 1, ammo = d.ammo }, present, d.paid)
+        if gun > 0 then gun = inv.remove({ name = T.worker_gun, count = gun }) end
+        if ammo > 0 then ammo = inv.remove({ name = T.worker_ammo, count = ammo }) end
+        local tk = ns.taken[d.fid] or { gun = 0, ammo = 0 }
+        ns.taken[d.fid] = tk
+        tk.gun, tk.ammo = tk.gun + gun, tk.ammo + ammo
+        local f = State.faction(d.fid)
+        log(Sp.kit_text({ key = f and (f.key or "player") or tostring(d.fid), unit = u, gun = gun, ammo = ammo, kept = present.ammo - ammo,
+          total_gun = tk.gun, total_ammo = tk.ammo, minutes = (e.tick or game.tick) / 3600 }))
+      end
+      break
+    end
+  end
+end)
+
 Registry.on_removed(function(agent)
+  -- EFFONDREMENT (parade du kit offert) : un PNJ renvoyé (sans mort) n'a plus de fiche ; mort, sa fiche est déjà passée à `dead`
+  local kns = kit_ns()
+  if kns and agent.unit then kns.units[agent.unit] = nil end
   if not agent.faction then return end
   local f = State.faction(agent.faction)
   if not f or not f.engineers[agent.id] then return end

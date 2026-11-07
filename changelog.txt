@@ -1,4 +1,15 @@
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Version: 0.6.60
+Date: 2026-11-07
+  Changes:
+    - TODO de la video du DC branchee ET allumee par defaut (directive du DC du 7/11) : manque mesure (L3), quotas et collecte bornee (L4), capacite confirmee (L5), portes et petites marches (L6, reglage fo-war-portes vrai), amorce (L7), rang des investissements et porte de rang (L1, L2, etape 8), sonde des lots de minerai (L9, fo-war-lots-minerai vrai), paliers de stabilite (L10, fo-war-paliers vrai), trace sur la carte (L11, fo-debug-trace-carte vrai), centrale et menace tenue (L12), L13 et saturation. Une partie commencee AVANT la 0.6.60 garde ses anciens reglages de carte : allumer les 4 reglages ci-dessus dans Parametres des mods (carte) pour la voir en entier.
+    - Recrue gratuite : le kit offert (1 pistolet, 10 chargeurs) n'est plus laisse sur le cadavre d'une recrue gratuite tuee (pas de pillage ni d'armes semees) ; prouve en jeu, banc recrue-kit (13 cadavres, 0 pistolet, 0 chargeur, la cargaison reste).
+    - Traces de pas et poussiere retirees aux PNJ (choix du DC du 7/11) ; votre personnage les garde.
+    - Preuves : content 554 OK sur 21ccaa4f (fo-logs/2026-11-07_ESSAI-0660) ; harness 0 erreur, api_lint 2 885 usages 0 erreur, run 114 OK.
+    - Pas encore dans cette version : rappel des PNJ pour une urgence (conflit avec les quotas de L4, a recaler), coffres pleins et objets au sol, gel hors de vue, foreuses electriques aux avant-postes, leviers du x10.
+    - Centrale des equipes, changement de comportement allume (lot VIDEO-L12 partie 2, sans reglage) : une centrale saturee le reste tant qu elle produit au moins 70 % de sa capacite (C.SAT_EXIT = 0,7) ; l entree ne change pas (80 % pendant 6 releves, 30 s). Avant, un seul releve sous 80 % effacait la saturation et remettait a zero la duree qui leve le repli (C.HOLD_PASS). Joue pour les factions et votre equipe (C.observe, script/team/plant_arms.lua:224) ; ancienne sauvegarde : centrale non saturee au chargement.
+    - Capitalisation des equipes, changement de comportement allume (lot VIDEO-L12 partie 3, sans reglage) : apres une perte a moins de 90 tuiles du QG, les gisements restent fermes jusqu a 5 min apres la derniere perte (avant : 15 s) ; la menace se leve plus tot quand le QG a une tourelle armee (ou des chargeurs) et que deux pensees de suite passent sans perte. Etat separe f.threat_held (script/team/menace_equipe.lua), lu seulement par la capitalisation (script/ai3/capitalisation.lua:1139) ; view.threatened et ses autres lecteurs ne changent pas ; ancienne sauvegarde : aucune menace tenue au chargement.
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Version: 0.6.59
 Date: 2026-11-07
   Changes:

@@ -113,4 +113,28 @@ function Sp.recul_ready(st, tick)
   return tick >= (st.next_at or 0)
 end
 
+-- Parade du KIT OFFERT (décision du lead, 7/11 vers 19 h 05 : champ free_kit, au plus 1 pistolet et les chargeurs non payés, détruits,
+-- jamais rendus au coffre). Sans elle, le kit d'une recrue gratuite tuée restait dans son corps : environ 25 pistolets et 250 chargeurs
+-- à ramasser en 30 min sous un campeur. Fait moteur (micro-banc kit-cadavre, 9ee2b12d) : pendant on_entity_died, les inventaires du
+-- personnage sont déjà vides ; le kit se retire du corps (inventaire character_corpse) à on_post_entity_died.
+Sp.KIT_TTL = 600 -- ticks : une mort notée sans corps rendu (on_post_entity_died) est oubliée au-delà
+
+--- Kit à retirer du corps : gift = { gun = n, ammo = n } offert à la recrue (nil : kit payé, rien), present = { gun, ammo } dans le corps,
+--- paid = chargeurs PAYÉS reçus depuis (réarmement au coffre). Les chargeurs offerts partent les premiers au tir : il en reste au plus
+--- present − paid ; rien d'au-delà du don. Rend (pistolets, chargeurs), jamais un objet payé.
+function Sp.kit_take(gift, present, paid)
+  if not gift then return 0, 0 end
+  present = present or {}
+  local gun = math.max(0, math.min(gift.gun or 0, present.gun or 0))
+  local ammo = math.max(0, math.min(gift.ammo or 0, (present.ammo or 0) - (paid or 0)))
+  return gun, ammo
+end
+
+--- Journal [FO-KIT-OFFERT] d'un corps vidé de son kit offert (a : key, unit, gun, ammo, kept, total_gun, total_ammo, minutes).
+function Sp.kit_text(a)
+  return string.format("[FO-KIT-OFFERT] %s : corps du PNJ %s : kit offert retire (pistolet %d, chargeurs %d ; chargeurs payes laisses %d) ; " ..
+    "depuis le debut %d pistolet(s), %d chargeur(s) a %.1f min", tostring(a.key), tostring(a.unit), a.gun or 0, a.ammo or 0, a.kept or 0,
+    a.total_gun or 0, a.total_ammo or 0, a.minutes or 0)
+end
+
 return Sp

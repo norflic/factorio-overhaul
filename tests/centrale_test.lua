@@ -159,7 +159,7 @@ f:close()
 local mutants = {
   { "seuil 0.8 -> 0.9", "C.SAT = 0.8", "C.SAT = 0.9" },
   { "seuil 0.8 -> 0.5", "C.SAT = 0.8", "C.SAT = 0.5" },
-  { "comparaison >= -> >", "power >= C.SAT * capacity", "power > C.SAT * capacity" },
+  { "comparaison >= -> >", "power >= lim * capacity", "power > lim * capacity" }, -- (lot VIDEO-L12 partie 2 : seuil d'entree ou de sortie)
   { "duree 6 -> 1 releve", "C.SAT_CHECKS = 6", "C.SAT_CHECKS = 1" },
   { "duree 6 -> 12 releves", "C.SAT_CHECKS = 6", "C.SAT_CHECKS = 12" },
   { "capacite nulle comptee", "capacity > 0 and power", "power" },
