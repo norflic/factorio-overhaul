@@ -648,9 +648,12 @@ local function corr_arena(f, s)
   if cp.running_speed == nil then cp.running_speed = 0.15 end
   EP["character"] = cp
   local sb = P["small-biter"]
-  -- Relecture (revue-danger, 18 h 12) : les soldats des factions tirent en boîte à boîte (prototypes/faction.lua) ; « fo-test-17 »
-  -- (portée 17 < 18) déborde quand même la mitrailleuse (± 0,7) : 17 + |(0,9 ; 0,9)| = 18,27 en diagonale (Re.gap).
-  for _, u in ipairs({ { "fo-test-gunner", 20 }, { "fo-test-biter", 1 }, { "fo-test-17", 17 } }) do
+  -- Relecture (revue-danger, 18 h 12) : les soldats des factions tirent en boîte à boîte (prototypes/faction.lua) ; « fo-test-17-5 »
+  -- (portée 17,5 < 18) déborde quand même la mitrailleuse (± 0,7) : il atteint sa boîte depuis 17,5 + |(0,9 ; 0,9)| = 18,77 en diagonale,
+  -- elle n'atteint la sienne (± 0,2) que depuis 18 + 0,28 = 18,28 (Re.gap 0,49). Point (C), 7/11 (MESURÉ en portee-diagonale A : au centre
+  -- à centre, la tourelle atteint la BOÎTE de sa cible) : l'ancien soldat de portée 17 (écart 17 − 18 + 0,99 = −0,01) ne la déborde
+  -- plus ; la portée passe à 17,5 pour garder l'intention du cas (fo-logs/2026-11-05_EFFONDREMENT/CRITERES.md, point (C)).
+  for _, u in ipairs({ { "fo-test-gunner", 20 }, { "fo-test-biter", 1 }, { "fo-test-17-5", 17.5 } }) do
     P[u[1]] = { type = "unit", max_health = 600, speed = 0.11, vision_distance = 30,
       attack_parameters = { range = u[2], range_mode = "bounding-box-to-bounding-box" },
       collision_box = sb.collision_box, collision_mask = sb.collision_mask }
@@ -710,9 +713,9 @@ do
   r, a, o = wave("fo-test-biter", true)
   check(o == 0 and r > 0 and a == 0, string.format(
     "même vue (30), portée d'attaque 1 : ralliement inchangé, la vue ne compte pas (rally %d, away %d, débordé %d)", r, a, o))
-  r, a, o = wave("fo-test-17", true)
+  r, a, o = wave("fo-test-17-5", true)
   check(o > 0 and a > 0 and r == 0, string.format(
-    "portée 17 en boîte à boîte (18,27 au centre) contre 18 : éloignement, profil lu au prototype (rally %d, away %d, débordé %d)", r, a, o))
+    "portée 17,5 en boîte à boîte (18,77 au centre) contre 18 (18,28 sur sa boîte) : éloignement, profil lu au prototype (rally %d, away %d, débordé %d)", r, a, o))
   r, a, o = wave("fo-test-gunner", false)
   check(o == 0 and r > 0 and a == 0, string.format(
     "règle éteinte (interrupteur du banc témoin) : ralliement comme avant (rally %d, away %d, débordé %d)", r, a, o))
@@ -806,7 +809,7 @@ do
   end
   local p0 = { x = hq.x + 15, y = hq.y }
   local behind = C.refuge(f, p0, ep, nil, nil)
-  local with17 = C.refuge(f, p0, ep, nil, foes_of("fo-test-17"))
+  local with17 = C.refuge(f, p0, ep, nil, foes_of("fo-test-17-5"))
   local with_biter = C.refuge(f, p0, ep, nil, foes_of("fo-test-biter"))
   local home = f.home_spot or f.hq_pos
   local hx, hy = home.x - tu.position.x, home.y - tu.position.y
@@ -815,7 +818,7 @@ do
   local near_tu = function(q) return q and math.abs(q.x - bx) < 0.5 and math.abs(q.y - by) < 0.5 end
   check(near_tu(behind) and near_tu(with_biter), "refuge : 3 tuiles derrière la mitrailleuse du QG (sans profil, ou mordeur)")
   check(with17 and not near_tu(with17), string.format(
-    "refuge : la mitrailleuse débordée (portée 17 en boîte à boîte, à 18 tuiles) est écartée (refuge %.1f, %.1f)",
+    "refuge : la mitrailleuse débordée (portée 17,5 en boîte à boîte, à 18 tuiles) est écartée (refuge %.1f, %.1f)",
     with17 and with17.x or 0, with17 and with17.y or 0))
   -- Seconde relecture, point E : sans tourelle, le QG menacé, le repli du refuge passe par Re.away_pick (et non plus 24 tuiles
   -- en ligne droite) ; aucune direction sûre : pas de refuge (nil, "stand") ; règle éteinte : la ligne droite d'avant.
