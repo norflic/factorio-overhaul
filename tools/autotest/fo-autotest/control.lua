@@ -21,7 +21,7 @@ if not ok_s or type(SCENARIO) ~= "string" then SCENARIO = "default" end
 local KIT_EGAL = {
   ["content"] = true, ["ia1-scale"] = true, ["verif-tourelles"] = true, ["etape1-guide"] = true, ["kit-egal"] = true,
   -- Lot PERF4 : la sauvegarde du DC rejouée telle quelle (aucun réglage posé sur sa partie).
-  ["perf4-partie"] = true, ["perf4-partie-prof"] = true, ["perf4-partie-detail"] = true,
+  ["perf4-partie"] = true, ["perf4-partie-prof"] = true, ["perf4-partie-detail"] = true, ["perf4-coups"] = true,
 }
 
 -- Lot IA0 : les scénarios de guerre intégrés restent en « Paisible » (pvp = "peaceful"), comportement des
@@ -45,6 +45,13 @@ local SCENARIOS = {
 -- Scénario GREFFÉ : un nom inconnu ci-dessus charge scenarios/<nom>.lua (au chargement du mod, jamais
 -- pendant un événement : F24). Format et crochets : tools/autotest/README.md.
 local PLUGIN = Greffons.load_scenario(SCENARIO, SCENARIOS)
+
+-- Lot PERF4 : un scénario greffé peut écouter on_entity_damaged (PLUGIN.damaged(e), filtre moteur PLUGIN.damaged_filter) pour
+-- COMPTER des coups. Abonnement à la liaison (jamais pendant un événement) ; le filtre ne vaut que pour CE mod de test, le mod
+-- factorio-overhaul garde le sien.
+if PLUGIN and type(PLUGIN.damaged) == "function" then
+  script.on_event(defines.events.on_entity_damaged, function(e) PLUGIN.damaged(e) end, PLUGIN.damaged_filter)
+end
 
 -- Équipe du joueur : un coffre d'équipe garni posé près du départ (comme le ferait le joueur).
 local function place_team_chest()
