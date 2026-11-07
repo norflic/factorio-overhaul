@@ -1,8 +1,8 @@
 --[[
   Lot L12 de la feuille de route « Factorio Automated » (docs/VIDEO_AUTOMATISATION.md §6 L12 ; docs/TODO_VIDEO.md G15, G16, G17) :
   HYSTÉRÉSIS ET VERROU DES CRISES. Règle PURE et GÉNÉRIQUE (aucune API Factorio, aucun nom d'objet : anti-échelle de tests/iag_test.lua §8).
-  Testée hors jeu : tests/hysteresis_test.lua. NON BRANCHÉE : le plan du branchement est dans le rapport du lot (drapeaux à seuil unique,
-  fichier:ligne).
+  Testée hors jeu : tests/hysteresis_test.lua. BRANCHÉE pour la MENACE seulement (H.update_haut : shared/team/menace_qg.lua:59,
+  shared/team/menace_equipe.lua:59). L'énergie a sa propre hystérésis (shared/team/centrale.lua, C.SAT_EXIT).
 
   Le modèle (gist de l'auteur, l.48-53) : la crise d'énergie ENTRE quand la charge des accumulateurs passe sous 40, elle DURE tant que la
   charge reste sous 50, et le besoin `need_power` reste VERROUILLÉ jusqu'à ce qu'une mégatuile d'énergie soit POSÉE. Deux défauts évités :

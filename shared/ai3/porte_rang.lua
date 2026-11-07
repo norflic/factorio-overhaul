@@ -1,6 +1,7 @@
 --[[
   Lot L2 « la porte de rang ciblée » (docs/VIDEO_AUTOMATISATION.md §6 L2, docs/TODO_VIDEO.md §H). PUR (aucune API Factorio),
-  testé hors jeu (tests/porte_rang_test.lua). RIEN N'EST BRANCHÉ : la capitalisation garde ses règles d'emplacement.
+  testé hors jeu (tests/porte_rang_test.lua). BRANCHÉ (lot L2) : Ca.PORTE_RANG = true (shared/ai3/capitalisation.lua:154, demande Ca.RANG) ;
+  Pr.decide est appelé dans rank_gate (shared/ai3/capitalisation.lua:1907, branché à :1948).
 
   Règle : un ordre de production dont la chaîne DÉPEND (même indirectement, par les recettes choisies) d'un objet EN MANQUE
   d'un rang strictement INFÉRIEUR ne prend pas d'emplacement : il attend que ce manque soit servi. Un ordre sans cette

@@ -1,7 +1,8 @@
 --[[
   Lot VIDEO-L3 « MANQUE MESURÉ AU CONSOMMATEUR, TRANSIT COMPRIS » (feuille de route validée par le DC le 7/11 :
   docs/VIDEO_AUTOMATISATION.md §6 L3, docs/TODO_VIDEO.md §G rang 3, D0 et D1 ; lignes V14, V26, V28, V29, V59, V81, V82, V83,
-  G25). Règle PURE, testée hors jeu (tests/manque_local_test.lua). Rien n'est branché en jeu : le plan est dans le rapport du lot.
+  G25). Règle PURE, testée hors jeu (tests/manque_local_test.lua). BRANCHÉE : Mq.sinks dans script/ai3/capitalisation.lua (:1259) et Mq.step dans
+  script/team/manque_vue.lua (:163) ; Mv.ENABLED = true (manque_vue.lua:34), Col.MQ = true (script/team/collecte.lua:84).
 
   La vidéo : « any item with a negative signal is in demand » ; chaque module « report[s] any ingredients that are missing » ;
   « product that is in transit is accounted for as well » ; le réseau additionne TOUS les coffres fournisseurs.

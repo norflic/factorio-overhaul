@@ -1446,4 +1446,59 @@ function Fl.near_any(points, d, r)
   return false
 end
 
+--[[ Lot 6 FLUIDES-SOUPAPE (PEC V42, V41, M32) : soupape d'un co-produit fluide COUPLE. Règle PURE, non branchée. ]]
+-- Une cuve pleine sans débouché arrête la chaîne amont ; la soupape convertit le surplus par une recette LUE dans le relevé.
+Fl.VALVE_FILL = 0.9 -- remplissage STRICTEMENT au-delà duquel la cuve est pleine
+Fl.VALVE_K = 5      -- mesures pleines consécutives avant d'ouvrir la soupape
+
+--- Recette de surplus d'un fluide, lue dans le relevé : la première recette VISIBLE (ordre des noms) dont l'unique entrée
+--- fluide est ce fluide, dont tous les produits sont des objets (solides), et qui est DÉBLOQUÉE (enabled ~= false : absent = permis,
+--- comme capitalisation.lua:391). Aucun nom n'est écrit ici (anti-échelle).
+function Fl.valve_recipe(rel, fluide)
+  local names = {}
+  for name in pairs((rel and rel.recipes) or {}) do names[#names + 1] = name end
+  table.sort(names)
+  for _, name in ipairs(names) do
+    local r = rel.recipes[name]
+    if not r.hidden and r.enabled ~= false and r.ingredients and r.products and #r.products > 0 then
+      local fluid_in, only_item_out = 0, true
+      local takes = false
+      for _, i in ipairs(r.ingredients) do
+        if i.type == "fluid" then
+          fluid_in = fluid_in + 1
+          if i.name == fluide then takes = true end
+        end
+      end
+      for _, p in ipairs(r.products) do
+        if p.type ~= "item" then only_item_out = false end
+      end
+      if takes and fluid_in == 1 and only_item_out then return name end
+    end
+  end
+  return nil
+end
+
+--- Nouvel état d'une soupape : compteur de mesures pleines consécutives (un par co-produit, jamais dans global sans nom).
+function Fl.valve_new() return { n = 0 } end
+
+--- Une mesure. `remplissage` : fraction de la cuve (0 à 1). `debouches` : nombre de débouchés OUVERTS (0 = fermés ; nil = inconnu,
+--- donc pas compté comme fermé). `surplus` : recette de surplus (Fl.valve_recipe) ou nil.
+--- Rend { open = vrai | faux, recipe = nom | nil, why = texte }. Ouverte seulement après Fl.VALVE_K mesures pleines de suite.
+function Fl.valve(st, fluide, remplissage, debouches, surplus)
+  local full = type(remplissage) == "number" and remplissage > Fl.VALVE_FILL and debouches == 0
+  if full then
+    st.n = math.min(st.n + 1, Fl.VALVE_K)
+  else
+    st.n = 0
+    return { open = false, why = "cuve non pleine ou débouché ouvert", fluide = fluide }
+  end
+  if st.n < Fl.VALVE_K then
+    return { open = false, why = "mesure " .. st.n .. " / " .. Fl.VALVE_K, fluide = fluide }
+  end
+  if not surplus then
+    return { open = false, why = "aucune recette de surplus dans les données", fluide = fluide }
+  end
+  return { open = true, recipe = surplus, why = "cuve pleine depuis " .. Fl.VALVE_K .. " mesures", fluide = fluide }
+end
+
 return Fl
