@@ -9,17 +9,24 @@
                           de Cd.NEAR tuiles) ;
     « menace »            tick < f.threatened_until (une perte près du QG : script/faction/commander.lua, on_died) ;
     « attaque »           un bâtiment touché par une unité ou un personnage adverse depuis moins de Cd.ALERT ticks (f.attack_alert_t,
-                          script/team/reparation.lua) ;
+                          script/team/reparation.lua), ou TOUT coup d'une force adverse sur un type relevé, tourelles comprises
+                          (f.hit_t, même fichier, noté avant ses filtres ; revue de 87ac84fe : une ligne de tourelles attaquée ne
+                          réveillait la faction qu'à la première mort) ;
     « perte »             une entité de la faction morte, où qu'elle soit, depuis moins de Cd.ALERT ticks (f.lost_t, on_died) ;
     « ennemi pres du QG » la base menacée ou envahie à la dernière pensée (DefChoix.base, view.base_alert), tenue jusqu'à la suivante ;
-    « armee dehors »      un groupe armé de la faction en route ou au combat (attaque, retour, éclaireur : f.groups, entretenus par
-                          Military.maintain DANS la pensée) ou une attaque en préparation (f.route_pending, itinéraire demandé) : une
-                          armée qui attaque votre base loin de son QG n'est pas pilotée à Cd.SLOW (condition du lead, 7/11).
+    « armee dehors »      une force de la faction hors du QG ou qui s'y prépare (Cd.army_out) : groupe armé en route ou au combat
+                          (attaque, retour, éclaireur : f.groups, entretenus par Military.maintain DANS la pensée), attaque en
+                          préparation (f.route_pending), opération de nettoyage d'un site (IA3, rassemblement ou attaque), expédition
+                          contre un champ de nids (IA3), armée de la prévision en alerte ou au regroupement : une armée qui attaque
+                          votre base loin de son QG n'est pas pilotée à Cd.SLOW (condition du lead, 7/11 ; IA3 : revue de 87ac84fe).
   Votre équipe garde son rythme (« votre equipe »).
+  Au créneau, une faction qui a pensé depuis moins d'une période (réveil compris) laisse ce créneau (Cd.recent) : un réveil à T + k
+  suivi du créneau T + P referait penser la faction P − k ticks plus tard, et pour k >= P − 3 ses étapes E1 à E4 se rejoueraient d'un
+  bloc pendant celles de la première (revue de 87ac84fe). L'écart qui suit un réveil est donc entre P et 2 P − 1 ticks.
 
   GARDE FERMÉE PAR DÉFAUT (comme le lot L13) : une entrée absente ne ralentit jamais. Zone inconnue (aucun QG relevé), liste des joueurs
   absente, état de l'armée non dit (army_out ni vrai ni faux) : la faction reste au rythme normal (causes « zone inconnue », « joueurs
-  inconnus », « armee inconnue »).
+  inconnus », « armee inconnue ») ; dans Cd.army_out, un état de forme inconnue compte comme « dehors ».
   Aucun temps mesuré : seulement des ticks de jeu et des positions. Déterminisme : joueurs dans l'ordre donné (game.connected_players),
   points de la zone triés par l'appelant, aucun hasard.
 ]]
@@ -52,14 +59,39 @@ end
 
 local function inside(b, x, y) return x >= b.x0 and x <= b.x1 and y >= b.y0 and y <= b.y1 end
 
+--- Une force de la faction est-elle hors du QG, ou s'y prépare-t-elle ? a = { groups (f.groups : table des groupes armés ou nil),
+--- route_pending (attaque préparée), nt (opération de nettoyage d'un site, IA3 : nil ou table), clearing (expédition contre un champ
+--- de nids, IA3 : nil ou table), armee (f.armee, prévision : nil ou { alert, muster, ... }) }. Rend (vrai, cause) ou (faux, nil).
+--- GARDE FERMÉE : un état de forme inconnue (a absent, groups ou armee qui ne sont pas des tables, opération dans une phase inconnue,
+--- alerte ni vraie ni fausse) compte comme « dehors ».
+function Cd.army_out(a)
+  if type(a) ~= "table" then return true, "armee inconnue" end
+  local g = a.groups
+  if g ~= nil then
+    if type(g) ~= "table" then return true, "armee inconnue" end
+    if next(g) ~= nil then return true, "groupe arme" end
+  end
+  if a.route_pending ~= nil and a.route_pending ~= false then return true, "attaque preparee" end
+  if a.nt ~= nil then return true, "nettoyage" end -- rassemblement ou attaque (toute autre fin retire l'opération)
+  if a.clearing ~= nil then return true, "expedition" end
+  local ar = a.armee
+  if ar ~= nil then
+    if type(ar) ~= "table" then return true, "armee inconnue" end
+    if ar.alert ~= nil and ar.alert ~= false then return true, "alerte" end
+    if ar.muster ~= nil then return true, "regroupement" end
+  end
+  return false, nil
+end
+
 --- La faction doit-elle penser à son rythme normal ? s = { is_player, box (Cd.zone), players = { {x, y}, ... }, threatened_until,
---- attack_t, lost_t, base_alert, army_out (booléen) }. Rend (vrai, cause) ou (faux, « loin et calme »).
+--- attack_t, hit_t, lost_t, base_alert, army_out (booléen, Cd.army_out) }. Rend (vrai, cause) ou (faux, « loin et calme »).
 function Cd.awake(s, tick)
   if s.is_player then return true, "votre equipe" end
   if type(s.box) ~= "table" then return true, "zone inconnue" end
   if type(s.players) ~= "table" then return true, "joueurs inconnus" end
   if type(s.threatened_until) == "number" and tick < s.threatened_until then return true, "menace" end
   if type(s.attack_t) == "number" and tick - s.attack_t < Cd.ALERT then return true, "attaque" end
+  if type(s.hit_t) == "number" and tick - s.hit_t < Cd.ALERT then return true, "attaque" end
   if type(s.lost_t) == "number" and tick - s.lost_t < Cd.ALERT then return true, "perte" end
   if s.base_alert then return true, "ennemi pres du QG" end
   if s.army_out ~= false then return true, s.army_out == true and "armee dehors" or "armee inconnue" end
@@ -68,6 +100,12 @@ function Cd.awake(s, tick)
     if type(x) == "number" and type(y) == "number" and inside(s.box, x, y) then return true, "joueur proche" end
   end
   return false, "loin et calme"
+end
+
+--- À son créneau : la dernière pensée (réveil compris) date-t-elle de moins de `period` ticks ? Alors ce créneau est laissé, sans
+--- endormir la faction (voir l'en-tête). Sans dernière pensée ou sans période : faux (la faction pense).
+function Cd.recent(st, tick, period)
+  return type(st.last) == "number" and type(period) == "number" and tick - st.last < period
 end
 
 --- À son créneau : la pensée est-elle sautée ? st = état de la faction ({ last = tick de la dernière pensée }). Rend (sautée, cause).
