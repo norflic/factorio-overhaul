@@ -89,6 +89,16 @@ local function run(X, p)
   return fills, collects, table.concat(order, ",")
 end
 
+local function ser_shares(o)
+  if not o or not o.shares then return "?" end
+  local ks = {}
+  for k in pairs(o.shares) do ks[#ks + 1] = k end
+  table.sort(ks)
+  local out = {}
+  for _, k in ipairs(ks) do out[#out + 1] = k .. "=" .. o.shares[k].cases end
+  return table.concat(out, ",")
+end
+
 local function battery(X, verbose)
   local fails = 0
   local function ck(c, msg)
@@ -128,6 +138,31 @@ local function battery(X, verbose)
   world(250)
   fills, col = run(X, smelter(false))
   ck(col == 1 and fills["iron-ore"] == 400, "sans debit de sortie : collecte a 200, alimentation jamais coupee")
+  -- 4 bis. Lot VIDEO-COUVERTURE 3 (C11, C3.2) : un module à DEUX produits a un quota, la barre du coffre est partagée en parts
+  local function duo()
+    local p = smelter(true)
+    p.outflow = { ["iron-plate"] = 0.625, coal = 0.1 }  -- 375 plaques (4 cases de 100), 60 charbon (2 cases de 50) en 10 min
+    return p
+  end
+  world(0)
+  local pd = duo()
+  run(X, pd)
+  local o = pd.quota and pd.quota.outs[1]
+  ck(o ~= nil and o.cases == 6 and o.cap == 500 and o.shares and o.shares["iron-plate"].cases == 4 and o.shares.coal.cases == 2,
+    "deux produits : 4 cases de plaques et 2 de charbon, 500 objets en tout (" .. tostring(o and o.cap) .. ")")
+  world(449)
+  local f1 = run(X, duo())
+  ck(f1["iron-ore"] == 50, "deux produits, sortie a 89,8 % de la capacite : alimentation")
+  world(450)
+  local f2, c2 = run(X, duo())
+  ck(next(f2) == nil and c2 == 1, "deux produits, sortie a 90 % : plus d'alimentation, la collecte est emise")
+  world(180, 4)                                         -- barre a 4 : 3 cases ouvertes pour 2 produits
+  local pb2 = duo()
+  run(X, pb2)
+  local sb = pb2.quota and pb2.quota.outs[1]
+  ck(sb and sb.cases == 3 and sb.shares["iron-plate"].cases + sb.shares.coal.cases == 3 and sb.shares.coal.cases >= 1,
+    "barre de 3 cases ouvertes : la somme des parts = 3, une case au moins au charbon (" .. ser_shares(sb) .. ")")
+  ck(sb and sb.collect_at <= sb.cap * 500 / 1000, "seuil de collecte du coffre sous la moitie de sa capacite (pas d'interblocage)")
   return fails
 end
 
@@ -177,6 +212,20 @@ do
   Qg.of = function() return nil end
   local f2 = battery(load_code(SRC, Qg), false)
   check(f2 > 0, "mutant refuse : colle sans quota (ancienne regle partout)")
+end
+
+do -- lot VIDEO-COUVERTURE 3 : la colle d'avant (un seul produit par coffre) : le module à deux produits perd son quota
+  local Qg = {}
+  for k, v in pairs(Qg0) do Qg[k] = v end
+  local of0 = Qg0.of
+  Qg.of = function(p, ...)
+    local n = 0
+    for _, v in pairs(p.outflow or {}) do if (v or 0) > 0 then n = n + 1 end end
+    if n > 1 then return nil end
+    return of0(p, ...)
+  end
+  local f2 = battery(load_code(SRC, Qg), false)
+  check(f2 > 0, "mutant refuse : colle d'avant (un seul produit par coffre)")
 end
 
 print(string.format("[QUOTAS-GLUE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
