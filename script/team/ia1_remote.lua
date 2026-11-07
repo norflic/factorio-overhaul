@@ -253,6 +253,16 @@ remote.add_interface("fo-ia1", {
     end
     return n
   end,
+  -- Lot FOREUSES-THERMIQUES (bancs seulement) : etat du remplacement sur place (f.swap) en une chaine lisible, ou nil.
+  swap_state = function(key)
+    local f = team_of(key)
+    local st = f and f.swap
+    if not st then return "aucun releve" end
+    local w = {}
+    for _, k in ipairs(State.sorted_keys(st.why or {})) do w[#w + 1] = k .. "=" .. st.why[k] end
+    return string.format("faites=%d chaine=%d poteaux=%d pretes=%d melange=%d echecs=%d refus=%s", st.done or 0, st.chained or 0, st.poles or 0,
+      st.ready or 0, st.mixed or 0, st.failed or 0, #w > 0 and table.concat(w, ",") or "-")
+  end,
   set_regle_chaine = function(key, on)
     if type(on) ~= "boolean" then return nil end
     local f = team_of(key)

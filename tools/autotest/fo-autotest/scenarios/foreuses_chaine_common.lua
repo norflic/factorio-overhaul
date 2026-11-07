@@ -59,6 +59,10 @@ return function(rule)
       end
       local src = s.create_entity({ name = "small-electric-pole", position = { ex + 3.5, ey + 1.5 }, force = "player" })
       ctx.check(src ~= nil, "poteau source pose")
+      -- un consommateur sur le réseau (radar, 300 kW) : sans charge, l'interface ne produit rien et le réseau n'est pas « alimenté »
+      -- (statistiques de flux nulles : producing() de script/team/foreuse_swap.lua), comme une centrale sans machine branchée
+      local radar = s.create_entity({ name = "radar", position = { ex + 5.5, ey + 1.5 }, force = "player" })
+      ctx.check(radar ~= nil, "consommateur (radar) sur le reseau de la source")
       local v = ctx.remote("fo-ia1", "set_regle_chaine", "player", rule)
       ctx.check(v == rule, "regle de la chaine : " .. (rule and "allumee" or "coupee"), tostring(v))
       st.cc, st.hq, st.src = cc, hq, src
@@ -95,9 +99,10 @@ return function(rule)
         force = "player" })
       local placed = #poles - 1 -- moins la source
       local on_cor = ctx.remote("fo-ia1", "couloir_hits", "player", "small-electric-pole")
+      local sw = ctx.remote("fo-ia1", "swap_state", "player")
       local min = (CHECK - W0) / 3600
-      ctx.log(string.format("[FO-%s] RESULTAT regle=%s thermiques_W0=%d electriques=%d sur_reseau=%d thermiques_fin=%d poteaux_poses=%d poteaux_sur_couloir=%s rythme=%.1f/min",
-        TAG, rule and "oui" or "non", st.burners_w0 or 0, #elec, on_net, #burn, placed, tostring(on_cor), #elec / min))
+      ctx.log(string.format("[FO-%s] RESULTAT regle=%s thermiques_W0=%d electriques=%d sur_reseau=%d thermiques_fin=%d poteaux_poses=%d poteaux_sur_couloir=%s rythme=%.1f/min swap=[%s]",
+        TAG, rule and "oui" or "non", st.burners_w0 or 0, #elec, on_net, #burn, placed, tostring(on_cor), #elec / min, tostring(sw)))
       if rule then
         ctx.check(#elec >= 6, "regle : au moins 6 electriques remplacent les thermiques en 1 min", tostring(#elec))
         ctx.check(#elec > 0 and on_net == #elec, "regle : toutes les electriques sont sur le reseau de la source", on_net .. "/" .. #elec)
