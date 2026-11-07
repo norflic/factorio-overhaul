@@ -410,7 +410,9 @@ do
   -- Borne écrite APRÈS la mesure (7/11 : pire cas +12,8 %, la base neuve, où le rang est refait quand le charbon entre aux graines ;
   -- le rang seul de -9,2 % à +5,2 %) : la décision allumée coûte au plus 1,15 fois l'éteinte. Les comptes varient de 0,1 % d'un
   -- lancement à l'autre (graine de hachage de Lua 5.2 : l'ordre d'entrée des tris de sorted_keys) ; les DÉCISIONS, non.
-  check(worst <= 1.15, string.format("§9 decision allumee au plus 1,15 fois l'eteinte (pire : %.3f)", worst))
+  -- Lot VIDEO-ORDRE (7/11) : la part fixe de rank_gate (mémoire des objets posés, médiane des coûts, ordre du rang) ajoute environ
+  -- 1 000 instructions par décision ; sur la base neuve (7 125 instructions éteint) le pire passe de 1,128 à 1,153. Borne : 1,20.
+  check(worst <= 1.20, string.format("§9 decision allumee au plus 1,20 fois l'eteinte (pire : %.3f)", worst))
 end
 
 ---------------------------------------------------------------------------------------------------
