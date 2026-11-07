@@ -144,8 +144,8 @@ end
 -- §2 bis APPEL RÉEL : une partie de 2 factions (capitalisation branchée, comme tests/portes_paliers_moteur_test.lua). À 5 min, une perte
 -- au QG de la faction 1 (ce que font commander.lua:229 et la ligne de ce lot), QG sans tourelle armée ; puis 4 min. Chaque décision de
 -- capitalisation (Ca.decide_begin, entrée réelle de build_input) est relevée : la faction 1 décide sous menace au-delà des 15 s de
--- f.threatened_until, la faction 2 jamais.
-do
+-- f.threatened_until, la faction 2 jamais. `cap_src` (mutant du §4) : source de script/ai3/capitalisation.lua chargée à la place du fichier.
+local function partie(cap_src)
   local function patches()
     local out = {}
     local d = 0.7071
@@ -160,9 +160,12 @@ do
     end
     return out
   end
+  package.loaded["script.ai3.prevision"] = nil
+  package.preload["script.ai3.capitalisation"] = cap_src and function() return assert(load(cap_src, "=capitalisation_mutant", "t", _ENV))() end or nil
   M.new_world({ patches = patches(), p_busy = 0, p_nopath = 0, p_lost = 0, difficulty = "peaceful", ia3e = true, capi = true })
   local W2 = M.world()
   M.load_mod()
+  package.preload["script.ai3.capitalisation"] = nil
   M.dispatch(W2.on_init)
   local Ca = package.loaded["shared.ai3.capitalisation"]
   local calls = {}
@@ -172,13 +175,14 @@ do
     return orig_begin(input, st)
   end
   M.command("fo-war", "start 2 30 30 320")
+  local r = {}
   local ok1, err1 = pcall(M.run_ticks, 5 * 3600)
   local f1, f2 = global.fo.war.factions[1], global.fo.war.factions[2]
-  local t1s, t2s = M.serialize(f1.traits or {}), M.serialize(f2.traits or {})
+  r.t1s, r.t2s = M.serialize(f1.traits or {}), M.serialize(f2.traits or {})
   local Prev = package.loaded["script.ai3.prevision"]
   local nat = Prev.qg_view(f1)
-  local nat_armed = (nat and nat.qg and ((nat.qg.armed or 0) > 0 or (nat.qg.ammo or 0) > 0)) and true or false
-  if nat_armed then -- QG de la faction 1 sans tourelle armée (forcé pour elle seule ; sans cela, sortie à 20 s, cas du §2)
+  r.nat_armed = (nat and nat.qg and ((nat.qg.armed or 0) > 0 or (nat.qg.ammo or 0) > 0)) and true or false
+  if r.nat_armed then -- QG de la faction 1 sans tourelle armée (forcé pour elle seule ; sans cela, sortie à 20 s, cas du §2)
     local orig_q = Prev.qg_view
     Prev.qg_view = function(f)
       local v = orig_q(f)
@@ -190,34 +194,41 @@ do
   f1.threatened_until, f1.threat_loss_t = t_loss + 900, t_loss
   local n0, c0 = #W2.logs, #calls
   local ok2, err2 = pcall(M.run_ticks, 4 * 3600)
-  local pre1, post1, held1, post2 = 0, 0, 0, 0
+  r.ok, r.err = ok1 and ok2, err1 or err2
+  r.pre1, r.post1, r.held1, r.post2 = 0, 0, 0, 0
   for i, c in ipairs(calls) do
     if i <= c0 then
-      if c.threat then pre1 = pre1 + 1 end
-    elseif c.traits == t1s then
-      post1 = post1 + 1
-      if c.threat and c.tick >= t_loss + 900 then held1 = held1 + 1 end
-    elseif c.traits == t2s and c.threat then
-      post2 = post2 + 1
+      if c.threat then r.pre1 = r.pre1 + 1 end
+    elseif c.traits == r.t1s then
+      r.post1 = r.post1 + 1
+      if c.threat and c.tick >= t_loss + 900 then r.held1 = r.held1 + 1 end
+    elseif c.traits == r.t2s and c.threat then
+      r.post2 = r.post2 + 1
     end
   end
-  local entree1, menace2 = 0, 0
+  r.entree1, r.menace2 = 0, 0
   for i = n0 + 1, #W2.logs do
     local l = W2.logs[i]
-    if l:find("[FO-MENACE] " .. tostring(f1.key) .. " : MENACE TENUE", 1, true) then entree1 = entree1 + 1 end
-    if l:find("[FO-MENACE] " .. tostring(f2.key), 1, true) then menace2 = menace2 + 1 end
+    if l:find("[FO-MENACE] " .. tostring(f1.key) .. " : MENACE TENUE", 1, true) then r.entree1 = r.entree1 + 1 end
+    if l:find("[FO-MENACE] " .. tostring(f2.key), 1, true) then r.menace2 = r.menace2 + 1 end
   end
-  print(string.format("[L12C] §2 bis partie reelle : QG de la faction 1 %s ; %d decision(s) avant la perte sous menace ; apres : faction 1 %d decision(s), "
-    .. "%d sous menace TENUE au-dela des 15 s ; faction 2 %d sous menace", nat_armed and "arme (tourelles forcees vides)" or "sans tourelle armee",
-    pre1, post1, held1, post2))
-  check(ok1 and ok2, "§2 bis partie sans erreur (" .. tostring(err1 or err2) .. ")")
-  check(t1s ~= t2s, "§2 bis decisions attribuees aux factions (caracteres distincts)")
-  check(pre1 == 0, "§2 bis temoin : aucune decision sous menace avant la perte (" .. pre1 .. ")")
-  check(entree1 == 1 and f1.threat_held and f1.threat_held.crise == true, "§2 bis [FO-MENACE] « MENACE TENUE » chez la faction 1, toujours tenue 4 min apres")
-  check(post1 >= 3 and held1 >= 2, "§2 bis la decision de capitalisation de la faction 1 lit la menace tenue (" .. held1 .. " sur " .. post1 .. " decision(s))")
-  check(post2 == 0 and menace2 == 0, "§2 bis faction 2 sans perte : aucune decision sous menace, aucune ligne [FO-MENACE] (" .. post2 .. ", " .. menace2 .. ")")
-  check(game.tick > (f1.threatened_until or 0) and f1.threatened_until == t_loss + 900, "§2 bis f.threatened_until d'avant inchange (fin 15 s apres la perte)")
+  r.held_on = f1.threat_held and f1.threat_held.crise == true
+  r.old_ok = game.tick > (f1.threatened_until or 0) and f1.threatened_until == t_loss + 900
   Ca.decide_begin = orig_begin
+  return r
+end
+do
+  local r = partie(nil)
+  print(string.format("[L12C] §2 bis partie reelle : QG de la faction 1 %s ; %d decision(s) avant la perte sous menace ; apres : faction 1 %d decision(s), "
+    .. "%d sous menace TENUE au-dela des 15 s ; faction 2 %d sous menace", r.nat_armed and "arme (tourelles forcees vides)" or "sans tourelle armee",
+    r.pre1, r.post1, r.held1, r.post2))
+  check(r.ok, "§2 bis partie sans erreur (" .. tostring(r.err) .. ")")
+  check(r.t1s ~= r.t2s, "§2 bis decisions attribuees aux factions (caracteres distincts)")
+  check(r.pre1 == 0, "§2 bis temoin : aucune decision sous menace avant la perte (" .. r.pre1 .. ")")
+  check(r.entree1 == 1 and r.held_on, "§2 bis [FO-MENACE] « MENACE TENUE » chez la faction 1, toujours tenue 4 min apres")
+  check(r.post1 >= 3 and r.held1 >= 2, "§2 bis la decision de capitalisation de la faction 1 lit la menace tenue (" .. r.held1 .. " sur " .. r.post1 .. " decision(s))")
+  check(r.post2 == 0 and r.menace2 == 0, "§2 bis faction 2 sans perte : aucune decision sous menace, aucune ligne [FO-MENACE] (" .. r.post2 .. ", " .. r.menace2 .. ")")
+  check(r.old_ok, "§2 bis f.threatened_until d'avant inchange (fin 15 s apres la perte)")
 end
 
 -- §3 câblage ; et AUCUN autre lecteur de threat_held (git grep sur tout le Lua du dépôt, suivi ou non, tests exceptés).
@@ -305,7 +316,20 @@ do -- mutant « un autre lecteur lit threat_held » : une ligne de plus dans la 
   if seen then refused = refused + 1 end
   check(seen, "§4 mutant refuse : un autre lecteur lit threat_held (git grep du §3)")
 end
-print(string.format("[L12C] §4 mutants refuses : %d sur %d", refused, #MUT + 2))
+do -- mutant « la capitalisation ne lit pas la menace tenue » : la ligne de build_input retirée, la partie réelle du §2 bis rejouée
+  local CS = read("script/ai3/capitalisation.lua")
+  local i = CS:find("  if not threat and view.threat_held then threat =", 1, true)
+  local killed, r = false, nil
+  if i then
+    local j = CS:find("\n", i, true)
+    r = partie(CS:sub(1, i - 1) .. CS:sub(j + 1))
+    killed = r.ok and r.held1 < 2
+  end
+  if killed then refused = refused + 1 end
+  check(killed, "§4 mutant refuse : la capitalisation ne lit pas view.threat_held (partie reelle : " .. tostring(r and r.held1) .. " decision(s) sous menace tenue, "
+    .. tostring(r and r.err) .. ")")
+end
+print(string.format("[L12C] §4 mutants refuses : %d sur %d", refused, #MUT + 3))
 
 -- §5 coût
 local worst, st5, k = 0, Me.new(), 0
