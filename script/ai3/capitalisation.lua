@@ -94,6 +94,7 @@ local Ind = require("script.ai3.industrie") -- lot INDUSTRIE I6 : choix du patro
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (ordres neufs, équipement en modules)
 local Pi = require("shared.ai3.pile")
 local Pe = require("shared.ai3.portes_extension") -- lot VIDEO-L6 : portes avant d'étendre (Capi.portes, decide_finish)
+local Pl = require("shared.ai3.palier") -- lot VIDEO-L10 : marches de stabilité, variante B (Capi.palier, decide_start)
 local Ext = require("script.ai3.extension") -- lot C3 EXTENSION : rayon de base (étendue des avant-postes)
 local MigChamp = require("script.team.migration_champ") -- lot CHAMP : « couvrir / ouvrir » d'un minerai à fondre passent par le champ
 
@@ -1012,6 +1013,61 @@ function Capi.portes(f, cs, res, view, tick)
   return r.why
 end
 
+---------------------------------------------------------------------------------------------------
+-- Lot VIDEO-L10 (étape 7 de VIDEO-INTEG) : MARCHES DE STABILITÉ, VARIANTE B de C2 (règle pure shared/ai3/palier.lua, Pl). Réglage de carte
+-- fo-war-paliers, ÉTEINT par défaut (repli à « éteint » tant qu'il n'est pas déclaré : settings.lua, intégrateur). Éteint : C2 (variante A)
+-- inchangé. Allumé : le puits élastique de C2 (input.demande) ne s'ouvre qu'à la décision où une marche tombe (5 min de stabilité
+-- continue sans pose) ; sa taille reste celle de C2 (Dm.step, Dm.extra_cap selon les bras : écart déclaré au « un laboratoire » de la
+-- source). Le critère A/B est Pl.verdict (3 graines, accord du DC : bancs longs).
+---------------------------------------------------------------------------------------------------
+Capi.PALIERS_SETTING = "fo-war-paliers"
+
+function Capi.paliers_on()
+  local ok, v = pcall(function() return settings.global[Capi.PALIERS_SETTING].value end)
+  return ok and v == true
+end
+
+--- Entrées de Pl.step lues dans l'état du jeu (aucun temps mesuré) : manques = objets en manque net MESURÉ (L3, view.mq.build ; nil si
+--- L3 est éteint : jamais stable) ; crise = mode survie ou QG menacé (L12) ; bras libres (comme Capi.slots) ; pose = un module de la
+--- capitalisation de plus est « fini » depuis la décision précédente (cs.slots.batis, Capi.slots) ; arbre fini = plus aucune technologie
+--- à la file (input.research.queue).
+function Capi.palier_inputs(f, cs, view, input)
+  local st = cs.palier
+  local batis = (cs.slots and cs.slots.batis) or 0
+  local pose = st.batis_prev ~= nil and batis > st.batis_prev
+  local build = view.mq and view.mq.build or nil
+  local manques = nil
+  if build then
+    manques = 0
+    for _, k in ipairs(sorted_keys(build)) do if (build[k] or 0) > 0 then manques = manques + 1 end end
+  end
+  local g_iag = f.team.iag
+  local arbre_fini = true
+  for _, q in ipairs((input.research or {}).queue or {}) do if (q.left or 0) > 0 then arbre_fini = false break end end
+  return { manques = manques, crise = (view.survie or view.hq_threat) and true or false,
+    bras_libres = math.floor(Ca.idle_of(g_iag and g_iag.idle_ema or 0)), pose = pose, arbre_fini = arbre_fini }, batis
+end
+
+--- Une décision (decide_start, après build_input, AVANT l'instantané) : rend la marche ou nil. Réglage allumé : input.demande n'est vrai
+--- qu'à la décision de la marche. État : cs.palier (Pl : nombres et booléens ; batis_prev).
+function Capi.palier(f, cs, view, input, tick)
+  if not Capi.paliers_on() then cs.palier = nil return nil end
+  cs.palier = cs.palier or Pl.new()
+  local st = cs.palier
+  local a, batis = Capi.palier_inputs(f, cs, view, input)
+  st.batis_prev = batis
+  local had = st.until_tick
+  local mk, ev = Pl.step(st, a, tick)
+  input.demande = (input.demande and mk ~= nil) and true or false
+  if ev == "marche" or ev == "arme" or ev == "annule" or (had and not st.until_tick) then
+    log(string.format("[FO-PALIER] %s minute %d : %s (minuteur %s, marches %d, annulations %d) ; manques %s, crise %s, bras libres %d, pose %s, arbre fini %s%s",
+      f.key or "?", math.floor(minutes(f, tick) + 0.5), tostring(ev), tostring(st.until_tick), st.marches or 0, st.annules or 0,
+      tostring(a.manques), tostring(a.crise), a.bras_libres, tostring(a.pose), tostring(a.arbre_fini),
+      mk and (" ; marche " .. mk.kind .. " : puits de C2 ouvert pour cette decision") or ""))
+  end
+  return mk
+end
+
 --- Lot CAPI-DECIDE : l'exécutant des chaînes sait-il les poser aujourd'hui ? (input.can_exec de la règle, mémo de la décision.)
 --- Faite depuis ses DONNÉES `d` (stock, objets voulus, repli, tick, emplacements, centrale, portée, débit des tapis) et le livre :
 --- une décision découpée la refait à l'identique depuis l'instantané, jamais depuis l'état vivant du jeu. Écrit dans d.wanted.
@@ -1845,6 +1901,7 @@ local function decide_start(f, cs, view, book, tick, w, run)
     log(string.format("[FO-CAPI] %s : decision refusee : entree absente : %s a %.1f min", f.key or "?", absent, minutes(f, tick)))
     return false
   end
+  Capi.palier(f, cs, view, input, tick) -- lot VIDEO-L10 (variante B, réglage fo-war-paliers ÉTEINT) : AVANT l'instantané
   local snap = {}
   for _, k in ipairs(sorted_keys(input)) do
     if k ~= "data" and k ~= "can_exec" then snap[k] = input[k] end
