@@ -309,6 +309,10 @@ remote.add_interface("fo-xp", {
   impact = function(v) S().impact = (v == "B") and "B" or nil end,
   --- Bancs seulement : durée des cratères en ticks (nil : Ech.TRACE_TICKS, 1 h) ; cratère posé par script, pour un banc court.
   trace_ticks = function(n) S().trace_ticks = tonumber(n) end,
+  --- Bancs de mesure seulement : autres budgets de coups et de morts par tick des salves de zone (sans argument : Ech.BUDGET, Ech.MORTS).
+  budgets = function(coups, morts)
+    S().budgets = (tonumber(coups) and tonumber(morts)) and { coups = math.floor(tonumber(coups)), morts = math.floor(tonumber(morts)) } or nil
+  end,
   --- Bancs seulement : coups et morts des salves de zone par tick (journal allumé), « tick:coups:morts » séparés par des virgules, ticks
   --- croissants.
   morts_par_tick = function()

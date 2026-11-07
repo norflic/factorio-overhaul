@@ -392,7 +392,8 @@ check(PB:find("healing_per_tick = Ech.soin(Ech.pv(AGE_BOURDON), 0.5, 60000)", 1,
 local SXG = read("script/robots/experimentaux_geants.lua")
 check(SXG:find("K.candidates(e.surface, e.force, e.position, eff.range), r.marks, eff.range)", 1, true) ~= nil
   and SXG:find("radius = eff.zone, width = 4", 1, true) ~= nil, "§7 bis Cairn : marques et anneau à la portée et à la zone EFFECTIVES (modules)")
-check(SXG:find("local parts = Ech.partage(#zj, Ech.BUDGET, ev.tick)", 1, true) ~= nil and SXG:find("local morts = Ech.partage(#zj, Ech.MORTS, ev.tick)", 1, true) ~= nil
+check(SXG:find("local parts = Ech.partage(#zj, s.budgets and s.budgets.coups or Ech.BUDGET, ev.tick)", 1, true) ~= nil
+  and SXG:find("local morts = Ech.partage(#zj, s.budgets and s.budgets.morts or Ech.MORTS, ev.tick)", 1, true) ~= nil
   and SXG:find("Ech.frapper(j.plan, j.cur, qh, qm, function(t)", 1, true) ~= nil and not SXG:find("Ech.TRANCHE", 1, true),
   "§4 ter jeu : chaque salve frappe sa PART des budgets de coups et de morts du tick (aucun budget par salve)")
 check(SXG:find("secteurs = Ech.secteurs(c, eff.zone, Ech.SECTEUR)", 1, true) ~= nil and SXG:find("if Ech.dans_secteur(q, p.x, p.y) then", 1, true) ~= nil

@@ -536,8 +536,9 @@ local function on_tick(ev)
     local j = s.gjobs[i]
     if j.kind == "zone" and not j.secteurs and j.at <= ev.tick then zj[#zj + 1] = j end
   end
-  local parts = Ech.partage(#zj, Ech.BUDGET, ev.tick)
-  local morts = Ech.partage(#zj, Ech.MORTS, ev.tick)
+  -- s.budgets : autres budgets, bancs de mesure seulement (remote « fo-xp », « budgets ») ; en jeu, Ech.BUDGET et Ech.MORTS
+  local parts = Ech.partage(#zj, s.budgets and s.budgets.coups or Ech.BUDGET, ev.tick)
+  local morts = Ech.partage(#zj, s.budgets and s.budgets.morts or Ech.MORTS, ev.tick)
   for k, j in ipairs(zj) do j.quota, j.quota_m = parts[k], morts[k] end
   for i = 1, n0 do
     local j = s.gjobs[i]
