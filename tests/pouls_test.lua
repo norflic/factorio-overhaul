@@ -922,6 +922,78 @@ local function p15(Rv, Ra)
 end
 
 ---------------------------------------------------------------------------------------------------
+-- P16 (lot LOURD, point 2 ; demande du lead, 7/11) : SATURATION sur la ligne de 76 de la sauvegarde du DC. 5 équipes (4 factions et votre
+-- équipe), boîte de 76 × 76 chunks (R = 76, mesuré au détail de B-0659), relevés du réseau (Rv, toutes les Rv.NET_PERIOD) et du raccord
+-- (Ra, toutes les R.PERIOD) à leur cadence : DEMANDE (à la cadence nominale, déduite des pas d'un relevé) et DÉBIT SERVI (mesuré), en
+-- passes du pouls par minute (720 = une passe toutes les Build.PULSE ticks ; un travail de coût c vaut min(1, c / budget) passe), pour :
+-- la 0.6.61 (lignes entières, un travail par tick), f72b7865 seul (tranches de 32 chunks, un travail par tick), b4be4c89 (tranches de 32,
+-- budget de 64). Durée des relevés du réseau en régime établi (après 8 min).
+---------------------------------------------------------------------------------------------------
+local function p16(Rv, Ra, Jeton, cols, costs)
+  logs = {}
+  local w = new_world()
+  local teams = {}
+  for i, key in ipairs({ "f1", "f2", "f3", "f4", "player" }) do teams[i] = team(w, key, "p16-" .. key, (i - 1) * 96, 0) end
+  chunks_for(w, { { -10, -10 }, { 65, 65 } })
+  local sfc = surface_of(w)
+  local box = box_of(w)
+  local saved = { Rv.BAND, Rv.COLS, Rv.BANDS_PER_PULSE, Ra.BAND, Ra.BANDS_PER_PULSE, Jeton.COSTS }
+  Rv.BAND, Rv.COLS, Rv.BANDS_PER_PULSE, Ra.BAND, Ra.BANDS_PER_PULSE, Jeton.COSTS = 1, cols, 1, 2, 1, costs
+  Jeton.reset()
+  local B = Jeton.BUDGET
+  local function pass_of(cost) return math.min(1, ((Jeton.COSTS and cost) or B) / B) end
+  local served = 0
+  local J = { take = function(t, who, per, cost)
+    local r = Jeton.take(t, who, per, cost)
+    if r then served = served + pass_of(cost) end
+    return r
+  end }
+  -- demande nominale : pas d'un relevé complet (coûts déclarés), à la cadence de chaque relevé
+  local rows, width = box.y1 - box.y0 + 1, box.x1 - box.x0 + 1
+  local rv_pass = 0
+  do
+    local j = { y = box.y0, y_end = box.y1 + 1, x0 = box.x0, x1 = box.x1 + 1, x = box.x0 }
+    while j.y < j.y_end do
+      local c = Rv.cout(j)
+      rv_pass = rv_pass + pass_of(c)
+      local xb = math.min(j.x + Rv.COLS, j.x1)
+      if xb >= j.x1 then j.x, j.y = j.x0, j.y + Rv.BAND else j.x = xb end
+    end
+  end
+  local ra_pass = 1 -- (la fin du raccordement : tout le budget)
+  do
+    local y = box.y0
+    while y < box.y1 + 1 do
+      ra_pass = ra_pass + pass_of(Ra.cout(y, box.y1 + 1, width))
+      y = math.min(y + Ra.BAND, box.y1 + 1)
+    end
+  end
+  local demand = #teams * (rv_pass * 3600 / Rv.NET_PERIOD + ra_pass * 3600 / require("shared.team.raccord").PERIOD)
+  local T, WARM = 24 * 3600, 8 * 3600
+  local served0
+  local job, t0, durs = {}, {}, {}
+  for t = 0, T, 5 do
+    game.tick = t
+    if t == WARM then served0 = served end
+    for i, f in ipairs(teams) do
+      Rv.step({ cancel = api_old.cancel, plant = api_old.plant, box = function() return box end, jeton = J }, f, sfc, t)
+      local now = f.build.sante and f.build.sante.nr_job
+      if job[i] and now ~= job[i] then
+        if t0[i] >= WARM then durs[#durs + 1] = t - t0[i] end
+        job[i] = nil
+      end
+      if now and not job[i] then job[i], t0[i] = now, t end
+      Ra.step({ request = function() return nil end, prio = 50, champ_live = false, jeton = J, box = function() return box end }, f, sfc, t)
+    end
+  end
+  Rv.BAND, Rv.COLS, Rv.BANDS_PER_PULSE, Ra.BAND, Ra.BANDS_PER_PULSE, Jeton.COSTS = saved[1], saved[2], saved[3], saved[4], saved[5], saved[6]
+  local mx, sum = 0, 0
+  for _, d in ipairs(durs) do mx = math.max(mx, d); sum = sum + d end
+  return { rows = rows, width = width, demand = demand, served = (served - served0) * 3600 / (T - WARM), rv_max = mx,
+    rv_mean = #durs > 0 and sum / #durs or 0, rv_n = #durs, rv_pass = rv_pass, ra_pass = ra_pass }
+end
+
+---------------------------------------------------------------------------------------------------
 -- Jeu de preuves sur la source du jeu
 ---------------------------------------------------------------------------------------------------
 local Rv, Ra, Jeton, Box = load_mods(nil)
@@ -1075,6 +1147,24 @@ do
   local bad15, n15, first15 = p15(Rv, Ra)
   check(n15 > 30 and bad15 == 0, string.format("P15 : coût déclaré au jeton (Rv.cout, Ra.cout) = chunks vraiment relevés au pas suivant (%d pas, %d écart(s))%s",
     n15, bad15, first15 and (" ; premier : " .. first15) or ""))
+end
+
+do
+  -- P16 : saturation sur la ligne de 76 (voir p16)
+  local cap = 3600 / 5
+  local a = p16(Rv, Ra, Jeton, math.huge, false)
+  local b = p16(Rv, Ra, Jeton, 32, false)
+  local c = p16(Rv, Ra, Jeton, 32, true)
+  local function txt(name, r)
+    return string.format("%s : demande %.1f, servi %.1f passes par minute sur %d (demande %.1f %%, servi %.1f %%) ; un relevé du réseau = %.2f passes, un cycle du raccord = %.0f ; relevé du réseau en régime : %.0f ticks en moyenne, %d au pire (%d relevés ; période %d)",
+      name, r.demand, r.served, cap, 100 * r.demand / cap, 100 * r.served / cap, r.rv_pass, r.ra_pass, r.rv_mean, r.rv_max, r.rv_n, Rv.NET_PERIOD)
+  end
+  check(a.rows == 76 and a.width == 76 and a.demand < cap and a.rv_n > 0 and a.rv_max <= Rv.NET_PERIOD,
+    "P16 0.6.61 (lignes entières, un travail par tick) : " .. txt("5 équipes, boîte 76 × 76", a))
+  check(b.demand > cap and b.rv_max > Rv.NET_PERIOD,
+    "P16 f72b7865 seul (tranches de 32, un travail par tick) : SATURÉ, " .. txt("5 équipes, boîte 76 × 76", b))
+  check(c.demand < cap and c.served < cap and c.rv_n > 0 and c.rv_max <= Rv.NET_PERIOD,
+    "P16 b4be4c89 (tranches de 32, budget de " .. Jeton.BUDGET .. ") : sous la capacité, " .. txt("5 équipes, boîte 76 × 76", c))
 end
 
 ---------------------------------------------------------------------------------------------------
