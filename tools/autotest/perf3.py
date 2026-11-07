@@ -83,8 +83,11 @@ RE_DEBUT = re.compile(r"\[FO-PERF4\] debut tick (\d+)")
 
 def aligner(rows, a_dir):
     """Lot PERF4 (banc sur une SAUVEGARDE donnée) : la partie commence au tick D (ligne « [FO-PERF4] debut tick D » du
-    scénario). Si les lignes tN de --benchmark-verbose comptent depuis 0, elles sont décalées sur les ticks du jeu (la première
-    mise à jour est le tick D + 1) : phases (tick % 300...), étalon [FO-CALIB] et détail [FO-PERF3-T] sont en ticks du jeu."""
+    scénario). Si les lignes tN de --benchmark-verbose comptent depuis 0, elles sont décalées sur les ticks du jeu : phases
+    (tick % 300...), étalon [FO-CALIB] et détail [FO-PERF3-T] sont en ticks du jeu (game.tick pendant la mise à jour).
+    La ligne t0 est la mise à jour où game.tick vaut D (MESURÉ le 7/11 sur B0 : décalage D, écart moyen script - détail
+    0,10 ms sur 1 243 ticks et 0 étalon sur 60 retiré d'une ligne qui ne le contient pas ; décalage D + 1, l'ancienne règle :
+    35 ms et 59 sur 60). Contrôle à chaque lecture : controle_etalon."""
     if not rows:
         return rows
     with opn(a_dir, "benchmark.log") as f:
@@ -94,11 +97,34 @@ def aligner(rows, a_dir):
             if m:
                 debut = int(m.group(1))
                 break
-    if debut is None or min(rows) > debut:
+    if debut is None or min(rows) >= debut:
         return rows
-    shift = debut + 1 - min(rows)
+    shift = debut - min(rows)
     print("   (banc sur une sauvegarde : partie commencée au tick %d ; lignes du benchmark décalées de %+d)" % (debut, shift))
     return {t + shift: v for t, v in rows.items()}
+
+
+def controle_etalon(rows, calib, seuil_ms=0.5):
+    """(n, total) : ticks de l'étalon [FO-CALIB] où scriptUpdate (ns) moins l'étalon tombe sous -seuil_ms. Lignes bien
+    alignées : 0 (l'étalon tourne dans la ligne de son tick) ; décalées d'un tick : presque tous (59 sur 60, PERF4, 7/11)."""
+    n = tot = 0
+    for t, c in calib.items():
+        r = rows.get(t)
+        if r is None:
+            continue
+        tot += 1
+        if r.get("scriptUpdate", 0) / 1e6 - c < -seuil_ms:
+            n += 1
+    return n, tot
+
+
+def dire_alignement(rows, calib):
+    """Ligne du rapport sur l'alignement (controle_etalon) ; « ALIGNEMENT FAUX » si plus de la moitié des étalons tombent."""
+    n, tot = controle_etalon(rows, calib)
+    faux = tot > 0 and 2 * n > tot
+    print("   contrôle de l'alignement : %d étalon(s) sur %d plus grands que le script de leur tick (attendu 0)%s" % (
+        n, tot, " : ALIGNEMENT FAUX, ticks décalés" if faux else ""))
+    return not faux
 
 
 def script_ms(rows, calib):
@@ -205,6 +231,7 @@ def rapport(a_dir, b_dir, seuil, top, ref=None):
     sc = script_ms(rows, calib)
     ticks = sorted(sc)
     print("== A : %s" % a_dir)
+    dire_alignement(rows, calib)
     cv = list(calib.values())
     print("   ticks %d (de %d à %d) ; étalon [FO-CALIB] : %d mesures, médiane %.2f ms, min %.2f, max %.2f (soustrait)" % (
         len(ticks), ticks[0], ticks[-1], len(calib), pct(cv, 0.5), min(cv) if cv else 0, max(cv) if cv else 0))

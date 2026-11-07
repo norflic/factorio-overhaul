@@ -1,0 +1,314 @@
+{
+ "ages": {
+  "10": {
+   "axe": {
+    "objet": "Lt10_lase_e10_emit_flat",
+    "sommets": 472,
+    "tol": 0.126,
+    "y": 0.93309,
+    "z": 2.5481
+   },
+   "marque": "foyer_tir",
+   "re": 1.05,
+   "tir": {
+    "hauteur": 1.8597,
+    "source_offset": [
+     0.0,
+     -0.7335
+    ]
+   },
+   "x_bouche": -0.0,
+   "y_bouche": 0.7335,
+   "z_axe": 2.63,
+   "z_bouche": 2.63
+  },
+  "11": {
+   "axe": {
+    "objet": "Lt11_lase_e11_emit_s_smooth",
+    "sommets": 868,
+    "tol": 0.126,
+    "y": 1.2555,
+    "z": 2.63
+   },
+   "marque": "foyer_tir",
+   "re": 1.05,
+   "tir": {
+    "hauteur": 1.8597,
+    "source_offset": [
+     0.0,
+     -1.206
+    ]
+   },
+   "x_bouche": -0.0,
+   "y_bouche": 1.206,
+   "z_axe": 2.63,
+   "z_bouche": 2.63
+  },
+  "12": {
+   "axe": {
+    "objet": "Lt12_lase_e12_ring_smooth",
+    "sommets": 226,
+    "tol": 0.126,
+    "y": 0.7785,
+    "z": 2.63
+   },
+   "marque": "lentille_miroir",
+   "re": 1.05,
+   "tir": {
+    "hauteur": 1.8597,
+    "source_offset": [
+     0.0,
+     -0.756
+    ]
+   },
+   "x_bouche": -0.0,
+   "y_bouche": 0.756,
+   "z_axe": 2.63,
+   "z_bouche": 2.63
+  },
+  "13": {
+   "axe": {
+    "objet": "Lt13_lase_e13_emit_s_smooth",
+    "sommets": 394,
+    "tol": 0.15,
+    "y": 1.04844,
+    "z": 3.06
+   },
+   "marque": "foyer_tir",
+   "re": 1.25,
+   "tir": {
+    "hauteur": 2.1637,
+    "source_offset": [
+     0.0,
+     -0.9653
+    ]
+   },
+   "x_bouche": -0.0,
+   "y_bouche": 0.96525,
+   "z_axe": 3.06,
+   "z_bouche": 3.06
+  },
+  "14": {
+   "axe": {
+    "objet": "Lt14_lase_e14_blanc_lunaire.001_smooth",
+    "sommets": 136,
+    "tol": 0.15,
+    "y": 0.19801,
+    "z": 3.20331
+   },
+   "marque": "pupille",
+   "re": 1.25,
+   "tir": {
+    "hauteur": 2.1354,
+    "source_offset": [
+     0.0,
+     -0.0573
+    ]
+   },
+   "x_bouche": -0.0,
+   "y_bouche": 0.05734,
+   "z_axe": 3.06,
+   "z_bouche": 3.01985
+  },
+  "15": {
+   "axe": {
+    "objet": "Lt15_lase_e15_emit2_smooth",
+    "sommets": 192,
+    "tol": 0.15,
+    "y": 0.94304,
+    "z": 3.03997
+   },
+   "marque": "lentille",
+   "re": 1.25,
+   "tir": {
+    "hauteur": 2.1637,
+    "source_offset": [
+     0.0,
+     -0.8575
+    ]
+   },
+   "x_bouche": 0.0,
+   "y_bouche": 0.8575,
+   "z_axe": 3.06,
+   "z_bouche": 3.06
+  },
+  "2": {
+   "axe": {
+    "objet": "Lt02_lase_e02_emit_s_smooth",
+    "sommets": 116,
+    "tol": 0.054,
+    "y": 0.43567,
+    "z": 1.34
+   },
+   "marque": "foyer_tir",
+   "re": 0.45,
+   "tir": {
+    "hauteur": 0.9475,
+    "source_offset": [
+     0.0,
+     -0.354
+    ]
+   },
+   "x_bouche": -0.0,
+   "y_bouche": 0.354,
+   "z_axe": 1.34,
+   "z_bouche": 1.34
+  },
+  "3": {
+   "axe": {
+    "objet": "Lt03_lase_e03_emit_s_smooth",
+    "sommets": 152,
+    "tol": 0.054,
+    "y": 0.41233,
+    "z": 1.34
+   },
+   "marque": "foyer_tir",
+   "re": 0.45,
+   "tir": {
+    "hauteur": 0.9475,
+    "source_offset": [
+     0.0,
+     -0.3621
+    ]
+   },
+   "x_bouche": -0.0,
+   "y_bouche": 0.3621,
+   "z_axe": 1.34,
+   "z_bouche": 1.34
+  },
+  "4": {
+   "axe": {
+    "objet": "Lt04_lase_e04_emit_s_smooth",
+    "sommets": 158,
+    "tol": 0.078,
+    "y": 0.58399,
+    "z": 1.77
+   },
+   "marque": "foyer_tir",
+   "re": 0.65,
+   "tir": {
+    "hauteur": 1.2516,
+    "source_offset": [
+     0.0,
+     -0.525
+    ]
+   },
+   "x_bouche": -0.0,
+   "y_bouche": 0.525,
+   "z_axe": 1.77,
+   "z_bouche": 1.77
+  },
+  "5": {
+   "axe": {
+    "objet": "Lt05_lase_e05_emit_s_smooth",
+    "sommets": 450,
+    "tol": 0.078,
+    "y": 0.67278,
+    "z": 1.77
+   },
+   "marque": "foyer_tir",
+   "re": 0.65,
+   "tir": {
+    "hauteur": 1.2516,
+    "source_offset": [
+     0.0,
+     -0.602
+    ]
+   },
+   "x_bouche": -0.0,
+   "y_bouche": 0.602,
+   "z_axe": 1.77,
+   "z_bouche": 1.77
+  },
+  "6": {
+   "axe": {
+    "objet": "Lt06_lase_e06_emit_s_smooth",
+    "sommets": 776,
+    "tol": 0.078,
+    "y": 0.8075,
+    "z": 1.77
+   },
+   "marque": "foyer_tir",
+   "re": 0.65,
+   "tir": {
+    "hauteur": 1.2516,
+    "source_offset": [
+     0.0,
+     -0.758
+    ]
+   },
+   "x_bouche": -0.0,
+   "y_bouche": 0.758,
+   "z_axe": 1.77,
+   "z_bouche": 1.77
+  },
+  "7": {
+   "axe": {
+    "objet": "Lt07_lase_e07_emit_smooth",
+    "sommets": 58,
+    "tol": 0.102,
+    "y": 0.90659,
+    "z": 2.2
+   },
+   "marque": "foyer",
+   "re": 0.85,
+   "tir": {
+    "hauteur": 1.5556,
+    "source_offset": [
+     0.0,
+     -0.85
+    ]
+   },
+   "x_bouche": 0.0,
+   "y_bouche": 0.85,
+   "z_axe": 2.2,
+   "z_bouche": 2.2
+  },
+  "8": {
+   "axe": {
+    "objet": "Lt08_lase_e08_emit_s_smooth",
+    "sommets": 460,
+    "tol": 0.102,
+    "y": 1.0145,
+    "z": 2.2
+   },
+   "marque": "foyer_tir",
+   "re": 0.85,
+   "tir": {
+    "hauteur": 1.5556,
+    "source_offset": [
+     0.0,
+     -0.965
+    ]
+   },
+   "x_bouche": -0.0,
+   "y_bouche": 0.965,
+   "z_axe": 2.2,
+   "z_bouche": 2.2
+  },
+  "9": {
+   "axe": {
+    "objet": "Lt09_lase_e09_emit_s_smooth",
+    "sommets": 50,
+    "tol": 0.102,
+    "y": 1.03142,
+    "z": 2.2
+   },
+   "marque": "foyer_tir",
+   "re": 0.85,
+   "tir": {
+    "hauteur": 1.5556,
+    "source_offset": [
+     0.0,
+     -0.89
+    ]
+   },
+   "x_bouche": -0.0,
+   "y_bouche": 0.89,
+   "z_axe": 2.2,
+   "z_bouche": 2.2
+  }
+ },
+ "outil": "tools/render/pieces/levels/laser_e/bouches.py",
+ "theta_deg": 45.0
+}

@@ -41,6 +41,7 @@ local L = require("shared.levels.config")
 local Foot = require("shared.levels.footprint")
 local Clear = require("shared.levels.clear")
 local Levels = require("script.levels.levels")
+local Tj = require("script.team.tourelle_journal") -- lot TOURELLE-JOURNAL : [FO-TOURELLE-RETIREE] (« Libérer la place »)
 
 local Free = {}
 
@@ -554,6 +555,7 @@ function Free.free_room(entity, opts)
       local e, r = ents[id], recs[id]
       if not (e and e.valid) or e.to_be_deconstructed() then return abort("marque : " .. r.name) end
       if not e.order_deconstruction(force, player) then return abort("marque : " .. r.name) end
+      Tj.removed(Tj.describe(e), "joueur (bouton Liberer la place)", "place de " .. tostring(entity.name), "marquee pour demontage par les robots (reposee a cote)")
       marked_ents[#marked_ents + 1] = e
       req.marks[#req.marks + 1] = { u = e.unit_number, x = e.position.x, y = e.position.y, n = intern(e.name),
         d = e.direction or 0, g = gi, nat = (r.kind == "natural") and 1 or nil }
@@ -686,7 +688,10 @@ local function rollback(i, why)
       local built = find_built(surface, g, force, keep)
       if built then
         src = built
-        if not built.to_be_deconstructed() and built.order_deconstruction(force, player) then res.unbuilt = res.unbuilt + 1 end
+        if not built.to_be_deconstructed() and built.order_deconstruction(force, player) then
+          res.unbuilt = res.unbuilt + 1
+          Tj.removed(Tj.describe(built), "Liberer la place (demande annulee ou expiree)", "geneur rebati remis a demonter", "marquee pour demontage par les robots")
+        end
       end
     end
     local k = g.m or 0

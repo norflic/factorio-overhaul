@@ -32,6 +32,9 @@ local function on_died(e)
   end
 end
 
-Events.on(defines.events.on_entity_died, on_died)
+-- Lot MORTS : le type des unités couvées (noms de `children`, lus aux prototypes), toutes forces.
+local brood_names = {}
+for _, f in ipairs(filters) do brood_names[#brood_names + 1] = f.name end
+Events.on_died(on_died, { noms = brood_names })
 
 return { filters = filters }

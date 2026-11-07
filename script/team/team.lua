@@ -67,6 +67,9 @@ local Dep = require("script.ai3.depenses") -- lot DEPENSES2 (R1) : journal de la
 local Rg = require("shared.ai3.reglages") -- lot SCALE : ressources clés de repli
 local DefChoix = require("script.faction.defchoix") -- lot DEFENSE-CHOIX : base menacée ou envahie (tourelles du QG avant les soldats)
 local Mu = require("shared.team.munitions") -- lot MUNITIONS : chargeurs voulus par tourelle (cible riche quand le fer la paie)
+local Scheduler = require("script.core.scheduler") -- lot DÉCOUPAGE-PENSÉE : minuteurs des étapes d'une pensée
+local Et = require("shared.team.etapes") -- lot DÉCOUPAGE-PENSÉE : état gardé de la vue et du plan pour E4
+local Sp = require("shared.team.spirale") -- EFFONDREMENT : recrue gratuite sous l'effectif de départ (journal [FO-RECRUE])
 
 local Team = {}
 
@@ -732,7 +735,36 @@ function Team.view(f, tick)
   else
     f.team.qg_reserve, f.team.qg_reserve_tech, f.team.qg_reserve_full = nil, nil, nil
   end
-  if f.is_player and T.qg_recruit_hold_on and SurvieQg.recruit_hold(f, tick, hq_threat) then hold_recruits = true end
+  if f.is_player and T.qg_recruit_hold_on and SurvieQg.recruit_hold(f, tick, hq_threat) then
+    hold_recruits = true
+    -- EFFONDREMENT (choix (1) du lead, 7/11 : garde GARDÉE) : journal [FO-RECRUE] d'une recrue gratuite retenue, au plus 1 par minute
+    -- (shared/team/spirale.lua). Retenue ⇒ 0 tourelle armée au QG (Sq.recruit_hold). Journal seul.
+    if Sp.free({ workers = f.engineers_count or 0, recover_floor = floor }) and Sp.log_due(f.team.recrue_log, tick) then
+      f.team.recrue_log = tick
+      local near, n = nil, 0
+      for _, u in ipairs(f.hq.surface.find_entities_filtered({ position = f.hq_pos, radius = T.hq_threat_radius, force = "enemy",
+        type = "unit" })) do
+        local dx, dy = u.position.x - f.hq_pos.x, u.position.y - f.hq_pos.y
+        local d2 = dx * dx + dy * dy
+        n = n + 1
+        if not near or d2 < near then near = d2 end
+      end
+      log(Sp.held_text({ key = f.key or "player", dist = near and math.sqrt(near) or nil, biters = n, armed = 0,
+        workers = f.engineers_count or 0, floor = floor, minutes = tick / 3600 })) -- minutes de partie, comme [FO-QGSURVIE]
+    end
+  end
+  -- EFFONDREMENT (filet de recul, décision du DC, 7/11 vers 16 h 56) : après des recrues gratuites tuées vite, la suivante attend
+  -- (shared/team/spirale.lua, f.team.recul écrit à la mort d'un PNJ, script/team/worker.lua) ; journal [FO-RECRUE] au plus 1 par minute.
+  local recul_wait = nil
+  if f.is_player and f.team.recul and Sp.free({ workers = f.engineers_count or 0, recover_floor = floor })
+    and not Sp.recul_ready(f.team.recul, tick) then
+    recul_wait = true
+    if Sp.log_due(f.team.recul_log, tick) then
+      f.team.recul_log = tick
+      log(Sp.recul_held_text({ key = f.key or "player", left = (f.team.recul.next_at or tick) - tick, wait = f.team.recul.wait,
+        workers = f.engineers_count or 0, floor = floor, minutes = tick / 3600 }))
+    end
+  end
   Profiler.fstop("view:4-fin") -- lot PERF (fusion de l'intégrateur : la mesure fine couvre aussi la règle d'effectif)
   return {
     tech = f.tech, personality = f.personality, done = f.team.done, deferred = f.team.deferred,
@@ -780,6 +812,7 @@ function Team.view(f, tick)
     -- Lot IA1-b2 (D-17) : défendre d'abord (tourelles avant les ouvriers ; shared/team/planner.lua) ; recrues retenues
     -- après une perte récente.
     defend_first = defend_first or nil, hold_recruits = hold_recruits or nil,
+    recul_wait = recul_wait, -- EFFONDREMENT : recrue gratuite en recul (planificateur, bloc de reprise)
     -- Tourelles du QG voulues : votre équipe seulement (une faction garde son QG avec ses soldats ; T.defend_first_factions).
     front = Front.view(f, fortify_open), -- lot DEFENSE-FRONT : tourelles en plus là où les pièces de l'équipe tombent, et près des laboratoires
     plant = GardeCentrale.view(f, fortify_open, iron0), -- lot CENTRALE-GARDE : tourelles armées à portée de toutes les pièces de la centrale finie
@@ -816,10 +849,17 @@ function Team.measure(f, view, tick)
 end
 
 ---------------------------------------------------------------------------------------------------
--- Pensée
+-- Lot DÉCOUPAGE-PENSÉE (7/11, accord du lead) : une pensée en QUATRE étapes (shared/team/etapes.lua). E1 (tick T) : vue, plan,
+-- journaux, tableau, pôles ; E2 (T + 1) : plan directeur ; E3 (T + 2) : reconstruction et réparations ; E4 (T + 3) : marché,
+-- stock, recrues, armée, pièces, champ, capital, fin ; puis la « queue » de l'appelant (commandant : chef, veille, attaque).
+-- L'ordre des appels est celui d'avant ; E4 lit la COPIE gardée de la vue et du plan (Et.freeze), dans global
+-- (f.team.etape) entre T et T + 3. Team.ETAPES = false : les quatre étapes au tick T, d'un appel (ancien comportement).
 ---------------------------------------------------------------------------------------------------
-function Team.think(f, surface, tick)
-  if not f.team then return nil end
+local TT = { tails = {} }
+Team.ETAPES = true
+TT.TIMER = "fo-team-etape"
+
+TT.e1 = function(f, surface, tick)
   Trace.log("team", f.key, #State.sorted_keys(f.outposts))
   Profiler.start("team:view")
   local view = Team.view(f, tick)
@@ -930,12 +970,19 @@ function Team.think(f, surface, tick)
   for _, a in ipairs(Poles.sur_stops(f)) do Worker.abort(a, f, tick, "preempte") end -- intégration 0.6.30 : la file sûre cède au travail du cerveau
   Profiler.stop("team:poles")
   Build.couloir_report(f, tick) -- lot ÉTAGE 5 (revue B3, 2e relecture) : bilan [FO-COULOIR] de TOUTES les équipes, plan directeur ou non
+  return view, plan, ia3
+end
+
+TT.e2 = function(f, surface, tick)
   -- Lot IA1-d : tâches du plan directeur (chantiers, défrichage, quais) ; rien pour une équipe sans plan.
   if f.build then
     Profiler.start("team:build")
     Build.think(f, surface, tick)
     Profiler.stop("team:build")
   end
+end
+
+TT.e3 = function(f, surface, tick)
   -- Lot COUVERTURE : pièces de l'équipe détruites, à refaire (tâches « rebuild » ; rien tant que rien n'a été détruit).
   Profiler.fstart("tt:recon")
   Recon.think(f, surface, tick)
@@ -946,6 +993,10 @@ function Team.think(f, surface, tick)
   Profiler.fstart("tt:repair")
   Recon.repair_think(f, surface, tick) -- lot RECONSTRUIRE : infrastructure électrique endommagée remise à neuf
   Profiler.fstop("tt:repair")
+end
+
+TT.e4 = function(f, surface, tick, fz)
+  local view, plan, ia3 = fz.view, fz.plan, fz.ia3
   Profiler.fstart("tt:inter")
   Inter.think(f, tick) -- lot MAIN-ET-INTERMEDIAIRES (D09, D10) : tâches libres retirées AVANT le marché (minage à la main fourni par les machines, quais d'un module au plafond)
   -- Lot IA3-b : meilleures paires PNJ inactif × tâche (place de marché, réglage allumé). Fusion IA-V2 : APRÈS le plan
@@ -996,24 +1047,35 @@ function Team.think(f, surface, tick)
   local cost = view.recruit_cost
   -- Lot IA2-a2 (survie) : recrue équipée AU QG avec les plaques du stock (plan.recruit_uses : objets prélevés).
   local pay = plan.recruit_uses or cost
-  if plan.recruit_workers and not plan.recruit_unarmed and has_list(stock, pay) then
-    remove_list(f, pay)
-    if Worker.recruit(f, surface, tick) then
+  -- EFFONDREMENT (décision du DC, 7/11 : « je veux toujours n ouvriers minimum, donc 12 si 12 au départ. Au delas ça coute des
+  -- ressources ») : votre équipe sous son effectif de départ recrute GRATUITEMENT (plan.recruit_free, shared/team/spirale.lua) :
+  -- rien n'est pris au coffre ; la recrue est équipée comme une autre (Worker.recruit, free : kit offert, jamais rendu au coffre).
+  local free = f.is_player and plan.recruit_free or false
+  if plan.recruit_workers and not plan.recruit_unarmed and (free or has_list(stock, pay)) then
+    if not free then remove_list(f, pay) end
+    local recruit = Worker.recruit(f, surface, tick, false, free)
+    if recruit then
       f.stats.recruited = (f.stats.recruited or 0) + 1
+      if free then -- EFFONDREMENT (filet de recul) : arrivée datée (mort rapide, script/team/worker.lua) ; en recul, la suivante attend
+        recruit.free_born = tick
+        if f.team.recul then Sp.recul_spawn(f.team.recul, tick) end
+      end
       if view.grow_due then f.team.last_grow = tick end -- lot IA1-b2 : rythme de la croissance
       -- Lot IA3-d : recrue de CROISSANCE d'une faction (rythme de la règle d'effectif).
       if view.effectif and view.effectif.reason == "recrue" and not plan.emergency_recruit then
         Effectif.grown(f.team.effectif, tick)
       end
-      if plan.recruit_uses then
+      if free then f.stats.free_recruits = (f.stats.free_recruits or 0) + 1 end
+      if plan.recruit_uses or free then
         f.stats.emergency_recruits = (f.stats.emergency_recruits or 0) + 1
         -- Votre équipe peut travailler sans guerre (State.war().started nil) : minutes comptées depuis sa fondation,
         -- comme « objectif atteint » plus haut.
-        log(string.format("[FO-TEAM] %s : survie, recrue equipee au QG (effectif %d, depart %d) a %.1f min", f.key,
-          f.engineers_count or 0, (view.emergency and view.emergency.floor) or view.recover_floor or 0,
+        log(string.format("[FO-TEAM] %s : survie, recrue %s au QG (effectif %d, depart %d) a %.1f min", f.key,
+          free and "GRATUITE equipee" or "equipee", f.engineers_count or 0,
+          (view.emergency and view.emergency.floor) or view.recover_floor or 0,
           (tick - (f.started or State.war().started or 0)) / 3600))
       end
-    else
+    elseif not free then
       for _, it in ipairs(pay) do Stock.insert(f, it[1], it[2]) end
     end
     stock = Board.view_stock(f, stock_of(f), tick)
@@ -1104,8 +1166,109 @@ function Team.think(f, surface, tick)
   Stock.balance(f)
   Stock.grow(f, surface, tick)
   Profiler.fstop("tt:fin")
-  return plan
 end
+
+--- Gel de la vue et du plan pour E4 (tests : Team.FREEZE_HOOK remplace la copie par un enregistreur ou une copie stricte).
+TT.freeze = function(view, plan, ia3)
+  if Team.FREEZE_HOOK then return Team.FREEZE_HOOK(view, plan, ia3) end
+  return Et.freeze(view, plan, ia3)
+end
+
+TT.key = function(f) return f.is_player and "player" or f.id end
+
+TT.surface_of = function(f)
+  if f.is_player then return f.hq.surface end
+  return game.surfaces[State.war().surface]
+end
+
+--- Une étape attendue ne se joue que si l'équipe vit encore (mêmes gardes que les deux appelants de Team.think).
+TT.alive = function(f)
+  if not (f.hq and f.hq.valid) or f.eliminated then return false end
+  if f.is_player then return true end
+  local war = State.war()
+  return war.active and war.factions[f.id] == f
+end
+
+TT.count = function(t, k)
+  local c = t.etapes or {}
+  t.etapes = c
+  c[k] = (c[k] or 0) + 1
+end
+
+--- Joue l'étape et.n (2, 3 ou 4) ; après E4, l'état gardé est effacé et la queue de l'appelant jouée.
+TT.play = function(f, surface, tick, et)
+  local n = et.n
+  if n == 2 then TT.e2(f, surface, tick)
+  elseif n == 3 then TT.e3(f, surface, tick)
+  else
+    TT.e4(f, surface, tick, et)
+    f.team.etape = nil
+    TT.count(f.team, "pensees")
+    local tl = et.tail and TT.tails[et.tail]
+    if tl then tl(f, tick) end
+    return
+  end
+  et.n = n + 1
+end
+
+--- Minuteur d'une étape : { key, n, t0 } ; une charge utile périmée (pensée déjà rattrapée) ne fait rien.
+TT.step = function(pl, tick)
+  local f = State.faction(pl.key)
+  local t = f and f.team
+  local et = t and t.etape
+  if not (et and et.n == pl.n and et.t0 == pl.t0) then return end
+  if not TT.alive(f) then
+    t.etape = nil
+    TT.count(t, "abandons")
+    log(string.format("[FO-ETAPES] %s : pensee du tick %d abandonnee a l'etape %d (equipe ou QG disparu)", tostring(f.key or "player"),
+      et.t0, et.n))
+    return
+  end
+  -- (le nom est pris AVANT l'étape : TT.play avance et.n ; sinon la portée était fermée sous le nom de l'étape suivante)
+  local scope = "team:etape" .. et.n
+  Profiler.start(scope)
+  TT.play(f, TT.surface_of(f), tick, et)
+  Profiler.stop(scope)
+  if t.etape then Scheduler.after(1, TT.TIMER, { key = pl.key, n = t.etape.n, t0 = t.etape.t0 }) end
+end
+Scheduler.define_timer(TT.TIMER, TT.step)
+
+--- Queue de l'appelant, jouée après E4 (une fonction n'est pas gardable dans global : la pensée garde son NOM).
+function Team.define_tail(name, fn)
+  assert(not TT.tails[name], "queue deja definie : " .. tostring(name))
+  TT.tails[name] = fn
+end
+
+---------------------------------------------------------------------------------------------------
+-- Pensée
+---------------------------------------------------------------------------------------------------
+--- Rend false quand des étapes restent à jouer (minuteurs) : l'appelant ne joue pas sa queue, l'étape E4 la jouera.
+function Team.think(f, surface, tick, tail)
+  if not f.team then return nil end
+  if f.team.etape then
+    -- pensée précédente pas finie (ne devrait pas arriver : période de 300 ticks) : ses étapes d'abord, d'un bloc
+    TT.count(f.team, "rattrapages")
+    while f.team.etape do TT.play(f, surface, tick, f.team.etape) end
+  end
+  local view, plan, ia3 = TT.e1(f, surface, tick)
+  local fz = TT.freeze(view, plan, ia3)
+  if fz.lost and not f.team.etape_lost then
+    -- une fonction dans la vue ou le plan n'est pas gardable dans global (Et.freeze la laisse de côté) : dit une fois par équipe
+    f.team.etape_lost = tick
+    log(string.format("[FO-ETAPES] %s : %d fonction(s) laissee(s) de cote dans la copie pour E4 (premiere : %s)", tostring(f.key or "player"),
+      fz.lost, tostring(fz.lost_where)))
+  end
+  if Team.ETAPES then
+    f.team.etape = { n = 2, t0 = tick, tail = tail, ia3 = fz.ia3, view = fz.view, plan = fz.plan }
+    Scheduler.after(1, TT.TIMER, { key = TT.key(f), n = 2, t0 = tick })
+    return false
+  end
+  TT.e2(f, surface, tick)
+  TT.e3(f, surface, tick)
+  TT.e4(f, surface, tick, fz)
+  return true
+end
+
 
 --- Lot IA3-d (lisibilité, critère 5 d'A7) : chaque minute de partie, une ligne par faction : effectif, recrues de
 --- croissance, raisons des pensées de la minute, dernière situation (travail qui attend, bras libres, fer).

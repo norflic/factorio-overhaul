@@ -28,6 +28,7 @@ local Board = require("script.team.board")
 local Recon = require("script.team.reconstruction")
 local Rp = require("shared.team.reparation")
 local Da = require("shared.team.danger_actif") -- lot DANGER-ACTIF : fréquence de l'alerte des soldats
+local Ab = require("script.team.abimes") -- lot PERF4 : ensemble des tourelles et de l'infrastructure endommagées (Recon.repair_think)
 
 local Rep = {}
 
@@ -48,10 +49,13 @@ for _, t in ipairs(Rp.filter_types()) do
 end
 
 local function on_damaged(e)
-  if not Rp.ENABLED then return end
   local ent = e.entity
   if not (ent and ent.valid) or e.final_health <= 0 then return end
   local etype = ent.type
+  -- Lot PERF4 : tourelles et infrastructure électrique notées dans l'ensemble des endommagées (script/team/abimes.lua), avant
+  -- tout le reste (le réglage Rp.ENABLED ne concerne que ce lot-ci). Une seule lecture du type pour les deux.
+  if Ab.TRACKED[etype] then Ab.note(ent, etype) end
+  if not Rp.ENABLED then return end
   if not CLASS[false][etype] then return end -- hors filtre (filtre absent : sauvegarde chargée avant le filtre, autre abonné)
   local f = team_of(ent.force.name)
   if not (f and not f.eliminated and f.hq and f.hq.valid) then return end
@@ -98,8 +102,16 @@ end
 Events.on(defines.events.on_entity_damaged, on_damaged)
 
 local function set_filter()
-  local filters = {}
-  for _, t in ipairs(Rp.filter_types()) do filters[#filters + 1] = { filter = "type", type = t } end
+  local filters, seen = {}, {}
+  for _, t in ipairs(Rp.filter_types()) do
+    seen[t] = true
+    filters[#filters + 1] = { filter = "type", type = t }
+  end
+  -- Lot PERF4 : les TOURELLES (absentes de Rp.filter_types, réparées par COMPAGNONS-ACTIFS) entrent au filtre pour l'ensemble
+  -- des endommagées ; on_damaged les laisse ensuite (CLASS ne les a pas), comme avant.
+  for _, t in ipairs(Ab.filter_types()) do
+    if not seen[t] then filters[#filters + 1] = { filter = "type", type = t } end
+  end
   script.set_event_filter(defines.events.on_entity_damaged, filters)
 end
 Events.on_init(set_filter)
