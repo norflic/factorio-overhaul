@@ -19,6 +19,18 @@ return {
   tick = function(ctx, e)
     local s = ctx.surface()
     local st = ctx.state()
+    if e.tick == 99 or e.tick == 299 or e.tick == 499 then
+      -- chunks du carré englobant de la zone que le moteur dit générés (is_chunk_generated), avant chaque recherche et à la fin
+      local n, g = 0, 0
+      for cx = math.floor((CX - ZONE) / 32), math.floor((CX + ZONE) / 32) do
+        for cy = math.floor((Y - ZONE) / 32), math.floor((Y + ZONE) / 32) do
+          n = n + 1
+          if s.is_chunk_generated({ x = cx, y = cy }) then g = g + 1 end
+        end
+      end
+      st["gen" .. e.tick] = g
+      ctx.log(string.format("tick %d : %d chunks generes sur %d", e.tick, g, n))
+    end
     if e.tick == 100 then
       st.n_rayon = #s.find_entities_filtered({ position = { CX, Y }, radius = ZONE, force = "enemy" })
       ctx.log("tick 100 : recherche par rayon, " .. st.n_rayon)
@@ -38,5 +50,7 @@ return {
   finish = function(ctx)
     local st = ctx.state()
     ctx.check(st.n_rayon ~= nil and st.n_carres ~= nil, "les deux recherches ont tourne", string.format("%s / %s", tostring(st.n_rayon), tostring(st.n_carres)))
+    ctx.log(string.format("chunks generes : %s avant le rayon, %s apres le rayon, %s apres les carres", tostring(st.gen99), tostring(st.gen299),
+      tostring(st.gen499)))
   end,
 }
