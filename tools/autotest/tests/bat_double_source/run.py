@@ -54,6 +54,11 @@ Cas de la place du banc (lot BANC2 : FO_PLACE, plusieurs bancs en même temps) :
      d'injection) : code 3, rien n'a tourné, aucun dossier fo-autotest-N, aucun verrou, aucune commande injectée ;
  18. par fo-captures.bat : FO_PLACE=2 héritée donne le code 8 (le banc refuse, code 3 : fo-captures.bat tient le verrou
      de la place 1), session visuelle NON lancée, aucun dossier fo-autotest-2 ; FO_PLACE=1 : code 0, comme avant.
+Cas de la sauvegarde donnée (lot PERF4 : FO_SAVE, banc sur la sauvegarde du DC) :
+ 19. FO_SAVE=<zip> : code 0, AUCUNE création (--create non lancé), le benchmark tourne sur une COPIE (fo-autotest-map.zip
+     identique octet à octet), save-source.txt et create.log « pas de creation » écrits, l'original intact (contenu et date) ;
+ 20. FO_SAVE avec FO_CREATE_SRC : code 1, rien n'a tourné, fo-autotest\\ précédent intact, aucun verrou ;
+ 21. FO_SAVE absente du disque, ou pas en .zip : code 1, rien n'a tourné, aucun verrou.
 Code de sortie : 0 si tous les contrôles passent.
 """
 import argparse
@@ -109,7 +114,7 @@ def read(path):
     return open(path, errors="replace").read() if os.path.exists(path) else None
 
 
-def run_case(base, bat, bins, name, double, extra, captures=None, previous=False, place=None, pre=()):
+def run_case(base, bat, bins, name, double, extra, captures=None, previous=False, place=None, pre=(), files=None):
     """captures : chemin de fo-captures.bat (le cas passe par lui) ; previous : un fo-autotest\\ « ancien » existe
     déjà (résultats du banc précédent, qui doivent rester intacts si rien ne tourne) ; place : numéro de la place dont
     on lit les résultats (dossier fo-autotest-N ; défaut : place 1) ; pre : verrous (dossiers) posés avant le cas."""
@@ -121,15 +126,18 @@ def run_case(base, bat, bins, name, double, extra, captures=None, previous=False
             f.write("ancien\n")
     for d in pre:
         os.makedirs(os.path.join(root, d))
+    for rel, data in (files or {}).items():  # lot PERF4 : fichiers posés dans la racine jetable (sauvegarde donnée)
+        with open(os.path.join(root, rel), "wb") as f:
+            f.write(data)
     env = {k: v for k, v in os.environ.items()
            if k.upper() not in ("FO_CREATE_SRC", "FO_LOCK_HELD", "NODEFAULTCURRENTDIRECTORYINEXEPATH",
                                 "FAKE_HOLD", "FAKE_ROBO_FAIL", "FO_MAP_SEED", "FO_AUDIO",
                                 "SDL_AUDIODRIVER", "SDL_AUDIO_DEVICE_NAME", "SDL_DISKAUDIOFILE",
-                                "FAKE_BILAN", "FAKE_VISUAL_RC", "FO_PLACE")}
+                                "FAKE_BILAN", "FAKE_VISUAL_RC", "FO_PLACE", "FO_SAVE")}
     if double:
         env["FO_CREATE_SRC"] = old
     for k, v in extra.items():
-        env[k] = v.replace("<new>", new)
+        env[k] = v.replace("<new>", new).replace("<root>", root)
     if captures:
         cmd = 'cmd /s /c ""%s" content "%s""' % (os.path.join(root, "fo-captures.bat"), new)
     else:
@@ -157,6 +165,11 @@ def run_case(base, bat, bins, name, double, extra, captures=None, previous=False
         "piege": sorted(f for f in os.listdir(root) if f.lower().startswith("piege")),
         "stdout": p.stdout,
         "console": [l for l in p.stdout.splitlines() if l.strip()][-1:] or [""],
+        "map_zip": open(os.path.join(test, "fo-autotest-map.zip"), "rb").read()
+        if os.path.exists(os.path.join(test, "fo-autotest-map.zip")) else None,
+        "save_source": (read(os.path.join(test, "save-source.txt")) or "").strip(),
+        "create_log": read(os.path.join(test, "create.log")) or "",
+        "root": root,
     }
     if "FAKE_HOLD" in extra:
         time.sleep(9)  # l'enfant qui tient le fichier se termine (8 s) avant le nettoyage
@@ -399,6 +412,27 @@ def main():
     else:
         fail += 1
         print("ECHEC  18. fo-captures.bat introuvable : %s" % a.captures)
+    # --- sauvegarde donnée (lot PERF4, FO_SAVE) ---
+    data = b"SAUVEGARDE DU DC (factice) " + bytes(range(256))
+    r = run_case(base, a.bat, bins, "19 sauvegarde donnee", False, {"FO_SAVE": r"<root>\ma sauvegarde.zip"},
+                 previous=True, files={"ma sauvegarde.zip": data})
+    orig = os.path.join(r["root"], "ma sauvegarde.zip")
+    check(r["rc"] == 0 and r["done"] and r["create_out"] is None and r["bench"] and "benchmark : info.json" in r["bench"]
+          and r["map_zip"] == data and r["save_source"].endswith("ma sauvegarde.zip")
+          and "pas de creation" in r["create_log"] and open(orig, "rb").read() == data and not r["lock"]
+          and r["locks"] == [],
+          "19. FO_SAVE : aucune creation, benchmark sur une copie identique, original intact", r)
+    r = run_case(base, a.bat, bins, "20 sauvegarde et double source", True, {"FO_SAVE": r"<root>\s.zip"},
+                 previous=True, files={"s.zip": data})
+    check(r["rc"] == 1 and r["create_out"] is None and r["bench"] is None and r["prev_text"] == "ancien"
+          and r["locks"] == [] and "FO_SAVE" in r["stdout"],
+          "20. FO_SAVE avec FO_CREATE_SRC : code 1, rien n'a tourne", r)
+    for i, (given, files) in enumerate(((r"<root>\absente.zip", {}), (r"<root>\s.txt", {"s.txt": data}))):
+        r = run_case(base, a.bat, bins, "21%d sauvegarde refusee" % i, False, {"FO_SAVE": given}, previous=True,
+                     files=files)
+        check(r["rc"] == 1 and r["create_out"] is None and r["bench"] is None and r["prev_text"] == "ancien"
+              and r["locks"] == [] and "FO_SAVE" in r["stdout"],
+              "21.%d FO_SAVE=[%s] refusee : code 1, rien n'a tourne" % (i, given), r)
     print("BILAN : %d OK, %d ECHEC(S)  (bat : %s)" % (ok, fail, a.bat))
     if a.keep:
         print("racines gardees :", base)

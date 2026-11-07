@@ -32,6 +32,12 @@ rem          fo-autotest-2.lock ou fo-autotest-3.lock. Toute autre valeur : code
 rem          Aux places 2 et 3, FO_LOCK_HELD (verrou deja tenu par l'appelant) doit valoir le numero de la place,
 rem          sinon code 3 : fo-captures.bat pose FO_LOCK_HELD=1, une FO_PLACE=2 heritee ne peut donc jamais faire
 rem          tourner un banc a la place 2 sans son verrou. Les images (fo-captures, fo-visual) restent a la place 1.
+rem  Sauvegarde donnee (lot PERF4, 5/11) : la variable FO_SAVE (chemin absolu d'un .zip de sauvegarde) remplace la
+rem          CREATION : la sauvegarde est COPIEE dans le dossier de la place (fo-autotest-map.zip ; l'original n'est
+rem          jamais ouvert en ecriture) puis rejouee par --benchmark avec la source du mod (argument 4) et le mod
+rem          de test (ajoute a la partie : son on_init tourne au chargement). Graine sans effet. create.log dit
+rem          quelle sauvegarde, save-source.txt aussi. Absente ou vide : comportement inchange. Avec FO_CREATE_SRC,
+rem          ou fichier absent ou pas en .zip : code 1 avant le verrou, rien n'a tourne.
 rem  Codes : 0 termine (lire le BILAN), 1 erreur (pas de carte creee...), 2 verrou pris (rien n'a
 rem          tourne : fo-autotest\ contient encore les resultats du test PRECEDENT), 3 FO_PLACE refusee (rien
 rem          n'a tourne).
@@ -61,6 +67,9 @@ if not "%~4"=="" set MODSRC=%~4
 rem Double source (suite H-T3) : FO_CREATE_SRC = source du mod pour la creation de la carte seulement.
 set CREATESRC=
 if defined FO_CREATE_SRC set CREATESRC=%FO_CREATE_SRC%
+rem Sauvegarde donnee (lot PERF4) : FO_SAVE = .zip rejoue sans creation de carte.
+set SAVESRC=
+if defined FO_SAVE set SAVESRC=%FO_SAVE%
 set VITRINE=%ROOT%\fo-vitrine.lua
 if defined FO_VITRINE set VITRINE=%FO_VITRINE%
 
@@ -183,6 +192,22 @@ if defined AUDIOON (
   set SDL_AUDIO_DEVICE_NAME=
 )
 
+rem Sauvegarde donnee (lot PERF4) : controlee AVANT le verrou (code 1, rien n'a tourne).
+if not defined SAVESRC goto :saveok
+if defined CREATESRC goto :savebad2
+if not exist "%SAVESRC%" goto :savebad
+if /i not "%SAVESRC:~-4%"==".zip" goto :savebad
+goto :saveok
+:savebad2
+echo FO_SAVE et FO_CREATE_SRC ensemble : refuse. Rien n'a tourne.
+if /i not "%~1"=="nopause" pause
+exit /b 1
+:savebad
+echo Sauvegarde FO_SAVE introuvable ou pas en .zip : [%SAVESRC%]. Rien n'a tourne.
+if /i not "%~1"=="nopause" pause
+exit /b 1
+:saveok
+
 rem Verrou de la place : un seul banc moteur a la fois par place (place 1 : fo-autotest, fo-visual, fo-captures
 rem partagent fo-autotest.lock ; places 2 et 3 : fo-autotest-N.lock).
 rem FO_LOCK_HELD : l'appelant (fo-captures.bat, banc.py) tient deja le verrou pour toute la chaine.
@@ -247,6 +272,7 @@ for %%k in (%AUDKEYS%) do findstr /x /c:"%%k=0.000000" "%TEST%\config.ini" >nul 
 > "%TEST%\audio.txt" echo son ACTIF (FO_AUDIO=1), pilote SDL_AUDIODRIVER=%SDL_AUDIODRIVER%, volumes a 0 relus dans config.ini : %AUDKEYS%
 :audiook
 
+if defined SAVESRC goto :savecopy
 echo [2/4] Creation de la carte (graine %SEED%, %SEEDFROM%, son %AUDIO%)...
 "%EXE%" --config "%TEST%\config.ini" --mod-directory "%MODS%" --create "%TEST%\fo-autotest-map.zip" --map-gen-seed %SEED% %AUDIOOPT% > "%TEST%\create-stdout.txt" 2>&1
 copy /y "%WRITE%\factorio-current.log" "%TEST%\create.log" >nul
@@ -255,6 +281,19 @@ if not exist "%TEST%\fo-autotest-map.zip" (
   set RC=1
   goto :end
 )
+goto :created
+:savecopy
+rem Lot PERF4 : pas de creation ; la sauvegarde donnee est COPIEE (l'original reste intact) et rejouee telle quelle.
+echo [2/4] Sauvegarde donnee, pas de creation : %SAVESRC%
+copy /y "%SAVESRC%" "%TEST%\fo-autotest-map.zip" >nul
+> "%TEST%\save-source.txt" echo %SAVESRC%
+> "%TEST%\create.log" echo [FO-AUTOTEST] pas de creation de carte : sauvegarde donnee %SAVESRC% copiee dans %TEST%\fo-autotest-map.zip
+if not exist "%TEST%\fo-autotest-map.zip" (
+  echo Sauvegarde NON copiee : %SAVESRC%
+  set RC=1
+  goto :end
+)
+:created
 
 rem Double source : la carte creee est rejouee avec la source du benchmark (la copie de creation est remplacee).
 if not defined CREATESRC goto :benchsrc
