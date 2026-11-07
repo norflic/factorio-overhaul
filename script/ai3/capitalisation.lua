@@ -83,6 +83,7 @@ local Sv = require("shared.team.survie")
 local Pv = require("shared.ai3.prevision") -- lot PREVISION (C12) : prix de la défense induite
 local Prev = require("script.ai3.prevision") -- lot PREVISION : estimateur unique de la menace (relevé de l'équipe)
 local Ml = require("shared.ai3.mall") -- lot PILE-MALL (relecture) : la demande du mall est un puits de la capitalisation
+local Mq = require("shared.ai3.manque_local") -- lot VIDEO-L3 : manques mesurés des modules finis, puits de la capitalisation (Mq.sinks)
 local Rsv = require("script.ai3.reserve") -- lot INDUSTRIE I1 : le besoin évalué, le stock hors besoin s'investit
 local Dm = require("shared.ai3.demande") -- lot C2 : puits ouvert, emplacements selon les bras libres
 local Ind = require("script.ai3.industrie") -- lot INDUSTRIE I6 : choix du patron (rangée ou bloc de mall), lecture des prototypes
@@ -875,6 +876,14 @@ local function make_can_exec(d, book)
   end
 end
 
+--- Lot VIDEO-L3 : résultat du manque mesuré de l'équipe (script/team/manque_vue.lua, f.team.mq.res) s'il a moins de 2 min, sinon nil.
+--- Ses manques de MODULES (consommation d'un module fini qu'aucun autre puits ne voit) deviennent des puits (Mq.sinks).
+local function mq_fresh(f, tick)
+  local m = f.team and f.team.mq
+  if m and m.res and m.tick and tick - m.tick <= 2 * 3600 then return m.res end
+  return nil
+end
+
 local function build_input(f, cs, view, book, tick, D, w)
   local st = f.team.ia3
   local force = game.forces[f.force]
@@ -999,7 +1008,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     data = D, state = { techs = st.techs or {}, known = st.known }, stock = stock, flows = cs.flows or {},
     -- lot VIDEO-L13 : plus de `or {}` (une liste absente ferme la décision, decide_start ; cs.scan existe : Capi.think)
     machines = cs.scan and cs.scan.machines, drills = cs.scan and cs.scan.drills, labs = labs,
-    deposits = deposits, open = open, sinks = cs.bench_sinks or Ml.sinks(st.mall), need = need, research = research, drill_for = drill_for,
+    deposits = deposits, open = open, sinks = cs.bench_sinks or Mq.sinks(mq_fresh(f, tick), Ml.sinks(st.mall)), need = need, research = research, drill_for = drill_for,
     limits = Rsv.on() and {} or { max_ingredients = 2 }, workers = view.workers or 0, idle = Ca.idle_of(g and g.idle_ema or 0),
     can_grow = (view.workers or 0) < (view.workers_wanted or 0), traits = f.traits or {},
     weights = w or {}, threat = threat, dt = 1, lag = cs.lag, starved = Pi.threat_exempt(st.pile, st.starved_open), -- (intégration 0.6.28)
