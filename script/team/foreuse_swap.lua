@@ -275,10 +275,11 @@ local function free_for(f, surface, pole)
 end
 
 --- Pose la chaine `list` depuis le poteau `src` (entite). Rend vrai si le dernier poteau est sur le reseau de la source ; sinon tout est
---- repris (poteaux retires, objets rendus au stock) et rend faux, raison.
-local function place_chain(f, surface, pole, list, src)
+--- repris (poteaux retires, objets rendus au stock) et rend faux, raison. `free` = { n = poteaux au stock LIBRE de la pensee } (revue du
+--- lead, 7/11, (3) : ce que le plan directeur a reserve n'est pas pris) ; debite de la chaine posee.
+local function place_chain(f, surface, pole, list, src, free)
   if #list == 0 then return true end
-  if Stock.count(f, pole.name) < #list then return false, "poteaux au stock" end
+  if (free and free.n or 0) < #list or Stock.count(f, pole.name) < #list then return false, "poteaux au stock" end
   local placed = {}
   local function undo(why)
     for _, e in ipairs(placed) do
@@ -304,6 +305,7 @@ local function place_chain(f, surface, pole, list, src)
   if not (src and src.valid and last.valid and last.electric_network_id ~= nil and last.electric_network_id == src.electric_network_id) then
     return undo("reseau non relie")
   end
+  free.n = free.n - #list
   return true, nil, placed
 end
 
@@ -522,6 +524,7 @@ function Swap.think(f, surface, book, free, tick)
   -- lot FOREUSES-THERMIQUES : le remplacement pose lui-meme sa chaine de poteaux depuis le poteau alimente le plus proche
   -- (bancs : f.team.chaine_off, interrupteur de ia1_remote.lua set_regle_chaine : comportement d'avant, temoin)
   local pole = not (f.team and f.team.chaine_off) and pole_choice(book, free) or nil
+  local pole_free = { n = pole and free and free[pole.name] or 0 } -- (3) : stock libre des poteaux, debite chaine par chaine
   local ctx = { poles = poles, electric = T.drill_electric, have = have, obtainable = obtainable, limit = T.swap.per_pass,
     pole = pole, free_for = pole and free_for(f, surface, pole) or nil, chain = P.pole_chain, chain_max = S.CHAIN_MAX,
     fits = fits_for(f, surface, refs) }
@@ -557,7 +560,7 @@ function Swap.think(f, surface, book, free, tick)
         prep = function()
           if placed_n > 0 then
             local src = r.source and (r.source.ent or by_pos[r.source.x .. ":" .. r.source.y])
-            local ok, why, placed = place_chain(f, surface, pole, r.poles, src)
+            local ok, why, placed = place_chain(f, surface, pole, r.poles, src, pole_free)
             -- poteaux de l'avant-poste (o.swap_poles) : a compter comme NOTRES par le plan du champ (mine_of), comme ses paires
             if ok and placed then
               ref.o.swap_poles = ref.o.swap_poles or {}

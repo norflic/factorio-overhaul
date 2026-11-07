@@ -91,29 +91,38 @@ local function suite(text)
   local f = { force = "player" }
   -- A. chaîne de 3 poteaux depuis une source alimentée : posés, reliés, stock débité
   local W = world()
-  local place_chain = load_fn(text, "local function place_chain(f, surface, pole, list, src)", { Stock = W.Stock })
+  local place_chain = load_fn(text, "local function place_chain(f, surface, pole, list, src, free)", { Stock = W.Stock })
   c("A : place_chain extraite", place_chain ~= nil)
   if not place_chain then return res end
   local src = W.pole(30.5, 10.5, 1)
   W.stock[POLE.name] = 5
   local list = { { x = 23.5, y = 10.5 }, { x = 16.5, y = 10.5 }, { x = 12.5, y = 10.5 } }
-  local ok, _, placed = place_chain(f, W.surface, POLE, list, src)
+  local freeA = { n = 5 }
+  local ok, _, placed = place_chain(f, W.surface, POLE, list, src, freeA)
   c("A : les poteaux poses sont rendus (o.swap_poles, lu par le plan du champ)", type(placed) == "table" and #placed == 3)
   c("A : chaine posee et reliee au reseau de la source", ok == true and W.created == 3 and W.ents[#W.ents].electric_network_id == 1)
   c("A : 3 poteaux pris au stock", W.stock[POLE.name] == 2, tostring(W.stock[POLE.name]))
+  c("A (3) : stock libre debite de la chaine", freeA.n == 2, tostring(freeA.n))
   -- B. stock insuffisant : rien n'est posé
   local W2 = world()
-  place_chain = load_fn(text, "local function place_chain(f, surface, pole, list, src)", { Stock = W2.Stock })
+  place_chain = load_fn(text, "local function place_chain(f, surface, pole, list, src, free)", { Stock = W2.Stock })
   local src2 = W2.pole(30.5, 10.5, 1)
   W2.stock[POLE.name] = 2
-  local ok2, why2 = place_chain(f, W2.surface, POLE, list, src2)
+  local ok2, why2 = place_chain(f, W2.surface, POLE, list, src2, { n = 2 })
   c("B : poteaux manquants : rien pose, raison", ok2 == false and why2 == "poteaux au stock" and (W2.created or 0) == 0 and W2.stock[POLE.name] == 2, tostring(why2))
+  -- B'. (3) revue du lead : 5 poteaux au stock mais 2 seulement LIBRES (le reste reserve par le plan directeur) : rien n'est pose
+  local W2b = world()
+  place_chain = load_fn(text, "local function place_chain(f, surface, pole, list, src, free)", { Stock = W2b.Stock })
+  local src2b = W2b.pole(30.5, 10.5, 1)
+  W2b.stock[POLE.name] = 5
+  local ok2b, why2b = place_chain(f, W2b.surface, POLE, list, src2b, { n = 2 })
+  c("B' (3) : stock reserve : rien pose, raison", ok2b == false and why2b == "poteaux au stock" and (W2b.created or 0) == 0 and W2b.stock[POLE.name] == 5, tostring(why2b))
   -- C. une place prise en route : tout est repris (poteaux retirés, stock rendu)
   local W3 = world({ ["12,10"] = true })
-  place_chain = load_fn(text, "local function place_chain(f, surface, pole, list, src)", { Stock = W3.Stock })
+  place_chain = load_fn(text, "local function place_chain(f, surface, pole, list, src, free)", { Stock = W3.Stock })
   local src3 = W3.pole(30.5, 10.5, 1)
   W3.stock[POLE.name] = 5
-  local ok3, why3 = place_chain(f, W3.surface, POLE, list, src3)
+  local ok3, why3 = place_chain(f, W3.surface, POLE, list, src3, { n = 5 })
   local alive = 0
   for _, e in ipairs(W3.ents) do if e.valid and not e.source then alive = alive + 1 end end
   c("C : place prise : tout repris, stock rendu", ok3 == false and why3 == "place prise" and alive == 0 and W3.stock[POLE.name] == 5,
@@ -121,20 +130,20 @@ local function suite(text)
   -- D. maillon trop long (le fil ne passe pas) : réseau non relié, tout repris
   local W4 = world()
   W4.reach = 7.5
-  place_chain = load_fn(text, "local function place_chain(f, surface, pole, list, src)", { Stock = W4.Stock })
+  place_chain = load_fn(text, "local function place_chain(f, surface, pole, list, src, free)", { Stock = W4.Stock })
   local src4 = W4.pole(30.5, 10.5, 1)
   W4.stock[POLE.name] = 5
-  local ok4, why4 = place_chain(f, W4.surface, POLE, { { x = 20.5, y = 10.5 }, { x = 12.5, y = 10.5 } }, src4)
+  local ok4, why4 = place_chain(f, W4.surface, POLE, { { x = 20.5, y = 10.5 }, { x = 12.5, y = 10.5 } }, src4, { n = 5 })
   local alive4 = 0
   for _, e in ipairs(W4.ents) do if e.valid and not e.source then alive4 = alive4 + 1 end end
   c("D : fil trop long : reseau non relie, tout repris", ok4 == false and why4 == "reseau non relie" and alive4 == 0 and W4.stock[POLE.name] == 5, tostring(why4))
   -- E. pose refusée par le moteur : rien ne reste
   local W5 = world()
   W5.refuse_create = true
-  place_chain = load_fn(text, "local function place_chain(f, surface, pole, list, src)", { Stock = W5.Stock })
+  place_chain = load_fn(text, "local function place_chain(f, surface, pole, list, src, free)", { Stock = W5.Stock })
   local src5 = W5.pole(30.5, 10.5, 1)
   W5.stock[POLE.name] = 5
-  local ok5, why5 = place_chain(f, W5.surface, POLE, list, src5)
+  local ok5, why5 = place_chain(f, W5.surface, POLE, list, src5, { n = 5 })
   c("E : pose refusee : stock rendu", ok5 == false and why5 == "pose refusee" and W5.stock[POLE.name] == 5, tostring(why5) .. " " .. tostring(W5.stock[POLE.name]))
   -- F. free_for : ni sur la foreuse, ni sur le four, ni sur une tuile réservée (couloir, plan directeur)
   local reserved = {}
@@ -283,7 +292,7 @@ local function suite(text)
     end
   end
   -- I. câblage : l'échange vient APRÈS la chaîne posée et reliée (courant amené), et l'électrique ratée repose la paire
-  local i_chain = text:find("local ok, why, placed = place_chain(f, surface, pole, r.poles, src)", 1, true)
+  local i_chain = text:find("local ok, why, placed = place_chain(f, surface, pole, r.poles, src, pole_free)", 1, true)
   local i_ex = text:find("undo, got = exchange_remove(f, ex)", 1, true)
   c("I : retrait apres la chaine reliee", i_chain ~= nil and i_ex ~= nil and i_chain < i_ex)
   c("I : electrique ratee : paire reposee", text:find("if not done_swap and undo then", 1, true) ~= nil and text:find("exchange_undo(f, surface, ref.o, undo)", 1, true) ~= nil)
@@ -303,7 +312,9 @@ for _, r in ipairs(run(SRC)) do check(r[1], r[2], r[3]) end
 local MUT = {
   { "sans reprise sur echec", "      if e.valid then e.destroy() end\r\n      Stock.insert(f, pole.name, 1)", "      Stock.insert(f, pole.name, 1)" },
   { "reseau non verifie", "  if not (src and src.valid and last.valid and last.electric_network_id ~= nil and last.electric_network_id == src.electric_network_id) then", "  if false then" },
-  { "stock non verifie", "  if Stock.count(f, pole.name) < #list then return false, \"poteaux au stock\" end", "" },
+  { "stock non verifie", "  if (free and free.n or 0) < #list or Stock.count(f, pole.name) < #list then return false, \"poteaux au stock\" end", "" },
+  { "(3) stock libre ignore", "if (free and free.n or 0) < #list or Stock.count", "if Stock.count" },
+  { "(3) stock libre non debite", "  free.n = free.n - #list", "" },
   { "fil non tire", "    if prev and prev.valid then prev.connect_neighbour(e) end", "" },
   { "four permis", "if S.overlap(pb, box) or S.overlap(pb, e.sink) then return false end", "if S.overlap(pb, box) then return false end" },
   { "echange : contenus perdus", "            Stock.insert(f, n, cnt[n])", "" },
