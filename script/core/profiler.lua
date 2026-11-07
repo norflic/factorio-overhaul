@@ -12,9 +12,14 @@ local Storage = require("script.core.storage")
 
 local Profiler = {}
 
-Storage.declare("prof", function()
-  return { enabled = false, since = 0 }
-end)
+-- Lot X10-S0 : le profileur est requis par une dizaine de modules depuis les portées fines ; les bancs hors jeu qui remplacent
+-- le stockage par une doublure réduite à ns() (adopte, reparation, reconstruction_exec, x10_s5) chargent ces modules sans
+-- declare(). En jeu, declare existe toujours ; sans lui, Storage.ns("prof") de la doublure rend une table vide : mesure éteinte.
+if Storage.declare then
+  Storage.declare("prof", function()
+    return { enabled = false, since = 0 }
+  end)
+end
 
 local timers = {}
 -- Chronomètres des portées attribuées après coup et comptes de passages (lot PERF ; voir Profiler.fmark). Lot PERF3 :
