@@ -43,8 +43,15 @@ local Ru = require("shared.team.ruines")
 local T = require("shared.team.config")
 local Rr = require("shared.team.rebuild_rapide") -- lot REBUILD-RAPIDE : ordre de la reconstruction (alimentation, production principale, le reste)
 local RrRt = require("script.team.rebuild_rapide") -- lot REBUILD-RAPIDE : foreuse thermique de secours dans un projet rouvert
+local Bm = require("shared.team.book_max") -- lot S5 (×10) : plus grand nombre fabricable, test léger sans copie du stock
 
 local Recon = {}
+
+-- Lot S5 (×10, fo-logs/2026-11-07_X10/S5_CRITERES.md) : dans Recon.craft_spares, « fabricable ? » et « matière qui manque » sont
+-- gardés PAR APPEL et par objet (le stock libre et le livre ne changent pas pendant l'appel : Board.add ne lit pas le stock), le
+-- test « fabricable ? » est le test léger Bm.feasible (sans copie du stock) et le plus grand nombre faisable vient de Bm.best.
+-- Mêmes tâches, mêmes remplaçants, mêmes journaux. Faux : l'ancien code (témoin de tests/x10_s5_test.lua).
+Recon.S5 = true
 
 -- Lot REBUILD-RAPIDE (retour du DC du 29/10 : « on reconstruit directement, on perd pas de temps ») : 6 lots en même temps (3 avant),
 -- donc jusqu'à 6 PNJ en parallèle sur le registre, et 6 places essayées par pensée de 5 s (3 avant).
@@ -480,22 +487,53 @@ local function pole_cands()
 end
 
 --- L'objet de `item` est-il au stock libre ou fabricable à la main avec ce stock ?
-local function available_or_craftable(book, free, item)
-  if (free[item] or 0) >= 1 then return true end
-  if not book:handcraftable(item) then return false end
-  local avail = {}
-  for _, k in ipairs(State.sorted_keys(free)) do avail[k] = free[k] end
-  avail[item] = 0
-  return next(book:plan({ { item, 1 } }, avail).raw) == nil
+--- Lot S5 : `memo` (facultatif, une table par appel de Recon.craft_spares) garde la réponse par objet ; le test est Bm.feasible sur
+--- `free` lu tel quel, l'objet lu comme 0 (même réponse que la copie triée, avail[item] = 0, puis `next(plan.raw) == nil`).
+local function available_or_craftable(book, free, item, memo)
+  if memo then
+    local v = memo.ok[item]
+    if v ~= nil then return v end
+  end
+  local v
+  if (free[item] or 0) >= 1 then
+    v = true
+  elseif not book:handcraftable(item) then
+    v = false
+  elseif memo then
+    v = Bm.feasible(book, item, 1, free, item)
+  else
+    local avail = {}
+    for _, k in ipairs(State.sorted_keys(free)) do avail[k] = free[k] end
+    avail[item] = 0
+    v = next(book:plan({ { item, 1 } }, avail).raw) == nil
+  end
+  if memo then memo.ok[item] = v end
+  return v
 end
 
 --- Matière brute qui manque pour fabriquer 1 `item` à la main avec le stock libre : { [objet] = n }, ou nil (non fabricable à la main).
-local function missing_raw(book, free, item)
-  if not book:handcraftable(item) then return nil end
-  local avail = {}
-  for _, k in ipairs(State.sorted_keys(free)) do avail[k] = free[k] end
-  avail[item] = 0
-  return book:plan({ { item, 1 } }, avail).raw
+--- Lot S5 : avec `memo`, une seule copie triée du stock par appel (memo.base, l'objet mis à 0 le temps du plan puis rendu) et une
+--- réponse par objet (la table rendue n'est que lue : Rc.pick_gather).
+local function missing_raw(book, free, item, memo)
+  if memo then
+    local v = memo.raw[item]
+    if v ~= nil then return v or nil end
+  end
+  local v
+  if book:handcraftable(item) then
+    local avail = memo and memo.base
+    if not avail then
+      avail = {}
+      for _, k in ipairs(State.sorted_keys(free)) do avail[k] = free[k] end
+      if memo then memo.base = avail end
+    end
+    local saved = avail[item]
+    avail[item] = 0
+    v = book:plan({ { item, 1 } }, avail).raw
+    avail[item] = saved
+  end
+  if memo then memo.raw[item] = v or false end
+  return v
 end
 
 --- Une matière que seules des entités du monde donnent SANS gisement de minerai (le bois : arbres) ?
@@ -506,9 +544,9 @@ end
 
 --- Lot CORR-RECONSTRUIRE : aucun poteau remplaçant n'est fabricable : tâche de minage de la matière récoltable qui manque (le bois),
 --- sur les arbres, loin des nids (prudent). Une tâche par objet (clé stable).
-function Recon.gather(f, s, book, free, r, tick)
+function Recon.gather(f, s, book, free, r, tick, memo)
   if not Recon.GATHER then return 0 end
-  local c, list = Rc.pick_gather(pole_cands(), r.reach or 0, function(x) return missing_raw(book, free, x.item) end, from_trees)
+  local c, list = Rc.pick_gather(pole_cands(), r.reach or 0, function(x) return missing_raw(book, free, x.item, memo) end, from_trees)
   if not c then return 0 end
   local tasks = {}
   for _, u in ipairs(list) do
@@ -533,13 +571,13 @@ function Recon.gather(f, s, book, free, r, tick)
 end
 
 --- Poteau perdu dont l'objet manque ET ne peut être fabriqué : on pose le poteau du meilleur niveau fabricable (r.place / r.item).
-local function substitute_poles(f, s, book, free, tick)
-  for _, k in ipairs(State.sorted_keys(s.lost)) do
+local function substitute_poles(f, s, book, free, tick, memo, keys)
+  for _, k in ipairs(keys or State.sorted_keys(s.lost)) do
     local r = s.lost[k]
     if r.infra and r.etype == "electric-pole" and not r.place and not r.abandoned and not r.claimed
-      and tick - r.tick >= Rc.calm_for(r) and not available_or_craftable(book, free, r.item) then
-      local c = Rc.pick_alt(pole_cands(), r.reach or 0, function(x) return available_or_craftable(book, free, x.item) end)
-      if not c then Recon.gather(f, s, book, free, r, tick) end
+      and tick - r.tick >= Rc.calm_for(r) and not available_or_craftable(book, free, r.item, memo) then
+      local c = Rc.pick_alt(pole_cands(), r.reach or 0, function(x) return available_or_craftable(book, free, x.item, memo) end)
+      if not c then Recon.gather(f, s, book, free, r, tick, memo) end
       if c and c.item ~= r.item then
         r.place, r.item = c.name, c.item
         stat(s, "substituted")
@@ -558,8 +596,11 @@ function Recon.craft_spares(f, book, free, tick)
   RrRt.drill_swap(f, book, free, tick) -- lot REBUILD-RAPIDE (d) : foreuse thermique de secours (avant la sortie anticipée : registre vide compris)
   local s = f.recon
   if not (s and s.lost and next(s.lost) and book and free) then return 0 end
-  substitute_poles(f, s, book, free, tick)
-  local wanted = Rc.demand(s, tick, function(item) return free[item] or 0 end)
+  -- Lot S5 : mémo de cet appel seulement ; clés du registre triées UNE fois pour substitute_poles et Rc.demand (substitute_poles
+  -- ne change que r.place et r.item, pas les clés ; avant : deux tris des clés et le tri de Rc.due, jusqu'à 635 pièces)
+  local keys = Recon.S5 and State.sorted_keys(s.lost) or nil
+  substitute_poles(f, s, book, free, tick, Recon.S5 and { ok = {}, raw = {} } or nil, keys)
+  local wanted = Rc.demand(s, tick, function(item) return free[item] or 0 end, keys)
   if #wanted == 0 then return 0 end
   local added = {}
   local avail = {}
@@ -569,13 +610,21 @@ function Recon.craft_spares(f, book, free, tick)
     if book:handcraftable(item) then
       local saved = avail[item]
       avail[item] = 0 -- besoin d'accumulation : l'objet lui-même n'est pas pris au stock
-      local q = book:plan({ { item, n } }, avail)
       -- Relecture de la relève (revue statique 29/10) : la matière ne couvre pas toujours TOUT le besoin (3 poteaux perdus, bois pour 2) ;
       -- tout ou rien bloquait alors la fabrication ET la récolte (le poteau est « fabricable » pour 1). On fabrique ce que la matière permet.
-      if next(q.raw) ~= nil then
-        for m = n - 1, 1, -1 do
-          local q2 = book:plan({ { item, m } }, avail)
-          if next(q2.raw) == nil then q, n = q2, m break end
+      local q
+      if Recon.S5 then
+        -- Lot S5 : plus grand nombre faisable de [1, n] (Bm.best) ; aucun : le plan de n (q.raw pour le journal), comme avant.
+        local m
+        m, q = Bm.best(book, item, n, avail)
+        if m > 0 then n = m end
+      else
+        q = book:plan({ { item, n } }, avail)
+        if next(q.raw) ~= nil then
+          for m = n - 1, 1, -1 do
+            local q2 = book:plan({ { item, m } }, avail)
+            if next(q2.raw) == nil then q, n = q2, m break end
+          end
         end
       end
       avail[item] = saved

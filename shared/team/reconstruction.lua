@@ -84,7 +84,7 @@ function Rc.record(st, rec, tick)
 end
 
 --- Pièces refaisables en attente : non prises, non abandonnées, objet connu, patience écoulée, non différées. Triées :
---- valeur décroissante, date, clé.
+--- valeur décroissante, date, clé. (Même filtre que `is_due` plus bas, tenu égal par tests/x10_s5_test.lua P9.)
 function Rc.due(st, tick)
   local out = {}
   for _, k in ipairs(sorted_keys(st.lost)) do
@@ -108,12 +108,32 @@ end
 --- abandonnées) dont l'objet manque au stock. Rend { { objet, quantité } } trié par objet, au plus Rc.SPARE_CAP par objet (deux
 --- poteaux détruits ne font pas fabriquer cent poteaux). `have(item)` : stock libre de l'équipe.
 Rc.SPARE_CAP = 6
-function Rc.demand(st, tick, have)
+
+--- Lot S5 (×10) : la pièce `r` est-elle due à `tick` ? Même filtre que Rc.due, dans le même ordre.
+local function is_due(r, tick)
+  return not r.claimed and not r.abandoned and r.item and (not r.retry or tick >= r.retry) and tick - r.tick >= Rc.calm_for(r)
+end
+
+--- Lot S5 (×10) : `keys` (facultatif) = les clés de st.lost, déjà triées par l'appelant (script/team/reconstruction.lua, une liste
+--- par pensée pour substitute_poles et ici). Le compte par objet est une SOMME et la valeur la plus haute un MAXIMUM : ni l'un ni
+--- l'autre ne dépend de l'ordre des pièces, le tri de Rc.due (comparateur en Lua) est donc sauté ; même résultat (P9).
+function Rc.demand(st, tick, have, keys)
   local need, top = {}, {}
-  for _, r in ipairs(Rc.due(st, tick)) do
-    if r.infra then
-      need[r.item] = (need[r.item] or 0) + 1
-      if r.value > (top[r.item] or -1) then top[r.item] = r.value end
+  if keys then
+    local lost = st.lost
+    for i = 1, #keys do
+      local r = lost[keys[i]]
+      if r and is_due(r, tick) and r.infra then
+        need[r.item] = (need[r.item] or 0) + 1
+        if r.value > (top[r.item] or -1) then top[r.item] = r.value end
+      end
+    end
+  else
+    for _, r in ipairs(Rc.due(st, tick)) do
+      if r.infra then
+        need[r.item] = (need[r.item] or 0) + 1
+        if r.value > (top[r.item] or -1) then top[r.item] = r.value end
+      end
     end
   end
   local out = {}
