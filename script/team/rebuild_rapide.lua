@@ -24,6 +24,7 @@ local Rr = require("shared.team.rebuild_rapide")
 local Board = require("script.team.board")
 local Stock = require("script.team.stock")
 local Sweep = require("script.team.rebuild_sweep")
+local Bm = require("shared.team.book_max") -- lot S5 (×10) : plus grand nombre fabricable, test léger sans copie du stock
 
 local RrRt = {}
 
@@ -52,12 +53,12 @@ local function copy_sorted(t)
 end
 
 --- L'objet est-il au stock libre ou fabricable à la main avec lui ? (même règle que Recon : available_or_craftable)
+--- Lot S5 (×10) : test léger Bm.feasible sur `free` lu tel quel, l'objet lu comme 0 (avant : copie triée du stock, puis plan complet,
+--- puis `next(q.raw) == nil` : même réponse).
 local function obtainable(book, free, item)
   if (free[item] or 0) >= 1 then return true end
   if not book:handcraftable(item) then return false end
-  local avail = copy_sorted(free)
-  avail[item] = 0
-  return next(book:plan({ { item, 1 } }, avail).raw) == nil
+  return Bm.feasible(book, item, 1, free, item)
 end
 
 local function say(f, fmt, ...)
@@ -122,12 +123,11 @@ local function craft(f, book, free, item, n, tick)
   if n <= 0 or not book:handcraftable(item) then return 0 end
   local avail = copy_sorted(free)
   avail[item] = 0
-  local qp = book:plan({ { item, n } }, avail)
-  for m = n - 1, 1, -1 do
-    if next(qp.raw) == nil then break end
-    qp, n = book:plan({ { item, m } }, avail), m
-  end
-  if next(qp.raw) ~= nil then return 0 end
+  -- Lot S5 (×10) : le plus grand nombre faisable de [1, n] par Bm.best (shared/team/book_max.lua), même résultat que l'ancienne
+  -- boucle de plans complets (n - 1 → 1).
+  local m, qp = Bm.best(book, item, n, avail)
+  if m == 0 then return 0 end
+  n = m
   local uses = {}
   for k in next, qp.uses do uses[#uses + 1] = k end
   table.sort(uses)

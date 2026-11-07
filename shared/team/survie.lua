@@ -108,6 +108,25 @@ function Sv.shortages(missing, keys)
   return out
 end
 
+--- Lot VIDEO-L3 (D0 : « pas de mode survie pour un fer qui attend dans un coffre de sortie »), version STRICTE tranchée par le lead le
+--- 7/11 (relecture d'effondrement) : la part des manques (liste de Sv.shortages) que le transit PRIS ne couvre pas. avail = view.avail_out :
+--- objets des sorties du plan directeur dont un PNJ a PRIS la collecte (en route vers le coffre ; dispo_sorties de
+--- shared/ai3/manque_local.lua). Une sortie seulement « à collecter » ne couvre JAMAIS la survie : dans le cas D1 du DC (4 353 plaques au
+--- champ, aucun PNJ pour les prendre), elle masquerait le manque et l'équipe perdrait son minage d'urgence au pire moment. (Les tâches
+--- « fill » prises portent le coffre vers les quais : elles n'apportent rien au coffre et ne couvrent pas la survie.) Sans avail :
+--- inchangé. Même ordre que Sv.shortages.
+function Sv.uncovered(short, avail)
+  if type(avail) ~= "table" then return short end
+  local out = {}
+  for _, s in ipairs(short or {}) do
+    local item, n = s[1], num(s[2])
+    n = n - num(avail[item])
+    if n > 0 then out[#out + 1] = { item, n } end
+  end
+  table.sort(out, function(a, b) if a[2] ~= b[2] then return a[2] > b[2] end return a[1] < b[1] end)
+  return out
+end
+
 --- L'équipe est-elle paralysée ? a = { workers, idle, threatened }. Rend vrai et la raison ("porte" | "menace"), ou faux.
 function Sv.paralysed(st, a, tick)
   local workers, idle = num(a.workers), num(a.idle)

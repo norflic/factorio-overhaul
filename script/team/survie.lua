@@ -119,7 +119,9 @@ function Survie.think(f, view, plan, tick)
   for _, k in ipairs(sorted_keys(plan.smelt)) do
     if type(plan.smelt[k]) == "number" then missing[#missing + 1] = { k, plan.smelt[k] } end
   end
-  local short = Sv.shortages(missing, KEYS)
+  -- Lot VIDEO-L3 : seule la plaque dont un PNJ a PRIS la collecte (view.avail_out) n'ouvre pas la survie (D0) ; une sortie seulement « à
+  -- collecter » la laisse s'ouvrir (D1 : fer au champ, personne pour le prendre ; décision du lead du 7/11).
+  local short = Sv.uncovered(Sv.shortages(missing, KEYS), view.avail_out)
   local d = Sv.decide(s, { tick = tick, short = short, workers = view.workers or 0, idle = view.workers_idle or 0,
     threatened = view.threatened })
   if d.event == "entree" then

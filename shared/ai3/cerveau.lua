@@ -30,6 +30,7 @@ local Planner = require("shared.team.planner")
 local B = require("shared.ai3.buts")
 local P = require("shared.ai3.projets")
 local Ml = require("shared.ai3.mall") -- lot PILE-MALL
+local Am = require("shared.ai3.amorce") -- lot VIDEO L7 : la main reste refusée après la 1re production (verrou de l'amorce)
 local R = require("shared.ai3.reglages") -- lot IA-G : ressources clés de repli
 local A = require("shared.ai3.automatiser") -- lot IA3-e : modules demandés au plan directeur (projets « module »)
 local Bi = require("shared.ai3.bilan") -- lot BILAN : fabrications pondérées par production moins consommation
@@ -44,6 +45,8 @@ local Gi = require("shared.team.gisement") -- lot GISEMENTS : matières en manqu
 local Pi = require("shared.ai3.pile") -- lot PILE-PRIORITE : réparer + protéger, puis produire, puis améliorer
 local Rs = require("shared.ai3.reserve") -- lot INDUSTRIE I1 : le besoin évalué, le reste du stock s'investit
 local Fx = require("shared.team.flux") -- lot FLUX : tournée des sorties pleines gardée (règle pure)
+local Sp = require("shared.team.spirale") -- EFFONDREMENT : recrue gratuite de votre équipe sous l'effectif de départ
+local Sa = require("shared.ai3.saturation") -- lot VIDEO-SAT (V79) : pente mesurée du stock, saturation jugée sur le stock projeté
 
 local C = {}
 
@@ -72,6 +75,9 @@ function C.raw_items()
   end
   return raw, minable
 end
+
+-- Lot VIDEO-SAT : matières suivies par la pente du stock = celles dont B.saturated est demandé (C.raw_items : 8 sur les données vanilla).
+local SAT_ITEMS = sorted_keys((C.raw_items()))
 
 --- État persistant neuf (f.team.ia3) : nombres, chaînes et tables seulement (global).
 function C.new_state(tick)
@@ -106,6 +112,10 @@ function C.situation(view, st, ctx)
     if add > 0 then cap[kind] = (cap[kind] or 0) + add end
   end
   if (view.soldiers or 0) >= B.ARMY_FIRST_N then st.army_done = true end
+  -- Lot VIDEO-SAT (V79, étape 4 bis) : un relevé du stock libre par minute (Sa.observe) ; la fonte durable de chaque matière (s.drain) fait
+  -- juger sa saturation sur le stock projeté à Sa.H minutes (B.saturated). État st.sat (nombres seulement), créé ici à la première pensée.
+  st.sat = st.sat or Sa.new()
+  Sa.observe(st.sat, ctx.tick or 0, view.stock or {}, SAT_ITEMS)
   return {
     is_player = ctx.is_player or false, workers = view.workers or 0, soldiers = view.soldiers or 0,
     soldiers_max = view.soldiers_max or 0, stock = view.stock or {}, cap = cap, pending = view.pending or {},
@@ -137,6 +147,7 @@ function C.situation(view, st, ctx)
     -- Lot C2 : puits ouvert (écrit par la capitalisation, f.team.ia3.puits) : débit de chaque matière (saturation relative) et capacités de
     -- plus selon les bras libres.
     puits_flow = st.puits and st.puits.flow or nil, extra_cap = Dm.extra_cap(st.puits ~= nil, ctx.spare),
+    drain = Sa.drains(st.sat), -- lot VIDEO-SAT : { [matière] = fonte durable par minute } (shared/ai3/saturation.lua)
   }
 end
 
@@ -185,7 +196,8 @@ function C.consumed(base, view)
       used[a] = (used[a] or 0) + (t.count or g.missing or g.low * T.turret_ammo_target)
     end
   end
-  if base.recruit_workers and not base.recruit_unarmed then add(base.recruit_uses or view.recruit_cost) end
+  -- EFFONDREMENT : une recrue gratuite (base.recruit_free) ne prend rien au stock virtuel.
+  if base.recruit_workers and not base.recruit_unarmed and not base.recruit_free then add(base.recruit_uses or view.recruit_cost) end
   local tr = base.train
   if tr then
     if tr.uses then add(tr.uses) else add(T.kits[tr.unit], tr.count) end
@@ -229,7 +241,7 @@ function C.think(view, book, st, ctx)
     local floor = (view.emergency and view.emergency.floor) or view.recover_floor
     local eff = view.effectif
     local n_rec, rec = Rs.recruits({ workers = view.workers, wanted = view.workers_wanted, floor = floor, blocked = view.recruit_blocked,
-      held = view.recruit_held, reason = eff and eff.reason or nil, cost = view.recruit_cost,
+      held = view.recruit_held, reason = eff and eff.reason or nil, cost = Sp.cost(view, view.recruit_cost), -- EFFONDREMENT : gratuite sous le départ
       margin = eff and eff.margin_item and { eff.margin_item, eff.margin } or nil })
     st.noyau = Rs.state(book, view.stock, { posts = sig.posts, repair = sig.repair, plan_wants = sig.plan_wants,
       planned = used, recruit = rec, production_first = sig.production_first, raw_need = sig.raw_need,
@@ -368,8 +380,8 @@ function C.think(view, book, st, ctx)
     Ml.note(st.mall, tick, now)
     Ml.decide(st.mall, book, { have = view.stock })
     -- Relecture : la main ne refait plus ce que le mall produit (après Ml.note : la demande reste comptée ; défense et réparations gardent la main).
-    base.tasks = Ml.filter_crafts(st.mall, base.tasks, view.stock, Pi.INJECT_PRIO)
-    E.tasks = Ml.filter_crafts(st.mall, E.tasks, view.stock, Pi.INJECT_PRIO)
+    base.tasks = Am.filter_crafts(st.mall, base.tasks, view.stock, Pi.INJECT_PRIO, Ml) -- lot VIDEO L7 (Ml.filter_crafts + verrou)
+    E.tasks = Am.filter_crafts(st.mall, E.tasks, view.stock, Pi.INJECT_PRIO, Ml)
   end
   -- Relecture FUITES-PILE : manques propres (sans ceux des améliorations hors des cadres ouverts), lus par la porte de la pile
   st.short_core = Pi.short_core(E.raw, order, pile.focus)
@@ -388,15 +400,21 @@ function C.think(view, book, st, ctx)
   st.starved = pen.starved
   st.starved_rank = pen.ranking
   st.starved_open = Gi.passent(pen, pile.focus) -- lu par la porte du runtime (script/team/pile.lua) et la menace (script/ai3/capitalisation.lua)
-  local saturated, held = {}, {}
+  local saturated, held, lifted = {}, {}, {}
   for _, k in ipairs(sorted_keys(raw)) do
     if (view.stock[k] or 0) > 0 then
-      if B.saturated(s, k) then saturated[k] = true
-      elseif s.puits_flow and B.saturated(s, k, true) then held[k] = true end -- lot C2 : saturée contre le plancher seul, tenue ouverte par le puits
+      local sat, why = B.saturated(s, k)
+      if sat then saturated[k] = true
+      else
+        -- Lot VIDEO-SAT : au-dessus du seuil, mais le stock fond : la saturation est LEVÉE (fonte par minute, arrondie : journal [FO-SAT]).
+        if why == "pente" then lifted[k] = math.floor(s.drain[k] + 0.5) end
+        if s.puits_flow and B.saturated(s, k, true) then held[k] = true end -- lot C2 : saturée contre le plancher seul, tenue ouverte par le puits
+      end
     end
   end
   st.saturated = saturated
   st.sat_held = held
+  st.sat_lifted = lifted -- lot VIDEO-SAT : lu par le journal [FO-SAT] (script/ai3/cerveau.lua)
   -- … et seulement quand l'équipe a son effectif visé (ses recrues se paient en fer : moteur simulé, ia1_scale_test, une
   -- faction à 26 PNJ sur 30 en 12 min quand la recherche déplafonnée prenait le fer des recrues).
   local top = s.key.top -- lot IA-G : la ressource la plus demandée (le fer sur les données vanilla)
@@ -499,6 +517,7 @@ function C.think(view, book, st, ctx)
     goal = dom and ("ia3-" .. dom.key:gsub(":", "-")) or nil,
     research = nil, train = base.train or E.train,
     recruit_workers = base.recruit_workers, recruit_uses = base.recruit_uses, recruit_unarmed = base.recruit_unarmed,
+    recruit_free = base.recruit_free, -- EFFONDREMENT : recrue gratuite (paiement sauté en E4, script/team/team.lua)
     emergency_unarmed = base.emergency_unarmed, emergency_recruit = base.emergency_recruit,
     recruit_blocked = base.recruit_blocked, recruit_held = base.recruit_held, unreachable = E.unreachable,
     grow_short = base.grow_short, -- lot FER-EQUIPE : la réserve de fer a retenu une recrue (journal [FO-FER])
