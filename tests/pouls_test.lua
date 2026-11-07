@@ -331,24 +331,29 @@ end
 
 local function p2(Rv, worlds)
   local diffs, runs, first = 0, 0, nil
-  local saved_band = Rv.BAND
+  local saved_band, saved_cols = Rv.BAND, Rv.COLS
   for seed = 1, worlds do
     local w, f = random_world(seed, "fo-test")
     local sfc = surface_of(w)
     local want = nr_str(ref_net_read(f, sfc, f.build))
     for _, band in ipairs({ 1, 2, 3 }) do
       Rv.BAND = band
-      for _, per in ipairs({ 1, 2, 3 }) do
-        local got = nr_str((banded(Rv, f, sfc, box_of(w), per)))
-        runs = runs + 1
-        if got ~= want then
-          diffs = diffs + 1
-          first = first or string.format("graine %d, bande %d, %d par passe : par bandes %s ; d'un bloc %s", seed, band, per, got, want)
+      -- lot LOURD (point 1 bis) : tranches de 1, 2, 3 chunks de large, et toute la largeur
+      for _, cols in ipairs({ 1, 2, 3, math.huge }) do
+        Rv.COLS = cols
+        for _, per in ipairs({ 1, 2, 3 }) do
+          local got = nr_str((banded(Rv, f, sfc, box_of(w), per)))
+          runs = runs + 1
+          if got ~= want then
+            diffs = diffs + 1
+            first = first or string.format("graine %d, bande %d, tranche %s, %d par passe : par bandes %s ; d'un bloc %s", seed, band,
+              tostring(cols), per, got, want)
+          end
         end
       end
     end
   end
-  Rv.BAND = saved_band
+  Rv.BAND, Rv.COLS = saved_band, saved_cols
   return diffs, runs, first
 end
 
@@ -807,8 +812,32 @@ end
 ---------------------------------------------------------------------------------------------------
 local Rv, Ra, Jeton, Box = load_mods(nil)
 local d2, runs2, first2 = p2(Rv, 200)
-check(runs2 == 1800 and d2 == 0, string.format("P2 : 200 mondes × 9 réglages : par bandes = d'un bloc (%d écart(s) sur %d)%s", d2, runs2,
+check(runs2 == 7200 and d2 == 0, string.format("P2 : 200 mondes × 36 réglages (bandes de 1 à 3 lignes, tranches de 1, 2, 3 chunks ou toute la largeur, 1 à 3 par passe) : par bandes = d'un bloc (%d écart(s) sur %d)%s", d2, runs2,
   first2 and (" ; premier : " .. first2) or ""))
+-- Lot LOURD (point 1 bis) : ORDRE TOTAL des tranches (ligne puis colonne, chaque case une fois), et reprise d'un relevé d'avant ce point
+-- (sauvegarde : pas de j.x, toujours en début de ligne).
+do
+  local zones = {}
+  local stub = { find_entities_filtered = function(q) zones[#zones + 1] = string.format("%g,%g-%g,%g", q.area[1][1] / 32, q.area[1][2] / 32,
+    q.area[2][1] / 32, q.area[2][2] / 32); return {} end }
+  local saved_band, saved_cols = Rv.BAND, Rv.COLS
+  Rv.BAND, Rv.COLS = 1, 3
+  local j = Rv.bandes.new({ x0 = 0, y0 = 0, x1 = 6, y1 = 2 })
+  local n = 0
+  repeat n = n + 1 until Rv.bandes.band({ force = "x" }, stub, j) or n > 50
+  local want = { "0,0-3,1", "3,0-6,1", "6,0-7,1", "0,1-3,2", "3,1-6,2", "6,1-7,2", "0,2-3,3", "3,2-6,3", "6,2-7,3" }
+  check(table.concat(zones, " ") == table.concat(want, " "), "P13 : tranches dans l'ordre ligne puis colonne, chaque case une fois (" ..
+    table.concat(zones, " ") .. ")")
+  local w, f = random_world(5, "fo-test")
+  local sfc = surface_of(w)
+  local jo = Rv.bandes.new(box_of(w))
+  jo.x = nil -- relevé commencé avant ce point (sauvegarde) : début de ligne
+  local k = 0
+  repeat k = k + 1 until Rv.bandes.band(f, sfc, jo) or k > 10000
+  check(nr_str(Rv.bandes.finish(f.build, jo)) == nr_str(ref_net_read(f, sfc, f.build)),
+    "P13 : relevé d'une sauvegarde d'avant ce point (sans j.x) : même fin que net_read d'un bloc")
+  Rv.BAND, Rv.COLS = saved_band, saved_cols
+end
 local r13 = p1_p3(Rv)
 check(r13.same_trace, "P1 : mode bloc (boîte connue, toutes les bandes à la passe) = ancien chemin : état de santé identique à chaque passe")
 check(r13.same_logs and #r13.a.logs > 0, string.format("P1 : journal identique ligne à ligne (%d ligne(s))", #r13.a.logs))
@@ -885,11 +914,19 @@ end
 ---------------------------------------------------------------------------------------------------
 local MUT = {
   { "m1 intervalle fermé [y0, y1]", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
-    { { "if p.y >= top and p.y < bottom then", "if p.y >= top and p.y <= bottom then" } }, "p2" },
+    { { "if p.y >= top and p.y < bottom and p.x", "if p.y >= top and p.y <= bottom and p.x" } }, "p2" },
   { "m2 dernière ligne de chunks sautée", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
     { { "y_end = box.y1 + 1", "y_end = box.y1" } }, "p2" },
   { "m3 bande d'un chunk de large", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
-    { { "{ { j.x0 * 32, top }, { j.x1 * 32, bottom } }", "{ { j.x0 * 32, top }, { (j.x0 + 1) * 32, bottom } }" } }, "p2" },
+    { { "{ { left, top }, { right, bottom } }, force = f.force," .. string.char(10) .. "    type = BAND_TYPES",
+      "{ { left, top }, { left + 32, bottom } }, force = f.force," .. string.char(10) .. "    type = BAND_TYPES" } }, "p2" },
+  -- lot LOURD (point 1 bis) : tranches en largeur
+  { "m15 intervalle fermé en x [gauche, droite]", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
+    { { "and p.x >= left and p.x < right then", "and p.x >= left and p.x <= right then" } }, "p2" },
+  { "m16 dernière tranche d'une ligne sautée", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
+    { { "  if xb >= j.x1 then", "  if xb >= j.x1 - 1 then" } }, "p2" },
+  { "m17 tranche qui n'avance pas de toute sa largeur", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
+    { { "    j.x = xb" .. string.char(10), "    j.x = xa + 1" .. string.char(10) } }, "p2" },
   { "m4 jeton ignoré par le raccord", "script.team.raccord", "script/team/raccord.lua",
     { { 'if api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":ra") then return end', "if false then return end" } }, "p5" },
   { "m5 boîte non tenue à on_chunk_generated", "script.team.boite_chunks", "script/team/boite_chunks.lua",
