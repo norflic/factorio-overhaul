@@ -119,6 +119,26 @@ end
 -- Lot IA1-i : exposé tel quel pour le bouton « Renvoyer l'équipe » de l'interface (même fonction que /fo-team dismiss).
 PlayerTeam.dismiss = dismiss
 
+--- Lot DEPENSES2 (b, relecture point 1) : quand votre équipe PREND FIN (coffre perdu), ses soldats (unités fo-player-*, payées par son stock
+--- qui dort) partent avec elle, comme ses PNJ (dismiss : Registry.remove) : propriété rendue (State.disown, aucun événement de perte vers
+--- une équipe suivante), entité retirée, comptes à zéro. Sans cela ils restaient des unités de votre force sans suivi, qu'une nouvelle
+--- équipe ne comptait pas. Le renvoi (dismiss(f, true)) garde l'équipe : ses soldats restent suivis. Rend le nombre de soldats retirés.
+local function release_soldiers(f)
+  local n = 0
+  for _, id in ipairs(State.sorted_keys(f.soldiers or {})) do
+    local s = f.soldiers[id]
+    State.disown(id)
+    if s and s.entity and s.entity.valid then
+      s.entity.destroy()
+      n = n + 1
+    end
+    f.soldiers[id] = nil
+  end
+  f.soldiers_count, f.garrison_count = 0, 0
+  return n
+end
+PlayerTeam.release_soldiers = release_soldiers
+
 local function on_built(e)
   local ent = e.created_entity or e.entity
   if not (ent and ent.valid and ent.name == CHEST) then return end
@@ -198,6 +218,8 @@ Events.on(defines.events.on_entity_destroyed, function(e)
     e.tick, f.lost_by and ("detruit par " .. f.lost_by) or "retire (mine, deconstruit ou script)", f.engineers_count or 0,
     f.soldiers_count or 0, minutes_since(f, e.tick)))
   dismiss(f, false)
+  local gone = PlayerTeam.release_soldiers(f) -- (par la table : le banc hors jeu en fait un mutant)
+  if gone > 0 then log(string.format("[FO-PTEAM] perdu tick %d : %d soldat(s) de votre equipe retire(s) avec elle", e.tick, gone)) end
   if f.goal_label and rendering.is_valid(f.goal_label) then rendering.destroy(f.goal_label) end
   Storage.ns("pteam").team = nil
   Scheduler.remove(THINK_LANE, 1)
@@ -205,11 +227,16 @@ Events.on(defines.events.on_entity_destroyed, function(e)
   game.print({ "fo-team.lost" })
 end)
 
+-- Lot PERF3 (accord du lead, 5/11) : votre équipe pensait au MÊME tick que la première faction (créneau 1 des deux voies de période
+-- 300, tick % 300 = 0) : 504 ticks de 50 à 200 ms à cette phase sur la partie du DC (fo-logs/2026-11-05_PERF3/BASE.md). Phase 174 :
+-- la plus calme mesurée (0,047 ms en moyenne, p99 0,08), loin des 4 pensées de faction (0 à 3) et des passes du plan directeur qui les
+-- suivent (5 à 75), hors des multiples de 5 (build:pulse), de 15 (regards d'IA3-f) et des restes 0 à 3 de 30 (prospection).
+local THINK_PHASE = 174
 Scheduler.define_lane(THINK_LANE, 300, function(_, tick)
   local f = get()
   if not (f and f.hq and f.hq.valid) then return end
   Team.think(f, f.hq.surface, tick)
-end)
+end, THINK_PHASE)
 
 Scheduler.define_lane(PROSPECT_LANE, 30, function(_, tick)
   local f = get()

@@ -11,6 +11,8 @@
   Types du moteur seulement (aucun nom d'objet du jeu).
 ]]
 
+local Da = require("shared.team.danger_actif") -- lot DANGER-ACTIF
+
 local A = {}
 
 A.FEAR_TICKS = 3600          -- 1 min : une mort plus ancienne n'est plus une attaque en cours (la menace, elle, reste jugée)
@@ -50,6 +52,8 @@ end
 --- refus ou un abandon pour danger, une fuite ou une mise à l'abri (le PNJ revient dès que la menace est passée ; la porte rejuge).
 A.FEAR_FAILS = { abri = true, danger = true, fuite = true } -- refus de la porte, rappel, demi-tour, fuite, mise à l'abri
 function A.retry(fail, fond, base)
+  -- Lot DANGER-ACTIF : un but sous une menace FIXE connue est mis de côté un temps borné (shared/team/danger_actif.lua) ; le PNJ prend une autre tâche.
+  if fail == Da.ASIDE_FAIL then return Da.ASIDE_TICKS end
   if fail and A.FEAR_FAILS[fail] then return A.RETRY_DANGER end
   return fond and base * 2 or base
 end

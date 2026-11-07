@@ -86,12 +86,16 @@ local function lane_state(name)
   return st
 end
 
---- Définit une voie. `period` : nombre ou fonction renvoyant un nombre de ticks (>= 1).
-function Scheduler.define_lane(name, period, handler)
+--- Définit une voie. `period` : nombre ou fonction renvoyant un nombre de ticks (>= 1). `phase` (lot PERF3, facultatif, 0 par
+--- défaut) : DÉCALAGE de la roue en ticks : le créneau s passe aux ticks où ((tick - phase) % P) + 1 == s. Donnée du CODE (jamais
+--- dans global) : une partie existante prend la nouvelle phase au chargement, chaque id garde son créneau ; au changement de phase
+--- (de 0 à φ), un seul intervalle entre deux passages d'un id vaut φ au lieu de P, puis P exactement (jamais deux passages dans un
+--- tick, aucun passage sauté).
+function Scheduler.define_lane(name, period, handler, phase)
   assert(not lanes[name], "voie déjà définie : " .. name)
   local period_fn = period
   if type(period) == "number" then period_fn = function() return period end end
-  lanes[name] = { period = period_fn, handler = handler, prof = "lane:" .. name }
+  lanes[name] = { period = period_fn, handler = handler, prof = "lane:" .. name, phase = math.floor(phase or 0) }
   lane_order[#lane_order + 1] = name
   stamps[name] = {}
 end
@@ -110,6 +114,33 @@ function Scheduler.add(lane, id)
   b[#b + 1] = id
   st.slot_of[id] = s
   st.count = st.count + 1
+end
+
+--- Lot ÉTALEMENT (5/11) : place `id` au créneau `slot` (1..P, ramené dans la période) de la voie, au lieu du créneau tournant ; un id
+--- déjà présent est DÉPLACÉ (son ancienne entrée devient périmée, nettoyée au passage de son créneau, comme un retrait). Sert à
+--- espacer quelques ids lourds sur la période (pensées des factions, script/faction/commander.lua). Un id déplacé a UN intervalle
+--- différent de P entre deux passages (au moins 1 tick : jamais deux passages dans un tick), puis P exactement ; aucun passage
+--- n'est sauté au-delà d'une période plus l'écart du déplacement.
+function Scheduler.add_at(lane, id, slot)
+  local st = lane_state(lane)
+  local s = (math.floor(slot) - 1) % st.period + 1
+  local cur = st.slot_of[id]
+  if cur == s then return end
+  if not cur then st.count = st.count + 1 end
+  st.slot_of[id] = s
+  local b = st.buckets[s]
+  b[#b + 1] = id
+end
+
+--- Lot ÉTALEMENT : période courante d'une voie (ticks).
+function Scheduler.period(lane)
+  return lane_state(lane).period
+end
+
+--- Lot ÉTALEMENT : créneau d'un id (nil s'il n'est pas dans la voie).
+function Scheduler.slot(lane, id)
+  local st = Storage.ns("sched").lanes[lane]
+  return st and st.slot_of[id] or nil
 end
 
 function Scheduler.has(lane, id)
@@ -159,12 +190,12 @@ local function run_lane(name, tick)
   if not st or (st.count == 0 and st.period) then return end
   local p = current_period(name)
   if st.period ~= p then rebuild(st, p) end
-  local s = tick % p + 1
+  local cfg = lanes[name]
+  local s = (tick - cfg.phase) % p + 1
   local b = st.buckets[s]
   local n = #b
   if n == 0 then return end
 
-  local cfg = lanes[name]
   local handler, slot_of, stamp = cfg.handler, st.slot_of, stamps[name]
   Profiler.start(cfg.prof)
   local j = 0

@@ -485,6 +485,150 @@ local function run_all()
     E2.view = { workers_idle = 0 }
     Cap.emit(P)(E2, { id = 3, key = gord.key, prio = 53 }, gord)
     check(#E2.tasks == 0, "§15 bâtiment ordinaire, 0 bras libre : rien n'est fabriqué (" .. #E2.tasks .. ")")
+    -- Étage 3 (relecture de 16f1b3e0, point 2) : porte ouverte, un REMPLACEMENT de machines n'est pas mis en tête ; par la chaîne, si.
+    local drp = {}
+    for k, v in pairs(dor) do drp[k] = v end
+    drp.replace, drp.chain = { from = "a", to = "b", n = 1 }, nil
+    check(drp.gate_open == true and Cap.goal(drp, {}).opens == nil, "§15 porte ouverte : un remplacement de machines n'est pas `opens`")
+    drp.chain = { target = "command:2:1", v = 1 }
+    check(Cap.goal(drp, {}).opens == true, "§15 un remplacement de la chaîne Q16 reste `opens`")
+  end
+
+  -- §16 Lot DEFAUT7, étage 3 (sonde [FO-FER-DIAG], banc fd-croiss-123456789) : le centre passé devant y RESTE (collant, borné à
+  -- Cap.AHEAD_TICKS, jamais réarmé pour la même cible) et il est servi EN TÊTE du stock virtuel, après les seuls projets qui produisent
+  -- la matière qui lui manque.
+  do
+    local cen = census(guns({ 2, 1, 1, 1 }), center1)
+    local gate
+    for _, c in ipairs(Cap.candidates(L, cen, ctx()).cands) do if c.center then gate = c end end
+    local T0 = 100000
+    local defer = { key = gate.key, spent = gate.value }
+    local d1 = Cap.choose(L, cen, ctx({ defer = defer, tick = T0 }))
+    check(d1.center and d1.starved and d1.ahead == true and Cap.goal(d1, {}).ahead == true,
+      "§16 le centre passe devant : servi en tête (`ahead`)")
+    check(Cap.ahead_step(defer, d1, T0) == "debut" and defer.ahead_since == T0, "§16 la borne court dès qu'il passe devant")
+    check(Cap.ahead_step(defer, d1, T0 + 60) == nil, "§16 un seul début par cible")
+    -- Le cas mesuré : la valeur du centre monte (218 -> 356), les reports retombent sous le seuil ; il reste devant.
+    defer.spent = gate.value - 1
+    local d2 = Cap.choose(L, cen, ctx({ defer = defer, tick = T0 + 5 * 3600 }))
+    check(d2.center and d2.starved and d2.ahead == true, "§16 reports retombés sous sa valeur : le centre reste devant (collant)")
+    local dno = Cap.choose(L, cen, ctx({ defer = { key = gate.key, spent = gate.value - 1 }, tick = T0 + 5 * 3600 }))
+    check(dno.family == "gun" and not dno.starved, "§16 sans être passé devant : la règle des reports seule (tourelle d'abord)")
+    -- Borne : au-delà, retour à la règle des reports, sans réarmement pour la même cible.
+    local BORNE = 15 * 3600 -- la borne mesurée (Émeraude couvre son manque en 11,6 min), écrite ici en clair : un collant sans borne échoue
+    local tb = T0 + BORNE
+    local d3 = Cap.choose(L, cen, ctx({ defer = defer, tick = tb }))
+    check(d3.family == "gun" and not d3.starved, "§16 borne atteinte : il retombe à la règle des reports (" .. tostring(d3.key) .. ")")
+    check(Cap.ahead_step(defer, d3, tb) == "borne" and defer.ahead_done == true, "§16 borne atteinte : fin du collant notée")
+    defer.spent = 2 * gate.value
+    local d4 = Cap.choose(L, cen, ctx({ defer = defer, tick = tb + 3600 }))
+    check(d4.center and d4.starved and not d4.ahead and Cap.goal(d4, {}).ahead == nil,
+      "§16 après la borne, les reports le font encore passer devant (règle d'avant), mais plus en tête")
+    check(Cap.ahead_step(defer, d4, tb + 3600) == nil and defer.ahead_since == T0, "§16 la borne ne se réarme pas pour la même cible")
+    local dfx = { key = gate.key, spent = gate.value, ahead_since = T0 } -- borne passée sans pas noté : déjà expirée
+    local d5 = Cap.choose(L, cen, ctx({ defer = dfx, tick = T0 + BORNE + 1 }))
+    check(d5.starved and not d5.ahead, "§16 borne passée (même sans pas noté) : plus en tête")
+    local d6 = Cap.choose(L, cen, ctx({ defer = { key = "command:9:999", spent = gate.value - 1, ahead_since = T0 }, tick = T0 + 60 }))
+    check(not d6.starved, "§16 collant d'une autre cible : ignoré")
+    -- Ordre de service (une COPIE : l'ordre d'origine, qui donne le projet dominant, ne bouge pas).
+    local OUT = { iron = { product = "P", resource = "R" }, coal = { product = "K", resource = "K" } }
+    local IN = { P = { "R", 1 } }
+    local cg = { key = "capital:command:2:1", center = true, ahead = true, cost = { { "P", 310 }, { "Q", 10 }, { "C", 60 } } }
+    -- Défense minimale (règle D1 de shared/ai3/buts.lua, « jamais retenue ») : premiers soldats ou armée d'alerte (minimal, alert),
+    -- part minimale de la réserve de munitions (minimal_n > 0) ; l'armée qui grandit et une réserve au-dessus du minimum, non.
+    local o = { { key = "alim:pack", goal = { product = "pack" } }, { key = "armee", goal = { permanent = true, minimal = true } },
+      { key = "extraction:iron", goal = { outpost = "iron" } }, { key = gate.key, goal = cg }, { key = "capi:chaine:C", goal = { order = { item = "C" } } },
+      { key = "couverture:coal", goal = { outpost = "coal" } }, { key = "capi:ouvrir:R", goal = { order = { item = "R", resource = "R" } } },
+      { key = "defense:munitions", goal = { permanent = true, minimal_n = 12 } } }
+    local s = Cap.ahead_first(o, { P = 5, Q = 50, C = 0 }, OUT, IN)
+    local ks = {}
+    for i, p in ipairs(s) do ks[i] = p.key end
+    check(table.concat(ks, ",") == "armee,extraction:iron,capi:chaine:C,capi:ouvrir:R,defense:munitions," .. gate.key .. ",alim:pack,couverture:coal",
+      "§16 ordre : défense minimale et producteurs de la matière qui manque, puis le centre, puis les autres (" .. table.concat(ks, ",") .. ")")
+    check(o[1].key == "alim:pack" and o[4].key == gate.key and #o == 8, "§16 l'ordre d'origine n'est pas touché (projet dominant)")
+    local o4 = { { key = "alim:pack", goal = { product = "pack" } }, { key = "armee", goal = { permanent = true } },
+      { key = gate.key, goal = cg }, { key = "defense:munitions", goal = { permanent = true, minimal_n = 0 } },
+      { key = "armee-alerte", goal = { permanent = true, alert = true } } }
+    local s4 = Cap.ahead_first(o4, { P = 400, Q = 50, C = 60 }, OUT, IN)
+    local k4 = {}
+    for i, p in ipairs(s4) do k4[i] = p.key end
+    check(table.concat(k4, ",") == "armee-alerte," .. gate.key .. ",alim:pack,armee,defense:munitions",
+      "§16 armée d'alerte avant le centre ; armée qui grandit et réserve au-dessus du minimum après lui (" .. table.concat(k4, ",") .. ")")
+    local s2 = Cap.ahead_first(o, { P = 400, Q = 50, C = 0 }, OUT, IN)
+    check(s2[1].key == "armee" and s2[2].key == "capi:chaine:C" and s2[3].key == "defense:munitions" and s2[4].key == gate.key
+      and s2[5].key == "alim:pack", "§16 matière couverte (P) : son producteur n'est plus exempté")
+    local plain = { { key = "a", goal = {} }, { key = "b", goal = { center = true, cost = {} } } }
+    check(Cap.ahead_first(plain, {}, OUT, IN) == plain, "§16 sans centre passé devant : ordre inchangé")
+    -- Le cas mesuré : un premier projet prend tout le fer ; servi en tête, le centre garde ce qui est là (réservé à cette pensée).
+    local recipes = dofile("tests/fixtures/recipes_ia1e.lua")
+    local book = Book.new(recipes)
+    local gc = { key = "capital:" .. gate.key, center = true, ahead = true, fond = true, short = true,
+      cost = { { "iron-plate", 310 }, { "copper-plate", 160 } } }
+    local function run(ahead)
+      local E = P.context({ ["iron-plate"] = 40, ["copper-plate"] = 400 }, book, { open = {}, workers_idle = 0 }, {})
+      E.view = { workers_idle = 0, stock = { ["iron-plate"] = 40, ["copper-plate"] = 400 } } -- tout est au coffre (rien d'attendu)
+      local greedy = { id = 1, key = "alim:pack", prio = 80, goal = { product = "pack" } }
+      local centre = { id = 2, key = gc.key, prio = 60, goal = gc }
+      local list = { greedy, centre }
+      if ahead then list = Cap.ahead_first(list, E.avail, OUT, IN) end
+      local took = 0
+      for _, pr in ipairs(list) do
+        if pr == greedy then
+          took = E.avail["iron-plate"] or 0
+          E.avail["iron-plate"] = 0
+        else
+          Cap.emit(P)(E, pr, gc)
+        end
+      end
+      return took
+    end
+    check(run(true) == 0, "§16 centre en tête : le premier projet ne prend plus le fer du centre")
+    check(run(false) == 40, "§16 avant la règle : le premier projet prend les 40 plaques avant le centre")
+
+    -- §17 Étage CIRCUITS (sonde [FO-FER-DIAG] sur 5d4d0aa4) : le centre collant ne compte que le stock libre au coffre, et ses tâches
+    -- ont la priorité du projet le plus fort ; un centre ordinaire, rien ne change.
+    local cost = { { "iron-plate", 10 }, { "electronic-circuit", 6 } }
+    local function emit17(ahead, incoming)
+      local E = P.context({ ["iron-plate"] = 400, ["copper-plate"] = 400, ["electronic-circuit"] = incoming }, book,
+        { open = {}, workers_idle = 0 }, {})
+      E.view = { workers_idle = 0, stock = { ["iron-plate"] = 400, ["copper-plate"] = 400, ["electronic-circuit"] = 0 } }
+      local g = { key = "capital:command:2:1", center = true, ahead = ahead or nil, fond = true, short = true, cost = cost }
+      local res = Cap.emit(P)(E, { id = 7, key = g.key, prio = 60 }, g)
+      local n, pr = 0, nil
+      for _, t in ipairs(E.tasks) do
+        if t.kind == "craft" and t.item == "electronic-circuit" then n, pr = n + t.count, t.prio end
+      end
+      return res, n, pr, E.avail["electronic-circuit"], E.pay
+    end
+    local r1, n1, p1, a1, pay1 = emit17(true, 200)
+    check(r1 == "matiere" and n1 >= 6 and pay1 == nil,
+      "§17 centre collant : 200 circuits ATTENDUS (coffre 0) ne paient rien ; il fabrique ses 6 circuits (" .. n1 .. ")")
+    check(p1 == P.prio_of(100) - 1, "§17 centre collant : ses fabrications un cran sous le projet le plus fort, jamais à égalité avec l'armée d'alerte (" .. tostring(p1) .. ")")
+    check(a1 == 200, "§17 les circuits attendus restent au stock virtuel des projets suivants (" .. tostring(a1) .. ")")
+    local r2, n2, _, _, pay2 = emit17(false, 200)
+    check(r2 == "ok" and n2 == 0 and pay2 ~= nil, "§17 centre ordinaire : comportement d'avant (les attendus comptent, paiement prévu)")
+    local _, n3, p3 = emit17(false, 0)
+    check(n3 >= 6 and p3 == 60, "§17 centre ordinaire sans circuits : fabrication à la priorité de son projet (" .. tostring(p3) .. ")")
+    -- Relecture de d18d1531, remarque 2 : le clamp ne compte pas ce que le planificateur permanent a déjà pris (E.base_used).
+    local function emit17b(coffre, base, incoming)
+      -- stock virtuel = coffre + attendus − planificateur permanent (shared/ai3/cerveau.lua, C.think)
+      local E = P.context({ ["iron-plate"] = coffre + (incoming or 0) - base, ["electronic-circuit"] = 6 }, book, { open = {}, workers_idle = 0 }, {})
+      E.view = { workers_idle = 0, stock = { ["iron-plate"] = coffre, ["electronic-circuit"] = 6 } }
+      E.base_used = { ["iron-plate"] = base }
+      local g = { key = "capital:command:2:1", center = true, ahead = true, fond = true, short = true, cost = cost }
+      local res = Cap.emit(P)(E, { id = 7, key = g.key, prio = 60 }, g)
+      return res, E.pay, E.avail["iron-plate"]
+    end
+    local r4, pay4, a4 = emit17b(10, 0)
+    check(r4 == "ok" and pay4 ~= nil and a4 == 0, "§17 centre collant, tout au coffre : P.take réussi avec le clamp, paiement prévu (" .. tostring(r4) .. ")")
+    local r5, pay5 = emit17b(10, 4, 4)
+    check(r5 == "matiere" and pay5 == nil,
+      "§17 centre collant : 10 fers au coffre dont 4 pris par le planificateur permanent, 4 attendus : rien n'est payé (" .. tostring(r5) .. ")")
+    local E6 = P.context({ ["iron-plate"] = 6 }, book, { open = {}, workers_idle = 0 }, {})
+    E6.view = { stock = { ["iron-plate"] = 10 } }
+    E6.base_used = { ["iron-plate"] = 4 }
+    local aside6 = Cap.ahead_clamp(E6, { { "iron-plate", 10 } })
+    check(next(aside6) == nil and E6.avail["iron-plate"] == 6, "§17 stock virtuel déjà sous (coffre − planificateur) : rien mis de côté")
   end
 end
 
@@ -569,6 +713,36 @@ do
   end, function() Cap.goal = cg end)
   M("tout bâtiment marqué de la chaîne", function()
     Cap.goal = function(d, w) local g = cg(d, w) if g and not g.center then g.opens = true end return g end
+  end, function() Cap.goal = cg end)
+  -- Lot DEFAUT7, étage 3.
+  local af = Cap.ahead_first
+  M("centre passé devant servi après le premier projet", function() Cap.ahead_first = function(o) return o end end,
+    function() Cap.ahead_first = af end)
+  local aa = Cap.ahead_active
+  M("passe devant oublié quand la valeur monte", function() Cap.ahead_active = function() return false end end,
+    function() Cap.ahead_active = aa end)
+  local at = Cap.AHEAD_TICKS
+  M("collant sans borne", function() Cap.AHEAD_TICKS = 1e15 end, function() Cap.AHEAD_TICKS = at end)
+  local ae = Cap.ahead_expired
+  M("collant réarmé après la borne", function() Cap.ahead_expired = function() return false end end,
+    function() Cap.ahead_expired = ae end)
+  local pr = Cap.products
+  M("producteur de la matière bloqué par le centre", function() Cap.products = function() return {} end end,
+    function() Cap.products = pr end)
+  local apr = Cap.ahead_prio
+  M("centre collant à la priorité de son projet", function() Cap.ahead_prio = function(_, p) return p end end,
+    function() Cap.ahead_prio = apr end)
+  local acl = Cap.ahead_clamp
+  M("clamp sans la part du planificateur permanent", function()
+    Cap.ahead_clamp = function(E, c) local u = E.base_used; E.base_used = nil; local a = acl(E, c); E.base_used = u; return a end
+  end, function() Cap.ahead_clamp = acl end)
+  M("arrivées comptées pour le centre collant", function() Cap.ahead_clamp = function() return {} end end,
+    function() Cap.ahead_clamp = acl end)
+  local md = Cap.minimal_defense
+  M("défense minimale servie après le centre", function() Cap.minimal_defense = function() return false end end,
+    function() Cap.minimal_defense = md end)
+  M("remplacement de machines en tête (porte ouverte)", function()
+    Cap.goal = function(d, w) local g = cg(d, w) if g and d.replace and d.gate_open then g.opens = true end return g end
   end, function() Cap.goal = cg end)
   check(n_caught == n_mut, string.format("§10 mutants : %d refusés sur %d", n_caught, n_mut))
 end

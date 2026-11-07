@@ -173,7 +173,7 @@ for e = 2, L.EPOCHS do cur[#cur + 1] = { e = e, item = L.epoch_materials[e].item
 local inc = Eq.incoherences(R, cache, (function()
   local rows = {}
   for _, c in ipairs(cur) do
-    local mu0 = cache.mu(c.item, "H0", c.e)
+    local mu0 = cache.mu(c.item, "H0e", c.e)
     rows[#rows + 1] = { e = c.e, item = c.item, value = c.value, mu0 = mu0, ratio = c.value / mu0,
       provisional = L.epoch_materials[c.e].provisional, stack_l = L.stack_size[c.item], stack_d = R.stacks[c.item] }
   end

@@ -317,6 +317,7 @@ function War.start_at(surface, center, n, soldiers_max, engineers_max, distance)
     Sites.track(f)
     request_site_check(f, surface)
   end
+  Commander.spread() -- lot ÉTALEMENT : pensées des factions espacées sur la période (et non à 4 ticks consécutifs)
 
   -- Diplomatie : factions hostiles entre elles (défaut moteur), cessez-le-feu avec le joueur au lancement
   -- (lot IA0 : la difficulté décide ensuite si et quand chaque faction le rompt).

@@ -124,7 +124,32 @@ local function swap_one(f, surface, ref, cx, cy, tick)
   local st = f.swap
   -- Relecture statique : la place de la future boite est peut-etre reservee par le plan directeur (meme garde que place_pairs) ;
   -- on le sait AVANT de retirer l'ancienne foreuse.
-  if Outposts.reserved and Outposts.reserved(f, item, { x = cx, y = cy }, dir) then
+  -- Lot ÉTAGE 5 (revue B1) : remplacement SUR PLACE : les tuiles de couloir sous l'ancienne foreuse ne comptent pas (sinon une foreuse à
+  -- combustion déjà sur un couloir ne passait JAMAIS à l'électrique) ; seules les tuiles hors de l'ancienne emprise respectent le couloir.
+  local bb = d.bounding_box
+  local keep = { math.floor(bb.left_top.x + 0.01), math.floor(bb.left_top.y + 0.01), math.ceil(bb.right_bottom.x - 0.01) - 1,
+    math.ceil(bb.right_bottom.y - 0.01) - 1 }
+  -- B1, 2e relecture : le remplacement n'est refusé que s'il COUPE le couloir ; tout ce qui arrête un PNJ autour de la future boîte
+  -- compte comme pris (couche « player-layer » : bâtiments de toutes les forces, rochers, falaises, arbres ; les tapis non), sauf
+  -- l'ancienne foreuse et ce qui bouge (personnages, unités, véhicules) ; l'eau aussi (3e relecture : rochers, falaises, eau).
+  local taken = {}
+  local r = T.drill_electric.size / 2 + 3
+  local area = { { cx - r, cy - r }, { cx + r, cy + r } }
+  local MOVING = { character = true, unit = true, car = true, ["spider-vehicle"] = true, locomotive = true, ["cargo-wagon"] = true,
+    ["fluid-wagon"] = true, ["artillery-wagon"] = true }
+  for _, t in ipairs(surface.find_tiles_filtered({ area = area, collision_mask = "player-layer" })) do
+    taken[math.floor(t.position.x) .. "," .. math.floor(t.position.y)] = true
+  end
+  for _, e in ipairs(surface.find_entities_filtered({ area = area, collision_mask = "player-layer" })) do
+    if e.valid and e ~= d and not MOVING[e.type] then
+      local eb = e.bounding_box
+      for ty = math.floor(eb.left_top.y + 0.01), math.ceil(eb.right_bottom.y - 0.01) - 1 do
+        for tx = math.floor(eb.left_top.x + 0.01), math.ceil(eb.right_bottom.x - 0.01) - 1 do taken[tx .. "," .. ty] = true end
+      end
+    end
+  end
+  local blocked = function(x, y) return taken[x .. "," .. y] == true end
+  if Outposts.reserved and Outposts.reserved(f, item, { x = cx, y = cy }, dir, { keep = keep, blocked = blocked }) then
     st.retry[ref.key] = tick + Swap.RETRY
     return false
   end

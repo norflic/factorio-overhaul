@@ -32,6 +32,7 @@ local Book = require("shared.team.book")
 local State = require("script.faction.state")
 local Stock = require("script.team.stock")
 local General = require("script.ai3.general")
+local Dep = require("script.ai3.depenses") -- lot DEPENSES2 (revue E3) : vue débitée du stock hors besoin
 local Auto = require("script.ai3.automatisation")
 local Rsv = require("script.ai3.reserve")
 local Harvest = require("script.team.harvest")
@@ -227,7 +228,8 @@ local function affordable(f, book, view, mod, tick, orders)
     if not (book:handcraftable(name) or (stock[name] or 0) > 0) then miss[#miss + 1] = name end
   end
   if #miss > 0 then return false, "recherche : " .. table.concat(miss, ",") end
-  local rv = Rsv.input(f, tick)
+  -- Lot DEPENSES2 (revue E3) : le stock hors besoin DÉBITÉ de ce que la règle du stock qui dort a accordé ou engagé (comme la capitalisation).
+  local rv = Dep.capi_reserve(f, Rsv.input(f, tick), tick)
   if not rv then return false, "besoin non evalue (stock hors besoin inconnu)" end
   local free = {}
   for _, k in ipairs(sorted_keys(rv.free)) do free[k] = rv.free[k] end

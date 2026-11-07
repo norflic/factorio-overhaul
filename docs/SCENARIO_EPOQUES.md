@@ -432,14 +432,14 @@ pour C ; hypothèse de la matière étrange (Witten, 1984) pour D.
 | 1 Pionnier | 0,5 h | 0 h | T1 | 1 | 2 | 3 | 2 | 4 054 | 405 | panier de base | 82 Plaque de fer | 34,7 % |
 | 2 Forge | 1 h | 0,5 h | T1 | 1 | 4 | 5 | 4 | 14 826 | 1 483 | Plaque d'acier (5 MU, 100) | 60 Plaque d'acier | 35,5 % |
 | 3 Vapeur | 1,5 h | 1,5 h | T1 | 1 | 6 | 10 | 8 | 40 662 | 4 066 | Moteur (9 MU, 50) | 91 Moteur | 35 % |
-| 4 Pétrole | 2 h | 3 h | T2 | 2 | 8 | 18 | 14 | 99 130 | 9 913 | Plastique (1,5 MU, 100) | 1 322 Plastique | 35,2 % |
+| 4 Pétrole | 2 h | 3 h | T2 | 2 | 8 | 18 | 14 | 99 130 | 9 913 | Plastique (1 MU, 100) | 1 983 Plastique | 35,2 % |
 | 5 Volcan | 2,5 h | 5 h | T2 | 2 | 10 | 34 | 25 | 226 561 | 22 656 | Plaque de tungstène (2 MU, 100) | 2 266 Plaque de tungstène | 34,8 % |
 | 6 Électricité | 3 h | 7,5 h | T2 | 2 | 12 | 61 | 46 | 497 094 | 49 709 | Batterie (5,5 MU, 200) | 1 808 Batterie | 35,2 % |
 | 7 Cristal | 3,5 h | 10,5 h | T3 | 3 | 14 | 112 | 84 | 1 060 369 | 106 037 | Cristal de résonance (3 MU, 50) | 7 070 Cristal de résonance | 35 % |
 | 8 Marais | 4 h | 14 h | T3 | 3 | 16 | 205 | 154 | 2 215 750 | 221 575 | Biopolymère (4 MU, 100) | 11 079 Biopolymère | 35 % |
 | 9 Atome | 4,5 h | 18 h | T3 | 3 | 18 | 375 | 281 | 4 557 694 | 455 769 | Uranium 238 (14 MU, 100) | 6 511 Uranium 238 | 35,1 % |
-| 10 Haute technologie | 5 h | 22,5 h | T4 | 4 | 20 | 685 | 514 | 9 259 223 | 925 922 | Processeur (75 MU, 100) | 2 470 Processeur | 35 % |
-| 11 Titane | 5,5 h | 27,5 h | T4 | 4 | 22 | 1 253 | 941 | 18 622 549 | 1 862 255 | Plaque de titane (20 MU, 100) | 18 623 Plaque de titane | 35 % |
+| 10 Haute technologie | 5 h | 22,5 h | T4 | 4 | 20 | 685 | 514 | 9 259 223 | 925 922 | Processeur (46 MU, 100) | 4 026 Processeur | 35 % |
+| 11 Titane | 5,5 h | 27,5 h | T4 | 4 | 22 | 1 253 | 941 | 18 622 549 | 1 862 255 | Plaque de titane ρ8 (20 MU, 100) | 18 623 Plaque de titane ρ8 | 35 % |
 | 12 Supraconducteurs | 6 h | 33 h | T4 | 4 | 24 | 2 290 | 1 720 | 37 144 935 | 3 714 494 | Bobine supraconductrice (60 MU, 100) | 12 382 Bobine supraconductrice | 35 % |
 | 13 Fusion | 6,5 h | 39 h | T5 | 5 | 26 | 4 188 | 3 144 | 73 575 568 | 7 357 557 | Cellule de plasma (25 MU, 100) | 58 861 Cellule de plasma | 35 % |
 | 14 Orbite | 7 h | 45,5 h | T5 | 5 | 28 | 7 657 | 5 749 | 144 873 923 | 14 487 392 | Superalliage ρ32 (45 MU, 50) | 64 389 Superalliage ρ32 | 35 % |
@@ -474,13 +474,13 @@ bloque plus la partie : le script pose ce qui manque, à distance fixée.
 | Monazite | 12 | Minerai de monazite | sables noirs (rivages, ou dunes sur carte sèche) | 2 taches de sables noirs à monazite posées par script, même sans eau (dunes de sable noir) (2, 400 à 900 tuiles) |
 | Veine de caustique [A-II] | 12 | Flux sombre | partout ; 2 veines près du départ, puis 1 veine pour 20 à 25 chunks balayés au radar | 2 veines « visibles mais illisibles » posées au début de partie (hachage de la graine) (2, 80 à 200 tuiles) |
 | Évent mantellique | 13 | Hélium-3 | cœur des cendres volcaniques, rare | 2 évents posés par script au cœur de la plus grande zone de cendres à cette distance (2, 500 à 1 000 tuiles) |
-| Impact météoritique | 14 | Météorite ferreuse | créé par les pluies de météorites (toutes les 20 à 40 min) ; infini (minimum 20 %) | la première pluie tombe à l'entrée dans l'époque 14, à 150-400 tuiles du centre (2, 150 à 400 tuiles) |
+| Impact météoritique | 14 | Météorite ferreuse ρ8 | créé par les pluies de météorites (toutes les 20 à 40 min) ; infini (minimum 20 %) | la première pluie tombe à l'entrée dans l'époque 14, à 150-400 tuiles du centre (2, 150 à 400 tuiles) |
 | Faille du Cœur | 15 | Matière exotique brute | 3 à 5 failles posées au réveil du Cœur, gardées par des primordiaux | 3 à 5 failles à des positions tirées de la graine (3, 600 à 1 200 tuiles) |
-| Remontée profonde : fer [A-II] | 12 | Concentré de fer | créée par le script sous un puits gravitique (minerai choisi par le joueur) | créée sous chaque puits posé : jamais absente |
-| Remontée profonde : cuivre [A-II] | 12 | Concentré de cuivre | créée par le script sous un puits gravitique (minerai choisi par le joueur) | créée sous chaque puits posé : jamais absente |
-| Remontée profonde : tungstène [A-III] | 14 | Concentré de tungstène | créée par le script sous un puits gravitique (minerai choisi par le joueur) | créée sous chaque puits posé : jamais absente |
-| Remontée profonde : ilménite [A-III] | 14 | Concentré d'ilménite | créée par le script sous un puits gravitique (minerai choisi par le joueur) | créée sous chaque puits posé : jamais absente |
-| Remontée profonde : monazite [A-III] | 14 | Concentré de monazite | créée par le script sous un puits gravitique (minerai choisi par le joueur) | créée sous chaque puits posé : jamais absente |
+| Remontée profonde : fer [A-II] | 12 | Concentré de fer ρ8 | créée par le script sous un puits gravitique (minerai choisi par le joueur) | créée sous chaque puits posé : jamais absente |
+| Remontée profonde : cuivre [A-II] | 12 | Concentré de cuivre ρ8 | créée par le script sous un puits gravitique (minerai choisi par le joueur) | créée sous chaque puits posé : jamais absente |
+| Remontée profonde : tungstène [A-III] | 14 | Concentré de tungstène ρ8 | créée par le script sous un puits gravitique (minerai choisi par le joueur) | créée sous chaque puits posé : jamais absente |
+| Remontée profonde : ilménite [A-III] | 14 | Concentré d'ilménite ρ8 | créée par le script sous un puits gravitique (minerai choisi par le joueur) | créée sous chaque puits posé : jamais absente |
+| Remontée profonde : monazite [A-III] | 14 | Concentré de monazite ρ8 | créée par le script sous un puits gravitique (minerai choisi par le joueur) | créée sous chaque puits posé : jamais absente |
 | Minerai de tungstène (existant) | 5 | Minerai de tungstène | fo-volcanic-ash | posé par script (lot M0) : un gisement de tungstène d'environ 200 000 sur un disque de cendres, partie neuve toujours, sauvegarde existante s'il n'en est connu aucun |
 | Cristal de résonance (existant) | 7 | Cristal de résonance | fo-crystal-flats | posé par script (lot M0) : un gisement de cristal d'environ 120 000 sur une plaine de cristal, mêmes conditions |
 | Méthane (existant) | 8 | Méthane | fo-toxic-marsh | posé par script (lot M0) : 2 puits de méthane à 150 % dans une flaque de marais, mêmes conditions (puits connus comptés) |
@@ -508,11 +508,11 @@ choisie d'après sa couleur **mesurée**, F36 et F38), **sables noirs** (12, riv
 | 7 | Cristal taillé, Poudre de cristal, Lentille de résonance, Oscillateur à cristal, Pack de résonance, Cristal chargé, Relevé gravimétrique, Carte gravimétrique, Codex VII : partitions du cristal | — |
 | 8 | Échantillon de vase, Culture méthanotrophe, Biopolymère, Pack biochimique, Codex VIII : herbier du marais | Hydrogène, Oxygène, Dioxyde de carbone |
 | 9 | Galène, Plaque de plomb, Blindage plombé, Pack isotopique, Cuivre activé, Piège magnétique, Piège à positons, Données d'annihilation, Grenade à positons, Cellule usée refroidie, Colis vitrifié, Codex IX : cahier du réacteur | — |
-| 10 | Silicium métallurgique, Silicium pur, Tranche de silicium, Cristal temporel instable, Données chronométriques, Concentré de fer, Concentré de cuivre, Concentré de tungstène, Billette de fer, Billette de cuivre, Billette de tungstène, Codex X : plans de la salle blanche | — |
-| 11 | Minerai d'ilménite, Concentré d'ilménite, Laitier titanifère, Éponge de titane, Plaque de titane, Soude caustique, Chlorure de magnésium, Magnésium, Composite titane, Pack structurel, Cryostat, Inclusion étrange, Données hadroniques, Chargeur à inclusion, Cristal temporel stable, Sablier quantique, Codex XI : carte des cratères | Saumure, Chlore, Tétrachlorure de titane |
-| 12 | Minerai de monazite, Concentré de monazite, Concentré de terres rares, Oxyde de thorium, Néodyme, Yttrium, Ruban supraconducteur, Aimant permanent, Bobine supraconductrice, Cellule de sel au thorium, Sel usé, Pack magnétique, Cellule SMES vide, Cellule SMES chargée, Cavité de résonance, Condensat d'axions, Codex XII : traité des aimants | Azote liquide, Oxygène liquide, Hélium, Hélium liquide, Flux sombre (sans baril) |
-| 13 | Ilménite dégazée, Pastille de fusion, Pastille de fusion catalysée, Cellule de plasma, Pack plasma, Piège à antiprotons, Piège d'antihydrogène, Micro-charge d'antimatière, Obus d'annihilation, Strangelet confiné, Plaque étrange, Bloc de fer ρ32, Bloc de cuivre ρ32, Codex XIII : journal du confinement | Hélium-3, Eau lourde, Deutérium, Plasma |
-| 14 | Météorite ferreuse, Météorite étrange, Ferronickel, Iridium, Superalliage ρ32, Miroir d'iridium, Ergol cryogénique, Remorqueur orbital, Centrale solaire orbitale, Sonde profonde, Armure étrange, Pièce de lanceur léger (compteur), Codex XIV : archives orbitales de l'Arche | Hydrogène liquide |
+| 10 | Silicium métallurgique, Silicium pur, Tranche de silicium, Cristal temporel instable, Données chronométriques, Concentré de fer ρ8, Concentré de cuivre ρ8, Concentré de tungstène ρ8, Billette de fer ρ8, Billette de cuivre ρ8, Billette de tungstène ρ8, Codex X : plans de la salle blanche | — |
+| 11 | Minerai d'ilménite, Concentré d'ilménite ρ8, Laitier titanifère ρ8, Éponge de titane ρ8, Plaque de titane ρ8, Soude caustique, Chlorure de magnésium, Magnésium, Composite titane, Pack structurel, Cryostat, Inclusion étrange, Données hadroniques, Chargeur à inclusion, Cristal temporel stable, Sablier quantique, Codex XI : carte des cratères | Saumure, Chlore, Tétrachlorure de titane |
+| 12 | Minerai de monazite, Concentré de monazite ρ8, Concentré de terres rares, Oxyde de thorium, Néodyme, Yttrium, Ruban supraconducteur, Aimant permanent, Bobine supraconductrice, Cellule de sel au thorium, Sel usé, Pack magnétique, Cellule SMES vide, Cellule SMES chargée, Cavité de résonance, Condensat d'axions, Codex XII : traité des aimants | Azote liquide, Oxygène liquide, Hélium, Hélium liquide, Flux sombre (sans baril) |
+| 13 | Ilménite dégazée ρ8, Pastille de fusion, Pastille de fusion catalysée, Cellule de plasma, Pack plasma, Piège à antiprotons, Piège d'antihydrogène, Micro-charge d'antimatière, Obus d'annihilation, Strangelet confiné, Plaque étrange, Bloc de fer ρ32, Bloc de cuivre ρ32, Codex XIII : journal du confinement | Hélium-3, Eau lourde, Deutérium, Plasma |
+| 14 | Météorite ferreuse ρ8, Météorite étrange ρ8, Ferronickel ρ8, Iridium, Superalliage ρ32, Miroir d'iridium, Ergol cryogénique, Remorqueur orbital, Centrale solaire orbitale, Sonde profonde, Armure étrange, Pièce de lanceur léger (compteur), Codex XIV : archives orbitales de l'Arche | Hydrogène liquide |
 | 15 | Cavité de Casimir, Matière exotique stabilisée, Pack exotique, Segment d'anneau (compteur), Clé de phase | Matière exotique brute (sans baril) |
 <!-- /GEN:items -->
 
@@ -800,49 +800,49 @@ les silhouettes des premières époques (bible V1) restent visibles pendant ce r
 | Radar à réseau phasé (horloge de phase) [C-I] | 1 Radar + 4 Processeur + 1 Cristal temporel instable + 10 Tôle magnétique | 1 Radar à réseau phasé | Banc de phase | 10 s | Chronodynamique I : cristal temporel |
 | Concentrateur | 10 Plaque d'acier + 4 Bobine + 5 Processeur + 10 Carbure de tungstène | 1 Concentrateur | assembleur | 8 s | Foreuses de concentré (T4) |
 | Foreuse de concentré | 1 Foreuse lourde + 10 Trépan en carbure + 10 Processeur + 10 Bobine + 20 Plaque d'acier | 1 Foreuse de concentré | assembleur | 15 s | Foreuses de concentré (T4) |
-| Concentré de fer | 8 Minerai de fer | 1 Concentré de fer | Concentrateur | 1 s | Foreuses de concentré (T4) |
-| Concentré de cuivre | 8 Minerai de cuivre | 1 Concentré de cuivre | Concentrateur | 1 s | Foreuses de concentré (T4) |
-| Concentré de tungstène | 8 Minerai de tungstène | 1 Concentré de tungstène | Concentrateur | 1 s | Foreuses de concentré (T4) |
-| Fonte de concentré de fer *(dense)* | 1 Concentré de fer | 1 Billette de fer | Four à arc | 0,533 s | Billettes |
-| Fonte de concentré de cuivre *(dense)* | 1 Concentré de cuivre | 1 Billette de cuivre | Four à arc | 0,533 s | Billettes |
-| Fonte de concentré de tungstène *(dense)* | 1 Concentré de tungstène | 1 Billette de tungstène | Four à arc | 1,066 s | Billettes |
-| Découpe de billette de fer | 1 Billette de fer | 8 Plaque de fer | main ou assembleur | 1 s | Billettes |
-| Découpe de billette de cuivre | 1 Billette de cuivre | 8 Plaque de cuivre | main ou assembleur | 1 s | Billettes |
-| Découpe de billette de tungstène | 1 Billette de tungstène | 8 Plaque de tungstène | main ou assembleur | 1 s | Billettes |
+| Concentré de fer ρ8 | 8 Minerai de fer | 1 Concentré de fer ρ8 | Concentrateur | 1 s | Foreuses de concentré (T4) |
+| Concentré de cuivre ρ8 | 8 Minerai de cuivre | 1 Concentré de cuivre ρ8 | Concentrateur | 1 s | Foreuses de concentré (T4) |
+| Concentré de tungstène ρ8 | 8 Minerai de tungstène | 1 Concentré de tungstène ρ8 | Concentrateur | 1 s | Foreuses de concentré (T4) |
+| Fonte de concentré de fer *(dense)* | 1 Concentré de fer ρ8 | 1 Billette de fer ρ8 | Four à arc | 0,533 s | Billettes ρ8 |
+| Fonte de concentré de cuivre *(dense)* | 1 Concentré de cuivre ρ8 | 1 Billette de cuivre ρ8 | Four à arc | 0,533 s | Billettes ρ8 |
+| Fonte de concentré de tungstène *(dense)* | 1 Concentré de tungstène ρ8 | 1 Billette de tungstène ρ8 | Four à arc | 1,066 s | Billettes ρ8 |
+| Découpe de billette de fer | 1 Billette de fer ρ8 | 8 Plaque de fer | main ou assembleur | 1 s | Billettes ρ8 |
+| Découpe de billette de cuivre | 1 Billette de cuivre ρ8 | 8 Plaque de cuivre | main ou assembleur | 1 s | Billettes ρ8 |
+| Découpe de billette de tungstène | 1 Billette de tungstène ρ8 | 8 Plaque de tungstène | main ou assembleur | 1 s | Billettes ρ8 |
 | Codex X : plans de la salle blanche | 20 Processeur + 10 Tranche de silicium + 10 Pack utilitaire | 1 Codex X : plans de la salle blanche | main ou assembleur | 30 s | Plans de la salle blanche |
 
 #### Époque 11 · Titane
 | Recette | Entrées | Sorties | Machine | Durée | Technologie |
 |---|---|---|---|---|---|
 | Minage : ilménite *minage* | — | 1 Minerai d'ilménite | Foreuse électrique ou Foreuse lourde ou Foreuse de concentré ou Foreuse de noyau | 2 s | — |
-| Concentré d'ilménite | 8 Minerai d'ilménite | 1 Concentré d'ilménite | Concentrateur | 1 s | Pack structurel (titane) |
+| Concentré d'ilménite ρ8 | 8 Minerai d'ilménite | 1 Concentré d'ilménite ρ8 | Concentrateur | 1 s | Pack structurel (titane) |
 | Pompage : saumure *minage* | — | 10 Saumure | Chevalet de pompage | 1 s | — |
 | Minage : brèche d'impact *minage* [D-I] | — | 1 Pierre + Inclusion étrange (p 0,5 %) | Foreuse électrique ou Foreuse lourde ou Foreuse de concentré ou Foreuse de noyau | 2 s | — |
 | Réacteur de Kroll | 30 Plaque d'acier + 20 Plaque de tungstène + 10 Bobine + 10 Processeur | 1 Réacteur de Kroll | assembleur | 12 s | Pack structurel (titane) |
-| Fusion de l'ilménite *(dense)* | 2 Concentré d'ilménite + 2 Coke | 1 Laitier titanifère + 6 Plaque de fer | Four à arc | 1 s | Pack structurel (titane) |
+| Fusion de l'ilménite *(dense)* | 2 Concentré d'ilménite ρ8 + 2 Coke | 1 Laitier titanifère ρ8 + 6 Plaque de fer | Four à arc | 1 s | Pack structurel (titane) |
 | Électrolyse de la saumure | 100 Saumure | 40 Chlore + 40 Hydrogène + 1 Soude caustique + 1 Chlorure de magnésium | Électrolyseur | 3 s | Pack structurel (titane) |
-| Chloration | 1 Laitier titanifère + 1 Coke + 60 Chlore | 40 Tétrachlorure de titane | Usine chimique | 5 s | Pack structurel (titane) |
-| Réduction de Kroll | 40 Tétrachlorure de titane + 2 Magnésium | 1 Éponge de titane + 2 Chlorure de magnésium | Réacteur de Kroll | 0,5 s | Pack structurel (titane) |
+| Chloration | 1 Laitier titanifère ρ8 + 1 Coke + 60 Chlore | 40 Tétrachlorure de titane | Usine chimique | 5 s | Pack structurel (titane) |
+| Réduction de Kroll | 40 Tétrachlorure de titane + 2 Magnésium | 1 Éponge de titane ρ8 + 2 Chlorure de magnésium | Réacteur de Kroll | 0,5 s | Pack structurel (titane) |
 | Électrolyse du chlorure de magnésium | 1 Chlorure de magnésium | 1 Magnésium + 15 Chlore | Électrolyseur | 3 s | Pack structurel (titane) |
-| Refusion sous vide *(dense)* (prod.) | 1 Éponge de titane | 1 Plaque de titane | Four à arc | 0,533 s | Pack structurel (titane) |
+| Refusion sous vide *(dense)* (prod.) | 1 Éponge de titane ρ8 | 1 Plaque de titane ρ8 | Four à arc | 0,533 s | Pack structurel (titane) |
 | Tungstène par voie humide *(dense)* | 5 Minerai de tungstène + 1 Soude caustique + 40 Hydrogène | 4 Plaque de tungstène | Usine chimique | 8 s | Tungstène par voie humide |
-| Cryostat (prod.) | 1 Plaque de titane + 2 Biopolymère + 1 Processeur | 1 Cryostat | main ou assembleur | 10 s | Cryostat |
-| Composite titane (prod.) | 1 Plaque de titane + 2 Biopolymère + 1 Graphite | 2 Composite titane | main ou assembleur | 15 s | Pack structurel (titane) |
+| Cryostat (prod.) | 1 Plaque de titane ρ8 + 2 Biopolymère + 1 Processeur | 1 Cryostat | main ou assembleur | 10 s | Cryostat |
+| Composite titane (prod.) | 1 Plaque de titane ρ8 + 2 Biopolymère + 1 Graphite | 2 Composite titane | main ou assembleur | 15 s | Pack structurel (titane) |
 | Structure basse densité au titane (prod.) | 1 Composite titane + 4 Plaque de cuivre | 2 Structure basse densité | main ou assembleur | 15 s | Cryostat |
-| Pack structurel | 4 Composite titane + 4 Plaque de titane + 4 Carbure de tungstène + 1 Processeur | 1 Pack structurel | main ou assembleur | 20 s | Pack structurel (titane) |
-| Trieur d'inclusions [D-I] | 2 Plaque de titane + 1 Broyeur à mâchoires + 5 Processeur + 10 Tôle magnétique | 1 Trieur d'inclusions | assembleur | 10 s | Matière étrange I : inclusions |
+| Pack structurel | 4 Composite titane + 4 Plaque de titane ρ8 + 4 Carbure de tungstène + 1 Processeur | 1 Pack structurel | main ou assembleur | 20 s | Pack structurel (titane) |
+| Trieur d'inclusions [D-I] | 2 Plaque de titane ρ8 + 1 Broyeur à mâchoires + 5 Processeur + 10 Tôle magnétique | 1 Trieur d'inclusions | assembleur | 10 s | Matière étrange I : inclusions |
 | Chargeur à inclusion [D-I] | 1 Inclusion étrange + 10 Chargeur à l'uranium | 10 Chargeur à inclusion | main ou assembleur | 10 s | Matière étrange I : inclusions |
 | Analyse d'inclusion [D-I] | 1 Inclusion étrange + 1 Processeur | 4 Données hadroniques | Trieur d'inclusions | 60 s | Matière étrange I : inclusions |
-| Résonateur temporel [C-II] | 2 Plaque de titane + 1 Cryostat + 10 Oscillateur à cristal + 10 Processeur | 1 Résonateur temporel | assembleur | 20 s | Chronodynamique II : verrouillage de phase |
+| Résonateur temporel [C-II] | 2 Plaque de titane ρ8 + 1 Cryostat + 10 Oscillateur à cristal + 10 Processeur | 1 Résonateur temporel | assembleur | 20 s | Chronodynamique II : verrouillage de phase |
 | Cristal temporel stable (verrouillage de phase) [C-II] | 2 Cristal temporel instable + 4 Oscillateur à cristal | 1 Cristal temporel stable | Résonateur temporel | 80 s | Chronodynamique II : verrouillage de phase |
-| Sablier quantique [C-II] | 1 Cristal temporel stable + 2 Oscillateur à cristal + 1 Processeur + 10 Plaque de titane | 1 Sablier quantique | Salle blanche | 30 s | Chronodynamique II : verrouillage de phase |
+| Sablier quantique [C-II] | 1 Cristal temporel stable + 2 Oscillateur à cristal + 1 Processeur + 10 Plaque de titane ρ8 | 1 Sablier quantique | Salle blanche | 30 s | Chronodynamique II : verrouillage de phase |
 | Chambre de dilatation [C-II] | 1 Amplificateur de résonance + 2 Cristal temporel stable + 10 Bobine + 5 Composite titane | 1 Chambre de dilatation | assembleur | 20 s | Chronodynamique II : verrouillage de phase |
 | Maintien de phase [C-II] | 1 Cristal temporel stable | 1 Cristal temporel instable | Chambre de dilatation ou Chambre de dilatation II | 120 s | Chronodynamique II : verrouillage de phase |
-| Coffre intriqué [C-II] | 2 Cristal temporel stable + 4 Plaque de titane + 5 Processeur | 2 Coffre intriqué | assembleur | 20 s | Chronodynamique II : verrouillage de phase |
-| Pylône léger en titane | 2 Plaque de titane + 10 Câble de cuivre + 2 Circuit avancé | 1 Pylône léger en titane | main ou assembleur | 4 s | Structures légères |
-| Bras léger en titane | 1 Bras empileur + 1 Plaque de titane + 1 Bobine | 1 Bras léger en titane | main ou assembleur | 2 s | Structures légères |
+| Coffre intriqué [C-II] | 2 Cristal temporel stable + 4 Plaque de titane ρ8 + 5 Processeur | 2 Coffre intriqué | assembleur | 20 s | Chronodynamique II : verrouillage de phase |
+| Pylône léger en titane | 2 Plaque de titane ρ8 + 10 Câble de cuivre + 2 Circuit avancé | 1 Pylône léger en titane | main ou assembleur | 4 s | Structures légères |
+| Bras léger en titane | 1 Bras empileur + 1 Plaque de titane ρ8 + 1 Bobine | 1 Bras léger en titane | main ou assembleur | 2 s | Structures légères |
 | Tour d'observation | 1 Radar + 4 Composite titane + 2 Lentille de résonance | 1 Tour d'observation | main ou assembleur | 6 s | Structures légères |
-| Codex XI : carte des cratères | 5 Plaque de titane + 10 Composite titane + 10 Pack structurel | 1 Codex XI : carte des cratères | main ou assembleur | 30 s | Carte des cratères |
+| Codex XI : carte des cratères | 5 Plaque de titane ρ8 + 10 Composite titane + 10 Pack structurel | 1 Codex XI : carte des cratères | main ou assembleur | 30 s | Carte des cratères |
 | Torchère : saumure *torchère* | 100 Saumure | — | Torchère | 1 s | Pack structurel (titane) |
 | Torchère : chlore *torchère* | 100 Chlore | — | Torchère | 1 s | Pack structurel (titane) |
 | Torchère : tétrachlorure de titane *torchère* | 100 Tétrachlorure de titane | — | Torchère | 1 s | Pack structurel (titane) |
@@ -851,10 +851,10 @@ les silhouettes des premières époques (bible V1) restent visibles pendant ce r
 | Recette | Entrées | Sorties | Machine | Durée | Technologie |
 |---|---|---|---|---|---|
 | Minage : monazite *minage* | — | 1 Minerai de monazite | Foreuse électrique ou Foreuse lourde ou Foreuse de concentré ou Foreuse de noyau | 2 s | — |
-| Concentré de monazite | 8 Minerai de monazite | 1 Concentré de monazite | Concentrateur | 1 s | Pack magnétique |
-| Unité cryogénique | 40 Plaque d'acier + 3 Plaque de titane + 10 Moteur électrique + 10 Processeur + 20 Tuyau | 1 Unité cryogénique | assembleur | 15 s | Pack magnétique |
-| Colonne d'extraction | 3 Plaque de titane + 10 Verre + 10 Tuyau + 5 Processeur | 1 Colonne d'extraction | assembleur | 8 s | Pack magnétique |
-| Lessivage de la monazite | 1 Concentré de monazite + 20 Acide sulfurique | 4 Concentré de terres rares + 1 Oxyde de thorium | Usine chimique | 8 s | Pack magnétique |
+| Concentré de monazite ρ8 | 8 Minerai de monazite | 1 Concentré de monazite ρ8 | Concentrateur | 1 s | Pack magnétique |
+| Unité cryogénique | 40 Plaque d'acier + 3 Plaque de titane ρ8 + 10 Moteur électrique + 10 Processeur + 20 Tuyau | 1 Unité cryogénique | assembleur | 15 s | Pack magnétique |
+| Colonne d'extraction | 3 Plaque de titane ρ8 + 10 Verre + 10 Tuyau + 5 Processeur | 1 Colonne d'extraction | assembleur | 8 s | Pack magnétique |
+| Lessivage de la monazite | 1 Concentré de monazite ρ8 + 20 Acide sulfurique | 4 Concentré de terres rares + 1 Oxyde de thorium | Usine chimique | 8 s | Pack magnétique |
 | Extraction par solvant | 4 Concentré de terres rares + 10 Huile légère | 2 Néodyme + 1 Yttrium | Colonne d'extraction | 6 s | Pack magnétique |
 | Distillation de l'air | — | 50 Azote liquide + 15 Oxygène liquide | Unité cryogénique | 2 s | Pack magnétique |
 | Séparation cryogénique du gaz volcanique | 100 Gaz volcanique + 10 Azote liquide | 70 Vapeur + 1 Soufre + 5 Hélium | Unité cryogénique | 1 s | Hélium |
@@ -865,14 +865,14 @@ les silhouettes des premières époques (bible V1) restent visibles pendant ce r
 | Cellule de sel au thorium | 4 Oxyde de thorium + 1 Uranium 235 + 20 Chlore | 1 Cellule de sel au thorium | Usine chimique | 20 s | Sels fondus au thorium |
 | Combustion : sel au thorium (160 MW) *combustion* | 1 Cellule de sel au thorium | 1 Sel usé | Réacteur à sels fondus | 200 s | — |
 | Retraitement du sel | 2 Sel usé | 1 Oxyde de thorium + 1 Uranium 238 | Centrifugeuse | 30 s | Sels fondus au thorium |
-| Réacteur à sels fondus | 200 Blindage plombé + 10 Plaque de titane + 50 Processeur + 100 Béton | 1 Réacteur à sels fondus | assembleur | 60 s | Sels fondus au thorium |
+| Réacteur à sels fondus | 200 Blindage plombé + 10 Plaque de titane ρ8 + 50 Processeur + 100 Béton | 1 Réacteur à sels fondus | assembleur | 60 s | Sels fondus au thorium |
 | Accumulateur supraconducteur | 4 Bobine supraconductrice + 10 Accumulateur + 2 Cryostat | 1 Accumulateur supraconducteur | assembleur | 10 s | Stockage supraconducteur |
 | Locomotive maglev | 1 Locomotive + 8 Aimant permanent + 4 Bobine supraconductrice + 10 Composite titane | 1 Locomotive maglev | assembleur | 20 s | Maglev |
-| Cellule SMES vide | 2 Bobine supraconductrice + 1 Cryostat + 1 Plaque de titane | 1 Cellule SMES vide | main ou assembleur | 10 s | Stockage supraconducteur |
+| Cellule SMES vide | 2 Bobine supraconductrice + 1 Cryostat + 1 Plaque de titane ρ8 | 1 Cellule SMES vide | main ou assembleur | 10 s | Stockage supraconducteur |
 | Charge de cellule SMES | 1 Cellule SMES vide | 1 Cellule SMES chargée | Station de charge | 50 s | Stockage supraconducteur |
 | Décharge : cellule SMES *combustion* | 1 Cellule SMES chargée | 1 Cellule SMES vide | Locomotive maglev ou Générateur à cristal | 1 s | — |
-| Pack magnétique | 2 Bobine supraconductrice + 4 Aimant permanent + 2 Plaque de titane + 1 Processeur | 1 Pack magnétique | main ou assembleur | 20 s | Pack magnétique |
-| Haloscope [A-II] | 4 Bobine supraconductrice + 2 Cryostat + 10 Lentille de résonance + 20 Processeur + 5 Plaque de titane | 1 Haloscope | assembleur | 30 s | Matière noire II : haloscope |
+| Pack magnétique | 2 Bobine supraconductrice + 4 Aimant permanent + 2 Plaque de titane ρ8 + 1 Processeur | 1 Pack magnétique | main ou assembleur | 20 s | Pack magnétique |
+| Haloscope [A-II] | 4 Bobine supraconductrice + 2 Cryostat + 10 Lentille de résonance + 20 Processeur + 5 Plaque de titane ρ8 | 1 Haloscope | assembleur | 30 s | Matière noire II : haloscope |
 | Captage : veine de caustique *minage* [A-II] | — | 20 Flux sombre | Haloscope | 1 s | — |
 | Condenseur gravitique [A-II] | 4 Bobine supraconductrice + 20 Cristal taillé + 10 Processeur + 2 Cryostat | 1 Condenseur gravitique | assembleur | 20 s | Matière noire II : haloscope |
 | Cavité de résonance [A-II] | 2 Lentille de résonance + 1 Bobine supraconductrice + 1 Cryostat | 1 Cavité de résonance | main ou assembleur | 15 s | Matière noire II : haloscope |
@@ -880,8 +880,8 @@ les silhouettes des premières époques (bible V1) restent visibles pendant ce r
 | Relevé de condensat [A-II] | 1 Condensat d'axions | 1 Cavité de résonance (rendu) + 10 Relevé gravimétrique | Condenseur gravitique | 10 s | Matière noire II : haloscope |
 | Puits gravitique [A-II] | 1 Foreuse lourde + 4 Condensat d'axions + 10 Bobine supraconductrice + 20 Composite titane | 1 Puits gravitique | assembleur | 30 s | Matière noire II : haloscope |
 | Combustion : condensat (puits, 2 MW) *combustion* [A-II] | 1 Condensat d'axions | 1 Cavité de résonance | Puits gravitique ou Puits gravitique II | 60 s | — |
-| Remontée profonde : fer *minage* [A-II] | — | 1 Concentré de fer | Puits gravitique ou Puits gravitique II | 1 s | — |
-| Remontée profonde : cuivre *minage* [A-II] | — | 1 Concentré de cuivre | Puits gravitique ou Puits gravitique II | 1 s | — |
+| Remontée profonde : fer *minage* [A-II] | — | 1 Concentré de fer ρ8 | Puits gravitique ou Puits gravitique II | 1 s | — |
+| Remontée profonde : cuivre *minage* [A-II] | — | 1 Concentré de cuivre ρ8 | Puits gravitique ou Puits gravitique II | 1 s | — |
 | Cristal temporel stable (hélium liquide) [C-II] | 2 Cristal temporel instable + 5 Hélium liquide | 1 Cristal temporel stable | Résonateur temporel | 40 s | Chronodynamique II : cristal à l'hélium liquide |
 | Codex XII : traité des aimants | 5 Bobine supraconductrice + 10 Aimant permanent + 10 Pack magnétique | 1 Codex XII : traité des aimants | main ou assembleur | 30 s | Traité des aimants |
 | Torchère : azote liquide *torchère* | 100 Azote liquide | — | Torchère | 1 s | Pack magnétique |
@@ -893,15 +893,15 @@ les silhouettes des premières époques (bible V1) restent visibles pendant ce r
 #### Époque 13 · Fusion
 | Recette | Entrées | Sorties | Machine | Durée | Technologie |
 |---|---|---|---|---|---|
-| Colonne isotopique | 20 Plaque d'acier + 2 Plaque de titane + 10 Tuyau + 5 Processeur | 1 Colonne isotopique | assembleur | 10 s | Fusion D-³He et pack plasma |
+| Colonne isotopique | 20 Plaque d'acier + 2 Plaque de titane ρ8 + 10 Tuyau + 5 Processeur | 1 Colonne isotopique | assembleur | 10 s | Fusion D-³He et pack plasma |
 | Réacteur à fusion | 200 Bobine supraconductrice + 100 Composite titane + 100 Cryostat + 200 Blindage plombé + 500 Béton | 1 Réacteur à fusion | assembleur | 120 s | Fusion D-³He et pack plasma |
 | Injecteur de plasma | 10 Bobine supraconductrice + 10 Plaque de tungstène + 10 Caloduc | 1 Injecteur de plasma | assembleur | 20 s | Fusion D-³He et pack plasma |
 | Turbine MHD | 20 Aimant permanent + 10 Bobine supraconductrice + 20 Plaque de tungstène + 20 Composite titane | 1 Turbine MHD | assembleur | 20 s | Turbine MHD |
 | Fonderie à plasma | 50 Plaque de tungstène + 20 Bobine supraconductrice + 20 Béton + 10 Processeur | 1 Fonderie à plasma | assembleur | 30 s | Fusion D-³He et pack plasma |
 | Foreuse profonde | 1 Foreuse lourde + 20 Carbure de tungstène + 10 Bobine supraconductrice + 10 Processeur | 1 Foreuse profonde | assembleur | 20 s | Fusion D-³He et pack plasma |
 | Captage : évent mantellique *minage* | — | 4 Hélium-3 | Foreuse profonde | 1 s | — |
-| Dégazage du régolithe | 1 Concentré d'ilménite | 1 Ilménite dégazée + 0,1 Hélium-3 | Four de frittage | 0,267 s | Dégazage du régolithe |
-| Fusion de l'ilménite dégazée *(dense)* | 2 Ilménite dégazée + 2 Coke | 1 Laitier titanifère + 6 Plaque de fer | Four à arc | 1 s | Dégazage du régolithe |
+| Dégazage du régolithe | 1 Concentré d'ilménite ρ8 | 1 Ilménite dégazée ρ8 + 0,1 Hélium-3 | Four de frittage | 0,267 s | Dégazage du régolithe |
+| Fusion de l'ilménite dégazée *(dense)* | 2 Ilménite dégazée ρ8 + 2 Coke | 1 Laitier titanifère ρ8 + 6 Plaque de fer | Four à arc | 1 s | Dégazage du régolithe |
 | Distillation isotopique de l'hélium | 100 Hélium [cat. 90] + 10 Azote liquide | 90 Hélium [cat. 90] + 1 Hélium-3 | Unité cryogénique | 5 s | Fusion D-³He et pack plasma |
 | Eau lourde (procédé Girdler) | 1 000 Eau | 10 Eau lourde | Colonne isotopique | 10 s | Fusion D-³He et pack plasma |
 | Électrolyse de l'eau lourde | 100 Eau lourde | 100 Deutérium + 50 Oxygène | Électrolyseur | 2 s | Fusion D-³He et pack plasma |
@@ -910,14 +910,14 @@ les silhouettes des premières époques (bible V1) restent visibles pendant ce r
 | Ionisation (injecteur) *chauffe* | 40 Hydrogène | 40 Plasma | Injecteur de plasma | 1 s | — |
 | Cellule de plasma (prod.) | 1 Aimant permanent + 1 Composite titane + 50 Plasma | 1 Cellule de plasma | Fonderie à plasma | 5 s | Fusion D-³He et pack plasma |
 | Pack plasma | 2 Cellule de plasma + 2 Bobine supraconductrice + 2 Processeur | 1 Pack plasma | main ou assembleur | 25 s | Fusion D-³He et pack plasma |
-| Coulée de bloc de fer *(dense)* | 4 Concentré de fer + 0,5 Plasma | 1 Bloc de fer ρ32 | Fonderie à plasma | 0,267 s | Coulée au plasma (T5) |
-| Coulée de bloc de cuivre *(dense)* | 4 Concentré de cuivre + 0,5 Plasma | 1 Bloc de cuivre ρ32 | Fonderie à plasma | 0,267 s | Coulée au plasma (T5) |
+| Coulée de bloc de fer *(dense)* | 4 Concentré de fer ρ8 + 0,5 Plasma | 1 Bloc de fer ρ32 | Fonderie à plasma | 0,267 s | Coulée au plasma (T5) |
+| Coulée de bloc de cuivre *(dense)* | 4 Concentré de cuivre ρ8 + 0,5 Plasma | 1 Bloc de cuivre ρ32 | Fonderie à plasma | 0,267 s | Coulée au plasma (T5) |
 | Coulée directe de minerai de fer | 32 Minerai de fer + 0,5 Plasma | 1 Bloc de fer ρ32 | Fonderie à plasma | 0,267 s | Coulée au plasma (T5) |
 | Coulée directe de minerai de cuivre | 32 Minerai de cuivre + 0,5 Plasma | 1 Bloc de cuivre ρ32 | Fonderie à plasma | 0,267 s | Coulée au plasma (T5) |
 | Foreuse de noyau | 1 Foreuse de concentré + 20 Bobine supraconductrice + 40 Carbure de tungstène + 20 Processeur | 1 Foreuse de noyau | assembleur | 30 s | Coulée au plasma (T5) |
 | Caloduc haute température | 1 Caloduc + 4 Plaque de tungstène + 1 Ruban supraconducteur | 1 Caloduc haute température | main ou assembleur | 2 s | Fusion D-³He et pack plasma |
-| Découpe de bloc de fer | 1 Bloc de fer ρ32 | 4 Billette de fer | main ou assembleur | 1 s | Coulée au plasma (T5) |
-| Découpe de bloc de cuivre | 1 Bloc de cuivre ρ32 | 4 Billette de cuivre | main ou assembleur | 1 s | Coulée au plasma (T5) |
+| Découpe de bloc de fer | 1 Bloc de fer ρ32 | 4 Billette de fer ρ8 | main ou assembleur | 1 s | Coulée au plasma (T5) |
+| Découpe de bloc de cuivre | 1 Bloc de cuivre ρ32 | 4 Billette de cuivre ρ8 | main ou assembleur | 1 s | Coulée au plasma (T5) |
 | Synchrotron [B-II] | 100 Bobine supraconductrice + 50 Aimant permanent + 50 Cryostat + 100 Processeur + 200 Béton | 1 Synchrotron | assembleur | 120 s | Antimatière II : antihydrogène |
 | Recombineur [B-II] | 10 Bobine supraconductrice + 4 Cryostat + 10 Processeur + 10 Blindage plombé | 1 Recombineur | assembleur | 20 s | Antimatière II : antihydrogène |
 | Production d'antiprotons (150 MW) [B-II] | 1 Piège magnétique + 100 Hydrogène | 1 Piège à antiprotons | Synchrotron | 30 s | Antimatière II : antihydrogène |
@@ -956,26 +956,26 @@ les silhouettes des premières époques (bible V1) restent visibles pendant ce r
 | Transmutation résonante : ilménite [D-III] | 1 Strangelet confiné [cat. 1] + 40 Pierre | 1 Strangelet confiné [cat. 1] + 40 Minerai d'ilménite | Transmutateur | 5 s | merveille : Monolithe étrange |
 | Transmutation résonante : monazite [D-III] | 1 Strangelet confiné [cat. 1] + 40 Pierre | 1 Strangelet confiné [cat. 1] + 40 Minerai de monazite | Transmutateur | 5 s | merveille : Monolithe étrange |
 | Transmutation résonante : uranium [D-III] | 1 Strangelet confiné [cat. 1] + 40 Pierre | 1 Strangelet confiné [cat. 1] + 40 Minerai d'uranium | Transmutateur | 5 s | merveille : Monolithe étrange |
-| Minage : impact météoritique *minage* | — | 1 Météorite ferreuse | Foreuse électrique ou Foreuse lourde ou Foreuse de concentré ou Foreuse de noyau | 3 s | — |
+| Minage : impact météoritique *minage* | — | 1 Météorite ferreuse ρ8 | Foreuse électrique ou Foreuse lourde ou Foreuse de concentré ou Foreuse de noyau | 3 s | — |
 | Liquéfaction de l'hydrogène | 100 Hydrogène + 10 Azote liquide | 50 Hydrogène liquide | Unité cryogénique | 2 s | Lanceur orbital |
 | Ergol cryogénique | 40 Hydrogène liquide + 20 Oxygène liquide + 1 Composite titane | 2 Ergol cryogénique | Usine chimique | 10 s | Lanceur orbital |
 | Pièce de lanceur léger | 2 Composite titane + 2 Ergol cryogénique + 1 Processeur | 1 Pièce de lanceur léger | Lanceur orbital | 3 s | Lanceur orbital |
 | Lanceur orbital | 200 Béton + 50 Composite titane + 50 Bobine supraconductrice + 50 Processeur + 100 Plaque d'acier | 1 Lanceur orbital | assembleur | 60 s | Lanceur orbital |
 | Remorqueur orbital | 10 Composite titane + 4 Bobine supraconductrice + 4 Processeur + 10 Ergol cryogénique | 1 Remorqueur orbital | assembleur | 30 s | Lanceur orbital |
-| Lancement : remorqueur orbital *lancement* | 1 Remorqueur orbital + 10 Pièce de lanceur léger | 400 Météorite ferreuse + 50 Météorite étrange | Lanceur orbital | 1 s | — |
+| Lancement : remorqueur orbital *lancement* | 1 Remorqueur orbital + 10 Pièce de lanceur léger | 400 Météorite ferreuse ρ8 + 50 Météorite étrange ρ8 | Lanceur orbital | 1 s | — |
 | Centrale solaire orbitale | 50 Panneau solaire + 10 Composite titane + 10 Bobine supraconductrice + 10 Processeur | 1 Centrale solaire orbitale | assembleur | 60 s | Énergie orbitale |
 | Lancement : centrale solaire orbitale (+200 MW, reçus par une rectenna) *lancement* | 1 Centrale solaire orbitale + 10 Pièce de lanceur léger | — | Lanceur orbital | 1 s | — |
-| Concassage météoritique | 4 Météorite ferreuse | 3 Ferronickel + 1 Iridium + 2 Pierre | Concasseur ou Broyeur à mâchoires | 1,6 s | Météoritique |
-| Concassage d'une météorite étrange | 1 Météorite étrange | 5 Inclusion étrange + 2 Pierre | Concasseur ou Broyeur à mâchoires | 10 s | Météoritique |
-| Superalliage (ferronickel météoritique) (prod.) | 3 Ferronickel + 1 Plaque de titane + 1 Carbure de tungstène + 0,5 Plasma | 1 Superalliage ρ32 | Fonderie à plasma | 0,267 s | Superalliage |
-| Superalliage de synthèse | 1 Bloc de fer ρ32 + 1 Plaque de titane + 2 Carbure de tungstène + 0,5 Plasma | 1 Superalliage ρ32 | Fonderie à plasma | 0,267 s | Superalliage |
+| Concassage météoritique | 4 Météorite ferreuse ρ8 | 3 Ferronickel ρ8 + 1 Iridium + 2 Pierre | Concasseur ou Broyeur à mâchoires | 1,6 s | Météoritique |
+| Concassage d'une météorite étrange | 1 Météorite étrange ρ8 | 5 Inclusion étrange + 2 Pierre | Concasseur ou Broyeur à mâchoires | 10 s | Météoritique |
+| Superalliage (ferronickel météoritique) (prod.) | 3 Ferronickel ρ8 + 1 Plaque de titane ρ8 + 1 Carbure de tungstène + 0,5 Plasma | 1 Superalliage ρ32 | Fonderie à plasma | 0,267 s | Superalliage |
+| Superalliage de synthèse | 1 Bloc de fer ρ32 + 1 Plaque de titane ρ8 + 2 Carbure de tungstène + 0,5 Plasma | 1 Superalliage ρ32 | Fonderie à plasma | 0,267 s | Superalliage |
 | Miroir d'iridium (prod.) | 2 Iridium + 1 Verre + 1 Composite titane | 1 Miroir d'iridium | Salle blanche | 20 s | Optique à l'iridium |
 | Rectenna | 20 Aimant permanent + 100 Fil émaillé + 20 Composite titane + 10 Processeur | 1 Rectenna | assembleur | 30 s | Énergie orbitale |
 | Bouclier de déviation | 20 Bobine supraconductrice + 2 Superalliage ρ32 + 10 Processeur + 4 Cryostat | 1 Bouclier de déviation | assembleur | 30 s | Bouclier de déviation |
 | Puits gravitique II [A-III] | 1 Puits gravitique + 10 Condensat d'axions + 5 Superalliage ρ32 | 1 Puits gravitique II | assembleur | 60 s | Maîtrise de la matière noire |
-| Remontée profonde : tungstène *minage* [A-III] | — | 1 Concentré de tungstène | Puits gravitique II | 1 s | — |
-| Remontée profonde : ilménite *minage* [A-III] | — | 1 Concentré d'ilménite | Puits gravitique II | 1 s | — |
-| Remontée profonde : monazite *minage* [A-III] | — | 1 Concentré de monazite | Puits gravitique II | 1 s | — |
+| Remontée profonde : tungstène *minage* [A-III] | — | 1 Concentré de tungstène ρ8 | Puits gravitique II | 1 s | — |
+| Remontée profonde : ilménite *minage* [A-III] | — | 1 Concentré d'ilménite ρ8 | Puits gravitique II | 1 s | — |
+| Remontée profonde : monazite *minage* [A-III] | — | 1 Concentré de monazite ρ8 | Puits gravitique II | 1 s | — |
 | Bouclier de marée [A-III] | 10 Condensat d'axions + 10 Bobine supraconductrice + 5 Superalliage ρ32 | 1 Bouclier de marée | assembleur | 40 s | Maîtrise de la matière noire |
 | Observatoire de la Caustique [A-III] | 200 Condensat d'axions + 500 Lentille de résonance + 50 Superalliage ρ32 + 300 Processeur | 1 Observatoire de la Caustique | assembleur | 600 s | Maîtrise de la matière noire |
 | Réacteur à annihilation [B-III] | 300 Bobine supraconductrice + 50 Superalliage ρ32 + 500 Blindage plombé + 100 Cryostat | 1 Réacteur à annihilation | assembleur | 180 s | Maîtrise de l'antimatière |
@@ -983,7 +983,7 @@ les silhouettes des premières époques (bible V1) restent visibles pendant ce r
 | Combustion : antihydrogène (2 GW) *combustion* [B-III] | 1 Piège d'antihydrogène | 1 Piège magnétique | Réacteur à annihilation | 25 s | — |
 | Lance d'annihilation [B-III] | 40 Bobine supraconductrice + 10 Superalliage ρ32 + 20 Processeur + 20 Micro-charge d'antimatière | 1 Lance d'annihilation | assembleur | 60 s | Maîtrise de l'antimatière |
 | Sonde profonde [B-III] | 2 Piège d'antihydrogène + 10 Composite titane + 5 Processeur | 1 Sonde profonde | assembleur | 60 s | Maîtrise de l'antimatière |
-| Lancement : sonde profonde *lancement* [B-III] | 1 Sonde profonde + 10 Pièce de lanceur léger | 50 Météorite étrange + 400 Iridium | Lanceur orbital | 1 s | — |
+| Lancement : sonde profonde *lancement* [B-III] | 1 Sonde profonde + 10 Pièce de lanceur léger | 50 Météorite étrange ρ8 + 400 Iridium | Lanceur orbital | 1 s | — |
 | Chambre de dilatation II [C-III] | 1 Chambre de dilatation + 4 Cristal temporel stable + 2 Superalliage ρ32 | 1 Chambre de dilatation II | assembleur | 30 s | Maîtrise de la chronodynamique |
 | Horloge éternelle [C-III] | 100 Cristal temporel stable + 200 Sablier quantique + 50 Superalliage ρ32 + 300 Processeur | 1 Horloge éternelle | assembleur | 600 s | Maîtrise de la chronodynamique |
 | Mur de neutronium [D-III] | 1 Mur étrange + 8 Plaque étrange + 1 Superalliage ρ32 | 1 Mur de neutronium | main ou assembleur | 10 s | Maîtrise de la matière étrange |
@@ -1526,8 +1526,8 @@ Ils entrent dans les drones et le robot, et dans 4 variantes de bâtiments d'X0 
 | Silicium et salle blanche | 10 | — | verrou fo-epoch-10 | Pack utilitaire, Pack isotopique, Pack biochimique | 1 175 | 5 |
 | Radar à réseau phasé | 10 | — | Silicium et salle blanche | Pack utilitaire, Pack isotopique, Pack biochimique | 1 175 | 1 |
 | Foreuses de concentré (T4) | 10 | — | verrou fo-epoch-10 | Pack utilitaire, Pack isotopique, Pack biochimique | 1 175 | 5 |
-| Billettes | 10 | — | Foreuses de concentré (T4) | Pack utilitaire, Pack isotopique, Pack biochimique | 1 175 | 6 |
-| Plans de la salle blanche | 10 | Codex | Silicium et salle blanche, Billettes | Pack utilitaire, Pack isotopique, Pack biochimique | 588 | 1 |
+| Billettes ρ8 | 10 | — | Foreuses de concentré (T4) | Pack utilitaire, Pack isotopique, Pack biochimique | 1 175 | 6 |
+| Plans de la salle blanche | 10 | Codex | Silicium et salle blanche, Billettes ρ8 | Pack utilitaire, Pack isotopique, Pack biochimique | 588 | 1 |
 | Chronodynamique I : cristal temporel | 10 | C branche I | Silicium et salle blanche | Pack utilitaire, Pack isotopique, Pack biochimique | 1 763 | 4 |
 | Pack structurel (titane) | 11 | pack | verrou fo-epoch-11 | Pack utilitaire, Pack isotopique, Pack biochimique | 3 760 | 13 |
 | Cryostat | 11 | — | verrou fo-epoch-11 | Pack structurel, Pack utilitaire, Pack isotopique | 3 760 | 2 |

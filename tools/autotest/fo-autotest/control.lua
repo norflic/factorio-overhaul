@@ -20,6 +20,8 @@ if not ok_s or type(SCENARIO) ~= "string" then SCENARIO = "default" end
 -- leurs attendus datent.
 local KIT_EGAL = {
   ["content"] = true, ["ia1-scale"] = true, ["verif-tourelles"] = true, ["etape1-guide"] = true, ["kit-egal"] = true,
+  -- Lot PERF4 : la sauvegarde du DC rejouée telle quelle (aucun réglage posé sur sa partie).
+  ["perf4-partie"] = true, ["perf4-partie-prof"] = true, ["perf4-partie-detail"] = true,
 }
 
 -- Lot IA0 : les scénarios de guerre intégrés restent en « Paisible » (pvp = "peaceful"), comportement des

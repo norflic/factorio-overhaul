@@ -25,6 +25,7 @@ local Team = require("script.team.team")
 local Poles = require("script.team.poles")
 local Config = require("script.core.config")
 local Outposts = require("script.faction.outposts") -- lot FOURS (bancs : fours posés, interrupteur, compteurs de visites)
+local Build = require("script.team.build") -- lot ÉTAGE 5 (bancs : couloir d'un accès écrit) ; déjà chargé par script/team/worker.lua
 local T = require("shared.team.config")
 
 -- Lot IA1-b (docs §8.6, pilotage sans clic) :
@@ -218,7 +219,8 @@ remote.add_interface("fo-ia1", {
   end,
   -- Lot CHARBON-MAIN (bancs seulement) : pose un avant-poste `kind` de l'équipe autour de (x, y), comme un PNJ (Outposts.build), SANS
   -- combustible (foreuses à sec). Rend { id, drills, sinks } ou nil.
-  bench_outpost = function(key, kind, x, y)
+  -- Lot ÉTAGE 5 : (ax, ay) facultatifs : point d'accès (là où se tiendrait le bâtisseur, worker.lua ACTS.build) ; sans eux, aucun accès écrit.
+  bench_outpost = function(key, kind, x, y, ax, ay)
     local f = team_of(key)
     local chest = f and (f.hq or f.chest)
     local spec = T.outposts[kind]
@@ -229,6 +231,10 @@ remote.add_interface("fo-ia1", {
     local o = Outposts.build(f, chest.surface, kind, { x = x, y = y }, tmp)
     tmp.destroy()
     if not o then return nil end
+    if type(ax) == "number" and type(ay) == "number" then
+      o.access = { x = ax, y = ay }
+      Build.couloirs_reset(f)
+    end
     return { id = o.id, drills = #o.drill_list, sinks = #o.sinks }
   end,
   -- Lot NAV2 (bancs seulement) : agrandit `rounds` fois l'avant-poste `oid` (Outposts.extend, objets fournis) : champ DENSE comme une
@@ -274,6 +280,30 @@ remote.add_interface("fo-ia1", {
       if f and f.team then
         f.team.acces_off = not on
         for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do f.outposts[oid].acces_cache = nil end
+        n = n + 1
+      end
+    end
+    if key ~= "*" then
+      if n > 0 then return on end
+      return nil
+    end
+    return n
+  end,
+  -- Lot ÉTAGE 5 (bancs seulement) : couloir d'accès réservé des avant-postes (shared/team/couloir.lua) allumé (vrai, défaut) ou coupé (faux :
+  -- comportement d'avant, témoin). Clé « * » : toutes les équipes vivantes. Rend l'état lu, ou le nombre d'équipes touchées.
+  set_regle_couloir = function(key, on)
+    if type(on) ~= "boolean" then return nil end
+    local list = {}
+    if key == "*" then
+      list[1] = State.faction("player")
+      for _, id in ipairs(State.alive()) do list[#list + 1] = State.faction(id) end
+    else
+      list[1] = team_of(key)
+    end
+    local n = 0
+    for _, f in ipairs(list) do
+      if f and f.team then
+        f.team.couloir_off = not on
         n = n + 1
       end
     end

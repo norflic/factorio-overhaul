@@ -46,7 +46,7 @@ local function run(mode, mutant)
   W().events[defines.events.on_built_entity]({ created_entity = chest, player_index = 1, tick = game.tick })
   local Profiler = require("script.core.profiler")
   if mutant then mutant(Profiler) end
-  if mode then remote.call("factorio-overhaul", "profiler", true, mode == "fin") end
+  if mode then remote.call("factorio-overhaul", "profiler", true, (mode == "detail" and "detail") or mode == "fin") end
   for i, p in ipairs(patches()) do
     if i % 2 == 0 then
       remote.call("fo-ia3k", "death", "player", p.x, p.y)
@@ -64,7 +64,9 @@ local function run(mode, mutant)
   global.fo.prof = nil
   local ser = M.serialize(global)
   global.fo.prof = prof
-  return counts, ser, names
+  local detail = 0
+  for _, l in ipairs(W().logs) do if l:find("[FO-PERF3-T]", 1, true) then detail = detail + 1 end end
+  return counts, ser, names, detail
 end
 
 local function n(c, k) return c[k] or 0 end
@@ -93,10 +95,20 @@ check(not any and next(co) == nil, "profileur ordinaire : aucune portée idle:* 
 check(#names_o > 0, "profileur ordinaire : ses portées habituelles sont là (" .. #names_o .. ")")
 
 ---------------------------------------------------------------------------------------------------
+section("Lot PERF3 : détail par tick")
+local cd, sd, _, nd = run("detail")
+check(nd >= TICKS / 2, "une ligne [FO-PERF3-T] par tick ou presque : " .. nd .. " sur " .. TICKS .. " ticks")
+check(coherent(cd) and n(cd, "gate:refus") == n(cf, "gate:refus"), "détail : portées fines allumées, mêmes passages qu'en mode fin")
+local _, _, _, no = run("ordinaire")
+check(no == 0, "profileur ordinaire : aucune ligne [FO-PERF3-T]")
+
+---------------------------------------------------------------------------------------------------
 section("Les mesures ne décident de rien")
-local _, s0 = run(nil)
+local _, s0, _, n0 = run(nil)
+check(n0 == 0, "profileur éteint : aucune ligne [FO-PERF3-T]")
 check(s0 == so, "global identique profileur éteint et ordinaire")
 check(s0 == sf, "global identique profileur éteint et fin")
+check(s0 == sd, "global identique profileur éteint et détail par tick (lot PERF3)")
 
 ---------------------------------------------------------------------------------------------------
 section("Mutant : refus crédité au départ")
