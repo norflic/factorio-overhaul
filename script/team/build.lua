@@ -460,6 +460,8 @@ function Build.couloir_report(f, tick)
     st.couloir_emprises or 0, st.couloir_tuiles or 0, st.couloir_champ or 0))
 end
 
+local ET = {} -- lot ÉTALEMENT : fonctions du plan en tranches (une seule locale : le fichier est au plafond de 200 locales)
+
 local function read_masks(f, surface, x0, y0, x1, y1)
   local b = f.build
   local water, blocked, clear = {}, {}, {}
@@ -489,12 +491,19 @@ local function read_masks(f, surface, x0, y0, x1, y1)
   if THAW then
     for i = 1, #THAW - 1, 2 do blocked[P.tkey(THAW[i], THAW[i + 1])] = nil end
   end
+  return ET.masks_of(f, water, blocked, clear, { x0 = x0, y0 = y0, x1 = x1, y1 = y1 })
+end
+
+--- Lot ÉTALEMENT : relevé (données : eau, bloqué, défrichable, rectangle) muni de sa règle `free` (tuile libre pour le plan). Partagé par
+--- read_masks et par la reprise d'un plan en tranches (relevé gelé dans le projet, ET.resume) : une seule copie de la règle.
+ET.masks_of = function(f, water, blocked, clear, rect)
+  local b = f.build
   local cor = Build.couloirs(f) -- lot ÉTAGE 5 : ni module ni poteau sur un couloir d'accès (les tapis, par `blocked`, le traversent)
   f.stats = f.stats or {}
   local st = f.stats
   return {
     water = water, blocked = blocked, clear = clear,
-    rect = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }, -- lot POTEAUX-MASQUES : où ce relevé fait foi (Mq.view)
+    rect = rect, -- lot POTEAUX-MASQUES : où ce relevé fait foi (Mq.view)
     free = function(tx, ty)
       local k = P.tkey(tx, ty)
       if water[k] or blocked[k] or b.occ[k] then return false end
@@ -2492,7 +2501,7 @@ local function plan_alim(f, surface, p)
         for _, e in ipairs(p.ents) do if e.role == "liaison-tapis" then route = route + 1 end end
         log(string.format("[FO-CHARBON-CENTRALE] %s : projet %d (alimentation de la centrale %d) plan : %d foreuse(s) de %s pour %.2f/s, tapis de %d tuile(s) jusqu'a la tete (%d, %d)",
           f.key or "player", p.id, plant.id, p.parts[1].drills or 0, tostring(fuel), rate, route, a.x, a.y))
-        return plan_finish(f, surface, p, masks, false)
+        return ET.cut(f, surface, p, masks, false) -- lot ÉTALEMENT
       end
       last = tostring(why) -- (plan_drills ne réserve rien quand il échoue : reserve_tiles est tout ou rien)
     end
@@ -2648,6 +2657,7 @@ local function anchors_and_obstacles(f, surface, p, masks)
 end
 
 local function plan_project(f, surface, p)
+  if p.pjob then return ET.resume(f, surface, p) end -- lot ÉTALEMENT : plan en tranches en cours
   local b = f.build
   local spec = p.spec
   if spec.enceinte then return plan_enceinte(f, surface, p) end
@@ -2791,12 +2801,20 @@ local function plan_project(f, surface, p)
         f.key or "player", p.id, #ov, e1.name, tostring(e1.role), e2.name, tostring(e2.role), e2.x, e2.y))
     end
   end
-  return plan_finish(f, surface, p, main.masks, is_plant)
+  return ET.cut(f, surface, p, main.masks, is_plant) -- lot ÉTALEMENT : poteaux et points d'appui aux passes suivantes
 end
 
 --- Fin commune d'un plan (lot CHARBON-CENTRALE : partagée avec le projet d'alimentation de la centrale, plan_alim) : poteaux du
 --- réseau, points d'appui, obstacles. `masks` : relevé de la zone de la première partie. Rend true, ou (false, raison, attendre).
+--- Lot ÉTALEMENT : deux étapes, finish_power (poteaux du réseau) puis finish_anchors (points d'appui, obstacles), enchaînées ici
+--- d'un bloc ; ET.cut et ET.resume les jouent sur deux passes du plan directeur (Build.TRANCHES).
 plan_finish = function(f, surface, p, masks, is_plant)
+  local ok, why, wait = ET.finish_power(f, surface, p, masks, is_plant)
+  if not ok then return ok, why, wait end
+  return ET.finish_anchors(f, surface, p, masks, is_plant)
+end
+
+ET.finish_power = function(f, surface, p, masks, is_plant)
   local b = f.build
   Profiler.start("build:plan:power")
   -- électricité : le réseau de l'équipe ; la centrale l'amorce
@@ -2832,10 +2850,76 @@ plan_finish = function(f, surface, p, masks, is_plant)
     end
   end
   Profiler.stop("build:plan:power")
+  return true
+end
+
+ET.finish_anchors = function(f, surface, p, masks, is_plant)
+  local b = f.build
   if is_plant and not b.plant then b.plant = p.id end -- (lot CORR-ENERGIE : une centrale de plus ne devient pas LA centrale)
   anchors_and_obstacles(f, surface, p, masks) -- lot PETROLE : fin de plan commune aux modules et aux sites (même code qu'avant)
+  -- (lot ÉTALEMENT, constat : `topts` et `g` ne sont pas visibles ici depuis que cette fin est commune (lot CHARBON-CENTRALE) ; ce sont
+  -- des globales nil : Build.ligne_split n'est jamais appelé. Ligne gardée telle quelle : ce lot ne change aucune décision.)
   if topts then Build.ligne_split(f, p, g) end -- lot FONDERIE-DYNAMIQUE : rangées et paires posées par étapes, la place reste réservée
   return true
+end
+
+---------------------------------------------------------------------------------------------------
+-- Lot ÉTALEMENT (5/11, demande du DC : « des freezes [...] d'une demi-seconde [...] très périodique [...] c'est vraiment que le mode ») :
+-- un plan de module se jouait d'un bloc dans UNE passe du plan directeur (B-detail, partie du DC : pose 35 ms, poteaux 35 ms, points
+-- d'appui 31 ms, soit environ 100 ms en un tick pour un plan complet). Il se joue désormais en TROIS passes : pose (et alimentation),
+-- poteaux, points d'appui. Entre deux passes, le projet garde ses réservations et le relevé de sa première partie, GELÉ dans le
+-- projet (p.pjob, données seules : gardable dans global, repris après un chargement). Un seul plan en tranches à la fois par équipe
+-- (b.pjob_pid) : aucun autre plan ne réserve entre deux tranches. Chaque étape est le MÊME code que d'un bloc, sur le même relevé
+-- gelé : à terrain égal, le plan final est identique (tests/etalement_plan_test.lua). Les lectures du terrain que font les étapes
+-- suivantes (réseau, relevé des autres parties, bois) ont lieu à leur passe, comme celles d'un plan de site du lot PETROLE 2.
+---------------------------------------------------------------------------------------------------
+Build.TRANCHES = true -- faux : le plan d'un bloc (ancien comportement ; tests A/B)
+
+--- Relevé réduit à ses DONNÉES (eau, bloqué, défrichable, rectangle) ; nil s'il n'a pas exactement la forme de read_masks.
+function Build._masks_freeze(m) -- (champ du module, pas une locale : tests et mutants)
+  if type(m) ~= "table" or type(m.water) ~= "table" or type(m.blocked) ~= "table" or type(m.clear) ~= "table"
+    or type(m.rect) ~= "table" or type(m.free) ~= "function" then return nil end
+  for k in pairs(m) do -- (existence seulement : indépendant de l'ordre)
+    if k ~= "water" and k ~= "blocked" and k ~= "clear" and k ~= "rect" and k ~= "free" then return nil end
+  end
+  local r = m.rect
+  return { water = m.water, blocked = m.blocked, clear = m.clear, rect = { x0 = r.x0, y0 = r.y0, x1 = r.x1, y1 = r.y1 } }
+end
+
+ET.job_end = function(b, p)
+  p.pjob = nil
+  if b.pjob_pid == p.id then b.pjob_pid = nil end
+end
+
+--- Fin d'un plan, d'un bloc ou coupée : avec Build.TRANCHES et un relevé de la forme attendue, le projet attend la passe suivante
+--- (attente « tranche », rien de rendu) ; sinon plan_finish tout de suite.
+ET.cut = function(f, surface, p, masks, is_plant)
+  local fz = Build.TRANCHES and Build._masks_freeze(masks)
+  if not fz then return plan_finish(f, surface, p, masks, is_plant) end
+  local b = f.build
+  p.pjob = { stage = "power", masks = fz, plant = is_plant and true or false }
+  b.pjob_pid = p.id
+  b.stats.tranches = (b.stats.tranches or 0) + 1
+  return false, "plan en tranches (poteaux a la passe suivante)", "tranche"
+end
+
+--- Reprise d'un plan en tranches (p.pjob) : poteaux, puis points d'appui à la passe suivante. Même code et même relevé que d'un bloc.
+ET.resume = function(f, surface, p)
+  local b = f.build
+  local j = p.pjob
+  local fz = j.masks
+  local masks = ET.masks_of(f, fz.water, fz.blocked, fz.clear, fz.rect)
+  if j.stage == "power" then
+    local ok, why, wait = ET.finish_power(f, surface, p, masks, j.plant)
+    if not ok then
+      ET.job_end(b, p)
+      return ok, why, wait
+    end
+    j.stage = "anchors"
+    return false, "plan en tranches (points d'appui a la passe suivante)", "tranche"
+  end
+  ET.job_end(b, p)
+  return ET.finish_anchors(f, surface, p, masks, j.plant)
 end
 
 --- Centrale de l'équipe (une demande, si aucune n'existe).
@@ -3105,6 +3189,8 @@ function Build.cancel(f, id, why)
   for _, l in pairs(b.lots) do if l.used == p.id then l.used = nil end end
   for _, n in ipairs(sorted_keys(b.net)) do if b.net[n].pid == p.id then b.net[n] = nil end end
   p.ents, p.parts = {}, {}
+  p.pjob = nil -- lot ÉTALEMENT : un plan en tranches annulé rend son verrou
+  if b.pjob_pid == p.id then b.pjob_pid = nil end
   p.state, p.reason = "refuse", why or "annule"
   b.stats.projects_refused = b.stats.projects_refused + 1
   if b.plant == p.id then b.plant = nil end
@@ -4101,16 +4187,26 @@ local function advance(f, surface, p, tick)
     if b.qhead > #b.queue and tick >= (p.plan_after or 0) then
       -- lot ENERGIE (2/11) : un module électrique ne s'ouvre pas au-delà de ce que la centrale produit (Sante.gate : 12 min d'attente au plus)
       local ok = Sante.gate(f, p, tick, function(spec) local g = template_of(spec); return g and g.power_kw or 0 end)
-      if ok then p.state = "plan" end
+      if ok then
+        p.state = "plan"
+        p.pjob = nil -- lot ÉTALEMENT : un plan qui (re)commence ne reprend jamais une tranche d'un plan ancien
+      end
     end
     return
   end
   if p.state == "plan" then
-    if not Tokens.take(f, tick, Build.COST_PLAN) then return end
-    -- un projet ne se planifie qu'après la centrale (qui amorce le réseau)
-    if b.plant and b.plant ~= p.id then
-      local pl = b.projects[b.plant]
-      if pl and (pl.state == "attente" or pl.state == "plan") then return end
+    -- Lot ÉTALEMENT : un plan en tranches à la fois par équipe ; les autres attendent qu'il finisse. Le verrou ne vaut que tant que
+    -- son projet est en « plan » avec sa tranche (projet annulé, refusé, retiré : verrou levé ici).
+    local holder = b.pjob_pid and b.projects[b.pjob_pid]
+    if b.pjob_pid and not (holder and holder.state == "plan" and holder.pjob) then b.pjob_pid, holder = nil, nil end
+    if holder and holder ~= p then return end
+    if not p.pjob then -- (une tranche reprise a payé ses jetons et passé la garde de la centrale à sa première passe)
+      if not Tokens.take(f, tick, Build.COST_PLAN) then return end
+      -- un projet ne se planifie qu'après la centrale (qui amorce le réseau)
+      if b.plant and b.plant ~= p.id then
+        local pl = b.projects[b.plant]
+        if pl and (pl.state == "attente" or pl.state == "plan") then return end
+      end
     end
     Profiler.start("build:plan")
     -- lot MIGRATION-CHAMP : les tuiles de la partie de champ à remplacer comptent comme libres pour CE plan seulement (relevés de
@@ -4163,6 +4259,10 @@ local function advance(f, surface, p, tick)
       p.plan_after = tick + (p.far_poll or Cl.RETRY)
       p.far_poll = nil
       p.state, p.reason = "attente", why
+    elseif wait == "tranche" then
+      -- lot ÉTALEMENT : plan en tranches (pose faite, poteaux puis points d'appui aux passes suivantes) ; le projet reste en « plan », ses
+      -- réservations gardées (verrou b.pjob_pid : aucun autre plan de l'équipe entre deux tranches). p.reason n'est pas touchée : à la fin,
+      -- le projet est dans l'état exact d'un plan d'un bloc.
     elseif wait == "calcul" then
       -- lot PETROLE 2 : le plan d'un site se calcule par tranches (Fl.layout_step) ; le projet reste en « plan » et reprend à la
       -- prochaine passe (rien n'a été réservé)
@@ -4297,6 +4397,7 @@ local function advance(f, surface, p, tick)
     finish_project(f, surface, p, tick)
   end
 end
+Build._advance = advance -- lot ÉTALEMENT : (tests/etalement_plan_test.lua)
 
 --- Lot FACTIONS-BLOQUEES : enlève les tourelles de l'équipe qui recouvrent seules l'emprise d'une entité encore à poser du projet
 --- (moteur réel, 20261020 : fantôme d'un tapis refusé « occupe » par gun-turret de la même équipe, 30 refus, fonderie bloquée à 111
