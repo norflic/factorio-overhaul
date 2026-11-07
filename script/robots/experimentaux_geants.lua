@@ -307,7 +307,8 @@ local function zone(g, r, c, tick)
     s.create_entity({ name = Xp.PREFIX .. "big-scorchmark", position = { c.x, c.y } })
   end
   -- recherche par SECTEURS (un par tick : le tick 0 du double tir coûtait 10,7 ms de script, 7/11), puis frappe
-  job({ kind = "zone", e = e, un = g.un, id = r.id, dtype = r.dtype, force = e.force.name, forces = K.enemy_forces(e.force), c = { x = c.x, y = c.y },
+  local forces = K.enemy_forces(e.force)
+  job({ kind = "zone", e = e, un = g.un, id = r.id, dtype = r.dtype, force = e.force.name, forces = forces, ennemis = K.ennemis(forces), c = { x = c.x, y = c.y },
         secteurs = Ech.secteurs(c, eff.zone, Ech.SECTEUR), si = 1, plan = Ech.nouveau_plan(c), salve = eff.salve, zone = eff.zone,
         at = tick, total = 0, tues = 0, debut = tick, brule = b or nil, nb = 0, cr = cr, ci = 1, surf = s.index })
   cratere_suite(K.S().gjobs[#K.S().gjobs], tick, false)
@@ -359,7 +360,6 @@ local function zone_pas(j, tick)
     j.at = tick + 1
     return false
   end
-  local r = { id = j.id } -- statistiques par robot (K.stat) : les géants de robotsjeu y ont aussi leur ligne
   -- parts des budgets de ce tick (Ech.partage, posées par on_tick) : Ech.BUDGET coups et Ech.MORTS morts pour TOUTES les salves
   local qh, qm = j.quota or 0, j.quota_m or 0
   j.quota, j.quota_m = nil, nil
@@ -367,10 +367,13 @@ local function zone_pas(j, tick)
     j.at = tick + 1
     return false
   end
+  -- frappe sans allocation (K.frappe) : force par son nom, ennemis par leurs index (un job d'une version d'avant les reçoit ici, une fois)
+  if not j.ennemis then j.force, j.ennemis = e.force.name, K.ennemis(K.enemy_forces(e.force)) end
+  local st_r, fid, en = K.stat(j.id), j.force, j.ennemis -- statistiques par robot : les géants de robotsjeu y ont aussi leur ligne
   local c, m, fini = Ech.frapper(j.plan, j.cur, qh, qm, function(t)
     if not t.valid then return false end
     local p = j.brule and t.position
-    j.total = j.total + K.hit(r, t, j.salve, j.dtype, e.force, e)
+    j.total = j.total + K.frappe(st_r, t, j.salve, j.dtype, fid, e, en)
     if not t.valid or t.health <= 0 then
       j.tues = j.tues + 1
       if p and j.tues % j.pas == 0 then e.surface.create_entity({ name = Xp.PREFIX .. "small-scorchmark", position = { p.x, p.y } }) end
@@ -386,7 +389,7 @@ local function zone_pas(j, tick)
     st.coups_tick[tick] = (st.coups_tick[tick] or 0) + c
   end
   if fini then
-    K.journal("%s zone #%d rayon %.0f cibles %d tues %d degats %.0f ticks %d tick %d", r.id, j.un, j.zone, j.cur.pris, j.tues, j.total,
+    K.journal("%s zone #%d rayon %.0f cibles %d tues %d degats %.0f ticks %d tick %d", j.id, j.un, j.zone, j.cur.pris, j.tues, j.total,
       tick - j.debut + 1, tick)
     actives()[j.un] = nil
     return true
