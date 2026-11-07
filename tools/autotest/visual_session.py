@@ -267,7 +267,7 @@ def test_processes(vis_dir, procs=None):
 
 def perf_stats_path(vis, bases=None):
     """Lot X10 (M2), F206 : chemin SANS espace pour --output-perf-stats (le jeu y perd l'espace et n'écrit rien). Premier
-    dossier sans espace parmi le dossier temporaire de Windows et LOCALAPPDATA ; à défaut, <fo-visual>\perf-stats.csv
+    dossier sans espace parmi le dossier temporaire de Windows et LOCALAPPDATA ; à défaut, <fo-visual>/perf-stats.csv
     (chemin à espaces : le fichier risque de manquer, ce que la session signale)."""
     for base in (bases if bases is not None else (tempfile.gettempdir(), os.environ.get("LOCALAPPDATA", ""))):
         if base and " " not in os.path.abspath(base):
