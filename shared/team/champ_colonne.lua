@@ -47,6 +47,7 @@ Co.ROUTE_MAX = 250     -- tuiles de tracé au plus ; au-delà, coffre de tête. 
 Co.ROUTE_MARGIN = 12   -- tuiles autour de la boîte départ, arrivée et zone interdite
 Co.TRUNK_TRIES = 8     -- colonnes de tronc essayées au-delà du bout des colonnes
 Co.COAL_MARGIN = 1.25  -- la ligne extrait au moins 1,25 × le charbon brûlé (banc fonderie-banc, 3/11)
+Co.FAST_PLACE = true   -- (coût, 7/11) Co.place : disposition décalée depuis s_edge = 0 (même résultat ; faux : refaite à chaque recul)
 -- (banc-2, 3/11, mesuré colonne par colonne) une ligne au plus juste laisse les DERNIÈRES colonnes du tronc sans charbon tant que les
 -- dérivations d'amont prennent plus que leur besoin pour remplir leurs voies : la ligne couvre donc ce que les dérivations PEUVENT
 -- prendre, (colonnes - 1) × débit d'un bras sur tapis + le besoin de la dernière (servie par le bout du tronc)
@@ -196,6 +197,34 @@ function Co.place(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fi
   if fixed then
     local list, len, info = Co.layout(spec, b, side, fixed.s_edge, fixed.count, mode)
     if list and fits(fixed.s_edge, list) then return list, len, fixed.s_edge, fixed.count, info end
+    return nil
+  end
+  if Co.FAST_PLACE then
+    -- (coût, 7/11) la colonne ne dépend de s_edge que par translation le long de u : disposition calculée UNE fois en s_edge = 0, chaque
+    -- recul relit ses tuiles décalées et s'arrête à la première prise ; seule la place retenue refait la vraie disposition (même résultat
+    -- que la boucle d'avant, Co.FAST_PLACE = false, contrôlé par tests/champ_tranches_test.lua)
+    local base = Co.layout(spec, b, side, 0, count, mode)
+    if not base then return nil end
+    for pass = 1, 2 do
+      for t = 0, shift do
+        local s_edge = edge + side * (gap + 1 + t)
+        local ok = true
+        for u = edge + side, s_edge - side, side do if not free(u, b) then ok = false break end end
+        if ok then
+          for _, e in ipairs(base) do
+            for u = e.u + s_edge, e.u + s_edge + e.size - 1 do
+              for v = e.v, e.v + e.size - 1 do if not free(u, v) or (pass == 1 and is_ore(u, v)) then ok = false break end end
+              if not ok then break end
+            end
+            if not ok then break end
+          end
+        end
+        if ok then
+          local list, len, info = Co.layout(spec, b, side, s_edge, count, mode)
+          return list, len, s_edge, count, info
+        end
+      end
+    end
     return nil
   end
   for pass = 1, 2 do
@@ -356,19 +385,37 @@ end
 --- free(u, v) : un tapis peut s'y poser ; span(u, v) : un souterrain peut passer dessous ; ug : écart maximal entre l'entrée et la
 --- sortie d'une paire (nil : aucun souterrain) ; box { u0, v0, u1, v1 }. Rend la liste { u, v, d (index), kind = "tapis" |
 --- "souterrain", ug = "input" | "output" } dans l'ordre du flux, et le nombre d'états développés ; ou nil, raison.
-function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost)
-  cap = cap or Co.ROUTE_CAP
+--- (coût, 7/11 : lot CHAMP-COUVERTURE, voie des TRANCHES) Co.route REPRENABLE : Co.route_new(s, sd, t, td, ug, box, cap) rend un état fait de
+--- DONNÉES seules (tas, coûts, prédécesseurs, fermés : tables de nombres), Co.route_run(st, free, span, tcost, J) le fait avancer tant que
+--- J.left > 0 (une unité par état développé, retirée de J.left) et rend vrai quand il a fini ; st.out (liste) et st.n (états développés),
+--- ou st.why. Les fonctions sont redonnées à chaque appel (jamais gardées dans l'état : il se sauvegarde). Co.route est la boucle jusqu'au
+--- bout : même ordre de développement, même tracé.
+function Co.route_new(s, sd, t, td, ug, box, cap)
+  return { s = { u = s.u, v = s.v }, sd = sd, t = { u = t.u, v = t.v }, td = td, ug = ug, box = { u0 = box.u0, u1 = box.u1, v0 = box.v0, v1 = box.v1 },
+    cap = cap or Co.ROUTE_CAP, started = false, done = false }
+end
+
+function Co.route_run(st, free, span, tcost, J)
+  if st.done then return true end
+  local s, t, td, ug, box, cap = st.s, st.t, st.td, st.ug, st.box, st.cap
   local function tc(u, v) return tcost and tcost(u, v) or 1 end -- coût d'une tuile où se pose une pièce (souterrain : entrée et sortie)
-  if not free(s.u, s.v) then return nil, "depart" end
-  if not free(t.u, t.v) then return nil, "arrivee" end
+  local function finish(out, why) st.done, st.out, st.why = true, out, why; st.open, st.g, st.prev, st.closed = nil, nil, nil, nil; return true end
+  if not st.started then
+    st.started = true
+    if not free(s.u, s.v) then return finish(nil, "depart") end
+    if not free(t.u, t.v) then return finish(nil, "arrivee") end
+  end
   local function inb(u, v) return u >= box.u0 and u <= box.u1 and v >= box.v0 and v <= box.v1 end
   local function hh(u, v) return (math.abs(u - t.u) + math.abs(v - t.v)) * Co.ROUTE_W end
   local function key(u, v, d, m) return tk(u, v) * 10 + (d - 1) * 2 + m end
-  local open, g, prev, closed = {}, {}, {}, {}
-  local k0 = key(s.u, s.v, sd, 0)
-  g[k0] = 0
-  hpush(open, { u = s.u, v = s.v, d = sd, m = 0, f = hh(s.u, s.v), h = hh(s.u, s.v), k = k0 })
-  local expanded = 0
+  if not st.open then
+    st.open, st.g, st.prev, st.closed, st.expanded = {}, {}, {}, {}, 0
+    local k0 = key(s.u, s.v, st.sd, 0)
+    st.g[k0] = 0
+    hpush(st.open, { u = s.u, v = s.v, d = st.sd, m = 0, f = hh(s.u, s.v), h = hh(s.u, s.v), k = k0 })
+  end
+  local open, g, prev, closed = st.open, st.g, st.prev, st.closed
+  local expanded = st.expanded
   local function relax(cur, nu, nv, nd, nm, cost, act)
     if not inb(nu, nv) then return end
     if not (free(nu, nv) or (nu == t.u and nv == t.v)) then return end
@@ -383,14 +430,17 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost)
     end
   end
   while #open > 0 do
+    if J and J.left <= 0 then st.expanded = expanded return false end
     local cur = hpop(open)
     if not closed[cur.k] then
       closed[cur.k] = true
       expanded = expanded + 1
-      if expanded > cap then return nil, "trop long" end
+      if J then J.left = J.left - 1 end
+      if expanded > cap then return finish(nil, "trop long") end
       if expanded == Co.PREUVE_APRES and Co.PREUVE then
         local why = Co.unreachable(s, t, free, ug, box, cap) -- lot PERF3 : impossibilité prouvée vite, même réponse que l'A*
-        if why then return nil, why end
+        if J then J.left = J.left - Co.PREUVE_UNITS end
+        if why then return finish(nil, why) end
       end
       if cur.u == t.u and cur.v == t.v then
         if cur.d ~= ((td + 1) % 4) + 1 and (cur.m == 0 or cur.d == td) then
@@ -401,7 +451,8 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost)
             for i = #a, 1, -1 do table.insert(out, 1, a[i]) end
             k = prev[k].k
           end
-          return out, expanded
+          st.n = expanded
+          return finish(out, nil)
         end
       else
         -- tapis posé ici, tout droit ou en virage (jamais demi-tour ; tout droit imposé après une sortie de souterrain)
@@ -429,7 +480,16 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost)
       end
     end
   end
-  return nil, "aucun chemin"
+  return finish(nil, "aucun chemin")
+end
+
+Co.PREUVE_UNITS = 200 -- (tranches) unités comptées pour la preuve d'impossibilité (deux remplissages de Co.PREUVE_TUILES tuiles au plus)
+
+function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost)
+  local st = Co.route_new(s, sd, t, td, ug, box, cap)
+  Co.route_run(st, free, span, tcost, nil)
+  if st.out then return st.out, st.n end
+  return nil, st.why
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -441,12 +501,32 @@ end
 --- plus courte et la plus proche de la cible, puis un seul côté.
 --- is_foreign(u, v) (lot MELANGE, facultatif) : tuile d'une AUTRE ressource minable ; aucune foreuse dont la zone en touche une (fer ou
 --- pierre sur la voie de charbon la bouchent).
-function Co.coal_line(coal, is_coal, free, d, want, target, R, wire, per_side, center, is_foreign)
-  if #coal == 0 or want < 1 or R < 1 then return nil end
+--- (coût, 7/11, voie des TRANCHES) Co.coal_line REPRENABLE : Co.coal_line_new(...) rend un état de DONNÉES (mémoires de place libre et de
+--- tuiles étrangères, fenêtre, rangée en cours, meilleur choix), Co.coal_line_run(st, is_coal, free, is_foreign, J) avance rangée par
+--- rangée tant que J.left > 0 (Co.LINE_UNITS par rangée) et rend vrai à la fin ; st.res = la ligne ou nil. Co.coal_line : la boucle
+--- jusqu'au bout, mêmes rangées dans le même ordre.
+Co.LINE_UNITS = 60
+function Co.coal_line_new(coal, d, want, target, R, wire, per_side, center)
+  if #coal == 0 or want < 1 or R < 1 then return { done = true } end
+  -- fenêtre autour de `center`, sinon de la tuile de charbon la plus proche de la cible
+  local best, bd = center, nil
+  if not best then
+    for _, t in ipairs(coal) do
+      local dd = math.abs(t[1] - target.u) + math.abs(t[2] - target.v)
+      if not bd or dd < bd or (dd == bd and (t[1] < best[1] or (t[1] == best[1] and t[2] < best[2]))) then best, bd = t, dd end
+    end
+  end
+  return { d = { size = d.size, reach = d.reach }, want = want, target = { u = target.u, v = target.v }, R = R, wire = wire,
+    per_side = per_side, best = { best[1], best[2] }, fmem = {}, gmem = {}, oi = 1, l = nil, choice = nil, done = false }
+end
+
+function Co.coal_line_run(st, is_coal, free, is_foreign, J)
+  if st.done then return true end
+  local d, want, target, R, wire, per_side, best = st.d, st.want, st.target, st.R, st.wire, st.per_side, st.best
   -- Lot PERF3 : place libre et tuiles étrangères lues UNE fois par tuile pendant l'appel (rien n'est pris ici : mêmes réponses) ;
-  -- chaque position de foreuse les relisait toutes, et les rangées voisines se recouvrent
+  -- chaque position de foreuse les relisait toutes, et les rangées voisines se recouvrent (mémoires gardées dans l'état)
   do
-    local f0, fmem = free, {}
+    local f0, fmem = free, st.fmem
     free = function(u, v)
       local k = tk(u, v)
       local x = fmem[k]
@@ -454,7 +534,7 @@ function Co.coal_line(coal, is_coal, free, d, want, target, R, wire, per_side, c
       return x
     end
     if is_foreign then
-      local g0, gmem = is_foreign, {}
+      local g0, gmem = is_foreign, st.gmem
       is_foreign = function(u, v)
         local k = tk(u, v)
         local x = gmem[k]
@@ -465,19 +545,10 @@ function Co.coal_line(coal, is_coal, free, d, want, target, R, wire, per_side, c
   end
   local s, r = d.size, d.reach
   local h = math.floor(s / 2)
-  -- fenêtre autour de `center`, sinon de la tuile de charbon la plus proche de la cible
-  local best, bd = center, nil
-  if not best then
-    for _, t in ipairs(coal) do
-      local dd = math.abs(t[1] - target.u) + math.abs(t[2] - target.v)
-      if not bd or dd < bd or (dd == bd and (t[1] < best[1] or (t[1] == best[1] and t[2] < best[2]))) then best, bd = t, dd end
-    end
-  end
   local W = Co.WINDOW
   local u0, u1, v0, v1 = best[1] - W, best[1] + W, best[2] - W, best[2] + W
   local function cc(u, v) return u >= u0 and u <= u1 and v >= v0 and v <= v1 and is_coal(u, v) end
   local step = math.max(1, math.min(math.floor(wire + 1e-9), s + 2 * R))
-  local choice
   local function better(x, y)
     -- (revue-fonderie, 3/11, cadre du joueur, graine 271828182 : sortie enfermée par ses foreuses et une case bloquée devant, « aucun chemin »
     -- dans les deux ordres) une ligne dont la sortie peut partir passe avant une ligne enfermée, qui ne servait jamais
@@ -490,7 +561,9 @@ function Co.coal_line(coal, is_coal, free, d, want, target, R, wire, per_side, c
     if x.set ~= y.set then return x.set < y.set end
     return x.e < y.e
   end
-  for _, orient in ipairs({ "u", "v" }) do
+  local ORIENTS = { "u", "v" }
+  while st.oi <= #ORIENTS do
+    local orient = ORIENTS[st.oi]
     local function P(a, l) if orient == "u" then return a, l end return l, a end
     local amin, amax, lmin, lmax
     if orient == "u" then amin, amax, lmin, lmax = u0, u1, v0, v1 else amin, amax, lmin, lmax = v0, v1, u0, u1 end
@@ -542,7 +615,10 @@ function Co.coal_line(coal, is_coal, free, d, want, target, R, wire, per_side, c
       end
       return A
     end
-    for l = lmin - s, lmax + s do
+    if st.l == nil then st.l = lmin - s end
+    while st.l <= lmax + s do
+      if J and J.left <= 0 then return false end
+      local l = st.l
       local per = { [-1] = side_drills(l, -1), [1] = side_drills(l, 1) }
       for set_i, set in ipairs({ { -1 }, { 1 }, { -1, 1 } }) do
         local all = {}
@@ -611,14 +687,19 @@ function Co.coal_line(coal, is_coal, free, d, want, target, R, wire, per_side, c
               local score = math.abs(eu - target.u) + math.abs(ev - target.v) + math.abs(last - first)
               local cand = { n = n, score = score, nsides = #set, orient = orient, l = l, set = set_i, e = e, pick = pick, poles = poles,
                 first = first, last = last, open = open }
-              if not choice or better(cand, choice) then choice = cand end
+              if not st.choice or better(cand, st.choice) then st.choice = cand end
             end
           end
         end
       end
+      st.l = l + 1
+      if J then J.left = J.left - Co.LINE_UNITS end
     end
+    st.oi, st.l = st.oi + 1, nil
   end
-  if not choice then return nil end
+  st.done, st.fmem, st.gmem = true, nil, nil
+  local choice = st.choice
+  if not choice then return true end
   local ch = choice
   local function P(a, l) if ch.orient == "u" then return a, l end return l, a end
   local function V(da, dl) if ch.orient == "u" then return da, dl end return dl, da end
@@ -639,7 +720,14 @@ function Co.coal_line(coal, is_coal, free, d, want, target, R, wire, per_side, c
     ents[#ents + 1] = { kind = "poteau", u = pu, v = pv, size = 1, du = 0, dv = 0, role = "charbon" }
   end
   local eu, ev = P(ch.last + ch.e, ch.l)
-  return { ents = ents, exit = { u = eu, v = ev, d = didx(bu, bv) }, drills = #ch.pick }
+  st.res = { ents = ents, exit = { u = eu, v = ev, d = didx(bu, bv) }, drills = #ch.pick }
+  return true
+end
+
+function Co.coal_line(coal, is_coal, free, d, want, target, R, wire, per_side, center, is_foreign)
+  local st = Co.coal_line_new(coal, d, want, target, R, wire, per_side, center)
+  Co.coal_line_run(st, is_coal, free, is_foreign, nil)
+  return st.res
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -683,13 +771,29 @@ end
 --- take, forbid (u, v) -> vrai : zone du champ et des colonnes, interdite au tracé en surface ; span ; coal = { tiles, is_coal, rate } ;
 --- drill ; pole ; ug ; split ; bridge(poles) -> relais ; ugs : tuiles de souterrain déjà posées }. Rend
 --- { uT, dv, split, ents (pièces communes), modes = { [key] = "voie" | "coffre" }, drills, need, why } ; jamais nil.
+--- (coût, 7/11, voie des TRANCHES) Co.network_new(cols, side) rend un état de DONNÉES (étape, colonnes, ligne en cours, tracé en cours),
+--- Co.network_run(st, env, J) le fait avancer tant que J.left > 0 (la ligne de charbon et le tracé sont eux-mêmes reprenables) et rend
+--- vrai à la fin, le réseau dans st.res. env est redonné à chaque appel (ses fonctions ne sont jamais gardées). Co.network : la boucle
+--- jusqu'au bout, mêmes étapes dans le même ordre.
+function Co.network_new(cols, side) return { cols = cols, side = side, stage = 1 } end
+
 function Co.network(cols, side, env)
+  local st = Co.network_new(cols, side)
+  Co.network_run(st, env, nil)
+  return st.res
+end
+
+function Co.network_run(st, env, J)
+  local cols, side = st.cols, st.side
   local sf = Co.SF
+  local coal = env.coal
+  if st.stage == 9 then return true end
+  local function stop(res) st.res, st.stage = res, 9 return true end
+  if st.stage == 1 then
   local res = { modes = {}, ents = {}, need = 0 }
   for _, c in ipairs(cols) do res.modes[c.key] = "coffre"; res.need = res.need + (c.need or 0) end
-  if #cols == 0 then res.why = "aucune colonne" return res end
-  local coal = env.coal
-  if not (coal and coal.tiles and #coal.tiles > 0 and coal.rate and coal.rate > 0) then res.why = "aucun charbon lu" return res end
+  if #cols == 0 then res.why = "aucune colonne" return stop(res) end
+  if not (coal and coal.tiles and #coal.tiles > 0 and coal.rate and coal.rate > 0) then res.why = "aucun charbon lu" return stop(res) end
   table.sort(cols, function(a, b) return a.b < b.b end)
   local base
   for _, c in ipairs(cols) do
@@ -723,18 +827,31 @@ function Co.network(cols, side, env)
     for _, c in ipairs(centers) do if math.abs(t[1] - c[1]) <= Co.WINDOW and math.abs(t[2] - c[2]) <= Co.WINDOW then inside = true end end
     if not inside then centers[#centers + 1] = t end
   end
-  local line, lscore
-  local lfree = function(u, v) return env.free(u, v) and not env.forbid(u, v) end
-  for _, c in ipairs(centers) do
-    local l = Co.coal_line(coal.tiles, coal.is_coal, lfree, env.drill, want, target, env.pole.reach, env.pole.wire, env.lane_drills, c,
-      coal.is_foreign)
-    if l then
-      local sc = math.abs(l.exit.u - target.u) + math.abs(l.exit.v - target.v)
-      if not line or l.drills > line.drills or (l.drills == line.drills and sc < lscore) then line, lscore = l, sc end
-      if line.drills >= want then break end
-    end
+  st.res, st.base, st.vmin, st.vmax, st.vmid, st.want, st.target, st.centers, st.ci = res, base, vmin, vmax, vmid, want, target, centers, 1
+  st.stage = 2
   end
-  if not line then res.why = "aucune ligne de foreuses sur le charbon" return res end
+  local res, base, vmin, vmax, vmid, want, target = st.res, st.base, st.vmin, st.vmax, st.vmid, st.want, st.target
+  local lfree = function(u, v) return env.free(u, v) and not env.forbid(u, v) end
+  if st.stage == 2 then
+    while st.ci <= #st.centers do
+      if not st.cl then
+        st.cl = Co.coal_line_new(coal.tiles, env.drill, want, target, env.pole.reach, env.pole.wire, env.lane_drills, st.centers[st.ci])
+      end
+      if not Co.coal_line_run(st.cl, coal.is_coal, lfree, coal.is_foreign, J) then return false end
+      local l = st.cl.res
+      st.cl, st.ci = nil, st.ci + 1
+      if l then
+        local sc = math.abs(l.exit.u - target.u) + math.abs(l.exit.v - target.v)
+        if not st.line or l.drills > st.line.drills or (l.drills == st.line.drills and sc < st.lscore) then st.line, st.lscore = l, sc end
+        if st.line.drills >= want then st.ci = #st.centers + 1 end
+      end
+    end
+    st.stage = 3
+  end
+  local line = st.line
+  local cap = (env.inserter_rate or 0.83) * Co.PICKUP
+  if st.stage == 3 then
+  if not line then res.why = "aucune ligne de foreuses sur le charbon" return stop(res) end
   local dv = (line.exit.v <= vmid) and 1 or -1
   local first_v, last_v = (dv > 0) and vmin or vmax, (dv > 0) and vmax or vmin
   local v_start = first_v - 2 * dv
@@ -763,7 +880,7 @@ function Co.network(cols, side, env)
       if keep and #keep == #cols then break end
     end
   end
-  if not uT then res.why = "aucune place pour le tronc" return res end
+  if not uT then res.why = "aucune place pour le tronc" return stop(res) end
   -- tronc : de v_start (arrivée du tracé) au dernier embranchement gardé
   table.sort(keep, function(a, b) if dv > 0 then return a.b < b.b end return a.b > b.b end)
   -- ce que la ligne extrait nourrit les premières colonnes du tronc ; les suivantes gardent le coffre de tête (jamais un four sans
@@ -777,7 +894,7 @@ function Co.network(cols, side, env)
     if intake > capa + 1e-9 or cum > capa + 1e-9 then break end
     fed[#fed + 1] = c
   end
-  if #fed == 0 then res.why = string.format("charbon insuffisant (%d foreuse(s), %.2f/s)", line.drills, capa) return res end
+  if #fed == 0 then res.why = string.format("charbon insuffisant (%d foreuse(s), %.2f/s)", line.drills, capa) return stop(res) end
   if #fed < #keep then res.why = string.format("charbon pour %d colonne(s) sur %d (%d foreuse(s), %.2f/s)", #fed, #keep, line.drills, capa) end
   keep = fed
   local last_c = keep[#keep]
@@ -829,19 +946,27 @@ function Co.network(cols, side, env)
   end
   for _, e in ipairs(line.ents) do add(e) end
   -- tracé : de la sortie de la ligne jusqu'à la tête du tronc (tournée vers dv)
+  local box = { u0 = math.min(line.exit.u, uT, env.box.u0) - Co.ROUTE_MARGIN, u1 = math.max(line.exit.u, uT, env.box.u1) + Co.ROUTE_MARGIN,
+    v0 = math.min(line.exit.v, v_start, env.box.v0) - Co.ROUTE_MARGIN, v1 = math.max(line.exit.v, v_start, env.box.v1) + Co.ROUTE_MARGIN }
+  st.rt = Co.route_new({ u = line.exit.u, v = line.exit.v }, line.exit.d, { u = uT, v = v_start }, didx(0, dv), env.ug, box, nil)
+  st.dv, st.v_start, st.uT, st.keep, st.ents, st.taken, st.wire = dv, v_start, uT, keep, ents, taken, wire
+  st.stage = 4
+  end
+  -- (tranches) le tracé du charbon, reprenable ; ses fonctions refaites à chaque pas depuis l'état
+  local dv, v_start, uT, keep, ents, taken, wire = st.dv, st.v_start, st.uT, st.keep, st.ents, st.taken, st.wire
+  local function add(e) ents[#ents + 1] = e; for x = e.u, e.u + (e.w or e.size) - 1 do for y = e.v, e.v + (e.h or e.size) - 1 do taken[tk(x, y)] = true end end end
   local function rfree(u, v)
     if taken[tk(u, v)] then return false end
     if u == uT and v == v_start then return env.free(u, v) end
     return env.free(u, v) and not env.forbid(u, v)
   end
-  local box = { u0 = math.min(line.exit.u, uT, env.box.u0) - Co.ROUTE_MARGIN, u1 = math.max(line.exit.u, uT, env.box.u1) + Co.ROUTE_MARGIN,
-    v0 = math.min(line.exit.v, v_start, env.box.v0) - Co.ROUTE_MARGIN, v1 = math.max(line.exit.v, v_start, env.box.v1) + Co.ROUTE_MARGIN }
   local span = function(u, v) return not (env.ugs and env.ugs[tk(u, v)]) end
   local tcost = env.soft and function(u, v) return env.soft(u, v) and (1 + Co.SOFT_COST) or 1 end or nil
-  local route, why = Co.route({ u = line.exit.u, v = line.exit.v }, line.exit.d, { u = uT, v = v_start }, didx(0, dv), rfree, span, env.ug, box,
-    nil, tcost)
-  if not route then res.why = "trace du charbon : " .. tostring(why) return res end
-  if #route > Co.ROUTE_MAX then res.why = string.format("trace du charbon trop long (%d tuiles, plafond %d)", #route, Co.ROUTE_MAX) return res end
+  if not Co.route_run(st.rt, rfree, span, tcost, J) then return false end
+  local route, why = st.rt.out, st.rt.why
+  st.rt = nil
+  if not route then res.why = "trace du charbon : " .. tostring(why) return stop(res) end
+  if #route > Co.ROUTE_MAX then res.why = string.format("trace du charbon trop long (%d tuiles, plafond %d)", #route, Co.ROUTE_MAX) return stop(res) end
   local nug = 0
   for _, r in ipairs(route) do
     local d = D4[r.d]
@@ -874,7 +999,8 @@ function Co.network(cols, side, env)
   for _, c in ipairs(keep) do res.modes[c.key] = "voie" end
   res.uT, res.dv, res.split, res.ents, res.drills, res.undergrounds = uT, dv, env.split and true or false, ents, line.drills, nug
   res.v_start, res.route_len = v_start, #route
-  return res
+  st.keep, st.ents, st.taken, st.line, st.centers = nil, nil, nil, nil, nil
+  return stop(res)
 end
 
 return Co
