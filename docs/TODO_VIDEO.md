@@ -603,7 +603,7 @@ change pas ce que vous verrez tant qu'elle n'est pas branchée. Plans de branche
 | L4, L7 | règles pures ✅ | `quotas`, `amorce` (video-l4 a7395d7a) |
 | L6, L10, L12 | règles pures ✅, branchement planifié | `portes_extension` 14 OK, 11 mutants ; `palier` 12 OK, 10 ; `hysteresis` 11 OK, 9 (video-l6 b209dd30) ; `PLAN_L6_L10_L12.md` |
 | L11 | règle pure et module ✅, branchement planifié | `shared/ai3/trace.lua`, `script/ai3/trace_carte.lua` (video-l4 79edf454) : 30 OK, 8 mutants ; réglage `fo-debug-trace-carte` à déclarer |
-| L8 | ✅ déjà corrigé : règle 2 d'`emplacements.lua` (CAPI-DEBIT, 30/10), `capi_debit_test` 74 OK (16 h 22) ; volet préventif R3 selon la mesure de votre partie | `PLAN_L8.md` (rang-tiers) |
+| L8 | ✅ déjà corrigé : règle 2 d'`emplacements.lua` (CAPI-DEBIT, 30/10), `capi_debit_test` 74 OK (16 h 22) . **Clos** : sur votre partie 0.6.58 (177 min), 21 défrichages, tous de moins de 2 min, et 0 place tenue plus de 5 min. Le volet préventif n'est pas utile | `PLAN_L8.md` §5 (rang-tiers) |
 | L9, saturation (rang 12) | lancés à 16 h 20 | video-l6, video-l5 |
 | Branchement | lancé à 16 h 20, étapes 0 à 3 (prérequis capi-decide et corr-collecte, puis règles, L13, L5 avec son plafond), hors jeu | cerveau-central, branche `video-integ` |
 
