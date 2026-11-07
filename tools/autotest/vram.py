@@ -136,8 +136,9 @@ RE_PERFORMED = re.compile(r"Performed (\d+) updates in ([0-9.]+) ms")
 RE_UPD_AVG = re.compile(r"^\s*avg: ([0-9.]+) ms, min: ([0-9.]+) ms, max: ([0-9.]+) ms")
 RE_PERFSUM = re.compile(r"^\s*(prepare|streaming|render|flip|frame)> avg: ([0-9.]+) ms,\s*med: ([0-9.]+) ms,\s*"
                         r"min: ([0-9.]+) ms,\s*max: ([0-9.]+) ms")
-RE_PHASE_START = re.compile(r"\[FO-D4-GEANT\] PHASE debut (\S+) tick (\d+) zoom ([0-9.]+) daytime ([0-9.]+)")
-RE_PHASE_END = re.compile(r"\[FO-D4-GEANT\] PHASE fin (\S+) tick (\d+) ticks (\d+) .*?(?:Duration|Dur\S{1,3}e)\s*:\s*"
+# Lot X10 (M2) : toute étiquette de greffon (d4-geant, x10-rendu), plus seulement [FO-D4-GEANT].
+RE_PHASE_START = re.compile(r"\[FO-[A-Z0-9-]+\] PHASE debut (\S+) tick (\d+) zoom ([0-9.]+) daytime ([0-9.]+)")
+RE_PHASE_END = re.compile(r"\[FO-[A-Z0-9-]+\] PHASE fin (\S+) tick (\d+) ticks (\d+) .*?(?:Duration|Dur\S{1,3}e)\s*:\s*"
                           r"([0-9.]+)\s*ms")
 
 # Catégorie d'un atlas : premier drapeau trouvé dans cet ordre.
