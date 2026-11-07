@@ -423,142 +423,107 @@ end
 
 --- Relie les réseaux de poteaux séparés (eau, falaise, fonderie reculée) : relais en ligne droite, sur des tuiles libres, du réseau
 --- du premier poteau vers le poteau le plus proche d'un autre réseau. `poles` : { { u, v } } (complété en place). Rend les relais.
---- (coût, 7/11) une passe de bridge_0641 : relie le réseau du premier poteau au réseau le plus proche ; vrai : une autre passe suit.
-local function bridge_0641_pass(c, spec, poles, added)
+--- Deux règles : bridge_0641 (motif à coffres, 0.6.41 : la paire la plus proche, poteaux pris au fil de la chaîne, un échec arrête
+--- tout) et, lot FONDERIE, la colonne à tapis (les Ch.BRIDGE_TRIES paires les plus proches, essayées dans l'ordre ; avant, seule la
+--- plus proche l'était, et un échec arrêtait tout : deux rangées de poteaux d'une ligne de charbon à 8 tuiles ont leur milieu sur le
+--- tapis et les foreuses, aucun relais possible là, mais au bout de la ligne oui).
+--- (coût, 7/11, voie des TRANCHES) machine REPRENABLE : br_new(multi), br_run(st, c, spec, poles, J) avance tant que J.left > 0 et rend
+--- vrai à la fin (st.added). Avant, chaque passe refaisait les réseaux de zéro (tous les poteaux, à chaque relais posé : 1,4 million
+--- d'instructions par passe sur le géant 200 x 200). Ici le poteau k est uni aux poteaux d'avant à portée de fil (grille de cases de la
+--- portée), puis rangé, une fois pour toutes ; les poteaux d'une chaîne posée s'ajoutent à la suite. Les réseaux sont les composantes du
+--- graphe « à portée de fil », qui ne dépendent pas de l'ordre des unions : mêmes réseaux, même réseau du premier poteau, mêmes listes
+--- ins / outs (indices croissants), mêmes paires dans le même ordre (égalités comprises), mêmes chaînes (contrôle : C1 et C4 de
+--- tests/champ_tranches_test.lua).
+local BR_CHUNK = 256 -- poteaux classés (réseau principal ou non) par morceau
+local function br_root(parent, i) while parent[i] ~= i do parent[i] = parent[parent[i]]; i = parent[i] end return i end
+local function br_new(multi) return { multi = multi and true or false, added = {}, parent = {}, grid = {}, k = 1, pass = 1, stage = 1 } end
+local function br_next(st)
+  st.ins, st.outs, st.cand, st.best, st.ba, st.bb, st.si, st.ci, st.cj = nil, nil, nil, nil, nil, nil, nil, nil, nil
+  st.pass = st.pass + 1
+  if st.pass > 60 then st.stage = 0 else st.stage = 1 end
+end
+local function br_run(st, c, spec, poles, J)
   local wire = spec.pole.wire
   local w2 = wire * wire + Ch.CFG.eps
-  do
-    local parent = {}
-    for i = 1, #poles do parent[i] = i end
-    local function root(i) while parent[i] ~= i do parent[i] = parent[parent[i]]; i = parent[i] end return i end
-    local grid = {}
-    local cell = math.max(1, math.ceil(wire))
-    for i, p in ipairs(poles) do
-      local k = Ch.key(math.floor(p[1] / cell), math.floor(p[2] / cell))
-      grid[k] = grid[k] or {}
-      grid[k][#grid[k] + 1] = i
-    end
-    for i, p in ipairs(poles) do
-      local gx, gy = math.floor(p[1] / cell), math.floor(p[2] / cell)
-      for dx = -1, 1 do
-        for dy = -1, 1 do
-          for _, j in ipairs(grid[Ch.key(gx + dx, gy + dy)] or {}) do
-            local q = poles[j]
-            if j > i and (p[1] - q[1]) ^ 2 + (p[2] - q[2]) ^ 2 <= w2 then
-              local a, b = root(i), root(j)
-              if a ~= b then parent[a] = b end
+  local cell = math.max(1, math.ceil(wire))
+  local U = Ch.UNITS
+  local parent, grid = st.parent, st.grid
+  while st.stage ~= 0 do
+    if J and J.left <= 0 then return false end
+    if st.stage == 1 then
+      -- réseaux : le poteau k uni aux poteaux d'avant à portée, puis rangé dans la grille
+      local k = st.k
+      if k > #poles then
+        st.stage, st.si, st.ins, st.outs = 2, 1, {}, {}
+      else
+        local p = poles[k]
+        local p1, p2 = p[1], p[2]
+        parent[k] = k
+        local gx, gy = math.floor(p1 / cell), math.floor(p2 / cell)
+        for dx = -1, 1 do
+          for dy = -1, 1 do
+            for _, j in ipairs(grid[Ch.key(gx + dx, gy + dy)] or {}) do
+              local q = poles[j]
+              if (p1 - q[1]) ^ 2 + (p2 - q[2]) ^ 2 <= w2 then
+                local a, b = br_root(parent, k), br_root(parent, j)
+                if a ~= b then parent[a] = b end
+              end
             end
           end
         end
+        local gk = Ch.key(gx, gy)
+        local cl = grid[gk]
+        if not cl then cl = {}; grid[gk] = cl end
+        cl[#cl + 1] = k
+        st.k = k + 1
+        if J then J.left = J.left - U.br_pole end
       end
-    end
-    -- Lot PERF3 : racine de chaque poteau calculée UNE fois (avant : root() dans la double boucle, N² appels), puis les mêmes paires
-    -- dans le même ordre (i puis j croissants) : même paire retenue, à égalité comprise.
-    local main = root(1)
-    local ins, outs = {}, {}
-    for i = 1, #poles do if root(i) == main then ins[#ins + 1] = i else outs[#outs + 1] = i end end
-    local best, ba, bb
-    for _, i in ipairs(ins) do
-      local p = poles[i]
-      local p1, p2 = p[1], p[2]
-      for _, j in ipairs(outs) do
-        local q = poles[j]
-        local d2 = (p1 - q[1]) ^ 2 + (p2 - q[2]) ^ 2
-        if not best or d2 < best then best, ba, bb = d2, i, j end
-      end
-    end
-    if not best then return false end
-    local a, b = poles[ba], poles[bb]
-    local dist = math.sqrt(best)
-    local n = math.ceil(dist / (wire - 0.5)) - 1
-    local prev = a
-    local ok = n >= 1
-    for k = 1, n do
-      local iu = math.floor(a[1] + (b[1] - a[1]) * k / (n + 1) + 0.5)
-      local iv = math.floor(a[2] + (b[2] - a[2]) * k / (n + 1) + 0.5)
-      local put
-      for r = 0, 3 do
-        for du = -r, r do
-          for dv = -r, r do
-            local u, v = iu + du, iv + dv
-            if not put and math.max(math.abs(du), math.abs(dv)) == r and c.free(u, v)
-              and (u - prev[1]) ^ 2 + (v - prev[2]) ^ 2 <= w2 then put = { u, v } end
-          end
-        end
-      end
-      if not put then ok = false break end
-      c.take(put[1], put[2])
-      poles[#poles + 1] = put
-      added[#added + 1] = put
-      prev = put
-    end
-    if not ok then return false end
-  end
-  return true
-end
-local function bridge_0641(c, spec, poles)
-  local added = {}
-  for _ = 1, 60 do if not bridge_0641_pass(c, spec, poles, added) then break end end
-  return added
-end
-
--- (lot FONDERIE) relais à plusieurs paires (Ch.BRIDGE_TRIES) pour la colonne à tapis ; le motif à coffres garde bridge_0641, à l'identique
--- (coût, 7/11) une passe : vrai si une autre suit
-local function bridge_pass(c, spec, poles, added)
-  local wire = spec.pole.wire
-  local w2 = wire * wire + Ch.CFG.eps
-  do
-    local parent = {}
-    for i = 1, #poles do parent[i] = i end
-    local function root(i) while parent[i] ~= i do parent[i] = parent[parent[i]]; i = parent[i] end return i end
-    local grid = {}
-    local cell = math.max(1, math.ceil(wire))
-    for i, p in ipairs(poles) do
-      local k = Ch.key(math.floor(p[1] / cell), math.floor(p[2] / cell))
-      grid[k] = grid[k] or {}
-      grid[k][#grid[k] + 1] = i
-    end
-    for i, p in ipairs(poles) do
-      local gx, gy = math.floor(p[1] / cell), math.floor(p[2] / cell)
-      for dx = -1, 1 do
-        for dy = -1, 1 do
-          for _, j in ipairs(grid[Ch.key(gx + dx, gy + dy)] or {}) do
+    elseif st.stage == 2 then
+      -- poteaux du réseau du premier poteau (ins) et des autres (outs), indices croissants
+      local main = br_root(parent, 1)
+      local stop = math.min(#poles, st.si + BR_CHUNK - 1)
+      local ins, outs = st.ins, st.outs
+      for i = st.si, stop do if br_root(parent, i) == main then ins[#ins + 1] = i else outs[#outs + 1] = i end end
+      if J then J.left = J.left - (stop - st.si + 1) * U.br_split end
+      st.si = stop + 1
+      if st.si > #poles then st.stage, st.ci, st.cand = 3, 1, {} end
+    elseif st.stage == 3 then
+      -- paires (poteau du réseau principal, poteau d'un autre) : les plus proches, un poteau du réseau principal par morceau
+      local i = st.ins[st.ci]
+      if not i then
+        st.stage, st.cj = 4, 1
+      else
+        local p = poles[i]
+        local p1, p2 = p[1], p[2]
+        local outs = st.outs
+        if st.multi then
+          local cand, tries = st.cand, Ch.BRIDGE_TRIES
+          for _, j in ipairs(outs) do
             local q = poles[j]
-            if j > i and (p[1] - q[1]) ^ 2 + (p[2] - q[2]) ^ 2 <= w2 then
-              local a, b = root(i), root(j)
-              if a ~= b then parent[a] = b end
+            local d2 = (p1 - q[1]) ^ 2 + (p2 - q[2]) ^ 2
+            if #cand < tries or d2 < cand[#cand][1] then
+              local pos = #cand + 1
+              while pos > 1 and cand[pos - 1][1] > d2 do pos = pos - 1 end
+              table.insert(cand, pos, { d2, i, j })
+              if #cand > tries then cand[#cand] = nil end
             end
           end
+        else
+          for _, j in ipairs(outs) do
+            local q = poles[j]
+            local d2 = (p1 - q[1]) ^ 2 + (p2 - q[2]) ^ 2
+            if not st.best or d2 < st.best then st.best, st.ba, st.bb = d2, i, j end
+          end
         end
+        st.ci = st.ci + 1
+        if J then J.left = J.left - (1 + #outs) * U.br_pair end
       end
-    end
-    local main = root(1)
-    -- (lot FONDERIE) les Ch.BRIDGE_TRIES paires (réseau principal, autre réseau) les plus proches, essayées dans l'ordre : avant, seule la plus
-    -- proche l'était, et un échec arrêtait tout (deux rangées de poteaux d'une ligne de charbon à 8 tuiles : leur milieu est sur le tapis et
-    -- les foreuses, aucun relais possible là, mais au bout de la ligne oui)
-    -- Lot PERF3 : racines calculées une fois, mêmes paires dans le même ordre (voir bridge_0641)
-    local ins, outs = {}, {}
-    for i = 1, #poles do if root(i) == main then ins[#ins + 1] = i else outs[#outs + 1] = i end end
-    local cand = {}
-    local tries = Ch.BRIDGE_TRIES
-    for _, i in ipairs(ins) do
-      local p = poles[i]
-      local p1, p2 = p[1], p[2]
-      for _, j in ipairs(outs) do
-        local q = poles[j]
-        local d2 = (p1 - q[1]) ^ 2 + (p2 - q[2]) ^ 2
-        if #cand < tries or d2 < cand[#cand][1] then
-          local pos = #cand + 1
-          while pos > 1 and cand[pos - 1][1] > d2 do pos = pos - 1 end
-          table.insert(cand, pos, { d2, i, j })
-          if #cand > tries then cand[#cand] = nil end
-        end
-      end
-    end
-    if #cand == 0 then return false end
-    local done = false
-    for _, cd in ipairs(cand) do
-      if not done then
+    elseif st.multi then
+      -- chaîne de relais d'une paire, essayée dans l'ordre ; posée seulement entière (une paire par morceau)
+      local cd = st.cand[st.cj]
+      if not cd then
+        st.stage = 0
+      else
         local a, b = poles[cd[2]], poles[cd[3]]
         local n = math.ceil(math.sqrt(cd[1]) / (wire - 0.5)) - 1
         local prev, ok, chain, tmp = a, n >= 1, {}, {}
@@ -579,35 +544,61 @@ local function bridge_pass(c, spec, poles, added)
             if not put then ok = false else chain[#chain + 1] = put; tmp[Ch.key(put[1], put[2])] = true; prev = put end
           end
         end
+        if J then J.left = J.left - (1 + math.max(n, 0)) * U.br_try end
         if ok and (prev[1] - b[1]) ^ 2 + (prev[2] - b[2]) ^ 2 <= w2 then
           for _, put in ipairs(chain) do
             c.take(put[1], put[2])
             poles[#poles + 1] = put
-            added[#added + 1] = put
+            st.added[#st.added + 1] = put
           end
-          done = true
+          br_next(st)
+        else
+          st.cj = st.cj + 1
         end
       end
+    else
+      -- bridge_0641 : la paire la plus proche, poteaux pris au fil de la chaîne ; un échec arrête tout
+      if not st.best then
+        st.stage = 0
+      else
+        local a, b = poles[st.ba], poles[st.bb]
+        local dist = math.sqrt(st.best)
+        local n = math.ceil(dist / (wire - 0.5)) - 1
+        local prev = a
+        local ok = n >= 1
+        for k = 1, n do
+          local iu = math.floor(a[1] + (b[1] - a[1]) * k / (n + 1) + 0.5)
+          local iv = math.floor(a[2] + (b[2] - a[2]) * k / (n + 1) + 0.5)
+          local put
+          for r = 0, 3 do
+            for du = -r, r do
+              for dv = -r, r do
+                local u, v = iu + du, iv + dv
+                if not put and math.max(math.abs(du), math.abs(dv)) == r and c.free(u, v)
+                  and (u - prev[1]) ^ 2 + (v - prev[2]) ^ 2 <= w2 then put = { u, v } end
+              end
+            end
+          end
+          if not put then ok = false break end
+          c.take(put[1], put[2])
+          poles[#poles + 1] = put
+          st.added[#st.added + 1] = put
+          prev = put
+        end
+        if J then J.left = J.left - (1 + math.max(n, 0)) * U.br_try end
+        if ok then br_next(st) else st.stage = 0 end
+      end
     end
-    if not done then return false end
   end
+  st.parent, st.grid, st.ins, st.outs, st.cand = nil, nil, nil, nil, nil
   return true
 end
 local function bridge(c, spec, poles)
-  local added = {}
-  for _ = 1, 60 do if not bridge_pass(c, spec, poles, added) then break end end
-  return added
+  local st = br_new(true)
+  br_run(st, c, spec, poles, nil)
+  return st.added
 end
-
-local function long_axis(spec)
-  local x0, y0, x1, y1 = math.huge, math.huge, -math.huge, -math.huge
-  local o = spec.ore
-  for i = 1, #o - 1, 2 do
-    x0, x1 = math.min(x0, o[i]), math.max(x1, o[i])
-    y0, y1 = math.min(y0, o[i + 1]), math.max(y1, o[i + 1])
-  end
-  return (y1 - y0 > x1 - x0) and "y" or "x"
-end
+Ch.bridge_new, Ch.bridge_run = br_new, br_run -- (tests) la machine des relais, contrôlée contre les passes d'avant
 
 ---------------------------------------------------------------------------------------------------
 -- Plan en TRANCHES (coût, 7/11 ; décision du lead : « voie des TRANCHES »). Ch.plan_job(spec) rend un TRAVAIL fait de DONNÉES seules ;
@@ -620,9 +611,15 @@ end
 ---------------------------------------------------------------------------------------------------
 -- unités de travail (calibrées hors jeu : tests/champ_tranches_test.lua, C3) ; un pas s'arrête à la première borne d'unité de travail
 -- atteinte quand le budget est épuisé
-Ch.UNITS = { ore = 1 / 8, row = 1 / 6, band = 30, take = 2, ent = 1 / 16, pole_row = 6, bridge = 40, pending = 6, cols = 4, side = 10 }
+Ch.UNITS = { ore = 1 / 8, row = 1 / 6, band = 30, take = 2, ent = 1 / 16, pole_row = 6, pending = 9, cols = 4, side = 10,
+  axis = 1 / 40, br_pole = 0.26, br_split = 0.035, br_pair = 0.026, br_try = 2.6, emit = 0.3 }
+-- Budget d'un pas en jeu (unités ; une unité vaut environ 1 000 instructions Lua, calibrée hors jeu machine par machine). Mesuré hors jeu
+-- (tests/champ_tranches_test.lua, C3) : pire pas 211 000 instructions sur le corpus (environ 2,6 ms à 12 ns par instruction, PC au repos),
+-- morceau indivisible le plus gros 92 000 ; surcoût du découpage 0,3 à 0,9 %.
+Ch.STEP_BUDGET = 50
 
 local function spend(J, n) J.left = J.left - n end
+local ENT_CHUNK = 512 -- entités lues par morceau (étapes 11 et 14)
 local function out_of(J) return J.left <= 0 end
 
 --- Fonctions du cadre « once » refaites à chaque pas : contexte, émission, rectangles des bandes, souterrains posés, charbon, pose d'un
@@ -649,7 +646,8 @@ local function kit(P)
     if e.w then o.w, o.h = x1 - x0 + 1, y1 - y0 + 1 end
     ents[#ents + 1] = o
   end
-  if bands and r23 then K.forbid = Cc.rects(bands, d.size, spec.pole.reach, pitch) end
+  -- rectangles des bandes : relevés une fois (rd, données, à la fin de l'étape 5), la fonction refaite à chaque pas
+  if bands and r23 then K.forbid = Cc.rects_fn(rd) end
   if ugs_set then K.span = function(u, v) return not ugs_set[Co.tk(u, v)] end end
   if coal_uv then K.not_coal = function(u, v) return not coal_uv[Co.tk(u, v)] end end
   function K.commit(bd, st, side, g, flow, list, len, s_edge, count, info, routed)
@@ -767,8 +765,31 @@ ONCE[#ONCE + 1] = function(P, J)
     if spec.furnace and spec.furnace.fuel and spec.furnace.size < 2 then p, why = nil, "four trop petit pour son coffre de combustible" return "end" end
     if spec.furnace and 2 * spec.furnace.size + 3 > spec.pole.wire + Ch.CFG.eps then p, why = nil, "portee des poteaux" return "end" end
   end
-  axis = (F and F.axis) or long_axis(spec)
-  spend(J, #spec.ore * Ch.UNITS.ore / 4)
+  if F and F.axis then axis = F.axis end
+  return true
+end
+
+-- 1 bis. axe le plus long du gisement (long_axis), relevé par morceaux de CTX_CHUNK tuiles ; contexte à relever
+ONCE[#ONCE + 1] = function(P, J)
+  local _ENV = P
+  if not axis then
+    local o = spec.ore
+    la = la or { i = 1, x0 = math.huge, y0 = math.huge, x1 = -math.huge, y1 = -math.huge }
+    while la.i <= #o - 1 do
+      if out_of(J) then return false end
+      local stop = math.min(#o - 1, la.i + 2 * (CTX_CHUNK - 1))
+      local x0, y0, x1, y1 = la.x0, la.y0, la.x1, la.y1
+      for i = la.i, stop, 2 do
+        x0, x1 = math.min(x0, o[i]), math.max(x1, o[i])
+        y0, y1 = math.min(y0, o[i + 1]), math.max(y1, o[i + 1])
+      end
+      la.x0, la.y0, la.x1, la.y1 = x0, y0, x1, y1
+      spend(J, (stop - la.i + 2) / 2 * Ch.UNITS.axis)
+      la.i = stop + 2
+    end
+    axis = (la.y1 - la.y0 > la.x1 - la.x0) and "y" or "x"
+    la = nil
+  end
   cx = ctx_new(axis)
   return true
 end
@@ -792,7 +813,9 @@ ONCE[#ONCE + 1] = function(P, J)
   return true
 end
 
--- 3. choix de la phase : bande par bande, phase par phase (cadre figé : sa phase seule, sans les mémoires partagées, comme bands_for)
+-- 3. choix de la phase : phase par phase, bande par bande, et pour chaque bande ses deux rangées décalage par décalage (une rangée de
+-- foreuses pour un décalage par unité de travail ; cadre figé : sa phase seule, sans les mémoires partagées, comme bands_for). Même
+-- règle que band_at et best_row : le plus de minerai miné, puis le moins de foreuses, puis le plus petit décalage.
 ONCE[#ONCE + 1] = function(P, J)
   local _ENV = P
   local c = ctx_of(cx, spec)
@@ -805,12 +828,40 @@ ONCE[#ONCE + 1] = function(P, J)
       if fr then scan.fm = {} end
     end
     while scan.pr <= box.v1 do
-      if out_of(J) then return false end
       local pr = scan.pr
       if not (fr and fr.only) or fr.only[pr] then
-        local bd, mined = band_at(c, spec, pr, box, origin, fr, scan.fm, scan.rm)
-        if bd then scan.bs[#scan.bs + 1] = bd; scan.total = scan.total + mined end
-        spend(J, row_cost)
+        local off = fr and fr.offsets and fr.offsets[tostring(pr)]
+        while (scan.part or 1) <= 2 do
+          local part = scan.part or 1
+          local row = (part == 1) and (pr + 1) or (pr + d.size + 2)
+          local fixed = off and off[part]
+          local memo = (fixed == nil and scan.rm) and scan.rm[row] or nil
+          if not memo then
+            scan.o = scan.o or 0
+            while scan.o <= d.size - 1 do
+              if out_of(J) then return false end
+              local o = scan.o
+              if fixed == nil or fixed == o then
+                local l, m = row_drills(c, spec, row, box.u0, box.u1, origin, o, scan.fm)
+                if not scan.cb or m > scan.cbm or (m == scan.cbm and #l < #scan.cb) then scan.cb, scan.cbm, scan.cbo = l, m, o end
+                spend(J, row_cost)
+              end
+              scan.o = o + 1
+            end
+            memo = { scan.cb, scan.cbm, scan.cbo }
+            if fixed == nil and scan.rm then scan.rm[row] = memo end
+          end
+          if part == 1 then scan.nb = memo else scan.sb = memo end
+          scan.cb, scan.cbm, scan.cbo, scan.o = nil, nil, nil, nil
+          scan.part = part + 1
+        end
+        local nl, nm, on = scan.nb[1], scan.nb[2], scan.nb[3]
+        local sl, sm, os_ = scan.sb[1], scan.sb[2], scan.sb[3]
+        if #nl + #sl > 0 then
+          scan.bs[#scan.bs + 1] = { pr = pr, b = pr + d.size + 1, n = nl, s = sl, on = on, os = os_ }
+          scan.total = scan.total + nm + sm
+        end
+        scan.part, scan.nb, scan.sb = nil, nil, nil
       end
       scan.pr = pr + pitch
     end
@@ -909,22 +960,29 @@ ONCE[#ONCE + 1] = function(P, J)
   sides = Ch.CFG.both_ends and { exit, -exit } or { exit }
   bstate = {}
   bi1 = 1
+  if r23 then rd = Cc.rects_data(bands, d.size, spec.pole.reach, pitch) end
   spend(J, #bands * Ch.UNITS.take)
   return true
 end
 
--- 6. passe 1 : le chemin d'avant, une bande par unité
+-- 6. passe 1 : le chemin d'avant, bande par bande et côté par côté ; la place d'une colonne d'un cadre neuf (Co.place_new / run) est
+-- cherchée un recul par unité
 ONCE[#ONCE + 1] = function(P, J)
   local _ENV = P
   local K = kit(P)
   local c = K.c
   while bi1 <= #bands do
-    if out_of(J) then return false end
     local bi, bd = bi1, bands[bi1]
-    offsets[tostring(bd.pr)] = { bd.on, bd.os }
-    local st = { used = {}, groups = {}, limit = nil, later = {}, bo = { pr = bd.pr, b = bd.b, groups = {} } }
-    bstate[bi] = st
-    for _, side in ipairs(sides) do
+    local st = bstate[bi]
+    if not st then
+      if out_of(J) then return false end
+      offsets[tostring(bd.pr)] = { bd.on, bd.os }
+      st = { used = {}, groups = {}, limit = nil, later = {}, bo = { pr = bd.pr, b = bd.b, groups = {} } }
+      bstate[bi] = st
+      p1 = { si = 1 }
+    end
+    while p1.si <= #sides do
+      local side = sides[p1.si]
       local edge = side > 0 and umax or umin
       local rfix = F and F.routed and F.routed[tostring(bd.pr)] and F.routed[tostring(bd.pr)][tostring(side)]
       local refused_here = spec.refuse and spec.refuse[tostring(bd.pr) .. ":" .. tostring(side)]
@@ -934,10 +992,27 @@ ONCE[#ONCE + 1] = function(P, J)
       if rfix and routable then
         st.later[#st.later + 1] = { side = side }
       else
-        local g = take_group(c, spec, bd, side, cap, edge, st.used, st.limit, total, hop)
+        local g = p1.g
+        if g == nil then
+          if out_of(J) then return false end
+          g = take_group(c, spec, bd, side, cap, edge, st.used, st.limit, total, hop) or false
+          p1.g = g
+          spend(J, Ch.UNITS.side)
+          -- place de la colonne d'un cadre neuf : cherchée par morceaux (même appel que Co.place sans `fixed`)
+          if g and colonne and Co.FAST_PLACE and not ((fc and fc.mode == "refusee") or refused_here) and not (F and F.cols) then
+            p1.pst = Co.place_new(spec, bd.b, side, edge, Fd.count(spec, (#g.n + #g.s) * d.rate), Ch.CFG.gap, Ch.CFG.shift,
+              fuelled and "voie" or nil)
+          end
+        end
+        g = g or nil
         local list, len, s_edge, count, info
         local flow
-        if g then
+        if g and p1.pst then
+          flow = (#g.n + #g.s) * d.rate
+          if not Co.place_run(p1.pst, spec, c.free, c.is_ore, J) then return false end
+          local ps = p1.pst
+          list, len, s_edge, count, info = ps.list, ps.len, ps.s_edge, ps.count, ps.info
+        elseif g then
           flow = (#g.n + #g.s) * d.rate
           if colonne then
             local fixed = fc
@@ -961,11 +1036,12 @@ ONCE[#ONCE + 1] = function(P, J)
           no_smelter = no_smelter + 1
         end
       end
+      p1 = { si = p1.si + 1 }
     end
     K.emit_groups(bi, bd, st, 1)
     out_bands[#out_bands + 1] = st.bo
     spend(J, Ch.UNITS.band + (#bd.n + #bd.s))
-    bi1 = bi1 + 1
+    bi1, p1 = bi1 + 1, nil
   end
   bi1 = nil
   p2 = { bi = 1, li = 1 }
@@ -1204,18 +1280,21 @@ ONCE[#ONCE + 1] = function(P, J)
   return true
 end
 
--- 9. colonnes : mode (voie ou coffre de tête), replis, dérivations, pièces communes du réseau ; une colonne par unité
+-- 9. colonnes : mode (voie ou coffre de tête), replis, dérivations (une colonne par morceau), pièces communes du réseau d'un côté (par
+-- morceaux de ENT_CHUNK / 8 entités, émises à la suite de la première colonne du côté, comme avant)
 ONCE[#ONCE + 1] = function(P, J)
   local _ENV = P
   if not colonne then return true end
   local K = kit(P)
   local c, emit_e = K.c, K.emit_e
   while pi <= #pending do
-    if out_of(J) then return false end
     local it = pending[pi]
     local g = it.g
     local key = tostring(it.pr)
     local nt = nets[g.side]
+    if not pa then
+    if out_of(J) then return false end
+    local n_emit = 0
     local mode = g.info.mode
     if mode == "voie" then
       if F and F.cols then
@@ -1239,29 +1318,46 @@ ONCE[#ONCE + 1] = function(P, J)
       g.len = math.min(g.len, len)
     end
     for _, e in ipairs(g.list) do emit_e(e, it.bi, it.gi, it.pr, e.kind == "tapis" and (e.role == "charbon" and 1 or g.belt) or nil) end
+    n_emit = n_emit + #g.list
     if mode == "voie" and nt and nt.uT then
       local cf = (F and F.cols) and nt or coal_frame[tostring(g.side)]
       local col = { b = it.b, s_edge = g.s_edge, far = g.info.far, last = (cf and cf.last) == key }
       for _, e in ipairs(Co.branch(col, nt, g.side, spec.pole.wire)) do
         for u = e.u, e.u + e.size - 1 do for v = e.v, e.v + e.size - 1 do c.take(u, v) end end
         emit_e(e, it.bi, it.gi, it.pr, e.kind == "tapis" and 1 or nil)
+        n_emit = n_emit + 1
       end
       if not shared_done[g.side] then
         shared_done[g.side] = true
-        -- (projet séparé, 3/11) pièces COMMUNES du réseau du charbon d'un côté, marquées : le runtime les pose dans le projet « réseau du
-        -- charbon » de ce côté, pas dans la bande
-        for _, e in ipairs(nt.ents) do
+        shq = 1
+      end
+    end
+    pa, pmode = true, mode
+    spend(J, Ch.UNITS.pending + n_emit * Ch.UNITS.emit)
+    end
+    if shq then
+      -- (projet séparé, 3/11) pièces COMMUNES du réseau du charbon d'un côté, marquées : le runtime les pose dans le projet « réseau du
+      -- charbon » de ce côté, pas dans la bande
+      while shq <= #nt.ents do
+        if out_of(J) then return false end
+        local stop = math.min(#nt.ents, shq + ENT_CHUNK / 8 - 1)
+        for i = shq, stop do
+          local e = nt.ents[i]
           emit_e(e, 0, 0, nil, (e.kind == "tapis" or e.kind == "souterrain" or e.kind == "repartiteur") and 1 or nil)
           ents[#ents].coalnet = g.side
         end
+        spend(J, (stop - shq + 1) * Ch.UNITS.emit)
+        shq = stop + 1
       end
+      shq = nil
     end
+    local mode = pmode
+    pa, pmode = nil, nil
     cols_frame[key] = cols_frame[key] or {}
     cols_frame[key][tostring(g.side)] = { s_edge = g.s_edge, count = g.count, mode = mode }
     g.mode = mode
     local og = out_bands[it.bi] and out_bands[it.bi].groups[it.gi]
     if og then og.mode = (mode == "voie" and nt and nt.uT) and "voie" or mode end
-    spend(J, Ch.UNITS.pending + #g.list * Ch.UNITS.ent)
     pi = pi + 1
   end
   pi = nil
@@ -1311,36 +1407,57 @@ ONCE[#ONCE + 1] = function(P, J)
   return true
 end
 
--- 11. rangées de poteaux à poser, poteaux déjà émis
+-- 11. rangées de poteaux à poser (une bande par unité), poteaux déjà émis (par morceaux de ENT_CHUNK entités), poteaux de liaison des
+-- tracés (une bande par unité)
 ONCE[#ONCE + 1] = function(P, J)
   local _ENV = P
   local c = ctx_of(cx, spec)
   -- poteaux des rangées : la rangée pr couvre le haut de sa bande et le bas de la bande d'avant ; elle va jusqu'aux fonderies (lot
   -- FONDERIE : seule la rangée pr, du côté des fours, va jusqu'à la colonne ; l'autre passerait sur la colonne de la bande voisine)
-  rows, row_list, reach_to = {}, {}, {}
-  for bi, bd in ipairs(bands) do
-    local bo = out_bands[bi]
-    if #bo.groups > 0 then
-      for _, it in ipairs({ { bd.pr, bd.n, bd.pr, "pole_u" }, { bd.pr + pitch, bd.s, bd.pr, colonne and "pole_u2" or "pole_u" } }) do
-        local row = it[1]
-        if not rows[row] then rows[row] = {}; reach_to[row] = {}; row_list[#row_list + 1] = { row = row, pr = it[3] } end
-        for _, a in ipairs(it[2]) do rows[row][#rows[row] + 1] = a end
-        for _, g in ipairs(bo.groups) do reach_to[row][#reach_to[row] + 1] = g[it[4]] end
+  if not s11 then s11 = { ph = 1, i = 1 }; rows, row_list, reach_to = {}, {}, {} end
+  if s11.ph == 1 then
+    while s11.i <= #bands do
+      if out_of(J) then return false end
+      local bi = s11.i
+      local bd, bo = bands[bi], out_bands[bi]
+      if #bo.groups > 0 then
+        for _, it in ipairs({ { bd.pr, bd.n, bd.pr, "pole_u" }, { bd.pr + pitch, bd.s, bd.pr, colonne and "pole_u2" or "pole_u" } }) do
+          local row = it[1]
+          if not rows[row] then rows[row] = {}; reach_to[row] = {}; row_list[#row_list + 1] = { row = row, pr = it[3] } end
+          for _, a in ipairs(it[2]) do rows[row][#rows[row] + 1] = a end
+          for _, g in ipairs(bo.groups) do reach_to[row][#reach_to[row] + 1] = g[it[4]] end
+        end
       end
+      spend(J, 1 + (#bd.n + #bd.s + #bo.groups) * Ch.UNITS.ent)
+      s11.i = bi + 1
     end
+    table.sort(row_list, function(p_, q) return p_.row < q.row end)
+    all_poles = {}
+    s11.ph, s11.i = 2, 1
   end
-  table.sort(row_list, function(p_, q) return p_.row < q.row end)
-  all_poles = {}
-  for _, e in ipairs(ents) do
-    if e.kind == "poteau" then local u, v = c.uv(math.floor(e.x), math.floor(e.y)); all_poles[#all_poles + 1] = { u, v } end
+  if s11.ph == 2 then
+    while s11.i <= #ents do
+      if out_of(J) then return false end
+      local stop = math.min(#ents, s11.i + ENT_CHUNK - 1)
+      for i = s11.i, stop do
+        local e = ents[i]
+        if e.kind == "poteau" then local u, v = c.uv(math.floor(e.x), math.floor(e.y)); all_poles[#all_poles + 1] = { u, v } end
+      end
+      spend(J, (stop - s11.i + 1) * Ch.UNITS.ent)
+      s11.i = stop + 1
+    end
+    link_on = {}
+    s11.ph, s11.i = 3, 1
   end
-  link_on = {}
-  for bi in ipairs(bands) do
-    for _, g in ipairs(bstate[bi].groups) do
+  while s11.i <= #bands do
+    if out_of(J) then return false end
+    for _, g in ipairs(bstate[s11.i].groups) do
       for _, t in ipairs(g.link or {}) do link_on[t[2]] = link_on[t[2]] or {}; link_on[t[2]][#link_on[t[2]] + 1] = t[1] end
     end
+    spend(J, 1)
+    s11.i = s11.i + 1
   end
-  spend(J, #ents * Ch.UNITS.ent)
+  s11 = nil
   ri = 1
   return true
 end
@@ -1365,24 +1482,18 @@ ONCE[#ONCE + 1] = function(P, J)
   if not (F and F.only) and #all_poles > 1 then
     -- (lot CHAMP-COUVERTURE) un plan à coffres qui a des fonderies déplacées prend aussi les relais à plusieurs paires : ses quais sont loin
     -- des rangées de poteaux (12 réseaux sur le disque à coffres entre deux lacs avec bridge_0641)
-    br = { pass = 1, added = {}, multi = (colonne or n_routed > 0) and true or false }
+    br = br_new(colonne or n_routed > 0)
   end
   return true
 end
 
--- 13. relais entre réseaux de poteaux, une passe de bridge par unité
+-- 13. relais entre réseaux de poteaux (br_run reprenable : un poteau, un morceau de classement, une paire ou une chaîne par unité)
 ONCE[#ONCE + 1] = function(P, J)
   local _ENV = P
   if not br then return true end
   local K = kit(P)
   local c, emit = K.c, K.emit
-  while br.pass <= 60 do
-    if out_of(J) then return false end
-    local more = (br.multi and bridge_pass or bridge_0641_pass)(c, spec, all_poles, br.added)
-    spend(J, Ch.UNITS.bridge + #all_poles * Ch.UNITS.ent)
-    br.pass = br.pass + 1
-    if not more then break end
-  end
+  if not br_run(br, c, spec, all_poles, J) then return false end
   for _, p_ in ipairs(br.added) do emit("poteau", p_[1], p_[2], 1, 0, 0, 0, 0, nil, "relais") end
   br = nil
   return true
@@ -1391,8 +1502,28 @@ end
 -- 14. comptes, cadre, plan rendu
 ONCE[#ONCE + 1] = function(P, J)
   local _ENV = P
-  local n = { foreuse = 0, poteau = 0, tapis = 0, four = 0, bras = 0, coffre = 0, souterrain = 0, repartiteur = 0 }
-  for _, e in ipairs(ents) do n[e.kind] = n[e.kind] + 1 end
+  -- comptes par sorte, et ceux des règles des cadres « pushed », « order » et « plan » (Ch.head_chests, Ch.field_drills : n.hc, n.fd),
+  -- relevés ici par morceaux au lieu d'un parcours d'un coup de p.ents à chaque comparaison
+  if not s14 then
+    s14 = { i = 1, hc = 0, fd = 0, n = { foreuse = 0, poteau = 0, tapis = 0, four = 0, bras = 0, coffre = 0, souterrain = 0, repartiteur = 0 } }
+  end
+  while s14.i <= #ents do
+    if out_of(J) then return false end
+    local stop = math.min(#ents, s14.i + ENT_CHUNK - 1)
+    local cnt = s14.n
+    for i = s14.i, stop do
+      local e = ents[i]
+      local k = e.kind
+      cnt[k] = cnt[k] + 1
+      if k == "coffre" and e.role == "combustible" then s14.hc = s14.hc + 1
+      elseif k == "foreuse" and e.role ~= "charbon" then s14.fd = s14.fd + 1 end
+    end
+    spend(J, (stop - s14.i + 1) * Ch.UNITS.ent)
+    s14.i = stop + 1
+  end
+  local n = s14.n
+  nc = { hc = s14.hc, fd = s14.fd }
+  s14 = nil
   local frame = { axis = axis, phase = phase, exit = exit, origin = origin, umin = umin, umax = umax, v0 = box.v0, offsets = offsets }
   if colonne then frame.design, frame.cols, frame.coal = "colonne", cols_frame, coal_frame
   elseif spec.design and not F then frame.design = "coffres" end -- cadre neuf sans four (charbon, pierre) : distinct d'un cadre d'avant le lot
@@ -1413,24 +1544,33 @@ ONCE[#ONCE + 1] = function(P, J)
       routed = n_routed, route_max = route_max, moved = n_moved, -- (lot CHAMP-COUVERTURE) groupes tracés, plus long tracé, fonderies sur une autre rangée
       band_drills = band_drills },
   }, nil
-  spend(J, #ents * Ch.UNITS.ent)
   return "end"
 end
 
 local RUN = {}
 local function push(J, fr) J.stack[#J.stack + 1] = fr; return "call" end
+--- Ch.better_order(a, b) sur les comptes relevés à l'étape finale de « once » (an, bn : { hc = coffres de tête, fd = foreuses du champ }) :
+--- même règle, sans reparcourir les entités des deux plans.
+local function better_n(a, an, b, bn)
+  if not b then return false end
+  if not a then return true end
+  if an.hc ~= bn.hc then return bn.hc < an.hc end
+  return bn.fd > an.fd
+end
 local function copy_spec(spec) local sp = {}; for k, v in pairs(spec) do sp[k] = v end; return sp end
 
 --- « once » : un plan (plan_once d'avant), étape par étape.
 function RUN.once(J, P)
   while true do
+    -- une étape commence sur un budget non épuisé (son travail d'entrée compte dans le pas suivant, pas dans celui qui finit)
+    if J.left <= 0 then return "pause" end
     local r = ONCE[P.pc](P, J)
     if r == false then return "pause" end
     if r == "end" then
       -- le cadre n'est plus qu'un résultat : son état de travail est rendu (il ne voyage plus dans la sauvegarde)
-      local p, why, spec = P.p, P.why, P.spec
+      local p, why, spec, nc = P.p, P.why, P.spec, P.nc
       for k in pairs(P) do P[k] = nil end
-      P.fn, P.p, P.why, P.spec = "once", p, why, spec
+      P.fn, P.p, P.why, P.spec, P.n = "once", p, why, spec, nc
       return "ret"
     end
     P.pc = P.pc + 1
@@ -1444,7 +1584,7 @@ function RUN.pushed(J, fr)
   if fr.pc == 1 then fr.pc = 2 return push(J, { fn = "once", pc = 1, spec = fr.spec }) end
   if fr.pc == 2 then
     local p, why, spec = fr.got_p, fr.got_why, fr.spec
-    fr.p, fr.why = p, why
+    fr.p, fr.why, fr.n = p, why, fr.got_n
     if spec.frame or spec.push or not (p and p.cut and #p.cut > 0) then return "ret" end
     local sp = copy_spec(spec)
     sp.push = {}
@@ -1453,9 +1593,9 @@ function RUN.pushed(J, fr)
     return push(J, { fn = "once", pc = 1, spec = sp })
   end
   local q, qwhy, p = fr.got_p, fr.got_why, fr.p
-  if Ch.better_order(p, q) then
+  if better_n(p, fr.n, q, fr.got_n) then
     q.pushed = #p.cut
-    fr.p, fr.why = q, qwhy
+    fr.p, fr.why, fr.n = q, qwhy, fr.got_n
   end
   return "ret"
 end
@@ -1467,15 +1607,15 @@ function RUN.order(J, fr)
   if fr.pc == 1 then fr.pc = 2 return push(J, { fn = "pushed", pc = 1, spec = spec }) end
   if fr.pc == 2 then
     local p, why = fr.got_p, fr.got_why
-    fr.p, fr.why = p, why
+    fr.p, fr.why, fr.n = p, why, fr.got_n
     if not (Ch.CFG.refuse_coffre and p and p.design == "colonne" and p.fuelled and not spec.frame) then return "ret" end
     if not (p.fallback and #p.fallback > 0) then return "ret" end
-    fr.p0, fr.why0 = p, why -- plan avec les colonnes au coffre de tête (0.6.42) : gardé si le refus coûte trop
+    fr.p0, fr.why0, fr.n0 = p, why, fr.n -- plan avec les colonnes au coffre de tête (0.6.42) : gardé si le refus coûte trop
     fr.refuse, fr.refused, fr.pass = {}, {}, 1
     fr.pc = 3
   end
   if fr.pc == 4 then
-    fr.p, fr.why = fr.got_p, fr.got_why
+    fr.p, fr.why, fr.n = fr.got_p, fr.got_why, fr.got_n
     if fr.p then fr.pass, fr.pc = fr.pass + 1, 3 else fr.pc = 5 end
   end
   if fr.pc == 3 then
@@ -1495,11 +1635,11 @@ function RUN.order(J, fr)
   end
   -- refus impossible (plan vide, ou replis encore là après les passes) : il coûte tout le champ
   local p, p0 = fr.p, fr.p0
-  local after = (p and not (p.fallback and #p.fallback > 0)) and Ch.field_drills(p) or 0
-  local keep, cost = Ch.refuse_keeps(Ch.field_drills(p0), after)
+  local after = (p and not (p.fallback and #p.fallback > 0)) and fr.n.fd or 0
+  local keep, cost = Ch.refuse_keeps(fr.n0.fd, after)
   if not keep then
     p0.coffre_cost, p0.coffre_cols = cost, #p0.fallback
-    fr.p, fr.why = p0, fr.why0
+    fr.p, fr.why, fr.n = p0, fr.why0, fr.n0
     return "ret"
   end
   local refused = fr.refused
@@ -1522,18 +1662,18 @@ function RUN.plan(J, fr)
   if fr.pc == 1 then fr.pc = 2 return push(J, { fn = "order", pc = 1, spec = spec }) end
   if fr.pc == 2 then
     local p, why = fr.got_p, fr.got_why
-    fr.p, fr.why = p, why
+    fr.p, fr.why, fr.n = p, why, fr.got_n
     if not (Ch.CFG.both_orders and p and p.design == "colonne" and p.fuelled and not spec.frame and not spec.coal_first) then return "ret" end
-    if Ch.head_chests(p) == 0 and not (p.refused and #p.refused > 0) then return "ret" end
+    if fr.n.hc == 0 and not (p.refused and #p.refused > 0) then return "ret" end
     local sp = copy_spec(spec)
     sp.coal_first = -p.exit
     fr.pc = 3
     return push(J, { fn = "order", pc = 1, spec = sp })
   end
   local q, qwhy, p = fr.got_p, fr.got_why, fr.p
-  if Ch.better_order(p, q) then
-    q.order_swapped = { chests = Ch.head_chests(p), drills = Ch.field_drills(p) }
-    fr.p, fr.why = q, qwhy
+  if better_n(p, fr.n, q, fr.got_n) then
+    q.order_swapped = { chests = fr.n.hc, drills = fr.n.fd }
+    fr.p, fr.why, fr.n = q, qwhy, fr.got_n
   end
   return "ret"
 end
@@ -1558,7 +1698,7 @@ function Ch.plan_step(J, budget)
       J.stack[#J.stack] = nil
       local parent = J.stack[#J.stack]
       if parent then
-        parent.got_p, parent.got_why = fr.p, fr.why
+        parent.got_p, parent.got_why, parent.got_n = fr.p, fr.why, fr.n
       else
         J.p, J.why, J.done, J.spent, J.left = fr.p, fr.why, true, left0 - J.left, nil
         return true

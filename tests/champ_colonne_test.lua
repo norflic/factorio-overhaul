@@ -552,10 +552,11 @@ do
       return l, n, i
     end
   end, function() Co.layout = lay end, { coal = COAL_NEAR }, function(r) return r.no_coal > 0 end)
-  local rt = Co.route
+  -- (coût, 7/11) le plan appelle le tracé REPRENABLE (Co.route_new / Co.route_run) : le mutant est posé sur Co.route_new
+  local rt = Co.route_new
   rule_mutant("souterrain au-delà de la portée", function()
-    Co.route = function(s, sd, t, td, free, span, ug, box, cap) return rt(s, sd, t, td, free, span, ug and (ug + 3), box, cap) end
-  end, function() Co.route = rt end, { coal = disc(60, 0, 8), blocked = (function()
+    Co.route_new = function(s, sd, t, td, ug, box, cap) return rt(s, sd, t, td, ug and (ug + 3), box, cap) end
+  end, function() Co.route_new = rt end, { coal = disc(60, 0, 8), blocked = (function()
     local rv = {}; for x = 36, 42 do for y = -400, 400 do rv[Ch.key(x, y)] = true end end; return rv end)(), ug = 5 },
     function(r) return r.junction > 0 or r.no_coal > 0 end)
   local br = Co.branch
@@ -797,10 +798,11 @@ do
   local ms, nm = Co2src:gsub("    if x%.open ~= y%.open then return x%.open end%c", "", 1)
   assert(nm == 1, "mutant introuvable")
   local Cm = assert(load(ms))()
-  local keep = Co.coal_line
-  Co.coal_line = Cm.coal_line
+  -- (coût, 7/11) le plan appelle la ligne de charbon REPRENABLE : Co.coal_line_new / Co.coal_line_run du mutant
+  local keep_new, keep_run = Co.coal_line_new, Co.coal_line_run
+  Co.coal_line_new, Co.coal_line_run = Cm.coal_line_new, Cm.coal_line_run
   local pmut = Ch.plan(player())
-  Co.coal_line = keep
+  Co.coal_line_new, Co.coal_line_run = keep_new, keep_run
   check(Ch.head_chests(pmut) == 5, "mutant « sortie enfermee acceptee » vu : 5 coffres de tete (" .. Ch.head_chests(pmut) .. ")")
   Ch.CFG.decouple = dec_saved
   -- (lot CHAMP-COUVERTURE) avec le découplage, les deux cadres réels : 0 coffre de tête, au moins autant de foreuses du champ, chaque four
@@ -821,8 +823,19 @@ do
     assert(n2 == 1, "mutant introuvable : " .. pat)
     return assert(load(ms2, "=champ_mutant"))()
   end
+  -- (coût, 7/11) plan en tranches : le côté tracé d'un coup, dans la passe 1 (Cc.place_routed, reculs de la sortie compris, comme
+  -- route_side d'avant), avant l'autre côté et les bandes suivantes
   local M1 = ch_mutant("elseif routable then%c%s+st%.later%[#st%.later %+ 1%] = { side = side, had_group = g ~= nil }",
-    "elseif routable then if not route_side(bd, st, side) and g then no_smelter = no_smelter + 1 end")
+    "elseif routable then local placed = false " ..
+    "for k = 0, Cc.CFG.trim do if not placed then local bt, le = Cc.trim(bd, side, d.size, k) " ..
+    "local gl = le and take_group(c, spec, bt, side, cap, le, st.used, st.limit, total, hop) " ..
+    "if gl then local fl = (#gl.n + #gl.s) * d.rate; local cnt = Fd.count(spec, fl) " ..
+    "local r = Cc.place_routed({ spec = spec, colonne = colonne, mode = (colonne and fuelled) and \"voie\" or nil, b = bd.b, side = side, " ..
+    "edge = edge, exit = le, count = cnt, gap = Ch.CFG.gap, pitch = pitch, used_rows = used_rows[side], ug = ug, " ..
+    "own = { pr = bd.pr, side = side, exit = le }, free = function(u, v) return c.free(u, v) and K.not_coal(u, v) end, " ..
+    "is_ore = c.is_ore, forbid = K.forbid, span = K.span }) " ..
+    "if r then gl.exit, gl.trim = le, k; K.commit(bd, st, side, gl, fl, r.list, r.len, r.s_edge, cnt, r.info, r); placed = true end " ..
+    "end end end if not placed and g then no_smelter = no_smelter + 1 end")
   local pone = M1.plan(player())
   check(pone and Ch.field_drills(pone) < 63, "mutant « une passe » vu : " .. (pone and Ch.field_drills(pone) or 0) .. " foreuses du champ (63 en deux passes)")
   -- colonne déplacée posée en deçà de la ligne voisine (x = 45) : le tronc du charbon, au-delà des autres colonnes, coupe sa dérivation ;
@@ -840,7 +853,8 @@ do
     and rl.no_coal == 0 and rl.no_ore == 0 and rl.components <= 1,
     string.format("ligne voisine, colonne reposee au-dela : %s colonne(s) reposee(s), %d coffre(s) de tete, %d foreuses du champ (sans decouplage %d), %s",
       tostring(pl and pl.pushed), Ch.head_chests(pl), pl and Ch.field_drills(pl) or 0, Ch.field_drills(pl0), rl and Cv.line(rl) or "?"))
-  local M2 = ch_mutant("if spec%.frame or spec%.push or not %(p and p%.cut and #p%.cut > 0%) then return p, why end", "do return p, why end")
+  -- (coût, 7/11) plan en tranches : le cadre « pushed » rend son plan sans le refaire
+  local M2 = ch_mutant("if spec%.frame or spec%.push or not %(p and p%.cut and #p%.cut > 0%) then return \"ret\" end", "do return \"ret\" end")
   local plm = M2.plan(lv())
   check(plm and Ch.field_drills(plm) < Ch.field_drills(pl), string.format("mutant « jamais reposee » vu : %d foreuses du champ (colonne refusee ; %d reposee)",
     plm and Ch.field_drills(plm) or 0, pl and Ch.field_drills(pl) or 0))

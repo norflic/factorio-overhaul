@@ -101,11 +101,12 @@ end
 local function compare(Co, n)
   seed = 20261105
   local diff, proved, none, example = 0, 0, 0, nil
-  local real = Co.unreachable
-  Co.unreachable = function(...)
-    local w = real(...)
-    if w then proved = proved + 1 end
-    return w
+  -- (coût, 7/11, voie des TRANCHES) l'A* mène la preuve REPRENABLE (Co.unreachable_new / Co.unreachable_run) : comptée à sa fin
+  local real = Co.unreachable_run
+  Co.unreachable_run = function(st, ...)
+    local done = real(st, ...)
+    if done and st.res then proved = proved + 1 end
+    return done
   end
   for i = 1, n do
     local c = make_case()
@@ -117,7 +118,7 @@ local function compare(Co, n)
       example = example or string.format("cas %d : A* %s ; avec preuve %s", i, a:sub(-60), b:sub(-60))
     end
   end
-  Co.unreachable = real
+  Co.unreachable_run = real
   Co.PREUVE, Co.PREUVE_APRES, Co.PREUVE_TUILES = true, 2000, 3000
   return diff, proved, none, example
 end

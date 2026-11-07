@@ -243,13 +243,33 @@ do
     check(f(15, 2) and not f(15, 2, { pr = 0, side = 1, exit = 14 }) and f(13, 2, { pr = 0, side = 1, exit = 14 }) and f(5, 10, { pr = 0, side = 1, exit = 14 }),
       "rectangles : la bande du groupe est libre au-dela de sa sortie, et elle seule")
   end
+  -- (coût, 7/11) candidats rangés directement dans l'ordre du tri : même liste que le tri complet d'avant (Cc.candidates_tri)
+  do
+    local bad, n = 0, 0
+    for _, b in ipairs({ 0, 5, -13 }) do
+      for _, pitch in ipairs({ 6, 8, 10 }) do
+        for _, side in ipairs({ 1, -1 }) do
+          for _, ur in ipairs({ {}, { [b + pitch] = true }, { [b] = true, [b - 2 * pitch] = true } }) do
+            local x, y = Cc.candidates(b, side, 40, 1, pitch, ur), Cc.candidates_tri(b, side, 40, 1, pitch, ur)
+            n = n + 1
+            local same = #x == #y
+            for i = 1, #x do
+              if same and not (x[i].row == y[i].row and x[i].t == y[i].t and x[i].s_edge == y[i].s_edge and x[i].cost == y[i].cost) then same = false end
+            end
+            if not same then bad = bad + 1 end
+          end
+        end
+      end
+    end
+    check(bad == 0, string.format("candidats sans tri = tri complet d'avant : %d cas, %d differents", n, bad))
+  end
   -- mutants de SOURCE (shared/team/champ.lua chargé modifié)
   local smuts = {
     { "souterrain de bande sans ecarter les foreuses qui deposent dessus", function(src)
         return src:gsub("for _, it in ipairs%(all%) do if not skip%[it%.cu%] then keep%[#keep %+ 1%] = it end end", "for _, it in ipairs(all) do keep[#keep + 1] = it end")
       end, { "r30 + tourelles eparses sur le champ" } },
     { "aucun saut d'obstacle en souterrain", function(src)
-        return src:gsub("local hop = %(%(decouple_new or %(F and F%.routed%)%) and ug and ug >= 2%) and %(ug %- 1%) or nil", "local hop = nil")
+        return src:gsub("hop = %(r23 and ug and ug >= 2%) and %(ug %- 1%) or nil", "hop = nil")
       end, { "r30 + tourelles eparses sur le champ" } },
     { "tapis de bande poursuivi jusqu'a la fonderie malgre le trace", function(src)
         return src:gsub("if g%.route then s_end = g%.exit %- g%.side end", "")

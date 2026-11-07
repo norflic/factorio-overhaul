@@ -200,31 +200,9 @@ function Co.place(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fi
     return nil
   end
   if Co.FAST_PLACE then
-    -- (coût, 7/11) la colonne ne dépend de s_edge que par translation le long de u : disposition calculée UNE fois en s_edge = 0, chaque
-    -- recul relit ses tuiles décalées et s'arrête à la première prise ; seule la place retenue refait la vraie disposition (même résultat
-    -- que la boucle d'avant, Co.FAST_PLACE = false, contrôlé par tests/champ_tranches_test.lua)
-    local base = Co.layout(spec, b, side, 0, count, mode)
-    if not base then return nil end
-    for pass = 1, 2 do
-      for t = 0, shift do
-        local s_edge = edge + side * (gap + 1 + t)
-        local ok = true
-        for u = edge + side, s_edge - side, side do if not free(u, b) then ok = false break end end
-        if ok then
-          for _, e in ipairs(base) do
-            for u = e.u + s_edge, e.u + s_edge + e.size - 1 do
-              for v = e.v, e.v + e.size - 1 do if not free(u, v) or (pass == 1 and is_ore(u, v)) then ok = false break end end
-              if not ok then break end
-            end
-            if not ok then break end
-          end
-        end
-        if ok then
-          local list, len, info = Co.layout(spec, b, side, s_edge, count, mode)
-          return list, len, s_edge, count, info
-        end
-      end
-    end
+    local st = Co.place_new(spec, b, side, edge, count, gap, shift, mode)
+    Co.place_run(st, spec, free, is_ore, nil)
+    if st.list then return st.list, st.len, st.s_edge, st.count, st.info end
     return nil
   end
   for pass = 1, 2 do
@@ -241,6 +219,52 @@ function Co.place(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fi
     end
   end
   return nil
+end
+
+--- (coût, 7/11) la colonne ne dépend de s_edge que par translation le long de u : disposition calculée UNE fois en s_edge = 0, chaque
+--- recul relit ses tuiles décalées et s'arrête à la première prise ; seule la place retenue refait la vraie disposition (même résultat
+--- que la boucle d'avant, Co.FAST_PLACE = false, contrôlé par tests/champ_tranches_test.lua).
+--- (coût, 7/11, voie des TRANCHES) REPRENABLE : Co.place_new(spec, b, side, edge, count, gap, shift, mode) rend un état de données ;
+--- Co.place_run(st, spec, free, is_ore, J) essaie un recul par morceau tant que J.left > 0 (Co.PLACE_UNIT unité par tuile relue) et rend
+--- vrai à la fin : st.list, st.len, st.s_edge, st.count, st.info, ou st.list = nil (aucune place). Mêmes essais, dans le même ordre.
+Co.PLACE_UNIT = 1 / 11
+function Co.place_new(spec, b, side, edge, count, gap, shift, mode)
+  local base = Co.layout(spec, b, side, 0, count, mode)
+  return { b = b, side = side, edge = edge, count = count, gap = gap, shift = shift, mode = mode, base = base, pass = 1, t = 0,
+    done = base == nil }
+end
+
+function Co.place_run(st, spec, free, is_ore, J)
+  if st.done then return true end
+  local b, side, edge, base = st.b, st.side, st.edge, st.base
+  while st.pass <= 2 do
+    while st.t <= st.shift do
+      if J and J.left <= 0 then return false end
+      local pass, t = st.pass, st.t
+      local s_edge = edge + side * (st.gap + 1 + t)
+      local ok, n = true, 1
+      for u = edge + side, s_edge - side, side do n = n + 1; if not free(u, b) then ok = false break end end
+      if ok then
+        for _, e in ipairs(base) do
+          for u = e.u + s_edge, e.u + s_edge + e.size - 1 do
+            for v = e.v, e.v + e.size - 1 do n = n + 1; if not free(u, v) or (pass == 1 and is_ore(u, v)) then ok = false break end end
+            if not ok then break end
+          end
+          if not ok then break end
+        end
+      end
+      if J then J.left = J.left - n * Co.PLACE_UNIT end
+      if ok then
+        st.list, st.len, st.info = Co.layout(spec, b, side, s_edge, st.count, st.mode)
+        st.s_edge, st.done, st.base = s_edge, true, nil
+        return true
+      end
+      st.t = t + 1
+    end
+    st.pass, st.t = st.pass + 1, 0
+  end
+  st.done, st.base = true, nil
+  return true
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -294,9 +318,30 @@ Co.tk = tk
 --- pour lui) ; si rien n'est prouvé, l'A* reprend là où il en était.
 Co.PREUVE = true        -- (tests : faux = l'A* seul, la référence)
 Co.PREUVE_APRES = 2000  -- états développés par l'A* avant la tentative
+-- (tranches) unités de travail, calibrées hors jeu (environ 1 000 instructions Lua par unité ; tests/champ_tranches_test.lua, C3) :
+-- un état développé de l'A*, une tuile de la preuve d'impossibilité
+Co.EXP_UNIT = 1.9
+Co.PROOF_UNIT = 0.7
 Co.PREUVE_TUILES = 3000 -- tuiles développées au plus par chacun des deux remplissages
+--- (coût, 7/11, voie des TRANCHES) preuve REPRENABLE : Co.unreachable_new(s, t, ug, box, cap) rend un état de données (remplissages,
+--- files, mémoire de place libre), Co.unreachable_run(st, free, J) avance d'une tuile par unité tant que J.left > 0, vrai à la fin
+--- (st.res = "aucun chemin" ou nil). Co.unreachable : la boucle jusqu'au bout (mêmes tuiles dans le même ordre).
+function Co.unreachable_new(s, t, ug, box, cap)
+  return { s = { u = s.u, v = s.v }, t = { u = t.u, v = t.v }, ug = ug, box = { u0 = box.u0, u1 = box.u1, v0 = box.v0, v1 = box.v1 }, cap = cap,
+    fcache = {}, fseen = { [tk(s.u, s.v)] = true }, rseen = { [tk(t.u, t.v)] = true }, fq = { { s.u, s.v } }, rq = { { t.u, t.v } },
+    fh = 1, rh = 1, fn = 1, rn = 1, done = false }
+end
+
 function Co.unreachable(s, t, free, ug, box, cap)
-  local fcache = {}
+  local st = Co.unreachable_new(s, t, ug, box, cap)
+  Co.unreachable_run(st, free, nil)
+  return st.res
+end
+
+function Co.unreachable_run(st, free, J)
+  if st.done then return true end
+  local s, t, box, cap = st.s, st.t, st.box, st.cap
+  local fcache = st.fcache
   local function fr(u, v)
     local k = tk(u, v)
     local x = fcache[k]
@@ -310,40 +355,37 @@ function Co.unreachable(s, t, free, ug, box, cap)
   local function landing(u, v) return inb(u, v) and (is_t(u, v) or fr(u, v)) end
   -- tuile qui porte un état développable : le départ, ou une tuile d'arrivée qui n'est pas la cible (la cible ne se développe pas)
   local function holder(u, v) return is_s(u, v) or (not is_t(u, v) and landing(u, v)) end
-  local fseen, rseen = { [tk(s.u, s.v)] = true }, { [tk(t.u, t.v)] = true }
-  local fq, rq = { { s.u, s.v } }, { { t.u, t.v } }
-  local fh, rh = 1, 1
-  local fn, rn = 1, 1
-  local maxk = ug or 0
+  local fseen, rseen, fq, rq = st.fseen, st.rseen, st.fq, st.rq
+  local maxk = st.ug or 0
   local function fstep()
-    local x = fq[fh]; fh = fh + 1
+    local x = fq[st.fh]; st.fh = st.fh + 1
     local u, v = x[1], x[2]
     if is_t(u, v) then return end -- la cible ne se développe pas
     for _, d in ipairs(D4) do
       local nu, nv = u + d[1], v + d[2]
       if landing(nu, nv) then
         local k = tk(nu, nv)
-        if not fseen[k] then fseen[k] = true; fn = fn + 1; fq[#fq + 1] = { nu, nv } end
+        if not fseen[k] then fseen[k] = true; st.fn = st.fn + 1; fq[#fq + 1] = { nu, nv } end
       end
       for kk = 2, maxk do
         local mu, mv = u + kk * d[1], v + kk * d[2]
         local yu, yv = mu + d[1], mv + d[2]
         if fr(mu, mv) and not is_t(mu, mv) and landing(yu, yv) then
           local k = tk(yu, yv)
-          if not fseen[k] then fseen[k] = true; fn = fn + 1; fq[#fq + 1] = { yu, yv } end
+          if not fseen[k] then fseen[k] = true; st.fn = st.fn + 1; fq[#fq + 1] = { yu, yv } end
         end
       end
     end
   end
   local function rstep()
-    local y = rq[rh]; rh = rh + 1
+    local y = rq[st.rh]; st.rh = st.rh + 1
     local u, v = y[1], y[2]
     for _, d in ipairs(D4) do
       -- arête x -> y avec x = y - d (pas d'un tapis)
       local xu, xv = u - d[1], v - d[2]
       if holder(xu, xv) then
         local k = tk(xu, xv)
-        if not rseen[k] then rseen[k] = true; rn = rn + 1; rq[#rq + 1] = { xu, xv } end
+        if not rseen[k] then rseen[k] = true; st.rn = st.rn + 1; rq[#rq + 1] = { xu, xv } end
       end
       -- paire de souterrains x -> y : sortie m = y - d libre (et pas la cible), x = y - (kk + 1) d
       local mu, mv = u - d[1], v - d[2]
@@ -352,32 +394,35 @@ function Co.unreachable(s, t, free, ug, box, cap)
           local xu2, xv2 = u - (kk + 1) * d[1], v - (kk + 1) * d[2]
           if holder(xu2, xv2) then
             local k = tk(xu2, xv2)
-            if not rseen[k] then rseen[k] = true; rn = rn + 1; rq[#rq + 1] = { xu2, xv2 } end
+            if not rseen[k] then rseen[k] = true; st.rn = st.rn + 1; rq[#rq + 1] = { xu2, xv2 } end
           end
         end
       end
     end
   end
+  local function finish(res) st.done, st.res = true, res; st.fcache, st.fseen, st.rseen, st.fq, st.rq = nil, nil, nil, nil, nil; return true end
   local area = (box.u1 - box.u0 + 1) * (box.v1 - box.v0 + 1) + 1
   local per = (maxk >= 2) and 8 or 4 -- états par tuile : sans paire de souterrains, « tout droit imposé » n'existe jamais (m = 0)
   while true do
-    local fdone, rdone = fh > #fq, rh > #rq
+    local fdone, rdone = st.fh > #fq, st.rh > #rq
     if fdone then
       -- remplissage avant épuisé : `t` non atteint, au plus 8 états par tuile atteinte
-      if fseen[tk(t.u, t.v)] then return nil end
-      if per * fn <= cap then return "aucun chemin" end
-      return nil
+      if fseen[tk(t.u, t.v)] then return finish(nil) end
+      if per * st.fn <= cap then return finish("aucun chemin") end
+      return finish(nil)
     end
     if rdone then
       -- remplissage arrière épuisé : `s` ne mène pas à `t` ; états atteignables depuis `s` bornés par la boîte (+ le départ)
-      if rseen[tk(s.u, s.v)] then return nil end
-      if per * area <= cap then return "aucun chemin" end
-      return nil
+      if rseen[tk(s.u, s.v)] then return finish(nil) end
+      if per * area <= cap then return finish("aucun chemin") end
+      return finish(nil)
     end
     -- un bout a touché l'autre : rien ne sera prouvé (le chemin existe peut-être), l'A* reprend
-    if fseen[tk(t.u, t.v)] or rseen[tk(s.u, s.v)] then return nil end
-    if fn > Co.PREUVE_TUILES and rn > Co.PREUVE_TUILES then return nil end
-    if (fn <= rn or rn > Co.PREUVE_TUILES) and fn <= Co.PREUVE_TUILES then fstep() else rstep() end
+    if fseen[tk(t.u, t.v)] or rseen[tk(s.u, s.v)] then return finish(nil) end
+    if st.fn > Co.PREUVE_TUILES and st.rn > Co.PREUVE_TUILES then return finish(nil) end
+    if J and J.left <= 0 then return false end
+    if (st.fn <= st.rn or st.rn > Co.PREUVE_TUILES) and st.fn <= Co.PREUVE_TUILES then fstep() else rstep() end
+    if J then J.left = J.left - Co.PROOF_UNIT end
   end
 end
 
@@ -429,61 +474,75 @@ function Co.route_run(st, free, span, tcost, J)
       hpush(open, { u = nu, v = nv, d = nd, m = nm, f = ng + h, h = h, k = nk })
     end
   end
-  while #open > 0 do
+  -- un état développé : la cible (le tracé est rendu) ou ses voisins relâchés ; vrai si le tracé est fini
+  local function expand(cur)
+    if cur.u == t.u and cur.v == t.v then
+      if cur.d ~= ((td + 1) % 4) + 1 and (cur.m == 0 or cur.d == td) then
+        local out = { { u = t.u, v = t.v, d = td, kind = "tapis" } }
+        local k = cur.k
+        while prev[k] do
+          local a = prev[k].act
+          for i = #a, 1, -1 do table.insert(out, 1, a[i]) end
+          k = prev[k].k
+        end
+        st.n = expanded
+        return finish(out, nil)
+      end
+    else
+      -- tapis posé ici, tout droit ou en virage (jamais demi-tour ; tout droit imposé après une sortie de souterrain)
+      for _, turn in ipairs({ 0, -1, 1 }) do
+        if turn == 0 or cur.m == 0 then
+          local nd = ((cur.d - 1 + turn) % 4) + 1
+          local dv = D4[nd]
+          relax(cur, cur.u + dv[1], cur.v + dv[2], nd, 0, tc(cur.u, cur.v), { { u = cur.u, v = cur.v, d = nd, kind = "tapis" } })
+        end
+      end
+      -- paire de souterrains : entrée ici (on y arrive tout droit), sortie k tuiles plus loin, puis tout droit
+      if ug then
+        local dv = D4[cur.d]
+        local ok_span = true
+        for k = 1, ug do
+          local mu, mv = cur.u + k * dv[1], cur.v + k * dv[2]
+          if k >= 2 and ok_span and free(mu, mv) and not (mu == t.u and mv == t.v) then
+            relax(cur, mu + dv[1], mv + dv[2], cur.d, 1, tc(cur.u, cur.v) + tc(mu, mv) + (k - 1) + Co.UG_COST, {
+              { u = cur.u, v = cur.v, d = cur.d, kind = "souterrain", ug = "input" },
+              { u = mu, v = mv, d = cur.d, kind = "souterrain", ug = "output" } })
+          end
+          if span and not span(mu, mv) then ok_span = false end
+        end
+      end
+    end
+    return false
+  end
+  while true do
+    -- (tranches) preuve d'impossibilité en cours (lot PERF3), reprenable : l'état développé qui l'a ouverte reprend après elle
+    if st.pv then
+      if not Co.unreachable_run(st.pv, free, J) then st.expanded = expanded return false end
+      local why = st.pv.res
+      local cur = st.pv_cur
+      st.pv, st.pv_cur = nil, nil
+      if why then return finish(nil, why) end
+      if expand(cur) then return true end
+    end
+    if #open == 0 then break end
     if J and J.left <= 0 then st.expanded = expanded return false end
     local cur = hpop(open)
     if not closed[cur.k] then
       closed[cur.k] = true
       expanded = expanded + 1
-      if J then J.left = J.left - 1 end
+      if J then J.left = J.left - Co.EXP_UNIT end
       if expanded > cap then return finish(nil, "trop long") end
       if expanded == Co.PREUVE_APRES and Co.PREUVE then
-        local why = Co.unreachable(s, t, free, ug, box, cap) -- lot PERF3 : impossibilité prouvée vite, même réponse que l'A*
-        if J then J.left = J.left - Co.PREUVE_UNITS end
-        if why then return finish(nil, why) end
-      end
-      if cur.u == t.u and cur.v == t.v then
-        if cur.d ~= ((td + 1) % 4) + 1 and (cur.m == 0 or cur.d == td) then
-          local out = { { u = t.u, v = t.v, d = td, kind = "tapis" } }
-          local k = cur.k
-          while prev[k] do
-            local a = prev[k].act
-            for i = #a, 1, -1 do table.insert(out, 1, a[i]) end
-            k = prev[k].k
-          end
-          st.n = expanded
-          return finish(out, nil)
-        end
-      else
-        -- tapis posé ici, tout droit ou en virage (jamais demi-tour ; tout droit imposé après une sortie de souterrain)
-        for _, turn in ipairs({ 0, -1, 1 }) do
-          if turn == 0 or cur.m == 0 then
-            local nd = ((cur.d - 1 + turn) % 4) + 1
-            local dv = D4[nd]
-            relax(cur, cur.u + dv[1], cur.v + dv[2], nd, 0, tc(cur.u, cur.v), { { u = cur.u, v = cur.v, d = nd, kind = "tapis" } })
-          end
-        end
-        -- paire de souterrains : entrée ici (on y arrive tout droit), sortie k tuiles plus loin, puis tout droit
-        if ug then
-          local dv = D4[cur.d]
-          local ok_span = true
-          for k = 1, ug do
-            local mu, mv = cur.u + k * dv[1], cur.v + k * dv[2]
-            if k >= 2 and ok_span and free(mu, mv) and not (mu == t.u and mv == t.v) then
-              relax(cur, mu + dv[1], mv + dv[2], cur.d, 1, tc(cur.u, cur.v) + tc(mu, mv) + (k - 1) + Co.UG_COST, {
-                { u = cur.u, v = cur.v, d = cur.d, kind = "souterrain", ug = "input" },
-                { u = mu, v = mv, d = cur.d, kind = "souterrain", ug = "output" } })
-            end
-            if span and not span(mu, mv) then ok_span = false end
-          end
-        end
+        -- lot PERF3 : impossibilité prouvée vite, même réponse que l'A* (preuve reprenable, ouverte ici, menée en tête de boucle)
+        st.pv, st.pv_cur = Co.unreachable_new(s, t, ug, box, cap), cur
+      elseif expand(cur) then
+        return true
       end
     end
   end
   return finish(nil, "aucun chemin")
 end
 
-Co.PREUVE_UNITS = 200 -- (tranches) unités comptées pour la preuve d'impossibilité (deux remplissages de Co.PREUVE_TUILES tuiles au plus)
 
 function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost)
   local st = Co.route_new(s, sd, t, td, ug, box, cap)
@@ -505,7 +564,8 @@ end
 --- tuiles étrangères, fenêtre, rangée en cours, meilleur choix), Co.coal_line_run(st, is_coal, free, is_foreign, J) avance rangée par
 --- rangée tant que J.left > 0 (Co.LINE_UNITS par rangée) et rend vrai à la fin ; st.res = la ligne ou nil. Co.coal_line : la boucle
 --- jusqu'au bout, mêmes rangées dans le même ordre.
-Co.LINE_UNITS = 60
+Co.LINE_UNITS = 72
+local LINE_SETS = { { -1 }, { 1 }, { -1, 1 } } -- côtés d'une rangée de la ligne de charbon, dans l'ordre des essais
 function Co.coal_line_new(coal, d, want, target, R, wire, per_side, center)
   if #coal == 0 or want < 1 or R < 1 then return { done = true } end
   -- fenêtre autour de `center`, sinon de la tuile de charbon la plus proche de la cible
@@ -617,14 +677,32 @@ function Co.coal_line_run(st, is_coal, free, is_foreign, J)
     end
     if st.l == nil then st.l = lmin - s end
     while st.l <= lmax + s do
-      if J and J.left <= 0 then return false end
       local l = st.l
-      local per = { [-1] = side_drills(l, -1), [1] = side_drills(l, 1) }
-      for set_i, set in ipairs({ { -1 }, { 1 }, { -1, 1 } }) do
+      -- (tranches) une rangée en 8 morceaux : ses foreuses possibles d'un côté puis de l'autre (st.per, données), puis chaque couple
+      -- (côtés, sens de la sortie) dans l'ordre d'avant (st.k). La liste `all` est refaite pour chaque sens : son tri est total (a, puis
+      -- sg : couples distincts), il ne dépend pas de l'ordre d'entrée (avant, le second sens retriait la liste du premier) : mêmes `pick`
+      if not st.per then
+        if J and J.left <= 0 then return false end
+        st.per = { side_drills(l, -1) }
+        if J then J.left = J.left - Co.LINE_UNITS * 0.45 end
+      end
+      if not st.k then
+        if J and J.left <= 0 then return false end
+        st.per[2], st.k = side_drills(l, 1), 1
+        if J then J.left = J.left - Co.LINE_UNITS * 0.45 end
+      end
+      local per = { [-1] = st.per[1], [1] = st.per[2] }
+      while st.k <= 6 do
+        if J and J.left <= 0 then return false end
+        local set_i = math.floor((st.k - 1) / 2) + 1
+        local set = LINE_SETS[set_i]
+        local e = (st.k % 2 == 1) and 1 or -1
+        st.k = st.k + 1
+        if J then J.left = J.left - Co.LINE_UNITS * 0.1 / 6 end
         local all = {}
         for _, sg in ipairs(set) do for _, a in ipairs(per[sg]) do all[#all + 1] = { a = a, sg = sg } end end
         if #all > 0 then
-          for _, e in ipairs({ 1, -1 }) do
+          do
             table.sort(all, function(p, q)
               if p.a ~= q.a then if e > 0 then return p.a > q.a end return p.a < q.a end
               return p.sg < q.sg
@@ -692,8 +770,8 @@ function Co.coal_line_run(st, is_coal, free, is_foreign, J)
           end
         end
       end
+      st.per, st.k = nil, nil
       st.l = l + 1
-      if J then J.left = J.left - Co.LINE_UNITS end
     end
     st.oi, st.l = st.oi + 1, nil
   end
@@ -776,6 +854,9 @@ end
 --- vrai à la fin, le réseau dans st.res. env est redonné à chaque appel (ses fonctions ne sont jamais gardées). Co.network : la boucle
 --- jusqu'au bout, mêmes étapes dans le même ordre.
 function Co.network_new(cols, side) return { cols = cols, side = side, stage = 1 } end
+Co.SEL_CHUNK = 500   -- (tranches) tuiles de charbon lues par morceau pour chercher une fenêtre
+Co.TRUNK_UNIT = 1 / 24 -- (tranches) unités par tuile relue pour une colonne de tronc essayée
+Co.SEL_UNIT = 1 / 4  -- unités par tuile lue
 
 function Co.network(cols, side, env)
   local st = Co.network_new(cols, side)
@@ -811,24 +892,42 @@ function Co.network_run(st, env, J)
   -- jusqu'à Co.DEPOSITS fenêtres : la tuile de charbon la plus proche de la cible, puis la plus proche HORS des fenêtres déjà prises ;
   -- la ligne qui porte le plus de foreuses (au plus `want`), puis la plus proche
   local target = { u = base + 2 * side, v = vmid }
-  local function dist(t) return math.abs(t[1] - target.u) + math.abs(t[2] - target.v) end
-  local sorted = {}
-  for _, t in ipairs(coal.tiles) do sorted[#sorted + 1] = t end
-  table.sort(sorted, function(a, b)
-    local da, db = dist(a), dist(b)
-    if da ~= db then return da < db end
-    if a[1] ~= b[1] then return a[1] < b[1] end
-    return a[2] < b[2]
-  end)
-  local centers = {}
-  for _, t in ipairs(sorted) do
-    if #centers >= Co.DEPOSITS then break end
-    local inside = false
-    for _, c in ipairs(centers) do if math.abs(t[1] - c[1]) <= Co.WINDOW and math.abs(t[2] - c[2]) <= Co.WINDOW then inside = true end end
-    if not inside then centers[#centers + 1] = t end
+  st.res, st.base, st.vmin, st.vmax, st.vmid, st.want, st.target, st.centers, st.ci = res, base, vmin, vmax, vmid, want, target, {}, 1
+  st.sel = { i = 1 }
+  st.stage = 10
   end
-  st.res, st.base, st.vmin, st.vmax, st.vmid, st.want, st.target, st.centers, st.ci = res, base, vmin, vmax, vmid, want, target, centers, 1
-  st.stage = 2
+  if st.stage == 10 then
+    -- jusqu'à Co.DEPOSITS fenêtres : la tuile de charbon la plus proche de la cible (distance, puis u, puis v), puis la plus proche HORS
+    -- des fenêtres déjà prises. (coût, 7/11) le minimum hors des fenêtres, cherché passe par passe par morceaux de Co.SEL_CHUNK tuiles :
+    -- même suite que le parcours de toutes les tuiles triées (le premier tuile hors fenêtres de la liste triée EST ce minimum), sans le tri
+    local target, centers, sel = st.target, st.centers, st.sel
+    local function dist(t) return math.abs(t[1] - target.u) + math.abs(t[2] - target.v) end
+    local function before(a, b)
+      local da, db = dist(a), dist(b)
+      if da ~= db then return da < db end
+      if a[1] ~= b[1] then return a[1] < b[1] end
+      return a[2] < b[2]
+    end
+    local tiles = coal.tiles
+    while #centers < Co.DEPOSITS do
+      while sel.i <= #tiles do
+        if J and J.left <= 0 then return false end
+        local stop = math.min(#tiles, sel.i + Co.SEL_CHUNK - 1)
+        for i = sel.i, stop do
+          local t = tiles[i]
+          local inside = false
+          for _, c in ipairs(centers) do if math.abs(t[1] - c[1]) <= Co.WINDOW and math.abs(t[2] - c[2]) <= Co.WINDOW then inside = true end end
+          if not inside and (not sel.best or before(t, sel.best)) then sel.best = t end
+        end
+        if J then J.left = J.left - (stop - sel.i + 1) * Co.SEL_UNIT end
+        sel.i = stop + 1
+      end
+      if not sel.best then break end
+      centers[#centers + 1] = sel.best
+      sel.i, sel.best = 1, nil
+    end
+    st.sel = nil
+    st.stage = 2
   end
   local res, base, vmin, vmax, vmid, want, target = st.res, st.base, st.vmin, st.vmax, st.vmid, st.want, st.target
   local lfree = function(u, v) return env.free(u, v) and not env.forbid(u, v) end
@@ -855,17 +954,22 @@ function Co.network_run(st, env, J)
   local dv = (line.exit.v <= vmid) and 1 or -1
   local first_v, last_v = (dv > 0) and vmin or vmax, (dv > 0) and vmax or vmin
   local v_start = first_v - 2 * dv
-  local uT, keep
-  for t = 0, Co.TRUNK_TRIES do
+  -- (tranches) colonnes du tronc essayées une par morceau (Co.TRUNK_UNIT unité par tuile relue), état dans st.tr
+  st.tr = st.tr or { t = 0 }
+  local tr = st.tr
+  while tr.t <= Co.TRUNK_TRIES and not tr.full do
+    if J and J.left <= 0 then return false end
+    local t = tr.t
     local u = base + side * t
-    local ok = true
-    for v = v_start, last_v, dv do if not env.free(u, v) then ok = false end end
+    local ok, n = true, 1
+    for v = v_start, last_v, dv do n = n + 1; if not env.free(u, v) then ok = false end end
     if ok then
       local net = { uT = u, dv = dv, split = env.split }
       local kept, dropped, dropped_at = {}, {}, {}
       for _, c in ipairs(cols) do
         local fine, at = true, nil
         for _, tl in ipairs(branch_tiles(c, net, side, env.pole.wire)) do
+          n = n + 1
           if fine and not env.free(tl[1], tl[2]) then fine, at = false, tl end
         end
         if fine and net.split then
@@ -876,10 +980,14 @@ function Co.network_run(st, env, J)
           dropped_at[c.key] = { at[1], at[2] } -- (lot CHAMP-COUVERTURE) tuile occupée, lue par plan_once (colonne déplacée reposée au-delà)
         end
       end
-      if #kept > 0 and (not keep or #kept > #keep) then uT, keep, res.dropped, res.dropped_at = u, kept, dropped, dropped_at end
-      if keep and #keep == #cols then break end
+      if #kept > 0 and (not tr.keep or #kept > #tr.keep) then tr.uT, tr.keep, res.dropped, res.dropped_at = u, kept, dropped, dropped_at end
+      if tr.keep and #tr.keep == #cols then tr.full = true end
     end
+    tr.t = t + 1
+    if J then J.left = J.left - n * Co.TRUNK_UNIT end
   end
+  local uT, keep = tr.uT, tr.keep
+  st.tr = nil
   if not uT then res.why = "aucune place pour le tronc" return stop(res) end
   -- tronc : de v_start (arrivée du tracé) au dernier embranchement gardé
   table.sort(keep, function(a, b) if dv > 0 then return a.b < b.b end return a.b > b.b end)

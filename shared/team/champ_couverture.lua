@@ -66,7 +66,10 @@ end
 --- Rectangles des bandes (des rangées de poteaux d'un bord à l'autre, entre la première et la dernière colonne de foreuse) : rend
 --- forbid(u, v), vrai dans le rectangle d'une bande. Au-delà des foreuses, les rangées d'une bande sont libres pour un tracé : le poteau
 --- d'une foreuse du bout trouve toujours sa place sur la rangée de poteaux AU-DESSUS des foreuses (elle est libre entre elles).
-function Cc.rects(bands, size, reach, pitch)
+--- (coût, 7/11, voie des TRANCHES) Cc.rects_data : les rectangles rangés par rangée, en DONNÉES (gardés dans le travail du plan, relevés
+--- une fois) ; Cc.rects_fn(data) : la fonction forbid. Cc.rects(...) = Cc.rects_fn(Cc.rects_data(...)).
+function Cc.rects(bands, size, reach, pitch) return Cc.rects_fn(Cc.rects_data(bands, size, reach, pitch)) end
+function Cc.rects_data(bands, size, reach, pitch)
   local R = {}
   for _, bd in ipairs(bands) do
     local lo, hi
@@ -80,10 +83,14 @@ function Cc.rects(bands, size, reach, pitch)
   end
   -- (coût, 7/11) rectangles rangés par rangée v (deux au plus par rangée : les bandes voisines partagent leur rangée de poteaux) : même
   -- réponse que le parcours de tous les rectangles, sans lui (l'A* du tracé et les poteaux de liaison relisent chaque tuile)
-  local byv, none = {}, {}
+  local byv = {}
   for _, r in ipairs(R) do
     for v = r.v0, r.v1 do byv[v] = byv[v] or {}; byv[v][#byv[v] + 1] = r end
   end
+  return { byv = byv }
+end
+function Cc.rects_fn(data)
+  local byv, none = data.byv, {}
   -- own = { pr, side, exit } : la bande du groupe tracé, libre au-delà de sa sortie (foreuses du bout retirées par Cc.trim, jamais posées)
   return function(u, v, own)
     for _, r in ipairs(byv[v] or none) do
@@ -119,7 +126,26 @@ Cc.layout = layout
 
 --- Emplacements de fonderie essayés pour un groupe de la bande `b`, du côté `side` (bout du champ `edge`) : rangées de bande b + j × pas
 --- (|j| <= CFG.rows, rangées déjà prises de ce côté exclues), recul t (0..CFG.shift) ; triés par coût |rangée - b| + t, puis rangée, puis t.
+--- (coût, 7/11, voie des TRANCHES) rangés DIRECTEMENT dans cet ordre, sans tri (le tri de 833 candidats faisait 100 000 instructions
+--- d'un coup) : coût croissant, puis rangée croissante (j croissant, pitch > 0) ; à coût et rangée donnés, un seul recul t = coût - |j| ×
+--- pitch. Les couples (rangée, t) sont distincts : même liste que le tri d'avant (Cc.candidates_tri, contrôlé par
+--- tests/champ_couverture_test.lua).
 function Cc.candidates(b, side, edge, gap, pitch, used_rows)
+  local out = {}
+  local rows, shift = Cc.CFG.rows, Cc.CFG.shift
+  for cost = 0, rows * pitch + shift do
+    for j = -rows, rows do
+      local r = b + j * pitch
+      local t = cost - math.abs(j) * pitch
+      if t >= 0 and t <= shift and not used_rows[r] then
+        out[#out + 1] = { row = r, t = t, s_edge = edge + side * (gap + 1 + t), cost = cost }
+      end
+    end
+  end
+  return out
+end
+--- Cc.candidates d'avant (tri complet), gardé pour le contrôle d'égalité.
+function Cc.candidates_tri(b, side, edge, gap, pitch, used_rows)
   local out = {}
   for j = -Cc.CFG.rows, Cc.CFG.rows do
     local r = b + j * pitch
@@ -145,8 +171,9 @@ end
 --- (coût, 7/11, voie des TRANCHES) REPRENABLE : Cc.place_new(a) garde les DONNÉES de `a` (sans ses fonctions), Cc.place_run(st, fns, J)
 --- avance (balayage des places, puis un tracé A* reprenable par place retenue) tant que J.left > 0 et rend vrai à la fin : st.res ou
 --- st.why. fns = { free, is_ore, forbid, span }, redonnées à chaque appel. Cc.place_routed : la boucle jusqu'au bout.
-Cc.SCAN_UNITS = 1 -- unités par place balayée (et une par Cc.CFG.scan_tiles tuiles relues)
-Cc.CFG.scan_tiles = 40
+Cc.SCAN_UNITS = 1.75 -- unités par place balayée (et une par Cc.CFG.scan_tiles tuiles relues ; Cc.LINK_UNIT par tuile du tracé pour ses
+Cc.CFG.scan_tiles = 23 -- poteaux de liaison) : environ 1 000 instructions Lua par unité (tests/champ_tranches_test.lua, C3)
+Cc.LINK_UNIT = 1.75
 function Cc.place_new(a)
   return { spec = a.spec, colonne = a.colonne, mode = a.mode, b = a.b, side = a.side, edge = a.edge, exit = a.exit, count = a.count,
     gap = a.gap, pitch = a.pitch, used_rows = a.used_rows, ug = a.ug, own = a.own, beyond = a.beyond, stage = 1 }
@@ -208,6 +235,7 @@ function Cc.place_run(st, fns, J)
             if ok then
               local list, len, info, tiles = layout(spec, a.colonne, c.row, a.side, c.s_edge, a.count, a.mode)
               fits[#fits + 1] = { c = c, list = list, len = len, info = info, tiles = tiles, entry = entry }
+              spend(#tiles / Cc.CFG.scan_tiles) -- la vraie disposition de la place retenue
               per_row[c.row] = (per_row[c.row] or 0) + 1
             end
           end
@@ -261,7 +289,7 @@ function Cc.place_run(st, fns, J)
       -- lac, un couloir d'une tuile n'a donc aucune place : mesuré, 17 tuiles du tracé sans voisine libre sur le disque entre deux lacs,
       -- et les rangées de poteaux sont à 8 tuiles pour un fil de 7,5 ; le groupe n'est pas posé)
       poles = Cc.link_poles(route, ft.list, function(u, v) return not on_route[Co.tk(u, v)] and rfree(u, v) end, spec.pole.wire)
-      spend(#route)
+      spend(#route * Cc.LINK_UNIT)
       if not poles then route, w = nil, "pas de poteaux le long du trace" end
     end
     ft.foot = nil
