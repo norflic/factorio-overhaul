@@ -389,7 +389,7 @@ remote.add_interface("fo-ia1", {
     if not p then return nil end
     p.state, p.finished, p.counted = "fini", game.tick, true
     for _, s in ipairs(spots) do
-      local c = surface.create_entity({ name = "iron-chest", position = { x = s[1], y = s[2] }, force = f.force })
+      local c = surface.create_entity({ name = T.outposts.coal.sink, position = { x = s[1], y = s[2] }, force = f.force })
       if c then
         c.get_inventory(defines.inventory.chest).insert({ name = fe, count = s[3] })
         p.outs[#p.outs + 1] = { x = c.position.x, y = c.position.y }
