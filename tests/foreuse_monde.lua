@@ -5,6 +5,7 @@
   tests/foreuse_tranches_test.lua (lot TRANCHES) pour servir aussi à tests/foreuse_reserve_test.lua (réserve d'amorçage) ; rien n'y change.
   Mo.fresh(text, sliced, slice, build) : module chargé depuis `text` (mutants), monde bâti par build(W) -> hq, avant-postes, source.
   Mo.play(R, passes) : R.hook(R), s'il existe, est appelé après chaque tranche jouée par la minuterie.
+  W.no_targets = true : aucune foreuse n'a de drop_target (posée avant son récepteur, rien déposé encore).
 ]]
 package.path = "./?.lua;" .. package.path
 local T = require("shared.team.config")
@@ -61,6 +62,8 @@ local function world()
     if k == "burner" then return p.burner and {} or nil end
     if k == "drop_target" then
       if not p.drop then return nil end
+      -- W.no_targets : comme une foreuse posée avant son récepteur qui n'a encore rien déposé (banc foreuses-dense du 7/11)
+      if W.no_targets then return nil end
       local S = require("shared.team.foreuse_swap")
       local vx, vy = S.rotate(e.direction, p.drop[1], p.drop[2])
       local x, y = e.position.x + vx, e.position.y + vy
@@ -253,6 +256,77 @@ function Mo.play(R, passes)
     if R.f.swap and R.f.swap.pass then R.stuck = true end
   end
   return slices
+end
+
+--- Monde de départ : avant-poste 1 (16 paires serrées sur du fer, 2 rangées), avant-poste 2 (3 paires loin de tout poteau), source alimentée.
+function Mo.build_fer(W)
+  for x = 0, 44 do for y = 4, 20 do W.add("iron-ore", x + 0.5, y + 0.5, 0) end end
+  for x = 100, 140 do for y = 4, 16 do W.add("iron-ore", x + 0.5, y + 0.5, 0) end end
+  local hq = W.add("fo-team-chest", 20.5, 60.5, 0, { force = "player" })
+  hq.surface = W.surface
+  local function outpost(id, pos, pairs_at)
+    local o = { id = id, kind = "iron", pos = pos, drill_list = {}, sinks = {}, drills = 0 }
+    for _, q in ipairs(pairs_at) do
+      local d = W.add("burner-mining-drill", q[1], q[2], 0, { force = "player" })
+      d.inv.fuel.coal = 5
+      local s = W.add("stone-furnace", q[1] - 1, q[2] - 2, 0, { force = "player" })
+      s.inv[2]["iron-ore"] = 7
+      s.inv[3]["iron-plate"] = 11
+      o.drill_list[#o.drill_list + 1] = d
+      o.sinks[#o.sinks + 1] = s
+      o.drills = o.drills + 1
+    end
+    return o
+  end
+  local row = {}
+  for i = 0, 7 do row[#row + 1] = { 10 + 2 * i, 10 } end
+  for i = 0, 7 do row[#row + 1] = { 10 + 2 * i, 14 } end
+  local o1 = outpost(1, { x = 17, y = 12 }, row)
+  local o2 = outpost(2, { x = 120, y = 10 }, { { 110, 10 }, { 114, 10 }, { 118, 10 } })
+  local src = W.add("small-electric-pole", 20.5, 30.5, 0, { force = "player", source = true })
+  return hq, { [1] = o1, [2] = o2 }, src
+end
+
+--- Image de l'état : global (f.swap sans la passe, avant-postes), propriétaires, stock, tâches, monde, fils, journal.
+function Mo.snapshot(R)
+  local out = {}
+  local function put(s) out[#out + 1] = s end
+  local function ser(v, depth)
+    depth = depth or 0
+    if type(v) ~= "table" then return tostring(v) end
+    if v.unit_number and v.position then return string.format("E%d", v.unit_number) end
+    local parts = {}
+    for _, k in ipairs(sorted_keys(v)) do if not (depth == 0 and k == "pass") then parts[#parts + 1] = tostring(k) .. "=" .. ser(v[k], depth + 1) end end
+    return "{" .. table.concat(parts, ",") .. "}"
+  end
+  put("swap " .. ser(R.f.swap or {}))
+  for _, oid in ipairs(sorted_keys(R.f.outposts)) do
+    local o = R.f.outposts[oid]
+    local dl, sl, pl = {}, {}, {}
+    for _, d in ipairs(o.drill_list) do dl[#dl + 1] = (d.valid and "" or "x") .. d.unit_number end
+    for _, s in ipairs(o.sinks) do sl[#sl + 1] = (s.valid and "" or "x") .. s.unit_number end
+    for _, p in ipairs(o.swap_poles or {}) do pl[#pl + 1] = p.unit_number end
+    put(string.format("o%d drills=%d [%s] sinks [%s] poles [%s]", oid, o.drills, table.concat(dl, " "), table.concat(sl, " "), table.concat(pl, " ")))
+  end
+  put("own " .. ser(R.env.own))
+  put("stock " .. ser(R.env.stock))
+  put("board " .. table.concat(R.env.board, " | "))
+  for _, e in ipairs(R.W.ents) do
+    if e.name ~= "iron-ore" then
+      local w = {}
+      for _, n in ipairs(e.wires) do if n.valid then w[#w + 1] = n.unit_number end end
+      table.sort(w)
+      put(string.format("e%d %s %.2f %.2f %d %s [%s]", e.unit_number, e.name, e.position.x, e.position.y, e.direction, tostring(e.valid), table.concat(w, " ")))
+    end
+  end
+  for _, l in ipairs(R.W.logs) do put("log " .. l) end
+  return out
+end
+
+function Mo.compare(a, b)
+  local n = math.max(#a, #b)
+  for i = 1, n do if a[i] ~= b[i] then return false, string.format("ligne %d :\n  bloc    %s\n  tranches %s", i, tostring(a[i]), tostring(b[i])) end end
+  return true
 end
 
 return Mo

@@ -69,6 +69,39 @@ local function box_of(e)
   return { x = e.position.x, y = e.position.y, w = p.tile_width or 1, h = p.tile_height or 1 }
 end
 
+--- Banc foreuses-dense (7/11, 0 remplacement sur 328 thermiques ; journal de diagnostic : 20 entrées seulement, 0 aux premières passes) :
+--- `drop_target` d'une foreuse posée AVANT son récepteur (Outposts.extend : foreuse, puis four) reste nil tant qu'elle n'a rien déposé
+--- (déduit, non prouvé seul). Avant B2 (bbc015f6), le relevé lisait le point de dépôt des DONNÉES dans les réceptacles. Index des
+--- réceptacles valides d'un avant-poste par tuile couverte (O(réceptacles) une fois, puis O(1) par foreuse).
+local function sink_tiles(o)
+  local at = {}
+  for _, k in ipairs(o.sinks or {}) do
+    if k.valid and k.unit_number then
+      local b = box_of(k)
+      for ty = math.floor(b.y - b.h / 2 + 0.01), math.ceil(b.y + b.h / 2 - 0.01) - 1 do
+        for tx = math.floor(b.x - b.w / 2 + 0.01), math.ceil(b.x + b.w / 2 - 0.01) - 1 do at[tx .. ":" .. ty] = k end
+      end
+    end
+  end
+  return at
+end
+
+--- Point de dépôt d'une foreuse (vecteur des données : T.drill_drop pour la thermique, T.drill_electric.drop sinon), tourné selon sa direction.
+local function drop_point(d)
+  local v = d.name == T.DRILL and T.drill_drop or T.drill_electric.drop
+  local rx, ry = S.rotate(d.direction, v[1], v[2])
+  return d.position.x + rx, d.position.y + ry
+end
+
+--- Récepteur d'une foreuse : celui du moteur (drop_target) s'il est connu ; sinon le réceptacle de l'avant-poste sous son point de dépôt
+--- (`at` : sink_tiles), ou nil.
+local function receiver_of(d, at)
+  local t = d.drop_target
+  if t and t.valid then return t end
+  local px, py = drop_point(d)
+  return at[math.floor(px) .. ":" .. math.floor(py)]
+end
+
 --- Revue du lead (7/11, (4)) : votre equipe partage la FORCE du joueur ; ses poteaux ne sont pas les notres. Tuiles des poteaux du plan
 --- directeur de l'equipe (ses projets : centrale, liaisons, champs), memoire par equipe hors de global (recalculee apres un chargement), refaite
 --- quand les projets changent (signature : numero et nombre de pieces de chaque projet).
@@ -160,7 +193,7 @@ local function survey_step(f, surface, pass, budget)
     if o then
       -- revue du lead (7/11, B2, cout) : recepteur de chaque thermique lu au moteur (drop_target) dans l'ensemble des fours de l'avant-poste,
       -- au lieu d'un parcours de tous les fours par foreuse (171 x 171 lectures sur un avant-poste dense)
-      local sink_set
+      local sink_set, sink_at
       -- lot MIGRATION-CHAMP : un champ en cours de migration (rangees electriques du plan directeur) ne recoit pas de remplacement sur place
       local list = o.migr == "en cours" and {} or (o.drill_list or {})
       local fuel = fuel_outpost(o) -- réserve d'amorçage : thermiques DEBOUT de l'avant-poste (toutes, refus et attentes compris)
@@ -177,8 +210,9 @@ local function survey_step(f, surface, pass, budget)
             if not sink_set then
               sink_set = {}
               for _, s in ipairs(o.sinks or {}) do if s.valid and s.unit_number then sink_set[s.unit_number] = true end end
+              sink_at = sink_tiles(o)
             end
-            local t = d.drop_target
+            local t = receiver_of(d, sink_at) -- (drop_target, sinon point de dépôt des données : foreuse qui n'a encore rien déposé)
             local sink
             if t and t.valid and t.unit_number and sink_set[t.unit_number] then sink = box_of(t) end
             if sink then
@@ -424,7 +458,15 @@ local function fed_by_electric(surface, k, except)
   local kb = k.bounding_box
   for _, x in ipairs(surface.find_entities_filtered({ area = { { kb.left_top.x - 3, kb.left_top.y - 3 }, { kb.right_bottom.x + 3, kb.right_bottom.y + 3 } },
       type = "mining-drill" })) do
-    if x.valid and x ~= except and not x.burner and x.drop_target == k then return true end
+    if x.valid and x ~= except and not x.burner then
+      local t = x.drop_target
+      if t == k then return true end
+      -- (électrique qui n'a encore rien déposé : son point de dépôt des données dans le four)
+      if not (t and t.valid) then
+        local px, py = drop_point(x)
+        if S.inside(box_of(k), px, py) then return true end
+      end
+    end
   end
   return false
 end
@@ -457,7 +499,7 @@ local function fits_for(f, surface, refs)
     local mine_d, mine_s = {}, {}
     for _, d in ipairs(o.drill_list or {}) do if d.valid and d.unit_number then mine_d[d.unit_number] = d end end
     for _, k in ipairs(o.sinks or {}) do if k.valid and k.unit_number then mine_s[k.unit_number] = k end end
-    l = { d = mine_d, s = mine_s }
+    l = { d = mine_d, s = mine_s, at = sink_tiles(o) }
     lists[o] = l
     return l
   end
@@ -472,7 +514,7 @@ local function fits_for(f, surface, refs)
     for _, du in ipairs(sorted_keys(l.d)) do
       local d = l.d[du]
       if d.name ~= T.DRILL then fixed[du] = true end
-      local tgt = d.drop_target
+      local tgt = receiver_of(d, l.at) -- (drop_target, sinon point de dépôt des données)
       local su = tgt and tgt.valid and tgt.unit_number
       if su and l.s[su] then
         sink_of[du] = su

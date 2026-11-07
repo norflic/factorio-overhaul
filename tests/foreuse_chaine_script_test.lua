@@ -291,7 +291,7 @@ local function suite(text)
   local J = { reads = 0 }
   local jents = {}
   local function jent(name, typ, x, y, w, extra)
-    local e = { name = name, type = typ, position = { x = x, y = y }, valid = true, unit_number = #jents + 100,
+    local e = { name = name, type = typ, position = { x = x, y = y }, valid = true, unit_number = #jents + 100, prototype = { tile_width = w, tile_height = w },
       bounding_box = { left_top = { x = x - w / 2, y = y - w / 2 }, right_bottom = { x = x + w / 2, y = y + w / 2 } } }
     for k, v in pairs(extra or {}) do e[k] = v end
     local tgt = e.drop_target
@@ -317,9 +317,15 @@ local function suite(text)
   }
   local BUR, ELE = "burner-mining-drill", "electric-mining-drill"
   local Tj = { DRILL = BUR, DRILL_ELECTRIC = ELE, drill_electric = { size = 3 }, drill_drop = { 100, 100 }, outposts = { iron = { resource = "iron-ore" } } }
-  local fed_by_electric = load_fn(text, "local function fed_by_electric(surface, k, except)", {})
+  -- (récepteur sans drop_target, banc foreuses-dense du 7/11 : aides du repli au point de dépôt des données)
+  local box_of = load_fn(text, "local function box_of(e)", {})
+  local drop_point = load_fn(text, "local function drop_point(d)", { T = Tj, S = S })
+  local sink_tiles = load_fn(text, "local function sink_tiles(o)", { box_of = box_of })
+  local receiver_of = load_fn(text, "local function receiver_of(d, at)", { drop_point = drop_point })
+  local fed_by_electric = load_fn(text, "local function fed_by_electric(surface, k, except)", { drop_point = drop_point, box_of = box_of, S = S })
   c("J : fed_by_electric extraite", fed_by_electric ~= nil)
   local fits_for = load_fn(text, "local function fits_for(f, surface, refs)", { T = Tj, S = S, Swap = { MIN_ORE = 3 }, fed_by_electric = fed_by_electric,
+    sink_tiles = sink_tiles, receiver_of = receiver_of,
     game = { entity_prototypes = { [ELE] = { mining_drill_radius = 2.49 } } },
     sorted_keys = function(t) local k = {} for n in pairs(t) do k[#k + 1] = n end table.sort(k) return k end })
   c("J : fits_for extraite", fits_for ~= nil)
@@ -407,8 +413,8 @@ local MUT = {
   { "echange : compte de foreuses non tenu", "  o.drills = math.max(0, (o.drills or 0) - lost)", "" },
   -- (echange coupe en entier : vu au banc foreuses-chaine, pas ici ; l ordre chaine puis retrait est controle au texte, cas I)
   { "couloir et plan ignores", "      if Outposts.reserved and Outposts.reserved(f, pole.name, { x = x, y = y }, 0) then return false end", "" },
-  { "B1 : recepteur lu au vecteur de la thermique (drop_target ignore)", "      local tgt = d.drop_target", "      local tgt = nil" },
-  { "B1 : relecture du four au moteur oubliee", "    if x.valid and x ~= except and not x.burner and x.drop_target == k then return true end", "" },
+  { "B1 : recepteur lu au vecteur de la thermique (drop_target ignore)", "  if t and t.valid then return t end", "" },
+  { "B1 : relecture du four au moteur oubliee", "      if t == k then return true end", "" },
   { "B2 : paires relues a chaque appel", "    if info then return info end", "" },
   { "B2 : four de l'entree non relu a l'execution", "  if ref.sink_ent and not ref.sink_ent.valid then return true end", "" },
   { "B1 : electriques non fixes", "      if d.name ~= T.DRILL then fixed[du] = true end", "" },
