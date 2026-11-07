@@ -606,7 +606,9 @@ remote.add_interface("fo-ia1", {
       annexes = #Stock.annexes(f), skip_item = skip and skip(item) or false, skip_fn = skip ~= nil,
       stock_logs = st.stock_logs, annex_placed = st.annex_placed, annex_held = st.annex_held,
       why = f.stock_why and f.stock_why.why or nil, refused = st.refused,
-      ground_taken = st.ground_taken, ground_passes = st.ground_passes } -- lot STOCKAGE-VITAL : objets au sol du QG repris (Stock.pick_ground)
+      ground_taken = st.ground_taken, ground_passes = st.ground_passes, -- lot STOCKAGE-VITAL : objets au sol du QG repris (Stock.pick_ground)
+      -- lot STOCKAGE-VITAL (C1, C2 de DIAG_CONSO) : cumuls des deux compteurs et contenu du stock (ce qui ENTRE, par différence)
+      refused_calls = st.refused_calls, claims = st.claims, claim_full = st.claim_full, contents = Stock.contents(f) }
   end,
 })
 

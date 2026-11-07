@@ -78,6 +78,8 @@ function Stock.note_claim(f, inv, tick)
     f.stock_claim_win = c
   end
   c.n = c.n + 1
+  f.stats = f.stats or {}
+  f.stats.claims = (f.stats.claims or 0) + 1 -- cumul (banc stockage-sol-dc : la fenêtre d'une minute dépasse un banc de 3 700 ticks)
   if size - inv.count_empty_stacks() >= Stock.POCKET_FULL * size then
     c.full = c.full + 1
     f.stats = f.stats or {}
