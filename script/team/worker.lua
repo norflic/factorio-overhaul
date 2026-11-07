@@ -25,6 +25,7 @@ local Rc = require("shared.team.repli_chemin") -- lot CHARBON3 (B2) : essais de 
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Mu = require("shared.team.munitions") -- lot MUNITIONS (revue M3) : prise bornée de la munition de base (Mu.split_take)
 local Ra = require("shared.team.rearmement") -- lot REARMEMENT : emplacement des munitions complété au dépôt au QG (règle pure)
+local Da = require("shared.team.danger_actif") -- lot CORR-RALLIEMENT (tenue) : coffre de dépôt hors de portée pendant « away » (Da.safe_chest)
 local Outposts = require("script.faction.outposts")
 local Sites = require("script.faction.sites")
 local Board = require("script.team.board")
@@ -214,7 +215,7 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Transferts avec le stock (QG)
 ---------------------------------------------------------------------------------------------------
-local function deposit_inventory(f, inv, keep)
+local function deposit_inventory(f, inv, keep, chest)
   local contents = inv.get_contents()
   local names = {}
   for name in pairs(contents) do names[#names + 1] = name end
@@ -222,7 +223,8 @@ local function deposit_inventory(f, inv, keep)
   for _, name in ipairs(names) do
     local n = contents[name] - (keep and keep[name] or 0)
     if n > 0 then
-      local moved = Stock.insert(f, name, n)
+      -- Lot CORR-RALLIEMENT (tenue) : `chest` = un coffre du stock précis (hors de portée pendant « away ») ; sinon le stock (QG d'abord).
+      local moved = chest and chest.insert({ name = name, count = n }) or (not chest and Stock.insert(f, name, n)) or 0
       if moved > 0 then
         inv.remove({ name = name, count = moved })
         f.team.delivered[name] = (f.team.delivered[name] or 0) + moved
@@ -292,16 +294,16 @@ local function rearm(agent, f)
   end
 end
 
-local function deposit_all(agent, f)
+local function deposit_all(agent, f, chest)
   if not (f.hq and f.hq.valid) then return end
   local e = agent.entity
-  deposit_inventory(f, main_inv(agent), nil)
+  deposit_inventory(f, main_inv(agent), nil, chest)
   local guns = e.get_inventory(defines.inventory.character_guns)
-  if guns then deposit_inventory(f, guns, KEEP_GUN) end
+  if guns then deposit_inventory(f, guns, KEEP_GUN, chest) end
   local ammo = e.get_inventory(defines.inventory.character_ammo)
-  if ammo then deposit_inventory(f, ammo, KEEP_AMMO) end
+  if ammo then deposit_inventory(f, ammo, KEEP_AMMO, chest) end
   local armor = e.get_inventory(defines.inventory.character_armor)
-  if armor then deposit_inventory(f, armor, nil) end
+  if armor then deposit_inventory(f, armor, nil, chest) end
   rearm(agent, f) -- lot REARMEMENT : après le dépôt (la dotation de 10 n'est jamais reprise : deposit et bg_absorb s'arrêtent à KEEP_AMMO)
 end
 
@@ -1305,6 +1307,23 @@ local function goto_step(agent, pos, radius, tick)
   return false
 end
 
+--- Lot CORR-RALLIEMENT (tenue, 7/11) : état « away » de l'équipe (QG débordé) par le crochet de script/ai3/comportement.lua ; nil sans crochet.
+local function away_state(f, tick)
+  local H = Worker.hook
+  return H and H.away_state and H.away_state(f, tick) or nil
+end
+
+--- Coffre du stock (QG, puis annexes) le plus proche du PNJ et HORS de portée de la menace `w` (Da.safe_chest), ou nil.
+local function safe_stock_chest(f, agent, w)
+  local chests = {}
+  if f.hq and f.hq.valid then chests[1] = f.hq end
+  for _, e in ipairs(Stock.annexes(f)) do chests[#chests + 1] = e end
+  local ps = {}
+  for i, c in ipairs(chests) do ps[i] = c.position end
+  local i = Da.safe_chest(ps, agent.entity.position, w)
+  return i and chests[i] or nil
+end
+
 local function run_steps(agent, tick)
   local f = faction_of(agent)
   if not f or not (f.hq and f.hq.valid) then return end
@@ -1318,7 +1337,21 @@ local function run_steps(agent, tick)
       return
     end
     local kind = step[1]
-    if kind == "home" then
+    local away = kind == "home" and away_state(f, tick) or nil
+    if away then
+      -- Lot CORR-RALLIEMENT (tenue, 7/11 ; RAPPORT EFFONDREMENT §12) : QG débordé (« away ») : pas de retour au QG. Dépôt dans le coffre du stock le
+      -- plus proche HORS de portée de la menace ; sans coffre sûr, le PNJ attend sur place (étape rejugée à chaque pensée ; l'état expire seul).
+      local chest = safe_stock_chest(f, agent, away)
+      if not chest then
+        agent.away_wait = agent.away_wait or tick
+        return
+      end
+      agent.away_wait = nil
+      if not goto_step(agent, chest.position, 2, tick) then return end
+      deposit_all(agent, f, chest)
+      agent.pc = agent.pc + 1
+    elseif kind == "home" then
+      agent.away_wait = nil
       if not goto_step(agent, home_slot(agent, f), 1, tick) then return end
       deposit_all(agent, f)
       bg_deliver(agent, f, tick) -- lot CRAFT-PARALLELE : produits des travaux finis livrés (déposés juste au-dessus)
@@ -1455,8 +1488,8 @@ FSM.define(MACHINE, {
       local task = Board.claim(f, agent, tick)
       Profiler.fstop("board:claim")
       if not task then
-        -- Rien à faire : rentrer au QG (et y déposer) plutôt que rester au loin.
-        if dist2(agent.entity.position, home_slot(agent, f)) > 3 * 3 and not agent.nav then
+        -- Rien à faire : rentrer au QG (et y déposer) plutôt que rester au loin. Lot CORR-RALLIEMENT (tenue) : pas pendant « away » (QG débordé).
+        if dist2(agent.entity.position, home_slot(agent, f)) > 3 * 3 and not agent.nav and not away_state(f, tick) then
           agent.task, agent.steps, agent.pc = nil, { { "home" } }, 1
           set(agent, "step", tick)
         end

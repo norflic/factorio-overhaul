@@ -355,6 +355,12 @@ local function hq_threat(f, t, surface, tick)
   local resp = Re.hq_response({ allies = armed_near_hq(f), force = force, prudence = prud, agressivite = agr, rally = rally,
     outrun = Re.outrun(C.enemy_speed(en), own), outranged = outranged })
   t.stats["hq_" .. resp] = (t.stats["hq_" .. resp] or 0) + 1
+  -- Lot CORR-RALLIEMENT (tenue, 7/11 ; RAPPORT EFFONDREMENT §12) : l'état « away » de l'équipe, renouvelé à chaque décision, expire seul après
+  -- SD.SHELTER_TICKS sans décision ; tant qu'il vit, personne ne rentre au QG débordé (comportement.lua M.away_state, worker.lua). Règle éteinte : jamais.
+  if resp == "away" and C.outrange_on() then
+    t.away = { x = threat.x, y = threat.y, reach = Re.away_distance(range), ["until"] = tick + SD.SHELTER_TICKS }
+    t.stats.away_set = (t.stats.away_set or 0) + 1
+  end
   shelter(f, t, threat, tick, resp, rally, range, C.outrange_on() and foes or nil)
   return threat -- lot NETTOYAGE-SITE : lu par pass (aucune opération de nettoyage lancée quand le QG est menacé)
 end
