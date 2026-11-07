@@ -16,6 +16,8 @@
   Aucun nom d'objet ici n'est lu par shared/ai3 ni script/ai3 (tests/iag_test.lua §8) : le cerveau lira les prototypes (RB-3).
 ]]
 
+local Ech = require("shared.robots.echelle")
+
 local Ro = {}
 
 Ro.PROVISIONAL = false -- lot ROBOTS-JEU (3/11) : vrai visuel des 12 robots ; plus de « visuel provisoire » dans les noms et descriptions
@@ -249,6 +251,17 @@ for _, r in ipairs(Ro.ROBOTS) do
   r.points = Ro.POINTS[r.class]
   r.dps = r.shot.damage * 60 / r.shot.cooldown
   r.is_giant = r.giant ~= nil
+  if r.is_giant then
+    -- Règle d'échelle (lot EXPERIMENTAUX-PUISSANCE, réponses du DC du 5/11 ; appliquée aux géants de robotsjeu avec l'accord du lead) :
+    -- E1 PV et résistances d'écart d'âge, E2 salve par cible, E3 salve de zone de 15 × (âge − 9) tuiles, E4 cratère. Les PV écrits plus
+    -- haut (834 000, 1 870 000, 2 660 000 : calibrage des duels) sont remplacés ; le canon (shot) reste tel quel.
+    r.hp = Ech.pv(r.age)
+    r.resistances = Ech.resistances(r.age)
+    r.salve = Ech.salve(r.age, r.dtype)
+    r.zone = Ech.rayon(r.age)
+    r.cratere = Ech.cratere(r.age)
+    r.zone_cooldown = Ech.CADENCE_ZONE
+  end
   if r.segment then
     r.segment_item = Ro.segment_name(r.id)
     r.segment_recipe = Ro.segment_recipe_name(r.id)

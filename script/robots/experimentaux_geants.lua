@@ -6,8 +6,12 @@
     lus par script/robots/armee.lua sans y écrire) : l'entité est retirée, l'objet rendu au joueur (sinon au sol).
   - Le joueur qui le pose reçoit la télécommande vanilla liée (comme le Bourdon).
   - Corps : si Xp.GIANT_BODY == "rendering", sprites `rendering` attachés à l'entité (principale, lueur, ombre), sinon le prototype.
-  - Toutes les 30 ticks : chaque géant prêt cherche l'ennemi le plus proche à portée (find_nearest_enemy) et lance son effet ; les effets
-    qui s'étirent dans le temps (Cairn, Stylet, Trombe, Ixion) passent par la file `gjobs`, traitée à chaque tick tant qu'elle n'est pas vide.
+  - Toutes les 30 ticks : chaque géant prêt cherche l'ennemi le plus proche à portée (find_nearest_enemy), sinon toute entité ennemie à
+    portée (bâtiments compris : décision du DC du 5/11, « jusqu'à la fin »), et lance son effet, puis une SALVE DE ZONE (règle d'échelle,
+    shared/robots/echelle.lua : coup plein par cible dans 15 × (âge − 9) tuiles, cratère, sol brûlé), au plus toutes les Ech.CADENCE_ZONE
+    ticks. Effets et salves qui s'étirent dans le temps passent par la file `gjobs`, traitée à chaque tick tant qu'elle n'est pas vide ; une
+    salve de zone fait UNE recherche d'entités, puis range au plus Ech.LOT_RANGEMENT entités par tick, puis frappe au plus Ech.TRANCHE
+    entités par tick. Bonus des modules (portée, puissance) : g.bonus, écrit par G.set_bonus (remote « fo-xp », « bonus »).
   Dégâts : script/robots/experimentaux_commun.lua (jamais sur sa force, ses amis, en cessez-le-feu).
 ]]
 
@@ -15,6 +19,7 @@ local Events = require("script.core.events")
 local Xp = require("shared.robots.experimentaux")
 local K = require("script.robots.experimentaux_commun")
 local Armee = require("script.robots.armee")
+local Ech = require("shared.robots.echelle")
 
 local G = {}
 
@@ -26,6 +31,8 @@ local CAIRN_ARC = Xp.PREFIX .. "cairn-arc"
 local FOYER = Xp.PREFIX .. "tournesol-foyer"
 local PILIER = Xp.PREFIX .. "stylet-pilier"
 local SPR_GLACE, SPR_VERRE = Xp.PREFIX .. "glace", Xp.PREFIX .. "verre"
+local CRATERE = Xp.PREFIX .. "cratere-"
+local CIBLES_MAX = 50 -- entités lues au plus pour trouver une cible non militaire (une recherche bornée toutes les 30 ticks par géant)
 local BOUCHE = { cairn = { 0, -30 }, stylet = { 0, -2 }, trombe = { 0, -26 }, ixion = { 0, -8 }, tournesol = { -8.5, -31 } }
 
 --- Couleur du `rendering` : le moteur la lit PRÉMULTIPLIÉE (gi1, 4/11 : { 0,85 ; 0,95 ; 1 ; a = 0,3 } donnait un disque blanc opaque).
@@ -59,6 +66,26 @@ function G.count(force)
   return mine(name, nil)
 end
 
+--- Modules (lot DESIGN-MODULES) : bonus de portée et de puissance d'un géant (0,2 = + 20 % ; PRODUIT avec la règle d'échelle,
+--- Ech.effectif). Rend vrai si le géant est inscrit. Lu à chaque recherche de cible et à chaque salve ; la cadence ne change pas.
+function G.set_bonus(unit_number, portee, puissance)
+  local s = K.S()
+  if not s then return false end
+  for _, g in ipairs(s.giants) do
+    if g.un == unit_number then
+      g.bonus = { portee = tonumber(portee) or 0, puissance = tonumber(puissance) or 0 }
+      return true
+    end
+  end
+  return false
+end
+
+--- Écouteurs d'une salve de zone (lot DESIGN-MODULES : marque visible des modules, UNE fois par salve). Fonctions gardées dans le module,
+--- réinscrites à chaque chargement par le `require` de leur auteur : rien en storage. Appel : f(e, r, bonus, c, eff), bonus pouvant être nil
+--- (géants de robotsjeu, géant sans module), eff = Ech.effectif(r, bonus).
+local ecouteurs = {}
+function G.ecoute(f) ecouteurs[#ecouteurs + 1] = f end
+
 local function corps(g, r)
   if Xp.GIANT_BODY ~= "rendering" then return end
   local e = g.e
@@ -89,6 +116,13 @@ local function on_built(ev)
   if not Xp.giant_ok(age, have) then
     K.journal("%s refuse : plafond des geants (%d deja, age %d, plafond %d)", r.id, have, age, Xp.giant_cap(age))
     local name = e.name
+    -- les modules de sa grille sont rendus aussi (DESIGN-MODULES : un objet neuf ne les porte pas)
+    if e.grid then
+      for _, eq in ipairs(e.grid.equipment) do
+        local it = eq.prototype.take_result
+        if it then rendre(player, e, it.name) end
+      end
+    end
     rendre(player, e, name)
     if player then player.print({ "fo-xp.plafond", { "entity-name." .. name }, Xp.giant_cap(age), age }) end
     e.destroy()
@@ -121,7 +155,83 @@ local function job(j)
   s.gjobs[#s.gjobs + 1] = j
 end
 
---- Cairn : marque, puis tire (après `delay`) un arc sur chaque marque ; le coup est partagé.
+--- Bonus des modules d'un géant (lot DESIGN-MODULES) : une COPIE de nombres pour les effets différés (jamais une table partagée).
+local function bonus_de(g)
+  local b = g.bonus
+  return { portee = b and b.portee or 0, puissance = b and b.puissance or 0 }
+end
+
+--- E3 et E4 (règle d'échelle, shared/robots/echelle.lua) : salve de ZONE au point visé `c`, lancée par `g` = { e, un, bonus }. Cratère et
+--- sol brûlé, puis un coup PLEIN (salve effective, jamais partagée) sur chaque entité ennemie de la zone effective, bâtiments compris.
+--- Une seule recherche d'entités (moteur) par salve ; ensuite, par tick, ou bien le rangement par anneaux de Ech.LOT_RANGEMENT entités au
+--- plus, ou bien une tranche de Ech.TRANCHE coups, du centre vers le bord (l'onde se voit), au plus Ech.PLAFOND cibles par salve.
+local function zone(g, r, c, tick)
+  local e = g.e
+  local s = e.surface
+  local eff = Ech.effectif(r, g.bonus)
+  for _, f in ipairs(ecouteurs) do f(e, r, g.bonus, c, eff) end
+  s.create_entity({ name = CRATERE .. r.age, position = { c.x, c.y } })
+  local b = K.S().impact == "B" -- design IMPACT : variante B (sol brûlé sur la zone), posée par les bancs d'images seulement
+  if b then
+    for _, x in ipairs(Ech.brulures(c, eff.zone)) do s.create_entity({ name = x.nom, position = { x.x, x.y } }) end
+  else
+    s.create_entity({ name = "big-scorchmark", position = { c.x, c.y } })
+  end
+  local forces = K.enemy_forces(e.force)
+  local found = #forces > 0 and s.find_entities_filtered({ position = { c.x, c.y }, radius = eff.zone, force = forces }) or {}
+  job({ kind = "zone", e = e, un = g.un, id = r.id, dtype = r.dtype, found = found, i = 1, plan = Ech.nouveau_plan(c), salve = eff.salve,
+        zone = eff.zone, at = tick, total = 0, tues = 0, debut = tick, brule = b or nil, nb = 0 })
+end
+
+--- Rangement : au plus Ech.LOT_RANGEMENT entités de la recherche par tick ; la liste est figée quand tout est rangé.
+local function zone_ranger(j)
+  local n = #j.found
+  local b = math.min(n, j.i + Ech.LOT_RANGEMENT - 1)
+  for i = j.i, b do
+    local x = j.found[i]
+    if x.valid and x.health and x.destructible then
+      local p = x.position
+      Ech.poser(j.plan, p.x, p.y, x)
+      j.nb = j.nb + 1
+    end
+  end
+  j.i = b + 1
+  if j.i > n then
+    j.found, j.cur = nil, Ech.curseur()
+    if j.brule then j.pas = Ech.pas_brulure(math.min(j.nb, Ech.PLAFOND)) end
+  end
+end
+
+local function zone_pas(j, tick)
+  local e = j.e
+  if not (e and e.valid) then return true end
+  if j.found then
+    zone_ranger(j)
+    j.at = tick + 1
+    return false
+  end
+  local r = { id = j.id } -- statistiques par robot (K.stat) : les géants de robotsjeu y ont aussi leur ligne
+  local list, fini = Ech.suivants(j.plan, j.cur, Ech.TRANCHE)
+  for _, t in ipairs(list) do
+    if t.valid then
+      local p = j.brule and t.position
+      j.total = j.total + K.hit(r, t, j.salve, j.dtype, e.force, e)
+      if not t.valid or t.health <= 0 then
+        j.tues = j.tues + 1
+        if p and j.tues % j.pas == 0 then e.surface.create_entity({ name = "small-scorchmark", position = { p.x, p.y } }) end
+      end
+    end
+  end
+  if fini then
+    K.journal("%s zone #%d rayon %.0f cibles %d tues %d degats %.0f ticks %d tick %d", r.id, j.un, j.zone, j.cur.pris, j.tues, j.total,
+      tick - j.debut + 1, tick)
+    return true
+  end
+  j.at = tick + 1
+  return false
+end
+
+--- Cairn : marque les cibles, puis (après `delay`) tire un arc sur chaque marque et la salve de zone autour de la cible.
 local function balayage(g, r, target, tick)
   local e = g.e
   local marks = Xp.marks(pos_of(e), K.candidates(e.surface, e.force, e.position, r.range), r.marks, r.range)
@@ -132,35 +242,33 @@ local function balayage(g, r, target, tick)
       time_to_live = r.delay + 20 })
     list[#list + 1] = m.e
   end
-  rendering.draw_circle({ color = rgba(0.15, 0.4, 0.8, 0.25), radius = r.range, width = 4, filled = false, target = e, surface = e.surface,
-    time_to_live = r.delay })
-  job({ kind = "cairn", e = e, un = g.un, list = list, at = tick + r.delay })
+  rendering.draw_circle({ color = rgba(0.15, 0.4, 0.8, 0.25), radius = r.zone, width = 4, filled = false, target = pos_of(target),
+    surface = e.surface, time_to_live = r.delay + 10, draw_on_ground = true })
+  job({ kind = "cairn", e = e, un = g.un, bonus = bonus_de(g), list = list, c = pos_of(target), at = tick + r.delay })
   return true
 end
 
-local function cairn_tire(j)
+local function cairn_tire(j, tick)
   local e = j.e
   if not (e and e.valid) then return end
   local r = Xp.robot("cairn")
-  local alive = {}
-  for _, t in ipairs(j.list) do if t.valid then alive[#alive + 1] = t end end
-  local part = Xp.split(r.shot, #alive)
-  local total = 0
   local b = BOUCHE.cairn
-  for _, t in ipairs(alive) do
-    rayon(e, CAIRN_ARC, b, t, 20)
-    total = total + K.hit(r, t, part, r.dtype, e.force, e)
+  local n = 0
+  for _, t in ipairs(j.list) do
+    if t.valid then rayon(e, CAIRN_ARC, b, t, 20); n = n + 1 end
   end
-  K.journal("cairn balayage #%d degats %.1f cibles %d tick %d", j.un, total, #alive, game.tick)
+  K.journal("cairn balayage #%d arcs %d tick %d", j.un, n, tick)
+  zone(j, r, j.c, tick)
 end
 
---- Stylet : le circuit à angles droits court de la pointe aux nœuds ; chaque nœud tire un pilier.
+--- Stylet : le circuit à angles droits court de la pointe aux nœuds, un pilier à chaque nœud ; la salve de zone autour de la cible.
 local function ecriture(g, r, target, tick)
   local e = g.e
   local cands = K.candidates(e.surface, e.force, target.position, 40)
   local first = { x = target.position.x, y = target.position.y, id = target.unit_number or 0, e = target }
   local nodes, pts = Xp.circuit(pos_of(e), first, cands, r.nodes, 12)
-  job({ kind = "stylet", e = e, un = g.un, nodes = nodes, pts = pts, k = 1, at = tick + 1, part = Xp.split(r.shot, #nodes), total = 0 })
+  job({ kind = "stylet", e = e, un = g.un, nodes = nodes, pts = pts, k = 1, at = tick + 1 })
+  zone(g, r, pos_of(target), tick)
   return true
 end
 
@@ -170,7 +278,7 @@ local function stylet_pas(j, tick)
   if not (e and e.valid) then return true end
   local a, b = j.pts[j.k], j.pts[j.k + 1]
   if not b then
-    K.journal("stylet ecriture #%d degats %.1f noeuds %d tick %d", j.un, j.total, #j.nodes, tick)
+    K.journal("stylet ecriture #%d noeuds %d tick %d", j.un, #j.nodes, tick)
     return true
   end
   rendering.draw_line({ color = rgba(0.6, 0.85, 1.0, 0.9), width = 12, from = { a.x, a.y }, to = { b.x, b.y }, surface = e.surface,
@@ -178,63 +286,55 @@ local function stylet_pas(j, tick)
   rendering.draw_line({ color = { r = 1, g = 1, b = 1, a = 1 }, width = 4, from = { a.x, a.y }, to = { b.x, b.y }, surface = e.surface,
     time_to_live = 60, draw_on_ground = true })
   for _, nd in ipairs(j.nodes) do
-    if math.abs(nd.x - b.x) < 1e-6 and math.abs(nd.y - b.y) < 1e-6 then
-      e.surface.create_entity({ name = PILIER, position = { b.x, b.y } })
-      j.total = j.total + K.blast(r, e.surface, e.force, e, b, r.node_radius, j.part, r.dtype, 1)
-    end
+    if math.abs(nd.x - b.x) < 1e-6 and math.abs(nd.y - b.y) < 1e-6 then e.surface.create_entity({ name = PILIER, position = { b.x, b.y } }) end
   end
   j.k = j.k + 1
   j.at = tick + r.step_ticks
   return false
 end
 
---- Trombe : le sol blanchit, les ennemis s'arrêtent ; au dégel, les pics de glace les font éclater.
+--- Trombe : le sol blanchit dans la zone, les unités ennemies s'arrêtent ; au dégel, pics de glace et salve de zone.
 local function gel(g, r, target, tick)
   local e = g.e
   local c = pos_of(target)
   local frozen = {}
-  for _, it in ipairs(Xp.in_radius(c, K.candidates(e.surface, e.force, c, r.radius + 2), r.radius)) do
+  for _, it in ipairs(Xp.in_radius(c, K.candidates(e.surface, e.force, c, r.zone + 2), r.zone)) do
     local t = it.c.e
     if t.valid and t.active then
       t.active = false
       frozen[#frozen + 1] = t
     end
   end
-  rendering.draw_circle({ color = rgba(0.75, 0.9, 1.0, 0.22), radius = r.radius, filled = true, target = { c.x, c.y }, surface = e.surface,
+  rendering.draw_circle({ color = rgba(0.75, 0.9, 1.0, 0.22), radius = r.zone, filled = true, target = { c.x, c.y }, surface = e.surface,
     time_to_live = r.freeze + 40, draw_on_ground = true })
-  rendering.draw_circle({ color = rgba(0.6, 0.9, 1.0, 0.7), radius = r.radius, width = 12, filled = false, target = { c.x, c.y },
+  rendering.draw_circle({ color = rgba(0.6, 0.9, 1.0, 0.7), radius = r.zone, width = 12, filled = false, target = { c.x, c.y },
     surface = e.surface, time_to_live = r.freeze + 40, draw_on_ground = true })
-  job({ kind = "trombe", e = e, un = g.un, c = c, frozen = frozen, at = tick + r.freeze })
+  job({ kind = "trombe", e = e, un = g.un, bonus = bonus_de(g), c = c, frozen = frozen, at = tick + r.freeze })
   K.journal("trombe gel #%d geles %d tick %d", g.un, #frozen, tick)
   return true
 end
 
-local function trombe_degel(j)
+local function trombe_degel(j, tick)
   local r = Xp.robot("trombe")
-  local surface, force = nil, nil
-  if j.e and j.e.valid then surface, force = j.e.surface, j.e.force end
   for _, t in ipairs(j.frozen) do
     if t.valid then t.active = true end
   end
-  if not surface then return end
-  local total, n = 0, 0
-  local part = Xp.split(r.shot, #j.frozen)
+  if not (j.e and j.e.valid) then return end
+  local surface = j.e.surface
   for _, t in ipairs(j.frozen) do
-    if t.valid then
-      rendering.draw_sprite({ sprite = SPR_GLACE, target = t.position, surface = surface, time_to_live = 90, render_layer = "object" })
-      local d = K.hit(r, t, part, r.dtype, force, j.e)
-      if d > 0 then total, n = total + d, n + 1 end
-    end
+    if t.valid then rendering.draw_sprite({ sprite = SPR_GLACE, target = t.position, surface = surface, time_to_live = 90, render_layer = "object" }) end
   end
-  K.journal("trombe degel #%d degats %.1f cibles %d tick %d", j.un, total, n, game.tick)
+  K.journal("trombe degel #%d geles %d tick %d", j.un, #j.frozen, tick)
+  zone(j, r, j.c, tick)
 end
 
---- Ixion : la fissure court vers la cible et au-delà ; geysers le long ; le coup est partagé entre les points.
+--- Ixion : la fissure court vers la cible et au-delà, geysers le long ; la salve de zone autour de la cible.
 local function tranchee(g, r, target, tick)
   local e = g.e
   local pts = Xp.fissure(pos_of(e), pos_of(target), r.step, r.beyond)
   if #pts == 0 then return false end
-  job({ kind = "ixion", e = e, un = g.un, pts = pts, k = 1, at = tick + 1, part = Xp.split(r.shot, #pts), total = 0, prev = pos_of(e) })
+  job({ kind = "ixion", e = e, un = g.un, pts = pts, k = 1, at = tick + 1, prev = pos_of(e) })
+  zone(g, r, pos_of(target), tick)
   return true
 end
 
@@ -244,7 +344,7 @@ local function ixion_pas(j, tick)
   if not (e and e.valid) then return true end
   local p = j.pts[j.k]
   if not p then
-    K.journal("ixion tranchee #%d degats %.1f points %d tick %d", j.un, j.total, #j.pts, tick)
+    K.journal("ixion tranchee #%d points %d tick %d", j.un, #j.pts, tick)
     return true
   end
   rendering.draw_line({ color = rgba(0.12, 0.07, 0.05, 0.95), width = 32 * r.width * 0.5, from = { j.prev.x, j.prev.y }, to = { p.x, p.y },
@@ -252,30 +352,49 @@ local function ixion_pas(j, tick)
   rendering.draw_line({ color = { r = 1.0, g = 0.5, b = 0.12, a = 1 }, width = 32 * r.width * 0.15, from = { j.prev.x, j.prev.y }, to = { p.x, p.y },
     surface = e.surface, time_to_live = 240, draw_on_ground = true })
   e.surface.create_entity({ name = "big-explosion", position = { p.x, p.y } })
-  j.total = j.total + K.blast(r, e.surface, e.force, e, p, r.width, j.part, r.dtype, 1)
   j.prev = p
   j.k = j.k + 1
   j.at = tick + r.step_ticks
   return false
 end
 
---- Tournesol : de jour, le foyer rend un trait sur la cible ; verre fondu au sol.
+--- Tournesol : de jour, le foyer rend un trait sur la cible pendant toute la cadence ; verre fondu au sol ; la salve de zone autour.
 local function foyer(g, r, target, tick)
   local e = g.e
   if not Xp.foyer_fires(e.surface.darkness, r.night) then return false end
   local b = BOUCHE.tournesol
-  rayon(e, FOYER, b, target, r.cooldown)
-  local d = K.hit(r, target, r.shot, r.dtype, e.force, e)
+  rayon(e, FOYER, b, target, r.zone_cooldown)
   g.n = g.n + 1
   if g.n % r.glass_every == 0 and target.valid then
     rendering.draw_sprite({ sprite = SPR_VERRE, target = target.position, surface = e.surface, time_to_live = 1200, render_layer = "decals",
       tint = rgba(1, 0.9, 0.6, 0.8) })
   end
-  K.journal("tournesol foyer #%d degats %.1f tick %d", g.un, d, tick)
+  K.journal("tournesol foyer #%d tick %d", g.un, tick)
+  zone(g, r, pos_of(target), tick)
   return true
 end
 
 local EFFECTS = { balayage = balayage, ecriture = ecriture, gel = gel, tranchee = tranchee, foyer = foyer }
+
+--- Cible d'un géant : l'ennemi MILITAIRE le plus proche à portée, sinon (décision du DC, 5/11 : « tout ce qui est ennemi, jusqu'à la fin »)
+--- la première entité ennemie avec des PV à portée (ordre de la recherche du moteur, le même sur toutes les machines).
+local function cible(g, r)
+  local e = g.e
+  local range = Ech.effectif(r, g.bonus).range
+  local t = e.surface.find_nearest_enemy({ position = e.position, max_distance = range, force = e.force })
+  if t then return t end
+  local forces = K.enemy_forces(e.force)
+  if #forces == 0 then return nil end
+  for _, x in ipairs(e.surface.find_entities_filtered({ position = e.position, radius = range, force = forces, limit = CIBLES_MAX })) do
+    if x.valid and x.health and x.destructible then return x end
+  end
+  return nil
+end
+
+--- Pour les géants de robotsjeu (script/robots/geant.lua, règle d'échelle) : cible et salve de zone, mêmes règles que les géants de cette
+--- famille. `r` : un robot de données avec id, age, dtype, range, zone, salve, cratere (shared/content/robots.lua).
+function G.cible(e, r, bonus) return cible({ e = e, bonus = bonus }, r) end
+function G.salve(e, un, r, c, tick, bonus) zone({ e = e, un = un, bonus = bonus }, r, c, tick) end
 
 local function scan(ev)
   local s = K.S()
@@ -286,12 +405,11 @@ local function scan(ev)
       keep[#keep + 1] = g
       if ev.tick >= g.next then
         local r = Xp.robot(g.id)
-        local e = g.e
-        local t = e.surface.find_nearest_enemy({ position = e.position, max_distance = r.range, force = e.force })
+        local t = cible(g, r)
         if t and EFFECTS[r.effect](g, r, t, ev.tick) then
           local st = K.stat(r.id)
           st.coups = st.coups + 1
-          g.next = ev.tick + r.cooldown
+          g.next = ev.tick + r.zone_cooldown
         end
       end
     end
@@ -299,21 +417,25 @@ local function scan(ev)
   s.giants = keep
 end
 
-local STEP = { stylet = stylet_pas, ixion = ixion_pas }
+local STEP = { stylet = stylet_pas, ixion = ixion_pas, zone = zone_pas }
 
 local function on_tick(ev)
   local s = K.S()
   if not s or #s.gjobs == 0 then return end
   local keep = {}
-  for _, j in ipairs(s.gjobs) do
+  local n0 = #s.gjobs
+  for i = 1, n0 do
+    local j = s.gjobs[i]
     local done = false
     if j.at <= ev.tick then
-      if j.kind == "cairn" then cairn_tire(j); done = true
-      elseif j.kind == "trombe" then trombe_degel(j); done = true
+      if j.kind == "cairn" then cairn_tire(j, ev.tick); done = true
+      elseif j.kind == "trombe" then trombe_degel(j, ev.tick); done = true
       else done = STEP[j.kind](j, ev.tick) end
     end
     if not done then keep[#keep + 1] = j end
   end
+  -- les salves lancées pendant ce tick (cairn_tire, trombe_degel) ont été ajoutées en fin de liste : elles sont gardées
+  for i = n0 + 1, #s.gjobs do keep[#keep + 1] = s.gjobs[i] end
   s.gjobs = keep
 end
 
