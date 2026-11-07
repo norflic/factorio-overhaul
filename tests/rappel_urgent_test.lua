@@ -79,13 +79,26 @@ local function checks(R)
   check(r and r.npc == 1, "seule l'exploration est rappelable : elle l'est")
 
   -- Garde de la tâche déjà servie (boucle de rappels)
-  c = { tick = T0, served = "ia1d:1:o:1", tasks = collecte.tasks, npcs = collecte.npcs }
+  c = { tick = T0, served = { "ia1d:1:o:1" }, tasks = collecte.tasks, npcs = collecte.npcs }
   x, why = R.pick(c)
   check(x == nil and why == "aucune urgence", "la même tâche urgente ne rappelle pas deux fois tant qu'elle reste libre")
   c.tasks = { collecte.tasks[1], { key = "autre", prio = 90, created = T0 - 600, ok = true, x = 0, y = 0 } }
   check(R.pick(c) and R.pick(c).urgent == "autre", "une AUTRE tâche urgente peut rappeler")
-  check(R.rearm("ia1d:1:o:1", collecte.tasks) == "ia1d:1:o:1", "servie et encore libre : la garde reste")
-  check(R.rearm("ia1d:1:o:1", {}) == nil and R.rearm(nil, collecte.tasks) == nil, "prise ou partie du tableau : réarmée")
+  local rk = R.rearm({ "ia1d:1:o:1" }, collecte.tasks)
+  check(#rk == 1 and rk[1] == "ia1d:1:o:1", "servie et encore libre : la garde reste")
+  check(#R.rearm({ "ia1d:1:o:1" }, {}) == 0 and #R.rearm(nil, collecte.tasks) == 0, "prise ou partie du tableau : réarmée")
+  -- Deux urgences A et B jamais prises : au plus 2 rappels, puis aucun (la clé unique alternait A, B, A, B)
+  local AB = { { key = "A", prio = 94, created = T0 - 600, ok = true, x = 0, y = 0 }, { key = "B", prio = 92, created = T0 - 600, ok = true, x = 0, y = 0 } }
+  local served, n_rappels = {}, 0
+  for k = 0, 5 do
+    local pk = R.pick({ tick = T0 + k * 1800, last_at = k > 0 and T0 + (k - 1) * 1800 or nil, served = served, tasks = AB,
+      npcs = { { id = 1, busy = true, prio = 10, x = 0, y = 0 }, { id = 2, busy = true, prio = 20, x = 0, y = 0 } } })
+    served = R.rearm(served, AB)
+    if pk then n_rappels = n_rappels + 1; served[#served + 1] = pk.urgent end
+  end
+  check(n_rappels == 2 and #served == 2, "deux urgences jamais prises : 2 rappels au plus, puis aucun (" .. n_rappels .. ")")
+  served = R.rearm(served, { AB[2] })
+  check(#served == 1 and served[1] == "B", "A prise : sa clé part, celle de B reste")
 
   -- Plusieurs urgences : la plus prioritaire, puis la plus ancienne
   c = { tick = T0, tasks = { { key = "b", prio = 90, created = T0 - 900, ok = true, x = 0, y = 0 }, { key = "a", prio = 94, created = T0 - 400, ok = true, x = 0, y = 0 } },
@@ -141,8 +154,9 @@ end
 
 local MUTANTS = {
   { "meme-tache-deux-fois", function(R) wrap_ctx(R, function(c) return clone(c, function(o) o.served = nil end) end) end },
-  { "garde-jamais-rearmee", function(R) R.rearm = function(s) return s end end },
-  { "garde-toujours-rearmee", function(R) R.rearm = function() return nil end end },
+  { "une-seule-cle", function(R) local o = R.pick; R.pick = function(ctx) local c = ctx; if ctx.served and #ctx.served > 1 then c = {}; for k, v in pairs(ctx) do c[k] = v end c.served = { ctx.served[#ctx.served] } end return o(c) end end },
+  { "garde-jamais-rearmee", function(R) R.rearm = function(s) return s or {} end end },
+  { "garde-toujours-rearmee", function(R) R.rearm = function() return {} end end },
   { "defense-rappelee", function(R) wrap_ctx(R, function(c) return clone(c, function(o) for _, n in ipairs(o.npcs) do n.defending = false end end) end) end },
   { "libre-ignore", function(R) wrap_ctx(R, function(c) return clone(c, function(o) for _, n in ipairs(o.npcs) do n.busy = true end end) end) end },
   { "pas-de-pause", function(R) wrap_ctx(R, function(c) return clone(c, function(o) o.last_at = nil end) end) end },
