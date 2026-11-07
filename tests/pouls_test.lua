@@ -770,6 +770,33 @@ local function p10(Box)
 end
 
 ---------------------------------------------------------------------------------------------------
+-- P11 (revue de la 0.6.59, point 7) : une équipe sans centrale finie ne prend jamais le jeton du raccordement
+---------------------------------------------------------------------------------------------------
+local function p11(Ra, Jeton)
+  logs = {}
+  local w = new_world()
+  local fa = team(w, "sans", "p11-a", 0, 0)
+  fa.build.projects[1].state = "chantier"
+  local fb = team(w, "avec", "p11-b", 96, 0)
+  chunks_for(w, { { -2, -2 }, { 4, 2 } })
+  local sfc = surface_of(w)
+  Jeton.reset()
+  local got = {}
+  local J = { take = function(t, who)
+    local r = Jeton.take(t, who)
+    if r then got[who] = (got[who] or 0) + 1 end
+    return r
+  end }
+  for t = 0, 3 * 3600, 5 do
+    game.tick = t
+    for _, f in ipairs({ fa, fb }) do
+      Ra.step({ request = function() return nil end, prio = 50, champ_live = false, jeton = J }, f, sfc, t)
+    end
+  end
+  return got["sans:ra"] or 0, got["avec:ra"] or 0
+end
+
+---------------------------------------------------------------------------------------------------
 -- Jeu de preuves sur la source du jeu
 ---------------------------------------------------------------------------------------------------
 local Rv, Ra, Jeton, Box = load_mods(nil)
@@ -822,6 +849,10 @@ local function p8_ok(worst, bands)
   return #bad == 0 and #whos > 0, table.concat(txt, ", "), bad
 end
 do
+  local sans, avec = p11(Ra, Jeton)
+  check(sans == 0 and avec > 0, string.format("P11 : sans centrale finie, le raccordement ne prend jamais le jeton (%d fois ; l'équipe à la centrale finie : %d)", sans, avec))
+end
+do
   local r10 = p10(Box)
   check(r10.at_load == 1 and r10.after_get == 0 and r10.same1, string.format("P10 : boîte relevée au chargement (on_configuration_changed : %d passage(s)), plus aucun au premier Box.get (%d), juste",
     r10.at_load, r10.after_get))
@@ -865,6 +896,9 @@ local MUT = {
     { { "if api.jeton and not api.jeton.take(tick, fin_par) then return end", "if false then return end" } }, "p9fin" },
   { "m11 boîte non relevée à on_configuration_changed", "script.team.boite_chunks", "script/team/boite_chunks.lua",
     { { "Events.on_configuration_changed(rebuild_all)", "" } }, "p10" },
+  { "m12 raccord : jeton pris avant de lire la centrale (ordre d'avant)", "script.team.raccord", "script/team/raccord.lua",
+    { { "    -- (revue de la 0.6.59, point 7 : la centrale est lue AVANT le jeton ; rien à relever, le jeton reste aux autres)",
+      "    if api.jeton and not api.jeton.take(tick, (f.key or 'player') .. ':ra') then return end" } }, "p11" },
   { "m8 jeton à priorité fixe (file ignorée)", "script.team.pouls_jeton", "script/team/pouls_jeton.lua",
     { { "(s.q[1] ~= nil and s.q[1] ~= who)", "false" } }, "p8" },
   { "m13 la centrale attend la fin du relevé (avant le point 4)", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
@@ -884,6 +918,9 @@ for _, m in ipairs(MUT) do
   elseif m[5] == "p12" then
     local lost_at, fixed_at = p12(Rvm)
     seen = not (lost_at and fixed_at and fixed_at - lost_at <= Rvm.PERIOD + 5)
+  elseif m[5] == "p11" then
+    local sans = p11(Ram, Jm)
+    seen = sans > 0
   elseif m[5] == "p10" then
     local r = p10(Bm)
     seen = not (r.at_load == 1 and r.after_get == 0)
