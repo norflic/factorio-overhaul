@@ -27,6 +27,7 @@ local Outposts = require("script.faction.outposts") -- crochet des tuiles reserv
 local Melange = require("script.team.melange") -- lot MELANGE : zone de la future foreuse electrique (5 x 5) relue au moteur
 local P = require("shared.team.plan") -- lot FOREUSES-THERMIQUES : chaine de poteaux (P.pole_chain, recherche de chemin bornee)
 local Sante = require("script.team.sante_centrale") -- lot FOREUSES-THERMIQUES : puissance des chantiers (bilan d'energie existant)
+local Scheduler = require("script.core.scheduler") -- lot TRANCHES : suite d'une passe au tick suivant (minuterie)
 
 local Swap = {}
 
@@ -104,57 +105,68 @@ local function team_pole(f, p, plan_set)
   return (f.swap and f.swap.pole_pos and f.swap.pole_pos[k]) == true or plan_set[k] == true
 end
 
---- Releve : foreuses a combustion des avant-postes avec leur recepteur, poteaux a portee et leur etat.
---- Rend entries (pour S.plan), refs { [id] = { o, index, drill } }, poles.
-local function survey(f, surface)
-  local entries, refs, poles, seen = {}, {}, {}, {}
-  local plan_set -- (4) : tuiles des poteaux du plan de l'equipe, lues au premier avant-poste candidat
-  local cache = {}
+--- Releve : foreuses a combustion des avant-postes avec leur recepteur, poteaux a portee et leur etat. Lot TRANCHES (lead, 7/11 : tt:foswap
+--- jusqu'a 125 ms d'un bloc) : releve REPRENABLE, dans l'etat de passe `pass` (global : f.swap.pass) ; avant-postes dans l'ordre trie fixe au
+--- depart de la passe (pass.oids), curseur pass.oi / pass.di. Une foreuse lue coute 1 unite de travail, une recherche de poteaux
+--- Swap.POLE_COST ; s'arrete des que `budget` unites sont depensees. Rend le cout et vrai quand le releve est fini. Decisions lues au
+--- tick de depart de la passe (pass.t0), jamais au tick courant : une passe en tranches decide comme d'un bloc.
+--- pass.entries (pour S.plan), pass.refs { [id] = { oid, index, drill, key, sink_ent } }, pass.poles.
+local function survey_step(f, surface, pass, budget)
+  local used = 0
   local retry = (f.swap and f.swap.retry) or {}
-  for _, oid in ipairs(sorted_keys(f.outposts)) do
+  while pass.oi <= #pass.oids do
+    local oid = pass.oids[pass.oi]
     local o = f.outposts[oid]
-    local any = false
-    -- revue du lead (7/11, B2, cout) : recepteur de chaque thermique lu au moteur (drop_target) dans l'ensemble des fours de l'avant-poste,
-    -- au lieu d'un parcours de tous les fours par foreuse (171 x 171 lectures sur un avant-poste dense)
-    local sink_set
-    -- lot MIGRATION-CHAMP : un champ en cours de migration (rangees electriques du plan directeur) ne recoit pas de remplacement sur place
-    for i, d in ipairs(o.migr == "en cours" and {} or (o.drill_list or {})) do
-      if d.valid and d.name == T.DRILL and d.unit_number then
-        local pos = d.position
-        local key = pos.x .. ":" .. pos.y
-        if not (retry[key] and game.tick < retry[key]) then
-          if not sink_set then
-            sink_set = {}
-            for _, s in ipairs(o.sinks or {}) do if s.valid and s.unit_number then sink_set[s.unit_number] = true end end
+    if o then
+      -- revue du lead (7/11, B2, cout) : recepteur de chaque thermique lu au moteur (drop_target) dans l'ensemble des fours de l'avant-poste,
+      -- au lieu d'un parcours de tous les fours par foreuse (171 x 171 lectures sur un avant-poste dense)
+      local sink_set
+      -- lot MIGRATION-CHAMP : un champ en cours de migration (rangees electriques du plan directeur) ne recoit pas de remplacement sur place
+      local list = o.migr == "en cours" and {} or (o.drill_list or {})
+      while pass.di <= #list do
+        local i = pass.di
+        local d = list[i]
+        pass.di = i + 1
+        used = used + 1
+        if d.valid and d.name == T.DRILL and d.unit_number and not pass.refs[d.unit_number] then
+          local pos = d.position
+          local key = pos.x .. ":" .. pos.y
+          if not (retry[key] and pass.t0 < retry[key]) then
+            if not sink_set then
+              sink_set = {}
+              for _, s in ipairs(o.sinks or {}) do if s.valid and s.unit_number then sink_set[s.unit_number] = true end end
+            end
+            local t = d.drop_target
+            local sink
+            if t and t.valid and t.unit_number and sink_set[t.unit_number] then sink = box_of(t) end
+            if sink then
+              pass.any = true
+              pass.entries[#pass.entries + 1] = { id = d.unit_number, x = pos.x, y = pos.y, dir = d.direction, sink = sink }
+              pass.refs[d.unit_number] = { oid = oid, index = i, drill = d, key = key, sink_ent = t }
+            end
           end
-          local t = d.drop_target
-          local sink
-          if t and t.valid and t.unit_number and sink_set[t.unit_number] then sink = box_of(t) end
-          if sink then
-            any = true
-            entries[#entries + 1] = { id = d.unit_number, x = pos.x, y = pos.y, dir = d.direction, sink = sink }
-            refs[d.unit_number] = { o = o, index = i, drill = d, key = key, sink_ent = t }
+        end
+        if used >= budget then return used, false end
+      end
+      if pass.any then
+        -- lot FOREUSES-THERMIQUES : poteaux jusqu'a une chaine de S.CHAIN_MAX poteaux (fil de 9 tuiles au plus) au-dela du rayon d'avant
+        used = used + Swap.POLE_COST
+        for _, p in ipairs(surface.find_entities_filtered({ position = o.pos, radius = T.swap.radius + S.CHAIN_MAX * 9, type = "electric-pole",
+            force = f.force })) do
+          if p.valid and p.unit_number and not pass.seen[p.unit_number] then
+            pass.seen[p.unit_number] = true
+            if team_pole(f, p, plan_pole_tiles(f)) then
+              pass.poles[#pass.poles + 1] = { id = p.unit_number, x = p.position.x, y = p.position.y, dist = p.prototype.supply_area_distance,
+                wire = p.prototype.max_wire_distance, powered = producing(p, pass.nets), ent = p }
+            end
           end
         end
       end
     end
-    if any then
-      -- lot FOREUSES-THERMIQUES : poteaux jusqu'a une chaine de S.CHAIN_MAX poteaux (fil de 9 tuiles au plus) au-dela du rayon d'avant
-      for _, p in ipairs(surface.find_entities_filtered({ position = o.pos, radius = T.swap.radius + S.CHAIN_MAX * 9, type = "electric-pole",
-          force = f.force })) do
-        if p.valid and p.unit_number and not seen[p.unit_number] then
-          seen[p.unit_number] = true
-          plan_set = plan_set or plan_pole_tiles(f)
-          if team_pole(f, p, plan_set) then
-            poles[#poles + 1] = { id = p.unit_number, x = p.position.x, y = p.position.y, dist = p.prototype.supply_area_distance,
-              wire = p.prototype.max_wire_distance, powered = producing(p, cache), ent = p }
-          end
-        end
-      end
-    end
+    pass.oi, pass.di, pass.any = pass.oi + 1, 1, false
+    if used >= budget then return used, pass.oi > #pass.oids end
   end
-  table.sort(poles, function(a, b) return a.id < b.id end)
-  return entries, refs, poles
+  return used, true
 end
 
 --- Repose l'ancienne foreuse (l'electrique n'a pas pu etre posee). Revue du lead (7/11, (2)) : place verifiee d'abord (F70 : create_entity
@@ -558,6 +570,228 @@ local function report(f, st, tick, n_ready, n_chain, n_burner)
     n_ready or 0, n_chain or 0, st.exchanged or 0, st.ex_removed or 0, #w > 0 and table.concat(w, ", ") or "aucun", st.mixed or 0))
 end
 
+--- Lot TRANCHES : reference resolue d'une entree (l'avant-poste par son numero ; nil s'il a disparu entre deux tranches).
+local function ref_of(f, pass, id)
+  local r = pass.refs[id]
+  local o = r and f.outposts[r.oid]
+  if not o then return nil end
+  return { o = o, index = r.index, drill = r.drill, key = r.key, sink_ent = r.sink_ent }
+end
+
+--- Tranche « plan » : S.plan sur le releve (lectures de place bornees par S.FIT_TRIES), refus retenus, etat de l'execution prepare.
+local function plan_step(f, surface, book, pass)
+  local st, t0 = f.swap, pass.t0
+  local free = pass.free
+  table.sort(pass.poles, function(a, b) return a.id < b.id end)
+  if #pass.entries == 0 or #pass.poles == 0 then -- (lot GISEMENTS : st.ready relu par script/team/gisement.lua)
+    st.ready = 0
+    report(f, st, t0, 0, 0, #pass.entries)
+    pass.phase = "fini"
+    return 1
+  end
+  -- lot FOREUSES-THERMIQUES : le remplacement pose lui-meme sa chaine de poteaux depuis le poteau alimente le plus proche
+  -- (bancs : f.team.chaine_off, interrupteur de ia1_remote.lua set_regle_chaine : comportement d'avant, temoin)
+  local pole = not (f.team and f.team.chaine_off) and pole_choice(book, free) or nil
+  local refs = {}
+  for _, e in ipairs(pass.entries) do refs[e.id] = ref_of(f, pass, e.id) end
+  local ctx = { poles = pass.poles, electric = T.drill_electric, have = pass.have, obtainable = pass.obtainable, limit = T.swap.per_pass,
+    pole = pole, free_for = pole and free_for(f, surface, pole) or nil, chain = P.pole_chain, chain_max = S.CHAIN_MAX,
+    fits = fits_for(f, surface, refs) }
+  local out, n_ready, n_chain = S.plan(pass.entries, ctx)
+  for _, rf in ipairs(ctx.refused or {}) do
+    local ref = refs[rf.id]
+    if ref then st.retry[ref.key] = t0 + Swap.RETRY end
+    count(st, rf.why)
+  end
+  local by_pos = {}
+  for _, p in ipairs(pass.poles) do by_pos[p.x .. ":" .. p.y] = p.ent end
+  local item = T.DRILL_ELECTRIC
+  pass.out, pass.k, pass.n_ready, pass.n_chain, pass.by_pos = out, 1, n_ready, n_chain, by_pos
+  pass.pole = pole and { name = pole.name, supply = pole.supply, wire = pole.wire } or nil
+  pass.pole_free = { n = pole and free and free[pole.name] or 0 } -- (3) : stock libre des poteaux, debite chaine par chaine
+  pass.made, pass.kw_new, pass.need_poles, pass.touched = 0, 0, 0, {}
+  pass.kw = (game.entity_prototypes[item].energy_usage or 0) * Swap.JTICK_KW
+  pass.pc = power_of(f)
+  pass.phase = "remplacer"
+  return Swap.PLAN_COST + #pass.entries
+end
+
+--- Tranche « remplacer » : UNE entree du plan (chaine de poteaux, echange, pose de l'electrique). Rend le cout.
+local function exec_step(f, surface, pass)
+  local st, t0 = f.swap, pass.t0
+  local r = pass.out[pass.k]
+  pass.k = pass.k + 1
+  if not r then
+    pass.phase = "fini"
+    return 1
+  end
+  local pole, pole_free, by_pos = pass.pole, pass.pole_free, pass.by_pos
+  local pset = plan_pole_tiles(f)
+  local function mine(p) return team_pole(f, p, pset) end -- (4) : poteaux de l'equipe (fils du poteau neuf)
+  local ref = ref_of(f, pass, r.id)
+  if ref and stale_plan(surface, ref, r.exchange) then
+    count(st, "plan perime")
+    ref = nil
+  end
+  if not ref then return Swap.EXEC_COST end
+  local pc = pass.pc
+  if pc and not S.power_ok({ capacity = pc.capacity, used = pc.used + pass.kw_new, committed = pc.committed }, pass.kw, 0.6) then
+    count(st, "courant")
+    pass.k = #pass.out + 1 -- comme le « break » de la passe d'un bloc : plus aucun remplacement dans cette passe
+    return 1
+  end
+  local placed_n = #(r.poles or {})
+  local prep
+  local undo
+  local ex = r.exchange
+  if placed_n > 0 then pass.need_poles = pass.need_poles + placed_n end
+  if placed_n > 0 or (ex and ex.ents and #ex.ents > 0) then
+    prep = function()
+      if placed_n > 0 then
+        local src = r.source and (r.source.ent or by_pos[r.source.x .. ":" .. r.source.y])
+        local ok, why, placed = place_chain(f, surface, pole, r.poles, src, pole_free, mine)
+        -- poteaux de l'avant-poste (o.swap_poles) : comptes NOTRES par le plan du champ (mine_of, script/team/champ.lua) avec le lot
+        -- CHAMP-COUVERTURE R7 (champ3, b8929f90) ; sans ce lot, personne ne les lit (revue du lead (1), 7/11)
+        if ok and placed then
+          ref.o.swap_poles = ref.o.swap_poles or {}
+          st.pole_pos = st.pole_pos or {}
+          for _, e in ipairs(placed) do
+            ref.o.swap_poles[#ref.o.swap_poles + 1] = e
+            -- revue du lead (7/11, (5)) : poteau de l'equipe au registre (State.own), et sa tuile retenue : un poteau refait par la
+            -- reconstruction (numero neuf, non enregistre) reste reconnu comme une source de l'equipe (releve, revue (4))
+            State.own(e, f.id, "pole", ref.o.id)
+            st.pole_pos[P.tkey(math.floor(e.position.x), math.floor(e.position.y))] = true
+          end
+        end
+        if not ok then
+          count(st, why)
+          if why ~= "poteaux au stock" then st.retry[ref.key] = t0 + Swap.RETRY end
+          return false
+        end
+      end
+      -- (iii) courant amene (chaine posee et reliee, ou foreuse deja couverte) : les paires qui bloquent la 3 x 3 sont retirees
+      if ex and ex.ents and #ex.ents > 0 then
+        local got
+        undo, got = exchange_remove(f, ex)
+        pass.touched[ref.o.id] = true
+        st.exchanged = (st.exchanged or 0) + 1
+        st.ex_removed = (st.ex_removed or 0) + #ex.drills
+        local items = {}
+        for _, n in ipairs(sorted_keys(got)) do items[#items + 1] = got[n] .. " " .. n end
+        log(string.format("[FO-FOREUSES-ECHANGE] %s : electrique en (%.1f, %.1f) direction %d : %d thermique(s) voisine(s) et %d recepteur(s) retire(s) de l'avant-poste %d (1 electrique pour %d thermiques), repris au stock : %s a %.1f min",
+          f.key or "player", r.cx, r.cy, r.dir or -1, #ex.drills, #ex.sinks, ref.o.id, 1 + #ex.drills, #items > 0 and table.concat(items, ", ") or "rien",
+          (t0 - (f.started or 0)) / 3600))
+      end
+      return true
+    end
+  end
+  local done_swap = swap_one(f, surface, ref, r.cx, r.cy, t0, prep, r.dir)
+  pass.touched[ref.o.id] = true -- (2) : listes compactees aussi apres un remplacement rate (ancienne qui ne se repose pas)
+  if not done_swap and undo then
+    exchange_undo(f, surface, ref.o, undo)
+    count(st, "echange repris")
+  end
+  if done_swap then
+    pass.made = pass.made + 1
+    pass.kw_new = pass.kw_new + pass.kw
+    if placed_n > 0 then
+      st.chained = (st.chained or 0) + 1
+      st.poles = (st.poles or 0) + placed_n
+      if st.chained <= Swap.LOGS then
+        log(string.format("[FO-FOREUSES] %s : electrique en (%.1f, %.1f) avec %d %s pose(s) depuis le reseau en (%.1f, %.1f) a %.1f min (%d avec chaine)",
+          f.key or "player", r.cx, r.cy, placed_n, pole.name, r.source.x, r.source.y, (t0 - (f.started or 0)) / 3600, st.chained))
+      end
+    end
+  end
+  return Swap.EXEC_COST + 10 * placed_n
+end
+
+--- Tranche « fin » : listes compactees, fabrication d'avance, bilan.
+local function finish_step(f, book, pass)
+  local st, t0, free = f.swap, pass.t0, pass.free
+  for _, oid in ipairs(sorted_keys(pass.touched or {})) do
+    local o = f.outposts[oid]
+    if o then compact(o) end
+  end
+  if pass.out then
+    local have, pole = pass.have, pass.pole
+    st.ready = pass.n_ready
+    craft(f, book, free, S.demand(pass.n_ready + pass.n_chain, have - pass.made, T.swap.craft_cap), t0)
+    if pole and pass.n_chain > 0 then
+      local want = math.min(Swap.POLE_CAP, math.max(pass.need_poles, S.CHAIN_MAX)) - (free and free[pole.name] or 0)
+      if want > 0 then craft(f, book, free, want, t0, pole.name) end
+    end
+    report(f, st, t0, pass.n_ready, pass.n_chain, #pass.entries)
+  end
+  return pass.made or 0
+end
+
+--- Lot TRANCHES (lead, 7/11 : tt:foswap jusqu'a 125 ms d'un bloc) : la passe se joue par tranches d'au plus Swap.SLICE unites de travail
+--- (une foreuse relevee = 1, une recherche de poteaux d'un avant-poste = Swap.POLE_COST, le plan = Swap.PLAN_COST + entrees, un
+--- remplacement = Swap.EXEC_COST + 10 par poteau). L'etat de la passe est dans global (f.swap.pass : nombres, tables, entites ; aucune
+--- fonction) ; la suite est jouee au tick suivant par la minuterie Swap.TIMER. Toutes les decisions lisent pass.t0 (tick de depart) et
+--- la copie du stock libre prise au depart : sur un monde inchange, une passe en tranches decide EXACTEMENT comme d'un bloc
+--- (tests/foreuse_tranches_test.lua : global et journal compares). Swap.SLICED = false : la passe d'un bloc (ancien comportement).
+Swap.SLICED = true
+Swap.SLICE = 240
+Swap.POLE_COST = 20
+Swap.PLAN_COST = 60
+Swap.EXEC_COST = 60
+Swap.TIMER = "fo-foreuses-tranche"
+Swap.book_of = nil -- livre de recettes de l'equipe (script/team/team.lua, book_for) : pour les tranches jouees hors de la pensee
+Swap.slices = 0 -- tranches jouees (compte pour les bancs et les tests ; hors de global)
+Swap.PASS_MAX = 3600 -- une passe qui n'a pas fini en 1 min (minuterie perdue) est abandonnee : la suivante repart du releve
+
+--- Joue des tranches jusqu'au budget ; rend le nombre d'electriques posees si la passe finit, 0 sinon (la suite est programmee).
+local function run_pass(f, surface, book, pass)
+  local budget = Swap.SLICED and Swap.SLICE or math.huge
+  local used = 0
+  Swap.slices = Swap.slices + 1
+  while true do
+    local cost, done = 0, false
+    -- une tranche entamee ne commence pas un plan ou un remplacement qui la ferait deborder (chaque tranche : au plus max(SLICE, une unite))
+    local est = (pass.phase == "plan" and Swap.PLAN_COST + #pass.entries) or (pass.phase == "remplacer" and Swap.EXEC_COST) or 0
+    if used > 0 and used + est > budget then
+      Scheduler.after(1, Swap.TIMER, { fid = f.id })
+      return 0
+    end
+    if pass.phase == "releve" then
+      local c, fin = survey_step(f, surface, pass, budget - used)
+      cost = c
+      if fin then pass.phase = "plan" end
+    elseif pass.phase == "plan" then
+      cost = plan_step(f, surface, book, pass)
+    elseif pass.phase == "remplacer" then
+      cost = exec_step(f, surface, pass)
+    else
+      done = true
+    end
+    if done then
+      f.swap.pass = nil
+      return finish_step(f, book, pass)
+    end
+    used = used + cost
+    if used >= budget then
+      Scheduler.after(1, Swap.TIMER, { fid = f.id })
+      return 0
+    end
+  end
+end
+
+--- Suite d'une passe en tranches (minuterie) : l'equipe et son QG doivent exister, sinon la passe est abandonnee.
+Scheduler.define_timer(Swap.TIMER, function(p)
+  local f = p and State.faction(p.fid)
+  local pass = f and f.swap and f.swap.pass
+  if not pass then return end
+  local book = Swap.book_of and Swap.book_of(f)
+  if not (f.hq and f.hq.valid and f.outposts and book) then
+    f.swap.pass = nil
+    log(string.format("[FO-FOREUSES] %s : passe du tick %d abandonnee (equipe, QG ou livre de recettes disparu)", tostring(f.key or "player"), pass.t0))
+    return
+  end
+  run_pass(f, f.hq.surface, book, pass)
+end)
+
 --- Une pensee d'equipe : releve, remplacements, fabrication d'avance. `free` : stock libre ({ [objet] = n }) de la pensee.
 function Swap.think(f, surface, book, free, tick)
   if not (f and f.outposts and f.hq and f.hq.valid and next(f.outposts)) then return 0 end
@@ -565,6 +799,11 @@ function Swap.think(f, surface, book, free, tick)
   if not st then
     st = { next = 0, done = 0, failed = 0, retry = {} }
     f.swap = st
+  end
+  if st.pass then
+    if tick - st.pass.t0 < Swap.PASS_MAX then return 0 end -- une passe en tranches est en cours : sa minuterie la joue
+    log(string.format("[FO-FOREUSES] %s : passe du tick %d sans fin apres %d ticks : abandonnee", tostring(f.key or "player"), st.pass.t0, tick - st.pass.t0))
+    st.pass = nil
   end
   if tick < st.next then return 0 end
   st.next = tick + T.swap.every
@@ -577,118 +816,12 @@ function Swap.think(f, surface, book, free, tick)
     st.ready = 0
     return 0 -- objet pas encore debloque : pas de releve (le cas de presque toute la partie au debut)
   end
-  local entries, refs, poles = survey(f, surface)
-  if #entries == 0 or #poles == 0 then -- (lot GISEMENTS : st.ready relu par script/team/gisement.lua)
-    st.ready = 0
-    report(f, st, tick, 0, 0, #entries)
-    return 0
-  end
-  -- lot FOREUSES-THERMIQUES : le remplacement pose lui-meme sa chaine de poteaux depuis le poteau alimente le plus proche
-  -- (bancs : f.team.chaine_off, interrupteur de ia1_remote.lua set_regle_chaine : comportement d'avant, temoin)
-  local pole = not (f.team and f.team.chaine_off) and pole_choice(book, free) or nil
-  local pole_free = { n = pole and free and free[pole.name] or 0 } -- (3) : stock libre des poteaux, debite chaine par chaine
-  local pset = plan_pole_tiles(f)
-  local function mine(p) return team_pole(f, p, pset) end -- (4) : poteaux de l'equipe (fils du poteau neuf)
-  local ctx = { poles = poles, electric = T.drill_electric, have = have, obtainable = obtainable, limit = T.swap.per_pass,
-    pole = pole, free_for = pole and free_for(f, surface, pole) or nil, chain = P.pole_chain, chain_max = S.CHAIN_MAX,
-    fits = fits_for(f, surface, refs) }
-  local out, n_ready, n_chain = S.plan(entries, ctx)
-  for _, rf in ipairs(ctx.refused or {}) do
-    local ref = refs[rf.id]
-    if ref then st.retry[ref.key] = tick + Swap.RETRY end
-    count(st, rf.why)
-  end
-  local by_pos = {}
-  for _, p in ipairs(poles) do by_pos[p.x .. ":" .. p.y] = p.ent end
-  local made, kw_new, need_poles = 0, 0, 0
-  local touched = {}
-  local kw = (game.entity_prototypes[item].energy_usage or 0) * Swap.JTICK_KW
-  local pc = power_of(f)
-  for _, r in ipairs(out) do
-    local ref = refs[r.id]
-    if ref and stale_plan(surface, ref, r.exchange) then
-      count(st, "plan perime")
-      ref = nil
-    end
-    if ref then
-      if pc and not S.power_ok({ capacity = pc.capacity, used = pc.used + kw_new, committed = pc.committed }, kw, 0.6) then
-        count(st, "courant")
-        break
-      end
-      local placed_n = #(r.poles or {})
-      local prep
-      local undo
-      local ex = r.exchange
-      if placed_n > 0 then need_poles = need_poles + placed_n end
-      if placed_n > 0 or (ex and ex.ents and #ex.ents > 0) then
-        prep = function()
-          if placed_n > 0 then
-            local src = r.source and (r.source.ent or by_pos[r.source.x .. ":" .. r.source.y])
-            local ok, why, placed = place_chain(f, surface, pole, r.poles, src, pole_free, mine)
-            -- poteaux de l'avant-poste (o.swap_poles) : comptes NOTRES par le plan du champ (mine_of, script/team/champ.lua) avec le lot
-            -- CHAMP-COUVERTURE R7 (champ3, b8929f90) ; sans ce lot, personne ne les lit (revue du lead (1), 7/11)
-            if ok and placed then
-              ref.o.swap_poles = ref.o.swap_poles or {}
-              st.pole_pos = st.pole_pos or {}
-              for _, e in ipairs(placed) do
-                ref.o.swap_poles[#ref.o.swap_poles + 1] = e
-                -- revue du lead (7/11, (5)) : poteau de l'equipe au registre (State.own), et sa tuile retenue : un poteau refait par la
-                -- reconstruction (numero neuf, non enregistre) reste reconnu comme une source de l'equipe (releve, revue (4))
-                State.own(e, f.id, "pole", ref.o.id)
-                st.pole_pos[P.tkey(math.floor(e.position.x), math.floor(e.position.y))] = true
-              end
-            end
-            if not ok then
-              count(st, why)
-              if why ~= "poteaux au stock" then st.retry[ref.key] = tick + Swap.RETRY end
-              return false
-            end
-          end
-          -- (iii) courant amene (chaine posee et reliee, ou foreuse deja couverte) : les paires qui bloquent la 3 x 3 sont retirees
-          if ex and ex.ents and #ex.ents > 0 then
-            local got
-            undo, got = exchange_remove(f, ex)
-            touched[ref.o.id] = ref.o
-            st.exchanged = (st.exchanged or 0) + 1
-            st.ex_removed = (st.ex_removed or 0) + #ex.drills
-            local items = {}
-            for _, n in ipairs(sorted_keys(got)) do items[#items + 1] = got[n] .. " " .. n end
-            log(string.format("[FO-FOREUSES-ECHANGE] %s : electrique en (%.1f, %.1f) direction %d : %d thermique(s) voisine(s) et %d recepteur(s) retire(s) de l'avant-poste %d (1 electrique pour %d thermiques), repris au stock : %s a %.1f min",
-              f.key or "player", r.cx, r.cy, r.dir or -1, #ex.drills, #ex.sinks, ref.o.id, 1 + #ex.drills, #items > 0 and table.concat(items, ", ") or "rien",
-              (tick - (f.started or 0)) / 3600))
-          end
-          return true
-        end
-      end
-      local done_swap = swap_one(f, surface, ref, r.cx, r.cy, tick, prep, r.dir)
-      touched[ref.o.id] = ref.o -- (2) : listes compactees aussi apres un remplacement rate (ancienne qui ne se repose pas)
-      if not done_swap and undo then
-        exchange_undo(f, surface, ref.o, undo)
-        count(st, "echange repris")
-      end
-      if done_swap then
-        made = made + 1
-        kw_new = kw_new + kw
-        if placed_n > 0 then
-          st.chained = (st.chained or 0) + 1
-          st.poles = (st.poles or 0) + placed_n
-          if st.chained <= Swap.LOGS then
-            log(string.format("[FO-FOREUSES] %s : electrique en (%.1f, %.1f) avec %d %s pose(s) depuis le reseau en (%.1f, %.1f) a %.1f min (%d avec chaine)",
-              f.key or "player", r.cx, r.cy, placed_n, pole.name, r.source.x, r.source.y, (tick - (f.started or 0)) / 3600, st.chained))
-          end
-        end
-      end
-    end
-  end
-  for _, oid in ipairs(sorted_keys(touched)) do compact(touched[oid]) end
-  st.ready = n_ready
-  craft(f, book, free, S.demand(n_ready + n_chain, have - made, T.swap.craft_cap), tick)
-  if pole and n_chain > 0 then
-    local want = math.min(Swap.POLE_CAP, math.max(need_poles, S.CHAIN_MAX)) - (free and free[pole.name] or 0)
-    if want > 0 then craft(f, book, free, want, tick, pole.name) end
-  end
-  report(f, st, tick, n_ready, n_chain, #entries)
-  return made
+  local fr = {}
+  for _, k in ipairs(sorted_keys(free or {})) do fr[k] = free[k] end
+  local pass = { t0 = tick, phase = "releve", oids = sorted_keys(f.outposts), oi = 1, di = 1, any = false, entries = {}, refs = {}, poles = {},
+    seen = {}, nets = {}, have = have, obtainable = obtainable, free = fr }
+  st.pass = pass
+  return run_pass(f, surface, book, pass)
 end
 
 return Swap

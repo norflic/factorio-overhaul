@@ -377,7 +377,7 @@ local function suite(text)
   c("I : plan relu a l'execution (B2 : paires lues une fois par passe)", text:find("if ref and stale_plan(surface, ref, r.exchange) then", 1, true) ~= nil)
   c("I (5) : poteaux poses enregistres (State.own) et leur tuile retenue", text:find('State.own(e, f.id, "pole", ref.o.id)', 1, true) ~= nil
     and text:find("st.pole_pos[P.tkey(math.floor(e.position.x), math.floor(e.position.y))] = true", 1, true) ~= nil)
-  c("I : listes compactees en fin de passe", text:find("for _, oid in ipairs(sorted_keys(touched)) do compact(touched[oid]) end", 1, true) ~= nil)
+  c("I : listes compactees en fin de passe", text:find("for _, oid in ipairs(sorted_keys(pass.touched or {})) do", 1, true) ~= nil)
   return res
 end
 
