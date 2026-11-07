@@ -34,7 +34,14 @@
     8. FERMÉ PAR DÉFAUT (lot L13, même règle que Pf.input de shared/ai3/plafonds.lua, recopiée ici pour le coût) : un module dont l'état du courant, les entrées lues ou l'heure de
        lecture manquent ne publie rien (refused) ; un débit nominal absent ou invalide ne publie rien pour cette entrée ; une
        sortie dont la sûreté n'est pas connue (ok ~= vrai) ne retient pas la construction et n'est pas collectée.
-  Sorties : need, dispo_stock, dispo_sorties, dort, out_all, net (= dispo_stock + dispo_sorties − need, signé : négatif = manque,
+    9. LABORATOIRES (lot VIDEO-COUVERTURE 3, V59) : un module qui consomme la RECHERCHE EN COURS (m.consumes = Mq.RESEARCH) publie le manque de
+       packs comme un module de recette : débit d'un ingrédient = quantité par unité × vitesse de recherche totale × 60 ÷ durée de l'unité,
+       par minute (Mq.module). Sans technologie en file (tech = false) : rien à consommer, aucun manque ; technologie non lue, vitesse ou
+       durée invalide : refusé (règle 8). Les packs du module, de ses quais et en route, comptent comme une entrée ordinaire.
+   10. MUNITIONS (V10, C3.4) : les chargeurs qui manquent aux tourelles sont une demande hors module (Mq.ammo_want) : somme des manques des groupes
+       dont la recharge est due et que nulle tournée n'a déjà prise, à la priorité de l'armée. Avant, la famille « armée » les gardait à parts
+       réservées, hors des puits, et aucun manque mesuré ne les voyait.
+  Sorties : need, by_module (le manque de CHAQUE module : { [id] = { [objet] = n } }, avant le stock : need en est la somme), dispo_stock, dispo_sorties, dort, out_all, net (= dispo_stock + dispo_sorties − need, signé : négatif = manque,
   comme le signal de la vidéo), build, short_by (part non couverte de chaque besoin : clé « m:<module> » ou « w:<demande> »),
   collect, starved, no_power, stale, refused, items.
   Déterminisme : objets, ids, clés et sources parcourus triés ; aucun hasard ; aucune horloge mesurée ; l'état `st` ne garde que
@@ -48,6 +55,7 @@ Mq.MAX_AGE = 2 * 3600       -- ticks : une lecture plus vieille ne compte pas
 Mq.READ = 32                -- modules lus par pensée (tourniquet)
 Mq.COLLECT_WAIT = 10 * 3600 -- ticks : une sortie non collectée retient la construction au plus 10 min
 Mq.EPS = 1e-9
+Mq.RESEARCH = "research"  -- m.consumes d'un module qui consomme la recherche en cours (lot VIDEO-COUVERTURE 3, V59) ; voir Mq.module
 
 ---------------------------------------------------------------------------------------------------
 -- Outils
@@ -138,12 +146,60 @@ local function transit_of(list, res)
   return tr
 end
 
+--- Lot VIDEO-COUVERTURE 3 (V59) : un module de laboratoires (m.consumes = Mq.RESEARCH) consomme les ingrédients de la recherche en cours, pas ceux d'une recette.
+--- m = { consumes = Mq.RESEARCH, id, power, have, read_tick, prio, speed, tech }, où `speed` = vitesse de recherche TOTALE des laboratoires du
+--- module (somme des vitesses, bonus de force compris), `tech` = false (aucune technologie en file : rien à consommer) ou
+--- { unit_time = secondes d'une unité, ingredients = { { item, n } } (n par unité) }. Débit d'un ingrédient (par minute) :
+--- n × speed × 60 ÷ unit_time. Un module d'un autre type est rendu tel quel. Rend le module normalisé (`inputs` posé), ou nil et la raison
+--- (garde fermée, règle 8 : une technologie non lue, une vitesse ou une durée invalides ne publient rien).
+function Mq.module(m)
+  if type(m) ~= "table" or m.consumes ~= Mq.RESEARCH then return m end
+  local out = {}
+  for _, k in ipairs(sorted_keys(m)) do out[k] = m[k] end
+  if m.tech == false then
+    out.inputs = {}
+    return out
+  end
+  local t = m.tech
+  if type(t) ~= "table" then return nil, "technologie non lue" end
+  local speed, ut = num(m.speed), num(t.unit_time)
+  if not speed or speed <= 0 or not ut or ut <= 0 or type(t.ingredients) ~= "table" then
+    return nil, "vitesse, duree d'unite ou ingredients de la technologie invalides"
+  end
+  local per = {}
+  for _, ing in ipairs(t.ingredients) do
+    local n = type(ing) == "table" and num(ing.n) or nil
+    if type(ing) ~= "table" or type(ing.item) ~= "string" or n == nil then return nil, "ingredient de technologie invalide" end
+    add(per, ing.item, n * speed * 60 / ut)
+  end
+  out.inputs = {}
+  for _, it in ipairs(sorted_keys(per)) do out.inputs[#out.inputs + 1] = { item = it, rate = per[it] } end
+  return out
+end
+
+--- Lot VIDEO-COUVERTURE 3 (V10, C3.4) : les munitions manquantes des tourelles, demande hors module de Mq.step. groups = { { key, due,
+--- missing, has_task } } (due : la recharge est due, missing : chargeurs qui manquent à la cible, has_task : une tournée de recharge est déjà
+--- au tableau et porte ce qu'il faut) ; o = { item, prio } (la munition portée aux tourelles, la priorité de l'armée). Rend { key = « but:<objet> »,
+--- item, n, prio }, ou nil quand rien ne manque. Les munitions entraient en famille « armée » à parts réservées, hors des puits.
+function Mq.ammo_want(groups, o)
+  if type(o) ~= "table" or type(o.item) ~= "string" or o.item == "" or num(o.prio) == nil then return nil end
+  local n = 0
+  for _, g in ipairs(groups or {}) do
+    local miss = type(g) == "table" and num(g.missing) or nil
+    if miss and g.due == true and not g.has_task then n = n + miss end
+  end
+  if n <= Mq.EPS then return nil end
+  return { key = "but:" .. o.item, item = o.item, n = n, prio = o.prio }
+end
+
 --- Manques des modules (règles 1, 3, 7, 8) : rend { [objet] = liste de besoins { key, n, prio } }.
 local function module_needs(mods, tr, tick, res)
   local needs = {}
   local list = {}
-  for _, m in ipairs(mods or {}) do
-    if type(m) == "table" and valid_id(m.id) then list[#list + 1] = m
+  for _, m0 in ipairs(mods or {}) do
+    local m, why = Mq.module(m0)
+    if m == nil then res.refused[#res.refused + 1] = { id = type(m0) == "table" and m0.id or "?", why = why }
+    elseif type(m) == "table" and valid_id(m.id) then list[#list + 1] = m
     else res.refused[#res.refused + 1] = { id = "?", why = "module sans id" } end
   end
   table.sort(list, function(a, b) return id_before(a.id, b.id) end)
@@ -175,11 +231,13 @@ local function module_needs(mods, tr, tick, res)
           if need > Mq.EPS then
             needs[x.item] = needs[x.item] or {}
             needs[x.item][#needs[x.item] + 1] = { key = mkey, n = need, prio = prio }
+            res.by_module[m.id] = res.by_module[m.id] or {}
+            res.by_module[m.id][x.item] = need
             if have <= Mq.EPS and way <= Mq.EPS then hungry[#hungry + 1] = x.item end
           end
         end
       end
-      if #hungry > 0 then res.starved[#res.starved + 1] = { id = m.id, items = hungry } end
+      if #hungry > 0 then res.starved[#res.starved + 1] = { id = m.id, items = hungry, consumes = m.consumes } end
     end
   end
   return needs
@@ -214,7 +272,7 @@ function Mq.step(st, input, tick)
   st.wait = st.wait or {}
   input = input or {}
   local res = { need = {}, dispo_stock = {}, dispo_sorties = {}, dort = {}, out_all = {}, net = {}, build = {}, collect = {},
-    short_by = {}, starved = {}, no_power = {}, stale = {}, refused = {}, items = {} }
+    short_by = {}, starved = {}, no_power = {}, stale = {}, refused = {}, items = {}, by_module = {} }
   local tr = transit_of(input.transit, res)
   local needs = module_needs(input.mods, tr, tick, res)
   -- Demandes hors module (règle 4).

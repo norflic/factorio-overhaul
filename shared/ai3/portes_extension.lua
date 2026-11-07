@@ -12,6 +12,9 @@
         FERME après Pe.SAT_THINKS mesures tendues de suite et ne se rouvre qu'après Pe.SAT_THINKS mesures DÉTENDUES de suite (part libre
         au moins Pe.IDLE_EXIT_PM ‰ ET tâches libres au plus Pe.BACKLOG_EXIT_PER × PNJ + Pe.BACKLOG_BASE) : hystérésis, pas de clignotement.
         Fermée : aucun ordre de rang >= 2 qui AJOUTE des tournées (o.tours) ; un tapis (o.belt) reste permis (il RETIRE des tournées).
+        Lot VIDEO-COUVERTURE 3 (G73) : la RECHERCHE est coupée EXPLICITEMENT : un ordre qui la nourrit (o.research : sortes Pe.RESEARCH_KINDS,
+        packs et laboratoires) est retenu porte fermée, qu'il compte ou non parmi les tournées de l'appelant, avec sa raison (« recherche coupee »).
+        La recherche DÉJÀ commencée continue (les laboratoires du QG paient leurs packs au coffre) ; elle ne grandit plus tant que le transport sature.
         Effectif nul ou mesure absente : la porte est fermée (garde fermée par défaut, L13).
     (b) BRAS À SEUIL CROISSANT (G12 « occupés > mégatuiles ÷ 25 + 1 → attendre », V73) : au plus ⌊modules ÷ Pe.MODULES_PER_SITE⌋ + 1
         chantiers ouverts à la fois ; un ordre qui OUVRE un chantier (o.site) n'est permis que s'il reste une place. Écart [DÉDUIT] à la
@@ -36,6 +39,9 @@ Pe.BACKLOG_BASE = 2
 Pe.SAT_THINKS = 2         -- mesures de suite pour fermer, puis pour rouvrir (« pendant 2 pensées de suite »)
 Pe.MODULES_PER_SITE = 25  -- G12 : un chantier parallèle de plus par 25 modules posés
 Pe.SAFE_RANK = 1          -- rangs <= 1 (R0 survivre, R1 réparer et protéger) jamais retenus (I2)
+-- Sortes d'ordres de la capitalisation qui nourrissent la RECHERCHE (G73) : des packs de plus, des laboratoires de plus. Des NOMS DE SORTES d'ordres
+-- (shared/ai3/capitalisation.lua, Pi.order_family), pas des objets du jeu.
+Pe.RESEARCH_KINDS = { packs = true, labos = true }
 
 local function int(v) if type(v) ~= "number" or v ~= v then return nil end return math.floor(v) end
 
@@ -96,7 +102,9 @@ end
 function Pe.check(g, o)
   local rank = int(o.rank) or 3
   if rank > Pe.SAFE_RANK then
-    if g.closed and o.tours and not o.belt then
+    if g.closed and o.research and not o.belt then
+      return "recherche coupee : transport sature : " .. tostring(g.cause)
+    elseif g.closed and o.tours and not o.belt then
       return "transport sature : " .. tostring(g.cause)
     elseif o.site and g.room <= 0 then
       return string.format("bras : %d chantier(s) ouvert(s) au plus pour %d module(s)", g.limit, g.batis)
@@ -136,7 +144,7 @@ function Pe.decide(st, a, orders)
       refused[#refused + 1] = { key = o.key, why = why }
     else
       local c = {}
-      for _, k in ipairs({ "key", "item", "n", "rank", "tours", "belt", "site", "measured", "alone" }) do c[k] = o[k] end
+      for _, k in ipairs({ "key", "item", "n", "rank", "tours", "belt", "site", "measured", "alone", "research" }) do c[k] = o[k] end
       c.n, c.reduced = Pe.units(g, o)
       if not c.reduced then c.reduced = nil end
       Pe.take(g, o)
@@ -159,9 +167,10 @@ function Pe.translate(o, ctx)
   local site = (ctx.site_kinds or {})[o.kind] == true
   local item = o.item or o.resource
   local measured = item ~= nil and ((ctx.measured or {})[item] or 0) > 0
+  local research = Pe.RESEARCH_KINDS[o.kind] == true
   return { key = o.key, item = item, n = o.n, rank = (fam ~= nil and (ctx.family_rank or {})[fam]) or 3,
-    site = site, tours = (ctx.tours_kinds or {})[o.kind] == true, belt = false, measured = measured,
-    alone = measured and (ctx.measured_n or 0) == 1 }
+    site = site, tours = research or (ctx.tours_kinds or {})[o.kind] == true, belt = false, measured = measured,
+    alone = measured and (ctx.measured_n or 0) == 1, research = research }
 end
 
 --- Filtre d'une décision (branchement dans le runtime, script/ai3/capitalisation.lua decide_finish, AVANT la boucle d'envoi). Rend

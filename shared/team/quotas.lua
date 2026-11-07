@@ -9,6 +9,10 @@
       dépasse jamais Q.COLLECT_PM ‰ de la capacité sous la barre (une sortie bornée sous le seuil de collecte ne serait jamais vidée).
   Défaut visé (IA_WORKFLOW §5, D2, partie du DC du 7/11) : fours « sortie pleine », ingrédients portés à des modules pleins.
 
+  Lot VIDEO-COUVERTURE 3 (C11, C3.2) : un coffre de sortie à PLUSIEURS produits partage ses cases ouvertes en PARTS par produit (Q.share) : chaque
+  produit garde au plus Q.SORTIE_MIN minutes de son débit, la somme des parts ne dépasse jamais la barre du coffre, un produit garde au moins une
+  case quand la barre en offre une à chacun (res.outs[i].shares[objet] = { cases, cap }).
+
   PUR : aucune API du jeu, AUCUN nom d'objet, de machine ou de coffre (anti-échelle de tests/iag_test.lua §8 bis). Les débits viennent du
   gabarit (`nominal`, `inputs` : objets par seconde, calculés par M.analyze de shared/team/modules.lua, jamais écrits à la main : I1) ; la
   pile d'un objet et le nombre de cases d'un coffre sont LUS par l'appelant (prototypes) et passés en arguments. Un objet sans pile
@@ -74,6 +78,52 @@ function Q.out_chests(g)
   return out
 end
 
+--- Lot VIDEO-COUVERTURE 3 (C11, C3.2) : PARTAGE des `slots` cases ouvertes d'un coffre entre ses produits. wanted = liste de { item, cases
+--- (cases voulues : Q.SORTIE_MIN minutes de son débit), rate }, dans l'ordre de l'appelant. Rend la liste des cases accordées, alignée sur
+--- `wanted`. Règles : (1) aucun produit n'a plus que ce qu'il veut ; (2) la somme ne dépasse jamais `slots` ; (3) tout produit a au moins une case
+--- quand `slots` en offre une à chacun (sinon les cases vont aux plus forts débits, puis au nom) ; (4) le reste se partage en proportion des
+--- cases voulues au-delà de la première (plus forts restes d'abord, puis le nom : entiers, aucun hasard). Tout tient : rien n'est réduit.
+function Q.share(wanted, slots)
+  local n = #wanted
+  local alloc = {}
+  local total = 0
+  for k, w in ipairs(wanted) do alloc[k] = w.cases total = total + w.cases end
+  if total <= slots then return alloc end
+  local order = {}
+  for k = 1, n do order[k] = k end
+  if slots < n then
+    table.sort(order, function(a, b)
+      local ra, rb = wanted[a].rate or 0, wanted[b].rate or 0
+      if ra ~= rb then return ra > rb end
+      return tostring(wanted[a].item) < tostring(wanted[b].item)
+    end)
+    for k = 1, n do alloc[k] = 0 end
+    for j = 1, slots do alloc[order[j]] = 1 end
+    return alloc
+  end
+  local rest, extra_total = slots - n, 0
+  for k = 1, n do alloc[k] = 1 extra_total = extra_total + wanted[k].cases - 1 end
+  if rest <= 0 or extra_total <= 0 then return alloc end
+  local rem = {}
+  local given = 0
+  for k = 1, n do
+    local e = wanted[k].cases - 1
+    local part = floor(rest * e / extra_total + EPS)
+    alloc[k] = alloc[k] + part
+    given = given + part
+    rem[k] = { k = k, r = rest * e - part * extra_total, room = e - part }
+  end
+  table.sort(rem, function(a, b)
+    if a.r ~= b.r then return a.r > b.r end
+    return tostring(wanted[a.k].item) < tostring(wanted[b.k].item)
+  end)
+  for _, x in ipairs(rem) do
+    if given >= rest then break end
+    if x.room > 0 and x.r > 0 then alloc[x.k] = alloc[x.k] + 1 given = given + 1 end
+  end
+  return alloc
+end
+
 --- Les quotas d'un module.
 ---   nominal, inputs : { [objet] = objets/s } (gabarit) ;
 ---   outs : liste des coffres de sortie { items = { objets } } (vide : produit principal) ;
@@ -82,7 +132,7 @@ end
 ---            in_slots = cases d'un coffre d'entrée (défaut : slots), collect_at = seuil de collecte de l'appelant,
 ---            lot_min = charge minimale d'un voyage d'alimentation (objets, ou fonction objet -> objets ; 0 par défaut : nos PNJ portent
 ---            par voyages, une minute d'un ingrédient lent ferait des voyages de 3 objets), sortie_min, entree_min }.
---- Rend { main, outs = { { items, cases, cap, collect_at } } (même ordre que `outs`), ins = { { item, want, low, cap } ou
+--- Rend { main, outs = { { items, cases, cap, collect_at, shares = { [objet] = { cases, cap } } } } (même ordre que `outs`), ins = { { item, want, low, cap } ou
 --- { item, free = true } } (même ordre que `ins` : `free` = objet sans consommation nominale, l'appelant garde sa règle) }.
 function Q.quotas(nominal, inputs, outs, ins, opts)
   opts = opts or {}
@@ -101,27 +151,29 @@ function Q.quotas(nominal, inputs, outs, ins, opts)
   end
   local res = { main = main, outs = {}, ins = {} }
   for i = 1, #(outs or {}) do
-    local cases, cap = 0, 0
+    -- Cases voulues par produit (Q.SORTIE_MIN minutes de SON débit), puis partage des cases ouvertes du coffre en PARTS (Q.share).
+    local wanted = {}
     for _, it in ipairs(carry[i]) do
       local st = stack_of(opts, it)
       local r = (nominal or {})[it]
       if st and type(r) == "number" and r > 0 then
         local target = ceil(smin * 60 * r - EPS)                -- objets gardés pour tout le module
         local per_chest = ceil(target / n_of[it] - EPS)         -- partagés entre ses coffres
-        local c = max(1, ceil(per_chest / st - EPS))
-        cases, cap = cases + c, cap + c * st
+        wanted[#wanted + 1] = { item = it, cases = max(1, ceil(per_chest / st - EPS)), stack = st, rate = r }
       end
     end
-    if cases > slots then
-      cap = floor(cap * slots / cases + EPS)
-      cases = slots
+    local alloc = Q.share(wanted, slots)
+    local cases, cap, shares = 0, 0, {}
+    for k, w in ipairs(wanted) do
+      cases, cap = cases + alloc[k], cap + alloc[k] * w.stack
+      shares[w.item] = { cases = alloc[k], cap = alloc[k] * w.stack }
     end
     local cat = nil
     if cases > 0 then
       cat = max(1, floor(cap * Q.COLLECT_PM / 1000 + EPS))
       if type(opts.collect_at) == "number" and opts.collect_at >= 1 then cat = min(cat, floor(opts.collect_at)) end
     end
-    res.outs[i] = { items = carry[i], cases = cases, cap = cap, collect_at = cat }
+    res.outs[i] = { items = carry[i], cases = cases, cap = cap, collect_at = cat, shares = shares }
   end
   -- coffres d'entrée : la minute d'ingrédients partagée entre les coffres du même objet
   local nin = {}
