@@ -14,8 +14,6 @@
 local S = {}
 
 local EPS = 1e-6
-local abs = math.abs
-local OFF = { -0.5, 0.5 } -- lot S5 (×10) : décalages de S.electric_center, sans table à chaque appel
 
 --- Vecteur (x, y) tourne selon la direction (sens horaire, depuis le nord) : meme regle que le depot d'une foreuse du moteur.
 function S.rotate(dir, x, y)
@@ -41,27 +39,22 @@ end
 --- centres a demi-tuile), ne pas recouvrir le recepteur, et deposer dans le recepteur. Choix : le plus proche de l'ancien centre,
 --- puis x, puis y croissants (deterministe).
 function S.electric_center(bx, by, dir, sink, spec)
-  -- Lot S5 (×10) : même calcul, mêmes opérations flottantes dans le même ordre, sans table allouée (la boîte { cx, cy, size, size }
-  -- de S.overlap est écrite en ligne ; le meilleur est gardé dans deux nombres).
-  local bcx, bcy, best_d
+  local best, best_d
   local vx, vy = S.rotate(dir, spec.drop[1], spec.drop[2])
-  local size = spec.size
-  for i = 1, 2 do
-    local ox = OFF[i]
-    for j = 1, 2 do
-      local oy = OFF[j]
+  for _, ox in ipairs({ -0.5, 0.5 }) do
+    for _, oy in ipairs({ -0.5, 0.5 }) do
       local cx, cy = bx + ox, by + oy
-      if S.inside(sink, cx + vx, cy + vy)
-        and not (abs(cx - sink.x) < (size + sink.w) / 2 - EPS and abs(cy - sink.y) < (size + sink.h) / 2 - EPS) then
+      local box = { x = cx, y = cy, w = spec.size, h = spec.size }
+      if S.inside(sink, cx + vx, cy + vy) and not S.overlap(box, sink) then
         local d = ox * ox + oy * oy
-        if not best_d or d < best_d - EPS or (abs(d - best_d) <= EPS and (cx < bcx or (cx == bcx and cy < bcy))) then
-          bcx, bcy, best_d = cx, cy, d
+        if not best_d or d < best_d - EPS or (math.abs(d - best_d) <= EPS and (cx < best[1] or (cx == best[1] and cy < best[2]))) then
+          best, best_d = { cx, cy }, d
         end
       end
     end
   end
-  if not best_d then return nil end
-  return bcx, bcy
+  if not best then return nil end
+  return best[1], best[2]
 end
 
 --- La zone d'alimentation (carre de demi-cote `dist` autour du poteau) touche-t-elle la boite de la foreuse ?
@@ -84,31 +77,13 @@ function S.plan(entries, ctx)
   local list = {}
   for _, e in ipairs(entries) do list[#list + 1] = e end
   table.sort(list, function(a, b) return a.id < b.id end)
-  -- Lot S5 (×10) : S.covered(p.x, p.y, p.dist, boîte) écrit en ligne, sans table par paire (avant : une boîte par foreuse ET une
-  -- zone par paire). Les poteaux alimentés sont filtrés une fois, dans le même ordre ; la borne (2 * dist + size) / 2 - EPS de
-  -- S.overlap est calculée une fois par poteau (mêmes opérandes, même valeur) ; |d| < L s'écrit d < L et d > -L (même réponse, la
-  -- négation est exacte). Sans objet obtenable, aucune foreuse n'est « electric » quel que soit le courant : boucle sautée.
-  local size = ctx.electric.size
-  local pxs, pys, lims, npw = {}, {}, {}, 0
-  if ctx.obtainable then
-    for _, p in ipairs(ctx.poles) do
-      if p.powered then
-        npw = npw + 1
-        pxs[npw], pys[npw], lims[npw] = p.x, p.y, (2 * p.dist + size) / 2 - EPS
-      end
-    end
-  end
   for _, e in ipairs(list) do
     local cx, cy = S.electric_center(e.x, e.y, e.dir, e.sink, ctx.electric)
     if cx then
+      local box = { x = cx, y = cy, w = ctx.electric.size, h = ctx.electric.size }
       local powered = false
-      for i = 1, npw do
-        local l = lims[i]
-        local dx = pxs[i] - cx
-        if dx < l and dx > -l then
-          local dy = pys[i] - cy
-          if dy < l and dy > -l then powered = true break end
-        end
+      for _, p in ipairs(ctx.poles) do
+        if p.powered and S.covered(p.x, p.y, p.dist, box) then powered = true break end
       end
       if S.choose_type(ctx.obtainable, powered) == "electric" then ready[#ready + 1] = { id = e.id, cx = cx, cy = cy } end
     end
