@@ -58,6 +58,8 @@ local function load_code(src, Qg)
     Stock = { count = function(_, it) return (W.stock[it] or 0) end },
     defines = { inventory = { chest = 1 } },
     sorted_keys = function(t) local ks = {} for k in next, t or {} do ks[#ks + 1] = k end table.sort(ks) return ks end,
+    -- (intégrateur, 8/11 : X10-S0 met des portées de mesure dans quai_tasks ; doublure muette, aucune décision)
+    Profiler = setmetatable({}, { __index = function() return function() end end }),
   }
   local chunk = assert(load(body .. "\nreturn { quai_tasks = quai_tasks, out_tasks = out_tasks }", "build_quotas", "t",
     setmetatable(env, { __index = _G })))

@@ -21,6 +21,7 @@ local M = require("shared.team.modules")
 local P = require("shared.team.plan")
 local Rv = require("script.team.reseau_vivant")
 local Cr = require("shared.team.coupure_reseau") -- lot ENERGIE (2/11) : second chemin autour des ennemis
+local Gens = require("script.team.generateurs") -- lot X10-S4 : registre des génératrices (plus de recherche sur toute la surface)
 
 local Ra = {}
 
@@ -55,13 +56,9 @@ end
 -- Relevé
 ---------------------------------------------------------------------------------------------------
 --- Réseaux alimentés (au moins une machine génératrice de l'équipe) : { [numéro] = true }, nombre.
+--- Lot X10-S4 : lu au registre des génératrices (script/team/generateurs.lua), même ensemble que l'ancienne recherche sur toute la surface.
 local function live_networks(f, surface)
-  local live, n = {}, 0
-  for _, g in ipairs(surface.find_entities_filtered({ force = f.force, type = GEN_TYPES })) do
-    local id = g.electric_network_id
-    if id and not live[id] then live[id] = true; n = n + 1 end
-  end
-  return live, n
+  return Gens.networks(surface, f.force, GEN_TYPES)
 end
 
 -- Lot LOURD : le même relevé par bandes. Une bande = Ra.BAND lignes de chunks sur toute la largeur de la boîte des chunks générés ; un
@@ -474,7 +471,9 @@ function Ra.step(api, f, surface, tick)
       -- Lot LOURD : boîte des chunks connue (api.box) : relevé des générateurs par bandes (st.lj), une bande par passe sous le jeton ; la
       -- centrale n'est lue qu'ici, au départ, comme avant. L'horloge est posée ici : la cadence des cycles est celle d'avant, le cycle
       -- commence quand la dernière bande est faite. Sans boîte (bancs d'avant ce lot) : d'un bloc, comme avant.
-      if not box then
+      -- Lot X10-S4 : registre des génératrices prêt (script/team/generateurs.lua, en jeu toujours) : d'un bloc aussi, car live_networks ne
+      -- lit plus que les génératrices de l'équipe (O(génératrices), réseaux lus maintenant) ; les bandes restent le chemin sans registre.
+      if not box or Gens.ready() then
         if P then P.fstart("ra:debut") end
         st.cyc = start_cycle(f, surface, b, api.champ_live)
         if P then P.fstop("ra:debut") end

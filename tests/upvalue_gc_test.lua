@@ -32,6 +32,8 @@ local ALLOW = {
   ["script/team/plant_arms.lua"] = { STATUS_NAME = "table des états du moteur, posée une fois" },
   ["shared/content/guarantee.lua"] = { SPECS = "données des sites garantis, posées une fois" },
   ["shared/levels/config.lua"] = { cost_table = "table des coûts, posée une fois" },
+  -- (intégrateur, 8/11 : lot LOURD point 2, b4be4c89) J.reset ne sert qu'aux bancs hors jeu (nouvelle partie simulée), jamais par tick
+  ["script/core/lourd.lua"] = { served = "remis à neuf par J.reset, bancs hors jeu seulement, jamais par tick" },
 }
 
 --- Affectations d'une table neuve à un local de module dans une fonction : { { ligne, nom, texte } }.
