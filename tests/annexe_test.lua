@@ -378,6 +378,44 @@ do
   check(Stock.insert(f, "stone", ss) == 0, "temoin : la pierre n'entre pas dans les 2 cases gardees")
   check(Stock.insert(f, "wooden-chest", 1) == 1 and f.hq.items["wooden-chest"] == 1, "coffre en bois : pris dans les cases gardees")
   f.hq.items["wooden-chest"] = nil
+  -- Dépôt d'une non vitale : sortie tôt quand le dépôt tient dans les piles entamées du QG (aucune annexe lue), et piles entamées
+  -- d'abord, coffre par coffre (déposer d'un bloc au QG prenait ses cases vides alors que la place était dans une annexe).
+  local function readable(e)
+    local iv = e.get_inventory()
+    iv.reads = 0
+    local ces = iv.count_empty_stacks
+    iv.count_empty_stacks = function() iv.reads = iv.reads + 1 return ces() end
+    iv.get_insertable_count = function(name)
+      iv.reads = iv.reads + 1
+      local stack = STACK[name] or 50
+      local have = e.items[name] or 0
+      return math.ceil(have / stack) * stack - have + ces() * stack
+    end
+    return iv
+  end
+  local g2 = team(20)
+  readable(g2.hq)
+  local an = new_chest(10)
+  local ian = readable(an)
+  g2.annex = { an }
+  g2.hq.items.coal = (STACK.coal or 50) * 18 -- 18 cases sur 20, 2 vides (réserve du total de 30 cases : 5)
+  g2.hq.items.stone = ss / 2 -- une pile entamée de la moitié
+  local before_empty = g2.hq.get_inventory().count_empty_stacks()
+  check(Stock.insert(g2, "stone", ss / 2 - 1) == ss / 2 - 1 and ian.reads == 0 and g2.hq.get_inventory().count_empty_stacks() == before_empty,
+    "non vitale qui tient dans la pile entamee du QG : deposee, aucune annexe lue (" .. ian.reads .. " lecture(s))")
+  local g3 = team(20)
+  readable(g3.hq)
+  local an3 = new_chest(10)
+  readable(an3)
+  g3.annex = { an3 }
+  g3.hq.items.coal = (STACK.coal or 50) * 18 -- QG : 2 cases vides, aucune pierre
+  an3.items.coal = (STACK.coal or 50) * 9
+  an3.items.stone = ss / 2 -- annexe : pleine, une pile de pierre entamée
+  local hq_empty = g3.hq.get_inventory().count_empty_stacks()
+  local put3 = Stock.insert(g3, "stone", ss / 2 - 1)
+  check(put3 == ss / 2 - 1 and an3.items.stone == ss - 1 and g3.hq.get_inventory().count_empty_stacks() == hq_empty and (g3.hq.items.stone or 0) == 0,
+    "non vitale : la pile entamee de l'annexe d'abord, les cases vides du QG (sous la reserve) restent libres (" .. put3 .. ", QG vides " ..
+    g3.hq.get_inventory().count_empty_stacks() .. "/" .. hq_empty .. ")")
   f.team = { ia3 = { saturated = { stone = true } } }
   local skip = Stock.skip_fn(f)
   check(skip ~= nil and skip("stone") and skip("copper-plate") and not skip("coal") and not skip("iron-plate"),

@@ -81,24 +81,42 @@ function Stock.remove(f, item, n)
   return got
 end
 
---- Lot STOCKAGE-VITAL : objets d'une matière NON vitale que le stock accepte encore (piles entamées + cases vides au-delà de la réserve des
---- vitales, Sg.new_stacks), ou nil quand la réserve ne mord pas (ou que l'inventaire ne se lit pas : moteur simulé).
-local function non_vital_cap(f, item)
+-- Tailles de pile lues aux prototypes (constantes pendant une partie ; cache du module, jamais dans `global`).
+local STACK_OF = {}
+local function stack_of(item)
+  local s = STACK_OF[item]
+  if s then return s end
   local protos = game and game.item_prototypes
   local proto = protos and protos[item]
   if not proto then return nil end
-  local stack = proto.stack_size or 50
+  s = proto.stack_size or 50
+  STACK_OF[item] = s
+  return s
+end
+
+--- Lot STOCKAGE-VITAL : plan de dépôt d'une matière NON vitale quand la réserve des vitales mord (Sg.new_stacks) : coffres dans l'ordre
+--- du dépôt (QG puis annexes), place de leurs piles entamées, cases neuves permises ; nil quand la réserve ne mord pas, quand tout le
+--- dépôt tient dans les piles entamées du coffre du QG (sortie tôt : aucune annexe lue), ou quand l'inventaire ne se lit pas (moteur
+--- simulé).
+local function non_vital_plan(f, item, n)
+  local stack = stack_of(item)
+  if not stack then return nil end
   if not f.hq.get_inventory then return nil end -- coffre simulé sans inventaire (tests hors jeu)
-  local empty, size, partial = 0, 0, 0
-  for _, inv in ipairs(Stock.inventories(f)) do
+  local ents = { f.hq }
+  for _, e in ipairs(Stock.annexes(f)) do ents[#ents + 1] = e end
+  local empty, size, partial, parts = 0, 0, 0, {}
+  for i, e in ipairs(ents) do
+    local inv = chest_inv(e)
     if not (inv.count_empty_stacks and inv.get_insertable_count) then return nil end
-    local e = inv.count_empty_stacks()
-    empty, size = empty + e, size + #inv
-    partial = partial + math.max(0, inv.get_insertable_count(item) - e * stack)
+    local em = inv.count_empty_stacks()
+    local p = math.max(0, inv.get_insertable_count(item) - em * stack)
+    if i == 1 and p >= n then return nil end -- sortie tôt : le dépôt tient dans les piles entamées du coffre du QG
+    parts[i] = p
+    empty, size, partial = empty + em, size + #inv, partial + p
   end
   local allowed = Sg.new_stacks(item, empty, size, VITAL, T.stockage)
   if allowed >= empty then return nil end
-  return partial + allowed * stack
+  return { ents = ents, parts = parts, partial = partial, allowed = allowed, stack = stack }
 end
 
 -- Cases prises et cases du coffre du QG, puis du total.
@@ -126,16 +144,29 @@ end
 --- Dépose jusqu'à `n` objets (coffre du QG d'abord, puis les annexes) ; rend le nombre déposé.
 function Stock.insert(f, item, n)
   -- Lot STOCKAGE-VITAL : une matière non vitale ne prend pas les dernières cases (gardées au fer et au charbon) ; un coffre d'annexe, si.
-  local want = n
-  if not VITAL[item] and not ANNEX[item] then
-    local cap = non_vital_cap(f, item)
-    if cap and cap < want then want = cap end
-  end
-  local put = want > 0 and f.hq.insert({ name = item, count = want }) or 0
-  if put < want then
-    for _, e in ipairs(Stock.annexes(f)) do
-      put = put + e.insert({ name = item, count = want - put })
-      if put >= want then break end
+  local want, put = n, 0
+  local plan = not VITAL[item] and not ANNEX[item] and non_vital_plan(f, item, n) or nil
+  if plan then
+    -- Les piles entamées d'abord, coffre par coffre (un dépôt du moteur remplit les piles avant les cases vides : déposer d'un bloc au
+    -- coffre du QG prenait ses cases vides même quand la place était dans les piles d'une annexe), puis au plus `allowed` cases neuves.
+    want = math.min(n, plan.partial + plan.allowed * plan.stack)
+    for i, e in ipairs(plan.ents) do
+      local k = math.min(want - put, plan.parts[i])
+      if k > 0 then put = put + e.insert({ name = item, count = k }) end
+    end
+    local left = want - put
+    for _, e in ipairs(plan.ents) do
+      if left <= 0 then break end
+      local got = e.insert({ name = item, count = left })
+      put, left = put + got, left - got
+    end
+  else
+    put = want > 0 and f.hq.insert({ name = item, count = want }) or 0
+    if put < want then
+      for _, e in ipairs(Stock.annexes(f)) do
+        put = put + e.insert({ name = item, count = want - put })
+        if put >= want then break end
+      end
     end
   end
   -- Lot STOCKAGE-VITAL : un coffre que le stock plein refuse est posé en annexe (le PNJ qui le porte ne le garde pas en poche).
