@@ -17,7 +17,9 @@
        « bloc-assembling-machine-2-N », projets 5, 15, 25, 31, 40, 48, 58) ; 15, 25, 31, 40 et 48 ont été annulés « materiaux
        introuvables (15 min sans progres) » ; à 157,9 min, « bloc [submachine-gun] attend : … (manque steel-plate 2) ». Le bloc du
        test est celui du projet 40 ([burner-mining-drill, submachine-gun, transport-belt], 118,9 min). Même HYPOTHÈSE d'acier ;
-       le câblage de script/ai3/industrie.lua est contrôlé par sa STRUCTURE, avec 3 mutants de texte.
+       le câblage de script/ai3/industrie.lua est contrôlé par sa STRUCTURE, avec 3 mutants de texte ;
+    §6 (a)-ia3e (accord du lead) : le module de l'automatisation (A.decide, shared/ai3/automatiser.lua) choisit sa machine par
+       la MÊME règle (input.usable = Ca.module_usable) ; ses objets impossibles et sa recherche restent jugés par obtainable.
   Lancement : lua5.2 tests/machine_faisable_test.lua (depuis la racine du mod ; quelques secondes).
 ]]
 package.path = "./?.lua;" .. package.path
@@ -55,6 +57,21 @@ local MFAB = L.read(MD, {})
 -- livre de la minute 100 : l'AM3 n'est pas recherchée (les blocs de la partie prenaient l'AM2)
 local MB = Book.new(MD.recipes, { allowed = function(n) return n ~= "assembling-machine-3" end })
 local BLOC40 = { "burner-mining-drill", "submachine-gun", "transport-belt" }
+-- (a)-ia3e : module de l'automatisation ; AUT est remplacé par une copie mutée du module dans §4
+local AUT = A
+local function win10(item, load, made)
+  local w = {}
+  for i = 1, 10 do w[i] = { m = i, load = { [item] = load }, made = { [item] = made }, logi = {} } end
+  return w
+end
+local function ia3e_machine(item, usable)
+  local r = AUT.decide({ window = win10(item, 3600, 30), obtainable = usable_old(STOCK), usable = usable, book = B, stock = STOCK,
+    has_plant = true })
+  for _, q in ipairs(r.requests) do
+    if q.product == item then return (q.gen == "simple" and q.args[3]) or (q.args and q.args[1]), q end
+  end
+  return nil
+end
 local function mall_bloc(usable)
   local src = {}
   for _, it in ipairs(BLOC40) do src[#src + 1] = { item = it, rate = 0.5, src = "refus" } end
@@ -116,6 +133,15 @@ local function suite()
   local mp = Ca.made_of(FL, true)
   check(mp["steel-plate"] == 0 and mp["iron-plate"] == 2 and Ca.made_of(FL)["steel-plate"] == 3 and next(Ca.made_of(nil)) == nil,
     "Ca.made_of : main seule pour votre équipe, statistiques pour une faction, vide sans relevé")
+
+  section("§6 (a)-ia3e : module de l'automatisation (A.decide) : AM2 avant, AM1 après")
+  local i0 = ia3e_machine("pipe", nil)
+  check(i0 == "assembling-machine-2", "AVANT (sans usable : obtainable = main ou coffre) : la rangée de tuyaux prend l'AM2 (" .. tostring(i0) .. ")")
+  local i1, q1 = ia3e_machine("pipe", Ca.module_usable(B, STOCK, MADE))
+  check(i1 == "assembling-machine-1" and q1 ~= nil and q1.items["assembling-machine-1"] ~= nil,
+    "APRÈS (usable = Ca.module_usable, 0 acier) : la même demande prend l'AM1 (" .. tostring(i1) .. ")")
+  check(ia3e_machine("pipe", Ca.module_usable(B, with(STOCK, "steel-plate", 50), MADE)) == "assembling-machine-2",
+    "acier au stock : l'automatisation reprend l'AM2")
 end
 
 suite()
@@ -163,6 +189,15 @@ for _, m in ipairs(TEXT_MUT) do
   if a and not mall_wired(mutated) then text_killed = text_killed + 1 else print("  MUTANT DE TEXTE SURVIVANT : " .. m[1]) end
 end
 check(text_killed == #TEXT_MUT, string.format("mutants de texte du câblage : %d / %d refusés", text_killed, #TEXT_MUT))
+local AUTO_SRC = read_file("script/ai3/automatisation.lua")
+local function ia3e_wired(src)
+  return plain_count(src, "usable = Ca.module_usable(book, stock, Ca.made_of(f.team.capi and f.team.capi.flows, f.is_player)),") == 1
+end
+local AUTOMATISER_SRC = read_file("shared/ai3/automatiser.lua")
+check(ia3e_wired(AUTO_SRC) and plain_count(AUTOMATISER_SRC, "A.method_for(item, book, input.usable or input.obtainable)") == 1,
+  "automatisation.lua passe Ca.module_usable à A.decide, qui choisit la machine avec (input.usable)")
+check(not ia3e_wired((AUTO_SRC:gsub("usable = Ca%.module_usable%(", "usable_x = Ca.module_usable("))),
+  "mutant de texte : le câblage d'automatisation.lua retiré est vu")
 
 section("§3 runtime au moteur simulé : Capi.usable_of, Capi.made_of (livre de la force)")
 do
@@ -208,6 +243,7 @@ local saved = {}
 local function patch(t, k, v) saved[#saved + 1] = { t, k, t[k] } t[k] = v end
 local function unpatch() for i = #saved, 1, -1 do saved[i][1][saved[i][2]] = saved[i][3] saved[i] = nil end end
 local killed, total = 0, 0
+local restore_aut = nil -- (a)-ia3e : remet le vrai module après un mutant qui a remplacé AUT
 local function mutant(name, apply)
   total = total + 1
   local p0, f0 = passes, failures
@@ -216,6 +252,7 @@ local function mutant(name, apply)
   local ok = pcall(suite)
   quiet = false
   unpatch()
+  if restore_aut then restore_aut() restore_aut = nil end
   local caught = (failures > f0) or not ok
   passes, failures = p0, f0
   if caught then killed = killed + 1 else print("  MUTANT SURVIVANT : " .. name) end
@@ -238,6 +275,15 @@ end)
 mutant("(a)-mall : Ca.made_of lit les statistiques de la force pour votre équipe", function()
   local real_made = Ca.made_of
   patch(Ca, "made_of", function(fl) return real_made(fl, false) end)
+end)
+mutant("(a)-ia3e : A.decide ignore input.usable (copie mutée de shared/ai3/automatiser.lua)", function()
+  local src = read_file("shared/ai3/automatiser.lua")
+  local a, b = src:find("A.method_for(item, book, input.usable or input.obtainable)", 1, true)
+  local mutated = src:sub(1, a - 1) .. "A.method_for(item, book, input.obtainable)" .. src:sub(b + 1)
+  local Am = assert(load(mutated, "=automatiser-mutant"))()
+  local old = AUT
+  AUT = Am
+  restore_aut = function() AUT = old end
 end)
 mutant("plaques seules (fer et cuivre)", function()
   patch(Ca, "buildable", function(i, b, s, m)

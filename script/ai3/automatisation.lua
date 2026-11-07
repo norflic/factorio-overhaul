@@ -23,6 +23,7 @@
 
 local T = require("shared.team.config")
 local A = require("shared.ai3.automatiser")
+local Ca = require("shared.ai3.capitalisation") -- (a)-ia3e : Ca.module_usable, Ca.made_of (même choix de machine que la capitalisation et le mall)
 local State = require("script.faction.state")
 local Board = require("script.team.board")
 local Build = require("script.team.build")
@@ -559,6 +560,9 @@ function Auto.think(f, view, book, tick, research)
     local res = A.decide({
       window = st.window, threatened = view.threatened, mods = st.mods,
       obtainable = function(item) return book:handcraftable(item) or (stock[item] or 0) > 0 end,
+      -- (a)-ia3e (accord du lead) : la machine et le kit par la MÊME règle que la capitalisation et le mall (pas d'AM2 sans acier au stock ni
+      -- produit ; votre équipe : sa main seulement). Deux règles de choix de machine qui divergent étaient un défaut en attente.
+      usable = Ca.module_usable(book, stock, Ca.made_of(f.team.capi and f.team.capi.flows, f.is_player)),
       book = book, stock = stock, sig = st.sig,
       -- lot C2 : décision sur le débit voulu (la capitalisation écrit le débit de chaque objet, puits compris, f.team.ia3.puits) et seuil du tapis par le coût réel
       demande = Rsv.on() and not (f.team.capi and f.team.capi.demande_off), wanted = (f.team.ia3 and f.team.ia3.puits and f.team.ia3.puits.flow) or nil,

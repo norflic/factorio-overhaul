@@ -730,6 +730,9 @@ A.OPEN_STATES = OPEN
 --- La décision d'une pensée. input = {
 ---   window, threatened, mods = { { product, state, reason, sig, finished_m } } (demandes de l'équipe, dans l'ordre),
 ---   obtainable(item) -> bool (fabricable à la main OU au stock), book, stock, dist, has_plant, sig (contexte),
+---   usable(item) -> bool (facultatif, point (a) du lead, lot (a)-ia3e : la machine et le kit sont choisis par CETTE règle, la même
+---   que la capitalisation et le mall, Ca.module_usable ; sans elle, obtainable comme avant ; les objets impossibles du gabarit et
+---   la recherche restent jugés par obtainable),
 ---   no_power (raison du refus de la centrale, ou nil), hold (raison d'un repli : aucune demande, ou nil), items (facultatif : objets à peser en plus, par exemple les
 ---   étapes « produce » du dépliage d'IA-G) }.
 --- Rend { requests = { { product, gen, args, rate, rate_nom, feed, why, items, electric, gain } }, verdicts = { { product,
@@ -791,7 +794,7 @@ function A.decide(input)
   local meths, whys = {}, {}
   local function meth_of(item)
     if meths[item] == nil then
-      local m, why = A.method_for(item, book, input.obtainable)
+      local m, why = A.method_for(item, book, input.usable or input.obtainable) -- ((a)-ia3e : machine faisable aujourd'hui)
       meths[item] = m or false
       whys[item] = why
     end
