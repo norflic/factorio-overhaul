@@ -8,6 +8,34 @@
 > F306 à F308, E204, E205. Les blocs d'IA3-a, b, c, f (F279 à F291, E186 à E194) restent à leurs lots, repris par IA-V2.
 > Prochains identifiants libres (24/10, vers 7 h 35, après la fusion d'A4-préparation) : **F163** et **E118** hors blocs ; F149, F157 à F160, E112, E114 à E116 : A4-préparation (blocs d'A3 et A4 épuisés). Avant (24/10, vers 5 h 50, après la fusion de D4m-géant) : **F163** et **E118** hors blocs ; F157 à F160, E114 à E116 réservés à A4 ; F161, F162, E117 : D4m-géant. Avant (24/10, vers 4 h 15, après la fusion d'A3-jeu) : **F157** et **E114** hors blocs ; F146 à F148 et E109 à E111 : A3-jeu ; **F149 et E112 réservés à A4**. Avant (24/10, vers 2 h 45, après la fusion de S0-suite) : **F157** hors blocs ; F155, F156 et **E113** : S0-suite ; **E114** hors blocs. Avant (24/10, vers 0 h 10, après la fusion d'A3-préparation) : **F155** hors blocs ; F140 à F145 et E105 à E108 : A3-préparation ; **F146 à F149 et E109 à E112 réservés à A3-jeu et A4**. Avant (23/10, vers 23 h 10, après la fusion du lot S0) : **F155** hors blocs ; F150 à F154 : S0 (F154 hors de son bloc F150 à F153) ; E69 : S0 ; F140 à F149 et E105 à E108 : toujours réservés à A3 et A4. Avant (23/10, vers 21 h 15, après la fusion du lot A2) : **F150** hors blocs ; **F140 à F149 réservés à A3 et A4** ; F123 à F129 et E68 : A2 (le bloc F120 à F129 d'A1 à A4 est épuisé) ; en expériences, **E105 à E108 réservés à A3 et A4** (leur bloc E66 à E70 est épuisé : E66, E67, E70 à A1, E68 à A2, E69 à S0 ; E81 à E104 : lots F1 à F6). Avant (23/10, vers 19 h, après les fusions d'INT-K0, INT-GARDE et INT-GRAINE) : **F140** ; F137 à F139 : INT-GRAINE (cmd.exe et PowerShell). Avant (23/10, vers 18 h 30, après la consignation des lots A1, K0 et M0) : **F137** (F123 à F129 restent réservés à A2 à A4) ; en expériences, aucun numéro hors des blocs réservés : **E68** (A2 à A4), **E69** (S0), **E77 à E80** (M1, M2), **E81 et suivants** (lots F, par blocs de 4). Attribués le 23/10 : F120 à F122 (A1), F130 à F135 (M0 ; F135 hors du bloc), F136 (vérification de K0, Blender) ; E66, E67, E70 (A1), E71, E72 (K0), E73 à E76 (M0 ; l'« E77 » proposé par le correcteur de M0 est consigné dans E74, E77 étant réservé à M1 et M2). Avant : (23/10, vers 14 h 55, après la consignation de la passe 5 de V3-E, E65 et F119) **F120, E66**. Blocs RÉSERVÉS par le plan de la suite (23/10, 16 h ; `fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md` §6) : mitrailleuse A1 à A4 : E66 à E70 et F120 à F129 (E69 : sons, lot S0) ; K0 : E71 et E72 ; M0 : E73 à E76 et F130 à F134 ; M1 et M2 : E77 à E80 ; chaque lot F : un bloc de 4 expériences à partir de E81. E3 n'a jamais été attribué (la numérotation passe de E2 à E4).
 
+## 2026-11-07 : défauts de la partie du DC (0.6.58), feuille de route vidéo, disque F:
+
+> Prochains identifiants libres (7/11, 16 h 25) : **F392** et **E260** hors blocs. Attribués ici : F389 à F391, E258, E259.
+
+- **F389 · FAIT** (moteur réel, banc `minage-tourelle`, TÉMOIN 0.6.58 `a4fc500b`, 7/11 16 h 22 ; archive
+  `fo-logs/2026-11-07_DANGER/minage-tourelle-temoin-a4fc500b`) : un PNJ de votre équipe a pris une mitrailleuse de la force du
+  joueur posée sur une tuile de minerai, en 7,5 s de jeu ; elle est DANS SON SAC (1 gun-turret, 0 au coffre). Seul le minage à
+  la main met un bâtiment dans le sac d'un PNJ (`worker.lua:1752-1753` : le minage vise l'entité à la position du minerai, et
+  l'équipe partage la force du joueur). C'est la cause, mesurée, des « tourelles volontairement enlevées » du DC (7/11).
+  Déduit, faute de ligne [FO-MINAGE] : la tuile visée n'est jamais minée, car le PNJ mine d'abord ce qui est dessus. Correctif :
+  `8e34b8c4` (danger5), qui refuse de miner à la main une tuile qui porte un bâtiment ; sa passe moteur est en file.
+- **F390 · FAIT** (mesuré le 7/11 de 15 h 55 à 16 h 20 ; Get-Disk BusType USB) : F: est une clé USB exFAT (Kingston DataTraveler
+  Max). Avec 3 places, l'effacement (`rmdir`) puis la copie (`robocopy`) d'une place avancent à environ 1 fichier par seconde
+  chacun : 0,9 fichier/s mesuré sur 25 s pendant 3 opérations, et 1,6 fichier/s seul sous charge. Un banc de 2 500 ticks met
+  donc 35 à 45 min AVANT son premier tick (2 587 s pour le témoin de F389). Le même intervalle de 10 s, Avast (`AvastSvc`,
+  `aswEngSrv`) fait environ 480 000 opérations d'E/S, contre environ 5 000 pour chaque `robocopy`. Que l'antivirus ralentisse
+  la clé est DÉDUIT, non prouvé. « Pleine puissance » en parallèle ne fait pas aller les bancs plus vite : peu de worktrees,
+  une suite à la fois.
+- **F391 · FAIT** (lu par video-l5, à reprouver par fichier:ligne) : `input.power` n'est jamais rempli par `build_input`
+  (`script/ai3/capitalisation.lua`) : la branche de puissance de `Ca.decide` est morte en jeu. À savoir avant de brancher L12
+  (hystérésis de la centrale).
+- **E258 · VALIDÉ** (moteur réel, banc `portee-16`, branche `essai-0659` `14985a37`, 7/11 15 h 39 ; archive
+  `fo-logs/2026-11-07_ESSAI-0659/portee16-b`) : la mitrailleuse et ses niveaux à portée 16 (décision du DC « Portée 16
+  d'abord ») → « [FO-PORTEE-16] BILAN : 15 OK, 0 ECHEC(S) ». Avant, la tourelle était tuée hors de sa portée (31 tuiles contre
+  40 de portée des attaquants, partie du DC).
+- **E259 · EN COURS** (micro-bancs témoin contre lot, 7/11) : minage-tourelle (F389 ; lot en file), collecte-fer (flux2),
+  stockage C1 à C5 (charbonmain), recrue gratuite (effondrement). Résultats à consigner à la fusion de la 0.6.59.
+
 ## Lot QG-JEU — 2026-11-01 : les 16 états du centre et du QG en jeu (branche `corr-qg-jeu`)
 
 > Identifiants locaux `QGJ-n` (l'orchestrateur renumérote à la fusion). Rapport : `fo-logs/2026-11-01_QG-JEU/RAPPORT.md`.

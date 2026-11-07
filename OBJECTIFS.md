@@ -326,6 +326,10 @@ Plus récents d'abord ; extraits mot pour mot (entier : archive, §5 et fin du �
   de leur portée (fo-lvl-gun-4 : 19,2 ; fo-amber-gunner à 21,2 tuiles) : elles disparaissent sans tirer. Réserve : un
   retrait sans journal n'est pas exclu ; piste (déduite) : le minage à la main d'un PNJ sur la tuile d'une tourelle.
   danger5 : tous les chemins qui retirent une tourelle, journal [FO-TOURELLE-RETIREE] ; portée 16 (b142714d, 0.6.59).
+  ✅ Piste PROUVÉE le 7/11 à 16 h 22 (moteur réel, témoin 0.6.58, RD_LOG F389) : un PNJ de votre équipe mine à la main une
+  mitrailleuse posée sur du minerai en 7,5 s, et elle finit dans son sac. Vous aviez vu juste (« très fortes chances que ce
+  soit les pnj »). Les deux causes s'ajoutent : le minage à la main, et les tirs hors de portée. Correctifs pour la 0.6.59 :
+  portée 16 (E258, 15 OK) et refus de miner une tuile qui porte un bâtiment (`8e34b8c4`, passe moteur en file).
 - **Vidéo d'automatisation** (14 h 40 et 14 h 50, écrit ; https://www.youtube.com/watch?v=PGiTkkMOfiw) :
   « Analysez la vidéo pour en tirer les bons aspets qui nous feront avancer rapidement. […] » ; « […] on peut au moins récupérer 50% de la logique globale. […] doit être exhaustif et surtout qu'on puisse l'implémenter dans notre logique (tiers dynamique, etc...) »
   ✅ Analyse validée ; ⏳ lots en cours (commit 2c46a377). Vidéo de Chris Uehlinger. Livrés vers 15 h 10 : `docs/IA_WORKFLOW.md` (carte de l'IA de faction,
