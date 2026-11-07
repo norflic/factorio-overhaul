@@ -114,7 +114,7 @@ local function suite(text)
   local list = { { x = 23.5, y = 10.5 }, { x = 16.5, y = 10.5 }, { x = 12.5, y = 10.5 } }
   local freeA = { n = 5 }
   local ok, _, placed = place_chain(f, W.surface, POLE, list, src, freeA)
-  c("A : les poteaux poses sont rendus (o.swap_poles, a lire par le plan du champ : champ3, R7)", type(placed) == "table" and #placed == 3)
+  c("A : les poteaux poses sont rendus (o.swap_poles, lus par le plan du champ avec CHAMP-COUVERTURE R7)", type(placed) == "table" and #placed == 3)
   c("A : chaine posee et reliee au reseau de la source", ok == true and W.created == 3 and W.ents[#W.ents].electric_network_id == 1)
   c("A : 3 poteaux pris au stock", W.stock[POLE.name] == 2, tostring(W.stock[POLE.name]))
   c("A (3) : stock libre debite de la chaine", freeA.n == 2, tostring(freeA.n))

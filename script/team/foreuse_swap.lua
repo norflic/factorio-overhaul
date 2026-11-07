@@ -625,8 +625,8 @@ function Swap.think(f, surface, book, free, tick)
           if placed_n > 0 then
             local src = r.source and (r.source.ent or by_pos[r.source.x .. ":" .. r.source.y])
             local ok, why, placed = place_chain(f, surface, pole, r.poles, src, pole_free, mine)
-            -- poteaux de l'avant-poste (o.swap_poles) : PAS ENCORE LUS ; le plan du champ (mine_of) doit les compter comme NOTRES, comme ses
-            -- paires (lot CHAMP-COUVERTURE R7, champ3 : a ajouter de son cote ; revue du lead (1), 7/11)
+            -- poteaux de l'avant-poste (o.swap_poles) : comptes NOTRES par le plan du champ (mine_of, script/team/champ.lua) avec le lot
+            -- CHAMP-COUVERTURE R7 (champ3, b8929f90) ; sans ce lot, personne ne les lit (revue du lead (1), 7/11)
             if ok and placed then
               ref.o.swap_poles = ref.o.swap_poles or {}
               st.pole_pos = st.pole_pos or {}
