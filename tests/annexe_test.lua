@@ -418,6 +418,42 @@ do
   check(put3 == ss / 2 - 1 and an3.items.stone == ss - 1 and g3.hq.get_inventory().count_empty_stacks() == hq_empty and (g3.hq.items.stone or 0) == 0,
     "non vitale : la pile entamee de l'annexe d'abord, les cases vides du QG (sous la reserve) restent libres (" .. put3 .. ", QG vides " ..
     g3.hq.get_inventory().count_empty_stacks() .. "/" .. hq_empty .. ")")
+  -- Réserve au seul coffre du QG (décision du lead, 7/11) : les annexes prennent les non vitales tant qu'elles ont de la place, puis le
+  -- fer entre quand même dans les cases gardées du QG ; les refus sont comptés par objet.
+  local g4 = team(20)
+  readable(g4.hq)
+  local an4 = new_chest(10)
+  readable(an4)
+  g4.annex = { an4 }
+  g4.hq.items.coal = (STACK.coal or 50) * 17 -- QG : 3 cases vides = sa réserve (ceil(0,15 x 20))
+  local put4 = Stock.insert(g4, "stone", ss * 12, DEP)
+  check(put4 == ss * 10 and an4.items.stone == ss * 10 and (g4.hq.items.stone or 0) == 0 and g4.hq.get_inventory().count_empty_stacks() == 3,
+    "reserve au QG seul : l'annexe prend 10 piles de pierre, le QG garde ses 3 cases (" .. put4 .. ")")
+  check(g4.stats.refused and g4.stats.refused.stone == ss * 2, "refus comptes par objet (pierre " .. tostring(g4.stats.refused and g4.stats.refused.stone) .. ")")
+  local put5 = Stock.insert(g4, "iron-plate", si * 3, DEP)
+  check(put5 == si * 3 and g4.hq.items["iron-plate"] == si * 3 and g4.hq.get_inventory().count_empty_stacks() == 0,
+    "annexe pleine de non vitales : le fer entre quand meme dans les 3 cases gardees du QG (" .. put5 .. ")")
+  -- cases neuves d'une non vitale : les annexes d'abord, le QG ensuite (au-delà de sa réserve)
+  local g5 = team(20)
+  readable(g5.hq)
+  local an5 = new_chest(10)
+  readable(an5)
+  g5.annex = { an5 }
+  g5.hq.items.coal = (STACK.coal or 50) * 18 -- QG : 2 cases vides, sous sa réserve de 3
+  an5.items.coal = (STACK.coal or 50) * 8 -- annexe : 2 cases vides
+  local put6 = Stock.insert(g5, "stone", ss * 3, DEP)
+  check(put6 == ss * 2 and an5.items.stone == ss * 2 and g5.hq.get_inventory().count_empty_stacks() == 2,
+    "non vitale : les cases vides de l'annexe, jamais celles du QG sous sa reserve (" .. put6 .. ")")
+  local g6 = team(20)
+  readable(g6.hq)
+  local an6 = new_chest(10)
+  readable(an6)
+  g6.annex = { an6 }
+  g6.hq.items.coal = (STACK.coal or 50) * 14 -- QG : 6 cases vides, 3 au-delà de sa réserve
+  an6.items.coal = (STACK.coal or 50) * 8 -- annexe : 2 cases vides
+  local put7 = Stock.insert(g6, "stone", ss * 3, DEP)
+  check(put7 == ss * 3 and an6.items.stone == ss * 2 and g6.hq.items.stone == ss and g6.hq.get_inventory().count_empty_stacks() == 5,
+    "non vitale : l'annexe d'abord, puis le QG au-dela de sa reserve (" .. put7 .. ", QG vides " .. g6.hq.get_inventory().count_empty_stacks() .. ")")
   f.team = { ia3 = { saturated = { stone = true } } }
   local skip = Stock.skip_fn(f)
   check(skip ~= nil and skip("stone") and skip("copper-plate") and not skip("coal") and not skip("iron-plate"),

@@ -65,7 +65,7 @@ do
   check("cablage : collect ecarte les matieres refusees", op:find("if not (skip and skip(name)) then", 1, true) ~= nil
     and op:find("function Outposts.service(o, carrier, tick, fill, skip)", 1, true) ~= nil)
   check("cablage : la tournee passe Stock.skip_fn", wk:find("Stock.skip_fn and Stock.skip_fn(f))", 1, true) ~= nil)
-  check("cablage : Stock.insert borne les non vitales (Sg.new_stacks), pas les coffres d'annexe", sk:find("local allowed = Sg.new_stacks(item, empty, size, VITAL, T.stockage)", 1, true) ~= nil
+  check("cablage : Stock.insert borne les non vitales (Sg.new_stacks, reserve au seul coffre du QG), pas les coffres d'annexe", sk:find("local allowed = Sg.new_stacks(item, em, #hq_inv, VITAL, T.stockage)", 1, true) ~= nil
     and sk:find("local plan = opts and opts.reserve and not VITAL[item] and not ANNEX[item] and non_vital_plan(f, item, n) or nil", 1, true) ~= nil
     and wk:find("local moved = Stock.insert(f, name, n, DEPOSIT_OPTS)", 1, true) ~= nil and wk:find("local DEPOSIT_OPTS = { reserve = true }", 1, true) ~= nil)
   check("cablage : un coffre refuse au depot est pose en annexe (place_held)", sk:find("if put < n and ANNEX[item] then put = put + place_held(f, item, n - put) end", 1, true) ~= nil

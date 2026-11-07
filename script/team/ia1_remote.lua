@@ -410,7 +410,7 @@ remote.add_interface("fo-ia1", {
     return { hook = true, instr = ni / reps, calls = nc / reps, put = put, reps = reps, inventaires = #Stock.inventories(f),
       annexes = #Stock.annexes(f), skip_item = skip and skip(item) or false, skip_fn = skip ~= nil,
       stock_logs = st.stock_logs, annex_placed = st.annex_placed, annex_held = st.annex_held,
-      why = f.stock_why and f.stock_why.why or nil }
+      why = f.stock_why and f.stock_why.why or nil, refused = st.refused }
   end,
 })
 

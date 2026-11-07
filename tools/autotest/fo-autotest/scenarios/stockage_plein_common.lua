@@ -259,8 +259,13 @@ return {
       ctx.check(#list == 0, "C1' sans bois ni fer ni arbre : aucune annexe (limite connue)", #list)
       ctx.check((p.stock_logs or 0) >= 1 and p.why ~= nil, "C2' [FO-STOCKAGE] : raison ecrite", tostring(p.why))
     end
-    ctx.log(string.format("fin : annexes %d, livre fer %+d, pierre %d (scene %d), raison %s", #list, delta, total(s, qg, "stone"), st.stone0 or -1,
-      tostring(p.why)))
+    local refused = {}
+    local names = {}
+    for name in pairs(p.refused or {}) do names[#names + 1] = name end
+    table.sort(names)
+    for _, name in ipairs(names) do refused[#refused + 1] = name .. " " .. p.refused[name] end
+    ctx.log(string.format("fin : annexes %d, livre fer %+d, pierre %d (scene %d), raison %s ; refus (objets, cumul des tentatives) {%s}", #list,
+      delta, total(s, qg, "stone"), st.stone0 or -1, tostring(p.why), table.concat(refused, ", ")))
   end,
 }
 end
