@@ -3,6 +3,7 @@
 --   py -3.9 -B tools/autotest/banc.py --out <archive> --creation <src-38ee70e1> --qui XP-PUISSANCE -- 300 xp-vie-migration <source neuve>
 -- À la création : un Couronné de robotsjeu à pleine vie, une Tournesol à moitié, un Bourdon à moitié, un Mât-Foudre à pleine vie. Au
 -- benchmark (source neuve) : le maximum a changé (contrôlé) et chacun garde SA part de vie (pleine reste pleine, moitié reste moitié).
+-- 7/11 : avec une migration de script en plus, la part était appliquée DEUX fois (Tournesol et Bourdon à 100 %) : le moteur la garde seul.
 local C = require("scenarios/xp_commun")
 
 local X, Y = 15000, 6000

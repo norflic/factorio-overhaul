@@ -19,7 +19,6 @@ local Events = require("script.core.events")
 local Xp = require("shared.robots.experimentaux")
 local K = require("script.robots.experimentaux_commun")
 local Geants = require("script.robots.experimentaux_geants")
-require("script.robots.echelle_vie") -- lot EXPERIMENTAUX-PUISSANCE : proportion de vie gardée dans les sauvegardes existantes
 
 local M = {}
 

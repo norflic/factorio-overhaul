@@ -234,7 +234,8 @@ end
 --- Cairn : marque les cibles, puis (après `delay`) tire un arc sur chaque marque et la salve de zone autour de la cible.
 local function balayage(g, r, target, tick)
   local e = g.e
-  local marks = Xp.marks(pos_of(e), K.candidates(e.surface, e.force, e.position, r.range), r.marks, r.range)
+  local eff = Ech.effectif(r, g.bonus) -- portée et zone EFFECTIVES (modules), comme cible() (défaut vu par DESIGN-MODULES, 6/11)
+  local marks = Xp.marks(pos_of(e), K.candidates(e.surface, e.force, e.position, eff.range), r.marks, eff.range)
   if #marks == 0 then return false end
   local list = {}
   for _, m in ipairs(marks) do
@@ -242,7 +243,7 @@ local function balayage(g, r, target, tick)
       time_to_live = r.delay + 20 })
     list[#list + 1] = m.e
   end
-  rendering.draw_circle({ color = rgba(0.15, 0.4, 0.8, 0.25), radius = r.zone, width = 4, filled = false, target = pos_of(target),
+  rendering.draw_circle({ color = rgba(0.15, 0.4, 0.8, 0.25), radius = eff.zone, width = 4, filled = false, target = pos_of(target),
     surface = e.surface, time_to_live = r.delay + 10, draw_on_ground = true })
   job({ kind = "cairn", e = e, un = g.un, bonus = bonus_de(g), list = list, c = pos_of(target), at = tick + r.delay })
   return true
