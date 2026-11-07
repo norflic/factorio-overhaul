@@ -118,6 +118,9 @@ local Rr = require("shared.team.rebuild_rapide") -- lot REBUILD-RAPIDE : projet 
 Build.Co = require("shared.team.couloir")
 -- Lot VIDEO L4 : quotas du gabarit (colle de shared/team/quotas.lua) ; champ de Build, même raison (199 locales sur 200).
 Build.Quotas = require("script.team.quotas_glue")
+-- Lot VIDEO L9 : lots de minerai réservés au minerai (colle de shared/team/lot_minerai.lua, interrupteur éteint par défaut) ; champ
+-- de Build, même raison (199 locales sur 200).
+Build.LotsMinerai = require("script.team.lots_minerai_glue")
 local TREE_TYPES = { "tree", "simple-entity" }
 
 
@@ -2730,8 +2733,14 @@ local function plan_project(f, surface, p)
         local _, arms = out_arms(gx, Li.MAX_ARMS)
         if arms > 1 then fopts = fopts or {}; fopts.fan = arms end
       end
-      local m, w = place_module(f, surface, gx, { libre = true, defricher = true }, toward, nil, fopts)
-      if not m then m, w = place_module(f, surface, gx, { gisement = true }, toward, nil, fopts) end
+      -- lot VIDEO L9 : états de lots essayés par la règle (Build.LotsMinerai.states : le repli d'avant, libres puis gisement, quand elle est
+      -- éteinte, défaut ; Lm.states_for allumée : une fabrique ne se replie plus sur un gisement) ; replis et refus comptés ([FO-LOTS-MINERAI])
+      local m, w, mi, ms
+      for i, states in ipairs(Build.LotsMinerai.states(f, gx.gen)) do
+        m, w = place_module(f, surface, gx, states, toward, nil, fopts)
+        if m then mi, ms = i, states break end
+      end
+      Build.LotsMinerai.after(f, gx.gen, m, mi, ms)
       return m, w
     end
     main, why = try_place(g)
@@ -4888,6 +4897,7 @@ end
 function Build.think(f, surface, tick)
   local b = f.build
   if not b then return end
+  Build.LotsMinerai.minute(f, tick) -- lot VIDEO L9 : [FO-LOTS-MINERAI], une ligne par équipe et par minute de jeu (la mesure avant la règle)
   local tasks = {}
   local free_cache -- relecture REBUILD-RAPIDE : stock libre lu une fois par pensée, au premier projet rouvert (batch_tasks)
   local function free_of()
