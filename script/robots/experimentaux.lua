@@ -309,6 +309,16 @@ remote.add_interface("fo-xp", {
   impact = function(v) S().impact = (v == "B") and "B" or nil end,
   --- Bancs seulement : durée des cratères en ticks (nil : Ech.TRACE_TICKS, 1 h) ; cratère posé par script, pour un banc court.
   trace_ticks = function(n) S().trace_ticks = tonumber(n) end,
+  --- Bancs seulement : morts des salves de zone par tick (journal allumé), « tick:morts » séparés par des virgules, ticks croissants.
+  morts_par_tick = function()
+    local m = S().morts_tick or {}
+    local ticks = {}
+    for t in pairs(m) do ticks[#ticks + 1] = t end -- trié juste après
+    table.sort(ticks)
+    local out = {}
+    for _, t in ipairs(ticks) do out[#out + 1] = t .. ":" .. m[t] end
+    return table.concat(out, ",")
+  end,
   cratere = function(x, y, r) Geants.cratere(game.surfaces[1], { x = x, y = y }, r, game.tick) end,
   noms = function() return NAMES end,
 })
