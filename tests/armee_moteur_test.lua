@@ -88,10 +88,26 @@ end
 local function run(mut)
   M.new_game({ patches = patches(), p_busy = 0, p_nopath = 0, p_lost = 0 })
   -- Mutants (lot ARMEE-TEST, 7/11) : M1 « autre site » (ralliement 40 tuiles à l'est du site), M2 « PREPARER coupé » (seuil
-  -- d'ouverture Pc.RHO_IN hors d'atteinte). Chacun doit faire échouer un contrôle de fonction.
+  -- d'ouverture Pc.RHO_IN hors d'atteinte), M3 « le plus loin » (la prévision prend pour premier site celui le plus LOIN de la
+  -- vague). Chacun doit faire échouer un contrôle de fonction.
   local Pc = require("shared.ai3.prevision_choix")
-  local pc_muster, pc_rho = Pc.muster, Pc.RHO_IN -- rendus en fin de passage (le module peut rester chargé d'un passage à l'autre)
-  if mut == "autre_site" then
+  local pc_muster, pc_rho, pc_update = Pc.muster, Pc.RHO_IN, Pc.update -- rendus en fin de passage (module gardé chargé)
+  local wave = nil -- centre de la vague, connu une fois posée (M3)
+  if mut == "le_plus_loin" then
+    Pc.update = function(st, est, ...)
+      local r = pc_update(st, est, ...)
+      if wave and est and est.sites and #est.sites > 1 then
+        local far, fd = nil, -1
+        for _, o in ipairs(est.sites) do
+          local d = (o.x - wave.x) ^ 2 + (o.y - wave.y) ^ 2
+          if d > fd then far, fd = o, d end
+        end
+        st.first = far.key
+        st.muster_site = { x = far.x, y = far.y, tx = far.tx, ty = far.ty }
+      end
+      return r
+    end
+  elseif mut == "autre_site" then
     local o = Pc.muster
     Pc.muster = function(site)
       local m = o(site)
@@ -102,7 +118,9 @@ local function run(mut)
   end
   M.command("fo-war", "start 4 100 10 320")
   enemy_search()
-  M.run_ticks(600)
+  -- 900 ticks (lot ARMEE-TEST) : scarlet a alors fondé son premier avant-poste dans les deux ordonnancements (avec ou sans
+  -- l'étalement des pensées) : au moins deux sites, le choix du premier touché n'est pas joué d'avance.
+  M.run_ticks(900)
   local St = require("script.faction.state")
   local Military = require("script.faction.military")
   local SD = require("script.ai3.soldats")
@@ -131,6 +149,11 @@ local function run(mut)
   f.hq.insert({ name = "submachine-gun", count = 40 })
   f.hq.insert({ name = "firearm-magazine", count = 400 })
   -- Vague en approche : 40 déchiqueteurs à 60 tuiles au nord du QG (200 PV chacun dans le moteur simulé : 8 000 PV).
+  do
+    local sx, sy = 0, 0
+    for i = 1, 40 do sx, sy = sx + (i % 10) * 2, sy + 60 + math.floor(i / 10) * 2 end
+    wave = { x = f.hq_pos.x + sx / 40, y = f.hq_pos.y - sy / 40 }
+  end
   for i = 1, 40 do s.create_entity({ name = "small-biter", position = { x = f.hq_pos.x + (i % 10) * 2, y = f.hq_pos.y - 60 - math.floor(i / 10) * 2 }, force = "enemy" }) end
   if f.armee then f.armee.t = nil end
   if f.prevision then f.prevision.t = nil end
@@ -141,18 +164,27 @@ local function run(mut)
   out.need = f.armee and f.armee.need
   out.threat = f.armee and f.armee.threat
   out.muster = f.armee and f.armee.muster
-  -- Premier site touché selon la prévision (lot ARMEE-TEST) ; sa position relevée sur la faction (QG ou avant-poste)
+  -- Premier site touché (lot ARMEE-TEST), calculé HORS de la prévision : parmi le QG et les avant-postes de la faction (centre
+  -- de l'avant-poste), le plus proche du centre de la vague (égalité : clé la plus petite). La prévision doit juger le même.
+  out.wave_pos = wave
+  do
+    local cands = { { key = "qg", x = f.hq_pos.x, y = f.hq_pos.y } }
+    for _, oid in ipairs(St.sorted_keys(f.outposts or {})) do
+      local o = f.outposts[oid]
+      if o and o.pos then cands[#cands + 1] = { key = "ap" .. tostring(oid), x = o.pos.x, y = o.pos.y } end
+    end
+    local best, bd
+    for _, c in ipairs(cands) do
+      local d = (c.x - wave.x) ^ 2 + (c.y - wave.y) ^ 2
+      if not best or d < bd or (d == bd and c.key < best.key) then best, bd = c, d end
+    end
+    out.sites_n, out.s_ind = #cands, best.key
+  end
   local pc = f.prevision and (f.prevision.pc or f.prevision)
   out.first = pc and pc.first
   out.first_w5 = pc and pc.sites and out.first and pc.sites[out.first] and pc.sites[out.first].w5
-  if out.first == "qg" then
-    out.first_pos = { x = f.hq_pos.x, y = f.hq_pos.y }
-  elseif type(out.first) == "string" and out.first:sub(1, 2) == "ap" then
-    local o = f.outposts[tonumber(out.first:sub(3))]
-    local q = o and (o.access or o.pos)
-    out.first_pos = q and { x = q.x, y = q.y } or nil
-  end
-  out.wave_pos = { x = f.hq_pos.x + 10, y = f.hq_pos.y - 62 } -- centre des 40 déchiqueteurs posés plus haut
+  -- position de S : celle du site dans la prévision (son point de regroupement part de là)
+  out.first_pos = pc and pc.muster_site and { x = pc.muster_site.x, y = pc.muster_site.y } or nil
   out.wave = roles(f, t.sd.per)
   local pts = {}
   for id, ps in pairs(t.sd.per) do
@@ -202,7 +234,7 @@ local function run(mut)
   for _, l in ipairs(M.world().logs) do if l:find("[FO-PREVISION]", 1, true) and l:find(want, 1, true) then logs = logs + 1 end end
   out.prep_logs = logs
   out.ser = pcall(M.serialize, global)
-  Pc.muster, Pc.RHO_IN = pc_muster, pc_rho
+  Pc.muster, Pc.RHO_IN, Pc.update = pc_muster, pc_rho, pc_update
   return out
 end
 
@@ -222,7 +254,10 @@ local r = run()
 print(string.format("  premier site touché : %s en (%s) ; regroupement (%s)", tostring(r.first),
   r.first_pos and string.format("%.1f, %.1f", r.first_pos.x, r.first_pos.y) or "?",
   r.muster and string.format("%.1f, %.1f", r.muster.x, r.muster.y) or "?"))
-check(r.first_pos ~= nil and (r.first_w5 or 0) > 0, "premier site touché : un vrai site de la faction, avec une vague prévue (" .. tostring(r.first) .. ")")
+check(r.sites_n >= 2, "au moins deux sites au moment de la vague : le premier touché est un choix (" .. tostring(r.sites_n) .. ")")
+local function first_ok(x) return x.first ~= nil and x.first == x.s_ind and (x.first_w5 or 0) > 0 end
+check(first_ok(r), "premier site touché : celui que juge la prévision (" .. tostring(r.first) .. ") = le plus proche de la vague, calculé à part ("
+  .. tostring(r.s_ind) .. "), avec une vague prévue")
 check(r.made == 13, "13 soldats équipés (" .. tostring(r.made) .. ")")
 check((r.calm.patrol or 0) > 0 and (r.calm.muster or 0) == 0, "sans menace : patrouilles, aucun regroupement")
 check(r.few_alert == false, "8 déchiqueteurs que 13 soldats couvrent : aucune alerte (écart vague / défense, lot PREVISION)")
@@ -256,6 +291,8 @@ local m1 = run("autre_site")
 check(not rally_ok(m1), "M1 autre site : le ralliement hors de 20 tuiles du premier site est vu")
 local m2 = run("preparer_coupe")
 check(not prep_ok(m2), "M2 PREPARER coupé : l'absence de préparation du premier site est vue")
+local m3 = run("le_plus_loin")
+check(not first_ok(m3), "M3 le plus loin : une prévision qui choisit le site le plus loin de la vague est vue (" .. tostring(m3.first) .. ")")
 
 print(string.format("[ARMEE-MOTEUR] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
