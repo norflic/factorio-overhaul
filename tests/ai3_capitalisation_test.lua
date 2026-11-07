@@ -2033,7 +2033,12 @@ do
   -- (un calcul qui double de complexité échoue). Les millisecondes restent affichées et gardent une limite large (10 fois
   -- l'ancienne : 200, 400 et 800 ms) qui ne voit que l'effondrement ; l'ancienne limite stricte est écrite en avertissement.
   check(k4 <= 92 and k60 <= 244 and k200 <= 486, string.format("§12 pires appels en milliers d'instructions : %d, %d, %d (limites 92, 244, 486 ; mesuré 46, 122, 243)", k4, k60, k200))
-  check(w4 < 200 and w60 < 400 and w200 < 800, string.format("§12 pics sous 200, 400 et 800 ms (%.1f, %.1f, %.1f)", w4, w60, w200))
+  -- (essai-0660, 7/11 vers 22 h 20 : la limite large en ms a échoué DEUX fois sur un PC chargé, 215 ms au pic de 4 gisements avec
+  -- 46 suites en parallèle, puis passé seule ; un temps mesuré au mur ne juge rien (règle du projet : coût en instructions, contrôle
+  -- ci-dessus). Elle n'est plus qu'un avertissement, comme l'ancienne limite stricte.)
+  if not (w4 < 200 and w60 < 400 and w200 < 800) then
+    print(string.format("[CAPI] AVERTISSEMENT §12 : pics au-dessus de 200, 400 et 800 ms (%.1f, %.1f, %.1f) : PC tres charge ?", w4, w60, w200))
+  end
   if not (w4 < 20 and w60 < 40 and w200 < 80) then
     print(string.format("[CAPI] AVERTISSEMENT §12 : pics au-dessus de l'ancienne limite 20, 40 et 80 ms (%.1f, %.1f, %.1f) : PC chargé ?", w4, w60, w200))
   end
