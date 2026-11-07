@@ -219,6 +219,15 @@ do
   local seen = false
   for i = n0 + 1, #logs do if logs[i]:find("FO%-ANNEXE") and logs[i]:find("depot d'un PNJ", 1, true) then seen = true end end
   check(seen, "journal [FO-ANNEXE] : pose au depot d'un PNJ")
+  -- Un PNJ qui porte 100 coffres de fer, stock plein : UNE annexe posée, les 99 autres coffres rangés dedans (sauvegarde du DC, 7/11 :
+  -- emerald posait une annexe par coffre porté, 79 d'un coup)
+  local made9 = {}
+  local g9 = team(10)
+  g9.hq.surface = { create_entity = function(s) local e = new_chest(16); e.name = s.name; made9[#made9 + 1] = e; return e end }
+  g9.hq.items.stone = 50 * 10
+  local put9 = Stock.insert(g9, "iron-chest", 100)
+  check(put9 == 100 and #made9 == 1 and made9[1].items["iron-chest"] == 99,
+    "100 coffres refuses : une annexe posee, 99 coffres ranges dedans (" .. put9 .. ", " .. #made9 .. " annexe(s))")
   f.annex[1].items.stone = 16 * 50 -- l'annexe pleine aussi
   game.tick = 100
   local n1 = #logs

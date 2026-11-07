@@ -591,20 +591,26 @@ place_held = function(f, item, k)
   -- f.stock_watch.retry) : aucune nouvelle recherche de place (jusqu'à 2 × 80 appels au moteur par essai) à chaque dépôt refusé.
   local watch = f.stock_watch
   if watch and watch.retry and tick < watch.retry then return 0 end
-  local placed, failed = 0, false
-  for _ = 1, k do
+  -- Une annexe à la fois, puis le RESTE des coffres refusés va dans le stock agrandi (sauvegarde du DC, 7/11 : la faction emerald
+  -- posait 79 annexes en 5 ms pour un PNJ qui portait 79 coffres, au lieu d'une annexe et de 78 coffres rangés dedans).
+  local placed, stored, failed, left = 0, 0, false, k
+  while left > 0 do
     local used, size, n = totals(f)
     if n >= capacity(f) then break end
     if place_one(f, surface, item, function() end) == 0 then
       failed = true
       break
     end
-    placed = placed + 1
+    placed, left = placed + 1, left - 1
     f.stats = f.stats or {}
     f.stats.annex_placed = (f.stats.annex_placed or 0) + 1
     f.stats.annex_held = (f.stats.annex_held or 0) + 1
     log(string.format("[FO-ANNEXE] %s : coffre %d pose (%s) au depot d'un PNJ (stock plein pour ce coffre), stock %d/%d cases a %.1f min",
       f.key or "player", n + 1, item, used, size, (tick - (f.started or 0)) / 3600))
+    if left > 0 then
+      local put = plain_insert(f, item, left)
+      stored, left = stored + put, left - put
+    end
   end
   if placed > 0 then
     f.stock_watch = f.stock_watch or {}
@@ -613,7 +619,7 @@ place_held = function(f, item, k)
     f.stock_watch = f.stock_watch or {}
     f.stock_watch.retry = tick + T.annex.retry
   end
-  return placed
+  return placed + stored
 end
 
 --- Coffres à avoir en main pour agrandir le stock, NETS des coffres en main ; `gross` vrai : BRUTS (le fond, shared/team/fond.lua,
