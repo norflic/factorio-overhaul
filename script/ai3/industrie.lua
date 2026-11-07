@@ -24,6 +24,7 @@
 
 local Id = require("shared.ai3.industrie")
 local Ml = require("shared.ai3.mall")
+local AmRt = require("script.ai3.amorce_rt") -- lot VIDEO L7 : graine du mall (liste de matériel des prochains projets)
 local Em = require("shared.ai3.emplacements")
 local A = require("shared.ai3.automatiser")
 local L = require("shared.ai3.lecture")
@@ -302,6 +303,9 @@ function Ind.think(f, cs, res, view, book, tick)
   end
   -- 3. la décision
   local stock = view.stock or {}
+  -- lot VIDEO L7 : la liste de matériel des prochains projets du plan directeur, graine du mall (sans attendre 3 épisodes à la main) ;
+  -- stock BRUT du coffre (la liste est brute)
+  AmRt.seed(f, ml, tick, book, function(it) return Stock.count(f, it) end)
   local sources = Ml.sources(ml, tick)
   local keep = {}
   for _, c in ipairs(sources) do if not (st.hold[c.item] and st.hold[c.item] > tick) then keep[#keep + 1] = c end end

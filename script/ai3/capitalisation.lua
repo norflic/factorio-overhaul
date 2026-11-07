@@ -84,6 +84,7 @@ local Sv = require("shared.team.survie")
 local Pv = require("shared.ai3.prevision") -- lot PREVISION (C12) : prix de la défense induite
 local Prev = require("script.ai3.prevision") -- lot PREVISION : estimateur unique de la menace (relevé de l'équipe)
 local Ml = require("shared.ai3.mall") -- lot PILE-MALL (relecture) : la demande du mall est un puits de la capitalisation
+local AmRt = require("script.ai3.amorce_rt") -- lot VIDEO L7 : retrait de la main à la 1re production observée (L5)
 local Rsv = require("script.ai3.reserve") -- lot INDUSTRIE I1 : le besoin évalué, le stock hors besoin s'investit
 local Dm = require("shared.ai3.demande") -- lot C2 : puits ouvert, emplacements selon les bras libres
 local Ind = require("script.ai3.industrie") -- lot INDUSTRIE I6 : choix du patron (rangée ou bloc de mall), lecture des prototypes
@@ -538,6 +539,12 @@ local function scan(f, cs, tick)
       for _, g in ipairs(drills) do conf_group(cs, g) end
       hold = cfr.hold
       conf_log(f, cs, cfr, tick)
+      -- lot VIDEO L7 : la main de l'amorce est retirée à la 1re production d'une MACHINE (confirmed_now de L5), jamais sur les
+      -- statistiques de la force (votre équipe partage la force du joueur : ses fabrications à la main y entrent)
+      local ml = f.team.ia3 and f.team.ia3.mall
+      if ml then
+        for _, line in ipairs(AmRt.lines(f, ml, AmRt.observe(f, cs, ml, cfr, cs.cf, tick), minutes(f, tick))) do log(line) end
+      end
     else
       for _, g in ipairs(machines) do g.ids = nil end
       for _, g in ipairs(drills) do g.ids = nil end
