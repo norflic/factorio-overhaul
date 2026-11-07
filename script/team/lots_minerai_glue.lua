@@ -47,8 +47,10 @@ Lg.EVENT_LOGS = 12   -- lignes « événement » par équipe au plus
 local GEN_KIND = { drills = "extraction", smelter = "fonte" } -- générateurs de shared/team/modules.lua (M.GENERATORS)
 
 --- La règle est-elle allumée ? (réglage absent avant l'intégration : éteinte)
+local function read_setting() return settings.global[Lg.SETTING].value end -- hissée : Lg.on() est appelée par entité de ressource d'un relevé, pas de fermeture neuve à chaque appel
+
 function Lg.on()
-  local ok, v = pcall(function() return settings.global[Lg.SETTING].value end)
+  local ok, v = pcall(read_setting)
   return ok and v == true
 end
 
