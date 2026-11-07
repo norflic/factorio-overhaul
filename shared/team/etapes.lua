@@ -13,6 +13,13 @@
 ]]
 local E = {}
 
+--- Nombre d'étapes d'une pensée (E1 à E4), une par tick (TT.play de script/team/team.lua), et ÉCART en ticks de E1 à la dernière :
+--- une pensée commencée au tick T joue sa dernière étape à T + E.SPAN. Lu par la cadence des factions (shared/faction/cadence.lua,
+--- Cd.recent : un créneau qui tombe dans les étapes de la pensée précédente est laissé) ; tests/cadence_moteur_test.lua vérifie au
+--- moteur simulé que la dernière étape tombe bien à T + E.SPAN.
+E.STEPS = 4
+E.SPAN = E.STEPS - 1
+
 --- Champs de la vue (Team.view) lus par E4 (Team.measure, Team.effectif_journal et Team.plafond_journal compris). Liste TRIÉE.
 --- Relevé du 7/11 : lecture de TT.e4 et des fonctions qui reçoivent `view`, et passage d'enregistrement de 10 min.
 E.VIEW = { "effectif", "emergency", "grow_due", "iron_reserve", "recover_floor", "recruit_cost", "stock", "threatened", "workers",
