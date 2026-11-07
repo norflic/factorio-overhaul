@@ -75,6 +75,7 @@ local function on_died(e)
   log(Q.line(rec))
 end
 
-Events.on(defines.events.on_entity_died, on_died)
+-- Lot MORTS : les types de tourelle (ceux du test TURRET ci-dessus), jamais la force « enemy » (team_of : player ou une faction).
+Events.on_died(on_died, { types = Rg.TURRET_TYPES, ennemi = false })
 
 return {}
