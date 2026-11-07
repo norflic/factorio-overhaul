@@ -887,6 +887,29 @@ do
   E.restore()
 end
 
+do
+  -- H2. Lot STOCKAGE-VITAL (objets au sol, 7/11 : 1 327 copper-plate rendues à un stock plein dans la partie du DC, 1 168 au sol) : le
+  -- contenu des paires ne tient pas au stock -> rien n'est retiré ni répandu, la partie attend au même stade ; la place revenue, elle part
+  local E = executor_run({ pairs = 8 })
+  local Sk = package.loaded["script.team.stock"]
+  local full, asked = true, 0
+  Sk.can_take = function(f, list) asked = asked + 1; if full then return false, 9, 0 end return true, 0, 9 end
+  E.think()
+  local p = E.project()
+  drive_plan(E, p, "plan"); E.think()
+  drive_plan(E, p, "materiaux"); E.think()
+  drive_plan(E, p, "degel"); E.think(); E.think()
+  local jr = table.concat(E.logs, "\n")
+  check(asked > 0 and E.alive() == 8 and #E.spilled == 0 and E.f.migration.o[1].stage == "projet" and p.degele ~= true,
+    "H2 : stock plein : rien n'est retiré ni répandu, la partie attend au même stade (" .. E.alive() .. " paires, " .. asked .. " vérification(s))")
+  check(jr:find("retrait remis") ~= nil, "H3 : journal : retrait remis, le stock ne tient pas le contenu")
+  full = false
+  E.think()
+  check(E.alive() < 8 and #E.spilled == 0 and p.degele == true, "H4 : la place revenue, la partie est retirée (" .. E.alive() .. ")")
+  Sk.can_take = nil
+  E.restore()
+end
+
 ---------------------------------------------------------------------------------------------------
 -- 7. Câblage : les crochets (lecture du code source)
 ---------------------------------------------------------------------------------------------------
@@ -1620,14 +1643,16 @@ do
     local saved_fuel = T.fuel
     E = setup({})
     T.fuel = T.outposts.iron.resource
-    game.item_prototypes = { [T.fuel] = { fuel_value = 1e6 } }
-    E.gens = { { valid = true, energy_generated_last_tick = 10 * 1e6 / 60 } } -- la centrale brûle 10 ore/s ; l'électrique en donne 3,0
+    -- (lot FOREUSES-THERMIQUES : combustible de 4 MJ, comme le charbon ; la réserve d'amorçage vaut alors K = 3)
+    game.item_prototypes = { [T.fuel] = { fuel_value = 4e6 } }
+    E.gens = { { valid = true, energy_generated_last_tick = 10 * 4e6 / 60 } } -- la centrale brûle 10 ore/s ; l'électrique en donne 3,0
     for _ = 1, 6 do E.sweep() end -- (la ligne d'état n'est écrite que toutes les 5 min : 5 relevés d'une minute)
     check(E.alive() == 8, "T5 : la centrale brûle plus que l'électrique ne donne : les paires du minerai critique restent")
     check(said(E, "source-critique"), "T5 : le refus est écrit au journal d'état (source-critique)")
-    E.gens = { { valid = true, energy_generated_last_tick = 1.0 * 1e6 / 60 } } -- 1,0 ore/s : l'électrique (3,0) tient le plancher
+    E.gens = { { valid = true, energy_generated_last_tick = 1.0 * 4e6 / 60 } } -- 1,0 ore/s : l'électrique (3,0) tient le plancher
     E.sweep(); E.sweep()
-    check(E.alive() == 0, "T5 : plancher tenu par l'électrique : les paires partent")
+    -- (lot FOREUSES-THERMIQUES : avant-poste du combustible, la réserve d'amorçage garde K = 3 thermiques ; avant : 0)
+    check(E.alive() == 3, "T5 : plancher tenu par l'électrique : les paires partent, sauf la réserve d'amorçage (" .. E.alive() .. " restent)")
     T.fuel = saved_fuel
     E.restore()
 
@@ -1727,12 +1752,43 @@ do
     local saved_fuel2 = T.fuel
     E = setup({ working = 1 })
     T.fuel = T.outposts.iron.resource
-    game.item_prototypes = { [T.fuel] = { fuel_value = 1e6 } }
-    E.gens = { { valid = true, energy_generated_last_tick = 10 * 1e6 / 60 } }
+    -- (lot FOREUSES-THERMIQUES : combustible de 4 MJ, réserve d'amorçage K = 3 < 8 : la PROTECTION seule garde les 8, mutant visible)
+    game.item_prototypes = { [T.fuel] = { fuel_value = 4e6 } }
+    E.gens = { { valid = true, energy_generated_last_tick = 10 * 4e6 / 60 } }
     for k, d in ipairs(E.o.drill_list) do if k <= 3 then d.fuel_n = 0 end end
     for _ = 1, nmin + 4 do E.sweep() end
     check(E.alive() == 8, "T10d : minerai de la centrale sous son plancher : les brûleurs à sec restent (" .. E.alive() .. ")")
     T.fuel = saved_fuel2
+    E.restore()
+
+    -- T11 (lot FOREUSES-THERMIQUES, réserve d'amorçage, décision du lead 7/11) : RÉSEAU TOMBÉ, le combustible continue. Avant-poste du
+    -- combustible (T.fuel = sa ressource, comme T5), bande électrique au plancher, et AUCUN générateur qui brûle (fuel_burn = 0 : Th.cut_ok
+    -- laisse tout couper) : le balayage garde K = 3 thermiques (chaudière de 1 800 kW, combustible de 4 MJ, thermique 0,25/s et 150 kW).
+    local saved_fuel3 = T.fuel
+    E = setup({})
+    T.fuel = T.outposts.iron.resource
+    game.item_prototypes = { [T.fuel] = { fuel_value = 4e6 } }
+    E.gens = {}
+    for _ = 1, 4 do E.sweep() end
+    check(E.alive() == 3, "T11 : reseau tombe, bande au plancher : le balayage garde 3 thermiques de combustible (" .. E.alive() .. ")")
+    check((E.ms.reserve_held or 0) > 0, "T11 : retenues comptees (ms.reserve_held)")
+    T.fuel = saved_fuel3
+    E.restore()
+    -- T11b : même scène, retrait À SEC (règle B) : 6 brûleurs à sec sur 8, bande finie : 3 thermiques restent debout
+    E = setup({ working = 1 })
+    T.fuel = T.outposts.iron.resource
+    game.item_prototypes = { [T.fuel] = { fuel_value = 4e6 } }
+    E.gens = {}
+    for k, d in ipairs(E.o.drill_list) do if k <= 6 then d.fuel_n = 0 end end
+    for _ = 1, nmin + 4 do E.sweep() end
+    check(E.alive() == 3, "T11b : reseau tombe, retrait a sec : 3 thermiques de combustible restent (" .. E.alive() .. ")")
+    T.fuel = saved_fuel3
+    E.restore()
+    -- T11c (témoin) : avant-poste qui n'est PAS de combustible, même scène : toutes ses paires partent (T1)
+    E = setup({})
+    E.gens = {}
+    for _ = 1, 4 do E.sweep() end
+    check(E.alive() == 0, "T11c : avant-poste de fer : aucune reserve, les 8 paires partent (" .. E.alive() .. ")")
     E.restore()
 
     -- T9 (lot THERMIQUE6, essai 3) : bande BLOQUÉE laissée au plan dont les fours ont produit : elle couvre ; sans produit, non
@@ -1783,6 +1839,9 @@ do
     { "minerai critique ignoré", mut("if spec.resource == T.fuel then", "if false then") },
     { "brûleur de la centrale sous-estimé", mut("watts = watts + (g.energy_generated_last_tick or 0) * 60", "watts = watts + (g.energy_generated_last_tick or 0)") },
     { "balayage sans règle", mut("local acts, refused = Th.sweep(gated, ctx)", "local acts, refused = {}, {}") },
+    -- lot FOREUSES-THERMIQUES : réserve d'amorçage, dans les deux chemins
+    { "réserve ignorée au balayage", mut("ids, held_s = reserve_filter(f, owners, ids) -- (balayage : réserve d'amorçage)", "held_s = 0") },
+    { "réserve ignorée au retrait à sec", mut("ids = (reserve_filter(f, owners, ids)) -- (retrait à sec : réserve d'amorçage)", "") },
   }
   local survivors = 0
   local real_print = print

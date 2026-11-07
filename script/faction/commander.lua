@@ -112,16 +112,24 @@ function Commander.think(id, tick)
   Military.maintain(f, tick)
   Profiler.stop("faction:maintain")
   Profiler.start("faction:team")
-  Team.think(f, surface, tick)
+  -- Lot DÉCOUPAGE-PENSÉE : la pensée d'équipe se joue en 4 étapes (T à T + 3) ; la queue (chef, veille, attaque) suit sa
+  -- dernière étape, dans le même ordre qu'avant. Team.think rend false quand ses étapes restent à jouer.
+  local done = Team.think(f, surface, tick, "commander")
   Profiler.stop("faction:team")
+  if done ~= false then Commander.tail(f, surface, tick) end
+  Profiler.stop("faction:think")
+end
+
+--- Fin de la pensée d'une faction, après sa pensée d'équipe (lot DÉCOUPAGE-PENSÉE : jouée par la dernière étape, à T + 3).
+function Commander.tail(f, surface, tick)
   Chef.think(f, tick) -- lot IA2-a : une pensée par minute (rien avant l'échéance)
   Veille.report(f, tick) -- lot VEILLE : une ligne de bilan toutes les 10 min par faction
   Profiler.start("faction:attack")
   local view, target = Commander.view(f, tick)
   PvP.think(f, surface, tick, view, target)
   Profiler.stop("faction:attack")
-  Profiler.stop("faction:think")
 end
+Team.define_tail("commander", function(f, tick) Commander.tail(f, surface_of(State.war()), tick) end)
 
 Scheduler.define_lane(Commander.LANE, function()
   local s = State.war().settings
@@ -209,7 +217,8 @@ Events.on(defines.events.on_entity_destroyed, function(e)
 end)
 
 -- Une perte près du QG ou d'un avant-poste met la faction en alerte (défense prioritaire).
-Events.on(defines.events.on_entity_died, function(e)
+-- Lot MORTS : jamais la force « enemy » (seules les entités d'une force de faction comptent : State.by_force).
+Events.on_died(function(e)
   local war = State.war()
   if not war.active then return end
   local entity = e.entity
@@ -219,6 +228,7 @@ Events.on(defines.events.on_entity_died, function(e)
   local dx, dy = p.x - f.hq_pos.x, p.y - f.hq_pos.y
   if dx * dx + dy * dy < THREAT_RADIUS * THREAT_RADIUS then
     f.threatened_until = e.tick + THREAT_TICKS
+    f.threat_loss_t = e.tick -- lot L12 (partie 3) : dernière perte près du QG, lue par la menace tenue (script/team/menace_equipe.lua)
   end
   -- Lot VEILLE : mort d'un soldat de faction (cause, lieu, distance au QG) : un journal qui date les effondrements de garnison (la base
   -- n'avait pas ce journal : RECON, Azure 271828182).
@@ -231,6 +241,6 @@ Events.on(defines.events.on_entity_died, function(e)
   if e.force and e.force.name == "player" and Commander.on_player_hostility then
     Commander.on_player_hostility(f, e.tick)
   end
-end)
+end, { ennemi = false })
 
 return Commander

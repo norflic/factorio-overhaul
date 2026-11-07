@@ -12,13 +12,16 @@ local function check(cond, msg)
 end
 
 -- Doublures (mêmes que tests/reconstruction_exec_test.lua, plus on_init / on_load / set_event_filter) ----------------------
-local handlers, inits, loads = {}, {}, {}
+local handlers, inits, loads, configs = {}, {}, {}, {}
 package.loaded["script.core.events"] = {
   on = function(id, fn) handlers[id] = fn end,
+  on_died = function(fn) handlers[defines.events.on_entity_died] = fn end, -- lot MORTS (Events.on_died)
   on_init = function(fn) inits[#inits + 1] = fn end,
   on_load = function(fn) loads[#loads + 1] = fn end,
+  on_configuration_changed = function(fn) configs[#configs + 1] = fn end, -- lot PERF4 (script/team/abimes.lua)
 }
-defines = { events = { on_entity_died = 1, on_player_mined_entity = 2, on_robot_mined_entity = 3, on_entity_damaged = 4 },
+defines = { events = { on_entity_died = 1, on_player_mined_entity = 2, on_robot_mined_entity = 3, on_entity_damaged = 4,
+  on_built_entity = 5, on_robot_built_entity = 6, script_raised_built = 7, script_raised_revive = 8 }, -- 5 à 8 : lot PERF4
   entity_status = { no_power = 7, working = 1 }, direction = { north = 0, east = 2, south = 4, west = 6 } }
 local ns = { ia3k = { teams = {} } }
 package.loaded["script.core.storage"] = { ns = function(n) ns[n] = ns[n] or {}; return ns[n] end }
@@ -181,8 +184,23 @@ do
   inits[1]()
   loads[1]()
   local fl = filters_set[1]
-  check(fl and fl.id == defines.events.on_entity_damaged and #fl.filters == #Rp.filter_types() and fl.filters[1].filter == "type",
-    "filtre du moteur : un filtre « type » par type réparable (les unités touchées n'appellent pas le script)")
+  -- Lot PERF4 : le filtre réunit les types de ce lot et ceux de l'ensemble des endommagées (script/team/abimes.lua : tourelles et
+  -- infrastructure électrique), chacun une fois, tous « type » ; aucune unité.
+  local Ab = require("script.team.abimes")
+  local want, n_want = {}, 0
+  for _, t in ipairs(Rp.filter_types()) do if not want[t] then want[t] = true n_want = n_want + 1 end end
+  for _, t in ipairs(Ab.filter_types()) do if not want[t] then want[t] = true n_want = n_want + 1 end end
+  local got, all_type, dup = {}, true, false
+  for _, x in ipairs(fl and fl.filters or {}) do
+    if x.filter ~= "type" then all_type = false end
+    if got[x.type] then dup = true end
+    got[x.type] = true
+  end
+  local same = true
+  for t in pairs(want) do if not got[t] then same = false end end
+  check(fl and fl.id == defines.events.on_entity_damaged and #fl.filters == n_want and same and all_type and not dup and not got.unit
+    and got["ammo-turret"],
+    "filtre du moteur : un filtre « type » par type réparable ou relevé par l'ensemble des endommagées (tourelles comprises), sans unité")
 
   local fa = new_team("scarlet", false)
   local pl = new_team("player", true)

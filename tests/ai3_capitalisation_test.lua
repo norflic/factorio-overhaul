@@ -25,11 +25,19 @@
        module terminé, décroissant avec le temps, un échec de matériaux ne bloque pas (module réduit, objets en préparation),
        plafond de 5 min couverture basse et besoin non servi, le cas mesuré d'Azur (79,6 à 119,8 min sans ordre de fer) ;
        ses mutants sont dans §11.
+    §17 lot VIDEO-L13, garde fermée par défaut : liste des ordres ouverts absente → aucun ordre et un refus qui la nomme ;
+       liste présente → rendu identique à l'ancienne formule ; Ca.absent_input ; ses mutants sont dans §11.
+    §18 lots VIDEO-L5 et VIDEO-L13 : capacité confirmée (n_cap, hold), suspension, plafond par objet, 30 décisions sans
+       confirmation bornées, couvrir et ouvrir exemptées ; ses mutants sont dans §11. Témoin A/B : FO_CAPI_SRC et FO_CAPI_DUMP.
+    Étape 8 (L1b et L2 allumés) : FO_CAPI_RANG=0 (éteints) ou rang (le rang seul) ; FO_CAPI_DUMP_SIG=1 (signature des ordres).
   Usage : lua5.2 tests/ai3_capitalisation_test.lua   (depuis la racine du mod)
   Ce fichier est du TEST : il nomme les prototypes vanilla (comme le moteur) ; la règle n'en voit rien.
 ]]
 
-package.path = "./?.lua;" .. package.path
+-- Témoin A/B (lot VIDEO-INTEG, critère K6) : FO_CAPI_SRC = dossier où lire d'abord shared/ai3/capitalisation.lua (une autre
+-- version de la règle) ; FO_CAPI_DUMP = fichier où écrire le rendu sérialisé de chaque Ca.decide de §1 à §17 (rien d'autre ne tourne).
+local AB_SRC, AB_DUMP = os.getenv("FO_CAPI_SRC"), os.getenv("FO_CAPI_DUMP")
+package.path = (AB_SRC and (AB_SRC .. "/?.lua;") or "") .. "./?.lua;" .. package.path
 local F = require("tests.iag_fixture")
 local Ca = require("shared.ai3.capitalisation")
 local B = require("shared.ai3.buts")
@@ -37,6 +45,12 @@ local P = require("shared.ai3.projets")
 local K = require("shared.ai3.catalogue")
 local Rp = require("shared.ai3.repli")
 local Tr = require("shared.faction.traits")
+local Pf = require("shared.ai3.plafonds") -- lot VIDEO-L13 (§17)
+-- Étape 8 d'INTEGRATION_VIDEO (L1b et L2 ALLUMÉS par défaut) : FO_CAPI_RANG=0 rejoue la suite interrupteurs ÉTEINTS (la décision
+-- d'avant), FO_CAPI_RANG=rang avec le rang seul, sans la porte ; absent : les défauts. Les mutants de §11 gardent ce choix.
+-- FO_CAPI_DUMP_SIG=1 (avec FO_CAPI_DUMP) : le témoin n'écrit que la signature des ordres et les retenues de la porte (A/B orders_sig).
+local AB_RANG, AB_SIG = os.getenv("FO_CAPI_RANG"), os.getenv("FO_CAPI_DUMP_SIG")
+if AB_RANG == "0" then Ca.RANG, Ca.PORTE_RANG = false, false elseif AB_RANG == "rang" then Ca.RANG, Ca.PORTE_RANG = true, false end
 
 local pass, fail = 0, 0
 local quiet = false
@@ -1616,6 +1630,211 @@ local function s16()
   check(circuit_chain(r2) == nil, "§16 ordre ouvert sans manque : pas d'exemption, la règle des bras reste (" .. #r2.orders .. " ordre(s))")
 end
 
+-- §17 Lot VIDEO-L13, garde fermée par défaut (fo-logs/2026-11-07_VIDEO-INTEG/CRITERES.md, G1 à G3). Le rendu est sérialisé clés
+-- triées, nombres en %.17g : « identique » veut dire ligne pour ligne.
+local canon
+function canon(v, seen)
+  local t = type(v)
+  if t == "number" then return string.format("%.17g", v) end
+  if t == "string" then return string.format("%q", v) end
+  if t ~= "table" then return t == "function" and "<fonction>" or tostring(v) end
+  seen = seen or {}
+  if seen[v] then return "<cycle>" end
+  seen[v] = true
+  local ks = {}
+  for k in pairs(v) do ks[#ks + 1] = k end
+  table.sort(ks, function(a, b)
+    if type(a) ~= type(b) then return type(a) < type(b) end
+    return a < b
+  end)
+  local out = {}
+  for _, k in ipairs(ks) do out[#out + 1] = canon(k, seen) .. "=" .. canon(v[k], seen) end
+  seen[v] = nil
+  return "{" .. table.concat(out, ",") .. "}"
+end
+-- L'ancienne formule (Ca.OPEN_MAX - #ctx.open, ctx.open = {} quand la liste manque), remise par le test pour la comparaison G2.
+local function old_open_room(open, max)
+  local o = open or {}
+  local room = max - #o
+  if room <= 0 then return 0, string.format("%d ordres ouverts (au plus %d)", #o, max) end
+  return room
+end
+local function s17()
+  local D = vdata()
+  local function scene(open)
+    local inp = iron_scene(D, 1000)
+    inp.open = open
+    return inp
+  end
+  local function opens(n)
+    local l = {}
+    for i = 1, n do
+      l[#l + 1] = { key = string.format("x%02d", i), kind = "chaine", item = "pipe", n = 1, n_left = 1, missing = {}, work_left = 0 }
+    end
+    return l
+  end
+  -- G1 : liste absente, aucun ordre et un refus qui la nomme ; témoin : liste vide, des ordres.
+  local r_nil = Ca.decide(scene(nil), {})
+  local r_vide = Ca.decide(scene({}), {})
+  local why = (refus_of(r_nil, "capi") or {}).why
+  check(#r_vide.orders > 0, "§17 témoin : liste des ordres ouverts vide, la scène décide (" .. #r_vide.orders .. " ordre(s))")
+  check(#r_nil.orders == 0 and why == "ordres ouverts : entree absente",
+    string.format("§17 G1 : liste des ordres ouverts absente, aucun ordre (%d) et le refus « ordres ouverts : entree absente » (%s)",
+      #r_nil.orders, tostring(why)))
+  -- G2 : liste présente (vide, un ordre, au plafond) : rendu identique à l'ancienne formule, texte du refus au plafond compris.
+  for _, n in ipairs({ 0, 1, Ca.OPEN_MAX }) do
+    local new = canon(Ca.decide(scene(opens(n)), {}))
+    local cur = Pf.open_room
+    Pf.open_room = old_open_room
+    local ok, old = pcall(function() return canon(Ca.decide(scene(opens(n)), {})) end)
+    Pf.open_room = cur
+    check(ok and new == old, string.format("§17 G2 : %d ordre(s) ouvert(s), rendu identique à l'ancienne formule (%d octets)", n, #new))
+  end
+  local r_max = Ca.decide(scene(opens(Ca.OPEN_MAX)), {})
+  check((refus_of(r_max, "capi") or {}).why == string.format("%d ordres ouverts (au plus %d)", Ca.OPEN_MAX, Ca.OPEN_MAX) and #r_max.orders == 0,
+    "§17 G2 : au plafond, aucun ordre et le texte d'avant (" .. tostring((refus_of(r_max, "capi") or {}).why) .. ")")
+  -- G3 : la première liste absente, dans l'ordre machines, drills, stock, open.
+  check(Ca.absent_input(scene({})) == nil, "§17 G3 : les quatre listes présentes, rien d'absent")
+  local seen = {}
+  for _, k in ipairs({ "machines", "drills", "stock", "open" }) do
+    local inp = scene({})
+    inp[k] = nil
+    seen[#seen + 1] = tostring(Ca.absent_input(inp))
+  end
+  local bad = scene({})
+  bad.machines, bad.open = 5, nil
+  check(table.concat(seen, ",") == "machines,drills,stock,open" and Ca.absent_input(bad) == "machines" and Ca.absent_input(nil) == "entree",
+    "§17 G3 : liste absente nommée (" .. table.concat(seen, ",") .. ", " .. tostring(Ca.absent_input(bad)) .. ", "
+      .. tostring(Ca.absent_input(nil)) .. ")")
+end
+
+-- §18 Lots VIDEO-L5 et VIDEO-L13 ensemble (CRITERES.md, K1 à K5) : capacité CONFIRMÉE (n_cap ÷ n, input.hold), suspension d'un objet
+-- qui attend sa première production, plafond par objet (posé nominal + ouvert + ajouté ≤ 2 × la demande, shared/ai3/plafonds.lua).
+local function s18()
+  local D = vdata()
+  local pf = D.maker_by["stone-furnace"]
+  local p_fe = Ca.out_per_min(pf, D.recipes["iron-plate"], "iron-plate") -- 18,75/min
+  local function scene(sink, over)
+    local inp = iron_scene(D, sink, { stock = pieces({ ["electronic-circuit"] = 3000 }) })
+    for k, v in pairs(over or {}) do inp[k] = v end
+    return inp
+  end
+  -- K1 : part confirmée. 4 fours posés : n_cap = 4 (et hold = {}) ou hold absent → rendu d'avant ; n_cap = 0, hold = {} → leur
+  -- capacité ne compte pas.
+  local function furnaces(n, n_cap)
+    return { { entity = "stone-furnace", recipe = "iron-plate", n = n, where = "qg", n_cap = n_cap } }
+  end
+  local base = canon(Ca.decide(scene(30), {}))
+  local all4 = canon(Ca.decide(scene(30, { hold = {}, machines = furnaces(4, 4) }), {}))
+  local nohold = canon(Ca.decide(scene(30, { machines = furnaces(4, 0) }), {}))
+  check(all4 == base, "§18 K1 : 4 fours confirmés sur 4 (hold = {}) : rendu identique à celui sans relevé")
+  check(nohold == base, "§18 K1 : hold absent, n_cap = 0 : la capacité compte à la pose, rendu identique (garde fermée)")
+  local r_base = Ca.decide(scene(30), {})
+  local r_off = Ca.decide(scene(30, { hold = {}, machines = furnaces(4, 0) }), {})
+  check(r_off.K < r_base.K - Ca.EPS, string.format("§18 K1 : 4 fours non confirmés : capital compté %.1f < %.1f", r_off.K, r_base.K))
+  -- K2 : suspension. Le fer manque beaucoup (puits de 1 000/min) : des ordres de fer sans suspension, aucun avec.
+  local function iron_orders(res, items)
+    local n = 0
+    for _, o in ipairs(res.orders) do if Ca.HOLD_KINDS[o.kind] and items[o.item] then n = n + 1 end end
+    return n
+  end
+  local IRON = { ["iron-plate"] = true, ["iron-ore"] = true }
+  local r_free = Ca.decide(scene(1000, { hold = {} }), {})
+  local r_held = Ca.decide(scene(1000, { hold = { ["iron-plate"] = "attente de confirmation : 1 engage(s)",
+    ["iron-ore"] = "attente de confirmation : 1 engage(s)" } }), {})
+  local conf_refus = 0
+  for _, r in ipairs(r_held.refus) do
+    if IRON[r.item or ""] and r.why and r.why:find("confirmation : ", 1, true) == 1 then conf_refus = conf_refus + 1 end
+  end
+  check(iron_orders(r_free, IRON) > 0, "§18 K2 : témoin sans suspension, des ordres de fer (" .. iron_orders(r_free, IRON) .. ")")
+  check(iron_orders(r_held, IRON) == 0 and conf_refus > 0,
+    string.format("§18 K2 : fer suspendu : aucun ordre de fer (%d), refus « confirmation : » (%d)", iron_orders(r_held, IRON), conf_refus))
+  -- K3 : plafond. 4 fours posés non confirmés (75/min nominal) pour un puits de 30/min : 75 > 2 × 30, l'ordre de fours est refusé.
+  local rich_ore = { ["iron-ore"] = { made = 300 }, ["iron-plate"] = { made = 0 } }
+  local r_cap = Ca.decide(scene(30, { hold = {}, machines = furnaces(4, 0), flows = rich_ore }), {})
+  local rf = refus_of(r_cap, "fours:iron-plate")
+  check(find(r_cap, "fours:iron-plate") == nil and rf ~= nil and rf.why:find("plafond iron-plate", 1, true) == 1,
+    "§18 K3 : posé au-dessus de 2 × la demande, fours refusés au plafond (" .. tostring(rf and rf.why) .. ")")
+  -- K4 : 30 décisions, chaque four décidé posé et jamais confirmé (échec : hold = {}, n_cap = 0) : au plus ⌈2 × 30 ÷ 18,75⌉ = 4.
+  local n_posed, st = 0, {}
+  for _ = 1, 30 do
+    local r = Ca.decide(scene(30, { hold = {}, machines = n_posed > 0 and furnaces(n_posed, 0) or {}, flows = { ["iron-ore"] = { made = 600 } } }), st)
+    for _, o in ipairs(r.orders) do if o.kind == "fours" and o.item == "iron-plate" then n_posed = n_posed + o.n end end
+  end
+  local bound = math.max(1, math.ceil(2 * 30 / p_fe - Ca.EPS))
+  check(n_posed >= 1 and n_posed <= bound,
+    string.format("§18 K4 : 30 décisions sans confirmation : %d four(s) posé(s), au plus %d (2 × la demande)", n_posed, bound))
+  -- K5 : couvrir et ouvrir ne sont pas plafonnés (Q-CAPI-1, « foreuses partout »).
+  check(not Ca.CAPPED.couvrir and not Ca.CAPPED.ouvrir and Ca.CAPPED.fours and Ca.CAPPED.chaine and Ca.CAPPED.packs,
+    "§18 K5 : sortes plafonnées : fours, chaîne, packs (couvrir et ouvrir exemptées)")
+  local r_dr = Ca.decide(scene(10, { hold = {}, drills = { { entity = "electric-mining-drill", resource = "iron-ore", n = 6, deposit = "d1",
+    n_cap = 0 } } }), {})
+  local ore = nil
+  for _, o in ipairs(r_dr.orders) do if (o.kind == "couvrir" or o.kind == "ouvrir") and o.item == "iron-ore" then ore = o end end
+  local why_dr = (refus_of(r_dr, "couvrir:d1") or {}).why
+  check(ore ~= nil or not (why_dr and why_dr:find("plafond", 1, true)),
+    "§18 K5 : 6 foreuses non confirmées (180/min) pour 10/min : aucune foreuse refusée au plafond (" .. tostring(ore and ore.key or why_dr) .. ")")
+end
+
+-- §19 Étape 5a de VIDEO-INTEG (RD_LOG F391) : le courant du plan rendu quand le runtime donne input.power, jamais sans.
+local function s19()
+  local D = vdata()
+  local r0 = Ca.decide(iron_scene(D, 150), {})
+  check(r0.kw == nil, "§19 sans input.power : aucun courant rendu (rendu d'avant)")
+  local r1 = Ca.decide(iron_scene(D, 150, { power = { have_kw = 0, used_kw = 0 } }), {})
+  check(r1.kw ~= nil and r1.kw.have == 0 and type(r1.kw.used) == "number" and type(r1.kw.blocked) == "number" and r1.kw.blocked >= 0,
+    string.format("§19 avec input.power : capacité %s, nominal %s, retenu %s", tostring(r1.kw and r1.kw.have), tostring(r1.kw and r1.kw.used),
+      tostring(r1.kw and r1.kw.blocked)))
+  check(Ca.blocked_kw({ power_block = { { kw = 90 }, { kw = 180 } } }) == 270 and Ca.blocked_kw({}) == 0,
+    "§19 kW retenus : somme des machines et foreuses retenues par le courant")
+  -- Foreuses électriques sans courant ni centrale à proposer (chemin no_power) : refusées comme avant, et leurs kW sont retenus.
+  local rf1 = refus_of(r1, "couvrir:d1")
+  check(rf1 and rf1.why:find("aucune centrale possible", 1, true) and r1.kw and r1.kw.blocked > 0 and r1.kw.blocked % 90 == 0,
+    string.format("§19 foreuses sans courant : refus « %s », %s kW retenus (90 kW par foreuse)", tostring(rf1 and rf1.why),
+      tostring(r1.kw and r1.kw.blocked)))
+end
+
+-- §20 Lot VIDEO-COUVERTURE 5 (critères C5.2 et C5.4, écrits avant le code) : le module SUIVANT attend la 1re production de l'amont ;
+-- le relevé du courant qui manque ferme la garde (refus qui nomme l'entrée), l'amorçage (aucune centrale finie : power = nil) reste ouvert.
+local function s20()
+  local D = vdata()
+  local function gears(over)
+    local inp = iron_scene(D, 0, { sinks = { { item = "iron-gear-wheel", rate = 120 } },
+      flows = { ["iron-ore"] = { made = 3000 }, ["iron-plate"] = { made = 3000 } },
+      machines = { { entity = "stone-furnace", recipe = "iron-plate", n = 160, where = "qg" } } })
+    for k, v in pairs(over or {}) do inp[k] = v end
+    return inp
+  end
+  local base = Ca.decide(gears(), {})
+  check(find(base, "chaine:iron-gear-wheel") ~= nil, "§20 C5.2 témoin : sans suspension, la chaîne d'engrenages est décidée")
+  local held = Ca.decide(gears({ hold = { ["iron-plate"] = "attente de confirmation : 1 engage(s)" } }), {})
+  local rf = refus_of(held, "chaine:iron-gear-wheel")
+  check(find(held, "chaine:iron-gear-wheel") == nil and rf and rf.why:find("confirmation : en amont : iron-plate", 1, true) == 1,
+    "§20 C5.2 : les plaques n'ont rien produit : le module suivant (engrenages) est refusé, le refus nomme l'amont (" .. tostring(rf and rf.why) .. ")")
+  check(find(held, "couvrir:d1") ~= nil, "§20 C5.2 : l'extraction (sans recette) n'est pas retenue par l'amont")
+  local lifted = Ca.decide(gears({ hold = {} }), {})
+  check(canon(lifted) == canon(base), "§20 C5.2 : levé à la 1re production (hold vidé) : rendu identique au témoin")
+  local other = Ca.decide(gears({ hold = { ["steel-plate"] = "attente de confirmation : 1 engage(s)" } }), {})
+  check(find(other, "chaine:iron-gear-wheel") ~= nil, "§20 C5.2 : une attente sur un objet que la recette ne consomme pas ne retient rien")
+  -- C5.4 : relevé du courant
+  local d1 = iron_scene(D, 150, { power = {} })
+  local r1 = Ca.decide(d1, {})
+  local rf1, rf1o = refus_of(r1, "couvrir:d1"), refus_of(r1, "ouvrir:s2")
+  local opened = false
+  for _, o in ipairs(r1.orders) do if o.kind == "couvrir" or o.kind == "ouvrir" then opened = true end end
+  check(not opened and rf1 and rf1.why:find("power.have_kw", 1, true) and rf1.why:find("entree absente", 1, true) and rf1o and rf1o.why:find("power.have_kw", 1, true),
+    "§20 C5.4 : relevé du courant sans capacité : aucune foreuse électrique ouverte, refus écrit qui nomme l'entrée (" .. tostring(rf1 and rf1.why) .. ")")
+  local amorcage = Ca.decide(iron_scene(D, 150), {})
+  check(find(amorcage, "couvrir:d1") ~= nil, "§20 C5.4 : aucune centrale finie (power = nil) : l'amorçage reste ouvert (la centrale est demandée par le premier ordre)")
+  local lu = Ca.decide(iron_scene(D, 150, { power = { have_kw = 1000, used_kw = 0 } }), {})
+  check(find(lu, "couvrir:d1") ~= nil, "§20 C5.4 : capacité lue (1 000 kW) : les foreuses sont décidées")
+  check(r1.kw ~= nil and r1.kw.have == 0, "§20 C5.4 : le courant rendu reste celui d'avant (capacité 0)")
+  -- les cycles de la décision sont rendus pour l'amorce (C5.1) ; aucun sans cycle
+  -- (intégrateur, 7/11 23 h 55 : sans cycle ni graine, le champ est absent, pour garder l'identité rang allumé / éteint de
+  -- rang_cablage_test §2 ; le cas AVEC cycle est contrôlé par amorce_test et amorce_glue_test)
+  check(base.rang_cycles == nil, "§20 C5.1 : sans cycle, la décision ne rend aucune graine de cycle (champ absent)")
+end
+
 local function run_all()
   s1()
   s2()
@@ -1631,6 +1850,54 @@ local function run_all()
   s14()
   s15()
   s16()
+  s17()
+  if not AB_DUMP then
+    s18()
+    s19()
+    s20()
+  end
+end
+
+if AB_DUMP then -- témoin A/B (K6) : §1 à §17 seulement, rendus écrits, puis fin
+  local fh = assert(io.open(AB_DUMP, "w"))
+  local dec = Ca.decide
+  local n = 0
+  -- Empreinte FNV-1a 32 bits (étape 8) : l'ENTRÉE d'une décision (input sans le livre, et st avant l'appel), pour savoir si un écart
+  -- vient de cette décision ou d'une décision d'avant de la même suite (épargne, ordres ouverts).
+  local function fnv(s)
+    local h = 2166136261
+    for i = 1, #s do
+      h = bit32.bxor(h, s:byte(i))
+      h = (bit32.lshift(h, 24) + h * 403) % 4294967296
+    end
+    return string.format("%08x", h)
+  end
+  Ca.decide = function(input, st)
+    local entry
+    if AB_SIG then
+      -- (st.last_item, l'anti-répétition de la porte, est laissé hors de l'empreinte : son effet compte dans les retenues)
+      local data, last = input.data, st and st.last_item
+      input.data = nil
+      if st then st.last_item = nil end
+      entry = fnv(canon(input) .. canon(st or {}))
+      input.data = data
+      if st then st.last_item = last end
+    end
+    local r = dec(input, st)
+    n = n + 1
+    local line = canon(r)
+    if AB_SIG then
+      local t = {}
+      for _, o in ipairs(r.orders) do t[#t + 1] = string.format("%s|%d|%.17g", tostring(o.key), o.n or 0, o.cost_m or 0) end
+      line = "entree=" .. entry .. " | " .. table.concat(t, ";") .. " | retenues=" .. tostring(r.rang_held or 0)
+    end
+    fh:write(input.power and "courant|" or "-|", line, "\n") -- (étape 5a : rendus avec input.power marqués)
+    return r
+  end
+  run_all()
+  fh:close()
+  print(string.format("[CAPI] témoin A/B : %d rendu(s) écrit(s) dans %s ; %d OK, %d ECHEC(S)", n, AB_DUMP, pass, fail))
+  os.exit(0)
 end
 
 local t0 = os.clock()
@@ -1748,6 +2015,32 @@ do
   MR("élagage qui garde tout", "prune", function() return function() return 0 end end)
   -- Lot PREVISION (C12).
   MF("défense induite ignorée", "option_emit", function() return function() return 0 end end)
+  -- Lot VIDEO-L13 (§17).
+  do
+    local orig = Pf.open_room
+    M("garde ouverte sur une liste absente (relire la liste vide, #ctx.open)", function()
+      Pf.open_room = function(open, max) return orig(open or {}, max) end
+    end, function() Pf.open_room = orig end)
+  end
+  MF("liste d'entrée absente ignorée", "absent_input", function() return function() return nil end end)
+  -- Lots VIDEO-L5 et VIDEO-L13 (§18).
+  MF("capacité posée sans confirmation (fc toujours 1)", "cap_factor", function() return function() return 1 end end)
+  MF("suspension retirée", "held", function() return function() return nil end end)
+  MV("plafond par objet retiré", "CAPPED", {})
+  -- Étape 5a (§19).
+  MF("kW retenus jamais comptés", "blocked_kw", function() return function() return 0 end end)
+  -- Lot VIDEO-COUVERTURE 5 (§20).
+  MF("module suivant jamais retenu en amont", "held", function()
+    return function(ctx, o)
+      local h = ctx.input.hold
+      if h == nil or not Ca.HOLD_KINDS[o.kind] or o.item == nil then return nil end
+      return h[o.item]
+    end
+  end)
+  do
+    local orig = Pf.power_why
+    M("refus du courant sans l'entrée nommée", function() Pf.power_why = function() return nil end end, function() Pf.power_why = orig end)
+  end
 end
 check(n_caught == n_mut, string.format("mutants : %d refusés sur %d", n_caught, n_mut))
 
@@ -1794,7 +2087,12 @@ do
   -- (un calcul qui double de complexité échoue). Les millisecondes restent affichées et gardent une limite large (10 fois
   -- l'ancienne : 200, 400 et 800 ms) qui ne voit que l'effondrement ; l'ancienne limite stricte est écrite en avertissement.
   check(k4 <= 92 and k60 <= 244 and k200 <= 486, string.format("§12 pires appels en milliers d'instructions : %d, %d, %d (limites 92, 244, 486 ; mesuré 46, 122, 243)", k4, k60, k200))
-  check(w4 < 200 and w60 < 400 and w200 < 800, string.format("§12 pics sous 200, 400 et 800 ms (%.1f, %.1f, %.1f)", w4, w60, w200))
+  -- (essai-0660, 7/11 vers 22 h 20 : la limite large en ms a échoué DEUX fois sur un PC chargé, 215 ms au pic de 4 gisements avec
+  -- 46 suites en parallèle, puis passé seule ; un temps mesuré au mur ne juge rien (règle du projet : coût en instructions, contrôle
+  -- ci-dessus). Elle n'est plus qu'un avertissement, comme l'ancienne limite stricte.)
+  if not (w4 < 200 and w60 < 400 and w200 < 800) then
+    print(string.format("[CAPI] AVERTISSEMENT §12 : pics au-dessus de 200, 400 et 800 ms (%.1f, %.1f, %.1f) : PC tres charge ?", w4, w60, w200))
+  end
   if not (w4 < 20 and w60 < 40 and w200 < 80) then
     print(string.format("[CAPI] AVERTISSEMENT §12 : pics au-dessus de l'ancienne limite 20, 40 et 80 ms (%.1f, %.1f, %.1f) : PC chargé ?", w4, w60, w200))
   end
@@ -1830,5 +2128,7 @@ do
     "§13 sans `short` : un but de fond, servi en dernier")
 end
 
+print(string.format("[CAPI] interrupteurs : Ca.RANG=%s, Ca.PORTE_RANG=%s (FO_CAPI_RANG=%s)", tostring(Ca.RANG), tostring(Ca.PORTE_RANG),
+  tostring(AB_RANG)))
 print(string.format("[CAPI] BILAN : %d OK, %d ECHEC(S) (dont %d mutants refusés sur %d)", pass, fail, n_caught, n_mut))
 if fail > 0 then os.exit(1) end

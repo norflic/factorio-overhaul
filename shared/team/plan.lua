@@ -30,6 +30,7 @@ local M = need("shared.team.modules", "shared/team/modules")
 local Poteaux = need("shared.team.poteaux", "shared/team/poteaux") -- lot POTEAUX-ASTAR : chaîne par recherche de chemin
 local Ligne = need("shared.team.ligne", "shared/team/ligne") -- lot AGENCEMENT : disposition des bras de sortie
 local T = need("shared.team.config", "shared/team/config") -- lot RECHARGE : type de prototype du répartiteur (T.LOGISTIC_TYPES)
+local Lm = need("shared.team.lot_minerai", "shared/team/lot_minerai") -- lot MINERAI-SONDE : seuils par ressource d'un lot de gisement (règle pure)
 
 local P = {}
 
@@ -171,15 +172,24 @@ function P.main_resource(s)
 end
 
 --- État d'un lot : libre, defricher, gisement, rive, occupe, refuse ; raison (refus) ou ressource (gisement).
-function P.classify_lot(s)
+--- `seuils` (facultatif, lot MINERAI-SONDE) : les seuils par ressource de shared/team/lot_minerai_seuils.lua, passés par script/team/build.lua
+--- quand la règle L9 est allumée ; le lot est alors « gisement » dès que Lm.role y voit un minerai (tuiles, quantité ou somme des quantités
+--- de s.amount), même sous P.MIN_RES_TILES tuiles. Sans seuils : le seuil unique d'avant. L'ordre des états ne change pas (les refus,
+--- le bâti et la rive passent avant le gisement).
+function P.classify_lot(s, seuils)
   if (s.nests or 0) > 0 then return "refuse", "nid" end
   if (s.cliffs or 0) > 0 then return "refuse", "falaise" end
   if (s.foreign or 0) > 0 then return "refuse", "conteste" end
   if (s.water or 0) >= (s.tiles or P.LOT * P.LOT) * P.WATER_REFUSE then return "refuse", "eau" end
   if (s.own or 0) > 0 then return "occupe", "batiments" end
   if (s.water or 0) > 0 then return "rive", nil end
-  local r, n = P.main_resource(s)
-  if r and n >= P.MIN_RES_TILES then return "gisement", r end
+  if seuils then
+    local role, main = Lm.role(s, seuils)
+    if role == "minerai" then return "gisement", main end
+  else
+    local r, n = P.main_resource(s)
+    if r and n >= P.MIN_RES_TILES then return "gisement", r end
+  end
   if (s.trees or 0) + (s.rocks or 0) > 0 then return "defricher", nil end
   return "libre", nil
 end

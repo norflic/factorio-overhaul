@@ -40,6 +40,7 @@
 
 local T = require("shared.team.config")
 local Bg = require("shared.ai3.budget") -- lot PILE-BUDGET : la retenue ne vaut que si le budget manque
+local Sp = require("shared.team.spirale") -- EFFONDREMENT : recrue gratuite de votre équipe sous l'effectif de départ
 
 local Pi = {}
 
@@ -434,7 +435,7 @@ function Pi.signals(view, base, inp, s, ctx, bud)
   local recruit_claim = nil -- lot PILE-BUDGET (relecture) : le prix des recrues manquantes, au noyau du budget
   if survive == "effectif" then
     recruit_claim = {}
-    for _, it in ipairs(view.recruit_cost or {}) do
+    for _, it in ipairs(Sp.cost(view, view.recruit_cost) or {}) do -- EFFONDREMENT : rien pour une recrue gratuite
       recruit_claim[#recruit_claim + 1] = { it[1], it[2] * (floor - (view.workers or 0)) }
     end
   end

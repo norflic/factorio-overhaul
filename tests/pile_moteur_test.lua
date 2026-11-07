@@ -204,9 +204,46 @@ local function run_hq()
   return l[1]
 end
 
+--- Lot ROUGES-0659 : le journal [FO-PILE] joue à l'étape E4 (T + 3) d'une pensée dont la pile a été mise à jour à E1 (T). Avant ce lot,
+--- la garde « st.tick ~= tick » le taisait toujours (0 ligne d'état dans la partie du DC en 0.6.58). Règle : une ligne par mise à jour
+--- (st.tick) qui change le sommet ou la retenue, ou après Pi.LOG_EVERY ; jamais deux pour la même mise à jour.
+local function run_journal()
+  section("5. Journal [FO-PILE] joué à E4 : une ligne par mise à jour de la pile")
+  local PileRt = require("script.team.pile")
+  local Pi = require("shared.ai3.pile")
+  check(require("script.team.team").ETAPES == true, "les sections 0 à 3 ont tourné en étapes (Team.ETAPES)")
+  local st = { tick = 300, changed = true, top = 1, hold = true, frames = {} }
+  local f = { key = "journal-e4", started = 0, team = { ia3 = { pile = st } } }
+  local function n() return #logs_with("[FO-PILE] journal-e4 : sommet") end
+  PileRt.journal(f, 303)
+  check(n() == 1, "mise à jour à T = 300, journal à T + 3 : une ligne (" .. n() .. ")")
+  PileRt.journal(f, 304)
+  check(n() == 1, "même mise à jour relue au tick suivant : aucune ligne de plus (" .. n() .. ")")
+  st.tick, st.changed = 600, false
+  PileRt.journal(f, 603)
+  check(n() == 1, "mise à jour sans changement avant " .. Pi.LOG_EVERY / 3600 .. " min : aucune ligne (" .. n() .. ")")
+  st.tick, st.changed = 900, true
+  PileRt.journal(f, 903)
+  check(n() == 2, "changement de sommet : une ligne (" .. n() .. ")")
+  st.tick, st.changed = 903 + Pi.LOG_EVERY, false
+  PileRt.journal(f, st.tick + 3)
+  check(n() == 3, Pi.LOG_EVERY / 3600 .. " min sans changement : une ligne (" .. n() .. ")")
+  -- Mode bloc (Team.ETAPES = false) : mise à jour et journal au même tick, comme avant ce lot.
+  st.tick, st.changed = st.tick + 300, true
+  PileRt.journal(f, st.tick)
+  check(n() == 4, "mode bloc : mise à jour et journal au même tick, une ligne (" .. n() .. ")")
+  -- Sauvegarde d'avant ce lot (0.6.58) : ni logged_tick ni log_at ; la première lecture écrit au plus une ligne, sans erreur.
+  local old = { tick = 1200, changed = false, top = 3, hold = false, frames = {} }
+  local fo = { key = "journal-e4", started = 0, team = { ia3 = { pile = old } } }
+  local ok = pcall(PileRt.journal, fo, 1203)
+  local ok2 = pcall(PileRt.journal, fo, 1204)
+  check(ok and ok2 and n() <= 5 and old.logged_tick == 1200, "sauvegarde sans logged_tick : au plus une ligne de plus, sans erreur (" .. n() .. ")")
+end
+
 local l0 = run_hq()
 if l0 then print("  " .. l0) end
 local t1 = run_all()
 for _, l in ipairs(t1) do print("  " .. l) end
+run_journal()
 print(string.format("[PILE-MOTEUR] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

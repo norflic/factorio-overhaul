@@ -263,7 +263,8 @@ local function team_of(force_name)
   return State.by_force(force_name)
 end
 
-Events.on(defines.events.on_entity_died, function(e)
+-- Lot MORTS : une unité de la force « enemy » seulement (le test ci-dessous).
+Events.on_died(function(e)
   local ent = e.entity
   if not (ent and ent.valid and ent.type == "unit") then return end
   local killer = e.force
@@ -279,7 +280,7 @@ Events.on(defines.events.on_entity_died, function(e)
   else
     st.kills_over = (st.kills_over or 0) + hp
   end
-end)
+end, { types = { "unit" }, ennemi = true })
 
 ---------------------------------------------------------------------------------------------------
 -- Relevé

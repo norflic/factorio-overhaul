@@ -132,6 +132,7 @@ local chunk_src = between("--- Lot CHARBON-CENTRALE : boilers (nombre)", "--- Lo
 
 local W = { logs = {}, stock = 0, chests = {}, tick = 0, requests = {} }
 local Build = { QUAI_LOW = 60, QUAI_FILL = 400, COLLECT_AT = 200 }
+Build.Quotas = require("script.team.quotas_glue") -- lot VIDEO L4 : quai_tasks et out_tasks lisent les quotas (sans quota : ancienne règle)
 Build.request = function(f, spec)
   local b = f.build
   local id = b.next_id
@@ -276,7 +277,9 @@ check(src:find("if spec.alim then return plan_alim(f, surface, p) end", 1, true)
 check(src:find("Build.plan_drills(f, surface, p, fuel, rate, a, nil)", 1, true) ~= nil, "plan_alim reutilise le plan des foreuses")
 check(src:find("return plan_finish(f, surface, p, masks, false)", 1, true) ~= nil and src:find("return plan_finish(f, surface, p, main.masks, is_plant)", 1, true) ~= nil,
   "fin de plan commune (poteaux, appuis, obstacles)")
-check(src:find("charbon_step(f, tick)\nend", 1, true) ~= nil, "pulse_team appelle charbon_step")
+local pt0 = src:find("local function pulse_team", 1, true)
+local pt1 = pt0 and src:find("local function teams", pt0, true)
+check(pt0 ~= nil and pt1 ~= nil and src:sub(pt0, pt1):find("charbon_step(f, tick)", 1, true) ~= nil, "pulse_team appelle charbon_step (dans son corps, sans exiger la ligne suivante)")
 check(src:find("if hand and sp and sp.water and sp.burner_kw then", 1, true) ~= nil, "Build.burn_rate compte les chaudieres nourries a la main")
 check(src:find("local r = Cc.refill(", 1, true) ~= nil, "quai_tasks lit la regle de remplissage")
 check(src:find("name == \"no_alim\"", 1, true) ~= nil, "reglage de banc no_alim")

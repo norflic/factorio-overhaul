@@ -297,10 +297,11 @@ end
 Events.on(defines.events.on_built_entity, on_placed)
 Events.on(defines.events.on_robot_built_entity, on_placed)
 
-Events.on(defines.events.on_entity_died, function(e)
+-- Lot MORTS : les types du test (unité, araignée), toutes forces.
+Events.on_died(function(e)
   local u = e.entity
   if u and u.valid and (u.type == "unit" or u.type == "spider-vehicle") and Ro.parse_unit(u.name) then Armee.release(u.unit_number, "mort") end
-end)
+end, { types = { "unit", "spider-vehicle" } })
 
 Events.on(defines.events.on_entity_destroyed, function(e)
   if e.unit_number then Armee.release(e.unit_number, "detruite") end

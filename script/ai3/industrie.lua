@@ -24,6 +24,7 @@
 
 local Id = require("shared.ai3.industrie")
 local Ml = require("shared.ai3.mall")
+local AmRt = require("script.ai3.amorce_rt") -- lot VIDEO L7 : graine du mall (liste de matériel des prochains projets)
 local Em = require("shared.ai3.emplacements")
 local A = require("shared.ai3.automatiser")
 local L = require("shared.ai3.lecture")
@@ -106,13 +107,68 @@ local function patron_chests(p)
   return out
 end
 
+--- Lot VIDEO-L4, complément (demande du lead, 7/11) : cases ouvertes du coffre de sortie i d'un projet à QUOTA (p.quota.outs[i].cases,
+--- shared/team/quotas.lua, posé par script/team/quotas_glue.lua), ou nil (pas de quota : rien ne change).
+local function quota_cases(p, i)
+  local q = type(p.quota) == "table" and type(p.quota.outs) == "table" and p.quota.outs[i]
+  local c = type(q) == "table" and q.cases
+  if type(c) == "number" and c >= 1 then return math.floor(c) end
+  return nil
+end
+
+--- Barre du coffre de sortie `o` : `cases` cases ouvertes (F95 : la barre borne aussi `insert` ; n cases ouvertes = barre n + 1), jamais plus
+--- que le coffre n'en a. Rend 1 si elle est posée.
+local function bar_out(surface, o, cases)
+  local c = surface.find_entity(A.exec_chest(), { o.x, o.y })
+  if not (c and c.valid) then return 0 end
+  local inv = c.get_inventory(defines.inventory.chest)
+  if not (inv and inv.supports_bar()) then return 0 end
+  inv.set_bar(math.min(#inv, cases) + 1)
+  return 1
+end
+
+--- Lot VIDEO-L4, complément : barre des coffres de sortie de TOUT projet fini qui a un quota (la sortie bornée à Q.SORTIE_MIN minutes de
+--- son débit nominal : la machine s'arrête seule quand le coffre est plein) ; pour un patron ou un bloc, la plus petite avec sa barre à
+--- lui (p.spec.args). Une fois par FIN du projet et par quota (p.quota_bar = fin|clé du quota) : un coffre refait l'a perdue, un quota
+--- recalculé (cases sous la barre changées) la refait. Indépendant du réglage de l'industrie (les quotas de L4 valent sans lui).
+local function quota_bars(f, b, surface)
+  local n = 0
+  if not surface then return 0 end
+  for _, pid in ipairs(b.order or {}) do
+    local p = b.projects[pid]
+    if p and p.state == "fini" and type(p.quota) == "table" then
+      local mark = tostring(p.finished or 0) .. "|" .. tostring(p.quota_key)
+      if p.quota_bar ~= mark then
+        p.quota_bar = mark
+        local gen = p.spec and p.spec.gen
+        local args = (p.spec and p.spec.args) or {}
+        local own = (gen == "patron" and args[6]) or (gen == "bloc" and args[4]) or nil
+        for i, o in ipairs(p.outs or {}) do
+          local cases = quota_cases(p, i)
+          if cases then
+            if type(own) == "number" and own > 0 and own < cases then cases = own end
+            n = n + bar_out(surface, o, cases)
+          end
+        end
+      end
+    end
+  end
+  return n
+end
+
 --- Inscrit les coffres de sortie de tout projet « patron » ou « bloc » à la collecte (p.outs, seuil Ind.COLLECT_AT) et pose leur barre
 --- quand le projet est fini. Rend le nombre de coffres inscrits et le nombre de barres posées. Idempotent : par tuile (patron_chests, un projet replanifié a
 --- d'autres coffres), et la barre à chaque FIN du projet (p.ind_bar = p.finished) : un coffre refait par une reconstruction l'a perdue, la machine le remplirait.
+--- Lot VIDEO-L4, complément : puis la barre de QUOTA de tout projet fini qui en a un (quota_bars, 3e valeur rendue).
 function Ind.sweep(f, tick)
   local b = f.build
-  if not b or not Rsv.on() then return 0, 0 end
+  if not b then return 0, 0, 0 end
   local surface = f.hq and f.hq.surface
+  if not Rsv.on() then
+    local qb = quota_bars(f, b, surface)
+    if qb > 0 then say(f, tick, string.format("barres de quota : %d coffre(s) de sortie", qb)) end
+    return 0, 0, qb
+  end
   local reg, bars = 0, 0
   for _, pid in ipairs(b.order or {}) do
     local p = b.projects[pid]
@@ -146,7 +202,10 @@ function Ind.sweep(f, tick)
   if reg > 0 or bars > 0 then
     say(f, tick, string.format("sorties des patrons : %d coffre(s) inscrit(s) a la collecte, %d barre(s) posee(s)", reg, bars))
   end
-  return reg, bars
+  -- (après la barre du patron ou du bloc : la barre de quota la remplace par la plus petite des deux)
+  local qb = quota_bars(f, b, surface)
+  if qb > 0 then say(f, tick, string.format("barres de quota : %d coffre(s) de sortie", qb)) end
+  return reg, bars, qb
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -302,6 +361,9 @@ function Ind.think(f, cs, res, view, book, tick)
   end
   -- 3. la décision
   local stock = view.stock or {}
+  -- lot VIDEO L7 : la liste de matériel des prochains projets du plan directeur, graine du mall (sans attendre 3 épisodes à la main) ;
+  -- stock BRUT du coffre (la liste est brute)
+  AmRt.seed(f, ml, tick, book, function(it) return Stock.count(f, it) end)
   local sources = Ml.sources(ml, tick)
   local keep = {}
   for _, c in ipairs(sources) do if not (st.hold[c.item] and st.hold[c.item] > tick) then keep[#keep + 1] = c end end

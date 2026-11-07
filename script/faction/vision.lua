@@ -540,8 +540,9 @@ end
 
 ---------------------------------------------------------------------------------------------------
 -- Coups reçus du joueur (style « agresseur ») : bâtiments d'une faction détruits par la force du joueur.
+-- Lot MORTS : jamais la force « enemy » (éclaireur et bâtiment : entités d'une force de faction, State.by_force).
 ---------------------------------------------------------------------------------------------------
-Events.on(defines.events.on_entity_died, function(e)
+Events.on_died(function(e)
   local killer = e.force
   -- Éclaireur tué : par qui (journal ; moteur réel, essai 2 : 4 éclaireurs seuls sur 5 tués en route).
   local ent0 = e.entity
@@ -565,6 +566,6 @@ Events.on(defines.events.on_entity_died, function(e)
   local m = Vision.state(f).model
   m.hits[#m.hits + 1] = e.tick
   while #m.hits > 16 do table.remove(m.hits, 1) end
-end)
+end, { ennemi = false })
 
 return Vision
