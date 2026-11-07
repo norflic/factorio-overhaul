@@ -325,6 +325,10 @@ remote.add_interface("fo-xp", {
     return table.concat(out, ",")
   end,
   cratere = function(x, y, r) Geants.cratere(game.surfaces[1], { x = x, y = y }, r, game.tick) end,
+  --- Bancs seulement (B1) : jobs de salve au format de la 0.6.56 posés pour le géant `un` ; nombre de jobs de zone ; salve active.
+  ancien_job = function(un) return Geants.ancien_job(un) end,
+  jobs_zone = function() return Geants.jobs_zone() end,
+  zone_active = function(un) return Geants.zone_active(un) end,
   noms = function() return NAMES end,
 })
 

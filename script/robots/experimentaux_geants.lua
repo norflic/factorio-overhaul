@@ -295,6 +295,12 @@ local function zone_pas(j, tick)
     actives()[j.un] = nil
     return true
   end
+  if not Ech.zone_jouable(j) then
+    -- job d'une sauvegarde d'avant la recherche par secteurs (B1, revue de la 0.6.57) : abandonné ; le géant pourra tirer de nouveau
+    K.journal("%s zone #%s d'une version d'avant : abandonnee tick %d", tostring(j.id), tostring(j.un), tick)
+    actives()[j.un] = nil
+    return true
+  end
   if j.secteurs then
     zone_chercher(j)
     j.at = tick + 1
@@ -500,6 +506,41 @@ end
 --- Pour les géants de robotsjeu (script/robots/geant.lua, règle d'échelle) : cible et salve de zone, mêmes règles que les géants de cette
 --- famille. `r` : un robot de données avec id, age, dtype, range, zone, salve, cratere (shared/content/robots.lua).
 function G.cible(e, r, bonus) return cible({ e = e, bonus = bonus }, r) end
+
+--- Bancs seulement (B1, banc xp-zone-ancien) : pose dans la file deux jobs de salve au FORMAT DE LA 0.6.56 pour le géant `un` (ce qu'une
+--- sauvegarde faite pendant une salve contient) : l'un avant rangement (liste `found`, rang `i`), l'autre en frappe (plan SANS `cnt`,
+--- curseur), et marque la salve active. Rend le nombre de jobs posés (0 si le géant n'est pas inscrit).
+function G.ancien_job(un)
+  local s = K.S()
+  for _, g in ipairs(s.giants) do
+    if g.un == un and g.e and g.e.valid then
+      local e = g.e
+      local c = { x = e.position.x, y = e.position.y }
+      local found = e.surface.find_entities_filtered({ position = c, radius = 40, force = K.enemy_forces(e.force) })
+      local tick = game.tick
+      job({ kind = "zone", e = e, un = un, id = g.id, dtype = "laser", found = found, i = 1, plan = { c = c, rings = {}, top = 0 },
+            salve = 1, zone = 40, at = tick, total = 0, tues = 0, debut = tick, nb = 0 })
+      local plan = { c = c, rings = { found }, top = 1 }
+      job({ kind = "zone", e = e, un = un, id = g.id, dtype = "laser", plan = plan, cur = { k = 1, i = 1, pris = 0 }, salve = 1, zone = 40,
+            at = tick, total = 0, tues = 0, debut = tick, nb = #found })
+      actives()[un] = true
+      return 2
+    end
+  end
+  return 0
+end
+
+--- Bancs seulement : jobs de salve de zone dans la file, { n = tous, anciens = ceux qui ne peuvent pas frapper (Ech.zone_jouable faux) }.
+function G.jobs_zone()
+  local n, a = 0, 0
+  for _, j in ipairs(K.S().gjobs) do
+    if j.kind == "zone" then
+      n = n + 1
+      if not Ech.zone_jouable(j) then a = a + 1 end
+    end
+  end
+  return { n = n, anciens = a }
+end
 function G.salve(e, un, r, c, tick, bonus) zone({ e = e, un = un, bonus = bonus }, r, c, tick) end
 
 local function scan(ev)
@@ -534,7 +575,7 @@ local function on_tick(ev)
   local zj = {}
   for i = 1, n0 do
     local j = s.gjobs[i]
-    if j.kind == "zone" and not j.secteurs and j.at <= ev.tick then zj[#zj + 1] = j end
+    if j.kind == "zone" and not j.secteurs and j.at <= ev.tick and Ech.zone_jouable(j) then zj[#zj + 1] = j end
   end
   -- s.budgets : autres budgets, bancs de mesure seulement (remote « fo-xp », « budgets ») ; en jeu, Ech.BUDGET et Ech.MORTS
   local parts = Ech.partage(#zj, s.budgets and s.budgets.coups or Ech.BUDGET, ev.tick)

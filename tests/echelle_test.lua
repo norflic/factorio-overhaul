@@ -345,6 +345,13 @@ local function suite(Ech)
   -- §11 sauvegardes existantes : proportion de vie ; régénération proportionnelle au maximum
   check(math.abs(Ech.soin(8260200, 0.5, 60000) - 68.835) < 1e-9 and math.abs(Ech.soin(8260200, 0.5, 60000) / 8260200 - 0.5 / 60000) < 1e-15,
     "§11 régénération du Bourdon : même part du maximum qu'avant (68,835 PV par tick)")
+  -- §11 bis sauvegarde faite PENDANT une salve de la 0.6.56 (B1 de la revue de la 0.6.57) : jobs de l'ancien format refusés, jobs neufs gardés
+  local vieux_found = { kind = "zone", found = { {}, {} }, i = 1, plan = { c = { x = 0, y = 0 }, rings = {}, top = 0 } }
+  local vieux_plan = { kind = "zone", plan = { c = { x = 0, y = 0 }, rings = { { {} } }, top = 1 }, cur = { k = 1, i = 1, pris = 0 } }
+  local neuf_cherche = { kind = "zone", secteurs = Ech.secteurs({ x = 0, y = 0 }, 15, Ech.SECTEUR), si = 1, plan = Ech.nouveau_plan({ x = 0, y = 0 }) }
+  local neuf_frappe = { kind = "zone", plan = Ech.nouveau_plan({ x = 0, y = 0 }), cur = Ech.curseur() }
+  check(not Ech.zone_jouable(vieux_found) and not Ech.zone_jouable(vieux_plan) and Ech.zone_jouable(neuf_cherche) and Ech.zone_jouable(neuf_frappe),
+    "§11 bis jobs de salve de la 0.6.56 (liste found, plan sans cnt) refusés ; jobs neufs (secteurs, curseur et plan à compteurs) gardés")
   return pass, fail, msgs
 end
 
@@ -398,6 +405,8 @@ check(SXG:find("local parts = Ech.partage(#zj, s.budgets and s.budgets.coups or 
   "§4 ter jeu : chaque salve frappe sa PART des budgets de coups et de morts du tick (aucun budget par salve)")
 check(SXG:find("secteurs = Ech.secteurs(c, eff.zone, Ech.SECTEUR)", 1, true) ~= nil and SXG:find("if Ech.dans_secteur(q, p.x, p.y) then", 1, true) ~= nil
   and not SXG:find("radius = eff.zone, force = forces", 1, true), "§4 ter jeu : recherche par secteurs demi-ouverts, plus de recherche de tout le disque en un tick")
+check(SXG:find("if not Ech.zone_jouable(j) then", 1, true) ~= nil and SXG:find("and j.at <= ev.tick and Ech.zone_jouable(j) then zj[#zj + 1] = j end", 1, true) ~= nil,
+  "§11 bis jeu : un job de salve de l'ancien format est abandonné (zone_pas) et ne reçoit aucune part des budgets (on_tick)")
 check(SXG:find("if ev.tick >= g.next and not G.zone_active(g.un) then", 1, true) ~= nil
   and SG:find("if tick >= at and not XpG.zone_active(un) then", 1, true) ~= nil, "§4 ter jeu : pas de nouvelle salve tant que la précédente frappe")
 -- §12 bis séquelles branchées (QCM-7/11)
@@ -419,6 +428,8 @@ check(not SRC:find("game%.") and not SRC:find("script%.") and not SRC:find("%f[%
 
 -- §6 mutants
 local MUTANTS = {
+  { "job de la 0.6.56 sans cnt accepté", "(j.cur ~= nil and j.plan ~= nil and j.plan.cnt ~= nil)", "(j.cur ~= nil and j.plan ~= nil)" },
+  { "job de la 0.6.56 à liste found accepté", "return j.secteurs ~= nil or", "return j.found ~= nil or j.secteurs ~= nil or" },
   { "écart de 3 âges", "Ech.ECART = 4", "Ech.ECART = 3" },
   { "résistance à 30 %", "Ech.POURCENT = 50", "Ech.POURCENT = 30" },
   { "survie de 2 min", "Ech.SURVIE_S = 180", "Ech.SURVIE_S = 120" },

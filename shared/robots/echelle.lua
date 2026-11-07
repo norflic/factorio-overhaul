@@ -178,6 +178,13 @@ function Ech.curseur()
   return { k = 1, i = 1, pris = 0 }
 end
 
+--- Vrai si un job de salve de zone peut frapper : il cherche encore (secteurs), ou il a un curseur et un plan à compteurs (`cnt`). Un job
+--- d'une sauvegarde d'avant (0.6.56 et avant : liste `found` à ranger, ou plan sans `cnt`) n'est ni l'un ni l'autre : il est abandonné
+--- (B1 de la revue de la 0.6.57 : Ech.frapper indexait alors un curseur ou des compteurs absents, et la partie plantait à la reprise).
+function Ech.zone_jouable(j)
+  return j.secteurs ~= nil or (j.cur ~= nil and j.plan ~= nil and j.plan.cnt ~= nil)
+end
+
 --- La cible suivante (du centre vers le bord), nil quand le plan est épuisé ou le plafond atteint. `liberer` : l'entrée rendue est retirée
 --- de son anneau.
 function Ech.prochain(p, cur, liberer)
