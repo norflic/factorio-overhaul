@@ -67,6 +67,9 @@ return {
     local inv = chest.get_inventory(defines.inventory.chest)
     inv.insert({ name = "iron-plate", count = 2000 })
     inv.insert({ name = GUN, count = 5 })
+    -- 2e version (7/11 21:47) : la croissance exige une tourelle disponible (team.lua, `grow` : gun-turret au coffre ou fabricable) ;
+    -- au départ elle n'est pas recherchée : sans elle, aucune recrue payée en 6 000 ticks (1er passage, c3aa94d9)
+    inv.insert({ name = "gun-turret", count = 1 })
     inv.insert({ name = "copper-plate", count = 500 })
     inv.insert({ name = "coal", count = 200 })
     inv.insert({ name = AMMO, count = 194 })
