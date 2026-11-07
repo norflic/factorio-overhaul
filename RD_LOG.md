@@ -20,7 +20,9 @@
   17 h 40) : l'atlas virtuel ADRESSÉ fait 16 384 × 16 384, soit 16 pages de 4 096², et non 12 comme le disait F186 au 24/10 :
   il a grandi avec le contenu (12 pages dans un atlas de 16 384 × 12 288 le 27/10). Pages utilisées : 14 sans la laser
   (essai-0659 `c3ce6c0d`), 15 avec (`7d0c2be2`), donc 1 page de marge ; `d4-geant` 18 OK dans les deux cas. Toute addition
-  graphique se mesure encore au plancher avant d'être intégrée.
+  graphique se mesure encore au plancher avant d'être intégrée. Mémoire vidéo DÉDIÉE du jeu (compteurs Windows, mêmes passages,
+  `vram/plancher-sans` et `vram/plancher`) : pic 0,48 → 0,72 Go, moyenne 0,44 → 0,58 Go (environ 156 relevés chacun), soit
+  +0,24 Go au pic pour la laser au plancher (passages en `--seul`, un seul de chaque : pas de dispersion connue).
 - **E261 · VALIDÉ** (moteur réel, lot F1-C ; archives `fo-logs/2026-11-04_LASER-F1C/`) : la tourelle laser des âges 2 à 15 en
   jeu → `content` 554 OK et `f1-lasers` 4 OK sur 0.6.58 + laser ; `f1-lasers` 4 OK sur essai-0659 + laser (`laser-0659`) ;
   migration depuis une carte 0.6.41, 4 OK, faisceau vu 48 fois sur 48. Production : 925 rendus à 128 échantillons, 0 erreur,
