@@ -513,7 +513,7 @@ check(SXG:find("K.candidates(e.surface, e.force, e.position, eff.range), r.marks
   and SXG:find("radius = eff.zone, width = 4", 1, true) ~= nil, "§7 bis Cairn : marques et anneau à la portée et à la zone EFFECTIVES (modules)")
 check(SXG:find("local parts = Ech.partage_forces(fz, s.budgets and s.budgets.coups or Ech.BUDGET, ev.tick)", 1, true) ~= nil
   and SXG:find("local morts = Ech.partage_forces(fz, s.budgets and s.budgets.morts or Ech.MORTS, ev.tick)", 1, true) ~= nil
-  and SXG:find("force = e.force.name, forces = forces, ennemis = K.ennemis(forces)", 1, true) ~= nil
+  and SXG:find("force = e.force.name, forces = forces, c = { x = c.x, y = c.y }", 1, true) ~= nil
   and SXG:find("Ech.frapper(j.plan, j.cur, qh, qm, function(t)", 1, true) ~= nil and not SXG:find("Ech.TRANCHE", 1, true),
   "§4 ter jeu : chaque salve frappe sa PART des budgets de coups et de morts du tick (aucun budget par salve)")
 check(SXG:find("if #j.forces > 0 and (q.cx == nil or s.is_chunk_generated({ x = q.cx, y = q.cy })) then", 1, true) ~= nil,

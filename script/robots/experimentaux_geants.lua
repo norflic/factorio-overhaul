@@ -308,7 +308,7 @@ local function zone(g, r, c, tick)
   end
   -- recherche par SECTEURS (un par tick : le tick 0 du double tir coûtait 10,7 ms de script, 7/11), puis frappe
   local forces = K.enemy_forces(e.force)
-  job({ kind = "zone", e = e, un = g.un, id = r.id, dtype = r.dtype, force = e.force.name, forces = forces, ennemis = K.ennemis(forces), c = { x = c.x, y = c.y },
+  job({ kind = "zone", e = e, un = g.un, id = r.id, dtype = r.dtype, force = e.force.name, forces = forces, c = { x = c.x, y = c.y },
         secteurs = Ech.secteurs(c, eff.zone, Ech.SECTEUR), si = 1, plan = Ech.nouveau_plan(c), salve = eff.salve, zone = eff.zone,
         at = tick, total = 0, tues = 0, debut = tick, brule = b or nil, nb = 0, cr = cr, ci = 1, surf = s.index })
   cratere_suite(K.S().gjobs[#K.S().gjobs], tick, false)
@@ -367,9 +367,10 @@ local function zone_pas(j, tick)
     j.at = tick + 1
     return false
   end
-  -- frappe sans allocation (K.frappe) : force par son nom, ennemis par leurs index (un job d'une version d'avant les reçoit ici, une fois)
-  if not j.ennemis then j.force, j.ennemis = e.force.name, K.ennemis(K.enemy_forces(e.force)) end
-  local st_r, fid, en = K.stat(j.id), j.force, j.ennemis -- statistiques par robot : les géants de robotsjeu y ont aussi leur ligne
+  -- frappe sans allocation (K.frappe) : force par son nom, ennemis par leurs index, relus à CHAQUE tick (paix ou cessez-le-feu pendant la
+  -- salve : compté dès le tick suivant) ; un job d'une version d'avant reçoit le nom de sa force ici, une fois
+  if not j.force then j.force = e.force.name end
+  local st_r, fid, en = K.stat(j.id), j.force, K.ennemis_du_tick(j.force) -- statistiques par robot : les géants de robotsjeu y ont aussi leur ligne
   local c, m, fini = Ech.frapper(j.plan, j.cur, qh, qm, function(t)
     if not t.valid then return false end
     local p = j.brule and t.position

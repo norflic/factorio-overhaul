@@ -102,10 +102,24 @@ local function scenario(source)
   for i = 1, 300 do th = th + K.hit({ id = "h" }, ch[i], 200, "laser", tireur_f, tir) end
   local lect_hit = lectures
   local noms = K.enemy_forces(tireur_f)
-  local en = K.ennemis(noms)
+  local en = K.ennemis_du_tick("tireur")
   lectures = 0
   for i = 1, 300 do tf = tf + K.frappe(sf, cf[i], 200, "laser", "tireur", tir, en) end
-  return { th = th, tf = tf, tr = tr, nr = nr, kr = kr, sh = sh, sf = sf, lect_hit = lect_hit, lect_frappe = lectures, jf = jf, noms = noms, en = en, K = K }
+  -- paix déclarée en pleine salve (décision du lead, 7/11) : comptée dès le tick suivant, pour K.frappe comme pour K.hit
+  local journal = {}
+  local rouge1, rouge2, bit = entite("rouges", 1000, journal), entite("rouges", 1000, journal), entite("biters", 1000, journal)
+  local st = { degats = 0, cibles = 0, tues = 0 }
+  _G.game.tick = 10
+  local avant = K.frappe(st, rouge1, 100, "laser", "tireur", tir, K.ennemis_du_tick("tireur"))
+  tireur_f.ennemis.rouges = nil -- paix (ou cessez-le-feu) entre le tireur et les rouges
+  _G.game.tick = 11
+  local apres = K.frappe(st, rouge2, 100, "laser", "tireur", tir, K.ennemis_du_tick("tireur"))
+  local apres_hit = K.hit({ id = "f" }, rouge2, 100, "laser", tireur_f, tir)
+  local bit_apres = K.frappe(st, bit, 100, "laser", "tireur", tir, K.ennemis_du_tick("tireur"))
+  tireur_f.ennemis.rouges = true
+  _G.game.tick = 0
+  return { th = th, tf = tf, tr = tr, nr = nr, kr = kr, sh = sh, sf = sf, lect_hit = lect_hit, lect_frappe = lectures, jf = jf, noms = noms, en = en, K = K,
+    paix = { avant = avant, apres = apres, apres_hit = apres_hit, bit = bit_apres } }
 end
 
 local R = scenario(SRC)
@@ -120,13 +134,16 @@ check(R.th == R.tr and R.tf == R.tr and R.tr > 0 and R.sh.cibles == R.nr and R.s
 check(#R.noms == 2 and R.noms[1] == "biters" and R.noms[2] == "rouges" and R.en[2] and R.en[4] and not R.en[3] and not R.en[1],
   "§3 K.ennemis : index des forces ennemies seulement (ni amie, ni elle-même)")
 check(R.sf.cibles == 150, "§3 seules les cibles des forces ennemies sont touchées (150 sur 300)", tostring(R.sf.cibles))
+check(R.paix.avant == 100 and R.paix.apres == 0 and R.paix.apres_hit == 0 and R.paix.bit == 100,
+  "§3 paix déclarée en pleine salve : la force devenue amie n'est plus frappée dès le tick suivant (K.frappe et K.hit), les autres oui",
+  string.format("%s %s %s %s", R.paix.avant, R.paix.apres, R.paix.apres_hit, R.paix.bit))
 
 -- §4 la salve de zone frappe par K.frappe (source)
 local SXG = lire("script/robots/experimentaux_geants.lua")
 check(SXG:find("j.total = j.total + K.frappe(st_r, t, j.salve, j.dtype, fid, e, en)", 1, true) ~= nil
-  and not SXG:find("K.hit(r, t, j.salve", 1, true) and SXG:find("ennemis = K.ennemis(forces)", 1, true) ~= nil
-  and SXG:find("if not j.ennemis then j.force, j.ennemis = e.force.name, K.ennemis(K.enemy_forces(e.force)) end", 1, true) ~= nil,
-  "§4 salve de zone : K.frappe, ennemis faits au début de la salve (rattrapés pour un job d'avant)")
+  and not SXG:find("K.hit(r, t, j.salve", 1, true) and not SXG:find("j.ennemis", 1, true)
+  and SXG:find("local st_r, fid, en = K.stat(j.id), j.force, K.ennemis_du_tick(j.force)", 1, true) ~= nil,
+  "§4 salve de zone : K.frappe, ennemis relus à chaque tick (K.ennemis_du_tick), jamais gardés dans le job")
 
 -- §5 mutants
 local MUTANTS = {
@@ -136,6 +153,7 @@ local MUTANTS = {
     "  return dealt\nend\n\n--- Index" },
   { "ennemis : toutes les forces", "    if f then out[f.index] = true end", "    out[1], out[2], out[3], out[4] = true, true, true, true" },
   { "K.hit relit la force de chaque cible", "  if not ennemis_de(force)[e.force_index] then return 0 end", "  if not force.is_enemy(e.force) then return 0 end" },
+  { "ennemis jamais relus (salve entière)", "  if t ~= memo_tick then memo_tick, memo = t, {} end", "  if memo_tick < 0 then memo_tick, memo = t, {} end" },
   { "K.hit sans contrôle des ennemis", "  if not ennemis_de(force)[e.force_index] then return 0 end", "" },
 }
 for _, m in ipairs(MUTANTS) do
@@ -146,7 +164,7 @@ for _, m in ipairs(MUTANTS) do
     local src = SRC:sub(1, a - 1) .. m[3] .. SRC:sub(b + 1)
     local okm, Rm = pcall(scenario, src)
     local passe = okm and Rm.lect_frappe == 0 and Rm.lect_hit == 0 and Rm.th == Rm.tr and Rm.tf == Rm.tr and Rm.sh.tues == Rm.kr and Rm.sf.tues == Rm.kr
-      and Rm.sf.cibles == 150 and Rm.en[2] and not Rm.en[3]
+      and Rm.sf.cibles == 150 and Rm.en[2] and not Rm.en[3] and Rm.paix.apres == 0 and Rm.paix.apres_hit == 0 and Rm.paix.bit == 100
     check(not passe, "§5 mutant refusé : " .. m[1])
   end
 end
