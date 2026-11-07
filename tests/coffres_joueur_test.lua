@@ -143,6 +143,13 @@ package.loaded["script.ai3.places_qg"] = { place = function() end, place_list = 
 local Stock = require("script.team.stock")
 local CJs = require("script.team.coffres_joueur")
 local PLAYER = { name = "DC" }
+-- Régression du 7/11 (ia1i_test) : la liste des coffres du joueur ne s'écrit qu'à la PENSÉE d'équipe (CJs.update, appelé par Stock.grow) ;
+-- les lectures n'écrivent rien. Ici, chaque appel du stock est précédé d'une pensée (CJs.update), comme en jeu entre deux pensées.
+local RAW = {}
+for _, k in ipairs({ "count", "remove", "contents", "insert", "wanted" }) do
+  RAW[k] = Stock[k]
+  Stock[k] = function(f, ...) CJs.update(f, game.tick) return RAW[k](f, ...) end
+end
 
 local function team(surface, hq_items)
   local hq = new_chest(10, 6, 6)
@@ -263,6 +270,7 @@ do
   local out = player_chest(s, 20, 3, { ["iron-plate"] = 50 })
   s.inserters[1] = { valid = true, drop_target = out }
   local logi = player_chest(s, 24, 3, {}, { type = "logistic-container", mode = "storage" })
+  CJs.update(f, game.tick) -- pensée d'équipe
   local take, depot = CJs.chests(f), CJs.depot(f)
   local function has(list, e) for _, x in ipairs(list) do if x == e then return true end end return false end
   check(has(take, steel) and has(depot, steel), "coffre en acier qui remplace une annexe (nouveau numéro) : retrouvé, prise ET dépôt")
@@ -273,7 +281,7 @@ do
   local adopted = 0
   for _, l in ipairs(logs) do if l:find("adopte en DEPOT", 1, true) and l:find("(9, 3)", 1, true) then adopted = adopted + 1 end end
   game.tick = CJ.REFRESH
-  CJs.chests(f)
+  CJs.update(f, game.tick)
   local again = 0
   for _, l in ipairs(logs) do if l:find("adopte en DEPOT", 1, true) and l:find("(9, 3)", 1, true) then again = again + 1 end end
   check(adopted == 1 and again == 1, "journal : une ligne « adopte en DEPOT » par coffre, une seule fois (décision du lead, 21 h 55)")
@@ -317,6 +325,29 @@ do
   game.tick = 20
   Stock.count(f, "iron-plate")
   check(s.finds == finds, "registre inchangé : pas de nouvelle recherche")
+end
+
+-- LECTURE SEULE (régression du 7/11, ia1i_test « fenêtre ouverte contre fermée ») : une lecture du stock sans pensée n'écrit RIEN, même
+-- minute échue, annexe ajoutée ou coffre disparu ; le coffre devenu annexe n'est pas compté deux fois pour autant.
+do
+  game.tick = 0
+  local s = new_surface()
+  local f = team(s, {})
+  local pc = player_chest(s, 12, 4, { ["iron-plate"] = 60 })
+  local gone = player_chest(s, 14, 4, { ["iron-plate"] = 5 })
+  CJs.update(f, 0)
+  local st0 = f.coffres_joueur
+  local snap = { at = st0.at, list = st0.list, depot = st0.depot, n = #st0.list, seen = st0.seen }
+  local finds, nlogs = s.finds, #logs
+  game.tick = CJ.REFRESH * 3
+  gone.valid = false
+  f.annex[#f.annex + 1] = pc
+  local c = RAW.count(f, "iron-plate")
+  local all = RAW.contents(f)
+  local st1 = f.coffres_joueur
+  check(c == 60 and (all["iron-plate"] or 0) == 60, "lecture sans pensée : coffre devenu annexe compté une fois, coffre disparu ignoré (" .. c .. ")")
+  check(st1 == st0 and st1.at == snap.at and st1.list == snap.list and st1.depot == snap.depot and #st1.list == snap.n and st1.seen == snap.seen
+    and s.finds == finds and #logs == nlogs, "lecture sans pensée : rien d'écrit (liste, date, recherche, journal inchangés)")
 end
 
 -- Parité : une faction n'a pas de joueur ; le même coffre à côté de son QG ne change rien.

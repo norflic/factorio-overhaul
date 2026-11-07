@@ -511,6 +511,7 @@ end
 --- Rend vrai si un coffre a été posé ou amélioré.
 function Stock.grow(f, surface, tick)
   if not (f.hq and f.hq.valid) then return false end
+  CJs.update(f, tick) -- lot COFFRES-JOUEUR : la liste des coffres du joueur ne s'écrit qu'à la pensée d'équipe (jamais à une lecture)
   if Stock.on_think then Stock.on_think(f, tick) end -- lot FANTOMES : balayage des aperçus (posé par script/team/board.lua)
   Stock.deploy_idle(f, surface, tick)
   local waiting = Stock.flush(f)

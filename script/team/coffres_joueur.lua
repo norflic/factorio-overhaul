@@ -158,43 +158,61 @@ local function annex_changed(f, st)
   return #a ~= (st.annex_n or 0) or (#a > 0 and a[#a] ~= st.annex_last)
 end
 
-local function current(f)
+--- ÉCRITURE (pensée d'équipe seulement : Stock.grow) : liste refaite quand la minute est échue ou que f.annex a changé, entités
+--- disparues purgées. Régression du 7/11 (ia1i_test, « fenêtre ouverte contre fermée ») : la fenêtre lisait Stock.count, qui refaisait
+--- la liste et ÉCRIVAIT dans global ; désormais aucune lecture (Stock.count, Stock.contents, fenêtre, panneau) n'écrit.
+function CJs.update(f, tick)
   if not f.is_player or not (f.hq and f.hq.valid and f.hq_pos) then return nil end
-  local tick = game.tick or 0
+  tick = tick or game.tick or 0
   local st = f.coffres_joueur
   if not st or tick - (st.at or -1e9) >= CJ.REFRESH or annex_changed(f, st) then
     st = CJs.refresh(f, tick)
     local a = f.annex or EMPTY
     st.annex_n, st.annex_last = #a, a[#a]
   end
+  for _, field in ipairs({ "list", "depot" }) do
+    local list = st[field] or EMPTY
+    for i = 1, #list do
+      if not list[i].valid then
+        local out = {}
+        for _, e in ipairs(list) do if e.valid then out[#out + 1] = e end end
+        st[field] = out
+        break
+      end
+    end
+  end
   return st
 end
 
---- Entités valides de st[field] (la liste est purgée sur place d'une entité disparue).
-local function valid_list(st, field)
+--- LECTURE : entités valides de st[field], sans les coffres inscrits comme annexes depuis la liste (jamais comptés deux fois) ; rien
+--- n'est écrit (copie filtrée quand il le faut).
+local function read_list(f, st, field)
   local list = st[field] or EMPTY
-  for i = 1, #list do
-    if not list[i].valid then
-      local out = {}
-      for _, e in ipairs(list) do if e.valid then out[#out + 1] = e end end
-      st[field] = out
-      return out
-    end
-  end
-  return list
+  local clean = true
+  for i = 1, #list do if not list[i].valid then clean = false break end end
+  local annex = annex_changed(f, st) and f.annex or nil
+  if clean and not annex then return list end
+  local skip = {}
+  for _, e in ipairs(annex or EMPTY) do if e.valid and e.unit_number then skip[e.unit_number] = true end end
+  local out = {}
+  for _, e in ipairs(list) do if e.valid and not skip[e.unit_number] then out[#out + 1] = e end end
+  return out
 end
 
---- Coffres du joueur retenus (entités valides), à lire et vider APRÈS le coffre du QG et les annexes. Vide hors de votre équipe.
+--- Coffres du joueur retenus (entités valides), à lire et vider APRÈS le coffre du QG et les annexes. Vide hors de votre équipe, et
+--- avant la première pensée d'équipe (CJs.update).
 function CJs.chests(f)
-  local st = current(f)
-  return st and valid_list(st, "list") or EMPTY
+  if not f.is_player then return EMPTY end
+  local st = f.coffres_joueur
+  return st and read_list(f, st, "list") or EMPTY
 end
 
 --- Coffres du joueur où votre équipe DÉPOSE aussi (sous-liste de CJs.chests : coffres ordinaires sans bras), APRÈS les annexes.
 --- Vide hors de votre équipe.
 function CJs.depot(f)
-  local st = current(f)
-  return st and valid_list(st, "depot") or EMPTY
+  if not f.is_player then return EMPTY end
+  local st = f.coffres_joueur
+  return st and read_list(f, st, "depot") or EMPTY
 end
 
 return CJs
