@@ -157,7 +157,8 @@ function CJs.refresh(f, tick)
 end
 
 --- Le registre des annexes (f.annex : Stock.grow, Stock.scan, adoption) a-t-il changé depuis la liste ? Un coffre du joueur inscrit
---- comme annexe entre deux listes serait compté DEUX fois (annexe et coffre du joueur) : la liste est alors refaite aussitôt.
+--- comme annexe entre deux listes serait compté DEUX fois (annexe et coffre du joueur) : il en est retiré aussitôt (lecture : read_list ;
+--- pensée : purge de CJs.update), sans refaire la liste.
 local function annex_changed(f, st)
   local a = f.annex or EMPTY
   return #a ~= (st.annex_n or 0) or (#a > 0 and a[#a] ~= st.annex_last)
@@ -170,20 +171,26 @@ function CJs.update(f, tick)
   if not f.is_player or not (f.hq and f.hq.valid and f.hq_pos) then return nil end
   tick = tick or game.tick or 0
   local st = f.coffres_joueur
-  if not st or tick - (st.at or -1e9) >= CJ.REFRESH or annex_changed(f, st) then
+  -- Coût (7/11, 10 h 32 ; banc de coût de tests/coffres_joueur_test.lua) : la liste n'est refaite qu'à la minute échue. Une annexe
+  -- inscrite entre-temps (Stock.scan, à chaque pensée chez le DC) ne la refait plus : elle en est seulement RETIRÉE (purge, aucune
+  -- recherche). Avant : 24 listes refaites en 2 minutes, 38 à 61 recherches par pensée sur une base de 60 coffres.
+  local skip
+  if not st or tick - (st.at or -1e9) >= CJ.REFRESH then
     st = CJs.refresh(f, tick)
-    local a = f.annex or EMPTY
-    st.annex_n, st.annex_last = #a, a[#a]
+  elseif annex_changed(f, st) then
+    skip = {}
+    for _, e in ipairs(f.annex or EMPTY) do if e.valid and e.unit_number then skip[e.unit_number] = true end end
   end
+  local a = f.annex or EMPTY
+  st.annex_n, st.annex_last = #a, a[#a]
   for _, field in ipairs({ "list", "depot" }) do
     local list = st[field] or EMPTY
-    for i = 1, #list do
-      if not list[i].valid then
-        local out = {}
-        for _, e in ipairs(list) do if e.valid then out[#out + 1] = e end end
-        st[field] = out
-        break
-      end
+    local dirty = skip ~= nil
+    if not dirty then for i = 1, #list do if not list[i].valid then dirty = true break end end end
+    if dirty then
+      local out = {}
+      for _, e in ipairs(list) do if e.valid and not (skip and skip[e.unit_number]) then out[#out + 1] = e end end
+      st[field] = out
     end
   end
   return st

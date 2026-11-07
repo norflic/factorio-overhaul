@@ -383,5 +383,48 @@ do
   check(CJs.chests(g) == CJs.chests({}) and #CJs.chests(g) == 0 and #CJs.depot(g) == 0, "faction : listes vides (même table, aucune allocation)")
 end
 
+-- COÛT PAR PENSÉE (lead, 7/11, 10 h 32 : essai-0654 pire que l'étalement seul sur la sauvegarde du DC). Base simulée : 60 coffres du
+-- joueur dans la base (12 avec un bras), 46 annexes, une annexe de plus inscrite à CHAQUE pensée (le scan de STOCKAGE chez le DC,
+-- stock à 60 % ou plus) ; 24 pensées de 300 ticks (2 minutes). Attendu : liste refaite au plus une fois par minute (une recherche
+-- de zone + une recherche de bras par coffre retenu), et AUCUNE recherche à une pensée où seule une annexe s'ajoute (purge).
+do
+  game.tick = 0
+  local s = new_surface()
+  local f = team(s, {})
+  for i = 1, 46 do
+    local a = new_chest(32, 6 + (i % 10) * 2, -20 - math.floor(i / 10) * 2)
+    a.force = "player"
+    f.annex[#f.annex + 1] = a
+  end
+  local pcs = {}
+  for i = 1, 60 do pcs[i] = player_chest(s, 6 + (i % 12) * 3, 10 + math.floor(i / 12) * 3, { ["iron-plate"] = 10 }) end
+  for i = 1, 12 do s.inserters[i] = { valid = true, drop_position = { x = pcs[i * 5].position.x, y = pcs[i * 5].position.y } } end
+  local finds, refreshes, worst, worst_finds, total = {}, 0, 0, 0, 0
+  for k = 0, 23 do
+    game.tick = k * 300
+    if k > 0 then -- STOCKAGE inscrit une annexe (un coffre du joueur de la zone de stockage) à chaque pensée
+      local pc = pcs[60 - k]
+      f.annex[#f.annex + 1] = pc
+    end
+    local before, at = s.finds, f.coffres_joueur and f.coffres_joueur.at
+    local t0 = os.clock()
+    CJs.update(f, game.tick)
+    local dt = (os.clock() - t0) * 1000
+    finds[#finds + 1] = s.finds - before
+    if f.coffres_joueur.at ~= at then refreshes = refreshes + 1 end
+    worst, total = math.max(worst, dt), total + dt
+    worst_finds = math.max(worst_finds, s.finds - before)
+  end
+  local zero = 0
+  for _, n in ipairs(finds) do if n == 0 then zero = zero + 1 end end
+  print(string.format("  [COUT] CJs.update sur 24 pensees (60 coffres du joueur, 46 a 69 annexes) : %d liste(s) refaite(s), recherches par pensee %s ; "
+    .. "moteur simule : %.3f ms en tout, pire pensee %.3f ms", refreshes, table.concat(finds, " "), total, worst))
+  check(refreshes == 2, string.format("coût : liste refaite au plus une fois par minute (%d fois en 2 min, annexe ajoutée à chaque pensée)", refreshes))
+  check(zero == 22 and worst_finds <= 1 + CJ.SCAN, string.format("coût : aucune recherche à 22 pensées sur 24, %d au plus à une pensée de rafraîchissement", worst_finds))
+  local inside = 0
+  for _, e in ipairs(CJs.chests(f)) do for _, a in ipairs(f.annex) do if a == e then inside = inside + 1 end end end
+  check(inside == 0, "coût : sans rafraîchissement, une annexe nouvelle sort quand même de la liste du joueur (jamais comptée deux fois)")
+end
+
 print(string.format("\nRésultat : %d OK, %d ECHEC(S)", passes, failures))
 if failures > 0 then os.exit(1) end

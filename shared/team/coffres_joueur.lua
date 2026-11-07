@@ -27,7 +27,7 @@
 local CJ = {}
 
 CJ.EXCLUDED_MODES = { requester = true, buffer = true }
-CJ.SCAN = 96       -- coffres non vides examinés au plus (les plus proches du QG) : une recherche de bras chacun
+CJ.SCAN = 96       -- coffres examinés au plus, vides compris (un coffre vide sert de dépôt) ; les plus proches du QG ; une recherche de bras chacun
 CJ.MAX = 32        -- coffres retenus au plus : chaque lecture du stock en lit autant (get_item_count, get_contents)
 CJ.REFRESH = 3600  -- liste refaite au plus toutes les minutes
 
