@@ -40,6 +40,7 @@ local General = require("script.ai3.general")
 local Profiler = require("script.core.profiler")
 local Auto = require("script.ai3.automatisation") -- lot IA3-e : Auto.capital_steps (objets du dépliage)
 local CentreQG = require("script.faction.centre_qg") -- lot PD-CENTREQG (D20) : le centre de la faction est lié à son QG
+local Voulues = require("script.ai3.voulues") -- lot RECHERCHE-BRAS (A) : objets voulus déclarés par un module
 
 local Capital = {}
 
@@ -631,6 +632,17 @@ function Capital.goal(f, view, book, tick, w)
   local d = Cap.choose(L, census, ctx)
   Capital.log_blocs(f, c, d, tick)
   Capital.log_parc(f, c, census, tick)
+  -- Lot AMELIORATION-CONTINUE : le rang (tapis, bras) à monter en nombre, pas encore débloqué, est déclaré OBJET VOULU (Voulues, source
+  -- « amelioration ») ; la règle K1 de Gen (voulue proche devant) et la recherche du cerveau général font le reste. Rien à monter : retiré.
+  local rw = {}
+  for _, k in ipairs(sorted_keys(d.rang_wanted)) do rw[#rw + 1] = k end
+  if Capital.blocs_on() and #rw > 0 then
+    if Voulues.set(f, "amelioration", rw, tick) then
+      log(string.format("[FO-AMELIORATION] %s : rang a monter en nombre, recherche reclamee pour %s a %.1f min", f.key or "player", table.concat(rw, ","), minutes(f, tick)))
+    end
+  else
+    Voulues.clear(f, "amelioration")
+  end
   -- Lot DEFAUT7, étage 3 : fin de l'état « collant » quand la cible du centre change (payé, ou autre centre) : sa durée au journal.
   local old = c.defer
   if old and old.ahead_since and not old.ahead_done and old.key ~= d.gate_key then

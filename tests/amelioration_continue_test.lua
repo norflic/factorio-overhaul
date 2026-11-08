@@ -276,17 +276,27 @@ local function run(Cap, Am, quiet)
       for _, x in ipairs(d.blocked) do if x.family == "remplacer" then b = x end end
       return d, b
     end
+    -- Le rang réclamé passe par d.rang_wanted (le runtime le déclare par Voulues.set) ; Capital.wanted (d.wanted) n'est pas touchée.
     local d30, b30 = wanted_for(30, "transport-belt")
-    check(d30.replace == nil and b30 and b30.no_want == false and d30.wanted["fast-transport-belt"] == true,
-      "§5 30 tapis, cible non débloquée : la recherche est RÉCLAMÉE (wanted)")
+    check(d30.replace == nil and b30 and b30.rang_want == true and d30.rang_wanted["fast-transport-belt"] == true and d30.wanted["fast-transport-belt"] == nil,
+      "§5 30 tapis, cible non débloquée : l'OBJET du tapis rapide est voulu (rang_wanted), d.wanted inchangé")
     local d23, b23 = wanted_for(23, "transport-belt")
-    check(b23 and b23.no_want == true and d23.wanted["fast-transport-belt"] == nil, "§5 23 tapis (< 24) : pas de recherche réclamée")
+    check(b23 and not b23.rang_want and next(d23.rang_wanted) == nil, "§5 23 tapis (< 24) : rien de voulu")
     local di, bi = wanted_for(40, "inserter")
-    check(bi and bi.no_want == false and di.wanted["fast-inserter"] == true, "§5 40 bras : la recherche du bras rapide est réclamée")
+    check(bi and bi.rang_want == true and di.rang_wanted["fast-inserter"] == true, "§5 40 bras : l'objet du bras rapide est voulu")
     local df, bf = wanted_for(40, "stone-furnace")
-    check(bf and bf.no_want == true and df.wanted["steel-furnace"] == nil, "§5 40 fours de pierre : ce n'est pas un rang, la recherche n'est pas réclamée par le remplacement")
+    check(bf and not bf.rang_want and next(df.rang_wanted) == nil, "§5 40 fours de pierre : ce n'est pas un rang, rien de voulu par le remplacement")
     local do_, bo = wanted_for(30, "transport-belt", { available = LOCKED, continu = false })
-    check(bo and bo.no_want == true and do_.wanted["fast-transport-belt"] == nil, "§5 règle éteinte : aucune recherche réclamée (comportement d'avant)")
+    check(bo and not bo.rang_want and next(do_.rang_wanted) == nil, "§5 règle éteinte : rien de voulu (comportement d'avant)")
+    -- Modules posés avec des bras simples (RECHERCHE-BRAS B) : dès que le bras rapide est obtenable, le bloc de bras simples du module est un
+    -- candidat de 12 demandés, orienté.
+    do
+      local mm = {}
+      line(mm, 5000, "inserter", "p3", 14, 0, 4, 2)
+      local dm = Cap.choose(L, census_of(mm), base_ctx({ available = function() return true end }))
+      check(dm.replace and dm.replace.from == "inserter" and dm.replace.to == "fast-inserter" and dm.fab == 12 and dm.replace.group:sub(1, 2) == "p3",
+        "§5 module à bras simples : candidat de 12 dès que le bras rapide est obtenable (" .. tostring(dm.replace and dm.replace.to) .. ", lot " .. tostring(dm.fab) .. ")")
+    end
     -- Dès que la cible est débloquée, le remplacement commence (plus aucune cause de blocage).
     local ms = {}
     line(ms, 1000, "transport-belt", "p1", 30, 0, 0, 2)

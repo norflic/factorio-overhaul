@@ -316,7 +316,8 @@ function Cap.replace_candidates(Ld, census, ctx)
     -- Un rang (tapis, bras) à monter en nombre attire la recherche qui débloque la cible ; une machine seule, non.
     local p0 = ctx.mproto(pd.name)
     local want = ctx.continu and p0 and p0.rang and (count[pd.name] or 0) >= Am.RESEARCH_MIN
-    pd.entry.no_want, pd.entry.count = not want, count[pd.name]
+    -- no_want reste vrai (Capital.wanted n'est pas touchée) : le rang réclamé passe par l'API Voulues (script/ai3/voulues.lua), UN seul chemin.
+    pd.entry.rang_want, pd.entry.count = want and true or nil, count[pd.name]
   end
   table.sort(order)
   local net = Am.net(ctx.stock, ctx.recon) -- lot AMELIORATION : net de la reconstruction ouverte
@@ -543,6 +544,13 @@ function Cap.choose(Ld, census, ctx)
     end
   end
   d.wanted = wanted
+  -- Lot AMELIORATION-CONTINUE : objets d'un rang (tapis, bras) à monter en nombre dont la cible n'est pas débloquée ; le runtime les
+  -- déclare par Voulues.set (jamais une technologie, jamais un nom : l'objet de la cible).
+  local rw = {}
+  for _, b in ipairs(res.blocked) do
+    if b.rang_want then for _, c in ipairs(b.causes or {}) do rw[c] = true end end
+  end
+  d.rang_wanted = rw
   return d
 end
 
