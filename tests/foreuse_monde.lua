@@ -7,7 +7,7 @@
   Mo.play(R, passes) : R.hook(R), s'il existe, est appelé après chaque tranche jouée par la minuterie.
   W.no_targets = true : aucune foreuse n'a de drop_target (posée avant son récepteur, rien déposé encore).
   Partie C (repli thermique) : statut d'une électrique lu à la couverture des poteaux d'un réseau vivant (au travail, ou no_power ;
-  W.low : low_power) ; e.mine (W.full : coffre plein) ; Stock.inventories ; defines.entity_status.
+  W.low : low_power ; no_power au tick de sa pose par create_entity, e.born, comme en moteur réel) ; e.mine (W.full : coffre plein) ; Stock.inventories ; defines.entity_status.
 ]]
 package.path = "./?.lua;" .. package.path
 local T = require("shared.team.config")
@@ -88,6 +88,8 @@ local function world()
       -- sinon sans courant (2, no_power). Modèle PESSIMISTE : une foreuse figée (active == false) rend aussi no_power (le moteur rend
       -- disabled_by_script) : le compte de l'exécutant doit l'exclure lui-même.
       if p.type ~= "mining-drill" or p.burner then return 1 end
+      -- banc foreuses-panne-diag du 8/11 (mesuré) : une électrique posée par script est sans courant AU TICK de sa pose (tampon vide)
+      if rawget(e, "born") ~= nil and rawget(e, "born") == game.tick then return 2 end
       local b = box(e)
       for _, q in ipairs(W.ents) do
         local qp = PROTO[q.name]
@@ -188,7 +190,7 @@ local function world()
     end,
     create_entity = function(o)
       local px, py = o.position.x or o.position[1], o.position.y or o.position[2]
-      return W.add(o.name, px, py, o.direction or 0, { force = o.force })
+      return W.add(o.name, px, py, o.direction or 0, { force = o.force, born = game.tick })
     end,
   }
   return W

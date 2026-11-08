@@ -9,7 +9,7 @@
     - tick RESTORE : elle est reposée (le courant revient).
   Relevé toutes les 30 ticks entre CUT et CHECK : thermiques et électriques du gisement (positions), état du repli (remote repli_state).
   Règle allumée (foreuses-panne) :
-    - au moins 2 électriques avant la coupure ;
+    - au moins 2 électriques avant la coupure, et AUCUN repli avant elle (réseau alimenté ; défaut vu au banc du 8/11 sur b964c9b1) ;
     - signal (électriques sans courant comptées) à la première pensée après la coupure ;
     - aucun repli avant le début de la panne + wait ; au moins 2 replis avant le retour du courant ; ces thermiques TRAVAILLENT, avec du
       combustible, juste avant le retour du courant ;
@@ -33,8 +33,8 @@ local function sorted_keys(t)
   return k
 end
 
-return function(rule)
-  local TAG = "FOREUSES-PANNE" .. (rule and "" or "-TEMOIN")
+return function(rule, diag)
+  local TAG = "FOREUSES-PANNE" .. (diag and "-DIAG" or "") .. (rule and "" or "-TEMOIN")
 
   local function survey(ctx, st)
     local s = ctx.surface()
@@ -108,10 +108,20 @@ return function(rule)
         return
       end
       if not st.oid then return end
+      -- diagnostic (foreuses-panne-diag) : électriques de l'avant-poste (numéro, position, reliée, au travail, dans un récepteur, statut)
+      -- et état du repli, toutes les STEP ticks jusqu'à CUT + 300
+      if diag and t % STEP == 0 and t <= CUT + 300 then
+        local r = ctx.remote("fo-ia1", "swap_outposts", "player")
+        ctx.log(string.format("[FO-%s] tick %d electriques %s | %s", TAG, t, r and table.concat(r.list, " ; ") or "nil",
+          tostring(ctx.remote("fo-ia1", "repli_state", "player"))))
+      end
       if t == CUT then
         local burn, elec = survey(ctx, st)
         st.e_cut, st.b_cut = #elec, #burn
         for _, b in ipairs(burn) do st.seen_burn[key_of(b)] = true end
+        -- banc du 8/11 (b964c9b1) : 2 replis AVANT la coupure (électriques juste posées, mémoire par avant-poste) ; contrôlé désormais
+        local rs = ctx.remote("fo-ia1", "repli_state", "player") or ""
+        st.replis_cut = tonumber(rs:match("replis=(%d+)") or "-1")
         if st.eei and st.eei.valid then st.eei.destroy() end
         ctx.log(string.format("[FO-%s] coupure au tick %d : %d electrique(s), %d thermique(s)", TAG, t, #elec, #burn))
         return
@@ -181,10 +191,11 @@ return function(rule)
       end
       local rs = ctx.remote("fo-ia1", "repli_state", "player")
       local pre = st.pre or {}
-      ctx.log(string.format("[FO-%s] RESULTAT regle=%s electriques_coupure=%d signal=%s debut_panne=%s premier_repli=%s replis_vus=%d avant_retour=%d travaillent=%d avec_combustible=%d electriques_sans_courant=%d/%d reremplacees=%d trop_tot=%d electrique_de_nouveau=%s electriques_fin=%d dans_recepteur=%d thermiques_fin=%d repli=[%s]",
-        TAG, rule and "oui" or "non", st.e_cut or -1, tostring(st.signal), tostring(st.since), tostring(first), n_app, pre.n or -1,
+      ctx.log(string.format("[FO-%s] RESULTAT regle=%s electriques_coupure=%d replis_avant_coupure=%s signal=%s debut_panne=%s premier_repli=%s replis_vus=%d avant_retour=%d travaillent=%d avec_combustible=%d electriques_sans_courant=%d/%d reremplacees=%d trop_tot=%d electrique_de_nouveau=%s electriques_fin=%d dans_recepteur=%d thermiques_fin=%d repli=[%s]",
+        TAG, rule and "oui" or "non", st.e_cut or -1, tostring(st.replis_cut), tostring(st.signal), tostring(st.since), tostring(first), n_app, pre.n or -1,
         pre.working or -1, pre.fueled or -1, pre.dark or -1, pre.elec or -1, reswap, early, tostring(st.back), #elec, into, #burn, tostring(rs)))
       ctx.check((st.e_cut or 0) >= 2, "au moins 2 electriques avant la coupure", tostring(st.e_cut))
+      ctx.check(st.replis_cut == 0, "aucun repli avant la coupure (reseau alimente)", tostring(st.replis_cut))
       if rule then
         ctx.check(st.signal ~= nil and st.signal - CUT <= 300 + STEP, "C1 signal a la premiere pensee apres la coupure", tostring(st.signal))
         ctx.check(first ~= nil and st.since ~= nil and first >= st.since + WAIT, "C1 aucun repli avant le debut de la panne + wait",

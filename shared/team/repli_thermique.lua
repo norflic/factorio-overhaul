@@ -4,10 +4,13 @@
   Une électrique d'avant-poste (remplacement sur place, script/team/foreuse_swap.lua) dont le réseau ne donne plus de courant se tait :
   ni « à sec », ni ravitaillement, sorties qui baissent. Observation (exécutant, à chaque passe de repli) : électriques de l'avant-poste et
   celles SANS COURANT (statut du moteur no_power ; low_power = le réseau produit, la foreuse tourne lentement : jamais compté ; une foreuse
-  figée par x10-gel, active == false, n'est jamais comptée). Mémoire : début de la panne (o.dark_since), effacé dès qu'une observation
-  ne voit plus aucune électrique sans courant.
-    - Rt.observe : état de l'avant-poste, « rien », « signal » (panne de moins de cfg.wait ticks) ou « repli » (panne CONTINUE depuis au
-      moins cfg.wait ticks : au-delà du délai de réparation du réseau, lot ENERGIE) ;
+  figée par x10-gel, active == false, n'est jamais comptée). Mémoire PAR ÉLECTRIQUE (o.dark_units : début de SA panne), effacée pour
+  chacune dès qu'une observation la voit avec du courant.
+    - Rt.observe : électriques prêtes (sans courant à CHAQUE observation depuis au moins cfg.wait ticks : au-delà du délai de réparation
+      du réseau, lot ENERGIE) et état de l'avant-poste, « rien », « signal » ou « repli » (au moins une prête).
+      Banc foreuses-panne-diag du 8/11 (mesuré) : une électrique posée par le remplacement est no_power AU TICK de sa pose (tampon vide),
+      au travail 30 ticks plus tard. Avec une mémoire par AVANT-POSTE, chaque pensée qui posait des électriques prolongeait la « panne »
+      et des électriques JUSTE posées étaient repliées sur un réseau alimenté (2 replis au tick 480, réseau coupé au tick 900 seulement) ;
     - Rt.plan : électriques à replier à cette passe. Avant-postes de COMBUSTIBLE d'abord (la centrale repart), puis le plus
       d'électriques sans courant, puis le numéro ; dans un avant-poste, numéros d'unité croissants. Au plus cfg.per_pass en tout, et au
       plus les thermiques du stock libre ; le reste attend une thermique (à fabriquer, ou introuvable : raison au journal) ;
@@ -40,14 +43,23 @@ function Rt.cfg(over)
   return c
 end
 
---- Mémoire de la panne d'un avant-poste. `since` : début de la panne vue (nil : aucune) ; `unpowered` : électriques sans courant vues
---- à cette observation. Rend (since', état) : « rien » (aucune sans courant : mémoire effacée), « signal » (panne de moins de cfg.wait
---- ticks), « repli » (panne continue depuis au moins cfg.wait ticks).
-function Rt.observe(since, unpowered, now, cfg)
-  if (unpowered or 0) <= 0 then return nil, "rien" end
-  since = since or now
-  if now - since >= cfg.wait then return since, "repli" end
-  return since, "signal"
+--- Mémoire de la panne PAR ÉLECTRIQUE d'un avant-poste. `prev` : { [numéro d'unité] = début de sa panne } de l'observation d'avant (nil :
+--- aucune) ; `dark` : numéros des électriques sans courant à cette observation. Une électrique qui avait du courant à l'observation d'avant
+--- (absente de `prev`) recommence à `now`. Rend (mémoire', prêtes, since, état) :
+---   - mémoire' : { [numéro] = début } des seules électriques sans courant (nil : aucune) ;
+---   - prêtes : numéros sans courant depuis au moins cfg.wait ticks, dans l'ordre de `dark` ;
+---   - since : le plus ancien début (nil : aucune) ; état : « rien », « signal » (aucune prête) ou « repli ».
+function Rt.observe(prev, dark, now, cfg)
+  local mem, ready, since = nil, {}, nil
+  for _, u in ipairs(dark or {}) do
+    local s = (prev and prev[u]) or now
+    mem = mem or {}
+    mem[u] = s
+    if since == nil or s < since then since = s end
+    if now - s >= cfg.wait then ready[#ready + 1] = u end
+  end
+  if not mem then return nil, ready, nil, "rien" end
+  return mem, ready, since, (#ready > 0) and "repli" or "signal"
 end
 
 local function before(a, b)
@@ -57,7 +69,7 @@ local function before(a, b)
   return a.id < b.id
 end
 
---- Électriques à replier à cette passe. `list` : { { id, fuel, dark = { numéros d'unité des électriques sans courant } } } des
+--- Électriques à replier à cette passe. `list` : { { id, fuel, dark = { numéros d'unité des électriques PRÊTES (Rt.observe) } } } des
 --- avant-postes en état « repli » ; `have` : thermiques au stock libre. Rend picks = { { id = numéro de l'avant-poste, unit } } (au plus
 --- cfg.per_pass, au plus `have`, dans l'ordre) et `short` : électriques en repli qui attendent une thermique (au plus cfg.per_pass - #picks).
 function Rt.plan(list, have, cfg)

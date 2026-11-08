@@ -1193,15 +1193,17 @@ end
 
 --- E5 (T + 6) : foreuses thermiques remplacées par des électriques (retenu par la pile).
 TT.e5 = function(f, surface, tick, et)
+  -- lot FOREUSES-THERMIQUES (partie C) : électrique sans courant rendue thermique quand le réseau tombe ; une RÉPARATION, jamais retenue
+  -- par la pile. AVANT le remplacement : une électrique posée à ce tick est sans courant (tampon vide, banc foreuses-panne-diag du 8/11) ;
+  -- vue seulement à la pensée suivante, quand elle a du courant.
+  Profiler.fstart("tt:repli")
+  FoSwap.repli(f, surface, book_for(f), et.stock, tick)
+  Profiler.fstop("tt:repli")
   if not et.pile_hold then
     Profiler.fstart("tt:foswap")
     FoSwap.think(f, surface, book_for(f), et.stock, tick) -- lot FOREUSES (retour du DC du 29/10) : foreuses thermiques remplacées par des électriques alimentées
     Profiler.fstop("tt:foswap")
   end
-  -- lot FOREUSES-THERMIQUES (partie C) : électrique sans courant rendue thermique quand le réseau tombe ; une RÉPARATION, jamais retenue par la pile
-  Profiler.fstart("tt:repli")
-  FoSwap.repli(f, surface, book_for(f), et.stock, tick)
-  Profiler.fstop("tt:repli")
 end
 
 --- E6 (T + 7) : migration du champ, capital, fin.

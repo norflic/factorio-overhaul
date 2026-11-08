@@ -928,13 +928,14 @@ end
 -- Partie C (lot FOREUSES-THERMIQUES, fo-logs/2026-11-05_FOREUSES-TH/C_CRITERES.md) : le réseau qui tombe. Règle pure :
 -- shared/team/repli_thermique.lua. Passe de REPLI d'une équipe, au plus toutes les cfg.every ticks, jamais retenue par la pile (c'est
 -- une réparation) : électriques sans courant comptées par avant-poste (signal : o.electric et o.unpowered, relus par Outposts.status ;
--- début de la panne : o.dark_since), puis, après cfg.wait ticks de panne continue, au plus cfg.per_pass électriques rendues thermiques
+-- début de la panne de chacune : o.dark_units, le plus ancien : o.dark_since), puis, une électrique sans courant à chaque observation
+-- depuis cfg.wait ticks, au plus cfg.per_pass électriques rendues thermiques
 -- (revert_one), avant-postes de combustible d'abord. Journal [FO-AP-ELEC] borné (Swap.LOGS lignes par équipe). État : f.swap.repli.
 ---------------------------------------------------------------------------------------------------
 local function say_ap(f, rp, tick, fmt, ...)
   rp.logs = (rp.logs or 0) + 1
   if rp.logs <= Swap.LOGS then
-    log(string.format("[FO-AP-ELEC] %s a %.1f min : " .. fmt, f.key or "player", (tick - (f.started or 0)) / 3600, ...))
+    log(string.format("[FO-AP-ELEC] %s a %.1f min (tick %d) : " .. fmt, f.key or "player", (tick - (f.started or 0)) / 3600, tick, ...))
   end
 end
 
@@ -1057,8 +1058,8 @@ function Swap.repli(f, surface, book, free, tick)
     end
     o.electric, o.unpowered = electric, #dark
     local was = o.dark_since
-    local since, state = Rt.observe(was, #dark, tick, cfg)
-    o.dark_since = since
+    local mem, ready, since, state = Rt.observe(o.dark_units, dark, tick, cfg)
+    o.dark_units, o.dark_since = mem, since
     if was == nil and since ~= nil then
       say_ap(f, rp, tick, "panne vue : avant-poste %d (%s), %d electrique(s) sans courant sur %d ; repli apres %.1f min de panne", oid,
         tostring(o.kind), #dark, electric, cfg.wait / 3600)
@@ -1066,7 +1067,7 @@ function Swap.repli(f, surface, book, free, tick)
       say_ap(f, rp, tick, "courant revenu : avant-poste %d (%s), %d electrique(s), apres %.1f min de panne", oid, tostring(o.kind),
         electric, (tick - was) / 3600)
     end
-    if state == "repli" then list[#list + 1] = { id = oid, fuel = fuel_outpost(o) and true or false, dark = dark } end
+    if state == "repli" then list[#list + 1] = { id = oid, fuel = fuel_outpost(o) and true or false, dark = ready } end
   end
   if #list == 0 then return 0 end
   local have = math.min(Stock.count(f, T.DRILL), free and free[T.DRILL] or 0)

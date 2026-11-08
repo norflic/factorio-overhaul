@@ -47,20 +47,28 @@ local function pure_suite(Rt)
     and d.every == 300 and d.on == true)
   local o = Rt.cfg({ wait = 600, hold = 600, on = false, per_pass = -1 })
   c("A1 banc : wait et hold remplaces, valeur negative ignoree, eteinte", o.wait == 600 and o.hold == 600 and o.per_pass == 4 and o.on == false)
-  -- A2 : observation (C1 : signal à la première observation ; aucun repli avant wait ; panne CONTINUE)
-  local s, st = Rt.observe(nil, 0, 100, CFG)
-  c("A2 aucune sans courant : rien, pas de memoire", s == nil and st == "rien")
-  s, st = Rt.observe(nil, 3, 300, CFG)
-  c("A2 C1 premiere observation sans courant : signal, debut note", s == 300 and st == "signal", tostring(s) .. " " .. tostring(st))
-  local s2, st2 = Rt.observe(300, 3, 1199, CFG)
-  c("A2 C1 aucun repli avant wait (899 ticks)", s2 == 300 and st2 == "signal", tostring(st2))
-  local s3, st3 = Rt.observe(300, 1, 1200, CFG)
-  c("A2 repli a wait (900 ticks)", s3 == 300 and st3 == "repli", tostring(st3))
-  local s4, st4 = Rt.observe(300, 0, 1500, CFG)
-  c("A2 courant revenu : memoire effacee", s4 == nil and st4 == "rien")
-  local s5, st5 = Rt.observe(s4, 2, 1800, CFG)
-  local s6, st6 = Rt.observe(s5, 2, 2400, CFG)
-  c("A2 panne qui reprend : horloge repartie de zero", s5 == 1800 and st5 == "signal" and s6 == 1800 and st6 == "signal", tostring(s6) .. " " .. tostring(st6))
+  -- A2 : observation PAR ÉLECTRIQUE (C1 : signal à la première observation ; aucun repli avant wait ; panne CONTINUE de chacune)
+  local m, r, s, st = Rt.observe(nil, {}, 100, CFG)
+  c("A2 aucune sans courant : rien, pas de memoire", m == nil and #r == 0 and s == nil and st == "rien")
+  m, r, s, st = Rt.observe(nil, { 7, 5 }, 300, CFG)
+  c("A2 C1 premiere observation sans courant : signal, debut note pour chacune", m and m[7] == 300 and m[5] == 300 and #r == 0
+    and s == 300 and st == "signal", tostring(st))
+  local m2, r2, s2, st2 = Rt.observe(m, { 7, 5 }, 1199, CFG)
+  c("A2 C1 aucun repli avant wait (899 ticks)", #r2 == 0 and s2 == 300 and st2 == "signal", tostring(st2))
+  local m3, r3, s3, st3 = Rt.observe(m2, { 5, 9 }, 1200, CFG)
+  c("A2 repli a wait (900 ticks) : seule l'electrique sans courant depuis 900 ticks est prete ; la nouvelle commence",
+    #r3 == 1 and r3[1] == 5 and m3[9] == 1200 and m3[7] == nil and s3 == 300 and st3 == "repli",
+    tostring(st3) .. " " .. #r3 .. " " .. tostring(m3 and m3[9]))
+  local m4, r4, s4, st4 = Rt.observe(m3, {}, 1500, CFG)
+  c("A2 courant revenu : memoire effacee", m4 == nil and #r4 == 0 and s4 == nil and st4 == "rien")
+  local m5 = Rt.observe(m4, { 5 }, 1800, CFG)
+  local _, r6, s6, st6 = Rt.observe(m5, { 5 }, 2400, CFG)
+  c("A2 panne qui reprend : horloge repartie de zero", #r6 == 0 and s6 == 1800 and st6 == "signal", tostring(s6) .. " " .. tostring(st6))
+  -- banc foreuses-panne-diag (8/11) : électriques JUSTE posées (sans courant au tick de leur pose) à chaque observation, les anciennes au
+  -- travail : la panne d'avant-poste ne doit pas se prolonger d'une pose à l'autre
+  local mf = Rt.observe(nil, { 149 }, 180, CFG)
+  local _, rf, _, stf = Rt.observe(mf, { 193, 195 }, 1080, CFG)
+  c("A2 electriques juste posees a chaque pensee : jamais pretes (memoire par electrique)", #rf == 0 and stf == "signal", #rf .. " " .. tostring(stf))
   -- A3 : plan (C4 : combustible d'abord, au plus per_pass ; C5 : sans thermique, attente)
   local list = {
     { id = 7, fuel = false, dark = { 31, 30, 32 } },
@@ -164,15 +172,18 @@ local function fresh(text, build, cfg, stock)
   return R
 end
 
---- Une pensée au tick `tick` : remplacement (Swap.think, si `swap`), puis repli (Swap.repli, hors de la garde de la pile), puis les
---- minuteries des tranches. Rend le nombre de replis.
-local function think(R, tick, swap)
+--- Une pensée au tick `tick`, dans l'ordre de TT.e5 (script/team/team.lua) : repli (Swap.repli, hors de la garde de la pile), puis
+--- remplacement (Swap.think, si `swap`), puis les minuteries des tranches. `swap_first` : le pire ordre (remplacement PUIS repli au même
+--- tick). Rend le nombre de replis.
+local function think(R, tick, swap, swap_first)
   Monde.use(R)
   game.tick = tick
   local free = {}
   for _, n in ipairs(Monde.sorted_keys(R.env.stock)) do free[n] = R.env.stock[n] end
-  if swap then R.Swap.think(R.f, R.W.surface, R.env.book, free, tick) end
-  local n = R.Swap.repli(R.f, R.W.surface, R.env.book, free, tick)
+  local n = 0
+  if swap_first and swap then R.Swap.think(R.f, R.W.surface, R.env.book, free, tick) end
+  n = R.Swap.repli(R.f, R.W.surface, R.env.book, free, tick)
+  if swap and not swap_first then R.Swap.think(R.f, R.W.surface, R.env.book, free, tick) end
   local guard = 0
   while #R.env.queue > 0 and guard < 1000 do
     guard = guard + 1
@@ -345,6 +356,21 @@ local function script_suite(text)
   local _, e12 = count(R12.f.outposts[1])
   c("B12 sans etat du remplacement : rien, f.swap non cree", e12 == 1 and R12.f.swap == nil)
 
+  -- B13 : banc foreuses-panne-diag du 8/11 (mesuré) : une électrique posée est sans courant AU TICK de sa pose (monde factice : e.born) ;
+  -- remplacement puis repli au même tick (le pire ordre), réseau alimenté tout du long : aucun repli
+  local R13 = Monde.fresh(text, false, nil, Monde.build_fer)
+  R13.f.team.repli = { wait = 300, hold = 600, every = 300, per_pass = 2 }
+  R13.env.stock["burner-mining-drill"] = 4
+  local seen_dark = false
+  for k = 0, 9 do
+    think(R13, 300 * k, true, true)
+    if (R13.f.outposts[1].unpowered or 0) > 0 then seen_dark = true end
+  end
+  local _, e13 = count(R13.f.outposts[1])
+  c("B13 electriques juste posees (sans courant au tick de la pose), reseau alimente : aucun repli", seen_dark and e13 >= 4
+    and (R13.f.swap.repli.done or 0) == 0, string.format("vues sans courant %s, electriques %d, replis %d", tostring(seen_dark), e13,
+      R13.f.swap.repli.done or 0))
+
   -- B11 : la place notée par le remplacement sur place (swap_one), et nettoyée par compact
   local R11 = Monde.fresh(text, false, nil, Monde.build_fer)
   local starts = {}
@@ -390,10 +416,11 @@ for _, r in ipairs(run_script(SCRIPT)) do check(r[1], r[2], r[3]) end
 -- Mutants : chacun doit faire tomber au moins un contrôle
 ---------------------------------------------------------------------------------------------------
 local MUT = {
-  { "pur", "signal jamais leve", { { 'if (unpowered or 0) <= 0 then return nil, "rien" end', 'if true then return nil, "rien" end' } } },
-  { "pur", "repli avant wait", { { "if now - since >= cfg.wait then", "if now - since >= 0 then" } } },
-  { "pur", "panne non continue (horloge jamais effacee)", { { 'if (unpowered or 0) <= 0 then return nil, "rien" end', 'if (unpowered or 0) <= 0 then return since, "rien" end' } } },
-  { "pur", "horloge repartie a chaque observation", { { "  since = since or now", "  since = now" } } },
+  { "pur", "signal jamais leve", { { '  if not mem then return nil, ready, nil, "rien" end', '  if true then return nil, ready, nil, "rien" end' } } },
+  { "pur", "repli avant wait", { { "    if now - s >= cfg.wait then ready[#ready + 1] = u end", "    if now - s >= 0 then ready[#ready + 1] = u end" } } },
+  { "pur", "panne non continue (memoire jamais effacee)", { { "  local mem, ready, since = nil, {}, nil", "  local mem, ready, since = prev, {}, nil" } } },
+  { "pur", "horloge repartie a chaque observation", { { "    local s = (prev and prev[u]) or now", "    local s = now" } } },
+  { "pur", "memoire commune a l'avant-poste (banc diag du 8/11)", { { "    local s = (prev and prev[u]) or now", "    local s = (prev and prev[next(prev)]) or now" } } },
   { "pur", "ordre du combustible ignore", { { "  if fa ~= fb then return fa end", "  if false then return fa end" } } },
   { "pur", "per_pass ignore", { { "      if #picks + short >= cfg.per_pass then return picks, short end", "" } } },
   { "pur", "stock de thermiques ignore", { { "      if #picks < have then", "      if true then" } } },
