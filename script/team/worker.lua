@@ -513,6 +513,8 @@ local function ia1d_program(task)
   elseif j.mode == "fill" and j.depot then -- lot TV-ARCHI (V91) : quai d'un quartier servi par son dépôt (script/team/quartiers.lua, Qr.route)
     return { { "goto", j.depot, 2 }, { "take_depot", j.depot, task.depot_items }, { "goto", at, 1 }, { "ia1d" }, { "goto", j.depot, 2 },
       { "put_depot", j.depot, task.depot_items } }
+  elseif j.mode == "collect" and j.depot then -- lot TV-ARCHI (V91) : produits demandés par le dépôt du quartier laissés au passage
+    return { { "goto", at, 1 }, { "ia1d" }, { "goto", j.depot, 2 }, { "put_depot", j.depot, task.depot_items }, { "home" } }
   elseif j.mode == "fill" or j.mode == "amorce" then -- amorce : lot ENERGIE (2/11), charbon versé dans les chaudières à sec
     return { { "home" }, { "take", task.items, strict = true }, { "goto", at, 1 }, { "ia1d" }, { "home" } }
   elseif j.mode == "clear" or j.mode == "collect" then
