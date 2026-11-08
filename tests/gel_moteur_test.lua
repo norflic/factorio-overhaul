@@ -14,15 +14,19 @@
     M8  réglage éteint : tout réveillé, plus rien de figé ; données changées : tout réveillé, registre vidé ;
     M9  votre équipe jamais figée ;
     M10 déterminisme : deux passages, mêmes journaux et mêmes inventaires ;
-    M11 contrôle statique : aucune écriture de crafting_progress, mining_progress, bonus_progress dans les fichiers du lot.
+    M11 contrôle statique : aucune écriture de crafting_progress, mining_progress, bonus_progress dans les fichiers du lot ;
+    M12 remplaçant d'une machine figée (fast_replace, raise_built) hérité inactif : rendu actif dans le gestionnaire ;
+    M13 faction anéantie pendant le gel : tout réveillé au guet suivant, n_frozen à 0, registre de la faction vidé ;
+    Mutants du runtime (relecture de revue-s, 8/11) : guet limité aux factions vivantes ; remplaçant laissé inactif.
   Usage : lua5.2 tests/gel_moteur_test.lua   (depuis la racine du mod ; shared/faction/cadence.lua de x10-s10 requis)
 ]]
 package.path = "./?.lua;" .. package.path
 
 local ok_n, fail_n = 0, 0
+local quiet = false -- passages des mutants (fin du fichier) : rien n'est imprimé
 local function check(c, msg)
-  if c then ok_n = ok_n + 1; if os.getenv("FO_VERBOSE") then print("[GEL-MOTEUR] OK : " .. msg) end
-  else fail_n = fail_n + 1; print("[GEL-MOTEUR] ECHEC : " .. msg) end
+  if c then ok_n = ok_n + 1; if os.getenv("FO_VERBOSE") and not quiet then print("[GEL-MOTEUR] OK : " .. msg) end
+  else fail_n = fail_n + 1; if not quiet then print("[GEL-MOTEUR] ECHEC : " .. msg) end end
   return c
 end
 
@@ -148,6 +152,7 @@ log = function(s) W.logs[#W.logs + 1] = s end
 -- Modules réels du lot, sur un bus d'événements et un stockage factices
 ---------------------------------------------------------------------------------------------------
 local H
+local MUT_JEU = nil -- source mutée de script/faction/gel_usines_jeu.lua (mutants, fin du fichier)
 local function load_mod()
   H = { on = {}, nth = {}, died = {}, config = {} }
   for _, m in ipairs({ "script.core.events", "script.core.storage", "script.core.profiler", "script.faction.state", "script.faction.gel",
@@ -168,7 +173,13 @@ local function load_mod()
   package.loaded["script.faction.commander"] = { army_out = function() return W.army_out == true, nil end }
   local Gel = require("script.faction.gel")
   local Gu = require("script.faction.gel_usines")
-  local Gj = require("script.faction.gel_usines_jeu")
+  local Gj
+  if MUT_JEU then
+    Gj = assert(load(MUT_JEU, "=script/faction/gel_usines_jeu.lua"))()
+    package.loaded["script.faction.gel_usines_jeu"] = Gj
+  else
+    Gj = require("script.faction.gel_usines_jeu")
+  end
   return Gel, Gu, Gj
 end
 
@@ -342,6 +353,7 @@ local function scenes()
   f.eliminated = true
   run(20)
   check(frozen_count() == 0, "M13 : faction aneantie : tout reveille au guet suivant (" .. frozen_count() .. ")")
+  check(Gel.state().n_frozen == 0, "M13 : faction aneantie : n_frozen a 0 (" .. tostring(Gel.state().n_frozen) .. ")")
   run(60)
   check(Gu.U().ids_f[1] == nil, "M13 : registre de la faction aneantie vide")
   f.eliminated = nil
@@ -365,6 +377,34 @@ do
     end
   end
   check(#bad == 0, "M11 : aucune ecriture de progression dans les fichiers du lot" .. (#bad > 0 and (" : " .. table.concat(bad, ", ")) or ""))
+end
+
+-- Mutants du runtime (relecture de revue-s, 8/11) : texte de gel_usines_jeu.lua changé, la scène complète doit échouer.
+do
+  local fh = assert(io.open("script/faction/gel_usines_jeu.lua", "rb"))
+  local SRC = fh:read("*a")
+  fh:close()
+  local MUTANTS = {
+    { "guet limite aux factions vivantes", "        want_wake(I, tick, \"faction disparue\")\n", "" },
+    { "remplacant d'une machine figee laisse inactif", "if why == \"pose\" and inside_frozen and entity.active == false then entity.active = true end", "" },
+  }
+  local seen, missed = 0, {}
+  local ok0, fail0 = ok_n, fail_n
+  quiet = true
+  for _, mu in ipairs(MUTANTS) do
+    local s, e = SRC:find(mu[2], 1, true)
+    if not s then missed[#missed + 1] = mu[1] .. " (texte introuvable)" else
+      MUT_JEU = SRC:sub(1, s - 1) .. mu[3] .. SRC:sub(e + 1)
+      local before = fail_n
+      local okc = pcall(scenes)
+      local died = (fail_n > before) or not okc
+      if died then seen = seen + 1 else missed[#missed + 1] = mu[1] end
+      MUT_JEU = nil
+    end
+  end
+  ok_n, fail_n = ok0, fail0
+  quiet = false
+  check(#missed == 0, string.format("mutants du runtime : %d/%d vus%s", seen, #MUTANTS, #missed > 0 and (" ; NON VUS : " .. table.concat(missed, " ; ")) or ""))
 end
 
 print(string.format("[GEL-MOTEUR] BILAN : %d OK, %d ECHEC(S)", ok_n, fail_n))
