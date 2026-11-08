@@ -71,12 +71,13 @@ end
 --- Blocs d'acier de l'équipe (modules de l'automatisation dont le produit est l'acier) : capacité posée ou en chantier (par minute),
 --- débit mesuré des blocs finis, nombre de finis, nombre de refusés.
 local function blocks(f)
-  local cap, flow, fini, open, refused = 0, 0, 0, 0, 0
+  local cap, flow, fini, open, refused, why = 0, 0, 0, 0, 0, nil
   local st = f.team.ia3e
   for _, m in ipairs(st and st.mods or {}) do
     if m.product == Ac.ITEM then
       if m.state == "refuse" then
         refused = refused + 1
+        why = m.reason
       else
         cap = cap + (m.rate_nom or 0)
         if m.state == "fini" then
@@ -88,7 +89,7 @@ local function blocks(f)
       end
     end
   end
-  return { cap = cap, flow = flow, fini = fini, open = open, refused = refused }
+  return { cap = cap, flow = flow, fini = fini, open = open, refused = refused, why = why }
 end
 
 --- Demande ou agrandit un bloc d'acier de `rate` par minute. Rend vrai si un module est demandé ou agrandi, sinon faux et la raison.
@@ -156,6 +157,13 @@ function Acier.apply(f, view, book, plan, tick)
   local bilan = f.team.ia3 and f.team.ia3.bilan and f.team.ia3.bilan.items or {}
   local cons = bilan[Ac.ITEM] and bilan[Ac.ITEM].c or 0
   st.count = Ac.seen(st.count, short)
+  -- Un bloc REFUSE par le plan directeur (moteur réel : « trop grand ») n'est pas redemandé à chaque pensée : même délai qu'un refus de la règle.
+  if bl.refused > (st.refused or 0) then
+    st.refused = bl.refused
+    st.retry_at = tick + Ac.RETRY
+    say(f, st, tick, "plan", string.format("bloc REFUSE par le plan directeur : %s (%d refus en tout, nouvelle tentative dans %.0f min)",
+      tostring(bl.why), bl.refused, Ac.RETRY / 3600))
+  end
   local need = Ac.need({ cons = cons, short = short })
   -- 1. DEMANDE d'un bloc, ou agrandissement
   local rate, why = Ac.ask({ count = st.count, need = need, cap = bl.cap, tick = tick, retry_at = st.retry_at })

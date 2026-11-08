@@ -960,6 +960,11 @@ function G.simple(recipe, n, machine, voies, belt)
   -- sortie (deux voies : chaque tronçon de la jonction porte au plus une voie, d'où 2 × la borne d'une voie) ; voie du tapis posé
   local lane_n = floor_eps(lane_rate / (r.products[1].amount * rate))
   local bounds = { row_width_bound(sp.w), two and 2 * lane_n or lane_n }
+  if furnace then
+    -- le lot du plan directeur est de 24 tuiles avec une marge de 1 de chaque côté (shared/team/plan.lua, P.fit) : au-delà de 22 tuiles de
+    -- large, la rangée entière (place réservée) est refusée « trop grand » (moteur réel, lot ACIER : 8 fours de 2 = 23 tuiles)
+    bounds[#bounds + 1] = floor_eps((M.MAX_SIDE - 2 + 1) / (sp.w + 1))
+  end
   if #ings == 1 and fuel > 0 then
     bounds[#bounds + 1] = floor_eps(lane_rate / (ings[1].amount * rate))
     bounds[#bounds + 1] = floor_eps(lane_rate / fuel)
