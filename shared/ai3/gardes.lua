@@ -85,6 +85,12 @@ G.LIST = {
       local ok, why = M.Ic.gate({ threatened = false, main_busy = false, islands = 0, max = 4, unwalled = 0, unguarded = 0 })
       local c = M.Ic.gate({ main_busy = false, islands = 0, max = 4, unwalled = 0, unguarded = 0, outside_busy = 0 })
       return a == false and ok == false and c == false, why end },
+  { id = "Sl.allows", fichier = "shared/team/sonde_lot.lua", mesure = "minerai du bord du lot (sonde 30 x 30) et sorte du module",
+    appelant = "script/team/place_glue.lua (Pg.states_for)", mods = { Sl = "shared.team.sonde_lot" }, verdict = "ferme",
+    sonde = function(M)
+      -- intégrateur (8/11, fusion de TV-PLACE et TV-GARDES) : une sorte de module inconnue est refusée, avec sa raison
+      local ok, why = M.Sl.allows(nil, "sorte-inconnue-du-banc")
+      return ok == false, why end },
   { id = "Vt.low", fichier = "shared/team/vapeur_tampon.lua", mesure = "taux de vapeur des machines de la centrale (vapeur / capacité)",
     appelant = "script/team/vapeur_glue.lua:56", mods = { Vt = "shared.team.vapeur_tampon" }, verdict = "ferme",
     sonde = function(M)
