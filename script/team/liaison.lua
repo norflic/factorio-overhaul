@@ -32,6 +32,8 @@ local State = require("script.faction.state")
 local Conv = require("script.team.convoyeurs")
 local Rsv = require("script.ai3.reserve") -- le réglage maître (fo-war-industrie)
 local Registry = require("script.companion.registry")
+local Trav = require("script.team.traversee") -- lot TRAVERSEE : tapis qui enjambent les obstacles par des souterrains, gisements évités
+local Tv = require("shared.team.traversee")
 
 local Liaison = {}
 
@@ -408,10 +410,12 @@ function Liaison.plan(api, f, surface, p)
       if masks.clear[k] then c = c + 1 end
       return c
     end
-    local tiles, why = P.belt_route({ x = e.src.bx, y = e.src.by }, { x = e.dst.bx, y = e.dst.by }, Ln.end_dir(e.dst), bounds, cost)
+    -- lot TRAVERSEE : l'obstacle infranchissable court (poteau, tapis, bâtiment) est franchi par une paire de souterrains, le gisement évité
+    local tiles, why, tnames = Trav.route(f, surface, p, { x = e.src.bx, y = e.src.by }, { x = e.dst.bx, y = e.dst.by }, Ln.end_dir(e.dst), bounds, cost,
+      { belt = lc.belt, sd = e.src.dir, kind = "liaison" })
     if tiles then
       local ok, w2 = Ln.route_ok(#tiles, Ln.manhattan(e.src.bx, e.src.by, e.dst.bx, e.dst.by))
-      if ok then chosen = { e = e, tiles = tiles } break end
+      if ok then chosen = { e = e, tiles = tiles, names = tnames } break end
       last_why = w2
     else
       last_why = tostring(why)
@@ -425,14 +429,20 @@ function Liaison.plan(api, f, surface, p)
   taken[e.src.ax .. ":" .. e.src.ay], taken[e.dst.ax .. ":" .. e.dst.ay] = true, true
   local poles = {}
   for _, site in ipairs({ e.src, e.dst }) do
-    local px, py = Ln.pole_tile(site, free, taken)
+    -- lot TRAVERSEE : de préférence une tuile sans gisement
+    local px, py = Tv.pole_tile(function(fr) return Ln.pole_tile(site, fr, taken) end, free, Trav.ore_lookup(surface))
     if not px then return false, "liaison: aucune place pour un poteau contre un bras" end
     taken[px .. ":" .. py] = true
     planned[P.tkey(px, py)] = true
     poles[#poles + 1] = { px, py }
   end
-  local ents = Ln.entities({ src = e.src, dst = e.dst, route = tiles, names = { arm = lc.arm, belt = lc.belt, pole = lc.pole }, poles = poles })
-  local bad = Ln.verify(ents, S, D, function(x) return x.role == "liaison-tapis" end, function(x) return x.role == "liaison-bras" end)
+  local ents = Ln.entities({ src = e.src, dst = e.dst, route = tiles, names = { arm = lc.arm, belt = lc.belt, pole = lc.pole, ug = chosen.names and chosen.names.ug }, poles = poles })
+  -- preuve géométrique sur le tracé VIRTUEL (une paire souterraine = des tapis droits entre l'entrée et la sortie), puis celle des paires
+  local vents = Ln.entities({ src = e.src, dst = e.dst, route = Tv.virtual_belts(tiles), names = { arm = lc.arm, belt = lc.belt, pole = lc.pole }, poles = poles })
+  local bad = Ln.verify(vents, S, D, function(x) return x.role == "liaison-tapis" end, function(x) return x.role == "liaison-bras" end)
+  if #bad == 0 then
+    bad = Tv.verify(tiles, { x = e.src.bx, y = e.src.by }, { x = e.dst.bx, y = e.dst.by }, Ln.end_dir(e.dst), chosen.names and chosen.names.maxd or 0, nil)
+  end
   if #bad > 0 then return false, "liaison: geometrie fausse (" .. bad[1] .. ")" end
   for _, x in ipairs(ents) do x.part = 1 end
   if not api.reserve_tiles(b, p, ents) then return false, "place" end
