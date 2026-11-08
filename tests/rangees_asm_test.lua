@@ -30,6 +30,24 @@ local CASES = {
   { "ordre des ids (pas de pairs) : la plus ancienne en attente", { rate = 120, nom1 = 120, n_max = 6,
       existing = { { id = 12, n = 2, state = "attente" }, { id = 4, n = 1, state = "attente" } } },
     function(d) return d.action == "agrandir" and d.target == 4 end },
+  { "rangee dynamique finie avec de la place : agrandie sur place", { rate = 240, nom1 = 120, n_max = 6,
+      existing = { { id = 9, n = 2, n_max = 6, state = "fini", grow = "dyn" } } },
+    function(d) return d.action == "agrandir" and d.mode == "dyn" and d.target == 9 and d.n == 4 end },
+  { "rangee dynamique bornee a SA place", { rate = 1200, nom1 = 120, n_max = 6,
+      existing = { { id = 9, n = 3, n_max = 4, state = "fini", grow = "dyn" } } },
+    function(d) return d.action == "agrandir" and d.n == 4 end },
+  { "rangee dynamique pleine : nouvelle a cote", { rate = 240, nom1 = 120, n_max = 6,
+      existing = { { id = 9, n = 6, n_max = 6, state = "fini", grow = "dyn" } } },
+    function(d) return d.action == "nouveau" and d.near == 9 end },
+  { "rangee en chantier qui pourra grandir : refus, pas d'ilot", { rate = 240, nom1 = 120, n_max = 6,
+      existing = { { id = 9, n = 2, n_max = 6, state = "reserve", grow = "chantier" } } },
+    function(d) return d.action == "refus" and d.target == 9 and d.why:find("chantier", 1, true) ~= nil end },
+  { "chantier plein : nouvelle a cote", { rate = 240, nom1 = 120, n_max = 6,
+      existing = { { id = 9, n = 6, n_max = 6, state = "reserve", grow = "chantier" } } },
+    function(d) return d.action == "nouveau" and d.near == 9 end },
+  { "attente avant chantier (ordre des numeros)", { rate = 120, nom1 = 120, n_max = 6,
+      existing = { { id = 9, n = 2, n_max = 6, state = "reserve", grow = "chantier" }, { id = 11, n = 1, state = "attente" } } },
+    function(d) return d.action == "agrandir" and d.target == 11 end },
   { "refus : debit nominal nul", { rate = 600, nom1 = 0, n_max = 6 }, function(d) return d.action == "refus" and d.why == "debit nominal nul" end },
   { "refus : demande nulle", { rate = 0, nom1 = 120, n_max = 6 }, function(d) return d.action == "refus" and d.why == "demande nulle" end },
   { "refus : gabarit sans borne", { rate = 600, nom1 = 120, n_max = nil }, function(d) return d.action == "refus" and d.why == "gabarit sans borne" end },
@@ -48,6 +66,12 @@ for _, c in ipairs(CASES) do
   local d = Ra.decide(c[2])
   check(c[1], c[3](d))
 end
+-- variantes du gabarit (une voie, deux voies, tapis plus rapide débloqué…)
+check("variante : la premiere qui atteint 5", Ra.pick({ 2, 4, 5, 6 }) == 3)
+check("variante : la moins chere quand elle suffit", Ra.pick({ 5, 6 }) == 1)
+check("variante : sans tapis rapide, la plus grande borne", Ra.pick({ 2, 4 }) == 2)
+check("variante : egalite -> la moins chere", Ra.pick({ 3, 3 }) == 1)
+check("variante : celles qui ne se posent pas sont sautees", Ra.pick({ 2, nil, 6 }) == 3 and Ra.pick({}) == nil)
 -- journal
 local line = Ra.line("emerald", "objet-x", 600, Ra.decide(CASES[1][2]))
 check("ligne [FO-RANGEES-ASM]", line:find("^%[FO%-RANGEES%-ASM%] emerald : objet%-x 600/min %-> nouveau a 5 machine") ~= nil)
@@ -65,6 +89,15 @@ local MUTANTS = {
   { "agrandir meme une rangee batie", function(M) M.GROWABLE = { attente = true, fini = true } end },
   { "decide sans borne", function(M) local d0 = M.decide M.decide = function(q) local q2 = {} for k, v in pairs(q) do q2[k] = v end q2.n_max = 99 return d0(q2) end end },
   { "decide sans proximite", function(M) local d0 = M.decide M.decide = function(q) local d = d0(q) d.near = nil return d end end },
+  { "rangee dynamique jamais agrandie", function(M) M.MODES = { attente = true } end },
+  { "chantier ignore (ilot pendant un chantier)", function(M) local d0 = M.decide M.decide = function(q)
+      local q2 = { rate = q.rate, nom1 = q.nom1, n_max = q.n_max, existing = {} }
+      for _, e in ipairs(q.existing or {}) do if e.grow ~= "chantier" then q2.existing[#q2.existing + 1] = e end end
+      return d0(q2) end end },
+  { "borne de la rangee ignoree", function(M) local d0 = M.decide M.decide = function(q)
+      local q2 = { rate = q.rate, nom1 = q.nom1, n_max = q.n_max, existing = {} }
+      for _, e in ipairs(q.existing or {}) do q2.existing[#q2.existing + 1] = { id = e.id, n = e.n, state = e.state, grow = e.grow } end
+      return d0(q2) end end },
   { "toujours nouveau", function(M) local d0 = M.decide M.decide = function(q) local d = d0(q) if d.action == "agrandir" then d.action = "nouveau" end return d end end },
 }
 local base = run_cases(Ra)

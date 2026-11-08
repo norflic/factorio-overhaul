@@ -352,6 +352,9 @@ EMIT.outpost = function(E, proj, g, ctx)
   local spec = T.outposts[kind]
   local prio = proj.prio
   if (view.pending[kind] or 0) > 0 then return "en_cours" end
+  -- lot ELECTRIQUE (a, DC 8/11) : centrale finie, foreuse électrique et poteau obtenables : plus de paire thermique de ce type (agrandir ou
+  -- bâtir) ; le gisement se couvre en électrique (capitalisation, remplacement). view.thermal_off : script/team/electrique.lua (Elec.view_off)
+  if view.thermal_off and view.thermal_off[kind] then return "bloque", "electrique:" .. kind end
   local df = view.defend_first and true or false
   local turret_ok = df and (E.book:handcraftable(P.TURRET) or (E.avail[P.TURRET] or 0) > 0) or false
   -- Lot PRIORITE-RESSOURCES : le fer ne paie pas la défense ET la production (E.priorite, décidé par le planificateur permanent) :

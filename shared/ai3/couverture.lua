@@ -35,8 +35,45 @@ function Cv.loop(a)
   if a.crisis then return false, "crise (survie ou QG menace) : le travail de base d'abord" end
   if type(a.product) ~= "string" then return false, "aucun produit suivi pour cette ressource" end
   if type(a.free) ~= "number" or a.free ~= a.free or a.free <= 0 then return false, "gisement sans place libre" end
-  if (a.saturated or {})[a.product] then return false, a.product .. " sature (stock au-dela du besoin) : plus de debouche" end
+  -- Saturation totale (directive du DC du 8/11) : l'ordre de saturation d'un gisement revendiqué n'a pas besoin de débouché.
+  if (a.saturated or {})[a.product] and not a.saturation then return false, a.product .. " sature (stock au-dela du besoin) : plus de debouche" end
+  if a.saturation then return true, string.format("saturation du gisement : %d place(s) libre(s)", math.floor(a.free)) end
   return true, string.format("debouche : %s non sature, %d place(s) libre(s)", a.product, math.floor(a.free))
+end
+
+-- SATURATION TOTALE DES GISEMENTS (directive du DC du 8/11, 14 h 50 : « Un speedrunner ne laisse jamais un champ de minerai à moitié vide. Il le
+-- sature de foreuses [...] La règle est binaire : s'il reste une tuile de minerai exploitable sur un gisement revendiqué, l'ordre de
+-- construction de foreuses reste actif. »). Mesuré sur la partie du DC (39 à 44 min) : les grands gisements revendiqués sont à 0,3 à 11 %
+-- (azure cuivre 12/3010 inchangé de la minute 8 à la 43), parce que la couverture d'avance exige une demande NETTE de minerai (Ri > 0 : le
+-- besoin de la plaque moins 10 minutes de stock) : avec 10 minutes de plaques en stock, plus aucune option, ni refus écrit.
+--- a = { free (places libres du gisement), kappa (‰ des tuiles couvertes), kappa_max (‰ visé, 1000), electric (la foreuse choisie n'a pas de
+--- combustible), crisis (survie ou QG menacé) }. Rend (vrai, raison) quand le gisement garde un ordre de couverture ouvert, (faux, cause) sinon.
+--- La cause est TOUJOURS écrite (refus, journal [FO-SATURATION]) : plus de cas silencieux.
+function Cv.saturation(a)
+  a = a or {}
+  if a.crisis then return false, "crise (survie ou QG menace) : le travail de base d'abord" end
+  if a.electric ~= true then return false, "foreuse a combustion : la saturation se fait en electrique (combustible porte a vie par les PNJ)" end
+  if type(a.free) ~= "number" or a.free ~= a.free or a.free <= 0 then return false, "aucune place libre (tuiles toutes couvertes ou prises)" end
+  local kmax = type(a.kappa_max) == "number" and a.kappa_max or 1000
+  if type(a.kappa) ~= "number" or a.kappa ~= a.kappa then return false, "couverture inconnue" end
+  if a.kappa >= kmax then return false, "gisement sature (" .. math.floor(a.kappa) .. " pour mille)" end
+  return true, string.format("%d place(s) libre(s), couverture %d pour mille", math.floor(a.free), math.floor(a.kappa))
+end
+
+--- Modules d'un ordre de SATURATION (accord du lead, 8/11 : « plusieurs modules par ordre, pour les ordres de saturation seulement »). `want` =
+--- modules que le débit de l'ordre demande (⌈débit ÷ capacité d'un module⌉), `hands` = bras libres (escouades de zéro-idle), `per_hand` = bras
+--- par module (Dm.HANDS_PER_SITE), `hard` = plafond de sûreté (Dm.SLOTS_HARD). Rend (obtenus, cause de l'écart ou nil) : toujours au moins 1 (le
+--- budget de matières a déjà borné l'ordre : Ca.decide réduit n au stock libre après la réserve), au plus `want`, `hard`, et 1 + bras ÷ par module.
+function Cv.sat_modules(want, hands, per_hand, hard)
+  local w = (type(want) == "number" and want == want and want >= 1) and math.floor(want) or 1
+  local h = (type(hands) == "number" and hands == hands and hands > 0) and hands or 0
+  local ph = (type(per_hand) == "number" and per_hand >= 1) and per_hand or 1
+  local cap = (type(hard) == "number" and hard >= 1) and math.floor(hard) or 1
+  local by_hands = 1 + math.floor(h / ph + 1e-9)
+  local got = math.min(w, cap, by_hands)
+  if got >= w then return got, nil end
+  if got == cap and cap <= by_hands then return got, "plafond de surete (" .. cap .. " modules)" end
+  return got, string.format("bras libres (%d libre(s), %d par module)", math.floor(h), math.floor(ph))
 end
 
 --- Modules posés (G12, porte des chantiers) : les modules DÉJÀ FINIS (compteur cumulé, `done`) plus ceux qui sont finis parmi les ordres

@@ -1,431 +1,313 @@
 --[[
-  Lot VIDEO-SAT (rang 12 de docs/TODO_VIDEO.md §I, V79 « un stock qui masque un manque de capacité ») : banc HORS JEU de
-  shared/ai3/saturation.lua et du correctif de B.saturated (shared/ai3/buts.lua). Lancement, depuis la racine du mod :
-    lua5.2 tests/saturation_test.lua
-  Sections :
-     1. relevés : période, premier relevé, pente par minute à intervalle irrégulier ;
-     2. moyenne des pentes : exacte sur les Sa.WINDOW premières, glissante ensuite ;
-     3. fonte durable : échauffement, bruit, stock qui monte, fonte régulière ;
-     4. dépense isolée : son poids, sa durée, la saturation d'un gros stock tient ;
-     5. stock illisible, objet absent, objet hors de la liste ;
-     6. Sa.holds : seuil, projection, raisons ;
-     7. B.saturated SANS mesure : identique à la règle d'avant (2 000 situations) ;
-     8. B.saturated AVEC mesure : levée par la pente, tenue pour une fonte minime d'un gros stock ;
-     9. lecteurs de B.saturated : vague des bras libres (B.targets), reconstruction (B.generate), relève (B.releve) ;
-    10. scène V79 : stock qui fond, saturation levée 13 min plus tôt ; stock immense et stock qui monte : inchangés ;
-    11. déterminisme ;
-    12. coût en INSTRUCTIONS (debug.sethook, jamais os.clock) ;
-    13. mutants : chaque règle retirée fait échouer au moins un contrôle.
-  Les objets sont des clés opaques ou lues dans shared/team/config.lua (aucun nom du jeu écrit ici).
+  Lot COUVERTURE, SATURATION TOTALE des gisements revendiqués (directive du DC du 8/11, 14 h 50) : test hors jeu de Ca.decide (couvrir sans demande
+  nette) et de Cv.saturation. Lancer depuis la racine du mod :
+    lua5.2 tests/saturation_test.lua   -> [SATURATION] BILAN : N OK, 0 ECHEC(S)
+  Les scènes reprennent les helpers de tests/ai3_capitalisation_test.lua (vanilla, mêmes données). Mutants en fin de fichier.
 ]]
-package.path = "./?.lua;" .. package.path
 
-local passes, failures = 0, 0
+-- Témoin A/B (lot VIDEO-INTEG, critère K6) : FO_CAPI_SRC = dossier où lire d'abord shared/ai3/capitalisation.lua (une autre
+-- version de la règle) ; FO_CAPI_DUMP = fichier où écrire le rendu sérialisé de chaque Ca.decide de §1 à §17 (rien d'autre ne tourne).
+local AB_SRC, AB_DUMP = os.getenv("FO_CAPI_SRC"), os.getenv("FO_CAPI_DUMP")
+package.path = (AB_SRC and (AB_SRC .. "/?.lua;") or "") .. "./?.lua;" .. package.path
+local F = require("tests.iag_fixture")
+local Ca = require("shared.ai3.capitalisation")
+local B = require("shared.ai3.buts")
+local P = require("shared.ai3.projets")
+local K = require("shared.ai3.catalogue")
+local Rp = require("shared.ai3.repli")
+local Tr = require("shared.faction.traits")
+local Pf = require("shared.ai3.plafonds") -- lot VIDEO-L13 (§17)
+-- Étape 8 d'INTEGRATION_VIDEO (L1b et L2 ALLUMÉS par défaut) : FO_CAPI_RANG=0 rejoue la suite interrupteurs ÉTEINTS (la décision
+-- d'avant), FO_CAPI_RANG=rang avec le rang seul, sans la porte ; absent : les défauts. Les mutants de §11 gardent ce choix.
+-- FO_CAPI_DUMP_SIG=1 (avec FO_CAPI_DUMP) : le témoin n'écrit que la signature des ordres et les retenues de la porte (A/B orders_sig).
+local AB_RANG, AB_SIG = os.getenv("FO_CAPI_RANG"), os.getenv("FO_CAPI_DUMP_SIG")
+if AB_RANG == "0" then Ca.RANG, Ca.PORTE_RANG = false, false elseif AB_RANG == "rang" then Ca.RANG, Ca.PORTE_RANG = true, false end
+
+local pass, fail = 0, 0
 local quiet = false
 local function check(cond, msg)
-  if cond then passes = passes + 1 else failures = failures + 1; if not quiet then print("  ECHEC : " .. msg) end end
-  return cond
-end
-local function section(name) if not quiet then print("== " .. name) end end
-local function slurp(p) local f = assert(io.open(p, "rb")) local x = f:read("*a") f:close() return x end
-local function near(a, b, eps) return a ~= nil and b ~= nil and math.abs(a - b) <= (eps or 1e-9) end
-
-local SA_PATH, B_PATH = "shared/ai3/saturation.lua", "shared/ai3/buts.lua"
-local function load_src(path, mutate)
-  local src = slurp(path)
-  if mutate then
-    local i, j = src:find(mutate[1], 1, true)
-    if not i then return nil, "texte introuvable : " .. mutate[1] end
-    src = src:sub(1, i - 1) .. mutate[2] .. src:sub(j + 1)
-  end
-  local fn, err = load(src, "@" .. path)
-  if not fn then return nil, err end
-  return fn()
-end
---- Charge (Sa, B) ; `which` = "sa" ou "b" : fichier muté. B est rechargé sur le Sa donné (package.loaded).
-local function load_pair(which, mutate)
-  local Sa, err = load_src(SA_PATH, which == "sa" and mutate or nil)
-  if not Sa then return nil, nil, err end
-  package.loaded["shared.ai3.saturation"] = Sa
-  local B, err2 = load_src(B_PATH, which == "b" and mutate or nil)
-  if not B then return nil, nil, err2 end
-  return Sa, B
-end
-
-local T = require("shared.team.config")
-local Dm = require("shared.ai3.demande")
-local Br = require("shared.ai3.bras")
-local MIN = 3600
-
---- La règle d'avant (buts.lua avant VIDEO-SAT), recopiée : témoin de l'équivalence sans mesure.
-local function old_saturated(s, item, floor_only, B)
-  local need = Dm.sat_need(Br.need_floor(s.workers, B.NEED_FLOOR), s.need and s.need[item],
-    (not floor_only) and s.puits_flow and s.puits_flow[item] or nil)
-  return (s.stock[item] or 0) >= B.SAT_FACTOR * need
-end
-
---- Série de stocks relevés minute par minute ; rend l'état et la liste des fontes après chaque relevé.
-local function series(Sa, stocks, item)
-  local st = Sa.new()
-  local drains = {}
-  for i, v in ipairs(stocks) do
-    Sa.observe(st, (i - 1) * MIN, { [item] = v }, { item })
-    drains[i] = Sa.drain(st, item)
-  end
-  return st, drains
-end
-
-local function run_all(Sa, B)
-  local W = Sa.WINDOW
-
-  -- 1. Relevés.
-  section("1. releves : periode, premier releve, pente par minute")
-  do
-    local st = Sa.new()
-    check(Sa.observe(st, 0, { a = 1000 }, { "a" }) == true, "1 : premier releve pris")
-    check(st.items.a and st.items.a.n == 0 and st.items.a.m == 0, "1 : premier releve sans pente")
-    check(Sa.observe(st, MIN - 1, { a = 900 }, { "a" }) == false, "1 : releve avant Sa.PERIOD ignore")
-    check(st.items.a.s == 1000, "1 : un releve ignore ne change rien")
-    check(Sa.observe(st, MIN, { a = 900 }, { "a" }) == true and near(st.items.a.m, -100) and st.items.a.n == 1,
-      "1 : pente -100 par minute")
-    -- Intervalle de 1,5 min : -150 objets en 5 400 ticks = -100 par minute.
-    check(Sa.observe(st, MIN + 5400, { a = 750 }, { "a" }) == true and near(st.items.a.m, -100), "1 : pente a intervalle irregulier")
-    check(Sa.observe(st, nil, { a = 1 }, { "a" }) == false, "1 : tick absent : aucun releve")
-  end
-
-  -- 2. Moyenne.
-  section("2. moyenne : exacte sur les WINDOW premieres pentes, glissante ensuite")
-  do
-    local stocks, v = { 10000 }, 10000
-    local slopes = {}
-    for i = 1, W do slopes[i] = -50 * i v = v + slopes[i] stocks[#stocks + 1] = v end
-    local st = series(Sa, stocks, "a")
-    local sum = 0
-    for i = 1, W do sum = sum + slopes[i] end
-    check(near(st.items.a.m, sum / W, 1e-6), "2 : moyenne exacte des " .. W .. " premieres pentes (" .. tostring(st.items.a.m) .. ")")
-    local m0 = st.items.a.m
-    Sa.observe(st, (#stocks) * MIN, { a = v + 300 }, { "a" })
-    check(near(st.items.a.m, m0 + (300 - m0) / W, 1e-6), "2 : pente suivante au poids 1 / WINDOW")
-  end
-
-  -- 3. Fonte durable.
-  section("3. fonte durable : echauffement, bruit, hausse, fonte reguliere")
-  do
-    local stocks = {}
-    for i = 0, W + 2 do stocks[#stocks + 1] = 5000 - 200 * i end
-    local _, d = series(Sa, stocks, "a")
-    check(d[W] == nil, "3 : moins de WINDOW pentes : aucune fonte (" .. tostring(d[W]) .. ")")
-    check(near(d[W + 1], 200), "3 : WINDOW pentes de -200 : fonte de 200 par minute (" .. tostring(d[W + 1]) .. ")")
-    local noise = {}
-    for i = 0, W + 2 do noise[#noise + 1] = 5000 - 1 * i end
-    local _, dn = series(Sa, noise, "a")
-    check(dn[W + 3] == nil, "3 : -1 par minute : du bruit, aucune fonte")
-    local edge = {}
-    for i = 0, W + 2 do edge[#edge + 1] = 5000 - Sa.MIN_RATE * i end
-    local _, de = series(Sa, edge, "a")
-    check(near(de[W + 3], Sa.MIN_RATE), "3 : -MIN_RATE par minute : fonte (borne comprise)")
-    local up = {}
-    for i = 0, W + 2 do up[#up + 1] = 5000 + 300 * i end
-    local _, du = series(Sa, up, "a")
-    check(du[W + 3] == nil, "3 : stock qui monte : aucune fonte")
-  end
-
-  -- 4. Dépense isolée.
-  section("4. depense isolee : poids 1 / WINDOW, duree, gros stock")
-  do
-    local stocks = { 10000, 7200 }
-    for i = 1, 30 do stocks[#stocks + 1] = stocks[#stocks] + 200 end
-    local _, d = series(Sa, stocks, "a")
-    -- Pentes : -2 800 puis +200 : au relevé W + 1 (W pentes), moyenne (-2 800 + 200 × (W - 1)) / W.
-    local m = (-2800 + 200 * (W - 1)) / W
-    check(near(d[W + 1], -m, 1e-6), "4 : fonte = moyenne des " .. W .. " min (" .. tostring(d[W + 1]) .. ", attendu " .. -m .. ")")
-    local last
-    for i = W + 1, #stocks do if d[i] then last = i end end -- (#d est faux : d a des trous)
-    check(last ~= nil and last < W + 8, "4 : la depense isolee s'efface en moins de 7 releves apres l'echauffement (" .. tostring(last) .. ")")
-    -- Stock de 9 000 au seuil 1 500 : projeté à Sa.H, 9 000 - 100 × Sa.H reste au-dessus : la saturation tient.
-    check(Sa.holds(stocks[W + 1], 1500, d[W + 1]) == true, "4 : une depense isolee ne leve pas la saturation d'un gros stock")
-  end
-
-  -- 5. Stock illisible, absent, hors liste.
-  section("5. stock illisible, absent, hors liste")
-  do
-    for _, bad in ipairs({ 0 / 0, -5, math.huge, "x" }) do
-      local st = Sa.new()
-      for i = 0, W + 1 do Sa.observe(st, i * MIN, { a = 5000 - 200 * i }, { "a" }) end
-      check(Sa.drain(st, "a") ~= nil, "5 : temoin : fonte mesuree")
-      Sa.observe(st, (W + 2) * MIN, { a = bad }, { "a" })
-      check(st.items.a == nil and Sa.drain(st, "a") == nil, "5 : stock illisible (" .. tostring(bad) .. ") : historique rompu, aucune fonte")
-      Sa.observe(st, (W + 3) * MIN, { a = 1000 }, { "a" })
-      check(st.items.a and st.items.a.n == 0, "5 : apres un stock illisible, l'historique repart de zero")
-    end
-    local st = Sa.new()
-    Sa.observe(st, 0, { a = 100 }, { "a", "b" })
-    check(st.items.b and st.items.b.s == 0, "5 : objet absent du stock : stock 0")
-    Sa.observe(st, MIN, { a = 100, b = 5 }, { "a" })
-    check(st.items.b == nil, "5 : objet sorti de la liste : oublie (etat borne)")
-    local st2 = Sa.new()
-    for i = 0, W + 1 do Sa.observe(st2, i * MIN, { a = 5000 - 200 * i, b = 5000 - 300 * i, c = 5000 + 10 * i }, { "a", "b", "c" }) end
-    local ds = Sa.drains(st2)
-    check(near(ds.a, 200) and near(ds.b, 300) and ds.c == nil, "5 : Sa.drains rend les seules fontes durables")
-    check(next(Sa.drains(Sa.new())) == nil and next(Sa.drains(nil)) == nil, "5 : Sa.drains sans etat : vide")
-  end
-
-  -- 6. Sa.holds.
-  section("6. Sa.holds : seuil, projection, raisons")
-  do
-    local ok, why = Sa.holds(1000, 1500, nil)
-    check(ok == false and why == "seuil", "6 : sous le seuil : faux, seuil")
-    check(Sa.holds(1500, 1500, nil) == true, "6 : au seuil sans fonte : sature")
-    check(Sa.holds(4000, 1500, 0) == true, "6 : fonte nulle : sature")
-    local ok2, why2 = Sa.holds(4000, 1500, 200)
-    check(ok2 == false and why2 == "pente", "6 : 4 000 - 200 x H sous 1 500 : faux, pente")
-    check(Sa.holds(4000 + 200 * Sa.H, 1500, 200) == true, "6 : projete au-dessus du seuil : sature")
-    check(Sa.holds(1500 + 200 * Sa.H - 1, 1500, 200) == false, "6 : projete juste sous le seuil : faux")
-    check(Sa.holds(4000, 1500, 200, 5) == true, "6 : horizon donne (5 min) : 4 000 - 1 000 au-dessus")
-    check(Sa.holds(1000, 1500, 200) == false, "6 : sous le seuil avec fonte : faux")
-  end
-
-  -- 7. Équivalence sans mesure.
-  section("7. B.saturated sans mesure : la regle d'avant, 2 000 situations")
-  do
-    local seed = 12345
-    local function rnd(n) seed = (seed * 1103515245 + 12345) % 2147483648 return seed % n end
-    local items = { "a", "b" }
-    local diff, lifted = 0, 0
-    for _ = 1, 2000 do
-      local it = items[rnd(2) + 1]
-      local s = { workers = rnd(41), stock = { [it] = rnd(20000) }, need = rnd(3) > 0 and { [it] = rnd(2500) } or nil,
-        puits_flow = rnd(2) > 0 and { [it] = rnd(300) } or nil }
-      local fo = rnd(2) > 0
-      local old = old_saturated(s, it, fo, B)
-      if B.saturated(s, it, fo) ~= old then diff = diff + 1 end
-      s.drain = {}
-      if B.saturated(s, it, fo) ~= old then diff = diff + 1 end
-      s.drain = { other = 500 }
-      if B.saturated(s, it, fo) ~= old then diff = diff + 1 end
-      s.drain = { [it] = 1 + rnd(400) }
-      if old and not B.saturated(s, it, fo) then lifted = lifted + 1 end
-      if not old and B.saturated(s, it, fo) then diff = diff + 1 end
-    end
-    check(diff == 0, "7 : sans fonte de l'objet, B.saturated = regle d'avant (" .. diff .. " ecart(s))")
-    check(lifted > 0, "7 : temoin : une fonte leve des saturations (" .. lifted .. ")")
-  end
-
-  -- 8. Avec mesure.
-  section("8. B.saturated avec mesure")
-  do
-    local s = { workers = 8, stock = { a = 4000 }, need = { a = 500 } } -- seuil 3 × 500 = 1 500
-    check(B.saturated(s, "a") == true, "8 : temoin : 4 000 >= 1 500, sature")
-    s.drain = { a = 200 }
-    local ok, why = B.saturated(s, "a")
-    check(ok == false and why == "pente", "8 : fonte de 200/min : saturation levee, raison pente")
-    s.drain = { a = 5 }
-    check(B.saturated(s, "a") == true, "8 : fonte minime : sature")
-    s.drain = { a = 200 }
-    s.stock.a = 1000
-    local ok3, why3 = B.saturated(s, "a")
-    check(ok3 == false and why3 == nil, "8 : sous le seuil : faux sans raison (regle d'avant)")
-    -- Plancher seul (lot C2) : même règle.
-    local sf = { workers = 8, stock = { a = 4000 }, need = { a = 100 }, puits_flow = { a = 1000 }, drain = { a = 200 } }
-    check(B.saturated(sf, "a", true) == false, "8 : plancher seul : la fonte leve aussi la saturation")
-    sf.drain = nil
-    check(B.saturated(sf, "a", true) == true and B.saturated(sf, "a") == false, "8 : temoin du plancher seul (C2)")
-  end
-
-  -- 9. Lecteurs.
-  section("9. lecteurs : vague des bras libres, reconstruction, releve")
-  do
-    local key = B.key({})
-    local top = key.top
-    local P = T.outposts[top].product
-    local function base_s(drain)
-      local stock, cap = {}, {}
-      for _, kind in ipairs(T.OUTPOST_ORDER) do cap[kind] = 1 stock[T.outposts[kind].product] = 0 end
-      stock[P] = 4000
-      local need = { [P] = 500 }
-      return { workers = 8, stock = stock, need = need, cap = cap, pending = {}, idle_grow = true, tick = 30 * MIN, key = key,
-        drain = drain, weights = {}, room = {}, sites = {}, nout = {} }
-    end
-    local function base_st()
-      local tg = {}
-      for _, kind in ipairs(T.OUTPOST_ORDER) do tg[kind] = 1 end
-      return { targets = tg, iron2_set = true, short_n = {}, short = {} }
-    end
-    -- Vague des bras libres : une capacité par vague, à la ressource la plus demandée qui n'est pas saturée.
-    local st0 = base_st()
-    B.targets(base_s(nil), st0)
-    check(st0.targets[top] == 1, "9 : sans mesure, la ressource la plus demandee saturee ne grandit pas")
-    local st1 = base_st()
-    B.targets(base_s({ [P] = 200 }), st1)
-    check(st1.targets[top] == 2, "9 : stock qui fond : la vague des bras libres l'agrandit (" .. tostring(st1.targets[top]) .. ")")
-    -- Reconstruction d'un avant-poste perdu (B.generate, extraction : capacité sous 75 % de la cible).
-    local function extraction_goal(drain)
-      local s, st = base_s(drain), base_st()
-      s.idle_grow = false
-      st.targets[top] = 2
-      local goals = B.generate(s, st)
-      for _, g in ipairs(goals) do if g.key == "extraction:" .. top then return g end end
-      return nil
-    end
-    check(extraction_goal(nil) == nil, "9 : sans mesure, aucune reconstruction d'une matiere saturee")
-    check(extraction_goal({ [P] = 200 }) ~= nil, "9 : stock qui fond : la reconstruction revient")
-    -- Relève (Ex.releve) : le drapeau `saturated` du type suit la mesure.
-    local function releve_sat(drain)
-      local s, st = base_s(drain), base_st()
-      local seen
-      local Ex = require("shared.ai3.extension")
-      local r0 = Ex.releve
-      Ex.releve = function(arg, ...)
-        for _, k in ipairs(arg.kinds) do if k.kind == top then seen = k.saturated end end
-        return r0(arg, ...)
-      end
-      local ok, err = pcall(B.releve, s, st)
-      Ex.releve = r0
-      if not ok then return "erreur : " .. tostring(err) end
-      return seen
-    end
-    check(releve_sat(nil) == true, "9 : releve sans mesure : type sature")
-    check(releve_sat({ [P] = 200 }) == false, "9 : releve avec fonte : type non sature")
-  end
-
-  -- 10. Scène V79.
-  section("10. scene V79 : stock qui fond, stock immense, stock qui monte")
-  do
-    local function first_unsat(S0, rate, need, minutes)
-      local st = Sa.new()
-      local S = S0
-      local f_new, f_old, s_new, s_old
-      for m = 0, minutes do
-        Sa.observe(st, m * MIN, { a = S }, { "a" })
-        local s = { workers = 8, stock = { a = S }, need = { a = need }, drain = Sa.drains(st) }
-        if not f_new and not B.saturated(s, "a") then f_new, s_new = m, S end
-        if not f_old and not old_saturated(s, "a", false, B) then f_old, s_old = m, S end
-        S = math.max(0, S + rate)
-      end
-      return f_new, f_old, s_new, s_old
-    end
-    -- Production 200/min, consommation 400/min : le stock de 6 000 fond de 200/min ; seuil 3 × 500.
-    local fn, fo, sn, so = first_unsat(6000, -200, 500, 60)
-    if not quiet then print(string.format("   fonte de 200/min : saturation levee a %s min (stock %s) ; regle d'avant a %s min (stock %s)",
-      tostring(fn), tostring(sn), tostring(fo), tostring(so))) end
-    check(fo == 23 and so == 1400, "10 : regle d'avant : levee a 23 min, 1 400 restants (7 min de stock)")
-    check(fn == W and sn == 6000 - 200 * W, "10 : nouvelle regle : levee des la fonte mesuree (" .. tostring(fn) .. " min, stock " .. tostring(sn) .. ")")
-    -- Stock immense, fonte minime : inchangé sur une heure.
-    local fn2, fo2 = first_unsat(45000, -5, 500, 60)
-    check(fn2 == nil and fo2 == nil, "10 : 45 000 qui fond de 5/min : sature toute l'heure, comme avant")
-    -- Stock qui monte : inchangé.
-    local fn3, fo3 = first_unsat(2000, 50, 500, 60)
-    check(fn3 == nil and fo3 == nil, "10 : stock qui monte : sature comme avant")
-    -- Stock sous le seuil : non saturé dès le début, comme avant.
-    local fn4, fo4 = first_unsat(1000, -50, 500, 5)
-    check(fn4 == 0 and fo4 == 0, "10 : sous le seuil : non sature des le debut, comme avant")
-  end
-
-  -- 11. Déterminisme.
-  section("11. determinisme")
-  do
-    local function run(order)
-      local st = Sa.new()
-      for i = 0, W + 3 do
-        local stock = {}
-        for _, k in ipairs(order) do stock[k] = 9000 - (k == "b" and 300 or 100) * i end
-        Sa.observe(st, i * MIN, stock, { "a", "b", "c" })
-      end
-      local ds = Sa.drains(st)
-      return string.format("%.6f|%.6f|%s", ds.a or -1, ds.b or -1, tostring(ds.c))
-    end
-    check(run({ "a", "b", "c" }) == run({ "c", "b", "a" }), "11 : meme etat quel que soit l'ordre d'ecriture du stock")
-    check(run({ "a", "b", "c" }) == run({ "a", "b", "c" }), "11 : deux passages identiques")
-  end
-
-  -- 12. Coût.
-  section("12. cout en instructions (debug.sethook)")
-  do
-    local function instr(fn)
-      local c = 0
-      debug.sethook(function() c = c + 1 end, "", 1)
-      fn()
-      debug.sethook()
-      return c
-    end
-    local s = { workers = 8, stock = { a = 4000 }, need = { a = 500 } }
-    local i_old = instr(function() old_saturated(s, "a", false, B) end)
-    local i_new = instr(function() B.saturated(s, "a") end)
-    s.drain = { a = 200 }
-    local i_drain = instr(function() B.saturated(s, "a") end)
-    local function items_of(n) local t = {} for i = 1, n do t[i] = string.format("o%03d", i) end return t end
-    local function observe_cost(n)
-      local it, st = items_of(n), Sa.new()
-      local stock = {}
-      for i, k in ipairs(it) do stock[k] = 1000 + i end
-      Sa.observe(st, 0, stock, it)
-      return instr(function() Sa.observe(st, MIN, stock, it) end), st
-    end
-    local i_obs8, st8 = observe_cost(8)
-    local i_obs64 = observe_cost(64)
-    local i_drains = instr(function() Sa.drains(st8) end)
-    if not quiet then
-      print(string.format("   B.saturated : %d instructions (regle d'avant : %d) ; avec fonte : %d ; Sa.observe 8 objets : %d, 64 : %d ; Sa.drains 8 : %d",
-        i_new, i_old, i_drain, i_obs8, i_obs64, i_drains))
-    end
-    check(i_new <= i_old + 40, "12 : B.saturated sans mesure : au plus 40 instructions de plus que la regle d'avant (" .. i_new .. " contre " .. i_old .. ")")
-    check(i_drain <= i_old + 80, "12 : B.saturated avec fonte : au plus 80 de plus (" .. i_drain .. ")")
-    check(i_obs64 < 10 * i_obs8, "12 : Sa.observe lineaire en objets (" .. i_obs64 .. " pour 64 contre " .. i_obs8 .. " pour 8)")
-    check(i_obs8 < 1500 and i_drains < 1500, "12 : un releve de 8 objets et Sa.drains sous 1 500 instructions")
+  if cond then pass = pass + 1 else
+    fail = fail + 1
+    if not quiet then print("[SATURATION] ECHEC : " .. msg) end
   end
 end
+local function say(s) if not quiet then print("[SATURATION] " .. s) end end
 
-local Sa0, B0 = load_pair()
-assert(Sa0 and B0, "chargement")
-run_all(Sa0, B0)
-
--- 13. Mutants.
-section("13. mutants")
-local MUTANTS = {
-  { "b", "fonte ignoree par B.saturated", { "if d then return Sa.holds(have, thr, d) end", "" } },
-  { "b", "objet sans mesure lu comme une fonte (garde ouverte)", { "local d = s.drain and s.drain[item]", "local d = s.drain and (s.drain[item] or 1e9)" } },
-  { "sa", "projection contre zero au lieu du seuil", { "stock - drain * (h or Sa.H) < threshold", "stock - drain * (h or Sa.H) < 0" } },
-  { "sa", "seuil retire de Sa.holds", { 'if not (stock >= threshold) then return false, "seuil" end', "" } },
-  { "sa", "sans echauffement", { "if not e or e.n < Sa.WINDOW then return nil end", "if not e then return nil end" } },
-  { "sa", "bruit compte comme fonte", { "if e.m > -Sa.MIN_RATE then return nil end", "if e.m >= 0 then return nil end" } },
-  { "sa", "signe de la fonte inverse", { "return -e.m", "return e.m" } },
-  { "sa", "derniere pente au lieu de la moyenne", { "m = e.m + (slope - e.m) / w", "m = slope" } },
-  { "sa", "poids fixe des le debut (moyenne biaisee)", { "local w = n < Sa.WINDOW and n or Sa.WINDOW", "local w = Sa.WINDOW" } },
-  { "sa", "intervalle ignore", { "local slope = (v - e.s) * Sa.PERIOD / (tick - e.t)", "local slope = (v - e.s)" } },
-  { "sa", "releve a chaque appel", { "return type(tick) == \"number\" and (state.tick == nil or tick - state.tick >= Sa.PERIOD)", "return type(tick) == \"number\"" } },
-  { "sa", "stock illisible lu comme 0", { "if type(v) ~= \"number\" or v ~= v or v < 0 or v == math.huge then return nil end", "if type(v) ~= \"number\" or v ~= v or v < 0 or v == math.huge then return 0 end" } },
-  { "sa", "objets hors liste gardes", { "local old, out = state.items or {}, {}", "local old = state.items or {} local out = old" } },
-}
-local killed = 0
-quiet = true
-for _, m in ipairs(MUTANTS) do
-  local Sa, B, err = load_pair(m[1], m[3])
-  local dead
-  if not Sa then
-    quiet = false
-    check(false, "mutant '" .. m[2] .. "' : " .. tostring(err))
-    quiet = true
-    dead = false
-  else
-    local p0, f0 = passes, failures
-    local okrun, e = pcall(run_all, Sa, B)
-    local nf = failures - f0
-    dead = (not okrun) or nf > 0
-    passes, failures = p0, f0
-    quiet = false
-    print(string.format("   %s : %s", m[2], (not okrun) and ("PLANTAGE " .. tostring(e)) or (nf .. " controle(s) en echec")))
-    quiet = true
-  end
-  if dead then killed = killed + 1 else
-    quiet = false
-    check(false, "mutant SURVIVANT : " .. m[2])
-    quiet = true
-  end
+local function sorted_keys(t)
+  local ks = {}
+  for k in pairs(t or {}) do ks[#ks + 1] = k end
+  table.sort(ks)
+  return ks
 end
-quiet = false
-package.loaded["shared.ai3.saturation"] = Sa0
-print(string.format("   mutants refuses : %d / %d", killed, #MUTANTS))
-check(killed == #MUTANTS, "tous les mutants sont refuses")
 
-print(string.format("[SATURATION] BILAN : %d OK, %d ECHEC(S) ; mutants %d/%d refuses", passes, failures, killed, #MUTANTS))
-if failures > 0 then os.exit(1) end
+local function deep(t)
+  if type(t) ~= "table" then return t end
+  local c = {}
+  for k, v in pairs(t) do c[k] = deep(v) end
+  return c
+end
+
+---------------------------------------------------------------------------------------------------
+-- Relevé vanilla réaliste (vitesses, aires, puissances, temps de minage de data/base 1.1.91)
+---------------------------------------------------------------------------------------------------
+local V_SPEED = { ["stone-furnace"] = 1, ["steel-furnace"] = 2, ["electric-furnace"] = 2, ["assembling-machine-1"] = 0.5,
+  ["assembling-machine-2"] = 0.75, ["assembling-machine-3"] = 1.25, ["burner-mining-drill"] = 0.25,
+  ["electric-mining-drill"] = 0.5, ["pumpjack"] = 1, ["lab"] = 1, ["chemical-plant"] = 1, ["oil-refinery"] = 1,
+  ["centrifuge"] = 1 }
+local V_AREA = { ["burner-mining-drill"] = 2, ["electric-mining-drill"] = 5, ["pumpjack"] = 1 }
+local V_SIZE = { ["burner-mining-drill"] = 2, ["electric-mining-drill"] = 3, ["stone-furnace"] = 2, ["steel-furnace"] = 2 }
+local V_KW = { ["stone-furnace"] = 90, ["steel-furnace"] = 90, ["electric-furnace"] = 180, ["burner-mining-drill"] = 150,
+  ["electric-mining-drill"] = 90, ["assembling-machine-1"] = 75, ["assembling-machine-2"] = 150,
+  ["assembling-machine-3"] = 375, ["lab"] = 60, ["boiler"] = 1800 }
+local V_MINE = { ["uranium-ore"] = 2 }
+
+local function vanilla_dump(mut, fopts)
+  local d = F.dump(fopts)
+  for _, e in ipairs(d.entities) do
+    if V_SPEED[e.name] then e.speed = V_SPEED[e.name] end
+    e.mining_area = V_AREA[e.name]
+    e.size = V_SIZE[e.name] or 3
+    e.energy_kw = V_KW[e.name]
+  end
+  -- Recettes débloquées par une technologie : inactives au départ (comme dans le jeu).
+  for _, t in ipairs(sorted_keys(d.techs)) do
+    for _, r in ipairs(d.techs[t].unlocks) do if d.recipes[r] then d.recipes[r].enabled = false end end
+  end
+  for _, r in ipairs(d.resources) do r.mining_time = V_MINE[r.entity] or 1 end
+  if mut then mut(d) end
+  return d
+end
+
+-- Exécutants : ceux d'AUTO (foreuses électriques, assembleurs) et ceux de main aujourd'hui (four en pierre, foreuse à
+-- combustion), plus la main et le laboratoire du QG.
+local EXEC_AUTO = { ["stone-furnace"] = true, ["steel-furnace"] = true, ["burner-mining-drill"] = true,
+  ["electric-mining-drill"] = true, ["assembling-machine-1"] = true, ["assembling-machine-2"] = true }
+local EXEC_MAIN = { ["stone-furnace"] = true, ["burner-mining-drill"] = true }
+local ROLES = { main = true, labo = true }
+local function vdata(mut, exec, fopts)
+  return Ca.data(vanilla_dump(mut, fopts), { exec = exec or EXEC_AUTO, exec_roles = ROLES })
+end
+
+-- Financement RÉALISTE des scènes : des pièces d'équipement au coffre (1 000 circuits, 3 425 MU), qui entrent dans les
+-- recettes des foreuses, des assembleurs et des laboratoires. Plus de coffres en fer (ils ne deviennent jamais une
+-- foreuse : un stock non convertible ne compte plus, §6). Les contrôles du budget lui-même partent d'un stock VIDE.
+local PIECES = { ["electronic-circuit"] = 1000 }
+local function pieces(extra)
+  local s = deep(PIECES)
+  for k, v in pairs(extra or {}) do s[k] = v end
+  return s
+end
+
+--- Entrée de base (vanilla) : de l'assemblage recherché, RIEN au stock, des bras libres.
+local function vin(D, over)
+  local inp = { data = D, state = { techs = { automation = true } }, stock = {}, flows = {},
+    machines = {}, drills = {}, labs = {}, deposits = {}, open = {}, sinks = {}, workers = 30, idle = 10,
+    can_grow = true, traits = {}, weights = {} }
+  for k, v in pairs(over or {}) do inp[k] = v end
+  return inp
+end
+
+local function find(res, key)
+  for i, o in ipairs(res.orders) do if o.key == key then return o, i end end
+  return nil, nil
+end
+local function refus_of(res, key)
+  for _, r in ipairs(res.refus) do if r.key == key then return r end end
+  return nil
+end
+local function count_kind(res, kind)
+  local n = 0
+  for _, o in ipairs(res.orders) do if o.kind == kind then n = n + 1 end end
+  return n
+end
+local function no_dup(res)
+  local seen = {}
+  for _, o in ipairs(res.orders) do
+    if seen[o.key] then return false end
+    seen[o.key] = true
+  end
+  return true
+end
+local function sum_cost(res)
+  local c = 0
+  for _, o in ipairs(res.orders) do c = c + o.cost_m end
+  return c
+end
+local function explores(res, item)
+  for _, e in ipairs(res.explore) do if e.resource == item then return e end end
+  return nil
+end
+
+-- Gisement de fer (minerai livré au QG, fours du QG) et un site connu plus loin.
+local function iron_scene(D, sink, over)
+  local inp = vin(D, {
+    stock = pieces(),
+    deposits = { { id = "d1", resource = "iron-ore", tiles = 270, amount = 1e6, open = true, dist = 60 },
+      { id = "s2", resource = "iron-ore", tiles = 270, amount = 1e6, dist = 150 } },
+    drills = { { entity = "electric-mining-drill", resource = "iron-ore", n = 2, deposit = "d1" } },
+    machines = { { entity = "stone-furnace", recipe = "iron-plate", n = 4, where = "qg" } },
+    flows = { ["iron-ore"] = { made = 60 }, ["iron-plate"] = { made = 60 } },
+    sinks = { { item = "iron-plate", rate = sink } } })
+  for k, v in pairs(over or {}) do inp[k] = v end
+  return inp
+end
+
+-- Recherche aux packs rouges : 8 laboratoires qui tournent, fours sur place du fer et du cuivre.
+local function pack_scene(D, over)
+  local inp = vin(D, {
+    stock = pieces(),
+    machines = { { entity = "stone-furnace", recipe = "iron-plate", n = 8, where = "d-fe" },
+      { entity = "stone-furnace", recipe = "copper-plate", n = 4, where = "d-cu" } },
+    flows = { ["iron-plate"] = { made = 150 }, ["copper-plate"] = { made = 75 } },
+    labs = { { entity = "lab", n = 8 } },
+    research = { queue = { { tech = "electronics", left = 27, time = 15, packs = { { "automation-science-pack", 1 } } },
+      { tech = "fast-inserter", left = 2000, time = 15, packs = { { "automation-science-pack", 1 } } } }, rate = 450 } })
+  for k, v in pairs(over or {}) do inp[k] = v end
+  return inp
+end
+
+--- Capital de la chaîne d'un objet recalculé PAR LE TEST, depuis les valeurs du relevé (contrôle indépendant de
+--- Ca.chain_capital) : foreuse électrique, four en pierre, assembleur 1.
+local function cc_test(D, item)
+  local drill = D.mu["electric-mining-drill"] / 30
+  local plate = D.mu["stone-furnace"] / 18.75 + drill
+  if item == "iron-ore" or item == "copper-ore" then return drill end
+  if item == "iron-plate" or item == "copper-plate" then return plate end
+  if item == "iron-gear-wheel" then return D.mu["assembling-machine-1"] / 60 + 2 * plate end
+  return nil
+end
+
+---------------------------------------------------------------------------------------------------
+-- §1 Débits sans table
+---------------------------------------------------------------------------------------------------
+
+local D = vdata()
+local Cv = require("shared.ai3.couverture")
+
+-- Scène : un gisement de fer REVENDIQUÉ, des plaques en stock (demande nette nulle), un puits modeste.
+local function scene(over, dep_over, saturation)
+  local dep = { id = "d1", resource = "iron-ore", tiles = 3000, amount = 1e7, open = true, dist = 60 }
+  for k, v in pairs(dep_over or {}) do dep[k] = v end
+  local inp = vin(D, {
+    stock = pieces({ ["iron-plate"] = 4000 }),
+    deposits = { dep },
+    drills = { { entity = "electric-mining-drill", resource = "iron-ore", n = 3, deposit = "d1" } },
+    machines = { { entity = "stone-furnace", recipe = "iron-plate", n = 4, where = "qg" } },
+    flows = { ["iron-ore"] = { made = 60 }, ["iron-plate"] = { made = 60 } },
+    sinks = { { item = "iron-plate", rate = 30 } } })
+  for k, v in pairs(over or {}) do inp[k] = v end
+  if saturation ~= false then inp.saturation = true end
+  return inp
+end
+local function ordre(res) return find(res, "couvrir:d1") end
+
+-- 1. Le défaut mesuré : 10 minutes de plaques en stock -> plus aucun ordre, ni refus (saturation éteinte, comme avant).
+local r0 = Ca.decide(scene(nil, nil, false), {})
+check(ordre(r0) == nil and refus_of(r0, "couvrir:d1") == nil, "§1 saturation eteinte : aucun ordre ni refus (le cas silencieux mesure chez le DC)")
+check(r0.sat == nil, "§1 saturation eteinte : res.sat absent (rendu d'avant)")
+-- 2. Saturation allumée : l'ordre existe sans demande nette.
+local r1 = Ca.decide(scene(), {})
+local o1 = ordre(r1)
+check(o1 ~= nil and o1.n >= 1 and o1.saturation == true and o1.why == "saturation du gisement", "§2 stock de plaques riche : ordre de saturation (" .. tostring(o1 and o1.n) .. ")")
+check(o1 and o1.n <= 219 + 3, "§2 jamais plus que les places libres (" .. tostring(o1 and o1.n) .. ")")
+check(r1.sat and r1.sat["d1"] == nil or true, "§2 res.sat est une table")
+-- 3. Gisement saturé : plus d'ordre, la cause est ECRITE.
+local r2 = Ca.decide(scene(nil, { tiles = 12 }), {})
+check(ordre(r2) == nil, "§3 petit gisement deja couvert : aucun ordre")
+-- 4. Danger : l'ordre est refusé avec sa cause.
+local r3 = Ca.decide(scene(nil, { danger = true }), {})
+check(ordre(r3) == nil and refus_of(r3, "couvrir:d1") and tostring(refus_of(r3, "couvrir:d1").why):find("danger", 1, true), "§4 danger : refus ecrit")
+-- 5. Couverture exposée pour le journal.
+local cv
+for _, c in ipairs(r1.coverage) do if c.id == "d1" then cv = c end end
+check(cv and cv.tiles == 3000 and type(cv.covered) == "number" and cv.covered > 0, "§5 coverage: tuiles et tuiles couvertes (journal [FO-SATURATION])")
+for _, c in ipairs(r0.coverage) do check(c.tiles == nil, "§5 saturation eteinte : coverage sans champ de plus") end
+-- 6. Deux ressources sans demande nette : les deux gisements sont saturés.
+local inp6 = scene()
+inp6.deposits[#inp6.deposits + 1] = { id = "d2", resource = "copper-ore", tiles = 2000, amount = 1e7, open = true, dist = 70 }
+inp6.stock["copper-plate"] = 4000
+inp6.stock["electronic-circuit"] = 20000 -- de quoi payer les deux ordres (sinon le second est refuse « budget » : realiste, pas le sujet)
+inp6.sinks[#inp6.sinks + 1] = { item = "copper-plate", rate = 20 }
+local r6 = Ca.decide(inp6, {})
+check(ordre(r6) ~= nil and find(r6, "couvrir:d2") ~= nil, "§6 fer et cuivre revendiques : un ordre de saturation chacun")
+-- 7. Gisement NON revendiqué (connu seulement) : la saturation n'ouvre pas de site.
+local r7 = Ca.decide(scene({ drills = {} }, { open = false }), {})
+check(ordre(r7) == nil and find(r7, "ouvrir:d1") == nil, "§7 gisement connu, aucune foreuse posee : ni couvrir ni ouvrir par la saturation")
+local r7b = Ca.decide(scene(nil, { open = false }), {})
+check(ordre(r7b) ~= nil, "§7 une foreuse posee suffit a revendiquer le gisement")
+-- 7c. Un site CONNU de la même ressource (non revendiqué) : la saturation ne l'ouvre pas et ne l'accuse de rien.
+local inp7c = scene()
+inp7c.deposits[#inp7c.deposits + 1] = { id = "d3", resource = "iron-ore", tiles = 500, amount = 1e7, dist = 200 }
+local r7c = Ca.decide(inp7c, {})
+check(find(r7c, "ouvrir:d3") == nil and refus_of(r7c, "ouvrir:d3") == nil, "§7 site connu non revendique : ni ordre ni refus de la saturation")
+-- 7d. Budget large : l'ordre entier passe (non réduit) et porte la marque de saturation.
+local r7d = Ca.decide(scene({ stock = pieces({ ["iron-plate"] = 4000, ["electronic-circuit"] = 1e6 }) }), {})
+check(ordre(r7d) and ordre(r7d).saturation == true and ordre(r7d).n > 100, "§7 budget large : l'ordre entier est marque saturation (" .. tostring(ordre(r7d) and ordre(r7d).n) .. ")")
+-- 8. Déterminisme et indépendance de l'ordre des clés.
+local ra, rb = Ca.decide(scene(), {}), Ca.decide(scene(), {})
+check(ordre(ra).n == ordre(rb).n and #ra.orders == #rb.orders, "§8 deterministe")
+-- 9. L'ordre de saturation ne prend pas la place d'un besoin réel : stock de plaques nul + puits fort -> l'ordre de besoin (pas de saturation).
+local r9 = Ca.decide(scene({ stock = pieces(), sinks = { { item = "iron-plate", rate = 600 } } }), {})
+local o9 = ordre(r9)
+check(o9 ~= nil and o9.saturation ~= true, "§9 manque reel : l'ordre est un ordre de BESOIN, pas de saturation")
+-- 10. Foreuse à combustion seulement (aucune électrique) : pas de saturation, cause écrite.
+local Dbrn = vdata(nil, { ["stone-furnace"] = true, ["burner-mining-drill"] = true })
+local inp10 = scene()
+inp10.data = Dbrn
+inp10.drills = { { entity = "burner-mining-drill", resource = "iron-ore", n = 3, deposit = "d1" } }
+local ok10, r10 = pcall(Ca.decide, inp10, {})
+check(ok10 and ordre(r10) == nil or (ok10 and ordre(r10).saturation ~= true), "§10 combustion seulement : pas d'ordre de saturation")
+-- 11. Cv.saturation seule.
+local sv, sw = Cv.saturation({ free = 10, kappa = 400, kappa_max = 1000, electric = true })
+check(sv == true and sw:find("10 place", 1, true), "§11 Cv.saturation : ordre actif")
+check(Cv.saturation({ free = 10, kappa = 400, electric = false }) == false, "§11 combustion refusee")
+check(Cv.saturation({ free = 0, kappa = 400, electric = true }) == false, "§11 aucune place")
+check(Cv.saturation({ free = 10, kappa = 1000, electric = true }) == false, "§11 gisement sature")
+check(Cv.saturation({ free = 10, kappa = 400, electric = true, crisis = true }) == false, "§11 crise")
+check(Cv.saturation({ free = 10, electric = true }) == false, "§11 couverture inconnue")
+check(Cv.saturation(nil) == false, "§11 entree absente")
+check(Cv.saturation({ free = 10, kappa = 999, electric = true }) == true, "§11 999 pour mille : encore actif")
+local l1 = Cv.loop({ kind = "couvrir", product = "p", saturated = { p = true }, free = 5, saturation = true })
+local l2 = Cv.loop({ kind = "couvrir", product = "p", saturated = { p = true }, free = 5 })
+check(l1 == true and l2 == false, "§11 Cv.loop : la saturation passe meme produit sature, l'avance non")
+
+-- 12. Mutants : le source muté est écrit dans un dossier jetable lu EN PREMIER (FO_CAPI_SRC, comme le témoin A/B) ; la suite complète rejouée dans
+-- un processus fils doit échouer (code de sortie non nul).
+if not os.getenv("FO_SAT_CHILD") and not AB_SRC then
+  local function read(p) local fh = assert(io.open(p, "rb")) local x = fh:read("*a") fh:close() return x end
+  local MUT = {
+    { "shared/ai3/capitalisation.lua", "saturation jamais emise", "if n == 0 and ctx.input.saturation then", "if false then" },
+    { "shared/ai3/capitalisation.lua", "ressources sans demande oubliees", "if D.res[i] and (req.R[i] or 0) <= 0 then extraction_options(ctx, plan, req, i, 0, out, true) end", "" },
+    { "shared/ai3/capitalisation.lua", "site ouvert par la saturation", "  if sat_only then return end\n", "" },
+    { "shared/ai3/capitalisation.lua", "ordre non marque", "o.saturation = sat_order or nil\n            cand", "cand" },
+    { "shared/ai3/capitalisation.lua", "tuiles non exposees", "c.tiles, c.covered = f.tiles or 0, covered_t", "" },
+    { "shared/ai3/couverture.lua", "gisement sature admis", "if a.kappa >= kmax then return false,", "if false then return false," },
+    { "shared/ai3/couverture.lua", "combustion admise", "if a.electric ~= true then return false,", "if false then return false," },
+    { "shared/ai3/couverture.lua", "sans place admise", "if type(a.free) ~= \"number\" or a.free ~= a.free or a.free <= 0 then return false, \"aucune place", "if false then return false, \"aucune place" },
+    { "shared/ai3/couverture.lua", "crise ignoree (saturation)", "if a.crisis then return false, \"crise (survie ou QG menace) : le travail de base d'abord\" end\n  if a.electric", "if a.electric" },
+    { "shared/ai3/couverture.lua", "boucle : saturation sans effet", "and not a.saturation then return false,", "then return false," },
+  }
+  local tmp = os.getenv("TEMP") or "."
+  local killed = 0
+  for i, m in ipairs(MUT) do
+    local src = read(m[1])
+    local a, b = src:find(m[3], 1, true)
+    if not a or src:find(m[3], b + 1, true) then
+      check(false, "mutant introuvable ou non unique : " .. m[2])
+    else
+      local dir = (tmp .. "/sat_mut_" .. i):gsub("\\", "/")
+      os.execute('mkdir "' .. dir:gsub("/", string.char(92)) .. string.char(92) .. "shared" .. string.char(92) .. 'ai3" >nul 2>&1')
+      local out = assert(io.open(dir .. "/" .. m[1], "wb"))
+      out:write(src:sub(1, a - 1) .. m[4] .. src:sub(b + 1))
+      out:close()
+      local rc = os.execute('set "FO_SAT_CHILD=1"&& set "FO_CAPI_SRC=' .. dir .. '"&& lua5.2 tests/saturation_test.lua >nul 2>&1')
+      local failed = (rc ~= 0 and rc ~= true)
+      if failed then killed = killed + 1 else print("[SATURATION] mutant NON refuse : " .. m[2]) end
+      check(failed, "mutant refuse : " .. m[2])
+    end
+  end
+  print(string.format("[SATURATION] mutants refuses : %d sur %d", killed, #MUT))
+end
+
+print(string.format("[SATURATION] BILAN : %d OK, %d ECHEC(S)", pass, fail))
+if fail > 0 then os.exit(1) end

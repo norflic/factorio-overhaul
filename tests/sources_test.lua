@@ -203,6 +203,24 @@ local function suite()
   check(decide({ { uid = 7, n = 2000, d2 = 1 } }, { crisis = true }).code == "crise", "mot fixe : crise")
 
   ---------------------------------------------------------------------------------------------------
+  -- §4 quater : PNJ libres, la cause de l'inaction
+  ---------------------------------------------------------------------------------------------------
+  check(S.idle_cause({ idle = 0, free = { craft = 5 }, waiting = {} }) == nil, "aucun PNJ libre : rien à écrire")
+  local ic = S.idle_cause({ idle = 3, free = { craft = 198, mine = 144 }, waiting = { { pid = 7, ents = 446, missing = { { PLATE, 900 }, { "transport-belt", 461 } } },
+    { pid = 8, ents = 52, missing = { { PLATE, 100 } } } } })
+  check(ic and ic.code == "matiere" and ic.text:find("^rien a construire : 2 projet%(s%) attendent de la matiere"), "projets en attente de matière : cause « matiere »")
+  check(ic.text:find(PLATE .. " 1000", 1, true) and ic.text:find("transport-belt 461", 1, true), "manques additionnés, du plus grand au plus petit")
+  check(ic.text:find(PLATE, 1, true) < ic.text:find("transport-belt", 1, true), "le plus gros manque d'abord")
+  ic = S.idle_cause({ idle = 2, free = { craft = 198, mine = 144, service = 27 }, waiting = {} })
+  check(ic.code == "bloquees" and ic.text:find("369 tache%(s%) libre%(s%) mais aucune prenable") and ic.text:find("craft 198, mine 144, service 27", 1, true), "tâches libres mais aucune prenable : types cités")
+  ic = S.idle_cause({ idle = 1, free = {}, waiting = {} })
+  check(ic.code == "aucune" and ic.text == "rien a construire : aucune tache au tableau", "rien du tout : « aucune tache au tableau »")
+  local many = {}
+  for i = 1, 9 do many["k" .. i] = 10 - i end
+  ic = S.idle_cause({ idle = 1, free = many, waiting = {} })
+  check(select(2, ic.text:gsub("k%d", "")) == S.IDLE_KINDS_MAX, "au plus S.IDLE_KINDS_MAX types cités")
+
+  ---------------------------------------------------------------------------------------------------
   -- §5 objets attendus
   ---------------------------------------------------------------------------------------------------
   local rws = { { uid = 1, n = 1000 }, { uid = 2, n = 15 }, { uid = 3, n = 400 }, { uid = 4, n = 600 } }
@@ -407,6 +425,15 @@ local MUTANTS = {
   { "codes-absents", function()
       local o = S.decide
       S.decide = function(a) local d = o(a); d.code = nil return d end
+    end },
+  { "inaction-muette", function() S.idle_cause = function() return nil end end },
+  { "inaction-sans-matiere", function()
+      local o = S.idle_cause
+      S.idle_cause = function(a) a.waiting = {} return o(a) end
+    end },
+  { "inaction-libres-zero", function()
+      local o = S.idle_cause
+      S.idle_cause = function(a) a.idle = 0 return o(a) end
     end },
   { "cibles-brut-comme-plaque", function()
       local o = S.targets

@@ -455,6 +455,22 @@ do
   check(say_count("pas de minage a la main de copper%-ore : le stock suffit") == 1, "journal : le stock suffit")
 end
 
+do
+  new_world()
+  logs = {}
+  local g = team()
+  pteam = g
+  STOCK = { counts = {}, room = nil, skip = nil, annexes = {} }
+  Src.think(g, 300, 0)
+  check(Src.hand_ok(g, ORE, 400, false, 50, false) == true, "machines pas encore assez : la main passe")
+  g.team.inter = { skip = { [ORE] = true } }
+  local okm, whym, textm = Src.hand_ok(g, ORE, 400, false, 50, false)
+  check(okm == false and whym == "machines" and textm:find("D09"), "D09 a coupe le minerai : un minage deja pris est barre au programme")
+  check(Src.hand_ok(g, ORE, 400, false, 50, true) == true, "mode survie : exempte")
+  check(Src.hand_ok(g, ORE, 400, true, 50, false) == true, "crise injectee : exempte")
+  check(Src.hand_ok(g, T.outposts.copper.resource, 400, false, 50, false) == true, "une autre ressource non coupee : la main passe")
+end
+
 ---------------------------------------------------------------------------------------------------
 -- §9 liste complète pour le graphe, débit, plaques en route
 ---------------------------------------------------------------------------------------------------
@@ -501,6 +517,30 @@ do
   Src.think(g, 20000)
   local inc9 = Src.incoming(g, {}, 20000)
   check(inc9[PLATE] == 250, "plaques déjà prises et en route : attendues une seule fois : " .. tostring(inc9[PLATE]))
+end
+
+---------------------------------------------------------------------------------------------------
+-- §10 PNJ libres sans rien à construire : la cause écrite
+---------------------------------------------------------------------------------------------------
+do
+  new_world()
+  logs = {}
+  local g = team()
+  pteam = g
+  STOCK = { counts = {}, room = nil, skip = nil, annexes = {} }
+  g.build = { order = { 7, 8 }, projects = { [7] = { state = "reserve", ents = { 1, 2, 3 }, missing = { { PLATE, 900 } } }, [8] = { state = "fini", ents = {} } } }
+  local bb = require("script.team.board").get(g)
+  bb.tasks["craft:x"] = { key = "craft:x", kind = "craft", prio = 50 }
+  Src.think(g, 3600, 0)
+  check(say_count("RIEN%-A%-FAIRE") == 0, "aucun PNJ libre : aucune ligne")
+  Src.think(g, 3700, 4)
+  check(say_count("%[FO%-RIEN%-A%-FAIRE%] player : 4 PNJ libre%(s%) : rien a construire : 1 projet%(s%) attendent de la matiere %(manque iron%-plate 900%)") == 1,
+    "4 PNJ libres, un projet attend 900 plaques : cause écrite")
+  check(g.team.sources.idle and g.team.sources.idle.code == "matiere", "mot fixe lisible : matiere")
+  Src.think(g, 3800, 4)
+  check(say_count("RIEN%-A%-FAIRE") == 1, "au plus une ligne par minute")
+  Src.think(g, 3700 + 3600, 4)
+  check(say_count("RIEN%-A%-FAIRE") == 2, "une minute plus tard : une nouvelle ligne")
 end
 
 ---------------------------------------------------------------------------------------------------

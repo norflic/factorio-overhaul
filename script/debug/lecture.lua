@@ -23,7 +23,11 @@ local Zn = require("shared.debug.zone")
 local Rv = require("script.team.reseau_vivant")
 local An = require("script.debug.anneau")
 local Am = require("shared.debug.ameliorations")
+local Li = require("shared.debug.liens")
 local Lg = require("shared.debug.lignes")
+local Pn = require("shared.debug.pnj")
+local Bl = require("shared.debug.blocs")
+local Storage = require("script.core.storage")
 
 local Lec = {}
 
@@ -79,7 +83,7 @@ Lec.surface_of = surface_of
 local function project_kind(p)
   local spec = p.spec or {}
   if spec.champ then return "champ" end
-  if spec.liaison then return "liaison" end
+  if spec.liaison or spec.rapatriement then return "liaison" end -- une ligne (Li.lines), pas un bloc
   if spec.quartier then return "quartier" end
   if spec.enceinte then return "enceinte" end
   local part = p.parts and p.parts[1]
@@ -135,7 +139,7 @@ function Lec.skeletons(f)
         out[#out + 1] = { key = "p" .. pid, pid = pid, kind = project_kind(p), state = p.state, reason = p.reason and tostring(p.reason) or nil,
           built = built, total = #(p.ents or {}), x0 = x0, y0 = y0, x1 = x1, y1 = y1,
           product = (m and m.product) or spec.product, rate_nom = (m and m.rate_nom) or nil, rate_meas = (m and m.state == "fini") and m.rate_meas or nil,
-          prio = p.prio }
+          prio = p.prio, io = Bl.io(p.quais, p.outs) }
       end
     end
   end
@@ -275,6 +279,129 @@ function Lec.am_refus_rows(f, pid)
     local a = Lg.am_refus(key, refus[key])
     if a and a.pid == pid then out[#out + 1] = a end
   end
+  return out
+end
+
+--- Lignes enregistrées (quai, bus, piquage, rapatriement) avec leur état réel et la cause d'un refus ou d'une coupure : règle pure shared/debug/liens.lua
+--- (lot DEBUG-BLOCS). Copies de nombres et de chaînes ; extrémités = centres des coffres.
+function Lec.links(f, extra)
+  local b = f.build
+  local list = {}
+  for _, pid in ipairs(b and b.order or {}) do
+    local p = b.projects[pid]
+    if p then
+      list[#list + 1] = { pid = pid, state = p.state, finished = p.finished, abandoned = p.abandoned, reason = p.reason, spec = p.spec, rap = p.rap }
+    end
+  end
+  for _, d in ipairs(extra or {}) do list[#list + 1] = d end
+  return Li.lines(list, { piquage = b and b.piquage, rapatriement = b and b.rapatriement })
+end
+
+--- BANC D'IMAGES SEULEMENT (interface distante « demo », jamais allumée par le mod) : lignes FICTIVES entre les vrais blocs d'une équipe, pour contrôler le
+--- dessin d'une liaison de quai, d'un piquage en chantier, d'une demande refusée et d'une ligne de rapatriement quand la partie n'en a pas encore.
+--- Elles ne sont JAMAIS écrites dans f.build : elles s'ajoutent à la liste lue, rien d'autre.
+function Lec.demo_projects(skel)
+  local rects = {}
+  for _, z in ipairs(skel) do
+    if z.x0 and z.y0 and z.x1 and z.y1 and z.kind ~= "liaison" and z.kind ~= "raccord" then rects[#rects + 1] = z end
+  end
+  if #rects < 2 then return {} end
+  local A, B, C = rects[1], rects[2], rects[3] or rects[2]
+  local function mid(z) return math.floor((z.y0 + z.y1) / 2) end
+  local out = {
+    { pid = 9001, state = "fini", spec = { liaison = { key = "demo1", item = "iron-plate", src = { pid = A.pid, x = math.floor(A.x1), y = mid(A) },
+      dock = { pid = B.pid, x = math.floor(B.x0), y = mid(B) } } } },
+    { pid = 9002, state = "refuse", reason = "DEMO : ennemi a portee de la route", spec = { liaison = { key = "demo2", item = "copper-plate",
+      src = { pid = A.pid, x = math.floor(A.x1), y = mid(A) + 2 }, dock = { pid = C.pid, x = math.floor(C.x0), y = mid(C) + 2 } } } },
+    { pid = 9003, state = "chantier", spec = { liaison = { key = "demo3", piquage = true, item = "coal", geo = { x = math.floor(A.x0) - 8.5, y = mid(A) - 6.5 },
+      dock = { pid = A.pid, x = math.floor(A.x0), y = mid(A) - 3 } } } },
+    { pid = 9004, state = "fini", spec = { rapatriement = { key = "demo4", item = "stone-brick", src = { pid = C.pid, x = math.floor(C.x1), y = mid(C) },
+      point = { x = math.floor(A.x0), y = mid(A) + 4 } } }, rap = { tampon_x = math.floor(A.x0), tampon_y = mid(A) + 4 } },
+  }
+  return out
+end
+
+--- Agent (PNJ) dont le corps est l'entité `e`, ou nil. Lecture du registre des compagnons.
+function Lec.agent_of_entity(e)
+  if not (e and e.valid and e.unit_number) then return nil end
+  local S = Storage.ns("companion")
+  local id = S and S.by_unit and S.by_unit[e.unit_number]
+  return id and S.agents[id] or nil
+end
+
+--- Agent (PNJ) de numéro `id`, ou nil.
+function Lec.agent(id)
+  local S = Storage.ns("companion")
+  return S and S.agents and S.agents[id] or nil
+end
+
+--- Équipe d'un agent (State.faction de agent.faction), ou nil.
+function Lec.team_of_agent(agent)
+  return agent and agent.faction and State.faction(agent.faction) or nil
+end
+
+--- Tâches LIBRES du tableau avec leur pause d'échec et la matière stricte qui leur manque (lecture seule, RIEN n'est réservé) : liste
+--- { key, kind, prio, pause, missing = { item, need, free } | nil }, au plus `max` examinées dans l'ordre de la liste du tableau.
+function Lec.free_tasks(f, now, max)
+  local out = {}
+  local board = f.team and f.team.board
+  if not board then return out end
+  local okb, Board = pcall(require, "script.team.board")
+  local okr, R = pcall(require, "shared.ai3.registre")
+  local reg = f.team and f.team.reg
+  local list = board.list or {}
+  for i = 1, #list do
+    if #out >= (max or 40) then break end
+    local t = list[i]
+    if type(t) == "table" and not t.worker and board.tasks and board.tasks[t.key] == t then
+      local missing
+      if okb and okr and reg then
+        for _, it in ipairs(Board.strict_list(t) or {}) do
+          local free = R.free(reg, it[1])
+          if free < it[2] then missing = { item = it[1], need = it[2], free = free } break end
+        end
+      end
+      out[#out + 1] = { key = t.key, kind = t.kind, prio = t.prio, pause = math.max(0, ((board.cooldown or {})[t.key] or 0) - now), missing = missing }
+    end
+  end
+  return out
+end
+
+--- État cognitif d'un PNJ : voir shared/debug/pnj.lua. Lecture seule.
+function Lec.npc(f, agent, now)
+  local out = { id = agent.id, state = Pn.state_word(agent.state), team = tostring(f.key or "player") }
+  local org = agent.org
+  if type(org) == "table" then out.role, out.pole = org.role, org.pole end
+  local t = agent.task
+  if t then
+    out.task = { key = tostring(t.key), kind = t.kind, prio = t.prio, outpost = t.outpost, pid = t.ia1d and t.ia1d.pid or nil, mode = t.ia1d and t.ia1d.mode or nil,
+      resource = t.resource, taken = t.took == true }
+  end
+  out.steps = Pn.step_rows(agent.steps, agent.pc)
+  local free = Lec.free_tasks(f, now, 40)
+  out.nexts = Pn.next_rows(free)
+  out.explain = Pn.explain({ state = agent.state, has_task = t ~= nil, wait_left = agent.wait_until and (agent.wait_until - now) or nil,
+    nav_fail = agent.nav_fail, free = free })
+  local e = agent.entity
+  if e and e.valid then
+    out.x, out.y = e.position.x, e.position.y
+    local inv = e.get_main_inventory()
+    if inv then
+      local c = inv.get_contents()
+      local names = {}
+      for name in pairs(c) do names[#names + 1] = name end -- tri juste après
+      table.sort(names)
+      out.carry = {}
+      for i, name in ipairs(names) do
+        if i > 4 then break end
+        out.carry[#out.carry + 1] = { item = name, n = c[name] }
+      end
+    end
+  end
+  out.stuck = agent.stuck
+  -- l'équipe : PNJ affamés et travail ouvert par la file sûre à la dernière pensée (f.team.org.sur.last, lot INACTIFS, [FO-INACTIF])
+  local sl = f.team and f.team.org and f.team.org.sur and f.team.org.sur.last
+  if type(sl) == "table" then out.team_sur = { starved = sl.starved, want = sl.want, service = sl.service, mine = sl.mine } end
   return out
 end
 

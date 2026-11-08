@@ -94,7 +94,9 @@ local function d09(f, s, list, tick, survie)
     local input = T.smelter_inputs[prod]
     local per_ore = (input and input[1] == res and input[2] and input[2] > 0) and (1 / input[2]) or 1
     if prod == res or (input and input[1] == res) then
-      local flow = I.machine_flow({ stat = (not f.is_player) and stat_flow(f, res) or nil, modules = mod_rate[prod],
+      -- Lot MINAGE-MAIN (DC, 8/11, 14 h 30 : « les PNJ ne doivent plus miner à la main à ce stade ») : la force du joueur est lue aussi. Partie du DC en
+      -- 0.6.66 : les foreuses extrayaient 229/min de fer des 16 min, 848/min à 39 min, et D09 n'a jamais coupé (aucune ligne [FO-MAIN-FOURNIE]).
+      local flow = I.machine_flow({ stat = stat_flow(f, res), modules = mod_rate[prod],
         hand_miners = hand[res], per_ore = per_ore })
       local prev = s.skip[res] == true
       local now = I.hand_useless(prev, { flow = flow, survie = survie })

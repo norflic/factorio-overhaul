@@ -100,6 +100,7 @@ function Cv.close(player)
     if st.open_n == 0 then st.snaps = {} end -- plus aucun spectateur : le relevé est effacé
   end
   if player.valid then
+    Panneau.close_npc(player)
     Panneau.close(player)
     set_shortcut(player, false)
   end
@@ -135,6 +136,9 @@ local function new_cycle(f, s)
     order[#order + 1] = z.key
   end
   s.zones, s.order, s.cursor = zones, order, 1
+  local st = ns()
+  -- liaisons enregistrées (copies de nombres), refaites à chaque cycle ; lignes FICTIVES seulement si le banc d'images l'a demandé (remote « demo »)
+  s.links = Lec.links(f, (st and st.demo == true) and Lec.demo_projects(skel) or nil)
   s.cycles = (s.cycles or 0) + 1
 end
 
@@ -219,12 +223,25 @@ function Cv.refresh_one(player, st, v, now)
     sel_tasks = row and Lg.tasks_for_zone(tasks, { pid = row.z.pid, oid = row.z.oid }) or {},
     sel_piquage = row and row.z.pid and Lec.piquage_rows(f, row.z.pid) or {},
     sel_am_refus = row and row.z.pid and Lec.am_refus_rows(f, row.z.pid) or {},
+    links = s.links or {},
+    sel_links = {},
     improvements = Am.evaluate(Lec.improvement_facts(f)),
     sev_count = { alerte = 0, attention = 0, info = 0, ok = 0 },
   }
   for _, r in ipairs(rows) do ctx.sev_count[r.sev] = (ctx.sev_count[r.sev] or 0) + 1 end
+  if row and row.z.pid then
+    for _, l in ipairs(ctx.links) do
+      if l.dock_pid == row.z.pid or l.src_pid == row.z.pid then ctx.sel_links[#ctx.sel_links + 1] = l end
+    end
+  end
+  -- PNJ regardé (clic ou survol) : son état cognitif complet, relu à chaque redessin
+  if v.npc then
+    local agent = Lec.agent(v.npc)
+    local af = Lec.team_of_agent(agent)
+    if agent and af and agent.entity and agent.entity.valid then ctx.npc = Lec.npc(af, agent, now) else ctx.npc_gone = v.npc end
+  end
   local opts = Rendu.options(player)
-  Rendu.draw(player, v, rows, row and row.key or nil, opts, now, Lec.surface_of(f))
+  Rendu.draw(player, v, rows, row and row.key or nil, opts, now, Lec.surface_of(f), s.links)
   Panneau.update(player, v, ctx)
 end
 
@@ -258,6 +275,22 @@ Events.on(Cv.INPUT, function(e)
   if player then Cv.toggle(player) end
 end)
 
+-- Un PNJ pointé (survol) ou cliqué (le curseur est sur lui) pendant que la vue est ouverte : son panneau s'ouvre et le suit ; un autre PNJ le remplace.
+Events.on(defines.events.on_selected_entity_changed, function(e)
+  local st = ns()
+  if not st or st.open_n == 0 then return end
+  local v = st.viewers[e.player_index]
+  local player = game.get_player(e.player_index)
+  if not (v and player and player.valid) then return end
+  local agent = Lec.agent_of_entity(player.selected)
+  if agent and v.npc ~= agent.id then
+    v.npc = agent.id
+    v.sig.npc = nil
+    local ok, err = pcall(Cv.refresh_one, player, st, v, game.tick)
+    if not ok then snap_of(st, v.fid).err = tostring(err):sub(1, 200) end
+  end
+end)
+
 Events.on(defines.events.on_gui_click, function(e)
   local el = e.element
   if not (el and el.valid) then return end
@@ -269,6 +302,9 @@ Events.on(defines.events.on_gui_click, function(e)
   if not (player and v) then return end
   if name == "fo_dbg_close" then
     Cv.close(player)
+  elseif name == "fo_dbg_pnj_close" then
+    v.npc = nil
+    Panneau.close_npc(player)
   elseif name == "fo_dbg_zone" then
     v.sel = el.tags and el.tags.key or nil
     v.sig = {}
@@ -364,16 +400,45 @@ remote.add_interface("fo-dbg-cerveau", {
       for _ = 1, slices or 1 do slice_force(st, t.id, game.tick) end
       local rows = Cv.rows(t.f, s, game.tick)
       local c = { vert = 0, orange = 0, rouge = 0, gris = 0 }
-      local alertes, mesurees = 0, 0
+      local alertes, mesurees, io_n = 0, 0, 0
       for _, r in ipairs(rows) do
         c[r.color] = (c[r.color] or 0) + 1
         if r.sev == "alerte" then alertes = alertes + 1 end
         if r.z.mtick then mesurees = mesurees + 1 end
+        if r.z.io then io_n = io_n + #r.z.io.ins + #r.z.io.outs end
       end
-      out[#out + 1] = { id = tostring(t.id), key = t.key, zones = #s.order, mesurees = mesurees, couleurs = c, alertes = alertes, anneau = #An.get(t.key) }
+      out[#out + 1] = { id = tostring(t.id), key = t.key, zones = #s.order, mesurees = mesurees, couleurs = c, alertes = alertes, anneau = #An.get(t.key), liens = #(s.links or {}), ios = io_n }
     end
     if st.open_n == 0 then st.snaps = {} end
     return out
+  end,
+  -- BANC D'IMAGES SEULEMENT : allume ou éteint les lignes fictives (Lec.demo_projects) ; le recensement est refait au prochain cycle.
+  demo = function(on)
+    local st = ns()
+    if not st then return false end
+    st.demo = on == true
+    for _, s in pairs(st.snaps or {}) do s.cursor = 0 end -- remise à zéro seule : l'ordre ne compte pas
+    return true
+  end,
+  -- PNJ : numero du premier agent (plus petit numero) de l'equipe `fid` dont le corps existe, ou nil. Le banc d'images l'utilise pour ouvrir le panneau.
+  first_npc = function(fid)
+    local S = Storage.ns("companion")
+    local best
+    for id, a in pairs(S and S.agents or {}) do -- minimum seul : l'ordre ne compte pas
+      if a.faction == fid and a.entity and a.entity.valid and (best == nil or id < best) then best = id end
+    end
+    if best == nil then return nil end
+    local pos = S.agents[best].entity.position
+    return { id = best, x = pos.x, y = pos.y }
+  end,
+  watch_npc = function(index, id)
+    local st = ns()
+    local v = st and st.viewers[index]
+    local p = game.get_player(index)
+    if not (v and p and Lec.agent(id)) then return false end
+    v.npc, v.sig.npc = id, nil
+    Cv.refresh_one(p, st, v, game.tick)
+    return true
   end,
   -- lecture : { n zones, cycles, erreur, lignes = { { key, kind, color, cause, ecart, sev } } } pour la force observée
   state = function(index)
@@ -385,7 +450,7 @@ remote.add_interface("fo-dbg-cerveau", {
     if not (s and f) then return { n = 0 } end
     local out = { n = #s.order, cycles = s.cycles, err = s.err, lignes = {} }
     for _, r in ipairs(Cv.rows(f, s, game.tick)) do
-      out.lignes[#out.lignes + 1] = { key = r.key, kind = r.z.kind, color = r.color, cause = r.cause, ecart = r.ecart.kind, sev = r.sev,
+      out.lignes[#out.lignes + 1] = { key = r.key, kind = r.z.kind, x0 = r.z.x0, y0 = r.z.y0, x1 = r.z.x1, y1 = r.z.y1, color = r.color, cause = r.cause, ecart = r.ecart.kind, sev = r.sev,
         reads = #r.reads, measured = r.z.mtick ~= nil }
     end
     return out

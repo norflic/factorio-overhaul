@@ -27,7 +27,7 @@ local function section(name) print("== " .. name) end
 log = function() end
 local ES = { working = 1, no_power = 2, low_power = 3, no_fuel = 4, no_ingredients = 5, full_output = 6, waiting_for_space_in_destination = 7, normal = 8 }
 defines = { entity_status = ES, events = { on_lua_shortcut = 101, on_gui_click = 102, on_gui_selection_state_changed = 103, on_gui_closed = 104,
-  on_player_left_game = 105, on_player_removed = 106 } }
+  on_player_left_game = 105, on_player_removed = 106, on_selected_entity_changed = 107 } }
 local nth, evs, cmds, remotes = {}, {}, {}, {}
 package.loaded["script.core.events"] = {
   on = function(id, fn) evs[id] = evs[id] or {} table.insert(evs[id], fn) end,
@@ -55,12 +55,14 @@ rendering = {
 local DRAW_OK = {
   draw_rectangle = { "color", "draw_on_ground", "filled", "forces", "left_top", "left_top_offset", "only_in_alt_mode", "players", "right_bottom",
     "right_bottom_offset", "surface", "time_to_live", "visible", "width" },
+  draw_line = { "color", "dash_length", "dash_offset", "draw_on_ground", "forces", "from", "from_offset", "gap_length", "only_in_alt_mode", "players", "surface",
+    "time_to_live", "to", "to_offset", "visible", "width" },
   draw_circle = { "color", "draw_on_ground", "filled", "forces", "only_in_alt_mode", "players", "radius", "surface", "target", "target_offset",
     "time_to_live", "visible", "width" },
   draw_text = { "alignment", "color", "draw_on_ground", "font", "forces", "only_in_alt_mode", "orientation", "players", "scale", "scale_with_zoom",
     "surface", "target", "target_offset", "text", "time_to_live", "use_rich_text", "vertical_alignment", "visible" },
 }
-for _, kind in ipairs({ "draw_rectangle", "draw_circle", "draw_text" }) do
+for _, kind in ipairs({ "draw_rectangle", "draw_circle", "draw_text", "draw_line" }) do
   local ok = {}
   for _, k in ipairs(DRAW_OK[kind]) do ok[k] = true end
   rendering[kind] = function(p)
@@ -526,6 +528,166 @@ do
   local why
   for _, r in ipairs(rd) do if r.src == "sante" then why = r.why end end
   check(why == "autre", "last_why est un texte libre : la cause affichee est 'autre'")
+end
+
+section("8. PNJ (clic ou survol), blocs, entrees et sorties, liaisons (directive du DC, V2)")
+do
+  package.loaded["script.team.board"] = { strict_list = function(t) return t.strict end }
+  package.loaded["shared.ai3.registre"] = { free = function(reg, item) return reg.free[item] or 0 end }
+  local Lec = require("script.debug.lecture")
+  Cv.close(P1)
+  -- un bloc avec une entree et une sortie, une liaison de quai finie, une branche de piquage en chantier
+  f.build.projects[1].quais = { { x = 12, y = 12, item = "coal" } }
+  f.build.projects[1].outs = { { x = 20, y = 12 } }
+  f.build.projects[20] = { id = 20, state = "fini", parts = {}, ents = {}, spec = { liaison = { item = "iron-plate", dock = { pid = 1, idx = 1, x = 12, y = 12 }, src = { pid = 2, idx = 1, x = 55, y = 12 } } } }
+  f.build.projects[21] = { id = 21, state = "chantier", parts = {}, ents = {}, spec = { liaison = { piquage = true, item = "coal", geo = { x = 30.5, y = 5.5 }, dock = { pid = 1, idx = 1, x = 12, y = 12 } } } }
+  f.build.projects[20].spec.liaison.key = "k20"
+  f.build.projects[21].spec.liaison.key = "k21"
+  -- une demande REFUSEE (doit se voir en rouge avec sa cause), une ligne de rapatriement, un piquage pose
+  f.build.projects[22] = { id = 22, state = "refuse", reason = "ennemi a portee", parts = {}, ents = {}, spec = { liaison = { key = "k22", item = "copper-plate", dock = { pid = 1, idx = 1, x = 12, y = 14 }, src = { pid = 2, idx = 1, x = 30, y = 14 } } } }
+  f.build.projects[23] = { id = 23, state = "fini", parts = { { kind = "liaison", ox = 41, oy = 21, w = 1, h = 1 } }, ents = {}, rap = { tampon_x = 41, tampon_y = 21 },
+    spec = { rapatriement = { key = "r1", item = "iron-plate", src = { pid = 2, idx = 1, x = 70, y = 20 }, point = { x = 40, y = 20 } } } }
+  f.build.projects[24] = { id = 24, state = "fini", parts = {}, ents = {}, spec = { liaison = { key = "k24", piquage = true, item = "transport-belt", geo = { x = 60.5, y = 30.5 }, dock = { pid = 1, idx = 1, x = 12, y = 12 } } } }
+  f.build.piquage = { links = { k24 = { split = true } }, quais = {} }
+  f.build.order = { 1, 2, 3, 4, 5, 6, 20, 21, 22, 23, 24 }
+  local lk = Lec.links(f)
+  check(#lk == 5 and lk[1].kind == "quai" and lk[2].kind == "piquage" and lk[3].status == "refuse" and lk[4].kind == "rapatriement" and lk[5].status == "actif",
+    "lignes lues dans f.build : quai, piquage en chantier, REFUSEE, rapatriement, piquage pose : " .. #lk)
+  local sk = Lec.skeletons(f)
+  local has23 = false
+  for _, z in ipairs(sk) do if z.pid == 23 and z.kind == "module" then has23 = true end end
+  check(not has23, "un projet de rapatriement n'est pas un bloc 'module'")
+  local dm = Lec.demo_projects({ { pid = 1, kind = "module", x0 = 0, y0 = 0, x1 = 10, y1 = 10 }, { pid = 2, kind = "fonderie", x0 = 40, y0 = 0, x1 = 50, y1 = 10 } })
+  local dl = Lec.links({ build = { order = {}, projects = {} } }, dm)
+  check(#dm == 4 and #dl == 4 and dl[1].status == "actif" and dl[2].status == "refuse" and dl[3].status == "chantier" and dl[4].kind == "rapatriement",
+    "lignes fictives du banc d'images : quai, refusee, piquage en chantier, rapatriement (jamais ecrites dans f.build)")
+  check(#Lec.demo_projects({ { pid = 1, kind = "module", x0 = 0, y0 = 0, x1 = 1, y1 = 1 } }) == 0, "une seule zone : pas de ligne fictive")
+  -- le tableau : une tache libre sans matiere, une en pause d'echec, une prise
+  local t_mat = { key = "service:1", kind = "service", prio = 95, outpost = 1, strict = { { "iron-plate", 50 } } }
+  local t_pause = { key = "mine:iron", kind = "mine", prio = 45 }
+  local t_pris = { key = "ia1d:2:fill:1", kind = "carry", prio = 70, worker = 5, ia1d = { pid = 2, mode = "fill" } }
+  f.team.board = { tasks = { ["service:1"] = t_mat, ["mine:iron"] = t_pause, ["ia1d:2:fill:1"] = t_pris }, list = { t_mat, t_pause, t_pris }, cooldown = { ["mine:iron"] = NOW + 900 } }
+  f.team.reg = { free = { ["iron-plate"] = 10 } }
+  local body = { valid = true, unit_number = 555, position = { x = 3, y = 4 }, get_main_inventory = function() return { get_contents = function() return { ["iron-plate"] = 12, coal = 3 } end } end }
+  local agent = { id = 1, faction = 7, state = "idle", entity = body, org = { role = "executant", pole = "production" } }
+  STORE["companion"] = { v = { agents = { [1] = agent }, by_unit = { [555] = 1 } } }
+  check(Lec.agent_of_entity(body) == agent and Lec.agent_of_entity(nil) == nil and Lec.agent_of_entity({ valid = true, unit_number = 1 }) == nil, "corps de PNJ -> agent par le registre ; autre entite : nil")
+  local npc = Lec.npc(f, agent, NOW)
+  check(npc.explain.cause == "matiere" and npc.explain.item == "iron-plate" and npc.explain.need == 50 and npc.explain.free == 10, "PNJ inactif : cause = manque de matiere (iron-plate besoin 50, libre 10)")
+  check(#npc.nexts == 2 and npc.nexts[1].key == "service:1" and npc.nexts[1].status == "matiere" and npc.nexts[2].status == "pause", "tâches suivantes : 2 libres (la prise est ecartee), matiere puis pause")
+  check(npc.carry and npc.carry[1].item == "coal", "sac lu")
+  check(npc.team_sur == nil, "sans f.team.org.sur : pas de ligne d'equipe")
+  f.team.org = { sur = { last = { starved = 2, want = 3, service = 1, mine = 0 } } }
+  npc = Lec.npc(f, agent, NOW)
+  check(npc.team_sur and npc.team_sur.starved == 2 and npc.team_sur.want == 3, "ligne d'equipe lue dans f.team.org.sur.last")
+  agent.state, agent.task, agent.steps, agent.pc = "step", { key = "ia1d:2:fill:1", kind = "carry", prio = 70, ia1d = { pid = 2, mode = "fill" } }, { { "home" }, { "goto", { x = 5, y = 6 } }, { "act", "x" } }, 2
+  npc = Lec.npc(f, agent, NOW)
+  check(npc.task.pid == 2 and npc.task.mode == "fill" and npc.steps.left == 2 and npc.steps.rows[1].kind == "goto" and npc.explain.cause == "en_marche", "PNJ au travail : tache, etapes restantes (2 sur 3), en marche")
+  agent.state, agent.task, agent.steps, agent.pc = "idle", nil, nil, nil
+  -- ouverture de la vue puis clic / survol du PNJ
+  Cv.open(P1, 7)
+  run_slices(12, NOW)
+  P1.selected = body
+  for _, fn in ipairs(evs[defines.events.on_selected_entity_changed]) do fn({ player_index = 1 }) end
+  check(STORE["debug_cerveau"].v.viewers[1].npc == 1, "survol d'un PNJ : le panneau suit ce PNJ")
+  local pf = P1.gui.screen["fo_dbg_pnj_frame"]
+  check(pf ~= nil, "panneau du PNJ cree")
+  local function flat(el, out)
+    out = out or {}
+    for _, ch in ipairs(el.children) do
+      if ch.caption ~= nil then out[#out + 1] = ch.caption end
+      flat(ch, out)
+    end
+    return out
+  end
+  local caps = flat(pf)
+  local function has(key)
+    for _, c in ipairs(caps) do if type(c) == "table" and c[1] == key then return c end end
+    return nil
+  end
+  local ent = has("fo-dbg-cerveau.pnj-entete")
+  check(ent and ent[4][1] == "fo-dbg-cerveau.pnj-etat-idle", "entete : etat idle")
+  local cause = has("fo-dbg-cerveau.pnj-cause-matiere")
+  check(cause and cause[2] == "service:1" and cause[4] == "50" and cause[5] == "10", "cause affichee : la tache qui attend, la matiere, le besoin et le libre")
+  check(has("fo-dbg-cerveau.pnj-sans-tache") ~= nil, "aucune tache en cours : dit")
+  local n_sv = 0
+  for _, c in ipairs(caps) do if type(c) == "table" and c[1] == "fo-dbg-cerveau.pnj-suivante" then n_sv = n_sv + 1 end end
+  check(n_sv == 2, "deux taches suivantes listees : " .. n_sv)
+  -- rendu : entrees / sorties / liaisons
+  R.calls = {}
+  run_refresh(NOW + 60)
+  local n_in, n_out, n_line, n_tampon, n_taprap, n_rep, n_rouge, n_cause = 0, 0, 0, 0, 0, 0, 0, 0
+  local lines_dashed, lines_solid, rich_all = 0, 0, true
+  for _, c in ipairs(R.calls) do
+    local t = c.p.text
+    if c.kind == "draw_line" then
+      n_line = n_line + 1
+      if c.p.dash_length then lines_dashed = lines_dashed + 1 else lines_solid = lines_solid + 1 end
+      if c.p.color.r == 1 and c.p.color.g == 0.2 then n_rouge = n_rouge + 1 end
+    elseif c.kind == "draw_text" and type(t) == "table" then
+      if not c.p.use_rich_text then rich_all = false end
+      if t[1] == "fo-dbg-cerveau.io-entree" then n_in = n_in + 1 end
+      if t[1] == "fo-dbg-cerveau.io-sortie" then n_out = n_out + 1 end
+      if t[1] == "fo-dbg-cerveau.lien-tampon" then n_tampon = n_tampon + 1 end
+      if t[1] == "fo-dbg-cerveau.lien-tampon-rap" then n_taprap = n_taprap + 1 end
+      if t[1] == "fo-dbg-cerveau.lien-repartiteur" then n_rep = n_rep + 1 end
+      if t[1] == "fo-dbg-cerveau.lien-ligne" and type(t[4]) == "table" and t[4][1] == "fo-dbg-cerveau.lien-statut-cause" and t[4][3] == "ennemi a portee" then n_cause = n_cause + 1 end
+    end
+  end
+  check(n_in >= 1 and n_out >= 1, "ENTREE et SORTIE ecrites sur le bloc : " .. n_in .. " / " .. n_out)
+  check(n_line == 25 and lines_dashed == 1 and lines_solid == 24, "5 lignes (4 traits + pointes de fleche) : seule la branche en chantier est en pointille : " .. n_line .. " / " .. lines_dashed)
+  check(n_rouge == 5, "la ligne REFUSEE est en rouge (trait et pointes) : " .. n_rouge)
+  check(n_cause == 1, "la cause du refus est ecrite sur la ligne : " .. n_cause)
+  check(n_tampon == 1 and n_taprap == 1 and n_rep == 1, "un coffre tampon (3 lignes vers le meme coffre), le tampon de rapatriement, un repartiteur pose : " .. n_tampon .. " / " .. n_taprap .. " / " .. n_rep)
+  check(rich_all, "tous les textes de la carte sont dessines en texte riche (icones d'objets)")
+  check(#R.calls <= 260, "objets de rendu plafonnes : " .. #R.calls)
+  -- le detail du bloc cite ses liaisons
+  local vv = STORE["debug_cerveau"].v.viewers[1]
+  vv.sel = "p1"
+  Cv.refresh_one(P1, STORE["debug_cerveau"].v, vv, NOW + 120)
+  local detail = find(P1.gui.screen["fo_dbg_frame"], "fo_dbg_detail")
+  local nl = 0
+  for _, ch in ipairs(detail.children) do if type(ch.caption) == "table" and ch.caption[1] == "fo-dbg-cerveau.detail-liaison" then nl = nl + 1 end end
+  check(nl == 4, "le detail du bloc p1 liste ses 4 liaisons (refusee comprise) : " .. nl)
+  -- PNJ disparu
+  body.valid = false
+  Cv.refresh_one(P1, STORE["debug_cerveau"].v, vv, NOW + 180)
+  local gone = false
+  for _, c in ipairs(flat(P1.gui.screen["fo_dbg_pnj_frame"])) do if type(c) == "table" and c[1] == "fo-dbg-cerveau.pnj-disparu" then gone = true end end
+  check(gone, "PNJ disparu : le panneau le dit")
+  -- PIRE CAS mesure par debug.sethook : 60 blocs a 4 entrees et 2 sorties, 40 liaisons, PNJ regarde
+  local f4 = { id = 11, key = "pire", force = "enemy_11", hq = { valid = true, surface = surface }, outposts = {}, last_think = NOW,
+    build = { order = {}, projects = {} }, team = { mq = { reads = {}, res = { starved = {} } }, ia3e = { mods = {}, last_min = 0 }, board = { tasks = {}, list = {}, cooldown = {} } } }
+  for i = 1, 100 do
+    f4.build.order[i] = i
+    if i <= 60 then
+      local q, o = {}, {}
+      for k = 1, 4 do q[k] = { x = 10 + i * 14 + k, y = 8, item = "coal" } end
+      for k = 1, 2 do o[k] = { x = 10 + i * 14 + k, y = 14 } end
+      f4.build.projects[i] = { id = i, state = i % 2 == 0 and "fini" or "chantier", parts = { part(10 + i * 14, 5, 12, 10) }, ents = {}, spec = { gen = "smelter", product = "iron-plate" }, quais = q, outs = o }
+    else
+      f4.build.projects[i] = { id = i, state = i % 2 == 0 and "fini" or "chantier", parts = {}, ents = {},
+        spec = { liaison = { item = "iron-plate", dock = { pid = i - 60, x = 10 + (i - 60) * 14, y = 8 }, src = { pid = i - 59, x = 40 + i, y = 20 }, bus = i % 3 == 0 or nil } } }
+    end
+  end
+  STORE["war"].v.factions[11] = f4
+  Cv.open(P1, 11)
+  run_slices(70, NOW)
+  local vv2 = STORE["debug_cerveau"].v.viewers[1]
+  P1.selected = body
+  body.valid = true
+  vv2.npc = nil
+  for _, fn in ipairs(evs[defines.events.on_selected_entity_changed]) do fn({ player_index = 1 }) end
+  R.calls = {}
+  local cnt = 0
+  debug.sethook(function() cnt = cnt + 1000 end, "", 1000)
+  run_refresh(NOW + 1000)
+  debug.sethook()
+  check(#R.calls <= 260, "pire cas : objets de rendu plafonnes a 260 : " .. #R.calls)
+  check(cnt <= 3000000, "pire cas (60 blocs, 40 liaisons, PNJ regarde) : " .. cnt .. " instructions par redessin (<= 3 000 000)")
+  print("  pire cas : environ " .. cnt .. " instructions par redessin, " .. #R.calls .. " objets de rendu")
+  Cv.close(P1)
+  check(P1.gui.screen["fo_dbg_pnj_frame"] == nil, "fermeture de la vue : panneau du PNJ detruit")
 end
 
 print(string.format("[DEBUG-CERVEAU-VUE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
