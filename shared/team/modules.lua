@@ -136,7 +136,13 @@ function M.spec(name)
   if s then return s end
   if LEVEL_CACHE[name] then return LEVEL_CACHE[name] end
   local fam, n = L.parse(name)
-  if not fam then return nil end
+  if not fam then
+    -- Lot RANGEES-ASM : tapis des DONNÉES (G.simple, argument 5) : M.belt_spec, crochet posé par le script (prototypes du jeu, les
+    -- mêmes sur tous les postes), le connaît même avant toute génération de gabarit (chargement d'une partie, poste qui rejoint)
+    local hb = M.belt_spec and M.belt_spec(name)
+    if hb then BASE[name] = hb end
+    return hb
+  end
   local b = BASE[fam.base]
   if not b then return nil end
   local side = L.footprint(fam, n)
@@ -274,7 +280,7 @@ function Builder:belt_line(x0, y0, x1, y1, dir)
   local dy = y1 > y0 and 1 or (y1 < y0 and -1 or 0)
   local x, y = x0, y0
   while true do
-    out[#out + 1] = self:put("transport-belt", x, y, dir)
+    out[#out + 1] = self:put(self.belt or "transport-belt", x, y, dir) -- lot RANGEES-ASM : tapis du gabarit (self.belt, G.simple)
     if x == x1 and y == y1 then break end
     x, y = x + dx, y + dy
   end
@@ -715,6 +721,7 @@ end
 ---   lanes = voies du tapis du haut ; lanes2 = voies du 2e tapis (bras longs) ; out_x0 : début du tapis de sortie.
 function G.row(key, fr, en, spec, ox, oy, b)
   b = b or new_builder(key, fr, en)
+  if spec.belt then b.belt = spec.belt end -- lot RANGEES-ASM : tapis des données (G.simple, argument 5)
   ox, oy = ox or 0, oy or 0
   local s = M.spec(spec.machines[1].name).w
   local nm = #spec.machines
@@ -850,11 +857,45 @@ function G.gears(n, machine)
   return b:finish()
 end
 
+--- Lot RANGEES-ASM : sortie d'une rangée (G.row posée avec no_out_port) sur les DEUX voies. Le tapis du bas est remplacé par deux
+--- tronçons qui coulent vers la colonne de liaison après la machine `jn` (ouest : machines 1..jn ; est : jn+1..n) et chargent par
+--- les côtés une tuile vers le sud (une voie chacun, comme la jonction de two_stage) ; le port de sortie est la tuile au-dessous.
+--- Les tuiles du tapis du bas sont les DERNIÈRES entités de la rangée (G.row les pose en fin) : les retirer ne décale aucun indice.
+function G.out_junction(b, info, jn)
+  local ob = {}
+  for _, i in ipairs(info.out or {}) do ob[i] = true end
+  local keep = {}
+  for i, e in ipairs(b.g.entities) do if not ob[i] then keep[#keep + 1] = e end end
+  b.g.entities = keep
+  local y = info.y_ob
+  local xj = info.xs[jn] + info.s
+  b:belt_line(info.xs[1], y, xj - 1, y, E)
+  b:put(b.belt or "transport-belt", xj, y, S)
+  local tail = b:put(b.belt or "transport-belt", xj, y + 1, S)
+  b:belt_line(info.xs[1] + info.w - 1, y, xj + 1, y, W)
+  b:port({ kind = "tapis", io = "out", ent = tail })
+  return xj
+end
+
 --- Lot IA3-e : rangée de n assembleurs d'UNE recette du modèle (M.RECIPES) à un ou deux ingrédients solides et un
 --- produit (munitions…) : un ingrédient sur les deux voies du tapis du haut, ou un par voie ; sortie au tapis du bas.
-function G.simple(recipe, n, machine)
+--- Lot RANGEES-ASM : voies = 2 (et n >= 2) : sortie sur les deux voies par une jonction centrale (G.out_junction) ; la borne du
+--- produit passe d'une voie à deux (câbles : 3 assembleurs 1 sur une voie, 6 sur deux).
+--- Lot RANGEES-ASM : belt (facultatif) = tapis des DONNÉES du jeu { name, lane = objets/s par voie } (script : vitesse du prototype,
+--- tapis débloqué) : rangé au modèle à la première génération comme une recette des données ; tous les tapis du gabarit le posent
+--- et les bornes suivent sa voie. Sans lui : le tapis du modèle (7,5/s par voie).
+function G.simple(recipe, n, machine, voies, belt)
   machine = machine or "assembling-machine-1"
   local sp, why = machine_spec(machine, "assembler", "rangée"); if not sp then return nil, why end
+  local lane_rate, belt_name = M.LANE_RATE, nil
+  if belt ~= nil then
+    if not (type(belt) == "table" and type(belt.name) == "string" and type(belt.lane) == "number" and belt.lane > 0) then
+      return fail("rangée : tapis invalide")
+    end
+    if not BASE[belt.name] then BASE[belt.name] = { kind = "belt", w = 1, h = 1, lane = belt.lane } end
+    if (BASE[belt.name] or {}).kind ~= "belt" then return fail("rangée : %s n'est pas un tapis", belt.name) end
+    lane_rate, belt_name = BASE[belt.name].lane or M.LANE_RATE, belt.name
+  end
   -- Lot IA3-e (généralisation) : la recette peut venir des DONNÉES du jeu (table { name, category, energy | time,
   -- ingredients = { { type, name, amount } }, products = { … } }, livre de recettes du cerveau) : elle est rangée au modèle
   -- (M.RECIPES) à la première génération ; le paramètre du gabarit garde la table (le gabarit se refait après un
@@ -893,17 +934,25 @@ function G.simple(recipe, n, machine)
   local ms = {}
   for i = 1, n do ms[i] = { name = machine, recipe = key, rate = rate, top = top, out = true } end
   local lanes = { ings[1].name, (ings[2] or ings[1]).name }
-  local b, info = G.row("rangee-" .. key .. lvl_tag(sp), "Rangée (" .. n .. " " .. machine .. ", " .. key .. ")",
-    "Row (" .. n .. " " .. machine .. ", " .. key .. ")", { machines = ms, lanes = lanes })
+  local two = voies == 2
+  local jn = (two and n >= 2) and math.floor(n / 2) or nil
+  local b, info = G.row("rangee-" .. key .. lvl_tag(sp) .. (two and "-2v" or "") .. (belt_name and ("-" .. belt_name) or ""),
+    "Rangée (" .. n .. " " .. machine .. ", " .. key .. ")",
+    "Row (" .. n .. " " .. machine .. ", " .. key .. ")", { machines = ms, lanes = lanes, no_out_port = jn ~= nil, belt = belt_name })
   if not b then return nil, info end
+  if jn then G.out_junction(b, info, jn) end
   b.g.power_pole = row_poles(b, info, 0, 0)
-  b.g.params = { recipe = key, n = n, machine = machine }
-  b.g.gen, b.g.args, b.g.level_arg = "simple", { recipe, n, machine }, 3
-  -- bornes : largeur ; un ingrédient seul sur deux voies (15/s), deux ingrédients sur une voie chacun (7,5/s) ; produit sur
-  -- UNE voie du tapis de sortie
-  local bounds = { row_width_bound(sp.w), floor_eps(M.LANE_RATE / (r.products[1].amount * rate)) }
-  if #ings == 1 then bounds[#bounds + 1] = floor_eps(M.BELT_RATE / (ings[1].amount * rate))
-  else for _, ing in ipairs(ings) do bounds[#bounds + 1] = floor_eps(M.LANE_RATE / (ing.amount * rate)) end end
+  b.g.params = { recipe = key, n = n, machine = machine, voies = two and 2 or nil, jn = jn, belt = belt_name }
+  local args = { recipe, n, machine }
+  if two or belt_name then args[4] = two and 2 or 1 end -- (jamais de trou dans args : M.regenerate et A.template les déroulent)
+  if belt_name then args[5] = belt end
+  b.g.gen, b.g.args, b.g.level_arg = "simple", args, 3
+  -- bornes : largeur ; un ingrédient seul sur deux voies, deux ingrédients sur une voie chacun ; produit sur UNE voie du tapis de
+  -- sortie (deux voies : chaque tronçon de la jonction porte au plus une voie, d'où 2 × la borne d'une voie) ; voie du tapis posé
+  local lane_n = floor_eps(lane_rate / (r.products[1].amount * rate))
+  local bounds = { row_width_bound(sp.w), two and 2 * lane_n or lane_n }
+  if #ings == 1 then bounds[#bounds + 1] = floor_eps(2 * lane_rate / (ings[1].amount * rate))
+  else for _, ing in ipairs(ings) do bounds[#bounds + 1] = floor_eps(lane_rate / (ing.amount * rate)) end end
   set_ext(b.g, "n", 2, minimum(bounds))
   return b:finish()
 end
@@ -2286,8 +2335,10 @@ function M.analyze(g)
   -- au-delà de 7,5/s passait le contrôle). Un bras qui prend sur un tapis est un nœud (son indice d'entité), nourri
   -- par les deux voies et borné par sa capacité ; un dépôt vise la voie de son point de dépôt.
   local lane_in, lane_out = {}, {}
+  local lane_cap = {} -- lot RANGEES-ASM : capacité d'une voie selon le tapis (spec.lane d'un tapis des données, sinon le jaune)
   local nn = n
   for _, i in ipairs(belts) do
+    lane_cap[i] = specs[i].lane or M.LANE_RATE
     lane_in[i], lane_out[i] = {}, {}
     for l = 1, 2 do nn = nn + 1; lane_in[i][l] = nn; nn = nn + 1; lane_out[i][l] = nn end
   end
@@ -2309,7 +2360,7 @@ function M.analyze(g)
     end
     for _, p in ipairs(g.ports) do
       if p.io == "in" and p.kind == "tapis" and is_belt[p.ent] and p.lanes then
-        for l = 1, 2 do if p.lanes[l] == it then edges[#edges + 1] = { S_, lane_in[p.ent][l], M.LANE_RATE } end end
+        for l = 1, 2 do if p.lanes[l] == it then edges[#edges + 1] = { S_, lane_in[p.ent][l], lane_cap[p.ent] } end end
       elseif p.io == "in" and p.kind == "quai" and p.item == it then
         edges[#edges + 1] = { S_, p.ent, 1e9 }
       end
@@ -2329,7 +2380,7 @@ function M.analyze(g)
     end
     -- voies : capacité de chaque voie qui porte l'objet
     for _, i in ipairs(belts) do
-      for l = 1, 2 do if lanes[i][l][it] then edges[#edges + 1] = { lane_in[i][l], lane_out[i][l], M.LANE_RATE } end end
+      for l = 1, 2 do if lanes[i][l][it] then edges[#edges + 1] = { lane_in[i][l], lane_out[i][l], lane_cap[i] } end end
     end
     for _, l in ipairs(links) do
       local kb = specs[l.to].kind
@@ -2351,7 +2402,7 @@ function M.analyze(g)
         for l = 1, 2 do
           if lanes[f.from][l][it] then
             local tl = (f.kind == "side") and f.side or l
-            edges[#edges + 1] = { lane_out[f.from][l], lane_in[j][tl], M.LANE_RATE }
+            edges[#edges + 1] = { lane_out[f.from][l], lane_in[j][tl], math.min(lane_cap[f.from], lane_cap[j]) }
           end
         end
       end

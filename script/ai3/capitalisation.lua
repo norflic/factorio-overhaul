@@ -1586,14 +1586,14 @@ local function execute(f, cs, o, view, book, tick, research)
     -- demande (5 machines au moins quand elle le justifie), près des autres (script/ai3/rangees_asm.lua) ; false : ancien chemin
     if o.kind == "chaine" then
       local rids, rwhy = Capi.RaRt.execute(f, o, meth,
-        function(rate) return fit_module(meth, rate, book, view.stock or {}, Auto.plant_state(f) ~= nil, Harvest.reachable(f), Auto.belt_flow(f)) end,
-        function(g, args, near)
-          local id, w2 = Auto.submit(f, { product = o.item, gen = meth.gen, args = args, feed = meth.feed, rate = o.rate or 0,
+        function(m2, rate) return fit_module(m2, rate, book, view.stock or {}, Auto.plant_state(f) ~= nil, Harvest.reachable(f), Auto.belt_flow(f)) end,
+        function(m2, g, args, near, dyn)
+          local id, w2 = Auto.submit(f, { product = o.item, gen = m2.gen, args = args, feed = m2.feed, rate = o.rate or 0,
             rate_nom = (g.nominal[o.item] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, capi = o.key, pole = g.pole,
-            near = near, why = string.format("CAPI %s x%d T=%.2f (rangee)", o.kind, o.n or 0, o.T or 0) }, tick, research)
+            near = near, rangee = dyn or nil, why = string.format("CAPI %s x%d T=%.2f (rangee)", o.kind, o.n or 0, o.T or 0) }, tick, research)
           if not id then Rp.fail(repli, rkey, w2, tick, nil) return nil, "plan directeur : " .. tostring(w2) end
           return { id }
-        end, Rp.factor(repli, rkey, tick))
+        end, Rp.factor(repli, rkey, tick), tick)
       if rids ~= false then
         if not rids then return nil, rwhy end
         rec.exec, rec.mod_ids, rec.product = "module", rids, o.item
