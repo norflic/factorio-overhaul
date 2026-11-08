@@ -13,6 +13,7 @@
                B après son réveil : pas de bouffée (C2) ; statistiques de A pendant le gel = plaques comptées (on_flow) ;
                rien d'autre de figé (C4).
                C1b : îlot par îlot à ± 1 fabrication de la jumelle (B à 1 630 après le pas dû ; A et B à la fin ; B après son réveil).
+               C1' (lead, après le banc de 13dc9822) : sommes à ± 5 % ou 2, + 1 par machine réveillée dans le dernier cycle.
   Faits relevés : statut d'un inactif au moteur ; Gel.status rendu ; on_flow ; énergie des prototypes.
 ]]
 
@@ -217,6 +218,7 @@ return {
     elseif t == 1625 then
       local fb = count_inactive(machines(st.rows.B))
       ctx.check(fb == 0, "C5 : joueur a 100 tuiles de B : B reveille en 20 ticks au plus", fb .. " inactive(s) au tick 1625")
+      if fb == 0 then st.wake = st.wake or {}; st.wake.B = t end -- réveillée au plus tard ici (C1')
     elseif t == 1630 then
       st.b1630, st.t1630 = measure(s, st.rows.B, "B"), measure(s, st.rows.T, "T")
       st.ib1630, st.it1630 = per_ilot(st.rows.B), per_ilot(st.rows.T)
@@ -230,6 +232,7 @@ return {
     elseif t == 2420 then
       local fa = count_inactive(machines(st.rows.A))
       ctx.check(fa == 0, "C5 : attaque sur A : A reveille au guet suivant", fa .. " inactive(s) au tick 2420")
+      if fa == 0 then st.wake = st.wake or {}; st.wake.A = t end
     end
   end,
 
@@ -256,6 +259,33 @@ return {
       ctx.check(near(M.finished, T.finished, 0.05, 2), "C1 " .. k .. " : products_finished a +-5 % (ou 2) de T", M.finished .. " / " .. T.finished)
       ctx.check(near(M.stat_ore, T.stat_ore, 0.05, 2), "C1 " .. k .. " : statistiques de la force (minerai produit) a +-5 % (ou 2) de T", M.stat_ore .. " / " .. T.stat_ore)
       ctx.check(near(M.stat_ore_out, T.stat_ore_out, 0.05, 2), "C1 " .. k .. " : statistiques de la force (minerai consomme) a +-5 % (ou 2) de T", M.stat_ore_out .. " / " .. T.stat_ore_out)
+    end
+    -- C1' (décidé par le lead APRÈS le micro-banc de 13dc9822, 8/11 vers 4 h 30 ; C1 ci-dessus reste écrit et peut rester NON TENU) :
+    -- somme à ± 5 % ou 2, PLUS au plus 1 fabrication par machine réveillée dans le dernier cycle de fabrication avant la mesure
+    -- (fraction en cours perdue au réveil, jamais gagnée : K13, F83, F84). Cycles : foreuse 240 ticks (0,25 minerai/s), four 192.
+    local CYCLE = { drill = 240, furnace = 192 }
+    local function allow(k, kind, n)
+      local w = st.wake and st.wake[k]
+      if w and 2450 - w < CYCLE[kind] then return n end
+      return 0
+    end
+    for _, k in ipairs({ "A", "B" }) do
+      local M = (k == "A") and A or B
+      local mined_m, mined_t = 2 * N * 4 * ORE - M.ore_left, 2 * N * 4 * ORE - T.ore_left
+      local rows = {
+        { "plaques foreuse -> four", M.plates_a, T.plates_a, allow(k, "furnace", N) },
+        { "minerai foreuse -> coffre", M.ore_b, T.ore_b, allow(k, "drill", N) },
+        { "plaques des fours du QG", M.plates_c, T.plates_c, allow(k, "furnace", N) },
+        { "minerai retire du gisement", mined_m, mined_t, allow(k, "drill", 2 * N) },
+        { "statistiques (minerai produit)", M.stat_ore, T.stat_ore, allow(k, "drill", 2 * N) },
+        { "statistiques (minerai consomme)", M.stat_ore_out, T.stat_ore_out, allow(k, "furnace", 2 * N) },
+        { "statistiques (plaques)", M.stat_plates, T.stat_plates, allow(k, "furnace", 2 * N) },
+        { "products_finished", M.finished, T.finished, allow(k, "furnace", 2 * N) },
+      }
+      for _, r in ipairs(rows) do
+        ctx.check(near(r[2], r[3], 0.05, 2 + r[4]), "C1' " .. k .. " : " .. r[1] .. " a +-5 % (ou 2) de T, + " .. r[4] .. " (machines reveillees dans le dernier cycle)",
+          r[2] .. " / " .. r[3])
+      end
     end
     -- on_flow : pendant le gel de A (700 à 2370), statistiques = plaques déposées aux sorties
     if st.a700 and st.a2370 then
