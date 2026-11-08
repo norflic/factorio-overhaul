@@ -131,7 +131,8 @@ local chunk_src = between("--- Lot CHARBON-CENTRALE : boilers (nombre)", "--- Lo
   .. between("--- Lot CHARBON-CENTRALE : relevé des centrales finies", "local function pulse_team")
 
 local W = { logs = {}, stock = 0, chests = {}, tick = 0, requests = {} }
-local Build = { QUAI_LOW = 60, QUAI_FILL = 400, COLLECT_AT = 200 }
+local Build = { QUAI_LOW = 60, QUAI_FILL = 400, COLLECT_AT = 200,
+  Rempl = { adjust = function(_, _, _, _, _, _, _, _, r) return r end } } -- lot REMPLISSAGE : doublure neutre (stock juste)
 Build.Quotas = require("script.team.quotas_glue") -- lot VIDEO L4 : quai_tasks et out_tasks lisent les quotas (sans quota : ancienne règle)
 Build.request = function(f, spec)
   local b = f.build

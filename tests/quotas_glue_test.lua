@@ -49,7 +49,8 @@ local function load_code(src, Qg)
   local a = assert(src:find(A_MARK, 1, true), "repere absent")
   local b = assert(src:find(B_MARK, a, true), "repere absent")
   local body = src:sub(a, b - 1)
-  local Build = { QUAI_LOW = 60, QUAI_FILL = 400, COLLECT_AT = 200, Quotas = Qg }
+  local Build = { QUAI_LOW = 60, QUAI_FILL = 400, COLLECT_AT = 200, Quotas = Qg,
+    Rempl = { adjust = function(_, _, _, _, _, _, _, _, r) return r end } } -- lot REMPLISSAGE : doublure neutre (stock juste), testee dans tests/remplissage_test.lua
   local env = {
     Build = Build,
     P = { anchor_for = function(_, x, y) return { x = x, y = y } end },
