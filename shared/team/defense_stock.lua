@@ -21,11 +21,12 @@
                 `want` facultatif = voulues imposées par la prévision ou le QG, `hold` = vrai : ne PAS servir, cause en `why`)
     rest      = { [clé] = vrai } cellules au repos (pose à zéro, porteur tué)
     avoid     = clé d'une cellule que le front sert en ce moment (pas de course entre les deux postes)
-    allow     = function(zone) -> vrai si le moteur autorise ce lieu (facultatif)
+    allow     = function(zone) -> ok, mot : vrai si le moteur autorise ce lieu, sinon faux et la cause en mot fixe (facultatif)
+    zones[i].dist / .served = distance au QG (tuiles) et vrai si un avant-poste de l'équipe est à S.SERVED_R tuiles (« loin » sinon)
     turrets   = { { x, y } } toutes les tourelles de l'équipe (emplacements : le plus écarté d'abord)
     pause     = vrai : rien
   Rend { rows, pick, surplus } : rows = une ligne par zone (skip : « servie », « repos », « refus », « course », « plafond »,
-  « stock », « groupe », « pause », « tenue »), pick = { key, kind, x, y, score, have, want, count, ammo_each, sites } ou nil.
+  « stock », « groupe », « pause », « tenue », « loin », « munitions »), pick = { key, kind, x, y, score, have, want, count, ammo_each, sites } ou nil.
 
   Aucun `pairs`, aucune trigonométrie, aucun hasard, aucun temps mesuré.
 ]]
@@ -43,6 +44,9 @@ S.AMMO_FULL = 20       -- chargeurs par tourelle (cible ordinaire)
 S.AMMO_LOW = 10        -- chargeurs par tourelle quand le coffre n'en a pas assez pour la cible
 S.MIN_SCORE = 200      -- centièmes : deux coups pour compter (comme le front)
 S.NEAR = 14            -- tuiles : « à portée » (comme le front ; le caller peut passer la portée réelle * 0,8)
+S.MAX_DIST = 240       -- tuiles du QG : au-delà, un groupe n'est posé que près d'un avant-poste de l'équipe (les tournées de ravitaillement y passent)
+S.SERVED_R = 48        -- tuiles : « près d'un avant-poste » (le caller relève `served`)
+S.MALL_MARGIN = 16     -- tourelles au coffre gardées en plus de ce que le poste peut encore poser (montées de niveau, remplacements)
 S.PRIO = 70            -- priorité de la tâche de pose (au-dessus des fabrications ordinaires, sous l'agrandissement 85 et les recharges 90)
 S.PRIO_URGENT = 88     -- QG qui a perdu des tourelles, prévision d'une vague imminente
 
@@ -53,6 +57,17 @@ S.TIER = { qg = 1, prevu = 2, attaque = 3, site = 4, couverture = 5 }
 function S.prio(kind)
   if kind == "qg" or kind == "prevu" then return S.PRIO_URGENT end
   return S.PRIO
+end
+
+--- Plafond de stock des tourelles fabriquées d'avance (lu par script/team/intermediaires.lua, D10) : fabriquer au-delà de ce que le
+--- poste peut encore poser est du gaspillage. = réserve + places restantes sous le plafond du poste + tourelles réservées par les
+--- tâches ouvertes (`demand`) + marge. `placed` : tourelles déjà posées par le poste.
+function S.stock_cap(placed, demand)
+  local room = S.TEAM_CAP - (placed or 0)
+  if room < 0 then room = 0 end
+  local d = math.floor(demand or 0)
+  if d < 0 then d = 0 end
+  return S.RESERVE + room + d + S.MALL_MARGIN
 end
 
 --- Surplus : tourelles au-dessus de la réserve.
@@ -113,7 +128,8 @@ function S.plan(p)
   if room < 0 then room = 0 end
   local rows = {}
   for _, z in ipairs(p.zones or {}) do
-    local row = { key = z.key, kind = z.kind, x = z.x, y = z.y, score = z.score or 0, have = z.have or 0 }
+    local row = { key = z.key, kind = z.kind, x = z.x, y = z.y, score = z.score or 0, have = z.have or 0, dist = z.dist or 0,
+      served = z.served and true or false }
     row.want = S.group_want(z.kind, z.score, z.want)
     row.missing = math.max(0, row.want - row.have)
     if z.hold then row.skip, row.why = "tenue", z.why end
@@ -135,21 +151,27 @@ function S.plan(p)
         r.skip = "course"
       elseif p.rest and p.rest[r.key] then
         r.skip = "repos"
+      elseif r.dist > S.MAX_DIST and not r.served then
+        r.skip = "loin" -- trop loin du QG et hors des tournées d'un avant-poste : le réarmement n'y passerait pas
       elseif room <= 0 then
         r.skip = "plafond"
       elseif surplus <= 0 then
         r.skip = "stock"
-      elseif p.allow and not p.allow(r) then
-        r.skip = "refus"
       else
-        local n, each = S.lot(r.missing, surplus, room, p.ammo)
-        if n <= 0 then
-          r.skip = "munitions"
-        elseif r.have + n < S.MIN_GROUP then
-          r.skip = "groupe" -- le lot n'en fait pas un groupe : on attend plus de stock plutôt que de poser une tourelle seule
+        local ok, why = true, nil
+        if p.allow then ok, why = p.allow(r) end
+        if not ok then
+          r.skip, r.why = "refus", why -- `why` : mot fixe (« ennemi », « sans_batiment », « danger »), jamais un texte libre
         else
-          pick = { key = r.key, kind = r.kind, x = r.x, y = r.y, score = r.score, have = r.have, want = r.want, count = n,
-            ammo_each = each, sites = Fr.sites(r.x, r.y, p.turrets) }
+          local n, each = S.lot(r.missing, surplus, room, p.ammo)
+          if n <= 0 then
+            r.skip = "munitions"
+          elseif r.have + n < S.MIN_GROUP then
+            r.skip = "groupe" -- le lot n'en fait pas un groupe : on attend plus de stock plutôt que de poser une tourelle seule
+          else
+            pick = { key = r.key, kind = r.kind, x = r.x, y = r.y, score = r.score, have = r.have, want = r.want, count = n,
+              ammo_each = each, sites = Fr.sites(r.x, r.y, p.turrets) }
+          end
         end
       end
     end

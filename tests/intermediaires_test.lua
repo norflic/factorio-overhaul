@@ -132,6 +132,7 @@ package.loaded["script.team.board"] = {
 package.loaded["script.team.build"] = { brief = function(f, id) return BRIEFS[id] end }
 package.loaded["script.team.stock"] = { count = function(f, item) return (STOCK[f.key] or {})[item] or 0 end }
 package.loaded["script.team.survie"] = { on = function(f) return SURVIE[f.key] == true end }
+package.loaded["script.team.defense_stock"] = { placed = function() return 0 end } -- doublure (lot DEFENSE-STOCK : plafond des tourelles)
 
 local function load_rt(itext)
   package.loaded["shared.team.intermediaires"] = load_I(itext)
