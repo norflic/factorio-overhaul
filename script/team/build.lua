@@ -133,6 +133,8 @@ Build.LotsMinerai = require("script.team.lots_minerai_glue")
 -- Lot TV-REPLI (TODO_VIDEO C07) : repli de placement simple d'un module sans lot (colle de shared/team/repli_place.lua, réglage
 -- fo-war-repli-place allumé par défaut) ; champ de Build, même raison (199 locales sur 200).
 Build.Repli = require("script.team.repli_place")
+-- Lot TV-ARCHI (V23) : quartiers et enveloppe d'avance (script/team/quartiers.lua) ; champ de Build, même raison (199 locales sur 200).
+Build.Quartiers = require("script.team.quartiers")
 local TREE_TYPES = { "tree", "simple-entity" }
 
 
@@ -2684,6 +2686,10 @@ local function plan_project(f, surface, p)
   if spec.enceinte then return plan_enceinte(f, surface, p) end
   if spec.alim then return plan_alim(f, surface, p) end -- lot CHARBON-CENTRALE
   if spec.raccord then return plan_raccord(f, surface, p) end -- lot PD-ELEC (D05)
+  if spec.quartier then -- lot TV-ARCHI (V23) : pôle d'un quartier (poteau, dépôts, lot défriché), script/team/quartiers.lua
+    return Build.Quartiers.plan(f, surface, p, { read_masks = function(x0, y0, x1, y1) return read_masks(f, surface, x0, y0, x1, y1) end,
+      reserve_tiles = reserve_tiles, finish = plan_finish, add_obstacle = add_obstacle, free_spot = free_spot })
+  end
   if spec.liaison then return Liaison.plan({ read_masks = function(x0, y0, x1, y1) return read_masks(f, surface, x0, y0, x1, y1) end, reserve_tiles = reserve_tiles, wood_of = wood_of, free_spot = free_spot, add_obstacle = add_obstacle, item_of = item_of, seg_passable = seg_passable, REACH = REACH }, f, surface, p) end -- lot INDUSTRIE I7
   Profiler.start("build:plan:place") -- lot IA3-e : parts du coût d'un plan (pics de K10), mesure seulement
   -- Lot PETROLE : un SITE (spec.site) est implanté par son planificateur (Build.SITES[nom], hors du treillis : au gisement
@@ -5029,6 +5035,7 @@ function Build.think(f, surface, tick)
     end
   end
   Build.space_step(f, surface, tick)
+  Build.Quartiers.step(f, tick, { request = Build.request }) -- lot TV-ARCHI (V23) : enveloppe d'avance (rien si fo-war-enveloppe est éteint)
   -- mesures par minute
   local st = b.stats
   local m = math.floor(tick / 3600)
@@ -5234,6 +5241,7 @@ remote.add_interface("fo-ia1d", {
   report = function(key) return Build.report(team_of_key(key)) end,
   lots_minerai = function(key, cmd, arg) return Build.LotsMinerai.remote(team_of_key(key), cmd, arg) end, -- lot VIDEO MINERAI-SONDE : lots reserves, événements, relevés refaits (bancs)
   layout = function(key) return Build.layout(team_of_key(key)) end,
+  quartiers = function(key, cmd, arg) return Build.Quartiers.remote(team_of_key(key), cmd, arg) end, -- lot TV-ARCHI : bancs (report, now, bench_build)
   -- banc seulement (migration des bras de la centrale, lot PLANDIR) : reproduit la conversion électrique des versions 0.6.5 à 0.6.7
   legacy_electric_arms = function(key)
     local f = team_of_key(key)
