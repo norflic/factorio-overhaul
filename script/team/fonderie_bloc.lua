@@ -212,7 +212,7 @@ function FB.step(api, f, surface, tick)
     if not Rsv.on() then return end
     -- une ligne sans courant ne sert à rien : la centrale d'abord
     local pp = b.plant and b.projects[b.plant]
-    if not (pp and pp.state == "fini") then return end
+    if not (st.sans_centrale or (pp and pp.state == "fini")) then return end -- (st.sans_centrale : réglage de banc)
     local docks = collect(b)
     if #docks == 0 then return end
     st.cyc = { docks = docks, i = 1, ctx = nil }
@@ -319,7 +319,62 @@ end
 function FB.report(f)
   local st = f.build and f.build.fonderie_bloc
   if not st then return nil end
-  return { demandes = st.n.demandes, finis = st.n.finis, refuses = st.n.refuses, coupees = st.n.coupees, ouverts = open_count(st) }
+  local links = {}
+  for _, k in ipairs(sorted_keys(st.links)) do
+    local l = st.links[k]
+    local q = f.build.projects[l.pid]
+    links[#links + 1] = { dock = k, pid = l.pid, done = l.done, state = q and q.state or "?", reason = q and q.reason or nil }
+  end
+  return { demandes = st.n.demandes, finis = st.n.finis, refuses = st.n.refuses, coupees = st.n.coupees, ouverts = open_count(st), links = links }
 end
+
+local function team_of_key(key)
+  if key == "player" then return State.faction("player") end
+  for _, id in ipairs(State.alive()) do
+    local f = State.faction(id)
+    if f and (f.key == key or id == key) then return f end
+  end
+  return nil
+end
+
+remote.add_interface("fo-fonderie-bloc", {
+  --- Projet de CHAMP fini fictif avec un coffre de tête : d = { quais = { {x, y, item, flow} }, names = { arm, pole } }. Le coffre est posé par le banc.
+  inject = function(key, d)
+    local f = team_of_key(key)
+    local b = f and f.build
+    if not (b and type(d) == "table") then return nil end
+    local id = b.next_id
+    b.next_id = id + 1
+    local x, y = 0, 0
+    for _, q in ipairs(d.quais or {}) do x, y = q.x, q.y end
+    local p = {
+      id = id, spec = { champ = { oid = 0 } }, state = "fini", created = game.tick, finished = game.tick, parts = {}, ents = {}, wires = {},
+      stock = {}, quais = {}, outs = {}, obstacles = {}, fails = 0, prio = 55, domain = "production", counted = true,
+    }
+    p.parts[1] = { kind = "module", key = "banc", ox = math.floor(x), oy = math.floor(y), w = 1, h = 1, power = true }
+    p.ents[1] = { name = d.names.arm, x = x - 1.5, y = y + 0.5, dir = 0, role = "champ-bras" }
+    p.ents[2] = { name = d.names.pole, x = x - 3.5, y = y + 0.5, dir = 0, role = "champ-poteau" }
+    for _, q in ipairs(d.quais or {}) do p.quais[#p.quais + 1] = { x = q.x, y = q.y, item = q.item, flow = q.flow } end
+    b.projects[id] = p
+    b.order[#b.order + 1] = id
+    return id
+  end,
+  set_param = function(key, name, value)
+    local f = team_of_key(key)
+    local b = f and f.build
+    if not b then return nil end
+    b.fonderie_bloc = b.fonderie_bloc or new_state(game.tick)
+    local st = b.fonderie_bloc
+    if name == "period" then st.period = value; st.next = game.tick
+    elseif name == "sans_centrale" then st.sans_centrale = value and true or false
+    elseif name == "off" then st.off = value and true or false
+    else return nil end
+    return value
+  end,
+  report = function(key)
+    local f = team_of_key(key)
+    return f and FB.report(f) or nil
+  end,
+})
 
 return FB
