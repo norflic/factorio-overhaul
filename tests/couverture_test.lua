@@ -63,6 +63,17 @@ local function suite(Cv)
     "emplacements : un de plus par tranche de 25 chantiers finis")
   want(Cv.slot_growth(nil, 25) == 0 and Cv.slot_growth(-9, 25) == 0 and Cv.slot_growth(50, 0) == 0 and Cv.slot_growth(50, nil) == 0,
     "emplacements : valeur ou pas illisible = zero")
+  -- 2c. Modules d'un ordre de saturation.
+  local g1, c1 = Cv.sat_modules(5, 0, 3, 8)
+  want(g1 == 1 and c1 and c1:find("bras libres", 1, true), "modules : aucun bras libre -> 1 module, cause bras")
+  local g2, c2 = Cv.sat_modules(5, 9, 3, 8)
+  want(g2 == 4 and c2 and c2:find("bras libres", 1, true), "modules : 9 bras, 3 par module -> 1 + 3 = 4 modules sur 5 voulus")
+  local g3, c3 = Cv.sat_modules(5, 30, 3, 8)
+  want(g3 == 5 and c3 == nil, "modules : assez de bras -> tous les modules voulus, aucun ecart")
+  local g4, c4 = Cv.sat_modules(20, 300, 3, 8)
+  want(g4 == 8 and c4 and c4:find("plafond", 1, true), "modules : plafond de surete 8")
+  want(Cv.sat_modules(nil, nil, nil, nil) == 1 and Cv.sat_modules(0 / 0, -4, 0, 0) == 1, "modules : entrees illisibles -> 1 module")
+  want(Cv.sat_modules(1, 99, 3, 8) == 1, "modules : un seul voulu, un seul obtenu")
   -- 2b. Réserve de machines : la pose prévue devient une demande du mall.
   local function rate_of(list, item) for _, w in ipairs(list) do if w.item == item then return w.rate end end return nil end
   local mod = { key = "couvrir:a", kind = "couvrir", items = { { "drill", 14 }, { "belt", 420 }, { "pole", 30 } } }
@@ -147,14 +158,17 @@ local MUTANTS = {
   { "sorte quelconque", "if not Cv.KINDS[a.kind] then return false,", "if false then return false," },
   { "chaine admise", "Cv.KINDS = { couvrir = true, ouvrir = true }", "Cv.KINDS = { couvrir = true, ouvrir = true, chaine = true }" },
   { "ouvrir oublie", "Cv.KINDS = { couvrir = true, ouvrir = true }", "Cv.KINDS = { couvrir = true }" },
-  { "crise ignoree", "if a.crisis then return false,", "if false then return false," },
+  { "crise ignoree", "if a.crisis then return false, \"crise (survie ou QG menace) : le travail de base d'abord\" end\n  if type(a.product)", "if type(a.product)" },
   { "produit absent admis", "if type(a.product) ~= \"string\" then return false,", "if false then return false," },
-  { "gisement couvert admis", "or a.free <= 0 then return false,", "or a.free < 0 then return false," },
-  { "places inconnues admises", "if type(a.free) ~= \"number\" or a.free ~= a.free", "if (type(a.free) ~= \"number\" and a.free ~= nil) or a.free ~= a.free" },
-  { "saturation ignoree", "if (a.saturated or {})[a.product] then return false,", "if false then return false," },
-  { "saturation de tout produit", "if (a.saturated or {})[a.product] then return false,", "if next(a.saturated or {}) ~= nil then return false," },
+  { "gisement couvert admis", "or a.free <= 0 then return false, \"gisement sans place libre\"", "or a.free < 0 then return false, \"gisement sans place libre\"" },
+  { "places inconnues admises", "if type(a.free) ~= \"number\" or a.free ~= a.free or a.free <= 0 then return false, \"gisement sans place libre\"", "if (type(a.free) ~= \"number\" and a.free ~= nil) or a.free ~= a.free or a.free <= 0 then return false, \"gisement sans place libre\"" },
+  { "saturation ignoree", "if (a.saturated or {})[a.product] and not a.saturation then return false,", "if false then return false," },
+  { "saturation de tout produit", "if (a.saturated or {})[a.product] and not a.saturation then return false,", "if next(a.saturated or {}) ~= nil and not a.saturation then return false," },
   { "emplacements : tranche ignoree", "return math.floor(d / per)", "return 0" },
   { "emplacements : pas nul admis", "if type(per) ~= \"number\" or per ~= per or per < 1 then return 0 end", "" },
+  { "modules : bras ignores", "local by_hands = 1 + math.floor(h / ph + 1e-9)", "local by_hands = 1000" },
+  { "modules : plafond oublie", "local got = math.min(w, cap, by_hands)", "local got = math.min(w, by_hands)" },
+  { "modules : au-dela du voulu", "local got = math.min(w, cap, by_hands)", "local got = math.min(cap, by_hands)" },
   { "wants : plafond oublie", "if rate > Cv.RATE_MAX then rate = Cv.RATE_MAX end", "" },
   { "wants : rythme oublie", "local rate = qty[k] / Cv.PACE_MIN", "local rate = qty[k]" },
   { "wants : retenus comptes", "local counts = why == nil or tostring(why):find(\"chantier\", 1, true) ~= nil", "local counts = true" },

@@ -1018,6 +1018,7 @@ function Capi.slots(f, cs, stock, tick, book)
   end
   local batis = Cv.batis(cs.batis_done or Cv.seed(cs.done), fini_open)
   sl.batis, sl.open_sites = batis, open_sites
+  sl.hands = hands -- lot COUVERTURE : bras libres de cette décision (Cv.sat_modules)
   return sl
 end
 
@@ -1077,6 +1078,54 @@ function Capi.say_couverture(f, cs, res, r, verdict, tick)
   cs.couv_sig = now
 end
 
+--- Lot COUVERTURE : saturation totale des gisements revendiqués. Réglage de carte fo-war-saturation (repli à « allumé » tant qu'il n'est pas
+--- déclaré : seul un réglage déclaré À FAUX l'éteint).
+Capi.SATURATION_SETTING = "fo-war-saturation"
+function Capi.saturation_on()
+  local ok, v = pcall(function() return settings.global[Capi.SATURATION_SETTING].value end)
+  if ok and v == false then return false end
+  return true
+end
+
+--- Journal [FO-SATURATION] : une ligne par gisement REVENDIQUÉ dont l'état change (ordre ouvert ou fermé, avec la cause) ou dont la couverture passe une
+--- tranche de 10 %. « Revendiqué » = ouvert au plan de la décision et au moins une tuile à couvrir. État : cs.sat_sig (id -> signature, reconstruit à chaque
+--- décision). Aucune décision n'en dépend.
+function Capi.say_saturation(f, cs, res, tick)
+  if not res or not res.sat or not res.coverage then return end
+  local have = {}
+  for _, o in ipairs(res.orders or {}) do if o.kind == "couvrir" and o.deposit ~= nil then have[tostring(o.deposit)] = "decide" end end
+  for _, rec in ipairs(cs.open or {}) do
+    if rec.kind == "couvrir" and rec.deposit ~= nil and not have[tostring(rec.deposit)] then have[tostring(rec.deposit)] = "ouvert" end
+  end
+  local refus = {}
+  for _, r in ipairs(res.refus or {}) do refus[r.key] = r.why end
+  local prev, now = cs.sat_sig or {}, {}
+  for _, c in ipairs(res.coverage) do
+    if c.open and not c.dead and (c.tiles or 0) > 0 then
+      local id = tostring(c.id)
+      local state, cause
+      if have[id] then
+        state, cause = "ouvert", have[id] == "decide" and "ordre de cette decision" or "ordre en cours"
+      else
+        state = "ferme"
+        local v = res.sat[id]
+        if v then cause = v.why
+        elseif c.kappa >= 1000 then cause = "gisement sature"
+        elseif (c.free or 0) <= 0 then cause = "aucune place libre"
+        elseif refus["couvrir:" .. id] then cause = refus["couvrir:" .. id]
+        else cause = "ordre pris dans ce cycle ou demande en cours" end
+      end
+      local sig = state .. "|" .. tostring(cause):sub(1, 60) .. "|" .. math.floor(c.kappa / 100)
+      now[id] = sig
+      if prev[id] ~= sig then
+        log(string.format("[FO-SATURATION] %s minute %d : gisement %s %s : %d/%d tuiles couvertes (%d pour mille), ordre %s (%s)", f.key or "?",
+          math.floor(minutes(f, tick)), id, tostring(c.resource), c.covered or 0, c.tiles or 0, c.kappa or 0, state, tostring(cause)))
+      end
+    end
+  end
+  cs.sat_sig = now
+end
+
 function Capi.portes_on()
   local ok, v = pcall(function() return settings.global[Capi.PORTES_SETTING].value end)
   return ok and v == true
@@ -1122,7 +1171,7 @@ function Capi.portes(f, cs, res, view, tick)
     local n = meth and short[meth.product] or nil
     if n then product_of[o.key] = meth.product return n end
     local ok, why = Cv.loop({ kind = o.kind, product = meth and meth.product or nil, saturated = saturated,
-      free = free_of[tostring(o.deposit)], crisis = crisis })
+      free = free_of[tostring(o.deposit)], crisis = crisis, saturation = o.saturation })
     verdict[o.key] = { ok, why }
     if ok then return 1 end -- racine « de boucle » : un nombre > 0 suffit à la porte (le manque n'est pas écrit au journal des racines)
     return nil
@@ -1417,6 +1466,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     hold = cs.scan and cs.scan.hold, -- lot VIDEO-L5 : objets suspendus (nil : sans confirmation, la capacité compte à la pose)
     -- lot VIDEO-L3 : les manques mesurés des modules finis s'ajoutent aux puits (Mq.sinks ; Ca.requirements n'est pas touché)
     deposits = deposits, open = open, sinks = cs.bench_sinks or Mq.sinks(mq_fresh(f, tick), Ml.sinks(st.mall)), need = need, research = research, drill_for = drill_for,
+    saturation = Capi.saturation_on() or nil, -- lot COUVERTURE : saturation totale des gisements revendiqués (réglage fo-war-saturation, allumé par défaut)
     excl = Excl.read(), -- lot VIDEO-PLAFONDS (V99) : objets exclus de la demande (nil : réglage vide, entrée inchangée)
     hard_off = (not Pil.plafonds_on()) or nil, -- lot TV-PILOTE (G02) : plafonds de sûreté des fours, chaînes et packs (réglage fo-war-plafonds, allumé par défaut)
     limits = Rsv.on() and {} or { max_ingredients = 2 }, workers = view.workers or 0, idle = Ca.idle_of(g and g.idle_ema or 0),
@@ -1445,9 +1495,10 @@ end
 
 --- Débit d'un ordre découpé en modules d'au plus A.FIRST_RATE_MAX objets/min (au plus Capi.MODULES_PER_ORDER).
 --- Lot CAPI-REPLI : `factor` (1, 1/2, 1/4 ; Rp.factor) réduit la taille du module après un échec de matériaux.
-function Capi.split(rate, factor)
+function Capi.split(rate, factor, max_k)
   local cap = A.FIRST_RATE_MAX * (factor or 1)
-  local k = math.max(1, math.min(Capi.MODULES_PER_ORDER, math.ceil((rate or 0) / cap - 1e-9)))
+  -- Lot COUVERTURE : un ordre de SATURATION peut avoir plusieurs modules (max_k, Cv.sat_modules) ; les autres, Capi.MODULES_PER_ORDER.
+  local k = math.max(1, math.min(max_k or Capi.MODULES_PER_ORDER, math.ceil((rate or 0) / cap - 1e-9)))
   local each = math.min(cap, (rate or 0) / k)
   local out = {}
   for i = 1, k do out[i] = each end
@@ -1507,7 +1558,13 @@ local function execute(f, cs, o, view, book, tick, research)
       local rkey = Rp.key(meth.product, o.deposit)
       local repli = repli_book(cs)
       local shrunk = Rp.factor(repli, rkey, tick) < 1 -- lot INTEG-ECONOMIE (D2) : module réduit après un échec de matériaux
-      for _, part in ipairs(Capi.split(rate, Rp.factor(repli, rkey, tick))) do
+      -- Lot COUVERTURE : modules d'un ordre de saturation = ce que le débit demande, borné par les bras libres et le plafond de sûreté (Cv.sat_modules)
+      local sat_k, sat_want, sat_gap = nil, nil, nil
+      if o.saturation then
+        sat_want = math.max(1, math.ceil(rate / (A.FIRST_RATE_MAX * Rp.factor(repli, rkey, tick)) - 1e-9))
+        sat_k, sat_gap = Cv.sat_modules(sat_want, cs.slots and cs.slots.hands or 0, Dm.HANDS_PER_SITE, Dm.SLOTS_HARD)
+      end
+      for _, part in ipairs(Capi.split(rate, Rp.factor(repli, rkey, tick), sat_k)) do
         local g, args = fit_module(meth, part, book, view.stock or {}, Auto.plant_state(f) ~= nil, Harvest.reachable(f), Auto.belt_flow(f))
         if not g then why = "objets impossibles : " .. table.concat(args or {}, ",") break end
         local id, w2 = Auto.submit(f, { product = meth.product, gen = meth.gen, args = args, feed = meth.feed, rate = part,
@@ -1529,6 +1586,11 @@ local function execute(f, cs, o, view, book, tick, research)
       end
       if #ids == 0 then return nil, why end
       rec.exec, rec.mod_ids, rec.product = "module", ids, meth.product
+      if sat_want then
+        local gap = sat_gap or (#ids < sat_want and (why or "plan directeur") or nil)
+        log(string.format("[FO-SATURATION] %s minute %d : ordre %s : %d module(s) voulu(s), %d obtenu(s)%s", f.key or "?", math.floor(minutes(f, tick)),
+          tostring(o.key), sat_want, #ids, gap and (" (cause de l'ecart : " .. tostring(gap) .. ")") or ""))
+      end
       if Rp.factor(repli, rkey, tick) < 1 then
         note(f, cs, tick, string.format("ordre %s : module reduit a %d %% apres un echec de materiaux (%s)", o.key,
           math.floor(100 * Rp.factor(repli, rkey, tick) + 0.5), rkey))
@@ -2065,6 +2127,7 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
   res.orders = AmRt.after_decision(f, cs, res, tick, minutes(f, tick)) -- lot VIDEO-COUVERTURE 5 : cycles publiés, MÊME plan re-émis après l'exécutant occupé
   local gate_why = Capi.portes(f, cs, res, view, tick)
   cs.couv_wants = Cv.reserve_wants(res.orders, gate_why) -- lot COUVERTURE : la pose prévue est une demande du mall (lue par Ind.think)
+  Capi.say_saturation(f, cs, res, tick) -- lot COUVERTURE : [FO-SATURATION]
   local seat_why
   res.orders, seat_why = Capi.arbitre(f, cs, res, input, view, tick) -- lot VIDEO-SIEGES (C4/C5) : qui prend le siège d'abord, qui n'ouvre pas
   for _, o in ipairs(res.orders) do
