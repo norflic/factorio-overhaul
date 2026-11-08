@@ -1048,6 +1048,17 @@ function Ca.spend_amorce(ctx, plan, o)
   if electric then plan.amorce_left = 0 end
 end
 
+--- Lot COURANT-LIBRE (partie neuve 0.6.70, journal INTEG-0670 : « 1800 kW pris sur 1800 kW » pendant 30 min, production 0 kW) : reste à poser,
+--- EN FOREUSES, d'un ordre de CHAMP. Le champ pose UNE bande (n foreuses voulues) et l'ordre ne finit qu'à la première production de la bande ;
+--- n_left restait n tout ce temps. Or les foreuses déjà posées sont comptées ailleurs (relevé des machines : capacité et couverture ; mesure
+--- du courant : kw_used), donc l'ordre les comptait DEUX fois, et les kW qu'il réservait ne se libéraient jamais quand la centrale ne tournait pas.
+--- total : foreuses du projet de la bande (nil : projet pas encore au plan, tout reste à poser) ; built : foreuses posées.
+function Ca.champ_left(n, total, built)
+  n = math.max(0, n or 0)
+  if type(total) ~= "number" or total <= 0 then return n end
+  return math.max(0, math.min(n, total - math.max(0, built or 0)))
+end
+
 --- Raison écrite du refus d'une option électrique, ou nil : relevé fermé / sans capacité (Pf.power_why), ou amorce déjà prise par un ordre
 --- de cette décision (lot TV-ENERGIE, W02).
 function Ca.power_refusal(ctx, plan)

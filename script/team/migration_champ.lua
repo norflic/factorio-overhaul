@@ -1593,9 +1593,18 @@ function Mig.follow(f, id, tick)
   st.want_until = math.max(st.want_until or 0, tick + CFG.want_ttl)
   local p = st.pid and f.build and f.build.projects[st.pid]
   local built = 0
-  if p then for _, e in ipairs(p.ents or {}) do if e.built then built = built + 1 end end end
+  local drills, drills_built = 0, 0 -- lot COURANT-LIBRE : foreuses de la bande (rôle « champ-foreuse »), pour le reste à poser de l'ordre
+  if p then
+    for _, e in ipairs(p.ents or {}) do
+      if e.built then built = built + 1 end
+      if e.role == "champ-foreuse" then
+        drills = drills + 1
+        if e.built then drills_built = drills_built + 1 end
+      end
+    end
+  end
   return { produced = st.produced or 0, stage = st.stage, pid = st.pid, pstate = p and p.state or nil, reason = p and p.reason or nil,
-    built = built, abandoned = st.abandoned or nil, migr = o.migr }
+    built = built, abandoned = st.abandoned or nil, migr = o.migr, drills = drills, drills_built = drills_built }
 end
 
 --- Une pensée d'équipe. `free` : stock libre ({ [objet] = n }). `hold` : la pile retient l'amélioration (script/team/team.lua) : les bandes
