@@ -72,6 +72,23 @@ local function power_island(s, st, x, y)
   return eei ~= nil and pole ~= nil
 end
 
+--- Recensement de l'arene (entites du joueur, fantomes comptes sous « fantome:nom ») : texte « nom=n » trie.
+local function census(s)
+  local c, ks = {}, {}
+  for _, e in ipairs(s.find_entities_filtered({ area = { { -40, -50 }, { 140, 50 } }, force = "player" })) do
+    local n = e.name
+    if n == "entity-ghost" then n = "fantome:" .. e.ghost_name end
+    if n ~= "character" then
+      if not c[n] then c[n] = 0; ks[#ks + 1] = n end
+      c[n] = c[n] + 1
+    end
+  end
+  table.sort(ks)
+  local out = {}
+  for _, k in ipairs(ks) do out[#out + 1] = k .. "=" .. c[k] end
+  return table.concat(out, " ")
+end
+
 local function count_in(s, name, x0, y0, x1, y1)
   return #s.find_entities_filtered({ area = { { x0, y0 }, { x1, y1 } }, name = name, force = "player" })
 end
@@ -149,7 +166,8 @@ return {
       st.log_next = t + 300
       ctx.log(string.format("[%s] t=%d : alimentation %s | coffre %d | foreuses %d | tapis %d | PNJ ont porte %d", TAG, t,
         link and (link.state .. (link.done and " (fini)" or "") .. (link.reason and (" : " .. link.reason) or "")) or "aucune",
-        count_of(s, DOCK.x, DOCK.y), count_in(s, "electric-mining-drill", 20, -10, 100, 40), count_in(s, "transport-belt", 10, -10, 100, 40), filled))
+        count_of(s, DOCK.x, DOCK.y), count_in(s, "electric-mining-drill", -40, -50, 140, 50), count_in(s, "transport-belt", -40, -50, 140, 50), filled))
+      if t % 900 == 0 or t == 6600 then ctx.log(string.format("[%s] t=%d recensement : %s", TAG, t, census(s))) end
     end
   end,
 
@@ -159,8 +177,9 @@ return {
     local fb = ctx.remote("fo-fonderie-bloc", "report", "player")
     ctx.check(fb ~= nil and fb.demandes >= 1, "une alimentation de quai demandee par la regle", fb and tostring(fb.demandes))
     ctx.check(fb ~= nil and fb.finis >= 1, "l'alimentation est finie", fb and string.format("finis=%d refuses=%d", fb.finis, fb.refuses))
-    local drills = count_in(s, "electric-mining-drill", 20, -10, 100, 40)
-    local belts = count_in(s, "transport-belt", 10, -10, 100, 40)
+    local drills = count_in(s, "electric-mining-drill", -40, -50, 140, 50)
+    local belts = count_in(s, "transport-belt", -40, -50, 140, 50)
+    ctx.log(string.format("[%s] recensement final : %s", TAG, census(s)))
     ctx.check(drills >= 1, "foreuses electriques bâties", tostring(drills))
     ctx.check(belts >= 20, "tapis bâti jusqu'au coffre", tostring(belts))
     -- le bras contre le coffre : il depose dans le coffre (20, 6)
