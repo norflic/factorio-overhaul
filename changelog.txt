@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.70
+Date: 2026-11-08
+  Changes:
+    - CORRECTIF electrique : la thermique n'est refusee qu'une fois 4 foreuses electriques POSEES ; avant, une partie neuve restait sans foreuse (bascule sur la seule centrale finie, thermiques detruites jamais refaites).
+    - Charbon relie aux fonderies : le coffre de tete d'un champ porte son debit (liaison et piquage le servent), et a defaut une ligne de foreuses de charbon + tapis + bras est construite jusqu'au coffre ; journal [FO-FONDERIE-BLOC].
+    - Centrale : deux chantiers en parallele quand le deficit le demande ; compte par minute des foreuses thermiques encore debout.
+    - Zero inactivite : plus d'agrandissement thermique apres la bascule electrique.
+    - Rapatriement : recherche en tranches plus fines (135 noeuds par appel).
+---------------------------------------------------------------------------------------------------
 Version: 0.6.69
 Date: 2026-11-08
   Changes:
