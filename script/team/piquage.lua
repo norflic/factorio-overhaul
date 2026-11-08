@@ -38,6 +38,7 @@ local Piquage = {}
 Piquage.MAX_TRACK = 12     -- tuiles suivies au plus par quai
 Piquage.MAX_SCAN = 300     -- tapis lus au plus à une découverte
 Piquage.DISC_EVERY = 10 * 3600 -- ticks entre deux découvertes pour un quai (s'il suit moins de MAX_TRACK tuiles)
+Piquage.EMPTY_RETRY = 3 * 3600 -- ... ou 3 min quand aucune tuile n'est suivie (le tapis peut se remplir plus tard : micro-banc 8/11, découverte unique à t=0 sur un tapis vide)
 Piquage.SPLIT_TRIES = 3    -- poses du répartiteur au plus par liaison
 Piquage.EVAL_MAX = 3       -- quais évalués (lecture des côtés libres) au plus par relevé
 
@@ -256,6 +257,17 @@ local function discover(f, surface, st, d, tick)
       for _, t in ipairs(q.tapis_piquable) do opt_in[t.x .. ":" .. t.y] = t.item end
     end
   end
+  -- lignes de liaison finies (sortie de module ou tampon -> bras -> tapis -> quai) : leurs tuiles de tapis sont des SOURCES pour les autres quais du
+  -- même objet (le tapis s'accumule quand le quai servi est plein : surplus). Jamais une branche de piquage elle-même (pas de piquage en chaîne).
+  for _, pid in ipairs(f.build.order) do
+    local q = f.build.projects[pid]
+    local ls = q and q.state == "fini" and q.spec and q.spec.liaison
+    if ls and not ls.piquage and ls.item then
+      for _, e in ipairs(q.ents or {}) do
+        if e.role == "liaison-tapis" and not e.type then opt_in[math.floor(e.x) .. ":" .. math.floor(e.y)] = ls.item end
+      end
+    end
+  end
   local found = {}
   for _, e in ipairs(ents) do
     local tx, ty = math.floor(e.position.x), math.floor(e.position.y)
@@ -420,6 +432,19 @@ local function place_split(f, surface, p, lc)
   Stock.remove(f, item, 1)
   if old_item then Stock.insert(f, old_item, 1) end
   ent.splitter_output_priority = g.priority
+  -- la pièce de tapis remplacée appartenait peut-être à un projet du plan (liaison, rapatriement) : son relevé de pièces doit dire « répartiteur »
+  -- (sinon la reconstruction croirait le tapis détruit et le referait par-dessus le répartiteur)
+  local b = f.build
+  for _, pid in ipairs(b.order) do
+    local q = b.projects[pid]
+    if q and q ~= p then
+      for _, e in ipairs(q.ents or {}) do
+        if e.name == belt.name and math.floor(e.x) == g.tile.x and math.floor(e.y) == g.tile.y then
+          e.name, e.x, e.y, e.dir, e.item, e.piq = lc.split, g.x, g.y, g.dir, item, true
+        end
+      end
+    end
+  end
   return true, ent.splitter_output_priority
 end
 
@@ -517,16 +542,31 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
   st.bilan = { quais = #c.docks, tapis = linked, piquage = piques, tournees = c.tours, objets = c.items, tick = tick }
   if #c.docks > 0 and tick >= st.log_next then
     st.log_next = tick + Li.LOG_EVERY
-    say(f, Pq.bilan_line(f.key, { docks = #c.docks, linked = linked, piques = piques, tours = c.tours, items = c.items, minutes = minutes(tick) }))
+    local tally = {}
+    for _, d in ipairs(c.docks) do
+      local q = st.quais[d.key]
+      local k = q and (q.verdict .. "/" .. q.cause) or "non_vu"
+      tally[k] = (tally[k] or 0) + 1
+    end
+    local parts = {}
+    for _, k in ipairs(sorted_keys(tally)) do parts[#parts + 1] = k .. " " .. tally[k] end
+    say(f, Pq.bilan_line(f.key, { docks = #c.docks, linked = linked, piques = piques, tours = c.tours, items = c.items, minutes = minutes(tick),
+      causes = table.concat(parts, ", ") }))
   end
   -- quais candidats : débit, pas déjà servis, qui peuvent se payer au mieux (tapis à 6 tuiles)
   local order = {}
   for _, d in ipairs(c.docks) do
     d.dist = dist_hq(f, d.x, d.y)
     d.fill, d.low = api.fill, api.low
-    if d.item and (d.flow or 0) >= Li.MIN_FLOW and not st.links[d.key] and not linked_by_liaison(b, d.key) then
+    if st.links[d.key] then
+      -- le verdict de la branche vient de follow_links
+    elseif linked_by_liaison(b, d.key) then
+      mark(st, d.key, "laisser", "sortie_plus_rentable", tick) -- (servi par une liaison : rien à ajouter)
+    elseif not (d.item and (d.flow or 0) >= Li.MIN_FLOW) then
+      mark(st, d.key, "laisser", "ne_se_paie_pas", tick) -- débit sous Li.MIN_FLOW : rien à économiser
+    else
       local best = Pq.worth({ flow = d.flow, dist = d.dist, span = 6, fill = api.fill, low = api.low })
-      if best then order[#order + 1] = d end
+      if best then order[#order + 1] = d else mark(st, d.key, "laisser", "ne_se_paie_pas", tick) end
     end
   end
   table.sort(order, function(a, c2) if a.flow ~= c2.flow then return a.flow > c2.flow end return a.key < c2.key end)
@@ -541,7 +581,7 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
   for _, d in ipairs(order) do
     -- découverte et relevé (bornés : au plus 3 découvertes par passage)
     local tr = st.track[d.key]
-    if not tr or (#tr.order < Piquage.MAX_TRACK and tick - (st.disc[d.key] or -Piquage.DISC_EVERY) >= Piquage.DISC_EVERY) then
+    if not tr or (#tr.order < Piquage.MAX_TRACK and tick - (st.disc[d.key] or -Piquage.DISC_EVERY) >= (st.disc_every or (#tr.order == 0 and Piquage.EMPTY_RETRY or Piquage.DISC_EVERY))) then
       if (c.discovered or 0) < 3 then
         c.discovered = (c.discovered or 0) + 1
         discover(f, surface, st, d, tick)
@@ -550,10 +590,14 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
       observe_tracks(f, surface, st, d)
     end
     tr = st.track[d.key]
+    if tr and #tr.order == 0 and (st.disc[d.key] or 0) > 0 then
+      mark(st, d.key, "laisser", "aucune_source", tick) -- découverte faite, aucun tapis hors plan qui porte l'objet seul à portée
+    end
     local ready = false
     for _, key in ipairs(tr and tr.order or {}) do
       if tr.tiles[key].obs.n >= Pq.MIN_SAMPLES then ready = true break end
     end
+    if tr and #tr.order > 0 and not ready then mark(st, d.key, "attente", "releves_insuffisants", tick) end
     if ready and evals < Piquage.EVAL_MAX and not asked then
       evals = evals + 1
       local cands = build_cands(f, surface, b, st, d)
@@ -847,6 +891,7 @@ remote.add_interface("fo-piquage", {
     elseif name == "sans_centrale" then st.sans_centrale = value and true or false
     elseif name == "off" then st.off = value and true or false
     elseif name == "confirm" then st.confirm = value
+    elseif name == "disc_every" then st.disc_every = value
     else return nil end
     return value
   end,
