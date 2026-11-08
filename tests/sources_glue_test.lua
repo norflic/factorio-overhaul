@@ -455,6 +455,22 @@ do
   check(say_count("pas de minage a la main de copper%-ore : le stock suffit") == 1, "journal : le stock suffit")
 end
 
+do
+  new_world()
+  logs = {}
+  local g = team()
+  pteam = g
+  STOCK = { counts = {}, room = nil, skip = nil, annexes = {} }
+  Src.think(g, 300, 0)
+  check(Src.hand_ok(g, ORE, 400, false, 50, false) == true, "machines pas encore assez : la main passe")
+  g.team.inter = { skip = { [ORE] = true } }
+  local okm, whym, textm = Src.hand_ok(g, ORE, 400, false, 50, false)
+  check(okm == false and whym == "machines" and textm:find("D09"), "D09 a coupe le minerai : un minage deja pris est barre au programme")
+  check(Src.hand_ok(g, ORE, 400, false, 50, true) == true, "mode survie : exempte")
+  check(Src.hand_ok(g, ORE, 400, true, 50, false) == true, "crise injectee : exempte")
+  check(Src.hand_ok(g, T.outposts.copper.resource, 400, false, 50, false) == true, "une autre ressource non coupee : la main passe")
+end
+
 ---------------------------------------------------------------------------------------------------
 -- §9 liste complète pour le graphe, débit, plaques en route
 ---------------------------------------------------------------------------------------------------

@@ -768,7 +768,7 @@ function Worker.program(f, task, surface, tick)
       -- Lot MINAGE-MAIN (retour du DC du 8/11, 0.6.65 : « ils minent à la main du fer et du cuivre alors qu'ils ont des milliers de plaques dans
       -- les coffres de la fonderie ») : jamais à la main ce qu'une sortie de la force tient ou produit (registre : shared/team/sources.lua) ;
       -- la tournée « fetch » va le chercher. Survie comprise ; seule une crise injectée par un banc passe.
-      local ok3, why3, text3 = Src.hand_ok(f, task.resource, tick, task.crisis)
+      local ok3, why3, text3 = Src.hand_ok(f, task.resource, tick, task.crisis, nil, task.survie)
       if not ok3 then
         f.stats.main_sources = (f.stats.main_sources or 0) + 1
         f.stats.main_refus = f.stats.main_refus or {}
