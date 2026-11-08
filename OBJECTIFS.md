@@ -108,6 +108,18 @@ Directives du DC (8/11, après-midi), citées :
 
   Lot lancé : PETROLE-RANGEE (Sonnet). Étape 1 : 100 % des puits, épine de tuyaux droite, et extension des sites déjà finis. Étape 2 : module répété le long d'un bus de tuyaux. La règle de rangée extensible, commune au minerai et au pétrole, se décide avec MEGA-FONDERIE.
 
+- Vers 18 h 25, QCM sur la recherche « electronics », qui ouvre le bras rapide.
+  - Constat : en partie neuve, votre équipe la commence à 9,9 min, derrière military, military-2 et le pack militaire. Le bras rapide arrive donc entre 20 et 27 min, et bloque jusque-là les chaînes cuivre, circuits et engrenages.
+  - Choix du DC : « Oui, voulue proche devant (Recommandé) ». Une recherche voulue et proche (2 technologies au plus) passe devant les paliers qui ne sont pas le premier. Cela précise la décision du 27/10, « les paliers ne reculent pas ».
+  - Lot RECHERCHE-BRAS (agent centrale-pres) :
+    - A : cette règle dans Gen.k1 ;
+    - B : gabarits en bras simples, au débit bridé, tant que le bras rapide manque. Cause prouvée : `G.row` choisit les bras selon le débit maximal de la machine, jamais selon la demande ; un module d'engrenages exige 4 bras rapides pour une demande de 0,2 à 0,6/min.
+  - CAPI-POTEAU est clos sans code : le poteau moyen ne bloque qu'à la minute 1.
+- Vers 18 h 10, diagnostic de l'effondrement de la candidate aa17f16c (courant-libre, vérifié dans le journal) :
+  - ce sont les vagues ennemies qui ont détruit les foreuses thermiques (14 pièces à 12 min, 22 à 21 min, l'avant-poste de fer perdu à 16 min ; fer du coffre à 0, 4 tourelles au QG) ;
+  - aucun retrait de notre fait.
+  - Nouveau verrou mesuré : bande électrique refusée au plan, « poteaux sans chaîne jusqu'au réseau alimenté » (`champ.lua:684`, boîte étroite au milieu du minerai). Après 3 refus, la migration est abandonnée. Lot RACCORD-BANDE (courant-libre).
+
   Lots lancés : GISEMENTS-GEANTS (scénario `etape1-geants`, 2 500 à 5 000 tuiles), MEGA-FONDERIE (conception d'abord), POSE-PAR-LOTS, CAPI-POTEAU (le gabarit des foreuses de capitalisation cède au poteau moyen), plus COURANT-LIBRE, TRANCHES-FOREUSES et ACIER. CENTRALE-PRES (78c20542) est fusionné dans `essai-0666` (44643872). Porte de la prochaine livraison : une partie neuve sur gisements géants qui montre de vrais champs électriques, sans effondrement.
 
 
