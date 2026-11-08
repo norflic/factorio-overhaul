@@ -241,7 +241,7 @@ mutant("Cc : la vapeur bas rend la tache meme sans charbon au QG", function()
 local function vt_with(subs) return load_src(mutated("shared/team/vapeur_tampon.lua", subs), "mut_vt") end
 mutant("Vt : pas d'hysteresis", function() return vt_with({ { "if prev then return ratio < Vt.LOW_OUT end", "" } }).low(true, 0.45) ~= true end)
 mutant("Vt : taux non borne", function() return vt_with({ { "math.max(0, math.min(p.amount or 0, p.cap))", "(p.amount or 0)" } }).ratio({ { amount = 999, cap = 200 } }) ~= 1 end)
-mutant("Vt : rien de lu = bas", function() return vt_with({ { 'if type(ratio) ~= "number" then return false end', 'if type(ratio) ~= "number" then return true end' } }).low(false, nil) ~= false end)
+mutant("Vt : rien de lu = bas", function() return vt_with({ { 'if type(ratio) ~= "number" then return false, "tampon illisible', 'if type(ratio) ~= "number" then return true, "tampon illisible' } }).low(false, nil) ~= false end)
 mutant("colle : reglage ignore", function()
   local Vg = fresh_glue({ { "if ok and v == false then return false end", "" } })
   _G.settings.global["fo-war-vapeur-tampon"].value = false

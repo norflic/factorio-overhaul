@@ -85,6 +85,12 @@ G.LIST = {
       local ok, why = M.Ic.gate({ threatened = false, main_busy = false, islands = 0, max = 4, unwalled = 0, unguarded = 0 })
       local c = M.Ic.gate({ main_busy = false, islands = 0, max = 4, unwalled = 0, unguarded = 0, outside_busy = 0 })
       return a == false and ok == false and c == false, why end },
+  { id = "Vt.low", fichier = "shared/team/vapeur_tampon.lua", mesure = "taux de vapeur des machines de la centrale (vapeur / capacité)",
+    appelant = "script/team/vapeur_glue.lua:56", mods = { Vt = "shared.team.vapeur_tampon" }, verdict = "ferme",
+    sonde = function(M)
+      -- intégrateur (8/11, fusion de TV-VAPEUR et TV-GARDES) : sans lecture, le tampon n'est jamais « bas » (aucun remplissage d'urgence)
+      local a, why = M.Vt.low(false, nil)
+      return a == false and M.Vt.low(true, nil) == false and M.Vt.low(false, 0.1) == true, why end },
   { id = "H.update", fichier = "shared/ai3/hysteresis.lua", mesure = "valeur de la mesure (nombre)",
     appelant = "shared/team/menace_equipe.lua (Me.update) et les crises de la capitalisation", mods = { H = "shared.ai3.hysteresis" }, verdict = "ferme",
     sonde = function(M)

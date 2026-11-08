@@ -35,7 +35,7 @@ end
 
 --- État « bas » après une lecture (hystérésis). prev : état précédent ; ratio nil (rien lu) : faux, garde fermée.
 function Vt.low(prev, ratio)
-  if type(ratio) ~= "number" then return false end
+  if type(ratio) ~= "number" then return false, "tampon illisible : aucune machine a vapeur lue" end
   if prev then return ratio < Vt.LOW_OUT end
   return ratio < Vt.LOW_IN
 end
