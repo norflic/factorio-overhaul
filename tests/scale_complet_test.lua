@@ -435,8 +435,17 @@ local function scene_far()
   return #tasks_of(Fond.candidates(view, free_all(), { keys = {}, danger = { [2] = true } }).extraction, "build", COAL) == 0
 end
 local function scene_cover()
-  local plan = think(fview())
-  for _, t in ipairs(plan.tasks) do if t.kind == "extend" and t.outpost == 1 then return true end end
+  -- Lot ZERO-IDLE : un agrandissement peut aussi venir des PNJ libres (shared/ai3/zero_idle.lua, why « zero-idle:… ») et prendre la même
+  -- clé « extend:<id> » ; la scène juge la COUVERTURE seule (règle des PNJ libres éteinte le temps de la pensée, why = « couverture:<type> »).
+  local ZI = require("shared.ai3.zero_idle")
+  local on = ZI.ON
+  ZI.ON = false
+  local ok, plan = pcall(think, fview())
+  ZI.ON = on
+  if not ok then error(plan) end
+  for _, t in ipairs(plan.tasks) do
+    if t.kind == "extend" and t.outpost == 1 and type(t.why) == "string" and t.why:sub(1, 11) == "couverture:" then return true end
+  end
   return false
 end
 local function scene_never_build()
