@@ -772,7 +772,7 @@ do
   _G.data = saved
   check(ok, "§12 settings/capital.lua se charge : " .. tostring(err))
   local s = got[1]
-  check(#got == 2 and s and s.name == "fo-war-capital" and s.type == "bool-setting", "§12 un réglage bool fo-war-capital")
+  check(#got == 3 and s and s.name == "fo-war-capital" and s.type == "bool-setting", "§12 un réglage bool fo-war-capital")
   check(s and s.setting_type == "runtime-global", "§12 réglage de carte relu en cours de partie (runtime-global)")
   check(s and s.default_value == true, "§12 ALLUMÉ par défaut (lot C1 : éteint, aucune faction ne montait son centre)")
   -- Lot AMELIORER : le remplacement des machines a son propre réglage, ALLUMÉ par défaut, découplé de fo-war-capital.
@@ -780,6 +780,16 @@ do
   check(r and r.name == "fo-war-remplacer" and r.type == "bool-setting" and r.setting_type == "runtime-global",
     "§12 réglage fo-war-remplacer (bool, relu en cours de partie)")
   check(r and r.default_value == true, "§12 fo-war-remplacer ALLUMÉ par défaut")
+  -- Lot AMELIORATION : la montée par bloc a son propre réglage, ALLUMÉ par défaut, relu à chaque pensée.
+  local a = got[3]
+  check(a and a.name == "fo-war-amelioration" and a.type == "bool-setting" and a.setting_type == "runtime-global"
+    and a.default_value == true, "§12 réglage fo-war-amelioration (bool, runtime-global, ALLUMÉ par défaut)")
+  for _, lang in ipairs({ "fr", "en" }) do
+    local fh = io.open("locale/" .. lang .. "/amelioration.cfg", "r")
+    local txt = fh and fh:read("*a") or ""
+    if fh then fh:close() end
+    check(select(2, txt:gsub("fo%-war%-amelioration=", "")) == 2, "§12 fo-war-amelioration : nom et description traduits (" .. lang .. ")")
+  end
   for _, lang in ipairs({ "fr", "en" }) do
     local fh = io.open("locale/" .. lang .. "/capital.cfg", "r")
     local txt = fh and fh:read("*a") or ""

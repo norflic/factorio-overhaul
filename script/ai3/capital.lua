@@ -28,6 +28,7 @@
 
 local L = require("shared.levels.config")
 local Cap = require("shared.ai3.capital")
+local Am = require("shared.ai3.amelioration") -- lot AMELIORATION : montée par bloc
 local Dg = require("shared.team.degel") -- lot AGES : le gel du centre n'est pas indéfini
 local Gen = require("shared.ai3.general")
 local R = require("shared.ai3.reglages")
@@ -88,6 +89,14 @@ function Capital.on()
   if not (Capital.ENABLED == true and Levels ~= nil and not (war and war.capital_off)) then return false end
   local s = settings.global[Capital.SETTING]
   return s ~= nil and s.value == true
+end
+
+Capital.SETTING_BLOCS = "fo-war-amelioration"
+
+--- Lot AMELIORATION : montée par BLOC (réglage fo-war-amelioration, défaut : allumé). Éteint : un bâtiment par pensée, relevé de 64 tuiles.
+function Capital.blocs_on()
+  local s = settings.global[Capital.SETTING_BLOCS]
+  return s == nil or s.value == true
 end
 
 --- Un des deux mécanismes est allumé.
@@ -272,6 +281,34 @@ local function far_best(f, surface, fam, cond)
   return nil
 end
 
+--- Lot AMELIORATION : bâtiments à niveaux des PROJETS du plan directeur (bandes de champ, fonderies, ateliers : le gros de la base,
+--- hors des 64 tuiles du QG). Chaque projet est un BLOC « p<numéro> » à gabarit FIXE (un bâtiment plus grand n'y tiendrait pas).
+--- Rend une liste { e = entité, block = clé } ; jamais un bâtiment d'une autre force (celui du joueur).
+local function project_ents(f)
+  local out = {}
+  local b = f.build
+  if not (b and b.projects and f.hq and f.hq.valid) then return out end
+  local surface = f.hq.surface
+  for _, pid in ipairs(sorted_keys(b.projects)) do
+    local p = b.projects[pid]
+    for _, pe in ipairs(p.ents or {}) do
+      if pe.built and not pe.dropped and pe.x and L.parse(pe.name) then
+        local fam = L.parse(pe.name)
+        local e = surface.find_entity(pe.name, { pe.x, pe.y })
+        if not (e and e.valid) then
+          -- Montée à la main ou par un lot précédent : le nom du plan est celui du niveau 1, l'entité porte un nom de niveau.
+          local ptype = get(game.entity_prototypes[pe.name], "type")
+          for _, c in ipairs(surface.find_entities_filtered({ position = { pe.x, pe.y }, radius = 0.4, type = ptype, force = f.force })) do
+            if c.valid and L.parse(c.name) == fam then e = c break end
+          end
+        end
+        if e and e.valid and e.unit_number and e.force.name == f.force then out[#out + 1] = { e = e, block = "p" .. pid } end
+      end
+    end
+  end
+  return out
+end
+
 --- Relevé des bâtiments à niveaux de la force : { list = { {id, name, working} }, center = {id, name}, blockers = familles que
 --- le JEU dit bloquantes (condition Q16, relevé de toute la surface) }.
 local function scan(f, c)
@@ -314,9 +351,22 @@ local function scan(f, c)
       radius = Capital.RADIUS })) do
     if e.valid and e.unit_number then by_id[e.unit_number] = e end
   end
+  local blk, fixed = {}, {}
   for _, id in ipairs(sorted_keys(f.turrets)) do
     local t = f.turrets[id]
-    if t and t.valid and t.unit_number and L.parse(t.name) then by_id[t.unit_number] = t end
+    if t and t.valid and t.unit_number and L.parse(t.name) then
+      by_id[t.unit_number] = t
+      local ow = State.owner(t.unit_number)
+      blk[t.unit_number] = ow and ow.oid and ("t" .. ow.oid) or nil
+    end
+  end
+  -- Lot AMELIORATION : les projets du plan directeur entrent au relevé, chacun comme un bloc (un bâtiment du rayon du QG qui
+  -- appartient à un projet suit son projet).
+  if Capital.blocs_on() then
+    for _, pr in ipairs(project_ents(f)) do
+      local u = pr.e.unit_number
+      by_id[u], blk[u], fixed[u] = pr.e, pr.block, true
+    end
   end
   local ents, list = {}, {}
   local by_family = {}
@@ -325,7 +375,7 @@ local function scan(f, c)
     ents[#ents + 1] = e
     local ws = defines.entity_status and defines.entity_status.working
     local working = ws ~= nil and e.status == ws
-    list[#list + 1] = { id = id, name = e.name, working = working }
+    list[#list + 1] = { id = id, name = e.name, working = working, block = blk[id] or "qg", fixed = fixed[id] or nil }
     local fam, n = L.parse(e.name)
     if fam then by_family[fam.key] = math.max(by_family[fam.key] or 0, n) end
   end
@@ -362,6 +412,30 @@ local function census_of(f, c)
     -- même quand fo-war-capital est éteint : seul le remplacement des machines (fo-war-remplacer) décide.
     census = { list = {}, center = nil, no_center = true }
     c.ents, c.by_family, c.cc_level = {}, {}, cc_level_of(f)
+    -- Lot AMELIORATION : votre équipe monte aussi les bâtiments à niveaux de SES projets (jamais ceux du joueur), jusqu'au plafond du
+    -- centre du joueur (sa force), payés avec son coffre d'équipe (Capital.own_upgrade), jamais avec le coffre du centre du joueur.
+    if f.is_player and Capital.on() and Capital.blocs_on() and Levels and f.hq and f.hq.valid then
+      local cc = Levels.cc(game.forces[f.force])
+      if cc and cc.valid then
+        local ents, list = {}, {}
+        local by_family = {}
+        local ws = defines.entity_status and defines.entity_status.working
+        local seen = {}
+        for _, pr in ipairs(project_ents(f)) do
+          local e = pr.e
+          if not seen[e.unit_number] then
+            seen[e.unit_number] = true
+            ents[#ents + 1] = e
+            list[#list + 1] = { id = e.unit_number, name = e.name, working = ws ~= nil and e.status == ws, block = pr.block, fixed = true }
+            local fam, n = L.parse(e.name)
+            if fam then by_family[fam.key] = math.max(by_family[fam.key] or 0, n) end
+          end
+        end
+        table.sort(list, function(a, b) return a.id < b.id end)
+        census.list, census.center = list, { id = cc.unit_number, name = cc.name }
+        c.ents, c.by_family = ents, by_family
+      end
+    end
   else
     census = scan(f, c)
   end
@@ -403,8 +477,37 @@ end
 
 --- Texte d'une décision pour le journal : « famille de -> à » ou « remplacer machine -> machine xN ».
 function Capital.describe(d)
+  if d.bloc then
+    return string.format("bloc %s : %s %d -> %d x%d batiment(s) sur %d au plus bas", d.bloc, d.family, d.from, d.to, d.n or 1,
+      d.bloc_low or 0)
+  end
   if d.replace then return string.format("remplacer %s -> %s x%d", d.replace.from, d.replace.to, d.replace.n) end
   return string.format("%s %d -> %d", d.family, d.from, d.to)
+end
+
+--- Lot AMELIORATION : une ligne [FO-AMELIORATION] par (bloc, famille) à chaque CHANGEMENT d'état (décidé, refusé et sa cause, niveau,
+--- taille) : jamais un bloc qui ne monte pas sans dire pourquoi.
+--- Format : « [FO-AMELIORATION] <faction> : bloc <clé> famille <famille> : decide n/bas niveau a -> b (taille t) a <min> min » ou
+--- « ... : refuse (<cause>) niveau a, bas/taille au plus bas a <min> min ». Causes : plafond-centre, sans-centre, emprise,
+--- sans-cout:<objets>, refus-recent, niveau-max, sans-gain. État gardé : f.team.capital.am_sig[bloc|famille] (chaîne).
+function Capital.log_blocs(f, c, d, tick)
+  local rep = d and d.report
+  if not rep then return end
+  c.am_sig = c.am_sig or {}
+  local seen = {}
+  for _, row in ipairs(rep) do
+    local k = row.block .. "|" .. row.family
+    seen[k] = true
+    local sig = Am.signature(row)
+    if c.am_sig[k] ~= sig then
+      c.am_sig[k] = sig
+      log(string.format("[FO-AMELIORATION] %s : %s a %.1f min", f.key or "player", Am.line(row), minutes(f, tick)))
+    end
+  end
+  -- Un bloc disparu du relevé (projet fini, détruit) : oublié, sa clé ne reste pas dans la sauvegarde.
+  for _, k in ipairs(sorted_keys(c.am_sig)) do
+    if not seen[k] then c.am_sig[k] = nil end
+  end
 end
 
 --- Lot C1 : cause de l'état du centre, une ligne [FO-CAPITAL-CENTRE] à chaque CHANGEMENT (jamais un silence sur un centre
@@ -459,8 +562,19 @@ function Capital.goal(f, view, book, tick, w)
     available = function(item) return unlocked(f, item) end,
     unit_cost = unit_cost_fn(f, book), stock = view.stock or {}, weights = w,
     threat = view.threatened or (f.pvp and f.pvp.declared) or false, current = c.current and c.current.key or nil,
-    exclude = exclude, defer = c.defer, thaw = (c.thaw and c.thaw.active) or false, tick = tick }
+    exclude = exclude, defer = c.defer, thaw = (c.thaw and c.thaw.active) or false, tick = tick,
+    blocs = (census.list ~= nil and Capital.blocs_on()) or nil, -- lot AMELIORATION
+    need = function(block)
+      -- Un bloc de projet dont le produit manque (f.team.ia3.short, comme repli_opts de la capitalisation) monte d'abord.
+      local pid = tonumber(tostring(block):match("^p(%d+)$"))
+      local pr = pid and f.build and f.build.projects and f.build.projects[pid]
+      local prod = pr and pr.spec and pr.spec.product
+      local short = f.team.ia3 and f.team.ia3.short
+      if prod and short and (short[prod] or 0) > 0 then return Am.NEED_PCT end
+      return 100
+    end }
   local d = Cap.choose(L, census, ctx)
+  Capital.log_blocs(f, c, d, tick)
   -- Lot DEFAUT7, étage 3 : fin de l'état « collant » quand la cible du centre change (payé, ou autre centre) : sa durée au journal.
   local old = c.defer
   if old and old.ahead_since and not old.ahead_done and old.key ~= d.gate_key then
@@ -506,8 +620,14 @@ function Capital.goal(f, view, book, tick, w)
       ids = {}
       for i, v in ipairs(d.ids) do ids[i] = v end
     end
+    local unit = nil
+    if d.unit then
+      unit = {}
+      for i, it in ipairs(d.unit) do unit[i] = { it[1], it[2] } end
+    end
     c.current = { key = d.key, id = d.id, family = d.family, from = d.from, to = d.to, build = d.build or nil,
       center = d.center or nil, value = d.value, work = d.work, score = d.score, cost = cost, ids = ids,
+      bloc = d.bloc, n = d.n, unit = unit, bloc_low = d.bloc_low,
       replace = d.replace and { from = d.replace.from, to = d.replace.to, n = d.replace.n } or nil }
     if d.key ~= prev then
       c.decisions = (c.decisions or 0) + 1
@@ -692,6 +812,90 @@ function Capital.thaw_step(f, held, tick)
   return c.thaw.active
 end
 
+--- Lot AMELIORATION : monte UN bâtiment de votre équipe d'un niveau, payé avec son COFFRE d'équipe (jamais le coffre du centre du joueur,
+--- que Levels.start tire en premier) ; remplacement rapide du module des niveaux (Levels.swap). Mêmes règles que Levels.preview, sauf
+--- l'emprise : un bloc de votre équipe ne grandit pas (gabarit du plan). Rend la nouvelle entité, ou nil et le motif.
+function Capital.own_upgrade(f, e)
+  local fam, n = L.parse(e.name)
+  if not fam or n >= fam.max then return nil, "max" end
+  local ok = L.check(fam, n + 1, cc_level_of(f))
+  if not ok then return nil, "plafond" end
+  if L.footprint(fam, n) ~= L.footprint(fam, n + 1) then return nil, "emprise" end
+  local cost = L.cost(fam, n + 1)
+  for _, it in ipairs(cost) do
+    if Stock.count(f, it[1]) < it[2] then return nil, "stock" end
+  end
+  local ratio = e.get_health_ratio() or 1
+  local new = Levels.swap(e, L.name(fam, n + 1))
+  if not (new and new.valid) then return nil, "echec" end
+  for _, it in ipairs(cost) do
+    Stock.remove(f, it[1], it[2])
+    f.team.consumed[it[1]] = (f.team.consumed[it[1]] or 0) + it[2]
+  end
+  local mh = get(new.prototype, "max_health")
+  if mh then new.health = mh * ratio end
+  return new
+end
+
+--- Lot AMELIORATION : un bâtiment du lot, monté ; les registres qui le tenaient suivent la nouvelle entité (fours du QG, propriété).
+--- Le nom du plan directeur (f.build, niveau 1) reste : la reconstruction cherche par TYPE (script/team/rebuild_sweep.lua).
+local function upgrade_one(f, c, e, d)
+  local old_unit = e.unit_number
+  local owner = State.owner(old_unit)
+  local slot
+  for i, s in ipairs(f.smelters or {}) do
+    if s == e then slot = i break end
+  end
+  local new, why
+  if f.is_player then
+    new, why = Capital.own_upgrade(f, e)
+  else
+    local ok, res, _, n = Levels.start(e, nil, { inventories = Stock.inventories(f) })
+    if ok and n and n.valid then
+      new = n
+      for _, it in ipairs(d.unit or {}) do f.team.consumed[it[1]] = (f.team.consumed[it[1]] or 0) + it[2] end
+    else
+      why = res
+    end
+  end
+  if not new then return false, why end
+  if slot then f.smelters[slot] = new end
+  if owner then
+    if owner.kind == "turret" then
+      Outposts.add_turret(f, new, owner.oid, 0) -- l'ancienne sort de f.turrets à son on_entity_destroyed
+    else
+      State.disown(old_unit) -- avant l'événement de destruction : sinon une foreuse remplacée compterait comme perdue
+      State.own(new, f.id, owner.kind, owner.oid)
+    end
+  end
+  return true
+end
+
+--- Lot AMELIORATION : paie n bâtiments du lot en cours (d.ids dans l'ordre) ; chaque refus écarte le bâtiment 5 min
+--- (c.refused_until["e:<numéro>"], lu par la règle), un manque de matière arrête le lot. Rend le nombre monté et le dernier motif.
+local function pay_bloc(f, c, d, n, tick)
+  local done, why = 0, nil
+  c.refused_until = c.refused_until or {}
+  for i = 1, math.min(n or d.n or 1, #(d.ids or {})) do
+    local id = d.ids[i]
+    local e = find_entity(c, id)
+    local ok, w
+    if e and e.valid then
+      ok, w = upgrade_one(f, c, e, d)
+    else
+      w = "disparu"
+    end
+    if ok then
+      done = done + 1
+    else
+      why = w
+      if w == "no-resources" or w == "stock" then break end
+      c.refused_until["e:" .. id] = tick + Capital.REFUSE_TICKS
+    end
+  end
+  return done, why
+end
+
 --- Paie l'amélioration prête (plan.ia3.pay : coût réservé au stock virtuel par la pensée pure) si le stock LIBRE la
 --- couvre. Rend le nombre d'améliorations faites.
 function Capital.pay(f, surface, tick, plan, stock, only_center)
@@ -727,10 +931,14 @@ function Capital.pay(f, surface, tick, plan, stock, only_center)
   for _, p in ipairs(list) do
     -- Un but dont le mécanisme a été éteint depuis sa décision n'est pas payé.
     local allowed = d and ((d.replace and Capital.replace_on()) or (not d.replace and Capital.on()))
-    if d and allowed and p.target == d.key and has_list(stock, d.cost) then
+    if d and allowed and p.target == d.key and has_list(stock, p.cost or d.cost) then
       local ok, why
       local n_done = 1
-      if d.replace then
+      if d.bloc then
+        n_done, why = pay_bloc(f, c, d, p.n, tick)
+        ok = n_done > 0
+        if ok then why = nil end
+      elseif d.replace then
         n_done, why = pay_replace(f, c, d, tick)
         ok = n_done > 0
         if ok then why = nil end
@@ -784,10 +992,16 @@ function Capital.pay(f, surface, tick, plan, stock, only_center)
       end
       if ok then
         done = done + 1
-        c.upgrades = (c.upgrades or 0) + 1
-        if not d.center and c.defer and c.defer.open then c.defer.spent = (c.defer.spent or 0) + (d.value or 0) end -- lot AGES
+        c.upgrades = (c.upgrades or 0) + n_done
+        local value = d.value or 0
+        if d.bloc and (d.n or 0) > 0 then value = math.floor(value * n_done / d.n) end
+        if not d.center and c.defer and c.defer.open then c.defer.spent = (c.defer.spent or 0) + value end -- lot AGES
         local m = {}
         for _, it in ipairs(d.cost) do m[it[1]] = it[2] end
+        if d.bloc then
+          m = {}
+          for _, it in ipairs(d.unit or {}) do m[it[1]] = it[2] * n_done end
+        end
         if d.replace then
           m = {}
           m[d.replace.to] = n_done

@@ -40,6 +40,8 @@
   par clé, entiers pour les scores, aucun hasard, aucun pairs décisionnel.
 ]]
 
+local Am = require("shared.ai3.amelioration") -- lot AMELIORATION : règle pure « par bloc » (reçoit Cap en paramètre)
+
 local Cap = {}
 
 Cap.V_DEBIT = 100       -- un bâtiment en marche dont la vitesse doublerait vaut 100 (même échelle que Gen.V_PACK)
@@ -398,7 +400,18 @@ function Cap.candidates(Ld, census, ctx)
       if not cc.causes and not cc.score then centre.state = "sans-valeur" end
     end
   end
-  for _, r in ipairs(rows) do if r.cand then add(r.cand) end end
+  -- Lot AMELIORATION (ctx.blocs) : les bâtiments à niveaux montent PAR BLOC (shared/ai3/amelioration.lua) ; seul le bâtiment de la chaîne
+  -- du centre (Q16 : r.cand.chain) reste un candidat seul, c'est la seule exception à « aucun bâtiment à +2 niveaux de son bloc ».
+  local report
+  if ctx.blocs then
+    for _, r in ipairs(rows) do if r.cand and r.cand.chain then add(r.cand) end end
+    local bctx = setmetatable({ cc_level = cc_level }, { __index = ctx })
+    local res = Am.candidates(Ld, census.list or {}, bctx, cfam, Cap)
+    for _, c in ipairs(res.cands) do add(c) end
+    report = res.report
+  else
+    for _, r in ipairs(rows) do if r.cand then add(r.cand) end end
+  end
   -- Lot AMELIORER : machines hors famille remplacées sur place par la machine supérieure.
   local rep, rep_blocked = Cap.replace_candidates(Ld, census, ctx)
   for _, c in ipairs(rep) do add(c) end
@@ -411,7 +424,7 @@ function Cap.candidates(Ld, census, ctx)
     if a.value ~= b.value then return a.value > b.value end
     return a.key < b.key
   end)
-  return { cands = cands, blocked = blocked, center_fam = cfam, cc_level = cc_level, blockers = blockers, centre = centre }
+  return { cands = cands, blocked = blocked, center_fam = cfam, cc_level = cc_level, blockers = blockers, centre = centre, report = report }
 end
 
 --- Le choix : le meilleur candidat (nil s'il n'y en a pas) ; d.ranked = les Cap.TOP premiers { clé, score } ;
@@ -437,6 +450,7 @@ function Cap.choose(Ld, census, ctx)
   d.blocked = res.blocked
   d.cc_level = res.cc_level
   d.centre = res.centre
+  d.report = res.report -- lot AMELIORATION : un état par (bloc, famille), pour le journal [FO-AMELIORATION]
   local wanted = {}
   for _, b in ipairs(res.blocked) do
     for _, c in ipairs(b.causes or {}) do
@@ -513,6 +527,8 @@ function Cap.goal(d, weights)
   return { key = "capital:" .. d.key, family = "capital", kind = "upgrade", cost = d.cost, target = d.key,
     value = clamp(math.floor(base * w / 1000), 1, 100), center = d.center or nil, fond = true,
     short = (d.center and d.work ~= nil and (d.work <= Cap.SHORT_WORK or d.starved)) or nil, replace = d.replace and true or nil,
+    -- Lot AMELIORATION : un lot de bâtiments d'un bloc (n bâtiments, `unit` = coût d'un seul) ; Cap.emit peut en payer moins (E.pay.n).
+    bloc = d.bloc, n = d.bloc and d.n or nil, unit = d.bloc and d.unit or nil,
     -- lot DEFAUT7 : bâtiment de la chaîne Q16 (sa montée est la condition du centre) ; essai 2 : aussi l'amélioration d'un bâtiment
     -- pendant que le centre est PAYABLE (porte ouverte) : ses paiements sont le chemin du centre (règle du loueur de skis, Cap.starved).
     -- Étage 3 (relecture de 16f1b3e0, point 2) : porte ouverte, un REMPLACEMENT de machines n'est pas « sur le chemin » (pas un bâtiment
@@ -536,14 +552,29 @@ function Cap.emit(P)
     local aside = g.ahead and Cap.ahead_clamp(E, g.cost) or nil
     local prio = g.ahead and Cap.ahead_prio(P, proj.prio) or proj.prio
     local res
-    if P.take(E, g.cost) then
+    local part = nil
+    if g.bloc and g.unit and (g.n or 0) > 1 and not Am.covers(E.avail, g.cost) then
+      -- Lot AMELIORATION : un lot de bloc que le stock virtuel ne paie pas en entier est payé en plus petit (jamais « non-reserve »
+      -- pour un lot dont une partie est payable) ; le runtime paie p.n bâtiments, pas g.n.
+      local k = Am.supported(g.unit, E.avail, g.n - 1)
+      if k >= 1 then part = k end
+    end
+    if part then
+      local cost = Am.scaled(g.unit, part)
+      P.take(E, cost)
       E.pay = E.pay or {}
-      E.pay[#E.pay + 1] = { key = g.key, target = g.target, cost = g.cost }
+      E.pay[#E.pay + 1] = { key = g.key, target = g.target, cost = cost, n = part }
+      res = "ok"
+    elseif P.take(E, g.cost) then
+      E.pay = E.pay or {}
+      E.pay[#E.pay + 1] = { key = g.key, target = g.target, cost = g.cost, n = g.n }
       res = "ok"
     elseif not g.center and not g.opens and not g.replace and ((E.view and E.view.workers_idle) or 0) <= 0 then
       res = "matiere"
     else
-      P.want(E, proj, g.cost, prio, false, "niveau")
+      -- Lot AMELIORATION : un lot de bloc que le stock ne paie même pas pour un seul demande de quoi en payer quelques-uns (pas 12
+      -- fabrications d'un coup) ; il grossira avec le stock, la décision reste celle du lot entier.
+      P.want(E, proj, g.bloc and g.unit and Am.scaled(g.unit, math.min(g.n or 1, 4)) or g.cost, prio, false, "niveau")
       res = "matiere"
     end
     for _, k in ipairs(sorted_keys(aside)) do E.avail[k] = (E.avail[k] or 0) + aside[k] end
