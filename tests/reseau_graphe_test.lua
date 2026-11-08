@@ -19,10 +19,18 @@ local SRC = read("shared/team/reseau_graphe.lua")
 local BUILD = read("script/team/build.lua")
 local Li = require("shared.team.liaison")
 
-local function load_rg(src)
+local BUSSRC = read("shared/team/reseau_bus.lua") -- le bus d'une composante (suite du fichier principal, installé par require)
+local function load_rg(src, bus)
+  local saved = package.loaded["shared.team.reseau_bus"]
+  local bfn, berr = load(bus or BUSSRC, "=reseau_bus", "t")
+  assert(bfn, berr)
+  package.loaded["shared.team.reseau_bus"] = bfn()
   local fn, err = load(src, "=reseau_graphe", "t")
   assert(fn, err)
-  return fn()
+  local ok, R = pcall(fn)
+  package.loaded["shared.team.reseau_bus"] = saved
+  assert(ok, R)
+  return R
 end
 
 local function prod(key, item, x, y, rate) return { key = key, item = item, x = x, y = y, rate = rate } end
@@ -533,7 +541,7 @@ end
 
 -- §10 hygiène du source
 do
-  local code = SRC:gsub("%-%-%[%[.-%]%]", ""):gsub("%-%-[^\n]*", "")
+  local code = (SRC .. "\n" .. BUSSRC):gsub("%-%-%[%[.-%]%]", ""):gsub("%-%-[^\n]*", "")
   check(not code:find("iron%-") and not code:find("copper%-") and not code:find("transport%-belt") and not code:find("[a-z]%-inserter")
     and not code:find("electric%-pole") and not code:find("assembling") and not code:find("wooden") and not code:find("%-plate") and not code:find("gear"),
     "10.1 aucun nom d'objet dans shared/team/reseau_graphe.lua")
@@ -614,12 +622,18 @@ local MUTANTS = {
 }
 local refused = 0
 for _, m in ipairs(MUTANTS) do
+  local msrc, mbus = SRC, BUSSRC
   local a, b = SRC:find(m[2], 1, true)
+  if a then
+    msrc = SRC:sub(1, a - 1) .. m[3] .. SRC:sub(b + 1)
+  else
+    a, b = BUSSRC:find(m[2], 1, true)
+    if a then mbus = BUSSRC:sub(1, a - 1) .. m[3] .. BUSSRC:sub(b + 1) end
+  end
   if not a then
     check(false, "12 motif de mutant introuvable : " .. m[1])
   else
-    local mutated = SRC:sub(1, a - 1) .. m[3] .. SRC:sub(b + 1)
-    local okl, M = pcall(load_rg, mutated)
+    local okl, M = pcall(load_rg, msrc, mbus)
     if not okl then
       refused = refused + 1
     else
