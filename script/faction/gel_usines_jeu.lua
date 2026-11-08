@@ -56,20 +56,18 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Frontière et application d'un pas
 ---------------------------------------------------------------------------------------------------
---- Recette d'un four du QG relue à sa source (un seul objet dans la source) ; garde la dernière si la source est vide.
+--- Recette d'un four du QG relue à sa source (un seul objet dans la source). Source vide, ou objet sans recette de four : la dernière
+--- recette est GARDÉE (connue dès le relevé, discover_four) ; le pas n'y trouve pas son ingrédient et ne fabrique rien, comme le moteur
+--- (C19, 8/11 : plus de recette fictive « ? »).
 local function refresh_recipe(I, m, src_items)
   local names = Gc.sorted_names(src_items)
   local recipe = names[1] and Gu.book()[names[1]]
-  if not recipe then
-    if not I.recipe_ok then m.ing, m.out = { { "?", 1 } }, { { "?", 1 } } end
-    return
-  end
+  if not recipe then return end
   local e = I.machines[1]
   m.ing, m.out = recipe.ing, recipe.out
   m.rate = (e.crafting_speed or 1) / (recipe.time * 60)
   m.jpc = (m.power or 0) / m.rate
   m.fpc = m.jpc / m.eff
-  I.recipe_ok = true
 end
 
 local function inv_of(I, pid)
@@ -108,14 +106,8 @@ local function frontier(I, dt)
           local items, space = {}, {}
           for _, it in ipairs(m.out) do
             local n = it[1]
-            -- « ? » : produit d'un four du QG dont la recette n'est pas (encore) connue (refresh_recipe). Ce n'est pas un objet : le
-            -- lire au moteur lève « Unknown item name » et arrête la partie (C19, sauvegarde du DC, 8/11). Rien n'y entre ni n'en sort.
-            if n == "?" then
-              items[n], space[n] = 0, 0
-            else
-              items[n] = inv and inv.get_item_count(n) or 0
-              space[n] = inv and inv.get_insertable_count(n) or 0
-            end
+            items[n] = inv and inv.get_item_count(n) or 0
+            space[n] = inv and inv.get_insertable_count(n) or 0
           end
           fr.pools[ref.id] = { items = items, space = space }
         end

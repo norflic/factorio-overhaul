@@ -17,14 +17,20 @@
     M11 contrôle statique : aucune écriture de crafting_progress ni bonus_progress ; mining_progress et bonus_mining_progress d'une foreuse
         écrits par le seul write_progress (gel_usines_jeu.lua, option (ii) du lead) ; au monde factice, jamais sur autre chose qu'une foreuse ;
     M14 option (ii) : au réveil, la fraction comptée pendant le gel est rendue à la foreuse par sa progression ;
-    M15 four du QG vide refusé « recette » ; four figé dont la recette devient inconnue : aucun objet « ? » lu (le monde factice lève
-        « Unknown item name » comme le moteur), rien produit (C19, sauvegarde du DC, 8/11) ;
+    M15 four du QG vide refusé « recette » ; four figé dont la source prend un objet sans recette de four : recette gardée, aucun
+        nom inconnu lu (inventaires et statistiques du monde factice passent le contrôle du moteur simulé partagé,
+        tests/mock_engine.lua M.item_known : « Unknown item name » comme le moteur), rien produit (C19, sauvegarde du DC, 8/11) ;
+    M16 portées fines du guet fermées sous leur nom (mesure C19) ;
     M12 remplaçant d'une machine figée (fast_replace, raise_built) hérité inactif : rendu actif dans le gestionnaire ;
     M13 faction anéantie pendant le gel : tout réveillé au guet suivant, n_frozen à 0, registre de la faction vidé ;
-    Mutants du runtime (relecture de revue-s, 8/11) : guet limité aux factions vivantes ; remplaçant laissé inactif.
+    Mutants du runtime (relecture de revue-s, 8/11) : guet limité aux factions vivantes ; remplaçant laissé inactif ; (C19) four du QG
+        relevé sans recette, recette fictive « ? » rendue au pas, portée fine non fermée.
   Usage : lua5.2 tests/gel_moteur_test.lua   (depuis la racine du mod ; shared/faction/cadence.lua de x10-s10 requis)
 ]]
 package.path = "./?.lua;" .. package.path
+-- Contrôle des noms d'objets du MOTEUR SIMULÉ partagé (Mk.item_known : « Unknown item name » comme le moteur, C19, 8/11) : les
+-- inventaires et les statistiques du monde factice le passent, avec les objets de Mk.item_prototypes.
+local Mk = require("tests.mock_engine")
 
 local ok_n, fail_n = 0, 0
 local quiet = false -- passages des mutants (fin du fichier) : rien n'est imprimé
@@ -40,8 +46,9 @@ end
 local W
 local function new_inv(cap)
   local inv = { items = {}, cap = cap or 4800 }
-  -- comme le moteur : un nom qui n'est pas un objet (« ? ») lève « Unknown item name » (C19, sauvegarde du DC, 8/11)
-  local function known(n) if n == "?" then error("Unknown item name: " .. tostring(n)) end end
+  -- comme le moteur : un nom qui n'est pas un objet lève « Unknown item name » (C19, sauvegarde du DC, 8/11 : « ? »), par le contrôle
+  -- du moteur simulé partagé (tests/mock_engine.lua, M.item_known)
+  local function known(n) if not Mk.item_known(n) then error("Unknown item name: " .. tostring(n)) end end
   function inv.get_item_count(n) if n == nil then local t = 0 for _, c in pairs(inv.items) do t = t + c end return t end known(n) return inv.items[n] or 0 end
   function inv.get_insertable_count(n)
     known(n)
@@ -49,8 +56,8 @@ local function new_inv(cap)
     for _, c in pairs(inv.items) do used = used + c end
     return math.max(0, inv.cap - used)
   end
-  function inv.insert(s) local q = math.min(s.count, inv.get_insertable_count(s.name)); if q > 0 then inv.items[s.name] = (inv.items[s.name] or 0) + q end return q end
-  function inv.remove(s) local q = math.min(s.count, inv.items[s.name] or 0); inv.items[s.name] = (inv.items[s.name] or 0) - q; if inv.items[s.name] == 0 then inv.items[s.name] = nil end return q end
+  function inv.insert(s) known(s.name); local q = math.min(s.count, inv.get_insertable_count(s.name)); if q > 0 then inv.items[s.name] = (inv.items[s.name] or 0) + q end return q end
+  function inv.remove(s) known(s.name); local q = math.min(s.count, inv.items[s.name] or 0); inv.items[s.name] = (inv.items[s.name] or 0) - q; if inv.items[s.name] == 0 then inv.items[s.name] = nil end return q end
   function inv.get_contents() local o = {} for k, v in pairs(inv.items) do o[k] = v end return o end
   return inv
 end
@@ -145,13 +152,18 @@ local function new_world()
     return out
   end
   W.surface.pollute = function(_, a) W.pollution = W.pollution + a end
-  local protos = { coal = { name = "coal", fuel_value = 4000000, fuel_category = "chemical" }, ["iron-ore"] = { name = "iron-ore", fuel_value = 0 } }
+  local recipes = { ["iron-plate"] = { category = "smelting", energy = 3.2, ingredients = { { type = "item", name = "iron-ore", amount = 1 } },
+    products = { { type = "item", name = "iron-plate", amount = 1 } } } }
+  -- objets du moteur simulé partagé (recettes et objets de base : charbon, minerais, pierre, bois), contrôlés par Mk.item_known ; seul le
+  -- charbon est un combustible chimique (comme avant : le bois n'en est pas un ici)
+  local protos = Mk.item_prototypes(recipes)
+  protos.coal.fuel_value, protos.coal.fuel_category = 4000000, "chemical"
+  protos.wood.fuel_value = 0
   local force = { item_production_statistics = { on_flow = function(n, c)
+    if not Mk.item_known(n) then error("Unknown item name: " .. tostring(n)) end
     W.flows[n] = (W.flows[n] or 0) + c
     if c > 0 then W.flows_in[n] = (W.flows_in[n] or 0) + c else W.flows_out[n] = (W.flows_out[n] or 0) - c end
   end }, mining_drill_productivity_bonus = 0 }
-  local recipes = { ["iron-plate"] = { category = "smelting", energy = 3.2, ingredients = { { type = "item", name = "iron-ore", amount = 1 } },
-    products = { { type = "item", name = "iron-plate", amount = 1 } } } }
   game = { tick = 0, connected_players = {}, forces = { ["fo-a"] = force, player = force }, recipe_prototypes = recipes,
     item_prototypes = protos, surfaces = { [1] = W.surface } }
   W.player = { valid = true, surface = W.surface, position = { x = 5000, y = 5000 } }
@@ -184,6 +196,7 @@ function prof_check(tag, scopes, counters)
 end
 local H
 local MUT_JEU = nil -- source mutée de script/faction/gel_usines_jeu.lua (mutants, fin du fichier)
+local MUT_GU = nil -- source mutée de script/faction/gel_usines.lua (mutants, fin du fichier)
 local function load_mod()
   H = { on = {}, nth = {}, died = {}, config = {} }
   for _, m in ipairs({ "script.core.events", "script.core.storage", "script.core.profiler", "script.faction.state", "script.faction.gel",
@@ -206,7 +219,13 @@ local function load_mod()
     fcount = function(n, k) PROF.cnt[n] = (PROF.cnt[n] or 0) + (k or 1) end }
   package.loaded["script.faction.commander"] = { army_out = function() return W.army_out == true, nil end }
   local Gel = require("script.faction.gel")
-  local Gu = require("script.faction.gel_usines")
+  local Gu
+  if MUT_GU then
+    Gu = assert(load(MUT_GU, "=script/faction/gel_usines.lua"))()
+    package.loaded["script.faction.gel_usines"] = Gu
+  else
+    Gu = require("script.faction.gel_usines")
+  end
   local Gj
   if MUT_JEU then
     Gj = assert(load(MUT_JEU, "=script/faction/gel_usines_jeu.lua"))()
@@ -427,8 +446,8 @@ local function scene_recette()
   -- la source de s2 est vidée et remplie d'un objet sans recette de four AVANT son premier pas : la recette reste inconnue (« ? »)
   s2._src.items = { wood = 5 }
   local ok, err = pcall(run, 3000)
-  check(ok, "M15 : four figé de recette inconnue : aucun objet « ? » lu au moteur, la partie continue" .. (ok and "" or (" : " .. tostring(err))))
-  check((s2._out.items["iron-plate"] or 0) == 0 and (s2._src.items.wood or 0) == 5, "M15 : rien produit ni consommé par le four de recette inconnue")
+  check(ok, "M15 : four figé dont la source prend un objet sans recette de four : aucun nom inconnu lu au moteur, la partie continue" .. (ok and "" or (" : " .. tostring(err))))
+  check((s2._out.items["iron-plate"] or 0) == 0 and (s2._src.items.wood or 0) == 5, "M15 : rien produit ni consommé par ce four (recette gardée, ingrédient absent)")
 end
 scene_recette()
 
@@ -446,6 +465,8 @@ do
     for _, k in ipairs({ "crafting_progress%s*=", "bonus_progress%s*=" }) do
       if s:find("[%.:]" .. k) then bad[#bad + 1] = p .. " " .. k end
     end
+    -- C19 (8/11) : plus aucun nom fictif « ? » dans les fichiers du lot (il atteignait le moteur : « Unknown item name: ? »)
+    if s:find('"?"', 1, true) then bad[#bad + 1] = p .. ' "?"' end
     -- option (ii) : la progression d'une foreuse n'est écrite QUE par write_progress (gel_usines_jeu.lua)
     if p ~= "script/faction/gel_usines_jeu.lua" then
       for _, k in ipairs({ "mining_progress%s*=", "bonus_mining_progress%s*=" }) do
@@ -466,8 +487,16 @@ do
     { "progression non rendue au reveil (option ii)", "else Gc.bank(I.acc); write_progress(I) end", "else Gc.bank(I.acc) end" },
     { "remplacant d'une machine figee laisse inactif", "if why == \"pose\" and inside_frozen and entity.active == false then entity.active = true end", "" },
     { "portee fine non fermee (C19)", "  Profiler.fstop(\"gel:g:menage\")\n", "" },
-    { "objet « ? » lu au moteur (C19)", "            if n == \"?\" then", "            if false then" },
   }
+  -- (C19, 8/11) mutants de gel_usines.lua (relevé) et de la recette fictive d'avant le correctif, rendue au pas
+  local fg = assert(io.open("script/faction/gel_usines.lua", "rb"))
+  local SRC_GU = fg:read("*a")
+  fg:close()
+  local MUTANTS_GU = {
+    { "four du QG releve sans recette (C19)", "  if not recipe then return nil, \"recette\" end\n  local u = s.unit_number", "  local u = s.unit_number" },
+  }
+  MUTANTS[#MUTANTS + 1] = { "recette fictive « ? » rendue au pas (C19, avant le correctif)", "  if not recipe then return end\n  local e = I.machines[1]",
+    "  if not recipe then m.ing, m.out = { { \"?\", 1 } }, { { \"?\", 1 } }; return end\n  local e = I.machines[1]" }
   local seen, missed = 0, {}
   local ok0, fail0 = ok_n, fail_n
   quiet = true
@@ -482,9 +511,20 @@ do
       MUT_JEU = nil
     end
   end
+  for _, mu in ipairs(MUTANTS_GU) do
+    local s, e = SRC_GU:find(mu[2], 1, true)
+    if not s then missed[#missed + 1] = mu[1] .. " (texte introuvable)" else
+      MUT_GU = SRC_GU:sub(1, s - 1) .. mu[3] .. SRC_GU:sub(e + 1)
+      local before = fail_n
+      local okc = pcall(function() scene_recette(); scenes() end)
+      local died = (fail_n > before) or not okc
+      if died then seen = seen + 1 else missed[#missed + 1] = mu[1] end
+      MUT_GU = nil
+    end
+  end
   ok_n, fail_n = ok0, fail0
   quiet = false
-  check(#missed == 0, string.format("mutants du runtime : %d/%d vus%s", seen, #MUTANTS, #missed > 0 and (" ; NON VUS : " .. table.concat(missed, " ; ")) or ""))
+  check(#missed == 0, string.format("mutants du runtime : %d/%d vus%s", seen, #MUTANTS + #MUTANTS_GU, #missed > 0 and (" ; NON VUS : " .. table.concat(missed, " ; ")) or ""))
 end
 
 print(string.format("[GEL-MOTEUR] BILAN : %d OK, %d ECHEC(S)", ok_n, fail_n))

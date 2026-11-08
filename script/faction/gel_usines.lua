@@ -189,15 +189,13 @@ local function drill_desc(d, res_ids, prod, mt, dst, force)
     energy = "burner", power = b.power, eff = b.eff, emis = b.emis, fuel = "f" .. d.unit_number, res = res_ids, src = {}, dst = dst }
 end
 
+--- Four d'un îlot : sa recette est TOUJOURS connue (C19, 8/11 : plus de recette fictive « ? », qui atteignait le moteur et arrêtait la
+--- partie du DC ; un four sans recette connue n'est pas relevé).
 local function furnace_desc(s, recipe, src, dst)
   local b = burner_info(s)
-  local m = { id = s.unit_number, kind = "craft", rate = 1, ing = { { "?", 1 } }, out = { { "?", 1 } }, prod = s.productivity_bonus or 0,
-    energy = "burner", power = b.power, eff = b.eff, emis = b.emis, fuel = "f" .. s.unit_number, src = src, dst = dst }
-  if recipe then
-    m.ing, m.out = recipe.ing, recipe.out
-    m.rate = (s.crafting_speed or 1) / (recipe.time * 60)
-  end
-  return m
+  return { id = s.unit_number, kind = "craft", rate = (s.crafting_speed or 1) / (recipe.time * 60), ing = recipe.ing, out = recipe.out,
+    prod = s.productivity_bonus or 0, energy = "burner", power = b.power, eff = b.eff, emis = b.emis, fuel = "f" .. s.unit_number, src = src,
+    dst = dst }
 end
 
 --- Îlot autour d'une foreuse d'avant-poste : rend I (non enregistré) ou nil et la raison.
@@ -284,13 +282,15 @@ local function discover_four(f, surface, s)
   local fv = fuel_table(s)
   if not fv then return nil, "combustible" end
   -- Recette lue à la source : un four vide (ou d'un objet sans recette de four) n'est pas relevé ; il le sera au relevé suivant s'il est
-  -- rempli (C19, 8/11 : un four du QG vide figé lisait l'objet fictif « ? » au pas et arrêtait la partie du DC).
+  -- rempli (C19, 8/11 : un four du QG vide figé lisait l'objet fictif « ? » au pas et arrêtait la partie du DC). Relevé, il garde
+  -- toujours une recette connue (refresh_recipe, gel_usines_jeu.lua).
   local src = s.get_inventory(defines.inventory.furnace_source)
   local contents = src and src.get_contents() or {}
   local first = Gc.sorted_names(contents)[1]
-  if not (first and book()[first]) then return nil, "recette" end
+  local recipe = first and book()[first]
+  if not recipe then return nil, "recette" end
   local u = s.unit_number
-  local il = { machines = { furnace_desc(s, nil, { { k = "pool", id = "s" .. u } }, { { k = "pool", id = "o" .. u } }) }, fv = fv }
+  local il = { machines = { furnace_desc(s, recipe, { { k = "pool", id = "s" .. u } }, { { k = "pool", id = "o" .. u } }) }, fv = fv }
   local I = { kind = "four", dyn = true, machines = { s }, units = {}, targets = {}, res = {}, pool_ent = { ["s" .. u] = s, ["o" .. u] = s },
     pool_kind = { ["s" .. u] = "source", ["o" .. u] = "sortie" }, pool_item = {}, fuel_ent = { ["f" .. u] = s }, force = f.force, surface = surface.index }
   I.il = Gc.prepare(il)

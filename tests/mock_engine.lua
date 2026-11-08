@@ -19,6 +19,7 @@ local M = {}
 local MOD_MODULE_PATTERN = "^script%."
 
 local W -- monde courant
+local MOCK_ITEMS = setmetatable({}, { __mode = "k" }) -- tables d'objets rendues par M.item_prototypes (contrôle des noms, M.item_known)
 
 --- Lot IA-G : prototypes d'objets du mock, ITÉRABLES (forme de LuaItemPrototype : name, type, fuel_value,
 --- localised_name), tirés des recettes ; types militaires et pouvoir calorifique des combustibles vanilla.
@@ -48,9 +49,27 @@ function M.item_prototypes(recipes)
     for _, i in ipairs(r.ingredients or {}) do if i.type ~= "fluid" then add(i.name) end end
   end
   for _, n in ipairs({ "coal", "copper-ore", "iron-ore", "stone", "wood" }) do add(n) end
+  MOCK_ITEMS[out] = true
   return setmetatable(out, { __index = function(_, name)
     return { name = name, localised_name = { "item-name." .. name } }
   end })
+end
+
+--- Lot X10-GEL (C19, 8/11) : le moteur lève « Unknown item name: X » quand un inventaire, une entité ou des statistiques reçoivent un
+--- nom qui n'est pas un objet (get_item_count, get_insertable_count, insert, remove, remove_item ; plantage du gel sur la sauvegarde du
+--- DC, nom fictif « ? »). Le mock aussi, dans une partie du mock : un nom est CONNU s'il est un objet du mock (recettes et objets de
+--- base, M.item_prototypes, sans la réponse de repli de l'index) ou le nom d'une entité du mock (objet qui la pose). Hors d'une partie
+--- du mock (game.item_prototypes d'un test qui fait son propre monde) : aucun contrôle.
+function M.item_known(name)
+  if type(name) ~= "string" or name == "" then return false end
+  local protos = game and game.item_prototypes
+  if not MOCK_ITEMS[protos] then return true end
+  if rawget(protos, name) ~= nil then return true end
+  local ep = W and W.prototypes
+  return type(ep) == "table" and rawget(ep, name) ~= nil
+end
+local function check_item(name, api)
+  if not M.item_known(name) then error("Unknown item name: " .. tostring(name) .. " (" .. api .. ", moteur simulé)", 3) end
 end
 
 function M.world() return W end
@@ -252,6 +271,7 @@ local function new_inventory()
   local inv = { _items = {}, valid = true }
   inv.insert = function(items)
     assert(type(items) == "table" and items.name and items.count, "LuaInventory.insert : {name, count} attendu")
+    check_item(items.name, "LuaInventory.insert")
     local n = math.floor(items.count)
     if n <= 0 then return 0 end
     inv._items[items.name] = (inv._items[items.name] or 0) + n
@@ -259,6 +279,7 @@ local function new_inventory()
   end
   inv.remove = function(items)
     assert(type(items) == "table" and items.name, "LuaInventory.remove : {name, count} attendu")
+    check_item(items.name, "LuaInventory.remove")
     local have = inv._items[items.name] or 0
     local n = math.min(have, math.floor(items.count or have))
     if n <= 0 then return 0 end
@@ -267,7 +288,10 @@ local function new_inventory()
     return n
   end
   inv.get_item_count = function(name)
-    if name then return inv._items[name] or 0 end
+    if name then
+      check_item(name, "LuaInventory.get_item_count")
+      return inv._items[name] or 0
+    end
     local n = 0
     for _, c in pairs(inv._items) do n = n + c end
     return n
@@ -279,7 +303,10 @@ local function new_inventory()
   end
   inv.is_empty = function() return next(inv._items) == nil end
   -- Lot MAIN-INVENTAIRE : capacité illimitée, donc une place énorme (le mineur ne dépose jamais en route dans le mock).
-  inv.get_insertable_count = function() return 1000000 end
+  inv.get_insertable_count = function(name)
+    check_item(name, "LuaInventory.get_insertable_count")
+    return 1000000
+  end
   -- Lot COFFRE : le mock n'a pas de nombre de cases (#inv = 0, capacité illimitée) ; script/team/stock.lua traite un coffre
   -- de 0 case comme « capacité inconnue » : ni annexe ni rangement.
   inv.count_empty_stacks = function() return 0 end
@@ -599,6 +626,7 @@ local EntityMT = {
     end
     if k == "get_item_count" then
       return function(name)
+        if name ~= nil then check_item(name, "LuaEntity.get_item_count") end
         local n = 0
         for _, inv in pairs(t._invs) do n = n + inv.get_item_count(name) end
         return n
@@ -607,6 +635,7 @@ local EntityMT = {
     if k == "remove_item" then
       return function(items)
         assert(type(items) == "table" and items.name, "remove_item : {name, count} attendu")
+        check_item(items.name, "LuaEntity.remove_item")
         local want, got = items.count or math.huge, 0
         local idx = {}
         for i in pairs(t._invs) do idx[#idx + 1] = i end
