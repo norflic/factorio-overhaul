@@ -155,7 +155,7 @@ local Piquage = require("script.team.piquage")
 
 local B = { occ = { [P.tkey(21, 16)] = 1, [P.tkey(22, 16)] = 1, [P.tkey(23, 16)] = 1 }, order = { 1 }, projects = {}, lat = P.lattice({ x = 0, y = 0 }), stats = { filled = 0 }, next_id = 2 }
 local PROJ1 = { id = 1, state = "fini", spec = { gen = "x", names = { arm = "inserter", pole = "small-electric-pole" } }, parts = { { kind = "module" } }, quais = { { x = 20.5, y = 14.5, item = "X" } }, outs = {}, ents = {},
-  inflow = { X = 1.0 } }
+  inflow = { X = 1.0 }, tapis_piquable = { { x = 23, y = 16, item = "X" }, { x = 22, y = 16, item = "Y" } } }
 B.projects[1] = PROJ1
 FACTION.build = B
 
@@ -192,6 +192,7 @@ cycle() -- découverte
 local tr = B.piquage.track["1:q1"]
 check(tr and #tr.order == Piquage.MAX_TRACK, "1.1 découverte : " .. Piquage.MAX_TRACK .. " tuiles suivies, les plus proches du quai")
 check(tr and tr.tiles["21:16"] == nil and tr.tiles["22:16"] == nil, "1.1 bis les tapis du plan (tuiles réservées) ne sont pas suivis")
+check(tr and tr.tiles["23:16"] ~= nil, "1.1 ter un tapis du plan déclaré piquable par son projet (p.tapis_piquable) pour CET objet est suivi, pas pour un autre")
 check(tr and tr.tiles["20:10"] ~= nil and tr.tiles["20:10"].obs.n == 1 and tr.tiles["20:10"].obs.dense == 1, "1.2 la tuile en face du quai est suivie, 1 relevé dense")
 cycle()
 cycle() -- 3 relevés : candidate
@@ -207,6 +208,9 @@ check(REQ[1] and REQ[1].spec.prio == 56 and REQ[1].spec.pile == "capital" and RE
 check(has_log("%[FO%-PIQUAGE%] player : quai 1:q1 %(X, 1%.00/s, a [%d]+ tuiles du QG%) : piquage demande : projet 2") ~= nil, "2.5 journal : piquage demande")
 local seen_bilan = has_log("%[FO%-PIQUAGE%] player : bilan : quais d'entree 1,")
 check(seen_bilan ~= nil, "2.6 journal : bilan avec tournées fill")
+local Q = B.piquage.quais["1:q1"]
+check(Q and Q.verdict == "demande" and Q.cause == "ok" and type(Q.tick) == "number", "2.6 bis état lisible : b.piquage.quais[\"1:q1\"] = demande/ok")
+check(B.piquage.bilan.quais == 1 and B.piquage.bilan.tournees == 0, "2.6 ter état lisible : b.piquage.bilan")
 cycle()
 check(#REQ == 1, "2.7 pas de seconde demande pour le même quai tant que la première vit : " .. #REQ)
 
@@ -306,6 +310,15 @@ sp.splitter_output_priority = "none"
 cycle()
 check(sp.splitter_output_priority == g.priority, "4.10 priorité relue et remise à chaque relevé")
 check(has_log("piquage ne livre pas") ~= nil or has_log("piquage actif") ~= nil, "4.11 journal : livraison constatée ou non")
+do
+  local q = B.piquage.quais["1:q1"]
+  local VALID_V, VALID_C = {}, {}
+  for _, v in ipairs(Pq.VERDICT_CODES) do VALID_V[v] = true end
+  for _, v in ipairs(Pq.CAUSE_CODES) do VALID_C[v] = true end
+  local all = true
+  for k, e in pairs(B.piquage.quais) do if not (VALID_V[e.verdict] and VALID_C[e.cause]) then all = false end end
+  check(q ~= nil and all, "4.12 chaque verdict et chaque cause de l'état est un mot fixe de la liste de la règle")
+end
 
 ---------------------------------------------------------------------------------------------------
 -- §5 refus

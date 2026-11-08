@@ -75,16 +75,16 @@ end
 function Pq.tile_verdict(c)
   local o = c.obs
   if not o or o.n < Pq.MIN_SAMPLES then
-    return false, string.format("releves insuffisants (%d sur %d)", o and o.n or 0, Pq.MIN_SAMPLES)
+    return false, string.format("releves insuffisants (%d sur %d)", o and o.n or 0, Pq.MIN_SAMPLES), "releves_insuffisants"
   end
-  if o.mixed > 0 then return false, "tapis mixte (un autre objet vu : un repartiteur filtre affamerait l'aval)" end
+  if o.mixed > 0 then return false, "tapis mixte (un autre objet vu : un repartiteur filtre affamerait l'aval)", "tapis_mixte" end
   local need = math.ceil(Pq.JAM_FRAC * o.n - 1e-9)
   if o.dense < need then
-    return false, string.format("surplus non observe (tuile dense %d fois sur %d, il en faut %d)", o.dense, o.n, need)
+    return false, string.format("surplus non observe (tuile dense %d fois sur %d, il en faut %d)", o.dense, o.n, need), "surplus_non_observe"
   end
-  if c.shape ~= "straight" then return false, "tapis en courbe" end
-  if not c.back then return false, "rien n'alimente la tuile" end
-  if not c.front then return false, "le tapis ne se prolonge pas" end
+  if c.shape ~= "straight" then return false, "tapis en courbe", "tuile_impropre" end
+  if not c.back then return false, "rien n'alimente la tuile", "tuile_impropre" end
+  if not c.front then return false, "le tapis ne se prolonge pas", "tuile_impropre" end
   return true, string.format("surplus observe (dense %d fois sur %d)", o.dense, o.n)
 end
 
@@ -166,23 +166,24 @@ function Pq.rank(dock, cands, outs, opts)
   end
   for _, c in ipairs(cands or {}) do
     local opt = { kind = "tapis", key = c.key, x = c.x, y = c.y, dir = c.dir }
-    local ok, why = Pq.tile_verdict(c)
+    local ok, why, code = Pq.tile_verdict(c)
     local best_side, best_span
     for _, side in ipairs({ "left", "right" }) do
       local s = c.sides and c.sides[side]
       if s and (not best_span or s.span < best_span) then best_side, best_span = side, s.span end
     end
     if not ok then
-      opt.ok, opt.why = false, why
+      opt.ok, opt.why, opt.code = false, why, code
     elseif not best_side then
-      opt.ok, opt.why = false, "aucune place pour le repartiteur et le depart de la branche"
+      opt.ok, opt.why, opt.code = false, "aucune place pour le repartiteur et le depart de la branche", "aucune_place"
     elseif best_span > Pq.SEARCH_SPAN then
-      opt.ok, opt.why = false, string.format("trop loin (%d tuiles > %d)", best_span, Pq.SEARCH_SPAN)
+      opt.ok, opt.why, opt.code = false, string.format("trop loin (%d tuiles > %d)", best_span, Pq.SEARCH_SPAN), "trop_loin"
     elseif opts.arm_rate and dock.flow > opts.arm_rate then
-      opt.ok, opt.why = false, string.format("bras du quai trop lent (%.2f/s voulus, %.2f/s)", dock.flow, opts.arm_rate)
+      opt.ok, opt.why, opt.code = false, string.format("bras du quai trop lent (%.2f/s voulus, %.2f/s)", dock.flow, opts.arm_rate), "bras_lent"
     else
       local pok, pwhy, det = w(best_span)
       opt.ok, opt.why, opt.payback, opt.cost, opt.span, opt.tiles, opt.side = pok, pwhy, det.payback_min, det.cost, best_span, det.tiles, best_side
+      opt.code = pok and "ok" or "ne_se_paie_pas"
       if pok then opt.why = why .. " ; " .. pwhy end
     end
     list[#list + 1] = opt
@@ -192,6 +193,7 @@ function Pq.rank(dock, cands, outs, opts)
     local pok, pwhy, det = Li.worth({ flow = dock.flow, dist = dock.dist, span = o.span, fill = dock.fill, low = dock.low, threat = dock.threat,
       price = opts.price and { belt = opts.price.belt, arm = opts.price.arm, pole = opts.price.pole } or nil, labor = opts.labor })
     opt.ok, opt.why, opt.payback, opt.cost, opt.tiles = pok, pwhy, det.payback_min, det.cost, det.tiles
+    opt.code = pok and "ok" or "ne_se_paie_pas"
     list[#list + 1] = opt
   end
   table.sort(list, function(a, b)
@@ -203,6 +205,12 @@ function Pq.rank(dock, cands, outs, opts)
   end)
   return list
 end
+
+--- MOTS FIXES des verdicts et des causes écrits à l'état (b.piquage.quais, lus par la vue du cerveau, script/team/piquage.lua) : jamais un texte libre.
+Pq.VERDICT_CODES = { "attente", "demande", "branche_finie", "repartiteur_pose", "actif", "inerte", "coupe", "refuse", "laisser" }
+Pq.CAUSE_CODES = { "ok", "releves_insuffisants", "tapis_mixte", "surplus_non_observe", "tuile_impropre", "aucune_place", "trop_loin", "bras_lent",
+  "ne_se_paie_pas", "aucune_source", "sortie_plus_rentable", "a_confirmer", "menace", "ennemi", "essais_epuises", "pieces_inconnues",
+  "repartiteur_manquant", "repartiteur_a_fabriquer", "remplacement_refuse", "projet_refuse", "projet_rouvert", "livre", "ne_livre_pas" }
 
 --- Verdict d'un quai sans option qui se paie : la raison de la meilleure option refusée (ou « aucune source »).
 function Pq.why_none(list)

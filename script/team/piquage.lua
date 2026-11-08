@@ -63,8 +63,25 @@ local function note(st, key, text)
   return true
 end
 
+--- Verdict d'un quai en MOTS FIXES (Pq.VERDICT_CODES, Pq.CAUSE_CODES), lu en lecture seule par la vue du cerveau (b.piquage.quais) : au plus une entrée
+--- par quai, retirée avec le quai ; le tick ne change qu'avec le verdict ou la cause.
+local function mark(st, key, verdict, cause, tick)
+  local q = st.quais[key]
+  if q and q.verdict == verdict and q.cause == cause then return end
+  st.quais[key] = { verdict = verdict, cause = cause, tick = tick }
+end
+
+local function cause_of(action, reason, top)
+  if reason:find("a confirmer", 1, true) then return "a_confirmer" end
+  if reason:find("menace", 1, true) then return "menace" end
+  if reason:find("ennemi", 1, true) then return "ennemi" end
+  if reason:find("sans effet", 1, true) then return "essais_epuises" end
+  if action == "laisser" and top and top.code and top.code ~= "ok" then return top.code end
+  return "ne_se_paie_pas"
+end
+
 local function new_state(tick)
-  return { next = tick + Li.PERIOD, seen = {}, tries = {}, last_try = {}, links = {}, said = {}, track = {}, disc = {}, flow = {},
+  return { next = tick + Li.PERIOD, seen = {}, tries = {}, last_try = {}, links = {}, said = {}, track = {}, disc = {}, flow = {}, quais = {}, bilan = {},
     log_next = 0, n = { demandes = 0, finis = 0, refuses = 0, poses = 0, coupees = 0 } }
 end
 
@@ -231,13 +248,21 @@ local function discover(f, surface, st, d, tick)
   local R = Pq.SEARCH_SPAN
   local ents = surface.find_entities_filtered({ area = { { d.x - R, d.y - R }, { d.x + R + 1, d.y + R + 1 } }, name = belt_names(), force = f.force,
     limit = Piquage.MAX_SCAN })
+  -- tapis du plan que leur projet déclare piquables (p.tapis_piquable = { {x, y, item} }, tuiles entières : lignes de rapatriement)
+  local opt_in = {}
+  for _, pid in ipairs(f.build.order) do
+    local q = f.build.projects[pid]
+    if q and q.state == "fini" and q.tapis_piquable then
+      for _, t in ipairs(q.tapis_piquable) do opt_in[t.x .. ":" .. t.y] = t.item end
+    end
+  end
   local found = {}
   for _, e in ipairs(ents) do
     local tx, ty = math.floor(e.position.x), math.floor(e.position.y)
     local key = tx .. ":" .. ty
-    -- les tapis du PLAN directeur (tuiles réservées par un projet : têtes de quai, lignes de modules, champs, liaisons) ne sont jamais piqués :
-    -- seuls comptent les tapis posés hors plan (par le joueur, ou à la main par l'équipe)
-    if not tr.tiles[key] and not f.build.occ[P.tkey(tx, ty)] then
+    -- les tapis du PLAN directeur (tuiles réservées par un projet : têtes de quai, lignes de modules, champs, liaisons) ne sont jamais piqués,
+    -- sauf ceux que leur projet déclare piquables (opt_in) : seuls comptent les tapis posés hors plan (par le joueur, ou à la main par l'équipe)
+    if not tr.tiles[key] and (not f.build.occ[P.tkey(tx, ty)] or opt_in[key] == d.item) then
       local s = sample_belt(e, d.item)
       if s.count > 0 and s.other == 0 then
         found[#found + 1] = { key = key, x = tx, y = ty, dir = e.direction, sample = s, m = Li.manhattan(tx, ty, d.x, d.y) }
@@ -410,6 +435,7 @@ local function follow_links(api, f, surface, b, st, tick)
       if not link.done then
         link.done = true
         st.n.finis = st.n.finis + 1
+        mark(st, dkey, "branche_finie", "ok", tick)
         say(f, Pq.line(f.key, dock, "branche finie", string.format("projet %d, %d piece(s), %d fil(s) tire(s) : le repartiteur suit", q.id, #q.ents, q.wired or 0), minutes(tick)))
       end
       apply_bar(api, f, surface, b, link)
@@ -425,14 +451,17 @@ local function follow_links(api, f, surface, b, st, tick)
           if ok then
             link.split, q.piq_placed = true, true
             st.n.poses = st.n.poses + 1
+            mark(st, dkey, "repartiteur_pose", "ok", tick)
             say(f, Pq.line(f.key, dock, "repartiteur pose", string.format("sur le tapis (%d, %d), priorite de sortie du tapis principal : %s (la branche ne recoit que le surplus), coffre du quai garde en tampon",
               lc.geo.tile.x, lc.geo.tile.y, tostring(why)), minutes(tick)))
           else
+            mark(st, dkey, "attente", why == "aucun repartiteur au coffre" and "repartiteur_a_fabriquer" or "remplacement_refuse", tick)
             if note(st, dkey .. "#pose", why) then say(f, Pq.line(f.key, dock, "attendre", "repartiteur : " .. tostring(why), minutes(tick))) end
             if why ~= "aucun repartiteur au coffre" then link.split_tries = (link.split_tries or 0) + 1 end
           end
         elseif not link.cut then
           link.cut = true
+          mark(st, dkey, "coupe", "remplacement_refuse", tick)
           st.n.coupees = st.n.coupees + 1
           say(f, Pq.line(f.key, dock, "coupe", string.format("%d pose(s) du repartiteur refusee(s) : la branche reste inerte, le PNJ continue a la main", Piquage.SPLIT_TRIES), minutes(tick)))
         end
@@ -444,6 +473,7 @@ local function follow_links(api, f, surface, b, st, tick)
           local be = belt_at(f, surface, lc.geo.branch.x, lc.geo.branch.y)
           if be then branch_n = sample_belt(be, link.item).count end
           local live = Pq.delivers(n, api.low, branch_n)
+          mark(st, dkey, live and "actif" or "inerte", live and "livre" or "ne_livre_pas", tick)
           if note(st, dkey .. "#vie", live and "actif" or "inerte") then
             say(f, Pq.line(f.key, dock, live and "piquage actif" or "piquage ne livre pas",
               string.format("coffre %d (barre basse %d), %d objet(s) sur la 1re tuile de la branche", n, api.low, branch_n), minutes(tick)))
@@ -452,11 +482,13 @@ local function follow_links(api, f, surface, b, st, tick)
       end
     elseif DEAD[q.state] or q.abandoned then
       st.n.refuses = st.n.refuses + 1
+      mark(st, dkey, "refuse", "projet_refuse", tick)
       say(f, Pq.line(f.key, dock, "piquage refuse", string.format("projet %d : %s ; le PNJ continue a la main", q.id, tostring(q.reason)), minutes(tick)))
       st.links[dkey] = nil
     elseif link.done then
       link.done = false
       st.n.coupees = st.n.coupees + 1
+      mark(st, dkey, "coupe", "projet_rouvert", tick)
       say(f, Pq.line(f.key, dock, "coupe", string.format("projet %d rouvert (etat %s) : le coffre baisse, le PNJ reprend le quai", q.id, q.state), minutes(tick)))
     end
   end
@@ -477,6 +509,12 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
     local l = st.links[d.key]
     if l and l.done then piques = piques + 1 elseif linked_by_liaison(b, d.key) then linked = linked + 1 end
   end
+  local alive = {}
+  for _, d in ipairs(c.docks) do alive[d.key] = true end
+  for _, k in ipairs(sorted_keys(st.quais)) do
+    if not alive[k] and not st.links[k] then st.quais[k] = nil end
+  end
+  st.bilan = { quais = #c.docks, tapis = linked, piquage = piques, tournees = c.tours, objets = c.items, tick = tick }
   if #c.docks > 0 and tick >= st.log_next then
     st.log_next = tick + Li.LOG_EVERY
     say(f, Pq.bilan_line(f.key, { docks = #c.docks, linked = linked, piques = piques, tours = c.tours, items = c.items, minutes = minutes(tick) }))
@@ -522,8 +560,10 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
       local ranked = Pq.rank(d, cands, liaison_outs(b, d), {})
       local top = ranked[1]
       if not top then
+        mark(st, d.key, "laisser", "aucune_source", tick)
         if note(st, d.key, "aucune") then say(f, Pq.line(f.key, d, "laisser", Pq.why_none(ranked), minutes(tick))) end
       elseif top.kind == "sortie" then
+        mark(st, d.key, "laisser", "sortie_plus_rentable", tick)
         if note(st, d.key, "sortie " .. top.key) then
           say(f, Pq.line(f.key, d, "laisser", string.format("la liaison a la sortie %s (%d tuiles) paie mieux que le piquage : %s", top.key, top.span, top.why), minutes(tick)))
         end
@@ -544,8 +584,10 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
           local belt = Conv.choose(f, d.flow)
           local sp = pick_splitter(f)
           if not (arm and belt) then
+            mark(st, d.key, "refuse", "pieces_inconnues", tick)
             if note(st, d.key, "pieces") then say(f, Pq.line(f.key, d, "piquage refuse", not arm and "aucun bras electrique connu du module" or "aucun tapis debloque", minutes(tick))) end
           elseif not sp then
+            mark(st, d.key, "refuse", "repartiteur_manquant", tick)
             if note(st, d.key, "repartiteur") then say(f, Pq.line(f.key, d, "piquage refuse", "aucun repartiteur debloque pour la force", minutes(tick))) end
           else
             asked = true
@@ -561,12 +603,14 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
               st.n.demandes = st.n.demandes + 1
               open = open + 1
               st.said[d.key] = nil
+              mark(st, d.key, "demande", "ok", tick)
               say(f, Pq.line(f.key, d, "piquage demande", string.format("projet %d : tapis (%d, %d) dense %d fois sur %d, branche %s a %d tuiles du quai, %s (essai %d/%d)",
                 id, top.x, top.y, (st.track[d.key].tiles[top.key] or { obs = { dense = 0, n = 0 } }).obs.dense,
                 (st.track[d.key].tiles[top.key] or { obs = { dense = 0, n = 0 } }).obs.n, top.side, top.span, reason .. " ; " .. top.why, st.tries[d.key], Li.MAX_TRIES), minutes(tick)))
             end
           end
         else
+          mark(st, d.key, action == "attendre" and "attente" or "laisser", cause_of(action, reason, top), tick)
           if note(st, d.key, action .. reason) then say(f, Pq.line(f.key, d, action, reason, minutes(tick))) end
         end
       end
