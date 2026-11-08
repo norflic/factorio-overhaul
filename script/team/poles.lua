@@ -704,6 +704,22 @@ function Poles.think(f, view, book, tick, plan)
         keys = keys, also = add, batch = Fond.MINE_BATCH, radius = T.near_mine, outposts = outs, near_d2 = T.transport_near * T.transport_near,
         resources = resources })
       if #r.tasks > 0 then Board.add(f, r.tasks, tick) end
+      -- Lot ZERO-IDLE-3 (mesure, lecture seule) : pourquoi la file n'a pas servi tous les PNJ voulus (une raison par pensée, cumul en nombres).
+      if r.left > 0 then
+        local why
+        if view.hq_threat then why = "menace"
+        elseif prudent then why = "prudence"
+        elseif n < floor0 then why = "effectif"
+        else
+          local nres, cause = 0, {}
+          for _, m in ipairs(resources) do
+            if m.ok then nres = nres + 1 else cause[#cause + 1] = m.res .. (m.gap > 0 and ":ferme" or ":plein") end
+          end
+          why = nres == 0 and ("aucune-ressource " .. table.concat(cause, ",")) or ("ressources-epuisees " .. nres)
+        end
+        sur.gate = sur.gate or {}
+        sur.gate[why] = (sur.gate[why] or 0) + r.left
+      end
     end
     local note = { n = #agents, idle = #idle_ids, starved = starved, cause = Sur.cause(view.hq_threat, free_n),
       opened_service = r.service, opened_mine = r.mine, kinds = free_kinds }
@@ -714,6 +730,12 @@ function Poles.think(f, view, book, tick, plan)
     if tick - sur.t >= Sur.REPORT_EVERY then
       sur.t = tick
       log(Sur.report_line(f.key or "player", tick, sur.acc, on))
+      if sur.gate then -- lot ZERO-IDLE-3 (mesure)
+        local parts = {}
+        for _, k in ipairs(State.sorted_keys(sur.gate)) do parts[#parts + 1] = k .. " x" .. sur.gate[k] end
+        log(string.format("[FO-INACTIF-FILE] %s a %.1f min : PNJ voulus non servis par la file sure, par raison : %s", f.key or "player", tick / 3600, table.concat(parts, " ; ")))
+        sur.gate = nil
+      end
       sur.acc = {}
     end
   end
