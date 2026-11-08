@@ -2588,6 +2588,19 @@ remote.add_interface("fo-capi", {
   end,
   --- Lot TV-ENERGIE (W02, lecture seule) : le relevé du courant que la capitalisation donnerait aujourd'hui à la règle, selon l'état de la
   --- centrale de l'équipe (Auto.plant_state) : { amorce } ou { fermee } sans centrale finie, { have_kw, used_kw } avec.
+  --- Lot TV-ENERGIE (BANC SEULEMENT) : kW retenus faute de courant et épargne, datés d'aujourd'hui (comme la fin d'une décision, cs.kw_blocked).
+  bench_kw = function(key, kw, bank)
+    local f = team_of(key)
+    if not (f and f.team) then return false end
+    state_of(f).kw_blocked = kw and kw > 0 and { kw = kw, tick = game.tick, bank = bank } or nil
+    return true
+  end,
+  --- Lot TV-ENERGIE (lecture seule) : le texte du refus de courant et la répartition des kW par la règle réelle (moteur, données du jeu).
+  kw_probe = function(have, used, kw)
+    local plan = { kw_have = have, kw_used = used }
+    local allot, order = Ca.kw_alloc({ { key = "A", item = "iron-ore", kw = 90, n = 18, short = 30 }, { key = "B", item = "copper-ore", kw = 90, n = 1, short = 10 } }, have - used)
+    return { why = Ca.kw_refusal(plan, kw), allot = allot, order = order }
+  end,
   power_probe = function(key, state, why, wait)
     local f = team_of(key)
     if not f then return nil end
