@@ -291,6 +291,63 @@ do
   check(Ch.machines_par_voie(0.625, 7.5) == 12 and Ch.machines_par_voie(0.3125, 7.5) == 24, "une voie de 7,5/s nourrit 12 fours d'acier ou 24 fours de pierre")
 end
 
+local function batterie_debut(Chx)
+  -- motifs du début de partie : débits calculés d'après les recettes, producteurs de tête, chaînes en série, bornes
+  local function selection(extra)
+    local r = { zone = { x = 0, y = 0, l = 120, h = 40 } }
+    for k, v in pairs(extra) do r[k] = v end
+    return Chx.choisir(r)
+  end
+  -- centrale : 1 chaudière pour 2 machines à vapeur, 1,8 MW par tuile, une pompe pour 20 chaudières
+  local cv = { vitesse = { machine_vapeur = 1, chaudiere = 1 }, bras = { bras = 0.59 }, tapis_voie = 7.5, combustible = { chaudiere = 0.45 },
+    recettes = { chaudiere = { temps = 1, entrees = {}, sorties = { S = 60 } }, vapeur = { temps = 1, entrees = { S = 30 }, sorties = { E = 900 } } } }
+  local d = Chx.debit(Cat.get("centrale-vapeur-rangee"), cv)
+  check(d and near(d.sortie.E, 1800), "centrale : une chaudière et deux machines à vapeur = 1 800 kW par tuile (" .. tostring(d and d.sortie.E) .. ")")
+  check(near(Chx.rapport_motif(Cat.get("centrale-vapeur-rangee")), 0.5), "centrale : rapport chaudière : machine à vapeur = 1 : 2")
+  local r = selection({ famille = "energie", demande = { jeton = "E", debit = 9000 }, ctx = cv })
+  check(r.motif == "centrale-vapeur-rangee" and r.n == 5 and r.couvre, "centrale : 9 MW = 5 tuiles (" .. tostring(r.motif) .. " " .. tostring(r.n) .. ")")
+  local r2 = selection({ famille = "energie", demande = { jeton = "E", debit = 60000 }, ctx = cv })
+  check(r2.n == 20 and not r2.couvre and r2.limite == "borne", "centrale : au plus 20 chaudières par pompe (" .. tostring(r2.n) .. " " .. tostring(r2.limite) .. ")")
+  -- laboratoires
+  local cl = { vitesse = { machine_labo = 1 }, recettes = { principal = { temps = 30, entrees = { A = 1, B = 1 }, sorties = { R = 1 } } },
+    bras = { bras = 2.31 }, tapis_voie = 7.5, poteau = { supply = 2.5, fil = 7.5 } }
+  local rl = selection({ famille = "labo", demande = { jeton = "R", debit = 0.5 }, ctx = cl })
+  check(rl.motif == "labo-rangee-miroir" and rl.n == 8 and rl.couvre, "labos : 0,5 unité/s = 8 tuiles de 2 laboratoires, deux faces (" .. tostring(rl.motif) .. " " .. tostring(rl.n) .. ")")
+  local cl2 = { vitesse = cl.vitesse, recettes = cl.recettes, bras = { bras = 0.83 }, tapis_voie = 7.5, poteau = cl.poteau }
+  local rc = selection({ famille = "labo", usage = "chaine", demande = { jeton = "R", debit = 2 }, ctx = cl2 })
+  check(rc.motif == "labo-chaine-bras" and rc.n == 9 and not rc.couvre and rc.limite == "tapis", "labos en chaîne : le premier bras (0,83) ne porte que 9 laboratoires (" .. tostring(rc.n) .. " " .. tostring(rc.limite) .. ")")
+  -- packs rouges : 1 assembleuse d'engrenages pour 10 de packs (calculé)
+  local cr = { vitesse = { machine_asm = 0.75 }, bras = { bras = 2.31, bras_long = 1.15 }, tapis_voie = 7.5, poteau = { supply = 2.5, fil = 7.5 },
+    recettes = { engrenage = { temps = 0.5, entrees = { C = 2 }, sorties = { B = 1 } }, pack = { temps = 5, entrees = { A = 1, B = 1 }, sorties = { P = 1 } } } }
+  local rr = selection({ famille = "science", usage = "packs-rouges", demande = { jeton = "P", debit = 1.2 }, ctx = cr })
+  check(rr.motif == "packs-rouges-rangee" and rr.n == 8 and rr.couvre, "packs rouges : 1,2 pack/s = 8 tuiles (" .. tostring(rr.motif) .. " " .. tostring(rr.n) .. ")")
+  local rr2 = selection({ famille = "science", usage = "packs-rouges", demande = { jeton = "P", debit = 3 }, ctx = cr })
+  check(rr2.n == 10 and not rr2.couvre and rr2.limite == "tapis" and near(rr2.debit.total, 1.5), "packs rouges : la machine d'engrenages sert 10 tuiles au plus (" .. tostring(rr2.n) .. ", " .. tostring(rr2.debit and rr2.debit.total) .. ")")
+  local srv = Cat.get("packs-rouges-rangee").derive
+  check(srv.groupes.engrenage.fixe == true and srv.groupes.pack.fixe == nil and srv.groupes.pack.n == 1, "packs rouges : le groupe d'engrenages est fixe (tête), celui des packs compte par tuile")
+  -- packs verts : 1 machine de bras pour 12 de packs, 1 machine de convoyeurs pour 24
+  local cg = { vitesse = { machine_asm = 0.75 }, bras = { bras = 2.31, bras_long = 2.31 }, tapis_voie = 7.5, poteau = { supply = 2.5, fil = 7.5 },
+    recettes = { bras = { temps = 0.5, entrees = { D = 1, E = 1, F = 1 }, sorties = { B = 1 } }, tapis = { temps = 0.5, entrees = { D = 1, E = 1 }, sorties = { C = 2 } },
+      pack = { temps = 6, entrees = { B = 1, C = 1 }, sorties = { P = 1 } } } }
+  local rg = selection({ famille = "science", usage = "packs-verts", demande = { jeton = "P", debit = 5 }, ctx = cg })
+  check(rg.motif == "packs-verts-rangee" and rg.n == 12 and not rg.couvre and rg.limite == "tapis", "packs verts : 12 tuiles au plus, bornées par les bras (" .. tostring(rg.n) .. " " .. tostring(rg.limite) .. ")")
+  check(near(Chx.rapport({ temps = 0.5, vitesse = 0.75, sorties = { M = 1 } }, { temps = 6, vitesse = 0.75, entrees = { M = 1 } }, "M"), 1 / 12), "ratio bras → pack vert : 1 pour 12")
+  check(near(Chx.rapport({ temps = 0.5, vitesse = 0.75, sorties = { M = 2 } }, { temps = 6, vitesse = 0.75, entrees = { M = 1 } }, "M"), 1 / 24), "ratio convoyeur → pack vert : 1 pour 24")
+  -- foreuses de charbon en boucle
+  local cf = { vitesse = { foreuse = 0.25 }, taille = { foreuse = 2 }, recettes = { principal = { temps = 1, sorties = { P = 1 } } }, combustible = { foreuse = 0.0375 },
+    bras = { bras = 0.59 }, tapis_voie = 7.5, energie = false }
+  local rf = selection({ famille = "mine", usage = "bootstrap", demande = { jeton = "P", debit = 3 }, ctx = cf })
+  check(rf.motif == "foreuses-boucle-charbon" and rf.n == 6 and rf.couvre, "boucle de charbon : 3/s = 6 tuiles de 2 foreuses (" .. tostring(rf.motif) .. " " .. tostring(rf.n) .. ")")
+  local cf2 = { vitesse = cf.vitesse, taille = cf.taille, recettes = cf.recettes, bras = cf.bras, tapis_voie = 7.5, energie = false }
+  local rf2 = selection({ famille = "mine", usage = "bootstrap", demande = { jeton = "P", debit = 3 }, ctx = cf2 })
+  check(rf2.motif == "foreuses-boucle-charbon", "boucle de charbon : sans combustible dans le contexte la tuile est acceptée aussi")
+  -- usages du mall du début
+  check(Chx.choisir({ zone = { x = 0, y = 0, l = 40, h = 20 }, famille = "asm", usage = "engrenage", demande = { jeton = "P", debit = 1 },
+    ctx = { vitesse = { machine_asm = 0.75 }, recettes = { principal = { temps = 0.5, entrees = { A = 2 }, sorties = { P = 1 } } }, bras = { bras = 2.31 }, tapis_voie = 7.5,
+      poteau = { supply = 2.5, fil = 7.5 } } }).motif == "asm-1e-1s", "mall du début : les engrenages (1 entrée) par asm-1e-1s")
+end
+batterie_debut(Ch)
+
 ---------------------------------------------------------------------------------------------------
 section("5. Équilibreurs : suivi de flux")
 ---------------------------------------------------------------------------------------------------
@@ -594,6 +651,8 @@ local function terrains(Chx)
     check(sig(a) == sig(b), "T15 résultats identiques")
   end)
 
+  t("T23 début de partie : centrale, laboratoires, packs rouges et verts, boucle de charbon", function() batterie_debut(Chx) end)
+
   t("T16b entrées invalides : erreur nette, jamais un résultat silencieux", function()
     local ok1, e1 = pcall(Chx.choisir, { famille = "fonte", demande = { jeton = "P", debit = 1 }, ctx = ctx_pierre() })
     check(not ok1 and tostring(e1):find("zone", 1, true), "T16b zone absente refusée : " .. tostring(e1))
@@ -687,8 +746,8 @@ local function definition_de(m)
   for k, v in pairs(m) do
     if k ~= "pieces" and k ~= "derive" and k ~= "roles" and k ~= "emprise" and k ~= "l" and k ~= "h" and k ~= "tete" and k ~= "queue" then d[k] = copie_profonde(v) end
   end
-  if m.tete then d.tete = { art = copie_profonde(m.tete.art) } end
-  if m.queue then d.queue = { art = copie_profonde(m.queue.art) } end
+  if m.tete then d.tete = { art = copie_profonde(m.tete.art), legende = copie_profonde(m.tete.legende) } end
+  if m.queue then d.queue = { art = copie_profonde(m.queue.art), legende = copie_profonde(m.queue.legende) } end
   d.periode = m.periode
   return d
 end
@@ -721,6 +780,9 @@ local DONNEES = {
   { "tuyau du mauvais fluide sur un raccord", "chimie-rangee-2f-sortie", function(d) d.legende.g = D.h.tuyau("F1") end, "raccord" },
   { "tuyau souterrain sans partenaire", "chimie-rangee-2f-sortie", function(d) ligne(d, 1, "wx.y", "wx..") end, "partenaire" },
   { "souterrain de tapis sans sortie", "equilibreur-4-4", function(d) ligne(d, 3, "cTgvGnttVq", "cTgv.nttVq") end, "souterrain" },
+  { "tapis de tête sans origine déclarée", "packs-verts-rangee", function(d) d.tete.legende.d = { role = "tapis", k = 2, dir = E } end, "démarre au bord" },
+  { "bout de tapis non déclaré", "packs-verts-rangee", function(d) d.legende.c = { role = "tapis", k = 1, dir = E } end, "quitte l'emprise" },
+  { "bras de tête hors d'un poteau", "packs-verts-rangee", function(d) d.tete.art[4] = ".mmm+nnn+"; d.tete.art[7] = ".ttT+uu.." end, "poteau" },
   { "dépôt annoncé sur le mauvais tapis de sortie", "asm-1e-1s", function(d) d.legende.o = D.h.bras(N, "machine_asm", "tapis_sortie:2", "sort") end, "dépôt" },
   { "tapis de sortie en face-à-face isolé", "fonte-3x3-simple", function(d) d.legende.w = D.h.sortie(1, W); ligne(d, 7, "aaaaaa", "aaawaa") end, "fait face" },
   { "emprise utile plus large que la période sans recouvrement", "asm-1e-1s", function(d)
@@ -789,6 +851,7 @@ do
     { "tuyau souterrain sans partenaire toléré", "if not trouve then e(\"tuyau souterrain", "if false then e(\"tuyau souterrain" },
     { "souterrain de tapis sans partenaire toléré", "if not paire_souterrain(p) then e(", "if false then e(" },
     { "lien sans bras toléré", "if not liens_vus[id] then e(", "if false then e(" },
+    { "tapis sans origine toléré", "elseif p.role == \"tapis\" and not p.origine then", "elseif p.role == \"tapis\" and false then" },
     { "groupe de chaîne inconnu toléré", "if not der.groupes[c.amont] or not der.groupes[c.aval] then e(", "if false then e(" },
   }
   for _, mu in ipairs(MUT_K) do
@@ -838,6 +901,10 @@ do
     { "technologie indisponible tolérée", "elseif not ctx.dispo[role] then", "elseif false then" },
     { "couverture de la demande comptée toujours vraie", "else couvre = total + EPS >= dem.debit end", "else couvre = true end" },
     { "recette manquante remplacée par la recette principale", "local r = (ctx.recettes or {})[g]   -- un groupe a SA recette", "local r = (ctx.recettes or {})[g] or (ctx.recettes or {}).principal   -- un groupe a SA recette" },
+    { "producteur de tête ignoré", "if nf < n_fixe then n_fixe = nf end", "if false then n_fixe = nf end" },
+    { "chaîne en série ignorée", "if nc < n_fixe then n_fixe = nc end", "if false then n_fixe = nc end" },
+    { "borne propre du motif ignorée", "if m.max_tuiles and m.max_tuiles < cap then", "if false then" },
+    { "contact direct ignoré", "if c.contact and c.aval == g then serv[c.jeton] = true end", "if false then serv[c.jeton] = true end" },
     { "ingrédient non servi toléré", "if not serv[tok] then return nil, \"jeton_non_servi:\" .. g .. \":\" .. tok end", "if false then return nil, \"jeton_non_servi:\" .. g .. \":\" .. tok end" },
   }
   for _, mu in ipairs(MUT_C) do

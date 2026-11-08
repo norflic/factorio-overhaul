@@ -64,19 +64,24 @@ local function deriver(m)
   local der = { groupes = {}, liens = {}, pieces = {}, chaines = {} }
   -- pièces par rôle (une tuile)
   for _, p in ipairs(m.pieces) do der.pieces[p.role] = (der.pieces[p.role] or 0) + 1 end
-  -- groupes de machines
-  for _, p in ipairs(m.pieces) do
-    if D.ROLES[p.role] and D.ROLES[p.role].classe == "machine" then
-      local g = p.groupe or "principal"
-      local e = der.groupes[g]
-      if not e then e = { role = p.role, w = p.w, h = p.h, n = 0 }; der.groupes[g] = e end
-      e.n = e.n + 1
+  -- groupes de machines ; un groupe qui n'existe que dans la tête ou la queue est FIXE (une seule fois pour toute la rangée)
+  local function groupes_de(liste, fixe)
+    for _, p in ipairs(liste or {}) do
+      if D.ROLES[p.role] and D.ROLES[p.role].classe == "machine" then
+        local g = p.groupe or "principal"
+        local e = der.groupes[g]
+        if not e then e = { role = p.role, w = p.w, h = p.h, n = 0, fixe = fixe or nil }; der.groupes[g] = e end
+        if not (fixe and e.fixe == nil) then e.n = e.n + 1 end   -- une machine de tête ou de queue d'un groupe de tuile ne compte pas par tuile
+      end
     end
   end
+  groupes_de(m.pieces, false)
+  groupes_de(m.tete and m.tete.pieces, true)
+  groupes_de(m.queue and m.queue.pieces, true)
   -- liens : bras de la tuile du milieu
   for _, p in ipairs(inst.pieces) do
     local r = D.ROLES[p.role]
-    if p.tuile == 2 and p.bloc == "tuile" and r and r.classe == "bras" and p.lien then
+    if ((p.tuile == 2 and p.bloc == "tuile") or p.bloc == "tete" or p.bloc == "queue") and r and r.classe == "bras" and p.lien then
       local e = der.liens[p.lien]
       if not e then e = { bras = {}, machines = {}, entrees = {}, sorties = {}, prise_tapis = false, mg = {} }; der.liens[p.lien] = e end
       e.bras[p.role] = (e.bras[p.role] or 0) + 1
@@ -119,7 +124,8 @@ local function deriver(m)
   for _, f in ipairs(m.fluides or {}) do
     if f.io == "in" then n_in = n_in + 1 else m_out = m_out + 1 end
   end
-  if (der.pieces.coffre or 0) > 0 then m_out = m_out + 1 end   -- produit déposé en coffre (quai)
+  if #(m.produits or {}) > 0 then m_out = m_out + #m.produits           -- produit sans tapis (courant, recherche, combustible en coffre)
+  elseif (der.pieces.coffre or 0) > 0 then m_out = m_out + 1 end        -- produit déposé en coffre (quai)
   der.n_entrees, der.m_sorties = n_in, m_out
   der.surface = m.periode * m.h
   der.modularite = m.repetable and "serie" or "unique"
@@ -172,7 +178,7 @@ function C.compiler(def)
       if #t.art ~= m.h then return nil, string.format("%s : %s de hauteur %d au lieu de %d", def.id, nom, #t.art, m.h) end
       local ps, e2 = D.lire(t.art, t.legende or def.legende, def.id .. "/" .. nom)
       if not ps then return nil, e2 end
-      m[nom] = { len = #t.art[1], pieces = ps, art = t.art }
+      m[nom] = { len = #t.art[1], pieces = ps, art = t.art, legende = t.legende or def.legende }
     end
   end
   m.roles = D.roles_utilises(m)

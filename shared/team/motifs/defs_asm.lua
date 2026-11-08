@@ -26,7 +26,7 @@ local L = {}
 -- 1. Tuile élémentaire : un assembleur, un à trois tapis d'entrée, un tapis de sortie
 ---------------------------------------------------------------------------------------------------
 L[#L + 1] = {
-  id = "asm-1e-1s", famille = "asm", usages = { "mall", "assemblage" }, origine = "derive",
+  id = "asm-1e-1s", famille = "asm", usages = { "mall", "assemblage", "engrenage" }, origine = "derive",
   source = SRC_MALL,
   nom_fr = "Tuile d'assemblage à 1 entrée, 1 sortie",
   nom_en = "Assembler tile, 1 input, 1 output",
@@ -51,7 +51,7 @@ L[#L + 1] = {
 }
 
 L[#L + 1] = {
-  id = "asm-2e-1s", famille = "asm", usages = { "mall", "assemblage" }, origine = "ref_dc",
+  id = "asm-2e-1s", famille = "asm", usages = { "mall", "assemblage", "tapis" }, origine = "ref_dc",
   ref = "Patern1.png", source = SRC_MALL,
   nom_fr = "Tuile d'assemblage à 2 entrées, 1 sortie (référence du DC)",
   nom_en = "Assembler tile, 2 inputs, 1 output (DC reference)",
@@ -82,7 +82,7 @@ L[#L + 1] = {
 }
 
 L[#L + 1] = {
-  id = "asm-3e-1s", famille = "asm", usages = { "mall", "assemblage" }, origine = "derive",
+  id = "asm-3e-1s", famille = "asm", usages = { "mall", "assemblage", "bras" }, origine = "derive",
   source = SRC_MALL,
   nom_fr = "Tuile d'assemblage à 3 entrées, 1 sortie",
   nom_en = "Assembler tile, 3 inputs, 1 output",

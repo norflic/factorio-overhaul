@@ -9,50 +9,68 @@ Demande du DC (8/11, vers 18 h 45) : des blocs compacts, équilibrés en entrée
 - Un **motif** est une **tuile** répétable le long d'un axe (période, emprise l × h). Ses pièces sont décrites par **rôle** (`machine_fonte`, `machine_asm`, `bras`, `bras_long`, `tapis_entree`, `tapis_sortie`, `repartiteur`, `souterrain_*`, `poteau`, `tuyau`, `tuyau_souterrain`, `coffre`, `foreuse`, `chevalet`…), **jamais par nom d'objet** : la correspondance rôle → prototype se fait en jeu, d'après les prototypes lus (vitesses, tailles, portée des bras).
 - **Orientations** : la répétition est écrite de gauche à droite ; `catalogue.instancier(id, n, { rot, miroir })` donne les 8 orientations (4 quarts de tour × miroir), donc aussi « de haut en bas ».
 - **Sélection** : `choix.lua` (`Choix.choisir`) reçoit le terrain (rectangle libre, obstacles, ou carte de tuiles libres), la demande (jeton et débit, ou nombre de voies, ou entrées et sorties d'un équilibreur), les entrées disponibles (côté, position, ce qu'elles portent), et ce que le client a lu aux prototypes. Elle rend le motif, le nombre de tuiles qui **tient et suffit**, l'orientation, le rectangle réservé, le débit, et la **cause** de chaque motif écarté.
-- **Vérification** : `lua5.2 tests/motifs_test.lua` (cohérence de chaque motif, orientations, équilibreurs par suivi de flux, 23 terrains de sélection, coût en instructions, mutants).
+- **Vérification** : `lua5.2 tests/motifs_test.lua` (cohérence de chaque motif, orientations, équilibreurs par suivi de flux, 25 terrains de sélection, coût en instructions, mutants).
 - **Honnêteté sur l'origine** : `ref_dc` = transcrit des 4 images du DC ; `forum` / `wiki` = la logique du motif vient de la source citée (page lue par résumé de recherche, pas de blueprint copié) ; `derive` = géométrie déduite par nous. Dans tous les cas les coordonnées sont les nôtres, vérifiées hors jeu ; **rien n'est prouvé en moteur réel** (aucun banc lancé par ce lot).
 
 Lecture des dessins : `>` `<` `^` `v` tapis (sens de la marche) ; `n` `e` `s` `o` bras (côté de PRISE ; majuscule = bras long) ; `u` `U` entrée / sortie de tapis souterrain ; `=` répartiteur ; `+` poteau ; `~` tuyau ; `t` tuyau souterrain ; `#` coffre ; `A…Z` machines.
 
+## Les 4 références du DC (en tête)
+
+| Image | Motif | Ce qu'on y a lu |
+|---|---|---|
+| `Fonderie.png` | `fonte-2x2-double-central` | colonne de fours doubles, tapis central partagé, sorties en haut et en bas, répétée de gauche à droite |
+| `Mall1.png` | `asm-grille-3-directe` | grille 3 × N : trois machines par colonne, insertion directe, sortie en coffre ; chaque colonne peut changer de recette |
+| `Patern1.png` | `asm-2e-1s` | la tuile élémentaire : un assembleur entre deux tapis d'entrée (bras court, bras long) et un tapis de sortie |
+| `Patern_Mall2.png` | `asm-cable-circuit-3-2-double` (et `-simple`) | 3 machines de câble pour 2 de circuits en insertion directe, entre cuivre, fer et sortie |
+
 ## Classement
 
-| Motif | Famille | Tuile l × h | Période | Entrées n | Sorties m | Modularité | Machines / tuile | Origine |
-|---|---|---|---|---|---|---|---|---|
-| `asm-1e-1s` | asm | 4 × 7 | 4 | 1 | 1 | série (x ou y) | 1 | derive |
-| `asm-2e-1s` | asm | 4 × 8 | 4 | 2 | 1 | série (x ou y) | 1 | ref_dc |
-| `asm-3e-1s` | asm | 4 × 9 | 4 | 3 | 1 | série (x ou y) | 1 | derive |
-| `asm-miroir-2e` | asm | 4 × 14 | 4 | 2 | 2 | série (x ou y) | 2 | derive |
-| `asm-chaine-1-1` | asm | 8 × 8 | 8 | 2 | 1 | série (x ou y) | 2 | derive |
-| `asm-grille-3-directe` | asm | 5 × 15 | 5 | 2 | 1 | série (x ou y) | 3 | ref_dc |
-| `asm-chaine-1-2` | asm | 12 × 8 | 12 | 2 | 1 | série (x ou y) | 3 | derive |
-| `asm-cable-circuit-3-2-simple` | asm | 9 × 12 | 9 | 2 | 1 | série (x ou y) | 5 | ref_dc |
-| `asm-cable-circuit-3-2-double` | asm | 9 × 22 | 9 | 3 | 1 | série (x ou y) | 10 | ref_dc |
-| `bus-4-voies` | bus | 1 × 4 | 1 | 4 | 0 | série (x ou y) | 0 | wiki |
-| `bus-8-voies` | bus | 1 × 8 | 1 | 8 | 0 | série (x ou y) | 0 | wiki |
-| `bus-piquage-voie-exterieure` | bus | 6 × 8 | 6 | 4 | 5 | tuile unique | 0 | wiki |
-| `chimie-rangee-1f-1e-1s` | chimie | 3 × 8 | 3 | 2 | 1 | série (x ou y) | 1 | derive |
-| `chimie-rangee-2f-sortie` | chimie | 4 × 7 | 4 | 2 | 1 | série (x ou y) | 1 | derive |
-| `chimie-rangee-2f-1e-1s` | chimie | 4 × 8 | 4 | 3 | 1 | série (x ou y) | 1 | derive |
-| `equilibreur-1-2` | equilibreur | 3 × 2 | 3 | 1 | 2 | tuile unique | 0 | wiki |
-| `equilibreur-2-2` | equilibreur | 3 × 2 | 3 | 2 | 2 | tuile unique | 0 | wiki |
-| `equilibreur-1-4` | equilibreur | 5 × 4 | 5 | 1 | 4 | tuile unique | 0 | wiki |
-| `equilibreur-2-4` | equilibreur | 5 × 4 | 5 | 2 | 4 | tuile unique | 0 | wiki |
-| `equilibreur-4-4` | equilibreur | 10 × 5 | 10 | 4 | 4 | tuile unique | 0 | wiki |
-| `fonte-2x2-simple` | fonte | 4 × 6 | 4 | 1 | 1 | série (x ou y) | 2 | forum |
-| `fonte-3x3-simple` | fonte | 6 × 7 | 6 | 1 | 1 | série (x ou y) | 2 | derive |
-| `fonte-2x2-double-central` | fonte | 4 × 11 | 4 | 1 | 2 | série (x ou y) | 4 | ref_dc |
-| `fonte-2x2-double-sortie-centrale` | fonte | 4 × 11 | 4 | 2 | 1 | série (x ou y) | 4 | forum |
-| `fonte-chaine-directe-3x3` | fonte | 6 × 11 | 6 | 1 | 1 | série (x ou y) | 4 | forum |
-| `fonte-3x3-double-central` | fonte | 6 × 13 | 6 | 1 | 2 | série (x ou y) | 4 | derive |
-| `fonte-3x3-double-sortie-centrale` | fonte | 6 × 13 | 6 | 2 | 1 | série (x ou y) | 4 | derive |
-| `foreuses-2x2-combustion-2xN` | mine | 2 × 5 | 2 | 0 | 1 | série (x ou y) | 2 | forum |
-| `foreuses-3x3-simple-face` | mine | 4 × 4 | 4 | 0 | 1 | série (x ou y) | 1 | forum |
-| `foreuses-2xN-tapis-central` | mine | 7 × 7 | 7 | 0 | 1 | série (x ou y) | 4 | forum |
-| `chevalets-ligne` | petrole | 3 × 5 | 3 | 0 | 1 | série (x ou y) | 1 | forum |
-| `chevalets-double` | petrole | 3 × 9 | 3 | 0 | 1 | série (x ou y) | 2 | forum |
-| `raffinerie-rangee-base` | petrole | 5 × 9 | 5 | 1 | 1 | série (x ou y) | 1 | derive |
+Débit estimé par tuile : recettes de base, bras de base (0,83 et 1,15 objet/s, sans bonus de pile), voie de tapis jaune. **Estimation** calculée par `Choix.debit`, jamais mesurée en jeu.
 
-33 motifs : asm 9, bus 3, chimie 3, equilibreur 5, fonte 7, mine 3, petrole 3.
+| Motif | Famille | Tuile l × h | Entrées n | Sorties m | Modularité | Machines / tuile | Débit estimé / tuile | Origine |
+|---|---|---|---|---|---|---|---|---|
+| `asm-1e-1s` | asm | 4 × 7 | 1 | 1 | série (x ou y) | 1 | 0.63 engrenages/s (0,5 s, 2 plaques) | derive |
+| `asm-2e-1s` | asm | 4 × 8 | 2 | 1 | série (x ou y) | 1 | 0.63 objets/s (recette 0,5 s, machine 0,75) | ref_dc |
+| `asm-3e-1s` | asm | 4 × 9 | 3 | 1 | série (x ou y) | 1 | 0.63 objets/s (recette 0,5 s, machine 0,75) | derive |
+| `asm-miroir-2e` | asm | 4 × 14 | 2 | 2 | série (x ou y) | 2 | 1.27 objets/s (recette 0,5 s, machine 0,75) | derive |
+| `asm-chaine-1-1` | asm | 8 × 8 | 2 | 1 | série (x ou y) | 2 | (voir la règle cliente) | derive |
+| `asm-grille-3-directe` | asm | 5 × 15 | 2 | 1 | série (x ou y) | 3 | (voir la règle cliente) | ref_dc |
+| `asm-chaine-1-2` | asm | 12 × 8 | 2 | 1 | série (x ou y) | 3 | (voir la règle cliente) | derive |
+| `asm-cable-circuit-3-2-simple` | asm | 9 × 12 | 2 | 1 | série (x ou y) | 5 | 1.49 circuits/s | ref_dc |
+| `asm-cable-circuit-3-2-double` | asm | 9 × 22 | 3 | 1 | série (x ou y) | 10 | 2.99 circuits/s | ref_dc |
+| `bus-4-voies` | bus | 1 × 4 | 4 | 0 | série (x ou y) | 0 | (voir la règle cliente) | wiki |
+| `bus-8-voies` | bus | 1 × 8 | 8 | 0 | série (x ou y) | 0 | (voir la règle cliente) | wiki |
+| `bus-piquage-voie-exterieure` | bus | 6 × 8 | 4 | 5 | tuile unique | 0 | (voir la règle cliente) | wiki |
+| `chimie-rangee-1f-1e-1s` | chimie | 3 × 8 | 2 | 1 | série (x ou y) | 1 | (voir la règle cliente) | derive |
+| `chimie-rangee-2f-sortie` | chimie | 4 × 7 | 2 | 1 | série (x ou y) | 1 | (voir la règle cliente) | derive |
+| `chimie-rangee-2f-1e-1s` | chimie | 4 × 8 | 3 | 1 | série (x ou y) | 1 | (voir la règle cliente) | derive |
+| `centrale-vapeur-rangee` | energie | 4 × 14 | 2 | 1 | série (x ou y) | 3 | 1800.00 kW | derive |
+| `equilibreur-1-2` | equilibreur | 3 × 2 | 1 | 2 | tuile unique | 0 | (voir la règle cliente) | wiki |
+| `equilibreur-2-2` | equilibreur | 3 × 2 | 2 | 2 | tuile unique | 0 | (voir la règle cliente) | wiki |
+| `equilibreur-1-4` | equilibreur | 5 × 4 | 1 | 4 | tuile unique | 0 | (voir la règle cliente) | wiki |
+| `equilibreur-2-4` | equilibreur | 5 × 4 | 2 | 4 | tuile unique | 0 | (voir la règle cliente) | wiki |
+| `equilibreur-4-4` | equilibreur | 10 × 5 | 4 | 4 | tuile unique | 0 | (voir la règle cliente) | wiki |
+| `fonte-2x2-simple` | fonte | 4 × 6 | 1 | 1 | série (x ou y) | 2 | 0.62 plaques/s (four de pierre) | forum |
+| `fonte-3x3-simple` | fonte | 6 × 7 | 1 | 1 | série (x ou y) | 2 | 1.25 plaques/s (four électrique) | derive |
+| `fonte-2x2-double-central` | fonte | 4 × 11 | 1 | 2 | série (x ou y) | 4 | 1.25 plaques/s (four de pierre) | ref_dc |
+| `fonte-2x2-double-sortie-centrale` | fonte | 4 × 11 | 2 | 1 | série (x ou y) | 4 | 1.25 plaques/s (four de pierre) | forum |
+| `fonte-chaine-directe-3x3` | fonte | 6 × 11 | 1 | 1 | série (x ou y) | 4 | (voir la règle cliente) | forum |
+| `fonte-3x3-double-central` | fonte | 6 × 13 | 1 | 2 | série (x ou y) | 4 | 2.50 plaques/s (four électrique) | derive |
+| `fonte-3x3-double-sortie-centrale` | fonte | 6 × 13 | 2 | 1 | série (x ou y) | 4 | 2.50 plaques/s (four électrique) | derive |
+| `labo-chaine-bras` | labo | 4 × 5 | 1 | 1 | série (x ou y) | 1 | (voir la règle cliente) | derive |
+| `labo-rangee-tapis` | labo | 4 × 5 | 1 | 1 | série (x ou y) | 1 | 0.03 unités de recherche/s (30 s) | derive |
+| `labo-rangee-miroir` | labo | 4 × 9 | 1 | 1 | série (x ou y) | 2 | 0.07 unités de recherche/s (30 s) | derive |
+| `foreuses-2x2-combustion-2xN` | mine | 2 × 5 | 0 | 1 | série (x ou y) | 2 | 0.50 minerai/s (foreuse à combustion) | forum |
+| `foreuses-boucle-charbon` | mine | 6 × 2 | 0 | 1 | série (x ou y) | 2 | 0.50 charbon/s brut (foreuse à combustion) | derive |
+| `foreuses-3x3-simple-face` | mine | 4 × 4 | 0 | 1 | série (x ou y) | 1 | 0.50 minerai/s (foreuse électrique) | forum |
+| `foreuses-2xN-tapis-central` | mine | 7 × 7 | 0 | 1 | série (x ou y) | 4 | 2.00 minerai/s (foreuse électrique) | forum |
+| `chevalets-ligne` | petrole | 3 × 5 | 0 | 1 | série (x ou y) | 1 | (voir la règle cliente) | forum |
+| `chevalets-double` | petrole | 3 × 9 | 0 | 1 | série (x ou y) | 2 | (voir la règle cliente) | forum |
+| `raffinerie-rangee-base` | petrole | 5 × 9 | 1 | 1 | série (x ou y) | 1 | (voir la règle cliente) | derive |
+| `packs-rouges-rangee` | science | 4 × 7 | 2 | 1 | série (x ou y) | 2 | (voir la règle cliente) | derive |
+| `packs-verts-rangee` | science | 4 × 9 | 2 | 1 | série (x ou y) | 3 | (voir la règle cliente) | derive |
+
+40 motifs : asm 9, bus 3, chimie 3, energie 1, equilibreur 5, fonte 7, labo 3, mine 4, petrole 3, science 2.
 
 ## Ratios usuels (calculés, jamais écrits dans le catalogue)
 
@@ -71,7 +89,7 @@ Un bras de base (0,83 objet/s) qui prend sur un tapis porte 0,83 × 0,85 × 0,9 
 
 ### `asm-1e-1s` : Tuile d'assemblage à 1 entrée, 1 sortie
 
-Famille **asm**, usages : mall, assemblage. Origine : **derive**. Tuile 4 × 7, période 4, répétable en série, 1 entrée(s), 1 sortie(s), 1 machine(s) par tuile.
+Famille **asm**, usages : mall, assemblage, engrenage. Origine : **derive**. Tuile 4 × 7, période 4, répétable en série, 1 entrée(s), 1 sortie(s), 1 machine(s) par tuile.
 
 Un assembleur entre un tapis d'entrée au nord et un tapis de sortie au sud ; deux bras de chaque côté.
 
@@ -92,7 +110,7 @@ Sources : https://wiki.factorio.com/Inserters ; https://wiki.factorio.com/Tutori
 
 ### `asm-2e-1s` : Tuile d'assemblage à 2 entrées, 1 sortie (référence du DC)
 
-Famille **asm**, usages : mall, assemblage. Origine : **ref_dc** (Patern1.png). Tuile 4 × 8, période 4, répétable en série, 2 entrée(s), 1 sortie(s), 1 machine(s) par tuile.
+Famille **asm**, usages : mall, assemblage, tapis. Origine : **ref_dc** (Patern1.png). Tuile 4 × 8, période 4, répétable en série, 2 entrée(s), 1 sortie(s), 1 machine(s) par tuile.
 
 Référence du DC : un assembleur entre deux tapis d'entrée en haut (bras court sur le premier, bras long vers le second) et un tapis de sortie en bas ; poteau dans la case libre.
 
@@ -114,7 +132,7 @@ Sources : https://wiki.factorio.com/Inserters ; https://wiki.factorio.com/Tutori
 
 ### `asm-3e-1s` : Tuile d'assemblage à 3 entrées, 1 sortie
 
-Famille **asm**, usages : mall, assemblage. Origine : **derive**. Tuile 4 × 9, période 4, répétable en série, 3 entrée(s), 1 sortie(s), 1 machine(s) par tuile.
+Famille **asm**, usages : mall, assemblage, bras. Origine : **derive**. Tuile 4 × 9, période 4, répétable en série, 3 entrée(s), 1 sortie(s), 1 machine(s) par tuile.
 
 Deux tapis d'entrée au nord (bras court, bras long) ; au sud, le troisième tapis d'entrée contre la machine et le tapis de sortie derrière lui (bras long de sortie qui passe par-dessus).
 
@@ -425,6 +443,34 @@ Place minimale : 8 × 8 (une tuile, tête et queue comprises). Doit rester droit
 
 Sources : https://wiki.factorio.com/Chemical_plant ; https://wiki.factorio.com/Oil_processing
 
+### `centrale-vapeur-rangee` : Centrale à vapeur extensible : pompe, chaudières, machines à vapeur (1 : 2)
+
+Famille **energie**, usages : energie, vapeur. Origine : **derive**. Tuile 4 × 14, période 4, répétable en série, 2 entrée(s), 1 sortie(s), 3 machine(s) par tuile.
+
+Même disposition que le gabarit « centrale » de modules.lua, en tuiles : une chaudière 3 × 2 et, au-dessus, deux machines à vapeur 3 × 5 empilées (la vapeur passe par contact) ; l'eau traverse les chaudières par un tuyau dans le passage de la tuile ; la pompe de rive est dans la tête (à l'ouest, sur le raccord d'eau de la première chaudière) ; deux bras à combustion par chaudière prennent le charbon sur un tapis qui entre à l'est. Une tuile : 1,8 MW. Une pompe alimente 20 chaudières au plus (1 200 / 60 par seconde).
+
+Pièces d'une tuile : bras ×2, chaudiere ×1, machine_vapeur ×2, pompe ×0, poteau ×2, tapis_entree ×4, tuyau ×1.
+Place minimale : 5 × 14 (une tuile, tête et queue comprises). Doit rester droit : rien sur toute la largeur.
+
+```
+.BBB.EEE.
+.BBB.EEE.
+.BBB+EEE+
+.BBB.EEE.
+.BBB.EEE.
+.CCC.FFF.
+.CCC.FFF.
+.CCC+FFF+
+.CCC.FFF.
+.CCC.FFF.
+.DDD.GGG.
+ADDD~GGG~
+.s.s.s.s.
+<<<<<<<<<
+```
+
+Sources : https://wiki.factorio.com/Steam_engine ; https://wiki.factorio.com/Boiler ; https://wiki.factorio.com/Offshore_pump ; https://wiki.factorio.com/Power_production
+
 ### `equilibreur-1-2` : Répartiteur 1 vers 2
 
 Famille **equilibreur**, usages : equilibreur, repartition. Origine : **wiki**. Tuile 3 × 2, période 3, tuile unique, 1 entrée(s), 2 sortie(s), 0 machine(s) par tuile.
@@ -678,6 +724,67 @@ CCCDDDGGGHHH
 
 Sources : https://forums.factorio.com/viewtopic.php?p=15569 ; https://forums.factorio.com/viewtopic.php?p=46359 ; https://forums.factorio.com/viewtopic.php?p=194325
 
+### `labo-chaine-bras` : Laboratoires en chaîne : un bras passe les packs d'un laboratoire au suivant
+
+Famille **labo**, usages : labo, recherche, chaine. Origine : **derive**. Tuile 4 × 5, période 4, répétable en série, 1 entrée(s), 1 sortie(s), 1 machine(s) par tuile.
+
+Aucun tapis le long de la rangée : un seul bras en tête prend les packs sur le tapis d'entrée et chaque laboratoire les passe au suivant. Le nombre de laboratoires est borné par ce que les bras portent (le premier bras porte les packs de tous les suivants) ; la queue pose le dernier laboratoire.
+
+Pièces d'une tuile : bras ×1, machine_labo ×1, poteau ×1, tapis_entree ×0.
+Place minimale : 9 × 5 (une tuile, tête et queue comprises). Doit rester droit : rien sur toute la largeur.
+
+```
+.............
+..AAA.BBB.CCC
+>oAAAoBBBoCCC
+.+AAA+BBB+CCC
+.............
+```
+
+Sources : https://wiki.factorio.com/Lab ; https://wiki.factorio.com/Inserters
+
+### `labo-rangee-tapis` : Laboratoires en rangée sur un tapis de packs
+
+Famille **labo**, usages : labo, recherche. Origine : **derive**. Tuile 4 × 5, période 4, répétable en série, 1 entrée(s), 1 sortie(s), 1 machine(s) par tuile.
+
+Un tapis porte les packs (un type par voie) ; chaque laboratoire en prend avec deux bras. Période 4.
+
+Pièces d'une tuile : bras ×2, machine_labo ×1, poteau ×1, tapis_entree ×4.
+Place minimale : 4 × 5 (une tuile). Doit rester droit : tapis_entree:1 (rangée 0).
+
+```
+>>>>>>>>
+.nn..nn.
+AAA.BBB.
+AAA+BBB+
+AAA.BBB.
+```
+
+Sources : https://wiki.factorio.com/Lab ; https://wiki.factorio.com/Inserters
+
+### `labo-rangee-miroir` : Laboratoires en rangée, deux faces sur un même tapis de packs
+
+Famille **labo**, usages : labo, recherche. Origine : **derive**. Tuile 4 × 9, période 4, répétable en série, 1 entrée(s), 1 sortie(s), 2 machine(s) par tuile.
+
+Le tapis de packs au milieu nourrit un laboratoire au nord et un au sud par tuile : le double de laboratoires pour la même longueur de tapis.
+
+Pièces d'une tuile : bras ×4, machine_labo ×2, poteau ×2, tapis_entree ×4.
+Place minimale : 4 × 9 (une tuile). Doit rester droit : tapis_entree:1 (rangée 4).
+
+```
+AAA.CCC.
+AAA.CCC.
+AAA+CCC+
+.ss..ss.
+>>>>>>>>
+.nn..nn.
+BBB+DDD+
+BBB.DDD.
+BBB.DDD.
+```
+
+Sources : https://wiki.factorio.com/Lab ; https://wiki.factorio.com/Inserters
+
 ### `foreuses-2x2-combustion-2xN` : Champ de foreuses 2×2 à combustion, 2 × N, sur un tapis central
 
 Famille **mine**, usages : extraction. Origine : **forum**. Tuile 2 × 5, période 2, répétable en série, 0 entrée(s), 1 sortie(s), 2 machine(s) par tuile.
@@ -696,6 +803,22 @@ BBDD
 ```
 
 Sources : https://forums.factorio.com/viewtopic.php?p=158464 ; https://forums.factorio.com/viewtopic.php?p=19252
+
+### `foreuses-boucle-charbon` : Paire de foreuses à combustion en boucle de combustible
+
+Famille **mine**, usages : extraction, bootstrap. Origine : **derive**. Tuile 6 × 2, période 6, répétable en série, 0 entrée(s), 1 sortie(s), 2 machine(s) par tuile.
+
+Deux foreuses face à face : chacune dépose son charbon dans un coffre, et un bras à combustion reprend le charbon du coffre de l'autre pour la recharger. Elles se tiennent seules ; le surplus s'accumule dans les coffres (quai de collecte). Période 6 : se colle en série. Le débit annoncé est brut (le combustible brûlé par les foreuses n'est pas déduit).
+
+Pièces d'une tuile : bras ×2, coffre ×2, foreuse ×2.
+Place minimale : 6 × 2 (une tuile). Doit rester droit : rien sur toute la largeur.
+
+```
+AA#oBBCC#oDD
+AAe#BBCCe#DD
+```
+
+Sources : https://wiki.factorio.com/Burner_mining_drill ; https://forums.factorio.com/viewtopic.php?p=158464
 
 ### `foreuses-3x3-simple-face` : Rangée de foreuses 3×3 d'un seul côté du tapis
 
@@ -801,3 +924,47 @@ AAAAABBBBB
 ```
 
 Sources : https://wiki.factorio.com/Oil_refinery ; https://wiki.factorio.com/Oil_processing ; https://forums.factorio.com/viewtopic.php?p=227781
+
+### `packs-rouges-rangee` : Packs rouges : une assembleuse d'engrenages en tête, une assembleuse de packs par tuile
+
+Famille **science**, usages : science, packs-rouges. Origine : **derive**. Tuile 4 × 7, période 4, répétable en série, 2 entrée(s), 1 sortie(s), 2 machine(s) par tuile.
+
+Le tapis du haut porte le cuivre (voie 2) et reçoit les engrenages de la machine de tête (voie 1) ; chaque tuile fabrique des packs avec les deux. Le nombre de tuiles servies par la machine d'engrenages (1 pour 10 à vitesses égales) est calculé d'après les recettes.
+
+Pièces d'une tuile : bras ×4, machine_asm ×1, poteau ×1, tapis_entree ×4, tapis_sortie ×4.
+Place minimale : 9 × 7 (une tuile, tête et queue comprises). Doit rester droit : tapis_entree:1 (rangée 0), tapis_sortie:1 (rangée 6).
+
+```
+>>>>>>>>>>>>>
+..ss..nn..nn.
+.AAA.BBB.CCC.
+.AAA+BBB+CCC+
+.AAA.BBB.CCC.
+..ss..nn..nn.
+>>>>.>>>>>>>>
+```
+
+Sources : https://wiki.factorio.com/Science_pack ; https://wiki.factorio.com/Automation_science_pack ; https://wiki.factorio.com/Logistic_science_pack
+
+### `packs-verts-rangee` : Packs verts : machines de bras et de tapis en tête, une assembleuse de packs par tuile
+
+Famille **science**, usages : science, packs-verts. Origine : **derive**. Tuile 4 × 9, période 4, répétable en série, 2 entrée(s), 1 sortie(s), 3 machine(s) par tuile.
+
+Deux tapis naissent dans la tête : les bras (tapis proche) et les convoyeurs (tapis lointain, bras long) ; chaque tuile prend un de chaque. Le rapport réel est calculé d'après les recettes : une machine de bras sert 12 assembleuses de packs, une machine de convoyeurs 24. Deux tapis d'entrée (fer et engrenages ; circuits) alimentent la tête.
+
+Pièces d'une tuile : bras ×2, bras_long ×1, machine_asm ×1, poteau ×1, tapis ×8, tapis_entree ×0, tapis_sortie ×4.
+Place minimale : 13 × 9 (une tuile, tête et queue comprises). Doit rester droit : tapis_sortie:1 (rangée 7).
+
+```
+>>>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>>>>
+..s...SS..Nn..Nn.
++AAA+BBB+CCC.DDD.
+.AAA.BBB.CCC+DDD+
+.AAA.BBB.CCC.DDD.
++ssS+ss....n...n.
+>>>>>>>..>>>>>>>>
+>>>>.............
+```
+
+Sources : https://wiki.factorio.com/Science_pack ; https://wiki.factorio.com/Automation_science_pack ; https://wiki.factorio.com/Logistic_science_pack
