@@ -23,6 +23,10 @@
     M16 portées fines du guet fermées sous leur nom (mesure C19) ;
     M12 remplaçant d'une machine figée (fast_replace, raise_built) hérité inactif : rendu actif dans le gestionnaire ;
     M13 faction anéantie pendant le gel : tout réveillé au guet suivant, n_frozen à 0, registre de la faction vidé ;
+    M20 recensement de banc (remote « fo-gel » recensement, C20' b) : sortes d'îlots, foreuses, distance au QG, minerai, charbon,
+        refus du relevé, candidats lus, avant-postes, soldats, amas de tourelles et postes ; rien d'écrit au monde ni à l'état du gel ;
+    M21 groupe de banc à candidats (C20' b) : relevé de nouveau toutes les Gu.RESCAN ticks comme une faction, refus comptés, îlots figés
+        gardés ; mutant « groupes de banc à candidats jamais relevés » ;
     Mutants du runtime (relecture de revue-s, 8/11) : guet limité aux factions vivantes ; remplaçant laissé inactif ; (C19) four du QG
         relevé sans recette, recette fictive « ? » rendue au pas, portée fine non fermée.
   Usage : lua5.2 tests/gel_moteur_test.lua   (depuis la racine du mod ; shared/faction/cadence.lua de x10-s10 requis)
@@ -33,6 +37,7 @@ package.path = "./?.lua;" .. package.path
 local Mk = require("tests.mock_engine")
 
 local ok_n, fail_n = 0, 0
+local function State_sorted(t) local k = {} for x in pairs(t) do k[#k + 1] = x end table.sort(k) return k end
 local quiet = false -- passages des mutants (fin du fichier) : rien n'est imprimé
 local function check(c, msg)
   if c then ok_n = ok_n + 1; if os.getenv("FO_VERBOSE") and not quiet then print("[GEL-MOTEUR] OK : " .. msg) end
@@ -111,7 +116,7 @@ local function entity(o)
 end
 
 local function resource(x, y, amount)
-  local r = { valid = true, position = { x = x, y = y }, amount = amount, type = "resource",
+  local r = { valid = true, name = "iron-ore", position = { x = x, y = y }, amount = amount, type = "resource",
     prototype = { infinite_resource = false, mineable_properties = { mining_time = 1, products = { { type = "item", name = "iron-ore", amount = 1 } } } } }
   r.deplete = function() r.valid = false; r.amount = 0 end
   W.res[#W.res + 1] = r
@@ -481,6 +486,111 @@ local function scene_recette()
 end
 scene_recette()
 
+-- M20 recensement de banc (C20' b, scène x10-gel-echelle) : la faction de build_faction, relevé fini, puis remote « fo-gel » recensement.
+-- gel_garnisons et comportement sont des doublures (zones et rôles posés ici) ; script/faction/gel_banc.lua est le vrai fichier.
+local MUT_BANC = nil -- source mutée de script/faction/gel_banc.lua (mutants, fin du fichier)
+--- Charge le vrai script/faction/gel_banc.lua (ou sa source mutée) sur des doublures de gel_garnisons et de comportement ; rend
+--- l'interface « fo-gel ».
+local function load_banc()
+  local REM = {}
+  remote = { add_interface = function(n, t) REM[n] = t end }
+  package.loaded["script.faction.gel_banc"] = nil
+  package.loaded["script.faction.gel_garnisons"] = { A = function() return nil end, zones = function()
+    return { zones = { { kind = "qg", position = { x = 0, y = 0 }, radius = 48 }, { kind = "amas", area = { { 90, 0 }, { 110, 20 } } },
+      { kind = "poste", position = { x = 200, y = 0 }, radius = 30 } } }
+  end }
+  package.loaded["script.ai3.comportement"] = { enabled = function() return false end }
+  if MUT_BANC then assert(load(MUT_BANC, "=script/faction/gel_banc.lua"))() else require("script.faction.gel_banc") end
+  return REM["fo-gel"]
+end
+local function unload_banc()
+  package.loaded["script.faction.gel_garnisons"], package.loaded["script.ai3.comportement"] = nil, nil
+  package.loaded["script.faction.gel_banc"], remote = nil, nil
+end
+local function scene_recensement()
+  new_world()
+  local f = build_faction()
+  run(40)
+  f.turrets = { [901] = { valid = true, name = "gun-turret", position = { x = 100, y = 10 } }, [902] = { valid = true, name = "gun-turret", position = { x = 300, y = 300 } } }
+  f.soldiers = { [801] = { entity = { valid = true, name = "fo-soldat-test", position = { x = 3, y = 4 } } }, [802] = { entity = { valid = false } } }
+  f.soldiers_count = 1
+  local R = load_banc()
+  local Gu = require("script.faction.gel_usines")
+  local before = 0
+  for _ in next, Gu.U().ilots do before = before + 1 end
+  local writes0 = 0
+  for _, n in pairs(W.writes) do writes0 = writes0 + n end
+  local r = R.recensement()
+  local writes1 = 0
+  for _, n in pairs(W.writes) do writes1 = writes1 + n end
+  unload_banc()
+  local F = r.factions[1]
+  check(#r.factions == 1 and F.key == "a" and F.candidats == 6 and F.lus == 6, "M20 : une faction, 6 candidats tous lus ("
+    .. tostring(F and F.candidats) .. ", " .. tostring(F and F.lus) .. ")")
+  local rf = {}
+  for _, k in ipairs(State_sorted(F.refus)) do rf[#rf + 1] = k .. "=" .. F.refus[k] end
+  check(table.concat(rf, " ") == "bras=1 bus=1 electrique=1", "M20 : refus du releve (" .. table.concat(rf, " ") .. ")")
+  local by = {}
+  for _, I in ipairs(r.ilots) do by[I.sorte] = I end
+  check(#r.ilots == 3 and by.coffre and by.four and by.qg, "M20 : trois ilots, un de chaque sorte (" .. #r.ilots .. ")")
+  check(by.coffre and by.coffre.foreuses == 1 and by.coffre.machines == 1 and by.four.foreuses == 1 and by.four.machines == 2
+    and by.qg.foreuses == 0 and by.qg.machines == 1, "M20 : foreuses et machines par sorte")
+  check(by.coffre and by.coffre.minerai == "iron-ore" and by.coffre.gisement == 1000 and by.qg.minerai == "iron-ore" and by.qg.gisement == 0,
+    "M20 : minerai et gisement (four du QG : objet de sa source)")
+  check(by.coffre and by.coffre.charbon_min == 5 and by.four.charbon_max == 5 and by.coffre.dist >= 14 and by.coffre.dist <= 17
+    and by.qg.dist >= 10 and by.qg.dist <= 11, string.format("M20 : charbon et distance au QG (coffre %s, QG %s)",
+      tostring(by.coffre and by.coffre.dist), tostring(by.qg and by.qg.dist)))
+  check(#F.avant_postes == 1 and F.avant_postes[1].foreuses == 5 and F.fours_qg == 1, "M20 : avant-poste de 5 foreuses, 1 four du QG connu")
+  check(by.four and by.four.etats == "working=2" and by.qg.etats == "working=1", "M20 : statuts des machines (" .. tostring(by.four and by.four.etats) .. ")")
+  check(F.soldats == 1 and F.roles.qg == 1 and F.postes == 1 and F.tourelles == 2 and #F.amas == 1 and F.amas[1].tourelles == 1
+    and F.amas[1].dist == 100 and F.noms["fo-soldat-test"] == 1 and F.dist_soldats[1] == 5 and F.noms_tourelles["gun-turret"] == 2 and F.dist_postes[1] == 200, string.format("M20 : soldats, postes, tourelles et amas (%d soldat(s), %d poste(s), amas a %s)", F.soldats,
+      F.postes, tostring(F.amas[1] and F.amas[1].dist)))
+  local after = 0
+  for _ in next, Gu.U().ilots do after = after + 1 end
+  check(after == before and writes1 == writes0, "M20 : recensement en lecture : registre et monde inchanges")
+end
+scene_recensement()
+
+-- M21 groupe de banc à CANDIDATS (C20' b, scène x10-gel-echelle) : ses refus et ses îlots éveillés sont relevés de nouveau toutes les
+-- Gu.RESCAN ticks, comme ceux d'une faction, dans le même budget ; ses îlots figés sont gardés.
+local function scene_candidats()
+  new_world()
+  build_faction()
+  game.forces["fo-b"] = game.forces["fo-a"]
+  local R = load_banc()
+  local Gu = require("script.faction.gel_usines")
+  resource(200.5, 10.5, 1000)
+  local d = entity({ name = "burner-mining-drill", type = "mining-drill", x = 200.5, y = 10.5, proto = DRILL_P, burner = true, coal = 5, force = "fo-b" })
+  local c = entity({ name = "wooden-chest", type = "container", x = 200.5, y = 13, h = 0.35, force = "fo-b" })
+  d.drop_target = c
+  resource(220.5, 10.5, 1000)
+  local de = entity({ name = "electric-mining-drill", type = "mining-drill", x = 220.5, y = 10.5, proto = ELEC_DRILL_P, force = "fo-b" })
+  de.drop_target = entity({ name = "wooden-chest", type = "container", x = 220.5, y = 13, h = 0.5, force = "fo-b" })
+  local s = entity({ name = "stone-furnace", type = "furnace", x = 240.5, y = 0.5, proto = FURN_P, burner = true, coal = 5, crafting_speed = 1, force = "fo-b" })
+  s._src.items["iron-ore"] = 10
+  R.banc("e", "fo-b")
+  R.joueurs("e", {})
+  local a1, a2, a3 = R.adopte("e", d), R.adopte("e", s), R.adopte("e", de)
+  check(a1.id and a2.id and a3.why == "electrique", "M21 : deux ilots adoptes, la foreuse electrique refusee (" .. tostring(a3.why) .. ")")
+  R.candidats("e", { d, de }, { s })
+  local t0 = game.tick
+  run(Gu.RESCAN - 10)
+  local u = Gu.U()
+  local st = u.stats["banc:e"]
+  check(not (st and st.refus and st.refus.electrique), "M21 : aucun releve du groupe avant Gu.RESCAN ticks")
+  run(40)
+  st = u.stats["banc:e"]
+  local ids = u.ids_f["banc:e"] or {}
+  local fz = 0
+  for _, id in ipairs(ids) do if u.ilots[id].st.frozen then fz = fz + 1 end end
+  check(st and st.refus and st.refus.electrique == 1 and u.scan["banc:e"].pos == 4, string.format(
+    "M21 : groupe releve apres Gu.RESCAN ticks : 3 candidats lus, refus electrique compte (%s, lus %s)",
+    tostring(st and st.refus and st.refus.electrique), tostring(u.scan["banc:e"] and u.scan["banc:e"].pos - 1)))
+  check(#ids == 2 and fz == 2 and game.tick - t0 >= Gu.RESCAN, "M21 : ilots figes du groupe gardes au releve (" .. #ids .. " ilot(s), " .. fz .. " fige(s))")
+  unload_banc()
+end
+scene_candidats()
+
 local a = scenes()
 local dec_a, il_a = PROF.cnt["gel:decides"] or 0, PROF.cnt["gel:ilots"] or 0
 local b = scenes()
@@ -528,6 +638,7 @@ do
     { "un fige jamais relu apres une cause de faction (C19)", "local skip = (not Gj.TOUS) and G.skip_quiet(s, fbox, tick)", "local skip = (not Gj.TOUS) and fbox ~= nil" },
     { "guet des usines aux ticks des garnisons (C19)", "local who = G.guet_of(tick % G.GUET, \"usines\")", "local who = G.guet_of(tick % G.GUET, \"garnisons\")" },
     { "portee fine non fermee (C19)", "  Profiler.fstop(\"gel:g:menage\")\n", "" },
+    { "groupes de banc a candidats jamais releves (C20' b)", "if b.cands then budget = scan_one(", "if false then budget = scan_one(" },
   }
   -- (C19, 8/11) mutants de gel_usines.lua (relevé) et de la recette fictive d'avant le correctif, rendue au pas
   local fg = assert(io.open("script/faction/gel_usines.lua", "rb"))
@@ -546,7 +657,7 @@ do
     if not s then missed[#missed + 1] = mu[1] .. " (texte introuvable)" else
       MUT_JEU = SRC:sub(1, s - 1) .. mu[3] .. SRC:sub(e + 1)
       local before = fail_n
-      local okc = pcall(function() scene_recette(); scenes() end)
+      local okc = pcall(function() scene_recette(); scene_candidats(); scenes() end)
       local died = (fail_n > before) or not okc
       if died then seen = seen + 1 else missed[#missed + 1] = mu[1] end
       MUT_JEU = nil
@@ -563,9 +674,29 @@ do
       MUT_GU = nil
     end
   end
+  -- M20 : mutants du recensement de banc (gel_banc.lua)
+  local fb = assert(io.open("script/faction/gel_banc.lua", "rb"))
+  local SRC_B = fb:read("*a")
+  fb:close()
+  local MUTANTS_B = {
+    { "recensement : sortes coffre et four echangees", 'or (I.chest and "coffre" or "four")', 'or (I.chest and "four" or "coffre")' },
+    { "recensement : refus du releve oublies", "  if st then for _, k in ipairs(Gc_sorted(st.refus or {})) do F.refus[k] = st.refus[k] end end\n", "" },
+    { "recensement : soldat mort compte", "    if s and s.entity and s.entity.valid then", "    if s then" },
+  }
+  for _, mu in ipairs(MUTANTS_B) do
+    local s, e = SRC_B:find(mu[2], 1, true)
+    if not s then missed[#missed + 1] = mu[1] .. " (texte introuvable)" else
+      MUT_BANC = SRC_B:sub(1, s - 1) .. mu[3] .. SRC_B:sub(e + 1)
+      local before = fail_n
+      local okc = pcall(scene_recensement)
+      local died = (fail_n > before) or not okc
+      if died then seen = seen + 1 else missed[#missed + 1] = mu[1] end
+      MUT_BANC = nil
+    end
+  end
   ok_n, fail_n = ok0, fail0
   quiet = false
-  check(#missed == 0, string.format("mutants du runtime : %d/%d vus%s", seen, #MUTANTS + #MUTANTS_GU, #missed > 0 and (" ; NON VUS : " .. table.concat(missed, " ; ")) or ""))
+  check(#missed == 0, string.format("mutants du runtime : %d/%d vus%s", seen, #MUTANTS + #MUTANTS_GU + #MUTANTS_B, #missed > 0 and (" ; NON VUS : " .. table.concat(missed, " ; ")) or ""))
 end
 
 print(string.format("[GEL-MOTEUR] BILAN : %d OK, %d ECHEC(S)", ok_n, fail_n))

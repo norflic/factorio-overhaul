@@ -36,6 +36,7 @@ KIT_EGAL["foreuses-stock-dc"] = true
 KIT_EGAL["x10-gel-c20-temoin"] = true
 KIT_EGAL["x10-gel-c20-gel"] = true
 KIT_EGAL["x10-gel-zones"] = true -- C19 : find_enemy_units contre la recherche du guet, sur la sauvegarde du DC
+KIT_EGAL["x10-gel-recensement"] = true -- C20' (b) : recensement de la partie du DC avant la scene x10-gel-echelle
 
 -- Lot IA0 : les scénarios de guerre intégrés restent en « Paisible » (pvp = "peaceful"), comportement des
 -- sessions 4-5, pour rester comparables à E17-E22 (sinon, au niveau Normal par défaut, les factions

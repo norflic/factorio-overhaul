@@ -340,34 +340,50 @@ local function start_scan(fid, f, tick)
   stats(fid).refus = {}
 end
 
+--- Relevé d'un groupe (faction, ou groupe de banc à candidats) dans le budget du tick ; rend le budget restant.
+local function scan_one(u, fid, f, tick, budget)
+  local sc = u.scan[fid]
+  if not sc or (sc.pos > #sc.q and tick >= sc.next_at) then start_scan(fid, f, tick); sc = u.scan[fid] end
+  while sc.pos <= #sc.q and budget > 0 do
+    local c = sc.q[sc.pos]
+    sc.pos, budget = sc.pos + 1, budget - 1
+    local e = c.e
+    if e.valid and e.unit_number and not u.by_unit[e.unit_number] then
+      Profiler.start("gel:releve")
+      local I, why
+      if c.k == "d" then I, why = Gu.discover_pair(f, e.surface, e) else I, why = Gu.discover_four(f, e.surface, e) end
+      if I then
+        local taken = false
+        for _, m in ipairs(I.machines) do if u.by_unit[m.unit_number] then taken = true end end
+        if not taken then Gu.register(fid, I, tick) end
+      else
+        local r = stats(fid).refus
+        r[why] = (r[why] or 0) + 1
+      end
+      Profiler.stop("gel:releve")
+    end
+  end
+  return budget
+end
+
+--- Relevé du tick : factions vivantes (guerre en cours), puis groupes de banc à candidats (interface « fo-gel » candidats, scène
+--- x10-gel-echelle, C20' b : leurs refus et leurs îlots éveillés sont relevés de nouveau toutes les Gu.RESCAN ticks, comme ceux d'une
+--- faction ; aucune partie ordinaire n'a de groupe de banc). Un seul budget, Gu.SCAN_PER_TICK, pour tous.
 local function scan_tick(tick, war)
   local u = Gu.U()
   local budget = Gu.SCAN_PER_TICK
-  for _, fid in ipairs(State.alive()) do
-    if budget <= 0 then return end
-    local f = war.factions[fid]
-    if f and not f.is_player and f.hq and f.hq.valid then
-      local sc = u.scan[fid]
-      if not sc or (sc.pos > #sc.q and tick >= sc.next_at) then start_scan(fid, f, tick); sc = u.scan[fid] end
-      while sc.pos <= #sc.q and budget > 0 do
-        local c = sc.q[sc.pos]
-        sc.pos, budget = sc.pos + 1, budget - 1
-        local e = c.e
-        if e.valid and e.unit_number and not u.by_unit[e.unit_number] then
-          Profiler.start("gel:releve")
-          local I, why
-          if c.k == "d" then I, why = Gu.discover_pair(f, e.surface, e) else I, why = Gu.discover_four(f, e.surface, e) end
-          if I then
-            local taken = false
-            for _, m in ipairs(I.machines) do if u.by_unit[m.unit_number] then taken = true end end
-            if not taken then Gu.register(fid, I, tick) end
-          else
-            local r = stats(fid).refus
-            r[why] = (r[why] or 0) + 1
-          end
-          Profiler.stop("gel:releve")
-        end
-      end
+  if war and war.active and war.factions then
+    for _, fid in ipairs(State.alive()) do
+      if budget <= 0 then return end
+      local f = war.factions[fid]
+      if f and not f.is_player and f.hq and f.hq.valid then budget = scan_one(u, fid, f, tick, budget) end
+    end
+  end
+  if u.bancs and next(u.bancs) then
+    for _, name in ipairs(Gc.sorted_names(u.bancs)) do
+      if budget <= 0 then return end
+      local b = u.bancs[name]
+      if b.cands then budget = scan_one(u, "banc:" .. name, b.cands, tick, budget) end
     end
   end
 end
@@ -568,8 +584,7 @@ local function each_tick(tick)
     n = n + 1
   end
   Profiler.stop("gel:pas")
-  local war = State.war()
-  if war and war.active and war.factions and Gu.ON and Gel.on() then scan_tick(tick, war) end
+  if Gu.ON and Gel.on() then scan_tick(tick, State.war()) end
   guet(tick) -- guet étalé : une faction par tick pair de la période (G.guet_of), le guet commun au tick 0
   flush_flows()
 end
