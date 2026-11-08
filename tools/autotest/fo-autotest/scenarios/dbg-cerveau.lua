@@ -3,16 +3,16 @@
   Même carte et même guerre que `default` (base "default") ; le scénario ne fait qu'OBSERVER. À 3 ticks précis, l'interface distante
   « fo-dbg-cerveau » (probe_all) relève 40 tranches de chaque équipe observable (script/debug/lecture.lua : recensement des projets et des
   avant-postes, statuts des machines au moteur, lectures du cerveau, écarts), sous un LuaProfiler ; une erreur Lua fait échouer le banc.
-  Lancement : banc.py --qui DEBUG-CERVEAU -- 2700 dbg-cerveau <source>. Journal : [FO-DBG-CERVEAU].
+  Lancement : banc.py --qui DEBUG-CERVEAU -- 9400 dbg-cerveau <source>. Journal : [FO-DBG-CERVEAU].
 ]]
 
-local PROBES = { 900, 1700, 2500 }
+local PROBES = { 900, 3800, 6600, 9200 } -- les premieres decisions de capitalisation tombent apres 3 600 ticks
 local SLICES = 40
 
 return {
   description = "DEBUG-CERVEAU : relevé de la vue Cerveau sur la guerre `default` (sans joueur)",
   base = "default",
-  check_tick = 2600,
+  check_tick = 9300,
 
   tick = function(ctx, e)
     local st = ctx.state()
@@ -49,5 +49,6 @@ return {
     ctx.check((st.last and #st.last or 0) >= 1, "au moins une equipe observable", tostring(st.last and #st.last or 0))
     ctx.check((st.zones_max or 0) >= 1, "au moins une zone recensee (projet ou avant-poste)", tostring(st.zones_max or 0))
     ctx.check((st.mesurees_max or 0) >= 1, "au moins une zone mesuree au moteur", tostring(st.mesurees_max or 0))
+    ctx.check((st.anneau_max or 0) >= 1, "l'anneau des decisions de la capitalisation s'est rempli", tostring(st.anneau_max or 0))
   end,
 }
