@@ -504,9 +504,11 @@ do
   -- Tout autre fichier de ces dossiers : aucun nom. Une ligne en plus dans un fichier : ECHEC.
   local LEDGER = {
     ["shared/team/config.lua"] = { "EXEC", 46, "table nommée de l'exécutant (kit, avant-postes, foreuse électrique du lot FOREUSES et poteaux de sa chaîne T.swap.poles du lot FOREUSES-THERMIQUES, fonte, munitions, pièces, tourelle de garde, mur de l'enceinte : T.turret et T.wall, recette et portée lues au moteur ; lot FONDERIE : T.LOGISTIC_TYPES, types de prototypes du répartiteur et du souterrain ; lot MUNITIONS : T.turret_ammo_ladder, échelle des munitions des tourelles, choisie par la règle pure Mu.best_ammo sans nom)" },
-    ["shared/team/modules.lua"] = { "EXEC", 204, "gabarits de modules : catalogue d'usines posables, noms de leurs pièces (204 : genre « lab » lu par le débit des quais, lot RESEAU-GRAPHE)" },
+    ["shared/team/modules.lua"] = { "EXEC", 206, "gabarits de modules : catalogue d'usines posables, noms de leurs pièces (204 : genre « lab » lu par le débit des quais, lot RESEAU-GRAPHE ; 206 : tapis des voies des rangées, lot RANGEES-ASM)" },
     ["script/team/sources.lua"] = { "TYPE", 7, "types du moteur des coffres et bras du registre des sorties (container, inserter, mining-drill), lot MINAGE-MAIN : le GENRE, jamais un niveau" },
     ["script/team/traversee.lua"] = { "TYPE", 2, "nature d'un obstacle lue au TYPE du moteur (tapis, bras, poteau, mur...) pour la cause d'un refus de tracé, lot TRAVERSEE" },
+    ["script/team/rangee_dyn.lua"] = { "TYPE", 1, "genre de pièce (kind inserter) des machines d'une rangée dynamique, lot RANGEES-ASM" },
+    ["shared/team/rangee_dyn.lua"] = { "TYPE", 1, "genre de pièce (kind inserter) donné par l'appelant, lot RANGEES-ASM" },
     ["script/team/rapatriement.lua"] = { "TYPE", 1, "genre de pièce (kind inserter) du bras choisi, lot RAPATRIEMENT" },
     ["shared/team/blocs_audit.lua"] = { "TYPE", 2, "genres de pièces (kind lab, inserter) de l'audit n entrées / m sorties, lot RESEAU-GRAPHE" },
     ["shared/team/petrole_donnees.lua"] = { "EXEC", 4, "pièces de l'exécutant des chaînes à fluides (tuyau, coffre des quais, bras, poteaux) : briques du plan directeur, comme automatisation_donnees" },
