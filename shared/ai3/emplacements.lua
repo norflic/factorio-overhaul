@@ -51,6 +51,14 @@
        s'il manque. Chaque foreuse d'un produit du complément est accordée tant que room_comp > 0 (Em.drill_refused) ; à la décision, le
        siège va au PREMIER ordre, dans l'ordre trié de Ca.decide, dont le produit est dans le complément (Em.order_seat) ; les suivants
        sont refusés « plan directeur occupe ».
+    9. Lot VIDEO-SIEGES (C4 de DIAG_CONSO, 7/11 ; partie du DC, minute 256 : 5 emplacements sur 5 tenus par des modules qui
+       s'affament, 48 annulations « materiaux introuvables » en 4 h 16) : un module qui attend sa MATIÈRE (Em.MATERIAL_STATES) sans que
+       rien avance depuis Em.STALL (10 min : ni objet de moins à réunir, ni changement d'état) est « figé » lui aussi (Em.mat_tick,
+       m.mat_tick) : il ne tient plus d'emplacement, au plus Em.STALLED_FREE hors du compte avec les figés de chantier. Sans horloge
+       (m.mat_tick absent : sauvegarde d'avant) la règle 1 reste telle quelle.
+   10. Lot VIDEO-SIEGES (C5) : on n'ouvre jamais deux CHAÎNES dont les manques d'ouverture se recoupent à plus de Em.OVERLAP_MAX % (le
+       plus petit des deux ensembles est couvert par l'autre : Em.overlap) ; le siège va d'abord au produit qui DÉBLOQUE le manque, puis
+       au moins couvert (Em.arbitrate). Les 5 chaînes de la partie du DC manquaient toutes des mêmes assembleurs 2.
   Déterminisme : listes parcourues dans l'ordre donné, aucun hasard, aucun temps mesuré ; entrée et sortie : nombres, chaînes,
   tables.
 ]]
@@ -65,6 +73,7 @@ Em.PILED_FREE = 2      -- modules suspendus par la pile au plus hors du compte d
 Em.PER_SLOT = 1000     -- plaques libres de chaque produit des fonderies par emplacement de plus
 Em.MALL_SLOTS = 1      -- lot INDUSTRIE I6 : blocs de mall ouverts à la fois (emplacement à part)
 Em.COMP_SLOTS = 1      -- lot DEPENSES2 (essai 4) : emplacement de plus réservé au complément du stock qui dort
+Em.OVERLAP_MAX = 50    -- lot VIDEO-SIEGES (C5) : % de recoupement des manques d'ouverture au-delà duquel une seconde chaîne n'ouvre pas
 
 -- États de l'exécutant (script/team/build.lua) où la matière du module se réserve encore ou n'est pas encore planifiée.
 Em.MATERIAL_STATES = { attente = true, plan = true, reserve = true }
@@ -91,6 +100,17 @@ function Em.work_tick(prev, states, tick)
   return prev or tick
 end
 
+--- Lot VIDEO-SIEGES (C4, règle 9) : horloge de la MATIÈRE d'un ordre. states = états de ses modules, n = nombre d'objets qui lui
+--- manquent encore (somme des manques de ses modules en réserve). (prev_t, prev_n, prev_s) = valeurs gardées (nil au départ) ; rend
+--- (t, n, s) : t = tick du dernier progrès (premier tick en matière, ou un manque qui BAISSE, ou un changement d'états), nil hors matière.
+function Em.mat_tick(prev_t, prev_n, prev_s, states, n, tick)
+  if phase(states) ~= "matiere" then return nil, nil, nil end
+  local s = table.concat(states or {}, ",")
+  n = type(n) == "number" and n or 0
+  if prev_t == nil or prev_s ~= s or (type(prev_n) == "number" and n < prev_n) then return tick, n, s end
+  return prev_t, n, s
+end
+
 --- Lot DIAG-USINE : horloge de SUSPENSION par la pile d'un ordre (ou d'un module). `suspended` : tous ses modules non finis sont en
 --- réserve avec la raison « pile » (lue par le runtime). prev = valeur gardée ; rend nil hors suspension, le tick de la première
 --- pensée suspendue sinon.
@@ -110,7 +130,11 @@ end
 function Em.class(m, tick)
   if m and Em.piled(m.pile_tick, tick) then return "pile" end
   local ph = phase(m and m.states)
-  if ph == "matiere" then return "matiere" end
+  if ph == "matiere" then
+    -- Lot VIDEO-SIEGES (C4, règle 9) : la matière n'avance plus depuis Em.STALL ticks.
+    if m and type(m.mat_tick) == "number" and type(tick) == "number" and tick - m.mat_tick >= Em.STALL then return "fige" end
+    return "matiere"
+  end
   if ph ~= "chantier" then return "actif" end -- fini ou refusé au relevé suivant : le suivi le fermera
   local since = (m.progress_tick or m.opened or tick or 0)
   if type(m.work_tick) == "number" and m.work_tick > since then since = m.work_tick end
@@ -237,6 +261,60 @@ end
 --- d'une décision ouvrait un emplacement ordinaire de plus, et le siège unique n'en était plus un. Oui pour tout autre refus.
 function Em.blocked_counts(comp, product)
   return not (comp ~= nil and product ~= nil and comp[product] == true)
+end
+
+--- Lot VIDEO-SIEGES (C5, règle 10) : recouvrement de deux ensembles de manques { [objet] = vrai } : % des objets du plus petit qui sont
+--- aussi dans l'autre (0 si l'un est vide).
+function Em.overlap(a, b)
+  local na, nb, common = 0, 0, 0
+  for k in pairs(a or {}) do
+    na = na + 1
+    if (b or {})[k] then common = common + 1 end
+  end
+  for _ in pairs(b or {}) do nb = nb + 1 end
+  local m = math.min(na, nb)
+  if m == 0 then return 0 end
+  return 100 * common / m
+end
+
+--- Arbitrage des SIÈGES d'une décision. cands = ordres « module » de la décision, dans l'ordre rendu : { key, kind, miss = { [objet] =
+--- vrai } (manque d'ouverture), unblocks (vrai : le produit débloque un manque des ordres ouverts), theta (couverture du produit, nil :
+--- inconnue) } ; open = chaînes ouvertes : { key, miss }. Rend (keys, refused) : keys = les clés de cands dans l'ordre où elles prennent
+--- leur siège (celles qui débloquent d'abord, puis la moins couverte, puis l'ordre rendu), en ne changeant que les places des ordres
+--- « module » ; refused = { [clé] = raison } des CHAÎNES dont le manque recoupe à plus de Em.OVERLAP_MAX % celui d'une chaîne ouverte
+--- ou d'une chaîne qui a déjà son siège dans la décision. Aucun pairs qui décide : listes seulement.
+function Em.arbitrate(cands, open)
+  local idx = {}
+  for i, c in ipairs(cands or {}) do idx[i] = c end
+  local pos = {}
+  for i = 1, #idx do pos[idx[i]] = i end
+  local sorted = {}
+  for i = 1, #idx do sorted[i] = idx[i] end
+  table.sort(sorted, function(a, b)
+    if (a.unblocks and true or false) ~= (b.unblocks and true or false) then return a.unblocks and true or false end
+    local ta, tb = a.theta or math.huge, b.theta or math.huge
+    if ta ~= tb then return ta < tb end
+    return pos[a] < pos[b]
+  end)
+  local sets = {}
+  for _, o in ipairs(open or {}) do sets[#sets + 1] = { key = o.key, miss = o.miss } end
+  local refused, keys = {}, {}
+  for _, c in ipairs(sorted) do
+    local why = nil
+    if c.kind == "chaine" then
+      for _, o in ipairs(sets) do
+        if why == nil and Em.overlap(c.miss, o.miss) > Em.OVERLAP_MAX then
+          why = string.format("recoupement : meme manque d'ouverture que %s (plus de %d %%)", tostring(o.key), Em.OVERLAP_MAX)
+        end
+      end
+    end
+    if why then refused[c.key] = why
+    else
+      keys[#keys + 1] = c.key
+      if c.kind == "chaine" and next(c.miss or {}) ~= nil then sets[#sets + 1] = { key = c.key, miss = c.miss } end
+    end
+  end
+  return keys, refused, sorted
 end
 
 --- s = { base (A.MAX_OPEN), plates (liste des stocks libres des produits des fonderies), mods (liste de { states, progress_tick,
