@@ -973,10 +973,42 @@ end
 --- Applique un ordre (ouvert ou décidé) au plan : capacité, consommation, couverture, combustible, courant. Un ordre
 --- OUVERT s'applique pour son reste à poser (n_left, smelt_left ; absents : n, smelt_n) : ce qui est posé est déjà dans
 --- machines, drills, labs.
+--- Lot TV-ENERGIE (W02) : l'amorçage (relevé { amorce = true }) ne laisse passer qu'UN ordre électrique par décision : celui qui fait demander
+--- la centrale. Un ordre électrique (foreuse, four sur place ou machine de fabrication à énergie électrique) consomme l'amorce ; ensuite
+--- plan.amorce_left vaut 0 et toute l'électrique est refusée comme sous un relevé fermé. Appelée par Ca.apply (ordres ouverts compris).
+function Ca.spend_amorce(ctx, plan, o)
+  if (plan.amorce_left or 0) <= 0 then return end
+  local D = ctx.D
+  local k = o.kind
+  local electric = false
+  if k == "couvrir" or k == "ouvrir" then
+    local d = D.drill_by[o.entity]
+    local m = D.maker_by[o.smelt_entity]
+    electric = (d ~= nil and d.energy == "electric") or (m ~= nil and (o.smelt_left or o.smelt_n or 0) > 0 and m.energy == "electric")
+  elseif k == "fours" or k == "chaine" or k == "packs" then
+    local m = D.maker_by[o.entity]
+    electric = m ~= nil and m.energy == "electric"
+  end
+  if electric then plan.amorce_left = 0 end
+end
+
+--- Raison écrite du refus d'une option électrique, ou nil : relevé fermé / sans capacité (Pf.power_why), ou amorce déjà prise par un ordre
+--- de cette décision (lot TV-ENERGIE, W02).
+function Ca.power_refusal(ctx, plan)
+  local pw = ctx.input.power
+  local why = Pf.power_why(pw)
+  if why then return why end
+  if pw and pw.amorce and (plan.amorce_left or 0) <= 0 then
+    return "courant : amorcage : le premier ordre electrique de la decision fait demander la centrale, les autres attendent qu'elle soit finie"
+  end
+  return nil
+end
+
 function Ca.apply(ctx, plan, o)
   local D = ctx.D
   local k = o.kind
   local n = o.n_left or o.n
+  Ca.spend_amorce(ctx, plan, o)
   if k == "couvrir" or k == "ouvrir" then
     add_drills(ctx, plan, D.drill_by[o.entity], o.resource, n, o.deposit, true)
     local sn = o.smelt_left or o.smelt_n
@@ -1019,7 +1051,7 @@ end
 local function new_plan(ctx)
   local D = ctx.D
   local plan = { N = {}, cons = {}, cons_by = {}, cons_at = {}, burn = 0, cover = {}, opened = {}, dead = {},
-    drills_on = {}, rate_on = {}, labs = 0, lab_cap = 0, kw_used = 0, kw_have = 0, taken = {}, K = 0, hand = {},
+    drills_on = {}, rate_on = {}, labs = 0, lab_cap = 0, kw_used = 0, kw_have = 0, amorce_left = 0, taken = {}, K = 0, hand = {},
     -- lot VIDEO-L13 : posé NOMINAL de tous les états (P débit, NP nombre) et ordres ouverts (O, NO), par objet
     P = {}, NP = {}, O = {}, NO = {} }
   -- La MAIN n'est pas du capital (consigne du DC : « ils craftent beaucoup à la main ») : elle nourrit les machines
@@ -1077,6 +1109,7 @@ local function new_plan(ctx)
   local pw = ctx.input.power
   if pw then
     plan.kw_have = pw.have_kw or 0
+    plan.amorce_left = pw.amorce and 1 or 0 -- lot TV-ENERGIE (W02) : sans centrale finie, UN ordre électrique par décision (Ca.spend_amorce)
     plan.kw_nominal = plan.kw_used -- étape 5a de VIDEO-INTEG : somme nominale des machines relevées (journal, comparée à used_kw)
     if pw.used_kw then plan.kw_used = pw.used_kw end
   end
@@ -1513,9 +1546,9 @@ local function extraction_options(ctx, plan, req, item, def, out)
   -- Courant : une foreuse électrique ne se pose que si la centrale la porte ; le débit bloqué donne sa valeur à la
   -- centrale (levier « energie »).
   local pw = ctx.input.power
-  local pw_why = Pf.power_why(pw) -- lot VIDEO-COUVERTURE 5 (W02) : relevé du courant sans capacité lue : refus qui nomme l'entrée
+  local pw_why = Ca.power_refusal(ctx, plan) -- lots VIDEO-COUVERTURE 5 et TV-ENERGIE (W02) : relevé du courant fermé, sans capacité lue ou amorce prise : refus qui nomme la cause
   local function power_cap(n, key)
-    if d.energy ~= "electric" or not pw or (d.kw or 0) <= 0 then return n end
+    if d.energy ~= "electric" or not pw or (d.kw or 0) <= 0 or (plan.amorce_left or 0) > 0 then return n end
     local np = math.max(0, math.floor((plan.kw_have - plan.kw_used) / d.kw + Ca.EPS))
     if np < n then
       ctx.power_block[#ctx.power_block + 1] = { key = key, kw = (n - np) * d.kw, n = n - np, item = item, p = rho,
@@ -1526,7 +1559,7 @@ local function extraction_options(ctx, plan, req, item, def, out)
   end
   -- Sans centrale possible, une foreuse électrique sans courant ne se pose nulle part : le gisement est « interdit ».
   local no_power = d.energy == "electric" and pw ~= nil and (d.kw or 0) > 0 and not pw.plant
-    and (plan.kw_have - plan.kw_used) < d.kw - Ca.EPS
+    and (plan.amorce_left or 0) <= 0 and (plan.kw_have - plan.kw_used) < d.kw - Ca.EPS
   -- Couvrir les gisements ouverts. Un gisement où l'on ne peut pas poser ce cycle (danger, courant sans centrale)
   -- compte comme couvert : il ne bloque ni l'ouverture d'un autre, ni la réserve de places.
   local all_covered, free_total, ext_unit, n_usable, kmin = true, 0, nil, 0, 1000
@@ -1758,13 +1791,13 @@ local function fabric_options(ctx, plan, req, item, r, def, out)
   local n = math.min(nwant, ncap)
   local va = D.mu[item] or 0
   local sh = Ca.share(ctx, item)
-  if m.energy == "electric" and ctx.input.power then
+  if m.energy == "electric" and ctx.input.power and (plan.amorce_left or 0) <= 0 then
     local np = math.max(0, math.floor((plan.kw_have - plan.kw_used) / math.max(Ca.EPS, m.kw) + Ca.EPS))
     if np < n then
       ctx.power_block[#ctx.power_block + 1] = { key = key, kw = (n - np) * m.kw, n = n - np, item = item, p = p, va = va,
         share = sh }
       n = np
-      if n <= 0 then refuse(ctx, key, kind, item, Pf.power_why(ctx.input.power) or "courant insuffisant") return end
+      if n <= 0 then refuse(ctx, key, kind, item, Ca.power_refusal(ctx, plan) or "courant insuffisant") return end
     end
   end
   -- Valeur de l'objet × part de cet étage dans le capital de sa chaîne (Ca.share) : un étage plein a le retour du

@@ -1866,6 +1866,43 @@ local function s20()
   check(base.rang_cycles == nil, "§20 C5.1 : sans cycle, la décision ne rend aucune graine de cycle (champ absent)")
 end
 
+-- §21 Lot TV-ENERGIE (W02, fin) : sans centrale finie, le relevé du courant n'est plus nil. { fermee = texte } : toute l'électrique est refusée
+-- EN AMONT, refus écrit ; { amorce = true } : UN seul ordre électrique par décision (celui qui fait demander la centrale).
+local function s21()
+  local D = vdata()
+  local function elec_orders(r)
+    local n = 0
+    for _, o in ipairs(r.orders) do
+      if (o.kind == "couvrir" or o.kind == "ouvrir") and o.entity == "electric-mining-drill" then n = n + 1 end
+    end
+    return n
+  end
+  local libre = Ca.decide(rich(D), {})
+  check(elec_orders(libre) >= 2, "§21 témoin : sans borne (power nil), au moins 2 ordres de foreuses électriques dans la décision (" .. elec_orders(libre) .. ")")
+  local ferme = Ca.decide(rich(D, { power = { fermee = "centrale demandee, pas finie (attente)" } }), {})
+  local rf = refus_of(ferme, "couvrir:d1")
+  check(elec_orders(ferme) == 0 and rf and rf.why == "courant : centrale demandee, pas finie (attente)",
+    "§21 W02 : centrale demandée mais pas finie : aucune foreuse électrique, refus écrit en amont qui nomme la cause (" .. tostring(rf and rf.why) .. ")")
+  local refuse = Ca.decide(rich(D, { power = { fermee = "centrale refusee (pas de rive libre)" } }), {})
+  local rr = refus_of(refuse, "couvrir:d1")
+  check(elec_orders(refuse) == 0 and rr and rr.why:find("centrale refusee", 1, true),
+    "§21 W02 : centrale refusée : aucune foreuse électrique, refus écrit (" .. tostring(rr and rr.why) .. ")")
+  local amorce = Ca.decide(rich(D, { power = { amorce = true, etat = "aucune centrale demandee" } }), {})
+  check(elec_orders(amorce) == 1, "§21 W02 : amorçage : EXACTEMENT un ordre de foreuse électrique (celui qui fait demander la centrale) : " .. elec_orders(amorce))
+  local second
+  for _, r in ipairs(amorce.refus) do
+    if r.why:find("amorcage", 1, true) then second = r end
+  end
+  check(second ~= nil, "§21 W02 : les autres options électriques sont refusées avec la raison « amorcage » (" .. tostring(second and second.why) .. ")")
+  -- un ordre électrique déjà OUVERT consomme l'amorce : plus aucun ordre électrique dans la décision
+  local ouvert = Ca.decide(rich(D, { power = { amorce = true },
+    open = { { key = "couvrir:d1", kind = "couvrir", item = "iron-ore", resource = "iron-ore", deposit = "d1", entity = "electric-mining-drill",
+      n = 1, n_left = 1, rate = 20, where = "d1" } } }), {})
+  check(elec_orders(ouvert) == 0, "§21 W02 : un ordre électrique déjà ouvert a pris l'amorce : aucune autre foreuse électrique (" .. elec_orders(ouvert) .. ")")
+  local capacite = Ca.decide(rich(D, { power = { have_kw = 1000, used_kw = 0 } }), {})
+  check(elec_orders(capacite) >= 2, "§21 W02 : centrale finie, capacité lue : plus de limite d'amorce (" .. elec_orders(capacite) .. ")")
+end
+
 local function run_all()
   s1()
   s2()
@@ -1886,6 +1923,7 @@ local function run_all()
     s18()
     s19()
     s20()
+    s21()
   end
 end
 
@@ -2073,6 +2111,13 @@ do
       return h[o.item]
     end
   end)
+  do
+    local orig = Pf.power_missing
+    M("relevé fermé ignoré (garde ouverte sur { fermee })", function()
+      Pf.power_missing = function(pw) if pw and pw.fermee then return nil end return orig(pw) end
+    end, function() Pf.power_missing = orig end)
+  end
+  MF("amorce jamais consommée (autant d'ordres électriques que d'options)", "spend_amorce", function() return function() end end)
   do
     local orig = Pf.power_why
     M("refus du courant sans l'entrée nommée", function() Pf.power_why = function() return nil end end, function() Pf.power_why = orig end)

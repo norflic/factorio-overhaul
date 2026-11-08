@@ -60,18 +60,18 @@ local function battery(Cv, C)
   check(C.growth({ saturated = true }, with({ built = 8, lane_cap = 2 })) == 2, "voie de tapis a 2 chaudieres : champ de 2")
   local nb, why = C.growth({ saturated = false }, with({ built = 3 }))
   check(nb == nil and why == "pas saturee", "non saturee, rien perdu : rien")
-  check(C.growth({ saturated = false }, with({ built = 0, lost = true })) == Cv.MIN_FIELD, "centrale perdue : champ de remplacement meme non saturee")
+  check(C.growth({ saturated = false }, with({ built = 0, lost = true })) == C.SECOURS_BOILERS, "centrale perdue : unite de SECOURS (lot TV-ENERGIE, G65), jamais le champ, meme non saturee")
   nb, why = C.growth({ saturated = false }, with({ lost = true, pending = 1 }))
   check(nb == nil and why == "un chantier de centrale est ouvert", "perdue mais un chantier est ouvert : on attend")
-  check(C.growth({ saturated = false }, with({ built = 0, lost = true, pending = 1, rebuilding = 1, done = 0 })) == Cv.MIN_FIELD,
-    "relecture : seule centrale rouverte depuis 10 min, remplacement demande quand meme")
+  check(C.growth({ saturated = false }, with({ built = 0, lost = true, pending = 1, rebuilding = 1, done = 0 })) == C.SECOURS_BOILERS,
+    "relecture : seule centrale rouverte depuis 10 min, l'unite de secours est demandee quand meme")
   nb, why = C.growth({ saturated = false }, with({ built = 0, lost = true, pending = 2, rebuilding = 1 }))
   check(nb == nil and why == "un chantier de centrale est ouvert", "relecture : un champ de remplacement est deja en chantier : pas un second")
   nb, why = C.growth({ saturated = true }, with({ built = 1, pending = 1, rebuilding = 1 }))
   check(nb == nil and why == "un chantier de centrale est ouvert", "relecture : centrale rouverte, pas encore perdue : on attend la reconstruction")
   nb, why = C.growth({ saturated = true }, with({ built = 1, done = 0 }))
   check(nb == nil and why == "aucune centrale finie", "relecture : rien de fini, rien de perdu : rien")
-  check(C.growth({ saturated = false }, with({ built = 0, lost = true, hold = true })) == Cv.MIN_FIELD, "relecture : le repli ne retient pas le remplacement")
+  check(C.growth({ saturated = false }, with({ built = 0, lost = true, hold = true })) == C.SECOURS_BOILERS, "relecture : le repli ne retient pas le secours")
   nb = C.growth({ saturated = false }, with({ lost = true, off = true }))
   check(nb == nil, "reglage de banc no_grow : rien, meme perdue")
   nb = C.growth({ saturated = false }, with({ lost = true, cool = true }))
@@ -276,7 +276,7 @@ do
   alive = {}
   plant.state, plant.reopened, plant.reopened_tick = "reserve", 1, tick
   check(run(Cvr.LOSS_CHECKS_TOTAL - 1) == false, "avant 3 min : on laisse la reconstruction faire")
-  check(run(1) == true and asked == Cvr.MIN_FIELD, "3 min sans aucune machine, projet rouvert : champ de remplacement (" .. tostring(asked) .. ")")
+  check(run(1) == true and asked == require("shared.team.centrale").SECOURS_BOILERS, "3 min sans aucune machine, projet rouvert : unite de secours (" .. tostring(asked) .. ")")
   -- le remplacement est en chantier : pas un second
   f.build.extra_plants = { 2 }
   f.build.projects[2] = { id = 2, state = "chantier", spec = {}, ents = {} }

@@ -147,8 +147,13 @@ end
 
 --- Perte de la centrale. st : memoire { lost } ; planned, alive : capacite prevue et capacite des machines vivantes (J/tick). Rend vrai
 --- quand la perte dure depuis Cv.LOSS_CHECKS releves ; un champ de remplacement est alors demande (et le compte repart de zero).
+--- Lot TV-ENERGIE (G65) : la capacité vivante est-elle sous Cv.LOSS_FRAC de la capacité prévue (état, sans compteur) ? Fin de la crise : faux.
+function Cv.down(planned, alive)
+  return (planned and planned > 0 and (alive or 0) < planned * Cv.LOSS_FRAC) and true or false
+end
+
 function Cv.lost(st, planned, alive)
-  if planned and planned > 0 and (alive or 0) < planned * Cv.LOSS_FRAC then st.lost = (st.lost or 0) + 1 else st.lost = 0 end
+  if Cv.down(planned, alive) then st.lost = (st.lost or 0) + 1 else st.lost = 0 end
   local need = (planned and planned > 0 and (alive or 0) <= 0) and Cv.LOSS_CHECKS_TOTAL or Cv.LOSS_CHECKS
   if st.lost >= need then st.lost = 0 return true end
   return false
