@@ -108,6 +108,7 @@ local Capi = {}
 -- Lot DEBUG-CERVEAU : anneau des ordres envoyés et refusés AVEC leur raison, lu par la seule vue « Cerveau » (jamais par une décision). Champ, pas une locale (199 sur 200).
 Capi.Anneau = require("script.debug.anneau")
 Capi.MS = require("script.ai3.modules_stock") -- lot MODULES-POSES : disposition du stock de modules (champ de Capi : aucune locale de plus)
+Capi.Mega = require("script.team.mega_fonderie") -- lot MEGA-FONDERIE : décision du bloc de fonte nourri par un bus (étape 11 ; champ, aucune locale de plus)
 
 Capi.SETTING = "fo-war-capi"
 Capi.ENABLED = true
@@ -2412,6 +2413,11 @@ function Capi.think(f, view, book, tick, research, w, run)
       Profiler.stop("capi:think")
       return Capi.PENDING
     end
+  elseif phase == 11 and Capi.Mega.on() then
+    -- Lot MEGA-FONDERIE : méga-fonderie des gisements recensés (étape libre jusqu'ici : une seule étape coûteuse par pensée)
+    Profiler.fstart("mega:think")
+    Capi.Mega.think(f, cs, tick, { power = Auto.plant_state(f) == "fini", crisis = (view and (view.survie or view.hq_threat)) and true or false })
+    Profiler.fstop("mega:think")
   end
   return Capi.think_tail(f, cs, tick)
 end

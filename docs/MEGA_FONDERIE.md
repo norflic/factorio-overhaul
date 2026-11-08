@@ -87,9 +87,11 @@ Réutilisé : `Ch.plan`, `Champ.data`, `Co.network` (charbon), `Fd.furnaces_for`
 
 ## 8. Coût par pensée
 
-Décision : O(1) par gisement, 2 gisements au plus par pensée, à l'étape 11 seulement. Plan du bloc : recalculé seulement quand la taille
-change (signature) ; pire cas (12 lignes × 64 fours, ~3 000 entités, contrôle compris) mesuré par `debug.sethook` dans le test, plafond
-400 000 instructions (≈ 5 ms à 12 ns par instruction), avec un mutant qui le dépasse.
+Décision : O(1) par gisement, 2 gisements au plus par pensée, à l'étape 11 seulement. Plan : calculé seulement pour une décision neuve
+(signature de la taille), sur un ÉCHANTILLON de 3 colonnes (`Mf.sample` : la première, une du milieu, la dernière partielle ; les colonnes
+2 à C − 1 sont des translations). Mesuré par `debug.sethook` : bloc ENTIER de 12 colonnes de 64 fours, plan + contrôle = 1 015 k
+instructions (≈ 13 à 25 ms : refusé) ; échantillon, décision complète (taille, plan, contrôle, coût d'une colonne) = **282 k au pire**
+(≈ 3,8 ms), plafond du test 400 k, mutant « échantillon de 12 colonnes » refusé. Gisement de 1 000 tuiles : environ 60 k.
 
 ## 9. Critères mesurables sur `etape1-geants` (❔ propositions, à valider)
 
@@ -98,3 +100,12 @@ change (signature) ; pire cas (12 lignes × 64 fours, ~3 000 entités, contrôle
 - **K3** : à 40 min, le bloc sort ≥ 15 plaques/s (deux colonnes pleines, 900 /min) par équipe qui a décidé.
 - **K4** : aucune foreuse électrique ne dépose dans un four sur un gisement doté d'une méga-fonderie.
 - **K5** : portée `mega:think` < 5 ms au pire, mesurée au profileur.
+
+## 10. État de la tranche 1 (8/11, branche `mega-fonderie`)
+
+Fait et testé HORS JEU seulement (aucun Factorio lancé : le DC joue) : règle pure (`tests/mega_fonderie_test.lua`, 200 OK, 20 mutants,
+propriété « toute taille acceptée donne un plan juste » sur un balayage de 192 jeux de données, 4 320 essayés à la main, 0 faux) ; runtime
+branché dans la capitalisation (E1, `Ia3.plan` → `Capi.think`, étape 11), factions ET votre équipe (`tests/mega_fonderie_moteur_test.lua`,
+34 OK, 8 mutants) ; réglage `fo-war-mega-fonderie` (vrai ; l'intégrateur ajoute `require("settings.mega_fonderie")` à `settings.lua`, sans quoi
+le réglage n'existe pas et rien ne tourne). Rien n'est encore POSÉ : la décision, sa taille et ses refus sont écrits (`f.mega`, `[FO-MEGA]`).
+À prouver en moteur réel : micro-banc de décision (gisement de 1 000 tuiles, centrale finie, 2 500 ticks) puis `etape1-geants`.

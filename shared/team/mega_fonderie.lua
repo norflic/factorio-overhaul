@@ -109,7 +109,7 @@ function Mf.size(s)
   local z = {
     drills = drills, ore = ore, lane = lane, belt = bi, kpl = kpl, per_line = per_eff, lines = lines, cols = lines,
     full_lines = floor(ore / per_eff + EPS), nside = nside, ncol = ncol, furnaces = furnaces, last = last,
-    plates = ore * yield, coal = furnaces * fuel_rate, fuel = fuel, fs = fs, pitch = P, stepv = stepv, reach = r, wire = po.wire,
+    plates = ore * yield, combustible = furnaces * fuel_rate, fuel = fuel, fs = fs, pitch = P, stepv = stepv, reach = r, wire = po.wire,
     bay_arms = bay_arms, bay_rows = bay_rows, hf = hf, w = lines * P + 1, h = hf + bay_rows, clamp = clamp,
     rate = rate, yield = yield, arm_rate = ins.rate,
   }
@@ -138,7 +138,7 @@ function Mf.sample(z, k, full)
   return c
 end
 Mf.FIELDS = { "drills", "ore", "lane", "belt", "kpl", "per_line", "lines", "cols", "full_lines", "nside", "ncol", "furnaces", "last",
-  "plates", "coal", "fuel", "fs", "pitch", "stepv", "reach", "wire", "bay_arms", "bay_rows", "hf", "w", "h", "clamp", "rate", "yield",
+  "plates", "combustible", "fuel", "fs", "pitch", "stepv", "reach", "wire", "bay_arms", "bay_rows", "hf", "w", "h", "clamp", "rate", "yield",
   "arm_rate", "start", "start_why" }
 
 --- Pièces d'UNE colonne pleine (et de son tapis de plaques de gauche, de son quai) : le coût d'un pas de croissance.
@@ -421,7 +421,7 @@ function Mf.line(team, dep, verdict, cause, z, extra, minutes)
   local size = ""
   if z then
     size = string.format(" ; cible %d foreuse(s), %.1f minerai/s ; bus %d ligne(s) de tapis %d (voie %.2f/s, %d voie(s) de minerai par ligne) ; bloc %d colonne(s) x %d four(s) = %d four(s), %.1f plaques/s, charbon %.2f/s, rectangle %d x %d ; depart %d colonne(s) (%s)%s",
-      z.drills, z.ore, z.lines, z.belt or 0, z.lane, z.kpl, z.cols, z.ncol, z.furnaces, z.plates, z.coal, z.w, z.h, z.start, z.start_why,
+      z.drills, z.ore, z.lines, z.belt or 0, z.lane, z.kpl, z.cols, z.ncol, z.furnaces, z.plates, z.combustible, z.w, z.h, z.start, z.start_why,
       z.clamp and (", borne " .. z.clamp) or "")
   end
   return string.format("[FO-MEGA] %s : gisement %s (%s, %d tuiles) : %s : %s%s%s a %.1f min", tostring(team or "player"), tostring(dep.id),

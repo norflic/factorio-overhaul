@@ -46,7 +46,7 @@ local function suite(Mf)
     want(z.drills == 83 and near(z.ore, 41.5), "1 000 tuiles : 83 foreuses, 41,5 minerai/s (" .. tostring(z.drills) .. ")")
     want(z.lines == 6 and z.belt == 1 and z.kpl == 1, "1 000 tuiles : 6 lignes de tapis jaune, une voie de minerai par ligne (" .. tostring(z.lines) .. ")")
     want(z.ncol == 24 and z.nside == 12 and z.furnaces == 133 and z.last == 13, "1 000 tuiles : 24 fours par colonne, 133 fours, 13 dans la derniere")
-    want(z.full_lines == 5 and near(z.plates, 41.5) and math.abs(z.coal - 133 * 0.0225) < 1e-6, "1 000 tuiles : 5 lignes pleines, plaques, charbon")
+    want(z.full_lines == 5 and near(z.plates, 41.5) and math.abs(z.combustible - 133 * 0.0225) < 1e-6, "1 000 tuiles : 5 lignes pleines, plaques, charbon")
     want(z.pitch == 10 and z.w == 61 and z.hf == 24 and z.h > z.hf, "1 000 tuiles : pas 10, rectangle 61 de large")
     want(z.start == 6 and z.start_why == "cible", "sans budget : toutes les colonnes")
   end
@@ -63,7 +63,7 @@ local function suite(Mf)
   local zr2 = Mf.size(ref({ tiles = 2200, belts = { { lane = 7.5 }, { lane = 15 } } }))
   want(zr2 and zr2.belt == 2 and zr2.lines == 7 and zr2.ncol == 48, "2 200 tuiles (13 lignes jaunes) : rouge, 7 lignes, 48 fours par colonne")
   local ze = Mf.size(ref({ furnace = ELEC }))
-  want(ze and ze.kpl == 2 and near(ze.per_line, 15) and ze.ncol == 24 and ze.lines == 3 and ze.coal == 0 and ze.pitch == 12,
+  want(ze and ze.kpl == 2 and near(ze.per_line, 15) and ze.ncol == 24 and ze.lines == 3 and ze.combustible == 0 and ze.pitch == 12,
     "four electrique : minerai sur les deux voies, 24 fours par ligne, aucun charbon")
   local zs = Mf.size(ref({ furnace = STEEL }))
   want(zs and zs.ncol == 12 and zs.lines == 6 and zs.furnaces == 67, "four d'acier : 12 fours par ligne")
@@ -142,6 +142,23 @@ local function suite(Mf)
       local st = Mf.block(zz, true)
       want(st.cols == zz.start and #Mf.verify(st, zz) == 0, g[1] .. " : colonnes de depart justes")
     end
+  end
+  -- propriété : toute taille ACCEPTÉE donne un plan juste (balayage : côté du four, portée et fil du poteau, combustible, tapis, foreuses)
+  do
+    local tried, wrong, first = 0, 0, nil
+    for _, fs in ipairs({ 2, 3 }) do for _, r in ipairs({ 1, 2, 3 }) do for _, wire in ipairs({ 5, 6, 7.5, 9 }) do
+      for _, fuel in ipairs({ true, false }) do for _, lane in ipairs({ 7.5, 15 }) do for _, dr in ipairs({ 30, 83 }) do
+        local zz = Mf.size({ drills = dr, drill = { size = 3, rate = 0.5 }, belts = { { lane = lane } }, inserter = { rate = 2.31 },
+          furnace = { size = fs, rate = 0.3125 * fs / 2, fuel = fuel, fuel_rate = 0.0225 }, pole = { reach = r, wire = wire } })
+        if zz then
+          tried = tried + 1
+          local sm = Mf.sample(zz)
+          local b = Mf.verify(Mf.block(sm), sm)
+          if #b > 0 then wrong = wrong + 1; first = first or string.format("fs %d portee %d fil %.1f : %s", fs, r, wire, b[1]) end
+        end
+      end end end
+    end end end
+    want(tried >= 100 and wrong == 0, string.format("toute taille acceptee donne un plan juste : %d essai(s), %d faux (%s)", tried, wrong, tostring(first)))
   end
   want(dump(Mf.block(z)) == dump(Mf.block(z)), "plan deterministe")
   local sm3 = Mf.sample(z)
