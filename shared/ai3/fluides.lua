@@ -539,6 +539,7 @@ function Site:route(sx, sy, goal, fl)
   elseif rec.sx ~= sx or rec.sy ~= sy or rec.fl ~= fl then
     error("fluides : reprise incoherente du tuyau " .. ord, 0)
   end
+  self.why_route = rec.why -- Lot BLOCAGE-LABOS : pourquoi le dernier tracé a échoué (nil : il a réussi)
   return self:apply_route(rec, fl)
 end
 
@@ -572,13 +573,13 @@ function Site:route_raw(sx, sy, goal, fl, ord)
     local gx, gy = math.floor(k / 2097152) - 1048576, k % 2097152 - 1048576
     gl[#gl + 1] = { gx, gy }
   end
-  if #gl == 0 then return none end
+  if #gl == 0 then none.why = "cible vide" return none end
   local sk = tkey(sx, sy)
   if goal[sk] then
     -- déjà au réseau : le tuyau de départ seul, et « 0 posé » à l'appelant
     return { sx = sx, sy = sy, fl = fl, seq = { sk }, zero = true }
   end
-  if not self:pipe_ok(sx, sy, fl) then return none end
+  if not self:pipe_ok(sx, sy, fl) then none.why = "depart bloque" return none end
   -- une cible dont aucun voisin n'accepte un tuyau de ce fluide est scellée (autres fluides, machines) : refus immédiat,
   -- sans développer l'A* (moteur réel, 28/10 : l'eau d'une usine entourée de tuyaux de brut)
   do
@@ -590,7 +591,7 @@ function Site:route_raw(sx, sy, goal, fl, ord)
       end
       if open_goal then break end
     end
-    if not open_goal then return none end
+    if not open_goal then none.why = "cible scellee (" .. #gl .. " tuile(s))" return none end
   end
   local function h(x, y)
     local best = math.huge
@@ -656,7 +657,10 @@ function Site:route_raw(sx, sy, goal, fl, ord)
       n = n + 1
       job.spent = job.spent + 1
       job.slice = job.slice + 1
-      if n > limit or job.spent > Fl.LAYOUT_BUDGET then return none end
+      if n > limit or job.spent > Fl.LAYOUT_BUDGET then
+        none.why = string.format("A* epuise (%d noeuds, limite %d)", n, math.floor(limit))
+        return none
+      end
       for _, d in ipairs(DIRS) do
         local nx, ny = cur.x + DV[d][1], cur.y + DV[d][2]
         local nk = tkey(nx, ny)
@@ -687,7 +691,7 @@ function Site:route_raw(sx, sy, goal, fl, ord)
       if found then break end
     end
   end
-  if not found then return none end
+  if not found then none.why = string.format("A* sans chemin (%d noeuds, %d tuile(s) cible)", n, #gl) return none end
   local seq = { found }
   local k = came[found]
   while k do
@@ -1154,10 +1158,12 @@ local function layout_once(req, shift)
       end
       table.sort(order, function(a, b) if a.d ~= b.d then return a.d < b.d end return a.i < b.i end)
       local placed, last_why = false, nil
+      local n_occ, n_tube, why_count = 0, 0, {} -- Lot BLOCAGE-LABOS : le bilan des rives essayées (le dernier motif seul ne disait rien des autres)
       for _, it in ipairs(order) do
         local p = it.p
         local pe = req.ents[p.name]
         local px0, py0, px1, py1 = rect_of(pe, p.x, p.y, p.dir)
+        if not s:rect_free(px0, py0, px1, py1) then n_occ = n_occ + 1 end
         if s:rect_free(px0, py0, px1, py1) then
           local snap = s:snapshot(nets)
           local ent = s:put(p.name, p.x, p.y, p.dir, { role = "pompe", fluid = fl })
@@ -1171,12 +1177,20 @@ local function layout_once(req, shift)
             break
           end
           local c = pc[1]
-          last_why = string.format("tuyau de la pompe impossible (%s) : pompe (%.1f, %.1f) dir %d, raccord %s", fl, p.x, p.y, p.dir or 0,
-            c and string.format("(%d, %d) %s", c.tx, c.ty, s:pipe_ok(c.tx, c.ty, fl) and "libre" or "bloque") or "absent")
+          n_tube = n_tube + 1
+          local rw = s.why_route or "?"
+          why_count[rw] = (why_count[rw] or 0) + 1
+          last_why = string.format("tuyau de la pompe impossible (%s) : pompe (%.1f, %.1f) dir %d, raccord %s, trace : %s", fl, p.x, p.y, p.dir or 0,
+            c and string.format("(%d, %d) %s", c.tx, c.ty, s:pipe_ok(c.tx, c.ty, fl) and "libre" or "bloque") or "absent", rw)
           s:restore(snap, nets)
         end
       end
-      if not placed then return false, last_why or ("aucune rive libre pour la pompe de " .. fl) end
+      if not placed then
+        if not last_why then return false, string.format("aucune rive libre pour la pompe de %s (%d emprise(s) occupee(s))", fl, n_occ) end
+        local motifs = {}
+        for _, k in ipairs(sorted_keys(why_count)) do motifs[#motifs + 1] = why_count[k] .. "x " .. k end
+        return false, string.format("%s ; %d rive(s) : %d emprise occupee, %d tuyau impossible [%s]", last_why, #order, n_occ, n_tube, table.concat(motifs, " ; "))
+      end
     end
   end
   return true
