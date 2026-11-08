@@ -146,6 +146,36 @@ local function battery(Q, verbose)
     if sc > slots or o.cases ~= sc or not want_ok then broken = broken + 1 end
   end
   ck(broken == 0, "300 cas tires : parts toujours sous la barre, sous ce qui est voulu, une case chacun si possible (" .. broken .. " cas faux)")
+  -- 8. Lot TV-QUOTAS (C11) : rapports mesurés sur les machines posées (modules de vitesse, de productivité, retirés), débits mis à l'échelle
+  local o0, i0, n0 = Q.ratios({})
+  ck(o0 == 1000 and i0 == 1000 and n0 == 0, "aucune machine relevee : 1000/1000, l'ancienne regle")
+  local o1, i1, n1 = Q.ratios({ { speed_pm = 0, prod_pm = 0 }, { speed_pm = 0, prod_pm = 0 } })
+  ck(o1 == 1000 and i1 == 1000 and n1 == 2, "machines sans module : 1000/1000 (modules retires : retour a l'identique)")
+  local o2, i2 = Q.ratios({ { speed_pm = 500, prod_pm = 0 } })
+  ck(o2 == 1500 and i2 == 1500, "modules de vitesse (+50 %) : sortie et entree x1,5 (" .. o2 .. "/" .. i2 .. ")")
+  local o3, i3 = Q.ratios({ { speed_pm = -150, prod_pm = 200 } })
+  ck(o3 == 1000 and i3 == 850, "productivite +20 % a -15 % de vitesse : sortie 0,85 x 1,2 = 1,02 -> 1000 (pas 5 %), entree 850 (" .. o3 .. "/" .. i3 .. ")")
+  local o4, i4 = Q.ratios({ { speed_pm = 0, prod_pm = 400 } })
+  ck(o4 == 1400 and i4 == 1000, "productivite seule : la sortie monte, l'entree ne bouge pas (" .. o4 .. "/" .. i4 .. ")")
+  local o5, i5, n5 = Q.ratios({ { speed_pm = 1000, prod_pm = 0 }, { speed_pm = 0, prod_pm = 0 } })
+  ck(o5 == 1500 and i5 == 1500 and n5 == 2, "une machine sur deux equipee (+100 %) : moyenne x1,5 (" .. o5 .. "/" .. i5 .. ")")
+  local o6 = Q.ratios({ { speed_pm = 1010, prod_pm = 0 } })
+  local o7 = Q.ratios({ { speed_pm = 1020, prod_pm = 0 } })
+  ck(o6 == o7 and o6 == 2000, "arrondi au pas de 5 % : 2,01 et 2,02 donnent le meme rapport (pas de quota qui rebondit)")
+  local o8, i8 = Q.ratios({ { speed_pm = 99999, prod_pm = 99999 } })
+  ck(o8 == Q.RATIO_MAX_PM and i8 == Q.RATIO_MAX_PM, "rapport borne en haut")
+  local o9, i9 = Q.ratios({ { speed_pm = -2000, prod_pm = -2000 } })
+  ck(o9 == Q.RATIO_MIN_PM and i9 == Q.RATIO_MIN_PM, "rapport borne en bas")
+  local o10 = Q.ratios({ { speed_pm = 0 / 0, prod_pm = 0 }, { speed_pm = 500, prod_pm = 0 }, { speed_pm = "x", prod_pm = 0 } })
+  ck(o10 == 1500, "valeurs invalides (NaN, texte) ignorees")
+  local sc = Q.scaled({ a = 0.5, b = 0.2 }, 1500)
+  ck(math.abs(sc.a - 0.75) < 1e-9 and math.abs(sc.b - 0.3) < 1e-9, "debits mis au rapport")
+  local base = Q.quotas({ a = 0.5 }, { x = 0.5 }, { {} }, { { item = "x" } }, OPTS)
+  local fast = Q.quotas(Q.scaled({ a = 0.5 }, 2000), Q.scaled({ x = 0.5 }, 2000), { {} }, { { item = "x" } }, OPTS)
+  ck(base.outs[1].cases == 3 and fast.outs[1].cases == 6 and fast.ins[1].want == 2 * base.ins[1].want,
+    "modules de vitesse x2 : sortie 6 cases au lieu de 3, entree doublee (" .. fast.outs[1].cases .. ", " .. fast.ins[1].want .. " contre " .. base.ins[1].want .. ")")
+  local again = Q.quotas(Q.scaled({ a = 0.5 }, 1000), Q.scaled({ x = 0.5 }, 1000), { {} }, { { item = "x" } }, OPTS)
+  ck(again.outs[1].cases == base.outs[1].cases and again.ins[1].want == base.ins[1].want, "modules retires (rapport 1000) : quota d'avant")
   return fails
 end
 
@@ -278,6 +308,14 @@ mutant("coffre à plusieurs produits sans parts", function(Q)
   local base = Q.quotas
   Q.quotas = function(...) local r = base(...) for _, o in ipairs(r.outs) do o.shares = {} end return r end
 end)
+src_mutant("rapport de vitesse oublie (productivite seule)", "so + (1000 + sp) * (1000 + pr) / 1000", "so + (1000) * (1000 + pr) / 1000")
+src_mutant("productivite oubliee dans la sortie", "so + (1000 + sp) * (1000 + pr) / 1000", "so + (1000 + sp)")
+src_mutant("entree qui suit la productivite", "si + (1000 + sp)", "si + (1000 + sp) * (1000 + pr) / 1000")
+src_mutant("rapport non arrondi au pas", "floor(v / n / Q.RATIO_STEP_PM + 0.5 + EPS) * Q.RATIO_STEP_PM", "floor(v / n + 0.5)")
+src_mutant("rapport non borne en haut", "max(Q.RATIO_MIN_PM, min(Q.RATIO_MAX_PM, r))", "max(Q.RATIO_MIN_PM, r)")
+src_mutant("rapport non borne en bas", "max(Q.RATIO_MIN_PM, min(Q.RATIO_MAX_PM, r))", "min(Q.RATIO_MAX_PM, r)")
+src_mutant("moyenne remplacee par la somme", "floor(v / n / Q.RATIO_STEP_PM", "floor(v / Q.RATIO_STEP_PM")
+src_mutant("debits non mis a l'echelle", "out[k] = (type(v) == \"number\") and (v * pm / 1000) or v", "out[k] = v")
 mutant("entrée = coffre entier (ancienne règle QUAI_FILL)", function(Q)
   local base = Q.quotas
   Q.quotas = function(...) local r = base(...); for _, c in ipairs(r.ins) do if not c.free then c.want = c.cap; c.low = 60 end end; return r end
