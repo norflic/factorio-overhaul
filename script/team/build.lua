@@ -3219,6 +3219,17 @@ end
 
 --- Lot IA3-e : annule une demande pas encore en chantier (attente, plan, réserve) : objets réservés rendus au coffre,
 --- tuiles et lots libérés ; état « refuse » (raison donnée). Rend vrai si la demande a été annulée.
+--- Lot RANGEES-ASM : agrandit sur place le gabarit d'un module ENCORE EN ATTENTE (rien de posé ni de réservé) : ses
+--- arguments deviennent `args` (rangée plus longue, mêmes tapis prolongés). Rend vrai si le projet a été changé.
+function Build.resize_waiting(f, id, args)
+  local p = f and f.build and f.build.projects[id]
+  if not (p and p.state == "attente" and p.spec and type(args) == "table") then return false end
+  local a = {}
+  for i = 1, #args do a[i] = args[i] end
+  p.spec.args = a
+  return true
+end
+
 function Build.cancel(f, id, why)
   local b = f and f.build
   local p = b and b.projects[id]
