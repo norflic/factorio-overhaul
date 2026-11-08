@@ -70,3 +70,4 @@ require("settings.robots") -- lot RB-1 : robots (fo-war-robots, fo-war-robots-ca
 require("settings.levels_panneau") -- lot PANNEAU : panneau « Évolution » au clic ou au survol (fo-levels-panneau, par joueur)
 require("settings.video") -- lots VIDEO (feuille de route « Factorio Automated ») : fo-war-portes, fo-war-paliers, fo-war-lots-minerai, fo-debug-trace-carte (tous allumés depuis la 0.6.60)
 require("settings.exclusion") -- lot VIDEO-PLAFONDS (V99) : fo-war-exclusion (objets exclus de la demande, vide par défaut)
+require("settings.tv_vapeur") -- lot TV-VAPEUR (V36, V89) : tampon de vapeur et dégradation graduée sous charge (allumés par défaut)
