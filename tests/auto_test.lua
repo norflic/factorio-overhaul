@@ -448,6 +448,7 @@ end
 local function emit_cases()
   local wanted = {}
   local P = { want = function(E, proj, items, prio, craft, why) wanted[#wanted + 1] = items return true end }
+  P.want_kit = function(E, proj, items, prio, why) return P.want(E, proj, items, prio, false, why) end -- lot POSE-PAR-LOTS : A.emit demande en kits
   local emit = A.emit(P)
   local miss = { { "four", 4 } }
   for _, st in ipairs({ "reserve", "defrichage", "fantomes", "chantier" }) do

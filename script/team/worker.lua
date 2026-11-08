@@ -1214,6 +1214,17 @@ local function bg_close_job(agent, f, job, ok, tick, cause)
     w.done = w.done + 1
     w.delay_ticks = w.delay_ticks + (tick - (job.ready_tick or tick))
     f.stats.crafted = (f.stats.crafted or 0) + 1
+    -- Lot POSE-PAR-LOTS : un kit de fabrication d'un projet (shared/ai3/kit_lot.lua) est livré au coffre ; durée = de la prise à la livraison
+    if task.kit then
+      f.stats.kits_livres = (f.stats.kits_livres or 0) + 1
+      if f.stats.kits_livres <= 300 then
+        local parts = {}
+        for _, wk in ipairs(task.kit) do parts[#parts + 1] = string.format("%s x%d", tostring(wk[1]), wk[2] or 0) end
+        log(string.format("[FO-LOTS-KIT] %s : kit LIVRE %s (projet %s '%s') : %s ; %d fabrication(s) en %.0f s de la prise a la livraison (%.0f s de fabrication) par le PNJ %d a %.1f min",
+          f.key or (f.is_player and "player") or tostring(f.id), tostring(task.key), tostring(task.ia3), tostring(task.why), table.concat(parts, ", "),
+          #job.list, (tick - job.at) / 60, (job.ready_tick and job.t0 and (job.ready_tick - job.t0) or 0) / 60, agent.id, tick / 3600))
+      end
+    end
   else
     w.failed = w.failed + 1
     w.causes[cause] = (w.causes[cause] or 0) + 1

@@ -151,6 +151,12 @@ function Auto.on_done(f, task, ok, tick)
     add(b.load, task.item, dt)
     add(b.made, task.item, task.count or 0) -- débit d'un objet fabriqué : à la main (ici) + modules (mesurés, roll)
     st.hand[task.item] = (st.hand[task.item] or 0) + (task.count or 0)
+    -- lot POSE-PAR-LOTS : les autres pièces d'un kit (la première est task.item)
+    for i = 2, #(task.kit or {}) do
+      local w = task.kit[i]
+      add(b.made, w[1], w[2] or 0)
+      st.hand[w[1]] = (st.hand[w[1]] or 0) + (w[2] or 0)
+    end
     -- Objets fabriqués à la main, intermédiaires compris (étapes de la tâche : recette × fabrications × produits) : la
     -- part « à la main » se compare aux produits des assembleurs, intermédiaires compris (statistiques de la force).
     st.hand_all = st.hand_all or {}
