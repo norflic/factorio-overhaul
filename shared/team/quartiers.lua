@@ -135,6 +135,24 @@ function Q.candidates(lots, known)
   return out
 end
 
+---------------------------------------------------------------------------------------------------
+-- Tranche 2 (V91, l.157 : « minifactory that is self-contained … unconnected logistic networks ») : DÉPÔT du quartier.
+-- Les coffres du pôle sont des quais du projet « quartier » (remplis depuis le QG par les tournées de quais existantes) ; un quai d'un
+-- module du quartier est rempli DEPUIS le dépôt quand il en a assez (trajet dépôt -> quai au lieu de QG -> quai -> QG).
+---------------------------------------------------------------------------------------------------
+--- Objets du dépôt : `counts` = { [objet] = nombre de quais du quartier qui le demandent } ; les `n` plus demandés (puis par nom).
+function Q.depot_items(counts, n)
+  local list = {}
+  for _, k in ipairs(sorted_keys(counts)) do if (counts[k] or 0) > 0 then list[#list + 1] = k end end
+  table.sort(list, function(a, b) if counts[a] ~= counts[b] then return counts[a] > counts[b] end return a < b end)
+  local out = {}
+  for i = 1, math.min(n or 0, #list) do out[i] = list[i] end
+  return out
+end
+
+--- Le dépôt sert-il la tournée ? Il faut TOUT le lot de la tournée au dépôt (pas de tournée à moitié vide).
+function Q.depot_serves(have, need) return (need or 0) > 0 and (have or 0) >= need end
+
 --- Décision : { open = candidat } ou { why = raison }. `s` = { on, plant, busy, free, need, idle, hold, survie, cands }.
 function Q.decide(s)
   if not s.on then return { why = "eteint" } end

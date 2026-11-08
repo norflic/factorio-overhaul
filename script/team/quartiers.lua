@@ -106,6 +106,7 @@ function Qr.step(f, tick, H)
     b.quartiers = st
   end
   follow(f, st, tick)
+  Qr.depots(f, tick) -- tranche 2 (V91) : objets des dépôts des quartiers ouverts (rien si fo-war-quartiers est éteint)
   if tick < (st.next or 0) then return end
   st.next = tick + Qr.CHECK
   local open, busy = {}, false
@@ -209,6 +210,141 @@ function Qr.plan(f, surface, p, H)
   say(f, st, string.format("[FO-ENVELOPPE] %s : projet %d planifie (quartier %s, lot %s) : poteau %s en (%.1f, %.1f), %d coffre(s) de depot, %d poteau(x) de liaison au reseau, %d arbre(s) ou rocher(s) du lot a defricher (%d trouve(s))",
     f.key or "player", p.id, tostring(q.key), tostring(q.lot), pole, ents[1].x, ents[1].y, Qr.DEPOTS, links, n, #list))
   return true
+end
+
+---------------------------------------------------------------------------------------------------
+-- Tranche 2 (V91) : DÉPÔT du quartier. Réglage fo-war-quartiers (settings/tv_archi.lua) ; éteint ou absent : rien ne change.
+--   Qr.depots(f, tick)          (dans Qr.step) les coffres du pôle d'un quartier OUVERT deviennent les quais de son projet, aux objets les
+--                               plus demandés par les quais des modules du quartier (Q.depot_items) : quai_tasks de build.lua les remplit
+--                               depuis le QG (tournées de quais existantes, rien de neuf).
+--   Qr.route(f, surface, tasks) (Build.think, avant Board.add) une tournée « remplir » d'un quai d'un module du quartier prend AU DÉPÔT
+--                               quand il a tout le lot (Q.depot_serves) : ia1d.depot = position du coffre, task.items retiré (le marché
+--                               ne demande rien au stock du QG), task.depot_items = le lot. Programme : script/team/worker.lua.
+--   Qr.depot_step(...)          étapes « take_depot » et « put_depot » du programme (worker.lua, run_steps).
+---------------------------------------------------------------------------------------------------
+Qr.SETTING_DEPOT = "fo-war-quartiers"
+Qr.QLOG_EVERY = 5 * 3600
+
+function Qr.depots_on()
+  local ok, s = pcall(function() return settings.global[Qr.SETTING_DEPOT] end)
+  return ok and s ~= nil and s.value == true
+end
+
+--- Quartier OUVERT (clé) du lot `lk`, et son projet ; nil sinon.
+local function open_hub(b, lk)
+  local st = b.quartiers
+  local l = st and lk and b.lots[lk]
+  if not l then return nil end
+  local I, J = Q.of_lot(l.i, l.j)
+  local kn = st.known[Q.key(I, J)]
+  local hp = kn and kn.open and kn.pid and b.projects[kn.pid]
+  if hp and hp.state == "fini" then return hp, Q.key(I, J) end
+  return nil
+end
+
+function Qr.depots(f, tick)
+  local b = f.build
+  local st = b.quartiers
+  if not (st and Qr.depots_on()) then return end
+  -- demande par quartier ouvert : quais des modules (finis ou en chantier) de ses lots
+  local want = {}
+  for _, pid in ipairs(b.order) do
+    local p = b.projects[pid]
+    local pt = p and p.parts and p.parts[1]
+    if p and not p.spec.quartier and (p.state == "fini" or p.state == "chantier") and pt and type(pt.lot) == "string" then
+      local hp, qk = open_hub(b, pt.lot)
+      if hp then
+        want[qk] = want[qk] or {}
+        for _, q in ipairs(p.quais or {}) do want[qk][q.item] = (want[qk][q.item] or 0) + 1 end
+      end
+    end
+  end
+  for _, k in ipairs(sorted_keys(st.known)) do
+    local kn = st.known[k]
+    local hp = kn.open and kn.pid and b.projects[kn.pid]
+    if hp and hp.state == "fini" then
+      local items = Q.depot_items(want[k] or {}, Qr.DEPOTS)
+      local chests = {}
+      for _, e in ipairs(hp.ents) do if e.role == "depot" then chests[#chests + 1] = e end end
+      local quais = {}
+      for i, it in ipairs(items) do if chests[i] then quais[#quais + 1] = { x = chests[i].x, y = chests[i].y, item = it } end end
+      hp.quais = quais
+    end
+  end
+  if tick >= (st.qlog_next or 0) then
+    st.qlog_next = tick + Qr.QLOG_EVERY
+    local parts = {}
+    for _, k in ipairs(sorted_keys(st.known)) do
+      local kn = st.known[k]
+      local hp = kn.open and kn.pid and b.projects[kn.pid]
+      if hp then
+        local its = {}
+        for _, q in ipairs(hp.quais or {}) do its[#its + 1] = q.item end
+        parts[#parts + 1] = k .. "[" .. table.concat(its, " ") .. "]"
+      end
+    end
+    if #parts > 0 then
+      say(f, st, string.format("[FO-QUARTIER] %s minute %.0f : depots %s ; taches « remplir » des quartiers ouverts emises au depot %d fois, au QG %d fois (depuis le debut, une emission par pensee)",
+        f.key or "player", tick / 3600, table.concat(parts, " "), st.served or 0, st.from_qg or 0))
+    end
+  end
+end
+
+function Qr.route(f, surface, tasks)
+  local b = f.build
+  if not (b and b.quartiers and surface and Qr.depots_on()) then return end
+  local st = b.quartiers
+  for _, t in ipairs(tasks) do
+    local j = t.ia1d
+    if j and j.mode == "fill" and type(t.items) == "table" and #t.items == 1 then
+      local p = b.projects[j.pid]
+      local pt = p and not p.spec.quartier and p.parts and p.parts[1]
+      local hp = pt and type(pt.lot) == "string" and open_hub(b, pt.lot)
+      if hp then
+        local item, need = t.items[1][1], t.items[1][2]
+        local served = false
+        for _, dq in ipairs(hp.quais or {}) do
+          if not served and dq.item == item then
+            local chest = surface.find_entity(Qr.DEPOT, { dq.x, dq.y })
+            if chest and chest.force.name == f.force and Q.depot_serves(chest.get_item_count(item), need) then
+              j.depot = { x = dq.x, y = dq.y }
+              t.depot_items, t.items = t.items, nil
+              served = true
+            end
+          end
+        end
+        if served then st.served = (st.served or 0) + 1 else st.from_qg = (st.from_qg or 0) + 1 end
+      end
+    end
+  end
+end
+
+--- Étape du programme d'un PNJ : « take_depot » prend `items` ({ {objet, n} }) au coffre de dépôt en `pos` ; « put_depot » y remet ce
+--- qu'il porte de ces objets. Rend vrai si la prise a rapporté quelque chose (put_depot : toujours vrai).
+function Qr.depot_step(f, kind, pos, items, inv)
+  local surface = f.hq and f.hq.valid and f.hq.surface
+  local chest = surface and pos and surface.find_entity(Qr.DEPOT, { pos.x, pos.y })
+  if not (chest and inv) then return kind == "put_depot" end
+  local any = false
+  for _, it in ipairs(items or {}) do
+    if kind == "take_depot" then
+      local n = math.min(it[2], chest.get_item_count(it[1]))
+      if n > 0 then
+        local got = chest.remove_item({ name = it[1], count = n })
+        local put = got > 0 and inv.insert({ name = it[1], count = got }) or 0
+        if put < got then chest.insert({ name = it[1], count = got - put }) end
+        if put > 0 then any = true end
+      end
+    else
+      local n = inv.get_item_count(it[1])
+      if n > 0 then
+        local put = chest.insert({ name = it[1], count = n })
+        if put > 0 then inv.remove({ name = it[1], count = put }) end
+      end
+      any = true
+    end
+  end
+  return any or kind == "put_depot"
 end
 
 --- BANCS SEULEMENT (interface distante fo-ia1d.quartiers, scénario greffé tv-archi) :

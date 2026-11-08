@@ -4974,6 +4974,7 @@ function Build.think(f, surface, tick)
   if b.opts.seul then
     Board.drop_free(f, function(t) return t.ia1d ~= nil end)
   end
+  Build.Quartiers.route(f, surface, tasks) -- lot TV-ARCHI (V91) : quais d'un quartier ouvert servis par son depot (rien si fo-war-quartiers est eteint)
   Collecte.apply(f, surface, b, tasks, tick) -- lot COLLECTE : fer libre sous le besoin et équipe sous son effectif
   if #tasks > 0 then Board.add(f, tasks, tick) end
   Profiler.fstop("e2:board")

@@ -3,7 +3,8 @@
   (shared/team/quartiers.lua). Contrôles :
     §1 quartier d'un lot ; §2 centre ; §3 lot utilisable ; §4 pôle ; §5 lots libres d'un quartier ; §6 lots libres des quartiers
        ouverts ; §7 besoin anticipé ; §8 candidats (exclusions, tri, égalités) ; §9 décision (ordre des raisons) ; §10 déterminisme ;
-    §11 mutants : des motifs du source sont réécrits, le texte est rechargé, et la suite de contrôles doit ÉCHOUER sur chacun.
+    §11 mutants : des motifs du source sont réécrits, le texte est rechargé, et la suite de contrôles doit ÉCHOUER sur chacun ;
+    §12 dépôt du quartier (tranche 2) : depot_items, depot_serves (rejoués sur chaque mutant, car dans la suite).
   Usage : lua5.2 tests/quartiers_test.lua   (depuis la racine du mod ; quelques secondes ; rien en jeu)
 ]]
 package.path = "./?.lua;" .. package.path
@@ -200,6 +201,21 @@ local function suite(R)
   check(e1 == e2 and e1 == "0:-1,-1:0,1:0", "§10 égalités : même liste à chaque appel")
   check(R.hub_lot(h2, 1, 0) == R.hub_lot(h2, 1, 0), "§10 pôle stable")
 
+  -- §12 dépôt du quartier (tranche 2) : objets les plus demandés, puis service d'une tournée
+  local dc = { ["iron-plate"] = 3, ["copper-plate"] = 5, ["coal"] = 0, ["gear"] = 3 }
+  local dl = R.depot_items(dc, 2)
+  check(table.concat(dl, ",") == "copper-plate,gear", "§12 depot_items n=2 : égalité 3/3 départagée par le nom (" .. table.concat(dl, ",") .. ")")
+  local dall = R.depot_items(dc, 10)
+  check(#dall == 3, "§12 depot_items n=10 : coal (à 0) exclu, 3 objets (" .. #dall .. ")")
+  check(table.concat(dall, ",") == "copper-plate,gear,iron-plate", "§12 depot_items n=10 : ordre copper-plate, gear, iron-plate (" .. table.concat(dall, ",") .. ")")
+  check(#R.depot_items({}, 2) == 0, "§12 depot_items sans demande : liste vide")
+  check(#R.depot_items(dc, 0) == 0, "§12 depot_items n=0 : liste vide")
+  check(R.depot_serves(400, 340) == true, "§12 depot_serves(400,340) : vrai")
+  check(R.depot_serves(339, 340) == false, "§12 depot_serves(339,340) : faux")
+  check(R.depot_serves(340, 340) == true, "§12 depot_serves(340,340) : vrai (égalité)")
+  check(R.depot_serves(100, 0) == false, "§12 depot_serves(100,0) : faux (besoin nul)")
+  check(R.depot_serves(nil, 10) == false, "§12 depot_serves(nil,10) : faux")
+
   return n, bad
 end
 
@@ -256,6 +272,9 @@ local MUTANTS = {
   { "j", "if not best or d < bd or", "if not best or d <= bd or" },
   { "k", "Q.REFUS_MAX = 2", "Q.REFUS_MAX = 3" },
   { "l", "(s.free or 0) >= (s.need or Q.NEED_MIN)", "(s.free or 0) > (s.need or Q.NEED_MIN)" },
+  { "m", "return counts[a] > counts[b]", "return counts[a] < counts[b]" },
+  { "n", "return (need or 0) > 0 and (have or 0) >= need", "return (have or 0) >= (need or 0)" },
+  { "o", "if (counts[k] or 0) > 0 then", "if true then" },
 }
 
 local refused, total = 0, #MUTANTS
