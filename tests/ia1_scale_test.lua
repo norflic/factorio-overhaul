@@ -292,7 +292,7 @@ local function patches() -- même carte que tests/war_test.lua (gisements autour
   end
   return out
 end
-local function run_war(minutes, brake)
+local function run_war(minutes, brake, near)
   M.new_game({ patches = patches(), p_busy = 0.01, p_nopath = 0.01, p_lost = 0 })
   -- Banc d'échelle : frein par le travail levé (60 = seul le stock freine), comme le scénario ia1-scale.
   M.world().settings["fo-recruit-idle-max"] = brake or 60
@@ -305,15 +305,35 @@ local function run_war(minutes, brake)
   for _, f in ipairs(w.factions) do start = start + f.engineers_count end
   check(start == 32, "8 PNJ par faction au départ (" .. start .. ")")
   remote.call("factorio-overhaul", "war_fund", 3000)
+  -- Lot X10-S10 : joueur à 30 tuiles du QG de la faction 1 (rythme normal) ; les 3 autres restent loin de lui.
+  if near and w.factions[1].hq_pos then
+    M.world().player.character.teleport({ x = w.factions[1].hq_pos.x + 30, y = w.factions[1].hq_pos.y })
+  end
   local okr, err = pcall(M.run_ticks, minutes * 3600)
   check(okr, "simulation sans erreur (" .. tostring(err) .. ")")
   return w
 end
-local w = run_war(12)
+-- Lot X10-S10 (décision du DC du 7/11, 17 h 47, QCM-7/11-X10, OBJECTIFS §4 : « Oui, factions lointaines plus lentes (Recommandé) ») :
+-- une faction loin de tout joueur et calme pense toutes les Cd.SLOW = 600 ticks au lieu de 300 ; le plan pose au plus UNE recrue par
+-- pensée (shared/team/planner.lua, recruit_workers = 1). Le joueur est donc posé près de la faction 1 : elle garde l'attendu d'avant
+-- S10 (25 PNJ) ; les 3 autres sont lointaines et calmes. Leur seuil n'est PAS la croissance divisée par la cadence (8 + 17 × 300 / 600 = 16),
+-- trop lâche : il laisserait passer une régression que le changelog de la 0.6.64 ne promet pas (« 25 à 27 PNJ à 12 min au lieu de 29 à
+-- 30 »). Seuil 22 (décision du lead du 8/11, sur la note de revue-s) : juste sous le mesuré (moteur simulé, cette partie : 27, 25 et 26
+-- PNJ à 12 min, recrues 19, 17 et 18 ; 26 à 28 selon la graine), avec une marge de 3 sous le plus bas.
+local Cd = require("shared.faction.cadence")
+local FAR_MIN = 22
+local w = run_war(12, nil, true)
 local all30, uniq, paid = true, true, true
-for _, f in ipairs(w.factions) do
-  if f.engineers_count < 25 then all30 = false end -- lot SITES : 27 avant (voir le commentaire du contrôle)
-  print(string.format("  %s : %d PNJ, %d recrues payées, garde %d", f.key, f.engineers_count, f.stats.recruited or 0, f.stats.recruit_guard or 0))
+local lente = {}
+for _, l in ipairs(M.world().logs) do
+  local key = type(l) == "string" and l:match("^%[FO%-CADENCE%] (%S+) : cadence LENTE")
+  if key then lente[key] = true end
+end
+for i, f in ipairs(w.factions) do
+  local floor_n = (i == 1) and 25 or FAR_MIN
+  if f.engineers_count < floor_n then all30 = false end -- lot SITES : 27 avant (voir le commentaire du contrôle)
+  print(string.format("  %s (%s%s) : %d PNJ (seuil %d), %d recrues payées, garde %d", f.key, i == 1 and "proche" or "lointaine",
+    lente[f.key] and ", cadence lente vue" or "", f.engineers_count, floor_n, f.stats.recruited or 0, f.stats.recruit_guard or 0))
   local used = {}
   for _, id in ipairs(require("script.faction.state").sorted_keys(f.engineers)) do
     local a = require("script.companion.registry").get(id)
@@ -328,7 +348,9 @@ end
 -- avant-postes d'Ambre (fer à 39 tuiles du QG au lieu de 78) ; son effectif suit le même rythme jusqu'à la minute 9
 -- (23 PNJ), puis perd 1 à 2 recrues (26 PNJ à 12 min au lieu de 28) et atteint 30 à 13 min. Sur 6 autres graines du
 -- moteur simulé : au moins 28 PNJ à 12 min (29 avant le lot). Seuil 25 (83 %) au lieu de 27 : la croissance reste libre.
-check(all30, "chaque faction atteint au moins 25 PNJ (83 % de 30) en 12 min, stock financé")
+check(not lente[w.factions[1].key] and lente[w.factions[2].key] and lente[w.factions[3].key] and lente[w.factions[4].key],
+  "X10-S10 : faction 1 proche du joueur jamais en cadence lente ; les 3 lointaines y passent")
+check(all30, string.format("chaque faction atteint au moins 25 PNJ (83 %% de 30) en 12 min si elle est proche du joueur, au moins %d si elle est lointaine et calme (25 a 27 mesures, cadence %d ticks), stock financé", FAR_MIN, Cd.SLOW))
 check(uniq, "une case du QG par PNJ vivant (aucun partage)")
 check(paid, "toute recrue au-delà des 8 de départ est payée")
 local rows = remote.call("fo-ia1", "teams")

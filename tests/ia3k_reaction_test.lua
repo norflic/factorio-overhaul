@@ -282,7 +282,7 @@ local function suite()
   -- Portée réelle du niveau n : 18 + 0,4 × (n − 1) + L.range_bonus = (côté − 2) / 2 (shared/levels/config.lua : la portée se mesure
   -- du centre, la tourelle qui grandit la gagne ; relecture de revue-danger).
   local function lvl(n)
-    local side = n <= 6 and 2 or (n <= 12 and 3 or 4)
+    local side = n <= 6 and 2 or (n <= 12 and 3 or (n <= 18 and 4 or (n <= 24 and 5 or 6)))
     return tur(18 + 0.4 * (n - 1) + (side - 2) / 2, side)
   end
   check(gunner.bb == true and gun.bb == false and math.abs(gun.hx - 0.7) < 1e-9 and math.abs(gunner.hy - 0.2) < 1e-9,
@@ -309,7 +309,11 @@ local function suite()
     and math.abs(Re.reach_on(gunner, 1.2, 1.2) - brute_reach(20, 1.4, 1.4)) < 1e-3
     and math.abs(Re.reach_on(gunner, 0.7, 1.7) - brute_reach(20, 0.9, 1.9)) < 1e-3,
     "atteinte en boîte à boîte = oracle par force brute (720 directions ; boîtes carrées et rectangle)")
-  check(Re.reach_on(gun, 0.2, 0.2) == 18, "atteinte de centre à centre : la portée seule")
+  -- Point (C), 7/11, MESURÉ (banc portee-diagonale, arène A) : au centre à centre, la tourelle atteint la BOÎTE de sa cible (oracle :
+  -- distance de son centre à la boîte de la cible ≤ portée ; avant : la portée seule, 18).
+  local rc = Re.reach_on(gun, 0.2, 0.2)
+  check(math.abs(rc - brute_reach(18, 0.2, 0.2)) < 1e-3 and math.abs(rc - (18 + 0.2 * math.sqrt(2))) < 1e-9,
+    string.format("atteinte de centre à centre = portée + demi-boîte de la CIBLE en diagonale (%.3f ; oracle centre-à-boîte ; avant : 18)", rc))
   local rg = Re.reach_on(gunner, gun.hx, gun.hy)
   check(rg >= 21.2 and rg < 21.3 and 20 + 0.9 < 21.2,
     string.format("MESURÉ : mitrailleuse du QG tuée depuis 21,2 tuiles : dans l'atteinte (%.2f), au-delà de l'axe (20,9)", rg))
@@ -318,21 +322,40 @@ local function suite()
   check(Re.outranges({ rifle }, { gun, gun }) == false, "fusilier (16 + 1,27 = 17,27 < 18) : non")
   check(Re.outranges({ soldier(18) }, { gun }) == true,
     "portée égale (18 contre 18) mais modes différents : débordée (le soldat frappe depuis 19,27)")
-  check(Re.outranges({ Re.profile(18, nil, nil) }, { gun }) == false and Re.gap(Re.profile(18, nil, nil), gun) == 0,
-    "atteinte égale (18 contre 18, deux centres) : non, chacun frappe l'autre")
+  -- Point (C) : deux centres, 18 contre 18 : l'ennemi SANS boîte atteint la boîte de la tourelle (± 0,7) depuis 18,99 en diagonale, la
+  -- tourelle n'atteint son point qu'à 18 : débordée (avant : non). Mêmes boîtes : atteinte égale, non.
+  check(Re.outranges({ Re.profile(18, nil, nil) }, { gun }) == true and math.abs(Re.gap(Re.profile(18, nil, nil), gun) - 0.7 * math.sqrt(2)) < 1e-9,
+    "deux centres, 18 contre 18, ennemi sans boîte contre tourelle ± 0,7 : débordée de 0,99 (point C ; avant : non)")
+  check(Re.outranges({ Re.profile(18, nil, { { -0.7, -0.7 }, { 0.7, 0.7 } }) }, { gun }) == false
+    and Re.gap(Re.profile(18, nil, { { -0.7, -0.7 }, { 0.7, 0.7 } }), gun) == 0,
+    "atteinte égale (18 contre 18, deux centres, mêmes boîtes) : non, chacun frappe l'autre")
   check(Re.outranges({ soldier(20) }, { Re.profile(20, Re.BB, { { -0.7, -0.7 }, { 0.7, 0.7 } }) }) == false
     and Re.outranges({ soldier(20.01) }, { Re.profile(20, Re.BB, { { -0.7, -0.7 }, { 0.7, 0.7 } }) }) == true,
     "deux boîtes à boîte : la portée seule compte (20 contre 20 : non ; 20,01 : oui)")
-  check(Re.outranges({ Re.profile(18.25, nil, nil) }, { soldier(18) }) == true
-    and Re.outranges({ Re.profile(18.15, nil, nil) }, { soldier(18) }) == false,
-    "ennemi au centre contre tourelle en boîte (± 0,2 + 0 : l'axe, 18,2, est le plus court) : 18,25 déborde, 18,15 non")
+  -- Point (C) : ennemi au centre SANS boîte contre tourelle en boîte (± 0,2) : mêmes zones (S = 0,2 des deux côtés), la portée seule
+  -- compte (avant : l'axe, 18,2 ; 18,15 ne débordait pas).
+  check(Re.outranges({ Re.profile(18.15, nil, nil) }, { soldier(18) }) == true
+    and Re.outranges({ Re.profile(18, nil, nil) }, { soldier(18) }) == false,
+    "ennemi au centre sans boîte contre tourelle en boîte (± 0,2) : la portée seule (18,15 déborde, 18 non ; point C)")
+  local cb = { { -0.2, -0.2 }, { 0.2, 0.2 } }
+  check(Re.outranges({ Re.profile(18.25, nil, cb) }, { soldier(18) }) == true
+    and Re.outranges({ Re.profile(18.15, nil, cb) }, { soldier(18) }) == false,
+    "ennemi au centre (± 0,2) contre tourelle en boîte (± 0,2) : l'axe, le plus court (18,2) : 18,25 déborde, 18,15 non")
   check(Re.outranges({ Re.profile(1.5, Re.BB, { { -0.2, -0.2 }, { 0.2, 0.2 } }) }, { gun }) == false
     and Re.outranges({ soldier(14) }, { gun }) == false, "mordeur (1,5), cracheur (14) : non")
   -- Mitrailleuse à niveaux contre le mitrailleur (20) : erreurs de la règle d'avant (portées brutes) aux niveaux 6 à 9.
   check(Re.outranges({ gunner }, { lvl(6) }) == true, "niveau 6 (20,0 ; 2×2) : débordée (le mitrailleur frappe depuis 21,27)")
   check(Re.outranges({ gunner }, { lvl(7) }) == true and Re.outranges({ gunner }, { lvl(8) }) == true,
     "niveaux 7 et 8 (20,9 et 21,3 ; 3×3, ± 1,2) : débordées (21,98 en diagonale ; l'axe dit 21,4)")
-  check(Re.outranges({ gunner }, { lvl(9) }) == true, "niveau 9 (21,7) : débordée par la diagonale seule (21,98 ; l'axe dit 21,4)")
+  -- Point (C), MESURÉ (portee-diagonale, arène A) : la fo-lvl-gun-9 touche le mitrailleur arrêté à 21,933 (tick 255), il meurt (489), elle
+  -- vit. Elle atteint sa boîte depuis 21,7 + 0,28 = 21,98, autant que lui la sienne : écart −0,003, NON débordée (avant : débordée).
+  check(Re.outranges({ gunner }, { lvl(9) }) == false and math.abs(Re.gap(gunner, lvl(9)) - (20 - 21.7 + 1.2 * math.sqrt(2))) < 1e-9,
+    string.format("MESURÉ : niveau 9 (21,7) contre le mitrailleur : NON débordée (écart %.3f ; point C ; avant : débordée)", Re.gap(gunner, lvl(9))))
+  check(math.abs(Re.gap(gunner, lvl(8)) - (20 - 21.3 + 1.2 * math.sqrt(2))) < 1e-9 and Re.gap(gunner, lvl(8)) > 0.39,
+    string.format("niveau 8 (21,3) : débordée de %.3f (0,680 avant le point C)", Re.gap(gunner, lvl(8))))
+  check(Re.outranges({ grenadier }, { lvl(25) }) == true and Re.outranges({ grenadier }, { lvl(26) }) == false,
+    string.format("grenadier (26) : niveau 25 (29,6 ; 6×6) débordée (%.3f), niveau 26 (30,0) non (%.3f ; avant : premier niveau tenu 27)",
+      Re.gap(grenadier, lvl(25)), Re.gap(grenadier, lvl(26))))
   check(Re.outranges({ gunner }, { lvl(10) }) == false and Re.outranges({ gunner }, { lvl(13) }) == false,
     "niveau 10 (22,1) et niveau 13 (23,8 ; 4×4, atteinte 22,69) : non")
   check(Re.outranges({ gunner }, { gun, laser }) == false, "une laser (24) au QG : non (une tourelle qu'aucun ennemi ne déborde protège)")
@@ -534,6 +557,64 @@ do
   local bad = same_pick(random_maps(400, 4242, 48, 32))
   check(bad == 0, string.format("version rapide = référence 878d3594 sur 400 cartes pleines (48 menaces, 32 morts) (%d écart(s))", bad))
 end
+-- Point (C), 7/11 : oracle par force brute de Re.gap, du modèle écrit en toutes lettres. e frappe t (centres écartés de v) si la distance
+-- de SON CENTRE (centre à centre) ou de SA BOÎTE (boîte à boîte) à la boîte de t est ≤ sa portée. Plus grand écart, sur 361 directions
+-- d'un quart de tour (les zones sont symétriques), des distances radiales d'atteinte de e et de t (dichotomie). Son signe doit être celui
+-- de Re.gap, hors quasi-égalités (|écart| < 1e-2 : l'échantillonnage sous-estime le plus grand écart de moins de 0,003). Une seule fois,
+-- hors des mutants (le calcul est long).
+do
+  local function radial(r, sx, sy, c, s)
+    local lo, hi = 0, r + sx + sy + 2
+    for _ = 1, 40 do
+      local mid = (lo + hi) / 2
+      local gx, gy = math.max(0, mid * c - sx), math.max(0, mid * s - sy)
+      if gx * gx + gy * gy <= r * r then lo = mid else hi = mid end
+    end
+    return lo
+  end
+  local function zone(a, b) -- demi-boîte de la zone de a sur b, du modèle (pas de reach_box)
+    local sx, sy = b.hx, b.hy
+    if a.bb then sx, sy = sx + a.hx, sy + a.hy end
+    return sx, sy
+  end
+  local function brute_gap(e, t)
+    local ex, ey = zone(e, t)
+    local tx, ty = zone(t, e)
+    local best = -math.huge
+    for k = 0, 360 do
+      local a = k * math.pi / 720
+      local c, s = math.cos(a), math.sin(a)
+      local d = radial(e.r, ex, ey, c, s) - radial(t.r, tx, ty, c, s)
+      if d > best then best = d end
+    end
+    return best
+  end
+  local boxes = { false, { { -0.2, -0.2 }, { 0.2, 0.2 } }, { { -0.2, -1.2 }, { 0.2, 1.2 } }, { { -1.2, -1.2 }, { 1.2, 1.2 } } }
+  local cases, bad, near, first = 0, 0, 0, nil
+  for _, em in ipairs({ Re.BB, false }) do
+    for _, tm in ipairs({ Re.BB, false }) do
+      for _, er in ipairs({ 16, 20, 21.7 }) do
+        for _, tr in ipairs({ 18, 21.7 }) do
+          for _, eb in ipairs(boxes) do
+            for _, tb in ipairs(boxes) do
+              local e = Re.profile(er, em or nil, eb or nil)
+              local t = Re.profile(tr, tm or nil, tb or nil)
+              local g, bg = Re.gap(e, t), brute_gap(e, t)
+              cases = cases + 1
+              if math.abs(bg) < 1e-2 then near = near + 1
+              elseif (g > Re.RANGE_EPS) ~= (bg > 0) then
+                bad = bad + 1
+                first = first or string.format("e %s %.1f, t %s %.1f : Re.gap %.4f, oracle %.4f", tostring(e.bb), er, tostring(t.bb), tr, g, bg)
+              end
+            end
+          end
+        end
+      end
+    end
+  end
+  check(bad == 0, string.format("point C : signe de Re.gap = oracle par force brute sur %d cas (%d quasi-égalités écartées) (%d écart(s)%s)",
+    cases, near, bad, first and (" ; premier : " .. first) or ""))
+end
 local base_fail = failures
 print(string.format("[FUITE] suite de base : %d OK, %d ECHEC(S)", passes, failures))
 
@@ -618,27 +699,40 @@ mutant("débordement dès l'atteinte égale", function() patch(Re, "RANGE_EPS", 
 mutant("portées brutes (règle d'avant : modes et boîtes ignorés)", function()
   patch(Re, "gap", function(e, t) return e.r - t.r end)
 end)
+-- Point (C), 7/11 : les mutants de Re.gap sont écrits dans la forme des fonctions d'appui (Δ = S_e − S_t) ; même défaut qu'avant chacun.
+local function own(p, side) if p.bb then return 0 end return side == "x" and (p.hx or 0) or (p.hy or 0) end
 mutant("axe seulement (diagonale oubliée)", function()
   patch(Re, "gap", function(e, t)
-    if e.bb == t.bb then return e.r - t.r end
-    local sx, sy = e.hx + t.hx, e.hy + t.hy
-    if e.bb then return e.r + math.min(sx, sy) - t.r end
-    return e.r - (t.r + math.min(sx, sy))
+    local dx, dy = own(t, "x") - own(e, "x"), own(t, "y") - own(e, "y")
+    return e.r - t.r + math.max(dx, dy)
   end)
 end)
 mutant("demi-boîte de la tourelle oubliée", function()
   patch(Re, "gap", function(e, t)
-    if e.bb == t.bb then return e.r - t.r end
-    local sx, sy = e.hx, e.hy
-    if e.bb then return e.r + math.sqrt(sx * sx + sy * sy) - t.r end
-    return e.r - (t.r + math.min(sx, sy))
+    local dx, dy = -own(e, "x"), -own(e, "y")
+    if dx > 0 or dy > 0 then return e.r - t.r + math.sqrt(math.max(dx, 0) ^ 2 + math.max(dy, 0) ^ 2) end
+    return e.r - t.r + math.max(dx, dy)
   end)
 end)
 mutant("ennemi au centre contre tourelle en boîte : diagonale prise", function()
-  local g = Re.gap
   patch(Re, "gap", function(e, t)
-    if t.bb and not e.bb then local sx, sy = e.hx + t.hx, e.hy + t.hy return e.r - (t.r + math.sqrt(sx * sx + sy * sy)) end
-    return g(e, t)
+    local dx, dy = own(t, "x") - own(e, "x"), own(t, "y") - own(e, "y")
+    if dx > 0 or dy > 0 then return e.r - t.r + math.sqrt(math.max(dx, 0) ^ 2 + math.max(dy, 0) ^ 2) end
+    return e.r - t.r - math.sqrt(dx * dx + dy * dy)
+  end)
+end)
+-- Point (C) : le modèle d'avant (au centre à centre, la boîte de la cible ne compte pas), mesuré faux en arène A.
+mutant("ancien modèle : au centre à centre, la boîte de la cible ne compte pas", function()
+  patch(Re, "reach_on", function(a, hx, hy)
+    if not a.bb then return a.r end
+    local sx, sy = a.hx + (hx or 0), a.hy + (hy or 0)
+    return a.r + math.sqrt(sx * sx + sy * sy)
+  end)
+  patch(Re, "gap", function(e, t)
+    if e.bb == t.bb then return e.r - t.r end
+    local sx, sy = e.hx + t.hx, e.hy + t.hy
+    if e.bb then return e.r + math.sqrt(sx * sx + sy * sy) - t.r end
+    return e.r - (t.r + math.min(sx, sy))
   end)
 end)
 mutant("mode lu à l'envers", function()

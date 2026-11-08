@@ -537,12 +537,17 @@ Board.HINT_TICKS = 60
 --- prise de la place de marché qui ne rend RIEN classe chaque tâche libre par la raison qui l'a écartée pour ce PNJ, dans l'ordre des tests de la
 --- prise : « absente » (retirée du tableau), « role » (le PNJ ne sait pas la faire : garde sans munitions, conception), « indice » (indiquée à un autre
 --- PNJ libre, ou trop longue pour sa fabrication en arrière-plan), « reserve » (essayée, matière refusée au registre), « matiere » (matière stricte non
---- libre au registre, jamais essayée), « essais » (Board.MARKET_TRIES épuisés avant elle). Cumuls dans b.miss, lus et remis à zéro par le bilan
---- [FO-PRISE-VIDE] (Board.actif_report, toutes les 5 min). Lecture seule : aucune décision ne change ; profileur allumé seulement (verif-guide l'allume).
-local function note_miss(b, list, npc, ctx, reg, tried)
-  local m = b.miss or { n = 0, why = {} }
-  b.miss = m
-  m.n = m.n + 1
+--- libre au registre, jamais essayée), « essais » (Board.MARKET_TRIES épuisés avant elle). Cumuls dans la boîte de mesure de l'équipe (Profiler.box,
+--- espace « prof » de global ; lot ROUGES-0659 : avant, b.miss dans le tableau, seule différence de global entre profileur éteint et allumé depuis
+--- dd3d2cca), lus et vidés par le bilan [FO-PRISE-VIDE] (Board.actif_report, toutes les 5 min). Lecture seule : aucune décision ne change ;
+--- profileur allumé seulement (verif-guide l'allume).
+local function miss_key(f)
+  return "prise-vide:" .. tostring(f.key or (f.is_player and "player") or f.id)
+end
+local function note_miss(f, b, list, npc, ctx, reg, tried)
+  local m = Profiler.box(miss_key(f))
+  m.n = (m.n or 0) + 1
+  m.why = m.why or {}
   for _, t in ipairs(list) do
     if not t.worker then
       local why
@@ -619,7 +624,7 @@ local function claim_market(f, agent, tick, b)
       if tries >= Board.MARKET_TRIES then break end
     end
   end
-  if Profiler.enabled() then note_miss(b, list, npc, ctx, reg, tried) end -- (relecture de revue-danger : mesure, jamais sans profileur)
+  if Profiler.enabled() then note_miss(f, b, list, npc, ctx, reg, tried) end -- (relecture de revue-danger : mesure, jamais sans profileur)
   return nil
 end
 
@@ -753,14 +758,14 @@ function Board.actif_report(f, tick)
   log(Ac.report_line(key, tick, a.win, idle, free, gate))
   a.win = {}
   -- Lot DANGER-ACTIF (mesure) : prises vides de la place de marché et raisons des tâches libres non prises (note_miss), sur les 5 dernières minutes.
-  local m = b.miss
-  if m and m.n > 0 then
+  local m = Profiler.take_box(miss_key(f))
+  if m and (m.n or 0) > 0 then
     local parts = {}
     for _, k in ipairs(sorted_keys(m.why)) do parts[#parts + 1] = string.format("%s %d", k, m.why[k]) end
     log(string.format("[FO-PRISE-VIDE] %s : bilan a %.1f min (5 min) : %d prise(s) sans tache ; taches libres non prises, par genre et raison {%s}",
       tostring(key), tick / 3600, m.n, table.concat(parts, ", ")))
   end
-  b.miss = nil
+  b.miss = nil -- (sauvegarde d'avant le lot ROUGES-0659 : l'ancien accumulateur du tableau est effacé)
 end
 
 function Board.assign(f, tick)

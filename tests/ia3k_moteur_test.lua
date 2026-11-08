@@ -648,9 +648,12 @@ local function corr_arena(f, s)
   if cp.running_speed == nil then cp.running_speed = 0.15 end
   EP["character"] = cp
   local sb = P["small-biter"]
-  -- Relecture (revue-danger, 18 h 12) : les soldats des factions tirent en boîte à boîte (prototypes/faction.lua) ; « fo-test-17 »
-  -- (portée 17 < 18) déborde quand même la mitrailleuse (± 0,7) : 17 + |(0,9 ; 0,9)| = 18,27 en diagonale (Re.gap).
-  for _, u in ipairs({ { "fo-test-gunner", 20 }, { "fo-test-biter", 1 }, { "fo-test-17", 17 } }) do
+  -- Relecture (revue-danger, 18 h 12) : les soldats des factions tirent en boîte à boîte (prototypes/faction.lua) ; « fo-test-17-5 »
+  -- (portée 17,5 < 18) déborde quand même la mitrailleuse (± 0,7) : il atteint sa boîte depuis 17,5 + |(0,9 ; 0,9)| = 18,77 en diagonale,
+  -- elle n'atteint la sienne (± 0,2) que depuis 18 + 0,28 = 18,28 (Re.gap 0,49). Point (C), 7/11 (MESURÉ en portee-diagonale A : au centre
+  -- à centre, la tourelle atteint la BOÎTE de sa cible) : l'ancien soldat de portée 17 (écart 17 − 18 + 0,99 = −0,01) ne la déborde
+  -- plus ; la portée passe à 17,5 pour garder l'intention du cas (fo-logs/2026-11-05_EFFONDREMENT/CRITERES.md, point (C)).
+  for _, u in ipairs({ { "fo-test-gunner", 20 }, { "fo-test-biter", 1 }, { "fo-test-17-5", 17.5 } }) do
     P[u[1]] = { type = "unit", max_health = 600, speed = 0.11, vision_distance = 30,
       attack_parameters = { range = u[2], range_mode = "bounding-box-to-bounding-box" },
       collision_box = sb.collision_box, collision_mask = sb.collision_mask }
@@ -710,9 +713,9 @@ do
   r, a, o = wave("fo-test-biter", true)
   check(o == 0 and r > 0 and a == 0, string.format(
     "même vue (30), portée d'attaque 1 : ralliement inchangé, la vue ne compte pas (rally %d, away %d, débordé %d)", r, a, o))
-  r, a, o = wave("fo-test-17", true)
+  r, a, o = wave("fo-test-17-5", true)
   check(o > 0 and a > 0 and r == 0, string.format(
-    "portée 17 en boîte à boîte (18,27 au centre) contre 18 : éloignement, profil lu au prototype (rally %d, away %d, débordé %d)", r, a, o))
+    "portée 17,5 en boîte à boîte (18,77 au centre) contre 18 (18,28 sur sa boîte) : éloignement, profil lu au prototype (rally %d, away %d, débordé %d)", r, a, o))
   r, a, o = wave("fo-test-gunner", false)
   check(o == 0 and r > 0 and a == 0, string.format(
     "règle éteinte (interrupteur du banc témoin) : ralliement comme avant (rally %d, away %d, débordé %d)", r, a, o))
@@ -806,7 +809,7 @@ do
   end
   local p0 = { x = hq.x + 15, y = hq.y }
   local behind = C.refuge(f, p0, ep, nil, nil)
-  local with17 = C.refuge(f, p0, ep, nil, foes_of("fo-test-17"))
+  local with17 = C.refuge(f, p0, ep, nil, foes_of("fo-test-17-5"))
   local with_biter = C.refuge(f, p0, ep, nil, foes_of("fo-test-biter"))
   local home = f.home_spot or f.hq_pos
   local hx, hy = home.x - tu.position.x, home.y - tu.position.y
@@ -815,7 +818,7 @@ do
   local near_tu = function(q) return q and math.abs(q.x - bx) < 0.5 and math.abs(q.y - by) < 0.5 end
   check(near_tu(behind) and near_tu(with_biter), "refuge : 3 tuiles derrière la mitrailleuse du QG (sans profil, ou mordeur)")
   check(with17 and not near_tu(with17), string.format(
-    "refuge : la mitrailleuse débordée (portée 17 en boîte à boîte, à 18 tuiles) est écartée (refuge %.1f, %.1f)",
+    "refuge : la mitrailleuse débordée (portée 17,5 en boîte à boîte, à 18 tuiles) est écartée (refuge %.1f, %.1f)",
     with17 and with17.x or 0, with17 and with17.y or 0))
   -- Seconde relecture, point E : sans tourelle, le QG menacé, le repli du refuge passe par Re.away_pick (et non plus 24 tuiles
   -- en ligne droite) ; aucune direction sûre : pas de refuge (nil, "stand") ; règle éteinte : la ligne droite d'avant.
@@ -871,6 +874,356 @@ do
       dm.outranged, dm.qg_pnj_rally, dm.hq_outranged))
     if tum and tum.valid then tum.destroy() end
   end
+end
+
+---------------------------------------------------------------------------------------------------
+section("Tenue de l'éloignement : QG débordé, personne n'y rentre (lot CORR-RALLIEMENT, 7/11)")
+-- RAPPORT EFFONDREMENT §12 : arrivés au point d'éloignement, les PNJ RENTRAIENT au QG débordé (étape « home » de la marche, « rentrer au QG »
+-- du PNJ sans tâche, retour « faute de mieux » de M.leg) et mouraient sur leurs cases. Critères écrits AVANT : CRITERES.md (EFFONDREMENT),
+-- « TENUE de l'éloignement ». T1 : un PNJ sorti de portée n'y revient pas pendant la vague ; T2 : retour repris au plus TENUE_N ticks après
+-- la vague ; T3 : dépôt dans une annexe hors de portée, sinon attente ; T4 : la même règle pour un ouvrier de faction. Mutants : section suivante.
+local Da = require("shared.team.danger_actif")
+-- Critère T2 (CRITERES.md EFFONDREMENT, « TENUE », borne corrigée le 7/11 avec l'accord du lead : 660 écrit d'abord oubliait une pensée) :
+-- SD.SHELTER_TICKS + 2 x fo-companion-brain-period (l'état meurt, la pensée « idle » donne l'étape home, la pensée « step » la lance), LUS dans le code.
+local TENUE_N = require("script.ai3.soldats").SHELTER_TICKS + 2 * require("script.core.config").get("brain_period")
+local TENUE_WAVE = 3000
+--- Joue la tenue sur une partie neuve (vague de mitrailleurs de portée 20 à 30 tuiles du QG, annexe hors de portée). Rend les mesures.
+--- Durée de la vague (TENUE_WAVE) : une marche d'éloignement (le point est à une centaine de tuiles de la menace dans ce moteur simulé) PLUS le
+--- retour à pied d'un PNJ qui rentrerait (sans quoi les mutants n'auraient pas le temps de revenir à portée et ne seraient pas jugés).
+local function tenue_run()
+  local ft = setup()
+  local st = game.surfaces[1]
+  local Cm = require("script.ai3.comportement")
+  local Reg = require("script.companion.registry")
+  local hq = ft.hq_pos
+  local home = ft.home_spot or hq
+  local P = W().prototypes
+  local EP = game.entity_prototypes
+  local cp = EP["character"] or { type = "character", max_health = 250 }
+  if cp.running_speed == nil then cp.running_speed = 0.15 end
+  EP["character"] = cp
+  local sb = P["small-biter"]
+  P["fo-test-gunner"] = { type = "unit", max_health = 600, speed = 0.11, vision_distance = 30,
+    attack_parameters = { range = 20, range_mode = "bounding-box-to-bounding-box" }, collision_box = sb.collision_box, collision_mask = sb.collision_mask }
+  P["gun-turret"].attack_parameters = P["gun-turret"].attack_parameters or { range = 18 }
+  local tu = st.create_entity({ name = "gun-turret", position = { x = hq.x + 8, y = hq.y }, force = "player" })
+  if tu then tu.insert({ name = "firearm-magazine", count = 10 }) end
+  remote.call("fo-ia3k", "debordement", true)
+  local out = { back_in = 0, left = 0 }
+  local us = {}
+  for k = 0, 4 do us[#us + 1] = st.create_entity({ name = "fo-test-gunner", position = { x = hq.x + 30, y = hq.y - 4 + 2 * k }, force = "enemy" }) end
+  local th = { x = hq.x + 30, y = hq.y }
+  -- Portée de la mise à l'abri, lue comme le code (soldats.lua : Re.away_distance de la portée rendue par C.classify) : T1 juge le retour à portée
+  -- avec la MÊME portée que celle qui déclenche les marches.
+  local _, rng = Cm.classify(us[1])
+  local reach = require("shared.ai3.reaction").away_distance(rng)
+  out.reach = reach
+  -- T3 : un PNJ à l'ouest, chargé, qui doit déposer pendant « away » ; annexe hors de portée (à 100 tuiles de la menace).
+  local carrier = agent_ids(ft)[1]
+  local annex = st.create_entity({ name = "iron-chest", position = { x = hq.x - 70, y = hq.y }, force = "player" })
+  ft.annex = { annex }
+  local out_of_reach = {} -- [id] = vrai dès qu'il a été vu hors de portée (fin de sa marche) : T1 compte ensuite tout retour à portée
+  local t = 0
+  while t < TENUE_WAVE do
+    M.run_ticks(10)
+    t = t + 10
+    if t == 300 then
+      local ag = Reg.get(carrier)
+      if ag and ag.entity.valid then
+        ag.entity.teleport({ x = hq.x - 60, y = hq.y })
+        ag.entity.get_inventory(defines.inventory.character_main).insert({ name = "iron-ore", count = 30 })
+        out.trip = remote.call("fo-ia3k", "trip", "player", carrier, hq.x - 62, hq.y, 30, nil, nil, "mine")
+      end
+    end
+    for _, id in ipairs(agent_ids(ft)) do
+      local ag = Reg.get(id)
+      local e = ag and ag.entity
+      if e and e.valid and not (ag.task and Da.DEFENSE_KINDS[ag.task.kind]) then
+        local exp = Da.exposed(e.position, th, reach)
+        if not exp and not out_of_reach[id] then out_of_reach[id], out.left = true, out.left + 1 end
+        if exp and out_of_reach[id] then out.back_in = out.back_in + 1 end
+      end
+    end
+  end
+  out.away_set = remote.call("fo-ia3k", "status", "player").stats.away_set or 0
+  out.annex_ore = annex.valid and annex.get_item_count("iron-ore") or -1
+  local agc = Reg.get(carrier)
+  out.carrier_ore = agc and agc.entity.valid and agc.entity.get_inventory(defines.inventory.character_main).get_item_count("iron-ore") or -1
+  -- T2 : la vague part au tick t0 ; relevé à chaque tick du premier tick où chaque PNJ a repris son retour (but = une case du QG, ou au QG).
+  for _, u in ipairs(us) do if u and u.valid then u.destroy() end end
+  local t0 = game.tick
+  local ring = 0
+  for _, o in ipairs(require("shared.team.scale").HOME_SLOTS) do ring = math.max(ring, math.sqrt(o[1] * o[1] + o[2] * o[2])) end
+  local function in_ring(q) return q ~= nil and (q.x - home.x) ^ 2 + (q.y - home.y) ^ 2 <= (ring + 0.01) ^ 2 end
+  local resumed, ids = {}, agent_ids(ft)
+  for _ = 1, TENUE_N + 600 do
+    M.run_ticks(1)
+    for _, id in ipairs(ids) do
+      local ag = Reg.get(id)
+      if not resumed[id] and ag and ag.entity.valid and (in_ring(ag.entity.position) or in_ring(Cm.astate(ag).final)) then
+        resumed[id] = game.tick - t0
+      end
+    end
+    if game.tick - t0 == 300 then
+      out.waiting_300 = 0
+      for _, id in ipairs(ids) do if not resumed[id] then out.waiting_300 = out.waiting_300 + 1 end end
+    end
+  end
+  out.worst, out.missing = 0, 0
+  for _, id in ipairs(ids) do
+    if resumed[id] then out.worst = math.max(out.worst, resumed[id]) else out.missing = out.missing + 1 end
+  end
+  out.n = #ids
+  if tu and tu.valid then tu.destroy() end
+  if annex.valid then annex.destroy() end
+  return out
+end
+
+do
+  local r = tenue_run()
+  check(r.away_set > 0, string.format("état « away » posé par la réponse du QG (%d décisions)", r.away_set))
+  check(r.left > 0 and r.back_in == 0, string.format(
+    "T1 : %d PNJ sortis de portée, aucun n'y revient pendant la vague (%d relevés de retour à portée)", r.left, r.back_in))
+  check(r.annex_ore >= 30 and r.carrier_ore == 0, string.format(
+    "T3 : le PNJ chargé dépose dans l'annexe hors de portée (annexe %d minerai, sac %d), sans rentrer", r.annex_ore, r.carrier_ore))
+  check((r.waiting_300 or 0) > 0, string.format("T2 : 300 ticks après la vague, l'état vit encore : %d PNJ toujours au loin", r.waiting_300 or 0))
+  check(r.missing == 0 and r.worst <= TENUE_N, string.format(
+    "T2 : chaque PNJ a repris son retour au plus %d ticks après la vague (le plus tard : %d ticks, jamais : %d sur %d)", TENUE_N, r.worst, r.missing, r.n))
+end
+
+-- T3 sans coffre sûr et T4 (faction) : état « away » posé à la main dans la MÊME table que hq_threat (M.team(f).away), menace à 20 tuiles du QG
+-- (le coffre du QG exposé, aucune annexe) ; un ouvrier chargé à 70 tuiles à l'ouest doit déposer : il attend ; un ouvrier sans tâche au loin ne
+-- rentre pas ; l'état retiré, les deux rentrent et le minerai est déposé.
+local function hold_case(ff, key, chk)
+  chk = chk or check
+  local res = {}
+  local Cm = require("script.ai3.comportement")
+  local Reg = require("script.companion.registry")
+  local Wk = require("script.team.worker")
+  local hq = ff.hq_pos
+  local ids = agent_ids(ff)
+  chk(#ids >= 2, key .. " : au moins deux ouvriers")
+  remote.call("fo-ia3k", "hold", key, true)
+  ff.annex = {}
+  local a1, a2 = Reg.get(ids[1]), Reg.get(ids[2])
+  for _, ag in ipairs({ a1, a2 }) do if ag.task then Wk.abort(ag, ff, game.tick, "banc") end end
+  local tm = Cm.team(ff)
+  tm.away = { x = hq.x + 20, y = hq.y, reach = 52, ["until"] = game.tick + 100000 }
+  a1.entity.teleport({ x = hq.x - 70, y = hq.y })
+  a2.entity.teleport({ x = hq.x - 70, y = hq.y + 6 })
+  local inv1 = a1.entity.get_inventory(defines.inventory.character_main)
+  local ore0 = inv1.get_item_count("iron-ore")
+  inv1.insert({ name = "iron-ore", count = 20 })
+  -- Relecture revue-0659 : le PNJ sans tâche porte aussi quelque chose. À sac vide, le « home » qu'il recevrait sans (b) serait sauté par
+  -- (a) et il resterait libre : le mutant (b) ne se verrait plus ; chargé, il attendrait à ce « home » (c) et ne serait plus libre.
+  if key == "player" then a2.entity.get_inventory(defines.inventory.character_main).insert({ name = "copper-ore", count = 5 }) end
+  local del0 = (ff.team and ff.team.delivered and ff.team.delivered["iron-ore"]) or 0
+  -- Étape « home » donnée directement (une faction redonne une tâche à un ouvrier libre : la tournée du banc serait refusée).
+  a1.task, a1.steps, a1.pc, a1.failed = nil, { { "home" } }, 1, nil
+  require("script.core.fsm").set(Cm.MACHINE, a1, "step", game.tick)
+  local trip = true
+  M.run_ticks(900)
+  local p1, p2 = a1.entity.position, a2.entity.position
+  local ore1 = inv1.get_item_count("iron-ore")
+  local del1 = (ff.team and ff.team.delivered and ff.team.delivered["iron-ore"]) or 0
+  -- (un travail de fond peut AJOUTER du minerai au sac pendant l'attente : on juge « rien déposé », pas un compte exact)
+  chk(trip and ore1 >= ore0 + 20 and del1 == del0 and p1.x < hq.x - 60, string.format(
+    "%s : chargé, sans coffre hors de portée : rien déposé, il reste au loin (attente bornée, puis sac gardé ; minerai %d, au moins %d ; livré %d -> %d ; à %.0f tuiles du QG)", key, ore1,
+    ore0 + 20, del0, del1, hq.x - p1.x))
+  if key == "player" then -- une faction redonne une tâche à son ouvrier libre : le cas « sans tâche » n'existe que chez votre équipe retenue
+    chk(p2.x < hq.x - 60, string.format("%s : sans tâche, au loin, il ne rentre pas pendant « away » (à %.0f tuiles du QG)", key, hq.x - p2.x))
+    -- (b) : il reste LIBRE (prêt à prendre une tâche), et non arrêté sur une étape « home » en attente (que (1) tiendrait aussi au loin).
+    local stp = a2.steps and a2.steps[a2.pc]
+    res.free = a2.state == "idle" and not (stp and stp[1] == "home")
+    chk(res.free, string.format("%s : sans tâche, il reste libre pour une tâche (état %s, étape %s)", key, tostring(a2.state), tostring(stp and stp[1])))
+  end
+  tm.away = nil
+  -- Plus courte distance au QG pendant le retour (une faction renvoie ensuite son ouvrier au travail).
+  local d1, d2v = 1e9, 1e9
+  for _ = 1, (TENUE_N + 1200) / 30 do
+    M.run_ticks(30)
+    local q1, q2 = a1.entity.position, a2.entity.position
+    d1 = math.min(d1, math.sqrt((q1.x - hq.x) ^ 2 + (q1.y - hq.y) ^ 2))
+    d2v = math.min(d2v, math.sqrt((q2.x - hq.x) ^ 2 + (q2.y - hq.y) ^ 2))
+  end
+  if key ~= "player" then d2v = 0 end -- (ouvrier de faction au travail : seul l'ouvrier chargé est jugé)
+  local del2 = (ff.team and ff.team.delivered and ff.team.delivered["iron-ore"]) or 0
+  chk(d1 < 15 and d2v < 15 and del2 >= del1 + 20, string.format(
+    "%s : « away » fini, les deux rentrent et le minerai est déposé (au plus près : %.0f et %.0f tuiles du QG ; livré %d -> %d)", key, d1, d2v, del1, del2))
+  return res
+end
+
+do
+  local fp = setup()
+  hold_case(fp, "player")
+  -- T4 : une faction de la partie /fo-war du moteur simulé (même worker.lua, même comportement.lua).
+  M.new_game({ patches = patches(), p_busy = 0, p_nopath = 0, p_lost = 0 })
+  if W().remote["fo-ia3f"] then remote.call("fo-ia3f", "set_fog", false) end
+  enemy_search()
+  M.command("fo-war", "start 2 0 8 320") -- 2 factions, 0 soldat, 8 ouvriers
+  M.run_ticks(600)
+  local State = require("script.faction.state")
+  local alive = State.alive()
+  local fac = alive[1] and State.faction(alive[1])
+  check(fac ~= nil and fac.key ~= "player", "faction de la partie /fo-war")
+  if fac then hold_case(fac, fac.key) end
+end
+
+-- Relecture revue-0659 (7/11) : l'attente « away » sans coffre sûr arrêtait TOUTE l'équipe (presque tout programme commence par « home »).
+-- Critères écrits AVANT (CRITERES.md EFFONDREMENT, « TENUE, correction ») : un campeur qui déborde (portée 20) reste CAMP_TICKS à 30 tuiles
+-- du QG, sans annexe (aucun coffre sûr) ; l'équipe NON retenue continue ses tâches loin du QG (C1) ; aucun PNJ n'attend plus que la borne
+-- (C2) ; aucun PNJ à sac vide n'attend (C3).
+local CAMP_TICKS = 36000 -- 10 min (demande de la relecture)
+--- Moteur simulé : face à un campeur, l'équipe de 9 PNJ armés y répond « stand » (garnison), pas « away » (diagnostic du 7/11,
+--- scratchpad/diag_camper3.lua : 7 PNJ en garnison, 2 au minage). L'état « away » est donc posé directement pour toute la durée, dans la
+--- MÊME table que hq_threat (M.team(f).away), comme hold_case : c'est ce que produirait un campeur qui déborde, renouvelé 10 min. Aucun
+--- coffre n'est sûr : le coffre du QG est à portée (menace à 20 tuiles, atteinte 52), et il n'y a aucune annexe. L'équipe n'est pas
+--- retenue. Au tick 120, chaque PNJ hors défense reçoit { home, goto à 60 tuiles à l'ouest, home }, comme les programmes du tableau
+--- qui commencent par « home ». Le premier porte 20 minerais (cas (c)). Avant le correctif, tous restaient au premier « home ».
+local function camper_run(ticks)
+  local fc = setup()
+  local Reg = require("script.companion.registry")
+  local Wk = require("script.team.worker")
+  local Cm = require("script.ai3.comportement")
+  local hq = fc.hq_pos
+  remote.call("fo-ia3k", "hold", "player", false) -- l'équipe prend ses tâches (setup la retient)
+  fc.annex = {}
+  local tm = Cm.team(fc)
+  tm.away = { x = hq.x + 20, y = hq.y, reach = 52, ["until"] = game.tick + ticks + 600 }
+  local ok0 = 0
+  for _, s0 in pairs(fc.team.task_stats or {}) do ok0 = ok0 + (s0.ok or 0) end
+  local out = { maxwait = 0, empty_wait = 0, injected = 0, arrived = 0, arr = {} }
+  local function tenue_lines()
+    local n, last = 0, nil
+    for _, l in ipairs(W().logs or {}) do if l:find("[FO-TENUE]", 1, true) then n, last = n + 1, l end end
+    return n, last
+  end
+  local nl0 = tenue_lines()
+  local goal = { x = hq.x - 60, y = hq.y }
+  local inj = {}
+  local t = 0
+  while t < ticks do
+    M.run_ticks(10)
+    t = t + 10
+    if t == 120 then
+      local first = true
+      for _, id in ipairs(agent_ids(fc)) do
+        local ag = Reg.get(id)
+        if ag and ag.entity.valid and not (ag.task and Da.DEFENSE_KINDS[ag.task.kind]) then
+          if ag.task then Wk.abort(ag, fc, game.tick, "banc") end
+          if first then ag.entity.get_inventory(defines.inventory.character_main).insert({ name = "iron-ore", count = 20 }) first = false end
+          ag.task, ag.steps, ag.pc, ag.failed = nil, { { "home" }, { "goto", goal, 1.5 }, { "home" } }, 1, nil
+          require("script.core.fsm").set(Cm.MACHINE, ag, "step", game.tick)
+          inj[#inj + 1] = id
+        end
+      end
+      out.injected = #inj
+    end
+    for _, id in ipairs(inj) do
+      local ag = Reg.get(id)
+      local q = ag and ag.entity.valid and ag.entity.position
+      if q and not out.arr[id] and (q.x - goal.x) ^ 2 + (q.y - goal.y) ^ 2 <= 3 * 3 then out.arr[id] = true out.arrived = out.arrived + 1 end
+    end
+    for _, id in ipairs(agent_ids(fc)) do
+      local ag = Reg.get(id)
+      if ag and ag.entity.valid and ag.away_wait then
+        out.maxwait = math.max(out.maxwait, game.tick - ag.away_wait)
+        if not Wk._has_deposit(ag) then out.empty_wait = out.empty_wait + 1 end
+      end
+    end
+  end
+  local ok1 = 0
+  for _, s1 in pairs(fc.team.task_stats or {}) do ok1 = ok1 + (s1.ok or 0) end
+  out.done = ok1 - ok0
+  out.live = Cm.away_state(fc, game.tick) ~= nil
+  local nl1, lastl = tenue_lines()
+  out.lines, out.last_line = nl1 - nl0, lastl
+  out.tenue = fc.team.tenue or {}
+  tm.away = nil
+  return out
+end
+
+do
+  local Wk = require("script.team.worker")
+  check(Wk.AWAY_WAIT_TICKS == require("script.ai3.soldats").SHELTER_TICKS,
+    string.format("borne de l'attente « away » = SD.SHELTER_TICKS (%s = %s)", tostring(Wk.AWAY_WAIT_TICKS), tostring(require("script.ai3.soldats").SHELTER_TICKS)))
+  local r = camper_run(CAMP_TICKS)
+  local bound = Wk.AWAY_WAIT_TICKS + require("script.core.config").get("brain_period")
+  check(r.live, "état « away » vivant pendant les 10 min (posé dans la table de hq_threat)")
+  -- C1 (critère corrigé, CRITERES.md : « du minerai miné » était impossible dans ce moteur simulé, qui ne réussit aucun minage à la main) :
+  -- tous les programmes injectés qui commencent par « home » arrivent au loin pendant le campeur.
+  check(r.injected >= 2 and r.arrived == r.injected, string.format(
+    "C1 : sans coffre sûr, l'équipe continue ses tâches loin du QG (%d programmes « home, goto, home » injectés, %d arrivés à 60 tuiles ; %d tâches du tableau finies, lu)",
+    r.injected, r.arrived, r.done))
+  check(r.maxwait <= bound, string.format("C2 : aucun PNJ n'attend plus que la borne (le plus long : %d ticks, borne %d)", r.maxwait, bound))
+  check(r.empty_wait == 0, string.format("C3 : aucun PNJ à sac vide en attente (%d relevés)", r.empty_wait))
+  -- Demande du lead (8/11) : le DC lit en jeu pourquoi un PNJ ne rentre pas : une ligne [FO-TENUE] par équipe quand un compteur change, au
+  -- plus une par minute de jeu.
+  check(r.lines >= 1 and r.lines <= CAMP_TICKS / 3600 + 1 and (r.last_line or ""):find("sac(s) garde(s)", 1, true) ~= nil, string.format(
+    "[FO-TENUE] au journal : %d ligne(s) en 10 min (au plus %d), dernière : %s", r.lines, CAMP_TICKS / 3600 + 1, tostring(r.last_line)))
+  print(string.format("  (tenue, journal : %d « home » sautés, %d sacs gardés après la borne, %d tâches abandonnées « away »)",
+    r.tenue.skip or 0, r.tenue.kept or 0, r.tenue.abort or 0))
+end
+
+---------------------------------------------------------------------------------------------------
+section("Mutants de la tenue (chacun refusé)")
+-- Source relue, un motif remplacé, le module chargé à sa place (package.preload) dans une partie neuve.
+local function tenue_mutant(path, modname, old, new, runner)
+  local fh = assert(io.open(path, "rb"))
+  local src = fh:read("*a")
+  fh:close()
+  local a, b = src:find(old, 1, true)
+  if not (a and src:find(old, b + 1, true) == nil) then return nil end
+  local msrc = src:sub(1, a - 1) .. new .. src:sub(b + 1)
+  package.preload[modname] = function() return assert(load(msrc, "=" .. modname .. "-mutant", "t"))() end
+  local ok, r = pcall(runner or tenue_run)
+  package.preload[modname] = nil
+  if not ok then print("  (mutant : erreur " .. tostring(r) .. ")") return { crashed = true } end
+  return r
+end
+do
+  local m1 = tenue_mutant("script/ai3/soldats.lua", "script.ai3.soldats", 'if resp == "away" and C.outrange_on() then', "if false then")
+  check(m1 ~= nil and (m1.crashed or m1.back_in > 0), string.format(
+    "mutant « sans tenue » (état jamais posé) refusé : des PNJ reviennent à portée (%s relevés)", m1 and tostring(m1.back_in) or "motif absent"))
+  local m2 = tenue_mutant("script/team/worker.lua", "script.team.worker", 'local away = kind == "home" and away_state(f, tick) or nil', "local away = nil")
+  check(m2 ~= nil and (m2.crashed or m2.back_in > 0 or m2.annex_ore < 30), string.format(
+    "mutant « dépôt sans tenue » (étape home ignore « away ») refusé (retours à portée %s, annexe %s)",
+    m2 and tostring(m2.back_in) or "?", m2 and tostring(m2.annex_ore) or "motif absent"))
+  -- (b) : le PNJ sans tâche qui « rentre » pendant « away » est tenu au loin par (1), mais il n'est plus LIBRE (étape home en attente).
+  do
+    local fh = assert(io.open("script/team/worker.lua", "rb"))
+    local src = fh:read("*a")
+    fh:close()
+    local old = "and not agent.nav and not away_state(f, tick) then"
+    local a, b = src:find(old, 1, true)
+    local res3
+    if a and src:find(old, b + 1, true) == nil then
+      local msrc = src:sub(1, a - 1) .. "and not agent.nav then" .. src:sub(b + 1)
+      package.preload["script.team.worker"] = function() return assert(load(msrc, "=worker-mutant", "t"))() end
+      local ok, r = pcall(function() local fm = setup() return hold_case(fm, "player", function() end) end)
+      package.preload["script.team.worker"] = nil
+      res3 = ok and r or { crashed = true }
+    end
+    check(res3 ~= nil and (res3.crashed or res3.free == false), string.format(
+      "mutant « sans tâche rentre » (b) refusé : le PNJ n'est plus libre (libre : %s)", res3 and tostring(res3.free) or "motif absent"))
+  end
+  -- T2 : un retour qui reprend une pensée trop tard (état prolongé d'une période du cerveau), ou jamais (état sans fin) : T2 rouge.
+  local m4 = tenue_mutant("script/ai3/soldats.lua", "script.ai3.soldats", '["until"] = tick + SD.SHELTER_TICKS }', '["until"] = tick + SD.SHELTER_TICKS + 60 }')
+  check(m4 ~= nil and (m4.crashed or m4.missing > 0 or m4.worst > TENUE_N), string.format(
+    "mutant « retour à la 3e pensée » refusé par T2 (le plus tard %s ticks, borne %d)", m4 and tostring(m4.worst) or "motif absent", TENUE_N))
+  local m5 = tenue_mutant("shared/team/danger_actif.lua", "shared.team.danger_actif", 'return w ~= nil and tick < (w["until"] or -1)', "return w ~= nil")
+  check(m5 ~= nil and (m5.crashed or m5.missing > 0 or m5.worst > TENUE_N), string.format(
+    "mutant « état sans fin » refusé par T2 (jamais repris : %s)", m5 and tostring(m5.missing) or "motif absent"))
+  -- Relecture revue-0659 : la borne de l'attente et le saut du « home » à sac vide (campeur court : 3 000 ticks suffisent à les voir).
+  local cbound = require("script.team.worker").AWAY_WAIT_TICKS + require("script.core.config").get("brain_period")
+  local m6 = tenue_mutant("script/team/worker.lua", "script.team.worker", "if tick - agent.away_wait < Worker.AWAY_WAIT_TICKS then return end",
+    "do return end", function() return camper_run(3000) end)
+  check(m6 ~= nil and (m6.crashed or m6.maxwait > cbound), string.format(
+    "mutant « borne ignorée » refusé par C2 (attente la plus longue %s ticks, borne %d)", m6 and tostring(m6.maxwait) or "motif absent", cbound))
+  local m7 = tenue_mutant("script/team/worker.lua", "script.team.worker", "local carry = has_deposit(agent)", "local carry = true",
+    function() return camper_run(3000) end)
+  check(m7 ~= nil and (m7.crashed or m7.empty_wait > 0), string.format(
+    "mutant « home de début non sauté » refusé par C3 (%s relevés de PNJ à sac vide en attente)", m7 and tostring(m7.empty_wait) or "motif absent"))
 end
 
 ---------------------------------------------------------------------------------------------------

@@ -354,6 +354,82 @@ local function touches_area(e, area)
   return e._x + b.x0 <= ax1 and ax0 <= e._x + b.x1 and e._y + b.y0 <= ay1 and ay0 <= e._y + b.y1
 end
 
+-- Lot MOCK-RAPIDE (7/11) : index par chunk des entités pour find_entities_filtered (zone ou rayon), valable dans UN tick du moteur
+-- simulé seulement (W._in_tick, posé par run_ticks avant les événements du tick et retiré avant la marche, step_physics). Pendant ce
+-- temps, une position ne change que par teleport ou par une création (W._mut) : l'index est alors refait. Hors d'un tick (code des
+-- bancs, qui écrit parfois e._x lui-même ; commandes), la recherche lit toutes les entités, comme avant. Une entité est rangée dans
+-- les chunks que couvre sa boîte de collision ET dans celui de sa position : une entité qui touche la zone (intervalles fermés) ou dont
+-- la position est dans le rayon y est donc toujours. Les candidats sont rendus dans l'ordre de W.entities (indices croissants).
+local FCELL = 32
+local FMAX = 16 -- chunks de côté au plus par recherche ; au-delà, toutes les entités, comme avant
+local function fkey(cx, cy) return (cx + 1048576) * 2097152 + (cy + 1048576) end
+local fx = {}
+local function find_index()
+  local ents = W.entities
+  local tick = _G.game and _G.game.tick
+  if fx.idx ~= nil and fx.n == #ents and fx.mut == W._mut and fx.tbl == ents and fx.tick == tick and fx.lb == W.legacy_boxes then
+    return fx.idx
+  end
+  local idx = {}
+  local fl = math.floor
+  local bad = false
+  for i = 1, #ents do
+    local e = ents[i]
+    if e.valid and (type(e._x) ~= "number" or type(e._y) ~= "number" or e.name == nil) then
+      bad = true -- (entité posée à la main par un banc, sans position ni nom : la recherche lit tout, comme avant)
+      break
+    end
+    if e.valid then
+      local b = W.legacy_boxes and { x0 = 0, y0 = 0, x1 = 0, y1 = 0 } or collision_of(e.name)
+      local cx0, cx1 = fl(math.min(e._x, e._x + b.x0) / FCELL), fl(math.max(e._x, e._x + b.x1) / FCELL)
+      local cy0, cy1 = fl(math.min(e._y, e._y + b.y0) / FCELL), fl(math.max(e._y, e._y + b.y1) / FCELL)
+      for cx = cx0, cx1 do
+        for cy = cy0, cy1 do
+          local k = fkey(cx, cy)
+          local l = idx[k]
+          if not l then l = {}; idx[k] = l end
+          l[#l + 1] = i
+        end
+      end
+    end
+  end
+  fx = { idx = (not bad) and idx or false, n = #ents, mut = W._mut, tbl = ents, tick = tick, lb = W.legacy_boxes }
+  return fx.idx
+end
+
+--- Indices croissants (dans W.entities) des entités à juger pour la recherche `t`, ou nil : toutes.
+local function find_candidates(t)
+  if not (W._in_tick and _G.game and W._in_tick == _G.game.tick) then return nil end
+  local x0, y0, x1, y1
+  if t.area then
+    local lt, rb = t.area.left_top or t.area[1], t.area.right_bottom or t.area[2]
+    x0, y0, x1, y1 = lt.x or lt[1], lt.y or lt[2], rb.x or rb[1], rb.y or rb[2]
+  elseif t.position and t.radius then
+    x0, y0, x1, y1 = t.position.x - t.radius, t.position.y - t.radius, t.position.x + t.radius, t.position.y + t.radius
+  else
+    return nil
+  end
+  local fl = math.floor
+  local cx0, cx1, cy0, cy1 = fl(x0 / FCELL), fl(x1 / FCELL), fl(y0 / FCELL), fl(y1 / FCELL)
+  if cx1 - cx0 >= FMAX or cy1 - cy0 >= FMAX then return nil end
+  local idx = find_index()
+  if not idx then return nil end
+  local seen, out = {}, {}
+  for cx = cx0, cx1 do
+    for cy = cy0, cy1 do
+      local l = idx[fkey(cx, cy)]
+      if l then
+        for j = 1, #l do
+          local i = l[j]
+          if not seen[i] then seen[i] = true; out[#out + 1] = i end
+        end
+      end
+    end
+  end
+  table.sort(out)
+  return out
+end
+
 -- Masques par défaut des types que les bancs posent (data/core/lualib/collision-mask-util.lua, default_masks) ;
 -- un type absent de cette liste prend le masque des bâtiments.
 local BUILDING_MASK = { "item-layer", "object-layer", "player-layer", "water-tile" }
@@ -472,6 +548,7 @@ local EntityMT = {
       return function(pos)
         assert(type(pos) == "table" and pos.x and pos.y, "teleport : position attendue")
         t._x, t._y = pos.x, pos.y
+        W._mut = (W._mut or 0) + 1 -- (lot MOCK-RAPIDE : index de step_economy à refaire)
         return true
       end
     end
@@ -694,6 +771,7 @@ new_entity = function(name, x, y, surface, force)
   }
   setmetatable(e, EntityMT)
   W.entities[#W.entities + 1] = e
+  W._mut = (W._mut or 0) + 1 -- (lot MOCK-RAPIDE : index de step_economy à refaire)
   return e
 end
 M.new_entity = function(...) return new_entity(...) end
@@ -1299,7 +1377,12 @@ function M.new_world(opts)
       end
       return out
     end
-    for _, e in ipairs(W.entities) do
+    -- Lot MOCK-RAPIDE : dans un tick du moteur simulé, une recherche par zone ou par rayon ne lit que les entités des chunks qui la
+    -- couvrent (find_candidates), DANS L'ORDRE de W.entities et jugées par la même condition ; sinon, toutes, comme avant.
+    local ents = W.entities
+    local cand = find_candidates(t)
+    for ci = 1, cand and #cand or #ents do
+      local e = ents[cand and cand[ci] or ci]
       if e.valid then
         local ok = true
         if t.force then ok = ok and e.force.name == (type(t.force) == "string" and t.force or t.force.name) end
@@ -1657,12 +1740,120 @@ local FUEL_PERIOD = 1600     -- un charbon toutes les ~27 s (foreuse ; four : 2 
 local MINE_PERIOD = 120      -- minage à la main : 0,5 objet/s
 local SMELT = { ["iron-ore"] = "iron-plate", ["copper-ore"] = "copper-plate", ["stone"] = "stone-brick", ["iron-plate"] = "steel-plate" }
 
+---------------------------------------------------------------------------------------------------
+-- Lot MOCK-RAPIDE (7/11) : les recherches de step_economy passent par des INDEX par case, refaits à chaque passe (toutes les 60
+-- ticks), au lieu de parcourir toutes les entités pour chaque foreuse, chaque mineur et chaque arbre (foreuses × entités : la moitié
+-- des instructions de pvp_test, profil du 7/11). Même résultat que le parcours d'avant : les candidats d'une case sont pris dans
+-- l'ORDRE de W.entities (indices croissants) et jugés par la MÊME condition ; une entité devenue invalide est écartée à la lecture ;
+-- une entité créée ou téléportée pendant la passe (W._mut, #W.entities, ou W.entities remplacé) refait l'index.
+---------------------------------------------------------------------------------------------------
+local floor = math.floor
+local CELL = 4         -- tuiles par case (foyers et coffres à 1,2 tuile, arbres à 1 tuile)
+local PCELL = 16       -- tuiles par case des gisements (8 tuiles)
+local function ckey(cx, cy) return (cx + 1048576) * 2097152 + (cy + 1048576) end
+
+local ix = {}          -- index de la passe en cours ; vidé à chaque passe
+
+local function ix_fresh()
+  return ix.n == #W.entities and ix.mut == W._mut and ix.tbl == W.entities
+end
+
+local function ix_reset()
+  ix = { n = #W.entities, mut = W._mut, tbl = W.entities }
+end
+
+--- Index par case des entités valides qui vérifient `pred` : { [clé] = { indices croissants } }.
+local function ix_build(pred, size)
+  local idx = {}
+  local ents = W.entities
+  for i = 1, #ents do
+    local e = ents[i]
+    if e.valid and pred(e) then
+      local k = ckey(floor(e._x / size), floor(e._y / size))
+      local l = idx[k]
+      if not l then l = {}; idx[k] = l end
+      l[#l + 1] = i
+    end
+  end
+  return idx
+end
+
+--- Indices croissants des candidats des cases qui couvrent [x - r, x + r] × [y - r, y + r].
+local function ix_query(idx, size, x, y, r)
+  local out = {}
+  for cx = floor((x - r) / size), floor((x + r) / size) do
+    for cy = floor((y - r) / size), floor((y + r) / size) do
+      local l = idx[ckey(cx, cy)]
+      if l then for j = 1, #l do out[#out + 1] = l[j] end end
+    end
+  end
+  table.sort(out)
+  return out
+end
+
+local function ix_get(name, pred, size)
+  if not ix_fresh() then ix_reset() end
+  local idx = ix[name]
+  if not idx then
+    idx = ix_build(pred, size)
+    ix[name] = idx
+  end
+  return idx
+end
+
+local function is_sink(e) return e.type == "furnace" or e.type == "container" end
+local function is_tree(e) return e.type == "tree" end
+
 local function entity_at(pos)
-  for _, e in ipairs(W.entities) do
+  local ents = W.entities
+  for _, i in ipairs(ix_query(ix_get("sinks", is_sink, CELL), CELL, pos.x, pos.y, 1.2)) do
+    local e = ents[i]
     if e.valid and (e.type == "furnace" or e.type == "container") and math.abs(e._x - pos.x) <= 1.2 and math.abs(e._y - pos.y) <= 1.2 then
       return e
     end
   end
+end
+
+--- Mineurs (personnages qui minent) par TUILE minée : { [clé] = { indices croissants } } (conflit d'une tuile, lot KIT).
+local function miners_index()
+  if not ix_fresh() then ix_reset() end
+  if ix.miners then return ix.miners end
+  local idx = {}
+  local ents = W.entities
+  for i = 1, #ents do
+    local o = ents[i]
+    if o.valid and o.type == "character" and o._mining and o._mining.mining then
+      local k = ckey(floor(o._mining.position.x), floor(o._mining.position.y))
+      local l = idx[k]
+      if not l then l = {}; idx[k] = l end
+      l[#l + 1] = i
+    end
+  end
+  ix.miners = idx
+  return idx
+end
+
+--- Gisements par case (W.patches ne bouge pas pendant une passe ; refait si la table ou sa longueur change).
+local pix = {}
+local function find_resource_fast(pos)
+  local ps = W.patches
+  if pix.tbl ~= ps or pix.n ~= #ps then
+    pix = { tbl = ps, n = #ps, idx = {} }
+    for i, p in ipairs(ps) do
+      local k = ckey(floor(p.x / PCELL), floor(p.y / PCELL))
+      local l = pix.idx[k]
+      if not l then l = {}; pix.idx[k] = l end
+      l[#l + 1] = i
+    end
+  end
+  local best, best_d
+  for _, i in ipairs(ix_query(pix.idx, PCELL, pos.x, pos.y, 8)) do
+    local p = ps[i]
+    local dx, dy = p.x - pos.x, p.y - pos.y
+    local d = dx * dx + dy * dy
+    if d <= 8 * 8 and (not best_d or d < best_d) then best, best_d = p.name or "iron-ore", d end
+  end
+  return best
 end
 
 local function burn(e, tick)
@@ -1680,6 +1871,7 @@ end
 
 local function step_economy(tick)
   if tick % 60 ~= 0 then return end
+  ix, pix = {}, {} -- (lot MOCK-RAPIDE : index refaits à chaque passe ; les tests peuvent déplacer une entité entre deux passes)
   for i = 1, #W.entities do
     local e = W.entities[i]
     if e.valid then
@@ -1700,13 +1892,15 @@ local function step_economy(tick)
         e._mine_acc = (e._mine_acc or 0) + 60
         if e._mine_acc >= MINE_PERIOD then
           e._mine_acc = 0
-          local res = surface_find_resource(e._mining.position)
+          local res = find_resource_fast(e._mining.position)
           -- Lot KIT (relevé en moteur réel, banc kit-diag) : plusieurs personnages qui minent EN MÊME TEMPS la même tuile ne
           -- rendent presque rien : seul le premier (le plus bas numéro d'entité) reçoit le minerai. Option
           -- (shared_tile_mining = true) pour rejouer l'ancien modèle où chacun reçoit le sien.
           if res and not W.shared_tile_mining then
             local tx, ty = math.floor(e._mining.position.x), math.floor(e._mining.position.y)
-            for _, o in ipairs(W.entities) do
+            local ents = W.entities
+            for _, oi in ipairs(miners_index()[ckey(tx, ty)] or {}) do -- (lot MOCK-RAPIDE : les mineurs de CETTE tuile, dans l'ordre)
+              local o = ents[oi]
               if o ~= e and o.valid and o.type == "character" and o._mining and o._mining.mining
                 and math.floor(o._mining.position.x) == tx and math.floor(o._mining.position.y) == ty
                 and (o.unit_number or 0) < (e.unit_number or 0) then
@@ -1719,7 +1913,10 @@ local function step_economy(tick)
           if res then inv_of(e, defines.inventory.character_main).insert({ name = res, count = 1 }) end
           if not res then
             -- Lot KIT : un arbre sous la cible donne 4 bois et disparaît
-            for _, o in ipairs(W.entities) do
+            local ents = W.entities
+            local mp = e._mining.position
+            for _, oi in ipairs(ix_query(ix_get("trees", is_tree, CELL), CELL, mp.x, mp.y, 1)) do -- (lot MOCK-RAPIDE)
+              local o = ents[oi]
               if o.valid and o.type == "tree" and math.abs(o._x - e._mining.position.x) < 1 and math.abs(o._y - e._mining.position.y) < 1 then
                 inv_of(e, defines.inventory.character_main).insert({ name = "wood", count = 4 })
                 o.destroy()
@@ -1730,7 +1927,7 @@ local function step_economy(tick)
         end
       end
       if e.name == "burner-mining-drill" then
-        local res = surface_find_resource({ x = e._x, y = e._y })
+        local res = find_resource_fast({ x = e._x, y = e._y })
         local sink = res and entity_at(e.drop_position)
         if sink and burn(e, tick) then
           e._drill_acc = (e._drill_acc or 0) + 60
@@ -1779,6 +1976,7 @@ run_ticks_inner = function(n)
   for _ = 1, n do
     local tick = _G.game.tick + 1
     _G.game.tick = tick
+    W._in_tick = tick -- (lot MOCK-RAPIDE : recherches par chunk permises jusqu'à la marche)
     local still = {}
     for i = 1, #W.pending_paths do
       local ev = W.pending_paths[i]
@@ -1796,6 +1994,7 @@ run_ticks_inner = function(n)
     for nn in pairs(W.nth) do ns[#ns + 1] = nn end
     table.sort(ns)
     for _, nn in ipairs(ns) do if tick % nn == 0 then W.nth[nn]({ tick = tick, nth_tick = nn }) end end
+    W._in_tick = nil
     step_physics()
     step_economy(tick)
     step_groups(tick)

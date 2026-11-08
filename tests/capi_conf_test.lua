@@ -7,6 +7,11 @@
     §2 à Cf.STALL : une ligne [FO-CAPI-CONF] « echec <objet> (unite N) cause courant », puis la suspension levée, n_cap reste 0 ;
     §3 une ligne de bilan [FO-CAPI-CONF] par relevé ;
     §4 mutant (relevé sans confirmation, Capi.MUT.sans_conf) : §1 à §3 échouent.
+  Lot X10-S10 (décision du DC du 7/11, 17 h 47, QCM-7/11-X10, OBJECTIFS §4 : « Oui, factions lointaines plus lentes (Recommandé) ») :
+  le relevé de la capitalisation revient tous les Capi.CYCLE = 12 PENSÉES (une minute à 300 ticks). §1 à §4 se jouent le joueur PRÈS
+  de la faction (rythme normal, attendus d'avant S10, fenêtre de 13 min). §5 : la même partie, joueur LOIN (la faction pense toutes
+  les Cd.SLOW = 600 ticks quand elle est calme, un relevé toutes les 2 min) : mêmes contrôles sur une fenêtre multipliée par la
+  cadence (13 × Cd.SLOW / 300 = 26 min), ce qui revient à des attendus divisés par la cadence sur 13 min.
   Ce n'est pas une preuve en jeu. Usage : lua5.2 tests/capi_conf_test.lua   (depuis la racine du mod ; environ 1 min)
 ]]
 package.path = "./?.lua;" .. package.path
@@ -47,7 +52,9 @@ local function group_of(cs)
   return nil
 end
 
-local function run(mutant)
+local Cd = require("shared.faction.cadence")
+
+local function run(mutant, near)
   M.new_world({ patches = patches(), p_busy = 0, p_nopath = 0, p_lost = 0, difficulty = "peaceful", ia3e = true, capi = true,
     products_finished = true })
   M.load_mod()
@@ -72,6 +79,9 @@ local function run(mutant)
   if mutant then Capi.MUT.sans_conf = true end
   M.dispatch(W().on_init)
   M.command("fo-war", "start 2 30 30 320")
+  -- Lot X10-S10 : joueur à 30 tuiles au nord du QG de la faction (rythme normal) ; sinon il reste au départ, loin d'elle.
+  local f1 = global.fo.war.factions[1]
+  if near and f1 and f1.hq_pos then W().player.character.teleport({ x = f1.hq_pos.x, y = f1.hq_pos.y - 30 }) end
   local ok, err = pcall(M.run_ticks, MIN)
   local f = global.fo.war.factions[1]
   out.key = f and f.key or "?"
@@ -86,7 +96,8 @@ local function run(mutant)
   local bilan = "[FO-CAPI-CONF] " .. out.key .. " : bilan"
   local seen = #W().logs
   local scans0 = nil
-  for _ = 1, 13 * MIN do
+  local window = near and 13 * MIN or math.floor(13 * MIN * Cd.SLOW / 300)
+  for _ = 1, window do
     if not ok then break end
     ok, err = pcall(M.run_ticks, 1)
     local cs = f.team and f.team.capi
@@ -107,6 +118,9 @@ local function run(mutant)
     seen = #logs
   end
   out.ok, out.err = ok, err
+  for i = 1, #W().logs do
+    if W().logs[i]:find("[FO-CADENCE] " .. out.key .. " : cadence LENTE", 1, true) then out.lente = true end
+  end
   Ca.decide_begin = begin
   Capi.MUT.sans_conf = nil
   return out
@@ -141,14 +155,22 @@ local function verdict(o, quiet)
   return all
 end
 
-local a = run(false)
-say(string.format("§1-3 faction %s : unité %s, %d relevé(s), %d bilan(s), échec au tick %s, suspension vue %d fois", a.key, tostring(a.u),
-  a.scans or 0, a.bilans or 0, tostring(a.failed_tick), a.held_seen))
+local a = run(false, true)
+say(string.format("§1-3 faction %s (joueur proche) : unité %s, %d relevé(s), %d bilan(s), échec au tick %s, suspension vue %d fois", a.key,
+  tostring(a.u), a.scans or 0, a.bilans or 0, tostring(a.failed_tick), a.held_seen))
+check(not a.lente, "§1-3 joueur pres de la faction : jamais en cadence lente")
 verdict(a, false)
 
-local b = run(true)
+local b = run(true, true)
 say(string.format("§4 mutant : %d bilan(s), échec %s, suspension vue %d fois", b.bilans or 0, tostring(b.failed_tick), b.held_seen))
 check(not verdict(b, true), "§4 mutant refusé : relevé sans confirmation")
+
+-- §5 Lot X10-S10 : joueur loin, faction lointaine et calme : un relevé toutes les 2 min ; fenêtre de 26 min (13 × la cadence).
+local c = run(false, false)
+say(string.format("§5 faction %s (lointaine) : %d relevé(s), %d bilan(s), échec au tick %s, suspension vue %d fois, fenêtre %d min", c.key,
+  c.scans or 0, c.bilans or 0, tostring(c.failed_tick), c.held_seen, math.floor(13 * Cd.SLOW / 300)))
+check(c.lente, "§5 la faction, loin du joueur, est passee en cadence lente")
+check(verdict(c, true), "§5 faction lointaine et calme : §1 à §3 tiennent sur la fenêtre multipliée par la cadence (bilan par relevé, échec, suspension levée)")
 
 print(string.format("[CAPI-CONF] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

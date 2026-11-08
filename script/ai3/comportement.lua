@@ -355,6 +355,15 @@ function M.outrange_on()
   return not S().no_outrange
 end
 
+--- Lot CORR-RALLIEMENT (tenue, 7/11 ; RAPPORT EFFONDREMENT §12) : état « away » de l'équipe `f` (QG débordé, posé par script/ai3/soldats.lua
+--- hq_threat) s'il vit au tick, sinon nil. Crochet de script/team/worker.lua (retour au QG, dépôt) et de M.leg ; factions et votre équipe.
+function M.away_state(f, tick)
+  if not (M.enabled() and M.outrange_on()) then return nil end
+  local w = M.team(f).away
+  if Da.away_live(w, tick) then return w end
+  return nil
+end
+
 local weight_cache = {} -- [nom de prototype] = poids (prototypes : identiques chez tous les pairs)
 --- Poids d'un ennemi mobile dans le rapport de force (shared/ai3/reaction.lua : `enemies`).
 function M.weight(u)
@@ -636,7 +645,11 @@ function M.leg(agent, pos, radius, tick, depth)
       -- Lot COMPAGNONS-ACTIFS (relecture) : une tâche partie « au calme » (a.calm, écrit par M.gate) est jugée ici comme à la porte, sur
       -- les menaces seules ; sinon le champ, qui compte les morts anciennes, la renvoyait au QG (« sans-issue ») et elle repartait 10 s
       -- plus tard, en boucle.
-      if home or a.escort or a.risk or res2.exact_max < res.B
+      -- Lot CORR-RALLIEMENT (tenue, 7/11) : pendant « away » (QG débordé, M.away_state), rentrer au QG n'est plus « faute de mieux » : un retour
+      -- bloqué fait demi-tour comme un aller (RAPPORT EFFONDREMENT §12 : les PNJ éloignés rentraient mourir sur leurs cases).
+      local home_ok = home and not M.away_state(f, tick)
+      if home and not home_ok then t.stats.away_home_block = (t.stats.away_home_block or 0) + 1 end
+      if home_ok or a.escort or a.risk or res2.exact_max < res.B
         or (a.calm and threat_max(t.map, p, res2.pts, pos, tick) < res.B) then
         res = res2
       else

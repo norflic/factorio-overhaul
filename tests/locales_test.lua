@@ -50,16 +50,17 @@ local function margin(text, name)
   return lo
 end
 
+-- Lot TESTS-GIT (0.6.64) : liste par tests/depot.lua (git ls-files ; sans git, le disque, annoncé par une ligne [ENVIRONNEMENT]).
+package.path = "./?.lua;" .. package.path
+local D = require("tests.depot")
 local files = {}
-local p = io.popen("git ls-files -- \"*.lua\"")
-if p then
-  for line in p:lines() do
-    if line ~= "" and not line:find("^tests/") and not line:find("^tools/") then files[#files + 1] = line end
-  end
-  p:close()
+local all, source = D.lua_files({ "." })
+for _, line in ipairs(all) do
+  if not line:find("^tests/") and not line:find("^tools/") then files[#files + 1] = line end
 end
+if source == "disque" then D.env("liste des fichiers Lua du mod (git ls-files)", #files > 0) end
 table.sort(files)
-check(#files > 100, "fichiers du mod listés par git ls-files (" .. #files .. ")")
+check(#files > 100, "fichiers du mod listés (" .. source .. ") (" .. #files .. ")")
 
 local rows = {}
 for _, path in ipairs(files) do

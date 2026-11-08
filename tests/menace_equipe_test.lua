@@ -248,11 +248,15 @@ do
 end
 local ALLOWED = { ["script/team/team.lua"] = true, ["script/ai3/capitalisation.lua"] = true, ["script/team/menace_equipe.lua"] = true,
   ["shared/team/menace_equipe.lua"] = true }
+-- Lot TESTS-GIT (0.6.64) : lignes lues par tests/depot.lua (tous les .lua suivis ou non suivis non ignorés, comme
+-- git grep --untracked ; sans git, le disque, annoncé par une ligne [ENVIRONNEMENT]). Avant : sans git, 0 ligne, et les deux contrôles
+-- échouaient sans dire pourquoi (« 0 ligne(s) », « 0 fichier(s) »).
+local Depot = require("tests.depot")
 local function grep_lua(word)
   local out = {}
-  local p = io.popen('git grep --untracked -n "' .. word .. '" -- "*.lua"')
-  for l in p:lines() do if not l:find("^tests/") then out[#out + 1] = l end end
-  p:close()
+  local lines, _, nfiles, source = Depot.grep(word, { "." }, { untracked = true })
+  if source == "disque" then Depot.env("§3 lecteurs de threat_held et témoin threatened (git grep)", nfiles > 0) end
+  for _, l in ipairs(lines) do if not l:find("^tests/") then out[#out + 1] = l end end
   return out
 end
 local function foreign(lines)

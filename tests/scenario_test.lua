@@ -591,7 +591,7 @@ do
   for k, v in pairs(EN) do en2[k] = v end
   en2["fo-journal.threat-7"] = nil
   check(#parity_errors(FR, en2) == 1, "mutant : clé EN manquante, détectée")
-  local bad = os.tmpname()
+  local bad = require("tests.depot").tmpname() -- lot TESTS-GIT : os.tmpname() visait la racine du disque (refusée sur C:)
   local f = io.open(bad, "wb")
   f:write("local A = require(\"x\")\nlocal function g()\n  local B = require(\"y\")\n  for k in pairs(t) do end\n  return global\nend\n")
   f:close()

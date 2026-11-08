@@ -300,6 +300,15 @@ local function cases2(D, Da)
     local b1, b2 = route_max(mw, far, { x = g[1], y = g[2] }, true)
     check(a1 == b1 and a2 == b2, string.format("départ hors de toute zone : même danger que la règle d'avant vers (%d, %d) (route %d/%d, but %d/%d)", g[1], g[2], a1, b1, a2, b2))
   end
+  -- Lot CORR-RALLIEMENT (tenue, 7/11) : état « away » et coffre de dépôt hors de portée (RAPPORT EFFONDREMENT §12).
+  local w = { x = 30, y = 0, reach = 25, ["until"] = 1000 }
+  check(Da.away_live(w, 999) == true and Da.away_live(w, 1000) == false and Da.away_live(nil, 0) == false,
+    "« away » vivant avant until, mort à until, absent : mort")
+  local cs = { { x = 10, y = 0 }, { x = -40, y = 0 }, { x = -20, y = 10 } } -- QG (à 20 de la menace : exposé), deux annexes à l'ouest
+  check(Da.safe_chest(cs, { x = -10, y = 0 }, w) == 3, "coffre sûr le plus proche du PNJ (annexe à 51 de la menace), le QG exposé (20 < 25) écarté")
+  check(Da.safe_chest(cs, { x = -45, y = 0 }, w) == 2, "coffre sûr le plus proche d'un PNJ à l'ouest : l'annexe lointaine")
+  check(Da.safe_chest({ { x = 10, y = 0 }, { x = 10, y = 5 } }, { x = -10, y = 0 }, w) == nil, "aucun coffre hors de portée : nil (le PNJ attend)")
+  check(Da.safe_chest({}, { x = 0, y = 0 }, w) == nil, "aucun coffre : nil")
 end
 
 section("6. Danger ajouté par le trajet (2e essai)")
@@ -321,6 +330,10 @@ local mutantsD = {
 local srcDa = read("shared/team/danger_actif.lua")
 local mutantsDa = {
   { "défense : morts au but gardées", "if def_base then return 0 end", "" },
+  { "« away » jamais vivant", "return w ~= nil and tick < (w[\"until\"] or -1)", "return false" },
+  { "« away » sans fin", "return w ~= nil and tick < (w[\"until\"] or -1)", "return w ~= nil" },
+  { "coffre exposé accepté", "    if not Da.exposed(c, w, w.reach) then\n", "    if true then\n" },
+  { "coffre sûr le plus loin", "if bd == nil or d < bd then best, bd = i, d end", "if bd == nil or d > bd then best, bd = i, d end" },
   { "calme : garde-fou ignoré", "if calm and (n or 0) < (cap or 0) then return 0 end", "if calm then return 0 end" },
   { "calme ignoré", "if calm and (n or 0) < (cap or 0) then return 0 end", "" },
   { "défense hors de la base", "Da.DEFENSE_KINDS[kind] and in_base and armed", "Da.DEFENSE_KINDS[kind] and armed" },

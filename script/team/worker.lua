@@ -26,6 +26,7 @@ local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG 
 local AmRt = require("script.ai3.amorce_rt") -- lot VIDEO-COUVERTURE (C3) : remise directe aux modules en réserve avant le coffre
 local Mu = require("shared.team.munitions") -- lot MUNITIONS (revue M3) : prise bornée de la munition de base (Mu.split_take)
 local Ra = require("shared.team.rearmement") -- lot REARMEMENT : emplacement des munitions complété au dépôt au QG (règle pure)
+local Da = require("shared.team.danger_actif") -- lot CORR-RALLIEMENT (tenue) : coffre de dépôt hors de portée pendant « away » (Da.safe_chest)
 local Tj = require("script.team.tourelle_journal") -- lot TOURELLE-JOURNAL : minage refusé sous une tourelle, journal [FO-TOURELLE-RETIREE]
 local Outposts = require("script.faction.outposts")
 local Sites = require("script.faction.sites")
@@ -266,7 +267,9 @@ end
 -- Lot STOCKAGE-VITAL : le dépôt d'un PNJ au QG est le seul appelant de Stock.insert soumis à la réserve des vitales (ce qui est refusé
 -- reste en poche, rien n'est perdu).
 local DEPOSIT_OPTS = { reserve = true }
-local function deposit_inventory(f, inv, keep)
+-- Lot CORR-RALLIEMENT (tenue) : `chest` = un coffre du stock précis, hors de portée pendant « away » (sans la réserve des vitales ; note de
+-- revue-0659 : un coffre sûr qui serait le QG la contournerait) ; sans `chest`, le stock comme avant.
+local function deposit_inventory(f, inv, keep, chest)
   local contents = inv.get_contents()
   local names = {}
   for name in pairs(contents) do names[#names + 1] = name end
@@ -274,6 +277,11 @@ local function deposit_inventory(f, inv, keep)
   for _, name in ipairs(names) do
     local n = contents[name] - (keep and keep[name] or 0)
     if n > 0 then n = n - AmRt.deliver(f, inv, name, n) end -- C3 : ce qu'un module en réserve attend lui est remis AVANT le coffre
+    if n > 0 and chest then
+      local put = chest.insert({ name = name, count = n })
+      if put > 0 then inv.remove({ name = name, count = put }) f.team.delivered[name] = (f.team.delivered[name] or 0) + put end
+      n = 0
+    end
     if n > 0 then
       local moved = Stock.insert(f, name, n, DEPOSIT_OPTS)
       if moved > 0 then
@@ -375,16 +383,16 @@ local function rearm(agent, f)
   end
 end
 
-local function deposit_all(agent, f)
+local function deposit_all(agent, f, chest)
   if not (f.hq and f.hq.valid) then return end
   local e = agent.entity
-  deposit_inventory(f, main_inv(agent), nil)
+  deposit_inventory(f, main_inv(agent), nil, chest)
   local guns = e.get_inventory(defines.inventory.character_guns)
-  if guns then deposit_inventory(f, guns, KEEP_GUN) end
+  if guns then deposit_inventory(f, guns, KEEP_GUN, chest) end
   local ammo = e.get_inventory(defines.inventory.character_ammo)
-  if ammo then deposit_inventory(f, ammo, KEEP_AMMO) end
+  if ammo then deposit_inventory(f, ammo, KEEP_AMMO, chest) end
   local armor = e.get_inventory(defines.inventory.character_armor)
-  if armor then deposit_inventory(f, armor, nil) end
+  if armor then deposit_inventory(f, armor, nil, chest) end
   rearm(agent, f) -- lot REARMEMENT : après le dépôt (la dotation de 10 n'est jamais reprise : deposit et bg_absorb s'arrêtent à KEEP_AMMO)
 end
 
@@ -1397,6 +1405,55 @@ local function goto_step(agent, pos, radius, tick)
   return false
 end
 
+--- Lot CORR-RALLIEMENT (tenue, 7/11) : état « away » de l'équipe (QG débordé) par le crochet de script/ai3/comportement.lua ; nil sans crochet.
+local function away_state(f, tick)
+  local H = Worker.hook
+  return H and H.away_state and H.away_state(f, tick) or nil
+end
+
+--- Relecture revue-0659 (7/11) : borne de l'attente d'un PNJ CHARGÉ à l'étape « home » pendant « away » quand aucun coffre n'est sûr ;
+--- ensuite il garde son sac et passe à la suite. = SD.SHELTER_TICKS (script/ai3/soldats.lua, sans require : le test vérifie l'égalité).
+Worker.AWAY_WAIT_TICKS = 600
+
+--- Le PNJ porte-t-il quelque chose que deposit_all déposerait (tout, sauf son arme et sa dotation de munitions) ? Sans `pairs` : comptes
+--- totaux de chaque inventaire, moins ce qui est gardé.
+local function has_deposit(agent)
+  local e = agent.entity
+  local function over(inv, keep_name, keep_n)
+    if not inv then return false end
+    local kept = keep_name and math.min(keep_n, inv.get_item_count(keep_name)) or 0
+    return inv.get_item_count() > kept
+  end
+  return over(main_inv(agent)) or over(e.get_inventory(defines.inventory.character_guns), T.worker_gun, 1)
+    or over(e.get_inventory(defines.inventory.character_ammo), T.worker_ammo, T.worker_ammo_keep)
+    or over(e.get_inventory(defines.inventory.character_armor))
+end
+
+--- Coffre du stock (QG, puis annexes) le plus proche du PNJ et HORS de portée de la menace `w` (Da.safe_chest), ou nil.
+local function safe_stock_chest(f, agent, w)
+  local chests = {}
+  if f.hq and f.hq.valid then chests[1] = f.hq end
+  for _, e in ipairs(Stock.annexes(f)) do chests[#chests + 1] = e end
+  local ps = {}
+  for i, c in ipairs(chests) do ps[i] = c.position end
+  local i = Da.safe_chest(ps, agent.entity.position, w)
+  return i and chests[i] or nil
+end
+
+--- Lot CORR-RALLIEMENT (tenue, demande du lead, 8/11) : ligne [FO-TENUE] pour que le DC lise en jeu pourquoi un PNJ ne rentre pas. Une ligne
+--- par équipe quand un compteur de f.team.tenue a changé, au plus une par minute de jeu (les changements de la minute sont repris par la
+--- ligne suivante : « depuis la ligne précédente »). `w` = l'état « away » (menace, atteinte).
+local function tenue_log(f, st, w, tick)
+  if st.last_log and tick - st.last_log < 3600 then return end
+  local ds, dk, da, dd = st.skip - (st.l_skip or 0), st.kept - (st.l_kept or 0), st.abort - (st.l_abort or 0), st.safe - (st.l_safe or 0)
+  if ds + dk + da + dd == 0 then return end
+  st.last_log, st.l_skip, st.l_kept, st.l_abort, st.l_safe = tick, st.skip, st.kept, st.abort, st.safe
+  log(string.format("[FO-TENUE] %s minute %.1f : QG deborde (menace en (%.0f, %.0f), atteinte %.0f tuiles) : les PNJ ne rentrent pas au QG ; "
+    .. "%d depot(s) dans un coffre hors de portee, %d etape(s) « rentrer » sautee(s) (sac vide), %d sac(s) garde(s) apres %d ticks "
+    .. "d'attente (aucun coffre hors de portee), %d tache(s) abandonnee(s) (elles exigent le QG) ; depuis la ligne precedente : +%d, +%d, +%d, +%d",
+    tostring(f.key), tick / 3600, w.x or 0, w.y or 0, w.reach or 0, st.safe, st.skip, st.kept, Worker.AWAY_WAIT_TICKS, st.abort, dd, ds, dk, da))
+end
+
 local function run_steps(agent, tick)
   local f = faction_of(agent)
   if not f or not (f.hq and f.hq.valid) then return end
@@ -1410,7 +1467,44 @@ local function run_steps(agent, tick)
       return
     end
     local kind = step[1]
-    if kind == "home" then
+    local away = kind == "home" and away_state(f, tick) or nil
+    if away then
+      -- Lot CORR-RALLIEMENT (tenue, 7/11 ; RAPPORT EFFONDREMENT §12) : QG débordé (« away ») : pas de retour au QG. Dépôt dans le coffre du stock le
+      -- plus proche HORS de portée de la menace.
+      -- Relecture revue-0659 (7/11) : l'attente sans coffre sûr n'avait pas de sortie bornée et, presque tout programme commençant par « home »,
+      -- ARRÊTAIT TOUTE L'ÉQUIPE tant qu'un campeur débordait le QG. Désormais (critères : CRITERES.md EFFONDREMENT, « TENUE, correction ») :
+      --   (a) rien à déposer : l'étape est sautée (début de tâche, retour après un dépôt, fin) ;
+      --   (c) à déposer, aucun coffre sûr : attente au plus Worker.AWAY_WAIT_TICKS, puis le PNJ GARDE son sac et passe à la suite ;
+      --   (b) l'étape suivante exige le QG (« take ») : la tâche est abandonnée (raison « away », pause courte de la peur, shared/team/actif.lua).
+      local carry = has_deposit(agent)
+      local chest = carry and safe_stock_chest(f, agent, away) or nil
+      local st = f.team and f.team.tenue
+      if f.team and not st then st = { skip = 0, kept = 0, abort = 0, safe = 0 } f.team.tenue = st end
+      if st and not st.safe then st.safe = 0 end -- (sauvegarde d'avant la ligne [FO-TENUE])
+      if chest then
+        agent.away_wait = nil
+        if not goto_step(agent, chest.position, 2, tick) then return end
+        deposit_all(agent, f, chest)
+        if st then st.safe = st.safe + 1 end
+      elseif carry then
+        agent.away_wait = agent.away_wait or tick
+        if tick - agent.away_wait < Worker.AWAY_WAIT_TICKS then return end
+        agent.away_wait = nil
+        if st then st.kept = st.kept + 1 end
+      else
+        agent.away_wait = nil
+        if st then st.skip = st.skip + 1 end
+      end
+      agent.pc = agent.pc + 1
+      local nxt = agent.steps[agent.pc]
+      if nxt and nxt[1] == "take" then
+        if st then st.abort = st.abort + 1 tenue_log(f, st, away, tick) end
+        abort(agent, f, tick, "away")
+        return
+      end
+      if st then tenue_log(f, st, away, tick) end
+    elseif kind == "home" then
+      agent.away_wait = nil
       if not goto_step(agent, home_slot(agent, f), 1, tick) then return end
       deposit_all(agent, f)
       bg_deliver(agent, f, tick) -- lot CRAFT-PARALLELE : produits des travaux finis livrés (déposés juste au-dessus)
@@ -1571,8 +1665,8 @@ FSM.define(MACHINE, {
       local task = Board.claim(f, agent, tick)
       Profiler.fstop("board:claim")
       if not task then
-        -- Rien à faire : rentrer au QG (et y déposer) plutôt que rester au loin.
-        if dist2(agent.entity.position, home_slot(agent, f)) > 3 * 3 and not agent.nav then
+        -- Rien à faire : rentrer au QG (et y déposer) plutôt que rester au loin. Lot CORR-RALLIEMENT (tenue) : pas pendant « away » (QG débordé).
+        if dist2(agent.entity.position, home_slot(agent, f)) > 3 * 3 and not agent.nav and not away_state(f, tick) then
           agent.task, agent.steps, agent.pc = nil, { { "home" } }, 1
           set(agent, "step", tick)
         end
@@ -2125,6 +2219,7 @@ Registry.on_removed(function(agent)
   end
 end)
 
+Worker._has_deposit = has_deposit -- tests hors jeu seulement (tests/ia3k_moteur_test.lua, tenue : C3)
 Worker._mining_entity = mining_entity -- tests hors jeu seulement (tests/tourelle_journal_test.lua, lot TOURELLE-JOURNAL)
 
 return Worker
