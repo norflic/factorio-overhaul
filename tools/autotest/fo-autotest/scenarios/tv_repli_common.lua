@@ -27,11 +27,14 @@ local function verify(ctx, on, TAG, proj, rep)
     ctx.check(part ~= nil and part.lot == "repli", "repli allume : la premiere partie porte le lot « repli »", part and tostring(part.lot) or "aucune partie")
     ctx.check((proj.total or 0) > 0, "repli allume : des entites planifiees", tostring(proj.total))
     if part then
-      -- fantomes ou batiments sur l'emprise de la partie
-      local found = #s.find_entities_filtered({ area = { { part.x, part.y }, { part.x + part.w, part.y + part.h } }, force = "player",
-        name = { "stone-furnace", "entity-ghost" } })
-      ctx.check(found > 0, "repli allume : des fours ou des fantomes sur l'emprise de la partie", tostring(found))
-      ctx.log(TAG .. string.format("partie %s lot %s en (%d, %d) %dx%d rotation %d ; %d four(s)/fantome(s) sur l'emprise", part.kind, tostring(part.lot),
+      -- entites PLANIFIEES du projet (releve du plan, les fantomes ne viennent qu'apres la reservation des materiaux) sur l'emprise de la partie
+      local lay = ctx.remote("fo-ia1d", "layout", "player")
+      local found = 0
+      for _, e in ipairs(lay and lay.ents or {}) do
+        if e.pid == proj.id and e.x >= part.x and e.x <= part.x + part.w and e.y >= part.y and e.y <= part.y + part.h then found = found + 1 end
+      end
+      ctx.check(found >= 50, "repli allume : au moins 50 entites planifiees du projet sur l'emprise de la partie", tostring(found))
+      ctx.log(TAG .. string.format("partie %s lot %s en (%d, %d) %dx%d rotation %d ; %d entite(s) planifiee(s) sur l'emprise", part.kind, tostring(part.lot),
         part.x, part.y, part.w, part.h, part.rotation or 0, found))
     end
   else
