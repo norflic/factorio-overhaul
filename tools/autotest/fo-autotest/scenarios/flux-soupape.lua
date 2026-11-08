@@ -43,13 +43,28 @@ local function gas_in(refinery)
   return refinery.get_fluid_count(GAS)
 end
 
-local function capacity(refinery)
-  local best = 0
-  for i = 1, #refinery.fluidbox do
-    local fl = refinery.fluidbox[i]
-    if fl and fl.name == GAS then best = math.max(best, refinery.fluidbox.get_capacity(i)) end
+--- Indice et capacité de la boîte de SORTIE du gaz (la boîte « output » du prototype, la seule que la soupape lit).
+local function out_box(refinery)
+  local fb = refinery.fluidbox
+  for i = 1, #fb do
+    local proto = fb.get_prototype(i)
+    if type(proto) == "table" and proto.production_type == nil then proto = proto[1] end
+    if proto and proto.production_type == "output" then return i, fb.get_capacity(i) end
   end
-  return best
+  return nil, 0
+end
+
+--- Met la boîte de sortie à `amount` unités de gaz (écriture directe de la boîte : insert_fluid n'y rend que 100 sur une raffinerie sans courant).
+local function set_gas(refinery, amount)
+  local i = out_box(refinery)
+  if not i then return false end
+  refinery.fluidbox[i] = { name = GAS, amount = amount }
+  return true
+end
+
+local function capacity(refinery)
+  local _, cap = out_box(refinery)
+  return cap
 end
 
 return {
@@ -89,13 +104,11 @@ return {
       ref.set_recipe("basic-oil-processing")
       plant.set_recipe("plastic-bar")
       st.cap = capacity(ref)
-      local put = ref.insert_fluid({ name = GAS, amount = 950 })
-      st.put = put
-      st.gas0 = gas_in(ref)
-      st.cap = math.max(st.cap, 1)
+      local put = 0
       -- niveau de départ voulu : 95 % de la cuve de sortie
-      local want = math.floor(st.cap * 0.95)
-      if st.gas0 > want then ref.remove_fluid({ name = GAS, amount = st.gas0 - want }) elseif st.gas0 < want then ref.insert_fluid({ name = GAS, amount = want - st.gas0 }) end
+      if set_gas(ref, math.floor(st.cap * 0.95)) then put = math.floor(st.cap * 0.95) end
+      st.put = put
+      st.cap = math.max(st.cap, 1)
       st.gas0 = gas_in(ref)
       st.ok_bench = remote.call("fo-petrole", "valve_bench", row.key,
         { every = 120, ents = { { name = "oil-refinery", x = REFINERY.x, y = REFINERY.y, recipe = "basic-oil-processing" },
@@ -138,8 +151,7 @@ return {
     if e.tick == OFF_AT then
       st.fuel_before_off = chest.get_item_count(FUEL)
       st.gas_before_off = gas_in(ref)
-      local top = math.floor(st.cap * 0.98) - gas_in(ref)
-      if top > 0 then ref.insert_fluid({ name = GAS, amount = top }) end
+      set_gas(ref, math.floor(st.cap * 0.98))
       st.gas_refilled = gas_in(ref)
       st.off = remote.call("factorio-overhaul", "war_setting", "fo-war-soupape", false)
       ctx.log(string.format("tick %d : reglage fo-war-soupape eteint (%s), cuve remplie a %.0f, %s au coffre %d", e.tick, tostring(st.off), st.gas_refilled, FUEL, st.fuel_before_off))
