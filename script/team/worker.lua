@@ -33,6 +33,7 @@ local Sites = require("script.faction.sites")
 local Board = require("script.team.board")
 local Poles = require("script.team.poles") -- lot IA1-b : fin de tâche (O.settle), durées mesurées
 local Tokens = require("script.team.tokens") -- lot IA1-b : jetons de travail globaux
+local Inact = require("script.team.inactivite") -- lot ZERO-IDLE-3 : mesure des causes d'inactivité
 local Profiler = require("script.core.profiler")
 local Trace = require("script.core.trace")
 local Foot = require("shared.levels.footprint")
@@ -1698,15 +1699,20 @@ FSM.define(MACHINE, {
       local f = faction_of(agent)
       if not f or f.eliminated then return end
       -- Lot IA1-b : une prise de tâche coûte des jetons de travail (budget par tick pour tout le mod).
-      if not Tokens.take(f, tick, Tokens.COST_CLAIM) then return end
+      local idle_dt = Inact.dt(agent, tick) -- lot ZERO-IDLE-3 (mesure) : ticks de cette attente
+      if not Tokens.take(f, tick, Tokens.COST_CLAIM) then
+        Inact.note(f, agent, tick, "jetons", idle_dt)
+        return
+      end
       -- Lot PERF (correction après revue) : la prise de tâche entière (réclamer, programmer, juger, rendre) est comptée et
       -- mesurée SELON SON ISSUE (« idle:sans-tache », « idle:sans-programme », « idle:refus », « idle:depart ») ; la
       -- porte seule aussi (« gate:accepte », « gate:refus »). Mode fin du profileur seulement (mesure, jamais décision).
       Profiler.fmark("idle")
       Profiler.fstart("board:claim")
-      local task = Board.claim(f, agent, tick)
+      local task, empty = Board.claim(f, agent, tick)
       Profiler.fstop("board:claim")
       if not task then
+        Inact.note(f, agent, tick, "sans-tache:" .. tostring(empty or "orga"), idle_dt)
         -- Rien à faire : rentrer au QG (et y déposer) plutôt que rester au loin. Lot CORR-RALLIEMENT (tenue) : pas pendant « away » (QG débordé).
         if dist2(agent.entity.position, home_slot(agent, f)) > 3 * 3 and not agent.nav and not away_state(f, tick) then
           agent.task, agent.steps, agent.pc = nil, { { "home" } }, 1
@@ -1721,6 +1727,7 @@ FSM.define(MACHINE, {
       Profiler.fstop("worker:program")
       if not steps then
         task.fail = task.fail or "programme" -- lot IA1-b : raison écrite (minerai introuvable, avant-poste disparu)
+        Inact.note(f, agent, tick, "sans-programme:" .. tostring(task.kind) .. ":" .. tostring(task.fail), idle_dt)
         Board.release(f, agent) -- lot IA3-b : réservation rendue
         Board.finish(f, task, false, tick)
         Poles.task_done(f, task, false, tick)
@@ -1737,6 +1744,7 @@ FSM.define(MACHINE, {
       if not gate_ok then
         return_site(f, task)
         task.fail = task.fail or "danger"
+        Inact.note(f, agent, tick, "refus-porte:" .. tostring(task.kind), idle_dt)
         Board.release(f, agent) -- lot IA3-b : réservation rendue (comme un programme introuvable)
         Board.finish(f, task, false, tick)
         Poles.task_done(f, task, false, tick)
@@ -1747,6 +1755,7 @@ FSM.define(MACHINE, {
       Board.reserve_soft(f, agent, task, steps, tick) -- lot IA3-b : prises larges bornées au libre (réglage allumé)
       Profiler.fstop("board:reserve")
       agent.task, agent.steps, agent.pc, agent.failed = task, steps, 1, nil
+      Inact.depart(agent) -- lot ZERO-IDLE-3 (mesure)
       agent.walk_retries = 0 -- lot CHARBON3 (B2) : essais de marche comptés par tâche (Rc.walk_fail)
       agent.mine_trips = nil -- lot MAIN-INVENTAIRE : voyages de dépôt comptés par tâche
       set(agent, "step", tick)

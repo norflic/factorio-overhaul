@@ -574,6 +574,23 @@ local function note_miss(f, b, list, npc, ctx, reg, tried)
   end
 end
 
+local Inact = require("shared.ai3.inactivite") -- lot ZERO-IDLE-3 : raison d'une prise vide (mesure)
+
+--- Lot ZERO-IDLE-3 (mesure, lecture seule) : raison d'une prise vide de la place de marché (shared/ai3/inactivite.lua, empty_reason).
+local function empty_why(list, idx, npc, n_matiere, n_tried)
+  local free, cannot = 0, 0
+  for i = 1, #list do
+    local t = list[i]
+    if not t.worker then
+      free = free + 1
+      if npc.cannot and npc.cannot[t.kind] then cannot = cannot + 1 end
+    end
+  end
+  local first = idx[1] and list[idx[1]]
+  return Inact.empty_reason({ free = free, cannot = cannot, ranked = #idx, matiere = n_matiere, tried = n_tried,
+    first_kind = first and first.kind })
+end
+
 local function claim_market(f, agent, tick, b)
   local list = b.list
   local reg = reg_of(f)
@@ -604,6 +621,7 @@ local function claim_market(f, agent, tick, b)
   end
   local seen, tries = {}, 0
   local tried = {} -- lot DANGER-ACTIF (mesure) : tâches essayées dont la réservation a été refusée
+  local n_matiere = 0 -- lot ZERO-IDLE-3 (mesure) : tâches écartées faute de matière stricte libre
   for _, j in ipairs(idx) do
     local t = list[j]
     -- Lot IA-V2 : tri préalable sans lecture du coffre : une tâche dont la matière stricte n'est pas libre au registre
@@ -617,6 +635,7 @@ local function claim_market(f, agent, tick, b)
         if R.free(reg, it[1]) < it[2] then quick = false break end
       end
     end
+    if not quick then n_matiere = n_matiere + 1 end
     if quick and b.tasks[t.key] == t then
       if reserve_strict(f, reg, t, agent, tick, seen) then
         bump(f, "market_claims")
@@ -630,7 +649,7 @@ local function claim_market(f, agent, tick, b)
     end
   end
   if Profiler.enabled() then note_miss(f, b, list, npc, ctx, reg, tried) end -- (relecture de revue-danger : mesure, jamais sans profileur)
-  return nil
+  return nil, empty_why(list, idx, npc, n_matiere, tries)
 end
 
 --- Lot IA3-b : à la pensée d'équipe (après l'organisation et le fond), meilleures paires PNJ inactif × tâche libre
@@ -849,7 +868,7 @@ end
 function Board.claim(f, agent, tick)
   local b = Board.get(f)
   if Board.market(f) then
-    local best = claim_market(f, agent, tick, b)
+    local best, why = claim_market(f, agent, tick, b)
     if best then
       best.worker = agent.id
       best.claimed = tick
@@ -864,7 +883,7 @@ function Board.claim(f, agent, tick)
       end
       if b.hinted then b.hinted[best.key] = nil end
     end
-    return best
+    return best, why
   end
   local list = b.list
   local org = agent.org
