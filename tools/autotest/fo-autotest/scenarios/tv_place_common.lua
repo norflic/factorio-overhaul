@@ -7,7 +7,7 @@
   (2, 0) [44, 68) porte la majeure partie du fer (35 tuiles, hors du rayon 1 du plan : jamais relevé), le lot (1, 0) [16, 40) n'en a que 8 tuiles
   mais la sonde de 30 x 30 [13, 43) en voit 35 : lot en BORD de gisement (G37). Treillis de rayon 1 (9 lots) : les relevés finissent en
   100 ticks, les plans en 400 (à rayon 3, le premier plan n'arrivait qu'à 2 500 ticks). Des arbres tous les 5 tuiles sur x dans [-53, -14), y dans [-53, 53) : les lots (-1, j) sont « à
-  défricher » (G38). Coffre d'équipe VIDE (aucune matière : les projets restent planifiés en « reserve », les PNJ sont libres de couper).
+  défricher » (G38). Un étang dans le lot (0, 1) pour la centrale (demandée d'abord). Coffre d'équipe VIDE (aucune matière : les projets restent planifiés en « reserve », les PNJ sont libres de couper).
   Deux demandes à t = 300 : R1 = engrenages (7 x 7, « fabrique ») avec `near` = centre du lot (1, 0), R2 = engrenages à 6 ensembles (23 x 7 : tient
   dans un lot de 24 avec une marge de 0, pas avec une marge de 1 : C07).
   Attendu (variante allumée) : lot (1, 0) en bord de gisement ; R1 ailleurs que dans (1, 0) ; R2 planifiée par le repli simple ; au moins un lot
@@ -41,6 +41,11 @@ local function shape(ctx)
   local tiles = {}
   for y = c.y - HALF, c.y + HALF - 1 do for x = c.x - HALF, c.x + HALF - 1 do tiles[#tiles + 1] = { name = "grass-1", position = { x, y } } end end
   s.set_tiles(tiles, true)
+  -- étang de rayon 9 centré en (4, 28) : le lot (0, 1) devient une rive (20 % d'eau), la centrale du plan y trouve son eau (sans quoi elle part
+  -- chercher de l'eau au loin pendant 2 500 ticks et RIEN d'autre n'est planifié : « un projet ne se planifie qu'après la centrale »)
+  local water = {}
+  for dy = -9, 9 do for dx = -9, 9 do if dx * dx + dy * dy <= 81 then water[#water + 1] = { name = "water", position = { 4 + dx, 28 + dy } } end end end
+  s.set_tiles(water, true)
   -- disque de fer, rayon 5, centré en (43, 0)
   for dy = -5, 5 do
     for dx = -5, 5 do
@@ -85,6 +90,8 @@ return function(on)
       if not chest then return end
       st.chest = chest
       ctx.check(ctx.remote("fo-ia1d", "enable", "player", { seul = true, ghosts_ahead = false, radius = 1 }) == true, "plan directeur active")
+      st.plant = ctx.remote("fo-ia1d", "request", "player", { gen = "steam", args = { 1 }, feed = true })
+      ctx.check(st.plant ~= nil, "centrale demandee d'abord (le plan ne planifie rien avant elle)")
       st.t0 = game.tick
     end,
 
