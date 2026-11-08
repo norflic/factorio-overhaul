@@ -94,6 +94,37 @@ do
   check(not asked3 and #requests == 0, "3.7 le quai est déjà relié (lien en cours) : pas de seconde demande")
 end
 
+-- §3 bis lot RAPATRIEMENT : sorties deja reliees retirees, tampon producteur
+do
+  set_bus(true)
+  local f, b, st, c = world(90, function(_, bb) bb.rapatriement = { lines = { ["1:o1"] = { pid = 9, item = "x", flow = 0.5, tampon = { x = 0, y = 5 }, done = true, owner = true } } } end)
+  requests = {}
+  run(f, b, st, c, 1000)
+  run(f, b, st, c, 1000 + Bus.PERIOD + 10)
+  check(#requests == 0, "3.8 la sortie 1:o1 est deja reliee par une ligne de rapatriement : plus de producteur, aucun bus")
+  -- tampon : coffre presque vide (n < Bus.STOCK_MIN), debit de la ligne finie (2/s = 120/min) : producteur
+  local f2, b2, st2, c2 = world(90, function(_, bb, _, cc)
+    cc.srcs[1].n = 3
+    bb.rapatriement = { lines = { ["7:o1"] = { pid = 9, item = "x", flow = 2.0, tampon = { x = -10, y = 0 }, done = true, owner = true } } }
+  end)
+  requests = {}
+  run(f2, b2, st2, c2, 1000)
+  run(f2, b2, st2, c2, 1000 + Bus.PERIOD + 10)
+  check(#requests == 1 and requests[1].liaison.src.key == "1:o1", "3.9 le tampon (débit de la ligne finie) est un producteur ordinaire, meme coffre presque vide")
+  -- ligne encore en construction : pas de debit, donc pas de producteur
+  local f3, b3, st3, c3 = world(90, function(_, bb, _, cc)
+    cc.srcs[1].n = 3
+    bb.rapatriement = { lines = { ["7:o1"] = { pid = 9, item = "x", flow = 2.0, tampon = { x = -10, y = 0 }, done = false, owner = true } } }
+  end)
+  requests = {}
+  run(f3, b3, st3, c3, 1000)
+  run(f3, b3, st3, c3, 1000 + Bus.PERIOD + 10)
+  check(#requests == 0, "3.10 ligne pas finie : le tampon ne produit rien encore")
+  -- sans rapatriement (champ absent) : comportement inchange
+  local f4, b4, st4, c4 = world(90)
+  check(b4.rapatriement == nil, "3.11 (témoin) sans le lot RAPATRIEMENT : aucun état attendu")
+end
+
 -- §4 paire à portée de la liaison de quai : laissée à elle
 do
   local f, b, st, c = world(30)

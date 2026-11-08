@@ -83,12 +83,25 @@ function Bus.start(h, f, surface, tick, b, st, c)
   local hq = f.hq and f.hq.valid and f.hq.position
   if not hq then return false end
   local P, C, maps = {}, {}, { docks = {}, srcs = {} }
+  -- lot RAPATRIEMENT : une sortie lointaine deja reliee par une ligne (b.rapatriement.lines[clé]) n'est plus un producteur (double compte) ;
+  -- son coffre TAMPON en est un, au debit des lignes finies qui y menent (objets/s -> /min)
+  local rap = b.rapatriement and b.rapatriement.lines or {}
+  local tamp = {}
+  for _, k in ipairs(sorted_keys(rap)) do
+    local l = rap[k]
+    if l.done and l.tampon and l.item then
+      local tk = l.item .. "@" .. math.floor(l.tampon.x) .. ":" .. math.floor(l.tampon.y)
+      tamp[tk] = (tamp[tk] or 0) + (l.flow or 0) * 60
+    end
+  end
   for _, s in ipairs(c.srcs) do
-    if s.item and not s.linked then
+    if s.item and not s.linked and not rap[s.key] then
       local p = b.projects[s.pid]
       local nout = math.max(1, #((p and p.outs) or {}))
       local out = p and p.outflow and p.outflow[s.item]
       local rate = out and out * 60 / nout or nil
+      local tr = tamp[s.item .. "@" .. s.x .. ":" .. s.y]
+      if tr and tr >= 1 then rate = tr end
       if not rate and (s.n or 0) >= Bus.STOCK_MIN then rate = Bus.FALLBACK_RATE end
       if rate and rate >= 1 then
         P[#P + 1] = { key = s.key, item = s.item, x = s.x, y = s.y, rate = rate, _d = math.abs(s.x - hq.x) + math.abs(s.y - hq.y) }
