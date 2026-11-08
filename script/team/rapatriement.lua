@@ -38,6 +38,8 @@ Rap.SETTING = "fo-war-rapatriement"
 local CHEST = T.outposts.coal.sink -- le coffre de sortie des projets du plan directeur (shared/team/config.lua), comme script/team/collecte.lua
 local SKIP_KEYS = { "alim", "raccord", "enceinte", "liaison", "quartier", "rapatriement" } -- des sites (champ, pétrole) PORTENT des sorties : ils sont lus
 local DEAD = { refuse = true }
+local POLE_SET = {}
+for _, name in ipairs(M.POLES) do POLE_SET[name] = true end -- les poteaux des données de modules.lua, aucun nom écrit ici
 local CHUNK = 32
 local CELL = P.ANCHOR_STEP or 8
 local ASTAR_MAX = 60000 -- noeuds développés au plus par tracé (P.ASTAR_MAX : 6000)
@@ -177,9 +179,10 @@ local function pick_names(b, plist)
     end
     for _, e in ipairs(p and p.ents or {}) do
       local s = M.spec(e.name)
-      if s and s.kind == "inserter" and not s.burner and s.reach == 1 then
+      -- un bras électrique de portée 1 (la donnée `rate` avec `reach` 1, hors brûleur) ; un poteau 1 x 1 (les poteaux des données de modules.lua)
+      if s and s.rate and s.reach == 1 and not s.burner then
         if not rate or s.rate > rate or (s.rate == rate and e.name < arm) then arm, rate = e.name, s.rate end
-      elseif s and s.kind == "pole" and s.w == 1 and s.h == 1 then
+      elseif s and POLE_SET[e.name] and s.w == 1 and s.h == 1 then
         if not wire or s.wire > wire or (s.wire == wire and e.name < pole) then pole, wire = e.name, s.wire end
       end
     end
