@@ -632,7 +632,7 @@ Champ.powered_pole = powered_pole
 Build.SITES = Build.SITES or {}
 --- Lot FONDERIE : raccorde TOUTES les composantes des poteaux de `ents` (projet d'une bande ou d'un réseau du charbon) à un poteau alimenté
 --- (Ra.connect). Ajoute les poteaux de liaison à `ents` ; rend (poteaux posés, nil, nil, composantes) ou (nil, raison, attente).
-local function raccord_tous(f, surface, bd, ents, cx, cy)
+local function raccord_tous(f, surface, bd, ents, cx, cy, proj)
   local wire = bd.spec.pole.wire
   local own = {}
   for _, e in ipairs(ents) do if e.name == bd.names.pole then own[#own + 1] = { x = e.x, y = e.y } end end
@@ -657,31 +657,51 @@ local function raccord_tous(f, surface, bd, ents, cx, cy)
     end
     grow(best.x, best.y)
   end
-  x0, y0, x1, y1 = math.floor(x0) - 8, math.floor(y0) - 8, math.ceil(x1) + 8, math.ceil(y1) + 8
-  local blocked = blocked_in(f, surface, x0, y0, x1, y1, bd.spec.mine)
+  -- lot RACCORD-BANDE : chaîne par paliers (Ra.tiered_chain : boîte étroite, autour, à travers le minerai), la lecture du moteur n'est faite qu'au
+  -- premier besoin de chaque marge
+  local hull = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }
+  local blocked_by = {}
+  local function blocked_of(margin)
+    local bl = blocked_by[margin]
+    if not bl then
+      bl = blocked_in(f, surface, math.floor(x0) - margin, math.floor(y0) - margin, math.ceil(x1) + margin, math.ceil(y1) + margin, bd.spec.mine)
+      blocked_by[margin] = bl
+    end
+    return function(tx, ty) return bl[Ch.key(tx, ty)] ~= nil end
+  end
   local used = {}
   for _, e in ipairs(ents) do for _, t in ipairs(P.tiles_of(e)) do used[Ch.key(t[1], t[2])] = true end end
   local ore = {}
   for i = 1, #bd.spec.ore - 1, 2 do ore[Ch.key(bd.spec.ore[i], bd.spec.ore[i + 1])] = true end
-  -- (comme le raccord 0.6.41) une chaîne ne passe sur le minerai que dans les rangées de SA bande
+  -- (comme le raccord 0.6.41) une chaîne ne passe sur le minerai que dans les rangées de SA bande, sauf dernier palier
   local b1 = bd.plan.bands[1]
   local v0, v1 = b1 and b1.pr or 0, b1 and (b1.pr + bd.plan.pitch) or -1
-  local function free(x, y)
-    local tx, ty = math.floor(x), math.floor(y)
-    if tx < x0 or tx > x1 or ty < y0 or ty > y1 then return false end
-    local k = Ch.key(tx, ty)
-    local v = (bd.plan.axis == "x") and ty or tx
-    return not blocked[k] and not used[k] and (not ore[k] or (v >= v0 and v <= v1))
-  end
+  local axis_x = bd.plan.axis == "x"
+  local tier_used = {}
+  -- un palier par essai quand le projet est connu (coût d'un essai = celui d'une recherche, ~5 ms) : proj.rtier = palier du prochain essai
+  local only = proj and (proj.rtier or 1) or nil
   local added, fails = Ra.connect(own, targets, wire, function(a, b)
-    local ch = P.pole_chain(a, b, wire, false, free, nil)
+    local ch, tier = Ra.tiered_chain(a, b, { tier = only, hull = hull, reach = wire, pole_chain = P.pole_chain, blocked = blocked_of, used = used, key = Ch.key,
+      ore = function(tx, ty) return ore[Ch.key(tx, ty)] == true end,
+      rows = function(tx, ty) local v = axis_x and ty or tx return v >= v0 and v <= v1 end })
     for _, c in ipairs(ch or {}) do used[Ch.key(math.floor(c.x), math.floor(c.y))] = true end
+    if ch and tier ~= Ra.TIERS[1].name then tier_used[tier] = (tier_used[tier] or 0) + 1 end
     return ch
   end)
+  for _, nm in ipairs({ Ra.TIERS[2].name, Ra.TIERS[3].name }) do
+    if tier_used[nm] then say(f, string.format("raccord de bande : %d chaine(s) de poteaux trouvee(s) %s (la boite etroite n'en donnait aucune)", tier_used[nm], nm)) end
+  end
+  if #fails > 0 and only and only < #Ra.TIERS then
+    proj.rtier = only + 1
+    return nil, string.format("raccord de bande : palier « %s » sans chaine jusqu'au reseau alimente, palier « %s » au prochain essai",
+      Ra.TIERS[only].name, Ra.TIERS[only + 1].name), true
+  end
   if #fails > 0 then
     local n = 0
     for _, x in ipairs(fails) do n = n + x.n end
-    return nil, string.format("%d composante(s) de poteaux (%d poteaux) sans chaine jusqu'au reseau alimente", #fails, n)
+    local d = fails[1] and fails[1].d
+    return nil, string.format("%d composante(s) de poteaux (%d poteaux) sans chaine jusqu'au reseau alimente (%s, %s, %s essayes%s)", #fails, n,
+      Ra.TIERS[1].name, Ra.TIERS[2].name, Ra.TIERS[3].name, d and string.format(" ; plus proche cible a %.0f tuiles", d) or "")
   end
   for _, c in ipairs(added) do ents[#ents + 1] = { name = bd.names.pole, x = c.x, y = c.y, dir = 0, role = "liaison" } end
   return #added, nil, nil, nc
@@ -750,7 +770,7 @@ Build.SITES.champ = function(f, surface, p, h)
     -- lot FONDERIE (3/11, ENERGIE4, lot7bis-20261020 : colonne de 16 à 20 poteaux à 101 tuiles du réseau, foreuses de charbon à 65 tuiles,
     -- jamais raccordées) : TOUTES les composantes des poteaux du projet rejoignent un poteau ALIMENTÉ (shared/team/champ_raccord.lua) ;
     -- les poteaux d'une bande voisine (déjà au plan, retirés ci-dessus) ne comptent pas : son projet peut ne jamais finir
-    local n_r, why_r, wait_r, nc = raccord_tous(f, surface, bd, ents, cx, cy)
+    local n_r, why_r, wait_r, nc = raccord_tous(f, surface, bd, ents, cx, cy, p)
     if not n_r then return nil, "champ: " .. why_r, wait_r end
     chain_n, comps, net = n_r, nc, true
   else
