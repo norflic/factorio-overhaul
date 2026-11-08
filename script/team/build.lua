@@ -5233,6 +5233,7 @@ function Build.report(f)
     lots_refused = st.lots_refused, segs_closed = st.segs_closed, plan_refused = st.plan_refused,
     ghosts = st.ghosts, ghost_refused = st.ghost_refused, revived = st.revived, revive_fail = st.revive_fail,
     cleared = st.cleared, filled = st.filled, collected = st.collected, npc_blocks = st.npc_blocks or 0,
+    trips_collect = st.trips_collect or 0, trips_fill = st.trips_fill or 0, rapatrie = st.rapatrie or 0, -- lot RAPATRIEMENT : voyages de PNJ terminés, objets arrivés par tapis aux tampons
     route_calls = st.route_calls or 0, route_nil = st.route_nil or 0, route_resets = ROUTE_RESETS[f.key or "player"] or 0,
     self_skips = st.self_skips or 0,
     street_walks = st.street_walks, street_ok = st.street_ok, street_stuck = st.street_stuck,

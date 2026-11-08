@@ -408,5 +408,28 @@ do
   check(l1 == l2, "G7.2 deux parties identiques : meme journal")
 end
 
+-- G8 : une sortie qui ne se paie pas est écrite une fois, pas à chaque relevé ------------------------------------
+do
+  logs = {}
+  local W = new_world()
+  local f, b = new_team(W)
+  SETTING_ON = true
+  b.projects[1].outs = { { x = 80.5, y = 0.5, at = 200 } } -- 80 tuiles du QG, 0,1 objet/s
+  W.chests["150:20"] = nil
+  W.chest(80, 0, "A", 0)
+  W.pole(82, 2)
+  local api = api_for(b)
+  local tick = 0
+  for _ = 1, 24 do
+    tick = tick + Rp.PERIOD
+    W.chests["80:0"].n = W.chests["80:0"].n + 3
+    for _ = 1, 40 do Rap.step(api, f, W.surface, tick); tick = tick + 5 end
+  end
+  local reqs = 0
+  for _, pid in ipairs(b.order) do if b.projects[pid].spec.rapatriement then reqs = reqs + 1 end end
+  check(reqs == 0, "G8.1 petite sortie proche : aucune ligne (" .. reqs .. ")")
+  check(logs_with("ne se paie pas") == 1, "G8.2 refus ecrit UNE fois en 24 releves (" .. logs_with("ne se paie pas") .. ")")
+end
+
 print(string.format("[RAPATRIEMENT-GLUE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

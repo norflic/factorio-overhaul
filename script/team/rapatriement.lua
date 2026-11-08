@@ -61,10 +61,14 @@ end
 
 local function say(f, tick, text) log(text) end
 
-local function note(st, f, tick, key, text)
-  if st.said[key] == text then return end
-  st.said[key] = text
-  say(f, tick, text)
+Rap.NOTES = 80 -- lignes « laissee » au plus par équipe (le journal d'une partie de 8 h ne se noie pas)
+
+--- Une ligne « laissée » ou « en attente » : écrite quand sa SIGNATURE (action et début de la cause, sans les nombres qui bougent) change.
+local function note(st, f, tick, key, sig, text)
+  if st.said[key] == sig then return end
+  st.said[key] = sig
+  st.nnotes = (st.nnotes or 0) + 1
+  if st.nnotes <= Rap.NOTES then say(f, tick, text) end
 end
 
 local function new_state(tick)
@@ -166,6 +170,11 @@ end
 local function pick_names(b, plist)
   local arm, rate, pole, wire
   local function scan(p)
+    local nm = p and p.spec and p.spec.names -- module fictif de banc (remote fo-rapatriement inject) : pièces données
+    if nm and nm.arm and not arm then
+      arm, rate = nm.arm, (M.spec(nm.arm) or {}).rate
+      if nm.pole then pole = nm.pole; wire = (M.spec(nm.pole) or {}).wire end
+    end
     for _, e in ipairs(p and p.ents or {}) do
       local s = M.spec(e.name)
       if s and s.kind == "inserter" and not s.burner and s.reach == 1 then
@@ -368,8 +377,9 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
       local flow = math.min(cd.flow, arm_rate or cd.flow)
       local belt = Conv.choose(f, flow)
       if not (arm and belt) then
-        note(st, f, tick, s.key, Rp.text("laissee", { team = f.key, tick = tick, key = s.key, item = s.item, flow = cd.flow, d_src = cd.d_src, x = cd.point.x, y = cd.point.y,
-          action = "pas de ligne", cause = not arm and "aucun bras electrique connu de l'equipe" or "aucun tapis debloque" }))
+        local why_not = not arm and "aucun bras electrique connu de l'equipe" or "aucun tapis debloque"
+        note(st, f, tick, s.key, "pas de ligne|" .. why_not, Rp.text("laissee", { team = f.key, tick = tick, key = s.key, item = s.item, flow = cd.flow, d_src = cd.d_src,
+          x = cd.point.x, y = cd.point.y, action = "pas de ligne", cause = why_not }))
       else
         asked = true
         if (st.tries[s.key] or 0) >= Rp.MAX_TRIES then st.tries[s.key] = Rp.MAX_TRIES - 1 end
@@ -391,8 +401,8 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
         end
       end
     else
-      note(st, f, tick, s.key, Rp.text("laissee", { team = f.key, tick = tick, key = s.key, item = s.item, flow = cd.flow, d_src = cd.d_src, x = cd.point.x, y = cd.point.y,
-        action = action, cause = reason }))
+      note(st, f, tick, s.key, action .. "|" .. reason:sub(1, 18), Rp.text("laissee", { team = f.key, tick = tick, key = s.key, item = s.item, flow = cd.flow,
+        d_src = cd.d_src, x = cd.point.x, y = cd.point.y, action = action, cause = reason }))
     end
   end
 end
