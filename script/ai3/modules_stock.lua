@@ -41,17 +41,19 @@ end
 
 --- Nom du statut d'une machine d'un groupe du relevé (entité du groupe à la position de l'unité), ou nil hors du jeu. Lecture seule.
 --- (game.get_entity_by_unit_number n'existe pas en 1.1.91 : banc modules-poses du 8/11, 12 h 42.)
-local STATUS_NAMES = nil
+-- (Table des noms posée UNE fois, en CHAMP du module et non en local de module : règle de tests/upvalue_gc_test.lua, F403.)
+RT.status_names = nil
 function RT.status_of(f, g, u)
   if not (defines and f and f.hq and f.hq.valid) then return nil end
-  if not STATUS_NAMES then
-    STATUS_NAMES = {}
-    for name, id in pairs(defines.entity_status) do STATUS_NAMES[id] = name end
+  if not RT.status_names then
+    local names = {}
+    for name, id in pairs(defines.entity_status) do names[id] = name end
+    RT.status_names = names
   end
   local list = f.hq.surface.find_entities_filtered({ position = { u.x, u.y }, name = g.entity, force = f.force, limit = 1 })
   local e = list[1]
   if not (e and e.valid) then return nil end
-  return STATUS_NAMES[e.status]
+  return RT.status_names[e.status]
 end
 
 RT.SAMPLE = 6 -- unités lues par groupe (statut)
