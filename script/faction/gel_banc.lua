@@ -3,7 +3,8 @@
   L1_CRITERES.md §4, C1 à C7). Un GROUPE DE BANC est un jeu d'îlots d'une force quelconque, soumis à LA même règle de zone et de
   réveil que les factions (script/faction/gel_usines_jeu.lua, guet), mais dont les causes (attaque, perte, menace) et les joueurs
   sont posés par le banc : la comparaison avec une jumelle active ne dépend pas des décisions d'une faction.
-  Aucune partie ordinaire n'a de groupe de banc (u.bancs vide) : rien ne change pour le DC.
+  Aucune partie ordinaire n'a de groupe de banc (u.bancs vide) : rien ne change pour le DC. Toute l'interface est de BANC : aucun
+  appel dans le mod (grep de « "fo-gel" » hors de ce fichier : vide) ; « reglage » n'écrit le réglage que si un banc l'appelle.
 
   remote.call("fo-gel", ...) :
     banc(nom, force)                 crée (ou remet à zéro) le groupe ;
@@ -187,7 +188,8 @@ remote.add_interface("fo-gel", {
     return { STEP = Gu.STEP, CALM = G.CALM, GUET = G.GUET, WAKE_R = G.WAKE_R, FREEZE_R = G.FREEZE_R, WRITES = Gel.WRITES }
   end,
   -- C20 (gain net, série A/B sur la partie du DC) : le réglage de carte écrit par le MOD lui-même (un mod ne peut écrire que ses
-  -- propres réglages : le mod de test passe par ici) ; rend Gel.on() relu juste après.
+  -- propres réglages : le mod de test passe par ici) ; rend Gel.on() relu juste après. INTERFACE DE BANC SEULEMENT : rien dans le mod
+  -- ne l'appelle ; sans appel d'un banc (mod de test, scénarios x10-gel-c20-*), elle n'a aucun effet sur une partie.
   reglage = function(on)
     settings.global[Gel.SETTING] = { value = on == true }
     return Gel.on()
