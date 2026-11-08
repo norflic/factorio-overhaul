@@ -398,13 +398,14 @@ remote.add_interface("fo-dbg-cerveau", {
       for _ = 1, slices or 1 do slice_force(st, t.id, game.tick) end
       local rows = Cv.rows(t.f, s, game.tick)
       local c = { vert = 0, orange = 0, rouge = 0, gris = 0 }
-      local alertes, mesurees = 0, 0
+      local alertes, mesurees, io_n = 0, 0, 0
       for _, r in ipairs(rows) do
         c[r.color] = (c[r.color] or 0) + 1
         if r.sev == "alerte" then alertes = alertes + 1 end
         if r.z.mtick then mesurees = mesurees + 1 end
+        if r.z.io then io_n = io_n + #r.z.io.ins + #r.z.io.outs end
       end
-      out[#out + 1] = { id = tostring(t.id), key = t.key, zones = #s.order, mesurees = mesurees, couleurs = c, alertes = alertes, anneau = #An.get(t.key) }
+      out[#out + 1] = { id = tostring(t.id), key = t.key, zones = #s.order, mesurees = mesurees, couleurs = c, alertes = alertes, anneau = #An.get(t.key), liens = #(s.links or {}), ios = io_n }
     end
     if st.open_n == 0 then st.snaps = {} end
     return out

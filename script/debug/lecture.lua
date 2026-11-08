@@ -370,6 +370,9 @@ function Lec.npc(f, agent, now)
     end
   end
   out.stuck = agent.stuck
+  -- l'équipe : PNJ affamés et travail ouvert par la file sûre à la dernière pensée (f.team.org.sur.last, lot INACTIFS, [FO-INACTIF])
+  local sl = f.team and f.team.org and f.team.org.sur and f.team.org.sur.last
+  if type(sl) == "table" then out.team_sur = { starved = sl.starved, want = sl.want, service = sl.service, mine = sl.mine } end
   return out
 end
 
