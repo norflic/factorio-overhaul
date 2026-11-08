@@ -1,4 +1,24 @@
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Version: 0.6.62
+Date: 2026-11-08
+  Changes:
+    - Coffres pleins : de nouveaux coffres annexes se posent sur les deux faces du lot du QG (jamais sur vos propres coffres) ; les objets au sol autour du coffre de l equipe sont ramasses ; une place bloquee seulement par des objets au sol est degagee ; un lot de coffres refuses donne une seule annexe (une faction en posait 79 d un coup). Sur une copie de votre sauvegarde, en une minute : 9 annexes, objets au sol de 1 717 a 1 507.
+    - Plantage corrige : la collecte d un coffre de sortie arretait la partie quand le stock refusait une matiere (defaut present mais endormi en 0.6.61, reveille par les coffres pleins).
+    - Remise directe : ce qu un module en attente de materiaux reclame est remis par le PNJ qui le porte, avant le coffre ; un coffre plein ne bloque plus les chaines (diagnostic de votre partie : 48 modules abandonnes apres 15 min d attente).
+    - Ordre de construction : parmi les options du rang retenu, la decision construit d abord ce qui couvre le plus gros manque mesure ; un objet n est pas repose tant que son manque mesure n a pas bouge ; pas deux grosses unites de suite.
+    - Laboratoires et quotas : les laboratoires publient leur manque de packs ; les munitions des tourelles deviennent un but ; un coffre a plusieurs produits partage sa place ; la recherche s arrete quand le transport sature.
+    - Minerai (L9 en entier) : un lot devient gisement quand un minerai passe son seuil (tuiles, quantite, ou somme ; uranium a partir de 100 000) et reste reserve meme en crise d energie ; le releve est refait apres un evenement qui change la place.
+    - Confirmation et gardes : un module n ouvre pas le suivant avant d avoir produit ; un plan refuse par un executant occupe est relance (deux fois au plus) ; une centrale finie dont la capacite n est pas lue ferme les options electriques ; cinq gardes se ferment quand leur mesure manque (place de chantier, admission a la centrale, danger, croissance des ilots, collecte), chacune avec son refus ecrit.
+    - Avant-postes : les foreuses thermiques sont remplacees peu a peu par des foreuses electriques avec leur chaine de poteaux (une reserve de 3 thermiques est gardee) ; calcul du remplacement 2,6 fois moins cher.
+    - Explosions de mort des unites et des batiments : recreees par le mod seulement pres d un joueur (200 tuiles), identiques a l ecran ; plus rien au loin (votre choix du 7/11 : allegees loin de vous seulement).
+    - Kit offert : un PNJ de depart tue ne laisse plus son pistolet ni ses chargeurs (filtre de l evenement de mort).
+    - Crateres des geants : un cratere dont le sol d origine n existe plus reste cratere au lieu de provoquer une erreur ; rive d un lac rendue a l herbe, eau intacte.
+    - Charge : releve du reseau electrique decoupe en largeur sous un budget de travaux lourds par tick ; recherche des generatrices par registre au lieu d une recherche sur la carte. Le gain en jeu sera mesure plus tard (PC au repos).
+    - Journaux nouveaux, sans effet sur les decisions : [FO-CAPI-REFUS] (refus par sorte), [FO-RANG] (rang de la decision quand il change), [FO-JALON] (epoque atteinte par chaque faction), [FO-STOCKAGE] (depots refuses, poches pleines).
+    - Tests remis au vert : axe, morts, charbon_centrale, et trois tests de l equipe (survie, armee, effectif).
+    - Preuves : content 554 OK sur 4d6bd2df ; rejeu de votre sauvegarde 3 700 ticks sans erreur (3 OK) ; pvp 1 312, war 106, decoupage_pensee 51, capi_decide 23 ; harness 0 erreur, 0 fichier manquant ; api_lint 2 978 usages 0 erreur (archive fo-logs/2026-11-08_ESSAI-0662).
+    - Pas encore dans cette version : correctifs C1 et C2 des coffres (objets demandes acceptes au depot, matieres saturees qui n entrent plus) ; cadence lente des factions lointaines (S10) ; PNJ libres bloques au retour au QG (gel away) ; repli thermique des foreuses quand le reseau tombe ; plafonds et exclusion d objets ; soupape des fluides (regle prete, pas branchee) ; designs du titan (votre choix attendu).
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Version: 0.6.61
 Date: 2026-11-07
   Changes:
