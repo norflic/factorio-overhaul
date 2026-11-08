@@ -1829,6 +1829,8 @@ local function s20()
   local lu = Ca.decide(iron_scene(D, 150, { power = { have_kw = 1000, used_kw = 0 } }), {})
   check(find(lu, "couvrir:d1") ~= nil, "§20 C5.4 : capacité lue (1 000 kW) : les foreuses sont décidées")
   check(r1.kw ~= nil and r1.kw.have == 0, "§20 C5.4 : le courant rendu reste celui d'avant (capacité 0)")
+  -- lot 5b : centrale détruite (capacité ≤ 0 lue comme relevé vide) : aucune foreuse électrique, mais les kW retenus remontent (la centrale grandit)
+  check(r1.kw.blocked > 0, "§20 5b : relevé vide : les kW des foreuses retenues sont comptés (reconstruction de la centrale demandée, pas bloquée) : " .. tostring(r1.kw.blocked))
   -- les cycles de la décision sont rendus pour l'amorce (C5.1) ; aucun sans cycle
   -- (intégrateur, 7/11 23 h 55 : sans cycle ni graine, le champ est absent, pour garder l'identité rang allumé / éteint de
   -- rang_cablage_test §2 ; le cas AVEC cycle est contrôlé par amorce_test et amorce_glue_test)

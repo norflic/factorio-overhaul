@@ -33,6 +33,7 @@ local Dg = require("shared.ai3.danger") -- carte du danger (lot IA3-k) : lue seu
 local State = require("script.faction.state")
 local Build = require("script.team.build")
 local Board = require("script.team.board") -- (reprise 0.6.20 : chargé ici, plus par un require pendant un appel distant, F24)
+local Gens = require("script.team.generateurs") -- lot X10-S4 : registre des génératrices (plus de recherche sur toute la surface)
 local Profiler = require("script.core.profiler")
 local Storage = require("script.core.storage")
 local Events = require("script.core.events")
@@ -376,11 +377,7 @@ end
 local function nearest_network(f, surface, x, y, b)
   -- Réseaux ALIMENTÉS : ceux d'une centrale (génératrice). Le poteau le plus proche peut être celui d'un
   -- avant-poste isolé : la ligne y arrivait sans courant (moteur réel, etape1-guide, 28/10 : site fini, « no_power »).
-  local powered = {}
-  for _, g in ipairs(surface.find_entities_filtered({ type = "generator", force = f.force })) do
-    local id = g.electric_network_id
-    if id then powered[id] = true end
-  end
+  local powered = Gens.networks(surface, f.force, "generator") -- lot X10-S4 : registre des génératrices
   local poles = surface.find_entities_filtered({ position = { x, y }, radius = Fl.POLE_LINE_MAX, type = "electric-pole", force = f.force })
   local best
   for pass = 1, 2 do -- 1 : poteaux d'un réseau alimenté ; 2 : n'importe lequel (aucune centrale vue)
@@ -406,6 +403,7 @@ local function nearest_network(f, surface, x, y, b)
   end
   return best
 end
+Pet._nearest_network = nearest_network -- (lot X10-S4) appel direct du micro-banc x10-s4-ombre (script/team/generateurs.lua) ; aucun autre usage
 
 local function pole_of(f, rel)
   for _, n in ipairs(D.POLES) do

@@ -35,6 +35,7 @@ local Mg = require("shared.team.migration_champ")
 local Rb = require("shared.team.migration_retour") -- lot AZURE : retour en arrière d'une bande qui n'aboutit pas (règle pure)
 local Th = require("shared.team.thermique") -- lot THERMIQUE : couvert, balayage, protection, ordre, créneaux (règle pure)
 local Rc = require("shared.team.reconstruction")
+local Gens = require("script.team.generateurs") -- lot X10-S4 : registre des génératrices (plus de recherche sur toute la surface)
 local State = require("script.faction.state")
 local Stock = require("script.team.stock")
 local Build = require("script.team.build")
@@ -44,6 +45,7 @@ local Ra = require("script.team.reserve_amorcage") -- lot FOREUSES-THERMIQUES : 
 local Sw = require("shared.team.foreuse_swap") -- (Sw.reserve_keepers : les K gardées d'un retrait de masse)
 local PileRt = require("script.team.pile") -- lot THERMIQUE5 : porte de la pile pour le départ d'une bande neuve pendant une retenue
 
+local Profiler = require("script.core.profiler") -- lot X10-S0 : portees fines (mesure seulement)
 local Mig = {}
 
 local CFG = Mg.CFG
@@ -539,11 +541,14 @@ local function fuel_burn(f, surface)
   local value = proto and proto.fuel_value or 0
   if value <= 0 then return 0 end
   local watts = 0
-  for _, g in ipairs(surface.find_entities_filtered({ type = "generator", force = f.force })) do
+  -- Lot X10-S4 : registre des génératrices ; somme dans l'ordre des unit_number, au lieu de l'ordre du moteur (à l'arrondi près ;
+  -- fo-logs/2026-11-07_X10/S4_CRITERES.md §2)
+  for _, g in ipairs(Gens.list(surface, f.force, "generator")) do
     if g.valid then watts = watts + (g.energy_generated_last_tick or 0) * 60 end
   end
   return watts / value
 end
+Mig._fuel_burn = fuel_burn -- (lot X10-S4) appel direct du micro-banc x10-s4-ombre (script/team/generateurs.lua) ; aucun autre usage
 
 --- Gisements de la force pour la règle pure : un par propriétaire de champ (les voisins du même gisement lui sont rattachés), un par
 --- avant-poste ou gisement voulu sinon. Rend (liste, par numéro).
@@ -1604,12 +1609,17 @@ function Mig.think(f, surface, book, free, tick, hold)
   ms.next = tick + CFG.every
   if tick >= (ms.report_next or 0) then -- lot CHAMP : état des bandes du champ au journal ([FO-CHAMP-ETAT])
     ms.report_next = tick + Champ.REPORT_EVERY
+    Profiler.fstart("mig:rapport") -- lot X10-S0 : mesure seulement
     Champ.report(f, surface, tick)
+    Profiler.fstop("mig:rapport")
   end
+  Profiler.fstart("mig:melange")
   Melange.pass(f, surface, tick) -- (sa propre horloge : Melange.EVERY)
+  Profiler.fstop("mig:melange")
   local item = T.DRILL_ELECTRIC
   if not game.entity_prototypes[item] then return 0 end
   local did = 0
+  Profiler.fstart("mig:creneaux")
   for _, slot in ipairs(SLOTS) do
     local id = ms[slot]
     if id then
@@ -1636,8 +1646,11 @@ function Mig.think(f, surface, book, free, tick, hold)
       end
     end
   end
+  Profiler.fstop("mig:creneaux")
   -- lot THERMIQUE : balayage des paires thermiques des gisements couverts (une fois par minute) ; lot THERMIQUE5 : aussi pendant une retenue
+  Profiler.fstart("mig:balayage")
   if free and Th.pile_permits("balayer", hold) and sweep(f, surface, ms, free, book, tick) > 0 then did = 1 end
+  Profiler.fstop("mig:balayage")
   -- un créneau libre : trois au plus, un seul par minerai (lot THERMIQUE ; lot CHAMP : deux), la migration du treillis (sans cadre) seule
   local busy = { total = 0, ids = {} }
   for _, slot in ipairs(SLOTS) do
@@ -1652,7 +1665,9 @@ function Mig.think(f, surface, book, free, tick, hold)
   if busy.total >= Th.CFG.slots then return did end
   local have = math.min(Stock.count(f, item), free and free[item] or 0)
   local obtainable = have > 0 or book:handcraftable(item)
+  Profiler.fstart("mig:depart")
   local started = start_next(f, surface, ms, free or {}, obtainable, tick, busy, book, hold)
+  Profiler.fstop("mig:depart")
   return (started or did == 1) and 1 or 0
 end
 

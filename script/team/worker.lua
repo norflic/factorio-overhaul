@@ -2079,8 +2079,9 @@ Events.on_died(function(e)
 end, { types = { "character" }, ennemi = false })
 
 -- 2. le corps rendu (on_post_entity_died) : le kit offert en est retiré (Sp.kit_take), détruit ; la cargaison reste.
--- Sans filtre (décision du lead, option 1 : le noyau events.lua n'est pas touché) : TOUTE mort de la partie passe ici ; une recherche
--- dans la table des morts notées, puis return (quelques µs par mort).
+-- Le bus (events.lua) ne filtre pas ; le FILTRE MOTEUR est posé ici, à on_init et on_load (comme script/team/reparation.lua) : le
+-- moteur ne lève plus l'événement que pour les personnages (relecture de revue-0657, accord du lead, 7/11). LIMITE : tout autre abonné du
+-- bus à on_post_entity_died ne verrait plus, lui aussi, que les personnages (noté dans script/core/events.lua).
 Events.on(defines.events.on_post_entity_died, function(e)
   local u = e.unit_number
   if not u then return end
@@ -2107,6 +2108,10 @@ Events.on(defines.events.on_post_entity_died, function(e)
     end
   end
 end)
+Worker.KIT_POST_FILTER = { { filter = "type", type = "character" } }
+local function kit_post_filter() script.set_event_filter(defines.events.on_post_entity_died, Worker.KIT_POST_FILTER) end
+Events.on_init(kit_post_filter)
+Events.on_load(kit_post_filter)
 
 Registry.on_removed(function(agent)
   -- EFFONDREMENT (parade du kit offert) : un PNJ renvoyé (sans mort) n'a plus de fiche ; mort, sa fiche est déjà passée à `dead`
