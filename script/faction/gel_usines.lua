@@ -140,6 +140,25 @@ local function resources_of(surface, d)
   return out, nil, prod, mt
 end
 
+-- Entités qui peuvent RECEVOIR le dépôt d'une foreuse (seuls coffre et four sont pris ; tout autre receveur rend le refus « bus »).
+local RECEIVERS = { "container", "logistic-container", "linked-container", "infinity-container", "furnace", "assembling-machine",
+  "transport-belt", "underground-belt", "splitter", "loader", "loader-1x1", "linked-belt", "boiler", "burner-generator", "reactor",
+  "mining-drill", "car", "cargo-wagon", "ammo-turret", "artillery-turret", "lab", "rocket-silo" }
+
+--- Cible du dépôt d'une foreuse. `drop_target` reste nil tant que la foreuse n'a rien déposé (fait du micro-banc A du 8/11 : nil au
+--- tick 10 sur 24 foreuses posées par script, alors que le moteur y dépose ensuite) : sinon, l'entité receveuse posée sur
+--- `drop_position` (la plus petite par numéro d'unité). Une foreuse figée ne relit jamais sa cible : même règle au relevé et au pas.
+local function target_of(d)
+  local t = d.drop_target
+  if t and t.valid then return t end
+  local list = d.surface.find_entities_filtered({ position = d.drop_position, type = RECEIVERS })
+  local best = nil
+  for _, e in ipairs(list) do
+    if e.valid and e.unit_number and e.unit_number ~= d.unit_number and (best == nil or e.unit_number < best.unit_number) then best = e end
+  end
+  return best
+end
+
 --- Bras qui touchent une entité (prise ou dépôt), et foreuses qui y déposent : liste triée de foreuses, nombre de bras.
 local function neighbours(surface, t, force)
   local bb = t.bounding_box
@@ -151,8 +170,8 @@ local function neighbours(surface, t, force)
   end
   local feeders = {}
   for _, d in ipairs(surface.find_entities_filtered({ area = area, type = "mining-drill", force = force })) do
-    local dt = d.drop_target
-    if dt and dt == t then feeders[#feeders + 1] = d end
+    local dt = target_of(d)
+    if dt and dt.unit_number == t.unit_number then feeders[#feeders + 1] = d end
   end
   return sorted_by_unit(feeders), arms
 end
@@ -181,8 +200,8 @@ local function discover_pair(f, surface, d)
   if not (d.valid and d.unit_number and d.force.name == f.force) then return nil, "invalide" end
   if d.to_be_deconstructed() then return nil, "a demonter" end
   if not burner_info(d) then return nil, "electrique" end
-  local t = d.drop_target
-  if not (t and t.valid) then return nil, "sans cible" end
+  local t = target_of(d)
+  if not t then return nil, "sans cible" end
   local drills, sink_kind = { d }, nil
   if t.type == "container" or t.type == "logistic-container" then
     sink_kind = "coffre"
@@ -347,6 +366,7 @@ local function faction_box(fid)
 end
 
 Gu.U = U
+Gu.target_of = target_of
 Gu.book, Gu.fuels = book, fuels
 Gu.faction_box = faction_box
 Gu.discover_pair, Gu.discover_four, Gu.register, Gu.unregister = discover_pair, discover_four, register, unregister

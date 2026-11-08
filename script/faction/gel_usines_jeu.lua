@@ -199,8 +199,8 @@ local function still_same(I)
     if e.active then return false, "reactive" end
     local t = I.targets[e.unit_number]
     if t then
-      local dt = e.drop_target
-      if not (dt and dt.valid and dt.unit_number == t) then return false, "cible" end
+      local dt = Gu.target_of(e)
+      if not (dt and dt.unit_number == t) then return false, "cible" end
     end
   end
   return true

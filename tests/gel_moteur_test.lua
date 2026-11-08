@@ -1,7 +1,8 @@
 --[[
   Lot X10-GEL, palier A, au MOTEUR SIMULÉ (monde factice écrit ici : entités, inventaires, gisements, brûleurs, statistiques). Ce
   n'est pas une preuve en jeu : le micro-banc `x10-gel-arene` la fait (L1_CRITERES.md §4, C1 à C7). Ici, la chaîne du runtime :
-    M1  relevé en tranches : 3 îlots (foreuse -> coffre, foreuse -> four, four du QG) ; refus : foreuse électrique, foreuse sur
+    M1  relevé en tranches : 3 îlots (foreuse -> coffre, foreuse -> four, four du QG ; la foreuse -> coffre SANS drop_target, cible lue
+        sur drop_position, comme en moteur réel avant le premier dépôt) ; refus : foreuse électrique, foreuse sur
         tapis, four servi par un bras ;
     M2  joueur loin : figés après Gel.CALM ticks de calme, au guet ; active = false ; Gel.status rend le statut comptable ;
     M3  pas comptables : coffre, sortie du four, source du four du QG, gisement, charbon, statistiques (on_flow), products_finished,
@@ -112,7 +113,14 @@ local function new_world()
       return out
     end
     for _, e in ipairs(W.ents) do
-      if e.valid and type_ok(q.type, e.type) and (q.force == nil or q.force == e.force.name) and in_area(e.position, q.area) then out[#out + 1] = e end
+      local hit
+      if q.position then
+        local bb = e.bounding_box
+        hit = q.position.x >= bb.left_top.x and q.position.x <= bb.right_bottom.x and q.position.y >= bb.left_top.y and q.position.y <= bb.right_bottom.y
+      else
+        hit = in_area(e.position, q.area)
+      end
+      if e.valid and type_ok(q.type, e.type) and (q.force == nil or q.force == e.force.name) and hit then out[#out + 1] = e end
     end
     return out
   end
@@ -180,7 +188,8 @@ local function build_faction()
   local r1 = resource(10.5, 10.5, 1000)
   local d1 = entity({ name = "burner-mining-drill", type = "mining-drill", x = 10.5, y = 10.5, proto = DRILL_P, burner = true, coal = 5 })
   local c1 = entity({ name = "wooden-chest", type = "container", x = 10.5, y = 12, h = 0.5 })
-  d1.drop_target = c1
+  -- fait du micro-banc A (8/11) : drop_target reste nil tant que la foreuse n'a rien déposé ; la cible est lue sur drop_position
+  d1.drop_position = { x = 10.5, y = 12 }
   -- (2) foreuse -> four
   local r2 = resource(20.5, 10.5, 1000)
   local d2 = entity({ name = "burner-mining-drill", type = "mining-drill", x = 20.5, y = 10.5, proto = DRILL_P, burner = true, coal = 5 })

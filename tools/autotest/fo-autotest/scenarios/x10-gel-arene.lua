@@ -144,14 +144,23 @@ return {
       end
       for _, en in ipairs(s.find_entities_filtered({ force = "enemy", area = { { X0 - 160, Y0 - 160 }, { X0 + 220, Y0 + 220 } } })) do en.destroy() end
       st.rows = { A = build_row(s, "A"), B = build_row(s, "B"), T = build_row(s, "T") }
-      local ok_targets = 0
+      -- La cible est relue sur drop_position : drop_target reste nil tant que la foreuse n'a rien déposé (fait du 8/11, relevé ici).
+      local ok_targets, nil_targets = 0, 0
+      local function at_drop(d)
+        local l = s.find_entities_filtered({ position = d.drop_position, type = { "furnace", "container" } })
+        return l[1] and l[1].unit_number
+      end
       for _, k in ipairs({ "A", "B", "T" }) do
         for i = 1, N do
-          if st.rows[k].pairs4[i].d.drop_target == st.rows[k].pairs4[i].f then ok_targets = ok_targets + 1 end
-          if st.rows[k].chests[i].d.drop_target == st.rows[k].chests[i].c then ok_targets = ok_targets + 1 end
+          local p, c = st.rows[k].pairs4[i], st.rows[k].chests[i]
+          if at_drop(p.d) == p.f.unit_number then ok_targets = ok_targets + 1 end
+          if at_drop(c.d) == c.c.unit_number then ok_targets = ok_targets + 1 end
+          if p.d.drop_target == nil then nil_targets = nil_targets + 1 end
+          if c.d.drop_target == nil then nil_targets = nil_targets + 1 end
         end
       end
-      ctx.check(ok_targets == 3 * 2 * N, "arene : chaque foreuse depose dans son four ou son coffre", ok_targets .. " / " .. (3 * 2 * N))
+      ctx.check(ok_targets == 3 * 2 * N, "arene : chaque foreuse a son four ou son coffre sur drop_position", ok_targets .. " / " .. (3 * 2 * N))
+      ctx.log(string.format("fait : drop_target nil au tick 10 (foreuses posees par script, rien depose) : %d / %d", nil_targets, 3 * 2 * N))
       local adopted, why = 0, {}
       for _, k in ipairs({ "A", "B" }) do
         ctx.remote("fo-gel", "banc", k, FORCES[k])
@@ -172,6 +181,9 @@ return {
     elseif t == 700 then
       local fa, fb, ft = count_inactive(machines(st.rows.A)), count_inactive(machines(st.rows.B)), count_inactive(machines(st.rows.T))
       ctx.check(fa == 4 * N and fb == 4 * N, "C1 : A et B figes au tick 700 (machines inactives)", fa .. " et " .. fb .. " / " .. 4 * N)
+      local dn = 0
+      for _, k in ipairs({ "A", "T" }) do for i = 1, N do if st.rows[k].pairs4[i].d.drop_target == nil then dn = dn + 1 end end end
+      ctx.log(string.format("fait : drop_target nil au tick 700 (A figee, T active ; foreuses -> four) : %d / %d", dn, 2 * N))
       ctx.check(ft == 0, "C4 : la jumelle T n'est jamais figee", ft .. " inactive(s)")
       local d = st.rows.A.pairs4[1].d
       ctx.log(string.format("fait : statut moteur d'une foreuse figee = %s (disabled_by_script = %s) ; Gel.status = %s (working = %s)", tostring(d.status),
