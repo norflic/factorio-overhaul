@@ -300,7 +300,15 @@ function Sante.growth(f, tick, plants, used_j, capacity_j)
       end
     end
   end
-  return S.sustain(sm, S.anticipate(used, committed, cap)), stalled, used, committed, cap,
+  local flag = S.anticipate(used, committed, cap)
+  local was_n = sm.ant_n or 0
+  local ant = S.sustain(sm, flag)
+  -- lot TV-ENERGIE (diagnostic azure : hypothèse « le compteur d'anticipation repart à zéro quand les chantiers admis changent d'état ») :
+  -- une ligne quand une avance en cours (>= 2 relevés) est INTERROMPUE, avec les chiffres du relevé, pour la lire en partie réelle
+  if not flag and was_n >= 2 then
+    say(f, { kind = "avance-rompue", tick = tick, n = was_n, used = used, committed = committed, capacity = cap })
+  end
+  return ant, stalled, used, committed, cap,
     S.deficit(f.team and f.team.capi and f.team.capi.kw_blocked, tick) -- lot TV-ENERGIE : déficit de kW avec épargne qui dort
 end
 

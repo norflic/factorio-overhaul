@@ -5380,6 +5380,23 @@ remote.add_interface("fo-ia1d", {
     if type(spec) == "table" and spec.bench == nil and not expansion then spec.bench = "remote" end
     return Build.request(f, spec)
   end,
+  --- Lot TV-ENERGIE (BANC SEULEMENT, micro-banc tv-energie-kw) : pose comme centrale FINIE de l'équipe un projet dont les pièces sont des entités
+  --- RÉELLES déjà créées par le banc (ents = { { name, x, y } }) : le relevé de la centrale (PA.watch, Sante.observe) les lit au moteur.
+  bench_plant = function(key, ents)
+    local f = team_of_key(key)
+    local b = f and f.build
+    if not (b and type(ents) == "table") then return nil end
+    local id = b.next_id
+    b.next_id = id + 1
+    local p = { id = id, spec = { gen = "steam", args = { 1 }, feed = true, plant = true, bench = "remote" }, state = "fini", created = game.tick,
+      finished = game.tick, reason = nil, parts = { { kind = "centrale" } }, ents = {}, wires = {}, stock = {}, quais = {}, outs = {},
+      obstacles = {}, fails = 0, prio = Build.PRIO, domain = "infrastructures" }
+    for _, e in ipairs(ents) do p.ents[#p.ents + 1] = { name = e.name, x = e.x, y = e.y, built = true } end
+    b.projects[id] = p
+    b.order[#b.order + 1] = id
+    b.plant = id
+    return id
+  end,
   status = function(key, id) return Build.status(team_of_key(key), id) end,
   report = function(key) return Build.report(team_of_key(key)) end,
   place = function(key, cmd) return Build.Place.remote(team_of_key(key), cmd) end, -- lot TV-PLACE : compteurs de la sonde 30 x 30, du défrichage préventif et du repli simple (bancs)
