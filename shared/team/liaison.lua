@@ -57,6 +57,18 @@ Li.BATCH = 12               -- entités par aller-retour de chantier
 Li.LABOR_VALUE = 1.0        -- plaques par PNJ-seconde (NON MESURÉ, à calibrer à la partie de mesure I9 : un PNJ produit de l'ordre de 30 à 60 plaques par minute)
 Li.PRICE = { belt = 1.5, arm = 5.5, pole = 2.0 }   -- plaques-équivalent par pièce (tapis, bras électrique, poteau 1 x 1)
 Li.MIN_FLOW = 0.02          -- objets/s : sous ce débit un quai ne vaut aucune liaison
+-- Lot PIQUAGE-DELAI (partie du DC, 0.6.71 : première liaison posée à 98 min pour l'équipe du joueur, 127 à 147 min pour les factions, aucune pour deux d'entre
+-- elles en 157 min) : la charge d'un aller-retour n'est plus la seule constante Build.QUAI_FILL - QUAI_LOW (340), elle est MESURÉE sur le quai quand il a assez de
+-- tournées : bilans [FO-PIQUAGE] de la partie, 100 à 230 objets par tournée « fill » (jamais 340), d'où un retour surestimé de 1,5 à 3 fois (101 min pour 90 permis,
+-- pendant 89 min, à une équipe).
+Li.MIN_TOURS = 3            -- tournées « fill » mesurées d'un quai avant de croire sa charge moyenne
+Li.CARRY_BONUS = 3          -- priorité de la tournée « fill » d'un quai : celle de son module + 3 (script/team/build.lua, quai_tasks)
+
+--- Priorité d'un projet de liaison ou de piquage : jamais au-dessous de celle de la tournée manuelle qu'il remplace (priorité du module du quai + CARRY_BONUS ;
+--- avant, Build.PRIO + 1 = 56 contre 58 : la file préférait la tournée au tapis qui la supprime). `base` : la priorité de la passe de Build.
+function Li.prio(base, dock_prio)
+  return math.max(base or 0, (dock_prio or 0) + Li.CARRY_BONUS)
+end
 
 local DV = { [0] = { 0, -1 }, [2] = { 1, 0 }, [4] = { 0, 1 }, [6] = { -1, 0 } }
 Li.DV = DV
@@ -92,6 +104,9 @@ function Li.worth(inp)
   local price = inp.price or Li.PRICE
   local labor = inp.labor or Li.LABOR_VALUE
   local per_trip = math.max(1, (inp.fill or 400) - (inp.low or 60))
+  -- charge MESURÉE (objets par tournée « fill » du quai : q.filled / q.tours) : jamais au-dessus de ce que la barre du coffre laisse porter
+  local measured = false
+  if (inp.tours or 0) >= Li.MIN_TOURS and (inp.load or 0) > 0 and inp.load < per_trip then per_trip = math.max(1, inp.load); measured = true end
   local trips_min = flow * 60 / per_trip
   local trip_s = 2 * (inp.dist or 56) / Li.WALK + Li.HANDLE_S
   local labor_s_min = trips_min * trip_s
@@ -103,7 +118,7 @@ function Li.worth(inp)
   local tmax = inp.tmax or Li.TMAX
   if inp.threat then tmax = tmax / Li.THREAT_DIV end
   local det = { trips_min = trips_min, trip_s = trip_s, labor_s_min = labor_s_min, cost = cost, build_s = build_s, pay_s = pay_s,
-    payback_min = payback, tiles = tiles, tmax = tmax }
+    payback_min = payback, tiles = tiles, tmax = tmax, per_trip = per_trip, measured = measured }
   if payback > tmax then
     return false, string.format("retour %.0f min > %.0f min (%.2f PNJ-s/min economisees, %d tuiles, cout %.0f)", payback, tmax, labor_s_min, tiles, cost), det
   end

@@ -137,7 +137,7 @@ function Pq.worth(inp)
   local tiles = inp.tiles or Pq.est_tiles(inp.span or 0)
   local ug = inp.ug or 0
   local ok0, _, d0 = Li.worth({ flow = flow, dist = inp.dist, span = 0, tiles = 0, fill = inp.fill, low = inp.low, tmax = math.huge,
-    price = { belt = 0, arm = 0, pole = 0 }, labor = inp.labor })
+    price = { belt = 0, arm = 0, pole = 0 }, labor = inp.labor, tours = inp.tours, load = inp.load })
   local labor = inp.labor or Li.LABOR_VALUE
   local cost = Pq.cost(tiles, ug, inp.price)
   local n_ent = tiles + 2 + 2 * ug -- le répartiteur est posé par le script : ni marche ni temps de PNJ
@@ -170,7 +170,7 @@ function Pq.rank(dock, cands, outs, opts)
   local list = {}
   local function w(span)
     return Pq.worth({ flow = dock.flow, dist = dock.dist, span = span, fill = dock.fill, low = dock.low, threat = dock.threat,
-      price = opts.price, labor = opts.labor })
+      price = opts.price, labor = opts.labor, tours = dock.tours, load = dock.load })
   end
   for _, c in ipairs(cands or {}) do
     local opt = { kind = "tapis", key = c.key, x = c.x, y = c.y, dir = c.dir }
@@ -199,6 +199,7 @@ function Pq.rank(dock, cands, outs, opts)
   for _, o in ipairs(outs or {}) do
     local opt = { kind = "sortie", key = o.key, span = o.span }
     local pok, pwhy, det = Li.worth({ flow = dock.flow, dist = dock.dist, span = o.span, fill = dock.fill, low = dock.low, threat = dock.threat,
+      tours = dock.tours, load = dock.load,
       price = opts.price and { belt = opts.price.belt, arm = opts.price.arm, pole = opts.price.pole } or nil, labor = opts.labor })
     opt.ok, opt.why, opt.payback, opt.cost, opt.tiles = pok, pwhy, det.payback_min, det.cost, det.tiles
     opt.code = pok and "ok" or "ne_se_paie_pas"

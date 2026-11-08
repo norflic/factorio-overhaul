@@ -227,7 +227,8 @@ local function scan_unit(f, surface, b, st, c, pid)
     if ch and not seen[tk] then
       seen[tk] = true
       c.docks[#c.docks + 1] = { key = pid .. ":q" .. idx, pid = pid, idx = idx, x = math.floor(q.x), y = math.floor(q.y), item = q.item,
-        flow = q.flow or (flows and flows[q.item]) or 0, n = ch.get_item_count(q.item) }
+        flow = q.flow or (flows and flows[q.item]) or 0, n = ch.get_item_count(q.item),
+        tours = q.tours or 0, load = (q.tours or 0) > 0 and (q.filled or 0) / q.tours or nil } -- lot PIQUAGE-DELAI : charge MESURÉE d'une tournée « fill » du quai
       c.tours = c.tours + (q.tours or 0)
       c.items = c.items + (q.filled or 0)
     end
@@ -559,7 +560,7 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
     elseif not (d.item and (d.flow or 0) >= Li.MIN_FLOW) then
       mark(st, d.key, "laisser", "ne_se_paie_pas", tick) -- débit sous Li.MIN_FLOW : rien à économiser
     else
-      local best = Pq.worth({ flow = d.flow, dist = d.dist, span = 6, fill = api.fill, low = api.low })
+      local best = Pq.worth({ flow = d.flow, dist = d.dist, span = 6, fill = api.fill, low = api.low, tours = d.tours, load = d.load })
       if best then order[#order + 1] = d else mark(st, d.key, "laisser", "ne_se_paie_pas", tick) end
     end
   end
@@ -634,9 +635,9 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
             local g = Pq.geometry(top.x, top.y, top.dir, top.side)
             st.site_i = st.site_i or {}
             st.site_i[d.key] = ((st.site_i[d.key] or 0) % Li.ROUTE_TRIES) + 1 -- le site du bras du quai tourne à chaque demande
-            local spec = { liaison = { piquage = true, key = d.key, item = d.item, flow = d.flow, arm = arm, pole = pole, belt = belt, split = sp.name,
+            local spec = { liaison = { piquage = true, key = d.key, item = d.item, flow = d.flow, tours = d.tours, load = d.load, arm = arm, pole = pole, belt = belt, split = sp.name,
               extra = { item = sp.item }, geo = g, site_i = st.site_i[d.key], dock = { pid = d.pid, idx = d.idx, x = d.x, y = d.y } },
-              prio = api.prio, domain = "infrastructures", pile = "capital", product = d.item }
+              prio = Li.prio(api.prio, dp and dp.prio), domain = "infrastructures", pile = "capital", product = d.item }
             local id = api.request(f, spec)
             if id then
               st.links[d.key] = { pid = id, item = d.item, flow = d.flow, dist = d.dist, dock_pid = d.pid, dock_idx = d.idx, done = false, since = tick }
@@ -804,7 +805,8 @@ function Piquage.plan(api, f, surface, p)
     if not ok then return false, "piquage: " .. w2 end
   end
   -- le prix réel du tracé : un tracé plus long que l'estimation ne doit pas ruiner le retour (même calcul que la décision)
-  local okw, ww = Pq.worth({ flow = lc.flow, dist = dist_hq(f, dock.x, dock.y), tiles = #tiles, fill = api.fill or 400, low = api.low or 60 })
+  local okw, ww = Pq.worth({ flow = lc.flow, dist = dist_hq(f, dock.x, dock.y), tiles = #tiles, fill = api.fill or 400, low = api.low or 60,
+    tours = lc.tours, load = lc.load })
   if not okw then return false, "piquage: " .. ww end
   planned = { [P.tkey(site.ax, site.ay)] = true }
   local taken = { [site.ax .. ":" .. site.ay] = true }

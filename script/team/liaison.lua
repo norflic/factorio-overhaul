@@ -122,7 +122,8 @@ local function scan_unit(f, surface, b, st, c, pid)
     if ch and not seen[tk] then
       seen[tk] = true
       c.docks[#c.docks + 1] = { key = pid .. ":q" .. idx, pid = pid, idx = idx, x = math.floor(q.x), y = math.floor(q.y), item = q.item,
-        flow = q.flow or (flows and flows[q.item]) or 0, n = ch.get_item_count(q.item) }
+        flow = q.flow or (flows and flows[q.item]) or 0, n = ch.get_item_count(q.item),
+        tours = q.tours or 0, load = (q.tours or 0) > 0 and (q.filled or 0) / q.tours or nil } -- lot PIQUAGE-DELAI : charge MESURÉE d'une tournée « fill » du quai
     end
   end
   for idx, o in ipairs(p.outs or {}) do
@@ -288,7 +289,8 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
     if asked and reads >= Ln.DECIDE_MAX then break end
     local d, s = pr.dock, pr.src
     local pk = d.key .. ">" .. s.key
-    local ok, why, det = Ln.worth({ flow = d.flow, dist = dist_hq(f, d.x, d.y), span = pr.span, fill = api.fill, low = api.low, threat = threat })
+    local ok, why, det = Ln.worth({ flow = d.flow, dist = dist_hq(f, d.x, d.y), span = pr.span, fill = api.fill, low = api.low, threat = threat,
+      tours = d.tours, load = d.load })
     local last = st.last_try[d.key]
     local seen = st.seen[pk] or 0
     if st.confirm then seen = seen >= st.confirm and Ln.CONFIRM or 0 end -- (réglage de banc)
@@ -319,7 +321,7 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
         st.last_try[d.key] = tick
         local spec = { liaison = { key = d.key, item = d.item, flow = d.flow, arm = arm, pole = pole, belt = belt,
           dock = { pid = d.pid, idx = d.idx, x = d.x, y = d.y }, src = { pid = s.pid, idx = s.idx, x = s.x, y = s.y, key = s.key } },
-          prio = api.prio, domain = "infrastructures", pile = "capital", product = d.item }
+          prio = Ln.prio(api.prio, dp and dp.prio), domain = "infrastructures", pile = "capital", product = d.item }
         local id = api.request(f, spec)
         if id then
           st.links[d.key] = { pid = id, src = s.key, item = d.item, dock_pid = d.pid, dock_idx = d.idx, done = false, since = tick }
