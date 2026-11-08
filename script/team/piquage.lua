@@ -268,13 +268,25 @@ local function discover(f, surface, st, d, tick)
       end
     end
   end
+  -- lignes des AUTRES projets finis du plan (sorties de modules, lignes de fonderie, champs) : sources aussi, hors têtes d'alimentation (rôle « tete »),
+  -- hors souterrains, hors branches de piquage et hors projet du quai lui-même. Sans cela une partie avancée n'a aucun tapis « hors plan »
+  -- (dcsave du 8/11 : « aucune_source » pour 14 à 21 quais par équipe). Le surplus seul passe au quai (priorité de sortie sur la ligne).
+  local plan_ok = {}
+  for _, pid in ipairs(f.build.order) do
+    local q = f.build.projects[pid]
+    if q and q.state == "fini" and q.id ~= d.pid and not (q.spec and q.spec.liaison and q.spec.liaison.piquage) then
+      for _, e in ipairs(q.ents or {}) do
+        if e.role ~= "tete" and not e.type and e.name and Conv.is_belt(e.name) then plan_ok[math.floor(e.x) .. ":" .. math.floor(e.y)] = true end
+      end
+    end
+  end
   local found = {}
   for _, e in ipairs(ents) do
     local tx, ty = math.floor(e.position.x), math.floor(e.position.y)
     local key = tx .. ":" .. ty
     -- les tapis du PLAN directeur (tuiles réservées par un projet : têtes de quai, lignes de modules, champs, liaisons) ne sont jamais piqués,
     -- sauf ceux que leur projet déclare piquables (opt_in) : seuls comptent les tapis posés hors plan (par le joueur, ou à la main par l'équipe)
-    if not tr.tiles[key] and (not f.build.occ[P.tkey(tx, ty)] or opt_in[key] == d.item) then
+    if not tr.tiles[key] and (not f.build.occ[P.tkey(tx, ty)] or opt_in[key] == d.item or plan_ok[key]) then
       local s = sample_belt(e, d.item)
       if s.count > 0 and s.other == 0 then
         found[#found + 1] = { key = key, x = tx, y = ty, dir = e.direction, sample = s, m = Li.manhattan(tx, ty, d.x, d.y) }
@@ -534,25 +546,6 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
     local l = st.links[d.key]
     if l and l.done then piques = piques + 1 elseif linked_by_liaison(b, d.key) then linked = linked + 1 end
   end
-  local alive = {}
-  for _, d in ipairs(c.docks) do alive[d.key] = true end
-  for _, k in ipairs(sorted_keys(st.quais)) do
-    if not alive[k] and not st.links[k] then st.quais[k] = nil end
-  end
-  st.bilan = { quais = #c.docks, tapis = linked, piquage = piques, tournees = c.tours, objets = c.items, tick = tick }
-  if #c.docks > 0 and tick >= st.log_next then
-    st.log_next = tick + Li.LOG_EVERY
-    local tally = {}
-    for _, d in ipairs(c.docks) do
-      local q = st.quais[d.key]
-      local k = q and (q.verdict .. "/" .. q.cause) or "non_vu"
-      tally[k] = (tally[k] or 0) + 1
-    end
-    local parts = {}
-    for _, k in ipairs(sorted_keys(tally)) do parts[#parts + 1] = k .. " " .. tally[k] end
-    say(f, Pq.bilan_line(f.key, { docks = #c.docks, linked = linked, piques = piques, tours = c.tours, items = c.items, minutes = minutes(tick),
-      causes = table.concat(parts, ", ") }))
-  end
   -- quais candidats : débit, pas déjà servis, qui peuvent se payer au mieux (tapis à 6 tuiles)
   local order = {}
   for _, d in ipairs(c.docks) do
@@ -661,6 +654,26 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
     end
   end
   for _, k in ipairs(sorted_keys(st.seen)) do if not seen_now[k] then st.seen[k] = nil end end
+  -- bilan APRÈS l'examen des quais de ce relevé (avant, « non_vu » comptait les quais pas encore examinés)
+  local alive = {}
+  for _, d in ipairs(c.docks) do alive[d.key] = true end
+  for _, k in ipairs(sorted_keys(st.quais)) do
+    if not alive[k] and not st.links[k] then st.quais[k] = nil end
+  end
+  st.bilan = { quais = #c.docks, tapis = linked, piquage = piques, tournees = c.tours, objets = c.items, tick = tick }
+  if #c.docks > 0 and tick >= st.log_next then
+    st.log_next = tick + Li.LOG_EVERY
+    local tally = {}
+    for _, d in ipairs(c.docks) do
+      local q = st.quais[d.key]
+      local k = q and (q.verdict .. "/" .. q.cause) or "non_vu"
+      tally[k] = (tally[k] or 0) + 1
+    end
+    local parts = {}
+    for _, k in ipairs(sorted_keys(tally)) do parts[#parts + 1] = k .. " " .. tally[k] end
+    say(f, Pq.bilan_line(f.key, { docks = #c.docks, linked = linked, piques = piques, tours = c.tours, items = c.items, minutes = minutes(tick),
+      causes = table.concat(parts, ", ") }))
+  end
 end
 
 --- api = { request = Build.request, prio, fill = Build.QUAI_FILL, low = Build.QUAI_LOW }.
