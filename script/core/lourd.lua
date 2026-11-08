@@ -134,6 +134,15 @@ function J.left(tick)
   return math.max(0, J.BUDGET - used)
 end
 
+--- Lot TV-VAPEUR (V89) : nombre de demandeurs refusés en attente dans la file à ce tick (lecture de l'état de jeu, la même sur tous les
+--- clients ; les entrées périmées sont purgées d'abord, comme au prochain J.take). Signal de la dégradation graduée (script/core/charge.lua).
+function J.waiting(tick)
+  local s = S()
+  if not s then return 0 end
+  purge(s, tick)
+  return #s.q
+end
+
 --- Bancs hors jeu seulement : rend le jeton (nouvelle partie simulée).
 function J.reset()
   cur, used, purged = -1, 0, -1

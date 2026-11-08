@@ -123,6 +123,10 @@ Build.Tj = require("script.team.tourelle_journal")
 Build.Co = require("shared.team.couloir")
 -- Lot VIDEO L4 : quotas du gabarit (colle de shared/team/quotas.lua) ; champ de Build, même raison (199 locales sur 200).
 Build.Quotas = require("script.team.quotas_glue")
+-- Lot TV-VAPEUR : tampon de vapeur de la centrale (V36, colle de shared/team/vapeur_tampon.lua) et dégradation sous charge (V89, script/core/
+-- charge.lua) ; champs de Build, pas des locales (199 locales sur 200).
+Build.Vg = require("script.team.vapeur_glue")
+Build.Charge = require("script.core.charge")
 -- Lot VIDEO L9 : lots de minerai réservés au minerai (colle de shared/team/lot_minerai.lua, interrupteur éteint par défaut) ; champ
 -- de Build, même raison (199 locales sur 200).
 Build.LotsMinerai = require("script.team.lots_minerai_glue")
@@ -3923,13 +3927,16 @@ local function cc_say(f, p, i, n, have, rate, r)
   b.charbon = b.charbon or {}
   local st = b.charbon[p.id] or {}
   b.charbon[p.id] = st
-  local cause = r.due and "urgence" or (r.short and "sans charbon" or nil)
+  local cause = r.due and (r.steam and "vapeur" or "urgence") or (r.short and "sans charbon" or nil)
   if not cause then st.said = nil return end
   if st.said == cause then return end
   st.said = cause
   b.charbon_logs = (b.charbon_logs or 0) + 1
   if b.charbon_logs > Cc.LOGS then return end
-  if r.due then
+  if r.due and r.steam then
+    log(string.format("[FO-CHARBON-CENTRALE] %s : centrale %d, coffre %d a %d charbon(s), AU-DESSUS du seuil %d mais tampon de vapeur BAS a %.1f min : tache URGENTE (prio %d), %d a porter (cible %d), coffre du QG %d",
+      f.key or "player", p.id, i, n, r.low, game.tick / 3600, r.prio, r.count, r.target, have))
+  elseif r.due then
     log(string.format("[FO-CHARBON-CENTRALE] %s : centrale %d, coffre %d a %d charbon(s), sous le seuil %d (%.2f/s x %d s) a %.1f min : tache URGENTE (prio %d), %d a porter (cible %d), coffre du QG %d",
       f.key or "player", p.id, i, n, r.low, rate, Cc.LEAD_S, game.tick / 3600, r.prio, r.count, r.target, have))
   else
@@ -4010,7 +4017,9 @@ local function quai_tasks(f, p, surface, out)
       local have = Stock.count(f, q.item)
       if rate then
         local inv = chest.get_inventory(defines.inventory.chest)
-        local r = Cc.refill(n, rate, have, inv and (n + inv.get_insertable_count(q.item)) or nil)
+        -- lot TV-VAPEUR (V36) : le tampon de vapeur bas déclenche aussi le remplissage (Build.Vg nul dans les doublures des bancs hors jeu)
+        local steam_low = Build.Vg and Build.Vg.low(f, p, surface) or false
+        local r = Cc.refill(n, rate, have, inv and (n + inv.get_insertable_count(q.item)) or nil, steam_low)
         cc_say(f, p, i, n, have, rate, r)
         if r.due then
           local a = P.anchor_for(f.build.lat, q.x, q.y, seg_passable(f.build))
@@ -4436,7 +4445,7 @@ end
 local function charbon_step(f, tick)
   local b = f.build
   if tick < (b.cc_next or 0) then return end
-  b.cc_next = tick + Cc.EVERY
+  b.cc_next = tick + (Build.Charge and Build.Charge.stretch(Cc.EVERY) or Cc.EVERY) -- (lot TV-VAPEUR, V89 : relevé non urgent, espacé sous charge)
   b.charbon = b.charbon or {}
   local plants, other_open = {}, false
   for _, pid in ipairs(b.order) do

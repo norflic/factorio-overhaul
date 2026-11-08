@@ -115,11 +115,13 @@ function Cd.recent(st, tick, span)
 end
 
 --- À son créneau : la pensée est-elle sautée ? st = état de la faction ({ last = tick de la dernière pensée }). Rend (sautée, cause).
-function Cd.skip(st, s, tick)
+--- slow (lot TV-VAPEUR, V89) : durée de la cadence lente sous charge (défaut Cd.SLOW) ; ne touche que « loin et calme » : une faction
+--- éveillée (Cd.awake) repense à son rythme normal quelle que soit la charge.
+function Cd.skip(st, s, tick, slow)
   local up, why = Cd.awake(s, tick)
   if up then return false, why end
   if type(st.last) ~= "number" then return false, "premiere pensee" end
-  if tick - st.last >= Cd.SLOW then return false, why end
+  if tick - st.last >= (slow or Cd.SLOW) then return false, why end
   return true, why
 end
 
