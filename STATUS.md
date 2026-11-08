@@ -1,0 +1,9 @@
+# RANGEES-ASM : état au 8/11, 15 h 53 (avant le redémarrage du PC)
+- SHA : 99f7a80c (branche rangees-asm, au-dessus de 1a5c1f9c, déjà en 0.6.68 ; 99f7a80c attendu en 0.6.71). Arbre propre.
+- Marche (hors jeu) : rangée dynamique (place entière réservée, grandit sur place une fois finie, Build.Rangee) ; câbles sur deux voies (jonction centrale, G.simple voies = 2) ; tapis plus rapide débloqué lu aux prototypes (Ra.pick, M.belt_spec) : 5 assembleurs 2 sur une voie rapide, 6 sur deux. Tests : rangee_dyn_test 54 OK, rangees_asm_test 38 OK, run 114 OK, recharge, api_lint 0 erreur.
+- Moteur réel (première version) : rangees-asm 11 OK (agrandie en attente, rangée de 5 engrenages), archive fo-logs/2026-11-08_RANGEES-ASM/banc-1500-c.
+- Manque : preuve en moteur réel de la rangée FINIE agrandie (premier banc rangees-dyn : faute du scénario, corrigée en 99f7a80c) ; iag_test sur 99f7a80c pas fini (lancé 15 h 46) ; stockage_collecte_test sur la tête a627035e pas lancé (demande du lead).
+- Réglage : settings/rangees_asm.lua (fo-war-rangee-dyn, allumé), à requérir dans settings.lua (intégrateur).
+- Prochaine étape exacte : (1) py -3.9 -B tools/autotest/banc.py --out <racine>/fo-logs/2026-11-08_RANGEES-ASM/dyn-6000-b --qui RANGEES-ASM -- 6000 rangees-dyn <racine>/fo-logs/2026-11-08_RANGEES-ASM/src-99f7a80c/factorio-overhaul ; lire [FO-RANGEES-DYN] BILAN et [FO-RANGEES-ASM] dans benchmark.log ; (2) nice -n 19 lua5.2 tests/iag_test.lua ici ; (3) stockage_collecte_test une fois sur la tête d'essai-0666.
+- Source figée du banc (avec les PNG des feuilles) : fo-logs/2026-11-08_RANGEES-ASM/src-99f7a80c/factorio-overhaul.
+- Connu : câbles en assembleur 2 sur tapis jaune bornés à 4 (une voie jaune = 7,5/s) ; fonderie dynamique morte (plan_finish lit topts et g, globales nil) : hors de ce lot, ouvert par le lead.
