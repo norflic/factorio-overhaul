@@ -1135,6 +1135,9 @@ function M.new_world(opts)
     -- EFFONDREMENT (parade du kit offert, script/team/worker.lua) : corps d'un personnage mort ; levé par die() sur demande seulement
     -- (opts.corpses du monde, fire_post_died), comme le moteur réel (micro-banc kit-cadavre, 9ee2b12d)
     on_post_entity_died = 41,
+    -- lot DEBUG-CERVEAU : vue « Cerveau » (script/debug/cerveau.lua) : liste déroulante de la force observée et départ d'un joueur ;
+    -- le mock n'en lève aucun, tests/debug_cerveau_vue_test.lua rejoue les gestionnaires à la main (noms de l'API 1.1.91)
+    on_gui_selection_state_changed = 42, on_player_removed = 43,
   }
   _G.defines = {
     -- Lot PANNEAU : type de l'interface ouverte (LuaControl.opened_gui_type) ; noms de l'API 1.1.91, valeurs opaques.
