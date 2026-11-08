@@ -132,6 +132,30 @@ Directives du DC (8/11, après-midi), citées :
   - MALL (Opus) : conception `docs/MALL.md` avant tout code, avec l'entrée venant des méga-fonderies ;
   - MEGA-FONDERIE : étendu au minerai des coffres, raccordé au bus.
 
+- Vers 18 h 45, « GESTION DES STOCKS ET DÉLAI D'EXÉCUTION LOGISTIQUE ». Citations :
+  - « Le stockage de la base principale […] se fait totalement polluer par le rapatriement excessif de ressources brutes ou secondaires (pierre brute, fours en pierre, soufre, charbon) […] Mettez en place des plafonds stricts pour le rapatriement au QG. On n'agrandit les coffres du QG que pour des objets finis réellement utiles » ;
+  - « relier la sortie d'un coffre de fonderie à une machine d'assemblage […] s'est produit au bout de 2 heures et demie de jeu ! […] Ce comportement doit s'activer dès que la technologie est disponible et qu'un besoin est mesuré […] dès la première heure de jeu ».
+  
+  Lots : STOCK-QG (agent gisements-geants) et PIQUAGE-DELAI (agent tranches-foreuses), diagnostic d'abord.
+- Vers 18 h 50, « INTÉGRATION DE MODÈLES EXTERNES » puis « BASE DE DONNÉES DYNAMIQUE DE BLUEPRINTS ». Citations :
+  - « Va chercher sur Internet une quantité astronomique de designs de référence […] strictement duplicables » ;
+  - « une base de données interne au mod […] classifier les designs selon leur taille, leur nombre d'entrées (n inputs) et de sorties (m outputs), et leur modularité » ;
+  - « sélectionner le motif optimal qui correspond à l'espace disponible et aux contraintes du terrain, et l'adapter dynamiquement ».
+  
+  Références du DC : `Fonderie.png`, `Mall1.png`, `Patern1.png`, `Patern_Mall2.png`, copiées dans `fo-logs/2026-11-08_MOTIFS/references/`.
+  
+  Lot MOTIFS (Sonnet) :
+  - recherche web faite par l'agent maintenant, car le jeu n'a aucun accès réseau ;
+  - base de motifs livrée dans le mod (`shared/team/motifs/`), décrite par rôles et non par noms d'objets ;
+  - règle de sélection et d'adaptation au terrain ;
+  - clients : mega-fonderie, mall, petrole-rangee, acier.
+- Mesure des parties neuves de 40 min sur la candidate 22cb5d46 (`fo-logs/2026-11-08_INTEG-0672/neuve40-22cb5d46` et `geants-22cb5d46`, 0 erreur Lua) :
+  - votre équipe a 0 foreuse électrique dans les deux parties, à cause de 28 et 37 refus « poteaux sans chaîne jusqu'au réseau alimenté » ;
+  - la centrale 2 est bien ramenée à 2 chaudières au petit poteau (le correctif de CENTRALE-PRES est vu en moteur) ;
+  - sur les gisements géants, à 40 min : votre équipe couvre 0,9 ‰ (0 électrique), azure 4,8 ‰, scarlet 6,6 ‰.
+  
+  Le biais signalé par le DC est confirmé : presque rien ne couvre un grand gisement.
+
   Lots lancés : GISEMENTS-GEANTS (scénario `etape1-geants`, 2 500 à 5 000 tuiles), MEGA-FONDERIE (conception d'abord), POSE-PAR-LOTS, CAPI-POTEAU (le gabarit des foreuses de capitalisation cède au poteau moyen), plus COURANT-LIBRE, TRANCHES-FOREUSES et ACIER. CENTRALE-PRES (78c20542) est fusionné dans `essai-0666` (44643872). Porte de la prochaine livraison : une partie neuve sur gisements géants qui montre de vrais champs électriques, sans effondrement.
 
 
