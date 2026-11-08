@@ -67,6 +67,7 @@ require("settings.fonderie") -- lot FONDERIE : fonderies des champs à tapis, ch
 require("settings.petrole") -- lot PETROLE : aller au pétrole (fo-war-petrole, allumé par défaut, settings/petrole.lua:20)
 require("settings.industrie") -- lot INDUSTRIE : réglage maître (fo-war-industrie ; I1 : le besoin est évalué, le reste du stock s'investit)
 require("settings.robots") -- lot RB-1 : robots (fo-war-robots, fo-war-robots-cap)
+require("settings.gel") -- lot X10-GEL : figer les usines des factions loin de vous (fo-war-gel, allumé par défaut)
 require("settings.levels_panneau") -- lot PANNEAU : panneau « Évolution » au clic ou au survol (fo-levels-panneau, par joueur)
 require("settings.video") -- lots VIDEO (feuille de route « Factorio Automated ») : fo-war-portes, fo-war-paliers, fo-war-lots-minerai, fo-debug-trace-carte (tous allumés depuis la 0.6.60)
 require("settings.exclusion") -- lot VIDEO-PLAFONDS (V99) : fo-war-exclusion (objets exclus de la demande, vide par défaut)

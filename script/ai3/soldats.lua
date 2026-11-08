@@ -55,7 +55,9 @@ local function home(f) return { x = f.hq_pos.x, y = f.hq_pos.y + 14 } end
 
 local function go(p, r) return { type = defines.command.go_to_location, destination = p, radius = r, distraction = defines.distraction.by_enemy } end
 local function wander(r) return { type = defines.command.wander, radius = r, distraction = defines.distraction.by_enemy } end
+local Gel = require("script.faction.gel") -- lot X10-GEL (Q10) : un soldat figé est réveillé avant toute commande
 local function compound(u, cmds)
+  Gel.before_command(u)
   u.set_command({ type = defines.command.compound, structure_type = defines.compound_command.return_last, commands = cmds })
 end
 
