@@ -31,35 +31,43 @@ local function suite(E)
   local before = failures
   -- 1. (a) verdict
   do
-    local ok_all = { obtainable = true, plants = 1, poles = true, healthy = true }
+    local ok_all = { el_live = 1, obtainable = true, plants = 1, poles = true, healthy = true }
     local a, why = E.thermal(ok_all)
     check(a == false and why:find("thermique refusee", 1, true) ~= nil, "1a : centrale finie, foreuse et poteau obtenables : thermique refusee, cause ecrite")
     check(why:find("1 centrale", 1, true) ~= nil, "1a : la cause nomme les centrales finies")
-    check(E.thermal({ on = false, obtainable = true, plants = 1, poles = true }) == true, "1b : regle coupee : thermique permise")
-    check(E.thermal({ obtainable = false, plants = 1, poles = true }) == true, "1c : foreuse electrique pas obtenable : permise")
-    check(E.thermal({ obtainable = true, plants = 0, poles = true }) == true, "1d : aucune centrale finie : permise")
-    check(E.thermal({ obtainable = true, plants = nil, poles = true }) == true, "1d : centrales non lues : permise")
-    check(E.thermal({ obtainable = true, plants = 1, poles = false }) == true, "1e : aucun poteau obtenable : permise")
-    check(E.thermal({ obtainable = true, plants = 1, poles = true, fuel = true, healthy = false }) == true,
+    check(E.thermal({ on = false, el_live = 1, obtainable = true, plants = 1, poles = true }) == true, "1b : regle coupee : thermique permise")
+    check(E.thermal({ el_live = 1, obtainable = false, plants = 1, poles = true }) == true, "1c : foreuse electrique pas obtenable : permise")
+    check(E.thermal({ el_live = 1, obtainable = true, plants = 0, poles = true }) == true, "1d : aucune centrale finie : permise")
+    check(E.thermal({ el_live = 1, obtainable = true, plants = nil, poles = true }) == true, "1d : centrales non lues : permise")
+    check(E.thermal({ el_live = 1, obtainable = true, plants = 1, poles = false }) == true, "1e : aucun poteau obtenable : permise")
+    check(E.thermal({ el_live = 1, obtainable = true, plants = 1, poles = true, fuel = true, healthy = false }) == true,
       "1f : combustible d'une centrale a l'arret : permise")
-    check(E.thermal({ obtainable = true, plants = 1, poles = true, fuel = true, healthy = true }) == false,
+    check(E.thermal({ el_live = 1, obtainable = true, plants = 1, poles = true, fuel = true, healthy = true }) == false,
       "1g : combustible, centrale saine : refusee")
-    check(E.thermal({ obtainable = true, plants = 1, poles = true, fuel = false, healthy = false }) == false,
+    check(E.thermal({ el_live = 1, obtainable = true, plants = 1, poles = true, fuel = false, healthy = false }) == false,
       "1h : autre minerai, centrale a l'arret : refusee (seul le combustible la relance)")
-    check(E.thermal({ obtainable = true, plants = 3, poles = true }) == false, "1i : plusieurs centrales : refusee")
-    -- 1j (partie neuve du 8/11 : bascule a 7,7 min, 0 electrique posee a 30 min, thermiques detruites jamais refaites) : la bascule exige
-    -- des foreuses electriques POSEES ; au-dessous du seuil, la thermique reste permise (pose, agrandissement, reconstruction).
-    local a0, w0 = E.thermal({ obtainable = true, plants = 1, poles = true, healthy = true, elec = 0 })
-    check(a0 == true and w0:find("electrique", 1, true) ~= nil, "1j : centrale finie mais 0 electrique posee : thermique PERMISE, cause ecrite")
-    check(E.thermal({ obtainable = true, plants = 1, poles = true, healthy = true, elec = E.CFG.min_elec - 1 }) == true,
-      "1j : sous le seuil d'electriques posees : permise")
-    check(E.thermal({ obtainable = true, plants = 1, poles = true, healthy = true, elec = E.CFG.min_elec }) == false,
-      "1j : seuil d'electriques posees atteint : refusee")
-    check(E.thermal({ obtainable = true, plants = 1, poles = true, healthy = true, elec = 0 }, { min_elec = 0 }) == false,
-      "1j : seuil donne par cfg (0) : refusee")
+    check(E.thermal({ el_live = 1, obtainable = true, plants = 3, poles = true }) == false, "1i : plusieurs centrales : refusee")
     check(E.thermal(nil) == true, "1j : rien de lu : permise")
+    -- correctif d'interblocage (partie neuve 0.6.69, etape1-guide : bascule à 7,7 min, 0 électrique et 6 poteaux tout le long, foreuses
+    -- détruites à 15,4 min, reconstruction « build:copper » refusée) : centrale finie, 0 poteau ni bois, rien qui tourne : PERMISE
+    local dl = { on = true, obtainable = true, plants = 1, poles = true, healthy = true, el_live = 0, poles_stock = 6, res_live = 0 }
+    local okd, whyd = E.thermal(dl)
+    check(okd == true and whyd:find("ni poteaux au stock", 1, true) ~= nil, "1l : cas 0.6.69 (0 electrique, 6 poteaux) : reconstruction thermique permise (" .. tostring(whyd) .. ")")
+    check(E.thermal({ obtainable = true, plants = 1, poles = true }) == true, "1l : rien de mesure (el_live, poteaux absents) : permise")
+    check(E.thermal({ obtainable = true, plants = 1, poles = true, el_live = 0, poles_stock = 12 }) == false,
+      "1m : 12 poteaux au stock, rien qui tourne encore : refusee (le gabarit se pose)")
+    check(E.thermal({ obtainable = true, plants = 1, poles = true, el_live = 0, poles_stock = 11 }) == true, "1m : 11 poteaux : permise")
+    local okr, whyr = E.thermal({ obtainable = true, plants = 1, poles = true, el_live = 0, poles_stock = 40, since = E.CFG.revert })
+    check(okr == true and whyr:find("retour thermique", 1, true) ~= nil, "1n : 0 electrique 3 min apres la bascule : retour thermique")
+    check(E.thermal({ obtainable = true, plants = 1, poles = true, el_live = 0, poles_stock = 40, since = E.CFG.revert - 1 }) == false,
+      "1n : juste avant 3 min : refusee")
+    check(E.thermal({ obtainable = true, plants = 1, poles = true, el_live = 2, poles_stock = 0, since = 10 * E.CFG.revert }) == false,
+      "1n : des electriques tournent : pas de retour, meme sans poteau au stock")
+    local oks, whys = E.thermal({ obtainable = true, plants = 1, poles = true, el_live = 5, res_live = 0 })
+    check(oks == true and whys:find("cette ressource", 1, true) ~= nil, "1o : 5 electriques ailleurs, 0 sur cette ressource : permise (jamais affamee)")
+    check(E.thermal({ obtainable = true, plants = 1, poles = true, el_live = 5, res_live = 1 }) == false, "1o : une electrique sur cette ressource : refusee")
     -- partie du DC (0.6.66, joueur) : centrale 1 finie à 28,0 min, foreuse électrique fabricable dès le début, poteaux : refusée dès 28 min
-    check(E.thermal({ on = true, obtainable = true, plants = 1, poles = true, healthy = true }) == false, "1k : cas du DC a 28 min : refusee")
+    check(E.thermal({ on = true, el_live = 1, obtainable = true, plants = 1, poles = true, healthy = true }) == false, "1k : cas du DC a 28 min : refusee")
   end
   -- 2. foreuses thermiques d'une tâche
   do
@@ -102,17 +110,20 @@ local function suite(E)
   end
   -- 4. (b) quota à la marge de kW
   do
-    local n, m = E.swap_quota({ capacity = 1800, used = 500, committed = 0, kw = 90 })
-    check(n == 6 and math.abs(m - 580) < 1e-6, "4a : 1800 x 0,6 - 500 = 580 kW : 6 electriques (" .. tostring(n) .. ")")
-    check(E.swap_quota({ capacity = 1800, used = 1700, committed = 0, kw = 90 }) == 0, "4b : marge negative : 0")
-    check(E.swap_quota({ capacity = 1800, used = 0, committed = 0, kw = 90 }) == 12, "4c : centrale vide : 1080 / 90 = 12")
+    local n, m = E.swap_quota({ capacity = 1800, used = 1300, committed = 0, kw = 90 })
+    check(n == 5 and math.abs(m - 500) < 1e-6, "4a : 1800 - 1300 = 500 kW : 5 electriques (" .. tostring(n) .. ")")
+    check(E.swap_quota({ capacity = 1800, used = 1850, committed = 0, kw = 90 }) == 0, "4b : marge negative : 0")
+    check(E.swap_quota({ capacity = 900, used = 0, committed = 0, kw = 90 }) == 10, "4c : centrale vide : 900 / 90 = 10")
     check(E.swap_quota({ capacity = 18000, used = 0, committed = 0, kw = 90 }) == E.CFG.block_max, "4d : borne block_max")
-    check(E.swap_quota({ capacity = 1800, used = 0, committed = 900, kw = 90 }) == 2, "4e : chantiers comptes : (1080 - 900) / 90 = 2")
+    check(E.swap_quota({ capacity = 1800, used = 0, committed = 2000, kw = 90 }) == 6, "4e : chantiers a 0,6 : (1800 - 1200) / 90 = 6")
+    -- banc sur la sauvegarde du DC (8/11) : 9 000 kW, 4 797 pris, 2 523 en chantiers : 2 286 kW de marge (bornee a 16 electriques)
+    local nd, md = E.swap_quota({ capacity = 9000, used = 4797, committed = 2523, kw = 90 })
+    check(nd == E.CFG.block_max and md > 2200, "4k : cas de la sauvegarde du DC : marge positive, quota plein (" .. tostring(md) .. ")")
     local nf, mf = E.swap_quota({ capacity = nil, kw = 90, fallback = 2 })
     check(nf == 2 and mf == nil, "4f : capacite non lue : quota de secours, pas de marge")
     check(E.swap_quota({ capacity = 0, kw = 90, fallback = 99 }) == E.CFG.block_max, "4g : secours borne")
     check(E.swap_quota({ capacity = 1800, used = 0, kw = 0, fallback = 3 }) == 3, "4h : kW d'une foreuse inconnu : secours")
-    check(E.swap_quota({ capacity = 1800, used = 900, committed = 0, kw = 90 }) == 2, "4i : 1080 - 900 = 180 : exactement 2")
+    check(E.swap_quota({ capacity = 1800, used = 1620, committed = 0, kw = 90 }) == 2, "4i : 1800 - 1620 = 180 : exactement 2")
     check(E.swap_quota({ capacity = 0 / 0, kw = 90, fallback = 1 }) == 1, "4j : capacite NaN : secours")
   end
   -- 5. (b) par bloc
@@ -219,6 +230,31 @@ do
     "8b : la porte est dans EMIT.outpost")
 end
 
+section("8 bis 2. Petit poteau et bois (d) : A.choose_pole, A.POLE_BATCH, tâches de minage du bois marquées « trees »")
+do
+  local A = require("shared.ai3.automatiser")
+  local Mo = require("shared.team.modules")
+  local small = Mo.POLES[1]
+  -- livre factice : chaque poteau se fabrique (2 par recette) avec 1 matière naturelle « bois-x » ; le reste n'est pas naturel
+  local book = {
+    handcraftable = function(_, name) return name == small end,
+    natural = function(_, k) return k == "bois-x" end,
+    plan = function(_, wants, stock)
+      local n = wants[1][2]
+      local need = math.ceil(n / 2) - ((stock or {})["bois-x"] or 0)
+      return { raw = need > 0 and { ["bois-x"] = need } or {} }
+    end,
+  }
+  check(A.POLE_BATCH == 12, "8d : A.POLE_BATCH = 12 (gabarit de fonderie au petit poteau)")
+  check(A.choose_pole(book, { ["bois-x"] = 6 }, {}) == small, "8d : 6 bois au coffre suffisent au gabarit (12 poteaux)")
+  check(A.choose_pole(book, { ["bois-x"] = 5 }, {}) ~= small, "8d : 5 bois, rien a portee : pas le petit poteau")
+  check(A.choose_pole(book, {}, { ["bois-x"] = 40 }) == small, "8d : bois a portee (arbres) : petit poteau sans stock")
+  local psrc = read("shared/ai3/projets.lua")
+  check(psrc:find("trees = (ctx.trees and ctx.trees[item]) or nil", 1, true) ~= nil, "8d : la tache de minage du bois porte `trees`")
+  local csrc = read("shared/ai3/cerveau.lua")
+  check(csrc:find("trees = trees,", 1, true) ~= nil, "8d : le cerveau passe l'ensemble des matieres des arbres a P.supply")
+end
+
 section("8 ter. Centrales en parallèle (shared/team/centrale.lua, C.parallel_kw, C.growth)")
 local CSRC = read("shared/team/centrale.lua")
 local function centrale_suite(C)
@@ -289,8 +325,12 @@ local mutants = {
   { "thermal : poteaux ignores", "if not s.poles then return true, \"aucun poteau obtenable\" end", "" },
   { "thermal : exception combustible supprimee", "if s.fuel and s.healthy == false then return true", "if false then return true" },
   { "thermal : exception pour tout minerai", "if s.fuel and s.healthy == false then return true", "if s.healthy == false then return true" },
+  { "thermal : sans electrique ni poteaux refusee (interblocage 0.6.69)", "  if live <= 0 and stock < cfg.poles_min then\n", "  if false then\n" },
+  { "thermal : poteaux au stock ignores", "  if live <= 0 and stock < cfg.poles_min then\n", "  if live <= 0 then\n" },
+  { "thermal : jamais de retour thermique", "  if live <= 0 and (num(s.since) or 0) >= cfg.revert then", "  if false then" },
+  { "thermal : retour avant le delai", "  if live <= 0 and (num(s.since) or 0) >= cfg.revert then", "  if live <= 0 and (num(s.since) or 0) > 0 then" },
+  { "thermal : ressource affamee refusee", "  if s.res_live ~= nil and (num(s.res_live) or 0) <= 0 then", "  if false then" },
   { "thermal : toujours permise", "  return false, string.format(\"electrique possible", "  return true, string.format(\"electrique possible" },
-  { "thermal : electriques posees ignorees (partie neuve du 8/11)", "if s.elec ~= nil and (num(s.elec) or 0) < (cfg.min_elec or 0) then", "if false then" },
   { "task_drills : craft d'autre objet compte", "    if t.item == drill then return max(1, floor(num(t.count) or 1)) end\n    return 0", "    return max(1, floor(num(t.count) or 1))" },
   { "task_drills : build sans type compte", "if t.kind ~= \"extend\" and not (t.kind == \"build\" and t.outpost_kind ~= nil) then return 0 end", "if t.kind ~= \"extend\" and t.kind ~= \"build\" then return 0 end" },
   { "task_drills : extend ignore", "if t.kind ~= \"extend\" and not (t.kind == \"build\" and t.outpost_kind ~= nil) then return 0 end", "if not (t.kind == \"build\" and t.outpost_kind ~= nil) then return 0 end" },
@@ -298,8 +338,9 @@ local mutants = {
   { "task_drills : lignes non sommees", "n = n + (num(it[2]) or 0)", "n = (num(it[2]) or 0)" },
   { "filter : tache prise filtree", "local n = (not t.worker) and E.task_drills(t, drill) or 0", "local n = E.task_drills(t, drill)" },
   { "filter : verdict ignore", "if n > 0 then ok, why = verdict(t) end", "if n > 0 then ok, why = false, \"x\" end" },
-  { "swap_quota : draw ignore", "local margin = cap * cfg.draw - (num(c.used) or 0) - (num(c.committed) or 0)", "local margin = cap - (num(c.used) or 0) - (num(c.committed) or 0)" },
-  { "swap_quota : chantiers ignores", "local margin = cap * cfg.draw - (num(c.used) or 0) - (num(c.committed) or 0)", "local margin = cap * cfg.draw - (num(c.used) or 0)" },
+  { "swap_quota : draw ignore", "local margin = cap - (num(c.used) or 0) - cfg.draw * (num(c.committed) or 0)", "local margin = cap - (num(c.used) or 0) - (num(c.committed) or 0)" },
+  { "swap_quota : chantiers ignores", "local margin = cap - (num(c.used) or 0) - cfg.draw * (num(c.committed) or 0)", "local margin = cap - (num(c.used) or 0)" },
+  { "swap_quota : draw sur la capacite (bug du 8/11)", "local margin = cap - (num(c.used) or 0) - cfg.draw * (num(c.committed) or 0)", "local margin = cap * cfg.draw - (num(c.used) or 0) - (num(c.committed) or 0)" },
   { "swap_quota : sans borne", "return max(0, min(cfg.block_max, n)), margin", "return max(0, n), margin" },
   { "swap_quota : negatif rendu", "return max(0, min(cfg.block_max, n)), margin", "return min(cfg.block_max, n), margin" },
   { "swap_quota : arrondi au-dessus", "local n = floor(margin / kw + EPS)", "local n = ceil(margin / kw - EPS)" },

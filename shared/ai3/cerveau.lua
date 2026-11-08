@@ -388,8 +388,9 @@ function C.think(view, book, st, ctx)
   local raw, minable = C.raw_items()
   -- Lot KIT : matières naturelles récoltables (le bois des poteaux, lu par le runtime sur les arbres) : à miner à la main
   -- comme un minerai, quand elles sont à portée (ctx.reach) ; sans arbre à portée, elles restent « inaccessibles ».
-  for _, k in ipairs(ctx.harvest or {}) do raw[k] = true minable[k] = true end
-  P.supply(E, { reach = ctx.reach, known = ctx.known, workers = s.workers, mines_open = ctx.mines_open, minable = minable,
+  local trees = {} -- lot ELECTRIQUE (d) : matières récoltées sur les arbres (tâche de minage marquée `trees`, votre équipe comprise)
+  for _, k in ipairs(ctx.harvest or {}) do raw[k] = true minable[k] = true trees[k] = true end
+  P.supply(E, { reach = ctx.reach, known = ctx.known, workers = s.workers, mines_open = ctx.mines_open, minable = minable, trees = trees,
     cap = s.cap, home_known = ctx.home_known, bilan = ctx.bilan })
   -- Lot IA-V2 : pas d'exploration demandée avant que les abords du QG soient vus (ctx.home_known faux : brouillard
   -- d'IA3-f, regard en cours) ; le projet reste bloqué sur sa cause (« site: »), rien d'autre ne change.

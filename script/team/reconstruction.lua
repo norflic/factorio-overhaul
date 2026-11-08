@@ -68,6 +68,8 @@ Recon.DIAG_LOGS = 20        -- lignes « pose impossible » (diagnostic) par for
 -- et « sans la règle » du banc reconstruire-bois, réglé par l'interface fo-recon).
 Recon.GATHER = true
 
+local Elec = require("script.team.electrique") -- lot ELECTRIQUE : plus de foreuse thermique refaite quand l'électrique est possible
+
 local ITEM_OF = {}          -- mémoire LOCALE (prototypes seulement)
 local function item_of(name)
   local it = ITEM_OF[name]
@@ -301,6 +303,31 @@ local function sink_waits(f, r, due)
   return true
 end
 
+--- Lot ELECTRIQUE (banc sur la sauvegarde du DC, 8/11 : 161 -> 168 thermiques en 2,5 min, « 12 piece(s) du registre reposee(s) ...
+--- (burner-mining-drill) ») : quand la thermique est refusée pour le type de l'avant-poste (Elec.allowed), une foreuse thermique perdue n'est
+--- plus refaite (pièce abandonnée, Recon.act la saute même prise) et une électrique perdue n'est plus remplacée par une thermique (secours
+--- annulé : la pièce attend son objet électrique ; déjà prise : abandonnée). Rend (abandonnées, secours annulés).
+local function drop_thermal(f, s, tick)
+  local n, back = 0, 0
+  for _, k in ipairs(State.sorted_keys(s.lost)) do
+    local r = s.lost[k]
+    if r.kind == "drill" and not r.abandoned and (r.name == T.DRILL or r.place == T.DRILL) then
+      local host = (f.outposts and f.outposts[r.oid]) or (s.ruins and s.ruins[r.oid])
+      if not Elec.allowed(f, tick, host and host.kind) then
+        if r.name == T.DRILL or r.claimed then
+          r.abandoned = true
+          n = n + 1
+        else
+          r.place, r.px, r.py, r.item, r.subst_fail = nil, nil, nil, item_of(r.name), true
+          back = back + 1
+        end
+      end
+    end
+  end
+  if n + back > 0 then Elec.note_rebuild(f, tick, n, back) end
+  return n, back
+end
+
 local function substitute_drills(f, s, surface, tick)
   local burner_item = item_of(T.DRILL)
   if not burner_item then return 0 end
@@ -313,6 +340,7 @@ local function substitute_drills(f, s, surface, tick)
       n = n + 1
       local host = (f.outposts and f.outposts[r.oid]) or (s.ruins and s.ruins[r.oid])
       local spec = host and T.outposts[host.kind]
+      if spec and not Elec.allowed(f, tick, host.kind) then spec = nil end -- lot ELECTRIQUE : pas de thermique de secours
       local bx, by
       if spec then
         local sink = Ru.sink_of(r.x, r.y, r.dir, T.drill_electric.drop, sink_boxes(f, s, surface, r, spec))
@@ -349,6 +377,7 @@ function Recon.think(f, surface, tick)
   Ruines.step(f, s, tick) -- lot REBUILD-AVANT-POSTE : verdict de chaque ruine (refaite, expirée, remplacée, sans pièce, site pris)
   Profiler.fstop("recon:ruines")
   if next(s.lost) == nil then return 0 end
+  drop_thermal(f, s, tick) -- lot ELECTRIQUE : foreuses thermiques perdues non refaites quand l'électrique est possible
   Profiler.fstart("recon:releve")
   -- Mesure seule : une pièce perdue revue en place (refaite par le plan directeur, le joueur…) est datée, mais reste au registre.
   if tick >= (s.scan_at or 0) then

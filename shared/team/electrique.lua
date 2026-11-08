@@ -22,12 +22,14 @@
 local E = {}
 
 E.CFG = {
-  draw = 0.6,        -- part de la capacité au-delà de laquelle une électrique de plus n'est pas posée (même seuil que S.power_ok)
+  draw = 0.6,        -- part de leur puissance nominale que tirent les chantiers admis (comme S.power_ok et S.DRAW de sante_centrale)
   block_max = 16,    -- remplacements au plus par passe (chaque place de 3 x 3 est lue au moteur : borne de coût d'une passe)
   tries_max = 8,     -- chaînes de poteaux calculées au plus par passe (recherche de chemin bornée, P.pole_chain)
   refused_ttl = 7200, -- ticks (2 min) pendant lesquels une paire thermique refusée compte dans la demande de centrale
-  min_elec = 4,      -- foreuses électriques POSÉES (de la force) au-dessous desquelles la thermique reste permise (partie neuve du 8/11 :
-                     -- bascule à 7,7 min sur « 1 centrale finie », 0 électrique posée à 30 min, thermiques détruites jamais refaites)
+  -- Lot ELECTRIQUE, correctif d'interblocage (partie neuve 0.6.69, etape1-guide, 40 min, lead 8/11 : bascule à 7,7 min, 0 électrique à 10, 20
+  -- et 30 min faute de poteaux (6 tout le long), thermiques 28 -> 0, reconstruction « build:copper » refusée à 15,5 min) :
+  poles_min = 12,    -- poteaux au stock qui rendent l'électrique MATÉRIELLEMENT possible sans électrique qui tourne (gabarit de fonderie : 12 petits)
+  revert = 3 * 3600, -- ticks après la bascule sans aucune électrique qui tourne : retour au thermique
 }
 
 local EPS = 1e-9
@@ -41,22 +43,32 @@ local function num(x)
 end
 
 --- (a) s = { on (règle allumée, nil = allumée), obtainable (foreuse électrique au stock ou fabricable), plants (centrales finies),
---- poles (un poteau obtenable), fuel (le produit de ce type d'avant-poste est le combustible de la centrale), healthy (centrale saine) }.
---- Rend (permise, raison).
+--- poles (un poteau obtenable), fuel (le produit de ce type d'avant-poste est le combustible de la centrale), healthy (centrale saine),
+--- el_live (foreuses électriques de la force qui tournent ; absent = 0), poles_stock (poteaux au stock ; absent = 0),
+--- since (ticks depuis la bascule, nil avant), res_live (électriques qui tournent sur la ressource de ce type ; nil : pas de ressource lue,
+--- seule la règle globale) }. L'électrique doit être MATÉRIELLEMENT là : une électrique qui tourne, ou des poteaux au stock pour un gabarit
+--- (cfg.poles_min) ; 0 électrique cfg.revert ticks après la bascule : retour au thermique ; une ressource sur laquelle AUCUNE électrique ne
+--- tourne garde sa thermique (agrandir, bâtir, reconstruire : jamais affamée). Rend (permise, raison).
 function E.thermal(s, cfg)
-  s = s or {}
   cfg = cfg_of(cfg)
+  s = s or {}
   if s.on == false then return true, "regle coupee" end
   if not s.obtainable then return true, "foreuse electrique pas obtenable" end
   if (num(s.plants) or 0) < 1 then return true, "aucune centrale finie" end
   if not s.poles then return true, "aucun poteau obtenable" end
-  -- La bascule se prouve par les faits : tant que l'équipe n'a pas min_elec foreuses électriques POSÉES, la thermique reste permise
-  -- (pose, agrandissement, reconstruction d'une thermique détruite). s.elec = nil (appelant d'avant) : règle d'avant.
-  if s.elec ~= nil and (num(s.elec) or 0) < (cfg.min_elec or 0) then
-    return true, string.format("%d foreuse(s) electrique(s) posee(s), moins de %d : thermique permise", floor(num(s.elec) or 0), cfg.min_elec or 0)
+  local live, stock = num(s.el_live) or 0, num(s.poles_stock) or 0
+  if live <= 0 and stock < cfg.poles_min then
+    return true, string.format("aucune foreuse electrique qui tourne ni poteaux au stock (%d sur %d)", floor(stock), cfg.poles_min)
+  end
+  if live <= 0 and (num(s.since) or 0) >= cfg.revert then
+    return true, string.format("retour thermique : aucune foreuse electrique ne tourne %.0f min apres la bascule", (num(s.since) or 0) / 3600)
   end
   if s.fuel and s.healthy == false then return true, "combustible de la centrale a l'arret : thermique permise" end
-  return false, string.format("electrique possible (%d centrale(s) finie(s)) : thermique refusee", floor(num(s.plants) or 0))
+  if s.res_live ~= nil and (num(s.res_live) or 0) <= 0 then
+    return true, "aucune foreuse electrique ne tourne sur cette ressource : thermique permise (agrandir, batir, reconstruire)"
+  end
+  return false, string.format("electrique possible (%d centrale(s) finie(s), %d electrique(s) qui tournent) : thermique refusee",
+    floor(num(s.plants) or 0), floor(live))
 end
 
 --- Foreuses thermiques que porte la tâche `t` (objets `items` = { { nom, nombre } }, ou fabrication `item`/`count`). `drill` : nom de la
@@ -91,8 +103,9 @@ function E.filter(tasks, drill, verdict)
   return kept, refused
 end
 
---- (b) c = { capacity, used, committed (kW), kw (kW d'une électrique), fallback (quota sans mesure de la centrale) }. Marge = capacité ×
---- draw − pris − chantiers. Rend (quota, marge) : le nombre d'électriques que la marge alimente, au plus cfg.block_max ; sans capacité lue,
+--- (b) c = { capacity, used, committed (kW), kw (kW d'une électrique), fallback (quota sans mesure de la centrale) }. Marge = capacité −
+--- pris − draw × chantiers, la règle de S.power_ok (shared/team/foreuse_swap.lua) qui garde chaque pose. Banc sur la sauvegarde du DC (8/11) :
+--- « capacité × draw − pris − chantiers » rendait −1 920 kW à 53 % de charge, aucun remplacement. Rend (quota, marge) : le nombre d'électriques que la marge alimente, au plus cfg.block_max ; sans capacité lue,
 --- le quota de secours (au plus block_max). Une marge négative rend 0.
 function E.swap_quota(c, cfg)
   cfg = cfg_of(cfg)
@@ -101,7 +114,7 @@ function E.swap_quota(c, cfg)
   if not cap or cap <= 0 or not kw or kw <= 0 then
     return min(cfg.block_max, max(0, floor(num(c.fallback) or 0))), nil
   end
-  local margin = cap * cfg.draw - (num(c.used) or 0) - (num(c.committed) or 0)
+  local margin = cap - (num(c.used) or 0) - cfg.draw * (num(c.committed) or 0)
   local n = floor(margin / kw + EPS)
   return max(0, min(cfg.block_max, n)), margin
 end
@@ -158,7 +171,7 @@ function E.idle_fields(fields, out, owner)
 end
 
 --- (c) p = { thermals (thermiques à convertir), refused (thermiques refusées récemment), th_speed, el_speed (cadences de minage), kw (kW d'une
---- électrique), margin (kW libres sous le seuil draw ; nil = 0) }. Une électrique remplace el_speed / th_speed thermiques. Rend (kW à demander à
+--- électrique), margin (kW libres, E.swap_quota ; nil = 0) }. Une électrique remplace el_speed / th_speed thermiques. Rend (kW à demander à
 --- la centrale, kW prévus, électriques prévues). Sans donnée valide : 0.
 function E.planned_kw(p)
   p = p or {}
