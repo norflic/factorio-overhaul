@@ -26,6 +26,7 @@ Rf.HMAX = 4          -- distance au plus d'un bus à la rangée de prises (tuile
 Rf.DX_EXTRA = 10     -- pas essayés : de la largeur du module + 1 à la largeur + DX_EXTRA
 Rf.KMAX = 8          -- modules au plus d'une rangée (le site de base compris)
 Rf.BATCH = 3         -- copies au plus par chantier d'extension
+Rf.CANDS = 4         -- (pas, bus) sans contact, un par pas, essayés contre le terrain : celui qui pose le plus de copies l'emporte
 
 local DV = { [0] = { 0, -1 }, [2] = { 1, 0 }, [4] = { 0, 1 }, [6] = { -1, 0 } }
 local DIRS = { 0, 2, 4, 6 }
@@ -279,26 +280,28 @@ function Rf.plan(mod, req)
   local from = req.from or 1
   local kmax = req.kmax or 1
   local W = mod.hi - mod.lo + 1
-  local dx, hs, why
-  local sign = 1
+  local why
+  local cands = {} -- (pas, hauteur des bus) qui évitent tout contact, dans l'ordre d'essai ; au plus Rf.CANDS essayés contre le terrain
   if req.fixed then
-    dx, hs, sign = req.fixed.dx, req.fixed.hs, req.fixed.sign
+    cands[1] = { dx = req.fixed.dx, hs = req.fixed.hs }
   else
     local hlist = {}
     for _, f in ipairs({ "brut", "eau" }) do hlist[f] = mod.taps[f] and Rf.HMAX or 0 end
+    -- un candidat par pas : les bus les plus bas d'abord
     for d = W + 1, W + Rf.DX_EXTRA do
+      local found = false
       for hc = 0, hlist.brut do
         for hw = 0, hlist.eau do
-          if not dx then
+          if not found then
             local h = { brut = hc, eau = hw }
             local ok, bad = pair_ok(mod, d, h)
-            if ok then dx, hs = d, h else why = why or bad end
+            if ok then cands[#cands + 1] = { dx = d, hs = h }; found = true else why = why or bad end
           end
         end
       end
-      if dx then break end
+      if #cands >= Rf.CANDS then break end
     end
-    if not dx then return { n = 0, ents = {}, quais = {}, outs = {}, tubes = {}, cause = "aucun pas ni bus n evite le contact : " .. tostring(why) } end
+    if #cands == 0 then return { n = 0, ents = {}, quais = {}, outs = {}, tubes = {}, cause = "aucun pas ni bus n evite le contact : " .. tostring(why) } end
   end
   -- tuiles de module déjà posées : les copies avant `from` (le site de base est la copie 0)
   local function modworld(ks, step)
@@ -317,7 +320,7 @@ function Rf.plan(mod, req)
     return l
   end
   -- copies posables, dans les deux sens (le sens qui en pose le plus l'emporte, + en cas d'égalité)
-  local function run(sg)
+  local function run(dx, hs, sg)
     local step = dx * sg
     local E = modworld(upto(from - 1), step)
     local n, cause = 0, nil
@@ -359,10 +362,21 @@ function Rf.plan(mod, req)
     end
     return n, cause
   end
-  local np, cp = run(1)
-  local nm, cm = 0, nil
-  if not req.fixed then nm, cm = run(-1) end
-  if nm > np then sign = -1; np = nm; cp = cm end
+  -- le candidat qui pose le plus de copies l'emporte (le premier à égalité), dans le sens + puis le sens -
+  local dx, hs, sign, np, cp = cands[1].dx, cands[1].hs, 1, -1, nil
+  if req.fixed then sign = req.fixed.sign end
+  for _, c in ipairs(cands) do
+    if req.fixed then
+      local n1, c1 = run(c.dx, c.hs, sign)
+      if n1 > np then dx, hs, np, cp = c.dx, c.hs, n1, c1 end
+    else
+      local n1, c1 = run(c.dx, c.hs, 1)
+      if n1 > np then dx, hs, sign, np, cp = c.dx, c.hs, 1, n1, c1 end
+      local n2, c2 = run(c.dx, c.hs, -1)
+      if n2 > np then dx, hs, sign, np, cp = c.dx, c.hs, -1, n2, c2 end
+    end
+    if np >= kmax then break end
+  end
   local step = dx * sign
   local out = { n = np, dx = dx, sign = sign, hs = hs, cause = cp, ents = {}, quais = {}, outs = {}, tubes = {} }
   if np == 0 then return out end

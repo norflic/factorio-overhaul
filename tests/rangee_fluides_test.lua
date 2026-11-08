@@ -300,6 +300,13 @@ do
   local r5 = req_of(terrain3)
   local p5 = Rf.plan(mod, r5)
   check(p5.n == 0 and type(p5.cause) == "string" and p5.cause ~= "", "§3 bloque des deux cotes : zero copie avec cause (" .. tostring(p5.cause) .. ")")
+  -- le premier pas est bloque par un mur d'une colonne (rangees 7 a 12) dans les deux sens : un autre pas passe
+  local terr = {}
+  for ty = 7, 12 do terr[tkey(8 + plan2.dx, ty)] = true; terr[tkey(24 - plan2.dx, ty)] = true end
+  local r7 = req_of(terr)
+  local p7 = Rf.plan(mod, r7)
+  check(p7.n >= 1 and p7.dx ~= plan2.dx, "§3 pas bloque par un mur d'une colonne : un autre pas est choisi (" .. tostring(p7.n) .. " copies, pas " .. tostring(p7.dx) .. " contre " .. tostring(plan2.dx) .. ")")
+  check(#verify(p7, ents2, terr, "§3c ") == 0, "§3 autre pas verifie")
   -- un tuyau d'un autre fluide sur la route du bus : la copie qui le toucherait n'est pas posee
   local r6 = req_of()
   r6.L0 = (function() local l = {} for k, v in pairs(req2.L0) do l[k] = v end l[tkey(plan2.dx * plan2.sign * 2 + 24, 20)] = "interne" return l end)()
@@ -474,6 +481,11 @@ local function failures(M)
   for ty = -10, 30 do for tx = 30, 32 do t3[tkey(tx, ty)] = true end for tx = -12, -10 do t3[tkey(tx, ty)] = true end end
   local p5 = plan_with(t3)
   if not (p5 and p5.n == 0 and p5.cause) then n = n + 1 end
+  -- pas bloque par un mur d'une colonne
+  local terr = {}
+  for ty = 7, 12 do terr[tkey(8 + p.dx, ty)] = true; terr[tkey(24 - p.dx, ty)] = true end
+  local p7 = plan_with(terr)
+  if not (p7 and p7.n >= 1 and p7.dx ~= p.dx) then n = n + 1 end
   -- chantiers successifs
   local a = plan_with(nil, { kmax = 2 })
   if not a or a.n ~= 2 then return n + 1 end
@@ -539,14 +551,15 @@ mutate("hauteur des bus toujours nulle", "local hlist = {}", "local hlist = { br
 mutate("contact des fluides ignore", "if g and g ~= \"m\" and g ~= lab then", "if false then")
 mutate("raccord inutilise permis", "if lab and lab ~= \"m\" and lab ~= c[3] then", "if false then")
 mutate("obstacle ignore", "if req.blocked(x, y) then\n              fails =", "if false then\n              fails =")
-mutate("un seul sens essaye", "if not req.fixed then nm, cm = run(-1) end", "")
-mutate("sens inverse prefere", "if nm > np then sign = -1; np = nm; cp = cm end", "if nm >= np then sign = -1; np = nm; cp = cm end")
+mutate("un seul sens essaye", "if n2 > np then dx, hs, sign, np, cp = c.dx, c.hs, -1, n2, c2 end", "")
+mutate("sens inverse prefere", "if n2 > np then dx, hs, sign, np, cp = c.dx, c.hs, -1, n2, c2 end", "if n2 >= np then dx, hs, sign, np, cp = c.dx, c.hs, -1, n2, c2 end")
+mutate("un seul candidat de pas", "if #cands >= Rf.CANDS then break end", "if #cands >= 1 then break end")
 mutate("quais non translates", "out.quais[#out.quais + 1] = { x = x, y = y, item = q.item, flow = q.flow }", "out.quais[#out.quais + 1] = { x = q.x, y = q.y, item = q.item, flow = q.flow }")
 mutate("tuyaux deja au site refaits", "if lab ~= \"m\" and E0[key] ~= lab and req.L0[key] ~= lab then", "if lab ~= \"m\" and E0[key] ~= lab then")
 mutate("consommation sans la vitesse", "local dur = (r.energy and r.energy > 0) and r.energy / speed or 0", "local dur = (r.energy and r.energy > 0) and r.energy or 0")
 mutate("nombre de modules arrondi au plus proche", "local n = floor(supply / use + 1e-9)", "local n = floor(supply / use + 0.5)")
 mutate("nombre de modules sans plafond", "if n > kmax then n = kmax end", "")
-mutate("chantier suivant sans pas fixe", "dx, hs, sign = req.fixed.dx, req.fixed.hs, req.fixed.sign", "dx, hs, sign = req.fixed.dx + 1, req.fixed.hs, req.fixed.sign")
+mutate("chantier suivant sans pas fixe", "cands[1] = { dx = req.fixed.dx, hs = req.fixed.hs }", "cands[1] = { dx = req.fixed.dx + 1, hs = req.fixed.hs }")
 mutate("prises sur deux rangees acceptees", "if horiz and t.ty ~= list[1].ty then return nil, \"prises du fluide \" .. f .. \" sur plusieurs rangees\" end", "")
 
 print(string.format("[RANGEE] BILAN : %d OK, %d ECHEC(S)", pass, fail))
