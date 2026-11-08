@@ -256,6 +256,7 @@ do
     check(dt < 2, string.format("G3.11 plan sans lenteur (%.2f s de processeur hors jeu)", dt))
     local d = Li.manhattan(150, 20, math.floor(ch.x), math.floor(ch.y))
     check(#belts <= Rp.DETOUR * (d + 1) + Rp.DETOUR_SLACK, "G3.12 detour dans la limite")
+    check(Rp.street_edge(b.lat, { pitch = P.PITCH, lot = P.LOT, half = P.HALF }, math.floor(ch.x), math.floor(ch.y)), "G3.13 le tampon est au bord d'une rue")
     planned = { p = p, tiles = #belts, ch = ch }
   end
 end

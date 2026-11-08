@@ -246,6 +246,29 @@ local function suite(Rp, quiet)
   check(#Rp.pick_spots(10, 10, free_isolated, 3) == 0, "8.5 une tuile libre sans place pour un bras et un tapis est ecartee")
   check(#Rp.pick_spots(10, 10, free_all, 100, 0) == 1, "8.6 le rayon de recherche borne la liste")
 
+  -- §8 bis bord de rue (constantes du treillis de shared/team/plan.lua)
+  local PL = require("shared.team.plan")
+  local geom = { pitch = PL.PITCH, lot = PL.LOT, half = PL.HALF }
+  local lat = { ox = 5, oy = -7 }
+  local edge_n, edge_bad = 0, 0
+  for tx = lat.ox - geom.half, lat.ox - geom.half + geom.pitch - 1 do
+    for ty = lat.oy - geom.half, lat.oy - geom.half + geom.pitch - 1 do
+      if Rp.street_edge(lat, geom, tx, ty) then
+        edge_n = edge_n + 1
+        if not PL.in_street(lat, tx, ty) then edge_bad = edge_bad + 1 end
+        local lot_neighbour = false
+        for _, d in ipairs({ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }) do
+          if not PL.in_street(lat, tx + d[1], ty + d[2]) then lot_neighbour = true end
+        end
+        if not lot_neighbour then edge_bad = edge_bad + 1 end
+      end
+    end
+  end
+  check(edge_n == 4 * geom.lot and edge_bad == 0, string.format("8.7 bord de rue : %d tuiles par case (attendu %d), toutes en rue et contre un lot (%d fautes)", edge_n, 4 * geom.lot, edge_bad))
+  check(not Rp.street_edge(lat, geom, lat.ox - geom.half + geom.lot, lat.oy - geom.half + geom.lot), "8.8 un croisement n'est pas un bord")
+  check(not Rp.street_edge(lat, geom, lat.ox - geom.half + 5, lat.oy - geom.half + 5), "8.9 le milieu d'un lot n'est pas un bord")
+  check(not Rp.street_edge(lat, geom, lat.ox - geom.half + geom.lot + 1, lat.oy - geom.half + 5), "8.10 le milieu de la rue n'est pas un bord")
+
   -- §9 tracé accepté
   check(Rp.route_ok(100, 90) == true, "9.1 un tapis direct est accepte")
   check(Rp.route_ok(Rp.MAX_LEN + 1, Rp.MAX_LEN - 50) == false, "9.2 un tapis plus long que Rp.MAX_LEN est refuse")
@@ -444,6 +467,9 @@ local mutants = {
   { "candidats : le tampon n'est plus ramene au QG", "px, py = Rp.clamp_near(px, py, hub, Rp.NEAR_HUB)", "" },
   { "candidats : le tampon du meme objet n'est pas controle", "if t.item == s.item and (t.lines or 1) < Rp.REUSE_MAX", "if (t.lines or 1) < Rp.REUSE_MAX" },
   { "candidats : la limite de lignes par tampon est oubliee", "(t.lines or 1) < Rp.REUSE_MAX and", "true and" },
+  { "bord de rue : le croisement compte", "if xs and ys then return false end -- croisement", "" },
+  { "bord de rue : le milieu de la rue compte", "if xs then return rx == geom.lot or rx == geom.pitch - 1 end", "if xs then return true end" },
+  { "bord de rue : un seul bord", "if ys then return ry == geom.lot or ry == geom.pitch - 1 end", "if ys then return ry == geom.lot end" },
   { "candidats : le stock dormant compte comme une production", "if s.nature == \"stock\" then flow = flow * Rp.STOCK_FACTOR end", "" },
   { "candidats : le tri est inverse", "if a.net ~= b.net then return a.net > b.net end", "if a.net ~= b.net then return a.net < b.net end" },
   { "decision : la confirmation est oubliee", "if (inp.seen or 0) < Rp.CONFIRM then", "if false then" },

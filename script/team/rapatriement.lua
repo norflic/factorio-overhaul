@@ -537,13 +537,21 @@ function Rap.plan(api, f, surface, p)
     spots = { { x = D.x, y = D.y, sites = Li.sites(D.x, D.y, free) } }
   else
     local at_tam = pole_probe(f, surface, px, py, Rp.SPOT_RADIUS + near + 4)
-    local function free_chest(x, y)
+    local geom = { pitch = P.PITCH, lot = P.LOT, half = P.HALF }
+    -- le coffre tampon au BORD d'une rue (Rp.street_edge) : ni au milieu d'un lot (le module veut son rectangle entier), ni au milieu de la rue
+    -- (marche des PNJ) ; repli : n'importe quelle tuile libre hors rue
+    local function free_chest(x, y, edge)
       local c, k = ground(x, y)
       if not c or guard[k] or planned[k] or c.clear[k] then return false end
-      if P.in_street(b.lat, x, y) then return false end -- une rue est le passage des PNJ
+      if edge then
+        if not Rp.street_edge(b.lat, geom, x, y) then return false end
+      elseif P.in_street(b.lat, x, y) then
+        return false
+      end
       return at_tam(x, y, near)
     end
-    spots = Rp.pick_spots(px, py, function(x, y) return free_chest(x, y) end, Rp.SPOT_TRIES)
+    spots = Rp.pick_spots(px, py, function(x, y) return free_chest(x, y, true) end, Rp.SPOT_TRIES)
+    if #spots == 0 then spots = Rp.pick_spots(px, py, function(x, y) return free_chest(x, y, false) end, Rp.SPOT_TRIES) end
     if #spots == 0 then return false, "rapatriement: aucune place pour le tampon a portee d'un poteau" end
   end
   S = { x = src.x, y = src.y }

@@ -25,7 +25,7 @@
        tapis), plus une part Rp.STAGE2 de la jambe de remplissage pour ce que le tampon sert aux quais à Li.MAX_SPAN (liaison ordinaire du tampon,
        ou bus du lot reseau-graphe).
     4. DÉCISION (Rp.decide) : prix, confirmation sur Rp.CONFIRM relevés, essais, menace, ennemis, lignes ouvertes, lignes au plus Rp.MAX_LINES.
-    5. SITE ET TRACÉ (Rp.pick_spot, Rp.route_ok) : un point libre du tampon près du point voulu (anneaux de Manhattan croissants), un bras et un tapis
+    5. SITE ET TRACÉ (Rp.pick_spots, Rp.street_edge, Rp.route_ok) : un point libre du tampon près du point voulu (anneaux de Manhattan croissants), un bras et un tapis
        contre le coffre ; le tracé accepté s'il tient dans Rp.MAX_LEN et Rp.DETOUR.
     6. ENTITÉS ET PREUVE (Rp.entities, Rp.verify) : chaque pièce mène à la suivante, le tampon est le coffre où dépose le dernier bras.
     7. BARRE (Rp.bar) : le tampon est borné à Rp.BUFFER_MIN minutes de débit (au moins Rp.BUFFER_MIN_OBJ objets, au plus Rp.BUFFER_MAX_OBJ),
@@ -330,6 +330,19 @@ function Rp.pick_spots(px, py, free, max_n, radius)
     end
   end
   return out
+end
+
+--- La tuile (tx, ty) est-elle au BORD d'une rue du treillis (première ou dernière tuile de la rue, hors croisement) ? Un coffre au milieu d'un lot
+--- le rendrait inutilisable par un module (le module veut son rectangle entier libre) ; au milieu de la rue il gênerait la marche des PNJ ; au bord de
+--- la rue il ne fait ni l'un ni l'autre. lat = { ox, oy }, geom = { pitch, lot, half } (shared/team/plan.lua : P.PITCH, P.LOT, P.HALF).
+function Rp.street_edge(lat, geom, tx, ty)
+  local rx = (tx - lat.ox + geom.half) % geom.pitch
+  local ry = (ty - lat.oy + geom.half) % geom.pitch
+  local xs, ys = rx >= geom.lot, ry >= geom.lot
+  if xs and ys then return false end -- croisement
+  if xs then return rx == geom.lot or rx == geom.pitch - 1 end
+  if ys then return ry == geom.lot or ry == geom.pitch - 1 end
+  return false
 end
 
 --- Le tracé est-il acceptable ? len = nombre de tuiles, m = Manhattan des deux tuiles de tapis. Rend ok, raison.
