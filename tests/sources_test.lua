@@ -220,6 +220,9 @@ local function suite()
   ic = S.idle_cause({ idle = 1, free = many, waiting = {} })
   check(select(2, ic.text:gsub("k%d", "")) == S.IDLE_KINDS_MAX, "au plus S.IDLE_KINDS_MAX types cités")
 
+  check(S.exempt_task("survie:mine:iron-ore:1", nil) and S.exempt_task("crise:mine:x", nil) and S.exempt_task("ia3:mine:x", true), "survie (clé ou drapeau) et crise : exemptées")
+  check(not S.exempt_task("ia3:mine:iron-ore:1", nil) and not S.exempt_task("fond:mine:x", false) and not S.exempt_task(nil, nil), "cerveau, fond : non exemptés")
+
   ---------------------------------------------------------------------------------------------------
   -- §5 objets attendus
   ---------------------------------------------------------------------------------------------------
@@ -435,6 +438,9 @@ local MUTANTS = {
       local o = S.idle_cause
       S.idle_cause = function(a) a.idle = 0 return o(a) end
     end },
+  { "exempt-rien", function() S.exempt_task = function() return false end end },
+  { "exempt-survie-oubliee", function() S.exempt_task = function(key, flag) return type(key) == "string" and key:sub(1, 6) == "crise:" end end },
+  { "exempt-tout", function() S.exempt_task = function() return true end end },
   { "cibles-brut-comme-plaque", function()
       local o = S.targets
       S.targets = function(spec, inputs, order)

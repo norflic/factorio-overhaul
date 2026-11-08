@@ -297,6 +297,14 @@ function S.stock_covers(a)
   return false
 end
 
+--- Une tâche de minage est-elle exemptée de toute règle de sources (mode survie, crise injectée par un banc) ? Lue sur sa clé et son drapeau `survie`.
+--- (survie_moteur_test : les tâches « survie: » posées par Survie.think doivent rester au tableau, stock ou sorties ou machines ou non.)
+function S.exempt_task(key, survie_flag)
+  if survie_flag then return true end
+  if type(key) ~= "string" then return false end
+  return key:sub(1, 7) == "survie:" or key:sub(1, 6) == "crise:"
+end
+
 --- Le minage à la main est-il permis ? (aucune sortie ne peut fournir : ni prise, ni attente d'une sortie en marche).
 function S.hand_ok(decision) return decision.act == "hand" end
 

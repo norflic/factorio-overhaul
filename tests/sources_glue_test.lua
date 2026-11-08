@@ -437,8 +437,8 @@ do
   bb.tasks["crise:mine:" .. CU] = mine_task(CU, "crise:mine:" .. CU)
   STOCK.counts[PLATE] = 100
   local dropped2 = Src.think(g, 3600)
-  check(dropped2 == 3 and bb.tasks["fond:mine:" .. ORE] ~= nil and bb.tasks["crise:mine:" .. CU] ~= nil,
-    "21 096 plaques de cuivre au stock : les minages de cuivre libres (cerveau, manque, survie) sont retirés, le fer (100 plaques) et la crise restent : " .. dropped2)
+  check(dropped2 == 2 and bb.tasks["fond:mine:" .. ORE] ~= nil and bb.tasks["crise:mine:" .. CU] ~= nil and bb.tasks["survie:mine:" .. CU .. ":1"] ~= nil,
+    "21 096 plaques de cuivre au stock : les minages de cuivre libres du cerveau et du manque sont retirés ; le fer (100 plaques), la crise et la SURVIE restent : " .. dropped2)
   local okc, whyc, textc = Src.hand_ok(g, CU, 3700, false, 50)
   check(okc == false and whyc == "stock" and textc:find("le stock suffit"), "un minage de cuivre déjà pris est barré : le stock suffit")
   check(Src.hand_ok(g, ORE, 3700, false, 50) == true, "fer : 100 plaques seulement, la main reste permise")
@@ -469,6 +469,26 @@ do
   check(Src.hand_ok(g, ORE, 400, false, 50, true) == true, "mode survie : exempte")
   check(Src.hand_ok(g, ORE, 400, true, 50, false) == true, "crise injectee : exempte")
   check(Src.hand_ok(g, T.outposts.copper.resource, 400, false, 50, false) == true, "une autre ressource non coupee : la main passe")
+end
+
+do
+  -- survie_moteur_test (8/11) : les tâches de survie restent au tableau et passent la garde, même quand le stock couvre ou que D09 a coupé
+  new_world()
+  logs = {}
+  local g = team()
+  pteam = g
+  local CU, CU_PLATE = T.outposts.copper.resource, T.outposts.copper.product
+  STOCK = { counts = { [CU_PLATE] = 21096, [CU] = 500 }, room = nil, skip = nil, annexes = {} }
+  g.team.inter = { skip = { [CU] = true } }
+  local bb = require("script.team.board").get(g)
+  bb.tasks["survie:mine:" .. CU .. ":1"] = mine_task(CU, "survie:mine:" .. CU .. ":1")
+  bb.tasks["x:mine"] = mine_task(CU, "x:mine")
+  bb.tasks["flag"] = mine_task(CU, "flag")
+  bb.tasks["flag"].survie = true
+  local d3 = Src.think(g, 3600, 0)
+  check(bb.tasks["survie:mine:" .. CU .. ":1"] ~= nil and bb.tasks["flag"] ~= nil and bb.tasks["x:mine"] == nil and d3 == 1, "survie (clé ou drapeau) : jamais retirée ; une tâche ordinaire l'est")
+  check(Src.hand_ok(g, CU, 3700, false, 50, true) == true and Src.hand_ok(g, CU, 3700, false, 50, Src.exempt(bb.tasks["survie:mine:" .. CU .. ":1"])) == true, "survie : le programme n'est pas barré (stock, machines)")
+  check(Src.hand_ok(g, CU, 3700, false, 50, Src.exempt({ key = "ia3:mine:x" })) == false, "tâche ordinaire : barrée")
 end
 
 ---------------------------------------------------------------------------------------------------

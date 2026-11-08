@@ -47,6 +47,9 @@ local FEED_TYPES = { "inserter", "mining-drill" }
 ---------------------------------------------------------------------------------------------------
 -- État
 ---------------------------------------------------------------------------------------------------
+--- Tâche de minage exemptée (mode survie : clé « survie: » ou drapeau ; crise injectée par un banc).
+function Src.exempt(task) return S.exempt_task(task.key, task.survie) end
+
 function Src.on(f) return f ~= nil and f.team ~= nil and f.team.sources_regle ~= false end
 
 --- Registre de l'équipe (créé au besoin : jamais depuis on_load).
@@ -333,6 +336,7 @@ end
 function Src.decision(f, res, tick, crisis, count, survie)
   local x = BY_RES[res]
   if not (x and Src.on(f) and f.team and f.team.sources and f.hq and f.hq.valid) then return nil end
+  if survie then return { act = "hand", why = "survie", code = "survie", item = x.item }, x end -- mode survie : jamais barré
   -- Les machines extraient déjà assez (D09, script/team/intermediaires.lua : f.team.inter.skip, état lu sans require) : une tâche déjà prise est barrée
   -- aussi (banc verif-guide, 8/11 : 2 minages de fer finis à 9,5 et 29,3 min après la coupure du fer à 1,9 min). Survie et crise exemptées.
   local inter = f.team.inter
@@ -486,7 +490,7 @@ function Src.think(f, tick, idle)
   for _, x in ipairs(TARGETS) do by_res[x.res] = x end
   local stock_dropped = 0
   local dropped = Board.drop_free(f, function(t)
-    if t.kind == "mine" and t.resource and not (type(t.key) == "string" and t.key:sub(1, 6) == "crise:") then
+    if t.kind == "mine" and t.resource and not S.exempt_task(t.key, t.survie) then
       if covered[t.resource] then return false end
       local x = by_res[t.resource]
       if x and select(1, stock_cover(f, x, t.count)) then
