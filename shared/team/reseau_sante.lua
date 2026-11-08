@@ -45,6 +45,20 @@ local function lost_of(inp)
 end
 S.lost = lost_of
 
+--- Lot CHAMP-COURANT (partie neuve 0.6.72, journal INTEG-0672 : 0 foreuse électrique à 10, 20 et 30 min, ordres « couvrir » ouverts sans projet de champ).
+--- Le réseau est SAIN quand la centrale est finie, qu'aucune pièce ne manque et qu'elle produit... OU qu'elle ne produit rien parce que rien ne la
+--- demande : `energy_generated_last_tick` des machines à vapeur vaut 0 sans consommateur, donc « production > 0 » interdisait le premier
+--- consommateur (le champ, power_ok de migration_champ.lua, et Gisement, lisent sante.healthy) : l'œuf et la poule. Même seuil que S.decide
+--- (S.MIN_DEMAND_KW). Sans demande, la centrale n'est saine que si elle a de quoi produire dès qu'on la demande : au moins une chaudière et une
+--- machine, aucune chaudière à sec.
+function S.healthy(inp)
+  if not inp.fini or lost_of(inp) ~= 0 then return false end
+  if (inp.prod_kw or 0) > 0 then return true end
+  if (inp.demand_kw or 0) >= S.MIN_DEMAND_KW then return false end
+  local p = inp.present or {}
+  return (p.source or 0) > 0 and (p.gen or 0) > 0 and (inp.dry or 0) == 0
+end
+
 --- Décision. inp : voir le haut du fichier ; st : S.new() (modifié). Rend action, raison (texte), détail { lost, danger }.
 --- inp = { fini = bool, missing = { source, gen, eau, tuyau }, present = { source, gen, eau }, prod_kw, demand_kw, dry = n sources à sec,
 ---         islands = n consommateurs sur îlot, uncovered = n sous aucun poteau, enemies = n ennemis à portée du site,
