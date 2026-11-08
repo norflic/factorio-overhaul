@@ -148,6 +148,43 @@ local function suite(Pe)
   local ra8 = Pe.decide(sa, D1, orders)
   local rb8 = Pe.decide(sb, D1, orders)
   want(Pe.describe(sa, ra8) == Pe.describe(sb, rb8), "deterministe")
+  -- 9. RACINE (lot tv-fer, partie du 8/11 : « 0 PNJ libre sur 8, 6 tache(s) libre(s) », ordre couvrir iron-ore retenu 14 minutes de suite).
+  local Rn = { workers = 8, idle = 0, free_tasks = 6, batis = 0, open_sites = 0 }
+  local function ctx_root(short) -- short = { [produit] = manque } ; couvrir/ouvrir iron-ore -> iron-plate
+    return { family_of = function() return "capi" end, family_rank = { capi = 3 }, site_kinds = { couvrir = true, ouvrir = true },
+      tours_kinds = { couvrir = true, ouvrir = true, chaine = true }, measured = {}, measured_n = 0,
+      root_of = function(o)
+        if o.kind ~= "couvrir" and o.kind ~= "ouvrir" then return nil end
+        return o.resource == "iron-ore" and short["iron-plate"] or nil
+      end }
+  end
+  local couv = { key = "couvrir:iron-ore", kind = "couvrir", resource = "iron-ore", n = 17 }
+  local chain = { key = "chaine:gun-turret", kind = "chaine", item = "gun-turret", n = 1 }
+  local sR = Pe.new()
+  Pe.filter(sR, Rn, { couv }, ctx_root({}))
+  local rRn = Pe.filter(sR, Rn, { couv, chain }, ctx_root({}))
+  want(rRn.closed, "racine : porte fermee (0 libre sur 8)")
+  want(rRn.why["couvrir:iron-ore"] ~= nil and rRn.why["chaine:gun-turret"] ~= nil, "racine : sans manque, couvrir est retenu comme avant")
+  local sR2 = Pe.new()
+  Pe.filter(sR2, Rn, { couv }, ctx_root({ ["iron-plate"] = 600 }))
+  local rR = Pe.filter(sR2, Rn, { couv, chain }, ctx_root({ ["iron-plate"] = 600 }))
+  want(rR.closed, "racine : la porte reste fermee")
+  want(rR.why["couvrir:iron-ore"] == nil, "racine : couvrir iron-ore passe la porte fermee (iron-plate en manque)")
+  want(rR.why["chaine:gun-turret"] ~= nil, "racine : un ordre qui n'est pas une racine reste retenu")
+  want(#rR.roots == 1 and rR.roots[1].key == "couvrir:iron-ore" and rR.roots[1].need == 600, "racine : journal (cle, manque 600)")
+  local rRc = Pe.filter(Pe.new(), { workers = 8, idle = 5, free_tasks = 0, batis = 0, open_sites = 0 }, { couv }, ctx_root({ ["iron-plate"] = 600 }))
+  want(not rRc.closed and #rRc.roots == 0, "racine : porte ouverte, rien a noter")
+  -- La porte des chantiers reste : plus de place -> la racine est retenue quand meme.
+  local rRs = Pe.filter(Pe.new(), { workers = 8, idle = 5, free_tasks = 0, batis = 0, open_sites = 1 }, { couv }, ctx_root({ ["iron-plate"] = 600 }))
+  want(rRs.why["couvrir:iron-ore"] ~= nil, "racine : la porte des chantiers (bras) s'applique encore")
+  -- R0 et R1, recherche : inchangés (une recherche n'est jamais une racine).
+  local always = ctx_root({})
+  always.root_of = function() return 600 end
+  local tr = Pe.translate({ key = "packs", kind = "packs", resource = "iron-ore", n = 1 }, always)
+  want(not tr.root, "racine : un ordre de recherche n'est pas une racine")
+  -- Manque nul : pas une racine.
+  local tz = Pe.translate(couv, ctx_root({ ["iron-plate"] = 0 }))
+  want(not tz.root, "racine : manque 0 ne fait pas une racine")
   return bad
 end
 
@@ -169,8 +206,13 @@ do
 end
 
 local MUTANTS = {
-  { "porte du transport retiree", "if g.closed and o.tours and not o.belt then", "if false then" },
-  { "tapis non exempte", "if g.closed and o.tours and not o.belt then", "if g.closed and o.tours then" },
+  { "racine ignoree (porte du transport pour tous)", "elseif g.closed and o.tours and not o.belt and not o.root then", "elseif g.closed and o.tours and not o.belt then" },
+  { "racine : tout ordre a tournees est racine", "local root = type(root_n) == \"number\" and root_n > 0 and not research", "local root = true and not research" },
+  { "racine : manque nul compte", "local root = type(root_n) == \"number\" and root_n > 0 and not research", "local root = type(root_n) == \"number\" and not research" },
+  { "racine : la recherche peut etre racine", "local root = type(root_n) == \"number\" and root_n > 0 and not research", "local root = type(root_n) == \"number\" and root_n > 0" },
+  { "racine : journal oublie", "if p.root and g.closed and p.tours and not p.belt and p.rank > Pe.SAFE_RANK then", "if false then" },
+  { "porte du transport retiree", "elseif g.closed and o.tours and not o.belt and not o.root then", "elseif false then" },
+  { "tapis non exempte", "elseif g.closed and o.tours and not o.belt and not o.root then", "elseif g.closed and o.tours and not o.root then" },
   { "seuil fixe au lieu du seuil qui suit l'effectif", "local y = Pe.BACKLOG_PER * w + Pe.BACKLOG_BASE", "local y = 8" },
   { "bras : seuil fixe (sans les modules)", "local limit = math.floor(math.max(0, b) / Pe.MODULES_PER_SITE) + 1", "local limit = 1" },
   { "R0 et R1 retenus (I2 rompu)", "if rank > Pe.SAFE_RANK then\n", "if true then\n" },

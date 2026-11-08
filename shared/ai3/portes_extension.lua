@@ -110,7 +110,7 @@ function Pe.check(g, o)
   if rank > Pe.SAFE_RANK then
     if g.closed and o.research and not o.belt then
       return "recherche coupee : transport sature : " .. tostring(g.cause)
-    elseif g.closed and o.tours and not o.belt then
+    elseif g.closed and o.tours and not o.belt and not o.root then
       return "transport sature : " .. tostring(g.cause)
     elseif o.site and g.room <= 0 then
       if g.site_why then return "bras : " .. g.site_why .. " (aucun chantier de plus sans mesure)" end
@@ -140,7 +140,7 @@ end
 function Pe.finish(st, g) st.last_item = g.measured_item end
 
 --- Une décision sur une liste déjà triée (branchement après coup, ou banc) : Pe.gate, puis Pe.check, Pe.units, Pe.take par ordre,
---- puis Pe.finish. orders = { { key, item, n, rank, tours, belt, site, measured, alone } }. Rend { kept = { copies, n réduit },
+--- puis Pe.finish. orders = { { key, item, n, rank, tours, belt, site, measured, alone, root } }. Rend { kept = { copies, n réduit },
 --- refused = { { key, why } }, closed, room, limit, cause }.
 function Pe.decide(st, a, orders)
   local g = Pe.gate(st, a)
@@ -151,7 +151,7 @@ function Pe.decide(st, a, orders)
       refused[#refused + 1] = { key = o.key, why = why }
     else
       local c = {}
-      for _, k in ipairs({ "key", "item", "n", "rank", "tours", "belt", "site", "measured", "alone", "research" }) do c[k] = o[k] end
+      for _, k in ipairs({ "key", "item", "n", "rank", "tours", "belt", "site", "measured", "alone", "research", "root" }) do c[k] = o[k] end
       c.n, c.reduced = Pe.units(g, o)
       if not c.reduced then c.reduced = nil end
       Pe.take(g, o)
@@ -175,7 +175,11 @@ function Pe.translate(o, ctx)
   local item = o.item or o.resource
   local measured = item ~= nil and ((ctx.measured or {})[item] or 0) > 0
   local research = Pe.RESEARCH_KINDS[o.kind] == true
-  return { key = o.key, item = item, n = o.n, rank = (fam ~= nil and (ctx.family_rank or {})[fam]) or 3,
+  -- RACINE (lot tv-fer) : un ordre qui crée la source d'un objet en manque (ctx.root_of(o) rend le manque, n > 0) ne subit pas la porte
+  -- du transport : le « 0 PNJ libre » vient de ce manque (les PNJ le remplacent à la main), la porte le retiendrait pour toujours.
+  local root_n = ctx.root_of and ctx.root_of(o) or nil
+  local root = type(root_n) == "number" and root_n > 0 and not research
+  return { key = o.key, root = root or nil, root_n = root and root_n or nil, item = item, n = o.n, rank = (fam ~= nil and (ctx.family_rank or {})[fam]) or 3,
     site = site, tours = research or (ctx.tours_kinds or {})[o.kind] == true, belt = false, measured = measured,
     alone = measured and (ctx.measured_n or 0) == 1, research = research }
 end
@@ -185,7 +189,7 @@ end
 --- la taille ne se change pas après la décision, coût et objets étant calculés pour o.n ; mesure seulement), closed, room, limit, cause }.
 function Pe.filter(st, a, orders, ctx)
   local g = Pe.gate(st, a)
-  local why, kept, refused, reduced = {}, 0, 0, 0
+  local why, kept, refused, reduced, roots = {}, 0, 0, 0, {}
   for _, o in ipairs(orders or {}) do
     local p = Pe.translate(o, ctx)
     local w = Pe.check(g, p)
@@ -193,6 +197,9 @@ function Pe.filter(st, a, orders, ctx)
       why[o.key] = w
       refused = refused + 1
     else
+      if p.root and g.closed and p.tours and not p.belt and p.rank > Pe.SAFE_RANK then
+        roots[#roots + 1] = { key = o.key, item = p.item, need = p.root_n } -- passe la porte FERMÉE parce que racine (journal)
+      end
       local _, red = Pe.units(g, p)
       if red then reduced = reduced + 1 end
       Pe.take(g, p)
@@ -200,7 +207,7 @@ function Pe.filter(st, a, orders, ctx)
     end
   end
   Pe.finish(st, g)
-  return { why = why, kept = kept, refused = refused, reduced = reduced, closed = g.closed, room = g.room, limit = g.limit,
+  return { why = why, kept = kept, refused = refused, reduced = reduced, roots = roots, closed = g.closed, room = g.room, limit = g.limit,
     cause = g.cause }
 end
 
