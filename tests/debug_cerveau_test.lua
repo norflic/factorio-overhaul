@@ -151,6 +151,37 @@ local function run_all(Zn, Ec, Am, Lg)
   local abs = Am.absentes()
   check(#abs == 2 and abs[1] == "charbon_tapis" and abs[2] == "bras_repartiteur", "liste des absences pour l'integrateur")
 
+  -- piquage (lot PIQUAGE) : lu dans f.build.piquage, mots fixes
+  L = Am.evaluate({ bras_repartiteur = { present = true, state = "en_cours", why = { "cle", "x" } }, charbon_tapis = { state = "prevue" } })
+  by = {}
+  for _, row in ipairs(L) do by[row.key] = row end
+  check(by.bras_repartiteur.exists == true and by.bras_repartiteur.present == true and by.bras_repartiteur.state == "en_cours", "present = true : le mecanisme existe, son etat est recopie")
+  check(by.bras_repartiteur.why[1] == "cle", "la raison peut etre une chaine localisee (table)")
+  check(by.charbon_tapis.state == "absente" and by.charbon_tapis.exists == false, "un fait SANS present ne fait toujours pas exister l'absence")
+  check(by.niveau.present == nil, "un mecanisme deja existant n'est pas marque present")
+  L = Am.evaluate({ charbon_tapis = { present = false, state = "prevue" }, bras_repartiteur = { present = "oui", state = "prevue" } })
+  by = {}
+  for _, row in ipairs(L) do by[row.key] = row end
+  check(by.charbon_tapis.state == "absente" and by.bras_repartiteur.state == "absente", "present different de true (false, texte) : reste absente")
+  local quais = {
+    ["7:q1"] = { verdict = "refuse", cause = "trop_loin", tick = 100 },
+    ["7:q2"] = { verdict = "demande", cause = "ok", tick = 50 },
+    ["7:q10"] = { verdict = "actif", cause = "livre", tick = 70 },
+    ["8:q1"] = { verdict = "inerte", cause = "ne_livre_pas", tick = 10 },
+    ["70:q1"] = { verdict = "laisser", cause = "ok", tick = 10 },
+  }
+  local rows = Am.piquage_rows(quais, 7)
+  check(#rows == 3 and rows[1].i == 1 and rows[2].i == 2 and rows[3].i == 10, "quais du projet 7 seulement (pas 70, pas 8), tries par numero : " .. #rows)
+  local sm = Am.piquage_summary(quais)
+  check(sm.state == "en_cours" and sm.why.verdict == "demande" and sm.why.n == 1, "resume : un travail en cours passe devant un refus")
+  sm = Am.piquage_summary({ ["1:q1"] = { verdict = "refuse", cause = "trop_loin", tick = 5 }, ["1:q2"] = { verdict = "refuse", cause = "ne_se_paie_pas", tick = 9 } })
+  check(sm.state == "refusee" and sm.why.cause == "ne_se_paie_pas" and sm.why.n == 2, "resume : refus, le plus recent cite, 2 quais")
+  sm = Am.piquage_summary({ ["1:q1"] = { verdict = "actif", cause = "livre", tick = 5 } })
+  check(sm.state == "aucune" and sm.why == nil, "resume : actif seul = rien d'envisage")
+  check(Am.piquage_summary(nil).state == "aucune" and #Am.piquage_rows(nil, 1) == 0, "pas de champ : aucune")
+  rows = Am.piquage_rows({ ["3:q1"] = { verdict = "mot jamais vu", cause = "texte libre", tick = 1 } }, 3)
+  check(rows[1].verdict == "inconnu" and rows[1].cause == "inconnu", "mot hors liste : inconnu, jamais un texte brut derriere une cle")
+
   section("5. lignes")
   check(Lg.ago(nil)[1] == "fo-dbg-cerveau.ago-inconnu" and Lg.ago(-5)[1] == "fo-dbg-cerveau.ago-inconnu", "age inconnu")
   local a = Lg.ago(2400)
@@ -281,6 +312,12 @@ do
   local tk = { "autre", "prise", "libre" }
   for _, v in pairs(Lg.TASK_KEYS) do tk[#tk + 1] = v end -- valeurs a lister : l'ordre ne compte pas
   add("tache-", tk)
+  local pqv, pqc = { "inconnu" }, { "inconnu" }
+  for _, v in ipairs(Am.PQ_VERDICTS) do pqv[#pqv + 1] = v end
+  for _, v in ipairs(Am.PQ_CAUSES) do pqc[#pqc + 1] = v end
+  add("pq-verdict-", pqv)
+  add("pq-cause-", pqc)
+  add("am-note-", { "bras_repartiteur-present", "charbon_tapis-present" })
   add("decision-", { "ordre_ouvert", "ordre_fini", "ordre_echec", "refus", "envoye", "refus_sans_raison", "repli", "module", "capital", "capital_courant" })
   add("ago-", { "s", "min", "h", "inconnu" })
   local fam_missing = {}
@@ -326,6 +363,11 @@ local MUTANTS = {
   { "lg: kind/mode ignore", "lg", { "if mode ~= nil and Lg.TASK_KEYS", "if false and Lg.TASK_KEYS" } },
   { "lg: tache inconnue = kind brut", "lg", { "return Lg.TASK_KEYS[tostring(kind)] or \"autre\"", "return Lg.TASK_KEYS[tostring(kind)] or tostring(kind)" } },
   { "lg: X/N en marche absent", "lg", { "local mach = (type(z.n) == \"number\" and z.n > 0)", "local mach = (false)" } },
+  { "am: present ignore", "am", { "local present = c.exists or (type(fact) == \"table\" and fact.present == true)", "local present = c.exists" } },
+  { "am: fait sans present fait exister", "am", { "fact.present == true)", "fact.present ~= nil)" } },
+  { "am: mot hors liste brut", "am", { "return (type(w) == \"string\" and known[w]) and w or \"inconnu\"", "return w" } },
+  { "am: quais d'un autre projet", "am", { "key:sub(1, #prefix) == prefix and", "true and" } },
+  { "am: refus avant travail", "am", { "local rank = { aucune = 0, refusee = 1, en_cours = 2 }", "local rank = { aucune = 0, refusee = 2, en_cours = 1 }" } },
   { "lg: doublons gardes", "lg", { "if not seen[k] then", "if true then" } },
   { "lg: decisions anciennes d'abord", "lg", { "if ta ~= tb and ta ~= nil then return ta > tb end", "if ta ~= tb and ta ~= nil then return ta < tb end" } },
   { "lg: label affiche la cause du vert", "lg", { "local cause = (z.color ~= \"vert\" and z.cause)", "local cause = (z.cause)" } },

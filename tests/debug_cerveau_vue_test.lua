@@ -476,6 +476,16 @@ do
   f3.team.ia3e.mods[1].finished_m = f3.team.ia3e.last_min - 5
   rd = Lec.reads(f3, z)
   check(rd[1].verdict == "arret" and rd[1].why == "debit_nul", "debit nul d'un module ancien : arret")
+  -- PIQUAGE : f.build.piquage lu, le catalogue ne dit plus « n'existe pas » pour le repartiteur et le charbon
+  f3.build.piquage = { quais = { ["1:q1"] = { verdict = "demande", cause = "ok", tick = NOW - 300 }, ["1:q2"] = { verdict = "refuse", cause = "trop_loin", tick = NOW - 100 } } }
+  local facts = Lec.improvement_facts(f3)
+  check(facts.bras_repartiteur and facts.bras_repartiteur.present and facts.bras_repartiteur.state == "en_cours", "piquage present : bras_repartiteur en cours")
+  check(facts.charbon_tapis and facts.charbon_tapis.present, "piquage present : charbon_tapis couvert aussi (quai comme un autre)")
+  check(facts.bras_repartiteur.why[1] == "fo-dbg-cerveau.pq-ligne" and facts.bras_repartiteur.why[2][1] == "fo-dbg-cerveau.pq-verdict-demande", "la raison est une chaine localisee a mots fixes")
+  local prows = Lec.piquage_rows(f3, 1)
+  check(#prows == 2 and prows[2].verdict == "refuse" and prows[2].cause == "trop_loin", "quais du projet 1")
+  f3.build.piquage = nil
+  check(Lec.improvement_facts(f3).bras_repartiteur == nil, "sans champ piquage : aucun fait (reste absente)")
   -- C : sante creee mais jamais relevee = aucune lecture ; relevee (healthy) = marche
   z.kind = "centrale"
   rd = Lec.reads(f3, z)

@@ -34,12 +34,68 @@ local STATES = { prevue = true, en_cours = true, refusee = true, aucune = true, 
 Am.STATES = { "prevue", "en_cours", "refusee", "aucune", "inactive", "absente" }
 
 --- facts : { [clé du catalogue] = { state = ..., why = ... } } ; une clé sans fait vaut « aucune ».
+-- PIQUAGE (lot PIQUAGE, champ d'état f.build.piquage) : mots fixes de ses verdicts et causes (source : Pq.VERDICT_CODES et Pq.CAUSE_CODES,
+-- shared/team/piquage.lua de la branche piquage). Un mot que cette liste ne connaît pas s'affiche « inconnu » (jamais un texte brut).
+Am.PQ_VERDICTS = { "attente", "demande", "branche_finie", "repartiteur_pose", "actif", "inerte", "coupe", "refuse", "laisser" }
+Am.PQ_CAUSES = { "ok", "releves_insuffisants", "tapis_mixte", "surplus_non_observe", "tuile_impropre", "aucune_place", "trop_loin", "bras_lent",
+  "ne_se_paie_pas", "aucune_source", "sortie_plus_rentable", "a_confirmer", "menace", "ennemi", "essais_epuises", "pieces_inconnues",
+  "repartiteur_manquant", "repartiteur_a_fabriquer", "remplacement_refuse", "projet_refuse", "projet_rouvert", "livre", "ne_livre_pas" }
+local PQV, PQC = {}, {}
+for _, v in ipairs(Am.PQ_VERDICTS) do PQV[v] = true end
+for _, v in ipairs(Am.PQ_CAUSES) do PQC[v] = true end
+-- verdicts qui sont un travail en cours ou prévu
+local PQ_BUSY = { demande = true, branche_finie = true, repartiteur_pose = true }
+
+local function pq_word(w, known) return (type(w) == "string" and known[w]) and w or "inconnu" end
+
+--- Quais du piquage d'un projet `pid` : liste { key, i, verdict, cause, tick } triée par numéro de quai. quais : { ["<pid>:q<i>"] = { verdict, cause, tick } }.
+function Am.piquage_rows(quais, pid)
+  local out = {}
+  if type(quais) ~= "table" or pid == nil then return out end
+  local prefix = tostring(pid) .. ":q"
+  for key, q in pairs(quais) do -- liste triée juste après : l'ordre de pairs ne compte pas
+    if type(key) == "string" and key:sub(1, #prefix) == prefix and type(q) == "table" then
+      out[#out + 1] = { key = key, i = tonumber(key:sub(#prefix + 1)) or 0, verdict = pq_word(q.verdict, PQV), cause = pq_word(q.cause, PQC), tick = q.tick }
+    end
+  end
+  table.sort(out, function(a, b) if a.i ~= b.i then return a.i < b.i end return a.key < b.key end)
+  return out
+end
+
+--- Résumé de tous les quais : { state, why = { verdict, cause, n } | nil }. state : en_cours (un quai a un piquage demandé, une branche finie ou un
+--- répartiteur posé), refusee (un quai refusé, aucun travail en cours), aucune sinon. why : le quai le plus récent de l'état retenu.
+function Am.piquage_summary(quais)
+  local best, best_state, cnt = nil, "aucune", { aucune = 0, refusee = 0, en_cours = 0 }
+  if type(quais) ~= "table" then return { state = "aucune" } end
+  local keys = {}
+  for key in pairs(quais) do keys[#keys + 1] = tostring(key) end -- tri juste après
+  table.sort(keys)
+  for _, key in ipairs(keys) do
+    local q = quais[key]
+    if type(q) == "table" then
+      local v = pq_word(q.verdict, PQV)
+      local st = PQ_BUSY[v] and "en_cours" or (v == "refuse" and "refusee" or "aucune")
+      local rank = { aucune = 0, refusee = 1, en_cours = 2 }
+      if rank[st] > rank[best_state] or (rank[st] == rank[best_state] and st ~= "aucune" and (q.tick or 0) >= ((best and best.tick) or 0)) then
+        best_state, best = st, { verdict = v, cause = pq_word(q.cause, PQC), tick = q.tick }
+      end
+      cnt[st] = cnt[st] + 1
+    end
+  end
+  if best_state == "aucune" then return { state = "aucune" } end
+  return { state = best_state, why = { verdict = best.verdict, cause = best.cause, n = cnt[best_state] } }
+end
+
+--- Un fait peut déclarer { present = true } : le mécanisme est alors lu dans l'état du jeu (un champ que seul son code écrit) et compte comme
+--- existant, quelle que soit la liste ci-dessus. Un fait sans `present` ne fait JAMAIS exister une amélioration absente.
 function Am.evaluate(facts)
   facts = type(facts) == "table" and facts or {}
   local out = {}
   for _, c in ipairs(Am.CATALOGUE) do
-    local row = { key = c.key, exists = c.exists, owner = c.owner, note = c.note }
-    if not c.exists then
+    local fact = facts[c.key]
+    local present = c.exists or (type(fact) == "table" and fact.present == true)
+    local row = { key = c.key, exists = present, owner = c.owner, note = c.note, present = (not c.exists) and present or nil }
+    if not present then
       row.state = "absente"
     else
       local f = facts[c.key]

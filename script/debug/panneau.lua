@@ -184,12 +184,17 @@ local function fill_detail(detail, ctx)
         { t.taken and "fo-dbg-cerveau.tache-prise" or "fo-dbg-cerveau.tache-libre" }, t.item and { "item-name." .. t.item } or "", tostring(t.prio or "?") }, nil, true)
     end
   end
+  -- piquage des quais d'entrée de la zone (lot PIQUAGE)
+  for _, q in ipairs(ctx.sel_piquage or {}) do
+    lbl(detail, { "fo-dbg-cerveau.detail-piquage", q.i, { "fo-dbg-cerveau.pq-verdict-" .. q.verdict }, { "fo-dbg-cerveau.pq-cause-" .. q.cause },
+      Lg.ago(q.tick and (now - q.tick) or nil) }, nil, true)
+  end
   -- améliorations
   lbl(detail, "")
   local h4 = lbl(detail, { "fo-dbg-cerveau.detail-ameliorations" })
   h4.style.font = "default-bold"
   for _, a in ipairs(ctx.improvements) do
-    local cap = { "fo-dbg-cerveau.detail-amelioration", { "fo-dbg-cerveau.am-" .. a.key }, { "fo-dbg-cerveau.amstate-" .. a.state }, a.why and (" : " .. tostring(a.why)) or "" }
+    local cap = { "fo-dbg-cerveau.detail-amelioration", { "fo-dbg-cerveau.am-" .. a.key }, { "fo-dbg-cerveau.amstate-" .. a.state }, a.why and { "", " : ", a.why } or "" }
     lbl(detail, cap, a.state == "absente" and ABSENT_COLOR or nil, true)
   end
 end
@@ -211,7 +216,7 @@ local function fill_ameliorations(el, ctx)
   for _, a in ipairs(ctx.improvements) do
     local h = lbl(el, { "fo-dbg-cerveau.am-ligne", { "fo-dbg-cerveau.am-" .. a.key }, { "fo-dbg-cerveau.amstate-" .. a.state } }, a.state == "absente" and ABSENT_COLOR or nil)
     h.style.font = "default-bold"
-    local n = lbl(el, { "fo-dbg-cerveau.am-note-" .. a.key }, nil, true)
+    local n = lbl(el, { "fo-dbg-cerveau.am-note-" .. a.key .. (a.present and "-present" or "") }, nil, true)
     n.style.left_margin = 16
     n.style.maximal_width = 820
     if a.owner then
@@ -219,7 +224,7 @@ local function fill_ameliorations(el, ctx)
       o.style.left_margin = 16
     end
     if a.why then
-      local w = lbl(el, { "fo-dbg-cerveau.am-pourquoi", tostring(a.why) }, nil, true)
+      local w = lbl(el, { "fo-dbg-cerveau.am-pourquoi", a.why }, nil, true)
       w.style.left_margin = 16
     end
   end
@@ -259,7 +264,7 @@ function Panneau.update(player, v, ctx)
     fill_decisions(find(frame, "fo_dbg_dec"), ctx)
   end
   local sa = {}
-  for _, a in ipairs(ctx.improvements) do sa[#sa + 1] = a.key .. a.state .. tostring(a.why) end
+  for _, a in ipairs(ctx.improvements) do sa[#sa + 1] = a.key .. a.state .. (type(a.why) == "table" and table.concat({ tostring(a.why[2] and a.why[2][1]), tostring(a.why[3] and a.why[3][1]), tostring(a.why[4]) }, ",") or tostring(a.why)) end
   sa = table.concat(sa, "|")
   if v.sig.am ~= sa then
     v.sig.am = sa

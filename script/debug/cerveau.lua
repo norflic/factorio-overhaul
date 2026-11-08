@@ -216,6 +216,7 @@ function Cv.refresh_one(player, st, v, now)
     now = now, rows = rows, sel = row, f = f, snap = s, teams = Lec.teams(),
     decisions = Lg.decisions(Lec.decision_rows(f), Lg.DECISIONS_MAX),
     sel_tasks = row and Lg.tasks_for_zone(tasks, { pid = row.z.pid, oid = row.z.oid }) or {},
+    sel_piquage = row and row.z.pid and Lec.piquage_rows(f, row.z.pid) or {},
     improvements = Am.evaluate(Lec.improvement_facts(f)),
     sev_count = { alerte = 0, attention = 0, info = 0, ok = 0 },
   }
