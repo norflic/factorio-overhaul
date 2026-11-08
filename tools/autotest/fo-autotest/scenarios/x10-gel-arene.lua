@@ -138,7 +138,7 @@ return {
     local s = ctx.surface()
     local t = e.tick
     if t == 10 then
-      ctx.prepare_area(X0 - 8, Y0 - 8, X0 + 60, Y0 + 56, "grass-1")
+      ctx.prepare_area(X0 - 8, Y0 - 8, X0 + 90, Y0 + 80, "grass-1") -- jusqu'aux fours R et flux (X0 + 80, Y0 + 70)
       for _, k in ipairs({ "A", "B", "T" }) do
         if not game.forces[FORCES[k]] then game.create_force(FORCES[k]) end
         game.forces[FORCES[k]].set_cease_fire("enemy", true)
@@ -194,6 +194,31 @@ return {
         ctx.log(string.format("fait : on_flow(+5) puis on_flow(-3) : entree %+d, sortie %+d", di, dout))
         ctx.check(di == 5 and dout == 3, "fait : on_flow negatif compte en SORTIE (consommation), positif en entree", di .. " / " .. dout)
       end
+      do -- relecture de revue-s (8/11) : un remplaçant par fast_replace hérite-t-il de active = false ? (fait, sans gestionnaire)
+        local fx, fy = X0 + 70, Y0 + 70
+        local old = s.create_entity({ name = "stone-furnace", position = { fx, fy }, force = "fo-gel-flux" })
+        if old and game.entity_prototypes["steel-furnace"] then
+          old.active = false
+          local new = s.create_entity({ name = "steel-furnace", position = { fx, fy }, force = "fo-gel-flux", fast_replace = true, spill = false })
+          ctx.log(string.format("fait : fast_replace d'un four inactif (sans raise_built) : remplace %s, nouveau active = %s",
+            tostring(not old.valid), tostring(new and new.valid and new.active)))
+          st.inherit = new and new.valid and new.active == false
+        else
+          ctx.log("fait : fast_replace d'un four inactif : non joue (prototype absent)")
+        end
+        -- îlot de banc R (four du QG seul), figé comme A et B, remplacé à 1 000 par le chemin de Levels.swap (raise_built)
+        if not game.forces["fo-gel-r"] then game.create_force("fo-gel-r") end
+        game.forces["fo-gel-r"].set_cease_fire("enemy", true)
+        game.forces.enemy.set_cease_fire("fo-gel-r", true)
+        local q = s.create_entity({ name = "stone-furnace", position = { X0 + 80, Y0 + 70 }, force = "fo-gel-r" })
+        q.insert({ name = "coal", count = COAL })
+        q.get_inventory(defines.inventory.furnace_source).insert({ name = "iron-ore", count = 30 })
+        ctx.remote("fo-gel", "banc", "R", "fo-gel-r")
+        ctx.remote("fo-gel", "joueurs", "R", {})
+        local r = ctx.remote("fo-gel", "adopte", "R", q)
+        st.rq = q
+        ctx.check(r and r.id ~= nil, "relecture : ilot R (four du QG) adopte", tostring(r and (r.id or r.why)))
+      end
       local c = ctx.remote("fo-gel", "constantes")
       ctx.log(string.format("constantes : STEP %d, CALM %d, GUET %d, WAKE_R %d, FREEZE_R %d, WRITES %d", c.STEP, c.CALM, c.GUET, c.WAKE_R, c.FREEZE_R, c.WRITES))
       local d = st.rows.T.pairs4[1].d
@@ -212,6 +237,19 @@ return {
       ctx.check(d.status == defines.entity_status.disabled_by_script, "fait : un inactif rend disabled_by_script au moteur")
       ctx.check(ctx.remote("fo-gel", "statut", d) ~= defines.entity_status.disabled_by_script, "C6 : Gel.status ne rend jamais disabled_by_script pour une figee")
       st.a700 = measure(s, st.rows.A, "A")
+    elseif t == 1000 then
+      local q = st.rq
+      local was = q and q.valid and q.active
+      if q and q.valid and game.entity_prototypes["steel-furnace"] then
+        local pos = q.position
+        local new = s.create_entity({ name = "steel-furnace", position = pos, force = "fo-gel-r", fast_replace = true, spill = false,
+          raise_built = true })
+        ctx.check(was == false and new and new.valid and new.active == true and not q.valid,
+          "relecture (a) : remplacant d'une machine figee (fast_replace, raise_built) : actif des le retour de create_entity",
+          string.format("avant %s, nouveau %s, ancien retire %s ; heritage sans gestionnaire : %s", tostring(was),
+            tostring(new and new.valid and new.active), tostring(not q.valid), tostring(st.inherit)))
+        st.rnew = new
+      end
     elseif t == 1600 then
       ctx.remote("fo-gel", "joueurs", "B", { { x = X0 + 20, y = Y0 + ROWS.B + 100 } })
       st.wake_b_from = t
