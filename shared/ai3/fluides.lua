@@ -539,6 +539,7 @@ function Site:route(sx, sy, goal, fl)
   elseif rec.sx ~= sx or rec.sy ~= sy or rec.fl ~= fl then
     error("fluides : reprise incoherente du tuyau " .. ord, 0)
   end
+  self.why_route = rec.why -- Lot BLOCAGE-LABOS : pourquoi le dernier tracé a échoué (nil : il a réussi)
   return self:apply_route(rec, fl)
 end
 
@@ -572,13 +573,13 @@ function Site:route_raw(sx, sy, goal, fl, ord)
     local gx, gy = math.floor(k / 2097152) - 1048576, k % 2097152 - 1048576
     gl[#gl + 1] = { gx, gy }
   end
-  if #gl == 0 then return none end
+  if #gl == 0 then none.why = "cible vide" return none end
   local sk = tkey(sx, sy)
   if goal[sk] then
     -- déjà au réseau : le tuyau de départ seul, et « 0 posé » à l'appelant
     return { sx = sx, sy = sy, fl = fl, seq = { sk }, zero = true }
   end
-  if not self:pipe_ok(sx, sy, fl) then return none end
+  if not self:pipe_ok(sx, sy, fl) then none.why = "depart bloque" return none end
   -- une cible dont aucun voisin n'accepte un tuyau de ce fluide est scellée (autres fluides, machines) : refus immédiat,
   -- sans développer l'A* (moteur réel, 28/10 : l'eau d'une usine entourée de tuyaux de brut)
   do
@@ -590,7 +591,7 @@ function Site:route_raw(sx, sy, goal, fl, ord)
       end
       if open_goal then break end
     end
-    if not open_goal then return none end
+    if not open_goal then none.why = "cible scellee (" .. #gl .. " tuile(s))" return none end
   end
   local function h(x, y)
     local best = math.huge
@@ -656,7 +657,10 @@ function Site:route_raw(sx, sy, goal, fl, ord)
       n = n + 1
       job.spent = job.spent + 1
       job.slice = job.slice + 1
-      if n > limit or job.spent > Fl.LAYOUT_BUDGET then return none end
+      if n > limit or job.spent > Fl.LAYOUT_BUDGET then
+        none.why = string.format("A* epuise (%d noeuds, limite %d)", n, math.floor(limit))
+        return none
+      end
       for _, d in ipairs(DIRS) do
         local nx, ny = cur.x + DV[d][1], cur.y + DV[d][2]
         local nk = tkey(nx, ny)
@@ -687,7 +691,7 @@ function Site:route_raw(sx, sy, goal, fl, ord)
       if found then break end
     end
   end
-  if not found then return none end
+  if not found then none.why = string.format("A* sans chemin (%d noeuds, %d tuile(s) cible)", n, #gl) return none end
   local seq = { found }
   local k = came[found]
   while k do
@@ -1154,10 +1158,12 @@ local function layout_once(req, shift)
       end
       table.sort(order, function(a, b) if a.d ~= b.d then return a.d < b.d end return a.i < b.i end)
       local placed, last_why = false, nil
+      local n_occ, n_tube, why_count = 0, 0, {} -- Lot BLOCAGE-LABOS : le bilan des rives essayées (le dernier motif seul ne disait rien des autres)
       for _, it in ipairs(order) do
         local p = it.p
         local pe = req.ents[p.name]
         local px0, py0, px1, py1 = rect_of(pe, p.x, p.y, p.dir)
+        if not s:rect_free(px0, py0, px1, py1) then n_occ = n_occ + 1 end
         if s:rect_free(px0, py0, px1, py1) then
           local snap = s:snapshot(nets)
           local ent = s:put(p.name, p.x, p.y, p.dir, { role = "pompe", fluid = fl })
@@ -1171,12 +1177,20 @@ local function layout_once(req, shift)
             break
           end
           local c = pc[1]
-          last_why = string.format("tuyau de la pompe impossible (%s) : pompe (%.1f, %.1f) dir %d, raccord %s", fl, p.x, p.y, p.dir or 0,
-            c and string.format("(%d, %d) %s", c.tx, c.ty, s:pipe_ok(c.tx, c.ty, fl) and "libre" or "bloque") or "absent")
+          n_tube = n_tube + 1
+          local rw = s.why_route or "?"
+          why_count[rw] = (why_count[rw] or 0) + 1
+          last_why = string.format("tuyau de la pompe impossible (%s) : pompe (%.1f, %.1f) dir %d, raccord %s, trace : %s", fl, p.x, p.y, p.dir or 0,
+            c and string.format("(%d, %d) %s", c.tx, c.ty, s:pipe_ok(c.tx, c.ty, fl) and "libre" or "bloque") or "absent", rw)
           s:restore(snap, nets)
         end
       end
-      if not placed then return false, last_why or ("aucune rive libre pour la pompe de " .. fl) end
+      if not placed then
+        if not last_why then return false, string.format("aucune rive libre pour la pompe de %s (%d emprise(s) occupee(s))", fl, n_occ) end
+        local motifs = {}
+        for _, k in ipairs(sorted_keys(why_count)) do motifs[#motifs + 1] = why_count[k] .. "x " .. k end
+        return false, string.format("%s ; %d rive(s) : %d emprise occupee, %d tuyau impossible [%s]", last_why, #order, n_occ, n_tube, table.concat(motifs, " ; "))
+      end
     end
   end
   return true
@@ -1462,17 +1476,19 @@ function Fl.valve_recipe(rel, fluide)
     local r = rel.recipes[name]
     if not r.hidden and r.enabled ~= false and r.ingredients and r.products and #r.products > 0 then
       local fluid_in, only_item_out = 0, true
-      local takes = false
+      local takes, solid_in = false, false
       for _, i in ipairs(r.ingredients) do
         if i.type == "fluid" then
           fluid_in = fluid_in + 1
           if i.name == fluide then takes = true end
+        else
+          solid_in = true -- lot TV-FLUX : un ingrédient solide (contenant vide...) que la soupape ne paie pas : jamais une soupape
         end
       end
       for _, p in ipairs(r.products) do
         if p.type ~= "item" then only_item_out = false end
       end
-      if takes and fluid_in == 1 and only_item_out then return name end
+      if takes and fluid_in == 1 and only_item_out and not solid_in then return name end
     end
   end
   return nil
@@ -1499,6 +1515,99 @@ function Fl.valve(st, fluide, remplissage, debouches, surplus)
     return { open = false, why = "aucune recette de surplus dans les données", fluide = fluide }
   end
   return { open = true, recipe = surplus, why = "cuve pleine depuis " .. Fl.VALVE_K .. " mesures", fluide = fluide }
+end
+
+
+--[[ Lot TV-FLUX (V42, docs/TODO_VIDEO.md l.108 ; M32) : BRANCHEMENT de la soupape. Règles PURES lues par script/ai3/petrole.lua (Pet.valve_think).
+  La mesure vient des machines FINIES d'un site : pour chacune, ses fluides de SORTIE (quantité, capacité de la boîte), les fluides de sa recette
+  en entrée et si elle TRAVAILLE ; Fl.valve_reading en tire, par fluide, le remplissage de la cuve la plus pleine et le nombre de débouchés
+  ouverts (machines qui travaillent et mangent ce fluide). Fl.valve (ci-dessus) décide ; Fl.valve_row lit la recette de surplus ;
+  Fl.valve_convert chiffre ce qu'une machine de la recette convertit en un laps de temps, borné par le fluide, la place et la vitesse. ]]
+
+--- Lecture des machines d'un site. rows[i] = { out = { { fluid, amount, capacity }, ... }, ins = { fluide, ... }, working = booléen }.
+--- Rend la liste triée par fluide de { fluid, fill (0 à 1 : la boîte de sortie la plus pleine), outlets (machines qui travaillent et
+--- mangent ce fluide), producers }. Un fluide que personne ne produit n'est pas relevé ; une capacité nulle ou absente est ignorée.
+function Fl.valve_reading(rows)
+  local by = {}
+  for _, r in ipairs(rows or {}) do
+    for _, o in ipairs(r.out or {}) do
+      if type(o.capacity) == "number" and o.capacity > 0 and type(o.amount) == "number" and o.fluid then
+        local e = by[o.fluid]
+        if not e then e = { fluid = o.fluid, fill = 0, outlets = 0, producers = 0 }; by[o.fluid] = e end
+        e.producers = e.producers + 1
+        local fill = math.min(1, math.max(0, o.amount / o.capacity))
+        if fill > e.fill then e.fill = fill end
+      end
+    end
+  end
+  for _, r in ipairs(rows or {}) do
+    if r.working then
+      local seen = {}
+      for _, fl in ipairs(r.ins or {}) do
+        if by[fl] and not seen[fl] then seen[fl] = true; by[fl].outlets = by[fl].outlets + 1 end
+      end
+    end
+  end
+  local out = {}
+  for _, fl in ipairs(sorted_keys(by)) do out[#out + 1] = by[fl] end
+  return out
+end
+
+local function amount_mean(p)
+  local a = p.amount
+  if a == nil and p.amount_min and p.amount_max then a = (p.amount_min + p.amount_max) / 2 end
+  a = a or 0
+  if type(p.probability) == "number" then a = a * p.probability end
+  return a
+end
+
+--- Ligne de la recette de surplus `rname` pour le fluide `fluide` : { recipe, fluid_in, products = { { name, amount }, ... }, energy }, ou nil
+--- (recette absente, sans l'unique entrée fluide, ou à produit fluide). Lecture seule du relevé.
+function Fl.valve_row(rel, rname, fluide)
+  local r = rname and rel and rel.recipes and rel.recipes[rname]
+  if not r then return nil end
+  local fin, prods = 0, {}
+  for _, i in ipairs(r.ingredients or {}) do
+    if i.type == "fluid" then
+      if i.name ~= fluide then return nil end
+      fin = fin + amount_mean(i)
+    else
+      return nil -- un ingrédient solide (contenant vide...) : la soupape ne le paie pas
+    end
+  end
+  for _, p in ipairs(r.products or {}) do
+    if p.type ~= "item" then return nil end
+    prods[#prods + 1] = { name = p.name, amount = amount_mean(p) }
+  end
+  if fin <= 0 or #prods == 0 then return nil end
+  table.sort(prods, function(a, b) return a.name < b.name end)
+  return { recipe = rname, fluid_in = fin, products = prods, energy = math.max(r.energy or 0.5, 0.05) }
+end
+
+--- Ce qu'une machine de vitesse `speed` convertit en `dt_min` minutes : au plus (speed × 60 × dt_min ÷ énergie) fabrications, par le
+--- fluide `avail` (unités à prendre dans la cuve) et par la place `room` ({ [objet] = nombre qu'on peut encore déposer }). Rend
+--- { crafts, fluid (unités prises), items = { { name, count } }, limit = "temps" | "fluide" | "place" | "rien" }.
+function Fl.valve_convert(row, speed, avail, dt_min, room)
+  local none = { crafts = 0, fluid = 0, items = {}, limit = "rien" }
+  if not row or type(speed) ~= "number" or speed <= 0 or type(dt_min) ~= "number" or dt_min <= 0 or type(avail) ~= "number" or avail <= 0 then
+    return none
+  end
+  local by_time = math.floor(speed * 60 * dt_min / row.energy + 1e-9)
+  local by_fluid = math.floor(avail / row.fluid_in + 1e-9)
+  local by_room = math.huge
+  for _, p in ipairs(row.products) do
+    if p.amount > 0 then by_room = math.min(by_room, math.floor((((room or {})[p.name]) or 0) / p.amount + 1e-9)) end
+  end
+  local crafts, limit = by_time, "temps"
+  if by_fluid < crafts then crafts, limit = by_fluid, "fluide" end
+  if by_room < crafts then crafts, limit = by_room, "place" end
+  if crafts <= 0 then return { crafts = 0, fluid = 0, items = {}, limit = (limit == "temps") and "rien" or limit } end
+  local items = {}
+  for _, p in ipairs(row.products) do
+    local n = math.floor(crafts * p.amount + 1e-9)
+    if n > 0 then items[#items + 1] = { name = p.name, count = n } end
+  end
+  return { crafts = crafts, fluid = crafts * row.fluid_in, items = items, limit = limit }
 end
 
 return Fl

@@ -26,6 +26,7 @@ require("prototypes.robots") -- lot RB-1 (31/10) : robots, atelier d'automates, 
 require("prototypes.levels")
 require("prototypes.tirs") -- lot TIRS : effets de tir par âge (explosions, traçantes) et effet script des chargeurs
 require("prototypes.vitrine")
+require("prototypes.debug_cerveau") -- lot DEBUG-CERVEAU : bouton de raccourci et touche de la vue « Cerveau »
 require("prototypes.gui") -- lot IA1-i : raccourci et touche de l'interface « Équipe et factions »
 require("prototypes.dezoom") -- dézoom étendu : Ctrl + molette, deux touches
 require("prototypes.bourdon") -- lot BOURDON : l'expérimental de l'âge 15, sprites, effets, son, touche

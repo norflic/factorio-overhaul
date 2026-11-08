@@ -186,7 +186,12 @@ function Li.entities(inp)
   local s, d = inp.src, inp.dst
   out[#out + 1] = { name = inp.names.arm, x = s.ax + 0.5, y = s.ay + 0.5, dir = opposite(s.dir), role = "liaison-bras" }
   for _, t in ipairs(inp.route) do
-    out[#out + 1] = { name = inp.names.belt, x = t.x + 0.5, y = t.y + 0.5, dir = t.dir, role = "liaison-tapis" }
+    if t.ug and inp.names.ug then
+      -- lot TRAVERSEE : pièce d'une paire souterraine (type = "input" | "output", convention de build.lua)
+      out[#out + 1] = { name = inp.names.ug, x = t.x + 0.5, y = t.y + 0.5, dir = t.dir, type = t.ug, role = "liaison-tapis" }
+    else
+      out[#out + 1] = { name = inp.names.belt, x = t.x + 0.5, y = t.y + 0.5, dir = t.dir, role = "liaison-tapis" }
+    end
   end
   out[#out + 1] = { name = inp.names.arm, x = d.ax + 0.5, y = d.ay + 0.5, dir = d.dir, role = "liaison-bras" }
   for _, p in ipairs(inp.poles or {}) do

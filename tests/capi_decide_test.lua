@@ -73,6 +73,11 @@ local function run(mode, min, out)
   local Capi = require("script.ai3.capitalisation")
   local State = require("script.faction.state")
   Team.ETAPES = (mode ~= "bloc")
+  -- Lot DEBUG-CERVEAU (tests/debug_anneau_ab_test.lua) : FO_CD_ANNEAU=off coupe le crochet de l'anneau (decide_finish) ; =mut le remplace par un
+  -- crochet qui MODIFIE la décision (mutant : l'A/B doit le voir).
+  local an = os.getenv("FO_CD_ANNEAU")
+  if an == "off" then Capi.Anneau = { note = function() return 0 end }
+  elseif an == "mut" then Capi.Anneau = { note = function(f) f.team.capi.refused["zz-mutant-anneau"] = 1 return 0 end } end
   local mut = os.getenv("FO_CD_MUT")
   if mut and mut ~= "" then Capi.MUT[mut] = true end
   local inj = os.getenv("FO_CD_INJ")
@@ -253,6 +258,12 @@ local function run(mode, min, out)
     h:write(text)
     h:close()
   end
+  -- l'anneau de la vue n'est pas une décision : compté à part, retiré de l'état comparé (A/B du lot DEBUG-CERVEAU)
+  local ring_n = 0
+  local an_ns = global.fo and global.fo.debug_cerveau_anneau
+  for _, r in pairs((an_ns and an_ns.rings) or {}) do ring_n = ring_n + #r end
+  wr("_anneau.txt", tostring(ring_n))
+  if an_ns then global.fo.debug_cerveau_anneau = nil end
   wr("_global.txt", M.serialize(global))
   local jl = {}
   for _, l in ipairs(W.logs) do jl[#jl + 1] = tostring(l) end

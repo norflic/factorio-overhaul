@@ -24,6 +24,7 @@
 
 local Id = require("shared.ai3.industrie")
 local Ml = require("shared.ai3.mall")
+local Cv = require("shared.ai3.couverture") -- lot COUVERTURE : réserve de machines (Cv.reserve_wants, source de la demande du mall)
 local AmRt = require("script.ai3.amorce_rt") -- lot VIDEO L7 : graine du mall (liste de matériel des prochains projets)
 local Em = require("shared.ai3.emplacements")
 local A = require("shared.ai3.automatiser")
@@ -324,6 +325,10 @@ function Ind.think(f, cs, res, view, book, tick)
       local rate = Id.parse_refus(r.why)
       if rate and not (st.hold[r.item] and st.hold[r.item] > tick) then Ml.want(ml, tick, r.item, rate, "refus") end
     end
+  end
+  -- 1b. lot COUVERTURE : la pose prévue des ordres couvrir/ouvrir (foreuses, tapis, poteaux, fours du module) ÷ le rythme de pose (réserve de machines)
+  for _, w in ipairs(cs.couv_wants or {}) do
+    if not (st.hold[w.item] and st.hold[w.item] > tick) and not Ml.refused(ml, tick, w.item) then Ml.want(ml, tick, w.item, w.rate, Cv.SRC) end
   end
   -- 2. objets déjà servis : machine posée (relevé de la capitalisation), chaîne ouverte, bloc en cours
   local served = {}

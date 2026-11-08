@@ -124,9 +124,12 @@ Build.Tj = require("script.team.tourelle_journal")
 Build.Co = require("shared.team.couloir")
 -- Lot VIDEO L4 : quotas du gabarit (colle de shared/team/quotas.lua) ; champ de Build, même raison (199 locales sur 200).
 Build.Quotas = require("script.team.quotas_glue")
+Build.Agents = require("script.companion.registry") -- lot MESURE-MODULE : l'agent qui porte une tâche de coffre (indice réécrit)
+Build.Sites = require("shared.team.sites_dedup") -- lot MESURE-MODULE : copies de coffres de p.quais / p.outs (champ de Build, pas une locale)
 -- Lot TV-VAPEUR : tampon de vapeur de la centrale (V36, colle de shared/team/vapeur_tampon.lua) et dégradation sous charge (V89, script/core/
 -- charge.lua) ; champs de Build, pas des locales (199 locales sur 200).
 Build.Vg = require("script.team.vapeur_glue")
+Build.Piquage = require("script.team.piquage") -- lot PIQUAGE : entrée d'un bloc alimentée par le surplus d'un tapis existant ; champ de Build, pas une locale (build.lua est à 199 locales)
 Build.Charge = require("script.core.charge")
 -- Lot VIDEO L9 : lots de minerai réservés au minerai (colle de shared/team/lot_minerai.lua, interrupteur éteint par défaut) ; champ
 -- de Build, même raison (199 locales sur 200).
@@ -136,6 +139,7 @@ Build.LotsMinerai = require("script.team.lots_minerai_glue")
 Build.Repli = require("script.team.repli_place")
 -- Lot TV-ARCHI (V23) : quartiers et enveloppe d'avance (script/team/quartiers.lua) ; champ de Build, même raison (199 locales sur 200).
 Build.Quartiers = require("script.team.quartiers")
+Build.Trav = require("script.team.traversee") -- lot TRAVERSEE : tapis qui enjambent les obstacles par des souterrains, gisements évités (champ de Build : bloc principal à 199 locales)
 Build.Place = require("script.team.place_glue") -- lot TV-PLACE : sonde 30 x 30 (G37), défrichage préventif 50 x 50 (G38), repli de placement simple (C07)
 local TREE_TYPES = { "tree", "simple-entity" }
 
@@ -1138,9 +1142,9 @@ local function plan_power(f, p, mp, masks)
       local i, j = P.lot_at(b.lat, math.floor(x), math.floor(y))
       return not i or (i == oi and j == oj) or not Pt.lot_protected(b.lots[P.lot_key(i, j)])
     end
-    direct = P.pole_chain(a, dgoal, dlink, false, free_street, k, opts)
+    direct = Build.Trav.pole_chain(f, surface, a, dgoal, dlink, false, free_street, k, opts)
     if not Pt.keep_street(a, direct, dgoal) then
-      local c2 = P.pole_chain(a, dgoal, dlink, false, free, k, opts)
+      local c2 = Build.Trav.pole_chain(f, surface, a, dgoal, dlink, false, free, k, opts)
       if c2 and (not direct or Pt.length(a, c2, dgoal) < Pt.length(a, direct, dgoal) - 0.01) then direct = c2 end
     end
   end
@@ -1167,7 +1171,7 @@ local function plan_power(f, p, mp, masks)
     -- poteaux de rue : moyens, ou grands quand deux carrefours décalés passent la portée
     local d2 = prev and ((prev.x - pos.x) ^ 2 + (prev.y - pos.y) ^ 2) or 0
     if prev and (not big or d2 > reach * reach - 1e-6) then
-      local chain = P.pole_chain(prev, pos, reach, big, free, known)
+      local chain = Build.Trav.pole_chain(f, surface, prev, pos, reach, big, free, known)
       if not chain then
         if direct then return direct_out() end -- (l'escalier échoue, le direct passe)
         return nil, "poteaux de rue"
@@ -1190,7 +1194,7 @@ local function plan_power(f, p, mp, masks)
     chain, w4, wait4 = Far.line(f, surface, p, { x = mp.x, y = mp.y }, npos, link_reach, taken, known, read_masks)
     if not chain then return nil, w4, wait4 end
   else
-    chain = P.pole_chain({ x = mp.x, y = mp.y }, npos, link_reach, false, free, known)
+    chain = Build.Trav.pole_chain(f, surface, { x = mp.x, y = mp.y }, npos, link_reach, false, free, known)
   end
   if not chain then
     if direct then return direct_out() end
@@ -2119,6 +2123,8 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
     return c
   end
   local tiles, n2
+  local tnames -- lot TRAVERSEE : nom du souterrain d'un tracé qui en pose
+  local topts = { belt = belt, sd = tail.dir, kind = "foreuses" }
   if relay_legs then
     -- lot ENERGIE : tapis par relais. Chaque tronçon va d'un départ à un point de passage libre (sens de l'axe dominant), dans sa propre
     -- boîte lue au moteur ; le tronçon suivant part de la tuile qui suit le point de passage. Tout ou rien : un tronçon sans chemin
@@ -2148,7 +2154,7 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
       n2 = "relais : " .. tostring(why_leg)
     end
   else
-    tiles, n2 = P.belt_route(s, { x = a.x, y = a.y }, a.dir, { x0 = bx0, y0 = by0, x1 = bx1, y1 = by1 }, cost)
+    tiles, n2, tnames = Build.Trav.route(f, surface, p, s, { x = a.x, y = a.y }, a.dir, { x0 = bx0, y0 = by0, x1 = bx1, y1 = by1 }, cost, topts)
   end
   if not tiles and not relay_legs then
     -- second essai, marge d'un pas de treillis (contourner une falaise par la brèche voisine ; correction du 27/10)
@@ -2157,7 +2163,7 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
     if cx1 - cx0 <= 120 and cy1 - cy0 <= 120 then
       local m2 = read_masks(f, surface, cx0, cy0, cx1 + 1, cy1 + 1)
       masks.water, masks.blocked, masks.clear = m2.water, m2.blocked, m2.clear
-      tiles, n2 = P.belt_route(s, { x = a.x, y = a.y }, a.dir, { x0 = cx0, y0 = cy0, x1 = cx1, y1 = cy1 }, cost)
+      tiles, n2, tnames = Build.Trav.route(f, surface, p, s, { x = a.x, y = a.y }, a.dir, { x0 = cx0, y0 = cy0, x1 = cx1, y1 = cy1 }, cost, topts)
     end
   end
   if not tiles and n2 == "trop long" then
@@ -2172,8 +2178,8 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
     local m2 = read_masks(f, surface, cx0, cy0, cx1 + 1, cy1 + 1)
     masks.water, masks.blocked, masks.clear = m2.water, m2.blocked, m2.clear
     local first = n2
-    tiles, n2 = P.belt_route(s, { x = a.x, y = a.y }, a.dir, { x0 = cx0, y0 = cy0, x1 = cx1, y1 = cy1 }, cost,
-      { weight = Build.ROUTE_WEIGHT, max = (cx1 - cx0 + 1) * (cy1 - cy0 + 1) })
+    tiles, n2, tnames = Build.Trav.route(f, surface, p, s, { x = a.x, y = a.y }, a.dir, { x0 = cx0, y0 = cy0, x1 = cx1, y1 = cy1 }, cost,
+      { belt = belt, sd = tail.dir, kind = "foreuses", weight = Build.ROUTE_WEIGHT, max = (cx1 - cx0 + 1) * (cy1 - cy0 + 1) })
     bump(b.stats.plan_refused, "tapis-pondere:" .. (tiles and "ok" or tostring(n2)))
     if not tiles then n2 = first .. ", pondere : " .. tostring(n2) end
   end
@@ -2182,7 +2188,10 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
     Build.drill_diag(f, item, n, a, "tapis " .. tostring(n2), nil, s)
     return false, n2
   end
-  for _, t in ipairs(tiles) do ents[#ents + 1] = { name = belt, x = t.x + 0.5, y = t.y + 0.5, dir = t.dir, part = part, role = "liaison-tapis" } end
+  for _, e2 in ipairs(Build.Trav.entities(tiles, { belt = belt, ug = tnames and tnames.ug }, "liaison-tapis")) do
+    e2.part = part
+    ents[#ents + 1] = e2
+  end
   if not reserve_tiles(b, p, ents) then p.parts[part] = nil; return false, "place" end
   if place.lot then b.lots[place.lot].used = p.id end -- (lot TV-REPLI : un repli n'a pas de lot du treillis)
   return true
@@ -2618,7 +2627,7 @@ local function plan_raccord(f, surface, p)
     end
   end
   -- second chemin : le détour de la zone des ennemis demande plus de cellules que le plafond ordinaire (600 : couloir trop grand)
-  local chain = P.pole_chain(start, { x = rc.target.x, y = rc.target.y }, rc.reach, rc.big, free, known,
+  local chain = Build.Trav.pole_chain(f, surface, start, { x = rc.target.x, y = rc.target.y }, rc.reach, rc.big, free, known,
     avoid and { max_cells = 2500, max_expand = 10000 } or nil)
   if not chain then return false, "raccord: aucune chaine de poteaux (relief, eau, place)" end
   local ents = {}
@@ -2701,8 +2710,10 @@ local function plan_project(f, surface, p)
   if spec.raccord then return plan_raccord(f, surface, p) end -- lot PD-ELEC (D05)
   if spec.quartier then -- lot TV-ARCHI (V23) : pôle d'un quartier (poteau, dépôts, lot défriché), script/team/quartiers.lua
     return Build.Quartiers.plan(f, surface, p, { read_masks = function(x0, y0, x1, y1) return read_masks(f, surface, x0, y0, x1, y1) end,
-      reserve_tiles = reserve_tiles, finish = plan_finish, add_obstacle = add_obstacle, free_spot = free_spot })
+      reserve_tiles = reserve_tiles, finish = plan_finish, add_obstacle = add_obstacle, free_spot = free_spot,
+      count = function(it) return Stock.count(f, it) end }) -- (tranche 3 : tourelle du pôle si le coffre l'a)
   end
+  if spec.liaison and spec.liaison.piquage then return Build.Piquage.plan({ read_masks = function(x0, y0, x1, y1) return read_masks(f, surface, x0, y0, x1, y1) end, reserve_tiles = reserve_tiles, wood_of = wood_of, free_spot = free_spot, add_obstacle = add_obstacle, item_of = item_of, seg_passable = seg_passable, REACH = REACH, trav = Build.Trav }, f, surface, p) end -- lot PIQUAGE
   if spec.liaison then return Liaison.plan({ read_masks = function(x0, y0, x1, y1) return read_masks(f, surface, x0, y0, x1, y1) end, reserve_tiles = reserve_tiles, wood_of = wood_of, free_spot = free_spot, add_obstacle = add_obstacle, item_of = item_of, seg_passable = seg_passable, REACH = REACH }, f, surface, p) end -- lot INDUSTRIE I7
   Profiler.start("build:plan:place") -- lot IA3-e : parts du coût d'un plan (pics de K10), mesure seulement
   -- Lot PETROLE : un SITE (spec.site) est implanté par son planificateur (Build.SITES[nom], hors du treillis : au gisement
@@ -2980,6 +2991,8 @@ local function needs_of(p)
       if e.charge then bump(need, e.charge.item, e.charge.count) end -- lot CHAMP : coffre de combustible posé garni
     end
   end
+  local lq = p.spec and p.spec.liaison
+  if lq and lq.extra and not p.piq_placed then bump(need, lq.extra.item) end -- lot PIQUAGE : le répartiteur, posé par le script à la fin du projet
   return need
 end
 
@@ -3782,6 +3795,7 @@ function Build.work(agent, f, tick)
       local put = chest.insert({ name = q.item, count = n })
       if put > 0 then inv.remove({ name = q.item, count = put }) end
       b.stats.filled = b.stats.filled + put
+      q.tours, q.filled = (q.tours or 0) + 1, (q.filled or 0) + put -- lot PIQUAGE : tournées « fill » par quai (journal [FO-PIQUAGE] bilan)
     end
     return "done"
   elseif job.mode == "amorce" then
@@ -4248,6 +4262,7 @@ local function advance(f, surface, p, tick)
     -- lot IA3-e : minuteurs des parties arrêtés aussi après un retour anticipé du plan (refus, attente)
     Profiler.stop("build:plan:place"); Profiler.stop("build:plan:feed"); Profiler.stop("build:plan:power"); Profiler.stop("build:plan:anchors")
     if ok then
+      p.sites_v = 1 -- lot MESURE-MODULE : coffres planifiés une seule fois (Build.dedupe_sites n'a rien à relire)
       p.masq_n = nil -- lot POTEAUX-MASQUES : l'accord de chunks repart de zéro au prochain plan de ce projet
       p.state = "reserve"
       p.started = tick
@@ -4262,6 +4277,7 @@ local function advance(f, surface, p, tick)
       for _, l in pairs(b.lots) do if l.used == p.id then l.used = nil end end
       for _, n in ipairs(sorted_keys(b.net)) do if b.net[n].pid == p.id then b.net[n] = nil end end
       p.ents, p.parts = {}, {}
+      p.quais, p.outs = {}, {} -- lot MESURE-MODULE : plan_feed les AJOUTE à chaque plan (un module à 3 attentes avait 4 copies de sa sortie)
       p.masq_n = (p.masq_n or 0) + 1
       p.plan_after = tick + Mq.WAIT_TICKS
       p.state, p.reason = "attente", why
@@ -4271,6 +4287,7 @@ local function advance(f, surface, p, tick)
       for _, l in pairs(b.lots) do if l.used == p.id then l.used = nil end end
       for _, n in ipairs(sorted_keys(b.net)) do if b.net[n].pid == p.id then b.net[n] = nil end end
       p.ents, p.parts = {}, {}
+      p.quais, p.outs = {}, {} -- lot MESURE-MODULE (voir plus haut)
       p.wait_net = (p.wait_net or 0) + 1
       -- lot POTEAUX-MASQUES (relecture) : après 30 s le cache (Mq.TTL) est tombé ; garder l'ancien accord ferait relire jusqu'à 20
       -- chunks en une seule passe (pic) : l'accord repart de zéro, comme pour tout nouveau plan
@@ -4284,6 +4301,7 @@ local function advance(f, surface, p, tick)
       for _, l in pairs(b.lots) do if l.used == p.id then l.used = nil end end
       for _, n in ipairs(sorted_keys(b.net)) do if b.net[n].pid == p.id then b.net[n] = nil end end
       p.ents, p.parts, p.far = {}, {}, nil
+      p.quais, p.outs = {}, {} -- lot MESURE-MODULE (voir plus haut)
       p.masq_n = nil
       p.plan_after = tick + (p.far_poll or Cl.RETRY)
       p.far_poll = nil
@@ -4301,6 +4319,7 @@ local function advance(f, surface, p, tick)
       for _, l in pairs(b.lots) do if l.used == p.id then l.used = nil end end
       for _, n in ipairs(sorted_keys(b.net)) do if b.net[n].pid == p.id then b.net[n] = nil end end
       p.ents, p.parts = {}, {}
+      p.quais, p.outs = {}, {} -- lot MESURE-MODULE (voir plus haut)
       p.state, p.reason = "refuse", why
       b.stats.projects_refused = b.stats.projects_refused + 1
       if b.plant == p.id then b.plant = nil end
@@ -4643,6 +4662,7 @@ local function pulse_team(f, tick)
   Profiler.fstop("bp:raccord")
   Profiler.fstart("bp:liaison")
   Liaison.step({ request = Build.request, prio = Build.PRIO + 1, fill = Build.QUAI_FILL, low = Build.QUAI_LOW }, f, surface, tick)
+  Build.Piquage.step({ request = Build.request, prio = Build.PRIO + 1, fill = Build.QUAI_FILL, low = Build.QUAI_LOW }, f, surface, tick) -- lot PIQUAGE
   Profiler.fstop("bp:liaison")
   Profiler.fstart("bp:centrale")
   -- 5. lot CORR-ENERGIE : centrale saturée, une centrale de plus (même mécanisme que la première)
@@ -5021,6 +5041,7 @@ function Build.think(f, surface, tick)
       -- la condition (relue telle quelle par tests/charbon_centrale_test.lua) ; e2:coffres compté à l'unique appel, et non dans quai_tasks,
       -- que tests/quotas_glue_test.lua charge à part, sans profileur (mesure seulement, détail)
       Profiler.fstart("e2:quai")
+      if p.sites_v ~= 1 then Build.dedupe_sites(f, p) end -- lot MESURE-MODULE : projets planifiés avant le correctif
       if p.state == "fini" or p.state == "chantier" or (p.reopened and p.state ~= "refuse" and is_plant_project(p)) then
         quai_tasks(f, p, surface, tasks)
         Profiler.fcount("e2:coffres", #p.quais + #p.outs)
@@ -5121,6 +5142,58 @@ function Build.status(f, id)
     -- lot FONDERIE-DYNAMIQUE : taille posée et réservée d'une ligne dynamique (nil pour les autres projets)
     ligne = p.ligne and { rows = p.ligne.rows, rows_max = p.ligne.rows_max, pairs = p.ligne.pairs, pairs_max = p.ligne.pairs_max,
       held = #p.ligne.held, last = p.ligne.last, steps = p.ligne.steps } or nil }
+end
+
+--- Lot MESURE-MODULE : retire les copies d'un même coffre de p.quais et p.outs (projets planifiés avant le correctif de plan_feed :
+--- un plan qui attendait puis recommençait ajoutait ses coffres une fois de plus). Les indices de p.quais et p.outs servent de clé aux
+--- tâches du tableau (ia1d:<projet>:q|o:<indice>) et sont copiés dans l'agent qui porte la tâche : ils sont RÉÉCRITS ensemble.
+--- Une seule tâche reste par coffre (la prise de préférence), les copies libres sont jetées, la tâche prise passe à son nouvel
+--- indice, celui de l'agent aussi. Appelée par la passe des tâches (premier passage après un chargement, jamais en on_load) tant que
+--- p.sites_v ~= 1. Rend le nombre de copies retirées de p.quais et p.outs.
+function Build.dedupe_sites(f, p)
+  local D = Build.Sites
+  local dq, do_ = D.count_dups(p.quais, D.quai_key), D.count_dups(p.outs, D.out_key)
+  if dq == 0 and do_ == 0 then p.sites_v = 1; return 0 end
+  local quais, map_q = D.remap(p.quais, D.quai_key)
+  local outs, map_o = D.remap(p.outs, D.out_key)
+  p.quais, p.outs = quais, outs
+  p.quota, p.quota_key = nil, nil -- le quota se refait pour le vrai nombre de coffres (Quotas.of)
+  -- tâches du tableau de ce projet
+  local tasks = f.team and f.team.board and f.team.board.tasks or {}
+  local entries, by_key = {}, {}
+  for _, key in ipairs(sorted_keys(tasks)) do
+    local t = tasks[key]
+    local j = t.ia1d
+    if j and j.pid == p.id and (j.mode == "collect" or j.mode == "fill") and type(j.idx) == "number" then
+      entries[#entries + 1] = { key = key, mode = j.mode, idx = j.idx, taken = t.worker ~= nil }
+      by_key[key] = t
+    end
+  end
+  local plan = D.plan_tasks(entries, map_o, map_q, p.id)
+  local dropped = {}
+  for _, a in ipairs(plan) do if a.action == "drop" then dropped[by_key[a.key]] = true end end
+  if next(dropped) ~= nil then Board.drop_free(f, function(t) return not dropped[t] end) end
+  for _, a in ipairs(plan) do
+    local t = by_key[a.key]
+    if a.action == "keep" and t then
+      local old = t.ia1d.idx
+      t.ia1d.idx = a.idx
+      if t.worker ~= nil then -- l'agent porte une copie de l'indice (étape « ia1d », worker.lua)
+        local ag = Build.Agents.get(t.worker)
+        local aj = ag and ag.ia1d
+        if aj and aj.pid == p.id and aj.mode == t.ia1d.mode and aj.idx == old then aj.idx = a.idx end
+      end
+      if a.newkey ~= a.key and tasks[a.newkey] == nil then
+        tasks[a.key] = nil
+        tasks[a.newkey] = t
+        t.key = a.newkey
+      end
+    end
+  end
+  p.sites_v = 1
+  log(string.format("[FO-SITES] %s : projet %d, %d copie(s) de coffre d'entree et %d de coffre de sortie retiree(s), %d tache(s) du tableau jetee(s) (plans repris avant le correctif) a %.1f min",
+    f.key or "player", p.id, dq, do_, (function() local n = 0; for _ in pairs(dropped) do n = n + 1 end; return n end)(), game.tick / 3600))
+  return dq + do_
 end
 
 --- Lot IA3-e : état court d'une demande, SANS appel du moteur (lu à chaque pensée par le cerveau ; Build.status relit les

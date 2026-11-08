@@ -20,6 +20,7 @@ local Equip = {}
 Equip.KIND = "equiper"
 Equip.BATCH = 6     -- machines par tâche (une tournée courte : le travail compté est celui d'une pose par module)
 Equip.PRIO = 55     -- sous l'urgence (90), au niveau d'une construction ordinaire
+Equip.PRIO_STOCK = 70 -- lot MODULES-POSES : pose des modules DÉJÀ au coffre (consigne du lead 8/11) : au-dessus de la collecte, sous la défense et la survie
 Equip.REACH = 3     -- tuiles : le PNJ s'arrête près de la machine (le centre est occupé)
 
 --- Programme d'une tâche : prise au coffre, une étape de marche et une d'insertion par machine, retour au QG.
@@ -52,6 +53,9 @@ function Equip.act(agent, f, task, surface, tick)
   if not t then return true end
   local rec = open_rec(f, task.rec_key)
   local function mark(n, why)
+    -- Lot MODULES-POSES : une ligne par machine traitée (la preuve de l'effet : module posé ou refus, avec sa cause)
+    log(string.format("[FO-MODULES] %s : %s %s x%d -> %s unite %s%s a %.1f min", f.key or "player", n > 0 and "insere" or "refus",
+      tostring(task.module), n, tostring(t.entity), tostring(t.u), why and (" : " .. why) or "", (tick - (f.started or 0)) / 3600))
     if not rec then return end
     rec.done = rec.done or {}
     rec.done[#rec.done + 1] = t.u
