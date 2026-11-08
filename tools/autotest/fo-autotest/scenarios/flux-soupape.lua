@@ -173,7 +173,8 @@ return {
     ctx.check(st.first_open ~= nil, "la soupape s'ouvre apres K mesures pleines sans debouche ouvert", tostring(st.first_open))
     local fuel_end_open = 0
     for _, t in ipairs(st.timeline or {}) do if t.tick <= (st.closed or OFF_AT) then fuel_end_open = math.max(fuel_end_open, t.fuel) end end
-    ctx.check(fuel_end_open >= 2, "des objets arrivent au coffre de sortie du site (carburant solide)", tostring(fuel_end_open))
+    -- la cuve du banc ne tient que 100 unités : une fabrication (20 unités) la fait passer de 95 % à 75 %, sous 90 % : UN objet suffit
+    ctx.check(fuel_end_open >= 1, "des objets arrivent au coffre de sortie du site (carburant solide)", tostring(fuel_end_open))
     ctx.check(st.gas_at_close ~= nil and st.gas_at_close <= (st.cap or 0) * 0.9 + 1 and st.gas_at_close < st.gas0, "la cuve redescend sous 90 % et la soupape se referme",
       string.format("cuve a la fermeture %s, depart %s", tostring(st.gas_at_close), tostring(st.gas0)))
     -- le niveau baisse du fluide converti : 20 unités par objet
