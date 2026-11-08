@@ -33,9 +33,9 @@ local function plates_at(ctx, pos)
   return (c and c.valid) and c.get_inventory(defines.inventory.chest).get_item_count(PLATE) or -1
 end
 
---- Pose un coffre garni et un bras voisin orienté comme demandé (role "feed" : il dépose dans le coffre ; "take" : il en retire). Le bras est
---- orienté en essayant les 8 directions jusqu'à ce que sa cible soit le coffre, puis annoncé (script_raised_built) comme le ferait le joueur.
-local function place_pair(ctx, at, plates, role)
+--- Pose un coffre garni et un bras voisin NON orienté (deux temps : la cible d'un bras posé dans le même tick que son coffre n'est lue qu'au tick
+--- suivant ; banc 12 h 40 : aucune orientation trouvée au tick de la pose). Rend le coffre et le bras ; orient() les relie ensuite.
+local function place_pair(ctx, at, plates)
   local s = ctx.surface()
   local p = s.find_non_colliding_position("iron-chest", at, 20, 1) or at
   local chest = s.create_entity({ name = "iron-chest", position = p, force = "player", raise_built = true })
@@ -45,20 +45,28 @@ local function place_pair(ctx, at, plates, role)
   for _, d in ipairs({ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }) do
     local q = { x = chest.position.x + d[1], y = chest.position.y + d[2] }
     if s.can_place_entity({ name = "inserter", position = q, force = "player" }) then
-      local e = s.create_entity({ name = "inserter", position = q, force = "player" })
-      if e then
-        for _, dir in ipairs({ 0, 2, 4, 6 }) do
-          e.direction = dir
-          local target = (role == "feed") and e.drop_target or e.pickup_target
-          if target and target.valid and target.unit_number == chest.unit_number then ins = e break end
-        end
-        if ins then break end
-        e.destroy()
-      end
+      ins = s.create_entity({ name = "inserter", position = q, force = "player" })
+      if ins then break end
     end
   end
-  if ins then script.raise_event(defines.events.script_raised_built, { entity = ins }) end
   return chest, ins
+end
+
+--- Oriente le bras jusqu'à ce que sa cible (dépôt : drop_target ; retrait : pickup_target) soit le coffre, puis l'annonce comme le ferait le joueur.
+--- Rend vrai si orienté ; `tried` dit ce qui a été vu pour chaque direction (diagnostic).
+local function orient(ins, chest, role)
+  if not (ins and ins.valid and chest and chest.valid) then return false, "absent" end
+  local tried = {}
+  for _, dir in ipairs({ 0, 2, 4, 6 }) do
+    ins.direction = dir
+    local target = (role == "feed") and ins.drop_target or ins.pickup_target
+    tried[#tried + 1] = string.format("%d:%s", dir, target and target.valid and target.name or "-")
+    if target and target.valid and target.unit_number == chest.unit_number then
+      script.raise_event(defines.events.script_raised_built, { entity = ins })
+      return true, table.concat(tried, " ")
+    end
+  end
+  return false, table.concat(tried, " ")
 end
 
 return function(rule_on)
@@ -93,10 +101,9 @@ return function(rule_on)
           local hqc = chest_of(ctx)
           if hqc then hqc.get_inventory(defines.inventory.chest).insert({ name = CU_PLATE, count = 5000 }) end -- le stock couvre le cuivre (constat du DC, 8/11)
           if not rule_on then ctx.remote("fo-ia1", "set_regle_sources", "player", false) end
-          local S, sins = place_pair(ctx, { x = hq.x + 55, y = hq.y }, 2000, "feed")
-          local E, eins = place_pair(ctx, { x = hq.x - 55, y = hq.y }, 2000, "take")
-          ctx.check(S ~= nil and sins ~= nil, "sortie posee : coffre et bras qui depose")
-          ctx.check(E ~= nil and eins ~= nil, "entree posee : coffre et bras qui retire")
+          local S, sins = place_pair(ctx, { x = hq.x + 55, y = hq.y }, 2000)
+          local E, eins = place_pair(ctx, { x = hq.x - 55, y = hq.y }, 2000)
+          st.S_ent, st.sins, st.E_ent, st.eins = S, sins, E, eins
           st.S, st.E = S and S.position, E and E.position
           st.t0 = e.tick
           st.s0, st.e0 = st.S and plates_at(ctx, st.S) or -1, st.E and plates_at(ctx, st.E) or -1
@@ -106,6 +113,13 @@ return function(rule_on)
         return
       end
       local dt = e.tick - st.t0
+      if dt >= 5 and not st.oriented then
+        st.oriented = true
+        local ok1, d1 = orient(st.sins, st.S_ent, "feed")
+        local ok2, d2 = orient(st.eins, st.E_ent, "take")
+        ctx.check(ok1, "sortie posee : coffre et bras qui depose", d1)
+        ctx.check(ok2, "entree posee : coffre et bras qui retire", d2)
+      end
       if dt == HOLD_AFTER then
         local s = ctx.remote("fo-ia1", "sources_state", "player")
         st.hand_at = s and s.hand and s.hand[ORE] and s.hand[ORE].ok or 0
