@@ -61,3 +61,13 @@ A lire dans le plan ; defauts appliques tant que le DC ne tranche pas. Aucune se
 
 ## Q29 (31/10) : ravitaillement et equilibre du lot 0.6.28
 Ravitaillement des foreuses par script (teleportation) : garde. Tache de nettoyage du minerai au sol : a faire. Assembleur aligne a x1,15 (energie x1,12) ; x57 au niveau 30 : garde. Baie de calcul acceptee par balise vanilla, +5 % de pollution sans effet : a decider a la fusion du calcul v2 ; repli : retirer `pollution` des balises.
+
+## Q30 (8/11 2 h 30) : questions groupees de la nuit du 7 au 8/11 (0.6.62 installee, 0.6.63 en cours)
+Option par defaut entre crochets, appliquee tant que le DC ne tranche pas.
+1. Titan : choix du concept (page fo-logs/2026-11-06_DESIGNS/titan/concepts/index.html ; recommandation : Arche ; finitions dans finition.txt). [rien en jeu]
+2. Petrole : fo-war-petrole est a false dans la sauvegarde du DC ; a allumer par lui dans les reglages de carte. [eteint dans sa partie]
+3. Bancs longs (> 10 000 ticks, accord requis) : ordre de construction, anti-repetition et C4 sur 10 min de jeu ; champ-manque-longue 21 600 ; preuves longues de C3 (remise directe) ; x10-sol long ; ia1-build pour le repli de placement C07. [aucun lance]
+4. Plafond de surete des laboratoires (VIDEO-PLAFONDS) : 25 par faction. [25]
+5. Cryostat : l'ecart de l'age 11 (plastique au lieu du biopolymere) coute -8 % de valeur depuis le lot PLASTIQUE (-5 % avant). [garde]
+6. Arriere des poches de votre equipe (mesure charbonmain, 8/11 2 h 25 : 2 685 cases sur 2 700 pleines, fer 59 207, pierre 55 464, charbon 21 658) : (1) rien, le stock absorbe jusqu'au plafond de 80 annexes et le reste demeure en poche ; (2) les PNJ deposent le sature au-dela du plafond dans un coffre de decharge hors du stock ; (3) les PNJ le consomment (pierre en briques ou murs, fer et charbon par la capitalisation). [1]
+7. Grande attaque des geants, portee de l'Heliaste, budget de morts 15 ou 30, questions de la SYNTHESE §4 (nucleaire, solaire, drapeau differe, L8, quartiers), reglages graphiques. [inchanges]
