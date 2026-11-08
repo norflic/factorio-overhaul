@@ -88,6 +88,22 @@ function C.deficit_size(kw, boiler_kw, shrink, lane_cap)
   return math.max(1, nb - math.max(0, shrink or 0))
 end
 
+-- Lot ELECTRIQUE (e, lead 8/11 : partie du DC 0.6.66, 7 125 puis 8 730 kW retenus pendant qu'un seul chantier d'une chaudière, 1 800 kW,
+-- bloquait toute autre demande « un chantier de centrale est ouvert ») : au plus C.MAX_PARALLEL chantiers à la fois quand le déficit installé
+-- dépasse ce que les chantiers ouverts apporteront (n.pending_kw, kW nominaux de leurs machines). Sans n.pending_kw (appels d'avant) : un seul.
+C.MAX_PARALLEL = 2
+
+--- kW de déficit que les chantiers ouverts ne couvrent pas, si un chantier de plus est permis ; nil sinon (aucun chantier ouvert, plafond de
+--- chantiers, déficit pas installé, capacité des chantiers inconnue ou suffisante).
+function C.parallel_kw(st, n)
+  local p = n.pending or 0
+  if p <= 0 or p >= C.MAX_PARALLEL or n.pending_kw == nil then return nil end
+  if not ((n.deficit_kw or 0) > 0 and (st.def_n or 0) >= C.DEFICIT_CHECKS) then return nil end
+  local left = n.deficit_kw - n.pending_kw
+  if left <= 0 then return nil end
+  return left
+end
+
 --- Nombre de chaudières de la centrale à demander, ou (nil, raison). n : { done = centrales finies, pending = centrales en
 --- projet (ni finies ni refusées), refused = demandes de croissance refusées, hold = repli de l'équipe, cool = pause après un abandon, off = règle coupée }.
 function C.growth(st, n)
@@ -101,7 +117,8 @@ function C.growth(st, n)
   if n.lost then
     if n.pending - (n.rebuilding or 0) > 0 then return nil, "un chantier de centrale est ouvert" end
   else
-    if n.pending > 0 then return nil, "un chantier de centrale est ouvert" end
+    -- lot ELECTRIQUE (e) : un chantier de PLUS quand le déficit installé dépasse la capacité des chantiers ouverts (C.parallel_kw)
+    if n.pending > 0 and not C.parallel_kw(st, n) then return nil, "un chantier de centrale est ouvert" end
     if n.done < 1 then return nil, "aucune centrale finie" end
   end
   if n.done >= C.MAX_PLANTS then return nil, "plafond de centrales" end
@@ -114,6 +131,8 @@ function C.growth(st, n)
     if (n.secours_n or 0) >= C.SECOURS_MAX then return nil, "unites de secours epuisees pour cette crise" end
     return C.SECOURS_BOILERS
   end
+  -- lot ELECTRIQUE (e) : chantier en parallèle, à la taille du déficit que les chantiers ouverts ne couvrent pas
+  if not n.lost and n.pending > 0 then return C.deficit_size(C.parallel_kw(st, n), n.boiler_kw, n.refused, n.lane_cap) end
   -- lot TV-ENERGIE : déficit de kW sans saturation ni avance : la taille du déficit, pas celle du champ ordinaire
   if deficit and not st.saturated and not n.anticipate then return C.deficit_size(n.deficit_kw, n.boiler_kw, n.refused, n.lane_cap) end
   -- lot ENERGIE : un CHAMP (une rangée de chaudières, un seul tapis) dimensionné sur les chaudières vivantes, au lieu d'une chaudière

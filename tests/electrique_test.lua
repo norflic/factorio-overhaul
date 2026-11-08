@@ -209,6 +209,61 @@ do
     "8b : la porte est dans EMIT.outpost")
 end
 
+section("8 ter. Centrales en parallèle (shared/team/centrale.lua, C.parallel_kw, C.growth)")
+local CSRC = read("shared/team/centrale.lua")
+local function centrale_suite(C)
+  local before = failures
+  local st = { def_n = 3 }
+  local base = { done = 1, pending = 1, refused = 0, boiler_kw = 1800, deficit_kw = 7125, pending_kw = 1800 }
+  local function n_of(over) local n = {} for k, v in pairs(base) do n[k] = v end for k, v in pairs(over or {}) do n[k] = v end return n end
+  check(C.parallel_kw(st, n_of()) == 5325, "8c : 7 125 kW de deficit, 1 800 kW en chantier : 5 325 kW restent")
+  local nb = C.growth(st, n_of())
+  check(nb ~= nil and nb >= 2, "8c : cas du DC (33,9 min) : chantier en parallele de plusieurs chaudieres (" .. tostring(nb) .. ")")
+  local nb2, why2 = C.growth(st, n_of({ pending_kw = 9000 }))
+  check(nb2 == nil and why2 == "un chantier de centrale est ouvert", "8d : chantier ouvert qui couvre le deficit : pas de second")
+  check(C.growth(st, n_of({ pending = 2 })) == nil, "8e : deux chantiers ouverts : plafond")
+  local old = n_of()
+  old.pending_kw = nil
+  check(C.growth(st, old) == nil, "8f : capacite des chantiers inconnue (appels d'avant) : un seul chantier")
+  check(C.growth({ def_n = 1 }, n_of()) == nil, "8g : deficit pas encore installe : un seul chantier")
+  check(C.parallel_kw({ def_n = 1 }, n_of()) == nil, "8g : parallel_kw : deficit pas installe : nil")
+  check(C.growth(st, n_of({ deficit_kw = 3000 })) == 1, "8k : 3 000 kW de deficit, 1 800 en chantier : 1 chaudiere pour les 1 200 restants")
+  check(C.growth(st, n_of({ deficit_kw = 0 })) == nil, "8h : pas de deficit : un seul chantier")
+  check(C.parallel_kw(st, n_of({ pending = 0 })) == nil, "8i : aucun chantier ouvert : pas de parallele (la regle d'avant s'applique)")
+  local nb3 = C.growth(st, n_of({ pending = 0, deficit_kw = 3000 }))
+  check(nb3 == 2, "8j : sans chantier ouvert : taille du deficit, comme avant (" .. tostring(nb3) .. ")")
+  return failures - before
+end
+check(centrale_suite(load_module(CSRC)) == 0, "la batterie des centrales passe sur la regle reelle")
+do
+  local function cmut(from, to)
+    local i, j = CSRC:find(from, 1, true)
+    assert(i and not CSRC:find(from, j + 1, true), "motif de mutant (centrale) : " .. from)
+    return CSRC:sub(1, i - 1) .. to .. CSRC:sub(j + 1)
+  end
+  local cm = {
+    { "parallele : plafond ignore", "if p <= 0 or p >= C.MAX_PARALLEL or n.pending_kw == nil then return nil end", "if p <= 0 or n.pending_kw == nil then return nil end" },
+    { "parallele : chantiers ouverts non deduits", "local left = n.deficit_kw - n.pending_kw", "local left = n.deficit_kw" },
+    { "parallele : deficit non installe", "if not ((n.deficit_kw or 0) > 0 and (st.def_n or 0) >= C.DEFICIT_CHECKS) then return nil end", "" },
+    { "parallele : jamais", "if n.pending > 0 and not C.parallel_kw(st, n) then return nil", "if n.pending > 0 then return nil" },
+    { "parallele : taille du deficit entier", "return C.deficit_size(C.parallel_kw(st, n), n.boiler_kw", "return C.deficit_size(n.deficit_kw, n.boiler_kw" },
+  }
+  for _, mu in ipairs(cm) do
+    local ok, M2 = pcall(function() return load_module(cmut(mu[2], mu[3])) end)
+    local killed
+    if not ok then killed = true else
+      local sp, sf = passes, failures
+      local silent = print
+      _G.print = function() end
+      local okr, res = pcall(centrale_suite, M2)
+      _G.print = silent
+      killed = (not okr) or res > 0
+      passes, failures = sp, sf
+    end
+    check(killed, "mutant refuse (centrale) : " .. mu[1])
+  end
+end
+
 section("9. Mutants")
 local function mutate(from, to)
   local i, j = SRC:find(from, 1, true)

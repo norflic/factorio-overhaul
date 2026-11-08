@@ -174,7 +174,7 @@ local mutants = {
   { "pause raccourcie", "math.max(st.cool_until or 0, tick + C.COOL)", "tick + C.COOL" },
   { "charge non bornee", "math.min(1, (power or 0) / capacity)", "(power or 0) / capacity" },
   { "plafond atteint permis (>= -> >)", "n.done >= C.MAX_PLANTS", "n.done > C.MAX_PLANTS" },
-  { "chantier ouvert ignore", "if n.pending > 0 then", "if false then" },
+  { "chantier ouvert ignore", "if n.pending > 0 and not C.parallel_kw(st, n) then", "if false then" }, -- (lot ELECTRIQUE (e) : la garde porte la règle des chantiers en parallèle)
   { "refus ignores", "(n.refused or 0) >= C.MAX_REFUSED", "false" },
   { "repli ignore", "if n.hold and", "if false and" },
   { "reglage de banc ignore", "if n.off then", "if false then" },
