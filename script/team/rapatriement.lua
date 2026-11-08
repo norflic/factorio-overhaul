@@ -646,6 +646,13 @@ function Rap.plan(api, f, surface, p)
   end
   p.parts[1] = { kind = "liaison", key = "rapatriement", ox = S.x, oy = S.y, w = 1, h = 1, power = false }
   p.counted = true -- une ligne n'est pas un module : finish_project ne la compte pas aux modules finis
+  -- un replanifié ne double rien (bug de build.lua signalé par team-lead : p.outs et p.quais dupliqués à chaque réessai de plan)
+  p.outs = {}
+  p.tapis_piquable = {} -- lot piquage : tuiles DROITES du tapis (tapis derrière et devant, dans le même sens), hors des 3 premières et dernières
+  for i = 4, #tiles - 3 do
+    local a, c, d = tiles[i - 1], tiles[i], tiles[i + 1]
+    if a.dir == c.dir and c.dir == d.dir and not c.ug and not a.ug and not d.ug then p.tapis_piquable[#p.tapis_piquable + 1] = { x = c.x, y = c.y, item = lc.item } end
+  end
   if not reuse then
     -- le tampon est une sortie comme les autres : collecté à Rp.TAMPON_AT, et seulement si le QG est sous Rp.KEEP_STOCK (out_wanted)
     p.outs[#p.outs + 1] = { x = D.x + 0.5, y = D.y + 0.5, at = Rp.TAMPON_AT }
