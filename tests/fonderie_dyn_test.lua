@@ -687,7 +687,10 @@ do
     local _, _, freeM, callsM = run(old, { sortie = "centre" }, g)
     check(freeM.topts == true and #callsM == 0, "mutant : sans les paramètres, topts est un nom libre (nil) et ligne_split n'est jamais appelé (le test voit le bogue)")
   end
-  check(BSRC:find("return plan_finish(f, surface, p, main.masks, is_plant, topts, g)", 1, true) ~= nil, "plan_project passe topts et g à plan_finish")
+  -- depuis la fusion RANGEES-ASM + FONTE-DYN (essai-0666, 8/11), l'appel est enveloppé : return Build.Rangee.after(f, p, plan_finish(...))
+  check(BSRC:find("return plan_finish(f, surface, p, main.masks, is_plant, topts, g)", 1, true) ~= nil
+    or BSRC:find("return Build.Rangee.after(f, p, plan_finish(f, surface, p, main.masks, is_plant, topts, g))", 1, true) ~= nil,
+    "plan_project passe topts et g à plan_finish")
   check(BSRC:find("return plan_finish(f, surface, p, masks, false)", 1, true) ~= nil, "plan_alim appelle plan_finish sans topts ni g")
 end
 

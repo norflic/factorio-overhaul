@@ -61,6 +61,7 @@ CHAMP_CFG.min_pairs, CHAMP_CFG.keep_pairs = 1, 0
 -- pour être redemandée 15 min plus tard, réserve rendue entre les deux (mesuré, partie de 150 min, graine 20261020 : deux bandes d'Azure
 -- annulées « matieres » à 52 et 68 min, la suivante demandée à 87 min : 35 min sans bande)
 CHAMP_CFG.gate_wait, CHAMP_CFG.retry = 90 * 3600, 3 * 3600
+CHAMP_CFG.pause = 5 * 3600 -- lot RACCORD-BANDE : une bande du champ abandonnée sur des refus du plan repart d'un état neuf après 5 min (au lieu de CFG.revive : 30 min)
 CHAMP_CFG.block_max = 15 * 3600 -- une bande bloquée (fantôme refusé) est laissée au plan après 15 min : la suivante part (step_build)
 -- Lot THERMIQUE5 (revue du 3/11, cause 4) : une bande d'un minerai porté BRUT au coffre (charbon, pierre) n'exige plus de plaques de fer libres
 -- (Th.min_plates) : la demande fait fabriquer ses matières (Mig.projects) ; Azure 20261020 ne demandait ni charbon ni pierre de 41 à 150 min
@@ -641,6 +642,9 @@ end
 --- Demande échouée (avant ou après un retrait) : nouvel essai plus tard, abandon après CFG.max_fails échecs de suite.
 local function failed(f, ms, o, st, tick, why)
   st.fails = st.fails + 1
+  -- lot RACCORD-BANDE : la CAUSE du refus du plan (raison du projet) au journal, pas seulement « refuse »
+  local pj = st.pid and f.build and f.build.projects[st.pid]
+  local cause = pj and pj.reason and (" : " .. tostring(pj.reason)) or ""
   st.retry = tick + (st.frame and CHAMP_CFG.retry or CFG.retry) -- (lot CHAMP : une bande annulée est redemandée sous 3 min)
   -- lot MIGRATION-DECLENCHE : le plan a REFUSÉ cette partie (ex. « tapis des foreuses (minerai) ») : elle est écartée des choix suivants
   -- (Mg.pick_band, ctx.skip) et une AUTRE partie est essayée sous une minute (la même était redemandée 3 fois à 15 min d'écart, puis abandon)
@@ -655,11 +659,14 @@ local function failed(f, ms, o, st, tick, why)
   release(ms, o.id)
   if st.done == 0 and st.produced == 0 then o.migr, o.full, o.full_by = nil, false, nil end -- rien de migré : l'avant-poste est rendu en attendant
   if st.fails >= CFG.max_fails then
+    local pause = st.done == 0 and st.frame ~= nil and why == "refuse"
     finish(f, ms, o, st, (st.done > 0) and "partiel" or "abandon",
-      string.format("avant-poste %d : migration %s apres %d echec(s) de suite (%s), %d partie(s) migree(s)", o.id,
-        (st.done > 0) and "arretee" or "abandonnee", st.fails, tostring(why), st.done))
+      string.format("avant-poste %d : migration %s apres %d echec(s) de suite (%s%s), %d partie(s) migree(s)%s", o.id,
+        (st.done > 0) and "arretee" or "abandonnee", st.fails, tostring(why), cause, st.done,
+        pause and string.format(" ; reprise dans %.0f min", CHAMP_CFG.pause / 3600) or ""))
+    if pause and st.abandoned then st.pause = CHAMP_CFG.pause end -- lot RACCORD-BANDE : pause courte (start_next)
   else
-    say(f, ms, string.format("avant-poste %d : partie annulee (%s), echec %d/%d, nouvel essai a %.1f min", o.id, tostring(why), st.fails,
+    say(f, ms, string.format("avant-poste %d : partie annulee (%s%s), echec %d/%d, nouvel essai a %.1f min", o.id, tostring(why), cause, st.fails,
       CFG.max_fails, st.retry / 3600), st.frame ~= nil) -- (lot CHAMP : forcée pour une bande du champ)
   end
 end
@@ -1441,10 +1448,11 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy, book, ho
     -- d'un état neuf (parties refusées oubliées : le champ, le stock et le courant ont changé). L'abandon « pas de gabarit » reste. Un
     -- abandon d'une sauvegarde 0.6.18 (sans date) compte comme daté du tick 0 : repris à la première pensée.
     local since = st and st.abandoned and not st.sans_gabarit and (st.abandoned_at or 0) or nil
-    if since and tick >= since + CFG.revive and o.migr == nil then
+    local waited = st and st.pause or CFG.revive -- lot RACCORD-BANDE : pause courte après des refus du plan sur une bande du champ
+    if since and tick >= since + waited and o.migr == nil then
       st = new_state()
       ms.o[oid] = st
-      say(f, ms, string.format("avant-poste %d (%s) : migration reprise apres abandon (%.0f min)", o.id, o.kind, CFG.revive / 3600), true)
+      say(f, ms, string.format("avant-poste %d (%s) : migration reprise apres abandon (%.0f min)", o.id, o.kind, waited / 3600), true)
     end
     -- lot CHAMP : un voisin d'un gisement déjà planifié par un autre avant-poste n'en planifie pas un second
     local owner

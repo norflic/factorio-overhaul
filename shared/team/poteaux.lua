@@ -131,7 +131,7 @@ function Q.path(a, b, reach, big, free, known, opts)
   end
 
   local reason = "aucun chemin"
-  for _, w in ipairs(Q.WIDTHS) do
+  for _, w in ipairs(opts.widths or Q.WIDTHS) do -- opts.widths : lot RACCORD-BANDE (un seul couloir large)
     local hw = w * reach
     local hw2 = hw * hw
     -- cellules du couloir : centre à hw au plus du segment
