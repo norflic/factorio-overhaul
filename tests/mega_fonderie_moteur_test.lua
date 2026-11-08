@@ -20,7 +20,7 @@ local SRC = read(PATH)
 local LOGS = {}
 _G.log = function(s) LOGS[#LOGS + 1] = s end
 _G.settings = { global = { ["fo-war-mega-fonderie"] = { value = true } } }
-_G.game = { recipe_prototypes = {
+_G.game = { entity_prototypes = { ["stone-furnace"] = { type = "furnace" }, ["iron-chest"] = { type = "container" } }, recipe_prototypes = {
   ["iron-plate"] = { ingredients = { { name = "iron-ore", amount = 1 } }, products = { { name = "iron-plate", amount = 1 } } },
   -- recette DOUBLURE (2 minerais pour 1 plaque) : le rendement est lu à la recette, jamais supposé à 1
   ["copper-plate"] = { ingredients = { { name = "copper-ore", amount = 2 } }, products = { { name = "copper-plate", amount = 1 } } },
@@ -32,14 +32,13 @@ local DATA = {
 local BRICK = { drill = DATA.drill, pole = DATA.pole, belts = DATA.belts, inserter = DATA.inserter,
   furnace = { size = 2, rate = 0.625, fuel = true, fuel_rate = 0.0225 } }
 local NAMES = { furnace = "stone-furnace", arm = "inserter", pole = "small-electric-pole", chest = "iron-chest", belts = { "transport-belt" } }
-local KIND = { ["iron-ore"] = "iron", ["copper-ore"] = "copper" }
 local calls = { data = 0 }
 package.loaded["script.team.champ"] = { data = function(f, kind)
   calls.data = calls.data + 1
+  if f.no_belt then return nil, "tapis" end
   if kind == "copper" then return BRICK, NAMES end
   return DATA, NAMES
 end }
-package.loaded["script.team.migration_champ"] = { takes = function(f, res) return KIND[res] end }
 package.loaded["script.team.stock"] = { count = function(f, name) return (f.stock or {})[name] or 0 end }
 
 local function load_mega(src, mf)
@@ -122,6 +121,13 @@ local function suite(Mega, src)
     Mega.think(fac, only, 9 * 3600, { power = true })
     want(fac.mega.deps[12] == nil and fac.mega.deps[13] == nil and fac.mega.deps[14] ~= nil and fac.mega.deps[11] ~= nil,
       "gisements plus recenses : refus oublies, decisions gardees")
+  end
+  -- champ illisible (aucun tapis débloqué) : refus causé, distinct du minerai sans four
+  do
+    local nb = { key = "ocre", no_belt = true }
+    Mega.think(nb, { deps = { [11] = deps()[11], [12] = deps()[12] } }, 3600, { power = true })
+    want(nb.mega.deps[11].cause == "donnees : champ : tapis" and nb.mega.deps[12].cause == "minerai sans four de champ",
+      "champ illisible (tapis) et minerai sans four : deux causes distinctes")
   end
   -- sans courant : attente, jamais de décision
   local nc = { key = "scarlet", stock = {} }

@@ -7,8 +7,8 @@
   de son cycle de 12 pensées (une fois par minute et par équipe ; étape libre jusqu'ici : une seule étape coûteuse par pensée), derrière le
   réglage de carte fo-war-mega-fonderie (settings/mega_fonderie.lua, vrai par défaut). Pour au plus Mega.PER_THINK gisements recensés
   (cs.deps, tour à tour) :
-    1. le minerai a-t-il un four de champ (MigChamp.takes) ; caractéristiques lues aux prototypes (Champ.data : foreuse, tapis débloqués,
-       four, bras, poteau) ;
+    1. le minerai a-t-il un four de champ (sorte d'avant-poste à four, comme MigChamp.takes) ; caractéristiques lues aux prototypes
+       (Champ.data : foreuse, tapis débloqués, four, bras, poteau ; illisibles : refus « donnees : champ : <cause> ») ;
     2. Mf.size (gisement saturé : couverture 1) puis Mf.decide (courant : centrale finie ; crise : survie ou QG menacé) ;
     3. décision neuve : budget de départ (colonnes que le coffre paie, pièces d'une colonne comptées par Mf.col_cost et nommées par
        Champ.data), plan d'un ÉCHANTILLON du bloc (3 colonnes : Mf.sample) contrôlé par Mf.verify ; un plan faux est un refus ;
@@ -24,7 +24,6 @@ local T = require("shared.team.config")
 local State = require("script.faction.state")
 local Stock = require("script.team.stock")
 local Champ = require("script.team.champ")
-local MigChamp = require("script.team.migration_champ")
 
 local Mega = {}
 
@@ -77,6 +76,17 @@ local function yield_of(kind)
   return pout / pin
 end
 
+--- Sorte d'avant-poste dont le réceptacle est un FOUR pour ce minerai (même règle que MigChamp.takes, sans exiger Champ.data : le journal
+--- sépare « minerai sans four » de « champ illisible », que MigChamp.takes confond), ou nil.
+local function furnace_kind(resource)
+  for _, kind in ipairs(T.OUTPOST_ORDER) do
+    local spec = T.outposts[kind]
+    local proto = spec and spec.resource == resource and game.entity_prototypes[spec.sink]
+    if proto and proto.type == "furnace" then return kind end
+  end
+  return nil
+end
+
 --- Colonnes que le coffre paie : pour chaque sorte de pièce d'une colonne pleine (Mf.col_cost), le stock BRUT du nom lu par Champ.data
 --- divisé par le besoin ; le plus petit. Une sorte sans nom n'entre pas (elle sera fabriquée par le cerveau à la pose).
 local function budget_cols(f, z, names)
@@ -98,7 +108,7 @@ end
 local function consider(f, st, dep, tick, ctx, on)
   local rec = st.deps[dep.id]
   local dl = { id = dep.id, res = dep.resource, tiles = dep.tiles or 0 }
-  local kind = on and MigChamp.takes(f, dep.resource) or nil
+  local kind = on and furnace_kind(dep.resource) or nil
   local data, names, z, zwhy, fu
   if kind then
     data, names = Champ.data(f, kind)
