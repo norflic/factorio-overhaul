@@ -29,6 +29,7 @@ local Build = require("script.team.build")
 local Sweep = require("shared.team.rebuild_sweep") -- lot REBUILD-SUIVI : règles pures du suivi d'un projet rouvert
 local Harvest = require("script.team.harvest") -- lot KIT : matières naturelles récoltables à portée
 local Profiler = require("script.core.profiler")
+local LigneBande = require("script.team.ligne_bande") -- lot RACCORD-BANDE 2 : les poteaux manquants d'une ligne de bande sont des buts du cerveau
 local MigChamp = require("script.team.migration_champ") -- lot MIGRATION-DECLENCHE : la ligne neuve d'une migration de champ est un projet du cerveau
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (agrandissement des lignes)
 local Pi = require("shared.ai3.pile") -- lot FUITES-PILE : famille d'un module (reconstruction, neuf, agrandissement)
@@ -645,6 +646,16 @@ function Auto.think(f, view, book, tick, research)
       mods[#mods + 1] = { product = (i == 1) and "migration" or ("migration-" .. i), item = mp.item, state = ps.state, missing = ps.missing or {},
         reason = ps.reason, gain = 0, -- valeur de base d'un module
         pile = (not ps.rebuilding and not (i == 1 and PileRt.migration_building(f))) and fam or nil }
+    end
+  end
+  -- Lot RACCORD-BANDE 2 (partie neuve 0.6.72 : « reserve:materiaux », 0 entite batie sur 32, poteaux a 0 au stock) : la LIGNE de poteaux d'une bande lointaine est un
+  -- projet du cerveau comme la ligne de la migration : ses poteaux manquants deviennent des buts « auto:ligne-bande » (fabriquer). La couverture passe toujours
+  -- la pile (decision du DC du 8/11) : famille « couverture ».
+  for i, lp in ipairs(LigneBande.projects(f)) do
+    local ps = Build.brief(f, lp.pid)
+    if ps and ps.state ~= "fini" and ps.state ~= "refuse" then
+      mods[#mods + 1] = { product = (i == 1) and "ligne-bande" or ("ligne-bande-" .. i), state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = 0,
+        pile = "couverture" }
     end
   end
   local feeds = {}

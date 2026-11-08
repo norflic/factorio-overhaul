@@ -184,6 +184,22 @@ local function plan_site(f, surface, p, h)
   return { key = "ligne:" .. tostring(lg.oid) .. ":" .. p.id, box = { floor(x0), floor(y0), floor(x1), floor(y1) }, ents = ents, quais = {}, outs = {}, masks = masks }
 end
 
+--- Les lignes de bande de l'équipe, triées par clé : { { key, pid } } (lu par script/ai3/automatisation.lua : leurs poteaux manquants sont des buts du cerveau).
+function LB.projects(f)
+  local out = {}
+  local lignes = f.build and f.build.lignes
+  if not lignes then return out end
+  local keys = {}
+  for k in pairs(lignes) do keys[#keys + 1] = k end
+  table.sort(keys)
+  for _, k in ipairs(keys) do
+    local rec = lignes[k]
+    local lp = f.build.projects[rec.pid]
+    if lp and lp.state ~= "fini" and lp.state ~= "refuse" and not lp.abandoned then out[#out + 1] = { key = k, pid = rec.pid } end
+  end
+  return out
+end
+
 --- Branche le site au plan directeur (appelé une fois par script/team/champ.lua).
 function LB.install(Build)
   LB.Build = Build

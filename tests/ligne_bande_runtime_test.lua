@@ -98,6 +98,22 @@ do
   check(stt3 == "refusee" and why3 == "ligne impossible", "§1 status : refusee avec sa raison")
 end
 
+-- §1 ter LB.projects : les lignes vivantes, triées par clé (leurs poteaux manquants deviennent des buts du cerveau)
+do
+  local Build, f = new_build(), new_team()
+  LB.install(Build)
+  LB.request(f, "b", { x = 0, y = 0 }, { x = 100, y = 0 }, 7.5, "small-electric-pole", 40, 500)
+  LB.request(f, "a", { x = 0, y = 0 }, { x = 0, y = 100 }, 7.5, "small-electric-pole", 40, 500)
+  local l = LB.projects(f)
+  check(#l == 2 and l[1].key == "a" and l[2].key == "b", "§1ter lignes vivantes triées par clé")
+  f.build.projects[l[1].pid].state = "fini"
+  check(#LB.projects(f) == 1 and LB.projects(f)[1].key == "b", "§1ter une ligne finie n'est plus un projet à nourrir")
+  check(#LB.projects({ build = { projects = {} } }) == 0, "§1ter sans registre : aucune")
+  local auto = read("script/ai3/automatisation.lua")
+  check(auto:find("for i, lp in ipairs(LigneBande.projects(f)) do", 1, true) ~= nil and auto:find("pile = \"couverture\" }", 1, true) ~= nil,
+    "§1ter automatisation : les poteaux manquants d'une ligne sont des buts « ligne-bande » de la famille couverture")
+end
+
 -- §2 le site
 local function surface(generated)
   local s = { asked = {} }
