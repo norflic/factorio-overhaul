@@ -1510,6 +1510,7 @@ function M.new_world(opts)
   end
   W.player = {
     _lua_object = true, index = 1, valid = true, admin = true, connected = true, surface = surface, force = W.forces.player,
+    surface_index = surface.index, -- lot X10-S10 : LuaControl.surface_index (guet des factions endormies, script/faction/commander.lua)
     controller_type = 1, -- intégration 0.6.22 : defines.controllers.character
     character = player_char,
     print = function(s) W.prints[#W.prints + 1] = M.ls_to_string(s) end,
