@@ -17,6 +17,15 @@
   ticks à se déplier, F120 : l'ordre des premiers coups n'est pas jugé).
   Lancement (à la reprise seulement, par la file) :
     py -3.9 -B tools/autotest/banc.py --out <archive> --qui CORR-RALLIEMENT -- 3000 portee-diagonale <source>
+  MESURÉ le 5/11 (fo-logs/2026-11-05_CORR-RALLIEMENT/portee-diagonale-e0e42a60 : 8 OK, 2 ECHEC sur les attendus ci-dessus) :
+    A : le mitrailleur, arrêté à 21,933, touche la tourelle (tick 238) ; la tourelle le TOUCHE aussi à 21,933 (tick 255), il meurt
+    (tick 489), elle VIT. Au centre à centre, la tourelle atteint la BOÎTE de sa cible (21,656 de son centre à la boîte du
+    mitrailleur). B et C comme attendu.
+  7/11 (décision du lead) : les attendus de A sont ALIGNÉS SUR CETTE MESURE (pas sur un modèle) : touchée depuis plus que sa
+    portée ; la tourelle riposte ; le mitrailleur meurt, la tourelle vit. Le point (C) (shared/ai3/reaction.lua) s'aligne sur la même
+    mesure. PRÉMISSE : le mitrailleur a la portée 20 de la mesure ; depuis la 0.6.59 (b142714d) il est à 16 : le banc écrit alors
+    « [FO-PORTEE-DIAGONALE] SANS OBJET : prémisse … », ne pose rien et ne juge ni A, ni B, ni C (aucun contrôle : BILAN 0 OK,
+    0 ECHEC ; décision du lead, 7/11 : pas d'échec voulu). Critères : fo-logs/2026-11-05_EFFONDREMENT/CRITERES.md, point (C).
 ]]
 
 local Y0, XS = 2600, { A = 2600, B = 2800, C = 3000 }
@@ -43,6 +52,14 @@ return {
   init = function(ctx)
     local s = ctx.surface()
     local st = ctx.state()
+    -- Prémisse de la mesure du 5/11 (lue AVANT tout contrôle) : mitrailleur de portée 20. Sinon : SANS OBJET, rien n'est posé ni jugé.
+    local gp0 = game.entity_prototypes[UNIT]
+    local r0 = gp0 and gp0.attack_parameters and gp0.attack_parameters.range
+    if r0 and math.abs(r0 - 20) > 1e-6 then
+      st.sans_objet = string.format("premisse : mitrailleur %s de portee 20 (mesure du 5/11) ; portee lue %.2f : A, B et C ne sont pas juges", UNIT, r0)
+      ctx.log("SANS OBJET : " .. st.sans_objet)
+      return
+    end
     game.map_settings.enemy_expansion.enabled = false
     st.ar = {}
     for _, a in ipairs(ARENES) do
@@ -85,6 +102,7 @@ return {
   tick = function(ctx, e)
     local t = e.tick
     local st = ctx.state()
+    if st.sans_objet then return end
     local s = ctx.surface()
     if t == START then
       for _, a in ipairs(st.ar) do
@@ -137,6 +155,10 @@ return {
 
   finish = function(ctx)
     local st = ctx.state()
+    if st.sans_objet then
+      ctx.log("SANS OBJET : " .. st.sans_objet)
+      return
+    end
     local by = {}
     for _, a in ipairs(st.ar) do by[a.key] = a end
     local function fmt(v) return v and string.format("%.3f", v) or "-" end
@@ -148,8 +170,11 @@ return {
     local A, B, C = by.A, by.B, by.C
     ctx.check(A and A.t_hit and A.t_hit_d and A.tr and A.t_hit_d > A.tr, "A (niveau 9, diagonale) : touchee depuis plus que sa portee",
       A and string.format("%s contre %s", fmt(A.t_hit_d), fmt(A.tr)) or "-")
-    ctx.check(A and not A.g_hit, "A : le mitrailleur n'est jamais touche", A and fmt(A.g_hit_d) or "-")
-    ctx.check(A and A.t_dead ~= nil, "A : la tourelle meurt", A and tostring(A.t_dead) or "-")
+    -- MESURÉ le 5/11 (point (C)) : la tourelle atteint la BOÎTE du mitrailleur : elle riposte depuis plus que sa portée de centre à centre.
+    ctx.check(A and A.g_hit and A.g_hit_d and A.tr and A.g_hit_d > A.tr, "A : la tourelle riposte (touche le mitrailleur depuis plus que sa portee de centre a centre)",
+      A and string.format("%s contre %s", fmt(A.g_hit_d), fmt(A.tr)) or "-")
+    ctx.check(A and A.g_dead ~= nil and A.t_dead == nil, "A : le mitrailleur meurt, la tourelle vit",
+      A and string.format("mitrailleur %s, tourelle %s", tostring(A.g_dead), tostring(A.t_dead)) or "-")
     ctx.check(B and B.g_hit and B.g_hit_d and B.tr and B.g_hit_d <= B.tr + 1e-3, "B (niveau 10, diagonale) : la tourelle riposte",
       B and string.format("%s contre %s", fmt(B.g_hit_d), fmt(B.tr)) or "-")
     ctx.check(B and B.g_dead ~= nil and B.t_dead == nil, "B : le mitrailleur meurt, la tourelle vit",

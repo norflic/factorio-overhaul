@@ -334,26 +334,46 @@ function Re.profile(range, mode, box)
   return { r = range, bb = mode == Re.BB, hx = hx, hy = hy }
 end
 
---- Plus grande distance de CENTRE à centre d'où le profil `a` atteint une cible de demi-boîte (hx, hy). Centre à centre : sa
---- portée. Boîte à boîte : la zone d'atteinte est un carré arrondi (somme des demi-boîtes S, plus la portée), le plus loin dans la
---- DIAGONALE, où les coins se font face : portée + |S|. MESURÉ (partie 0.6.51, [FO-QG-TOURELLE]) : une mitrailleuse du QG (± 0,7)
---- tuée depuis 21,2 tuiles par un mitrailleur (portée 20, ± 0,2) : au-delà des 20,9 de l'axe, en deçà des 21,27 de la diagonale.
+--- Point (C), 7/11 : demi-boîte S de la ZONE D'ATTEINTE du profil `a` sur une cible de demi-boîte (hx, hy). La zone est le rectangle
+--- ± S élargi de la portée (carré arrondi) : `a` frappe la cible quand le centre de celle-ci y est. S = demi-boîte de la cible, plus
+--- celle de `a` en boîte à boîte. MESURÉ (banc portee-diagonale, arène A, fo-logs/2026-11-05_CORR-RALLIEMENT/portee-diagonale-e0e42a60) :
+--- au « centre à centre », l'attaquant atteint la BOÎTE de sa cible. La fo-lvl-gun-9 (portée 21,7, centre à centre) touche un
+--- mitrailleur (± 0,2) arrêté à 21,933 tuiles de centre à centre en diagonale ; de son centre à la boîte du mitrailleur, il y a 21,656.
+--- (Avant : S = 0 au centre à centre, la tourelle n'atteignait que 21,7.) Variante non départagée : le rayon de la cible, qui donne le
+--- même résultat en diagonale.
+local function reach_box(a, hx, hy)
+  local sx, sy = hx or 0, hy or 0
+  if a.bb then sx, sy = sx + (a.hx or 0), sy + (a.hy or 0) end
+  return sx, sy
+end
+
+--- Plus grande distance de CENTRE à centre d'où le profil `a` atteint une cible de demi-boîte (hx, hy) : dans la DIAGONALE, où les
+--- coins se font face, portée + |S| (reach_box). MESURÉ (partie 0.6.51, [FO-QG-TOURELLE]) : une mitrailleuse du QG (± 0,7) tuée
+--- depuis 21,2 tuiles par un mitrailleur (portée 20, ± 0,2) : au-delà des 20,9 de l'axe, en deçà des 21,27 de la diagonale.
 function Re.reach_on(a, hx, hy)
-  if not a.bb then return a.r end
-  local sx, sy = a.hx + (hx or 0), a.hy + (hy or 0)
+  local sx, sy = reach_box(a, hx, hy)
   return a.r + math.sqrt(sx * sx + sy * sy)
 end
 
---- Écart (tuiles) de l'ennemi `e` sur la tourelle `t` (profils) : le plus grand, sur toutes les directions, de « distance de centre
---- à centre d'où e frappe t » moins « distance d'où t frappe e ». > Re.RANGE_EPS : e peut frapper t hors de sa portée (débordée).
---- Zones d'atteinte : disque (centre à centre) ou carré arrondi (boîte à boîte, même somme S des demi-boîtes pour les deux). Les
---- deux zones sont convexes et symétriques ; l'écart le plus grand est sur l'axe ou la diagonale :
----   même mode : e.r − t.r ; e en boîte, t au centre : e.r + |S| − t.r (diagonale) ; e au centre, t en boîte : e.r − (t.r + min(Sx, Sy)) (axe).
+--- Écart (tuiles) de l'ennemi `e` sur la tourelle `t` (profils). > Re.RANGE_EPS : e peut frapper t d'un endroit d'où t ne le frappe
+--- pas (débordée), c'est-à-dire que la zone d'atteinte de e sur t (reach_box(e, t)) n'est pas dans celle de t sur e (reach_box(t, e)).
+--- Deux carrés arrondis convexes, centrés au même point : l'un est dans l'autre si et seulement si leurs fonctions d'appui
+--- (h(u) = Sx·|ux| + Sy·|uy| + portée) le sont dans toutes les directions. Écart = le plus grand h_e(u) − h_t(u) :
+--- (e.r − t.r) + max sur u ≥ 0, |u| = 1, de Δ·u, avec Δ = S_e − S_t = (t au centre ? demi-boîte de t : 0) − (e au centre ? demi-boîte
+--- de e : 0). Le max vaut |Δ⁺| si une composante de Δ est positive, sinon la plus grande des deux.
+--- Avec S = 0 au centre à centre (modèle d'avant), cette formule rend exactement les trois d'avant : e.r − t.r (même mode),
+--- e.r + |S| − t.r (e en boîte, t au centre), e.r − (t.r + min(Sx, Sy)) (e au centre, t en boîte).
 function Re.gap(e, t)
-  if e.bb == t.bb then return e.r - t.r end
-  local sx, sy = e.hx + t.hx, e.hy + t.hy
-  if e.bb then return e.r + math.sqrt(sx * sx + sy * sy) - t.r end
-  return e.r - (t.r + math.min(sx, sy))
+  local dx = (t.bb and 0 or (t.hx or 0)) - (e.bb and 0 or (e.hx or 0))
+  local dy = (t.bb and 0 or (t.hy or 0)) - (e.bb and 0 or (e.hy or 0))
+  local m
+  if dx > 0 or dy > 0 then
+    local px, py = math.max(dx, 0), math.max(dy, 0)
+    m = math.sqrt(px * px + py * py)
+  else
+    m = math.max(dx, dy)
+  end
+  return e.r - t.r + m
 end
 
 --- La tourelle `t` (profil) est-elle débordée par au moins un des ennemis (liste de profils) ?
@@ -401,12 +421,12 @@ function Re.turret_ready(s)
 end
 
 --- Relecture (revue-danger, 18 h 12, point 4) : une tourelle (position x, y et profil) COUVRE le point pt si elle y frappe ce qui s'y
---- tient (demi-boîte (px, py), 0 par défaut) : sa portée de centre à centre ; en boîte à boîte, plus la plus petite somme des
---- demi-boîtes (l'axe, le moins favorable). Portée inconnue : ne couvre rien.
+--- tient (demi-boîte (px, py), 0 par défaut) : sa portée, plus la plus petite composante de S (reach_box : l'axe, le moins
+--- favorable ; point (C) : la demi-boîte de la cible compte aussi au centre à centre). Portée inconnue : ne couvre rien.
 function Re.covers(t, pt, px, py)
   if type(t) ~= "table" or type(t.r) ~= "number" then return false end
-  local reach = t.r
-  if t.bb then reach = reach + math.min((t.hx or 0) + (px or 0), (t.hy or 0) + (py or 0)) end
+  local sx, sy = reach_box(t, px, py)
+  local reach = t.r + math.min(sx, sy)
   local dx, dy = t.x - pt.x, t.y - pt.y
   return dx * dx + dy * dy <= reach * reach
 end

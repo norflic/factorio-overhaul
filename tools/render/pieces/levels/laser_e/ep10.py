@@ -33,6 +33,13 @@ FOYER = ages.FOYER[10]
 FAISCEAU = dict(rgb=(0.2, 0.55, 1.0), rgb2=(0.09, 0.33, 1.0), forme="bleu vif en IMPULSIONS (trait en pointillés "
                 "rapides)", largeur=0.9)
 HABILLAGE = dict(ages.CORPS[10], **E_.MAQUETTES[10])
+# LOT F1-C ronde 3c (critique : en pose N, joues claires lues « poteaux dressés ») : joues et paliers SOMBRES (corps.support)
+JOUES = ("anthracite", "gris_tech")
+# LOT F1-C ronde 3b (critique : en pose N, les joues ivoire de l'étrier se lisaient « deux poteaux ») : BERCEAU
+HABILLAGE["forme_tete"] = "berceau"
+# ronde 3c (dominance de l'ère 4 : le galet plein de l'âge 10 pesait plus que les âges 11 et 12, « régression visible »)
+# : galet à 12 pans, même profil
+HABILLAGE["forme_affut"] = dict(HABILLAGE["forme_affut"], pans=12)
 
 
 def matieres(metal, M):
@@ -90,6 +97,13 @@ def _console(g, k, w):
         P3.lamp_group(g, (-0.052, -0.04, 0.03), (0, 1, 0), (-1, 0, 0), M["emit"], M, n=2, size=0.016)
 
 
+def _voyant_bord(g, k, w):
+    """LOT F1-C : voyant bleu encastré au bord du plateau (repère du dessus)."""
+    M = g.M
+    g.box((0, 0, 0.008), (0.07, 0.05, 0.016), M["anthracite"], "hard", what="cadre_voyant")
+    g.box((0, 0, 0.018), (0.05, 0.03, 0.006), M["emit"], "flat", what="voyant")
+
+
 def _baie_sol(g, k, w):
     """Prise de données au sol (entre deux baies, sur le plateau) : boîtier ivoire, câble court."""
     M = g.M
@@ -109,6 +123,16 @@ def socle(g, c):
     O.sur_flanc(g, c, 1, [math.radians(a) for a in (220, 270, 320)], _trappe, f=0.6, dr=0.004)
     O.sur_dessus(g, c, 1, [math.radians(a) for a in (200, 235, 270, 305, 340)], _console)
     O.sur_dessus(g, c, 0, O.visibles(O.entre_condensateurs(c), nord=0.3), _baie_sol, t=0.5)
+    # LOT F1-C (grand plateau ivoire peu meublé en ronde 2, P4 0,47) : consoles et trappes sur le plateau, joints
+    # anthracite et rivets sur les flancs, second jonc au pied
+    O.sur_dessus(g, c, 0, [math.radians(a) for a in (196, 218, 244, 296, 322, 344)], _console, t=0.85)
+    O.sur_flanc(g, c, 1, [math.radians(a) for a in (198, 245, 295, 342)], _grille, f=0.55, dr=0.002)
+    O.rivets_flanc(g, c, 0, 0.88, M["gris_tech"], pas=0.12, r=0.012)
+    O.ceinture(g, c, 0, 0.62, 0.012, M["anthracite"])
+    O.ceinture(g, c, 0, 0.05, 0.016, M["gris_tech"], colliers=M["anthracite"], pas=0.4)
+    # ronde 3b (nuit presque noire, critique) : COURONNE de voyants bleus au bord du grand plateau
+    nv = 22
+    O.sur_dessus(g, c, 0, O.visibles([TAU * (k + 0.5) / nv for k in range(nv)], nord=0.45), _voyant_bord, t=0.97)
     for nom, sx in (("coin_NO", -1), ("coin_NE", 1)):
         p = corps.place(c, nom)
         x, y = p["x"] - sx * 0.04, Y(p["yn"] - 0.04)
@@ -192,11 +216,12 @@ def emetteur(g, c):
     for k in range(49):
         phi = math.radians(-20 + 220 * k / 48)
         pts.append(V((ax * s * 1.01 * math.cos(phi), yc + ay * s * 1.01 * math.sin(phi), zh + zv)))
-    g.tube(pts, 0.11 * re, M["anthracite"], n=8, style="soft", what="bandeau")
+    # LOT F1-C (« visière mince » en ronde 2) : bandeau et lamelles 1,4 à 1,5 fois plus hauts
+    g.tube(pts, 0.2 * re, M["anthracite"], n=8, style="soft", what="bandeau")
     # visière : lamelles lumineuses séparées par des meneaux sombres, posées DEVANT le bandeau (ronde 1 du lot F1-B :
     # à 1,06 du rayon, elles étaient noyées dans le bandeau de 0,11 re et la visière ne se voyait pas)
     nl = 14
-    dv = 0.11 * re + 0.012
+    dv = 0.2 * re + 0.012
     for k in range(nl):
         phi0 = math.radians(-12 + 204 * k / nl)
         phi1 = math.radians(-12 + 204 * (k + 0.8) / nl)
@@ -207,13 +232,14 @@ def emetteur(g, c):
         if nrm.dot(V((p0.x, p0.y - yc, 0))) < 0:
             nrm = -nrm
         Rr = Matrix((d.normalized(), nrm, d.normalized().cross(nrm))).transposed()
-        g.box((p0 + p1) / 2 + nrm * dv, (d.length * 1.15, 0.02, 0.15 * re), M["emit"], "flat", R=Rr, what="lamelle")
+        g.box((p0 + p1) / 2 + nrm * dv, (d.length * 1.15, 0.02, 0.3 * re), M["emit"], "flat", R=Rr, what="lamelle")
     corps.lentille(g, c, yc + ay * 1.0, 0.16 * re, verre=M["glass_dk"], cercle=M["anthracite"], anneau=False)
-    # capteurs courts sur le dessus (couchés dans l'axe), grille centrale
+    # capteurs sur le dessus : LOT F1-C (pose N : deux capteurs longs dans l'axe se lisaient « deux tiges ») : galettes
+    # plates, plus larges que longues, œil vers l'avant
     for sx in (-1, 1):
-        g.box((sx * 0.38 * ax, yc - 0.05 * re, zh + az * 0.86), (0.14 * re, 0.36 * re, 0.1 * re), M["anthracite"],
+        g.box((sx * 0.4 * ax, yc + 0.02 * re, zh + az * 0.84), (0.2 * re, 0.17 * re, 0.06 * re), M["anthracite"],
               "hard", what="capteur")
-        g.cyl((sx * 0.38 * ax, yc + 0.14 * re, zh + az * 0.86), "y", 0.035 * re, 0.02, M["emit"], n=10, style="flat",
+        g.cyl((sx * 0.4 * ax, yc + 0.11 * re, zh + az * 0.84), "y", 0.03 * re, 0.02, M["emit"], n=10, style="flat",
               what="oeil_capteur")
     g.grille([V((-0.22 * re, yc - 0.42 * ay, zh + az * 0.93)), V((0.22 * re, yc - 0.42 * ay, zh + az * 0.93)),
               V((0.22 * re, yc + 0.1 * ay, zh + az * 0.97)), V((-0.22 * re, yc + 0.1 * ay, zh + az * 0.97))], 5,

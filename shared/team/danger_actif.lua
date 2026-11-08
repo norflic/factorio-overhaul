@@ -84,6 +84,27 @@ function Da.exposed(p, threat, reach)
   return dx * dx + dy * dy <= reach * reach
 end
 
+--- Lot CORR-RALLIEMENT (tenue, 7/11 ; fo-logs/2026-11-05_EFFONDREMENT/RAPPORT.md §12) : état « away » d'une équipe dont le QG est débordé, posé par
+--- script/ai3/soldats.lua (hq_threat) à chaque décision « away » : { x, y (menace), reach, until }. Vivant tant que tick < until : il expire seul quand
+--- plus aucune décision « away » ne le renouvelle. `w` nil permis.
+function Da.away_live(w, tick)
+  return w ~= nil and tick < (w["until"] or -1)
+end
+
+--- Pendant « away » : coffre de dépôt hors de portée de la menace (même portée que la mise à l'abri, Da.exposed). `cs` : positions des coffres du
+--- stock, dans l'ordre de l'appelant ; `p` : position du PNJ. Rend l'indice du plus proche non exposé (le premier à égalité), ou nil.
+function Da.safe_chest(cs, p, w)
+  local best, bd = nil, nil
+  for i, c in ipairs(cs) do
+    if not Da.exposed(c, w, w.reach) then
+      local dx, dy = c.x - p.x, c.y - p.y
+      local d = dx * dx + dy * dy
+      if bd == nil or d < bd then best, bd = i, d end
+    end
+  end
+  return best
+end
+
 --- Réponse d'équipe retenue : « rally » (tous derrière les tourelles) seulement si la menace est à portée du QG ; sinon « stand » (les seuls exposés
 --- et désarmés s'écartent, les armés exposés défendent, les autres continuent).
 function Da.shelter_resp(resp, threat, hq)

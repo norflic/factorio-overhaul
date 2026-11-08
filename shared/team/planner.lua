@@ -31,6 +31,7 @@ local F = require("shared.faction.config") -- drapeau `rocket` : soldat à attaq
 local Guard = require("shared.team.garde_centrale") -- lot CENTRALE-GARDE : tourelles armées autour de la centrale
 local Pr = require("shared.team.priorite") -- lot PRIORITE-RESSOURCES : production avant défense quand le fer ne paie pas les deux
 local Fr = require("shared.team.front") -- lot DEFENSE-FACTIONS : planchers du front, commande partielle (constantes de ce module)
+local Dsr = require("shared.team.defense_stock") -- lot DEFENSE-STOCK : tourelles du coffre posées en groupes (règle pure)
 local V = require("shared.faction.valeur") -- lot SITE-PROCHE : V.extension_refused (R1)
 local Dc = require("shared.team.defchoix") -- lot DEFENSE-CHOIX : tourelles du QG avant les soldats quand la base est menacée
 local Sq = require("shared.team.survie_qg") -- lot S1 : QG en péril (planchers réduits, tourelles voulues, remplissage partiel)
@@ -38,6 +39,7 @@ local Pt = require("shared.team.premiere_tourelle") -- lot EQUIPE : premier pali
 local Fx = require("shared.team.flux") -- lot FLUX : priorité des tournées d'avant-poste (règle pure)
 local Th = require("shared.team.thermique") -- lot THERMIQUE2 (essai 3) : plus de brûleur pour un minerai brut plein (Th.raw_full)
 local Mu = require("shared.team.munitions") -- lot MUNITIONS : recharge au plein, partielle, des tourelles (règle pure)
+local Sp = require("shared.team.spirale") -- EFFONDREMENT (décision du DC, 7/11) : recrue gratuite sous l'effectif de départ
 
 local P = {}
 
@@ -831,6 +833,34 @@ function P.plan(view, book)
     end
     if held_taken then avail[iron_key] = (avail[iron_key] or 0) + held end
     out.defend = { undefended = waiting, craftable = turret_craftable, hq = view.hq_turrets or 0, posts = dposts }
+    -- Lot DEFENSE-STOCK : les tourelles qui DORMENT au coffre (au-dessus d'une petite réserve) sont posées en groupes là où l'ennemi arrive
+    -- (shared/team/defense_stock.lua, script/team/defense_stock.lua : view.reserve.pick). Poste FACULTATIF et SANS fabrication : le stock
+    -- seulement (coût matière 0) ; hors de out.defend.posts (lu par la pile et l'armée : aucun effet sur eux). Rien en « production d'abord »
+    -- ni pour une équipe décimée. Lot rétréci au surplus et aux chargeurs RÉELLEMENT libres à ce point de la pensée (Dsr.lot).
+    local rs = view.reserve
+    if rs and rs.pick and not rs.busy and not open["fortify:reserve"] then
+      local pk = rs.pick
+      out.reserve = { key = pk.key, kind = pk.kind, have = pk.have, want = pk.want }
+      if pri.production_first or decimated then
+        out.reserve.why = "ressources"
+      else
+        local n, each = Dsr.lot(pk.count, Dsr.surplus(avail[T.turret] or 0), pk.count, avail[T.turret_ammo] or 0)
+        if n <= 0 then
+          out.reserve.why = "stock"
+        elseif pk.have + n < Dsr.MIN_GROUP then
+          out.reserve.why = "groupe"
+        else
+          local items = turret_items(n, each)
+          if take(items) then
+            add({ key = "fortify:reserve", kind = "fortify", prio = Dsr.prio(pk.kind), outpost = "reserve", items = items, sites = pk.sites,
+              pos = { x = pk.x, y = pk.y }, cell_key = pk.key, reserve = true })
+            out.reserve.why, out.reserve.count = "tache_creee", n
+          else
+            out.reserve.why = "stock"
+          end
+        end
+      end
+    end
     -- Lot DEFENSE-CHOIX (relecture) : la levée d'urgence n'est retenue que si le QG est RÉELLEMENT servi à cette pensée (tâche de pose
     -- créée ou tourelles en fabrication). Dc.turrets juge sur le stock d'avant les recharges ; si elles ont mangé le fer (QG « fer » ou
     -- « manque »), retenir la levée laissait la base sans tourelle NI soldat à chaque pensée de l'alerte (famine). Lecteur : la levée plus bas.
@@ -956,22 +986,23 @@ function P.plan(view, book)
   -- le pistolet (priorité 55, jamais servie tant que les seuls ouvriers enchaînent les tournées). Moteur réel
   -- (verif-guide, graines 271828182 et 1618033988) : sans cette règle, l'équipe restait à 1 ouvrier de 5 à 20 min,
   -- coffre plein de fer. RIEN d'autre de la survie des factions : la forme large (view.emergency donné tel quel, essai
-  -- D1) reposait la fonderie du QG et minait à la main ; coffre vidé (fer 11) et équipe perdue à 57 min. Plaques
-  -- insuffisantes : rien de plus, la règle ordinaire (§4) s'applique.
+  -- D1) reposait la fonderie du QG et minait à la main ; coffre vidé (fer 11) et équipe perdue à 57 min.
+  -- EFFONDREMENT (décision du DC, 7/11 : « je veux toujours n ouvriers minimum, donc 12 si 12 au départ. Au delas ça coute des
+  -- ressources ») : sous l'effectif de départ, la recrue est GRATUITE et équipée (shared/team/spirale.lua) : rien n'est pris au
+  -- stock virtuel ni au coffre (out.recruit_free ; paiement sauté en E4, script/team/team.lua). Avant : payée avec les plaques du
+  -- livre, et rien sans elles (partie du DC sur 0.6.58 : 2 PNJ sur 12, fer libre 0, de 133 à 177 min). AUCUN minage d'urgence pour
+  -- le kit d'une recrue gratuite (relecture du lead, 7/11 après la fusion de 0102eb36 : le PNJ partait miner du fer pour un kit qui ne
+  -- coûte rien ; la parité ne tient pas, la recrue des factions est payée). Filet de RECUL (décision du DC, 7/11 vers 16 h 56) :
+  -- view.recul_wait (recrues gratuites tuées vite, Sp.recul_ready au runtime) : la recrue attend, et aucune recrue payée ne la
+  -- remplace (§4 sauté : out.recruit_recul).
   local rf = (not em) and view.recover_floor or nil
-  if rf and not view.hold_recruits and not view.recruit_blocked and view.workers < rf then
-    local cost0 = view.recruit_cost or kit_list("worker", 1)
-    if take(cost0) then
-      out.recruit_workers = 1
-      out.emergency_recruit = true
+  if rf and not view.hold_recruits and not view.recruit_blocked and Sp.free(view) then
+    if view.recul_wait then
+      out.recruit_recul = true
     else
-      local p = book:plan(cost0, real_avail())
-      if next(p.raw) == nil then
-        out.recruit_workers = 1
-        out.recruit_uses = sorted_uses(p.uses)
-        consume(p.uses)
-        out.emergency_recruit = true
-      end
+      out.recruit_workers = 1
+      out.recruit_free = true
+      out.emergency_recruit = true
     end
   end
   if em and (em.rebuild or view.threatened or view.army_alert) and (view.done or {})["army"] then
@@ -1135,7 +1166,8 @@ function P.plan(view, book)
   -- avant-poste, recrue au prix du kit. `recruit_blocked` : garde d'agents (fo-agents-max) atteinte.
   local workers_wanted = view.workers_wanted or T.workers_wanted(#view.outposts, view.workers_max)
   local recruit_cost = view.recruit_cost or kit_list("worker", 1)
-  if view.workers < workers_wanted and not out.emergency_recruit and not view.hold_recruits then -- lot IA2-a2 : la survie a déjà décidé
+  if view.workers < workers_wanted and not out.emergency_recruit and not view.hold_recruits
+    and not out.recruit_recul then -- lot IA2-a2 : la survie a déjà décidé ; EFFONDREMENT : recrue gratuite en recul
     if view.recruit_blocked then
       out.recruit_blocked = true
       if view.workers == 0 then

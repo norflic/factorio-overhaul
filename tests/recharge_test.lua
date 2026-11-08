@@ -129,26 +129,23 @@ local KNOWN_CALLS = {
   ["shared/team/plan.lua"] = 1,    -- la définition
   ["script/team/build.lua"] = 1,   -- niveau du module (mur), exécuté à chaque chargement
   ["script/team/champ.lua"] = 3,   -- dans Champ.data : répartiteur (couvert par plan.lua), souterrain, pièces de BASE
+  ["script/team/quartiers.lua"] = 1, -- lot TV-ARCHI : niveau du module (tourelle du pôle, 2 × 2), exécuté à chaque chargement, comme le mur
+  ["script/team/traversee.lua"] = 2, -- lot TRAVERSEE : Trav.underground déclare le souterrain choisi (1 × 1), couvert au rechargement (UNDERGROUNDS, section 1)
 }
-local function scan(dir_list)
-  local found = {}
-  local p = io.popen('git grep -c "declare_size(" -- ' .. table.concat(dir_list, " ") .. " 2>nul")
-  if not p then return nil end
-  for line in p:lines() do
-    local path, n = line:match("^(.-):(%d+)$")
-    if path and path:find("%.lua$") and tonumber(n) > 0 then found[(path:gsub("\\", "/"))] = tonumber(n) end
-  end
-  p:close()
-  return found
-end
-local found = scan({ "script", "shared", "prototypes" })
-if found then
-  for path, n in pairs(found) do
+-- Lot TESTS-GIT (0.6.64) : lignes comptées par tests/depot.lua (fichiers de git ls-files, comme git grep -c ; sans git, le disque,
+-- annoncé par une ligne [ENVIRONNEMENT]). Avant : sans git, la commande ne rendait RIEN et le garde-fou disait à tort « n'a plus
+-- d'appel » pour les trois fichiers.
+local D = require("tests.depot")
+local _, found, nfiles, source = D.grep("declare_size(", { "script", "shared", "prototypes" })
+if source == "disque" then D.env("garde-fou declare_size (git grep)", nfiles > 0) end
+if nfiles > 0 then
+  for _, path in ipairs((function() local k = {} for p in pairs(found) do k[#k + 1] = p end table.sort(k) return k end)()) do
+    local n = found[path]
     check(KNOWN_CALLS[path] == n, string.format("declare_size : %s contient %d appel(s), %s attendu(s) (nouvel appel : le couvrir au rechargement)", path, n, tostring(KNOWN_CALLS[path])))
   end
   for path in pairs(KNOWN_CALLS) do check(found[path] ~= nil, "declare_size : " .. path .. " n'a plus d'appel (mettre à jour le garde-fou)") end
 else
-  print("  (garde-fou sauté : git grep indisponible)")
+  check(false, "declare_size : aucun fichier Lua lu (source : " .. source .. ") : garde-fou non joué")
 end
 
 print(string.format("[RECHARGE] BILAN : %d OK, %d ECHEC(S)", pass, fail))

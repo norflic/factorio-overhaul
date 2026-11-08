@@ -41,7 +41,9 @@ Duel.HEAL_BASE_MARGIN = 0.08 -- soutien : le robot de ligne de référence gagne
 Duel.HEAL_TARGET = 0.45  -- soutien : avec le soin, la marge visée
 -- Règle d'échelle des géants (lot EXPERIMENTAUX-PUISSANCE, 5/11) : salve de zone sur tous les déchiqueteurs vivants (ils sont dans la zone :
 -- 60 tuiles au moins, départ à 40). Premier coup DÉDUIT du code, non mesuré : balayage des géants toutes les 30 ticks (départ du banc
--- rb-geant au tick 200, premier balayage au tick 210), puis 2 ticks (recherche, rangement) avant la tranche de dégâts.
+-- rb-geant au tick 200, premier balayage au tick 210), puis 2 ticks (recherche, rangement) avant la tranche de dégâts. Depuis la recherche
+-- par secteurs (7/11), un secteur par tick : 12 à 32 ticks de plus selon la zone (60 à 90), soit 2 à 4 % d'un duel de 732 ticks, sous la
+-- tolérance du banc (45 %) : la constante n'est pas changée.
 Duel.ZONE_DELAY = 12
 
 ---------------------------------------------------------------------------------------------------

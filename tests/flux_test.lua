@@ -100,7 +100,8 @@ local function suite()
   check(Fx.aged(95, Fx.AGE_STEP * 99, { dry = true }) == Fx.AGE_CAP_DRY, "vital à sec : plafond 97")
 
   -- §6 produit saturé
-  check(Fx.drop_service({ stuck = 0 }, true) == true and Fx.drop_service({}, true) == true, "saturé, sorties vides : tournée retirée")
+  check(Fx.drop_service({ stuck = 0 }, true) == true and Fx.drop_service({}, true) == false and Fx.drop_service(nil, true) == false,
+    "saturé, sorties vides : tournée retirée ; sorties NON mesurées : gardée (lot 5b, garde fermée)")
   check(Fx.drop_service({ stuck = 1 }, true) == false, "saturé, une sortie pleine : tournée gardée")
   check(Fx.drop_service({ stuck = 1 }, false) == false and Fx.drop_service({}, false) == false, "pas retirée par la règle d'avant : gardée")
   check(Fx.stuck_count({ Fx.STUCK_AT, Fx.STUCK_AT - 1, 100, 0 }) == 2 and Fx.stuck_count(nil) == 0, "réceptacles pleins")

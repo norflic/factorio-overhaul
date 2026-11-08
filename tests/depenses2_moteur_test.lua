@@ -2,6 +2,10 @@
   Lot DEPENSES2, revue D1 (BLOQUANT : cliquet des laboratoires) : la règle du stock qui dort BRANCHÉE, au moteur simulé
   (tests/mock_engine.lua). Ce n'est pas une preuve en jeu.
     §1 une faction au coffre plein (30 000 fer, 30 000 cuivre, 60 laboratoires au coffre) : la règle s'endort ([FO-DEPENSES] « dort »),
+       journal [FO-DEPENSES] à chaque cycle de capitalisation (la règle est jouée à la décision, une par cycle de Capi.CYCLE pensées).
+       Lot X10-S10 (décision du DC du 7/11, 17 h 47, QCM-7/11-X10, OBJECTIFS §4 : « Oui, factions lointaines plus lentes
+       (Recommandé) ») : dans ce §1, le joueur reste LOIN de la faction (moteur simulé : joueur au départ, faction à 320 tuiles), qui
+       pense toutes les Cd.SLOW = 600 ticks quand elle est calme : une ligne par cycle, au moins 8 en 16 min (9 mesurées) ; §1 bis, même partie, joueur PRÈS de la faction : une ligne par minute, attendu d'avant S10 (au moins 10) ;
        la cible de laboratoires se fige, les laboratoires posés ne dépassent jamais le plafond (Br.labs_max + Dep.LABS_MAX) et ne
        bougent plus sur les 4 dernières minutes, même pensée après pensée (research_step tourne à chaque pensée) ;
     §2 TÉMOIN DU DÉFAUT : la cible relative d'avant (« présents + n », commit ddd82445) remise à la main : les laboratoires dépassent
@@ -53,6 +57,9 @@ local function run(opts)
   M.load_mod()
   M.dispatch(W().on_init)
   M.command("fo-war", "start 2 30 30 320")
+  -- Lot X10-S10 : joueur posé à 30 tuiles du QG de la faction (§1 bis : rythme normal) ; sinon il reste au départ, loin d'elle.
+  local f1 = global.fo.war.factions[1]
+  if opts.near and f1 and f1.hq_pos then W().player.character.teleport({ x = f1.hq_pos.x + 30, y = f1.hq_pos.y }) end
   M.run_ticks(MIN)
   local f = global.fo.war.factions[1]
   local Stock = require("script.team.stock")
@@ -87,9 +94,19 @@ local function run(opts)
         sl.mods = mods
       end
       local out = o_slots(sl)
-      if out.comp and not opts.comp_slots then opts.comp_slots = out end -- (premier relevé avec le siège : il dépend du sommeil du moment)
+      if out.comp and not opts.comp_slots then opts.comp_slots, opts.comp_sleeping = out, sl and sl.sleeping end -- (premier relevé avec le siège : il dépend du sommeil du moment)
       if not opts.any_slots then opts.any_slots = out end
       return out
+    end
+    -- Lot ROUGES-0659 : la prémisse « le cuivre ne dort pas » est POSÉE : le cuivre est retiré du relevé RÉEL de Dep.sleeping, le fer y
+    -- reste tel que la règle le dit. Depuis 4c92c34d (lot COLLECTE, rappel d'un PNJ occupé pour une tâche urgente, voulu), l'économie
+    -- du moteur simulé a changé : les plaques de cuivre « dorment » dès la minute 7, AVANT le fer au premier relevé avec un siège, et le
+    -- siège allait au fer (4 ECHEC de 0.6.60 à 0.6.63). Avant 4c92c34d, le cuivre dormait aussi, mais après le fer (minute 8).
+    local o_sleep = Dep.sleeping
+    Dep.sleeping = function(ff, t)
+      local s = o_sleep(ff, t)
+      s["copper-plate"] = nil
+      return s
     end
   end
   if opts.no_sleep then Dep.sleeping = function() return {} end end -- mutant de §7
@@ -116,6 +133,7 @@ local function run(opts)
   end
   for _, it in ipairs(opts.stock or { { "iron-plate", 30000 }, { "copper-plate", 30000 }, { "lab", 60 } }) do Stock.insert(f, it[1], it[2]) end
   local log0 = #W().logs -- (les lignes de la première minute, avant l'interrupteur, ne comptent pas)
+  local dec0 = (f.team.capi and f.team.capi.decisions) or 0 -- lot X10-S10 : décisions de capitalisation de la fenêtre
   local series, reserve_seen = {}, nil
   for m = 1, opts.minutes do
     M.run_ticks(MIN)
@@ -135,7 +153,12 @@ local function run(opts)
   local Br = require("shared.ai3.bras")
   local Ia3 = require("script.ai3.cerveau")
   local cap = Br.labs_max(f.engineers_count or 0, Ia3.LABS_MAX, 6) + Dep.LABS_MAX -- (6 : plafond haut du bonus des bras libres, Dm.CAP_EXTRA_MAX)
-  return { f = f, series = series, lines = lines, cap = cap, reserve = reserve_seen, d = f.team.depenses, spy = spy }
+  local lente = false
+  for i = 1, #W().logs do
+    if W().logs[i]:find("[FO-CADENCE] " .. tostring(f.key) .. " : cadence LENTE", 1, true) then lente = true end
+  end
+  return { f = f, series = series, lines = lines, cap = cap, reserve = reserve_seen, d = f.team.depenses, spy = spy,
+    decisions = ((f.team.capi and f.team.capi.decisions) or 0) - dec0, lente = lente }
 end
 
 local MINUTES = 16
@@ -143,7 +166,16 @@ say("§1 regle allumee")
 local a = run({ minutes = MINUTES })
 local sleeping = 0
 for _, l in ipairs(a.lines) do if l:find(" dort ", 1, true) then sleeping = sleeping + 1 end end
-check(#a.lines >= 10, "§1 journal [FO-DEPENSES] chaque minute (" .. #a.lines .. ")")
+-- Lot X10-S10 : la faction du §1 est LOINTAINE et calme (décision du DC citée en tête) : une ligne par cycle de capitalisation, chaque
+-- décision écrite (Dep.think est joué à la décision). Seuil 8 cycles en 16 min, juste sous le mesuré (décision du lead du 8/11, sur la
+-- note de revue-s : 10 × 300 / 600 = 5 était trop lâche) : 9 lignes pour 9 décisions mesurées (16 pour la faction proche du §1 bis).
+local Cd = require("shared.faction.cadence")
+check(a.lente, "§1 la faction, loin du joueur, est passee en cadence lente")
+say(string.format("§1 faction lointaine : %d ligne(s) [FO-DEPENSES], %d decision(s) en %d min", #a.lines, a.decisions, MINUTES))
+local FAR_MIN = 8
+check(#a.lines >= a.decisions and a.decisions >= FAR_MIN,
+  string.format("§1 faction lointaine et calme (cadence %d ticks) : journal [FO-DEPENSES] a chaque cycle de capitalisation (%d lignes, %d decisions, au moins %d, 9 mesurees)",
+    Cd.SLOW, #a.lines, a.decisions, FAR_MIN))
 check(sleeping >= 3, "§1 le stock s'endort (" .. sleeping .. " ligne(s) « dort »)")
 local maxl, last = 0, a.series[MINUTES]
 for m = 1, MINUTES do if a.series[m] > maxl then maxl = a.series[m] end end
@@ -194,6 +226,14 @@ do -- §3 débit : 2 laboratoires encore à faire et 6 soldats au-dessus de la c
   check(math.abs(got[false] - got[true] - 120) < 1e-6,
     string.format("§3 centre en attente : les 2 laboratoires (120) ne sont plus débités, les soldats si (%.1f -> %.1f)", got[false], got[true]))
   d.lab_now, d.soldier_target, d.soldier_brain, d.soldier_now, d.soldier_key, d.res.hold = save[1], save[2], save[3], save[4], save[5], save[6]
+end
+
+say("§1 bis joueur pres de la faction (rythme normal)")
+do
+  local n = run({ minutes = MINUTES, near = true })
+  check(not n.lente, "§1 bis joueur pres de la faction : jamais en cadence lente")
+  say(string.format("§1 bis faction proche : %d ligne(s) [FO-DEPENSES], %d decision(s) en %d min", #n.lines, n.decisions, MINUTES))
+  check(#n.lines >= 10, "§1 bis journal [FO-DEPENSES] chaque minute (" .. #n.lines .. ", attendu d'avant S10)")
 end
 
 say("§2 temoin du defaut (cible relative d'avant)")
@@ -276,8 +316,11 @@ local function comp_case(opts)
   return r, sl, seen, Em
 end
 local CU = { { "iron-plate", 30000 }, { "copper-plate", 100 } }
-local h7, sl7, seen7, Em7 = comp_case({ minutes = 10, fake_mods = true, stock = CU })
+local o7 = { minutes = 10, fake_mods = true, stock = CU }
+local h7, sl7, seen7, Em7 = comp_case(o7)
 say("§7 emplacements : " .. tostring(sl7 and sl7.why))
+check(o7.comp_sleeping ~= nil and o7.comp_sleeping["iron-plate"] == true and not o7.comp_sleeping["copper-plate"],
+  "§7 précondition au relevé du siège : le fer dort (relevé réel de Dep.sleeping), le cuivre non (posé)")
 check(sl7 ~= nil and sl7.busy and sl7.room == 0 and sl7.room_comp == 1 and sl7.comp and sl7.comp["copper-plate"] == true
   and not sl7.comp["iron-plate"], "§7 chemin de jeu (Capi.slots, Dep.sleeping) : plein, 1 siège réservé au cuivre")
 check(seen7 >= 1, "§7 journal [FO-CAPI-EMPLACEMENTS] : +1 pour le complement (copper-plate)")

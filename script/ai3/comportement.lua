@@ -355,6 +355,15 @@ function M.outrange_on()
   return not S().no_outrange
 end
 
+--- Lot CORR-RALLIEMENT (tenue, 7/11 ; RAPPORT EFFONDREMENT §12) : état « away » de l'équipe `f` (QG débordé, posé par script/ai3/soldats.lua
+--- hq_threat) s'il vit au tick, sinon nil. Crochet de script/team/worker.lua (retour au QG, dépôt) et de M.leg ; factions et votre équipe.
+function M.away_state(f, tick)
+  if not (M.enabled() and M.outrange_on()) then return nil end
+  local w = M.team(f).away
+  if Da.away_live(w, tick) then return w end
+  return nil
+end
+
 local weight_cache = {} -- [nom de prototype] = poids (prototypes : identiques chez tous les pairs)
 --- Poids d'un ennemi mobile dans le rapport de force (shared/ai3/reaction.lua : `enemies`).
 function M.weight(u)
@@ -636,7 +645,11 @@ function M.leg(agent, pos, radius, tick, depth)
       -- Lot COMPAGNONS-ACTIFS (relecture) : une tâche partie « au calme » (a.calm, écrit par M.gate) est jugée ici comme à la porte, sur
       -- les menaces seules ; sinon le champ, qui compte les morts anciennes, la renvoyait au QG (« sans-issue ») et elle repartait 10 s
       -- plus tard, en boucle.
-      if home or a.escort or a.risk or res2.exact_max < res.B
+      -- Lot CORR-RALLIEMENT (tenue, 7/11) : pendant « away » (QG débordé, M.away_state), rentrer au QG n'est plus « faute de mieux » : un retour
+      -- bloqué fait demi-tour comme un aller (RAPPORT EFFONDREMENT §12 : les PNJ éloignés rentraient mourir sur leurs cases).
+      local home_ok = home and not M.away_state(f, tick)
+      if home and not home_ok then t.stats.away_home_block = (t.stats.away_home_block or 0) + 1 end
+      if home_ok or a.escort or a.risk or res2.exact_max < res.B
         or (a.calm and threat_max(t.map, p, res2.pts, pos, tick) < res.B) then
         res = res2
       else
@@ -1355,12 +1368,14 @@ end
 -- Table LOCALE d'un seul tick (vidée au premier regard d'un autre tick ; jamais dans global) : elle ne sert qu'à SAUTER une
 -- recherche dont le résultat est déjà connu (nil). Vide (chargement d'une partie, autre pair), l'autodéfense cherche et trouve le
 -- même nil : la décision ne dépend jamais de son contenu.
-local LOOK, LOOK_TICK = {}, -1
+-- Lot X10-S0, fait F403 : la table du tick est un CHAMP (LK.look), jamais un local du module réaffecté à chaque tick (une table neuve
+-- rangée dans une upvalue fermée retient le marquage du ramasse-miettes de Lua 5.2 ; règle statique tests/upvalue_gc_test.lua).
+local LK = { look = {}, tick = -1 }
 M.LOOK_MARGIN = 1 -- tuile de marge de l'inclusion des disques (virgule fixe du moteur, distance à la boîte d'une entité)
 
 local function note_look(id, tick, c, r, none)
-  if tick ~= LOOK_TICK then LOOK, LOOK_TICK = {}, tick end
-  LOOK[id] = { x = c.x, y = c.y, r = r, none = none }
+  if tick ~= LK.tick then LK.look, LK.tick = {}, tick end
+  LK.look[id] = { x = c.x, y = c.y, r = r, none = none }
 end
 M.note_look = note_look -- (tests/cerveau_central_test.lua)
 
@@ -1368,8 +1383,8 @@ M.note_look = note_look -- (tests/cerveau_central_test.lua)
 --- distance(c, p) + R + M.LOOK_MARGIN <= r. find_nearest_enemy y rendrait nil (même force, même surface, même tick, aucune entité
 --- créée entre les deux : la pensée du PNJ rend la main juste après un regard vide).
 function M.look_clear(id, tick, p, R)
-  if tick ~= LOOK_TICK then return false end
-  local L = LOOK[id]
+  if tick ~= LK.tick then return false end
+  local L = LK.look[id]
   if not (L and L.none) then return false end
   local dx, dy = p.x - L.x, p.y - L.y
   return math.sqrt(dx * dx + dy * dy) + R + M.LOOK_MARGIN <= L.r

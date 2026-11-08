@@ -127,8 +127,12 @@ check(not st.hold and st.parallel, "sous l'effectif, stock qui couvre aussi les 
 st = Pi.new()
 Pi.update(st, sig({ survive = "effectif", recruit_claim = { { IRON, 2000 } }, avail = { [IRON] = 500, [COPPER] = 100 } }), 100)
 check(st.hold and not st.parallel, "sous l'effectif, recrues trop chères pour le stock : la retenue demeure")
-local sg = Pi.signals({ workers = 2, recover_floor = 5, recruit_cost = { { IRON, 30 } } }, {}, {}, {}, nil, nil)
-check(sg.survive == "effectif" and sg.recruit_claim[1][2] == 90, "signaux : 3 recrues manquantes à 30 fer = 90 fer au noyau")
+-- EFFONDREMENT (décision du DC, 7/11) : les recrues de votre équipe (recover_floor) sous l'effectif de départ sont gratuites ; une faction
+-- (view.emergency) les paie toujours.
+local sg = Pi.signals({ workers = 2, emergency = { floor = 5 }, recruit_cost = { { IRON, 30 } } }, {}, {}, {}, nil, nil)
+check(sg.survive == "effectif" and sg.recruit_claim[1][2] == 90, "signaux, faction : 3 recrues manquantes à 30 fer = 90 fer au noyau")
+local sgp = Pi.signals({ workers = 2, recover_floor = 5, recruit_cost = { { IRON, 30 } } }, {}, {}, {}, nil, nil)
+check(sgp.survive == "effectif" and #sgp.recruit_claim == 0, "signaux, votre équipe : recrues gratuites, rien au noyau")
 -- relecture : la menace ne ferme la capitalisation que si la pile retient encore
 check(Pi.threat_open({ parallel = true, top = Pi.ADAPTER }) and Pi.threat_open({ top = Pi.AMELIORER }), "menace : parallèle ou sommet améliorer, l'évolution reste ouverte")
 check(not Pi.threat_open({ parallel = false, top = Pi.ADAPTER }) and not Pi.threat_open(nil), "menace : pile retenue ou absente, la menace ferme comme avant")
@@ -205,7 +209,7 @@ local function mutant(path, from, to, name, runner)
   local i, j = src:find(from, 1, true)
   if not i then check(false, "mutant '" .. name .. "' : texte introuvable") return end
   local m = src:sub(1, i - 1) .. to .. src:sub(j + 1)
-  local tmp = os.tmpname()
+  local tmp = require("tests.depot").tmpname() -- lot TESTS-GIT : os.tmpname() visait la racine du disque (refusée sur C:)
   local f = assert(io.open(tmp, "wb")) f:write(m) f:close()
   local ok, mod = pcall(dofile, tmp)
   os.remove(tmp)

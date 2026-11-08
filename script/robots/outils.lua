@@ -262,8 +262,9 @@ Events.on_nth_tick(DRAW_PERIOD, draw_all)
 
 ---------------------------------------------------------------------------------------------------
 -- Alerte de pertes
+-- Lot MORTS : les types du test (unité, araignée), toutes forces.
 ---------------------------------------------------------------------------------------------------
-Events.on(defines.events.on_entity_died, function(e)
+Events.on_died(function(e)
   local u = e.entity
   if not (u and u.valid and (u.type == "unit" or u.type == "spider-vehicle")) then return end
   local owner, id = Ro.parse_unit(u.name)
@@ -283,7 +284,7 @@ Events.on(defines.events.on_entity_died, function(e)
       p.add_custom_alert(u, { type = "item", name = Ro.robot(id).kit }, { "fo-robots.alert-loss", { "fo-robots.name-" .. id } }, true)
     end
   end
-end)
+end, { types = { "unit", "spider-vehicle" } })
 
 --- Bilan des salves de pertes terminées (liste triée des forces).
 local function flush_losses(ev)

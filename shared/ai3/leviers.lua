@@ -42,6 +42,23 @@ Lv.REPLI_REFUS = 3        -- refus de leviers gardés dans le compte rendu du re
 -- divisé comme T_max (Ca.THREAT_DIV). Hors repli : T_max du caractère, comme les machines.
 Lv.REPLI_TMAX = nil       -- nil : Ca.H_LIFE
 Lv.POSE_PER_MODULE = nil  -- nil : la pose d'un module compte comme celle d'une entité (work_of de la règle)
+-- Lot VIDEO-COUVERTURE 3 (C05, TODO_VIDEO « valeur logistique des modules de productivité ») : un module de productivité fait la même
+-- sortie avec MOINS d'ingrédients, donc avec moins de voyages de PNJ qui les portent. Ces voyages évités valent leur travail (le prix du
+-- travail de la capitalisation, lambda) ; le terme s'ajoute au gain du module SEULEMENT s'il dépasse Lv.LOGI_MIN_PCT % du gain sans lui :
+-- au-dessous, l'ordre des options est celui d'avant, au chiffre près.
+Lv.LOGI_MIN_PCT = 5
+Lv.TRIP_LOAD = 100        -- objets portés par voyage. SUPPOSÉ (une pile de plaques ; script/team/quotas_glue.lua prend une pile par voyage), à mesurer sur [FO-ACTIF]
+
+--- Terme logistique d'un module de productivité (par minute, en MU) : (ingrédients non portés par minute ÷ charge d'un voyage) × coût d'un
+--- voyage (lambda × secondes de PNJ ÷ 60, comme Ca.finish). Rend (terme retenu, terme brut) : le retenu vaut 0 quand le brut ne dépasse pas
+--- Lv.LOGI_MIN_PCT % du gain de base, ou quand il n'y a pas de gain de base (aucune option purement logistique).
+function Lv.logistic_term(base_gain, saved_per_min, trip_load, trip_s, lambda)
+  if type(saved_per_min) ~= "number" or type(trip_load) ~= "number" or type(trip_s) ~= "number" or type(lambda) ~= "number"
+    or saved_per_min ~= saved_per_min or trip_load <= 0 or saved_per_min <= 0 or trip_s <= 0 or lambda <= 0 then return 0, 0 end
+  local raw = saved_per_min / trip_load * lambda * trip_s / 60
+  if type(base_gain) ~= "number" or base_gain <= 0 or raw * 100 <= base_gain * Lv.LOGI_MIN_PCT then return 0, raw end
+  return raw, raw
+end
 
 local function sorted_keys(t)
   local ks = {}
@@ -145,6 +162,16 @@ function Lv.factors(D, g)
   if not (L and g.mods and next(g.mods)) then return 1, 1 end
   local s, p = factors_of(effect_list(L, g.mods))
   return s / 100, p / 100
+end
+
+--- Lot MODULES-POSES : facteurs (centièmes) d'une machine portant `mods`, avant puis après l'ajout de `n` modules `add` (barème D-17,
+--- énergie au plafond comprise). Rend s0, p0, e0, s1, p1, e1 ; nil si `add` n'est pas un module du relevé.
+function Lv.factors_after(D, mods, add, n)
+  local L = D and D.lv
+  if not (L and L.equip[add]) then return nil end
+  local s0, p0, e0 = factors_of(effect_list(L, mods or {}))
+  local s1, p1, e1 = factors_of(effect_list(L, mods or {}, add, n))
+  return s0, p0, e0, s1, p1, e1
 end
 
 function Lv.sig(mods)
@@ -259,6 +286,10 @@ local function module_fits(L, m, slots, recipe)
   if recipe and m.limit and not m.limit[recipe] then return false end
   return true
 end
+
+--- Lot MODULES-POSES : les deux contrôles de pose, partagés avec shared/ai3/modules_stock.lua.
+Lv.fits = module_fits
+Lv.filled = filled_count
 
 local function group_options(Ca, ctx, plan, req, g, is_drill, out)
   local D, L, H = ctx.D, ctx.D.lv, Ca.H
@@ -390,11 +421,19 @@ local function group_options(Ca, ctx, plan, req, g, is_drill, out)
           o.d_item, o.d_out, o.d_in, o.d_kw, o.d_fuel = item, d_out, d_in, d_kw, d_fuel
           o.rate, o.useful = d_out, useful
           o.gain = (useful + extra) * va * sh * wf - d_fuel * ctx.fuel_mu
+          -- Lot VIDEO-COUVERTURE 3 (C05) : voyages d'ingrédients évités par la productivité (même sortie, moins d'entrée), au prix d'un voyage
+          local saved = 0
+          if p_o > 0 then -- (p_n <= p_o : négatif ou nul, Lv.logistic_term le refuse)
+            for _, e in ipairs(ins) do saved = saved + k * e.per * s_eff / 100 * (p_n - p_o) / p_o end
+          end
+          local logi = Lv.logistic_term(o.gain, saved, Lv.TRIP_LOAD, 2 * Ca.DIST / Ca.WALK + Ca.HANDLE_S, ctx.lambda)
+          if logi > 0 then o.gain, o.logi = o.gain + logi, logi end
           o.factor = { speed = s_n, productivity = p_n, energy = e_n, speed0 = s_o, productivity0 = p_o }
           o.repli = blocked
-          o.why = string.format("%d x %s : %d x %s (%s de plus par machine) ; manque %s/min, sortie +%s/min (utile %s), vitesse x%s productivite x%s energie x%s%s",
+          o.why = string.format("%d x %s : %d x %s (%s de plus par machine) ; manque %s/min, sortie +%s/min (utile %s), vitesse x%s productivite x%s energie x%s%s%s",
             k, kind_name, free, nm, fmt(per_machine), fmt(def), fmt(d_out), fmt(useful), MM.factor_text(s_n),
-            MM.factor_text(p_n), MM.factor_text(e_n), blocked and (" ; " .. repli_text(blocked)) or " ; sans repli")
+            MM.factor_text(p_n), MM.factor_text(e_n), o.logi and (" ; voyages evites +" .. fmt(o.logi) .. " MU/min") or "",
+            blocked and (" ; " .. repli_text(blocked)) or " ; sans repli")
           return H.finish(ctx, o, Lv.tmax(Ca, ctx, blocked))
         end
         ctx.refus[key] = nil

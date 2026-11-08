@@ -46,11 +46,16 @@ function F.archetype_of(pers)
 end
 
 -- Soldats (débloqués par niveau technologique de la faction).
+-- Portée des soldats (décision du DC, 8/11 vers 11 h 45 : « il faudrait peut-être réduire quand même beaucoup plus la range des
+-- soldats… enlever 30 % quoi ») : chaque arme de soldat est multipliée par ce facteur, UNE fois, ici. Les armes du joueur et les
+-- tourelles ne passent pas par cette table. Bases d'avant ce facteur : fusilier 16, mitrailleur 16, grenadier 26 (portées écrites
+-- dans les prototypes par prototypes/faction.lua, boîte à boîte).
+F.SOLDIER_RANGE_FACTOR = 0.65
 F.soldier_order = { "rifleman", "gunner", "rocketeer" }
 F.soldiers = {
-  rifleman  = { tech = 0, cost = 40, hp = 200, damage = 8,  range = 16, cooldown = 20,  armor = 1, speed = 0.12 },
-  gunner    = { tech = 1, cost = 110, hp = 600, damage = 14, range = 20, cooldown = 10,  armor = 2, speed = 0.11 },
-  rocketeer = { tech = 2, cost = 160, hp = 450, damage = 80, range = 26, cooldown = 120, armor = 3, speed = 0.11, rocket = true },
+  rifleman  = { tech = 0, cost = 40, hp = 200, damage = 8,  range = 16 * F.SOLDIER_RANGE_FACTOR, cooldown = 20,  armor = 1, speed = 0.12 },
+  gunner    = { tech = 1, cost = 110, hp = 600, damage = 14, range = 16 * F.SOLDIER_RANGE_FACTOR, cooldown = 10,  armor = 2, speed = 0.11 },
+  rocketeer = { tech = 2, cost = 160, hp = 450, damage = 80, range = 26 * F.SOLDIER_RANGE_FACTOR, cooldown = 120, armor = 3, speed = 0.11, rocket = true },
 }
 
 F.economy = {

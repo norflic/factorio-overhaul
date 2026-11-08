@@ -110,6 +110,17 @@ local function battery(S)
   check(S.sustain(sa, false) == false and S.sustain(sa, true) == false, "5 releves puis une rechute : il faut de nouveau 6 releves")
   check(S.ANTICIPATE_CHECKS == 6, "30 s comme la saturation")
 
+  section("1e ter. kW retenus par la capitalisation (etape 5a de VIDEO-INTEG)")
+  check(S.capi_kw({ kw = 500, tick = 1000 }, 1000) == 500 and S.capi_kw({ kw = 500, tick = 1000 }, 1000 + S.CAPI_TTL) == 500,
+    "retenus a la decision et jusqu'a S.CAPI_TTL : comptes")
+  check(S.capi_kw({ kw = 500, tick = 1000 }, 1001 + S.CAPI_TTL) == 0, "plus vieux que S.CAPI_TTL : oublies")
+  check(S.capi_kw(nil, 1000) == 0 and S.capi_kw({ kw = 500 }, 1000) == 0 and S.capi_kw({ kw = 0 / 0, tick = 1000 }, 1000) == 0
+    and S.capi_kw({ kw = -5, tick = 1000 }, 1000) == 0 and S.capi_kw({ kw = 500, tick = 2000 }, 1000) == 0 and S.capi_kw({ kw = 500, tick = 1000 }, nil) == 0,
+    "absent, sans date, invalide, negatif, date du futur, tick absent : 0")
+  check(S.CAPI_TTL == 2 * 3600, "valables deux decisions de la capitalisation (une par minute)")
+  check(S.anticipate(700, S.capi_kw({ kw = 1000, tick = 0 }, 0), 1800) and not S.anticipate(700, S.capi_kw({ kw = 1000, tick = 0 }, 1 + S.CAPI_TTL), 1800),
+    "700 kW + 60 % de 1000 kW retenus par la capitalisation = 72 % : avance ; retenus perimes : 39 %, pas d'avance")
+
   section("1f. Porte des consommateurs")
   local g = {}
   local ok, w = S.admit(g, { capacity = 1800, used = 0, committed = 0 }, 700, 0)
@@ -401,7 +412,15 @@ for i = 1, 6 do ant, _, _, comm = Sante.growth(fgr, 100, { fin }, 15000, 30000) 
 check(ant == true and comm == 1000, "50 % + un module retenu de 1000 kW (a 60 %) pendant 30 s : avance")
 fgr.build.sante.held = {}
 fgr.build.sante.ant_n = 0
-local reo = { id = 17, state = "chantier", reopened = 1, ents = { { built = true }, { built = false }, { built = false } } }
+-- étape 5a de VIDEO-INTEG : les kW que la capitalisation a retenus faute de courant comptent comme des modules retenus
+fgr.team = { capi = { kw_blocked = { kw = 1000, tick = 100 } } }
+for i = 1, 6 do ant, _, _, comm = Sante.growth(fgr, 100, { fin }, 15000, 30000) end
+check(ant == true and comm == 1000, "50 % + 1000 kW retenus par la capitalisation (a 60 %) pendant 30 s : avance (" .. tostring(comm) .. ")")
+ant, _, _, comm = Sante.growth(fgr, 101 + S.CAPI_TTL, { fin }, 15000, 30000)
+check(ant == false and comm == 0, "kW retenus plus vieux que S.CAPI_TTL : oublies, pas d'avance (" .. tostring(comm) .. ")")
+fgr.team = nil
+fgr.build.sante.ant_n = 0
+local reo ={ id = 17, state = "chantier", reopened = 1, ents = { { built = true }, { built = false }, { built = false } } }
 ant, stalled = Sante.growth(fgr, 100, { fin, reo }, 0, 30000)
 check(#stalled == 0, "reconstruction : premier releve, pas bloquee")
 ant, stalled = Sante.growth(fgr, 100 + S.STALL, { fin, reo }, 0, 30000)
@@ -471,6 +490,9 @@ local function slurp(path) local fh = assert(io.open(path, "rb")); local s = fh:
 local build, arms, worker = slurp("script/team/build.lua"), slurp("script/team/plant_arms.lua"), slurp("script/team/worker.lua")
 check(arms:find("Sante.observe(f, surface, p, tick)", 1, true) ~= nil, "PA.watch lit la sante de chaque centrale posee")
 check(arms:find("Sante.growth(f, tick, plants, power, capacity + reopened_alive)", 1, true) ~= nil, "PA.watch calcule l'avance et les reconstructions bloquees")
+check(slurp("script/team/sante_centrale.lua"):find("S.capi_kw(f.team and f.team.capi and f.team.capi.kw_blocked, tick)", 1, true) ~= nil
+  and slurp("script/ai3/capitalisation.lua"):find("cs.kw_blocked = (res.kw and res.kw.blocked > 0) and { kw = res.kw.blocked, tick = tick, bank = res.bank } or nil", 1, true) ~= nil, -- (lot TV-ENERGIE : + bank, l'épargne du déficit de kW)
+  "etape 5a : la capitalisation date ses kW retenus, Sante.growth les compte")
 check(arms:find("pending = pending - ns", 1, true) ~= nil and arms:find("anticipate = anticipate", 1, true) ~= nil, "C.growth recoit chantiers - bloques et l'avance")
 check(build:find("name == \"no_sante\"", 1, true) ~= nil, "reglage de banc no_sante (temoin)")
 check(build:find("Sante.tasks(f, p, out, function(x, y)", 1, true) ~= nil, "quai_tasks emet la tache d'amorce")
@@ -540,6 +562,8 @@ mutant("avance qui ignore les chantiers", function(X)
   local old = X.anticipate
   X.anticipate = function(used, committed, cap) return old(used, 0, cap) end
 end)
+mutant("kW retenus par la capitalisation ignores", function(X) X.capi_kw = function() return 0 end end)
+mutant("kW retenus par la capitalisation jamais oublies", function(X) X.CAPI_TTL = math.huge end)
 
 print(string.format("[SANTE-CENTRALE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

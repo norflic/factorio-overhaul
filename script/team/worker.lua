@@ -23,8 +23,11 @@ local Acc = require("shared.team.acces_champ") -- lot NAV2 : point d'accès atte
 local Co = require("shared.team.couloir") -- lot ÉTAGE 5 : le bâtiment qui ferme la dernière issue d'un accès (journal [FO-NAV-ACCES])
 local Rc = require("shared.team.repli_chemin") -- lot CHARBON3 (B2) : essais de marche d'un PNJ (règle pure)
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
+local AmRt = require("script.ai3.amorce_rt") -- lot VIDEO-COUVERTURE (C3) : remise directe aux modules en réserve avant le coffre
 local Mu = require("shared.team.munitions") -- lot MUNITIONS (revue M3) : prise bornée de la munition de base (Mu.split_take)
 local Ra = require("shared.team.rearmement") -- lot REARMEMENT : emplacement des munitions complété au dépôt au QG (règle pure)
+local Da = require("shared.team.danger_actif") -- lot CORR-RALLIEMENT (tenue) : coffre de dépôt hors de portée pendant « away » (Da.safe_chest)
+local Tj = require("script.team.tourelle_journal") -- lot TOURELLE-JOURNAL : minage refusé sous une tourelle, journal [FO-TOURELLE-RETIREE]
 local Outposts = require("script.faction.outposts")
 local Sites = require("script.faction.sites")
 local Board = require("script.team.board")
@@ -42,11 +45,16 @@ local Harvest = require("script.team.harvest") -- lot KIT : entités qui donnent
 local Charge = require("shared.team.charge_four") -- lot FOURS : quantité emportée pour remplir les fours à la pile
 local Front = require("script.team.front") -- lot DEFENSE-FRONT : tourelles posées là où les pièces tombent
 local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : tourelles posées dans l'emprise d'un îlot isolé
+local DefStock = require("script.team.defense_stock") -- lot DEFENSE-STOCK : tourelles du coffre posées en groupes
 local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites (tâche « rebuild »)
 local Mi = require("shared.team.main_inventaire") -- lot MAIN-INVENTAIRE : minage à la main, inventaire plein, minerai au sol
 local Sorties = require("script.team.sorties") -- lot CHARBON-MAIN : la ressource qui dort dans les coffres des avant-postes bruts
+local Src = require("script.team.sources") -- lot MINAGE-MAIN : ce qui dort dans les coffres de SORTIE (fonderies), tournée « fetch »
 local CB = require("shared.team.craft_bg") -- lot CRAFT-PARALLELE : fabrication en arrière-plan (règles pures, bilan [FO-CRAFT])
 local Tp = require("shared.team.tri_proches") -- lot CERVEAU-CENTRAL (P1) : tri des tuiles de minage, positions lues une fois
+local Sp = require("shared.team.spirale") -- EFFONDREMENT : filet de recul de la recrue gratuite (mort rapide d'une recrue gratuite)
+local Events = require("script.core.events") -- EFFONDREMENT : parade du kit offert (mort d'un PNJ, corps rendu)
+local Storage = require("script.core.storage")
 
 local Worker = {}
 Worker.BUILD_LOGS = 30 -- lot SCALE-COMPLET : lignes [FO-AVANT-POSTE] au plus par équipe (f.stats.build_logs)
@@ -79,20 +87,64 @@ Worker.CLAIM_SLACK = 8    -- tuiles : écart de distance au QG toléré entre la
 --- recherche de rayon 2,5 : le moteur la rend dans un ordre quelconque, et une tuile à 2 tuiles de la cible est hors de
 --- portée de l'ouvrier arrêté à 1,5 tuile de l'autre côté (relevé en moteur réel, kit égal : les mineurs d'un même gisement
 --- rendaient 44 ou 0 sur 50 en 91 s, au hasard de la tuile rendue ; le charbon d'Azur, graine 1618033988, 0 huit fois de suite).
-local function mining_entity(surface, target, names, f)
-  if not names or #names == 0 then return nil end -- rien à récolter (Harvest.names vide) : jamais de recherche sans nom
-  if not Harvest.applies(f) then return surface.find_entities_filtered({ position = target, radius = 2.5, name = names, limit = 1 })[1] end
-  local list = surface.find_entities_filtered({ position = target, radius = 0.9, name = names, limit = 8 })
-  if #list == 0 then list = surface.find_entities_filtered({ position = target, radius = 2.5, name = names, limit = 16 }) end
-  local best, bd
-  for _, r in ipairs(list) do
-    local dx, dy = r.position.x - target.x, r.position.y - target.y
-    local d = dx * dx + dy * dy
-    if not best or d < bd or (d == bd and (r.position.x < best.position.x or (r.position.x == best.position.x and r.position.y < best.position.y))) then
-      best, bd = r, d
-    end
+-- Lot TOURELLE-JOURNAL : types qui ne bloquent pas le minage d'une tuile (ce ne sont pas des bâtiments ; le moteur ne les sélectionne pas à la
+-- place de la ressource) : PNJ et unités qui passent, corps, objets au sol, fantômes, effets.
+local MINE_IGNORE = { character = true, unit = true, corpse = true, ["character-corpse"] = true, ["item-entity"] = true, ["entity-ghost"] = true,
+  ["tile-ghost"] = true, sticker = true, ["flying-text"] = true, ["highlight-box"] = true, ["smoke-with-trigger"] = true, projectile = true,
+  stream = true, beam = true, explosion = true, ["particle-source"] = true, fire = true, ["speech-bubble"] = true }
+
+--- Lot TOURELLE-JOURNAL : le bâtiment qui recouvre la tuile de la ressource `r` (nil : tuile libre). `free` : types qui ne comptent pas
+--- (ressources, arbres récoltables : Harvest.free_types).
+local function covering(surface, r, free)
+  local rp = r.position
+  for _, x in ipairs(surface.find_entities_filtered({ area = { { rp.x - 0.1, rp.y - 0.1 }, { rp.x + 0.1, rp.y + 0.1 } }, type = free,
+    invert = true, limit = 8 })) do
+    if x.valid and not MINE_IGNORE[x.type] then return x end
   end
-  return best
+  return nil
+end
+
+--- Rend la ressource à miner et, si des tuiles ont été écartées parce qu'un bâtiment les recouvre (lot TOURELLE-JOURNAL), le premier de ces
+--- bâtiments (journal). `free` nil : aucune tuile écartée (ancien comportement). Sans tuile écartée, le choix est celui d'avant, à l'identique :
+--- premier rendu par le moteur (hors Harvest.applies), sinon le plus proche de la cible (égalités : x puis y croissants, premier rendu).
+local function mining_entity(surface, target, names, f, free)
+  if not names or #names == 0 then return nil end -- rien à récolter (Harvest.names vide) : jamais de recherche sans nom
+  local cover
+  if not Harvest.applies(f) then
+    for _, r in ipairs(surface.find_entities_filtered({ position = target, radius = 2.5, name = names, limit = 16 })) do
+      local c = free and covering(surface, r, free)
+      if not c then return r, cover end
+      cover = cover or c
+    end
+    return nil, cover
+  end
+  -- La plus proche de la cible parmi `list` dont la tuile est libre (égalités : x puis y croissants, premier rendu).
+  local function pick(list)
+    local out = {} -- tuiles écartées (indices de `list`)
+    for _ = 1, #list do
+      local best, bd, bi
+      for i, r in ipairs(list) do
+        if not out[i] then
+          local dx, dy = r.position.x - target.x, r.position.y - target.y
+          local d = dx * dx + dy * dy
+          if not best or d < bd or (d == bd and (r.position.x < best.position.x or (r.position.x == best.position.x and r.position.y < best.position.y))) then
+            best, bd, bi = r, d, i
+          end
+        end
+      end
+      if not best then break end
+      local c = free and covering(surface, best, free)
+      if not c then return best end
+      cover = cover or c
+      out[bi] = true
+    end
+    return nil
+  end
+  local list = surface.find_entities_filtered({ position = target, radius = 0.9, name = names, limit = 8 })
+  local best = #list > 0 and pick(list) or nil
+  -- Rayon 2,5 : aucune ressource à 0,9 tuile (comme avant), ou (lot TOURELLE-JOURNAL) toutes recouvertes par un bâtiment.
+  if not best then best = pick(surface.find_entities_filtered({ position = target, radius = 2.5, name = names, limit = 16 })) end
+  return best, cover
 end
 
 local function claims_of(f)
@@ -214,15 +266,26 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Transferts avec le stock (QG)
 ---------------------------------------------------------------------------------------------------
-local function deposit_inventory(f, inv, keep)
+-- Lot STOCKAGE-VITAL : le dépôt d'un PNJ au QG est le seul appelant de Stock.insert soumis à la réserve des vitales (ce qui est refusé
+-- reste en poche, rien n'est perdu).
+local DEPOSIT_OPTS = { reserve = true }
+-- Lot CORR-RALLIEMENT (tenue) : `chest` = un coffre du stock précis, hors de portée pendant « away » (sans la réserve des vitales ; note de
+-- revue-0659 : un coffre sûr qui serait le QG la contournerait) ; sans `chest`, le stock comme avant.
+local function deposit_inventory(f, inv, keep, chest)
   local contents = inv.get_contents()
   local names = {}
   for name in pairs(contents) do names[#names + 1] = name end
   table.sort(names)
   for _, name in ipairs(names) do
     local n = contents[name] - (keep and keep[name] or 0)
+    if n > 0 then n = n - AmRt.deliver(f, inv, name, n) end -- C3 : ce qu'un module en réserve attend lui est remis AVANT le coffre
+    if n > 0 and chest then
+      local put = chest.insert({ name = name, count = n })
+      if put > 0 then inv.remove({ name = name, count = put }) f.team.delivered[name] = (f.team.delivered[name] or 0) + put end
+      n = 0
+    end
     if n > 0 then
-      local moved = Stock.insert(f, name, n)
+      local moved = Stock.insert(f, name, n, DEPOSIT_OPTS)
       if moved > 0 then
         inv.remove({ name = name, count = moved })
         f.team.delivered[name] = (f.team.delivered[name] or 0) + moved
@@ -265,6 +328,35 @@ local function rearm_floor(f)
   return Ra.floor(T.ammo_min, urgent, s1 ~= nil and s1.was == true, s1 and s1.reserve_said or 0)
 end
 
+-- EFFONDREMENT, parade du KIT OFFERT (décision du lead, 7/11 vers 19 h 05 ; règle pure : Sp.kit_take, shared/team/spirale.lua) :
+-- le kit d'une recrue au kit OFFERT (effectif de départ, recrue gratuite sous l'effectif de départ) est retiré de son corps à sa mort,
+-- au plus 1 pistolet et les chargeurs non payés, détruits (jamais rendus au coffre) ; la cargaison du corps reste.
+-- Fait moteur (micro-banc kit-cadavre, 9ee2b12d, 7/11 19:20) : pendant on_entity_died, les inventaires armes et munitions du
+-- personnage sont DÉJÀ vides (remove rend 0) ; on_post_entity_died rend l'unit_number et le character-corpse (corpses), dont
+-- l'inventaire character_corpse se vide par script. D'où deux temps : la mort note le kit (units → dead), le corps rendu le retire.
+--   units[unit] = { fid, ammo = chargeurs offerts, paid = chargeurs payés reçus au réarmement } (recrue au kit offert, vivante) ;
+--   dead[unit]  = la même fiche, plus tick (mort notée, corps pas encore rendu ; oubliée après Sp.KIT_TTL) ;
+--   taken[fid]  = { gun, ammo } retirés depuis le début (journal [FO-KIT-OFFERT]).
+-- Une recrue SANS arme (unarmed) n'a pas de fiche : rien d'offert à retirer. Les PNJ recrutés avant cette version n'en ont pas non plus.
+Storage.declare("kit_offert", function() return { units = {}, dead = {}, taken = {} } end)
+
+local function kit_ns() return Storage.ns("kit_offert") end
+
+--- Recrue au kit offert : fiche ouverte (appelé par Worker.recruit après la pose du kit).
+local function kit_give(f, e)
+  local ns = kit_ns()
+  if ns and e and e.valid and e.unit_number then
+    ns.units[e.unit_number] = { fid = f.id, ammo = T.worker_ammo_keep, paid = 0 }
+  end
+end
+
+--- Chargeurs PAYÉS (pris au coffre) remis à un PNJ au kit offert : jamais retirés de son corps.
+local function kit_paid(e, n)
+  local ns = kit_ns()
+  local k = ns and e and e.valid and e.unit_number and ns.units[e.unit_number]
+  if k then k.paid = k.paid + n end
+end
+
 --- Lot REARMEMENT : au dépôt au QG, l'emplacement des munitions d'un PNJ ARMÉ (pistolet en main) est complété jusqu'à la dotation
 --- (T.worker_ammo_keep) avec des chargeurs du coffre au-dessus du plancher (Ra.take). Avant : jamais (seul le recrutement le remplissait).
 --- Compte : f.team.rearm = { n = rechargements, mags = chargeurs } (journal [FO-REARMEMENT], Worker.rearm_report).
@@ -289,19 +381,20 @@ local function rearm(agent, f)
   if put > 0 then
     f.team.rearm = f.team.rearm or { n = 0, mags = 0 }
     f.team.rearm.n, f.team.rearm.mags = f.team.rearm.n + 1, f.team.rearm.mags + put
+    kit_paid(e, put) -- EFFONDREMENT : chargeurs payés, jamais retirés du corps d'une recrue au kit offert
   end
 end
 
-local function deposit_all(agent, f)
+local function deposit_all(agent, f, chest)
   if not (f.hq and f.hq.valid) then return end
   local e = agent.entity
-  deposit_inventory(f, main_inv(agent), nil)
+  deposit_inventory(f, main_inv(agent), nil, chest)
   local guns = e.get_inventory(defines.inventory.character_guns)
-  if guns then deposit_inventory(f, guns, KEEP_GUN) end
+  if guns then deposit_inventory(f, guns, KEEP_GUN, chest) end
   local ammo = e.get_inventory(defines.inventory.character_ammo)
-  if ammo then deposit_inventory(f, ammo, KEEP_AMMO) end
+  if ammo then deposit_inventory(f, ammo, KEEP_AMMO, chest) end
   local armor = e.get_inventory(defines.inventory.character_armor)
-  if armor then deposit_inventory(f, armor, nil) end
+  if armor then deposit_inventory(f, armor, nil, chest) end
   rearm(agent, f) -- lot REARMEMENT : après le dépôt (la dotation de 10 n'est jamais reprise : deposit et bg_absorb s'arrêtent à KEEP_AMMO)
 end
 
@@ -419,6 +512,11 @@ local function ia1d_program(task)
   local at = { x = j.ax, y = j.ay }
   if j.mode == "build" then
     return { { "home" }, { "take_res", j.pid, task.items }, { "goto", at, 1 }, { "ia1d" }, { "home" } }
+  elseif j.mode == "fill" and j.depot then -- lot TV-ARCHI (V91) : quai d'un quartier servi par son dépôt (script/team/quartiers.lua, Qr.route)
+    return { { "goto", j.depot, 2 }, { "take_depot", j.depot, task.depot_items }, { "goto", at, 1 }, { "ia1d" }, { "goto", j.depot, 2 },
+      { "put_depot", j.depot, task.depot_items } }
+  elseif j.mode == "collect" and j.depot then -- lot TV-ARCHI (V91) : produits demandés par le dépôt du quartier laissés au passage
+    return { { "goto", at, 1 }, { "ia1d" }, { "goto", j.depot, 2 }, { "put_depot", j.depot, task.depot_items }, { "home" } }
   elseif j.mode == "fill" or j.mode == "amorce" then -- amorce : lot ENERGIE (2/11), charbon versé dans les chaudières à sec
     return { { "home" }, { "take", task.items, strict = true }, { "goto", at, 1 }, { "ia1d" }, { "home" } }
   elseif j.mode == "clear" or j.mode == "collect" then
@@ -566,7 +664,7 @@ function Worker.program(f, task, surface, tick)
       return { { "home" }, { "take", task.items, strict = true }, { "goto", task.pos, 5 }, { "act", "fortify" }, { "home" } }
     end
     -- Lot DEFENSE-FRONT : la cellule du front ; on va jusqu'à son centre
-    if task.outpost == "front" then
+    if task.outpost == "front" or task.outpost == "reserve" then -- (lot DEFENSE-STOCK : le lieu de la réserve, même trajet)
       if not task.pos then return nil end
       return { { "home" }, { "take", task.items, strict = true }, { "goto", task.pos, 5 }, { "act", "fortify" }, { "home" } }
     end
@@ -629,6 +727,8 @@ function Worker.program(f, task, surface, tick)
       list[#list + 1] = { T.fuel, Outposts.coal_needed_for(Outposts.smelters(f)) }
     end
     return { { "home" }, { "take", list }, { "act", "smelt" }, { "home" } }
+  elseif k == "fetch" then
+    return Src.program(f, task) -- lot MINAGE-MAIN : vider une sortie qui dort (plaques d'une fonderie), puis le dépôt au QG
   elseif k == "equiper" then
     return Equip.program(f, task) -- lot LEVIERS
   elseif k == "mine" then
@@ -663,6 +763,23 @@ function Worker.program(f, task, surface, tick)
             f.key or "?", tostring(task.resource), why2, dormant, tostring(task.key), tick / 3600, f.stats.main_sorties, tours or ""))
         end
         task.fail = task.fail or "main:sorties"
+        return nil
+      end
+      -- Lot MINAGE-MAIN (retour du DC du 8/11, 0.6.65 : « ils minent à la main du fer et du cuivre alors qu'ils ont des milliers de plaques dans
+      -- les coffres de la fonderie ») : jamais à la main ce qu'une sortie de la force tient ou produit (registre : shared/team/sources.lua) ;
+      -- la tournée « fetch » va le chercher. Survie comprise ; seule une crise injectée par un banc passe.
+      local ok3, why3, text3 = Src.hand_ok(f, task.resource, tick, task.crisis)
+      if not ok3 then
+        f.stats.main_sources = (f.stats.main_sources or 0) + 1
+        f.stats.main_refus = f.stats.main_refus or {}
+        local key3 = "sources:" .. tostring(task.resource)
+        local last3 = f.stats.main_refus[key3]
+        if not last3 or tick - last3 >= 3600 then
+          f.stats.main_refus[key3] = tick
+          log(string.format("[FO-MAIN] %s : minage a la main de '%s' REFUSE (sources: %s) : %s, tache %s, a %.1f min (refus %d)",
+            f.key or "?", tostring(task.resource), tostring(why3), text3, tostring(task.key), tick / 3600, f.stats.main_sources))
+        end
+        task.fail = task.fail or "main:sources"
         return nil
       end
     end
@@ -717,10 +834,19 @@ function Worker.program(f, task, surface, tick)
     if best then claim_tile(f, best.position, tick) end
     -- Lot IA3-f (constat du DC, 25/10 vers 18 h 45) : rien à portée du coffre : gisement CONNU et sûr plus loin (carte de
     -- connaissance, crochet posé par script/ai3/exploration.lua ; sinon il demande une exploration). Pas pour le fond.
+    -- Lot STOCKAGE-VITAL : récolte d'un coffre urgent (shared/team/fond.lua, F.annex_urgent) : le coffre est fabriqué SUR PLACE avec la
+    -- matière récoltée, avant le retour (un stock plein refuserait le bois au dépôt ; le coffre, lui, est posé en annexe au dépôt).
+    local function mine_steps()
+      local steps = { { "home" }, { "goto", task.target, 1.5 }, { "mine", task.resource, task.count } }
+      local tc = task.then_craft
+      if tc then steps[#steps + 1] = { "craft_now", tc.crafts, tc.ticks, tc.item } end
+      steps[#steps + 1] = { "home" }
+      return steps
+    end
     local far = not best and not task.fond and Worker.far_mine and Worker.far_mine(f, task, surface, tick)
     if far then
       task.target = far
-      return { { "home" }, { "goto", task.target, 1.5 }, { "mine", task.resource, task.count }, { "home" } }
+      return mine_steps()
     end
     if not best then
       -- Lot KIT (diagnostic) : un minage à la main sans tuile libre ni sûre à portée (au plus une ligne par ressource et par
@@ -735,7 +861,7 @@ function Worker.program(f, task, surface, tick)
       return nil
     end
     task.target = { x = best.position.x, y = best.position.y }
-    return { { "home" }, { "goto", task.target, 1.5 }, { "mine", task.resource, task.count }, { "home" } }
+    return mine_steps()
   end
   return nil
 end
@@ -831,7 +957,8 @@ end
 ACTS.service = function(agent, f, task, surface, tick)
   local o = f.outposts[task.outpost]
   if not o then return false end
-  local n = Outposts.service(o, main_inv(agent), tick, f.team and f.team.flux_fill)
+  local n = Outposts.service(o, main_inv(agent), tick, f.team and f.team.flux_fill, Stock.skip_fn and Stock.skip_fn(f),
+    { key = f.key or "player", stock = function() return Stock.count(f, T.fuel) end }) -- lot BLOCAGE-COMBUSTIBLE : journal [FO-RAVITAILLEMENT]
   f.stats.serviced = (f.stats.serviced or 0) + 1
   f.team.collected = (f.team.collected or 0) + n
   return true
@@ -849,6 +976,11 @@ ACTS.refill = function(agent, f, task)
 end
 
 ACTS.fortify = function(agent, f, task, surface)
+  if task.outpost == "reserve" then -- lot DEFENSE-STOCK : tourelles du coffre en groupe
+    local n = DefStock.place(f, surface, task, main_inv(agent))
+    f.stats.reserve_fortified = (f.stats.reserve_fortified or 0) + n
+    return n > 0
+  end
   if task.outpost == "front" then
     local n = Front.place(f, surface, task, main_inv(agent))
     if task.defend then f.stats.defend_fortified = (f.stats.defend_fortified or 0) + n end
@@ -878,6 +1010,7 @@ ACTS.smelters = function(agent, f, task, surface)
 end
 
 ACTS.equiper = Equip.act -- lot LEVIERS
+ACTS.fetch = Src.act -- lot MINAGE-MAIN
 
 ACTS.rebuild = function(agent, f, task, surface) return Recon.act(agent, f, task, surface) end -- lot COUVERTURE
 ACTS.repair = function(agent, f, task, surface) return Recon.repair_act(agent, f, task, surface) end -- lot RECONSTRUIRE
@@ -1305,6 +1438,55 @@ local function goto_step(agent, pos, radius, tick)
   return false
 end
 
+--- Lot CORR-RALLIEMENT (tenue, 7/11) : état « away » de l'équipe (QG débordé) par le crochet de script/ai3/comportement.lua ; nil sans crochet.
+local function away_state(f, tick)
+  local H = Worker.hook
+  return H and H.away_state and H.away_state(f, tick) or nil
+end
+
+--- Relecture revue-0659 (7/11) : borne de l'attente d'un PNJ CHARGÉ à l'étape « home » pendant « away » quand aucun coffre n'est sûr ;
+--- ensuite il garde son sac et passe à la suite. = SD.SHELTER_TICKS (script/ai3/soldats.lua, sans require : le test vérifie l'égalité).
+Worker.AWAY_WAIT_TICKS = 600
+
+--- Le PNJ porte-t-il quelque chose que deposit_all déposerait (tout, sauf son arme et sa dotation de munitions) ? Sans `pairs` : comptes
+--- totaux de chaque inventaire, moins ce qui est gardé.
+local function has_deposit(agent)
+  local e = agent.entity
+  local function over(inv, keep_name, keep_n)
+    if not inv then return false end
+    local kept = keep_name and math.min(keep_n, inv.get_item_count(keep_name)) or 0
+    return inv.get_item_count() > kept
+  end
+  return over(main_inv(agent)) or over(e.get_inventory(defines.inventory.character_guns), T.worker_gun, 1)
+    or over(e.get_inventory(defines.inventory.character_ammo), T.worker_ammo, T.worker_ammo_keep)
+    or over(e.get_inventory(defines.inventory.character_armor))
+end
+
+--- Coffre du stock (QG, puis annexes) le plus proche du PNJ et HORS de portée de la menace `w` (Da.safe_chest), ou nil.
+local function safe_stock_chest(f, agent, w)
+  local chests = {}
+  if f.hq and f.hq.valid then chests[1] = f.hq end
+  for _, e in ipairs(Stock.annexes(f)) do chests[#chests + 1] = e end
+  local ps = {}
+  for i, c in ipairs(chests) do ps[i] = c.position end
+  local i = Da.safe_chest(ps, agent.entity.position, w)
+  return i and chests[i] or nil
+end
+
+--- Lot CORR-RALLIEMENT (tenue, demande du lead, 8/11) : ligne [FO-TENUE] pour que le DC lise en jeu pourquoi un PNJ ne rentre pas. Une ligne
+--- par équipe quand un compteur de f.team.tenue a changé, au plus une par minute de jeu (les changements de la minute sont repris par la
+--- ligne suivante : « depuis la ligne précédente »). `w` = l'état « away » (menace, atteinte).
+local function tenue_log(f, st, w, tick)
+  if st.last_log and tick - st.last_log < 3600 then return end
+  local ds, dk, da, dd = st.skip - (st.l_skip or 0), st.kept - (st.l_kept or 0), st.abort - (st.l_abort or 0), st.safe - (st.l_safe or 0)
+  if ds + dk + da + dd == 0 then return end
+  st.last_log, st.l_skip, st.l_kept, st.l_abort, st.l_safe = tick, st.skip, st.kept, st.abort, st.safe
+  log(string.format("[FO-TENUE] %s minute %.1f : QG deborde (menace en (%.0f, %.0f), atteinte %.0f tuiles) : les PNJ ne rentrent pas au QG ; "
+    .. "%d depot(s) dans un coffre hors de portee, %d etape(s) « rentrer » sautee(s) (sac vide), %d sac(s) garde(s) apres %d ticks "
+    .. "d'attente (aucun coffre hors de portee), %d tache(s) abandonnee(s) (elles exigent le QG) ; depuis la ligne precedente : +%d, +%d, +%d, +%d",
+    tostring(f.key), tick / 3600, w.x or 0, w.y or 0, w.reach or 0, st.safe, st.skip, st.kept, Worker.AWAY_WAIT_TICKS, st.abort, dd, ds, dk, da))
+end
+
 local function run_steps(agent, tick)
   local f = faction_of(agent)
   if not f or not (f.hq and f.hq.valid) then return end
@@ -1318,7 +1500,44 @@ local function run_steps(agent, tick)
       return
     end
     local kind = step[1]
-    if kind == "home" then
+    local away = kind == "home" and away_state(f, tick) or nil
+    if away then
+      -- Lot CORR-RALLIEMENT (tenue, 7/11 ; RAPPORT EFFONDREMENT §12) : QG débordé (« away ») : pas de retour au QG. Dépôt dans le coffre du stock le
+      -- plus proche HORS de portée de la menace.
+      -- Relecture revue-0659 (7/11) : l'attente sans coffre sûr n'avait pas de sortie bornée et, presque tout programme commençant par « home »,
+      -- ARRÊTAIT TOUTE L'ÉQUIPE tant qu'un campeur débordait le QG. Désormais (critères : CRITERES.md EFFONDREMENT, « TENUE, correction ») :
+      --   (a) rien à déposer : l'étape est sautée (début de tâche, retour après un dépôt, fin) ;
+      --   (c) à déposer, aucun coffre sûr : attente au plus Worker.AWAY_WAIT_TICKS, puis le PNJ GARDE son sac et passe à la suite ;
+      --   (b) l'étape suivante exige le QG (« take ») : la tâche est abandonnée (raison « away », pause courte de la peur, shared/team/actif.lua).
+      local carry = has_deposit(agent)
+      local chest = carry and safe_stock_chest(f, agent, away) or nil
+      local st = f.team and f.team.tenue
+      if f.team and not st then st = { skip = 0, kept = 0, abort = 0, safe = 0 } f.team.tenue = st end
+      if st and not st.safe then st.safe = 0 end -- (sauvegarde d'avant la ligne [FO-TENUE])
+      if chest then
+        agent.away_wait = nil
+        if not goto_step(agent, chest.position, 2, tick) then return end
+        deposit_all(agent, f, chest)
+        if st then st.safe = st.safe + 1 end
+      elseif carry then
+        agent.away_wait = agent.away_wait or tick
+        if tick - agent.away_wait < Worker.AWAY_WAIT_TICKS then return end
+        agent.away_wait = nil
+        if st then st.kept = st.kept + 1 end
+      else
+        agent.away_wait = nil
+        if st then st.skip = st.skip + 1 end
+      end
+      agent.pc = agent.pc + 1
+      local nxt = agent.steps[agent.pc]
+      if nxt and nxt[1] == "take" then
+        if st then st.abort = st.abort + 1 tenue_log(f, st, away, tick) end
+        abort(agent, f, tick, "away")
+        return
+      end
+      if st then tenue_log(f, st, away, tick) end
+    elseif kind == "home" then
+      agent.away_wait = nil
       if not goto_step(agent, home_slot(agent, f), 1, tick) then return end
       deposit_all(agent, f)
       bg_deliver(agent, f, tick) -- lot CRAFT-PARALLELE : produits des travaux finis livrés (déposés juste au-dessus)
@@ -1338,9 +1557,42 @@ local function run_steps(agent, tick)
       agent.wait_until = tick + (step[2] or 0)
       set(agent, "wait", tick)
       return
+    elseif kind == "craft_now" then
+      -- Lot STOCKAGE-VITAL : fabrication sur place avec ce que le PNJ porte (coffre urgent après sa récolte), puis attente de la durée
+      -- de fabrication ; jamais derrière une fabrication en arrière-plan (sa file est à elle : rien n'est lancé, le bois rentre au QG).
+      local e = agent.entity
+      local n, why = 0, "file de fabrication occupee"
+      if not agent.bg and e.crafting_queue_size == 0 then
+        why = "matiere absente"
+        for _, c in ipairs(step[2] or {}) do
+          local ok, k = pcall(e.begin_crafting, { count = c.runs, recipe = c.recipe, silent = true })
+          if ok and type(k) == "number" then n = n + k end
+        end
+      end
+      f.stats.stock_craft_logs = (f.stats.stock_craft_logs or 0) + 1
+      if f.stats.stock_craft_logs <= 40 then
+        log(string.format("[FO-STOCKAGE] %s : coffre urgent %s fabrique sur place par le PNJ %s : %s a %.1f min", f.key or "player",
+          tostring(step[4]), tostring(agent.id), n > 0 and (n .. " fabrication(s) lancee(s)") or ("rien de lance (" .. why .. ")"),
+          (tick - (f.started or 0)) / 3600))
+      end
+      if n > 0 then
+        agent.wait_until = tick + (step[3] or 0)
+        set(agent, "wait", tick)
+        return
+      end
+      agent.pc = agent.pc + 1
     elseif kind == "goto" then
       if not goto_step(agent, step[2], step[3] or 4, tick) then return end
       agent.street_off = nil -- lot IA1-d : le repli vers le PathService ne vaut que pour ce trajet
+      agent.pc = agent.pc + 1
+    elseif kind == "take_depot" or kind == "put_depot" then
+      -- Lot TV-ARCHI (V91) : prise au dépôt du quartier, puis retour du reste au même dépôt (script/team/quartiers.lua, Qr.depot_step)
+      local ok = Build.Quartiers.depot_step(f, kind, step[2], step[3], main_inv(agent))
+      if agent.task then agent.task.took = true end
+      if not ok then
+        abort(agent, f, tick, "stock")
+        return
+      end
       agent.pc = agent.pc + 1
     elseif kind == "take_res" then
       -- Lot IA1-d : objets réservés au chantier (retirés du coffre à la réservation : personne ne les arrache)
@@ -1455,14 +1707,15 @@ FSM.define(MACHINE, {
       local task = Board.claim(f, agent, tick)
       Profiler.fstop("board:claim")
       if not task then
-        -- Rien à faire : rentrer au QG (et y déposer) plutôt que rester au loin.
-        if dist2(agent.entity.position, home_slot(agent, f)) > 3 * 3 and not agent.nav then
+        -- Rien à faire : rentrer au QG (et y déposer) plutôt que rester au loin. Lot CORR-RALLIEMENT (tenue) : pas pendant « away » (QG débordé).
+        if dist2(agent.entity.position, home_slot(agent, f)) > 3 * 3 and not agent.nav and not away_state(f, tick) then
           agent.task, agent.steps, agent.pc = nil, { { "home" } }, 1
           set(agent, "step", tick)
         end
         Profiler.fcredit("idle", "idle:sans-tache")
         return
       end
+      Stock.note_claim(f, main_inv(agent), tick) -- lot STOCKAGE-VITAL : prise de tâche avec la poche pleine (compteur, aucune décision)
       Profiler.fstart("worker:program")
       local steps = Worker.program(f, task, agent.entity.surface, tick)
       Profiler.fstop("worker:program")
@@ -1706,7 +1959,34 @@ FSM.define(MACHINE, {
       local got = e.get_item_count(item) - (agent.mine_base or 0)
       local target = agent.task and agent.task.target
       local f = faction_of(agent)
-      local res = target and mining_entity(e.surface, target, Harvest.names_for(f, item, agent.task and agent.task.trees), f)
+      local res, cover
+      if target then
+        res, cover = mining_entity(e.surface, target, Harvest.names_for(f, item, agent.task and agent.task.trees), f,
+          Harvest.free_types(agent.task and agent.task.resource or item, f, agent.task and agent.task.trees))
+      end
+      -- Lot TOURELLE-JOURNAL (7/11, DC : « très fortes chances que ce soit les pnj qui les aient prises ») : update_selected_entity(position),
+      -- plus bas, sélectionne ce que la souris survolerait ; une TOURELLE posée sur la tuile de minerai (par le joueur après la création de la
+      -- tâche, ou sous le repli à 2,5 tuiles de mining_entity) serait minée puis portée au coffre (votre équipe a la force du joueur). Une tuile
+      -- couverte par une tourelle n'est jamais minée : le minage finit comme sans minerai, et c'est écrit.
+      -- (relevé en moteur réel, script/team/harvest.lua Harvest.foreign_resource : sous un cristal posé sur du charbon, le moteur sélectionnait
+      -- l'AUTRE entité et le PNJ la minait : 2 cristaux au coffre, 0 charbon.) Deux gardes, pour TOUT bâtiment (lead, 7/11) :
+      --   1. une tuile dont le centre est recouvert par un bâtiment (ni ressource, ni arbre récoltable, ni corps, ni objet au sol) est
+      --      écartée par mining_entity, qui prend la tuile libre suivante dans le même ordre (sans tuile écartée : choix d'avant à l'identique) ;
+      --      plus aucune tuile libre : pas de minage ;
+      --   2. la ressource est sélectionnée ELLE-MÊME (LuaControl.selected, en écriture) et relue : une autre sélection, pas de minage.
+      -- Refus : le minage finit comme sans minerai ; ligne [FO-TOURELLE-RETIREE] « minage refuse : selection = <nom> » (une par seconde au plus).
+      local function who() return "PNJ " .. tostring(agent.id) .. " (" .. tostring(f and f.key or "?") .. ", minage a la main)" end
+      if not res and cover then
+        Tj.mine_refused(cover, who(), item, "batiment sur la tuile de minerai, aucune tuile libre a portee")
+      elseif res then
+        local rp = res.position
+        e.selected = res
+        local sel = e.selected
+        if not (sel and sel.valid and sel.name == res.name and math.abs(sel.position.x - rp.x) < 0.01 and math.abs(sel.position.y - rp.y) < 0.01) then
+          Tj.mine_refused(sel, who(), res.name, "la selection n'est pas la ressource visee")
+          res = nil
+        end
+      end
       -- Lot MAIN-INVENTAIRE : inventaire plein -> on dépose l'utile au coffre puis on revient finir (au lieu de laisser le moteur
       -- lâcher le minerai au sol) ; en fin de minage, le minerai tombé au sol autour du mineur est ramassé.
       local over = got >= count or not res or tick - agent.mine_started > MINE_TIMEOUT
@@ -1749,8 +2029,7 @@ FSM.define(MACHINE, {
         set(agent, "step", tick)
         return
       end
-      e.update_selected_entity(res.position)
-      e.mining_state = { mining = true, position = res.position }
+      e.mining_state = { mining = true, position = res.position } -- (ressource déjà sélectionnée plus haut : e.selected = res)
     end,
   },
 })
@@ -1780,6 +2059,7 @@ function Worker.recruit(f, surface, tick, unarmed, free)
     e.get_inventory(defines.inventory.character_ammo).insert({ name = T.worker_ammo, count = T.worker_ammo_keep })
   end
   if free or unarmed then agent.free_kit = true end
+  if free and not unarmed then kit_give(f, e) end -- EFFONDREMENT : kit offert, retiré du corps à la mort (parade du kit)
   f.engineers[agent.id] = true
   f.engineers_count = f.engineers_count + 1
   home_slot(agent, f) -- case attribuée dès le recrutement (lot IA1-a)
@@ -1839,7 +2119,63 @@ function Worker.counts(f)
   return states
 end
 
+-- EFFONDREMENT, parade du kit offert : 1. la mort note la fiche du kit (le personnage est encore valide, ses inventaires déjà vides) ;
+-- les fiches oubliées (mort sans corps rendu) partent après Sp.KIT_TTL.
+Events.on_died(function(e)
+  local ent = e.entity
+  local ns = kit_ns()
+  -- hors de l'intérêt déclaré (personnage d'une force autre que « enemy ») : rien, pas même la purge (lot MORTS, tests/morts_test.lua P3)
+  if not (ns and ent and ent.valid and ent.unit_number and ent.type == "character" and ent.force.name ~= "enemy") then return end
+  local tick = e.tick or game.tick
+  local old = {}
+  for u, d in pairs(ns.dead) do if tick - d.tick > Sp.KIT_TTL then old[#old + 1] = u end end
+  table.sort(old)
+  for _, u in ipairs(old) do ns.dead[u] = nil end
+  local k = ns.units[ent.unit_number]
+  if not k then return end
+  ns.units[ent.unit_number] = nil
+  ns.dead[ent.unit_number] = { fid = k.fid, ammo = k.ammo, paid = k.paid, tick = tick }
+end, { types = { "character" }, ennemi = false })
+
+-- 2. le corps rendu (on_post_entity_died) : le kit offert en est retiré (Sp.kit_take), détruit ; la cargaison reste.
+-- Le bus (events.lua) ne filtre pas ; le FILTRE MOTEUR est posé ici, à on_init et on_load (comme script/team/reparation.lua) : le
+-- moteur ne lève plus l'événement que pour les personnages (relecture de revue-0657, accord du lead, 7/11). LIMITE : tout autre abonné du
+-- bus à on_post_entity_died ne verrait plus, lui aussi, que les personnages (noté dans script/core/events.lua).
+Events.on(defines.events.on_post_entity_died, function(e)
+  local u = e.unit_number
+  if not u then return end
+  local ns = kit_ns()
+  local d = ns and ns.dead[u]
+  if not d then return end
+  ns.dead[u] = nil
+  for _, c in ipairs(e.corpses or {}) do
+    if c.valid and c.type == "character-corpse" then
+      local inv = c.get_inventory(defines.inventory.character_corpse)
+      if inv and inv.valid then
+        local present = { gun = inv.get_item_count(T.worker_gun), ammo = inv.get_item_count(T.worker_ammo) }
+        local gun, ammo = Sp.kit_take({ gun = 1, ammo = d.ammo }, present, d.paid)
+        if gun > 0 then gun = inv.remove({ name = T.worker_gun, count = gun }) end
+        if ammo > 0 then ammo = inv.remove({ name = T.worker_ammo, count = ammo }) end
+        local tk = ns.taken[d.fid] or { gun = 0, ammo = 0 }
+        ns.taken[d.fid] = tk
+        tk.gun, tk.ammo = tk.gun + gun, tk.ammo + ammo
+        local f = State.faction(d.fid)
+        log(Sp.kit_text({ key = f and (f.key or "player") or tostring(d.fid), unit = u, gun = gun, ammo = ammo, kept = present.ammo - ammo,
+          total_gun = tk.gun, total_ammo = tk.ammo, minutes = (e.tick or game.tick) / 3600 }))
+      end
+      break
+    end
+  end
+end)
+Worker.KIT_POST_FILTER = { { filter = "type", type = "character" } }
+local function kit_post_filter() script.set_event_filter(defines.events.on_post_entity_died, Worker.KIT_POST_FILTER) end
+Events.on_init(kit_post_filter)
+Events.on_load(kit_post_filter)
+
 Registry.on_removed(function(agent)
+  -- EFFONDREMENT (parade du kit offert) : un PNJ renvoyé (sans mort) n'a plus de fiche ; mort, sa fiche est déjà passée à `dead`
+  local kns = kit_ns()
+  if kns and agent.unit then kns.units[agent.unit] = nil end
   if not agent.faction then return end
   local f = State.faction(agent.faction)
   if not f or not f.engineers[agent.id] then return end
@@ -1848,6 +2184,15 @@ Registry.on_removed(function(agent)
   f.engineers[agent.id] = nil
   f.engineers_count = (f.engineers_count or 1) - 1
   if f.stats then f.stats.engineers_lost = (f.stats.engineers_lost or 0) + 1 end
+  -- EFFONDREMENT (filet de recul, décision du DC, 7/11 vers 16 h 56) : une recrue GRATUITE (agent.free_born, posé en E4) TUÉE moins de
+  -- Sp.RECUL_VITE ticks après son arrivée double l'attente de la suivante (shared/team/spirale.lua) ; un renvoi (sans cause) ne compte pas.
+  if f.is_player and f.team and agent.free_born and agent.death_cause then
+    local now = game.tick
+    f.team.recul = Sp.recul_death(f.team.recul, agent.free_born, now)
+    if now - agent.free_born < Sp.RECUL_VITE then
+      log(Sp.recul_text({ key = f.key or "player", age = now - agent.free_born, wait = f.team.recul.wait, minutes = now / 3600 }))
+    end
+  end
   -- Lot IA1-b2 (mesure) : PNJ TUÉ (cause connue) : tâche, distance au QG, cause ; tués par les ennemis comptés à part.
   if agent.death_cause and f.stats then
     if agent.death_cause:find("/enemy:", 1, true) then f.stats.lost_enemy = (f.stats.lost_enemy or 0) + 1 end
@@ -1862,6 +2207,7 @@ Registry.on_removed(function(agent)
     if t and t.kind == "fortify" and t.outpost == "plant" then GardeCentrale.on_lost(f, agent.id, agent.death_cause) end
     -- Lot DEFENSE-FRONT : porteur tué en allant renforcer une cellule du front : la cellule se repose (T.lethal_ticks)
     if t and t.kind == "fortify" and t.outpost == "front" then Front.on_lost(f, t.cell_key, agent.death_cause) end
+    if t and t.kind == "fortify" and t.outpost == "reserve" then DefStock.on_lost(f, t.cell_key, agent.death_cause) end -- lot DEFENSE-STOCK
     if t and t.kind == "fortify" and t.outpost == "ilot" then Ilots.on_lost(f, agent.id, agent.death_cause) end -- lot ILOTS-MURS
     -- Lot SCALE (correction après revue) : QG OCCUPÉ par les biters (factions) : T.hq_lethal_deaths PNJ tués par la force
     -- « enemy » à moins de Worker.SAFE_HOME tuiles du QG en moins de T.hq_lethal_window : plus de recrue pendant
@@ -1915,5 +2261,8 @@ Registry.on_removed(function(agent)
     for _, j in ipairs(jobs) do bg_close_job(agent, f, j, false, game.tick, "mort") end
   end
 end)
+
+Worker._has_deposit = has_deposit -- tests hors jeu seulement (tests/ia3k_moteur_test.lua, tenue : C3)
+Worker._mining_entity = mining_entity -- tests hors jeu seulement (tests/tourelle_journal_test.lua, lot TOURELLE-JOURNAL)
 
 return Worker

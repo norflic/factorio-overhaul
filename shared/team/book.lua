@@ -14,6 +14,9 @@ local Book = {}
 Book.__index = Book
 
 local MAX_DEPTH = 12
+-- Lot S5 (×10) : profondeur de recette au-delà de laquelle `need` compte l'objet en matière brute ; lue par shared/team/book_max.lua
+-- (test léger et garde de monotonie), qui ne doit pas en garder une copie.
+Book.MAX_DEPTH = MAX_DEPTH
 
 local function sorted_keys(t)
   local ks = {}

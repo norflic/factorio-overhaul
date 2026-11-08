@@ -202,6 +202,16 @@ local function fire_died(e, killer_force)
   if h then h({ entity = e, force = killer_force, cause = nil, tick = _G.game.tick }) end
 end
 
+-- EFFONDREMENT (opts.corpses) : corps d'un personnage tué (fait moteur du micro-banc kit-cadavre, 9ee2b12d) ; posé par die().
+local make_character_corpse -- défini après new_entity
+local function fire_post_died(e, unit, corpse, killer_force)
+  local h = W.events[defines.events.on_post_entity_died]
+  if h then
+    h({ unit_number = unit, corpses = { corpse }, prototype = { type = e.type, name = e.name }, position = { x = e._x, y = e._y },
+      force = killer_force, surface_index = 1, tick = _G.game.tick })
+  end
+end
+
 --- Lot PERF4 : on_entity_damaged, levé par LuaEntity.damage SUR DEMANDE seulement (opts.raise_damaged du monde), avec le filtre
 --- « type » posé par script.set_event_filter, comme le moteur. Sans la demande, rien n'est levé (comportement d'avant ce lot :
 --- les suites existantes ne changent pas) et l'ensemble des endommagées du mod est éteint (M.load_mod).
@@ -344,6 +354,82 @@ local function touches_area(e, area)
   return e._x + b.x0 <= ax1 and ax0 <= e._x + b.x1 and e._y + b.y0 <= ay1 and ay0 <= e._y + b.y1
 end
 
+-- Lot MOCK-RAPIDE (7/11) : index par chunk des entités pour find_entities_filtered (zone ou rayon), valable dans UN tick du moteur
+-- simulé seulement (W._in_tick, posé par run_ticks avant les événements du tick et retiré avant la marche, step_physics). Pendant ce
+-- temps, une position ne change que par teleport ou par une création (W._mut) : l'index est alors refait. Hors d'un tick (code des
+-- bancs, qui écrit parfois e._x lui-même ; commandes), la recherche lit toutes les entités, comme avant. Une entité est rangée dans
+-- les chunks que couvre sa boîte de collision ET dans celui de sa position : une entité qui touche la zone (intervalles fermés) ou dont
+-- la position est dans le rayon y est donc toujours. Les candidats sont rendus dans l'ordre de W.entities (indices croissants).
+local FCELL = 32
+local FMAX = 16 -- chunks de côté au plus par recherche ; au-delà, toutes les entités, comme avant
+local function fkey(cx, cy) return (cx + 1048576) * 2097152 + (cy + 1048576) end
+local fx = {}
+local function find_index()
+  local ents = W.entities
+  local tick = _G.game and _G.game.tick
+  if fx.idx ~= nil and fx.n == #ents and fx.mut == W._mut and fx.tbl == ents and fx.tick == tick and fx.lb == W.legacy_boxes then
+    return fx.idx
+  end
+  local idx = {}
+  local fl = math.floor
+  local bad = false
+  for i = 1, #ents do
+    local e = ents[i]
+    if e.valid and (type(e._x) ~= "number" or type(e._y) ~= "number" or e.name == nil) then
+      bad = true -- (entité posée à la main par un banc, sans position ni nom : la recherche lit tout, comme avant)
+      break
+    end
+    if e.valid then
+      local b = W.legacy_boxes and { x0 = 0, y0 = 0, x1 = 0, y1 = 0 } or collision_of(e.name)
+      local cx0, cx1 = fl(math.min(e._x, e._x + b.x0) / FCELL), fl(math.max(e._x, e._x + b.x1) / FCELL)
+      local cy0, cy1 = fl(math.min(e._y, e._y + b.y0) / FCELL), fl(math.max(e._y, e._y + b.y1) / FCELL)
+      for cx = cx0, cx1 do
+        for cy = cy0, cy1 do
+          local k = fkey(cx, cy)
+          local l = idx[k]
+          if not l then l = {}; idx[k] = l end
+          l[#l + 1] = i
+        end
+      end
+    end
+  end
+  fx = { idx = (not bad) and idx or false, n = #ents, mut = W._mut, tbl = ents, tick = tick, lb = W.legacy_boxes }
+  return fx.idx
+end
+
+--- Indices croissants (dans W.entities) des entités à juger pour la recherche `t`, ou nil : toutes.
+local function find_candidates(t)
+  if not (W._in_tick and _G.game and W._in_tick == _G.game.tick) then return nil end
+  local x0, y0, x1, y1
+  if t.area then
+    local lt, rb = t.area.left_top or t.area[1], t.area.right_bottom or t.area[2]
+    x0, y0, x1, y1 = lt.x or lt[1], lt.y or lt[2], rb.x or rb[1], rb.y or rb[2]
+  elseif t.position and t.radius then
+    x0, y0, x1, y1 = t.position.x - t.radius, t.position.y - t.radius, t.position.x + t.radius, t.position.y + t.radius
+  else
+    return nil
+  end
+  local fl = math.floor
+  local cx0, cx1, cy0, cy1 = fl(x0 / FCELL), fl(x1 / FCELL), fl(y0 / FCELL), fl(y1 / FCELL)
+  if cx1 - cx0 >= FMAX or cy1 - cy0 >= FMAX then return nil end
+  local idx = find_index()
+  if not idx then return nil end
+  local seen, out = {}, {}
+  for cx = cx0, cx1 do
+    for cy = cy0, cy1 do
+      local l = idx[fkey(cx, cy)]
+      if l then
+        for j = 1, #l do
+          local i = l[j]
+          if not seen[i] then seen[i] = true; out[#out + 1] = i end
+        end
+      end
+    end
+  end
+  table.sort(out)
+  return out
+end
+
 -- Masques par défaut des types que les bancs posent (data/core/lualib/collision-mask-util.lua, default_masks) ;
 -- un type absent de cette liste prend le masque des bâtiments.
 local BUILDING_MASK = { "item-layer", "object-layer", "player-layer", "water-tile" }
@@ -448,8 +534,13 @@ local EntityMT = {
     if k == "die" then
       return function(force, cause)
         if not t.valid then return false end
+        -- EFFONDREMENT (opts.corpses) : comme le moteur réel (micro-banc kit-cadavre, 9ee2b12d), un personnage tué laisse un
+        -- character-corpse qui reçoit ses inventaires AVANT on_entity_died (ils y sont déjà vides), puis on_post_entity_died le rend.
+        local corpse = W.corpses and t.type == "character" and make_character_corpse(t) or nil
+        local unit = t.unit_number
         fire_died(t, force and force_of(force) or nil)
         destroy_entity(t)
+        if corpse then fire_post_died(t, unit, corpse, force and force_of(force) or nil) end
         return true
       end
     end
@@ -457,6 +548,7 @@ local EntityMT = {
       return function(pos)
         assert(type(pos) == "table" and pos.x and pos.y, "teleport : position attendue")
         t._x, t._y = pos.x, pos.y
+        W._mut = (W._mut or 0) + 1 -- (lot MOCK-RAPIDE : index de step_economy à refaire)
         return true
       end
     end
@@ -491,7 +583,11 @@ local EntityMT = {
     if k == "get_main_inventory" then return function() return inv_of(t, defines.inventory.character_main) end end
     if k == "burner" then return W.prototype(t.name).burner_prototype and {} or nil end -- LuaEntity.burner : seulement une machine a combustion (pvp_test, lot FOREUSES)
     if k == "get_fuel_inventory" then return function() return inv_of(t, defines.inventory.fuel) end end
-    if k == "status" then return defines.entity_status.working end -- lot GISEMENTS : toute machine du mock travaille
+    -- lot GISEMENTS : toute machine du mock travaille ; lot VIDEO-L5 : un banc impose un statut par rawset(e, "_status", …)
+    if k == "status" then return rawget(t, "_status") or defines.entity_status.working end
+    -- lot VIDEO-L5 : produits finis d'une machine de fabrication (four du mock : une plaque par fonte ; un assembleur ne fabrique
+    -- rien au mock, 0), sur demande du monde (opts.products_finished)
+    if k == "products_finished" and W.products_finished and CRAFTERS[t.type] then return rawget(t, "_finished") or 0 end
     if k == "get_module_inventory" then return function() return nil end end -- lot MOD-1 : pas de modules au mock
     -- Étape 1 : service_smelters lit is_crafting ; un four du mock fond d'un coup (pas de fabrication en cours entre deux ticks)
     if k == "is_crafting" then return function() return false end end
@@ -624,6 +720,7 @@ local EntityMT = {
       end
     end
     if k == "update_selected_entity" then return function(pos) assert(pos.x and pos.y, "update_selected_entity : position") end end
+    if k == "selected" then return rawget(t, "_selected") end -- lot TOURELLE-JOURNAL : LuaControl.selected (lecture et écriture)
     if k == "mining_state" then return t._mining or { mining = false } end
     if k == "shooting_state" then return t._shooting or { state = 0 } end
     if k == "set_command" then
@@ -643,6 +740,7 @@ local EntityMT = {
       return
     end
     if k == "color" then rawset(t, "_color", v) return end
+    if k == "selected" then rawset(t, "_selected", v) return end -- lot TOURELLE-JOURNAL : sélection assignée (le moteur la garde si sélectionnable)
     if k == "mining_state" then
       assert(type(v) == "table" and type(v.mining) == "boolean", "mining_state invalide")
       rawset(t, "_mining", v)
@@ -673,9 +771,26 @@ new_entity = function(name, x, y, surface, force)
   }
   setmetatable(e, EntityMT)
   W.entities[#W.entities + 1] = e
+  W._mut = (W._mut or 0) + 1 -- (lot MOCK-RAPIDE : index de step_economy à refaire)
   return e
 end
 M.new_entity = function(...) return new_entity(...) end
+
+-- EFFONDREMENT (opts.corpses) : le corps reçoit armes, munitions, armure et inventaire principal ; le personnage est vidé.
+make_character_corpse = function(t)
+  local I = defines.inventory
+  local c = new_entity("character-corpse", t._x, t._y, t.surface, t.force)
+  c.type = "character-corpse"
+  local ci = inv_of(c, I.character_corpse)
+  for _, idx in ipairs({ I.character_main, I.character_guns, I.character_ammo, I.character_armor }) do
+    local inv = t._invs[idx]
+    if inv then
+      for n, v in pairs(inv._items) do ci.insert({ name = n, count = v }) end -- (somme : l'ordre ne compte pas)
+      inv._items = {}
+    end
+  end
+  return c
+end
 
 local function straight_path(s, g)
   local dx, dy = g.x - s.x, g.y - s.y
@@ -821,6 +936,10 @@ function M.new_world(opts)
     return_delay = opts.return_delay or 300,
     unit = 0, entities = {}, events = {}, nth = {}, commands = {},
     raise_damaged = opts.raise_damaged or false, -- lot PERF4 : LuaEntity.damage lève on_entity_damaged (fire_damaged)
+    -- lot VIDEO-L5 : LuaEntity.products_finished SUR DEMANDE seulement (sans l'option : nil, comme avant ; la mesure des modules
+    -- d'IA3-e la lit aussi)
+    products_finished = opts.products_finished or false,
+    corpses = opts.corpses or false, -- EFFONDREMENT : die() d'un personnage pose un character-corpse et lève on_post_entity_died
     pending_paths = {}, path_id = 0, destroyed_queue = {},
     renders = {}, render_id = 0, lines_drawn = 0, prints = {}, logs = {}, files = {},
     walk_writes = 0, reg = 0, groups = {}, group_number = 0, occupied = {}, game_prints = {}, produced = {}, burned = 0,
@@ -844,6 +963,9 @@ function M.new_world(opts)
       ["fo-war-capital"] = (opts.capital ~= false) and (os.getenv("FO_CAPITAL") ~= "0"),
       -- Lot AMELIORER : remplacement des machines hors famille, ALLUMÉ par défaut comme le jeu (settings/capital.lua)
       ["fo-war-remplacer"] = opts.remplacer ~= false,
+      -- Lot AMELIORATION (8/11) : monter les bâtiments par bloc, ALLUMÉ par défaut comme le jeu (settings/capital.lua) ; éteint par
+      -- l'option (amelioration = false) ou par FO_AMELIORATION=0. Absent, script/ai3/capital.lua levait « paramètre inconnu ».
+      ["fo-war-amelioration"] = (opts.amelioration ~= false) and (os.getenv("FO_AMELIORATION") ~= "0"),
       -- Lot CAPIB : ÉTEINT par défaut comme le jeu (settings/capi.lua) ; allumé par l'option (capi = true) ou FO_CAPI=1
       -- (n'agit qu'avec fo-war-ia3e : FO_IA3E=1)
       ["fo-war-capi"] = (opts.capi == true) or (os.getenv("FO_CAPI") == "1"),
@@ -1013,6 +1135,14 @@ function M.new_world(opts)
     -- lot EXPERIMENTAUX : capsules qui lancent la Géode et la Demi-Vie (script/robots/experimentaux.lua) ; le mock n'en lève aucune,
     -- le moteur réel est prouvé par « xp-petits » (joueur de la session avec images)
     on_player_used_capsule = 40,
+    -- EFFONDREMENT (parade du kit offert, script/team/worker.lua) : corps d'un personnage mort ; levé par die() sur demande seulement
+    -- (opts.corpses du monde, fire_post_died), comme le moteur réel (micro-banc kit-cadavre, 9ee2b12d)
+    on_post_entity_died = 41,
+    -- lot DEBUG-CERVEAU : vue « Cerveau » (script/debug/cerveau.lua) : liste déroulante de la force observée et départ d'un joueur ;
+    -- le mock n'en lève aucun, tests/debug_cerveau_vue_test.lua rejoue les gestionnaires à la main (noms de l'API 1.1.91)
+    on_gui_selection_state_changed = 42, on_player_removed = 43,
+    -- lot MINAGE-MAIN : bras tourné par le joueur (script/team/sources.lua) ; le mock ne tourne rien : jamais levé, testé à la main par tests/sources_glue_test.lua
+    on_player_rotated_entity = 142,
   }
   _G.defines = {
     -- Lot PANNEAU : type de l'interface ouverte (LuaControl.opened_gui_type) ; noms de l'API 1.1.91, valeurs opaques.
@@ -1028,7 +1158,7 @@ function M.new_world(opts)
     group_state = strict({ gathering = 0, moving = 1, attacking_distraction = 2, attacking_target = 3, finished = 4, pathfinding = 5, wander_in_group = 6 }, "defines.group_state"),
     compound_command = strict({ logical_and = 0, logical_or = 1, return_last = 2 }, "defines.compound_command"),
     inventory = strict({ turret_ammo = 1, chest = 2, character_main = 3, character_guns = 4, character_ammo = 5,
-      fuel = 6, furnace_source = 7, furnace_result = 8, character_armor = 9, furnace_modules = 10 }, "defines.inventory"),
+      fuel = 6, furnace_source = 7, furnace_result = 8, character_armor = 9, furnace_modules = 10, character_corpse = 11 }, "defines.inventory"),
     -- Lot GISEMENTS (script/team/gisement.lua) : statut d'une machine ; le mock ne rend que « travaille » (aucune panne simulee), mais connait
     -- tous les noms de l'API 1.1.91 (doc-html/runtime-api.json) : build.lua lit low_power, reconstruction.lua no_power...
     entity_status = strict((function()
@@ -1252,7 +1382,12 @@ function M.new_world(opts)
       end
       return out
     end
-    for _, e in ipairs(W.entities) do
+    -- Lot MOCK-RAPIDE : dans un tick du moteur simulé, une recherche par zone ou par rayon ne lit que les entités des chunks qui la
+    -- couvrent (find_candidates), DANS L'ORDRE de W.entities et jugées par la même condition ; sinon, toutes, comme avant.
+    local ents = W.entities
+    local cand = find_candidates(t)
+    for ci = 1, cand and #cand or #ents do
+      local e = ents[cand and cand[ci] or ci]
       if e.valid then
         local ok = true
         if t.force then ok = ok and e.force.name == (type(t.force) == "string" and t.force or t.force.name) end
@@ -1383,6 +1518,7 @@ function M.new_world(opts)
   end
   W.player = {
     _lua_object = true, index = 1, valid = true, admin = true, connected = true, surface = surface, force = W.forces.player,
+    surface_index = surface.index, -- lot X10-S10 : LuaControl.surface_index (guet des factions endormies, script/faction/commander.lua)
     controller_type = 1, -- intégration 0.6.22 : defines.controllers.character
     character = player_char,
     print = function(s) W.prints[#W.prints + 1] = M.ls_to_string(s) end,
@@ -1609,12 +1745,120 @@ local FUEL_PERIOD = 1600     -- un charbon toutes les ~27 s (foreuse ; four : 2 
 local MINE_PERIOD = 120      -- minage à la main : 0,5 objet/s
 local SMELT = { ["iron-ore"] = "iron-plate", ["copper-ore"] = "copper-plate", ["stone"] = "stone-brick", ["iron-plate"] = "steel-plate" }
 
+---------------------------------------------------------------------------------------------------
+-- Lot MOCK-RAPIDE (7/11) : les recherches de step_economy passent par des INDEX par case, refaits à chaque passe (toutes les 60
+-- ticks), au lieu de parcourir toutes les entités pour chaque foreuse, chaque mineur et chaque arbre (foreuses × entités : la moitié
+-- des instructions de pvp_test, profil du 7/11). Même résultat que le parcours d'avant : les candidats d'une case sont pris dans
+-- l'ORDRE de W.entities (indices croissants) et jugés par la MÊME condition ; une entité devenue invalide est écartée à la lecture ;
+-- une entité créée ou téléportée pendant la passe (W._mut, #W.entities, ou W.entities remplacé) refait l'index.
+---------------------------------------------------------------------------------------------------
+local floor = math.floor
+local CELL = 4         -- tuiles par case (foyers et coffres à 1,2 tuile, arbres à 1 tuile)
+local PCELL = 16       -- tuiles par case des gisements (8 tuiles)
+local function ckey(cx, cy) return (cx + 1048576) * 2097152 + (cy + 1048576) end
+
+local ix = {}          -- index de la passe en cours ; vidé à chaque passe
+
+local function ix_fresh()
+  return ix.n == #W.entities and ix.mut == W._mut and ix.tbl == W.entities
+end
+
+local function ix_reset()
+  ix = { n = #W.entities, mut = W._mut, tbl = W.entities }
+end
+
+--- Index par case des entités valides qui vérifient `pred` : { [clé] = { indices croissants } }.
+local function ix_build(pred, size)
+  local idx = {}
+  local ents = W.entities
+  for i = 1, #ents do
+    local e = ents[i]
+    if e.valid and pred(e) then
+      local k = ckey(floor(e._x / size), floor(e._y / size))
+      local l = idx[k]
+      if not l then l = {}; idx[k] = l end
+      l[#l + 1] = i
+    end
+  end
+  return idx
+end
+
+--- Indices croissants des candidats des cases qui couvrent [x - r, x + r] × [y - r, y + r].
+local function ix_query(idx, size, x, y, r)
+  local out = {}
+  for cx = floor((x - r) / size), floor((x + r) / size) do
+    for cy = floor((y - r) / size), floor((y + r) / size) do
+      local l = idx[ckey(cx, cy)]
+      if l then for j = 1, #l do out[#out + 1] = l[j] end end
+    end
+  end
+  table.sort(out)
+  return out
+end
+
+local function ix_get(name, pred, size)
+  if not ix_fresh() then ix_reset() end
+  local idx = ix[name]
+  if not idx then
+    idx = ix_build(pred, size)
+    ix[name] = idx
+  end
+  return idx
+end
+
+local function is_sink(e) return e.type == "furnace" or e.type == "container" end
+local function is_tree(e) return e.type == "tree" end
+
 local function entity_at(pos)
-  for _, e in ipairs(W.entities) do
+  local ents = W.entities
+  for _, i in ipairs(ix_query(ix_get("sinks", is_sink, CELL), CELL, pos.x, pos.y, 1.2)) do
+    local e = ents[i]
     if e.valid and (e.type == "furnace" or e.type == "container") and math.abs(e._x - pos.x) <= 1.2 and math.abs(e._y - pos.y) <= 1.2 then
       return e
     end
   end
+end
+
+--- Mineurs (personnages qui minent) par TUILE minée : { [clé] = { indices croissants } } (conflit d'une tuile, lot KIT).
+local function miners_index()
+  if not ix_fresh() then ix_reset() end
+  if ix.miners then return ix.miners end
+  local idx = {}
+  local ents = W.entities
+  for i = 1, #ents do
+    local o = ents[i]
+    if o.valid and o.type == "character" and o._mining and o._mining.mining then
+      local k = ckey(floor(o._mining.position.x), floor(o._mining.position.y))
+      local l = idx[k]
+      if not l then l = {}; idx[k] = l end
+      l[#l + 1] = i
+    end
+  end
+  ix.miners = idx
+  return idx
+end
+
+--- Gisements par case (W.patches ne bouge pas pendant une passe ; refait si la table ou sa longueur change).
+local pix = {}
+local function find_resource_fast(pos)
+  local ps = W.patches
+  if pix.tbl ~= ps or pix.n ~= #ps then
+    pix = { tbl = ps, n = #ps, idx = {} }
+    for i, p in ipairs(ps) do
+      local k = ckey(floor(p.x / PCELL), floor(p.y / PCELL))
+      local l = pix.idx[k]
+      if not l then l = {}; pix.idx[k] = l end
+      l[#l + 1] = i
+    end
+  end
+  local best, best_d
+  for _, i in ipairs(ix_query(pix.idx, PCELL, pos.x, pos.y, 8)) do
+    local p = ps[i]
+    local dx, dy = p.x - pos.x, p.y - pos.y
+    local d = dx * dx + dy * dy
+    if d <= 8 * 8 and (not best_d or d < best_d) then best, best_d = p.name or "iron-ore", d end
+  end
+  return best
 end
 
 local function burn(e, tick)
@@ -1632,6 +1876,7 @@ end
 
 local function step_economy(tick)
   if tick % 60 ~= 0 then return end
+  ix, pix = {}, {} -- (lot MOCK-RAPIDE : index refaits à chaque passe ; les tests peuvent déplacer une entité entre deux passes)
   for i = 1, #W.entities do
     local e = W.entities[i]
     if e.valid then
@@ -1652,13 +1897,15 @@ local function step_economy(tick)
         e._mine_acc = (e._mine_acc or 0) + 60
         if e._mine_acc >= MINE_PERIOD then
           e._mine_acc = 0
-          local res = surface_find_resource(e._mining.position)
+          local res = find_resource_fast(e._mining.position)
           -- Lot KIT (relevé en moteur réel, banc kit-diag) : plusieurs personnages qui minent EN MÊME TEMPS la même tuile ne
           -- rendent presque rien : seul le premier (le plus bas numéro d'entité) reçoit le minerai. Option
           -- (shared_tile_mining = true) pour rejouer l'ancien modèle où chacun reçoit le sien.
           if res and not W.shared_tile_mining then
             local tx, ty = math.floor(e._mining.position.x), math.floor(e._mining.position.y)
-            for _, o in ipairs(W.entities) do
+            local ents = W.entities
+            for _, oi in ipairs(miners_index()[ckey(tx, ty)] or {}) do -- (lot MOCK-RAPIDE : les mineurs de CETTE tuile, dans l'ordre)
+              local o = ents[oi]
               if o ~= e and o.valid and o.type == "character" and o._mining and o._mining.mining
                 and math.floor(o._mining.position.x) == tx and math.floor(o._mining.position.y) == ty
                 and (o.unit_number or 0) < (e.unit_number or 0) then
@@ -1671,7 +1918,10 @@ local function step_economy(tick)
           if res then inv_of(e, defines.inventory.character_main).insert({ name = res, count = 1 }) end
           if not res then
             -- Lot KIT : un arbre sous la cible donne 4 bois et disparaît
-            for _, o in ipairs(W.entities) do
+            local ents = W.entities
+            local mp = e._mining.position
+            for _, oi in ipairs(ix_query(ix_get("trees", is_tree, CELL), CELL, mp.x, mp.y, 1)) do -- (lot MOCK-RAPIDE)
+              local o = ents[oi]
               if o.valid and o.type == "tree" and math.abs(o._x - e._mining.position.x) < 1 and math.abs(o._y - e._mining.position.y) < 1 then
                 inv_of(e, defines.inventory.character_main).insert({ name = "wood", count = 4 })
                 o.destroy()
@@ -1682,7 +1932,7 @@ local function step_economy(tick)
         end
       end
       if e.name == "burner-mining-drill" then
-        local res = surface_find_resource({ x = e._x, y = e._y })
+        local res = find_resource_fast({ x = e._x, y = e._y })
         local sink = res and entity_at(e.drop_position)
         if sink and burn(e, tick) then
           e._drill_acc = (e._drill_acc or 0) + 60
@@ -1701,6 +1951,7 @@ local function step_economy(tick)
           if src.get_item_count(item) >= need and burn(e, tick) then
             src.remove({ name = item, count = need })
             inv_of(e, defines.inventory.furnace_result).insert({ name = out, count = 1 })
+            rawset(e, "_finished", (rawget(e, "_finished") or 0) + 1) -- lot VIDEO-L5 : products_finished
             break
           end
         end
@@ -1730,6 +1981,7 @@ run_ticks_inner = function(n)
   for _ = 1, n do
     local tick = _G.game.tick + 1
     _G.game.tick = tick
+    W._in_tick = tick -- (lot MOCK-RAPIDE : recherches par chunk permises jusqu'à la marche)
     local still = {}
     for i = 1, #W.pending_paths do
       local ev = W.pending_paths[i]
@@ -1747,6 +1999,7 @@ run_ticks_inner = function(n)
     for nn in pairs(W.nth) do ns[#ns + 1] = nn end
     table.sort(ns)
     for _, nn in ipairs(ns) do if tick % nn == 0 then W.nth[nn]({ tick = tick, nth_tick = nn }) end end
+    W._in_tick = nil
     step_physics()
     step_economy(tick)
     step_groups(tick)

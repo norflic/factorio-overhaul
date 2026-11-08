@@ -32,12 +32,60 @@ C.COOL = 36000       -- ticks (10 min) de pause après un abandon ou un refus du
 C.HOLD_PASS = 60     -- relevés (5 min) de saturation au-delà desquels le repli de l'équipe ne retient plus la centrale de plus
 C.STALE_REASON = "delai" -- raison du projet annulé (ne compte pas comme un refus du plan)
 
+-- Lot TV-ENERGIE (G65, TODO_VIDEO.md l.242 : « Crise d'énergie et rien d'autre : Small Power Station […] éviter d'attendre la recherche
+-- pendant une crise » ; quote du DC du 31/10 dans champ_vapeur.lua : « pas all-in à un endroit », centrale de secours séparée). En CRISE, la
+-- centrale demandée n'est plus un champ de 2 à 6 chaudières (cher, lent à réunir quand la matière manque justement) mais une UNITÉ DE SECOURS :
+-- C.SECOURS_BOILERS chaudière (2 machines à vapeur, le plus petit gabarit), projet DISTINCT (marqué secours, rive libre ailleurs : le plan
+-- exclut déjà la rive du projet rouvert), prioritaire. Jamais de croissance en crise : tant que la crise dure, aucune autre taille ; elle
+-- reprend (saturation, avance) une fois la capacité revenue. Au plus C.SECOURS_MAX unités de secours par crise (la reconstruction sur place
+-- continue ; la crise finie, le compte repart de zéro).
+C.SECOURS_BOILERS = 1
+C.SECOURS_MAX = 3
+
+-- Lot TV-ENERGIE (diagnostic azure) : DÉFICIT de kW (kW retenus par la capitalisation avec de l'épargne qui dort, S.deficit) : la centrale de plus
+-- est demandée après C.DEFICIT_CHECKS relevés de suite (15 s), à la taille du déficit (C.deficit_size), une seule à la fois (garde « chantier ouvert »).
+C.DEFICIT_CHECKS = 3
+
+-- Lot VIDEO-L12, partie 2 (fo-logs/2026-11-07_VIDEO-AUTOMATISATION/PLAN_L6_L10_L12.md §3.3, point 2 ; gist l.48-53) : HYSTÉRÉSIS. Avant, un
+-- seul relevé sous C.SAT effaçait la saturation (seuil unique : une charge qui oscille autour de 80 % allumait et éteignait la saturation, et
+-- remettait à zéro la durée qui lève le repli, C.HOLD_PASS). Une centrale SATURÉE le reste tant qu'elle produit au moins C.SAT_EXIT de sa
+-- capacité ; l'entrée ne change pas (C.SAT pendant C.SAT_CHECKS relevés). C.requested (la demande partie) remesure toujours : le chantier
+-- ouvert retient déjà une deuxième demande (C.growth, n.pending), et la centrale posée change la capacité : la mesure qui suit la pose
+-- décide d'une centrale de plus (pas de double commande, V77).
+C.SAT_EXIT = 0.7
+
 --- Un relevé : power et capacity en J/tick (production totale et capacité des machines à vapeur bâties). Rend vrai quand la
---- saturation dure depuis C.SAT_CHECKS relevés. Une capacité nulle ou une production nulle (panne : 0 < 80 % de la capacité) n'est pas une demande.
+--- saturation dure depuis C.SAT_CHECKS relevés, et tant qu'ensuite la production reste au moins à C.SAT_EXIT de la capacité. Une
+--- capacité nulle ou une production nulle (panne : 0 < 70 % de la capacité) n'est pas une demande.
 function C.observe(st, power, capacity)
-  if capacity > 0 and power >= C.SAT * capacity then st.sat = (st.sat or 0) + 1 else st.sat = 0 end
-  st.saturated = st.sat >= C.SAT_CHECKS
+  local lim = st.saturated and C.SAT_EXIT or C.SAT
+  if capacity > 0 and power >= lim * capacity then st.sat = (st.sat or 0) + 1 else st.sat = 0 end
+  st.saturated = (st.saturated and st.sat > 0) or st.sat >= C.SAT_CHECKS
   return st.saturated
+end
+
+--- Lot TV-ENERGIE (G65) : l'équipe est-elle en CRISE d'énergie ? Deux causes : la centrale est PERDUE (n.lost : machines détruites, Cv.lost) ;
+--- ou la saturation dure depuis C.HOLD_PASS relevés PENDANT le repli de l'équipe (crise de matière : n.hold, les réserves sont affamées, un
+--- champ entier ne se réunirait pas). Rend vrai/faux et la cause ("perte" | "repli" | nil).
+function C.crisis(st, n)
+  if n.lost then return true, "perte" end
+  if (st.sat or 0) >= C.HOLD_PASS and n.hold then return true, "repli" end
+  return false, nil
+end
+
+--- Suivi du déficit de kW. st : mémoire { def_n } ; flag : il y a un déficit à ce relevé. Rend vrai quand il dure depuis C.DEFICIT_CHECKS relevés.
+function C.deficit_track(st, flag)
+  if flag then st.def_n = (st.def_n or 0) + 1 else st.def_n = 0 end
+  return st.def_n >= C.DEFICIT_CHECKS
+end
+
+--- Chaudières pour couvrir `kw` kW de déficit (boiler_kw : puissance d'une chaudière ; nil/0 : C.BOILERS). Au moins 1, au plus Cv.MAX_FIELD, une de moins
+--- par refus du plan (shrink), bornée par la voie de tapis (lane_cap).
+function C.deficit_size(kw, boiler_kw, shrink, lane_cap)
+  if not (boiler_kw and boiler_kw > 0 and kw and kw > 0) then return C.BOILERS end
+  local nb = math.min(Cv.MAX_FIELD, math.max(1, math.ceil(kw / boiler_kw - 1e-9)))
+  if lane_cap and lane_cap >= 1 then nb = math.min(nb, math.floor(lane_cap)) end
+  return math.max(1, nb - math.max(0, shrink or 0))
 end
 
 --- Nombre de chaudières de la centrale à demander, ou (nil, raison). n : { done = centrales finies, pending = centrales en
@@ -46,7 +94,8 @@ function C.growth(st, n)
   if n.off then return nil, "regle coupee" end
   -- lot ENERGIE (2/11) : `anticipate` (shared/team/sante_centrale.lua : production + chantiers + modules retenus >= 70 % de la capacité) demande la
   -- centrale AVANT la saturation ; tous les garde-fous suivants (chantier ouvert, plafonds, pauses, repli) valent aussi pour elle
-  if not st.saturated and not n.lost and not n.anticipate then return nil, "pas saturee" end
+  local deficit = (n.deficit_kw or 0) > 0 and (st.def_n or 0) >= C.DEFICIT_CHECKS -- lot TV-ENERGIE : déficit de kW installé
+  if not st.saturated and not n.lost and not n.anticipate and not deficit then return nil, "pas saturee" end
   -- lot ENERGIE (relecture) : la reconstruction qui n'aboutit pas ne retient pas le champ de remplacement (« si on y arrive vraiment pas, on
   -- le fait ailleurs ») ; n.rebuilding : ceux de n.pending qui sont des centrales rouvertes
   if n.lost then
@@ -60,6 +109,13 @@ function C.growth(st, n)
   if n.hold and (st.sat or 0) < C.HOLD_PASS and not n.lost then return nil, "repli de l'equipe (manque de matiere)" end
   if n.cool then return nil, "pause apres une centrale refusee ou abandonnee" end
   if (st.requests or 0) >= C.MAX_REQUESTS then return nil, "trop de demandes" end
+  -- lot TV-ENERGIE (G65) : en crise, l'unité de secours (la plus petite), jamais le champ ; plafonnée par crise (n.secours_n)
+  if C.crisis(st, n) then
+    if (n.secours_n or 0) >= C.SECOURS_MAX then return nil, "unites de secours epuisees pour cette crise" end
+    return C.SECOURS_BOILERS
+  end
+  -- lot TV-ENERGIE : déficit de kW sans saturation ni avance : la taille du déficit, pas celle du champ ordinaire
+  if deficit and not st.saturated and not n.anticipate then return C.deficit_size(n.deficit_kw, n.boiler_kw, n.refused, n.lane_cap) end
   -- lot ENERGIE : un CHAMP (une rangée de chaudières, un seul tapis) dimensionné sur les chaudières vivantes, au lieu d'une chaudière
   -- isolée ; sans la mesure (n.built absent : anciens appels, bancs), C.BOILERS comme avant
   if n.built ~= nil then return Cv.boilers_for(n.built, n.refused, n.lane_cap) end
@@ -89,6 +145,7 @@ end
 --- La demande est partie : la saturation est à remesurer avec la nouvelle capacité.
 function C.requested(st)
   st.sat, st.saturated = 0, false
+  st.def_n = 0 -- lot TV-ENERGIE : le déficit de kW se remesure aussi
   st.requests = (st.requests or 0) + 1
 end
 

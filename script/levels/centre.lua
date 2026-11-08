@@ -128,6 +128,26 @@ function Centre.repair(entity, player)
   return true, "done", info
 end
 
+--- Demande du DC (8/11, 13 h 20) : « le centre de commandement doit être proche du spawn du joueur, et déjà réparé au niveau 1 ».
+--- Vrai : au départ, l'épave posée près du joueur est aussitôt remplacée, gratuitement, par le centre de niveau 1. Faux : épave à
+--- réparer (lot CENTRE-JEU ; tests/centre_test.lua le remet à faux pour ses scènes d'épave).
+Centre.START_REPAIRED = true
+
+--- Remplace l'épave `entity` par le centre de niveau 1 SANS paiement (départ d'une partie neuve). Renvoie le centre ou nil.
+function Centre.repair_free(entity)
+  if not (entity and entity.valid and Centre.is_wreck_entity(entity)) then return nil end
+  local force_name = entity.force.name
+  local new = Levels.swap(entity, L.name(CC, 1))
+  if not (new and new.valid) then return nil end
+  clear(force_name)
+  new.minable = true
+  new.operable = true
+  new.health = new.prototype.max_health
+  local st = S()
+  if st then st.stats.repaired = st.stats.repaired + 1 end
+  return new
+end
+
 ---------------------------------------------------------------------------------------------------
 -- Panneau : section de l'épave (appelée par script/levels/panel.lua ; true = la section remplace l'amélioration)
 ---------------------------------------------------------------------------------------------------
@@ -172,8 +192,18 @@ Events.on(defines.events.on_player_created, function(e)
   local force = player.force
   local has = Levels.cc(force) ~= nil
   if not C.should_start(has, st.started[force.name], st.disabled) then return end
-  if not Centre.place_wreck(force, player.surface, player.position) then
+  local wreck = Centre.place_wreck(force, player.surface, player.position)
+  if not wreck then
     log("[FO-CENTRE] épave non posée pour " .. force.name .. " (pas de place libre ou centre déjà là)")
+  elseif Centre.START_REPAIRED then
+    local px, py = player.position.x, player.position.y
+    local cc = Centre.repair_free(wreck)
+    if cc then
+      log(string.format("[FO-CENTRE] %s : centre pose repare au niveau 1 en (%.1f, %.1f), a %.1f tuile(s) du joueur", force.name,
+        cc.position.x, cc.position.y, math.sqrt((cc.position.x - px) ^ 2 + (cc.position.y - py) ^ 2)))
+    else
+      log("[FO-CENTRE] " .. force.name .. " : reparation de depart impossible, l'epave reste a reparer")
+    end
   end
 end)
 
@@ -187,7 +217,7 @@ local function on_gone(e)
     st.stats.lost = st.stats.lost + 1
   end
 end
-Events.on(defines.events.on_entity_died, on_gone)
+Events.on_died(on_gone, { ennemi = false }) -- lot MORTS : la force « enemy » n'a pas d'épave de centre
 Events.on(defines.events.on_player_mined_entity, on_gone)
 Events.on(defines.events.on_robot_mined_entity, on_gone)
 Events.on(defines.events.script_raised_destroy, on_gone)

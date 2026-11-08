@@ -294,6 +294,10 @@ local function setup(opts)
   local namespaces = {}
   package.loaded["script.core.events"] = {
     on = function(id, fn) handlers.on[id] = handlers.on[id] or {}; table.insert(handlers.on[id], fn) end,
+    on_died = function(fn) -- lot MORTS (Events.on_died)
+      local id = defines.events.on_entity_died
+      handlers.on[id] = handlers.on[id] or {}; table.insert(handlers.on[id], fn)
+    end,
     on_nth_tick = function(n, fn) handlers.nth[n] = handlers.nth[n] or {}; table.insert(handlers.nth[n], fn) end,
     on_init = function(fn) table.insert(handlers.init, fn) end,
     on_configuration_changed = function(fn) table.insert(handlers.config, fn) end,
@@ -587,7 +591,7 @@ do
   for k, v in pairs(EN) do en2[k] = v end
   en2["fo-journal.threat-7"] = nil
   check(#parity_errors(FR, en2) == 1, "mutant : clé EN manquante, détectée")
-  local bad = os.tmpname()
+  local bad = require("tests.depot").tmpname() -- lot TESTS-GIT : os.tmpname() visait la racine du disque (refusée sur C:)
   local f = io.open(bad, "wb")
   f:write("local A = require(\"x\")\nlocal function g()\n  local B = require(\"y\")\n  for k in pairs(t) do end\n  return global\nend\n")
   f:close()

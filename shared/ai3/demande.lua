@@ -110,6 +110,39 @@ function Dm.dormant(stock_mu, need_mu)
   return (stock_mu or 0) > Dm.DORM_FACTOR * math.max(need_mu or 0, Dm.NEED_MIN_MU) + Dm.EPS
 end
 
+--- Lot BLOCAGE-SORTIE-2 : le stock dort-il AUJOURD'HUI, lu hors décision (le palier, shared/ai3/palier.lua, doit le savoir même quand le puits est
+--- fermé : Dm.step n'est alors pas appelé et son compte de cycles ne bouge pas) ? Mêmes MU que l'entrée de Dm.step dans Ca.prepare (objets
+--- convertibles et non militaires de `stock`, `free` = { [objet] = n } hors besoin), sans les objets convertibles « en plus » de la décision.
+--- D = relevé de données (D.mu, D.convertible, D.mil). Rend (dort, stock_mu, free_mu). Noms parcourus triés.
+function Dm.sleeping(D, stock, free)
+  if type(D) ~= "table" or type(D.mu) ~= "table" or type(stock) ~= "table" or type(free) ~= "table" then return false, 0, 0 end
+  local stock_mu, free_mu = 0, 0
+  for _, k in ipairs(sorted_keys(stock)) do
+    local m = D.mu[k]
+    if m and D.convertible and D.convertible[k] and not (D.mil and D.mil[k]) then
+      local have = stock[k] or 0
+      stock_mu = stock_mu + have * m
+      free_mu = free_mu + math.min(have, free[k] or 0) * m
+    end
+  end
+  return Dm.dormant(stock_mu, math.max(0, stock_mu - free_mu)), stock_mu, free_mu -- (free_mu > 0 va de soi : sans libre, le besoin égale le stock)
+end
+
+--- Lot BLOCAGE-SORTIE-2 : POURQUOI le puits est fermé à cette décision (Dm.step n'a pas été appelé). Avant, une seule phrase mélangeait trois causes
+--- (« réglage maître éteint, QG menacé ou besoin non évalué ») et en oubliait deux (le palier de la vidéo, le témoin du banc). c = { on = réglage maître
+--- allumé, off = puits éteint par le banc, threat = menace (input.threat), threat_why = d'où elle vient, reserve = le besoin est évalué (input.reserve ~= nil),
+--- palier_why = texte de Pl.explain quand fo-war-paliers ferme le puits }. L'ordre est celui de la décision (script/ai3/capitalisation.lua : input.demande,
+--- puis ctx.reserve). Rend (clé, texte) ; clés : "maitre", "banc", "menace", "besoin", "palier", "inconnu".
+function Dm.closed_cause(c)
+  c = c or {}
+  if not c.on then return "maitre", "puits ferme : reglage maitre fo-war-industrie eteint" end
+  if c.off then return "banc", "puits ferme : eteint par le banc (temoin)" end
+  if c.threat then return "menace", "puits ferme : menace (" .. tostring(c.threat_why or "origine non lue") .. ") : la reserve est fermee sous menace" end
+  if not c.reserve then return "besoin", "puits ferme : besoin non evalue (entree de reserve absente ou perimee)" end
+  if c.palier_why then return "palier", "puits ferme : " .. tostring(c.palier_why) end
+  return "inconnu", "puits ferme : aucune cause lue (entrees : maitre allume, pas de banc, pas de menace, besoin evalue, pas de palier)"
+end
+
 --- Un cycle. st = état (nombres : p, dormant_cycles) ; inp = { stock_mu (stock convertible, besoin compris), free_mu (stock hors besoin),
 --- Y (MU/min produits), cands = Dm.candidates(...), research = vrai s'il reste des technologies à la file, sleep = décisions de suite au-dessus
 --- du seuil avant que le stock compte comme dormant (nil : tout de suite) }.

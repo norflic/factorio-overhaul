@@ -50,7 +50,8 @@ end
 
 --- Pause d'une tâche en échec avant son retour au tableau : `base` (RETRY_TICKS), doublée pour le fond ; A.RETRY_DANGER pour un
 --- refus ou un abandon pour danger, une fuite ou une mise à l'abri (le PNJ revient dès que la menace est passée ; la porte rejuge).
-A.FEAR_FAILS = { abri = true, danger = true, fuite = true } -- refus de la porte, rappel, demi-tour, fuite, mise à l'abri
+A.FEAR_FAILS = { abri = true, away = true, danger = true, fuite = true } -- refus de la porte, rappel, demi-tour, fuite, mise à l'abri ;
+-- « away » (lot CORR-RALLIEMENT, relecture revue-0659) : tâche qui exige le QG abandonnée pendant que le QG est débordé (script/team/worker.lua)
 function A.retry(fail, fond, base)
   -- Lot DANGER-ACTIF : un but sous une menace FIXE connue est mis de côté un temps borné (shared/team/danger_actif.lua) ; le PNJ prend une autre tâche.
   if fail == Da.ASIDE_FAIL then return Da.ASIDE_TICKS end

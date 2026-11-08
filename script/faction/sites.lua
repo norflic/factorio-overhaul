@@ -24,6 +24,7 @@ local V = require("shared.faction.valeur")
 local Tr = require("shared.faction.traits")
 local T = require("shared.team.config")
 local Ext = require("script.ai3.extension") -- lot C3 EXTENSION : sites gardés et portée selon l'étendue et la défense de la base
+local S10 = require("shared.faction.sonde10") -- lot TV-PLACE (G57) : sonde en fenêtres de 10 x 10 (règle pure)
 
 local Sites = {}
 
@@ -275,6 +276,37 @@ local function count_resources(surface, area, name, limit)
   return n
 end
 
+-- Lot TV-PLACE (G57 : « Sonde : 10 × 10 par tuile ») : le test par chunk (24 tuiles dans 32 x 32) ne voit pas un gisement coupé par la frontière
+-- de deux chunks. Un chunk qui porte de la ressource sans atteindre le seuil est relu sur sa zone élargie en fenêtres de 10 x 10
+-- (shared/faction/sonde10.lua) ; ce qui était trouvé par chunk l'est toujours. Réglage fo-war-sites-10 (allumé ; absent : éteint).
+local function read_sites10() return settings.global["fo-war-sites-10"].value end
+local SITES10_LOGS = 40
+--- Le chunk (cx, cy), de zone `area`, porte-t-il assez de ressource ? Rend (vrai, zone à lire) : la zone du chunk, ou celle de la fenêtre qui le retient.
+local function enough(f, surface, cx, cy, area, tick)
+  local n = count_resources(surface, area, nil, MIN_RESOURCES)
+  if n >= MIN_RESOURCES then return true, area end
+  if n == 0 then return false, area end
+  local ok_set, on = pcall(read_sites10)
+  if not (ok_set and on == true) then return false, area end
+  local x0, y0, x1, y1 = S10.expanded(cx, cy)
+  local ex = { { x0, y0 }, { x1, y1 } }
+  if count_resources(surface, ex, nil, S10.MIN) < S10.MIN then return false, area end
+  Profiler.start("prospect:fenetres")
+  local pts = {}
+  for _, e in ipairs(surface.find_entities_filtered({ area = ex, type = "resource", limit = S10.MAX_POINTS })) do
+    pts[#pts + 1] = { x = e.position.x, y = e.position.y }
+  end
+  local win = S10.best_window(pts)
+  Profiler.stop("prospect:fenetres")
+  if not (win and S10.retained(win, cx, cy)) then return false, area end
+  f.stats.sonde10 = (f.stats.sonde10 or 0) + 1
+  if f.stats.sonde10 <= SITES10_LOGS then
+    log(string.format("[FO-SITES-10] %s : chunk (%d, %d) retenu par une fenetre de %dx%d de %d tuile(s) (%d dans le chunk seul, sous le seuil de %d) : gisement a cheval, lu autour de (%d, %d) a %.1f min",
+      f.key or "player", cx, cy, S10.SIZE, S10.SIZE, win.n, n, MIN_RESOURCES, math.floor(win.cx), math.floor(win.cy), tick / 3600))
+  end
+  return true, S10.read_area(win)
+end
+
 --- Site de la réserve qui bloque `pos` ({ x, y, resource, radius }) : { site, dist } ou nil.
 local function prospect_blocker(f, pos)
   for _, p in ipairs(f.prospects) do
@@ -432,7 +464,9 @@ local function probe(f, surface, cx, cy, tick, wanted, front, other_hqs, spawn, 
   Profiler.stop("prospect:checks")
   local area = { { cx * 32, cy * 32 }, { cx * 32 + 32, cy * 32 + 32 } }
   -- Lot SITE-PROCHE : le chunk injoignable est retenu (site bloqué) même quand le journal des refus est plein.
-  if why and count_resources(surface, area, nil, MIN_RESOURCES) >= MIN_RESOURCES then
+  local rich
+  if why then rich, area = enough(f, surface, cx, cy, area, tick) end
+  if why and rich then
     for _, res in ipairs(wanted) do
       if count_resources(surface, area, res, 64) >= MIN_SITE_RESOURCES then
         refuse(f, tick, why, res, center)
@@ -440,7 +474,8 @@ local function probe(f, surface, cx, cy, tick, wanted, front, other_hqs, spawn, 
       end
     end
   end
-  if free and count_resources(surface, area, nil, MIN_RESOURCES) >= MIN_RESOURCES then
+  if free then rich, area = enough(f, surface, cx, cy, area, tick) end
+  if free and rich then
     -- Ressource demandée la plus présente dans le chunk.
     local best, best_n = nil, 0
     for _, res in ipairs(wanted) do
@@ -634,8 +669,11 @@ function Sites.census(surface, name, pos)
   local half = Sites.CENSUS_HALF
   local out = nil
   while true do
+    Profiler.fstart("census:find") -- lot X10-S0 : mesure seulement
     local ents = surface.find_entities_filtered({ area = { { pos.x - half, pos.y - half }, { pos.x + half, pos.y + half } },
       name = name })
+    Profiler.fstop("census:find")
+    Profiler.fstart("census:idx")
     local idx = {}
     local seed, sd = nil, nil
     for _, e in ipairs(ents) do
@@ -647,7 +685,9 @@ function Sites.census(surface, name, pos)
       local d = dx * dx + dy * dy
       if sd == nil or d < sd or (d == sd and k < seed[3]) then seed, sd = { x, y, k }, d end
     end
+    Profiler.fstop("census:idx")
     if not seed then break end
+    Profiler.fstart("census:bfs")
     local qx, qy = { seed[1] }, { seed[2] }
     local seen = { [seed[3]] = true }
     local head, n, amount = 1, 0, 0
@@ -673,6 +713,7 @@ function Sites.census(surface, name, pos)
         end
       end
     end
+    Profiler.fstop("census:bfs")
     local touches = x0 <= pos.x - half + 1 or y0 <= pos.y - half + 1 or x1 >= pos.x + half - 2 or y1 >= pos.y + half - 2
     if touches and not cut and half < Sites.CENSUS_MAX then
       half = math.min(Sites.CENSUS_MAX, half * 2)

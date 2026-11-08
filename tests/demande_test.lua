@@ -147,6 +147,37 @@ local function run_all(M)
     check(not Dm.dormant(1500, 1000), "stock 1,5 fois le besoin : ne dort pas")
     check(Dm.dormant(10, 0), "besoin nul : le plancher du besoin évite la division par zéro, un stock non nul dort")
     check(not Dm.dormant(0, 0), "rien au stock : ne dort pas")
+    -- Lot BLOCAGE-SORTIE-2 : Dm.sleeping, lecture hors décision (mêmes MU que l'entrée de Dm.step)
+    local RD = { mu = { a = 2, b = 1, m = 5, x = 9 }, convertible = { a = true, b = true, m = true }, mil = { m = true } }
+    local dort, smu, fmu = Dm.sleeping(RD, { a = 1000, b = 100, m = 50, x = 40 }, { a = 900, b = 0, m = 50, x = 40 })
+    check(dort and smu == 2100 and fmu == 1800, "sleeping : MU du stock 2 100 (a, b ; ni militaire ni non convertible), libres 1 800, dort")
+    dort = Dm.sleeping(RD, { a = 1000 }, { a = 600 })
+    check(dort == true, "sleeping : stock 2 000 contre un besoin de 800 : dort (2 000 > 1 600)")
+    dort = Dm.sleeping(RD, { a = 1000 }, { a = 400 })
+    check(dort == false, "sleeping : stock 2 000, besoin 1 200 : ne dort pas")
+    check(Dm.sleeping(RD, { a = 1000 }, { a = 0 }) == false, "sleeping : rien de libre : ne dort pas")
+    check(Dm.sleeping(RD, nil, {}) == false and Dm.sleeping(RD, {}, nil) == false and Dm.sleeping(nil, {}, {}) == false,
+      "sleeping : entrée absente : ne dort pas (garde fermée)")
+    -- Lot BLOCAGE-SORTIE-2 : Dm.closed_cause, une cause DISTINCTE par branche (avant : une phrase pour trois causes)
+    local OPEN = { on = true, off = false, threat = false, reserve = true }
+    local function cause(over) local c = {} for k, v in pairs(OPEN) do c[k] = v end for k, v in pairs(over or {}) do c[k] = v end return Dm.closed_cause(c) end
+    local k1, t1 = cause({ on = false })
+    local k2, t2 = cause({ off = true })
+    local k3, t3 = cause({ threat = true, threat_why = "menace tenue (view.threat_held)" })
+    local k4, t4 = cause({ reserve = false })
+    local k5, t5 = cause({ palier_why = "palier (fo-war-paliers) : instable, 1 manque(s)" })
+    local k6, t6 = cause({})
+    check(k1 == "maitre" and k2 == "banc" and k3 == "menace" and k4 == "besoin" and k5 == "palier" and k6 == "inconnu", "closed_cause : six clés distinctes")
+    check(t3:find("view.threat_held", 1, true) and t5:find("instable", 1, true) and t1 ~= t2 and t2 ~= t3 and t3 ~= t4 and t4 ~= t5, "closed_cause : textes distincts, origine et raison reprises")
+    -- ordre de la décision : le maître passe avant la menace, la menace avant le besoin, le besoin avant le palier
+    check(cause({ on = false, threat = true, reserve = false, palier_why = "x" }) == "maitre", "closed_cause : maître d'abord")
+    check(cause({ threat = true, reserve = false, palier_why = "x" }) == "menace", "closed_cause : menace avant besoin")
+    check(cause({ reserve = false, palier_why = "x" }) == "besoin", "closed_cause : besoin avant palier")
+    check(cause({ off = true, threat = true }) == "banc", "closed_cause : le banc avant la menace")
+    -- la partie du DC (journal) : maître allumé, pas de menace, besoin évalué, palier de la vidéo qui ferme -> "palier", jamais "maitre/menace/besoin"
+    check(Dm.closed_cause({ on = true, threat = false, reserve = true, palier_why = "palier (fo-war-paliers) : instable, 1 manque(s)" }) == "palier", "DC : le palier ferme le puits")
+    local d5, _, f5 = Dm.sleeping(RD, { a = 1000 }, { a = 5000 })
+    check(d5 == true and f5 == 2000, "sleeping : le libre ne dépasse jamais le stock (2 000 MU)")
   end
 
   -------------------------------------------------------------------------------------------------
@@ -466,6 +497,13 @@ local MUTANTS = {
   { "Dm", "les ordres retenus ne sont lus qu'au début du texte", { "if tostring(r.why):find(Dm.BUSY_TEXT, 1, true) then", "if tostring(r.why):sub(1, #Dm.BUSY_TEXT) == Dm.BUSY_TEXT then" } },
   { "Dm", "un emplacement gagné se perd d'un coup", { "return math.max(blocked or 0, (prev or 0) - 1)", "return blocked or 0" } },
   { "Dm", "stock > 2 fois le besoin devient 1 fois", { "Dm.DORM_FACTOR = 2 ", "Dm.DORM_FACTOR = 0 " } },
+  { "Dm", "sleeping : les militaires comptent", { "if m and D.convertible and D.convertible[k] and not (D.mil and D.mil[k]) then", "if m and D.convertible and D.convertible[k] then" } },
+  { "Dm", "sleeping : le non convertible compte", { "if m and D.convertible and D.convertible[k] and not (D.mil and D.mil[k]) then", "if m and not (D.mil and D.mil[k]) then" } },
+  { "Dm", "sleeping : le libre dépasse le stock", { "free_mu = free_mu + math.min(have, free[k] or 0) * m", "free_mu = free_mu + (free[k] or 0) * m" } },
+  { "Dm", "closed_cause : maître ignoré", { "if not c.on then return \"maitre\"", "if false then return \"maitre\"" } },
+  { "Dm", "closed_cause : menace confondue avec le besoin", { "if c.threat then return \"menace\"", "if c.threat then return \"besoin\"" } },
+  { "Dm", "closed_cause : palier non lu", { "if c.palier_why then return \"palier\"", "if false then return \"palier\"" } },
+  { "Dm", "closed_cause : besoin avant menace", { "  if c.off then return \"banc\", \"puits ferme : eteint par le banc (temoin)\" end\n  if c.threat then", "  if c.off then return \"banc\", \"puits ferme : eteint par le banc (temoin)\" end\n  if not c.reserve then return \"besoin\", \"x\" end\n  if c.threat then" } },
   { "Dm", "le puits ne croît plus", { "Dm.GROW = 100 ", "Dm.GROW = 0 " } },
   { "Dm", "le plafond de la production disparaît", { "if by_prod < cap then cap, cap_why = by_prod, Dm.Y_MULT .. \" x production\" end", "" } },
   { "Dm", "le plafond du stock libre disparaît", { "local cap, cap_why = by_stock, \"stock libre / \" .. Dm.DRAIN_H .. \" min\"", "local cap, cap_why = by_prod, \"x\"" } },

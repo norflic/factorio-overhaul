@@ -29,6 +29,7 @@ require("script.companion.bench")
 require("script.world.hazards")
 require("script.world.enemy_mechanics")
 require("script.world.guarantee") -- lot M0 : monnaies des époques 5, 7 et 8 garanties sur toute carte
+require("script.world.explosions_mort") -- lot X10, Q5 et Q5b : explosions de mort recréées près d'un joueur seulement
 
 -- Factions IA (pilier 2) : état, équipes (cerveau d'équipe, tâches, ouvriers), commandant, guerre
 require("script.faction.state")
@@ -42,6 +43,7 @@ require("script.ai3.soldats") -- lot IA3-k : rôles des soldats (patrouille, gar
 require("script.faction.commander")
 require("script.faction.war")
 require("script.ai3.exploration") -- lot IA3-f : carte de connaissance, yeux des PNJ, éclaireurs (exploration sous brouillard)
+require("script.ai3.jalons") -- lot VIDEO-TRACES (V03) : journal [FO-JALON], époque atteinte par chaque faction
 
 -- Mode défense de tours (activable à tout moment)
 require("script.td.director")
@@ -65,6 +67,7 @@ require("script.gui.team_window")
 
 -- Dézoom étendu : Ctrl + molette écrit player.zoom sous la limite de la molette (shared/gui/dezoom.lua)
 require("script.gui.dezoom")
+require("script.debug.cerveau") -- lot DEBUG-CERVEAU (8/11) : vue « Cerveau » par joueur (zones, écart IA / réel, décisions, améliorations), rien sans spectateur
 
 -- Robots (lot RB-1, 31/10) : ateliers, kits en unités, plafond en points, ordres du joueur
 require("script.robots.usine")
@@ -73,6 +76,9 @@ require("script.robots.outils") -- lot RB-2 : outils de sélection, ralliement, 
 -- Le Bourdon, expérimental de l'âge 15 (lot BOURDON) : démonstration, /fo-bourdon, /fo-glas
 require("script.robots.bourdon")
 require("script.robots.experimentaux") -- lot EXPERIMENTAUX : effets, lancer des capsules, interface « fo-xp »
+
+-- Lot VIDEO (0.6.61) : migration UNIQUE des quatre réglages de carte de la vidéo dans une partie d'avant la 0.6.61
+require("script.ai3.video_reglages")
 
 -- Pilotage sans joueur (tests automatisés, scénarios)
 require("script.remote")

@@ -14,7 +14,8 @@
        620 tuiles) : trouvée, demande fermée, l'éclaireur rentre ; prospection seulement dans les secteurs vus ;
     5. déterminisme : deux parties identiques donnent la même carte et les mêmes dates.
 
-  Usage : lua5.2 tests/ia3f_test.lua   (depuis la racine du mod)
+  Usage : lua5.2 tests/ia3f_test.lua   (depuis la racine du mod ; §7 à 6 graines, garde-fou grossier)
+          lua5.2 tests/ia3f_petrole24.lua   (suite à part, 45 à 65 min : §7 à 24 graines, sans la §7b)
 ]]
 
 package.path = "./?.lua;" .. package.path
@@ -130,7 +131,18 @@ do
   local steps = Worker.program(pf, task, s, game.tick)
   check(steps ~= nil and task.target and (task.target.x - 100) ^ 2 + (task.target.y - 100) ^ 2 < 30 * 30,
     "minage d'appoint : gisement connu à 134 tuiles choisi (" .. tostring(task.target and task.target.x) .. ")")
+  -- Lot ROUGES-0659 : depuis 578fc2c6 (votre équipe pense à la phase 174, voulu), sa pensée du tick 174 a déjà ouvert l'exploration du
+  -- cuivre pour un SITE (prospection) quand ce contrôle arrive ; open_request (script/ai3/exploration.lua) garde la demande ouverte et
+  -- son motif (« en cours »). Les deux chemins sont contrôlés : demande déjà ouverte par un site, puis aucune demande (précondition
+  -- posée : la demande du site est retirée), le minage ouvre la sienne, motif « minage ».
   local t2 = { kind = "mine", key = "mine:copper-ore", resource = "copper-ore", count = 20 }
+  local pre = pf.ai3f.req["copper-ore"]
+  if pre then
+    check(Worker.program(pf, t2, s, game.tick) == nil and pf.ai3f.req["copper-ore"] == pre,
+      "ressource inconnue, exploration déjà demandée (" .. tostring(pre.why) .. ") : pas de minage, la demande reste ouverte")
+    pf.ai3f.req["copper-ore"] = nil
+  end
+  t2 = { kind = "mine", key = "mine:copper-ore", resource = "copper-ore", count = 20 }
   check(Worker.program(pf, t2, s, game.tick) == nil and pf.ai3f.req["copper-ore"] ~= nil and pf.ai3f.req["copper-ore"].why == "minage",
     "ressource inconnue : pas de minage, exploration demandée (minage)")
   local t3 = { kind = "mine", key = "mine:iron-ore", resource = "iron-ore", count = 20, fond = true, radius = 96 }
@@ -245,7 +257,29 @@ check(pcall(M.serialize, global), "global sérialisable (chemins ratés)")
 -- Ce que cela prouve : qu'allumer le pétrole ne dégrade pas l'exploration lointaine plus que le hasard entre graines, sur
 -- 6 graines du moteur simulé. Ce que cela ne prouve PAS : la découverte du pétrole en jeu réel, ni que l'exploration est bonne
 -- (balayage de la frontière sans direction : section 6).
+-- Lot ROUGES-0659 (8/11) : MARGES DE NON-INFÉRIORITÉ, calculées AVANT de lire la mesure qu'elles jugent
+-- (fo-logs/2026-11-08_ROUGES/CRITERE_IA3F.md). La propriété ne change pas (« pas pire que le hasard entre graines ») ; c'est son
+-- contrôle qui la mesure enfin. Sans marge, C1 était rouge 37 % du temps à chances égales sur 6 graines : il mesurait la chance de
+-- la graine (0.6.52 à 0.6.63, graines 1 à 6 : 23 trouvés allumé contre 20 éteint, issues qui changent de graine d'une version à
+-- l'autre ; 24 graines sur fd88b47a : 18 allumé contre 19 éteint, médianes 22,9 et 18,7 min). Marges pour un faux rouge de la SUITE
+-- sous 5 % à chances égales (partage de Bonferroni, choix du chef de lot), p = 43/60 trouvés (5 versions mises en commun) :
+--   C1. on_n >= off_n - m, faux rouge = somme sur a - b < -m de Bin(N, a, p) Bin(N, b, p) : N = 6 -> m = 3 (1,07 %) ; N = 24 -> m = 6 ;
+--   C2. médiane allumé <= médiane éteinte + marge, marge = 97,5e centile bootstrap de l'écart des médianes à chances égales :
+--       N = 6 -> 16,5 min ; N = 24 -> 10,6 min (l'ancien « spread » des éteints faisait 8,8 % de faux rouge à 6 graines).
+-- CE QUE CE CONTRÔLE NE DIT PAS (puissance, même calcul) : à 6 graines, c'est un GARDE-FOU GROSSIER. C1 n'est rouge que 78 % du
+-- temps si le pétrole allumé ne trouve plus jamais, 27 % si sa chance tombe de 0,72 à 0,3 : vert ne veut pas dire « aucune
+-- dégradation ». C2 n'est pas un détecteur (plafond de 30 min) : il ne voit « allumé ne trouve jamais » que 11 % du temps
+-- à 6 graines (36 % à 24). Pour
+-- une dégradation modérée, la suite à part à 24 graines (lua5.2 tests/ia3f_petrole24.lua, 45 à 65 min) : C1 (m = 6) y est rouge 64 %
+-- du temps si la chance allumé tombe à 0,4, 87 % à 0,3.
+local G24 = arg and arg[1] == "--graines24" -- suite à part (tests/ia3f_petrole24.lua)
 local SEEDS = { 1, 2, 3, 4, 5, 6 }
+local CRIT = { m = 3, marge = 16.5 }
+if G24 then
+  SEEDS = {}
+  for sd = 1, 24 do SEEDS[sd] = sd end
+  CRIT = { m = 6, marge = 10.6 }
+end
 local function find_min(opt)
   local _, _, t0x, oilx = run_oil(0.3, opt)
   return oilx and oilx - t0x <= 30 * 3600 and (oilx - t0x) / 3600 or nil
@@ -267,14 +301,12 @@ local function median(t)
   local n = #c
   return n % 2 == 1 and c[(n + 1) / 2] or (c[n / 2] + c[n / 2 + 1]) / 2
 end
-local off_lo, off_hi = math.huge, -math.huge
-for _, v in ipairs(off_t) do off_lo, off_hi = math.min(off_lo, v), math.max(off_hi, v) end
-local m_on, m_off, spread = median(on_t), median(off_t), (off_hi - off_lo) / 2
-print(string.format("  graines ou le petrole est trouve : %d (allume) / %d (eteint) ; temps median %.1f / %.1f min ; ecart tolere %.1f min",
-  on_n, off_n, m_on, m_off, spread))
-check(on_n >= off_n, string.format("chemins ratés : pétrole allumé trouve le pétrole sur au moins autant de graines que éteint (%d contre %d sur %d)",
-  on_n, off_n, #SEEDS))
-check(m_on <= m_off + spread, string.format("chemins ratés : temps médian allumé %.1f min, éteint %.1f min, écart toléré %.1f min", m_on, m_off, spread))
+local m_on, m_off = median(on_t), median(off_t)
+print(string.format("  graines ou le petrole est trouve : %d (allume) / %d (eteint) sur %d ; temps median %.1f / %.1f min ; marges %d graine(s), %.1f min",
+  on_n, off_n, #SEEDS, m_on, m_off, CRIT.m, CRIT.marge))
+check(on_n >= off_n - CRIT.m, string.format("chemins ratés : pétrole allumé pas pire qu'éteint au-delà du hasard (%d contre %d graines sur %d, marge %d)",
+  on_n, off_n, #SEEDS, CRIT.m))
+check(m_on <= m_off + CRIT.marge, string.format("chemins ratés : temps médian allumé %.1f min, éteint %.1f min, marge %.1f min", m_on, m_off, CRIT.marge))
 
 -- 7b. Reprise sur 0.6.20 (30/10), APRÈS la mesure (donc critère ajouté, pas écrit avant ; les C1/C2 ci-dessus restent tels
 -- quels) : sur 0.6.20, C1 échoue (0 graine sur 6 réglage allumé, 2 sur 6 éteint). Relevé de la graine 5 : les deux parties sont
@@ -282,12 +314,20 @@ check(m_on <= m_off + spread, string.format("chemins ratés : temps médian allu
 -- frontière (« region bloquee », 8 régions) et toutes les sorties suivantes finissent « rien après 0.0 min » : MÊME mécanisme que
 -- l'échec de la section 6, réglage éteint, sur main (lot IA3F-PETROLE). Pour séparer l'effet du pétrole de ce défaut, la même
 -- comparaison SANS chemin raté : le pétrole allumé doit trouver le pétrole sur autant de graines, en un temps médian pas plus long.
+-- Lot ROUGES-0659 (8/11) : même défaut que la §7, même correction, marges écrites AVANT de les appliquer (CRITERE_IA3F.md §9).
+-- Sans marge, la comparaison des médianes était un pile ou face à chances égales (49,9 % de faux rouge). Dispersion mesurée
+-- sur 5 versions (graines 1 à 6) : 60 trouvés sur 60 ; calibrage prudent à p = 0,95 (règle de trois) :
+--   C1b. on0_n >= off0_n - 2 (0,17 % de faux rouge) ; C2b. médiane allumé <= médiane éteinte + 6,6 min (98,75e centile, 1,35 %).
+-- Faux rouge de la suite rapide (§7 et §7b) : 4,5 %. Même réserve que la §7 : 6 graines, garde-fou grossier. La suite à
+-- 24 graines ne rejoue pas la §7b.
+if not G24 then
+local SEEDS0 = { 1, 2, 3, 4, 5, 6 }
 local function find_min0(opt)
   local _, _, t0x, oilx = run_oil(0, opt)
   return oilx and oilx - t0x <= 30 * 3600 and (oilx - t0x) / 3600 or nil
 end
 local on0_n, off0_n, on0_t, off0_t = 0, 0, {}, {}
-for _, sd in ipairs(SEEDS) do
+for _, sd in ipairs(SEEDS0) do
   local a = find_min0({ petrole = true, seed = sd })
   local b = find_min0({ petrole = false, seed = sd })
   if a then on0_n = on0_n + 1 end
@@ -296,10 +336,11 @@ for _, sd in ipairs(SEEDS) do
   off0_t[#off0_t + 1] = b or 30
   print(string.format("  sans chemin rate, graine %d : petrole trouve a %s min (allume) / %s min (eteint)", sd, tostring(a), tostring(b)))
 end
-check(on0_n >= off0_n, string.format("sans chemin raté : pétrole allumé trouve le pétrole sur au moins autant de graines (%d contre %d sur %d)",
-  on0_n, off0_n, #SEEDS))
-check(median(on0_t) <= median(off0_t), string.format("sans chemin raté : temps médian allumé %.1f min <= éteint %.1f min",
+check(on0_n >= off0_n - 2, string.format("sans chemin raté : pétrole allumé pas pire qu'éteint au-delà du hasard (%d contre %d graines sur %d, marge 2)",
+  on0_n, off0_n, #SEEDS0))
+check(median(on0_t) <= median(off0_t) + 6.6, string.format("sans chemin raté : temps médian allumé %.1f min, éteint %.1f min, marge 6,6 min",
   median(on0_t), median(off0_t)))
+end
 
 print(string.format("[IA3F] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 os.exit(fail == 0 and 0 or 1)

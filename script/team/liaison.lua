@@ -25,6 +25,7 @@
 ]]
 
 local Ln = require("shared.team.liaison")
+local Bus = require("script.team.bus") -- lot RESEAU-GRAPHE : bus de produits (liaison longue choisie par shared/team/reseau_graphe.lua)
 local M = require("shared.team.modules")
 local P = require("shared.team.plan")
 local T = require("shared.team.config")
@@ -32,10 +33,12 @@ local State = require("script.faction.state")
 local Conv = require("script.team.convoyeurs")
 local Rsv = require("script.ai3.reserve") -- le réglage maître (fo-war-industrie)
 local Registry = require("script.companion.registry")
+local Trav = require("script.team.traversee") -- lot TRAVERSEE : tapis qui enjambent les obstacles par des souterrains, gisements évités
+local Tv = require("shared.team.traversee")
 
 local Liaison = {}
 
-local SKIP_KEYS = { "alim", "raccord", "enceinte", "liaison", "site" } -- projets qui ne sont pas des modules de fabrication
+local SKIP_KEYS = { "alim", "raccord", "enceinte", "liaison", "site", "quartier" } -- projets qui ne sont pas des modules de fabrication (lot TV-ARCHI : les dépôts d'un quartier ne reçoivent pas de liaison à tapis)
 local DEAD = { refuse = true }
 local POLE_SET = {}
 for _, name in ipairs(M.POLES) do POLE_SET[name] = true end -- les poteaux des données de modules.lua, aucun nom écrit ici
@@ -129,7 +132,7 @@ local function scan_unit(f, surface, b, st, c, pid)
       local item
       if #names == 1 then item = names[1]; st.src_item[key] = item
       elseif #names == 0 then item = st.src_item[key] end -- sortie vide : l'objet vu la dernière fois
-      c.srcs[#c.srcs + 1] = { key = key, pid = pid, idx = idx, x = math.floor(o.x), y = math.floor(o.y), item = item }
+      c.srcs[#c.srcs + 1] = { key = key, pid = pid, idx = idx, x = math.floor(o.x), y = math.floor(o.y), item = item, n = item and ch.get_item_count(item) or 0 }
     end
   end
 end
@@ -219,11 +222,13 @@ local function follow_links(api, f, surface, b, st, tick)
         st.n.finis = st.n.finis + 1
         say(f, tick, string.format("quai %s : liaison finie (projet %d, %d piece(s), %d fil(s) tire(s)) : %s de %s, le PNJ n'a plus a porter", dkey, q.id, #q.ents,
           q.wired or 0, tostring(link.item), tostring(link.src)))
+        if link.bus then Bus.say(f, tick, string.format("tronc pose : quai %s relie a %s (%s, projet %d, %d piece(s)) en %.1f min", dkey, tostring(link.src), tostring(link.item), q.id, #q.ents, (tick - (link.since or tick)) / 3600)) end
       end
       apply_bar(api, f, surface, b, link)
     elseif DEAD[q.state] or q.abandoned then
       st.n.refuses = st.n.refuses + 1
       say(f, tick, string.format("quai %s : liaison refusee (projet %d : %s), le PNJ continue a la main", dkey, q.id, tostring(q.reason)))
+      if link.bus then Bus.say(f, tick, string.format("tronc refuse : quai %s <- %s (%s, projet %d), cause : %s ; le PNJ continue a la main", dkey, tostring(link.src), tostring(link.item), q.id, tostring(q.reason))) end
       st.links[dkey] = nil
     elseif link.done then
       link.done = false
@@ -233,12 +238,22 @@ local function follow_links(api, f, surface, b, st, tick)
   end
 end
 
+-- aides passées au bus (lot RESEAU-GRAPHE) : les locales de ce fichier, sans les exporter
+local BUS_H = {
+  max_open = function(free) return Ln.max_open(free) end,
+  free_workers = function(f) return free_workers(f) end,
+  hq_threat = function(f, surface) return hq_threat(f, surface) end,
+  enemy_near = function(f, surface, x, y) return enemy_near(f, surface, x, y) end,
+  pick_names = function(dp, sp) return pick_names(dp, sp) end,
+  belt = function(f, flow) return Conv.choose(f, flow) end,
+}
+
 local function finish_cycle(api, f, surface, b, st, c, tick)
   follow_links(api, f, surface, b, st, tick)
   -- appariement
   local taken = {}
   for _, dkey in ipairs(sorted_keys(st.links)) do taken[st.links[dkey].src] = true end
-  for _, d in ipairs(c.docks) do d.linked = st.links[d.key] ~= nil end
+  for _, d in ipairs(c.docks) do d.linked = st.links[d.key] ~= nil or (b.piquage ~= nil and b.piquage.links[d.key] ~= nil) end -- un quai servi par un piquage (lot PIQUAGE) n'est plus apparié par la liaison
   for _, s in ipairs(c.srcs) do s.linked = taken[s.key] == true end
   local pairs_ = Ln.pairs(c.docks, c.srcs)
   local present = {}
@@ -261,6 +276,7 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
       active, open, st.n.demandes, st.n.finis, st.n.refuses, st.n.coupees))
   end
   st.last_docks = #c.docks
+  Bus.start(BUS_H, f, surface, tick, b, st, c) -- lot RESEAU-GRAPHE : un calcul de bus par tranches (Bus.advance, une unité par passe)
   if #pairs_ == 0 then return end
   -- décisions (au plus une liaison demandée par relevé)
   local threat = hq_threat(f, surface)
@@ -332,6 +348,7 @@ function Liaison.step(api, f, surface, tick)
     b.liaison = st
   end
   if st.off then return end -- interrupteur D'ESSAI (remote fo-liaison set_param off) : témoin des bancs
+  Bus.advance(BUS_H, api, f, surface, tick) -- lot RESEAU-GRAPHE : une unité du calcul du bus (rien si le réglage est éteint ou absent)
   local c = st.cyc
   if not c then
     if tick < st.next then return end
@@ -370,7 +387,8 @@ function Liaison.plan(api, f, surface, p)
   local mg = 6
   local x0, y0 = math.min(dock.x, src.x) - mg, math.min(dock.y, src.y) - mg
   local x1, y1 = math.max(dock.x, src.x) + mg, math.max(dock.y, src.y) + mg
-  if x1 - x0 > 120 or y1 - y0 > 120 then return false, "liaison: trop loin" end
+  local box = lc.bus and Bus.MAX_BOX or 120 -- lot RESEAU-GRAPHE : un tracé de bus va plus loin qu'une liaison de quai
+  if x1 - x0 > box or y1 - y0 > box then return false, "liaison: trop loin" end
   local masks = api.read_masks(x0, y0, x1 + 1, y1 + 1)
   -- la tuile devant un tapis planifié ou bâti (d'un projet de l'équipe) reste libre : son bout n'y déverse rien
   local guard = {}
@@ -408,10 +426,14 @@ function Liaison.plan(api, f, surface, p)
       if masks.clear[k] then c = c + 1 end
       return c
     end
-    local tiles, why = P.belt_route({ x = e.src.bx, y = e.src.by }, { x = e.dst.bx, y = e.dst.by }, Ln.end_dir(e.dst), bounds, cost)
+    -- lot TRAVERSEE : l'obstacle infranchissable court (poteau, tapis, bâtiment) est franchi par une paire de souterrains, le gisement évité
+    local tiles, why, tnames = Trav.route(f, surface, p, { x = e.src.bx, y = e.src.by }, { x = e.dst.bx, y = e.dst.by }, Ln.end_dir(e.dst), bounds, cost,
+      { belt = lc.belt, sd = e.src.dir, kind = "liaison" })
     if tiles then
-      local ok, w2 = Ln.route_ok(#tiles, Ln.manhattan(e.src.bx, e.src.by, e.dst.bx, e.dst.by))
-      if ok then chosen = { e = e, tiles = tiles } break end
+      local m = Ln.manhattan(e.src.bx, e.src.by, e.dst.bx, e.dst.by)
+      local ok, w2
+      if lc.bus then ok, w2 = Bus.route_ok(#tiles, m) else ok, w2 = Ln.route_ok(#tiles, m) end
+      if ok then chosen = { e = e, tiles = tiles, names = tnames } break end
       last_why = w2
     else
       last_why = tostring(why)
@@ -425,14 +447,20 @@ function Liaison.plan(api, f, surface, p)
   taken[e.src.ax .. ":" .. e.src.ay], taken[e.dst.ax .. ":" .. e.dst.ay] = true, true
   local poles = {}
   for _, site in ipairs({ e.src, e.dst }) do
-    local px, py = Ln.pole_tile(site, free, taken)
+    -- lot TRAVERSEE : de préférence une tuile sans gisement
+    local px, py = Tv.pole_tile(function(fr) return Ln.pole_tile(site, fr, taken) end, free, Trav.ore_lookup(surface))
     if not px then return false, "liaison: aucune place pour un poteau contre un bras" end
     taken[px .. ":" .. py] = true
     planned[P.tkey(px, py)] = true
     poles[#poles + 1] = { px, py }
   end
-  local ents = Ln.entities({ src = e.src, dst = e.dst, route = tiles, names = { arm = lc.arm, belt = lc.belt, pole = lc.pole }, poles = poles })
-  local bad = Ln.verify(ents, S, D, function(x) return x.role == "liaison-tapis" end, function(x) return x.role == "liaison-bras" end)
+  local ents = Ln.entities({ src = e.src, dst = e.dst, route = tiles, names = { arm = lc.arm, belt = lc.belt, pole = lc.pole, ug = chosen.names and chosen.names.ug }, poles = poles })
+  -- preuve géométrique sur le tracé VIRTUEL (une paire souterraine = des tapis droits entre l'entrée et la sortie), puis celle des paires
+  local vents = Ln.entities({ src = e.src, dst = e.dst, route = Tv.virtual_belts(tiles), names = { arm = lc.arm, belt = lc.belt, pole = lc.pole }, poles = poles })
+  local bad = Ln.verify(vents, S, D, function(x) return x.role == "liaison-tapis" end, function(x) return x.role == "liaison-bras" end)
+  if #bad == 0 then
+    bad = Tv.verify(tiles, { x = e.src.bx, y = e.src.by }, { x = e.dst.bx, y = e.dst.by }, Ln.end_dir(e.dst), chosen.names and chosen.names.maxd or 0, nil)
+  end
   if #bad > 0 then return false, "liaison: geometrie fausse (" .. bad[1] .. ")" end
   for _, x in ipairs(ents) do x.part = 1 end
   if not api.reserve_tiles(b, p, ents) then return false, "place" end
@@ -510,6 +538,7 @@ remote.add_interface("fo-liaison", {
     elseif name == "confirm" then st.confirm = value
     elseif name == "sans_centrale" then st.sans_centrale = value and true or false
     elseif name == "off" then st.off = value and true or false
+    elseif name == "bus_period" or name == "bus_confirm" then return Bus.set_param(st, name, value)
     else return nil end
     return value
   end,

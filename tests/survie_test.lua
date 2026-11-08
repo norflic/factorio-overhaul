@@ -144,6 +144,16 @@ local function pure_facts(Sx)
   f.entries = st.entries
   -- F13 : seules les matières clés comptent
   f.shortages_n = #Sx.shortages({ { "gun-turret", 2 }, { IRON, 5 } }, KEYS)
+  -- F14 (lot VIDEO-L3, version stricte du lead, 7/11) : seule la plaque dont la collecte est PRISE (view.avail_out) n'ouvre pas la
+  -- survie ; une sortie seulement « à collecter » ne couvre rien (D1) ; sans avail : inchangé.
+  local sh2 = { { IRON, 500 }, { COPPER, 40 } }
+  local u1 = Sx.uncovered(sh2, { [IRON] = 600 })
+  f.unc_covered = #u1 == 1 and u1[1][1] == COPPER and u1[1][2] == 40
+  local u2 = Sx.uncovered(sh2, { [IRON] = 380 })
+  f.unc_part = #u2 == 2 and u2[1][1] == COPPER and u2[2][1] == IRON and u2[2][2] == 120
+  f.unc_none = Sx.uncovered(sh2, nil) == sh2
+  local u3 = Sx.uncovered(sh2, {})
+  f.unc_untaken = #u3 == 2 and u3[1][2] == 500
   return f
 end
 
@@ -473,6 +483,8 @@ check(has(src.capi, "Sv.capi(Survie.on(f)"), "maillon 5 (capitalisation) : build
 check(has(src.glue, "Board.add(f, { t }, tick)") and has(src.glue, "\"survie:mine:\""), "maillon 6 (tâches) : Survie.think ajoute les tâches au tableau")
 check(has(src.worker, "task.danger_radius or Worker.DANGER_RADIUS"), "maillon 7 (minage) : le minage de survie tolère un nid à 30 tuiles")
 check(has(src.glue, "danger_radius = Sv.MINE_DANGER_RADIUS"), "maillon 7 bis : la tâche porte son rayon")
+check(has(src.glue, "Sv.uncovered(Sv.shortages(missing, KEYS), view.avail_out)") and has(src.team, "avail_out = mq and mq.dispo_sorties or nil"),
+  "maillon 8 (lot VIDEO-L3) : la survie ne déduit que la collecte PRISE (view.avail_out), jamais une collecte seulement à faire")
 -- Journal : une ligne par cause.
 for _, tag in ipairs({ "ENTREE en mode survie", "SORTIE du mode survie", "porte assouplie", "mode survie %s a %.1f min" }) do
   check(has(src.glue, tag), "journal [FO-SURVIE] : « " .. tag .. " »")
@@ -529,6 +541,8 @@ local mutants = {
   { "refus gardés sans borne", "Sv", "while #w > Sv.WAITS_KEPT or (#w > 0 and tick - w[1] >= Sv.WINDOW) do", "while #w > 100000 do" },
   { "pas de bilan périodique", "Sv", "elseif tick - (st.beat or tick) >= Sv.BEAT then", "elseif false then" },
   { "matière hors clé comptée", "Sv", "if type(item) == \"string\" and keys[item] and n > 0 then", "if type(item) == \"string\" and n > 0 then" },
+  { "L3 : la collecte prise ne couvre plus rien", "Sv", "n = n - num(avail[item])", "n = n" },
+  { "L3 : un objet sans collecte prise lu comme couvert", "Sv", "n = n - num(avail[item])", "n = avail[item] == nil and 0 or n - num(avail[item])" },
 }
 local obs_mut = {}
 local function gate_facts(Dx, Svx)

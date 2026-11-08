@@ -345,6 +345,17 @@ for name, s in pairs(BASE) do
   end
 end
 
+--- Lot RESEAU-GRAPHE : les bras électriques de portée 1, du plus lent au plus rapide (cadence, puis nom) : le rang vient des données, aucun
+--- nom écrit ici ; le quai d'entrée en choisit un par le débit de la recette (shared/team/quai_debit.lua).
+M.ARMS = {}
+for name, s in pairs(BASE) do
+  if s.kind == "inserter" and not s.burner and s.reach == 1 then M.ARMS[#M.ARMS + 1] = name end
+end
+table.sort(M.ARMS, function(a, b)
+  if BASE[a].rate ~= BASE[b].rate then return BASE[a].rate < BASE[b].rate end
+  return a < b
+end)
+
 --- Le poteau le moins cher que `usable(nom)` accepte (vrai quand la recette est débloquée et ses matières à portée), ou
 --- nil si aucun ne l'est.
 function M.cheapest_pole(usable)

@@ -8,6 +8,8 @@
   Usage : lua5.2 tests/leviers_exec_test.lua   (depuis la racine du mod)
 ]]
 package.path = "./?.lua;" .. package.path
+local logged = {} -- lot MODULES-POSES : Equip.act écrit une ligne [FO-MODULES] par machine traitée
+log = function(s) logged[#logged + 1] = s end
 local refreshed = {}
 package.loaded["script.modules.mult"] = { refresh = function(e, force) refreshed[#refreshed + 1] = { e = e, force = force } end }
 local Equip = require("script.team.equiper")
@@ -128,6 +130,17 @@ do
     return false
   end
   check(not has_fn(ra, {}), "§4 l'ordre ouvert ne contient aucune fonction (peut aller dans global)")
+end
+
+-- §5 journal [FO-MODULES] (lot MODULES-POSES) : une ligne par machine traitée, avec la cause d'un refus
+do
+  local n0 = #logged
+  local s = scene()
+  Equip.program(s.f, s.task)
+  Equip.act(s.agent, s.f, s.task, s.surface, 3600)
+  local line = logged[#logged]
+  check(#logged == n0 + 1 and line:find("[FO-MODULES]", 1, true) == 1, "§5 une ligne [FO-MODULES] par machine traitée")
+  check(line:find("insere", 1, true) ~= nil and line:find("a 1.0 min", 1, true) ~= nil, "§5 la ligne dit insere et l'heure : " .. tostring(line))
 end
 
 print(string.format("[LEVIERS-EXEC] BILAN : %d OK, %d ECHEC(S)", pass, fail))

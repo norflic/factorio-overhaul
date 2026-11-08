@@ -47,7 +47,8 @@ end
 
 -- L'entité est encore valide ici (on_entity_died), son coffre aussi : on garde la cause et ce qui part avec elle.
 -- L'élimination elle-même vient ensuite par on_entity_destroyed (script/faction/commander.lua).
-Events.on(defines.events.on_entity_died, function(e)
+-- Lot MORTS : jamais la force « enemy » (le QG d'une faction est à la force de la faction).
+Events.on_died(function(e)
   local ent = e.entity
   if not (ent and ent.valid and ent.unit_number) then return end
   local war = State.war()
@@ -60,7 +61,7 @@ Events.on(defines.events.on_entity_died, function(e)
     tueur = e.cause and e.cause.valid and e.cause.name or nil,
     perdu = total, perdu_txt = txt,
   }
-end)
+end, { ennemi = false })
 
 --- Appelé par war.lua (Commander.on_eliminated) quand une faction perd son QG. Écrit [FO-ANEANTI] et rend la cause
 --- (genre, clé du rival) pour le message de fin de guerre.

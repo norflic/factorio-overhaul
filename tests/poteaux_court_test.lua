@@ -307,6 +307,8 @@ do
     local world = {}
     local env = setmetatable({
       P = P, Pt = Pt, Mq = Mq, Cl = Cl, Far = {}, REUSE_STATES = { fini = true },
+      -- lot TRAVERSEE : plan_power appelle Build.Trav.pole_chain ; doublure sans lecture du moteur (aucun gisement), même chaîne que P.pole_chain
+      Build = { Trav = { pole_chain = function(_, _, a, b, reach, big, free, known, opts) return P.pole_chain(a, b, reach, big, free, known, opts) end } },
       pole_kind = function() return world.big and "big-electric-pole" or POLE, world.big and 30 or 9 end,
       nearest_node = function(_, x, y) return math.floor(x / 28 + 0.5), math.floor(y / 28 + 0.5) end,
       surface_of = function() return world.surface end,
@@ -466,8 +468,8 @@ do
   end
   mutant("le but reste le carrefour", "if near then dgoal, dlive = near, live end", "")
   mutant("île comptée vivante", "e.electric_network_id == gen_net and ", "")
-  mutant("lots libres coupés d'abord", "direct = P.pole_chain(a, dgoal, dlink, false, free_street, k, opts)", "direct = P.pole_chain(a, dgoal, dlink, false, free, k, opts)")
-  mutant("pas de repli à travers les lots", "local c2 = P.pole_chain(a, dgoal, dlink, false, free, k, opts)", "local c2 = nil")
+  mutant("lots libres coupés d'abord", "direct = Build.Trav.pole_chain(f, surface, a, dgoal, dlink, false, free_street, k, opts)", "direct = Build.Trav.pole_chain(f, surface, a, dgoal, dlink, false, free, k, opts)")
+  mutant("pas de repli à travers les lots", "local c2 = Build.Trav.pole_chain(f, surface, a, dgoal, dlink, false, free, k, opts)", "local c2 = nil")
   mutant("pas de route : refus sans essai", "if far or big or not surface or #keys == 0 then return nil, \"pas de rue vers le reseau\", wait end", "if true then return nil, \"pas de rue vers le reseau\", wait end")
   mutant("sans direct, l'attente est perdue", "return nil, \"pas de rue vers le reseau\", no_route.wait", "return nil, \"pas de rue vers le reseau\"")
   mutant("direct avec les grands poteaux", "if not far and not big and surface and (no_route or #nodes >= 2) then", "if not far and surface and (no_route or #nodes >= 2) then")

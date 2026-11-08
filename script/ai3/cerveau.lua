@@ -1,7 +1,7 @@
 --[[
   IA3-c « le cerveau par besoins », côté RUNTIME (docs/IA3_CERVEAU.md §5) : relie la pensée pure
-  (shared/ai3/cerveau.lua) au jeu, derrière le réglage de carte « fo-war-ia3-cerveau » (settings/ia3c.lua ; éteint par
-  défaut, revue M10).
+  (shared/ai3/cerveau.lua) au jeu, derrière le réglage de carte « fo-war-ia3-cerveau » (settings/ia3c.lua ; allumé par
+  défaut depuis 0.5.0).
 
   - Bascule par équipe (f.team.ia3c) : relue à chaque pensée tant qu'elle est éteinte ; l'allumer en cours de partie
     MIGRE l'équipe (§5.4 : technologies reçues gardées, échelle oubliée, tâches libres retirées) ; une fois allumée,
@@ -41,12 +41,14 @@ local Rg = require("shared.ai3.reglages") -- lot IA-G : types du moteur, ressour
 local Paliers = require("script.ai3.paliers") -- lot IA-G : paliers de MESURE (déplacés ; aucune décision ne les lit)
 local Auto = require("script.ai3.automatisation") -- lot IA3-e : automatiser ce qui revient (plan directeur d'IA1-d)
 local Pet = require("script.ai3.petrole") -- lot PETROLE : aller au pétrole (sites des chaînes à fluides)
+local Lj = require("script.ai3.labo_journal") -- lot BLOCAGE-LABOS : journal [FO-LABO] (cause d'une recherche qui attend ses packs)
 local Capital = require("script.ai3.capital") -- lot CAPITAL : améliorer les bâtiments à niveaux, monter le centre
 local Harvest = require("script.team.harvest") -- lot KIT : arbres qui donnent le bois (matière naturelle des poteaux)
 local Au = require("shared.ai3.automatiser")
 local Br = require("shared.ai3.bras") -- lot SCALE : travail des bras libres
 local Pl = require("shared.ai3.places") -- lot SCALE (correction) : places du QG depuis l'emprise du prototype
 local PlacesQG = require("script.ai3.places_qg") -- lot SCALE (correction) : pose sur la grille, place vérifiée
+local Pil = require("script.ai3.pilotage") -- lot TV-PILOTE : famille armée à parts réservées (V10), journal [FO-ARMEE]
 local Capi = require("script.ai3.capitalisation") -- lot CAPIB : la capitalisation (réglage fo-war-capi, éteint par défaut)
 local Ex = require("shared.ai3.extension") -- lot C3 EXTENSION : posture et avant-postes visés (règles pures)
 local Ext = require("script.ai3.extension") -- lot C3 EXTENSION : mesures de l'étendue et journal [FO-EXTENSION]
@@ -54,6 +56,8 @@ local Bilan = require("script.ai3.bilan") -- lot BILAN : production moins consom
 local PileRt = require("script.team.pile") -- lot PILE-PRIORITE : entrées du runtime de la pile (pièces détruites, projet rouvert)
 local Rsv = require("script.ai3.reserve") -- lot INDUSTRIE I1 : le besoin évalué (réglage fo-war-industrie)
 local Dm = require("shared.ai3.demande") -- lot C2 : puits ouvert (capacités de plus selon les bras libres, journal de la saturation)
+local Sa = require("shared.ai3.saturation") -- lot VIDEO-SAT (V79) : horizon de la projection (journal [FO-SAT])
+local Defauts = require("script.ai3.defauts_rt") -- lot TV-GARDES (V88) : table défaut -> signal -> levier
 local SurvieQg = require("script.team.survie_qg") -- lot S1 : réserve de chargeurs sur la menace reçue, recherche de la tourelle
 local Dep = require("script.ai3.depenses") -- lot DEPENSES2 : laboratoires de plus quand les plaques dorment
 local Prev = require("script.ai3.prevision") -- lot PREVISION : estimateur unique de la menace (cadres « preparer », défense induite)
@@ -617,6 +621,7 @@ local function research_step(f, st, book, w, tick, view)
       lab.paid = lab.paid + 1
       lab.paid_tick = tick -- lot IA3-e : dernière unité payée (garde de K1)
     end
+    Lj.note(f, st, tech, spec, view, tick, minutes(f, tick), lab.paid < need_paid) -- lot BLOCAGE-LABOS : [FO-LABO], pourquoi la recherche attend
     lab.units = math.min(target, lab.paid)
     if lab.units >= spec.count then
       if Rj.finish_by(holder) == "progress" then
@@ -775,7 +780,11 @@ end
 
 ---------------------------------------------------------------------------------------------------
 --- Plan d'une équipe (bascule allumée), au format du planificateur.
-function Ia3.plan(f, view, book, surface, tick)
+--- Lot DÉCOUPAGE-PENSÉE (E1 en trois tranches, 7/11) : le plan du cerveau en TROIS parties, jouées à trois ticks par la pensée en
+--- étapes (script/team/team.lua) : Ia3.plan_a (E1a : recherche, gisements, plancher, armée visée, prévision, automatisation) rend
+--- ses valeurs dans une table L (données seules) ; Ia3.plan_capi (E1b) la capitalisation, gardée dans L.capi ; Ia3.plan_b (E1c :
+--- bilan, pétrole, cerveau, journaux) les reprend. Ia3.plan enchaîne les trois, d'un appel (même calcul, même ordre qu'avant).
+function Ia3.plan_a(f, view, book, surface, tick)
   local t = f.team
   local st = t.ia3
   Profiler.start("ia3:research")
@@ -849,10 +858,31 @@ function Ia3.plan(f, view, book, surface, tick)
   Prev.think(f, tick, { book = book, key_item = floor_item, iron_floor = iron_floor,
     production_first = (f.team and f.team.priorite_pf) or false, recruit_ok = not view.recruit_blocked })
   local auto = Auto.think(f, view, book, tick, research) -- lot IA3-e : modules demandés, leur état (nil : éteint)
+  return { w = w, harvest = harvest, reach = reach, known = known, research = research, mines_open = mines_open, key = key,
+    floor_item = floor_item, iron_floor = iron_floor, army_target = army_target, spare_hands = spare_hands, at_war = at_war,
+    home = home, auto = auto }
+end
+
+--- Tranche E1b : la capitalisation seule. Lot CAPI-DECIDE : sa décision (capi:decide) se joue en tranches, une par tick ; rend
+--- (nil, true) tant qu'elle attend sa tranche suivante (E1b se rejoue au tick d'après). `run` : nil (tout tout de suite) ou
+--- { t = tick de la pensée, rush = vrai pour tout finir d'un coup }.
+function Ia3.plan_capi(f, view, book, tick, L, run)
   -- Lot CAPIB : la capitalisation (une étape par pensée, décision une fois par minute) ; nil réglage éteint.
   Profiler.fstart("ia3:capi")
-  local capi = Capi.think(f, view, book, tick, research, w)
+  local capi = Capi.think(f, view, book, tick, L.research, L.w, run)
   Profiler.fstop("ia3:capi")
+  if capi == Capi.PENDING then return nil, true end
+  return capi
+end
+
+--- Tranche E1c. L : sortie de plan_a, plus L.capi (plan_capi) ; ses clés sont celles de shared/team/etapes.lua (Et.L), lues ICI
+--- seulement (contrôle statique de tests/decoupage_pensee_test.lua).
+function Ia3.plan_b(f, view, book, surface, tick, L)
+  local t = f.team
+  local st = t.ia3
+  local w, harvest, reach, known, research, mines_open, key = L.w, L.harvest, L.reach, L.known, L.research, L.mines_open, L.key
+  local floor_item, iron_floor, army_target, spare_hands, at_war = L.floor_item, L.iron_floor, L.army_target, L.spare_hands, L.at_war
+  local home, auto, capi = L.home, L.auto, L.capi
   local bilan = Bilan.think(f, view, tick) -- lot BILAN : pondération des récoltes et fabrications (nil : éteint)
   -- lot PETROLE (réglage fo-war-petrole, ÉTEINT par défaut ; éteint, rend `auto` tel quel) : sites des chaînes à fluides
   auto = Pet.think(f, view, book, tick, auto, General, Ia3.known_deposits)
@@ -875,12 +905,14 @@ function Ia3.plan(f, view, book, surface, tick)
     capital = Capital.goal(f, view, book, tick, w), -- lot AMELIORER : votre équipe aussi (machines suivies seulement)
     bilan = bilan, -- lot BILAN : { [objet] = points de priorité } (production moins consommation)
     capi = capi, -- lot CAPIB : buts de fond de la capitalisation (nil : éteinte)
+    armee = Pil.armee_input(capi), -- lot TV-PILOTE (V10) : famille armée, parts δ + α de la capitalisation (nil : réglage fo-war-armee-famille éteint)
     industrie = Rsv.on(), -- lot INDUSTRIE I1 : le besoin est évalué à chaque pensée (f.team.ia3.noyau)
     pile = PileRt.inputs(f, book, tick), -- lot PILE-PRIORITE : pièces à refaire (avec ou sans objet), projet rouvert
     prevu = Prev.pile_rows(f) } -- lot PREVISION : sites à PRÉPARER (vague imminente au-dessus de la défense ; cadres R1 de la pile)
   Profiler.start("ia3:think")
   local plan = C.think(view, book, st, ctx)
   Profiler.stop("ia3:think")
+  Pil.armee_line(f, plan, minutes(f, tick)) -- lot TV-PILOTE (V10) : journal [FO-ARMEE] aux changements de la réserve
   Ext.after(f, view, st, tick) -- lot C3 EXTENSION : mesures (étendue, rayon de base, sites gardés) et journal [FO-EXTENSION]
   -- Lot LEVIERS : tâches « equiper » (modules dans les machines posées), renouvelées à chaque pensée comme le plan.
   if capi and capi.tasks then
@@ -952,7 +984,18 @@ function Ia3.plan(f, view, book, surface, tick)
   for _, kind in ipairs(T.OUTPOST_ORDER) do if st.ever[kind] then t.done[kind] = true end end
   if st.army_done then t.done.army = true end
   st.last_plan = { active = plan.ia3.active, productive = plan.ia3.productive, K = plan.ia3.K, dominant = plan.ia3.dominant }
+  if (plan.ia3.kept_unmeasured or 0) > 0 and st.kept_said ~= plan.ia3.kept_unmeasured then -- lot 5b (W04 n°4) : refus écrit, une fois par changement
+    st.kept_said = plan.ia3.kept_unmeasured
+    log(string.format("[FO-FLUX] %s : %d tournee(s) de service gardee(s) : sorties non mesurees (rangee de l'avant-poste absente) a %.1f min", f.key or "player", st.kept_said, tick / 3600))
+  end
+  Defauts.think(f, st, view, plan, tick) -- lot TV-GARDES (V88) : table défaut -> signal -> levier, lue ici, journal [FO-DEFAUT]
   return plan
+end
+
+function Ia3.plan(f, view, book, surface, tick)
+  local L = Ia3.plan_a(f, view, book, surface, tick)
+  L.capi = Ia3.plan_capi(f, view, book, tick, L)
+  return Ia3.plan_b(f, view, book, surface, tick, L)
 end
 
 --- Après le travail de fond (script/team/poles.lua) : retire du tableau les tâches de FOND LIBRES qui extraient une
@@ -996,7 +1039,13 @@ function Ia3.after_poles(f, tick)
     end
   end
   if dropped > 0 then
+    -- Lot COLLECTE (7/11, carte de l'IA) : cette resynchronisation SANS plan ni vue remettait b.need_mult et b.hold_left à nil (board.lua,
+    -- Board.sync) jusqu'à la synchro suivante, 300 ticks plus tard : le marché (E4) ne voyait donc jamais le facteur de besoin des minages
+    -- (x 1,5 du fer qui manque) dès qu'une matière était saturée. Ils sont gardés (tests/need_mult_test.lua).
+    local b = Board.get(f)
+    local need_mult, hold_left = b.need_mult, b.hold_left
     Board.sync(f, keep, tick)
+    b.need_mult, b.hold_left = need_mult, hold_left
     st.fond_dropped = (st.fond_dropped or 0) + dropped
   end
   return dropped
@@ -1125,7 +1174,33 @@ function Ia3.measure(f, tick, plan)
       log(string.format("[FO-DEMANDE] %s : SATURATION relative au puits ouvert (besoin = plancher, buts ou debit du puits x %d min, jamais le plancher seul) : [%s] ne sont plus saturees ; saturees [%s] a %.1f min",
         f.key or "player", Dm.SAT_H, hsig, table.concat(sat, " "), minutes(f, tick)))
     end
+    Ia3.sat_journal(f, st, tick)
   end
+end
+
+--- Lot VIDEO-SAT (V79, étape 4 bis) : journal [FO-SAT], une ligne par matière dont la saturation est LEVÉE par la pente (au-dessus du
+--- seuil, mais le stock fond : projeté à Sa.H minutes sous le seuil) ou RENDUE (saturée de nouveau, ou passée sous le seuil), contre ce
+--- qui est déjà écrit (st.sat_said). Appelé une fois par minute au plus (Ia3.measure). Lecture : la mesure de Sa.H (délai entre la levée et
+--- la première livraison de la capacité qu'elle a permise) se fait sur ces lignes.
+function Ia3.sat_journal(f, st, tick)
+  local lifted, said = st.sat_lifted or {}, st.sat_said or {}
+  local items = st.sat and st.sat.items or {}
+  for _, k in ipairs(sorted_keys(lifted)) do
+    if said[k] == nil then
+      log(string.format("[FO-SAT] %s : saturation de %s LEVEE par la pente (V79) : stock libre %d qui fond de %d/min, projete a %d min sous le seuil, a %.1f min",
+        f.key or "player", k, math.floor((items[k] and items[k].s or 0) + 0.5), lifted[k], Sa.H, minutes(f, tick)))
+    end
+  end
+  for _, k in ipairs(sorted_keys(said)) do
+    if lifted[k] == nil then
+      log(string.format("[FO-SAT] %s : saturation de %s RENDUE (%s), a %.1f min", f.key or "player", k,
+        (st.saturated or {})[k] and "saturee de nouveau : la fonte s'est arretee ou le stock la couvre a l'horizon" or "sous le seuil : plus saturee du tout",
+        minutes(f, tick)))
+    end
+  end
+  local keep = {}
+  for _, k in ipairs(sorted_keys(lifted)) do keep[k] = lifted[k] end
+  st.sat_said = keep
 end
 
 return Ia3

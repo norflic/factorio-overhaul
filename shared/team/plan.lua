@@ -30,6 +30,7 @@ local M = need("shared.team.modules", "shared/team/modules")
 local Poteaux = need("shared.team.poteaux", "shared/team/poteaux") -- lot POTEAUX-ASTAR : chaîne par recherche de chemin
 local Ligne = need("shared.team.ligne", "shared/team/ligne") -- lot AGENCEMENT : disposition des bras de sortie
 local T = need("shared.team.config", "shared/team/config") -- lot RECHARGE : type de prototype du répartiteur (T.LOGISTIC_TYPES)
+local Lm = need("shared.team.lot_minerai", "shared/team/lot_minerai") -- lot MINERAI-SONDE : seuils par ressource d'un lot de gisement (règle pure)
 
 local P = {}
 
@@ -171,15 +172,24 @@ function P.main_resource(s)
 end
 
 --- État d'un lot : libre, defricher, gisement, rive, occupe, refuse ; raison (refus) ou ressource (gisement).
-function P.classify_lot(s)
+--- `seuils` (facultatif, lot MINERAI-SONDE) : les seuils par ressource de shared/team/lot_minerai_seuils.lua, passés par script/team/build.lua
+--- quand la règle L9 est allumée ; le lot est alors « gisement » dès que Lm.role y voit un minerai (tuiles, quantité ou somme des quantités
+--- de s.amount), même sous P.MIN_RES_TILES tuiles. Sans seuils : le seuil unique d'avant. L'ordre des états ne change pas (les refus,
+--- le bâti et la rive passent avant le gisement).
+function P.classify_lot(s, seuils)
   if (s.nests or 0) > 0 then return "refuse", "nid" end
   if (s.cliffs or 0) > 0 then return "refuse", "falaise" end
   if (s.foreign or 0) > 0 then return "refuse", "conteste" end
   if (s.water or 0) >= (s.tiles or P.LOT * P.LOT) * P.WATER_REFUSE then return "refuse", "eau" end
   if (s.own or 0) > 0 then return "occupe", "batiments" end
   if (s.water or 0) > 0 then return "rive", nil end
-  local r, n = P.main_resource(s)
-  if r and n >= P.MIN_RES_TILES then return "gisement", r end
+  if seuils then
+    local role, main = Lm.role(s, seuils)
+    if role == "minerai" then return "gisement", main end
+  else
+    local r, n = P.main_resource(s)
+    if r and n >= P.MIN_RES_TILES then return "gisement", r end
+  end
   if (s.trees or 0) + (s.rocks or 0) > 0 then return "defricher", nil end
   return "libre", nil
 end
@@ -687,14 +697,15 @@ end
 --- Voie 1 = gauche du sens de marche. Un bras dépose sur la voie LOINTAINE : le quai d'une voie est de l'autre côté.
 --- Un chargement latéral sur une seule voie exige un tapis DERRIÈRE la tuile chargée (sinon elle devient un virage) :
 --- bout mort à 3 tuiles. `belt` (lot CONVOYEURS) : le tapis des têtes, "transport-belt" par défaut.
-function P.feeder(port, sources, quai_inserter, belt)
+function P.feeder(port, sources, quai_inserter, belt, arms)
+  arms = arms or 1 -- lot RESEAU-GRAPHE : bras par voie de quai (1 : comme avant) ; le second est à la profondeur 3, la tuile la plus reculée de la tête
   local d = port.dir
   local v = DV[d]
   local lx, ly = left_of(d)
   local function at(k, s) return port.x - k * v[1] + s * lx, port.y - k * v[2] + s * ly end
   local ents, arrivals, chests = {}, {}, {}
   local any_belt = sources[1] == "tapis" or sources[2] == "tapis"
-  local depth = any_belt and 3 or 1
+  local depth = (any_belt or arms > 1) and 3 or 1
   for k = 1, depth do
     local x, y = at(k, 0)
     ents[#ents + 1] = { name = belt or "transport-belt", x = x + 0.5, y = y + 0.5, dir = d, role = "tete" }
@@ -706,9 +717,17 @@ function P.feeder(port, sources, quai_inserter, belt)
       -- bras du côté OPPOSÉ à la voie (dépose sur la voie lointaine), coffre au-delà
       local ix, iy = at(1, -side)
       local cx, cy = at(1, -2 * side)
-      ents[#ents + 1] = { name = quai_inserter or "inserter", x = ix + 0.5, y = iy + 0.5, dir = dir_of(-side * lx, -side * ly), role = "quai-bras" }
-      ents[#ents + 1] = { name = "iron-chest", x = cx + 0.5, y = cy + 0.5, dir = 0, role = "quai", item = item }
+      local q_arm, q_chest = quai_inserter or "inserter", "iron-chest" -- pièces du quai (un ou deux bras, lot RESEAU-GRAPHE)
+      ents[#ents + 1] = { name = q_arm, x = ix + 0.5, y = iy + 0.5, dir = dir_of(-side * lx, -side * ly), role = "quai-bras" }
+      ents[#ents + 1] = { name = q_chest, x = cx + 0.5, y = cy + 0.5, dir = 0, role = "quai", item = item }
       chests[#chests + 1] = { x = cx + 0.5, y = cy + 0.5, item = item, lane = lane }
+      if arms > 1 then
+        local jx, jy = at(3, -side)
+        local kx, ky = at(3, -2 * side)
+        ents[#ents + 1] = { name = q_arm, x = jx + 0.5, y = jy + 0.5, dir = dir_of(-side * lx, -side * ly), role = "quai-bras" }
+        ents[#ents + 1] = { name = q_chest, x = kx + 0.5, y = ky + 0.5, dir = 0, role = "quai", item = item }
+        chests[#chests + 1] = { x = kx + 0.5, y = ky + 0.5, item = item, lane = lane }
+      end
     elseif item and sources[lane] == "tapis" then
       -- arrivée latérale à la 2e tuile, du côté de la voie
       local ax, ay = at(2, side)
