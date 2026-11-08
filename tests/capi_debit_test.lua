@@ -230,8 +230,9 @@ if cs then
   for _, m in ipairs(st.mods) do if m.id == 9103 or m.id == 9104 then m.reason = "pile" end end
   local sp = Capi.slots(f, cs, {}, tick)
   check(pa.pile_tick == tick and pb.pile_tick == tick and sp.free_piled == 0, "§6 réserve « pile » : horloge posée à la première pensée, emplacement encore tenu")
+  -- lot VIDEO-SIEGES (C4, règle 9) : 30 min plus tard la réserve « couvrir:reserve » (injectée sans progrès) est figée elle aussi : un de moins
   local sp2 = Capi.slots(f, cs, {}, tick + 30 * MIN)
-  check(sp2.free_piled == Em.PILED_FREE and sp2.counted == sl.counted and sp2.why:find("suspendu(s) par la pile", 1, true) ~= nil,
+  check(sp2.free_piled == Em.PILED_FREE and sp2.counted == sl.counted - 1 and sp2.why:find("suspendu(s) par la pile", 1, true) ~= nil,
     "§6 suspendus depuis 30 min : emplacements libérés (" .. sp2.why .. ")")
   pa.pile_tick = tick - 40 * MIN
   for _, m in ipairs(st.mods) do if m.id == 9103 then m.reason = "materiaux" end end

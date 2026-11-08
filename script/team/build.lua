@@ -3988,7 +3988,6 @@ local function quai_tasks(f, p, surface, out)
   -- lot CHARBON-CENTRALE : le coffre d'une centrale se remplit en URGENCE dès qu'il passe sous un seuil d'avance (consommation à pleine
   -- charge des chaudières × Cc.LEAD_S), jamais seulement au-dessous de Build.QUAI_LOW à la priorité du projet (63 : coffre oublié, centrale
   -- de scarlet à sec 8 fois dans la partie du DC en 0.6.18)
-  Profiler.fcount("e2:coffres", #p.quais + #p.outs) -- lot X10-S0 : coffres relus par pensée (mesure seulement, détail)
   local rate
   if is_plant_project(p) then
     local _, kw = plant_burn_kw(p)
@@ -4947,13 +4946,17 @@ function Build.think(f, surface, tick)
       -- lot CHARBON-CENTRALE (relecture) : une centrale ROUVERTE (pièce détruite : reserve, defrichage, fantomes, raccordement, bloque)
       -- garde ses chaudières debout qui brûlent : son coffre se remplit aussi (avant : seulement fini ou chantier, coffre oublié pendant
       -- toute la reconstruction) ; quai_tasks ne fait rien sans le coffre réel de l'équipe
+      -- lot X10-S0 : portée e2:quai autour du choix entier (quais, et sorties de COLLECTE) ; l'appel de quai_tasks reste la ligne qui suit
+      -- la condition (relue telle quelle par tests/charbon_centrale_test.lua) ; e2:coffres compté à l'unique appel, et non dans quai_tasks,
+      -- que tests/quotas_glue_test.lua charge à part, sans profileur (mesure seulement, détail)
+      Profiler.fstart("e2:quai")
       if p.state == "fini" or p.state == "chantier" or (p.reopened and p.state ~= "refuse" and is_plant_project(p)) then
-        Profiler.fstart("e2:quai")
         quai_tasks(f, p, surface, tasks)
-        Profiler.fstop("e2:quai")
+        Profiler.fcount("e2:coffres", #p.quais + #p.outs)
       elseif Build.Colr.collects_outs(p.state, #p.outs) then
         out_tasks(f, p, surface, tasks) -- lot COLLECTE : les coffres de sortie d'une bande en réserve ou refusée sont vidés aussi
       end
+      Profiler.fstop("e2:quai")
     end
   end
   Profiler.fstart("e2:rues")
