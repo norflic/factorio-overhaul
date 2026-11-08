@@ -29,6 +29,7 @@ Cc.LEAD_S = 240         -- secondes d'avance du seuil (aller du PNJ depuis le co
 Cc.FILL_S = 1200        -- secondes de charbon visées au coffre après un remplissage (20 min à pleine charge)
 Cc.MIN_LOW = 60         -- seuil jamais plus bas que celui d'avant le lot (Build.QUAI_LOW)
 Cc.MIN_FILL = 400       -- cible jamais plus basse que la charge d'avant le lot (Build.QUAI_FILL)
+Cc.STEAM_COMFORT = 0.75 -- tampon de vapeur bas : remplir tant que le coffre est sous cette part de la cible (= Vt.COMFORT)
 Cc.CAP_SHARE = 0.9      -- part de la place du coffre visée au plus
 Cc.PRIO = 91            -- URGENCE (O.URGENT_PRIO = M.URGENT = 90) : le courant de toute la base, juste devant « défendre d'abord » (90)
 Cc.EVERY = 600          -- ticks entre deux relevés des centrales (projet d'alimentation)
@@ -46,8 +47,10 @@ function Cc.rate(kw, coal_kj)
 end
 
 --- Remplissage du coffre de la centrale. n = charbon au coffre ; rate = consommation (Cc.rate) ; have = charbon au coffre du QG ;
---- cap = place du coffre en charbon (contenu compris), nil si inconnue. Rend { low, target, prio, due, count, why, short }.
-function Cc.refill(n, rate, have, cap)
+--- cap = place du coffre en charbon (contenu compris), nil si inconnue. steam_low (lot TV-VAPEUR, V36) : le tampon de vapeur de la
+--- centrale est bas (shared/team/vapeur_tampon.lua) : le remplissage est aussi dû tant que le coffre est sous le confort de la cible
+--- (Cc.STEAM_COMFORT), même au-dessus du seuil d'avance. Rend { low, target, prio, due, count, why, short, steam }.
+function Cc.refill(n, rate, have, cap, steam_low)
   rate = rate or 0
   local low = math.max(Cc.MIN_LOW, math.ceil(rate * Cc.LEAD_S - 1e-9))
   local target = math.max(Cc.MIN_FILL, math.ceil(rate * Cc.FILL_S - 1e-9))
@@ -58,11 +61,14 @@ function Cc.refill(n, rate, have, cap)
     if low > math.floor(target / 2) then low = math.floor(target / 2) end
   end
   local r = { low = low, target = target, prio = Cc.PRIO, due = false, count = 0 }
-  if n >= low then r.why = "au-dessus du seuil" return r end
+  local trigger = low
+  if steam_low then trigger = math.max(low, math.floor(target * Cc.STEAM_COMFORT)) end
+  if n >= trigger then r.why = "au-dessus du seuil" return r end
+  r.steam = (n >= low) or nil -- au-dessus du seuil d'avance : c'est le tampon de vapeur qui déclenche
   if not have or have <= 0 then r.why, r.short = "coffre du QG sans charbon", true return r end
   r.count = math.min(target - n, have)
   if r.count <= 0 then r.why = "rien a porter" return r end
-  r.due, r.why = true, "sous le seuil"
+  r.due, r.why = true, r.steam and "tampon de vapeur bas" or "sous le seuil"
   return r
 end
 
