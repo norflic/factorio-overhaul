@@ -498,6 +498,62 @@ local function run_all(Cf)
     check(i100 < 30000, "16 : 100 ids sous 3 x 10^4 instructions par pas (" .. i100 .. ")")
     check(i1000 < 15 * i100, "16 : croissance quasi lineaire (1000 ids < 15 x 100 ids)")
   end
+
+  -- 18. Lot VIDEO-COUVERTURE 5 (critères C5.2 et C5.3, TODO G35 et G58). Les critères sont écrits avant le code.
+  section("18. module suivant refuse en amont, relance du MEME plan")
+  do
+    local rec_c = { ingredients = { { name = "objet-a", amount = 2 }, { name = "objet-b", amount = 1 } } }
+    -- C5.2 : le module N+1 (qui consomme le produit de N) est refusé tant que N n'a rien produit, levé à sa 1re production.
+    local b = Cf.new()
+    Cf.engage(b, { id = 1, item = "objet-a", base = 0 }, 0)
+    local r = Cf.step(b, { [1] = { count = 0 } }, MIN)
+    local why = Cf.upstream(r.hold, rec_c, "objet-c")
+    check(type(why) == "string" and why:find("en amont", 1, true) and why:find("objet-a", 1, true),
+      "18 : module N+1 refuse tant que N n'a rien produit, le refus nomme l'amont (" .. tostring(why) .. ")")
+    check(Cf.upstream(r.hold, { ingredients = { { name = "objet-b", amount = 1 } } }, "objet-d") == nil,
+      "18 : un module qui ne consomme pas l'objet en attente n'est pas retenu")
+    r = Cf.step(b, { [1] = { count = 3 } }, 2 * MIN)
+    check(Cf.upstream(r.hold, rec_c, "objet-c") == nil, "18 : leve a la 1re production du module N")
+    -- levé aussi à l'échec (borne : un engagé ne bloque jamais le suivant au-delà de Cf.STALL)
+    local b2 = Cf.new()
+    Cf.engage(b2, { id = 1, item = "objet-a", base = 0 }, 0)
+    local r_stall = Cf.step(b2, { [1] = { count = 0, cause = "courant" } }, STALL)
+    check(#r_stall.failed_now == 1 and Cf.upstream(r_stall.hold, rec_c, "objet-c") == nil, "18 : leve aussi a l'echec (jamais bloque au-dela de Cf.STALL)")
+    -- fermé par défaut : relevé de confirmation absent = pas de suspension ; recette inconnue pour un objet nommé = refus
+    check(Cf.upstream(nil, rec_c, "objet-c") == nil, "18 : sans releve de confirmation (nil) : aucune suspension (comme avant)")
+    local why_unknown = Cf.upstream({ ["objet-a"] = "x" }, nil, "objet-c")
+    check(type(why_unknown) == "string" and why_unknown:find("recette inconnue", 1, true) and why_unknown:find("objet-c", 1, true),
+      "18 : recette inconnue d'un objet nomme : refus ecrit, jamais une option ouverte (" .. tostring(why_unknown) .. ")")
+    check(Cf.upstream({ ["objet-a"] = "x" }, nil, nil) == nil, "18 : option sans recette ni nom (foreuse) : rien en amont")
+    check(Cf.upstream({ ["objet-a"] = "x", ["objet-b"] = "y" }, { ingredients = { { name = "objet-b", amount = 1 }, { name = "objet-a", amount = 1 } } }, "objet-c"):find("objet-a", 1, true),
+      "18 : plusieurs amonts en attente : le plus petit nom (deterministe)")
+
+    -- C5.3 : un ordre refusé par l'exécutant occupé est ré-émis APRÈS Cf.RETRY, le MÊME plan, pas un autre.
+    local plan = { key = "chaine:objet-c", kind = "chaine", item = "objet-c", n = 4, rate = 8, cost_m = 120, items = { { "objet-a", 2 } },
+      mk = function() return nil end }
+    local ob = Cf.new()
+    check(Cf.defer(ob, plan, 0) == true, "18 : un ordre refuse (executant occupe) est mis de cote")
+    local again, w = Cf.defer(ob, plan, 10)
+    check(again == false and type(w) == "string", "18 : le meme ordre n'est pas mis de cote deux fois")
+    local rr = Cf.step(ob, {}, RETRY - 1)
+    check(#rr.retry == 0, "18 : rien avant Cf.RETRY")
+    rr = Cf.step(ob, {}, RETRY)
+    check(#rr.retry == 1 and rr.retry[1].spec and rr.retry[1].spec.n == 4 and rr.retry[1].spec.key == "chaine:objet-c"
+      and rr.retry[1].spec.cost_m == 120 and rr.retry[1].spec.items[1][1] == "objet-a" and rr.retry[1].spec.items[1][2] == 2,
+      "18 : apres Cf.RETRY, le MEME plan (cle, taille, cout, matieres)")
+    check(rr.retry[1].spec.mk == nil and rr.retry[1].spec ~= plan, "18 : copie sans fonction, jamais l'original")
+    local other = { key = "chaine:objet-c", kind = "chaine", item = "objet-c", n = 9, cost_m = 999 }
+    check(Cf.defer(ob, other, RETRY + 5) == false, "18 : un AUTRE plan de meme cle ne remplace pas celui mis de cote")
+    rr = Cf.step(ob, {}, RETRY + MIN)
+    check(#rr.retry == 0, "18 : une seule re-emission par fenetre")
+    rr = Cf.step(ob, {}, STALL)
+    check(#rr.failed_now == 1 and rr.failed_now[1].id == Cf.order_id(plan), "18 : abandon borne a Cf.STALL (id " .. tostring(Cf.order_id(plan)) .. ")")
+    check(Cf.forget(ob, Cf.order_id(plan)) == true and Cf.defer(ob, other, STALL + 1) == true, "18 : apres l'oubli, un nouveau plan peut etre mis de cote")
+    -- fermé par défaut : ordre sans clé ou sans objet nommable
+    check(Cf.defer(Cf.new(), { kind = "chaine", item = "objet-c" }, 0) == false, "18 : ordre sans cle : refuse")
+    check(Cf.defer(Cf.new(), { key = "k" }, 0) == true, "18 : ordre sans objet : suivi sous sa cle")
+    check(Cf.defer(Cf.new(), plan, nil) == false, "18 : tick absent : refuse")
+  end
 end
 
 -- Banc sur la règle d'origine.
@@ -522,6 +578,11 @@ local MUTANTS = {
   { "arret jamais detecte", { 'elseif u.state == "confirme" and Cf.QUIET ~= nil and', 'elseif false and' } },
   { "sortie pleine retiree de la capacite", { "Cf.KEEP = { sortie = true }", "Cf.KEEP = {}" } },
   { "perte ignoree", { '(type(o) == "table" and o.lost) or ', 'false or ' } },
+  { "module suivant jamais retenu (C5.2)", { "if first == nil then return nil end", "do return nil end" } },
+  { "recette inconnue : option ouverte (C5.2)", { 'if name ~= nil then return "en amont : recette inconnue : " .. tostring(name) end', "" } },
+  { "amont en attente : pas le plus petit nom (C5.2)", { 'and (first == nil or n < first)', 'and first == nil' } },
+  { "un autre plan remplace le plan mis de cote (C5.3)", { "return Cf.engage(book, { id = id,", "Cf.forget(book, id) return Cf.engage(book, { id = id," } },
+  { "ordre sans cle accepte (C5.3)", { 'if id == nil then return false, "ordre sans cle" end', 'if id == nil then id = "ordre:?" end' } },
 }
 local killed = 0
 quiet = true

@@ -35,6 +35,7 @@ local Mg = require("shared.team.migration_champ")
 local Rb = require("shared.team.migration_retour") -- lot AZURE : retour en arrière d'une bande qui n'aboutit pas (règle pure)
 local Th = require("shared.team.thermique") -- lot THERMIQUE : couvert, balayage, protection, ordre, créneaux (règle pure)
 local Rc = require("shared.team.reconstruction")
+local Gens = require("script.team.generateurs") -- lot X10-S4 : registre des génératrices (plus de recherche sur toute la surface)
 local State = require("script.faction.state")
 local Stock = require("script.team.stock")
 local Build = require("script.team.build")
@@ -44,6 +45,7 @@ local Ra = require("script.team.reserve_amorcage") -- lot FOREUSES-THERMIQUES : 
 local Sw = require("shared.team.foreuse_swap") -- (Sw.reserve_keepers : les K gardées d'un retrait de masse)
 local PileRt = require("script.team.pile") -- lot THERMIQUE5 : porte de la pile pour le départ d'une bande neuve pendant une retenue
 
+local Profiler = require("script.core.profiler") -- lot X10-S0 : portees fines (mesure seulement)
 local Mig = {}
 
 local CFG = Mg.CFG
@@ -300,10 +302,52 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Retrait d'une partie
 ---------------------------------------------------------------------------------------------------
---- Rend `n` objets au stock ; ce qui ne tient pas est répandu au sol du QG (jamais perdu).
+--- Rend `n` objets au stock ; ce qui ne tient pas est répandu au sol du QG (jamais perdu). Lot STOCKAGE-VITAL (objets au sol, 7/11 : 1 327
+--- copper-plate rendues à un stock plein dans la partie du DC, 1 168 au sol) : DERNIER RECOURS seulement, contents_fit est vérifié avant
+--- chaque retrait ; le reste est marqué à ramasser (force de l'équipe) et Stock.pick_ground le reprend dès que le stock a la place.
 local function give(f, surface, name, n)
   local put = Stock.insert(f, name, n)
-  if put < n then surface.spill_item_stack(f.hq_pos, { name = name, count = n - put }, false) end
+  if put < n then surface.spill_item_stack(f.hq_pos, { name = name, count = n - put }, true, f.force, false) end
+end
+
+--- Lot STOCKAGE-VITAL (objets au sol, 7/11) : le contenu des paires `ids` de `list` (toutes si nil) tient-il au stock ? Carburant et objet
+--- de la foreuse, inventaires et objet du four ou du coffre (un puits partagé compté une fois), comme retire() les rend. Faux : le retrait
+--- attend (ligne [FO-MIGRATION] au plus une par minute et par équipe), rien n'est répandu.
+local function contents_fit(f, ids, list, ents, tick)
+  if not Stock.can_take then return true end
+  local byid, want, seen = {}, {}, {}
+  for _, pr in ipairs(list) do byid[pr.id] = pr end
+  local function add(inv)
+    if not inv then return end
+    local c = inv.get_contents()
+    for _, name in ipairs(sorted_keys(c)) do want[#want + 1] = { name, c[name] } end
+  end
+  local n = 0
+  for _, id in ipairs(ids or {}) do
+    local pr = byid[id]
+    if pr then
+      local d, s = ents[pr.id], ents[pr.sink_id]
+      if d and d.valid then
+        add(d.get_fuel_inventory())
+        want[#want + 1] = { d.name, 1 }
+        n = n + 1
+      end
+      if s and s.valid and not seen[pr.sink_id] then
+        seen[pr.sink_id] = true
+        for _, inv_name in ipairs(s.type == "furnace" and FURNACE_INVENTORIES or CHEST_INVENTORIES) do add(s.get_inventory(defines.inventory[inv_name])) end
+        want[#want + 1] = { s.name, 1 }
+      end
+    end
+  end
+  local ok, need, empty = Stock.can_take(f, want)
+  if ok then return true end
+  tick = tick or (game and game.tick) or 0
+  if not f.migr_full_log or tick - f.migr_full_log >= 3600 then
+    f.migr_full_log = tick
+    log(string.format("[FO-MIGRATION] %s : retrait de %d paire(s) remis : le stock ne tient pas leur contenu (%d case(s) neuve(s), %d vide(s)), rien au sol",
+      name_of(f), n, need or 0, empty or 0))
+  end
+  return false
 end
 
 --- Vide un inventaire dans le stock (le surplus qui ne tient pas est répandu au sol du QG). Rend le nombre d'objets repris.
@@ -323,6 +367,8 @@ end
 --- Retire les paires `st.ids` encore debout : l'ancienne n'est plus « possédée » AVANT d'être retirée (sinon on_entity_destroyed compterait
 --- une perte d'avant-poste), contenus et objets rendus au stock. Rend (paires retirées, objets rendus { [nom] = n }).
 local function retire(f, surface, o, st, list, ents)
+  -- lot STOCKAGE-VITAL (objets au sol, 7/11) : rien n'est retiré si le contenu des paires ne tient pas au stock (4e valeur : vrai)
+  if not contents_fit(f, st.ids, list, ents) then return 0, {}, {}, true end
   local byid = {}
   for _, pr in ipairs(list) do byid[pr.id] = pr end
   local got, removed, gone_drills, gone_sinks = {}, 0, {}, {}
@@ -495,11 +541,14 @@ local function fuel_burn(f, surface)
   local value = proto and proto.fuel_value or 0
   if value <= 0 then return 0 end
   local watts = 0
-  for _, g in ipairs(surface.find_entities_filtered({ type = "generator", force = f.force })) do
+  -- Lot X10-S4 : registre des génératrices ; somme dans l'ordre des unit_number, au lieu de l'ordre du moteur (à l'arrondi près ;
+  -- fo-logs/2026-11-07_X10/S4_CRITERES.md §2)
+  for _, g in ipairs(Gens.list(surface, f.force, "generator")) do
     if g.valid then watts = watts + (g.energy_generated_last_tick or 0) * 60 end
   end
   return watts / value
 end
+Mig._fuel_burn = fuel_burn -- (lot X10-S4) appel direct du micro-banc x10-s4-ombre (script/team/generateurs.lua) ; aucun autre usage
 
 --- Gisements de la force pour la règle pure : un par propriétaire de champ (les voisins du même gisement lui sont rattachés), un par
 --- avant-poste ou gisement voulu sinon. Rend (liste, par numéro).
@@ -936,7 +985,11 @@ local function step_project(f, surface, ms, o, st, tick, free, book)
   -- "retirer" ou "passer" : le plan reprend (p.degele)
   if act == "retirer" then
     if not list then if st.frame then list, ents = survey_field(f, o) else list, ents = survey(o) end end
-    local removed, got, undo = retire(f, surface, o, st, list, ents)
+    local removed, got, undo, full = retire(f, surface, o, st, list, ents)
+    if full then -- lot STOCKAGE-VITAL : le stock ne tient pas le contenu des paires ; la partie attend au même stade, rien au sol
+      say_why(f, ms, st, "stock-plein", string.format("avant-poste %d : projet %d : retrait remis, le stock ne tient pas le contenu des paires", o.id, st.pid), true)
+      return
+    end
     local purged = purge_recon(f, o)
     st.retired = removed
     local packed, lost = Rb.pack(undo)
@@ -1274,19 +1327,21 @@ local function sweep(f, surface, ms, free, book, tick)
         local before = {}
         for i, q in ipairs(owners) do before[i] = q.drills or 0 end
         local fl = byid[a.id]
-        local removed, got = retire(f, surface, o, { ids = ids, frame = true }, list, ents)
-        -- la comptabilité des foreuses de l'avant-poste ne change pas : l'électrique de la bande en tient lieu (comme au retrait d'une bande)
-        for i, q in ipairs(owners) do
-          q.drills = before[i]
-          purge_recon(f, q)
+        local removed, got, _, full = retire(f, surface, o, { ids = ids, frame = true }, list, ents)
+        if not full then -- lot STOCKAGE-VITAL : sinon le balayage attend la place au stock (rien compté, rien écrit)
+          -- la comptabilité des foreuses de l'avant-poste ne change pas : l'électrique de la bande en tient lieu (comme au retrait d'une bande)
+          for i, q in ipairs(owners) do
+            q.drills = before[i]
+            purge_recon(f, q)
+          end
+          o.migr_credit = (o.migr_credit or 0) + removed
+          ms.retired = (ms.retired or 0) + removed
+          ms.swept = (ms.swept or 0) + removed
+          swept = swept + removed
+          say(f, ms, string.format("gisement de l'avant-poste %d (%s) : %d paire(s) thermique(s) retiree(s) de force, bande electrique productive (%d foreuse(s) en marche, "
+            .. "%.2f ore/s contre %.2f ore/s thermique, %d paire(s) avec combustible), repris au stock : %s", o.id, o.kind, removed, fl and fl.working or 0,
+            fl and fl.working * fl.el_rate or 0, fl and (Th.supply(fl)) or 0, fl and fl.fueled or 0, items_text(got)), true)
         end
-        o.migr_credit = (o.migr_credit or 0) + removed
-        ms.retired = (ms.retired or 0) + removed
-        ms.swept = (ms.swept or 0) + removed
-        swept = swept + removed
-        say(f, ms, string.format("gisement de l'avant-poste %d (%s) : %d paire(s) thermique(s) retiree(s) de force, bande electrique productive (%d foreuse(s) en marche, "
-          .. "%.2f ore/s contre %.2f ore/s thermique, %d paire(s) avec combustible), repris au stock : %s", o.id, o.kind, removed, fl and fl.working or 0,
-          fl and fl.working * fl.el_rate or 0, fl and (Th.supply(fl)) or 0, fl and fl.fueled or 0, items_text(got)), true)
       end
     end
   end
@@ -1318,15 +1373,17 @@ local function sweep(f, surface, ms, free, book, tick)
       if #ids > 0 then
         local before = {}
         for i, q in ipairs(owners) do before[i] = q.drills or 0 end
-        local removed, got = retire(f, surface, o, { ids = ids, frame = true }, list, ents)
-        for i, q in ipairs(owners) do q.drills = (before)[i]; purge_recon(f, q) end -- (comptabilité inchangée, comme le balayage)
-        ms.retired = (ms.retired or 0) + removed
-        ms.dry_retired = (ms.dry_retired or 0) + removed
-        swept = swept + removed
-        log(string.format("[FO-THERMIQUE] %s : brûleur(s) à sec retiré(s) : %d sur le gisement de l'avant-poste %d (%s), à sec depuis %d min au moins, "
-          .. "%d bande(s) finie(s) sur ce gisement (une au moins sur ce minerai), %d paire(s) restent ; repris au stock : %s", name_of(f), removed, o.id,
-          o.kind, Th.CFG.dry_wait / 3600, fl.fini or 0,
-          math.max(0, fl.pairs - removed), items_text(got)))
+        local removed, got, _, full = retire(f, surface, o, { ids = ids, frame = true }, list, ents)
+        if not full then -- lot STOCKAGE-VITAL : sinon le retrait à sec attend la place au stock (ms.dry reste)
+          for i, q in ipairs(owners) do q.drills = (before)[i]; purge_recon(f, q) end -- (comptabilité inchangée, comme le balayage)
+          ms.retired = (ms.retired or 0) + removed
+          ms.dry_retired = (ms.dry_retired or 0) + removed
+          swept = swept + removed
+          log(string.format("[FO-THERMIQUE] %s : brûleur(s) à sec retiré(s) : %d sur le gisement de l'avant-poste %d (%s), à sec depuis %d min au moins, "
+            .. "%d bande(s) finie(s) sur ce gisement (une au moins sur ce minerai), %d paire(s) restent ; repris au stock : %s", name_of(f), removed, o.id,
+            o.kind, Th.CFG.dry_wait / 3600, fl.fini or 0,
+            math.max(0, fl.pairs - removed), items_text(got)))
+        end
       end
     end
   end
@@ -1552,12 +1609,17 @@ function Mig.think(f, surface, book, free, tick, hold)
   ms.next = tick + CFG.every
   if tick >= (ms.report_next or 0) then -- lot CHAMP : état des bandes du champ au journal ([FO-CHAMP-ETAT])
     ms.report_next = tick + Champ.REPORT_EVERY
+    Profiler.fstart("mig:rapport") -- lot X10-S0 : mesure seulement
     Champ.report(f, surface, tick)
+    Profiler.fstop("mig:rapport")
   end
+  Profiler.fstart("mig:melange")
   Melange.pass(f, surface, tick) -- (sa propre horloge : Melange.EVERY)
+  Profiler.fstop("mig:melange")
   local item = T.DRILL_ELECTRIC
   if not game.entity_prototypes[item] then return 0 end
   local did = 0
+  Profiler.fstart("mig:creneaux")
   for _, slot in ipairs(SLOTS) do
     local id = ms[slot]
     if id then
@@ -1584,8 +1646,11 @@ function Mig.think(f, surface, book, free, tick, hold)
       end
     end
   end
+  Profiler.fstop("mig:creneaux")
   -- lot THERMIQUE : balayage des paires thermiques des gisements couverts (une fois par minute) ; lot THERMIQUE5 : aussi pendant une retenue
+  Profiler.fstart("mig:balayage")
   if free and Th.pile_permits("balayer", hold) and sweep(f, surface, ms, free, book, tick) > 0 then did = 1 end
+  Profiler.fstop("mig:balayage")
   -- un créneau libre : trois au plus, un seul par minerai (lot THERMIQUE ; lot CHAMP : deux), la migration du treillis (sans cadre) seule
   local busy = { total = 0, ids = {} }
   for _, slot in ipairs(SLOTS) do
@@ -1600,7 +1665,9 @@ function Mig.think(f, surface, book, free, tick, hold)
   if busy.total >= Th.CFG.slots then return did end
   local have = math.min(Stock.count(f, item), free and free[item] or 0)
   local obtainable = have > 0 or book:handcraftable(item)
+  Profiler.fstart("mig:depart")
   local started = start_next(f, surface, ms, free or {}, obtainable, tick, busy, book, hold)
+  Profiler.fstop("mig:depart")
   return (started or did == 1) and 1 or 0
 end
 

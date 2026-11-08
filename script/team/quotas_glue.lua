@@ -9,8 +9,13 @@
     - quai_tasks : un module dont les sorties atteignent 90 % du quota (Qt.FULL_PM) n'est plus ALIMENTÉ (V27 : ses ingrédients restent
       pour les autres) ; la COLLECTE n'est jamais retenue ; une entrée se remplit d'une minute d'ingrédients (V25), refaite sous la
       moitié, au lieu de QUAI_LOW et QUAI_FILL ; au moins une pile par voyage (nos PNJ portent par voyages, la vidéo a des tapis).
-  Sans quota (projet de site sans débit déclaré, projet planifié avant 0.6.59, module à plusieurs produits, aucun coffre de sortie
-  bâti) : l'ancienne règle, à l'identique.
+  Sans quota (projet de site sans débit déclaré, projet planifié avant 0.6.59, aucun coffre de sortie bâti) : l'ancienne règle, à
+  l'identique.
+  Lot VIDEO-COUVERTURE 3 (C11, C3.2) : un module à PLUSIEURS produits (bloc de mall, chaîne à co-produit) a lui aussi un quota : chaque coffre de
+  sortie porte tous les produits à pile connue, et la barre du coffre se PARTAGE en parts par produit (Qt.share : 10 min du débit de chacun, ramenées
+  aux cases ouvertes sans jamais priver un produit de sa première case). La barre, la collecte (au plus la moitié de la capacité) et le verdict
+  « sortie pleine » (90 %) se lisent sur le TOTAL du coffre : le compte par produit n'est pas relevé (build.lua passe le total) et une collecte
+  qui n'attend que la moitié du TOTAL ne peut pas être contournée par un produit seul à 90 % de sa part.
   Le quota est gardé dans le projet (p.quota, p.quota_key : sérialisables, aucune fonction) et recalculé quand le nombre de coffres
   ou leurs cases ouvertes changent. La pile d'un objet est lue aux prototypes (game.item_prototypes), jamais écrite ici ; aucun nom
   d'objet ni de coffre (anti-échelle de tests/iag_test.lua §8 bis).
@@ -39,14 +44,18 @@ function Qg.of(p, slots, in_slots, collect_at)
   if type(p.outflow) ~= "table" or type(slots) ~= "number" or slots < 1 or #(p.outs or {}) == 0 then return nil end
   local key = string.format("%d:%d:%d:%d:%d", #p.outs, #(p.quais or {}), slots, in_slots or slots, collect_at or 0)
   if p.quota_key == key then return p.quota or nil end
-  local products = 0
+  local products = {}
   for _, k in ipairs(sorted_keys(p.outflow)) do
-    if (p.outflow[k] or 0) > 0 and stack(k) then products = products + 1 end
+    if (p.outflow[k] or 0) > 0 and stack(k) then products[#products + 1] = k end
   end
   local q = false
-  if products == 1 then -- un seul produit en coffre : chaque coffre de sortie le porte (plusieurs : bloc de mall, sa barre est Id.barre)
+  if #products >= 1 then -- chaque coffre de sortie porte tous les produits à pile connue (un seul : le cas d'avant, à l'identique)
     local outs, ins = {}, {}
-    for i = 1, #p.outs do outs[i] = {} end
+    for i = 1, #p.outs do
+      local items = {}
+      if #products > 1 then for j, k in ipairs(products) do items[j] = k end end
+      outs[i] = (#products > 1) and { items = items } or {}
+    end
     for i, c in ipairs(p.quais or {}) do ins[i] = { item = c.item } end
     -- une pile au moins par voyage d'alimentation (supposé, à mesurer sur [FO-ACTIF] : une minute de charbon d'un four, c'est 3 objets)
     q = Qt.quotas(p.outflow, p.inflow, outs, ins, { stack = stack, slots = slots, in_slots = in_slots, collect_at = collect_at, lot_min = stack })

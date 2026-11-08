@@ -312,6 +312,44 @@ function Cf.holds(res, item)
   return res and res.hold and res.hold[item] or nil
 end
 
+--- MODULE SUIVANT (lot VIDEO-COUVERTURE 5, critère C5.2, TODO G35 : « pas d'étape suivante avant confirmation ») : raison de refuser
+--- une option dont la recette CONSOMME un objet dont une unité attend encore sa première production, ou nil. `hold` : res.hold de
+--- Cf.step (nil : le runtime ne confirme pas, rien n'est suspendu, comme avant) ; `recipe` : { ingredients = { { name, amount } } } ;
+--- `name` : l'objet de l'option. FERMÉ PAR DÉFAUT : une option qui nomme un objet mais dont la recette est inconnue est refusée
+--- (jamais ouverte faute de lecture) ; une option sans recette ni nom (une foreuse) n'a pas d'amont. Levé tout seul à la première
+--- production de l'amont (il sort de res.hold) ET à son échec (Cf.STALL) : un engagé ne bloque jamais le suivant au-delà.
+--- Plus petit nom d'amont en attente d'abord (ordre sans hasard).
+function Cf.upstream(hold, recipe, name)
+  if hold == nil then return nil end
+  if type(recipe) ~= "table" or type(recipe.ingredients) ~= "table" then
+    if name ~= nil then return "en amont : recette inconnue : " .. tostring(name) end
+    return nil
+  end
+  local first = nil
+  for _, ing in ipairs(recipe.ingredients) do
+    local n = ing.name
+    if type(n) == "string" and hold[n] ~= nil and (first == nil or n < first) then first = n end
+  end
+  if first == nil then return nil end
+  return "en amont : " .. first .. " n'a encore rien produit (" .. tostring(hold[first]) .. ")"
+end
+
+--- RE-ÉMISSION DU MÊME PLAN (lot VIDEO-COUVERTURE 5, critère C5.3, TODO G58) : identifiant, dans un carnet à part (Cf.new()
+--- réservé aux ordres), d'un ordre refusé par un exécutant occupé. Un ordre = une clé ; Cf.step rend ensuite la copie du plan mis
+--- de côté dans `retry` après Cf.RETRY, une fois par fenêtre, et l'abandonne à Cf.STALL (`failed_now`) : il ne bloque rien.
+function Cf.order_id(order)
+  if type(order) ~= "table" or type(order.key) ~= "string" or order.key == "" then return nil end
+  return "ordre:" .. order.key
+end
+
+--- Met un ordre de côté. Rend vrai s'il est nouveau ; faux et la raison sinon (déjà suivi : le plan d'origine est gardé, un autre
+--- plan de même clé ne le remplace jamais ; ordre sans clé ; tick absent). `order` : table sans fonction utile (copiée sans elles).
+function Cf.defer(book, order, tick)
+  local id = Cf.order_id(order)
+  if id == nil then return false, "ordre sans cle" end
+  return Cf.engage(book, { id = id, item = order.item or order.resource or order.key, spec = order }, tick)
+end
+
 --- Intention contre observation pour un objet : engagés + confirmés + arrêtés (intention vivante) contre confirmés et arrêtés
 --- (observés). Concordent quand aucun engagé ne reste.
 function Cf.match(book, item)

@@ -887,6 +887,29 @@ do
   E.restore()
 end
 
+do
+  -- H2. Lot STOCKAGE-VITAL (objets au sol, 7/11 : 1 327 copper-plate rendues à un stock plein dans la partie du DC, 1 168 au sol) : le
+  -- contenu des paires ne tient pas au stock -> rien n'est retiré ni répandu, la partie attend au même stade ; la place revenue, elle part
+  local E = executor_run({ pairs = 8 })
+  local Sk = package.loaded["script.team.stock"]
+  local full, asked = true, 0
+  Sk.can_take = function(f, list) asked = asked + 1; if full then return false, 9, 0 end return true, 0, 9 end
+  E.think()
+  local p = E.project()
+  drive_plan(E, p, "plan"); E.think()
+  drive_plan(E, p, "materiaux"); E.think()
+  drive_plan(E, p, "degel"); E.think(); E.think()
+  local jr = table.concat(E.logs, "\n")
+  check(asked > 0 and E.alive() == 8 and #E.spilled == 0 and E.f.migration.o[1].stage == "projet" and p.degele ~= true,
+    "H2 : stock plein : rien n'est retiré ni répandu, la partie attend au même stade (" .. E.alive() .. " paires, " .. asked .. " vérification(s))")
+  check(jr:find("retrait remis") ~= nil, "H3 : journal : retrait remis, le stock ne tient pas le contenu")
+  full = false
+  E.think()
+  check(E.alive() < 8 and #E.spilled == 0 and p.degele == true, "H4 : la place revenue, la partie est retirée (" .. E.alive() .. ")")
+  Sk.can_take = nil
+  E.restore()
+end
+
 ---------------------------------------------------------------------------------------------------
 -- 7. Câblage : les crochets (lecture du code source)
 ---------------------------------------------------------------------------------------------------

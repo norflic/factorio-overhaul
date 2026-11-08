@@ -436,7 +436,7 @@ function C.think(view, book, st, ctx)
   local product_of, row_of = {}, {}
   for _, o in ipairs(view.outposts or {}) do product_of[o.id] = T.outposts[o.kind].product; row_of[o.id] = o end
   local tasks, keys = {}, {}
-  local dropped = 0
+  local dropped, kept_unmeasured = 0, 0
   -- Lot IA3-e : « fini retire du travail à la main le débit nominal » : les tournées ordinaires (sous les urgences) des
   -- avant-postes dont le produit est COUVERT par un module fini sont retirées (le module livre ce flux).
   local covered = (ctx.auto and ctx.auto.covered) or {}
@@ -457,7 +457,11 @@ function C.think(view, book, st, ctx)
       or (t.kind == "mine" and t.prio < 90 and t.resource ~= nil and pile_mined[t.resource] and ia3_mined[t.resource]
         and t.key == "mine:" .. t.resource) or false
     -- Lot FLUX : un produit saturé ou couvert garde la tournée de ses sorties PLEINES (le four s'arrête : 17 fours à 100 plaques de cuivre).
-    if drop and t.kind == "service" then drop = Fx.drop_service(row_of[t.outpost] or {}, drop) end
+    if drop and t.kind == "service" then
+      local why
+      drop, why = Fx.drop_service(row_of[t.outpost], drop) -- lot 5b : rangée absente = sorties non mesurées = tournée gardée
+      if why then kept_unmeasured = kept_unmeasured + 1 end
+    end
     if drop then dropped = dropped + 1 else
       tasks[#tasks + 1] = t
       keys[t.key] = true
@@ -526,7 +530,7 @@ function C.think(view, book, st, ctx)
     -- lot S1 (reconstruction, agrandissement de survie) ne s'allumaient jamais.
     turret_ok = base.turret_ok, turret_payable = base.turret_payable,
     defchoix = base.defchoix, -- lot DEFENSE-CHOIX : tourelles du QG avant les soldats (journal [FO-DEFCHOIX], script/team/team.lua)
-    ia3 = { K = K, active = n_active, productive = n_productive, dropped = dropped,
+    ia3 = { K = K, active = n_active, productive = n_productive, dropped = dropped, kept_unmeasured = kept_unmeasured,
       explore = E.explore, saturated = saturated, dominant = dom and dom.key or nil,
       pile = { top = pile.top, hold = pile.hold, blocked = pile.blocked }, -- lot PILE-PRIORITE (l'état complet : st.pile)
       pay = E.pay }, -- lot CAPITAL : améliorations dont le coût est réservé au stock virtuel, payées par le runtime

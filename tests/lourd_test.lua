@@ -13,7 +13,8 @@
     L6. Cadence : sans concurrence, les relevés des générateurs commencent toutes les R.PERIOD, comme les cycles d'avant.
     Rv.BAND = 1 (bandes du relevé du réseau deux fois plus étroites).
     Mutants (texte de la source changé, par package.preload) : ils DOIVENT tous être vus.
-  Le jeton (jamais deux recherches lourdes sur un tick, bandes de Ra comprises) est contrôlé par tests/pouls_test.lua (P5, P8, P9, m14).
+  Le jeton (budget du tick depuis le point 2, script/core/lourd.lua ; bandes de Ra comprises) est contrôlé par tests/pouls_test.lua (P5,
+  P8, P9, P14, P15, m14) et tests/lourd_jeton_test.lua.
   Usage : lua5.2 tests/lourd_test.lua
 ]]
 package.path = "./?.lua;" .. package.path
@@ -170,7 +171,7 @@ local function mutated(path, subs)
 end
 
 local function load_mods(subs)
-  for _, m in ipairs({ "script.team.reseau_vivant", "script.team.raccord", "script.team.pouls_jeton" }) do
+  for _, m in ipairs({ "script.team.reseau_vivant", "script.team.raccord", "script.team.pouls_jeton", "script.core.lourd" }) do
     package.loaded[m] = nil
     package.preload[m] = nil
   end
