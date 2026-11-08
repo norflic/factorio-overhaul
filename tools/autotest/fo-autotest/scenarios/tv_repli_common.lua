@@ -69,6 +69,9 @@ return function(on)
       end
       local a = ctx.call("war_setting", "fo-war-ia3e", false)
       ctx.check(a == false, "reglage fo-war-ia3e coupe (le banc est le cerveau)", tostring(a))
+      -- TV-PLACE a son propre repli (C07, fo-war-place-simple) qui passe avant : coupe pour que celui-ci soit le seul en jeu
+      local ps = ctx.call("war_setting", "fo-war-place-simple", false)
+      ctx.check(ps == false, "reglage fo-war-place-simple coupe (le repli de TV-PLACE passerait avant)", tostring(ps))
       local r = ctx.call("war_setting", "fo-war-repli-place", on)
       ctx.check(r == on, "reglage fo-war-repli-place " .. (on and "allume" or "eteint"), tostring(r))
       ctx.check(ctx.remote("fo-ia1", "set_setting", "fo-npc-start", 8) == 8, "effectif de depart 8")
