@@ -41,11 +41,14 @@ local Stock = {}
 
 -- Lot X10-S0 (demande de charbonmain pour le lot S1, 7/11) : APPELS AU MOTEUR du stock, comptés AUX SITES D'APPEL (pas à l'entrée des
 -- fonctions : un appel servi plus tard par un mémo ne touchera pas le moteur et ne doit pas compter). count : get_item_count ;
--- contents : get_inventory et get_contents ; annexes : lectures de .valid. Mesure seulement, jamais lue par une décision : table du
--- module (jamais dans global), tenue en mode fin du profileur seulement ; en mode détail, aussi écrite en compteurs « #stock:… » à la
--- fin des lignes [FO-PERF3-T].
-Stock.engine_calls = { count = 0, contents = 0, annexes = 0 }
-local EC_NAME = { count = "stock:count", contents = "stock:contents", annexes = "stock:annexes" }
+-- contents : get_inventory et get_contents ; annexes : lectures de .valid ; place (demande de charbonmain, 8/11 : lectures de place de
+-- STOCKAGE-VITAL) : get_inventory, count_empty_stacks et get_insertable_count de Stock.inventories, Stock.room, Stock.can_take,
+-- Stock.fill (totals), Stock.balance, du dépôt d'une non vitale (non_vital_plan) et de la poche d'un PNJ (Stock.note_claim). Un coffre
+-- du moteur simulé sans ces fonctions n'est pas compté. Mesure seulement, jamais lue par une décision : table du module (jamais dans
+-- global), tenue en mode fin du profileur seulement ; en mode détail, aussi écrite en compteurs « #stock:… » à la fin des lignes
+-- [FO-PERF3-T].
+Stock.engine_calls = { count = 0, contents = 0, annexes = 0, place = 0 }
+local EC_NAME = { count = "stock:count", contents = "stock:contents", annexes = "stock:annexes", place = "stock:place" }
 local function ec(kind, n)
   if Profiler.fine() then
     local t = Stock.engine_calls
@@ -96,6 +99,7 @@ function Stock.note_claim(f, inv, tick)
   c.n = c.n + 1
   f.stats = f.stats or {}
   f.stats.claims = (f.stats.claims or 0) + 1 -- cumul (banc stockage-sol-dc : la fenêtre d'une minute dépasse un banc de 3 700 ticks)
+  ec("place", 1) -- count_empty_stacks de la poche
   if size - inv.count_empty_stacks() >= Stock.POCKET_FULL * size then
     c.full = c.full + 1
     f.stats = f.stats or {}
@@ -222,6 +226,7 @@ local function non_vital_plan(f, item, n)
   if not (hq_inv.count_empty_stacks and hq_inv.get_insertable_count) then return nil end
   local em = hq_inv.count_empty_stacks()
   local p = math.max(0, hq_inv.get_insertable_count(item) - em * stack)
+  ec("place", 3) -- get_inventory, count_empty_stacks et get_insertable_count du coffre du QG
   if p >= n then return nil end -- sortie tôt : le dépôt tient dans les piles entamées du coffre du QG
   local allowed = Sg.new_stacks(item, em, #hq_inv, VITAL, T.stockage)
   if allowed >= em then return nil end -- la réserve du QG ne mord pas : dépôt ordinaire
@@ -232,6 +237,7 @@ local function non_vital_plan(f, item, n)
     local ae = inv.count_empty_stacks()
     ents[#ents + 1] = e
     parts[#parts + 1] = math.max(0, inv.get_insertable_count(item) - ae * stack)
+    ec("place", 3) -- les mêmes, d'une annexe
     news[#news + 1] = ae * stack
   end
   return { ents = ents, parts = parts, news = news }
@@ -240,12 +246,14 @@ end
 -- Cases prises et cases du coffre du QG, puis du total.
 local function slots_of(inv)
   local size = #inv
+  ec("place", 1) -- count_empty_stacks
   return size - inv.count_empty_stacks(), size
 end
 
 local function totals(f)
   local used, size = slots_of(chest_inv(f.hq))
   local annex = Stock.annexes(f)
+  ec("place", 1 + #annex) -- get_inventory du coffre du QG et de chaque annexe
   for _, e in ipairs(annex) do
     local u, s = slots_of(chest_inv(e))
     used, size = used + u, size + s
@@ -351,10 +359,12 @@ end
 function Stock.room(f, item)
   if not (f.hq and f.hq.valid and f.hq.get_inventory) then return nil end
   local n = 0
-  for _, inv in ipairs(Stock.inventories(f)) do
+  local invs = Stock.inventories(f)
+  for _, inv in ipairs(invs) do
     if not inv.get_insertable_count then return nil end
     n = n + inv.get_insertable_count(item)
   end
+  ec("place", #invs) -- get_insertable_count de chaque coffre
   return n
 end
 
@@ -369,6 +379,7 @@ function Stock.can_take(f, list)
     if not (inv.count_empty_stacks and inv.get_insertable_count) then return true, 0, 0 end
     empty = empty + inv.count_empty_stacks()
   end
+  ec("place", #invs) -- count_empty_stacks de chaque coffre
   local total, names = {}, {}
   for _, it in ipairs(list or {}) do
     if (it[2] or 0) > 0 then
@@ -382,6 +393,7 @@ function Stock.can_take(f, list)
     local stack = stack_of(name) or 1
     local part = 0
     for _, inv in ipairs(invs) do part = part + math.max(0, inv.get_insertable_count(name) - inv.count_empty_stacks() * stack) end
+    ec("place", 2 * #invs) -- get_insertable_count et count_empty_stacks de chaque coffre, pour cet objet
     rows[#rows + 1] = { n = total[name], stack = stack, part = part }
   end
   local ok, need = Sg.fits(rows, empty)
@@ -406,6 +418,7 @@ end
 function Stock.inventories(f)
   local list = { chest_inv(f.hq) }
   for _, e in ipairs(Stock.annexes(f)) do list[#list + 1] = chest_inv(e) end
+  ec("place", #list) -- get_inventory du coffre du QG et de chaque annexe
   return list
 end
 
@@ -416,10 +429,13 @@ function Stock.balance(f)
   local annex = Stock.annexes(f)
   if #annex == 0 then return 0 end
   local inv = chest_inv(f.hq)
+  ec("place", 1) -- get_inventory du coffre du QG
   local used, size = slots_of(inv)
   if size <= 0 or used < T.annex.park_at * size then return 0 end
   local room = 0
   for _, e in ipairs(annex) do room = room + chest_inv(e).count_empty_stacks() end
+  ec("place", 2 * #annex) -- get_inventory et count_empty_stacks de chaque annexe
+  ec("contents", 1) -- get_contents du coffre du QG (le rangement)
   local contents = inv.get_contents()
   local stack_of = {}
   for name in pairs(contents) do
