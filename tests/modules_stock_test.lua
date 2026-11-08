@@ -308,18 +308,12 @@ do
   -- releve suivant : la cle est ouverte, aucun doublon
   cs.scan.tick = 4200
   check(RT.think(f, cs, 4200, c) == 0 and #cs.open == 1, "§6 cle ouverte : pas de doublon au releve suivant")
-  -- entretien : un autre lot a pris des modules (50 -> 7) : l'ordre se reduit, rien n'est fabrique
+  -- entretien : les modules de la tache sont en route (coffre 50 -> 7) : le suivi ecrit un manque, l'ordre de stock l'efface (jamais de fabrication)
   c.counts["speed-module"] = 7
+  rec.missing = { { "speed-module", 13 } }
   RT.think(f, cs, 4300, c)
-  check(rec.n_left == 3 and #rec.targets == 3, "§6 stock pris ailleurs : l'ordre est reduit a 3 machines (7 // 2)")
-  check(#rec.missing == 0, "§6 ... sans manque a fabriquer")
-  check(lines("retire 7 machine(s)") == 1, "§6 journal : retire 7 machines avec la cause")
-  -- deja posees conservees
-  rec.done = { rec.targets[1].u }
-  rec.n_left = 3
-  c.counts["speed-module"] = 2
-  RT.think(f, cs, 4400, c)
-  check(rec.n_left == 1 and #rec.targets == 2, "§6 les machines deja posees restent dans l'ordre (1 posee + 1 restante)")
+  check(#rec.missing == 0, "§6 manque efface : un ordre de stock ne fait jamais fabriquer de module")
+  check(rec.n_left == 10 and #rec.targets == 10, "§6 ... et l'ordre garde ses machines (le PNJ porte deja les modules)")
 end
 do
   -- pile survivre : rien, une seule ligne
@@ -368,6 +362,13 @@ do
   RT.think(f7, cs7, 600, c7)
   check(#cs7.open == 1 and cs7.open[1].item == "iron-gear-wheel", "§6 statut lu : seule la machine qui travaille est equipee")
   check(lines("machine arretee : waiting_for_space_in_destination") == 1, "§6 ... et la cause d'arret est au journal")
+  -- unites arretees d'un groupe qui travaille en partie : elles ne sont pas des cibles
+  logged = {}
+  local f8, cs8 = team(), cstate({ group("copper-cable", 4) })
+  local c8 = ctx(50, { status = function(_, u) return (u.u == 1001 or u.u == 1003) and "item_ingredient_shortage" or "working" end })
+  RT.think(f8, cs8, 600, c8)
+  local tg = cs8.open[1] and cs8.open[1].targets or {}
+  check(#tg == 2 and tg[1].u == 1002 and tg[2].u == 1004, "§6 seules les unites qui travaillent sont des cibles (1002 et 1004)")
   -- reglage eteint
   RT.ENABLED = false
   local f5, cs5 = team(), cstate()

@@ -129,15 +129,15 @@ function Ms.plan(Ca, D, v)
     local where = is_drill and (g.deposit ~= nil and tostring(g.deposit) or Ca.HQ) or (g.where or Ca.HQ)
     local key = group_key(g, is_drill, where)
     if taken[key] then return end
+    if g.run and (g.run.sampled or 0) > 0 and (g.run.working or 0) == 0 then
+      refuse(key, nil, "machine arretee : " .. tostring(g.run.stop or "sans travail"))
+      return
+    end
     local nunits = #(g.units or {})
     if nunits <= 0 then return end
     if where ~= Ca.HQ then
       if v.threat then refuse(key, nil, "menace : machines du QG seulement") return end
       if (v.danger or {})[where] then refuse(key, nil, "lieu " .. where .. " dangereux") return end
-    end
-    if g.run and (g.run.sampled or 0) > 0 and (g.run.working or 0) == 0 then
-      refuse(key, nil, "machine arretee : " .. tostring(g.run.stop or "sans travail"))
-      return
     end
     local held = v.held and v.held(key) or nil
     if held then refuse(key, nil, held) return end

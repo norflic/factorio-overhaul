@@ -56,7 +56,7 @@ function RT.status_of(f, g, u)
   return RT.status_names[e.status]
 end
 
-RT.SAMPLE = 6 -- unités lues par groupe (statut)
+RT.SAMPLE = 12 -- unités lues par groupe (statut) : les premières cibles d'un ordre (Ms.BATCH_MAX)
 
 --- Copie légère des groupes du relevé avec g.run : unités échantillonnées, unités qui travaillent, cause d'arrêt (statut le plus
 --- fréquent parmi les autres, à égalité le premier par nom). Sans lecture de statut (c.status nil ou rendu nil) : pas de g.run.
@@ -66,15 +66,20 @@ local function with_run(list, status)
     local copy = {}
     for k, x in pairs(g) do copy[k] = x end
     local sampled, working, starved, causes = 0, 0, 0, {}
+    local units = {}
     for i, u in ipairs(g.units or {}) do
-      if i > RT.SAMPLE then break end
-      local s = status(g, u)
+      local s = nil
+      if i <= RT.SAMPLE then s = status(g, u) end
+      -- une unité échantillonnée qui ne travaille pas ne reçoit pas de module (banc 3 : 3 assembleurs « item_ingredient_shortage » équipés
+      -- parce que le 4e du groupe travaillait) ; les unités non lues restent des cibles
+      if s == nil or s == "working" then units[#units + 1] = u end
       if s ~= nil then
         sampled = sampled + 1
         if s == "working" then working = working + 1 else causes[s] = (causes[s] or 0) + 1 end
         if s == "low_power" or s == "no_power" or s == "not_plugged_in_electric_network" then starved = starved + 1 end
       end
     end
+    copy.units = units
     if sampled > 0 then
       local stop, best = nil, 0
       for _, name in ipairs(sorted_keys(causes)) do
@@ -87,41 +92,16 @@ local function with_run(list, status)
   return out
 end
 
-local function undone_count(rec)
-  local done = {}
-  for _, u in ipairs(rec.done or {}) do done[u] = true end
-  local n = 0
-  for _, t in ipairs(rec.targets or {}) do if not done[t.u] then n = n + 1 end end
-  return n, done
-end
-
---- Entretien des ordres de stock ouverts : si le coffre ne couvre plus ce qui reste à poser (un autre lot a pris des modules), les
---- machines en trop sortent de l'ordre (les dernières) au lieu de faire FABRIQUER le module : l'ordre finit avec ce qu'il a posé.
+--- Entretien des ordres de stock ouverts, à chaque pensée (après le suivi, avant que le cerveau lise les manques) : un ordre de stock ne
+--- fait JAMAIS fabriquer de module. Le suivi (follow) écrit un manque dès que le coffre est sous le besoin ; or le coffre baisse
+--- aussi quand le PNJ prend les modules de la tâche (banc 3, 8/11 : il a vu 5 modules « de reste » pendant que 15 étaient en route).
+--- Le manque est donc effacé ; une tâche sans module au coffre n'est pas postée (Capi.think_tail) et l'ordre finit par le délai
+--- d'ordre sans progrès (échec, repli).
 function RT.maintain(f, cs, tick, c)
   for _, rec in ipairs(cs.open or {}) do
-    if rec.exec == "equiper" and rec.stock and (rec.n_left or 0) > 0 then
-      local left, done = undone_count(rec)
-      local have = c.count(rec.module)
-      local fit = math.floor(have / math.max(1, rec.per or 1))
-      if left > fit then
-        local keep, seen = {}, 0
-        for _, t in ipairs(rec.targets) do
-          if done[t.u] then keep[#keep + 1] = t
-          else
-            seen = seen + 1
-            if seen <= fit then keep[#keep + 1] = t end
-          end
-        end
-        say(f, c.minutes(f, tick), string.format("retire %d machine(s) de l'ordre %s : %d %s au coffre pour %d a poser (stock pris ailleurs)",
-          left - fit, rec.key, have, tostring(rec.module), left * (rec.per or 1)))
-        rec.targets = keep
-        rec.n, rec.n_left = #keep, fit
-        rec.missing = {}
-      end
-    end
+    if rec.exec == "equiper" and rec.stock and rec.missing and #rec.missing > 0 then rec.missing = {} end
   end
 end
-
 
 --- Une disposition du stock par relevé des machines (cs.scan.tick change une fois par minute). `c` = {
 ---   Ca, D                     la règle pure de la capitalisation et ses données
@@ -177,8 +157,9 @@ function RT.think(f, cs, tick, c)
   local p = c.power and c.power() or nil
   if p and type(p.have_kw) == "number" and type(p.used_kw) == "number" then room = p.have_kw - p.used_kw end
   local short = (f.team.ia3 and (f.team.ia3.short_core or f.team.ia3.short)) or {}
+  local views_m, views_d = with_run(cs.scan.machines, status), with_run(cs.scan.drills, status)
   local orders, refus, info = Ms.plan(Ca, D, { stock = stock, committed = committed,
-    machines = with_run(cs.scan.machines, status), drills = with_run(cs.scan.drills, status),
+    machines = views_m, drills = views_d,
     short = short, supply = supply, taken = taken, held = function(key) return c.held(cs, key, tick) end, power_room_kw = room,
     threat = c.threat, danger = danger })
   if info.free_total <= 0 then
@@ -194,7 +175,7 @@ function RT.think(f, cs, tick, c)
   for _, o in ipairs(orders) do
     local is_drill = o.resource ~= nil
     local g = nil
-    for _, cand in ipairs(is_drill and cs.scan.drills or cs.scan.machines) do
+    for _, cand in ipairs(is_drill and views_d or views_m) do
       local where = is_drill and (cand.deposit ~= nil and tostring(cand.deposit) or Ca.HQ) or (cand.where or Ca.HQ)
       if Ms.key(cand, is_drill, where) == o.key then g = cand break end
     end
