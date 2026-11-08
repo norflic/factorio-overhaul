@@ -2120,7 +2120,8 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
   local relay_legs
   if bx1 - bx0 > 120 or by1 - by0 > 120 then
     local mode, legs = nil, nil
-    if p.spec and (p.spec.alim or p.spec.alimquai) then mode, legs = Cv.reach(s.x, s.y, a.x, a.y) end -- (lot FONDERIE-BLOC : l'alimentation d'un coffre de champ aussi)
+    if p.spec and p.spec.alim then mode, legs = Cv.reach(s.x, s.y, a.x, a.y) end
+    if p.spec and p.spec.alimquai then mode, legs = Cv.reach(s.x, s.y, a.x, a.y) end -- lot FONDERIE-BLOC : l'alimentation d'un coffre de champ aussi
     if mode ~= "relais" then return false, "trop loin" end
     relay_legs = legs
   end

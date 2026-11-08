@@ -188,7 +188,9 @@ check(arms:find("built = boilers_alive", 1, true) ~= nil and arms:find("lane_cap
   "plant_arms : chaudieres vivantes et voie de tapis a la decision")
 check(arms:find("Cv.line({ kind = \"champ\"", 1, true) ~= nil and arms:find("kind = \"perte\"", 1, true) ~= nil, "plant_arms : journal du champ et de la perte")
 check(build:find("mode, legs = Cv.reach(s.x, s.y, a.x, a.y)", 1, true) ~= nil and build:find("if p.spec and p.spec.alim then", 1, true) ~= nil,
-  "plan_drills : le relais ne sert qu'a l'alimentation d'une centrale")
+  "plan_drills : le relais ne sert qu'a l'alimentation d'une centrale (et, lot FONDERIE-BLOC, a celle d'un coffre de champ)")
+check(build:find("if p.spec and p.spec.alimquai then mode, legs = Cv.reach(s.x, s.y, a.x, a.y) end", 1, true) ~= nil,
+  "plan_drills : le relais sert aussi a l'alimentation d'un coffre de champ (spec.alimquai)")
 check(build:find("tiles, why_leg, leg_no = Cv.route(s, a, relay_legs", 1, true) ~= nil, "plan_drills : trace par troncons")
 check(build:find("if not tiles and not relay_legs then", 1, true) ~= nil, "plan_drills : les seconds essais de boite unique ne servent pas au relais")
 check(build:find("Cv.after_refusal(last, Build.can_grow(b)) == \"grandir\"", 1, true) ~= nil, "plan_alim : le treillis grandit sur un refus « minerai »")
