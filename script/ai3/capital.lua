@@ -29,6 +29,7 @@
 local L = require("shared.levels.config")
 local Cap = require("shared.ai3.capital")
 local Am = require("shared.ai3.amelioration") -- lot AMELIORATION : montée par bloc
+local Sw = require("shared.team.rebuild_sweep") -- lecture seule : ce qui manque encore aux projets rouverts (Sw.rebuild_needs)
 local Dg = require("shared.team.degel") -- lot AGES : le gel du centre n'est pas indéfini
 local Gen = require("shared.ai3.general")
 local R = require("shared.ai3.reglages")
@@ -591,6 +592,7 @@ function Capital.goal(f, view, book, tick, w)
     threat = view.threatened or (f.pvp and f.pvp.declared) or false, current = c.current and c.current.key or nil,
     exclude = exclude, defer = c.defer, thaw = (c.thaw and c.thaw.active) or false, tick = tick,
     blocs = (census.list ~= nil and Capital.blocs_on()) or nil, -- lot AMELIORATION
+    recon = Capital.blocs_on() and Capital.recon_needs(f) or nil, -- gel de la reconstruction levé sauf manque, objet par objet
     need = function(block)
       -- Un bloc de projet dont le produit manque (f.team.ia3.short, comme repli_opts de la capitalisation) monte d'abord.
       local pid = tonumber(tostring(block):match("^p(%d+)$"))
@@ -839,6 +841,18 @@ function Capital.thaw_step(f, held, tick)
       (s1 and s1.was == false) and "tenue" or "sous le plancher"))
   end
   return c.thaw.active
+end
+
+--- Lot AMELIORATION : ce que la reconstruction des projets rouverts prendra encore au coffre, { [objet] = quantité } (nil : rien). Lecture
+--- seule du lot reconstruction (shared/team/rebuild_sweep.lua, Sw.rebuild_needs).
+function Capital.recon_needs(f)
+  local b = f.build
+  if not (b and b.projects and b.order) then return nil end
+  local list = Sw.rebuild_needs(b.projects, b.order)
+  if #list == 0 then return nil end
+  local m = {}
+  for _, it in ipairs(list) do m[it[1]] = it[2] end
+  return m
 end
 
 --- Lot AMELIORATION : monte UN bâtiment de votre équipe d'un niveau, payé avec son COFFRE d'équipe (jamais le coffre du centre du joueur,

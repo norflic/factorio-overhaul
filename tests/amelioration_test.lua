@@ -222,6 +222,34 @@ local function run_all(Am, full)
   if same then for i, id in ipairs(d1.ids) do if d2.ids[i] ~= id then same = false end end end
   check(same, "§6 même décision, relevé dans l'ordre inverse")
 
+  -- §6 bis Gel de la reconstruction levé SAUF manque, objet par objet (décision du lead, 8/11).
+  do
+    local unit2 = L.cost(DR, 2)
+    local item1, q1 = unit2[1][1], unit2[1][2]
+    local stock = {}
+    for _, it in ipairs(unit2) do stock[it[1]] = it[2] * 30 end
+    local fours = ents({}, DR, 1, 12, "p1", 100)
+    -- (a) une reconstruction ouverte qui laisse de quoi payer le coût PLUS ses pièces manquantes : le lot passe, entier.
+    local needs_ok = { [item1] = q1 * 5 }
+    local ca = best(Am, fours, { cc_level = 3, stock = stock, recon = needs_ok })
+    check(ca and ca.n == 12, "§6 bis reconstruction ouverte mais stock suffisant pour le lot ET ses manques : lot de 12 : " .. tostring(ca and ca.n))
+    -- (b) le lot est réduit à ce que le stock paie une fois les manques déduits.
+    local needs_part = { [item1] = q1 * 30 - q1 * 4 }
+    local cb = best(Am, fours, { cc_level = 3, stock = stock, recon = needs_part })
+    check(cb and cb.n == 4, "§6 bis le lot est réduit au stock net des manques de la reconstruction : " .. tostring(cb and cb.n))
+    -- (c) l'objet est tout entier réservé à la reconstruction : refus dit, cause reconstruction:<objet>.
+    local needs_all = { [item1] = q1 * 30 }
+    local cc2, rc2 = best(Am, fours, { cc_level = 3, stock = stock, recon = needs_all })
+    check(cc2 == nil and rc2.report[1].cause == "reconstruction:" .. item1,
+      "§6 bis objet pris par la reconstruction : refus reconstruction:" .. item1 .. " : " .. tostring(rc2.report[1].cause))
+    -- (d) sans reconstruction : inchangé.
+    local cd = best(Am, fours, { cc_level = 3, stock = stock })
+    check(cd and cd.n == 12, "§6 bis sans reconstruction ouverte : lot de 12")
+    -- (e) Am.net ne modifie pas le stock et ne passe jamais sous zéro.
+    local nn = Am.net({ a = 3 }, { a = 10, b = 4 })
+    check(nn.a == 0 and nn.b == nil, "§6 bis stock net jamais négatif, objet absent non créé")
+  end
+
   if not full then return end
 
   -- §7 Branchement dans Cap.candidates (ctx.blocs).
@@ -312,6 +340,33 @@ local function run_all(Am, full)
   for _, c in ipairs(rc) do byblock[#byblock + 1] = c.key end
   check(#rc == 2 and rc[1].replace.n == 12 and rc[2].replace.n == 10, "§7 ter tapis : un lot par bloc, de 12 au plus : " .. #rc .. " lot(s)")
 
+  -- §7 quater Ce qui est payable sur-le-champ passe avant ce qu'il faut fabriquer : 12 foreuses payables (bloc) contre des bras rapides
+  -- absents du stock (remplacement à score bien plus haut) : le bloc de foreuses est choisi.
+  do
+    local MP2 = { i1 = { type = "inserter", group = "ins", w = 1, h = 1, energy = "electric", cats = {}, speed = 0.014, item = "j1", reach = "r" },
+      i2 = { type = "inserter", group = "ins", w = 1, h = 1, energy = "electric", cats = {}, speed = 0.04, item = "j2", reach = "r" } }
+    local c7 = { list = ents({}, DR, 1, 12, "p1", 100), center = { id = 1, name = L.name(CC, 3) }, machines = {} }
+    for i = 1, 8 do c7.machines[i] = { id = 900 + i, name = "i1", working = true, block = "p2" } end
+    local base = { cc_level = nil, blocs = true, stock = BIG, mproto = function(n) return MP2[n] end, machines = { "i1", "i2" },
+      unit_cost = function(item) return UNIT[item] or 3 end }
+    local dq = Cap.choose(L, c7, ctx(base))
+    check(dq.bloc == "p1", "§7 quater les foreuses payables passent avant des bras rapides à fabriquer : " .. tostring(dq.key))
+    local base2 = {}
+    for k, v in pairs(base) do base2[k] = v end
+    base2.stock = setmetatable({ j2 = 8 }, { __index = BIG })
+    local dq2 = Cap.choose(L, c7, ctx(base2))
+    check(dq2.replace ~= nil, "§7 quater bras rapides au stock : le remplacement payable (score haut) passe devant : " .. tostring(dq2.key))
+    -- Mutant : l'ordre « payable d'abord » retiré -> le remplacement à fabriquer reprend la tête.
+    local f = assert(io.open("shared/ai3/capital.lua", "rb"))
+    local src = f:read("*a")
+    f:close()
+    local i, j = src:find("if ctx.blocs and ready(a) ~= ready(b) then return ready(a) > ready(b) end", 1, true)
+    assert(i, "mutant ready : motif introuvable")
+    local mut = assert(load(src:sub(1, i - 1) .. src:sub(j + 1), "=mutantReady", "t"))()
+    local dm = mut.choose(L, c7, ctx(base))
+    check(dm.replace ~= nil and dm.bloc == nil, "§7 quater le mutant « à fabriquer avant payable » est vu par le contrôle précédent")
+  end
+
   -- §8 Coût d'une décision sur 600 bâtiments.
   local big = {}
   ents(big, DR, 1, 240, "champ", 1000)
@@ -360,6 +415,10 @@ local MUTANTS = {
     "Am.PROD_PCT = 200", "Am.PROD_PCT = 100" },
   { "objet sans coût connu ignoré (jamais impayable)",
     "if #missing > 0 then\n          row.cause", "if false then\n          row.cause" },
+  { "gel total gardé : une reconstruction ouverte retient tout lot",
+    "local net = Am.net(ctx.stock, ctx.recon)", "local net = Am.net(ctx.stock, ctx.recon); if ctx.recon then net = {} end" },
+  { "la reconstruction ouverte est ignorée (stock brut)",
+    "local net = Am.net(ctx.stock, ctx.recon)", "local net = ctx.stock or {}" },
   { "bâtiments refusés seuls gardés dans le lot",
     'if not (ctx.exclude and ctx.exclude["e:" .. mb.id]) then avail[#avail + 1] = mb end', "avail[#avail + 1] = mb" },
 }

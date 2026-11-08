@@ -1056,6 +1056,11 @@ function Ia3.capital_pay(f, surface, tick, plan, stock, only_center)
   return Capital.pay(f, surface, tick, plan, stock, only_center) -- lot AGES : nombre payé, et vrai si rien n'a été tenté (gel levé, autre cible)
 end
 
+--- Lot AMELIORATION : la montée par bloc est allumée (réglage fo-war-amelioration) ; elle lève le gel de la reconstruction sauf manque.
+function Ia3.blocs_on()
+  return Capital.blocs_on()
+end
+
 --- Lot AGES : un pas du compte de gel du centre (shared/team/degel.lua) ; vrai : le centre, lui seul, passe malgré la garde.
 function Ia3.capital_thaw(f, held, tick)
   return Capital.thaw_step(f, held, tick)
