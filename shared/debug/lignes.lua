@@ -3,6 +3,8 @@
   « chaînes localisées » ({ clé, paramètres }) : la traduction FR/EN est dans locale/*/debug_cerveau.cfg, jamais ici. Aucun nom du jeu.
 ]]
 
+local Am = require("shared.debug.ameliorations")
+
 local Lg = {}
 
 Lg.DECISIONS_MAX = 24
@@ -18,6 +20,78 @@ function Lg.ago(ticks)
   return { "fo-dbg-cerveau.ago-h", string.format("%.1f", m / 60) }
 end
 
+--- Nom d'un objet ou d'un fluide pour un texte de la carte ou du panneau : texte riche « [item=X] » (icône + nom traduit par le jeu). Un objet qui pose une
+--- entité (tapis, bras, coffre, four...) n'a PAS de clé « item-name.X » (elle est dans « entity-name »), d'où le texte riche. Un fluide : « [fluid=X] ».
+--- Les textes qui le portent se dessinent avec use_rich_text = true.
+function Lg.item(name)
+  name = tostring(name)
+  if type(game) == "table" and type(game.item_prototypes) == "table" and type(game.fluid_prototypes) == "table"
+      and game.item_prototypes[name] == nil and game.fluid_prototypes[name] ~= nil then
+    return "[fluid=" .. name .. "]"
+  end
+  return "[item=" .. name .. "]"
+end
+
+Lg.LINK_STATUS = { "actif", "chantier", "attente", "inerte", "coupe", "refuse" }
+Lg.LINK_CAUSE_TEXT_MAX = 70
+local LS_ETAT = { attente = true, plan = true, reserve = true, defrichage = true, fantomes = true, chantier = true, raccordement = true, fini = true, refuse = true, bloque = true }
+
+--- Cause d'une ligne (Li.lines) -> chaîne localisée, ou nil. « texte » : le motif libre du plan directeur, recopié tel quel (coupé), jamais interprété.
+function Lg.link_cause(cause)
+  if type(cause) ~= "table" then return nil end
+  if cause.kind == "texte" then
+    local t = tostring(cause.text or "")
+    if #t > Lg.LINK_CAUSE_TEXT_MAX then t = t:sub(1, Lg.LINK_CAUSE_TEXT_MAX - 1) .. "..." end
+    return t
+  end
+  if cause.kind == "etat" then
+    local c = tostring(cause.code)
+    return LS_ETAT[c] and { "fo-dbg-cerveau.etat-" .. c } or c
+  end
+  if cause.kind == "piquage" then
+    local c = tostring(cause.code)
+    for _, k in ipairs(Am.PQ_CAUSES) do
+      if k == c then return { "fo-dbg-cerveau.pq-cause-" .. c } end
+    end
+    return { "fo-dbg-cerveau.pq-cause-inconnu" }
+  end
+  return nil
+end
+
+--- État d'une ligne -> chaîne localisée : vide pour une ligne active ; sinon le mot d'état, suivi de la cause quand il y en a une.
+function Lg.link_state(l)
+  local s = l.status
+  if s == "actif" or s == nil then return "" end
+  local known = false
+  for _, k in ipairs(Lg.LINK_STATUS) do if k == s then known = true end end
+  local word = { "fo-dbg-cerveau.lien-statut-" .. (known and s or "chantier") }
+  local cause = Lg.link_cause(l.cause)
+  if cause == nil then return word end
+  return { "fo-dbg-cerveau.lien-statut-cause", word, cause }
+end
+
+--- Texte du milieu d'une ligne : « <genre> : <objet> [état : cause] [n arrivés] ».
+function Lg.link_text(l)
+  local arr = (type(l.arrived) == "number" and l.arrived > 0) and { "fo-dbg-cerveau.lien-arrives", string.format("%.0f", l.arrived) } or ""
+  return { "fo-dbg-cerveau.lien-ligne", { "fo-dbg-cerveau.lien-" .. tostring(l.kind) }, l.item and Lg.item(l.item) or "?", Lg.link_state(l), arr }
+end
+
+--- Texte du coffre d'arrivée (Li.buffers) : « TAMPON <- bloc p3, p5 » / « TAMPON <- tapis existant » / « TAMPON de rapatriement <- bloc p4 ».
+function Lg.buffer_label(b)
+  local rap = false
+  for _, k in ipairs(b.kinds or {}) do if k == "rapatriement" then rap = true end end
+  local src
+  if #(b.sources or {}) > 0 then
+    local t = {}
+    for i = 1, math.min(#b.sources, 3) do t[#t + 1] = "p" .. tostring(b.sources[i]) end
+    if #b.sources > 3 then t[#t + 1] = "..." end
+    src = { "fo-dbg-cerveau.lien-source-blocs", table.concat(t, ", ") }
+  else
+    src = { "fo-dbg-cerveau.lien-source-tapis" }
+  end
+  return { rap and "fo-dbg-cerveau.lien-tampon-rap" or "fo-dbg-cerveau.lien-tampon", src }
+end
+
 local function rnd(v) return type(v) == "number" and string.format("%.0f", v) or "?" end
 
 --- Texte d'une zone sur la carte : « <produit> <débit lu>/<débit visé> par min · <cause> (<sorte>) · X/N en marche » ; sans produit, la sorte.
@@ -27,7 +101,7 @@ function Lg.label(z)
   -- « X/N en marche » : le cas du DC (fonderie de 30 fours à 40 % de sa capacité) doit se lire sans ouvrir le panneau
   local mach = (type(z.n) == "number" and z.n > 0) and { "fo-dbg-cerveau.zone-machines", z.run or 0, z.n } or ""
   if z.product then
-    return { "fo-dbg-cerveau.zone-produit", { "item-name." .. z.product }, rnd(z.rate_meas), rnd(z.rate_nom), cause, { "fo-dbg-cerveau.sorte-" .. tostring(z.kind) }, mach }
+    return { "fo-dbg-cerveau.zone-produit", Lg.item(z.product), rnd(z.rate_meas), rnd(z.rate_nom), cause, { "fo-dbg-cerveau.sorte-" .. tostring(z.kind) }, mach }
   end
   return { "fo-dbg-cerveau.zone-simple", { "fo-dbg-cerveau.sorte-" .. tostring(z.kind) }, cause, mach }
 end
