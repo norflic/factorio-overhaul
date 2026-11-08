@@ -35,4 +35,15 @@ data:extend({
     default_value = true,
     order = "e-war-z-capital-b",
   },
+  -- Lot AMELIORATION (8/11) : monter en LARGEUR et PAR BLOC (shared/ai3/amelioration.lua). ALLUMÉ par défaut : tous les fours, foreuses
+  -- et assembleurs d'un bloc (module du plan directeur, avant-poste, quartier du QG) montent d'un niveau avant qu'un seul monte de deux ;
+  -- votre équipe monte aussi les bâtiments à niveaux de SES projets, payés avec son coffre. Éteint : un bâtiment par pensée, dans les
+  -- 64 tuiles du QG (règle d'avant). Relu à chaque pensée.
+  {
+    type = "bool-setting",
+    name = "fo-war-amelioration",
+    setting_type = "runtime-global",
+    default_value = true,
+    order = "e-war-z-capital-c",
+  },
 })
