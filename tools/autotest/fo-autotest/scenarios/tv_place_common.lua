@@ -1,23 +1,25 @@
 --[[
-  Lot TV-PLACE : micro-banc en moteur réel (2 500 ticks) des quatre points « sonde et place » du plan directeur des équipes de PNJ
+  Lot TV-PLACE : micro-banc en moteur réel (3 600 ticks) des quatre points « sonde et place » du plan directeur des équipes de PNJ
   (docs/TODO_VIDEO.md G37, G38, C07 ; G57 a son banc hors jeu, tests/sites10_test.lua, sur surface fictive).
   Deux variantes qui ne diffèrent que par les quatre réglages : tv-place (allumés, défaut) et tv-place-temoin (éteints : le plan d'avant).
 
-  Terrain : un carré de 280 x 280 tuiles autour de l'origine, vidé puis posé en herbe. Un disque de fer (rayon 5) centré en (71, 0) : le lot
-  (3, 0) [72, 96) porte la majeure partie du fer (gisement), le lot (2, 0) [44, 68) n'en a que 8 tuiles mais la sonde de 30 x 30 [41, 71) en
-  voit 35 : lot en BORD de gisement (G37). Des arbres tous les 5 tuiles sur x dans [-53, -14), y dans [-53, 53) : les lots (-1, j) sont « à
-  défricher » (G38). Coffre d'équipe VIDE (aucune matière : les projets restent planifiés en « reserve », les PNJ sont libres de couper).
-  Deux demandes à t = 300 : R1 = engrenages (4 x 7, « fabrique ») avec `near` = centre du lot (2, 0), R2 = engrenages à 6 ensembles (23 x 7 : tient
-  dans un lot de 24 avec une marge de 0, pas avec une marge de 1 : C07).
-  Attendu (variante allumée) : lot (2, 0) en bord de gisement ; R1 ailleurs que dans (2, 0) ; R2 planifiée par le repli simple ; au moins un lot
-  défriché d'avance (4 quarts) puis relevé « libre », ses arbres coupés. Variante témoin : aucun bord, R1 dans (2, 0), R2 sans place, aucun
-  défrichage préventif.
+  Terrain : un carré de 280 x 280 tuiles autour de l'origine, vidé puis posé en herbe. Un disque de fer (rayon 5) centré en (43, 0) : le lot
+  (2, 0) [44, 68) porte la majeure partie du fer (35 tuiles, hors du rayon 1 du plan : jamais relevé), le lot (1, 0) [16, 40) n'en a que 8 tuiles
+  mais la sonde de 30 x 30 [13, 43) en voit 35 : lot en BORD de gisement (G37). Treillis de rayon 1 (9 lots) : les relevés finissent en
+  100 ticks, les plans en 400 (à rayon 3, le premier plan n'arrivait qu'à 2 500 ticks). Des arbres tous les 5 tuiles sur x dans [-53, -14), y dans [-53, 53) : les lots (-1, j) sont « à
+  défricher » (G38). Un étang dans le lot (0, 1) pour la centrale (demandée d'abord). Coffre d'équipe VIDE (aucune matière : les projets restent planifiés en « reserve », les PNJ sont libres de couper).
+  R1 à t = 120 : engrenages (7 x 7, « fabrique ») avec `near` = centre du lot (1, 0). Dès que R1 est planifiée, le banc marque les lots libres de la
+  lots (toutes couronnes : le treillis grandit seul jusqu'au rayon 5) comme deux fois en échec (hook banc seulement fo-ia1d.place « bad » : le plan ordinaire ne les voit plus) puis demande R3 (engrenages,
+  même gabarit) : seul le repli simple de C07 peut encore la poser sans faire grandir le treillis (rayon 1).
+  Attendu (variante allumée) : lot (1, 0) en bord de gisement ; R1 ailleurs que dans (1, 0) ; R3 planifiée dans la couronne 1 par le repli simple,
+  rayon inchangé ; au moins un lot défriché d'avance (4 quarts) puis relevé « libre », ses arbres coupés. Variante témoin : aucun bord, R1 dans
+  (1, 0), R3 sans place dans la couronne 1 (le treillis grandit), aucun défrichage préventif.
   Lancement : banc.py ... -- 2500 tv-place <source> ; journal : [FO-TV-PLACE] / [FO-TV-PLACE-TEMOIN].
 ]]
 
 local HALF = 140
-local T_REQUEST = 300
-local CHECK = 2400
+local T_REQUEST = 120
+local CHECK = 3400
 local SETTINGS = { "fo-war-sonde-30", "fo-war-sites-10", "fo-war-defrichage-prev", "fo-war-place-simple" }
 local TREES = { "tree-01", "tree-02", "tree-03", "tree-04", "tree-05", "tree-06", "tree-07", "tree-08", "tree-09" }
 
@@ -40,10 +42,15 @@ local function shape(ctx)
   local tiles = {}
   for y = c.y - HALF, c.y + HALF - 1 do for x = c.x - HALF, c.x + HALF - 1 do tiles[#tiles + 1] = { name = "grass-1", position = { x, y } } end end
   s.set_tiles(tiles, true)
-  -- disque de fer, rayon 5, centré en (71, 0)
+  -- étang de rayon 9 centré en (4, 28) : le lot (0, 1) devient une rive (20 % d'eau), la centrale du plan y trouve son eau (sans quoi elle part
+  -- chercher de l'eau au loin pendant 2 500 ticks et RIEN d'autre n'est planifié : « un projet ne se planifie qu'après la centrale »)
+  local water = {}
+  for dy = -9, 9 do for dx = -9, 9 do if dx * dx + dy * dy <= 81 then water[#water + 1] = { name = "water", position = { 4 + dx, 28 + dy } } end end end
+  s.set_tiles(water, true)
+  -- disque de fer, rayon 5, centré en (43, 0)
   for dy = -5, 5 do
     for dx = -5, 5 do
-      if dx * dx + dy * dy <= 25 then s.create_entity({ name = "iron-ore", position = { 71 + dx + 0.5, dy + 0.5 }, amount = 4000 }) end
+      if dx * dx + dy * dy <= 25 then s.create_entity({ name = "iron-ore", position = { 43 + dx + 0.5, dy + 0.5 }, amount = 4000 }) end
     end
   end
   local n = 0
@@ -73,7 +80,7 @@ return function(on)
       local st = ctx.state()
       local c, n_trees = shape(ctx)
       st.c, st.trees0 = c, n_trees
-      ctx.log("terrain : " .. n_trees .. " arbre(s) poses, disque de fer en (71, 0)")
+      ctx.log("terrain : " .. n_trees .. " arbre(s) poses, disque de fer en (43, 0)")
       ctx.check(ctx.call("war_setting", "fo-war-ia3e", false) == false, "reglage fo-war-ia3e coupe (le banc est le cerveau)")
       for _, name in ipairs(SETTINGS) do
         if not on then ctx.check(ctx.call("war_setting", name, false) == false, "temoin : " .. name .. " eteint") end
@@ -83,7 +90,9 @@ return function(on)
       ctx.check(chest ~= nil, "coffre d'equipe pose (vide)")
       if not chest then return end
       st.chest = chest
-      ctx.check(ctx.remote("fo-ia1d", "enable", "player", { seul = true, ghosts_ahead = false, radius = 3 }) == true, "plan directeur active")
+      ctx.check(ctx.remote("fo-ia1d", "enable", "player", { seul = true, ghosts_ahead = false, radius = 1 }) == true, "plan directeur active")
+      st.plant = ctx.remote("fo-ia1d", "request", "player", { gen = "steam", args = { 1 }, feed = true })
+      ctx.check(st.plant ~= nil, "centrale demandee d'abord (le plan ne planifie rien avant elle)")
       st.t0 = game.tick
     end,
 
@@ -92,9 +101,31 @@ return function(on)
       if not st.t0 then return end
       local t = e.tick - st.t0
       if t == T_REQUEST then
-        st.r1 = ctx.remote("fo-ia1d", "request", "player", { gen = "gears", args = { 2 }, near = { x = 56, y = 0 } })
-        st.r2 = ctx.remote("fo-ia1d", "request", "player", { gen = "gears", args = { 6 } })
-        ctx.log(string.format("demandes : R1 (engrenages x2, pres du lot 2:0) %s, R2 (engrenages x6, 23 x 7) %s", tostring(st.r1), tostring(st.r2)))
+        st.r1 = ctx.remote("fo-ia1d", "request", "player", { gen = "gears", args = { 2 }, near = { x = 28, y = 0 } })
+        ctx.log(string.format("demande R1 (engrenages x2, pres du lot 1:0) : %s", tostring(st.r1)))
+      end
+      -- R1 planifiee : les lots libres deviennent invisibles du plan ordinaire, puis R3 est demandee
+      if st.r1 and not st.r3 and t % 30 == 0 then
+        local r = ctx.remote("fo-ia1d", "report", "player")
+        for _, p in ipairs(r and r.projects or {}) do
+          if p.id == st.r1 and p.parts and p.parts[1] then
+            st.radius0 = r.radius
+            st.bad_n = ctx.remote("fo-ia1d", "place", "player", "bad")
+            st.r3 = ctx.remote("fo-ia1d", "request", "player", { gen = "gears", args = { 2 } })
+            st.r3_t = t
+            ctx.log(string.format("t=%d : R1 planifiee (lot %s), %d lot(s) libre(s) marques en echec, demande R3 : %s (rayon %s)", t, tostring(p.parts[1].lot),
+              st.bad_n or -1, tostring(st.r3), tostring(r.radius)))
+          end
+        end
+      end
+      if t > 0 and t % 300 == 0 then
+        local r = ctx.remote("fo-ia1d", "report", "player")
+        local ps = {}
+        for _, p in ipairs(r and r.projects or {}) do
+          ps[#ps + 1] = string.format("%d:%s%s", p.id, p.state, p.reason and ("(" .. tostring(p.reason) .. ")") or "")
+        end
+        ctx.log(string.format("t=%d | rayon %s | file %s | projets %s | lots %s", t, tostring(r and r.radius), tostring(r and r.queue), table.concat(ps, " "),
+          (function() local o = {} for _, k in ipairs(sorted_keys(r and r.lots or {})) do o[#o + 1] = k .. "=" .. r.lots[k] end return table.concat(o, " ") end)()))
       end
       if t > 0 and t % 600 == 0 then
         local rep = ctx.remote("fo-ia1d", "place", "player", "report")
@@ -118,21 +149,27 @@ return function(on)
       local r = ctx.remote("fo-ia1d", "report", "player")
       local lay = ctx.remote("fo-ia1d", "layout", "player")
       local function project(id) for _, p in ipairs(r.projects) do if p.id == id then return p end end return nil end
-      local p1, p2 = project(st.r1), project(st.r2)
+      local p1, p3 = project(st.r1), project(st.r3)
       local function lot_of(p) return p and p.parts and p.parts[1] and p.parts[1].lot or nil end
-      ctx.log(string.format("R1 : etat %s lot %s ; R2 : etat %s lot %s (%s)", tostring(p1 and p1.state), tostring(lot_of(p1)), tostring(p2 and p2.state),
-        tostring(lot_of(p2)), tostring(p2 and p2.reason)))
-      local edge20 = false
-      for _, k in ipairs(rep.edges) do if k == "2:0=iron-ore" then edge20 = true end end
+      ctx.log(string.format("R1 : etat %s lot %s ; R3 (demandee a t=%s) : etat %s lot %s (%s) ; rayon %s -> %s", tostring(p1 and p1.state), tostring(lot_of(p1)),
+        tostring(st.r3_t), tostring(p3 and p3.state), tostring(lot_of(p3)), tostring(p3 and p3.reason), tostring(st.radius0), tostring(r.radius)))
+      local function ring_of(key)
+        local i, j = tostring(key or ""):match("^(%-?%d+):(%-?%d+)$")
+        return i and math.max(math.abs(tonumber(i)), math.abs(tonumber(j))) or nil
+      end
+      local edge10 = false
+      for _, k in ipairs(rep.edges) do if k == "1:0=iron-ore" then edge10 = true end end
       local c = rep.counters
       if on then
         -- G37
-        ctx.check(edge20, "G37 : le lot 2:0 est en bord de gisement (fer) : " .. table.concat(rep.edges, " "))
+        ctx.check(edge10, "G37 : le lot 1:0 est en bord de gisement (fer) : " .. table.concat(rep.edges, " "))
         ctx.check(#rep.edges == 1, "G37 : un seul lot en bord de gisement (" .. #rep.edges .. ")")
-        ctx.check(lot_of(p1) ~= nil and lot_of(p1) ~= "2:0", "G37 : la fabrique R1, demandee pres du lot 2:0, est posee ailleurs (" .. tostring(lot_of(p1)) .. ")")
+        ctx.check(lot_of(p1) ~= nil and lot_of(p1) ~= "1:0", "G37 : la fabrique R1, demandee pres du lot 1:0, est posee ailleurs (" .. tostring(lot_of(p1)) .. ")")
         -- C07
-        ctx.check(lot_of(p2) ~= nil, "C07 : R2 (23 x 7) est planifiee (" .. tostring(lot_of(p2)) .. ")")
-        ctx.check((c.simple_ok or 0) >= 1, "C07 : le repli simple a pose R2 (simple_ok=" .. tostring(c.simple_ok) .. ")")
+        ctx.check(st.r3 ~= nil, "C07 : R1 a ete planifiee a temps pour demander R3 (t=" .. tostring(st.r3_t) .. ")")
+        ctx.check(lot_of(p3) ~= nil and ring_of(lot_of(p3)) == 1, "C07 : R3 est planifiee dans la couronne 1 (" .. tostring(lot_of(p3)) .. ")")
+        ctx.check((c.simple_ok or 0) >= 1, "C07 : le repli simple a pose R3 (simple_ok=" .. tostring(c.simple_ok) .. ")")
+        ctx.check(r.radius == st.radius0, "C07 : le treillis n'a pas grandi (rayon " .. tostring(st.radius0) .. " -> " .. tostring(r.radius) .. ")")
         -- G38
         ctx.check((c.prev_done or 0) >= 1, "G38 : au moins un lot defriche d'avance (prev_done=" .. tostring(c.prev_done) .. ")")
         ctx.check((c.prev_cut or 0) >= 20, "G38 : des arbres coupes par les taches preventives (prev_cut=" .. tostring(c.prev_cut) .. ")")
@@ -152,11 +189,13 @@ return function(on)
         ctx.check(zone_ok, "G38 : la zone de 50 x 50 du premier lot defriche est quasi vide d'arbres")
         ctx.check(state_ok, "G38 : le lot defriche d'avance est releve libre (ou deja pris)")
       else
-        ctx.check(not edge20 and #rep.edges == 0, "temoin : aucun lot en bord de gisement")
-        ctx.check(lot_of(p1) == "2:0", "temoin : R1 est posee dans le lot 2:0 (" .. tostring(lot_of(p1)) .. ")")
+        ctx.check(not edge10 and #rep.edges == 0, "temoin : aucun lot en bord de gisement")
+        ctx.check(lot_of(p1) == "1:0", "temoin : R1 est posee dans le lot 1:0 (" .. tostring(lot_of(p1)) .. ")")
         ctx.check((c.simple_ok or 0) == 0 and (c.simple_ko or 0) == 0, "temoin : aucun repli simple")
         ctx.check((c.prev_lots or 0) == 0, "temoin : aucun defrichage preventif")
-        ctx.log("temoin : R2 " .. tostring(lot_of(p2) or "sans place"))
+        ctx.check(st.r3 ~= nil, "temoin : R3 demandee (t=" .. tostring(st.r3_t) .. ")")
+        ctx.check(lot_of(p3) == nil or ring_of(lot_of(p3)) ~= 1, "temoin : R3 n'est pas posee dans la couronne 1 (" .. tostring(lot_of(p3)) .. ")")
+        ctx.log("temoin : rayon " .. tostring(st.radius0) .. " -> " .. tostring(r.radius))
       end
     end,
   }
