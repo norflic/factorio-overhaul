@@ -14,33 +14,33 @@
 - IMPLÉMENTER : **70 / 78** faits, 8 partiels ;
 - À PRENDRE EN COMPTE : **79 / 106** faits, 14 partiels, 1 absent, 12 sans objet.
 
-Ce qui reste, et qui le fait (lots lancés le 8/11 vers 8 h 40, base 0.6.64 = e0598bef) :
+Ce qui reste, et qui le fait (lots lancés le 8/11 vers 8 h 40, base 0.6.64 = e0598bef ; état mis à jour le 8/11 à 10 h 10). La 0.6.65 est sortie en **fusion rapide** sur ordre du DC (tests du lot et des fichiers touchés, partie neuve sans plantage) : relecture indépendante et balayage complet faits APRÈS la sortie. Un point « 0.6.65 installée » n'est donc FAIT au sens ci-dessus qu'une fois cette relecture passée.
 
 | Point | Ce qui manque | Lot | État |
 |---|---|---|---|
-| V42 | soupape des fluides écrite, jamais appelée par le jeu | tv-flux | en cours |
-| G51 | barils de fluide comptés dans le stock jugé | tv-flux | en cours |
-| C11 | quotas recalculés quand les modules manquent | tv-quotas | en cours |
-| C05 | valeur logistique des modules chiffrée dans le levier | tv-quotas | en cours |
-| W02 | électrique refusée en amont sans centrale finie | tv-energie | en cours |
-| G41 | règle générale « première expansion = énergie » | tv-energie | en cours |
-| G65 | unité de secours de la centrale | tv-energie | en cours |
-| V36 | remplissage de charbon déclenché par le tampon de vapeur | tv-vapeur | en cours |
-| V89 | dégradation graduée sous 60 UPS (signal déterministe) | tv-vapeur | en cours |
-| V10 | famille « armée » à parts réservées | tv-pilote | en cours |
-| G02 | plafonds de sûreté des fours, chaînes et packs | tv-pilote | en cours |
-| D02 | liste minimale d'amorçage écrite en code | tv-pilote | en cours |
-| V88 | table défaut → signal → levier, lue par la décision | tv-gardes | en cours |
-| W04 | inventaire des gardes fermées, refus écrit pour chacune | tv-gardes | en cours |
-| G37 | sonde 30 × 30 décalée de +2 | tv-place | en cours |
-| G38 | défrichage préventif 50 × 50 | tv-place | en cours |
-| G57 | sites des factions sondés par tuile (10 × 10) | tv-place | en cours |
-| C07 | repli de placement simple | tv-repli | en cours |
-| V23 | enveloppe commune d'avance (logistique, défense, courant) | tv-archi | en cours |
-| V91 | quartiers autonomes à réseau logistique propre | tv-archi | en cours |
-| C25 | comparaison A/B octet à octet des règles de la vidéo | tv-methode | en cours |
+| V42 | soupape des fluides écrite, jamais appelée par le jeu | tv-flux | micro-banc flux-soupape en cours |
+| G51 | barils de fluide comptés dans le stock jugé | tv-flux | micro-banc en cours |
+| C11 | quotas recalculés quand les modules manquent | tv-quotas | **0.6.65 installée** |
+| C05 | valeur logistique des modules chiffrée dans le levier | tv-quotas | déjà fait (recompte du 8/11) |
+| W02 | électrique refusée en amont sans centrale finie | tv-energie | versé dans essai-0666 (c6bb40d8), tests en cours |
+| G41 | règle générale « première expansion = énergie » | tv-energie | versé dans essai-0666, tests en cours |
+| G65 | unité de secours de la centrale | tv-energie | versé dans essai-0666, tests en cours |
+| V36 | remplissage de charbon déclenché par le tampon de vapeur | tv-vapeur | **0.6.65 installée** |
+| V89 | dégradation graduée sous 60 UPS (signal déterministe) | tv-vapeur | **0.6.65 installée** |
+| V10 | famille « armée » à parts réservées | tv-pilote | versé dans essai-0666 (c6bb40d8), tests en cours |
+| G02 | plafonds de sûreté des fours, chaînes et packs | tv-pilote | versé dans essai-0666, tests en cours |
+| D02 | liste minimale d'amorçage écrite en code | tv-pilote | versé dans essai-0666, tests en cours |
+| V88 | table défaut → signal → levier, lue par la décision | tv-gardes | **0.6.65 installée** (journal [FO-DEFAUT], sans effet sur les décisions : partiel) |
+| W04 | inventaire des gardes fermées, refus écrit pour chacune | tv-gardes | **0.6.65 installée** (30 gardes dans essai-0666) |
+| G37 | sonde 30 × 30 décalée de +2 | tv-place | **0.6.65 installée** |
+| G38 | défrichage préventif 50 × 50 | tv-place | **0.6.65 installée** |
+| G57 | sites des factions sondés par tuile (10 × 10) | tv-place | **0.6.65 installée** |
+| C07 | repli de placement simple | tv-repli | **0.6.65 installée** (micro-banc tv-repli en cours) |
+| V23 | enveloppe commune d'avance (logistique, défense, courant) | tv-archi | **0.6.65 installée** ; défense des lots préparés : en cours |
+| V91 | quartiers autonomes à réseau logistique propre | tv-archi | **0.6.65 installée en version minimale** ; vidange, collecte, « engagé » : en cours |
+| C25 | comparaison A/B octet à octet des règles de la vidéo | tv-methode | **0.6.65 installée** |
 | D05 | temps de réglage | tv-methode | en cours |
-| V30 | boucle poser / remesurer / rang bas prouvée en moteur réel | mesure-dc | en cours |
+| V30 | boucle poser / remesurer / rang bas prouvée en moteur réel | mesure-dc | en cours (sauvegarde du DC) |
 
 Sans objet (fonction absente de notre jeu, à confirmer point par point) : V02, V43, V71, V80, V92, G39, G44, G48, G52, G62, D08,
 W12.
@@ -70,5 +70,5 @@ recherche de votre équipe est arrêtée faute de pack bleu.
 
 ## 5. VERSIONS
 
-- Installée : **0.6.64** (`jouable-0.6.64` = e0598bef, 8/11 8 h 05). Contenu et preuves : `REPRISE.md`, `changelog.txt`.
-- Suivante : 0.6.65, avec les lots du §1 et le gel du §3, chacun versé après relecture, balayage complet et bancs.
+- Installée : **0.6.65** (`jouable-0.6.65` = 4ca8dc4d, 8/11 10 h 01) : `content` 554 OK, `pnj-auto` 7 OK en partie neuve, aucune erreur Lua ; balayage hors jeu à 10 h 10 : 323 tests sur 336 passés, seul rouge `robots_test` (déjà rouge en 0.6.64), les 13 derniers tournent. Avant : 0.6.64 (`jouable-0.6.64` = e0598bef).
+- Suivante : 0.6.66 (`essai-0666` = c6bb40d8 : 0.6.65 + TV-PILOTE + TV-ENERGIE), puis les lots encore en cours du §1 et le gel du §3.
