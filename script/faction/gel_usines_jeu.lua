@@ -44,7 +44,7 @@ local function flush_flows()
     end
     flows[force] = nil
   end
-  flows_order = {}
+  for i = #flows_order, 1, -1 do flows_order[i] = nil end -- vidée sur place : aucune table neuve par tick dans un local de module (F403)
 end
 
 local function stats(fid)

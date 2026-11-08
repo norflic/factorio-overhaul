@@ -45,7 +45,8 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Données des prototypes (tables LOCALES, relues après un chargement ; mêmes valeurs sur tous les clients)
 ---------------------------------------------------------------------------------------------------
-local BOOK, FUELS = nil, nil
+-- Caches dans les CHAMPS d'une table de module (F403 : jamais une table neuve affectée à un local de module dans une fonction).
+local CACHE = { book = nil, fuels = nil }
 
 local function products_of(list)
   local out = {}
@@ -59,8 +60,8 @@ end
 
 --- Recettes de fonte par ingrédient (une seule entrée solide), noms triés : la première gagne.
 local function book()
-  if BOOK then return BOOK end
-  BOOK = {}
+  if CACHE.book then return CACHE.book end
+  CACHE.book = {}
   local names = {}
   for name, r in pairs(game.recipe_prototypes) do if r.category == "smelting" then names[#names + 1] = name end end
   table.sort(names)
@@ -68,24 +69,24 @@ local function book()
     local r = game.recipe_prototypes[name]
     local ing = r.ingredients
     local out = products_of(r.products)
-    if #ing == 1 and ing[1].type == "item" and out and not BOOK[ing[1].name] then
-      BOOK[ing[1].name] = { ing = { { ing[1].name, ing[1].amount } }, out = out, time = r.energy }
+    if #ing == 1 and ing[1].type == "item" and out and not CACHE.book[ing[1].name] then
+      CACHE.book[ing[1].name] = { ing = { { ing[1].name, ing[1].amount } }, out = out, time = r.energy }
     end
   end
-  return BOOK
+  return CACHE.book
 end
 
 --- Combustibles chimiques sans résidu : { [nom] = J }.
 local function fuels()
-  if FUELS then return FUELS end
-  FUELS = {}
+  if CACHE.fuels then return CACHE.fuels end
+  CACHE.fuels = {}
   local names = {}
   for name, it in pairs(game.item_prototypes) do
     if (it.fuel_value or 0) > 0 and it.fuel_category == "chemical" and not it.burnt_result then names[#names + 1] = name end
   end
   table.sort(names)
-  for _, n in ipairs(names) do FUELS[n] = game.item_prototypes[n].fuel_value end
-  return FUELS
+  for _, n in ipairs(names) do CACHE.fuels[n] = game.item_prototypes[n].fuel_value end
+  return CACHE.fuels
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -376,6 +377,6 @@ Gu.faction_box = faction_box
 Gu.discover_pair, Gu.discover_four, Gu.register, Gu.unregister = discover_pair, discover_four, register, unregister
 
 --- Données changées : caches des prototypes à relire.
-function Gu.reset_caches() BOOK, FUELS = nil, nil end
+function Gu.reset_caches() CACHE.book, CACHE.fuels = nil, nil end
 
 return Gu
