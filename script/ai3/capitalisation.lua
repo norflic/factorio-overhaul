@@ -107,6 +107,7 @@ local MigChamp = require("script.team.migration_champ") -- lot CHAMP : « couvri
 local Capi = {}
 -- Lot DEBUG-CERVEAU : anneau des ordres envoyés et refusés AVEC leur raison, lu par la seule vue « Cerveau » (jamais par une décision). Champ, pas une locale (199 sur 200).
 Capi.Anneau = require("script.debug.anneau")
+Capi.MS = require("script.ai3.modules_stock") -- lot MODULES-POSES : disposition du stock de modules (champ de Capi : aucune locale de plus)
 
 Capi.SETTING = "fo-war-capi"
 Capi.ENABLED = true
@@ -2367,6 +2368,12 @@ function Capi.think_tail(f, cs, tick)
     end
   end
   cs.open = keep
+  -- Lot MODULES-POSES : les modules au coffre, au-delà d'une petite réserve, sont posés par les PNJ (ordres « equiper » de stock ajoutés
+  -- à cs.open ; la tâche est postée plus bas comme pour tout ordre « equiper »).
+  Capi.MS.think(f, cs, tick, { Ca = Ca, D = Capi.data(), minutes = minutes, held = held,
+    count = function(item) return Stock.count(f, item) end,
+    power = function() return Capi.power_input(f, Auto.plant_state(f)) end,
+    threat = (f.threatened_until or 0) > tick })
   -- Laboratoires visés : ceux du QG plus le reste des ordres ouverts.
   local labs_want = cs.nlabs or 0
   for _, rec in ipairs(cs.open) do
@@ -2431,7 +2438,9 @@ function Capi.think_tail(f, cs, tick)
     -- pour une machine d'une matière d'un cadre ouvert ou qui manque) ; l'ordre ne vieillit pas pendant la suspension
     local eq_ok, eq_why = true, nil
     if rec.exec == "equiper" and (rec.n_left or 0) > 0 then
-      eq_ok, eq_why = PileRt.porte_any(f, "capi", { rec.d_item })
+      -- Lot MODULES-POSES : un module DÉJÀ au coffre n'a aucun coût d'opportunité en matière ; seule la pile « survivre » suspend sa pose
+      if rec.stock then eq_ok, eq_why = Capi.MS.gate(f)
+      else eq_ok, eq_why = PileRt.porte_any(f, "capi", { rec.d_item }) end
       if not eq_ok then
         rec.progress_tick = tick
         PileRt.refuse(f, "equiper:" .. tostring(rec.key), "pose de modules " .. tostring(rec.module) .. " suspendue (" .. tostring(eq_why) .. ")", tick)
@@ -2448,7 +2457,7 @@ function Capi.think_tail(f, cs, tick)
         end
         if #batch > 0 then
           if Stock.count(f, rec.module) >= #batch * rec.per then
-            tasks[#tasks + 1] = { key = "eq:" .. rec.key .. ":" .. b, kind = Equip.KIND, prio = Equip.PRIO, domain = "production",
+            tasks[#tasks + 1] = { key = "eq:" .. rec.key .. ":" .. b, kind = Equip.KIND, prio = rec.stock and Equip.PRIO_STOCK or Equip.PRIO, domain = "production",
               work = 20 + 10 * #batch, items = { { rec.module, #batch * rec.per } }, targets = batch, module = rec.module,
               per = rec.per, rec_key = rec.key }
           end
@@ -2562,6 +2571,15 @@ remote.add_interface("fo-capi", {
     if state ~= nil then ps, pw = state, why end
     return Capi.power_input(f, ps, pw, wait), ps
   end,
+  --- Lot MODULES-POSES (BANC SEULEMENT) : relève les machines tout de suite (au lieu d'attendre la phase 0 de la minute) ; la disposition
+  --- du stock de modules (Capi.MS.think) tourne à la pensée suivante par son chemin ordinaire. Rend vrai si l'équipe existe.
+  bench_scan = function(key)
+    local f = team_of(key)
+    local cs = f and f.team and f.team.capi
+    if not (cs and f.hq and f.hq.valid) then return false end
+    scan(f, cs, game.tick)
+    return true
+  end,
   status = function(key)
     local f = team_of(key)
     local cs = f and f.team and f.team.capi
@@ -2572,7 +2590,7 @@ remote.add_interface("fo-capi", {
       out.open[#out.open + 1] = { key = rec.key, kind = rec.kind, exec = rec.exec, n = rec.n, n_left = rec.n_left,
         mod_ids = rec.mod_ids, opened = rec.opened, module = rec.module, per = rec.per, inserted = rec.inserted,
         refused = rec.refused, why_refused = rec.why_refused, tech = rec.tech, announced = rec.announced,
-        resource = rec.resource, product = rec.product, missing = rec.missing } -- (lot CORR-CHAMP-MANQUE : ressource, produit, manques)
+        resource = rec.resource, product = rec.product, missing = rec.missing, stock = rec.stock } -- (lot CORR-CHAMP-MANQUE : ressource, produit, manques ; lot MODULES-POSES : ordre de stock)
     end
     -- lot CORR-CHAMP-MANQUE : emplacements du dernier relevé (Capi.slots), produits du siège du complément dans l'ordre des fonderies
     local sl = cs.slots
