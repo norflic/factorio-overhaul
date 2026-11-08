@@ -2598,7 +2598,7 @@ remote.add_interface("fo-capi", {
   --- Lot TV-ENERGIE (lecture seule) : le texte du refus de courant et la répartition des kW par la règle réelle (moteur, données du jeu).
   kw_probe = function(have, used, kw)
     local plan = { kw_have = have, kw_used = used }
-    local allot, order = Ca.kw_alloc({ { key = "A", item = "iron-ore", kw = 90, n = 18, short = 30 }, { key = "B", item = "copper-ore", kw = 90, n = 1, short = 10 } }, have - used)
+    local allot, order = Ca.kw_alloc({ { key = "A", item = "z-objet-a", kw = 90, n = 18, short = 30 }, { key = "B", item = "a-objet-b", kw = 90, n = 1, short = 10 } }, have - used)
     return { why = Ca.kw_refusal(plan, kw), allot = allot, order = order }
   end,
   power_probe = function(key, state, why, wait)
