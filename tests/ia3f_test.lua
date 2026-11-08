@@ -268,9 +268,10 @@ check(pcall(M.serialize, global), "global sérialisable (chemins ratés)")
 --       N = 6 -> 16,5 min ; N = 24 -> 10,6 min (l'ancien « spread » des éteints faisait 8,8 % de faux rouge à 6 graines).
 -- CE QUE CE CONTRÔLE NE DIT PAS (puissance, même calcul) : à 6 graines, c'est un GARDE-FOU GROSSIER. C1 n'est rouge que 78 % du
 -- temps si le pétrole allumé ne trouve plus jamais, 27 % si sa chance tombe de 0,72 à 0,3 : vert ne veut pas dire « aucune
--- dégradation ». C2 n'est pas un détecteur (plafond de 30 min) : il ne voit « allumé ne trouve jamais » qu'une fois sur 5. Pour
--- une dégradation modérée, la suite à part à 24 graines (lua5.2 tests/ia3f_petrole24.lua, 45 à 65 min) : C1 y est rouge 74 % du
--- temps si la chance allumé tombe à 0,4, 92 % à 0,3.
+-- dégradation ». C2 n'est pas un détecteur (plafond de 30 min) : il ne voit « allumé ne trouve jamais » que 11 % du temps
+-- à 6 graines (36 % à 24). Pour
+-- une dégradation modérée, la suite à part à 24 graines (lua5.2 tests/ia3f_petrole24.lua, 45 à 65 min) : C1 (m = 6) y est rouge 64 %
+-- du temps si la chance allumé tombe à 0,4, 87 % à 0,3.
 local G24 = arg and arg[1] == "--graines24" -- suite à part (tests/ia3f_petrole24.lua)
 local SEEDS = { 1, 2, 3, 4, 5, 6 }
 local CRIT = { m = 3, marge = 16.5 }
