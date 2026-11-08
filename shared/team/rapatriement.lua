@@ -90,19 +90,22 @@ local floor, ceil, max, min = math.floor, math.ceil, math.max, math.min
 ---------------------------------------------------------------------------------------------------
 -- 1. Débit d'une sortie
 ---------------------------------------------------------------------------------------------------
---- Débit d'une sortie (objets/s) lu à l'historique { {tick, n}, ... } : la plus forte hausse du coffre entre deux relevés (une baisse est une
+--- Débit d'une sortie (objets/s) lu à l'historique { {tick, n}, ... } : la médiane des hausses du coffre entre deux relevés (une baisse est une
 --- collecte, pas une production : la paire est écartée). Un coffre qui dort plein (n >= `at`) et ne monte plus se vide, au plus à `arm` objets/s,
 --- en Rp.DRAIN_MIN minutes. Rend le débit et sa nature ("mesure" | "stock" | nil).
 function Rp.rate_of(hist, at, arm)
-  local best = 0
+  local rises = {}
   local last
   for _, h in ipairs(hist or {}) do
     if last and h[1] > last[1] then
       local r = (h[2] - last[2]) / ((h[1] - last[1]) / 60)
-      if r > best then best = r end
+      if r > 0 then rises[#rises + 1] = r end
     end
     last = h
   end
+  table.sort(rises)
+  local best = 0
+  if #rises > 0 then best = rises[floor((#rises + 1) / 2)] end -- médiane basse des hausses positives : un pic isolé ne fait pas le débit
   if arm and best > arm then best = arm end
   if best >= Rp.MIN_RATE then return best, "mesure" end
   local n = last and last[2] or 0
@@ -252,7 +255,7 @@ function Rp.candidates(srcs, docks, hub, o)
       if reuse then tx, ty = reuse.x, reuse.y end
       local covered, fill_w, fill_sum = 0, 0, 0
       for _, d in ipairs(cons) do
-        if manhattan(d.x, d.y, tx, ty) <= Li.MAX_SPAN then covered = covered + d.flow end
+        if manhattan(d.x, d.y, tx, ty) <= Li.MAX_SPAN and d.flow > covered then covered = d.flow end -- une source = un quai (liaison ordinaire) : le plus gros seulement
         fill_w = fill_w + d.flow
         fill_sum = fill_sum + d.flow * manhattan(d.x, d.y, hub.x, hub.y)
       end
