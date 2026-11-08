@@ -230,6 +230,29 @@ P.EMIT.zero_idle = function(E, proj, g)
   return "matiere"
 end
 
+--- Mot FIXE d'une cause (« palier:electrique:centrale » -> « palier ») : vocabulaire lu par la vue du cerveau.
+ZI.WORDS = { stock = true, combustible = true, plein = true, en_cours = true, non_defendu = true, menace = true, palier = true,
+  aucune_fonderie = true }
+function ZI.word(cause)
+  local w = tostring(cause or ""):match("^([%a_]+)") or ""
+  return ZI.WORDS[w] and w or "autre"
+end
+
+--- État de la dernière pensée pour la vue (f.team.zero_idle.last) : { tick, libres (sans tâche + fond doux), emis, restes, cause } ;
+--- cause : « aucun_libre » (personne de libre), « servis » (chaque PNJ libre a reçu un agrandissement), sinon le mot fixe du premier type
+--- (ordre alphabétique) resté sans agrandissement ; causes = { [type] = mot fixe }.
+function ZI.last(sm, tick)
+  sm = sm or {}
+  local libres = (sm.idle or 0) + (sm.fond or 0)
+  local causes, first = {}, nil
+  for _, k in ipairs(sorted_keys(sm.causes or {})) do
+    causes[k] = ZI.word(sm.causes[k])
+    first = first or causes[k]
+  end
+  local cause = libres == 0 and "aucun_libre" or ((sm.left or 0) == 0 and "servis") or first or "autre"
+  return { tick = tick or 0, libres = libres, emis = sm.emitted or 0, restes = sm.left or 0, cause = cause, causes = causes }
+end
+
 ---------------------------------------------------------------------------------------------------
 -- Journal [FO-ZERO-IDLE] : une ligne par minute où un PNJ est resté libre (accumulateur dans l'état, nombres seulement)
 ---------------------------------------------------------------------------------------------------

@@ -228,6 +228,13 @@ local function suite(ZI)
       "aucun PNJ libre de la minute : aucune ligne")
     local all = ZI.line("player", 27, ZI.note(nil, ZI.summary({ idle = 2, fond = 0, left = 0, orders = { { kind = "iron", outpost = 2, tier = "thermique" } }, causes = {}, missing = {} })))
     check(all ~= nil and all:find("cause aucune", 1, true) ~= nil, "tous servis : « cause aucune »")
+    -- État lu par la vue du cerveau (f.team.zero_idle.last) : mots fixes.
+    local l1 = ZI.last(ZI.summary({ idle = 3, fond = 1, left = 2, orders = {}, causes = { iron = "palier:electrique:centrale", copper = "stock" }, missing = {} }), 600)
+    check(l1.tick == 600 and l1.libres == 4 and l1.restes == 2 and l1.cause == "stock" and l1.causes.iron == "palier" and deep_ok(l1),
+      "vue : libres 4, restes 2, cause « stock » (premier type), palier réduit à « palier »")
+    check(ZI.last(ZI.summary({ idle = 0, fond = 0, left = 0, orders = {}, causes = {}, missing = {} }), 1).cause == "aucun_libre"
+      and ZI.last(ZI.summary({ idle = 2, fond = 0, left = 0, orders = {}, causes = {}, missing = {} }), 1).cause == "servis"
+      and ZI.word("n'importe quoi") == "autre", "vue : « aucun_libre », « servis », mot inconnu -> « autre »")
   end
 
   section("8. Déterminisme, données pures")

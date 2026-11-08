@@ -1731,9 +1731,14 @@ FSM.define(MACHINE, {
       local H = Worker.hook
       Profiler.fstart("ia3k:gate")
       Profiler.fmark("gate")
-      local gate_ok = not H or H.gate(f, agent, task, steps, tick)
+      local gate_ok, gate_why = true, nil
+      if H then gate_ok, gate_why = H.gate(f, agent, task, steps, tick) end
       Profiler.fcredit("gate", gate_ok and "gate:accepte" or "gate:refus")
       Profiler.fstop("ia3k:gate")
+      -- Lot ZERO-IDLE (demande de DEBUG-CERVEAU) : dernier refus de la porte, lu par la vue du cerveau (panneau du PNJ) ; mot fixe de la porte
+      -- (script/ai3/comportement.lua : « danger », « morts », …), effacé au départ suivant. Aucune décision ne le lit.
+      if gate_ok then agent.gate_why, agent.gate_tick = nil, nil
+      else agent.gate_why, agent.gate_tick = (type(gate_why) == "string" and gate_why) or "refus", tick end
       if not gate_ok then
         return_site(f, task)
         task.fail = task.fail or "danger"

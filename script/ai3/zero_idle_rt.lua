@@ -14,6 +14,8 @@ ZIrt.EVERY = 3600 -- une ligne par minute de partie
 --- `minute` : minute de partie de l'équipe (entier).
 function ZIrt.after(f, st, tick, minute)
   if not st then return end
+  -- État lisible par la vue du cerveau (DEBUG-CERVEAU, lecture seule) : f.team.zero_idle.last, mots fixes (ZI.word).
+  if f.team then f.team.zero_idle = { last = ZI.last(st.zi_last, tick) } end
   st.zi_acc = ZI.note(st.zi_acc, st.zi_last)
   st.zi_t = st.zi_t or tick
   if tick - st.zi_t >= ZIrt.EVERY then
