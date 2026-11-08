@@ -1,4 +1,7 @@
 --[[
+  MISE À JOUR PORTEE-SOLDATS (décision du DC du 8/11 vers 11 h 45 : « réduire… la range des soldats… enlever 30 % ») : la portée du
+  mitrailleur vaut désormais 16 × F.SOLDIER_RANGE_FACTOR (0,65) = 10,4 ; la mitrailleuse de base (18) le DÉBORDE donc de 6,61 en
+  diagonale (6,9 dans l'axe). §1 et §3 suivent ce réglage ; le texte ci-dessous est celui du 7/11, gardé pour l'historique.
   Décision du DC (QCM-7/11, relayée par le lead le 7/11 à 10 h 58) : la portée du mitrailleur des factions passe de 20 à 16,
   « comme le fusilier » (shared/faction/config.lua, F.soldiers.gunner.range).
   Pourquoi (EFFONDREMENT, RAPPORT §8 et §9.2) : les soldats des factions tirent en « boîte à boîte » (prototypes/faction.lua,
@@ -38,11 +41,11 @@ local function section(name) if not quiet then print("== " .. name) end end
 -- 21,933 tuiles de son centre (au-delà de sa portée) ; de son centre à la BOÎTE du mitrailleur, il y a 21,656 ≤ 21,7. Le centre à
 -- centre atteint donc la boîte de la cible (ou son rayon : variante non départagée, MÊME résultat en diagonale ; dans l'axe, le
 -- rayon donnerait 1,38 au lieu de 1,3).
---   diagonale : tourelle 18 + 0,2·√2 = 18,283 ; mitrailleur 16 + 0,9·√2 = 17,273 ; marge 1,010 (= 2 − 0,7·√2) ;
---   axe : tourelle 18,2 ; mitrailleur 16,9 ; marge 1,3.
--- Annoncé au DC le 7/11 à l'ancien modèle (tourelle au centre de sa cible) : 0,73 en diagonale, 1,1 dans l'axe.
-local MARGE = 1.01
-local MARGE_AXE = 1.3
+--   diagonale : tourelle 18 + 0,2·√2 = 18,283 ; mitrailleur 10,4 + 0,9·√2 = 11,673 ; marge 6,610 (= 7,6 − 0,7·√2) ;
+--   axe : tourelle 18,2 ; mitrailleur 11,3 ; marge 6,9.
+-- (Au 7/11, mitrailleur à 16 : marge 1,010 en diagonale, 1,3 dans l'axe ; annoncé au DC à l'ancien modèle : 0,73 et 1,1.)
+local MARGE = 7.6 - 0.7 * math.sqrt(2)
+local MARGE_AXE = 6.9
 local TOL = 0.005
 
 --- Oracle : atteinte de CENTRE à centre, dans la direction (c, s), d'un tireur de portée r sur une cible quand les demi-boîtes
@@ -125,11 +128,14 @@ end
 
 local function suite(cfg)
   section("§1 la donnée (shared/faction/config.lua)")
-  local g, rf = cfg.soldiers.gunner, cfg.soldiers.rifleman
-  check(g.range == 16, "mitrailleur : portée 16 (décision du DC, QCM-7/11) : " .. tostring(g.range))
+  local g, rf, rk = cfg.soldiers.gunner, cfg.soldiers.rifleman, cfg.soldiers.rocketeer
+  local FAC = cfg.SOLDIER_RANGE_FACTOR
+  check(FAC == 0.65, "facteur de portée des soldats (décision du DC du 8/11) : " .. tostring(FAC))
+  check(g.range == 16 * FAC, "mitrailleur : portée 16 × facteur = 10,4 (décision du DC, 8/11) : " .. tostring(g.range))
   check(g.range == rf.range, "« comme le fusilier » : " .. tostring(g.range) .. " = " .. tostring(rf.range))
+  check(rk.range == 26 * FAC, "grenadier : portée 26 × facteur = 16,9 : " .. tostring(rk.range))
 
-  section("§3 la marge : la mitrailleuse de base touche le mitrailleur avant d'être touchée, en diagonale")
+  section("§3 la marge : la mitrailleuse de base déborde le mitrailleur, en diagonale (portée réduite, 8/11)")
   local e, t = P.gunner(g.range), P.turret()
   local gap = Re.gap(e, t)
   check(gap < -Re.RANGE_EPS, string.format("Re.gap(mitrailleur, mitrailleuse de base) < 0 : %.3f (la tourelle n'est PAS débordée)", gap))
@@ -188,7 +194,7 @@ local function mutant(name, cfg, apply)
   if caught then killed = killed + 1 else print("  MUTANT SURVIVANT : " .. name) end
 end
 local function cfg_with(range)
-  local c = { soldiers = {} }
+  local c = { soldiers = {}, SOLDIER_RANGE_FACTOR = F.SOLDIER_RANGE_FACTOR }
   for k, v in pairs(F.soldiers) do c.soldiers[k] = v end
   local g = {}
   for k, v in pairs(F.soldiers.gunner) do g[k] = v end
@@ -196,9 +202,9 @@ local function cfg_with(range)
   c.soldiers.gunner = g
   return c
 end
-mutant("portée d'avant (20)", cfg_with(20))
-mutant("portée 17 (marge 0,01 en diagonale)", cfg_with(17))
-mutant("portée 15 (marge 2,01 : pas celle du modèle)", cfg_with(15))
+mutant("portée d'avant le facteur (16)", cfg_with(16))
+mutant("portée arrondie (11, au lieu de 10,4)", cfg_with(11))
+mutant("facteur 0,7 (portée 11,2) au lieu de 0,65", cfg_with(11.2))
 mutant("mitrailleur compté au centre (diagonale oubliée)", F, function()
   P.gunner = function(r) return Re.profile(r, nil, { { -0.2, -0.2 }, { 0.2, 0.2 } }) end
 end)
