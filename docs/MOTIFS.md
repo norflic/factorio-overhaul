@@ -33,6 +33,7 @@ Débit estimé par tuile : recettes de base, bras de base (0,83 et 1,15 objet/s,
 | `asm-2e-1s` | asm | 4 × 8 | 2 | 1 | série (x ou y) | 1 | 0.63 objets/s (recette 0,5 s, machine 0,75) | ref_dc |
 | `asm-3e-1s` | asm | 4 × 9 | 3 | 1 | série (x ou y) | 1 | 0.63 objets/s (recette 0,5 s, machine 0,75) | derive |
 | `asm-miroir-2e` | asm | 4 × 14 | 2 | 2 | série (x ou y) | 2 | 1.27 objets/s (recette 0,5 s, machine 0,75) | derive |
+| `asm-miroir-2e-coffres` | asm | 4 × 14 | 2 | 1 | série (x ou y) | 2 | (voir la règle cliente) | ref_dc |
 | `asm-chaine-1-1` | asm | 8 × 8 | 2 | 1 | série (x ou y) | 2 | (voir la règle cliente) | derive |
 | `asm-grille-3-directe` | asm | 5 × 15 | 2 | 1 | série (x ou y) | 3 | (voir la règle cliente) | ref_dc |
 | `asm-chaine-1-2` | asm | 12 × 8 | 2 | 1 | série (x ou y) | 3 | (voir la règle cliente) | derive |
@@ -72,7 +73,7 @@ Débit estimé par tuile : recettes de base, bras de base (0,83 et 1,15 objet/s,
 | `packs-rouges-rangee` | science | 4 × 7 | 2 | 1 | série (x ou y) | 2 | (voir la règle cliente) | derive |
 | `packs-verts-rangee` | science | 4 × 9 | 2 | 1 | série (x ou y) | 3 | (voir la règle cliente) | derive |
 
-42 motifs : asm 9, bus 3, chimie 3, energie 1, equilibreur 5, fonte 9, labo 3, mine 4, petrole 3, science 2.
+43 motifs : asm 10, bus 3, chimie 3, energie 1, equilibreur 5, fonte 9, labo 3, mine 4, petrole 3, science 2.
 
 ## Ratios usuels (calculés, jamais écrits dans le catalogue)
 
@@ -179,6 +180,34 @@ BBB+DDD+
 BBB.DDD.
 ..n...n.
 >>>>>>>>
+```
+
+Sources : https://wiki.factorio.com/Inserters ; https://wiki.factorio.com/Tutorial:Main_bus
+
+### `asm-miroir-2e-coffres` : Deux rangées d'assembleurs en miroir, sortie en coffres (mall à 4 voies)
+
+Famille **asm**, usages : mall, assemblage, coffres. Origine : **ref_dc** (Mall1.png). Tuile 4 × 14, période 4, répétable en série, 2 entrée(s), 1 sortie(s), 2 machine(s) par tuile.
+
+Comme asm-miroir-2e, mais chaque machine dépose son produit dans SON coffre (côté extérieur) au lieu d'un tapis de sortie : des produits tous différents ne se mêlent pas. Deux tapis d'entrée au centre portent chacun DEUX objets, un par voie (A, B sur le premier ; C, D sur le second) ; chaque machine a un bras court et un bras long. Les deux machines d'une tuile ont chacune leur recette (groupes « haut » et « bas »).
+
+Pièces d'une tuile : bras ×4, bras_long ×2, coffre ×2, machine_asm ×2, poteau ×2, tapis_entree ×8.
+Place minimale : 4 × 14 (une tuile). Doit rester droit : tapis_entree:1 (rangée 6), tapis_entree:2 (rangée 7).
+
+```
+..#...#.
+..s...s.
+AAA.CCC.
+AAA+CCC+
+AAA.CCC.
+.Ss..Ss.
+>>>>>>>>
+>>>>>>>>
+.Nn..Nn.
+BBB.DDD.
+BBB+DDD+
+BBB.DDD.
+..n...n.
+..#...#.
 ```
 
 Sources : https://wiki.factorio.com/Inserters ; https://wiki.factorio.com/Tutorial:Main_bus

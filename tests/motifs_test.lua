@@ -341,6 +341,13 @@ local function batterie_debut(Chx)
   local cf2 = { vitesse = cf.vitesse, taille = cf.taille, recettes = cf.recettes, bras = cf.bras, tapis_voie = 7.5, energie = false }
   local rf2 = selection({ famille = "mine", usage = "bootstrap", demande = { jeton = "P", debit = 3 }, ctx = cf2 })
   check(rf2.motif == "foreuses-boucle-charbon", "boucle de charbon : sans combustible dans le contexte la tuile est acceptée aussi")
+  -- mall à coffres : une recette par machine (haut, bas), quatre matières sur deux tapis à deux voies
+  local cm = { vitesse = { machine_asm = 0.75 }, bras = { bras = 2.31, bras_long = 1.15 }, tapis_voie = 7.5, poteau = { supply = 2.5, fil = 7.5 },
+    recettes = { haut = { temps = 0.5, entrees = { A = 1, C = 1 }, sorties = { Q = 1 } }, bas = { temps = 6, entrees = { B = 1, D = 1 }, sorties = { Q = 1 } } } }
+  local dm = Chx.debit(Cat.get("asm-miroir-2e-coffres"), cm)
+  check(dm and dm.sortie.Q and dm.sortie.Q > 0 and Cat.get("asm-miroir-2e-coffres").derive.machines == 2, "mall à coffres : deux machines par tuile, chacune avec sa recette, débit lu (" .. tostring(dm and dm.sortie.Q) .. ")")
+  local rm = selection({ famille = "asm", usage = "coffres", demande = { jeton = "Q", debit = 1 }, ctx = cm })
+  check(rm.motif == "asm-miroir-2e-coffres" and rm.n >= 1, "mall à coffres : sélectionné par l'usage « coffres » (" .. tostring(rm.motif) .. ")")
   -- usages du mall du début
   check(Chx.choisir({ zone = { x = 0, y = 0, l = 40, h = 20 }, famille = "asm", usage = "engrenage", demande = { jeton = "P", debit = 1 },
     ctx = { vitesse = { machine_asm = 0.75 }, recettes = { principal = { temps = 0.5, entrees = { A = 2 }, sorties = { P = 1 } } }, bras = { bras = 2.31 }, tapis_voie = 7.5,
