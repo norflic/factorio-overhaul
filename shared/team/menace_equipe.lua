@@ -60,6 +60,7 @@ function Me.update(st, a)
   if ev == "entree" then return st.crise, "entree", "perte" end
   if ev == "sortie" then return st.crise, "sortie", capped and "plafond" or "calme + tourelles" end
   if was and st.crise and new_loss then return st.crise, "perte", "nouvelle perte" end
+  if st.crise and not a.armed then return st.crise, nil, "tourelles non recensees : menace gardee" end -- lot TV-GARDES (W04) : refus ecrit (aucun evenement)
   return st.crise, nil, nil
 end
 

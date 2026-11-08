@@ -553,7 +553,7 @@ function Team.view(f, tick)
       id = oid, kind = o.kind, drills = o.drills, full = (o.full or o.migr ~= nil) or false, turrets = st.turrets, coal_needed = Outposts.coal_needed(o, f.team.flux_fill),
       fuel_low = st.fuel_low, output = st.output, idle_ticks = st.idle_ticks,
       -- Lot FLUX : ce que la tournée rapportera (sorties par objet), réceptacles pleins, brûleurs (à sec), âge de la tournée libre.
-      outputs = st.outputs, stuck = st.stuck, burners = st.burners, dry = st.dry, free_age = Board.free_age(f, "service:" .. oid, tick),
+      outputs = st.outputs, stuck = st.stuck, burners = st.burners, dry = st.dry, unpowered = st.unpowered, free_age = Board.free_age(f, "service:" .. oid, tick),
       fails = o.flux_fails, unsafe = unsafe,
       has_task = Board.has(f, "service:" .. oid), has_fortify = fortify_open[oid] or false,
       -- Lot IA1-b2 : un PNJ y a été tué il y a moins de T.lethal_ticks (script/team/worker.lua).

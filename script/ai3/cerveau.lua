@@ -55,6 +55,7 @@ local PileRt = require("script.team.pile") -- lot PILE-PRIORITE : entrées du ru
 local Rsv = require("script.ai3.reserve") -- lot INDUSTRIE I1 : le besoin évalué (réglage fo-war-industrie)
 local Dm = require("shared.ai3.demande") -- lot C2 : puits ouvert (capacités de plus selon les bras libres, journal de la saturation)
 local Sa = require("shared.ai3.saturation") -- lot VIDEO-SAT (V79) : horizon de la projection (journal [FO-SAT])
+local Defauts = require("script.ai3.defauts_rt") -- lot TV-GARDES (V88) : table défaut -> signal -> levier
 local SurvieQg = require("script.team.survie_qg") -- lot S1 : réserve de chargeurs sur la menace reçue, recherche de la tourelle
 local Dep = require("script.ai3.depenses") -- lot DEPENSES2 : laboratoires de plus quand les plaques dorment
 local Prev = require("script.ai3.prevision") -- lot PREVISION : estimateur unique de la menace (cadres « preparer », défense induite)
@@ -982,6 +983,7 @@ function Ia3.plan_b(f, view, book, surface, tick, L)
     st.kept_said = plan.ia3.kept_unmeasured
     log(string.format("[FO-FLUX] %s : %d tournee(s) de service gardee(s) : sorties non mesurees (rangee de l'avant-poste absente) a %.1f min", f.key or "player", st.kept_said, tick / 3600))
   end
+  Defauts.think(f, st, view, plan, tick) -- lot TV-GARDES (V88) : table défaut -> signal -> levier, lue ici, journal [FO-DEFAUT]
   return plan
 end
 
