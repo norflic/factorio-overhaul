@@ -274,10 +274,23 @@ function Pg.cut(f, seg, n)
   if n > 0 and type(seg) == "string" and seg:sub(1, 4) == "pre:" then bump(f, "prev_cut", n) end
 end
 
---- Lecture pour les bancs (remote fo-ia1d.place) : compteurs de l'équipe et lots en bord de gisement.
-function Pg.remote(f, cmd)
+--- Interface des bancs (remote fo-ia1d.place). « report » : compteurs de l'équipe et lots en bord de gisement. « bad » (BANC SEULEMENT, comme
+--- legacy_electric_arms) : marque les lots LIBRES ou À DÉFRICHER d'au plus `arg` couronnes (défaut : tous) comme deux fois en échec (l.bad = 2), ce qui
+--- les écarte du plan ordinaire (candidates) et laisse le repli simple seul à les voir (la rive de la centrale n'est pas touchée) ; rend le nombre marqué.
+function Pg.remote(f, cmd, arg)
   local b = f and f.build
   if not b then return nil end
+  if cmd == "bad" then
+    local n = 0
+    for _, k in ipairs(sorted_keys(b.lots)) do
+      local l = b.lots[k]
+      if (l.state == "libre" or l.state == "defricher") and (type(arg) ~= "number" or math.max(math.abs(l.i), math.abs(l.j)) <= arg) then
+        l.bad = 2
+        n = n + 1
+      end
+    end
+    return n
+  end
   if cmd ~= "report" then return nil end
   local edges = {}
   for _, k in ipairs(sorted_keys(b.lots or {})) do

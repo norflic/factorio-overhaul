@@ -114,6 +114,7 @@ local REACH = P.BUILD_DISTANCE
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (réserve des modules neufs, agrandissement, tapis)
 Build.Ene = require("shared.team.energie_dabord") -- lot TV-ENERGIE (G41) : « la première expansion est l'énergie », règle pure ; champ de Build, pas une locale (bloc principal à 198 locales)
 Build.Qd = require("shared.team.quai_debit") -- lot RESEAU-GRAPHE : bras du quai d'entrée choisi par le débit, n borné à ce que le quai porte (règle pure) ; champ de Build, pas une locale
+Build.QUAI_BORNE_N = false -- vrai : rangée raccourcie à ce que le quai porte (RESEAU-GRAPHE) ; faux depuis la directive du DC (rangées longues)
 Build.QUAI_PAR_DEBIT = true -- vrai : NOUVEAUX gabarits seulement (les projets déjà planifiés gardent leurs pièces) ; faux : le quai d'avant (un bras de base par voie)
 Build.Colr = require("shared.team.collecte") -- lot COLLECTE : règle pure (états servis, voyage à vide) ; champ de Build, pas une locale (essai-0660 : bloc principal à 200 locales)
 local Collecte = require("script.team.collecte") -- lot COLLECTE : coffres de sortie du champ collectés en urgence quand le fer manque
@@ -676,7 +677,9 @@ local function template_of(spec, opts)
   end
   -- lot RESEAU-GRAPHE (audit « n entrées, m sorties ») : le quai d'entrée porte au plus 2 bras rapides par voie ; un gabarit dont l'entrée
   -- (servie par quai) demande plus est refait à la plus grande taille que le quai porte (n proportionnel au débit d'entrée)
-  if Build.QUAI_PAR_DEBIT and g.gen ~= "steam" and g.extensions and g.extensions[1] then
+  -- Intégrateur (8/11, 13 h 15, directive du DC « aligner une rangée d'assembleurs (ex: 5 à la suite) ») : rangée JAMAIS raccourcie au
+  -- débit du quai (Build.QUAI_BORNE_N faux) ; l'entrée qui manque arrive par tapis (piquage, bus), le second bras du quai reste.
+  if Build.QUAI_PAR_DEBIT and Build.QUAI_BORNE_N and g.gen ~= "steam" and g.extensions and g.extensions[1] then
     local cur = g.args[g.extensions[1].arg]
     local n = Build.Qd.max_n(M, g, Build.Qd.skip(M, g, spec.feed == "quai"))
     if n and n < cur then g = extend_to(g, n) end
@@ -5393,7 +5396,7 @@ remote.add_interface("fo-ia1d", {
   end,
   status = function(key, id) return Build.status(team_of_key(key), id) end,
   report = function(key) return Build.report(team_of_key(key)) end,
-  place = function(key, cmd) return Build.Place.remote(team_of_key(key), cmd) end, -- lot TV-PLACE : compteurs de la sonde 30 x 30, du défrichage préventif et du repli simple (bancs)
+  place = function(key, cmd, arg) return Build.Place.remote(team_of_key(key), cmd, arg) end, -- lot TV-PLACE : compteurs de la sonde 30 x 30, du défrichage préventif et du repli simple (bancs)
   lots_minerai = function(key, cmd, arg) return Build.LotsMinerai.remote(team_of_key(key), cmd, arg) end, -- lot VIDEO MINERAI-SONDE : lots reserves, événements, relevés refaits (bancs)
   layout = function(key) return Build.layout(team_of_key(key)) end,
   quartiers = function(key, cmd, arg) return Build.Quartiers.remote(team_of_key(key), cmd, arg) end, -- lot TV-ARCHI : bancs (report, now, bench_build)
