@@ -557,6 +557,11 @@ do
   local has23 = false
   for _, z in ipairs(sk) do if z.pid == 23 and z.kind == "module" then has23 = true end end
   check(not has23, "un projet de rapatriement n'est pas un bloc 'module'")
+  local dm = Lec.demo_projects({ { pid = 1, kind = "module", x0 = 0, y0 = 0, x1 = 10, y1 = 10 }, { pid = 2, kind = "fonderie", x0 = 40, y0 = 0, x1 = 50, y1 = 10 } })
+  local dl = Lec.links({ build = { order = {}, projects = {} } }, dm)
+  check(#dm == 4 and #dl == 4 and dl[1].status == "actif" and dl[2].status == "refuse" and dl[3].status == "chantier" and dl[4].kind == "rapatriement",
+    "lignes fictives du banc d'images : quai, refusee, piquage en chantier, rapatriement (jamais ecrites dans f.build)")
+  check(#Lec.demo_projects({ { pid = 1, kind = "module", x0 = 0, y0 = 0, x1 = 1, y1 = 1 } }) == 0, "une seule zone : pas de ligne fictive")
   -- le tableau : une tache libre sans matiere, une en pause d'echec, une prise
   local t_mat = { key = "service:1", kind = "service", prio = 95, outpost = 1, strict = { { "iron-plate", 50 } } }
   local t_pause = { key = "mine:iron", kind = "mine", prio = 45 }

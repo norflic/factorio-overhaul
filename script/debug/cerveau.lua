@@ -136,7 +136,9 @@ local function new_cycle(f, s)
     order[#order + 1] = z.key
   end
   s.zones, s.order, s.cursor = zones, order, 1
-  s.links = Lec.links(f) -- liaisons enregistrées (copies de nombres), refaites à chaque cycle
+  local st = ns()
+  -- liaisons enregistrées (copies de nombres), refaites à chaque cycle ; lignes FICTIVES seulement si le banc d'images l'a demandé (remote « demo »)
+  s.links = Lec.links(f, (st and st.demo == true) and Lec.demo_projects(skel) or nil)
   s.cycles = (s.cycles or 0) + 1
 end
 
@@ -410,6 +412,34 @@ remote.add_interface("fo-dbg-cerveau", {
     if st.open_n == 0 then st.snaps = {} end
     return out
   end,
+  -- BANC D'IMAGES SEULEMENT : allume ou éteint les lignes fictives (Lec.demo_projects) ; le recensement est refait au prochain cycle.
+  demo = function(on)
+    local st = ns()
+    if not st then return false end
+    st.demo = on == true
+    for _, s in pairs(st.snaps or {}) do s.cursor = 0 end -- remise à zéro seule : l'ordre ne compte pas
+    return true
+  end,
+  -- PNJ : numero du premier agent (plus petit numero) de l'equipe `fid` dont le corps existe, ou nil. Le banc d'images l'utilise pour ouvrir le panneau.
+  first_npc = function(fid)
+    local S = Storage.ns("companion")
+    local best
+    for id, a in pairs(S and S.agents or {}) do -- minimum seul : l'ordre ne compte pas
+      if a.faction == fid and a.entity and a.entity.valid and (best == nil or id < best) then best = id end
+    end
+    if best == nil then return nil end
+    local pos = S.agents[best].entity.position
+    return { id = best, x = pos.x, y = pos.y }
+  end,
+  watch_npc = function(index, id)
+    local st = ns()
+    local v = st and st.viewers[index]
+    local p = game.get_player(index)
+    if not (v and p and Lec.agent(id)) then return false end
+    v.npc, v.sig.npc = id, nil
+    Cv.refresh_one(p, st, v, game.tick)
+    return true
+  end,
   -- lecture : { n zones, cycles, erreur, lignes = { { key, kind, color, cause, ecart, sev } } } pour la force observée
   state = function(index)
     local st = ns()
@@ -420,7 +450,7 @@ remote.add_interface("fo-dbg-cerveau", {
     if not (s and f) then return { n = 0 } end
     local out = { n = #s.order, cycles = s.cycles, err = s.err, lignes = {} }
     for _, r in ipairs(Cv.rows(f, s, game.tick)) do
-      out.lignes[#out.lignes + 1] = { key = r.key, kind = r.z.kind, color = r.color, cause = r.cause, ecart = r.ecart.kind, sev = r.sev,
+      out.lignes[#out.lignes + 1] = { key = r.key, kind = r.z.kind, x0 = r.z.x0, y0 = r.z.y0, x1 = r.z.x1, y1 = r.z.y1, color = r.color, cause = r.cause, ecart = r.ecart.kind, sev = r.sev,
         reads = #r.reads, measured = r.z.mtick ~= nil }
     end
     return out
