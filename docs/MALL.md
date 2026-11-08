@@ -184,12 +184,26 @@ décalage   x-1   x    x+1  x+2
 ### 2.4 Les rangées (le module dupliqué)
 - **Une rangée par recette** (rangée dédiée). Son bus fait 1 ou 2 tapis, un objet par tapis ; 4 voies, à deux objets par tapis, à la
   tranche 5.
-- **Cellule** : 3 tuiles le long de la rangée (côté de la machine) et 14 en travers. De gauche à droite : coffre ou tapis de sortie | bras
-  de sortie | machine 3 × 3 | colonne de bras (un bras normal sur le tapis proche, un bras long sur le tapis lointain) | tapis A | tapis B |
-  colonne de bras | machine | bras de sortie | coffre ou tapis de sortie.
-  - Les poteaux vont sur les tuiles libres des colonnes de bras.
-  - Les cellules spéciales sont des cellules comme les autres : « C K C » pour les circuits (générateur existant), four pour l'acier
-    (variante de `G.simple` du lot ACIER).
+- **Cellule = un MOTIF lu au catalogue de l'agent MOTIFS** (`shared/team/motifs/catalogue.lua`, décrit par rôles, emprise, période,
+  n entrées / m sorties, et sa règle de sélection selon l'espace). Le mall n'invente aucune géométrie de rangée : il donne au motif
+  l'espace libre, la demande, les objets du tronc et les techs, et reçoit le motif, le nombre de périodes ou un refus avec sa cause. Partage
+  des rôles :
+  - MOTIFS = QUOI : la cellule ;
+  - `rangee_bus` = COMMENT ça s'étend : terrain, débit, croissance ;
+  - MALL = OÙ et QUAND : secteur, tronc, prises, bascule.
+- **Références du DC** (`<racine>/fo-logs/2026-11-08_MOTIFS/references/`, lues) :
+  - `Patern1.png` : la cellule de base. 2 tapis d'entrée le long de la rangée ; un bras sur le tapis proche, un bras long sur le lointain ;
+    une machine 3 × 3 ; un poteau ; un bras de sortie sur un tapis de sortie parallèle ;
+  - `Patern_Mall2.png` : sa forme MIROIR de part et d'autre d'un tapis commun, avec insertion DIRECTE d'une machine dans l'autre (câbles
+    vers circuits, période de 3 câbles pour 2 circuits) et une sortie par bras longs sur le tapis du milieu ;
+  - `Mall1.png` : le peigne. Tapis d'entrée horizontaux, répartiteurs, tapis qui descendent entre des colonnes de machines, intermédiaires
+    passés de machine à machine, coffres de sortie ;
+  - `Fonderie.png` : la même forme pour les fours (tapis d'entrée au milieu, plaques des deux côtés), qui est la colonne de la
+    méga-fonderie.
+- **Exemple de dimension**, pour fixer les ordres de grandeur (la géométrie réelle vient du motif) : la cellule de Patern1 en miroir fait
+  3 tuiles le long de la rangée et 14 en travers (coffre ou tapis de sortie | bras de sortie | machine | bras | tapis A | tapis B | bras |
+  machine | bras de sortie | coffre ou tapis de sortie). « C K C » (circuits) et le four de l'acier (lot ACIER) sont des motifs comme les
+  autres.
 - **Croissance** : on ajoute des cellules en bout de rangée, entités translatées. Le projet de la rangée est rouvert en « reserve »
   (comme `Rg.grow`) et passe par le chantier ordinaire : réserve, défrichage, fantômes, PNJ. La cible n vient de la demande
   (`Ra.decide` : agrandir), bornée par n_max = min(terrain, débit de la prise ou du tapis de rangée, voie de sortie).
@@ -282,13 +296,26 @@ Un refus de pureté annule le raccord, jamais le reste de la rangée. Il est éc
 
 ## 6. Coordination
 
-Messages envoyés le 8/11 vers 19 h à mega-fonderie, petrole-rangee, acier et purete-tapis. Leurs réponses et les accords sont reportés
-ci-dessous.
+Messages envoyés le 8/11 vers 19 h à mega-fonderie, petrole-rangee, acier et purete-tapis, puis à motifs (demande du lead). Les réponses
+et les accords seront reportés ici. Ce qui a été proposé à chacun :
 
-- **mega-fonderie** : en attente de réponse.
-- **petrole-rangee** : en attente de réponse.
-- **acier** : en attente de réponse.
-- **purete-tapis** : en attente de réponse.
+- **mega-fonderie** (en attente de réponse) :
+  - proposé : ton runtime publie les bouts de tes tapis de plaques, avant le quai, dans
+    `f.mega…sorties = { { item, x, y, dir, rate, belt } }`, avec un objet par tapis ;
+  - le tronc qui va de ces bouts à la tête du mall est au mall (T4) ; ta tranche 4, « bus de plaques », s'arrête donc à ces bouts ;
+  - d'ici là, le rapatriement ramène tes coffres de quai à la tête.
+- **petrole-rangee** (en attente de réponse) :
+  - proposé : la règle commune `shared/team/rangee_bus.lua` (`Rb.extent`, `Rb.capacite`, `Rb.cellules`, `Rb.croissance`) ;
+  - les sorties solides (plastique, soufre) deviendraient plus tard des lignes du tronc.
+- **acier** (en attente de réponse) :
+  - proposé : sa livraison reste en lot ; une fois le mall posé, la rangée d'acier devient un motif de rangée du mall, qui pique la ligne
+    de fer, et sa sortie devient la ligne « acier » (T5) ;
+  - questions posées : le charbon (voie propre ou quai) et le décideur (capitalisation ou `Inter.think`).
+- **purete-tapis** (en attente de réponse) : demandés, la signature de `shared/team/purete.lua`, si la pureté se juge par voie ou par tapis,
+  et si l'objet est lu au contenu mesuré ou déclaré au plan (un tapis vide n'a que l'objet du plan).
+- **motifs** (en attente de réponse) : demandés, le format d'une entrée (axe, période, ports de tête et de sortie, poteaux, miroir),
+  l'entrée et la sortie de la sélection, et un contrôle sur la période modèle (coût par sethook). Il me faut au minimum Patern1 et sa
+  forme miroir pour T2, et Patern_Mall2 pour T5.
 - **pose-par-lots** (non contacté, pour mémoire) : une cellule de rangée est un lot de pose naturel, une tâche par cellule et kit entier.
 
 ## 7. Tranches de livraison (la plus petite d'abord)
@@ -308,10 +335,10 @@ demande une partie plus longue : `etape1-geants` porté à 90 min, soit un banc 
 | # | Contenu | Fichiers | Critères mesurables |
 |---|---|---|---|
 | **T1** | Réglage `fo-war-mall`. Secteur choisi par le terrain et réservé (lots `l.mall`, tuiles `b.occ`). Relecture de S et journal [FO-MALL] des causes. Rien de posé. | `shared/team/mall_plan.lua` (secteur, score, `Mall.verify`), `script/team/mall.lua`, `settings/mall.lua`, `locale/{fr,en}/mall.cfg`, tests | etape1-geants : chaque équipe a un SECTEUR avant 2 min, à 84 tuiles au plus du QG, sans eau, falaise ni minerai. Aucun module du treillis n'y est posé (0 entité d'un autre projet dans la fenêtre à 40 min). Toute minute sans mall a une cause écrite. Recherche du secteur ≤ 370 k instructions par passe. |
-| **T2** | Tête (tampons fer et cuivre), tronc court, PREMIÈRE rangée en bout de tronc (sans répartiteur), pour l'objet « chaine » le plus demandé dont les entrées sont au tronc. Croissance par cellules, arrêts et défrichage. Bascule pour CET objet. | `shared/team/rangee_bus.lua` (règle commune, §6), `mall_plan.lua` (cellule, tête, tronc), `script/team/mall.lua` (`Build.SITES.mall`), branche dans `script/ai3/rangees_asm.lua` | Micro-banc `mall-rangee` (stock garni, centrale finie) : une rangée de plus de 6 machines en ligne droite (au-delà de la borne du lot), 0 quai par machine, 1 quai par ligne. La rangée s'allonge quand la demande monte. Un arbre est défriché et la rangée continue ; une eau l'arrête. etape1-geants : pas de régression. |
+| **T2** | Tête (tampons fer et cuivre), tronc court, PREMIÈRE rangée en bout de tronc (sans répartiteur), pour l'objet « chaine » le plus demandé dont les entrées sont au tronc. Croissance par cellules, arrêts et défrichage. Bascule pour CET objet. | `shared/team/rangee_bus.lua` (règle commune, §6), `mall_plan.lua` (tête, tronc), cellule LUE au catalogue de MOTIFS (Patern1 et son miroir), `script/team/mall.lua` (`Build.SITES.mall`), branche dans `script/ai3/rangees_asm.lua` | Micro-banc `mall-rangee` (stock garni, centrale finie) : une rangée de plus de 6 machines en ligne droite (au-delà de la borne du lot), 0 quai par machine, 1 quai par ligne. La rangée s'allonge quand la demande monte. Un arbre est défriché et la rangée continue ; une eau l'arrête. etape1-geants : pas de régression. |
 | **T3** | Prises (répartiteur et souterrain), rangées des deux côtés, bascule COMPLÈTE (toute « chaine » dont les entrées sont au tronc), blocs de mall dans l'annexe du secteur, tampon du rapatriement dirigé sur la tête. Le mall demande `logistics`. | idem, plus `script/team/rapatriement.lua` (cible de tampon) | Partie de 90 min (D7) : après la bascule, 0 module d'assemblage neuf hors du secteur, causes écrites exceptées. Boîte des modules d'assemblage ≤ 2 × la fenêtre (aujourd'hui 280 × 196). Tournées « fill » réduites de moitié au moins au même temps de jeu que sur 0.6.71 ([FO-PIQUAGE] bilan). 0 voie mêlée (pureté). |
 | **T4** | Arrivées de la méga-fonderie : tronc de plaques tracé des bouts publiés (§6) jusqu'à la tête, A* par tranches et traversée, et lignes dimensionnées à la somme des débits. | `script/team/mall.lua` | Partie de 90 min : au moins 50 % du fer de la ligne arrive par tapis (compteur de la tête contre les tournées), pour une équipe qui a une méga-fonderie. |
-| **T5** | Réinjection : sortie d'une rangée d'intermédiaire (engrenages, circuits, acier) en ligne neuve du tronc ; rangées de tier supérieur qui la piquent ; rangées mixtes à 4 voies (le mall des objets de construction, coffres barrés) à la place des blocs. | `mall_plan.lua`, `shared/team/patrons.lua` (cellule mixte) | Un objet de tier ≥ 2 fabriqué par une rangée dont TOUTES les entrées viennent du tronc. Plus aucun bloc de mall en lot. |
+| **T5** | Réinjection : sortie d'une rangée d'intermédiaire (engrenages, circuits, acier) en ligne neuve du tronc ; rangées de tier supérieur qui la piquent ; rangées mixtes à 4 voies (le mall des objets de construction, coffres barrés) à la place des blocs. | `mall_plan.lua`, motifs Patern_Mall2 et rangée mixte à 4 voies (catalogue de MOTIFS) | Un objet de tier ≥ 2 fabriqué par une rangée dont TOUTES les entrées viennent du tronc. Plus aucun bloc de mall en lot. |
 | **T6** | Rangées sœurs et amélioration des tapis de rangée, second mall quand le tronc est plein (D6), démontage des corpuscules (D3). | selon les décisions | selon les décisions |
 
 ## 8. Coût par pensée
@@ -353,7 +380,8 @@ demande une partie plus longue : `etape1-geants` porté à 90 min, soit un banc 
   - (b) secteur choisi au déclencheur seulement ;
   - (c) secteur aligné sur les lots du treillis.
 - **D2, géométrie** :
-  - (a, défaut) peigne : tronc et rangées perpendiculaires, des deux côtés, chacune grandit jusqu'à l'obstacle ;
+  - (a, défaut) peigne : tronc et rangées perpendiculaires, des deux côtés, chacune grandit jusqu'à l'obstacle. C'est la forme de vos
+    références : Mall1 pour le peigne, Patern1 et Patern_Mall2 pour la rangée ;
   - (b) bande de mall à 4 voies (rangées le long du bus). Plus simple, mais une rangée dédiée ne peut plus s'allonger dès qu'une autre la
     suit.
 - **D3, corpuscules existants** :
