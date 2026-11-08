@@ -10,6 +10,8 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **8/11, 15 h 57 : LE DC REDÉMARRE AVANT LA FIN DE LA PARTIE NEUVE DE LA 0.6.70.** La 0.6.70 n'est PAS installée : la 0.6.68 reste en place, avec le défaut électrique (contournement : décocher « fo-war-electrique »). À la reprise, dans cet ordre : (1) rejouer la partie neuve de 40 min de la 0.6.70 (copie figée `src-0670a` du scratchpad, perdue si le scratchpad est vidé ; sinon `git archive a627035e` + feuilles hors git) ; (2) si votre équipe a des foreuses électriques posées et ne tombe pas à 0 foreuse, l'installer (merge dans main, tag `jouable-0.6.70`, checkout détaché, harness) et la pousser sur GitHub ; (3) puis la partie neuve de 54 000 ticks d'electrique 3de6a580 pour la 0.6.71.
+>
 > **8/11, 16 h 05 : REPRISE APRÈS LE REDÉMARRAGE DU PC** (annoncé par le DC : « Une fois la version livrée je vais redémarrer mon PC, trop de lags et de processus inutiles »). Session et agents arrêtés.
 > - **Installé** : 0.6.68 (71e95cf3, tag `jouable-0.6.68`, poussé sur GitHub `norflic/factorio-overhaul` main + 59 tags `jouable-*`, voir la mémoire depot-github). Si la 0.6.70 a été installée avant le redémarrage, le tag `jouable-0.6.70` existe : `git tag -l "jouable-0.6.7*"`.
 > - **DÉFAUT GRAVE des 0.6.68 et 0.6.69** (partie neuve, etape1-guide 144 000 ticks, archive `fo-logs/2026-11-08_INTEG-0669/neuve40-09c5b288`) : la bascule électrique se fait sur « 1 centrale finie » à 7,7 min. Ensuite 0 foreuse électrique est posée, les 10 thermiques détruites à 15 min ne sont pas refaites, et il reste 0 foreuse à 30 min. Contournement pour le DC : décocher le réglage de carte « fo-war-electrique » (runtime-global).
