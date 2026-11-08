@@ -29,6 +29,7 @@ local Build = require("script.team.build") -- lot ÉTAGE 5 (bancs : couloir d'un
 local T = require("shared.team.config")
 local Pl = require("shared.team.plan") -- lot FOREUSES-THERMIQUES (bancs : clé de tuile des couloirs, couloir_hits)
 local Board = require("script.team.board") -- lots FOREUSES-THERMIQUES (collect_probe) et COLLECTE (état des tâches de collecte) ; déjà chargé par team.lua
+local Src = require("script.team.sources") -- lot MINAGE-MAIN (bancs : état des sorties et des décisions)
 local Rt = require("shared.team.repli_thermique") -- lot FOREUSES-THERMIQUES, partie C (bancs : réglage effectif du repli, set_repli)
 
 -- Lot IA1-b (docs §8.6, pilotage sans clic) :
@@ -561,6 +562,51 @@ remote.add_interface("fo-ia1", {
   end,
   -- Lot COLLECTE (bancs seulement) : état des tâches ia1d:<projet>:o:<i> au tableau ({ prio, critical, prise }), et, si la règle du lot existe,
   -- ses choix (f.team.collecte : picked, refused). Lecture seule.
+  -- Lot MINAGE-MAIN (bancs seulement) : scène du micro-banc « minage-sources » : l'équipe est réduite à `keep` PNJ et ses plaques de fer sont
+  -- retirées du coffre (fer libre 0). Rend { kept, iron }.
+  bench_sources = function(key, keep)
+    local f = team_of(key)
+    if not (f and f.team and f.hq and f.hq.valid and type(keep) == "number") then return nil end
+    local ids = State.sorted_keys(f.engineers or {})
+    for i = #ids, keep + 1, -1 do Registry.remove(ids[i], true) end
+    local fe = T.outposts.iron.product
+    local have = Stock.count(f, fe)
+    if have > 0 then Stock.remove(f, fe, have) end
+    return { kept = math.min(#ids, keep), iron = Stock.count(f, fe) }
+  end,
+  -- Lot MINAGE-MAIN (bancs seulement) : interrupteur de la règle des sources (témoin : false = comportement d'avant le lot).
+  set_regle_sources = function(key, on)
+    local f = team_of(key)
+    if not (f and f.team) then return nil end
+    if on == false then f.team.sources_regle = false else f.team.sources_regle = nil end
+    return f.team.sources_regle ~= false
+  end,
+  -- Lot MINAGE-MAIN (bancs seulement, lecture seule) : registre des sorties, décisions, compteurs de la garde du minage à la main, tournées.
+  sources_state = function(key)
+    local f = team_of(key)
+    if not (f and f.team) then return nil end
+    local st = f.team.sources
+    local b = Board.get(f)
+    local fetch_free, fetch_taken = 0, 0
+    for _, k in ipairs(State.sorted_keys(b.tasks)) do
+      local t = b.tasks[k]
+      if t.kind == "fetch" then if t.worker then fetch_taken = fetch_taken + 1 else fetch_free = fetch_free + 1 end end
+    end
+    local ts = f.team.task_stats or {}
+    local hand = {}
+    for _, r in ipairs(State.sorted_keys(st and st.hand or {})) do hand[r] = { ok = st.hand[r].ok, no = st.hand[r].no } end
+    local dec = {}
+    for _, r in ipairs(State.sorted_keys(st and st.dec or {})) do
+      local d = st.dec[r]
+      dec[r] = string.format("%s:%s:%s:%s", tostring(d.act), tostring(d.item), tostring(d.uid), tostring(d.why))
+    end
+    return { rule = st ~= nil and f.team.sources_regle ~= false, chests = st and st.nchests or 0, sorties = st and #Src.list(f, "sortie") or 0,
+      scanned = st and st.scanned or false, trips = st and st.trips or 0, fetched = st and st.fetched or 0, empty = st and st.empty or 0,
+      dropped = st and st.dropped or 0, hand = hand, dec = dec, fetch_free = fetch_free, fetch_taken = fetch_taken,
+      mine_ok = ts.mine and ts.mine.ok or 0, mine_fail = ts.mine and ts.mine.fail or 0, fetch_ok = ts.fetch and ts.fetch.ok or 0,
+      fetch_fail = ts.fetch and ts.fetch.fail or 0, engineers = f.engineers_count or 0, floor = f.team.floor or 0,
+      iron = Stock.count(f, T.outposts.iron.product), main_sources = f.stats and f.stats.main_sources or 0 }
+  end,
   collecte_state = function(key, pid)
     local f = team_of(key)
     if not (f and f.team) then return nil end
