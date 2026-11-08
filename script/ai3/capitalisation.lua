@@ -1093,9 +1093,11 @@ end
 function Capi.say_saturation(f, cs, res, tick)
   if not res or not res.sat or not res.coverage then return end
   local have = {}
-  for _, o in ipairs(res.orders or {}) do if o.kind == "couvrir" and o.deposit ~= nil then have[tostring(o.deposit)] = "decide" end end
+  for _, o in ipairs(res.orders or {}) do
+    if (o.kind == "couvrir" or o.kind == "ouvrir") and o.deposit ~= nil then have[tostring(o.deposit)] = "decide" end
+  end
   for _, rec in ipairs(cs.open or {}) do
-    if rec.kind == "couvrir" and rec.deposit ~= nil and not have[tostring(rec.deposit)] then have[tostring(rec.deposit)] = "ouvert" end
+    if (rec.kind == "couvrir" or rec.kind == "ouvrir") and rec.deposit ~= nil and not have[tostring(rec.deposit)] then have[tostring(rec.deposit)] = "ouvert" end
   end
   local refus = {}
   for _, r in ipairs(res.refus or {}) do refus[r.key] = r.why end
@@ -1109,7 +1111,8 @@ function Capi.say_saturation(f, cs, res, tick)
       else
         state = "ferme"
         local v = res.sat[id]
-        if v then cause = v.why
+        if v and v.ok then cause = refus["couvrir:" .. id] or "ordre voulu mais non retenu ce cycle (budget, bras, porte ou ordre d'ouverture en cours)"
+        elseif v then cause = v.why
         elseif c.kappa >= 1000 then cause = "gisement sature"
         elseif (c.free or 0) <= 0 then cause = "aucune place libre"
         elseif refus["couvrir:" .. id] then cause = refus["couvrir:" .. id]
