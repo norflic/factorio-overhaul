@@ -65,7 +65,7 @@ Ravitaillement des foreuses par script (teleportation) : garde. Tache de nettoya
 ## Q30 (8/11 2 h 30) : questions groupees de la nuit du 7 au 8/11 (0.6.62 installee, 0.6.63 en cours)
 Option par defaut entre crochets, appliquee tant que le DC ne tranche pas.
 1. Titan : choix du concept (page fo-logs/2026-11-06_DESIGNS/titan/concepts/index.html ; recommandation : Arche ; finitions dans finition.txt). [rien en jeu]
-2. Petrole : fo-war-petrole est a false dans la sauvegarde du DC ; a allumer par lui dans les reglages de carte. [eteint dans sa partie]
+2. Petrole : fo-war-petrole est a false dans votre sauvegarde. Consequence MESUREE (charbonmain, 8/11 4 h 20) : les 20 technologies pretes de votre equipe demandent toutes le pack bleu, impossible sans petrole ; la recherche est donc arretee, et les 458 packs rouges du stock ne servent plus (leur fabrication s'arrete, voulu). Pour relancer la recherche : Parametres > Parametres des mods > Carte > "PNJ : aller au petrole", a allumer en cours de partie. [eteint dans votre partie]
 3. Bancs longs (> 10 000 ticks, accord requis) : ordre de construction, anti-repetition et C4 sur 10 min de jeu ; champ-manque-longue 21 600 ; preuves longues de C3 (remise directe) ; x10-sol long ; ia1-build pour le repli de placement C07 ; preuve de C2 (saturees plus ramassees) sur 10 min de votre sauvegarde, plus longue que l'arriere des poches (36 000 ticks). [aucun lance]
 4. Plafond de surete des laboratoires (VIDEO-PLAFONDS) : 25 par faction. [25]
 5. Cryostat : l'ecart de l'age 11 (plastique au lieu du biopolymere) coute -8 % de valeur depuis le lot PLASTIQUE (-5 % avant). [garde]
