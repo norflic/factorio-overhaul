@@ -257,8 +257,23 @@ do
     local d = Li.manhattan(150, 20, math.floor(ch.x), math.floor(ch.y))
     check(#belts <= Rp.DETOUR * (d + 1) + Rp.DETOUR_SLACK, "G3.12 detour dans la limite")
     check(Rp.street_edge(b.lat, { pitch = P.PITCH, lot = P.LOT, half = P.HALF }, math.floor(ch.x), math.floor(ch.y)), "G3.13 le tampon est au bord d'une rue")
+    check(#p.tapis_piquable > 50 and p.tapis_piquable[1].item == "A", "G3.14 marqueur tapis_piquable pour le lot piquage (" .. #p.tapis_piquable .. " tuiles droites)")
     planned = { p = p, tiles = #belts, ch = ch }
   end
+end
+
+-- G3b : un replan du même projet ne double pas la sortie du tampon (bug de build.lua signalé par team-lead) ----------
+do
+  local W = new_world()
+  local f, b = new_team(W)
+  local spec = { rapatriement = { key = "1:o1", item = "A", flow = 0.8, arm = "fast-inserter", pole = "small-electric-pole", belt = "transport-belt", chest = CHEST,
+    src = { pid = 1, idx = 1, x = 150, y = 20 }, point = { x = 24, y = 14 } } }
+  local p = { id = 30, spec = spec, state = "plan", parts = {}, ents = {}, wires = {}, stock = {}, quais = {}, outs = {}, obstacles = {}, fails = 0 }
+  b.projects[30] = p
+  b.order[#b.order + 1] = 30
+  check(Rap.plan(plan_api(f, b), f, W.surface, p) == true and #p.outs == 1, "G3b.1 premier plan : une sortie")
+  p.ents = {}
+  check(Rap.plan(plan_api(f, b), f, W.surface, p) == true and #p.outs == 1, "G3b.2 second plan du meme projet : toujours une sortie (" .. #p.outs .. ")")
 end
 
 -- G4 : refus ---------------------------------------------------------------------------------------------
