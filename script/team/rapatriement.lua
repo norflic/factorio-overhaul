@@ -673,7 +673,7 @@ end
 local function stage_search(J, src)
   local budget = Rp.SLICE_NODES
   while true do
-    if not J.astar then
+    if not J.astar and not J.pre then
       if not advance(J) then
         if J.pass == 1 then
           J.pass = 2
@@ -695,9 +695,29 @@ local function stage_search(J, src)
             J.last_why = tostring(why)
           end
         else
-          J.astar = Rp.route_begin({ x = e.src.bx, y = e.src.by }, { x = e.dst.bx, y = e.dst.by }, Li.end_dir(e.dst), J.box, ASTAR_WEIGHT)
+          -- sondage de l'ARRIVÉE (journal du DC du 8/11 : 30 refus « aucun chemin » après 14 à 20 mille noeuds chacun) : une recherche depuis le bout du tampon vers
+          -- le bout de départ, plafonnée à Rp.POCKET_NODES ; si elle s'épuise avant, le tampon est dans une POCHE fermée : refus immédiat, avec sa cause
+          J.pre = Rp.route_begin({ x = e.dst.bx, y = e.dst.by }, { x = e.src.bx, y = e.src.by }, 0, J.box, 1)
         end
       end
+    elseif J.pre then
+      local before = J.pre.expanded
+      local st = Rp.route_step(J.pre, J.cost, budget, Rp.POCKET_NODES)
+      local used = J.pre.expanded - before
+      J.total = J.total + used
+      budget = budget - used
+      if st == "more" then
+        return "more"
+      elseif st == "none" then
+        J.last_why = (J.pre.why == "aucun chemin") and string.format("arrivee enfermee (poche de %d tuiles libres autour du tampon)", J.pre.expanded)
+          or ("bout du tapis bloque (" .. tostring(J.pre.why) .. ")")
+        J.pre = nil
+      else -- trouvé ou plafond : le tampon n'est pas dans une petite poche, la recherche vers l'avant commence
+        J.pre = nil
+        local e = J.e
+        J.astar = Rp.route_begin({ x = e.src.bx, y = e.src.by }, { x = e.dst.bx, y = e.dst.by }, Li.end_dir(e.dst), J.box, ASTAR_WEIGHT)
+      end
+      if budget <= 0 and (J.astar or J.pre) then return "more" end
     else
       local before = J.astar.expanded
       local st = Rp.route_step(J.astar, J.cost, budget, math.max(1, Rp.TOTAL_NODES - J.base))

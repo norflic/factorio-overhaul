@@ -444,6 +444,26 @@ do
   check(l1 == l2, "G7.2 deux parties identiques : meme journal")
 end
 
+-- G4b : un tampon enfermé dans une poche est refusé tout de suite, avec sa cause --------------------------------------------
+do
+  local W = new_world()
+  local f, b = new_team(W)
+  local ring = {}
+  for x = 17, 31 do for y = 7, 21 do if x == 17 or x == 31 or y == 7 or y == 21 then ring[P.tkey(x, y)] = true end end end
+  W.poles = {}
+  W.pole(152, 22) -- le départ est alimenté
+  W.pole(22, 12)  -- seul poteau près du tampon : dans l'anneau
+  local spec = { rapatriement = { key = "1:o1", item = "A", flow = 0.8, arm = "fast-inserter", pole = "small-electric-pole", belt = "transport-belt", chest = CHEST,
+    src = { pid = 1, idx = 1, x = 150, y = 20 }, point = { x = 24, y = 14 } } }
+  local p = { id = 40, spec = spec, state = "plan", parts = {}, ents = {}, wires = {}, stock = {}, quais = {}, outs = {}, obstacles = {}, fails = 0 }
+  b.projects[40] = p
+  b.order[#b.order + 1] = 40
+  local ok, why, calls = plan_full(plan_api(f, b, { blocked = ring }), f, W.surface, p)
+  check(ok == false and tostring(why):find("enfermee", 1, true), "G4b.1 tampon dans une poche fermee : refus avec la cause (" .. tostring(why) .. ")")
+  local n = tonumber(tostring(why):match("%((%d+) noeuds"))
+  check(n and n < 3000, "G4b.2 refus rapide : moins de 3 000 noeuds au lieu de la boite entiere (" .. tostring(n) .. ")")
+end
+
 -- G7b : un objet saturé au QG sans quai preneur n'est pas rapatrié, avec la cause écrite ----------------------------
 do
   logs = {}
