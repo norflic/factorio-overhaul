@@ -73,6 +73,10 @@ local function arena(ctx, st)
   for x = 0, 190, 8 do
     if s.create_entity({ name = "medium-electric-pole", position = { x + 0.5, 4.5 }, force = "player" }) then poles = poles + 1 end
   end
+  -- poteaux de la sortie : le runtime exige un poteau du reseau a moins de (portee du petit poteau - 2) = 5,5 tuiles du coffre ; ceux de y = 4 sont a 5,7 tuiles
+  for _, dx in ipairs({ -4, 4 }) do
+    if s.create_entity({ name = "medium-electric-pole", position = { SRC.x + dx + 0.5, 2.5 }, force = "player" }) then poles = poles + 1 end
+  end
   ctx.check(eei ~= nil and poles >= 20, "arene alimentee : interface electrique et poteaux le long de y = 4", string.format("eei=%s poteaux=%d", tostring(eei ~= nil), poles))
   local ch = s.create_entity({ name = "iron-chest", position = { SRC.x + 0.5, SRC.y + 0.5 }, force = "player" })
   ctx.check(ch ~= nil, "coffre de sortie pose en (180, 0)")

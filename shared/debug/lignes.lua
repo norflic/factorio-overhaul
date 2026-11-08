@@ -32,7 +32,7 @@ function Lg.item(name)
   return "[item=" .. name .. "]"
 end
 
-Lg.LINK_STATUS = { "actif", "chantier", "attente", "inerte", "coupe", "refuse" }
+Lg.LINK_STATUS = { "actif", "chantier", "attente", "inerte", "coupe", "refuse", "inconnu" }
 Lg.LINK_CAUSE_TEXT_MAX = 70
 local LS_ETAT = { attente = true, plan = true, reserve = true, defrichage = true, fantomes = true, chantier = true, raccordement = true, fini = true, refuse = true, bloque = true }
 
@@ -41,7 +41,14 @@ function Lg.link_cause(cause)
   if type(cause) ~= "table" then return nil end
   if cause.kind == "texte" then
     local t = tostring(cause.text or "")
-    if #t > Lg.LINK_CAUSE_TEXT_MAX then t = t:sub(1, Lg.LINK_CAUSE_TEXT_MAX - 1) .. "..." end
+    if #t > Lg.LINK_CAUSE_TEXT_MAX then
+      local n = Lg.LINK_CAUSE_TEXT_MAX - 1
+      while n > 0 do -- ne pas couper au milieu d'un caractere UTF-8 (octet de continuation 0x80 a 0xBF)
+        local b = t:byte(n + 1)
+        if b and b >= 0x80 and b <= 0xBF then n = n - 1 else break end
+      end
+      t = t:sub(1, n) .. "..."
+    end
     return t
   end
   if cause.kind == "etat" then
@@ -64,7 +71,7 @@ function Lg.link_state(l)
   if s == "actif" or s == nil then return "" end
   local known = false
   for _, k in ipairs(Lg.LINK_STATUS) do if k == s then known = true end end
-  local word = { "fo-dbg-cerveau.lien-statut-" .. (known and s or "chantier") }
+  local word = { "fo-dbg-cerveau.lien-statut-" .. (known and s or "inconnu") }
   local cause = Lg.link_cause(l.cause)
   if cause == nil then return word end
   return { "fo-dbg-cerveau.lien-statut-cause", word, cause }

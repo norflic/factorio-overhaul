@@ -37,7 +37,7 @@ local Rap = {}
 
 Rap.SETTING = "fo-war-rapatriement"
 local CHEST = T.outposts.coal.sink -- le coffre de sortie des projets du plan directeur (shared/team/config.lua), comme script/team/collecte.lua
-local SKIP_KEYS = { "alim", "raccord", "enceinte", "liaison", "quartier", "rapatriement" } -- des sites (champ, pétrole) PORTENT des sorties : ils sont lus
+local SKIP_KEYS = { "alim", "alimquai", "raccord", "enceinte", "liaison", "quartier", "rapatriement" } -- des sites (champ, pétrole) PORTENT des sorties : ils sont lus
 local DEAD = { refuse = true }
 local POLE_SET = {}
 for _, name in ipairs(M.POLES) do POLE_SET[name] = true end -- les poteaux des données de modules.lua, aucun nom écrit ici
@@ -207,7 +207,7 @@ local function names_of(st, b, pid)
   if not c then
     local arm, rate, pole = pick_names(b, { b.projects[pid] })
     c = { arm = arm or false, rate = rate or false, pole = pole }
-    st.names[pid] = c
+    if arm then st.names[pid] = c end -- seul le succès est gardé : un bras posé plus tard par l'équipe doit être vu
   end
   return c.arm or nil, c.rate or nil, c.pole
 end

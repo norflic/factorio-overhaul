@@ -44,7 +44,7 @@ Piquage.SPLIT_TRIES = 3    -- poses du répartiteur au plus par liaison
 Piquage.EVAL_MAX = 3       -- quais évalués (lecture des côtés libres) au plus par relevé
 
 local DEAD = { refuse = true }
-local SKIP_KEYS = { "alim", "raccord", "enceinte", "liaison", "site", "quartier" }
+local SKIP_KEYS = { "alim", "alimquai", "raccord", "enceinte", "liaison", "site", "quartier" }
 local POLE_SET = {}
 for _, name in ipairs(M.POLES) do POLE_SET[name] = true end
 
@@ -227,7 +227,7 @@ local function scan_unit(f, surface, b, st, c, pid)
     if ch and not seen[tk] then
       seen[tk] = true
       c.docks[#c.docks + 1] = { key = pid .. ":q" .. idx, pid = pid, idx = idx, x = math.floor(q.x), y = math.floor(q.y), item = q.item,
-        flow = flows and flows[q.item] or 0, n = ch.get_item_count(q.item) }
+        flow = q.flow or (flows and flows[q.item]) or 0, n = ch.get_item_count(q.item) }
       c.tours = c.tours + (q.tours or 0)
       c.items = c.items + (q.filled or 0)
     end

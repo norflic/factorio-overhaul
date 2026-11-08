@@ -175,6 +175,9 @@ function Panneau.update_npc(player, v, npc, gone)
   if npc.team_sur then
     lbl(frame, { "fo-dbg-cerveau.pnj-equipe", tostring(npc.team_sur.starved or "?"), tostring(npc.team_sur.want or "?"), tostring(npc.team_sur.service or "?"), tostring(npc.team_sur.mine or "?") }, nil, true)
   end
+  if npc.team_idle then
+    lbl(frame, { "fo-dbg-cerveau.pnj-rien", tostring(npc.team_idle.n or "?"), { "fo-dbg-cerveau.pnj-rien-" .. npc.team_idle.code }, Lg.ago(npc.team_idle.age) }, nil, true)
+  end
   -- sac
   if npc.carry and #npc.carry > 0 then
     local parts = {}

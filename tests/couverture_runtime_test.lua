@@ -167,6 +167,15 @@ do
   Capi.say_saturation(fsa, csa, none, 18000)
   l = last_log("[FO-SATURATION]")
   check(l and l:find("ordre ferme", 1, true) and l:find("foreuse a combustion", 1, true), "§4c [FO-SATURATION] : ordre ferme avec sa cause (" .. tostring(l) .. ")")
+  local wanted = { orders = {}, coverage = { { id = "1,2", resource = "iron-ore", kappa = 40, free = 200, open = true, tiles = 3000, covered = 120 } },
+    sat = { ["1,2"] = { ok = true, why = "200 place(s) libre(s)" } }, refus = {} }
+  Capi.say_saturation(fsa, csa, wanted, 19000)
+  l = last_log("[FO-SATURATION]")
+  check(l and l:find("ordre ferme", 1, true) and l:find("voulu mais non retenu", 1, true), "§4c ordre voulu mais absent : la cause le dit, pas « 200 places libres » (" .. tostring(l) .. ")")
+  local opening = { orders = { { key = "ouvrir:iron-ore@1,2", kind = "ouvrir", deposit = "1,2", n = 2 } }, coverage = wanted.coverage, sat = {}, refus = {} }
+  Capi.say_saturation(fsa, csa, opening, 19500)
+  l = last_log("[FO-SATURATION]")
+  check(l and l:find("ordre ouvert", 1, true), "§4c un ordre d'ouverture du gisement compte comme ordre ouvert (" .. tostring(l) .. ")")
   check(Capi.saturation_on() == true, "§4c reglage non declare : saturation allumee")
   W.settings["fo-war-saturation"] = false
   check(Capi.saturation_on() == false, "§4c reglage a faux : saturation eteinte")

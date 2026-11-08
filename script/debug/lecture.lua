@@ -402,6 +402,12 @@ function Lec.npc(f, agent, now)
   -- l'équipe : PNJ affamés et travail ouvert par la file sûre à la dernière pensée (f.team.org.sur.last, lot INACTIFS, [FO-INACTIF])
   local sl = f.team and f.team.org and f.team.org.sur and f.team.org.sur.last
   if type(sl) == "table" then out.team_sur = { starved = sl.starved, want = sl.want, service = sl.service, mine = sl.mine } end
+  -- pourquoi des PNJ libres n'ont rien a faire (lot MINAGE-MAIN, f.team.sources.idle = { code, tick, n }, mots fixes) ; au-dela de 2 min : perime, non montre
+  local idle = f.team and f.team.sources and f.team.sources.idle
+  if type(idle) == "table" and type(idle.tick) == "number" and now - idle.tick <= 7200
+      and (idle.code == "matiere" or idle.code == "bloquees" or idle.code == "aucune") then
+    out.team_idle = { code = idle.code, n = idle.n, age = now - idle.tick }
+  end
   return out
 end
 

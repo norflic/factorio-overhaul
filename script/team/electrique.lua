@@ -20,6 +20,13 @@ local Stock = require("script.team.stock")
 
 local Elec = {}
 
+local function State_sorted(t)
+  local ks = {}
+  for k in pairs(t or {}) do ks[#ks + 1] = k end
+  table.sort(ks)
+  return ks
+end
+
 Elec.SETTING = "fo-war-electrique"
 Elec.TTL = 2 * 3600      -- ticks : verdict encore valable (une pensée d'équipe le refait bien avant)
 Elec.LOGS = 120          -- lignes [FO-ELECTRIQUE] au plus par équipe (hors bilans de 5 min)
@@ -70,14 +77,60 @@ function Elec.think(f, book, tick)
   for _, p in ipairs(T.swap.poles or {}) do
     if obtainable(f, book, p) then poles = true break end
   end
+  -- Foreuses électriques POSÉES par la force (lot ELECTRIQUE, correctif du 8/11 : la bascule exige des électriques réelles).
+  local elec = 0
+  local surface = f.hq and f.hq.valid and f.hq.surface
+  if surface and T.DRILL_ELECTRIC then
+    local ok, n = pcall(function() return surface.count_entities_filtered({ name = T.DRILL_ELECTRIC, force = f.force }) end)
+    if ok and type(n) == "number" then elec = n end
+  end
   local v = { tick = tick, on = Elec.on(), obtainable = obtainable(f, book, T.DRILL_ELECTRIC), plants = cap_kw > 0 and 1 or 0,
-    poles = poles, healthy = not (f.build and f.build.sante and f.build.sante.healthy == false), cap = cap_kw }
+    poles = poles, healthy = not (f.build and f.build.sante and f.build.sante.healthy == false), cap = cap_kw, elec = elec }
   st.v = v
   local allowed, why = E.thermal(v)
   if st.allowed ~= allowed then
     st.allowed = allowed
     say(f, st, tick, string.format("%s : %s (capacite %.0f kW)", allowed and "thermique permise" or "BASCULE ELECTRIQUE", why, cap_kw))
   end
+  Elec.count(f, st, tick, allowed, why)
+end
+
+--- Compte d'une minute (journal seulement, aucune décision ne le lit) : thermiques debout par type d'avant-poste, celles de la force hors des
+--- avant-postes de l'équipe (joueur compris pour votre équipe : comptées, jamais touchées), remplacées depuis la ligne précédente, cause du reste.
+Elec.COUNT_EVERY = 3600
+function Elec.count(f, st, tick, allowed, why)
+  if tick < (st.count_next or 0) then return end
+  st.count_next = tick + Elec.COUNT_EVERY
+  local by, n = {}, 0
+  for _, oid in ipairs(State_sorted(f.outposts)) do
+    local o = f.outposts[oid]
+    for _, d in ipairs(o.drill_list or {}) do
+      if d.valid and d.name == T.DRILL then
+        by[o.kind] = (by[o.kind] or 0) + 1
+        n = n + 1
+      end
+    end
+  end
+  local out = 0
+  local surface = f.hq and f.hq.valid and f.hq.surface
+  if surface then
+    local ok, all = pcall(function() return surface.count_entities_filtered({ name = T.DRILL, force = f.force }) end)
+    if ok and type(all) == "number" then out = math.max(0, all - n) end
+  end
+  local kinds = {}
+  for _, k in ipairs(T.OUTPOST_ORDER or {}) do kinds[#kinds + 1] = string.format("%s %d", k, by[k] or 0) end
+  local made = st.made_acc or 0
+  st.made_acc = 0
+  local cause
+  local l = st.last or {}
+  if allowed then cause = "thermique encore permise : " .. tostring(why)
+  elseif n == 0 then cause = "aucune"
+  elseif (l.quota or 0) <= 0 then cause = string.format("marge de kW nulle (%.0f kW) : centrale demandee pour %.0f kW", l.margin or 0, st.kw_said or 0)
+  elseif (l.ready or 0) + (l.chain or 0) <= 0 then cause = "aucun poteau alimente a portee des champs du bloc (champs sautes 5 min)"
+  elseif (l.have or 0) <= 0 then cause = "foreuses electriques a fabriquer (stock libre 0)"
+  else cause = string.format("remplacement en cours (quota %d, marge %.0f kW)", l.quota or 0, l.margin or 0) end
+  log(string.format("[FO-ELECTRIQUE] %s : thermiques debout %d (%s), hors avant-postes de l'equipe %d, remplacees cette minute %d, cause du reste : %s a %.1f min",
+    f.key or "player", n, table.concat(kinds, ", "), out, made, cause, minutes(f, tick)))
 end
 
 local function verdict_for(v)
@@ -85,7 +138,7 @@ local function verdict_for(v)
     local spec = t.outpost_kind and T.outposts[t.outpost_kind]
     -- une fabrication de thermique ne sert qu'à l'exception du combustible : permise quand la centrale est à l'arrêt
     local fuel = (t.kind == "craft") or (spec ~= nil and spec.product == T.fuel)
-    return E.thermal({ on = v.on, obtainable = v.obtainable, plants = v.plants, poles = v.poles, fuel = fuel, healthy = v.healthy })
+    return E.thermal({ on = v.on, obtainable = v.obtainable, plants = v.plants, poles = v.poles, fuel = fuel, healthy = v.healthy, elec = v.elec })
   end
 end
 
@@ -99,7 +152,7 @@ function Elec.view_off(f, tick)
   for _, kind in ipairs(T.OUTPOST_ORDER or {}) do
     local spec = T.outposts[kind]
     local ok, why = E.thermal({ on = v.on, obtainable = v.obtainable, plants = v.plants, poles = v.poles,
-      fuel = spec ~= nil and spec.product == T.fuel, healthy = v.healthy })
+      fuel = spec ~= nil and spec.product == T.fuel, healthy = v.healthy, elec = v.elec })
     if not ok then out[kind], any = why, true end
   end
   return any and out or nil
@@ -168,6 +221,7 @@ function Elec.swap_plan(f, pass, pc, kw, base)
   local quota, margin = E.swap_quota({ capacity = pc and pc.capacity, used = pc and pc.used, committed = pc and pc.committed, kw = kw,
     fallback = base.limit })
   out.quota, out.margin = quota, margin
+  st.last = { quota = quota, margin = margin, have = pass.have } -- (compte d'une minute : cause du reste)
   if quota > 0 then
     -- champs où la passe précédente n'a rien planifié, sautés Elec.SKIP ticks (sinon un champ sans poteau à portée retiendrait le quota)
     local skip, keep_skip = {}, {}
@@ -206,6 +260,8 @@ end
 --- fabriqué d'avance et le bloc reste pour toujours sur un champ sans poteau à portée). Rien au stock mais des candidats : on attend la
 --- fabrication d'avance, rien n'est sauté.
 function Elec.swap_planned(f, pass, out, n_ready, n_chain)
+  local st0 = f and f.elec
+  if st0 and st0.last then st0.last.ready, st0.last.chain = n_ready or 0, n_chain or 0 end
   if not (pass and pass.fields and #pass.fields > 0) then return end
   local idle
   if (n_ready or 0) + (n_chain or 0) <= 0 then
@@ -226,8 +282,10 @@ end
 
 --- (b) Bilan d'une passe finie : électriques posées par champ, N/M (thermiques restantes du champ comptées après la passe).
 function Elec.swap_done(f, pass)
-  if not (pass and pass.fields and (pass.made or 0) > 0) then return end
+  if not (pass and (pass.made or 0) > 0) then return end
   local st = state_of(f)
+  st.made_acc = (st.made_acc or 0) + pass.made
+  if not pass.fields then return end
   local parts = {}
   for _, fl in ipairs(pass.fields) do
     local o = f.outposts and f.outposts[fl.o]

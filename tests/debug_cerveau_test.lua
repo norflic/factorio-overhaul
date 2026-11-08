@@ -306,6 +306,9 @@ local function run_all(Zn, Ec, Am, Lg, Pn, Bl)
   check(Lg.link_cause({ kind = "etat", code = "bloque" })[1] == "fo-dbg-cerveau.etat-bloque" and Lg.link_cause({ kind = "etat", code = "zz" }) == "zz", "cause d'etat : cle connue ou mot brut")
   check(Lg.link_cause({ kind = "piquage", code = "ennemi" })[1] == "fo-dbg-cerveau.pq-cause-ennemi" and Lg.link_cause({ kind = "piquage", code = "zz" })[1] == "fo-dbg-cerveau.pq-cause-inconnu", "cause de piquage : cle connue ou inconnue")
   check(#Lg.link_cause({ kind = "texte", text = string.rep("x", 300) }) == Lg.LINK_CAUSE_TEXT_MAX + 2, "motif libre coupe")
+  local cut = Lg.link_cause({ kind = "texte", text = string.rep(string.char(195, 169), 100) })
+  check(#cut % 2 == 1 and cut:sub(-3) == "..." and (#cut - 3) % 2 == 0, "motif coupe sans casser un caractere UTF-8 : " .. #cut)
+  check(Lg.link_state({ status = "zz" })[1] == "fo-dbg-cerveau.lien-statut-inconnu", "statut inconnu : dit inconnu, pas chantier")
   check(Lg.link_cause(nil) == nil and Lg.link_cause({ kind = "?" }) == nil, "pas de cause : rien")
   local lt = Lg.link_text(lines[5])
   check(lt[1] == "fo-dbg-cerveau.lien-ligne" and lt[2][1] == "fo-dbg-cerveau.lien-rapatriement" and lt[3] == "[item=iron-plate]", "texte d'une ligne de rapatriement")
@@ -411,6 +414,7 @@ do
   for _, v in ipairs(Pn.STEP_KINDS) do pe[#pe + 1] = v end
   for _, v in ipairs(Pn.STATES) do ps[#ps + 1] = v end
   add("pnj-cause-", pc)
+  add("pnj-rien-", { "matiere", "bloquees", "aucune" })
   add("pnj-etape-", pe)
   add("pnj-etat-", ps)
   add("lien-", require("shared.debug.liens").KINDS)

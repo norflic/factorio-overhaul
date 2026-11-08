@@ -26,6 +26,8 @@ E.CFG = {
   block_max = 16,    -- remplacements au plus par passe (chaque place de 3 x 3 est lue au moteur : borne de coût d'une passe)
   tries_max = 8,     -- chaînes de poteaux calculées au plus par passe (recherche de chemin bornée, P.pole_chain)
   refused_ttl = 7200, -- ticks (2 min) pendant lesquels une paire thermique refusée compte dans la demande de centrale
+  min_elec = 4,      -- foreuses électriques POSÉES (de la force) au-dessous desquelles la thermique reste permise (partie neuve du 8/11 :
+                     -- bascule à 7,7 min sur « 1 centrale finie », 0 électrique posée à 30 min, thermiques détruites jamais refaites)
 }
 
 local EPS = 1e-9
@@ -41,12 +43,18 @@ end
 --- (a) s = { on (règle allumée, nil = allumée), obtainable (foreuse électrique au stock ou fabricable), plants (centrales finies),
 --- poles (un poteau obtenable), fuel (le produit de ce type d'avant-poste est le combustible de la centrale), healthy (centrale saine) }.
 --- Rend (permise, raison).
-function E.thermal(s)
+function E.thermal(s, cfg)
   s = s or {}
+  cfg = cfg_of(cfg)
   if s.on == false then return true, "regle coupee" end
   if not s.obtainable then return true, "foreuse electrique pas obtenable" end
   if (num(s.plants) or 0) < 1 then return true, "aucune centrale finie" end
   if not s.poles then return true, "aucun poteau obtenable" end
+  -- La bascule se prouve par les faits : tant que l'équipe n'a pas min_elec foreuses électriques POSÉES, la thermique reste permise
+  -- (pose, agrandissement, reconstruction d'une thermique détruite). s.elec = nil (appelant d'avant) : règle d'avant.
+  if s.elec ~= nil and (num(s.elec) or 0) < (cfg.min_elec or 0) then
+    return true, string.format("%d foreuse(s) electrique(s) posee(s), moins de %d : thermique permise", floor(num(s.elec) or 0), cfg.min_elec or 0)
+  end
   if s.fuel and s.healthy == false then return true, "combustible de la centrale a l'arret : thermique permise" end
   return false, string.format("electrique possible (%d centrale(s) finie(s)) : thermique refusee", floor(num(s.plants) or 0))
 end
