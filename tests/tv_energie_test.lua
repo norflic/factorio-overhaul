@@ -278,6 +278,29 @@ do
   for _, l in ipairs(logs) do if l:find("DEFICIT de kW", 1, true) then line = l end end
   check(line ~= nil and line:find("500 kW retenus", 1, true) and line:find("1 chaudiere(s)", 1, true), "journal [FO-ENERGIE] : DEFICIT de kW, kW retenus et taille")
   check(f.build.grow.def_n == 0, "le compte du déficit repart à zéro après la demande")
+  -- une seule centrale par déficit : le projet demandé est en chantier, le déficit dure, aucune seconde demande
+  f.build.extra_plants = { 2 }
+  f.build.projects[2] = { id = 2, state = "chantier", spec = { gen = "steam" }, ents = {} }
+  check(run(30, 5000) == false, "déficit qui dure pendant que la centrale demandée est en chantier : AUCUNE seconde demande (30 relevés)")
+  -- borne écrite : au plus C.MAX_REQUESTS demandes sur la partie
+  f.build.extra_plants, f.build.projects[2] = nil, nil
+  f.build.grow.requests = C0.MAX_REQUESTS
+  f.build.grow.cool_until = 0
+  check(run(10, 5000) == false, "C.MAX_REQUESTS atteint : plus de demande, même avec un déficit")
+  -- l'avance interrompue s'écrit (hypothèse du compteur d'anticipation, diagnostic azure)
+  f.build.grow.requests = 0
+  logs[#logs + 1] = "-- avance --"
+  for _ = 1, 3 do
+    tick = tick + PA.WATCH_EVERY
+    f.team.capi.kw_blocked = { kw = 2000, tick = tick, bank = 0 }
+    PA.watch(f, surface, tick)
+  end
+  tick = tick + PA.WATCH_EVERY
+  f.team.capi.kw_blocked = nil
+  PA.watch(f, surface, tick)
+  local broken
+  for _, l in ipairs(logs) do if l:find("avance de la centrale de plus INTERROMPUE", 1, true) then broken = l end end
+  check(broken ~= nil and broken:find("apres 3 releve(s)", 1, true), "avance de 3 relevés puis chute : la ligne [FO-SANTE-CENTRALE] « avance INTERROMPUE » écrit les chiffres (" .. tostring(broken) .. ")")
   log = old_log
 end
 

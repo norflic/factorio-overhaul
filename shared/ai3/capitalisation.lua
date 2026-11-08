@@ -1572,7 +1572,8 @@ local function extraction_options(ctx, plan, req, item, def, out)
   local function mk_drills(kind, f, n, fixed)
     local key = tostring(f.id)
     local o = { kind = kind, key = kind .. ":" .. key, item = item, resource = item, deposit = f.id,
-      entity = d.name, n = n, rate = n * rho, depth = 0, where = f.id }
+      entity = d.name, n = n, rate = n * rho, depth = 0, where = f.id,
+      kw_unit = (d.energy == "electric" and (d.kw or 0) > 0) and d.kw or nil, short = def } -- (lot TV-ENERGIE (c) : kW d'une foreuse et manque, Ca.share_kw)
     local items = { { d.item, n } }
     for _, it in ipairs(ctx.input.drill_extra or {}) do items[#items + 1] = { it[1], it[2] * n } end
     for _, it in ipairs(fixed or {}) do items[#items + 1] = { it[1], it[2] } end
@@ -1879,7 +1880,7 @@ local function fabric_options(ctx, plan, req, item, r, def, out)
   local function mk(k)
     local o = { kind = kind, key = key, item = item, recipe = r.name, entity = m.name, n = k, rate = k * p,
       where = Ca.HQ, depth = req.depth[item] or 0, fed_by = limit, fed_max = ncap ~= math.huge and ncap or nil,
-      share = sh }
+      share = sh, kw_unit = (m.energy == "electric" and (m.kw or 0) > 0) and m.kw or nil, short = def } -- (lot TV-ENERGIE (c))
     local items = { { m.item, k } }
     for _, it in ipairs(ctx.input.machine_extra or {}) do items[#items + 1] = { it[1], it[2] * k } end
     o.items = items
@@ -2377,10 +2378,93 @@ local function fits(J, o)
     and cap_ok(J, o)
 end
 
+--- Lot TV-ENERGIE (c, accord du lead, 8/11 : « les kW libres ne suffisent pas à tous les ordres électriques d'une décision : répartis par ordre de
+--- manque, chaque objet en manque reçoit son premier lot avant qu'un autre en reçoive un second, départage écrit, aucun nom d'objet »).
+--- entries = { { key, item, kw (par machine), n (voulues), short (manque, /min) } } ; free = kW libres. Rend allot[key] = machines accordées et
+--- l'ordre de service { items }. Ordre : manque décroissant, puis nom de l'objet croissant (départage), puis clé. Un TOUR donne UNE machine à
+--- chaque objet (à sa première option non servie qui tient dans les kW restants) ; on tourne tant qu'un tour accorde quelque chose.
+function Ca.kw_alloc(entries, free)
+  local by_item, items = {}, {}
+  for _, e in ipairs(entries) do
+    local g = by_item[e.item]
+    if not g then
+      g = { item = e.item, short = e.short or 0, list = {} }
+      by_item[e.item] = g
+      items[#items + 1] = g
+    end
+    if (e.short or 0) > g.short then g.short = e.short end
+    g.list[#g.list + 1] = e
+  end
+  table.sort(items, function(a, b)
+    if a.short ~= b.short then return a.short > b.short end
+    return tostring(a.item) < tostring(b.item)
+  end)
+  for _, g in ipairs(items) do
+    table.sort(g.list, function(a, b) return tostring(a.key) < tostring(b.key) end)
+  end
+  local allot = {}
+  for _, e in ipairs(entries) do allot[e.key] = 0 end
+  local left = free
+  repeat
+    local given = false
+    for _, g in ipairs(items) do
+      for _, e in ipairs(g.list) do
+        if allot[e.key] < e.n and e.kw <= left + Ca.EPS then
+          allot[e.key] = allot[e.key] + 1
+          left = left - e.kw
+          given = true
+          break
+        end
+      end
+    end
+  until not given
+  local order = {}
+  for _, g in ipairs(items) do order[#order + 1] = g.item end
+  return allot, order
+end
+
+--- Applique la répartition aux options d'un tour (avant le choix) : si les kW libres couvrent tous les ordres électriques, rien ne change
+--- (identité). Sinon chaque option est ramenée à sa part (Ca.kw_alloc) par sa fonction de taille ; une option sans part est retirée avec le refus
+--- écrit. Rend la liste (même ordre).
+function Ca.share_kw(ctx, plan, opts)
+  local pw = ctx.input.power
+  if not pw or pw.fermee or (plan.amorce_left or 0) > 0 or ctx.kw_share_off then return opts end
+  local free = (plan.kw_have or 0) - (plan.kw_used or 0)
+  local entries, total = {}, 0
+  for _, c in ipairs(opts) do
+    local o = c.o
+    if o.kw_unit and o.kw_unit > 0 and (o.n or 0) > 0 then
+      entries[#entries + 1] = { key = o.key, item = o.item or o.resource or "?", kw = o.kw_unit, n = o.n, short = o.short or 0 }
+      total = total + o.kw_unit * o.n
+    end
+  end
+  if #entries < 2 or total <= free + Ca.EPS then return opts end
+  local allot, order = Ca.kw_alloc(entries, free)
+  local out = {}
+  for _, c in ipairs(opts) do
+    local o = c.o
+    local a = o.kw_unit and allot[o.key]
+    if a == nil or a >= o.n then
+      out[#out + 1] = c
+    elseif a >= 1 and c.mk then
+      local o2 = c.mk(a)
+      if o2 then
+        o2.why = tostring(o2.why or "") .. string.format(" ; kW partages : %d machine(s) sur %d voulues", a, o.n)
+        out[#out + 1] = { o = o2, mk = c.mk }
+      end
+    else
+      refuse(ctx, o.key, o.kind, o.item, string.format(
+        "courant insuffisant : repartition des kW par ordre de manque (manque egal : ordre alphabetique des objets) : %d kW libres, ordre de service %s, il en faut %d",
+        math.floor(free + 0.5), table.concat(order, " > "), math.floor(o.kw_unit + 0.5)))
+    end
+  end
+  return out
+end
+
 --- Un tour de la boucle des ordres : rend faux si aucun ordre ne passe (la boucle s'arrête).
 local function decide_turn(J)
   local ctx, plan = J.ctx, J.plan
-  local opts = Ca.options(ctx, plan, J.req)
+  local opts = Ca.share_kw(ctx, plan, Ca.options(ctx, plan, J.req)) -- lot TV-ENERGIE (c) : kW libres répartis par ordre de manque
   local pick = nil
   for _, c in ipairs(opts) do
     local o = c.o
