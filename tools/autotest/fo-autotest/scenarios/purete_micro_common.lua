@@ -157,7 +157,20 @@ return function(variant)
           end
         end
       end
+      -- sortie d'assembleur : en plus de l'assembleur reel (diagnostic au journal), le banc depose lui-meme des tapis sur la premiere tuile de B (le premier
+      -- passage, 21 OK sur 22, a montre un assembleur sans sortie visible : le mal ne doit pas dependre de lui)
+      if t % 10 == 0 and t < 1700 then
+        local bb = s.find_entities_filtered({ position = { 13.5, 6.5 }, radius = 0.4, name = "transport-belt", limit = 1 })[1]
+        if bb then
+          for i = 1, 2 do
+            local l = bb.get_transport_line(i)
+            if l.can_insert_at_back() then l.insert_at_back({ name = "transport-belt", count = 1 }) end
+          end
+        end
+      end
       if t % 300 == 0 then
+        local am = s.find_entities_filtered({ position = { 10.5, 6.5 }, radius = 0.5, name = "assembling-machine-2", limit = 1 })[1]
+        ctx.log(string.format("[%s] t=%d : assembleur %s, %s fabrication(s) finie(s)", TAG, t, am and am.status and tostring(am.status) or "?", am and tostring(am.products_finished) or "?"))
         local f1, m1 = foreign_on(s, 18, 2, 8)
         local f2, m2 = foreign_on(s, 20, 2, 8)
         ctx.log(string.format("[%s] t=%d : R1 %d circuit(s) %d etranger(s) | R2 %d circuit(s) %d etranger(s)", TAG, t, m1, f1, m2, f2))
