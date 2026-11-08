@@ -5,11 +5,16 @@
   range_mode), les tourelles du mod de centre à centre (défaut du moteur). En boîte à boîte, l'atteinte la plus longue est en
   DIAGONALE : portée + |S|, S = somme des demi-boîtes (0,2 + 0,7 = 0,9 sur chaque axe, |S| = 1,27). À 20, le mitrailleur frappait
   la mitrailleuse de base (18) depuis 21,27 tuiles (MESURÉ en partie : 21,2), hors de sa portée. À 16, il la frappe au plus depuis
-  17,27 : la mitrailleuse de base le touche avant, avec 0,73 tuile de marge en diagonale (1,1 dans l'axe).
+  17,27.
+  Modèle « boîte » (point C, 8846d342, 8/11) : au centre à centre, la tourelle atteint la BOÎTE de sa cible, pas son centre
+  (MESURÉ, voir MARGE). La mitrailleuse de base frappe donc le mitrailleur (± 0,2) depuis 18 + 0,2·√2 = 18,28 en diagonale :
+  marge 1,01 tuile en diagonale, 1,3 dans l'axe (18,2 contre 16,9). Annoncé au DC le 7/11 à l'ancien modèle (la tourelle visait
+  le centre) : 0,73 en diagonale, 1,1 dans l'axe.
     §1 la donnée : mitrailleur 16, égal au fusilier ;
     §2 l'étape data RÉELLE (tests/datastage/harness.lua --dump-final) : le mitrailleur livré (faction et votre équipe) et la
        mitrailleuse de base, tels que le jeu les charge ;
-    §3 la marge : Re.gap (shared/ai3/reaction.lua) et un oracle indépendant par force brute (720 directions) ;
+    §3 la marge : Re.gap (shared/ai3/reaction.lua) et un oracle indépendant par force brute (720 directions), qui calcule DANS
+       CHAQUE DIRECTION l'atteinte de chacun sur l'autre (distances de boîte, sans reach_box ni fonction d'appui) ;
     §4 mutants : chaque erreur possible du calcul ou de la donnée est vue.
   Lancement : lua5.2 tests/portee_mitrailleur_test.lua (depuis la racine du mod ; quelques secondes).
 ]]
@@ -27,25 +32,31 @@ local function check(cond, msg)
 end
 local function section(name) if not quiet then print("== " .. name) end end
 
-local MARGE = 0.73 -- marge annoncée au DC (tuile), en diagonale
+-- Marge (tuile) de la mitrailleuse de base (18, centre à centre, ± 0,7) sur le mitrailleur (16, boîte à boîte, ± 0,2), modèle
+-- « boîte ». MESURE MOTEUR qui la fonde : banc portee-diagonale, arène A (fo-logs/2026-11-05_CORR-RALLIEMENT/portee-diagonale-e0e42a60,
+-- benchmark.log, « FAIT A ») : la fo-lvl-gun-9 (portée 21,7, centre à centre) touche un mitrailleur arrêté en (15,81 ; −15,21), à
+-- 21,933 tuiles de son centre (au-delà de sa portée) ; de son centre à la BOÎTE du mitrailleur, il y a 21,656 ≤ 21,7. Le centre à
+-- centre atteint donc la boîte de la cible (ou son rayon : variante non départagée, MÊME résultat en diagonale ; dans l'axe, le
+-- rayon donnerait 1,38 au lieu de 1,3).
+--   diagonale : tourelle 18 + 0,2·√2 = 18,283 ; mitrailleur 16 + 0,9·√2 = 17,273 ; marge 1,010 (= 2 − 0,7·√2) ;
+--   axe : tourelle 18,2 ; mitrailleur 16,9 ; marge 1,3.
+-- Annoncé au DC le 7/11 à l'ancien modèle (tourelle au centre de sa cible) : 0,73 en diagonale, 1,1 dans l'axe.
+local MARGE = 1.01
+local MARGE_AXE = 1.3
 local TOL = 0.005
 
---- Oracle indépendant de Re.gap : plus grande distance de centre à centre d'où un tireur de portée r en boîte à boîte atteint
---- une cible, S = (sx, sy) somme des demi-boîtes ; 720 directions, dichotomie sur la distance entre les deux boîtes.
-local function brute_reach(r, sx, sy)
-  local best = 0
-  for k = 0, 719 do
-    local c, s = math.cos(k * math.pi / 360), math.sin(k * math.pi / 360)
-    local lo, hi = 0, r + sx + sy + 2
-    for _ = 1, 60 do
-      local mid = (lo + hi) / 2
-      local gx = math.max(0, math.abs(mid * c) - sx)
-      local gy = math.max(0, math.abs(mid * s) - sy)
-      if gx * gx + gy * gy <= r * r then lo = mid else hi = mid end
-    end
-    if lo > best then best = lo end
+--- Oracle : atteinte de CENTRE à centre, dans la direction (c, s), d'un tireur de portée r sur une cible quand les demi-boîtes
+--- écartées valent (sx, sy) : plus grande distance d telle que la distance entre les deux boîtes, aux centres écartés de d·(c, s),
+--- reste ≤ r ; dichotomie (60 pas). Écrit en distances, sans reach_box ni fonction d'appui (indépendant de Re.gap).
+local function radial(r, sx, sy, c, s)
+  local lo, hi = 0, r + sx + sy + 2
+  for _ = 1, 60 do
+    local mid = (lo + hi) / 2
+    local gx = math.max(0, math.abs(mid * c) - sx)
+    local gy = math.max(0, math.abs(mid * s) - sy)
+    if gx * gx + gy * gy <= r * r then lo = mid else hi = mid end
   end
-  return best
+  return lo
 end
 
 --- Données du jeu (comme tests/levels_test.lua) : FO_DATA_DIR, sinon relatif à la racine du mod ou d'un worktree.
@@ -89,7 +100,28 @@ end
 local P = {}
 function P.gunner(range) return Re.profile(range, Re.BB, { { -0.2, -0.2 }, { 0.2, 0.2 } }) end
 function P.turret() return Re.profile(18, nil, { { -0.7, -0.7 }, { 0.7, 0.7 } }) end
-function P.reach(e, t) return brute_reach(e.r, e.hx + t.hx, e.hy + t.hy) end
+--- Modèle « boîte » de l'oracle : `a` frappe `b` quand la distance de SA boîte (boîte à boîte) ou de SON centre (centre à centre)
+--- à la BOÎTE de b est ≤ a.r (mesure de MARGE) ; demi-boîtes écartées = celle de b, plus celle de a en boîte à boîte.
+function P.span(a, b) return b.hx + (a.bb and a.hx or 0), b.hy + (a.bb and a.hy or 0) end
+--- Dans la direction deg (degrés) : atteinte de t sur e moins atteinte de e sur t, puis les deux atteintes.
+function P.at(e, t, deg)
+  local a = deg * math.pi / 180
+  local c, s = math.cos(a), math.sin(a)
+  local ex, ey = P.span(e, t)
+  local tx, ty = P.span(t, e)
+  local re, rt = radial(e.r, ex, ey, c, s), radial(t.r, tx, ty, c, s)
+  return rt - re, re, rt
+end
+--- Marge par force brute : la plus petite, sur 720 directions, de (atteinte de t sur e) − (atteinte de e sur t). Rend la marge, la
+--- direction (degrés) où elle est la plus petite et les deux atteintes dans cette direction.
+function P.margin(e, t)
+  local best, bdeg, be, bt
+  for k = 0, 719 do
+    local m, re, rt = P.at(e, t, k / 2)
+    if not best or m < best - 1e-9 then best, bdeg, be, bt = m, k / 2, re, rt end
+  end
+  return best, bdeg, be, bt
+end
 
 local function suite(cfg)
   section("§1 la donnée (shared/faction/config.lua)")
@@ -101,16 +133,19 @@ local function suite(cfg)
   local e, t = P.gunner(g.range), P.turret()
   local gap = Re.gap(e, t)
   check(gap < -Re.RANGE_EPS, string.format("Re.gap(mitrailleur, mitrailleuse de base) < 0 : %.3f (la tourelle n'est PAS débordée)", gap))
-  check(math.abs(-gap - MARGE) < TOL, string.format("marge en diagonale = %.2f (annoncée au DC : %.2f)", -gap, MARGE))
-  local reach = P.reach(e, t)
-  check(math.abs(reach - (t.r - MARGE)) < TOL and reach < t.r,
-    string.format("oracle (720 directions) : le mitrailleur atteint la mitrailleuse depuis %.3f au plus, elle le frappe à %.1f", reach, t.r))
-  local axis = e.r + math.min(e.hx + t.hx, e.hy + t.hy)
-  check(math.abs((t.r - axis) - 1.1) < TOL, string.format("dans l'axe : marge %.2f (1,1 annoncé)", t.r - axis))
+  check(math.abs(-gap - MARGE) < TOL, string.format("marge en diagonale = %.3f (modèle boîte : %.2f)", -gap, MARGE))
+  local m, deg, re, rt = P.margin(e, t)
+  check(math.abs(m - MARGE) < TOL and math.abs(m + gap) < TOL and math.abs(deg % 90 - 45) < 1e-9,
+    string.format("oracle (720 directions, modèle boîte) : marge %.3f au plus juste, à %.1f° (diagonale attendue), = −Re.gap (%.3f) : "
+      .. "le mitrailleur atteint la mitrailleuse depuis %.3f, elle le frappe depuis %.3f", m, deg, -gap, re, rt))
+  local ma, rea, rta = P.at(e, t, 0)
+  check(math.abs(ma - MARGE_AXE) < TOL,
+    string.format("dans l'axe : marge %.3f (%.1f attendu) : mitrailleur %.3f, tourelle %.3f", ma, MARGE_AXE, rea, rta))
   check(Re.turret_outranged({ e }, t) == false and Re.outranges({ e }, { t, t }) == false,
     "Re.outranges : des mitrailleurs ne débordent plus les mitrailleuses de base du QG")
-  check(Re.gap(P.gunner(20), t) > 3.2 and Re.outranges({ P.gunner(20) }, { t }) == true,
-    "rappel : à 20 (avant), la mitrailleuse de base était débordée de 3,27")
+  local g20 = Re.gap(P.gunner(20), t)
+  check(math.abs(g20 - 2.99) < TOL and math.abs(g20 + P.margin(P.gunner(20), t)) < TOL and Re.outranges({ P.gunner(20) }, { t }) == true,
+    string.format("rappel : à 20 (avant), la mitrailleuse de base était débordée de %.3f (2,99 au modèle boîte ; 3,27 à l'ancien)", g20))
 end
 
 suite(F)
@@ -162,8 +197,8 @@ local function cfg_with(range)
   return c
 end
 mutant("portée d'avant (20)", cfg_with(20))
-mutant("portée 17 (débordée de 0,27 en diagonale)", cfg_with(17))
-mutant("portée 15 (marge 1,73 : pas celle annoncée)", cfg_with(15))
+mutant("portée 17 (marge 0,01 en diagonale)", cfg_with(17))
+mutant("portée 15 (marge 2,01 : pas celle du modèle)", cfg_with(15))
 mutant("mitrailleur compté au centre (diagonale oubliée)", F, function()
   P.gunner = function(r) return Re.profile(r, nil, { { -0.2, -0.2 }, { 0.2, 0.2 } }) end
 end)
@@ -171,7 +206,24 @@ mutant("axe seulement (Re.gap sans la diagonale)", F, function()
   Re.gap = function(e, t) return e.r + math.min(e.hx + t.hx, e.hy + t.hy) - t.r end
 end)
 mutant("oracle sur l'axe seul", F, function()
-  P.reach = function(e, t) return e.r + math.min(e.hx + t.hx, e.hy + t.hy) end
+  P.margin = function(e, t) local m, re, rt = P.at(e, t, 0) return m, 0, re, rt end
+end)
+mutant("oracle à l'ancien modèle (la tourelle vise le centre du mitrailleur)", F, function()
+  P.span = function(a, b) if a.bb then return a.hx + b.hx, a.hy + b.hy end return 0, 0 end
+end)
+mutant("Re.gap à l'ancien modèle (8846d342 annulé : S = 0 au centre à centre)", F, function()
+  Re.gap = function(e, t)
+    local sx, sy = e.hx + t.hx, e.hy + t.hy
+    return e.r + math.sqrt(sx * sx + sy * sy) - t.r
+  end
+end)
+mutant("oracle d'une seule atteinte (celle du mitrailleur, contre la portée nue de la tourelle)", F, function()
+  P.at = function(e, t, deg)
+    local a = deg * math.pi / 180
+    local ex, ey = P.span(e, t)
+    local re = radial(e.r, ex, ey, math.cos(a), math.sin(a))
+    return t.r - re, re, t.r
+  end
 end)
 mutant("boîte de la tourelle oubliée", F, function()
   P.turret = function() return Re.profile(18, nil, nil) end
