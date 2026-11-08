@@ -55,18 +55,9 @@ local function on_damaged(e)
   -- Lot PERF4 : tourelles et infrastructure électrique notées dans l'ensemble des endommagées (script/team/abimes.lua), avant
   -- tout le reste (le réglage Rp.ENABLED ne concerne que ce lot-ci). Une seule lecture du type pour les deux.
   if Ab.TRACKED[etype] then Ab.note(ent, etype) end
-  -- Lot X10-S10 (revue de 87ac84fe) : TOUT coup d'une force adverse sur un type relevé, TOURELLES comprises (CLASS ne les a pas), est
-  -- noté AVANT les filtres de ce lot : f.hit_t réveille la faction lointaine endormie (shared/faction/cadence.lua, cause « attaque »).
-  -- Une écriture par coup ; votre équipe n'est pas lue ici (elle garde son rythme).
-  local eforce = ent.force
-  local fname = eforce.name
-  if fname ~= "player" then
-    local fh = State.by_force(fname)
-    if fh and e.force ~= eforce then fh.hit_t = e.tick end
-  end
   if not Rp.ENABLED then return end
   if not CLASS[false][etype] then return end -- hors filtre (filtre absent : sauvegarde chargée avant le filtre, autre abonné)
-  local f = team_of(fname)
+  local f = team_of(ent.force.name)
   if not (f and not f.eliminated and f.hq and f.hq.valid) then return end
   -- Lot DANGER-ACTIF (DC 4/11, 19 h 12 : « continuer à travailler tout en évitant le danger ou en défendant ») : un bâtiment de l'équipe touché par
   -- une force adverse prévient les SOLDATS tout de suite (crochet posé par script/ai3/soldats.lua, nil sans lui), avec ou sans ouvrier sur place.
