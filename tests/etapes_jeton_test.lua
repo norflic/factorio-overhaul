@@ -9,7 +9,8 @@
     T3 changement de configuration SANS changement de version pendant l'attente (condition 2) : l'état n = 1 (avec sa signature) est
        GARDÉ, puis joué au tick suivant ;
     T4 t0 (condition 3) : l'état rendu par E1a jouée en attente porte t0 = le tick où E1a se JOUE (pas le tick du créneau) ;
-    T5 pire cas (condition 4 et borne de CRITERES §2) : 4 factions et votre équipe, et dix relevés de banc aux passes du pouls
+    T5 pire cas (condition 4 et borne de CRITERES §2) : 4 factions et votre équipe, réveils (S10, toutes les 97 ticks), et dix
+       relevés de banc aux passes du pouls
        (période 5, coûts 32 et 152) en plus des vrais : aucun tick au-delà du budget ; plus longue attente d'une étape ≤ 7 ticks ; durée
        d'une pensée ≤ 103 ticks (13 étapes au plus, E1b rejouée par la décision de capitalisation comprise) ;
     T7 entrées périmées (décision du lead du 8/11, trou relevé par effondrement ; Lourd.drop) : (a) CHANGEMENT DE VERSION avec 5 pensées
@@ -28,10 +29,9 @@
        rattrapage d'un état n = 1 (branche retirée) ; état n = 1 sans signature ; t0 du créneau recopié ; entrée laissée à l'abandon
        (T7 b : retard de plus de 7 ticks) ; entrée laissée à l'effacement (T7 a : idem) ; entrée laissée quand votre équipe prend fin
        (T7 c : idem) ; période ignorée par le jeton (T8 échoue).
-  Sans S10 (décision du lead du 8/11 : S10 retiré de la 0.6.63, cette partie refaite sur e6eab76c pour la 0.6.64) : une faction pense
-  à son créneau seulement (Commander.think, phases étalées), sans réveil ; la garde « pensée en cours » de commander.lua n'est pas dans ce
-  lot (une pensée dure au plus 103 ticks, sous la période de 300 ; un créneau qui tombe pendant une pensée passe par le rattrapage de
-  Team.think, T2).
+  Avec S10 (essai-0664, c3e89e23) : la pensée d'un RÉVEIL passe aussi par E1a (Commander.wake ne prend plus le jeton) ; la garde
+  « pensée en cours » de Commander.think (créneau et réveil) est contrôlée par tests/cadence_moteur_test.lua §8 et
+  tests/reveil_jeton_test.lua ; les scènes ci-dessous n'en dépendent pas (T1 attend une pensée, endormie ou non).
   Usage : lua5.2 tests/etapes_jeton_test.lua   (depuis la racine du mod)
 ]]
 package.path = "./?.lua;" .. package.path
@@ -222,6 +222,7 @@ local function scene_worst(ctx, ticks)
     if t % 5 == 0 then
       for i = 1, 10 do Lourd.take(t, "banc:releve" .. i, 5, i <= 5 and 32 or 152) end
     end
+    if step % 97 == 0 then for _, f in ipairs(teams) do if not f.is_player then f.lost_t = game.tick end end end -- (réveils, S10)
     M.run_ticks(1)
     for i, f in ipairs(teams) do
       local et = et_of(f)

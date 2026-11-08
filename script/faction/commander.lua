@@ -196,6 +196,10 @@ function Commander.think(id, tick, woken)
     cs.base_alert = DefChoix.base(f, surface, tick).insecure or nil
     -- Revue de 87ac84fe : un créneau qui tombe PENDANT les étapes de la pensée précédente (un réveil quelques ticks avant) est
     -- laissé, sans endormir la faction (sinon ces étapes se rejouent d'un bloc) ; seuil : l'écart des étapes (Cd.STEP_SPAN), pas la période.
+    -- Lot LOURD (point 2 c ; garde accordée par le lead, remarque de video-l5) : une pensée EN COURS (étapes sous le jeton, décalées
+    -- au-delà de T + Et.SPAN) : ni créneau ni réveil n'en commencent une autre (sinon Team.think rattraperait le reste d'un bloc).
+    -- Posée AVANT le test « woken » : un réveil refusé ici laisse la faction endormie, le guet redemande au tick suivant.
+    if f.team and f.team.etape then return end
     if not woken and Cd.recent(cs, tick) then return end
     local inp = cadence_input(f, Commander.players_on(war.surface))
     local skip, why = Cd.skip(cs, inp, tick)
@@ -279,9 +283,13 @@ end
 
 --- Lot X10-S10 : RÉVEIL d'une faction endormie (rang `id` dans war.factions) pour la cause `cause`, au tick `tick`. SEUL point d'appel de
 --- la pensée hors créneau : le lot S6 (jeton des travaux lourds, script/core/lourd.lua) le fera passer par son minuteur (Cd.skip décide
---- SI la faction pense, le jeton décide QUAND ; consigne du lead, 7/11). Aujourd'hui : la pensée tout de suite (Commander.think, puis ses
---- étapes E2 à E4 aux ticks suivants, comme d'habitude).
+--- SI la faction pense, le jeton décide QUAND ; consigne du lead, 7/11).
+--- Lot LOURD (point 2 c, 8/11 ; décision Q1 du lead) : le jeton des travaux lourds est pris par la PREMIÈRE ÉTAPE de la pensée (E1a,
+--- Team.think, script/team/team.lua), pour le réveil comme pour le créneau : une seule prise par pensée (le point 2 b la prenait ici ;
+--- retiré avec S10 de la 0.6.63, il n'est pas repris). Une pensée encore en cours (f.team.etape) laisse le réveil sans effet (garde de Commander.think) : la faction reste
+--- endormie, le guet redemande au tick suivant (Cd.wake est un niveau).
 function Commander.wake(f, id, cause, tick)
+  if f.team and f.team.etape then return end -- (pensée en cours : aucun journal « NORMALE » d'un réveil qui n'a pas lieu)
   cadence_say(f, cadence_of(f), "normale", cause, tick)
   Commander.think(id, tick, true)
 end
