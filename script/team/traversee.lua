@@ -198,6 +198,17 @@ function Trav.route(f, surface, p, s, t, t_dir, bounds, cost, opts)
   end
   if not tiles then
     count(f, nil, false)
+    if Trav.ENABLED then
+      -- la CAUSE du refus : quel obstacle arrête le tracé, où (le journal ne la disait pas)
+      local st = f.build and f.build.stats
+      if st and (st.traversee_logs or 0) < Trav.LOGS and (info == "aucun chemin" or info == "trop long") then
+        local diag = Tv.diagnose(s, t, bounds, cost, ug and ug.maxd or nil)
+        local nat = diag.block and not diag.outside and nature_at(surface, diag.block.x, diag.block.y) or nil
+        say(f, Tv.refusal_line({ team = f.key or "player", project = p and p.id or "?", kind = opts.kind or "tapis" }, info, diag, nat))
+      else
+        say(f, Tv.refusal_line({ team = f.key or "player", project = p and p.id or "?", kind = opts.kind or "tapis" }, info, nil, nil))
+      end
+    end
     return nil, info
   end
   count(f, info, true)

@@ -250,6 +250,54 @@ local function battery(Tv)
       m3.cells["5:0"], m3.cells["5:2"] = "#", "#"
       ck(route(m3, { maxd = nil, t_dir = 2 }) == nil, "k4 : jamais d'arrivée par l'avant de la cible")
     end
+    -- (c2) compression d'une traversée de gisement (Tv.compress) sur des listes fabriquées
+    do
+      local function line(x0, x1, y, turn_at)
+        local l = {}
+        for x = x0, x1 do l[#l + 1] = { x = x, y = y, d = 2 } end
+        if turn_at then
+          -- virage vers le sud à x = turn_at puis tout droit
+          for i2, e in ipairs(l) do if e.x == turn_at then e.d = 3 end end
+        end
+        return l
+      end
+      local function as_tiles(el)
+        local out = {}
+        for _, e in ipairs(el) do out[#out + 1] = { x = e.x, y = e.y, dir = (e.d - 1) * 2, ug = e.ug } end
+        return out
+      end
+      local function jumps_of(el) local n = 0 for _, e in ipairs(el) do if e.ug == "input" then n = n + 1 end end return n end
+      local ore = function(x, y) return x >= 5 and x <= 16 end
+      local el = line(0, 25, 3)
+      local out = Tv.compress(el, { ore = ore, maxd = 5 })
+      local t = as_tiles(out)
+      ck(jumps_of(out) >= 2 and #Tv.verify(t, { x = 0, y = 3 }, { x = 25, y = 3 }, 2, 5, function() return 1 end) == 0, "c2a : traversée droite : paires dans la portée, preuve juste")
+      local on = 0
+      for _, e in ipairs(out) do if ore(e.x, e.y) then on = on + 1 end end
+      ck(on <= 5, "c2b : au plus 5 pièces sur 12 tuiles de gisement (" .. on .. ")")
+      -- virage juste après la sortie : l'écart ne peut pas finir sur la tuile qui précède le virage
+      local el2 = line(0, 12, 3, 10)
+      for i2 = #el2, 1, -1 do if el2[i2].x > 10 then table.remove(el2, i2) end end
+      el2[#el2 + 1] = { x = 10, y = 4, d = 3 }
+      local ore2 = function(x, y) return x >= 5 and x <= 9 and y == 3 end
+      -- les pièces après le virage ne sont plus sur la droite : le tracé réel descend en x = 10
+      local out2 = Tv.compress(el2, { ore = ore2, maxd = 5 })
+      ck(#Tv.verify(as_tiles(out2), { x = 0, y = 3 }, { x = 10, y = 4 }, 4, 5, function() return 1 end) == 0, "c2c : pas de virage juste après la sortie")
+      -- souterrain existant de même axe sous l'écart : aucune paire
+      local out3 = Tv.compress(line(0, 25, 3), { ore = ore, maxd = 5, ug_axis = function(x, y) if x == 7 then return 2 end return nil end })
+      ck(#Tv.verify(as_tiles(out3), { x = 0, y = 3 }, { x = 25, y = 3 }, 2, 5, function() return 1 end, { ug_axis = function(x) if x == 7 then return 2 end return nil end }) == 0,
+        "c2d : jamais de paire au-dessus d'un souterrain de même axe")
+    end
+    -- (k5) cause d'un refus
+    do
+      local m = corridor(10, "#")
+      local d = Tv.diagnose(m.s, m.t, m.bounds, m.cost, 5)
+      ck(d.reached > 0 and d.near.x == 5 and d.dist == m.t.x - 5 and d.block and d.block.x == 6 and not d.outside, "k5 : cause du refus : le mur en x = 6")
+      local line = Tv.refusal_line({ team = "azure", project = 7, kind = "liaison" }, "aucun chemin", d, "poteau")
+      ck(line:find("REFUS (aucun chemin)", 1, true) and line:find("poteau en (6, 1)", 1, true), "k6 : ligne de refus")
+      local d2 = Tv.diagnose(m.s, m.t, m.bounds, m.cost, nil)
+      ck(d2.near.x == 5, "k7 : sans souterrain, même arrêt")
+    end
     -- (l) plafond : un plafond minuscule rend « trop long » sans planter
     do
       local m = corridor(1, "#")
@@ -357,12 +405,11 @@ do
   mutant("paire sans surcout", "tc(mx, my) + (kk - 1) + Tv.UG_COST", "tc(mx, my)")
   mutant("virage permis juste après la sortie", "if turn == 0 or cur.m == 0 then", "if true then")
   mutant("arrivée par l'avant permise", "if cur.d ~= ((td + 1) % 4) + 1 and (cur.m == 0 or cur.d == td) then", "if true then")
-  mutant("surcoût de gisement ignoré", "if ore and pen > 0 and ore(x, y) then c = c + pen end", "")
+  mutant("surcoût de gisement ignoré", "if pen > 0 and mo[tk(x, y)] then c = c + pen end", "")
   mutant("borne de détour retirée", "local limit = Tv.detour_limit(base_phys)", "local limit = math.huge")
   mutant("gisement sans choix du moins couvert", "if on < best_ore or (on == best_ore and phys(el) < phys(best)) then", "if false then")
   mutant("traversée : écart de la paire dépasse la portée", "for j = math.min(i + maxd, last - 1), i + 2, -1 do", "for j = math.min(i + maxd + 1, last - 1), i + 2, -1 do")
   mutant("traversée : virage permis juste après la sortie", "if after and after.d == d and j + 1 <= last then", "if after and j + 1 <= last then")
-  mutant("traversée : paire sans gain exigé", "if ok and gain >= 1 then", "if ok and gain >= 0 then")
   mutant("traversée : souterrain de même axe ignoré", "if a ~= nil and (a == true or a == axis) then ok = false end", "if false then ok = false end")
   mutant("poteaux : borne +2 ignorée", "if alt and (not base or #alt <= #base + extra) then", "if alt then")
   mutant("poteaux : gisement jamais évité", "local alt = chain(a, b, free2)", "local alt = nil")

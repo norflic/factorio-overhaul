@@ -105,6 +105,8 @@ recipes["underground-belt"].enabled = false
 check(Trav.underground(f, "transport-belt") == nil, "9 : aucun souterrain débloqué : nil")
 local none, why = Trav.route(team(), surface, { id = 1 }, { x = 0, y = 1 }, { x = 12, y = 1 }, 2, bounds, cost, { belt = "transport-belt" })
 check(none == nil and why == "aucun chemin", "10 : sans souterrain, le mur plein ne se passe pas")
+local last = logs[#logs] or ""
+check(last:find("REFUS (aucun chemin)", 1, true) and last:find("poteau en (6,", 1, true), "10b : la CAUSE du refus est écrite (" .. last .. ")")
 recipes["underground-belt"].enabled = true
 
 -- Réglage éteint : ancien tracé --------------------------------------------------------------------

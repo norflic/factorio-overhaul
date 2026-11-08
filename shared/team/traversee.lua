@@ -255,6 +255,52 @@ local function search(s, t, td, bounds, cost, ctx, pen, lim, wt, capn)
 end
 
 -- Statistiques d'un tracé : tuiles de gisement couvertes par une pièce, nombre de paires.
+-- CAUSE d'un refus (journal) : remplissage de tuiles depuis `s` (mêmes arêtes que Tv.unreachable). Rend { reached (tuiles atteintes), near = {x, y}
+--- (la tuile atteinte la plus proche de `t`, départage y puis x), dist (Manhattan de near à t), block = {x, y} ou nil (la tuile voisine de near, vers
+--- t, qui arrête le tracé : interdite, ou hors de la boîte), outside (vrai : block est hors de la boîte) }.
+function Tv.diagnose(s, t, bounds, cost, maxd)
+  local function inb(x, y) return x >= bounds.x0 and x <= bounds.x1 and y >= bounds.y0 and y <= bounds.y1 end
+  local seen = { [tk(s.x, s.y)] = true }
+  local q, h = { s.x, s.y }, 1
+  local best, bd = { x = s.x, y = s.y }, math.abs(s.x - t.x) + math.abs(s.y - t.y)
+  local function push(x, y)
+    local k = tk(x, y)
+    if not seen[k] and inb(x, y) and cost(x, y) ~= nil then seen[k] = true; q[#q + 1] = x; q[#q + 1] = y end
+  end
+  while h <= #q do
+    local x, y = q[h], q[h + 1]
+    h = h + 2
+    local d = math.abs(x - t.x) + math.abs(y - t.y)
+    if d < bd or (d == bd and (y < best.y or (y == best.y and x < best.x))) then best, bd = { x = x, y = y }, d end
+    for _, dv in ipairs(D4) do
+      push(x + dv[1], y + dv[2])
+      if maxd then
+        for kk = 2, maxd do
+          local mx, my = x + kk * dv[1], y + kk * dv[2]
+          if inb(mx, my) and cost(mx, my) ~= nil then push(mx + dv[1], my + dv[2]) end
+        end
+      end
+    end
+  end
+  -- voisin de `best` vers `t` qui n'est pas atteint : l'axe le plus éloigné d'abord
+  local dx, dy = t.x - best.x, t.y - best.y
+  local order = {}
+  local function sgn(v) return v > 0 and 1 or (v < 0 and -1 or 0) end
+  if math.abs(dx) >= math.abs(dy) then
+    order = { { sgn(dx), 0 }, { 0, sgn(dy) } }
+  else
+    order = { { 0, sgn(dy) }, { sgn(dx), 0 } }
+  end
+  local block, outside
+  for _, o in ipairs(order) do
+    if o[1] ~= 0 or o[2] ~= 0 then
+      local bx, by = best.x + o[1], best.y + o[2]
+      if not seen[tk(bx, by)] then block, outside = { x = bx, y = by }, not inb(bx, by) break end
+    end
+  end
+  return { reached = (#q) / 2, near = best, dist = bd, block = block, outside = outside }
+end
+
 -- Longueur PHYSIQUE d'un tracé en tuiles (trous des paires compris).
 local function phys(tiles)
   local n = 1
@@ -579,6 +625,18 @@ end
 ---------------------------------------------------------------------------------------------------
 local DIRNAME = { [0] = "N", [2] = "E", [4] = "S", [6] = "O" }
 Tv.DIRNAME = DIRNAME
+
+--- Ligne [FO-TRAVERSEE] d'un REFUS : who comme Tv.lines, why (raison de la recherche), diag (Tv.diagnose), nature (texte de l'obstacle ou nil).
+function Tv.refusal_line(who, why, diag, nature)
+  local head = string.format("[FO-TRAVERSEE] %s : projet %s (%s) : ", tostring(who.team or "player"), tostring(who.project or "?"), tostring(who.kind or "tapis"))
+  if not diag then return head .. "REFUS (" .. tostring(why) .. ")" end
+  local what = "rien d'identifie"
+  if diag.block then
+    what = string.format("%s en (%d, %d)%s", nature or "obstacle", diag.block.x, diag.block.y, diag.outside and " (hors de la boite de recherche)" or "")
+  end
+  return string.format("%sREFUS (%s) : %d tuile(s) atteignable(s), la plus proche de l'arrivee en (%d, %d) a %d tuile(s) ; arrete par %s", head, tostring(why),
+    diag.reached, diag.near.x, diag.near.y, diag.dist, what)
+end
 
 --- Lignes [FO-TRAVERSEE] d'un tracé : une par paire souterraine, une pour un détour ou un gisement couvert. who = { team, project, kind }.
 function Tv.lines(who, info)
