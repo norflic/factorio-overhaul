@@ -63,13 +63,14 @@ local function with_run(list, status)
   for _, g in ipairs(list or {}) do
     local copy = {}
     for k, x in pairs(g) do copy[k] = x end
-    local sampled, working, causes = 0, 0, {}
+    local sampled, working, starved, causes = 0, 0, 0, {}
     for i, u in ipairs(g.units or {}) do
       if i > RT.SAMPLE then break end
       local s = status(g, u)
       if s ~= nil then
         sampled = sampled + 1
         if s == "working" then working = working + 1 else causes[s] = (causes[s] or 0) + 1 end
+        if s == "low_power" or s == "no_power" or s == "not_plugged_in_electric_network" then starved = starved + 1 end
       end
     end
     if sampled > 0 then
@@ -77,7 +78,7 @@ local function with_run(list, status)
       for _, name in ipairs(sorted_keys(causes)) do
         if causes[name] > best then stop, best = name, causes[name] end
       end
-      copy.run = { sampled = sampled, working = working, stop = stop }
+      copy.run = { sampled = sampled, working = working, starved = starved, stop = stop }
     end
     out[#out + 1] = copy
   end
