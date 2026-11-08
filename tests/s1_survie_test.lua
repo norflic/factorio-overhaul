@@ -409,7 +409,8 @@ local src = {
   capi = read_src("script/ai3/capitalisation.lua"), pteam = read_src("script/team/player_team.lua"),
 }
 local function has(s, pat) return s:find(pat, 1, true) ~= nil end
-check(has(src.team, "qg_peril = SurvieQg.update(f, tick)"), "maillon 1 (vue) : Team.view publie view.qg_peril")
+-- (X10-S0, 0.6.62 : l'appel passe par la portée fine du profileur, mesure seulement ; Profiler.fwrap rend la valeur de SurvieQg.update)
+check(has(src.team, 'qg_peril = Profiler.fwrap("view:5-survieqg", SurvieQg.update, f, tick)'), "maillon 1 (vue) : Team.view publie view.qg_peril")
 check(has(src.glue, "Sq.peril({") and has(src.glue, "Sq.threat(v.waves, tick)") and has(src.glue, "Prev.qg_view(f)") and has(src.glue, "[FO-SURVIE]"),
   "maillon 2 (glue) : la vue appelle Sq.peril avec la menace mémorisée et le recensement, et journalise [FO-SURVIE]")
 check(has(src.prev, "Sq.armed_share(have, T.turret_ammo_low)") and has(src.prev, "e.get_inventory(defines.inventory.turret_ammo)"),

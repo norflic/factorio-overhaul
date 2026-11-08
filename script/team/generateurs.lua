@@ -267,6 +267,28 @@ function Gens.ready()
   return Gens.ENABLED and root() ~= nil
 end
 
+--- Lot X10-S4, demande de perf3 (0.6.63 : coût déclaré au jeton du début du raccord, script/team/raccord.lua) : vrai EXACTEMENT quand
+--- Gens.list(surface, force, types) servirait depuis le registre, sans aucune recherche sur la surface. Faux dans les cas où list_impl
+--- refait l'ancienne recherche : registre éteint ou pas armé, espace absent, type non tenu, surface jamais relevée (la première lecture
+--- la relèverait), surface ou seau de la force illisibles (entité sans unit_number, bancs à moteur partiel). Une force sans seau sert
+--- (seau neuf vide). LECTURE SEULE : rien n'est écrit (ni root(), qui complète l'espace, ni seau créé), aucune ligne de journal
+--- (type_set en écrit une), aucun relevé. tests/x10_s4_serves_test.lua : « serves » ⇔ « aucune recherche dans Gens.list ».
+function Gens.serves(surface, force, types)
+  if not (Gens.ENABLED and armed) then return false end
+  local S = Storage.ns("gens")
+  if not (S and S.by) then return false end
+  local list = type(types) == "string" and { types } or types
+  for _, t in ipairs(list) do
+    if not TRACKED[t] then return false end
+  end
+  local idx = surface.index
+  local bs = S.by[idx]
+  if not bs then return false end
+  if S.nounit and S.nounit[idx] then return false end
+  local b = bs[type(force) == "string" and force or force.name]
+  return not (b and b.nounit)
+end
+
 --- Ensemble des numéros de réseau électrique des génératrices de `force` sur `surface` (types `types`) : { [id] = true }, nombre.
 function Gens.networks(surface, force, types)
   local live, n = {}, 0

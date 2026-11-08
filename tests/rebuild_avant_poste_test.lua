@@ -139,6 +139,11 @@ local handlers = {}
 -- sans ce champ, le banc plantait au require (déjà sur main 0.6.18).
 package.loaded["script.core.events"] = { on = function(id, fn) handlers[id] = fn end, on_configuration_changed = function() end,
   on_died = function(fn) handlers[defines.events.on_entity_died] = fn end } -- lot MORTS (Events.on_died)
+-- Lot X10-S0 (0.6.62) : reconstruction.lua et stock.lua requièrent le profileur (portées fines, mesure seulement), qui charge le vrai
+-- stockage, qui s'abonne à Events.on_init, absent de la doublure ci-dessus. Doublure muette du profileur : toute fonction ne fait rien,
+-- fwrap appelle la sienne.
+package.loaded["script.core.profiler"] = setmetatable({ fwrap = function(_, fn, ...) return (fn(...)) end },
+  { __index = function() return function() end end })
 defines = { events = { on_entity_died = 1, on_player_mined_entity = 2, on_robot_mined_entity = 3 }, entity_status = { no_power = 7, working = 1 },
   direction = { north = 0, east = 2, south = 4, west = 6 }, inventory = setmetatable({}, { __index = function() return 1 end }),
   build_check_type = {}, flow_precision_index = {} }

@@ -96,15 +96,19 @@ local function wave_pos(f, d, along, side)
   return { x = f.hq_pos.x + d[1] * along - d[2] * side, y = f.hq_pos.y + d[2] * along + d[1] * side }
 end
 
---- Premier côté où AUCUN avant-poste de la faction n'est vers la vague (projection sur d <= 0) : de tous les sites, le QG est alors
---- le plus près de la vague, quel que soit le juge du premier site. Rend le côté (nil si aucun) et la liste des côtés écartés.
+--- Premier côté où AUCUN avant-poste de la faction n'est vers la vague (projection sur d <= -WAVE_MARGIN) : de tous les sites, le QG
+--- est alors le plus près de CHAQUE déchiqueteur, quel que soit le juge du premier site. Rend le côté (nil si aucun) et la liste des
+--- côtés écartés. Marge (relecture revue-s, 8/11) : un déchiqueteur est à a >= 60 tuiles sur l'axe et à 18 au plus de côté ; un
+--- avant-poste à projection <= -5 en est à a + 5 ou plus, le QG à sqrt(a^2 + 18^2) < a + 5 dès que a > 30 (sans marge, un avant-poste
+--- de côté, à projection 0, pouvait être plus près que le QG de moins d'une tuile).
+local WAVE_MARGIN = 5
 local function wave_dir(f, St)
   local blocked = {}
   for _, d in ipairs(DIRS) do
     local free = true
     for _, k in ipairs(St.sorted_keys(f.outposts or {})) do
       local q = f.outposts[k].access or f.outposts[k].pos
-      if q and (q.x - f.hq_pos.x) * d[1] + (q.y - f.hq_pos.y) * d[2] > 0 then free = false end
+      if q and (q.x - f.hq_pos.x) * d[1] + (q.y - f.hq_pos.y) * d[2] > -WAVE_MARGIN then free = false end
     end
     if free then return d, blocked end
     blocked[#blocked + 1] = d[3]
