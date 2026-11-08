@@ -1820,7 +1820,7 @@ local function s19()
     "§19 kW retenus : somme des machines et foreuses retenues par le courant")
   -- Foreuses électriques sans courant ni centrale à proposer (chemin no_power) : refusées comme avant, et leurs kW sont retenus.
   local rf1 = refus_of(r1, "couvrir:d1")
-  check(rf1 and rf1.why:find("aucune centrale possible", 1, true) and r1.kw and r1.kw.blocked > 0 and r1.kw.blocked % 90 == 0,
+  check(rf1 and rf1.why == "courant insuffisant (aucune centrale possible : 0 kW de capacite)" and r1.kw and r1.kw.blocked > 0 and r1.kw.blocked % 90 == 0,
     string.format("§19 foreuses sans courant : refus « %s », %s kW retenus (90 kW par foreuse)", tostring(rf1 and rf1.why),
       tostring(r1.kw and r1.kw.blocked)))
 end
@@ -1945,6 +1945,15 @@ local function s22()
     open = { { key = "couvrir:d1", kind = "couvrir", item = "iron-ore", resource = "iron-ore", deposit = "d1", entity = "electric-mining-drill",
       n = 1, n_left = 1, rate = 20, where = "d1" } } }), {})
   check(elec_orders(ouvert) == 0, "§22 W02 : un ordre électrique déjà ouvert a pris l'amorce : aucune autre foreuse électrique (" .. elec_orders(ouvert) .. ")")
+  -- diagnostic azure : centrale FINIE dont les kW sont pris : le refus dit les kW, pas « aucune centrale possible »
+  local pris = Ca.decide(rich(D, { power = { have_kw = 1000, used_kw = 950 } }), {})
+  local rp = refus_of(pris, "couvrir:d1")
+  check(rp and rp.why == "courant insuffisant : 950 kW pris sur 1000 kW (reste 50, il en faut 90)",
+    "§21 azure : centrale finie, kW pris : le refus dit les kW (" .. tostring(rp and rp.why) .. ")")
+  check(not (rp and rp.why:find("aucune centrale", 1, true)), "§21 azure : plus de « aucune centrale possible » devant une centrale qui tourne")
+  check(Ca.kw_refusal({ kw_have = 1800, kw_used = 1721 }, 90) == "courant insuffisant : 1721 kW pris sur 1800 kW (reste 79, il en faut 90)",
+    "§21 azure : le cas du journal (1721 sur 1800, foreuse de 90) : « reste 79 »")
+  check(Ca.kw_refusal({ kw_have = 100, kw_used = 300 }, 90):find("reste 0", 1, true) ~= nil, "§21 azure : reste jamais négatif")
   local capacite = Ca.decide(rich(D, { power = { have_kw = 1000, used_kw = 0 } }), {})
   check(elec_orders(capacite) >= 2, "§22 W02 : centrale finie, capacité lue : plus de limite d'amorce (" .. elec_orders(capacite) .. ")")
 end
@@ -2170,6 +2179,7 @@ do
       Pf.power_missing = function(pw) if pw and pw.fermee then return nil end return orig(pw) end
     end, function() Pf.power_missing = orig end)
   end
+  MF("refus de courant sans les kW", "kw_refusal", function() return function() return "courant insuffisant" end end)
   MF("amorce jamais consommée (autant d'ordres électriques que d'options)", "spend_amorce", function() return function() end end)
   do
     local orig = Pf.power_why

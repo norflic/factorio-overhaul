@@ -1903,7 +1903,10 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
     local seen, causes = {}, {}
     for _, r in ipairs(res.refus or {}) do
       local why = tostring(r.why)
-      if why:sub(1, 10) == "courant : " and not seen[why] then seen[why] = true causes[#causes + 1] = why end
+      if why:sub(1, 7) == "courant" then
+        local cause = why:gsub("%d+", "#") -- (la cause, pas les kW qui bougent à chaque minute : une ligne par changement de cause)
+        if not seen[cause] then seen[cause] = true causes[#causes + 1] = why end
+      end
     end
     table.sort(causes)
     local sig = table.concat(causes, " | ")
@@ -1925,7 +1928,7 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
   end
   -- kW retenus, datés de cette décision : la centrale les compte pour grandir AVANT d'être saturée (script/team/sante_centrale.lua,
   -- Sante.growth, S.capi_kw ; valables S.CAPI_TTL). Aucun courant donné à la règle : rien de retenu.
-  cs.kw_blocked = (res.kw and res.kw.blocked > 0) and { kw = res.kw.blocked, tick = tick } or nil
+  cs.kw_blocked = (res.kw and res.kw.blocked > 0) and { kw = res.kw.blocked, tick = tick, bank = res.bank } or nil -- (bank : épargne restante en MU, lot TV-ENERGIE : déficit de kW, S.deficit)
   if input.reserve then
     -- Lot INDUSTRIE I1 : journal du besoin évalué et de ce qui s'investit (une ligne par décision, au plus une par minute et par équipe).
     local stk = 0

@@ -491,7 +491,7 @@ local build, arms, worker = slurp("script/team/build.lua"), slurp("script/team/p
 check(arms:find("Sante.observe(f, surface, p, tick)", 1, true) ~= nil, "PA.watch lit la sante de chaque centrale posee")
 check(arms:find("Sante.growth(f, tick, plants, power, capacity + reopened_alive)", 1, true) ~= nil, "PA.watch calcule l'avance et les reconstructions bloquees")
 check(slurp("script/team/sante_centrale.lua"):find("S.capi_kw(f.team and f.team.capi and f.team.capi.kw_blocked, tick)", 1, true) ~= nil
-  and slurp("script/ai3/capitalisation.lua"):find("cs.kw_blocked = (res.kw and res.kw.blocked > 0) and { kw = res.kw.blocked, tick = tick } or nil", 1, true) ~= nil,
+  and slurp("script/ai3/capitalisation.lua"):find("cs.kw_blocked = (res.kw and res.kw.blocked > 0) and { kw = res.kw.blocked, tick = tick, bank = res.bank } or nil", 1, true) ~= nil, -- (lot TV-ENERGIE : + bank, l'épargne du déficit de kW)
   "etape 5a : la capitalisation date ses kW retenus, Sante.growth les compte")
 check(arms:find("pending = pending - ns", 1, true) ~= nil and arms:find("anticipate = anticipate", 1, true) ~= nil, "C.growth recoit chantiers - bloques et l'avance")
 check(build:find("name == \"no_sante\"", 1, true) ~= nil, "reglage de banc no_sante (temoin)")

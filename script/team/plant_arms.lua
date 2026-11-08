@@ -244,7 +244,8 @@ function PA.watch(f, surface, tick)
   local lost = Cv.lost(g, planned, capacity + reopened_alive)
   -- lot ENERGIE (2/11) : la centrale de plus part AVANT la saturation (production + chantiers + modules retenus), et une reconstruction sans
   -- progrès depuis Sante.STALL ne retient plus la croissance (Ambre : 23 min saturée à 100 % pendant que 13 pièces sur 28 attendaient du fer)
-  local anticipate, stalled, used_kw, committed_kw, cap_kw = Sante.growth(f, tick, plants, power, capacity + reopened_alive)
+  local anticipate, stalled, used_kw, committed_kw, cap_kw, deficit_kw = Sante.growth(f, tick, plants, power, capacity + reopened_alive)
+  C.deficit_track(g, (deficit_kw or 0) > 0) -- lot TV-ENERGIE (diagnostic azure) : déficit de kW avec épargne qui dort, suivi de relevé en relevé
   -- lot TV-ENERGIE (G65) : crise d'énergie (centrale perdue, ou saturation qui dure pendant le repli) = UNITÉ DE SECOURS, jamais le champ ;
   -- le compte des secours d'une crise repart de zéro quand la capacité est revenue
   local crisis, crisis_why = C.crisis(g, { lost = lost, hold = hold })
@@ -256,13 +257,17 @@ function PA.watch(f, surface, tick)
   end
   local nb, why = C.growth(g, { done = done, pending = pending - ns, rebuilding = math.max(0, rebuilding - ns), refused = refused, hold = hold,
     cool = tick < (g.cool_until or 0), off = b.opts and b.opts.no_grow == true, lost = lost, built = boilers_alive,
-    anticipate = anticipate, secours_n = g.secours_n,
+    anticipate = anticipate, secours_n = g.secours_n, deficit_kw = deficit_kw, boiler_kw = boiler_kw,
     lane_cap = Cv.lane_cap(M.BELT_RATE, boiler_kw, M.COAL_J) })
   if nb and crisis then
     g.secours_n = (g.secours_n or 0) + 1
     log(string.format("[FO-ENERGIE] %s : UNITE DE SECOURS demandee a %.1f min (crise : %s ; capacite vivante %.0f sur %.0f J/tick prevus, saturee depuis %d relevés ; secours %d sur %d) : %d chaudiere(s), projet distinct, aucun champ en crise",
       f.key or "player", tick / 3600, crisis_why == "perte" and "centrale perdue" or "saturation pendant le repli de l'equipe",
       capacity + reopened_alive, planned, g.sat or 0, g.secours_n, C.SECOURS_MAX, nb))
+  end
+  if nb and not crisis and not anticipate and not g.saturated and (deficit_kw or 0) > 0 then
+    log(string.format("[FO-ENERGIE] %s : DEFICIT de kW a %.1f min : %.0f kW retenus faute de courant avec de l'epargne qui dort (capacite %.0f kW, vue de la porte %.0f kW) : centrale de %d chaudiere(s) demandee tout de suite (sans attendre la saturation ni l'avance)",
+      f.key or "player", tick / 3600, deficit_kw, cap_kw or 0, used_kw or 0, nb))
   end
   if nb and lost then
     log(Cv.line({ kind = "perte", team = f.key or "player", tick = tick, alive = capacity + reopened_alive, planned = planned, nb = nb }))
