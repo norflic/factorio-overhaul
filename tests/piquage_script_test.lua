@@ -145,13 +145,15 @@ end
 ---------------------------------------------------------------------------------------------------
 for x = 0, 40 do belt(x, 10, 2, { X = 4 }, { X = 4 }) end
 chest(20, 14, 10)
+-- la tête d'alimentation du quai (tapis du PLAN, tuile réservée) porte aussi l'objet, dense : elle ne doit jamais être piquée
+for x = 21, 23 do belt(x, 16, 2, { X = 4 }, { X = 4 }) end
 link_belts()
 local Pq = require("shared.team.piquage")
 local Li = require("shared.team.liaison")
 local P = require("shared.team.plan")
 local Piquage = require("script.team.piquage")
 
-local B = { occ = {}, order = { 1 }, projects = {}, lat = P.lattice({ x = 0, y = 0 }), stats = { filled = 0 }, next_id = 2 }
+local B = { occ = { [P.tkey(21, 16)] = 1, [P.tkey(22, 16)] = 1, [P.tkey(23, 16)] = 1 }, order = { 1 }, projects = {}, lat = P.lattice({ x = 0, y = 0 }), stats = { filled = 0 }, next_id = 2 }
 local PROJ1 = { id = 1, state = "fini", spec = { gen = "x", names = { arm = "inserter", pole = "small-electric-pole" } }, parts = { { kind = "module" } }, quais = { { x = 20.5, y = 14.5, item = "X" } }, outs = {}, ents = {},
   inflow = { X = 1.0 } }
 B.projects[1] = PROJ1
@@ -189,6 +191,7 @@ end
 cycle() -- découverte
 local tr = B.piquage.track["1:q1"]
 check(tr and #tr.order == Piquage.MAX_TRACK, "1.1 découverte : " .. Piquage.MAX_TRACK .. " tuiles suivies, les plus proches du quai")
+check(tr and tr.tiles["21:16"] == nil and tr.tiles["22:16"] == nil, "1.1 bis les tapis du plan (tuiles réservées) ne sont pas suivis")
 check(tr and tr.tiles["20:10"] ~= nil and tr.tiles["20:10"].obs.n == 1 and tr.tiles["20:10"].obs.dense == 1, "1.2 la tuile en face du quai est suivie, 1 relevé dense")
 cycle()
 cycle() -- 3 relevés : candidate

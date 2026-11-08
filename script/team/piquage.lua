@@ -4,8 +4,8 @@
   en-tête). Ce fichier lit le monde et applique ; il ne décide rien d'autre que ce que la règle rend.
 
   1. RELEVÉ (Piquage.step) : une fois par Ln.PERIOD, comme la liaison (script/team/liaison.lua), les quais d'entrée des projets FINIS ; pour
-     chaque quai qui peut un jour se payer, DÉCOUVERTE des tuiles de tapis à portée qui portent SON objet seul (au plus MAX_TRACK, une fois
-     par DISC_EVERY), puis un relevé de ces tuiles à chaque passage (Pq.observe : nombres seuls, jamais d'entité).
+     chaque quai qui peut un jour se payer, DÉCOUVERTE des tuiles de tapis HORS PLAN (aucune tuile réservée par un projet) à portée qui portent SON
+     objet seul (au plus MAX_TRACK, une fois par DISC_EVERY), puis un relevé de ces tuiles à chaque passage (Pq.observe : nombres seuls, jamais d'entité).
   2. DÉCISION : tuiles retenues (Pq.tile_verdict : dense, droite, alimentée, prolongée), côtés libres, Pq.rank contre les sorties de module que la
      liaison voit déjà (b.liaison.seen : la liaison garde sa place si elle paie mieux) ; Li.decide ; une demande par relevé.
   3. PROJET : Build.request({ liaison = { piquage = true, ... } }) : même famille que la liaison (rôles liaison-*, pile « capital », garde de
@@ -233,7 +233,9 @@ local function discover(f, surface, st, d, tick)
   for _, e in ipairs(ents) do
     local tx, ty = math.floor(e.position.x), math.floor(e.position.y)
     local key = tx .. ":" .. ty
-    if not tr.tiles[key] then
+    -- les tapis du PLAN directeur (tuiles réservées par un projet : têtes de quai, lignes de modules, champs, liaisons) ne sont jamais piqués :
+    -- seuls comptent les tapis posés hors plan (par le joueur, ou à la main par l'équipe)
+    if not tr.tiles[key] and not f.build.occ[P.tkey(tx, ty)] then
       local s = sample_belt(e, d.item)
       if s.count > 0 and s.other == 0 then
         found[#found + 1] = { key = key, x = tx, y = ty, dir = e.direction, sample = s, m = Li.manhattan(tx, ty, d.x, d.y) }
@@ -528,9 +530,9 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
         seen_now[pk] = true
         st.seen[pk] = (st.seen[pk] or 0) + 1
         local last = st.last_try[d.key]
-        local inp = { worth = top.ok, worth_why = top.why, open = false, open_total = open, free = free, seen = st.seen[pk], tries = st.tries[d.key] or 0,
+        local inp = { worth = top.ok, worth_why = top.why, open = false, open_total = open, free = free, seen = st.confirm and (st.seen[pk] >= st.confirm and Li.CONFIRM or 0) or st.seen[pk], tries = st.tries[d.key] or 0,
           since_try = last and (tick - last) or Li.RETRY_AFTER, threat = threat }
-        if top.ok and st.seen[pk] >= Li.CONFIRM and not threat then
+        if top.ok and inp.seen >= Li.CONFIRM and not threat then
           inp.enemies = enemy_near(f, surface, d.x, d.y) and 1 or 0
         end
         local action, reason = Pq.decide(inp)
@@ -749,6 +751,26 @@ local function team_of_key(key)
 end
 
 remote.add_interface("fo-piquage", {
+  --- Module FINI fictif (comme fo-liaison inject) : d = { quais = { {x, y, item} }, inflow = { objet = objets/s }, names = { arm, pole } }.
+  --- Le coffre est posé par le banc ; rien n'est bâti ici. Rend le numéro du projet.
+  inject = function(key, d)
+    local f = team_of_key(key)
+    local b = f and f.build
+    if not (b and type(d) == "table") then return nil end
+    local id = b.next_id
+    b.next_id = id + 1
+    local x, y = 0, 0
+    for _, q in ipairs(d.quais or {}) do x, y = q.x, q.y end
+    local p = {
+      id = id, spec = { gen = "banc", names = d.names }, state = "fini", created = game.tick, finished = game.tick, parts = {}, ents = {}, wires = {},
+      stock = {}, quais = {}, outs = {}, obstacles = {}, fails = 0, prio = 55, domain = "production", counted = true, inflow = d.inflow,
+    }
+    p.parts[1] = { kind = "module", key = "banc", ox = math.floor(x), oy = math.floor(y), w = 1, h = 1, power = true }
+    for _, q in ipairs(d.quais or {}) do p.quais[#p.quais + 1] = { x = q.x, y = q.y, item = q.item } end
+    b.projects[id] = p
+    b.order[#b.order + 1] = id
+    return id
+  end,
   set_param = function(key, name, value)
     local f = team_of_key(key)
     local b = f and f.build
@@ -758,6 +780,7 @@ remote.add_interface("fo-piquage", {
     if name == "period" then st.period = value; st.next = game.tick
     elseif name == "sans_centrale" then st.sans_centrale = value and true or false
     elseif name == "off" then st.off = value and true or false
+    elseif name == "confirm" then st.confirm = value
     else return nil end
     return value
   end,
