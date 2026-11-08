@@ -981,7 +981,7 @@ end
 --- Coffre de sortie du site qui peut recevoir au moins une fabrication de `row` : (coffre, place par objet) ou nil.
 local function valve_chest(f, surface, p, row)
   for _, o in ipairs(p.outs or {}) do
-    local chest = surface.find_entity("iron-chest", { o.x, o.y })
+    local chest = surface.find_entity(o.name or D.CHEST, { o.x, o.y }) -- coffre de sortie du site (nom lu aux données, jamais en dur : iag_test)
     if chest and chest.valid and chest.force.name == f.force then
       local inv = chest.get_inventory(defines.inventory.chest)
       local room, ok = {}, true
