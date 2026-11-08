@@ -851,6 +851,9 @@ function Outposts.status(o, tick)
   local idle = (o.migr == "fini" and #valid_list(o.drill_list) == 0) and 0 or (tick - (o.last_service or 0))
   -- Lot FOREUSES-THERMIQUES (partie C) : électriques de l'avant-poste et celles SANS COURANT, vues par la dernière passe de repli
   -- (script/team/foreuse_swap.lua, Swap.repli : toutes les T.swap.every ticks environ ; aucune lecture du moteur ici).
+  -- Lot BLOCAGE-COMBUSTIBLE : après une tournée FUTILE (rien posé aux brûleurs encore bas), pas de nouvelle tournée de ravitaillement avant la fin
+  -- de la pause (Rv.pause_until) : le manque reste visible (`dry`, `burners`), la tournée qui ne servait à rien n'est pas reposée toutes les 30 s
+  if low and Rv.paused(o.futile_until, tick) then low = false end
   return { fuel_low = low, output = output, turrets = #o.turret_list, idle_ticks = idle,
     outputs = outputs, stuck = stuck, burners = burners, dry = dry, electric = o.electric or 0, unpowered = o.unpowered or 0 }
 end
@@ -868,8 +871,11 @@ function Outposts.coal_needed(o, fill)
 end
 
 --- Ramasse la production des réceptacles dans l'inventaire de l'ouvrier. Renvoie le nombre d'objets.
-local function collect(sinks, carrier, skip)
+--- Lot BLOCAGE-COMBUSTIBLE : `fuel_quota` = combustible pris dans les coffres propres MÊME si le stock refuse de le recevoir (Rv.onsite_quota) :
+--- il ne va pas au coffre du QG, il remplit les brûleurs de l'avant-poste sur place ; Sm.carry_fuel l'a déjà déduit de ce que la tournée porte.
+local function collect(sinks, carrier, skip, fuel_quota)
   local collected = 0
+  local quota = fuel_quota or 0
   for _, s in ipairs(sinks) do
     local inv = s.type == "container" and s.get_inventory(defines.inventory.chest) or s.get_output_inventory()
     for name, n in pairs(inv.get_contents()) do
@@ -877,6 +883,11 @@ local function collect(sinks, carrier, skip)
       if not (skip and skip(name)) then
         local moved = carrier.insert({ name = name, count = n })
         if moved > 0 then inv.remove({ name = name, count = moved }) end
+        collected = collected + moved
+      elseif name == T.fuel and quota > 0 then
+        local moved = carrier.insert({ name = name, count = math.min(n, quota) })
+        if moved > 0 then inv.remove({ name = name, count = moved }) end
+        quota = quota - moved
         collected = collected + moved
       end
     end
@@ -925,9 +936,12 @@ function Outposts.service(o, carrier, tick, fill, skip, info)
   local need0 = Outposts.coal_needed_for(burners, fill)
   local carried0 = carrier.get_item_count(T.fuel)
   local own0 = info and sink_fuel(sinks) or 0
-  local collected = collect(sinks, carrier, skip)
+  local collected = collect(sinks, carrier, skip, skip and Rv.onsite_quota(need0, carried0) or 0)
   local own1 = info and sink_fuel(sinks) or 0
+  local pre = carrier.get_item_count(T.fuel)
   local short = refuel(burners, carrier, fill)
+  local placed = pre - carrier.get_item_count(T.fuel)
+  o.futile_until = Rv.pause_until({ low_after = short, placed = placed, tick = tick })
   if short > 0 then
     o.coal_short = (o.coal_short or 0) + 1
     if o.coal_short <= Outposts.COAL_SHORT_LOGS then
@@ -940,12 +954,12 @@ function Outposts.service(o, carrier, tick, fill, skip, info)
       local skipped = skip ~= nil and skip(T.fuel) == true
       local took = own0 - own1
       local stock = info.stock and info.stock() or 0
-      local placed = carried0 + took - carrier.get_item_count(T.fuel)
       log(string.format("[FO-RAVITAILLEMENT] %s a %.1f min : avant-poste %s %s, %d bruleur(s), %d sous %d charbons apres la tournee dont %d a sec ; " ..
-        "besoin %d, porte au depart %d, coffres propres %d -> ramasse %d, reste %d (ramassage du charbon %s) ; coffre du QG %d ; pose aux bruleurs %d ; cause %s (tournee courte n. %d)",
+        "besoin %d, porte au depart %d, coffres propres %d -> ramasse %d, reste %d (ramassage du charbon %s) ; coffre du QG %d ; pose aux bruleurs %d ; cause %s%s (tournee courte n. %d)",
         tostring(info.key or "?"), tick / 3600, tostring(o.id), tostring(o.kind), #burners, short, T.fuel_low, dry, need0, carried0, own0, took, own1,
         skipped and "ECARTE" or "permis", stock, placed,
-        Rv.cause({ low_after = short, need = need0, carried = carried0, took = took, left = own1, skipped = skipped, stock = stock }), o.coal_short))
+        Rv.cause({ low_after = short, need = need0, carried = carried0, took = took, left = own1, skipped = skipped, stock = stock }),
+        o.futile_until and " ; tournee FUTILE, pas de nouvelle avant 60 s" or "", o.coal_short))
     end
   end
   o.last_service = tick

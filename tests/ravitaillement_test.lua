@@ -49,6 +49,13 @@ local function suite(Rv)
   for n = 1, 40 do if Rv.log_due(n) then seen[#seen + 1] = n end end
   c("journal : tournees 1 a 6 ecrites, puis 16, 26, 36", table.concat(seen, ",") == "1,2,3,4,5,6,16,26,36", table.concat(seen, ","))
   c("journal : rang nul, negatif ou illisible -> rien", Rv.log_due(0) == false and Rv.log_due(-3) == false and Rv.log_due(nil) == false)
+  -- §3 bis tournee futile : bruleurs encore bas et rien pose -> pause de 60 s sur la signalisation du manque
+  c("futile : bas apres tournee, rien pose -> pause", Rv.pause_until({ low_after = 126, placed = 0, tick = 1000 }) == 1000 + Rv.FUTILE_PAUSE)
+  c("futile : rien pose et rien d'autre bas -> pas de pause", Rv.pause_until({ low_after = 0, placed = 0, tick = 1000 }) == nil)
+  c("futile : du combustible a ete pose (tournee utile mais courte) -> pas de pause", Rv.pause_until({ low_after = 5, placed = 40, tick = 1000 }) == nil)
+  c("pause : court jusqu'a l'echeance exclue", Rv.paused(4600, 4599) == true and Rv.paused(4600, 4600) == false)
+  c("pause : absente (nil) -> ne court pas, tick absent -> traite comme 0", Rv.paused(nil, 10) == false and Rv.paused(5, nil) == false)
+  c("pause : 60 secondes (3600 ticks)", Rv.FUTILE_PAUSE == 3600)
   return res
 end
 
@@ -77,6 +84,12 @@ do
     op:find("[FO-RAVITAILLEMENT]", 1, true) ~= nil and op:find("Rv.cause({", 1, true) ~= nil and op:find("Rv.log_due(o.coal_short)", 1, true) ~= nil)
   check("cablage : le journal ne s'ecrit que pour une tournee courte et une information passee par l'appelant",
     op:find("if info and Rv.log_due(o.coal_short) then", 1, true) ~= nil)
+  check("cablage : le ramassage prend le combustible des coffres propres jusqu'au quota meme quand le stock l'ecarte",
+    op:find("local collected = collect(sinks, carrier, skip, skip and Rv.onsite_quota(need0, carried0) or 0)", 1, true) ~= nil
+    and op:find("elseif name == T.fuel and quota > 0 then", 1, true) ~= nil and op:find("quota = quota - moved", 1, true) ~= nil)
+  check("cablage : status ne signale plus le manque pendant la pause d'une tournee futile",
+    op:find("if low and Rv.paused(o.futile_until, tick) then low = false end", 1, true) ~= nil
+    and op:find("o.futile_until = Rv.pause_until({ low_after = short, placed = placed, tick = tick })", 1, true) ~= nil)
   check("cablage : l'acte de service passe la force et le stock du combustible",
     wk:find('{ key = f.key or "player", stock = function() return Stock.count(f, T.fuel) end }', 1, true) ~= nil)
 end
@@ -110,6 +123,10 @@ mutant("ramassage ecarte sans le drapeau", "if num(a.left) > 0 and a.skipped == 
 mutant("coffre sans charbon confondu", 'then return "coffre_sans_charbon" end', 'then return "porte_insuffisant" end')
 mutant("six premieres du journal", "Rv.LOG_FIRST = 6", "Rv.LOG_FIRST = 2")
 mutant("une sur dix du journal", "Rv.LOG_EVERY = 10", "Rv.LOG_EVERY = 1")
+mutant("pause sans rien pose exigee", "and num(a.placed) <= 0 then", "then")
+mutant("pause jamais", "if num(a.low_after) > 0 and num(a.placed) <= 0 then return num(a.tick) + Rv.FUTILE_PAUSE end", "")
+mutant("pause eternelle", "return num(tick) < until_tick", "return true")
+mutant("pause d'une seconde", "Rv.FUTILE_PAUSE = 3600", "Rv.FUTILE_PAUSE = 60")
 mutant("rang nul ecrit", "if n <= 0 then return false end", "")
 
 print(string.format("[RAVITAILLEMENT] BILAN : %d OK, %d ECHEC(S)", ok_n, bad))

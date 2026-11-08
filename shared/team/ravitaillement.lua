@@ -20,6 +20,9 @@
     Rv.cause(a)                      verdict d'une tournee, pour le journal : "ok", "ramassage_ecarte", "coffre_sans_charbon",
                                      "porte_insuffisant", "autre".
     Rv.log_due(n)                    la n-ieme tournee courte d'un avant-poste est-elle ecrite au journal ?
+    Rv.pause_until(a)                tournee FUTILE (des bruleurs restent bas et rien n'a ete pose) : tick avant lequel l'avant-poste
+                                     n'est plus signale « a court de combustible » (pas de nouvelle tournee de ravitaillement) ; nil sinon.
+    Rv.paused(until_tick, tick)      la pause court-elle encore ?
   Determinisme : aucune table parcourue par pairs, aucun temps mesure.
 ]]
 
@@ -27,6 +30,7 @@ local Rv = {}
 
 Rv.LOG_FIRST = 6   -- tournees courtes ecrites une a une par avant-poste
 Rv.LOG_EVERY = 10  -- puis une sur dix
+Rv.FUTILE_PAUSE = 3600 -- 60 s : mesure 0.6.64, la meme tournee futile revenait toutes les 22 a 33 s au meme avant-poste
 
 local function num(x)
   if type(x) ~= "number" or x ~= x then return 0 end
@@ -60,6 +64,17 @@ function Rv.log_due(n)
   if n <= 0 then return false end
   if n <= Rv.LOG_FIRST then return true end
   return (n - Rv.LOG_FIRST) % Rv.LOG_EVERY == 0
+end
+
+--- a = { low_after = bruleurs encore bas apres la tournee, placed = combustible pose aux bruleurs, tick }.
+function Rv.pause_until(a)
+  if num(a.low_after) > 0 and num(a.placed) <= 0 then return num(a.tick) + Rv.FUTILE_PAUSE end
+  return nil
+end
+
+function Rv.paused(until_tick, tick)
+  if type(until_tick) ~= "number" or type(tick) ~= "number" then return false end
+  return num(tick) < until_tick
 end
 
 return Rv
