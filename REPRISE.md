@@ -10,6 +10,24 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **8/11, 18 h : INSTALLÉE 0.6.71** (3fc921dc, tag `jouable-0.6.71`, poussée sur GitHub). Le DC joue : une seule place de banc (`fo-banc-places.txt` = 1), un lua5.2 par agent. Audit du DC « LA VRAIE TRANSITION ÉLECTRIQUE » consigné dans OBJECTIFS §2, avec la réponse point par point.
+> - **Candidate 0.6.72** : branche `essai-0666`, worktree integ-0652b, tête 44643872. Elle contient :
+>   - fd5159bb : budget propre du tracé pondéré ;
+>   - 513f9ca5 : survie ;
+>   - 4bb0bf9e : réseau sain sans demande ;
+>   - 78c20542 : centrale au poteau obtenable.
+>
+>   NON livrable :
+>   - pic du tracé jusqu'à 90 ms, à découper par TRANCHES-FOREUSES ;
+>   - avec 4bb0bf9e, la partie neuve s'effondre (0 thermique à 30 min, 72 % d'inactifs). Diagnostic par COURANT-LIBRE, qui fait aussi « couverture passe toujours la pile », choix du DC par QCM.
+> - **Agents en cours** :
+>   - ACIER : fonderie d'acier automatisée ;
+>   - GISEMENTS-GEANTS : scénario `etape1-geants`, il deviendra la porte ;
+>   - MEGA-FONDERIE (Opus) : conception `docs/MEGA_FONDERIE.md`, puis règle pure ;
+>   - POSE-PAR-LOTS : kit entier fabriqué, puis pose en un passage ;
+>   - CENTRALE-PRES, lot suivant CAPI-POTEAU : `A.template` cède au poteau moyen, d'où « objets impossibles » pour les foreuses de capitalisation.
+> - **Porte de la 0.6.72** : content, puis une partie neuve (etape1-guide, ensuite etape1-geants) avec de vraies foreuses électriques posées, sans effondrement, et un pire cas ≤ ~5 ms par pensée.
+>
 > **8/11, 17 h 15 : VERSION 0.6.70 INSTALLÉE** (a0ea69ca, tag `jouable-0.6.70`, poussée sur GitHub). Partie neuve de 40 min (`fo-logs/2026-11-08_INTEG-0670/neuve40-b-a627035e`) : plus d'effondrement (20 à 28 thermiques, fours 18 → 26), mais 0 foreuse électrique en 40 min. Causes mesurées pour votre équipe : (1) la centrale 1 (1 800 kW) reste à 0 kW de production parce que les ordres électriques sont fermés par la règle d'« amorçage », qui attend une nouvelle centrale au lieu d'utiliser la marge (agent COURANT-LIBRE, branche `courant-libre`) ; (2) la centrale de 4 chaudières est posée à 301 tuiles sur une rive avec une ligne de poteaux de portée 9 (poteau moyen non recherché), et reste en « reserve:materiaux » de 7,8 à 37 min, puis annulée (agent CENTRALE-PRES, branche `centrale-pres`). survie_moteur_test (« 0 tâche de survie ») : agent SURVIE-BISECT, branche `survie-fix`. Candidate 0.6.71 sur essai-0666 (00d6492e) : electrique 3de6a580 (bascule par ressource, bois), rangees 99f7a80c, rapatriement bcdf1679, debug V2.5 f0c6e10e, fonderie-bloc 2eccca3b ; iag_test 490 OK, electrique_test 159 OK. Le DC exige : jamais d'artefact (fichiers .html locaux seulement).
 >
 > **8/11, 15 h 57 : LE DC REDÉMARRE AVANT LA FIN DE LA PARTIE NEUVE DE LA 0.6.70.** La 0.6.70 n'est PAS installée : la 0.6.68 reste en place, avec le défaut électrique (contournement : décocher « fo-war-electrique »). À la reprise, dans cet ordre : (1) rejouer la partie neuve de 40 min de la 0.6.70 (copie figée `src-0670a` du scratchpad, perdue si le scratchpad est vidé ; sinon `git archive a627035e` + feuilles hors git) ; (2) si votre équipe a des foreuses électriques posées et ne tombe pas à 0 foreuse, l'installer (merge dans main, tag `jouable-0.6.70`, checkout détaché, harness) et la pousser sur GitHub ; (3) puis la partie neuve de 54 000 ticks d'electrique 3de6a580 pour la 0.6.71.

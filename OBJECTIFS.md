@@ -80,6 +80,20 @@ Directives du DC (8/11, après-midi), citées :
 - 15 h 48 : « veillez à ce qu'il n'y ait plus de 1 million de process Lua en arrière-plan qui tournent et continuez le développement avec une seule instance Factorio maximum ». Règle : un seul lua5.2 à la fois par agent.
 - 16 h 50 : « enlevez les artefacts, n'utilisez QUE les fichiers locaux html pour me montrer. JAMAIS les artefacts ».
 - 17 h 20, « VRAIE FONDERIE D'ACIER » : « L'acier est produit par des PNJ qui insèrent manuellement des plaques de fer dans des fours isolés près du QG. Ce n'est pas viable à grande échelle […] Implémentez un bloc dédié "Fonderie d'acier" […] une rangée de fours reliée par un bus (convoyeur) de plaques de fer en input, et un convoyeur d'acier en output. Transition : Plus aucun PNJ ne doit alimenter des fours à acier manuellement dès que les ressources (convoyeurs, bras) permettent de construire cette ligne automatisée. Intégrez ce comportement aux rangées d'assembleurs dynamiques pour la prochaine livraison. » État : agent ACIER lancé (branche `acier`).
+- Vers 17 h 40, QCM sur la couverture contre la défense : les ordres « couvrir » et « ouvrir » passent la pile « Oui, toujours ». Confié à COURANT-LIBRE (`shared/ai3/pile.lua`).
+- Vers 17 h 50, « AUDIT LOGIQUE ET BIAIS DE TEST : LA VRAIE TRANSITION ÉLECTRIQUE ». Ses quatre demandes, citées :
+  1. « Vous devez impérativement augmenter la taille des gisements dans vos tests » : la couverture à 100 % est fausse sur de petits gisements de départ.
+  2. « Méga-Fonderies » : foreuses électriques → grands bus de minerai à plusieurs voies → blocs de fonte rectangulaires, au lieu de foreuses qui crachent dans des fours isolés.
+  3. Fabrication par lots, comme un humain : 20 foreuses d'un coup, puis une ligne entière (foreuses, tapis, poteaux) posée en un passage.
+  4. « répondez point par point à l'audit du flux de décision » : le déclencheur thermique → électrique ; ce qui déclenche ou bloque la pose en masse ; pourquoi son équipe est plus lente que les factions.
+
+  Réponse donnée en séance (journaux des parties neuves de 40 min, 0.6.70 à 0.6.72) :
+  - Biais reconnu : la porte jouait les gisements de départ (262 à 640 tuiles). Une ligne de fonderie est plafonnée à 7 paires, soit environ 207 tuiles minées, soit 10 % d'un gisement de 2 000 tuiles.
+  - Le refus du thermique (`E.thermal`) n'a jamais rien posé. La pose électrique passe par une seule chaîne : capitalisation « couvrir/ouvrir » → champ → réseau « sain » → bande → tracé du tapis → réserve → PNJ.
+  - Cinq verrous mesurés : réseau sain exigeant une production > 0 (cercle vicieux) ; budget de tracé partagé, régression de la 0.6.68 ; pile « adapter » ; centrale 2 à 301 tuiles avec des poteaux moyens ; réserve totale avant la pose.
+  - Équipe contre factions, même cerveau mais chemins coupés pour l'équipe du joueur : croissance « bras libres » (`script/ai3/general.lua:474`) ; agrandissement des gisements ouverts réservé aux factions (`shared/ai3/buts.lua:337`) ; pas de récolte de minerai. À 30 min : 30 foreuses contre 51 (scarlet) et 61 (azure), toutes thermiques.
+
+  Lots lancés : GISEMENTS-GEANTS (scénario `etape1-geants`, 2 500 à 5 000 tuiles), MEGA-FONDERIE (conception d'abord), POSE-PAR-LOTS, CAPI-POTEAU (le gabarit des foreuses de capitalisation cède au poteau moyen), plus COURANT-LIBRE, TRANCHES-FOREUSES et ACIER. CENTRALE-PRES (78c20542) est fusionné dans `essai-0666` (44643872). Porte de la prochaine livraison : une partie neuve sur gisements géants qui montre de vrais champs électriques, sans effondrement.
 
 
 ## 3. OPTIMISATION
@@ -98,5 +112,7 @@ Directives du DC (8/11, après-midi), citées :
 
 ## 5. VERSIONS
 
-- Installée : **0.6.65** (`jouable-0.6.65` = 4ca8dc4d, 8/11 10 h 01) : `content` 554 OK, `pnj-auto` 7 OK en partie neuve, aucune erreur Lua ; balayage hors jeu à 10 h 10 : 323 tests sur 336 passés, seul rouge `robots_test` (déjà rouge en 0.6.64), les 13 derniers tournent. Avant : 0.6.64 (`jouable-0.6.64` = e0598bef).
-- Suivante : 0.6.66 (`essai-0666` = c6bb40d8 : 0.6.65 + TV-PILOTE + TV-ENERGIE), puis les lots encore en cours du §1 et le gel du §3.
+- Installée et poussée sur GitHub : **0.6.71** (`jouable-0.6.71` = 3fc921dc, 8/11 17 h 15), `content` 554 OK. Défaut connu : aucune foreuse électrique en 40 min de partie neuve. Avant : 0.6.70 (`jouable-0.6.70` = a0ea69ca), 0.6.68, 0.6.67, 0.6.65.
+- Suivante : 0.6.72 sur `essai-0666`, aujourd'hui en 44643872. Elle contient le budget de tracé propre (fd5159bb), le correctif de survie_moteur_test, le réseau sain sans demande (4bb0bf9e) et la centrale au poteau obtenable (78c20542). NON livrable en l'état :
+  - le tracé pondéré coûte jusqu'à 90 ms dans un tick (découpage en tranches en cours) ;
+  - avec 4bb0bf9e, la partie neuve s'effondre (0 foreuse thermique à 30 min, 72 % d'inactifs), diagnostic en cours.
