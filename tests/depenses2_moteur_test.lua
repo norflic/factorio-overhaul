@@ -87,9 +87,19 @@ local function run(opts)
         sl.mods = mods
       end
       local out = o_slots(sl)
-      if out.comp and not opts.comp_slots then opts.comp_slots = out end -- (premier relevé avec le siège : il dépend du sommeil du moment)
+      if out.comp and not opts.comp_slots then opts.comp_slots, opts.comp_sleeping = out, sl and sl.sleeping end -- (premier relevé avec le siège : il dépend du sommeil du moment)
       if not opts.any_slots then opts.any_slots = out end
       return out
+    end
+    -- Lot ROUGES-0659 : la prémisse « le cuivre ne dort pas » est POSÉE : le cuivre est retiré du relevé RÉEL de Dep.sleeping, le fer y
+    -- reste tel que la règle le dit. Depuis 4c92c34d (lot COLLECTE, rappel d'un PNJ occupé pour une tâche urgente, voulu), l'économie
+    -- du moteur simulé a changé : les plaques de cuivre « dorment » dès la minute 7, AVANT le fer au premier relevé avec un siège, et le
+    -- siège allait au fer (4 ECHEC de 0.6.60 à 0.6.63). Avant 4c92c34d, le cuivre dormait aussi, mais après le fer (minute 8).
+    local o_sleep = Dep.sleeping
+    Dep.sleeping = function(ff, t)
+      local s = o_sleep(ff, t)
+      s["copper-plate"] = nil
+      return s
     end
   end
   if opts.no_sleep then Dep.sleeping = function() return {} end end -- mutant de §7
@@ -276,8 +286,11 @@ local function comp_case(opts)
   return r, sl, seen, Em
 end
 local CU = { { "iron-plate", 30000 }, { "copper-plate", 100 } }
-local h7, sl7, seen7, Em7 = comp_case({ minutes = 10, fake_mods = true, stock = CU })
+local o7 = { minutes = 10, fake_mods = true, stock = CU }
+local h7, sl7, seen7, Em7 = comp_case(o7)
 say("§7 emplacements : " .. tostring(sl7 and sl7.why))
+check(o7.comp_sleeping ~= nil and o7.comp_sleeping["iron-plate"] == true and not o7.comp_sleeping["copper-plate"],
+  "§7 précondition au relevé du siège : le fer dort (relevé réel de Dep.sleeping), le cuivre non (posé)")
 check(sl7 ~= nil and sl7.busy and sl7.room == 0 and sl7.room_comp == 1 and sl7.comp and sl7.comp["copper-plate"] == true
   and not sl7.comp["iron-plate"], "§7 chemin de jeu (Capi.slots, Dep.sleeping) : plein, 1 siège réservé au cuivre")
 check(seen7 >= 1, "§7 journal [FO-CAPI-EMPLACEMENTS] : +1 pour le complement (copper-plate)")
