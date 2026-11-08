@@ -654,9 +654,11 @@ local function template_of(spec, opts)
     if opts and opts.sortie == "exterieur" and spec.gen == "smelter" then
       args = { args[1], args[2], args[3], "exterieur" }
     end
-    g, why = M.with_pole(spec.pole, fn, table.unpack(args))
+    -- lot RECHERCHE-BRAS : spec.arms = les bras OBTENABLES de la demande (nil : tous) ; le gabarit tourne alors à la cadence qu'ils tiennent
+    g, why = M.with_arms(spec.arms, M.with_pole, spec.pole, fn, table.unpack(args))
     -- lot PLANDIR : un poteau plus court qui ne couvre pas le gabarit cède au poteau par défaut
-    if spec.pole and spec.pole ~= M.DEFAULT_POLE and (not g or #M.check(g) > 0) then g, why = fn(table.unpack(args)) end
+    if spec.pole and spec.pole ~= M.DEFAULT_POLE and (not g or #M.check(g) > 0) then g, why = M.with_arms(spec.arms, fn, table.unpack(args)) end
+    if not g and spec.arms then g, why = M.with_pole(spec.pole, fn, table.unpack(args)) end -- bras trop lents : tous les bras, comme avant
   elseif spec.key then
     g = M.get_any(spec.key)
     if not g then why = "gabarit inconnu" end
@@ -1397,8 +1399,9 @@ local function out_arms(g, fan_max)
   for _, q in ipairs(g.ports or {}) do if q.kind == "tapis" and q.io == "out" then nports = nports + 1 end end
   local per = outn / math.max(1, nports)
   local cmax = math.max(1, math.min(fan_max or 1, Li.MAX_ARMS))
-  local ins, cnt = M.choose_inserters(per, true, cmax)
-  if not ins then ins, cnt = "fast-inserter", cmax end
+  -- lot RECHERCHE-BRAS : g.arms = les bras obtenables du gabarit (nil : tous, comme avant) ; au pire le plus rapide d'entre eux
+  local ins, cnt = M.choose_inserters(per, true, cmax, g.arms)
+  if not ins then ins, cnt = (g.arms or M.ARMS)[#(g.arms or M.ARMS)], cmax end
   return ins, cnt
 end
 
@@ -2789,7 +2792,7 @@ local function plan_project(f, surface, p)
   end
   local g, why = template_of(spec, topts)
   if not g then return false, why end
-  g = Build.Rangee.full(p, g) -- lot RANGEES-ASM : rangée dynamique planifiée à la borne de son gabarit (place entière réservée)
+  g = Build.Rangee.full(p, g, f) -- lot RANGEES-ASM : rangée dynamique planifiée à la borne de son gabarit (place entière réservée)
   p.consumes = {}
   p.inflow = {} -- lot INDUSTRIE I7 : débit nominal de chaque entrée (objets/s), lu par script/team/liaison.lua pour le prix d'une liaison de quai
   for _, k in ipairs(sorted_keys(g.inputs or {})) do p.consumes[k] = true; p.inflow[k] = g.inputs[k] end
@@ -4598,9 +4601,9 @@ local function watch_stall(f, tick)
       b.noprog[pid] = rec
       if say and not b.noprog_dits[pid .. ":" .. say] then -- lot REBUILD-SUIVI : une fois par (projet, cause), non par cause
         b.noprog_dits[pid .. ":" .. say] = true
-        log(string.format("[FO-BLOQUE] %s : projet %d (%s) sans progres depuis %d min : %s ; %d entite(s) baties sur %d, etat %s a %.1f min",
+        log(string.format("[FO-BLOQUE] %s : projet %d (%s) sans progres depuis %d min : %s ; %d entite(s) baties sur %d, etat %s a %.1f min%s",
           f.key or "player", p.id, tostring(p.spec.key or p.spec.gen or "?"), math.floor((tick - rec.since) / 3600), say, count_built(p), #p.ents,
-          p.state, tick / 3600))
+          p.state, tick / 3600, ChantierLent.missing(p))) -- (RECHERCHE-BRAS suite : entités manquantes nommées, shared/team/manquantes.lua)
         ChantierLent.report(f, p, tick, say, rec) -- lot AZURE : détail du chantier lent d'une bande (une fois par projet)
       end
     elseif b.noprog[pid] then

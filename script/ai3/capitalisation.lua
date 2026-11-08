@@ -318,7 +318,8 @@ end
 local function fit_module(meth, rate, book, stock, has_plant, harvest, belt_flow)
   -- lot PLANDIR : poteau du gabarit = le moins cher dont la recette est débloquée (A.choose_pole)
   local pole = A.choose_pole(book, stock, harvest) -- lot KIT : le bois à portée compte (les factions n'en ont plus au départ)
-  local g, args = A.sized(meth, rate, pole)
+  local arms = A.choose_arms(book, stock) -- lot RECHERCHE-BRAS : bras obtenables (nil : tous)
+  local g, args = A.sized(meth, rate, pole, arms)
   if not g then return nil, {} end
   local function missing_of(gg)
     local _, items = A.cost(meth, gg, { has_plant = has_plant, belt_flow = belt_flow })
@@ -334,7 +335,7 @@ local function fit_module(meth, rate, book, stock, has_plant, harvest, belt_flow
     for i = 1, #args do a2[i] = args[i] end
     a2[g.ext.arg] = args[g.ext.arg] - 1
     local g2 = A.template(meth.gen, a2, pole)
-    if not g2 then break end
+    local g2 = A.template(meth.gen, a2, pole, arms)
     g, args = g2, a2
     miss = missing_of(g)
   end
@@ -1582,7 +1583,7 @@ local function execute(f, cs, o, view, book, tick, research)
         if not g then why = "objets impossibles : " .. table.concat(args or {}, ",") break end
         local id, w2 = Auto.submit(f, { product = meth.product, gen = meth.gen, args = args, feed = meth.feed, rate = part,
           shrunk = shrunk or nil,
-          rate_nom = (g.nominal[meth.product] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, near = near, pole = g.pole,
+          rate_nom = (g.nominal[meth.product] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, near = near, pole = g.pole, arms = g.arms,
           capi = o.key, why = string.format("CAPI %s %s x%d T=%.2f", o.kind, tostring(o.deposit), o.n or 0, o.T or 0) },
           tick, research)
         if not id then
@@ -1664,7 +1665,7 @@ local function execute(f, cs, o, view, book, tick, research)
         function(m2, rate) return fit_module(m2, rate, book, view.stock or {}, Auto.plant_state(f) ~= nil, Harvest.reachable(f), Auto.belt_flow(f)) end,
         function(m2, g, args, near, dyn)
           local id, w2 = Auto.submit(f, { product = o.item, gen = m2.gen, args = args, feed = m2.feed, rate = o.rate or 0,
-            rate_nom = (g.nominal[o.item] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, capi = o.key, pole = g.pole,
+            rate_nom = (g.nominal[o.item] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, capi = o.key, pole = g.pole, arms = g.arms,
             near = near, rangee = dyn or nil, why = string.format("CAPI %s x%d T=%.2f (rangee)", o.kind, o.n or 0, o.T or 0) }, tick, research)
           if not id then Rp.fail(repli, rkey, w2, tick, nil) return nil, "plan directeur : " .. tostring(w2) end
           return { id }
@@ -1679,7 +1680,7 @@ local function execute(f, cs, o, view, book, tick, research)
       local g, args = fit_module(meth, part, book, view.stock or {}, Auto.plant_state(f) ~= nil, Harvest.reachable(f), Auto.belt_flow(f))
       if not g then why2 = "objets impossibles : " .. table.concat(args or {}, ",") break end
       local id, w2 = Auto.submit(f, { product = o.item, gen = meth.gen, args = args, feed = meth.feed, rate = part,
-        rate_nom = (g.nominal[o.item] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, capi = o.key, pole = g.pole,
+        rate_nom = (g.nominal[o.item] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, capi = o.key, pole = g.pole, arms = g.arms,
         why = string.format("CAPI %s x%d T=%.2f", o.kind, o.n or 0, o.T or 0) }, tick, research)
       if not id then
         why2 = "plan directeur : " .. tostring(w2)
