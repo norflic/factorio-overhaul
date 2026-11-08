@@ -140,7 +140,7 @@ return {
       local line = string.format("tick %d : cuve %.0f (%.0f %%), %s au coffre %d, soupape n=%s ouverte=%s total=%s, ouvertures %s", e.tick, gas_in(ref),
         100 * gas_in(ref) / math.max(1, st.cap), FUEL, chest.get_item_count(FUEL), v and v.n or "-", v and tostring(v.open) or "-", v and v.total or "-",
         stt and stt.opened or "-")
-      ctx.log(line)
+      ctx.log(line .. " | note : " .. tostring(stt and stt.note))
       st.timeline = st.timeline or {}
       st.timeline[#st.timeline + 1] = { tick = e.tick, gas = gas_in(ref), fuel = chest.get_item_count(FUEL), n = v and v.n or 0, open = v and v.open or false,
         opened = stt and stt.opened or 0 }
