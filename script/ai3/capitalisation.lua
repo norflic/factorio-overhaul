@@ -127,6 +127,7 @@ Capi.BACKOFF_MAX = 40 * 3600 -- au plus 40 min (banc p3 du lot : 63 demandes ref
 Capi.COUV_EVERY = 5 * 3600   -- lot CAPI-MESURE : une ligne [FO-CAPI-COUV] par gisement toutes les 5 min
 Capi.EQUIP_BATCH = 6         -- lot LEVIERS : machines équipées par tâche de PNJ (Equip.BATCH)
 Capi.UNITS_MAX = 48          -- lot LEVIERS : machines gardées par groupe au relevé (positions, pour la tâche « equiper »)
+Capi.RaRt = require("script.ai3.rangees_asm") -- lot RANGEES-ASM : rangées agrandies au lieu d'îlots (champ, pas une locale)
 Capi.MODULES_PER_ORDER = 1   -- modules du plan directeur au plus par ordre (chacun au plus A.FIRST_RATE_MAX objets/min :
                              -- un gabarit plus grand ne tient pas dans un lot, moteur réel p1, « pas de lot », « trop grand »).
                              -- 3 avant le banc p4 : le plan directeur RÉSERVE au coffre toute la matière d'un module dès sa
@@ -1580,6 +1581,24 @@ local function execute(f, cs, o, view, book, tick, research)
     local ids, why2 = {}, nil
     local rkey = Rp.key(o.item, nil)
     local repli = repli_book(cs)
+    -- Lot RANGEES-ASM : une chaîne agrandit la rangée en attente de la même recette, ou pose une rangée dimensionnée sur la
+    -- demande (5 machines au moins quand elle le justifie), près des autres (script/ai3/rangees_asm.lua) ; false : ancien chemin
+    if o.kind == "chaine" then
+      local rids, rwhy = Capi.RaRt.execute(f, o, meth,
+        function(rate) return fit_module(meth, rate, book, view.stock or {}, Auto.plant_state(f) ~= nil, Harvest.reachable(f), Auto.belt_flow(f)) end,
+        function(g, args, near)
+          local id, w2 = Auto.submit(f, { product = o.item, gen = meth.gen, args = args, feed = meth.feed, rate = o.rate or 0,
+            rate_nom = (g.nominal[o.item] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, capi = o.key, pole = g.pole,
+            near = near, why = string.format("CAPI %s x%d T=%.2f (rangee)", o.kind, o.n or 0, o.T or 0) }, tick, research)
+          if not id then Rp.fail(repli, rkey, w2, tick, nil) return nil, "plan directeur : " .. tostring(w2) end
+          return { id }
+        end, Rp.factor(repli, rkey, tick))
+      if rids ~= false then
+        if not rids then return nil, rwhy end
+        rec.exec, rec.mod_ids, rec.product = "module", rids, o.item
+        return rec
+      end
+    end
     for _, part in ipairs(Capi.split(o.rate or 0, Rp.factor(repli, rkey, tick))) do
       local g, args = fit_module(meth, part, book, view.stock or {}, Auto.plant_state(f) ~= nil, Harvest.reachable(f), Auto.belt_flow(f))
       if not g then why2 = "objets impossibles : " .. table.concat(args or {}, ",") break end
