@@ -64,6 +64,25 @@ function Lg.tasks_for_zone(tasks, zone, max)
   return out
 end
 
+-- MINAGE-MAIN (lot MINAGE-MAIN, champ d'état f.team.sources.dec[<ressource>] = { choix, raison, n, d, tick }) : mots fixes. Le champ `why` de ce lot est un
+-- texte libre : jamais lu ici. Un mot hors liste s'affiche « inconnu ».
+Lg.SRC_CHOIX = { "sortie", "stock", "main" }
+Lg.SRC_RAISON = { "sortie", "en_marche", "stock_suffit", "stock_refuse", "aucune_sortie", "sorties_vides", "sortie_dangereuse", "tournee_en_pause", "crise" }
+local SRC_C, SRC_R = {}, {}
+for _, w in ipairs(Lg.SRC_CHOIX) do SRC_C[w] = true end
+for _, w in ipairs(Lg.SRC_RAISON) do SRC_R[w] = true end
+
+--- Ligne de « décisions récentes » pour une ressource : { tick, kind = "source", text (clé de doublon), ltext (chaîne localisée) }. nil si l'entrée n'est pas une table.
+function Lg.source_row(resource, d)
+  if type(d) ~= "table" then return nil end
+  local choix = (type(d.choix) == "string" and SRC_C[d.choix]) and d.choix or "inconnu"
+  local raison = (type(d.raison) == "string" and SRC_R[d.raison]) and d.raison or "inconnu"
+  local n = type(d.n) == "number" and string.format("%.0f", d.n) or "?"
+  local dist = type(d.d) == "number" and string.format("%.0f", d.d) or "?"
+  return { tick = type(d.tick) == "number" and d.tick or nil, kind = "source", text = tostring(resource) .. "|" .. choix .. "|" .. raison .. "|" .. n .. "|" .. dist,
+    ltext = { "fo-dbg-cerveau.src-ligne", { "item-name." .. tostring(resource) }, { "fo-dbg-cerveau.src-choix-" .. choix }, { "fo-dbg-cerveau.src-raison-" .. raison }, n, dist } }
+end
+
 --- Décisions récentes : plus récentes d'abord, doublons (même sorte et même texte) retirés en gardant la plus récente, au plus `max`.
 --- rows : liste de { tick, kind, text }. Une ligne sans date vient après les datées (ordre de lecture gardé).
 function Lg.decisions(rows, max)
