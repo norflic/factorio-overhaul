@@ -130,6 +130,9 @@ Build.Charge = require("script.core.charge")
 -- Lot VIDEO L9 : lots de minerai réservés au minerai (colle de shared/team/lot_minerai.lua, interrupteur éteint par défaut) ; champ
 -- de Build, même raison (199 locales sur 200).
 Build.LotsMinerai = require("script.team.lots_minerai_glue")
+-- Lot TV-REPLI (TODO_VIDEO C07) : repli de placement simple d'un module sans lot (colle de shared/team/repli_place.lua, réglage
+-- fo-war-repli-place allumé par défaut) ; champ de Build, même raison (199 locales sur 200).
+Build.Repli = require("script.team.repli_place")
 local TREE_TYPES = { "tree", "simple-entity" }
 
 
@@ -671,6 +674,7 @@ end
 
 local function candidates(b, states, toward, res)
   local out = {}
+  if b.opts and b.opts.no_lots then return out end -- banc seulement (lot TV-REPLI, remote fo-ia1d set_option) : aucun lot candidat, le repli de placement simple doit prendre
   for _, k in ipairs(sorted_keys(b.lots)) do
     local l = b.lots[k]
     -- un lot de gisement sert plusieurs lignes de foreuses tant qu'il reste de la place (relevé des tuiles libres)
@@ -2019,6 +2023,14 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
       place = place_module(f, surface, g, { gisement = true }, { x = a.x, y = a.y }, item,
         { nobad = true, cover_min = Gisements.COVER_LOW, cache = cache, within = p.spec and p.spec.degel and p.spec.degel.zone or nil })
       if place then picked, pg = { n = 1, cover = Gisements.COVER_LOW }, g end
+      -- lot TV-REPLI (TODO_VIDEO C07) : plus aucun lot du treillis, et il ne grandit plus : la paire de foreuses va au bord du gisement,
+      -- dans une fenêtre libre et sûre autour de lui (mêmes tuiles libres, même couverture minimale que le dernier essai)
+      if not place and not Build.can_grow(b) then
+        place = Build.Repli.try(f, surface, g, { p = p, why = why, res = item, center = deposit_toward(b, item) or { x = a.x, y = a.y },
+          fopts = { toward = { x = a.x, y = a.y }, cover_min = Gisements.COVER_LOW },
+          read_masks = read_masks, ore_set = ore_set, avoid_margin = Build.AVOID_MARGIN })
+        if place then picked, pg = { n = 1, cover = Gisements.COVER_LOW }, g end
+      end
     end
   end
   if not place then
@@ -2026,7 +2038,7 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
     return false, why
   end
   local part = #p.parts + 1
-  p.parts[part] = { kind = "foreuses", key = place.g.key, lot = place.lot, ox = place.ox, oy = place.oy, k = place.k,
+  p.parts[part] = { kind = "foreuses", key = place.g.key, lot = place.lot or (place.repli and "repli") or nil, ox = place.ox, oy = place.oy, k = place.k,
     w = place.g.w, h = place.g.h, power = needs_power(place.g), belt = belt, flow = flow,
     drills = 2 * ((place.g.params or {}).n or 0),
     drill_rate = (M.spec((place.g.params or {}).drill or "") or {}).speed or 0,
@@ -2045,7 +2057,7 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
     if b.stats.orient <= Build.LINE_LOGS then
       log(string.format("[FO-ORIENT] %s : projet %d, foreuses %s : gisement %s dans le lot %s, collecteur %s%s, sortie a %d tuile(s) de l'arrivee",
         f.key or "player", p.id, item, place.axis == "y" and "vertical" or (place.axis == "x" and "horizontal" or "sans sens (rond ou petit)"),
-        place.lot, la == "y" and "vertical" or "horizontal", (place.pen or 0) > 0 and " (en travers : meilleure couverture ou place)" or "",
+        place.lot or "repli", la == "y" and "vertical" or "horizontal", (place.pen or 0) > 0 and " (en travers : meilleure couverture ou place)" or "",
         math.floor((place.d or 0) + 0.5)))
     end
   end
@@ -2157,7 +2169,7 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
   end
   for _, t in ipairs(tiles) do ents[#ents + 1] = { name = belt, x = t.x + 0.5, y = t.y + 0.5, dir = t.dir, part = part, role = "liaison-tapis" } end
   if not reserve_tiles(b, p, ents) then p.parts[part] = nil; return false, "place" end
-  b.lots[place.lot].used = p.id
+  if place.lot then b.lots[place.lot].used = p.id end -- (lot TV-REPLI : un repli n'a pas de lot du treillis)
   return true
 end
 
@@ -2721,6 +2733,7 @@ local function plan_project(f, surface, p)
   local main
   local is_plant = g.gen == "steam"
   local toward
+  local rp_last -- lot TV-REPLI : gabarit et options du dernier essai de try_place (le repli de placement simple reprend les mêmes)
   if spec.near then toward = spec.near end
   if is_plant then
     main, why = place_module(f, surface, g, { rive = true, eau = true }, toward or { x = b.lat.ox, y = b.lat.oy }, nil, { water = true, margin = 0 })
@@ -2747,6 +2760,7 @@ local function plan_project(f, surface, p)
       end
       -- lot VIDEO L9 : états de lots essayés par la règle (Build.LotsMinerai.states : le repli d'avant, libres puis gisement, quand elle est
       -- éteinte (repli d'avant) ; Lm.states_for allumée (défaut depuis 0.6.60) : une fabrique ne se replie plus sur un gisement) ; replis et refus comptés ([FO-LOTS-MINERAI])
+      rp_last = { g = gx, fopts = fopts }
       local m, w, mi, ms
       for i, states in ipairs(Build.LotsMinerai.states(f, gx.gen)) do
         m, w = place_module(f, surface, gx, states, toward, nil, fopts)
@@ -2779,18 +2793,30 @@ local function plan_project(f, surface, p)
       Build.grow(f, b.radius + 1)
       return false, why, true
     end
+    -- lot TV-REPLI (TODO_VIDEO C07, « placement as dumb as possible ») : le treillis ne grandit plus et aucun lot ne tient le module :
+    -- placement de repli simple (fenêtres libres et sûres autour du QG ou du gisement) au lieu de l'abandon du projet
+    if not is_plant then
+      local res = g.resource and (spec.resource or g.resource) or nil
+      local rg = (rp_last and rp_last.g) or g
+      local center = (res and deposit_toward(b, res)) or toward or { x = b.lat.ox, y = b.lat.oy }
+      local rp = Build.Repli.try(f, surface, rg, { p = p, why = why, res = res, center = center, fopts = rp_last and rp_last.fopts or nil,
+        read_masks = read_masks, ore_set = ore_set, avoid_margin = Build.AVOID_MARGIN })
+      if rp then main, g = rp, rg end
+    end
     -- lot PD-CENTRALE (décision du DC D-24 (1) : « si l'eau n'est pas utilisable, il faut aller plus loin […] centrale plus
     -- loin ») : plus d'étang garanti ; la centrale va à l'eau la plus proche HORS du treillis, reliée par une ligne de poteaux
     -- (plan_power, Far.line). Toutes les équipes (votre équipe était refusée sans recours).
-    if not is_plant then return false, why end
-    Profiler.start("build:plan:loin")
-    local lwhy, lwait
-    main, lwhy, lwait = Far.place(f, surface, g, { read_masks = read_masks, tick = game.tick, why = why, avoid_margin = Build.AVOID_MARGIN, p = p })
-    Profiler.stop("build:plan:loin")
-    if not main then return false, lwhy, lwait end
+    if not main then
+      if not is_plant then return false, why end
+      Profiler.start("build:plan:loin")
+      local lwhy, lwait
+      main, lwhy, lwait = Far.place(f, surface, g, { read_masks = read_masks, tick = game.tick, why = why, avoid_margin = Build.AVOID_MARGIN, p = p })
+      Profiler.stop("build:plan:loin")
+      if not main then return false, lwhy, lwait end
+    end
   end
   p.far = main.far -- lot PD-CENTRALE : rive de la centrale lointaine (nil dans le treillis)
-  p.parts[1] = { kind = is_plant and "centrale" or "module", key = main.g.key, lot = main.lot or "lointain", ox = main.ox, oy = main.oy,
+  p.parts[1] = { kind = is_plant and "centrale" or "module", key = main.g.key, lot = main.lot or (main.repli and "repli") or "lointain", ox = main.ox, oy = main.oy,
     k = main.k, w = main.g.w, h = main.g.h, power = needs_power(main.g) }
   local ents = inst_entities(main.inst, 1)
   if topts then Build.tag_rows(ents, g, 0, "four", "row") end -- lot FONDERIE-DYNAMIQUE : rangée de chaque four et de ses bras (ligne_split)
@@ -5216,7 +5242,7 @@ remote.add_interface("fo-ia1d", {
   end,
   set_option = function(key, name, value)
     local f = team_of_key(key)
-    if not (f and f.build and (name == "seul" or name == "ghosts_ahead" or name == "sante" or name == "no_grow" or name == "no_alim" or name == "no_sante" or name == "no_coupure")) then return nil end -- no_coupure : coupe le chemin le plus court et le second chemin des poteaux perdus (lot ENERGIE 2/11, témoin des bancs) ; no_grow : coupe la croissance de la centrale (bancs) ; no_alim : coupe les foreuses de la centrale (lot CHARBON-CENTRALE, bancs) ; no_sante : coupe l'amorce à la main, la porte des consommateurs et l'avance de la centrale de plus (lot ENERGIE 2/11, témoin des bancs)
+    if not (f and f.build and (name == "seul" or name == "ghosts_ahead" or name == "sante" or name == "no_grow" or name == "no_lots" or name == "no_alim" or name == "no_sante" or name == "no_coupure")) then return nil end -- no_coupure : coupe le chemin le plus court et le second chemin des poteaux perdus (lot ENERGIE 2/11, témoin des bancs) ; no_grow : coupe la croissance de la centrale (bancs) ; no_alim : coupe les foreuses de la centrale (lot CHARBON-CENTRALE, bancs) ; no_sante : coupe l'amorce à la main, la porte des consommateurs et l'avance de la centrale de plus (lot ENERGIE 2/11, témoin des bancs)
     f.build.opts[name] = value and true or false
     return f.build.opts[name]
   end,

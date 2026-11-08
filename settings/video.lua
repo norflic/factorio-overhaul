@@ -13,6 +13,8 @@
                         Traductions : locale/*/trace.cfg (lot L11).
   fo-war-lots-minerai   lot L9 : les lots de gisement du treillis réservés au minerai (shared/team/lot_minerai.lua ;
                         script/team/lots_minerai_glue.lua). Traductions : locale/*/lots_minerai.cfg (lot L9).
+  fo-war-repli-place    lot TV-REPLI (C07 de docs/TODO_VIDEO.md) : placement de repli simple d'un module sans lot (shared/team/repli_place.lua ;
+                        script/team/repli_place.lua). Traductions : locale/*/repli_place.cfg.
   Préfixe « fo-war- » : réglable par les bancs (interface distante war_setting).
 ]]
 
@@ -37,6 +39,13 @@ data:extend({
     setting_type = "runtime-global",
     default_value = true,
     order = "e-war-z-video-c",
+  },
+  {
+    type = "bool-setting",
+    name = "fo-war-repli-place",
+    setting_type = "runtime-global",
+    default_value = true,
+    order = "e-war-z-video-d",
   },
   {
     type = "bool-setting",
