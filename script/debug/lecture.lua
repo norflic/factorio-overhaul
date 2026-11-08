@@ -21,6 +21,7 @@
 local State = require("script.faction.state")
 local Zn = require("shared.debug.zone")
 local Rv = require("script.team.reseau_vivant")
+local An = require("script.debug.anneau")
 
 local Lec = {}
 
@@ -213,6 +214,7 @@ function Lec.measure(f, z, tick)
   z.machines, z.aux = machines, aux
   local r = Zn.classify({ state = z.state, machines = machines, aux = aux })
   z.color, z.cause, z.ratio, z.n, z.top = r.color, r.cause, r.ratio, r.n, r.top
+  z.run = machines[Zn.RUN] or 0
   return z
 end
 
@@ -227,8 +229,9 @@ function Lec.reads(f, z)
     local mq = t.mq
     local rd = mq and mq.reads and mq.reads[z.pid]
     if rd then
-      local stopped = rd.power == false
-      out[#out + 1] = { src = "manque", verdict = stopped and "arret" or "marche", why = stopped and "courant" or nil, tick = rd.read_tick }
+      -- power == nil : le cerveau n'a trouvé aucune machine à lire (inconnu, refusé par Mq) : jamais « marche » (revue-s, A)
+      local verdict = rd.power == false and "arret" or (rd.power == true and "marche" or "inconnu")
+      out[#out + 1] = { src = "manque", verdict = verdict, why = verdict == "arret" and "courant" or nil, tick = rd.read_tick }
       for _, s in ipairs(mq.res and mq.res.starved or {}) do
         if s.id == z.pid then
           out[#out] = { src = "manque", verdict = "arret", why = "entree", tick = rd.read_tick }
@@ -239,12 +242,18 @@ function Lec.reads(f, z)
     local st = t.ia3e
     local m = ia3e_mod(f, z.pid)
     if m and m.state == "fini" and m.rate_meas ~= nil and st and st.last_min ~= nil then
-      out[#out + 1] = { src = "debit", verdict = m.rate_meas > 0 and "marche" or "arret", why = m.rate_meas > 0 and nil or "debit_nul", tick = st.last_min * 3600 }
+      -- un débit nul pendant la première minute d'un module fini est un artefact de mesure (Auto : made_prev absent) : pas un jugement (revue-s, D)
+      local young = m.finished_m ~= nil and st.last_min - m.finished_m < 2
+      local verdict = m.rate_meas > 0 and "marche" or (young and "inconnu" or "arret")
+      out[#out + 1] = { src = "debit", verdict = verdict, why = verdict == "arret" and "debit_nul" or nil, tick = st.last_min * 3600 }
     end
     if z.kind == "centrale" and f.build and f.build.sante then
       local sv = f.build.sante
-      if type(sv.next) == "number" then
-        out[#out + 1] = { src = "sante", verdict = sv.healthy and "marche" or "arret", why = (not sv.healthy) and tostring(sv.last_why or "") or nil, tick = sv.next - Rv.PERIOD }
+      -- b.sante est créé avec healthy = false avant tout relevé : une lecture n'existe qu'après un relevé réel (revue-s, C). last_why est un
+      -- texte libre : jamais traduit, la cause est « autre ».
+      local read = sv.healthy == true or (sv.decisions or 0) > 0 or (sv.last_why or "") ~= ""
+      if type(sv.next) == "number" and read then
+        out[#out + 1] = { src = "sante", verdict = sv.healthy and "marche" or "arret", why = (not sv.healthy) and "autre" or nil, tick = sv.next - Rv.PERIOD }
       end
     end
   elseif z.oid then
@@ -299,11 +308,19 @@ function Lec.decision_rows(f)
       rows[#rows + 1] = { tick = d.closed, kind = d.state == "fini" and "ordre_fini" or "ordre_echec",
         text = string.format("%s (%s)%s", tostring(d.key), tostring(d.exec), d.why and (" : " .. tostring(d.why)) or "") }
     end
+    -- les refus et envois avec leur RAISON viennent de l'anneau (script/debug/anneau.lua) ; un refus que l'anneau ne connaît pas (décidé
+    -- avant l'ouverture du mod à jour, ou sorti de l'anneau) n'a pour lui que sa date : dit tel quel
+    local in_ring = {}
+    for _, e in ipairs(An.get(f.key or "player")) do
+      if e.s == "refus" then in_ring[e.k] = true end
+    end
     for _, key in ipairs(sorted_keys(cs.refused)) do
-      -- la RAISON du refus n'est pas conservée par le cerveau (elle va au journal [FO-CAPI]) : dit tel quel
-      rows[#rows + 1] = { tick = cs.refused[key], kind = "refus", text = tostring(key) }
+      if not in_ring[key] then rows[#rows + 1] = { tick = cs.refused[key], kind = "refus_sans_raison", text = tostring(key) } end
     end
     if cs.repli_text then rows[#rows + 1] = { kind = "repli", text = tostring(cs.repli_text) } end
+  end
+  for _, e in ipairs(An.get(f.key or "player")) do
+    rows[#rows + 1] = { tick = e.t, kind = e.s == "refus" and "refus" or "envoye", text = e.r ~= "" and (e.k .. " : " .. e.r) or e.k }
   end
   local st = f.team and f.team.ia3e
   for _, l in ipairs(st and st.logs or {}) do rows[#rows + 1] = { tick = l.tick, kind = "module", text = tostring(l.text) } end

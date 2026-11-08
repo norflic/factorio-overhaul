@@ -104,6 +104,8 @@ local Ext = require("script.ai3.extension") -- lot C3 EXTENSION : rayon de base 
 local MigChamp = require("script.team.migration_champ") -- lot CHAMP : « couvrir / ouvrir » d'un minerai à fondre passent par le champ
 
 local Capi = {}
+-- Lot DEBUG-CERVEAU : anneau des ordres envoyés et refusés AVEC leur raison, lu par la seule vue « Cerveau » (jamais par une décision). Champ, pas une locale (199 sur 200).
+Capi.Anneau = require("script.debug.anneau")
 
 Capi.SETTING = "fo-war-capi"
 Capi.ENABLED = true
@@ -1912,7 +1914,7 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
       f.key or "?", math.floor(minutes(f, tick) + 0.5), Rs.describe(input.reserve), string.format("%.0f", res.free_mu or 0), string.format("%.0f", res.stock_part or 0),
       string.format("%.0f", res.spent or 0), #res.orders, stk))
   end
-  local sent, refused = {}, {}
+  local sent, refused, rlog = {}, {}, {}
   -- Lot CAPI-DEBIT : le plafond des emplacements vaut pour la décision entière (avant : de 0 module ouvert, jusqu'à
   -- Capi.MAX_ORDERS modules partaient d'un coup) ; un ordre qui ouvrirait un module de trop est refusé, son épargne rendue.
   local room = cs.slots and cs.slots.room
@@ -1962,6 +1964,7 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
       cs.stats[o.kind] = (cs.stats[o.kind] or 0) + 1
     else
       refused[#refused + 1] = o.key .. " (" .. tostring(why) .. ")"
+      rlog[#rlog + 1] = { o.key, tostring(why) } -- lot DEBUG-CERVEAU
       cs.refused[o.key] = tick
       AmRt.defer(cs, o, why, tick) -- lot VIDEO-COUVERTURE 5 : refusé par l'exécutant occupé = mis de côté, re-émis à l'identique
       if cs.st.posed and o.item ~= nil then cs.st.posed[o.item] = nil end -- lot VIDEO-ORDRE : un ordre refusé n'a rien posé, l'objet reste ordonnable
@@ -1971,6 +1974,8 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
       cs.st.bank = (cs.st.bank or 0) + (o.cost_m or 0)
     end
   end
+  for _, r in ipairs(res.refus or {}) do rlog[#rlog + 1] = { tostring(r.key), tostring(r.why) } end -- lot DEBUG-CERVEAU : refus de la règle, avec leur raison (lecture seule de res.refus)
+  Capi.Anneau.note(f, tick, sent, rlog) -- lot DEBUG-CERVEAU : un seul appel, écrit dans l'anneau de la vue, jamais relu par la décision
   couv_report(f, cs, res, input, D, tick) -- lot CAPI-MESURE
   Ind.think(f, cs, res, view, book, tick) -- lot INDUSTRIE I6 : demande non servie -> patron (rangée ou bloc de mall) -> module
   -- couverture relue et dépôts suivis (journal : critères (1) et (3))

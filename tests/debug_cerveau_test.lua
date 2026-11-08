@@ -161,6 +161,10 @@ local function run_all(Zn, Ec, Am, Lg)
   check(a[1] == "fo-dbg-cerveau.ago-h" and a[2] == "2.0", "120 min = 2.0 h")
   local lab = Lg.label({ kind = "module", product = "objetA", rate_meas = 41.6, rate_nom = 60, color = "orange", cause = "entree" })
   check(lab[1] == "fo-dbg-cerveau.zone-produit" and lab[2][1] == "item-name.objetA" and lab[3] == "42" and lab[4] == "60" and lab[5][1] == "fo-dbg-cerveau.cause-entree", "label avec produit")
+  lab = Lg.label({ kind = "fonderie", product = "objetA", rate_meas = 227, rate_nom = 570, color = "orange", cause = "entree", n = 30, run = 12 })
+  check(lab[7][1] == "fo-dbg-cerveau.zone-machines" and lab[7][2] == 12 and lab[7][3] == 30, "fonderie a 30 fours, 12 en marche : X/N en marche dans l'etiquette")
+  lab = Lg.label({ kind = "module", product = "objetA", color = "orange", cause = "entree" })
+  check(lab[7] == "", "sans machine mesuree : pas de X/N")
   lab = Lg.label({ kind = "centrale", color = "vert" })
   check(lab[1] == "fo-dbg-cerveau.zone-simple" and lab[3][1] == "fo-dbg-cerveau.cause-aucune", "label sans produit, vert : cause aucune")
   lab = Lg.label({ kind = "module", product = "objetA", color = "vert", cause = "entree" })
@@ -259,7 +263,7 @@ do
   local states = { "fini", "refuse", "bloque" }
   for st in pairs(Zn.BUILD) do states[#states + 1] = st end -- liste a completer : l'ordre ne compte pas
   add("etat-", states)
-  local causes = { "aucune", "bloque", "inconnu", "refuse", "non_mesure" }
+  local causes = { "aucune", "bloque", "inconnu", "refuse", "non_mesure", "debit_nul" }
   for _, c in ipairs(Zn.CAUSES) do causes[#causes + 1] = c end
   for st in pairs(Zn.BUILD) do causes[#causes + 1] = st end
   add("cause-", causes)
@@ -277,7 +281,7 @@ do
   local tk = { "autre", "prise", "libre" }
   for _, v in pairs(Lg.TASK_KEYS) do tk[#tk + 1] = v end -- valeurs a lister : l'ordre ne compte pas
   add("tache-", tk)
-  add("decision-", { "ordre_ouvert", "ordre_fini", "ordre_echec", "refus", "repli", "module", "capital", "capital_courant" })
+  add("decision-", { "ordre_ouvert", "ordre_fini", "ordre_echec", "refus", "envoye", "refus_sans_raison", "repli", "module", "capital", "capital_courant" })
   add("ago-", { "s", "min", "h", "inconnu" })
   local fam_missing = {}
   for _, f in ipairs(fam) do
@@ -321,6 +325,7 @@ local MUTANTS = {
   { "lg: taches d'une autre zone", "lg", { "local hit = (zone.pid ~= nil and t.pid == zone.pid) or (zone.oid ~= nil and t.outpost == zone.oid)", "local hit = true" } },
   { "lg: kind/mode ignore", "lg", { "if mode ~= nil and Lg.TASK_KEYS", "if false and Lg.TASK_KEYS" } },
   { "lg: tache inconnue = kind brut", "lg", { "return Lg.TASK_KEYS[tostring(kind)] or \"autre\"", "return Lg.TASK_KEYS[tostring(kind)] or tostring(kind)" } },
+  { "lg: X/N en marche absent", "lg", { "local mach = (type(z.n) == \"number\" and z.n > 0)", "local mach = (false)" } },
   { "lg: doublons gardes", "lg", { "if not seen[k] then", "if true then" } },
   { "lg: decisions anciennes d'abord", "lg", { "if ta ~= tb and ta ~= nil then return ta > tb end", "if ta ~= tb and ta ~= nil then return ta < tb end" } },
   { "lg: label affiche la cause du vert", "lg", { "local cause = (z.color ~= \"vert\" and z.cause)", "local cause = (z.cause)" } },

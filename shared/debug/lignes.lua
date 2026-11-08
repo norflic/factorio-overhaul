@@ -20,14 +20,16 @@ end
 
 local function rnd(v) return type(v) == "number" and string.format("%.0f", v) or "?" end
 
---- Texte d'une zone sur la carte : « <produit> <débit lu>/<débit visé> par min · <cause> » ; sans produit, la sorte de la zone.
---- z : { kind, product, rate_meas, rate_nom, color, cause }.
+--- Texte d'une zone sur la carte : « <produit> <débit lu>/<débit visé> par min · <cause> (<sorte>) · X/N en marche » ; sans produit, la sorte.
+--- z : { kind, product, rate_meas, rate_nom, color, cause, n (machines mesurées), run (machines qui travaillent) }.
 function Lg.label(z)
   local cause = (z.color ~= "vert" and z.cause) and { "fo-dbg-cerveau.cause-" .. z.cause } or { "fo-dbg-cerveau.cause-aucune" }
+  -- « X/N en marche » : le cas du DC (fonderie de 30 fours à 40 % de sa capacité) doit se lire sans ouvrir le panneau
+  local mach = (type(z.n) == "number" and z.n > 0) and { "fo-dbg-cerveau.zone-machines", z.run or 0, z.n } or ""
   if z.product then
-    return { "fo-dbg-cerveau.zone-produit", { "item-name." .. z.product }, rnd(z.rate_meas), rnd(z.rate_nom), cause, { "fo-dbg-cerveau.sorte-" .. tostring(z.kind) } }
+    return { "fo-dbg-cerveau.zone-produit", { "item-name." .. z.product }, rnd(z.rate_meas), rnd(z.rate_nom), cause, { "fo-dbg-cerveau.sorte-" .. tostring(z.kind) }, mach }
   end
-  return { "fo-dbg-cerveau.zone-simple", { "fo-dbg-cerveau.sorte-" .. tostring(z.kind) }, cause }
+  return { "fo-dbg-cerveau.zone-simple", { "fo-dbg-cerveau.sorte-" .. tostring(z.kind) }, cause, mach }
 end
 
 -- Tâches connues du tableau (kind, ou kind/mode pour le plan directeur) -> suffixe de clé de traduction « tache-<suffixe> ».

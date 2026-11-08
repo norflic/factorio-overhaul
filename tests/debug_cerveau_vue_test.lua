@@ -39,6 +39,7 @@ package.loaded["script.core.storage"] = {
   ns = function(name) local s = STORE[name] if not s then error("espace inconnu " .. name) end s.v = s.v or s._init() return s.v end,
 }
 package.loaded["script.team.reseau_vivant"] = { PERIOD = 1200 }
+-- l'anneau (script/debug/anneau.lua) est le vrai module : son espace de stockage est déclaré plus bas avec les autres
 commands = { add_command = function(name, help, fn) cmds[name] = fn end }
 remote = { add_interface = function(name, t) remotes[name] = t end }
 local PSET = { ["fo-dbg-cerveau-textes"] = { value = true }, ["fo-dbg-cerveau-ecarts-seuls"] = { value = false } }
@@ -181,6 +182,7 @@ local f = {
 }
 local pteam = nil
 STORE["war"] = { v = { factions = { [7] = f }, by_force = {} } }
+STORE["debug_cerveau_anneau"] = { v = { v = 1, rings = {} } }
 STORE["pteam"] = { v = { team = pteam } }
 
 local State = require("script.faction.state")
@@ -213,6 +215,30 @@ local function run_slices(n, tick)
 end
 local function run_refresh(tick) for _, fn in ipairs(nth[Cv.REFRESH]) do fn({ tick = tick }) end end
 
+section("0. anneau borne")
+do
+  local An = require("script.debug.anneau")
+  local g = { key = "borne" }
+  for i = 1, 50 do An.note(g, i, { "k" .. i }, { { "r" .. i, string.rep("x", 500) } }) end
+  local ring = An.get("borne")
+  check(#ring == An.MAX, "l'anneau est borne a " .. An.MAX .. " entrees : " .. #ring)
+  check(ring[#ring].k == "r50" and #ring[#ring].r == An.WHY_MAX, "le plus recent est garde, la raison coupee a " .. An.WHY_MAX)
+  check(ring[1].t >= 34, "les plus anciens sont sortis")
+  check(#An.get("inconnue") == 0, "equipe sans anneau : liste vide")
+  -- le meme refus repete est rafraichi, pas empile
+  local h = { key = "rep" }
+  An.note(h, 10, {}, { { "a", "porte" }, { "b", "plafond" } })
+  An.note(h, 20, {}, { { "a", "porte" } })
+  local r = An.get("rep")
+  check(#r == 2 and r[2].k == "a" and r[2].t == 20 and r[1].k == "b", "refus identique rafraichi (date du jour, remis en dernier), non empile")
+  An.note(h, 30, {}, { { "a", "autre raison" } })
+  check(#An.get("rep") == 3, "meme cle, autre raison : nouvelle entree")
+  local big = {}
+  for i = 1, 40 do big[i] = { "c" .. i, "r" } end
+  local g2 = { key = "gros" }
+  check(An.note(g2, 1, {}, big) == An.PER_NOTE, "au plus PER_NOTE entrees par decision")
+end
+
 section("2a. rien ne tourne sans spectateur")
 scans = 0
 run_slices(20, NOW)
@@ -221,6 +247,9 @@ check(scans == 0, "aucun relevé du moteur sans spectateur")
 check(#R.calls == 0, "aucun rendu sans spectateur")
 
 section("1. ouverture et relevé complet")
+-- l'anneau de la capitalisation : un ordre envoyé et un refus AVEC raison (crochet de decide_finish)
+local An = require("script.debug.anneau")
+check(An.note(f, NOW - 2000, { "couvrir:iron(module x60)" }, { { "ouvrir:copper", "porte L6 : transport sature" } }) == 2, "anneau : 2 entrees ajoutees")
 local before = deepcopy({ f = f })
 check(Cv.open(P1, 7) == true, "ouverture de la vue pour la faction 7")
 check(P1.toggled["fo-dbg-cerveau"] == true, "bouton de la barre allumé")
@@ -317,7 +346,13 @@ local dec = find(frame, "fo_dbg_dec")
 check(#dec.children >= 5, "décisions : ordre en cours, ordre fini, refus, module, capital : " .. #dec.children)
 local refus_line = false
 for _, c in ipairs(dec.children) do if type(c.caption) == "table" and type(c.caption[3]) == "table" and c.caption[3][1] == "fo-dbg-cerveau.decision-refus" then refus_line = true end end
-check(refus_line, "le refus est affiché, avec la mention que sa raison n'est pas conservée (clé decision-refus)")
+check(refus_line, "le refus est affiché (clé decision-refus), avec sa raison")
+local raison_line = false
+for _, c in ipairs(dec.children) do if type(c.caption) == "table" and tostring(c.caption[4]):find("porte L6 : transport sature", 1, true) then raison_line = true end end
+check(raison_line, "la RAISON du refus (porte L6 : transport sature) vient de l'anneau")
+local sans_line = false
+for _, c in ipairs(dec.children) do if type(c.caption) == "table" and type(c.caption[3]) == "table" and c.caption[3][1] == "fo-dbg-cerveau.decision-refus_sans_raison" then sans_line = true end end
+check(not sans_line, "un refus connu de l'anneau n'est pas redit sans raison")
 -- clic sur une zone
 local btn = nil
 for _, ch in ipairs(list.children) do if ch.tags.key == "p1" then btn = ch end end
@@ -405,6 +440,59 @@ debug.sethook()
 check(count <= 200000, "une tranche (1 zone relevée) : " .. count .. " instructions (<= 200000)")
 print("  une tranche : moins de " .. math.max(count, 1000) .. " instructions (granularité du compteur : 1000)")
 Cv.close(P1)
+
+section("7. cas du DC (fonderie de 30 fours a 40 %) et lectures douteuses (revue-s)")
+do
+  local Lec = require("script.debug.lecture")
+  local Lg = require("shared.debug.lignes")
+  ents_of = {}
+  for i = 1, 30 do ent(10 + (i % 15) * 2, 10 + math.floor(i / 15) * 3, "furnace", i <= 12 and "working" or "no_ingredients") end
+  local f3 = { id = 9, key = "azure", force = "enemy_9", hq = { valid = true, surface = surface }, outposts = {}, last_think = NOW,
+    build = { order = { 1 }, projects = { [1] = { id = 1, state = "fini", parts = { part(5, 5, 40, 12) }, ents = {}, spec = { gen = "smelter", product = "copper-plate" } } },
+      sante = { next = NOW + 1200, healthy = false, last_why = "", decisions = 0 } },
+    team = { mq = { reads = { [1] = { power = true, read_tick = NOW - 600 } }, res = { starved = {} } },
+      ia3e = { last_min = math.floor(NOW / 3600), mods = { { id = 1, product = "copper-plate", state = "fini", rate_nom = 570, rate_meas = 227, finished_m = 0 } }, logs = {} },
+      board = { tasks = {} } } }
+  local sk = Lec.skeletons(f3)
+  local z = sk[1]
+  Lec.measure(f3, z, NOW)
+  check(z.color == "orange" and z.cause == "entree" and z.n == 30 and z.run == 12, "fonderie de 30 fours, 12 en marche : orange, entree, 12/30 : " .. tostring(z.color) .. "/" .. tostring(z.cause) .. "/" .. tostring(z.run) .. "/" .. tostring(z.n))
+  check(z.rate_meas == 227 and z.rate_nom == 570 and z.product == "copper-plate", "production attribuee et debits lus / vises")
+  local lab = Lg.label(z)
+  check(lab[3] == "227" and lab[4] == "570" and lab[7][2] == 12 and lab[7][3] == 30, "etiquette : 227/570 par min et 12/30 en marche, sans ouvrir de panneau")
+  local rd = Lec.reads(f3, z)
+  local ec = require("shared.debug.ecart").compare(rd, { color = z.color, cause = z.cause }, NOW)
+  check(ec.kind == "croit_marche", "le cerveau lit courant bon + debit non nul : il croit que ca marche (ecart rendu evident) : " .. ec.kind)
+  -- A : aucune machine trouvee par le cerveau (power nil) = inconnu, jamais marche
+  f3.team.mq.reads[1] = { power = nil, read_tick = NOW - 600 }
+  f3.team.ia3e.mods = {}
+  rd = Lec.reads(f3, z)
+  check(#rd == 1 and rd[1].verdict == "inconnu", "power nil : verdict inconnu (revue-s A)")
+  -- D : debit nul sur un module fini depuis moins de 2 min = artefact, inconnu
+  f3.team.ia3e.mods = { { id = 1, product = "copper-plate", state = "fini", rate_nom = 570, rate_meas = 0, finished_m = f3.team.ia3e.last_min } }
+  f3.team.mq.reads[1] = nil
+  rd = Lec.reads(f3, z)
+  check(#rd == 1 and rd[1].verdict == "inconnu", "debit nul de la premiere minute : inconnu (revue-s D)")
+  f3.team.ia3e.mods[1].finished_m = f3.team.ia3e.last_min - 5
+  rd = Lec.reads(f3, z)
+  check(rd[1].verdict == "arret" and rd[1].why == "debit_nul", "debit nul d'un module ancien : arret")
+  -- C : sante creee mais jamais relevee = aucune lecture ; relevee (healthy) = marche
+  z.kind = "centrale"
+  rd = Lec.reads(f3, z)
+  local n_sante = 0
+  for _, r in ipairs(rd) do if r.src == "sante" then n_sante = n_sante + 1 end end
+  check(n_sante == 0, "sante jamais relevee : aucune lecture (revue-s C)")
+  f3.build.sante.healthy = true
+  rd = Lec.reads(f3, z)
+  n_sante = 0
+  for _, r in ipairs(rd) do if r.src == "sante" then n_sante = n_sante + 1 end end
+  check(n_sante == 1, "sante relevee : une lecture")
+  f3.build.sante.healthy, f3.build.sante.last_why = false, "attend la pompe"
+  rd = Lec.reads(f3, z)
+  local why
+  for _, r in ipairs(rd) do if r.src == "sante" then why = r.why end end
+  check(why == "autre", "last_why est un texte libre : la cause affichee est 'autre'")
+end
 
 print(string.format("[DEBUG-CERVEAU-VUE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
