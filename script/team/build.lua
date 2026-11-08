@@ -135,6 +135,7 @@ Build.LotsMinerai = require("script.team.lots_minerai_glue")
 Build.Repli = require("script.team.repli_place")
 -- Lot TV-ARCHI (V23) : quartiers et enveloppe d'avance (script/team/quartiers.lua) ; champ de Build, même raison (199 locales sur 200).
 Build.Quartiers = require("script.team.quartiers")
+Build.Place = require("script.team.place_glue") -- lot TV-PLACE : sonde 30 x 30 (G37), défrichage préventif 50 x 50 (G38), repli de placement simple (C07)
 local TREE_TYPES = { "tree", "simple-entity" }
 
 
@@ -393,6 +394,7 @@ local function eval_one(f, surface, item, tick)
     end
     l.res = (l.state == "gisement") and l.reason or nil
     l.water, l.trees, l.rocks, l.tick = s.water, s.trees + s.rocks, s.rocks, tick
+    Build.Place.evaluated(f, surface, tick, item[2], l, s, x0, y0, x1, y1, old, Build.LotsMinerai.amount, Build.LotsMinerai.seuils()) -- lot TV-PLACE (G37) : sonde de 30 x 30, lot en bord de gisement ; résultat du défrichage préventif
     Build.LotsMinerai.evaluated(f, tick, item[2], l, s, old) -- lot VIDEO MINERAI-SONDE : le lot de minerai neuf est RESERVE tout de suite (même en crise) ; un nid neuf est un ennemi vu
     if old == "inconnu" then
       bump(st.lots, l.state)
@@ -684,6 +686,7 @@ local function candidates(b, states, toward, res)
     -- souvent la seule ; le gabarit ne pose rien sur l'eau (P.fit)
     local ok_state = states[l.state] or (states.eau and l.state == "refuse" and l.reason == "eau")
     if l.out and (l.state == "libre" or l.state == "defricher") then ok_state = false end -- lot ENCEINTE3 : dehors du contour
+    if states.no_edge and l.edge then ok_state = false end -- lot TV-PLACE (G37) : lot en bord de gisement, réservé à la fonte et aux foreuses (une fabrique n'y va pas)
     -- lot ENERGIE-CROISSANCE : une rive déjà prise par une centrale FINIE reçoit une centrale de plus sur un autre bord de la même
     -- eau (P.fit ne pose rien sur ses tuiles, b.occ) ; sans cela, l'étang garanti étant la seule eau, toute centrale de plus était
     -- refusée « pas de lot » (retour du DC du 29/10 sur la 0.6.18 : « ils ont un déficit en électricité »)
@@ -792,7 +795,8 @@ local function place_module(f, surface, g, kind_states, toward, res, opts)
   local b = f.build
   local last = "pas de lot"
   local tries = 0
-  for _, c in ipairs(candidates(b, kind_states, toward, res)) do
+  -- lot TV-PLACE (C07) : le repli simple fournit ses propres lots (spirale) ; sinon le classement par distance d'avant
+  for _, c in ipairs((opts and opts.simple_lots) or candidates(b, kind_states, toward, res)) do
     tries = tries + 1
     if tries > 8 then break end
     local x0, y0, x1, y1 = P.lot_rect(b.lat, c.l.i, c.l.j)
@@ -818,7 +822,7 @@ local function place_module(f, surface, g, kind_states, toward, res, opts)
         axis = fopts.axis, pen = fit.pen, d = fit.d, shared = c.shared }
     end
     last = why or last
-    bump(b.stats.plan_refused, last)
+    if not (opts and opts.simple_lots) then bump(b.stats.plan_refused, last) end -- (le repli simple ne fausse pas le décompte des refus du plan)
     -- Lot AUTO : `nobad` (foreuses de ravitaillement) : un refus ne compte pas contre le lot. Build.plan_drills essaie
     -- n, n-1, … 1 foreuses dans les MÊMES lots : chaque taille refusée y comptait un échec, et le lot était exclu après la
     -- deuxième (« tapis des foreuses (pas de lot) » alors qu'une ligne plus courte y tenait).
@@ -2792,6 +2796,16 @@ local function plan_project(f, surface, p)
         end
       end
     end
+    -- lot TV-PLACE (C07 : « placement … as dumb as possible ») : avant de faire grandir le treillis, la règle la plus petite (shared/team/place_simple.lua) :
+    -- lots dans l'ordre de la spirale, mêmes états permis, marge 0, sans autre option
+    if not main and Build.Place.simple_on() then
+      local cache = scan_cache(f)
+      local qg = { x = b.lat.ox, y = b.lat.oy }
+      main, why = Build.Place.simple(f, p, g, why, Build.LotsMinerai.states(f, g.gen), function(states, fo)
+        fo.cache = cache
+        return place_module(f, surface, g, states, qg, nil, fo)
+      end, game.tick)
+    end
   end
   Profiler.stop("build:plan:place")
   if not main then
@@ -3709,6 +3723,8 @@ function Build.work(agent, f, tick)
     end
     return (job.done or 0) > 0 and "done" or "fail"
   elseif job.mode == "clear" then
+    local gate = Build.Place.defprev_gate(f, job, tick) -- lot TV-PLACE (G38) : une tâche de défrichage préventif passe sous le jeton des travaux lourds
+    if gate then return gate end
     local did = 0
     local rect = job.rect
     local area = rect and { { rect[1], rect[2] }, { rect[3], rect[4] } } or { { pos.x - REACH, pos.y - REACH }, { pos.x + REACH, pos.y + REACH } }
@@ -3743,6 +3759,7 @@ function Build.work(agent, f, tick)
       return not_there(f, agent, job, pos, inv, tick, reach2, "done")
     end
     job.done = (job.done or 0) + did
+    Build.Place.cut(f, job.seg, did) -- lot TV-PLACE (G38) : obstacles coupés par le défrichage préventif (journal)
     if did > 0 or remain > 0 then return "more" end
     if job.seg then Build.street_cleared(f, job.seg) end
     return "done"
@@ -5005,6 +5022,7 @@ function Build.think(f, surface, tick)
   end
   Profiler.fstart("e2:rues")
   street_clear_tasks(f, tasks)
+  Build.Place.defprev_tasks(f, tasks, tick) -- lot TV-PLACE (G38) : défrichage préventif de 50 x 50, un lot à la fois, priorité la plus basse
   Profiler.fstop("e2:rues")
   Profiler.fstart("e2:board")
   if b.opts.seul then
@@ -5051,6 +5069,7 @@ end
 
 --- Un tronçon de rue défriché par un PNJ : réévalué à la pensée suivante.
 function Build.street_cleared(f, key)
+  if type(key) == "string" and key:sub(1, 4) == "pre:" then return Build.Place.defprev_cleared(f, key, game.tick) end -- lot TV-PLACE (G38) : un quart du défrichage préventif
   local s = f.build and f.build.segs[key]
   if s then s.cleared_tick = game.tick end
 end
@@ -5240,6 +5259,7 @@ remote.add_interface("fo-ia1d", {
   end,
   status = function(key, id) return Build.status(team_of_key(key), id) end,
   report = function(key) return Build.report(team_of_key(key)) end,
+  place = function(key, cmd) return Build.Place.remote(team_of_key(key), cmd) end, -- lot TV-PLACE : compteurs de la sonde 30 x 30, du défrichage préventif et du repli simple (bancs)
   lots_minerai = function(key, cmd, arg) return Build.LotsMinerai.remote(team_of_key(key), cmd, arg) end, -- lot VIDEO MINERAI-SONDE : lots reserves, événements, relevés refaits (bancs)
   layout = function(key) return Build.layout(team_of_key(key)) end,
   quartiers = function(key, cmd, arg) return Build.Quartiers.remote(team_of_key(key), cmd, arg) end, -- lot TV-ARCHI : bancs (report, now, bench_build)
