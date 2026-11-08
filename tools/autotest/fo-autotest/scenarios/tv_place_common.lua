@@ -104,6 +104,15 @@ return function(on)
         st.r2 = ctx.remote("fo-ia1d", "request", "player", { gen = "gears", args = { 6 } })
         ctx.log(string.format("demandes : R1 (engrenages x2, pres du lot 1:0) %s, R2 (engrenages x6, 23 x 7) %s", tostring(st.r1), tostring(st.r2)))
       end
+      if t > 0 and t % 300 == 0 then
+        local r = ctx.remote("fo-ia1d", "report", "player")
+        local ps = {}
+        for _, p in ipairs(r and r.projects or {}) do
+          ps[#ps + 1] = string.format("%d:%s%s", p.id, p.state, p.reason and ("(" .. tostring(p.reason) .. ")") or "")
+        end
+        ctx.log(string.format("t=%d | rayon %s | file %s | projets %s | lots %s", t, tostring(r and r.radius), tostring(r and r.queue), table.concat(ps, " "),
+          (function() local o = {} for _, k in ipairs(sorted_keys(r and r.lots or {})) do o[#o + 1] = k .. "=" .. r.lots[k] end return table.concat(o, " ") end)()))
+      end
       if t > 0 and t % 600 == 0 then
         local rep = ctx.remote("fo-ia1d", "place", "player", "report")
         if rep then
