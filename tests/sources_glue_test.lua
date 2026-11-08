@@ -504,6 +504,30 @@ do
 end
 
 ---------------------------------------------------------------------------------------------------
+-- §10 PNJ libres sans rien à construire : la cause écrite
+---------------------------------------------------------------------------------------------------
+do
+  new_world()
+  logs = {}
+  local g = team()
+  pteam = g
+  STOCK = { counts = {}, room = nil, skip = nil, annexes = {} }
+  g.build = { order = { 7, 8 }, projects = { [7] = { state = "reserve", ents = { 1, 2, 3 }, missing = { { PLATE, 900 } } }, [8] = { state = "fini", ents = {} } } }
+  local bb = require("script.team.board").get(g)
+  bb.tasks["craft:x"] = { key = "craft:x", kind = "craft", prio = 50 }
+  Src.think(g, 3600, 0)
+  check(say_count("RIEN%-A%-FAIRE") == 0, "aucun PNJ libre : aucune ligne")
+  Src.think(g, 3700, 4)
+  check(say_count("%[FO%-RIEN%-A%-FAIRE%] player : 4 PNJ libre%(s%) : rien a construire : 1 projet%(s%) attendent de la matiere %(manque iron%-plate 900%)") == 1,
+    "4 PNJ libres, un projet attend 900 plaques : cause écrite")
+  check(g.team.sources.idle and g.team.sources.idle.code == "matiere", "mot fixe lisible : matiere")
+  Src.think(g, 3800, 4)
+  check(say_count("RIEN%-A%-FAIRE") == 1, "au plus une ligne par minute")
+  Src.think(g, 3700 + 3600, 4)
+  check(say_count("RIEN%-A%-FAIRE") == 2, "une minute plus tard : une nouvelle ligne")
+end
+
+---------------------------------------------------------------------------------------------------
 -- §7 déterminisme
 ---------------------------------------------------------------------------------------------------
 local function run()

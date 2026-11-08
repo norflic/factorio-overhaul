@@ -1075,7 +1075,7 @@ TT.e4 = function(f, surface, tick, et)
   local view, plan, ia3 = et.view, et.plan, et.ia3
   Profiler.fstart("tt:inter")
   Inter.think(f, tick) -- lot MAIN-ET-INTERMEDIAIRES (D09, D10) : tâches libres retirées AVANT le marché (minage à la main fourni par les machines, quais d'un module au plafond)
-  Src.think(f, tick) -- lot MINAGE-MAIN : tournées vers les sorties qui dorment, minages libres des ressources qu'elles fournissent retirés (AVANT le marché)
+  Src.think(f, tick, view.workers_waiting or view.workers_idle or 0) -- lot MINAGE-MAIN : tournées vers les sorties qui dorment, minages libres des ressources qu'elles fournissent retirés (AVANT le marché)
   -- Lot IA3-b : meilleures paires PNJ inactif × tâche (place de marché, réglage allumé). Fusion IA-V2 : APRÈS le plan
   -- directeur (le plan crée ses tâches, puis le marché les attribue ; consigne de l'intégrateur, 27/10).
   Profiler.fstop("tt:inter")
