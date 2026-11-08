@@ -75,13 +75,17 @@ end
 --- `drop_target` d'une foreuse posée AVANT son récepteur (Outposts.extend : foreuse, puis four) reste nil tant qu'elle n'a rien déposé
 --- (déduit, non prouvé seul). Avant B2 (bbc015f6), le relevé lisait le point de dépôt des DONNÉES dans les réceptacles. Index des
 --- réceptacles valides d'un avant-poste par tuile couverte (O(réceptacles) une fois, puis O(1) par foreuse).
+--- Lot S5 (×10, mesure hors jeu du relevé : 8 conversions nombre -> chaîne par four) : clé de tuile NUMÉRIQUE tx * 4194304 + ty, au lieu
+--- de « tx:ty ». Injective pour |ty| < 2^21 tuiles (la carte va de -1 000 000 à 1 000 000) ; la table est locale, ses seuls lecteurs sont
+--- receiver_of (même clé, écrite en ligne dans les deux) : mêmes réceptacles trouvés. (-0 et 0 font la même clé numérique, pas la même chaîne :
+--- sans effet, une position du moteur n'est jamais -0, et x + (-0) = x, 0 + (-0) = 0 : floor(px) n'est jamais -0.)
 local function sink_tiles(o)
   local at = {}
   for _, k in ipairs(o.sinks or {}) do
     if k.valid and k.unit_number then
       local b = box_of(k)
       for ty = math.floor(b.y - b.h / 2 + 0.01), math.ceil(b.y + b.h / 2 - 0.01) - 1 do
-        for tx = math.floor(b.x - b.w / 2 + 0.01), math.ceil(b.x + b.w / 2 - 0.01) - 1 do at[tx .. ":" .. ty] = k end
+        for tx = math.floor(b.x - b.w / 2 + 0.01), math.ceil(b.x + b.w / 2 - 0.01) - 1 do at[tx * 4194304 + ty] = k end
       end
     end
   end
@@ -101,7 +105,7 @@ local function receiver_of(d, at)
   local t = d.drop_target
   if t and t.valid then return t end
   local px, py = drop_point(d)
-  return at[math.floor(px) .. ":" .. math.floor(py)]
+  return at[math.floor(px) * 4194304 + math.floor(py)] -- (lot S5 : clé numérique, comme sink_tiles)
 end
 
 --- Revue du lead (7/11, (4)) : votre equipe partage la FORCE du joueur ; ses poteaux ne sont pas les notres. Tuiles des poteaux du plan
@@ -153,6 +157,10 @@ local fuel_outpost, reserve_keep = Ra.fuel_outpost, Ra.keep
 --- pass.entries (pour S.plan), pass.refs { [id] = { oid, index, drill, key, sink_ent } }, pass.poles.
 local function survey_step(f, surface, pass, budget)
   local used = 0
+  -- Lot S5 (×10, mesure hors jeu sur un modèle d'azure, 133 projets et 250 poteaux dans le rayon : 76 % des instructions du relevé,
+  -- 31 000 conversions nombre -> chaîne) : plan_pole_tiles(f) refaisait la signature de TOUS les projets pour CHAQUE poteau trouvé.
+  -- Lu une fois par appel, au premier poteau : rien ne change pendant un appel (comme exec_step, `pset`) ; même ensemble.
+  local pset
   pass.burners = pass.burners or {} -- (réserve d'amorçage ; une passe gardée dans global par une version d'avant n'en a pas)
   local retry = (f.swap and f.swap.retry) or {}
   while pass.oi <= #pass.oids do
@@ -199,7 +207,8 @@ local function survey_step(f, surface, pass, budget)
             force = f.force })) do
           if p.valid and p.unit_number and not pass.seen[p.unit_number] then
             pass.seen[p.unit_number] = true
-            if team_pole(f, p, plan_pole_tiles(f)) then
+            if not pset then pset = plan_pole_tiles(f) end
+            if team_pole(f, p, pset) then
               pass.poles[#pass.poles + 1] = { id = p.unit_number, x = p.position.x, y = p.position.y, dist = p.prototype.supply_area_distance,
                 wire = p.prototype.max_wire_distance, powered = producing(p, pass.nets), ent = p }
             end
