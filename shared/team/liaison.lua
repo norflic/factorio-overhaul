@@ -153,6 +153,7 @@ function Li.end_dir(site) return opposite(site.dir) end
 
 --- Tuile d'un poteau 1 x 1 contre le bras (tuile ax, ay, axe dir) : d'abord les deux côtés, puis les quatre diagonales ; libre (free) et
 --- non prise (taken[clé]). Rend tx, ty ou nil. Un poteau de portée 2,5 couvre toutes ces tuiles.
+Li.POLE_RING = 2 -- distance (tuiles) au bras de l'anneau de repli d'un poteau : le plus grand d entier avec d - 0,5 < supply_area_distance du petit poteau (2,5 : relu des donnees du jeu par tests/liaison_test.lua)
 function Li.pole_tile(site, free, taken)
   local v = DV[site.dir]
   local px, py = v[2], -v[1]
@@ -167,9 +168,10 @@ function Li.pole_tile(site, free, taken)
   -- lot RESEAU-GRAPHE : rangee dense, les six tuiles collees au bras sont prises ; un petit poteau couvre 5 x 5 (portee 2,5) : l'anneau de
   -- distance 2 alimente encore le bras, du plus proche au plus loin (ordre fixe : distance de Manhattan, puis x, puis y)
   local ring = {}
-  for dx = -2, 2 do
-    for dy = -2, 2 do
-      if math.max(math.abs(dx), math.abs(dy)) == 2 then ring[#ring + 1] = { site.ax + dx, site.ay + dy, math.abs(dx) + math.abs(dy) } end
+  local R = Li.POLE_RING
+  for dx = -R, R do
+    for dy = -R, R do
+      if math.max(math.abs(dx), math.abs(dy)) == R then ring[#ring + 1] = { site.ax + dx, site.ay + dy, math.abs(dx) + math.abs(dy) } end
     end
   end
   table.sort(ring, function(a, z)

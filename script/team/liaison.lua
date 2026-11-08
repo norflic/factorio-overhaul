@@ -40,6 +40,7 @@ local Liaison = {}
 
 local SKIP_KEYS = { "alim", "raccord", "enceinte", "liaison", "site", "quartier" } -- projets qui ne sont pas des modules de fabrication (lot TV-ARCHI : les dépôts d'un quartier ne reçoivent pas de liaison à tapis)
 local DEAD = { refuse = true }
+local BUS_CACHE = {} -- lot RESEAU-GRAPHE : masques et garde du tracé de tronc en cours, par projet (MÉMOIRE LOCALE du script, hors sauvegarde ; vide au chargement)
 local POLE_SET = {}
 for _, name in ipairs(M.POLES) do POLE_SET[name] = true end -- les poteaux des données de modules.lua, aucun nom écrit ici
 
@@ -389,16 +390,25 @@ function Liaison.plan(api, f, surface, p)
   local x1, y1 = math.max(dock.x, src.x) + mg, math.max(dock.y, src.y) + mg
   local box = lc.bus and Bus.MAX_BOX or 120 -- lot RESEAU-GRAPHE : un tracé de bus va plus loin qu'une liaison de quai
   if x1 - x0 > box or y1 - y0 > box then return false, "liaison: trop loin" end
-  local masks = api.read_masks(x0, y0, x1 + 1, y1 + 1)
+  -- lot RESEAU-GRAPHE : le tracé d'un tronc de bus se cherche PAR TRANCHES (Bus.SLICE etats par passe, p.rs = etat de reprise) ; les
+  -- masques et la garde, lus une fois, restent en memoire LOCALE (hors sauvegarde) pendant la recherche : sans eux (chargement
+  -- d'une sauvegarde), la recherche repart de zero
+  local tick_now = game and game.tick or 0
+  local rs = lc.bus and p.rs or nil
+  local cache = lc.bus and BUS_CACHE[p.id] or nil
+  if rs and not (cache and cache.box == x0 .. ":" .. y0 .. ":" .. x1 .. ":" .. y1 and tick_now - cache.tick < Bus.CACHE_TTL) then rs, p.rs, cache = nil, nil, nil end
+  local masks = cache and cache.masks or api.read_masks(x0, y0, x1 + 1, y1 + 1)
   -- la tuile devant un tapis planifié ou bâti (d'un projet de l'équipe) reste libre : son bout n'y déverse rien
-  local guard = {}
-  for _, pid in ipairs(b.order) do
-    local q = b.projects[pid]
-    if q and q ~= p and not q.abandoned and not DEAD[q.state] then
-      for _, e in ipairs(q.ents) do
-        if e.name:find("belt", 1, true) then
-          local v = P.DV[e.dir or 0]
-          if v then guard[P.tkey(math.floor(e.x) + v[1], math.floor(e.y) + v[2])] = true end
+  local guard = cache and cache.guard or {}
+  if not cache then
+    for _, pid in ipairs(b.order) do
+      local q = b.projects[pid]
+      if q and q ~= p and not q.abandoned and not DEAD[q.state] then
+        for _, e in ipairs(q.ents) do
+          if e.name:find("belt", 1, true) then
+            local v = P.DV[e.dir or 0]
+            if v then guard[P.tkey(math.floor(e.x) + v[1], math.floor(e.y) + v[2])] = true end
+          end
         end
       end
     end
@@ -416,7 +426,13 @@ function Liaison.plan(api, f, surface, p)
   local bounds = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }
   local last_why = "aucun chemin"
   local chosen
-  for _, e in ipairs(ends) do
+  local first_end = 1
+  if rs then
+    local e0 = ends[rs.ie]
+    if e0 and Bus.end_sig(e0) == rs.sig then first_end = rs.ie else rs, p.rs = nil, nil end
+  end
+  for ie = first_end, #ends do
+    local e = ends[ie]
     planned = { [P.tkey(e.src.ax, e.src.ay)] = true, [P.tkey(e.dst.ax, e.dst.ay)] = true }
     local function cost(x, y)
       if not free(x, y) then return nil end
@@ -427,8 +443,18 @@ function Liaison.plan(api, f, surface, p)
       return c
     end
     -- lot TRAVERSEE : l'obstacle infranchissable court (poteau, tapis, bâtiment) est franchi par une paire de souterrains, le gisement évité
-    local tiles, why, tnames = Trav.route(f, surface, p, { x = e.src.bx, y = e.src.by }, { x = e.dst.bx, y = e.dst.by }, Ln.end_dir(e.dst), bounds, cost,
-      { belt = lc.belt, sd = e.src.dir, kind = "liaison" })
+    local ropts = { belt = lc.belt, sd = e.src.dir, kind = "liaison" }
+    if lc.bus then
+      -- tronc de bus : heuristique pondérée, plafond d'états sur le TOTAL des tranches, pas de détour de gisement, pas de diagnostic de refus
+      ropts.weight, ropts.max, ropts.slice, ropts.no_detour, ropts.no_diag = Bus.WEIGHT, Bus.MAX_STATES, Bus.SLICE, true, true
+      if rs and rs.ie == ie then ropts.resume = rs.S end
+    end
+    local tiles, why, tnames = Trav.route(f, surface, p, { x = e.src.bx, y = e.src.by }, { x = e.dst.bx, y = e.dst.by }, Ln.end_dir(e.dst), bounds, cost, ropts)
+    if not tiles and why == "pending" then
+      p.rs = { ie = ie, sig = Bus.end_sig(e), S = tnames }
+      BUS_CACHE[p.id] = cache or { box = x0 .. ":" .. y0 .. ":" .. x1 .. ":" .. y1, tick = tick_now, masks = masks, guard = guard }
+      return false, "liaison: trace du tronc en cours (" .. tostring(p.rs.S.expanded) .. " etats)", "calcul"
+    end
     if tiles then
       local m = Ln.manhattan(e.src.bx, e.src.by, e.dst.bx, e.dst.by)
       local ok, w2
@@ -455,8 +481,12 @@ function Liaison.plan(api, f, surface, p)
       end
     else
       last_why = tostring(why)
+      -- tronc de bus : au premier « aucun chemin » ou « trop long » on s'arrete (les autres bouts coutent autant)
+      if lc.bus and (why == "aucun chemin" or why == "trop long") then break end
     end
+    rs, p.rs = nil, nil
   end
+  p.rs, BUS_CACHE[p.id] = nil, nil
   if not chosen then return false, "liaison: " .. last_why end
   local e, tiles = chosen.e, chosen.tiles
   planned = { [P.tkey(e.src.ax, e.src.ay)] = true, [P.tkey(e.dst.ax, e.dst.ay)] = true }
