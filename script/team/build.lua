@@ -128,6 +128,10 @@ Build.Tj = require("script.team.tourelle_journal")
 Build.Co = require("shared.team.couloir")
 -- Lot VIDEO L4 : quotas du gabarit (colle de shared/team/quotas.lua) ; champ de Build, même raison (199 locales sur 200).
 Build.Quotas = require("script.team.quotas_glue")
+-- Lot FONTE-MULTI : répétition de la ligne de foreuses (règle pure shared/team/repetition.lua) ; champ de Build, pas une locale (199 locales).
+Build.Rep = require("shared.team.repetition")
+Build.REPETITION = true -- la ligne suivante d'un gisement se mesure sur le minerai que les lignes posées ne minent pas encore (false : comme avant)
+Build.REP_LOGS = 40 -- lignes [FO-REPETITION], au plus, par équipe
 Build.Agents = require("script.companion.registry") -- lot MESURE-MODULE : l'agent qui porte une tâche de coffre (indice réécrit)
 Build.Sites = require("shared.team.sites_dedup") -- lot MESURE-MODULE : copies de coffres de p.quais / p.outs (champ de Build, pas une locale)
 -- Lot REMPLISSAGE : cible des coffres d'entrée quand le stock est abondant (colle de shared/team/remplissage.lua) ; champ de Build, même raison.
@@ -821,6 +825,51 @@ local function lot_scan(f, surface, c, rect, res, cache)
   return masks, ores
 end
 
+--- Lot FONTE-MULTI : ensemble des tuiles que les foreuses des projets de l'équipe minent déjà (corps + portée), pièces en attente d'une ligne
+--- dynamique comprises (leur place est réservée). Relevé sur les plans (p.ents), sans appel moteur ; gardé pour la passe de plan en cours.
+function Build.zone_mined(f)
+  local cache = scan_cache(f)
+  local b, zone = f.build, {}
+  local keys, sig = sorted_keys(b.projects), 0
+  for _, pid in ipairs(keys) do -- (signature : le nombre de pièces des plans ; un plan posé dans le même tick invalide la mémoire du tick)
+    local q = b.projects[pid]
+    if q and q.ents then sig = sig + #q.ents + (q.ligne and #q.ligne.held or 0) end
+  end
+  if cache.zone and cache.zone_sig == sig then return cache.zone end
+  for _, pid in ipairs(keys) do
+    local q = b.projects[pid]
+    if q and not q.abandoned and q.state ~= "refuse" and q.ents then
+      local lists = { q.ents, q.ligne and q.ligne.held or nil }
+      for _, list in ipairs(lists) do
+        for _, e in ipairs(list) do
+          local sp = M.spec(e.name)
+          if sp and sp.kind == "drill" and sp.w and sp.radius then
+            Build.Rep.zone_add(zone, math.floor(e.x - sp.w / 2 + 0.01), math.floor(e.y - sp.w / 2 + 0.01), sp.w, Rg.reach(sp.radius, sp.w), P.tkey)
+          end
+        end
+      end
+    end
+  end
+  cache.zone, cache.zone_sig = zone, sig
+  return zone
+end
+
+--- Lot FONTE-MULTI : les tuiles de minerai `ores` d'un lot (rectangle `rect`) que les lignes déjà posées ne minent pas ; `ores` lui-même
+--- tant qu'aucune ne les touche (la première ligne d'un gisement est mesurée comme avant). Rend l'ensemble et le nombre de tuiles restantes.
+function Build.fresh_ores(f, rect, ores)
+  if not (Build.REPETITION and ores) then return ores, nil end
+  local zone = Build.zone_mined(f)
+  local keys, hit = {}, false
+  for ty = rect.y0, rect.y1 - 1 do
+    for tx = rect.x0, rect.x1 - 1 do
+      local k = P.tkey(tx, ty)
+      if ores[k] then keys[#keys + 1] = k; if zone[k] then hit = true end end
+    end
+  end
+  if not hit then return ores, #keys end
+  return Build.Rep.fresh(ores, zone, keys)
+end
+
 --- Pose un gabarit dans le meilleur lot : { g (tourné), k, ox, oy, lot, inst } ou nil, raison.
 local function place_module(f, surface, g, kind_states, toward, res, opts)
   local b = f.build
@@ -842,6 +891,19 @@ local function place_module(f, surface, g, kind_states, toward, res, opts)
     if opts and opts.within then fopts.within = opts.within end -- lot MIGRATION-CHAMP : la ligne tient dans la place libérée
     if opts and opts.fan then fopts.fan = opts.fan end
     if res then fopts.ore = ores; fopts.foreign = ores and ores.foreign or nil end -- (lot MELANGE)
+    -- lot FONTE-MULTI : une ligne de foreuses de plus sur un gisement se mesure sur le minerai que les lignes posées ne minent pas encore
+    if res and g.gen == "drills" and Build.REPETITION then
+      local fr, nf = Build.fresh_ores(f, rect, ores)
+      if fr ~= ores then
+        fopts.ore = fr
+        local nb = f.build
+        nb.rep_logs = (nb.rep_logs or 0) + 1
+        if nb.rep_logs <= Build.REP_LOGS then
+          log(string.format("[FO-REPETITION] %s : lot %s, ligne de foreuses de %s sur le minerai restant : %d tuile(s) que les lignes posees ne minent pas encore",
+            f.key or "player", tostring(c.k), tostring(res), nf or 0))
+        end
+      end
+    end
     -- lot PD-FONDERIEQG (D82) : ligne de foreuses (gabarit « drills ») dans le sens du gisement, sortie du collecteur vers l'arrivée
     if res and g.gen == "drills" then fopts.axis = ores and ores.axis or nil; fopts.out_toward = true end
     if opts and opts.water then fopts.water = masks.water end
@@ -1479,6 +1541,9 @@ local function line_rows(f, surface, spec, g, cur, rev)
       local x0, y0, x1, y1 = P.lot_rect(b.lat, c.l.i, c.l.j)
       local rect = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }
       local masks, ores = lot_scan(f, surface, c, rect, prm.ore, cache)
+      -- lot FONTE-MULTI : la ligne suivante se dimensionne sur le minerai restant (celui que les lignes posées ne minent pas)
+      local fr, nf = Build.fresh_ores(f, rect, ores)
+      if fr ~= ores then ores = fr; ub = math.min(ub, Rg.pairs_for_tiles(nf or 0, dsp.w, reach, cfg.cover, pairs_line)) end
       for n = ub, pairs_dep + 1, -1 do
         local gd2 = M.GEN.drills(prm.ore, n)
         if gd2 and P.fit(gd2, rect, { free = masks.free, ore = ores, foreign = ores and ores.foreign or nil, cover_min = cfg.cover }) then pairs_dep = n break end
