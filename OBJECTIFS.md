@@ -60,6 +60,8 @@ Labos des PNJ : décision du DC (8/11, vers 10 h 50, QCM) : « Non, garder la re
 
 Vue « Cerveau » demandée par le DC (8/11, vers 10 h 55) : « j'aimerais un mode debug, pas le mode que vous avez déjà mis dans les paramètres, un mode debug qui me permet de visualiser les choix que fait le cerveau, par exemple de ma faction. [...] si elle sait régulièrement si cette zone fonctionne, comment l'améliorer si la zone est à améliorer, si finalement il y a une tâche prévue par exemple pour refill en charbon cette zone, pour remplacer ce coffre de charbon par un input directement avec des convoyeurs, pour remplacer ce bras mécanique par un splitter par exemple. » Lot debug-cerveau ouvert.
 
+Constat du DC en jeu (0.6.65, 8/11 vers 11 h 10, azure à l'âge 3, environ 2 h 30 de partie) : « il y a souvent un à deux max rangées de mineurs électriques [...] Avant, c'était très bien fait par les foreuses électriques [...] Petit à petit, ça couvrait tout le gisement [...] ils construisent pas en boucle » ; fonderie de cuivre d'azure : 30 fours, 227 plaques/min (environ 40 % de sa capacité) ; « un mode qui existe pour [...] avoir le niveau de production de chaque usine. J'aimerais [...] que ce soit par défaut » ; « j'ose espérer que la logique de splitter [...] est intégrée » (elle ne l'est pas : répartiteurs posés seulement à la construction des champs). Lots ouverts : couverture (régression de la couverture des gisements, construire en boucle avec le stock), blocage-sortie-2 (reprise), débit par usine visible par défaut dans la vue Cerveau.
+
 ## 3. OPTIMISATION
 
 - **×10 réel sur votre sauvegarde** : 600 UPS, donc au plus 1,67 ms par tick, moteur et script compris. Dernière mesure
