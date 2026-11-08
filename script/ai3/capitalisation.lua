@@ -1026,8 +1026,27 @@ function Capi.portes(f, cs, res, view, tick)
   local build = view.mq and view.mq.build or nil
   local n_build = 0
   for _, k in ipairs(sorted_keys(build)) do if (build[k] or 0) > 0 then n_build = n_build + 1 end end
+  -- Lot tv-fer : RACINE. Un ordre couvrir/ouvrir dont le produit (METHOD_OF_ORE) est en manque (mesuré L3 : view.mq.build, ou manque du
+  -- plan : f.team.missing) crée la source de ce manque : il passe la porte du transport (les PNJ occupés à le remplacer à la main la
+  -- fermeraient pour toujours). Les rangs, la porte des chantiers et l'anti-répétition restent inchangés.
+  local short = {}
+  for _, k in ipairs(sorted_keys(build)) do if (build[k] or 0) > 0 then short[k] = build[k] end end
+  for _, m in ipairs(f.team and f.team.missing or {}) do
+    if type(m) == "table" and m[1] ~= nil and (m[2] or 0) > 0 then short[m[1]] = math.max(short[m[1]] or 0, m[2]) end
+  end
+  local product_of = {}
+  local function root_of(o)
+    if o.kind ~= "couvrir" and o.kind ~= "ouvrir" then return nil end
+    local meth = METHOD_OF_ORE[o.resource]
+    local n = meth and short[meth.product] or nil
+    if n then product_of[o.key] = meth.product end
+    return n
+  end
   local r = Pe.filter(cs.portes, a, res.orders, { family_of = Pi.order_family, family_rank = Pi.FAMILY_RANK,
-    site_kinds = Capi.MODULE_KINDS, tours_kinds = PORTES_TOURS, measured = build, measured_n = n_build })
+    site_kinds = Capi.MODULE_KINDS, tours_kinds = PORTES_TOURS, measured = build, measured_n = n_build, root_of = root_of })
+  for _, rt in ipairs(r.roots or {}) do
+    log(string.format("[FO-PORTES] racine : %s passe L6 (manque %s %s)", tostring(rt.key), tostring(product_of[rt.key] or rt.item), tostring(rt.need)))
+  end
   if r.refused > 0 or r.closed ~= was then
     log(string.format("[FO-PORTES] %s minute %d : transport %s (%d fermeture(s)) ; %d ordre(s) gardes, %d retenu(s), %d qu'une petite marche aurait reduit(s) ; places de chantier %d sur %d (%d pose(s), %d ouvert(s)) ; %s",
       f.key or "?", math.floor(minutes(f, tick) + 0.5), r.closed and "SATURE" or "libre", cs.portes.closes or 0, r.kept, r.refused, r.reduced,
