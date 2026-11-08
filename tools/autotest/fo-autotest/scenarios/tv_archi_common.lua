@@ -115,8 +115,15 @@ return {
     end
     if t % 30 ~= 0 or not st.plant then return end
     -- le banc pose les entités des projets arrivés aux fantômes (centrale, puis quartier)
-    local ids = { st.plant, st.mod }
     local rep = report(ctx)
+    -- V91 : un module (engrenages, quai de fer) demandé vers le lot (0, -2) APRÈS la décision du quartier (0, -1) (banc 4 du 8/11 : demandé
+    -- avant, il prenait un lot du quartier (0, -1), qui passait derrière (-1, 0) au nombre de lots libres : la règle avait raison, le banc tort)
+    local k0 = rep and rep.known and rep.known[1]
+    if not temoin and not st.mod and k0 and k0.pid then
+      st.mod = ctx.remote("fo-ia1d", "request", "player", { gen = "gears", args = { 2, "assembling-machine-1" }, feed = true, prio = 60, near = { x = 0, y = -56 } })
+      ctx.log(string.format("[FO-TV-ARCHI] module d'engrenages demande au tick %d (projet %s), vers le lot (0, -2), apres la decision du quartier %s", e.tick, tostring(st.mod), tostring(k0.key)))
+    end
+    local ids = { st.plant, st.mod }
     for _, k in ipairs(rep and rep.known or {}) do if k.pid then ids[#ids + 1] = k.pid end end
     for _, id in ipairs(ids) do
       local pr = status(ctx, id)
@@ -132,11 +139,6 @@ return {
     if pp and pp.state == "fini" and not st.plant_t then
       st.plant_t = t
       ctx.remote("fo-ia1d", "quartiers", "player", "now")
-      if not temoin then
-        -- V91 : un module (engrenages, quai de fer) demandé vers le lot (0, -2), dans le quartier (0, -1)
-        st.mod = ctx.remote("fo-ia1d", "request", "player", { gen = "gears", args = { 2, "assembling-machine-1" }, feed = true, prio = 60, near = { x = 0, y = -56 } })
-        ctx.log(string.format("[FO-TV-ARCHI] module d'engrenages demande au tick %d (projet %s), vers le lot (0, -2)", e.tick, tostring(st.mod)))
-      end
       ctx.log(string.format("[FO-TV-ARCHI] centrale finie au tick %d ; decision des quartiers a la pensee suivante", e.tick))
     end
     -- V91 : dépôt rempli depuis le QG, puis le quai du module VIDÉ par le banc (consommation simulée) : la tournée suivante prend au dépôt
