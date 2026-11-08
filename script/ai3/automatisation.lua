@@ -461,7 +461,8 @@ local function submit(f, st, tick, rq, research)
     -- lot FUITES-PILE (fuite b) : famille de la pile et produit du module NEUF (réserve au coffre suspendue pendant une retenue,
     -- script/team/build.lua advance) ; un module rouvert pour reconstruction n'est jamais suspendu (Sweep.rebuilding)
     pile = rq.capi and "capi" or "capital", product = rq.product,
-    shrunk = rq.shrunk or nil } -- lot INTEG-ECONOMIE (D2) : la ligne ne grandit pas au-delà de la taille réduite demandée (line_rows)
+    shrunk = rq.shrunk or nil, -- lot INTEG-ECONOMIE (D2) : la ligne ne grandit pas au-delà de la taille réduite demandée (line_rows)
+    rangee = rq.rangee or nil } -- lot RANGEES-ASM : rangée dynamique (place entière réservée, grandit sur place : script/team/rangee_dyn.lua)
   -- Lot RANGEES-DEBIT : une ligne DYNAMIQUE (T.ligne.dyn) pose ses rangées par étapes, bornées par le stock (Fonte.initial, Fonte.step) :
   -- la réduction n'a plus lieu d'être et la figeait à sa taille réduite (2 rangées : les « 4 fours » que le DC voit encore en 0.6.18,
   -- « ne devraient pas exister [...] faut que ce soit scalable ») ; elle réserve la ligne entière comme les autres (line_rows).
