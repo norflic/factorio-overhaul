@@ -298,6 +298,58 @@ local function battery(Tv)
       local d2 = Tv.diagnose(m.s, m.t, m.bounds, m.cost, nil)
       ck(d2.near.x == 5, "k7 : sans souterrain, même arrêt")
     end
+    -- (p) PIRE CAS BORNÉ : un budget d'états partagé borne le coût d'un plan (mesuré : 23 M d'instructions sans budget sur une boîte de 120)
+    do
+      local W, H = 120, 120
+      local seed = 99
+      local function rnd(n) seed = (seed * 1103515245 + 12345) % 2147483648; return seed % n end
+      local trees = {}
+      for x = 0, W - 1 do for y = 0, H - 1 do if rnd(100) < 30 then trees[x * 1000 + y] = true end end end
+      local function pcost(x, y)
+        if x < 0 or y < 0 or x >= W or y >= H or x == 60 then return nil end
+        return trees[x * 1000 + y] and 2 or 1
+      end
+      local bounds = { x0 = 0, y0 = 0, x1 = W - 1, y1 = H - 1 }
+      local function instr(fn)
+        local n = 0
+        debug.sethook(function() n = n + 1 end, "", 1000)
+        local a, b = fn()
+        debug.sethook()
+        return n * 1000, a, b
+      end
+      local bud = { left = 1500 }
+      local n1, t1, w1 = instr(function() return Tv.route({ x = 1, y = 60 }, { x = W - 2, y = 60 }, 2, bounds, pcost, { maxd = nil, sd = 2, budget = bud }) end)
+      ck(t1 == nil and w1 == "trop long", "p1 : mur sans issue, budget de 1500 : trop long (" .. tostring(w1) .. ")")
+      ck(bud.left <= 0 and bud.left >= -1, "p2 : le budget est consommé jusqu'au bout (" .. bud.left .. ")")
+      ck(n1 <= 3000000, "p3 : coût borné par le budget : au plus 3 M d'instructions (" .. n1 .. ")")
+      -- budget partagé : un second appel, budget épuisé, sort au premier état
+      local n2, t2, w2 = instr(function() return Tv.route({ x = 1, y = 10 }, { x = 10, y = 10 }, 2, bounds, pcost, { maxd = 5, sd = 2, budget = bud }) end)
+      ck(t2 == nil and w2 == "trop long" and n2 <= 20000, "p4 : budget épuisé : le deuxième appel sort tout de suite (" .. n2 .. " instr)")
+      -- avec les paires : le même mur se franchit s'il reste du budget
+      local bud3 = { left = 20000 }
+      local t3 = Tv.route({ x = 1, y = 60 }, { x = W - 2, y = 60 }, 2, bounds, function(x, y) if x == 60 and y >= 0 then return nil end return pcost(x, y) end, { maxd = 5, sd = 2, budget = bud3 })
+      ck(t3 ~= nil, "p5 : avec souterrains et assez de budget, le mur de 1 tuile est franchi")
+    end
+    -- (p2) gisement PARTOUT (mesure d'un tiers : 5,4 M d'instructions sur une boîte de 52 avec 5 recherches) : au plus 2 recherches, coût borné
+    do
+      local W = 120
+      local pb = { x0 = 0, y0 = 0, x1 = W - 1, y1 = W - 1 }
+      local function ocost(x, y) if x < 0 or y < 0 or x >= W or y >= W then return nil end return 1 end
+      local function instr2(fn)
+        local n = 0
+        debug.sethook(function() n = n + 1 end, "", 1000)
+        local a, b = fn()
+        debug.sethook()
+        return n * 1000, a, b
+      end
+      local n, t, info = instr2(function() return Tv.route({ x = 1, y = 60 }, { x = W - 2, y = 60 }, 2, pb, ocost,
+        { maxd = 5, ore = function() return true end, sd = 2, weight = Tv.GAME_WEIGHT, budget = { left = Tv.PLAN_BUDGET } }) end)
+      ck(t ~= nil and info.searches <= 2, "p6 : gisement partout : au plus 2 recherches (" .. tostring(info and info.searches) .. ")")
+      ck(n <= 3000000, "p7 : gisement partout, boîte de 120 : au plus 3 M d'instructions (" .. n .. ")")
+      local n2, t2, i2 = instr2(function() return Tv.route({ x = 1, y = 60 }, { x = W - 2, y = 60 }, 2, pb, ocost,
+        { maxd = 5, ore = function() return true end, sd = 2, weight = Tv.GAME_WEIGHT, budget = { left = 300 } }) end)
+      ck(t2 ~= nil or i2 == "trop long", "p8 : budget de 300 : un tracé ou « trop long », jamais d'erreur")
+    end
     -- (l) plafond : un plafond minuscule rend « trop long » sans planter
     do
       local m = corridor(1, "#")
@@ -411,6 +463,9 @@ do
   mutant("traversée : écart de la paire dépasse la portée", "for j = math.min(i + maxd, last - 1), i + 2, -1 do", "for j = math.min(i + maxd + 1, last - 1), i + 2, -1 do")
   mutant("traversée : virage permis juste après la sortie", "if after and after.d == d and j + 1 <= last then", "if after and j + 1 <= last then")
   mutant("traversée : souterrain de même axe ignoré", "if a ~= nil and (a == true or a == axis) then ok = false end", "if false then ok = false end")
+  mutant("détour gisement : cinq recherches", "Tv.ORE_STEPS = { 8 } ", "Tv.ORE_STEPS = { 8, 5, 3, 2, 1 } ")
+  mutant("budget : états non décomptés", "budget.left = budget.left - 1", "budget.left = budget.left")
+  mutant("budget : épuisement ignoré", "if budget.left < 0 then return nil, \"trop long\", expanded end", "if false then return nil end")
   mutant("poteaux : borne +2 ignorée", "if alt and (not base or #alt <= #base + extra) then", "if alt then")
   mutant("poteaux : gisement jamais évité", "local alt = chain(a, b, free2)", "local alt = nil")
   mutant("preuve : portée non contrôlée", "if not (maxd and k >= 2 and k <= maxd) then", "if false then")
