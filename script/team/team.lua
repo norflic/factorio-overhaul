@@ -1332,6 +1332,7 @@ TT.step = function(pl, tick)
   if not (et and et.n == pl.n and et.t0 == pl.t0) then return end
   if not TT.alive(f) then
     t.etape = nil
+    Lourd.drop(TT.who(f)) -- (lot LOURD, point 2 c : l'entrée de la pensée abandonnée ne retient plus le budget)
     TT.count(t, "abandons")
     log(string.format("[FO-ETAPES] %s : pensee du tick %d abandonnee a l'etape %d (equipe ou QG disparu)", tostring(f.key or "player"),
       et.t0, et.n))
@@ -1375,6 +1376,7 @@ TT.config_changed = function(data)
     local et = f and f.team and f.team.etape
     if et and (version or et.sig ~= Et.SIG) then
       f.team.etape = nil
+      Lourd.drop(TT.who(f)) -- (lot LOURD, point 2 c : l'entrée de la pensée effacée ne retient plus le budget)
       TT.count(f.team, "effaces")
       if version then
         log(string.format("[FO-ETAPES] %s : pensee du tick %s effacee a l'etape %s au changement de version du mod (%s)",

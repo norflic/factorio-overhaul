@@ -117,6 +117,17 @@ function J.take(tick, who, period, cost)
   return true
 end
 
+--- Lot LOURD (point 2 c ; décision du lead du 8/11, trou relevé par effondrement) : retire `who` de la file (pensée abandonnée ou
+--- effacée au changement de configuration) : une entrée qui ne redemandera plus ne retient pas le budget jusqu'à sa purge (J.STALE).
+function J.drop(who)
+  local s = who and S()
+  if not s then return end
+  for i = #s.q, 1, -1 do
+    if s.q[i] == who then table.remove(s.q, i) end
+  end
+  s.last[who], s.per[who], s.cost[who] = nil, nil, nil
+end
+
 --- Unités encore libres à ce tick (lecture seule ; bancs et journaux).
 function J.left(tick)
   new_tick(tick)
