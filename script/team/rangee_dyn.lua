@@ -9,6 +9,9 @@ local Rd = require("shared.team.rangee_dyn")
 local M = require("shared.team.modules")
 local Conv = require("script.team.convoyeurs")
 
+-- Genre des bras dans le modèle, lu sur le bras que le modèle choisit lui-même (aucun nom écrit ici)
+local ARM_KIND = (M.spec((M.choose_inserters(0, false, 1))) or {}).kind
+
 local Rg = {}
 Rg.SETTING = "fo-war-rangee-dyn"
 
@@ -39,7 +42,7 @@ local function kind(name)
   local sp = M.spec(name)
   if not sp then return nil end
   if sp.kind == "assembler" then return "machine" end
-  if sp.kind == "inserter" then return "inserter" end
+  if sp.kind == ARM_KIND then return "bras" end
   return nil
 end
 

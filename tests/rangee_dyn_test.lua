@@ -16,7 +16,7 @@ local CABLE, PLATE, A1, A2 = "copper-cable", "copper-plate", "assembling-machine
 local function kind(name)
   local sp = M.spec(name)
   if sp and sp.kind == "assembler" then return "machine" end
-  if sp and sp.kind == "inserter" then return "inserter" end
+  if sp and sp.kind == "inserter" then return "bras" end
 end
 local function width(name) return (M.spec(name) or {}).w or 1 end
 local function count_kind(ents, k) local c = 0 for _, e in ipairs(ents) do if kind(e.name) == k then c = c + 1 end end return c end
@@ -166,7 +166,7 @@ local function rule_ok(R)
   for _, i in ipairs(h2) do if kind(g6.entities[i].name) == "machine" then hm2 = hm2 + 1 end end
   if hm2 ~= 4 or #k2 + #h2 ~= #g6.entities then return false end
   local nb = 0
-  for _, i in ipairs(h2) do if kind(g6.entities[i].name) == "inserter" then nb = nb + 1 end end
+  for _, i in ipairs(h2) do if kind(g6.entities[i].name) == "bras" then nb = nb + 1 end end
   if nb == 0 then return false end
   local a, b = R.grow(5, 6, 9)
   return a == 6 and b == 1
