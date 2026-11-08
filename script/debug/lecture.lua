@@ -22,6 +22,7 @@ local State = require("script.faction.state")
 local Zn = require("shared.debug.zone")
 local Rv = require("script.team.reseau_vivant")
 local An = require("script.debug.anneau")
+local Am = require("shared.debug.ameliorations")
 
 local Lec = {}
 
@@ -265,6 +266,12 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Tâches, décisions, améliorations
 ---------------------------------------------------------------------------------------------------
+--- Quais du piquage d'une zone (projet) : lignes { key, i, verdict, cause, tick }, vide sans piquage.
+function Lec.piquage_rows(f, pid)
+  local pq = f.build and f.build.piquage
+  return Am.piquage_rows(type(pq) == "table" and pq.quais or nil, pid)
+end
+
 --- Tâches du tableau, aplaties : { key, kind, mode, prio, taken, pid, outpost }.
 function Lec.tasks(f)
   local out = {}
@@ -350,6 +357,15 @@ function Lec.improvement_facts(f)
         break
       end
     end
+  end
+  -- PIQUAGE (lot PIQUAGE) : f.build.piquage.quais, écrit par son seul code ; le champ existe = le mécanisme existe dans cette version. Le charbon est
+  -- un quai comme un autre pour lui (même état) : les deux lignes du catalogue qu'il couvre prennent le même fait.
+  local pq = b and b.piquage
+  if type(pq) == "table" then
+    local sum = Am.piquage_summary(pq.quais)
+    local why = sum.why and { "fo-dbg-cerveau.pq-ligne", { "fo-dbg-cerveau.pq-verdict-" .. sum.why.verdict }, { "fo-dbg-cerveau.pq-cause-" .. sum.why.cause }, sum.why.n } or nil
+    facts.bras_repartiteur = { present = true, state = sum.state, why = why }
+    facts.charbon_tapis = { present = true, state = sum.state, why = why }
   end
   local st = f.team and f.team.ia3e
   for _, m in ipairs(st and st.mods or {}) do
