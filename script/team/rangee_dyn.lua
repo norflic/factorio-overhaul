@@ -41,7 +41,7 @@ end
 local function kind(name)
   local sp = M.spec(name)
   if not sp then return nil end
-  if sp.kind == "assembler" then return "machine" end
+  if sp.kind == "assembler" or sp.kind == "furnace" then return "machine" end -- lot ACIER : rangée de fours (G.simple avec un four)
   if sp.kind == ARM_KIND then return "bras" end
   return nil
 end

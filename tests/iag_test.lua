@@ -504,7 +504,7 @@ do
   -- Tout autre fichier de ces dossiers : aucun nom. Une ligne en plus dans un fichier : ECHEC.
   local LEDGER = {
     ["shared/team/config.lua"] = { "EXEC", 46, "table nommée de l'exécutant (kit, avant-postes, foreuse électrique du lot FOREUSES et poteaux de sa chaîne T.swap.poles du lot FOREUSES-THERMIQUES, fonte, munitions, pièces, tourelle de garde, mur de l'enceinte : T.turret et T.wall, recette et portée lues au moteur ; lot FONDERIE : T.LOGISTIC_TYPES, types de prototypes du répartiteur et du souterrain ; lot MUNITIONS : T.turret_ammo_ladder, échelle des munitions des tourelles, choisie par la règle pure Mu.best_ammo sans nom)" },
-    ["shared/team/modules.lua"] = { "EXEC", 206, "gabarits de modules : catalogue d'usines posables, noms de leurs pièces (204 : genre « lab » lu par le débit des quais, lot RESEAU-GRAPHE ; 206 : tapis des voies des rangées, lot RANGEES-ASM)" },
+    ["shared/team/modules.lua"] = { "EXEC", 207, "gabarits de modules : catalogue d'usines posables, noms de leurs pièces (204 : genre « lab » lu par le débit des quais, lot RESEAU-GRAPHE ; 206 : tapis des voies des rangées, lot RANGEES-ASM ; 207 : recette de l'acier du modèle, rangée de fours, lot ACIER)" },
     ["script/team/sources.lua"] = { "TYPE", 7, "types du moteur des coffres et bras du registre des sorties (container, inserter, mining-drill), lot MINAGE-MAIN : le GENRE, jamais un niveau" },
     ["script/team/traversee.lua"] = { "TYPE", 2, "nature d'un obstacle lue au TYPE du moteur (tapis, bras, poteau, mur...) pour la cause d'un refus de tracé, lot TRAVERSEE" },
     ["script/team/rangee_dyn.lua"] = { "TYPE", 1, "genre de pièce (kind inserter) des machines d'une rangée dynamique, lot RANGEES-ASM" },
