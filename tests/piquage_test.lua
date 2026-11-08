@@ -168,8 +168,8 @@ check(ra[1].key == "b" and ra[1].payback < ra[2].payback, "4.15 retour croissant
 -- §5 entités et preuve
 ---------------------------------------------------------------------------------------------------
 local NAMES = { arm = "A", belt = "B", pole = "L" }
-local isbelt = function(e) return e.role == "piquage-tapis" end
-local isarm = function(e) return e.role == "piquage-bras" end
+local isbelt = function(e) return e.role == "liaison-tapis" end
+local isarm = function(e) return e.role == "liaison-bras" end
 local geo = Pq.geometry(10, 10, 2, "left") -- est, branche à gauche : tuile latérale (10, 9), départ de branche (11, 9)
 local D = { x = 14, y = 9 }               -- coffre du quai
 local function open_grid(blocked)
@@ -183,7 +183,7 @@ local route = P.belt_route({ x = geo.branch.x, y = geo.branch.y }, { x = dst.bx,
   function(x, y) if x == D.x and y == D.y then return nil end return 1 end)
 check(route and #route == 2 and route[1].x == 11 and route[2].x == 12, "5.2 tracé de la sortie du répartiteur au tapis d'arrivée")
 local ents = Pq.entities({ geo = geo, dst = dst, route = route, names = NAMES, pole = { 13, 8 } })
-check(#ents == 4 and ents[1].role == "piquage-tapis" and ents[3].role == "piquage-bras" and ents[4].role == "piquage" and ents[4].name == "L", "5.3 entités : 2 tapis, 1 bras, 1 poteau")
+check(#ents == 4 and ents[1].role == "liaison-tapis" and ents[3].role == "liaison-bras" and ents[4].role == "liaison" and ents[4].name == "L", "5.3 entités : 2 tapis, 1 bras, 1 poteau")
 check(#Pq.verify(geo, ents, D, isbelt, isarm) == 0, "5.4 preuve géométrique juste")
 -- un tracé plus long avec un détour, plusieurs tuiles
 local route2 = P.belt_route({ x = 11, y = 9 }, { x = 12, y = 9 }, Li.end_dir(dst), { x0 = 0, y0 = 0, x1 = 30, y1 = 30 },
@@ -200,7 +200,7 @@ check(#Pq.verify(geo, with(function(e) e[1].dir = 6 end), D, isbelt, isarm) > 0,
 check(#Pq.verify(geo, with(function(e) e[3].dir = 2 end), D, isbelt, isarm) > 0, "5.7 bras tourné à l'envers : refusé")
 check(#Pq.verify(geo, with(function(e) table.remove(e, 2) end), D, isbelt, isarm) > 0, "5.8 tapis interrompu : refusé")
 check(#Pq.verify(geo, with(function(e) e[2].x = e[2].x + 3 end), D, isbelt, isarm) > 0, "5.9 tuile hors chaîne : refusé")
-check(#Pq.verify(geo, with(function(e) e[#e + 1] = { name = "A", x = 20.5, y = 20.5, dir = 0, role = "piquage-bras" } end), D, isbelt, isarm) > 0, "5.10 deux bras : refusé")
+check(#Pq.verify(geo, with(function(e) e[#e + 1] = { name = "A", x = 20.5, y = 20.5, dir = 0, role = "liaison-bras" } end), D, isbelt, isarm) > 0, "5.10 deux bras : refusé")
 check(#Pq.verify(geo, ents, { x = 15, y = 9 }, isbelt, isarm) > 0, "5.11 coffre déplacé : refusé")
 check(#Pq.verify(Pq.geometry(10, 12, 2, "left"), ents, D, isbelt, isarm) > 0, "5.12 départ de branche ailleurs que sur la sortie du répartiteur : refusé")
 
@@ -326,7 +326,7 @@ mutant_ok("retour décroissant", "if pa ~= pb then return pa < pb end", "if pa ~
 mutant_ok("tapis avant sortie à égalité", 'return a%.kind == "sortie"', 'return a.kind == "tapis"',
   function(Pm) return Pm.rank(z, { cand("t1") }, { { key = "9:o1", span = 6 } }, {})[1].kind == "sortie" end)
 mutant_ok("preuve : deux bras admis", "if #arms ~= 1 then", "if false then",
-  function(Pm) return #Pm.verify(geo, with(function(e) e[#e + 1] = { name = "A", x = 20.5, y = 20.5, dir = 0, role = "piquage-bras" } end), D, isbelt, isarm) > 0 end)
+  function(Pm) return #Pm.verify(geo, with(function(e) e[#e + 1] = { name = "A", x = 20.5, y = 20.5, dir = 0, role = "liaison-bras" } end), D, isbelt, isarm) > 0 end)
 mutant_ok("preuve : coffre non contrôlé", 'if arm%.tx %- av%[1%] ~= D%.x or arm%.ty %- av%[2%] ~= D%.y then', "if false then",
   function(Pm) return #Pm.verify(geo, ents, { x = 15, y = 9 }, isbelt, isarm) > 0 end)
 mutant_ok("livraison : tapis ignoré", "or %(branch or 0%) > 0", "",

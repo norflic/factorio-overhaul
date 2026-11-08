@@ -218,12 +218,12 @@ end
 function Pq.entities(inp)
   local out = {}
   for _, t in ipairs(inp.route) do
-    out[#out + 1] = { name = inp.names.belt, x = t.x + 0.5, y = t.y + 0.5, dir = t.dir, role = "piquage-tapis" }
+    out[#out + 1] = { name = inp.names.belt, x = t.x + 0.5, y = t.y + 0.5, dir = t.dir, role = "liaison-tapis" }
   end
   local d = inp.dst
-  out[#out + 1] = { name = inp.names.arm, x = d.ax + 0.5, y = d.ay + 0.5, dir = d.dir, role = "piquage-bras" }
+  out[#out + 1] = { name = inp.names.arm, x = d.ax + 0.5, y = d.ay + 0.5, dir = d.dir, role = "liaison-bras" }
   if inp.pole then
-    out[#out + 1] = { name = inp.names.pole, x = inp.pole[1] + 0.5, y = inp.pole[2] + 0.5, dir = 0, role = "piquage" }
+    out[#out + 1] = { name = inp.names.pole, x = inp.pole[1] + 0.5, y = inp.pole[2] + 0.5, dir = 0, role = "liaison" }
   end
   return out
 end
