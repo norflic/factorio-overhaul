@@ -157,6 +157,51 @@ L[#L + 1] = {
   },
 }
 
+L[#L + 1] = {
+  id = "asm-miroir-2e-coffres", famille = "asm", usages = { "mall", "assemblage", "coffres" }, origine = "ref_dc",
+  ref = "Mall1.png", source = SRC_MALL,
+  nom_fr = "Deux rangées d'assembleurs en miroir, sortie en coffres (mall à 4 voies)",
+  nom_en = "Mirrored assembler rows, chest outputs (4-lane mall)",
+  note_fr = "Comme asm-miroir-2e, mais chaque machine dépose son produit dans SON coffre (côté extérieur) au lieu d'un tapis de sortie : des produits tous "
+    .. "différents ne se mêlent pas. Deux tapis d'entrée au centre portent chacun DEUX objets, un par voie (A, B sur le premier ; C, D sur le second) ; "
+    .. "chaque machine a un bras court et un bras long. Les deux machines d'une tuile ont chacune leur recette (groupes « haut » et « bas »).",
+  produits = { "Q" },
+  art = {
+    "..k.",
+    "..s.",
+    "mmm.",
+    "mmm+",
+    "mmm.",
+    ".LI.",
+    "cccc",
+    "dddd",
+    ".lj.",
+    "nnn.",
+    "nnn+",
+    "nnn.",
+    "..o.",
+    "..K.",
+  },
+  legende = {
+    c = h.entree(1, E), d = h.entree(2, E), m = asm("haut"), n = asm("bas"), k = h.coffre(1), K = h.coffre(2),
+    s = h.bras(S, "machine_asm", "coffre", "sort_h"),
+    I = h.bras(S, "tapis_entree:1", "machine_asm", "a_h"), L = h.bras_long(S, "tapis_entree:2", "machine_asm", "b_h"),
+    j = h.bras(N, "tapis_entree:2", "machine_asm", "b_b"), l = h.bras_long(N, "tapis_entree:1", "machine_asm", "a_b"),
+    o = h.bras(N, "machine_asm", "coffre", "sort_b"),
+    ["+"] = h.poteau,
+  },
+  entrees = {
+    { k = 1, cote = "O", pos = 6, jetons = { A = { 1 }, B = { 2 } } },
+    { k = 2, cote = "O", pos = 7, jetons = { C = { 1 }, D = { 2 } } },
+  },
+  sorties = {},
+  liens = {
+    a_h = { groupe = "haut", io = "in", jetons = { "A", "B" } }, b_h = { groupe = "haut", io = "in", jetons = { "C", "D" } },
+    a_b = { groupe = "bas", io = "in", jetons = { "A", "B" } }, b_b = { groupe = "bas", io = "in", jetons = { "C", "D" } },
+    sort_h = { groupe = "haut", io = "out", interne = true, jetons = { "Q" } }, sort_b = { groupe = "bas", io = "out", interne = true, jetons = { "Q" } },
+  },
+}
+
 ---------------------------------------------------------------------------------------------------
 -- 3. Grille 3 × N à insertion directe (Mall1.png) : deux étages amont nourrissent l'étage central
 ---------------------------------------------------------------------------------------------------
