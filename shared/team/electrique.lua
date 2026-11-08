@@ -26,6 +26,10 @@ E.CFG = {
   block_max = 16,    -- remplacements au plus par passe (chaque place de 3 x 3 est lue au moteur : borne de coût d'une passe)
   tries_max = 8,     -- chaînes de poteaux calculées au plus par passe (recherche de chemin bornée, P.pole_chain)
   refused_ttl = 7200, -- ticks (2 min) pendant lesquels une paire thermique refusée compte dans la demande de centrale
+  -- Lot ELECTRIQUE, correctif d'interblocage (partie neuve 0.6.69, etape1-guide, 40 min, lead 8/11 : bascule à 7,7 min, 0 électrique à 10, 20
+  -- et 30 min faute de poteaux (6 tout le long), thermiques 28 -> 0, reconstruction « build:copper » refusée à 15,5 min) :
+  poles_min = 12,    -- poteaux au stock qui rendent l'électrique MATÉRIELLEMENT possible sans électrique qui tourne (gabarit de fonderie : 12 petits)
+  revert = 3 * 3600, -- ticks après la bascule sans aucune électrique qui tourne : retour au thermique
 }
 
 local EPS = 1e-9
@@ -39,16 +43,32 @@ local function num(x)
 end
 
 --- (a) s = { on (règle allumée, nil = allumée), obtainable (foreuse électrique au stock ou fabricable), plants (centrales finies),
---- poles (un poteau obtenable), fuel (le produit de ce type d'avant-poste est le combustible de la centrale), healthy (centrale saine) }.
---- Rend (permise, raison).
-function E.thermal(s)
+--- poles (un poteau obtenable), fuel (le produit de ce type d'avant-poste est le combustible de la centrale), healthy (centrale saine),
+--- el_live (foreuses électriques de la force qui tournent ; absent = 0), poles_stock (poteaux au stock ; absent = 0),
+--- since (ticks depuis la bascule, nil avant), res_live (électriques qui tournent sur la ressource de ce type ; nil : pas de ressource lue,
+--- seule la règle globale) }. L'électrique doit être MATÉRIELLEMENT là : une électrique qui tourne, ou des poteaux au stock pour un gabarit
+--- (cfg.poles_min) ; 0 électrique cfg.revert ticks après la bascule : retour au thermique ; une ressource sur laquelle AUCUNE électrique ne
+--- tourne garde sa thermique (agrandir, bâtir, reconstruire : jamais affamée). Rend (permise, raison).
+function E.thermal(s, cfg)
+  cfg = cfg_of(cfg)
   s = s or {}
   if s.on == false then return true, "regle coupee" end
   if not s.obtainable then return true, "foreuse electrique pas obtenable" end
   if (num(s.plants) or 0) < 1 then return true, "aucune centrale finie" end
   if not s.poles then return true, "aucun poteau obtenable" end
+  local live, stock = num(s.el_live) or 0, num(s.poles_stock) or 0
+  if live <= 0 and stock < cfg.poles_min then
+    return true, string.format("aucune foreuse electrique qui tourne ni poteaux au stock (%d sur %d)", floor(stock), cfg.poles_min)
+  end
+  if live <= 0 and (num(s.since) or 0) >= cfg.revert then
+    return true, string.format("retour thermique : aucune foreuse electrique ne tourne %.0f min apres la bascule", (num(s.since) or 0) / 3600)
+  end
   if s.fuel and s.healthy == false then return true, "combustible de la centrale a l'arret : thermique permise" end
-  return false, string.format("electrique possible (%d centrale(s) finie(s)) : thermique refusee", floor(num(s.plants) or 0))
+  if s.res_live ~= nil and (num(s.res_live) or 0) <= 0 then
+    return true, "aucune foreuse electrique ne tourne sur cette ressource : thermique permise (agrandir, batir, reconstruire)"
+  end
+  return false, string.format("electrique possible (%d centrale(s) finie(s), %d electrique(s) qui tournent) : thermique refusee",
+    floor(num(s.plants) or 0), floor(live))
 end
 
 --- Foreuses thermiques que porte la tâche `t` (objets `items` = { { nom, nombre } }, ou fabrication `item`/`count`). `drill` : nom de la

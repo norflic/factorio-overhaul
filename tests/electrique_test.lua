@@ -31,25 +31,43 @@ local function suite(E)
   local before = failures
   -- 1. (a) verdict
   do
-    local ok_all = { obtainable = true, plants = 1, poles = true, healthy = true }
+    local ok_all = { el_live = 1, obtainable = true, plants = 1, poles = true, healthy = true }
     local a, why = E.thermal(ok_all)
     check(a == false and why:find("thermique refusee", 1, true) ~= nil, "1a : centrale finie, foreuse et poteau obtenables : thermique refusee, cause ecrite")
     check(why:find("1 centrale", 1, true) ~= nil, "1a : la cause nomme les centrales finies")
-    check(E.thermal({ on = false, obtainable = true, plants = 1, poles = true }) == true, "1b : regle coupee : thermique permise")
-    check(E.thermal({ obtainable = false, plants = 1, poles = true }) == true, "1c : foreuse electrique pas obtenable : permise")
-    check(E.thermal({ obtainable = true, plants = 0, poles = true }) == true, "1d : aucune centrale finie : permise")
-    check(E.thermal({ obtainable = true, plants = nil, poles = true }) == true, "1d : centrales non lues : permise")
-    check(E.thermal({ obtainable = true, plants = 1, poles = false }) == true, "1e : aucun poteau obtenable : permise")
-    check(E.thermal({ obtainable = true, plants = 1, poles = true, fuel = true, healthy = false }) == true,
+    check(E.thermal({ on = false, el_live = 1, obtainable = true, plants = 1, poles = true }) == true, "1b : regle coupee : thermique permise")
+    check(E.thermal({ el_live = 1, obtainable = false, plants = 1, poles = true }) == true, "1c : foreuse electrique pas obtenable : permise")
+    check(E.thermal({ el_live = 1, obtainable = true, plants = 0, poles = true }) == true, "1d : aucune centrale finie : permise")
+    check(E.thermal({ el_live = 1, obtainable = true, plants = nil, poles = true }) == true, "1d : centrales non lues : permise")
+    check(E.thermal({ el_live = 1, obtainable = true, plants = 1, poles = false }) == true, "1e : aucun poteau obtenable : permise")
+    check(E.thermal({ el_live = 1, obtainable = true, plants = 1, poles = true, fuel = true, healthy = false }) == true,
       "1f : combustible d'une centrale a l'arret : permise")
-    check(E.thermal({ obtainable = true, plants = 1, poles = true, fuel = true, healthy = true }) == false,
+    check(E.thermal({ el_live = 1, obtainable = true, plants = 1, poles = true, fuel = true, healthy = true }) == false,
       "1g : combustible, centrale saine : refusee")
-    check(E.thermal({ obtainable = true, plants = 1, poles = true, fuel = false, healthy = false }) == false,
+    check(E.thermal({ el_live = 1, obtainable = true, plants = 1, poles = true, fuel = false, healthy = false }) == false,
       "1h : autre minerai, centrale a l'arret : refusee (seul le combustible la relance)")
-    check(E.thermal({ obtainable = true, plants = 3, poles = true }) == false, "1i : plusieurs centrales : refusee")
+    check(E.thermal({ el_live = 1, obtainable = true, plants = 3, poles = true }) == false, "1i : plusieurs centrales : refusee")
     check(E.thermal(nil) == true, "1j : rien de lu : permise")
+    -- correctif d'interblocage (partie neuve 0.6.69, etape1-guide : bascule à 7,7 min, 0 électrique et 6 poteaux tout le long, foreuses
+    -- détruites à 15,4 min, reconstruction « build:copper » refusée) : centrale finie, 0 poteau ni bois, rien qui tourne : PERMISE
+    local dl = { on = true, obtainable = true, plants = 1, poles = true, healthy = true, el_live = 0, poles_stock = 6, res_live = 0 }
+    local okd, whyd = E.thermal(dl)
+    check(okd == true and whyd:find("ni poteaux au stock", 1, true) ~= nil, "1l : cas 0.6.69 (0 electrique, 6 poteaux) : reconstruction thermique permise (" .. tostring(whyd) .. ")")
+    check(E.thermal({ obtainable = true, plants = 1, poles = true }) == true, "1l : rien de mesure (el_live, poteaux absents) : permise")
+    check(E.thermal({ obtainable = true, plants = 1, poles = true, el_live = 0, poles_stock = 12 }) == false,
+      "1m : 12 poteaux au stock, rien qui tourne encore : refusee (le gabarit se pose)")
+    check(E.thermal({ obtainable = true, plants = 1, poles = true, el_live = 0, poles_stock = 11 }) == true, "1m : 11 poteaux : permise")
+    local okr, whyr = E.thermal({ obtainable = true, plants = 1, poles = true, el_live = 0, poles_stock = 40, since = E.CFG.revert })
+    check(okr == true and whyr:find("retour thermique", 1, true) ~= nil, "1n : 0 electrique 3 min apres la bascule : retour thermique")
+    check(E.thermal({ obtainable = true, plants = 1, poles = true, el_live = 0, poles_stock = 40, since = E.CFG.revert - 1 }) == false,
+      "1n : juste avant 3 min : refusee")
+    check(E.thermal({ obtainable = true, plants = 1, poles = true, el_live = 2, poles_stock = 0, since = 10 * E.CFG.revert }) == false,
+      "1n : des electriques tournent : pas de retour, meme sans poteau au stock")
+    local oks, whys = E.thermal({ obtainable = true, plants = 1, poles = true, el_live = 5, res_live = 0 })
+    check(oks == true and whys:find("cette ressource", 1, true) ~= nil, "1o : 5 electriques ailleurs, 0 sur cette ressource : permise (jamais affamee)")
+    check(E.thermal({ obtainable = true, plants = 1, poles = true, el_live = 5, res_live = 1 }) == false, "1o : une electrique sur cette ressource : refusee")
     -- partie du DC (0.6.66, joueur) : centrale 1 finie à 28,0 min, foreuse électrique fabricable dès le début, poteaux : refusée dès 28 min
-    check(E.thermal({ on = true, obtainable = true, plants = 1, poles = true, healthy = true }) == false, "1k : cas du DC a 28 min : refusee")
+    check(E.thermal({ on = true, el_live = 1, obtainable = true, plants = 1, poles = true, healthy = true }) == false, "1k : cas du DC a 28 min : refusee")
   end
   -- 2. foreuses thermiques d'une tâche
   do
@@ -282,6 +300,11 @@ local mutants = {
   { "thermal : poteaux ignores", "if not s.poles then return true, \"aucun poteau obtenable\" end", "" },
   { "thermal : exception combustible supprimee", "if s.fuel and s.healthy == false then return true", "if false then return true" },
   { "thermal : exception pour tout minerai", "if s.fuel and s.healthy == false then return true", "if s.healthy == false then return true" },
+  { "thermal : sans electrique ni poteaux refusee (interblocage 0.6.69)", "  if live <= 0 and stock < cfg.poles_min then\n", "  if false then\n" },
+  { "thermal : poteaux au stock ignores", "  if live <= 0 and stock < cfg.poles_min then\n", "  if live <= 0 then\n" },
+  { "thermal : jamais de retour thermique", "  if live <= 0 and (num(s.since) or 0) >= cfg.revert then", "  if false then" },
+  { "thermal : retour avant le delai", "  if live <= 0 and (num(s.since) or 0) >= cfg.revert then", "  if live <= 0 and (num(s.since) or 0) > 0 then" },
+  { "thermal : ressource affamee refusee", "  if s.res_live ~= nil and (num(s.res_live) or 0) <= 0 then", "  if false then" },
   { "thermal : toujours permise", "  return false, string.format(\"electrique possible", "  return true, string.format(\"electrique possible" },
   { "task_drills : craft d'autre objet compte", "    if t.item == drill then return max(1, floor(num(t.count) or 1)) end\n    return 0", "    return max(1, floor(num(t.count) or 1))" },
   { "task_drills : build sans type compte", "if t.kind ~= \"extend\" and not (t.kind == \"build\" and t.outpost_kind ~= nil) then return 0 end", "if t.kind ~= \"extend\" and t.kind ~= \"build\" then return 0 end" },
