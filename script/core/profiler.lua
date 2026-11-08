@@ -176,6 +176,32 @@ function Profiler.dump(label, value)
   log("[FO-PERF3-DUMP] " .. tostring(game.tick) .. " " .. tostring(label) .. " " .. Profiler.ser(value))
 end
 
+--- Lot ROUGES-0659 : BOÎTE de mesure `key` (une table rangée dans l'espace « prof » de global, avec les drapeaux du profileur), créée à
+--- la demande. Une mesure tenue seulement profileur allumé y range ses cumuls : le reste de global ne change pas quand on allume le
+--- profileur (tests/perf_profileur_test.lua, « les mesures ne décident de rien »). Jamais lue par une décision.
+function Profiler.box(key)
+  local p = Storage.ns("prof")
+  local boxes = p.boxes
+  if not boxes then
+    boxes = {}
+    p.boxes = boxes
+  end
+  local b = boxes[key]
+  if not b then
+    b = {}
+    boxes[key] = b
+  end
+  return b
+end
+
+--- Rend la boîte `key` et la retire de l'espace « prof » (nil si elle n'existe pas).
+function Profiler.take_box(key)
+  local boxes = Storage.ns("prof").boxes
+  local b = boxes and boxes[key]
+  if b then boxes[key] = nil end
+  return b
+end
+
 --- fine : true (portées fines), false (éteintes), "detail" (fines + détail par tick, lot PERF3), nil (inchangé).
 function Profiler.set_enabled(on, tick, fine)
   local p = Storage.ns("prof")
