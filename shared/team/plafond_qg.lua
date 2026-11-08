@@ -24,7 +24,9 @@
     Pq.obsolete(buildings, available)               bâtiments déclassés : { [objet] = vrai }
     Pq.classify(items, raw, depths, obsolete, cfg)  catégorie de chaque objet : { [objet] = "brut" | "base" | "declasse" | "fini" }
     Pq.cap_count(cat, stack, cfg)                   plafond en objets d'une catégorie (nil : aucun)
+    Pq.room(cat, count, stack, wanted, cfg)         place restante au plafond (nil : aucun plafond, 0 : au plafond)
     Pq.capped(cat_of, counts, stack_of, need, cfg)  objets au plafond : { [objet] = compte }, noms parcourus triés
+    Pq.discards(cat)                                brut et déclassé : retirés de la poche d'un PNJ au dépôt quand le stock est au plafond
     Pq.junk_slots(cat_of, counts, stack_of)         cases prises par du brut et du déclassé (ne comptent pas pour agrandir le QG)
     Pq.grows(used, size, junk)                      remplissage utile (cases prises moins le junk) / cases
   Entrées : `recipes` = { { ins = {objets}, outs = {objets} }, ... } (fluides exclus des listes) ; `raw` = { [objet] = vrai } ;
@@ -116,25 +118,34 @@ function Pq.cap_count(cat, stack, cfg)
   return piles * stack
 end
 
---- Objets au plafond de leur catégorie (compte >= plafond). `need` = { [objet] = q } : matières demandées en ce moment (Sg.demanded). Une
---- matière BRUTE demandée a un plafond de cfg.brut_demande fois plus haut (jamais supprimé) ; une base ou un déclassé demandé n'est pas
---- plafonné. `counts` = { [objet] = nombre au stock }.
+--- Place restante au plafond de la catégorie pour `count` objets au stock : nil sans plafond (objet fini, catégorie inconnue, base ou
+--- déclassé DEMANDÉ), 0 au plafond, sinon la différence. Une matière BRUTE demandée (`wanted`) a un plafond cfg.brut_demande fois plus haut
+--- (jamais supprimé).
+function Pq.room(cat, count, stack, wanted, cfg)
+  local cap = Pq.cap_count(cat, stack, cfg)
+  if not cap then return nil end
+  if wanted then
+    if cat == Pq.CAT.BRUT then cap = cap * (cfg_of(cfg).brut_demande or 1) else return nil end
+  end
+  local room = cap - (count or 0)
+  return room > 0 and room or 0
+end
+
+--- Objets au plafond de leur catégorie (Pq.room = 0). `need` = { [objet] = q } : matières demandées en ce moment (Sg.demanded).
+--- `counts` = { [objet] = nombre au stock }.
 function Pq.capped(cat_of, counts, stack_of, need, cfg)
   local out = {}
   for _, it in ipairs(sorted_keys(counts)) do
     local cat = cat_of[it]
-    local cap = cat and Pq.cap_count(cat, stack_of[it], cfg)
-    if cap then
-      local wanted = need and need[it]
-      if cat == Pq.CAT.BRUT then
-        if wanted then cap = cap * (cfg_of(cfg).brut_demande or 1) end
-        if counts[it] >= cap then out[it] = counts[it] end
-      elseif counts[it] >= cap and not wanted then
-        out[it] = counts[it]
-      end
-    end
+    if cat and Pq.room(cat, counts[it], stack_of[it], need and need[it] ~= nil, cfg) == 0 then out[it] = counts[it] end
   end
   return out
+end
+
+--- Les catégories qu'on RETIRE de la poche d'un PNJ au dépôt quand le stock est au plafond (du déchet : brut et déclassé) ; une base
+--- reste en poche (ses plaques valent mieux qu'un rebut : seul le ramassage s'en abstient).
+function Pq.discards(cat)
+  return cat == Pq.CAT.BRUT or cat == Pq.CAT.DECLASSE
 end
 
 --- Cases prises par du brut et du déclassé (piles entières), les seules à ne pas compter pour agrandir le QG.

@@ -1000,4 +1000,17 @@ function Stock.skip_fn(f)
   end
 end
 
+--- Lot STOCK-QG : place restante du stock pour un objet BRUT ou DÉCLASSÉ (shared/team/plafond_qg.lua, Pq.room), ou nil quand il n'a pas de
+--- plafond (objet fini, base, ou matière demandée). Lu par le dépôt d'un PNJ (script/team/worker.lua, deposit_inventory) : ce que le stock
+--- n'accueille plus est RETIRÉ de la poche (relevé de la partie du 8/11 : le bois de 768 à 4 960 en 30 min avec le seul ramassage plafonné,
+--- le reste arrivant par le dépôt des PNJ). Le brut demandé monte à Pq.DEFAULT.brut_demande fois son plafond.
+function Stock.cap_room(f, item)
+  if not (f.hq and f.hq.valid) or not Pqs.discards(f, item) then return nil end
+  local need = demanded(f, true)
+  return Pqs.room(f, item, Stock.count(f, item), need[item] ~= nil)
+end
+
+--- Lot STOCK-QG : compte (journal) ce que le dépôt d'un PNJ a retiré de sa poche faute de place au plafond.
+function Stock.note_cap_drop(f, item, n) Pqs.note_drop(f, item, n) end
+
 return Stock

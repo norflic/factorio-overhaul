@@ -9,8 +9,11 @@
     Pqs.flush(f, tick, counts) une ligne [FO-STOCKAGE] par fenêtre de Pqs.LOG ticks
 
   Les prototypes sont lus UNE fois (cache du module, jamais dans `global` ; relu à l'identique après un chargement : mêmes prototypes).
-  Le déclassement d'un bâtiment dépend de ce que l'équipe sait fabriquer : relu toutes les Pqs.OBS_EVERY ticks par force (cache du module).
-  État par équipe, en nombres, chaînes et tables : f.stock_cap = { at, set, key, logged }, f.stock_in = { since, by, skips }.
+  Le déclassement d'un bâtiment dépend de ce que l'équipe sait fabriquer : relu toutes les Pqs.OBS_EVERY ticks, état DANS l'équipe.
+  État par équipe, en nombres, chaînes et tables : f.stock_cap = { at, set, key, logged }, f.stock_junk = { at, n }, f.stock_obs = { at, set },
+  f.stock_in = { since, by, skips, drops }.
+    Pqs.room(f, item, count, wanted)  place restante au plafond pour un brut ou un déclassé (nil : aucun plafond ; 0 : au plafond)
+    Pqs.note_drop(f, item, n)         compte ce qui est retiré de la poche d'un PNJ au dépôt
 ]]
 
 local Pq = require("shared.team.plafond_qg")
@@ -176,6 +179,29 @@ function Pqs.hard_set(f, read_counts, need)
   return set
 end
 
+--- Place restante du stock pour `item` (nil : pas de plafond, ou un objet qui ne se jette pas : Pq.discards) ; `count` = objets au stock,
+--- `wanted` = la matière est demandée en ce moment.
+function Pqs.room(f, item, count, wanted)
+  local cat = Pqs.category(f, item)
+  if not Pq.discards(cat) then return nil end
+  return Pq.room(cat, count, info().stack[item], wanted, Pq.DEFAULT)
+end
+
+--- Un objet qui se jette au dépôt quand le stock est au plafond (brut ou déclassé) ?
+function Pqs.discards(f, item) return Pq.discards(Pqs.category(f, item)) end
+
+--- Compte ce qui est retiré de la poche d'un PNJ au dépôt (stock au plafond), pour la ligne de fenêtre.
+function Pqs.note_drop(f, item, n)
+  if n <= 0 then return end
+  local w = f.stock_in
+  if not w then
+    w = { since = now(), by = {}, skips = {} }
+    f.stock_in = w
+  end
+  w.drops = w.drops or {}
+  w.drops[item] = (w.drops[item] or 0) + n
+end
+
 function Pqs.junk_slots(f, counts)
   return Pq.junk_slots(cat_proxy(f), counts, info().stack)
 end
@@ -245,11 +271,12 @@ function Pqs.flush(f, tick, junk, used, size)
     for j = 1, math.min(3, #t.from) do from[j] = string.format("%s x%d", t.from[j][1], t.from[j][2]) end
     parts[i] = string.format("%s %d via %s", rows[i][1], t.n, table.concat(from, " ; "))
   end
-  local sk = {}
+  local sk, dr = {}, {}
   for _, it in ipairs(sorted_keys(w.skips)) do sk[#sk + 1] = it .. " " .. w.skips[it] end
-  if #parts > 0 or #sk > 0 then
-    log(string.format("[FO-STOCKAGE] %s : entrees au stock hors objets finis en %.1f min : {%s} ; ramassages refuses par plafond : {%s} ; cases de brut et de declasse au stock %d sur %d prises (%d)",
-      f.key or "player", (tick - w.since) / 3600, table.concat(parts, " | "), table.concat(sk, ", "), junk or 0, used or 0, size or 0))
+  for _, it in ipairs(sorted_keys(w.drops or {})) do dr[#dr + 1] = it .. " " .. w.drops[it] end
+  if #parts > 0 or #sk > 0 or #dr > 0 then
+    log(string.format("[FO-STOCKAGE] %s : entrees au stock hors objets finis en %.1f min : {%s} ; ramassages refuses par plafond : {%s} ; retires de la poche au depot (stock au plafond) : {%s} ; cases de brut et de declasse au stock %d sur %d prises (%d)",
+      f.key or "player", (tick - w.since) / 3600, table.concat(parts, " | "), table.concat(sk, ", "), table.concat(dr, ", "), junk or 0, used or 0, size or 0))
   end
   f.stock_in = nil
 end

@@ -112,6 +112,17 @@ local function suite(Pq)
   for k in pairs(Pq.capped(C, { coal = 5000, plate = 9000, stone = 900, wood = 5000 }, S, nil, CFG)) do nm[#nm + 1] = k end
   c("capped : 4 objets", #nm == 4)
 
+  -- place restante
+  c("room : brut 8 piles de 50, 100 au stock : 300 de place", Pq.room("brut", 100, 50, false, CFG) == 300)
+  c("room : au plafond : 0, au-dela : 0 (jamais negatif)", Pq.room("brut", 400, 50, false, CFG) == 0 and Pq.room("brut", 900, 50, false, CFG) == 0)
+  c("room : brut demande : 1600 - 450 = 1150", Pq.room("brut", 450, 50, true, CFG) == 1150)
+  c("room : base ou declasse DEMANDE : aucun plafond (nil)", Pq.room("base", 9000, 100, true, CFG) == nil and Pq.room("declasse", 900, 50, true, CFG) == nil)
+  c("room : base non demandee : 4000 - 100", Pq.room("base", 100, 100, false, CFG) == 3900)
+  c("room : fini ou categorie inconnue : nil", Pq.room("fini", 5, 50, false, CFG) == nil and Pq.room(nil, 5, 50, false, CFG) == nil)
+  c("room : pile inconnue : nil", Pq.room("brut", 5, nil, false, CFG) == nil)
+  c("discards : brut et declasse se jettent, base et fini non", Pq.discards("brut") == true and Pq.discards("declasse") == true
+    and not Pq.discards("base") and not Pq.discards("fini") and not Pq.discards(nil))
+
   -- cases de junk
   c("junk : brut 450/50 = 9 cases, declasse 120/50 = 3 cases", Pq.junk_slots(C, { coal = 450, stone = 120 }, S) == 12,
     tostring(Pq.junk_slots(C, { coal = 450, stone = 120 }, S)))
@@ -133,12 +144,6 @@ local Pq = load(SRC, "=" .. PATH)()
 for _, r in ipairs(run(Pq)) do check(r[1], r[2], r[3]) end
 
 local MUT = {
-  { "brut traite comme une base : la demande l'ecarte", "      if cat == Pq.CAT.BRUT then", "      if false then" },
-  { "plafond du brut strict (>)", "if counts[it] >= cap then out[it] = counts[it] end", "if counts[it] > cap then out[it] = counts[it] end" },
-  { "plafond de base strict (>)", "elseif counts[it] >= cap and not wanted then", "elseif counts[it] > cap and not wanted then" },
-  { "la demande ne leve jamais un plafond de base", "elseif counts[it] >= cap and not wanted then", "elseif counts[it] >= cap then" },
-  { "brut demande sans plafond plus haut", "        if wanted then cap = cap * (cfg_of(cfg).brut_demande or 1) end", "" },
-  { "brut demande sans borne", "if wanted then cap = cap * (cfg_of(cfg).brut_demande or 1) end", "if wanted then cap = 1e12 end" },
   { "profondeur : la plus profonde gagne", "if d[o] == nil or m + 1 < d[o] then d[o] = m + 1; changed = true end", "if d[o] == nil or m + 1 > d[o] then d[o] = m + 1; changed = true end" },
   { "profondeur : ingredient inconnu accepte", "if d[i] == nil then known = false break end", "if d[i] == nil then break end" },
   { "profondeur : ingredient oublie", "if d[i] > m then m = d[i] end", "" },
@@ -155,6 +160,15 @@ local MUT = {
   { "junk : declasse oublie", "if (cat == Pq.CAT.BRUT or cat == Pq.CAT.DECLASSE) and counts[it] > 0 then", "if cat == Pq.CAT.BRUT and counts[it] > 0 then" },
   { "junk : base comptee", "if (cat == Pq.CAT.BRUT or cat == Pq.CAT.DECLASSE) and counts[it] > 0 then", "if cat ~= Pq.CAT.FINI and counts[it] > 0 then" },
   { "junk : cases arrondies au-dessous", "n = n + math.ceil(counts[it] / math.max(1, stack_of[it] or 1))", "n = n + math.floor(counts[it] / math.max(1, stack_of[it] or 1))" },
+  { "brut traite comme une base : la demande l'ecarte", "if cat == Pq.CAT.BRUT then cap = cap *", "if false then cap = cap *" },
+  { "plafond strict (>)", "local room = cap - (count or 0)", "local room = cap - (count or 0) + 1" },
+  { "brut demande sans plafond plus haut", "then cap = cap * (cfg_of(cfg).brut_demande or 1) else", "then cap = cap else" },
+  { "brut demande sans borne", "then cap = cap * (cfg_of(cfg).brut_demande or 1) else", "then cap = 1e12 else" },
+  { "room : negatif permis", "  return room > 0 and room or 0", "  return room" },
+  { "room : base demandee plafonnee", "else return nil end", "end" },
+  { "room : demande du brut sans effet", "if cat == Pq.CAT.BRUT then cap = cap * (cfg_of(cfg).brut_demande or 1) else return nil end", "if cat == Pq.CAT.BRUT then else return nil end" },
+  { "discards : la base se jette", "return cat == Pq.CAT.BRUT or cat == Pq.CAT.DECLASSE", "return cat == Pq.CAT.BRUT or cat == Pq.CAT.DECLASSE or cat == Pq.CAT.BASE" },
+  { "discards : le declasse reste en poche", "return cat == Pq.CAT.BRUT or cat == Pq.CAT.DECLASSE", "return cat == Pq.CAT.BRUT" },
   { "grows : negatif permis", "  if u < 0 then u = 0 end\n", "" },
   { "grows : junk ignore", "local u = (used or 0) - (junk or 0)", "local u = (used or 0)" },
 }
@@ -379,6 +393,32 @@ do
   game.tick = game.tick + 120
   local sh = Stock.skip_fn(h)
   check("skip : le plafond compte le QG ET les annexes (450 pierres)", sh ~= nil and sh("stone") == true)
+end
+
+-- dépôt d'un PNJ : place restante et retrait de la poche
+do
+  local f = team(400)
+  f.hq.items.coal = 100
+  f.hq.items["iron-plate"] = 9000
+  f.hq.items["stone-furnace"] = 120
+  game.tick = game.tick + Pqs.OBS_EVERY + 1
+  check("cap_room : 100 charbons sur 400 : 300 de place", Stock.cap_room(f, "coal") == 300)
+  f.hq.items.coal = 450
+  check("cap_room : charbon au plafond : 0", Stock.cap_room(f, "coal") == 0)
+  f.team = { ia3 = { short = { coal = 100 } } }
+  check("cap_room : charbon demande : 1600 - 450 = 1150", Stock.cap_room(f, "coal") == 1150)
+  f.team = nil
+  check("cap_room : une base (plaques) ne se jette pas : nil", Stock.cap_room(f, "iron-plate") == nil)
+  check("cap_room : un objet fini : nil", Stock.cap_room(f, "inserter") == nil)
+  check("cap_room : le declasse (120 fours de pierre, plafond 100) : 0", Stock.cap_room(f, "stone-furnace") == 0)
+  check("cap_room : sans coffre du QG : nil", Stock.cap_room({ key = "z", force = "x" }, "coal") == nil)
+  local before = count_logs("retires de la poche au depot %(stock au plafond%) : {[^}]*wood 300")
+  Stock.note_cap_drop(f, "wood", 300)
+  Stock.note_cap_drop(f, "wood", 0)
+  game.tick = game.tick + Pqs.LOG
+  Stock.grow(f, { create_entity = function() return nil end }, game.tick)
+  check("journal : ce qui est retire de la poche au depot est ecrit", count_logs("retires de la poche au depot %(stock au plafond%) : {[^}]*wood 300") == before + 1,
+    logs[#logs])
 end
 
 -- agrandissement : jamais pour du brut ou du declasse
