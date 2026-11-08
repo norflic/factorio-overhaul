@@ -404,6 +404,26 @@ local function belt_component(e, memo, counter)
   return id
 end
 
+local SKIP = { resource = true, tree = true, ["simple-entity"] = true, ["mining-drill"] = true, ["item-entity"] = true,
+  corpse = true, ["character-corpse"] = true, cliff = true, fish = true, ["entity-ghost"] = true, ["item-request-proxy"] = true }
+
+--- Entité qui reçoit la production de la foreuse `d` : drop_target du moteur s'il est renseigné, sinon (observé en banc le 8/11 : nil
+--- pour une foreuse neuve qui n'a pas encore travaillé) l'entité posée sur le point de dépôt (tapis d'abord).
+local function drop_entity(s, d)
+  local tg = d.drop_target
+  if tg and tg.valid then return tg end
+  local p = d.drop_position
+  if not p then return nil end
+  local best
+  for _, o in ipairs(s.find_entities_filtered({ area = { { p.x - 0.05, p.y - 0.05 }, { p.x + 0.05, p.y + 0.05 } } })) do
+    if o.valid and not SKIP[o.type] and o.unit_number then
+      if BELT[o.type] then return o end
+      best = best or o
+    end
+  end
+  return best
+end
+
 local function mined_tiles(d)
   local r = d.prototype.mining_drill_radius or 1
   local p = d.position
@@ -444,7 +464,7 @@ function M.measure_team(s, force, dep_nums)
         any = true
         local r = rows[num]
         if elec then r.e = r.e + 1 else r.t = r.t + 1 end
-        local tg = d.drop_target
+        local tg = drop_entity(s, d)
         if tg and tg.valid and BELT[tg.type] and tg.unit_number then
           r.comps[belt_component(tg, memo, counter)] = true
         elseif tg and tg.valid then
