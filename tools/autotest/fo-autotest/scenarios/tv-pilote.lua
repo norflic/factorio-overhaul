@@ -54,6 +54,24 @@ return {
       ctx.check(st.key ~= nil, "une faction relevee")
     end
     if not st.key then return end
+    -- V10 : une faction PROVOQUEE (un de ses murs est tue par le joueur) declare la guerre au niveau Normal : la defense et l'armee ont alors des
+    -- buts (« boot » du cerveau) ; sans cela, 2 400 ticks ne suffisent pas a bâtir les avant-postes qui les ouvrent
+    if not st.provoked and e.tick >= 150 and e.tick % 30 == 0 then
+      local pos
+      for _, r in ipairs(ctx.remote("fo-prevision", "teams") or {}) do if r.key == st.key then pos = r end end
+      local force = game.forces[st.key] and st.key or nil
+      local tm = teams(ctx)
+      for _, r in ipairs(tm) do if r.key == st.key then force = r.force end end
+      if pos and force then
+        local s = ctx.surface()
+        local w = s.create_entity({ name = "stone-wall", position = { pos.x + 5, pos.y + 5 }, force = force })
+        if w and w.valid then
+          w.die(game.forces.player)
+          st.provoked = e.tick
+          ctx.log("faction provoquee au tick " .. e.tick .. " (un mur de " .. force .. " tue par le joueur)")
+        end
+      end
+    end
     -- V88 : defauts notes des que la capitalisation a cree son etat, AVANT son premier releve (le releve les range)
     if not st.noted and e.tick >= 200 and e.tick % 30 == 0 then
       local a = ctx.remote("fo-capi", "bench_defaut", st.key, "courant", "iron-gear-wheel")
@@ -77,6 +95,7 @@ return {
       local pvp = ctx.remote("fo-pvp", "status")
       local declared = 0
       for _, fp in ipairs(pvp and pvp.factions or {}) do if fp.declared then declared = declared + 1 end end
+      st.declared = declared
       ctx.log(string.format("tick %d : decisions %s, ordres ouverts %s, factions en guerre declaree %d", e.tick, tostring(s and s.decisions),
         tostring(s and #s.open), declared))
     end
@@ -88,7 +107,8 @@ return {
     ctx.check(st.hastened ~= nil, "la decision de la capitalisation a ete hatee")
     local s = st.key and ctx.remote("fo-capi", "status", st.key) or nil
     ctx.check(s ~= nil and (s.decisions or 0) >= 1, "la capitalisation a decide au moins une fois (" .. tostring(s and s.decisions) .. ")")
-    log(string.format("[FO-TV-PILOTE] %s : defauts notes tick %s, decision hatee tick %s, decisions %s", tostring(st.key), tostring(st.noted),
-      tostring(st.hastened), tostring(s and s.decisions)))
+    ctx.check(st.provoked ~= nil, "la faction a ete provoquee (un mur tue par le joueur)")
+    log(string.format("[FO-TV-PILOTE] %s : defauts notes tick %s, decision hatee tick %s, decisions %s, provoquee tick %s, guerres declarees %s",
+      tostring(st.key), tostring(st.noted), tostring(st.hastened), tostring(s and s.decisions), tostring(st.provoked), tostring(st.declared)))
   end,
 }

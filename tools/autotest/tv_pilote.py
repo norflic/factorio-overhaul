@@ -35,7 +35,7 @@ MAILLONS = [
     ("V88", "chantier occupe -> levier relance", r"\[FO-DEFAUT\] \S+ : chantier occupe -> .+ -> levier relance \("),
     ("V88", "cause hors table : defaut sans levier ECRIT", r"\[FO-DEFAUT\] \S+ : defaut sans levier « cause-inventee-par-le-banc »"),
     ("V10", "famille armee : part et reserve lues par le cerveau", r"\[FO-ARMEE\] \S+ : famille armee, part (\d+) pour mille ; besoins \[.+\] ; reserve \["),
-    ("banc", "decision hatee, capitalisation a decide", r"\[FO-TV-PILOTE\] \S+ : defauts notes tick \d+, decision hatee tick \d+, decisions [1-9]"),
+    ("banc", "decision hatee, capitalisation a decide", r"\[FO-TV-PILOTE\] \S+ : defauts notes tick \d+, decision hatee tick \d+, decisions [1-9]\d*, provoquee tick \d+"),
 ]
 
 
