@@ -24,6 +24,10 @@
        et une rafale de trois demandeurs par tick AU TICK DE CHAQUE CRÉNEAU, phases 0 à 3 et 174), pendant 9 000 ticks : l'E1a d'un créneau ne prend JAMAIS plus de
        7 ticks de retard, et deux pensées de suite d'une équipe à la cadence normale (la faction éveillée, votre équipe) sont séparées
        d'au plus 300 + 7 ticks.
+    §9 FILET (proposé par revue-s, accord du lead du 8/11 ; Commander.busy, commander.lua) : une pensée dont le minuteur d'étape est
+       retiré (« étape sans minuteur vivant », aucun chemin connu) bloque la faction au plus Commander.FILET = 2 × Cd.SLOW ticks ; au
+       créneau suivant, la garde se lève, Team.think la rattrape d'un bloc (un rattrapage), une ligne [FO-ETAPES] FILET est écrite et la
+       pensée suivante finit ; mutant « filet retiré » : la faction ne repense plus jamais (§6).
   Usage : lua5.2 tests/reveil_jeton_test.lua   (depuis la racine du mod)
 ]]
 package.path = "./?.lua;" .. package.path
@@ -203,6 +207,45 @@ local function scene_guarantee(ctx, ticks)
   return worst_delay, worst_gap, n, late
 end
 
+--- §9 (filet) : une pensée de la faction en cours ; son minuteur d'étape est RETIRÉ (« étape sans minuteur vivant »). Rend { dropped,
+--- t0, again (tick de la pensée suivante, nil si aucune), rt (rattrapages), filet (lignes FILET au journal), done (la pensée suivante
+--- finit), window }.
+local function scene_filet(ctx)
+  local f = ctx.f
+  local Commander = require("script.faction.commander")
+  local guard = 0
+  while not (f.team and f.team.etape) and guard < 1500 do M.run_ticks(1); guard = guard + 1 end
+  local et = f.team and f.team.etape
+  if not et then return nil end
+  local timers = require("script.core.storage").ns("sched").timers
+  local ticks = {}
+  for t in pairs(timers) do ticks[#ticks + 1] = t end
+  table.sort(ticks)
+  local dropped = 0
+  for _, t in ipairs(ticks) do
+    local b = timers[t]
+    for i = #b, 1, -1 do
+      if b[i].h == "fo-team-etape" and b[i].p and b[i].p.key == f.id then table.remove(b, i); dropped = dropped + 1 end
+    end
+  end
+  local t0, last = et.t0, f.last_think
+  local rt0 = (f.team.etapes and f.team.etapes.rattrapages) or 0
+  local logs0 = #W().logs
+  local window = Commander.FILET + 600
+  local again
+  for _ = 1, window do
+    M.run_ticks(1)
+    if f.last_think ~= last then again = f.last_think break end
+  end
+  local filet = 0
+  for i = logs0 + 1, #W().logs do if W().logs[i]:find("FILET", 1, true) then filet = filet + 1 end end
+  local rt1 = (f.team.etapes and f.team.etapes.rattrapages) or 0
+  local k = 0
+  while again and f.team.etape and k < 200 do M.run_ticks(1); k = k + 1 end
+  return { dropped = dropped, t0 = t0, again = again, rt = rt1 - rt0, filet = filet, done = again ~= nil and f.team.etape == nil,
+    FILET = Commander.FILET }
+end
+
 local function scenes(ctx)
   local f, Lourd, Et = ctx.f, ctx.Lourd, ctx.Et
   -- §1
@@ -273,6 +316,17 @@ local ctx = setup()
 check(ctx.f and ctx.f.hq and ctx.f.hq.valid, "une faction avec son QG")
 scenes(ctx)
 
+-- §9 (filet, monde neuf)
+do
+  local r = scene_filet(setup())
+  check(r and r.dropped >= 1 and r.again and r.again > r.t0 + r.FILET and r.again <= r.t0 + r.FILET + 600,
+    string.format("§9 : étape sans minuteur (%s minuteur(s) retiré(s), pensée du tick %s) : aucune pensée avant %s ticks, la faction repense au tick %s",
+      tostring(r and r.dropped), tostring(r and r.t0), tostring(r and r.FILET), tostring(r and r.again)))
+  check(r and r.rt == 1 and r.filet == 1 and r.done,
+    string.format("§9 : la pensée perdue est rattrapée d'un bloc (rattrapages %s), une ligne [FO-ETAPES] FILET au journal (%s), la pensée suivante finit (%s)",
+      tostring(r and r.rt), tostring(r and r.filet), tostring(r and r.done)))
+end
+
 -- §6 Mutants de source (un monde neuf chacun) : la scène visée DOIT échouer.
 local function refused(fn)
   local p0, f0 = passes, failures
@@ -294,9 +348,9 @@ end
 do
   local dead = refused(function()
     local c = setup({ { module = "script.faction.commander", path = "script/faction/commander.lua",
-      old = "  if f.team and f.team.etape then return end -- (pensée en cours : aucun journal",
+      old = "  if Commander.busy(f, tick, false) then return end -- (pensée en cours : aucun journal",
       new = "  if not package.loaded['script.core.lourd'].take(tick, tostring(f.key) .. ':reveil') then return end" .. string.char(10) ..
-        "  if f.team and f.team.etape then return end -- (pensée en cours : aucun journal" } })
+        "  if Commander.busy(f, tick, false) then return end -- (pensée en cours : aucun journal" } })
     local T, th, e1 = scene_free(c)
     return T ~= nil and not (th == T + 1 and e1 == T + 1)
   end)
@@ -310,6 +364,15 @@ do
     return P ~= nil and e5 ~= P + 1
   end)
   check(dead, "§6 : mutant « période ignorée » refusé (§5 échoue)")
+end
+do
+  local dead = refused(function()
+    local c = setup({ { module = "script.faction.commander", path = "script/faction/commander.lua",
+      old = "  if tick - (et.t0 or tick) <= Commander.FILET then return true end", new = "  if true then return true end" } })
+    local r = scene_filet(c)
+    return r ~= nil and r.dropped >= 1 and r.again == nil
+  end)
+  check(dead, "§6 : mutant « filet retiré » refusé (§9 : la faction ne repense plus jamais)")
 end
 
 print(string.format("[REVEIL-JETON] BILAN : %d OK, %d ECHEC(S)", passes, failures))

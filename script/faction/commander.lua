@@ -109,6 +109,23 @@ end
 -- État : f.cadence = { last, asleep, box, base_alert, mode, logs } (nombres, chaînes, booléens, une table de 4 nombres).
 Commander.CADENCE = true          -- faux : la cadence d'avant (une pensée par créneau), banc témoin
 Commander.CADENCE_LOGS = 20       -- lignes [FO-CADENCE] au plus par faction
+-- Lot LOURD (point 2 c ; filet proposé par revue-s, accord du lead du 8/11) : une pensée en cours depuis plus de Commander.FILET ticks
+-- est tenue pour PERDUE (une étape sans minuteur vivant : aucun chemin connu, la borne d'une pensée est 103 ticks). Elle ne bloque
+-- alors plus ni le créneau ni le réveil : Commander.think appelle Team.think, qui la rattrape d'un bloc.
+Commander.FILET = 2 * Cd.SLOW
+
+--- Lot LOURD (point 2 c) : vrai si une pensée de `f` est EN COURS (f.team.etape) depuis au plus Commander.FILET ticks (garde du créneau et
+--- du réveil). Au-delà : faux (filet), et `say` écrit la ligne [FO-ETAPES] FILET (il ne devrait jamais servir ; s'il sert, il se voit).
+function Commander.busy(f, tick, say)
+  local et = f.team and f.team.etape
+  if not et then return false end
+  if tick - (et.t0 or tick) <= Commander.FILET then return true end
+  if say then
+    log(string.format("[FO-ETAPES] %s : FILET : pensee du tick %s encore en cours a l'etape %s au tick %d (plus de %d ticks : minuteur perdu ?) : garde levee, la pensee est rattrapee d'un bloc",
+      tostring(f.key), tostring(et.t0), tostring(et.n), tick, Commander.FILET))
+  end
+  return false
+end
 
 local function cadence_of(f)
   local cs = f.cadence
@@ -199,7 +216,8 @@ function Commander.think(id, tick, woken)
     -- Lot LOURD (point 2 c ; garde accordée par le lead, remarque de video-l5) : une pensée EN COURS (étapes sous le jeton, décalées
     -- au-delà de T + Et.SPAN) : ni créneau ni réveil n'en commencent une autre (sinon Team.think rattraperait le reste d'un bloc).
     -- Posée AVANT le test « woken » : un réveil refusé ici laisse la faction endormie, le guet redemande au tick suivant.
-    if f.team and f.team.etape then return end
+    -- Filet (Commander.busy) : au-delà de Commander.FILET ticks, la garde se lève et le dit au journal.
+    if Commander.busy(f, tick, true) then return end
     if not woken and Cd.recent(cs, tick) then return end
     local inp = cadence_input(f, Commander.players_on(war.surface))
     local skip, why = Cd.skip(cs, inp, tick)
@@ -286,10 +304,11 @@ end
 --- SI la faction pense, le jeton décide QUAND ; consigne du lead, 7/11).
 --- Lot LOURD (point 2 c, 8/11 ; décision Q1 du lead) : le jeton des travaux lourds est pris par la PREMIÈRE ÉTAPE de la pensée (E1a,
 --- Team.think, script/team/team.lua), pour le réveil comme pour le créneau : une seule prise par pensée (le point 2 b la prenait ici ;
---- retiré avec S10 de la 0.6.63, il n'est pas repris). Une pensée encore en cours (f.team.etape) laisse le réveil sans effet (garde de Commander.think) : la faction reste
---- endormie, le guet redemande au tick suivant (Cd.wake est un niveau).
+--- retiré avec S10 de la 0.6.63, il n'est pas repris). Une pensée encore en cours (f.team.etape) laisse le réveil sans effet (garde de
+--- Commander.think) : la faction reste endormie, le guet redemande au tick suivant (Cd.wake est un niveau). Filet : Commander.busy (le
+--- journal FILET est écrit par Commander.think, une ligne par garde levée).
 function Commander.wake(f, id, cause, tick)
-  if f.team and f.team.etape then return end -- (pensée en cours : aucun journal « NORMALE » d'un réveil qui n'a pas lieu)
+  if Commander.busy(f, tick, false) then return end -- (pensée en cours : aucun journal « NORMALE » d'un réveil qui n'a pas lieu)
   cadence_say(f, cadence_of(f), "normale", cause, tick)
   Commander.think(id, tick, true)
 end
