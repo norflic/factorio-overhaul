@@ -802,6 +802,7 @@ function Team.view(f, tick)
     -- lot DEPENSES2 (b) : plafond des factions, celui des soldats que votre équipe paie sur son stock qui dort (0 sans guerre lancée)
     army_cap = (war.settings and war.settings.soldiers_max) or 0,
     workers = f.engineers_count, workers_max = workers_max, workers_idle = workers_idle, workers_waiting = workers_waiting,
+    workers_fond = on_fond, -- lot ZERO-IDLE : PNJ au fond doux (minage à la main, garde) : des bras prêts à poser une fonderie (shared/ai3/zero_idle.lua)
     backlog = backlog, -- lot VIDEO-L6 : tâches libres qui attendent (porte « transport saturé », Capi.portes, script/ai3/capitalisation.lua)
     workers_wanted = workers_wanted, recruit_cost = recruit_cost, recruit_blocked = recruit_blocked,
     recruit_held = recruit_held, recruit_prio = recruit_prio, -- lot IA3-d : priorité de l'équipement d'une recrue décidée

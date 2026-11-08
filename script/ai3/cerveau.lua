@@ -61,6 +61,7 @@ local Defauts = require("script.ai3.defauts_rt") -- lot TV-GARDES (V88) : table 
 local SurvieQg = require("script.team.survie_qg") -- lot S1 : réserve de chargeurs sur la menace reçue, recherche de la tourelle
 local Dep = require("script.ai3.depenses") -- lot DEPENSES2 : laboratoires de plus quand les plaques dorment
 local Prev = require("script.ai3.prevision") -- lot PREVISION : estimateur unique de la menace (cadres « preparer », défense induite)
+local ZIrt = require("script.ai3.zero_idle_rt") -- lot ZERO-IDLE : journal [FO-ZERO-IDLE] de la minute
 
 local Ia3 = {}
 
@@ -912,6 +913,7 @@ function Ia3.plan_b(f, view, book, surface, tick, L)
   Profiler.start("ia3:think")
   local plan = C.think(view, book, st, ctx)
   Profiler.stop("ia3:think")
+  ZIrt.after(f, st, tick, math.floor(minutes(f, tick) + 0.5)) -- lot ZERO-IDLE : ligne [FO-ZERO-IDLE] (une par minute, PNJ libres)
   Pil.armee_line(f, plan, minutes(f, tick)) -- lot TV-PILOTE (V10) : journal [FO-ARMEE] aux changements de la réserve
   Ext.after(f, view, st, tick) -- lot C3 EXTENSION : mesures (étendue, rayon de base, sites gardés) et journal [FO-EXTENSION]
   -- Lot LEVIERS : tâches « equiper » (modules dans les machines posées), renouvelées à chaque pensée comme le plan.
