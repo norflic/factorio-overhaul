@@ -35,7 +35,7 @@ local Registry = require("script.companion.registry")
 
 local Liaison = {}
 
-local SKIP_KEYS = { "alim", "raccord", "enceinte", "liaison", "site" } -- projets qui ne sont pas des modules de fabrication
+local SKIP_KEYS = { "alim", "raccord", "enceinte", "liaison", "site", "quartier" } -- projets qui ne sont pas des modules de fabrication (lot TV-ARCHI : les dépôts d'un quartier ne reçoivent pas de liaison à tapis)
 local DEAD = { refuse = true }
 local POLE_SET = {}
 for _, name in ipairs(M.POLES) do POLE_SET[name] = true end -- les poteaux des données de modules.lua, aucun nom écrit ici
