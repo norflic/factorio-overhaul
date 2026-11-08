@@ -209,6 +209,52 @@ do
 end
 total_pass, total_fail = total_pass + pass, total_fail + fail
 
+--- §5 bis : le relevé du terrain couvre 8 tuiles autour de la fenêtre (eau ou falaise à 3 tuiles hors fenêtre connue du masque rendu).
+local function check_releve(mod_path, label)
+  local f_pass, f_fail = 0, 0
+  local function chk(ok, msg) if ok then f_pass = f_pass + 1 else f_fail = f_fail + 1 if label == "reel" then print("[REPLI-PLACE] ECHEC : " .. msg) end end end
+  _G.log = function() end
+  _G.game = { tick = 9000 }
+  _G.settings = { global = { ["fo-war-repli-place"] = { value = true } } }
+  package.loaded["script.team.repli_place"] = nil
+  local fh = assert(io.open(mod_path, "rb")); local src = fh:read("*a"); fh:close()
+  if label ~= "reel" then
+    local s1, e1 = src:find("rect.x0 - 8, rect.y0 - 8, rect.x1 + 8, rect.y1 + 8", 1, true)
+    assert(s1, "motif du releve introuvable")
+    src = src:sub(1, s1 - 1) .. "rect.x0 - 1, rect.y0 - 1, rect.x1 + 1, rect.y1 + 1" .. src:sub(e1 + 1)
+  end
+  local Rpl = assert(load(src, "=repli_glue", "t"))()
+  local g = M.GEN.smelter("stone-furnace", "iron-ore", 4)
+  local lat = P.lattice({ x = 0.5, y = 0.5 })
+  local f = { key = "ecarlate", build = { lat = lat, lots = {} } }
+  local W = Rp.windows(0, 0)[1] -- fenêtre 0
+  local wx, wy = W.x0 - 3, W.y0 + 5 -- 3 tuiles hors de la fenêtre, à l'ouest
+  local seen
+  local function read_masks(_, _, x0, y0, x1, y1)
+    seen = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }
+    return { rect = seen, free = function(tx, ty)
+      -- comme le moteur : l'eau n'est connue que dans la zone lue
+      if tx == wx and ty == wy and tx >= x0 and tx < x1 and ty >= y0 and ty < y1 then return false end
+      return true
+    end }
+  end
+  local place = Rpl.try(f, nil, g, { p = { id = 3 }, why = "pas de lot", center = { x = 0, y = 0 }, read_masks = read_masks,
+    ore_set = function() return {} end, avoid_margin = 8 })
+  chk(place ~= nil, "releve : place trouvee")
+  chk(place and place.masks.free(wx, wy) == false, "releve : l'eau a 3 tuiles hors de la fenetre est connue du masque rendu (zone lue +-8)")
+  chk(seen and seen.x0 <= W.x0 - 8 and seen.y0 <= W.y0 - 8 and seen.x1 >= W.x1 + 8 and seen.y1 >= W.y1 + 8, "releve : zone lue = fenetre +-8 tuiles")
+  return f_pass, f_fail
+end
+section("5 bis. Releve du terrain +-8 tuiles")
+do
+  local gp, gf = check_releve("script/team/repli_place.lua", "reel")
+  total_pass, total_fail = total_pass + gp, total_fail + gf
+  local _, mf = check_releve("script/team/repli_place.lua", "mutant")
+  if mf > 0 then total_pass = total_pass + 1
+  else total_fail = total_fail + 1 print("[REPLI-PLACE] ECHEC : le mutant « releve +-1 » SURVIT") end
+  _G.settings, _G.game, _G.log = nil, nil, nil
+end
+
 ---------------------------------------------------------------------------------------------------
 -- 6. Mutants
 ---------------------------------------------------------------------------------------------------
