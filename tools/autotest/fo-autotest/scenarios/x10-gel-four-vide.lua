@@ -9,10 +9,14 @@
   joueurs du groupe : aucun (loin), puis un joueur posé tout près :
     V0 : four, charbon, source VIDE : refus « recette » au relevé (le cas du DC) ;
     V1 : four, 30 minerais de fer : relevé, figé ; au tick 700, sa source est VIDÉE par script pendant le gel ;
-    V2 : idem ; au tick 700, sa source passe à 5 bois (objet sans recette de four) ;
+    V2 : idem ; au tick 700, sa source passe à 10 minerais de CUIVRE alors que sa sortie tient des plaques de fer : recette changée
+         pendant le gel, sortie occupée (le moteur ne fabrique rien), aucun nom inventé ;
     V3 : idem, intact : témoin positif (le pas tourne et fabrique pendant le gel).
+  Fait relevé au tick 700 (premier passage, 7 h 39 : un four refuse le bois dans sa source) : insert de 5 bois dans la source vide de
+  V0, rendu journalisé ; un objet sans recette de four n'entre pas dans une source, le seul cas « recette inconnue » du jeu est la
+  source VIDE.
   Pas d'un îlot figé au tick t tel que t % 1200 = id % 1200 (Gu.STEP) ; T = le dernier des trois après 700. Au tick T + 5 : V1 et V2 ont
-  reçu leur pas (statut comptable « no_ingredients »), rien fabriqué ni consommé ; V3 a fabriqué. Au tick T + 20 : un joueur près des
+  reçu leur pas (statuts comptables « no_ingredients » et « full_output »), rien fabriqué ni consommé ; V3 a fabriqué. Au tick T + 20 : un joueur près des
   fours, réveil au guet suivant, pas dû payé (contrôle à T + 60). Le bilan (tick 1900) n'arrive que si la partie tourne encore : sans le
   correctif, elle s'arrête au premier pas de V1.
 ]]
@@ -74,22 +78,27 @@ return {
       src1.clear()
       local src2 = st.q[3].get_inventory(defines.inventory.furnace_source)
       src2.clear()
-      src2.insert({ name = "wood", count = 5 })
+      st.cu = src2.insert({ name = "copper-ore", count = 10 })
+      local w0 = st.q[1].get_inventory(defines.inventory.furnace_source).insert({ name = "wood", count = 5 })
+      ctx.log(string.format("fait : insert de 5 bois dans la source vide d'un four : %d insere(s) ; 10 minerais de cuivre dans la source de V2 : %d", w0, st.cu))
       st.p700 = {}
       for i = 2, 4 do st.p700[i] = count(st.q[i], defines.inventory.furnace_result, "iron-plate") end
       st.ore3 = count(st.q[4], defines.inventory.furnace_source, "iron-ore")
-      ctx.log(string.format("tick 700 : plaques V1 %d, V2 %d, V3 %d ; minerai V3 %d ; V1 source vide, V2 source = 5 bois", st.p700[2], st.p700[3],
-        st.p700[4], st.ore3))
+      ctx.log(string.format("tick 700 : plaques V1 %d, V2 %d, V3 %d ; minerai V3 %d ; V1 source vide, V2 source = %d minerais de cuivre",
+        st.p700[2], st.p700[3], st.p700[4], st.ore3, st.cu))
     elseif st.tstep and t == st.tstep + 5 then
       local S = defines.entity_status
       local s1, s2 = ctx.remote("fo-gel", "statut", st.q[2]), ctx.remote("fo-gel", "statut", st.q[3])
-      ctx.check(s1 == S.no_ingredients and s2 == S.no_ingredients,
-        "V1 et V2 : pas recu pendant le gel (statut comptable no_ingredients), partie en marche", tostring(s1) .. ", " .. tostring(s2) .. " au tick " .. t)
+      ctx.check(s1 == S.no_ingredients and s2 == S.full_output,
+        "V1 et V2 : pas recu pendant le gel (statuts comptables no_ingredients, full_output), partie en marche",
+        tostring(s1) .. ", " .. tostring(s2) .. " au tick " .. t)
       local p1 = count(st.q[2], defines.inventory.furnace_result, "iron-plate")
       local p2 = count(st.q[3], defines.inventory.furnace_result, "iron-plate")
-      local w2 = count(st.q[3], defines.inventory.furnace_source, "wood")
-      ctx.check(p1 == st.p700[2] and p2 == st.p700[3] and w2 == 5, "V1 et V2 : rien fabrique ni consomme (source vide ; bois sans recette)",
-        string.format("plaques %d -> %d, %d -> %d ; bois %d", st.p700[2], p1, st.p700[3], p2, w2))
+      local c2 = count(st.q[3], defines.inventory.furnace_result, "copper-plate")
+      local o2 = count(st.q[3], defines.inventory.furnace_source, "copper-ore")
+      ctx.check(p1 == st.p700[2] and p2 == st.p700[3] and c2 == 0 and o2 == st.cu and st.cu > 0,
+        "V1 et V2 : rien fabrique ni consomme (source vide ; cuivre derriere une sortie de fer)",
+        string.format("plaques %d -> %d, %d -> %d ; cuivre : plaques %d, minerai %d / %d", st.p700[2], p1, st.p700[3], p2, c2, o2, st.cu))
       local p3 = count(st.q[4], defines.inventory.furnace_result, "iron-plate")
       local o3 = count(st.q[4], defines.inventory.furnace_source, "iron-ore")
       ctx.check(st.q[4].active == false and p3 > st.p700[4] and o3 < st.ore3, "V3 (temoin) : fige, son pas a fabrique (comptabilite en marche)",
@@ -108,6 +117,6 @@ return {
     local et = ctx.remote("fo-gel", "etat", "V")
     ctx.check(et.figes == 0 and et.pertes == 0, "bilan : partie en marche jusqu'au tick 1900 ; rien de fige, aucune perte",
       string.format("ilots %d, figes %d, pertes %d", et.ilots, et.figes, et.pertes))
-    ctx.check(count(st.q[3], defines.inventory.furnace_source, "wood") == 5, "V2 : le bois reste dans la source apres le reveil (aucun objet invente)")
+    ctx.check(count(st.q[3], defines.inventory.furnace_result, "copper-plate") == 0, "V2 : aucune plaque de cuivre inventee (sortie de fer, au reveil comme pendant le gel)")
   end,
 }
