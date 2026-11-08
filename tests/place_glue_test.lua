@@ -241,6 +241,9 @@ local function battery(Pg, verbose)
   local rep = Pg.remote(h, "report")
   want(rep and rep.counters.prev_lots == 2 and rep.sonde == true and rep.simple == true and rep.defprev == true and rep.sites == true, "rapport des bancs")
   want(Pg.remote(h, "autre") == nil and Pg.remote(nil, "report") == nil, "commande inconnue ou equipe absente : nil")
+  local nb = Pg.remote(h, "bad", 1)
+  want(nb == 2 and hb.lots["1:0"].bad == 2 and hb.lots["0:1"].bad == 2 and hb.lots["3:3"].bad == nil and hb.lots["0:0"].bad == nil, "banc : bad marque les lots libres ou a defricher d'au plus 1 couronne (2 ici, pas le QG occupe)")
+  want(Pg.remote(h, "bad") == 3 and hb.lots["3:3"].bad == 2 and hb.lots["0:0"].bad == nil, "banc : sans argument, tous les lots libres ou a defricher")
   -- 4. limite de lignes
   local m = team()
   m.build.lots = {}
@@ -275,7 +278,7 @@ has(BUILD, "Build.Place.defprev_tasks(f, tasks, tick)", "Build.think : taches du
 has(BUILD, "local gate = Build.Place.defprev_gate(f, job, tick)", "Build.work : jeton des travaux lourds")
 has(BUILD, "Build.Place.cut(f, job.seg, did)", "Build.work : compteur des obstacles coupes")
 has(BUILD, 'key:sub(1, 4) == "pre:" then return Build.Place.defprev_cleared(f, key, game.tick)', "street_cleared : quart du defrichage preventif")
-has(BUILD, "place = function(key, cmd) return Build.Place.remote(team_of_key(key), cmd) end", "interface distante place")
+has(BUILD, "place = function(key, cmd, arg) return Build.Place.remote(team_of_key(key), cmd, arg) end", "interface distante place")
 has(BUILD, "if not (opts and opts.simple_lots) then bump(b.stats.plan_refused, last) end", "le repli simple ne fausse pas plan_refused")
 has(BUILD, "place_module(f, surface, g, states, qg, nil, fo)", "le repli simple passe par place_module")
 has(LG, "Pg.states_for(Lg.kind(gen))", "Lots_minerai.states : etats avec la marque du bord")

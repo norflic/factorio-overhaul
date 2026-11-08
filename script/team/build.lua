@@ -5215,7 +5215,7 @@ remote.add_interface("fo-ia1d", {
   end,
   status = function(key, id) return Build.status(team_of_key(key), id) end,
   report = function(key) return Build.report(team_of_key(key)) end,
-  place = function(key, cmd) return Build.Place.remote(team_of_key(key), cmd) end, -- lot TV-PLACE : compteurs de la sonde 30 x 30, du défrichage préventif et du repli simple (bancs)
+  place = function(key, cmd, arg) return Build.Place.remote(team_of_key(key), cmd, arg) end, -- lot TV-PLACE : compteurs de la sonde 30 x 30, du défrichage préventif et du repli simple (bancs)
   lots_minerai = function(key, cmd, arg) return Build.LotsMinerai.remote(team_of_key(key), cmd, arg) end, -- lot VIDEO MINERAI-SONDE : lots reserves, événements, relevés refaits (bancs)
   layout = function(key) return Build.layout(team_of_key(key)) end,
   -- banc seulement (migration des bras de la centrale, lot PLANDIR) : reproduit la conversion électrique des versions 0.6.5 à 0.6.7
