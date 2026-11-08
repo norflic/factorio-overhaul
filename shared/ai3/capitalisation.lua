@@ -2383,6 +2383,11 @@ end
 --- entries = { { key, item, kw (par machine), n (voulues), short (manque, /min) } } ; free = kW libres. Rend allot[key] = machines accordées et
 --- l'ordre de service { items }. Ordre : manque décroissant, puis nom de l'objet croissant (départage), puis clé. Un TOUR donne UNE machine à
 --- chaque objet (à sa première option non servie qui tient dans les kW restants) ; on tourne tant qu'un tour accorde quelque chose.
+-- Décision du lead (8/11, 13 h 20) : « aucun minerai ne prend plus de 60 % des kW libres tant qu'un autre minerai demandé attend du courant ».
+-- Appliquée en deux temps : TANT QU'un autre objet attend (en phase 1), un objet ne dépasse pas Ca.KW_SHARE_MAX des kW libres ; ce qui reste
+-- ensuite (phase 2) va à qui en veut encore, plafond levé (personne d'autre n'attend plus).
+Ca.KW_SHARE_MAX = 0.6
+
 function Ca.kw_alloc(entries, free)
   local by_item, items = {}, {}
   for _, e in ipairs(entries) do
@@ -2402,22 +2407,27 @@ function Ca.kw_alloc(entries, free)
   for _, g in ipairs(items) do
     table.sort(g.list, function(a, b) return tostring(a.key) < tostring(b.key) end)
   end
-  local allot = {}
+  local allot, used = {}, {}
   for _, e in ipairs(entries) do allot[e.key] = 0 end
+  for _, g in ipairs(items) do used[g.item] = 0 end
   local left = free
-  repeat
-    local given = false
-    for _, g in ipairs(items) do
-      for _, e in ipairs(g.list) do
-        if allot[e.key] < e.n and e.kw <= left + Ca.EPS then
-          allot[e.key] = allot[e.key] + 1
-          left = left - e.kw
-          given = true
-          break
+  local cap = (#items >= 2) and (Ca.KW_SHARE_MAX * free) or math.huge -- un seul objet : aucun autre n'attend, pas de plafond
+  for phase = 1, 2 do
+    repeat
+      local given = false
+      for _, g in ipairs(items) do
+        for _, e in ipairs(g.list) do
+          if allot[e.key] < e.n and e.kw <= left + Ca.EPS and (phase == 2 or used[g.item] + e.kw <= cap + Ca.EPS) then
+            allot[e.key] = allot[e.key] + 1
+            used[g.item] = used[g.item] + e.kw
+            left = left - e.kw
+            given = true
+            break
+          end
         end
       end
-    end
-  until not given
+    until not given
+  end
   local order = {}
   for _, g in ipairs(items) do order[#order + 1] = g.item end
   return allot, order

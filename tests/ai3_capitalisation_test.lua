@@ -1970,7 +1970,38 @@ local function s23()
   local a3 = Ca.kw_alloc({ { key = "p", item = "grand", kw = 100, n = 9, short = 50 }, { key = "q", item = "petit", kw = 100, n = 1, short = 1 } }, 200)
   check(a3.p == 1 and a3.q == 1, "§23 deux kW de 100 pour deux objets : un chacun, même si l'un manque 50 fois plus")
   local a4 = Ca.kw_alloc({ { key = "p", item = "grand", kw = 100, n = 2, short = 50 }, { key = "q", item = "petit", kw = 30, n = 9, short = 1 } }, 250)
-  check(a4.p == 2 and a4.q == 1, "§23 une machine qui ne tient plus est sautée, les plus petites passent (" .. tostring(a4.p) .. ", " .. tostring(a4.q) .. ")")
+  check(a4.p == 1 and a4.q == 5, "§23 60 % de 250 kW = 150 : le gros objet n'a que 1 machine de 100 kW tant que le petit attend, le petit prend les 5 de 30 (" .. tostring(a4.p) .. ", " .. tostring(a4.q) .. ")")
+  local a5 = Ca.kw_alloc({ { key = "p", item = "grand", kw = 100, n = 2, short = 50 }, { key = "q", item = "petit", kw = 30, n = 2, short = 1 } }, 250)
+  check(a5.p == 2 and a5.q == 2, "§23 60 % : le petit servi en entier, le plafond est levé pour le gros (2, 2) : " .. tostring(a5.p) .. ", " .. tostring(a5.q)) 
+  -- règle des 60 % (décision du lead, 8/11) : aucun objet ne dépasse 60 % des kW libres tant qu'un autre objet demandé attend du courant
+  -- (propriété sur 300 cas tirés d'une graine fixe : si un objet a plus de 60 %, tout autre est servi en entier ou ne peut plus rien poser)
+  local seed = 20261108
+  local function rnd(n) seed = (seed * 1103515245 + 12345) % 2147483648 return seed % n + 1 end
+  local bad, binding = 0, 0
+  for _ = 1, 300 do
+    local entries = {}
+    for i = 1, rnd(4) + 1 do
+      entries[#entries + 1] = { key = "k" .. i, item = "obj" .. rnd(3), kw = 30 * rnd(6), n = rnd(20), short = rnd(40) }
+    end
+    local free = 100 * rnd(30)
+    local al = Ca.kw_alloc(entries, free)
+    local by_item, kwtot, left = {}, 0, free
+    for _, e in ipairs(entries) do
+      by_item[e.item] = (by_item[e.item] or 0) + al[e.key] * e.kw
+      left = left - al[e.key] * e.kw
+    end
+    if left < -1e-6 then bad = bad + 1 end
+    for item, kw in pairs(by_item) do
+      if kw > Ca.KW_SHARE_MAX * free + 1e-6 then
+        binding = binding + 1
+        for _, e in ipairs(entries) do
+          if e.item ~= item and al[e.key] < e.n and e.kw <= left + 1e-6 then bad = bad + 1 end
+        end
+      end
+    end
+  end
+  check(bad == 0, "§23 60 % : sur 300 cas, jamais plus de 60 % des kW pour un objet tant qu'un autre en attend et pourrait poser (" .. bad .. " violation(s), plafond atteint " .. binding .. " fois)")
+  check(Ca.KW_SHARE_MAX == 0.6, "§23 60 % : la valeur décidée par le lead")
   -- Ca.share_kw : identité quand les kW suffisent
   local fake_ctx = { input = { power = { have_kw = 5000, used_kw = 0 } }, refus = {}, refus_list = {} }
   local opts = { { o = { key = "A", item = "i", n = 3, kw_unit = 90, short = 5 } }, { o = { key = "B", item = "j", n = 2, kw_unit = 90, short = 1 } } }
@@ -2220,6 +2251,7 @@ do
       Pf.power_missing = function(pw) if pw and pw.fermee then return nil end return orig(pw) end
     end, function() Pf.power_missing = orig end)
   end
+  MV("part maximale d'un objet retirée (100 %)", "KW_SHARE_MAX", 1.0)
   MF("répartition des kW coupée", "share_kw", function() return function(_, _, opts) return opts end end)
   MF("répartition sans tour par objet (le premier objet prend tout)", "kw_alloc", function()
     return function(entries, free)
