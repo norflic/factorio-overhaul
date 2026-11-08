@@ -18,7 +18,7 @@
         La recherche DÉJÀ commencée continue (les laboratoires du QG paient leurs packs au coffre) ; elle ne grandit plus tant que le transport sature.
         Effectif nul ou mesure absente : la porte est fermée (garde fermée par défaut, L13).
     (b) BRAS À SEUIL CROISSANT (G12 « occupés > mégatuiles ÷ 25 + 1 → attendre », V73) : au plus ⌊modules ÷ Pe.MODULES_PER_SITE⌋ + 1
-        chantiers ouverts à la fois ; un ordre qui OUVRE un chantier (o.site) n'est permis que s'il reste une place. Écart [DÉDUIT] à la
+        chantiers ouverts à la fois ; un ordre qui OUVRE un chantier (o.site) n'est permis que s'il reste une place. Lot COUVERTURE : plancher a.site_floor (les emplacements de chantier de la capitalisation, Em.slots) : la limite ne descend jamais sous lui ; les modules posés comptés par Capi.slots sont cumulés (Cv.batis). Écart [DÉDUIT] à la
         source : le gist comptait des robots occupés, nous comptons des chantiers ouverts (un chantier occupe les bras jusqu'à sa fin).
     (a) PETITES MARCHES (V21, V77, V78) : quand le transport est tendu (porte fermée OU mesure tendue) ou quand l'ordre vient d'un manque
         MESURÉ (o.measured), il ne pose qu'UNE unité de capacité (o.n ramené à 1) ; la remesure dira s'il en faut une de plus.
@@ -86,10 +86,15 @@ end
 --- FERMÉ PAR DÉFAUT (lot 5b, W04 n°1) : un nombre de modules posés ou de chantiers ouverts ABSENT ne vaut pas zéro (avant : limite 1 et
 --- aucun chantier ouvert = une place de chantier offerte sur une mesure manquante) ; aucune place, la raison nomme l'entrée. Rend
 --- room, limit, raison (nil quand les deux mesures sont là).
-function Pe.site_room(batis, open_sites)
+function Pe.site_room(batis, open_sites, floor)
   local b, o = int(batis), int(open_sites)
   if b == nil or o == nil then return 0, 0, "mesure absente : " .. (b == nil and "batis (modules poses)" or "open_sites (chantiers ouverts)") end
   local limit = math.floor(math.max(0, b) / Pe.MODULES_PER_SITE) + 1
+  -- Lot COUVERTURE : plancher = les emplacements de chantier de la capitalisation (Em.slots : 2 de base, plus un par tranche de stock de
+  -- plaques) ; la limite de G12 suit les modules posés, trop basse pour une force qui a le stock de poser (mesuré : 1 chantier à la fois à la
+  -- minute 257). Absent : la limite d'avant.
+  local fl = int(floor)
+  if fl ~= nil and fl > limit then limit = fl end
   return math.max(0, limit - math.max(0, o)), limit
 end
 
@@ -98,7 +103,7 @@ end
 --- room, limit, batis, last_item, cause } : table de TRAVAIL de la décision (nombres, booléens, une chaîne), lue option par option.
 function Pe.gate(st, a)
   local closed, cause = Pe.transport(st, a)
-  local room, limit, site_why = Pe.site_room(a and a.batis, a and a.open_sites)
+  local room, limit, site_why = Pe.site_room(a and a.batis, a and a.open_sites, a and a.site_floor)
   return { closed = closed, tense = closed or st.tense_now or st.unknown or false, room = room, limit = limit, site_why = site_why,
     batis = int(a and a.batis) or 0, last_item = st.last_item, measured_item = nil, cause = cause }
 end

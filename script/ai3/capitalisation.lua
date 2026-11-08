@@ -99,6 +99,7 @@ local Ind = require("script.ai3.industrie") -- lot INDUSTRIE I6 : choix du patro
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (ordres neufs, équipement en modules)
 local Pi = require("shared.ai3.pile")
 local Pe = require("shared.ai3.portes_extension") -- lot VIDEO-L6 : portes avant d'étendre (Capi.portes, decide_finish)
+local Cv = require("shared.ai3.couverture") -- lot COUVERTURE : la couverture en boucle passe la porte du transport, modules posés cumulés
 local Pal = require("shared.ai3.palier") -- lot VIDEO-L10 : marches de stabilité, variante B (Capi.palier, decide_start)
 local Ext = require("script.ai3.extension") -- lot C3 EXTENSION : rayon de base (étendue des avant-postes)
 local MigChamp = require("script.team.migration_champ") -- lot CHAMP : « couvrir / ouvrir » d'un minerai à fondre passent par le champ
@@ -953,6 +954,8 @@ function Capi.slots(f, cs, stock, tick, book)
   local g_iag = f.team.iag
   local hands = Ca.idle_of(g_iag and g_iag.idle_ema or 0)
   local base = Dm.slots(A.MAX_OPEN, f.team.ia3 and f.team.ia3.puits ~= nil, hands, cs.blocked_slots)
+  -- Lot COUVERTURE : les emplacements grandissent avec les chantiers finis (un de plus par Pe.MODULES_PER_SITE), au plus Dm.SLOTS_HARD.
+  base = math.min(math.max(base, Dm.SLOTS_HARD), base + Cv.slot_growth(cs.batis_done or Cv.seed(cs.done), Pe.MODULES_PER_SITE))
   -- lot DEPENSES2 (essai 4) : produits qui dorment -> siège du complément (Em.slots, règle 7)
   -- lot CORR-CHAMP-MANQUE (règle 8) : la plaque qui manque LE PLUS aux ordres ouverts (coût brut des manques, recettes ouvertes du
   -- livre de la force, moins le stock libre : Ca.seat_plate, relecture du lead 18 h 10, point 2 ; pas Ca.blocked_items, qui penche
@@ -996,17 +999,20 @@ function Capi.slots(f, cs, stock, tick, book)
   -- ni fini, ni en réserve, ni refusé, ni perdu) ; lus par Capi.portes. Approximation déclarée : seuls les modules de la capitalisation
   -- comptent (ni les autres projets du plan directeur, ni le QG).
   -- (relu module par module : la liste `states` ci-dessus s'arrête au premier projet non fini)
-  local batis, open_sites = 0, 0
+  -- Lot COUVERTURE : les modules déjà finis sont comptés AUSSI quand leur ordre a quitté cs.open (cs.batis_done, Capi.think_tail) ; avant,
+  -- seuls ceux d'un ordre encore ouvert comptaient : la limite ⌊batis/25⌋+1 restait à 1 chantier toute la partie (mesuré : minute 257).
+  local fini_open, open_sites = 0, 0
   for _, o in ipairs(cs.open or {}) do
     if o.exec == "module" then
       for _, id in ipairs(o.mod_ids or { o.module }) do
         local m = Auto.module(f, id)
         local s = m and m.state
-        if s == "fini" then batis = batis + 1
+        if s == "fini" then fini_open = fini_open + 1
         elseif s ~= nil and s ~= "reserve" and s ~= "refuse" then open_sites = open_sites + 1 end
       end
     end
   end
+  local batis = Cv.batis(cs.batis_done or Cv.seed(cs.done), fini_open)
   sl.batis, sl.open_sites = batis, open_sites
   return sl
 end
@@ -1040,6 +1046,33 @@ function Capi.say_barils(f, cs, res, tick)
   return line
 end
 
+--- Lot COUVERTURE : une ligne [FO-COUVERTURE] par ordre d'extraction (couvrir, ouvrir) de la décision dont le verdict CHANGE (passe L6 en boucle,
+--- passe par un manque mesuré, retenu par la porte avec sa cause). État : cs.couv_sig (clé -> signature, reconstruit à chaque décision :
+--- borné par le nombre d'ordres). `r` = résultat de Pe.filter, `verdict` = { clé -> { ok, raison } } de la règle de boucle.
+function Capi.say_couverture(f, cs, res, r, verdict, tick)
+  local prev, now = cs.couv_sig or {}, {}
+  for _, o in ipairs(res.orders or {}) do
+    if o.kind == "couvrir" or o.kind == "ouvrir" then
+      local held = r.why and r.why[o.key] or nil
+      local v = verdict[o.key]
+      local what
+      if held then
+        what = string.format("RETENU par la porte (%s) ; boucle refusee : %s", tostring(held), v and tostring(v[2]) or "manque mesure ou autre racine")
+      elseif v and v[1] then
+        what = "PASSE la porte du transport EN BOUCLE (" .. tostring(v[2]) .. ")"
+      else
+        what = "PASSE la porte" .. (v and (" (boucle non retenue : " .. tostring(v[2]) .. ")") or " (manque mesure, ou porte ouverte)")
+      end
+      local sig = what:sub(1, 90)
+      now[o.key] = sig
+      if prev[o.key] ~= sig then
+        log(string.format("[FO-COUVERTURE] %s minute %d : %s x%d : %s", f.key or "?", math.floor(minutes(f, tick)), tostring(o.key), o.n or 1, what))
+      end
+    end
+  end
+  cs.couv_sig = now
+end
+
 function Capi.portes_on()
   local ok, v = pcall(function() return settings.global[Capi.PORTES_SETTING].value end)
   return ok and v == true
@@ -1052,7 +1085,8 @@ function Capi.portes(f, cs, res, view, tick)
   if not Capi.portes_on() then return nil end
   cs.portes = cs.portes or Pe.new()
   local sl = cs.slots or {}
-  local a = { workers = view.workers, idle = view.workers_waiting, free_tasks = view.backlog, batis = sl.batis, open_sites = sl.open_sites }
+  local a = { workers = view.workers, idle = view.workers_waiting, free_tasks = view.backlog, batis = sl.batis, open_sites = sl.open_sites,
+    site_floor = sl.cap }
   local was = cs.portes.closed
   -- Lot L3 versé (étape 4) : manque net MESURÉ (view.mq.build) : un ordre sur un objet en manque mesuré est une petite marche (comptée)
   -- et ne vise pas le même objet que l'ordre mesuré de la décision précédente, sauf s'il est seul en manque (Pe.check, anti-répétition).
@@ -1068,18 +1102,35 @@ function Capi.portes(f, cs, res, view, tick)
     if type(m) == "table" and m[1] ~= nil and (m[2] or 0) > 0 then short[m[1]] = math.max(short[m[1]] or 0, m[2]) end
   end
   local product_of = {}
+  -- Lot COUVERTURE (8/11, DC : « ils construisent pas en boucle ») : seconde sorte de racine, la COUVERTURE EN BOUCLE. Un couvrir/ouvrir dont le
+  -- produit n'est pas saturé (f.team.ia3.saturated : stock au-delà de B.SAT_FACTOR × le besoin) et dont le gisement a des places libres passe
+  -- la porte du transport même sans manque mesuré (shared/ai3/couverture.lua) : les PNJ d'une force sont occupés en permanence, la porte restait
+  -- fermée de la minute 2 à la 60 et retenait tous les couvrir (mesuré 0.6.64). La porte des chantiers (Pe.site_room) borne le travail ouvert.
+  local ia3 = f.team and f.team.ia3 or nil
+  local saturated = ia3 and ia3.saturated or {}
+  local free_of = {}
+  for _, c in ipairs(res.coverage or {}) do free_of[tostring(c.id)] = c.free end
+  local crisis = (view.survie or view.hq_threat) and true or false
+  local verdict = {} -- clé d'ordre -> { vrai/faux, raison } de la règle de couverture en boucle
   local function root_of(o)
     if o.kind ~= "couvrir" and o.kind ~= "ouvrir" then return nil end
     local meth = METHOD_OF_ORE[o.resource]
     local n = meth and short[meth.product] or nil
-    if n then product_of[o.key] = meth.product end
-    return n
+    if n then product_of[o.key] = meth.product return n end
+    local ok, why = Cv.loop({ kind = o.kind, product = meth and meth.product or nil, saturated = saturated,
+      free = free_of[tostring(o.deposit)], crisis = crisis })
+    verdict[o.key] = { ok, why }
+    if ok then return 1 end -- racine « de boucle » : un nombre > 0 suffit à la porte (le manque n'est pas écrit au journal des racines)
+    return nil
   end
   local r = Pe.filter(cs.portes, a, res.orders, { family_of = Pi.order_family, family_rank = Pi.FAMILY_RANK,
     site_kinds = Capi.MODULE_KINDS, tours_kinds = PORTES_TOURS, measured = build, measured_n = n_build, root_of = root_of })
   for _, rt in ipairs(r.roots or {}) do
-    log(string.format("[FO-PORTES] racine : %s passe L6 (manque %s %s)", tostring(rt.key), tostring(product_of[rt.key] or rt.item), tostring(rt.need)))
+    if not (verdict[rt.key] and verdict[rt.key][1]) then
+      log(string.format("[FO-PORTES] racine : %s passe L6 (manque %s %s)", tostring(rt.key), tostring(product_of[rt.key] or rt.item), tostring(rt.need)))
+    end
   end
+  Capi.say_couverture(f, cs, res, r, verdict, tick)
   if r.refused > 0 or r.closed ~= was then
     log(string.format("[FO-PORTES] %s minute %d : transport %s (%d fermeture(s)) ; %d ordre(s) gardes, %d retenu(s), %d qu'une petite marche aurait reduit(s) ; places de chantier %d sur %d (%d pose(s), %d ouvert(s)) ; %s",
       f.key or "?", math.floor(minutes(f, tick) + 0.5), r.closed and "SATURE" or "libre", cs.portes.closes or 0, r.kept, r.refused, r.reduced,
@@ -1947,6 +1998,7 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
   Capi.say_barils(f, cs, res, tick) -- lot TV-FLUX (G51)
   res.orders = AmRt.after_decision(f, cs, res, tick, minutes(f, tick)) -- lot VIDEO-COUVERTURE 5 : cycles publiés, MÊME plan re-émis après l'exécutant occupé
   local gate_why = Capi.portes(f, cs, res, view, tick)
+  cs.couv_wants = Cv.reserve_wants(res.orders, gate_why) -- lot COUVERTURE : la pose prévue est une demande du mall (lue par Ind.think)
   local seat_why
   res.orders, seat_why = Capi.arbitre(f, cs, res, input, view, tick) -- lot VIDEO-SIEGES (C4/C5) : qui prend le siège d'abord, qui n'ouvre pas
   for _, o in ipairs(res.orders) do
@@ -2249,6 +2301,11 @@ function Capi.think_tail(f, cs, tick)
       if rec.exec == "equiper" and cs.scan then
         cs.stale = cs.stale or {}
         cs.stale[rec.key] = cs.scan.tick
+      end
+      if state == "fini" and Cv.SITE_EXECS[rec.exec] then
+        -- Lot COUVERTURE : compteur cumulé des chantiers finis, modules et bandes du champ (nombre, jamais d'entité) ; amorcé sur l'historique
+        -- pour une partie d'avant.
+        cs.batis_done = (cs.batis_done or Cv.seed(cs.done)) + math.max(1, #(rec.mod_ids or { rec.module }))
       end
       cs.done[#cs.done + 1] = { key = rec.key, kind = rec.kind, exec = rec.exec, n = rec.n, state = state, why = why,
         opened = rec.opened, closed = tick }
