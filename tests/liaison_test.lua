@@ -92,7 +92,20 @@ check(px == 9 and py == 9, "3.11 poteau contre le bras, sur le cote (a l'ouest d
 check(px ~= sites[1].ax or py ~= sites[1].ay, "3.12 jamais sur le bras")
 local px2, py2 = Li.pole_tile(sites[1], open_grid({ ["11:9"] = true, ["9:9"] = true }))
 check(px2 ~= nil and math.abs(px2 - 10) == 1 and math.abs(py2 - 9) == 1, "3.13 cotes pris : une diagonale")
-check(Li.pole_tile(sites[1], open_grid({ ["11:9"] = true, ["9:9"] = true, ["11:8"] = true, ["9:8"] = true, ["11:10"] = true, ["9:10"] = true })) == nil, "3.14 rien de libre : nil")
+local six = { ["11:9"] = true, ["9:9"] = true, ["11:8"] = true, ["9:8"] = true, ["11:10"] = true, ["9:10"] = true }
+local rx, ry = Li.pole_tile(sites[1], open_grid(six))
+check(rx ~= nil and math.max(math.abs(rx - 10), math.abs(ry - 9)) == 2, "3.14 six tuiles collees prises : anneau de distance 2 (lot RESEAU-GRAPHE)")
+local rx2, ry2 = Li.pole_tile(sites[1], open_grid(six))
+check(rx == rx2 and ry == ry2, "3.14b choix deterministe")
+local wall = {}
+for k in pairs(six) do wall[k] = true end
+for dx = -2, 2 do for dy = -2, 2 do wall[(10 + dx) .. ":" .. (9 + dy)] = true end end
+check(Li.pole_tile(sites[1], open_grid(wall)) == nil, "3.14c rien de libre a distance 2 : nil")
+local near2 = {}
+for k in pairs(six) do near2[k] = true end
+near2["8:9"] = nil
+local nx, ny = Li.pole_tile(sites[1], open_grid((function() local w = {} for k in pairs(wall) do w[k] = true end w["8:9"] = nil return w end)()))
+check(nx == 8 and ny == 9, "3.14d la tuile libre de l'anneau est trouvee")
 local taken = { ["9:9"] = true }
 local px3 = Li.pole_tile(sites[1], open_grid(), taken)
 check(px3 == 11, "3.15 tuile deja prise (autre poteau) ecartee")
@@ -328,6 +341,11 @@ check(not SCRIPT:find("global"), "11.4 global jamais nomme dans script/team/liai
 check(SCRIPT:find("%[FO%-LIAISON%]") ~= nil, "11.5 journal [FO-LIAISON]")
 check(SCRIPT:find("p%.counted = true") ~= nil, "11.6 une liaison n'est pas comptee comme module")
 check(SCRIPT:find("set_bar") ~= nil, "11.7 la barre du coffre d'entree est posee")
+check(SCRIPT:find("aucune place pour un poteau contre un bras %(contre", 1) ~= nil, "11.7b refus de poteau : le bout fautif est nomme")
+local i_plan = SCRIPT:find("function Liaison%.plan", 1)
+local i_loop, i_pole = SCRIPT:find("for _, e in ipairs%(ends%)", i_plan), SCRIPT:find("Tv%.pole_tile", i_plan)
+local i_end = SCRIPT:find("if not chosen then return false", i_plan)
+check(i_plan and i_loop and i_pole and i_end and i_loop < i_pole and i_pole < i_end, "11.7c les poteaux se cherchent DANS la boucle des bouts (un bout sans place : le suivant)")
 local n_pairs = 0
 local code_s = SCRIPT:gsub("%-%-%[%[.-%]%]", ""):gsub("%-%-[^\n]*", "")
 for _ in code_s:gmatch("[^i%.]pairs%(") do n_pairs = n_pairs + 1 end

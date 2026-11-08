@@ -433,8 +433,26 @@ function Liaison.plan(api, f, surface, p)
       local m = Ln.manhattan(e.src.bx, e.src.by, e.dst.bx, e.dst.by)
       local ok, w2
       if lc.bus then ok, w2 = Bus.route_ok(#tiles, m) else ok, w2 = Ln.route_ok(#tiles, m) end
-      if ok then chosen = { e = e, tiles = tiles, names = tnames } break end
-      last_why = w2
+      if ok then
+        -- lot RESEAU-GRAPHE : les poteaux se cherchent POUR CE BOUT ; sans place, on essaie le bout suivant (avant : refus au premier bout)
+        local taken = {}
+        planned = { [P.tkey(e.src.ax, e.src.ay)] = true, [P.tkey(e.dst.ax, e.dst.ay)] = true }
+        for _, t in ipairs(tiles) do planned[P.tkey(t.x, t.y)] = true; taken[t.x .. ":" .. t.y] = true end
+        taken[e.src.ax .. ":" .. e.src.ay], taken[e.dst.ax .. ":" .. e.dst.ay] = true, true
+        local poles, lack = {}, nil
+        for i, site in ipairs({ e.src, e.dst }) do
+          -- lot TRAVERSEE : de préférence une tuile sans gisement
+          local px, py = Tv.pole_tile(function(fr) return Ln.pole_tile(site, fr, taken) end, free, Trav.ore_lookup(surface))
+          if not px then lack = i == 1 and "la sortie" or "le quai" break end
+          taken[px .. ":" .. py] = true
+          planned[P.tkey(px, py)] = true
+          poles[#poles + 1] = { px, py }
+        end
+        if not lack then chosen = { e = e, tiles = tiles, names = tnames, poles = poles } break end
+        last_why = "aucune place pour un poteau contre un bras (contre " .. lack .. ")"
+      else
+        last_why = w2
+      end
     else
       last_why = tostring(why)
     end
@@ -442,18 +460,9 @@ function Liaison.plan(api, f, surface, p)
   if not chosen then return false, "liaison: " .. last_why end
   local e, tiles = chosen.e, chosen.tiles
   planned = { [P.tkey(e.src.ax, e.src.ay)] = true, [P.tkey(e.dst.ax, e.dst.ay)] = true }
-  local taken = {}
-  for _, t in ipairs(tiles) do planned[P.tkey(t.x, t.y)] = true; taken[t.x .. ":" .. t.y] = true end
-  taken[e.src.ax .. ":" .. e.src.ay], taken[e.dst.ax .. ":" .. e.dst.ay] = true, true
-  local poles = {}
-  for _, site in ipairs({ e.src, e.dst }) do
-    -- lot TRAVERSEE : de préférence une tuile sans gisement
-    local px, py = Tv.pole_tile(function(fr) return Ln.pole_tile(site, fr, taken) end, free, Trav.ore_lookup(surface))
-    if not px then return false, "liaison: aucune place pour un poteau contre un bras" end
-    taken[px .. ":" .. py] = true
-    planned[P.tkey(px, py)] = true
-    poles[#poles + 1] = { px, py }
-  end
+  for _, t in ipairs(tiles) do planned[P.tkey(t.x, t.y)] = true end
+  local poles = chosen.poles
+  for _, pl in ipairs(poles) do planned[P.tkey(pl[1], pl[2])] = true end
   local ents = Ln.entities({ src = e.src, dst = e.dst, route = tiles, names = { arm = lc.arm, belt = lc.belt, pole = lc.pole, ug = chosen.names and chosen.names.ug }, poles = poles })
   -- preuve géométrique sur le tracé VIRTUEL (une paire souterraine = des tapis droits entre l'entrée et la sortie), puis celle des paires
   local vents = Ln.entities({ src = e.src, dst = e.dst, route = Tv.virtual_belts(tiles), names = { arm = lc.arm, belt = lc.belt, pole = lc.pole }, poles = poles })
