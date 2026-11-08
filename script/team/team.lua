@@ -43,6 +43,7 @@ local FluxLog = require("script.team.flux") -- lot FLUX : journal des sorties qu
 local SortiesLog = require("script.team.sorties") -- lot CHARBON-MAIN : journal [FO-SEC] (brûleurs à sec et état de leur tournée)
 local Front = require("script.team.front") -- lot DEFENSE-FRONT : la défense suit les attaques
 local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : tourelles des îlots isolés hors de l'enceinte
+local DefStock = require("script.team.defense_stock") -- lot DEFENSE-STOCK : tourelles du coffre posées en groupes là où l'ennemi arrive
 local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites avant d'améliorer
 local Objectif = require("script.team.objectif") -- lot AGES : libellé d'un objectif (aucune clé de traduction inconnue)
 local Reparation = require("script.team.reparation") -- lot PD-REPARATION (D79) : bâtiments endommagés réparés (toutes les équipes)
@@ -57,6 +58,7 @@ local PileRt = require("script.team.pile") -- lot PILE-PRIORITE : la pile retien
 local Flux = require("shared.team.flux") -- lot FLUX : sorties des avant-postes comptées comme objets attendus (règle pure)
 local REPAT_ONLY = Flux.plates_of(Flux.plate_map(T.OUTPOST_ORDER, T.outposts, T.smelter_inputs)) -- lot FLUX : seules les plaques comptent comme objets attendus
 local Inter = require("script.team.intermediaires") -- lot MAIN-ET-INTERMEDIAIRES (D09, D10) : pas de minage à la main de ce que les machines sortent, plafond des intermédiaires
+local Src = require("script.team.sources") -- lot MINAGE-MAIN : registre des coffres de SORTIE, tournées « fetch », plus de minage à la main de ce qui dort dans une sortie
 local MigChamp = require("script.team.migration_champ") -- lot MIGRATION-CHAMP : un avant-poste de paires thermiques migré par parties vers des rangées électriques
 local Profiler = require("script.core.profiler")
 local Trace = require("script.core.trace")
@@ -689,7 +691,7 @@ function Team.view(f, tick)
   for _, o in ipairs(outposts) do n_burners = n_burners + (o.burners or 0) end
   f.team.flux_fill = Flux.refill_to(stock0[T.fuel] or 0, n_burners, T.fuel_refill_to, Flux.REFILL_MAX)
   local repat = Flux.repatriable(outposts, REPAT_ONLY)
-  local incoming = Board.incoming(f)
+  local incoming = Src.incoming(f, Board.incoming(f), tick) -- lot MINAGE-MAIN : + ce que les tournées « fetch » rapporteront des sorties (jamais le stock libre)
   local smelter_out, smelter_low = Outposts.smelters_status(f)
   -- Lot FOURS : fours libres et fours à compléter, lus par la décision d'une tournée de fonte (shared/team/chaine_main.lua).
   local four_rule = Outposts.four_rule(f)
@@ -845,6 +847,8 @@ function Team.view(f, tick)
     -- Lot IA2-b (F209) : orphelins à démonter (factions seulement).
     orphans = (not f.is_player) and Profiler.fwrap("view:5-orphelins", Outposts.orphan_groups, f, tick) or nil,
   }
+  -- Lot DEFENSE-STOCK : après le front (la cellule qu'il sert n'est pas doublée) ; poste facultatif, stock seulement
+  out.reserve = Profiler.fwrap("view:5-reserve", DefStock.view, f, fortify_open, out, stock_free, hq_turrets, outposts)
   Profiler.fstop("view:5-queue")
   return out
 end
@@ -1071,6 +1075,7 @@ TT.e4 = function(f, surface, tick, et)
   local view, plan, ia3 = et.view, et.plan, et.ia3
   Profiler.fstart("tt:inter")
   Inter.think(f, tick) -- lot MAIN-ET-INTERMEDIAIRES (D09, D10) : tâches libres retirées AVANT le marché (minage à la main fourni par les machines, quais d'un module au plafond)
+  Src.think(f, tick) -- lot MINAGE-MAIN : tournées vers les sorties qui dorment, minages libres des ressources qu'elles fournissent retirés (AVANT le marché)
   -- Lot IA3-b : meilleures paires PNJ inactif × tâche (place de marché, réglage allumé). Fusion IA-V2 : APRÈS le plan
   -- directeur (le plan crée ses tâches, puis le marché les attribue ; consigne de l'intégrateur, 27/10).
   Profiler.fstop("tt:inter")
@@ -1225,7 +1230,9 @@ TT.e6 = function(f, surface, tick, et)
   Profiler.fstart("tt:capital")
   -- Lot SANS-GEL : plus de gel des améliorations après une réouverture ; la reconstruction ne retient que sa matière (Recon.upgrade_stock).
   -- (Intégration 0.6.19 : garde de la pile ET stock libre de SANS-GEL, les deux gardés.)
-  local recon_hold = ia3 and Recon.hold_upgrades(f)
+  -- Lot AMELIORATION (décision du lead, 8/11) : avec la montée par bloc, le gel est LEVÉ sauf manque : le lot est permis si le stock couvre
+  -- son coût PLUS les pièces manquantes des projets rouverts, objet par objet (shared/ai3/amelioration.lua, cause reconstruction:<objet>).
+  local recon_hold = ia3 and Recon.hold_upgrades(f) and not Ia3.blocs_on()
   -- Lot AGES : le gel du centre n'est pas indéfini (shared/team/degel.lua) : au-delà de 20 min de gel cumulées, et la défense minimale du QG
   -- tenue, le centre (lui seul) se paie avec le stock moins la réserve de la reconstruction (SANS-GEL).
   local thaw = ia3 and (pile_hold or recon_hold) and Ia3.capital_thaw(f, true, tick)

@@ -65,7 +65,7 @@ Pet.BLOCK_OFF = 10          -- … à 10 tuiles d'elle, vers le gisement
 Pet.PUMP_TRIES = 160
 Pet.DANGER_MIN = 400        -- danger exact d'une menace connue (shared/ai3/danger.lua) au-delà duquel ses abords sont interdits au plan
 Pet.DANGER_PAD = 4          -- … rayon de la menace + marge d'exactitude + 4 tuiles
-Pet.DUMP = false           -- diagnostic (allumé par les bancs : remote fo-petrole.dump) : relevé du terrain d'un site refusé au journal
+Pet.DUMP = true            -- diagnostic (allumé par les bancs : remote fo-petrole.dump) : relevé du terrain d'un site refusé au journal
 Pet.POND = 6               -- côté de l'étang posé au gisement quand aucune rive n'est à portée (comme celui de la centrale, Build.POND)
 Pet.POND_NEAR = 60         -- rive à plus de 60 tuiles du gisement : un étang est posé au gisement
 Pet.PUMPS = 8               -- places de pompe essayées au plus (la plus proche d'abord)
@@ -208,6 +208,22 @@ local function note(f, st, tick, txt)
   log(line)
   st.logs[#st.logs + 1] = line
   while #st.logs > 24 do table.remove(st.logs, 1) end
+end
+
+--- Lot BLOCAGE-LABOS : pourquoi le pack `pack` n'est pas fabricable cote petrole (journal [FO-LABO]) : etat et raison du site qui doit le
+--- permettre (refuse, bloque, reserve…), ou « petrole eteint » ; nil si rien a dire. Lecture seule.
+function Pet.reason_for(f, pack)
+  if not Pet.on() then return "reglage petrole eteint" end
+  local st = f and f.team and f.team.petrole
+  if not st then return nil end
+  local out = {}
+  for _, s in ipairs(st.sites or {}) do
+    if s.pack == pack then
+      out[#out + 1] = string.format("site '%s' %s%s", tostring(s.key), tostring(s.state), s.reason and (" : " .. tostring(s.reason)) or "")
+    end
+  end
+  if #out == 0 then return "aucun site petrole demande pour ce pack" end
+  return table.concat(out, " ; ")
 end
 
 --- Ressources fluides connues de la faction (lu par General.state).
@@ -981,7 +997,7 @@ end
 --- Coffre de sortie du site qui peut recevoir au moins une fabrication de `row` : (coffre, place par objet) ou nil.
 local function valve_chest(f, surface, p, row)
   for _, o in ipairs(p.outs or {}) do
-    local chest = surface.find_entity("iron-chest", { o.x, o.y })
+    local chest = surface.find_entity(o.name or D.CHEST, { o.x, o.y }) -- coffre de sortie du site (nom lu aux données, jamais en dur : iag_test)
     if chest and chest.valid and chest.force.name == f.force then
       local inv = chest.get_inventory(defines.inventory.chest)
       local room, ok = {}, true

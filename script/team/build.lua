@@ -113,6 +113,10 @@ Build.SITES = {}               -- lot PETROLE : planificateurs de sites { [nom] 
 local REACH = P.BUILD_DISTANCE
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (réserve des modules neufs, agrandissement, tapis)
 Build.Ene = require("shared.team.energie_dabord") -- lot TV-ENERGIE (G41) : « la première expansion est l'énergie », règle pure ; champ de Build, pas une locale (bloc principal à 198 locales)
+Build.Qd = require("shared.team.quai_debit") -- lot RESEAU-GRAPHE : bras du quai d'entrée choisi par le débit, n borné à ce que le quai porte (règle pure) ; champ de Build, pas une locale
+Build.QUAI_CHEST = "iron-chest" -- coffre des quais et des sorties (pièce du plan, P.feeder) : un seul nom pour les relevés au moteur
+Build.QUAI_BORNE_N = false -- vrai : rangée raccourcie à ce que le quai porte (RESEAU-GRAPHE) ; faux depuis la directive du DC (rangées longues)
+Build.QUAI_PAR_DEBIT = true -- vrai : NOUVEAUX gabarits seulement (les projets déjà planifiés gardent leurs pièces) ; faux : le quai d'avant (un bras de base par voie)
 Build.Colr = require("shared.team.collecte") -- lot COLLECTE : règle pure (états servis, voyage à vide) ; champ de Build, pas une locale (essai-0660 : bloc principal à 200 locales)
 local Collecte = require("script.team.collecte") -- lot COLLECTE : coffres de sortie du champ collectés en urgence quand le fer manque
 local Rr = require("shared.team.rebuild_rapide") -- lot REBUILD-RAPIDE : projet rouvert sans attendre toute sa matière, ordre, foreuse de secours
@@ -124,9 +128,14 @@ Build.Tj = require("script.team.tourelle_journal")
 Build.Co = require("shared.team.couloir")
 -- Lot VIDEO L4 : quotas du gabarit (colle de shared/team/quotas.lua) ; champ de Build, même raison (199 locales sur 200).
 Build.Quotas = require("script.team.quotas_glue")
+Build.Agents = require("script.companion.registry") -- lot MESURE-MODULE : l'agent qui porte une tâche de coffre (indice réécrit)
+Build.Sites = require("shared.team.sites_dedup") -- lot MESURE-MODULE : copies de coffres de p.quais / p.outs (champ de Build, pas une locale)
+-- Lot REMPLISSAGE : cible des coffres d'entrée quand le stock est abondant (colle de shared/team/remplissage.lua) ; champ de Build, même raison.
+Build.Rempl = require("script.team.remplissage_glue")
 -- Lot TV-VAPEUR : tampon de vapeur de la centrale (V36, colle de shared/team/vapeur_tampon.lua) et dégradation sous charge (V89, script/core/
 -- charge.lua) ; champs de Build, pas des locales (199 locales sur 200).
 Build.Vg = require("script.team.vapeur_glue")
+Build.Piquage = require("script.team.piquage") -- lot PIQUAGE : entrée d'un bloc alimentée par le surplus d'un tapis existant ; champ de Build, pas une locale (build.lua est à 199 locales)
 Build.Charge = require("script.core.charge")
 -- Lot VIDEO L9 : lots de minerai réservés au minerai (colle de shared/team/lot_minerai.lua, interrupteur éteint par défaut) ; champ
 -- de Build, même raison (199 locales sur 200).
@@ -136,6 +145,7 @@ Build.LotsMinerai = require("script.team.lots_minerai_glue")
 Build.Repli = require("script.team.repli_place")
 -- Lot TV-ARCHI (V23) : quartiers et enveloppe d'avance (script/team/quartiers.lua) ; champ de Build, même raison (199 locales sur 200).
 Build.Quartiers = require("script.team.quartiers")
+Build.Trav = require("script.team.traversee") -- lot TRAVERSEE : tapis qui enjambent les obstacles par des souterrains, gisements évités (champ de Build : bloc principal à 199 locales)
 -- Lot RAPATRIEMENT (8/11) : lignes sortie lointaine -> tapis -> tampon (script/team/rapatriement.lua) ; champ de Build, même raison (199 locales sur 200).
 Build.Rapatriement = require("script.team.rapatriement")
 Build.Place = require("script.team.place_glue") -- lot TV-PLACE : sonde 30 x 30 (G37), défrichage préventif 50 x 50 (G38), repli de placement simple (C07)
@@ -666,6 +676,15 @@ local function template_of(spec, opts)
     local n = opts.grow(g, cur)
     if type(n) == "number" and n ~= cur and n >= 1 and n <= ex.max then g = extend_to(g, n) end
   end
+  -- lot RESEAU-GRAPHE (audit « n entrées, m sorties ») : le quai d'entrée porte au plus 2 bras rapides par voie ; un gabarit dont l'entrée
+  -- (servie par quai) demande plus est refait à la plus grande taille que le quai porte (n proportionnel au débit d'entrée)
+  -- Intégrateur (8/11, 13 h 15, directive du DC « aligner une rangée d'assembleurs (ex: 5 à la suite) ») : rangée JAMAIS raccourcie au
+  -- débit du quai (Build.QUAI_BORNE_N faux) ; l'entrée qui manque arrive par tapis (piquage, bus), le second bras du quai reste.
+  if Build.QUAI_PAR_DEBIT and Build.QUAI_BORNE_N and g.gen ~= "steam" and g.extensions and g.extensions[1] then
+    local cur = g.args[g.extensions[1].arg]
+    local n = Build.Qd.max_n(M, g, Build.Qd.skip(M, g, spec.feed == "quai"))
+    if n and n < cur then g = extend_to(g, n) end
+  end
   return g
 end
 
@@ -1140,9 +1159,9 @@ local function plan_power(f, p, mp, masks)
       local i, j = P.lot_at(b.lat, math.floor(x), math.floor(y))
       return not i or (i == oi and j == oj) or not Pt.lot_protected(b.lots[P.lot_key(i, j)])
     end
-    direct = P.pole_chain(a, dgoal, dlink, false, free_street, k, opts)
+    direct = Build.Trav.pole_chain(f, surface, a, dgoal, dlink, false, free_street, k, opts)
     if not Pt.keep_street(a, direct, dgoal) then
-      local c2 = P.pole_chain(a, dgoal, dlink, false, free, k, opts)
+      local c2 = Build.Trav.pole_chain(f, surface, a, dgoal, dlink, false, free, k, opts)
       if c2 and (not direct or Pt.length(a, c2, dgoal) < Pt.length(a, direct, dgoal) - 0.01) then direct = c2 end
     end
   end
@@ -1169,7 +1188,7 @@ local function plan_power(f, p, mp, masks)
     -- poteaux de rue : moyens, ou grands quand deux carrefours décalés passent la portée
     local d2 = prev and ((prev.x - pos.x) ^ 2 + (prev.y - pos.y) ^ 2) or 0
     if prev and (not big or d2 > reach * reach - 1e-6) then
-      local chain = P.pole_chain(prev, pos, reach, big, free, known)
+      local chain = Build.Trav.pole_chain(f, surface, prev, pos, reach, big, free, known)
       if not chain then
         if direct then return direct_out() end -- (l'escalier échoue, le direct passe)
         return nil, "poteaux de rue"
@@ -1192,7 +1211,7 @@ local function plan_power(f, p, mp, masks)
     chain, w4, wait4 = Far.line(f, surface, p, { x = mp.x, y = mp.y }, npos, link_reach, taken, known, read_masks)
     if not chain then return nil, w4, wait4 end
   else
-    chain = P.pole_chain({ x = mp.x, y = mp.y }, npos, link_reach, false, free, known)
+    chain = Build.Trav.pole_chain(f, surface, { x = mp.x, y = mp.y }, npos, link_reach, false, free, known)
   end
   if not chain then
     if direct then return direct_out() end
@@ -1542,6 +1561,12 @@ local function plan_feed(f, surface, p, place, part)
       -- PLANDIR (28/10) : ils le RESTENT, mesuré : passés à l'électrique, les bras de la centrale la tuaient en 1,5 à 3,5 min
       -- (6 cas sur 6)
       local quai_ins = (g.gen == "steam") and M.BURNER_ARM or "inserter"
+      local quai_n = 1
+      if Build.QUAI_PAR_DEBIT and g.gen ~= "steam" then
+        -- lot RESEAU-GRAPHE : le bras du quai suit le débit de la recette, comme out_arms pour les sorties (1 à 2 bras par voie)
+        local qd = Build.Qd.plan(M, g, Build.Qd.skip(M, g, p.spec.feed == "quai"))
+        quai_ins, quai_n = qd.arm, qd.count
+      end
       -- Lot CONVOYEURS : la tête et le tracé des foreuses ont le même tapis (le meilleur débloqué, ou celui que le débit exige)
       local head_belt
       do
@@ -1549,7 +1574,7 @@ local function plan_feed(f, surface, p, place, part)
         for lane = 1, 2 do if drills[lane] and drills[lane].flow > top then top = drills[lane].flow end end
         if top > 0 then head_belt = Conv.choose(f, top) end
       end
-      local fd = P.feeder(port, sources, quai_ins, head_belt)
+      local fd = P.feeder(port, sources, quai_ins, head_belt, quai_n)
       for _, e in ipairs(fd.entities) do e.part = part end
       if not reserve_tiles(b, p, fd.entities) then return false, "tete d'alimentation" end
       for _, c in ipairs(fd.chests) do p.quais[#p.quais + 1] = { x = c.x, y = c.y, item = c.item } end
@@ -1570,7 +1595,7 @@ local function plan_feed(f, surface, p, place, part)
           if not ok then
             -- repli : quai sur cette voie (le tapis n'a pas pu être tracé ou le gisement manque)
             bump(b.stats.plan_refused, "tapis:" .. tostring(why))
-            local alt = P.feeder(port, { a.lane == 1 and "quai" or nil, a.lane == 2 and "quai" or nil }, quai_ins, head_belt)
+            local alt = P.feeder(port, { a.lane == 1 and "quai" or nil, a.lane == 2 and "quai" or nil }, quai_ins, head_belt, quai_n)
             local extra = {}
             for _, e in ipairs(alt.entities) do if e.role ~= "tete" then e.part = part; extra[#extra + 1] = e end end
             if reserve_tiles(b, p, extra) then
@@ -2121,6 +2146,8 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
     return c
   end
   local tiles, n2
+  local tnames -- lot TRAVERSEE : nom du souterrain d'un tracé qui en pose
+  local topts = { belt = belt, sd = tail.dir, kind = "foreuses" }
   if relay_legs then
     -- lot ENERGIE : tapis par relais. Chaque tronçon va d'un départ à un point de passage libre (sens de l'axe dominant), dans sa propre
     -- boîte lue au moteur ; le tronçon suivant part de la tuile qui suit le point de passage. Tout ou rien : un tronçon sans chemin
@@ -2150,7 +2177,7 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
       n2 = "relais : " .. tostring(why_leg)
     end
   else
-    tiles, n2 = P.belt_route(s, { x = a.x, y = a.y }, a.dir, { x0 = bx0, y0 = by0, x1 = bx1, y1 = by1 }, cost)
+    tiles, n2, tnames = Build.Trav.route(f, surface, p, s, { x = a.x, y = a.y }, a.dir, { x0 = bx0, y0 = by0, x1 = bx1, y1 = by1 }, cost, topts)
   end
   if not tiles and not relay_legs then
     -- second essai, marge d'un pas de treillis (contourner une falaise par la brèche voisine ; correction du 27/10)
@@ -2159,7 +2186,7 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
     if cx1 - cx0 <= 120 and cy1 - cy0 <= 120 then
       local m2 = read_masks(f, surface, cx0, cy0, cx1 + 1, cy1 + 1)
       masks.water, masks.blocked, masks.clear = m2.water, m2.blocked, m2.clear
-      tiles, n2 = P.belt_route(s, { x = a.x, y = a.y }, a.dir, { x0 = cx0, y0 = cy0, x1 = cx1, y1 = cy1 }, cost)
+      tiles, n2, tnames = Build.Trav.route(f, surface, p, s, { x = a.x, y = a.y }, a.dir, { x0 = cx0, y0 = cy0, x1 = cx1, y1 = cy1 }, cost, topts)
     end
   end
   if not tiles and n2 == "trop long" then
@@ -2174,8 +2201,8 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
     local m2 = read_masks(f, surface, cx0, cy0, cx1 + 1, cy1 + 1)
     masks.water, masks.blocked, masks.clear = m2.water, m2.blocked, m2.clear
     local first = n2
-    tiles, n2 = P.belt_route(s, { x = a.x, y = a.y }, a.dir, { x0 = cx0, y0 = cy0, x1 = cx1, y1 = cy1 }, cost,
-      { weight = Build.ROUTE_WEIGHT, max = (cx1 - cx0 + 1) * (cy1 - cy0 + 1) })
+    tiles, n2, tnames = Build.Trav.route(f, surface, p, s, { x = a.x, y = a.y }, a.dir, { x0 = cx0, y0 = cy0, x1 = cx1, y1 = cy1 }, cost,
+      { belt = belt, sd = tail.dir, kind = "foreuses", weight = Build.ROUTE_WEIGHT, max = (cx1 - cx0 + 1) * (cy1 - cy0 + 1) })
     bump(b.stats.plan_refused, "tapis-pondere:" .. (tiles and "ok" or tostring(n2)))
     if not tiles then n2 = first .. ", pondere : " .. tostring(n2) end
   end
@@ -2184,7 +2211,10 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
     Build.drill_diag(f, item, n, a, "tapis " .. tostring(n2), nil, s)
     return false, n2
   end
-  for _, t in ipairs(tiles) do ents[#ents + 1] = { name = belt, x = t.x + 0.5, y = t.y + 0.5, dir = t.dir, part = part, role = "liaison-tapis" } end
+  for _, e2 in ipairs(Build.Trav.entities(tiles, { belt = belt, ug = tnames and tnames.ug }, "liaison-tapis")) do
+    e2.part = part
+    ents[#ents + 1] = e2
+  end
   if not reserve_tiles(b, p, ents) then p.parts[part] = nil; return false, "place" end
   if place.lot then b.lots[place.lot].used = p.id end -- (lot TV-REPLI : un repli n'a pas de lot du treillis)
   return true
@@ -2620,7 +2650,7 @@ local function plan_raccord(f, surface, p)
     end
   end
   -- second chemin : le détour de la zone des ennemis demande plus de cellules que le plafond ordinaire (600 : couloir trop grand)
-  local chain = P.pole_chain(start, { x = rc.target.x, y = rc.target.y }, rc.reach, rc.big, free, known,
+  local chain = Build.Trav.pole_chain(f, surface, start, { x = rc.target.x, y = rc.target.y }, rc.reach, rc.big, free, known,
     avoid and { max_cells = 2500, max_expand = 10000 } or nil)
   if not chain then return false, "raccord: aucune chaine de poteaux (relief, eau, place)" end
   local ents = {}
@@ -2706,6 +2736,7 @@ local function plan_project(f, surface, p)
       reserve_tiles = reserve_tiles, finish = plan_finish, add_obstacle = add_obstacle, free_spot = free_spot,
       count = function(it) return Stock.count(f, it) end }) -- (tranche 3 : tourelle du pôle si le coffre l'a)
   end
+  if spec.liaison and spec.liaison.piquage then return Build.Piquage.plan({ read_masks = function(x0, y0, x1, y1) return read_masks(f, surface, x0, y0, x1, y1) end, reserve_tiles = reserve_tiles, wood_of = wood_of, free_spot = free_spot, add_obstacle = add_obstacle, item_of = item_of, seg_passable = seg_passable, REACH = REACH, trav = Build.Trav }, f, surface, p) end -- lot PIQUAGE
   if spec.rapatriement then -- lot RAPATRIEMENT : ligne longue d'une sortie lointaine à un coffre tampon (script/team/rapatriement.lua)
     return Build.Rapatriement.plan({ read_masks = function(x0, y0, x1, y1) return read_masks(f, surface, x0, y0, x1, y1) end, reserve_tiles = reserve_tiles, wood_of = wood_of,
       free_spot = free_spot, add_obstacle = add_obstacle, item_of = item_of, seg_passable = seg_passable, REACH = REACH }, f, surface, p)
@@ -2754,6 +2785,13 @@ local function plan_project(f, surface, p)
   p.consumes = {}
   p.inflow = {} -- lot INDUSTRIE I7 : débit nominal de chaque entrée (objets/s), lu par script/team/liaison.lua pour le prix d'une liaison de quai
   for _, k in ipairs(sorted_keys(g.inputs or {})) do p.consumes[k] = true; p.inflow[k] = g.inputs[k] end
+  if Build.QUAI_PAR_DEBIT and g.gen ~= "steam" then
+    -- lot RESEAU-GRAPHE : le débit d'une entrée servie par quai est celui que le quai porte (Li.worth le lit : min(nominal, capacité))
+    local qcaps = Build.Qd.plan(M, g, Build.Qd.skip(M, g, spec.feed == "quai")).caps
+    for _, k in ipairs(sorted_keys(qcaps)) do
+      if p.inflow[k] and qcaps[k] < p.inflow[k] then p.inflow[k] = qcaps[k] end
+    end
+  end
   p.outflow = {} -- lot VIDEO L4 : débit nominal de chaque sortie (objets/s, M.analyze), lu par les quotas (Build.Quotas)
   for _, k in ipairs(sorted_keys(g.nominal or {})) do p.outflow[k] = g.nominal[k] end
   local main
@@ -2987,6 +3025,8 @@ local function needs_of(p)
       if e.charge then bump(need, e.charge.item, e.charge.count) end -- lot CHAMP : coffre de combustible posé garni
     end
   end
+  local lq = p.spec and p.spec.liaison
+  if lq and lq.extra and not p.piq_placed then bump(need, lq.extra.item) end -- lot PIQUAGE : le répartiteur, posé par le script à la fin du projet
   return need
 end
 
@@ -3183,6 +3223,17 @@ end
 
 --- Lot IA3-e : annule une demande pas encore en chantier (attente, plan, réserve) : objets réservés rendus au coffre,
 --- tuiles et lots libérés ; état « refuse » (raison donnée). Rend vrai si la demande a été annulée.
+--- Lot RANGEES-ASM : agrandit sur place le gabarit d'un module ENCORE EN ATTENTE (rien de posé ni de réservé) : ses
+--- arguments deviennent `args` (rangée plus longue, mêmes tapis prolongés). Rend vrai si le projet a été changé.
+function Build.resize_waiting(f, id, args)
+  local p = f and f.build and f.build.projects[id]
+  if not (p and p.state == "attente" and p.spec and type(args) == "table") then return false end
+  local a = {}
+  for i = 1, #args do a[i] = args[i] end
+  p.spec.args = a
+  return true
+end
+
 function Build.cancel(f, id, why)
   local b = f and f.build
   local p = b and b.projects[id]
@@ -3782,13 +3833,14 @@ function Build.work(agent, f, tick)
     return "done"
   elseif job.mode == "fill" then
     local q = p.quais[job.idx]
-    local chest = q and surface.find_entity("iron-chest", { q.x, q.y })
+    local chest = q and surface.find_entity(Build.QUAI_CHEST, { q.x, q.y })
     if not chest then return "fail" end
     local n = inv.get_item_count(q.item)
     if n > 0 then
       local put = chest.insert({ name = q.item, count = n })
       if put > 0 then inv.remove({ name = q.item, count = put }) end
       b.stats.filled = b.stats.filled + put
+      q.tours, q.filled = (q.tours or 0) + 1, (q.filled or 0) + put -- lot PIQUAGE : tournées « fill » par quai (journal [FO-PIQUAGE] bilan)
       b.stats.trips_fill = (b.stats.trips_fill or 0) + 1 -- lot RAPATRIEMENT : voyages de remplissage terminés (critère C2)
     end
     return "done"
@@ -3796,7 +3848,7 @@ function Build.work(agent, f, tick)
     return Sante.work(f, p, surface, inv, tick) -- lot ENERGIE (2/11) : charbon porté versé dans les chaudières à sec
   elseif job.mode == "collect" then
     local o = p.outs[job.idx]
-    local function out_chest(q) return surface.find_entity("iron-chest", { q.x, q.y }) end
+    local function out_chest(q) return surface.find_entity(Build.QUAI_CHEST, { q.x, q.y }) end
     local chest = o and out_chest(o)
     if not chest then return "fail" end
     local got = 0
@@ -4038,7 +4090,7 @@ end
 local function out_tasks(f, p, surface, out)
   local chests, counts, slots, in_slots = {}, {}, nil, nil
   for i, o in ipairs(p.outs) do
-    local chest = surface.find_entity("iron-chest", { o.x, o.y })
+    local chest = surface.find_entity(Build.QUAI_CHEST, { o.x, o.y })
     if chest and chest.force.name == f.force then
       local inv = chest.get_inventory(defines.inventory.chest)
       chests[i], counts[i] = chest, inv.get_item_count()
@@ -4082,7 +4134,7 @@ local function quai_tasks(f, p, surface, out)
   local qta, counts = out_tasks(f, p, surface, collect)
   local feed = Build.Quotas.feed_ok(qta, counts)
   for i, q in ipairs(p.quais) do
-    local chest = surface.find_entity("iron-chest", { q.x, q.y })
+    local chest = surface.find_entity(Build.QUAI_CHEST, { q.x, q.y })
     if chest and chest.force.name == f.force then
       local n = chest.get_item_count(q.item)
       local have = Stock.count(f, q.item)
@@ -4103,6 +4155,7 @@ local function quai_tasks(f, p, surface, out)
         end
       elseif feed then -- lot VIDEO L4 : module à sortie pleine, plus d'alimentation (V27) ; une minute d'ingrédients (V25), sinon l'ancienne règle
         local r = Build.Quotas.refill(qta, i, n, have, Build.QUAI_LOW, Build.QUAI_FILL)
+        r = Build.Rempl.adjust(f, p, i, q, chest, n, have, qta, r, Build.QUAI_LOW, Build.QUAI_FILL) -- lot REMPLISSAGE : stock abondant, coffre plein
         if r.due then
           local a = P.anchor_for(f.build.lat, q.x, q.y, seg_passable(f.build))
           if not a then local fx, fy = free_spot(f.build, nil, q.x, q.y); a = { x = fx, y = fy } end
@@ -4259,6 +4312,7 @@ local function advance(f, surface, p, tick)
     -- lot IA3-e : minuteurs des parties arrêtés aussi après un retour anticipé du plan (refus, attente)
     Profiler.stop("build:plan:place"); Profiler.stop("build:plan:feed"); Profiler.stop("build:plan:power"); Profiler.stop("build:plan:anchors")
     if ok then
+      p.sites_v = 1 -- lot MESURE-MODULE : coffres planifiés une seule fois (Build.dedupe_sites n'a rien à relire)
       p.masq_n = nil -- lot POTEAUX-MASQUES : l'accord de chunks repart de zéro au prochain plan de ce projet
       p.state = "reserve"
       p.started = tick
@@ -4273,6 +4327,7 @@ local function advance(f, surface, p, tick)
       for _, l in pairs(b.lots) do if l.used == p.id then l.used = nil end end
       for _, n in ipairs(sorted_keys(b.net)) do if b.net[n].pid == p.id then b.net[n] = nil end end
       p.ents, p.parts = {}, {}
+      p.quais, p.outs = {}, {} -- lot MESURE-MODULE : plan_feed les AJOUTE à chaque plan (un module à 3 attentes avait 4 copies de sa sortie)
       p.masq_n = (p.masq_n or 0) + 1
       p.plan_after = tick + Mq.WAIT_TICKS
       p.state, p.reason = "attente", why
@@ -4282,6 +4337,7 @@ local function advance(f, surface, p, tick)
       for _, l in pairs(b.lots) do if l.used == p.id then l.used = nil end end
       for _, n in ipairs(sorted_keys(b.net)) do if b.net[n].pid == p.id then b.net[n] = nil end end
       p.ents, p.parts = {}, {}
+      p.quais, p.outs = {}, {} -- lot MESURE-MODULE (voir plus haut)
       p.wait_net = (p.wait_net or 0) + 1
       -- lot POTEAUX-MASQUES (relecture) : après 30 s le cache (Mq.TTL) est tombé ; garder l'ancien accord ferait relire jusqu'à 20
       -- chunks en une seule passe (pic) : l'accord repart de zéro, comme pour tout nouveau plan
@@ -4299,6 +4355,7 @@ local function advance(f, surface, p, tick)
       for _, l in pairs(b.lots) do if l.used == p.id then l.used = nil end end
       for _, n in ipairs(sorted_keys(b.net)) do if b.net[n].pid == p.id then b.net[n] = nil end end
       p.ents, p.parts, p.far = {}, {}, nil
+      p.quais, p.outs = {}, {} -- lot MESURE-MODULE (voir plus haut)
       p.masq_n = nil
       p.plan_after = tick + (p.far_poll or Cl.RETRY)
       p.far_poll = nil
@@ -4316,6 +4373,7 @@ local function advance(f, surface, p, tick)
       for _, l in pairs(b.lots) do if l.used == p.id then l.used = nil end end
       for _, n in ipairs(sorted_keys(b.net)) do if b.net[n].pid == p.id then b.net[n] = nil end end
       p.ents, p.parts = {}, {}
+      p.quais, p.outs = {}, {} -- lot MESURE-MODULE (voir plus haut)
       p.state, p.reason = "refuse", why
       b.stats.projects_refused = b.stats.projects_refused + 1
       if b.plant == p.id then b.plant = nil end
@@ -4658,6 +4716,7 @@ local function pulse_team(f, tick)
   Profiler.fstop("bp:raccord")
   Profiler.fstart("bp:liaison")
   Liaison.step({ request = Build.request, prio = Build.PRIO + 1, fill = Build.QUAI_FILL, low = Build.QUAI_LOW }, f, surface, tick)
+  Build.Piquage.step({ request = Build.request, prio = Build.PRIO + 1, fill = Build.QUAI_FILL, low = Build.QUAI_LOW }, f, surface, tick) -- lot PIQUAGE
   Profiler.fstop("bp:liaison")
   Build.Rapatriement.step({ request = Build.request, prio = Build.PRIO + 1 }, f, surface, tick) -- lot RAPATRIEMENT : sorties lointaines reliées au tampon près des quais
   Profiler.fstart("bp:centrale")
@@ -5037,6 +5096,7 @@ function Build.think(f, surface, tick)
       -- la condition (relue telle quelle par tests/charbon_centrale_test.lua) ; e2:coffres compté à l'unique appel, et non dans quai_tasks,
       -- que tests/quotas_glue_test.lua charge à part, sans profileur (mesure seulement, détail)
       Profiler.fstart("e2:quai")
+      if p.sites_v ~= 1 then Build.dedupe_sites(f, p) end -- lot MESURE-MODULE : projets planifiés avant le correctif
       if p.state == "fini" or p.state == "chantier" or (p.reopened and p.state ~= "refuse" and is_plant_project(p)) then
         quai_tasks(f, p, surface, tasks)
         Profiler.fcount("e2:coffres", #p.quais + #p.outs)
@@ -5117,7 +5177,7 @@ function Build.status(f, id)
   local quais = {}
   local surface = surface_of(f)
   for _, q in ipairs(p.quais) do
-    local chest = surface and surface.find_entity("iron-chest", { q.x, q.y })
+    local chest = surface and surface.find_entity(Build.QUAI_CHEST, { q.x, q.y })
     quais[#quais + 1] = { x = q.x, y = q.y, item = q.item, count = chest and chest.get_item_count(q.item) or -1 }
   end
   -- entités pas encore bâties (5 au plus, dans l'ordre de pose) : ce qui retient un chantier
@@ -5137,6 +5197,58 @@ function Build.status(f, id)
     -- lot FONDERIE-DYNAMIQUE : taille posée et réservée d'une ligne dynamique (nil pour les autres projets)
     ligne = p.ligne and { rows = p.ligne.rows, rows_max = p.ligne.rows_max, pairs = p.ligne.pairs, pairs_max = p.ligne.pairs_max,
       held = #p.ligne.held, last = p.ligne.last, steps = p.ligne.steps } or nil }
+end
+
+--- Lot MESURE-MODULE : retire les copies d'un même coffre de p.quais et p.outs (projets planifiés avant le correctif de plan_feed :
+--- un plan qui attendait puis recommençait ajoutait ses coffres une fois de plus). Les indices de p.quais et p.outs servent de clé aux
+--- tâches du tableau (ia1d:<projet>:q|o:<indice>) et sont copiés dans l'agent qui porte la tâche : ils sont RÉÉCRITS ensemble.
+--- Une seule tâche reste par coffre (la prise de préférence), les copies libres sont jetées, la tâche prise passe à son nouvel
+--- indice, celui de l'agent aussi. Appelée par la passe des tâches (premier passage après un chargement, jamais en on_load) tant que
+--- p.sites_v ~= 1. Rend le nombre de copies retirées de p.quais et p.outs.
+function Build.dedupe_sites(f, p)
+  local D = Build.Sites
+  local dq, do_ = D.count_dups(p.quais, D.quai_key), D.count_dups(p.outs, D.out_key)
+  if dq == 0 and do_ == 0 then p.sites_v = 1; return 0 end
+  local quais, map_q = D.remap(p.quais, D.quai_key)
+  local outs, map_o = D.remap(p.outs, D.out_key)
+  p.quais, p.outs = quais, outs
+  p.quota, p.quota_key = nil, nil -- le quota se refait pour le vrai nombre de coffres (Quotas.of)
+  -- tâches du tableau de ce projet
+  local tasks = f.team and f.team.board and f.team.board.tasks or {}
+  local entries, by_key = {}, {}
+  for _, key in ipairs(sorted_keys(tasks)) do
+    local t = tasks[key]
+    local j = t.ia1d
+    if j and j.pid == p.id and (j.mode == "collect" or j.mode == "fill") and type(j.idx) == "number" then
+      entries[#entries + 1] = { key = key, mode = j.mode, idx = j.idx, taken = t.worker ~= nil }
+      by_key[key] = t
+    end
+  end
+  local plan = D.plan_tasks(entries, map_o, map_q, p.id)
+  local dropped = {}
+  for _, a in ipairs(plan) do if a.action == "drop" then dropped[by_key[a.key]] = true end end
+  if next(dropped) ~= nil then Board.drop_free(f, function(t) return not dropped[t] end) end
+  for _, a in ipairs(plan) do
+    local t = by_key[a.key]
+    if a.action == "keep" and t then
+      local old = t.ia1d.idx
+      t.ia1d.idx = a.idx
+      if t.worker ~= nil then -- l'agent porte une copie de l'indice (étape « ia1d », worker.lua)
+        local ag = Build.Agents.get(t.worker)
+        local aj = ag and ag.ia1d
+        if aj and aj.pid == p.id and aj.mode == t.ia1d.mode and aj.idx == old then aj.idx = a.idx end
+      end
+      if a.newkey ~= a.key and tasks[a.newkey] == nil then
+        tasks[a.key] = nil
+        tasks[a.newkey] = t
+        t.key = a.newkey
+      end
+    end
+  end
+  p.sites_v = 1
+  log(string.format("[FO-SITES] %s : projet %d, %d copie(s) de coffre d'entree et %d de coffre de sortie retiree(s), %d tache(s) du tableau jetee(s) (plans repris avant le correctif) a %.1f min",
+    f.key or "player", p.id, dq, do_, (function() local n = 0; for _ in pairs(dropped) do n = n + 1 end; return n end)(), game.tick / 3600))
+  return dq + do_
 end
 
 --- Lot IA3-e : état court d'une demande, SANS appel du moteur (lu à chaque pensée par le cerveau ; Build.status relit les
@@ -5287,9 +5399,26 @@ remote.add_interface("fo-ia1d", {
     if type(spec) == "table" and spec.bench == nil and not expansion then spec.bench = "remote" end
     return Build.request(f, spec)
   end,
+  --- Lot TV-ENERGIE (BANC SEULEMENT, micro-banc tv-energie-kw) : pose comme centrale FINIE de l'équipe un projet dont les pièces sont des entités
+  --- RÉELLES déjà créées par le banc (ents = { { name, x, y } }) : le relevé de la centrale (PA.watch, Sante.observe) les lit au moteur.
+  bench_plant = function(key, ents, gen)
+    local f = team_of_key(key)
+    local b = f and f.build
+    if not (b and type(ents) == "table") then return nil end
+    local id = b.next_id
+    b.next_id = id + 1
+    local p = { id = id, spec = { gen = gen, args = { 1 }, feed = true, plant = true, bench = "remote" }, state = "fini", created = game.tick,
+      finished = game.tick, reason = nil, parts = { { kind = "centrale", ox = ents[1] and ents[1].x or 0, oy = ents[1] and ents[1].y or 0, w = 3, h = 3, k = 0 } }, ents = {}, wires = {}, stock = {}, quais = {}, outs = {},
+      obstacles = {}, fails = 0, prio = Build.PRIO, domain = "infrastructures" }
+    for _, e in ipairs(ents) do p.ents[#p.ents + 1] = { name = e.name, x = e.x, y = e.y, built = true } end
+    b.projects[id] = p
+    b.order[#b.order + 1] = id
+    b.plant = id
+    return id
+  end,
   status = function(key, id) return Build.status(team_of_key(key), id) end,
   report = function(key) return Build.report(team_of_key(key)) end,
-  place = function(key, cmd) return Build.Place.remote(team_of_key(key), cmd) end, -- lot TV-PLACE : compteurs de la sonde 30 x 30, du défrichage préventif et du repli simple (bancs)
+  place = function(key, cmd, arg) return Build.Place.remote(team_of_key(key), cmd, arg) end, -- lot TV-PLACE : compteurs de la sonde 30 x 30, du défrichage préventif et du repli simple (bancs)
   lots_minerai = function(key, cmd, arg) return Build.LotsMinerai.remote(team_of_key(key), cmd, arg) end, -- lot VIDEO MINERAI-SONDE : lots reserves, événements, relevés refaits (bancs)
   layout = function(key) return Build.layout(team_of_key(key)) end,
   quartiers = function(key, cmd, arg) return Build.Quartiers.remote(team_of_key(key), cmd, arg) end, -- lot TV-ARCHI : bancs (report, now, bench_build)

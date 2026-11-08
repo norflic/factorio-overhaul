@@ -1,4 +1,21 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.67
+Date: 2026-11-08
+  Changes:
+    - Gels corriges : traces A* du bus et du rapatriement decoupes en tranches sur plusieurs ticks (pire passe mesuree environ 5 ms), piquage borne (une recherche par tick, 300 noeuds), sortie au premier echec.
+    - Amelioration par bloc : tapis et bras rapides par bloc, la chaine du centre ne monte plus seule, gel de la reconstruction leve sauf manque, ce qui est payable passe avant ce qu'il faut fabriquer.
+    - Piquage sur les tapis des autres usines finies, des troncs de bus et des lignes de rapatriement ; bus confirme par quai ; poteau a 2 cases d'un bras ; sorties deja rapatriees retirees du bus ; rapatriement : recherche elargie decoupee, objets satures exclus.
+    - Modules poses meme sans marge de courant lue (centrale du joueur) ; coffre de sortie d'un bras retrouve par sa case de depot ; defense : refus loin et danger, plafond du mall de tourelles ; courant : 60 % des kW au plus par minerai ; vue Cerveau V1.6 ; tests rouges mis a jour.
+---------------------------------------------------------------------------------------------------
+Version: 0.6.66
+Date: 2026-11-08
+  Changes:
+    - Architecture (directive du DC du 8/11, 13 h 05) : bus de produits par tapis (fo-war-bus : une sortie de fonderie reliee par un tronc long, souterrains compris, au quai qui consomme) ; piquage par repartiteur sur un tapis existant, les lignes de liaison et de rapatriement comprises ; rapatriement des fonderies lointaines par tapis vers un coffre tampon ; rangees d'assembleurs allongees au lieu de nouveaux ilots (rangees-asm) ; quai a deux bras dimensionne au debit, rangee jamais raccourcie.
+    - Amelioration continue par bloc (fours, foreuses, assembleurs) ; modules de vitesse poses depuis le stock (foreuses comprises) ; coffres des ilots remplis jusqu'a leur capacite quand le stock deborde ; plus de minage a la main quand le stock ou les coffres de sortie couvrent ; tourelles du stock posees en groupe la ou l'ennemi arrive ; portee des soldats x0,65.
+    - Energie : centrale demandee des qu'il manque des kW (refus qui dit les kW), part des kW par minerai ; soupape des fluides ; charbon des coffres propres d'un avant-poste brule sur place ; ordre des tiers : un rang attend que les chaines de rang inferieur tiennent leur debit (levee apres 20 min).
+    - Vue Cerveau (par joueur) : zones, etat reel, decisions et refus ; centre de commandement pose repare au niveau 1 pres du joueur dans une partie neuve.
+    - Corriges : coffres comptes jusqu'a 4 fois (taches de remplissage et de collecte en double) ; plantage des modules poses (fonction absente en 1.1.91).
+---------------------------------------------------------------------------------------------------
 Version: 0.6.65
 Date: 2026-11-08
   Changes:

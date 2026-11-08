@@ -139,8 +139,8 @@ for _, r in ipairs(run(SRC)) do check(r[1], r[2], r[3]) end
 do
   local op, wk, sk = read("script/faction/outposts.lua"), read("script/team/worker.lua"), read("script/team/stock.lua")
   check("cablage : collect ecarte les matieres refusees", op:find("if not (skip and skip(name)) then", 1, true) ~= nil
-    and op:find("function Outposts.service(o, carrier, tick, fill, skip)", 1, true) ~= nil)
-  check("cablage : la tournee passe Stock.skip_fn", wk:find("Stock.skip_fn and Stock.skip_fn(f))", 1, true) ~= nil)
+    and op:find("function Outposts.service(o, carrier, tick, fill, skip, info)", 1, true) ~= nil)
+  check("cablage : la tournee passe Stock.skip_fn", wk:find("Stock.skip_fn and Stock.skip_fn(f),", 1, true) ~= nil)
   check("cablage : Stock.skip_fn passe les matieres demandees (manque du cerveau, manque de l'objectif)",
     sk:find("return Sg.demanded(ia3 and ia3.short, team and team.missing, LINKS, all and reserve_need(f) or nil)", 1, true) ~= nil
     and sk:find("local need = demanded(f, true)", 1, true) ~= nil

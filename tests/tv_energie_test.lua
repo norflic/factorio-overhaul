@@ -199,6 +199,111 @@ do
   check(capi_src:find("[FO-CAPI-COURANT]", 1, true) ~= nil, "journal [FO-CAPI-COURANT] (une ligne par cause)")
 end
 
+---------------------------------------------------------------------------------------------------
+-- Déficit de kW (diagnostic azure, 8/11) : centrale de plus tout de suite quand des kW sont retenus avec de l'épargne qui dort
+---------------------------------------------------------------------------------------------------
+local function gdef(C, Cv, S)
+  section("DEFICIT-1. règle pure")
+  check(S.deficit({ kw = 1170, tick = 1000, bank = 10912 }, 1000) == 1170, "kW retenus + épargne de 10 912 MU : déficit de 1170 kW")
+  check(S.deficit({ kw = 1170, tick = 1000, bank = 299 }, 1000) == 0, "épargne sous 300 MU : pas de déficit (pas d'argent pour la centrale)")
+  check(S.deficit({ kw = 1170, tick = 1000 }, 1000) == 0 and S.deficit({ kw = 1170, tick = 1000, bank = "9999" }, 1000) == 0
+    and S.deficit({ kw = 1170, tick = 1000, bank = 0 / 0 }, 1000) == 0, "épargne absente, texte ou NaN : pas de déficit (garde fermée)")
+  check(S.deficit({ kw = 1170, tick = 1000, bank = 5000 }, 1000 + 2 * 3600 + 1) == 0, "kW retenus périmés (plus de 2 min) : pas de déficit")
+  check(S.deficit(nil, 1000) == 0 and S.deficit({ kw = 0, tick = 1000, bank = 5000 }, 1000) == 0, "rien de retenu : pas de déficit")
+  local st = {}
+  check(not C.deficit_track(st, true) and not C.deficit_track(st, true) and C.deficit_track(st, true), "déficit installé au 3e relevé de suite")
+  check(not C.deficit_track(st, false) and st.def_n == 0, "un relevé sans déficit remet le compte à zéro")
+  check(C.deficit_size(1170, 1800) == 1 and C.deficit_size(3540, 1800) == 2 and C.deficit_size(99999, 1800) == Cv.MAX_FIELD, "taille : 1170 kW -> 1, 3540 kW -> 2, borné par le champ")
+  check(C.deficit_size(3540, 1800, 1) == 1 and C.deficit_size(3540, 1800, 0, 1) == 1 and C.deficit_size(3540, nil) == C.BOILERS, "un refus de moins ; voie de tapis ; chaudière inconnue : C.BOILERS")
+  local free = { done = 1, pending = 0, refused = 0, hold = false, off = false }
+  local function with(over) local n = {}; for k, v in pairs(free) do n[k] = v end; for k, v in pairs(over) do n[k] = v end; return n end
+  local nb, why = C.growth({ saturated = false, sat = 0, def_n = 2 }, with({ deficit_kw = 1170, boiler_kw = 1800, built = 1 }))
+  check(nb == nil and why == "pas saturee", "déficit depuis 2 relevés seulement : rien")
+  nb = C.growth({ saturated = false, sat = 0, def_n = 3 }, with({ deficit_kw = 1170, boiler_kw = 1800, built = 1 }))
+  check(nb == 1, "déficit installé (3 relevés), centrale d'une chaudière, 1170 kW : UNE chaudière (pas le champ de 2) : " .. tostring(nb))
+  nb = C.growth({ saturated = false, sat = 0, def_n = 3 }, with({ deficit_kw = 3540, boiler_kw = 1800, built = 1 }))
+  check(nb == 2, "déficit de 3540 kW : deux chaudières")
+  nb, why = C.growth({ saturated = false, sat = 0, def_n = 3 }, with({ deficit_kw = 1170, boiler_kw = 1800, pending = 1 }))
+  check(nb == nil and why == "un chantier de centrale est ouvert", "un chantier de centrale est ouvert : une seule à la fois")
+  nb, why = C.growth({ saturated = false, sat = 0, def_n = 3 }, with({ deficit_kw = 1170, boiler_kw = 1800, hold = true }))
+  check(nb == nil and why == "repli de l'equipe (manque de matiere)", "repli de l'équipe (matière affamée) : le déficit attend aussi")
+  check(C.growth({ saturated = false, sat = 0, def_n = 3 }, with({ deficit_kw = 1170, boiler_kw = 1800, off = true })) == nil, "réglage de banc no_grow : rien")
+  check(C.growth({ saturated = false, sat = 0, def_n = 3 }, with({ deficit_kw = 1170, boiler_kw = 1800, cool = true })) == nil, "pause après un refus : rien")
+  check(C.growth({ saturated = false, sat = 0, def_n = 3 }, with({ deficit_kw = 1170, boiler_kw = 1800, lost = true })) == 1, "centrale perdue ET déficit : le secours (1), la crise passe devant")
+  check(C.growth({ saturated = true, sat = 10, def_n = 3 }, with({ deficit_kw = 1170, boiler_kw = 1800, built = 8 })) == 4, "saturée : le champ ordinaire (le déficit ne change pas la saturation)")
+  local s2 = { def_n = 3 }
+  C.requested(s2)
+  check(s2.def_n == 0, "la demande partie remet le compte du déficit à zéro")
+end
+
+local Sx0 = dofile("shared/team/sante_centrale.lua")
+gdef(C0, Cv0, Sx0)
+
+section("DEFICIT-2. PA.watch réel (moteur simulé)")
+do
+  log = log or function() end
+  package.preload["script.team.stock"] = package.preload["script.team.stock"] or function() return { count = function() return 0 end } end
+  package.preload["script.team.centrale_mort"] = package.preload["script.team.centrale_mort"] or function() return {} end
+  local PA = require("script.team.plant_arms")
+  local logs = {}
+  local old_log = log
+  log = function(s) logs[#logs + 1] = s end
+  local alive = {}
+  local surface = { find_entity = function(name, pos)
+    if alive[name .. ":" .. pos[1]] then
+      return { valid = true, force = { name = "f" }, energy_generated_last_tick = (name == "steam-engine") and 3000 or 0,
+        get_fuel_inventory = function() return { is_empty = function() return false end } end }
+    end
+    return nil
+  end }
+  local plant = { id = 1, state = "fini", finished = 10, spec = { gen = "steam" },
+    ents = { { name = "boiler", x = 1, y = 0 }, { name = "steam-engine", x = 2, y = 0 }, { name = "steam-engine", x = 3, y = 0 } } }
+  local f = { key = "t", force = "f", team = { capi = {} }, build = { plant = 1, projects = { [1] = plant }, order = { 1 }, opts = {} } }
+  for _, e in ipairs(plant.ents) do alive[e.name .. ":" .. e.x] = true end
+  local tick, asked = 0, nil
+  local function run(n, bank)
+    for _ = 1, n do
+      tick = tick + PA.WATCH_EVERY
+      f.team.capi.kw_blocked = { kw = 500, tick = tick, bank = bank }
+      asked = PA.watch(f, surface, tick)
+      if asked then return true end
+    end
+    return false
+  end
+  -- 6000 J/tick produits sur 30000 de capacité (20 %) : ni saturée ni avance (0,6 x 500 kW de retenu < 70 %)
+  check(run(Cv0.LOSS_CHECKS, 50) == false, "kW retenus mais épargne de 50 MU : pas de centrale de plus")
+  check(run(2, 5000) == false, "déficit avec épargne, 2 relevés : pas encore")
+  check(run(1, 5000) == true and asked == 1, "3e relevé de suite : une centrale d'UNE chaudière est demandée (" .. tostring(asked) .. ")")
+  local line
+  for _, l in ipairs(logs) do if l:find("DEFICIT de kW", 1, true) then line = l end end
+  check(line ~= nil and line:find("500 kW retenus", 1, true) and line:find("1 chaudiere(s)", 1, true), "journal [FO-ENERGIE] : DEFICIT de kW, kW retenus et taille")
+  check(f.build.grow.def_n == 0, "le compte du déficit repart à zéro après la demande")
+  -- une seule centrale par déficit : le projet demandé est en chantier, le déficit dure, aucune seconde demande
+  f.build.extra_plants = { 2 }
+  f.build.projects[2] = { id = 2, state = "chantier", spec = { gen = "steam" }, ents = {} }
+  check(run(30, 5000) == false, "déficit qui dure pendant que la centrale demandée est en chantier : AUCUNE seconde demande (30 relevés)")
+  -- borne écrite : au plus C.MAX_REQUESTS demandes sur la partie
+  f.build.extra_plants, f.build.projects[2] = nil, nil
+  f.build.grow.requests = C0.MAX_REQUESTS
+  f.build.grow.cool_until = 0
+  check(run(10, 5000) == false, "C.MAX_REQUESTS atteint : plus de demande, même avec un déficit")
+  -- l'avance interrompue s'écrit (hypothèse du compteur d'anticipation, diagnostic azure)
+  f.build.grow.requests = 0
+  logs[#logs + 1] = "-- avance --"
+  for _ = 1, 3 do
+    tick = tick + PA.WATCH_EVERY
+    f.team.capi.kw_blocked = { kw = 2000, tick = tick, bank = 0 }
+    PA.watch(f, surface, tick)
+  end
+  tick = tick + PA.WATCH_EVERY
+  f.team.capi.kw_blocked = nil
+  PA.watch(f, surface, tick)
+  local broken
+  for _, l in ipairs(logs) do if l:find("avance de la centrale de plus INTERROMPUE", 1, true) then broken = l end end
+  check(broken ~= nil and broken:find("apres 3 releve(s)", 1, true), "avance de 3 relevés puis chute : la ligne [FO-SANTE-CENTRALE] « avance INTERROMPUE » écrit les chiffres (" .. tostring(broken) .. ")")
+  log = old_log
+end
+
 local function bilan()
   print(string.format("[TV-ENERGIE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 end
@@ -232,6 +337,26 @@ mutant("la centrale est une expansion", function(_, _, Em) local old = Em.decide
 mutant("l'enceinte est une expansion", function(_, _, Em) Em.NOT_EXPANSION = { "bench" } end)
 mutant("réglage de banc ignoré", function(_, _, Em) local old = Em.decide; Em.decide = function(s, st) return old(s, { plant = st and st.plant }) end end)
 mutant("centrale déjà demandée ignorée", function(_, _, Em) local old = Em.decide; Em.decide = function(s, st) return old(s, { plant = nil, off = st and st.off }) end end)
+
+local function mutant_def(label, edit)
+  local Cc = dofile("shared/team/centrale.lua")
+  local Cm = dofile("shared/team/champ_vapeur.lua")
+  local Sm = dofile("shared/team/sante_centrale.lua")
+  edit(Cc, Cm, Sm)
+  local p0, f0 = passes, failures
+  quiet = true
+  local ok = pcall(gdef, Cc, Cm, Sm)
+  quiet = false
+  local caught = failures > f0 or not ok
+  passes, failures = p0, f0
+  check(caught, "mutant refusé : " .. label)
+end
+mutant_def("épargne ignorée (DEFICIT_BANK = 0)", function(_, _, Sm) Sm.DEFICIT_BANK = 0 end)
+mutant_def("déficit dès le premier relevé", function(Cc) Cc.DEFICIT_CHECKS = 1 end)
+mutant_def("déficit jamais", function(_, _, Sm) Sm.deficit = function() return 0 end end)
+mutant_def("déficit pris pour le champ (taille ordinaire)", function(Cc, Cm) Cc.deficit_size = function() return Cm.MIN_FIELD end end)
+mutant_def("compte du déficit jamais remis à zéro", function(Cc) Cc.deficit_track = function(st, flag) st.def_n = (st.def_n or 0) + 1 return st.def_n >= Cc.DEFICIT_CHECKS end end)
+mutant_def("taille bornée à 1", function(Cc) Cc.deficit_size = function() return 1 end end)
 
 bilan()
 os.exit(failures == 0 and 0 or 1)

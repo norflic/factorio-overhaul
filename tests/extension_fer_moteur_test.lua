@@ -347,5 +347,84 @@ do
     "tournée courte : o.coal_short = 1, journal [FO-CHARBON] (" .. tostring(logs[#logs]) .. ")")
 end
 
+---------------------------------------------------------------------------------------------------
+section("10. Lot BLOCAGE-COMBUSTIBLE : avant-poste de combustible a sec, charbon dans ses coffres, stock plein qui ecarte le charbon")
+do
+  local function burner(fuel)
+    local e = { valid = true, type = "mining-drill", burner = true, fuel = fuel }
+    e.get_fuel_inventory = function()
+      return { get_item_count = function() return e.fuel end, insert = function(q) e.fuel = e.fuel + q.count return q.count end }
+    end
+    return e
+  end
+  local function chest(coal)
+    local e = { valid = true, type = "container", coal = coal }
+    e.get_inventory = function()
+      return { get_contents = function() return { [T.fuel] = e.coal } end,
+        remove = function(q) e.coal = e.coal - q.count return q.count end,
+        get_item_count = function() return e.coal end }
+    end
+    return e
+  end
+  local function outpost(n_burners, coal_per_chest)
+    local o = { id = 10, kind = "coal", drill_list = {}, sinks = {} }
+    for i = 1, n_burners do
+      o.drill_list[i] = burner(0)
+      o.sinks[i] = chest(coal_per_chest)
+    end
+    return o
+  end
+  local function dry(o) local n = 0 for _, d in ipairs(o.drill_list) do if d.fuel < T.fuel_low then n = n + 1 end end return n end
+  local skip_coal = function(name) return name == T.fuel end -- Stock.skip_fn : charbon ecarte (plafond de 20 piles au coffre du QG)
+  -- 20 foreuses a sec, 50 charbons dans chaque coffre propre, rien porte : le stock ecarte le charbon, les bruleurs doivent quand meme etre remplis
+  local o = outpost(20, 50)
+  local c = carrier(0)
+  logs = {}
+  Outposts.service(o, c, 1, nil, skip_coal, { key = "azure", stock = function() return 9000 end })
+  check(dry(o) == 0, "charbon ecarte par le stock : les 20 bruleurs sont remplis sur place (" .. dry(o) .. " a sec)")
+  check((c.items[T.fuel] or 0) == 0, "rien ne reste dans le sac du porteur (sinon il irait au coffre du QG plein)")
+  local took1 = 0
+  for _, k in ipairs(o.sinks) do took1 = took1 + (50 - k.coal) end
+  check(took1 == 200, "exactement 20 x 10 = 200 charbons pris aux coffres propres, pas plus (" .. took1 .. ")")
+  check(o.coal_short == nil, "aucune tournee courte")
+  -- le porteur apporte une partie : le quota ne prend que le complement
+  local o2 = outpost(20, 50)
+  local c2 = carrier(0)
+  c2.items[T.fuel] = 150
+  Outposts.service(o2, c2, 2, nil, skip_coal, nil)
+  local taken = 0
+  for _, k in ipairs(o2.sinks) do taken = taken + (50 - k.coal) end
+  check(dry(o2) == 0 and taken == 50, "porte 150 + 50 pris aux coffres propres = 200 = 20 x 10 (" .. taken .. " pris)")
+  -- sans ramassage ecarte (skip nil) : comportement d'avant (tout est ramasse)
+  local o3 = outpost(2, 500)
+  local c3 = carrier(0)
+  Outposts.service(o3, c3, 3, nil, nil, nil)
+  check(o3.sinks[1].coal == 0 and dry(o3) == 0 and c3.items[T.fuel] == 980, "skip nil : tout le charbon ramasse comme avant (" .. tostring(c3.items[T.fuel]) .. " au sac)")
+  -- tournee courte avec ramassage ecarte : le journal dit pourquoi
+  local o4 = outpost(3, 0)
+  local c4 = carrier(0)
+  logs = {}
+  Outposts.service(o4, c4, 4, nil, skip_coal, { key = "azure", stock = function() return 0 end })
+  local line
+  for _, l in ipairs(logs) do if l:find("%[FO%-RAVITAILLEMENT%]") then line = l end end
+  check(line and line:find("azure", 1, true) and line:find("cause coffre_sans_charbon", 1, true), "journal [FO-RAVITAILLEMENT] : force et cause (" .. tostring(line) .. ")")
+  -- tournee futile (rien pose, bruleurs encore a sec) : le manque n'est plus signale pendant 60 s, puis il l'est de nouveau
+  o4.turret_list = {}
+  check(Outposts.status(o4, 5).fuel_low == false and Outposts.status(o4, 5).dry == 3, "tournee futile : plus de signal de manque pendant la pause, `dry` reste lu")
+  check(Outposts.status(o4, 4 + 3600).fuel_low == true, "la pause finie, le manque est de nouveau signale")
+  -- tournee utile mais courte : pas de pause
+  local o5 = outpost(3, 0)
+  o5.turret_list = {}
+  local c5 = carrier(0)
+  c5.items[T.fuel] = 12
+  Outposts.service(o5, c5, 10, nil, skip_coal, nil)
+  check(o5.futile_until == nil and Outposts.status(o5, 11).fuel_low == true, "tournee utile mais courte (12 poses sur 30) : pas de pause, le manque reste signale (" .. tostring(o5.futile_until) .. ")")
+  -- coffre propre plein ET stock sature : les bruleurs sont remplis (demande du lead)
+  local o6 = outpost(10, 4000)
+  local c6 = carrier(0)
+  Outposts.service(o6, c6, 20, nil, skip_coal, { key = "emerald", stock = function() return 30000 end })
+  check(dry(o6) == 0 and (c6.items[T.fuel] or 0) == 0, "coffres propres pleins + stock sature : 10 bruleurs remplis, rien au sac")
+end
+
 print(string.format("\n[EXTENSION-FER-MOTEUR] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

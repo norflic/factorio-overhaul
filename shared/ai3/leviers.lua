@@ -164,6 +164,16 @@ function Lv.factors(D, g)
   return s / 100, p / 100
 end
 
+--- Lot MODULES-POSES : facteurs (centièmes) d'une machine portant `mods`, avant puis après l'ajout de `n` modules `add` (barème D-17,
+--- énergie au plafond comprise). Rend s0, p0, e0, s1, p1, e1 ; nil si `add` n'est pas un module du relevé.
+function Lv.factors_after(D, mods, add, n)
+  local L = D and D.lv
+  if not (L and L.equip[add]) then return nil end
+  local s0, p0, e0 = factors_of(effect_list(L, mods or {}))
+  local s1, p1, e1 = factors_of(effect_list(L, mods or {}, add, n))
+  return s0, p0, e0, s1, p1, e1
+end
+
 function Lv.sig(mods)
   local parts = {}
   for _, nm in ipairs(sorted_keys(mods)) do parts[#parts + 1] = nm .. "*" .. mods[nm] end
@@ -276,6 +286,10 @@ local function module_fits(L, m, slots, recipe)
   if recipe and m.limit and not m.limit[recipe] then return false end
   return true
 end
+
+--- Lot MODULES-POSES : les deux contrôles de pose, partagés avec shared/ai3/modules_stock.lua.
+Lv.fits = module_fits
+Lv.filled = filled_count
 
 local function group_options(Ca, ctx, plan, req, g, is_drill, out)
   local D, L, H = ctx.D, ctx.D.lv, Ca.H

@@ -1059,6 +1059,17 @@ function Ca.power_refusal(ctx, plan)
   return nil
 end
 
+--- Lot TV-ENERGIE (diagnostic azure, 8/11) : le refus de courant d'une centrale FINIE dit la vérité. Avant, « courant insuffisant (aucune centrale
+--- possible) » alors qu'une centrale de 1 800 kW tournait : les kW étaient pris (ordres de la même décision, chantiers), pas la centrale absente.
+--- Rend « courant insuffisant : <pris> kW pris sur <capacité> kW (reste <reste>, il en faut <kw>) ».
+function Ca.kw_refusal(plan, kw)
+  local have, used = plan.kw_have or 0, plan.kw_used or 0
+  -- aucune capacité du tout (centrale absente, sans machine vivante) : c'est bien « aucune centrale possible »
+  if have <= 0 then return "courant insuffisant (aucune centrale possible : 0 kW de capacite)" end
+  return string.format("courant insuffisant : %d kW pris sur %d kW (reste %d, il en faut %d)", math.floor(used + 0.5), math.floor(have + 0.5),
+    math.max(0, math.floor(have - used + 0.5)), math.floor((kw or 0) + 0.5))
+end
+
 function Ca.apply(ctx, plan, o)
   local D = ctx.D
   local k = o.kind
@@ -1561,7 +1572,8 @@ local function extraction_options(ctx, plan, req, item, def, out)
   local function mk_drills(kind, f, n, fixed)
     local key = tostring(f.id)
     local o = { kind = kind, key = kind .. ":" .. key, item = item, resource = item, deposit = f.id,
-      entity = d.name, n = n, rate = n * rho, depth = 0, where = f.id }
+      entity = d.name, n = n, rate = n * rho, depth = 0, where = f.id,
+      kw_unit = (d.energy == "electric" and (d.kw or 0) > 0) and d.kw or nil, short = def } -- (lot TV-ENERGIE (c) : kW d'une foreuse et manque, Ca.share_kw)
     local items = { { d.item, n } }
     for _, it in ipairs(ctx.input.drill_extra or {}) do items[#items + 1] = { it[1], it[2] * n } end
     for _, it in ipairs(fixed or {}) do items[#items + 1] = { it[1], it[2] } end
@@ -1652,7 +1664,7 @@ local function extraction_options(ctx, plan, req, item, def, out)
         local why_not = Ca.usable(ctx, f, "couvrir")
         if why_not then refuse(ctx, key, "couvrir", item, why_not)
         elseif no_power then
-          refuse(ctx, key, "couvrir", item, pw_why or "courant insuffisant (aucune centrale possible)")
+          refuse(ctx, key, "couvrir", item, pw_why or Ca.kw_refusal(plan, d.kw))
           -- étape 5a de VIDEO-INTEG : kW retenus, comme power_cap (la centrale les compte pour grandir : Ca.blocked_kw ; power_options
           -- ne lit power_block qu'avec une centrale à proposer, pw.plant : aucune décision ne change)
           ctx.power_block[#ctx.power_block + 1] = { key = key, kw = n * d.kw, n = n, item = item, p = rho, va = D.mu[item] or 0, share = 1 }
@@ -1662,7 +1674,7 @@ local function extraction_options(ctx, plan, req, item, def, out)
             ext_unit = (o.cost_m + ctx.lambda * o.work / 60) / (n * rho)
           end
           local np = power_cap(n, key)
-          if np <= 0 then refuse(ctx, key, "couvrir", item, pw_why or "courant insuffisant")
+          if np <= 0 then refuse(ctx, key, "couvrir", item, pw_why or Ca.kw_refusal(plan, d.kw))
           else
             if np ~= n then o = mk_drills("couvrir", f, np) end
             local why = ahead and "couverture d'avance" or nil
@@ -1728,7 +1740,7 @@ local function extraction_options(ctx, plan, req, item, def, out)
         if why_not then refuse(ctx, key, "ouvrir", item, why_not)
         else
           local np = power_cap(n, key)
-          if np <= 0 then refuse(ctx, key, "ouvrir", item, pw_why or "courant insuffisant")
+          if np <= 0 then refuse(ctx, key, "ouvrir", item, pw_why or Ca.kw_refusal(plan, d.kw))
           else
             local mk = function(k)
               local o = mk_drills("ouvrir", f, k, ctx.input.site_items)
@@ -1856,7 +1868,7 @@ local function fabric_options(ctx, plan, req, item, r, def, out)
       ctx.power_block[#ctx.power_block + 1] = { key = key, kw = (n - np) * m.kw, n = n - np, item = item, p = p, va = va,
         share = sh }
       n = np
-      if n <= 0 then refuse(ctx, key, kind, item, Ca.power_refusal(ctx, plan) or "courant insuffisant") return end
+      if n <= 0 then refuse(ctx, key, kind, item, Ca.power_refusal(ctx, plan) or Ca.kw_refusal(plan, m.kw)) return end
     end
   end
   -- Valeur de l'objet × part de cet étage dans le capital de sa chaîne (Ca.share) : un étage plein a le retour du
@@ -1868,7 +1880,7 @@ local function fabric_options(ctx, plan, req, item, r, def, out)
   local function mk(k)
     local o = { kind = kind, key = key, item = item, recipe = r.name, entity = m.name, n = k, rate = k * p,
       where = Ca.HQ, depth = req.depth[item] or 0, fed_by = limit, fed_max = ncap ~= math.huge and ncap or nil,
-      share = sh }
+      share = sh, kw_unit = (m.energy == "electric" and (m.kw or 0) > 0) and m.kw or nil, short = def } -- (lot TV-ENERGIE (c))
     local items = { { m.item, k } }
     for _, it in ipairs(ctx.input.machine_extra or {}) do items[#items + 1] = { it[1], it[2] * k } end
     o.items = items
@@ -1963,6 +1975,63 @@ local function power_options(ctx, plan, out)
   cand(out, mk(n), mk)
 end
 
+--- Lot CONSOLIDATION-TIERS (8/11 ; critères : fo-logs/2026-11-08_CONSOLIDATION-TIERS/CRITERES.md) : ALLUMÉ par défaut ; demande Ca.PORTE_RANG,
+--- Ca.RANG, l'état persistant (ctx.st) et input.solid_mesure (le runtime donne des débits MESURÉS : input.flows). Éteint ou sans mesure, rank_gate
+--- est celui de 7fc96ada. Une chaîne de rang >= 1 n'est CONSOLIDÉE que si son débit mesuré (hors main) plus son stock couvre Pr.SOLID_PCT % de sa
+--- demande depuis Pr.SOLID_MIN minutes ; un ordre de rang r attend tant qu'une chaîne de rang < r qui l'alimente ne l'est pas ET a une issue.
+Ca.CONSOLIDE_RANG = true
+
+--- Fluide ? (l'objet est un produit de fluide de sa recette : les statistiques d'objets ne le voient pas.)
+local function fluid_product(r, item)
+  for _, p in ipairs((r and r.products) or {}) do
+    if p.name == item and p.fluid then return true end
+  end
+  return false
+end
+
+--- Lignes de consolidation de la décision : un relevé par chaîne demandée de rang >= 1 (hors ressources), débit = production mesurée de
+--- la force moins la main (ctx.flows), stock ÷ H_STOCK ; « arrêtée » = machines posées dont aucune unité ne compte (confirmation).
+local function solid_rows(ctx, req)
+  local D, Rk = ctx.D, ctx.rang
+  local posed, cap = {}, {}
+  for _, m in ipairs(ctx.machines) do
+    local r = D.recipes[m.recipe]
+    if r and (m.n or 0) > 0 then
+      for _, p in ipairs(r.products) do
+        posed[p.name] = (posed[p.name] or 0) + m.n
+        cap[p.name] = (cap[p.name] or 0) + (m.n_cap or m.n)
+      end
+    end
+  end
+  local rows = {}
+  for _, i in ipairs(req.list) do
+    local Ri, rk = req.R[i] or 0, Rk.rank[i]
+    if Ri > Ca.EPS and rk ~= nil and rk >= 1 and not D.res[i] then
+      local rate = nil
+      if req.rec[i] ~= nil and not fluid_product(req.rec[i], i) then
+        local fl = ctx.flows[i] or {}
+        rate = math.max(0, (fl.made or 0) - (fl.hand or 0))
+      end
+      rows[#rows + 1] = { item = i, rank = rk, demand = Ri, stock_cover = (ctx.stock[i] or 0) / Ca.H_STOCK, rate = rate,
+        stopped = (posed[i] or 0) > 0 and (cap[i] or 0) <= 0 }
+    end
+  end
+  return rows
+end
+
+--- Chaînes non consolidées qui ont une issue (option ce tour, machines posées, ordre ouvert ou décidé) : l'entrée `solid` de Pr.decide.
+--- Le relevé (et la mémoire st.solid) avance UNE fois par décision ; l'issue se relit à chaque tour de la boucle des ordres.
+local function consolidation(ctx, plan, req, served)
+  if ctx.cons == nil then
+    ctx.st.solid = ctx.st.solid or Pr.solid_new()
+    local verdicts, lines = Pr.solid_step(ctx.st.solid, ctx.dt, solid_rows(ctx, req))
+    ctx.cons, ctx.cons_log = { v = verdicts }, lines
+  end
+  return Pr.solid_list(ctx.cons.v, function(x)
+    return served[x] == true, ((plan.N[x] or 0) + (plan.NP[x] or 0) + (plan.NO[x] or 0)) > Ca.EPS
+  end)
+end
+
 --- Lot VIDEO-ORDRE (lot 1 de la couverture vidéo, 7/11) : ALLUMÉ par défaut ; éteint, rank_gate ne fait que ce qu'il faisait en 0.6.61
 --- (l'ordre ne change pas, aucune mémoire des objets posés, aucune règle de grosse unité). Demande Ca.PORTE_RANG et Ca.RANG.
 Ca.ORDRE_RANG = true
@@ -1991,6 +2060,7 @@ end
 local function rank_gate(ctx, plan, req, out)
   local Rk = ctx.rang
   if ctx.rang_deps == nil then ctx.rang_deps = Pr.deps(Rk) end
+  local solid = Ca.CONSOLIDE_RANG and ctx.st ~= nil and ctx.input.solid_mesure and true or nil
   local served = {}
   for _, c in ipairs(out) do
     if c.o.item ~= nil then served[c.o.item] = true end
@@ -2011,7 +2081,16 @@ local function rank_gate(ctx, plan, req, out)
       orders[#orders + 1] = { key = o.key, item = o.item, rank = Rk.rank[o.item], pile = 2 }
     end
   end
-  local g = Pr.decide({ orders = orders, short = short, deps = ctx.rang_deps, last = ctx.last_item })
+  local solid_list = nil
+  if solid then solid_list = consolidation(ctx, plan, req, served) end
+  local g = Pr.decide({ orders = orders, short = short, deps = ctx.rang_deps, last = ctx.last_item, solid = solid_list })
+  if solid then
+    for _, x in ipairs(sorted_keys(g.waiting)) do
+      local v = ctx.cons.v[x]
+      local line = Pr.solid_mark(ctx.st.solid, x, v and v.text)
+      if line then ctx.cons_log[#ctx.cons_log + 1] = line end
+    end
+  end
   -- r* de la décision (compte rendu) : le rang le plus bas d'un manque à option sur TOUS les tours (le dernier tour, manque couvert,
   -- n'en a souvent plus).
   if g.rstar ~= nil and (ctx.rstar == nil or g.rstar < ctx.rstar) then ctx.rstar = g.rstar end
@@ -2083,6 +2162,22 @@ local function rank_gate(ctx, plan, req, out)
       for j, r in ipairs(new) do
         if r ~= old[j] then r.c.o.oTq, r.c.o.odepth, r.c.o.okey = old[j].Tq, old[j].depth, old[j].key end
       end
+    end
+  end
+  -- Lot CONSOLIDATION-TIERS : les options des chaînes qui retiennent un ordre passent devant (priorité à leur consolidation) : chaque option
+  -- prend la PLACE (oTq, odepth, okey) de celle qui était à son rang dans l'ordre actuel, comme Pr.order.
+  if solid and next(g.waiting) ~= nil and #kept >= 2 then
+    local cur = {}
+    for _, c in ipairs(kept) do cur[#cur + 1] = c end
+    table.sort(cur, function(a, b) return Ca.before(a.o, b.o) end)
+    local new = Pr.front(cur, function(c)
+      local it = c.o.item or c.o.resource
+      return it ~= nil and g.waiting[it] == true
+    end)
+    local place = {}
+    for j, c in ipairs(cur) do place[j] = { c.o.oTq or c.o.Tq, c.o.odepth or c.o.depth, c.o.okey or c.o.key } end
+    for j, c in ipairs(new) do
+      if c ~= cur[j] then c.o.oTq, c.o.odepth, c.o.okey = place[j][1], place[j][2], place[j][3] end
     end
   end
   return kept
@@ -2250,7 +2345,8 @@ end
 ---   laboratoire / min mesurées), starved (‰ de laboratoires affamés) }, power = { have_kw, used_kw, plant = { kw,
 ---   items, burner_kw } } (facultatif), site_items, drill_extra, machine_extra = { {objet, n} } (pièces de
 ---   l'exécutant), limits = { max_ingredients }, workers, idle (PNJ sans tâche : Ca.idle_of(Br.smooth)), can_grow,
----   traits, weights, threat, dt (min), lag (délai de pose mesuré, min), obtainable (fonction ou table) }.
+---   traits, weights, threat, dt (min), lag (délai de pose mesuré, min), obtainable (fonction ou table),
+---   solid_mesure (vrai : `flows` est un débit MESURÉ ; lot CONSOLIDATION-TIERS, la porte de rang attend la consolidation des tiers) }.
 --- st : état persistant de la règle (nombres et tables : bank, T_hist, sink_t, u_target). Rend { orders, refus,
 --- explore, s, delta, alpha, tmax, g, lambda, Y, K, budget, bank, flow_part, stock_part, spent, labor, labor_used,
 --- u_star, labs_target, coverage, bottleneck, R, open_n }.
@@ -2366,10 +2462,103 @@ local function fits(J, o)
     and cap_ok(J, o)
 end
 
+--- Lot TV-ENERGIE (c, accord du lead, 8/11 : « les kW libres ne suffisent pas à tous les ordres électriques d'une décision : répartis par ordre de
+--- manque, chaque objet en manque reçoit son premier lot avant qu'un autre en reçoive un second, départage écrit, aucun nom d'objet »).
+--- entries = { { key, item, kw (par machine), n (voulues), short (manque, /min) } } ; free = kW libres. Rend allot[key] = machines accordées et
+--- l'ordre de service { items }. Ordre : manque décroissant, puis nom de l'objet croissant (départage), puis clé. Un TOUR donne UNE machine à
+--- chaque objet (à sa première option non servie qui tient dans les kW restants) ; on tourne tant qu'un tour accorde quelque chose.
+-- Décision du lead (8/11, 13 h 20) : « aucun minerai ne prend plus de 60 % des kW libres tant qu'un autre minerai demandé attend du courant ».
+-- Appliquée en deux temps : TANT QU'un autre objet attend (en phase 1), un objet ne dépasse pas Ca.KW_SHARE_MAX des kW libres ; ce qui reste
+-- ensuite (phase 2) va à qui en veut encore, plafond levé (personne d'autre n'attend plus).
+Ca.KW_SHARE_MAX = 0.6
+
+function Ca.kw_alloc(entries, free)
+  local by_item, items = {}, {}
+  for _, e in ipairs(entries) do
+    local g = by_item[e.item]
+    if not g then
+      g = { item = e.item, short = e.short or 0, list = {} }
+      by_item[e.item] = g
+      items[#items + 1] = g
+    end
+    if (e.short or 0) > g.short then g.short = e.short end
+    g.list[#g.list + 1] = e
+  end
+  table.sort(items, function(a, b)
+    if a.short ~= b.short then return a.short > b.short end
+    return tostring(a.item) < tostring(b.item)
+  end)
+  for _, g in ipairs(items) do
+    table.sort(g.list, function(a, b) return tostring(a.key) < tostring(b.key) end)
+  end
+  local allot, used = {}, {}
+  for _, e in ipairs(entries) do allot[e.key] = 0 end
+  for _, g in ipairs(items) do used[g.item] = 0 end
+  local left = free
+  local cap = (#items >= 2) and (Ca.KW_SHARE_MAX * free) or math.huge -- un seul objet : aucun autre n'attend, pas de plafond
+  for phase = 1, 2 do
+    repeat
+      local given = false
+      for _, g in ipairs(items) do
+        for _, e in ipairs(g.list) do
+          if allot[e.key] < e.n and e.kw <= left + Ca.EPS and (phase == 2 or used[g.item] + e.kw <= cap + Ca.EPS) then
+            allot[e.key] = allot[e.key] + 1
+            used[g.item] = used[g.item] + e.kw
+            left = left - e.kw
+            given = true
+            break
+          end
+        end
+      end
+    until not given
+  end
+  local order = {}
+  for _, g in ipairs(items) do order[#order + 1] = g.item end
+  return allot, order
+end
+
+--- Applique la répartition aux options d'un tour (avant le choix) : si les kW libres couvrent tous les ordres électriques, rien ne change
+--- (identité). Sinon chaque option est ramenée à sa part (Ca.kw_alloc) par sa fonction de taille ; une option sans part est retirée avec le refus
+--- écrit. Rend la liste (même ordre).
+function Ca.share_kw(ctx, plan, opts)
+  local pw = ctx.input.power
+  if not pw or pw.fermee or (plan.amorce_left or 0) > 0 or ctx.kw_share_off then return opts end
+  local free = (plan.kw_have or 0) - (plan.kw_used or 0)
+  local entries, total = {}, 0
+  for _, c in ipairs(opts) do
+    local o = c.o
+    if o.kw_unit and o.kw_unit > 0 and (o.n or 0) > 0 then
+      entries[#entries + 1] = { key = o.key, item = o.item or o.resource or "?", kw = o.kw_unit, n = o.n, short = o.short or 0 }
+      total = total + o.kw_unit * o.n
+    end
+  end
+  if #entries < 2 or total <= free + Ca.EPS then return opts end
+  local allot, order = Ca.kw_alloc(entries, free)
+  local out = {}
+  for _, c in ipairs(opts) do
+    local o = c.o
+    local a = o.kw_unit and allot[o.key]
+    if a == nil or a >= o.n then
+      out[#out + 1] = c
+    elseif a >= 1 and c.mk then
+      local o2 = c.mk(a)
+      if o2 then
+        o2.why = tostring(o2.why or "") .. string.format(" ; kW partages : %d machine(s) sur %d voulues", a, o.n)
+        out[#out + 1] = { o = o2, mk = c.mk }
+      end
+    else
+      refuse(ctx, o.key, o.kind, o.item, string.format(
+        "courant insuffisant : repartition des kW par ordre de manque (manque egal : ordre alphabetique des objets) : %d kW libres, ordre de service %s, il en faut %d",
+        math.floor(free + 0.5), table.concat(order, " > "), math.floor(o.kw_unit + 0.5)))
+    end
+  end
+  return out
+end
+
 --- Un tour de la boucle des ordres : rend faux si aucun ordre ne passe (la boucle s'arrête).
 local function decide_turn(J)
   local ctx, plan = J.ctx, J.plan
-  local opts = Ca.options(ctx, plan, J.req)
+  local opts = Ca.share_kw(ctx, plan, Ca.options(ctx, plan, J.req)) -- lot TV-ENERGIE (c) : kW libres répartis par ordre de manque
   local pick = nil
   for _, c in ipairs(opts) do
     local o = c.o

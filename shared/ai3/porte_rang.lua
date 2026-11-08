@@ -35,6 +35,21 @@
       la suivante d'un ordre qui en était une cède sa place à une autre option (si une autre existe).
   Le manque net est celui de Ca.options (R − N − stock ÷ H_STOCK) : un FLUIDE se juge sur ses stocks (barils, cuves) exactement
   comme un objet, aucune branche particulière.
+
+  Lot CONSOLIDATION-TIERS (8/11 ; DC : « est-ce qu'ils ont effectivement respecté l'ordre des tiers [...] construit des machines
+  d'assemblage de tiers supérieurs avant d'avoir fait et solidifié et consolidé les tiers inférieurs » ; critères :
+  fo-logs/2026-11-08_CONSOLIDATION-TIERS/CRITERES.md). La porte d'avant n'attend qu'un MANQUE déclaré (R − N − stock) : dès qu'un
+  ordre est posé, N (nominal) couvre R et la porte s'ouvre, même si la chaîne ne produit encore rien (scarlet, partie 0.6.58 :
+  circuits FINI à 79,3 min, circuits avancés DEMANDÉS à 79,8 min). Ici une condition de MATURITÉ, mesurée :
+    - Pr.solid_step : par chaîne x (rang >= 1, non fluide, demandée), fenêtre de Pr.SOLID_WINDOW débits MESURÉS (hors main), couverture
+      = (moyenne + stock ÷ H) ÷ demande ; CONSOLIDÉE quand elle atteint Pr.SOLID_PCT % depuis au moins Pr.SOLID_MIN minutes
+      (hystérésis : perdue sous Pr.SOLID_DROP %) ; une chaîne arrêtée (toutes ses unités retirées par la confirmation) ne l'est pas ;
+    - Pr.decide(input.solid) : un ordre de rang r attend tant qu'une dépendance x de rang < r est dans input.solid (non consolidée
+      ET avec une issue : option ce tour, machines ou ordre déjà là) ; cause « rang r : chaine x de rang k non consolidee : débit
+      a/b depuis t min » ; x avec option compte pour r* (priorité à la consolidation) ;
+    - sans issue (ni option, ni machine, ni ordre), sans mesure (fluide, flux absent) : rien n'est retenu ;
+    - LIVENESS : l'attente sur x (minutes où x a retenu un ordre) est bornée par Pr.WAIT_MAX, puis LEVÉE (une ligne de journal).
+  Pur : l'état S (st.solid) ne garde que des nombres et des tables ; tests/consolidation_test.lua.
 ]]
 
 local Pr = {}
@@ -60,25 +75,51 @@ function Pr.deps(R)
 end
 
 function Pr.decide(input)
-  -- Manques qui bloquent : ceux qui ont une option, triés par (rang, nom).
+  -- Manques qui bloquent : ceux qui ont une option (triés plus bas par (rang, nom), avec les chaînes non consolidées).
   local def = {}
   for _, s in ipairs(input.short or {}) do
     if s.option and s.item ~= nil and s.rank ~= nil then def[#def + 1] = s end
   end
-  table.sort(def, function(a, b)
+  -- Lot CONSOLIDATION-TIERS : chaînes non consolidées qui ont une issue (input.solid = { { item, rank, option, text } }, sans objet
+  -- en double). Un objet à la fois manque et non consolidé garde la ligne de la consolidation (la plus riche : le débit mesuré).
+  local sol, blk = {}, {}
+  for _, s in ipairs(input.solid or {}) do
+    if s.item ~= nil and s.rank ~= nil and sol[s.item] == nil then
+      sol[s.item] = true
+      blk[#blk + 1] = { item = s.item, rank = s.rank, solid = s }
+    end
+  end
+  for _, s in ipairs(def) do
+    if sol[s.item] == nil then blk[#blk + 1] = { item = s.item, rank = s.rank } end
+  end
+  table.sort(blk, function(a, b)
     if a.rank ~= b.rank then return a.rank < b.rank end
     return a.item < b.item
   end)
-  local rstar = def[1] and def[1].rank or nil
+  local rstar = nil
+  for _, b in ipairs(blk) do
+    if b.solid == nil or b.solid.option then rstar = b.rank break end
+  end
   local deps = input.deps or {}
-  local allowed, held = {}, {}
+  local allowed, held, waiting = {}, {}, {}
   for _, o in ipairs(input.orders or {}) do
     local cause = nil
     if (o.pile or 2) > Pr.KEEP_PILE and o.rank ~= nil then
       local up = deps[o.item] or {}
-      for _, s in ipairs(def) do
+      for _, s in ipairs(blk) do
         if cause == nil and s.rank < o.rank and up[s.item] then
-          cause = string.format("rang : %s (rang %d) d'abord", s.item, s.rank)
+          if s.solid then
+            cause = string.format("rang %d : chaine %s de rang %d non consolidee : %s", o.rank, s.item, s.rank, tostring(s.solid.text))
+          else
+            cause = string.format("rang : %s (rang %d) d'abord", s.item, s.rank)
+          end
+        end
+      end
+      -- L'attente de TOUTES les chaînes non consolidées qui retiennent cet ordre court en parallèle (pas seulement celle de la cause) :
+      -- l'ordre n'attend jamais plus de Pr.WAIT_MAX minutes en tout, quel que soit le nombre de rangs en panne.
+      if cause then
+        for _, s in ipairs(blk) do
+          if s.solid and up[s.item] and s.rank < o.rank then waiting[s.item] = true end
         end
       end
     end
@@ -101,7 +142,7 @@ function Pr.decide(input)
     end
     allowed = kept
   end
-  return { allowed = allowed, held = held, rstar = rstar }
+  return { allowed = allowed, held = held, rstar = rstar, waiting = waiting }
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -207,6 +248,135 @@ function Pr.big_hold(last_big, items, k)
     end
   end
   return hold, med
+end
+
+---------------------------------------------------------------------------------------------------
+-- Lot CONSOLIDATION-TIERS : une chaîne est CONSOLIDÉE quand son débit MESURÉ tient sa demande, sans interruption
+---------------------------------------------------------------------------------------------------
+Pr.SOLID_PCT = 80     -- % de la demande que la couverture doit atteindre (donnée écrite : « une part écrite de sa demande »)
+Pr.SOLID_DROP = 60    -- % : une chaîne consolidée ne perd son statut qu'en dessous (hystérésis : une rafale creuse ne la défait pas)
+Pr.SOLID_MIN = 3      -- relevés d'une minute CONSÉCUTIFS au-dessus du seuil avant de la dire consolidée
+Pr.SOLID_WINDOW = 5   -- relevés d'une minute moyennés (une machine lente fabrique par à-coups)
+Pr.WAIT_MAX = 20      -- minutes pendant lesquelles une chaîne non consolidée a retenu un ordre, puis LEVÉE (jamais d'attente éternelle)
+Pr.SOLID_KEEP = 10    -- minutes sans demande avant d'oublier la mémoire d'une chaîne
+Pr.EPS = 1e-9
+
+--- État neuf (nombres et tables seulement : il va dans st.solid, donc dans global).
+function Pr.solid_new() return { clock = 0, items = {} } end
+
+--- Un relevé par décision (une minute de plus : dt). rows = liste de { item, rank, demand (objets/min, > 0), stock_cover (stock ÷
+--- H_STOCK, objets/min), rate (débit mesuré hors main, objets/min ; nil : non mesuré), stopped (toutes les unités posées sont
+--- retirées de la capacité) } dans un ordre quelconque. Rend (verdicts, lignes) : verdicts[item] = { item, rank, demand, mean,
+--- pct, ok (consolidée), unmeasured (rien à juger), lifted (attente épuisée), bad_min (minutes sans consolidation), text } ;
+--- lignes = comptes rendus de consolidation et de levée (texte sans préfixe).
+function Pr.solid_step(S, dt, rows)
+  S.items = S.items or {}
+  S.clock = (S.clock or 0) + (dt or 0)
+  local clock = S.clock
+  local list = {}
+  for _, r in ipairs(rows or {}) do
+    if r.item ~= nil and r.demand ~= nil and r.demand > Pr.EPS then list[#list + 1] = r end
+  end
+  table.sort(list, function(a, b) return a.item < b.item end)
+  local verdicts, lines = {}, {}
+  for _, r in ipairs(list) do
+    local x = r.item
+    local e = S.items[x]
+    if e == nil then
+      e = { w = {}, wait = 0 }
+      S.items[x] = e
+    end
+    e.seen = clock
+    local v = { item = x, rank = r.rank, demand = r.demand }
+    if r.rate == nil then
+      -- Rien de mesuré (fluide, flux absent) : la chaîne ne retient rien, sa mémoire repart de zéro.
+      e.w, e.run, e.solid, e.bad, e.wait, e.blk, e.said = {}, 0, false, nil, 0, false, nil
+      v.unmeasured, v.ok = true, false
+    else
+      local w = e.w
+      w[#w + 1] = r.rate
+      while #w > Pr.SOLID_WINDOW do table.remove(w, 1) end
+      local sum = 0
+      for _, q in ipairs(w) do sum = sum + q end
+      local mean = sum / #w
+      local stock = r.stock_cover or 0
+      local pct = (mean + stock) * 100 / r.demand
+      -- Arrêtée : ni débit ni consolidation, sauf si le stock seul tient déjà la demande.
+      local stopped = r.stopped == true and stock * 100 / r.demand < Pr.SOLID_PCT
+      local thr = e.solid and Pr.SOLID_DROP or Pr.SOLID_PCT
+      local good = pct >= thr - Pr.EPS and not stopped
+      if good then e.run = (e.run or 0) + 1 else e.run, e.solid = 0, false end
+      if e.run >= Pr.SOLID_MIN then e.solid = true end
+      v.mean, v.pct, v.stock, v.stopped = mean, pct, stock, stopped
+      v.ok = e.solid == true
+      if v.ok then
+        if e.said ~= nil then
+          lines[#lines + 1] = string.format("chaine %s (rang %s) consolidee : debit %.1f/%.1f, %s", x, tostring(r.rank), mean, r.demand,
+            e.said == "lifted" and "apres la levee de l'attente" or "attente finie")
+        end
+        e.bad, e.wait, e.said = nil, 0, nil
+      else
+        e.bad = e.bad or clock
+        if e.blk then e.wait = e.wait + (dt or 0) end
+        v.bad_min = math.floor(clock - e.bad + 0.5)
+        v.lifted = e.wait >= Pr.WAIT_MAX - Pr.EPS
+        v.text = string.format("debit %.1f/%.1f %s%s%s", mean, r.demand,
+          good and string.format("tenu %d/%d min", e.run, Pr.SOLID_MIN) or string.format("sous %d%% depuis %d min", Pr.SOLID_PCT, v.bad_min),
+          stock > 0 and string.format(" (+ stock %.1f)", stock) or "", stopped and ", arretee" or "")
+        if v.lifted and e.said ~= "lifted" then
+          e.said = "lifted"
+          lines[#lines + 1] = string.format("attente LEVEE sur la chaine %s (rang %s) apres %d min d'ordres retenus : %s", x, tostring(r.rank),
+            math.floor(e.wait + 0.5), v.text)
+        end
+      end
+      e.blk = false
+    end
+    verdicts[x] = v
+  end
+  -- Oubli des chaînes qui n'ont plus de demande depuis Pr.SOLID_KEEP minutes.
+  for _, k in ipairs(sorted_keys(S.items)) do
+    if clock - (S.items[k].seen or 0) > Pr.SOLID_KEEP then S.items[k] = nil end
+  end
+  return verdicts, lines
+end
+
+--- La chaîne x a retenu un ordre dans cette décision : son attente compte (à la minute suivante). Rend la ligne de journal de la
+--- PREMIÈRE attente (nil ensuite : une ligne par attente), `text` = verdict.text.
+function Pr.solid_mark(S, x, text)
+  local e = S.items and S.items[x]
+  if e == nil then return nil end
+  e.blk = true
+  if e.said == nil then
+    e.said = "wait"
+    return string.format("ordres de rang superieur en attente sur la chaine %s : %s", x, tostring(text))
+  end
+  return nil
+end
+
+--- Les éléments de `list` (déjà dans l'ordre voulu) pour lesquels front(e) est vrai passent devant, l'ordre relatif de chaque groupe gardé.
+function Pr.front(list, front)
+  local a, b = {}, {}
+  for _, e in ipairs(list) do
+    if front(e) then a[#a + 1] = e else b[#b + 1] = e end
+  end
+  for _, e in ipairs(b) do a[#a + 1] = e end
+  return a
+end
+
+--- Filtre de décision : de verdicts (Pr.solid_step) et d'une fonction d'issue rend la liste input.solid de Pr.decide.
+--- `issue(item)` rend (option, existe) ; une chaîne non consolidée sans option ni machine ni ordre ne retient rien.
+function Pr.solid_list(verdicts, issue)
+  local out = {}
+  for _, x in ipairs(sorted_keys(verdicts)) do
+    local v = verdicts[x]
+    if not v.ok and not v.unmeasured and not v.lifted then
+      local option, exists = issue(x)
+      if option or exists or v.stopped then
+        out[#out + 1] = { item = x, rank = v.rank, option = option and true or false, text = v.text }
+      end
+    end
+  end
+  return out
 end
 
 return Pr

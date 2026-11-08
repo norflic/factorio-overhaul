@@ -41,6 +41,7 @@ local Rg = require("shared.ai3.reglages") -- lot IA-G : types du moteur, ressour
 local Paliers = require("script.ai3.paliers") -- lot IA-G : paliers de MESURE (déplacés ; aucune décision ne les lit)
 local Auto = require("script.ai3.automatisation") -- lot IA3-e : automatiser ce qui revient (plan directeur d'IA1-d)
 local Pet = require("script.ai3.petrole") -- lot PETROLE : aller au pétrole (sites des chaînes à fluides)
+local Lj = require("script.ai3.labo_journal") -- lot BLOCAGE-LABOS : journal [FO-LABO] (cause d'une recherche qui attend ses packs)
 local Capital = require("script.ai3.capital") -- lot CAPITAL : améliorer les bâtiments à niveaux, monter le centre
 local Harvest = require("script.team.harvest") -- lot KIT : arbres qui donnent le bois (matière naturelle des poteaux)
 local Au = require("shared.ai3.automatiser")
@@ -620,6 +621,7 @@ local function research_step(f, st, book, w, tick, view)
       lab.paid = lab.paid + 1
       lab.paid_tick = tick -- lot IA3-e : dernière unité payée (garde de K1)
     end
+    Lj.note(f, st, tech, spec, view, tick, minutes(f, tick), lab.paid < need_paid) -- lot BLOCAGE-LABOS : [FO-LABO], pourquoi la recherche attend
     lab.units = math.min(target, lab.paid)
     if lab.units >= spec.count then
       if Rj.finish_by(holder) == "progress" then
@@ -1052,6 +1054,11 @@ end
 --- Lot CAPITAL : décisions immédiates sur le stock libre (script/team/team.lua) : paie l'amélioration prête.
 function Ia3.capital_pay(f, surface, tick, plan, stock, only_center)
   return Capital.pay(f, surface, tick, plan, stock, only_center) -- lot AGES : nombre payé, et vrai si rien n'a été tenté (gel levé, autre cible)
+end
+
+--- Lot AMELIORATION : la montée par bloc est allumée (réglage fo-war-amelioration) ; elle lève le gel de la reconstruction sauf manque.
+function Ia3.blocs_on()
+  return Capital.blocs_on()
 end
 
 --- Lot AGES : un pas du compte de gel du centre (shared/team/degel.lua) ; vrai : le centre, lui seul, passe malgré la garde.
