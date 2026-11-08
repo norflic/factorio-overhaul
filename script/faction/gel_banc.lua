@@ -27,7 +27,8 @@
     etat(nom)                        { ilots, figes, machines_figees, pertes } ;
     constantes()                     { STEP, CALM, GUET, WAKE_R, FREEZE_R, WRITES } ;
     reglage(vrai|faux)               écrit le réglage de carte fo-war-gel (C20 : témoin éteint) ; rend Gel.on() ;
-    bilan()                          { ilots, figes, machines_figees, soldats_figes, n_frozen }, toutes factions (C20).
+    bilan()                          { ilots, figes, machines_figees, soldats_figes, n_frozen }, toutes factions (C20) ;
+    zones(fid)                       zones de menace du guet des garnisons de la faction (Ga.zones, lecture seule ; C19).
 ]]
 
 local Gel = require("script.faction.gel")
@@ -194,6 +195,8 @@ remote.add_interface("fo-gel", {
     settings.global[Gel.SETTING] = { value = on == true }
     return Gel.on()
   end,
+  -- C19 (micro-banc x10-gel-zones) : zones de menace du guet des garnisons pour la faction fid (Ga.zones, lecture seule).
+  zones = function(fid) return Ga.zones(fid) end,
   -- C20 : ce que le gel tient figé, toutes factions et groupes de banc confondus : { ilots, figes, machines_figees, soldats_figes,
   -- n_frozen } (n_frozen : machines figées comptées par le registre).
   bilan = function()

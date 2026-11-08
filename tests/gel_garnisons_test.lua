@@ -384,6 +384,19 @@ local function cases(src)
   -- N14 instrumentation fine du guet (C19) : portées fermées, portées et compteurs vus
   check(prof_check("N14", { "gel:garnisons", "gel:reveil", "gel:gar:soldats", "gel:gar:menaces", "gel:gar:listes", "gel:gar:tirs", "gel:gar:req",
     "gel:gar:regle", "gel:gar:aptitude", "gel:gar:entrees" }, { "gel:soldats", "gel:postes", "gel:requetes", "gel:tourelles", "gel:aptes_lus" }))
+  -- N16 (C19, banc seulement) : Ga.zones rend les zones que le guet lit (QG, amas de tourelles, poste de garde hors du cercle du QG),
+  -- sans rien écrire dans l'état du gel
+  do
+    local f, E, Gel, Ga = build(src)
+    run(640)
+    local a = W.store.gel.gar
+    local L0 = a.lists[1]
+    local z = Ga.zones(1)
+    local kinds = {}
+    for _, zo in ipairs(z and z.zones or {}) do kinds[zo.kind] = (kinds[zo.kind] or 0) + 1 end
+    check(z ~= nil and kinds.qg == 1 and (kinds.amas or 0) >= 1 and (kinds.poste or 0) >= 1 and a.lists[1] == L0 and z.force == "fo-a",
+      string.format("N16 : zones du guet : qg %s, amas %s, poste %s ; etat du gel inchange", tostring(kinds.qg), tostring(kinds.amas), tostring(kinds.poste)))
+  end
   -- N15 (C19) : guets étalés : le guet des garnisons ne tombe qu'aux ticks 1 (commun) et 3 (faction 1) de la période de 20, jamais à
   -- un tick pair (ceux des usines)
   do

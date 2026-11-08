@@ -161,9 +161,7 @@ local function enemies_of(force_name)
   return out
 end
 
-local function lists_of(a, vid, view, tick)
-  local L = a.lists[vid]
-  if L and tick - L.t < Ga.RELIST then return L end
+local function build_lists(view, tick)
   local clusters, turrets, by = {}, {}, {}
   for _, id in ipairs(State.sorted_keys(view.turrets or {})) do
     local t = view.turrets[id]
@@ -183,7 +181,13 @@ local function lists_of(a, vid, view, tick)
       turrets[#turrets + 1] = t
     end
   end
-  L = { t = tick, enemies = enemies_of(view.force), clusters = clusters, turrets = turrets }
+  return { t = tick, enemies = enemies_of(view.force), clusters = clusters, turrets = turrets }
+end
+
+local function lists_of(a, vid, view, tick)
+  local L = a.lists[vid]
+  if L and tick - L.t < Ga.RELIST then return L end
+  L = build_lists(view, tick)
   a.lists[vid] = L
   return L
 end
@@ -459,6 +463,29 @@ local function guet(tick)
   Profiler.stop("gel:garnisons")
 end
 Ga.guet = guet
+
+--- BANC SEULEMENT (micro-banc x10-gel-zones, C19, 8/11 : find_enemy_units contre la recherche actuelle, mêmes zones) : les zones de
+--- menace que le guet lirait pour la faction fid, SANS rien écrire dans l'état du gel (listes rebâties à part, pas de cache) : QG
+--- (cercle G.HQ_R), amas de tourelles (boîtes), postes hors du cercle du QG (cercles G.HAZARD_R). Rend { zones = { { kind, position,
+--- radius } ou { kind, area } }, enemies (forces ennemies, triées), force, surface (index), mobile (types lus) } ou nil.
+function Ga.zones(fid)
+  local war = State.war()
+  local f = war and war.factions and war.factions[fid]
+  if not (f and f.hq and f.hq.valid and f.hq_pos) then return nil end
+  local L = build_lists({ turrets = f.turrets, force = f.force }, game.tick)
+  local out = { { kind = "qg", position = { x = f.hq_pos.x, y = f.hq_pos.y }, radius = G.HQ_R } }
+  for _, c in ipairs(L.clusters) do out[#out + 1] = { kind = "amas", area = { { c.x0, c.y0 }, { c.x1, c.y1 } } } end
+  local a = GA0()
+  local P = (a and a.posts[fid]) or {}
+  for _, k in ipairs(keys(P)) do
+    local pt = P[k].pt
+    local dx, dy = pt.x - f.hq_pos.x, pt.y - f.hq_pos.y
+    if math.sqrt(dx * dx + dy * dy) + G.HAZARD_R > G.HQ_R then
+      out[#out + 1] = { kind = "poste", position = { x = pt.x, y = pt.y }, radius = G.HAZARD_R }
+    end
+  end
+  return { zones = out, enemies = L.enemies, force = f.force, surface = f.hq.surface.index, mobile = Ga.MOBILE }
+end
 
 Events.on_nth_tick(1, function(e) guet(e.tick) end)
 
