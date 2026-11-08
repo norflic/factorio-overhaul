@@ -23,6 +23,7 @@ local Ch = require("shared.team.champ")
 local Cv = require("shared.team.champ_verif")
 local Sa = require("shared.team.champ_saut") -- lot FONDERIE : découpe d'une bande trop grosse en projets liés
 local Ln = require("shared.team.champ_lien") -- revue-fonderie (point 7) : lecteur des projets liés du réseau du charbon
+local LB = require("script.team.ligne_bande") -- lot RACCORD-BANDE 2 : ligne de poteaux d'une bande lointaine
 local Ra = require("shared.team.champ_raccord") -- lot FONDERIE : tous les poteaux d'une bande rejoignent le réseau alimenté
 local Storage = require("script.core.storage")
 local Events = require("script.core.events")
@@ -630,6 +631,7 @@ end
 Champ.powered_pole = powered_pole
 
 Build.SITES = Build.SITES or {}
+LB.install(Build)
 --- Lot FONDERIE : raccorde TOUTES les composantes des poteaux de `ents` (projet d'une bande ou d'un réseau du charbon) à un poteau alimenté
 --- (Ra.connect). Ajoute les poteaux de liaison à `ents` ; rend (poteaux posés, nil, nil, composantes) ou (nil, raison, attente).
 local function raccord_tous(f, surface, bd, ents, cx, cy, proj)
@@ -678,6 +680,16 @@ local function raccord_tous(f, surface, bd, ents, cx, cy, proj)
   local v0, v1 = b1 and b1.pr or 0, b1 and (b1.pr + bd.plan.pitch) or -1
   local axis_x = bd.plan.axis == "x"
   local tier_used = {}
+  -- lot RACCORD-BANDE 2 : le réseau alimenté est à plus de LB.LINE_FAR tuiles (partie neuve 0.6.72 : 163 à 281) : aucun palier local n'y mènera, la ligne de
+  -- poteaux est demandée tout de suite (coût d'un palier épargné)
+  local nearest = proj and Ra.nearest(own, targets) or nil
+  if nearest and nearest.d > LB.LINE_FAR then
+    local ok, why = LB.ensure(f, surface, proj, nearest, wire, bd.names.pole, game.tick)
+    if ok then
+      proj.rtier, proj.far_poll = nil, LB.POLL
+      return nil, why, "loin"
+    end
+  end
   -- un palier par essai quand le projet est connu (coût d'un essai = celui d'une recherche, ~5 ms) : proj.rtier = palier du prochain essai
   local only = proj and (proj.rtier or 1) or nil
   local prm = { tier = only, hull = hull, reach = wire, pole_chain = P.pole_chain, blocked = blocked_of, used = used, key = Ch.key,
@@ -702,6 +714,15 @@ local function raccord_tous(f, surface, bd, ents, cx, cy, proj)
       say(f, string.format("raccord de bande refuse, palier « %s » : composante de %d poteau(x) en (%.0f, %.0f), cible la plus proche en (%.0f, %.0f) a %.0f tuiles ; segment %d points : %d occupes, %d de minerai, %d deja pris, %d libres ; boite %d x %d : %d%% de tuiles libres",
         t.name, fl.n, fl.at.x, fl.at.y, fl.to.x, fl.to.y, fl.d or 0, st.seg, st.seg_blocked, st.seg_ore, st.seg_used, st.seg_free,
         box.x1 - box.x0 + 1, box.y1 - box.y0 + 1, st.box > 0 and math.floor(100 * st.box_free / st.box) or 0))
+    end
+  end
+  -- lot RACCORD-BANDE 2 : le réseau alimenté est LOIN (partie neuve 0.6.72 : 163 à 281 tuiles) : après le dernier palier, une LIGNE de poteaux, projet
+  -- à part (une par avant-poste, partagée par ses bandes) ; la bande attend sa ligne au lieu d'être refusée
+  if #fails > 0 and proj and (not only or only >= #Ra.TIERS) and fails[1].to and (fails[1].d or 0) > LB.LINE_MIN then
+    local ok, why = LB.ensure(f, surface, proj, fails[1], wire, bd.names.pole, game.tick)
+    if ok then
+      proj.rtier, proj.far_poll = nil, LB.POLL
+      return nil, why, "loin"
     end
   end
   if #fails > 0 and only and only < #Ra.TIERS then

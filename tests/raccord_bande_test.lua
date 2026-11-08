@@ -260,12 +260,24 @@ for _, m in ipairs(MUT) do
   end
 end
 check(refused == #MUT, "§7 mutants refusés : " .. refused .. " sur " .. #MUT)
+-- §6 bis : la paire la plus proche (poteau de la bande, poteau alimenté), déterministe
+do
+  local own = { { x = 200, y = 0 }, { x = 190, y = 10 }, { x = 210, y = -4 } }
+  local tg = { { x = 0, y = 0 }, { x = 30, y = 5 }, { x = 20, y = -9 } }
+  local n = Ra.nearest(own, tg)
+  check(n and n.at.x == 190 and n.at.y == 10 and n.to.x == 30 and n.to.y == 5 and math.abs(n.d - math.sqrt(160 * 160 + 5 * 5)) < 1e-9, "§6bis paire la plus proche")
+  check(Ra.nearest({}, tg) == nil and Ra.nearest(own, {}) == nil, "§6bis rien à apparier : nil")
+end
+
 -- §8 câblage (lecture des sources) : le raccord réel passe par les paliers, un palier par essai, et la migration reprend après la pause
 local champ_src, mig_src = read("script/team/champ.lua"), read("script/team/migration_champ.lua")
 local function has(src, text, msg) check(src:find(text, 1, true) ~= nil, "§8 " .. msg) end
 has(champ_src, "local prm = { tier = only, hull = hull,", "champ.lua : raccord_tous passe par Ra.tiered_chain, un palier par essai")
 has(champ_src, "local n_r, why_r, wait_r, nc = raccord_tous(f, surface, bd, ents, cx, cy, p)", "champ.lua : le projet est passé à raccord_tous (palier suivant à l'essai suivant)")
 has(champ_src, "proj.rtier = only + 1", "champ.lua : palier suivant mémorisé sur le projet")
+has(champ_src, "local nearest = proj and Ra.nearest(own, targets) or nil", "champ.lua : réseau lointain : la ligne est demandée sans palier local")
+has(champ_src, "LB.ensure(f, surface, proj, fails[1], wire, bd.names.pole, game.tick)", "champ.lua : après le dernier palier, la ligne est demandée")
+has(read("script/team/ligne_bande.lua"), "Build.SITES.ligne_bande = plan_site", "ligne_bande.lua : le site est branché")
 has(mig_src, "CHAMP_CFG.pause = 5 * 3600", "migration_champ.lua : pause de 5 min")
 has(mig_src, "if pause and st.abandoned then st.pause = CHAMP_CFG.pause end", "migration_champ.lua : la pause est posée à l'abandon d'une bande du champ")
 has(mig_src, "local waited = st and st.pause or CFG.revive", "migration_champ.lua : la reprise lit la pause")

@@ -205,4 +205,18 @@ function Ra.segment_stats(a, b, box, p, free)
   return out
 end
 
+--- Lot RACCORD-BANDE 2 : la paire (poteau de la bande, poteau alimenté) la plus proche. Rend { at, to, d } ou nil. Égalité : plus petit x puis y du poteau de la
+--- bande, puis de la cible (déterministe).
+function Ra.nearest(own, targets)
+  local best
+  for _, q in ipairs(own) do
+    for _, t in ipairs(targets) do
+      local d2 = (q.x - t.x) ^ 2 + (q.y - t.y) ^ 2
+      if not best or d2 < best.d2 - Ra.EPS then best = { d2 = d2, at = q, to = t } end
+    end
+  end
+  if not best then return nil end
+  return { at = { x = best.at.x, y = best.at.y }, to = { x = best.to.x, y = best.to.y }, d = math.sqrt(best.d2) }
+end
+
 return Ra
