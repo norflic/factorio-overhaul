@@ -164,7 +164,11 @@ local function survey_step(f, surface, pass, budget)
       -- au lieu d'un parcours de tous les fours par foreuse (171 x 171 lectures sur un avant-poste dense)
       local sink_set, sink_at
       -- lot MIGRATION-CHAMP : un champ en cours de migration (rangees electriques du plan directeur) ne recoit pas de remplacement sur place
-      local list = o.migr == "en cours" and {} or (o.drill_list or {})
+      -- Partie C (lead, 8/11) : ni sur un avant-poste dont une électrique déjà posée est vue SANS COURANT par le repli (o.dark_units,
+      -- Swap.repli), même avant wait : après une coupure, producing() lit encore le flux de la dernière minute (banc foreuses-panne-diag :
+      -- 2 électriques posées 180 ticks après la coupure). producing() reste la condition nécessaire ; la pose reprend quand plus aucune
+      -- électrique n'est sans courant.
+      local list = (o.migr == "en cours" or o.dark_units ~= nil) and {} or (o.drill_list or {})
       local fuel = fuel_outpost(o) -- réserve d'amorçage : thermiques DEBOUT de l'avant-poste (toutes, refus et attentes compris)
       while pass.di <= #list do
         local i = pass.di
@@ -1030,7 +1034,14 @@ end
 function Swap.repli(f, surface, book, free, tick)
   if not (f and f.outposts and f.hq and f.hq.valid) then return 0 end
   local cfg = Rt.cfg(f.team and f.team.repli)
-  if not cfg.on then return 0 end
+  if not cfg.on then
+    -- règle éteinte (témoin des bancs) : plus de mémoire de panne, donc plus de pose suspendue (relevé du remplacement)
+    for _, oid in ipairs(sorted_keys(f.outposts or {})) do
+      local o = f.outposts[oid]
+      if o.dark_units then o.dark_units, o.dark_since = nil, nil end
+    end
+    return 0
+  end
   -- sans état du remplacement (aucune pensée de Swap.think), aucune électrique n'a été posée sur place : rien à replier, rien de créé
   -- (f.swap sans `ready` changerait la lecture de script/team/gisement.lua)
   local st = f.swap
@@ -1063,12 +1074,18 @@ function Swap.repli(f, surface, book, free, tick)
     local was = o.dark_since
     local mem, ready, since, state = Rt.observe(o.dark_units, dark, tick, cfg)
     o.dark_units, o.dark_since = mem, since
+    -- (lead, 8/11) une ligne quand la pose du remplacement est suspendue ou reprend (relevé : o.dark_units)
     if was == nil and since ~= nil then
-      say_ap(f, rp, tick, "panne vue : avant-poste %d (%s), %d electrique(s) sans courant sur %d ; repli apres %.1f min de panne", oid,
-        tostring(o.kind), #dark, electric, cfg.wait / 3600)
-    elseif was ~= nil and since == nil and electric > 0 then
-      say_ap(f, rp, tick, "courant revenu : avant-poste %d (%s), %d electrique(s), apres %.1f min de panne", oid, tostring(o.kind),
-        electric, (tick - was) / 3600)
+      say_ap(f, rp, tick, "panne vue, pose suspendue : avant-poste %d (%s), %d electrique(s) sans courant sur %d ; repli apres %.1f min de panne",
+        oid, tostring(o.kind), #dark, electric, cfg.wait / 3600)
+    elseif was ~= nil and since == nil then
+      if electric > 0 then
+        say_ap(f, rp, tick, "courant revenu, pose reprise : avant-poste %d (%s), %d electrique(s), apres %.1f min de panne", oid, tostring(o.kind),
+          electric, (tick - was) / 3600)
+      else
+        say_ap(f, rp, tick, "pose reprise : avant-poste %d (%s), plus aucune electrique sans courant (repliees) apres %.1f min de panne", oid,
+          tostring(o.kind), (tick - was) / 3600)
+      end
     end
     if state == "repli" then list[#list + 1] = { id = oid, fuel = fuel_outpost(o) and true or false, dark = ready } end
   end

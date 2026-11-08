@@ -10,6 +10,7 @@
   Relevé toutes les 30 ticks entre CUT et CHECK : thermiques et électriques du gisement (positions), état du repli (remote repli_state).
   Règle allumée (foreuses-panne) :
     - au moins 2 électriques avant la coupure, et AUCUN repli avant elle (réseau alimenté ; défaut vu au banc du 8/11 sur b964c9b1) ;
+    - AUCUNE électrique posée entre la coupure et le retour du courant (pose suspendue par o.dark_units, lead 8/11) ;
     - signal (électriques sans courant comptées) à la première pensée après la coupure ;
     - aucun repli avant le début de la panne + wait ; au moins 2 replis avant le retour du courant ; ces thermiques TRAVAILLENT, avec du
       combustible, juste avant le retour du courant ;
@@ -118,6 +119,8 @@ return function(rule, diag)
       if t == CUT then
         local burn, elec = survey(ctx, st)
         st.e_cut, st.b_cut = #elec, #burn
+        st.elec_cut = {}
+        for _, d in ipairs(elec) do st.elec_cut[key_of(d)] = true end
         for _, b in ipairs(burn) do st.seen_burn[key_of(b)] = true end
         -- banc du 8/11 (b964c9b1) : 2 replis AVANT la coupure (électriques juste posées, mémoire par avant-poste) ; contrôlé désormais
         local rs = ctx.remote("fo-ia1", "repli_state", "player") or ""
@@ -163,6 +166,16 @@ return function(rule, diag)
         if un and tonumber(un) > 0 then st.signal, st.since = t, tonumber(since) end
       end
       st.min_elec = math.min(st.min_elec or #elec, #elec)
+      -- (lead, 8/11) électriques POSÉES par le remplacement entre la coupure et le retour du courant (absentes à la coupure)
+      if t > CUT and t < RESTORE then
+        for _, d in ipairs(elec) do
+          local k = key_of(d)
+          if not st.elec_cut[k] then
+            st.elec_cut[k] = true
+            st.posed_dark = (st.posed_dark or 0) + 1
+          end
+        end
+      end
       if t >= RESTORE and #elec > (st.min_elec or 0) and not st.back then st.back = t end
     end,
 
@@ -191,11 +204,14 @@ return function(rule, diag)
       end
       local rs = ctx.remote("fo-ia1", "repli_state", "player")
       local pre = st.pre or {}
-      ctx.log(string.format("[FO-%s] RESULTAT regle=%s electriques_coupure=%d replis_avant_coupure=%s signal=%s debut_panne=%s premier_repli=%s replis_vus=%d avant_retour=%d travaillent=%d avec_combustible=%d electriques_sans_courant=%d/%d reremplacees=%d trop_tot=%d electrique_de_nouveau=%s electriques_fin=%d dans_recepteur=%d thermiques_fin=%d repli=[%s]",
-        TAG, rule and "oui" or "non", st.e_cut or -1, tostring(st.replis_cut), tostring(st.signal), tostring(st.since), tostring(first), n_app, pre.n or -1,
+      ctx.log(string.format("[FO-%s] RESULTAT regle=%s electriques_coupure=%d replis_avant_coupure=%s posees_pendant_coupure=%d signal=%s debut_panne=%s premier_repli=%s replis_vus=%d avant_retour=%d travaillent=%d avec_combustible=%d electriques_sans_courant=%d/%d reremplacees=%d trop_tot=%d electrique_de_nouveau=%s electriques_fin=%d dans_recepteur=%d thermiques_fin=%d repli=[%s]",
+        TAG, rule and "oui" or "non", st.e_cut or -1, tostring(st.replis_cut), st.posed_dark or 0, tostring(st.signal), tostring(st.since), tostring(first), n_app, pre.n or -1,
         pre.working or -1, pre.fueled or -1, pre.dark or -1, pre.elec or -1, reswap, early, tostring(st.back), #elec, into, #burn, tostring(rs)))
       ctx.check((st.e_cut or 0) >= 2, "au moins 2 electriques avant la coupure", tostring(st.e_cut))
       ctx.check(st.replis_cut == 0, "aucun repli avant la coupure (reseau alimente)", tostring(st.replis_cut))
+      if rule then
+        ctx.check((st.posed_dark or 0) == 0, "aucune electrique posee entre la coupure et le retour du courant", tostring(st.posed_dark or 0))
+      end
       if rule then
         ctx.check(st.signal ~= nil and st.signal - CUT <= 300 + STEP, "C1 signal a la premiere pensee apres la coupure", tostring(st.signal))
         ctx.check(first ~= nil and st.since ~= nil and first >= st.since + WAIT, "C1 aucun repli avant le debut de la panne + wait",

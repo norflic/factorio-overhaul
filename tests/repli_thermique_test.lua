@@ -222,7 +222,7 @@ local function script_suite(text)
   R.W.cut(true)
   think(R, 300)
   c("B1 C1 signal leve a la premiere pensee sans courant", o.unpowered == 2 and o.dark_since == 300
-    and logged(R, "panne vue : avant-poste 1 (iron), 2 electrique(s) sans courant sur 2"), tostring(o.unpowered) .. " " .. tostring(o.dark_since))
+    and logged(R, "panne vue, pose suspendue : avant-poste 1 (iron), 2 electrique(s) sans courant sur 2"), tostring(o.unpowered) .. " " .. tostring(o.dark_since))
   think(R, 600)
   think(R, 900)
   local b0, el0 = count(o)
@@ -371,6 +371,37 @@ local function script_suite(text)
     and (R13.f.swap.repli.done or 0) == 0, string.format("vues sans courant %s, electriques %d, replis %d", tostring(seen_dark), e13,
       R13.f.swap.repli.done or 0))
 
+  -- B14 : lead, 8/11 : coupure (le flux de la dernière minute reste positif : W.stats_lag), puis AUCUNE pose du remplacement entre la
+  -- coupure et le retour du courant ; ligne « pose suspendue » ; pose reprise au retour
+  local R14 = Monde.fresh(text, false, nil, Monde.build_fer)
+  R14.f.team.repli = { wait = 900, hold = 600, every = 300, per_pass = 2 }
+  R14.env.stock["electric-mining-drill"] = 20
+  for k = 0, 1 do think(R14, 300 * k, true) end -- 2 électriques posées (le monde factice se sature au-delà de 6 : « 3x3 bloquee »)
+  local _, e_cut = count(R14.f.outposts[1])
+  R14.W.dead, R14.W.stats_lag = true, true -- coupure : réseau intact, plus de production, flux de la dernière minute encore positif
+  local max_during = e_cut
+  for k = 2, 4 do -- panne vue au tick 600 ; wait 900 : aucun repli jusqu'au tick 1 200
+    think(R14, 300 * k, true)
+    local _, e = count(R14.f.outposts[1])
+    if e > max_during then max_during = e end
+  end
+  c("B14 coupure : aucune electrique posee avant le retour du courant, pose suspendue au journal", e_cut > 0 and max_during == e_cut
+    and logged(R14, "pose suspendue : avant-poste 1 (iron)") and (R14.f.swap.repli.done or 0) == 0,
+    string.format("a la coupure %d, au plus %d pendant, replis %d", e_cut, max_during, R14.f.swap.repli.done or 0))
+  R14.W.dead, R14.W.stats_lag = false, false
+  for k = 5, 8 do think(R14, 300 * k, true) end
+  local _, e_back = count(R14.f.outposts[1])
+  c("B14 courant revenu : pose reprise (journal), electriques de nouveau posees", e_back > e_cut and logged(R14, "courant revenu, pose reprise"),
+    string.format("%d -> %d", e_cut, e_back))
+  -- B15 : règle éteinte après une panne vue : la mémoire est effacée, la pose n'est pas suspendue pour toujours
+  local R15 = fresh(text, build_dark({ { id = 1, kind = "iron", n = 1 } }), CF, { ["burner-mining-drill"] = 2 })
+  R15.W.cut(true)
+  think(R15, 0)
+  local had = R15.f.outposts[1].dark_units ~= nil
+  R15.f.team.repli = { on = false }
+  think(R15, 300)
+  c("B15 regle eteinte : memoire de panne effacee (pose plus suspendue)", had and R15.f.outposts[1].dark_units == nil)
+
   -- B11 : la place notée par le remplacement sur place (swap_one), et nettoyée par compact
   local R11 = Monde.fresh(text, false, nil, Monde.build_fer)
   local starts = {}
@@ -437,8 +468,11 @@ local MUT = {
   { "script", "combustible non pose", { { "    if fuel > 0 then new.get_fuel_inventory().insert({ name = T.fuel, count = fuel }) end", "" } } },
   { "script", "place notee oubliee au remplacement", { { "  o.swap_from[new.unit_number] = { x = pos.x, y = pos.y, dir = dir }", "" } } },
   { "script", "compact ne nettoie pas", { { "    for _, u in ipairs(sorted_keys(o.swap_from)) do if not live[u] then o.swap_from[u] = nil end end", "" } } },
-  { "script", "regle eteinte ignoree", { { "  if not cfg.on then return 0 end", "" } } },
+  { "script", "regle eteinte ignoree", { { "  if not cfg.on then", "  if false then" } } },
   { "script", "etat du remplacement cree par le repli", { { "  if not (st and st.retry) then return 0 end", "  if not st then st = { next = 0, done = 0, failed = 0, retry = {} }; f.swap = st end" } } },
+  { "script", "pose de B qui ignore dark_units (lead, 8/11)", { { '      local list = (o.migr == "en cours" or o.dark_units ~= nil) and {} or (o.drill_list or {})',
+      '      local list = o.migr == "en cours" and {} or (o.drill_list or {})' } } },
+  { "script", "memoire non effacee quand la regle est eteinte", { { "      if o.dark_units then o.dark_units, o.dark_since = nil, nil end", "" } } },
   { "script", "coffre plein ignore", { { '    return false, "coffre plein"', '    mined = true' } } },
 }
 local CR = SCRIPT:find("\r\n", 1, true) and "\r\n" or "\n"

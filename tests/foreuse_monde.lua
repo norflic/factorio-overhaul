@@ -7,7 +7,8 @@
   Mo.play(R, passes) : R.hook(R), s'il existe, est appelé après chaque tranche jouée par la minuterie.
   W.no_targets = true : aucune foreuse n'a de drop_target (posée avant son récepteur, rien déposé encore).
   Partie C (repli thermique) : statut d'une électrique lu à la couverture des poteaux d'un réseau vivant (au travail, ou no_power ;
-  W.low : low_power ; no_power au tick de sa pose par create_entity, e.born, comme en moteur réel) ; e.mine (W.full : coffre plein) ; Stock.inventories ; defines.entity_status.
+  W.low : low_power ; no_power au tick de sa pose par create_entity, e.born, comme en moteur réel ; W.dead : source qui ne produit
+  plus, réseau intact ; W.stats_lag : flux de la dernière minute encore positif) ; e.mine (W.full : coffre plein) ; Stock.inventories ; defines.entity_status.
 ]]
 package.path = "./?.lua;" .. package.path
 local T = require("shared.team.config")
@@ -79,7 +80,9 @@ local function world()
       return net_root(e) or (100000 + e.unit_number)
     end
     if k == "electric_network_statistics" then
-      local live = net_root(e) ~= nil
+      -- W.dead : la source ne produit plus (réseau intact : mêmes fils, même numéro) ; W.stats_lag : après une coupure, le moteur lit
+      -- encore le flux de la DERNIÈRE MINUTE (banc foreuses-panne-diag du 8/11)
+      local live = (net_root(e) ~= nil and not W.dead) or W.stats_lag == true
       return { input_counts = live and { gen = 1 } or {}, get_flow_count = function() return live and 1 or 0 end }
     end
     if k == "neighbours" then return { copper = e.wires } end
@@ -93,7 +96,7 @@ local function world()
       local b = box(e)
       for _, q in ipairs(W.ents) do
         local qp = PROTO[q.name]
-        if q.valid and qp.type == "electric-pole" and net_root(q) then
+        if q.valid and qp.type == "electric-pole" and net_root(q) and not W.dead then
           local r = qp.supply_area_distance
           if q.position.x - r < b.right_bottom.x and q.position.x + r > b.left_top.x and q.position.y - r < b.right_bottom.y
               and q.position.y + r > b.left_top.y then
