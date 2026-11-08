@@ -175,8 +175,9 @@ function Elec.count(f, st, tick, allowed, why)
   elseif (l.ready or 0) + (l.chain or 0) <= 0 then cause = "aucun poteau alimente a portee des champs du bloc (champs sautes 5 min)"
   elseif (l.have or 0) <= 0 then cause = "foreuses electriques a fabriquer (stock libre 0)"
   else cause = string.format("remplacement en cours (quota %d, marge %.0f kW)", l.quota or 0, l.margin or 0) end
-  log(string.format("[FO-ELECTRIQUE] %s : thermiques debout %d (%s), hors avant-postes de l'equipe %d, remplacees cette minute %d, cause du reste : %s a %.1f min",
-    f.key or "player", n, table.concat(kinds, ", "), out, made, cause, minutes(f, tick)))
+  local v = st.v or {}
+  log(string.format("[FO-ELECTRIQUE] %s : thermiques debout %d (%s), hors avant-postes de l'equipe %d, electriques qui tournent %d (force), poteaux au stock %d, remplacees cette minute %d, cause du reste : %s a %.1f min",
+    f.key or "player", n, table.concat(kinds, ", "), out, v.el_live or 0, v.poles_stock or 0, made, cause, minutes(f, tick)))
 end
 
 local function verdict_for(v)
