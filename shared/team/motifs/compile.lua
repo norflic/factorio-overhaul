@@ -114,6 +114,39 @@ local function deriver(m)
     if d then e.groupe, e.io, e.jetons, e.interne, e.de, e.vers, e.jeton = d.groupe, d.io, d.jetons, d.interne, d.de, d.vers, d.jeton end
   end
   der.noms, der.ids = sorted_keys(der.groupes), sorted_keys(der.liens)
+  -- classification (DC : taille, nombre d'entrées et de sorties, modularité)
+  local n_in, m_out = #(m.entrees or {}), #(m.sorties or {})
+  for _, f in ipairs(m.fluides or {}) do
+    if f.io == "in" then n_in = n_in + 1 else m_out = m_out + 1 end
+  end
+  if (der.pieces.coffre or 0) > 0 then m_out = m_out + 1 end   -- produit déposé en coffre (quai)
+  der.n_entrees, der.m_sorties = n_in, m_out
+  der.surface = m.periode * m.h
+  der.modularite = m.repetable and "serie" or "unique"
+  local nm = 0
+  for _, g in ipairs(der.noms) do nm = nm + der.groupes[g].n end
+  der.machines = nm
+  -- contraintes : place minimale (une tuile, tête et queue comprises) et rangées qui doivent rester DROITES (un tapis qui traverse
+  -- toute la tuile dans le sens de la répétition : le dévier casserait la répétition)
+  der.place_min = { l = (m.tete and m.tete.len or 0) + m.periode + (m.queue and m.queue.len or 0), h = m.h }
+  local droits = {}
+  local par_cellule = {}
+  for _, pc in ipairs(m.pieces) do
+    if D.est_tapis(pc.role) and pc.role ~= "repartiteur" then par_cellule[pc.y * 4096 + pc.x] = pc end
+  end
+  for y = 0, m.h - 1 do
+    local ref
+    local ok = true
+    for x = 0, m.periode - 1 do
+      local pc = par_cellule[y * 4096 + x]
+      if not pc or pc.dir ~= D.E or (ref and (pc.role ~= ref.role or pc.k ~= ref.k)) then ok = false; break end
+      ref = ref or pc
+    end
+    if ok and ref and (ref.role == "tapis_entree" or ref.role == "tapis_sortie") then
+      droits[#droits + 1] = { role = ref.role, k = ref.k, y = y }
+    end
+  end
+  der.droits = droits
   m.derive = der
 end
 

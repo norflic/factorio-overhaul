@@ -63,6 +63,36 @@ for ref, id in pairs(REFS) do
   check(m and m.origine == "ref_dc" and m.ref == ref, "référence du DC " .. ref .. " transcrite par " .. id)
 end
 
+-- classification : n entrées, m sorties, modularité, machines par tuile (demande du DC)
+do
+  local CLASSES = {
+    ["fonte-2x2-double-central"] = { 1, 2, "serie", 4 }, ["asm-2e-1s"] = { 2, 1, "serie", 1 }, ["asm-grille-3-directe"] = { 2, 1, "serie", 3 },
+    ["asm-cable-circuit-3-2-double"] = { 3, 1, "serie", 10 }, ["equilibreur-4-4"] = { 4, 4, "unique", 0 },
+    ["chimie-rangee-2f-1e-1s"] = { 3, 1, "serie", 1 }, ["raffinerie-rangee-base"] = { 1, 1, "serie", 1 },
+    ["bus-piquage-voie-exterieure"] = { 4, 5, "unique", 0 }, ["foreuses-2xN-tapis-central"] = { 0, 1, "serie", 4 },
+  }
+  for id, c in pairs(CLASSES) do
+    local d = Cat.get(id).derive
+    check(d.n_entrees == c[1] and d.m_sorties == c[2] and d.modularite == c[3] and d.machines == c[4],
+      string.format("%s classé %d entrées, %d sorties, %s, %d machines (lu : %d, %d, %s, %d)", id, c[1], c[2], c[3], c[4], d.n_entrees, d.m_sorties, d.modularite, d.machines))
+  end
+end
+
+-- contraintes : place minimale et rangées qui doivent rester droites
+do
+  local m = Cat.get("fonte-2x2-double-central")
+  check(m.derive.place_min.l == 4 and m.derive.place_min.h == 11, "place minimale de la colonne du DC : une tuile 4 × 11")
+  local d = m.derive.droits
+  local ok = #d == 3
+  for _, x in ipairs(d) do
+    if not ((x.role == "tapis_entree" and x.k == 1 and x.y == 5) or (x.role == "tapis_sortie" and x.k == 1 and x.y == 0) or (x.role == "tapis_sortie" and x.k == 2 and x.y == 10)) then ok = false end
+  end
+  check(ok, "rangées droites de la colonne du DC : entrée 1 (rangée 5), sorties 1 et 2 (rangées 0 et 10)")
+  local c = Cat.get("chimie-rangee-2f-sortie")
+  check(c.derive.place_min.l == 8 and c.derive.place_min.h == 7, "place minimale d'une rangée à 2 fluides : tête 2 + tuile 4 + queue 2 = 8 × 7")
+  check(#Cat.get("equilibreur-4-4").derive.droits == 0, "l'équilibreur n'impose aucune rangée droite sur toute sa largeur")
+end
+
 for _, m in ipairs(Cat.MOTIFS) do
   check(type(m.source) == "table" and #m.source >= 1 and m.source[1]:match("^https://"), m.id .. " : source (URL) renseignée")
   check(m.nom_fr and m.nom_en, m.id .. " : noms FR et EN")
