@@ -500,6 +500,16 @@ do
   for _, r in ipairs(Lec.decision_rows(f3)) do if r.kind == "defense" then n_def = n_def + 1 end end
   check(n_def == Lg.DEF_MAX, "lieux de defense : au plus " .. Lg.DEF_MAX .. " lignes sur 10 : " .. n_def)
   f3.defstock = nil
+  -- AMELIORATION : f.team.capital.refus lu (decisions, niveau refuse, refus de la zone)
+  f3.team.capital = { refus = { ["p1|furnace"] = { cause = "plafond-centre", tick = NOW - 30 }, ["qg|gun"] = { cause = "emprise", tick = NOW - 90 } }, history = {} }
+  local n_am = 0
+  for _, r in ipairs(Lec.decision_rows(f3)) do if r.kind == "amelioration_refus" then n_am = n_am + 1 end end
+  check(n_am == 2, "refus d'amelioration dans les decisions : " .. n_am)
+  local fa = Lec.improvement_facts(f3).niveau
+  check(fa and fa.state == "refusee" and fa.why[1] == "fo-dbg-cerveau.am-refus-plafond-centre", "niveau : refusee, avec le refus le plus recent")
+  local zr = Lec.am_refus_rows(f3, 1)
+  check(#zr == 1 and zr[1].famille == "furnace", "refus de la zone p1 seulement")
+  f3.team.capital = nil
   -- C : sante creee mais jamais relevee = aucune lecture ; relevee (healthy) = marche
   z.kind = "centrale"
   rd = Lec.reads(f3, z)
