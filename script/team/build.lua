@@ -2792,7 +2792,7 @@ local function plan_project(f, surface, p)
   end
   local g, why = template_of(spec, topts)
   if not g then return false, why end
-  g = Build.Rangee.full(p, g) -- lot RANGEES-ASM : rangée dynamique planifiée à la borne de son gabarit (place entière réservée)
+  g = Build.Rangee.full(p, g, f) -- lot RANGEES-ASM : rangée dynamique planifiée à la borne de son gabarit (place entière réservée)
   p.consumes = {}
   p.inflow = {} -- lot INDUSTRIE I7 : débit nominal de chaque entrée (objets/s), lu par script/team/liaison.lua pour le prix d'une liaison de quai
   for _, k in ipairs(sorted_keys(g.inputs or {})) do p.consumes[k] = true; p.inflow[k] = g.inputs[k] end
