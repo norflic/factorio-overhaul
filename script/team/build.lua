@@ -140,6 +140,8 @@ Build.Repli = require("script.team.repli_place")
 -- Lot TV-ARCHI (V23) : quartiers et enveloppe d'avance (script/team/quartiers.lua) ; champ de Build, même raison (199 locales sur 200).
 Build.Quartiers = require("script.team.quartiers")
 Build.Trav = require("script.team.traversee") -- lot TRAVERSEE : tapis qui enjambent les obstacles par des souterrains, gisements évités (champ de Build : bloc principal à 199 locales)
+-- Lot RAPATRIEMENT (8/11) : lignes sortie lointaine -> tapis -> tampon (script/team/rapatriement.lua) ; champ de Build, même raison (199 locales sur 200).
+Build.Rapatriement = require("script.team.rapatriement")
 Build.Place = require("script.team.place_glue") -- lot TV-PLACE : sonde 30 x 30 (G37), défrichage préventif 50 x 50 (G38), repli de placement simple (C07)
 local TREE_TYPES = { "tree", "simple-entity" }
 
@@ -2714,6 +2716,10 @@ local function plan_project(f, surface, p)
       count = function(it) return Stock.count(f, it) end }) -- (tranche 3 : tourelle du pôle si le coffre l'a)
   end
   if spec.liaison and spec.liaison.piquage then return Build.Piquage.plan({ read_masks = function(x0, y0, x1, y1) return read_masks(f, surface, x0, y0, x1, y1) end, reserve_tiles = reserve_tiles, wood_of = wood_of, free_spot = free_spot, add_obstacle = add_obstacle, item_of = item_of, seg_passable = seg_passable, REACH = REACH, trav = Build.Trav }, f, surface, p) end -- lot PIQUAGE
+  if spec.rapatriement then -- lot RAPATRIEMENT : ligne longue d'une sortie lointaine à un coffre tampon (script/team/rapatriement.lua)
+    return Build.Rapatriement.plan({ read_masks = function(x0, y0, x1, y1) return read_masks(f, surface, x0, y0, x1, y1) end, reserve_tiles = reserve_tiles, wood_of = wood_of,
+      free_spot = free_spot, add_obstacle = add_obstacle, item_of = item_of, seg_passable = seg_passable, REACH = REACH }, f, surface, p)
+  end
   if spec.liaison then return Liaison.plan({ read_masks = function(x0, y0, x1, y1) return read_masks(f, surface, x0, y0, x1, y1) end, reserve_tiles = reserve_tiles, wood_of = wood_of, free_spot = free_spot, add_obstacle = add_obstacle, item_of = item_of, seg_passable = seg_passable, REACH = REACH }, f, surface, p) end -- lot INDUSTRIE I7
   Profiler.start("build:plan:place") -- lot IA3-e : parts du coût d'un plan (pics de K10), mesure seulement
   -- Lot PETROLE : un SITE (spec.site) est implanté par son planificateur (Build.SITES[nom], hors du treillis : au gisement
@@ -3796,6 +3802,7 @@ function Build.work(agent, f, tick)
       if put > 0 then inv.remove({ name = q.item, count = put }) end
       b.stats.filled = b.stats.filled + put
       q.tours, q.filled = (q.tours or 0) + 1, (q.filled or 0) + put -- lot PIQUAGE : tournées « fill » par quai (journal [FO-PIQUAGE] bilan)
+      b.stats.trips_fill = (b.stats.trips_fill or 0) + 1 -- lot RAPATRIEMENT : voyages de remplissage terminés (critère C2)
     end
     return "done"
   elseif job.mode == "amorce" then
@@ -3838,6 +3845,9 @@ function Build.work(agent, f, tick)
       end
     end
     b.stats.collected = b.stats.collected + got
+    -- lot RAPATRIEMENT : voyages de collecte terminés (critère C2), par sortie (o.trips) et objets pris à ce coffre (o.collected, arrivées au tampon)
+    b.stats.trips_collect = (b.stats.trips_collect or 0) + 1
+    o.trips, o.collected = (o.trips or 0) + 1, (o.collected or 0) + got
     return "done"
   end
   return "fail"
@@ -4664,6 +4674,7 @@ local function pulse_team(f, tick)
   Liaison.step({ request = Build.request, prio = Build.PRIO + 1, fill = Build.QUAI_FILL, low = Build.QUAI_LOW }, f, surface, tick)
   Build.Piquage.step({ request = Build.request, prio = Build.PRIO + 1, fill = Build.QUAI_FILL, low = Build.QUAI_LOW }, f, surface, tick) -- lot PIQUAGE
   Profiler.fstop("bp:liaison")
+  Build.Rapatriement.step({ request = Build.request, prio = Build.PRIO + 1 }, f, surface, tick) -- lot RAPATRIEMENT : sorties lointaines reliées au tampon près des quais
   Profiler.fstart("bp:centrale")
   -- 5. lot CORR-ENERGIE : centrale saturée, une centrale de plus (même mécanisme que la première)
   local nb, stale, secours = PlantArms.watch(f, surface, tick)
@@ -5294,6 +5305,7 @@ function Build.report(f)
     lots_refused = st.lots_refused, segs_closed = st.segs_closed, plan_refused = st.plan_refused,
     ghosts = st.ghosts, ghost_refused = st.ghost_refused, revived = st.revived, revive_fail = st.revive_fail,
     cleared = st.cleared, filled = st.filled, collected = st.collected, npc_blocks = st.npc_blocks or 0,
+    trips_collect = st.trips_collect or 0, trips_fill = st.trips_fill or 0, rapatrie = st.rapatrie or 0, -- lot RAPATRIEMENT : voyages de PNJ terminés, objets arrivés par tapis aux tampons
     route_calls = st.route_calls or 0, route_nil = st.route_nil or 0, route_resets = ROUTE_RESETS[f.key or "player"] or 0,
     self_skips = st.self_skips or 0,
     street_walks = st.street_walks, street_ok = st.street_ok, street_stuck = st.street_stuck,

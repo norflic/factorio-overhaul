@@ -76,3 +76,4 @@ require("settings.tv_archi") -- lot TV-ARCHI (V23, V91) : fo-war-enveloppe, fo-w
 require("settings.place") -- lot TV-PLACE (G37, G38, G57) : fo-war-sonde-30, fo-war-sites-10, fo-war-defrichage-prev, fo-war-place-simple (allumés)
 require("settings.debug_cerveau") -- lot DEBUG-CERVEAU : réglages par joueur de la vue « Cerveau » (textes sur la carte allumés)
 require("settings.flux") -- lot TV-FLUX (V42, G51) : fo-war-soupape, fo-war-barils (allumés par défaut)
+require("settings.rapatriement") -- lot RAPATRIEMENT (8/11) : fo-war-rapatriement, sortie lointaine -> tapis -> tampon (allumé par défaut)
