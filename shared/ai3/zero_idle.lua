@@ -20,7 +20,8 @@
   électrique, par exemple), « menace » (QG menacé : personne ne part agrandir).
 
   Paliers de foreuse (entrée `tiers`, dans l'ordre de préférence) : la règle prend le premier palier PERMIS (ok) ; le runtime ne donne
-  aujourd'hui que le palier thermique (kit Planner.outpost_items) ; un palier électrique se branche par ctx.zi_tiers (lot electrique).
+  aujourd'hui que le palier thermique (kit Planner.outpost_items) ; un palier électrique se branche par ctx.zi_tiers. Le thermique est
+  refusé quand la bascule électrique l'interdit (view.thermal_off, lot ELECTRIQUE) ou quand un module électrique fini couvre le produit.
 
   Coût : au plus (PNJ libres + types) plans du livre (Book:plan) par pensée ; pire cas mesuré par debug.sethook dans
   tests/zero_idle_test.lua.
@@ -72,11 +73,15 @@ end
 --- COUVERT par un module électrique fini (`covered`, st.covered posé par C.think à la pensée précédente) ne reçoit plus de paires
 --- thermiques (ses tournées ordinaires sont déjà retirées : des brûleurs ajoutés là ne seraient ni ravitaillés ni vidés) : palier refusé
 --- « couvert-electrique » ; son agrandissement est électrique (capitalisation, plan directeur).
-function ZI.tiers(kind, forced, covered)
+--- `thermal_off` ({ [type] = raison }, view.thermal_off du lot ELECTRIQUE, script/team/electrique.lua) : la bascule électrique refuse les
+--- paires thermiques de ce type (palier refusé « electrique:<raison> » ; ses tâches thermiques seraient filtrées au tableau).
+function ZI.tiers(kind, forced, covered, thermal_off)
   if forced and forced[kind] then return forced[kind] end
   local spec = T.outposts[kind]
   local cov = covered and spec and covered[spec.product]
-  return { { name = "thermique", kit = Planner.outpost_items(kind), ok = not cov, why = cov and "couvert-electrique" or nil } }
+  local off = thermal_off and thermal_off[kind]
+  local why = (off and ("electrique:" .. tostring(off))) or (cov and "couvert-electrique") or nil
+  return { { name = "thermique", kit = Planner.outpost_items(kind), ok = not (cov or off), why = why } }
 end
 
 --- Décision PURE. inp = {
@@ -181,7 +186,7 @@ function ZI.input(view, s, book, avail, ctx, covered)
       return tostring(a.id) < tostring(b.id)
     end)
     kinds[#kinds + 1] = { kind = kind, product = spec.product, outposts = outs, open = op, no_go = no_go,
-      tiers = ZI.tiers(kind, ctx and ctx.zi_tiers, covered) }
+      tiers = ZI.tiers(kind, ctx and ctx.zi_tiers, covered, view.thermal_off) }
   end
   local peril = view.qg_peril and view.qg_peril.peril
   return { idle = view.workers_idle or 0, fond = view.workers_fond or 0, threat = (view.hq_threat or peril) and true or false,
