@@ -17,6 +17,10 @@ function log(s) logs[#logs + 1] = s end
 
 local config_fns = {}
 package.loaded["script.core.events"] = { on_configuration_changed = function(fn) config_fns[#config_fns + 1] = fn end }
+-- Lot X10-S0 (0.6.62) : stock.lua requiert le profileur (portées fines, mesure seulement), qui charge le vrai stockage, qui s'abonne à
+-- Events.on_init, absent de la doublure ci-dessus. Doublure muette du profileur : toute fonction ne fait rien, fwrap appelle la sienne.
+package.loaded["script.core.profiler"] = setmetatable({ fwrap = function(_, fn, ...) return (fn(...)) end },
+  { __index = function() return function() end end })
 local war = { factions = {} }
 local pteam = { team = nil }
 package.loaded["script.faction.state"] = {

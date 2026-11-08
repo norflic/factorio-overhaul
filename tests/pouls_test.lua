@@ -929,7 +929,12 @@ end
 -- la 0.6.61 (lignes entières, un travail par tick), f72b7865 seul (tranches de 32 chunks, un travail par tick), b4be4c89 (tranches de 32,
 -- budget de 64). Durée des relevés du réseau en régime établi (après 8 min).
 ---------------------------------------------------------------------------------------------------
-local function p16(Rv, Ra, Jeton, cols, costs)
+-- Lot X10-S4 (8/11) : `gens` vrai = registre des génératrices allumé (script/team/generateurs.lua : le raccord commence d'un bloc, sans
+-- bandes). Les trois configurations d'avant S4 se jouent registre ÉTEINT, sinon elles ne sont plus celles qu'elles nomment.
+local function p16(Rv, Ra, Jeton, cols, costs, gens)
+  local Gens = require("script.team.generateurs")
+  local gens_saved = Gens.ENABLED
+  Gens.ENABLED = gens and true or false
   logs = {}
   local w = new_world()
   local teams = {}
@@ -987,6 +992,7 @@ local function p16(Rv, Ra, Jeton, cols, costs)
     end
   end
   Rv.BAND, Rv.COLS, Rv.BANDS_PER_PULSE, Ra.BAND, Ra.BANDS_PER_PULSE, Jeton.COSTS = saved[1], saved[2], saved[3], saved[4], saved[5], saved[6]
+  Gens.ENABLED = gens_saved
   local mx, sum = 0, 0
   for _, d in ipairs(durs) do mx = math.max(mx, d); sum = sum + d end
   return { rows = rows, width = width, demand = demand, served = (served - served0) * 3600 / (T - WARM), rv_max = mx,
@@ -1152,9 +1158,10 @@ end
 do
   -- P16 : saturation sur la ligne de 76 (voir p16)
   local cap = 3600 / 5
-  local a = p16(Rv, Ra, Jeton, math.huge, false)
-  local b = p16(Rv, Ra, Jeton, 32, false)
-  local c = p16(Rv, Ra, Jeton, 32, true)
+  local a = p16(Rv, Ra, Jeton, math.huge, false, false)
+  local b = p16(Rv, Ra, Jeton, 32, false, false)
+  local c = p16(Rv, Ra, Jeton, 32, true, false)
+  local d = p16(Rv, Ra, Jeton, 32, false, true) -- (lot X10-S4 : la configuration de b, registre des génératrices allumé)
   local function txt(name, r)
     return string.format("%s : demande %.1f, servi %.1f passes par minute sur %d (demande %.1f %%, servi %.1f %%) ; un relevé du réseau = %.2f passes, un cycle du raccord = %.0f ; relevé du réseau en régime : %.0f ticks en moyenne, %d au pire (%d relevés ; période %d)",
       name, r.demand, r.served, cap, 100 * r.demand / cap, 100 * r.served / cap, r.rv_pass, r.ra_pass, r.rv_mean, r.rv_max, r.rv_n, Rv.NET_PERIOD)
@@ -1165,6 +1172,11 @@ do
     "P16 f72b7865 seul (tranches de 32, un travail par tick) : SATURÉ, " .. txt("5 équipes, boîte 76 × 76", b))
   check(c.demand < cap and c.served < cap and c.rv_n > 0 and c.rv_max <= Rv.NET_PERIOD,
     "P16 b4be4c89 (tranches de 32, budget de " .. Jeton.BUDGET .. ") : sous la capacité, " .. txt("5 équipes, boîte 76 × 76", c))
+  -- Lot X10-S4 : avec le registre, le raccord prend un seul jeton par début de cycle (plus de bandes) : moins de passes servies que b
+  -- et le relevé du réseau ne déborde plus sa période (mesuré le 8/11 : servi 580,1 contre 694,8, au pire 5 795 ticks contre 7 795).
+  check(d.served < b.served and d.rv_n > 0 and d.rv_max <= Rv.NET_PERIOD,
+    "P16 f72b7865 + registre des génératrices (X10-S4) : moins servi que sans registre (" .. string.format("%.1f contre %.1f", d.served, b.served)
+    .. "), relevé du réseau dans sa période, " .. txt("5 équipes, boîte 76 × 76", d))
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -1186,8 +1198,7 @@ local MUT = {
   { "m17 tranche qui n'avance pas de toute sa largeur", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
     { { "    j.x = xb" .. string.char(10), "    j.x = xa + 1" .. string.char(10) } }, "p2" },
   { "m4 jeton ignoré par le raccord", "script.team.raccord", "script/team/raccord.lua",
-    { { '      if api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":ra", nil,' .. string.char(10),
-      '      if false and api.jeton.take(tick, (f.key or "player") .. ":ra", nil,' .. string.char(10) } }, "p5" },
+    { { 'if api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":ra", nil, cost) then return end', "if false then return end" } }, "p5" },
   { "m5 boîte non tenue à on_chunk_generated", "script.team.boite_chunks", "script/team/boite_chunks.lua",
     { { "if b then grow(b, e.position.x, e.position.y) else", "if b then elseif false then" } }, "p6" },
   { "m6 jeton ignoré par le relevé du réseau", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
