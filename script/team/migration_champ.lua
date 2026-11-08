@@ -796,7 +796,7 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
     end
   end
   local spec = { site = "champ", champ = { oid = o.id, pr = pr, frame = st.frame }, near = { x = o.pos.x, y = o.pos.y }, prio = CFG.prio,
-    domain = "production", lazy_clear = true, pile = "capi", product = product }
+    domain = "production", lazy_clear = true, pile = ((st.want_until or 0) > tick) and "couverture" or "capi", product = product }
   if #ids > 0 then spec.degel = { oid = o.id, tiles = thaw } end
   local id, rwhy = Build.request(f, spec)
   if not id then
@@ -1481,7 +1481,8 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy, book, ho
       -- la garde de plaques de Mg.start_ok (comme sur main) reste.
       -- lot THERMIQUE5 : pendant une retenue de la pile, une bande neuve ne part que si la porte laisse passer sa plaque (comme sa réserve au
       -- plan directeur, Build.reserve_suspended, famille « capi ») ; lu au moment du départ seulement (les causes de veille restent au journal)
-      if ok and hold and not Th.pile_permits("partir", true, (PileRt.porte(f, "capi", product))) then
+      -- décision du DC du 8/11 (« Oui, toujours ») : la bande d'un gisement VOULU par la capitalisation (couvrir, ouvrir) part toujours
+      if ok and hold and not Th.pile_permits("partir", true, (PileRt.porte(f, it.wanted and "couverture" or "capi", product))) then
         say_why(f, ms, st, "pile", string.format("avant-poste %d (%s) : bande neuve retenue par la pile, %d paire(s) thermique(s)", o.id, o.kind, #list))
       elseif ok then
         if champ then
