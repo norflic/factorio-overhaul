@@ -10,6 +10,10 @@
   Lot STOCKAGE-VITAL (C1, C2, C8 de DIAG_CONSO, 7/11) : chaque ligne porte aussi les cumuls des deux compteurs (dépôts refusés, prises de
   tâche, poches pleines) ; FIN donne ce qui est ENTRÉ au stock (différence du contenu depuis DEPART, par objet) et le statut de chaque
   machine à packs rouges de l'équipe (cause d'arrêt, entrées, sortie), relevé direct : [FO-CAPI-CONF] ne relève qu'une fois par minute.
+  Banc des POCHES (8/11, accordé par le lead) : contenu des poches des PNJ du joueur (fo-companion de la force player, inventaire
+  principal) au DEPART et à la FIN, objet par objet, et sa différence. Hypothèse à trancher : les ~8 000 fers et ~4 500 charbons entrés au
+  stock en 1 min sortent des poches (une vitale est toujours acceptée au dépôt), pas des chemins que Stock.skip_fn coupe. Prouvée si les
+  poches perdent au moins 6 000 fers ; réfutée si elles en perdent moins de 2 000.
   CRITÈRES (écrits AVANT le passage) : D1 coffre de l'équipe trouvé, au moins 1 700 objets au sol à 10 tuiles au départ ; D2 objets au
   sol à 10 tuiles en BAISSE à la fin (sinon : pourquoi, au rapport).
 ]]
@@ -83,6 +87,34 @@ local function delta_text(c0, c1)
   return table.concat(pu, ", "), table.concat(pd, ", ")
 end
 
+--- Banc des poches : contenu des poches des PNJ du joueur (inventaire principal des fo-companion de la force player), cases prises.
+local function pockets(s)
+  local by, n, used, size = {}, 0, 0, 0
+  for _, e in ipairs(s.find_entities_filtered({ name = "fo-companion", force = "player" })) do
+    local inv = e.get_main_inventory()
+    if inv then
+      n = n + 1
+      size = size + #inv
+      used = used + #inv - inv.count_empty_stacks()
+      for k, v in pairs(inv.get_contents()) do by[k] = (by[k] or 0) + v end
+    end
+  end
+  return { by = by, n = n, used = used, size = size }
+end
+
+local function top_text(by, k)
+  local names = {}
+  for name in pairs(by) do names[#names + 1] = name end
+  table.sort(names, function(a, b) if by[a] ~= by[b] then return by[a] > by[b] end return a < b end)
+  local parts = {}
+  for i = 1, math.min(k, #names) do parts[i] = names[i] .. " " .. by[names[i]] end
+  return table.concat(parts, ", ")
+end
+
+local function pockets_line(ctx, label, p)
+  ctx.log(string.format("%s POCHES : %d PNJ, %d/%d cases prises ; {%s}", label, p.n, p.used, p.size, top_text(p.by, 16)))
+end
+
 --- C8 : statut de chaque machine à packs rouges de l'équipe du joueur (500 tuiles autour du coffre).
 local function red_packs(ctx, s, pos, label)
   local names = {}
@@ -122,6 +154,9 @@ S.init = function(ctx)
   local _, pr = line(ctx, "DEPART")
   st.n0, st.c0 = _, pr.contents or {}
   red_packs(ctx, s, st.pos, "DEPART")
+  local p0 = pockets(s)
+  st.p0 = p0.by
+  pockets_line(ctx, "DEPART", p0)
 end
 
 S.tick = function(ctx, e)
@@ -141,6 +176,10 @@ S.finish = function(ctx)
   local up, down = delta_text(st.c0, pr.contents)
   ctx.log(string.format("FIN ENTREES au stock depuis DEPART : {%s} ; SORTIES {%s}", up, down))
   red_packs(ctx, ctx.surface(), st.pos, "FIN")
+  local p1 = pockets(ctx.surface())
+  pockets_line(ctx, "FIN", p1)
+  local pu, pd = delta_text(st.p0, p1.by)
+  ctx.log(string.format("FIN POCHES depuis DEPART : HAUSSES {%s} ; BAISSES {%s}", pu, pd))
   ctx.check((st.n0 or 0) >= 1700, "D1 objets au sol au pied du coffre au depart", st.n0)
   ctx.check(n < (st.n0 or 0), "D2 objets au sol en baisse a la fin", string.format("%d -> %d", st.n0 or 0, n))
 end
