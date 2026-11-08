@@ -164,6 +164,22 @@ function Li.pole_tile(site, free, taken)
   for _, c in ipairs(cands) do
     if free(c[1], c[2]) and not (taken and taken[c[1] .. ":" .. c[2]]) then return c[1], c[2] end
   end
+  -- lot RESEAU-GRAPHE : rangee dense, les six tuiles collees au bras sont prises ; un petit poteau couvre 5 x 5 (portee 2,5) : l'anneau de
+  -- distance 2 alimente encore le bras, du plus proche au plus loin (ordre fixe : distance de Manhattan, puis x, puis y)
+  local ring = {}
+  for dx = -2, 2 do
+    for dy = -2, 2 do
+      if math.max(math.abs(dx), math.abs(dy)) == 2 then ring[#ring + 1] = { site.ax + dx, site.ay + dy, math.abs(dx) + math.abs(dy) } end
+    end
+  end
+  table.sort(ring, function(a, z)
+    if a[3] ~= z[3] then return a[3] < z[3] end
+    if a[1] ~= z[1] then return a[1] < z[1] end
+    return a[2] < z[2]
+  end)
+  for _, c in ipairs(ring) do
+    if free(c[1], c[2]) and not (taken and taken[c[1] .. ":" .. c[2]]) then return c[1], c[2] end
+  end
   return nil
 end
 
