@@ -62,6 +62,8 @@ Vue « Cerveau » demandée par le DC (8/11, vers 10 h 55) : « j'aimerais un mo
 
 Constat du DC en jeu (0.6.65, 8/11 vers 11 h 10, azure à l'âge 3, environ 2 h 30 de partie) : « il y a souvent un à deux max rangées de mineurs électriques [...] Avant, c'était très bien fait par les foreuses électriques [...] Petit à petit, ça couvrait tout le gisement [...] ils construisent pas en boucle » ; fonderie de cuivre d'azure : 30 fours, 227 plaques/min (environ 40 % de sa capacité) ; « un mode qui existe pour [...] avoir le niveau de production de chaque usine. J'aimerais [...] que ce soit par défaut » ; « j'ose espérer que la logique de splitter [...] est intégrée » (elle ne l'est pas : répartiteurs posés seulement à la construction des champs). Lots ouverts : couverture (régression de la couverture des gisements, construire en boucle avec le stock), blocage-sortie-2 (reprise), débit par usine visible par défaut dans la vue Cerveau.
 
+Constat du DC en jeu (8/11 vers 11 h 20) : « ils ont 50 modules de vitesse dans les coffres et qu'ils se bougeraient pas le derrière pour les poser [...] dans les usines d'assemblage » ; « ils n'améliorent pas du tout la base [...] tous les fours [...] toutes les foreuses [...] pas non plus les convoyeurs. Et quand ils décident de le faire, c'est un seul et ils le max pour aucune raison [...] penser en bloc et pas penser en petite unité [...] vérifiez également que les blocs soient améliorés [...] en fonction de l'orientation. » Lots ouverts : amelioration (en largeur, par bloc, selon l'orientation), modules-poses (modules du stock posés par les PNJ).
+
 ## 3. OPTIMISATION
 
 - **×10 réel sur votre sauvegarde** : 600 UPS, donc au plus 1,67 ms par tick, moteur et script compris. Dernière mesure
