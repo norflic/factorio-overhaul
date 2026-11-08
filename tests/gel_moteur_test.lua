@@ -104,7 +104,7 @@ local FURN_P = { energy_usage = 1500, burner_prototype = { effectivity = 1, emis
 local ELEC_DRILL_P = { mining_drill_radius = 2.49, mining_speed = 0.5, energy_usage = 1500 }
 
 local function new_world()
-  W = { un = 0, ents = {}, res = {}, writes = {}, bad_writes = 0, tick = 0, logs = {}, flows = {}, pollution = 0, store = {} }
+  W = { un = 0, ents = {}, res = {}, writes = {}, bad_writes = 0, tick = 0, logs = {}, flows = {}, flows_in = {}, flows_out = {}, pollution = 0, store = {} }
   W.surface = { index = 1 }
   W.surface.find_entities_filtered = function(q)
     local out = {}
@@ -126,7 +126,10 @@ local function new_world()
   end
   W.surface.pollute = function(_, a) W.pollution = W.pollution + a end
   local protos = { coal = { name = "coal", fuel_value = 4000000, fuel_category = "chemical" }, ["iron-ore"] = { name = "iron-ore", fuel_value = 0 } }
-  local force = { item_production_statistics = { on_flow = function(n, c) W.flows[n] = (W.flows[n] or 0) + c end }, mining_drill_productivity_bonus = 0 }
+  local force = { item_production_statistics = { on_flow = function(n, c)
+    W.flows[n] = (W.flows[n] or 0) + c
+    if c > 0 then W.flows_in[n] = (W.flows_in[n] or 0) + c else W.flows_out[n] = (W.flows_out[n] or 0) - c end
+  end }, mining_drill_productivity_bonus = 0 }
   local recipes = { ["iron-plate"] = { category = "smelting", energy = 3.2, ingredients = { { type = "item", name = "iron-ore", amount = 1 } },
     products = { { type = "item", name = "iron-plate", amount = 1 } } } }
   game = { tick = 0, connected_players = {}, forces = { ["fo-a"] = force, player = force }, recipe_prototypes = recipes,
@@ -187,9 +190,9 @@ local function build_faction()
   -- (1) foreuse -> coffre
   local r1 = resource(10.5, 10.5, 1000)
   local d1 = entity({ name = "burner-mining-drill", type = "mining-drill", x = 10.5, y = 10.5, proto = DRILL_P, burner = true, coal = 5 })
-  local c1 = entity({ name = "wooden-chest", type = "container", x = 10.5, y = 12, h = 0.5 })
+  local c1 = entity({ name = "wooden-chest", type = "container", x = 10.5, y = 12.5, h = 0.35 })
   -- fait du micro-banc A (8/11) : drop_target reste nil tant que la foreuse n'a rien déposé ; la cible est lue sur drop_position
-  d1.drop_position = { x = 10.5, y = 12 }
+  d1.drop_position = { x = 10.2, y = 12.3 }
   -- (2) foreuse -> four
   local r2 = resource(20.5, 10.5, 1000)
   local d2 = entity({ name = "burner-mining-drill", type = "mining-drill", x = 20.5, y = 10.5, proto = DRILL_P, burner = true, coal = 5 })
@@ -260,6 +263,9 @@ local function scenes()
   check((coal0 - (E.d1.burner.inventory.items.coal or 0)) >= 1, "M3 : charbon brule par la foreuse")
   check((W.flows["iron-plate"] or 0) >= plates + qg - 2, "M3 : statistiques : plaques versees par on_flow (" .. tostring(W.flows["iron-plate"]) .. ")")
   check(E.k2.products_finished >= plates and E.s1.products_finished == 10, "M3 : products_finished incremente")
+  -- statistiques de minerai : la foreuse -> four produit ET son four consomme dans le même pas : rien ne s'annule
+  check((W.flows_in["iron-ore"] or 0) >= ore + plates - 2, "M3 : minerai produit (entree) : coffre + four (" .. tostring(W.flows_in["iron-ore"]) .. " >= " .. (ore + plates - 2) .. ")")
+  check((W.flows_out["iron-ore"] or 0) >= plates + qg - 2, "M3 : minerai consomme (sortie) : fours (" .. tostring(W.flows_out["iron-ore"]) .. " >= " .. (plates + qg - 2) .. ")")
   check(W.pollution > 0, "M3 : pollution emise")
   check(Gel.status(E.s1) == STATUS.no_ingredients, "M3 : four du QG vide : statut comptable « no_ingredients »")
   -- M4

@@ -90,6 +90,7 @@ local function measure(s, row, force)
   local st = game.forces[FORCES[force]].item_production_statistics
   m.stat_plates = st.get_input_count("iron-plate")
   m.stat_ore = st.get_input_count("iron-ore")
+  m.stat_ore_out = st.get_output_count("iron-ore")
   return m
 end
 
@@ -147,7 +148,9 @@ return {
       -- La cible est relue sur drop_position : drop_target reste nil tant que la foreuse n'a rien déposé (fait du 8/11, relevé ici).
       local ok_targets, nil_targets = 0, 0
       local function at_drop(d)
-        local l = s.find_entities_filtered({ position = d.drop_position, type = { "furnace", "container" } })
+        local dp = d.drop_position
+        local fx, fy = math.floor(dp.x), math.floor(dp.y)
+        local l = s.find_entities_filtered({ area = { { fx + 0.01, fy + 0.01 }, { fx + 0.99, fy + 0.99 } }, type = { "furnace", "container" } })
         return l[1] and l[1].unit_number
       end
       for _, k in ipairs({ "A", "B", "T" }) do
@@ -159,7 +162,14 @@ return {
           if c.d.drop_target == nil then nil_targets = nil_targets + 1 end
         end
       end
-      ctx.check(ok_targets == 3 * 2 * N, "arene : chaque foreuse a son four ou son coffre sur drop_position", ok_targets .. " / " .. (3 * 2 * N))
+      ctx.check(ok_targets == 3 * 2 * N, "arene : chaque foreuse a son four ou son coffre sur la tuile de drop_position", ok_targets .. " / " .. (3 * 2 * N))
+      do -- fait : recherche au POINT de drop_position (colliding with that position) contre la tuile
+        local d, c = st.rows.T.chests[1].d, st.rows.T.chests[1].c
+        local at_point = #s.find_entities_filtered({ position = d.drop_position, type = "container" })
+        local bb = c.bounding_box
+        ctx.log(string.format("fait : coffre de la foreuse : drop_position (%.3f, %.3f), boite du coffre (%.3f, %.3f)-(%.3f, %.3f), trouve au point : %d",
+          d.drop_position.x, d.drop_position.y, bb.left_top.x, bb.left_top.y, bb.right_bottom.x, bb.right_bottom.y, at_point))
+      end
       ctx.log(string.format("fait : drop_target nil au tick 10 (foreuses posees par script, rien depose) : %d / %d", nil_targets, 3 * 2 * N))
       local adopted, why = 0, {}
       for _, k in ipairs({ "A", "B" }) do
@@ -173,6 +183,16 @@ return {
         end
       end
       ctx.check(adopted == 2 * 3 * N, "A et B : 24 ilots adoptes", adopted .. (#why > 0 and (" ; refus : " .. table.concat(why, ",")) or ""))
+      do -- fait : sens de on_flow (positif : entrée ; négatif : sortie ?), sur une force à part
+        if not game.forces["fo-gel-flux"] then game.create_force("fo-gel-flux") end
+        local fs = game.forces["fo-gel-flux"].item_production_statistics
+        local i0, o0 = fs.get_input_count("wood"), fs.get_output_count("wood")
+        fs.on_flow("wood", 5)
+        fs.on_flow("wood", -3)
+        local di, dout = fs.get_input_count("wood") - i0, fs.get_output_count("wood") - o0
+        ctx.log(string.format("fait : on_flow(+5) puis on_flow(-3) : entree %+d, sortie %+d", di, dout))
+        ctx.check(di == 5 and dout == 3, "fait : on_flow negatif compte en SORTIE (consommation), positif en entree", di .. " / " .. dout)
+      end
       local c = ctx.remote("fo-gel", "constantes")
       ctx.log(string.format("constantes : STEP %d, CALM %d, GUET %d, WAKE_R %d, FREEZE_R %d, WRITES %d", c.STEP, c.CALM, c.GUET, c.WAKE_R, c.FREEZE_R, c.WRITES))
       local d = st.rows.T.pairs4[1].d
@@ -218,8 +238,8 @@ return {
     local s = ctx.surface()
     local A, B, T = measure(s, st.rows.A, "A"), measure(s, st.rows.B, "B"), measure(s, st.rows.T, "T")
     local function line(k, m)
-      return string.format("%s : plaques four %d, minerai coffre %d, plaques QG %d, gisement %d, combustible %.1f MJ, products_finished %d, stats plaques %d minerai %d",
-        k, m.plates_a, m.ore_b, m.plates_c, m.ore_left, m.fuel_j / 1e6, m.finished, m.stat_plates, m.stat_ore)
+      return string.format("%s : plaques four %d, minerai coffre %d, plaques QG %d, gisement %d, combustible %.1f MJ, products_finished %d, stats plaques %d minerai %d (consomme %d)",
+        k, m.plates_a, m.ore_b, m.plates_c, m.ore_left, m.fuel_j / 1e6, m.finished, m.stat_plates, m.stat_ore, m.stat_ore_out)
     end
     ctx.log(line("A", A)); ctx.log(line("B", B)); ctx.log(line("T", T))
     for _, k in ipairs({ "A", "B" }) do
@@ -234,6 +254,8 @@ return {
         string.format("%.1f / %.1f MJ", burn_m / 1e6, burn_t / 1e6))
       ctx.check(near(M.stat_plates, T.stat_plates, 0.05, 2), "C1 " .. k .. " : statistiques de la force (plaques) a +-5 % (ou 2) de T", M.stat_plates .. " / " .. T.stat_plates)
       ctx.check(near(M.finished, T.finished, 0.05, 2), "C1 " .. k .. " : products_finished a +-5 % (ou 2) de T", M.finished .. " / " .. T.finished)
+      ctx.check(near(M.stat_ore, T.stat_ore, 0.05, 2), "C1 " .. k .. " : statistiques de la force (minerai produit) a +-5 % (ou 2) de T", M.stat_ore .. " / " .. T.stat_ore)
+      ctx.check(near(M.stat_ore_out, T.stat_ore_out, 0.05, 2), "C1 " .. k .. " : statistiques de la force (minerai consomme) a +-5 % (ou 2) de T", M.stat_ore_out .. " / " .. T.stat_ore_out)
     end
     -- on_flow : pendant le gel de A (700 à 2370), statistiques = plaques déposées aux sorties
     if st.a700 and st.a2370 then

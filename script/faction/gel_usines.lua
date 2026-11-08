@@ -146,12 +146,16 @@ local RECEIVERS = { "container", "logistic-container", "linked-container", "infi
   "mining-drill", "car", "cargo-wagon", "ammo-turret", "artillery-turret", "lab", "rocket-silo" }
 
 --- Cible du dépôt d'une foreuse. `drop_target` reste nil tant que la foreuse n'a rien déposé (fait du micro-banc A du 8/11 : nil au
---- tick 10 sur 24 foreuses posées par script, alors que le moteur y dépose ensuite) : sinon, l'entité receveuse posée sur
---- `drop_position` (la plus petite par numéro d'unité). Une foreuse figée ne relit jamais sa cible : même règle au relevé et au pas.
+--- tick 10 sur 24 foreuses posées par script, alors que le moteur y dépose ensuite) : sinon, l'entité receveuse qui touche la TUILE
+--- sous `drop_position` (doc de LuaEntity.drop_target : « collide with the tile box under the drop-off position » ; une recherche au
+--- point exact ne trouve pas le coffre, micro-banc A de 13dc9822). Tuile rognée de 0,01 : une entité qui ne fait que toucher son bord
+--- n'est pas prise (F96). Plus petit numéro d'unité. Une foreuse figée ne relit jamais sa cible : même règle au relevé et au pas.
 local function target_of(d)
   local t = d.drop_target
   if t and t.valid then return t end
-  local list = d.surface.find_entities_filtered({ position = d.drop_position, type = RECEIVERS })
+  local dp = d.drop_position
+  local fx, fy = math.floor(dp.x), math.floor(dp.y)
+  local list = d.surface.find_entities_filtered({ area = { { fx + 0.01, fy + 0.01 }, { fx + 0.99, fy + 0.99 } }, type = RECEIVERS })
   local best = nil
   for _, e in ipairs(list) do
     if e.valid and e.unit_number and e.unit_number ~= d.unit_number and (best == nil or e.unit_number < best.unit_number) then best = e end

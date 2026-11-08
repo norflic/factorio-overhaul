@@ -20,14 +20,17 @@ local Commander = require("script.faction.commander") -- Commander.army_out (S10
 
 local Gj = {}
 
--- Flux des statistiques, sommés par force et par objet dans le tick, versés à la fin du tick (local : vidé à chaque tick).
+-- Flux des statistiques, sommés par force et par objet dans le tick, versés à la fin du tick (local : vidé à chaque tick). Produits
+-- (entrée, on_flow positif) et consommés (sortie, on_flow négatif) sont tenus À PART : un même objet produit et consommé dans le tick
+-- (minerai d'une foreuse fondu par son four, pas dus de plusieurs îlots au réveil) ne s'annule pas (défaut du micro-banc A de
+-- 13dc9822 : statistiques de minerai de A à 56 contre 80 pour la jumelle).
 local flows, flows_order = {}, {}
 
 local function add_flow(force, n, c)
   if c == 0 then return end
   local t = flows[force]
-  if not t then t = {}; flows[force] = t; flows_order[#flows_order + 1] = force end
-  t[n] = (t[n] or 0) + c
+  if not t then t = { p = {}, c = {} }; flows[force] = t; flows_order[#flows_order + 1] = force end
+  if c > 0 then t.p[n] = (t.p[n] or 0) + c else t.c[n] = (t.c[n] or 0) - c end
 end
 
 local function flush_flows()
@@ -36,7 +39,8 @@ local function flush_flows()
     local st = fo and fo.item_production_statistics
     if st then
       local t = flows[force]
-      for _, n in ipairs(Gc.sorted_names(t)) do st.on_flow(n, t[n]) end
+      for _, n in ipairs(Gc.sorted_names(t.p)) do st.on_flow(n, t.p[n]) end
+      for _, n in ipairs(Gc.sorted_names(t.c)) do st.on_flow(n, -t.c[n]) end
     end
     flows[force] = nil
   end
