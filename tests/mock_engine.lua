@@ -1135,6 +1135,8 @@ function M.new_world(opts)
     -- EFFONDREMENT (parade du kit offert, script/team/worker.lua) : corps d'un personnage mort ; levé par die() sur demande seulement
     -- (opts.corpses du monde, fire_post_died), comme le moteur réel (micro-banc kit-cadavre, 9ee2b12d)
     on_post_entity_died = 41,
+    -- lot MINAGE-MAIN : bras tourné par le joueur (script/team/sources.lua) ; le mock ne tourne rien : jamais levé, testé à la main par tests/sources_glue_test.lua
+    on_player_rotated_entity = 142,
   }
   _G.defines = {
     -- Lot PANNEAU : type de l'interface ouverte (LuaControl.opened_gui_type) ; noms de l'API 1.1.91, valeurs opaques.

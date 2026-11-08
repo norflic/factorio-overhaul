@@ -48,6 +48,7 @@ local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : tourelles posées
 local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites (tâche « rebuild »)
 local Mi = require("shared.team.main_inventaire") -- lot MAIN-INVENTAIRE : minage à la main, inventaire plein, minerai au sol
 local Sorties = require("script.team.sorties") -- lot CHARBON-MAIN : la ressource qui dort dans les coffres des avant-postes bruts
+local Src = require("script.team.sources") -- lot MINAGE-MAIN : ce qui dort dans les coffres de SORTIE (fonderies), tournée « fetch »
 local CB = require("shared.team.craft_bg") -- lot CRAFT-PARALLELE : fabrication en arrière-plan (règles pures, bilan [FO-CRAFT])
 local Tp = require("shared.team.tri_proches") -- lot CERVEAU-CENTRAL (P1) : tri des tuiles de minage, positions lues une fois
 local Sp = require("shared.team.spirale") -- EFFONDREMENT : filet de recul de la recrue gratuite (mort rapide d'une recrue gratuite)
@@ -725,6 +726,8 @@ function Worker.program(f, task, surface, tick)
       list[#list + 1] = { T.fuel, Outposts.coal_needed_for(Outposts.smelters(f)) }
     end
     return { { "home" }, { "take", list }, { "act", "smelt" }, { "home" } }
+  elseif k == "fetch" then
+    return Src.program(f, task) -- lot MINAGE-MAIN : vider une sortie qui dort (plaques d'une fonderie), puis le dépôt au QG
   elseif k == "equiper" then
     return Equip.program(f, task) -- lot LEVIERS
   elseif k == "mine" then
@@ -759,6 +762,23 @@ function Worker.program(f, task, surface, tick)
             f.key or "?", tostring(task.resource), why2, dormant, tostring(task.key), tick / 3600, f.stats.main_sorties, tours or ""))
         end
         task.fail = task.fail or "main:sorties"
+        return nil
+      end
+      -- Lot MINAGE-MAIN (retour du DC du 8/11, 0.6.65 : « ils minent à la main du fer et du cuivre alors qu'ils ont des milliers de plaques dans
+      -- les coffres de la fonderie ») : jamais à la main ce qu'une sortie de la force tient ou produit (registre : shared/team/sources.lua) ;
+      -- la tournée « fetch » va le chercher. Survie comprise ; seule une crise injectée par un banc passe.
+      local ok3, why3, text3 = Src.hand_ok(f, task.resource, tick, task.crisis)
+      if not ok3 then
+        f.stats.main_sources = (f.stats.main_sources or 0) + 1
+        f.stats.main_refus = f.stats.main_refus or {}
+        local key3 = "sources:" .. tostring(task.resource)
+        local last3 = f.stats.main_refus[key3]
+        if not last3 or tick - last3 >= 3600 then
+          f.stats.main_refus[key3] = tick
+          log(string.format("[FO-MAIN] %s : minage a la main de '%s' REFUSE (sources: %s) : %s, tache %s, a %.1f min (refus %d)",
+            f.key or "?", tostring(task.resource), tostring(why3), text3, tostring(task.key), tick / 3600, f.stats.main_sources))
+        end
+        task.fail = task.fail or "main:sources"
         return nil
       end
     end
@@ -983,6 +1003,7 @@ ACTS.smelters = function(agent, f, task, surface)
 end
 
 ACTS.equiper = Equip.act -- lot LEVIERS
+ACTS.fetch = Src.act -- lot MINAGE-MAIN
 
 ACTS.rebuild = function(agent, f, task, surface) return Recon.act(agent, f, task, surface) end -- lot COUVERTURE
 ACTS.repair = function(agent, f, task, surface) return Recon.repair_act(agent, f, task, surface) end -- lot RECONSTRUIRE
