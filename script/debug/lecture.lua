@@ -336,6 +336,13 @@ function Lec.decision_rows(f)
     local row = Lg.source_row(res, src[res])
     if row then rows[#rows + 1] = row end
   end
+  -- DEFENSE-STOCK : les lieux de défense évalués à la dernière pensée (f.defstock.rows), mots fixes, au plus Lg.DEF_MAX
+  local ds = f.defstock and f.defstock.rows
+  for i, r in ipairs(type(ds) == "table" and ds or {}) do
+    if i > Lg.DEF_MAX then break end
+    local row = Lg.defense_row(r)
+    if row then rows[#rows + 1] = row end
+  end
   local st = f.team and f.team.ia3e
   for _, l in ipairs(st and st.logs or {}) do rows[#rows + 1] = { tick = l.tick, kind = "module", text = tostring(l.text) } end
   local cap = f.team and f.team.capital

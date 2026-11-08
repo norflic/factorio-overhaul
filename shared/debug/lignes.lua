@@ -83,6 +83,31 @@ function Lg.source_row(resource, d)
     ltext = { "fo-dbg-cerveau.src-ligne", { "item-name." .. tostring(resource) }, { "fo-dbg-cerveau.src-choix-" .. choix }, { "fo-dbg-cerveau.src-raison-" .. raison }, n, dist } }
 end
 
+-- DEFENSE-STOCK (lot DEFENSE-STOCK, champ d'état f.defstock.rows[] = { key, kind, x, y, score, have, want, dist, served, skip, why, tick }) : mots fixes.
+Lg.DEF_KIND = { "qg", "prevu", "attaque", "site", "couverture" }
+Lg.DEF_SKIP = { "servie", "suivante", "stock", "groupe", "munitions", "repos", "refus", "course", "plafond", "pause", "tenue", "loin" }
+Lg.DEF_WHY = { "ennemi", "sans_batiment", "danger" }
+Lg.DEF_MAX = 6 -- lieux montrés au plus (le champ en porte 24)
+local DEF_K, DEF_S, DEF_W = {}, {}, {}
+for _, w in ipairs(Lg.DEF_KIND) do DEF_K[w] = true end
+for _, w in ipairs(Lg.DEF_SKIP) do DEF_S[w] = true end
+for _, w in ipairs(Lg.DEF_WHY) do DEF_W[w] = true end
+
+--- Ligne de « décisions récentes » pour un lieu de défense du stock : { tick, kind = "defense", text (clé de doublon), ltext }. nil si l'entrée n'est pas une table.
+function Lg.defense_row(r)
+  if type(r) ~= "table" then return nil end
+  local kind = (type(r.kind) == "string" and DEF_K[r.kind]) and r.kind or "inconnu"
+  local skip = (type(r.skip) == "string" and DEF_S[r.skip]) and r.skip or "inconnu"
+  local why = (type(r.why) == "string" and DEF_W[r.why]) and r.why or nil
+  local have = type(r.have) == "number" and string.format("%.0f", r.have) or "?"
+  local want = type(r.want) == "number" and string.format("%.0f", r.want) or "?"
+  local cause = { "fo-dbg-cerveau.def-skip-" .. skip }
+  if why then cause = { "", cause, " (", { "fo-dbg-cerveau.def-why-" .. why }, ")" } end
+  return { tick = type(r.tick) == "number" and r.tick or nil, kind = "defense",
+    text = tostring(r.key) .. "|" .. kind .. "|" .. skip .. "|" .. tostring(why) .. "|" .. have .. "|" .. want,
+    ltext = { "fo-dbg-cerveau.def-ligne", { "fo-dbg-cerveau.def-kind-" .. kind }, have, want, cause } }
+end
+
 --- Décisions récentes : plus récentes d'abord, doublons (même sorte et même texte) retirés en gardant la plus récente, au plus `max`.
 --- rows : liste de { tick, kind, text }. Une ligne sans date vient après les datées (ordre de lecture gardé).
 function Lg.decisions(rows, max)

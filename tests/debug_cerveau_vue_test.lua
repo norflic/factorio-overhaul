@@ -493,6 +493,13 @@ do
   for _, r in ipairs(drows) do if r.kind == "source" then found = r end end
   check(found and found.ltext[3][1] == "fo-dbg-cerveau.src-choix-main" and found.ltext[4][1] == "fo-dbg-cerveau.src-raison-aucune_sortie", "decision de minage lue dans f.team.sources.dec")
   f3.team.sources = nil
+  -- DEFENSE-STOCK : f.defstock.rows lu, au plus Lg.DEF_MAX lieux
+  f3.defstock = { rows = {} }
+  for i = 1, 10 do f3.defstock.rows[i] = { key = "l" .. i, kind = "site", have = 1, want = 3, skip = "stock", tick = NOW - 60 } end
+  local n_def = 0
+  for _, r in ipairs(Lec.decision_rows(f3)) do if r.kind == "defense" then n_def = n_def + 1 end end
+  check(n_def == Lg.DEF_MAX, "lieux de defense : au plus " .. Lg.DEF_MAX .. " lignes sur 10 : " .. n_def)
+  f3.defstock = nil
   -- C : sante creee mais jamais relevee = aucune lecture ; relevee (healthy) = marche
   z.kind = "centrale"
   rd = Lec.reads(f3, z)
