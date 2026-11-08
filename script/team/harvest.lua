@@ -106,10 +106,10 @@ end
 Harvest.PLAYER_WOOD = true
 
 --- La relecture des matières récoltables (arbres) vaut-elle pour cette équipe ?
-function Harvest.wood(f) return Harvest.applies(f) or Harvest.PLAYER_WOOD == true end
+function Harvest.arbres_on(f) return Harvest.applies(f) or Harvest.PLAYER_WOOD == true end
 
 function Harvest.reachable(f)
-  if not Harvest.wood(f) then return {} end
+  if not Harvest.arbres_on(f) then return {} end
   local st = f and f.team and f.team.ia3
   return st and st.reach or {}
 end
