@@ -112,13 +112,36 @@ local place_held -- (défini plus bas : il lit l'emprise et la face du bloc des 
 local LINKS = {}
 for _, k in ipairs(T.OUTPOST_ORDER) do LINKS[#LINKS + 1] = { T.outposts[k].resource, T.outposts[k].product } end
 
+Stock.RESV_EVERY = 60 -- C1 : relecture des manques des projets en réserve (ticks)
+
+--- C1 de DIAG_CONSO (7/11) : manques des projets du plan directeur en état « reserve » (p.missing : ce que le stock libre ne leur fournit
+--- pas ; vide pour une réserve suspendue par la pile ou le QG), sommés par objet (Sg.reserve_need) et relus au plus toutes les
+--- Stock.RESV_EVERY ticks (f.stock_resv, tolérant à nil). Rend false sans plan directeur.
+local function reserve_need(f)
+  local b = f.build
+  if not (b and b.order and b.projects) then return false end
+  local tick = (game and game.tick) or 0
+  local c = f.stock_resv
+  if c and tick >= c.at and tick - c.at < Stock.RESV_EVERY then return c.agg end
+  local lists = {}
+  for _, pid in ipairs(b.order) do
+    local p = b.projects[pid]
+    if p and p.state == "reserve" and not p.abandoned and p.missing and #p.missing > 0 then lists[#lists + 1] = p.missing end
+  end
+  local agg = Sg.reserve_need(lists)
+  f.stock_resv = { at = tick, agg = agg }
+  return agg
+end
+
 --- Lot STOCKAGE-VITAL : matières que l'équipe demande en ce moment { [objet] = q } (manque mesuré du cerveau, manque de l'objectif
---- courant ; nets du stock) : jamais écartées du ramassage (Stock.skip_fn), reçues au dépôt jusqu'à q (Stock.insert).
---- Rend aussi les deux tables sources de la pensée (Sg.demand_room compte le dépôt par pensée).
-local function demanded(f)
+--- courant ; nets du stock) : reçues au dépôt jusqu'à q (Stock.insert). Rend aussi les deux tables sources de la pensée
+--- (Sg.demand_room compte le dépôt par pensée). Avec `all` (Stock.skip_fn), les manques des projets en réserve comptent aussi (C1) :
+--- jamais écartés du ramassage.
+local function demanded(f, all)
   local team = f.team
   local ia3 = team and team.ia3
-  return Sg.demanded(ia3 and ia3.short, team and team.missing, LINKS), ia3 and ia3.short or false, team and team.missing or false
+  return Sg.demanded(ia3 and ia3.short, team and team.missing, LINKS, all and reserve_need(f) or nil), ia3 and ia3.short or false,
+    team and team.missing or false
 end
 
 --- Annexes valides (la liste est purgée des entités disparues).
@@ -260,11 +283,16 @@ function Stock.insert(f, item, n, opts)
     if put < n then
       local need, src_s, src_m = demanded(f)
       local room, rec = Sg.demand_room(f.stock_dem and f.stock_dem[item], need[item], src_s, src_m)
-      local k = math.min(n - put, room)
+      -- C1 de DIAG_CONSO (7/11) : un objet qui MANQUE à un projet en réserve (hors projet dominant : modules 94 à 98 de la partie du DC)
+      -- entre aussi, jusqu'à ce manque moins ce que le stock en tient déjà (Sg.resv_room : la réserve le reprend au stock)
+      local resv = reserve_need(f)
+      local rq = resv and resv[item]
+      local rroom = rq and Sg.resv_room(rq, Stock.count(f, item)) or 0
+      local k = math.min(n - put, math.max(room, rroom))
       if k > 0 then
         local got = plain_insert(f, item, k)
         put, want = put + got, want + got
-        rec.used = rec.used + got
+        if rec and room > 0 then rec.used = rec.used + math.min(got, room) end
       end
       if rec then
         f.stock_dem = f.stock_dem or {}
@@ -873,6 +901,33 @@ end
 
 --- Lot STOCKAGE-VITAL : prédicat « ne pas ramasser `objet` » aux avant-postes (non vitale saturée par le cerveau, ou toute non vitale
 --- quand le stock est rempli à T.stockage.stop_at ; jamais une matière demandée en ce moment), ou nil quand rien n'est écarté.
+Stock.OVER_EVERY = 60    -- C2 : relecture des saturées au plafond (ticks)
+Stock.OVER_LOG = 600     -- C2 : au plus une ligne « plafond des saturées » par équipe sur cette durée, et seulement quand l'ensemble change
+
+--- C2 de DIAG_CONSO (7/11) : saturées du cerveau (f.team.ia3.saturated) dont le stock atteint T.stockage.sat_cap piles (Sg.over_cap) :
+--- plus ramassées aux avant-postes, ni collectées aux coffres de sortie du plan directeur, ni minées à la main (Stock.skip_fn), vitales
+--- comprises. Relu toutes les Stock.OVER_EVERY ticks (f.stock_over, tolérant à nil) ; une ligne [FO-STOCKAGE] quand l'ensemble change.
+local function over_cap(f)
+  local tick = (game and game.tick) or 0
+  local c = f.stock_over
+  if c and tick >= c.at and tick - c.at < Stock.OVER_EVERY then return c.set end
+  local ia3 = f.team and f.team.ia3
+  local set = Sg.over_cap(ia3 and ia3.saturated, function(it) return Stock.count(f, it) end, stack_of, T.stockage)
+  local names, text = {}, {}
+  for it in pairs(set) do names[#names + 1] = it end
+  table.sort(names)
+  for i, it in ipairs(names) do text[i] = it .. " " .. set[it] end
+  local key = table.concat(names, " ") -- l'ensemble (noms seuls) : un compte qui bouge ne refait pas la ligne
+  local was = c and c.key or ""
+  f.stock_over = { at = tick, set = set, key = key, logged = c and c.logged or nil }
+  if key ~= was and (not f.stock_over.logged or tick - f.stock_over.logged >= Stock.OVER_LOG) then
+    f.stock_over.logged = tick
+    log(string.format("[FO-STOCKAGE] %s : plafond des saturees (%d piles) : {%s} plus ramassees ni collectees (avant : {%s}) a %.1f min",
+      f.key or "player", (T.stockage and T.stockage.sat_cap) or Sg.DEFAULT.sat_cap, table.concat(text, ", "), was, (tick - (f.started or 0)) / 3600))
+  end
+  return set
+end
+
 function Stock.skip_fn(f)
   if not (f.hq and f.hq.valid) then return nil end
   local used, size = totals(f)
@@ -880,8 +935,8 @@ function Stock.skip_fn(f)
   local ia3 = f.team and f.team.ia3
   -- relecture du 7/11 : jamais une matière que l'équipe demande en ce moment (manque mesuré du cerveau, manque de l'objectif
   -- courant ; nets du stock), même stock presque plein et plafond d'annexes atteint
-  local need = demanded(f)
-  local set = Sg.skip(ia3 and ia3.saturated, used / size, VITAL, T.stockage, ia3 and ia3.other_short, need)
+  local need = demanded(f, true)
+  local set = Sg.skip(ia3 and ia3.saturated, used / size, VITAL, T.stockage, ia3 and ia3.other_short, need, over_cap(f))
   if next(set) == nil then return nil end
   return function(item) return Sg.skipped(set, item, VITAL) end
 end
