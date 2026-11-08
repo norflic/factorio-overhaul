@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.69
+Date: 2026-11-08
+  Changes:
+    - Zero inactivite : un PNJ libre avec un stock qui paie un kit de fonderie lance tout de suite un agrandissement (le plus proche d'abord), meme quand fer et cuivre sont satures ; kit manquant fabrique, jamais mine a la main ; journal [FO-ZERO-IDLE].
+    - Saturation : la cause d'un ordre voulu non retenu est ecrite ; un ordre d'ouverture compte comme ordre ouvert.
+    - Vue Cerveau V2.4 : raison "rien a faire" des PNJ au panneau, corrections de relecture.
+    - Defense : table des types construite au chargement (aucune table de module ecrite en evenement).
+---------------------------------------------------------------------------------------------------
 Version: 0.6.68
 Date: 2026-11-08
   Changes:
