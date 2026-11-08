@@ -56,6 +56,18 @@ check(Pq.tile_verdict(tile(obs_of({ dense(5), dense(5), dense(5) }))) == false, 
 check(Pq.tile_verdict(tile(o3, { shape = "left" })) == false, "1.9 courbe refusée")
 check(Pq.tile_verdict(tile(o3, { back = false })) == false, "1.10 rien n'alimente la tuile : refusé")
 check(Pq.tile_verdict(tile(o3, { front = false })) == false, "1.11 le tapis finit sur la tuile : refusé")
+do -- fenêtre glissante : un tapis vide 40 relevés puis plein 9 relevés de suite qualifie ; un tapis plein puis vide 9 relevés ne qualifie plus
+  local lst = {}
+  for _ = 1, 40 do lst[#lst + 1] = dense(0) end
+  for _ = 1, Pq.WINDOW do lst[#lst + 1] = dense(8) end
+  check(Pq.tile_verdict(tile(obs_of(lst))) == true, "1.13 un tapis vide puis plein depuis 9 relevés qualifie (fenêtre glissante)")
+  local lst2 = {}
+  for _ = 1, 40 do lst2[#lst2 + 1] = dense(8) end
+  for _ = 1, Pq.WINDOW do lst2[#lst2 + 1] = dense(0) end
+  check(Pq.tile_verdict(tile(obs_of(lst2))) == false, "1.14 un tapis plein puis vide depuis 9 relevés ne qualifie plus")
+  local o = obs_of(lst2)
+  check(#o.hist == Pq.WINDOW and o.n == 49, "1.15 l'historique est borné par la fenêtre (" .. #o.hist .. "), le total des relevés est gardé (" .. o.n .. ")")
+end
 check(Pq.DENSE_AT <= Pq.TILE_CAP and Pq.JAM_FRAC > 0.5 and Pq.JAM_FRAC <= 1, "1.12 seuils cohérents")
 
 ---------------------------------------------------------------------------------------------------
@@ -155,6 +167,12 @@ local z = { key = "7:q1", item = "X", flow = 0, dist = 56, fill = 400, low = 60 
 local r12 = Pq.rank(z, { cand("t1") }, { { key = "9:o1", span = 6 } }, {})
 check(r12[1].kind == "sortie" and r12[1].ok == false and r12[2].ok == false, "4.12 deux options refusées à égalité : la sortie de module d'abord")
 check(Pq.why_none({}):find("aucune source", 1, true) and Pq.why_none(r4) == r4[1].why, "4.13 cause d'un quai sans source")
+-- le tapis existant est le choix par défaut (PREFER_TAPIS) : devant une sortie de module qui ne rapporte pas plus de 2 fois mieux
+local r16 = Pq.rank(DOCK, { cand("t1", { sides = { left = { span = 20 } } }) }, { { key = "9:o1", span = 6 } }, {})
+check(r16[1].kind == "tapis" and r16[2].kind == "sortie", "4.16 tapis à 20 tuiles contre sortie à 6 : le tapis par défaut (retour < 2 fois celui de la sortie)")
+local r17 = Pq.rank(DOCK, { cand("t1", { sides = { left = { span = 30 } } }) }, { { key = "9:o1", span = 6 } }, {})
+check(r17[1].kind == "sortie", "4.17 tapis à 30 tuiles (retour plus de 2 fois la sortie) : la sortie reste devant")
+check(Pq.SEARCH_SPAN == Li.MAX_SPAN, "4.18 portée de recherche = celle de la liaison (40 tuiles)")
 -- le classement ne modifie pas ses entrées
 local c_in = cand("t1")
 local before = c_in.sides.left.span
@@ -287,10 +305,19 @@ mutant_ok("tapis mixte accepté", "if o%.mixed > 0 then return false", "if false
   function(Pm) return Pm.tile_verdict(tile(obs_of({ dense(8), { count = 8, other = 1 }, dense(8) }))) == false end)
 mutant_ok("un seul relevé suffit", "if not o or o%.n < Pq%.MIN_SAMPLES then", "if not o then",
   function(Pm) return Pm.tile_verdict(tile(obs_of({ dense(8) }))) == false end)
-mutant_ok("surplus non exigé", "if o%.dense < need then", "if false then",
+mutant_ok("surplus non exigé", "if wd < need then", "if false then",
   function(Pm) return Pm.tile_verdict(tile(obs_of({ dense(1), dense(1), dense(1) }))) == false end)
-mutant_ok("part dense arrondie vers le bas", "math%.ceil%(Pq%.JAM_FRAC %* o%.n %- 1e%-9%)", "math.floor(Pq.JAM_FRAC * o.n)",
+mutant_ok("part dense arrondie vers le bas", "math%.ceil%(Pq%.JAM_FRAC %* wn %- 1e%-9%)", "math.floor(Pq.JAM_FRAC * wn)",
   function(Pm) return Pm.tile_verdict(tile(obs_of({ dense(8), dense(1), dense(1) }))) == false end)
+mutant_ok("fenêtre glissante retirée", ":sub%(%-Pq%.WINDOW%)", "",
+  function(Pm)
+    local lst = {}
+    for _ = 1, 40 do lst[#lst + 1] = dense(0) end
+    for _ = 1, Pq.WINDOW do lst[#lst + 1] = dense(8) end
+    local o
+    for _, s in ipairs(lst) do o = Pm.observe(o, s) end
+    return Pm.tile_verdict(tile(o)) == true
+  end)
 mutant_ok("courbe acceptée", 'if c%.shape ~= "straight" then', "if false then",
   function(Pm) return Pm.tile_verdict(tile(o3, { shape = "left" })) == false end)
 mutant_ok("tuile sans alimentation acceptée", "if not c%.back then", "if false then",
@@ -321,6 +348,10 @@ mutant_ok("portée de recherche ignorée", "elseif best_span > Pq%.SEARCH_SPAN t
   function(Pm) return (Pm.rank(DOCK, { cand("t1", { sides = { left = { span = 99 } } }) }, {}, {})[1].why):find("trop loin", 1, true) ~= nil end)
 mutant_ok("débit du bras ignoré", "elseif opts%.arm_rate and dock%.flow > opts%.arm_rate then", "elseif false then",
   function(Pm) return Pm.rank(DOCK, { cand("t1") }, {}, { arm_rate = 0.5 })[1].ok == false end)
+mutant_ok("tapis par défaut oublié", "if t%.payback <= list%[1%]%.payback %* Pq%.PREFER_TAPIS then", "if false then",
+  function(Pm) return Pm.rank(DOCK, { cand("t1", { sides = { left = { span = 20 } } }) }, { { key = "9:o1", span = 6 } }, {})[1].kind == "tapis" end)
+mutant_ok("tapis préféré à tout prix", "if t%.payback <= list%[1%]%.payback %* Pq%.PREFER_TAPIS then", "if true then",
+  function(Pm) return Pm.rank(DOCK, { cand("t1", { sides = { left = { span = 30 } } }) }, { { key = "9:o1", span = 6 } }, {})[1].kind == "sortie" end)
 mutant_ok("retour décroissant", "if pa ~= pb then return pa < pb end", "if pa ~= pb then return pa > pb end",
   function(Pm) return Pm.rank(DOCK, { cand("a", { sides = { left = { span = 20 } } }), cand("b", { sides = { left = { span = 5 } } }) }, {}, {})[1].key == "b" end)
 mutant_ok("tapis avant sortie à égalité", 'return a%.kind == "sortie"', 'return a.kind == "tapis"',

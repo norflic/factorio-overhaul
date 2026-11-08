@@ -147,6 +147,8 @@ for x = 0, 40 do belt(x, 10, 2, { X = 4 }, { X = 4 }) end
 chest(20, 14, 10)
 -- la tête d'alimentation du quai (tapis du PLAN, tuile réservée) porte aussi l'objet, dense : elle ne doit jamais être piquée
 for x = 21, 23 do belt(x, 16, 2, { X = 4 }, { X = 4 }) end
+-- une ligne de liaison FINIE (tuiles du plan, réservées) : ses tapis sont des sources pour les autres quais ; sa tuile (19,10) est celle que le piquage remplacera
+for x = 21, 23 do belt(x, 18, 2, { X = 4 }, { X = 4 }) end
 link_belts()
 local Pq = require("shared.team.piquage")
 local Li = require("shared.team.liaison")
@@ -157,6 +159,13 @@ local B = { occ = { [P.tkey(21, 16)] = 1, [P.tkey(22, 16)] = 1, [P.tkey(23, 16)]
 local PROJ1 = { id = 1, state = "fini", spec = { gen = "x", names = { arm = "inserter", pole = "small-electric-pole" } }, parts = { { kind = "module" } }, quais = { { x = 20.5, y = 14.5, item = "X" } }, outs = {}, ents = {},
   inflow = { X = 1.0 }, tapis_piquable = { { x = 23, y = 16, item = "X" }, { x = 22, y = 16, item = "Y" } } }
 B.projects[1] = PROJ1
+local PROJL = { id = 5, state = "fini", spec = { liaison = { item = "X" } }, parts = {}, quais = {}, outs = {}, ents = {
+  { name = "transport-belt", x = 19.5, y = 10.5, dir = 2, role = "liaison-tapis", built = true },
+  { name = "transport-belt", x = 21.5, y = 18.5, dir = 2, role = "liaison-tapis", built = true },
+  { name = "transport-belt", x = 22.5, y = 18.5, dir = 2, role = "liaison-tapis", built = true } } }
+B.projects[5] = PROJL
+B.order[#B.order + 1] = 5
+B.occ[P.tkey(21, 18)], B.occ[P.tkey(22, 18)], B.occ[P.tkey(23, 18)] = 5, 5, 5
 FACTION.build = B
 
 local REQ = {}
@@ -192,6 +201,7 @@ cycle() -- découverte
 local tr = B.piquage.track["1:q1"]
 check(tr and #tr.order == Piquage.MAX_TRACK, "1.1 découverte : " .. Piquage.MAX_TRACK .. " tuiles suivies, les plus proches du quai")
 check(tr and tr.tiles["21:16"] == nil and tr.tiles["22:16"] == nil, "1.1 bis les tapis du plan (tuiles réservées) ne sont pas suivis")
+check(tr and tr.tiles["21:18"] ~= nil and tr.tiles["22:18"] ~= nil and tr.tiles["23:18"] == nil, "1.1 quater les tapis d'une liaison finie (tuiles du plan) sont des sources, pas ceux qu'elle ne déclare pas")
 check(tr and tr.tiles["23:16"] ~= nil, "1.1 ter un tapis du plan déclaré piquable par son projet (p.tapis_piquable) pour CET objet est suivi, pas pour un autre")
 check(tr and tr.tiles["20:10"] ~= nil and tr.tiles["20:10"].obs.n == 1 and tr.tiles["20:10"].obs.dense == 1, "1.2 la tuile en face du quai est suivie, 1 relevé dense")
 cycle()
@@ -313,6 +323,10 @@ local sp
 for _, e in ipairs(ENTS) do if e.name == "splitter" and e.valid then sp = e end end
 check(sp and sp.splitter_output_priority == g.priority, "4.3 priorité de sortie écrite sur le tapis PRINCIPAL : " .. tostring(sp and sp.splitter_output_priority))
 check(STOCK.splitter == 0 and STOCK["transport-belt"] == 1, "4.4 stock : répartiteur consommé, tapis remplacé rendu")
+local adopted = PROJL.ents[1]
+check(adopted.name == "splitter" and adopted.item == "splitter" and adopted.x == g.x and adopted.y == g.y and adopted.dir == g.dir,
+  "4.4 bis la pièce de tapis remplacée dans le plan de la liaison devient « répartiteur » (sinon la reconstruction la referait)")
+check(PROJL.ents[2].name == "transport-belt", "4.4 ter les autres pièces du plan de la liaison ne bougent pas")
 check(P2.piq_placed == true, "4.5 le projet sait que le répartiteur est posé (plus de besoin)")
 check(has_log("repartiteur pose : sur le tapis") ~= nil, "4.6 journal : repartiteur pose")
 check(CALLS.bar ~= nil and CALLS.bar == Li.bar(400, 100), "4.7 barre du coffre d'entrée posée")

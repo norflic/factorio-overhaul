@@ -257,6 +257,17 @@ local function discover(f, surface, st, d, tick)
       for _, t in ipairs(q.tapis_piquable) do opt_in[t.x .. ":" .. t.y] = t.item end
     end
   end
+  -- lignes de liaison finies (sortie de module ou tampon -> bras -> tapis -> quai) : leurs tuiles de tapis sont des SOURCES pour les autres quais du
+  -- même objet (le tapis s'accumule quand le quai servi est plein : surplus). Jamais une branche de piquage elle-même (pas de piquage en chaîne).
+  for _, pid in ipairs(f.build.order) do
+    local q = f.build.projects[pid]
+    local ls = q and q.state == "fini" and q.spec and q.spec.liaison
+    if ls and not ls.piquage and ls.item then
+      for _, e in ipairs(q.ents or {}) do
+        if e.role == "liaison-tapis" and not e.type then opt_in[math.floor(e.x) .. ":" .. math.floor(e.y)] = ls.item end
+      end
+    end
+  end
   local found = {}
   for _, e in ipairs(ents) do
     local tx, ty = math.floor(e.position.x), math.floor(e.position.y)
@@ -421,6 +432,19 @@ local function place_split(f, surface, p, lc)
   Stock.remove(f, item, 1)
   if old_item then Stock.insert(f, old_item, 1) end
   ent.splitter_output_priority = g.priority
+  -- la pièce de tapis remplacée appartenait peut-être à un projet du plan (liaison, rapatriement) : son relevé de pièces doit dire « répartiteur »
+  -- (sinon la reconstruction croirait le tapis détruit et le referait par-dessus le répartiteur)
+  local b = f.build
+  for _, pid in ipairs(b.order) do
+    local q = b.projects[pid]
+    if q and q ~= p then
+      for _, e in ipairs(q.ents or {}) do
+        if e.name == belt.name and math.floor(e.x) == g.tile.x and math.floor(e.y) == g.tile.y then
+          e.name, e.x, e.y, e.dir, e.item, e.piq = lc.split, g.x, g.y, g.dir, item, true
+        end
+      end
+    end
+  end
   return true, ent.splitter_output_priority
 end
 

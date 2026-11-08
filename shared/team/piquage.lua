@@ -37,12 +37,16 @@ local Pq = {}
 
 -- Observation d'un tapis (relevés toutes les Li.PERIOD)
 Pq.MIN_SAMPLES = 3          -- relevés d'une tuile avant toute décision
+Pq.WINDOW = 9               -- relevés qui comptent : au-delà, les anciens pèsent de moins en moins (un tapis qui se remplit tard doit pouvoir qualifier ;
+                            -- micro-banc du 8/11 : 33 relevés denses sur 50 après un début vide)
 Pq.TILE_CAP = 8             -- objets d'une tuile de tapis pleine (4 par voie)
 Pq.DENSE_AT = 6             -- objets sur la tuile à partir desquels le relevé la dit dense (tapis qui s'accumule)
 Pq.JAM_FRAC = 0.66          -- part des relevés denses exigée (surplus observé)
 Pq.MAX_CANDS = 6            -- tuiles essayées au plus par plan
-Pq.SEARCH_SPAN = 30         -- tuiles (Manhattan) : un tapis plus loin du bras du quai n'est pas cherché
 Pq.MAX_SPAN = Li.MAX_SPAN   -- tuiles : une sortie de module plus loin n'est pas appariée (règle de la liaison)
+Pq.SEARCH_SPAN = Pq.MAX_SPAN -- tuiles (Manhattan) : un tapis plus loin du bras du quai n'est pas cherché (30 jusqu'au 8/11 13 h ; 40 = la portée de la liaison,
+                            -- le tracé reste borné par Li.route_ok : 48 tuiles et détour 1,5 au plus)
+Pq.PREFER_TAPIS = 2.0       -- le tapis existant est le choix PAR DÉFAUT : il passe devant une sortie de module dont le retour ne vaut pas moins de la moitié du sien
 
 -- Prix (plaques-équivalent par pièce, NON MESURÉS : un répartiteur et une paire de souterrains valent de l'ordre de 24 et 17 plaques)
 Pq.PRICE = { belt = Li.PRICE.belt, arm = Li.PRICE.arm, pole = Li.PRICE.pole, split = 24, ug = 17.5 }
@@ -62,11 +66,13 @@ Pq.LEFT = LEFT
 --- Accumule un relevé. obs = { n, dense, mixed, sum } ou nil ; sample = { count = objets VOULUS sur la tuile (les deux voies),
 --- other = objets d'une autre nature }. Rend le nouvel obs (nombres seuls : gardé en mémoire de la passe, jamais d'entité).
 function Pq.observe(obs, sample)
-  obs = obs or { n = 0, dense = 0, mixed = 0, sum = 0 }
+  obs = obs or { n = 0, dense = 0, mixed = 0, sum = 0, hist = "" }
   obs.n = obs.n + 1
   obs.sum = obs.sum + (sample.count or 0)
   if (sample.count or 0) >= Pq.DENSE_AT then obs.dense = obs.dense + 1 end
   if (sample.other or 0) > 0 then obs.mixed = obs.mixed + 1 end
+  -- fenêtre glissante : les WINDOW derniers relevés (« 1 » dense, « 0 » non) décident ; `mixed` ne s'oublie pas (un autre objet vu reste vu)
+  obs.hist = ((obs.hist or "") .. ((sample.count or 0) >= Pq.DENSE_AT and "1" or "0")):sub(-Pq.WINDOW)
   return obs
 end
 
@@ -78,14 +84,16 @@ function Pq.tile_verdict(c)
     return false, string.format("releves insuffisants (%d sur %d)", o and o.n or 0, Pq.MIN_SAMPLES), "releves_insuffisants"
   end
   if o.mixed > 0 then return false, "tapis mixte (un autre objet vu : un repartiteur filtre affamerait l'aval)", "tapis_mixte" end
-  local need = math.ceil(Pq.JAM_FRAC * o.n - 1e-9)
-  if o.dense < need then
-    return false, string.format("surplus non observe (tuile dense %d fois sur %d, il en faut %d)", o.dense, o.n, need), "surplus_non_observe"
+  local wn = o.hist and #o.hist or o.n
+  local wd = o.hist and select(2, o.hist:gsub("1", "")) or o.dense
+  local need = math.ceil(Pq.JAM_FRAC * wn - 1e-9)
+  if wd < need then
+    return false, string.format("surplus non observe (tuile dense %d fois sur les %d derniers releves, il en faut %d)", wd, wn, need), "surplus_non_observe"
   end
   if c.shape ~= "straight" then return false, "tapis en courbe", "tuile_impropre" end
   if not c.back then return false, "rien n'alimente la tuile", "tuile_impropre" end
   if not c.front then return false, "le tapis ne se prolonge pas", "tuile_impropre" end
-  return true, string.format("surplus observe (dense %d fois sur %d)", o.dense, o.n)
+  return true, string.format("surplus observe (dense %d fois sur les %d derniers releves)", wd, wn)
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -203,6 +211,16 @@ function Pq.rank(dock, cands, outs, opts)
     if a.kind ~= b.kind then return a.kind == "sortie" end
     return tostring(a.key) < tostring(b.key)
   end)
+  -- choix par défaut : un tapis qui se paie passe devant une sortie de module qui ne rapporte pas plus de PREFER_TAPIS fois mieux
+  if list[1] and list[1].kind == "sortie" and list[1].ok then
+    for i = 2, #list do
+      local t = list[i]
+      if t.kind == "tapis" and t.ok then
+        if t.payback <= list[1].payback * Pq.PREFER_TAPIS then table.remove(list, i); table.insert(list, 1, t) end
+        break
+      end
+    end
+  end
   return list
 end
 

@@ -140,7 +140,7 @@ return function(variant)
       local s = ctx.surface()
       local t = e.tick - st.t0
       if st.eei and st.eei.valid then st.eei.energy = BUF end
-      if t % 20 == 0 then feed(s) end
+      feed(s)
       local rep = ctx.remote("fo-ia1d", "report", "player")
       local pq = ctx.remote("fo-piquage", "report", "player")
       local filled = rep and rep.filled or 0
