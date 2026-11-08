@@ -170,7 +170,7 @@ return function(variant)
         end
         local n = count_of(s, DOCK.x, DOCK.y)
         if n >= 0 and (not st.w.min or n < st.w.min) then st.w.min = n end
-        if t - st.w.start >= W then
+        if t - st.w.start >= (WITH and W or 2 * W) then
           st.w.closed = true
           st.w.filled = filled - st.w.filled0
           st.w.end_n = count_of(s, DOCK.x, DOCK.y)
