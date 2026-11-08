@@ -375,9 +375,11 @@ local function guet(tick)
   if not a then return end
   Profiler.start("gel:garnisons")
   local players = Gel.players((war and war.surface) or 1)
+  local seen = {}
   if war and war.active and war.factions then
     for _, fid in ipairs(State.alive()) do
       local f = war.factions[fid]
+      seen[fid] = true
       if f and f.hq and f.hq.valid and f.hq_pos and f.soldiers and (f.soldiers_count or 0) > 0 then
         local s = Gel.input(f, players, (Commander.army_out(f)))
         if not Ga.ON then s.off = true end
@@ -390,6 +392,11 @@ local function guet(tick)
         wake_view(a, fid, "faction", tick) -- QG perdu, plus de soldats : rien ne reste figé
       end
     end
+  end
+  -- Faction ANÉANTIE (hors de State.alive) ou guerre arrêtée : rien ne reste figé, même sans mort vue par on_died (QG détruit par
+  -- script, relecture de revue-s, 8/11).
+  for _, vid in ipairs(keys(a.v)) do
+    if type(vid) == "number" and not seen[vid] and a.v[vid].n > 0 then wake_view(a, vid, "faction disparue", tick) end
   end
   for _, name in ipairs(keys(a.bancs)) do
     local b = a.bancs[name]

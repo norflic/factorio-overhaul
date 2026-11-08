@@ -387,16 +387,39 @@ local function guet(tick)
   Profiler.start("gel:guet")
   local surface = (war and war.surface) or 1
   local players = Gel.players(surface)
+  local seen = {}
   if war and war.active and war.factions then
     for _, fid in ipairs(State.alive()) do
       local f = war.factions[fid]
       if f then
+        seen[fid] = true
         local s = Gel.input(f, players, (Commander.army_out(f)))
         if not Gu.ON or not (f.hq and f.hq.valid) then s.off = true end
         guet_group(fid, tostring(f.key), s, tick)
         if tick % (5 * 3600) == 0 and u.ids_f[fid] then bilan(f, fid, tick) end
       end
     end
+  end
+  -- Faction ANÉANTIE (f.eliminated : hors de State.alive) ou guerre arrêtée : ses îlots ne sont plus guettés, donc tout ce qui est
+  -- figé est réveillé ici, une fois (relecture de revue-s, 8/11 : sans cela, ses foreuses et ses fours restaient figés pour toujours).
+  local gone = {}
+  for k in next, u.ids_f do
+    if type(k) == "number" and not seen[k] then gone[#gone + 1] = k end
+  end
+  table.sort(gone)
+  for _, fid in ipairs(gone) do
+    local n = 0
+    for _, id in ipairs(copy_list(u.ids_f[fid])) do
+      local I = u.ilots[id]
+      if I and I.st.frozen and not I.pending then
+        want_wake(I, tick, "faction disparue")
+        n = n + 1
+      elseif I and not I.st.frozen and not I.pending and not I.owed then
+        Gu.unregister(I) -- réveillé et soldé : retiré du registre (la faction n'est plus relevée)
+      end
+    end
+    if #(u.ids_f[fid] or {}) == 0 then u.ids_f[fid] = nil end
+    if n > 0 then Gel.say("reveil:" .. tostring(fid), string.format("faction %s disparue (aneantie ou guerre arretee) : %d ilot(s) reveille(s) a %.1f min", tostring(fid), n, tick / 3600)) end
   end
   -- groupes de banc (interface « fo-gel », script/faction/gel_banc.lua) : causes posées par le banc, jamais par une faction
   for _, name in ipairs(Gc.sorted_names(u.bancs)) do
@@ -464,10 +487,17 @@ local function touch(entity, why)
   local p = entity.position
   local list = u.cells[State.chunk_key(math.floor(p.x / 32), math.floor(p.y / 32))]
   if not list then return end
+  local inside_frozen = false
   for _, id in ipairs(list) do
     local I = u.ilots[id]
-    if I and not I.dirty and p.x >= I.box.x0 and p.x <= I.box.x1 and p.y >= I.box.y0 and p.y <= I.box.y1 then I.dirty = why end
+    if I and p.x >= I.box.x0 and p.x <= I.box.x1 and p.y >= I.box.y0 and p.y <= I.box.y1 then
+      if not I.dirty then I.dirty = why end
+      if I.st.frozen then inside_frozen = true end
+    end
   end
+  -- Remplaçant d'une machine figée (niveau : Levels.swap, fast_replace, raise_built) : s'il hérite de active = false, plus rien ne le
+  -- réveillerait (wake ne connaît que l'ancienne entité) ; rendu actif tout de suite (relecture de revue-s, 8/11).
+  if why == "pose" and inside_frozen and entity.active == false then entity.active = true end
 end
 
 Events.on(defines.events.on_built_entity, function(e) touch(e.created_entity, "pose") end)

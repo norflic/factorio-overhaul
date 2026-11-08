@@ -326,6 +326,25 @@ local function scenes()
   run(5000)
   check(frozen_count() == 0, "M9 : votre equipe : jamais figee")
   f.is_player = nil
+  -- M12 remplaçant d'une machine figée (niveau, fast_replace, raise_built) qui hériterait de active = false (relecture de revue-s)
+  run(1300)
+  check(not E.s1.active, "M12 : four du QG refige")
+  local s1b = entity({ name = "steel-furnace", type = "furnace", x = E.s1.position.x, y = E.s1.position.y, proto = FURN_P, burner = true, crafting_speed = 2 })
+  s1b.active = false
+  E.s1.valid = false
+  for _, fn in ipairs(H.on[defines.events.script_raised_built] or {}) do fn({ entity = s1b }) end
+  check(s1b.active == true, "M12 : remplacant d'une machine figee : rendu actif dans le gestionnaire")
+  run(40)
+  check(frozen_count() == 0 or not E.d1.active, "M12 : l'ilot du remplace est relu (les autres peuvent rester figes)")
+  -- M13 faction anéantie pendant le gel : tout est réveillé, le registre de la faction est vidé (relecture de revue-s)
+  run(1300)
+  check(frozen_count() > 0, "M13 : figes avant l'aneantissement (" .. frozen_count() .. ")")
+  f.eliminated = true
+  run(20)
+  check(frozen_count() == 0, "M13 : faction aneantie : tout reveille au guet suivant (" .. frozen_count() .. ")")
+  run(60)
+  check(Gu.U().ids_f[1] == nil, "M13 : registre de la faction aneantie vide")
+  f.eliminated = nil
   check(W.bad_writes == 0, "M11 : aucune ecriture de progression (au monde factice)")
   return table.concat(W.logs, "\n") .. "|" .. tostring(E.c1._inv.items["iron-ore"]) .. "|" .. tostring(E.k2._out.items["iron-plate"])
 end

@@ -14,6 +14,7 @@
     N8  réglage éteint : tout réveillé ; données changées : tout réveillé, état vidé ; votre équipe jamais figée ;
     N9  `destructible` jamais écrit ; seul `active` change ; requêtes par guet bornées ;
     N10 déterminisme : deux passages, mêmes journaux ;
+    N13 faction anéantie sans mort vue, guerre arrêtée : tout réveillé au guet suivant (relecture de revue-s, 8/11) ;
     Mutants (texte de gel_garnisons.lua changé) : tous vus, dont « destructible mis à false au gel » (demande du lead, 7/11).
   Usage : lua5.2 tests/gel_garnisons_test.lua   (depuis la racine du mod ; shared/faction/cadence.lua de x10-s10 requis)
 ]]
@@ -338,6 +339,19 @@ local function cases(src)
     run(20)
     check(n_frozen(E.home) == 0, "N11 : poste eveille avec des soldats figes : reveilles au guet suivant")
   end
+  -- N13 faction anéantie (hors de State.alive) SANS mort vue (QG détruit par script) : rien ne reste figé (relecture de revue-s)
+  do
+    local f, E = build(src)
+    run(640)
+    f.eliminated = true
+    run(20)
+    check(n_frozen(all_soldiers(E)) == 0, "N13 : faction aneantie sans mort vue : tous reveilles au guet suivant")
+    local f2, E2 = build(src)
+    run(640)
+    W.store.war.active = false
+    run(20)
+    check(n_frozen(all_soldiers(E2)) == 0, "N13 : guerre arretee : tous reveilles au guet suivant")
+  end
   return fail_n - f0
 end
 
@@ -409,6 +423,7 @@ local MUTANTS = {
   { "amas de tourelles ignores", "      return \"ennemi pres des tourelles\"", "      return nil" },
   { "poste eveille garde ses figes", "if not p.st.frozen then wake_one(a, vid, m.id, \"poste eveille\") end", "" },
   { "reveil du poste ignore", "        if m.frozen and wake_one(a, vid, m.id, o.cause or \"reveil\") then", "        if false then" },
+  { "faction disparue ignoree", "if type(vid) == \"number\" and not seen[vid] and a.v[vid].n > 0 then wake_view(a, vid, \"faction disparue\", tick) end", "" },
   { "attaque oubliee (regel immediat)", "s.attack_t, s.lost_t = max_t(s.attack_t, a.hit[fid]), max_t(s.lost_t, a.lost[fid])", "" },
 }
 quiet = true
