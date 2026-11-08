@@ -131,6 +131,18 @@ local function red_packs(ctx, s, pos, label)
     by[k] = (by[k] or 0) + 1
   end
   ctx.log(string.format("%s PACKS ROUGES : %d machine(s) ; statuts {%s}", label, #list, refused_text(by)))
+  -- C8 : le module des packs rouges de la partie du DC est le projet 3 du plan directeur ([FO-IA3E] « automation-science-pack#3 »)
+  if ctx.has("fo-ia1", "module_probe") then
+    local ok, m = pcall(ctx.remote, "fo-ia1", "module_probe", "player", 3)
+    if ok and m then
+      ctx.log(string.format("%s PACKS ROUGES projet 3 (%s) : etat %s (%s), quota %s, alimentation permise %s", label, tostring(m.product),
+        tostring(m.state), tostring(m.reason), tostring(m.quota), tostring(m.feed)))
+      for _, l in ipairs(m.quais or {}) do ctx.log(label .. " PACKS ROUGES projet 3 entree " .. l) end
+      for _, l in ipairs(m.outs or {}) do ctx.log(label .. " PACKS ROUGES projet 3 sortie " .. l) end
+    else
+      ctx.log(string.format("%s PACKS ROUGES projet 3 : sonde sans reponse (%s)", label, tostring(m)))
+    end
+  end
   for i = 1, math.min(8, #list) do
     local e = list[i]
     local inp = e.get_inventory(defines.inventory.assembling_machine_input)

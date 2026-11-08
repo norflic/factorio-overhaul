@@ -590,6 +590,49 @@ remote.add_interface("fo-ia1", {
     return { tasks = tasks, rule = c ~= nil, picked = picked, refused = refused, engineers = f.engineers_count or 0,
       floor = f.team.floor or 0, iron = Stock.count(f, T.outposts.iron.product), npcs = npcs, free = free, miss = miss }
   end,
+  -- Lot STOCKAGE-VITAL (C8 de DIAG_CONSO, bancs seulement) : un projet du plan directeur vu de ses coffres : état, alimentation permise
+  -- par le quota (Build.Quotas.feed_ok, comme quai_tasks), quais d'entrée (objet, compte au coffre, stock du QG, tâche « fill » au tableau,
+  -- verdict du ramassage) et sorties (contenu, barre, tâche de collecte). Lecture des coffres et du tableau ; Build.Quotas.of peut ranger
+  -- le quota recalculé dans le projet (p.quota, p.quota_key), comme le ferait quai_tasks.
+  module_probe = function(key, pid)
+    local f = team_of(key)
+    local p = f and f.build and f.build.projects[pid]
+    if not (p and f.hq and f.hq.valid) then return nil end
+    local surface = f.hq.surface
+    local b = Board.get(f)
+    local skip = Stock.skip_fn and Stock.skip_fn(f)
+    local function task_text(k)
+      local t = b.tasks[k]
+      return t and (t.worker and "prise" or "libre") or "aucune"
+    end
+    local outs, counts, slots, in_slots = {}, {}, nil, nil
+    for i, o in ipairs(p.outs or {}) do
+      local c = surface.find_entity("iron-chest", { o.x, o.y })
+      if c and c.valid then
+        local inv = c.get_inventory(defines.inventory.chest)
+        counts[i] = inv.get_item_count()
+        if not slots then in_slots = #inv; slots = math.min(in_slots, inv.get_bar() - 1) end
+        local parts = {}
+        for _, k in ipairs(State.sorted_keys(inv.get_contents())) do -- « * » : objet écarté du ramassage (Stock.skip_fn)
+          parts[#parts + 1] = k .. " " .. inv.get_item_count(k) .. ((skip and skip(k)) and "*" or "")
+        end
+        outs[#outs + 1] = string.format("o%d (%.1f, %.1f) {%s} barre %d/%d, collecte %s", i, o.x, o.y, table.concat(parts, ", "),
+          inv.get_bar() - 1, #inv, task_text("ia1d:" .. pid .. ":o:" .. i))
+      else
+        outs[#outs + 1] = string.format("o%d (%.1f, %.1f) absent", i, o.x, o.y)
+      end
+    end
+    local q = Build.Quotas.of(p, slots, in_slots, Build.COLLECT_AT)
+    local quais = {}
+    for i, qu in ipairs(p.quais or {}) do
+      local c = surface.find_entity("iron-chest", { qu.x, qu.y })
+      quais[#quais + 1] = string.format("q%d %s (%.1f, %.1f) coffre %s, stock %d, alimentation %s, ecarte %s", i, tostring(qu.item), qu.x, qu.y,
+        (c and c.valid) and tostring(c.get_item_count(qu.item)) or "absent", Stock.count(f, qu.item), task_text("ia1d:" .. pid .. ":q:" .. i),
+        tostring(skip ~= nil and skip(qu.item) or false))
+    end
+    return { state = p.state, reason = p.reason and tostring(p.reason) or nil, feed = Build.Quotas.feed_ok(q, counts), quota = q ~= nil,
+      product = p.spec and p.spec.product, quais = quais, outs = outs }
+  end,
   kill_npc = function(key, id)
     local f = team_of(key)
     if not (f and f.engineers and f.engineers[id]) then return false end
