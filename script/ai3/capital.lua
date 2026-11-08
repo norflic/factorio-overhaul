@@ -494,10 +494,17 @@ function Capital.log_blocs(f, c, d, tick)
   local rep = d and d.report
   if not rep then return end
   c.am_sig = c.am_sig or {}
+  c.refus = c.refus or {} -- lu par la vue « Cerveau » : DERNIER refus par bloc|famille { cause = mot fixe, tick }, un état par bloc du relevé
   local seen = {}
   for _, row in ipairs(rep) do
     local k = row.block .. "|" .. row.family
     seen[k] = true
+    if row.state == "refuse" then
+      local word = tostring(row.cause or ""):match("^[^:]+") or ""
+      if not c.refus[k] or c.refus[k].cause ~= word then c.refus[k] = { cause = word, tick = tick } end
+    else
+      c.refus[k] = nil
+    end
     local sig = Am.signature(row)
     if c.am_sig[k] ~= sig then
       c.am_sig[k] = sig
@@ -506,7 +513,7 @@ function Capital.log_blocs(f, c, d, tick)
   end
   -- Un bloc disparu du relevé (projet fini, détruit) : oublié, sa clé ne reste pas dans la sauvegarde.
   for _, k in ipairs(sorted_keys(c.am_sig)) do
-    if not seen[k] then c.am_sig[k] = nil end
+    if not seen[k] then c.am_sig[k], c.refus[k] = nil, nil end
   end
 end
 

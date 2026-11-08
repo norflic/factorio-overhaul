@@ -346,6 +346,17 @@ function Cap.candidates(Ld, census, ctx)
         cost = Ld.cost(fam, n + 1), value = v, why = { why } }
     end
   end
+  -- Lot AMELIORATION : les blocs de PRODUCTION d'abord (DC, 8/11 : « améliorer les bâtiments pour améliorer la production », la montée
+  -- d'un seul bâtiment pour le palier est SECONDAIRE). Tant qu'un bloc de débit est payable en entier (cout au stock), la chaîne du
+  -- centre (Q16) ne reçoit AUCUNE part de la valeur du centre : elle ne prend pas le budget des blocs de production. Les blocs qui
+  -- montent au plafond remplissent d'ailleurs la condition du centre d'eux-mêmes.
+  local bres, prod_ready
+  if ctx.blocs then
+    bres = Am.candidates(Ld, census.list or {}, setmetatable({ cc_level = cc_level }, { __index = ctx }), cfam, Cap)
+    for _, c in ipairs(bres.cands) do
+      if c.why and c.why[1] and c.why[1][1] == "debit" and c.all_in then prod_ready = true end
+    end
+  end
   -- Centre : le poser (aucun) ou le monter. Valeur = l'époque + ce que son plafond débloque (÷ LOOK_DIV).
   local blockers = {}
   -- Lot C1 : l'état du centre à CETTE décision, pour le journal (une cause par refus, jamais un silence) :
@@ -388,7 +399,7 @@ function Cap.candidates(Ld, census, ctx)
         local share = math.floor(cv * Cap.CHAIN_PCT / 100)
         for _, k in ipairs(blockers) do
           local t = top_of[k]
-          if t and t.cand then
+          if t and t.cand and not prod_ready then
             t.cand.value = t.cand.value + share
             t.cand.chain = { target = cc.key, v = share }
           end
@@ -405,10 +416,8 @@ function Cap.candidates(Ld, census, ctx)
   local report
   if ctx.blocs then
     for _, r in ipairs(rows) do if r.cand and r.cand.chain then add(r.cand) end end
-    local bctx = setmetatable({ cc_level = cc_level }, { __index = ctx })
-    local res = Am.candidates(Ld, census.list or {}, bctx, cfam, Cap)
-    for _, c in ipairs(res.cands) do add(c) end
-    report = res.report
+    for _, c in ipairs(bres.cands) do add(c) end
+    report = bres.report
   else
     for _, r in ipairs(rows) do if r.cand then add(r.cand) end end
   end

@@ -266,6 +266,30 @@ local function run_all(Am, full)
   local okc = E2.pay and E2.pay[1].cost[1][2] == g.unit[1][2] * 5
   check(okc, "§7 émission : le coût payé est celui des 5 bâtiments")
 
+  -- §7 bis La chaîne du centre (Q16) est SECONDAIRE : 30 foreuses au niveau 1 (bloc p1), centre 1 (plafond 2). Le centre veut UNE foreuse au
+  -- niveau 2 : tant qu'un bloc de production est payable, c'est le BLOC qui monte, pas une foreuse seule (DC, 8/11).
+  local function choose_q16(CapX)
+    local census16 = { list = ents({}, DR, 1, 30, "p1", 100), center = { id = 1, name = L.name(CC, 1) } }
+    return CapX.choose(L, census16, ctx({ cc_level = nil, blocs = true, stock = BIG }))
+  end
+  local d16 = choose_q16(Cap)
+  check(d16.bloc == "p1" and not d16.chain, "§7 bis chaîne Q16 secondaire : le bloc de production monte avant la foreuse seule : " .. tostring(d16.key))
+  -- Sans stock pour le bloc (rien n'est payable en entier), la chaîne reste permise : le centre ne meurt pas de faim.
+  local census16b = { list = ents({}, DR, 1, 30, "p1", 100), center = { id = 1, name = L.name(CC, 1) } }
+  local d16b = Cap.choose(L, census16b, ctx({ cc_level = nil, blocs = true, stock = {} }))
+  check(d16b.chain ~= nil and d16b.bloc == nil, "§7 bis sans stock, la chaîne Q16 reste permise : " .. tostring(d16b.key))
+  -- Mutant du DC : « seul le bâtiment de la chaîne Q16 monte alors que les blocs de production restent au niveau 1 ».
+  do
+    local f = assert(io.open("shared/ai3/capital.lua", "rb"))
+    local src = f:read("*a")
+    f:close()
+    local i, j = src:find("t.cand and not prod_ready then", 1, true)
+    assert(i, "mutant Q16 : motif introuvable")
+    local mut = assert(load(src:sub(1, i - 1) .. "t.cand then" .. src:sub(j + 1), "=mutantQ16", "t"))()
+    local dm = choose_q16(mut)
+    check(dm.chain ~= nil and dm.bloc == nil, "§7 bis le mutant « seule la chaîne Q16 monte, les blocs restent au niveau 1 » est vu par le contrôle précédent")
+  end
+
   -- §8 Coût d'une décision sur 600 bâtiments.
   local big = {}
   ents(big, DR, 1, 240, "champ", 1000)
