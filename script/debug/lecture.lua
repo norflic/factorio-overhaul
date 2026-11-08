@@ -23,6 +23,7 @@ local Zn = require("shared.debug.zone")
 local Rv = require("script.team.reseau_vivant")
 local An = require("script.debug.anneau")
 local Am = require("shared.debug.ameliorations")
+local Li = require("shared.debug.liens")
 local Lg = require("shared.debug.lignes")
 local Pn = require("shared.debug.pnj")
 local Bl = require("shared.debug.blocs")
@@ -82,7 +83,7 @@ Lec.surface_of = surface_of
 local function project_kind(p)
   local spec = p.spec or {}
   if spec.champ then return "champ" end
-  if spec.liaison then return "liaison" end
+  if spec.liaison or spec.rapatriement then return "liaison" end -- une ligne (Li.lines), pas un bloc
   if spec.quartier then return "quartier" end
   if spec.enceinte then return "enceinte" end
   local part = p.parts and p.parts[1]
@@ -281,15 +282,18 @@ function Lec.am_refus_rows(f, pid)
   return out
 end
 
---- Lignes de liaison enregistrées (liaison de quai, tronc de bus, branche de piquage), copies de nombres : voir shared/debug/blocs.lua.
+--- Lignes enregistrées (quai, bus, piquage, rapatriement) avec leur état réel et la cause d'un refus ou d'une coupure : règle pure shared/debug/liens.lua
+--- (lot DEBUG-BLOCS). Copies de nombres et de chaînes ; extrémités = centres des coffres.
 function Lec.links(f)
   local b = f.build
   local list = {}
   for _, pid in ipairs(b and b.order or {}) do
     local p = b.projects[pid]
-    if p and p.spec and p.spec.liaison then list[#list + 1] = { pid = pid, state = p.state, lc = p.spec.liaison } end
+    if p then
+      list[#list + 1] = { pid = pid, state = p.state, finished = p.finished, abandoned = p.abandoned, reason = p.reason, spec = p.spec, rap = p.rap }
+    end
   end
-  return Bl.lines(list)
+  return Li.lines(list, { piquage = b and b.piquage, rapatriement = b and b.rapatriement })
 end
 
 --- Agent (PNJ) dont le corps est l'entité `e`, ou nil. Lecture du registre des compagnons.

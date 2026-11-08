@@ -1,74 +1,20 @@
 --[[
   Lot DEBUG-CERVEAU, V2 (directive du DC, 8/11) : les BLOCS d'organisation, leurs ENTRÉES et SORTIES, et leurs LIAISONS, tels que le cerveau les a
   enregistrés. Règles PURES (tests/debug_cerveau_test.lua). Entrées : des copies de nombres et de chaînes prises dans f.build (jamais d'entité).
-    liaison de quai   projet dont spec.liaison a un coffre de SORTIE d'un bloc (src) et le coffre d'ENTRÉE d'un autre (dock) ;
-    tronc de bus      la même, avec lc.bus (script/team/bus.lua) ;
-    branche de piquage lc.piquage : du répartiteur (lc.geo, posé sur un tapis existant) au coffre d'entrée (dock) ;
-    tampon            le coffre d'entrée (dock) d'une liaison ou d'un piquage non refusé : il est « tampon » de sa ligne.
-  La « ligne de rapatriement » du DC n'a pas de structure lisible dans cette version : la vue le dit (Bl.MISSING), elle ne l'invente pas.
+  Les LIGNES (quai, bus, piquage, rapatriement), leur état et leurs tampons sont dans shared/debug/liens.lua (lot DEBUG-BLOCS) ; ce module ne garde
+  que les entrées et sorties d'un bloc, les répartiteurs et le plafond d'objets.
 ]]
 
 local Bl = {}
 
-Bl.KINDS = { "quai", "bus", "piquage" }
-Bl.MISSING = { "rapatriement" }
-Bl.DEAD = { refuse = true }
-
 local function num(v) return type(v) == "number" and v == v and v or nil end
-
---- Genre d'une liaison (lc = spec.liaison).
-function Bl.kind(lc)
-  if type(lc) ~= "table" then return nil end
-  if lc.piquage then return "piquage" end
-  if lc.bus then return "bus" end
-  return "quai"
-end
-
-local function pt(t)
-  if type(t) == "table" and num(t.x) and num(t.y) then return { x = t.x, y = t.y } end
-  return nil
-end
-
---- Lignes de liaison. projects : liste de { pid, state, lc = spec.liaison (ou nil) }. Rend, triées par pid :
---- { pid, kind, item, state, from = {x,y}, to = {x,y}, dock_pid, src_pid, done }. Un projet refusé est écarté ; une liaison sans extrémités lisibles aussi.
-function Bl.lines(projects)
-  local out = {}
-  for _, p in ipairs(type(projects) == "table" and projects or {}) do
-    local lc = type(p) == "table" and p.lc
-    local kind = Bl.kind(lc)
-    if kind and not Bl.DEAD[p.state] then
-      local to = pt(lc.dock)
-      local from = (kind == "piquage") and pt(lc.geo) or pt(lc.src)
-      if from and to then
-        out[#out + 1] = { pid = p.pid, kind = kind, item = type(lc.item) == "string" and lc.item or nil, state = p.state, from = from, to = to,
-          dock_pid = lc.dock and lc.dock.pid, src_pid = (kind ~= "piquage" and lc.src) and lc.src.pid or nil, done = p.state == "fini" }
-      end
-    end
-  end
-  table.sort(out, function(a, b) return a.pid < b.pid end)
-  return out
-end
-
---- Coffres tampons : un par extrémité d'entrée de ligne. Rend { x, y, item, kind, source } triés par position ; source = pid du bloc d'où vient la ligne
---- (nil pour un piquage : il vient d'un tapis).
-function Bl.buffers(lines)
-  local out, seen = {}, {}
-  for _, l in ipairs(lines or {}) do
-    local key = string.format("%.1f:%.1f", l.to.x, l.to.y)
-    if not seen[key] then
-      seen[key] = true
-      out[#out + 1] = { x = l.to.x, y = l.to.y, item = l.item, kind = l.kind, source = l.src_pid, pid = l.dock_pid }
-    end
-  end
-  table.sort(out, function(a, b) if a.x ~= b.x then return a.x < b.x end return a.y < b.y end)
-  return out
-end
 
 --- Répartiteurs de piquage : { x, y, item } triés.
 function Bl.splitters(lines)
   local out = {}
   for _, l in ipairs(lines or {}) do
-    if l.kind == "piquage" then out[#out + 1] = { x = l.from.x, y = l.from.y, item = l.item, done = l.done } end
+    -- le répartiteur n'existe que si la branche est posée : ni refusée, ni en chantier, ni en attente
+    if l.kind == "piquage" and (l.status == "actif" or l.status == "inerte" or l.status == "coupe") then out[#out + 1] = { x = l.from.x, y = l.from.y, item = l.item } end
   end
   table.sort(out, function(a, b) if a.x ~= b.x then return a.x < b.x end return a.y < b.y end)
   return out

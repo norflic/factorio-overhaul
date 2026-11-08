@@ -541,9 +541,22 @@ do
   f.build.projects[1].outs = { { x = 20, y = 12 } }
   f.build.projects[20] = { id = 20, state = "fini", parts = {}, ents = {}, spec = { liaison = { item = "iron-plate", dock = { pid = 1, idx = 1, x = 12, y = 12 }, src = { pid = 2, idx = 1, x = 55, y = 12 } } } }
   f.build.projects[21] = { id = 21, state = "chantier", parts = {}, ents = {}, spec = { liaison = { piquage = true, item = "coal", geo = { x = 30.5, y = 5.5 }, dock = { pid = 1, idx = 1, x = 12, y = 12 } } } }
-  f.build.order = { 1, 2, 3, 4, 5, 6, 20, 21 }
+  f.build.projects[20].spec.liaison.key = "k20"
+  f.build.projects[21].spec.liaison.key = "k21"
+  -- une demande REFUSEE (doit se voir en rouge avec sa cause), une ligne de rapatriement, un piquage pose
+  f.build.projects[22] = { id = 22, state = "refuse", reason = "ennemi a portee", parts = {}, ents = {}, spec = { liaison = { key = "k22", item = "copper-plate", dock = { pid = 1, idx = 1, x = 12, y = 14 }, src = { pid = 2, idx = 1, x = 30, y = 14 } } } }
+  f.build.projects[23] = { id = 23, state = "fini", parts = { { kind = "liaison", ox = 41, oy = 21, w = 1, h = 1 } }, ents = {}, rap = { tampon_x = 41, tampon_y = 21 },
+    spec = { rapatriement = { key = "r1", item = "iron-plate", src = { pid = 2, idx = 1, x = 70, y = 20 }, point = { x = 40, y = 20 } } } }
+  f.build.projects[24] = { id = 24, state = "fini", parts = {}, ents = {}, spec = { liaison = { key = "k24", piquage = true, item = "transport-belt", geo = { x = 60.5, y = 30.5 }, dock = { pid = 1, idx = 1, x = 12, y = 12 } } } }
+  f.build.piquage = { links = { k24 = { split = true } }, quais = {} }
+  f.build.order = { 1, 2, 3, 4, 5, 6, 20, 21, 22, 23, 24 }
   local lk = Lec.links(f)
-  check(#lk == 2 and lk[1].kind == "quai" and lk[2].kind == "piquage", "liaisons lues dans f.build : quai et piquage")
+  check(#lk == 5 and lk[1].kind == "quai" and lk[2].kind == "piquage" and lk[3].status == "refuse" and lk[4].kind == "rapatriement" and lk[5].status == "actif",
+    "lignes lues dans f.build : quai, piquage en chantier, REFUSEE, rapatriement, piquage pose : " .. #lk)
+  local sk = Lec.skeletons(f)
+  local has23 = false
+  for _, z in ipairs(sk) do if z.pid == 23 and z.kind == "module" then has23 = true end end
+  check(not has23, "un projet de rapatriement n'est pas un bloc 'module'")
   -- le tableau : une tache libre sans matiere, une en pause d'echec, une prise
   local t_mat = { key = "service:1", kind = "service", prio = 95, outpost = 1, strict = { { "iron-plate", 50 } } }
   local t_pause = { key = "mine:iron", kind = "mine", prio = 45 }
@@ -598,23 +611,30 @@ do
   -- rendu : entrees / sorties / liaisons
   R.calls = {}
   run_refresh(NOW + 60)
-  local n_in, n_out, n_line, n_tampon, n_rep = 0, 0, 0, 0, 0
-  local lines_dashed, lines_solid = 0, 0
+  local n_in, n_out, n_line, n_tampon, n_taprap, n_rep, n_rouge, n_cause = 0, 0, 0, 0, 0, 0, 0, 0
+  local lines_dashed, lines_solid, rich_all = 0, 0, true
   for _, c in ipairs(R.calls) do
     local t = c.p.text
     if c.kind == "draw_line" then
       n_line = n_line + 1
       if c.p.dash_length then lines_dashed = lines_dashed + 1 else lines_solid = lines_solid + 1 end
+      if c.p.color.r == 1 and c.p.color.g == 0.2 then n_rouge = n_rouge + 1 end
     elseif c.kind == "draw_text" and type(t) == "table" then
+      if not c.p.use_rich_text then rich_all = false end
       if t[1] == "fo-dbg-cerveau.io-entree" then n_in = n_in + 1 end
       if t[1] == "fo-dbg-cerveau.io-sortie" then n_out = n_out + 1 end
       if t[1] == "fo-dbg-cerveau.lien-tampon" then n_tampon = n_tampon + 1 end
+      if t[1] == "fo-dbg-cerveau.lien-tampon-rap" then n_taprap = n_taprap + 1 end
       if t[1] == "fo-dbg-cerveau.lien-repartiteur" then n_rep = n_rep + 1 end
+      if t[1] == "fo-dbg-cerveau.lien-ligne" and type(t[4]) == "table" and t[4][1] == "fo-dbg-cerveau.lien-statut-cause" and t[4][3] == "ennemi a portee" then n_cause = n_cause + 1 end
     end
   end
   check(n_in >= 1 and n_out >= 1, "ENTREE et SORTIE ecrites sur le bloc : " .. n_in .. " / " .. n_out)
-  check(n_line == 2 and lines_solid == 1 and lines_dashed == 1, "2 traits de liaison : fini = plein, en chantier = pointille : " .. n_line)
-  check(n_tampon == 1 and n_rep == 1, "un seul coffre tampon (deux lignes vers le meme coffre) et un repartiteur : " .. n_tampon .. " / " .. n_rep)
+  check(n_line == 25 and lines_dashed == 1 and lines_solid == 24, "5 lignes (4 traits + pointes de fleche) : seule la branche en chantier est en pointille : " .. n_line .. " / " .. lines_dashed)
+  check(n_rouge == 5, "la ligne REFUSEE est en rouge (trait et pointes) : " .. n_rouge)
+  check(n_cause == 1, "la cause du refus est ecrite sur la ligne : " .. n_cause)
+  check(n_tampon == 1 and n_taprap == 1 and n_rep == 1, "un coffre tampon (3 lignes vers le meme coffre), le tampon de rapatriement, un repartiteur pose : " .. n_tampon .. " / " .. n_taprap .. " / " .. n_rep)
+  check(rich_all, "tous les textes de la carte sont dessines en texte riche (icones d'objets)")
   check(#R.calls <= 260, "objets de rendu plafonnes : " .. #R.calls)
   -- le detail du bloc cite ses liaisons
   local vv = STORE["debug_cerveau"].v.viewers[1]
@@ -623,7 +643,7 @@ do
   local detail = find(P1.gui.screen["fo_dbg_frame"], "fo_dbg_detail")
   local nl = 0
   for _, ch in ipairs(detail.children) do if type(ch.caption) == "table" and ch.caption[1] == "fo-dbg-cerveau.detail-liaison" then nl = nl + 1 end end
-  check(nl == 2, "le detail du bloc p1 liste ses 2 liaisons entrantes : " .. nl)
+  check(nl == 4, "le detail du bloc p1 liste ses 4 liaisons (refusee comprise) : " .. nl)
   -- PNJ disparu
   body.valid = false
   Cv.refresh_one(P1, STORE["debug_cerveau"].v, vv, NOW + 180)

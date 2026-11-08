@@ -111,7 +111,7 @@ end
 local function explain_line(ex)
   local c = ex.cause
   if c == "matiere" then
-    return { "fo-dbg-cerveau.pnj-cause-matiere", tostring(ex.key), { "item-name." .. tostring(ex.item) }, tostring(ex.need or "?"), tostring(ex.free or "?"), tostring(ex.n or 0) }
+    return { "fo-dbg-cerveau.pnj-cause-matiere", tostring(ex.key), Lg.item(ex.item), tostring(ex.need or "?"), tostring(ex.free or "?"), tostring(ex.n or 0) }
   elseif c == "pauses" then
     return { "fo-dbg-cerveau.pnj-cause-pauses", tostring(ex.key), Lg.ago(ex.left), tostring(ex.n or 0) }
   elseif c == "pret" then
@@ -168,7 +168,7 @@ function Panneau.update_npc(player, v, npc, gone)
   for _, r in ipairs(npc.nexts) do
     local st
     if r.status == "pause" then st = { "fo-dbg-cerveau.pnj-sv-pause", Lg.ago(r.pause) }
-    elseif r.status == "matiere" then st = { "fo-dbg-cerveau.pnj-sv-matiere", { "item-name." .. tostring(r.item) }, tostring(r.need or "?"), tostring(r.free or "?") }
+    elseif r.status == "matiere" then st = { "fo-dbg-cerveau.pnj-sv-matiere", Lg.item(r.item), tostring(r.need or "?"), tostring(r.free or "?") }
     else st = { "fo-dbg-cerveau.pnj-sv-ok" } end
     lbl(frame, { "fo-dbg-cerveau.pnj-suivante", { "fo-dbg-cerveau.tache-" .. Lg.task_key(r.kind, nil) }, tostring(r.key), tostring(r.prio or "?"), st }, nil, true)
   end
@@ -230,7 +230,7 @@ local function fill_detail(detail, ctx)
   if z.total and z.total > 0 then lbl(detail, { "fo-dbg-cerveau.detail-pose", z.built or 0, z.total }) end
   -- production attribuée
   if z.product then
-    lbl(detail, { "fo-dbg-cerveau.detail-produit", { "item-name." .. z.product }, z.rate_meas and string.format("%.0f", z.rate_meas) or "?",
+    lbl(detail, { "fo-dbg-cerveau.detail-produit", Lg.item(z.product), z.rate_meas and string.format("%.0f", z.rate_meas) or "?",
       z.rate_nom and string.format("%.0f", z.rate_nom) or "?" })
   end
   -- état réel
@@ -271,7 +271,7 @@ local function fill_detail(detail, ctx)
   else
     for _, t in ipairs(ctx.sel_tasks) do
       lbl(detail, { "fo-dbg-cerveau.detail-tache", { "fo-dbg-cerveau.tache-" .. Lg.task_key(t.kind, t.mode) },
-        { t.taken and "fo-dbg-cerveau.tache-prise" or "fo-dbg-cerveau.tache-libre" }, t.item and { "item-name." .. t.item } or "", tostring(t.prio or "?") }, nil, true)
+        { t.taken and "fo-dbg-cerveau.tache-prise" or "fo-dbg-cerveau.tache-libre" }, t.item and Lg.item(t.item) or "", tostring(t.prio or "?") }, nil, true)
     end
   end
   -- liaisons enregistrées qui touchent ce bloc
@@ -281,8 +281,9 @@ local function fill_detail(detail, ctx)
   for _, l in ipairs(ctx.sel_links or {}) do
     local sens = (l.dock_pid == row.z.pid) and "entree" or "sortie"
     local autre = sens == "entree" and l.src_pid or l.dock_pid
-    lbl(detail, { "fo-dbg-cerveau.detail-liaison", { "fo-dbg-cerveau.lien-" .. l.kind }, { "fo-dbg-cerveau.lien-sens-" .. sens }, l.item and { "item-name." .. l.item } or "?",
-      autre and { "fo-dbg-cerveau.lien-source-bloc", tostring(autre) } or { "fo-dbg-cerveau.lien-source-tapis" }, { "fo-dbg-cerveau.etat-" .. tostring(l.state) } }, nil, true)
+    lbl(detail, { "fo-dbg-cerveau.detail-liaison", { "fo-dbg-cerveau.lien-" .. l.kind }, { "fo-dbg-cerveau.lien-sens-" .. sens }, l.item and Lg.item(l.item) or "?",
+      autre and { "fo-dbg-cerveau.lien-source-bloc", tostring(autre) } or { "fo-dbg-cerveau.lien-source-tapis" },
+      l.status == "actif" and { "fo-dbg-cerveau.lien-statut-actif" } or Lg.link_state(l) }, nil, true)
   end
   -- piquage des quais d'entrée de la zone (lot PIQUAGE)
   for _, q in ipairs(ctx.sel_piquage or {}) do
