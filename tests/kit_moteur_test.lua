@@ -116,8 +116,13 @@ check(Harvest.applies({ is_player = false }) and not Harvest.applies({ is_player
 check(#Harvest.names_for({ is_player = true }, "wood") == 1 and Harvest.names_for({ is_player = true }, "wood")[1] == "wood",
   "votre équipe : l'ancien nom seul (l'objet)")
 check(not Harvest.foreign_resource(game.surfaces[1], { x = 0, y = 0 }, "coal", { is_player = true }), "votre équipe : jamais de ressource étrangère")
+-- lot ELECTRIQUE (d, lead 8/11) : votre équipe lit aussi le bois à portée (petit poteau obtenable) ; Harvest.PLAYER_WOOD faux : l'ancien vide
+check((Harvest.reachable({ is_player = true, team = { ia3 = { reach = { wood = 40 } } } }) or {}).wood == 40,
+  "votre équipe : le bois à portée compte pour le cerveau (Harvest.PLAYER_WOOD)")
+Harvest.PLAYER_WOOD = false
 check(next(Harvest.reachable({ is_player = true, team = { ia3 = { reach = { wood = 40 } } } })) == nil,
-  "votre équipe : aucune matière récoltable à portée pour le cerveau")
+  "Harvest.PLAYER_WOOD faux : votre équipe sans matière récoltable à portée (comportement d'avant)")
+Harvest.PLAYER_WOOD = true
 check(#Harvest.free_types("wood", { is_player = true }) == 1, "votre équipe : seules les ressources comptent comme libres")
 -- Lot CORR-RECONSTRUIRE : une tâche « trees » (récolte du bois pour un poteau) vaut pour votre équipe, sans changer son minage de minerai
 local tw = Harvest.names_for({ is_player = true }, "wood", true)

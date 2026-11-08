@@ -870,8 +870,8 @@ function G.out_junction(b, info, jn)
   local y = info.y_ob
   local xj = info.xs[jn] + info.s
   b:belt_line(info.xs[1], y, xj - 1, y, E)
-  b:put(b.belt or "transport-belt", xj, y, S)
-  local tail = b:put(b.belt or "transport-belt", xj, y + 1, S)
+  local down = b:belt_line(xj, y, xj, y + 1, S) -- (tuile de jonction, puis tuile du port : tapis du gabarit)
+  local tail = down[#down]
   b:belt_line(info.xs[1] + info.w - 1, y, xj + 1, y, W)
   b:port({ kind = "tapis", io = "out", ent = tail })
   return xj

@@ -67,27 +67,73 @@ local function obtainable(f, book, item)
   return book ~= nil and book:handcraftable(item) == true
 end
 
+--- Correctif d'interblocage : foreuses électriques de la FORCE qui tournent (en marche ou sortie pleine), au total et par ressource minée,
+--- relues au plus toutes les Elec.LIVE_EVERY ticks (une recherche du moteur par équipe). { total, by = { [ressource] = n } }.
+Elec.LIVE_EVERY = 600
+local LIVE_STATUS = nil
+local function live_drills(f, st, tick)
+  if st.live and tick - (st.live.tick or -math.huge) < Elec.LIVE_EVERY then return st.live end
+  local out = { tick = tick, total = 0, by = {} }
+  local surface = f.hq and f.hq.valid and f.hq.surface
+  if surface and defines and defines.entity_status then
+    LIVE_STATUS = LIVE_STATUS or { [defines.entity_status.working] = true, [defines.entity_status.waiting_for_space_in_destination] = true }
+    local ok, list = pcall(function() return surface.find_entities_filtered({ name = T.DRILL_ELECTRIC, force = f.force }) end)
+    for _, d in ipairs(ok and list or {}) do
+      if d.valid and LIVE_STATUS[d.status] then
+        out.total = out.total + 1
+        local r = d.mining_target
+        local rn = r and r.valid and r.name
+        if rn then out.by[rn] = (out.by[rn] or 0) + 1 end
+      end
+    end
+  end
+  st.live = out
+  return out
+end
+
+--- Entrées de E.thermal pour un type d'avant-poste (`kind`, nil : règle globale) ; `craft` : fabrication de thermiques (la ressource la moins
+--- servie en électrique décide).
+local function inputs(v, kind, craft)
+  local spec = kind and T.outposts[kind]
+  local res_live = nil
+  if spec then res_live = (v.by or {})[spec.resource] or 0 end
+  if craft then res_live = v.min_live end
+  return { on = v.on, obtainable = v.obtainable, plants = v.plants, poles = v.poles, healthy = v.healthy,
+    fuel = craft or (spec ~= nil and spec.product == T.fuel), el_live = v.el_live, poles_stock = v.poles_stock, since = v.since,
+    res_live = res_live }
+end
+Elec.inputs = inputs
+
 --- (a) Entrées du verdict, relues à chaque pensée d'équipe (stock, livre de recettes, centrale). Une ligne quand le verdict change.
 function Elec.think(f, book, tick)
   if not f then return end
   local st = state_of(f)
   local g = f.build and f.build.grow
   local cap_kw = (g and (g.capacity or 0) or 0) * 60 / 1000
-  local poles = false
+  local poles, poles_stock = false, 0
   for _, p in ipairs(T.swap.poles or {}) do
-    if obtainable(f, book, p) then poles = true break end
+    if obtainable(f, book, p) then poles = true end
+    poles_stock = poles_stock + Stock.count(f, p)
   end
-  -- Foreuses électriques POSÉES par la force (lot ELECTRIQUE, correctif du 8/11 : la bascule exige des électriques réelles).
-  local elec = 0
-  local surface = f.hq and f.hq.valid and f.hq.surface
-  if surface and T.DRILL_ELECTRIC then
-    local ok, n = pcall(function() return surface.count_entities_filtered({ name = T.DRILL_ELECTRIC, force = f.force }) end)
-    if ok and type(n) == "number" then elec = n end
+  local lv = live_drills(f, st, tick)
+  local min_live
+  for _, k in ipairs(T.OUTPOST_ORDER or {}) do
+    local sp = T.outposts[k]
+    local n = sp and (lv.by[sp.resource] or 0) or 0
+    if min_live == nil or n < min_live then min_live = n end
   end
   local v = { tick = tick, on = Elec.on(), obtainable = obtainable(f, book, T.DRILL_ELECTRIC), plants = cap_kw > 0 and 1 or 0,
-    poles = poles, healthy = not (f.build and f.build.sante and f.build.sante.healthy == false), cap = cap_kw, elec = elec }
+    poles = poles, healthy = not (f.build and f.build.sante and f.build.sante.healthy == false), cap = cap_kw,
+    el_live = lv.total, by = lv.by, min_live = min_live or 0, poles_stock = poles_stock,
+    since = st.switch_tick and (tick - st.switch_tick) or nil }
   st.v = v
-  local allowed, why = E.thermal(v)
+  -- bascule datée (retour au thermique après E.CFG.revert sans électrique) : posée au premier refus, effacée quand une cause MATÉRIELLE
+  -- rend la thermique (centrale, objet, poteaux) ; gardée pendant le retour pour cause de 0 électrique (la règle se réarme quand une tourne)
+  local base_ok = E.thermal({ on = v.on, obtainable = v.obtainable, plants = v.plants, poles = v.poles, healthy = v.healthy,
+    el_live = v.el_live, poles_stock = v.poles_stock })
+  if base_ok then st.switch_tick = nil elseif not st.switch_tick then st.switch_tick = tick end
+  v.since = st.switch_tick and (tick - st.switch_tick) or nil
+  local allowed, why = E.thermal(inputs(v, nil, false))
   if st.allowed ~= allowed then
     st.allowed = allowed
     say(f, st, tick, string.format("%s : %s (capacite %.0f kW)", allowed and "thermique permise" or "BASCULE ELECTRIQUE", why, cap_kw))
@@ -129,8 +175,9 @@ function Elec.count(f, st, tick, allowed, why)
   elseif (l.ready or 0) + (l.chain or 0) <= 0 then cause = "aucun poteau alimente a portee des champs du bloc (champs sautes 5 min)"
   elseif (l.have or 0) <= 0 then cause = "foreuses electriques a fabriquer (stock libre 0)"
   else cause = string.format("remplacement en cours (quota %d, marge %.0f kW)", l.quota or 0, l.margin or 0) end
-  log(string.format("[FO-ELECTRIQUE] %s : thermiques debout %d (%s), hors avant-postes de l'equipe %d, remplacees cette minute %d, cause du reste : %s a %.1f min",
-    f.key or "player", n, table.concat(kinds, ", "), out, made, cause, minutes(f, tick)))
+  local v = st.v or {}
+  log(string.format("[FO-ELECTRIQUE] %s : thermiques debout %d (%s), hors avant-postes de l'equipe %d, electriques qui tournent %d (force), poteaux au stock %d, remplacees cette minute %d, cause du reste : %s a %.1f min",
+    f.key or "player", n, table.concat(kinds, ", "), out, v.el_live or 0, v.poles_stock or 0, made, cause, minutes(f, tick)))
 end
 
 local function verdict_for(v)
@@ -138,7 +185,7 @@ local function verdict_for(v)
     local spec = t.outpost_kind and T.outposts[t.outpost_kind]
     -- une fabrication de thermique ne sert qu'à l'exception du combustible : permise quand la centrale est à l'arrêt
     local fuel = (t.kind == "craft") or (spec ~= nil and spec.product == T.fuel)
-    return E.thermal({ on = v.on, obtainable = v.obtainable, plants = v.plants, poles = v.poles, fuel = fuel, healthy = v.healthy, elec = v.elec })
+    return E.thermal(inputs(v, t.outpost_kind, t.kind == "craft"))
   end
 end
 
@@ -151,11 +198,26 @@ function Elec.view_off(f, tick)
   local out, any = {}, false
   for _, kind in ipairs(T.OUTPOST_ORDER or {}) do
     local spec = T.outposts[kind]
-    local ok, why = E.thermal({ on = v.on, obtainable = v.obtainable, plants = v.plants, poles = v.poles,
-      fuel = spec ~= nil and spec.product == T.fuel, healthy = v.healthy, elec = v.elec })
+    local ok, why = E.thermal(inputs(v, kind, false))
     if not ok then out[kind], any = why, true end
   end
   return any and out or nil
+end
+
+--- La thermique est-elle encore permise pour ce type d'avant-poste (nil : type inconnu, jamais du combustible) ? Verdict périmé ou règle
+--- éteinte : vrai (comportement d'avant). Lu par la reconstruction (script/team/reconstruction.lua).
+function Elec.allowed(f, tick, kind)
+  local st = f and f.elec
+  local v = st and st.v
+  if not (v and v.on and tick - (v.tick or -math.huge) <= Elec.TTL) then return true end
+  local spec = kind and T.outposts[kind]
+  return (E.thermal(inputs(v, kind, false)))
+end
+
+--- Journal : foreuses thermiques perdues non refaites (n) et secours thermiques annulés (back) par la reconstruction.
+function Elec.note_rebuild(f, tick, n, back)
+  local st = state_of(f)
+  say(f, st, tick, string.format("reconstruction : %d foreuse(s) thermique(s) perdue(s) non refaite(s), %d secours thermique(s) annule(s) (l'electrique les remplace)", n, back))
 end
 
 local function report(f, st, tick)
@@ -243,7 +305,7 @@ function Elec.swap_plan(f, pass, pc, kw, base)
   st.refused = keep
   local short, planned, n_el = E.planned_kw({ thermals = #pass.entries, refused = refused, th_speed = speed_of(T.DRILL),
     el_speed = speed_of(T.DRILL_ELECTRIC), kw = kw, margin = margin })
-  local allowed = E.thermal(v)
+  local allowed = E.thermal(inputs(v, nil, false))
   if f.team then f.team.elec_kw = (not allowed and short > 0) and { kw = short, tick = t0 } or nil end
   local last = st.kw_said or 0
   local want = (not allowed) and short or 0

@@ -211,14 +211,17 @@ end
 local SITE_COMMIT_STATES = { fantomes = true, chantier = true, raccordement = true }
 
 --- Puissance (kW nominaux) des consommateurs EN CHANTIER (admis, pas encore finis) et des modules RETENUS par la porte.
+--- except : un numéro de projet à ne pas compter, ou (lot COURANT-LIBRE) un ensemble { [numéro] = true }.
 function Sante.committed(f, except)
   local b = f.build
   local kw = 0
+  local skip = type(except) == "table" and except or nil
   for _, pid in ipairs(b.order) do
     local p = b.projects[pid]
+    if skip and skip[pid] then p = nil end
     -- admis et pas fini : « attente » compris (le plan attend un réseau, des masques : l'état revient à « attente » entre deux essais), jamais
     -- un projet rouvert (son module a déjà sa part dans la production)
-    if p and pid ~= except and p.power_kw and p.power_kw > 0 and p.admitted and not p.reopened and not p.abandoned
+    if p and (skip or pid ~= except) and p.power_kw and p.power_kw > 0 and p.admitted and not p.reopened and not p.abandoned
       and p.state ~= "fini" and p.state ~= "refuse" and not (p.state == "bloque" and not p.retry_at)
       and (not (p.spec and p.spec.site) or SITE_COMMIT_STATES[p.state]) then
       kw = kw + p.power_kw

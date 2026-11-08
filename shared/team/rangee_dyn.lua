@@ -3,7 +3,7 @@
 --- le lot) ; seules n machines et leurs bras sont posés, les autres attendent (p.rangee.held) et sont rendus au chantier quand la
 --- demande monte (script/team/rangee_dyn.lua). Tapis et poteaux sont TOUJOURS posés en entier : agrandir n'ajoute que des machines
 --- et leurs bras, l'entrée et la sortie restent les mêmes, le réseau électrique ne se coupe jamais.
---- Aucun nom d'objet ; l'appelant donne le genre de chaque entité (kind(name) -> "machine" | "inserter" | autre) et sa largeur.
+--- Aucun nom d'objet ; l'appelant donne le genre de chaque entité (kind(name) -> "machine" | "bras" | autre) et sa largeur.
 local Rd = {}
 
 --- Colonne (machine 1..m, d'ouest en est dans le gabarit NON tourné) de chaque machine et de chaque bras posé dans l'emprise en x
@@ -24,7 +24,7 @@ function Rd.columns(entities, kind, width)
   local cols = {}
   for k, m in ipairs(ms) do cols[m.i] = k end
   for i, e in ipairs(entities or {}) do
-    if kind(e.name) == "inserter" then
+    if kind(e.name) == "bras" then
       for k, m in ipairs(ms) do
         if e.x > m.x0 and e.x < m.x1 then cols[i] = k break end
       end

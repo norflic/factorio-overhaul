@@ -923,7 +923,16 @@ function Capi.power_input(f, plant_state, plant_why, wait_plant)
   end
   if Capi.MUT.nominal then return { have_kw = cap * JTICK_KW } end -- mutant : la somme nominale de la règle (plan.kw_used)
   local measured = type(g.power) == "number" and g.power > 0 and g.power * JTICK_KW or 0
-  return { have_kw = cap * JTICK_KW, used_kw = measured + Sc.DRAW * Sante.committed(f) }
+  -- lot COURANT-LIBRE : un ordre de champ OUVERT réserve déjà ses foreuses à poser (n_left, Ca.apply) : son projet de bande n'est pas compté
+  -- une seconde fois parmi les chantiers (avant : 1,6 x les kW de la bande tant que l'ordre durait)
+  local except
+  for _, rec in ipairs(f.team and f.team.capi and f.team.capi.open or {}) do
+    if rec.exec == "champ" and rec.pid and not Capi.MUT.champ_compte_deux then -- (mutant : le projet compté une seconde fois)
+      except = except or {}
+      except[rec.pid] = true
+    end
+  end
+  return { have_kw = cap * JTICK_KW, used_kw = measured + Sc.DRAW * Sante.committed(f, except) }
 end
 
 --- Lot CAPI-DEBIT : emplacements du plan directeur (règle pure shared/ai3/emplacements.lua). Les ordres « module » ouverts, avec
@@ -1757,6 +1766,9 @@ local function follow(f, cs, rec, tick)
     -- seconde relecture (point 1) : le progrès RÉEL (posées en hausse), seul lu par le siège du complément (Em.champ_holds)
     rec.adv_tick, rec.built_hi = Em.champ_advance(rec.adv_tick, rec.built_hi, s.built, tick)
     rec.missing = {}
+    -- lot COURANT-LIBRE : reste à poser en foreuses (Ca.champ_left) et projet de la bande (Capi.power_input ne le compte pas en plus)
+    rec.n_left = Capi.MUT.champ_plein and rec.n or Ca.champ_left(rec.n, s.drills, s.drills_built) -- (mutant : l'ancien reste, tout l'ordre)
+    rec.pid = s.pid
     return "ouvert"
   elseif rec.exec == "techno" then
     -- Lot LEVIERS : fini quand la technologie est faite ; progrès tant que le laboratoire la cherche ou qu'elle attend sa file.
@@ -1793,6 +1805,7 @@ local function follow(f, cs, rec, tick)
   end
   return "echec", "executant inconnu"
 end
+Capi.follow_one = follow -- tests seulement (tests/courant_libre_test.lua)
 
 ---------------------------------------------------------------------------------------------------
 -- Lot CAPI-MESURE : couverture par gisement et capacité posée contre capacité MESURÉE

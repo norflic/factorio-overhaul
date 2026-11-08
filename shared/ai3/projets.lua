@@ -755,7 +755,8 @@ function P.supply(E, ctx)
           for i = 1, room do
             if n >= want - busy then break end
             if P.add(E, { key = "ia3:mine:" .. item .. ":" .. i, kind = "mine", prio = prio, resource = item, prudent = true,
-              count = P.MINE_BATCH, short = r.n, radius = radius, ia3 = r.pid, why = item .. ">" .. proj.key }) then n = n + 1 end
+              count = P.MINE_BATCH, short = r.n, radius = radius, ia3 = r.pid, why = item .. ">" .. proj.key,
+              trees = (ctx.trees and ctx.trees[item]) or nil }) then n = n + 1 end -- (lot ELECTRIQUE (d) : bois, arbres)
           end
         end
       else

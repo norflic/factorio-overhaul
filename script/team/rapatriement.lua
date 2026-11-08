@@ -503,7 +503,18 @@ end
 
 --- Recherches de chemin en cours, par équipe puis par projet. MÉMOIRE LOCALE (jamais dans global) : une recherche est une fonction pure de la carte,
 --- refaite à l'identique après un chargement (elle repart de zéro) ; elle ne contient que des nombres et des tables, plus les fermetures de la carte.
+--- Le plan d'une ligne se fait en ÉTAPES, une par appel de Rap.plan (build.lua : « tranche » = nouvel essai deux ticks plus tard), chacune bornée :
+---   guard   tuiles devant les tapis des autres projets, Rap.GUARD_ENTS pièces par appel ;
+---   spots   poteaux du réseau, points libres du tampon, sites du bras de départ ;
+---   search  A* reprenable, Rp.SLICE_NODES noeuds par appel ;
+---   ents    pièces de la ligne et preuve géométrique ;
+---   anchors points d'appui, Rap.ANCHOR_BATCH pièces par appel ;
+---   sort    ordre de pose des pièces (P.sort_build) ;
+---   reserve réservation des tuiles ;
+---   close   obstacles à défricher, sorties du projet.
 local JOBS = {}
+Rap.GUARD_ENTS = 400   -- pièces des autres projets relues par appel
+Rap.ANCHOR_BATCH = 60  -- pièces de la ligne dont le point d'appui est cherché par appel
 
 local function jobs_of(f)
   local key = f.key or "player"
@@ -555,110 +566,120 @@ local function widen(J, src, px, py)
 end
 
 local function waiting(J)
-  return false, string.format("rapatriement: recherche du trace en cours (tranche %d, %d noeuds)", J.slices, J.total), "tranche"
+  return false, string.format("rapatriement: planification en cours (%s, appel %d, %d noeuds)", J.stage, J.slices, J.total), "tranche"
 end
 
---- api = { read_masks(x0, y0, x1, y1), reserve_tiles(b, p, list), wood_of(surface, ents), free_spot(b, masks, x, y, wood), add_obstacle(p, o),
----   item_of(name), seg_passable(b), REACH } : les aides locales de build.lua. Rend true, ou false et la raison ; faux, raison, "tranche" quand la
---- recherche du tracé continue à la pensée suivante (au plus Rp.SLICE_NODES noeuds développés par appel : une recherche sans issue coûtait 81,6 M
---- d'instructions d'un seul tenant, soit de 0,65 à 3,6 s).
-function Rap.plan(api, f, surface, p)
+--- Début : validations et fermetures de la carte. Rend le travail, ou nil et la raison.
+local function new_job(api, f, surface, p)
   local b = f.build
   local lc = p.spec.rapatriement
   local src = lc.src
-  local js = jobs_of(f)
-  local J = js[p.id]
-  if not J then
-    if not chest_at(f, surface, src.x + 0.5, src.y + 0.5) then return false, "rapatriement: coffre de sortie disparu" end
-    if not (lc.arm and lc.belt and lc.pole and lc.chest) then return false, "rapatriement: pieces inconnues" end
-    local reuse = lc.reuse
-    if reuse and not chest_at(f, surface, reuse.x + 0.5, reuse.y + 0.5) then reuse = nil end -- tampon disparu : on en pose un neuf
-    local px, py = lc.point.x, lc.point.y
-    if reuse then px, py = reuse.x, reuse.y end
-    local mg = MARGIN
-    local x0, y0 = math.min(src.x, px) - mg - Rp.SPOT_RADIUS, math.min(src.y, py) - mg - Rp.SPOT_RADIUS
-    local x1, y1 = math.max(src.x, px) + mg + Rp.SPOT_RADIUS, math.max(src.y, py) + mg + Rp.SPOT_RADIUS
-    if x1 - x0 > BOX_MAX or y1 - y0 > BOX_MAX then return false, "rapatriement: trop loin" end
-    J = { box = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }, pass = 1, reuse = reuse, px = px, py = py, planned = {}, total = 0, base = 0, runs = 0, si = 0, ei = 1,
-      last_why = "aucun chemin", slices = 0 }
-    J.chunk, J.merged = chunk_masks(api, surface)
-    function J.ground(x, y)
-      local bx = J.box
-      if x < bx.x0 or x > bx.x1 or y < bx.y0 or y > bx.y1 then return nil end
-      local c = J.chunk(math.floor(x / CHUNK), math.floor(y / CHUNK))
-      if not c then return nil end
-      local k = P.tkey(x, y)
-      if c.water[k] or c.blocked[k] or b.occ[k] then return nil end
-      return c, k
-    end
-    -- la tuile devant un tapis planifié ou bâti (d'un projet de l'équipe) reste libre : son bout n'y déverse rien
-    J.guard = {}
-    for _, pid in ipairs(b.order) do
-      local q = b.projects[pid]
-      if q and q ~= p and not q.abandoned and not DEAD[q.state] then
-        for _, e in ipairs(q.ents) do
-          if e.name:find("belt", 1, true) then
-            local v = P.DV[e.dir or 0]
-            if v then J.guard[P.tkey(math.floor(e.x) + v[1], math.floor(e.y) + v[2])] = true end
-          end
-        end
-      end
-    end
-    function J.free(x, y)
-      local c, k = J.ground(x, y)
-      return c ~= nil and not (J.guard[k] or J.planned[k])
-    end
-    function J.cost(x, y)
-      if not J.free(x, y) then return nil end
-      local c, k = J.ground(x, y)
-      local v = 1
-      if P.in_street(b.lat, x, y) then v = P.STREET_COST end
-      if c.clear[k] then v = v + 1 end
-      return v
-    end
-    local wire = (M.spec(lc.pole) or {}).wire or 7.5
-    local near = wire - 2
-    local at_src = pole_probe(f, surface, src.x, src.y, near + 4)
-    if not at_src(src.x, src.y, near) then return false, "rapatriement: aucun poteau du reseau pres de la sortie" end
-    if reuse then
-      J.spots = { { x = reuse.x, y = reuse.y } }
-    else
-      local at_tam = pole_probe(f, surface, px, py, Rp.SPOT_RADIUS + near + 4)
-      local geom = { pitch = P.PITCH, lot = P.LOT, half = P.HALF }
-      -- le coffre tampon au BORD d'une rue (Rp.street_edge) : ni au milieu d'un lot (le module veut son rectangle entier), ni au milieu de la rue
-      -- (marche des PNJ) ; repli : n'importe quelle tuile libre hors rue
-      local function free_chest(x, y, edge)
-        local c, k = J.ground(x, y)
-        if not c or J.guard[k] or c.clear[k] then return false end
-        if edge then
-          if not Rp.street_edge(b.lat, geom, x, y) then return false end
-        elseif P.in_street(b.lat, x, y) then
-          return false
-        end
-        return at_tam(x, y, near)
-      end
-      J.spots = Rp.pick_spots(px, py, function(x, y) return free_chest(x, y, true) end, Rp.SPOT_TRIES)
-      if #J.spots == 0 then J.spots = Rp.pick_spots(px, py, function(x, y) return free_chest(x, y, false) end, Rp.SPOT_TRIES) end
-      if #J.spots == 0 then return false, "rapatriement: aucune place pour le tampon a portee d'un poteau" end
-    end
-    J.S = { x = src.x, y = src.y }
-    if #Li.sites(J.S.x, J.S.y, J.free) == 0 then return false, "rapatriement: aucune place pour un bras et un tapis contre le coffre de sortie" end
-    js[p.id] = J
-    -- la mise en place seule (poteaux, tuiles, points libres) est une tranche : la recherche commence à l'appel suivant
-    return waiting(J)
+  if not chest_at(f, surface, src.x + 0.5, src.y + 0.5) then return nil, "rapatriement: coffre de sortie disparu" end
+  if not (lc.arm and lc.belt and lc.pole and lc.chest) then return nil, "rapatriement: pieces inconnues" end
+  local reuse = lc.reuse
+  if reuse and not chest_at(f, surface, reuse.x + 0.5, reuse.y + 0.5) then reuse = nil end -- tampon disparu : on en pose un neuf
+  local px, py = lc.point.x, lc.point.y
+  if reuse then px, py = reuse.x, reuse.y end
+  local mg = MARGIN
+  local x0, y0 = math.min(src.x, px) - mg - Rp.SPOT_RADIUS, math.min(src.y, py) - mg - Rp.SPOT_RADIUS
+  local x1, y1 = math.max(src.x, px) + mg + Rp.SPOT_RADIUS, math.max(src.y, py) + mg + Rp.SPOT_RADIUS
+  if x1 - x0 > BOX_MAX or y1 - y0 > BOX_MAX then return nil, "rapatriement: trop loin" end
+  local J = { box = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }, pass = 1, reuse = reuse, px = px, py = py, planned = {}, total = 0, base = 0, runs = 0, si = 0, ei = 1,
+    last_why = "aucun chemin", slices = 0, stage = "guard", gi = 1, gj = 1, guard = {} }
+  J.chunk, J.merged = chunk_masks(api, surface)
+  function J.ground(x, y)
+    local bx = J.box
+    if x < bx.x0 or x > bx.x1 or y < bx.y0 or y > bx.y1 then return nil end
+    local c = J.chunk(math.floor(x / CHUNK), math.floor(y / CHUNK))
+    if not c then return nil end
+    local k = P.tkey(x, y)
+    if c.water[k] or c.blocked[k] or b.occ[k] then return nil end
+    return c, k
   end
-  J.slices = J.slices + 1
-  local reuse, S = J.reuse, J.S
-  local chosen
+  function J.free(x, y)
+    local c, k = J.ground(x, y)
+    return c ~= nil and not (J.guard[k] or J.planned[k])
+  end
+  function J.cost(x, y)
+    if not J.free(x, y) then return nil end
+    local c, k = J.ground(x, y)
+    local v = 1
+    if P.in_street(b.lat, x, y) then v = P.STREET_COST end
+    if c.clear[k] then v = v + 1 end
+    return v
+  end
+  J.S = { x = src.x, y = src.y }
+  return J
+end
+
+--- Étape guard : la tuile devant un tapis planifié ou bâti (d'un projet de l'équipe) reste libre (son bout n'y déverse rien). Rend vrai quand tout est lu.
+local function stage_guard(J, b, p)
+  local budget = Rap.GUARD_ENTS
+  while J.gi <= #b.order do
+    local q = b.projects[b.order[J.gi]]
+    if q and q ~= p and not q.abandoned and not DEAD[q.state] then
+      local ents = q.ents
+      while J.gj <= #ents do
+        local e = ents[J.gj]
+        J.gj = J.gj + 1
+        budget = budget - 1
+        if e.name:find("belt", 1, true) then
+          local v = P.DV[e.dir or 0]
+          if v then J.guard[P.tkey(math.floor(e.x) + v[1], math.floor(e.y) + v[2])] = true end
+        end
+        if budget <= 0 then return false end
+      end
+    end
+    J.gi = J.gi + 1
+    J.gj = 1
+  end
+  return true
+end
+
+--- Étape spots : poteaux du réseau, points libres du tampon, place contre le coffre de sortie. Rend nil si tout va bien, sinon la raison du refus.
+local function stage_spots(f, surface, b, p, J)
+  local lc = p.spec.rapatriement
+  local src = lc.src
+  local wire = (M.spec(lc.pole) or {}).wire or 7.5
+  local near = wire - 2
+  local at_src = pole_probe(f, surface, src.x, src.y, near + 4)
+  if not at_src(src.x, src.y, near) then return "rapatriement: aucun poteau du reseau pres de la sortie" end
+  if J.reuse then
+    J.spots = { { x = J.reuse.x, y = J.reuse.y } }
+  else
+    local at_tam = pole_probe(f, surface, J.px, J.py, Rp.SPOT_RADIUS + near + 4)
+    local geom = { pitch = P.PITCH, lot = P.LOT, half = P.HALF }
+    -- le coffre tampon au BORD d'une rue (Rp.street_edge) : ni au milieu d'un lot (le module veut son rectangle entier), ni au milieu de la rue
+    -- (marche des PNJ) ; repli : n'importe quelle tuile libre hors rue
+    local function free_chest(x, y, edge)
+      local c, k = J.ground(x, y)
+      if not c or J.guard[k] or c.clear[k] then return false end
+      if edge then
+        if not Rp.street_edge(b.lat, geom, x, y) then return false end
+      elseif P.in_street(b.lat, x, y) then
+        return false
+      end
+      return at_tam(x, y, near)
+    end
+    J.spots = Rp.pick_spots(J.px, J.py, function(x, y) return free_chest(x, y, true) end, Rp.SPOT_TRIES)
+    if #J.spots == 0 then J.spots = Rp.pick_spots(J.px, J.py, function(x, y) return free_chest(x, y, false) end, Rp.SPOT_TRIES) end
+    if #J.spots == 0 then return "rapatriement: aucune place pour le tampon a portee d'un poteau" end
+  end
+  if #Li.sites(J.S.x, J.S.y, J.free) == 0 then return "rapatriement: aucune place pour un bras et un tapis contre le coffre de sortie" end
+  return nil
+end
+
+--- Étape search : au plus Rp.SLICE_NODES noeuds développés. Rend "more", "found" (J.chosen) ou "fail" (J.last_why).
+local function stage_search(J, src)
   local budget = Rp.SLICE_NODES
   while true do
-    if not J.astar then
+    if not J.astar and not J.pre then
       if not advance(J) then
         if J.pass == 1 then
           J.pass = 2
           widen(J, src, J.px, J.py)
         else
-          break
+          return "fail"
         end
       else
         local e = J.e
@@ -668,15 +689,35 @@ function Rap.plan(api, f, surface, p)
           local tiles, why = Rap.route({ x = e.src.bx, y = e.src.by }, { x = e.dst.bx, y = e.dst.by }, Li.end_dir(e.dst), J.box, J.cost)
           if tiles then
             local ok, w2 = Rp.route_ok(#tiles, Li.manhattan(e.src.bx, e.src.by, e.dst.bx, e.dst.by))
-            if ok then chosen = { e = e, tiles = tiles, D = J.D } break end
+            if ok then J.chosen = { e = e, tiles = tiles, D = J.D } return "found" end
             J.last_why = w2
           else
             J.last_why = tostring(why)
           end
         else
-          J.astar = Rp.route_begin({ x = e.src.bx, y = e.src.by }, { x = e.dst.bx, y = e.dst.by }, Li.end_dir(e.dst), J.box, ASTAR_WEIGHT)
+          -- sondage de l'ARRIVÉE (journal du DC du 8/11 : 30 refus « aucun chemin » après 14 à 20 mille noeuds chacun) : une recherche depuis le bout du tampon vers
+          -- le bout de départ, plafonnée à Rp.POCKET_NODES ; si elle s'épuise avant, le tampon est dans une POCHE fermée : refus immédiat, avec sa cause
+          J.pre = Rp.route_begin({ x = e.dst.bx, y = e.dst.by }, { x = e.src.bx, y = e.src.by }, 0, J.box, 1)
         end
       end
+    elseif J.pre then
+      local before = J.pre.expanded
+      local st = Rp.route_step(J.pre, J.cost, budget, Rp.POCKET_NODES)
+      local used = J.pre.expanded - before
+      J.total = J.total + used
+      budget = budget - used
+      if st == "more" then
+        return "more"
+      elseif st == "none" then
+        J.last_why = (J.pre.why == "aucun chemin") and string.format("arrivee enfermee (poche de %d tuiles libres autour du tampon)", J.pre.expanded)
+          or ("bout du tapis bloque (" .. tostring(J.pre.why) .. ")")
+        J.pre = nil
+      else -- trouvé ou plafond : le tampon n'est pas dans une petite poche, la recherche vers l'avant commence
+        J.pre = nil
+        local e = J.e
+        J.astar = Rp.route_begin({ x = e.src.bx, y = e.src.by }, { x = e.dst.bx, y = e.dst.by }, Li.end_dir(e.dst), J.box, ASTAR_WEIGHT)
+      end
+      if budget <= 0 and (J.astar or J.pre) then return "more" end
     else
       local before = J.astar.expanded
       local st = Rp.route_step(J.astar, J.cost, budget, math.max(1, Rp.TOTAL_NODES - J.base))
@@ -684,73 +725,92 @@ function Rap.plan(api, f, surface, p)
       J.total = J.total + used
       budget = budget - used
       if st == "more" then
-        return waiting(J)
+        return "more"
       elseif st == "found" then
         local e = J.e
         local ok, w2 = Rp.route_ok(#J.astar.tiles, Li.manhattan(e.src.bx, e.src.by, e.dst.bx, e.dst.by))
-        if ok then chosen = { e = e, tiles = J.astar.tiles, D = J.D } break end
+        if ok then J.chosen = { e = e, tiles = J.astar.tiles, D = J.D } return "found" end
         J.last_why = w2
         J.astar = nil
       else
         J.last_why = tostring(J.astar.why)
         local barrier = J.astar.why == "aucun chemin" and J.astar.expanded >= Rp.POCKET_NODES
         J.astar = nil
-        if st == "cap" then break end -- plafond de noeuds du projet atteint
+        if st == "cap" then return "fail" end -- plafond de noeuds du projet atteint
         if barrier then J.runs = Rp.ROUTE_TRIES end -- une barrière vide la boîte : les autres bouts échoueraient de même, au prix d'une boîte entière chacun
       end
-      if budget <= 0 then return waiting(J) end
+      if budget <= 0 then return "more" end
     end
   end
-  local last_why = J.last_why
-  js[p.id] = nil
-  if not chosen then
-    return false, "rapatriement: " .. last_why .. string.format(" (%d noeuds en %d tranche(s))", J.total, J.slices)
-  end
-  local free = J.free
-  local e, tiles = chosen.e, chosen.tiles
-  local D = chosen.D
+end
+
+--- Étape ents : poteaux contre les bras, pièces de la ligne, preuve géométrique. Rend nil, ou la raison du refus.
+local function stage_ents(f, surface, b, p, J)
+  local lc = p.spec.rapatriement
+  local chosen = J.chosen
+  local e, tiles, D = chosen.e, chosen.tiles, chosen.D
   J.planned = { [P.tkey(e.src.ax, e.src.ay)] = true, [P.tkey(e.dst.ax, e.dst.ay)] = true, [P.tkey(D.x, D.y)] = true }
   local taken = {}
   for _, t in ipairs(tiles) do J.planned[P.tkey(t.x, t.y)] = true; taken[t.x .. ":" .. t.y] = true end
   taken[e.src.ax .. ":" .. e.src.ay], taken[e.dst.ax .. ":" .. e.dst.ay], taken[D.x .. ":" .. D.y] = true, true, true
   local poles = {}
   for _, site in ipairs({ e.src, e.dst }) do
-    local ptx, pty = Li.pole_tile(site, free, taken)
-    if not ptx then return false, "rapatriement: aucune place pour un poteau contre un bras" end
+    local ptx, pty = Li.pole_tile(site, J.free, taken)
+    if not ptx then return "rapatriement: aucune place pour un poteau contre un bras" end
     taken[ptx .. ":" .. pty] = true
     J.planned[P.tkey(ptx, pty)] = true
     poles[#poles + 1] = { ptx, pty }
   end
   local ents = Rp.entities({ src = e.src, dst = e.dst, route = tiles, names = { arm = lc.arm, belt = lc.belt, pole = lc.pole, chest = lc.chest }, poles = poles,
-    reuse = reuse ~= nil })
-  local bad = Rp.verify(ents, S, D, function(x) return x.role == "liaison-tapis" end, function(x) return x.role == "liaison-bras" end,
-    function(x) return x.role == "tampon" end, reuse ~= nil)
-  if #bad > 0 then return false, "rapatriement: geometrie fausse (" .. bad[1] .. ")" end
-  for _, x in ipairs(ents) do x.part = 1 end
-  if not api.reserve_tiles(b, p, ents) then return false, "place" end
-  -- points d'appui et obstacles à défricher : comme la liaison de quai
-  local masks = J.merged()
-  local passable = api.seg_passable(b)
-  local wood = api.wood_of(surface, p.ents)
-  for _, x in ipairs(p.ents) do
-    local a = P.anchor_for(b.lat, x.x, x.y, passable)
+    reuse = J.reuse ~= nil })
+  local bad = Rp.verify(ents, J.S, D, function(x) return x.role == "liaison-tapis" end, function(x) return x.role == "liaison-bras" end,
+    function(x) return x.role == "tampon" end, J.reuse ~= nil)
+  if #bad > 0 then return "rapatriement: geometrie fausse (" .. bad[1] .. ")" end
+  -- le rang de pose est écrit une fois (P.sort_build le lit avant de le calculer) : le tri de 300 pièces coûtait 171 k instructions, 40 k avec le rang
+  for _, x in ipairs(ents) do x.part = 1; x.rank = P.kind_rank(x.name) end
+  J.ents, J.ai = ents, 1
+  return nil
+end
+
+--- Étape anchors : points d'appui (comme la liaison de quai), Rap.ANCHOR_BATCH pièces par appel. Rend vrai quand toutes les pièces en ont un.
+local function stage_anchors(api, surface, b, J)
+  if not J.wood then
+    J.masks = J.merged()
+    J.wood = api.wood_of(surface, J.ents)
+    J.passable = api.seg_passable(b)
+    return false
+  end
+  local n = 0
+  while J.ai <= #J.ents and n < Rap.ANCHOR_BATCH do
+    local x = J.ents[J.ai]
+    J.ai = J.ai + 1
+    n = n + 1
+    local a = P.anchor_for(b.lat, x.x, x.y, J.passable)
     local ax, ay
     if a then ax, ay = a.x, a.y else ax, ay = math.floor(x.x / CELL) * CELL + 4, math.floor(x.y / CELL) * CELL + 4 end
-    local fx, fy = api.free_spot(b, masks, ax, ay, wood)
-    if (fx - x.x) * (fx - x.x) + (fy - x.y) * (fy - x.y) > api.REACH * api.REACH then fx, fy = api.free_spot(b, masks, x.x, x.y, wood) end
+    local fx, fy = api.free_spot(b, J.masks, ax, ay, J.wood)
+    if (fx - x.x) * (fx - x.x) + (fy - x.y) * (fy - x.y) > api.REACH * api.REACH then fx, fy = api.free_spot(b, J.masks, x.x, x.y, J.wood) end
     x.ax, x.ay = fx, fy
     x.anchor = string.format("%s%g:%g", a and "" or "c", fx, fy)
     x.item = api.item_of(x.name)
   end
-  P.sort_build(p.ents)
+  return J.ai > #J.ents
+end
+
+--- Étape close : réservation des tuiles (refusée si un autre projet les a prises entre-temps), obstacles, sorties. Rend true, ou false et la raison.
+local function stage_close(api, f, p, J)
+  local b = f.build
+  local lc = p.spec.rapatriement
+  local chosen = J.chosen
+  local tiles, D = chosen.tiles, chosen.D
   p.obstacles, p.obst_keys = {}, {}
   for _, x in ipairs(p.ents) do
     for _, t in ipairs(P.tiles_of(x)) do
       local k = P.tkey(t[1], t[2])
-      if masks.clear[k] or wood[k] then api.add_obstacle(p, { x = t[1] + 0.5, y = t[2] + 0.5, anchor = x.anchor, ax = x.ax, ay = x.ay }) end
+      if J.masks.clear[k] or J.wood[k] then api.add_obstacle(p, { x = t[1] + 0.5, y = t[2] + 0.5, anchor = x.anchor, ax = x.ax, ay = x.ay }) end
     end
   end
-  p.parts[1] = { kind = "liaison", key = "rapatriement", ox = S.x, oy = S.y, w = 1, h = 1, power = false }
+  p.parts[1] = { kind = "liaison", key = "rapatriement", ox = J.S.x, oy = J.S.y, w = 1, h = 1, power = false }
   p.counted = true -- une ligne n'est pas un module : finish_project ne la compte pas aux modules finis
   -- un replanifié ne double rien (bug de build.lua signalé par team-lead : p.outs et p.quais dupliqués à chaque réessai de plan)
   p.outs = {}
@@ -759,15 +819,71 @@ function Rap.plan(api, f, surface, p)
     local a, c, d = tiles[i - 1], tiles[i], tiles[i + 1]
     if a.dir == c.dir and c.dir == d.dir and not c.ug and not a.ug and not d.ug then p.tapis_piquable[#p.tapis_piquable + 1] = { x = c.x, y = c.y, item = lc.item } end
   end
-  if not reuse then
+  if not J.reuse then
     -- le tampon est une sortie comme les autres : collecté à Rp.TAMPON_AT, et seulement si le QG est sous Rp.KEEP_STOCK (out_wanted)
     p.outs[#p.outs + 1] = { x = D.x + 0.5, y = D.y + 0.5, at = Rp.TAMPON_AT }
     p.keep_stock = { [lc.item] = Rp.KEEP_STOCK }
   end
   p.rap = { item = lc.item, flow = lc.flow, tampon_x = D.x, tampon_y = D.y }
-  log(string.format("[FO-RAPATRIEMENT] %s : projet %d planifie (sortie %s, %s) : %d tuile(s) de tapis %s, 2 bras %s, 2 poteau(x) %s, du coffre (%d, %d) au tampon (%d, %d)%s, %d obstacle(s)",
-    f.key or "player", p.id, tostring(lc.key), tostring(lc.item), #tiles, lc.belt, lc.arm, lc.pole, S.x, S.y, D.x, D.y, reuse and " (tampon reutilise)" or "", #p.obstacles))
+  log(string.format("[FO-RAPATRIEMENT] %s : projet %d planifie (sortie %s, %s) : %d tuile(s) de tapis %s, 2 bras %s, 2 poteau(x) %s, du coffre (%d, %d) au tampon (%d, %d)%s, %d obstacle(s), %d appel(s), %d noeud(s)",
+    f.key or "player", p.id, tostring(lc.key), tostring(lc.item), #tiles, lc.belt, lc.arm, lc.pole, J.S.x, J.S.y, D.x, D.y, J.reuse and " (tampon reutilise)" or "", #p.obstacles,
+    J.slices, J.total))
   return true
+end
+
+--- api = { read_masks(x0, y0, x1, y1), reserve_tiles(b, p, list), wood_of(surface, ents), free_spot(b, masks, x, y, wood), add_obstacle(p, o),
+---   item_of(name), seg_passable(b), REACH } : les aides locales de build.lua. Rend true, ou false et la raison ; faux, raison, "tranche" quand la
+--- planification continue à la pensée suivante (une étape bornée par appel : la recherche d'un tracé sans issue coûtait 81,6 M d'instructions d'un
+--- seul tenant, soit de 0,65 à 3,6 s ; tests/rapatriement_cout_test.lua mesure le pire appel).
+function Rap.plan(api, f, surface, p)
+  local b = f.build
+  local src = p.spec.rapatriement.src
+  local js = jobs_of(f)
+  local J = js[p.id]
+  if not J then
+    local why
+    J, why = new_job(api, f, surface, p)
+    if not J then return false, why end
+    js[p.id] = J
+    return waiting(J)
+  end
+  J.slices = J.slices + 1
+  local function stop(why) js[p.id] = nil return false, why end
+  if J.stage == "guard" then
+    if stage_guard(J, b, p) then J.stage = "spots" end
+    return waiting(J)
+  elseif J.stage == "spots" then
+    local why = stage_spots(f, surface, b, p, J)
+    if why then return stop(why) end
+    J.stage = "search"
+    return waiting(J)
+  elseif J.stage == "search" then
+    local st = stage_search(J, src)
+    if st == "more" then return waiting(J) end
+    if st == "fail" then return stop("rapatriement: " .. J.last_why .. string.format(" (%d noeuds en %d appel(s))", J.total, J.slices)) end
+    J.stage = "ents"
+    return waiting(J)
+  elseif J.stage == "ents" then
+    local why = stage_ents(f, surface, b, p, J)
+    if why then return stop(why) end
+    J.stage = "anchors"
+    return waiting(J)
+  elseif J.stage == "anchors" then
+    if stage_anchors(api, surface, b, J) then J.stage = "sort" end
+    return waiting(J)
+  elseif J.stage == "sort" then
+    P.sort_build(J.ents) -- trié AVANT la réservation : p.ents (vide) reçoit les pièces dans l'ordre de pose
+    J.stage = "reserve"
+    return waiting(J)
+  elseif J.stage == "reserve" then
+    if not api.reserve_tiles(b, p, J.ents) then return stop("place") end -- refusée si un autre projet a pris des tuiles entre-temps
+    if #p.ents ~= #J.ents then P.sort_build(p.ents) end -- p.ents n'était pas vide : retrié
+    J.stage = "close"
+    return waiting(J)
+  end
+  local ok, why = stage_close(api, f, p, J)
+  js[p.id] = nil
+  return ok, why
 end
 
 ---------------------------------------------------------------------------------------------------

@@ -282,6 +282,33 @@ do
   f.build.extra_plants = { 2 }
   f.build.projects[2] = { id = 2, state = "chantier", spec = { gen = "steam" }, ents = {} }
   check(run(30, 5000) == false, "déficit qui dure pendant que la centrale demandée est en chantier : AUCUNE seconde demande (30 relevés)")
+  -- lot ELECTRIQUE (e, demande de tv-energie) : chantier aux machines CONNUES (1 800 kW) et déficit durable de 5 000 kW : une seconde demande
+  -- (en parallèle) ; deux chantiers ouverts : JAMAIS une troisième, même sur un déficit énorme (borne contre un pending_kw trop petit)
+  do
+    local function kw_run(n, kw)
+      for _ = 1, n do
+        tick = tick + PA.WATCH_EVERY
+        f.team.capi.kw_blocked = { kw = kw, tick = tick, bank = 5000 }
+        asked = PA.watch(f, surface, tick)
+        if asked then return true end
+      end
+      return false
+    end
+    local engines = { { name = "boiler", x = 11, y = 0 }, { name = "steam-engine", x = 12, y = 0 }, { name = "steam-engine", x = 13, y = 0 } }
+    f.build.projects[2].ents = engines
+    check(kw_run(10, 5000) == true and asked ~= nil and asked >= 2,
+      "E1 : déficit de 5 000 kW, chantier ouvert de 1 800 kW : chantier EN PARALLELE de " .. tostring(asked) .. " chaudière(s)")
+    local par
+    for _, l in ipairs(logs) do if l:find("EN PARALLELE", 1, true) then par = l end end
+    check(par ~= nil, "E1 : journal [FO-ENERGIE] centrale EN PARALLELE")
+    f.build.extra_plants = { 2, 3 }
+    f.build.projects[3] = { id = 3, state = "chantier", spec = { gen = "steam" }, ents = engines }
+    f.build.grow.cool_until = 0
+    check(kw_run(40, 50000) == false, "E2 : deux chantiers ouverts, déficit de 50 000 kW durable (40 relevés) : AUCUNE troisième demande")
+    f.build.projects[3] = nil
+    f.build.extra_plants = { 2 }
+    f.build.projects[2].ents = {}
+  end
   -- borne écrite : au plus C.MAX_REQUESTS demandes sur la partie
   f.build.extra_plants, f.build.projects[2] = nil, nil
   f.build.grow.requests = C0.MAX_REQUESTS

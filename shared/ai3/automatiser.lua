@@ -174,7 +174,7 @@ end
 --- compte que les recettes ouvertes) ou déjà au coffre, et dont les matières NATURELLES (aucune recette ne les produit : le
 --- bois) sont au coffre pour A.POLE_BATCH poteaux. Rend le nom (table triée de shared/team/modules.lua) ou nil : le poteau
 --- par défaut. Les plaques, câbles et bâtons ne bloquent pas : fonderie et main les fournissent.
-A.POLE_BATCH = 20
+A.POLE_BATCH = 12 -- lot ELECTRIQUE (d, lead 8/11) : la taille du gabarit de fonderie au petit poteau (12), et non 20
 --- Lot KIT : `harvest` = { [matière] = vrai } des matières naturelles que l'équipe peut RÉCOLTER (des arbres à portée pour le
 --- bois, lus à f.team.ia3.reach) : une matière naturelle récoltable n'interdit plus le poteau qui l'utilise, l'ouvrier la
 --- coupe (les factions n'ont plus de bois au coffre de départ). Sans arbre à portée : comportement d'avant (le moyen).

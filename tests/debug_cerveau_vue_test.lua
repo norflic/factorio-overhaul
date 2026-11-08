@@ -589,6 +589,15 @@ do
   f.team.sources.idle = { code = "zz", tick = NOW, n = 1 }
   check(Lec.npc(f, agent, NOW).team_idle == nil, "code inconnu : non montre")
   f.team.sources.idle = nil
+  check(npc.gate == nil and npc.zero_idle == nil, "sans champs ZERO-IDLE : rien")
+  agent.gate_why, agent.gate_tick = "danger", NOW - 120
+  f.team.zero_idle = { last = { tick = NOW - 300, libres = 4, emis = 1, restes = 3, cause = "servis" } }
+  npc = Lec.npc(f, agent, NOW)
+  check(npc.gate and npc.gate.why == "danger" and npc.gate.age == 120, "porte de comportement lue (agent.gate_why)")
+  check(npc.zero_idle and npc.zero_idle.cause == "servis" and npc.zero_idle.restes == 3, "zero_idle lu dans f.team.zero_idle.last")
+  f.team.zero_idle.last.cause = "zz"
+  check(Lec.npc(f, agent, NOW).zero_idle == nil, "cause inconnue de zero_idle : non montree")
+  agent.gate_why, agent.gate_tick, f.team.zero_idle = nil, nil, nil
   check(npc.team_sur and npc.team_sur.starved == 2 and npc.team_sur.want == 3, "ligne d'equipe lue dans f.team.org.sur.last")
   agent.state, agent.task, agent.steps, agent.pc = "step", { key = "ia1d:2:fill:1", kind = "carry", prio = 70, ia1d = { pid = 2, mode = "fill" } }, { { "home" }, { "goto", { x = 5, y = 6 } }, { "act", "x" } }, 2
   npc = Lec.npc(f, agent, NOW)

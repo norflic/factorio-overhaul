@@ -99,8 +99,17 @@ end
 
 --- Matières récoltables À PORTÉE de l'équipe : { [objet] = rayon } lu à la dernière relecture des gisements du cerveau
 --- (f.team.ia3.reach, script/ai3/cerveau.lua). Vide sans cerveau par besoins.
+--- Lot ELECTRIQUE (d, lead 8/11) : votre équipe récolte aussi le BOIS des arbres (et seulement lui : son minage de minerai ne change pas).
+--- Sans lui, A.choose_pole refusait le petit poteau (bois, matière naturelle « pas à portée ») et le champ électrique attendait le poteau moyen
+--- jusqu'à sa recherche (partie du DC 0.6.66 : « objets impossibles : medium-electric-pole » de 1 à 22 min ; [FO-MALL] « manque wood »).
+--- Les tâches de minage du bois portent `trees` (shared/ai3/projets.lua) : Harvest.names_for rend alors les arbres. Faux : comportement d'avant.
+Harvest.PLAYER_WOOD = true
+
+--- La relecture des matières récoltables (arbres) vaut-elle pour cette équipe ?
+function Harvest.arbres_on(f) return Harvest.applies(f) or Harvest.PLAYER_WOOD == true end
+
 function Harvest.reachable(f)
-  if not Harvest.applies(f) then return {} end
+  if not Harvest.arbres_on(f) then return {} end
   local st = f and f.team and f.team.ia3
   return st and st.reach or {}
 end

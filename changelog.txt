@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.71
+Date: 2026-11-08
+  Changes:
+    - Electrique par ressource : la thermique n'est refusee que pour une ressource ou une foreuse electrique TOURNE (ou 12 poteaux au stock) ; retour au thermique 3 min sans electrique ; une thermique detruite est refaite tant que sa ressource n'a pas d'electrique.
+    - Votre equipe recolte le bois des arbres (petits poteaux obtenables) ; lot de poteaux du gabarit a 12.
+    - Rangees d'assembleurs sans noms d'objets en dur ; rapatriement en etapes bornees (pire appel 147 k instructions), arrivee enfermee refusee tout de suite ; vue Cerveau V2.5.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.70
 Date: 2026-11-08
   Changes:

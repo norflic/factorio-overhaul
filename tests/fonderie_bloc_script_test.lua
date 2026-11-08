@@ -18,6 +18,7 @@ local function logs_with(txt)
   return n
 end
 defines = { inventory = { chest = 1 } }
+remote = { add_interface = function() end }
 game = { tick = 0 }
 local THREAT, ENEMY = false, false
 package.loaded["script.faction.state"] = {

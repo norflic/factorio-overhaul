@@ -26,18 +26,21 @@ local function first_team(ctx)
   return out[1]
 end
 
-local function machines(ctx, force)
+-- relevés dans l'emprise du module (Build.status : parts[1] = { x, y, w, h }), sans dépendre de la force de la faction
+local function area(box) return { { box.x, box.y }, { box.x + box.w, box.y + box.h } } end
+
+local function machines(ctx, box)
   local n = 0
-  for _, e in ipairs(ctx.surface().find_entities_filtered({ force = force, type = "assembling-machine" })) do
+  for _, e in ipairs(ctx.surface().find_entities_filtered({ area = area(box), type = "assembling-machine" })) do
     local r = e.get_recipe()
     if r and r.name == ITEM then n = n + 1 end
   end
   return n
 end
 
-local function lanes(ctx, force)
+local function lanes(ctx, box)
   local l1, l2 = 0, 0
-  for _, e in ipairs(ctx.surface().find_entities_filtered({ force = force, type = "transport-belt" })) do
+  for _, e in ipairs(ctx.surface().find_entities_filtered({ area = area(box), type = "transport-belt" })) do
     l1 = l1 + e.get_transport_line(1).get_item_count(ITEM)
     l2 = l2 + e.get_transport_line(2).get_item_count(ITEM)
   end
@@ -65,9 +68,7 @@ return {
     if t == 300 then
       local r = first_team(ctx)
       st.key = r and r.key
-      local hq = r and ctx.surface().find_entities_filtered({ name = "fo-faction-hq", position = { r.x, r.y }, radius = 12 })[1]
-      st.force = hq and hq.valid and hq.force.name or nil
-      ctx.check(st.key ~= nil and st.force ~= nil, "faction relevee (" .. tostring(st.key) .. ", force " .. tostring(st.force) .. ")")
+      ctx.check(st.key ~= nil, "faction relevee (" .. tostring(st.key) .. ")")
       ctx.check(st.key ~= nil and ctx.remote("fo-ind", "stock", st.key, PARTS) ~= nil, "coffre : pieces des rangees et de la centrale")
     end
     if not st.key then return end
@@ -83,8 +84,9 @@ return {
       ctx.remote("fo-ind", "revive", st.key, st.id)
       local s = ctx.remote("fo-ia1d", "status", st.key, st.id)
       if s and s.state == "fini" then
-        local n = machines(ctx, st.force)
         local box = s.parts and s.parts[1]
+        local n = box and machines(ctx, box) or 0
+        st.area = box
         if st.phase == 1 then
           st.n1, st.box1, st.q1, st.fini1 = n, box and (box.x .. "," .. box.y .. "," .. box.w .. "x" .. box.h), #(s.quais or {}), t
           ctx.log(string.format("tick %d : rangee %d FINIE, %d machine(s) de %s, emprise %s, %d quai(s)", t, st.id, n, ITEM, tostring(st.box1), st.q1))
@@ -99,8 +101,8 @@ return {
         end
       end
     end
-    if st.phase == 4 and t % 600 == 0 then
-      local l1, l2 = lanes(ctx, st.force)
+    if st.phase == 4 and st.area and t % 600 == 0 then
+      local l1, l2 = lanes(ctx, st.area)
       st.l1, st.l2 = math.max(st.l1 or 0, l1), math.max(st.l2 or 0, l2)
       ctx.log(string.format("tick %d : %s sur les tapis : voie 1 %d, voie 2 %d (hors bilan)", t, ITEM, l1, l2))
     end
