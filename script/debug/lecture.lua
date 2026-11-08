@@ -284,7 +284,7 @@ end
 
 --- Lignes enregistrées (quai, bus, piquage, rapatriement) avec leur état réel et la cause d'un refus ou d'une coupure : règle pure shared/debug/liens.lua
 --- (lot DEBUG-BLOCS). Copies de nombres et de chaînes ; extrémités = centres des coffres.
-function Lec.links(f)
+function Lec.links(f, extra)
   local b = f.build
   local list = {}
   for _, pid in ipairs(b and b.order or {}) do
@@ -293,7 +293,32 @@ function Lec.links(f)
       list[#list + 1] = { pid = pid, state = p.state, finished = p.finished, abandoned = p.abandoned, reason = p.reason, spec = p.spec, rap = p.rap }
     end
   end
+  for _, d in ipairs(extra or {}) do list[#list + 1] = d end
   return Li.lines(list, { piquage = b and b.piquage, rapatriement = b and b.rapatriement })
+end
+
+--- BANC D'IMAGES SEULEMENT (interface distante « demo », jamais allumée par le mod) : lignes FICTIVES entre les vrais blocs d'une équipe, pour contrôler le
+--- dessin d'une liaison de quai, d'un piquage en chantier, d'une demande refusée et d'une ligne de rapatriement quand la partie n'en a pas encore.
+--- Elles ne sont JAMAIS écrites dans f.build : elles s'ajoutent à la liste lue, rien d'autre.
+function Lec.demo_projects(skel)
+  local rects = {}
+  for _, z in ipairs(skel) do
+    if z.x0 and z.y0 and z.x1 and z.y1 and z.kind ~= "liaison" and z.kind ~= "raccord" then rects[#rects + 1] = z end
+  end
+  if #rects < 2 then return {} end
+  local A, B, C = rects[1], rects[2], rects[3] or rects[2]
+  local function mid(z) return math.floor((z.y0 + z.y1) / 2) end
+  local out = {
+    { pid = 9001, state = "fini", spec = { liaison = { key = "demo1", item = "iron-plate", src = { pid = A.pid, x = math.floor(A.x1), y = mid(A) },
+      dock = { pid = B.pid, x = math.floor(B.x0), y = mid(B) } } } },
+    { pid = 9002, state = "refuse", reason = "DEMO : ennemi a portee de la route", spec = { liaison = { key = "demo2", item = "copper-plate",
+      src = { pid = A.pid, x = math.floor(A.x1), y = mid(A) + 2 }, dock = { pid = C.pid, x = math.floor(C.x0), y = mid(C) + 2 } } } },
+    { pid = 9003, state = "chantier", spec = { liaison = { key = "demo3", piquage = true, item = "coal", geo = { x = math.floor(A.x0) - 8.5, y = mid(A) - 6.5 },
+      dock = { pid = A.pid, x = math.floor(A.x0), y = mid(A) - 3 } } } },
+    { pid = 9004, state = "fini", spec = { rapatriement = { key = "demo4", item = "stone-brick", src = { pid = C.pid, x = math.floor(C.x1), y = mid(C) },
+      point = { x = math.floor(A.x0), y = mid(A) + 4 } } }, rap = { tampon_x = math.floor(A.x0), tampon_y = mid(A) + 4 } },
+  }
+  return out
 end
 
 --- Agent (PNJ) dont le corps est l'entité `e`, ou nil. Lecture du registre des compagnons.
