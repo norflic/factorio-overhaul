@@ -175,6 +175,13 @@ function Panneau.update_npc(player, v, npc, gone)
   if npc.team_sur then
     lbl(frame, { "fo-dbg-cerveau.pnj-equipe", tostring(npc.team_sur.starved or "?"), tostring(npc.team_sur.want or "?"), tostring(npc.team_sur.service or "?"), tostring(npc.team_sur.mine or "?") }, nil, true)
   end
+  if npc.gate then
+    lbl(frame, { "fo-dbg-cerveau.pnj-porte", npc.gate.why, Lg.ago(npc.gate.age) }, nil, true)
+  end
+  if npc.zero_idle then
+    local z = npc.zero_idle
+    lbl(frame, { "fo-dbg-cerveau.pnj-zero", tostring(z.libres or "?"), tostring(z.emis or "?"), tostring(z.restes or "?"), { "fo-dbg-cerveau.pnj-zero-" .. z.cause }, Lg.ago(z.age) }, nil, true)
+  end
   if npc.team_idle then
     lbl(frame, { "fo-dbg-cerveau.pnj-rien", tostring(npc.team_idle.n or "?"), { "fo-dbg-cerveau.pnj-rien-" .. npc.team_idle.code }, Lg.ago(npc.team_idle.age) }, nil, true)
   end

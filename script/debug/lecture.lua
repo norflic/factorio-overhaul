@@ -368,6 +368,9 @@ function Lec.free_tasks(f, now, max)
 end
 
 --- État cognitif d'un PNJ : voir shared/debug/pnj.lua. Lecture seule.
+Lec.ZERO_IDLE_CAUSES = { aucun_libre = true, servis = true, stock = true, combustible = true, plein = true, en_cours = true, non_defendu = true,
+  menace = true, palier = true, aucune_fonderie = true, autre = true }
+
 function Lec.npc(f, agent, now)
   local out = { id = agent.id, state = Pn.state_word(agent.state), team = tostring(f.key or "player") }
   local org = agent.org
@@ -402,6 +405,15 @@ function Lec.npc(f, agent, now)
   -- l'équipe : PNJ affamés et travail ouvert par la file sûre à la dernière pensée (f.team.org.sur.last, lot INACTIFS, [FO-INACTIF])
   local sl = f.team and f.team.org and f.team.org.sur and f.team.org.sur.last
   if type(sl) == "table" then out.team_sur = { starved = sl.starved, want = sl.want, service = sl.service, mine = sl.mine } end
+  -- refus de la porte de comportement a la prise de tache (lot ZERO-IDLE : agent.gate_why, agent.gate_tick ; mot libre du module de comportement, recopie)
+  if type(agent.gate_why) == "string" and type(agent.gate_tick) == "number" then
+    out.gate = { why = agent.gate_why:sub(1, 40), age = now - agent.gate_tick }
+  end
+  -- agrandissements non emis pour les PNJ libres (lot ZERO-IDLE : f.team.zero_idle.last, mots fixes)
+  local zl = f.team and f.team.zero_idle and f.team.zero_idle.last
+  if type(zl) == "table" and Lec.ZERO_IDLE_CAUSES[zl.cause] and type(zl.tick) == "number" and now - zl.tick <= 7200 then
+    out.zero_idle = { cause = zl.cause, libres = zl.libres, emis = zl.emis, restes = zl.restes, age = now - zl.tick }
+  end
   -- pourquoi des PNJ libres n'ont rien a faire (lot MINAGE-MAIN, f.team.sources.idle = { code, tick, n }, mots fixes) ; au-dela de 2 min : perime, non montre
   local idle = f.team and f.team.sources and f.team.sources.idle
   if type(idle) == "table" and type(idle.tick) == "number" and now - idle.tick <= 7200
