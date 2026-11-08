@@ -90,7 +90,10 @@ local vb, vp = X.currency_of(8).value, X.currency_of(4).value
 local v_x = X.currency_of(11).value + 2 * vb + X.currency_of(10).value
 local v_g = X.currency_of(11).value + 2 * vp + X.currency_of(10).value
 -- (Intégration 0.6.22 : la piste CALCULS ramène le plastique de 3 à 1,5 MU (matière brute réelle) : 98 au lieu de 101.)
-check(v_x == 103 and v_g == 98, string.format("cryostat : valeur %d MU au lieu de %d (écart de %.0f %%)", v_g, v_x, 100 * (v_x - v_g) / v_x))
+-- (Lot ROUGES-0659 : le lot PLASTIQUE, QCM du DC du 5/11, met le plastique à 1 MU au lieu de 1,5 (de82d8e7) et le processeur de
+-- l'âge 10 à 46 au lieu de 75 (bdcc443c) ; biopolymère 4, titane 20 inchangés : 74 MU dans X, 68 avec l'écart, soit -8 % au lieu
+-- de -5 %. Valeurs EXACTES gardées, comme en 0.6.22.)
+check(v_x == 74 and v_g == 68, string.format("cryostat : valeur %d MU au lieu de %d (écart de %.0f %%)", v_g, v_x, 100 * (v_x - v_g) / v_x))
 check(S.machine_for("fo-superconducting-coil") == "fo-coil-winder" and S.machine_for("fo-air-distillation") == "fo-cryogenic-unit"
   and S.machine_for("fo-water-electrolysis") == "fo-electrolyzer" and S.machine_for("fo-monazite-concentrate") == "fo-ore-concentrator"
   and S.machine_for("fo-monazite-leaching") == "chemistry" and S.machine_for("fo-superconducting-tape") == "fo-sintering-furnace",
