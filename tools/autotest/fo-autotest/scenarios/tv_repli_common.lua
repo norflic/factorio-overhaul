@@ -8,11 +8,37 @@
     repli allumé  : le projet est planifié (pas refusé), sa première partie a le lot « repli », ses entités existent en fantômes (ghosts_ahead : le chantier
                     des PNJ dure plus que ce micro-banc) ; la ligne [FO-REPLI-PLACE] est au journal (lue à l'archive : grep) ;
     repli éteint (témoin) : le projet est refusé (« pas de lot »), aucune partie, aucune ligne [FO-REPLI-PLACE].
-  Lancement : banc.py --out <archive> --qui TV-REPLI -- 2400 tv-repli <source> (et tv-repli-temoin).
+  Lancement : banc.py --out <archive> --qui TV-REPLI -- 2500 tv-repli <source> (et tv-repli-temoin).
 ]]
 local T_REQUEST = 120
-local CHECK = 2300
+local CHECK = 2450
 local HALF = 80
+
+
+--- Contrôles du projet de la demande, faits dès que le plan est sorti de l'état « plan » (ou à la fin du banc).
+local function verify(ctx, on, TAG, proj, rep)
+  local st = ctx.state()
+  ctx.log(TAG .. string.format("projet %d : %s%s, %d/%d entites, %d partie(s), rayon %d", proj.id, proj.state,
+    proj.reason and (" (" .. proj.reason .. ")") or "", proj.built or 0, proj.total or 0, #(proj.parts or {}), rep.radius or -1))
+  local s = ctx.surface()
+  if on then
+    ctx.check(proj.state ~= "refuse" and proj.state ~= "bloque", "repli allume : le projet n'est ni refuse ni bloque : " .. tostring(proj.state))
+    local part = proj.parts and proj.parts[1]
+    ctx.check(part ~= nil and part.lot == "repli", "repli allume : la premiere partie porte le lot « repli »", part and tostring(part.lot) or "aucune partie")
+    ctx.check((proj.total or 0) > 0, "repli allume : des entites planifiees", tostring(proj.total))
+    if part then
+      -- fantomes ou batiments sur l'emprise de la partie
+      local found = #s.find_entities_filtered({ area = { { part.x, part.y }, { part.x + part.w, part.y + part.h } }, force = "player",
+        name = { "stone-furnace", "entity-ghost" } })
+      ctx.check(found > 0, "repli allume : des fours ou des fantomes sur l'emprise de la partie", tostring(found))
+      ctx.log(TAG .. string.format("partie %s lot %s en (%d, %d) %dx%d rotation %d ; %d four(s)/fantome(s) sur l'emprise", part.kind, tostring(part.lot),
+        part.x, part.y, part.w, part.h, part.rotation or 0, found))
+    end
+  else
+    ctx.check(proj.state == "refuse" or proj.state == "bloque" or #(proj.parts or {}) == 0, "temoin (repli eteint) : le projet n'est pas planifie : " .. tostring(proj.state))
+    ctx.check(not (proj.parts and proj.parts[1] and proj.parts[1].lot == "repli"), "temoin : aucune partie de repli")
+  end
+end
 
 return function(on)
   local TAG = on and "[FO-TV-REPLI] " or "[FO-TV-REPLI-TEMOIN] "
@@ -64,41 +90,32 @@ return function(on)
         st.id = ctx.remote("fo-ia1d", "request", "player", { gen = "smelter", args = { "stone-furnace", "iron-ore", 3 } })
         ctx.log(TAG .. "demande : fonderie de fer, projet " .. tostring(st.id))
       end
-      if t > T_REQUEST and t % 300 == 0 and st.id then
+      -- le plan se fait sur plusieurs passes (relevés des masques au budget) : on contrôle dès que le projet n'est plus « plan »
+      if t > T_REQUEST and t % 30 == 0 and st.id and not st.checked then
         local rep = ctx.remote("fo-ia1d", "report", "player")
-        if rep then st.rep = rep end
+        if not rep then return end
+        st.rep = rep
+        for _, p in ipairs(rep.projects) do
+          if p.id == st.id and (p.state ~= "plan" or #(p.parts or {}) > 0) then
+            st.checked = true
+            st.t_plan = t
+            local ok, err = pcall(verify, ctx, on, TAG, p, rep)
+            if not ok then ctx.check(false, "controle du projet : erreur", tostring(err)) end
+          end
+        end
       end
     end,
-
     finish = function(ctx)
       local st = ctx.state()
-      local rep = ctx.remote("fo-ia1d", "report", "player") or st.rep
       ctx.check(st.id ~= nil, "la demande a rendu un numero de projet", tostring(st.id))
-      ctx.check(rep ~= nil, "releve du plan directeur")
-      if not (rep and st.id) then return end
-      local proj
-      for _, p in ipairs(rep.projects) do if p.id == st.id then proj = p end end
-      ctx.check(proj ~= nil, "le projet est au releve")
-      if not proj then return end
-      ctx.log(TAG .. string.format("projet %d : %s%s, %d/%d entites, %d partie(s), rayon %d", proj.id, proj.state,
-        proj.reason and (" (" .. proj.reason .. ")") or "", proj.built or 0, proj.total or 0, #(proj.parts or {}), rep.radius or -1))
-      local s = ctx.surface()
-      if on then
-        ctx.check(proj.state ~= "refuse" and proj.state ~= "bloque", "repli allume : le projet n'est ni refuse ni bloque : " .. tostring(proj.state))
-        local part = proj.parts and proj.parts[1]
-        ctx.check(part ~= nil and part.lot == "repli", "repli allume : la premiere partie porte le lot « repli »", part and tostring(part.lot) or "aucune partie")
-        ctx.check((proj.total or 0) > 0, "repli allume : des entites planifiees", tostring(proj.total))
-        if part then
-          -- fantomes ou batiments sur l'emprise de la partie
-          local found = #s.find_entities_filtered({ area = { { part.x, part.y }, { part.x + part.w, part.y + part.h } }, force = "player",
-            name = { "stone-furnace", "entity-ghost" } })
-          ctx.check(found > 0, "repli allume : des fours ou des fantomes sur l'emprise de la partie", tostring(found))
-          ctx.log(TAG .. string.format("partie %s lot %s en (%d, %d) %dx%d rotation %d ; %d four(s)/fantome(s) sur l'emprise", part.kind, tostring(part.lot),
-            part.x, part.y, part.w, part.h, part.rotation or 0, found))
-        end
-      else
-        ctx.check(proj.state == "refuse" or proj.state == "bloque" or #(proj.parts or {}) == 0, "temoin (repli eteint) : le projet n'est pas planifie : " .. tostring(proj.state))
-        ctx.check(not (proj.parts and proj.parts[1] and proj.parts[1].lot == "repli"), "temoin : aucune partie de repli")
+      if not st.checked then
+        -- le plan n'est jamais sorti de l'etat « plan » avant la fin : controle sur le dernier releve
+        local rep = ctx.remote("fo-ia1d", "report", "player") or st.rep
+        local proj
+        for _, p in ipairs(rep and rep.projects or {}) do if p.id == st.id then proj = p end end
+        ctx.check(proj ~= nil, "le projet est au releve")
+        if on then ctx.check(false, "le plan n'a pas fini avant la fin du banc", proj and tostring(proj.state) or "-") end -- le temoin peut rester « plan » (nouvel essai sans fin)
+        if proj then verify(ctx, on, TAG, proj, rep) end
       end
     end,
   }
