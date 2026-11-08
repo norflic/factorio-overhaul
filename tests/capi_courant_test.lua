@@ -54,7 +54,7 @@ local function run(mutant)
   local begin = Ca.decide_begin
   Ca.decide_begin = function(input, st)
     -- la décision de la faction 1 : celle dont l'entrée lit le relevé posé par le banc (aucune autre n'a de courant)
-    if input.power ~= nil then
+    if input.power ~= nil and input.power.have_kw ~= nil then -- (lot TV-ENERGIE : sans centrale finie, le relevé est { amorce } ou { fermee }, sans capacité)
       out.p1 = out.p1 + 1
       if input.power.have_kw == 90 and math.abs((input.power.used_kw or -1) - 36) < 1e-9 and input.power.plant == nil then
         out.p1_ok = out.p1_ok + 1
@@ -79,7 +79,12 @@ local function run(mutant)
   local u90, uw = P(1500, "fini"), P(1500, "fini", true)
   out.unit = u90 ~= nil and u90.have_kw == 90 and math.abs((u90.used_kw or -1) - 36) < 1e-9 and u90.plant == nil
     and uw ~= nil and math.abs((uw.used_kw or -1) - (36 + 0.6 * 500)) < 1e-9
-    and P(1500, "chantier") == nil
+    -- lot TV-ENERGIE (W02, fin) : sans centrale finie, plus de nil : amorçage (un seul ordre électrique), relevé fermé si la centrale est refusée
+    -- ou attendue par un module électrique ouvert
+    and type(P(1500, "chantier")) == "table" and P(1500, "chantier").amorce == true and P(1500, "chantier").have_kw == nil
+    and type(power_input(fake(1500), nil)) == "table" and power_input(fake(1500), nil).amorce == true
+    and power_input(fake(1500), "refuse", "pas de rive libre").fermee == "centrale refusee (pas de rive libre)"
+    and power_input(fake(1500), "attente", nil, true).fermee == "centrale demandee, pas finie (attente)"
     -- lot VIDEO-COUVERTURE 5 (W02) : centrale finie mais capacité NON LUE (texte, rien) = relevé vide, la garde de la règle se ferme
     and type(P("x", "fini")) == "table" and next(P("x", "fini")) == nil and type(power_input({}, "fini")) == "table" and next(power_input({}, "fini")) == nil
   -- lot 5b : capacité ≤ 0 (centrale finie, plus de machine à vapeur) = relevé vide, comme une capacité non lue ; mutant : l'ancien nil
@@ -112,7 +117,7 @@ local function run(mutant)
 end
 
 local function slurp(path) local fh = assert(io.open(path, "rb")); local s = fh:read("*a"); fh:close(); return s end
-local WIRED = slurp("script/ai3/capitalisation.lua"):find("power = Capi.power_input(f, plant_state),", 1, true) ~= nil
+local WIRED = slurp("script/ai3/capitalisation.lua"):find("power = Capi.power_input(f, plant_state, plant_why, wait_plant),", 1, true) ~= nil
 
 local function verdict(o, quiet)
   o.wired = WIRED
