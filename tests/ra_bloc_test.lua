@@ -9,8 +9,9 @@
         mod à part, banc à part ; déterministe, jamais un temps).
     R2. Le coût SUIT ce qui est vraiment relevé : 32 seulement si le début ne fait AUCUNE recherche sur toute la surface ni par zone ; une
         recherche par zone (bande) : coût = chunks de la zone ; une recherche sur toute la surface : tout le budget (coût absent).
-    Mutant : coût de 32 dès que Gens.ready() (sans le prédicat qui dit si le registre sert vraiment) : DOIT être vu.
-  Usage : lua5.2 tests/ra_bloc_test.lua [--avant] (--avant : imprime la table sans les contrôles R2, pour la mesure sur la base)
+    Mutants (prédicat ignoré : 32 dès Gens.ready() ; toujours 32 par le chemin d'un bloc) : ils DOIVENT être vus.
+  AVANT et APRÈS : chaque cas est joué avec la règle de la 0.6.62 (texte de la source rendu à la 1re bande) puis avec la source.
+  Usage : lua5.2 tests/ra_bloc_test.lua [--avant] (--avant : imprime la table seule, sans les contrôles)
 ]]
 package.path = "./?.lua;" .. package.path
 
@@ -171,26 +172,40 @@ local function follows(r)
   return r.cost == 32                                       -- registre : aucune recherche
 end
 
+-- AVANT : la règle de la 0.6.62 (coût de la 1re bande, même par le chemin d'un bloc), reconstituée par le texte de la source (aucun appel
+-- de Gens.serves) ; APRÈS : la source telle quelle.
+local AVANT_SRC = { "script.team.raccord", "script/team/raccord.lua",
+  { { "        cost = Gens.serves(surface, f.force, GEN_TYPES) and Ra.COUT_REGISTRE or nil",
+      "        cost = box and Ra.cout(box.y0, box.y1 + 1, box.x1 + 1 - box.x0) or nil" } } }
+
 ---------------------------------------------------------------------------------------------------
-local res = {}
-print(string.format("%-28s %8s %9s %6s %7s %9s %9s %9s", "cas", "cout", "surface", "zones", "chunks", "examinees", "instr mod", "instr banc"))
+local res, av = {}, {}
+print(string.format("%-28s %15s %9s %6s %7s %9s %17s %13s", "cas", "cout av -> ap", "surface", "zones", "chunks", "examinees",
+  "instr mod av -> ap", "instr banc ap"))
 for _, c in ipairs(CASES) do
+  local r0 = run_case(c, AVANT_SRC)
   local r = run_case(c)
-  res[c] = r
-  print(string.format("%-28s %8s %9d %6d %7.0f %9d %9d %9d", c, r.declared and tostring(r.cost) or "-", r.surface, r.zones, r.chunks,
-    r.examined, r.mod, r.banc))
+  av[c], res[c] = r0, r
+  print(string.format("%-28s %15s %9d %6d %7.0f %9d %17s %13d", c,
+    (r0.declared and tostring(r0.cost) or "-") .. " -> " .. (r.declared and tostring(r.cost) or "-"), r.surface, r.zones, r.chunks,
+    r.examined, r0.mod .. " -> " .. r.mod, r.banc))
 end
 if not AVANT then
   for _, c in ipairs(CASES) do
     local r = res[c]
-    check(r.cyc and follows(r), string.format("R2 %s : coût déclaré %s ; relevé : %d recherche(s) sur toute la surface, %d par zone (%.0f chunks)",
-      c, tostring(r.cost), r.surface, r.zones, r.chunks))
+    check(r.cyc and follows(r), string.format("R2 %s : coût déclaré %s (avant : %s) ; relevé : %d recherche(s) sur toute la surface, %d par zone (%.0f chunks) ; instructions du mod %d (avant : %d)",
+      c, tostring(r.cost), tostring(av[c].cost), r.surface, r.zones, r.chunks, r.mod, av[c].mod))
   end
   check(res["registre sert"].cost == 32 and res["registre sert"].surface == 0 and res["registre sert"].zones == 0,
     "R2 : le registre sert : aucune recherche du moteur, coût 32")
+  local seen0 = false
+  for _, c in ipairs(CASES) do if not follows(av[c]) then seen0 = true end end
+  check(seen0, "R2 : la règle d'avant (0.6.62) ne suit PAS ce qui est relevé (coût de la 1re bande sans bande) : le contrôle la distingue")
   local MUT = {
-    { "coût de 32 dès que le registre est prêt (sans le prédicat)", "script.team.raccord", "script/team/raccord.lua",
+    { "prédicat ignoré : 32 dès que le registre est prêt", "script.team.raccord", "script/team/raccord.lua",
       { { "Gens.serves(surface, f.force, GEN_TYPES)", "Gens.ready()" } } },
+    { "prédicat ignoré : toujours 32 par le chemin d'un bloc", "script.team.raccord", "script/team/raccord.lua",
+      { { "Gens.serves(surface, f.force, GEN_TYPES) and Ra.COUT_REGISTRE or nil", "Ra.COUT_REGISTRE" } } },
   }
   for _, m in ipairs(MUT) do
     local seen = false
