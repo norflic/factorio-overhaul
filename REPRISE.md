@@ -10,6 +10,21 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **8/11, 18 h 55 : ULTIMATUM DE 15 H DU DC (jusqu'au 9/11 vers 9 h 40)** : 100 % du PC, 3 places, partie finale « exponentielle » (saturation, amélioration continue, malls et motifs, zéro inactivité, progression early → mid → late). Voir OBJECTIFS §2 et la mémoire autonomie-8-novembre-15h.
+> - **Intégration** : `essai-0666` en e02ee0dc, avec centrale-pres, couverture, géants, tranches et raccord-bande. Copie figée : scratchpad `src-0672c`.
+> - **Pilotage** : cron toutes les 10 min (4-59/10).
+> - **Agents en cours**, avec leur branche :
+>   - courant-libre : ligne électrique longue distance (raccord-bande) ;
+>   - centrale-pres : recherche-bras A puis B, puis la centrale 2 jamais finie ;
+>   - acier ; mega-fonderie ; pose-par-lots ; petrole-rangee ;
+>   - purete-tapis : garde-fou `shared/team/purete.lua` ;
+>   - mall : conception 6899f4f7 ;
+>   - motifs : base `shared/team/motifs/` ;
+>   - gisements-geants : stock-qg ;
+>   - tranches-foreuses : piquage-delai ;
+>   - amelioration-continue ; zero-idle (zero-idle-3) ;
+>   - mesure-longue : partie de 2 h, outil `progression.py`.
+>
 > **8/11, 18 h : INSTALLÉE 0.6.71** (3fc921dc, tag `jouable-0.6.71`, poussée sur GitHub). Le DC joue : une seule place de banc (`fo-banc-places.txt` = 1), un lua5.2 par agent. Audit du DC « LA VRAIE TRANSITION ÉLECTRIQUE » consigné dans OBJECTIFS §2, avec la réponse point par point.
 > - **Candidate 0.6.72** : branche `essai-0666`, worktree integ-0652b, tête 44643872. Elle contient :
 >   - fd5159bb : budget propre du tracé pondéré ;

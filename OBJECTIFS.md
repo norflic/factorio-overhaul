@@ -156,6 +156,25 @@ Directives du DC (8/11, après-midi), citées :
   
   Le biais signalé par le DC est confirmé : presque rien ne couvre un grand gisement.
 
+- **Vers 18 h 40, « DIRECTIVE SUPRÊME : MODE EXPONENTIEL & TRANSITION FINALE (ULTIMATUM DE 15 HEURES) »** (jusqu'au 9/11 vers 9 h 40). Citations :
+  - « Tu disposes d'un ultimatum de 15 heures et de 100 % de la puissance du PC » ;
+  - « je dois voir l'équivalent d'un travail d'équipe de 8 à 10 speedrunners professionnels synchronisés » ;
+  - progression Early (« petits îlots d'assembleurs et des blocs isolés de survie »), Mid (« premiers grands bus de ressources […] raccordements automatiques par splitters et tapis »), Late (« malls centralisés et duplicables, alimentés par des méga-fonderies ») ;
+  - non négociables :
+    1. « Saturation Totale à 100 % » ;
+    2. « Amélioration Continue » ;
+    3. « Architecture en Malls et Blocs Duplicables » (base de motifs) ;
+    4. « Zéro Inactivité » ;
+  - « Fini les files d'attente ridicules d'une seule instance Factorio » ;
+  - « chaque bogue de routage ou de contamination de tapis doit être éradiqué, et la base doit produire des ressources de manière strictement exponentielle ».
+
+  Mise en place à 18 h 50 : 3 places de banc ; ménage du disque F: (23 → 73 Go libres, 47 worktrees de lots finis retirés, branches gardées, correctifs non commités dans `fo-logs/2026-11-08_MENAGE/*.patch`) ; pilotage toutes les 10 min. Nouveaux lots :
+  - AMELIORATION-CONTINUE (Sonnet) ;
+  - ZERO-IDLE-3 (Sonnet) ;
+  - MESURE-LONGUE (Haiku) : partie de 2 h sur gisements géants, facteur de croissance par tranche de 10 min.
+  
+  Mesure moteur de RACCORD-BANDE (e02ee0dc, `fo-logs/2026-11-08_INTEG-0672/neuve40-e02ee0dc`) : ÉCHEC, toujours 0 foreuse électrique et 76 refus. Le réseau alimenté est à 163-281 tuiles des gisements, alors que les paliers ne cherchent que localement. Lot suivant : une ligne électrique longue distance posée par les PNJ, la bande attend sa ligne (courant-libre).
+
   Lots lancés : GISEMENTS-GEANTS (scénario `etape1-geants`, 2 500 à 5 000 tuiles), MEGA-FONDERIE (conception d'abord), POSE-PAR-LOTS, CAPI-POTEAU (le gabarit des foreuses de capitalisation cède au poteau moyen), plus COURANT-LIBRE, TRANCHES-FOREUSES et ACIER. CENTRALE-PRES (78c20542) est fusionné dans `essai-0666` (44643872). Porte de la prochaine livraison : une partie neuve sur gisements géants qui montre de vrais champs électriques, sans effondrement.
 
 
