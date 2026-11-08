@@ -39,6 +39,8 @@ end }) }
 -- Bouchons des modules de jeu requis par le runtime (le vrai code de rapatriement.lua, pas ceux-là, est sous test)
 package.loaded["script.faction.state"] = { sorted_keys = function() return {} end, faction = function() return nil end, alive = function() return {} end }
 package.loaded["script.companion.registry"] = { get = function() return nil end }
+local SKIP = nil -- predicat « le stock du QG refuse cet objet » (Stock.skip_fn), nil : stock non plein
+package.loaded["script.team.stock"] = { skip_fn = function() return SKIP end }
 package.loaded["script.ai3.reserve"] = { on = function() return true end }
 package.loaded["script.team.convoyeurs"] = { choose = function() return "transport-belt" end }
 
@@ -49,6 +51,14 @@ local T = require("shared.team.config")
 local Rap = require("script.team.rapatriement")
 local CHEST = T.outposts.coal.sink
 
+--- Rap.plan rend « tranche » tant que la recherche du tracé continue : on l'appelle jusqu'à la fin. Rend ok, raison, nombre d'appels.
+local function plan_full(api, f, surface, p)
+  for i = 1, 3000 do
+    local ok, why, wait = Rap.plan(api, f, surface, p)
+    if wait ~= "tranche" then return ok, why, i end
+  end
+  return false, "boucle sans fin", 3000
+end
 -- Monde de bouchons ---------------------------------------------------------------------------------
 local function new_world()
   local W = { chests = {}, poles = {}, blocked = {} }
@@ -227,7 +237,7 @@ do
   local f, b, W = snapshot.f, snapshot.b, snapshot.W
   local p = requested_specs[1]
   local t0 = os.clock()
-  local ok, why = Rap.plan(plan_api(f, b), f, W.surface, p)
+  local ok, why = plan_full(plan_api(f, b), f, W.surface, p)
   local dt = os.clock() - t0
   check(ok == true, "G3.1 le plan reussit (" .. tostring(why) .. ")")
   if ok then
@@ -257,8 +267,23 @@ do
     local d = Li.manhattan(150, 20, math.floor(ch.x), math.floor(ch.y))
     check(#belts <= Rp.DETOUR * (d + 1) + Rp.DETOUR_SLACK, "G3.12 detour dans la limite")
     check(Rp.street_edge(b.lat, { pitch = P.PITCH, lot = P.LOT, half = P.HALF }, math.floor(ch.x), math.floor(ch.y)), "G3.13 le tampon est au bord d'une rue")
+    check(#p.tapis_piquable > 50 and p.tapis_piquable[1].item == "A", "G3.14 marqueur tapis_piquable pour le lot piquage (" .. #p.tapis_piquable .. " tuiles droites)")
     planned = { p = p, tiles = #belts, ch = ch }
   end
+end
+
+-- G3b : un replan du même projet ne double pas la sortie du tampon (bug de build.lua signalé par team-lead) ----------
+do
+  local W = new_world()
+  local f, b = new_team(W)
+  local spec = { rapatriement = { key = "1:o1", item = "A", flow = 0.8, arm = "fast-inserter", pole = "small-electric-pole", belt = "transport-belt", chest = CHEST,
+    src = { pid = 1, idx = 1, x = 150, y = 20 }, point = { x = 24, y = 14 } } }
+  local p = { id = 30, spec = spec, state = "plan", parts = {}, ents = {}, wires = {}, stock = {}, quais = {}, outs = {}, obstacles = {}, fails = 0 }
+  b.projects[30] = p
+  b.order[#b.order + 1] = 30
+  check(plan_full(plan_api(f, b), f, W.surface, p) == true and #p.outs == 1, "G3b.1 premier plan : une sortie")
+  p.ents = {}
+  check(plan_full(plan_api(f, b), f, W.surface, p) == true and #p.outs == 1, "G3b.2 second plan du meme projet : toujours une sortie (" .. #p.outs .. ")")
 end
 
 -- G4 : refus ---------------------------------------------------------------------------------------------
@@ -274,7 +299,7 @@ do
     local p = { id = 20, spec = spec, state = "plan", parts = {}, ents = {}, wires = {}, stock = {}, quais = {}, outs = {}, obstacles = {}, fails = 0 }
     b2.projects[20] = p
     b2.order[#b2.order + 1] = 20
-    return Rap.plan(plan_api(f2, b2, extra), f2, W2.surface, p)
+    return plan_full(plan_api(f2, b2, extra), f2, W2.surface, p)
   end
   local ok, why = try(function(W2) W2.chests["150:20"] = nil end)
   check(ok == false and tostring(why):find("disparu", 1, true), "G4.1 coffre de sortie disparu : refus avec sa cause (" .. tostring(why) .. ")")
@@ -284,6 +309,11 @@ do
   for y = -400, 400 do for x = 60, 62 do wall[P.tkey(x, y)] = true end end
   ok, why = try(nil, { blocked = wall })
   check(ok == false and tostring(why):find("rapatriement", 1, true), "G4.3 un mur de tuiles bloquees : refus (" .. tostring(why) .. ")")
+  -- un mur qui ne se contourne qu'au-dela de la marge d'origine : le second passage (boite elargie) le contourne
+  local long_wall = {}
+  for y = -16, 50 do for x = 60, 62 do long_wall[P.tkey(x, y)] = true end end
+  ok, why = try(nil, { blocked = long_wall })
+  check(ok == true, "G4.3b un mur qui se contourne au-dela de la marge d'origine : trace par la boite elargie (" .. tostring(why) .. ")")
   ok, why = try(function(W2, f2) W2.surface.is_chunk_generated = function(c) return c.x < 2 end end)
   check(ok == false, "G4.4 des chunks non generes sur le chemin : refus (" .. tostring(why) .. ")")
   ok, why = try(function(W2, f2, b2)
@@ -297,12 +327,12 @@ do
   local W3 = new_world()
   local f3, b3 = new_team(W3)
   local p3 = { id = 21, spec = far_spec, state = "plan", parts = {}, ents = {}, wires = {}, stock = {}, quais = {}, outs = {}, obstacles = {}, fails = 0 }
-  ok, why = Rap.plan(plan_api(f3, b3), f3, W3.surface, p3)
+  ok, why = plan_full(plan_api(f3, b3), f3, W3.surface, p3)
   check(ok == false and tostring(why):find("trop loin", 1, true), "G4.5 boite de plus de 420 tuiles : trop loin (" .. tostring(why) .. ")")
   local nospec = { rapatriement = { key = "1:o1", item = "A", flow = 0.8, arm = nil, pole = "small-electric-pole", belt = "transport-belt", chest = CHEST,
     src = { pid = 1, idx = 1, x = 150, y = 20 }, point = { x = 24, y = 14 } } }
   local p4 = { id = 22, spec = nospec, state = "plan", parts = {}, ents = {}, wires = {}, stock = {}, quais = {}, outs = {}, obstacles = {}, fails = 0 }
-  ok, why = Rap.plan(plan_api(f3, b3), f3, W3.surface, p4)
+  ok, why = plan_full(plan_api(f3, b3), f3, W3.surface, p4)
   check(ok == false and tostring(why):find("pieces", 1, true), "G4.6 pieces inconnues : refus")
 end
 
@@ -352,7 +382,7 @@ do
   for _, pid in ipairs(b.order) do if b.projects[pid].spec.rapatriement then first = b.projects[pid] break end end
   check(first ~= nil, "G6.1 une premiere ligne demandee")
   if first then
-    local ok = Rap.plan(plan_api(f, b), f, W.surface, first)
+    local ok = plan_full(plan_api(f, b), f, W.surface, first)
     check(ok == true, "G6.2 premiere ligne planifiee")
     first.state = "fini"
     local tx, ty = first.p_tampon_x, nil
@@ -372,7 +402,7 @@ do
     end
     check(second and second.spec.rapatriement.reuse ~= nil, "G6.3 la 2e ligne vise le tampon deja pose")
     if second then
-      local ok2, why2 = Rap.plan(plan_api(f, b), f, W.surface, second)
+      local ok2, why2 = plan_full(plan_api(f, b), f, W.surface, second)
       check(ok2 == true, "G6.4 2e ligne planifiee (" .. tostring(why2) .. ")")
       local nchest = 0
       for _, e in ipairs(second.ents) do if e.role == "tampon" then nchest = nchest + 1 end end
@@ -400,7 +430,7 @@ do
     for _, pid in ipairs(b.order) do
       local p = b.projects[pid]
       if p.spec.rapatriement then
-        local ok = Rap.plan(plan_api(f, b), f, W.surface, p)
+        local ok = plan_full(plan_api(f, b), f, W.surface, p)
         local sig = {}
         for _, e in ipairs(p.ents) do sig[#sig + 1] = e.role .. ":" .. e.x .. ":" .. e.y .. ":" .. (e.dir or 0) end
         out[#out + 1] = tostring(ok) .. "|" .. table.concat(sig, ",")
@@ -412,6 +442,22 @@ do
   local a2, l2 = once()
   check(a1 ~= "" and a1 == a2, "G7.1 deux parties identiques : meme ligne, tuile pour tuile")
   check(l1 == l2, "G7.2 deux parties identiques : meme journal")
+end
+
+-- G7b : un objet saturé au QG sans quai preneur n'est pas rapatrié, avec la cause écrite ----------------------------
+do
+  logs = {}
+  local W = new_world()
+  local f, b = new_team(W)
+  SETTING_ON = true
+  b.projects[2].quais, b.projects[3].quais = {}, {} -- aucun quai ne consomme l'objet
+  SKIP = function(item) return item == "A" end
+  run_cycles(f, b, W, 8, 400, 0)
+  SKIP = nil
+  local reqs = 0
+  for _, pid in ipairs(b.order) do if b.projects[pid].spec.rapatriement then reqs = reqs + 1 end end
+  check(reqs == 0, "G7b.1 objet sature, aucun quai : aucune ligne (" .. reqs .. ")")
+  check(logs_with("objet sature au QG") == 1, "G7b.2 la cause est ecrite une fois (" .. logs_with("objet sature au QG") .. ")")
 end
 
 -- G8 : une sortie qui ne se paie pas est écrite une fois, pas à chaque relevé ------------------------------------

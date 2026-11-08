@@ -29,6 +29,7 @@
 local L = require("shared.levels.config")
 local Cap = require("shared.ai3.capital")
 local Am = require("shared.ai3.amelioration") -- lot AMELIORATION : montée par bloc
+local Sw = require("shared.team.rebuild_sweep") -- lecture seule : ce qui manque encore aux projets rouverts (Sw.rebuild_needs)
 local Dg = require("shared.team.degel") -- lot AGES : le gel du centre n'est pas indéfini
 local Gen = require("shared.ai3.general")
 local R = require("shared.ai3.reglages")
@@ -149,6 +150,9 @@ local function machine_catalog()
       filters[#filters + 1] = { filter = "type", type = t, mode = #filters > 0 and "or" or nil }
     end
   end
+  for _, t in ipairs(R.RANG_TYPES) do -- lot AMELIORATION : tapis et bras
+    filters[#filters + 1] = { filter = "type", type = t, mode = #filters > 0 and "or" or nil }
+  end
   local list = #filters > 0 and game.get_filtered_entity_prototypes(filters) or {}
   local names = {}
   for n in pairs(list) do names[#names + 1] = n end
@@ -158,7 +162,14 @@ local function machine_catalog()
     local items = get(p, "items_to_place_this")
     local item = items and items[1] and items[1].name or nil
     local group = get(p, "fast_replaceable_group")
-    local speed = get(p, "crafting_speed")
+    local rang = false
+    for _, t in ipairs(R.RANG_TYPES) do if p.type == t then rang = true end end
+    local speed = get(p, "crafting_speed") or (rang and get(p, R.RANG_SPEED[p.type])) or nil
+    local reach = nil
+    if p.type == R.RANG_REACH.type then
+      local a, b = get(p, R.RANG_REACH.pickup), get(p, R.RANG_REACH.drop)
+      if a and b then reach = string.format("%.2f,%.2f>%.2f,%.2f", a[1] or a.x, a[2] or a.y, b[1] or b.x, b[2] or b.y) end
+    end
     local hidden = false
     pcall(function() hidden = p.has_flag("hidden") end)
     local cb = get(p, "collision_box")
@@ -170,7 +181,7 @@ local function machine_catalog()
       elseif get(p, "electric_energy_source_prototype") then energy = "electric"
       elseif get(p, "fluid_energy_source_prototype") then energy = "fluid"
       elseif get(p, "heat_energy_source_prototype") then energy = "heat" end
-      c.by[n] = { type = p.type, group = group, speed = speed, item = item, energy = energy, cats = cats,
+      c.by[n] = { type = p.type, group = group, speed = speed, item = item, energy = energy, cats = cats, rang = rang or nil, reach = reach,
         w = math.ceil(cb.right_bottom.x - cb.left_top.x - 1e-6), h = math.ceil(cb.right_bottom.y - cb.left_top.y - 1e-6) }
       c.names[#c.names + 1] = n
     end
@@ -214,20 +225,28 @@ local function scan_machines(f)
   local cat = machine_catalog()
   local surface = f.hq.surface
   local ents, refs = {}, {}
-  local function add(e, ref)
+  local blocks = {}
+  local function add(e, ref, block)
     if e and e.valid and e.unit_number and cat.by[e.name] then
       ents[e.unit_number] = e
       if ref then refs[e.unit_number] = ref end
+      blocks[e.unit_number] = block
     end
   end
-  for _, e in ipairs(f.smelters or {}) do add(e) end
+  for _, e in ipairs(f.smelters or {}) do add(e, nil, "qg") end
   local b = f.build
   if b and b.projects then
     for _, pid in ipairs(sorted_keys(b.projects)) do
       for _, pe in ipairs(b.projects[pid].ents or {}) do
         if pe.built and cat.by[pe.name] then
           local e = surface.find_entity(pe.name, { pe.x, pe.y })
-          if e and e.force.name == f.force then add(e, pe) end
+          if not (e and e.valid) and cat.by[pe.name].rang then
+            -- Tapis ou bras déjà monté : le plan garde le nom du rang 1, l'entité porte celui du rang supérieur (même type, même place).
+            for _, c in ipairs(surface.find_entities_filtered({ position = { pe.x, pe.y }, radius = 0.3, type = cat.by[pe.name].type, force = f.force })) do
+              if c.valid and cat.by[c.name] then e = c break end
+            end
+          end
+          if e and e.valid and e.force.name == f.force then add(e, pe, "p" .. pid) end
         end
       end
     end
@@ -236,7 +255,9 @@ local function scan_machines(f)
   local ws = defines.entity_status and defines.entity_status.working
   for _, id in ipairs(sorted_keys(ents)) do
     local e = ents[id]
-    list[#list + 1] = { id = id, name = e.name, working = ws ~= nil and e.status == ws }
+    -- Un tapis n'a pas d'état : il est « en marche » (sa montée rapporte à plein).
+    local st = e.status
+    list[#list + 1] = { id = id, name = e.name, working = (st == nil) or (ws ~= nil and st == ws), block = blocks[id] }
   end
   return { list = list, ents = ents, refs = refs }
 end
@@ -494,10 +515,17 @@ function Capital.log_blocs(f, c, d, tick)
   local rep = d and d.report
   if not rep then return end
   c.am_sig = c.am_sig or {}
+  c.refus = c.refus or {} -- lu par la vue « Cerveau » : DERNIER refus par bloc|famille { cause = mot fixe, tick }, un état par bloc du relevé
   local seen = {}
   for _, row in ipairs(rep) do
     local k = row.block .. "|" .. row.family
     seen[k] = true
+    if row.state == "refuse" then
+      local word = tostring(row.cause or ""):match("^[^:]+") or ""
+      if not c.refus[k] or c.refus[k].cause ~= word then c.refus[k] = { cause = word, tick = tick } end
+    else
+      c.refus[k] = nil
+    end
     local sig = Am.signature(row)
     if c.am_sig[k] ~= sig then
       c.am_sig[k] = sig
@@ -506,7 +534,7 @@ function Capital.log_blocs(f, c, d, tick)
   end
   -- Un bloc disparu du relevé (projet fini, détruit) : oublié, sa clé ne reste pas dans la sauvegarde.
   for _, k in ipairs(sorted_keys(c.am_sig)) do
-    if not seen[k] then c.am_sig[k] = nil end
+    if not seen[k] then c.am_sig[k], c.refus[k] = nil, nil end
   end
 end
 
@@ -564,6 +592,7 @@ function Capital.goal(f, view, book, tick, w)
     threat = view.threatened or (f.pvp and f.pvp.declared) or false, current = c.current and c.current.key or nil,
     exclude = exclude, defer = c.defer, thaw = (c.thaw and c.thaw.active) or false, tick = tick,
     blocs = (census.list ~= nil and Capital.blocs_on()) or nil, -- lot AMELIORATION
+    recon = Capital.blocs_on() and Capital.recon_needs(f) or nil, -- gel de la reconstruction levé sauf manque, objet par objet
     need = function(block)
       -- Un bloc de projet dont le produit manque (f.team.ia3.short, comme repli_opts de la capitalisation) monte d'abord.
       local pid = tonumber(tostring(block):match("^p(%d+)$"))
@@ -715,6 +744,7 @@ local function replace_one(f, c, e, to)
   if Stock.count(f, tp.item) < 1 then return nil, "objet" end
   local surface = e.surface
   local args = { name = to, position = e.position, direction = e.direction, force = e.force }
+  if e.type == R.RANG_HALF then args.type = e.belt_to_ground_type end -- entrée ou sortie du souterrain
   if not surface.can_fast_replace(args) then return nil, "pas-remplacable" end
   local old_unit = e.unit_number
   local ratio = e.get_health_ratio() or 1
@@ -725,7 +755,7 @@ local function replace_one(f, c, e, to)
     if s == e then slot = i break end
   end
   local new = surface.create_entity({ name = to, position = args.position, direction = args.direction, force = args.force,
-    fast_replace = true, spill = false, raise_built = true, create_build_effect_smoke = false })
+    type = args.type, fast_replace = true, spill = false, raise_built = true, create_build_effect_smoke = false })
   if not (new and new.valid and new.name == to) then return nil, "echec" end
   if e.valid then
     -- Posée par-dessus sans rien remplacer (F86, hors grille) : annulé, l'ancienne reste.
@@ -742,7 +772,8 @@ local function replace_one(f, c, e, to)
     State.disown(old_unit)
     State.own(new, f.id, owner.kind, owner.oid)
   end
-  if ref then ref.name = to end
+  -- Le plan garde le nom du rang 1 pour un tapis ou un bras (M.size ne connaît pas tous les rangs ; la reconstruction cherche par TYPE).
+  if ref and not tp.rang then ref.name = to end
   return new
 end
 
@@ -810,6 +841,18 @@ function Capital.thaw_step(f, held, tick)
       (s1 and s1.was == false) and "tenue" or "sous le plancher"))
   end
   return c.thaw.active
+end
+
+--- Lot AMELIORATION : ce que la reconstruction des projets rouverts prendra encore au coffre, { [objet] = quantité } (nil : rien). Lecture
+--- seule du lot reconstruction (shared/team/rebuild_sweep.lua, Sw.rebuild_needs).
+function Capital.recon_needs(f)
+  local b = f.build
+  if not (b and b.projects and b.order) then return nil end
+  local list = Sw.rebuild_needs(b.projects, b.order)
+  if #list == 0 then return nil end
+  local m = {}
+  for _, it in ipairs(list) do m[it[1]] = it[2] end
+  return m
 end
 
 --- Lot AMELIORATION : monte UN bâtiment de votre équipe d'un niveau, payé avec son COFFRE d'équipe (jamais le coffre du centre du joueur,

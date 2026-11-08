@@ -89,10 +89,21 @@ function Ds.view(f, fortify_open, out, stock, hq_turrets, outposts)
   local turrets, placed = turrets_of(f)
   local zones = {}
   local seen = {}
+  local hq = f.hq_pos
+  local posts = {} -- avant-postes de l'équipe : leurs tournées de ravitaillement passent près d'eux
+  for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
+    local po = f.outposts[oid]
+    if po and po.pos then posts[#posts + 1] = po.pos end
+  end
+  local served_r2 = Ds_rule.SERVED_R * Ds_rule.SERVED_R
   local function add(z)
     if seen[z.key] then return end
     seen[z.key] = true
     z.have = Fr.count_near(turrets, z.x, z.y, near)
+    z.dist = hq and math.floor(math.sqrt((z.x - hq.x) ^ 2 + (z.y - hq.y) ^ 2)) or 0
+    for _, p in ipairs(posts) do
+      if (z.x - p.x) ^ 2 + (z.y - p.y) ^ 2 <= served_r2 then z.served = true break end
+    end
     zones[#zones + 1] = z
   end
   -- 1. le QG d'une faction qui en a perdu des tourelles (le plus haut nombre vu, f.team.hq_peak)
@@ -134,18 +145,34 @@ function Ds.view(f, fortify_open, out, stock, hq_turrets, outposts)
     if st.rest[key] > tick then rest[key] = true else st.rest[key] = nil end
   end
   local types = asset_types()
+  -- carte du danger de l'équipe (IA3-k) : la porte des tâches refuserait d'y envoyer un PNJ au-delà du seuil de blocage
+  local Cp = package.loaded["script.ai3.comportement"]
+  local Dg = package.loaded["shared.ai3.danger"]
+  local dmap, block
+  if Cp and Cp.team and Dg then
+    local t = Cp.team(f)
+    dmap = t and t.map or nil
+    block = Dg.block((Cp.character(f)))
+  end
   local function allow(row)
     local c = st.chk[row.key]
-    if c and tick - c.t < Ds.CHECK_EVERY then return c.ok end
+    if c and tick - c.t < Ds.CHECK_EVERY then return c.ok, c.why end
     local pos = { x = row.x, y = row.y }
-    local ok = true
+    local ok, why = true, nil
     if row.kind == "attaque" then
       ok = surface.count_entities_filtered({ position = pos, radius = Fr.ASSET_R, force = f.force, type = types, limit = 1 }) > 0
+      if not ok then why = "sans_batiment" end
     end
-    -- le QG se renforce sous l'attaque (les PNJ y sont chez eux) ; ailleurs, aucun ennemi sur place
-    if ok and row.kind ~= "qg" then ok = surface.find_nearest_enemy({ position = pos, max_distance = Fr.CALM_R, force = f.force }) == nil end
-    st.chk[row.key] = { t = tick, ok = ok }
-    return ok
+    -- le QG se renforce sous l'attaque (les PNJ y sont chez eux) ; ailleurs, aucun ennemi sur place et une case non bloquée par la carte du danger
+    if ok and row.kind ~= "qg" then
+      if surface.find_nearest_enemy({ position = pos, max_distance = Fr.CALM_R, force = f.force }) ~= nil then
+        ok, why = false, "ennemi"
+      elseif dmap and Dg.danger_at(dmap, row.x, row.y, tick) >= block then
+        ok, why = false, "danger"
+      end
+    end
+    st.chk[row.key] = { t = tick, ok = ok, why = why }
+    return ok, why
   end
   local fpick = out and out.front and out.front.pick
   local plan = Ds_rule.plan({
@@ -160,12 +187,26 @@ function Ds.view(f, fortify_open, out, stock, hq_turrets, outposts)
         say(f, st, "refus:" .. tostring(r.key), r.skip .. ":" .. r.have,
           "refus a %.1f min : lieu %s (%s) en (%.0f, %.0f) ; stock %d (reserve %d), surplus %d ; a portee %d sur %d voulue(s), score %d ; cause %s%s",
           tick / 3600, tostring(r.key), r.kind, r.x, r.y, have_stock, Ds_rule.RESERVE, plan.surplus, r.have, r.want, r.score, r.skip,
-          r.why and (" (" .. r.why .. ")") or "")
+          r.why and (" (" .. r.why .. ")") or (r.skip == "loin" and string.format(" (%d tuiles du QG, hors des avant-postes)", r.dist) or ""))
       end
     end
   end
-  st.rows, st.rows_tick, st.placed = plan.rows, tick, placed
+  -- lignes lues en lecture seule par la vue du débogueur (nombres et mots fixes, bornées) : key, kind, x, y, score, have, want, dist,
+  -- skip (cause), why (mot fixe d'un refus), tick (dernière évaluation)
+  local keep = {}
+  for i, r in ipairs(plan.rows) do
+    if i > 24 then break end
+    r.tick = tick
+    keep[#keep + 1] = r
+  end
+  st.rows, st.rows_tick, st.placed = keep, tick, placed
   return { pick = pick, busy = busy, surplus = plan.surplus }
+end
+
+--- Tourelles déjà posées par le poste (plafond du poste ; lu par script/team/intermediaires.lua pour le plafond de fabrication).
+function Ds.placed(f)
+  local _, n = turrets_of(f)
+  return n
 end
 
 --- Pose des tourelles de la tâche (emplacements de la règle, refus au-delà de Fr.ACCEPT tuiles du centre).

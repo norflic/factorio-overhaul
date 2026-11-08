@@ -77,6 +77,16 @@ R.UNIT_TYPE_LIST = { "spider-vehicle", "unit" }
 -- Lot INDUSTRIE I4 : voir le point 9 de l'en-tête.
 R.SOURCE_CAP = { ["furnace"] = 1 }
 R.KIT_TYPE = { ["inserter"] = "bras", ["transport-belt"] = "tapis", ["container"] = "coffre", ["electric-pole"] = "poteau" }
+-- Lot AMELIORATION : types du moteur dont le RANG se lit à une vitesse des données et qui se remplacent sur place (même groupe de
+-- remplacement rapide) : tapis, tapis souterrain, répartiteur (vitesse de tapis), bras (vitesse de rotation). Types du moteur seulement ;
+-- le rang d'un objet ne se lit jamais à son nom. Les bras ne changent que vers un bras de MÊME portée (prise et dépôt identiques).
+R.RANG_TYPES = { "inserter", "splitter", "transport-belt", "underground-belt" }
+-- Attribut du prototype qui porte la vitesse de chaque type de rang ; type du bras (portée = prise et dépôt) ; type de la moitié de
+-- souterrain (entrée ou sortie à redire au remplacement).
+R.RANG_SPEED = { inserter = "inserter_rotation_speed", splitter = "belt_speed", ["transport-belt"] = "belt_speed", ["underground-belt"] = "belt_speed" }
+R.RANG_REACH = { type = "inserter", pickup = "inserter_pickup_position", drop = "inserter_drop_position" }
+R.RANG_HALF = "underground-belt"
+
 -- Ordre de lecture des types (le moteur rend les prototypes dans une table : l'ordre de lecture est fixé ici).
 R.ENTITY_TYPES = {}
 for k in pairs(R.ENTITY_ROLE) do R.ENTITY_TYPES[#R.ENTITY_TYPES + 1] = k end

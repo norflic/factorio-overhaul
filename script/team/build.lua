@@ -4344,6 +4344,10 @@ local function advance(f, surface, p, tick)
       p.masq_n = nil
       p.plan_after = tick + Build.NET_WAIT_TICKS
       p.state, p.reason = "attente", why
+    elseif wait == "tranche" then
+      -- lot RAPATRIEMENT : la recherche du tracé continue à la pensée suivante (Rap.plan la garde en mémoire locale) ; rien n'est réservé avant la fin
+      p.plan_after = tick + Build.Rapatriement.SLICE_WAIT
+      p.state, p.reason = "attente", why
     elseif wait == "loin" then
       -- lot PD-CENTRALE : centrale lointaine, recherche de l'eau en cours (budget de la passe épuisé), rive écartée (ligne
       -- impossible) ou terrain de la ligne en génération : tout ce qui a été réservé est rendu, nouvel essai plus tard
@@ -5397,13 +5401,13 @@ remote.add_interface("fo-ia1d", {
   end,
   --- Lot TV-ENERGIE (BANC SEULEMENT, micro-banc tv-energie-kw) : pose comme centrale FINIE de l'équipe un projet dont les pièces sont des entités
   --- RÉELLES déjà créées par le banc (ents = { { name, x, y } }) : le relevé de la centrale (PA.watch, Sante.observe) les lit au moteur.
-  bench_plant = function(key, ents)
+  bench_plant = function(key, ents, gen)
     local f = team_of_key(key)
     local b = f and f.build
     if not (b and type(ents) == "table") then return nil end
     local id = b.next_id
     b.next_id = id + 1
-    local p = { id = id, spec = { gen = "steam", args = { 1 }, feed = true, plant = true, bench = "remote" }, state = "fini", created = game.tick,
+    local p = { id = id, spec = { gen = gen, args = { 1 }, feed = true, plant = true, bench = "remote" }, state = "fini", created = game.tick,
       finished = game.tick, reason = nil, parts = { { kind = "centrale", ox = ents[1] and ents[1].x or 0, oy = ents[1] and ents[1].y or 0, w = 3, h = 3, k = 0 } }, ents = {}, wires = {}, stock = {}, quais = {}, outs = {},
       obstacles = {}, fails = 0, prio = Build.PRIO, domain = "infrastructures" }
     for _, e in ipairs(ents) do p.ents[#p.ents + 1] = { name = e.name, x = e.x, y = e.y, built = true } end

@@ -30,8 +30,7 @@ local Conv = require("script.team.convoyeurs")
 local Stock = require("script.team.stock")
 local Rsv = require("script.ai3.reserve")
 local Registry = require("script.companion.registry")
-local okTv, Tv = pcall(require, "shared.team.traversee") -- lot TRAVERSEE, si fusionné (preuve d'un tracé à souterrains) ; chargé ici, jamais pendant un événement
-if not okTv then Tv = nil end
+local LAST_SEARCH = -1 -- tick de la dernière recherche de branche (local au module, jamais dans global)
 
 local Piquage = {}
 
@@ -39,6 +38,8 @@ Piquage.MAX_TRACK = 12     -- tuiles suivies au plus par quai
 Piquage.MAX_SCAN = 300     -- tapis lus au plus à une découverte
 Piquage.DISC_EVERY = 10 * 3600 -- ticks entre deux découvertes pour un quai (s'il suit moins de MAX_TRACK tuiles)
 Piquage.EMPTY_RETRY = 3 * 3600 -- ... ou 3 min quand aucune tuile n'est suivie (le tapis peut se remplir plus tard : micro-banc 8/11, découverte unique à t=0 sur un tapis vide)
+Piquage.ROUTE_WEIGHT = 1.4 -- A* pondéré de la branche : au plus 1,4 fois le meilleur tracé, bien moins de noeuds
+Piquage.ROUTE_NODES = 300  -- noeuds développés au plus par recherche (~870 instructions chacun mesurées : ~0,26 million, test « pire cas borné »)
 Piquage.SPLIT_TRIES = 3    -- poses du répartiteur au plus par liaison
 Piquage.EVAL_MAX = 3       -- quais évalués (lecture des côtés libres) au plus par relevé
 
@@ -268,13 +269,25 @@ local function discover(f, surface, st, d, tick)
       end
     end
   end
+  -- lignes des AUTRES projets finis du plan (sorties de modules, lignes de fonderie, champs) : sources aussi, hors têtes d'alimentation (rôle « tete »),
+  -- hors souterrains, hors branches de piquage et hors projet du quai lui-même. Sans cela une partie avancée n'a aucun tapis « hors plan »
+  -- (dcsave du 8/11 : « aucune_source » pour 14 à 21 quais par équipe). Le surplus seul passe au quai (priorité de sortie sur la ligne).
+  local plan_ok = {}
+  for _, pid in ipairs(f.build.order) do
+    local q = f.build.projects[pid]
+    if q and q.state == "fini" and q.id ~= d.pid and not (q.spec and q.spec.liaison and q.spec.liaison.piquage) then
+      for _, e in ipairs(q.ents or {}) do
+        if e.role ~= "tete" and not e.type and e.name and Conv.is_belt(e.name) then plan_ok[math.floor(e.x) .. ":" .. math.floor(e.y)] = true end
+      end
+    end
+  end
   local found = {}
   for _, e in ipairs(ents) do
     local tx, ty = math.floor(e.position.x), math.floor(e.position.y)
     local key = tx .. ":" .. ty
     -- les tapis du PLAN directeur (tuiles réservées par un projet : têtes de quai, lignes de modules, champs, liaisons) ne sont jamais piqués,
     -- sauf ceux que leur projet déclare piquables (opt_in) : seuls comptent les tapis posés hors plan (par le joueur, ou à la main par l'équipe)
-    if not tr.tiles[key] and (not f.build.occ[P.tkey(tx, ty)] or opt_in[key] == d.item) then
+    if not tr.tiles[key] and (not f.build.occ[P.tkey(tx, ty)] or opt_in[key] == d.item or plan_ok[key]) then
       local s = sample_belt(e, d.item)
       if s.count > 0 and s.other == 0 then
         found[#found + 1] = { key = key, x = tx, y = ty, dir = e.direction, sample = s, m = Li.manhattan(tx, ty, d.x, d.y) }
@@ -534,25 +547,6 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
     local l = st.links[d.key]
     if l and l.done then piques = piques + 1 elseif linked_by_liaison(b, d.key) then linked = linked + 1 end
   end
-  local alive = {}
-  for _, d in ipairs(c.docks) do alive[d.key] = true end
-  for _, k in ipairs(sorted_keys(st.quais)) do
-    if not alive[k] and not st.links[k] then st.quais[k] = nil end
-  end
-  st.bilan = { quais = #c.docks, tapis = linked, piquage = piques, tournees = c.tours, objets = c.items, tick = tick }
-  if #c.docks > 0 and tick >= st.log_next then
-    st.log_next = tick + Li.LOG_EVERY
-    local tally = {}
-    for _, d in ipairs(c.docks) do
-      local q = st.quais[d.key]
-      local k = q and (q.verdict .. "/" .. q.cause) or "non_vu"
-      tally[k] = (tally[k] or 0) + 1
-    end
-    local parts = {}
-    for _, k in ipairs(sorted_keys(tally)) do parts[#parts + 1] = k .. " " .. tally[k] end
-    say(f, Pq.bilan_line(f.key, { docks = #c.docks, linked = linked, piques = piques, tours = c.tours, items = c.items, minutes = minutes(tick),
-      causes = table.concat(parts, ", ") }))
-  end
   -- quais candidats : débit, pas déjà servis, qui peuvent se payer au mieux (tapis à 6 tuiles)
   local order = {}
   for _, d in ipairs(c.docks) do
@@ -638,8 +632,10 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
             st.tries[d.key] = (st.tries[d.key] or 0) + 1
             st.last_try[d.key] = tick
             local g = Pq.geometry(top.x, top.y, top.dir, top.side)
+            st.site_i = st.site_i or {}
+            st.site_i[d.key] = ((st.site_i[d.key] or 0) % Li.ROUTE_TRIES) + 1 -- le site du bras du quai tourne à chaque demande
             local spec = { liaison = { piquage = true, key = d.key, item = d.item, flow = d.flow, arm = arm, pole = pole, belt = belt, split = sp.name,
-              extra = { item = sp.item }, geo = g, dock = { pid = d.pid, idx = d.idx, x = d.x, y = d.y } },
+              extra = { item = sp.item }, geo = g, site_i = st.site_i[d.key], dock = { pid = d.pid, idx = d.idx, x = d.x, y = d.y } },
               prio = api.prio, domain = "infrastructures", pile = "capital", product = d.item }
             local id = api.request(f, spec)
             if id then
@@ -661,6 +657,26 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
     end
   end
   for _, k in ipairs(sorted_keys(st.seen)) do if not seen_now[k] then st.seen[k] = nil end end
+  -- bilan APRÈS l'examen des quais de ce relevé (avant, « non_vu » comptait les quais pas encore examinés)
+  local alive = {}
+  for _, d in ipairs(c.docks) do alive[d.key] = true end
+  for _, k in ipairs(sorted_keys(st.quais)) do
+    if not alive[k] and not st.links[k] then st.quais[k] = nil end
+  end
+  st.bilan = { quais = #c.docks, tapis = linked, piquage = piques, tournees = c.tours, objets = c.items, tick = tick }
+  if #c.docks > 0 and tick >= st.log_next then
+    st.log_next = tick + Li.LOG_EVERY
+    local tally = {}
+    for _, d in ipairs(c.docks) do
+      local q = st.quais[d.key]
+      local k = q and (q.verdict .. "/" .. q.cause) or "non_vu"
+      tally[k] = (tally[k] or 0) + 1
+    end
+    local parts = {}
+    for _, k in ipairs(sorted_keys(tally)) do parts[#parts + 1] = k .. " " .. tally[k] end
+    say(f, Pq.bilan_line(f.key, { docks = #c.docks, linked = linked, piques = piques, tours = c.tours, items = c.items, minutes = minutes(tick),
+      causes = table.concat(parts, ", ") }))
+  end
 end
 
 --- api = { request = Build.request, prio, fill = Build.QUAI_FILL, low = Build.QUAI_LOW }.
@@ -761,41 +777,32 @@ function Piquage.plan(api, f, surface, p)
   end)
   if #sites == 0 then return false, "piquage: aucune place pour un bras contre le coffre du quai" end
   local bounds = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }
-  local last_why = "aucun chemin"
-  local chosen
   local function start_ok(x, y) return inside(x, y) and not (masks.water[P.tkey(x, y)] or masks.blocked[P.tkey(x, y)] or b.occ[P.tkey(x, y)] or solid[P.tkey(x, y)]) end
   if not start_ok(g.branch.x, g.branch.y) then return false, "piquage: la sortie du repartiteur n'est pas libre" end
-  for i, site in ipairs(sites) do
-    if i > Li.ROUTE_TRIES then break end
-    planned = { [P.tkey(site.ax, site.ay)] = true }
-    local function cost(x, y)
-      if x == g.branch.x and y == g.branch.y then return 1 end
-      if not free(x, y) then return nil end
-      local k = P.tkey(x, y)
-      local cst = 1
-      if P.in_street(b.lat, x, y) then cst = P.STREET_COST end
-      if masks.clear[k] then cst = cst + 1 end
-      return cst
-    end
-    -- lot TRAVERSEE (si fusionné : api.trav = Build.Trav) : un obstacle court est franchi par une paire de souterrains, le gisement évité ; sinon
-    -- l'A* d'avant. Même forme de retour : tuiles { x, y, dir [, ug = "input" | "output"] }, raison, noms { ug, maxd }.
-    local tiles, why, tnames
-    if api.trav then
-      tiles, why, tnames = api.trav.route(f, surface, p, { x = g.branch.x, y = g.branch.y }, { x = site.bx, y = site.by }, Li.end_dir(site), bounds, cost,
-        { belt = lc.belt, sd = g.dir, kind = "piquage" })
-    else
-      tiles, why = P.belt_route({ x = g.branch.x, y = g.branch.y }, { x = site.bx, y = site.by }, Li.end_dir(site), bounds, cost)
-    end
-    if tiles then
-      local ok, w2 = Li.route_ok(#tiles, Li.manhattan(g.branch.x, g.branch.y, site.bx, site.by))
-      if ok then chosen = { site = site, tiles = tiles, names = tnames } break end
-      last_why = w2
-    else
-      last_why = tostring(why)
-    end
+  -- COÛT BORNÉ (8/11, gels de 50 à 400 ms mesurés dans la partie du DC) : UNE recherche de branche par appel et par tick, sur UN site (celui que
+  -- demande lc.site_i ; les autres attendent le relevé suivant, qui tourne le site), un A* pondéré (Piquage.ROUTE_WEIGHT) plafonné en noeuds
+  -- (Piquage.ROUTE_NODES), sortie au premier « aucun chemin » ou « trop long ». Trav.route n'est PAS appelé : avec un gisement sur le tracé il lance
+  -- jusqu'à 5 recherches (mesuré hors jeu : 5,4 millions d'instructions contre 0,13 million sans gisement, tests/piquage_script_test.lua §7).
+  if LAST_SEARCH == game.tick then return false, "piquage: une recherche de branche par tick, la suivante au prochain passage", "calcul" end
+  local site = sites[((lc.site_i or 1) - 1) % #sites + 1]
+  planned = { [P.tkey(site.ax, site.ay)] = true }
+  local function cost(x, y)
+    if x == g.branch.x and y == g.branch.y then return 1 end
+    if not free(x, y) then return nil end
+    local k = P.tkey(x, y)
+    local cst = 1
+    if P.in_street(b.lat, x, y) then cst = P.STREET_COST end
+    if masks.clear[k] then cst = cst + 1 end
+    return cst
   end
-  if not chosen then return false, "piquage: " .. last_why end
-  local site, tiles = chosen.site, chosen.tiles
+  LAST_SEARCH = game.tick
+  local tiles, why = P.belt_route({ x = g.branch.x, y = g.branch.y }, { x = site.bx, y = site.by }, Li.end_dir(site), bounds, cost,
+    { weight = Piquage.ROUTE_WEIGHT, max = Piquage.ROUTE_NODES })
+  if not tiles then return false, "piquage: " .. tostring(why) end
+  do
+    local ok, w2 = Li.route_ok(#tiles, Li.manhattan(g.branch.x, g.branch.y, site.bx, site.by))
+    if not ok then return false, "piquage: " .. w2 end
+  end
   -- le prix réel du tracé : un tracé plus long que l'estimation ne doit pas ruiner le retour (même calcul que la décision)
   local okw, ww = Pq.worth({ flow = lc.flow, dist = dist_hq(f, dock.x, dock.y), tiles = #tiles, fill = api.fill or 400, low = api.low or 60 })
   if not okw then return false, "piquage: " .. ww end
@@ -804,20 +811,8 @@ function Piquage.plan(api, f, surface, p)
   for _, t in ipairs(tiles) do planned[P.tkey(t.x, t.y)] = true; taken[t.x .. ":" .. t.y] = true end
   local px, py = Li.pole_tile(site, free, taken)
   if not px then return false, "piquage: aucune place pour un poteau contre le bras" end
-  local names = { arm = lc.arm, belt = lc.belt, pole = lc.pole }
-  local ents = Pq.entities({ geo = g, dst = site, route = tiles, names = names, pole = { px, py } })
-  local has_ug = api.trav and chosen.names and chosen.names.ug
-  local vroute = tiles
-  if has_ug and Tv and Tv.virtual_belts then vroute = Tv.virtual_belts(tiles) end -- une paire souterraine = des tapis droits entre l'entrée et la sortie
-  local bad = Pq.verify(g, has_ug and Pq.entities({ geo = g, dst = site, route = vroute, names = names, pole = { px, py } }) or ents, D,
-    function(x) return x.role == "liaison-tapis" end, function(x) return x.role == "liaison-bras" end)
-  if has_ug and #bad == 0 then
-    -- les pièces réelles du tracé (entrées et sorties de souterrain comprises) viennent de Trav.entities ; bras et poteau gardés
-    local real = {}
-    for _, e in ipairs(ents) do if e.role ~= "liaison-tapis" then real[#real + 1] = e end end
-    for _, e in ipairs(api.trav.entities(tiles, { belt = lc.belt, ug = chosen.names.ug }, "liaison-tapis")) do real[#real + 1] = e end
-    ents = real
-  end
+  local ents = Pq.entities({ geo = g, dst = site, route = tiles, names = { arm = lc.arm, belt = lc.belt, pole = lc.pole }, pole = { px, py } })
+  local bad = Pq.verify(g, ents, D, function(x) return x.role == "liaison-tapis" end, function(x) return x.role == "liaison-bras" end)
   if #bad > 0 then return false, "piquage: geometrie fausse (" .. bad[1] .. ")" end
   for _, x in ipairs(ents) do x.part = 1 end
   if not api.reserve_tiles(b, p, ents) then return false, "place" end

@@ -1230,7 +1230,9 @@ TT.e6 = function(f, surface, tick, et)
   Profiler.fstart("tt:capital")
   -- Lot SANS-GEL : plus de gel des améliorations après une réouverture ; la reconstruction ne retient que sa matière (Recon.upgrade_stock).
   -- (Intégration 0.6.19 : garde de la pile ET stock libre de SANS-GEL, les deux gardés.)
-  local recon_hold = ia3 and Recon.hold_upgrades(f)
+  -- Lot AMELIORATION (décision du lead, 8/11) : avec la montée par bloc, le gel est LEVÉ sauf manque : le lot est permis si le stock couvre
+  -- son coût PLUS les pièces manquantes des projets rouverts, objet par objet (shared/ai3/amelioration.lua, cause reconstruction:<objet>).
+  local recon_hold = ia3 and Recon.hold_upgrades(f) and not Ia3.blocs_on()
   -- Lot AGES : le gel du centre n'est pas indéfini (shared/team/degel.lua) : au-delà de 20 min de gel cumulées, et la défense minimale du QG
   -- tenue, le centre (lui seul) se paie avec le stock moins la réserve de la reconstruction (SANS-GEL).
   local thaw = ia3 and (pile_hold or recon_hold) and Ia3.capital_thaw(f, true, tick)

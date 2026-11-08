@@ -199,6 +199,18 @@ fire(defines.events.on_built_entity, { created_entity = a3 })
 check(#Src.list(f, "sortie") == 1, "bras posé avant son coffre inconnu : rien encore")
 fire(defines.events.script_raised_built, { entity = c2 })
 check(#Src.list(f, "sortie") == 2, "le coffre posé ensuite étudie les bras voisins : sortie")
+-- bras dont la cible n'est pas encore résolue (drop_target nil) mais dont le point de dépôt tombe sur le coffre : le coffre est trouvé par la position
+do
+  local c5 = chest(120, 0, { [PLATE] = 50 })
+  fire(defines.events.on_built_entity, { created_entity = c5 })
+  local a5 = arm(121, 0, nil, nil)
+  a5.drop_position = { x = 120.1, y = 0 }
+  a5.pickup_position = { x = 122, y = 0 }
+  fire(defines.events.on_built_entity, { created_entity = a5 })
+  check(f.team.sources.chests[c5.unit_number].nf == 1, "drop_target nil : le coffre au point de dépôt est retrouvé (banc 14 h)")
+  fire(defines.events.on_player_mined_entity, { entity = a5 })
+  fire(defines.events.script_raised_destroy, { entity = c5 })
+end
 -- foreuse qui dépose dans un coffre
 local c3 = chest(100, 0, { [ORE] = 40 })
 local drill = { valid = true, unit_number = 9000, type = "mining-drill", name = "electric-mining-drill", position = { x = 101, y = 1 }, force = { name = "player" },

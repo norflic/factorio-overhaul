@@ -36,6 +36,7 @@ package.loaded["script.faction.state"] = {
   faction = function() return FACTION end, alive = function() return {} end,
 }
 package.loaded["script.team.convoyeurs"] = {
+  is_belt = function(n) return n == "transport-belt" end,
   belts = function() return { { name = "transport-belt", speed = 0.03125, item = "transport-belt" } } end,
   choose = function() return "transport-belt" end,
 }
@@ -149,6 +150,10 @@ chest(20, 14, 10)
 for x = 21, 23 do belt(x, 16, 2, { X = 4 }, { X = 4 }) end
 -- une ligne de liaison FINIE (tuiles du plan, réservées) : ses tapis sont des sources pour les autres quais ; sa tuile (19,10) est celle que le piquage remplacera
 for x = 21, 23 do belt(x, 18, 2, { X = 4 }, { X = 4 }) end
+-- lignes d'un AUTRE projet fini du plan (rôle « tapis » : source ; rôle « tete » : jamais) et du projet du quai lui-même (jamais)
+for x = 22, 24 do belt(x, 13, 2, { X = 4 }, { X = 4 }) end
+for x = 25, 27 do belt(x, 13, 2, { X = 4 }, { X = 4 }) end
+for x = 16, 18 do belt(x, 13, 2, { X = 4 }, { X = 4 }) end
 link_belts()
 local Pq = require("shared.team.piquage")
 local Li = require("shared.team.liaison")
@@ -164,6 +169,13 @@ local PROJL = { id = 5, state = "fini", spec = { liaison = { item = "X" } }, par
   { name = "transport-belt", x = 21.5, y = 18.5, dir = 2, role = "liaison-tapis", built = true },
   { name = "transport-belt", x = 22.5, y = 18.5, dir = 2, role = "liaison-tapis", built = true } } }
 B.projects[5] = PROJL
+local PROJM = { id = 6, state = "fini", spec = { gen = "y" }, parts = {}, quais = {}, outs = {}, ents = {} }
+for x = 22, 24 do PROJM.ents[#PROJM.ents + 1] = { name = "transport-belt", x = x + 0.5, y = 13.5, dir = 2, role = "tapis", built = true } end
+for x = 25, 27 do PROJM.ents[#PROJM.ents + 1] = { name = "transport-belt", x = x + 0.5, y = 13.5, dir = 2, role = "tete", built = true } end
+for x = 16, 18 do PROJ1.ents[#PROJ1.ents + 1] = { name = "transport-belt", x = x + 0.5, y = 13.5, dir = 2, role = "tapis", built = true } end
+B.projects[6] = PROJM
+B.order[#B.order + 1] = 6
+for x = 16, 27 do B.occ[P.tkey(x, 13)] = 6 end
 B.order[#B.order + 1] = 5
 B.occ[P.tkey(21, 18)], B.occ[P.tkey(22, 18)], B.occ[P.tkey(23, 18)] = 5, 5, 5
 FACTION.build = B
@@ -202,6 +214,8 @@ local tr = B.piquage.track["1:q1"]
 check(tr and #tr.order == Piquage.MAX_TRACK, "1.1 découverte : " .. Piquage.MAX_TRACK .. " tuiles suivies, les plus proches du quai")
 check(tr and tr.tiles["21:16"] == nil and tr.tiles["22:16"] == nil, "1.1 bis les tapis du plan (tuiles réservées) ne sont pas suivis")
 check(tr and tr.tiles["21:18"] ~= nil and tr.tiles["22:18"] ~= nil and tr.tiles["23:18"] == nil, "1.1 quater les tapis d'une liaison finie (tuiles du plan) sont des sources, pas ceux qu'elle ne déclare pas")
+check(tr and tr.tiles["22:13"] ~= nil and tr.tiles["25:13"] == nil and tr.tiles["16:13"] == nil,
+  "1.1 quinquies les lignes d'un autre projet fini sont des sources (22:13), pas ses têtes d'alimentation (25:13) ni les tapis du projet du quai (16:13)")
 check(tr and tr.tiles["23:16"] ~= nil, "1.1 ter un tapis du plan déclaré piquable par son projet (p.tapis_piquable) pour CET objet est suivi, pas pour un autre")
 check(tr and tr.tiles["20:10"] ~= nil and tr.tiles["20:10"].obs.n == 1 and tr.tiles["20:10"].obs.dense == 1, "1.2 la tuile en face du quai est suivie, 1 relevé dense")
 cycle()
@@ -235,6 +249,7 @@ local PLAN_API = {
   add_obstacle = function(p, o) p.obstacles[#p.obstacles + 1] = o end, item_of = function(name) return name end,
   seg_passable = function() return function() return true end end, REACH = 10,
 }
+game.tick = game.tick + 1
 local ok_plan, why_plan = Piquage.plan(PLAN_API, FACTION, SURF, P2)
 check(ok_plan == true, "3.1 le plan réussit" .. (ok_plan and "" or (" : " .. tostring(why_plan))))
 local nb, na, np = 0, 0, 0
@@ -270,34 +285,25 @@ do
   dock.linked = (({})[key] ~= nil) or (b_sim.piquage ~= nil and b_sim.piquage.links["7:q9"] ~= nil)
   check(dock.linked == false and #Li.pairs({ dock }, { src }) == 1, "3.0 ter un quai non piqué reste apparié")
 end
--- le tracé passe par le lot TRAVERSEE quand il est fusionné (api.trav) : appel, forme du retour, pièces rendues par Trav.entities
+-- COÛT BORNÉ : Trav.route n'est jamais appelé (jusqu'à 5 recherches avec un gisement sur le tracé), une seule recherche par appel et par tick
 do
-  local seen_call
-  local fake = {
-    route = function(f2, surface2, p2, s0, t0, tdir, bounds, cost, opts)
-      seen_call = { kind = opts and opts.kind, sd = opts and opts.sd, belt = opts and opts.belt, start = s0, goal = t0 }
-      local tiles = P.belt_route(s0, t0, tdir, bounds, cost)
-      return tiles, 0, { ug = "underground-belt", maxd = 5 }
-    end,
-    entities = function(tiles, names, role)
-      local out = {}
-      for _, t in ipairs(tiles) do out[#out + 1] = { name = names.belt, x = t.x + 0.5, y = t.y + 0.5, dir = t.dir, role = role } end
-      return out
-    end,
-  }
+  local called = 0
   local api2 = {}
   for k, v in pairs(PLAN_API) do api2[k] = v end
-  api2.trav = fake
-  local p4 = { id = 11, spec = REQ[1].spec, ents = {}, parts = {}, obstacles = {} }
+  api2.trav = { route = function() called = called + 1 return nil, "x" end, entities = function() return {} end }
   P2.abandoned = true -- (le projet 2 planifié plus haut ne doit pas compter comme tapis voisin dans ce second plan)
+  game.tick = game.tick + 1
+  local p4 = { id = 11, spec = REQ[1].spec, ents = {}, parts = {}, obstacles = {} }
   local ok4, w4 = Piquage.plan(api2, FACTION, SURF, p4)
+  check(ok4 == true and called == 0, "3.7 le plan réussit sans appeler Trav.route (appels : " .. called .. ")" .. (ok4 and "" or (" : " .. tostring(w4))))
+  local p5 = { id = 12, spec = REQ[1].spec, ents = {}, parts = {}, obstacles = {} }
+  local ok5, w5, wait5 = Piquage.plan(api2, FACTION, SURF, p5) -- même tick : pas de seconde recherche
+  check(ok5 == false and wait5 == "calcul" and tostring(w5):find("une recherche de branche par tick", 1, true),
+    "3.8 une seule recherche de branche par tick : la seconde attend (« calcul », le projet reprend au passage suivant)")
+  game.tick = game.tick + 1
+  local ok6 = Piquage.plan(api2, FACTION, SURF, p5)
+  check(ok6 == true, "3.9 le passage suivant planifie")
   P2.abandoned = nil
-  check(ok4 == true and seen_call and seen_call.kind == "piquage" and seen_call.sd == lc.geo.dir and seen_call.belt == "transport-belt",
-    "3.7 le tracé passe par Trav.route (kind piquage, sens de départ, tapis) quand il est là" .. (ok4 and "" or (" : " .. tostring(w4))))
-  check(seen_call and seen_call.start.x == lc.geo.branch.x and seen_call.start.y == lc.geo.branch.y, "3.8 le tracé part de la sortie du répartiteur")
-  local nb4 = 0
-  for _, e in ipairs(p4.ents) do if e.role == "liaison-tapis" then nb4 = nb4 + 1 end end
-  check(nb4 == nb, "3.9 mêmes pièces de tapis par Trav.entities que par le tracé direct : " .. nb4 .. " contre " .. nb)
 end
 -- plan refusé si le tapis source a disparu
 do
@@ -305,6 +311,7 @@ do
   for _, e in ipairs(ENTS) do if e.valid and e.type == "transport-belt" and math.floor(e.position.x) == g.tile.x and math.floor(e.position.y) == g.tile.y then keep = e end end
   keep.valid = false
   local p3 = { id = 9, spec = REQ[1].spec, ents = {}, parts = {}, obstacles = {} }
+  game.tick = game.tick + 1
   local ok3, w3 = Piquage.plan(PLAN_API, FACTION, SURF, p3)
   check(ok3 == false and tostring(w3):find("tapis source disparu", 1, true), "3.6 tapis source disparu : plan refusé, cause écrite (" .. tostring(w3) .. ")")
   keep.valid = true
@@ -323,10 +330,13 @@ local sp
 for _, e in ipairs(ENTS) do if e.name == "splitter" and e.valid then sp = e end end
 check(sp and sp.splitter_output_priority == g.priority, "4.3 priorité de sortie écrite sur le tapis PRINCIPAL : " .. tostring(sp and sp.splitter_output_priority))
 check(STOCK.splitter == 0 and STOCK["transport-belt"] == 1, "4.4 stock : répartiteur consommé, tapis remplacé rendu")
-local adopted = PROJL.ents[1]
-check(adopted.name == "splitter" and adopted.item == "splitter" and adopted.x == g.x and adopted.y == g.y and adopted.dir == g.dir,
-  "4.4 bis la pièce de tapis remplacée dans le plan de la liaison devient « répartiteur » (sinon la reconstruction la referait)")
-check(PROJL.ents[2].name == "transport-belt", "4.4 ter les autres pièces du plan de la liaison ne bougent pas")
+local n_adopted, adopted = 0, nil
+for _, q in ipairs({ PROJ1, PROJL, PROJM }) do
+  for _, e in ipairs(q.ents) do if e.piq then n_adopted = n_adopted + 1; adopted = e end end
+end
+check(n_adopted == 1 and adopted.name == "splitter" and adopted.item == "splitter" and adopted.x == g.x and adopted.y == g.y and adopted.dir == g.dir,
+  "4.4 bis la pièce de tapis remplacée dans le plan du projet propriétaire devient « répartiteur » (sinon la reconstruction la referait) : " .. n_adopted)
+check(#PROJL.ents == 3 and #PROJM.ents == 6, "4.4 ter aucune autre pièce de plan n'est ajoutée ni retirée")
 check(P2.piq_placed == true, "4.5 le projet sait que le répartiteur est posé (plus de besoin)")
 check(has_log("repartiteur pose : sur le tapis") ~= nil, "4.6 journal : repartiteur pose")
 check(CALLS.bar ~= nil and CALLS.bar == Li.bar(400, 100), "4.7 barre du coffre d'entrée posée")
@@ -378,6 +388,92 @@ do
   check(tile ~= nil, "5.4 tuile suivie")
   local obs = Pq.observe(Pq.observe(Pq.observe(nil, { count = 8, other = 0 }), { count = 8, other = 3 }), { count = 8, other = 0 })
   check(Pq.tile_verdict({ obs = obs, shape = "straight", back = true, front = true }) == false, "5.5 la règle refuse un tapis où un autre objet a été vu")
+end
+
+---------------------------------------------------------------------------------------------------
+-- §7 pire cas BORNÉ (instructions de la machine virtuelle, jamais le temps : os.clock est trop gros et dépend de la charge du PC)
+---------------------------------------------------------------------------------------------------
+local BUDGET = 300000 -- instructions du A* d'un appel de Piquage.plan : de l'ordre de 5 ms (cible du lead, ~60 millions d'instructions par seconde)
+belt(58, -30, 2, { X = 4 }, { X = 4 })
+link_belts()
+local function far_project(id)
+  local c = {}
+  for k, v in pairs(REQ[1].spec.liaison) do c[k] = v end
+  c.geo, c.site_i = Pq.geometry(58, -30, 2, "right"), 1
+  return { id = id, spec = { liaison = c }, ents = {}, parts = {}, obstacles = {} }
+end
+local WALL_API = {}
+for k, v in pairs(PLAN_API) do WALL_API[k] = v end
+WALL_API.read_masks = function()
+  local blocked = { [P.tkey(20, 14)] = true }
+  for y = -80, 80 do blocked[P.tkey(40, y)] = true end -- un mur sans passage entre le tapis source et le quai : la recherche explore tout ce qu'elle peut
+  return { water = {}, blocked = blocked, clear = {} }
+end
+-- instructions du seul A* (P.belt_route enveloppé) : le reste du plan dépend du moteur fictif de ce test, pas du mod
+local function instructions(mod, api, p)
+  local n = 0
+  local real = P.belt_route
+  P.belt_route = function(...)
+    local m = 0
+    debug.sethook(function() m = m + 1000 end, "", 1000)
+    local a, b = real(...)
+    debug.sethook()
+    n = n + m
+    return a, b
+  end
+  game.tick = game.tick + 1
+  local ok, why = mod.plan(api, FACTION, SURF, p)
+  P.belt_route = real
+  return n, ok, why
+end
+do
+  local n, ok, why = instructions(Piquage, WALL_API, far_project(30))
+  check(ok == false and (tostring(why):find("aucun chemin", 1, true) or tostring(why):find("trop long", 1, true)),
+    "7.1 mur sans passage : refus rapide, cause écrite (" .. tostring(why) .. ")")
+  check(n <= BUDGET, string.format("7.2 pire cas (boîte de 52 x 54, aucun chemin) : A* %d instructions <= %d", n, BUDGET))
+  local n2, ok2 = instructions(Piquage, PLAN_API, far_project(31))
+  check(n2 <= BUDGET, string.format("7.3 cas sans obstacle : %d instructions <= %d", n2, BUDGET))
+  check(Piquage.ROUTE_WEIGHT == 1.4 and Piquage.ROUTE_NODES <= 1000, "7.4 A* pondéré à 1,4, noeuds plafonnés (" .. Piquage.ROUTE_NODES .. ")")
+  -- mutants du script : le plafond de noeuds retiré, le garde « une recherche par tick » retiré
+  local SRC_S = read("script/team/piquage.lua")
+  local function load_script(src) local fn, err = load(src, "=piquage_script", "t"); assert(fn, err); return fn() end
+  local function smut(name, from, to, probe)
+    local src, cnt = SRC_S:gsub(from, to, 1)
+    if cnt == 0 then check(false, "mutant " .. name .. " : motif introuvable") return end
+    local okl, Pm = pcall(load_script, src)
+    if not okl then check(true, "mutant " .. name .. " (ne se charge pas)") return end
+    local okp, seen = pcall(probe, Pm)
+    check(not okp or seen, "mutant " .. name .. " vu")
+  end
+  smut("plafond de noeuds retiré", "Piquage%.ROUTE_NODES = 300", "Piquage.ROUTE_NODES = 1000000000",
+    function(Pm) local m = instructions(Pm, WALL_API, far_project(32)); return m > BUDGET end)
+  smut("heuristique non pondérée à noeuds illimités", "max = Piquage%.ROUTE_NODES", "max = 1000000000",
+    function(Pm) local m = instructions(Pm, WALL_API, far_project(33)); return m > BUDGET end)
+  smut("garde une recherche par tick retiré", "if LAST_SEARCH == game%.tick then", "if false then",
+    function(Pm)
+      game.tick = game.tick + 1
+      Pm.plan(PLAN_API, FACTION, SURF, far_project(34))
+      local ok = Pm.plan(PLAN_API, FACTION, SURF, far_project(35)) -- même tick
+      return ok == true or ok == false and select(3, Pm.plan(PLAN_API, FACTION, SURF, far_project(36))) ~= "calcul"
+    end)
+  smut("plusieurs sites essayés", "local site = sites%[%(%(lc%.site_i or 1%) %- 1%) %% #sites %+ 1%]", "local site = sites[1]",
+    function(Pm)
+      P2.abandoned = true
+      local function near(id, si)
+        local c = {}
+        for k, v in pairs(REQ[1].spec.liaison) do c[k] = v end
+        c.site_i = si
+        return { id = id, spec = { liaison = c }, ents = {}, parts = {}, obstacles = {} }
+      end
+      local function arm_of(p) for _, e in ipairs(p.ents) do if e.role == "liaison-bras" then return e end end end
+      game.tick = game.tick + 1
+      local pa = near(37, 1); Pm.plan(PLAN_API, FACTION, SURF, pa)
+      game.tick = game.tick + 1
+      local pb = near(38, 2); Pm.plan(PLAN_API, FACTION, SURF, pb)
+      P2.abandoned = nil
+      local a, b = arm_of(pa), arm_of(pb)
+      return a ~= nil and b ~= nil and a.x == b.x and a.y == b.y
+    end)
 end
 
 ---------------------------------------------------------------------------------------------------

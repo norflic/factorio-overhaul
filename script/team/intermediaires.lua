@@ -27,6 +27,8 @@ local State = require("script.faction.state")
 local Board = require("script.team.board")
 local Build = require("script.team.build")
 local Stock = require("script.team.stock")
+local Dsr = require("shared.team.defense_stock") -- lot DEFENSE-STOCK : plafond des tourelles fabriquées d'avance
+local DefStock = require("script.team.defense_stock")
 local Survie = require("script.team.survie")
 
 local Inter = {}
@@ -152,14 +154,26 @@ local function d10(f, s, list, tick)
     local cons = bilan[p] and bilan[p].c or 0
     local a = { cons = cons, demand = demand[p], feeders = feeders[p], reserve = reserve_of(f, p) }
     local cap = I.cap(a)
+    -- Lot DEFENSE-STOCK : les tourelles ne se fabriquent pas au-delà de ce que le poste « reserve » peut encore poser (réserve, places sous
+    -- son plafond, tourelles déjà réservées par des tâches, marge) : 485 tourelles dormaient au coffre de scarlet, rien ne les posait.
+    local why = ""
+    if p == T.turret then
+      local placed = DefStock.placed(f)
+      local c2 = Dsr.stock_cap(placed, a.demand)
+      if c2 < cap then
+        cap = c2
+        why = string.format(" ; plafond du poste reserve : reserve %d + places restantes %d + demande %d + marge %d", Dsr.RESERVE,
+          math.max(0, Dsr.TEAM_CAP - placed), math.floor(a.demand or 0), Dsr.MALL_MARGIN)
+      end
+    end
     local have = (f.hq and f.hq.valid) and Stock.count(f, p) or 0
     local prev = s.over[p] == true
     local now = I.over(prev, have, cap)
     if now ~= prev then
       s.over[p] = now or nil
-      log(string.format("[FO-INTERMEDIAIRE] %s : %s %s : stock %d, plafond %d (conso %.1f/min x %d min, demande %d, modules consommateurs %d, reserve %d ; repris sous %d), remplissages retires %d en tout a %.1f min",
+      log(string.format("[FO-INTERMEDIAIRE] %s : %s %s : stock %d, plafond %d (conso %.1f/min x %d min, demande %d, modules consommateurs %d, reserve %d ; repris sous %d), remplissages retires %d en tout a %.1f min%s",
         f.key or "player", p, now and "AU PLAFOND, module(s) plus nourri(s)" or "sous le plafond, module(s) de nouveau nourri(s)",
-        have, cap, cons, I.HORIZON, a.demand or 0, a.feeders or 0, a.reserve, math.floor(cap * I.RESUME), s.dropped_fill, minutes(f, tick)))
+        have, cap, cons, I.HORIZON, a.demand or 0, a.feeders or 0, a.reserve, math.floor(cap * I.RESUME), s.dropped_fill, minutes(f, tick), why))
     end
   end
   -- Produits qui ne sont plus suivis (module retiré) : décision oubliée.

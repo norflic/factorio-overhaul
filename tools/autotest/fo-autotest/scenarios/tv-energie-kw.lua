@@ -52,7 +52,7 @@ return {
   tick = function(ctx, e)
     local st = ctx.state()
     if e.tick == 60 then
-      st.plant_id = ctx.remote("fo-ia1d", "bench_plant", "player", st.ents)
+      st.plant_id = ctx.remote("fo-ia1d", "bench_plant", "player", st.ents, "steam")
       local r = ctx.remote("fo-ia1d", "report", "player")
       st.steam0 = count_gen(r, "steam")
       ctx.log(string.format("centrale finie declaree (projet %s), %d projet(s) de centrale", tostring(st.plant_id), st.steam0))
@@ -78,7 +78,7 @@ return {
     local st = ctx.state()
     ctx.check(st.why == "courant insuffisant : 1721 kW pris sur 1800 kW (reste 79, il en faut 90)",
       "(a) le refus d'une centrale finie dit les kW, plus « aucune centrale possible »", st.why)
-    ctx.check(st.allot and st.allot.A == 17 and st.allot.B == 1 and st.order and st.order[1] == "iron-ore",
+    ctx.check(st.allot and st.allot.A == 17 and st.allot.B == 1 and st.order and st.order[1] == "obj-a",
       "(c) 1700 kW : le cuivre (1 machine voulue) a son premier lot, le fer prend le reste (17)", st.allot and (tostring(st.allot.A) .. "/" .. tostring(st.allot.B)))
     ctx.check(st.plant_id ~= nil and st.steam0 == 1, "(b) une seule centrale (finie) au depart", st.steam0)
     local r = ctx.remote("fo-ia1d", "report", "player")

@@ -179,11 +179,18 @@ local function search(s, t, td, bounds, cost, ctx, pen, lim, wt, capn)
   end
   local function hh(x, y) return (math.abs(x - t.x) + math.abs(y - t.y)) * weight end
   local function key(x, y, d, m) return tk(x, y) * 10 + (d - 1) * 2 + m end
-  local open, g, prev, closed = {}, {}, {}, {}
-  local k0 = key(s.x, s.y, sd, 0)
-  g[k0] = 0
-  hpush(open, { x = s.x, y = s.y, d = sd, m = 0, f = hh(s.x, s.y), h = hh(s.x, s.y), k = k0 })
-  local expanded = 0
+  local open, g, prev, closed, expanded
+  local R = ctx.resume
+  if R then
+    -- lot RESEAU-GRAPHE : reprise d'une recherche par tranches (etat rendu par la passe d'avant : nombres et tables seulement)
+    open, g, prev, closed, expanded = R.open, R.g, R.prev, R.closed, R.expanded
+  else
+    open, g, prev, closed, expanded = {}, {}, {}, {}, 0
+    local k0 = key(s.x, s.y, sd, 0)
+    g[k0] = 0
+    hpush(open, { x = s.x, y = s.y, d = sd, m = 0, f = hh(s.x, s.y), h = hh(s.x, s.y), k = k0 })
+  end
+  local slice_end = ctx.slice and (expanded + ctx.slice) or nil
   local function relax(cur, nx, ny, nd, nm, c, act)
     if not inb(nx, ny) then return end
     if not (free(nx, ny) or (nx == t.x and ny == t.y)) then return end
@@ -198,12 +205,14 @@ local function search(s, t, td, bounds, cost, ctx, pen, lim, wt, capn)
     end
   end
   while #open > 0 do
+    -- tranche epuisee : l'etat part tel quel a la passe suivante (ctx.resume), `expanded` cumule les passes (plafond `cap` sur le total)
+    if slice_end and expanded >= slice_end then return nil, "pending", expanded, { open = open, g = g, prev = prev, closed = closed, expanded = expanded } end
     local cur = hpop(open)
     if not closed[cur.k] then
       closed[cur.k] = true
       expanded = expanded + 1
       if expanded > cap then return nil, "trop long", expanded end
-      if expanded == Tv.PROOF_AFTER and pen == 0 and Tv.unreachable(s, t, cost, maxd, inb) then return nil, "aucun chemin", expanded end
+      if expanded == Tv.PROOF_AFTER and pen == 0 and not ctx.slice and Tv.unreachable(s, t, cost, maxd, inb) then return nil, "aucun chemin", expanded end
       if cur.x == t.x and cur.y == t.y then
         if cur.d ~= ((td + 1) % 4) + 1 and (cur.m == 0 or cur.d == td) then
           local out = { { x = t.x, y = t.y, d = td } }
@@ -391,22 +400,27 @@ function Tv.route(s, t, t_dir, bounds, cost, ctx)
   if not cost(t.x, t.y) then return nil, "arrivee" end
   local td = didx_of_code(t_dir)
   local ctx2 = { ore = ctx.ore, maxd = ctx.maxd, ug_axis = ctx.ug_axis, weight = ctx.weight, max = ctx.max, nature = ctx.nature,
-    sd = ctx.sd and didx_of_code(ctx.sd) or nil, memo_c = {}, memo_o = {} }
+    sd = ctx.sd and didx_of_code(ctx.sd) or nil, memo_c = {}, memo_o = {}, slice = ctx.slice, resume = ctx.resume }
   local expanded, searches = 0, 0
   local function run(pen, lim)
     searches = searches + 1
-    local el, n
+    local el, n, used4, state
     if pen > 0 then
       el, n = search(s, t, td, bounds, cost, ctx2, pen, lim, math.max(ctx.weight or 1, Tv.ORE_WEIGHT), math.min(ctx.max or Tv.CAP, Tv.ORE_CAP))
     else
-      el, n = search(s, t, td, bounds, cost, ctx2, pen, lim)
+      el, n, used4, state = search(s, t, td, bounds, cost, ctx2, pen, lim)
     end
     Tv.STATS.searches = Tv.STATS.searches + 1
-    local used = type(n) == "number" and n or 0
+    local used = type(n) == "number" and n or (type(used4) == "number" and used4 or 0)
     expanded = expanded + used
-    return el, n
+    return el, n, state
   end
-  local base, why = run(0)
+  local base, why, pending_state = run(0)
+  if not base and why == "pending" then
+    -- lot RESEAU-GRAPHE : tranche finie, pas de verdict ; le troisieme retour est l'etat de reprise
+    Tv.STATS.expanded = Tv.STATS.expanded + expanded
+    return nil, "pending", pending_state
+  end
   if not base then
     Tv.STATS.refused = Tv.STATS.refused + 1
     Tv.STATS.expanded = Tv.STATS.expanded + expanded
@@ -415,7 +429,7 @@ function Tv.route(s, t, t_dir, bounds, cost, ctx)
   local base_ore = measure(base, ctx.ore)
   local best, best_pen, best_ore = base, 0, base_ore
   local base_phys = phys(base)
-  if ctx.ore and base_ore > 0 then
+  if ctx.ore and base_ore > 0 and not ctx.no_detour then
     local limit = Tv.detour_limit(base_phys)
     for _, pen in ipairs(Tv.ORE_STEPS) do
       local el = run(pen, limit)

@@ -26,6 +26,14 @@ Bus.STOCK_MIN = 50       -- objets au coffre de sortie pour croire à sa product
 Bus.FALLBACK_RATE = 120  -- objets/min supposés d'un coffre de sortie qui porte au moins Bus.STOCK_MIN objets (NON MESURÉ)
 Bus.MAX_LINKS = 4        -- liaisons de bus ouvertes ou finies au plus par équipe (le « k » de cette version)
 Bus.LOGS = 40            -- lignes [FO-BUS] au plus par équipe
+-- Tracé du tronc (liaison.lua, Liaison.plan) : recherche A* PAR TRANCHES, pour qu'une passe ne dépasse pas ~5 ms (mesuré en instructions : tests/bus_test.lua)
+Bus.SLICE = 250          -- états développés au plus par passe (~1000 instructions chacun)
+Bus.WEIGHT = 1.4         -- heuristique pondérée (tracé au plus 1,4 fois plus long que le meilleur, bien moins d'états : revue-s, 923 états en terrain libre)
+Bus.MAX_STATES = 8000    -- états développés au plus sur le TOTAL des passes d'un tronc (au-delà : « trop long », la paire est laissée à la liaison de quai)
+Bus.CACHE_TTL = 3600     -- ticks de validité des masques gardés en mémoire locale pendant la recherche
+
+--- Signature d'un bout (sites de départ et d'arrivée) : la recherche reprise doit porter sur le même couple de bouts.
+function Bus.end_sig(e) return string.format("%d:%d:%d>%d:%d:%d", e.src.bx, e.src.by, e.src.dir, e.dst.bx, e.dst.by, e.dst.dir) end
 
 function Bus.on()
   local ok, s = pcall(function() return settings.global[Bus.SETTING] end)
@@ -83,12 +91,25 @@ function Bus.start(h, f, surface, tick, b, st, c)
   local hq = f.hq and f.hq.valid and f.hq.position
   if not hq then return false end
   local P, C, maps = {}, {}, { docks = {}, srcs = {} }
+  -- lot RAPATRIEMENT : une sortie lointaine deja reliee par une ligne (b.rapatriement.lines[clé]) n'est plus un producteur (double compte) ;
+  -- son coffre TAMPON en est un, au debit des lignes finies qui y menent (objets/s -> /min)
+  local rap = b.rapatriement and b.rapatriement.lines or {}
+  local tamp = {}
+  for _, k in ipairs(sorted_keys(rap)) do
+    local l = rap[k]
+    if l.done and l.tampon and l.item then
+      local tk = l.item .. "@" .. math.floor(l.tampon.x) .. ":" .. math.floor(l.tampon.y)
+      tamp[tk] = (tamp[tk] or 0) + (l.flow or 0) * 60
+    end
+  end
   for _, s in ipairs(c.srcs) do
-    if s.item and not s.linked then
+    if s.item and not s.linked and not rap[s.key] then
       local p = b.projects[s.pid]
       local nout = math.max(1, #((p and p.outs) or {}))
       local out = p and p.outflow and p.outflow[s.item]
       local rate = out and out * 60 / nout or nil
+      local tr = tamp[s.item .. "@" .. s.x .. ":" .. s.y]
+      if tr and tr >= 1 then rate = tr end
       if not rate and (s.n or 0) >= Bus.STOCK_MIN then rate = Bus.FALLBACK_RATE end
       if rate and rate >= 1 then
         P[#P + 1] = { key = s.key, item = s.item, x = s.x, y = s.y, rate = rate, _d = math.abs(s.x - hq.x) + math.abs(s.y - hq.y) }
@@ -143,10 +164,12 @@ function Bus.advance(h, api, f, surface, tick)
     if l.bus then total = total + 1 if not l.done then open = open + 1 end end
   end
   local present = {}
+  local why = { lies = 0, portee = 0, attente = 0, garde = 0 }
   for _, bus in ipairs(res.buses) do
     -- paire : le consommateur qui contribue le plus, avec le producteur du même bus le plus proche, hors de portée de la liaison de quai
     for _, tc in ipairs(bus.taps) do
       local d = tc.kind == "c" and maps.docks[tc.key] or nil
+      if d and st.links[tc.key] then why.lies = why.lies + 1 end
       if d and not st.links[tc.key] then
         local best, bspan
         for _, tp in ipairs(bus.taps) do
@@ -156,10 +179,14 @@ function Bus.advance(h, api, f, surface, tick)
             if span > Ln.MAX_SPAN and (not bspan or span < bspan or (span == bspan and tp.key < best.key)) then best, bspan = tp, span end
           end
         end
+        if not best then why.portee = why.portee + 1 end
         if best then
-          local pk = tc.key .. ">" .. best.key
+          -- confirmation par QUAI (pas par paire) : le choix du producteur d'un bus change d'un calcul a l'autre quand les stocks bougent
+          local pk = tc.key
           present[pk] = true
           bs.seen[pk] = (bs.seen[pk] or 0) + 1
+          if bs.seen[pk] < (bs.confirm or Bus.CONFIRM) then why.attente = why.attente + 1
+          elseif not (open < h.max_open(h.free_workers(f)) and total < Bus.MAX_LINKS and not h.hq_threat(f, surface)) then why.garde = why.garde + 1 end
           if bs.seen[pk] >= (bs.confirm or Bus.CONFIRM) and open < h.max_open(h.free_workers(f)) and total < Bus.MAX_LINKS and not h.hq_threat(f, surface) then
             local sr = maps.srcs[best.key]
             local last = st.last_try[tc.key]
@@ -198,10 +225,11 @@ function Bus.advance(h, api, f, surface, tick)
     end
   end
   for _, k in ipairs(sorted_keys(bs.seen)) do if not present[k] then bs.seen[k] = nil end end
-  if (bs.last or 0) ~= #res.buses then
-    bs.last = #res.buses
-    Bus.say(f, tick, string.format("%d bus calcule(s) : %.0f objets/min servis sur %.0f demandes, %d file(s), %d candidat(s) ; aucune paire a demander encore (confirmation, portee, ou deja relies)",
-      #res.buses, s.served, s.demand, s.belts, s.candidates))
+  local sig = string.format("%d/%d/%d/%d/%d", #res.buses, why.lies, why.portee, why.attente, why.garde)
+  if bs.last ~= sig then
+    bs.last = sig
+    Bus.say(f, tick, string.format("%d bus calcule(s) : %.0f objets/min servis sur %.0f demandes, %d file(s), %d candidat(s) ; aucune paire a demander encore (quais deja relies %d, hors de portee de la liaison de quai %d, en attente de confirmation %d, gardes (ouvriers, danger, plafond) %d)",
+      #res.buses, s.served, s.demand, s.belts, s.candidates, why.lies, why.portee, why.attente, why.garde))
   end
   return false
 end

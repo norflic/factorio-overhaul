@@ -226,6 +226,20 @@ local function run_all(Zn, Ec, Am, Lg)
   sr = Lg.source_row("iron-ore", { choix = "n'importe quoi", raison = "texte libre" })
   check(sr.ltext[3][1] == "fo-dbg-cerveau.src-choix-inconnu" and sr.ltext[4][1] == "fo-dbg-cerveau.src-raison-inconnu" and sr.ltext[5] == "?" and sr.tick == nil, "mot hors liste : inconnu, nombres absents : ?")
   check(Lg.source_row("x", nil) == nil, "entree absente : pas de ligne")
+  local dr = Lg.defense_row({ key = "qg1", kind = "qg", have = 2, want = 3, skip = "refus", why = "ennemi", tick = 900, x = 1, y = 2 })
+  check(dr.kind == "defense" and dr.tick == 900 and dr.ltext[2][1] == "fo-dbg-cerveau.def-kind-qg" and dr.ltext[5][1] == "" and dr.ltext[5][4][1] == "fo-dbg-cerveau.def-why-ennemi", "defense du stock : lieu, a portee, cause et pourquoi en mots fixes")
+  dr = Lg.defense_row({ key = "s", kind = "n'importe quoi", skip = "texte libre", why = "libre", have = 1 })
+  check(dr.ltext[2][1] == "fo-dbg-cerveau.def-kind-inconnu" and dr.ltext[5][1] == "fo-dbg-cerveau.def-skip-inconnu" and dr.ltext[4] == "?", "defense : mot hors liste = inconnu, pourquoi libre ignore")
+  dr = Lg.defense_row({ key = "s", kind = "site", skip = "servie" })
+  check(dr.ltext[5][1] == "fo-dbg-cerveau.def-skip-servie", "sans pourquoi : la seule cause")
+  check(Lg.defense_row(nil) == nil, "defense : entree absente")
+  local ar = Lg.am_refus("p12|furnace", { cause = "plafond-centre", tick = 500 })
+  check(ar.pid == 12 and ar.famille == "furnace" and ar.cause == "plafond-centre" and ar.tick == 500 and ar.bloc[1] == "fo-dbg-cerveau.am-bloc-projet", "refus d'amelioration : bloc projet, famille, cause fixe")
+  check(Lg.am_refus("qg|gun", { cause = "emprise" }).bloc[1] == "fo-dbg-cerveau.am-bloc-qg" and Lg.am_refus("t4|gun", { cause = "emprise" }).bloc[2] == "4", "blocs qg et tourelles")
+  ar = Lg.am_refus("zzz|x", { cause = "texte libre" })
+  check(ar.cause == "inconnu" and ar.bloc[1] == "fo-dbg-cerveau.am-bloc-inconnu" and ar.pid == nil, "bloc ou cause hors liste : inconnu")
+  check(Lg.am_refus(nil, {}) == nil and Lg.am_refus("a|b", nil) == nil, "entree absente : nil")
+  check(Lg.am_refus_row("p3|x", { cause = "sans-gain", tick = 9 }).kind == "amelioration_refus", "ligne de decision")
   local dec = Lg.decisions({
     { tick = 100, kind = "ordre", text = "A" }, { tick = 300, kind = "ordre", text = "B" }, { tick = 200, kind = "refus", text = "C" },
     { tick = 50, kind = "ordre", text = "A" }, { kind = "note", text = "sans date" },
@@ -318,6 +332,19 @@ do
   local tk = { "autre", "prise", "libre" }
   for _, v in pairs(Lg.TASK_KEYS) do tk[#tk + 1] = v end -- valeurs a lister : l'ordre ne compte pas
   add("tache-", tk)
+  local amc = { "inconnu" }
+  for _, v in ipairs(Lg.AM_CAUSES) do amc[#amc + 1] = v end
+  add("am-refus-", amc)
+  add("am-bloc-", { "projet", "qg", "tourelles", "inconnu" })
+  add("decision-", { "amelioration_refus" })
+  local dk, ds, dw = { "inconnu" }, { "inconnu" }, {}
+  for _, v in ipairs(Lg.DEF_KIND) do dk[#dk + 1] = v end
+  for _, v in ipairs(Lg.DEF_SKIP) do ds[#ds + 1] = v end
+  for _, v in ipairs(Lg.DEF_WHY) do dw[#dw + 1] = v end
+  add("def-kind-", dk)
+  add("def-skip-", ds)
+  add("def-why-", dw)
+  add("decision-", { "defense" })
   local sc, sr2 = { "inconnu" }, { "inconnu" }
   for _, v in ipairs(Lg.SRC_CHOIX) do sc[#sc + 1] = v end
   for _, v in ipairs(Lg.SRC_RAISON) do sr2[#sr2 + 1] = v end
@@ -381,6 +408,8 @@ local MUTANTS = {
   { "am: quais d'un autre projet", "am", { "key:sub(1, #prefix) == prefix and", "true and" } },
   { "am: refus avant travail", "am", { "local rank = { aucune = 0, refusee = 1, en_cours = 2 }", "local rank = { aucune = 0, refusee = 2, en_cours = 1 }" } },
   { "lg: mot de minage hors liste brut", "lg", { "local choix = (type(d.choix) == \"string\" and SRC_C[d.choix]) and d.choix or \"inconnu\"", "local choix = d.choix" } },
+  { "lg: pourquoi libre brut", "lg", { "local why = (type(r.why) == \"string\" and DEF_W[r.why]) and r.why or nil", "local why = r.why" } },
+  { "lg: cause d'amelioration libre brute", "lg", { "local cause = (type(r.cause) == \"string\" and AM_C[r.cause]) and r.cause or \"inconnu\"", "local cause = r.cause" } },
   { "lg: doublons gardes", "lg", { "if not seen[k] then", "if true then" } },
   { "lg: decisions anciennes d'abord", "lg", { "if ta ~= tb and ta ~= nil then return ta > tb end", "if ta ~= tb and ta ~= nil then return ta < tb end" } },
   { "lg: label affiche la cause du vert", "lg", { "local cause = (z.color ~= \"vert\" and z.cause)", "local cause = (z.cause)" } },

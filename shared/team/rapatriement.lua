@@ -73,6 +73,7 @@ Rp.FILL_BATCH = 340         -- objets par trajet de remplissage (Build.QUAI_FILL
 Rp.MIN_RATE = 0.05          -- objets/s : sous ce débit une sortie ne vaut aucune ligne
 Rp.STAGE2 = 0.5             -- part de la jambe de remplissage comptée pour ce que le tampon sert aux quais voisins (NON MESURÉ)
 Rp.DRAIN_MIN = 30           -- minutes : une sortie qui dort pleine se vide en ce temps (débit de stock, borné par le bras)
+Rp.WHY_SATURATED = "objet sature au QG (le stock le refuse) et aucun quai ne le consomme"
 Rp.STOCK_FACTOR = 0.3       -- un débit de STOCK (coffre qui dort plein) n'est pas une production : il ne compte que pour cette part dans le prix (NON MESURÉ)
 Rp.BUFFER_MIN = 10          -- minutes de débit gardées au tampon (NON MESURÉ)
 Rp.BUFFER_MIN_OBJ = 200
@@ -262,6 +263,9 @@ function Rp.candidates(srcs, docks, hub, o)
       local span = manhattan(s.x, s.y, tx, ty)
       local ok, why, det = Rp.worth({ flow = flow, d_src = d_src, d_tam = d_tam, d_fill = d_fill, covered = covered,
         tiles = ceil(span * Rp.EST_FACTOR + 2), price = o.price, labor = o.labor, tmax = o.tmax, threat = o.threat })
+      -- Un objet que le stock du QG refuse (saturé : s.saturated) et qu'aucun quai ne consomme n'a pas de preneur : la ligne le déposerait dans un tampon que
+      -- rien ne vide (journal du DC du 8/11 : 14 demandes de PIERRE alors que le QG en tient 28 888)
+      if s.saturated and #cons == 0 then ok, why = false, Rp.WHY_SATURATED end
       out[#out + 1] = { src = s, item = s.item, flow = s.rate, worth_flow = flow, d_src = d_src, point = { x = tx, y = ty }, reuse = reuse, d_tam = d_tam, covered = covered,
         d_fill = d_fill, consumers = #cons, span = span, ok = ok, why = why, det = det, net = (det.save_s_min or 0) }
     end
@@ -351,6 +355,126 @@ function Rp.route_ok(len, m)
   local lim = Rp.DETOUR * (m + 1) + Rp.DETOUR_SLACK
   if len > lim then return false, string.format("detour de %d tuiles pour %d a vol d'oiseau (limite %.0f)", len, m + 1, lim) end
   return true, ""
+end
+
+---------------------------------------------------------------------------------------------------
+-- 6 bis. Recherche de chemin REPRENABLE (A* en tranches)
+---------------------------------------------------------------------------------------------------
+-- Mesure du 8/11 (debug.sethook, Rap.plan sur la sauvegarde-type) : un tracé de 180 tuiles coûte 0,49 M d'instructions, une destination
+-- inatteignable 81,6 M (0,65 à 3,6 s d'un seul tenant) : le tracé se fait donc en tranches de nœuds développés (Rp.SLICE_NODES), sur plusieurs
+-- pensées. MÊME algorithme et MÊME départage que P.belt_route (shared/team/plan.lua) : le test compare les deux tuile pour tuile.
+Rp.SLICE_NODES = 250        -- noeuds développés au plus par tranche (environ 0,2 M d'instructions mesurées : 800 par noeud développé)
+Rp.TOTAL_NODES = 60000      -- noeuds développés au plus par projet, toutes recherches comprises (60 000 = 120 tranches ; au pire environ 24 M d'instructions étalées)
+Rp.POCKET_NODES = 300       -- une recherche sans issue qui a développé moins de noeuds est une POCHE (départ ou arrivée enfermés) : les autres bouts restent essayés ; au-delà, une barrière : le passage s'arrête
+local function tkey(x, y) return (x + 1048576) * 2097152 + (y + 1048576) end
+local function heap_push(h, n)
+  h[#h + 1] = n
+  local i = #h
+  while i > 1 do
+    local p = floor(i / 2)
+    local a, b = h[p], h[i]
+    if a.f < b.f or (a.f == b.f and (a.h < b.h or (a.h == b.h and a.k <= b.k))) then break end
+    h[p], h[i] = b, a
+    i = p
+  end
+end
+local function heap_pop(h)
+  local top = h[1]
+  local last = h[#h]
+  h[#h] = nil
+  local n = #h
+  if n > 0 then
+    h[1] = last
+    local i = 1
+    while true do
+      local l, r, m = 2 * i, 2 * i + 1, i
+      if l <= n then
+        local a, b = h[l], h[m]
+        if a.f < b.f or (a.f == b.f and (a.h < b.h or (a.h == b.h and a.k < b.k))) then m = l end
+      end
+      if r <= n then
+        local a, b = h[r], h[m]
+        if a.f < b.f or (a.f == b.f and (a.h < b.h or (a.h == b.h and a.k < b.k))) then m = r end
+      end
+      if m == i then break end
+      h[m], h[i] = h[i], h[m]
+      i = m
+    end
+  end
+  return top
+end
+local ORDER = { { 1, 0 }, { 0, 1 }, { -1, 0 }, { 0, -1 } }
+
+--- Début d'une recherche de la tuile `s` à la tuile `t` (incluses) dans `bounds` { x0, y0, x1, y1 } (inclus), 4 voisins. weight : poids de l'heuristique.
+--- L'état rendu ne contient que des nombres et des tables (aucune fonction) ; cost(x, y) est passé à chaque tranche.
+function Rp.route_begin(s, t, t_dir, bounds, weight)
+  local hw = weight or 1
+  local h0 = (math.abs(s.x - t.x) + math.abs(s.y - t.y)) * hw
+  local job = { s = { x = s.x, y = s.y }, t = { x = t.x, y = t.y }, t_dir = t_dir, bounds = bounds, hw = hw, open = {}, g = { [tkey(s.x, s.y)] = 0 }, prev = {},
+    closed = {}, expanded = 0, status = "run", started = false }
+  heap_push(job.open, { x = s.x, y = s.y, f = h0, h = h0, k = tkey(s.x, s.y) })
+  return job
+end
+
+--- Avance de `nodes` nœuds développés au plus ; `cap` : plafond de nœuds développés de la recherche entière (« trop long » au-delà). Rend l'état :
+--- "more" (reprendre), "found" (job.tiles = liste { x, y, dir }), "none" (job.why = « depart », « arrivee » ou « aucun chemin »), "cap" (job.why = « trop long »).
+function Rp.route_step(job, cost, nodes, cap)
+  if job.status ~= "run" then return job.status end
+  if not job.started then
+    job.started = true
+    if not cost(job.s.x, job.s.y) then job.status, job.why = "none", "depart" return job.status end
+    if not cost(job.t.x, job.t.y) then job.status, job.why = "none", "arrivee" return job.status end
+  end
+  local open, g, prev, closed, b, t, hw = job.open, job.g, job.prev, job.closed, job.bounds, job.t, job.hw
+  local left = nodes or math.huge
+  while #open > 0 do
+    if left <= 0 then return "more" end
+    local cur = heap_pop(open)
+    local ck = cur.k
+    if not closed[ck] then
+      closed[ck] = true
+      left = left - 1
+      job.expanded = job.expanded + 1
+      if job.expanded > (cap or math.huge) then job.status, job.why = "cap", "trop long" return job.status end
+      if cur.x == t.x and cur.y == t.y then
+        local tiles = {}
+        local k = ck
+        local x, y = cur.x, cur.y
+        while true do
+          table.insert(tiles, 1, { x = x, y = y })
+          local p = prev[k]
+          if not p then break end
+          x, y, k = p[1], p[2], tkey(p[1], p[2])
+        end
+        for i = 1, #tiles - 1 do tiles[i].dir = Li.dir_of(tiles[i + 1].x - tiles[i].x, tiles[i + 1].y - tiles[i].y) end
+        tiles[#tiles].dir = job.t_dir
+        job.tiles, job.status = tiles, "found"
+        job.open, job.g, job.prev, job.closed = nil, nil, nil, nil -- la mémoire de la recherche est rendue
+        return job.status
+      end
+      for _, o in ipairs(ORDER) do
+        local nx, ny = cur.x + o[1], cur.y + o[2]
+        if nx >= b.x0 and nx <= b.x1 and ny >= b.y0 and ny <= b.y1 then
+          local nk = tkey(nx, ny)
+          if not closed[nk] then
+            local c = cost(nx, ny)
+            if c then
+              local ng = g[ck] + c
+              if g[nk] == nil or ng < g[nk] then
+                g[nk] = ng
+                prev[nk] = { cur.x, cur.y }
+                local h = (math.abs(nx - t.x) + math.abs(ny - t.y)) * hw
+                heap_push(open, { x = nx, y = ny, f = ng + h, h = h, k = nk })
+              end
+            end
+          end
+        end
+      end
+    end
+  end
+  job.status, job.why = "none", "aucun chemin"
+  job.open, job.g, job.prev, job.closed = nil, nil, nil, nil
+  return job.status
 end
 
 ---------------------------------------------------------------------------------------------------

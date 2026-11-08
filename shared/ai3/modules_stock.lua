@@ -33,6 +33,7 @@ local Ms = {}
 
 Ms.RESERVE = 4          -- modules gardés au coffre par sorte (réparations, remplacements ; « au-delà d'une petite réserve »)
 Ms.MAX_ORDERS = 3       -- ordres ouverts par décision (un groupe de machines par ordre)
+Ms.UNREAD_BATCH = 4     -- machines par ordre quand la marge de courant n'est pas lue (réseau sans manque observé)
 Ms.BATCH_MAX = 12       -- machines par ordre (deux tâches de Equip.BATCH = 6)
 Ms.EPS = 1e-9
 Ms.CLASS_SHORT = 1      -- l'objet de la machine manque
@@ -80,10 +81,10 @@ Ms.key = group_key
 ---   short = { [objet] = n }        manques du cerveau (> 0 : l'objet manque)
 ---   supply = function(objet) -> vrai si l'objet est servi (flux mesuré ou stock), ou table { [objet] = vrai }
 ---   taken = { [clé] = vrai }       clés d'ordres ouverts      held = function(clé) -> raison | nil
----   power_room_kw = nombre | nil   marge de courant (nil : non lue)
+---   power_room_kw = nombre | nil   marge de courant (nil : non lue ; alors g.run.starved doit être 0, UNREAD_BATCH machines au plus)
 ---   threat = vrai | nil            danger = { [lieu] = vrai }
 ---   max_orders = n | nil }
----   (chaque groupe peut porter g.run = { sampled, working, stop } : unités échantillonnées, unités qui travaillent, cause d'arrêt)
+---   (chaque groupe peut porter g.run = { sampled, working, starved, stop } : unités échantillonnées, unités qui travaillent, cause d'arrêt)
 --- Rend (ordres, refus, info) : ordres au format du levier + stock = true ; refus = { { key, module, why } } triés ;
 --- info = { avail = { [module] = n }, stock_total, free_total }.
 function Ms.plan(Ca, D, v)
@@ -197,8 +198,18 @@ function Ms.plan(Ca, D, v)
       local why = nil
       if o.ent.energy == "electric" and o.d_kw > Ms.EPS then
         if room == nil then
-          why = "courant non lu"
-          k = 0
+          -- Capacité de la centrale non lue (votre équipe, centrale du joueur ; arène de banc) : on ne l'invente pas. Le réseau doit se
+          -- porter bien (aucune unité échantillonnée en manque de courant) et la pose avance par petits pas, remesurés à chaque relevé.
+          local run = o.g.run
+          if not run or (run.sampled or 0) == 0 then
+            why = "courant non lu et statut des machines non lu"
+            k = 0
+          elseif (run.starved or 0) > 0 then
+            why = "courant non lu et reseau en manque (" .. tostring(run.stop or "low_power") .. ")"
+            k = 0
+          else
+            k = math.min(k, Ms.UNREAD_BATCH)
+          end
         else
           local fit = math.floor((room + Ms.EPS) / o.d_kw)
           if fit < k then k = fit end

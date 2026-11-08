@@ -189,6 +189,10 @@ local function fill_detail(detail, ctx)
     lbl(detail, { "fo-dbg-cerveau.detail-piquage", q.i, { "fo-dbg-cerveau.pq-verdict-" .. q.verdict }, { "fo-dbg-cerveau.pq-cause-" .. q.cause },
       Lg.ago(q.tick and (now - q.tick) or nil) }, nil, true)
   end
+  -- refus d'amélioration de niveau de la zone (lot AMELIORATION)
+  for _, a in ipairs(ctx.sel_am_refus or {}) do
+    lbl(detail, { "fo-dbg-cerveau.detail-am-refus", a.famille, { "fo-dbg-cerveau.am-refus-" .. a.cause }, Lg.ago(a.tick and (now - a.tick) or nil) }, nil, true)
+  end
   -- améliorations
   lbl(detail, "")
   local h4 = lbl(detail, { "fo-dbg-cerveau.detail-ameliorations" })

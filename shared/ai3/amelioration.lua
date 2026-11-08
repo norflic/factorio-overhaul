@@ -57,6 +57,17 @@ function Am.scaled(list, n)
   return out
 end
 
+--- Stock NET : `stock` moins ce que la reconstruction des projets rouverts prendra encore (`recon` : { [objet] = quantité }, facultatif),
+--- objet par objet, jamais sous zéro. Nouvelle table ; `stock` n'est pas modifié.
+function Am.net(stock, recon)
+  local out = {}
+  for _, k in ipairs(sorted_keys(stock)) do out[k] = stock[k] end
+  for _, k in ipairs(sorted_keys(recon)) do
+    if out[k] then out[k] = math.max(0, out[k] - recon[k]) end
+  end
+  return out
+end
+
 --- Le stock `avail` couvre-t-il toute la liste ?
 function Am.covers(avail, list)
   for _, it in ipairs(list or {}) do
@@ -113,6 +124,7 @@ end
 function Am.candidates(Ld, ents, ctx, cfam, Cap)
   local cands, report = {}, {}
   local cc = ctx.cc_level or 0
+  local net = Am.net(ctx.stock, ctx.recon) -- le lot ne prend jamais ce qui manque encore à une reconstruction ouverte
   for _, g in ipairs(Am.groups(Ld, ents, cfam)) do
     local fam = g.fam
     local m = math.huge
@@ -149,10 +161,18 @@ function Am.candidates(Ld, ents, ctx, cfam, Cap)
           row.cause = "sans-cout:" .. table.concat(missing, ",")
           row.missing = missing
         else
-          local pay_n = Am.supported(unit, ctx.stock, math.min(Am.BATCH_MAX, #avail))
+          local pay_n = Am.supported(unit, net, math.min(Am.BATCH_MAX, #avail))
+          -- Gel levé sauf manque : le stock couvre le coût mais pas le coût PLUS les pièces manquantes d'une reconstruction ouverte, objet par objet.
+          local held
+          if pay_n == 0 then
+            for _, it in ipairs(unit) do
+              if ((ctx.stock or {})[it[1]] or 0) >= it[2] and (net[it[1]] or 0) < it[2] then held = it[1] break end
+            end
+          end
           -- Rien en stock pour un seul : un seul est demandé (fabrication, comme un bâtiment seul), le lot grossit avec le stock.
           local n = math.max(1, pay_n)
           local ids, value, kind, gain = {}, 0, nil, 0
+          if held then n = 0; row.cause = "reconstruction:" .. held end
           for i = 1, n do
             local mb = avail[i]
             ids[i] = mb.id
@@ -160,7 +180,9 @@ function Am.candidates(Ld, ents, ctx, cfam, Cap)
             value = value + v
             if why then kind, gain = why[1], why[2] end
           end
-          if value > 0 then
+          if held then
+            -- refus dit (cause reconstruction:<objet>), rien à décider
+          elseif value > 0 then
             if kind == "debit" then value = math.floor(value * Am.PROD_PCT / 100 + 0.5) end
             local need = ctx.need and ctx.need(g.block, fam.key) or 100
             if need ~= 100 then value = math.floor(value * need / 100 + 0.5) end

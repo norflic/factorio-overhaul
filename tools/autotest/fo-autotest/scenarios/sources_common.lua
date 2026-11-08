@@ -59,9 +59,10 @@ local function orient(ins, chest, role)
   local tried = {}
   for _, dir in ipairs({ 0, 2, 4, 6 }) do
     ins.direction = dir
-    local target = (role == "feed") and ins.drop_target or ins.pickup_target
-    tried[#tried + 1] = string.format("%d:%s", dir, target and target.valid and target.name or "-")
-    if target and target.valid and target.unit_number == chest.unit_number then
+    local p = (role == "feed") and ins.drop_position or ins.pickup_position
+    local hit = p and math.abs(p.x - chest.position.x) < 0.5 and math.abs(p.y - chest.position.y) < 0.5
+    tried[#tried + 1] = string.format("%d:%s", dir, p and string.format("(%.1f,%.1f)%s", p.x, p.y, hit and "=coffre" or "") or "-")
+    if hit then
       script.raise_event(defines.events.script_raised_built, { entity = ins })
       return true, table.concat(tried, " ")
     end

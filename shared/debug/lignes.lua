@@ -83,6 +83,60 @@ function Lg.source_row(resource, d)
     ltext = { "fo-dbg-cerveau.src-ligne", { "item-name." .. tostring(resource) }, { "fo-dbg-cerveau.src-choix-" .. choix }, { "fo-dbg-cerveau.src-raison-" .. raison }, n, dist } }
 end
 
+-- DEFENSE-STOCK (lot DEFENSE-STOCK, champ d'état f.defstock.rows[] = { key, kind, x, y, score, have, want, dist, served, skip, why, tick }) : mots fixes.
+Lg.DEF_KIND = { "qg", "prevu", "attaque", "site", "couverture" }
+Lg.DEF_SKIP = { "servie", "suivante", "stock", "groupe", "munitions", "repos", "refus", "course", "plafond", "pause", "tenue", "loin" }
+Lg.DEF_WHY = { "ennemi", "sans_batiment", "danger" }
+Lg.DEF_MAX = 6 -- lieux montrés au plus (le champ en porte 24)
+local DEF_K, DEF_S, DEF_W = {}, {}, {}
+for _, w in ipairs(Lg.DEF_KIND) do DEF_K[w] = true end
+for _, w in ipairs(Lg.DEF_SKIP) do DEF_S[w] = true end
+for _, w in ipairs(Lg.DEF_WHY) do DEF_W[w] = true end
+
+--- Ligne de « décisions récentes » pour un lieu de défense du stock : { tick, kind = "defense", text (clé de doublon), ltext }. nil si l'entrée n'est pas une table.
+function Lg.defense_row(r)
+  if type(r) ~= "table" then return nil end
+  local kind = (type(r.kind) == "string" and DEF_K[r.kind]) and r.kind or "inconnu"
+  local skip = (type(r.skip) == "string" and DEF_S[r.skip]) and r.skip or "inconnu"
+  local why = (type(r.why) == "string" and DEF_W[r.why]) and r.why or nil
+  local have = type(r.have) == "number" and string.format("%.0f", r.have) or "?"
+  local want = type(r.want) == "number" and string.format("%.0f", r.want) or "?"
+  local cause = { "fo-dbg-cerveau.def-skip-" .. skip }
+  if why then cause = { "", cause, " (", { "fo-dbg-cerveau.def-why-" .. why }, ")" } end
+  return { tick = type(r.tick) == "number" and r.tick or nil, kind = "defense",
+    text = tostring(r.key) .. "|" .. kind .. "|" .. skip .. "|" .. tostring(why) .. "|" .. have .. "|" .. want,
+    ltext = { "fo-dbg-cerveau.def-ligne", { "fo-dbg-cerveau.def-kind-" .. kind }, have, want, cause } }
+end
+
+-- AMELIORATION (lot AMELIORATION, champ d'état f.team.capital.refus["<bloc>|<famille>"] = { cause, tick }) : mots fixes. bloc : « p<projet> », « qg »,
+-- « t<avant-poste> » ; la famille est un nom de données (paramètre, jamais une clé de traduction).
+Lg.AM_CAUSES = { "plafond-centre", "sans-centre", "emprise", "sans-cout", "refus-recent", "niveau-max", "sans-gain", "reconstruction" }
+local AM_C = {}
+for _, w in ipairs(Lg.AM_CAUSES) do AM_C[w] = true end
+
+--- Lit un refus d'amélioration : { bloc = LocalisedString, pid = numéro de projet ou nil, famille, cause (mot fixe ou « inconnu »), tick } ou nil.
+function Lg.am_refus(key, r)
+  if type(key) ~= "string" or type(r) ~= "table" then return nil end
+  local bloc, famille = key:match("^(.-)|(.*)$")
+  if not bloc then bloc, famille = key, "?" end
+  local pid = bloc:match("^p(%d+)$")
+  local label
+  if pid then label = { "fo-dbg-cerveau.am-bloc-projet", pid }
+  elseif bloc == "qg" then label = { "fo-dbg-cerveau.am-bloc-qg" }
+  elseif bloc:match("^t%d+$") then label = { "fo-dbg-cerveau.am-bloc-tourelles", bloc:sub(2) }
+  else label = { "fo-dbg-cerveau.am-bloc-inconnu" } end
+  local cause = (type(r.cause) == "string" and AM_C[r.cause]) and r.cause or "inconnu"
+  return { bloc = label, blocname = bloc, pid = pid and tonumber(pid) or nil, famille = famille, cause = cause, tick = type(r.tick) == "number" and r.tick or nil }
+end
+
+--- Ligne de « décisions récentes » d'un refus d'amélioration.
+function Lg.am_refus_row(key, r)
+  local a = Lg.am_refus(key, r)
+  if not a then return nil end
+  return { tick = a.tick, kind = "amelioration_refus", text = a.blocname .. "|" .. a.famille .. "|" .. a.cause,
+    ltext = { "fo-dbg-cerveau.am-refus-ligne", a.bloc, a.famille, { "fo-dbg-cerveau.am-refus-" .. a.cause } } }
+end
+
 --- Décisions récentes : plus récentes d'abord, doublons (même sorte et même texte) retirés en gardant la plus récente, au plus `max`.
 --- rows : liste de { tick, kind, text }. Une ligne sans date vient après les datées (ordre de lecture gardé).
 function Lg.decisions(rows, max)
