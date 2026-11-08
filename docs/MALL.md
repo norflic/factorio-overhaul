@@ -286,13 +286,32 @@ Lignes positives : « SECTEUR (x, y) axe <e|n>, libre <L> tuiles », « rangee <
 
 ## 5. Pureté
 
-Règle du mall : une ligne du tronc porte UN objet ; un tapis de rangée porte un objet (une voie, un objet, à la tranche 5) ; une sortie ne
-rejoint JAMAIS un tapis d'entrée, elle va à des coffres ou à une ligne NEUVE du tronc. Ce sont des invariants du plan pur (`Mall.verify`).
-Le garde-fou commun `shared/team/purete.lua` (agent PURETE-TAPIS) est appelé :
-- avant chaque raccord à un tapis EXISTANT : prise sur une ligne, arrivée sur une tête, réinjection d'une sortie ;
-- au contrôle d'une rangée posée (relevé du contenu).
+Règle du mall : une ligne du tronc porte UN objet. Un tapis de rangée porte un objet (deux à la tranche 5, déclarés en liste). Une
+sortie ne rejoint JAMAIS un tapis d'entrée : elle va à des coffres ou à une ligne NEUVE du tronc. Ce sont des invariants du plan pur
+(`Mall.verify`).
 
-Un refus de pureté annule le raccord, jamais le reste de la rangée. Il est écrit « purete : … ». API : §6.
+Le garde-fou commun de l'agent PURETE-TAPIS (branche `purete-tapis`, non fusionnée ; API reçue le 8/11) existe en deux niveaux :
+- pur, `Pu.check(tiles, item, world, opts) -> ok, refus[]` (`shared/team/purete.lua`) ;
+- runtime, `Pur.check_route(f, surface, p, "mall", tiles, item, targets, { own })` et `Pur.fronts(f, surface, item, p, opts)`
+  (`script/team/purete.lua`).
+
+Leurs règles :
+- La pureté se juge par TAPIS ENTIER, pas par voie. Un tapis voisin est étranger si un de ses objets n'est pas parmi les nôtres : un
+  tapis fer|cuivre est étranger à une ligne fer seule, une ligne fer ne l'est pas à un tapis fer|cuivre.
+- L'objet est DÉCLARÉ, jamais mesuré. Le mall met donc `carries = <objet>` (ou une liste) sur CHAQUE pièce de tapis de ses projets
+  (`p.ents`) : lignes du tronc, branches de prise, tapis de rangée, sorties. Un tapis non déclaré est inconnu, donc étranger.
+
+Appels du mall :
+- (a) **prise** : avant de poser un répartiteur, on contrôle que sa seconde entrée (la tuile derrière sa tuile latérale) n'est visée par
+  aucun tapis étranger (`Pu.forbidden`). Puis `Pur.check_route` sur la branche, avec la tuile du tapis de rangée en `targets` ;
+- (b) **réinjection** d'une sortie en ligne du tronc (T5) : la sortie porte `carries` de son produit. Elle ne verse sur le tronc que par un
+  tracé vérifié, et seulement si la tuile visée est déclarée du même objet ; sinon, refus ;
+- (c) **arrivée** sur la tête (rapatriement, méga-fonderie) : `targets` = la tuile de la tête ;
+- (d) tapis à deux objets : `item` en liste. Un croisement passe par un souterrain, vérifié sous la même règle ;
+- tracés longs (T4) : `Pur.fronts` entre dans le coût de l'A* (tuile interdite, coût nil).
+
+Un refus annule le RACCORD, jamais le reste de la rangée. Il est écrit « purete : <cause> en (x, y) ». Les causes sont celles de `Pu` :
+pointe_vers_etranger, etranger_pointe_vers, croisement_sans_souterrain, occupe, souterrain_meme_axe, chaine_rompue.
 
 ## 6. Coordination
 
@@ -311,8 +330,9 @@ et les accords seront reportés ici. Ce qui a été proposé à chacun :
   - proposé : sa livraison reste en lot ; une fois le mall posé, la rangée d'acier devient un motif de rangée du mall, qui pique la ligne
     de fer, et sa sortie devient la ligne « acier » (T5) ;
   - questions posées : le charbon (voie propre ou quai) et le décideur (capitalisation ou `Inter.think`).
-- **purete-tapis** (en attente de réponse) : demandés, la signature de `shared/team/purete.lua`, si la pureté se juge par voie ou par tapis,
-  et si l'objet est lu au contenu mesuré ou déclaré au plan (un tapis vide n'a que l'objet du plan).
+- **purete-tapis** (RÉPONDU le 8/11 ; accord §5) : API `Pu.check` / `Pur.check_route` / `Pur.fronts` ; pureté par tapis entier ;
+  objet déclaré par `carries` sur chaque tapis du plan. Le mall s'y conforme sans rien demander de plus. Dépendance : la branche
+  `purete-tapis` doit être fusionnée avant T2.
 - **motifs** (en attente de réponse) : demandés, le format d'une entrée (axe, période, ports de tête et de sortie, poteaux, miroir),
   l'entrée et la sortie de la sélection, et un contrôle sur la période modèle (coût par sethook). Il me faut au minimum Patern1 et sa
   forme miroir pour T2, et Patern_Mall2 pour T5.
