@@ -270,7 +270,7 @@ function Cap.replace_candidates(Ld, census, ctx)
   table.sort(order)
   for _, gk in ipairs(order) do
     local grp = groups[gk]
-    local have = (ctx.stock or {})[grp.item] or 0
+    local have = Am.net(ctx.stock, ctx.recon)[grp.item] or 0 -- lot AMELIORATION : net de la reconstruction ouverte
     local n = math.max(1, math.min(Cap.REPLACE_BATCH, #grp.ids, have))
     local ids, value = {}, 0
     for i = 1, n do ids[i] = grp.ids[i]; value = value + grp.vals[i] end
