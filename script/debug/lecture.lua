@@ -267,6 +267,17 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Tâches, décisions, améliorations
 ---------------------------------------------------------------------------------------------------
+--- Refus d'amélioration d'une zone (projet pid) : lignes { famille, cause, tick }, triées par famille. Vide sans le champ.
+function Lec.am_refus_rows(f, pid)
+  local refus = f.team and f.team.capital and f.team.capital.refus
+  local out = {}
+  for _, key in ipairs(sorted_keys(type(refus) == "table" and refus or {})) do
+    local a = Lg.am_refus(key, refus[key])
+    if a and a.pid == pid then out[#out + 1] = a end
+  end
+  return out
+end
+
 --- Quais du piquage d'une zone (projet) : lignes { key, i, verdict, cause, tick }, vide sans piquage.
 function Lec.piquage_rows(f, pid)
   local pq = f.build and f.build.piquage
@@ -336,10 +347,23 @@ function Lec.decision_rows(f)
     local row = Lg.source_row(res, src[res])
     if row then rows[#rows + 1] = row end
   end
+  -- DEFENSE-STOCK : les lieux de défense évalués à la dernière pensée (f.defstock.rows), mots fixes, au plus Lg.DEF_MAX
+  local ds = f.defstock and f.defstock.rows
+  for i, r in ipairs(type(ds) == "table" and ds or {}) do
+    if i > Lg.DEF_MAX then break end
+    local row = Lg.defense_row(r)
+    if row then rows[#rows + 1] = row end
+  end
   local st = f.team and f.team.ia3e
   for _, l in ipairs(st and st.logs or {}) do rows[#rows + 1] = { tick = l.tick, kind = "module", text = tostring(l.text) } end
   local cap = f.team and f.team.capital
   if cap then
+    -- AMELIORATION : le dernier refus par bloc et famille (f.team.capital.refus), mots fixes
+    local refus = type(cap.refus) == "table" and cap.refus or {}
+    for _, key in ipairs(sorted_keys(refus)) do
+      local row = Lg.am_refus_row(key, refus[key])
+      if row then rows[#rows + 1] = row end
+    end
     for _, h in ipairs(cap.history or {}) do rows[#rows + 1] = { tick = h.tick, kind = "capital", text = "amélioration " .. tostring(h.key) } end
     if cap.current and cap.current.key then rows[#rows + 1] = { kind = "capital_courant", text = tostring(cap.current.key) } end
   end
@@ -352,6 +376,14 @@ function Lec.improvement_facts(f)
   local cap = f.team and f.team.capital
   if cap and cap.current and cap.current.key then
     facts.niveau = { state = "prevue", why = tostring(cap.current.key) }
+  elseif cap and type(cap.refus) == "table" then
+    -- aucun choix en cours : le refus le plus récent explique pourquoi (mot fixe traduit)
+    local best
+    for _, key in ipairs(sorted_keys(cap.refus)) do
+      local a = Lg.am_refus(key, cap.refus[key])
+      if a and (best == nil or (a.tick or 0) >= (best.tick or 0)) then best = a end
+    end
+    if best then facts.niveau = { state = "refusee", why = { "fo-dbg-cerveau.am-refus-" .. best.cause } } end
   end
   local b = f.build
   local ln = b and b.liaison
