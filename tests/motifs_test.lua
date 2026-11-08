@@ -63,6 +63,36 @@ for ref, id in pairs(REFS) do
   check(m and m.origine == "ref_dc" and m.ref == ref, "référence du DC " .. ref .. " transcrite par " .. id)
 end
 
+-- classification : n entrées, m sorties, modularité, machines par tuile (demande du DC)
+do
+  local CLASSES = {
+    ["fonte-2x2-double-central"] = { 1, 2, "serie", 4 }, ["asm-2e-1s"] = { 2, 1, "serie", 1 }, ["asm-grille-3-directe"] = { 2, 1, "serie", 3 },
+    ["asm-cable-circuit-3-2-double"] = { 3, 1, "serie", 10 }, ["equilibreur-4-4"] = { 4, 4, "unique", 0 },
+    ["chimie-rangee-2f-1e-1s"] = { 3, 1, "serie", 1 }, ["raffinerie-rangee-base"] = { 1, 1, "serie", 1 },
+    ["bus-piquage-voie-exterieure"] = { 4, 5, "unique", 0 }, ["foreuses-2xN-tapis-central"] = { 0, 1, "serie", 4 },
+  }
+  for id, c in pairs(CLASSES) do
+    local d = Cat.get(id).derive
+    check(d.n_entrees == c[1] and d.m_sorties == c[2] and d.modularite == c[3] and d.machines == c[4],
+      string.format("%s classé %d entrées, %d sorties, %s, %d machines (lu : %d, %d, %s, %d)", id, c[1], c[2], c[3], c[4], d.n_entrees, d.m_sorties, d.modularite, d.machines))
+  end
+end
+
+-- contraintes : place minimale et rangées qui doivent rester droites
+do
+  local m = Cat.get("fonte-2x2-double-central")
+  check(m.derive.place_min.l == 4 and m.derive.place_min.h == 11, "place minimale de la colonne du DC : une tuile 4 × 11")
+  local d = m.derive.droits
+  local ok = #d == 3
+  for _, x in ipairs(d) do
+    if not ((x.role == "tapis_entree" and x.k == 1 and x.y == 5) or (x.role == "tapis_sortie" and x.k == 1 and x.y == 0) or (x.role == "tapis_sortie" and x.k == 2 and x.y == 10)) then ok = false end
+  end
+  check(ok, "rangées droites de la colonne du DC : entrée 1 (rangée 5), sorties 1 et 2 (rangées 0 et 10)")
+  local c = Cat.get("chimie-rangee-2f-sortie")
+  check(c.derive.place_min.l == 8 and c.derive.place_min.h == 7, "place minimale d'une rangée à 2 fluides : tête 2 + tuile 4 + queue 2 = 8 × 7")
+  check(#Cat.get("equilibreur-4-4").derive.droits == 0, "l'équilibreur n'impose aucune rangée droite sur toute sa largeur")
+end
+
 for _, m in ipairs(Cat.MOTIFS) do
   check(type(m.source) == "table" and #m.source >= 1 and m.source[1]:match("^https://"), m.id .. " : source (URL) renseignée")
   check(m.nom_fr and m.nom_en, m.id .. " : noms FR et EN")
@@ -239,6 +269,26 @@ do
   -- recette manquante pour un groupe : refus net, jamais de repli silencieux
   local d3, why = Ch.debit(m, { vitesse = ctx.vitesse, recettes = { principal = rec.cable }, bras = ctx.bras })
   check(d3 == nil and why == "recette_manquante:cable" or why == "recette_manquante:circ", "groupe sans recette refusé (" .. tostring(why) .. ")")
+end
+
+do
+  -- ratios usuels CALCULÉS (vitesses égales ; les nombres sont ceux des recettes, jamais écrits dans le catalogue)
+  local engr = { temps = 0.5, vitesse = 0.75, sorties = { M = 1 } }
+  local pack = { temps = 5, vitesse = 0.75, entrees = { M = 1 } }
+  check(near(Ch.rapport(engr, pack, "M"), 0.1), "ratio engrenage → pack rouge : 1 machine d'engrenages pour 10 de packs (" .. tostring(Ch.rapport(engr, pack, "M")) .. ")")
+  local cab = { temps = 0.5, vitesse = 0.75, sorties = { M = 2 } }
+  local cir = { temps = 0.5, vitesse = 0.75, entrees = { M = 3 } }
+  check(near(Ch.rapport(cab, cir, "M"), 1.5), "ratio câble → circuit : 3 pour 2 (" .. tostring(Ch.rapport(cab, cir, "M")) .. ")")
+  local m32 = Cat.get("asm-cable-circuit-3-2-double")
+  check(near(Ch.rapport_motif(m32), 1.5), "le motif des circuits réalise 3:2 (6 machines de câble pour 4 de circuits)")
+  local pla = { temps = 3.2, vitesse = 1, sorties = { M = 1 } }
+  local aci = { temps = 16, vitesse = 1, entrees = { M = 5 } }
+  check(near(Ch.rapport(pla, aci, "M"), 1), "ratio plaque → acier à vitesses égales : 1 pour 1 (" .. tostring(Ch.rapport(pla, aci, "M")) .. ")")
+  check(near(Ch.rapport_motif(Cat.get("fonte-chaine-directe-3x3")), 1), "la chaîne directe de fours réalise 1:1")
+  check(near(Ch.rapport_motif(Cat.get("asm-chaine-1-2")), 0.5), "la chaîne 1 → 2 réalise 1:2")
+  check(Ch.rapport(pla, pack, "Z") == nil, "jeton absent : pas de rapport")
+  check(Ch.bras_necessaires(1.5, 0.83, true) == 3 and Ch.bras_necessaires(0.3, 0.83, true) == 1, "bras nécessaires : 1,5/s demandent 3 bras de base sur un tapis, 0,3/s un seul")
+  check(Ch.machines_par_voie(0.625, 7.5) == 12 and Ch.machines_par_voie(0.3125, 7.5) == 24, "une voie de 7,5/s nourrit 12 fours d'acier ou 24 fours de pierre")
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -542,6 +592,14 @@ local function terrains(Chx)
       return table.concat(t, "|")
     end
     check(sig(a) == sig(b), "T15 résultats identiques")
+  end)
+
+  t("T16b entrées invalides : erreur nette, jamais un résultat silencieux", function()
+    local ok1, e1 = pcall(Chx.choisir, { famille = "fonte", demande = { jeton = "P", debit = 1 }, ctx = ctx_pierre() })
+    check(not ok1 and tostring(e1):find("zone", 1, true), "T16b zone absente refusée : " .. tostring(e1))
+    local ok2, e2 = pcall(Chx.choisir, { zone = { x = 0, y = 0, l = 10, h = 10 }, famille = "fonte", demande = { jeton = "P", debit = 1 }, ctx = ctx_pierre(),
+      entrees = { { cote = "X", jetons = { "A" } } } })
+    check(not ok2 and tostring(e2):find("côté", 1, true), "T16b côté inconnu refusé : " .. tostring(e2))
   end)
 
   t("T16 zone trop petite pour une seule tuile : aucun motif, cause pour chacun", function()
