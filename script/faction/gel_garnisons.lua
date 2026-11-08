@@ -438,7 +438,11 @@ local function on_damaged(e)
   local vid = vid_of(a, ent.force.name)
   if vid == nil then return end
   a.hit[vid] = e.tick
-  if a.v[vid] and a.v[vid].n > 0 then wake_view(a, vid, "degat", e.tick) end
+  if a.v[vid] and a.v[vid].n > 0 then
+    Profiler.start("gel:reveil") -- C19 : réveil d'une garnison au tick même, mesuré à part (portée ouverte seulement s'il y a un réveil)
+    wake_view(a, vid, "degat", e.tick)
+    Profiler.stop("gel:reveil")
+  end
 end
 Events.on(defines.events.on_entity_damaged, on_damaged)
 
@@ -450,7 +454,11 @@ Events.on_died(function(e)
   local vid = vid_of(a, ent.force.name)
   if vid == nil then return end
   a.lost[vid] = e.tick
-  if a.v[vid] and a.v[vid].n > 0 then wake_view(a, vid, "perte", e.tick) end
+  if a.v[vid] and a.v[vid].n > 0 then
+    Profiler.start("gel:reveil")
+    wake_view(a, vid, "perte", e.tick)
+    Profiler.stop("gel:reveil")
+  end
 end, { types = { "unit", "character", "ammo-turret", "electric-turret", "fluid-turret", "artillery-turret", "wall", "gate",
   "container", "furnace", "assembling-machine", "mining-drill", "lab", "electric-pole", "boiler", "generator", "radar", "inserter",
   "transport-belt", "roboport", "rocket-silo" }, ennemi = false })
