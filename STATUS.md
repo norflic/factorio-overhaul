@@ -1,0 +1,8 @@
+# STATUS lot RAPATRIEMENT (8/11, ~16 h)
+- Branche `rapatriement`. Code du mod = 7041a532 + merge essai-0666 (00dbbdb9) ; bcdf1679 = scenario de banc corrige ; SHA final : voir `git log -1` (commit STATUS).
+- Marche : regle pure shared/team/rapatriement.lua (141 OK, 52 mutants), glue 59 OK, cout 0 ECHEC (pire appel ~143k instr.), api_lint 3159 / 0 erreur ; ligne de 173 pieces construite par les PNJ en moteur reel.
+- Defaut trouve : le scenario de banc n'avait pas de courant (EEI production 0, hors aire) : 0 objet au tampon dans banc3-tapis. Corrige en bcdf1679 (source 100 tuiles, fenetre 1 de 4 400 ticks, controle a 10 000, etat des bras au journal).
+- Manque : preuve moteur reel des objets livres au tampon sans voyage de PNJ (banc5-tapis) ; coupure/retour a la main non prouvee ; tests sequentiels res-rap4 a finir (champ_vapeur_test et fonderie_dyn_test exit=1 : a comparer a la tete d'integration, probablement pas a moi).
+- Prochaine etape : lire `fo-logs\2026-11-08_RAPATRIEMENT\banc5-tapis\benchmark.log.gz` (BILAN [FO-RAPATRIEMENT], lignes « bras source », « fenetre 1 close ») ; si 0 arrive : lire le statut des bras.
+- Banc : `bash scratchpad/lance_rap5.sh` (banc.py --qui RAPATRIEMENT -- 10100 rapatriement src-bcdf1679) ; archive `fo-logs\2026-11-08_RAPATRIEMENT\banc5-tapis`, sortie `banc5-tapis-sortie.txt`. Pas de ticket dc-save (la sauvegarde ne prouve que le chargement).
+- Non traites (revue-s) : site du tampon en lot, source deja servie par une liaison, barre non appliquee si ligne proprietaire refusee ; double compte reseau-graphe (cote integrateur) ; hook Rap.route a brancher quand traversee sera fusionnee.
