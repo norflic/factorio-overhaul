@@ -117,12 +117,12 @@ end
 local function g41(E)
   section("G41-1. règle pure")
   check(E.expansion({ gen = "smelter" }) and E.expansion({ site = "petrole" }) and E.expansion({ key = "gabarit" }), "module, site, gabarit : des expansions")
-  for _, k in ipairs({ "bench", "enceinte", "ilot", "alim", "liaison", "raccord", "walls" }) do
+  for _, k in ipairs({ "bench", "enceinte", "ilot", "alim", "liaison", "raccord", "walls", "plant" }) do
     local spec = { gen = "smelter" }
     spec[k] = true
     check(not E.expansion(spec), "« " .. k .. " » n'est pas une expansion")
   end
-  check(not E.expansion({ gen = "steam", args = { 1 } }), "la centrale elle-même n'est pas une expansion")
+  check(E.decide({ gen = "steam", args = { 1 }, plant = true }, { plant = nil }) == false, "la centrale elle-même (spec.plant) n'est pas une expansion")
   check(not E.expansion(nil) and not E.expansion("x") and not E.expansion({}), "demande absente, illisible ou vide : pas une expansion")
   local must, why = E.decide({ gen = "smelter" }, { plant = nil })
   check(must == true and why:find("energie d'abord", 1, true), "première expansion sans centrale : la centrale d'abord")
@@ -149,7 +149,7 @@ local function request_world(E)
   Build.plant = function(f, pole)
     local b = f.build
     if b.plant then return b.plant end
-    local id = Build.request(f, { gen = "steam", args = { 1 }, pole = pole })
+    local id = Build.request(f, { gen = "steam", args = { 1 }, pole = pole, plant = true })
     b.plant = id
     local order = { id }
     for _, x in ipairs(b.order) do if x ~= id then order[#order + 1] = x end end
@@ -180,7 +180,7 @@ local function g41_request(E)
   Build.request(f3, { gen = "labs", bench = "manque-labo" })
   check(f3.build.plant == nil, "enceinte, alimentation, demande de banc : aucune centrale d'office")
   local f4 = { key = "w", build = { next_id = 1, projects = {}, order = {}, opts = {} } }
-  Build.request(f4, { gen = "steam", args = { 1 } })
+  Build.request(f4, { gen = "steam", args = { 1 }, plant = true })
   check(f4.build.plant == 1 and f4.build.energie_dabord == nil, "la demande de la centrale elle-même : pas de récursion")
 end
 g41_request(E0)
@@ -332,7 +332,7 @@ mutant("plafond de secours ignoré", function(Cc) Cc.SECOURS_MAX = 1000 end)
 mutant("plafond de secours à 1", function(Cc) Cc.SECOURS_MAX = 1 end)
 mutant("capacité vivante jamais en panne", function(_, Cm) Cm.down = function() return false end end)
 mutant("énergie d'abord coupée", function(_, _, Em) Em.ON = false end)
-mutant("la centrale est une expansion", function(_, _, Em) local old = Em.expansion; Em.expansion = function(s) return old(s) or (type(s) == "table" and s.gen == "steam") end end)
+mutant("la centrale est une expansion", function(_, _, Em) local old = Em.decide; Em.decide = function(s, st) return old(s, { plant = st and st.plant, off = st and st.off }) end end)
 mutant("l'enceinte est une expansion", function(_, _, Em) Em.NOT_EXPANSION = { "bench" } end)
 mutant("réglage de banc ignoré", function(_, _, Em) local old = Em.decide; Em.decide = function(s, st) return old(s, { plant = st and st.plant }) end end)
 mutant("centrale déjà demandée ignorée", function(_, _, Em) local old = Em.decide; Em.decide = function(s, st) return old(s, { plant = nil, off = st and st.off }) end end)

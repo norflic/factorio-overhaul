@@ -18,15 +18,15 @@ local E = {}
 E.ON = true -- ALLUMÉ par défaut ; false : comportement d'avant le lot
 
 -- clés d'une demande qui disent « ce n'est pas une expansion » : réparer, protéger, relier, nourrir la centrale, banc
-E.NOT_EXPANSION = { "bench", "enceinte", "ilot", "alim", "liaison", "raccord", "walls" }
+E.NOT_EXPANSION = { "bench", "enceinte", "ilot", "alim", "liaison", "raccord", "walls", "plant" }
 
---- La demande est-elle une expansion (hors la centrale) ?
+--- La demande est-elle une expansion ? (La centrale elle-même, spec.plant posé par Build.plant et Build.grow_plant, n'en est pas une : cette
+--- règle ne nomme aucun générateur.)
 function E.expansion(spec)
   if type(spec) ~= "table" then return false end
   for _, k in ipairs(E.NOT_EXPANSION) do
     if spec[k] ~= nil then return false end
   end
-  if spec.gen == "steam" then return false end
   return spec.gen ~= nil or spec.site ~= nil or spec.key ~= nil
 end
 

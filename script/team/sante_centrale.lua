@@ -109,7 +109,7 @@ function Sante.observe(f, surface, p, tick)
             local fb = r.fluidbox
             if fb and #fb >= 1 then
               local fl = fb[1]
-              steam_amt = steam_amt + ((fl and fl.name == "steam" and fl.amount) or 0)
+              steam_amt = steam_amt + ((fl and fl.amount) or 0) -- (une machine à vapeur ne contient que de la vapeur)
               steam_cap = steam_cap + (fb.get_capacity(1) or 0)
             end
           end

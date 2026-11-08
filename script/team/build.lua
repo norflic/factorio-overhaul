@@ -2875,7 +2875,7 @@ function Build.plant(f, pole)
   local b = f.build
   if b.plant then return b.plant end
   local id = Build.request(f, { gen = "steam", args = { 1 }, feed = true, prio = Build.PRIO + 5, domain = "infrastructures",
-    pole = pole })
+    pole = pole, plant = true }) -- (lot TV-ENERGIE : plant = la demande EST la centrale, Build.Ene)
   b.plant = id
   -- la centrale passe avant les autres projets en attente
   local order = { id }
@@ -2891,7 +2891,7 @@ function Build.grow_plant(f, nb, tick, secours)
   local first = b.plant and b.projects[b.plant]
   if not (first and first.spec and first.spec.gen) then return nil end -- (la centrale de plus est du même type que la première)
   local id = Build.request(f, { gen = first.spec.gen, args = { nb }, feed = true, prio = Build.PRIO + 5, domain = "infrastructures",
-    pole = first.spec.pole }) -- (intégration 0.6.28 : même poteau que la première, voir l'alimentation)
+    pole = first.spec.pole, plant = true }) -- (intégration 0.6.28 : même poteau que la première, voir l'alimentation)
   if not id then return nil end
   b.projects[id].secours = secours or nil -- lot TV-ENERGIE (G65) : unité de secours, projet DISTINCT (journal, bancs)
   b.extra_plants = b.extra_plants or {}
@@ -5054,6 +5054,7 @@ function Build.status(f, id)
   local open_obst = 0
   for _, o in ipairs(p.obstacles or {}) do if not o.done then open_obst = open_obst + 1 end end
   return { id = p.id, state = p.state, reason = p.reason, built = count_built(p), total = #p.ents, parts = parts,
+    gen = p.spec and p.spec.gen or nil, secours = p.secours or nil, -- (lot TV-ENERGIE : générateur du projet, unité de secours)
     unbuilt = unbuilt, open_obstacles = open_obst,
     obstacles = #p.obstacles, quais = quais, outs = #p.outs, missing = missing, created = p.created, started = p.started,
     finished = p.finished, wires = p.wired, links = p.links, retry_at = p.retry_at, retries = p.retries,
@@ -5202,10 +5203,11 @@ remote.add_interface("fo-ia1d", {
     local b = f and Build.enable(f, type(opts) == "table" and opts or {})
     return b ~= nil
   end,
-  request = function(key, spec)
+  request = function(key, spec, expansion)
     local f = team_of_key(key)
     if not (f and f.build) then return nil, "plan directeur inactif" end
-    if type(spec) == "table" and spec.bench == nil then spec.bench = "remote" end -- (lot TV-ENERGIE : une demande de banc ne déclenche pas « l'énergie d'abord »)
+    -- (lot TV-ENERGIE : une demande de banc ne déclenche pas « l'énergie d'abord » ; `expansion` vrai = une vraie expansion, la règle s'applique : banc tv-energie)
+    if type(spec) == "table" and spec.bench == nil and not expansion then spec.bench = "remote" end
     return Build.request(f, spec)
   end,
   status = function(key, id) return Build.status(team_of_key(key), id) end,
@@ -5220,7 +5222,7 @@ remote.add_interface("fo-ia1d", {
   end,
   set_option = function(key, name, value)
     local f = team_of_key(key)
-    if not (f and f.build and (name == "seul" or name == "ghosts_ahead" or name == "sante" or name == "no_grow" or name == "no_alim" or name == "no_sante" or name == "no_coupure")) then return nil end -- no_coupure : coupe le chemin le plus court et le second chemin des poteaux perdus (lot ENERGIE 2/11, témoin des bancs) ; no_grow : coupe la croissance de la centrale (bancs) ; no_alim : coupe les foreuses de la centrale (lot CHARBON-CENTRALE, bancs) ; no_sante : coupe l'amorce à la main, la porte des consommateurs et l'avance de la centrale de plus (lot ENERGIE 2/11, témoin des bancs)
+    if not (f and f.build and (name == "seul" or name == "ghosts_ahead" or name == "sante" or name == "no_grow" or name == "no_alim" or name == "no_sante" or name == "no_coupure" or name == "no_energie_dabord")) then return nil end -- no_coupure : coupe le chemin le plus court et le second chemin des poteaux perdus (lot ENERGIE 2/11, témoin des bancs) ; no_grow : coupe la croissance de la centrale (bancs) ; no_alim : coupe les foreuses de la centrale (lot CHARBON-CENTRALE, bancs) ; no_sante : coupe l'amorce à la main, la porte des consommateurs et l'avance de la centrale de plus (lot ENERGIE 2/11, témoin des bancs)
     f.build.opts[name] = value and true or false
     return f.build.opts[name]
   end,

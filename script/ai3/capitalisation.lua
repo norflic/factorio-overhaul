@@ -2399,6 +2399,15 @@ remote.add_interface("fo-capi", {
     cs.open[#cs.open + 1] = rec
     return rec.mod_ids, o.key
   end,
+  --- Lot TV-ENERGIE (W02, lecture seule) : le relevé du courant que la capitalisation donnerait aujourd'hui à la règle, selon l'état de la
+  --- centrale de l'équipe (Auto.plant_state) : { amorce } ou { fermee } sans centrale finie, { have_kw, used_kw } avec.
+  power_probe = function(key, state, why, wait)
+    local f = team_of(key)
+    if not f then return nil end
+    local ps, pw = Auto.plant_state(f)
+    if state ~= nil then ps, pw = state, why end
+    return Capi.power_input(f, ps, pw, wait), ps
+  end,
   status = function(key)
     local f = team_of(key)
     local cs = f and f.team and f.team.capi

@@ -246,7 +246,7 @@ local MUTANTS = {
   { "joueur proche ignore", { 'inside(s.box, x, y) then return true, "joueur proche" end', 'false then return true, "joueur proche" end' } },
   { "zone inconnue ralentit (garde ouverte)", { 'if type(s.box) ~= "table" then return true, "zone inconnue" end', 'if type(s.box) ~= "table" then return false, "zone inconnue" end' } },
   { "votre equipe ralentie", { 'if s.is_player then return true, "votre equipe" end', "" } },
-  { "saute toujours (SLOW ignore)", { "if tick - st.last >= Cd.SLOW then return false, why end", "" } },
+  { "saute toujours (SLOW ignore)", { "if tick - st.last >= (slow or Cd.SLOW) then return false, why end", "" } },
   { "zone sans elargissement", { "local d = near or Cd.NEAR", "local d = 0" } },
   { "armee dehors ignoree", { 'if s.army_out ~= false then return true, s.army_out == true and "armee dehors" or "armee inconnue" end', "" } },
   { "armee inconnue lue comme rentree (garde ouverte)", { "if s.army_out ~= false then", "if s.army_out == true then" } },

@@ -202,11 +202,12 @@ function Commander.slow()
   return Dg.slow(Cd.SLOW, ns and ns.level or 0)
 end
 
---- Une lecture de la file des travaux lourds (appelée au guet, tick multiple de Commander.DEGRADE_EVERY).
-function Commander.degrade(tick)
+--- Une lecture de la file des travaux lourds (appelée au guet, tick multiple de Commander.DEGRADE_EVERY). `depth` : profondeur forcée (BANC
+--- SEULEMENT, remote fo-cadence degrade_feed) ; absente, la profondeur réelle de la file.
+function Commander.degrade(tick, depth)
   local ns = Storage.ns("degrade")
   if not ns then return end
-  local depth = Lourd.depth()
+  depth = depth or Lourd.depth()
   local from = ns.level or 0
   local to, changed = Dg.update(ns, depth)
   if changed then
@@ -367,6 +368,18 @@ Events.on_nth_tick(1, function(e) Commander.guard(e.tick) end)
 
 -- Lot X10-S10 : lecture de la cadence par le mod de test (scénario s10-cadence ; aucune écriture).
 remote.add_interface("fo-cadence", {
+  --- Lot TV-ENERGIE (V89, BANC SEULEMENT) : `n` lectures de la file avec la profondeur `depth` (par le même chemin que le guet : Dg.update, journal) ;
+  --- rend le niveau, la période de repos des factions lointaines et calmes, et le nombre de changements.
+  degrade_feed = function(depth, n)
+    for _ = 1, (n or 1) do Commander.degrade(game.tick, depth) end
+    local ns = Storage.ns("degrade")
+    return ns and { level = ns.level or 0, slow = Commander.slow(), changes = ns.changes or 0, depth = Lourd.depth() } or nil
+  end,
+  --- Lot TV-ENERGIE (V89) : état de la dégradation (lecture seule).
+  degrade_state = function()
+    local ns = Storage.ns("degrade")
+    return ns and { level = ns.level or 0, slow = Commander.slow(), changes = ns.changes or 0, depth = Lourd.depth() } or nil
+  end,
   --- Une entrée par faction, dans l'ordre de la guerre : { key, force, last (dernière pensée), asleep, mode, hq = { x, y } }.
   list = function()
     local war = State.war()
