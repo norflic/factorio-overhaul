@@ -330,9 +330,15 @@ function Src.with_stock(f, x, d, count)
   return d
 end
 
-function Src.decision(f, res, tick, crisis, count)
+function Src.decision(f, res, tick, crisis, count, survie)
   local x = BY_RES[res]
   if not (x and Src.on(f) and f.team and f.team.sources and f.hq and f.hq.valid) then return nil end
+  -- Les machines extraient déjà assez (D09, script/team/intermediaires.lua : f.team.inter.skip, état lu sans require) : une tâche déjà prise est barrée
+  -- aussi (banc verif-guide, 8/11 : 2 minages de fer finis à 9,5 et 29,3 min après la coupure du fer à 1,9 min). Survie et crise exemptées.
+  local inter = f.team.inter
+  if not crisis and not survie and inter and inter.skip and inter.skip[res] then
+    return { act = "machines", item = x.item, why = "machines", code = "machines_suffisent" }, x
+  end
   local surface = f.hq.surface
   if not surface then return nil end
   local st = f.team.sources
@@ -342,8 +348,8 @@ function Src.decision(f, res, tick, crisis, count)
 end
 
 --- Minage à la main de `res` permis ? Rend ok, raison, texte pour le journal. Appelé par le programme d'un minage (script/team/worker.lua).
-function Src.hand_ok(f, res, tick, crisis, count)
-  local d = Src.decision(f, res, tick, crisis, count)
+function Src.hand_ok(f, res, tick, crisis, count, survie)
+  local d = Src.decision(f, res, tick, crisis, count, survie)
   if not d then return true, "rien", "" end
   -- Compteurs de la garde (lus par les bancs : combien de programmes de minage laissés / barrés, par ressource).
   local st = f.team.sources
@@ -355,7 +361,9 @@ function Src.hand_ok(f, res, tick, crisis, count)
     return true, d.why or "rien", ""
   end
   h.no = h.no + 1
-  local text = d.act == "stock"
+  local text = d.act == "machines"
+    and "les machines de l'equipe extraient deja assez (D09)"
+    or d.act == "stock"
     and string.format("le stock suffit (%s) : %d minerai, %s plaque(s)", tostring(d.why), d.ore or 0, tostring(d.plate))
     or d.act == "fetch"
     and string.format("prendre a la sortie %s@(%d,%d) : %d %s", tostring(d.row.uid), math.floor(d.row.x), math.floor(d.row.y), d.row.n, d.item)
@@ -397,8 +405,35 @@ end
 -- Pensée d'équipe (E4, avant le marché)
 ---------------------------------------------------------------------------------------------------
 --- Rend le nombre de tâches libres retirées.
-function Src.think(f, tick)
+--- Libres sans rien à faire : la cause, une ligne [FO-RIEN-A-FAIRE] par minute au plus (lecture seule du tableau et du plan directeur).
+local function idle_report(f, st, tick, idle)
+  if (idle or 0) <= 0 or (st.idle_t and tick - st.idle_t < Src.LOG_EVERY) then return end
+  local free, waiting = {}, {}
+  local tasks = Board.get(f).tasks
+  for _, key in ipairs(State.sorted_keys(tasks)) do
+    local t = tasks[key]
+    if not t.worker then free[t.kind] = (free[t.kind] or 0) + 1 end
+  end
+  local b = f.build
+  for _, pid in ipairs(b and b.order or {}) do
+    local p = b.projects[pid]
+    if p and p.state == "reserve" and not p.abandoned and p.missing and #p.missing > 0 then
+      waiting[#waiting + 1] = { pid = pid, ents = #(p.ents or {}), missing = p.missing }
+    end
+  end
+  local c = S.idle_cause({ idle = idle, free = free, waiting = waiting })
+  if not c then return end
+  st.idle_t = tick
+  st.idle = { code = c.code, tick = tick, n = idle } -- lu par la vue du cerveau : mot fixe
+  if (st.idle_logs or 0) < Src.LOGS then
+    st.idle_logs = (st.idle_logs or 0) + 1
+    log(string.format("[FO-RIEN-A-FAIRE] %s : %d PNJ libre(s) : %s a %.1f min", f.key or "player", idle, c.text, (tick - (f.started or 0)) / 3600))
+  end
+end
+
+function Src.think(f, tick, idle)
   if not (Src.on(f) and f.team and f.hq and f.hq.valid) then return 0 end
+  idle_report(f, reg_of(f), tick, idle)
   local surface = f.hq.surface
   local st = reg_of(f)
   scan_step(f, st, surface)

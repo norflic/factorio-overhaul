@@ -206,9 +206,10 @@ local function rt_facts(itext)
   FLOW.fa[ORE] = 40
   Inter.think(fa, 10800)
   R.a_resume = Inter.mine_skip(fa)[ORE] == nil
-  -- b) votre équipe : la force « player » (9999/min, l'usine du joueur humain) n'est pas lue ; sans module de fer, rien n'est coupé
+  -- b) votre équipe : lot MINAGE-MAIN (DC, 8/11) : la force « player » EST lue (9999/min extraits : coupé). Avant le lot, elle ne l'était pas
+  --    (partie du DC en 0.6.66 : 848 minerai/min extraits à 39 min, minage à la main jamais coupé).
   Inter.think(pl, 3600)
-  R.b_player = keys_of(pl)["mine:" .. ORE] == true
+  R.b_player = keys_of(pl)["mine:" .. ORE] == nil
   -- … avec une fonderie (module fini) qui sort 150/min : coupé
   local _, pl2 = world({ mod_iron = 150 })
   Inter.think(pl2, 3600)
@@ -265,7 +266,7 @@ check(R.a_skip, "Inter.mine_skip publie la ressource coupee (lue par poles.lua)"
 check(R.a_log, "journal [FO-MAIN-FOURNIE] a la coupure")
 check(R.a_hyst, "hysteresis : 70/min nets, reste coupe")
 check(R.a_resume, "40/min : repris")
-check(R.b_player, "votre equipe : la force du joueur humain n'est pas lue")
+check(R.b_player, "votre equipe : la force est lue (MINAGE-MAIN) : 9999/min extraits, minage a la main coupe")
 check(R.b_player_mod, "votre equipe : fonderie (module fini) a 150/min : coupe")
 check(R.c_survie, "mode survie : rien de coupe")
 check(R.d_fill and R.d_over, "intermediaire au plafond : remplissage du quai d'entree retire")
