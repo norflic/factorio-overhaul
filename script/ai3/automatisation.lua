@@ -23,6 +23,7 @@
 
 local T = require("shared.team.config")
 local A = require("shared.ai3.automatiser")
+local Mm = require("shared.ai3.mesure_module") -- lot MESURE-MODULE : débit mesuré d'un module fini, machine par machine (règle pure)
 local State = require("script.faction.state")
 local Board = require("script.team.board")
 local Build = require("script.team.build")
@@ -171,25 +172,83 @@ end
 --- Production RÉELLE d'un module fini sur la dernière minute (lot IA3-e, moteur réel e2-usine : des modules finis sans
 --- courant ne produisaient rien, mais retiraient les tournées de leurs avant-postes) : fours et assembleurs de ses
 --- pièces dont la recette donne l'objet du module ; objets par minute.
-local function measure_module(f, m)
+local function measure_module(f, m, tick)
+  -- Référence remise à nil par le suivi de reconstruction (Sw.follow) : nouvelle référence, machine par machine.
+  if m.made_prev == nil then m.mm = nil end
   local surface = f.hq and f.hq.valid and f.hq.surface
   local s = surface and f.build and Build.brief(f, m.id)
-  if not s then return 0 end
-  local made = 0
+  if not s then return nil end -- projet ou surface pas lus : mesure INCONNUE (nil), jamais 0
+  local known = m.mm and m.mm.per or {}
+  local readings, seen = {}, {}
   for _, pt in ipairs(s.parts or {}) do
     local area = { { pt.x, pt.y }, { pt.x + pt.w, pt.y + pt.h } }
     for _, e in ipairs(surface.find_entities_filtered({ area = area, force = f.force, type = { "furnace", "assembling-machine" } })) do
-      local ok = e.type == "furnace"
-      if not ok then
+      local id = e.valid and e.unit_number or nil
+      -- F96 : la zone rend aussi une machine qui la TOUCHE seulement (le voisin d'un module collé) : centre dans la zone, et
+      -- une seule fois (deux pièces voisines).
+      local p = id and e.position
+      if p and not seen[id] and p.x >= pt.x and p.x <= pt.x + pt.w and p.y >= pt.y and p.y <= pt.y + pt.h then
         local r = e.get_recipe and e.get_recipe() or nil
-        ok = r ~= nil and r.name == m.product
+        if not r and e.type == "furnace" then r = e.previous_recipe end
+        -- objets par fabrication du produit du module : une machine d'une autre recette n'entre pas ; products_finished
+        -- compte des FABRICATIONS (copper-cable : 2 objets chacune)
+        local amount = r and Mm.amount_of(r.products, m.product) or 0
+        if amount > 0 then
+          seen[id] = true
+          local cap = nil
+          if not known[id] then -- machine neuve : bornée par ce qu'elle peut fabriquer (pas de pic pour une machine adoptée)
+            cap = (e.crafting_speed or 0) / math.max(r.energy or 0, 0.001) * 60 * (1 + (e.productivity_bonus or 0)) * amount * 1.25 + amount
+          end
+          readings[#readings + 1] = { id = id, pf = e.products_finished or 0, amount = amount, cap = cap }
+        end
       end
-      if ok then made = made + (e.products_finished or 0) end
     end
   end
-  local rate = m.made_prev and math.max(0, made - m.made_prev) or 0
-  m.made_prev = made
+  local state, rate, info = Mm.step(m.mm, readings, math.floor(tick / 3600))
+  m.mm = state
+  if #readings > 0 then m.made_prev = Mm.sentinel(readings) end -- repère de compatibilité (nil = référence à refaire)
+  m.meas_n, m.meas_partial = info.n, info.partial or nil
   return rate
+end
+
+--- Recoupement (diagnostic, rien n'est corrigé ici) du débit mesuré avec la HAUSSE du contenu des coffres de sortie du plan
+--- directeur (f.team.mq.res.out_all, relevé une fois par minute par script/team/manque_vue.lua) : si les coffres montent bien plus vite
+--- que ce que les machines du produit ont fabriqué, l'un des deux relevés se trompe (lot MESURE-MODULE : « dort » ×4 pour un
+--- module de packs rouges, mesure 12/min contre statistiques 12/min). Les retraits (collecte par un PNJ) ne comptent pas : la hausse
+--- lue est une borne basse du flux. Une ligne [FO-IA3E-MESURE] par produit et par 10 min, 12 lignes au plus par équipe.
+Auto.CHECK_EVERY = 10 * 3600
+Auto.CHECK_LOGS = 12
+local function crosscheck(f, st, tick)
+  local mq = f.team and f.team.mq
+  local res = mq and mq.res
+  if not (res and type(res.out_all) == "table" and mq.tick) then return end
+  local prev = st.chk
+  if prev and prev.tick == mq.tick then return end
+  local cur = { tick = mq.tick, n = {}, said = prev and prev.said or {}, nsaid = prev and prev.nsaid or 0 }
+  local measured, unknown = {}, {}
+  for _, mod in ipairs(st.mods) do
+    if mod.state == "fini" and mod.product then
+      if mod.rate_meas == nil then unknown[mod.product] = true
+      else measured[mod.product] = (measured[mod.product] or 0) + mod.rate_meas end
+    end
+  end
+  for _, item in ipairs(sorted_keys(measured)) do
+    local now = res.out_all[item] or 0
+    cur.n[item] = now
+    local before = prev and prev.n and prev.n[item]
+    local dt = prev and (mq.tick - prev.tick) / 3600 or 0
+    if before and dt >= 0.5 and not unknown[item] and now > before then
+      local gain = (now - before) / dt
+      if Mm.crosscheck(measured[item], gain) == "ecart" and cur.nsaid < Auto.CHECK_LOGS
+        and (cur.said[item] == nil or tick - cur.said[item] >= Auto.CHECK_EVERY) then
+        cur.said[item] = tick
+        cur.nsaid = cur.nsaid + 1
+        log(string.format("[FO-IA3E-MESURE] %s : %s : coffres de sortie +%.1f/min contre %.1f/min mesures sur les machines a %.1f min (ecart : un des deux releves se trompe)",
+          f.key or "player", item, gain, measured[item], minutes(f, tick)))
+      end
+    end
+  end
+  st.chk = cur
 end
 
 local function roll(f, st, tick)
@@ -197,8 +256,9 @@ local function roll(f, st, tick)
   if st.last_min == m then return end
   -- Production mesurée des modules finis (une lecture par minute et par module).
   for _, mod in ipairs(st.mods) do
-    if mod.state == "fini" then mod.rate_meas = measure_module(f, mod) end
+    if mod.state == "fini" then mod.rate_meas = measure_module(f, mod, tick) end
   end
+  crosscheck(f, st, tick)
   -- Débit d'une PLAQUE : sa production par les fours de la force (statistiques du moteur : avant-postes, fours du QG,
   -- modules) ; les livraisons au QG (f.team.delivered) comptaient aussi les plaques prises puis rapportées par les PNJ
   -- (moteur réel, e4-usine : scarlet « 537 plaques/min livrées », 82 fondues en 45 min) : module surdimensionné.
@@ -715,7 +775,7 @@ function Auto.minute_line(f, st, tick)
       miss = "<" .. table.concat(parts, ",") .. ">"
     end
     mods[#mods + 1] = string.format("%s#%d:%s(%d/%d)%s%s%s", m.product, m.id, m.state, m.built or 0, m.total or 0,
-      m.state == "fini" and string.format("=%d/min", m.rate_meas or 0) or "",
+      m.state == "fini" and (m.rate_meas and string.format("=%.0f/min", m.rate_meas) or "=?/min") or "",
       m.reason and ("[" .. tostring(m.reason) .. "]") or "", miss)
   end
   if st.plant_id then mods[#mods + 1] = "centrale#" .. st.plant_id .. ":" .. tostring(st.plant_state) end
@@ -786,5 +846,10 @@ remote.add_interface("fo-ia3e", {
     return out
   end,
 })
+
+-- Bancs hors jeu (tests/mesure_module_test.lua) : la mesure d'un module, la minute et le recoupement avec les coffres.
+Auto.measure_module = measure_module
+Auto.roll = roll
+Auto.crosscheck = crosscheck
 
 return Auto
