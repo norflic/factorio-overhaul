@@ -1,0 +1,65 @@
+--[[
+  Lot BLOCAGE-COMBUSTIBLE (8/11, mesure sur la sauvegarde du DC en 0.6.64, fo-logs/2026-11-08_BLOCAGE-COMBUSTIBLE/CRITERES.md) :
+  le ravitaillement des BRULEURS des avant-postes (foreuses a combustion, fours). PUR : aucune API Factorio, aucun nom d'objet (le
+  combustible, les quantites et les verdicts du stock arrivent en DONNEES) ; tests/ravitaillement_test.lua.
+
+  Mesure : 22,8 % des releves de machines sont `no_fuel` (foreuses a combustion 5 537, fours 2 823 sur 36 695 releves) ; [FO-FLUX]
+  « bruleurs vitaux 214 dont 133 a sec » (azure) avec 10 000 charbons au coffre ; [FO-CHARBON] « 126 bruleurs sur 131 sous 3 charbons
+  apres la tournee » au meme avant-poste a 22 s puis 33 s d'ecart.
+
+  Maillon manquant : Sm.carry_fuel (shared/team/sorties_main.lua, lot CHARBON-MAIN) deduit de ce que la tournee PORTE le charbon des
+  coffres PROPRES de l'avant-poste de combustible (`need - own`), en comptant qu'elle le ramassera ; mais Outposts.service ramasse avec
+  Stock.skip_fn (lot STOCKAGE-VITAL, C2 de DIAG_CONSO) qui ecarte le charbon, vital compris, quand le coffre du QG le tient deja au
+  plafond (20 piles) : le charbon des coffres propres n'est ni porte ni ramasse, les bruleurs restent a sec, la tournee est refaite.
+  Ce charbon-la ne va PAS au coffre du QG : il passe du coffre de l'avant-poste a ses bruleurs, sur place. Le plafond du coffre du QG
+  ne le concerne pas.
+
+  Regles :
+    Rv.onsite_quota(need, carried)   combustible a prendre dans les coffres propres MEME si le stock refuse de le recevoir : ce qui
+                                     manque aux bruleurs apres ce que le porteur a deja (jamais negatif).
+    Rv.cause(a)                      verdict d'une tournee, pour le journal : "ok", "ramassage_ecarte", "coffre_sans_charbon",
+                                     "porte_insuffisant", "autre".
+    Rv.log_due(n)                    la n-ieme tournee courte d'un avant-poste est-elle ecrite au journal ?
+  Determinisme : aucune table parcourue par pairs, aucun temps mesure.
+]]
+
+local Rv = {}
+
+Rv.LOG_FIRST = 6   -- tournees courtes ecrites une a une par avant-poste
+Rv.LOG_EVERY = 10  -- puis une sur dix
+
+local function num(x)
+  if type(x) ~= "number" or x ~= x then return 0 end
+  return x
+end
+
+--- Combustible a prendre dans les coffres propres d'un avant-poste, stock ou non : `need` = ce qui manque a ses bruleurs pour atteindre
+--- le niveau de remplissage, `carried` = combustible deja dans le sac du porteur (pris au coffre du QG avant de partir).
+function Rv.onsite_quota(need, carried)
+  local q = num(need) - num(carried)
+  if q < 0 then return 0 end
+  return q - q % 1
+end
+
+--- a = { low_after = bruleurs encore sous le seuil bas apres la tournee, need = manque avant la tournee, carried = combustible dans le sac
+---       au depart, took = combustible ramasse dans les coffres propres, left = combustible resté dans les coffres propres apres le
+---       ramassage, skipped = le ramassage ecarte le combustible (Stock.skip_fn), stock = combustible libre au coffre du QG }.
+function Rv.cause(a)
+  if num(a.low_after) <= 0 then return "ok" end
+  if num(a.left) > 0 and a.skipped == true then return "ramassage_ecarte" end
+  if num(a.carried) + num(a.took) < num(a.need) then
+    if num(a.stock) < num(a.need) - num(a.carried) - num(a.took) then return "coffre_sans_charbon" end
+    return "porte_insuffisant"
+  end
+  return "autre"
+end
+
+--- n = rang (1, 2, ...) de la tournee courte de cet avant-poste.
+function Rv.log_due(n)
+  n = num(n)
+  if n <= 0 then return false end
+  if n <= Rv.LOG_FIRST then return true end
+  return (n - Rv.LOG_FIRST) % Rv.LOG_EVERY == 0
+end
+
+return Rv
