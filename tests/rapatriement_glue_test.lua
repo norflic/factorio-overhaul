@@ -299,6 +299,11 @@ do
   for y = -400, 400 do for x = 60, 62 do wall[P.tkey(x, y)] = true end end
   ok, why = try(nil, { blocked = wall })
   check(ok == false and tostring(why):find("rapatriement", 1, true), "G4.3 un mur de tuiles bloquees : refus (" .. tostring(why) .. ")")
+  -- un mur qui ne se contourne qu'au-dela de la marge d'origine : le second passage (boite elargie) le contourne
+  local long_wall = {}
+  for y = -16, 50 do for x = 60, 62 do long_wall[P.tkey(x, y)] = true end end
+  ok, why = try(nil, { blocked = long_wall })
+  check(ok == true, "G4.3b un mur qui se contourne au-dela de la marge d'origine : trace par la boite elargie (" .. tostring(why) .. ")")
   ok, why = try(function(W2, f2) W2.surface.is_chunk_generated = function(c) return c.x < 2 end end)
   check(ok == false, "G4.4 des chunks non generes sur le chemin : refus (" .. tostring(why) .. ")")
   ok, why = try(function(W2, f2, b2)
