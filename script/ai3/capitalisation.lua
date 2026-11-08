@@ -1430,6 +1430,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     production_first = production_first,
     defense = defense_input(f, D), -- lot PREVISION (C12) : « oui, compter la défense » dans le coût de chaque investissement
     power = Capi.power_input(f, plant_state, plant_why, wait_plant), -- étape 5a de VIDEO-INTEG : courant des centrales finies ; lot TV-ENERGIE (W02) : amorce ou relevé fermé sans centrale finie
+    solid_mesure = true, -- lot CONSOLIDATION-TIERS : `flows` est mesuré (statistiques de production de la force) ; la porte de rang juge la maturité des tiers
     mq_build = view.mq and view.mq.build or nil, -- lot VIDEO-ORDRE : manque net MESURÉ par objet (L3) ; un objet posé n'est re-ordonné qu'une fois ce signal bougé (nil : règle d'avant)
   }, cex
 end
@@ -2234,6 +2235,7 @@ local function decide_slice(f, cs, view, book, tick, research, run)
   end
   cs.dj, DJ_MEM[key] = nil, nil
   RangTrace.note(f, J.ctx.rang, tick) -- lot VIDEO-TRACES (G34) : journal [FO-RANG], une ligne par signature changée (rang de la décision, sans toucher au résultat)
+  RangTrace.attentes(f, J.ctx.cons_log, tick) -- lot CONSOLIDATION-TIERS : [FO-RANG] une ligne par attente, consolidation ou levée (sans toucher au résultat)
   decide_finish(f, cs, J.res, mem.input, view, book, tick, research)
   return true
 end

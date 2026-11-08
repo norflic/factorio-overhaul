@@ -18,6 +18,7 @@ Rf.SORTS = { "goulot amont", "budget", "bras", "plafond", "confirmation", "empla
 local RULES = {
   { "confirmation", "^confirmation :" },
   { "rang", "^rang :" },
+  { "rang", "^rang %d+ :" },                    -- lot CONSOLIDATION-TIERS : « rang r : chaine X de rang k non consolidee : ... »
   { "rang", "^anti%-repetition" },
   { "portes", "chantier%(s%)" },                -- porte d'extension : « bras : N chantier(s) … » (portes_extension.lua:103)
   { "portes", "^transport sature" },

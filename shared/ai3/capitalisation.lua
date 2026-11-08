@@ -1974,6 +1974,63 @@ local function power_options(ctx, plan, out)
   cand(out, mk(n), mk)
 end
 
+--- Lot CONSOLIDATION-TIERS (8/11 ; critères : fo-logs/2026-11-08_CONSOLIDATION-TIERS/CRITERES.md) : ALLUMÉ par défaut ; demande Ca.PORTE_RANG,
+--- Ca.RANG, l'état persistant (ctx.st) et input.solid_mesure (le runtime donne des débits MESURÉS : input.flows). Éteint ou sans mesure, rank_gate
+--- est celui de 7fc96ada. Une chaîne de rang >= 1 n'est CONSOLIDÉE que si son débit mesuré (hors main) plus son stock couvre Pr.SOLID_PCT % de sa
+--- demande depuis Pr.SOLID_MIN minutes ; un ordre de rang r attend tant qu'une chaîne de rang < r qui l'alimente ne l'est pas ET a une issue.
+Ca.CONSOLIDE_RANG = true
+
+--- Fluide ? (l'objet est un produit de fluide de sa recette : les statistiques d'objets ne le voient pas.)
+local function fluid_product(r, item)
+  for _, p in ipairs((r and r.products) or {}) do
+    if p.name == item and p.fluid then return true end
+  end
+  return false
+end
+
+--- Lignes de consolidation de la décision : un relevé par chaîne demandée de rang >= 1 (hors ressources), débit = production mesurée de
+--- la force moins la main (ctx.flows), stock ÷ H_STOCK ; « arrêtée » = machines posées dont aucune unité ne compte (confirmation).
+local function solid_rows(ctx, req)
+  local D, Rk = ctx.D, ctx.rang
+  local posed, cap = {}, {}
+  for _, m in ipairs(ctx.machines) do
+    local r = D.recipes[m.recipe]
+    if r and (m.n or 0) > 0 then
+      for _, p in ipairs(r.products) do
+        posed[p.name] = (posed[p.name] or 0) + m.n
+        cap[p.name] = (cap[p.name] or 0) + (m.n_cap or m.n)
+      end
+    end
+  end
+  local rows = {}
+  for _, i in ipairs(req.list) do
+    local Ri, rk = req.R[i] or 0, Rk.rank[i]
+    if Ri > Ca.EPS and rk ~= nil and rk >= 1 and not D.res[i] then
+      local rate = nil
+      if req.rec[i] ~= nil and not fluid_product(req.rec[i], i) then
+        local fl = ctx.flows[i] or {}
+        rate = math.max(0, (fl.made or 0) - (fl.hand or 0))
+      end
+      rows[#rows + 1] = { item = i, rank = rk, demand = Ri, stock_cover = (ctx.stock[i] or 0) / Ca.H_STOCK, rate = rate,
+        stopped = (posed[i] or 0) > 0 and (cap[i] or 0) <= 0 }
+    end
+  end
+  return rows
+end
+
+--- Chaînes non consolidées qui ont une issue (option ce tour, machines posées, ordre ouvert ou décidé) : l'entrée `solid` de Pr.decide.
+--- Le relevé (et la mémoire st.solid) avance UNE fois par décision ; l'issue se relit à chaque tour de la boucle des ordres.
+local function consolidation(ctx, plan, req, served)
+  if ctx.cons == nil then
+    ctx.st.solid = ctx.st.solid or Pr.solid_new()
+    local verdicts, lines = Pr.solid_step(ctx.st.solid, ctx.dt, solid_rows(ctx, req))
+    ctx.cons, ctx.cons_log = { v = verdicts }, lines
+  end
+  return Pr.solid_list(ctx.cons.v, function(x)
+    return served[x] == true, ((plan.N[x] or 0) + (plan.NP[x] or 0) + (plan.NO[x] or 0)) > Ca.EPS
+  end)
+end
+
 --- Lot VIDEO-ORDRE (lot 1 de la couverture vidéo, 7/11) : ALLUMÉ par défaut ; éteint, rank_gate ne fait que ce qu'il faisait en 0.6.61
 --- (l'ordre ne change pas, aucune mémoire des objets posés, aucune règle de grosse unité). Demande Ca.PORTE_RANG et Ca.RANG.
 Ca.ORDRE_RANG = true
@@ -2002,6 +2059,7 @@ end
 local function rank_gate(ctx, plan, req, out)
   local Rk = ctx.rang
   if ctx.rang_deps == nil then ctx.rang_deps = Pr.deps(Rk) end
+  local solid = Ca.CONSOLIDE_RANG and ctx.st ~= nil and ctx.input.solid_mesure and true or nil
   local served = {}
   for _, c in ipairs(out) do
     if c.o.item ~= nil then served[c.o.item] = true end
@@ -2022,7 +2080,16 @@ local function rank_gate(ctx, plan, req, out)
       orders[#orders + 1] = { key = o.key, item = o.item, rank = Rk.rank[o.item], pile = 2 }
     end
   end
-  local g = Pr.decide({ orders = orders, short = short, deps = ctx.rang_deps, last = ctx.last_item })
+  local solid_list = nil
+  if solid then solid_list = consolidation(ctx, plan, req, served) end
+  local g = Pr.decide({ orders = orders, short = short, deps = ctx.rang_deps, last = ctx.last_item, solid = solid_list })
+  if solid then
+    for _, x in ipairs(sorted_keys(g.waiting)) do
+      local v = ctx.cons.v[x]
+      local line = Pr.solid_mark(ctx.st.solid, x, v and v.text)
+      if line then ctx.cons_log[#ctx.cons_log + 1] = line end
+    end
+  end
   -- r* de la décision (compte rendu) : le rang le plus bas d'un manque à option sur TOUS les tours (le dernier tour, manque couvert,
   -- n'en a souvent plus).
   if g.rstar ~= nil and (ctx.rstar == nil or g.rstar < ctx.rstar) then ctx.rstar = g.rstar end
@@ -2094,6 +2161,22 @@ local function rank_gate(ctx, plan, req, out)
       for j, r in ipairs(new) do
         if r ~= old[j] then r.c.o.oTq, r.c.o.odepth, r.c.o.okey = old[j].Tq, old[j].depth, old[j].key end
       end
+    end
+  end
+  -- Lot CONSOLIDATION-TIERS : les options des chaînes qui retiennent un ordre passent devant (priorité à leur consolidation) : chaque option
+  -- prend la PLACE (oTq, odepth, okey) de celle qui était à son rang dans l'ordre actuel, comme Pr.order.
+  if solid and next(g.waiting) ~= nil and #kept >= 2 then
+    local cur = {}
+    for _, c in ipairs(kept) do cur[#cur + 1] = c end
+    table.sort(cur, function(a, b) return Ca.before(a.o, b.o) end)
+    local new = Pr.front(cur, function(c)
+      local it = c.o.item or c.o.resource
+      return it ~= nil and g.waiting[it] == true
+    end)
+    local place = {}
+    for j, c in ipairs(cur) do place[j] = { c.o.oTq or c.o.Tq, c.o.odepth or c.o.depth, c.o.okey or c.o.key } end
+    for j, c in ipairs(new) do
+      if c ~= cur[j] then c.o.oTq, c.o.odepth, c.o.okey = place[j][1], place[j][2], place[j][3] end
     end
   end
   return kept
@@ -2261,7 +2344,8 @@ end
 ---   laboratoire / min mesurées), starved (‰ de laboratoires affamés) }, power = { have_kw, used_kw, plant = { kw,
 ---   items, burner_kw } } (facultatif), site_items, drill_extra, machine_extra = { {objet, n} } (pièces de
 ---   l'exécutant), limits = { max_ingredients }, workers, idle (PNJ sans tâche : Ca.idle_of(Br.smooth)), can_grow,
----   traits, weights, threat, dt (min), lag (délai de pose mesuré, min), obtainable (fonction ou table) }.
+---   traits, weights, threat, dt (min), lag (délai de pose mesuré, min), obtainable (fonction ou table),
+---   solid_mesure (vrai : `flows` est un débit MESURÉ ; lot CONSOLIDATION-TIERS, la porte de rang attend la consolidation des tiers) }.
 --- st : état persistant de la règle (nombres et tables : bank, T_hist, sink_t, u_target). Rend { orders, refus,
 --- explore, s, delta, alpha, tmax, g, lambda, Y, K, budget, bank, flow_part, stock_part, spent, labor, labor_used,
 --- u_star, labs_target, coverage, bottleneck, R, open_n }.
