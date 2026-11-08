@@ -90,12 +90,14 @@ return {
       ctx.check(st.key ~= nil and ctx.remote("fo-ind", "stock", st.key, PARTS) ~= nil, "coffre : pieces sans aucun bras rapide")
     end
     if not st.key then return end
-    if st.phase == 0 and t > 300 and t % 60 == 0 and ctx.remote("fo-capi", "status", st.key) ~= nil then
-      local ids, why = ctx.remote("fo-capi", "bench_order", st.key, "chaine", ITEM, 30)
-      st.id = ids and ids[1]
-      st.why = why
+    -- Une rangee ORDINAIRE (fo-ind row : A.method_for, A.sized, Auto.submit, comme chantier-circuits) : le chemin « rangee dynamique » de
+    -- bench_order reserve la rangee entiere (7 engrenages de large) et ne tient pas dans un lot au depart (« trop grand », micro-banc du 8/11).
+    if st.phase == 0 and t == 600 then
+      local id, info = ctx.remote("fo-ind", "row", st.key, ITEM, 30)
+      st.id = id
+      st.why = info
       st.phase = 1
-      ctx.log(string.format("ordre chaine %s 30/min -> %s", ITEM, st.id and ("module " .. st.id) or ("refus : " .. tostring(why))))
+      ctx.log(string.format("rangee %s 30/min -> %s", ITEM, id and ("module " .. id .. " (" .. tostring(info) .. ")") or ("refus : " .. tostring(info))))
     end
     if st.id and t % EVERY == 0 and st.phase >= 1 then
       local a = ctx.remote("fo-ia3e", "status", st.key)
