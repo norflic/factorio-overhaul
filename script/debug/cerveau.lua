@@ -26,6 +26,7 @@ local Panneau = require("script.debug.panneau")
 local Ec = require("shared.debug.ecart")
 local Lg = require("shared.debug.lignes")
 local Am = require("shared.debug.ameliorations")
+local An = require("script.debug.anneau")
 
 local Cv = {}
 
@@ -217,6 +218,7 @@ function Cv.refresh_one(player, st, v, now)
     decisions = Lg.decisions(Lec.decision_rows(f), Lg.DECISIONS_MAX),
     sel_tasks = row and Lg.tasks_for_zone(tasks, { pid = row.z.pid, oid = row.z.oid }) or {},
     sel_piquage = row and row.z.pid and Lec.piquage_rows(f, row.z.pid) or {},
+    sel_am_refus = row and row.z.pid and Lec.am_refus_rows(f, row.z.pid) or {},
     improvements = Am.evaluate(Lec.improvement_facts(f)),
     sev_count = { alerte = 0, attention = 0, info = 0, ok = 0 },
   }
@@ -349,6 +351,29 @@ remote.add_interface("fo-dbg-cerveau", {
     if not (p and v) then return false end
     Cv.refresh_one(p, st, v, game.tick)
     return true
+  end,
+  -- BANC SANS JOUEUR (jamais appelé par le mod) : relève `slices` tranches de CHAQUE équipe observable, calcule les lignes et rend un résumé par
+  -- équipe { id, key, zones, mesurees, couleurs = { vert, orange, rouge, gris }, alertes, anneau } ; une erreur Lua se PROPAGE (le banc la voit). Rien
+  -- n'est laissé dans l'état de la vue si personne ne la regarde.
+  probe_all = function(slices)
+    local st = ns()
+    if not st then return nil end
+    local out = {}
+    for _, t in ipairs(Lec.teams()) do
+      local s = snap_of(st, t.id)
+      for _ = 1, slices or 1 do slice_force(st, t.id, game.tick) end
+      local rows = Cv.rows(t.f, s, game.tick)
+      local c = { vert = 0, orange = 0, rouge = 0, gris = 0 }
+      local alertes, mesurees = 0, 0
+      for _, r in ipairs(rows) do
+        c[r.color] = (c[r.color] or 0) + 1
+        if r.sev == "alerte" then alertes = alertes + 1 end
+        if r.z.mtick then mesurees = mesurees + 1 end
+      end
+      out[#out + 1] = { id = tostring(t.id), key = t.key, zones = #s.order, mesurees = mesurees, couleurs = c, alertes = alertes, anneau = #An.get(t.key) }
+    end
+    if st.open_n == 0 then st.snaps = {} end
+    return out
   end,
   -- lecture : { n zones, cycles, erreur, lignes = { { key, kind, color, cause, ecart, sev } } } pour la force observée
   state = function(index)
