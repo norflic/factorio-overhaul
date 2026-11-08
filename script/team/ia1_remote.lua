@@ -636,6 +636,55 @@ remote.add_interface("fo-ia1", {
     return { tasks = tasks, rule = c ~= nil, picked = picked, refused = refused, engineers = f.engineers_count or 0,
       floor = f.team.floor or 0, iron = Stock.count(f, T.outposts.iron.product), npcs = npcs, free = free, miss = miss }
   end,
+  -- Lot MESURE-MODULE (bancs seulement, scenarios/sites-doublon.lua) : reproduit une sauvegarde contaminee par le defaut de plan_feed. Le projet
+  -- `pid` (bench_collecte) recoit `copies` fois la liste de ses coffres de sortie et, si `quai` = { x, y, item } est donne, un coffre d'entree
+  -- (pose ici) repete autant de fois. hold = vrai : p.sites_v = 1, Build.dedupe_sites ne passe PAS (les taches en double s'installent au
+  -- tableau comme dans la partie du DC) ; hold = faux : p.sites_v = nil, la passe du plan directeur dedoublonne au prochain passage.
+  -- Rend { outs, quais } (longueurs des listes) ou nil.
+  bench_sites_dup = function(key, pid, copies, quai, hold)
+    local f = team_of(key)
+    local p = f and f.build and f.build.projects[pid]
+    if not p then return nil end
+    if type(copies) == "number" and copies > 1 then
+      if type(quai) == "table" then
+        local surface = f.hq.surface
+        if not surface.find_entity("iron-chest", { quai.x, quai.y }) then
+          surface.create_entity({ name = "iron-chest", position = { x = quai.x, y = quai.y }, force = f.force })
+        end
+        p.quais[#p.quais + 1] = { x = quai.x, y = quai.y, item = quai.item }
+      end
+      local function repeat_list(list)
+        local base = {}
+        for i, e in ipairs(list) do base[i] = { x = e.x, y = e.y, item = e.item, at = e.at } end
+        for _ = 2, copies do
+          for _, e in ipairs(base) do list[#list + 1] = { x = e.x, y = e.y, item = e.item, at = e.at } end
+        end
+      end
+      repeat_list(p.outs)
+      repeat_list(p.quais)
+    end
+    p.sites_v = hold and 1 or nil
+    return { outs = #p.outs, quais = #p.quais }
+  end,
+  -- Lot MESURE-MODULE (bancs seulement) : listes du projet et taches du tableau qui le concernent (lecture seule).
+  -- Rend { outs, quais, sites_v, collect = n, fill = n, taken = n, keys = { ... } } ou nil.
+  bench_sites_state = function(key, pid)
+    local f = team_of(key)
+    local p = f and f.build and f.build.projects[pid]
+    if not p then return nil end
+    local b = Board.get(f)
+    local r = { outs = #p.outs, quais = #p.quais, sites_v = p.sites_v, collect = 0, fill = 0, taken = 0, keys = {} }
+    for _, k in ipairs(State.sorted_keys(b.tasks)) do
+      local t = b.tasks[k]
+      local j = t.ia1d
+      if j and j.pid == pid then
+        if j.mode == "collect" then r.collect = r.collect + 1 elseif j.mode == "fill" then r.fill = r.fill + 1 end
+        if t.worker ~= nil then r.taken = r.taken + 1 end
+        r.keys[#r.keys + 1] = k .. (t.worker ~= nil and "*" or "")
+      end
+    end
+    return r
+  end,
   kill_npc = function(key, id)
     local f = team_of(key)
     if not (f and f.engineers and f.engineers[id]) then return false end
