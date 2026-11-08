@@ -317,7 +317,9 @@ do
   check(build:find("Cc.refused(st, tick, alim.cv_grew)", 1, true) ~= nil and build:find("p.cv_grew = true", 1, true) ~= nil, "build.lua : le refus dit qu'il a fait grandir")
   -- Intégration 0.6.28 : alimentation et champ suivant héritent du poteau de la centrale (pas le poteau moyen par défaut, recette fermée)
   check(build:find('domain = "infrastructures", pole = p.spec and p.spec.pole }', 1, true) ~= nil, "build.lua : l'alimentation prend le poteau de la centrale")
-  check(build:find("pole = first.spec.pole", 1, true) ~= nil, "build.lua : le champ suivant prend le poteau de la première centrale")
+  -- lot CENTRALE-PRES : le poteau de la première centrale est le poteau PRÉFÉRÉ (PlantArms.size) ; la demande porte celui qui est obtenable
+  check(build:find("PlantArms.size(f, first.spec.gen, nb, first.spec.pole, tick, secours)", 1, true) ~= nil and build:find("pole = pole, plant = true", 1, true) ~= nil,
+    "build.lua : le champ suivant prend le poteau de la première centrale (ou un poteau obtenable, lot CENTRALE-PRES)")
 end
 
 print(string.format("[CHAMP-VAPEUR] BILAN : %d OK, %d ECHEC(S)", passes, failures))
