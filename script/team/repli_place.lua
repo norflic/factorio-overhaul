@@ -12,7 +12,7 @@
   aucun lot du treillis n'est marqué pris ; les tuiles sont réservées par b.occ comme pour tout module.
   INTERRUPTEUR : réglage de carte `fo-war-repli-place` (settings/video.lua), ALLUMÉ par défaut ; absent (moteur simulé des tests) :
   éteint, sans erreur.
-  ÉTAT : f.build.repli = { bad = { [fenêtre] = tick }, n = lignes écrites, ok = posés, ko = échecs } — nombres et chaînes, aucune
+  ÉTAT : f.build.repli = { bad = { [fenêtre] = tick }, n = lignes écrites, ok = posés, ko = échecs, last = clé de la dernière pose } — nombres et chaînes, aucune
   fonction.
 ]]
 
@@ -81,10 +81,14 @@ function Rpl.try(f, surface, g, ctx)
     end
     return nil, cause
   end
-  st.ok = st.ok + 1
+  -- un plan se refait sur plusieurs passes (relevés des masques en attente) : la même pose n'est comptée et écrite qu'une fois par projet
+  local key = pid .. ":" .. place.ox .. "," .. place.oy .. "," .. place.k
+  local again = st.last == key
+  st.last = key
+  if not again then st.ok = st.ok + 1 end
   place.lot = nil -- aucun lot du treillis (lu par plan_project et plan_drills : part.lot = "repli")
   place.repli = true
-  if st.n < Rp.LOGS then
+  if st.n < Rp.LOGS and not again then
     st.n = st.n + 1
     local c = ctx.center
     log(string.format("[FO-REPLI-PLACE] %s : projet %d, %s : pose de repli en (%d, %d) rotation %d, fenetre (%d, %d) anneau %d a %d tuile(s) du centre (%d, %d) ; cause du plan : %s ; %d fenetre(s) lue(s), %d ecartee(s)",

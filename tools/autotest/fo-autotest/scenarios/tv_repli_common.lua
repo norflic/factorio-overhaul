@@ -5,13 +5,13 @@
   de votre équipe au rayon MAXIMAL (5 : le treillis ne peut plus grandir) ; interrupteur de banc no_lots (remote fo-ia1d set_option) : AUCUN
   lot du treillis n'est candidat, comme si les huit lots essayés étaient tous refusés. Demande au tick 120 : une fonderie de fer (3
   fours, sans alimentation). Attendu :
-    repli allumé  : le projet est planifié (pas refusé), sa première partie a le lot « repli », ses entités existent en fantômes ou
-                    bâties ; la ligne [FO-REPLI-PLACE] est au journal (lue à l'archive : grep) ;
+    repli allumé  : le projet est planifié (pas refusé), sa première partie a le lot « repli », ses entités existent en fantômes (ghosts_ahead : le chantier
+                    des PNJ dure plus que ce micro-banc) ; la ligne [FO-REPLI-PLACE] est au journal (lue à l'archive : grep) ;
     repli éteint (témoin) : le projet est refusé (« pas de lot »), aucune partie, aucune ligne [FO-REPLI-PLACE].
   Lancement : banc.py --out <archive> --qui TV-REPLI -- 2400 tv-repli <source> (et tv-repli-temoin).
 ]]
 local T_REQUEST = 120
-local CHECK = 2400
+local CHECK = 2300
 local HALF = 80
 
 return function(on)
@@ -96,7 +96,6 @@ return function(on)
           ctx.log(TAG .. string.format("partie %s lot %s en (%d, %d) %dx%d rotation %d ; %d four(s)/fantome(s) sur l'emprise", part.kind, tostring(part.lot),
             part.x, part.y, part.w, part.h, part.rotation or 0, found))
         end
-        ctx.check((proj.built or 0) > 0, "repli allume : au moins une entite batie (les PNJ ont commence)", tostring(proj.built))
       else
         ctx.check(proj.state == "refuse" or proj.state == "bloque" or #(proj.parts or {}) == 0, "temoin (repli eteint) : le projet n'est pas planifie : " .. tostring(proj.state))
         ctx.check(not (proj.parts and proj.parts[1] and proj.parts[1].lot == "repli"), "temoin : aucune partie de repli")

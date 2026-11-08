@@ -171,6 +171,9 @@ do
     "journal [FO-REPLI-PLACE] avec la cause du plan et la place : " .. tostring(logs[1]))
   check(logs[1] and logs[1]:find("projet 7", 1, true) and logs[1]:find("ecarlate", 1, true), "journal : equipe et projet")
   check(f.build.repli and f.build.repli.ok == 1 and f.build.repli.ko == 0, "etat : 1 pose")
+  local nlog = #logs
+  local again = Rpl.try(f, nil, g, ctx)
+  check(again ~= nil and #logs == nlog and f.build.repli.ok == 1, "colle : la meme pose, refaite par une autre passe du plan, n'est ni recomptee ni reecrite")
   -- lots du treillis : un lot a nid recouvre la fenetre 0 : elle est ecartee
   local lx0, ly0 = P.lot_rect(lat, 0, 0)
   f.build.lots[P.lot_key(0, 0)] = { i = 0, j = 0, state = "refuse", reason = "nid" }
