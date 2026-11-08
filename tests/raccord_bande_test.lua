@@ -263,7 +263,7 @@ check(refused == #MUT, "§7 mutants refusés : " .. refused .. " sur " .. #MUT)
 -- §8 câblage (lecture des sources) : le raccord réel passe par les paliers, un palier par essai, et la migration reprend après la pause
 local champ_src, mig_src = read("script/team/champ.lua"), read("script/team/migration_champ.lua")
 local function has(src, text, msg) check(src:find(text, 1, true) ~= nil, "§8 " .. msg) end
-has(champ_src, "Ra.tiered_chain(a, b, { tier = only,", "champ.lua : raccord_tous passe par Ra.tiered_chain, un palier par essai")
+has(champ_src, "local prm = { tier = only, hull = hull,", "champ.lua : raccord_tous passe par Ra.tiered_chain, un palier par essai")
 has(champ_src, "local n_r, why_r, wait_r, nc = raccord_tous(f, surface, bd, ents, cx, cy, p)", "champ.lua : le projet est passé à raccord_tous (palier suivant à l'essai suivant)")
 has(champ_src, "proj.rtier = only + 1", "champ.lua : palier suivant mémorisé sur le projet")
 has(mig_src, "CHAMP_CFG.pause = 5 * 3600", "migration_champ.lua : pause de 5 min")

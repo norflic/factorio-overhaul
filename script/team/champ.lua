@@ -680,16 +680,29 @@ local function raccord_tous(f, surface, bd, ents, cx, cy, proj)
   local tier_used = {}
   -- un palier par essai quand le projet est connu (coût d'un essai = celui d'une recherche, ~5 ms) : proj.rtier = palier du prochain essai
   local only = proj and (proj.rtier or 1) or nil
+  local prm = { tier = only, hull = hull, reach = wire, pole_chain = P.pole_chain, blocked = blocked_of, used = used, key = Ch.key,
+    ore = function(tx, ty) return ore[Ch.key(tx, ty)] == true end,
+    rows = function(tx, ty) local v = axis_x and ty or tx return v >= v0 and v <= v1 end }
   local added, fails = Ra.connect(own, targets, wire, function(a, b)
-    local ch, tier = Ra.tiered_chain(a, b, { tier = only, hull = hull, reach = wire, pole_chain = P.pole_chain, blocked = blocked_of, used = used, key = Ch.key,
-      ore = function(tx, ty) return ore[Ch.key(tx, ty)] == true end,
-      rows = function(tx, ty) local v = axis_x and ty or tx return v >= v0 and v <= v1 end })
+    local ch, tier = Ra.tiered_chain(a, b, prm)
     for _, c in ipairs(ch or {}) do used[Ch.key(math.floor(c.x), math.floor(c.y))] = true end
     if ch and tier ~= Ra.TIERS[1].name then tier_used[tier] = (tier_used[tier] or 0) + 1 end
     return ch
   end)
   for _, nm in ipairs({ Ra.TIERS[2].name, Ra.TIERS[3].name }) do
     if tier_used[nm] then say(f, string.format("raccord de bande : %d chaine(s) de poteaux trouvee(s) %s (la boite etroite n'en donnait aucune)", tier_used[nm], nm)) end
+  end
+  -- lot RACCORD-BANDE, diagnostic (journal seulement) : pourquoi le palier n'a trouvé aucune chaîne (terrain le long du segment et dans la boîte)
+  if #fails > 0 then
+    local fl = fails[1]
+    local t = Ra.TIERS[only or #Ra.TIERS]
+    if fl and fl.to and t then
+      local free, box, blk = Ra.tier_free(prm, t)
+      local st = Ra.segment_stats(fl.at, fl.to, box, { blocked_now = function(tx, ty) return blk(tx, ty) end, ore = prm.ore, used = used, key = Ch.key }, free)
+      say(f, string.format("raccord de bande refuse, palier « %s » : composante de %d poteau(x) en (%.0f, %.0f), cible la plus proche en (%.0f, %.0f) a %.0f tuiles ; segment %d points : %d occupes, %d de minerai, %d deja pris, %d libres ; boite %d x %d : %d%% de tuiles libres",
+        t.name, fl.n, fl.at.x, fl.at.y, fl.to.x, fl.to.y, fl.d or 0, st.seg, st.seg_blocked, st.seg_ore, st.seg_used, st.seg_free,
+        box.x1 - box.x0 + 1, box.y1 - box.y0 + 1, st.box > 0 and math.floor(100 * st.box_free / st.box) or 0))
+    end
   end
   if #fails > 0 and only and only < #Ra.TIERS then
     proj.rtier = only + 1
