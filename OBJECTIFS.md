@@ -54,6 +54,12 @@ inactive sans cause traitée, pénuries traitées avant qu'elles ne bloquent.
 À faire dans VOTRE partie : allumer « PNJ : aller au pétrole » (Paramètres > Paramètres des mods > Carte). Il y est éteint, et la
 recherche de votre équipe est arrêtée faute de pack bleu.
 
+Mesure sur la 0.6.64 (lot mesure-dc, 10 min de jeu, `fo-logs/2026-11-08_MESURE-DC`) : 30 % des machines en marche, aucune époque gagnée. Causes d'arrêt : sans combustible 22,8 %, plus de place 15,6 %, sortie pleine 12,3 %, fours sans minerai 8,5 %, assembleurs sans fer 7,8 %. Lots ouverts le 8/11 : blocage-combustible (le charbon des coffres des avant-postes n'est ni porté ni ramassé), blocage-sortie, blocage-labos (site pétrolier refusé puis jamais retenté, donc aucun pack chimique).
+
+Labos des PNJ : décision du DC (8/11, vers 10 h 50, QCM) : « Non, garder la recherche virtuelle ». Les labos restent du décor ; on corrige seulement le blocage du pétrole.
+
+Vue « Cerveau » demandée par le DC (8/11, vers 10 h 55) : « j'aimerais un mode debug, pas le mode que vous avez déjà mis dans les paramètres, un mode debug qui me permet de visualiser les choix que fait le cerveau, par exemple de ma faction. [...] si elle sait régulièrement si cette zone fonctionne, comment l'améliorer si la zone est à améliorer, si finalement il y a une tâche prévue par exemple pour refill en charbon cette zone, pour remplacer ce coffre de charbon par un input directement avec des convoyeurs, pour remplacer ce bras mécanique par un splitter par exemple. » Lot debug-cerveau ouvert.
+
 ## 3. OPTIMISATION
 
 - **×10 réel sur votre sauvegarde** : 600 UPS, donc au plus 1,67 ms par tick, moteur et script compris. Dernière mesure
