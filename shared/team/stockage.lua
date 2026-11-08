@@ -11,9 +11,13 @@
                                                 matière manque (short ~= false : même règle que le cerveau, Ia3.after_poles, et que le
                                                 stop_stone de la sortie de spirale, shared/team/spirale.lua, qui s'y ramène), et toutes
                                                 les non vitales quand le stock est rempli à cfg.stop_at ou plus (ensemble { [objet] = true }) ;
-                                                jamais une matière de `need` (Sg.demanded), même stock presque plein
-    Sg.demanded(short, missing, links)          matières demandées en ce moment et leur quantité (manque mesuré, manque de l'objectif ;
-                                                plaque <-> minerai) : { [objet] = q }
+                                                jamais une matière de `need` (Sg.demanded), même stock presque plein ; `over` (C2) :
+                                                saturées au plafond, écartées même vitales (Sg.skipped les lit dans set.__over)
+    Sg.over_cap(saturated, count_of, stack_of, cfg) saturées dont le stock atteint cfg.sat_cap piles : { [objet] = compte }
+    Sg.demanded(short, missing, links, resv)    matières demandées en ce moment et leur quantité (manque mesuré, manque de l'objectif,
+                                                manques des projets en réserve ; plaque <-> minerai) : { [objet] = q }
+    Sg.reserve_need(lists)                      somme des manques des projets en réserve (listes { {objet, n}, ... }) : { [objet] = n }
+    Sg.resv_room(q, have)                       part d'un manque des réserves qui peut encore entrer au dépôt : q moins ce que le stock en tient
     Sg.demand_room(rec, q, s, m)                part d'une matière demandée qui peut encore entrer dans la réserve des vitales (borne q,
                                                 comptée par pensée : s et m, tables de la demande de cette pensée)
     Sg.urgent(fill, have_chest, cfg)            vrai : coffre à réclamer en urgence (rempli à cfg.urgent_at ou plus, aucun en main)
@@ -24,7 +28,7 @@
 
 local Sg = {}
 
-Sg.DEFAULT = { reserve = 0.15, stop_at = 0.80, urgent_at = 0.80 }
+Sg.DEFAULT = { reserve = 0.15, stop_at = 0.80, urgent_at = 0.80, sat_cap = 20 }
 
 local function cfg_of(cfg) return cfg or Sg.DEFAULT end
 
@@ -47,8 +51,13 @@ end
 --- minerai, le ramassage des avant-postes la plaque). Rend { [objet] = q } : la plus grande des quantités demandées (les deux manques se
 --- recouvrent : celui de l'objectif est une part du manque brut), q partagée par la plaque et son minerai (1 pour 1, fonte vanilla) ;
 --- l'ordre de pairs ne change pas le résultat (maximum).
-function Sg.demanded(short, missing, links)
+function Sg.demanded(short, missing, links, resv)
   local out = {}
+  -- C1 de DIAG_CONSO (7/11) : manques des projets en réserve (Sg.reserve_need), déjà sommés entre projets ; la plus grande des sources,
+  -- comme les deux autres (le manque de l'objectif peut être celui d'un projet en réserve)
+  for it, k in pairs(resv or {}) do
+    if type(k) == "number" and k > 0 then out[it] = math.max(out[it] or 0, k) end
+  end
   for item, n in pairs(short or {}) do
     if type(n) == "number" and n > 0 then out[item] = math.max(out[item] or 0, n) end
   end
@@ -76,7 +85,32 @@ function Sg.demand_room(rec, q, s, m)
   return math.max(0, q - rec.used), rec
 end
 
-function Sg.skip(saturated, fill, vital, cfg, short, need)
+--- C1 de DIAG_CONSO (7/11, chaîne M0 -> M1 -> M2) : ce qui MANQUE aux projets en état « reserve » (p.missing, écrit par la réserve du plan
+--- directeur, script/team/build.lua, net de ce que le stock libre fournit). Avant, seul le projet dominant (f.team.missing) et le manque du
+--- cerveau étaient « demandés » : les courroies et l'acier faits pour les modules 94 à 98 de la partie du DC étaient refusés au dépôt
+--- (coffre plein, non vitaux), restaient en poche, et ces modules mouraient à 15 min « materiaux introuvables ». `lists` = { p.missing, ... }
+--- (listes { {objet, n}, ... }) ; rend la SOMME par objet entre projets (deux modules qui attendent 23 et 47 courroies en attendent 70) ;
+--- un nom qui n'est pas une chaîne ou un n nul est ignoré. L'ordre des listes ne change pas le résultat (somme).
+function Sg.reserve_need(lists)
+  local out = {}
+  for _, l in ipairs(lists or {}) do
+    for _, m in ipairs(l) do
+      local n = tonumber(m[2]) or 0
+      if type(m[1]) == "string" and n > 0 then out[m[1]] = (out[m[1]] or 0) + n end
+    end
+  end
+  return out
+end
+
+--- C1 : part d'une matière manquante aux réserves (`q`, Sg.reserve_need) qui peut encore entrer au dépôt quand le stock en tient déjà
+--- `have` : q - have, jamais négatif. Sans compte gardé (contrairement à D1) : un dépôt pas encore repris par la réserve est au stock et
+--- ferme la place ; une fois repris (la réserve retire au stock), la place se rouvre pour ce qui manque encore. Une matière tenue au stock
+--- mais promise ailleurs (tâches du tableau) ferme aussi la place : prudent, elle sort du stock avec ces tâches.
+function Sg.resv_room(q, have)
+  return math.max(0, (q or 0) - (have or 0))
+end
+
+function Sg.skip(saturated, fill, vital, cfg, short, need, over)
   cfg = cfg_of(cfg)
   local out = {}
   vital = vital or {}
@@ -86,15 +120,43 @@ function Sg.skip(saturated, fill, vital, cfg, short, need)
       if not vital[item] and not need[item] then out[item] = true end
     end
   end
+  -- C2 de DIAG_CONSO : une saturée au plafond (Sg.over_cap) n'est plus ramassée, vitale comprise et quels que soient les autres manques ;
+  -- jamais une matière demandée
+  local over_set = {}
+  for item in pairs(over or {}) do
+    if not need[item] then out[item] = true; over_set[item] = true end
+  end
+  if next(over_set) ~= nil then out.__over = over_set end
   out.__all_non_vital = (fill or 0) >= cfg.stop_at or nil
   if out.__all_non_vital and next(need) ~= nil then out.__keep = need end
   return out
 end
 
+--- C2 de DIAG_CONSO (7/11, maillon M0 : la partie du DC reçoit par minute 8 683 plaques de fer, 5 231 charbons et 1 964 pierres dans un
+--- stock plein, toutes saturées au cerveau ; le fer et le charbon, vitaux, n'étaient jamais écartés du ramassage, et chaque annexe posée
+--- se remplissait d'eux) : matières SATURÉES (`saturated`, f.team.ia3.saturated : B.saturated, stock au moins 3 fois le besoin) dont le
+--- stock atteint le plafond de cfg.sat_cap piles (Sg.DEFAULT.sat_cap sans configuration). `count_of(objet)` = objets au stock,
+--- `stack_of(objet)` = taille de pile (nil : ignorée). Rend { [objet] = compte } ; noms parcourus triés.
+function Sg.over_cap(saturated, count_of, stack_of, cfg)
+  local cap = (cfg and cfg.sat_cap) or Sg.DEFAULT.sat_cap
+  local names = {}
+  for it in pairs(saturated or {}) do
+    if saturated[it] then names[#names + 1] = it end
+  end
+  table.sort(names)
+  local out = {}
+  for _, it in ipairs(names) do
+    local n, st = count_of(it), stack_of(it)
+    if n and st and n >= cap * st then out[it] = n end
+  end
+  return out
+end
+
 --- Vrai si `item` ne doit pas être ramassé selon l'ensemble rendu par Sg.skip (jamais une vitale, jamais une matière demandée).
 function Sg.skipped(set, item, vital)
-  if not set or (vital and vital[item]) then return false end
+  if not set then return false end
   if set.__keep and set.__keep[item] then return false end
+  if vital and vital[item] then return set.__over ~= nil and set.__over[item] == true end
   return set[item] == true or set.__all_non_vital == true
 end
 
