@@ -2918,12 +2918,14 @@ local function plan_project(f, surface, p)
         f.key or "player", p.id, #ov, e1.name, tostring(e1.role), e2.name, tostring(e2.role), e2.x, e2.y))
     end
   end
-  return plan_finish(f, surface, p, main.masks, is_plant)
+  return plan_finish(f, surface, p, main.masks, is_plant, topts, g) -- (topts et g : locales de plan_project, passées à plan_finish pour ligne_split)
 end
 
 --- Fin commune d'un plan (lot CHARBON-CENTRALE : partagée avec le projet d'alimentation de la centrale, plan_alim) : poteaux du
 --- réseau, points d'appui, obstacles. `masks` : relevé de la zone de la première partie. Rend true, ou (false, raison, attendre).
-plan_finish = function(f, surface, p, masks, is_plant)
+--- `topts` et `g` (facultatifs, de plan_project) : l'option et le gabarit d'une ligne de fonderie, pour Build.ligne_split ; nil pour les
+--- autres plans (alimentation de la centrale, quartiers).
+plan_finish = function(f, surface, p, masks, is_plant, topts, g)
   local b = f.build
   Profiler.start("build:plan:power")
   -- électricité : le réseau de l'équipe ; la centrale l'amorce

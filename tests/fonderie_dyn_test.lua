@@ -567,7 +567,7 @@ do
   local src = read("script/team/build.lua")
   check(src:find('Build.tag_rows(ents, pg, 1, "drill", "pair")', 1, true) ~= nil, "plan_drills marque les paires de foreuses")
   check(src:find('if topts then Build.tag_rows(ents, g, 0, "four", "row") end', 1, true) ~= nil, "plan_project marque les rangées de fours")
-  check(src:find("if topts then Build.ligne_split(f, p, g) end", 1, true) ~= nil, "plan_project pose par étapes")
+  check(src:find("if topts then Build.ligne_split(f, p, g) end", 1, true) ~= nil, "plan_finish pose par étapes")
   check(src:find("Build.ligne_step(f, surface, tick) -- lot FONDERIE-DYNAMIQUE", 1, true) ~= nil, "Build.think relève les lignes")
   check(src:find("cfg.rows_floor", 1, true) == nil, "plus de plancher de rangées dans build.lua")
   local auto_src = read("script/ai3/automatisation.lua")
@@ -641,6 +641,54 @@ do
   end
   check(killed == #mutants, "mutants refusés : " .. killed .. " sur " .. #mutants)
   print(string.format("[FONDERIE-DYN] mutants : %d refusés sur %d", killed, #mutants))
+end
+
+---------------------------------------------------------------------------------------------------
+section("7. Portée de plan_finish (topts et g viennent de plan_project : la ligne dynamique doit être posée par étapes)")
+---------------------------------------------------------------------------------------------------
+-- Bogue trouvé le 8/11 (0.6.66) : depuis la fusion 3bf56ceb (30/10, 0.6.20), `if topts then Build.ligne_split(f, p, g) end` était dans
+-- plan_finish, où topts et g étaient des GLOBALES nil : Build.ligne_split n'était jamais appelé. Le test lit plan_finish au texte, l'exécute
+-- sous un environnement qui enregistre les noms libres lus, et vérifie (a) qu'aucun nom libre n'est topts ou g, (b) que ligne_split reçoit
+-- (f, p, g) quand topts est passé, (c) qu'il n'est pas appelé sans topts, (d) que plan_project passe topts et g.
+do
+  local BSRC = read("script/team/build.lua")
+  local a = BSRC:find("\nplan_finish = function(", 1, true)
+  local b = BSRC:find("\n--- Centrale de l'équipe (une demande", 1, true)
+  check(a and b and a < b, "plan_finish est repérable dans build.lua")
+  local function run(src, topts, g)
+    local free, calls = {}, {}
+    local env = setmetatable({}, { __index = function(_, k)
+      free[k] = true
+      return nil -- une globale non définie vaut nil, comme dans le jeu
+    end })
+    env.anchors_and_obstacles = function() end
+    env.Build = { ligne_split = function(f, p, gg) calls[#calls + 1] = { f, p, gg } end }
+    env.Profiler = { start = function() end, stop = function() end }
+    env.ipairs, env.pairs = ipairs, pairs
+    local chunk = assert(load("local plan_finish\n" .. src .. "\nreturn plan_finish", "=plan_finish", "t", env))
+    local fn = chunk()
+    local f, p = { build = { net = {} } }, { id = 7, parts = {}, ents = {} }
+    local ok, res = pcall(fn, f, {}, p, {}, false, topts, g)
+    return ok, res, free, calls, f, p
+  end
+  if a and b then
+    local src = BSRC:sub(a + 1, b - 1)
+    local g = { gen = "smelter" }
+    local ok, res, free, calls, f, p = run(src, { sortie = "centre" }, g)
+    check(ok and res == true, "plan_finish s'exécute jusqu'au bout sous l'environnement enregistreur : " .. tostring(res))
+    check(not free.topts, "topts n'est pas un nom libre (globale nil) dans plan_finish")
+    check(not free.g, "g n'est pas un nom libre (globale nil) dans plan_finish")
+    check(#calls == 1 and calls[1][1] == f and calls[1][2] == p and calls[1][3] == g, "avec topts, Build.ligne_split(f, p, g) est appelé une fois")
+    local _, _, _, calls2 = run(src, nil, nil)
+    check(#calls2 == 0, "sans topts (alimentation de la centrale, quartiers), Build.ligne_split n'est pas appelé")
+    -- mutant : la signature d'avant le correctif (topts et g globales)
+    local old = src:gsub("is_plant, topts, g%)", "is_plant)", 1)
+    check(old ~= src, "mutant : signature d'avant le correctif fabriquée")
+    local _, _, freeM, callsM = run(old, { sortie = "centre" }, g)
+    check(freeM.topts == true and #callsM == 0, "mutant : sans les paramètres, topts est un nom libre (nil) et ligne_split n'est jamais appelé (le test voit le bogue)")
+  end
+  check(BSRC:find("return plan_finish(f, surface, p, main.masks, is_plant, topts, g)", 1, true) ~= nil, "plan_project passe topts et g à plan_finish")
+  check(BSRC:find("return plan_finish(f, surface, p, masks, false)", 1, true) ~= nil, "plan_alim appelle plan_finish sans topts ni g")
 end
 
 print(string.format("[FONDERIE-DYN] BILAN : %d OK, %d ECHEC(S)", passes, failures))
