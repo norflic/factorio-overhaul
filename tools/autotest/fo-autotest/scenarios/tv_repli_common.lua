@@ -96,7 +96,7 @@ return function(on)
         if not rep then return end
         st.rep = rep
         for _, p in ipairs(rep.projects) do
-          if p.id == st.id and (p.state ~= "plan" or #(p.parts or {}) > 0) then
+          if p.id == st.id and (#(p.parts or {}) > 0 or p.state == "refuse" or p.state == "bloque") then
             st.checked = true
             st.t_plan = t
             local ok, err = pcall(verify, ctx, on, TAG, p, rep)
