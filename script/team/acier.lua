@@ -198,4 +198,26 @@ function Acier.apply(f, view, book, plan, tick)
   end
 end
 
+---------------------------------------------------------------------------------------------------
+-- Interface distante de LECTURE (bancs seulement, jamais appelée par le mod) : état du bloc d'acier d'une équipe.
+---------------------------------------------------------------------------------------------------
+if remote and remote.add_interface then
+  local function team_of(key)
+    if key == "player" then return State.faction("player") end
+    for _, id in ipairs(State.alive()) do
+      local f = State.faction(id)
+      if f and (f.key == key or id == key) then return f end
+    end
+    return nil
+  end
+  remote.add_interface("fo-acier", {
+    status = function(key)
+      local f = team_of(key)
+      local st = f and f.team and f.team.acier
+      if not st then return nil end
+      return { cut = st.cut, since = st.since, count = st.count, asked = st.asked or 0, dropped = st.dropped, finished = st.finished, retry_at = st.retry_at }
+    end,
+  })
+end
+
 return Acier
