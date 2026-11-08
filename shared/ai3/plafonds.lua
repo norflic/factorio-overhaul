@@ -40,6 +40,20 @@ Pf.EPS = 1e-9
 Pf.NO_HARD = 1e6
 Pf.HARD_KIND = { labos = 25 }
 
+-- Lot TV-PILOTE (G02, « plafond de sûreté par type », MAX_MEGATILES = 484 chez l'auteur) : plafond de sûreté PAR OBJET et PAR SORTE pour les
+-- fours, les chaînes et les packs, en DONNÉES (aucun nom d'objet). Unités posées + ouvertes + voulues d'UN objet, au plus (Pf.fits, s.hard ;
+-- Ca.cap_hard choisit la sorte d'un objet). Valeurs MESURÉES, non devinées (fo-logs/2026-11-08_TV-PILOTE/MESURE_PLAFONDS.md) :
+--   Le témoin A/B de VIDEO-INTEG a montré qu'un plafond UNIQUE de 64 change 116 rendus sur 502 : 64 fours ne tiennent pas l'arrivée de
+--   1 800 minerais/min de la partie du DC (journal 0.6.58, minute 177 : plaques de fer à 1 749/min visées = 94 fours de pierre à 18,75/min,
+--   le plus lent des fours). Le plafond d'un four doit donc passer au-dessus : fours = 192 (plus de 2 fois les 94, 4 fois les 47 des fours
+--   d'acier), que la fonte à la main ne sert pas non plus (32 places de rangées au QG, Br.SMELT_HARD = 16).
+--   Chaînes : le plus gros ordre vu dans 4 parties archivées (0.6.58 à 0.6.64, 8 factions) est de 9 machines (engrenages) ; une rangée
+--   voulue à 2 fois sa demande (Ca.CHAIN_LEAD) reste sous 96 (6 PNJ de service par rangée de 16, 30 PNJ). Packs : 33 machines au plus par
+--   ordre (cartes rouges, 163/min visées à 5 s la fabrication), 96 = trois fois cela.
+-- Un plafond que le jeu réel n'atteint pas : il ne borne qu'une emballement (les « silos sans fin » de C13). Atteint, il écrit son refus
+-- (« plafond <objet> : N posees + M ouvertes + k > H au plus »), journal [FO-CAPI-CONF] « refus » de script/ai3/capitalisation.lua.
+Pf.HARD_OBJ = { fours = 192, chaine = 96, packs = 96 }
+
 local function fmt(x)
   if type(x) ~= "number" then return tostring(x) end
   if x == math.floor(x) and math.abs(x) < 1e15 then return string.format("%d", x) end
@@ -63,8 +77,17 @@ end
 ---                submit ; fermer ici empêcherait l'électrification de jamais commencer) ; l'exécutant refuse déjà ce qui ne se pose pas ;
 ---   table        un relevé existe : sa capacité (have_kw) doit être un nombre fini ≥ 0. Absente, une centrale FINIE dont la capacité n'est
 ---                pas encore lue ouvrait des foreuses sans borne (garde ouverte sur mesure manquante : les « silos sans fin » de C13).
+---
+--- Lot TV-ENERGIE (W02, fin) : sans centrale finie, le relevé n'est plus NIL (« aucune borne ») mais l'un de deux états EXPLICITES :
+---   { amorce = true }   aucune centrale demandée, ou demandée sans module électrique ouvert : UN SEUL ordre électrique passe par décision
+---                       (celui qui fait demander la centrale ; Ca.spend_amorce), les suivants sont refusés ;
+---   { fermee = texte }  centrale demandée mais pas finie, ou refusée : toute l'électrique est refusée EN AMONT (dans Ca.decide), le refus
+---                       écrit dit pourquoi. Avant, ces cas passaient la décision et n'étaient refusés qu'à l'exécutant (make_can_exec).
+--- nil reste « aucune borne » pour les bancs hors jeu et les appelants d'avant.
 function Pf.power_missing(pw)
   if pw == nil then return nil end
+  if pw.fermee ~= nil then return tostring(pw.fermee) end
+  if pw.amorce then return nil end
   local _, why = Pf.input(pw.have_kw, "power.have_kw")
   return why
 end
@@ -192,6 +215,14 @@ end
 --- Plafond de sûreté d'une sorte d'ordre (Pf.HARD_KIND ; Pf.NO_HARD quand la sorte n'en a pas).
 function Pf.hard_for(kind)
   local h = Pf.HARD_KIND[kind]
+  if h == nil then return Pf.NO_HARD end
+  return h
+end
+
+--- Lot TV-PILOTE (G02) : plafond de sûreté d'UN objet fabriqué selon sa sorte (Pf.HARD_OBJ ; Pf.NO_HARD quand la sorte n'en a pas : une
+--- sorte inconnue ou absente n'est pas plafonnée ici, le plafond relatif de Pf.fits reste).
+function Pf.hard_obj(kind)
+  local h = Pf.HARD_OBJ[kind]
   if h == nil then return Pf.NO_HARD end
   return h
 end

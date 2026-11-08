@@ -7,6 +7,8 @@
     3. coffre de sortie sous barre (2 cases) : quota borné à la barre, seuil de collecte borné (100 et non 200 : sans cela, plus
        d'alimentation à 180 et une collecte à 200 ne viendrait jamais) ;
     4. projet sans débit de sortie (site, projet d'avant 0.6.59) : l'ancienne règle à l'identique ;
+    4 ter. lot TV-QUOTAS (C11) : modules de vitesse et de productivité posés puis RETIRÉS dans les machines du projet : le quota est recalculé
+       (sortie et entrée au rapport mesuré), la mesure n'a lieu qu'une fois par Qt.MEASURE_TICKS, journal [FO-QUOTA-MODULES] ;
     5. câblage : p.outflow posé au plan, Build.Quotas requis au chargement, aucune locale de plus au bloc principal (199 sur 200) ;
     6. mutants refusés (source de build.lua ou colle modifiés).
 ]]
@@ -23,7 +25,8 @@ fh:close()
 local A_MARK = "--- Lot INDUSTRIE I6 (relecture 0.6.31) : la sortie d'un bloc de mall se vide-t-elle vers le QG ?"
 local B_MARK = "-- Raccordement : fils"
 
-_G.game = { item_prototypes = { ["iron-plate"] = { stack_size = 100 }, ["iron-ore"] = { stack_size = 50 }, coal = { stack_size = 50 } } }
+_G.game = { tick = 0, item_prototypes = { ["iron-plate"] = { stack_size = 100 }, ["iron-ore"] = { stack_size = 50 }, coal = { stack_size = 50 } },
+  entity_prototypes = { ["stone-furnace"] = { type = "furnace" }, ["inserter"] = { type = "inserter" } } }
 local Qg0 = require("script.team.quotas_glue")
 
 local W
@@ -66,7 +69,8 @@ local function load_code(src, Qg)
   return chunk()
 end
 
-local surface = { find_entity = function(_, pos) return W.chests[pos[1] .. "," .. pos[2]] end }
+local surface = { find_entity = function(_, pos) return W.chests[pos[1] .. "," .. pos[2]] end,
+  find_entities_filtered = function() return W.upgraded and { W.upgraded } or {} end }
 local f = { key = "f1", force = "f1", build = { lat = {} } }
 local function smelter(with_flow)
   return { id = 7, prio = 55, state = "fini", spec = { gen = "smelter" },
@@ -168,12 +172,96 @@ local function battery(X, verbose)
   return fails
 end
 
+-- 4 ter. Lot TV-QUOTAS (C11) : modules posés puis retirés
+local function battery_modules(X, Qg, verbose)
+  local fails = 0
+  local function ck(c, msg)
+    if not c then fails = fails + 1 if verbose then print("  ECHEC : " .. msg) end end
+    if verbose then check(c, msg) end
+  end
+  local logs = {}
+  local log0 = _G.log
+  _G.log = function(m) logs[#logs + 1] = m end
+  local function project()
+    local p = smelter(true)
+    p.ents = { { name = "inserter", x = 5.5, y = 5.5 }, { name = "stone-furnace", x = 20.5, y = 0.5 } }
+    return p
+  end
+  local function furnace(sp, pr) return { valid = true, force = { name = "f1" }, speed_bonus = sp, productivity_bonus = pr } end
+  local fg = { key = "f1", force = "f1", build = { lat = {}, stats = {} } }
+  local function step(p, tick)
+    game.tick = tick
+    local out = {}
+    X.quai_tasks(fg, p, surface, out)
+    return out
+  end
+  world(0)
+  W.chests["20.5,0.5"] = furnace(0, 0)
+  local p = project()
+  step(p, 1000)
+  local k0 = p.quota_key
+  ck(p.quota and p.quota.outs[1].cases == 4 and p.qm_out == nil and p.qm_in == nil, "sans module : 4 cases, aucun rapport (l'ancienne regle)")
+  ck(#logs == 0, "sans module : aucune ligne de journal")
+  -- modules de vitesse posés (+100 %) : la mesure suivante recalcule
+  W.chests["20.5,0.5"] = furnace(1.0, 0)
+  step(p, 1300)
+  ck(p.qm_out == nil and p.quota_key == k0, "avant la periode de mesure (600 ticks) : le quota ne bouge pas")
+  step(p, 1600)
+  ck(p.qm_out == 2000 and p.qm_in == 2000, "modules de vitesse +100 % relevés : sortie et entree x2 (" .. tostring(p.qm_out) .. "/" .. tostring(p.qm_in) .. ")")
+  ck(p.quota and p.quota.outs[1].cases == 8 and p.quota.ins[1].want == 75 and p.quota_key ~= k0,
+    "quota recalcule : 8 cases (1,25 plaque/s en 10 min) et 75 minerai a l'entree (" .. tostring(p.quota and p.quota.outs[1].cases) .. ", " .. tostring(p.quota and p.quota.ins[1].want) .. ")")
+  ck(#logs == 1 and logs[1]:find("[FO-QUOTA-MODULES]", 1, true) and logs[1]:find("sortie x2.00 (avant x1.00)", 1, true), "journal [FO-QUOTA-MODULES] : " .. tostring(logs[1]))
+  step(p, 2300)
+  ck(#logs == 1 and p.qm_out == 2000, "rapport inchange : pas de nouvelle ligne de journal")
+  -- modules retirés : retour à l'ancienne règle, clé d'avant
+  W.chests["20.5,0.5"] = furnace(0, 0)
+  step(p, 3000)
+  ck(p.qm_out == nil and p.qm_in == nil and p.quota_key == k0 and p.quota.outs[1].cases == 4, "modules retires : quota d'avant, cle d'avant")
+  ck(#logs == 2 and logs[2]:find("sortie x1.00 (avant x2.00)", 1, true) ~= nil, "journal du retrait")
+  -- productivité seule : la sortie monte, l'entrée non
+  W.chests["20.5,0.5"] = furnace(0, 0.4)
+  step(p, 3700)
+  ck(p.qm_out == 1400 and p.qm_in == nil, "productivite +40 % : sortie x1,4, entree inchangee (" .. tostring(p.qm_out) .. "/" .. tostring(p.qm_in) .. ")")
+  ck(p.quota.ins[1].want == 50 and p.quota.outs[1].cases >= 5, "entree toujours a une minute (pile de 50), sortie plus large (" .. tostring(p.quota.outs[1].cases) .. ")")
+  -- machine introuvable : rien de relevé, rapport remis à 1000
+  W.chests["20.5,0.5"] = { valid = true, force = { name = "enemy" }, speed_bonus = 1.0, productivity_bonus = 0 }
+  step(p, 4400)
+  ck(p.qm_out == nil, "machine d'une autre force : non relevee")
+  W.chests["20.5,0.5"] = nil
+  step(p, 5100)
+  ck(p.qm_out == nil, "machine disparue : l'ancienne regle")
+  -- machine montée d'un niveau (autre nom au même centre) : retrouvée par le type
+  W.upgraded = furnace(0.5, 0)
+  step(p, 5800)
+  ck(p.qm_out == 1500, "machine montee d'un niveau retrouvee par son type : x1,5 (" .. tostring(p.qm_out) .. ")")
+  W.upgraded = nil
+  -- réglage éteint : jamais de rapport
+  local on = Qg.Qt.MODULES_RATIO
+  Qg.Qt.MODULES_RATIO = false
+  W.chests["20.5,0.5"] = furnace(1.0, 0)
+  local p2 = project()
+  step(p2, 9000)
+  step(p2, 9700)
+  ck(p2.qm_out == nil and p2.quota.outs[1].cases == 4, "reglage eteint : quota d'avant meme avec des modules")
+  Qg.Qt.MODULES_RATIO = on
+  -- projet sans machine relevable (ni p.ents) : inchangé
+  local p3 = smelter(true)
+  step(p3, 12000)
+  ck(p3.qm_out == nil and p3.quota.outs[1].cases == 4, "projet sans machines relevees : quota d'avant")
+  _G.log = log0
+  W.chests["20.5,0.5"] = nil
+  return fails
+end
+
 print("[QUOTAS-GLUE] 1-4. code reel de build.lua")
 check(battery(load_code(SRC, Qg0), true) == 0, "batterie sans echec")
+print("[QUOTAS-GLUE] 4 ter. modules poses puis retires (TV-QUOTAS, C11)")
+check(battery_modules(load_code(SRC, Qg0), Qg0, true) == 0, "batterie des modules sans echec")
 
 -- 5. câblage
 print("[QUOTAS-GLUE] 5. cablage")
 check(SRC:find('Build.Quotas = require("script.team.quotas_glue")', 1, true) ~= nil, "Build.Quotas requis au chargement (champ, pas une locale)")
+check(SRC:find("Build.Quotas.measure(f, p, surface)", 1, true) ~= nil, "TV-QUOTAS : la mesure des modules precede le calcul du quota (out_tasks)")
 check(SRC:find("p.outflow[k] = g.nominal[k]", 1, true) ~= nil, "p.outflow pose au plan depuis g.nominal (M.analyze), a cote de p.inflow")
 do
   local cut
@@ -228,6 +316,36 @@ do -- lot VIDEO-COUVERTURE 3 : la colle d'avant (un seul produit par coffre) : l
   end
   local f2 = battery(load_code(SRC, Qg), false)
   check(f2 > 0, "mutant refuse : colle d'avant (un seul produit par coffre)")
+end
+
+-- mutants du lot TV-QUOTAS : sources de la colle et de build.lua
+do
+  local fq = assert(io.open("script/team/quotas_glue.lua", "rb"))
+  local GSRC = fq:read("*a")
+  fq:close()
+  local function glue_mutant(name, from, to)
+    local i, j = GSRC:find(from, 1, true)
+    assert(i, "mutant sans effet : " .. name)
+    local Qg = assert(load(GSRC:sub(1, i - 1) .. to .. GSRC:sub(j + 1), "=glue_mutant"))()
+    local ok, r = pcall(function() return battery_modules(load_code(SRC, Qg), Qg, false) end)
+    check((not ok) or r > 0, "mutant refuse : " .. name)
+  end
+  glue_mutant("rapport mesure mais jamais applique aux debits", "outflow, inflow = Qt.scaled(outflow, ro or 1000), Qt.scaled(inflow, ri or 1000)", "")
+  glue_mutant("rapport hors de la cle du quota (jamais recalcule)", "key = key .. string.format(\":m%d:%d\", ro or 1000, ri or 1000)", "")
+  glue_mutant("entree mise au rapport de la sortie", "Qt.scaled(inflow, ri or 1000)", "Qt.scaled(inflow, ro or 1000)")
+  glue_mutant("mesure a chaque appel (periode ignoree)", "now - p.qm_tick < Qt.MEASURE_TICKS", "false")
+  glue_mutant("mesure jamais refaite apres la premiere", "if p.qm_tick and now >= p.qm_tick and now - p.qm_tick < Qt.MEASURE_TICKS then return false end", "if p.qm_tick then return false end")
+  glue_mutant("productivite non relevee", "prod_pm = pm(ent.productivity_bonus)", "prod_pm = 0")
+  glue_mutant("vitesse non relevee", "speed_pm = pm(ent.speed_bonus)", "speed_pm = 0")
+  glue_mutant("retrait des modules oublie (rapport garde)", "p.qm_out, p.qm_in = (po ~= 1000) and po or nil, (pi ~= 1000) and pi or nil", "p.qm_out, p.qm_in = (po ~= 1000) and po or p.qm_out, (pi ~= 1000) and pi or p.qm_in")
+  glue_mutant("machine montee d'un niveau perdue", "if not ent then", "if false then")
+  glue_mutant("force ignoree", "ent.force.name == f.force", "true")
+  glue_mutant("journal oublie", "log(string.format(\"[FO-QUOTA-MODULES]", "(function() end)(string.format(\"[FO-QUOTA-MODULES]")
+  glue_mutant("reglage ignore", "if not Qt.MODULES_RATIO or type(p.outflow)", "if type(p.outflow)")
+  local s1, n1 = SRC:gsub("  Build%.Quotas%.measure%(f, p, surface%)[^\n]*\n", "")
+  assert(n1 == 1)
+  local ok, r = pcall(function() return battery_modules(load_code(s1, Qg0), Qg0, false) end)
+  check((not ok) or r > 0, "mutant refuse : build.lua sans appel de la mesure")
 end
 
 print(string.format("[QUOTAS-GLUE] BILAN : %d OK, %d ECHEC(S)", passes, failures))

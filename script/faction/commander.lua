@@ -24,6 +24,7 @@ local PvP = require("script.faction.pvp")
 local Character = require("script.faction.character")
 local Chef = require("script.faction.chef")
 local Veille = require("script.faction.veille") -- lot VEILLE : bilans de la reconnaissance régulière (mission : script/ai3/exploration.lua)
+local Charge = require("script.core.charge") -- lot TV-VAPEUR (V89) : dégradation graduée, la cadence lente s'allonge sous charge
 local Cd = require("shared.faction.cadence") -- lot X10-S10 : factions lointaines et calmes plus lentes (règle pure)
 local DefChoix = require("script.faction.defchoix") -- lot X10-S10 : ennemi près du QG (lu au créneau)
 local Storage = require("script.core.storage") -- lot X10-S10 : état des soldats de l'IA3 (nettoyage, expédition), lu sans le créer
@@ -220,7 +221,7 @@ function Commander.think(id, tick, woken)
     if Commander.busy(f, tick, true) then return end
     if not woken and Cd.recent(cs, tick) then return end
     local inp = cadence_input(f, Commander.players_on(war.surface))
-    local skip, why = Cd.skip(cs, inp, tick)
+    local skip, why = Cd.skip(cs, inp, tick, Charge.stretch(Cd.SLOW)) -- (lot TV-VAPEUR : Cd.SLOW sous charge nulle)
     if skip then
       cs.asleep = true
       cadence_say(f, cs, "lente", why, tick)

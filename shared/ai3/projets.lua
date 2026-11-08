@@ -493,6 +493,16 @@ end
 EMIT.army = function(E, proj, g, ctx)
   return with_hold(E, g.minimal, function() return P.EMIT_army(E, proj, g, ctx) end)
 end
+--- Lot TV-PILOTE (V10) : l'équipement (kits) du meilleur soldat d'un but d'armée, pour le lot qu'EMIT.army servirait (T.kit_batch soldats au plus,
+--- sans dépasser la cible) ; nil quand il n'y a rien à équiper. Sert à la famille armée (shared/ai3/famille_armee.lua), qui n'émet rien.
+function P.army_kits(view, g)
+  local n = math.min(T.kit_batch, (g.target or 0) - (view.soldiers or 0))
+  if n <= 0 then return nil end
+  local kits = {}
+  for _, it in ipairs(T.kits[Planner.best_unit(view.tech or 0)] or {}) do kits[#kits + 1] = { it[1], it[2] * n } end
+  return kits
+end
+
 P.EMIT_army = function(E, proj, g, ctx)
   local view = E.view
   local n = math.min(T.kit_batch, (g.target or 0) - (view.soldiers or 0))

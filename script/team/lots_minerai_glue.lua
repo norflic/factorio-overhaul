@@ -31,6 +31,7 @@
 
 local Lm = require("shared.team.lot_minerai")
 local Seuils = require("shared.team.lot_minerai_seuils")
+local Pg = require("script.team.place_glue") -- lot TV-PLACE (G37) : états de lots avec la marque du bord de gisement
 
 local Lg = {}
 Lg.Lm = Lm
@@ -73,7 +74,7 @@ Lg.LEGACY = { { libre = true, defricher = true }, { gisement = true } } -- le re
 --- l'extraction ne va que sur un gisement. Ne pas modifier les tables rendues (Lm.STATES).
 function Lg.states(f, gen)
   if not Lg.on() then return Lg.LEGACY end
-  return Lm.states_for(Lg.kind(gen))
+  return Pg.states_for(Lg.kind(gen)) -- lot TV-PLACE (G37) : Lm.states_for, plus la marque no_edge de la fabrique quand la sonde de 30 x 30 est allumée
 end
 
 --- try_place, après les essais : `m` le module posé (ou nil), `i` le rang de l'ensemble d'états qui l'a pris, `states` cet ensemble.

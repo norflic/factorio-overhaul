@@ -346,6 +346,11 @@ local function run_all(Pf)
       "16 : capacite lue (meme 0 kW) : la garde est ouverte, le calcul du courant decide")
     check(Pf.power_why({}) == "courant : entree absente : power.have_kw" and Pf.power_why(nil) == nil and Pf.power_why({ have_kw = 5 }) == nil,
       "16 : texte du refus pour le journal (" .. tostring(Pf.power_why({})) .. ")")
+    -- lot TV-ENERGIE (W02, fin) : sans centrale finie, deux états explicites (plus de nil)
+    check(Pf.power_missing({ amorce = true }) == nil, "16 : { amorce } : la garde est ouverte (un seul ordre, Ca.spend_amorce)")
+    check(Pf.power_missing({ fermee = "centrale refusee (x)" }) == "centrale refusee (x)" and Pf.power_why({ fermee = "centrale refusee (x)" }) == "courant : centrale refusee (x)",
+      "16 : { fermee = texte } : refus ecrit avec la cause (" .. tostring(Pf.power_why({ fermee = "centrale refusee (x)" })) .. ")")
+    check(Pf.power_missing({ fermee = "pas finie", have_kw = 1000 }) ~= nil, "16 : fermee l'emporte meme avec une capacite")
   end
 
   -- 17. Plafond de sûreté par sorte d'ordre (lot VIDEO-PLAFONDS).
@@ -401,6 +406,24 @@ local function run_all(Pf)
     end
     check(mono, "17 : 0 <= places <= voulu, decroissant avec le nombre deja pose")
   end
+
+  -- 18. Plafond de sûreté par OBJET et par sorte (lot TV-PILOTE, G02) : fours, chaînes, packs, en données.
+  section("18. plafond de surete par objet (fours, chaines, packs)")
+  do
+    check(type(Pf.HARD_OBJ) == "table" and Pf.HARD_OBJ.fours == 192 and Pf.HARD_OBJ.chaine == 96 and Pf.HARD_OBJ.packs == 96,
+      "18 : donnees : fours 192, chaines 96, packs 96 (valeurs mesurees, en tete de plafonds.lua)")
+    check(Pf.hard_obj("fours") == 192 and Pf.hard_obj("chaine") == 96 and Pf.hard_obj("packs") == 96, "18 : hard_obj lit les donnees")
+    check(Pf.hard_obj("couvrir") == Pf.NO_HARD and Pf.hard_obj("sorte-inconnue") == Pf.NO_HARD and Pf.hard_obj(nil) == Pf.NO_HARD,
+      "18 : couvrir, ouvrir, sorte inconnue ou absente : non plafonnes ici")
+    -- Pf.fits avec ce plafond : 190 posees + 2 voulues passent, 191 + 2 non, refus ecrit qui nomme l'objet.
+    local s = { demand = 1e6, posed = 0, open = 0, n_posed = 190, n_open = 0, hard = Pf.hard_obj("fours") }
+    check(Pf.fits(s, { rate = 37.5, n = 2 }, "x"), "18 : 190 + 2 = 192 passe")
+    s.n_posed = 191
+    local ok, why = Pf.fits(s, { rate = 37.5, n = 2 }, "x")
+    check(not ok and why and why:find("plafond x : 191 posees + 0 ouvertes + 2 > 192 au plus", 1, true) == 1, "18 : 191 + 2 > 192 refuse, texte : " .. tostring(why))
+    local o, no = Pf.fits({ demand = 1e6, posed = 0, open = 0, n_posed = 0, n_open = 100, hard = Pf.hard_obj("chaine") }, { rate = 1, n = 5 }, "y")
+    check(not o and no and no:find("> 96 au plus", 1, true), "18 : les ordres ouverts comptent dans le plafond d'une chaine : " .. tostring(no))
+  end
 end
 
 local Pf0 = assert(load_pf())
@@ -429,6 +452,7 @@ local MUTANTS = {
   { "unites deja posees non comptees (sorte)", { "- math.floor(h + Pf.EPS)))", "- 0))" } },
   { "places negatives possibles (sorte)", { "local room = math.max(0, math.min(w,", "local room = (0 + math.min(w," } },
   { "plafond de surete lu dans la regle, pas dans les donnees", { "local h = Pf.HARD_KIND[kind]", "local h = nil" } },
+  { "plafond de surete par objet lu hors des donnees", { "local h = Pf.HARD_OBJ[kind]", "local h = nil" } },
   { "unites posees absentes lues comme 0 (sorte)", { 'if h == nil then return 0, "plafond " .. who .. " : " .. wh end', "if h == nil then h = 0 end" } },
 }
 local killed = 0

@@ -1283,10 +1283,12 @@ end
 --- le plafond de sûreté des laboratoires (Pf.HARD_KIND.labos, 25) n'en fait pas partie (les contrôles de §9 sont ceux d'avant,
 --- rendu pour rendu : témoin A/B). Le plafond reste mesuré en §5.
 local function sim(opts)
-  local old = Pf.HARD_KIND.labos
+  local old, old_obj = Pf.HARD_KIND.labos, Pf.HARD_OBJ
   Pf.HARD_KIND.labos = nil
+  Pf.HARD_OBJ = {} -- lot TV-PILOTE (G02) : le modèle jouet (1 800 minerais/min, rangées de 250 unités) dépasse aussi les plafonds par objet
   local ok, a, b, c = pcall(sim_capped, opts)
   Pf.HARD_KIND.labos = old
+  Pf.HARD_OBJ = old_obj
   if not ok then error(a, 0) end
   return a, b, c
 end
@@ -1866,6 +1868,87 @@ local function s20()
   check(base.rang_cycles == nil, "§20 C5.1 : sans cycle, la décision ne rend aucune graine de cycle (champ absent)")
 end
 
+
+---------------------------------------------------------------------------------------------------
+-- §21 Lot TV-PILOTE (G02) : plafond de sûreté des fours, des chaînes et des packs (Pf.HARD_OBJ, Ca.cap_hard)
+---------------------------------------------------------------------------------------------------
+local function s21()
+  local D = vdata()
+  -- Données : une valeur par sorte, au-dessus de ce que la partie du DC demande (1 749 plaques/min = 94 fours de pierre).
+  local hf = Pf.HARD_OBJ.fours
+  check(hf and hf > 94 and Pf.HARD_OBJ.chaine and Pf.HARD_OBJ.chaine > 33 and Pf.HARD_OBJ.packs and Pf.HARD_OBJ.packs > 33,
+    "§21 G02 : fours > 94 (partie du DC), chaînes et packs > 33 (plus gros ordre vu) : " .. tostring(hf))
+  -- Fours : 5 000 minerais/min arrivés (267 fours de pierre) ; sans plafond de sûreté, tous ; avec, hf au plus, refus écrit.
+  local function fours(hard_obj)
+    local old = Pf.HARD_OBJ
+    Pf.HARD_OBJ = hard_obj
+    local ok, r = pcall(Ca.decide, vin(D, { stock = { stone = 99999 }, flows = { ["iron-ore"] = { made = 5000 } },
+      sinks = { { item = "iron-plate", rate = 1e5 } } }), {})
+    Pf.HARD_OBJ = old
+    if not ok then error(r, 0) end
+    return r
+  end
+  local r0, r1 = fours({}), fours(Pf.HARD_OBJ)
+  local o0, o1 = find(r0, "fours:iron-plate"), find(r1, "fours:iron-plate")
+  check(o0 and o0.n >= 260, "§21 G02 témoin sans plafond de sûreté : 5 000 minerais/min = " .. tostring(o0 and o0.n) .. " fours (>= 260)")
+  check(o1 and o1.n == hf, "§21 G02 avec le plafond : " .. tostring(o1 and o1.n) .. " fours (= " .. tostring(hf) .. ")")
+  local rf1 = refus_of(r1, "fours:iron-plate")
+  check(rf1 == nil or rf1.why:find("plafond", 1, true) ~= nil, "§21 G02 le refus éventuel de l'ordre nomme le plafond (" .. tostring(rf1 and rf1.why) .. ")")
+  -- Posés + ouverts comptent : 150 fours déjà posés, il en reste hf - 150.
+  local old = Pf.HARD_OBJ
+  local r2 = Ca.decide(vin(D, { stock = { stone = 99999 }, flows = { ["iron-ore"] = { made = 5000 } }, sinks = { { item = "iron-plate", rate = 1e5 } },
+    machines = { { entity = "stone-furnace", recipe = "iron-plate", n = 150, where = "qg" } } }), {})
+  local o2 = find(r2, "fours:iron-plate")
+  check(o2 and o2.n == hf - 150, "§21 G02 150 fours posés : " .. tostring(o2 and o2.n) .. " de plus (= " .. tostring(hf - 150) .. ")")
+  -- Au plafond : aucun four de plus, refus écrit qui nomme l'objet et la limite.
+  local r3 = Ca.decide(vin(D, { stock = { stone = 99999 }, flows = { ["iron-ore"] = { made = 5000 } }, sinks = { { item = "iron-plate", rate = 1e5 } },
+    machines = { { entity = "stone-furnace", recipe = "iron-plate", n = hf, where = "qg" } } }), {})
+  local rf3 = refus_of(r3, "fours:iron-plate")
+  check(find(r3, "fours:iron-plate") == nil and rf3 and rf3.why:find("plafond iron-plate", 1, true) == 1 and rf3.why:find(tostring(hf), 1, true) ~= nil,
+    "§21 G02 au plafond : aucun four de plus, refus écrit (" .. tostring(rf3 and rf3.why) .. ")")
+  -- Sortes : un objet fabriqué dans un assembleur est une chaîne (96), un pack aussi ; la sorte vient de la machine, pas d'un nom.
+  local ctx_probe = { D = D, best_m = {}, input = { excl = nil } }
+  check(Ca.cap_hard(ctx_probe, { rec = {} }, "iron-ore") == Ca.CAP_HARD, "§21 G02 objet sans recette (extraction) : Ca.CAP_HARD")
+  check(Pf.hard_obj("sorte-inconnue") == Pf.NO_HARD and Pf.hard_obj(nil) == Pf.NO_HARD, "§21 G02 sorte inconnue : non plafonnée ici")
+end
+
+-- §22 Lot TV-ENERGIE (W02, fin) : sans centrale finie, le relevé du courant n'est plus nil. { fermee = texte } : toute l'électrique est refusée
+-- EN AMONT, refus écrit ; { amorce = true } : UN seul ordre électrique par décision (celui qui fait demander la centrale).
+local function s22()
+  local D = vdata()
+  local function elec_orders(r)
+    local n = 0
+    for _, o in ipairs(r.orders) do
+      if (o.kind == "couvrir" or o.kind == "ouvrir") and o.entity == "electric-mining-drill" then n = n + 1 end
+    end
+    return n
+  end
+  local libre = Ca.decide(rich(D), {})
+  check(elec_orders(libre) >= 2, "§22 témoin : sans borne (power nil), au moins 2 ordres de foreuses électriques dans la décision (" .. elec_orders(libre) .. ")")
+  local ferme = Ca.decide(rich(D, { power = { fermee = "centrale demandee, pas finie (attente)" } }), {})
+  local rf = refus_of(ferme, "couvrir:d1")
+  check(elec_orders(ferme) == 0 and rf and rf.why == "courant : centrale demandee, pas finie (attente)",
+    "§22 W02 : centrale demandée mais pas finie : aucune foreuse électrique, refus écrit en amont qui nomme la cause (" .. tostring(rf and rf.why) .. ")")
+  local refuse = Ca.decide(rich(D, { power = { fermee = "centrale refusee (pas de rive libre)" } }), {})
+  local rr = refus_of(refuse, "couvrir:d1")
+  check(elec_orders(refuse) == 0 and rr and rr.why:find("centrale refusee", 1, true),
+    "§22 W02 : centrale refusée : aucune foreuse électrique, refus écrit (" .. tostring(rr and rr.why) .. ")")
+  local amorce = Ca.decide(rich(D, { power = { amorce = true, etat = "aucune centrale demandee" } }), {})
+  check(elec_orders(amorce) == 1, "§22 W02 : amorçage : EXACTEMENT un ordre de foreuse électrique (celui qui fait demander la centrale) : " .. elec_orders(amorce))
+  local second
+  for _, r in ipairs(amorce.refus) do
+    if r.why:find("amorcage", 1, true) then second = r end
+  end
+  check(second ~= nil, "§22 W02 : les autres options électriques sont refusées avec la raison « amorcage » (" .. tostring(second and second.why) .. ")")
+  -- un ordre électrique déjà OUVERT consomme l'amorce : plus aucun ordre électrique dans la décision
+  local ouvert = Ca.decide(rich(D, { power = { amorce = true },
+    open = { { key = "couvrir:d1", kind = "couvrir", item = "iron-ore", resource = "iron-ore", deposit = "d1", entity = "electric-mining-drill",
+      n = 1, n_left = 1, rate = 20, where = "d1" } } }), {})
+  check(elec_orders(ouvert) == 0, "§22 W02 : un ordre électrique déjà ouvert a pris l'amorce : aucune autre foreuse électrique (" .. elec_orders(ouvert) .. ")")
+  local capacite = Ca.decide(rich(D, { power = { have_kw = 1000, used_kw = 0 } }), {})
+  check(elec_orders(capacite) >= 2, "§22 W02 : centrale finie, capacité lue : plus de limite d'amorce (" .. elec_orders(capacite) .. ")")
+end
+
 local function run_all()
   s1()
   s2()
@@ -1886,6 +1969,8 @@ local function run_all()
     s18()
     s19()
     s20()
+    s21()
+    s22()
   end
 end
 
@@ -2058,6 +2143,12 @@ do
   MF("capacité posée sans confirmation (fc toujours 1)", "cap_factor", function() return function() return 1 end end)
   MF("suspension retirée", "held", function() return function() return nil end end)
   MV("plafond par objet retiré", "CAPPED", {})
+  -- Lot TV-PILOTE (§21) : le plafond de sûreté des fours, des chaînes et des packs.
+  do
+    local old = Pf.HARD_OBJ
+    M("plafond de sûreté des objets retiré (fours, chaînes, packs)", function() Pf.HARD_OBJ = {} end, function() Pf.HARD_OBJ = old end)
+  end
+  MF("plafond de sûreté jamais lu (repli hors d'atteinte)", "cap_hard", function() return function() return Ca.CAP_HARD end end)
   -- Lot VIDEO-PLAFONDS (§5) : le plafond de sûreté des laboratoires.
   do
     local old = Pf.HARD_KIND.labos
@@ -2073,6 +2164,13 @@ do
       return h[o.item]
     end
   end)
+  do
+    local orig = Pf.power_missing
+    M("relevé fermé ignoré (garde ouverte sur { fermee })", function()
+      Pf.power_missing = function(pw) if pw and pw.fermee then return nil end return orig(pw) end
+    end, function() Pf.power_missing = orig end)
+  end
+  MF("amorce jamais consommée (autant d'ordres électriques que d'options)", "spend_amorce", function() return function() end end)
   do
     local orig = Pf.power_why
     M("refus du courant sans l'entrée nommée", function() Pf.power_why = function() return nil end end, function() Pf.power_why = orig end)

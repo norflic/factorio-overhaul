@@ -57,6 +57,7 @@ local T = require("shared.team.config")
 local Ca = require("shared.ai3.capitalisation")
 local Rf = require("shared.ai3.refus") -- lot VIDEO-REFUS (C6) : décompte des refus par sorte, ligne [FO-CAPI-REFUS]
 local RangTrace = require("script.ai3.rang_trace") -- lot VIDEO-TRACES (G34) : journal [FO-RANG]
+local Pil = require("script.ai3.pilotage") -- lot TV-PILOTE : plafonds de sûreté (G02), kit d'amorçage (D02)
 local Excl = require("script.ai3.exclusion") -- lot VIDEO-PLAFONDS (V99) : réglage fo-war-exclusion (objets exclus de la demande), journal [FO-EXCLU]
 local Cf = require("shared.ai3.confirmation") -- lot VIDEO-L5 : capacité CONFIRMÉE (première production observée)
 local Sante = require("script.team.sante_centrale") -- étape 5a de VIDEO-INTEG : consommateurs en chantier (vue de la porte du plan directeur)
@@ -559,6 +560,7 @@ local function scan(f, cs, tick)
       local ml = f.team.ia3 and f.team.ia3.mall
       if ml then
         for _, line in ipairs(AmRt.lines(f, ml, AmRt.observe(f, cs, ml, cfr, cs.cf, tick), minutes(f, tick))) do log(line) end
+        Pil.kit(f, cs, ml, tick, minutes(f, tick)) -- lot TV-PILOTE (D02) : kit minimal écrit contre le compteur d'amorce
       end
     else
       for _, g in ipairs(machines) do g.ids = nil end
@@ -893,8 +895,18 @@ end
 --- refuserait des foreuses que la porte admet) ; la somme nominale va au journal [FO-CAPI-KW], pour comparer. plant : nil (la centrale
 --- grandit par C.growth et Sante, pas par un levier de la capitalisation). Capi.MUT.sans_courant, Capi.MUT.nominal : tests seulement.
 local JTICK_KW = 60 / 1000 -- J/tick -> kW
-function Capi.power_input(f, plant_state)
-  if Capi.MUT.sans_courant or plant_state ~= "fini" then return nil end
+Capi.COURANT_LOGS = 40 -- lot TV-ENERGIE (W02) : lignes [FO-CAPI-COURANT] au plus par équipe
+function Capi.power_input(f, plant_state, plant_why, wait_plant)
+  if Capi.MUT.sans_courant then return nil end
+  if plant_state ~= "fini" then
+    -- Lot TV-ENERGIE (W02, fin) : sans centrale finie, plus de nil (« aucune borne » : l'électrique passait Ca.decide et n'était refusée qu'à
+    -- l'exécutant, make_can_exec). Deux états EXPLICITES (règle pure : Pf.power_missing, Ca.spend_amorce) : centrale refusée, ou demandée
+    -- avec un module électrique déjà ouvert (wait_plant) : relevé FERMÉ, refus écrit en amont ; sinon (aucune centrale demandée, ou demandée
+    -- sans module électrique ouvert) : AMORÇAGE, un seul ordre électrique par décision (celui qui fait demander la centrale).
+    if plant_state == "refuse" then return { fermee = "centrale refusee (" .. tostring(plant_why) .. ")" } end
+    if wait_plant then return { fermee = "centrale demandee, pas finie (" .. tostring(plant_state) .. ")" } end
+    return { amorce = true, etat = plant_state ~= nil and tostring(plant_state) or "aucune centrale demandee" }
+  end
   local g = f.build and f.build.grow
   local cap = g and g.capacity
   -- W02 (lots 5 et 5b) : capacité non lue = relevé VIDE (garde fermée), pas « aucune borne » ; capacité ≤ 0 (centrale finie, plus aucune machine à
@@ -1026,8 +1038,27 @@ function Capi.portes(f, cs, res, view, tick)
   local build = view.mq and view.mq.build or nil
   local n_build = 0
   for _, k in ipairs(sorted_keys(build)) do if (build[k] or 0) > 0 then n_build = n_build + 1 end end
+  -- Lot tv-fer : RACINE. Un ordre couvrir/ouvrir dont le produit (METHOD_OF_ORE) est en manque (mesuré L3 : view.mq.build, ou manque du
+  -- plan : f.team.missing) crée la source de ce manque : il passe la porte du transport (les PNJ occupés à le remplacer à la main la
+  -- fermeraient pour toujours). Les rangs, la porte des chantiers et l'anti-répétition restent inchangés.
+  local short = {}
+  for _, k in ipairs(sorted_keys(build)) do if (build[k] or 0) > 0 then short[k] = build[k] end end
+  for _, m in ipairs(f.team and f.team.missing or {}) do
+    if type(m) == "table" and m[1] ~= nil and (m[2] or 0) > 0 then short[m[1]] = math.max(short[m[1]] or 0, m[2]) end
+  end
+  local product_of = {}
+  local function root_of(o)
+    if o.kind ~= "couvrir" and o.kind ~= "ouvrir" then return nil end
+    local meth = METHOD_OF_ORE[o.resource]
+    local n = meth and short[meth.product] or nil
+    if n then product_of[o.key] = meth.product end
+    return n
+  end
   local r = Pe.filter(cs.portes, a, res.orders, { family_of = Pi.order_family, family_rank = Pi.FAMILY_RANK,
-    site_kinds = Capi.MODULE_KINDS, tours_kinds = PORTES_TOURS, measured = build, measured_n = n_build })
+    site_kinds = Capi.MODULE_KINDS, tours_kinds = PORTES_TOURS, measured = build, measured_n = n_build, root_of = root_of })
+  for _, rt in ipairs(r.roots or {}) do
+    log(string.format("[FO-PORTES] racine : %s passe L6 (manque %s %s)", tostring(rt.key), tostring(product_of[rt.key] or rt.item), tostring(rt.need)))
+  end
   if r.refused > 0 or r.closed ~= was then
     log(string.format("[FO-PORTES] %s minute %d : transport %s (%d fermeture(s)) ; %d ordre(s) gardes, %d retenu(s), %d qu'une petite marche aurait reduit(s) ; places de chantier %d sur %d (%d pose(s), %d ouvert(s)) ; %s",
       f.key or "?", math.floor(minutes(f, tick) + 0.5), r.closed and "SATURE" or "libre", cs.portes.closes or 0, r.kept, r.refused, r.reduced,
@@ -1280,6 +1311,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     -- lot VIDEO-L3 : les manques mesurés des modules finis s'ajoutent aux puits (Mq.sinks ; Ca.requirements n'est pas touché)
     deposits = deposits, open = open, sinks = cs.bench_sinks or Mq.sinks(mq_fresh(f, tick), Ml.sinks(st.mall)), need = need, research = research, drill_for = drill_for,
     excl = Excl.read(), -- lot VIDEO-PLAFONDS (V99) : objets exclus de la demande (nil : réglage vide, entrée inchangée)
+    hard_off = (not Pil.plafonds_on()) or nil, -- lot TV-PILOTE (G02) : plafonds de sûreté des fours, chaînes et packs (réglage fo-war-plafonds, allumé par défaut)
     limits = Rsv.on() and {} or { max_ingredients = 2 }, workers = view.workers or 0, idle = Ca.idle_of(g and g.idle_ema or 0),
     can_grow = (view.workers or 0) < (view.workers_wanted or 0), traits = f.traits or {},
     weights = w or {}, threat = threat, dt = 1, lag = cs.lag, starved = Pi.threat_exempt(st.pile, st.starved_open), -- (intégration 0.6.28)
@@ -1291,7 +1323,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     -- ne ferme plus les leviers hors du QG (Sv.capi) ; les gisements dangereux restent exclus (`danger` de chaque gisement).
     production_first = production_first,
     defense = defense_input(f, D), -- lot PREVISION (C12) : « oui, compter la défense » dans le coût de chaque investissement
-    power = Capi.power_input(f, plant_state), -- étape 5a de VIDEO-INTEG : courant des centrales finies (nil : aucune borne, comme avant)
+    power = Capi.power_input(f, plant_state, plant_why, wait_plant), -- étape 5a de VIDEO-INTEG : courant des centrales finies ; lot TV-ENERGIE (W02) : amorce ou relevé fermé sans centrale finie
     mq_build = view.mq and view.mq.build or nil, -- lot VIDEO-ORDRE : manque net MESURÉ par objet (L3) ; un objet posé n'est re-ordonné qu'une fois ce signal bougé (nil : règle d'avant)
   }, cex
 end
@@ -1843,9 +1875,28 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
     end
   end
   Excl.journal(f, input, res, tick, minutes(f, tick)) -- lot VIDEO-PLAFONDS (V99) : refus d'exclusion et puits retirés, [FO-EXCLU]
+  -- Lot TV-ENERGIE (W02) : refus du courant EN AMONT (relevé fermé, amorce prise, capacité non lue) : une ligne par CAUSE, quand l'ensemble
+  -- des causes change (jamais à l'horloge), sous le plafond Capi.COURANT_LOGS par équipe.
+  do
+    local seen, causes = {}, {}
+    for _, r in ipairs(res.refus or {}) do
+      local why = tostring(r.why)
+      if why:sub(1, 10) == "courant : " and not seen[why] then seen[why] = true causes[#causes + 1] = why end
+    end
+    table.sort(causes)
+    local sig = table.concat(causes, " | ")
+    if sig ~= (cs.courant_said or "") then
+      cs.courant_said = sig
+      cs.courant_logs = (cs.courant_logs or 0) + 1
+      if sig ~= "" and cs.courant_logs <= Capi.COURANT_LOGS then
+        log(string.format("[FO-CAPI-COURANT] %s : option(s) electrique(s) refusee(s) en amont de la decision a %.1f min : %s",
+          f.key or "?", minutes(f, tick), sig))
+      end
+    end
+  end
   -- Étape 5a de VIDEO-INTEG : le courant de la décision (capacité des centrales finies, somme nominale du relevé, puissance MESURÉE pour
   -- comparer, sans décider, et kW retenus faute de courant).
-  if res.kw then
+  if res.kw and not (input.power and (input.power.amorce or input.power.fermee)) then
     local g = f.build and f.build.grow
     log(string.format("[FO-CAPI-KW] %s : capacite %.0f kW, vue de la porte %.0f kW (mesure %.0f kW + chantiers), nominal %.0f kW, retenu %.0f kW a %.1f min",
       f.key or "?", res.kw.have, res.kw.used, (g and g.power or 0) * JTICK_KW, res.kw.nominal or 0, res.kw.blocked, minutes(f, tick)))
@@ -2369,6 +2420,15 @@ remote.add_interface("fo-capi", {
     if not rec then return nil, tostring(why) end
     cs.open[#cs.open + 1] = rec
     return rec.mod_ids, o.key
+  end,
+  --- Lot TV-ENERGIE (W02, lecture seule) : le relevé du courant que la capitalisation donnerait aujourd'hui à la règle, selon l'état de la
+  --- centrale de l'équipe (Auto.plant_state) : { amorce } ou { fermee } sans centrale finie, { have_kw, used_kw } avec.
+  power_probe = function(key, state, why, wait)
+    local f = team_of(key)
+    if not f then return nil end
+    local ps, pw = Auto.plant_state(f)
+    if state ~= nil then ps, pw = state, why end
+    return Capi.power_input(f, ps, pw, wait), ps
   end,
   status = function(key)
     local f = team_of(key)

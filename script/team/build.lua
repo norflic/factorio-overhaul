@@ -112,6 +112,7 @@ Build.SITES = {}               -- lot PETROLE : planificateurs de sites { [nom] 
 
 local REACH = P.BUILD_DISTANCE
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (réserve des modules neufs, agrandissement, tapis)
+Build.Ene = require("shared.team.energie_dabord") -- lot TV-ENERGIE (G41) : « la première expansion est l'énergie », règle pure ; champ de Build, pas une locale (bloc principal à 198 locales)
 Build.Colr = require("shared.team.collecte") -- lot COLLECTE : règle pure (états servis, voyage à vide) ; champ de Build, pas une locale (essai-0660 : bloc principal à 200 locales)
 local Collecte = require("script.team.collecte") -- lot COLLECTE : coffres de sortie du champ collectés en urgence quand le fer manque
 local Rr = require("shared.team.rebuild_rapide") -- lot REBUILD-RAPIDE : projet rouvert sans attendre toute sa matière, ordre, foreuse de secours
@@ -123,12 +124,19 @@ Build.Tj = require("script.team.tourelle_journal")
 Build.Co = require("shared.team.couloir")
 -- Lot VIDEO L4 : quotas du gabarit (colle de shared/team/quotas.lua) ; champ de Build, même raison (199 locales sur 200).
 Build.Quotas = require("script.team.quotas_glue")
+-- Lot TV-VAPEUR : tampon de vapeur de la centrale (V36, colle de shared/team/vapeur_tampon.lua) et dégradation sous charge (V89, script/core/
+-- charge.lua) ; champs de Build, pas des locales (199 locales sur 200).
+Build.Vg = require("script.team.vapeur_glue")
+Build.Charge = require("script.core.charge")
 -- Lot VIDEO L9 : lots de minerai réservés au minerai (colle de shared/team/lot_minerai.lua, interrupteur éteint par défaut) ; champ
 -- de Build, même raison (199 locales sur 200).
 Build.LotsMinerai = require("script.team.lots_minerai_glue")
 -- Lot TV-REPLI (TODO_VIDEO C07) : repli de placement simple d'un module sans lot (colle de shared/team/repli_place.lua, réglage
 -- fo-war-repli-place allumé par défaut) ; champ de Build, même raison (199 locales sur 200).
 Build.Repli = require("script.team.repli_place")
+-- Lot TV-ARCHI (V23) : quartiers et enveloppe d'avance (script/team/quartiers.lua) ; champ de Build, même raison (199 locales sur 200).
+Build.Quartiers = require("script.team.quartiers")
+Build.Place = require("script.team.place_glue") -- lot TV-PLACE : sonde 30 x 30 (G37), défrichage préventif 50 x 50 (G38), repli de placement simple (C07)
 local TREE_TYPES = { "tree", "simple-entity" }
 
 
@@ -387,6 +395,7 @@ local function eval_one(f, surface, item, tick)
     end
     l.res = (l.state == "gisement") and l.reason or nil
     l.water, l.trees, l.rocks, l.tick = s.water, s.trees + s.rocks, s.rocks, tick
+    Build.Place.evaluated(f, surface, tick, item[2], l, s, x0, y0, x1, y1, old, Build.LotsMinerai.amount, Build.LotsMinerai.seuils()) -- lot TV-PLACE (G37) : sonde de 30 x 30, lot en bord de gisement ; résultat du défrichage préventif
     Build.LotsMinerai.evaluated(f, tick, item[2], l, s, old) -- lot VIDEO MINERAI-SONDE : le lot de minerai neuf est RESERVE tout de suite (même en crise) ; un nid neuf est un ennemi vu
     if old == "inconnu" then
       bump(st.lots, l.state)
@@ -588,6 +597,14 @@ function Build.request(f, spec)
   local b = f.build or Build.enable(f, {})
   if not b then return nil, "equipe" end
   if type(spec) ~= "table" then return nil, "spec" end
+  -- lot TV-ENERGIE (G41) : la première expansion d'une équipe sans centrale fait demander la centrale D'ABORD (règle pure Build.Ene.decide) ;
+  -- Build.plant la place en tête de file, la demande est enregistrée derrière elle
+  local must = Build.Ene.decide(spec, { plant = b.plant, off = b.opts and b.opts.no_energie_dabord == true })
+  if must then
+    local pid = Build.plant(f, spec.pole)
+    b.energie_dabord = (b.energie_dabord or 0) + 1
+    if pid and b.energie_dabord == 1 then log(Build.Ene.line(f.key or "player", game.tick, spec, pid)) end
+  end
   local id = b.next_id
   b.next_id = id + 1
   local p = {
@@ -678,6 +695,7 @@ local function candidates(b, states, toward, res)
     -- souvent la seule ; le gabarit ne pose rien sur l'eau (P.fit)
     local ok_state = states[l.state] or (states.eau and l.state == "refuse" and l.reason == "eau")
     if l.out and (l.state == "libre" or l.state == "defricher") then ok_state = false end -- lot ENCEINTE3 : dehors du contour
+    if states.no_edge and l.edge then ok_state = false end -- lot TV-PLACE (G37) : lot en bord de gisement, réservé à la fonte et aux foreuses (une fabrique n'y va pas)
     -- lot ENERGIE-CROISSANCE : une rive déjà prise par une centrale FINIE reçoit une centrale de plus sur un autre bord de la même
     -- eau (P.fit ne pose rien sur ses tuiles, b.occ) ; sans cela, l'étang garanti étant la seule eau, toute centrale de plus était
     -- refusée « pas de lot » (retour du DC du 29/10 sur la 0.6.18 : « ils ont un déficit en électricité »)
@@ -786,7 +804,8 @@ local function place_module(f, surface, g, kind_states, toward, res, opts)
   local b = f.build
   local last = "pas de lot"
   local tries = 0
-  for _, c in ipairs(candidates(b, kind_states, toward, res)) do
+  -- lot TV-PLACE (C07) : le repli simple fournit ses propres lots (spirale) ; sinon le classement par distance d'avant
+  for _, c in ipairs((opts and opts.simple_lots) or candidates(b, kind_states, toward, res)) do
     tries = tries + 1
     if tries > 8 then break end
     local x0, y0, x1, y1 = P.lot_rect(b.lat, c.l.i, c.l.j)
@@ -812,7 +831,7 @@ local function place_module(f, surface, g, kind_states, toward, res, opts)
         axis = fopts.axis, pen = fit.pen, d = fit.d, shared = c.shared }
     end
     last = why or last
-    bump(b.stats.plan_refused, last)
+    if not (opts and opts.simple_lots) then bump(b.stats.plan_refused, last) end -- (le repli simple ne fausse pas le décompte des refus du plan)
     -- Lot AUTO : `nobad` (foreuses de ravitaillement) : un refus ne compte pas contre le lot. Build.plan_drills essaie
     -- n, n-1, … 1 foreuses dans les MÊMES lots : chaque taille refusée y comptait un échec, et le lot était exclu après la
     -- deuxième (« tapis des foreuses (pas de lot) » alors qu'une ligne plus courte y tenait).
@@ -2680,6 +2699,10 @@ local function plan_project(f, surface, p)
   if spec.enceinte then return plan_enceinte(f, surface, p) end
   if spec.alim then return plan_alim(f, surface, p) end -- lot CHARBON-CENTRALE
   if spec.raccord then return plan_raccord(f, surface, p) end -- lot PD-ELEC (D05)
+  if spec.quartier then -- lot TV-ARCHI (V23) : pôle d'un quartier (poteau, dépôts, lot défriché), script/team/quartiers.lua
+    return Build.Quartiers.plan(f, surface, p, { read_masks = function(x0, y0, x1, y1) return read_masks(f, surface, x0, y0, x1, y1) end,
+      reserve_tiles = reserve_tiles, finish = plan_finish, add_obstacle = add_obstacle, free_spot = free_spot })
+  end
   if spec.liaison then return Liaison.plan({ read_masks = function(x0, y0, x1, y1) return read_masks(f, surface, x0, y0, x1, y1) end, reserve_tiles = reserve_tiles, wood_of = wood_of, free_spot = free_spot, add_obstacle = add_obstacle, item_of = item_of, seg_passable = seg_passable, REACH = REACH }, f, surface, p) end -- lot INDUSTRIE I7
   Profiler.start("build:plan:place") -- lot IA3-e : parts du coût d'un plan (pics de K10), mesure seulement
   -- Lot PETROLE : un SITE (spec.site) est implanté par son planificateur (Build.SITES[nom], hors du treillis : au gisement
@@ -2781,6 +2804,16 @@ local function plan_project(f, surface, p)
           main, why, g = m0, w0, g0
         end
       end
+    end
+    -- lot TV-PLACE (C07 : « placement … as dumb as possible ») : avant de faire grandir le treillis, la règle la plus petite (shared/team/place_simple.lua) :
+    -- lots dans l'ordre de la spirale, mêmes états permis, marge 0, sans autre option
+    if not main and Build.Place.simple_on() then
+      local cache = scan_cache(f)
+      local qg = { x = b.lat.ox, y = b.lat.oy }
+      main, why = Build.Place.simple(f, p, g, why, Build.LotsMinerai.states(f, g.gen), function(states, fo)
+        fo.cache = cache
+        return place_module(f, surface, g, states, qg, nil, fo)
+      end, game.tick)
     end
   end
   Profiler.stop("build:plan:place")
@@ -2892,7 +2925,7 @@ function Build.plant(f, pole)
   local b = f.build
   if b.plant then return b.plant end
   local id = Build.request(f, { gen = "steam", args = { 1 }, feed = true, prio = Build.PRIO + 5, domain = "infrastructures",
-    pole = pole })
+    pole = pole, plant = true }) -- (lot TV-ENERGIE : plant = la demande EST la centrale, Build.Ene)
   b.plant = id
   -- la centrale passe avant les autres projets en attente
   local order = { id }
@@ -2903,13 +2936,14 @@ end
 
 --- Lot CORR-ENERGIE : une centrale de plus (nb chaudières), demandée comme la première ; son chantier est un projet du plan
 --- directeur (réserve de matériaux au coffre d'équipe, plan sur une autre rive libre). Suivi dans b.extra_plants.
-function Build.grow_plant(f, nb, tick)
+function Build.grow_plant(f, nb, tick, secours)
   local b = f.build
   local first = b.plant and b.projects[b.plant]
   if not (first and first.spec and first.spec.gen) then return nil end -- (la centrale de plus est du même type que la première)
   local id = Build.request(f, { gen = first.spec.gen, args = { nb }, feed = true, prio = Build.PRIO + 5, domain = "infrastructures",
-    pole = first.spec.pole }) -- (intégration 0.6.28 : même poteau que la première, voir l'alimentation)
+    pole = first.spec.pole, plant = true }) -- (intégration 0.6.28 : même poteau que la première, voir l'alimentation)
   if not id then return nil end
+  b.projects[id].secours = secours or nil -- lot TV-ENERGIE (G65) : unité de secours, projet DISTINCT (journal, bancs)
   b.extra_plants = b.extra_plants or {}
   b.extra_plants[#b.extra_plants + 1] = id
   -- lot ENERGIE-CROISSANCE : le courant qui manque arrête la production principale : la centrale de plus est un besoin de PRODUCTION
@@ -3699,6 +3733,8 @@ function Build.work(agent, f, tick)
     end
     return (job.done or 0) > 0 and "done" or "fail"
   elseif job.mode == "clear" then
+    local gate = Build.Place.defprev_gate(f, job, tick) -- lot TV-PLACE (G38) : une tâche de défrichage préventif passe sous le jeton des travaux lourds
+    if gate then return gate end
     local did = 0
     local rect = job.rect
     local area = rect and { { rect[1], rect[2] }, { rect[3], rect[4] } } or { { pos.x - REACH, pos.y - REACH }, { pos.x + REACH, pos.y + REACH } }
@@ -3733,6 +3769,7 @@ function Build.work(agent, f, tick)
       return not_there(f, agent, job, pos, inv, tick, reach2, "done")
     end
     job.done = (job.done or 0) + did
+    Build.Place.cut(f, job.seg, did) -- lot TV-PLACE (G38) : obstacles coupés par le défrichage préventif (journal)
     if did > 0 or remain > 0 then return "more" end
     if job.seg then Build.street_cleared(f, job.seg) end
     return "done"
@@ -3949,13 +3986,16 @@ local function cc_say(f, p, i, n, have, rate, r)
   b.charbon = b.charbon or {}
   local st = b.charbon[p.id] or {}
   b.charbon[p.id] = st
-  local cause = r.due and "urgence" or (r.short and "sans charbon" or nil)
+  local cause = r.due and (r.steam and "vapeur" or "urgence") or (r.short and "sans charbon" or nil)
   if not cause then st.said = nil return end
   if st.said == cause then return end
   st.said = cause
   b.charbon_logs = (b.charbon_logs or 0) + 1
   if b.charbon_logs > Cc.LOGS then return end
-  if r.due then
+  if r.due and r.steam then
+    log(string.format("[FO-CHARBON-CENTRALE] %s : centrale %d, coffre %d a %d charbon(s), AU-DESSUS du seuil %d mais tampon de vapeur BAS a %.1f min : tache URGENTE (prio %d), %d a porter (cible %d), coffre du QG %d",
+      f.key or "player", p.id, i, n, r.low, game.tick / 3600, r.prio, r.count, r.target, have))
+  elseif r.due then
     log(string.format("[FO-CHARBON-CENTRALE] %s : centrale %d, coffre %d a %d charbon(s), sous le seuil %d (%.2f/s x %d s) a %.1f min : tache URGENTE (prio %d), %d a porter (cible %d), coffre du QG %d",
       f.key or "player", p.id, i, n, r.low, rate, Cc.LEAD_S, game.tick / 3600, r.prio, r.count, r.target, have))
   else
@@ -3994,6 +4034,7 @@ local function out_tasks(f, p, surface, out)
       if not slots then in_slots = #inv; slots = math.min(in_slots, inv.get_bar() - 1) end -- F95 : sans barre, get_bar() = cases + 1
     end
   end
+  Build.Quotas.measure(f, p, surface) -- lot TV-QUOTAS (C11) : modules réellement posés (ou retirés) -> rapports p.qm_out, p.qm_in, lus par Quotas.of
   local q = Build.Quotas.of(p, slots, in_slots, Build.COLLECT_AT)
   for i, o in ipairs(p.outs) do
     local chest = chests[i]
@@ -4036,7 +4077,9 @@ local function quai_tasks(f, p, surface, out)
       local have = Stock.count(f, q.item)
       if rate then
         local inv = chest.get_inventory(defines.inventory.chest)
-        local r = Cc.refill(n, rate, have, inv and (n + inv.get_insertable_count(q.item)) or nil)
+        -- lot TV-VAPEUR (V36) : le tampon de vapeur bas déclenche aussi le remplissage (Build.Vg nul dans les doublures des bancs hors jeu)
+        local steam_low = Build.Vg and Build.Vg.low(f, p, surface) or false
+        local r = Cc.refill(n, rate, have, inv and (n + inv.get_insertable_count(q.item)) or nil, steam_low)
         cc_say(f, p, i, n, have, rate, r)
         if r.due then
           local a = P.anchor_for(f.build.lat, q.x, q.y, seg_passable(f.build))
@@ -4462,7 +4505,7 @@ end
 local function charbon_step(f, tick)
   local b = f.build
   if tick < (b.cc_next or 0) then return end
-  b.cc_next = tick + Cc.EVERY
+  b.cc_next = tick + (Build.Charge and Build.Charge.stretch(Cc.EVERY) or Cc.EVERY) -- (lot TV-VAPEUR, V89 : relevé non urgent, espacé sous charge)
   b.charbon = b.charbon or {}
   local plants, other_open = {}, false
   for _, pid in ipairs(b.order) do
@@ -4603,9 +4646,9 @@ local function pulse_team(f, tick)
   Profiler.fstop("bp:liaison")
   Profiler.fstart("bp:centrale")
   -- 5. lot CORR-ENERGIE : centrale saturée, une centrale de plus (même mécanisme que la première)
-  local nb, stale = PlantArms.watch(f, surface, tick)
+  local nb, stale, secours = PlantArms.watch(f, surface, tick)
   for _, id in ipairs(stale or {}) do Build.cancel(f, id, PlantArms.STALE_REASON) end
-  if nb then Build.grow_plant(f, nb, tick) end
+  if nb then Build.grow_plant(f, nb, tick, secours) end
   -- 6. lot CHARBON-CENTRALE : une centrale nourrie à la main demande ses foreuses (horloge propre)
   charbon_step(f, tick)
   Profiler.fstop("bp:centrale")
@@ -4989,11 +5032,13 @@ function Build.think(f, surface, tick)
   end
   Profiler.fstart("e2:rues")
   street_clear_tasks(f, tasks)
+  Build.Place.defprev_tasks(f, tasks, tick) -- lot TV-PLACE (G38) : défrichage préventif de 50 x 50, un lot à la fois, priorité la plus basse
   Profiler.fstop("e2:rues")
   Profiler.fstart("e2:board")
   if b.opts.seul then
     Board.drop_free(f, function(t) return t.ia1d ~= nil end)
   end
+  Build.Quartiers.route(f, surface, tasks) -- lot TV-ARCHI (V91) : quais d'un quartier ouvert servis par son depot (rien si fo-war-quartiers est eteint)
   Collecte.apply(f, surface, b, tasks, tick) -- lot COLLECTE : fer libre sous le besoin et équipe sous son effectif
   if #tasks > 0 then Board.add(f, tasks, tick) end
   Profiler.fstop("e2:board")
@@ -5019,6 +5064,7 @@ function Build.think(f, surface, tick)
     end
   end
   Build.space_step(f, surface, tick)
+  Build.Quartiers.step(f, tick, { request = Build.request }) -- lot TV-ARCHI (V23) : enveloppe d'avance (rien si fo-war-enveloppe est éteint)
   -- mesures par minute
   local st = b.stats
   local m = math.floor(tick / 3600)
@@ -5033,6 +5079,7 @@ end
 
 --- Un tronçon de rue défriché par un PNJ : réévalué à la pensée suivante.
 function Build.street_cleared(f, key)
+  if type(key) == "string" and key:sub(1, 4) == "pre:" then return Build.Place.defprev_cleared(f, key, game.tick) end -- lot TV-PLACE (G38) : un quart du défrichage préventif
   local s = f.build and f.build.segs[key]
   if s then s.cleared_tick = game.tick end
 end
@@ -5067,6 +5114,7 @@ function Build.status(f, id)
   local open_obst = 0
   for _, o in ipairs(p.obstacles or {}) do if not o.done then open_obst = open_obst + 1 end end
   return { id = p.id, state = p.state, reason = p.reason, built = count_built(p), total = #p.ents, parts = parts,
+    gen = p.spec and p.spec.gen or nil, secours = p.secours or nil, -- (lot TV-ENERGIE : générateur du projet, unité de secours)
     unbuilt = unbuilt, open_obstacles = open_obst,
     obstacles = #p.obstacles, quais = quais, outs = #p.outs, missing = missing, created = p.created, started = p.started,
     finished = p.finished, wires = p.wired, links = p.links, retry_at = p.retry_at, retries = p.retries,
@@ -5215,15 +5263,19 @@ remote.add_interface("fo-ia1d", {
     local b = f and Build.enable(f, type(opts) == "table" and opts or {})
     return b ~= nil
   end,
-  request = function(key, spec)
+  request = function(key, spec, expansion)
     local f = team_of_key(key)
     if not (f and f.build) then return nil, "plan directeur inactif" end
+    -- (lot TV-ENERGIE : une demande de banc ne déclenche pas « l'énergie d'abord » ; `expansion` vrai = une vraie expansion, la règle s'applique : banc tv-energie)
+    if type(spec) == "table" and spec.bench == nil and not expansion then spec.bench = "remote" end
     return Build.request(f, spec)
   end,
   status = function(key, id) return Build.status(team_of_key(key), id) end,
   report = function(key) return Build.report(team_of_key(key)) end,
+  place = function(key, cmd) return Build.Place.remote(team_of_key(key), cmd) end, -- lot TV-PLACE : compteurs de la sonde 30 x 30, du défrichage préventif et du repli simple (bancs)
   lots_minerai = function(key, cmd, arg) return Build.LotsMinerai.remote(team_of_key(key), cmd, arg) end, -- lot VIDEO MINERAI-SONDE : lots reserves, événements, relevés refaits (bancs)
   layout = function(key) return Build.layout(team_of_key(key)) end,
+  quartiers = function(key, cmd, arg) return Build.Quartiers.remote(team_of_key(key), cmd, arg) end, -- lot TV-ARCHI : bancs (report, now, bench_build)
   -- banc seulement (migration des bras de la centrale, lot PLANDIR) : reproduit la conversion électrique des versions 0.6.5 à 0.6.7
   legacy_electric_arms = function(key)
     local f = team_of_key(key)
@@ -5232,7 +5284,7 @@ remote.add_interface("fo-ia1d", {
   end,
   set_option = function(key, name, value)
     local f = team_of_key(key)
-    if not (f and f.build and (name == "seul" or name == "ghosts_ahead" or name == "sante" or name == "no_grow" or name == "no_lots" or name == "no_alim" or name == "no_sante" or name == "no_coupure")) then return nil end -- no_coupure : coupe le chemin le plus court et le second chemin des poteaux perdus (lot ENERGIE 2/11, témoin des bancs) ; no_grow : coupe la croissance de la centrale (bancs) ; no_alim : coupe les foreuses de la centrale (lot CHARBON-CENTRALE, bancs) ; no_sante : coupe l'amorce à la main, la porte des consommateurs et l'avance de la centrale de plus (lot ENERGIE 2/11, témoin des bancs)
+    if not (f and f.build and (name == "seul" or name == "ghosts_ahead" or name == "sante" or name == "no_grow" or name == "no_lots" or name == "no_alim" or name == "no_sante" or name == "no_coupure" or name == "no_energie_dabord")) then return nil end -- no_coupure : coupe le chemin le plus court et le second chemin des poteaux perdus (lot ENERGIE 2/11, témoin des bancs) ; no_grow : coupe la croissance de la centrale (bancs) ; no_alim : coupe les foreuses de la centrale (lot CHARBON-CENTRALE, bancs) ; no_sante : coupe l'amorce à la main, la porte des consommateurs et l'avance de la centrale de plus (lot ENERGIE 2/11, témoin des bancs)
     f.build.opts[name] = value and true or false
     return f.build.opts[name]
   end,
