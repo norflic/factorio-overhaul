@@ -127,6 +127,7 @@ Build.Quotas = require("script.team.quotas_glue")
 -- Lot TV-VAPEUR : tampon de vapeur de la centrale (V36, colle de shared/team/vapeur_tampon.lua) et dégradation sous charge (V89, script/core/
 -- charge.lua) ; champs de Build, pas des locales (199 locales sur 200).
 Build.Vg = require("script.team.vapeur_glue")
+Build.Piquage = require("script.team.piquage") -- lot PIQUAGE : entrée d'un bloc alimentée par le surplus d'un tapis existant ; champ de Build, pas une locale (build.lua est à 199 locales)
 Build.Charge = require("script.core.charge")
 -- Lot VIDEO L9 : lots de minerai réservés au minerai (colle de shared/team/lot_minerai.lua, interrupteur éteint par défaut) ; champ
 -- de Build, même raison (199 locales sur 200).
@@ -2710,6 +2711,7 @@ local function plan_project(f, surface, p)
       reserve_tiles = reserve_tiles, finish = plan_finish, add_obstacle = add_obstacle, free_spot = free_spot,
       count = function(it) return Stock.count(f, it) end }) -- (tranche 3 : tourelle du pôle si le coffre l'a)
   end
+  if spec.liaison and spec.liaison.piquage then return Build.Piquage.plan({ read_masks = function(x0, y0, x1, y1) return read_masks(f, surface, x0, y0, x1, y1) end, reserve_tiles = reserve_tiles, wood_of = wood_of, free_spot = free_spot, add_obstacle = add_obstacle, item_of = item_of, seg_passable = seg_passable, REACH = REACH, trav = Build.Trav }, f, surface, p) end -- lot PIQUAGE
   if spec.liaison then return Liaison.plan({ read_masks = function(x0, y0, x1, y1) return read_masks(f, surface, x0, y0, x1, y1) end, reserve_tiles = reserve_tiles, wood_of = wood_of, free_spot = free_spot, add_obstacle = add_obstacle, item_of = item_of, seg_passable = seg_passable, REACH = REACH }, f, surface, p) end -- lot INDUSTRIE I7
   Profiler.start("build:plan:place") -- lot IA3-e : parts du coût d'un plan (pics de K10), mesure seulement
   -- Lot PETROLE : un SITE (spec.site) est implanté par son planificateur (Build.SITES[nom], hors du treillis : au gisement
@@ -2987,6 +2989,8 @@ local function needs_of(p)
       if e.charge then bump(need, e.charge.item, e.charge.count) end -- lot CHAMP : coffre de combustible posé garni
     end
   end
+  local lq = p.spec and p.spec.liaison
+  if lq and lq.extra and not p.piq_placed then bump(need, lq.extra.item) end -- lot PIQUAGE : le répartiteur, posé par le script à la fin du projet
   return need
 end
 
@@ -3789,6 +3793,7 @@ function Build.work(agent, f, tick)
       local put = chest.insert({ name = q.item, count = n })
       if put > 0 then inv.remove({ name = q.item, count = put }) end
       b.stats.filled = b.stats.filled + put
+      q.tours, q.filled = (q.tours or 0) + 1, (q.filled or 0) + put -- lot PIQUAGE : tournées « fill » par quai (journal [FO-PIQUAGE] bilan)
     end
     return "done"
   elseif job.mode == "amorce" then
@@ -4650,6 +4655,7 @@ local function pulse_team(f, tick)
   Profiler.fstop("bp:raccord")
   Profiler.fstart("bp:liaison")
   Liaison.step({ request = Build.request, prio = Build.PRIO + 1, fill = Build.QUAI_FILL, low = Build.QUAI_LOW }, f, surface, tick)
+  Build.Piquage.step({ request = Build.request, prio = Build.PRIO + 1, fill = Build.QUAI_FILL, low = Build.QUAI_LOW }, f, surface, tick) -- lot PIQUAGE
   Profiler.fstop("bp:liaison")
   Profiler.fstart("bp:centrale")
   -- 5. lot CORR-ENERGIE : centrale saturée, une centrale de plus (même mécanisme que la première)
