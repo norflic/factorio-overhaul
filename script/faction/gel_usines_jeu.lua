@@ -389,20 +389,44 @@ local function bilan(f, fid, tick)
     tostring(f.key), n, fz, ents, table.concat(parts, " "), table.concat(prod, " "), s.reveils, tostring(s.cause), s.pertes, tick / 3600))
 end
 
+-- Liste des postes d'un guet : vidée sur place à chaque guet (aucune table neuve par tick dans un local de module, F403). Le poste
+-- d'un îlot (I.post) est gardé dans l'îlot et réutilisé : seul son champ `unfit` change d'un guet à l'autre.
+local POSTS = {}
+local MENAGE = {}
+
+--- Poste de la règle commune pour un îlot (créé une fois, réutilisé ; I.st et I.boxes sont ceux de l'îlot).
+local function post_of(I)
+  local p = I.post
+  if not p then
+    p = { id = I.id, st = I.st, boxes = I.boxes }
+    I.post = p
+  end
+  p.unfit = I.dirty or ((I.owed or I.pending) and "en cours") or nil
+  return p
+end
+
 --- LA règle commune pour les îlots d'un groupe (une faction, ou un groupe de banc) ; s = entrées de la règle.
+--- C19 (8/11, décision du lead) : quand la faction est loin et calme (G.skip_quiet), les îlots figés sans entrée propre ne sont PAS
+--- relus (ils n'auraient ni action ni écriture d'état) : seuls les îlots éveillés, à relire ou en cours sont décidés. Gj.TOUS (bancs
+--- hors jeu seulement) force la décision de tous les îlots, pour prouver l'équivalence.
 local function guet_group(fid, key, s, tick)
   local u = Gu.U()
   local ids = u.ids_f[fid]
   if not (ids and #ids > 0) then return end
-  -- (C19, 8/11 : portées FINES et comptes du tick, mode détail seulement, pour trouver la cause de 3 à 10 ms par guet)
   Profiler.fcount("gel:ilots", #ids)
   Profiler.fstart("gel:g:regle")
-  local posts = {}
+  local fbox = Gu.faction_box(fid)
+  local skip = (not Gj.TOUS) and G.skip_quiet(s, fbox, tick)
+  for i = #POSTS, 1, -1 do POSTS[i] = nil end
+  for i = #MENAGE, 1, -1 do MENAGE[i] = nil end
   for _, id in ipairs(ids) do
     local I = u.ilots[id]
-    posts[#posts + 1] = { id = id, st = I.st, boxes = I.boxes, unfit = I.dirty or ((I.owed or I.pending) and "en cours") or nil }
+    local p = post_of(I)
+    if not (skip and G.quiet(p)) then POSTS[#POSTS + 1] = p end
+    if I.dirty and not I.st.frozen and not I.pending and not I.owed then MENAGE[#MENAGE + 1] = id end
   end
-  local acts = G.decide_all(posts, s, Gu.faction_box(fid), tick)
+  Profiler.fcount("gel:decides", #POSTS)
+  local acts = G.decide_all(POSTS, s, fbox, tick)
   Profiler.fstop("gel:g:regle")
   Profiler.fstart("gel:g:actions")
   local woke, cause = 0, nil
@@ -413,67 +437,91 @@ local function guet_group(fid, key, s, tick)
     elseif not I.pending then
       want_wake(I, tick, a.cause)
       woke, cause = woke + 1, a.cause
+      -- figé à relire réveillé tout de suite (sans pas dû) : retiré dans ce guet, comme avant
+      if I.dirty and not I.st.frozen and not I.pending and not I.owed then MENAGE[#MENAGE + 1] = a.id end
     end
   end
   Profiler.fstop("gel:g:actions")
   if woke > 0 then Gel.say("reveil:" .. key, string.format("%s : %d ilot(s) reveille(s) (%s) a %.1f min", key, woke, tostring(cause), tick / 3600)) end
+  -- îlots à relire, éveillés et soldés : retirés du registre (relevés de nouveau au prochain passage du relevé) ; condition relue ici.
   Profiler.fstart("gel:g:menage")
-  for _, id in ipairs(copy_list(ids)) do
+  for _, id in ipairs(MENAGE) do
     local I = u.ilots[id]
     if I and I.dirty and not I.st.frozen and not I.pending and not I.owed then Gu.unregister(I) end
   end
   Profiler.fstop("gel:g:menage")
 end
 
+--- Entrées de la règle pour une faction. « armée dehors » n'est PAS une cause de réveil des USINES (décision du lead, 8/11 : la
+--- production d'un avant-poste ne dépend pas de l'armée ; « attaque » et « menace » couvrent une attaque qui reviendrait ; mesure :
+--- 447 -> 221 machines figées en 8 000 ticks sur la partie du DC) : army_out = faux. Les garnisons la gardent (gel_garnisons.lua).
+local function input_usines(f, players)
+  Profiler.fstart("gel:g:entrees")
+  local s = Gel.input(f, players, false)
+  if not Gu.ON or not (f.hq and f.hq.valid) then s.off = true end
+  Profiler.fstop("gel:g:entrees")
+  return s
+end
+
+local function guet_faction(u, f, fid, players, tick)
+  guet_group(fid, tostring(f.key), input_usines(f, players), tick)
+  -- bilan toutes les 5 min de jeu : au guet de la faction qui suit le multiple de 18 000 ticks (18 000 est un multiple de G.GUET)
+  if (tick - tick % G.GUET) % (5 * 3600) == 0 and u.ids_f[fid] then bilan(f, fid, tick) end
+end
+
+--- Guet du tick : la faction dont c'est le tick (G.guet_of), ou le guet COMMUN (tick 0 de la période) : factions sans tick propre,
+--- factions disparues, groupes de banc. Chaque faction est guettée une fois par période de G.GUET ticks.
 local function guet(tick)
-  local war = State.war()
+  local who = G.guet_of(tick % G.GUET, "usines")
+  if who == nil then return end
   local u = Gu.U()
   if not u then return end
+  local war = State.war()
+  local live = war and war.active and war.factions
+  local f = (who ~= "commun") and live and war.factions[who] or nil
+  if who ~= "commun" and not (f and not f.eliminated) then return end -- aucune faction à ce tick : rien (ni joueurs lus, ni portée)
   Profiler.start("gel:guet")
-  local surface = (war and war.surface) or 1
-  local players = Gel.players(surface)
-  local seen = {}
-  if war and war.active and war.factions then
-    for _, fid in ipairs(State.alive()) do
-      local f = war.factions[fid]
-      if f then
+  local players = Gel.players((war and war.surface) or 1)
+  if who ~= "commun" then
+    guet_faction(u, f, who, players, tick)
+  else
+    local seen = {}
+    if live then
+      for _, fid in ipairs(State.alive()) do
         seen[fid] = true
-        Profiler.fstart("gel:g:entrees")
-        local s = Gel.input(f, players, (Commander.army_out(f)))
-        if not Gu.ON or not (f.hq and f.hq.valid) then s.off = true end
-        Profiler.fstop("gel:g:entrees")
-        guet_group(fid, tostring(f.key), s, tick)
-        if tick % (5 * 3600) == 0 and u.ids_f[fid] then bilan(f, fid, tick) end
+        local f = war.factions[fid]
+        if f and G.slot(fid, "usines") == nil then guet_faction(u, f, fid, players, tick) end -- sans tick propre (aucune en partie)
       end
     end
-  end
-  -- Faction ANÉANTIE (f.eliminated : hors de State.alive) ou guerre arrêtée : ses îlots ne sont plus guettés, donc tout ce qui est
-  -- figé est réveillé ici, une fois (relecture de revue-s, 8/11 : sans cela, ses foreuses et ses fours restaient figés pour toujours).
-  local gone = {}
-  for k in next, u.ids_f do
-    if type(k) == "number" and not seen[k] then gone[#gone + 1] = k end
-  end
-  table.sort(gone)
-  for _, fid in ipairs(gone) do
-    local n = 0
-    for _, id in ipairs(copy_list(u.ids_f[fid])) do
-      local I = u.ilots[id]
-      if I and I.st.frozen and not I.pending then
-        want_wake(I, tick, "faction disparue")
-        n = n + 1
-      elseif I and not I.st.frozen and not I.pending and not I.owed then
-        Gu.unregister(I) -- réveillé et soldé : retiré du registre (la faction n'est plus relevée)
-      end
+    -- Faction ANÉANTIE (f.eliminated : hors de State.alive) ou guerre arrêtée : ses îlots ne sont plus guettés, donc tout ce qui est
+    -- figé est réveillé ici, une fois (relecture de revue-s, 8/11 : sans cela, ses foreuses et ses fours restaient figés pour
+    -- toujours).
+    local gone = {}
+    for k in next, u.ids_f do
+      if type(k) == "number" and not seen[k] then gone[#gone + 1] = k end
     end
-    if #(u.ids_f[fid] or {}) == 0 then u.ids_f[fid] = nil end
-    if n > 0 then Gel.say("reveil:" .. tostring(fid), string.format("faction %s disparue (aneantie ou guerre arretee) : %d ilot(s) reveille(s) a %.1f min", tostring(fid), n, tick / 3600)) end
-  end
-  -- groupes de banc (interface « fo-gel », script/faction/gel_banc.lua) : causes posées par le banc, jamais par une faction
-  for _, name in ipairs(Gc.sorted_names(u.bancs)) do
-    local b = u.bancs[name]
-    local s = { players = b.players or players, threatened_until = b.threatened_until, attack_t = b.attack_t, lost_t = b.lost_t,
-      base_alert = b.base_alert, army_out = b.army_out or false, off = (not Gu.ON) or not Gel.on() }
-    guet_group("banc:" .. name, "banc:" .. name, s, tick)
+    table.sort(gone)
+    for _, fid in ipairs(gone) do
+      local n = 0
+      for _, id in ipairs(copy_list(u.ids_f[fid])) do
+        local I = u.ilots[id]
+        if I and I.st.frozen and not I.pending then
+          want_wake(I, tick, "faction disparue")
+          n = n + 1
+        elseif I and not I.st.frozen and not I.pending and not I.owed then
+          Gu.unregister(I) -- réveillé et soldé : retiré du registre (la faction n'est plus relevée)
+        end
+      end
+      if #(u.ids_f[fid] or {}) == 0 then u.ids_f[fid] = nil end
+      if n > 0 then Gel.say("reveil:" .. tostring(fid), string.format("faction %s disparue (aneantie ou guerre arretee) : %d ilot(s) reveille(s) a %.1f min", tostring(fid), n, tick / 3600)) end
+    end
+    -- groupes de banc (interface « fo-gel », script/faction/gel_banc.lua) : causes posées par le banc, jamais par une faction
+    for _, name in ipairs(Gc.sorted_names(u.bancs)) do
+      local b = u.bancs[name]
+      local s = { players = b.players or players, threatened_until = b.threatened_until, attack_t = b.attack_t, lost_t = b.lost_t,
+        base_alert = b.base_alert, army_out = b.army_out or false, off = (not Gu.ON) or not Gel.on() }
+      guet_group("banc:" .. name, "banc:" .. name, s, tick)
+    end
   end
   Profiler.stop("gel:guet")
 end
@@ -484,7 +532,10 @@ end
 local function each_tick(tick)
   local g = Gel.state()
   local u = g and g.u
-  if not u then return end
+  if not u then
+    guet(tick) -- registre créé par le premier guet (Gu.U), comme avant l'étalement
+    return
+  end
   Profiler.start("gel:pas")
   while #u.pend > 0 do
     local I = u.ilots[u.pend[1]]
@@ -517,11 +568,11 @@ local function each_tick(tick)
   Profiler.stop("gel:pas")
   local war = State.war()
   if war and war.active and war.factions and Gu.ON and Gel.on() then scan_tick(tick, war) end
+  guet(tick) -- guet étalé : une faction par tick pair de la période (G.guet_of), le guet commun au tick 0
   flush_flows()
 end
 
 Events.on_nth_tick(1, function(e) each_tick(e.tick) end)
-Events.on_nth_tick(G.GUET, function(e) guet(e.tick) end)
 
 ---------------------------------------------------------------------------------------------------
 -- Événements : un bâtiment posé, retiré ou mort près d'un îlot le marque « à relire »

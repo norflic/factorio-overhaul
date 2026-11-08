@@ -16,6 +16,7 @@
     N10 déterminisme : deux passages, mêmes journaux ;
     N13 faction anéantie sans mort vue, guerre arrêtée : tout réveillé au guet suivant (relecture de revue-s, 8/11) ;
     N14 portées fines du guet (C19, 8/11 : mesure seulement) fermées sous leur nom, au sommet ; portées et compteurs vus ;
+    N15 guets étalés (C19, décision du lead du 8/11) : garnisons aux ticks impairs de la période (1 : commun ; 3 : faction 1) ;
     Mutants (texte de gel_garnisons.lua changé) : tous vus, dont « destructible mis à false au gel » (demande du lead, 7/11).
   Usage : lua5.2 tests/gel_garnisons_test.lua   (depuis la racine du mod ; shared/faction/cadence.lua de x10-s10 requis)
 ]]
@@ -98,7 +99,14 @@ log = function(s) W.logs[#W.logs + 1] = s end
 ---------------------------------------------------------------------------------------------------
 -- Pile du profileur factice (portées start/stop et fines) ; PROF.bad compte les fermetures hors du sommet ou sans ouverture.
 PROF = { stack = {}, bad = 0, seen = {}, cnt = {} }
-function prof_open(n) PROF.stack[#PROF.stack + 1] = n; PROF.seen[n] = true end
+function prof_open(n)
+  PROF.stack[#PROF.stack + 1] = n
+  PROF.seen[n] = true
+  if n == "gel:garnisons" then -- ticks de la période qui portent un guet (C19 : guets étalés)
+    PROF.at = PROF.at or {}
+    PROF.at[game.tick % 20] = true
+  end
+end
 function prof_close(n)
   if PROF.stack[#PROF.stack] == n then PROF.stack[#PROF.stack] = nil else PROF.bad = PROF.bad + 1 end
 end
@@ -152,6 +160,7 @@ local function run(n)
   for _ = 1, n do
     W.tick = W.tick + 1
     game.tick = W.tick
+    for _, fn in ipairs(H.nth[1] or {}) do fn({ tick = W.tick }) end -- guets étalés (C19) : un abonné par tick
     if W.tick % 20 == 0 then for _, fn in ipairs(H.nth[20] or {}) do fn({ tick = W.tick }) end end
   end
 end
@@ -375,6 +384,13 @@ local function cases(src)
   -- N14 instrumentation fine du guet (C19) : portées fermées, portées et compteurs vus
   check(prof_check("N14", { "gel:garnisons", "gel:reveil", "gel:gar:soldats", "gel:gar:menaces", "gel:gar:listes", "gel:gar:tirs", "gel:gar:req",
     "gel:gar:regle", "gel:gar:aptitude", "gel:gar:entrees" }, { "gel:soldats", "gel:postes", "gel:requetes", "gel:tourelles", "gel:aptes_lus" }))
+  -- N15 (C19) : guets étalés : le guet des garnisons ne tombe qu'aux ticks 1 (commun) et 3 (faction 1) de la période de 20, jamais à
+  -- un tick pair (ceux des usines)
+  do
+    local at, ks, bad = PROF.at or {}, {}, 0
+    for k = 0, 19 do if at[k] then ks[#ks + 1] = k; if k ~= 1 and k ~= 3 then bad = bad + 1 end end end
+    check(bad == 0 and at[1] and at[3], "N15 : guet des garnisons aux ticks 1 (commun) et 3 (faction 1) de la periode seulement (" .. table.concat(ks, ",") .. ")")
+  end
   return fail_n - f0
 end
 
@@ -398,28 +414,36 @@ do
   local a, b = trace(), trace()
   check(a == b and #a > 0, "N10 : deux passages : memes journaux et memes etats")
 end
--- N12 coût d'un guet en instructions Lua (debug.sethook : déterministe ; monde factice compris), 65 soldats dont 60 aptes
+-- N12 coût d'un guet en instructions Lua (debug.sethook : déterministe ; monde factice compris). Coût MARGINAL par soldat (8/11, C19) :
+-- même partie à 13 puis à 65 soldats (52 de plus, aptes), écart divisé par 52 ; le coût fixe d'une période (abonné de chaque tick
+-- depuis l'étalement des guets, boucle du banc, profileur factice) s'annule. Avant l'étalement, la mesure divisait le TOTAL par 65
+-- (104 instructions par soldat au guet figé) ; à l'étalement, le total par 65 est passé à 121 sans travail de plus par soldat.
 do
-  local f, E = build(nil)
-  for i = 1, 52 do
-    local e = entity({ name = "fo-scarlet-rifleman", type = "unit", x = -8 + (i % 8) * 2, y = 10 + math.floor(i / 8) })
-    f.soldiers[e.unit_number] = { entity = e }
-    f.soldiers_count = f.soldiers_count + 1
+  local function play(extra)
+    local f = build(nil)
+    for i = 1, extra do
+      local e = entity({ name = "fo-scarlet-rifleman", type = "unit", x = -8 + (i % 8) * 2, y = 10 + math.floor(i / 8) })
+      f.soldiers[e.unit_number] = { entity = e }
+      f.soldiers_count = f.soldiers_count + 1
+    end
+    local function cost(n)
+      local c = 0
+      debug.sethook(function() c = c + 1 end, "", 1)
+      run(n)
+      debug.sethook()
+      return c
+    end
+    local c1 = cost(20)
+    run(600)
+    local c2 = cost(20)
+    return c1, c2, f.soldiers_count
   end
-  local function cost(n)
-    local c = 0
-    debug.sethook(function() c = c + 1 end, "", 1)
-    run(n)
-    debug.sethook()
-    return c
-  end
-  local c1 = cost(20)
-  run(600)
-  local c2 = cost(20)
-  local per1, per2 = c1 / f.soldiers_count, c2 / f.soldiers_count
-  print(string.format("[GEL-GARNISONS] cout : guet au calme compte %d instructions (%.0f par soldat), guet fige %d (%.0f par soldat), %d soldats",
-    c1, per1, c2, per2, f.soldiers_count))
-  check(per1 <= 200 and per2 <= 120, string.format("N12 : guet borne (%.0f et %.0f instructions par soldat ; seuils 200 et 120)", per1, per2))
+  local a1, a2, na = play(0)
+  local b1, b2, nb = play(52)
+  local per1, per2 = (b1 - a1) / (nb - na), (b2 - a2) / (nb - na)
+  print(string.format("[GEL-GARNISONS] cout : %d soldats, guet au calme %d, guet fige %d ; %d soldats, %d et %d : %.0f et %.0f instructions par soldat de plus (total par soldat a %d : %.0f et %.0f)",
+    na, a1, a2, nb, b1, b2, per1, per2, nb, b1 / nb, b2 / nb))
+  check(per1 <= 200 and per2 <= 120, string.format("N12 : guet borne (%.0f et %.0f instructions par soldat de plus ; seuils 200 et 120)", per1, per2))
 end
 -- N9 statique
 do
@@ -448,6 +472,7 @@ local MUTANTS = {
   { "reveil du poste ignore", "        if m.frozen and wake_one(a, vid, m.id, o.cause or \"reveil\") then", "        if false then" },
   { "faction disparue ignoree", "if type(vid) == \"number\" and not seen[vid] and a.v[vid].n > 0 then wake_view(a, vid, \"faction disparue\", tick) end", "" },
   { "portee fine non fermee", "  Profiler.fstop(\"gel:gar:regle\")\n", "" },
+  { "guet des garnisons aux ticks des usines (C19)", "local who = G.guet_of(tick % G.GUET, \"garnisons\")", "local who = G.guet_of(tick % G.GUET, \"usines\")" },
   { "attaque oubliee (regel immediat)", "s.attack_t, s.lost_t = max_t(s.attack_t, a.hit[fid]), max_t(s.lost_t, a.lost[fid])", "" },
 }
 quiet = true

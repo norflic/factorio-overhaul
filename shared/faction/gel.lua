@@ -114,6 +114,47 @@ function Gel.decide_all(posts, s, fbox, tick)
 end
 
 ---------------------------------------------------------------------------------------------------
+-- Coût du guet (C19, 8/11, décision du lead après le banc de diagnostic diag-c8fd1870 : 80 % du guet des usines à re-décider TOUS
+-- les îlots, figés compris ; les guets de toutes les factions et des garnisons au même tick)
+---------------------------------------------------------------------------------------------------
+--- Poste figé « calme » : rien à lui dire tant que la faction est loin et calme (aucune entrée propre, boîtes connues).
+function Gel.quiet(p)
+  return p.st.frozen == true and not p.unfit and not p.hazard and type(p.boxes) == "table" and p.boxes.wake ~= nil
+    and p.boxes.freeze ~= nil
+end
+
+--- Les postes calmes peuvent-ils être SAUTÉS ? Vrai seulement quand Gel.decide_all ne ferait rien pour eux (ni action, ni écriture de
+--- leur état) : réglage allumé, joueurs connus, AUCUNE cause de faction (sinon tous les figés sont réveillés), boîte de la faction
+--- connue et aucun joueur dans sa boîte de gel (sinon la distance se lit poste par poste). Alors decide_all(postes non calmes) rend
+--- exactement decide_all(tous les postes) (prouvé par tests/gel_test.lua, K-SAUT).
+function Gel.skip_quiet(s, fbox, tick)
+  if s.off or type(s.players) ~= "table" or fbox == nil then return false end
+  if Gel.faction_cause(s, tick) then return false end
+  return not any_player_in(fbox.freeze, s.players)
+end
+
+--- Guets ÉTALÉS : chaque faction a son tick dans la période Gel.GUET ; usines aux ticks pairs, garnisons aux impairs (aucun tick ne
+--- porte deux guets) ; le tick 0 (usines) et le tick 1 (garnisons) portent le guet COMMUN (groupes de banc, factions disparues,
+--- factions sans tick propre). Chaque faction reste guettée une fois par période : retard maximal d'un réveil par le guet ≤ Gel.GUET.
+Gel.SLOT_MAX = math.floor((Gel.GUET - 2) / 2) -- factions 1 à 9 : un tick propre chacune (4 au plus dans une partie)
+
+--- Tick (dans la période) du guet de la faction fid pour kind = "usines" ou "garnisons" ; nil : pas de tick propre (guet commun).
+function Gel.slot(fid, kind)
+  if type(fid) ~= "number" or fid ~= math.floor(fid) or fid < 1 or fid > Gel.SLOT_MAX then return nil end
+  return (2 * fid + (kind == "garnisons" and 1 or 0)) % Gel.GUET
+end
+
+--- Quel guet au tick t (k = t % Gel.GUET) : un numéro de faction, "commun", ou nil (aucun guet de ce kind à ce tick).
+function Gel.guet_of(k, kind)
+  local base = (kind == "garnisons") and 1 or 0
+  if k == base then return "commun" end
+  if k < base or (k - base) % 2 ~= 0 then return nil end
+  local fid = (k - base) / 2
+  if fid >= 1 and fid <= Gel.SLOT_MAX then return fid end
+  return nil
+end
+
+---------------------------------------------------------------------------------------------------
 -- Garnisons (Q7, L1_CRITERES.md §3.12) : un soldat est un poste ; ce qui suit dit s'il peut être figé
 ---------------------------------------------------------------------------------------------------
 Gel.GARRISON_ROLES = { home = 18, guard = 4, patrol = 12 } -- rôles de garnison et rayon de marche autour du point (soldats.lua)

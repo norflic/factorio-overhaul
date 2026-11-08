@@ -125,7 +125,8 @@ local function cases(G)
   -- G7 équivalence du raccourci
   do
     local seed = 7112026
-    local function rnd(n) seed = (seed * 1103515245 + 12345) % 2147483648 return seed % n end
+    -- bits hauts (8/11 : les bits bas d'un générateur congruentiel modulo 2^31 ont une période courte, voir G10)
+    local function rnd(n) seed = (seed * 1103515245 + 12345) % 2147483648 return math.floor(seed / 65536) % n end
     local diff = 0
     for trial = 1, 200 do
       local posts_a, posts_b, allp = {}, {}, {}
@@ -184,6 +185,81 @@ local function cases(G)
     end
     check(not froze and woke, "G8 : joueurs inconnus : decide_all ne fige rien et reveille le poste fige")
   end
+  -- G10 (C19, 8/11, décision du lead) : SAUTER les postes figés calmes quand la faction est loin et calme (Gel.skip_quiet, Gel.quiet)
+  -- donne exactement la décision de TOUS les postes : mêmes actions, mêmes causes, même état (calm, frozen), sur 4 000 tirages.
+  do
+    local seed = 8112026
+    -- bits HAUTS du générateur (les bits bas d'un générateur congruentiel modulo 2^31 ont une période courte : avec `seed % n`, aucun
+    -- poste n'était à la fois figé et calme au moment d'un saut, et G10 ne prouvait rien)
+    local function rnd(n) seed = (seed * 1103515245 + 12345) % 2147483648 return math.floor(seed / 65536) % n end
+    local diff, skipped, skips = 0, 0, 0
+    for trial = 1, 200 do
+      local posts_a, posts_b, allp = {}, {}, {}
+      for i = 1, 1 + rnd(8) do
+        local p = { { x = rnd(2000) - 1000, y = rnd(2000) - 1000 } }
+        p[2] = { x = p[1].x + rnd(20), y = p[1].y + rnd(20) }
+        for _, q in ipairs(p) do allp[#allp + 1] = q end
+        local b = (rnd(12) == 0) and nil or G.boxes(p)
+        local fz = rnd(3) > 0
+        local unfit = (rnd(8) == 0) and "a relire" or nil
+        local hz = (rnd(10) == 0) and "ennemi pres du poste" or nil
+        posts_a[#posts_a + 1] = { id = i, st = { frozen = fz }, boxes = b, unfit = unfit, hazard = hz }
+        posts_b[#posts_b + 1] = { id = i, st = { frozen = fz }, boxes = b, unfit = unfit, hazard = hz }
+      end
+      local fbox = (rnd(15) == 0) and nil or G.boxes(allp)
+      for step = 1, 20 do
+        local tick = step * 20 * (1 + rnd(40))
+        local players = {}
+        for _ = 1, rnd(3) do players[#players + 1] = { x = rnd(6000) - 3000, y = rnd(6000) - 3000 } end
+        if rnd(30) == 0 then players = nil end
+        local s = S({ players = players, attack_t = (rnd(12) == 0) and tick - 10 or nil, threatened_until = (rnd(25) == 0) and tick + 50 or nil,
+          army_out = rnd(20) == 0, off = rnd(40) == 0 })
+        if players == nil then s.players = nil end
+        local out_a = G.decide_all(posts_a, s, fbox, tick)
+        local sub = posts_b
+        if G.skip_quiet(s, fbox, tick) then
+          skips = skips + 1
+          sub = {}
+          for _, p in ipairs(posts_b) do if G.quiet(p) then skipped = skipped + 1 else sub[#sub + 1] = p end end
+        end
+        local out_b = G.decide_all(sub, s, fbox, tick)
+        local function key(list) local t = {} for _, o in ipairs(list) do t[#t + 1] = o.id .. ":" .. o.action .. ":" .. tostring(o.cause) end return table.concat(t, ";") end
+        if key(out_a) ~= key(out_b) then diff = diff + 1 end
+        for k, p in ipairs(posts_a) do
+          if p.st.calm ~= posts_b[k].st.calm then diff = diff + 1 end
+        end
+        for _, o in ipairs(out_a) do posts_a[o.id].st.frozen = (o.action == "fige") end
+        for _, o in ipairs(out_b) do posts_b[o.id].st.frozen = (o.action == "fige") end
+      end
+    end
+    check(diff == 0 and skips > 200 and skipped > 500, string.format(
+      "G10 : postes figes calmes sautes (faction loin et calme) = decision de tous les postes : %d ecart(s) sur 4 000 tirages (%d guets sautes, %d postes sautes)",
+      diff, skips, skipped))
+  end
+  -- G11 (C19) : guets étalés : aucun tick de la période ne porte deux guets ; chaque faction 1 à SLOT_MAX a un tick propre par kind,
+  -- une fois par période (retard maximal d'un réveil par le guet ≤ Gel.GUET) ; Gel.slot et Gel.guet_of se répondent ; guet commun
+  -- aux ticks 0 (usines) et 1 (garnisons) ; faction sans tick propre (0, 10, 2,5, nom) : nil (guettée au guet commun).
+  do
+    local bad = 0
+    local seen = { usines = {}, garnisons = {} }
+    for k = 0, G.GUET - 1 do
+      local a, b = G.guet_of(k, "usines"), G.guet_of(k, "garnisons")
+      if a ~= nil and b ~= nil then bad = bad + 1 end
+      for kind, w in pairs({ usines = a, garnisons = b }) do
+        if type(w) == "number" then
+          if G.slot(w, kind) ~= k then bad = bad + 1 end
+          seen[kind][w] = (seen[kind][w] or 0) + 1
+        end
+      end
+    end
+    for fid = 1, G.SLOT_MAX do
+      if seen.usines[fid] ~= 1 or seen.garnisons[fid] ~= 1 then bad = bad + 1 end
+    end
+    check(bad == 0 and G.SLOT_MAX >= 4, "G11 : aucun tick ne porte deux guets ; factions 1 a " .. G.SLOT_MAX .. " guettees une fois par periode de "
+      .. G.GUET .. " ticks, par kind (" .. bad .. " ecart(s))")
+    check(G.guet_of(0, "usines") == "commun" and G.guet_of(1, "garnisons") == "commun" and G.slot(0, "usines") == nil and G.slot(G.SLOT_MAX + 1, "usines") == nil
+      and G.slot(2.5, "garnisons") == nil and G.slot("banc:A", "usines") == nil, "G11 : guet commun aux ticks 0 et 1 ; sans tick propre : nil")
+  end
   -- G9 garnisons
   do
     local function U(o) return G.soldier_unfit(o) end
@@ -228,6 +304,12 @@ local MUTANTS = {
   { "garnison : marge d'arrivee ignoree", "o.d > r + Gel.ARRIVED_MARGIN then", "o.d > r then" },
   { "garnison : ordre change ignore", "if o.changed then return \"ordre\" end", "" },
   { "coup recu (hit_t) oublie", "hit_t = s.hit_t, ", "" },
+  { "un fige jamais relu apres une cause de faction (C19)", "  if Gel.faction_cause(s, tick) then return false end\n", "" },
+  { "fige a relire saute (C19)", "p.st.frozen == true and not p.unfit and not p.hazard", "p.st.frozen == true and not p.hazard" },
+  { "fige menace saute (C19)", "p.st.frozen == true and not p.unfit and not p.hazard", "p.st.frozen == true and not p.unfit" },
+  { "saut avec un joueur dans la boite de la faction (C19)", "  return not any_player_in(fbox.freeze, s.players)\nend", "  return true\nend" },
+  { "deux guets au meme tick (C19)", "local base = (kind == \"garnisons\") and 1 or 0", "local base = 0" },
+  { "faction sans tick propre (C19)", "if fid >= 1 and fid <= Gel.SLOT_MAX then return fid end", "if fid >= 1 and fid < Gel.SLOT_MAX then return fid end" },
   { "garde fermee ouverte (joueurs inconnus)", "if type(box) ~= \"table\" or type(players) ~= \"table\" then return true end", "if type(box) ~= \"table\" or type(players) ~= \"table\" then return false end" },
 }
 quiet = true

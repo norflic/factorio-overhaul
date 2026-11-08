@@ -181,7 +181,15 @@ log = function(s) W.logs[#W.logs + 1] = s end
 ---------------------------------------------------------------------------------------------------
 -- Pile du profileur factice (portées start/stop et fines) ; PROF.bad compte les fermetures hors du sommet ou sans ouverture.
 PROF = { stack = {}, bad = 0, seen = {}, cnt = {} }
-function prof_open(n) PROF.stack[#PROF.stack + 1] = n; PROF.seen[n] = true end
+function prof_open(n)
+  PROF.stack[#PROF.stack + 1] = n
+  PROF.seen[n] = true
+  if n == "gel:guet" or n == "gel:garnisons" then -- ticks de la période qui portent un guet (C19 : guets étalés)
+    PROF.at = PROF.at or {}
+    PROF.at[n] = PROF.at[n] or {}
+    PROF.at[n][game.tick % 20] = true
+  end
+end
 function prof_close(n)
   if PROF.stack[#PROF.stack] == n then PROF.stack[#PROF.stack] = nil else PROF.bad = PROF.bad + 1 end
 end
@@ -248,6 +256,8 @@ end
 --- Une faction de banc : avant-poste (foreuse -> coffre, foreuse -> four), four du QG, et trois cas refusés.
 local function build_faction()
   local Gel = load_mod()
+  -- M18 (C19) : FORCE_TOUS fait décider TOUS les îlots à chaque guet (Gj.TOUS, bancs hors jeu) : la partie doit rester identique
+  if FORCE_TOUS then package.loaded["script.faction.gel_usines_jeu"].TOUS = true end
   local S = W.store
   local f = { key = "a", force = "fo-a", hq = { valid = true }, hq_pos = { x = 0, y = 0 }, outposts = {}, smelters = {} }
   S.war.active, S.war.surface, S.war.factions[1], S.war.by_force["fo-a"] = true, 1, f, 1
@@ -360,6 +370,18 @@ local function scenes()
   f.attack_alert_t = nil
   run(1300)
   check(not E.d2.active, "M5 : refige ensuite")
+  -- M17 (décision du lead, 8/11) : « armée dehors » ne réveille PAS les usines ; la règle commune, elle, réveillerait
+  do
+    W.army_out = true
+    run(40)
+    check(not E.d2.active and not E.s1.active, "M17 : armee dehors : les usines restent figees")
+    local Gp = require("shared.faction.gel")
+    local I2 = Gu.U().ilots[Gu.U().by_unit[E.d2.unit_number]]
+    local acts = Gp.decide_all({ { id = I2.id, st = { frozen = true }, boxes = I2.boxes } }, Gel.input(f, {}, true), nil, W.tick)
+    check(acts[1] and acts[1].action == "eveille" and acts[1].cause == "armee dehors",
+      "M17 : la regle commune avec army_out = vrai reveillerait (" .. tostring(acts[1] and acts[1].cause) .. ") : les deux regles different")
+    W.army_out = nil
+  end
   -- M6
   local arm2 = entity({ name = "inserter", type = "inserter", x = 20.5, y = 15, h = 0.2 })
   arm2.pickup_target = E.k2
@@ -425,7 +447,15 @@ local function scenes()
   check(W.bad_writes == 0, "M11 : aucune ecriture de progression (au monde factice)")
   -- M16 instrumentation fine du guet (C19, mesure seulement) : portées fermées, portées et compteurs vus
   check(prof_check("M16", { "gel:guet", "gel:pas", "gel:releve", "gel:g:entrees", "gel:g:regle", "gel:g:actions", "gel:g:menage" },
-    { "gel:ilots", "gel:geles" }))
+    { "gel:ilots", "gel:geles", "gel:decides" }))
+  -- M19 (C19) : guets étalés : le guet des usines ne tombe qu'aux ticks 0 (commun) et 2 (faction 1) de la période de 20
+  do
+    local at = PROF.at and PROF.at["gel:guet"] or {}
+    local bad = 0
+    for k = 0, 19 do if at[k] and k ~= 0 and k ~= 2 then bad = bad + 1 end end
+    local ks = {} for k = 0, 19 do if at[k] then ks[#ks + 1] = k end end
+    check(bad == 0 and at[0] and at[2], "M19 : guet des usines aux ticks 0 (commun) et 2 (faction 1) de la periode seulement (" .. table.concat(ks, ",") .. ")")
+  end
   return table.concat(W.logs, "\n") .. "|" .. tostring(E.c1._inv.items["iron-ore"]) .. "|" .. tostring(E.k2._out.items["iron-plate"])
 end
 
@@ -452,8 +482,16 @@ end
 scene_recette()
 
 local a = scenes()
+local dec_a, il_a = PROF.cnt["gel:decides"] or 0, PROF.cnt["gel:ilots"] or 0
 local b = scenes()
 check(a == b, "M10 : deux passages : memes journaux et memes inventaires")
+-- M18 (C19, décision du lead) : seuls les îlots éveillés décidés = TOUS les îlots décidés : même partie (journaux et inventaires)
+FORCE_TOUS = true
+local c = scenes()
+local dec_c, il_c = PROF.cnt["gel:decides"] or 0, PROF.cnt["gel:ilots"] or 0
+FORCE_TOUS = nil
+check(c == a and dec_a < il_a and dec_c == il_c, string.format(
+  "M18 : figes calmes sautes = tous decides : meme partie ; postes decides %d sur %d (tous : %d sur %d)", dec_a, il_a, dec_c, il_c))
 
 -- M11 contrôle statique des fichiers du lot
 do
@@ -486,6 +524,9 @@ do
     { "guet limite aux factions vivantes", "        want_wake(I, tick, \"faction disparue\")\n", "" },
     { "progression non rendue au reveil (option ii)", "else Gc.bank(I.acc); write_progress(I) end", "else Gc.bank(I.acc) end" },
     { "remplacant d'une machine figee laisse inactif", "if why == \"pose\" and inside_frozen and entity.active == false then entity.active = true end", "" },
+    { "armee dehors reveille encore les usines", "  local s = Gel.input(f, players, false)", "  local s = Gel.input(f, players, (Commander.army_out(f)))" },
+    { "un fige jamais relu apres une cause de faction (C19)", "local skip = (not Gj.TOUS) and G.skip_quiet(s, fbox, tick)", "local skip = (not Gj.TOUS) and fbox ~= nil" },
+    { "guet des usines aux ticks des garnisons (C19)", "local who = G.guet_of(tick % G.GUET, \"usines\")", "local who = G.guet_of(tick % G.GUET, \"garnisons\")" },
     { "portee fine non fermee (C19)", "  Profiler.fstop(\"gel:g:menage\")\n", "" },
   }
   -- (C19, 8/11) mutants de gel_usines.lua (relevé) et de la recette fictive d'avant le correctif, rendue au pas

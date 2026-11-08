@@ -386,9 +386,32 @@ local function max_t(x, y)
   return math.max(x, y)
 end
 
+--- Guet d'une faction vivante (son tick de la période, G.slot) : entrées de la règle, vue, puis LA règle et les lectures.
+local function guet_faction(a, fid, f, players, tick)
+  if f.hq and f.hq.valid and f.hq_pos and f.soldiers and (f.soldiers_count or 0) > 0 then
+    Profiler.fstart("gel:gar:entrees")
+    local s = Gel.input(f, players, (Commander.army_out(f)))
+    if not Ga.ON then s.off = true end
+    s.attack_t, s.lost_t = max_t(s.attack_t, a.hit[fid]), max_t(s.lost_t, a.lost[fid])
+    local t = C.enabled() and C.team(f) or nil
+    Profiler.fstop("gel:gar:entrees")
+    local view = { soldiers = f.soldiers, per = t and t.sd and t.sd.per or nil, hq = f.hq_pos, surface = f.hq.surface,
+      force = f.force, turrets = f.turrets, armee = f.armee, alerts = t and t.alerts or nil, is_player = f.is_player }
+    guet_view(a, fid, view, s, tick)
+  elseif a.v[fid] and a.v[fid].n > 0 then
+    wake_view(a, fid, "faction", tick) -- QG perdu, plus de soldats : rien ne reste figé
+  end
+end
+
+--- Guet du tick, ÉTALÉ (C19, 8/11, décision du lead) : la faction dont c'est le tick (G.guet_of, ticks impairs de la période : jamais
+--- celui d'un guet d'usines), ou le guet COMMUN (tick 1) : réglage éteint, factions sans tick propre, factions disparues, groupes de
+--- banc. Chaque faction est guettée une fois par période de G.GUET ticks : retard maximal d'un réveil par le guet ≤ G.GUET.
 local function guet(tick)
+  local who = G.guet_of(tick % G.GUET, "garnisons")
+  if who == nil then return end
   if not (Ga.ON and Gel.on()) then
-    -- Réglage éteint : rien n'est lu ni créé ; ce qui est figé est réveillé.
+    -- Réglage éteint : rien n'est lu ni créé ; ce qui est figé est réveillé (au guet commun).
+    if who ~= "commun" then return end
     local a = GA0()
     if a and a.n > 0 then
       for _, vid in ipairs(keys(a.v)) do wake_view(a, vid, "reglage", tick) end
@@ -396,53 +419,48 @@ local function guet(tick)
     return
   end
   local war = State.war()
+  local live = war and war.active and war.factions
+  local f = (who ~= "commun") and live and war.factions[who] or nil
+  if who ~= "commun" and not (f and not f.eliminated) then return end -- aucune faction à ce tick : rien
   local a = GA()
   if not a then return end
   Profiler.start("gel:garnisons")
   local players = Gel.players((war and war.surface) or 1)
-  local seen = {}
-  if war and war.active and war.factions then
-    for _, fid in ipairs(State.alive()) do
-      local f = war.factions[fid]
-      seen[fid] = true
-      if f and f.hq and f.hq.valid and f.hq_pos and f.soldiers and (f.soldiers_count or 0) > 0 then
-        Profiler.fstart("gel:gar:entrees")
-        local s = Gel.input(f, players, (Commander.army_out(f)))
-        if not Ga.ON then s.off = true end
-        s.attack_t, s.lost_t = max_t(s.attack_t, a.hit[fid]), max_t(s.lost_t, a.lost[fid])
-        local t = C.enabled() and C.team(f) or nil
-        Profiler.fstop("gel:gar:entrees")
-        local view = { soldiers = f.soldiers, per = t and t.sd and t.sd.per or nil, hq = f.hq_pos, surface = f.hq.surface,
-          force = f.force, turrets = f.turrets, armee = f.armee, alerts = t and t.alerts or nil, is_player = f.is_player }
-        guet_view(a, fid, view, s, tick)
-      elseif f and a.v[fid] and a.v[fid].n > 0 then
-        wake_view(a, fid, "faction", tick) -- QG perdu, plus de soldats : rien ne reste figé
+  if who ~= "commun" then
+    guet_faction(a, who, f, players, tick)
+  else
+    local seen = {}
+    if live then
+      for _, fid in ipairs(State.alive()) do
+        seen[fid] = true
+        local g = war.factions[fid]
+        if g and G.slot(fid, "garnisons") == nil then guet_faction(a, fid, g, players, tick) end -- sans tick propre (aucune en partie)
       end
     end
-  end
-  -- Faction ANÉANTIE (hors de State.alive) ou guerre arrêtée : rien ne reste figé, même sans mort vue par on_died (QG détruit par
-  -- script, relecture de revue-s, 8/11).
-  for _, vid in ipairs(keys(a.v)) do
-    if type(vid) == "number" and not seen[vid] and a.v[vid].n > 0 then wake_view(a, vid, "faction disparue", tick) end
-  end
-  for _, name in ipairs(keys(a.bancs)) do
-    local b = a.bancs[name]
-    local vid = "banc:" .. name
-    local surface = game.surfaces[b.surface or 1]
-    if surface then
-      local s = { players = b.players or players, threatened_until = b.threatened_until, attack_t = max_t(b.attack_t, a.hit[vid]),
-        lost_t = max_t(b.lost_t, a.lost[vid]), base_alert = b.base_alert, army_out = b.army_out or false,
-        off = (not Ga.ON) or not Gel.on() }
-      local view = { soldiers = b.soldiers, per = b.per, hq = b.hq, surface = surface, force = b.force, turrets = b.turrets,
-        armee = b.armee, alerts = b.alerts, is_player = false }
-      guet_view(a, vid, view, s, tick)
+    -- Faction ANÉANTIE (hors de State.alive) ou guerre arrêtée : rien ne reste figé, même sans mort vue par on_died (QG détruit par
+    -- script, relecture de revue-s, 8/11).
+    for _, vid in ipairs(keys(a.v)) do
+      if type(vid) == "number" and not seen[vid] and a.v[vid].n > 0 then wake_view(a, vid, "faction disparue", tick) end
+    end
+    for _, name in ipairs(keys(a.bancs)) do
+      local b = a.bancs[name]
+      local vid = "banc:" .. name
+      local surface = game.surfaces[b.surface or 1]
+      if surface then
+        local s = { players = b.players or players, threatened_until = b.threatened_until, attack_t = max_t(b.attack_t, a.hit[vid]),
+          lost_t = max_t(b.lost_t, a.lost[vid]), base_alert = b.base_alert, army_out = b.army_out or false,
+          off = (not Ga.ON) or not Gel.on() }
+        local view = { soldiers = b.soldiers, per = b.per, hq = b.hq, surface = surface, force = b.force, turrets = b.turrets,
+          armee = b.armee, alerts = b.alerts, is_player = false }
+        guet_view(a, vid, view, s, tick)
+      end
     end
   end
   Profiler.stop("gel:garnisons")
 end
 Ga.guet = guet
 
-Events.on_nth_tick(G.GUET, function(e) guet(e.tick) end)
+Events.on_nth_tick(1, function(e) guet(e.tick) end)
 
 ---------------------------------------------------------------------------------------------------
 -- Réveil au tick même : coup reçu, mort dans l'équipe
