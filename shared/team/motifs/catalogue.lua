@@ -42,16 +42,16 @@ local C = need("shared.team.motifs.compile", "shared/team/motifs/compile")
 
 local M = {}
 
-M.FAMILLES = { "asm", "bus", "chimie", "equilibreur", "fonte", "mine", "petrole" }
+M.FAMILLES = { "asm", "bus", "chimie", "energie", "equilibreur", "fonte", "labo", "mine", "petrole", "science" }
 M.D = D
 
 local SOURCES = {
   "shared.team.motifs.defs_fonte", "shared.team.motifs.defs_asm", "shared.team.motifs.defs_chimie",
-  "shared.team.motifs.defs_mine", "shared.team.motifs.defs_bus",
+  "shared.team.motifs.defs_mine", "shared.team.motifs.defs_bus", "shared.team.motifs.defs_debut",
 }
 local SOURCES_SLASH = {
   "shared/team/motifs/defs_fonte", "shared/team/motifs/defs_asm", "shared/team/motifs/defs_chimie",
-  "shared/team/motifs/defs_mine", "shared/team/motifs/defs_bus",
+  "shared/team/motifs/defs_mine", "shared/team/motifs/defs_bus", "shared/team/motifs/defs_debut",
 }
 
 M.MOTIFS = {}

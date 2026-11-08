@@ -126,6 +126,7 @@ function X.debit(m, ctx)
   for _, fl in ipairs(m.fluides or {}) do
     if fl.io == "out" then term[fl.jeton] = term[fl.jeton] or {}; term[fl.jeton][#term[fl.jeton] + 1] = 0 end
   end
+  for _, tok in ipairs(m.produits or {}) do term[tok] = term[tok] or {}; term[tok][#term[tok] + 1] = 0 end   -- produit sans tapis (courant, recherche…)
   -- chaque groupe sert tous les ingrédients de SA recette et sort tous ses produits (jamais une tuile à 1 entrée pour une recette
   -- à 2 matières) ; le combustible aussi
   local amont_de = {}
@@ -137,6 +138,9 @@ function X.debit(m, ctx)
       if l.io == "in" and l.groupe == g then for _, t in ipairs(l.jetons or {}) do serv[t] = true end
       elseif l.io == "mid" and l.vers == g then serv[l.jeton] = true
       elseif l.io == "out" and l.groupe == g then for _, t in ipairs(l.jetons or {}) do sort[t] = true end end
+    end
+    for _, c in ipairs(m.chaines or {}) do
+      if c.contact and c.aval == g then serv[c.jeton] = true end   -- contact direct (vapeur de la chaudière à la machine)
     end
     local toks = {}
     for tok in pairs(rec[g].entrees or {}) do toks[#toks + 1] = tok end
@@ -155,7 +159,7 @@ function X.debit(m, ctx)
   end
 
   -- demande et capacité de chaque lien (par tuile, à pleine cadence)
-  local flux, f = {}, {}
+  local flux, f, caps = {}, {}, {}
   local limites = {}
   for _, id in ipairs(ids) do
     local l = der.liens[id]
@@ -188,6 +192,7 @@ function X.debit(m, ctx)
       cap = cap + n * v * (l.prise_tapis and X.BELT_PICKUP or 1) * marge
     end
     flux[id] = dem
+    caps[id] = cap
     if dem > EPS then
       f[id] = min(1, cap / dem)
       if f[id] < 1 - EPS then limites[#limites + 1] = string.format("bras:%s (%.2f/%.2f)", id, cap, dem) end
@@ -210,28 +215,51 @@ function X.debit(m, ctx)
   end
   local ch = m.chaines or {}
   local R = {}   -- production et consommation de l'intermédiaire de chaque chaîne (par tuile)
+  local n_fixe = math.huge   -- tuiles qu'un producteur de TÊTE (fixe, une fois pour toute la rangée) peut servir
   for i, c in ipairs(ch) do
     local ra, rb = rec[c.amont], rec[c.aval]
     R[i] = {
       a = der.groupes[c.amont].n * cad[c.amont] * ((ra.sorties or {})[c.jeton] or 0),
       b = der.groupes[c.aval].n * cad[c.aval] * ((rb.entrees or {})[c.jeton] or 0),
+      fixe = der.groupes[c.amont].fixe,
     }
   end
-  -- 1) l'aval est borné par ce que ses amonts fournissent
+  -- 1) l'aval est borné par ce que ses amonts fournissent (un amont fixe borne le NOMBRE de tuiles, pas leur utilisation)
   for i, c in ipairs(ch) do
     local r = R[i]
     if r.b > EPS then
-      local fourni = r.a * util[c.amont]
-      local u = min(util[c.aval], fourni / r.b)
-      if u < util[c.aval] - EPS then limites[#limites + 1] = string.format("rapport:%s->%s", c.amont, c.aval) end
-      util[c.aval] = u
+      if r.fixe then
+        local nf = floor_eps(r.a * util[c.amont] / r.b)
+        if nf < n_fixe then n_fixe = nf end
+        limites[#limites + 1] = string.format("producteur de tête:%s sert %d tuiles", c.amont, nf)
+      else
+        local fourni = r.a * util[c.amont]
+        local u = min(util[c.aval], fourni / r.b)
+        if u < util[c.aval] - EPS then limites[#limites + 1] = string.format("rapport:%s->%s", c.amont, c.aval) end
+        util[c.aval] = u
+      end
     end
   end
   -- 2) chaque amont ne produit que ce que l'aval consomme
   for i, c in ipairs(ch) do
     local r = R[i]
-    if r.a > EPS then
+    if r.a > EPS and not r.fixe then
       util[c.amont] = min(util[c.amont], util[c.aval] * r.b / r.a)
+    end
+  end
+  -- chaîne en série (laboratoires : le premier bras porte les paquets de tous les suivants)
+  if m.serie_directe then   -- { lien = décalage } : le bras d'entrée porte n machines (décalage 0), chaque liaison n − 1 (décalage 1)
+    local liens_s = {}
+    for id in pairs(m.serie_directe) do liens_s[#liens_s + 1] = id end
+    table.sort(liens_s)
+    for _, id in ipairs(liens_s) do
+      local l = der.liens[id]
+      local un = flux[id] / max(1, l.mg[l.groupe] or 1)
+      if un > EPS then
+        local nc = floor_eps(caps[id] / un) + m.serie_directe[id]
+        if nc < n_fixe then n_fixe = nc end
+        limites[#limites + 1] = string.format("chaîne en série (%s) : %d machines", id, nc)
+      end
     end
   end
 
@@ -241,7 +269,9 @@ function X.debit(m, ctx)
   for _, id in ipairs(ids) do
     local l = der.liens[id]
     local g = l.groupe
-    if l.io == "out" then
+    if der.groupes[g] and der.groupes[g].fixe then
+      -- groupe de tête : sa consommation et sa production ne croissent pas avec le nombre de tuiles
+    elseif l.io == "out" then
       avec_lien_sortie[g] = true
       local r = rec[g]
       for _, tok in ipairs(l.jetons or {}) do
@@ -267,7 +297,7 @@ function X.debit(m, ctx)
   end
   -- groupes sans lien de sortie (champ de foreuses, chevalets : le produit tombe directement sur le tapis ou dans la conduite)
   for _, g in ipairs(groupes) do
-    if not avec_lien_sortie[g] then
+    if not avec_lien_sortie[g] and not der.groupes[g].fixe then
       local r = rec[g]
       local toks = {}
       for tok in pairs(r.sorties or {}) do toks[#toks + 1] = tok end
@@ -311,6 +341,8 @@ function X.debit(m, ctx)
   end
   borne(m.entrees, conso, "tapis_entree")
   borne(m.sorties, rejet, "tapis_sortie")
+  borne(m.sorties_internes, rejet, "tapis_sortie")   -- voies fusionnées en queue : chaque rangée garde SA voie
+  if n_fixe < n_tapis then n_tapis = n_fixe end
   return { sortie = sortie, util = util, conso = conso, rejet = rejet, limites = limites, n_tapis = n_tapis }
 end
 
@@ -672,10 +704,10 @@ function X.choisir(req)
       ecartes[#ecartes + 1] = { id = m.id, cause = cause }
     else
       local cap = n_besoin
-      if deb and deb.n_tapis < cap then cap = max(0, deb.n_tapis) end
-      if cap > max_n then cap = max_n end
       local limite = "demande"
-      if deb and deb.n_tapis < n_besoin then limite = "tapis" end
+      if m.max_tuiles and m.max_tuiles < cap then cap = m.max_tuiles; limite = "borne" end   -- borne propre du motif (eau d'une pompe…)
+      if deb and deb.n_tapis < cap then cap = max(0, deb.n_tapis); limite = "tapis" end
+      if cap > max_n then cap = max_n end
       if cap < 1 then
         ecartes[#ecartes + 1] = { id = m.id, cause = "tapis_sature" }
       else
