@@ -73,6 +73,9 @@ end
 local function main_run(mut)
 local f, s, chest = new_team(true)
 if mut then package.loaded["shared.team.spirale"].kit_take = mut end
+local flt = (M.world().filters or {})[defines.events.on_post_entity_died]
+check(flt ~= nil and #flt == 1 and flt[1].filter == "type" and flt[1].type == "character",
+  "filtre moteur pose a on_init : on_post_entity_died limite aux personnages (relecture de revue-0657)")
 local Worker = require("script.team.worker")
 local ns = global.fo.kit_offert
 local list = agents_of(f)

@@ -23,6 +23,7 @@ local Acc = require("shared.team.acces_champ") -- lot NAV2 : point d'accès atte
 local Co = require("shared.team.couloir") -- lot ÉTAGE 5 : le bâtiment qui ferme la dernière issue d'un accès (journal [FO-NAV-ACCES])
 local Rc = require("shared.team.repli_chemin") -- lot CHARBON3 (B2) : essais de marche d'un PNJ (règle pure)
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
+local AmRt = require("script.ai3.amorce_rt") -- lot VIDEO-COUVERTURE (C3) : remise directe aux modules en réserve avant le coffre
 local Mu = require("shared.team.munitions") -- lot MUNITIONS (revue M3) : prise bornée de la munition de base (Mu.split_take)
 local Ra = require("shared.team.rearmement") -- lot REARMEMENT : emplacement des munitions complété au dépôt au QG (règle pure)
 local Tj = require("script.team.tourelle_journal") -- lot TOURELLE-JOURNAL : minage refusé sous une tourelle, journal [FO-TOURELLE-RETIREE]
@@ -272,6 +273,7 @@ local function deposit_inventory(f, inv, keep)
   table.sort(names)
   for _, name in ipairs(names) do
     local n = contents[name] - (keep and keep[name] or 0)
+    if n > 0 then n = n - AmRt.deliver(f, inv, name, n) end -- C3 : ce qu'un module en réserve attend lui est remis AVANT le coffre
     if n > 0 then
       local moved = Stock.insert(f, name, n, DEPOSIT_OPTS)
       if moved > 0 then
@@ -2000,8 +2002,9 @@ Events.on_died(function(e)
 end, { types = { "character" }, ennemi = false })
 
 -- 2. le corps rendu (on_post_entity_died) : le kit offert en est retiré (Sp.kit_take), détruit ; la cargaison reste.
--- Sans filtre (décision du lead, option 1 : le noyau events.lua n'est pas touché) : TOUTE mort de la partie passe ici ; une recherche
--- dans la table des morts notées, puis return (quelques µs par mort).
+-- Le bus (events.lua) ne filtre pas ; le FILTRE MOTEUR est posé ici, à on_init et on_load (comme script/team/reparation.lua) : le
+-- moteur ne lève plus l'événement que pour les personnages (relecture de revue-0657, accord du lead, 7/11). LIMITE : tout autre abonné du
+-- bus à on_post_entity_died ne verrait plus, lui aussi, que les personnages (noté dans script/core/events.lua).
 Events.on(defines.events.on_post_entity_died, function(e)
   local u = e.unit_number
   if not u then return end
@@ -2028,6 +2031,10 @@ Events.on(defines.events.on_post_entity_died, function(e)
     end
   end
 end)
+Worker.KIT_POST_FILTER = { { filter = "type", type = "character" } }
+local function kit_post_filter() script.set_event_filter(defines.events.on_post_entity_died, Worker.KIT_POST_FILTER) end
+Events.on_init(kit_post_filter)
+Events.on_load(kit_post_filter)
 
 Registry.on_removed(function(agent)
   -- EFFONDREMENT (parade du kit offert) : un PNJ renvoyé (sans mort) n'a plus de fiche ; mort, sa fiche est déjà passée à `dead`
