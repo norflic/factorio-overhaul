@@ -358,7 +358,7 @@ do
   -- statut : une machine arretee ne recoit rien (runtime)
   logged = {}
   local f7, cs7 = team(), cstate({ group("copper-cable", 4), group("iron-gear-wheel", 4, { units = units(4, 3000) }) })
-  local c7 = ctx(50, { status = function(u) return u <= 1004 and "waiting_for_space_in_destination" or "working" end })
+  local c7 = ctx(50, { status = function(_, u) return u.u <= 1004 and "waiting_for_space_in_destination" or "working" end })
   RT.think(f7, cs7, 600, c7)
   check(#cs7.open == 1 and cs7.open[1].item == "iron-gear-wheel", "§6 statut lu : seule la machine qui travaille est equipee")
   check(lines("machine arretee : waiting_for_space_in_destination") == 1, "§6 ... et la cause d'arret est au journal")
