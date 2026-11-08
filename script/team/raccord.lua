@@ -479,7 +479,7 @@ function Ra.step(api, f, surface, tick)
       else
         cost = Ra.cout(box.y0, box.y1 + 1, box.x1 + 1 - box.x0)
       end
-      if api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":ra", nil, cost) then return end
+      if api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":ra", api.pulse, cost) then return end
       st.next = tick + R.PERIOD
       -- Lot LOURD : boîte des chunks connue (api.box) : relevé des générateurs par bandes (st.lj), une bande par passe sous le jeton ; la
       -- centrale n'est lue qu'ici, au départ, comme avant. L'horloge est posée ici : la cadence des cycles est celle d'avant, le cycle
@@ -494,7 +494,7 @@ function Ra.step(api, f, surface, tick)
       end
       lj = gen_job_new(box)
       st.lj = lj
-    elseif api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":ra", nil, Ra.cout(lj.y, lj.y_end, lj.x1 - lj.x0)) then
+    elseif api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":ra", api.pulse, Ra.cout(lj.y, lj.y_end, lj.x1 - lj.x0)) then
       return
     end
     local done = false
@@ -522,7 +522,7 @@ function Ra.step(api, f, surface, tick)
     -- revue de la 0.6.59, point 1 : la fin peut relire toute la surface (« relier » : live_networks) : sous le jeton du tick ; pris, elle
     -- passe au pouls suivant (relevé fini, rien d'autre ne bouge)
     local fin_par = (f.key or "player") .. ":ra"
-    if api.jeton and not api.jeton.take(tick, fin_par) then return end
+    if api.jeton and not api.jeton.take(tick, fin_par, api.pulse) then return end
     st.cyc = nil
     if P then P.fstart("ra:fin") end
     finish_cycle(api, f, surface, b, st, c, tick)

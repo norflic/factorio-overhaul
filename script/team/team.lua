@@ -72,6 +72,7 @@ local DefChoix = require("script.faction.defchoix") -- lot DEFENSE-CHOIX : base 
 local Mu = require("shared.team.munitions") -- lot MUNITIONS : chargeurs voulus par tourelle (cible riche quand le fer la paie)
 local Scheduler = require("script.core.scheduler") -- lot DÉCOUPAGE-PENSÉE : minuteurs des étapes d'une pensée
 local Et = require("shared.team.etapes") -- lot DÉCOUPAGE-PENSÉE : état gardé de la vue et du plan pour E4
+local Lourd = require("script.core.lourd") -- lot LOURD (point 2 c) : chaque étape d'une pensée prend le jeton des travaux lourds
 local Sp = require("shared.team.spirale") -- EFFONDREMENT : recrue gratuite sous l'effectif de départ (journal [FO-RECRUE])
 local ManqueVue = require("script.team.manque_vue") -- lot VIDEO-L3 : manque mesuré (modules, sorties, transit), à côté du stock
 
@@ -1267,6 +1268,8 @@ TT.freeze = function(view, plan, ia3)
 end
 
 TT.key = function(f) return f.is_player and "player" or f.id end
+--- Lot LOURD (point 2 c) : demandeur du jeton des travaux lourds pour les étapes d'une pensée (même forme que « <clé>:rv » et « <clé>:ra »).
+TT.who = function(f) return tostring(f.key or "player") .. ":etape" end
 
 TT.surface_of = function(f)
   if f.is_player then return f.hq.surface end
@@ -1291,6 +1294,12 @@ end
 --- découpée) : et.n reste alors à 2. `rush` : toute tranche restante dans ce tick (mode bloc, rattrapage).
 TT.run = function(f, surface, tick, et, rush)
   local n = et.n
+  if n == 1 then
+    -- Lot LOURD (point 2 c ; condition 1 d'effondrement) : E1a en attente du jeton (Team.think) : jouée ici, par le minuteur ou par un
+    -- rattrapage ; l'état rendu (t0 = le tick où E1a se JOUE, condition 3) remplace l'attente, la queue de l'appelant est gardée.
+    f.team.etape = TT.e1a(f, surface, tick, et.tail)
+    return false
+  end
   if n == 2 then
     if TT.e1b(f, surface, tick, et, rush) then return false end
   elseif n == 3 then TT.e1c(f, surface, tick, et)
@@ -1318,14 +1327,31 @@ end
 --- Minuteur d'une étape : { key, n, t0 } ; une charge utile périmée (pensée déjà rattrapée) ne fait rien.
 TT.step = function(pl, tick)
   local f = State.faction(pl.key)
-  local t = f and f.team
+  if not f then
+    -- Lot LOURD (point 2 c ; trou relevé par effondrement, 8/11) : votre équipe a PRIS FIN pendant l'attente d'une étape (coffre perdu :
+    -- player_team.lua met Storage.ns("pteam").team à nil) : plus aucune pensée à protéger, son entrée sort de la file (sinon elle
+    -- retiendrait tout le budget J.STALE ticks). Les factions restent dans war.factions : leur abandon passe par TT.alive, plus bas. Une
+    -- charge utile seulement PÉRIMÉE (équipe présente) ne retire rien : l'entrée appartient alors à la pensée en cours.
+    if pl.key == "player" then Lourd.drop(TT.who({ key = "player" })) end
+    return
+  end
+  local t = f.team
   local et = t and t.etape
   if not (et and et.n == pl.n and et.t0 == pl.t0) then return end
   if not TT.alive(f) then
     t.etape = nil
+    Lourd.drop(TT.who(f)) -- (lot LOURD, point 2 c : l'entrée de la pensée abandonnée ne retient plus le budget)
     TT.count(t, "abandons")
     log(string.format("[FO-ETAPES] %s : pensee du tick %d abandonnee a l'etape %d (equipe ou QG disparu)", tostring(f.key or "player"),
       et.t0, et.n))
+    return
+  end
+  -- Lot LOURD (point 2 c) : l'étape prend le jeton des travaux lourds (coûts A : tout le budget) ; refusée, RIEN n'est joué et la MÊME
+  -- étape est redemandée au tick suivant (même charge utile) : aucune n'est perdue ni jouée deux fois, l'ordre est gardé.
+  if not Lourd.take(tick, TT.who(f)) then
+    Profiler.fstart("team:attente")
+    Profiler.fstop("team:attente")
+    Scheduler.after(1, TT.TIMER, { key = pl.key, n = pl.n, t0 = pl.t0 })
     return
   end
   -- (le nom est pris AVANT l'étape : TT.run avance et.n ; avant ce correctif, la portée ouverte « team:etapeN » était fermée sous le
@@ -1358,6 +1384,7 @@ TT.config_changed = function(data)
     local et = f and f.team and f.team.etape
     if et and (version or et.sig ~= Et.SIG) then
       f.team.etape = nil
+      Lourd.drop(TT.who(f)) -- (lot LOURD, point 2 c : l'entrée de la pensée effacée ne retient plus le budget)
       TT.count(f.team, "effaces")
       if version then
         log(string.format("[FO-ETAPES] %s : pensee du tick %s effacee a l'etape %s au changement de version du mod (%s)",
@@ -1389,13 +1416,25 @@ function Team.think(f, surface, tick, tail)
     TT.count(f.team, "rattrapages")
     while f.team.etape do TT.play(f, surface, tick, f.team.etape, true) end
   end
-  local et = TT.e1a(f, surface, tick, tail)
   if Team.ETAPES then
+    -- Lot LOURD (point 2 c ; décision Q2 du lead) : E1a prend le jeton au tick du créneau ; libre, elle se joue tout de suite (aucun
+    -- décalage) ; pris, l'état « E1a en attente » (n = 1, avec la signature : condition 2 d'effondrement) est posé et le minuteur la
+    -- joue au premier tick où le jeton est libre (TT.step, TT.run).
+    local key = TT.key(f)
+    local et
+    if Lourd.take(tick, TT.who(f)) then
+      et = TT.e1a(f, surface, tick, tail)
+    else
+      et = { n = 1, t0 = tick, tail = tail, sig = Et.SIG }
+      Profiler.fstart("team:attente")
+      Profiler.fstop("team:attente")
+    end
     f.team.etape = et
-    Scheduler.after(1, TT.TIMER, { key = TT.key(f), n = et.n, t0 = tick })
+    Scheduler.after(1, TT.TIMER, { key = key, n = et.n, t0 = et.t0 })
     return false
   end
-  -- Mode « tout au tick T » : les mêmes étapes et les mêmes copies, d'un appel ; la queue est jouée par l'appelant.
+  -- Mode « tout au tick T » : les mêmes étapes et les mêmes copies, d'un appel, sans jeton ; la queue est jouée par l'appelant.
+  local et = TT.e1a(f, surface, tick, tail)
   repeat until TT.run(f, surface, tick, et, true)
   return true
 end
