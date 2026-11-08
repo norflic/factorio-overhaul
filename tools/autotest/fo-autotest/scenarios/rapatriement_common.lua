@@ -16,7 +16,7 @@
   (compteur rapatrie), le compteur de voyages de collecte de la sortie (o.trips) ne bouge pas ; puis le tapis est COUPÉ par script (une tuile détruite),
   fenêtre 2 : la sortie remonte au seuil de collecte et un PNJ reprend (trips_collect augmente).
   Variante « temoin » : la règle est éteinte (set_param off) : aucune ligne ; la sortie dépasse le seuil de collecte et les PNJ la collectent.
-  Lancement : banc.py ... -- 7000 rapatriement <source> (ou rapatriement-temoin). Journal : [FO-RAPATRIEMENT(-TEMOIN)] + [FO-RAPATRIEMENT] du mod.
+  Lancement : banc.py ... -- 9500 rapatriement <source> (ou rapatriement-temoin). Journal : [FO-RAPATRIEMENT(-TEMOIN)] + [FO-RAPATRIEMENT] du mod.
 ]]
 
 local ITEM = "iron-plate"
@@ -24,8 +24,8 @@ local SRC = { x = 180, y = 0 }
 local DOCKS = { { x = 26, y = 6 }, { x = 30, y = 14 } }
 local BUF = 1e8
 local DRAIN = 0.7
-local W1 = 1500
-local W2 = 2400
+local W1 = 1200
+local W2 = 1500
 local T_FIXED = 3000
 
 local function stock_chest(chest)
@@ -92,7 +92,7 @@ return function(variant)
   return {
     description = "RAPATRIEMENT : ligne d'une sortie lointaine a un tampon (" .. variant .. ")",
     base = nil,
-    check_tick = 6900,
+    check_tick = 9000,
 
     init = function(ctx)
       local s = ctx.surface()
