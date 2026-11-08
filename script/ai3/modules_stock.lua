@@ -39,15 +39,17 @@ local function sorted_keys(t)
   return ks
 end
 
---- Nom du statut d'une machine (unité) : defines.entity_status inversé, ou nil hors du jeu. Lecture seule.
+--- Nom du statut d'une machine d'un groupe du relevé (entité du groupe à la position de l'unité), ou nil hors du jeu. Lecture seule.
+--- (game.get_entity_by_unit_number n'existe pas en 1.1.91 : banc modules-poses du 8/11, 12 h 42.)
 local STATUS_NAMES = nil
-function RT.status_of(unit)
-  if not (game and defines and game.get_entity_by_unit_number) then return nil end
+function RT.status_of(f, g, u)
+  if not (defines and f and f.hq and f.hq.valid) then return nil end
   if not STATUS_NAMES then
     STATUS_NAMES = {}
     for name, id in pairs(defines.entity_status) do STATUS_NAMES[id] = name end
   end
-  local e = game.get_entity_by_unit_number(unit)
+  local list = f.hq.surface.find_entities_filtered({ position = { u.x, u.y }, name = g.entity, force = f.force, limit = 1 })
+  local e = list[1]
   if not (e and e.valid) then return nil end
   return STATUS_NAMES[e.status]
 end
@@ -64,7 +66,7 @@ local function with_run(list, status)
     local sampled, working, causes = 0, 0, {}
     for i, u in ipairs(g.units or {}) do
       if i > RT.SAMPLE then break end
-      local s = status(u.u)
+      local s = status(g, u)
       if s ~= nil then
         sampled = sampled + 1
         if s == "working" then working = working + 1 else causes[s] = (causes[s] or 0) + 1 end
@@ -125,13 +127,14 @@ end
 ---   held(cs, clé, tick)       raison d'un repli, ou nil          hold(cs, clé, raison, tick)
 ---   power()                   Capi.power_input(...) : { have_kw, used_kw } ou état fermé (lu une fois par relevé)
 ---   threat                    vrai sous menace
----   status(unité)            nom du statut de la machine (défaut RT.status_of) : une machine arrêtée ne reçoit rien }
+---   status(groupe, unité)    nom du statut de la machine (défaut RT.status_of) : une machine arrêtée ne reçoit rien }
 function RT.think(f, cs, tick, c)
   if not RT.ENABLED or not cs.scan then return 0 end
   RT.maintain(f, cs, tick, c)
   if cs.ms_scan == cs.scan.tick then return 0 end
   cs.ms_scan = cs.scan.tick
   local D, Ca = c.D, c.Ca
+  local status = c.status or function(g, u) return RT.status_of(f, g, u) end
   if not (D and D.lv and #D.lv.cand > 0) then return 0 end
   local mn = c.minutes(f, tick)
   local ok, why = RT.gate(f)
@@ -172,7 +175,7 @@ function RT.think(f, cs, tick, c)
   if p and type(p.have_kw) == "number" and type(p.used_kw) == "number" then room = p.have_kw - p.used_kw end
   local short = (f.team.ia3 and (f.team.ia3.short_core or f.team.ia3.short)) or {}
   local orders, refus, info = Ms.plan(Ca, D, { stock = stock, committed = committed,
-    machines = with_run(cs.scan.machines, c.status or RT.status_of), drills = with_run(cs.scan.drills, c.status or RT.status_of),
+    machines = with_run(cs.scan.machines, status), drills = with_run(cs.scan.drills, status),
     short = short, supply = supply, taken = taken, held = function(key) return c.held(cs, key, tick) end, power_room_kw = room,
     threat = c.threat, danger = danger })
   if info.free_total <= 0 then
