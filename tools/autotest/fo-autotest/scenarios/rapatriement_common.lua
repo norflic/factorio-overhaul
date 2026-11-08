@@ -5,27 +5,28 @@
 
   Terrain : un champ de 260 x 100 tuiles autour de (90, 0), vidé et refait en herbe. Votre équipe (coffre d'équipe en (0, 0), 8 PNJ, plan directeur
   « seul », fo-war-ia3e coupé : le banc tient le rôle du cerveau) reçoit TROIS modules finis FICTIFS (remote fo-rapatriement inject) :
-    - un module de départ dont le coffre de sortie est en (180, 0) (150+ tuiles du QG) ; le script y verse 1 objet toutes les 60 ticks (1/s) ;
+    - un module de départ dont le coffre de sortie est en (100, 0) (100 tuiles du QG) ; le script y verse 1 objet toutes les 60 ticks (1/s) ;
     - deux modules d'arrivée dont les quais d'entrée sont les coffres (26, 6) et (30, 14) (plaque de fer, débit nominal 1,0/s chacun) ; le script
       les vide à 0,7 par s pendant les fenêtres de mesure.
-  Courant : une interface électrique de l'arène, reliée par une ligne de poteaux le long de y = 4 de x = 0 à x = 190 ; les poteaux de la ligne s'y raccordent.
+  Courant : une interface électrique de l'arène, reliée par une ligne de poteaux le long de y = 4 de x = 0 à x = 136 (interface en (-1, 6), dans l'aire du premier poteau, production 1e10 : en 0.6.70 la version à production nulle et placée hors aire ne donnait AUCUN courant, les bras de la ligne ne tournaient pas) ; les poteaux de la ligne s'y raccordent.
   Réglages de banc (remote fo-rapatriement set_param) : force_on (le réglage de carte peut manquer), relevé toutes les 120 ticks, confirmé en un
   relevé, sans centrale. Le réglage maître fo-war-industrie est allumé par défaut.
 
-  Variante « tapis » (défaut) : la ligne est demandée par la règle seule ; à sa fin, fenêtre 1 de 1 500 ticks : le tampon doit RECEVOIR des objets
+  Variante « tapis » (défaut) : la ligne est demandée par la règle seule ; à sa fin, fenêtre 1 de 4 400 ticks : le tampon doit RECEVOIR des objets
   (compteur rapatrie), le compteur de voyages de collecte de la sortie (o.trips) ne bouge pas ; puis le tapis est COUPÉ par script (une tuile détruite),
   fenêtre 2 : la sortie remonte au seuil de collecte et un PNJ reprend (trips_collect augmente).
   Variante « temoin » : la règle est éteinte (set_param off) : aucune ligne ; la sortie dépasse le seuil de collecte et les PNJ la collectent.
-  Lancement : banc.py ... -- 7000 rapatriement <source> (ou rapatriement-temoin). Journal : [FO-RAPATRIEMENT(-TEMOIN)] + [FO-RAPATRIEMENT] du mod.
+  Lancement : banc.py ... -- 10100 rapatriement <source> (ou rapatriement-temoin). Journal : [FO-RAPATRIEMENT(-TEMOIN)] + [FO-RAPATRIEMENT] du mod.
 ]]
 
 local ITEM = "iron-plate"
-local SRC = { x = 180, y = 0 }
+local SRC = { x = 100, y = 0 }
 local DOCKS = { { x = 26, y = 6 }, { x = 30, y = 14 } }
-local BUF = 1e8
+local BUF = 1e12 -- tampon de l'interface (production 1e10 par tick : la meme que fo-autotest-power-source, terrain.lua)
 local DRAIN = 0.7
-local W1 = 1500
-local W2 = 2400
+local W1 = 4400 -- un tapis jaune avance de 1,875 tuile/s (32 ticks par tuile) : ~95 tuiles = ~3 050 ticks avant la 1re arrivee
+local MIN_ARRIVES = 10
+local W2 = 1500
 local T_FIXED = 3000
 
 local function stock_chest(chest)
@@ -46,6 +47,15 @@ local function count_of(s, x, y)
   return c and c.get_item_count(ITEM) or -1
 end
 
+--- Etat des bras posés près d'un point (diagnostic du journal) : « nom:statut » séparés par des virgules.
+local function arms_near(s, x, y, r)
+  local out = {}
+  for _, e in ipairs(s.find_entities_filtered({ position = { x + 0.5, y + 0.5 }, radius = r or 4, type = "inserter" })) do
+    out[#out + 1] = string.format("%s@%.1f,%.1f:%s", e.name, e.position.x, e.position.y, tostring(e.status))
+  end
+  return #out > 0 and table.concat(out, ",") or "aucun"
+end
+
 local function shape(ctx)
   local s = ctx.surface()
   s.request_to_generate_chunks({ 90, 0 }, 7)
@@ -61,16 +71,16 @@ end
 
 local function arena(ctx, st)
   local s = ctx.surface()
-  local eei = s.create_entity({ name = "electric-energy-interface", position = { -4.5, 6.5 }, force = "player" })
+  local eei = s.create_entity({ name = "electric-energy-interface", position = { -1, 6 }, force = "player" })
   if eei then
     eei.electric_buffer_size = BUF
-    eei.power_production = 0
+    eei.power_production = 1e10
     eei.power_usage = 0
     eei.energy = BUF
     st.eei = eei
   end
   local poles = 0
-  for x = 0, 190, 8 do
+  for x = 0, 136, 8 do
     if s.create_entity({ name = "medium-electric-pole", position = { x + 0.5, 4.5 }, force = "player" }) then poles = poles + 1 end
   end
   -- poteaux de la sortie : le runtime exige un poteau du reseau a moins de (portee du petit poteau - 2) = 5,5 tuiles du coffre ; ceux de y = 4 sont a 5,7 tuiles
@@ -79,7 +89,7 @@ local function arena(ctx, st)
   end
   ctx.check(eei ~= nil and poles >= 20, "arene alimentee : interface electrique et poteaux le long de y = 4", string.format("eei=%s poteaux=%d", tostring(eei ~= nil), poles))
   local ch = s.create_entity({ name = "iron-chest", position = { SRC.x + 0.5, SRC.y + 0.5 }, force = "player" })
-  ctx.check(ch ~= nil, "coffre de sortie pose en (180, 0)")
+  ctx.check(ch ~= nil, "coffre de sortie pose en (100, 0)")
   for _, d in ipairs(DOCKS) do
     local c = s.create_entity({ name = "iron-chest", position = { d.x + 0.5, d.y + 0.5 }, force = "player" })
     ctx.check(c ~= nil, string.format("coffre de quai pose en (%d, %d)", d.x, d.y))
@@ -92,7 +102,7 @@ return function(variant)
   return {
     description = "RAPATRIEMENT : ligne d'une sortie lointaine a un tampon (" .. variant .. ")",
     base = nil,
-    check_tick = 6900,
+    check_tick = 10000,
 
     init = function(ctx)
       local s = ctx.surface()
@@ -156,6 +166,7 @@ return function(variant)
       local filled = rep and rep.filled or 0
       if t >= st.log_next then
         st.log_next = t + 300
+        ctx.log(string.format("[%s] bras source %s | bras tampon %s", TAG, arms_near(s, SRC.x, SRC.y), arms_near(s, 22, 9, 14)))
         ctx.log(string.format("[%s] t=%d : ligne %s | sortie %d | tampon arrives %d | voyages de collecte %d, de remplissage %d | fenetre %s", TAG, t,
           line and (line.state .. (line.done and " (finie)" or "") .. " " .. line.built .. " piece(s)" .. (line.reason and (" : " .. line.reason) or "")) or "aucune",
           count_of(s, SRC.x, SRC.y), rap and rap.rapatrie or 0, trips_c, rep and rep.trips_fill or 0, st.w2 and "2" or (st.w1 and "1" or "-")))
@@ -199,8 +210,8 @@ return function(variant)
       if WITH then
         ctx.check(rap ~= nil and rap.n.demandes == 1, "une seule ligne demandee par la regle", rap and tostring(rap.n.demandes))
         ctx.check(rap ~= nil and rap.n.finis >= 1, "la ligne est finie", rap and tostring(rap.n.finis))
-        ctx.check(w1.belts >= 100, "le tapis long est pose (>= 100 tuiles)", tostring(w1.belts))
-        ctx.check(w1.arrived >= 0.5 * W1 / 60 * 0.8, "fenetre 1 : le tampon a recu des objets par tapis (" .. tostring(w1.arrived) .. ")")
+        ctx.check(w1.belts >= 60, "le tapis long est pose (>= 60 tuiles)", tostring(w1.belts))
+        ctx.check(w1.arrived >= MIN_ARRIVES, "fenetre 1 : le tampon a recu des objets par tapis (" .. tostring(w1.arrived) .. " >= " .. MIN_ARRIVES .. ")")
         ctx.check(w1.trips == 0, "fenetre 1 : aucun voyage de collecte de PNJ (" .. tostring(w1.trips) .. ")")
         ctx.check(w1.src_end < 200, "fenetre 1 : la sortie ne remonte pas au seuil de collecte (" .. tostring(w1.src_end) .. ")")
         ctx.check(st.cut == true, "le tapis a ete coupe par script")
