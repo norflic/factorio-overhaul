@@ -52,6 +52,40 @@ local EPS = 1e-9
 local function floor_eps(x) return floor(x + EPS) end
 
 ---------------------------------------------------------------------------------------------------
+-- 0. Ratios usuels : CALCULÉS d'après les recettes et les vitesses lues en jeu, jamais écrits
+---------------------------------------------------------------------------------------------------
+--- Machines amont pour UNE machine aval (insertion directe ou tapis) afin que le jeton intermédiaire s'équilibre.
+---   amont = { temps, vitesse, sorties = { jeton = quantité par fabrication } }, aval = { temps, vitesse, entrees = { jeton = quantité } }
+--- Exemples (données de la recette, vitesses égales) : engrenage → pack rouge 0,1 (1 pour 10), câble → circuit 1,5 (3 pour 2),
+--- plaque → acier 1 (1 pour 1).
+function X.rapport(amont, aval, jeton)
+  local pa = amont.vitesse / amont.temps * ((amont.sorties or {})[jeton] or 0)
+  local cb = aval.vitesse / aval.temps * ((aval.entrees or {})[jeton] or 0)
+  if pa <= 0 or cb <= 0 then return nil end
+  return cb / pa
+end
+
+--- Nombre de bras (entier) pour porter `flux` items/s avec des bras de `cadence` items/s ; depuis_tapis : prise sur un tapis (0,85).
+function X.bras_necessaires(flux, cadence, depuis_tapis, marge)
+  local c = cadence * (depuis_tapis and X.BELT_PICKUP or 1) * (marge or X.MARGE)
+  if c <= 0 then return nil end
+  return max(1, ceil(flux / c - EPS))
+end
+
+--- Machines qu'une voie de tapis nourrit : floor(voie / consommation d'une machine).
+function X.machines_par_voie(conso_par_machine, voie)
+  if conso_par_machine <= 0 then return nil end
+  return floor_eps((voie or X.LANE_RATE) / conso_par_machine)
+end
+
+--- Rapport amont / aval réalisé par une chaîne d'un motif : machines du groupe amont ÷ machines du groupe aval, par tuile.
+function X.rapport_motif(m, indice)
+  local c = (m.chaines or {})[indice or 1]
+  if not c then return nil end
+  return m.derive.groupes[c.amont].n / m.derive.groupes[c.aval].n
+end
+
+---------------------------------------------------------------------------------------------------
 -- 1. Débit d'une tuile
 ---------------------------------------------------------------------------------------------------
 --- Débit nominal d'UNE tuile du motif m selon ctx. Renvoie un tableau
@@ -144,7 +178,11 @@ function X.debit(m, ctx)
       end
     end
     local cap = 0
-    for role, n in pairs(l.bras) do
+    local roles_bras = {}
+    for role in pairs(l.bras) do roles_bras[#roles_bras + 1] = role end
+    table.sort(roles_bras)   -- ordre fixe : la somme en virgule flottante ne dépend jamais de l'ordre de pairs
+    for _, role in ipairs(roles_bras) do
+      local n = l.bras[role]
       local v = (ctx.bras or {})[role]
       if not v then return nil, "bras_inconnu:" .. role end
       cap = cap + n * v * (l.prise_tapis and X.BELT_PICKUP or 1) * marge
@@ -256,7 +294,11 @@ function X.debit(m, ctx)
     for _, e in ipairs(liste or {}) do
       local t = tab[e.k]
       if t then
-        for tok, q in pairs(t) do
+        local toks = {}
+        for tok in pairs(t) do toks[#toks + 1] = tok end
+        table.sort(toks)
+        for _, tok in ipairs(toks) do
+          local q = t[tok]
           local lanes = e.jetons and e.jetons[tok]
           if lanes and q > EPS then
             local n = floor_eps(#lanes * voie / q)

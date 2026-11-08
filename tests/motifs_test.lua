@@ -271,6 +271,26 @@ do
   check(d3 == nil and why == "recette_manquante:cable" or why == "recette_manquante:circ", "groupe sans recette refusé (" .. tostring(why) .. ")")
 end
 
+do
+  -- ratios usuels CALCULÉS (vitesses égales ; les nombres sont ceux des recettes, jamais écrits dans le catalogue)
+  local engr = { temps = 0.5, vitesse = 0.75, sorties = { M = 1 } }
+  local pack = { temps = 5, vitesse = 0.75, entrees = { M = 1 } }
+  check(near(Ch.rapport(engr, pack, "M"), 0.1), "ratio engrenage → pack rouge : 1 machine d'engrenages pour 10 de packs (" .. tostring(Ch.rapport(engr, pack, "M")) .. ")")
+  local cab = { temps = 0.5, vitesse = 0.75, sorties = { M = 2 } }
+  local cir = { temps = 0.5, vitesse = 0.75, entrees = { M = 3 } }
+  check(near(Ch.rapport(cab, cir, "M"), 1.5), "ratio câble → circuit : 3 pour 2 (" .. tostring(Ch.rapport(cab, cir, "M")) .. ")")
+  local m32 = Cat.get("asm-cable-circuit-3-2-double")
+  check(near(Ch.rapport_motif(m32), 1.5), "le motif des circuits réalise 3:2 (6 machines de câble pour 4 de circuits)")
+  local pla = { temps = 3.2, vitesse = 1, sorties = { M = 1 } }
+  local aci = { temps = 16, vitesse = 1, entrees = { M = 5 } }
+  check(near(Ch.rapport(pla, aci, "M"), 1), "ratio plaque → acier à vitesses égales : 1 pour 1 (" .. tostring(Ch.rapport(pla, aci, "M")) .. ")")
+  check(near(Ch.rapport_motif(Cat.get("fonte-chaine-directe-3x3")), 1), "la chaîne directe de fours réalise 1:1")
+  check(near(Ch.rapport_motif(Cat.get("asm-chaine-1-2")), 0.5), "la chaîne 1 → 2 réalise 1:2")
+  check(Ch.rapport(pla, pack, "Z") == nil, "jeton absent : pas de rapport")
+  check(Ch.bras_necessaires(1.5, 0.83, true) == 3 and Ch.bras_necessaires(0.3, 0.83, true) == 1, "bras nécessaires : 1,5/s demandent 3 bras de base sur un tapis, 0,3/s un seul")
+  check(Ch.machines_par_voie(0.625, 7.5) == 12 and Ch.machines_par_voie(0.3125, 7.5) == 24, "une voie de 7,5/s nourrit 12 fours d'acier ou 24 fours de pierre")
+end
+
 ---------------------------------------------------------------------------------------------------
 section("5. Équilibreurs : suivi de flux")
 ---------------------------------------------------------------------------------------------------

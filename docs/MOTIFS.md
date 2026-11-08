@@ -54,6 +54,19 @@ Lecture des dessins : `>` `<` `^` `v` tapis (sens de la marche) ; `n` `e` `s` `o
 
 33 motifs : asm 9, bus 3, chimie 3, equilibreur 5, fonte 7, mine 3, petrole 3.
 
+## Ratios usuels (calculés, jamais écrits dans le catalogue)
+
+`Choix.rapport(amont, aval, jeton)` donne le nombre de machines amont par machine aval d'après les recettes et les vitesses lues en jeu ; `Choix.bras_necessaires` et `Choix.machines_par_voie` donnent les bras et les machines par voie de tapis. Valeurs pour les recettes de base à vitesses égales :
+
+| Liaison | Données de recette | Ratio amont : aval | Motif qui le réalise |
+|---|---|---|---|
+| engrenage → pack rouge | 0,5 s, 1 engrenage ; 5 s, 1 engrenage | 0.10 (1 : 10) | aucun en insertion directe : `asm-chaine-1-2` ne fait que 1 : 2 (l'amont tournerait à 20 %) ; passer par un tapis d'engrenages (`asm-2e-1s`, `asm-miroir-2e`) |
+| câble → circuit | 0,5 s, 2 câbles ; 0,5 s, 3 câbles | 1.50 (3 : 2) | `asm-cable-circuit-3-2-simple`, `asm-cable-circuit-3-2-double` |
+| plaque → acier | 3,2 s, 1 plaque ; 16 s, 5 plaques | 1.00 (1 : 1) | `fonte-chaine-directe-3x3` |
+| four de plaques → machine d'engrenages (vitesse 2 → 0,75) | 3,2 s, 1 plaque ; 0,5 s, 2 plaques | 4.80 | tapis (aucun motif en insertion directe) |
+
+Un bras de base (0,83 objet/s) qui prend sur un tapis porte 0,83 × 0,85 × 0,9 = 0,635 objet/s : un four d'acier (0,625 objet/s de plaques) l'occupe presque entièrement. Une voie de tapis jaune (7,5 objets/s) nourrit 12 fours d'acier ou 24 fours de pierre.
+
 ## Les motifs
 
 ### `asm-1e-1s` : Tuile d'assemblage à 1 entrée, 1 sortie

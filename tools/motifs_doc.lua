@@ -54,6 +54,23 @@ for _, f in ipairs(Cat.FAMILLES) do fams[#fams + 1] = f .. " " .. (compte[f] or 
 p(string.format("%d motifs : %s.", #Cat.MOTIFS, table.concat(fams, ", ")))
 p("")
 
+p("## Ratios usuels (calculés, jamais écrits dans le catalogue)")
+p("")
+p("`Choix.rapport(amont, aval, jeton)` donne le nombre de machines amont par machine aval d'après les recettes et les vitesses lues en jeu ; `Choix.bras_necessaires` et `Choix.machines_par_voie` donnent les bras et les machines par voie de tapis. Valeurs pour les recettes de base à vitesses égales :")
+p("")
+p("| Liaison | Données de recette | Ratio amont : aval | Motif qui le réalise |")
+p("|---|---|---|---|")
+local Ch = require("shared.team.motifs.choix")
+local function fmt(r) return string.format("%.2f", r) end
+local engr = { temps = 0.5, vitesse = 1, sorties = { M = 1 } }
+p("| engrenage → pack rouge | 0,5 s, 1 engrenage ; 5 s, 1 engrenage | " .. fmt(Ch.rapport(engr, { temps = 5, vitesse = 1, entrees = { M = 1 } }, "M")) .. " (1 : 10) | aucun en insertion directe : `asm-chaine-1-2` ne fait que 1 : 2 (l'amont tournerait à 20 %) ; passer par un tapis d'engrenages (`asm-2e-1s`, `asm-miroir-2e`) |")
+p("| câble → circuit | 0,5 s, 2 câbles ; 0,5 s, 3 câbles | " .. fmt(Ch.rapport({ temps = 0.5, vitesse = 1, sorties = { M = 2 } }, { temps = 0.5, vitesse = 1, entrees = { M = 3 } }, "M")) .. " (3 : 2) | `asm-cable-circuit-3-2-simple`, `asm-cable-circuit-3-2-double` |")
+p("| plaque → acier | 3,2 s, 1 plaque ; 16 s, 5 plaques | " .. fmt(Ch.rapport({ temps = 3.2, vitesse = 1, sorties = { M = 1 } }, { temps = 16, vitesse = 1, entrees = { M = 5 } }, "M")) .. " (1 : 1) | `fonte-chaine-directe-3x3` |")
+p("| four de plaques → machine d'engrenages (vitesse 2 → 0,75) | 3,2 s, 1 plaque ; 0,5 s, 2 plaques | " .. fmt(Ch.rapport({ temps = 3.2, vitesse = 2, sorties = { M = 1 } }, { temps = 0.5, vitesse = 0.75, entrees = { M = 2 } }, "M")) .. " | tapis (aucun motif en insertion directe) |")
+p("")
+p("Un bras de base (0,83 objet/s) qui prend sur un tapis porte 0,83 × 0,85 × 0,9 = 0,635 objet/s : un four d'acier (0,625 objet/s de plaques) l'occupe presque entièrement. Une voie de tapis jaune (7,5 objets/s) nourrit " .. Ch.machines_par_voie(0.625, 7.5) .. " fours d'acier ou " .. Ch.machines_par_voie(0.3125, 7.5) .. " fours de pierre.")
+p("")
+
 p("## Les motifs")
 for _, m in ipairs(liste) do
   local d = m.derive
