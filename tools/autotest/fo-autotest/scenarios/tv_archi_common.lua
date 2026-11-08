@@ -53,7 +53,7 @@ local function stock_chest(chest)
     { "transport-belt", 200 }, { "inserter", 60 }, { "burner-inserter", 40 }, { "pipe", 50 },
     { "medium-electric-pole", 120 }, { "small-electric-pole", 100 }, { "iron-chest", 20 },
     { "boiler", 4 }, { "steam-engine", 8 }, { "offshore-pump", 4 }, { "pistol", 4 }, { "firearm-magazine", 100 },
-    { "gun-turret", 4 }, { "assembling-machine-1", 10 },
+    { "gun-turret", 4 }, { "assembling-machine-1", 10 }, { "fast-inserter", 20 }, -- (le gabarit « gears » a 6 bras rapides : sans eux, réserve sans fin, banc 5)
   }) do
     local n = chest.insert({ name = it[1], count = it[2] })
     if n < it[2] then lost[#lost + 1] = it[1] end
@@ -143,6 +143,10 @@ return {
     end
     -- V91 : dépôt rempli depuis le QG, puis le quai du module VIDÉ par le banc (consommation simulée) : la tournée suivante prend au dépôt
     local mp = st.mod and status(ctx, st.mod)
+    if mp and t % 900 == 0 then
+      ctx.log(string.format("[FO-TV-ARCHI] tick %d : module %d etat %s (%s), %d/%d baties", e.tick, st.mod, tostring(mp.state), tostring(mp.reason),
+        mp.built or 0, mp.total or 0))
+    end
     if st.open_t and mp and mp.state == "fini" and mp.quais and mp.quais[1] then
       local q = mp.quais[1]
       local hub = s.find_entities_filtered({ area = { { HUB.x0, HUB.y0 }, { HUB.x1, HUB.y1 } }, name = "iron-chest", force = "player" })
@@ -197,6 +201,16 @@ return {
     ctx.check(pole ~= nil and eng ~= nil and pole.electric_network_id == eng.electric_network_id,
       "le poteau du quartier est sur le reseau de la centrale (meme electric_network_id)",
       (pole and pole.electric_network_id or "pas de poteau") .. " / " .. (eng and eng.electric_network_id or "pas de machine"))
+    -- diagnostic du module d'engrenages (banc 5 du 8/11 : jamais fini, cause inconnue)
+    local mp = st.mod and status(ctx, st.mod)
+    if mp then
+      local miss, unb = {}, {}
+      for _, m in ipairs(mp.missing or {}) do miss[#miss + 1] = tostring(m[1]) .. "=" .. tostring(m[2]) end
+      for _, u in ipairs(mp.unbuilt or {}) do unb[#unb + 1] = tostring(u.name) .. "(" .. tostring(u.fails) .. ")" end
+      ctx.log(string.format("[FO-TV-ARCHI] module %d : etat %s, raison %s, %d/%d baties, obstacles ouverts %d, manque {%s}, non baties {%s}, lot %s",
+        st.mod, tostring(mp.state), tostring(mp.reason), mp.built or 0, mp.total or 0, mp.open_obstacles or 0, table.concat(miss, " "),
+        table.concat(unb, " "), tostring(mp.parts and mp.parts[1] and mp.parts[1].lot)))
+    end
     -- tranche 3 : la tourelle du pôle, inscrite à l'équipe
     ctx.check(#s.find_entities_filtered({ area = area, name = "gun-turret", force = "player" }) == 1, "tranche 3 : une tourelle au pole",
       #s.find_entities_filtered({ area = area, name = "gun-turret", force = "player" }))
