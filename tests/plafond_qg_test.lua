@@ -20,7 +20,7 @@ end
 local function suite(Pq)
   local res = {}
   local function c(name, cond, detail) res[#res + 1] = { name, cond and true or false, detail } end
-  local CFG = { brut = 8, base = 40, declasse = 2, base_depth = 2 }
+  local CFG = { brut = 8, base = 40, declasse = 2, base_depth = 2, brut_demande = 4 }
 
   -- profondeur de recette
   local raw = { ore = true, coal = true }
@@ -96,6 +96,14 @@ local function suite(Pq)
   r = Pq.capped(C, { coal = 5000, plate = 9000, stone = 900 }, S, { coal = 100, plate = 100, stone = 100 }, CFG)
   c("capped : le brut reste plafonne meme demande (plafond dur)", r.coal == 5000)
   c("capped : base et declasse cedent devant une demande", r.plate == nil and r.stone == nil)
+  r = Pq.capped(C, { coal = 1599 }, S, { coal = 1 }, CFG)
+  c("capped : un brut DEMANDE a un plafond 4 fois plus haut (1599 < 1600 passe)", r.coal == nil)
+  r = Pq.capped(C, { coal = 1600 }, S, { coal = 1 }, CFG)
+  c("capped : un brut demande est plafonne a 1600 (>=)", r.coal == 1600)
+  r = Pq.capped(C, { coal = 1000 }, S, nil, CFG)
+  c("capped : le meme brut non demande est plafonne des 400", r.coal == 1000)
+  r = Pq.capped(C, { coal = 1000, plate = 5000 }, S, { coal = 0, plate = 0 }, CFG)
+  c("capped : une demande a zero (ou nulle) est une demande (clef presente)", r.coal == nil and r.plate == nil)
   r = Pq.capped(C, { coal = 5000, mystery = 9000 }, S, nil, CFG)
   c("capped : objet sans categorie ignore", r.mystery == nil and r.coal == 5000)
   r = Pq.capped(C, { coal = 5000, plate = 9000 }, { coal = 50 }, nil, CFG)
@@ -125,9 +133,12 @@ local Pq = load(SRC, "=" .. PATH)()
 for _, r in ipairs(run(Pq)) do check(r[1], r[2], r[3]) end
 
 local MUT = {
-  { "brut plafonne avec les autres : la demande l'ecarte", "(cat == Pq.CAT.BRUT or not (need and need[it]))", "not (need and need[it])" },
-  { "plafond strict (>)", "counts[it] >= cap and", "counts[it] > cap and" },
-  { "la demande ne leve jamais un plafond de base", "or not (need and need[it]))", "or false)" },
+  { "brut traite comme une base : la demande l'ecarte", "      if cat == Pq.CAT.BRUT then", "      if false then" },
+  { "plafond du brut strict (>)", "if counts[it] >= cap then out[it] = counts[it] end", "if counts[it] > cap then out[it] = counts[it] end" },
+  { "plafond de base strict (>)", "elseif counts[it] >= cap and not wanted then", "elseif counts[it] > cap and not wanted then" },
+  { "la demande ne leve jamais un plafond de base", "elseif counts[it] >= cap and not wanted then", "elseif counts[it] >= cap then" },
+  { "brut demande sans plafond plus haut", "        if wanted then cap = cap * (cfg_of(cfg).brut_demande or 1) end", "" },
+  { "brut demande sans borne", "if wanted then cap = cap * (cfg_of(cfg).brut_demande or 1) end", "if wanted then cap = 1e12 end" },
   { "profondeur : la plus profonde gagne", "if d[o] == nil or m + 1 < d[o] then d[o] = m + 1; changed = true end", "if d[o] == nil or m + 1 > d[o] then d[o] = m + 1; changed = true end" },
   { "profondeur : ingredient inconnu accepte", "if d[i] == nil then known = false break end", "if d[i] == nil then break end" },
   { "profondeur : ingredient oublie", "if d[i] > m then m = d[i] end", "" },
@@ -339,7 +350,11 @@ do
   f.team = { ia3 = { short = { coal = 1000, ["iron-plate"] = 1000, ["stone-furnace"] = 50 } } }
   game.tick = game.tick + 120
   skip = Stock.skip_fn(f)
-  check("demande : le brut reste plafonne (plafond dur)", skip and skip("coal") == true)
+  check("demande : un brut demande passe au-dessus de 400 (450 < 1600) : la fonderie du QG et les bruleurs ne sont pas affames", skip == nil or skip("coal") == false)
+  f.hq.items.coal = 2000
+  game.tick = game.tick + 120
+  skip = Stock.skip_fn(f)
+  check("demande : le brut reste plafonne meme demande (plafond dur a 1600)", skip and skip("coal") == true)
   check("demande : une base demandee passe malgre le plafond", skip and skip("iron-plate") == false)
   check("demande : un declasse demande passe malgre le plafond", skip and skip("stone-furnace") == false)
   -- sous les plafonds : plus de predicat

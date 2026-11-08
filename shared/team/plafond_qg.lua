@@ -14,9 +14,10 @@
               performant (vitesse de fabrication ou de minage) est fabricable par l'équipe (four de pierre après les fours meilleurs) ;
     fini      tout le reste (bâtiments utiles, munitions, packs, modules, circuits...) : AUCUN plafond.
   Un plafond en PILES par catégorie (Pq.DEFAULT) : au-delà, l'objet n'est plus rapatrié au QG (ni ramassé aux avant-postes, ni collecté
-  aux coffres de sortie, ni miné à la main, ni vidé d'un tampon) et RESTE dans le tampon de sa zone. Brut : plafond DUR (même demandé :
-  le tampon d'une zone sert la demande locale). Base et déclassé : le plafond cède devant une matière DEMANDÉE en ce moment (manque
-  mesuré, objectif, projets en réserve : Sg.demanded). Les cases prises par du brut et du déclassé ne comptent PAS pour agrandir le QG
+  aux coffres de sortie, ni miné à la main, ni vidé d'un tampon) et RESTE dans le tampon de sa zone. Brut : plafond DUR, relevé à
+  brut_demande fois le plafond (32 piles) tant que la matière est DEMANDÉE (la fonderie du QG, les chaudières et les bruleurs la prennent
+  au stock : un tampon de 80 secondes de fonte ne doit pas les affamer), jamais au-delà. Base et déclassé : le plafond cède devant une
+  matière DEMANDÉE en ce moment (manque mesuré, objectif, projets en réserve : Sg.demanded). Les cases prises par du brut et du déclassé ne comptent PAS pour agrandir le QG
   (annexe ouverte pour un objet fini utile seulement).
 
     Pq.depths(recipes, raw)                         profondeur de recette de chaque objet : { [objet] = n } (brut : 0)
@@ -37,8 +38,8 @@ local Pq = {}
 
 Pq.CAT = { BRUT = "brut", BASE = "base", DECLASSE = "declasse", FINI = "fini" }
 -- Plafonds en PILES par objet, et profondeur de recette d'un « intermédiaire de base ». Valeurs PROVISOIRES (jamais mesurées en partie
--- complète : à régler par le DC) : brut 8 piles (charbon ou pierre 400, bois 800) ; base 40 piles (plaques 4 000) ; déclassé 2 piles (100 fours).
-Pq.DEFAULT = { brut = 8, base = 40, declasse = 2, base_depth = 2 }
+-- complète : à régler par le DC) : brut 8 piles (charbon ou pierre 400, bois 800), 4 fois plus (brut_demande) quand la matière est DEMANDÉE ; base 40 piles (plaques 4 000) ; déclassé 2 piles (100 fours).
+Pq.DEFAULT = { brut = 8, base = 40, declasse = 2, base_depth = 2, brut_demande = 4 }
 
 local function cfg_of(cfg) return cfg or Pq.DEFAULT end
 
@@ -115,14 +116,23 @@ function Pq.cap_count(cat, stack, cfg)
   return piles * stack
 end
 
---- Objets au plafond de leur catégorie (compte >= plafond). `need` = { [objet] = q } : matières demandées en ce moment (Sg.demanded) ; une
---- matière demandée n'est jamais plafonnée sauf si elle est BRUTE (plafond dur). `counts` = { [objet] = nombre au stock }.
+--- Objets au plafond de leur catégorie (compte >= plafond). `need` = { [objet] = q } : matières demandées en ce moment (Sg.demanded). Une
+--- matière BRUTE demandée a un plafond de cfg.brut_demande fois plus haut (jamais supprimé) ; une base ou un déclassé demandé n'est pas
+--- plafonné. `counts` = { [objet] = nombre au stock }.
 function Pq.capped(cat_of, counts, stack_of, need, cfg)
   local out = {}
   for _, it in ipairs(sorted_keys(counts)) do
     local cat = cat_of[it]
     local cap = cat and Pq.cap_count(cat, stack_of[it], cfg)
-    if cap and counts[it] >= cap and (cat == Pq.CAT.BRUT or not (need and need[it])) then out[it] = counts[it] end
+    if cap then
+      local wanted = need and need[it]
+      if cat == Pq.CAT.BRUT then
+        if wanted then cap = cap * (cfg_of(cfg).brut_demande or 1) end
+        if counts[it] >= cap then out[it] = counts[it] end
+      elseif counts[it] >= cap and not wanted then
+        out[it] = counts[it]
+      end
+    end
   end
   return out
 end
