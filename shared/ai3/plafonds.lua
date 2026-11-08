@@ -63,8 +63,17 @@ end
 ---                submit ; fermer ici empêcherait l'électrification de jamais commencer) ; l'exécutant refuse déjà ce qui ne se pose pas ;
 ---   table        un relevé existe : sa capacité (have_kw) doit être un nombre fini ≥ 0. Absente, une centrale FINIE dont la capacité n'est
 ---                pas encore lue ouvrait des foreuses sans borne (garde ouverte sur mesure manquante : les « silos sans fin » de C13).
+---
+--- Lot TV-ENERGIE (W02, fin) : sans centrale finie, le relevé n'est plus NIL (« aucune borne ») mais l'un de deux états EXPLICITES :
+---   { amorce = true }   aucune centrale demandée, ou demandée sans module électrique ouvert : UN SEUL ordre électrique passe par décision
+---                       (celui qui fait demander la centrale ; Ca.spend_amorce), les suivants sont refusés ;
+---   { fermee = texte }  centrale demandée mais pas finie, ou refusée : toute l'électrique est refusée EN AMONT (dans Ca.decide), le refus
+---                       écrit dit pourquoi. Avant, ces cas passaient la décision et n'étaient refusés qu'à l'exécutant (make_can_exec).
+--- nil reste « aucune borne » pour les bancs hors jeu et les appelants d'avant.
 function Pf.power_missing(pw)
   if pw == nil then return nil end
+  if pw.fermee ~= nil then return tostring(pw.fermee) end
+  if pw.amorce then return nil end
   local _, why = Pf.input(pw.have_kw, "power.have_kw")
   return why
 end

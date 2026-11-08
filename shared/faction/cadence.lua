@@ -114,12 +114,13 @@ function Cd.recent(st, tick, span)
   return type(st.last) == "number" and tick - st.last <= (span or Cd.STEP_SPAN)
 end
 
---- À son créneau : la pensée est-elle sautée ? st = état de la faction ({ last = tick de la dernière pensée }). Rend (sautée, cause).
-function Cd.skip(st, s, tick)
+--- À son créneau : la pensée est-elle sautée ? st = état de la faction ({ last = tick de la dernière pensée }) ; slow (lot TV-ENERGIE, V89 :
+--- shared/faction/degrade.lua) = période de repos au niveau de charge courant (défaut Cd.SLOW). Rend (sautée, cause).
+function Cd.skip(st, s, tick, slow)
   local up, why = Cd.awake(s, tick)
   if up then return false, why end
   if type(st.last) ~= "number" then return false, "premiere pensee" end
-  if tick - st.last >= Cd.SLOW then return false, why end
+  if tick - st.last >= (slow or Cd.SLOW) then return false, why end
   return true, why
 end
 

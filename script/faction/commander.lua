@@ -26,7 +26,9 @@ local Chef = require("script.faction.chef")
 local Veille = require("script.faction.veille") -- lot VEILLE : bilans de la reconnaissance régulière (mission : script/ai3/exploration.lua)
 local Cd = require("shared.faction.cadence") -- lot X10-S10 : factions lointaines et calmes plus lentes (règle pure)
 local DefChoix = require("script.faction.defchoix") -- lot X10-S10 : ennemi près du QG (lu au créneau)
-local Storage = require("script.core.storage") -- lot X10-S10 : état des soldats de l'IA3 (nettoyage, expédition), lu sans le créer
+local Storage = require("script.core.storage")
+local Lourd = require("script.core.lourd") -- lot TV-ENERGIE (V89) : profondeur de la file des travaux lourds = signal de charge
+local Dg = require("shared.faction.degrade") -- lot TV-ENERGIE (V89) : dégradation graduée (règle pure) -- lot X10-S10 : état des soldats de l'IA3 (nettoyage, expédition), lu sans le créer
 local Ia3k = require("script.ai3.comportement") -- lot X10-S10 : clé de l'équipe dans cet état (Ia3k.team_key)
 
 local Commander = {}
@@ -186,12 +188,41 @@ local function cadence_zone(f)
   return Cd.zone(pts, Cd.NEAR)
 end
 
+-- Lot TV-ENERGIE (V89) : dégradation graduée sous charge. État (ns « degrade », dans global) : { level, up_n, down_n, changes }. Lu au guet
+-- (une lecture par seconde de jeu) : la profondeur de la file des travaux lourds (signal déterministe, aucun temps mesuré) fait monter ou
+-- descendre le niveau (Dg.update) ; le niveau allonge la période de repos des factions lointaines et calmes (Cd.skip, `slow`). Jamais votre
+-- équipe ni une faction éveillée (Cd.awake garde la main).
+Storage.declare("degrade", function() return { level = 0, up_n = 0, down_n = 0, changes = 0 } end)
+Commander.DEGRADE_EVERY = 60  -- ticks entre deux lectures de la file
+Commander.DEGRADE_LOGS = 30   -- lignes [FO-DEGRADE] au plus
+
+--- Période de repos des factions lointaines et calmes au niveau de charge courant (Cd.SLOW au niveau 0 ou sans état).
+function Commander.slow()
+  local ns = Storage.ns("degrade")
+  return Dg.slow(Cd.SLOW, ns and ns.level or 0)
+end
+
+--- Une lecture de la file des travaux lourds (appelée au guet, tick multiple de Commander.DEGRADE_EVERY).
+function Commander.degrade(tick)
+  local ns = Storage.ns("degrade")
+  if not ns then return end
+  local depth = Lourd.depth()
+  local from = ns.level or 0
+  local to, changed = Dg.update(ns, depth)
+  if changed then
+    ns.changes = (ns.changes or 0) + 1
+    if ns.changes <= Commander.DEGRADE_LOGS then
+      log(Dg.line({ from = from, to = to, tick = tick, depth = depth, slow = Dg.slow(Cd.SLOW, to), base = Cd.SLOW }))
+    end
+  end
+end
+
 local function cadence_say(f, cs, mode, why, tick)
   if cs.mode == mode then return end
   cs.mode = mode
   cs.logs = (cs.logs or 0) + 1
   if cs.logs > Commander.CADENCE_LOGS then return end
-  log(string.format("[FO-CADENCE] %s : cadence %s (%s) a %.1f min", tostring(f.key), mode == "lente" and ("LENTE, une pensee toutes les " .. Cd.SLOW .. " ticks") or "NORMALE",
+  log(string.format("[FO-CADENCE] %s : cadence %s (%s) a %.1f min", tostring(f.key), mode == "lente" and ("LENTE, une pensee toutes les " .. Commander.slow() .. " ticks") or "NORMALE",
     tostring(why), tick / 3600))
 end
 
@@ -220,7 +251,7 @@ function Commander.think(id, tick, woken)
     if Commander.busy(f, tick, true) then return end
     if not woken and Cd.recent(cs, tick) then return end
     local inp = cadence_input(f, Commander.players_on(war.surface))
-    local skip, why = Cd.skip(cs, inp, tick)
+    local skip, why = Cd.skip(cs, inp, tick, Commander.slow())
     if skip then
       cs.asleep = true
       cadence_say(f, cs, "lente", why, tick)
@@ -320,6 +351,7 @@ function Commander.guard(tick)
   if not Commander.CADENCE then return end
   local war = State.war()
   if not (war and war.active and war.factions) then return end
+  if tick % Commander.DEGRADE_EVERY == 0 then Commander.degrade(tick) end -- lot TV-ENERGIE (V89)
   local players = nil
   for id, f in ipairs(war.factions) do
     local cs = f.cadence

@@ -117,6 +117,27 @@ battery(Cc0)
 ---------------------------------------------------------------------------------------------------
 -- 2. Le vrai code de build.lua, moteur de bouchons
 ---------------------------------------------------------------------------------------------------
+section("5 bis. Lot TV-ENERGIE (V36) : tampon de vapeur (regle pure)")
+local function v36(C)
+  local st = {}
+  check(not C.steam_track(st, 0.1) and not C.steam_track(st, 0.1) and C.steam_track(st, 0.1), "tampon bas au 3e releve de suite seulement (Cc.STEAM_CHECKS)")
+  check(not C.steam_track(st, 0.9) and st.steam_n == 0, "un releve rempli remet le compte a zero")
+  check(not C.steam_track(st, nil) and st.steam_n == 0, "mesure absente : jamais d'avance (compte a zero)")
+  for _ = 1, 5 do C.steam_track(st, 0.1) end
+  check(not C.steam_track(st, 0 / 0) and st.steam_n == 0, "mesure NaN : compte a zero")
+  local r0 = C.refill(200, 0.45, 1000, nil)
+  local r1 = C.refill(200, 0.45, 1000, nil, true)
+  check(r0.due == false and r1.due == true and r1.by_steam == true and r1.why == "tampon de vapeur bas" and r1.low == math.floor(r1.target * C.STEAM_FILL),
+    "refill : 200 charbons, consommation 0,45/s : rien sans tampon bas, portage avec (low " .. tostring(r1.low) .. ")")
+  local r2 = C.refill(50, 0.45, 1000, nil, true)
+  check(r2.due == true and r2.by_steam == nil and r2.why == "sous le seuil", "deja sous le seuil de consommation : la cause reste la consommation")
+  local r3 = C.refill(300, 0.45, 0, nil, true)
+  check(r3.due == false and r3.short == nil, "tampon bas, coffre a 300, QG sans charbon : rien a porter, pas d'alerte de manque (au-dessus de la moitie de la cible)")
+  local r4 = C.refill(200, 0.45, 0, nil, true)
+  check(r4.due == false and r4.short == true, "tampon bas, coffre a 200, coffre du QG vide : la cause « sans charbon » est rendue")
+end
+v36(Cc0)
+
 section("6. build.lua : quai_tasks et charbon_step (code reel)")
 local fh = assert(io.open("script/team/build.lua", "rb"))
 local src = fh:read("*a")
@@ -146,7 +167,7 @@ local env = {
   Cc = Cc0, M = M, P = P, Build = Build,
   Sweep = require("shared.team.rebuild_sweep"), -- lot FUITES-PILE : « rouvert » = reconstruction (Sweep.rebuilding) ou murs, pas un agrandissement
   Stock = { count = function() return W.stock end },
-  Sante = { tasks = function() end }, -- lot ENERGIE (2/11) : l'amorce a la main a son propre banc (tests/sante_centrale_test.lua)
+  Sante = { tasks = function() end, steam_low = function() return W.steam_low == true end }, -- lot ENERGIE (2/11) : l'amorce a la main a son propre banc (tests/sante_centrale_test.lua) ; lot TV-ENERGIE (V36) : tampon de vapeur bas
   seg_passable = function() return function() return true end end,
   free_spot = function(_, _, x, y) return x, y end,
   defines = { inventory = { chest = 1 } },
@@ -207,6 +228,22 @@ do
   out = {}
   X.quai_tasks(f, plant, surface, out)
   check(#out == 0 and #W.logs == 3 and W.logs[3]:find("SANS charbon", 1, true), "coffre du QG vide : pas de tache, la cause au journal")
+  -- lot TV-ENERGIE (V36) : tampon de vapeur BAS -> le coffre se remplit sous la moitie de la cible, meme au-dessus du seuil de consommation
+  W.stock, W.chests[1], W.logs = 1000, 200, {}
+  f.build.charbon = nil
+  out = {}
+  X.quai_tasks(f, plant, surface, out)
+  check(#out == 0, "V36 temoin : coffre a 200 (seuil 108), tampon de vapeur plein : rien")
+  W.steam_low = true
+  out = {}
+  X.quai_tasks(f, plant, surface, out)
+  check(#out == 1 and out[1].prio == Cc0.PRIO and out[1].items[1][2] == 340, "V36 : tampon bas, coffre a 200 (sous la moitie de la cible 540 = 270) : portage URGENT jusqu'a la cible (340)")
+  check(#W.logs == 1 and W.logs[1]:find("TAMPON DE VAPEUR BAS", 1, true), "V36 : la cause au journal : tampon de vapeur bas")
+  W.chests[1] = 300
+  out = {}
+  X.quai_tasks(f, plant, surface, out)
+  check(#out == 0, "V36 : tampon bas mais coffre a 300 (au-dessus de la moitie de la cible) : rien")
+  W.steam_low = false
   -- un module qui n'est pas une centrale garde la règle d'avant
   local mod = { id = 7, spec = { gen = "smelter" }, state = "fini", prio = 55, ents = {}, parts = {}, outs = {}, quais = { { x = 1.5, y = 1.5, item = "iron-ore" } } }
   W.stock, W.chests[1] = 1000, 100
@@ -295,7 +332,7 @@ local function mutant(label, edit)
   edit(Cm)
   local p0, f0 = passes, failures
   quiet = true
-  local ok = pcall(battery, Cm)
+  local ok = pcall(function() battery(Cm) v36(Cm) end)
   quiet = false
   local caught = failures > f0 or not ok
   passes, failures = p0, f0
@@ -316,6 +353,11 @@ end)
 mutant("pas de pause apres un refus", function(C) C.RETRY_TICKS = 0 end)
 mutant("abandon definitif apres le plafond", function(C) C.LONG_RETRY_TICKS = 10 ^ 12 end)
 mutant("arrivee unique", function(C) local old = C.arrivals; C.arrivals = function(...) local a = old(...); return { a[1] } end end)
+
+mutant("tampon de vapeur ignore", function(C) local old = C.refill; C.refill = function(n, r, h, c) return old(n, r, h, c, nil) end end)
+mutant("tampon bas des le premier releve", function(C) C.STEAM_CHECKS = 1 end)
+mutant("mesure absente comptee comme tampon bas", function(C) C.steam_track = function(st) st.steam_n = (st.steam_n or 0) + 1 return st.steam_n >= C.STEAM_CHECKS end end)
+mutant("avance a la cible entiere", function(C) C.STEAM_FILL = 1.0 end)
 
 print(string.format("[CHARBON-CENTRALE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

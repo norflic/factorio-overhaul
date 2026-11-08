@@ -175,6 +175,9 @@ function S.line(ev)
   elseif ev.kind == "avance" then
     return string.format("[FO-SANTE-CENTRALE] %s : centrale de plus demandee a %.1f min AVANT la saturation (production %.0f kW + chantiers %.0f kW sur %.0f kW)",
       t, min, ev.used or 0, ev.committed or 0, ev.capacity or 0)
+  elseif ev.kind == "tampon" then
+    return string.format("[FO-SANTE-CENTRALE] %s : centrale %s a %.1f min : tampon de vapeur BAS (%.0f %% de la capacite des machines, sous le seuil depuis plusieurs releves) : le coffre de charbon se remplit en avance",
+      t, tostring(ev.plant), min, (ev.steam or 0) * 100)
   elseif ev.kind == "bloquee" then
     return string.format("[FO-SANTE-CENTRALE] %s : reconstruction de la centrale %s sans progres depuis %.0f s (%d piece(s) posee(s)) : elle ne retient plus la centrale de plus a %.1f min",
       t, tostring(ev.plant), (ev.waited or 0) / 60, ev.built or 0, min)

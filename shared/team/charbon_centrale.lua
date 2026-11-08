@@ -38,6 +38,15 @@ Cc.LONG_RETRY_TICKS = 108000 -- 30 min de pause après Cc.MAX_TRIES refus (relec
 Cc.PROJECT_PRIO = 80    -- priorité du projet d'alimentation (ses tâches de chantier : min(80 + 30, 89) = 89, Build.FINISH_CAP)
 Cc.LOGS = 40            -- lignes [FO-CHARBON-CENTRALE] au plus par équipe
 
+-- Lot TV-ENERGIE (V36, TODO_VIDEO.md l.102 : « check if the steam in the storage tanks has gone below a certain threshold … feed fuel cells » :
+-- le combustible se règle sur le TAMPON d'énergie, pas seulement sur la consommation). Le seuil d'avance de Cc.refill suppose un tampon de
+-- vapeur plein (il couvre l'aller du PNJ, Cc.LEAD_S). Quand le tampon des machines à vapeur (vapeur contenue / capacité) reste sous
+-- Cc.STEAM_LOW pendant Cc.STEAM_CHECKS relevés de suite (5 s chacun : 15 s), la chaudière n'est plus alimentée assez vite : le coffre se remplit
+-- AVANT le seuil de consommation, dès qu'il passe sous la moitié de la cible (Cc.STEAM_FILL). Mesure : Sante.observe (script/team/sante_centrale.lua).
+Cc.STEAM_LOW = 0.25     -- part du tampon de vapeur au-dessous de laquelle il est dit bas
+Cc.STEAM_CHECKS = 3     -- relevés de suite sous Cc.STEAM_LOW avant d'avancer le remplissage
+Cc.STEAM_FILL = 0.5     -- part de la cible au-dessous de laquelle le coffre se remplit quand le tampon est bas
+
 --- Consommation de charbon (objets/s) à pleine charge : `kw` = somme des puissances de combustion des chaudières (kW, données),
 --- `coal_kj` = énergie d'un charbon (kJ, données). 0 si rien.
 function Cc.rate(kw, coal_kj)
@@ -45,9 +54,18 @@ function Cc.rate(kw, coal_kj)
   return kw / coal_kj
 end
 
+--- Lot TV-ENERGIE (V36) : suivi du tampon de vapeur d'une centrale. st = mémoire { steam_n } (nombres) ; frac = vapeur contenue / capacité des
+--- machines à vapeur à ce relevé (0 à 1), nil si la mesure manque. Rend vrai quand le tampon est bas depuis Cc.STEAM_CHECKS relevés de suite ;
+--- une mesure absente ou un tampon rempli remet le compte à zéro (jamais d'avance sur une mesure qu'on n'a pas).
+function Cc.steam_track(st, frac)
+  if type(frac) == "number" and frac == frac and frac < Cc.STEAM_LOW then st.steam_n = (st.steam_n or 0) + 1 else st.steam_n = 0 end
+  return st.steam_n >= Cc.STEAM_CHECKS
+end
+
 --- Remplissage du coffre de la centrale. n = charbon au coffre ; rate = consommation (Cc.rate) ; have = charbon au coffre du QG ;
---- cap = place du coffre en charbon (contenu compris), nil si inconnue. Rend { low, target, prio, due, count, why, short }.
-function Cc.refill(n, rate, have, cap)
+--- cap = place du coffre en charbon (contenu compris), nil si inconnue ; steam_low (lot TV-ENERGIE, V36) = le tampon de vapeur est bas
+--- (Cc.steam_track), nil/faux sinon. Rend { low, target, prio, due, count, why, short, by_steam }.
+function Cc.refill(n, rate, have, cap, steam_low)
   rate = rate or 0
   local low = math.max(Cc.MIN_LOW, math.ceil(rate * Cc.LEAD_S - 1e-9))
   local target = math.max(Cc.MIN_FILL, math.ceil(rate * Cc.FILL_S - 1e-9))
@@ -58,11 +76,16 @@ function Cc.refill(n, rate, have, cap)
     if low > math.floor(target / 2) then low = math.floor(target / 2) end
   end
   local r = { low = low, target = target, prio = Cc.PRIO, due = false, count = 0 }
+  -- tampon de vapeur bas : le coffre se remplit dès qu'il passe sous la moitié de la cible, même au-dessus du seuil de consommation
+  if steam_low and n >= low then
+    local lift = math.floor(target * Cc.STEAM_FILL)
+    if n < lift then r.low, low, r.by_steam = lift, lift, true end
+  end
   if n >= low then r.why = "au-dessus du seuil" return r end
   if not have or have <= 0 then r.why, r.short = "coffre du QG sans charbon", true return r end
   r.count = math.min(target - n, have)
   if r.count <= 0 then r.why = "rien a porter" return r end
-  r.due, r.why = true, "sous le seuil"
+  r.due, r.why = true, r.by_steam and "tampon de vapeur bas" or "sous le seuil"
   return r
 end
 

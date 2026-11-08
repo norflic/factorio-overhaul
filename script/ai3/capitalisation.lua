@@ -893,8 +893,18 @@ end
 --- refuserait des foreuses que la porte admet) ; la somme nominale va au journal [FO-CAPI-KW], pour comparer. plant : nil (la centrale
 --- grandit par C.growth et Sante, pas par un levier de la capitalisation). Capi.MUT.sans_courant, Capi.MUT.nominal : tests seulement.
 local JTICK_KW = 60 / 1000 -- J/tick -> kW
-function Capi.power_input(f, plant_state)
-  if Capi.MUT.sans_courant or plant_state ~= "fini" then return nil end
+Capi.COURANT_LOGS = 40 -- lot TV-ENERGIE (W02) : lignes [FO-CAPI-COURANT] au plus par équipe
+function Capi.power_input(f, plant_state, plant_why, wait_plant)
+  if Capi.MUT.sans_courant then return nil end
+  if plant_state ~= "fini" then
+    -- Lot TV-ENERGIE (W02, fin) : sans centrale finie, plus de nil (« aucune borne » : l'électrique passait Ca.decide et n'était refusée qu'à
+    -- l'exécutant, make_can_exec). Deux états EXPLICITES (règle pure : Pf.power_missing, Ca.spend_amorce) : centrale refusée, ou demandée
+    -- avec un module électrique déjà ouvert (wait_plant) : relevé FERMÉ, refus écrit en amont ; sinon (aucune centrale demandée, ou demandée
+    -- sans module électrique ouvert) : AMORÇAGE, un seul ordre électrique par décision (celui qui fait demander la centrale).
+    if plant_state == "refuse" then return { fermee = "centrale refusee (" .. tostring(plant_why) .. ")" } end
+    if wait_plant then return { fermee = "centrale demandee, pas finie (" .. tostring(plant_state) .. ")" } end
+    return { amorce = true, etat = plant_state ~= nil and tostring(plant_state) or "aucune centrale demandee" }
+  end
   local g = f.build and f.build.grow
   local cap = g and g.capacity
   -- W02 (lots 5 et 5b) : capacité non lue = relevé VIDE (garde fermée), pas « aucune borne » ; capacité ≤ 0 (centrale finie, plus aucune machine à
@@ -1291,7 +1301,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     -- ne ferme plus les leviers hors du QG (Sv.capi) ; les gisements dangereux restent exclus (`danger` de chaque gisement).
     production_first = production_first,
     defense = defense_input(f, D), -- lot PREVISION (C12) : « oui, compter la défense » dans le coût de chaque investissement
-    power = Capi.power_input(f, plant_state), -- étape 5a de VIDEO-INTEG : courant des centrales finies (nil : aucune borne, comme avant)
+    power = Capi.power_input(f, plant_state, plant_why, wait_plant), -- étape 5a de VIDEO-INTEG : courant des centrales finies ; lot TV-ENERGIE (W02) : amorce ou relevé fermé sans centrale finie
     mq_build = view.mq and view.mq.build or nil, -- lot VIDEO-ORDRE : manque net MESURÉ par objet (L3) ; un objet posé n'est re-ordonné qu'une fois ce signal bougé (nil : règle d'avant)
   }, cex
 end
@@ -1843,9 +1853,28 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
     end
   end
   Excl.journal(f, input, res, tick, minutes(f, tick)) -- lot VIDEO-PLAFONDS (V99) : refus d'exclusion et puits retirés, [FO-EXCLU]
+  -- Lot TV-ENERGIE (W02) : refus du courant EN AMONT (relevé fermé, amorce prise, capacité non lue) : une ligne par CAUSE, quand l'ensemble
+  -- des causes change (jamais à l'horloge), sous le plafond Capi.COURANT_LOGS par équipe.
+  do
+    local seen, causes = {}, {}
+    for _, r in ipairs(res.refus or {}) do
+      local why = tostring(r.why)
+      if why:sub(1, 10) == "courant : " and not seen[why] then seen[why] = true causes[#causes + 1] = why end
+    end
+    table.sort(causes)
+    local sig = table.concat(causes, " | ")
+    if sig ~= (cs.courant_said or "") then
+      cs.courant_said = sig
+      cs.courant_logs = (cs.courant_logs or 0) + 1
+      if sig ~= "" and cs.courant_logs <= Capi.COURANT_LOGS then
+        log(string.format("[FO-CAPI-COURANT] %s : option(s) electrique(s) refusee(s) en amont de la decision a %.1f min : %s",
+          f.key or "?", minutes(f, tick), sig))
+      end
+    end
+  end
   -- Étape 5a de VIDEO-INTEG : le courant de la décision (capacité des centrales finies, somme nominale du relevé, puissance MESURÉE pour
   -- comparer, sans décider, et kW retenus faute de courant).
-  if res.kw then
+  if res.kw and not (input.power and (input.power.amorce or input.power.fermee)) then
     local g = f.build and f.build.grow
     log(string.format("[FO-CAPI-KW] %s : capacite %.0f kW, vue de la porte %.0f kW (mesure %.0f kW + chantiers), nominal %.0f kW, retenu %.0f kW a %.1f min",
       f.key or "?", res.kw.have, res.kw.used, (g and g.power or 0) * JTICK_KW, res.kw.nominal or 0, res.kw.blocked, minutes(f, tick)))

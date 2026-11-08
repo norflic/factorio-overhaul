@@ -23,6 +23,7 @@ local M = require("shared.team.modules")
 local T = require("shared.team.config")
 local Stock = require("script.team.stock")
 local S = require("shared.team.sante_centrale")
+local Cc = require("shared.team.charbon_centrale") -- lot TV-ENERGIE (V36) : tampon de vapeur bas -> remplissage du coffre de charbon en avance
 
 local Sante = {}
 
@@ -41,6 +42,13 @@ local function mem(f)
   return sm
 end
 Sante.mem = mem
+
+--- Lot TV-ENERGIE (V36) : le tampon de vapeur de la centrale `pid` est-il bas depuis Cc.STEAM_CHECKS relevés ? (nil/faux : mesure absente ou tampon rempli)
+function Sante.steam_low(f, pid)
+  local sm = f.build and f.build.sante
+  local st = sm and sm.plants and sm.plants[pid]
+  return st ~= nil and st.steam_low == true
+end
 
 --- Témoin des bancs : l'option `no_sante` (remote fo-ia1d set_option) coupe l'amorce, la porte et l'avance (le relevé et le journal restent).
 function Sante.off(f)
@@ -76,6 +84,7 @@ function Sante.observe(f, surface, p, tick)
   local c = { boilers = { want = 0, alive = 0, dry = 0 }, arms = { want = 0, alive = 0 }, belts = { want = 0, alive = 0 },
     engines = { want = 0, alive = 0 }, pumps = { want = 0, alive = 0 } }
   local prod_j, cap_j = 0, 0
+  local steam_amt, steam_cap = 0, 0 -- lot TV-ENERGIE (V36) : vapeur contenue et capacité des machines à vapeur vivantes
   local first_dry
   for _, e in ipairs(p.ents or {}) do
     if not (e.dropped or e.gave_up) then
@@ -97,6 +106,12 @@ function Sante.observe(f, surface, p, tick)
           elseif bucket == c.engines then
             prod_j = prod_j + (r.energy_generated_last_tick or 0)
             cap_j = cap_j + sp.power_out * 1000 / 60
+            local fb = r.fluidbox
+            if fb and #fb >= 1 then
+              local fl = fb[1]
+              steam_amt = steam_amt + ((fl and fl.name == "steam" and fl.amount) or 0)
+              steam_cap = steam_cap + (fb.get_capacity(1) or 0)
+            end
           end
         end
       end
@@ -109,6 +124,13 @@ function Sante.observe(f, surface, p, tick)
     if chest then c.chest = { n = chest.get_item_count(q.item), low = 60 } end
   end
   c.production, c.capacity = prod_j * JTICK_KW, cap_j * JTICK_KW
+  -- lot TV-ENERGIE (V36) : tampon de vapeur (0 à 1, nil sans mesure) et durée sous Cc.STEAM_LOW (relevés de suite) ; lus par quai_tasks (Sante.steam_low)
+  st.steam = steam_cap > 0 and steam_amt / steam_cap or nil
+  local was_low = st.steam_low
+  st.steam_low = Cc.steam_track(st, st.steam)
+  if st.steam_low and not was_low then
+    say(f, { kind = "tampon", plant = p.id, tick = tick, steam = st.steam })
+  end
   local res = S.classify(c)
   res.production, res.capacity = c.production, c.capacity
   res.c = c

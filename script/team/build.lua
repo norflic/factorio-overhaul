@@ -112,6 +112,7 @@ Build.SITES = {}               -- lot PETROLE : planificateurs de sites { [nom] 
 
 local REACH = P.BUILD_DISTANCE
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (réserve des modules neufs, agrandissement, tapis)
+Build.Ene = require("shared.team.energie_dabord") -- lot TV-ENERGIE (G41) : « la première expansion est l'énergie », règle pure ; champ de Build, pas une locale (bloc principal à 198 locales)
 Build.Colr = require("shared.team.collecte") -- lot COLLECTE : règle pure (états servis, voyage à vide) ; champ de Build, pas une locale (essai-0660 : bloc principal à 200 locales)
 local Collecte = require("script.team.collecte") -- lot COLLECTE : coffres de sortie du champ collectés en urgence quand le fer manque
 local Rr = require("shared.team.rebuild_rapide") -- lot REBUILD-RAPIDE : projet rouvert sans attendre toute sa matière, ordre, foreuse de secours
@@ -585,6 +586,14 @@ function Build.request(f, spec)
   local b = f.build or Build.enable(f, {})
   if not b then return nil, "equipe" end
   if type(spec) ~= "table" then return nil, "spec" end
+  -- lot TV-ENERGIE (G41) : la première expansion d'une équipe sans centrale fait demander la centrale D'ABORD (règle pure Build.Ene.decide) ;
+  -- Build.plant la place en tête de file, la demande est enregistrée derrière elle
+  local must = Build.Ene.decide(spec, { plant = b.plant, off = b.opts and b.opts.no_energie_dabord == true })
+  if must then
+    local pid = Build.plant(f, spec.pole)
+    b.energie_dabord = (b.energie_dabord or 0) + 1
+    if pid and b.energie_dabord == 1 then log(Build.Ene.line(f.key or "player", game.tick, spec, pid)) end
+  end
   local id = b.next_id
   b.next_id = id + 1
   local p = {
@@ -2877,13 +2886,14 @@ end
 
 --- Lot CORR-ENERGIE : une centrale de plus (nb chaudières), demandée comme la première ; son chantier est un projet du plan
 --- directeur (réserve de matériaux au coffre d'équipe, plan sur une autre rive libre). Suivi dans b.extra_plants.
-function Build.grow_plant(f, nb, tick)
+function Build.grow_plant(f, nb, tick, secours)
   local b = f.build
   local first = b.plant and b.projects[b.plant]
   if not (first and first.spec and first.spec.gen) then return nil end -- (la centrale de plus est du même type que la première)
   local id = Build.request(f, { gen = first.spec.gen, args = { nb }, feed = true, prio = Build.PRIO + 5, domain = "infrastructures",
     pole = first.spec.pole }) -- (intégration 0.6.28 : même poteau que la première, voir l'alimentation)
   if not id then return nil end
+  b.projects[id].secours = secours or nil -- lot TV-ENERGIE (G65) : unité de secours, projet DISTINCT (journal, bancs)
   b.extra_plants = b.extra_plants or {}
   b.extra_plants[#b.extra_plants + 1] = id
   -- lot ENERGIE-CROISSANCE : le courant qui manque arrête la production principale : la centrale de plus est un besoin de PRODUCTION
@@ -3923,13 +3933,16 @@ local function cc_say(f, p, i, n, have, rate, r)
   b.charbon = b.charbon or {}
   local st = b.charbon[p.id] or {}
   b.charbon[p.id] = st
-  local cause = r.due and "urgence" or (r.short and "sans charbon" or nil)
+  local cause = r.due and (r.by_steam and "tampon" or "urgence") or (r.short and "sans charbon" or nil)
   if not cause then st.said = nil return end
   if st.said == cause then return end
   st.said = cause
   b.charbon_logs = (b.charbon_logs or 0) + 1
   if b.charbon_logs > Cc.LOGS then return end
-  if r.due then
+  if r.by_steam then
+    log(string.format("[FO-CHARBON-CENTRALE] %s : centrale %d, coffre %d a %d charbon(s) : TAMPON DE VAPEUR BAS (sous %d %% depuis %d releves), seuil d'avance releve a %d (moitie de la cible %d) a %.1f min : tache URGENTE (prio %d), %d a porter, coffre du QG %d",
+      f.key or "player", p.id, i, n, math.floor(Cc.STEAM_LOW * 100), Cc.STEAM_CHECKS, r.low, r.target, game.tick / 3600, r.prio, r.count, have))
+  elseif r.due then
     log(string.format("[FO-CHARBON-CENTRALE] %s : centrale %d, coffre %d a %d charbon(s), sous le seuil %d (%.2f/s x %d s) a %.1f min : tache URGENTE (prio %d), %d a porter (cible %d), coffre du QG %d",
       f.key or "player", p.id, i, n, r.low, rate, Cc.LEAD_S, game.tick / 3600, r.prio, r.count, r.target, have))
   else
@@ -4010,7 +4023,7 @@ local function quai_tasks(f, p, surface, out)
       local have = Stock.count(f, q.item)
       if rate then
         local inv = chest.get_inventory(defines.inventory.chest)
-        local r = Cc.refill(n, rate, have, inv and (n + inv.get_insertable_count(q.item)) or nil)
+        local r = Cc.refill(n, rate, have, inv and (n + inv.get_insertable_count(q.item)) or nil, Sante.steam_low(f, p.id)) -- (lot TV-ENERGIE, V36 : tampon de vapeur bas)
         cc_say(f, p, i, n, have, rate, r)
         if r.due then
           local a = P.anchor_for(f.build.lat, q.x, q.y, seg_passable(f.build))
@@ -4577,9 +4590,9 @@ local function pulse_team(f, tick)
   Profiler.fstop("bp:liaison")
   Profiler.fstart("bp:centrale")
   -- 5. lot CORR-ENERGIE : centrale saturée, une centrale de plus (même mécanisme que la première)
-  local nb, stale = PlantArms.watch(f, surface, tick)
+  local nb, stale, secours = PlantArms.watch(f, surface, tick)
   for _, id in ipairs(stale or {}) do Build.cancel(f, id, PlantArms.STALE_REASON) end
-  if nb then Build.grow_plant(f, nb, tick) end
+  if nb then Build.grow_plant(f, nb, tick, secours) end
   -- 6. lot CHARBON-CENTRALE : une centrale nourrie à la main demande ses foreuses (horloge propre)
   charbon_step(f, tick)
   Profiler.fstop("bp:centrale")
@@ -5192,6 +5205,7 @@ remote.add_interface("fo-ia1d", {
   request = function(key, spec)
     local f = team_of_key(key)
     if not (f and f.build) then return nil, "plan directeur inactif" end
+    if type(spec) == "table" and spec.bench == nil then spec.bench = "remote" end -- (lot TV-ENERGIE : une demande de banc ne déclenche pas « l'énergie d'abord »)
     return Build.request(f, spec)
   end,
   status = function(key, id) return Build.status(team_of_key(key), id) end,

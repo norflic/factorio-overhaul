@@ -128,6 +128,13 @@ function J.drop(who)
   s.last[who], s.per[who], s.cost[who] = nil, nil, nil
 end
 
+--- Lot TV-ENERGIE (V89) : PROFONDEUR de la file (demandeurs en attente de leur tour). Lecture seule, déterministe : la file est dans `global`
+--- (même valeur sur tous les clients et après un chargement). Signal de charge de shared/faction/degrade.lua. 0 sans espace de noms.
+function J.depth()
+  local s = S()
+  return s and #s.q or 0
+end
+
 --- Unités encore libres à ce tick (lecture seule ; bancs et journaux).
 function J.left(tick)
   new_tick(tick)
