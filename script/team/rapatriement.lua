@@ -46,6 +46,7 @@ local ASTAR_MAX = 60000 -- noeuds développés au plus par tracé (P.ASTAR_MAX :
 local ASTAR_WEIGHT = 1.4 -- A* pondéré : au plus 1,4 fois le meilleur chemin, bien moins de noeuds sur 150 tuiles
 local MARGIN = 16 -- tuiles lues autour de la boîte des deux coffres
 local BOX_MAX = 420 -- tuiles : plus grande dimension de la boîte lue
+local WIDE = 64 -- tuiles : marge du second passage quand le premier ne trouve « aucun chemin » (journal du DC 8/11 : 30 refus sur 36 demandes, tous « aucun chemin »)
 Rap.route = nil -- crochet du lot traversee : function(s, t, t_dir, bounds, cost, ctx) -> tiles (comme P.belt_route) ; nil : P.belt_route
 
 local function sorted_keys(t)
@@ -574,6 +575,18 @@ function Rap.plan(api, f, surface, p)
   local chosen
   local runs = 0
   local router = Rap.route or function(s, t, t_dir, bnds, cost) return P.belt_route(s, t, t_dir, bnds, cost, { weight = ASTAR_WEIGHT, max = ASTAR_MAX }) end
+  for pass = 1, 2 do
+   if chosen then break end
+   if pass == 2 then
+     -- second passage : boîte élargie (un mur, une rive ou la base elle-même obligent à contourner au-delà de la marge d'origine)
+     x0, y0 = math.min(src.x, px) - WIDE - Rp.SPOT_RADIUS, math.min(src.y, py) - WIDE - Rp.SPOT_RADIUS
+     x1, y1 = math.max(src.x, px) + WIDE + Rp.SPOT_RADIUS, math.max(src.y, py) + WIDE + Rp.SPOT_RADIUS
+     if x1 - x0 > BOX_MAX then x0, x1 = math.max(x0, (src.x + px) / 2 - BOX_MAX / 2), math.min(x1, (src.x + px) / 2 + BOX_MAX / 2) end
+     if y1 - y0 > BOX_MAX then y0, y1 = math.max(y0, (src.y + py) / 2 - BOX_MAX / 2), math.min(y1, (src.y + py) / 2 + BOX_MAX / 2) end
+     bounds = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }
+     runs = 0
+     last_why = last_why .. " (boite elargie a " .. WIDE .. " tuiles aussi)"
+   end
   for _, sp in ipairs(spots) do
     D = { x = sp.x, y = sp.y }
     local ends = Li.pick_ends(S, D, free, Rp.ROUTE_TRIES)
@@ -599,6 +612,7 @@ function Rap.plan(api, f, surface, p)
       end
     end
     if chosen or runs >= Rp.ROUTE_TRIES then break end
+  end
   end
   if not chosen then return false, "rapatriement: " .. last_why end
   local e, tiles = chosen.e, chosen.tiles
