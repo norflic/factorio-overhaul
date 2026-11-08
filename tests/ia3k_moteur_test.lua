@@ -1093,6 +1093,12 @@ local function camper_run(ticks)
   local ok0 = 0
   for _, s0 in pairs(fc.team.task_stats or {}) do ok0 = ok0 + (s0.ok or 0) end
   local out = { maxwait = 0, empty_wait = 0, injected = 0, arrived = 0, arr = {} }
+  local function tenue_lines()
+    local n, last = 0, nil
+    for _, l in ipairs(W().logs or {}) do if l:find("[FO-TENUE]", 1, true) then n, last = n + 1, l end end
+    return n, last
+  end
+  local nl0 = tenue_lines()
   local goal = { x = hq.x - 60, y = hq.y }
   local inj = {}
   local t = 0
@@ -1130,6 +1136,8 @@ local function camper_run(ticks)
   for _, s1 in pairs(fc.team.task_stats or {}) do ok1 = ok1 + (s1.ok or 0) end
   out.done = ok1 - ok0
   out.live = Cm.away_state(fc, game.tick) ~= nil
+  local nl1, lastl = tenue_lines()
+  out.lines, out.last_line = nl1 - nl0, lastl
   out.tenue = fc.team.tenue or {}
   tm.away = nil
   return out
@@ -1149,6 +1157,10 @@ do
     r.injected, r.arrived, r.done))
   check(r.maxwait <= bound, string.format("C2 : aucun PNJ n'attend plus que la borne (le plus long : %d ticks, borne %d)", r.maxwait, bound))
   check(r.empty_wait == 0, string.format("C3 : aucun PNJ à sac vide en attente (%d relevés)", r.empty_wait))
+  -- Demande du lead (8/11) : le DC lit en jeu pourquoi un PNJ ne rentre pas : une ligne [FO-TENUE] par équipe quand un compteur change, au
+  -- plus une par minute de jeu.
+  check(r.lines >= 1 and r.lines <= CAMP_TICKS / 3600 + 1 and (r.last_line or ""):find("sac(s) garde(s)", 1, true) ~= nil, string.format(
+    "[FO-TENUE] au journal : %d ligne(s) en 10 min (au plus %d), dernière : %s", r.lines, CAMP_TICKS / 3600 + 1, tostring(r.last_line)))
   print(string.format("  (tenue, journal : %d « home » sautés, %d sacs gardés après la borne, %d tâches abandonnées « away »)",
     r.tenue.skip or 0, r.tenue.kept or 0, r.tenue.abort or 0))
 end

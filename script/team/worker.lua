@@ -1440,6 +1440,20 @@ local function safe_stock_chest(f, agent, w)
   return i and chests[i] or nil
 end
 
+--- Lot CORR-RALLIEMENT (tenue, demande du lead, 8/11) : ligne [FO-TENUE] pour que le DC lise en jeu pourquoi un PNJ ne rentre pas. Une ligne
+--- par équipe quand un compteur de f.team.tenue a changé, au plus une par minute de jeu (les changements de la minute sont repris par la
+--- ligne suivante : « depuis la ligne précédente »). `w` = l'état « away » (menace, atteinte).
+local function tenue_log(f, st, w, tick)
+  if st.last_log and tick - st.last_log < 3600 then return end
+  local ds, dk, da, dd = st.skip - (st.l_skip or 0), st.kept - (st.l_kept or 0), st.abort - (st.l_abort or 0), st.safe - (st.l_safe or 0)
+  if ds + dk + da + dd == 0 then return end
+  st.last_log, st.l_skip, st.l_kept, st.l_abort, st.l_safe = tick, st.skip, st.kept, st.abort, st.safe
+  log(string.format("[FO-TENUE] %s minute %.1f : QG deborde (menace en (%.0f, %.0f), atteinte %.0f tuiles) : les PNJ ne rentrent pas au QG ; "
+    .. "%d depot(s) dans un coffre hors de portee, %d etape(s) « rentrer » sautee(s) (sac vide), %d sac(s) garde(s) apres %d ticks "
+    .. "d'attente (aucun coffre hors de portee), %d tache(s) abandonnee(s) (elles exigent le QG) ; depuis la ligne precedente : +%d, +%d, +%d, +%d",
+    tostring(f.key), tick / 3600, w.x or 0, w.y or 0, w.reach or 0, st.safe, st.skip, st.kept, Worker.AWAY_WAIT_TICKS, st.abort, dd, ds, dk, da))
+end
+
 local function run_steps(agent, tick)
   local f = faction_of(agent)
   if not f or not (f.hq and f.hq.valid) then return end
@@ -1465,11 +1479,13 @@ local function run_steps(agent, tick)
       local carry = has_deposit(agent)
       local chest = carry and safe_stock_chest(f, agent, away) or nil
       local st = f.team and f.team.tenue
-      if f.team and not st then st = { skip = 0, kept = 0, abort = 0 } f.team.tenue = st end
+      if f.team and not st then st = { skip = 0, kept = 0, abort = 0, safe = 0 } f.team.tenue = st end
+      if st and not st.safe then st.safe = 0 end -- (sauvegarde d'avant la ligne [FO-TENUE])
       if chest then
         agent.away_wait = nil
         if not goto_step(agent, chest.position, 2, tick) then return end
         deposit_all(agent, f, chest)
+        if st then st.safe = st.safe + 1 end
       elseif carry then
         agent.away_wait = agent.away_wait or tick
         if tick - agent.away_wait < Worker.AWAY_WAIT_TICKS then return end
@@ -1482,10 +1498,11 @@ local function run_steps(agent, tick)
       agent.pc = agent.pc + 1
       local nxt = agent.steps[agent.pc]
       if nxt and nxt[1] == "take" then
-        if st then st.abort = st.abort + 1 end
+        if st then st.abort = st.abort + 1 tenue_log(f, st, away, tick) end
         abort(agent, f, tick, "away")
         return
       end
+      if st then tenue_log(f, st, away, tick) end
     elseif kind == "home" then
       agent.away_wait = nil
       if not goto_step(agent, home_slot(agent, f), 1, tick) then return end
