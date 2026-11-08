@@ -243,7 +243,9 @@ do
   check(tm:find('local MenaceEq = require("script.team.menace_equipe")', 1, true) ~= nil, "§3 require en tete de team.lua (F24)")
   local cap = read("script/ai3/capitalisation.lua"):gsub("%-%-[^\n]*", "")
   local p1 = cap:find("if threat and R.PILE_BUDGET and Pi.threat_open(st.pile) then threat = false end", 1, true)
-  local p2 = cap:find("if not threat and view.threat_held then threat =", 1, true)
+  -- 0.6.66 (lot BLOCAGE-SORTIE-2, 1fd11a07) : le bloc tenait sur UNE ligne ; il en compte quatre depuis que la raison de fermeture
+  -- (threat_why, journal du puits ferme) y est posee. Meme regle (la menace tenue ferme, APRES Pi.threat_open) : le motif suit la forme multiligne.
+  local p2 = cap:find("if not threat and view%.threat_held then%s+threat = %(Sv%.capi%(")
   check(p1 and p2 and p2 > p1, "§3 capitalisation : la menace tenue ferme les gisements, APRES Pi.threat_open")
 end
 local ALLOWED = { ["script/team/team.lua"] = true, ["script/ai3/capitalisation.lua"] = true, ["script/team/menace_equipe.lua"] = true,
@@ -322,11 +324,12 @@ do -- mutant « un autre lecteur lit threat_held » : une ligne de plus dans la 
 end
 do -- mutant « la capitalisation ne lit pas la menace tenue » : la ligne de build_input retirée, la partie réelle du §2 bis rejouée
   local CS = read("script/ai3/capitalisation.lua")
-  local i = CS:find("  if not threat and view.threat_held then threat =", 1, true)
+  -- 0.6.66 (lot BLOCAGE-SORTIE-2) : le bloc fait quatre lignes (if ... threat = ... threat_why ... end) ; le mutant retire le bloc ENTIER.
+  local i = CS:find("  if not threat and view.threat_held then\n    threat = (Sv.capi(", 1, true)
   local killed, r = false, nil
   if i then
-    local j = CS:find("\n", i, true)
-    r = partie(CS:sub(1, i - 1) .. CS:sub(j + 1))
+    local _, k = CS:find("\n  end\n", i, true)
+    r = partie(CS:sub(1, i - 1) .. CS:sub(k + 1))
     killed = r.ok and r.held1 < 2
   end
   if killed then refused = refused + 1 end
