@@ -30,6 +30,13 @@ Q.FULL_PM = 900     -- ‰ : sorties à 90 % ou plus de leur capacité sous la b
 Q.COLLECT_PM = 500  -- ‰ : le seuil de collecte d'une sortie ne dépasse pas la moitié de sa capacité sous la barre
 Q.LOW_PM = 500      -- ‰ : une entrée se remplit quand elle passe sous la moitié de sa demande
 
+-- Lot TV-QUOTAS (C11) : les quotas suivent les MODULES réellement posés dans les machines du module (recalcul, voir Q.ratios).
+Q.MODULES_RATIO = true  -- allumé par défaut ; faux : l'ancienne règle (quota calculé pour la vitesse prévue du gabarit, sans module)
+Q.RATIO_STEP_PM = 50    -- ‰ : le rapport mesuré est arrondi à 5 % (un module de plus ou de moins sur une machine ne fait pas rebondir le quota)
+Q.RATIO_MIN_PM = 200    -- ‰ : bornes du rapport (modules à malus de vitesse ; modules de vitesse empilés)
+Q.RATIO_MAX_PM = 8000
+Q.MEASURE_TICKS = 600   -- ticks entre deux mesures des machines d'un projet (lue par la colle)
+
 local floor, ceil, max, min = math.floor, math.ceil, math.max, math.min
 local EPS = 1e-9
 
@@ -195,6 +202,40 @@ function Q.quotas(nominal, inputs, outs, ins, opts)
     end
   end
   return res
+end
+
+--- Lot TV-QUOTAS (C11, « sans modules, recalculer les quotas ») : le gabarit chiffre ses débits SANS module (vitesse du niveau de la machine,
+--- productivité nulle). Les machines d'un module de l'usine peuvent recevoir des modules de vitesse ou de productivité (tâche « equiper », robots,
+--- joueur) : la sortie réelle monte, l'entrée aussi ; retirés, elle redescend. `machines` = liste de { speed_pm, prod_pm } : bonus de vitesse et de
+--- productivité de chaque machine posée, en ‰ ENTIERS (`speed_bonus` et `productivity_bonus` du moteur, balise cachée du barème D-17 comprise).
+--- Rend (out_pm, in_pm, n) : rapport ‰ de la SORTIE (vitesse × (1 + productivité)) et de l'ENTRÉE (vitesse seule : la productivité ne consomme pas
+--- plus), moyenne des machines à poids égal (approximation écrite : un module d'une chaîne n'est pas pondéré par son débit), arrondis au pas
+--- Q.RATIO_STEP_PM et bornés. Sans machine : (1000, 1000, 0), l'ancienne règle.
+function Q.ratios(machines)
+  local n, so, si = 0, 0, 0
+  for _, m in ipairs(machines or {}) do
+    local sp, pr = m.speed_pm, m.prod_pm
+    if type(sp) == "number" and type(pr) == "number" and sp == sp and pr == pr then
+      sp, pr = max(-900, floor(sp)), max(-900, floor(pr))
+      n, si, so = n + 1, si + (1000 + sp), so + (1000 + sp) * (1000 + pr) / 1000
+    end
+  end
+  if n == 0 then return 1000, 1000, 0 end
+  local function snap(v)
+    local r = floor(v / n / Q.RATIO_STEP_PM + 0.5 + EPS) * Q.RATIO_STEP_PM
+    return max(Q.RATIO_MIN_PM, min(Q.RATIO_MAX_PM, r))
+  end
+  return snap(so), snap(si), n
+end
+
+--- Débits d'un gabarit mis au rapport `pm` (‰) : table neuve, mêmes clés. pm == 1000 : copie à l'identique.
+function Q.scaled(rates, pm)
+  local out = {}
+  for _, k in ipairs(sorted_keys(rates)) do
+    local v = rates[k]
+    out[k] = (type(v) == "number") and (v * pm / 1000) or v
+  end
+  return out
 end
 
 --- Raccourci : les quotas d'un gabarit M (nominal, inputs, coffres de sortie de ses ports ; `outs` remplace ces derniers quand le

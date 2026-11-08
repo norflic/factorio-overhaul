@@ -3968,6 +3968,7 @@ local function out_tasks(f, p, surface, out)
       if not slots then in_slots = #inv; slots = math.min(in_slots, inv.get_bar() - 1) end -- F95 : sans barre, get_bar() = cases + 1
     end
   end
+  Build.Quotas.measure(f, p, surface) -- lot TV-QUOTAS (C11) : modules réellement posés (ou retirés) -> rapports p.qm_out, p.qm_in, lus par Quotas.of
   local q = Build.Quotas.of(p, slots, in_slots, Build.COLLECT_AT)
   for i, o in ipairs(p.outs) do
     local chest = chests[i]
