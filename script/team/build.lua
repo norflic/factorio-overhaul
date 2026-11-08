@@ -147,6 +147,7 @@ Build.LotsMinerai = require("script.team.lots_minerai_glue")
 Build.Repli = require("script.team.repli_place")
 -- Lot TV-ARCHI (V23) : quartiers et enveloppe d'avance (script/team/quartiers.lua) ; champ de Build, même raison (199 locales sur 200).
 Build.Quartiers = require("script.team.quartiers")
+Build.TrancheForeuses = require("script.team.foreuses_tranches") -- lot TRANCHES-FOREUSES : tracé pondéré du tapis des foreuses par tranches (champ de Build, même raison : 199 locales)
 Build.Trav = require("script.team.traversee") -- lot TRAVERSEE : tapis qui enjambent les obstacles par des souterrains, gisements évités (champ de Build : bloc principal à 199 locales)
 -- Lot RAPATRIEMENT (8/11) : lignes sortie lointaine -> tapis -> tampon (script/team/rapatriement.lua) ; champ de Build, même raison (199 locales sur 200).
 Build.Rapatriement = require("script.team.rapatriement")
@@ -1588,7 +1589,8 @@ local function plan_feed(f, surface, p, place, part)
       for _, a in ipairs(fd.arrivals) do
         local d = drills[a.lane]
         if d then
-          local ok, why = Build.plan_drills(f, surface, p, d.item, d.flow, a, head_belt)
+          local ok, why, wait = Build.plan_drills(f, surface, p, d.item, d.flow, a, head_belt)
+          if wait then return false, why, wait end -- lot TRANCHES-FOREUSES : le tracé du tapis continue à la pensée suivante (ni refus ni repli sur un quai)
           if not ok and p.spec.feed == "tapis" then
             bump(b.stats.plan_refused, "tapis:" .. tostring(why))
             return false, "gisement : tapis des foreuses (" .. tostring(why) .. ")"
@@ -2087,8 +2089,9 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
     drills = 2 * ((place.g.params or {}).n or 0),
     drill_rate = (M.spec((place.g.params or {}).drill or "") or {}).speed or 0,
     pairs = (place.g.params or {}).n, cover = place.cover, ore = item, drill = (place.g.params or {}).drill }
-  b.stats.rangees = (b.stats.rangees or 0) + 1
-  if b.stats.rangees <= Build.LINE_LOGS then
+  local resumed = p.rs_drills ~= nil or p.rs_done ~= nil -- lot TRANCHES-FOREUSES : reprise du tracé pondéré (le journal et les compteurs de cette ligne ne se répètent pas)
+  if not resumed then b.stats.rangees = (b.stats.rangees or 0) + 1 end
+  if not resumed and b.stats.rangees <= Build.LINE_LOGS then
     log(string.format("[FO-RANGEES] %s : projet %d, foreuses %s : %d paire(s) (%d foreuses) visees %d, couverture %d%% (visee %d%%), %.2f minerai/s demandes",
       f.key or "player", p.id, item, (place.g.params or {}).n or 0, 2 * ((place.g.params or {}).n or 0), n,
       math.floor((place.cover or 0) * 100 + 0.5), picked and picked.cover and math.floor(picked.cover * 100 + 0.5) or math.floor(P.DRILL_COVER * 100 + 0.5), flow))
@@ -2097,8 +2100,8 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
   do
     local la
     for _, port in ipairs(P.belt_ports(place.inst)) do if port.io == "out" then la = Or.line_axis(port.dir) end end
-    b.stats.orient = (b.stats.orient or 0) + 1
-    if b.stats.orient <= Build.LINE_LOGS then
+    if not resumed then b.stats.orient = (b.stats.orient or 0) + 1 end
+    if not resumed and b.stats.orient <= Build.LINE_LOGS then
       log(string.format("[FO-ORIENT] %s : projet %d, foreuses %s : gisement %s dans le lot %s, collecteur %s%s, sortie a %d tuile(s) de l'arrivee",
         f.key or "player", p.id, item, place.axis == "y" and "vertical" or (place.axis == "x" and "horizontal" or "sans sens (rond ou petit)"),
         place.lot or "repli", la == "y" and "vertical" or "horizontal", (place.pen or 0) > 0 and " (en travers : meilleure couverture ou place)" or "",
@@ -2126,9 +2129,13 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
     if mode ~= "relais" then return false, "trop loin" end
     relay_legs = legs
   end
-  local masks
-  if relay_legs then masks = { water = {}, blocked = {}, clear = {} } -- remplis tronçon par tronçon (relevé de chaque boîte)
-  else masks = read_masks(f, surface, bx0, by0, bx1 + 1, by1 + 1) end
+  -- lot TRANCHES-FOREUSES : les trois essais du tapis (exact, exact avec marge, pondéré) se calculent par TRANCHES de Tdr.SLICE états, une par pensée
+  -- du plan (script/team/foreuses_tranches.lua) ; un tapis par relais (centrale lointaine) garde son calcul d'avant. Les masques sont posés par l'essai.
+  local Tdr = Build.TrancheForeuses
+  local tsig = Tdr.sig(s, a, belt, tail.dir, place)
+  local rsd = (not relay_legs) and Tdr.resume(p, tsig, game.tick) or nil
+  if not relay_legs and Tdr.unstable(p) then p.rs_drills, p.parts[part] = nil, nil; return false, "tapis : trace instable" end
+  local masks = { water = {}, blocked = {}, clear = {} } -- remplis tronçon par tronçon (relevé de chaque boîte) ou par l'essai en cours (Tdr.trace)
   -- anneau d'une tuile autour des modules (aucun tapis ne longe un module : bras, têtes, queues)
   local ring = {}
   local function ring_of(ox, oy, w, h)
@@ -2180,37 +2187,26 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
       n2 = "relais : " .. tostring(why_leg)
     end
   else
-    tiles, n2, tnames = Build.Trav.route(f, surface, p, s, { x = a.x, y = a.y }, a.dir, { x0 = bx0, y0 = by0, x1 = bx1, y1 = by1 }, cost, topts)
-  end
-  if not tiles and not relay_legs then
-    -- second essai, marge d'un pas de treillis (contourner une falaise par la brèche voisine ; correction du 27/10)
-    local cx0, cy0 = math.min(s.x, a.x) - P.PITCH, math.min(s.y, a.y) - P.PITCH
-    local cx1, cy1 = math.max(s.x, a.x) + P.PITCH, math.max(s.y, a.y) + P.PITCH
-    if cx1 - cx0 <= 120 and cy1 - cy0 <= 120 then
-      local m2 = read_masks(f, surface, cx0, cy0, cx1 + 1, cy1 + 1)
-      masks.water, masks.blocked, masks.clear = m2.water, m2.blocked, m2.clear
-      tiles, n2, tnames = Build.Trav.route(f, surface, p, s, { x = a.x, y = a.y }, a.dir, { x0 = cx0, y0 = cy0, x1 = cx1, y1 = cy1 }, cost, topts)
+    -- (essai 1 : exact dans la boîte des extrémités + 12 ; essai 2 : marge d'un pas de treillis, contourner une falaise par la brèche voisine, correction du
+    -- 27/10 ; essai 3, lot AUTO (« tapis des foreuses (trop long) » chez scarlet, e15-usine graine 271828182) : l'A* exact s'arrêtait à P.ASTAR_MAX nœuds
+    -- dans une boîte qui en compte jusqu'à 14 400 ; nouvel essai PONDÉRÉ (heuristique × Build.ROUTE_WEIGHT) sur toute la boîte : un tapis un peu plus long,
+    -- ou « aucun chemin ». 0.6.72 : budget PROPRE à l'essai 3 (la boîte entière), hors du budget partagé Tv.PLAN_BUDGET (4000) qui le refusait toujours en
+    -- « trop long » depuis 0.6.68 : 0 champ électrique en partie neuve)
+    local first
+    tiles, n2, tnames, first = Tdr.trace({ p = p, sig = tsig, tick = game.tick, rsd = rsd, s = s, a = a, pitch = P.PITCH,
+      box1 = { x0 = bx0, y0 = by0, x1 = bx1, y1 = by1 }, topts = topts, weight = Build.ROUTE_WEIGHT,
+      max_of = function(bx) return (bx.x1 - bx.x0 + 1) * (bx.y1 - bx.y0 + 1) end,
+      read = function(x0, y0, x1, y1) return read_masks(f, surface, x0, y0, x1, y1) end,
+      set_masks = function(m) masks.water, masks.blocked, masks.clear = m.water, m.blocked, m.clear end,
+      route = function(bx, o) return Build.Trav.route(f, surface, p, s, { x = a.x, y = a.y }, a.dir, bx, cost, o) end })
+    if tiles == "pending" then
+      p.parts[part] = nil -- rien n'est réservé par ce plan-ci ; l'appelant rend ce qu'il a réservé (attente « foreuses ») et rappelle à la pensée suivante
+      return false, "foreuses : trace du tapis en cours (essai " .. tostring(p.rs_drills and p.rs_drills.stage or "?") .. ")", "foreuses"
     end
-  end
-  if not tiles and n2 == "trop long" then
-    -- Lot AUTO (« tapis des foreuses (trop long) » chez scarlet, e15-usine graine 271828182) : l'A* exact s'arrêtait à
-    -- P.ASTAR_MAX nœuds dans une boîte qui en compte jusqu'à 14 400 (forêt : chaque tuile coûte 2, rues : 3). Nouvel essai
-    -- PONDÉRÉ (heuristique × Build.ROUTE_WEIGHT) sur toute la boîte : un tapis un peu plus long, ou « aucun chemin ».
-    -- la plus grande des deux boîtes des essais exacts qui tient dans 120 tuiles (marge d'un pas de treillis, sinon 12)
-    local mg = P.PITCH
-    if math.max(math.abs(s.x - a.x), math.abs(s.y - a.y)) + 2 * mg > 120 then mg = 12 end
-    local cx0, cy0 = math.min(s.x, a.x) - mg, math.min(s.y, a.y) - mg
-    local cx1, cy1 = math.max(s.x, a.x) + mg, math.max(s.y, a.y) + mg
-    local m2 = read_masks(f, surface, cx0, cy0, cx1 + 1, cy1 + 1)
-    masks.water, masks.blocked, masks.clear = m2.water, m2.blocked, m2.clear
-    local first = n2
-    tiles, n2, tnames = Build.Trav.route(f, surface, p, s, { x = a.x, y = a.y }, a.dir, { x0 = cx0, y0 = cy0, x1 = cx1, y1 = cy1 }, cost,
-      { belt = belt, sd = tail.dir, kind = "foreuses", weight = Build.ROUTE_WEIGHT, max = (cx1 - cx0 + 1) * (cy1 - cy0 + 1),
-        -- 0.6.72 : budget PROPRE a cet essai (la boite entiere), hors du budget partage Tv.PLAN_BUDGET (4000) qui le refusait toujours en
-        -- « trop long » depuis 0.6.68 : 0 champ electrique en partie neuve (projets 3 a 6 refuses, etape1-guide 0.6.71)
-        budget = { left = (cx1 - cx0 + 1) * (cy1 - cy0 + 1) } })
-    bump(b.stats.plan_refused, "tapis-pondere:" .. (tiles and "ok" or tostring(n2)))
-    if not tiles then n2 = first .. ", pondere : " .. tostring(n2) end
+    if first then
+      bump(b.stats.plan_refused, "tapis-pondere:" .. (tiles and "ok" or tostring(n2)))
+      if not tiles then n2 = first .. ", pondere : " .. tostring(n2) end
+    end
   end
   if not tiles then
     p.parts[part] = nil
@@ -2564,7 +2560,8 @@ local function plan_alim(f, surface, p)
   for _, a in ipairs(Cc.arrivals(math.floor(head.x), math.floor(head.y), P.DV[d], { lx, ly }, d, P.dir_of)) do
     if a.dir and not b.occ[P.tkey(a.x, a.y)] then
       p.parts, p.ents = {}, {}
-      local ok, why = Build.plan_drills(f, surface, p, fuel, rate, a, nil)
+      local ok, why, wait = Build.plan_drills(f, surface, p, fuel, rate, a, nil)
+      if wait then p.parts, p.ents = {}, {}; return false, why, wait end -- lot TRANCHES-FOREUSES : le tracé du tapis continue à la pensée suivante
       if ok then
         p.parts[1].alim = plant.id
         local x0, y0, x1, y1 = math.huge, math.huge, -math.huge, -math.huge
@@ -2918,9 +2915,9 @@ local function plan_project(f, surface, p)
   end
   if spec.feed or is_plant then
     Profiler.start("build:plan:feed")
-    local ok, w2 = plan_feed(f, surface, p, main, 1)
+    local ok, w2, w3 = plan_feed(f, surface, p, main, 1)
     Profiler.stop("build:plan:feed")
-    if not ok then return false, w2 end
+    if not ok then return false, w2, w3 end
     -- Lot AUTO : diagnostic seulement (aucun refus) : deux entités du projet sur une même tuile ne se bâtiront jamais
     -- toutes les deux (la seconde : fantôme refusé « occupe »).
     local ov = P.overlaps(p.ents)
@@ -2999,8 +2996,13 @@ function Build.grow_plant(f, nb, tick, secours)
   local b = f.build
   local first = b.plant and b.projects[b.plant]
   if not (first and first.spec and first.spec.gen) then return nil end -- (la centrale de plus est du même type que la première)
+  -- lot CENTRALE-PRES : taille et poteau OBTENABLES (le gabarit de 4 chaudières ne tient pas avec le petit poteau et cédait au moyen,
+  -- recette fermée : 34 poteaux réservés 30 min, projet 2 de la partie neuve 0.6.70) ; aucun poteau obtenable : refus tout de suite
+  local pole
+  nb, pole = PlantArms.size(f, first.spec.gen, nb, first.spec.pole, tick, secours)
+  if not nb then return nil end
   local id = Build.request(f, { gen = first.spec.gen, args = { nb }, feed = true, prio = Build.PRIO + 5, domain = "infrastructures",
-    pole = first.spec.pole, plant = true }) -- (intégration 0.6.28 : même poteau que la première, voir l'alimentation)
+    pole = pole, plant = true }) -- (intégration 0.6.28 : même poteau que la première, voir l'alimentation)
   if not id then return nil end
   b.projects[id].secours = secours or nil -- lot TV-ENERGIE (G65) : unité de secours, projet DISTINCT (journal, bancs)
   b.extra_plants = b.extra_plants or {}
@@ -4321,6 +4323,7 @@ local function advance(f, surface, p, tick)
     THAW = p.spec.degel and p.spec.degel.tiles or nil
     if THAW then SCAN.tick = nil end
     local ok, why, wait = plan_project(f, surface, p)
+    if wait ~= "foreuses" then Build.TrancheForeuses.clear(p) end -- lot TRANCHES-FOREUSES : fin du plan (accepté, refusé ou autre attente)
     if THAW then THAW = nil; SCAN.tick = nil end
     Profiler.stop("build:plan")
     -- lot IA3-e : minuteurs des parties arrêtés aussi après un retour anticipé du plan (refus, attente)
@@ -4374,6 +4377,15 @@ local function advance(f, surface, p, tick)
       p.plan_after = tick + (p.far_poll or Cl.RETRY)
       p.far_poll = nil
       p.state, p.reason = "attente", why
+    elseif wait == "foreuses" then
+      -- lot TRANCHES-FOREUSES : le tracé pondéré du tapis des foreuses se calcule par tranches (p.rs_drills) ; tout ce qui a été réservé est rendu,
+      -- le projet reste en « plan » et le replan, à la pensée suivante, reprend la recherche là où elle s'était arrêtée
+      for k, v in pairs(b.occ) do if v == p.id then b.occ[k] = nil end end
+      for _, l in pairs(b.lots) do if l.used == p.id then l.used = nil end end
+      for _, n in ipairs(sorted_keys(b.net)) do if b.net[n].pid == p.id then b.net[n] = nil end end
+      p.ents, p.parts = {}, {}
+      p.quais, p.outs = {}, {}
+      p.reason = why
     elseif wait == "calcul" then
       -- lot PETROLE 2 : le plan d'un site se calcule par tranches (Fl.layout_step) ; le projet reste en « plan » et reprend à la
       -- prochaine passe (rien n'a été réservé)
@@ -4422,6 +4434,18 @@ local function advance(f, surface, p, tick)
       -- 27 tapis à refaire) ; le reste est pris au coffre par le PNJ à sa prise (Build.take_reserved) et suivi par refresh_missing.
       p.state, p.reason, p.reserve_next = (#p.obstacles > 0 and not p.spec.lazy_clear) and "defrichage" or "fantomes", nil, nil
     else
+      -- lot CENTRALE-PRES : une réserve de centrale qu'aucun coffre ni aucune fabrication ne peut couvrir (recette fermée, rien au
+      -- coffre) ne se lèvera jamais : refus tout de suite avec sa cause, la pause de la croissance prend le relais (plant_arms), au
+      -- lieu des 30 min de C.STALE pendant lesquelles aucune autre centrale n'est demandée
+      local dead = (p.spec.plant and f.build.plant ~= p.id and not p.reopened) and PlantArms.dead(f, p.missing) or {} -- (la première centrale attend sa recherche)
+      if #dead > 0 then
+        local cause = "insoluble:" .. table.concat(dead, ",")
+        if Build.cancel(f, p.id, cause) then
+          log(string.format("[FO-ENERGIE] %s : projet %d (centrale) refuse a %.1f min : %s (ni au coffre, ni recette ouverte) ; %d objet(s) manquent en tout",
+            f.key or "player", p.id, tick / 3600, table.concat(dead, ", "), #p.missing))
+          return
+        end
+      end
       p.reason, p.reserve_next = "materiaux", tick + 60
     end
     return

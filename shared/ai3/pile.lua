@@ -19,6 +19,12 @@
     R3 AMÉLIORER  capital, capitalisation (sauf ses investissements de production), changement de foreuses, migration
                   du champ, recherche chère.
 
+  Décision du DC du 8/11 (QCM vers 17 h 45, « Oui, toujours »), qui PRÉCISE celles du 29/10 ci-dessus : la COUVERTURE des gisements
+  (ordres « couvrir » et « ouvrir » de la capitalisation, famille « couverture ») passe TOUJOURS la pile retenue, même quand la défense
+  attend (les tourelles peuvent attendre 2 à 3 minutes de fer de plus). Mesuré (partie neuve 0.6.72, INTEG-0672) : pile au sommet
+  « adapter » depuis 2 min, fer en famine, cuivre hors des cadres et « sans manque » : « couvrir copper-ore » refusé minute après minute.
+  Les autres améliorations (capital, recherche, tapis, foreuses, migration) gardent la retenue d'avant.
+
   Règles :
     - un cadre EXISTE tant que son signal existe (pièce encore au registre, poste sous son minimum, manque présent) : il
       s'ouvre sur l'événement qui crée le signal et se FERME quand il est satisfait (pièce refaite, poste pourvu, manque
@@ -51,6 +57,7 @@ Pi.FAMILY_RANK = {
   survivre = 0, reparer = 1, proteger = 1, defense = 1, preparer = 1,
   produire = 2, extraction = 2, armee = 2, invest = 2,
   ameliorer = 3, capital = 3, capi = 3, upgrade = 3, recherche = 3, foreuses = 3, migration = 3,
+  couverture = 3, -- décision du DC du 8/11 : couvrir et ouvrir un gisement (voir Pi.ALWAYS_FAMILIES)
 }
 -- Manques du planificateur permanent repris par la pile (et donnés au cerveau par besoins avec leur priorité) : ceux
 -- des demandes de rang R0 et R1 (défense 90, survie 90 à 96, reconstruction d'un avant-poste 60). Plus bas : charbon (52),
@@ -329,6 +336,8 @@ end
 -- g.invest des buts de la capitalisation, shared/ai3/cerveau.lua). Le capital pur (niveau d'un bâtiment), la recherche, le
 -- changement de foreuses, la migration et l'amélioration des tapis n'en sont pas.
 Pi.INVEST_FAMILIES = { capital = true, capi = true, invest = true, produire = true, extraction = true }
+-- Décision du DC du 8/11 (« Oui, toujours ») : la couverture des gisements passe la pile retenue, matière en manque ou non.
+Pi.ALWAYS_FAMILIES = { couverture = true }
 
 --- Un travail de la famille `family` (objet produit `item`, facultatif ; `short` : cette matière manque) peut-il AVANCER (ouvrir
 --- un ordre, réserver au coffre, faire fabriquer ses objets) ? Rend (permis, raison du refus).
@@ -339,6 +348,7 @@ function Pi.porte(st, family, item, short)
   if not st or not st.hold then return true, nil end
   local rank = Pi.FAMILY_RANK[family] or Pi.AMELIORER
   if rank <= Pi.ADAPTER then return true, nil end
+  if Pi.ALWAYS_FAMILIES[family] then return true, nil end
   if Pi.allows(st, family, item) then return true, nil end
   if short and Pi.INVEST_FAMILIES[family] then return true, nil end
   return false, string.format("pile au sommet %s : %s (rang %s) suspendu%s", Pi.RANK_NAME[st.top or Pi.AMELIORER] or "?",
@@ -358,8 +368,11 @@ end
 --- Fuite (a) : famille d'un ORDRE de la capitalisation (shared/ai3/capitalisation.lua) : laboratoires, packs et recherches à effet
 --- sont de la recherche ; le reste (couvrir, ouvrir, chaîne, équiper) de la capitalisation.
 Pi.ORDER_RESEARCH = { labos = true, packs = true, techno = true }
+-- Sortes d'ordres qui étendent l'extraction d'un gisement (famille « couverture », décision du DC du 8/11).
+Pi.COVER_KINDS = { couvrir = true, ouvrir = true }
 function Pi.order_family(kind)
-  return Pi.ORDER_RESEARCH[kind] and "recherche" or "capi"
+  if Pi.ORDER_RESEARCH[kind] then return "recherche" end
+  return Pi.COVER_KINDS[kind] and "couverture" or "capi"
 end
 
 --- Relecture FUITES-PILE : un but d'AMÉLIORATION dont le produit ne sert aucun cadre ouvert (`focus`) : module neuf, de migration ou
