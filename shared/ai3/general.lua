@@ -239,8 +239,19 @@ end
 ---     technologies au plus) vers un tel pack, ou c'est la PREMIÈRE à consommer un pack qu'aucune technologie faite n'a
 ---     consommé (la faction le fabrique enfin : e11-usine graine 20261020, scarlet, palier 3 jamais sans cette règle).
 --- Si la meilleure candidate est « auto » sans être « palier » et qu'une candidate « palier » existe, la moins chère de
---- celles-ci passe en tête (puis le nom). Chaque candidate porte ses drapeaux (auto, k1_palier). En place.
+--- celles-ci passe en tête (puis le nom). Chaque candidate porte ses drapeaux (auto, k1_palier, k1_first, k1_front). En place.
+---
+--- Lot RECHERCHE-BRAS (A), décision du DC du 8/11 vers 18 h 25 (QCM « une recherche voulue et PROCHE passe-t-elle devant les paliers qui
+--- ne sont pas le premier ? », réponse : « Oui, voulue proche devant (Recommandé) »), qui PRÉCISE celle du 27/10 (« les paliers ne
+--- reculent pas ») sans la défaire : un palier garde la tête quand il est la PREMIÈRE technologie à consommer un pack que la faction
+--- fabrique (k1_first : le pack nouveau doit être consommé) ; tout autre palier (il ouvre un pack, ou chaîne courte vers un pack :
+--- military, military-2 après le premier pack vert, military-science-pack dans la partie neuve 0.6.70) cède la tête à la moins chère des
+--- voulues PROCHES (k1_front : elle ouvre elle-même l'objet voulu, ou chaîne voulue de Gen.K1_FRONT technologies au plus, la
+--- technologie elle-même comprise). Mesuré en moteur : « electronics » (27 unités) ouvrait « fast-inserter » voulu dès la minute 3 et
+--- n'était lancée qu'à 9,9 min derrière 14 unités de paliers ; le bras rapide arrivait à 24-27 min. Toute source d'objets voulus
+--- (automatisation, amélioration, mall, pétrole, robots : script/ai3/voulues.lua) bénéficie de la règle, sans distinction ni nom.
 Gen.K1_NEAR = 3
+Gen.K1_FRONT = 2 -- voulue proche qui passe devant un palier non premier : 2 technologies au plus (décision du 8/11)
 function Gen.k1(cat, state, cands, chains)
   local used_pack = {}
   for _, t in ipairs(cat.tech_list) do
@@ -253,21 +264,40 @@ function Gen.k1(cat, state, cands, chains)
       if w[1] == "pack" then pal = true end -- ouvre un pack fabricable ensuite (« pack, plus tard » ne compte pas)
     end
     local ch = chains[c.tech]
+    local front = false
+    for _, w in ipairs(c.why or {}) do if w[1] == "wanted" then front = true end end -- directe : une seule technologie
     if ch and ch.wanted then
       auto = true
+      if ch.len and ch.len <= Gen.K1_FRONT then front = true end
       -- étape 1 du 27/10 au soir : un objet voulu à Gen.K1_NEAR technologies au plus ne recule PAS derrière un palier
       -- (scarlet : grenades, armure et lampe avant « electronics », 30 min sans électricité ; DC : « ils font rien »)
       if ch.len and ch.len <= Gen.K1_NEAR then near = true end
     end
     c.k1_near = near or nil
+    c.k1_front = front or nil
     if ch and ch.pack_len and ch.pack_len <= Gen.K1_NEAR then pal = true end
+    local first = false
     for _, ing in ipairs(cat.techs[c.tech].ingredients) do
-      if cat.packs[ing[1]] and not used_pack[ing[1]] and Gen.pack_made(state, ing) then pal = true end -- lot AGEBLOCAGE : pack fabriqué
+      if cat.packs[ing[1]] and not used_pack[ing[1]] and Gen.pack_made(state, ing) then pal, first = true, true end -- lot AGEBLOCAGE : pack fabriqué
     end
-    c.auto, c.k1_palier = auto or nil, pal or nil
+    c.auto, c.k1_palier, c.k1_first = auto or nil, pal or nil, first or nil
   end
   local top = cands[1]
-  if not top or top.k1_palier or top.k1_near then return end
+  if not top then return end
+  -- lot RECHERCHE-BRAS (A) : un palier qui n'est pas la première consommation d'un pack cède la tête à la moins chère des voulues proches
+  if top.k1_palier and not top.k1_first and not top.k1_front then
+    local best, bi
+    for i, c in ipairs(cands) do
+      if c.k1_front and (not best or c.cost < best.cost or (c.cost == best.cost and c.tech < best.tech)) then best, bi = c, i end
+    end
+    if best then
+      table.remove(cands, bi)
+      table.insert(cands, 1, best)
+      best.k1 = "voulue proche devant le palier"
+      return
+    end
+  end
+  if top.k1_palier or top.k1_near then return end
   if not top.auto then
     -- ni palier ni voulue : la moins chère des voulues PROCHES passe en tête (les paliers ne reculent pas, mais heavy-armor,
     -- defender et optics n'ont pas à retarder 30 min l'électricité que les chaînes de la capitalisation attendent)
