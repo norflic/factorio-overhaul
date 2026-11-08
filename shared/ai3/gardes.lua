@@ -85,6 +85,10 @@ G.LIST = {
       local ok, why = M.Ic.gate({ threatened = false, main_busy = false, islands = 0, max = 4, unwalled = 0, unguarded = 0 })
       local c = M.Ic.gate({ main_busy = false, islands = 0, max = 4, unwalled = 0, unguarded = 0, outside_busy = 0 })
       return a == false and ok == false and c == false, why end },
+  { id = "Fa.share", fichier = "shared/ai3/famille_armee.lua", mesure = "parts { delta, alpha } de la capitalisation (part reservee a la famille armee)",
+    appelant = "shared/ai3/cerveau.lua:358", mods = { Fa = "shared.ai3.famille_armee" }, verdict = "ferme",
+    sonde = function(M) local s, why = M.Fa.share(nil)
+      return s == nil and M.Fa.share({ delta = 1 }) == nil and M.Fa.share({ delta = 100, alpha = 50 }) ~= nil, why end },
   { id = "Sl.allows", fichier = "shared/team/sonde_lot.lua", mesure = "minerai du bord du lot (sonde 30 x 30) et sorte du module",
     appelant = "script/team/place_glue.lua (Pg.states_for)", mods = { Sl = "shared.team.sonde_lot" }, verdict = "ferme",
     sonde = function(M)

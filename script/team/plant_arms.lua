@@ -245,6 +245,10 @@ function PA.watch(f, surface, tick)
   -- lot ENERGIE (2/11) : la centrale de plus part AVANT la saturation (production + chantiers + modules retenus), et une reconstruction sans
   -- progrès depuis Sante.STALL ne retient plus la croissance (Ambre : 23 min saturée à 100 % pendant que 13 pièces sur 28 attendaient du fer)
   local anticipate, stalled, used_kw, committed_kw, cap_kw = Sante.growth(f, tick, plants, power, capacity + reopened_alive)
+  -- lot TV-ENERGIE (G65) : crise d'énergie (centrale perdue, ou saturation qui dure pendant le repli) = UNITÉ DE SECOURS, jamais le champ ;
+  -- le compte des secours d'une crise repart de zéro quand la capacité est revenue
+  local crisis, crisis_why = C.crisis(g, { lost = lost, hold = hold })
+  if not crisis and pending == 0 and not Cv.down(planned, capacity + reopened_alive) and not g.saturated then g.secours_n = 0 end
   local ns = 0
   for _, id in ipairs(stalled) do
     local q = b.projects[id]
@@ -252,8 +256,14 @@ function PA.watch(f, surface, tick)
   end
   local nb, why = C.growth(g, { done = done, pending = pending - ns, rebuilding = math.max(0, rebuilding - ns), refused = refused, hold = hold,
     cool = tick < (g.cool_until or 0), off = b.opts and b.opts.no_grow == true, lost = lost, built = boilers_alive,
-    anticipate = anticipate,
+    anticipate = anticipate, secours_n = g.secours_n,
     lane_cap = Cv.lane_cap(M.BELT_RATE, boiler_kw, M.COAL_J) })
+  if nb and crisis then
+    g.secours_n = (g.secours_n or 0) + 1
+    log(string.format("[FO-ENERGIE] %s : UNITE DE SECOURS demandee a %.1f min (crise : %s ; capacite vivante %.0f sur %.0f J/tick prevus, saturee depuis %d relevés ; secours %d sur %d) : %d chaudiere(s), projet distinct, aucun champ en crise",
+      f.key or "player", tick / 3600, crisis_why == "perte" and "centrale perdue" or "saturation pendant le repli de l'equipe",
+      capacity + reopened_alive, planned, g.sat or 0, g.secours_n, C.SECOURS_MAX, nb))
+  end
   if nb and lost then
     log(Cv.line({ kind = "perte", team = f.key or "player", tick = tick, alive = capacity + reopened_alive, planned = planned, nb = nb }))
   elseif nb and not g.saturated and anticipate then
@@ -278,7 +288,7 @@ function PA.watch(f, surface, tick)
       nb and ("centrale de " .. nb .. " chaudiere(s)") or tostring(why)))
   end
   if nb then C.requested(g); g.why = nil end
-  return nb, stale
+  return nb, stale, (nb ~= nil and crisis) or false
 end
 
 PA.STALE_REASON = C.STALE_REASON

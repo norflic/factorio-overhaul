@@ -346,6 +346,11 @@ local function run_all(Pf)
       "16 : capacite lue (meme 0 kW) : la garde est ouverte, le calcul du courant decide")
     check(Pf.power_why({}) == "courant : entree absente : power.have_kw" and Pf.power_why(nil) == nil and Pf.power_why({ have_kw = 5 }) == nil,
       "16 : texte du refus pour le journal (" .. tostring(Pf.power_why({})) .. ")")
+    -- lot TV-ENERGIE (W02, fin) : sans centrale finie, deux états explicites (plus de nil)
+    check(Pf.power_missing({ amorce = true }) == nil, "16 : { amorce } : la garde est ouverte (un seul ordre, Ca.spend_amorce)")
+    check(Pf.power_missing({ fermee = "centrale refusee (x)" }) == "centrale refusee (x)" and Pf.power_why({ fermee = "centrale refusee (x)" }) == "courant : centrale refusee (x)",
+      "16 : { fermee = texte } : refus ecrit avec la cause (" .. tostring(Pf.power_why({ fermee = "centrale refusee (x)" })) .. ")")
+    check(Pf.power_missing({ fermee = "pas finie", have_kw = 1000 }) ~= nil, "16 : fermee l'emporte meme avec une capacite")
   end
 
   -- 17. Plafond de sûreté par sorte d'ordre (lot VIDEO-PLAFONDS).
