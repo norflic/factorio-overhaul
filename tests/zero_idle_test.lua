@@ -163,6 +163,8 @@ local function suite(ZI)
     local vc = dc_view({ outposts = outs, workers_idle = 2 })
     local cv = ZI.decide(ZI.input(vc, { key = { order = { "iron" } } }, book, vc.stock, nil, { [IRON_PLATE] = true }))
     check(#cv.orders == 0 and cv.causes.iron == "palier:couvert-electrique", "fer couvert par un module électrique : plus de paires thermiques (rendu " .. tostring(cv.causes.iron) .. ")")
+    local toff = ZI.decide(kinds_of(ZI, { outposts = outs, stock = RICH, workers_idle = 2, thermal_off = { iron = "centrale" } }))
+    check(#toff.orders == 0 and toff.causes.iron == "palier:electrique:centrale", "bascule électrique (view.thermal_off) : plus de paires thermiques de fer (rendu " .. tostring(toff.causes.iron) .. ")")
     local zero = ZI.decide(kinds_of(ZI, { outposts = outs, stock = RICH, workers_idle = 0 }))
     check(#zero.orders == 0 and next(zero.causes) == nil, "aucun PNJ libre -> rien, aucune cause")
   end
@@ -347,7 +349,8 @@ local MUTANTS = {
   { "minage à la main pour le kit", "if next(p.raw) ~= nil then return \"matiere\" end", "" },
   { "clé instable", "ZI.KEY .. o.kind .. \":\" .. rank[o.kind]", "ZI.KEY .. tostring(o.outpost)" },
   { "ligne sans cause", "acc.causes[c] = (acc.causes[c] or 0) + 1", "" },
-  { "couverture électrique ignorée", "ok = not cov,", "ok = true," },
+  { "couverture électrique ignorée", "ok = not (cov or off),", "ok = not off," },
+  { "bascule électrique ignorée", "local off = thermal_off and thermal_off[kind]", "local off = nil" },
 }
 local refused, kept = 0, {}
 local saved_p, saved_f0 = passes, failures
