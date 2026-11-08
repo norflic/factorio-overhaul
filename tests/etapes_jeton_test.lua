@@ -1,0 +1,282 @@
+--[[
+  Lot LOURD (point 2 c, cible 0.6.64 ; fo-logs\2026-11-07_LOURD\CRITERES.md §2, « Partie (c) » ; accord d'effondrement à 4 conditions) :
+  les ÉTAPES d'une pensée (script/team/team.lua : E1a dans Team.think, E1b à E6 par le minuteur « fo-team-etape ») prennent le jeton des
+  travaux lourds (script/core/lourd.lua, coûts A : tout le budget). Au moteur simulé (tests/mock_engine.lua), vraies étapes.
+    T1 étape refusée : RIEN n'est joué à ce tick, la MÊME étape se joue au tick suivant, puis une par tick ; la pensée finit ;
+    T2 rattrapage d'un état « E1a en attente » (n = 1 ; condition 1) : votre équipe, Team.think appelé pendant l'attente (budget du tick
+       pris) : l'E1a de l'attente puis la suite se jouent d'un bloc, sans erreur (une vue, team:view), et la nouvelle pensée attend à son
+       tour ;
+    T3 changement de configuration SANS changement de version pendant l'attente (condition 2) : l'état n = 1 (avec sa signature) est
+       GARDÉ, puis joué au tick suivant ;
+    T4 t0 (condition 3) : l'état rendu par E1a jouée en attente porte t0 = le tick où E1a se JOUE (pas le tick du créneau) ;
+    T5 pire cas (condition 4 et borne de CRITERES §2) : 4 factions et votre équipe, réveils, et dix relevés de banc aux passes du pouls
+       (période 5, coûts 32 et 152) en plus des vrais : aucun tick au-delà du budget ; plus longue attente d'une étape ≤ 7 ticks ; durée
+       d'une pensée ≤ 103 ticks (13 étapes au plus, E1b rejouée par la décision de capitalisation comprise) ;
+    T6 mutants de source : jeton ignoré par une étape ; étape refusée perdue (pas redemandée) ; étape refusée jouée quand même ;
+       rattrapage d'un état n = 1 (branche retirée) ; état n = 1 sans signature ; t0 du créneau recopié.
+  Usage : lua5.2 tests/etapes_jeton_test.lua   (depuis la racine du mod)
+]]
+package.path = "./?.lua;" .. package.path
+local M = require("tests.mock_engine")
+
+local passes, failures = 0, 0
+local quiet = false
+local function check(cond, msg)
+  if cond then passes = passes + 1; if not quiet then print("[ETAPES-JETON] OK : " .. msg) end
+  else failures = failures + 1; if not quiet then print("[ETAPES-JETON] ECHEC : " .. msg) end end
+  return cond
+end
+local function W() return M.world() end
+local function slurp(p) local h = assert(io.open(p, "rb")) local x = h:read("*a") h:close() return x end
+local NL = string.char(10)
+
+--- Monde neuf : guerre de `n` factions, votre équipe (coffre d'équipe), joueur loin ; `mutants` = { { module, path, old, new } }.
+local function setup(n, mutants)
+  M.new_world({ p_busy = 0, p_nopath = 0, p_lost = 0, difficulty = "peaceful", ia3e = true, capi = true, raise_damaged = true })
+  local pre = {}
+  for _, m in ipairs(mutants or {}) do
+    local src = slurp(m.path)
+    local i, j = src:find(m.old, 1, true)
+    assert(i, "texte du mutant introuvable dans " .. m.path .. " : " .. m.old)
+    assert(not src:find(m.old, j + 1, true), "texte du mutant present plusieurs fois : " .. m.old)
+    src = src:sub(1, i - 1) .. m.new .. src:sub(j + 1)
+    package.preload[m.module] = function() return assert(load(src, "=" .. m.module .. "(mutant)"))() end
+    pre[#pre + 1] = m.module
+  end
+  M.load_mod()
+  for _, name in ipairs(pre) do package.preload[name] = nil end
+  M.dispatch(W().on_init)
+  local char = W().player.character
+  char.teleport({ x = 20000, y = 20000 })
+  M.command("fo-war", "start " .. n .. " 30 30 320")
+  local s = game.surfaces[1]
+  local chest = s.create_entity({ name = "fo-team-chest", position = { x = 20005, y = 20005 }, force = "player" })
+  W().events[defines.events.on_built_entity]({ created_entity = chest, player_index = 1, tick = game.tick })
+  local ctx = { char = char, Lourd = require("script.core.lourd"), Team = require("script.team.team"),
+    State = require("script.faction.state"), f = global.fo.war.factions[1] }
+  M.run_ticks(2000)
+  return ctx
+end
+
+local function et_of(f) return f and f.team and f.team.etape end
+
+---------------------------------------------------------------------------------------------------
+-- T1 : étape refusée, même étape au tick suivant
+---------------------------------------------------------------------------------------------------
+--- Faction éveillée (joueur proche) ; à la première pensée dont l'étape attendue est E2 (n = 4), tout le budget est pris au tick de E2.
+--- Rend { n_before, n_at, n_next, done_in } ou nil.
+local function scene_refuse(ctx)
+  local f = ctx.f
+  ctx.char.teleport({ x = f.hq_pos.x + 20, y = f.hq_pos.y })
+  local guard = 0
+  while not (et_of(f) and et_of(f).n == 4) and guard < 1200 do M.run_ticks(1); guard = guard + 1 end
+  if not (et_of(f) and et_of(f).n == 4) then return nil end
+  local x = game.tick + 1
+  local held = ctx.Lourd.take(x, "banc:lourd")
+  M.run_ticks(1)
+  local n_at = et_of(f) and et_of(f).n
+  M.run_ticks(1)
+  local n_next = et_of(f) and et_of(f).n
+  local k = 0
+  while et_of(f) and k < 60 do M.run_ticks(1); k = k + 1 end
+  ctx.char.teleport({ x = 20000, y = 20000 })
+  return { held = held, n_at = n_at, n_next = n_next, done = et_of(f) == nil, k = k }
+end
+
+---------------------------------------------------------------------------------------------------
+-- T2, T3, T4 : votre équipe, E1a en attente
+---------------------------------------------------------------------------------------------------
+--- Pose un état « E1a en attente » pour votre équipe : tout le budget pris au tick courant X, puis Team.think(X). Rend (f, X).
+local function pending_player(ctx)
+  local f = ctx.State.faction("player")
+  local k = 0
+  while et_of(f) and k < 400 do M.run_ticks(1); k = k + 1 end
+  if et_of(f) then return nil end
+  local X = game.tick
+  ctx.Lourd.take(X, "banc:lourd")
+  ctx.Team.think(f, f.hq.surface, X, nil)
+  return f, X
+end
+
+--- T2 : rattrapage pendant l'attente. Rend { pending, views, rt, err, after } .
+local function scene_catchup(ctx)
+  local f, X = pending_player(ctx)
+  if not f then return nil end
+  local et = et_of(f)
+  local pending = et and et.n == 1 and et.t0 == X
+  local Profiler = require("script.core.profiler")
+  local views = 0
+  local o = Profiler.start
+  Profiler.start = function(name, ...)
+    if name == "team:view" then views = views + 1 end
+    return o(name, ...)
+  end
+  local rt0 = (f.team.etapes and f.team.etapes.rattrapages) or 0
+  local ok, err = pcall(ctx.Team.think, f, f.hq.surface, X, nil)
+  Profiler.start = o
+  local rt1 = (f.team.etapes and f.team.etapes.rattrapages) or 0
+  local after = et_of(f)
+  return { pending = pending, views = views, rt = rt1 - rt0, ok = ok, err = err,
+    after = after and after.n == 1 and after.t0 == X }
+end
+
+--- T3 et T4 : changement de configuration sans changement de version, puis les ticks suivants jusqu'au premier où le jeton est libre
+--- pour l'attente (au plus 10). Rend { kept, played, t0, X, at } (at : le tick où E1a s'est jouée).
+local function scene_config(ctx)
+  local f, X = pending_player(ctx)
+  if not f then return nil end
+  ctx.Team.etapes_config_changed({ mod_changes = {} })
+  local kept = et_of(f) ~= nil and et_of(f).n == 1
+  local et, at = et_of(f), nil
+  for _ = 1, 10 do
+    M.run_ticks(1)
+    et = et_of(f)
+    if et and et.n >= 2 then at = game.tick break end
+  end
+  return { kept = kept, played = at ~= nil, t0 = et and et.t0, X = X, at = at }
+end
+
+---------------------------------------------------------------------------------------------------
+-- T5 : pire cas
+---------------------------------------------------------------------------------------------------
+local function scene_worst(ctx, ticks)
+  local Lourd = ctx.Lourd
+  local B = Lourd.BUDGET
+  local grants = {}  -- [tick] = { n, sum }
+  local runs = {}    -- [demandeur d'étape] = refus de suite en cours
+  local nsteps, most = {}, 0 -- étapes servies par pensée en cours (par équipe), la plus longue pensée en étapes
+  local worst_wait, refusals, steps = 0, 0, 0
+  local o = Lourd.take
+  Lourd.take = function(t, who, per, cost)
+    local r = o(t, who, per, cost)
+    if r then
+      local g = grants[t] or { n = 0, sum = 0 }
+      grants[t] = g
+      g.n = g.n + 1
+      g.sum = g.sum + ((Lourd.COSTS and cost) or B)
+    end
+    if who and who:sub(-6) == ":etape" then
+      if r then
+        steps = steps + 1
+        runs[who] = 0
+        nsteps[who] = (nsteps[who] or 0) + 1
+      else
+        refusals = refusals + 1
+        runs[who] = (runs[who] or 0) + 1
+        if runs[who] > worst_wait then worst_wait = runs[who] end
+      end
+    end
+    return r
+  end
+  local teams = {}
+  for _, id in ipairs(ctx.State.sorted_keys(global.fo.war.factions)) do teams[#teams + 1] = global.fo.war.factions[id] end
+  teams[#teams + 1] = ctx.State.faction("player")
+  local start, longest, thinks = {}, 0, 0
+  for step = 1, ticks do
+    local t = game.tick + 1
+    if t % 5 == 0 then
+      for i = 1, 10 do Lourd.take(t, "banc:releve" .. i, 5, i <= 5 and 32 or 152) end
+    end
+    if step % 97 == 0 then for _, f in ipairs(teams) do if not f.is_player then f.lost_t = game.tick end end end -- (réveils)
+    M.run_ticks(1)
+    for i, f in ipairs(teams) do
+      local et = et_of(f)
+      if et and not start[i] then start[i] = et.t0 end
+      if not et and start[i] then
+        local d = game.tick - start[i]
+        thinks = thinks + 1
+        if d > longest then longest = d end
+        start[i] = nil
+        local who = tostring(f.key or "player") .. ":etape"
+        if (nsteps[who] or 0) > most then most = nsteps[who] end
+        nsteps[who] = 0
+      end
+    end
+  end
+  Lourd.take = o
+  local over = 0
+  for _, g in pairs(grants) do if g.n > 1 and g.sum > B then over = over + 1 end end
+  return { over = over, worst_wait = worst_wait, refusals = refusals, steps = steps, longest = longest, thinks = thinks, most = most }
+end
+
+---------------------------------------------------------------------------------------------------
+local ctx = setup(2)
+check(ctx.f and ctx.f.hq and ctx.f.hq.valid, "une faction avec son QG")
+do
+  local r = scene_refuse(ctx)
+  check(r and r.held and r.n_at == 4 and r.n_next == 5 and r.done,
+    string.format("T1 : budget pris au tick de E2 : rien n'est joué (étape attendue %s), E2 se joue au tick suivant (%s), la pensée finit (%s, en %s ticks)",
+      tostring(r and r.n_at), tostring(r and r.n_next), tostring(r and r.done), tostring(r and r.k)))
+end
+do
+  local r = scene_catchup(ctx)
+  check(r and r.pending and r.ok and r.views == 1 and r.rt == 1 and r.after,
+    string.format("T2 : rattrapage pendant « E1a en attente » (votre équipe) : sans erreur (%s), l'E1a de l'attente jouée (vues %s, attendu 1), la nouvelle pensée de nouveau en attente (budget du tick pris : %s), rattrapage compté (%s)",
+      tostring(r and r.ok), tostring(r and r.views), tostring(r and r.after), tostring(r and r.rt)))
+end
+do
+  local r = scene_config(ctx)
+  check(r and r.kept and r.played, string.format("T3 : changement de configuration sans changement de version pendant l'attente : état gardé (%s), E1a jouée ensuite (au tick %s)",
+    tostring(r and r.kept), tostring(r and r.at)))
+  check(r and r.at and r.at > r.X and r.t0 == r.at, string.format("T4 : t0 de l'état rendu = le tick où E1a se joue (%s, joué au tick %s ; créneau %s)",
+    tostring(r and r.t0), tostring(r and r.at), tostring(r and r.X)))
+end
+
+local wctx = setup(4)
+local w = scene_worst(wctx, 30000)
+check(w.thinks >= 50 and w.refusals > 0, string.format("T5 : pire cas joué : %d pensées finies, %d étapes servies, %d refus d'étape", w.thinks, w.steps, w.refusals))
+check(w.over == 0, string.format("T5 : aucun tick au-delà du budget (%d)", w.over))
+check(w.worst_wait <= 7, string.format("T5 : plus longue attente d'une étape %d tick(s) (borne 7)", w.worst_wait))
+check(w.longest <= 103, string.format("T5 : plus longue pensée %d ticks du créneau à la fin (borne 103) ; jusqu'à %d étapes servies dans une pensée (E1b rejouée : plus de 8)",
+  w.longest, w.most))
+
+---------------------------------------------------------------------------------------------------
+-- T6 : mutants de source (un monde neuf chacun). Le texte du mutant est cherché HORS du pcall (absent : le test plante) ; la scène
+-- est jouée dans un pcall : elle doit échouer (ou planter, pour la branche n = 1 retirée, dont le symptôme est le plantage).
+---------------------------------------------------------------------------------------------------
+local TEAM = "script/team/team.lua"
+local function mutant(name, m, scene, allow_crash)
+  local c = setup(2, { m })
+  quiet = true
+  local p0, f0 = passes, failures
+  local ok, dead = pcall(scene, c)
+  passes, failures = p0, f0
+  quiet = false
+  check((ok and dead) or (not ok and allow_crash), "T6 : mutant « " .. name .. " » refusé" .. (ok and "" or (" (plantage : " .. tostring(dead) .. ")")))
+end
+mutant("jeton ignoré par une étape", { module = "script.team.team", path = TEAM,
+  old = "  if not Lourd.take(tick, TT.who(f)) then", new = "  if false then" }, function(c)
+  local r = scene_refuse(c)
+  return r ~= nil and r.n_at ~= 4
+end)
+mutant("étape refusée perdue (pas redemandée)", { module = "script.team.team", path = TEAM,
+  old = "    Scheduler.after(1, TT.TIMER, { key = pl.key, n = pl.n, t0 = pl.t0 })" .. NL .. "    return" .. NL,
+  new = "    return" .. NL }, function(c)
+  local r = scene_refuse(c)
+  return r ~= nil and not r.done
+end)
+mutant("étape refusée jouée quand même", { module = "script.team.team", path = TEAM,
+  old = "    Scheduler.after(1, TT.TIMER, { key = pl.key, n = pl.n, t0 = pl.t0 })" .. NL .. "    return" .. NL,
+  new = "    Scheduler.after(1, TT.TIMER, { key = pl.key, n = pl.n, t0 = pl.t0 })" .. NL }, function(c)
+  local r = scene_refuse(c)
+  return r ~= nil and r.n_at ~= 4
+end)
+mutant("rattrapage d'un état n = 1 (branche retirée)", { module = "script.team.team", path = TEAM,
+  old = "  if n == 1 then" .. NL, new = "  if false then" .. NL }, function(c)
+  local r = scene_catchup(c)
+  return r ~= nil and not (r.ok and r.views == 1 and r.rt == 1 and r.after)
+end, true)
+mutant("état n = 1 sans signature", { module = "script.team.team", path = TEAM,
+  old = "      et = { n = 1, t0 = tick, tail = tail, sig = Et.SIG }", new = "      et = { n = 1, t0 = tick, tail = tail }" }, function(c)
+  local r = scene_config(c)
+  return r ~= nil and not (r.kept and r.played)
+end)
+mutant("t0 du créneau recopié", { module = "script.team.team", path = TEAM,
+  old = "    f.team.etape = TT.e1a(f, surface, tick, et.tail)" .. NL,
+  new = "    f.team.etape = TT.e1a(f, surface, tick, et.tail)" .. NL .. "    f.team.etape.t0 = et.t0" .. NL }, function(c)
+  local r = scene_config(c)
+  return r ~= nil and r.at ~= nil and r.t0 ~= r.at
+end)
+
+print(string.format("[ETAPES-JETON] BILAN : %d OK, %d ECHEC(S)", passes, failures))
+os.exit(failures == 0 and 0 or 1)

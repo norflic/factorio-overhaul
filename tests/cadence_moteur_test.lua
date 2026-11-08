@@ -21,6 +21,13 @@
        au moteur comptés (liste des joueurs, champs du joueur) et instructions Lua (debug.sethook, champs du moteur simulé compris) ;
     §7 mutants de SOURCE (fichiers chargés modifiés, un monde neuf chacun) : l'IA3 non lue, le coup noté après le filtre des classes,
        la garde du créneau récent retirée, son seuil porté à la période, les joueurs relus par faction : chacun fait échouer sa scène.
+       Lot LOURD (point 2 c, 8/11) : la garde « pensée en cours » (f.team.etape posé ; commander.lua, juste avant Cd.recent) couvre
+       aussi la scène du §3 quinquies ; le mutant « garde du créneau récent retirée » retire donc LES DEUX gardes (sinon il serait
+       équivalent), dit en connaissance de cause ;
+    §8 (lot LOURD, point 2 c) PENSÉE EN COURS : réveillée à S + 290, la faction a ses étapes retardées par le jeton des travaux lourds
+       (neuf demandeurs « banc » en file au tick S + 291, qui retiennent tout le budget jusqu'à leur purge, J.STALE) : au créneau S + 300,
+       hors de Cd.recent (S + 297) mais pendant la pensée, AUCUNE pensée n'est commencée et aucun rattrapage n'a lieu ; mutant « créneau
+       joué pendant une pensée » (la seule garde « pensée en cours » retirée) : la scène échoue.
   Usage : lua5.2 tests/cadence_moteur_test.lua   (depuis la racine du mod ; FO_VERBOSE=1 : contrôles réussis affichés)
 ]]
 package.path = "./?.lua;" .. package.path
@@ -249,6 +256,32 @@ local function scene_double(ctx)
   check(every, "§3 quinquies : puis 300 (" .. table.concat(th, " ") .. ")")
 end
 
+--- §8 (lot LOURD, point 2 c) : réveil à S + 290, étapes retardées par le jeton ; le créneau S + 300 tombe pendant la pensée.
+local function scene_busy(ctx)
+  local f = ctx.f
+  local Lourd = require("script.core.lourd")
+  local ok = sleep(ctx)
+  local S = game.tick
+  M.run_ticks(289)
+  calm_down(f)
+  ok = ok and f.cadence.asleep and game.tick == S + 289
+  f.lost_t = game.tick
+  M.run_ticks(1)
+  local woke = f.last_think
+  local rt0 = (f.team and f.team.etapes and f.team.etapes.rattrapages) or 0
+  for i = 1, 10 do Lourd.take(S + 291, "banc:" .. i) end -- (le 1er servi ; les 9 autres en file retiennent le budget jusqu'à leur purge)
+  M.run_ticks(9) -- jusqu'à S + 299
+  local busy = f.team and f.team.etape ~= nil
+  M.run_ticks(1) -- S + 300 : le créneau
+  local at300 = f.last_think
+  local still = f.team and f.team.etape ~= nil
+  local rt1 = (f.team and f.team.etapes and f.team.etapes.rattrapages) or 0
+  check(ok and woke == S + 290, string.format("§8 : reveillee a S + 290 (S = %d, pensee a %s)", S, tostring(woke)))
+  check(ok and busy and still and at300 == S + 290 and rt1 == rt0,
+    string.format("§8 : creneau S + 300 pendant la pensee (etapes retardees, en cours avant et apres : %s, %s) : aucune pensee commencee (derniere : %s) ni rattrapage (%d)",
+      tostring(busy), tostring(still), tostring(at300), rt1 - rt0))
+end
+
 --- §6 : coût d'un tick de guet, deux factions endormies et calmes, un joueur connecté. Rend { lists, fields, instr }.
 local function guard_cost(ctx)
   local f, f2, Commander = ctx.f, ctx.f2, ctx.Commander
@@ -300,6 +333,7 @@ local function scenes(ctx)
   scene_ia3(ctx)
   scene_hit(ctx)
   scene_double(ctx)
+  scene_busy(ctx)
 end
 
 local ctx = setup()
@@ -354,8 +388,11 @@ local SRC_MUTANTS = {
   { "coup note apres le filtre des classes (point 2, l'ancien ordre)", { module = "script.team.reparation", path = REP,
       old = "  if fname ~= \"player\" then\n    local fh = State.by_force(fname)\n    if fh and e.force ~= eforce then fh.hit_t = e.tick end\n  end\n  if not Rp.ENABLED then return end\n  if not CLASS[false][etype] then return end",
       new = "  if not Rp.ENABLED then return end\n  if not CLASS[false][etype] then return end\n  if fname ~= \"player\" then\n    local fh = State.by_force(fname)\n    if fh and e.force ~= eforce then fh.hit_t = e.tick end\n  end" }, scene_hit },
-  { "garde du creneau recent retiree (point 3, garde du meme tick seule)", { module = "script.faction.commander", path = CMD,
-      old = "if not woken and Cd.recent(cs, tick) then return end", new = "" }, scene_double },
+  { "garde du creneau recent retiree (point 3, garde du meme tick seule ; lot LOURD : avec la garde pensee en cours)",
+    { module = "script.faction.commander", path = CMD,
+      old = "    if f.team and f.team.etape then return end\n    if not woken and Cd.recent(cs, tick) then return end", new = "" }, scene_double },
+  { "creneau joue pendant une pensee (lot LOURD, point 2 c : la garde pensee en cours retiree)", { module = "script.faction.commander",
+      path = CMD, old = "    if f.team and f.team.etape then return end\n    if not woken", new = "    if not woken" }, function(c) scene_busy(c) end },
   { "seuil du creneau porte a la periode (point 3, correction refusee par le lead)", { module = "script.faction.commander", path = CMD,
       old = "Cd.recent(cs, tick)", new = "Cd.recent(cs, tick, Scheduler.period(Commander.LANE))" }, scene_double },
   { "ecart des etapes fige a 3 (E1 a E4 d'avant la 0.6.62) au lieu d'etre tire de E.STAGES", { module = "shared.team.etapes",
