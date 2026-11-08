@@ -8,6 +8,45 @@
 > F306 à F308, E204, E205. Les blocs d'IA3-a, b, c, f (F279 à F291, E186 à E194) restent à leurs lots, repris par IA-V2.
 > Prochains identifiants libres (24/10, vers 7 h 35, après la fusion d'A4-préparation) : **F163** et **E118** hors blocs ; F149, F157 à F160, E112, E114 à E116 : A4-préparation (blocs d'A3 et A4 épuisés). Avant (24/10, vers 5 h 50, après la fusion de D4m-géant) : **F163** et **E118** hors blocs ; F157 à F160, E114 à E116 réservés à A4 ; F161, F162, E117 : D4m-géant. Avant (24/10, vers 4 h 15, après la fusion d'A3-jeu) : **F157** et **E114** hors blocs ; F146 à F148 et E109 à E111 : A3-jeu ; **F149 et E112 réservés à A4**. Avant (24/10, vers 2 h 45, après la fusion de S0-suite) : **F157** hors blocs ; F155, F156 et **E113** : S0-suite ; **E114** hors blocs. Avant (24/10, vers 0 h 10, après la fusion d'A3-préparation) : **F155** hors blocs ; F140 à F145 et E105 à E108 : A3-préparation ; **F146 à F149 et E109 à E112 réservés à A3-jeu et A4**. Avant (23/10, vers 23 h 10, après la fusion du lot S0) : **F155** hors blocs ; F150 à F154 : S0 (F154 hors de son bloc F150 à F153) ; E69 : S0 ; F140 à F149 et E105 à E108 : toujours réservés à A3 et A4. Avant (23/10, vers 21 h 15, après la fusion du lot A2) : **F150** hors blocs ; **F140 à F149 réservés à A3 et A4** ; F123 à F129 et E68 : A2 (le bloc F120 à F129 d'A1 à A4 est épuisé) ; en expériences, **E105 à E108 réservés à A3 et A4** (leur bloc E66 à E70 est épuisé : E66, E67, E70 à A1, E68 à A2, E69 à S0 ; E81 à E104 : lots F1 à F6). Avant (23/10, vers 19 h, après les fusions d'INT-K0, INT-GARDE et INT-GRAINE) : **F140** ; F137 à F139 : INT-GRAINE (cmd.exe et PowerShell). Avant (23/10, vers 18 h 30, après la consignation des lots A1, K0 et M0) : **F137** (F123 à F129 restent réservés à A2 à A4) ; en expériences, aucun numéro hors des blocs réservés : **E68** (A2 à A4), **E69** (S0), **E77 à E80** (M1, M2), **E81 et suivants** (lots F, par blocs de 4). Attribués le 23/10 : F120 à F122 (A1), F130 à F135 (M0 ; F135 hors du bloc), F136 (vérification de K0, Blender) ; E66, E67, E70 (A1), E71, E72 (K0), E73 à E76 (M0 ; l'« E77 » proposé par le correcteur de M0 est consigné dans E74, E77 étant réservé à M1 et M2). Avant : (23/10, vers 14 h 55, après la consignation de la passe 5 de V3-E, E65 et F119) **F120, E66**. Blocs RÉSERVÉS par le plan de la suite (23/10, 16 h ; `fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md` §6) : mitrailleuse A1 à A4 : E66 à E70 et F120 à F129 (E69 : sons, lot S0) ; K0 : E71 et E72 ; M0 : E73 à E76 et F130 à F134 ; M1 et M2 : E77 à E80 ; chaque lot F : un bloc de 4 expériences à partir de E81. E3 n'a jamais été attribué (la numérotation passe de E2 à E4).
 
+## 2026-11-08 : 0.6.64, gel des usines des factions (lot X10-GEL, RETIRÉ de la version)
+
+> Prochains identifiants libres (8/11, 8 h) : **F414** et **E265** hors blocs. Attribués ici : F407 à F413. Archives des faits :
+> `fo-logs/2026-11-07_X10/` (critères et décisions : `L1_CRITERES.md`).
+
+- **F413 · FAIT** (moteur réel, banc C19 du lot X10-GEL sur la sauvegarde du DC, `--seul`, archive `c19-ff5e9d8b`,
+  `benchmark-stdout.txt.gz` ligne 1600) : `LuaInventory.get_item_count("?")`, donc un nom d'objet INCONNU, lève « Unknown item
+  name: ? » et arrête la partie (« non-recoverable error », au 1 197e tick du banc). Le moteur simulé des tests
+  (`tests/mock_engine.lua`) rendait 0 sans erreur : aucun des 1 775 contrôles du lot ne l'a vu. Cause [déduite du code] : un four du
+  QG relevé avec sa source vide recevait la recette fictive `{ "?", 1 }` (`gel_usines.lua:194`, `gel_usines_jeu.lua:64`), relue
+  ensuite par `frontier` (`gel_usines_jeu.lua:111`). Règle : un nom d'objet n'atteint le moteur que s'il existe
+  (`game.item_prototypes[n]`) ; le moteur simulé doit lever la même erreur (demandé à x10-gel). Le gel est retiré de la 0.6.64
+  (revert cb961501). Même banc, sur ses 1 197 ticks, en mode détail (borne haute, PC chargé par 4 suites lourdes) : somme des
+  portées `gel:*` jusqu'à 20,7 ms au tick 919 800, au-dessus de 2 ms à CHAQUE guet (toutes les 20 ticks), 0,67 ms par tick en
+  moyenne ; `gel:garnisons` jusqu'à 13,7 ms, `gel:guet` 9,6 ms : critère C19 (2 ms au plus) NON TENU.
+- **F412 · FAIT** (moteur réel, scénario `x10-gel-progres`, archives `fait-progres-1453377f`, `-1f11db4d`, 39 OK) :
+  `LuaEntity.mining_progress` et `bonus_mining_progress` d'une foreuse se lisent et s'écrivent en UNITÉS DE `mining_time` de la
+  cible (plage [0, mining_time], comme le dit la doc), mesuré sur fer (1), fo-resonance-crystal (1,5) et fo-monazite (2). Écrites
+  sur une foreuse à l'arrêt (`active = false`), elles sont relues telles quelles et reprises au réveil : premier dépôt à
+  100 + (1 − p) × cycle, +2 ticks comme la foreuse témoin (une plage [0, 1] aurait donné 460 au lieu de 340 sur la monazite à
+  p = 0,5). Aucune fabrication gratuite : minerais = floor(p + marche / cycle). Productivité +50 % : `bonus_mining_progress`
+  repris de même. Une foreuse à l'arrêt garde ses deux progressions. (À distinguer de F83 et F84 : `crafting_progress`, dans
+  [0, 1], reste interdit en écriture.)
+- **F411 · FAIT** (moteur réel, archive `microbanc-A-aa0f5477`) : un four à `active = false` remplacé par
+  `create_entity{fast_replace = true}` sans `raise_built` donne un remplaçant ACTIF : `active` n'est pas hérité.
+- **F410 · FAIT** (moteur réel, archive `microbanc-G-13dc9822`) : `LuaEntity.damage()` lève `on_entity_damaged` PENDANT l'appel ;
+  au retour, les gestionnaires des deux mods (overhaul et mod de test) ont tourné, au même tick.
+- **F409 · FAIT** (moteur réel, archive `microbanc-G-13dc9822`, rejoué sur `-2ff71e7a`, `-aa0f5477`, `-1f11db4d`) : un soldat de
+  faction (`unit`) à `active = false` reçoit les coups (santé 200 → 195) et lève `on_entity_damaged` ; il ne bouge pas (0,00 tuile
+  en 10 ticks) et garde sa commande (wander, type 6) au réveil.
+- **F408 · FAIT** (moteur réel, archives `microbanc-A-13dc9822`, `-6241b674`) : `LuaFlowStatistics.on_flow(n, +5)` puis
+  `on_flow(n, −3)` donnent entrée +5 et sortie +3 : un compte négatif est une consommation. Verser une somme nette par tick
+  (produit moins consommé du même objet) perd les deux sens (minerai produit 56 contre 80 avant correction).
+- **F407 · FAIT** (moteur réel, archives `microbanc-A-0d04e7bc`, `-13dc9822`, `-6241b674`) : `LuaEntity.drop_target` d'une foreuse
+  posée par script vaut nil tant qu'elle n'a rien déposé (24/24 au tick 10 ; 0/8 au tick 700 sur des foreuses → four ayant
+  déposé, figées ou non). Une recherche au POINT `drop_position` (`find_entities_filtered{position}`) manque le four (point sur
+  le bord de sa boîte, 12/24) ; sur la TUILE sous `drop_position`, rognée de 0,01 (doc « tile box under the drop-off
+  position », F96) : 24/24. Une foreuse à `active = false` rend `status = disabled_by_script` (42).
+
 ## 2026-11-07 : défauts de la partie du DC (0.6.58), feuille de route vidéo, disque F:
 
 > Prochains identifiants libres (7/11, 22 h 40) : **F407** et **E265** hors blocs. Attribués ici : F389 à F406, E258 à E264.
