@@ -58,15 +58,21 @@ end
 --- Lot X10-GEL (C19, 8/11) : le moteur lève « Unknown item name: X » quand un inventaire, une entité ou des statistiques reçoivent un
 --- nom qui n'est pas un objet (get_item_count, get_insertable_count, insert, remove, remove_item ; plantage du gel sur la sauvegarde du
 --- DC, nom fictif « ? »). Le mock aussi, dans une partie du mock : un nom est CONNU s'il est un objet du mock (recettes et objets de
---- base, M.item_prototypes, sans la réponse de repli de l'index) ou le nom d'une entité du mock (objet qui la pose). Hors d'une partie
---- du mock (game.item_prototypes d'un test qui fait son propre monde) : aucun contrôle.
+--- base, M.item_prototypes, sans la réponse de repli de l'index) ou un objet RÉEL du jeu (tests/fixtures/items.lua : tous les objets
+--- de l'étape data, vanilla + mod, par tests/datastage/harness.lua --dump-items ; 8/11, demande du lead : jamais un nom qui n'existe
+--- pas dans le jeu). Hors d'une partie du mock (game.item_prototypes d'un test qui fait son propre monde, sans M.item_prototypes) :
+--- aucun contrôle.
+local REAL_ITEMS = nil
 function M.item_known(name)
   if type(name) ~= "string" or name == "" then return false end
   local protos = game and game.item_prototypes
   if not MOCK_ITEMS[protos] then return true end
   if rawget(protos, name) ~= nil then return true end
-  local ep = W and W.prototypes
-  return type(ep) == "table" and rawget(ep, name) ~= nil
+  if not REAL_ITEMS then
+    REAL_ITEMS = {}
+    for _, n in ipairs(dofile("tests/fixtures/items.lua")) do REAL_ITEMS[n] = true end
+  end
+  return REAL_ITEMS[name] == true
 end
 local function check_item(name, api)
   if not M.item_known(name) then error("Unknown item name: " .. tostring(name) .. " (" .. api .. ", moteur simulé)", 3) end

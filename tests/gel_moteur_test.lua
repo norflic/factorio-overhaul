@@ -207,7 +207,7 @@ local MUT_JEU = nil -- source mutée de script/faction/gel_usines_jeu.lua (mutan
 local MUT_GU = nil -- source mutée de script/faction/gel_usines.lua (mutants, fin du fichier)
 local function load_mod()
   H = { on = {}, nth = {}, died = {}, config = {} }
-  for _, m in ipairs({ "script.core.events", "script.core.storage", "script.core.profiler", "script.faction.state", "script.faction.gel",
+  for _, m in ipairs({ "script.core.events", "script.core.storage", "script.core.profiler", "script.faction.state", "script.faction.gel", "script.faction.gel_etat",
     "script.faction.gel_usines", "script.faction.gel_usines_jeu", "shared.faction.gel", "shared.faction.gel_compta" }) do package.loaded[m] = nil end
   package.loaded["script.core.events"] = {
     on = function(id, fn) H.on[id] = H.on[id] or {}; table.insert(H.on[id], fn) end,

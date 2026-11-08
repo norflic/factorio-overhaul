@@ -15,6 +15,7 @@ local Profiler = require("script.core.profiler")
 local G = require("shared.faction.gel")
 local Gc = require("shared.faction.gel_compta")
 local Gel = require("script.faction.gel")
+require("script.faction.gel_etat") -- état du lot déclaré (namespace « gel ») et branché sur Gel.state
 local Gu = require("script.faction.gel_usines")
 local Commander = require("script.faction.commander") -- Commander.army_out (S10) ; requis au chargement, après commander
 
@@ -183,8 +184,9 @@ local function apply(I, res, frozen)
       if frozen then Gel.set_status(e, res.status[e.unit_number]) end
     end
   end
-  for _, n in ipairs({ "iron-plate", "copper-plate", "steel-plate", "stone-brick" }) do
-    if (res.produced[n] or 0) > 0 then st.produits[n] = (st.produits[n] or 0) + res.produced[n] end
+  -- produits comptés au bilan [FO-GEL] : tout ce que le pas a produit (aucun nom d'objet en dur : règle anti-échelle d'IA-G, §8 bis)
+  for _, n in ipairs(Gc.sorted_names(res.produced)) do
+    if res.produced[n] > 0 then st.produits[n] = (st.produits[n] or 0) + res.produced[n] end
   end
   if res.pollution > 0 then
     local s = game.surfaces[I.surface]
@@ -605,8 +607,11 @@ Events.on(defines.events.script_raised_revive, function(e) touch(e.entity, "pose
 Events.on(defines.events.on_player_mined_entity, function(e) touch(e.entity, "retrait") end)
 Events.on(defines.events.on_robot_mined_entity, function(e) touch(e.entity, "retrait") end)
 Events.on(defines.events.script_raised_destroy, function(e) touch(e.entity, "retrait") end)
-Events.on_died(function(e) touch(e.entity, "mort") end, { types = { "mining-drill", "furnace", "container", "logistic-container", "inserter",
-  "transport-belt", "underground-belt", "splitter", "loader", "assembling-machine" }, ennemi = false })
+-- Intérêt déclaré à l'aiguillage des morts (lot MORTS ; recensé par tests/morts_test.lua) : une pièce d'îlot ou un voisin qui le
+-- change, jamais la force « enemy ».
+Gj.DIED_TYPES = { "mining-drill", "furnace", "container", "logistic-container", "inserter", "transport-belt", "underground-belt", "splitter",
+  "loader", "assembling-machine" }
+Events.on_died(function(e) touch(e.entity, "mort") end, { types = Gj.DIED_TYPES, ennemi = false })
 
 -- Données changées : tout ce qui est figé est réveillé, le registre est refait au relevé suivant (rien de figé qu'une version ne connaît plus).
 Events.on_configuration_changed(function()

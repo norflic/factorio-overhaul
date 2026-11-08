@@ -86,7 +86,9 @@ table.sort(dep_ids)
 say("gisements suivis par la faction 1 : " .. #dep_ids)
 check(#dep_ids >= 2, "au moins 2 gisements suivis (" .. #dep_ids .. ")")
 local depA, depB = dep_ids[1], dep_ids[2]
-local PRODUCT = "produit-test"
+-- produit RÉEL du jeu, qu'aucune faction ne fabrique dans cette partie (8/11 : le moteur simulé strict refuse un nom qui n'existe pas
+-- dans le jeu, comme le moteur réel, au relevé du coffre par script/team/stock.lua)
+local PRODUCT = "small-lamp"
 local MAT = "materiaux introuvables (15 min sans progres)"
 local Rp = require("shared.ai3.repli")
 

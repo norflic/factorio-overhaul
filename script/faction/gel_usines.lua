@@ -22,6 +22,7 @@ local Profiler = require("script.core.profiler")
 local G = require("shared.faction.gel")
 local Gc = require("shared.faction.gel_compta")
 local Gel = require("script.faction.gel")
+require("script.faction.gel_etat") -- état du lot déclaré (namespace « gel ») et branché sur Gel.state
 
 local Gu = {}
 

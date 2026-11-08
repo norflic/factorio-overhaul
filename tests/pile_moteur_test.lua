@@ -144,7 +144,9 @@ local function run_all()
     q.stock, q.reopened_tick = {}, game.tick - 100 * 3600
     inp = PileRt.inputs(f, bk, game.tick)
     check(inp.plan_reopened, "aucune durée : 100 min après la réouverture, le besoin retient encore")
-    q.ents = { { item = "x-objet-inconnu" } }
+    -- objet RÉEL du jeu, ni au coffre ni fabricable (aucune recette) : le poisson (8/11 : le moteur simulé strict refuse un nom qui
+    -- n'existe pas dans le jeu, comme le moteur réel ; « x-objet-inconnu » n'y aurait jamais été lu sans lever d'erreur)
+    q.ents = { { item = "raw-fish" } }
     inp = PileRt.inputs(f, bk, game.tick)
     check(inp.plan_reopened and not inp.plan_path, "objet ni au coffre ni fabricable : aucune voie (la pile ne gèle pas)")
     q.state = "fini"

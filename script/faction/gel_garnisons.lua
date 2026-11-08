@@ -32,6 +32,7 @@ local Profiler = require("script.core.profiler")
 local G = require("shared.faction.gel")
 local A = require("shared.ai3.armee")
 local Gel = require("script.faction.gel")
+require("script.faction.gel_etat") -- état du lot déclaré (namespace « gel ») et branché sur Gel.state
 local C = require("script.ai3.comportement")
 local Commander = require("script.faction.commander") -- Commander.army_out (S10) ; requis au chargement, après commander
 
@@ -528,6 +529,12 @@ local function on_damaged(e)
 end
 Events.on(defines.events.on_entity_damaged, on_damaged)
 
+-- Intérêt déclaré à l'aiguillage des morts (lot MORTS, script/core/events.lua ; recensé par tests/morts_test.lua) : une perte de
+-- l'équipe, jamais la force « enemy ».
+Ga.DIED_TYPES = { "unit", "character", "ammo-turret", "electric-turret", "fluid-turret", "artillery-turret", "wall", "gate",
+  "container", "furnace", "assembling-machine", "mining-drill", "lab", "electric-pole", "boiler", "generator", "radar", "inserter",
+  "transport-belt", "roboport", "rocket-silo" }
+
 Events.on_died(function(e)
   local a = GA0()
   if not (a and a.n > 0) then return end
@@ -541,9 +548,7 @@ Events.on_died(function(e)
     wake_view(a, vid, "perte", e.tick)
     Profiler.stop("gel:reveil")
   end
-end, { types = { "unit", "character", "ammo-turret", "electric-turret", "fluid-turret", "artillery-turret", "wall", "gate",
-  "container", "furnace", "assembling-machine", "mining-drill", "lab", "electric-pole", "boiler", "generator", "radar", "inserter",
-  "transport-belt", "roboport", "rocket-silo" }, ennemi = false })
+end, { types = Ga.DIED_TYPES, ennemi = false })
 
 -- Données changées : tous les soldats figés sont réveillés, l'état est refait au guet suivant.
 Events.on_configuration_changed(function()

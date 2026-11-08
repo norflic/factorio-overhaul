@@ -535,6 +535,10 @@ do
     ["script/faction/chef.lua"] = { "DETTE", 1, "stocks du chef : T.outposts" },
     ["script/faction/outposts.lua"] = { "DETTE", 8, "tourelle et munitions des avant-postes : T" },
     ["script/faction/war.lua"] = { "DETTE", 3, "tourelles du QG et kit de départ : T" },
+    -- Lot X10-GEL (8/11) : types du moteur seulement, aucun nom de prototype (le genre de l'entité, jamais un niveau)
+    ["script/faction/gel_usines.lua"] = { "TYPE", 3, "types du moteur des RECEVEURS du dépôt d'une foreuse (container, furnace, belts, loader, boiler, car, cargo-wagon, turrets... : un receveur autre que coffre ou four rend le refus « bus ») et des bras voisins (inserter) : le GENRE, jamais un niveau" },
+    ["script/faction/gel_usines_jeu.lua"] = { "TYPE", 2, "types du moteur de l'intérêt déclaré à l'aiguillage des morts (Gj.DIED_TYPES : pièces d'îlot et voisins qui le changent, inserter, loader...) : le GENRE, jamais un niveau" },
+    ["script/faction/gel_garnisons.lua"] = { "TYPE", 3, "types du moteur des ennemis mobiles (Ga.MOBILE : car, spider-vehicle ; banc de mesure seulement) et de l'intérêt déclaré à l'aiguillage des morts (Ga.DIED_TYPES : boiler, roboport...) : le GENRE, jamais un niveau" },
   }
   local function hit_lines(src, nameset)
     -- commentaires longs remplacés par autant de retours à la ligne : les numéros de ligne restent ceux du fichier

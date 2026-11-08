@@ -24,7 +24,9 @@ local DUMP_TECHS = nil -- "--dump-techs <fichier>" : technologies finales (lot I
 local DUMP_CALC = nil -- "--dump-calc <fichier>" : données du calculateur d'équilibre (piste CALCULS, tools/calc/)
 local DUMP_PROTO = nil -- "--dump-proto type/name" : affiche un prototype VANILLA (outil de conception)
 local DUMP_FINAL = nil -- "--dump-final type/name" : affiche un prototype tel que le mod le livre
+local DUMP_ITEMS = nil -- "--dump-items <fichier>" : noms de TOUS les objets (vanilla + mod), lot X10-GEL (moteur simulé strict)
 for i, a in ipairs(arg) do
+  if a == "--dump-items" then DUMP_ITEMS = arg[i + 1] end
   if a == "--verbose" then VERBOSE = true end
   if a == "--show-suppressed" then SHOW_SUPPRESSED = true end
   if a == "--dump-recipes" then DUMP_RECIPES = arg[i + 1] end
@@ -236,6 +238,29 @@ for _, e in ipairs(vanilla_report.errors) do vanilla_sigs[gsig(e)] = (vanilla_si
 local vanilla_paths = Validator.collect_paths(vanilla)
 
 local modded = run_all(true)
+
+-- Option --dump-items <fichier> (lot X10-GEL, 8/11) : les noms de TOUS les objets du jeu (types d'objet de l'étape data, vanilla +
+-- mod), triés. Le moteur simulé (tests/mock_engine.lua, M.item_known) n'accepte que ces noms (et ceux de ses recettes) aux appels
+-- d'inventaire, comme le moteur qui lève « Unknown item name ».
+if DUMP_ITEMS then
+  local ITEM_TYPES = { "item", "ammo", "capsule", "gun", "item-with-entity-data", "item-with-label", "item-with-inventory", "blueprint-book",
+    "item-with-tags", "selection-tool", "blueprint", "copy-paste-tool", "deconstruction-item", "upgrade-item", "module", "rail-planner",
+    "spidertron-remote", "tool", "armor", "mining-tool", "repair-tool" }
+  local names, seen = {}, {}
+  for _, ty in ipairs(ITEM_TYPES) do
+    for name in pairs(modded[ty] or {}) do
+      if not seen[name] then seen[name] = true; names[#names + 1] = name end
+    end
+  end
+  table.sort(names)
+  local lines = { "-- Généré par tests/datastage/harness.lua --dump-items (vanilla 1.1.91 + mod, étape data finale). Ne pas éditer.", "return {" }
+  for _, n in ipairs(names) do lines[#lines + 1] = string.format("  %q,", n) end
+  lines[#lines + 1] = "}"
+  local f = assert(io.open(DUMP_ITEMS, "wb"))
+  f:write(table.concat(lines, string.char(10)), string.char(10))
+  f:close()
+  print("Objets ecrits : " .. #names .. " -> " .. DUMP_ITEMS)
+end
 
 -- Option --dump-recipes <fichier> : recettes normalisées (difficulté normale), telles que le runtime les
 -- voit dans game.recipe_prototypes. Sert de jeu de données aux tests hors-jeu du cerveau d'équipe.

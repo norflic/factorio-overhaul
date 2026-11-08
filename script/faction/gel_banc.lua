@@ -32,6 +32,7 @@
 ]]
 
 local Gel = require("script.faction.gel")
+require("script.faction.gel_etat") -- état du lot déclaré (namespace « gel ») et branché sur Gel.state
 local Gu = require("script.faction.gel_usines")
 local G = require("shared.faction.gel")
 local Ga = require("script.faction.gel_garnisons")

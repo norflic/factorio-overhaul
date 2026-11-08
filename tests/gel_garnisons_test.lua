@@ -136,7 +136,7 @@ end
 local H
 local function load_mod(src)
   H = { on = {}, nth = {}, died = {}, config = {} }
-  for _, m in ipairs({ "script.core.events", "script.core.storage", "script.core.profiler", "script.faction.state", "script.faction.gel",
+  for _, m in ipairs({ "script.core.events", "script.core.storage", "script.core.profiler", "script.faction.state", "script.faction.gel", "script.faction.gel_etat",
     "script.faction.gel_garnisons", "script.ai3.comportement", "shared.faction.gel" }) do package.loaded[m] = nil end
   package.loaded["script.core.events"] = {
     on = function(id, fn) H.on[id] = H.on[id] or {}; table.insert(H.on[id], fn) end,

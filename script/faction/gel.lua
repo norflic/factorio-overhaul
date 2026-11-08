@@ -12,10 +12,12 @@
     - Gel.spend(tick, n) : budget d'écritures `active` par tick (Gel.WRITES), partagé par les branchements ;
     - Gel.say(key, text) : journal [FO-GEL] borné (Gel.LOGS lignes par clé).
   État (global, namespace « gel ») : vstatus[unit] = statut comptable (nombre defines.entity_status) des machines figées, n_frozen,
-  logs ; les branchements y gardent leur propre table (usines : `u`).
+  logs ; les branchements y gardent leur propre table (usines : `u`). Le namespace est DÉCLARÉ par script/faction/gel_etat.lua (requis
+  par les branchements), pas ici : un lecteur qui ne demande que Gel.status (avant-postes, gisement, réparation, soldats...) ne tire ni
+  le stockage ni ses abonnements (8/11 : suites extension_fer_moteur, rebuild_avant_poste et reparation_test, dont les doublures
+  d'Events et de Storage n'ont ni on_init ni declare). Sans gel_etat, aucun état : statut du moteur, rien de figé.
 ]]
 
-local Storage = require("script.core.storage")
 local FC = require("shared.faction.config")
 local CC = require("script.companion.constants")
 
@@ -25,15 +27,18 @@ Gel.SETTING = "fo-war-gel"
 Gel.WRITES = 600 -- écritures `active` au plus par tick, tous branchements confondus (réveil d'une faction : 1 à 2 ticks)
 Gel.LOGS = 40    -- lignes [FO-GEL] au plus par clé (faction, sujet)
 
-Storage.declare("gel", function()
-  return { vstatus = {}, n_frozen = 0, logs = {}, u = nil }
-end)
+-- Accès à l'état, posé une fois au chargement par gel_etat.lua (Gel.bind_state) ; par défaut : aucun état.
+local STATE = { get = function() return nil end }
 
 --- État du lot (nil tant que le stockage n'est pas créé : on_init d'un mod ajouté à une sauvegarde passe avant notre
---- on_configuration_changed).
+--- on_configuration_changed ; nil aussi sans gel_etat.lua).
 function Gel.state()
-  local fo = Storage.raw()
-  return fo and fo.gel
+  return STATE.get()
+end
+
+--- Posé par script/faction/gel_etat.lua au chargement (jamais pendant un événement).
+function Gel.bind_state(fn)
+  STATE.get = fn
 end
 
 --- Réglage de carte (vrai par défaut ; un réglage absent laisse le gel allumé).
@@ -46,8 +51,7 @@ end
 function Gel.status(e)
   if not (e and e.valid) then return nil end -- entité invalide : nil, sans erreur (lecteurs protégés : capitalisation.lua)
   if e.active ~= false then return e.status end -- une entité active n'est pas figée par le gel (et le stockage n'est pas lu)
-  local fo = Storage.raw() -- nil avant la création du stockage (on_init d'un mod ajouté à une sauvegarde) : statut du moteur
-  local g = fo and fo.gel
+  local g = Gel.state() -- nil avant la création du stockage (on_init d'un mod ajouté à une sauvegarde) : statut du moteur
   if g and g.n_frozen > 0 then
     local u = e.unit_number
     local v = u and g.vstatus[u]
@@ -60,8 +64,7 @@ end
 --- avancer une horloge de confirmation (le statut comptable reste préférable : Gel.status).
 function Gel.frozen(e)
   if not (e and e.valid) or e.active ~= false then return false end
-  local fo = Storage.raw()
-  local g = fo and fo.gel
+  local g = Gel.state()
   if not (g and g.n_frozen > 0) then return false end
   local u = e.unit_number
   return u ~= nil and g.vstatus[u] ~= nil
@@ -100,7 +103,8 @@ end
 
 --- Journal borné : au plus Gel.LOGS lignes par clé.
 function Gel.say(key, text)
-  local g = Storage.ns("gel")
+  local g = Gel.state()
+  if not g then return end
   local n = (g.logs[key] or 0) + 1
   g.logs[key] = n
   if n <= Gel.LOGS then log("[FO-GEL] " .. text) end
@@ -108,14 +112,16 @@ end
 
 --- Statut comptable d'une machine figée (nom d'un defines.entity_status, rendu par shared/faction/gel_compta.lua).
 function Gel.set_status(e, name)
-  local g = Storage.ns("gel")
+  local g = Gel.state()
+  if not g then return end
   local S = defines.entity_status
   if name == "no_ingredients" and e.type == "assembling-machine" then name = "item_ingredient_shortage" end
   g.vstatus[e.unit_number] = S[name] or S.working
 end
 
 function Gel.clear_status(unit)
-  Storage.ns("gel").vstatus[unit] = nil
+  local g = Gel.state()
+  if g then g.vstatus[unit] = nil end
 end
 
 --- Noms des soldats des factions (prototypes/faction.lua) : les seuls que le gel des garnisons peut figer (ni robots, ni votre

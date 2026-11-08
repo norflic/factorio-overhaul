@@ -231,6 +231,9 @@ local function attendu()
     ["script/scenario/journal.lua"] = { types = set_of({ "unit-spawner" }) },
     ["script/td/director.lua"] = { types = set_of({ "unit" }) },
     ["script/world/enemy_mechanics.lua"] = { types = by_names(brood) },
+    -- X10-GEL (8/11) : une pièce d'îlot figé ou une perte de l'équipe réveille (jamais la force « enemy »)
+    ["script/faction/gel_usines_jeu.lua"] = { types = set_of(require("script.faction.gel_usines_jeu").DIED_TYPES), ennemi = false },
+    ["script/faction/gel_garnisons.lua"] = { types = set_of(require("script.faction.gel_garnisons").DIED_TYPES), ennemi = false },
   }
 end
 
@@ -533,7 +536,7 @@ local died = Events.died_list()
 -- P2 : déclarations
 do
   local want = attendu()
-  check(#died == 24, "P2 : 24 abonnés à on_entity_died recensés (" .. #died .. ")") -- 23 + worker.lua (parade du kit offert, EFFONDREMENT)
+  check(#died == 26, "P2 : 26 abonnés à on_entity_died recensés (" .. #died .. ")") -- 23 + worker.lua (parade du kit offert, EFFONDREMENT) + 2 du gel (X10-GEL)
   local tout, bad = {}, {}
   local seen = {}
   for i, d in ipairs(died) do

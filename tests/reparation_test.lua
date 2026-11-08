@@ -190,17 +190,29 @@ do
   local want, n_want = {}, 0
   for _, t in ipairs(Rp.filter_types()) do if not want[t] then want[t] = true n_want = n_want + 1 end end
   for _, t in ipairs(Ab.filter_types()) do if not want[t] then want[t] = true n_want = n_want + 1 end end
-  local got, all_type, dup = {}, true, false
+  -- Lot X10-GEL (Q11, accordée par le lead le 7/11) : en plus, un filtre « name » par nom de soldat des factions et de PNJ
+  -- (Gel.filter_names : un coup sur un soldat figé ou un PNJ réveille sa garnison au tick même) ; jamais de filtre « type » unit.
+  local Gel = require("script.faction.gel")
+  local want_names, n_names = {}, 0
+  for _, n in ipairs(Gel.filter_names()) do if not want_names[n] then want_names[n] = true n_names = n_names + 1 end end
+  local got, got_names, kinds_ok, dup = {}, {}, true, false
   for _, x in ipairs(fl and fl.filters or {}) do
-    if x.filter ~= "type" then all_type = false end
-    if got[x.type] then dup = true end
-    got[x.type] = true
+    if x.filter == "type" then
+      if got[x.type] then dup = true end
+      got[x.type] = true
+    elseif x.filter == "name" then
+      if got_names[x.name] then dup = true end
+      got_names[x.name] = true
+    else
+      kinds_ok = false
+    end
   end
   local same = true
   for t in pairs(want) do if not got[t] then same = false end end
-  check(fl and fl.id == defines.events.on_entity_damaged and #fl.filters == n_want and same and all_type and not dup and not got.unit
-    and got["ammo-turret"],
-    "filtre du moteur : un filtre « type » par type réparable ou relevé par l'ensemble des endommagées (tourelles comprises), sans unité")
+  for n in pairs(want_names) do if not got_names[n] then same = false end end
+  check(fl and fl.id == defines.events.on_entity_damaged and #fl.filters == n_want + n_names and same and kinds_ok and not dup and not got.unit
+    and got["ammo-turret"] and n_names > 0,
+    "filtre du moteur : un filtre « type » par type réparable ou relevé par l'ensemble des endommagées (tourelles comprises), sans type unit ; un filtre « name » par soldat des factions et PNJ (X10-GEL, Q11)")
 
   local fa = new_team("scarlet", false)
   local pl = new_team("player", true)
