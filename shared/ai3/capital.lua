@@ -77,7 +77,7 @@ Cap.SHORT_WORK = 800
 -- Lot AMELIORER : machines HORS des familles à niveaux (celles que les équipes posent réellement avant la première
 -- machine d'une famille : four de pierre, premier assembleur) remplacées SUR PLACE par la machine supérieure, lue dans
 -- les prototypes (Cap.successors). Au plus Cap.REPLACE_BATCH machines identiques par décision (un paiement par pensée).
-Cap.REPLACE_BATCH = 4
+Cap.REPLACE_BATCH = 12 -- lot AMELIORATION : un bloc de tapis ou de bras se remplace par lots de 12 (4 avant)
 -- Lot AGES « le passage d'âge ne meurt pas de faim » (retour du DC du 2/11, points 8 et 17 : l'âge 2 vu une fois sur huit
 -- parties). Le choix est un rapport valeur ÷ coût (règle de Smith) : exact pour un ensemble FINI de travaux, mais le centre
 -- (un gros prix qui ouvre l'époque, rapport 170 à 560) passait derrière un flux qui ne tarit pas (chaque tourelle, mur ou
@@ -195,7 +195,7 @@ function Cap.successors(Ld, ctx, name)
   for _, t in ipairs(ctx.machines or {}) do
     local p1 = (t ~= name) and ctx.mproto(t) or nil
     if p1 and p1.item and p1.type == p0.type and p1.group == p0.group and p1.w == p0.w and p1.h == p0.h
-        and p1.energy == p0.energy and (p1.speed or 0) > p0.speed and covers(p1.cats, p0.cats) then
+        and p1.energy == p0.energy and (p1.speed or 0) > p0.speed and covers(p1.cats, p0.cats) and p1.reach == p0.reach then
       local fam, n = Ld.parse(t)
       if fam == nil or n == 1 then out[#out + 1] = t end
     end
@@ -215,6 +215,7 @@ end
 --- Rend candidats (non scorés), impayables (cible sans coût connu : la recherche qui la débloque n'est PAS réclamée).
 function Cap.replace_candidates(Ld, census, ctx)
   local out, blocked = {}, {}
+  local succ_memo = {}
   if not (ctx.mproto and census.machines) then return out, blocked end
   local groups, order = {}, {}
   local blocked_seen = {}
@@ -226,7 +227,9 @@ function Cap.replace_candidates(Ld, census, ctx)
       local p0 = ctx.mproto(m.name)
       local best
       local first_missing
-      for _, t in ipairs(Cap.successors(Ld, ctx, m.name)) do
+      -- Mémo par nom (un relevé de milliers de tapis et de bras n'a que quelques noms distincts).
+      succ_memo[m.name] = succ_memo[m.name] or Cap.successors(Ld, ctx, m.name)
+      for _, t in ipairs(succ_memo[m.name]) do
         local p1 = ctx.mproto(t)
         local g = p1.speed / p0.speed - 1
         local use = m.working and 100 or Cap.IDLE_USE
@@ -243,10 +246,10 @@ function Cap.replace_candidates(Ld, census, ctx)
         end
       end
       if best then
-        local gk = m.name .. ">" .. best.to
+        local gk = (m.block and (m.block .. "|") or "") .. m.name .. ">" .. best.to
         local grp = groups[gk]
         if not grp then
-          grp = { from = m.name, to = best.to, item = best.item, ids = {}, value = 0 }
+          grp = { from = m.name, to = best.to, item = best.item, ids = {}, value = 0, block = m.block }
           groups[gk] = grp
           order[#order + 1] = gk
         end
@@ -346,6 +349,17 @@ function Cap.candidates(Ld, census, ctx)
         cost = Ld.cost(fam, n + 1), value = v, why = { why } }
     end
   end
+  -- Lot AMELIORATION : les blocs de PRODUCTION d'abord (DC, 8/11 : « améliorer les bâtiments pour améliorer la production », la montée
+  -- d'un seul bâtiment pour le palier est SECONDAIRE). Tant qu'un bloc de débit est payable en entier (cout au stock), la chaîne du
+  -- centre (Q16) ne reçoit AUCUNE part de la valeur du centre : elle ne prend pas le budget des blocs de production. Les blocs qui
+  -- montent au plafond remplissent d'ailleurs la condition du centre d'eux-mêmes.
+  local bres, prod_ready
+  if ctx.blocs then
+    bres = Am.candidates(Ld, census.list or {}, setmetatable({ cc_level = cc_level }, { __index = ctx }), cfam, Cap)
+    for _, c in ipairs(bres.cands) do
+      if c.why and c.why[1] and c.why[1][1] == "debit" and c.all_in then prod_ready = true end
+    end
+  end
   -- Centre : le poser (aucun) ou le monter. Valeur = l'époque + ce que son plafond débloque (÷ LOOK_DIV).
   local blockers = {}
   -- Lot C1 : l'état du centre à CETTE décision, pour le journal (une cause par refus, jamais un silence) :
@@ -388,7 +402,7 @@ function Cap.candidates(Ld, census, ctx)
         local share = math.floor(cv * Cap.CHAIN_PCT / 100)
         for _, k in ipairs(blockers) do
           local t = top_of[k]
-          if t and t.cand then
+          if t and t.cand and not prod_ready then
             t.cand.value = t.cand.value + share
             t.cand.chain = { target = cc.key, v = share }
           end
@@ -405,10 +419,8 @@ function Cap.candidates(Ld, census, ctx)
   local report
   if ctx.blocs then
     for _, r in ipairs(rows) do if r.cand and r.cand.chain then add(r.cand) end end
-    local bctx = setmetatable({ cc_level = cc_level }, { __index = ctx })
-    local res = Am.candidates(Ld, census.list or {}, bctx, cfam, Cap)
-    for _, c in ipairs(res.cands) do add(c) end
-    report = res.report
+    for _, c in ipairs(bres.cands) do add(c) end
+    report = bres.report
   else
     for _, r in ipairs(rows) do if r.cand then add(r.cand) end end
   end
