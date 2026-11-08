@@ -14,7 +14,9 @@
        d'une pensée ≤ 103 ticks (13 étapes au plus, E1b rejouée par la décision de capitalisation comprise) ;
     T7 entrées périmées (décision du lead du 8/11, trou relevé par effondrement ; Lourd.drop) : (a) CHANGEMENT DE VERSION avec 5 pensées
        en cours (4 factions et votre équipe, toutes en attente du jeton au tick t) : toutes effacées, aucune entrée « <clé>:etape » ne
-       reste en file ; (b) ABANDON (faction éliminée pendant l'attente de son étape). Dans les deux cas, quatre demandeurs par tick
+       reste en file ; (b) ABANDON (faction éliminée pendant l'attente de son étape) ; (c) votre équipe PREND FIN (coffre perdu :
+       Storage.ns("pteam").team = nil, trou relevé par effondrement le 8/11) pendant l'attente de son étape, le créneau mesuré est alors
+       celui de la 1re faction. Dans les trois cas, quatre demandeurs par tick
        (« banc ») attendent derrière, puis le créneau de votre équipe arrive : son E1a passe en au plus 7 ticks ; sans Lourd.drop, les
        entrées mortes retiennent tout le budget jusqu'à leur purge (J.STALE) et le créneau prend plus de 7 ticks de retard ;
     T8 relevés à la période du pouls (partie « api.pulse » du point 2 b, gardée sans S10 : la borne de 7 ticks en dépend) : un relevé
@@ -24,7 +26,8 @@
        d'étape de 35 ticks et une pensée de 559 ticks (mesuré le 8/11, CRITERES §2) ;
     T6 mutants de source : jeton ignoré par une étape ; étape refusée perdue (pas redemandée) ; étape refusée jouée quand même ;
        rattrapage d'un état n = 1 (branche retirée) ; état n = 1 sans signature ; t0 du créneau recopié ; entrée laissée à l'abandon
-       (T7 b : retard de plus de 7 ticks) ; entrée laissée à l'effacement (T7 a : idem) ; période ignorée par le jeton (T8 échoue).
+       (T7 b : retard de plus de 7 ticks) ; entrée laissée à l'effacement (T7 a : idem) ; entrée laissée quand votre équipe prend fin
+       (T7 c : idem) ; période ignorée par le jeton (T8 échoue).
   Sans S10 (décision du lead du 8/11 : S10 retiré de la 0.6.63, cette partie refaite sur e6eab76c pour la 0.6.64) : une faction pense
   à son créneau seulement (Commander.think, phases étalées), sans réveil ; la garde « pensée en cours » de commander.lua n'est pas dans ce
   lot (une pensée dure au plus 103 ticks, sous la période de 300 ; un créneau qui tombe pendant une pensée passe par le rattrapage de
@@ -310,9 +313,13 @@ local function scene_stale(ctx, mode)
   if busy() or Lourd.left(game.tick) < Lourd.BUDGET then return nil end
   local t = game.tick
   local sfc = game.surfaces[1]
+  local Storage = require("script.core.storage")
   if mode == "version" then
     Team.think(pf, pf.hq.surface, t, nil)
     for _, f in ipairs(teams) do Team.think(f, sfc, t, nil) end
+  elseif mode == "perdue" then
+    Lourd.take(t, "banc:lourd")
+    Team.think(pf, pf.hq.surface, t, nil)
   else
     Lourd.take(t, "banc:lourd")
     Team.think(teams[1], sfc, t, nil)
@@ -320,13 +327,18 @@ local function scene_stale(ctx, mode)
   local bancs = { "banc:a", "banc:b", "banc:c", "banc:d" }
   local served = {}
   for _, b in ipairs(bancs) do Lourd.take(t, b) end
+  -- le créneau mesuré : celui de votre équipe ; « perdue » : votre équipe a pris fin, celui de la 1re faction
+  local sf, ssfc = pf, pf.hq.surface
+  if mode == "perdue" then sf, ssfc = teams[1], sfc end
   teams[#teams + 1] = pf
   local cleared, left = 0, 0
   if mode == "version" then
     Team.etapes_config_changed({ mod_changes = { ["factorio-overhaul"] = { old_version = "0.6.63", new_version = "0.6.64" } } })
     for _, f in ipairs(teams) do if not et_of(f) then cleared = cleared + 1 end end
-    local q = (require("script.core.storage").ns("pouls_jeton") or {}).q or {}
+    local q = (Storage.ns("pouls_jeton") or {}).q or {}
     for _, k in ipairs(q) do if k:sub(-6) == ":etape" then left = left + 1 end end
+  elseif mode == "perdue" then
+    Storage.ns("pteam").team = nil -- (l'état laissé par le gestionnaire « perdu » de script/team/player_team.lua)
   else
     teams[1].eliminated = true
   end
@@ -337,13 +349,16 @@ local function scene_stale(ctx, mode)
     for _, b in ipairs(bancs) do if not served[b] and Lourd.take(k, b) then served[b] = true end end
     if not slot then
       slot = k
-      Team.think(pf, pf.hq.surface, k, nil)
+      Team.think(sf, ssfc, k, nil)
     end
-    local et = et_of(pf)
+    local et = et_of(sf)
     if not e1a and et and et.n >= 2 and et.t0 >= slot then e1a = et.t0 end
     if e1a then break end
   end
-  if mode ~= "version" then teams[1].eliminated = false end
+  if mode == "perdue" then
+    Storage.ns("pteam").team = pf
+    pf.team.etape = nil -- (son minuteur est parti pendant la perte : l'état d'attente ne serait plus joué)
+  elseif mode ~= "version" then teams[1].eliminated = false end
   return { delay = e1a and slot and (e1a - slot) or nil, cleared = cleared, left = left }
 end
 
@@ -356,6 +371,9 @@ do
   local b = scene_stale(sctx, "abandon")
   check(b and b.delay and b.delay <= 7, string.format("T7 b : abandon (faction éliminée pendant l'attente) : E1a du créneau suivant en %s tick(s) (borne 7)",
     tostring(b and b.delay)))
+  local c = scene_stale(sctx, "perdue")
+  check(c and c.delay and c.delay <= 7, string.format("T7 c : votre équipe a pris fin (coffre perdu) pendant l'attente de son étape : E1a du créneau suivant (1re faction) en %s tick(s) (borne 7)",
+    tostring(c and c.delay)))
 end
 
 local wctx = setup(4)
@@ -421,6 +439,14 @@ mutant("entrée laissée à l'effacement", { module = "script.team.team", path =
     local c4 = setup(4, { { module = "script.team.team", path = TEAM,
       old = "      Lourd.drop(TT.who(f)) -- (lot LOURD, point 2 c : l'entrée de la pensée effacée ne retient plus le budget)" .. NL, new = "" } })
     local r = scene_stale(c4, "version")
+    return r ~= nil and (r.delay == nil or r.delay > 7)
+  end)
+mutant("entrée laissée quand votre équipe prend fin", { module = "script.team.team", path = TEAM,
+  old = '    if pl.key == "player" then Lourd.drop(TT.who({ key = "player" })) end' .. NL, new = "" },
+  function(c)
+    local c4 = setup(4, { { module = "script.team.team", path = TEAM,
+      old = '    if pl.key == "player" then Lourd.drop(TT.who({ key = "player" })) end' .. NL, new = "" } })
+    local r = scene_stale(c4, "perdue")
     return r ~= nil and (r.delay == nil or r.delay > 7)
   end)
 mutant("t0 du créneau recopié", { module = "script.team.team", path = TEAM,

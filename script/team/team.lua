@@ -1327,7 +1327,15 @@ end
 --- Minuteur d'une étape : { key, n, t0 } ; une charge utile périmée (pensée déjà rattrapée) ne fait rien.
 TT.step = function(pl, tick)
   local f = State.faction(pl.key)
-  local t = f and f.team
+  if not f then
+    -- Lot LOURD (point 2 c ; trou relevé par effondrement, 8/11) : votre équipe a PRIS FIN pendant l'attente d'une étape (coffre perdu :
+    -- player_team.lua met Storage.ns("pteam").team à nil) : plus aucune pensée à protéger, son entrée sort de la file (sinon elle
+    -- retiendrait tout le budget J.STALE ticks). Les factions restent dans war.factions : leur abandon passe par TT.alive, plus bas. Une
+    -- charge utile seulement PÉRIMÉE (équipe présente) ne retire rien : l'entrée appartient alors à la pensée en cours.
+    if pl.key == "player" then Lourd.drop(TT.who({ key = "player" })) end
+    return
+  end
+  local t = f.team
   local et = t and t.etape
   if not (et and et.n == pl.n and et.t0 == pl.t0) then return end
   if not TT.alive(f) then
