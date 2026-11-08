@@ -100,6 +100,7 @@ function Cv.close(player)
     if st.open_n == 0 then st.snaps = {} end -- plus aucun spectateur : le relevé est effacé
   end
   if player.valid then
+    Panneau.close_npc(player)
     Panneau.close(player)
     set_shortcut(player, false)
   end
@@ -135,6 +136,7 @@ local function new_cycle(f, s)
     order[#order + 1] = z.key
   end
   s.zones, s.order, s.cursor = zones, order, 1
+  s.links = Lec.links(f) -- liaisons enregistrées (copies de nombres), refaites à chaque cycle
   s.cycles = (s.cycles or 0) + 1
 end
 
@@ -219,12 +221,25 @@ function Cv.refresh_one(player, st, v, now)
     sel_tasks = row and Lg.tasks_for_zone(tasks, { pid = row.z.pid, oid = row.z.oid }) or {},
     sel_piquage = row and row.z.pid and Lec.piquage_rows(f, row.z.pid) or {},
     sel_am_refus = row and row.z.pid and Lec.am_refus_rows(f, row.z.pid) or {},
+    links = s.links or {},
+    sel_links = {},
     improvements = Am.evaluate(Lec.improvement_facts(f)),
     sev_count = { alerte = 0, attention = 0, info = 0, ok = 0 },
   }
   for _, r in ipairs(rows) do ctx.sev_count[r.sev] = (ctx.sev_count[r.sev] or 0) + 1 end
+  if row and row.z.pid then
+    for _, l in ipairs(ctx.links) do
+      if l.dock_pid == row.z.pid or l.src_pid == row.z.pid then ctx.sel_links[#ctx.sel_links + 1] = l end
+    end
+  end
+  -- PNJ regardé (clic ou survol) : son état cognitif complet, relu à chaque redessin
+  if v.npc then
+    local agent = Lec.agent(v.npc)
+    local af = Lec.team_of_agent(agent)
+    if agent and af and agent.entity and agent.entity.valid then ctx.npc = Lec.npc(af, agent, now) else ctx.npc_gone = v.npc end
+  end
   local opts = Rendu.options(player)
-  Rendu.draw(player, v, rows, row and row.key or nil, opts, now, Lec.surface_of(f))
+  Rendu.draw(player, v, rows, row and row.key or nil, opts, now, Lec.surface_of(f), s.links)
   Panneau.update(player, v, ctx)
 end
 
@@ -258,6 +273,22 @@ Events.on(Cv.INPUT, function(e)
   if player then Cv.toggle(player) end
 end)
 
+-- Un PNJ pointé (survol) ou cliqué (le curseur est sur lui) pendant que la vue est ouverte : son panneau s'ouvre et le suit ; un autre PNJ le remplace.
+Events.on(defines.events.on_selected_entity_changed, function(e)
+  local st = ns()
+  if not st or st.open_n == 0 then return end
+  local v = st.viewers[e.player_index]
+  local player = game.get_player(e.player_index)
+  if not (v and player and player.valid) then return end
+  local agent = Lec.agent_of_entity(player.selected)
+  if agent and v.npc ~= agent.id then
+    v.npc = agent.id
+    v.sig.npc = nil
+    local ok, err = pcall(Cv.refresh_one, player, st, v, game.tick)
+    if not ok then snap_of(st, v.fid).err = tostring(err):sub(1, 200) end
+  end
+end)
+
 Events.on(defines.events.on_gui_click, function(e)
   local el = e.element
   if not (el and el.valid) then return end
@@ -269,6 +300,9 @@ Events.on(defines.events.on_gui_click, function(e)
   if not (player and v) then return end
   if name == "fo_dbg_close" then
     Cv.close(player)
+  elseif name == "fo_dbg_pnj_close" then
+    v.npc = nil
+    Panneau.close_npc(player)
   elseif name == "fo_dbg_zone" then
     v.sel = el.tags and el.tags.key or nil
     v.sig = {}

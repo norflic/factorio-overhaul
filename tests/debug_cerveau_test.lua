@@ -35,7 +35,7 @@ local function load_mod(path, mutate)
 end
 
 -- Un jeu complet de contrôles sur des modules donnés (les mutants rejouent exactement les mêmes).
-local function run_all(Zn, Ec, Am, Lg)
+local function run_all(Zn, Ec, Am, Lg, Pn, Bl)
   section("1. couleur d'une zone")
   for _, st in ipairs({ "attente", "plan", "reserve", "defrichage", "fantomes", "chantier", "raccordement" }) do
     local r = Zn.classify({ state = st, machines = { marche = 9 } })
@@ -249,6 +249,61 @@ local function run_all(Zn, Ec, Am, Lg)
   check(#dec == 2 and dec[1].text == "c" and dec[2].text == "b", "decisions : plafond")
   check(#Lg.decisions(nil) == 0, "decisions : entree absente")
 
+  section("5 bis. PNJ (shared/debug/pnj.lua)")
+  local ex = Pn.explain({ has_task = true, state = "step" })
+  check(ex.cause == "en_marche", "PNJ avec tache : en marche")
+  ex = Pn.explain({ has_task = true, state = "wait", wait_left = 300 })
+  check(ex.cause == "attente" and ex.left == 300, "attente chronometree")
+  ex = Pn.explain({ has_task = true, state = "walk", nav_fail = "no_path" })
+  check(ex.cause == "marche_echec" and ex.why == "no_path", "echec de marche")
+  ex = Pn.explain({ has_task = false, free = {} })
+  check(ex.cause == "aucune_tache" and ex.n == 0, "tableau sans tache libre")
+  ex = Pn.explain({ has_task = false, free = { { key = "a", pause = 600 }, { key = "b", pause = 100 } } })
+  check(ex.cause == "pauses" and ex.key == "a" and ex.n == 2 and ex.n_pause == 2, "toutes en pause d'echec")
+  ex = Pn.explain({ has_task = false, free = { { key = "a", pause = 600 }, { key = "b", missing = { item = "fer", need = 50, free = 10 } } } })
+  check(ex.cause == "matiere" and ex.key == "b" and ex.item == "fer" and ex.need == 50 and ex.free == 10 and ex.n_pause == 1 and ex.n_matiere == 1, "manque de matiere : l'objet, le besoin et le libre")
+  ex = Pn.explain({ has_task = false, free = { { key = "a", pause = 600 }, { key = "b", missing = { item = "fer", need = 5, free = 0 } }, { key = "c" } } })
+  check(ex.cause == "pret" and ex.key == "c", "une tache prenable : pret")
+  check(Pn.explain(nil).cause == "aucune_tache", "entree absente : aucune tache (ferme)")
+  check(Pn.state_word("walk") == "walk" and Pn.state_word("zzz") == "inconnu" and Pn.state_word(nil) == "inconnu", "mot d'etat")
+  local sr = Pn.step_rows({ { "home" }, { "goto", { x = 10.4, y = -3 } }, { "take", { { "fer", 4 }, { "cuivre", 2 }, { "pierre", 1 } } }, { "bizarre" }, { "mine", "iron-ore" } }, 2)
+  check(sr.total == 5 and sr.left == 4 and #sr.rows == 4 and sr.rows[1].kind == "goto" and sr.rows[1].current == true and sr.rows[1].arg == "(10, -3)", "etapes restantes depuis l'etape en cours")
+  check(sr.rows[2].kind == "take" and sr.rows[2].arg == "fer 4, cuivre 2, …" and sr.rows[3].kind == "autre" and sr.rows[4].arg == "iron-ore", "arguments courts, etape inconnue = autre")
+  local many = {}
+  for i = 1, 20 do many[i] = { "home" } end
+  check(#Pn.step_rows(many, 1).rows == Pn.STEPS_MAX and Pn.step_rows(many, 1).left == 20, "etapes plafonnees")
+  check(#Pn.step_rows(nil, 1).rows == 0 and #Pn.step_rows({ { "home" } }, 5).rows == 0, "sans etapes : vide")
+  local nx = Pn.next_rows({ { key = "t3", kind = "mine", prio = 40 }, { key = "t1", kind = "build", prio = 90, pause = 120 }, { key = "t2", kind = "carry", prio = 90, missing = { item = "fer", need = 9, free = 1 } },
+    { key = "t4", kind = "mine", prio = 10 }, { key = "t5", kind = "mine", prio = 5 }, { key = "t6", kind = "mine", prio = 1 }, { key = 7 } })
+  check(#nx == Pn.NEXT_MAX and nx[1].key == "t1" and nx[1].status == "pause" and nx[2].key == "t2" and nx[2].status == "matiere" and nx[2].item == "fer" and nx[3].key == "t3" and nx[3].status == "ok", "taches suivantes : priorite puis cle, statut pause / matiere / ok, plafond " .. Pn.NEXT_MAX)
+
+  section("5 ter. blocs et liaisons (shared/debug/blocs.lua)")
+  check(Bl.kind({ piquage = true }) == "piquage" and Bl.kind({ bus = true }) == "bus" and Bl.kind({}) == "quai" and Bl.kind(nil) == nil, "genre de liaison")
+  local lines = Bl.lines({
+    { pid = 9, state = "fini", lc = { item = "fer", dock = { pid = 3, x = 10, y = 10 }, src = { pid = 2, x = 0, y = 10 } } },
+    { pid = 4, state = "chantier", lc = { bus = true, item = "cuivre", dock = { pid = 5, x = 50, y = 0 }, src = { pid = 6, x = 20, y = 0 } } },
+    { pid = 7, state = "fini", lc = { piquage = true, item = "fer", geo = { x = 30.5, y = 5.5 }, dock = { pid = 3, x = 12, y = 12 } } },
+    { pid = 8, state = "refuse", lc = { item = "x", dock = { x = 1, y = 1 }, src = { x = 2, y = 2 } } },
+    { pid = 10, state = "fini", lc = { item = "y", dock = { x = 1, y = 1 } } },
+    { pid = 11, state = "fini" },
+  })
+  check(#lines == 3 and lines[1].pid == 4 and lines[2].pid == 7 and lines[3].pid == 9, "lignes : refusee et sans bout ecartees, triees par projet : " .. #lines)
+  check(lines[1].kind == "bus" and lines[1].done == false and lines[1].src_pid == 6 and lines[1].dock_pid == 5, "tronc de bus en chantier : pointille, bouts connus")
+  check(lines[2].kind == "piquage" and lines[2].from.x == 30.5 and lines[2].src_pid == nil, "branche de piquage : part du repartiteur, pas d'un bloc")
+  check(lines[3].kind == "quai" and lines[3].from.x == 0 and lines[3].to.x == 10 and lines[3].done == true, "liaison de quai : de la sortie du bloc au coffre d'entree")
+  local buf = Bl.buffers(lines)
+  check(#buf == 3 and buf[1].x == 10 and buf[1].source == 2 and buf[2].x == 12 and buf[2].source == nil and buf[3].x == 50, "tampons : un par coffre d'entree, source du bloc ou nil (tapis)")
+  check(#Bl.buffers({ { kind = "quai", to = { x = 1, y = 1 }, from = { x = 0, y = 0 } }, { kind = "bus", to = { x = 1, y = 1 }, from = { x = 5, y = 5 } } }) == 1, "deux lignes vers le meme coffre : un seul tampon")
+  local sp = Bl.splitters(lines)
+  check(#sp == 1 and sp[1].x == 30.5 and sp[1].item == "fer", "repartiteurs de piquage")
+  local io = Bl.io({ { x = 1, y = 2, item = "fer" }, { x = 3, y = 4 }, { x = "a", y = 1 } }, { { x = 5, y = 6 } }, 6)
+  check(#io.ins == 2 and io.ins[1].item == "fer" and io.ins[2].item == nil and #io.outs == 1, "entrees et sorties : coordonnees valides seulement")
+  local many_q = {}
+  for i = 1, 20 do many_q[i] = { x = i, y = i } end
+  check(#Bl.io(many_q, many_q, 4).ins == 4 and #Bl.io(many_q, many_q, 4).outs == 4, "entrees et sorties plafonnees")
+  check(#Bl.cap({ 1, 2, 3, 4, 5 }, 3) == 3 and #Bl.cap({ 1, 2 }, 5) == 2 and #Bl.cap({ 1 }, 0) == 0, "plafond d'objets de rendu")
+  check(Bl.MISSING[1] == "rapatriement", "la ligne de rapatriement est declaree non lisible")
+
   section("6. cout en instructions (200 zones)")
   local count = 0
   local function hook() count = count + 1000 end
@@ -265,11 +320,13 @@ local function run_all(Zn, Ec, Am, Lg)
 end
 
 local function load_all(mut)
+  local Pn = load_mod("shared/debug/pnj.lua", mut and mut.pnj)
+  local Bl = load_mod("shared/debug/blocs.lua", mut and mut.blocs)
   local Zn = load_mod("shared/debug/zone.lua", mut and mut.zone)
   local Ec = load_mod("shared/debug/ecart.lua", mut and mut.ecart)
   local Am = load_mod("shared/debug/ameliorations.lua", mut and mut.am)
   local Lg = load_mod("shared/debug/lignes.lua", mut and mut.lg)
-  return Zn, Ec, Am, Lg
+  return Zn, Ec, Am, Lg, Pn, Bl
 end
 
 run_all(load_all(nil))
@@ -307,7 +364,7 @@ do
   table.sort(lit_missing)
   check(#lit_missing == 0, "cles ecrites dans le code mais absentes du .cfg : " .. table.concat(lit_missing, "; "))
   -- 2. familles construites a l'execution : chaque valeur possible a sa cle
-  local Zn, Ec, Am, Lg = load_all(nil)
+  local Zn, Ec, Am, Lg, Pn, Bl = load_all(nil)
   local fam = {}
   local function add(prefix, list) fam[#fam + 1] = { prefix, list } end
   add("sorte-", { "module", "fonderie", "labos", "centrale", "champ", "site", "quartier", "liaison", "raccord", "enceinte", "avant_poste" })
@@ -332,6 +389,15 @@ do
   local tk = { "autre", "prise", "libre" }
   for _, v in pairs(Lg.TASK_KEYS) do tk[#tk + 1] = v end -- valeurs a lister : l'ordre ne compte pas
   add("tache-", tk)
+  local pc, pe, ps = {}, { "autre" }, { "inconnu" }
+  for _, v in ipairs(Pn.CAUSES) do pc[#pc + 1] = v end
+  for _, v in ipairs(Pn.STEP_KINDS) do pe[#pe + 1] = v end
+  for _, v in ipairs(Pn.STATES) do ps[#ps + 1] = v end
+  add("pnj-cause-", pc)
+  add("pnj-etape-", pe)
+  add("pnj-etat-", ps)
+  add("lien-", Bl.KINDS)
+  add("lien-sens-", { "entree", "sortie" })
   local amc = { "inconnu" }
   for _, v in ipairs(Lg.AM_CAUSES) do amc[#amc + 1] = v end
   add("am-refus-", amc)
@@ -410,6 +476,19 @@ local MUTANTS = {
   { "lg: mot de minage hors liste brut", "lg", { "local choix = (type(d.choix) == \"string\" and SRC_C[d.choix]) and d.choix or \"inconnu\"", "local choix = d.choix" } },
   { "lg: pourquoi libre brut", "lg", { "local why = (type(r.why) == \"string\" and DEF_W[r.why]) and r.why or nil", "local why = r.why" } },
   { "lg: cause d'amelioration libre brute", "lg", { "local cause = (type(r.cause) == \"string\" and AM_C[r.cause]) and r.cause or \"inconnu\"", "local cause = r.cause" } },
+  { "pnj: avec tache non en marche", "pnj", { "return { cause = \"en_marche\", n = 0 }", "return { cause = \"autre\", n = 0 }" } },
+  { "pnj: pret ignore", "pnj", { "if ready then return", "if false then return" } },
+  { "pnj: matiere avant pauses", "pnj", { "if n_mat > 0 then", "if n_mat > 0 and false then" } },
+  { "pnj: pas de tache libre", "pnj", { "if n == 0 then return", "if n < 0 then return" } },
+  { "pnj: etapes depuis le debut", "pnj", { "for i = pc, #steps do", "for i = 1, #steps do" } },
+  { "pnj: etape inconnue brute", "pnj", { "local kind = (type(s[1]) == \"string\" and STEP_OK[s[1]]) and s[1] or \"autre\"", "local kind = s[1]" } },
+  { "pnj: suivantes sans tri de priorite", "pnj", { "return (num(a.prio) or 0) > (num(b.prio) or 0)", "return (num(a.prio) or 0) < (num(b.prio) or 0)" } },
+  { "pnj: suivantes sans plafond", "pnj", { "if #out >= Pn.NEXT_MAX then break end", "" } },
+  { "blocs: refusee gardee", "blocs", { "if kind and not Bl.DEAD[p.state] then", "if kind then" } },
+  { "blocs: piquage part du quai", "blocs", { "local from = (kind == \"piquage\") and pt(lc.geo) or pt(lc.src)", "local from = pt(lc.src)" } },
+  { "blocs: bus pris pour un quai", "blocs", { "if lc.bus then return \"bus\" end", "" } },
+  { "blocs: tampons en double", "blocs", { "if not seen[key] then", "if true then" } },
+  { "blocs: io sans plafond", "blocs", { "if #r.ins >= max then break end", "" } },
   { "lg: doublons gardes", "lg", { "if not seen[k] then", "if true then" } },
   { "lg: decisions anciennes d'abord", "lg", { "if ta ~= tb and ta ~= nil then return ta > tb end", "if ta ~= tb and ta ~= nil then return ta < tb end" } },
   { "lg: label affiche la cause du vert", "lg", { "local cause = (z.color ~= \"vert\" and z.cause)", "local cause = (z.cause)" } },
@@ -421,8 +500,8 @@ for _, m in ipairs(MUTANTS) do
   local mut = { [m[2]] = m[3] }
   local f0 = failures
   local ok = pcall(function()
-    local Zn, Ec, Am, Lg = load_all(mut)
-    run_all(Zn, Ec, Am, Lg)
+    local Zn, Ec, Am, Lg, Pn, Bl = load_all(mut)
+    run_all(Zn, Ec, Am, Lg, Pn, Bl)
   end)
   local died = (failures > f0) or not ok
   failures = f0 -- les échecs d'un mutant ne sont pas ceux du banc

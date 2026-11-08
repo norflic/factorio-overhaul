@@ -24,6 +24,9 @@ local Rv = require("script.team.reseau_vivant")
 local An = require("script.debug.anneau")
 local Am = require("shared.debug.ameliorations")
 local Lg = require("shared.debug.lignes")
+local Pn = require("shared.debug.pnj")
+local Bl = require("shared.debug.blocs")
+local Storage = require("script.core.storage")
 
 local Lec = {}
 
@@ -135,7 +138,7 @@ function Lec.skeletons(f)
         out[#out + 1] = { key = "p" .. pid, pid = pid, kind = project_kind(p), state = p.state, reason = p.reason and tostring(p.reason) or nil,
           built = built, total = #(p.ents or {}), x0 = x0, y0 = y0, x1 = x1, y1 = y1,
           product = (m and m.product) or spec.product, rate_nom = (m and m.rate_nom) or nil, rate_meas = (m and m.state == "fini") and m.rate_meas or nil,
-          prio = p.prio }
+          prio = p.prio, io = Bl.io(p.quais, p.outs) }
       end
     end
   end
@@ -275,6 +278,98 @@ function Lec.am_refus_rows(f, pid)
     local a = Lg.am_refus(key, refus[key])
     if a and a.pid == pid then out[#out + 1] = a end
   end
+  return out
+end
+
+--- Lignes de liaison enregistrées (liaison de quai, tronc de bus, branche de piquage), copies de nombres : voir shared/debug/blocs.lua.
+function Lec.links(f)
+  local b = f.build
+  local list = {}
+  for _, pid in ipairs(b and b.order or {}) do
+    local p = b.projects[pid]
+    if p and p.spec and p.spec.liaison then list[#list + 1] = { pid = pid, state = p.state, lc = p.spec.liaison } end
+  end
+  return Bl.lines(list)
+end
+
+--- Agent (PNJ) dont le corps est l'entité `e`, ou nil. Lecture du registre des compagnons.
+function Lec.agent_of_entity(e)
+  if not (e and e.valid and e.unit_number) then return nil end
+  local S = Storage.ns("companion")
+  local id = S and S.by_unit and S.by_unit[e.unit_number]
+  return id and S.agents[id] or nil
+end
+
+--- Agent (PNJ) de numéro `id`, ou nil.
+function Lec.agent(id)
+  local S = Storage.ns("companion")
+  return S and S.agents and S.agents[id] or nil
+end
+
+--- Équipe d'un agent (State.faction de agent.faction), ou nil.
+function Lec.team_of_agent(agent)
+  return agent and agent.faction and State.faction(agent.faction) or nil
+end
+
+--- Tâches LIBRES du tableau avec leur pause d'échec et la matière stricte qui leur manque (lecture seule, RIEN n'est réservé) : liste
+--- { key, kind, prio, pause, missing = { item, need, free } | nil }, au plus `max` examinées dans l'ordre de la liste du tableau.
+function Lec.free_tasks(f, now, max)
+  local out = {}
+  local board = f.team and f.team.board
+  if not board then return out end
+  local okb, Board = pcall(require, "script.team.board")
+  local okr, R = pcall(require, "shared.ai3.registre")
+  local reg = f.team and f.team.reg
+  local list = board.list or {}
+  for i = 1, #list do
+    if #out >= (max or 40) then break end
+    local t = list[i]
+    if type(t) == "table" and not t.worker and board.tasks and board.tasks[t.key] == t then
+      local missing
+      if okb and okr and reg then
+        for _, it in ipairs(Board.strict_list(t) or {}) do
+          local free = R.free(reg, it[1])
+          if free < it[2] then missing = { item = it[1], need = it[2], free = free } break end
+        end
+      end
+      out[#out + 1] = { key = t.key, kind = t.kind, prio = t.prio, pause = math.max(0, ((board.cooldown or {})[t.key] or 0) - now), missing = missing }
+    end
+  end
+  return out
+end
+
+--- État cognitif d'un PNJ : voir shared/debug/pnj.lua. Lecture seule.
+function Lec.npc(f, agent, now)
+  local out = { id = agent.id, state = Pn.state_word(agent.state), team = tostring(f.key or "player") }
+  local org = agent.org
+  if type(org) == "table" then out.role, out.pole = org.role, org.pole end
+  local t = agent.task
+  if t then
+    out.task = { key = tostring(t.key), kind = t.kind, prio = t.prio, outpost = t.outpost, pid = t.ia1d and t.ia1d.pid or nil, mode = t.ia1d and t.ia1d.mode or nil,
+      resource = t.resource, taken = t.took == true }
+  end
+  out.steps = Pn.step_rows(agent.steps, agent.pc)
+  local free = Lec.free_tasks(f, now, 40)
+  out.nexts = Pn.next_rows(free)
+  out.explain = Pn.explain({ state = agent.state, has_task = t ~= nil, wait_left = agent.wait_until and (agent.wait_until - now) or nil,
+    nav_fail = agent.nav_fail, free = free })
+  local e = agent.entity
+  if e and e.valid then
+    out.x, out.y = e.position.x, e.position.y
+    local inv = e.get_main_inventory()
+    if inv then
+      local c = inv.get_contents()
+      local names = {}
+      for name in pairs(c) do names[#names + 1] = name end -- tri juste après
+      table.sort(names)
+      out.carry = {}
+      for i, name in ipairs(names) do
+        if i > 4 then break end
+        out.carry[#out.carry + 1] = { item = name, n = c[name] }
+      end
+    end
+  end
+  out.stuck = agent.stuck
   return out
 end
 
