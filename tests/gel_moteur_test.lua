@@ -167,6 +167,21 @@ log = function(s) W.logs[#W.logs + 1] = s end
 ---------------------------------------------------------------------------------------------------
 -- Modules réels du lot, sur un bus d'événements et un stockage factices
 ---------------------------------------------------------------------------------------------------
+-- Pile du profileur factice (portées start/stop et fines) ; PROF.bad compte les fermetures hors du sommet ou sans ouverture.
+PROF = { stack = {}, bad = 0, seen = {}, cnt = {} }
+function prof_open(n) PROF.stack[#PROF.stack + 1] = n; PROF.seen[n] = true end
+function prof_close(n)
+  if PROF.stack[#PROF.stack] == n then PROF.stack[#PROF.stack] = nil else PROF.bad = PROF.bad + 1 end
+end
+--- Portées du profileur factice depuis le dernier PROF neuf : toutes fermées sous leur nom, au sommet ; portées et compteurs attendus vus
+--- (C19, 8/11 : instrumentation fine du guet, sans décision changée).
+function prof_check(tag, scopes, counters)
+  local miss = {}
+  for _, n in ipairs(scopes) do if not PROF.seen[n] then miss[#miss + 1] = n end end
+  for _, n in ipairs(counters) do if not ((PROF.cnt[n] or 0) > 0) then miss[#miss + 1] = "#" .. n end end
+  return #miss == 0 and PROF.bad == 0 and #PROF.stack == 0, string.format("%s : portees fermees sous leur nom (%d hors du sommet, %d ouverte(s)) ; vues : %s",
+    tag, PROF.bad, #PROF.stack, #miss == 0 and "toutes" or ("MANQUENT " .. table.concat(miss, " ")))
+end
 local H
 local MUT_JEU = nil -- source mutée de script/faction/gel_usines_jeu.lua (mutants, fin du fichier)
 local function load_mod()
@@ -185,7 +200,10 @@ local function load_mod()
     ns = function(name) return W.store[name] end,
     raw = function() return W.store end,
   }
-  package.loaded["script.core.profiler"] = { start = function() end, stop = function() end }
+  -- Profileur factice : start/stop et portées FINES (C19, 8/11) sur une pile, pour contrôler qu'elles se ferment sous leur nom, au
+  -- sommet ; compteurs (fcount) cumulés. PROF est global au fichier (vidé par le seul passage qui le lit).
+  package.loaded["script.core.profiler"] = { start = prof_open, stop = prof_close, fstart = prof_open, fstop = prof_close,
+    fcount = function(n, k) PROF.cnt[n] = (PROF.cnt[n] or 0) + (k or 1) end }
   package.loaded["script.faction.commander"] = { army_out = function() return W.army_out == true, nil end }
   local Gel = require("script.faction.gel")
   local Gu = require("script.faction.gel_usines")
@@ -258,6 +276,7 @@ end
 -- Scènes
 ---------------------------------------------------------------------------------------------------
 local function scenes()
+  PROF = { stack = {}, bad = 0, seen = {}, cnt = {} }
   new_world()
   local f, E = build_faction()
   local Gel = E.Gel
@@ -385,6 +404,9 @@ local function scenes()
   check(Gu.U().ids_f[1] == nil, "M13 : registre de la faction aneantie vide")
   f.eliminated = nil
   check(W.bad_writes == 0, "M11 : aucune ecriture de progression (au monde factice)")
+  -- M16 instrumentation fine du guet (C19, mesure seulement) : portées fermées, portées et compteurs vus
+  check(prof_check("M16", { "gel:guet", "gel:pas", "gel:releve", "gel:g:entrees", "gel:g:regle", "gel:g:actions", "gel:g:menage" },
+    { "gel:ilots", "gel:geles" }))
   return table.concat(W.logs, "\n") .. "|" .. tostring(E.c1._inv.items["iron-ore"]) .. "|" .. tostring(E.k2._out.items["iron-plate"])
 end
 
@@ -443,6 +465,7 @@ do
     { "guet limite aux factions vivantes", "        want_wake(I, tick, \"faction disparue\")\n", "" },
     { "progression non rendue au reveil (option ii)", "else Gc.bank(I.acc); write_progress(I) end", "else Gc.bank(I.acc) end" },
     { "remplacant d'une machine figee laisse inactif", "if why == \"pose\" and inside_frozen and entity.active == false then entity.active = true end", "" },
+    { "portee fine non fermee (C19)", "  Profiler.fstop(\"gel:g:menage\")\n", "" },
     { "objet « ? » lu au moteur (C19)", "            if n == \"?\" then", "            if false then" },
   }
   local seen, missed = 0, {}

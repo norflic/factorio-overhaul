@@ -15,6 +15,7 @@
     N9  `destructible` jamais écrit ; seul `active` change ; requêtes par guet bornées ;
     N10 déterminisme : deux passages, mêmes journaux ;
     N13 faction anéantie sans mort vue, guerre arrêtée : tout réveillé au guet suivant (relecture de revue-s, 8/11) ;
+    N14 portées fines du guet (C19, 8/11 : mesure seulement) fermées sous leur nom, au sommet ; portées et compteurs vus ;
     Mutants (texte de gel_garnisons.lua changé) : tous vus, dont « destructible mis à false au gel » (demande du lead, 7/11).
   Usage : lua5.2 tests/gel_garnisons_test.lua   (depuis la racine du mod ; shared/faction/cadence.lua de x10-s10 requis)
 ]]
@@ -95,6 +96,21 @@ log = function(s) W.logs[#W.logs + 1] = s end
 ---------------------------------------------------------------------------------------------------
 -- Modules réels du lot, sur un bus d'événements et un stockage factices
 ---------------------------------------------------------------------------------------------------
+-- Pile du profileur factice (portées start/stop et fines) ; PROF.bad compte les fermetures hors du sommet ou sans ouverture.
+PROF = { stack = {}, bad = 0, seen = {}, cnt = {} }
+function prof_open(n) PROF.stack[#PROF.stack + 1] = n; PROF.seen[n] = true end
+function prof_close(n)
+  if PROF.stack[#PROF.stack] == n then PROF.stack[#PROF.stack] = nil else PROF.bad = PROF.bad + 1 end
+end
+--- Portées du profileur factice depuis le dernier PROF neuf : toutes fermées sous leur nom, au sommet ; portées et compteurs attendus vus
+--- (C19, 8/11 : instrumentation fine du guet, sans décision changée).
+function prof_check(tag, scopes, counters)
+  local miss = {}
+  for _, n in ipairs(scopes) do if not PROF.seen[n] then miss[#miss + 1] = n end end
+  for _, n in ipairs(counters) do if not ((PROF.cnt[n] or 0) > 0) then miss[#miss + 1] = "#" .. n end end
+  return #miss == 0 and PROF.bad == 0 and #PROF.stack == 0, string.format("%s : portees fermees sous leur nom (%d hors du sommet, %d ouverte(s)) ; vues : %s",
+    tag, PROF.bad, #PROF.stack, #miss == 0 and "toutes" or ("MANQUENT " .. table.concat(miss, " ")))
+end
 local H
 local function load_mod(src)
   H = { on = {}, nth = {}, died = {}, config = {} }
@@ -112,7 +128,10 @@ local function load_mod(src)
     ns = function(name) return W.store[name] end,
     raw = function() return W.store end,
   }
-  package.loaded["script.core.profiler"] = { start = function() end, stop = function() end }
+  -- Profileur factice : start/stop et portées FINES (C19, 8/11) sur une pile, pour contrôler qu'elles se ferment sous leur nom, au
+  -- sommet ; compteurs (fcount) cumulés. PROF est global au fichier (vidé par le seul passage qui le lit).
+  package.loaded["script.core.profiler"] = { start = prof_open, stop = prof_close, fstart = prof_open, fstop = prof_close,
+    fcount = function(n, k) PROF.cnt[n] = (PROF.cnt[n] or 0) + (k or 1) end }
   package.loaded["script.faction.commander"] = { army_out = function() return W.army_out == true, nil end }
   package.loaded["script.ai3.comportement"] = {
     enabled = function() return true end,
@@ -204,6 +223,7 @@ end
 ---------------------------------------------------------------------------------------------------
 local function cases(src)
   local f0 = fail_n
+  PROF = { stack = {}, bad = 0, seen = {}, cnt = {} }
   local CALM = 600
   -- N1
   do
@@ -352,6 +372,9 @@ local function cases(src)
     run(20)
     check(n_frozen(all_soldiers(E2)) == 0, "N13 : guerre arretee : tous reveilles au guet suivant")
   end
+  -- N14 instrumentation fine du guet (C19) : portées fermées, portées et compteurs vus
+  check(prof_check("N14", { "gel:garnisons", "gel:reveil", "gel:gar:soldats", "gel:gar:menaces", "gel:gar:listes", "gel:gar:tirs", "gel:gar:req",
+    "gel:gar:regle", "gel:gar:aptitude", "gel:gar:entrees" }, { "gel:soldats", "gel:postes", "gel:requetes", "gel:tourelles", "gel:aptes_lus" }))
   return fail_n - f0
 end
 
@@ -419,11 +442,12 @@ local MUTANTS = {
   { "calme du soldat ignore", "tick - el.t >= G.CALM and", "true and" },
   { "ordre change ignore", "if r and (sl.group or not garrison or r.post ~= post) then", "if r and (sl.group or not garrison) then" },
   { "robot fige", "local garrison = G.GARRISON_ROLES[role] ~= nil and NAMES[e.name] == true", "local garrison = G.GARRISON_ROLES[role] ~= nil" },
-  { "filet des tourelles coupe", "if t.valid and t.shooting_target ~= nil then return \"tourelle qui tire\" end", "" },
+  { "filet des tourelles coupe", "if t.valid and t.shooting_target ~= nil then firing = true; break end", "" },
   { "amas de tourelles ignores", "      return \"ennemi pres des tourelles\"", "      return nil" },
   { "poste eveille garde ses figes", "if not p.st.frozen then wake_one(a, vid, m.id, \"poste eveille\") end", "" },
   { "reveil du poste ignore", "        if m.frozen and wake_one(a, vid, m.id, o.cause or \"reveil\") then", "        if false then" },
   { "faction disparue ignoree", "if type(vid) == \"number\" and not seen[vid] and a.v[vid].n > 0 then wake_view(a, vid, \"faction disparue\", tick) end", "" },
+  { "portee fine non fermee", "  Profiler.fstop(\"gel:gar:regle\")\n", "" },
   { "attaque oubliee (regel immediat)", "s.attack_t, s.lost_t = max_t(s.attack_t, a.hit[fid]), max_t(s.lost_t, a.lost[fid])", "" },
 }
 quiet = true

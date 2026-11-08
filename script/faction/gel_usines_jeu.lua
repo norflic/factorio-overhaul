@@ -402,26 +402,35 @@ local function guet_group(fid, key, s, tick)
   local u = Gu.U()
   local ids = u.ids_f[fid]
   if not (ids and #ids > 0) then return end
+  -- (C19, 8/11 : portées FINES et comptes du tick, mode détail seulement, pour trouver la cause de 3 à 10 ms par guet)
+  Profiler.fcount("gel:ilots", #ids)
+  Profiler.fstart("gel:g:regle")
   local posts = {}
   for _, id in ipairs(ids) do
     local I = u.ilots[id]
     posts[#posts + 1] = { id = id, st = I.st, boxes = I.boxes, unfit = I.dirty or ((I.owed or I.pending) and "en cours") or nil }
   end
+  local acts = G.decide_all(posts, s, Gu.faction_box(fid), tick)
+  Profiler.fstop("gel:g:regle")
+  Profiler.fstart("gel:g:actions")
   local woke, cause = 0, nil
-  for _, a in ipairs(G.decide_all(posts, s, Gu.faction_box(fid), tick)) do
+  for _, a in ipairs(acts) do
     local I = u.ilots[a.id]
     if a.action == "fige" then
-      if not I.dirty then freeze(I, tick) end
+      if not I.dirty and freeze(I, tick) then Profiler.fcount("gel:geles", #I.machines) end
     elseif not I.pending then
       want_wake(I, tick, a.cause)
       woke, cause = woke + 1, a.cause
     end
   end
+  Profiler.fstop("gel:g:actions")
   if woke > 0 then Gel.say("reveil:" .. key, string.format("%s : %d ilot(s) reveille(s) (%s) a %.1f min", key, woke, tostring(cause), tick / 3600)) end
+  Profiler.fstart("gel:g:menage")
   for _, id in ipairs(copy_list(ids)) do
     local I = u.ilots[id]
     if I and I.dirty and not I.st.frozen and not I.pending and not I.owed then Gu.unregister(I) end
   end
+  Profiler.fstop("gel:g:menage")
 end
 
 local function guet(tick)
@@ -437,8 +446,10 @@ local function guet(tick)
       local f = war.factions[fid]
       if f then
         seen[fid] = true
+        Profiler.fstart("gel:g:entrees")
         local s = Gel.input(f, players, (Commander.army_out(f)))
         if not Gu.ON or not (f.hq and f.hq.valid) then s.off = true end
+        Profiler.fstop("gel:g:entrees")
         guet_group(fid, tostring(f.key), s, tick)
         if tick % (5 * 3600) == 0 and u.ids_f[fid] then bilan(f, fid, tick) end
       end

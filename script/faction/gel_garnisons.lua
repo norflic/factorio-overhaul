@@ -190,7 +190,11 @@ end
 
 local function count(a, surface, q)
   a.stats.requetes = a.stats.requetes + 1
-  return surface.count_entities_filtered(q) > 0
+  Profiler.fcount("gel:requetes", 1)
+  Profiler.fstart("gel:gar:req")
+  local n = surface.count_entities_filtered(q)
+  Profiler.fstop("gel:gar:req")
+  return n > 0
 end
 
 --- Menace de FACTION (toute la garnison) : alerte d'armée ou de site, ennemi près du QG ou des tourelles, tourelle qui tire.
@@ -199,10 +203,15 @@ local function faction_hazard(a, vid, view, L, tick)
   for _, al in ipairs(view.alerts or {}) do
     if (al["until"] or 0) > tick then return "alerte de site" end
   end
+  Profiler.fstart("gel:gar:tirs")
+  local firing = false
   for _, t in ipairs(L.turrets) do
-    if t.valid and t.shooting_target ~= nil then return "tourelle qui tire" end
+    if t.valid and t.shooting_target ~= nil then firing = true; break end
   end
+  Profiler.fstop("gel:gar:tirs")
+  if firing then return "tourelle qui tire" end
   if #L.enemies == 0 then return nil end
+  Profiler.fcount("gel:tourelles", #L.turrets)
   local surface = view.surface
   if count(a, surface, { position = view.hq, radius = G.HQ_R, type = Ga.MOBILE, force = L.enemies, limit = 1 }) then
     return "ennemi pres du QG"
@@ -246,8 +255,12 @@ local function guet_view(a, vid, view, s, tick)
     a.posts[vid] = P
   end
   -- 1. Soldats par poste ; un soldat figé dont l'ordre a changé (ou qui a un groupe) est réveillé.
+  -- (C19, 8/11 : portées FINES et comptes du tick, mode détail seulement, pour trouver la cause de 11 à 14 ms par guet)
+  Profiler.fstart("gel:gar:soldats")
   local members, order, seen = {}, {}, {}
-  for _, id in ipairs(State.sorted_keys(view.soldiers)) do
+  local sids = State.sorted_keys(view.soldiers)
+  Profiler.fcount("gel:soldats", #sids)
+  for _, id in ipairs(sids) do
     local sl = view.soldiers[id]
     local e = sl.entity
     if e and e.valid then
@@ -286,12 +299,16 @@ local function guet_view(a, vid, view, s, tick)
   for _, k in ipairs(keys(P)) do
     if not members[k] then P[k] = nil end
   end
+  Profiler.fstop("gel:gar:soldats")
   if #order == 0 then return end
   -- 2. Menaces : seulement sans cause de faction (sinon tout est réveillé par la règle, sans requête).
   local fup = G.faction_cause(s, tick) or type(s.players) ~= "table"
   local fh, L = nil, nil
+  Profiler.fstart("gel:gar:menaces")
   if not fup then
+    Profiler.fstart("gel:gar:listes")
     L = lists_of(a, vid, view, tick)
+    Profiler.fstop("gel:gar:listes")
     fh = faction_hazard(a, vid, view, L, tick)
   end
   local posts, pts = {}, {}
@@ -302,7 +319,10 @@ local function guet_view(a, vid, view, s, tick)
     if not fup and not hz then hz = post_hazard(a, view, L, p.pt) end
     posts[#posts + 1] = { id = k, st = p.st, boxes = p.boxes, hazard = hz }
   end
+  Profiler.fstop("gel:gar:menaces")
+  Profiler.fcount("gel:postes", #order)
   -- 3. LA règle commune, poste par poste (raccourci de la faction).
+  Profiler.fstart("gel:gar:regle")
   for _, o in ipairs(G.decide_all(posts, s, G.boxes(pts), tick)) do
     local p = P[o.id]
     if o.action == "fige" then
@@ -322,8 +342,10 @@ local function guet_view(a, vid, view, s, tick)
       end
     end
   end
+  Profiler.fstop("gel:gar:regle")
   -- 4. Aptitude des soldats éveillés (postes figés ou au calme) et gel des aptes depuis Gel.CALM ticks.
-  local froze = 0
+  Profiler.fstart("gel:gar:aptitude")
+  local froze, lus = 0, 0
   for _, k in ipairs(order) do
     local p = P[k]
     local counting = p.st.frozen or p.st.calm ~= nil
@@ -331,6 +353,7 @@ local function guet_view(a, vid, view, s, tick)
       if m.frozen then
         if not p.st.frozen then wake_one(a, vid, m.id, "poste eveille") end
       elseif counting then
+        lus = lus + 1
         local pos = m.e.position
         local dx, dy = pos.x - p.pt.x, pos.y - p.pt.y
         local unfit = G.soldier_unfit({ is_player = view.is_player, group = m.sl.group ~= nil, role = m.role,
@@ -349,6 +372,8 @@ local function guet_view(a, vid, view, s, tick)
       end
     end
   end
+  Profiler.fstop("gel:gar:aptitude")
+  Profiler.fcount("gel:aptes_lus", lus)
   if froze > 0 then
     Gel.say("garnison-gel:" .. tostring(vid), string.format("garnison %s : %d soldat(s) fige(s), %d au total, tick %d", tostring(vid), froze,
       a.v[vid] and a.v[vid].n or 0, tick))
@@ -381,10 +406,12 @@ local function guet(tick)
       local f = war.factions[fid]
       seen[fid] = true
       if f and f.hq and f.hq.valid and f.hq_pos and f.soldiers and (f.soldiers_count or 0) > 0 then
+        Profiler.fstart("gel:gar:entrees")
         local s = Gel.input(f, players, (Commander.army_out(f)))
         if not Ga.ON then s.off = true end
         s.attack_t, s.lost_t = max_t(s.attack_t, a.hit[fid]), max_t(s.lost_t, a.lost[fid])
         local t = C.enabled() and C.team(f) or nil
+        Profiler.fstop("gel:gar:entrees")
         local view = { soldiers = f.soldiers, per = t and t.sd and t.sd.per or nil, hq = f.hq_pos, surface = f.hq.surface,
           force = f.force, turrets = f.turrets, armee = f.armee, alerts = t and t.alerts or nil, is_player = f.is_player }
         guet_view(a, fid, view, s, tick)
