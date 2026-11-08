@@ -147,7 +147,7 @@ return function(variant)
       local link = pq and pq.links and pq.links[1]
       local sink = chest_at(s, SINK.x, SINK.y)
       local sunk = sink and sink.get_item_count(ITEM) or 0
-      if t == 600 then st.s0 = { start = t, sunk0 = sunk, dens = 0, n = 0 } end
+      if t == 1300 then st.s0 = { start = t, sunk0 = sunk, dens = 0, n = 0 } end
       if st.s0 and not st.s0.closed then
         if t % 30 == 0 then st.s0.dens = st.s0.dens + belt_items(s, 70, -10); st.s0.n = st.s0.n + 1 end
         if t - st.s0.start >= WS then st.s0.closed, st.s0.rate = true, (sunk - st.s0.sunk0) end

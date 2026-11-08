@@ -542,16 +542,31 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
   st.bilan = { quais = #c.docks, tapis = linked, piquage = piques, tournees = c.tours, objets = c.items, tick = tick }
   if #c.docks > 0 and tick >= st.log_next then
     st.log_next = tick + Li.LOG_EVERY
-    say(f, Pq.bilan_line(f.key, { docks = #c.docks, linked = linked, piques = piques, tours = c.tours, items = c.items, minutes = minutes(tick) }))
+    local tally = {}
+    for _, d in ipairs(c.docks) do
+      local q = st.quais[d.key]
+      local k = q and (q.verdict .. "/" .. q.cause) or "non_vu"
+      tally[k] = (tally[k] or 0) + 1
+    end
+    local parts = {}
+    for _, k in ipairs(sorted_keys(tally)) do parts[#parts + 1] = k .. " " .. tally[k] end
+    say(f, Pq.bilan_line(f.key, { docks = #c.docks, linked = linked, piques = piques, tours = c.tours, items = c.items, minutes = minutes(tick),
+      causes = table.concat(parts, ", ") }))
   end
   -- quais candidats : débit, pas déjà servis, qui peuvent se payer au mieux (tapis à 6 tuiles)
   local order = {}
   for _, d in ipairs(c.docks) do
     d.dist = dist_hq(f, d.x, d.y)
     d.fill, d.low = api.fill, api.low
-    if d.item and (d.flow or 0) >= Li.MIN_FLOW and not st.links[d.key] and not linked_by_liaison(b, d.key) then
+    if st.links[d.key] then
+      -- le verdict de la branche vient de follow_links
+    elseif linked_by_liaison(b, d.key) then
+      mark(st, d.key, "laisser", "sortie_plus_rentable", tick) -- (servi par une liaison : rien à ajouter)
+    elseif not (d.item and (d.flow or 0) >= Li.MIN_FLOW) then
+      mark(st, d.key, "laisser", "ne_se_paie_pas", tick) -- débit sous Li.MIN_FLOW : rien à économiser
+    else
       local best = Pq.worth({ flow = d.flow, dist = d.dist, span = 6, fill = api.fill, low = api.low })
-      if best then order[#order + 1] = d end
+      if best then order[#order + 1] = d else mark(st, d.key, "laisser", "ne_se_paie_pas", tick) end
     end
   end
   table.sort(order, function(a, c2) if a.flow ~= c2.flow then return a.flow > c2.flow end return a.key < c2.key end)
@@ -575,10 +590,14 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
       observe_tracks(f, surface, st, d)
     end
     tr = st.track[d.key]
+    if tr and #tr.order == 0 and (st.disc[d.key] or 0) > 0 then
+      mark(st, d.key, "laisser", "aucune_source", tick) -- découverte faite, aucun tapis hors plan qui porte l'objet seul à portée
+    end
     local ready = false
     for _, key in ipairs(tr and tr.order or {}) do
       if tr.tiles[key].obs.n >= Pq.MIN_SAMPLES then ready = true break end
     end
+    if tr and #tr.order > 0 and not ready then mark(st, d.key, "attente", "releves_insuffisants", tick) end
     if ready and evals < Piquage.EVAL_MAX and not asked then
       evals = evals + 1
       local cands = build_cands(f, surface, b, st, d)

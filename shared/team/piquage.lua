@@ -323,8 +323,9 @@ end
 
 --- `[FO-PIQUAGE] <equipe> : bilan : quais d'entree N, servis par tapis T, par piquage K, tournees fill R (objets O) a <min> min`
 function Pq.bilan_line(team, n)
-  return string.format("[FO-PIQUAGE] %s : bilan : quais d'entree %d, servis par tapis %d, par piquage %d, tournees fill %d (objets %d) a %.1f min",
-    team or "player", n.docks or 0, n.linked or 0, n.piques or 0, n.tours or 0, n.items or 0, n.minutes or 0)
+  return string.format("[FO-PIQUAGE] %s : bilan : quais d'entree %d, servis par tapis %d, par piquage %d, tournees fill %d (objets %d) a %.1f min%s",
+    team or "player", n.docks or 0, n.linked or 0, n.piques or 0, n.tours or 0, n.items or 0, n.minutes or 0,
+    n.causes and n.causes ~= "" and (" ; verdict/cause par quai : " .. n.causes) or "")
 end
 
 return Pq
