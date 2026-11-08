@@ -47,6 +47,12 @@ function Conv.belts()
   return LIST
 end
 
+--- Ce nom est-il un tapis des données ?
+function Conv.is_belt(name)
+  for _, b in ipairs(Conv.belts()) do if b.name == name then return true end end
+  return false
+end
+
 --- Prédicat « ce tapis est disponible pour la force de l'équipe » : la recette de son objet est débloquée.
 function Conv.usable(f)
   local force = game.forces[f.force]
