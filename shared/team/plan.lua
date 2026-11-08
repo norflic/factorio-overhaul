@@ -697,14 +697,15 @@ end
 --- Voie 1 = gauche du sens de marche. Un bras dépose sur la voie LOINTAINE : le quai d'une voie est de l'autre côté.
 --- Un chargement latéral sur une seule voie exige un tapis DERRIÈRE la tuile chargée (sinon elle devient un virage) :
 --- bout mort à 3 tuiles. `belt` (lot CONVOYEURS) : le tapis des têtes, "transport-belt" par défaut.
-function P.feeder(port, sources, quai_inserter, belt)
+function P.feeder(port, sources, quai_inserter, belt, arms)
+  arms = arms or 1 -- lot RESEAU-GRAPHE : bras par voie de quai (1 : comme avant) ; le second est à la profondeur 3, la tuile la plus reculée de la tête
   local d = port.dir
   local v = DV[d]
   local lx, ly = left_of(d)
   local function at(k, s) return port.x - k * v[1] + s * lx, port.y - k * v[2] + s * ly end
   local ents, arrivals, chests = {}, {}, {}
   local any_belt = sources[1] == "tapis" or sources[2] == "tapis"
-  local depth = any_belt and 3 or 1
+  local depth = (any_belt or arms > 1) and 3 or 1
   for k = 1, depth do
     local x, y = at(k, 0)
     ents[#ents + 1] = { name = belt or "transport-belt", x = x + 0.5, y = y + 0.5, dir = d, role = "tete" }
@@ -719,6 +720,13 @@ function P.feeder(port, sources, quai_inserter, belt)
       ents[#ents + 1] = { name = quai_inserter or "inserter", x = ix + 0.5, y = iy + 0.5, dir = dir_of(-side * lx, -side * ly), role = "quai-bras" }
       ents[#ents + 1] = { name = "iron-chest", x = cx + 0.5, y = cy + 0.5, dir = 0, role = "quai", item = item }
       chests[#chests + 1] = { x = cx + 0.5, y = cy + 0.5, item = item, lane = lane }
+      if arms > 1 then
+        local jx, jy = at(3, -side)
+        local kx, ky = at(3, -2 * side)
+        ents[#ents + 1] = { name = quai_inserter or "inserter", x = jx + 0.5, y = jy + 0.5, dir = dir_of(-side * lx, -side * ly), role = "quai-bras" }
+        ents[#ents + 1] = { name = "iron-chest", x = kx + 0.5, y = ky + 0.5, dir = 0, role = "quai", item = item }
+        chests[#chests + 1] = { x = kx + 0.5, y = ky + 0.5, item = item, lane = lane }
+      end
     elseif item and sources[lane] == "tapis" then
       -- arrivée latérale à la 2e tuile, du côté de la voie
       local ax, ay = at(2, side)

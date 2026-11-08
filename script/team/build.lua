@@ -113,6 +113,8 @@ Build.SITES = {}               -- lot PETROLE : planificateurs de sites { [nom] 
 local REACH = P.BUILD_DISTANCE
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (réserve des modules neufs, agrandissement, tapis)
 Build.Ene = require("shared.team.energie_dabord") -- lot TV-ENERGIE (G41) : « la première expansion est l'énergie », règle pure ; champ de Build, pas une locale (bloc principal à 198 locales)
+Build.Qd = require("shared.team.quai_debit") -- lot RESEAU-GRAPHE : bras du quai d'entrée choisi par le débit, n borné à ce que le quai porte (règle pure) ; champ de Build, pas une locale
+Build.QUAI_PAR_DEBIT = true -- vrai : NOUVEAUX gabarits seulement (les projets déjà planifiés gardent leurs pièces) ; faux : le quai d'avant (un bras de base par voie)
 Build.Colr = require("shared.team.collecte") -- lot COLLECTE : règle pure (états servis, voyage à vide) ; champ de Build, pas une locale (essai-0660 : bloc principal à 200 locales)
 local Collecte = require("script.team.collecte") -- lot COLLECTE : coffres de sortie du champ collectés en urgence quand le fer manque
 local Rr = require("shared.team.rebuild_rapide") -- lot REBUILD-RAPIDE : projet rouvert sans attendre toute sa matière, ordre, foreuse de secours
@@ -671,6 +673,13 @@ local function template_of(spec, opts)
     local cur = g.args[ex.arg]
     local n = opts.grow(g, cur)
     if type(n) == "number" and n ~= cur and n >= 1 and n <= ex.max then g = extend_to(g, n) end
+  end
+  -- lot RESEAU-GRAPHE (audit « n entrées, m sorties ») : le quai d'entrée porte au plus 2 bras rapides par voie ; un gabarit dont l'entrée
+  -- (servie par quai) demande plus est refait à la plus grande taille que le quai porte (n proportionnel au débit d'entrée)
+  if Build.QUAI_PAR_DEBIT and g.gen ~= "steam" and g.extensions and g.extensions[1] then
+    local cur = g.args[g.extensions[1].arg]
+    local n = Build.Qd.max_n(M, g, Build.Qd.skip(M, g, spec.feed == "quai"))
+    if n and n < cur then g = extend_to(g, n) end
   end
   return g
 end
@@ -1548,6 +1557,12 @@ local function plan_feed(f, surface, p, place, part)
       -- PLANDIR (28/10) : ils le RESTENT, mesuré : passés à l'électrique, les bras de la centrale la tuaient en 1,5 à 3,5 min
       -- (6 cas sur 6)
       local quai_ins = (g.gen == "steam") and M.BURNER_ARM or "inserter"
+      local quai_n = 1
+      if Build.QUAI_PAR_DEBIT and g.gen ~= "steam" then
+        -- lot RESEAU-GRAPHE : le bras du quai suit le débit de la recette, comme out_arms pour les sorties (1 à 2 bras par voie)
+        local qd = Build.Qd.plan(M, g, Build.Qd.skip(M, g, p.spec.feed == "quai"))
+        quai_ins, quai_n = qd.arm, qd.count
+      end
       -- Lot CONVOYEURS : la tête et le tracé des foreuses ont le même tapis (le meilleur débloqué, ou celui que le débit exige)
       local head_belt
       do
@@ -1555,7 +1570,7 @@ local function plan_feed(f, surface, p, place, part)
         for lane = 1, 2 do if drills[lane] and drills[lane].flow > top then top = drills[lane].flow end end
         if top > 0 then head_belt = Conv.choose(f, top) end
       end
-      local fd = P.feeder(port, sources, quai_ins, head_belt)
+      local fd = P.feeder(port, sources, quai_ins, head_belt, quai_n)
       for _, e in ipairs(fd.entities) do e.part = part end
       if not reserve_tiles(b, p, fd.entities) then return false, "tete d'alimentation" end
       for _, c in ipairs(fd.chests) do p.quais[#p.quais + 1] = { x = c.x, y = c.y, item = c.item } end
@@ -1576,7 +1591,7 @@ local function plan_feed(f, surface, p, place, part)
           if not ok then
             -- repli : quai sur cette voie (le tapis n'a pas pu être tracé ou le gisement manque)
             bump(b.stats.plan_refused, "tapis:" .. tostring(why))
-            local alt = P.feeder(port, { a.lane == 1 and "quai" or nil, a.lane == 2 and "quai" or nil }, quai_ins, head_belt)
+            local alt = P.feeder(port, { a.lane == 1 and "quai" or nil, a.lane == 2 and "quai" or nil }, quai_ins, head_belt, quai_n)
             local extra = {}
             for _, e in ipairs(alt.entities) do if e.role ~= "tete" then e.part = part; extra[#extra + 1] = e end end
             if reserve_tiles(b, p, extra) then
@@ -2766,6 +2781,13 @@ local function plan_project(f, surface, p)
   p.consumes = {}
   p.inflow = {} -- lot INDUSTRIE I7 : débit nominal de chaque entrée (objets/s), lu par script/team/liaison.lua pour le prix d'une liaison de quai
   for _, k in ipairs(sorted_keys(g.inputs or {})) do p.consumes[k] = true; p.inflow[k] = g.inputs[k] end
+  if Build.QUAI_PAR_DEBIT and g.gen ~= "steam" then
+    -- lot RESEAU-GRAPHE : le débit d'une entrée servie par quai est celui que le quai porte (Li.worth le lit : min(nominal, capacité))
+    local qcaps = Build.Qd.plan(M, g, Build.Qd.skip(M, g, spec.feed == "quai")).caps
+    for _, k in ipairs(sorted_keys(qcaps)) do
+      if p.inflow[k] and qcaps[k] < p.inflow[k] then p.inflow[k] = qcaps[k] end
+    end
+  end
   p.outflow = {} -- lot VIDEO L4 : débit nominal de chaque sortie (objets/s, M.analyze), lu par les quotas (Build.Quotas)
   for _, k in ipairs(sorted_keys(g.nominal or {})) do p.outflow[k] = g.nominal[k] end
   local main
