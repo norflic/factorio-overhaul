@@ -24,7 +24,9 @@
     g_etat(nom)                      { soldats, figes, actifs_figes (relu au moteur), reveils, gels, causes, degats, degats_soldats,
                                        requetes, postes } ;
     etat(nom)                        { ilots, figes, machines_figees, pertes } ;
-    constantes()                     { STEP, CALM, GUET, WAKE_R, FREEZE_R, WRITES }.
+    constantes()                     { STEP, CALM, GUET, WAKE_R, FREEZE_R, WRITES } ;
+    reglage(vrai|faux)               écrit le réglage de carte fo-war-gel (C20 : témoin éteint) ; rend Gel.on() ;
+    bilan()                          { ilots, figes, machines_figees, soldats_figes, n_frozen }, toutes factions (C20).
 ]]
 
 local Gel = require("script.faction.gel")
@@ -183,6 +185,28 @@ remote.add_interface("fo-gel", {
   end,
   constantes = function()
     return { STEP = Gu.STEP, CALM = G.CALM, GUET = G.GUET, WAKE_R = G.WAKE_R, FREEZE_R = G.FREEZE_R, WRITES = Gel.WRITES }
+  end,
+  -- C20 (gain net, série A/B sur la partie du DC) : le réglage de carte écrit par le MOD lui-même (un mod ne peut écrire que ses
+  -- propres réglages : le mod de test passe par ici) ; rend Gel.on() relu juste après.
+  reglage = function(on)
+    settings.global[Gel.SETTING] = { value = on == true }
+    return Gel.on()
+  end,
+  -- C20 : ce que le gel tient figé, toutes factions et groupes de banc confondus : { ilots, figes, machines_figees, soldats_figes,
+  -- n_frozen } (n_frozen : machines figées comptées par le registre).
+  bilan = function()
+    local u = Gu.U()
+    local n, fz, ents = 0, 0, 0
+    if u then
+      for _, id in ipairs(Gc_sorted(u.ilots)) do
+        local I = u.ilots[id]
+        n = n + 1
+        if I.st.frozen then fz = fz + 1; ents = ents + #I.machines end
+      end
+    end
+    local a = Ga.A()
+    local g = Gel.state()
+    return { ilots = n, figes = fz, machines_figees = ents, soldats_figes = a and a.n or 0, n_frozen = g and g.n_frozen or 0 }
   end,
 })
 

@@ -32,6 +32,9 @@ local KIT_EGAL = {
 KIT_EGAL["foreuses-partie-dc"] = true
 KIT_EGAL["foreuses-partie-dc-temoin"] = true
 KIT_EGAL["foreuses-stock-dc"] = true
+-- Lot X10-GEL, C20 (gain net) : la sauvegarde du DC rejouée, seul le réglage fo-war-gel change (scenarios/x10_gel_c20_common.lua).
+KIT_EGAL["x10-gel-c20-temoin"] = true
+KIT_EGAL["x10-gel-c20-gel"] = true
 
 -- Lot IA0 : les scénarios de guerre intégrés restent en « Paisible » (pvp = "peaceful"), comportement des
 -- sessions 4-5, pour rester comparables à E17-E22 (sinon, au niveau Normal par défaut, les factions
