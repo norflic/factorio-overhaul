@@ -125,6 +125,18 @@ local function sample(ctx, s, st, tick)
         refused = refused + (rec.refused or 0)
       end
     end
+    if tick == 1200 or tick == 3600 then
+      local names = {}
+      for n, v in pairs(defines.entity_status) do names[v] = n end
+      local parts = {}
+      for _, e in ipairs(r.list) do
+        if e.m.valid then
+          local n = e.out.valid and e.out.get_inventory(defines.inventory.chest).get_item_count(e.item) or -1
+          parts[#parts + 1] = string.format("%s=%s/%d", e.kind == "electric-furnace" and "four" or "asm", tostring(names[e.m.status]), n)
+        end
+      end
+      ctx.log("[FO-MODULES-POSES] statuts " .. key .. " t=" .. tick .. " : " .. table.concat(parts, " "))
+    end
     r.seen_order = r.seen_order or stock_order
     r.samples[#r.samples + 1] = { tick = tick, eq = eq, mods = mods, plates = plates, left = left }
     ctx.log(string.format("[FO-MODULES-POSES] mesure t=%d %s machines_equipees=%d modules_poses=%d coffre=%d plaques_fours=%d ordre_stock_ouvert=%s ouverts=%d",
