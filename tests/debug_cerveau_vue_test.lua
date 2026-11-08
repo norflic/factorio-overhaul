@@ -579,6 +579,16 @@ do
   check(npc.team_sur == nil, "sans f.team.org.sur : pas de ligne d'equipe")
   f.team.org = { sur = { last = { starved = 2, want = 3, service = 1, mine = 0 } } }
   npc = Lec.npc(f, agent, NOW)
+  check(npc.team_idle == nil, "sans f.team.sources.idle : pas de ligne 'rien a faire'")
+  f.team.sources = f.team.sources or {}
+  f.team.sources.idle = { code = "matiere", tick = NOW - 600, n = 3 }
+  npc = Lec.npc(f, agent, NOW)
+  check(npc.team_idle and npc.team_idle.code == "matiere" and npc.team_idle.n == 3 and npc.team_idle.age == 600, "raison 'rien a faire' lue dans f.team.sources.idle")
+  f.team.sources.idle.tick = NOW - 9000
+  check(Lec.npc(f, agent, NOW).team_idle == nil, "raison perimee (plus de 2 min) : non montree")
+  f.team.sources.idle = { code = "zz", tick = NOW, n = 1 }
+  check(Lec.npc(f, agent, NOW).team_idle == nil, "code inconnu : non montre")
+  f.team.sources.idle = nil
   check(npc.team_sur and npc.team_sur.starved == 2 and npc.team_sur.want == 3, "ligne d'equipe lue dans f.team.org.sur.last")
   agent.state, agent.task, agent.steps, agent.pc = "step", { key = "ia1d:2:fill:1", kind = "carry", prio = 70, ia1d = { pid = 2, mode = "fill" } }, { { "home" }, { "goto", { x = 5, y = 6 } }, { "act", "x" } }, 2
   npc = Lec.npc(f, agent, NOW)
