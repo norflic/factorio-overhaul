@@ -61,19 +61,35 @@ gisement recensé (`cs.deps`) : **décider** si (a) le réglage `fo-war-mega-fon
 produit, (e) un tapis est débloqué, (f) aucune crise (survie, QG menacé). Taille visée = saturation du gisement (directive du 8/11) ; taille
 de départ = colonnes que le stock libre paie, au moins 1. Chaque refus a sa cause au journal `[FO-MEGA]` (une ligne par changement).
 
-## 5. Croissance
+## 5. Croissance : une RANGÉE EXTENSIBLE le long du bus (règle commune `shared/team/rangee_bus.lua`)
 
-Le rectangle entier (C colonnes) est réservé au plan, comme la ligne dynamique (`Build.ligne_split`) ; les colonnes se posent par pas.
-Chaque minute : relevé du minerai qui ARRIVE au bloc ; `Fonte.balance` en unités « colonne » et « bande » : entrée > capacité des colonnes
-posées → +1 colonne ; colonnes en attente de minerai et gisement non saturé → bandes demandées au champ (jusqu'à la capacité posée + 1 ligne) ;
-jamais de retrait. Une ligne de bus de plus naît avec sa colonne.
+Directive du DC (8/11, vers 18 h) : « passer d'une logique de "bloc fermé" à une logique de "rangée extensible alimentée par un bus" » ;
+« un module capable d'être dupliqué (copié-collé) de gauche à droite [...] tant que la demande le justifie », arrêté seulement par un obstacle
+infranchissable (lac, falaise), un obstacle destructible (caillou, arbre) étant détruit. Le bloc n'est donc pas un rectangle fermé : c'est une
+RANGÉE de colonnes (une par ligne du bus), dupliquée le long du bord du champ. Règle commune (propriétaire MEGA-FONDERIE ; lecteurs
+PETROLE-RANGEE, bus de tuyaux vers raffineries, et MALL, cellules d'assembleurs) : `Rb.extent` (modules posables avant la première tuile
+infranchissable, tuiles à défricher, cause ; relecture par passes bornées), `Rb.count` (demande), `Rb.capacite` (débit de chaque ligne),
+`Rb.croissance` (cible jamais en baisse, cause), `Rb.origine`. La géométrie d'un module vient de la base de motifs
+(`shared/team/motifs/`, `fonte-2x2-double-central` = ma colonne ; `Cat.instancier`), pas de cette règle.
+Chaque minute : relevé du minerai qui ARRIVE ; `Mf.grow` (Fonte.balance en unités « colonne » et « bande ») : entrée > capacité posée →
++1 colonne au bout de la rangée ; colonnes en attente de minerai et gisement non saturé → bandes demandées au champ ; jamais de retrait.
+**Réservation : le TERRAIN seulement** (exigence du lead) : la place de la rangée est tenue aux tuiles, la pose commence dès que la PREMIÈRE
+bande ou colonne est payée ; aucun projet ne garde le matériel de toute la rangée avant de poser (pas de « reserve:materiaux », frein n° 5).
+Directive du DC (8/11, 18 h 30) : le minerai qui dort dans les coffres de tête de bande ou de colonne est raccordé au collecteur et au bus,
+pas laissé en coffre ; la cible reste la saturation (« toutes les cases couvertes par des foreuses »).
 
-## 6. Pose par lots
+## 6. Pose par lots et interfaces
 
 Aujourd'hui un point d'appui par case de 8 × 8 (`build.lua:2709-2716`) et une tâche par point (`build.lua:3958-3994`) : une bande se pose en
-une douzaine de petits voyages. Proposé : les pièces d'une bande portent `ligne = true` et des points d'appui tous les 2 × portée de pose le
-long de la bande (`build.lua:2708` garde déjà un point d'appui posé d'avance) ; UNE tâche par bande porte tout le kit (foreuses, tapis,
-poteaux), le PNJ le prend au QG puis marche la bande d'un bout à l'autre. À coordonner avec le worktree `pose-par-lots` (ne pas doubler).
+une douzaine de petits voyages. Cible : UNE tâche par bande (ou par colonne) qui porte tout son kit, prise au QG une fois, posée en un passage
+le long de son axe. **Une seule implémentation, celle du lot `pose-par-lots`** ; mes entités portent leur groupe (`e.lot`) et sont triées
+le long de l'axe. Autres interfaces (accords du 8/11) :
+- **MALL** : mes sorties de plaques sont son entrée. `f.mega.deps[g].sorties = { { item, x, y, dir, rate, belt } }` triées, publiées dès
+  qu'une colonne POSÉE produit ; un tapis = un objet sur ses deux voies ; le tronc vers la tête du mall est au MALL (mes tapis s'arrêtent aux
+  bouts publiés) ; d'ici là le quai reste la source, ramenée par le rapatriement ; le bus d'entrée du mall se dimensionne sur la somme des `rate`.
+- **PURETÉ** : tout tapis du collecteur et du bus passe le garde-fou au plan (`script/team/purete.lua` : `Pur.fronts` dans le coût de l'A*,
+  `Pur.check_route` sur le tracé trouvé ; refus « purete: <cause> »).
+- **COURANT** : la ligne longue distance est celle du lot `courant-libre` (aucune seconde ligne de poteaux) ; la décision attend le courant.
 
 ## 7. Fichiers
 
@@ -83,7 +99,9 @@ poteaux), le PNJ le prend au QG puis marche la bande d'un bout à l'autre. À co
 - **Tranche 2, pose du bloc** : `Build.SITES.mega` (dans `script/team/mega_fonderie.lua`, comme `Build.SITES.champ`), place du rectangle au bord du champ.
 - **Tranche 3, collecteur et bus** : `shared/team/champ.lua` (option de sortie « bus » d'une bande), tracé du faisceau de N lignes (traversée en tranches).
 - **Tranche 4, pose par lots et bus de plaques** (module neuf : `build.lua` est à 198 locales sur 199).
-Réutilisé : `Ch.plan`, `Champ.data`, `Co.network` (charbon), `Fd.furnaces_for`, `Fonte.balance`, `Db.lane_capacity`, `Cv.saturation`, `Elec`.
+- **Commun** : `shared/team/rangee_bus.lua` + `tests/rangee_bus_test.lua` (41 OK, 11 mutants ; passe de 4 000 tuiles ≤ 65 k instructions).
+Réutilisé : `Ch.plan`, `Champ.data`, `Co.network` (charbon), `Fd.furnaces_for`, `Fonte.balance`, `Db.lane_capacity`, `Cv.saturation`, `Elec`,
+la base de motifs, la ligne de `courant-libre`, la pose par lots de `pose-par-lots`, le garde de pureté.
 
 ## 8. Coût par pensée
 
