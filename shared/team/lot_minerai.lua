@@ -100,6 +100,7 @@ end
 
 --- Une sorte de module (extraction, fonte, energie, fabrique) peut-elle aller sur un lot de ce rôle ? Rend ok, raison.
 function Lm.allows(role, kind)
+  if role ~= "minerai" and role ~= "general" then return false, "role du lot absent (garde fermee)" end -- lot TV-GARDES (W04)
   if not Lm.KINDS[kind] then return false, "sorte inconnue (garde fermee)" end
   if role == "minerai" and not Lm.ON_ORE[kind] then
     return false, "lot de minerai reserve a l'extraction et a la fonte"

@@ -189,7 +189,8 @@ local function is_capacity(u)
 end
 function Cf.counts(book, id)
   local u = book and book.ids and book.ids[id]
-  return u ~= nil and is_capacity(u)
+  if u == nil then return false, "unite absente du carnet de confirmation" end -- lot TV-GARDES (W04) : refus ecrit
+  return is_capacity(u)
 end
 
 ---------------------------------------------------------------------------------------------------
