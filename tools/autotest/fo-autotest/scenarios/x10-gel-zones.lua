@@ -65,8 +65,9 @@ S.tick = function(ctx, e)
         local list
         local function timed_count()
           local m = game.create_profiler()
-          surface.count_entities_filtered(q)
+          local n = surface.count_entities_filtered(q) -- le moteur exige que le résultat soit pris (« The result of this function must be used »)
           m.stop()
+          a.hits = (a.hits or 0) + n
           a.cnt.add(m)
         end
         local function timed_find()
