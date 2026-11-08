@@ -461,6 +461,60 @@ function Ca.unpackers(D)
   return out
 end
 
+--- Lot TV-FLUX (G51 « le fluide se juge sur ses barils », docs/TODO_VIDEO.md l.228) : les CONTENANTS de fluide du jeu, lus dans les
+--- recettes (aucun nom : anti-échelle). Un contenant est un objet B tel qu'une recette le VIDE (B -> fluide F en a unités + un objet E rendu)
+--- ET qu'une recette le REMPLIT à l'identique (F en a unités + E -> B), à un seul fluide et un seul objet des deux côtés. Rend
+--- { [fluide] = { { item = B, amount = a }, ... } } (contenants triés par nom ; un fluide peut en avoir plusieurs).
+function Ca.barrels(D)
+  if D.barrels_memo then return D.barrels_memo end
+  local fill = {}
+  for _, rn in ipairs(D.recipe_list) do
+    local r = D.recipes[rn]
+    if #r.ingredients == 2 and #r.products == 1 and not r.products[1].fluid then
+      local fl, it
+      for _, i in ipairs(r.ingredients) do if i.fluid then fl = i else it = i end end
+      if fl and it then fill[fl.name .. "=" .. fl.amount .. "|" .. it.name .. "=" .. it.amount .. ">" .. r.products[1].name .. "=" .. r.products[1].amount] = true end
+    end
+  end
+  local out, seen = {}, {}
+  for _, rn in ipairs(D.recipe_list) do
+    local r = D.recipes[rn]
+    if #r.ingredients == 1 and #r.products == 2 and not r.ingredients[1].fluid then
+      local b = r.ingredients[1]
+      local fl, it
+      for _, p in ipairs(r.products) do if p.fluid then fl = p else it = p end end
+      if fl and it and fl.amount > 0 and fill[fl.name .. "=" .. fl.amount .. "|" .. it.name .. "=" .. it.amount .. ">" .. b.name .. "=" .. b.amount]
+        and not seen[b.name] then
+        seen[b.name] = true
+        out[fl.name] = out[fl.name] or {}
+        -- unités de fluide d'un contenant (b.amount contenants vidés rendent fl.amount unités)
+        table.insert(out[fl.name], { item = b.name, amount = fl.amount / math.max(Ca.EPS, b.amount) })
+      end
+    end
+  end
+  for _, l in pairs(out) do table.sort(l, function(a, b) return a.item < b.item end) end
+  D.barrels_memo = out
+  return out
+end
+
+--- Stock de FLUIDE compté en contenants pleins (G51) : copie de `stock` où chaque fluide reçoit, en unités, ce que ses contenants au stock
+--- tiennent. Un fluide qui a déjà une entrée la garde (l'ajout s'y ajoute). Rend (copie, { [fluide] = unités ajoutées }) ; sans contenant
+--- au stock, rend `stock` lui-même (même table : la décision d'avant, à l'identique).
+function Ca.barrel_stock(D, stock)
+  local bar = Ca.barrels(D)
+  local added, any = {}, false
+  for _, fl in ipairs(sorted_keys(bar)) do
+    local u = 0
+    for _, c in ipairs(bar[fl]) do u = u + math.max(0, (stock or {})[c.item] or 0) * c.amount end
+    if u > 0 then added[fl], any = u, true end
+  end
+  if not any then return stock or {}, added end
+  local cp = {}
+  for k, v in pairs(stock) do cp[k] = v end
+  for fl, u in pairs(added) do cp[fl] = (cp[fl] or 0) + u end
+  return cp, added
+end
+
 --- Valeur de chaque objet (MU) : point fixe min-plus sur les recettes (ordre des noms), jusqu'à stabilité (au plus une
 --- passe par recette, plus une). Rend aussi la recette la moins chère de chaque objet. Les recettes de Ca.unpackers n'y
 --- entrent pas.
@@ -1142,7 +1196,11 @@ end
 local function prepare(input, st)
   local D = input.data
   local state = input.state or {}
-  local ctx = { D = D, st = st, input = input, stock = input.stock or {}, flows = input.flows or {},
+  -- Lot TV-FLUX (G51) : un fluide se juge sur ses contenants pleins au stock (input.barils : réglage allumé ; absent : le stock d'avant)
+  local jstock, barils_added = input.stock or {}, nil
+  if input.barils then jstock, barils_added = Ca.barrel_stock(D, jstock) end
+  if barils_added and next(barils_added) == nil then barils_added = nil end
+  local ctx = { D = D, st = st, input = input, stock = jstock, barils_added = barils_added, flows = input.flows or {},
     techs = state.techs or {}, known = state.known, obt = {}, best_m = {}, best_d = {}, refus = {}, explore = {},
     dt = input.dt or Ca.CYCLE_MIN, threat = input.threat and true or false, power_block = {}, rec_memo = {}, cc = {},
     cs = {}, ds = {},
@@ -2402,6 +2460,7 @@ local function decide_report(J)
     tmax = ctx.ch.tmax, g = ctx.g, lambda = ctx.lambda, Y = ctx.Y, K = plan.K, budget = budget, bank = st.bank,
     flow_part = bank, stock_part = stock_part, spent = spent, labor = ctx.labor, labor_used = J.work_used,
     reserve = ctx.reserve and true or nil, free_mu = J.free_mu, demande = ctx.dm,
+    barils = ctx.barils_added, -- lot TV-FLUX (G51) : unités de fluide comptées en contenants pleins ce tour (nil : réglage éteint ou aucun contenant)
     u_star = ctx.u_star, labs_target = ctx.lab_rate > 0 and math.ceil(ctx.u_star / ctx.lab_rate - Ca.EPS) or 0,
     coverage = coverage, bottleneck = bottleneck and { item = bottleneck, theta = theta } or nil, R = req.R,
     open_n = #ctx.open, rstar = ctx.rstar, rang_held = ctx.rang_held, -- lot VIDEO-L2 : porte de rang (nil quand elle est éteinte)

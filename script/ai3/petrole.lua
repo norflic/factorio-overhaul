@@ -908,6 +908,215 @@ local function decide(f, st, General, deposits, tick)
   why_line(f, st, tick, why)
 end
 
+---------------------------------------------------------------------------------------------------
+-- Lot TV-FLUX (V42, M32) : la SOUPAPE des cuves de fluide d'un site fini
+---------------------------------------------------------------------------------------------------
+--[[
+  Un site FINI (raffinerie, usines chimiques) arrête sa chaîne amont quand la cuve d'un fluide qu'il produit est PLEINE et qu'aucune de ses machines
+  ne le mange plus (« in the unlikely event that petroleum pipes get full … turn the excess into solid fuel », vidéo 6:02). Toutes les
+  Pet.VALVE_EVERY ticks, pour chaque site fini : MESURE (machines posées du site : boîtes de SORTIE, fluides de leur recette, état « travaille »,
+  Fl.valve_reading) -> DÉCISION (Fl.valve : cuve au-delà de 90 % sans débouché ouvert pendant Fl.VALVE_K mesures de suite) -> ACTION (la
+  recette de surplus, lue au relevé et débloquée pour la force, Fl.valve_row : prend du fluide dans la cuve la plus pleine, au plus ce que la machine
+  de cette recette fait dans le temps écoulé, et dépose les objets au coffre de sortie du site, au plus la place qu'il a, Fl.valve_convert) -> EFFET
+  (cuve qui redescend, objets au coffre que les PNJ rapportent, chaîne amont qui repart). La soupape se referme seule quand la cuve repasse sous 90 %.
+  Option par défaut (décision de conception du lot, à confirmer par le DC) : la conversion est SCRIPTÉE à débit borné par la machine du relevé, sans
+  entité de plus ; une cellule posée (machine, tuyau, coffre, bras) demanderait d'étendre l'implantation d'un site déjà fini.
+  Réglage de carte fo-war-soupape, ALLUMÉ par défaut (settings/flux.lua) ; absent (moteur simulé) = éteint. Journal [FO-SOUPAPE] : ouverture,
+  chaque conversion, fermeture, cause d'impossibilité (une fois par changement). Aucune horloge : les mesures sont l'état du jeu.
+  État (f.team.petrole.valves[site|fluide], nombres et chaînes) : { n (mesures pleines), open, last (tick), total (unités converties), said }.
+]]
+Pet.VALVE_SETTING = "fo-war-soupape"
+Pet.VALVE_EVERY = 1800 -- ticks entre deux mesures (30 s) : 5 mesures pleines de suite ouvrent la soupape en 2,5 min
+
+function Pet.valve_on()
+  local ok, v = pcall(function() return settings.global[Pet.VALVE_SETTING].value end)
+  return ok and v == true
+end
+
+--- Relevé filtré pour la recette de surplus : recettes débloquées pour la force ET faisables par une machine de l'exécutant.
+--- Le relevé garde `enabled` AU DÉPART de la partie (faux pour une recette que la recherche débloque) : la force juge ici, d'où `enabled = true`
+--- sur la copie. `all` : sans filtre de force ni d'exécutant (diagnostic).
+local function open_rel(force, rel, info, all)
+  local out = {}
+  for _, rn in ipairs(sorted_keys(rel.recipes)) do
+    local fr = force and force.recipes[rn]
+    if all or (fr and fr.enabled and info.recipes and info.recipes[rn] and #info.recipes[rn] > 0) then
+      local c = {}
+      for k, x in pairs(rel.recipes[rn]) do c[k] = x end
+      c.enabled = true
+      out[rn] = c
+    end
+  end
+  return { recipes = out }
+end
+
+--- Machines posées d'un site fini : rows pour Fl.valve_reading, et leurs entités (même rang) avec leurs boîtes de sortie.
+local function valve_machines(f, surface, p, rel)
+  local rows, ents = {}, {}
+  for _, e in ipairs(p.ents or {}) do
+    if e.built and e.recipe and e.role == "machine" then
+      local ent = surface.find_entity(e.name, { e.x, e.y })
+      if ent and ent.valid and ent.force.name == f.force then
+        local fb = ent.fluidbox
+        local out = {}
+        for i = 1, #fb do
+          local proto = fb.get_prototype(i)
+          if type(proto) == "table" and proto.production_type == nil then proto = proto[1] end
+          local fl = fb[i]
+          if proto and proto.production_type == "output" and fl then
+            out[#out + 1] = { fluid = fl.name, amount = fl.amount, capacity = fb.get_capacity(i) }
+          end
+        end
+        local ins = {}
+        local r = rel.recipes[e.recipe]
+        for _, ing in ipairs((r and r.ingredients) or {}) do if ing.type == "fluid" then ins[#ins + 1] = ing.name end end
+        rows[#rows + 1] = { out = out, ins = ins, working = ent.status == defines.entity_status.working }
+        ents[#ents + 1] = { ent = ent, out = out }
+      end
+    end
+  end
+  return rows, ents
+end
+
+--- Coffre de sortie du site qui peut recevoir au moins une fabrication de `row` : (coffre, place par objet) ou nil.
+local function valve_chest(f, surface, p, row)
+  for _, o in ipairs(p.outs or {}) do
+    local chest = surface.find_entity("iron-chest", { o.x, o.y })
+    if chest and chest.valid and chest.force.name == f.force then
+      local inv = chest.get_inventory(defines.inventory.chest)
+      local room, ok = {}, true
+      for _, pr in ipairs(row.products) do
+        room[pr.name] = inv.get_insertable_count(pr.name)
+        if room[pr.name] < pr.amount then ok = false end
+      end
+      if ok then return chest, room end
+    end
+  end
+  return nil
+end
+
+local function valve_say(f, tick, v, text)
+  if v.said == text then return end
+  v.said = text
+  log(string.format("[FO-SOUPAPE] %s minute %d : %s", f.key or "?", math.floor(minutes(f, tick)), text))
+end
+
+--- Une mesure de la soupape pour un site fini (voir l'en-tête du bloc). Rend les unités de fluide converties ce passage.
+local function valve_site(f, st, s, p, surface, rel, info, tick)
+  local rows, ents = valve_machines(f, surface, p, rel)
+  st.valve_note = string.format("site '%s' : %d machine(s) lue(s) sur %d entite(s)", tostring(s.key), #rows, #(p.ents or {}))
+  local converted = 0
+  local force = game.forces[f.force]
+  for _, rd in ipairs(Fl.valve_reading(rows)) do
+    local vkey = s.key .. "|" .. rd.fluid
+    local v = st.valves[vkey]
+    if not v then v = Fl.valve_new(); st.valves[vkey] = v end
+    local full = rd.fill > Fl.VALVE_FILL and rd.outlets == 0
+    local surplus = nil
+    if full and (v.n or 0) + 1 >= Fl.VALVE_K then surplus = Fl.valve_recipe(open_rel(force, rel, info), rd.fluid) end
+    local d = Fl.valve(v, rd.fluid, rd.fill, rd.outlets, surplus)
+    local pct = math.floor(rd.fill * 100 + 0.5)
+    if d.open then
+      local row = Fl.valve_row(rel, d.recipe, rd.fluid)
+      local machine = info.recipes[d.recipe] and info.recipes[d.recipe][1]
+      local speed = machine and rel.entities[machine] and rel.entities[machine].speed or 1
+      if not v.open then
+        v.open = true
+        valve_say(f, tick, v, string.format("site '%s' fluide %s : cuve a %d %% sans debouche ouvert depuis %d mesures : soupape OUVERTE (recette %s, machine %s)",
+          s.key, rd.fluid, pct, Fl.VALVE_K, d.recipe, tostring(machine)))
+        st.valve_opened = (st.valve_opened or 0) + 1
+      end
+      -- la cuve la plus pleine de ce fluide
+      local best, best_amount
+      for _, m in ipairs(ents) do
+        for _, o in ipairs(m.out) do
+          if o.fluid == rd.fluid and (best_amount == nil or o.amount > best_amount) then best, best_amount = m.ent, o.amount end
+        end
+      end
+      -- temps écoulé depuis la dernière conversion (plafonné à 5 min) : une mesure qui ne laisse pas le temps d'une fabrication n'efface pas ce temps
+      local dt = math.min(5, (tick - (v.last or (tick - Pet.VALVE_EVERY))) / 3600)
+      local chest, room = nil, nil
+      if row then chest, room = valve_chest(f, surface, p, row) end
+      if not row then
+        valve_say(f, tick, v, string.format("site '%s' fluide %s : recette de surplus %s illisible au releve", s.key, rd.fluid, tostring(d.recipe)))
+      elseif not chest then
+        valve_say(f, tick, v, string.format("site '%s' fluide %s : soupape ouverte mais aucun coffre de sortie du site n'a de place pour %s", s.key, rd.fluid, row.products[1].name))
+      elseif best and best.valid then
+        local cv = Fl.valve_convert(row, speed, best_amount, dt, room)
+        if cv.crafts > 0 then
+          local removed = best.remove_fluid({ name = rd.fluid, amount = cv.fluid })
+          local crafts = math.min(cv.crafts, math.floor(removed / row.fluid_in + 1e-9))
+          local list = {}
+          for _, pr in ipairs(row.products) do
+            local n = math.floor(crafts * pr.amount + 1e-9)
+            if n > 0 then
+              local put = chest.insert({ name = pr.name, count = n })
+              list[#list + 1] = string.format("%s x%d", pr.name, put)
+            end
+          end
+          converted = converted + crafts * row.fluid_in
+          -- le temps non employé (reste de la division) est gardé pour la conversion suivante
+          local used_min = crafts * row.energy / (speed * 60)
+          v.last = tick - math.floor(math.max(0, dt - used_min) * 3600 + 0.5)
+          v.total = (v.total or 0) + crafts * row.fluid_in
+          st.valve_units = (st.valve_units or 0) + crafts * row.fluid_in
+          v.said = nil
+          valve_say(f, tick, v, string.format("site '%s' fluide %s : %s x%d = %d unites prises a la cuve -> %s au coffre (%d, %d) ; cuve a %d %% (borne : %s)",
+            s.key, rd.fluid, d.recipe, crafts, crafts * row.fluid_in, table.concat(list, ", "), chest.position.x, chest.position.y, pct, cv.limit))
+        else
+          if v.last == nil then v.last = tick - Pet.VALVE_EVERY end
+          valve_say(f, tick, v, string.format("site '%s' fluide %s : soupape ouverte, rien a convertir ce passage (borne : %s)", s.key, rd.fluid, cv.limit))
+        end
+      end
+      if v.last == nil then v.last = tick end
+    else
+      if v.open then
+        v.open = false
+        v.said = nil
+        valve_say(f, tick, v, string.format("site '%s' fluide %s : soupape FERMEE (%s), cuve a %d %% ; %d unites converties en tout",
+          s.key, rd.fluid, d.why, pct, math.floor(v.total or 0)))
+      elseif full and not surplus and (v.n or 0) >= Fl.VALVE_K then
+        -- pourquoi aucune recette : candidate du relevé entier, débloquée pour la force ?, machine de l'exécutant ?
+        local cand = Fl.valve_recipe(open_rel(force, rel, info, true), rd.fluid)
+        local fr = cand and force and force.recipes[cand]
+        valve_say(f, tick, v, string.format("site '%s' fluide %s : cuve a %d %% sans debouche, mais aucune recette de surplus utilisable (candidate du releve : %s, debloquee : %s, machine de l'executant : %s)",
+          s.key, rd.fluid, pct, tostring(cand), tostring(fr and fr.enabled), tostring(cand and info.recipes and info.recipes[cand] and info.recipes[cand][1])))
+      end
+      v.last = nil
+    end
+  end
+  return converted
+end
+
+--- Passage de la soupape pour tous les sites FINIS de la faction. Rend les unités converties.
+function Pet.valve_think(f, st, tick)
+  if not Pet.valve_on() then return 0 end
+  if tick < (st.valve_next or 0) then return 0 end
+  st.valve_next = tick + Pet.VALVE_EVERY
+  st.valve_calls = (st.valve_calls or 0) + 1
+  st.valves = st.valves or {}
+  local rel, info = ensure_rel(), current_info()
+  local b = f.build
+  if not (rel and info and b and f.hq and f.hq.valid) then
+    st.valve_note = string.format("passage sans mesure : releve %s, executants %s, plan directeur %s", tostring(rel ~= nil), tostring(info ~= nil), tostring(b ~= nil))
+    return 0
+  end
+  local total = 0
+  local surface = f.hq.surface
+  st.valve_note = "aucun site fini"
+  for _, s in ipairs(st.sites) do
+    local p = b.projects[s.id]
+    if p and p.state == "fini" and surface then
+      st.valve_note = string.format("site '%s' fini mesure", tostring(s.key))
+      local ok, res = pcall(valve_site, f, st, s, p, surface, rel, info, tick)
+      if ok then total = total + (res or 0) else
+        log(string.format("[FO-SOUPAPE] %s : erreur au site '%s' : %s", f.key or "?", tostring(s.key), tostring(res)))
+      end
+    end
+  end
+  return total
+end
+
 --- Pensée d'une faction (script/ai3/cerveau.lua, après Auto.think) : décisions, état des sites, et leurs projets rendus
 --- au cerveau par le contexte de l'automatisation (A.goals : manques des chantiers, quais d'un site fini).
 function Pet.think(f, view, book, tick, auto, General, deposits)
@@ -1009,6 +1218,9 @@ function Pet.think(f, view, book, tick, auto, General, deposits)
     end
   end
   Profiler.fstop("pet:sites")
+  Profiler.fstart("pet:soupape")
+  Pet.valve_think(f, st, tick) -- lot TV-FLUX (V42)
+  Profiler.fstop("pet:soupape")
   Profiler.stop("petrole:think")
   if #mods == 0 and #feeds == 0 then return auto end
   auto = auto or { mods = {}, cap = {}, covered = {}, feeds = {} }
@@ -1100,6 +1312,48 @@ remote.add_interface("fo-petrole", {
       plant = f.build and brief_of(f.build.plant) or nil }
   end,
   on = function() return Pet.on() end,
+  -- BANCS (lot TV-FLUX, scénario flux-soupape) : adopte un site FINI fictif pour la soupape. Les machines et le coffre sont posés par le banc ;
+  -- spec = { every = ticks entre deux mesures, ents = { { name, x, y, recipe }, ... }, outs = { { x, y }, ... } }. Rend vrai.
+  valve_bench = function(key, spec)
+    local f = team_of(key)
+    if not (f and f.team and type(spec) == "table") then return false end
+    if not f.build then Build.enable(f, { radius = 3 }) end
+    local st = state_of(f)
+    local id = 9000001
+    local ents = {}
+    for _, e in ipairs(spec.ents or {}) do
+      ents[#ents + 1] = { name = e.name, x = e.x, y = e.y, dir = 0, recipe = e.recipe, role = "machine", built = true, part = 1 }
+    end
+    local x0, y0 = math.huge, math.huge
+    for _, e in ipairs(ents) do x0, y0 = math.min(x0, e.x), math.min(y0, e.y) end
+    f.build.projects[id] = { id = id, state = "fini", ents = ents, outs = spec.outs or {}, quais = {}, spec = { site = "petrole" },
+      parts = { { kind = "module", key = "bench", lot = "site", ox = math.floor(x0) - 3, oy = math.floor(y0) - 3, k = 0, w = 16, h = 16 } } }
+    f.build.order[#f.build.order + 1] = id -- sans cela l'automatisation éteint le plan directeur (rien à servir) et le site disparaît
+    st.sites[#st.sites + 1] = { key = "bench", id = id, items = {}, state = "fini", res = nil, x = 0, y = 0 }
+    if type(spec.every) == "number" then Pet.VALVE_EVERY = spec.every end
+    st.valve_next = 0
+    return true
+  end,
+  -- bancs (lot TV-FLUX) : état de la soupape d'une équipe { opened, units, valves = { [site|fluide] = { n, open, total } } }
+  valve_status = function(key)
+    local f = team_of(key)
+    local st = f and f.team and f.team.petrole
+    if not st then return nil end
+    local valves = {}
+    for _, k in ipairs(sorted_keys(st.valves or {})) do
+      local v = st.valves[k]
+      valves[k] = { n = v.n or 0, open = v.open == true, total = v.total or 0 }
+    end
+    return { opened = st.valve_opened or 0, units = st.valve_units or 0, calls = st.valve_calls or 0, note = st.valve_note, valves = valves, on = Pet.valve_on(), every = Pet.VALVE_EVERY }
+  end,
+  -- bancs (lot TV-FLUX) : une mesure de la soupape tout de suite (le banc n'a que 2 500 ticks ; la cadence naturelle reste celle de Pet.think)
+  valve_tick = function(key)
+    local f = team_of(key)
+    local st = f and f.team and f.team.petrole
+    if not st then return nil end
+    st.valve_next = 0
+    return Pet.valve_think(f, st, game.tick)
+  end,
   -- bancs : relevé ASCII du terrain d'un site refusé au journal ([FO-PETROLE-CARTE], une fois par raison et par équipe)
   dump = function(v) Pet.DUMP = (v == true) end,
   -- bancs : tâches du tableau d'un chantier du lot (clé, prise par, priorité, objets, états), pour savoir pourquoi il n'avance pas
