@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.67
+Date: 2026-11-08
+  Changes:
+    - Gels corriges : traces A* du bus et du rapatriement decoupes en tranches sur plusieurs ticks (pire passe mesuree environ 5 ms), piquage borne (une recherche par tick, 300 noeuds), sortie au premier echec.
+    - Amelioration par bloc : tapis et bras rapides par bloc, la chaine du centre ne monte plus seule, gel de la reconstruction leve sauf manque, ce qui est payable passe avant ce qu'il faut fabriquer.
+    - Piquage sur les tapis des autres usines finies, des troncs de bus et des lignes de rapatriement ; bus confirme par quai ; poteau a 2 cases d'un bras ; sorties deja rapatriees retirees du bus ; rapatriement : recherche elargie decoupee, objets satures exclus.
+    - Modules poses meme sans marge de courant lue (centrale du joueur) ; coffre de sortie d'un bras retrouve par sa case de depot ; defense : refus loin et danger, plafond du mall de tourelles ; courant : 60 % des kW au plus par minerai ; vue Cerveau V1.6 ; tests rouges mis a jour.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.66
 Date: 2026-11-08
   Changes:
