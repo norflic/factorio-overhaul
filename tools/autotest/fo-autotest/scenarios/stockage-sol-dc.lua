@@ -135,8 +135,8 @@ local function red_packs(ctx, s, pos, label)
   if ctx.has("fo-ia1", "module_probe") then
     local ok, m = pcall(ctx.remote, "fo-ia1", "module_probe", "player", 3)
     if ok and m then
-      ctx.log(string.format("%s PACKS ROUGES projet 3 (%s) : etat %s (%s), quota %s, alimentation permise %s", label, tostring(m.product),
-        tostring(m.state), tostring(m.reason), tostring(m.quota), tostring(m.feed)))
+      ctx.log(string.format("%s PACKS ROUGES projet 3 (%s) : etat %s (%s), quota %s, alimentation permise %s ; portages de l'equipe %s ; raisons d'echec {%s}",
+        label, tostring(m.product), tostring(m.state), tostring(m.reason), tostring(m.quota), tostring(m.feed), tostring(m.carry), tostring(m.fails)))
       for _, l in ipairs(m.quais or {}) do ctx.log(label .. " PACKS ROUGES projet 3 entree " .. l) end
       for _, l in ipairs(m.outs or {}) do ctx.log(label .. " PACKS ROUGES projet 3 sortie " .. l) end
     else

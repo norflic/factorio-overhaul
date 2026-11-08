@@ -601,13 +601,19 @@ remote.add_interface("fo-ia1", {
     local surface = f.hq.surface
     local b = Board.get(f)
     local skip = Stock.skip_fn and Stock.skip_fn(f)
-    local function task_text(k)
+    local tick = game.tick
+    local function task_text(k) -- tâche au tableau, pause d'échec restante (b.cooldown) et échecs de chemin de suite (b.path_fails)
       local t = b.tasks[k]
-      return t and (t.worker and "prise" or "libre") or "aucune"
+      local pause = math.max(0, ((b.cooldown and b.cooldown[k]) or 0) - tick)
+      local pf = b.path_fails and b.path_fails[k]
+      return string.format("%s, pause %d, echecs de chemin %s", t and (t.worker and "prise" or "libre") or "aucune", pause,
+        type(pf) == "table" and tostring(pf.n or #pf) or tostring(pf or 0))
     end
+    -- coffre posé à cette place (quai ou sortie), lu sans nommer d'objet (tests/iag_test.lua, section 8 bis)
+    local function chest_at(x, y) return surface.find_entities_filtered({ position = { x, y }, type = "container", limit = 1 })[1] end
     local outs, counts, slots, in_slots = {}, {}, nil, nil
     for i, o in ipairs(p.outs or {}) do
-      local c = surface.find_entity("iron-chest", { o.x, o.y })
+      local c = chest_at(o.x, o.y)
       if c and c.valid then
         local inv = c.get_inventory(defines.inventory.chest)
         counts[i] = inv.get_item_count()
@@ -625,13 +631,17 @@ remote.add_interface("fo-ia1", {
     local q = Build.Quotas.of(p, slots, in_slots, Build.COLLECT_AT)
     local quais = {}
     for i, qu in ipairs(p.quais or {}) do
-      local c = surface.find_entity("iron-chest", { qu.x, qu.y })
+      local c = chest_at(qu.x, qu.y)
       quais[#quais + 1] = string.format("q%d %s (%.1f, %.1f) coffre %s, stock %d, alimentation %s, ecarte %s", i, tostring(qu.item), qu.x, qu.y,
         (c and c.valid) and tostring(c.get_item_count(qu.item)) or "absent", Stock.count(f, qu.item), task_text("ia1d:" .. pid .. ":q:" .. i),
         tostring(skip ~= nil and skip(qu.item) or false))
     end
+    local fails, ft = {}, f.team and f.team.fail_reasons or {}
+    for _, k in ipairs(State.sorted_keys(ft)) do fails[#fails + 1] = k .. " " .. ft[k] end
+    local ts = f.team and f.team.task_stats and f.team.task_stats.carry
     return { state = p.state, reason = p.reason and tostring(p.reason) or nil, feed = Build.Quotas.feed_ok(q, counts), quota = q ~= nil,
-      product = p.spec and p.spec.product, quais = quais, outs = outs }
+      product = p.spec and p.spec.product, quais = quais, outs = outs, fails = table.concat(fails, ", "),
+      carry = ts and string.format("%d ok, %d echec(s)", ts.ok or 0, ts.fail or 0) or "-" }
   end,
   kill_npc = function(key, id)
     local f = team_of(key)
