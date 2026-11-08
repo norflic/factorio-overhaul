@@ -245,7 +245,7 @@ function Sante.gate(f, p, tick, kw_of)
   local b = f.build
   local is_plant = p.id == b.plant
   for _, id in ipairs(b.extra_plants or {}) do if id == p.id then is_plant = true end end
-  if sp.alim or sp.raccord or sp.enceinte or sp.liaison or sp.site or is_plant or p.reopened then p.admitted = true return true end
+  if sp.alim or sp.alimquai or sp.raccord or sp.enceinte or sp.liaison or sp.site or is_plant or p.reopened then p.admitted = true return true end
   if p.power_kw == nil then p.power_kw = kw_of(sp) or 0 end
   local g = f.build.grow
   -- lot 5b (W04 n°2) : la centrale est-elle FINIE ? Alors une capacité ou une production non lue retient le module (S.admit) au lieu de l'admettre
