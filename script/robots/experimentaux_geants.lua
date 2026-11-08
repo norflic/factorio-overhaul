@@ -272,7 +272,11 @@ local function resorber(ev)
       local rend = {}
       for _, e in ipairs(Ech.trace_echues(st.traces[i], ev.tick, Ech.RESORPTION_LOT)) do
         local t = s.get_tile(e.x, e.y)
-        if t.valid and t.name == "nuclear-ground" and e.orig ~= "nuclear-ground" then rend[#rend + 1] = { name = e.orig, position = { e.x, e.y } } end
+        -- sol d'origine disparu depuis (mod retiré ou tuile renommée : set_tiles d'un nom inconnu lève une erreur) : le cratère reste
+        -- (revue-0657, 7/11)
+        if t.valid and t.name == "nuclear-ground" and e.orig ~= "nuclear-ground" and game.tile_prototypes[e.orig] then
+          rend[#rend + 1] = { name = e.orig, position = { e.x, e.y } }
+        end
       end
       if #rend > 0 then s.set_tiles(rend, true, false, true, false) end
     end

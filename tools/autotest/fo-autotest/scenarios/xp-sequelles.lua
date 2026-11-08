@@ -6,7 +6,12 @@
 --   tick 100 : sol de cratère posé sur l'herbe, béton et eau intacts, tourelle toujours là ;
 --   tick 420 : la partie du premier cratère hors du second est rendue (herbe), la partie commune est encore cratère ;
 --   tick 620 : tout est rendu à l'herbe d'origine ; béton et eau intacts ; registre vide.
+-- Au BORD D'UN LAC (revue-0657, réserve sur set_tiles et la correction des tuiles) : au tick 60, un troisième cratère de rayon 6 à cheval sur
+-- la rive d'un lac de 11 × 21 tuiles. Contrôles : aucune tuile d'eau perdue ni gagnée (posé, puis rendu), sol de cratère sur la rive,
+-- herbe voisine hors du cratère intacte, tout rendu à la fin.
 local X, Y = 16000, 6000
+local LAC = { x0 = X + 40, x1 = X + 50, y0 = Y - 10, y1 = Y + 10 } -- tuiles d'eau, bornes comprises
+local function eaux(s) return s.count_tiles_filtered({ area = { { LAC.x0 - 5, LAC.y0 - 5 }, { LAC.x1 + 6, LAC.y1 + 6 } }, name = "water" }) end
 local CHECK = 620
 
 local function tile(s, x, y) return s.get_tile(x, y).name end
@@ -18,7 +23,11 @@ return {
   init = function(ctx)
     local st = ctx.state()
     local s = ctx.surface()
-    ctx.prepare_area(X - 20, Y - 20, X + 30, Y + 20, "grass-1")
+    ctx.prepare_area(X - 20, Y - 20, X + 60, Y + 20, "grass-1")
+    local lac = {}
+    for x = LAC.x0, LAC.x1 do for y = LAC.y0, LAC.y1 do lac[#lac + 1] = { name = "water", position = { x, y } } end end
+    s.set_tiles(lac, true) -- l'eau AVANT les entités (F135)
+    st.eau0 = eaux(s)
     s.set_tiles({ { name = "concrete", position = { X + 2, Y + 2 } }, { name = "concrete", position = { X + 3, Y + 2 } } }, true)
     s.set_tiles({ { name = "water", position = { X - 3, Y - 3 } } }, true)
     st.tourelle = s.create_entity({ name = "gun-turret", position = { X - 1, Y + 3 }, force = "player" })
@@ -29,10 +38,14 @@ return {
     local st = ctx.state()
     local s = ctx.surface()
     local t = e.tick
-    if t == 60 then remote.call("fo-xp", "cratere", X + 0.5, Y + 0.5, 6) end
+    if t == 60 then
+      remote.call("fo-xp", "cratere", X + 0.5, Y + 0.5, 6)
+      remote.call("fo-xp", "cratere", LAC.x0 - 1.5, Y + 0.5, 6) -- à cheval sur la rive ouest du lac
+    end
     if t == 200 then remote.call("fo-xp", "cratere", X + 8.5, Y + 0.5, 6) end
     if t == 100 then
       st.c100 = { herbe = tile(s, X, Y), beton = tile(s, X + 2, Y + 2), eau = tile(s, X - 3, Y - 3), ouest = tile(s, X - 5, Y) }
+      st.l100 = { eau = eaux(s), rive = tile(s, LAC.x0 - 2, Y), dans = tile(s, LAC.x0 + 1, Y), voisin = tile(s, LAC.x0 - 2, Y + 9) }
     end
     if t == 420 then
       st.c420 = { ouest = tile(s, X - 5, Y), commun = tile(s, X + 4, Y) }
@@ -52,5 +65,12 @@ return {
     local reste = s.count_tiles_filtered({ area = { { X - 10, Y - 10 }, { X + 20, Y + 10 } }, name = "nuclear-ground" })
     ctx.check(reste == 0 and tile(s, X + 4, Y) == "grass-1", "tick 620 : tout est rendu a l'herbe", reste .. " tuile(s) de cratere")
     ctx.check(tile(s, X + 2, Y + 2) == "concrete" and tile(s, X - 3, Y - 3) == "water", "tick 620 : beton et eau toujours intacts")
+    local l = st.l100 or {}
+    ctx.check(st.eau0 == 231 and l.eau == st.eau0 and l.rive == "nuclear-ground" and l.dans == "water" and l.voisin == "grass-1",
+      "bord du lac, tick 100 : cratere sur la rive, aucune tuile d'eau perdue ni gagnee, herbe voisine hors du cratere intacte",
+      string.format("eau %s -> %s, rive %s, dans le lac %s, voisin %s", tostring(st.eau0), tostring(l.eau), tostring(l.rive), tostring(l.dans), tostring(l.voisin)))
+    local reste_lac = s.count_tiles_filtered({ area = { { LAC.x0 - 10, LAC.y0 - 5 }, { LAC.x1 + 6, LAC.y1 + 6 } }, name = "nuclear-ground" })
+    ctx.check(eaux(s) == st.eau0 and reste_lac == 0 and tile(s, LAC.x0 - 2, Y) == "grass-1",
+      "bord du lac, tick 620 : rive rendue a l'herbe, lac intact", string.format("eau %d, cratere %d, rive %s", eaux(s), reste_lac, tile(s, LAC.x0 - 2, Y)))
   end,
 }

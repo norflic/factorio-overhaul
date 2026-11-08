@@ -172,6 +172,9 @@ function B.saturated(s, item, floor_only)
   -- Lot C2 : le plancher ne vaut que sans puits ouvert ; avec lui, la matière n'est saturée qu'au-delà de ce que le puits en demande
   -- (s.puits_flow : le débit que la capitalisation a calculé pour elle, Dm.sat_need).
   local need = Dm.sat_need(Br.need_floor(s.workers, B.NEED_FLOOR), s.need and s.need[item], (not floor_only) and s.puits_flow and s.puits_flow[item] or nil)
+  -- Lot 5b (W04 n°3), DÉCISION : un objet ABSENT du stock vaut 0 (le moteur n'énumère pas les objets à zéro : get_contents) ; ce n'est pas une
+  -- mesure manquante. La saturation reste donc fausse (le travail d'extraction continue) : la fermer arrêterait l'extraction de toute matière
+  -- sans stock. Le stock lui-même absent (s.stock nil) n'est jamais passé ici (Ia3.plan lit view.stock or {}).
   local have, thr = s.stock[item] or 0, B.SAT_FACTOR * need
   if have < thr then return false end
   -- Lot VIDEO-SAT (V79, « un stock qui masque un manque de capacité ») : un stock qui FOND durablement (s.drain, pente mesurée par
