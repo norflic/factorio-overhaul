@@ -198,6 +198,12 @@ local function suite(Rp, quiet)
   local tiny = Rp.candidates({ src("s-far", 120, 20, "A", 0.8) }, { dock("t1", 5, 5, "A", Li.MIN_FLOW / 2) }, H)
   check(tiny[1].consumers == 0, "6.13 un quai sous Li.MIN_FLOW ne compte pas")
 
+  -- le stock dormant ne compte que pour une part dans le prix
+  local prod = Rp.candidates({ { key = "p", pid = 1, idx = 1, x = 120, y = 20, item = "A", rate = 0.8, nature = "mesure" } }, docks, H)
+  local stock = Rp.candidates({ { key = "p", pid = 1, idx = 1, x = 120, y = 20, item = "A", rate = 0.8, nature = "stock" } }, docks, H)
+  check(near(stock[1].worth_flow, 0.8 * Rp.STOCK_FACTOR) and near(prod[1].worth_flow, 0.8) and stock[1].net < prod[1].net and stock[1].flow == 0.8,
+    "6.14 un debit de stock ne compte que pour Rp.STOCK_FACTOR dans le prix, le debit reste le vrai")
+
   -- §7 décision
   local good = { worth = true, worth_why = "ok", open_total = 0, free = 1, seen = 2, tries = 0, since_try = Rp.RETRY_AFTER, enemies = 0, threat = false, lines = 0 }
   local function with(t) local c = {} for k, v in pairs(good) do c[k] = v end for k, v in pairs(t) do c[k] = v end return c end
@@ -438,6 +444,7 @@ local mutants = {
   { "candidats : le tampon n'est plus ramene au QG", "px, py = Rp.clamp_near(px, py, hub, Rp.NEAR_HUB)", "" },
   { "candidats : le tampon du meme objet n'est pas controle", "if t.item == s.item and (t.lines or 1) < Rp.REUSE_MAX", "if (t.lines or 1) < Rp.REUSE_MAX" },
   { "candidats : la limite de lignes par tampon est oubliee", "(t.lines or 1) < Rp.REUSE_MAX and", "true and" },
+  { "candidats : le stock dormant compte comme une production", "if s.nature == \"stock\" then flow = flow * Rp.STOCK_FACTOR end", "" },
   { "candidats : le tri est inverse", "if a.net ~= b.net then return a.net > b.net end", "if a.net ~= b.net then return a.net < b.net end" },
   { "decision : la confirmation est oubliee", "if (inp.seen or 0) < Rp.CONFIRM then", "if false then" },
   { "decision : la menace est ignoree", "if inp.threat then return", "if false then return" },

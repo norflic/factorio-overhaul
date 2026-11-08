@@ -136,6 +136,8 @@ Build.LotsMinerai = require("script.team.lots_minerai_glue")
 Build.Repli = require("script.team.repli_place")
 -- Lot TV-ARCHI (V23) : quartiers et enveloppe d'avance (script/team/quartiers.lua) ; champ de Build, même raison (199 locales sur 200).
 Build.Quartiers = require("script.team.quartiers")
+-- Lot RAPATRIEMENT (8/11) : lignes sortie lointaine -> tapis -> tampon (script/team/rapatriement.lua) ; champ de Build, même raison (199 locales sur 200).
+Build.Rapatriement = require("script.team.rapatriement")
 Build.Place = require("script.team.place_glue") -- lot TV-PLACE : sonde 30 x 30 (G37), défrichage préventif 50 x 50 (G38), repli de placement simple (C07)
 local TREE_TYPES = { "tree", "simple-entity" }
 
@@ -2704,6 +2706,10 @@ local function plan_project(f, surface, p)
       reserve_tiles = reserve_tiles, finish = plan_finish, add_obstacle = add_obstacle, free_spot = free_spot,
       count = function(it) return Stock.count(f, it) end }) -- (tranche 3 : tourelle du pôle si le coffre l'a)
   end
+  if spec.rapatriement then -- lot RAPATRIEMENT : ligne longue d'une sortie lointaine à un coffre tampon (script/team/rapatriement.lua)
+    return Build.Rapatriement.plan({ read_masks = function(x0, y0, x1, y1) return read_masks(f, surface, x0, y0, x1, y1) end, reserve_tiles = reserve_tiles, wood_of = wood_of,
+      free_spot = free_spot, add_obstacle = add_obstacle, item_of = item_of, seg_passable = seg_passable, REACH = REACH }, f, surface, p)
+  end
   if spec.liaison then return Liaison.plan({ read_masks = function(x0, y0, x1, y1) return read_masks(f, surface, x0, y0, x1, y1) end, reserve_tiles = reserve_tiles, wood_of = wood_of, free_spot = free_spot, add_obstacle = add_obstacle, item_of = item_of, seg_passable = seg_passable, REACH = REACH }, f, surface, p) end -- lot INDUSTRIE I7
   Profiler.start("build:plan:place") -- lot IA3-e : parts du coût d'un plan (pics de K10), mesure seulement
   -- Lot PETROLE : un SITE (spec.site) est implanté par son planificateur (Build.SITES[nom], hors du treillis : au gisement
@@ -3783,6 +3789,7 @@ function Build.work(agent, f, tick)
       local put = chest.insert({ name = q.item, count = n })
       if put > 0 then inv.remove({ name = q.item, count = put }) end
       b.stats.filled = b.stats.filled + put
+      b.stats.trips_fill = (b.stats.trips_fill or 0) + 1 -- lot RAPATRIEMENT : voyages de remplissage terminés (critère C2)
     end
     return "done"
   elseif job.mode == "amorce" then
@@ -3825,6 +3832,9 @@ function Build.work(agent, f, tick)
       end
     end
     b.stats.collected = b.stats.collected + got
+    -- lot RAPATRIEMENT : voyages de collecte terminés (critère C2), par sortie (o.trips) et objets pris à ce coffre (o.collected, arrivées au tampon)
+    b.stats.trips_collect = (b.stats.trips_collect or 0) + 1
+    o.trips, o.collected = (o.trips or 0) + 1, (o.collected or 0) + got
     return "done"
   end
   return "fail"
@@ -4645,6 +4655,7 @@ local function pulse_team(f, tick)
   Profiler.fstart("bp:liaison")
   Liaison.step({ request = Build.request, prio = Build.PRIO + 1, fill = Build.QUAI_FILL, low = Build.QUAI_LOW }, f, surface, tick)
   Profiler.fstop("bp:liaison")
+  Build.Rapatriement.step({ request = Build.request, prio = Build.PRIO + 1 }, f, surface, tick) -- lot RAPATRIEMENT : sorties lointaines reliées au tampon près des quais
   Profiler.fstart("bp:centrale")
   -- 5. lot CORR-ENERGIE : centrale saturée, une centrale de plus (même mécanisme que la première)
   local nb, stale, secours = PlantArms.watch(f, surface, tick)

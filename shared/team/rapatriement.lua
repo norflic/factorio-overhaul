@@ -15,7 +15,8 @@
 
   Ligne : coffre de SORTIE lointain -> bras -> tapis (60 à 320 tuiles) -> bras -> coffre TAMPON près des consommateurs.
     1. SOURCES ET CONSOMMATEURS (Rp.candidates) : une sortie à Rp.MIN_DIST tuiles ou plus du QG (Manhattan), d'un objet connu, d'un débit d'au moins
-       Rp.MIN_RATE ; les consommateurs sont les quais du même objet qu'aucune liaison ne sert encore.
+       Rp.MIN_RATE ; les consommateurs sont les quais du même objet qu'aucune liaison ne sert encore. Un débit de STOCK (coffre qui dort plein, rien ne
+       monte) ne compte que pour Rp.STOCK_FACTOR : vider un reste une fois ne paie pas une ligne.
     2. TAMPON (Rp.tampon_point) : le point qui MINIMISE Σ débit x distance de Manhattan aux consommateurs. La distance de Manhattan se sépare par axe :
        la médiane pondérée (la plus petite valeur dont le poids cumulé atteint la moitié) de x, celle de y. Prouvé contre la force brute. Ramené à
        Rp.NEAR_HUB tuiles du QG (un tampon trop loin du QG ne soulage pas la main).
@@ -72,6 +73,7 @@ Rp.FILL_BATCH = 340         -- objets par trajet de remplissage (Build.QUAI_FILL
 Rp.MIN_RATE = 0.05          -- objets/s : sous ce débit une sortie ne vaut aucune ligne
 Rp.STAGE2 = 0.5             -- part de la jambe de remplissage comptée pour ce que le tampon sert aux quais voisins (NON MESURÉ)
 Rp.DRAIN_MIN = 30           -- minutes : une sortie qui dort pleine se vide en ce temps (débit de stock, borné par le bras)
+Rp.STOCK_FACTOR = 0.3       -- un débit de STOCK (coffre qui dort plein) n'est pas une production : il ne compte que pour cette part dans le prix (NON MESURÉ)
 Rp.BUFFER_MIN = 10          -- minutes de débit gardées au tampon (NON MESURÉ)
 Rp.BUFFER_MIN_OBJ = 200
 Rp.BUFFER_MAX_OBJ = 1600
@@ -253,12 +255,14 @@ function Rp.candidates(srcs, docks, hub, o)
         fill_w = fill_w + d.flow
         fill_sum = fill_sum + d.flow * manhattan(d.x, d.y, hub.x, hub.y)
       end
+      local flow = s.rate
+      if s.nature == "stock" then flow = flow * Rp.STOCK_FACTOR end
       local d_tam = manhattan(tx, ty, hub.x, hub.y)
       local d_fill = fill_w > 0 and fill_sum / fill_w or 0
       local span = manhattan(s.x, s.y, tx, ty)
-      local ok, why, det = Rp.worth({ flow = s.rate, d_src = d_src, d_tam = d_tam, d_fill = d_fill, covered = covered,
+      local ok, why, det = Rp.worth({ flow = flow, d_src = d_src, d_tam = d_tam, d_fill = d_fill, covered = covered,
         tiles = ceil(span * Rp.EST_FACTOR + 2), price = o.price, labor = o.labor, tmax = o.tmax, threat = o.threat })
-      out[#out + 1] = { src = s, item = s.item, flow = s.rate, d_src = d_src, point = { x = tx, y = ty }, reuse = reuse, d_tam = d_tam, covered = covered,
+      out[#out + 1] = { src = s, item = s.item, flow = s.rate, worth_flow = flow, d_src = d_src, point = { x = tx, y = ty }, reuse = reuse, d_tam = d_tam, covered = covered,
         d_fill = d_fill, consumers = #cons, span = span, ok = ok, why = why, det = det, net = (det.save_s_min or 0) }
     end
   end
