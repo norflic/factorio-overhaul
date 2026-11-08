@@ -2,8 +2,12 @@
   Lot CAPIB : la capitalisation BRANCHÉE, au moteur simulé (tests/mock_engine.lua). Ce n'est pas une preuve en jeu
   (le moteur simulé ne pose pas les fantômes du plan directeur comme le jeu) : il vérifie que le branchement tourne sans
   erreur, décide, envoie ses ordres aux exécutants, et ne fait RIEN réglage éteint.
-    §1 réglage allumé (fo-war-capi et fo-war-ia3e) : décisions [FO-CAPI] chaque minute, gisements recensés (plus de 64
-       tuiles quand le gisement en a plus), ordres envoyés, aucun ordre « fours » au-delà du minerai livré ;
+    §1 réglage allumé (fo-war-capi et fo-war-ia3e) : décisions [FO-CAPI] à chaque cycle de capitalisation (Capi.CYCLE pensées),
+       gisements recensés (plus de 64 tuiles quand le gisement en a plus), ordres envoyés, aucun ordre « fours » au-delà du minerai
+       livré. Lot X10-S10 (décision du DC du 7/11, 17 h 47, QCM-7/11-X10, OBJECTIFS §4 : « Oui, factions lointaines plus lentes
+       (Recommandé) ») : le joueur est posé près de la faction 1 (PROCHE : une pensée toutes les 300 ticks, une décision par minute,
+       attendu d'avant S10) ; la faction 2 reste LOINTAINE et calme (une pensée toutes les Cd.SLOW = 600 ticks : une décision toutes
+       les 2 min, attendu divisé par la cadence) ;
     §2 réglage fo-war-capi allumé SANS fo-war-ia3e : rien (la capitalisation exige son exécutant) ;
     §3 réglage éteint : aucun état f.team.capi, aucune ligne [FO-CAPI].
   Usage : lua5.2 tests/capi_moteur_test.lua   (depuis la racine du mod ; environ 1 à 2 min)
@@ -44,6 +48,9 @@ local function run(opts, minutes)
   M.load_mod()
   M.dispatch(W().on_init)
   M.command("fo-war", "start 2 30 30 320")
+  -- Lot X10-S10 : le joueur à 30 tuiles du QG de la faction 1 (dans sa zone : rythme normal) ; la faction 2 reste loin de lui.
+  local f1 = global.fo.war.factions[1]
+  if opts.near and f1 and f1.hq_pos then W().player.character.teleport({ x = f1.hq_pos.x + 30, y = f1.hq_pos.y }) end
   local ok, err = pcall(M.run_ticks, minutes * MIN)
   local lines = {}
   for _, l in ipairs(W().logs) do if l:find("[FO-CAPI]", 1, true) then lines[#lines + 1] = l end end
@@ -53,12 +60,17 @@ local function run(opts, minutes)
     out.st[i] = f and remote.call("fo-capi", "status", f.key) or nil
     out.raw = out.raw or {}
     out.raw[i] = f and f.team and f.team.capi or nil
+    -- Lot X10-S10 : la faction est-elle passée en cadence lente (journal [FO-CADENCE] « LENTE ») ?
+    out.lente = out.lente or {}
+    for _, l in ipairs(W().logs) do
+      if f and l:find("[FO-CADENCE] " .. tostring(f.key) .. " : cadence LENTE", 1, true) then out.lente[i] = true end
+    end
   end
   return out
 end
 
--- §1 réglage allumé
-local on = run({ ia3e = true, capi = true }, 30)
+-- §1 réglage allumé (faction 1 proche du joueur, faction 2 lointaine et calme)
+local on = run({ ia3e = true, capi = true, near = true }, 30)
 check(on.ok, "§1 branchement allume sans erreur (" .. tostring(on.err) .. ")")
 local decisions, orders, maxtiles, deps = 0, 0, 0, 0
 for i = 1, 2 do
@@ -74,7 +86,17 @@ say(string.format("§1 allume : %d decisions, %d ordres envoyes, %d gisements re
   decisions, orders, deps, maxtiles, #on.lines))
 for i = 1, math.min(4, #on.lines) do say("   " .. on.lines[i]:sub(1, 400)) end
 for i = math.max(1, #on.lines - 3), #on.lines do say("   " .. on.lines[i]:sub(1, 600)) end
-check(decisions >= 2 * 20, "§1 une decision par minute et par faction (au moins 20 en 30 min chacune) : " .. decisions)
+-- Lot X10-S10 : attendu PAR FACTION selon son état. Proche : une décision par minute (au moins 20 en 30 min, attendu d'avant S10).
+-- Lointaine et calme : le cycle de capitalisation compte des PENSÉES (Capi.CYCLE = 12, une minute à 300 ticks), donc une décision
+-- toutes les 2 min à Cd.SLOW = 600 : au moins 20 × 300 / Cd.SLOW = 10 en 30 min (décision du DC citée en tête).
+local Cd = require("shared.faction.cadence")
+local d1 = (on.st[1] or {}).decisions or 0
+local d2 = (on.st[2] or {}).decisions or 0
+check(not on.lente[1] and on.lente[2], string.format("§1 etats : faction 1 jamais en cadence lente (%s), faction 2 lointaine en cadence lente (%s)",
+  tostring(on.lente[1]), tostring(on.lente[2])))
+check(d1 >= 20, "§1 faction 1 PROCHE du joueur : une decision par minute (au moins 20 en 30 min) : " .. d1)
+check(d2 >= math.floor(20 * 300 / Cd.SLOW), string.format("§1 faction 2 LOINTAINE et calme : une decision par cycle de %d pensees a %d ticks (au moins %d en 30 min) : %d",
+  12, Cd.SLOW, math.floor(20 * 300 / Cd.SLOW), d2))
 check(deps >= 2, "§1 gisements recenses : " .. deps)
 -- Le moteur simulé pose une entité de ressource par gisement (une tuile) : le recensement au-delà de 64 tuiles se prouve
 -- en moteur réel seulement (banc capi-partie, BRANCHEMENT.md).
