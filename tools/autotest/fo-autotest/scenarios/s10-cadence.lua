@@ -136,6 +136,7 @@ return {
     --- suivant tombe dans les étapes de la pensée du réveil (le seul cas borné).
     local function allowed(s0, w)
       local to_slot = (s0 - w) % P
+      if to_slot == 0 then to_slot = P end -- réveil AU tick du créneau (troisième passage : 1 507, sauté puis réveillé) : le suivant est à P
       if to_slot <= SPAN then return P + SPAN, "cas borne (creneau dans les etapes)" end
       return P, "rythme normal"
     end
