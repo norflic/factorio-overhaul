@@ -131,7 +131,7 @@ do
     { "rang égal qui bloque", "s.rank < o.rank and up[s.item]", "s.rank <= o.rank and up[s.item]" },
     { "anti-répétition absente", "if last ~= nil then", "if false then" },
     { "anti-répétition qui retient le seul de son rang", "and others[o.rank] and", "and true and" },
-    { "manques non triés (cause dans l'ordre d'entrée)", "  table.sort(def, function(a, b)\n    if a.rank ~= b.rank then return a.rank < b.rank end\n    return a.item < b.item\n  end)\n", "" },
+    { "manques non triés (cause dans l'ordre d'entrée)", "  table.sort(blk, function(a, b)\n    if a.rank ~= b.rank then return a.rank < b.rank end\n    return a.item < b.item\n  end)\n", "" },
   }
   local caught = 0
   check(BASE == 0, "§5 mutants jugés sur une batterie de base verte (" .. BASE .. " échec(s))")
