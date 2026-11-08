@@ -19,6 +19,9 @@ return function(temoin, v)
     if v.seuils ~= false then
       opts.lost_min = 4
       opts.turret_far = 18
+    else
+      -- (8/11) « sans seuil » : sans lost_free, ia3k_vague_common appliquait son defaut « PNJ perdus <= 2 » au temoin
+      opts.lost_free = true
     end
     opts.hq_expect = { hq_outranged = "zero", hq_rally = "pos" }
   else

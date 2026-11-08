@@ -9,6 +9,7 @@
     turrets       = { { dx, dy }, ... } : tourelles du QG autour du coffre (defaut : 3 a l'est, (12, -8), (12, 0), (12, 8)) ;
     outrange      = true | false : interrupteur remote.call("fo-ia3k", "debordement", ...) (false : temoin, regle eteinte) ;
     lost_min      = n : le controle des PNJ perdus devient « au moins n » (temoin qui doit REPRODUIRE les morts) ;
+    lost_free     = true : PNJ perdus LUS sans controle (temoin d'une premiere mesure ; 8/11) ;
     kills_min = 0 : pas de controle des unites tuees (unites qu'on ne peut pas tuer : elles debordent tout) ;
     turret_far    = d : au moins une tourelle du QG tuee alors que l'unite de la vague la plus proche etait a plus de d tuiles ;
     hq_expect     = { [cle de stats] = "zero" | "pos" } : controles des reponses de l'equipe (stats ia3k), cles triees.
@@ -120,6 +121,13 @@ return {
         end
       end
     end
+    if EXTRA and t >= WAVE and t % 10 == 0 then
+      -- (8/11) Releve des stats de l'equipe tant qu'elle existe : une equipe finie (coffre perdu sans PNJ vivant, [FO-SURVIE]
+      -- « l'equipe prend fin ») rend status = nil au constat, et les controles hq_* lisaient alors 0 A VIDE (temoin des grenadiers
+      -- sur 30405558 : fin au tick 2972 ; hq_outranged = 0 passe sans mesure, hq_rally > 0 echoue sans mesure).
+      local sv = ctx.remote("fo-ia3k", "status", "player")
+      if sv and sv.stats then st.last_stats, st.last_stats_tick = sv.stats, t end
+    end
   end,
 
   finish = function(ctx)
@@ -132,20 +140,35 @@ return {
     for _, b in ipairs(st.biters or {}) do if b.valid then alive_b = alive_b + 1 end end
     local killed = #(st.biters or {}) - alive_b
     local stv = ctx.remote("fo-ia3k", "status", "player")
+    local stats = stv and stv.stats
+    if not stats and EXTRA and st.last_stats then
+      stats = st.last_stats
+      ctx.log(string.format("stats lues au releve du tick %d : l'equipe a pris fin avant le constat", st.last_stats_tick))
+    end
     local sx = {}
     local keys = { "hq_stand", "hq_rally", "hq_away", "shelter", "shelter_rally", "shelter_away", "refuges" }
     if EXTRA then keys[#keys + 1] = "hq_outranged" keys[#keys + 1] = "outranged" end
-    if stv then
+    if stats then
       for _, k in ipairs(keys) do
-        sx[#sx + 1] = k .. "=" .. tostring(stv.stats[k] or 0)
+        sx[#sx + 1] = k .. "=" .. tostring(stats[k] or 0)
       end
       local acts = {}
-      for _, k in ipairs({ "engage", "flee", "back", "detour", "stop" }) do acts[#acts + 1] = k .. "=" .. tostring(stv.stats.actions[k] or 0) end
+      for _, k in ipairs({ "engage", "flee", "back", "detour", "stop" }) do acts[#acts + 1] = k .. "=" .. tostring((stats.actions or {})[k] or 0) end
       sx[#sx + 1] = "actions[" .. table.concat(acts, " ") .. "]"
     end
     ctx.log(string.format("FAIT PNJ au depart %d, perdus %d, dechiqueteurs tues %d / %d ; %s", n0, lost, killed, #(st.biters or {}), table.concat(sx, " ")))
+    if EXTRA and stats then
+      -- reponses PAR PNJ (comportement.lua, qg_pnj_*) : pour lire un hq_rally nul sans deviner
+      local qk = {}
+      for k in pairs(stats) do if type(k) == "string" and k:sub(1, 7) == "qg_pnj_" then qk[#qk + 1] = k end end
+      table.sort(qk)
+      for i, k in ipairs(qk) do qk[i] = k .. "=" .. tostring(stats[k]) end
+      ctx.log("reponses par PNJ : " .. (#qk > 0 and table.concat(qk, " ") or "aucune"))
+    end
     ctx.check(n0 >= 6, "au moins 6 PNJ dans l'equipe", n0)
-    if opts.lost_min then
+    if opts.lost_free then
+      ctx.log(string.format("PNJ perdus a la vague lus SANS seuil (temoin, premiere mesure) : %d sur %d", lost, n0))
+    elseif opts.lost_min then
       ctx.check(lost >= opts.lost_min, string.format("PNJ perdus a la vague >= %d (le temoin reproduit)", opts.lost_min), lost)
     else
       ctx.check(lost <= 2, "PNJ perdus a la vague <= 2", lost)
@@ -171,9 +194,13 @@ return {
       for k in pairs(opts.hq_expect) do ks[#ks + 1] = k end
       table.sort(ks)
       for _, k in ipairs(ks) do
-        local v = stv and stv.stats[k] or 0
-        if opts.hq_expect[k] == "zero" then ctx.check(v == 0, k .. " = 0", v)
-        else ctx.check(v > 0, k .. " > 0", v) end
+        if not stats then
+          ctx.check(false, k .. " : stats de l'equipe illisibles (aucun releve)", "status nil")
+        else
+          local v = stats[k] or 0
+          if opts.hq_expect[k] == "zero" then ctx.check(v == 0, k .. " = 0", v)
+          else ctx.check(v > 0, k .. " > 0", v) end
+        end
       end
     end
   end,
