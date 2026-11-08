@@ -20,6 +20,7 @@
 local P = require("shared.team.plan")
 local Pu = require("shared.team.purete")
 local Conv = require("script.team.convoyeurs")
+local State = require("script.faction.state") -- (interface de banc seulement ; require interdit pendant un événement, F24)
 
 local Pur = {}
 
@@ -325,7 +326,6 @@ end
 -- Interface de BANC (jamais appelée par le mod) : le micro-scénario « purete-micro » (tools/autotest/fo-autotest/scenarios/purete_micro_common.lua)
 ---------------------------------------------------------------------------------------------------
 local function team_of_key(key)
-  local State = require("script.faction.state")
   if key == "player" then return State.faction("player") end
   for _, id in ipairs(State.alive()) do
     local f = State.faction(id)
