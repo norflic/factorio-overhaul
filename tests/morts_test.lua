@@ -216,7 +216,8 @@ local function attendu()
     ["script/team/front.lua"] = { types = set_of(pieces), ennemi = false },
     ["script/team/player_team.lua"] = { types = by_names({ "fo-team-chest" }), ennemi = false },
     ["script/team/qg_groupe.lua"] = NE,
-    ["script/team/qg_tourelle.lua"] = { types = set_of(Rg.TURRET_TYPES), ennemi = false },
+    -- qg_tourelle s'abonne aux types du journal des tourelles (artillerie comprise) depuis 040d1f8c (tourelle-journal)
+    ["script/team/qg_tourelle.lua"] = { types = set_of(require("script.team.tourelle_journal").TURRET_TYPES), ennemi = false },
     ["script/team/reconstruction.lua"] = { types = set_of(pieces), ennemi = false },
     ["script/levels/levels.lua"] = NE, ["script/levels/centre.lua"] = NE, ["script/modules/lots.lua"] = NE,
     ["script/modules/mult.lua"] = { types = set_of(Mult.TYPES) },

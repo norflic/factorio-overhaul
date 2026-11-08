@@ -110,6 +110,11 @@ local function extract(src, from, to)
 end
 -- Lot ÉTAGE 5 : Build.reserved_entity lit aussi les couloirs d'accès (Build.couloirs, hors du bloc extrait) : aucun couloir dans ce banc.
 local Build = { couloirs = function() return {} end, NO_COULOIR = {} }
+-- (intégrateur, 8/11 : move_turrets_off appelle Build.Tj, le journal des tourelles, depuis TOURELLE-JOURNAL 040d1f8c, 0.6.59 ;
+-- ce banc plantait depuis, sur la 0.6.61 comme sur la 0.6.62. Doublure qui note les retraits, sans rien décider.)
+Build.Tj = { removed_n = 0 }
+function Build.Tj.describe(x) return { name = x and x.name, unit_number = x and x.unit_number } end
+function Build.Tj.removed() Build.Tj.removed_n = Build.Tj.removed_n + 1 end
 local Outposts, Stock = {}, {}
 local function load_build(src, A)
   local chunk_src = extract(src, "--- Lot AUTO : l'emprise d'une entité `name`", "Build.ROUTE_WEIGHT")
