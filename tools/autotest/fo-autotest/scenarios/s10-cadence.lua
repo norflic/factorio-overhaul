@@ -62,7 +62,9 @@ return {
     st.th = st.th or {}
     for i, r in ipairs(list) do
       local th = st.th[i]
-      if not th then th = { key = r.key, ticks = {} } st.th[i] = th end
+      -- Première lecture : la valeur relevée est le tick de CRÉATION de la faction (f.last_think = game.tick, war.lua), pas une pensée
+      -- (deuxième passage : « 0 7 607 » comptait 0 → 7 comme un écart) : elle n'entre pas dans la liste.
+      if not th then th = { key = r.key, ticks = {}, prev = r.last } st.th[i] = th end
       if r.last and r.last ~= th.prev then th.ticks[#th.ticks + 1] = r.last th.prev = r.last end
     end
     -- A : condition « calme » (voir l'en-tête).
