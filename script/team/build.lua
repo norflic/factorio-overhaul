@@ -151,6 +151,7 @@ Build.TrancheForeuses = require("script.team.foreuses_tranches") -- lot TRANCHES
 Build.Trav = require("script.team.traversee") -- lot TRAVERSEE : tapis qui enjambent les obstacles par des souterrains, gisements évités (champ de Build : bloc principal à 199 locales)
 -- Lot RAPATRIEMENT (8/11) : lignes sortie lointaine -> tapis -> tampon (script/team/rapatriement.lua) ; champ de Build, même raison (199 locales sur 200).
 Build.Rapatriement = require("script.team.rapatriement")
+Build.Mall = require("script.team.mall") -- lot MALL (tranche 1) : secteur du mall choisi par le terrain et réservé, état S (docs/MALL.md) ; champ de Build, pas une locale
 Build.Place = require("script.team.place_glue") -- lot TV-PLACE : sonde 30 x 30 (G37), défrichage préventif 50 x 50 (G38), repli de placement simple (C07)
 local TREE_TYPES = { "tree", "simple-entity" }
 
@@ -720,6 +721,7 @@ local function candidates(b, states, toward, res)
     local ok_state = states[l.state] or (states.eau and l.state == "refuse" and l.reason == "eau")
     if l.out and (l.state == "libre" or l.state == "defricher") then ok_state = false end -- lot ENCEINTE3 : dehors du contour
     if states.no_edge and l.edge then ok_state = false end -- lot TV-PLACE (G37) : lot en bord de gisement, réservé à la fonte et aux foreuses (une fabrique n'y va pas)
+    if b.mall and b.mall.sect and Build.Mall.lot_inside(b, l) then ok_state = false end -- lot MALL : lot entièrement dans le secteur réservé du mall
     -- lot ENERGIE-CROISSANCE : une rive déjà prise par une centrale FINIE reçoit une centrale de plus sur un autre bord de la même
     -- eau (P.fit ne pose rien sur ses tuiles, b.occ) ; sans cela, l'étang garanti étant la seule eau, toute centrale de plus était
     -- refusée « pas de lot » (retour du DC du 29/10 sur la 0.6.18 : « ils ont un déficit en électricité »)
@@ -4758,6 +4760,7 @@ local function pulse_team(f, tick)
   Build.FonderieBloc.step({ request = Build.request, prio = Build.PRIO + 1 }, f, surface, tick) -- lot FONDERIE-BLOC : coffre de tête d'un champ sans source
   Profiler.fstop("bp:liaison")
   Build.Rapatriement.step({ request = Build.request, prio = Build.PRIO + 1 }, f, surface, tick) -- lot RAPATRIEMENT : sorties lointaines reliées au tampon près des quais
+  Build.Mall.step({ couloirs = Build.couloirs, jeton = Jeton, pulse = Build.PULSE }, f, surface, tick) -- lot MALL : secteur (relevé par chunks sous le jeton), état S
   Profiler.fstart("bp:centrale")
   -- 5. lot CORR-ENERGIE : centrale saturée, une centrale de plus (même mécanisme que la première)
   local nb, stale, secours = PlantArms.watch(f, surface, tick)
