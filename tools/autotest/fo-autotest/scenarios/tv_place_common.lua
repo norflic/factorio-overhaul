@@ -1,5 +1,5 @@
 --[[
-  Lot TV-PLACE : micro-banc en moteur réel (2 500 ticks) des quatre points « sonde et place » du plan directeur des équipes de PNJ
+  Lot TV-PLACE : micro-banc en moteur réel (3 600 ticks) des quatre points « sonde et place » du plan directeur des équipes de PNJ
   (docs/TODO_VIDEO.md G37, G38, C07 ; G57 a son banc hors jeu, tests/sites10_test.lua, sur surface fictive).
   Deux variantes qui ne diffèrent que par les quatre réglages : tv-place (allumés, défaut) et tv-place-temoin (éteints : le plan d'avant).
 
@@ -19,7 +19,7 @@
 
 local HALF = 140
 local T_REQUEST = 120
-local CHECK = 2400
+local CHECK = 3400
 local SETTINGS = { "fo-war-sonde-30", "fo-war-sites-10", "fo-war-defrichage-prev", "fo-war-place-simple" }
 local TREES = { "tree-01", "tree-02", "tree-03", "tree-04", "tree-05", "tree-06", "tree-07", "tree-08", "tree-09" }
 
