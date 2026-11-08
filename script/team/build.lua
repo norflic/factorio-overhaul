@@ -655,9 +655,11 @@ local function template_of(spec, opts)
     if opts and opts.sortie == "exterieur" and spec.gen == "smelter" then
       args = { args[1], args[2], args[3], "exterieur" }
     end
-    g, why = M.with_pole(spec.pole, fn, table.unpack(args))
+    -- lot RECHERCHE-BRAS : spec.arms = les bras OBTENABLES de la demande (nil : tous) ; le gabarit tourne alors à la cadence qu'ils tiennent
+    g, why = M.with_arms(spec.arms, M.with_pole, spec.pole, fn, table.unpack(args))
     -- lot PLANDIR : un poteau plus court qui ne couvre pas le gabarit cède au poteau par défaut
-    if spec.pole and spec.pole ~= M.DEFAULT_POLE and (not g or #M.check(g) > 0) then g, why = fn(table.unpack(args)) end
+    if spec.pole and spec.pole ~= M.DEFAULT_POLE and (not g or #M.check(g) > 0) then g, why = M.with_arms(spec.arms, fn, table.unpack(args)) end
+    if not g and spec.arms then g, why = M.with_pole(spec.pole, fn, table.unpack(args)) end -- bras trop lents : tous les bras, comme avant
   elseif spec.key then
     g = M.get_any(spec.key)
     if not g then why = "gabarit inconnu" end
@@ -1399,8 +1401,9 @@ local function out_arms(g, fan_max)
   for _, q in ipairs(g.ports or {}) do if q.kind == "tapis" and q.io == "out" then nports = nports + 1 end end
   local per = outn / math.max(1, nports)
   local cmax = math.max(1, math.min(fan_max or 1, Li.MAX_ARMS))
-  local ins, cnt = M.choose_inserters(per, true, cmax)
-  if not ins then ins, cnt = "fast-inserter", cmax end
+  -- lot RECHERCHE-BRAS : g.arms = les bras obtenables du gabarit (nil : tous, comme avant) ; au pire le plus rapide d'entre eux
+  local ins, cnt = M.choose_inserters(per, true, cmax, g.arms)
+  if not ins then ins, cnt = (g.arms or M.ARMS)[#(g.arms or M.ARMS)], cmax end
   return ins, cnt
 end
 
