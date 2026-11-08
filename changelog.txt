@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.68
+Date: 2026-11-08
+  Changes:
+    - Saturation des gisements : un gisement revendique avec des places libres garde un ordre de couverture electrique, sans demande nette ; plusieurs modules par ordre ; journal [FO-SATURATION].
+    - Minage a la main coupe pour votre equipe quand les machines suffisent (D09 lu pour la force du joueur), y compris pour une tache deja prise ; cause des PNJ libres au journal [FO-RIEN-A-FAIRE].
+    - Rangees d'assembleurs dynamiques : la rangee reserve sa place entiere et grandit sur place ; cables sur deux voies ; tapis plus rapide des qu'il est debloque (reglage fo-war-rangee-dyn).
+    - Modules poses par les PNJ (machines qui tournent seulement) ; traversee : budget d'etats partage, recherche en deux phases, cout divise par 3 a 12.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.67
 Date: 2026-11-08
   Changes:
