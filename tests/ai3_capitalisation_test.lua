@@ -754,6 +754,23 @@ local function s5()
   -- Menace : les laboratoires sont un levier du QG, ils restent ouverts.
   local r5 = cycles(function() return scene(1200, 20, 34, 2000, 0, true) end, 2)
   check(find(r5, "labos:lab") ~= nil, "§5 menace : des laboratoires quand même (levier du QG)")
+  -- Lot VIDEO-PLAFONDS (G02, G03, G64) : un plan qui voudrait 40 laboratoires ou plus est BORNÉ par le plafond de sûreté de la sorte
+  -- (Pf.HARD_KIND.labos), et le motif est écrit (refus « plafond:labos:lab » qui survit à l'ordre retenu, texte de la décision).
+  local hard = Pf.HARD_KIND.labos
+  local r6 = cycles(function() return scene(6000, 0, 400, 2000) end, 6)
+  local l6, rf6 = find(r6, "labos:lab"), refus_of(r6, "plafond:labos:lab")
+  check(r6.labs_target >= 40 and l6 and l6.n <= hard and l6.n == hard,
+    string.format("§5 plafond de sûreté : %d laboratoires visés, ordre de %s (au plus %d)", r6.labs_target, tostring(l6 and l6.n), hard))
+  check(rf6 and rf6.why:find("plafond labos", 1, true) == 1 and rf6.why:find(tostring(hard), 1, true) ~= nil
+    and Ca.text(r6):find("plafond:labos:lab (plafond labos", 1, true) ~= nil,
+    "§5 plafond de sûreté : motif écrit dans le refus et dans le texte de la décision (" .. tostring(rf6 and rf6.why) .. ")")
+  local r7 = cycles(function() return scene(6000, hard, 400, 2000) end, 6)
+  local rf7 = refus_of(r7, "plafond:labos:lab")
+  check(find(r7, "labos:lab") == nil and rf7 and rf7.why:find("plafond labos", 1, true) == 1,
+    "§5 plafond de sûreté : au plafond, aucun laboratoire de plus et le refus est écrit (" .. tostring(rf7 and rf7.why) .. ")")
+  local r8 = cycles(function() return scene(6000, hard - 7, 400, 2000) end, 6)
+  local l8 = find(r8, "labos:lab")
+  check(l8 and l8.n == 7, "§5 plafond de sûreté : 7 places restantes, ordre de " .. tostring(l8 and l8.n))
   say(string.format("§5 laboratoires visés : %d (120 s/min) et %d (1 200 s/min) ; recherche visée %.0f -> %.0f ; packs : %d visés, %d nourris",
     r1.labs_target, r2.labs_target, u2[1], u2[4], r3.labs_target, cap))
 end
@@ -1124,7 +1141,7 @@ end
 --- PAIE EN VRAIS INGRÉDIENTS (la recette de chaque bien, un niveau : rouages, lingots, roche, fioles), pris au coffre
 --- après la fonte et avant l'aval (au plus la moitié de chaque objet par minute : la matière d'un ordre est réservée,
 --- comme le fera P.take), et se pose la minute qui suit son paiement complet. Ce qui reste à payer est son `missing`.
-local function sim(opts)
+local function sim_capped(opts)
   opts = opts or {}
   local D = Ca.data(toy_dump(), {})
   local MIN, SITE2 = opts.minutes or 150, opts.site2 or 100
@@ -1260,6 +1277,18 @@ local function sim(opts)
     end
   end
   return H, viol, last
+end
+
+--- Lot VIDEO-PLAFONDS : le modèle jouet (§9, §10) est une économie fermée de 150 min dont la croissance réclame jusqu'à 149 savants ;
+--- le plafond de sûreté des laboratoires (Pf.HARD_KIND.labos, 25) n'en fait pas partie (les contrôles de §9 sont ceux d'avant,
+--- rendu pour rendu : témoin A/B). Le plafond reste mesuré en §5.
+local function sim(opts)
+  local old = Pf.HARD_KIND.labos
+  Pf.HARD_KIND.labos = nil
+  local ok, a, b, c = pcall(sim_capped, opts)
+  Pf.HARD_KIND.labos = old
+  if not ok then error(a, 0) end
+  return a, b, c
 end
 
 local function s9()
@@ -2029,6 +2058,11 @@ do
   MF("capacité posée sans confirmation (fc toujours 1)", "cap_factor", function() return function() return 1 end end)
   MF("suspension retirée", "held", function() return function() return nil end end)
   MV("plafond par objet retiré", "CAPPED", {})
+  -- Lot VIDEO-PLAFONDS (§5) : le plafond de sûreté des laboratoires.
+  do
+    local old = Pf.HARD_KIND.labos
+    M("plafond de sûreté des laboratoires retiré", function() Pf.HARD_KIND.labos = nil end, function() Pf.HARD_KIND.labos = old end)
+  end
   -- Étape 5a (§19).
   MF("kW retenus jamais comptés", "blocked_kw", function() return function() return 0 end end)
   -- Lot VIDEO-COUVERTURE 5 (§20).

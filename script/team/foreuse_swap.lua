@@ -29,6 +29,7 @@ local P = require("shared.team.plan") -- lot FOREUSES-THERMIQUES : chaine de pot
 local Sante = require("script.team.sante_centrale") -- lot FOREUSES-THERMIQUES : puissance des chantiers (bilan d'energie existant)
 local Scheduler = require("script.core.scheduler") -- lot TRANCHES : suite d'une passe au tick suivant (minuterie)
 local Ra = require("script.team.reserve_amorcage") -- réserve d'amorçage du combustible (K lu aux DONNÉES ; partagée avec le champ)
+local Rt = require("shared.team.repli_thermique") -- partie C : repli thermique quand le réseau tombe (règle pure)
 local Profiler = require("script.core.profiler") -- mesure des tranches jouées par la minuterie (hors de la portée tt:foswap de la pensée)
 local Bm = require("shared.team.book_max") -- lot S5 (×10) : plus grand nombre fabricable, sans la boucle de plans complets
 
@@ -171,7 +172,11 @@ local function survey_step(f, surface, pass, budget)
       -- au lieu d'un parcours de tous les fours par foreuse (171 x 171 lectures sur un avant-poste dense)
       local sink_set, sink_at
       -- lot MIGRATION-CHAMP : un champ en cours de migration (rangees electriques du plan directeur) ne recoit pas de remplacement sur place
-      local list = o.migr == "en cours" and {} or (o.drill_list or {})
+      -- Partie C (lead, 8/11) : ni sur un avant-poste dont une électrique déjà posée est vue SANS COURANT par le repli (o.dark_units,
+      -- Swap.repli), même avant wait : après une coupure, producing() lit encore le flux de la dernière minute (banc foreuses-panne-diag :
+      -- 2 électriques posées 180 ticks après la coupure). producing() reste la condition nécessaire ; la pose reprend quand plus aucune
+      -- électrique n'est sans courant.
+      local list = (o.migr == "en cours" or o.dark_units ~= nil) and {} or (o.drill_list or {})
       local fuel = fuel_outpost(o) -- réserve d'amorçage : thermiques DEBOUT de l'avant-poste (toutes, refus et attentes compris)
       while pass.di <= #list do
         local i = pass.di
@@ -346,6 +351,8 @@ local function swap_one(f, surface, ref, cx, cy, tick, prep, ndir)
   end
   State.own(new, f.id, "drill", o.id)
   o.drill_list[idx] = new
+  o.swap_from = o.swap_from or {} -- partie C : place de la thermique, rendue par le repli si le réseau tombe (Swap.repli)
+  o.swap_from[new.unit_number] = { x = pos.x, y = pos.y, dir = dir }
   Stock.insert(f, T.DRILL, 1)
   if fuel > 0 then Stock.insert(f, T.fuel, fuel) end
   st.done = (st.done or 0) + 1
@@ -620,6 +627,11 @@ local function compact(o)
   local lost = #(o.drill_list or {}) - #kd
   o.drill_list, o.sinks = kd, ks
   o.drills = math.max(0, (o.drills or 0) - lost)
+  if o.swap_from then -- partie C : places notées des électriques qui ne sont plus là
+    local live = {}
+    for _, d in ipairs(kd) do if d.unit_number then live[d.unit_number] = true end end
+    for _, u in ipairs(sorted_keys(o.swap_from)) do if not live[u] then o.swap_from[u] = nil end end
+  end
 end
 
 --- Bilan de puissance de l'equipe (kW) : capacite et production de la centrale (plan directeur, f.build.grow), chantiers admis.
@@ -926,6 +938,199 @@ function Swap.think(f, surface, book, free, tick)
     seen = {}, nets = {}, have = have, obtainable = obtainable, free = fr, burners = {} }
   st.pass = pass
   return run_pass(f, surface, book, pass)
+end
+
+---------------------------------------------------------------------------------------------------
+-- Partie C (lot FOREUSES-THERMIQUES, fo-logs/2026-11-05_FOREUSES-TH/C_CRITERES.md) : le réseau qui tombe. Règle pure :
+-- shared/team/repli_thermique.lua. Passe de REPLI d'une équipe, au plus toutes les cfg.every ticks, jamais retenue par la pile (c'est
+-- une réparation) : électriques sans courant comptées par avant-poste (signal : o.electric et o.unpowered, relus par Outposts.status ;
+-- début de la panne de chacune : o.dark_units, le plus ancien : o.dark_since), puis, une électrique sans courant à chaque observation
+-- depuis cfg.wait ticks, au plus cfg.per_pass électriques rendues thermiques
+-- (revert_one), avant-postes de combustible d'abord. Journal [FO-AP-ELEC] borné (Swap.LOGS lignes par équipe). État : f.swap.repli.
+---------------------------------------------------------------------------------------------------
+local function say_ap(f, rp, tick, fmt, ...)
+  rp.logs = (rp.logs or 0) + 1
+  if rp.logs <= Swap.LOGS then
+    log(string.format("[FO-AP-ELEC] %s a %.1f min (tick %d) : " .. fmt, f.key or "player", (tick - (f.started or 0)) / 3600, tick, ...))
+  end
+end
+
+--- La place (x, y) de la thermique (size x size) est-elle prise par autre chose que l'électrique `d` (bâtiment, personnage, unité : tout
+--- ce qui empêcherait la pose) ? F70 : create_entity pose par-dessus sans vérifier ; F96 : zone réduite d'un centième (contacts exclus).
+local function place_taken(surface, x, y, size, d)
+  local h = size / 2 - 0.01
+  for _, e in ipairs(surface.find_entities_filtered({ area = { { x - h, y - h }, { x + h, y + h } }, collision_mask = "player-layer" })) do
+    if e.valid and e ~= d then return true end
+  end
+  return false
+end
+
+--- Rend UNE électrique sans courant thermique : place vérifiée AVANT le retrait, électrique rendue au stock par le moteur (son objet et
+--- ses modules ; script_raised_destroy : niveaux et modules la désinscrivent), thermique posée avec son combustible (stock libre `coal`),
+--- place laissée tranquille cfg.hold ticks par le remplacement. Rend vrai, la façon (« notee », « inverse »), le combustible posé ; ou
+--- faux et la raison (rien n'est retiré).
+local function revert_one(f, surface, o, d, tick, cfg, at, coal)
+  if not (d and d.valid and d.unit_number) then return false, "plan perime" end
+  local idx = slot_of(o.drill_list, d)
+  if not idx then return false, "plan perime" end
+  if surface.find_nearest_enemy({ position = d.position, max_distance = Swap.SAFE, force = f.force }) then return false, "ennemi" end
+  local sink = receiver_of(d, at)
+  if not (sink and sink.valid) then return false, "pas de recepteur" end
+  local bp = game.entity_prototypes[T.DRILL]
+  local burner = { size = (bp and bp.tile_width) or 2, drop = T.drill_drop }
+  local unit = d.unit_number
+  local cands = Rt.places(o.swap_from and o.swap_from[unit], d.position.x, d.position.y, d.direction, box_of(sink), burner,
+    d.prototype.tile_width or T.drill_electric.size)
+  if #cands == 0 then return false, "pas de place inverse" end
+  local place
+  for _, c in ipairs(cands) do
+    if not place_taken(surface, c.x, c.y, burner.size, d) then place = c break end
+  end
+  if not place then return false, "place prise" end
+  if Stock.count(f, T.DRILL) < 1 then return false, "pas de thermique" end
+  local epos, edir, ename = { x = d.position.x, y = d.position.y }, d.direction, d.name
+  -- plus « possédée » AVANT le retrait (sinon on_entity_destroyed compterait une perte d'avant-poste), comme swap_one
+  State.disown(unit)
+  local mined = false
+  for _, inv in ipairs(Stock.inventories(f)) do
+    if inv and inv.valid and d.mine({ inventory = inv, force = false, raise_destroyed = true }) then mined = true break end
+  end
+  if not mined then
+    if d.valid then State.own(d, f.id, "drill", o.id) end
+    return false, "coffre plein"
+  end
+  Stock.remove(f, T.DRILL, 1)
+  local pos = { x = place.x, y = place.y }
+  local new
+  if surface.can_place_entity({ name = T.DRILL, position = pos, direction = place.dir, force = f.force }) then
+    new = surface.create_entity({ name = T.DRILL, position = pos, direction = place.dir, force = f.force })
+    if new and not new.valid then new = nil end
+  end
+  if not new then
+    -- (place vérifiée au même tick : ne devrait pas arriver) la thermique retourne au stock, l'électrique est reposée si elle passe
+    Stock.insert(f, T.DRILL, 1)
+    local back
+    if Stock.remove(f, ename, 1) == 1 then
+      if surface.can_place_entity({ name = ename, position = epos, direction = edir, force = f.force }) then
+        back = surface.create_entity({ name = ename, position = epos, direction = edir, force = f.force, raise_built = true })
+        if back and not back.valid then back = nil end
+      end
+      if not back then Stock.insert(f, ename, 1) end
+    end
+    if back then
+      State.own(back, f.id, "drill", o.id)
+      o.drill_list[idx] = back
+    else
+      compact(o)
+    end
+    return false, "pose refusee"
+  end
+  State.own(new, f.id, "drill", o.id)
+  o.drill_list[idx] = new
+  local fuel = math.min(T.fuel_per_burner, coal.n)
+  if fuel > 0 then
+    fuel = Stock.remove(f, T.fuel, fuel)
+    if fuel > 0 then new.get_fuel_inventory().insert({ name = T.fuel, count = fuel }) end
+    coal.n = coal.n - fuel
+  end
+  if o.swap_from then o.swap_from[unit] = nil end
+  f.swap.retry[new.position.x .. ":" .. new.position.y] = Rt.hold_until(tick, cfg)
+  return true, place.how, fuel
+end
+
+--- Passe de repli d'une équipe (pensée, E5, HORS de la garde de la pile : c'est une réparation). `free` : stock libre de la pensée.
+--- Rend le nombre d'électriques rendues thermiques.
+function Swap.repli(f, surface, book, free, tick)
+  if not (f and f.outposts and f.hq and f.hq.valid) then return 0 end
+  local cfg = Rt.cfg(f.team and f.team.repli)
+  if not cfg.on then
+    -- règle éteinte (témoin des bancs) : plus de mémoire de panne, donc plus de pose suspendue (relevé du remplacement)
+    for _, oid in ipairs(sorted_keys(f.outposts or {})) do
+      local o = f.outposts[oid]
+      if o.dark_units then o.dark_units, o.dark_since = nil, nil end
+    end
+    return 0
+  end
+  -- sans état du remplacement (aucune pensée de Swap.think), aucune électrique n'a été posée sur place : rien à replier, rien de créé
+  -- (f.swap sans `ready` changerait la lecture de script/team/gisement.lua)
+  local st = f.swap
+  if not (st and st.retry) then return 0 end
+  local rp = st.repli
+  if not rp then
+    rp = { next = 0, done = 0, why = {}, logs = 0 }
+    st.repli = rp
+  end
+  if tick < rp.next then return 0 end
+  rp.next = tick + cfg.every
+  local NO = defines.entity_status.no_power
+  local list, ents = {}, {}
+  for _, oid in ipairs(sorted_keys(f.outposts)) do
+    local o = f.outposts[oid]
+    local electric, dark = 0, {}
+    if o.migr == nil then -- (un champ en migration a les rangées du plan directeur : hors du remplacement sur place)
+      for _, d in ipairs(o.drill_list or {}) do
+        if d.valid and not d.burner then
+          electric = electric + 1
+          -- statut du moteur d'abord (une lecture) ; une foreuse figée par x10-gel (active == false) n'est jamais sans courant
+          if d.status == NO and d.active ~= false then
+            dark[#dark + 1] = d.unit_number
+            ents[d.unit_number] = d
+          end
+        end
+      end
+    end
+    o.electric, o.unpowered = electric, #dark
+    local was = o.dark_since
+    local mem, ready, since, state = Rt.observe(o.dark_units, dark, tick, cfg)
+    o.dark_units, o.dark_since = mem, since
+    -- (lead, 8/11) une ligne quand la pose du remplacement est suspendue ou reprend (relevé : o.dark_units)
+    if was == nil and since ~= nil then
+      say_ap(f, rp, tick, "panne vue, pose suspendue : avant-poste %d (%s), %d electrique(s) sans courant sur %d ; repli apres %.1f min de panne",
+        oid, tostring(o.kind), #dark, electric, cfg.wait / 3600)
+    elseif was ~= nil and since == nil then
+      if electric > 0 then
+        say_ap(f, rp, tick, "courant revenu, pose reprise : avant-poste %d (%s), %d electrique(s), apres %.1f min de panne", oid, tostring(o.kind),
+          electric, (tick - was) / 3600)
+      else
+        say_ap(f, rp, tick, "pose reprise : avant-poste %d (%s), plus aucune electrique sans courant (repliees) apres %.1f min de panne", oid,
+          tostring(o.kind), (tick - was) / 3600)
+      end
+    end
+    if state == "repli" then list[#list + 1] = { id = oid, fuel = fuel_outpost(o) and true or false, dark = ready } end
+  end
+  if #list == 0 then return 0 end
+  local have = math.min(Stock.count(f, T.DRILL), free and free[T.DRILL] or 0)
+  local picks, short = Rt.plan(list, have, cfg)
+  local coal = { n = math.min(Stock.count(f, T.fuel), free and free[T.fuel] or 0) }
+  local done, ats = 0, {}
+  for _, p in ipairs(picks) do
+    local o = f.outposts[p.id]
+    local at = ats[p.id]
+    if not at then
+      at = sink_tiles(o)
+      ats[p.id] = at
+    end
+    local ok, how, fuel = revert_one(f, surface, o, ents[p.unit], tick, cfg, at, coal)
+    if ok then
+      done = done + 1
+      rp.done = (rp.done or 0) + 1
+      say_ap(f, rp, tick, "repli : avant-poste %d (%s), electrique %d rendue thermique (place %s, %d combustible(s)) ; remplacement retenu %.1f min",
+        p.id, tostring(o.kind), p.unit, how, fuel, cfg.hold / 3600)
+    else
+      rp.why[how] = (rp.why[how] or 0) + 1
+      say_ap(f, rp, tick, "attente : avant-poste %d, electrique %d gardee : %s", p.id, p.unit, how)
+    end
+  end
+  if short > 0 then
+    local why = "pas de thermique"
+    if book and book:handcraftable(T.DRILL) then
+      why = "thermique a fabriquer"
+      craft(f, book, free, short, tick, T.DRILL)
+    end
+    rp.why[why] = (rp.why[why] or 0) + short
+    say_ap(f, rp, tick, "attente : %d electrique(s) sans courant gardee(s) : %s", short, why)
+  end
+  return done
 end
 
 return Swap
