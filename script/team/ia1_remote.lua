@@ -30,6 +30,7 @@ local T = require("shared.team.config")
 local Pl = require("shared.team.plan") -- lot FOREUSES-THERMIQUES (bancs : clé de tuile des couloirs, couloir_hits)
 local Board = require("script.team.board") -- lots FOREUSES-THERMIQUES (collect_probe) et COLLECTE (état des tâches de collecte) ; déjà chargé par team.lua
 local Rt = require("shared.team.repli_thermique") -- lot FOREUSES-THERMIQUES, partie C (bancs : réglage effectif du repli, set_repli)
+local Inter = require("script.team.intermediaires") -- lot STOCKAGE-VITAL (C8, module_probe : plafond des intermédiaires, D10) ; déjà chargé par team.lua
 
 -- Lot IA1-b (docs §8.6, pilotage sans clic) :
 --   team_status(key)                 -> état d'organisation publié (Poles.status) ou nil ;
@@ -632,15 +633,20 @@ remote.add_interface("fo-ia1", {
     local quais = {}
     for i, qu in ipairs(p.quais or {}) do
       local c = chest_at(qu.x, qu.y)
-      quais[#quais + 1] = string.format("q%d %s (%.1f, %.1f) coffre %s, stock %d, alimentation %s, ecarte %s", i, tostring(qu.item), qu.x, qu.y,
-        (c and c.valid) and tostring(c.get_item_count(qu.item)) or "absent", Stock.count(f, qu.item), task_text("ia1d:" .. pid .. ":q:" .. i),
-        tostring(skip ~= nil and skip(qu.item) or false))
+      quais[#quais + 1] = string.format("q%d %s (%.1f, %.1f) coffre %s [%s, force %s], stock %d, alimentation %s, ecarte %s", i, tostring(qu.item), qu.x, qu.y,
+        (c and c.valid) and tostring(c.get_item_count(qu.item)) or "absent", (c and c.valid) and c.name or "-", (c and c.valid) and c.force.name or "-",
+        Stock.count(f, qu.item), task_text("ia1d:" .. pid .. ":q:" .. i), tostring(skip ~= nil and skip(qu.item) or false))
     end
     local fails, ft = {}, f.team and f.team.fail_reasons or {}
     for _, k in ipairs(State.sorted_keys(ft)) do fails[#fails + 1] = k .. " " .. ft[k] end
     local ts = f.team and f.team.task_stats and f.team.task_stats.carry
+    local product = p.spec and p.spec.product
+    local inter = f.team and f.team.inter
+    -- D10 (lot MAIN-ET-INTERMEDIAIRES) : produit au plafond du stock = remplissages LIBRES de ses quais retirés du tableau
+    local d10 = product and string.format("%s, stock du produit %d, remplissages retires %d en tout", Inter.over(f, product) and "AU PLAFOND" or "sous le plafond",
+      (f.hq and f.hq.valid) and Stock.count(f, product) or -1, inter and inter.dropped_fill or 0) or "-"
     return { state = p.state, reason = p.reason and tostring(p.reason) or nil, feed = Build.Quotas.feed_ok(q, counts), quota = q ~= nil,
-      product = p.spec and p.spec.product, quais = quais, outs = outs, fails = table.concat(fails, ", "),
+      product = product, quais = quais, outs = outs, fails = table.concat(fails, ", "), d10 = d10,
       carry = ts and string.format("%d ok, %d echec(s)", ts.ok or 0, ts.fail or 0) or "-" }
   end,
   kill_npc = function(key, id)

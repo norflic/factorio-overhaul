@@ -137,6 +137,7 @@ local function red_packs(ctx, s, pos, label)
     if ok and m then
       ctx.log(string.format("%s PACKS ROUGES projet 3 (%s) : etat %s (%s), quota %s, alimentation permise %s ; portages de l'equipe %s ; raisons d'echec {%s}",
         label, tostring(m.product), tostring(m.state), tostring(m.reason), tostring(m.quota), tostring(m.feed), tostring(m.carry), tostring(m.fails)))
+      ctx.log(string.format("%s PACKS ROUGES projet 3 plafond des intermediaires (D10) : %s", label, tostring(m.d10)))
       for _, l in ipairs(m.quais or {}) do ctx.log(label .. " PACKS ROUGES projet 3 entree " .. l) end
       for _, l in ipairs(m.outs or {}) do ctx.log(label .. " PACKS ROUGES projet 3 sortie " .. l) end
     else
