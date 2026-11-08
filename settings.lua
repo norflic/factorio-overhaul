@@ -69,6 +69,7 @@ require("settings.industrie") -- lot INDUSTRIE : réglage maître (fo-war-indust
 require("settings.robots") -- lot RB-1 : robots (fo-war-robots, fo-war-robots-cap)
 require("settings.levels_panneau") -- lot PANNEAU : panneau « Évolution » au clic ou au survol (fo-levels-panneau, par joueur)
 require("settings.video") -- lots VIDEO (feuille de route « Factorio Automated ») : fo-war-portes, fo-war-paliers, fo-war-lots-minerai, fo-debug-trace-carte (tous allumés depuis la 0.6.60)
+require("settings.pilotage") -- lot TV-PILOTE : fo-war-armee-famille (V10) et fo-war-plafonds (G02), allumés par défaut
 require("settings.exclusion") -- lot VIDEO-PLAFONDS (V99) : fo-war-exclusion (objets exclus de la demande, vide par défaut)
 require("settings.tv_vapeur") -- lot TV-VAPEUR (V36, V89) : tampon de vapeur et dégradation graduée sous charge (allumés par défaut)
 require("settings.tv_archi") -- lot TV-ARCHI (V23, V91) : fo-war-enveloppe, fo-war-quartiers (allumés)

@@ -57,6 +57,7 @@ local T = require("shared.team.config")
 local Ca = require("shared.ai3.capitalisation")
 local Rf = require("shared.ai3.refus") -- lot VIDEO-REFUS (C6) : décompte des refus par sorte, ligne [FO-CAPI-REFUS]
 local RangTrace = require("script.ai3.rang_trace") -- lot VIDEO-TRACES (G34) : journal [FO-RANG]
+local Pil = require("script.ai3.pilotage") -- lot TV-PILOTE : plafonds de sûreté (G02), kit d'amorçage (D02)
 local Excl = require("script.ai3.exclusion") -- lot VIDEO-PLAFONDS (V99) : réglage fo-war-exclusion (objets exclus de la demande), journal [FO-EXCLU]
 local Cf = require("shared.ai3.confirmation") -- lot VIDEO-L5 : capacité CONFIRMÉE (première production observée)
 local Sante = require("script.team.sante_centrale") -- étape 5a de VIDEO-INTEG : consommateurs en chantier (vue de la porte du plan directeur)
@@ -559,6 +560,7 @@ local function scan(f, cs, tick)
       local ml = f.team.ia3 and f.team.ia3.mall
       if ml then
         for _, line in ipairs(AmRt.lines(f, ml, AmRt.observe(f, cs, ml, cfr, cs.cf, tick), minutes(f, tick))) do log(line) end
+        Pil.kit(f, cs, ml, tick, minutes(f, tick)) -- lot TV-PILOTE (D02) : kit minimal écrit contre le compteur d'amorce
       end
     else
       for _, g in ipairs(machines) do g.ids = nil end
@@ -1299,6 +1301,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     -- lot VIDEO-L3 : les manques mesurés des modules finis s'ajoutent aux puits (Mq.sinks ; Ca.requirements n'est pas touché)
     deposits = deposits, open = open, sinks = cs.bench_sinks or Mq.sinks(mq_fresh(f, tick), Ml.sinks(st.mall)), need = need, research = research, drill_for = drill_for,
     excl = Excl.read(), -- lot VIDEO-PLAFONDS (V99) : objets exclus de la demande (nil : réglage vide, entrée inchangée)
+    hard_off = (not Pil.plafonds_on()) or nil, -- lot TV-PILOTE (G02) : plafonds de sûreté des fours, chaînes et packs (réglage fo-war-plafonds, allumé par défaut)
     limits = Rsv.on() and {} or { max_ingredients = 2 }, workers = view.workers or 0, idle = Ca.idle_of(g and g.idle_ema or 0),
     can_grow = (view.workers or 0) < (view.workers_wanted or 0), traits = f.traits or {},
     weights = w or {}, threat = threat, dt = 1, lag = cs.lag, starved = Pi.threat_exempt(st.pile, st.starved_open), -- (intégration 0.6.28)

@@ -47,6 +47,7 @@ local Au = require("shared.ai3.automatiser")
 local Br = require("shared.ai3.bras") -- lot SCALE : travail des bras libres
 local Pl = require("shared.ai3.places") -- lot SCALE (correction) : places du QG depuis l'emprise du prototype
 local PlacesQG = require("script.ai3.places_qg") -- lot SCALE (correction) : pose sur la grille, place vérifiée
+local Pil = require("script.ai3.pilotage") -- lot TV-PILOTE : famille armée à parts réservées (V10), journal [FO-ARMEE]
 local Capi = require("script.ai3.capitalisation") -- lot CAPIB : la capitalisation (réglage fo-war-capi, éteint par défaut)
 local Ex = require("shared.ai3.extension") -- lot C3 EXTENSION : posture et avant-postes visés (règles pures)
 local Ext = require("script.ai3.extension") -- lot C3 EXTENSION : mesures de l'étendue et journal [FO-EXTENSION]
@@ -902,12 +903,14 @@ function Ia3.plan_b(f, view, book, surface, tick, L)
     capital = Capital.goal(f, view, book, tick, w), -- lot AMELIORER : votre équipe aussi (machines suivies seulement)
     bilan = bilan, -- lot BILAN : { [objet] = points de priorité } (production moins consommation)
     capi = capi, -- lot CAPIB : buts de fond de la capitalisation (nil : éteinte)
+    armee = Pil.armee_input(capi), -- lot TV-PILOTE (V10) : famille armée, parts δ + α de la capitalisation (nil : réglage fo-war-armee-famille éteint)
     industrie = Rsv.on(), -- lot INDUSTRIE I1 : le besoin est évalué à chaque pensée (f.team.ia3.noyau)
     pile = PileRt.inputs(f, book, tick), -- lot PILE-PRIORITE : pièces à refaire (avec ou sans objet), projet rouvert
     prevu = Prev.pile_rows(f) } -- lot PREVISION : sites à PRÉPARER (vague imminente au-dessus de la défense ; cadres R1 de la pile)
   Profiler.start("ia3:think")
   local plan = C.think(view, book, st, ctx)
   Profiler.stop("ia3:think")
+  Pil.armee_line(f, plan, minutes(f, tick)) -- lot TV-PILOTE (V10) : journal [FO-ARMEE] aux changements de la réserve
   Ext.after(f, view, st, tick) -- lot C3 EXTENSION : mesures (étendue, rayon de base, sites gardés) et journal [FO-EXTENSION]
   -- Lot LEVIERS : tâches « equiper » (modules dans les machines posées), renouvelées à chaque pensée comme le plan.
   if capi and capi.tasks then

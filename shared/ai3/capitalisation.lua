@@ -163,9 +163,10 @@ Ca.HOLD_KINDS = { couvrir = true, ouvrir = true, fours = true, chaine = true, pa
 -- Lot VIDEO-L13 (plafond par objet, shared/ai3/plafonds.lua) : sortes PLAFONNÉES (posé nominal + ouvert + ajouté ≤ Pf.K × la demande ;
 -- Pf.HARD unités au plus). couvrir et ouvrir n'y sont pas : décision du DC sur Q-CAPI-1, « foreuses partout » (Ca.COVER_LEAD = nil).
 Ca.CAPPED = { fours = true, chaine = true, packs = true }
--- Plafond ABSOLU par objet, en unités posées + ouvertes (Pf.fits, s.hard) : HORS D'ATTEINTE ici. Avec Pf.HARD (64), le témoin A/B de
--- l'étape 3 de VIDEO-INTEG (fo-logs/2026-11-07_VIDEO-INTEG/CRITERES.md, K6) change 116 rendus sur 502 : §3 (arrivée de 1 800/min :
--- 64 fours au lieu de 96) et la simulation de §9 ; le plafond RELATIF (2 × la demande) n'en change aucun. À trancher (lead, DC).
+-- Plafond ABSOLU par objet, en unités posées + ouvertes (Pf.fits, s.hard). Lot TV-PILOTE (G02) : il est posé PAR SORTE (Pf.HARD_OBJ : fours
+-- 192, chaînes 96, packs 96, valeurs mesurées dans shared/ai3/plafonds.lua) par Ca.cap_hard. Ca.CAP_HARD n'est plus que le repli d'un
+-- objet SANS recette (extraction : couvrir et ouvrir ne sont pas plafonnés, Q-CAPI-1) : hors d'atteinte comme avant. Avant TV-PILOTE : un plafond
+-- unique de 64 (Pf.HARD) changeait 116 rendus sur 502 au témoin A/B de VIDEO-INTEG (K6), d'où 192 pour les fours (§3, 1 800/min : 96 fours).
 Ca.CAP_HARD = 1e6
 
 ---------------------------------------------------------------------------------------------------
@@ -2199,10 +2200,24 @@ function Ca.cap_states(ctx, plan, req)
     local Ri = req.R[i] or 0
     if Ri > 0 then
       out[i] = { demand = Ri, posed = plan.P[i] or 0, open = plan.O[i] or 0, n_posed = plan.NP[i] or 0, n_open = plan.NO[i] or 0,
-        hard = Ca.CAP_HARD }
+        hard = Ca.cap_hard(ctx, req, i) }
     end
   end
   return out
+end
+
+--- Lot TV-PILOTE (G02) : plafond de sûreté d'un objet, selon la SORTE d'ordre qui le fabrique (la même règle que fabric_options : la
+--- machine choisie donne la sorte ; sans machine disponible, la catégorie de la recette). Un objet sans recette (extraction) garde
+--- Ca.CAP_HARD. Données : Pf.HARD_OBJ.
+function Ca.cap_hard(ctx, req, item)
+  local r = req and req.rec and req.rec[item]
+  if not r or (ctx.input and ctx.input.hard_off) then return Ca.CAP_HARD end -- (input.hard_off : réglage fo-war-plafonds éteint, script/ai3/pilotage.lua)
+  local D = ctx.D
+  local m = best_maker(ctx, r.category)
+  local kind
+  if m then kind = m.assembler and (D.packs[item] and "packs" or "chaine") or "fours"
+  else kind = (D.hand[r.category] and (D.packs[item] and "packs" or "chaine")) or "fours" end
+  return math.min(Ca.CAP_HARD, Pf.hard_obj(kind))
 end
 
 --- Lot VIDEO-L13 : la demande suit les besoins recalculés après chaque ordre (le combustible des machines décidées) ; un objet
@@ -2213,7 +2228,7 @@ local function caps_refresh(J)
   for _, i in ipairs(J.req.list) do
     if J.caps[i] == nil and (R[i] or 0) > 0 then
       J.caps[i] = { demand = R[i], posed = plan.P[i] or 0, open = plan.O[i] or 0, n_posed = plan.NP[i] or 0,
-        n_open = plan.NO[i] or 0, hard = Ca.CAP_HARD }
+        n_open = plan.NO[i] or 0, hard = Ca.cap_hard(J.ctx, J.req, i) }
     end
   end
 end
