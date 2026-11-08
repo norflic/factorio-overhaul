@@ -43,6 +43,7 @@ local FluxLog = require("script.team.flux") -- lot FLUX : journal des sorties qu
 local SortiesLog = require("script.team.sorties") -- lot CHARBON-MAIN : journal [FO-SEC] (brûleurs à sec et état de leur tournée)
 local Front = require("script.team.front") -- lot DEFENSE-FRONT : la défense suit les attaques
 local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : tourelles des îlots isolés hors de l'enceinte
+local DefStock = require("script.team.defense_stock") -- lot DEFENSE-STOCK : tourelles du coffre posées en groupes là où l'ennemi arrive
 local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites avant d'améliorer
 local Objectif = require("script.team.objectif") -- lot AGES : libellé d'un objectif (aucune clé de traduction inconnue)
 local Reparation = require("script.team.reparation") -- lot PD-REPARATION (D79) : bâtiments endommagés réparés (toutes les équipes)
@@ -846,6 +847,8 @@ function Team.view(f, tick)
     -- Lot IA2-b (F209) : orphelins à démonter (factions seulement).
     orphans = (not f.is_player) and Profiler.fwrap("view:5-orphelins", Outposts.orphan_groups, f, tick) or nil,
   }
+  -- Lot DEFENSE-STOCK : après le front (la cellule qu'il sert n'est pas doublée) ; poste facultatif, stock seulement
+  out.reserve = Profiler.fwrap("view:5-reserve", DefStock.view, f, fortify_open, out, stock_free, hq_turrets, outposts)
   Profiler.fstop("view:5-queue")
   return out
 end
