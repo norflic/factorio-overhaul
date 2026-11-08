@@ -179,5 +179,16 @@ for _, c in ipairs(chain0 or {}) do if c.x >= 17 and c.x < 20 and c.y >= -1 and 
 check(chain0 and on0 >= 1, "21 : réglage éteint : la chaîne d'avant (" .. tostring(on0) .. " sur le gisement)")
 Trav.set_enabled(true)
 
+local bilan
+for _, l in ipairs(logs) do if l:find("bilan a ", 1, true) then bilan = l end end
+logs = {}
+game.tick = 400000
+Trav.route(team(), surface, { id = 9 }, { x = 0, y = 1 }, { x = 12, y = 1 }, 2, bounds, cost, { belt = "transport-belt" })
+local fb = team()
+Trav.route(fb, surface, { id = 10 }, { x = 0, y = 1 }, { x = 12, y = 1 }, 2, bounds, cost, { belt = "transport-belt" })
+local got
+for _, l in ipairs(logs) do if l:find("azure : bilan a ", 1, true) then got = l end end
+check(got and got:find("1 trace(s) dont 1 avec paire", 1, true), "24 : bilan par tranche de 5 min (" .. tostring(got) .. ")")
+
 print(string.format("[TRAVERSEE-SCRIPT] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

@@ -21,7 +21,7 @@ local Trav = {}
 
 Trav.ENABLED = true
 Trav.LOGS = 60                 -- lignes [FO-TRAVERSEE] au plus par équipe (hors bilan)
-Trav.BILAN_EVERY = 5           -- un bilan toutes les 5 recherches par équipe
+Trav.BILAN_TICKS = 18000       -- un bilan par équipe et par tranche de 5 minutes
 Trav.TTL = 600                 -- ticks : vie d'un chunk de gisement en cache
 Trav.CACHE_MAX = 400           -- chunks gardés au plus par surface
 
@@ -149,22 +149,36 @@ local function say(f, text)
   log(text)
 end
 
-local function count(f, info, ok)
+local function count(f, info, ok, why)
   local st = f.build and f.build.stats
   if not st then return end
-  st.traversee = st.traversee or { routes = 0, refused = 0, jumps = 0, ore = 0, ore_base = 0 }
+  st.traversee = st.traversee or { routes = 0, refused = 0, jumps = 0, pairs_routes = 0, ore = 0, ore_base = 0, avoided = 0, detours = 0, why = {}, slot = 0 }
   local c = st.traversee
+  c.why = c.why or {}
   if not ok then
     c.refused = c.refused + 1
+    local key = tostring(why or "?")
+    c.why[key] = (c.why[key] or 0) + 1
   else
     c.routes = c.routes + 1
     c.jumps = c.jumps + info.jumps
+    if info.jumps > 0 then c.pairs_routes = (c.pairs_routes or 0) + 1 end
     c.ore = c.ore + info.ore
     c.ore_base = c.ore_base + info.base_ore
+    if info.ore < info.base_ore then c.avoided = (c.avoided or 0) + 1 end
+    if (info.phys or 0) > (info.base_phys or 0) then c.detours = (c.detours or 0) + 1 end
   end
-  if (c.routes + c.refused) % Trav.BILAN_EVERY == 0 then
-    log(string.format("[FO-TRAVERSEE] %s : bilan : %d trace(s), %d refus, %d paire(s) souterraine(s), gisement couvert %d tuile(s) (trace de base : %d)",
-      f.key or "player", c.routes, c.refused, c.jumps, c.ore, c.ore_base))
+  -- une ligne de bilan par tranche de 5 minutes (jamais bornée par Trav.LOGS : rien ne se perd après la borne)
+  local slot = math.floor(game.tick / Trav.BILAN_TICKS)
+  if slot ~= c.slot then
+    c.slot = slot
+    local causes = {}
+    local keys = {}
+    for k in pairs(c.why) do keys[#keys + 1] = k end
+    table.sort(keys)
+    for _, k in ipairs(keys) do causes[#causes + 1] = string.format("%s %d", k, c.why[k]) end
+    log(string.format("[FO-TRAVERSEE] %s : bilan a %.1f min : %d trace(s) dont %d avec paire(s) souterraine(s) (%d paire(s)), %d avec detour pour eviter un gisement, %d avec moins de gisement ; gisement couvert %d tuile(s) (trace de base : %d) ; %d refus [%s]",
+      f.key or "player", game.tick / 3600, c.routes, c.pairs_routes or 0, c.jumps, c.detours or 0, c.avoided or 0, c.ore, c.ore_base, c.refused, table.concat(causes, ", ")))
   end
 end
 
@@ -197,7 +211,7 @@ function Trav.route(f, surface, p, s, t, t_dir, bounds, cost, opts)
     info = { len = #old, ore = on, jumps = 0, base_len = #old, base_ore = on, pen = 0, jump_list = {} }
   end
   if not tiles then
-    count(f, nil, false)
+    count(f, nil, false, info)
     if Trav.ENABLED then
       -- la CAUSE du refus : quel obstacle arrête le tracé, où (le journal ne la disait pas)
       local st = f.build and f.build.stats
