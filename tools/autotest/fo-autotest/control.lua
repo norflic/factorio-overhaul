@@ -27,6 +27,7 @@ local KIT_EGAL = {
   ["x10-explosions-batiments"] = true, -- lot X10, Q5b : identite des explosions de mort des batiments
   ["x10-explosions"] = true, -- lot X10, Q5 : identite de l'explosion de mort recreee (sauvegarde du DC)
   ["x10-rendu"] = true, -- lot X10, M2 : rendu de la partie du DC (session avec images)
+  ["x10-gain-morts-a"] = true, ["x10-gain-morts-b"] = true, -- lot X10 : gain de Q5/Q5b (sauvegarde du DC)
 }
 
 -- Lot FOREUSES-THERMIQUES (A) : la sauvegarde du DC rejouée telle quelle (aucun réglage posé sur sa partie).
