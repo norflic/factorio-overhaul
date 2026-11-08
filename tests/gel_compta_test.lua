@@ -11,7 +11,7 @@
     K9  électrique (prêt pour le palier B) : satisfaction 0,5 -> moitié ; 0 -> « no_power » ; drain compté.
     K10 assembleur à deux ingrédients de bus (engrenages + plaques) : une source courte ne laisse pas de reste chez l'autre.
     K11 cycle refusé ; bus sans preneur refusé (Gc.check).
-    K12 coût : instructions Lua par machine et par pas (debug.sethook, compte exact), au plus 400 en moyenne... (seuil C8).
+    K12 coût : instructions Lua par machine et par pas (debug.sethook, compte exact) ; C8 d'origine (400) NON TENU, seuil C8' de 1 300 décidé par le lead après mesure (7/11, 20 h 01).
     K13 remise à zéro : fractions et reports perdus au réveil, jamais gagnés.
     Mutants (texte de la source changé, chargé par load) : ils doivent TOUS être vus.
   Usage : lua5.2 tests/gel_compta_test.lua   (depuis la racine du mod)
@@ -377,8 +377,8 @@ do
   fuels.fu12 = fuel(5)
   local n12 = count_instr(function() Gc.step(IL(ms), { pools = pools, fuel = fuels }, {}, 600) end)
   print(string.format("[GEL-COMPTA] instructions par pas : avant-poste (2 machines) %d, soit %.0f par machine ; ilot de 12 machines %d, soit %.0f par machine", n2, n2 / 2, n12, n12 / 12))
-  check(n2 / 2 <= 1300, "K12 : avant-poste : au plus 1 300 instructions par machine et par pas (" .. string.format("%.0f", n2 / 2) .. ")")
-  check(n12 / 12 <= 1300, "K12 : ilot de 12 machines : au plus 1 300 instructions par machine et par pas (" .. string.format("%.0f", n12 / 12) .. ")")
+  check(n2 / 2 <= 1300, "K12 (C8' ; C8 de 400 non tenu) : avant-poste : au plus 1 300 instructions par machine et par pas (" .. string.format("%.0f", n2 / 2) .. ")")
+  check(n12 / 12 <= 1300, "K12 (C8' ; C8 de 400 non tenu) : ilot de 12 machines : au plus 1 300 instructions par machine et par pas (" .. string.format("%.0f", n12 / 12) .. ")")
 end
 
 ---------------------------------------------------------------------------------------------------

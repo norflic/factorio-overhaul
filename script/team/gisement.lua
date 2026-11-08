@@ -19,6 +19,7 @@ local G = require("shared.team.gisement")
 local S = require("shared.team.foreuse_swap")
 local State = require("script.faction.state")
 local Stock = require("script.team.stock")
+local Gel = require("script.faction.gel") -- lot X10-GEL : statut comptable d'une foreuse figée hors de vue (sinon « disabled_by_script »)
 
 local Gis = {}
 
@@ -127,7 +128,7 @@ function Gis.think(f, surface, tick, book)
         local kept = true
         if d.valid and d.name == T.DRILL and d.unit_number then
           local u = d.unit_number
-          local s = d.status
+          local s = Gel.status(d)
           local working = (s == defines.entity_status.working) or (s == defines.entity_status.normal)
           local first = st.idle[u] or tick
           if not working then seen[u] = first end
@@ -139,7 +140,7 @@ function Gis.think(f, surface, tick, book)
             for _, sk in ipairs(o.sinks or {}) do
               if sk.valid and S.inside(box_of(sk), pos.x + rx, pos.y + ry) then sink = sk break end
             end
-            local no_fuel = (s == defines.entity_status.no_fuel) or (sink ~= nil and sink.status == defines.entity_status.no_fuel)
+            local no_fuel = (s == defines.entity_status.no_fuel) or (sink ~= nil and Gel.status(sink) == defines.entity_status.no_fuel)
             local verdict, why = G.verdict({ idle = idle, dead = (s == defines.entity_status.no_minable_resources),
               sink = sink and "ok" or "manque", can_sink = spec ~= nil and Stock.count(f, spec.sink) > 0, ready = ready,
               elec = elec, starved = starved, no_fuel = no_fuel, can_fuel = Stock.count(f, T.fuel) > 0 })

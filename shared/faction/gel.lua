@@ -113,4 +113,36 @@ function Gel.decide_all(posts, s, fbox, tick)
   return out
 end
 
+---------------------------------------------------------------------------------------------------
+-- Garnisons (Q7, L1_CRITERES.md §3.12) : un soldat est un poste ; ce qui suit dit s'il peut être figé
+---------------------------------------------------------------------------------------------------
+Gel.GARRISON_ROLES = { home = 18, guard = 4, patrol = 12 } -- rôles de garnison et rayon de marche autour du point (soldats.lua)
+Gel.ARRIVED_MARGIN = 6     -- arrivé : à moins de rayon + 6 tuiles de son point
+Gel.HAZARD_R = 42          -- menace au poste : ennemi mobile à moins de 30 (vision des soldats) + 12 (guet) tuiles du point
+Gel.HQ_R = 60              -- menace au QG : 48 (SD.HQ_THREAT_R) + 12 tuiles
+Gel.TURRET_MARGIN = 12     -- menace aux tourelles : portée de la tourelle + 12 tuiles
+
+--- Le soldat peut-il être figé ? o = { is_player, group (vrai si un groupe le tient), role (nil = garnison au QG), health (0 à 1),
+--- d (distance à son point), changed (son ordre a changé depuis le gel) }. Rend nil (apte) ou la raison (inapte : jamais figé, réveillé).
+function Gel.soldier_unfit(o)
+  if o.is_player then return "votre equipe" end
+  if o.group then return "groupe" end
+  local role = o.role or "home"
+  local r = Gel.GARRISON_ROLES[role]
+  if not r then return "mission" end
+  if o.changed then return "ordre" end
+  if type(o.health) ~= "number" or o.health < 0.999 then return "blesse" end
+  if type(o.d) ~= "number" or o.d > r + Gel.ARRIVED_MARGIN then return "en route" end
+  return nil
+end
+
+--- Point de poste d'un soldat : le point de son ordre (clé « rôle:x:y:aid » de shared/ai3/soldats.lua) ; sans ordre, sa place au QG.
+function Gel.soldier_point(key, home)
+  if type(key) == "string" then
+    local _, _, x, y = key:find("^[%a_]+:(%-?%d+):(%-?%d+):")
+    if x then return { x = tonumber(x) + 0.5, y = tonumber(y) + 0.5 } end
+  end
+  return home
+end
+
 return Gel

@@ -497,8 +497,8 @@ local function forward(il, fr, st, dt, D, sat)
     else
       local need = k
       for _, id in ipairs(m.res) do
-        local p = pools[id]
-        local q = min(need, max(0, p.amount or 0))
+        local p = pools[id] -- un gisement non relu (le runtime ne lit que ce qu'il faut pour le pas) compte pour 0
+        local q = p and min(need, max(0, p.amount or 0)) or 0
         if q > 0 then
           p.amount = p.amount - q
           res.mined[id] = (res.mined[id] or 0) + q

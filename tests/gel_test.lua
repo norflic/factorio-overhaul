@@ -7,6 +7,8 @@
     G5  garde fermée : sans boîte (aucun point), sans liste de joueurs : jamais figé ; réglage éteint : tout réveillé.
     G6  poste inapte (unfit) ou menace locale (hazard) : réveil avec cette cause, calme remis à zéro.
     G7  Gel.decide_all (raccourci de la faction) = Gel.decide poste par poste : 4 000 tirages (postes, joueurs, causes, ticks).
+    G9  garnisons (Q7) : Gel.soldier_unfit (votre équipe, groupe, mission, ordre changé, blessé, en route : jamais figé ; au repos à son
+        point : apte, au bord exact du rayon + marge compris) ; Gel.soldier_point (clé « rôle:x:y:aid » de shared/ai3/soldats.lua).
     Mutants (texte de la source changé) : tous vus.
   Usage : lua5.2 tests/gel_test.lua   (depuis la racine du mod ; shared/faction/cadence.lua de la branche x10-s10 requis)
 ]]
@@ -180,6 +182,33 @@ local function cases(G)
     end
     check(not froze and woke, "G8 : joueurs inconnus : decide_all ne fige rien et reveille le poste fige")
   end
+  -- G9 garnisons
+  do
+    local function U(o) return G.soldier_unfit(o) end
+    local ok = { health = 1, d = 3 }
+    check(U(ok) == nil, "G9 : soldat au repos a son point, en pleine sante : apte")
+    check(U({ health = 1, d = 18 + 6 }) == nil and U({ health = 1, d = 18 + 6.01 }) == "en route",
+      "G9 : garnison du QG : apte a 24 tuiles de son point, en route au-dela")
+    check(U({ role = "guard", health = 1, d = 10 }) == nil and U({ role = "guard", health = 1, d = 10.5 }) == "en route",
+      "G9 : garde : apte a 10 tuiles (4 + 6), en route au-dela")
+    check(U({ role = "patrol", health = 1, d = 18 }) == nil and U({ role = "patrol", health = 1, d = 19 }) == "en route",
+      "G9 : patrouille : apte a 18 tuiles (12 + 6), en route au-dela")
+    check(U({ is_player = true, health = 1, d = 0 }) == "votre equipe", "G9 : votre equipe : jamais figee (Q9)")
+    check(U({ group = true, health = 1, d = 0 }) == "groupe", "G9 : soldat d'un groupe : jamais fige")
+    local missions = { "escort", "clear", "defense", "hunt", "muster" }
+    local all = true
+    for _, r in ipairs(missions) do if U({ role = r, health = 1, d = 0 }) ~= "mission" then all = false end end
+    check(all, "G9 : escorte, nettoyage, defense, chasse, regroupement : missions, jamais figees")
+    check(U({ changed = true, health = 1, d = 0 }) == "ordre", "G9 : ordre change : reveille")
+    check(U({ health = 0.99, d = 0 }) == "blesse" and U({ d = 0 }) == "blesse", "G9 : blesse (ou sante inconnue) : jamais fige")
+    check(U({ health = 1 }) == "en route", "G9 : distance inconnue : jamais fige")
+    local p = G.soldier_point("guard:40:-7:", { x = 0, y = 14 })
+    check(p.x == 40.5 and p.y == -6.5, "G9 : point d'une garde lu dans sa cle (40.5, -6.5)")
+    p = G.soldier_point("patrol:-120:33:12", { x = 0, y = 14 })
+    check(p.x == -119.5 and p.y == 33.5, "G9 : point d'une patrouille lu dans sa cle")
+    p = G.soldier_point(nil, { x = 0, y = 14 })
+    check(p.x == 0 and p.y == 14, "G9 : sans ordre : place au QG")
+  end
   return fail_n - f0
 end
 
@@ -191,6 +220,11 @@ local MUTANTS = {
   { "boite de gel = boite de reveil", "local box = boxes and (frozen and boxes.wake or boxes.freeze) or nil", "local box = boxes and boxes.wake or nil" },
   { "raccourci sur la boite de reveil", "not any_player_in(fbox.freeze, s.players)", "not any_player_in(fbox.wake, s.players)" },
   { "poste inapte ignore", "local block = (s.off and \"reglage\") or (post and (post.unfit or post.hazard)) or nil", "local block = (s.off and \"reglage\") or nil" },
+  { "garnison : mission figee", "if not r then return \"mission\" end", "if not r then r = 18 end" },
+  { "garnison : blesse fige", "o.health < 0.999 then return \"blesse\" end", "o.health < 0 then return \"blesse\" end" },
+  { "garnison : votre equipe figee", "if o.is_player then return \"votre equipe\" end", "" },
+  { "garnison : marge d'arrivee ignoree", "o.d > r + Gel.ARRIVED_MARGIN then", "o.d > r then" },
+  { "garnison : ordre change ignore", "if o.changed then return \"ordre\" end", "" },
   { "garde fermee ouverte (joueurs inconnus)", "if type(box) ~= \"table\" or type(players) ~= \"table\" then return true end", "if type(box) ~= \"table\" or type(players) ~= \"table\" then return false end" },
 }
 quiet = true

@@ -41,6 +41,11 @@ require("script.ai3.comportement") -- lot IA3-k : comportements visibles (croche
 require("script.ai3.soldats") -- lot IA3-k : rôles des soldats (patrouille, garde, escorte, nettoyage, défense)
 require("script.faction.commander")
 require("script.faction.war")
+require("script.faction.gel") -- lot X10-GEL : usines des factions figées hors de vue, production comptée (statut comptable : Gel.status)
+require("script.faction.gel_usines") -- lot X10-GEL : découverte et registre des îlots (palier A : avant-postes thermiques, fours du QG)
+require("script.faction.gel_usines_jeu") -- lot X10-GEL : gel, réveil, pas comptable, guet, relevé en tranches
+require("script.faction.gel_garnisons") -- lot X10-GEL (Q7) : soldats au repos en garnison figés hors de vue, réveillés avant le combat
+require("script.faction.gel_banc") -- lot X10-GEL : interface des bancs « fo-gel » (groupes de banc ; aucun dans une partie ordinaire)
 require("script.ai3.exploration") -- lot IA3-f : carte de connaissance, yeux des PNJ, éclaireurs (exploration sous brouillard)
 
 -- Mode défense de tours (activable à tout moment)
