@@ -1198,15 +1198,15 @@ local MUT = {
   { "m17 tranche qui n'avance pas de toute sa largeur", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
     { { "    j.x = xb" .. string.char(10), "    j.x = xa + 1" .. string.char(10) } }, "p2" },
   { "m4 jeton ignoré par le raccord", "script.team.raccord", "script/team/raccord.lua",
-    { { 'if api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":ra", api.pulse, cost) then return end', "if false then return end" } }, "p5" },
+    { { 'if api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":ra", nil, cost) then return end', "if false then return end" } }, "p5" },
   { "m5 boîte non tenue à on_chunk_generated", "script.team.boite_chunks", "script/team/boite_chunks.lua",
     { { "if b then grow(b, e.position.x, e.position.y) else", "if b then elseif false then" } }, "p6" },
   { "m6 jeton ignoré par le relevé du réseau", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
-    { { 'if api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":rv", api.pulse, Rv.cout(j)) then return nil end', "if false then return nil end" } }, "p5" },
+    { { 'if api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":rv", nil, Rv.cout(j)) then return nil end', "if false then return nil end" } }, "p5" },
   { "m9 relier sans relevé frais par net_read d'un bloc (hors jeton)", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
     { { "local rbox = api.box and api.box(surface)", "local rbox = nil" } }, "p9" },
   { "m10 fin du raccordement sans le jeton", "script.team.raccord", "script/team/raccord.lua",
-    { { "if api.jeton and not api.jeton.take(tick, fin_par, api.pulse) then return end", "if false then return end" } }, "p9fin" },
+    { { "if api.jeton and not api.jeton.take(tick, fin_par) then return end", "if false then return end" } }, "p9fin" },
   { "m11 boîte non relevée à on_configuration_changed", "script.team.boite_chunks", "script/team/boite_chunks.lua",
     { { "Events.on_configuration_changed(rebuild_all)", "" } }, "p10" },
   { "m12 raccord : jeton pris avant de lire la centrale (ordre d'avant)", "script.team.raccord", "script/team/raccord.lua",
@@ -1228,7 +1228,7 @@ local MUT = {
     { { "local out = { islands = 0, uncovered = 0, nets = {}, live = live }", "live = j.gn; local out = { islands = 0, uncovered = 0, nets = {}, live = live }" } }, "p7" },
   -- lot LOURD : les bandes suivantes du relevé des générateurs (début du raccord) prennent le jeton
   { "m14 raccord : bandes des générateurs sans le jeton", "script.team.raccord", "script/team/raccord.lua",
-    { { 'elseif api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":ra", api.pulse, Ra.cout(lj.y, lj.y_end, lj.x1 - lj.x0)) then', "elseif false then" } }, "p9" },
+    { { 'elseif api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":ra", nil, Ra.cout(lj.y, lj.y_end, lj.x1 - lj.x0)) then', "elseif false then" } }, "p9" },
 }
 for _, m in ipairs(MUT) do
   local Rvm, Ram, Jm, Bm = load_mods({ m[2], m[3], m[4] })
