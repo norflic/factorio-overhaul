@@ -11,6 +11,8 @@
     J5. Période : un demandeur des passes du pouls (période 5) en tête de file ne retient pas une étape aux autres ticks.
     J6. Une entrée qui ne redemande plus sort de la file (max(STALE, période)).
     J7. Sauvegarde : module rechargé en plein milieu (la file est dans global) : mêmes réponses que la suite continue.
+    J9. J.drop (point 2 c) : une entrée retirée de la file ne retient plus le budget : un nouveau venu passe au tick suivant (sans
+        J.drop, elle le retiendrait jusqu'à sa purge, J.STALE ticks) ; retirer un demandeur absent ne change rien.
     J8. Valeurs du jeu : deux tranches du relevé du réseau (32 chunks, Rv.COLS) passent au même tick ; une bande du raccord sur une boîte
         de 76 chunks de large (152) a son tick à elle seule.
     Mutants (texte de la source changé) : ils DOIVENT tous être vus.
@@ -215,6 +217,18 @@ local function j8(J)
   return a, b, c, d, e, g, h
 end
 
+-- J9 : « mort » refusé au tick 0 (en file, période 1) ; retiré (ou non) ; « vivant » demande aux ticks 1 à 3
+local function j9(J, drop)
+  J.reset()
+  J.take(0, "x")
+  J.take(0, "mort")
+  if drop then J.drop("mort") end
+  J.drop("absent")
+  local out = {}
+  for t = 1, 3 do out[t] = J.take(t, "vivant") end
+  return out
+end
+
 ---------------------------------------------------------------------------------------------------
 local J = load_j(nil)
 local d1, n1, f1 = j1(J, false)
@@ -248,6 +262,9 @@ check(J.BUDGET == 64 and a8 and b8 and not c8 and not d8 and e8 and g8 and not h
   string.format("J8 : budget du jeu %d : deux tranches de 32 au même tick, la 3e refusée ; une bande de 152 attend la tête de file, puis passe seule sur son tick",
     J.BUDGET))
 
+local o9, w9 = j9(J, true), j9(J, false)
+check(o9[1] and o9[2] and o9[3] and not w9[1], "J9 : entrée retirée par J.drop : le nouveau venu passe au tick 1 (sans J.drop : refusé jusqu'à la purge)")
+
 local NL = string.char(10)
 local MUT = {
   { "coût ignoré", { { "local c = (J.COSTS and cost) or J.BUDGET", "local c = J.BUDGET" } },
@@ -260,6 +277,8 @@ local MUT = {
     function(Jm) local o = j5(Jm); return not (o[1] and o[2] and o[3] and o[4]) end },
   { "témoin qui garde les coûts (J.COSTS lu nulle part)", { { "local c = (J.COSTS and cost) or J.BUDGET", "local c = cost or J.BUDGET" } },
     function(Jm) Jm.COSTS = false; local d = j1(Jm, true); Jm.COSTS = true; return d > 0 end },
+  { "J.drop sans effet", { { "    if s.q[i] == who then table.remove(s.q, i) end", "    if false then table.remove(s.q, i) end" } },
+    function(Jm) local o = j9(Jm, true); return not o[1] end },
   { "un travail plus grand que le budget jamais servi", { { " or (used == 0 and not ahead)", "" } },
     function(Jm) local a = at100(Jm, j3); return not a end },
 }

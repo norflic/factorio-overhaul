@@ -19,7 +19,11 @@
     §6 mutants de source : E1a jouée dans la voie sans jeton (§2 échoue) ; double prise au réveil (Commander.wake reprend le jeton :
        §1 échoue) ; période ignorée par le jeton (§5 échoue) ;
     §7 le CRÉNEAU d'une faction éveillée se joue à son tick ; tout le budget pris : son E1a attend le tick suivant ; et l'E1a refusée
-       est en file (« <faction>:etape ») au tick du refus.
+       est en file (« <faction>:etape ») au tick du refus ;
+    §8 GARANTIE DE S10 EN CHIFFRES (décision du lead, 8/11) : sous charge (dix relevés de banc aux passes, période 5, coûts 32 et 152,
+       et une rafale de trois demandeurs par tick AU TICK DE CHAQUE CRÉNEAU, phases 0 à 3 et 174), pendant 9 000 ticks : l'E1a d'un créneau ne prend JAMAIS plus de
+       7 ticks de retard, et deux pensées de suite d'une équipe à la cadence normale (la faction éveillée, votre équipe) sont séparées
+       d'au plus 300 + 7 ticks.
   Usage : lua5.2 tests/reveil_jeton_test.lua   (depuis la racine du mod)
 ]]
 package.path = "./?.lua;" .. package.path
@@ -160,6 +164,45 @@ local function scene_pulse(ctx)
   return P, rv, e1a_at(f)
 end
 
+--- §8 : rend, pour la faction éveillée et votre équipe : plus grand retard d'E1a sur son créneau, plus grand écart entre deux E1a,
+--- nombre d'E1a vues, et le nombre d'E1a retardées.
+local function scene_guarantee(ctx, ticks)
+  local f, Lourd = ctx.f, ctx.Lourd
+  local pf = require("script.faction.state").faction("player")
+  ctx.char.teleport({ x = f.hq_pos.x + 20, y = f.hq_pos.y })
+  M.run_ticks(600)
+  local watch = { f, pf }
+  local slot, last, seen = {}, {}, {}
+  local worst_delay, worst_gap, n, late = 0, 0, 0, 0
+  local burst = {}
+  for step = 1, ticks do
+    local t = game.tick + 1
+    if t % 5 == 0 then for i = 1, 10 do Lourd.take(t, "banc:releve" .. i, 5, i <= 5 and 32 or 152) end end
+    if t % 300 <= 3 or t % 300 == 174 then burst = { "banc:x", "banc:y", "banc:z" } end -- (aux créneaux : factions 0 à 3, votre équipe 174)
+    for i = #burst, 1, -1 do if Lourd.take(t, burst[i]) then table.remove(burst, i) end end
+    M.run_ticks(1)
+    for i, g in ipairs(watch) do
+      local et = g.team and g.team.etape
+      if et and et.n == 1 and not slot[i] then slot[i] = et.t0 end
+      if et and et.n >= 2 and seen[i] ~= et.t0 then
+        seen[i] = et.t0
+        local d = et.t0 - (slot[i] or et.t0)
+        if d > 0 then late = late + 1 end
+        if d > worst_delay then worst_delay = d end
+        if last[i] then
+          local gap = et.t0 - last[i]
+          if gap > worst_gap then worst_gap = gap end
+        end
+        last[i] = et.t0
+        slot[i] = nil
+        n = n + 1
+      end
+    end
+  end
+  ctx.char.teleport({ x = 20000, y = 20000 })
+  return worst_delay, worst_gap, n, late
+end
+
 local function scenes(ctx)
   local f, Lourd, Et = ctx.f, ctx.Lourd, ctx.Et
   -- §1
@@ -204,6 +247,11 @@ local function scenes(ctx)
   check(slot and th7 == slot and w7 == slot and e7 == slot + 1,
     string.format("§7 : budget pris au créneau %s : la faction éveillée pense à son créneau (%s), son E1a attend (t0 %s) et se joue au tick suivant (%s)",
       tostring(slot), tostring(th7), tostring(w7), tostring(e7)))
+  -- §8
+  local wd, wg, n8, late8 = scene_guarantee(ctx, 9000)
+  check(n8 >= 40 and late8 > 0, string.format("§8 : %d pensées vues (faction éveillée et votre équipe), dont %d E1a retardées par le jeton", n8, late8))
+  check(wd <= 7, string.format("§8 : retard d'E1a sur son créneau au plus %d tick(s) (garantie 7)", wd))
+  check(wg <= 307, string.format("§8 : écart entre deux pensées de suite au plus %d ticks (garantie 300 + 7)", wg))
 end
 
 -- Câblage : build.lua passe la période aux deux relevés ; chaque prise des relevés la transmet.
