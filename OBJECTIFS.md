@@ -93,6 +93,21 @@ Directives du DC (8/11, après-midi), citées :
   - Cinq verrous mesurés : réseau sain exigeant une production > 0 (cercle vicieux) ; budget de tracé partagé, régression de la 0.6.68 ; pile « adapter » ; centrale 2 à 301 tuiles avec des poteaux moyens ; réserve totale avant la pose.
   - Équipe contre factions, même cerveau mais chemins coupés pour l'équipe du joueur : croissance « bras libres » (`script/ai3/general.lua:474`) ; agrandissement des gisements ouverts réservé aux factions (`shared/ai3/buts.lua:337`) ; pas de récolte de minerai. À 30 min : 30 foreuses contre 51 (scarlet) et 61 (azure), toutes thermiques.
 
+- Vers 18 h, « ÉCHEC DE L'EXPLOITATION DU PÉTROLE ET LOGIQUE DE PATTERN DYNAMIQUE ». Citations :
+  - « Sur un gisement massif comprenant entre 20 et 30 puits de pétrole, l'IA s'est contentée de poser un "gloubi-boulga" isolé : exactement 2 chevalets de pompage, une usine de plastique, une usine de soufre et un coffre désorganisé au milieu » ;
+  - « Un joueur humain pose des chevalets sur l'intégralité des puits disponibles, les relie entre eux, et fait sortir tout ce pétrole brut vers une ligne principale » ;
+  - « des grandes lignes droites de tuyaux (un "bus" pour l'eau, un "bus" pour le pétrole brut) » ;
+  - « Le pattern de construction doit être un module capable d'être dupliqué (copié-collé) de gauche à droite pour former une longue rangée extensible à l'infini tant que la demande le justifie » ;
+  - « ne doit s'arrêter que devant un obstacle physique infranchissable (lac, falaise). Si c'est un obstacle destructible (caillou, arbre), l'agent le détruit et continue sa rangée » ;
+  - « Bannissez ce comportement de "micro-bloc d'usine autonome" pour les ressources primaires […] forcer la couverture à 100 % des puits de pétrole et l'alignement des raffineries/usines chimiques en série ».
+
+  Cause lue au code :
+  - `Fl.EXTRACTORS = 2` (`shared/ai3/fluides.lua:51`), et `n_extract` n'est jamais passé, d'où 2 chevalets par site ;
+  - un site est une cellule fermée, avec une machine par recette ;
+  - un site fini ne grandit jamais.
+
+  Lot lancé : PETROLE-RANGEE (Sonnet). Étape 1 : 100 % des puits, épine de tuyaux droite, et extension des sites déjà finis. Étape 2 : module répété le long d'un bus de tuyaux. La règle de rangée extensible, commune au minerai et au pétrole, se décide avec MEGA-FONDERIE.
+
   Lots lancés : GISEMENTS-GEANTS (scénario `etape1-geants`, 2 500 à 5 000 tuiles), MEGA-FONDERIE (conception d'abord), POSE-PAR-LOTS, CAPI-POTEAU (le gabarit des foreuses de capitalisation cède au poteau moyen), plus COURANT-LIBRE, TRANCHES-FOREUSES et ACIER. CENTRALE-PRES (78c20542) est fusionné dans `essai-0666` (44643872). Porte de la prochaine livraison : une partie neuve sur gisements géants qui montre de vrais champs électriques, sans effondrement.
 
 
