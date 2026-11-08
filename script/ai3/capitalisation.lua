@@ -1007,6 +1007,27 @@ Capi.PORTES_SETTING = "fo-war-portes"
 -- Ordres qui AJOUTENT des tournées de PNJ : les chantiers du plan directeur (et du champ) et les laboratoires servis à la main.
 local PORTES_TOURS = { couvrir = true, ouvrir = true, chaine = true, packs = true, labos = true }
 
+-- Lot TV-FLUX (G51, TODO_VIDEO l.228) : le fluide se juge sur ses barils. Réglage de carte ALLUMÉ par défaut (settings/flux.lua) ; le
+-- lecteur garde un repli à « éteint » quand le réglage MANQUE (moteur simulé des tests, qui ne le déclare pas).
+Capi.BARILS_SETTING = "fo-war-barils"
+function Capi.barils_on()
+  local ok, v = pcall(function() return settings.global[Capi.BARILS_SETTING].value end)
+  return ok and v == true
+end
+
+--- Journal [FO-BARILS] : une ligne quand les unités de fluide comptées en barils CHANGENT (res.barils, shared/ai3/capitalisation.lua, Ca.barrel_stock).
+--- État : cs.barils_sig (chaîne). Rend la ligne écrite ou nil.
+function Capi.say_barils(f, cs, res, tick)
+  local list = {}
+  for _, fl in ipairs(sorted_keys(res and res.barils or {})) do list[#list + 1] = fl .. "=" .. string.format("%d", math.floor(res.barils[fl])) end
+  local sig = table.concat(list, ",")
+  if sig == (cs.barils_sig or "") then return nil end
+  cs.barils_sig = sig
+  local line = string.format("[FO-BARILS] %s minute %d : fluides comptes en barils au coffre {%s}", f.key or "?", math.floor(minutes(f, tick)), sig)
+  log(line)
+  return line
+end
+
 function Capi.portes_on()
   local ok, v = pcall(function() return settings.global[Capi.PORTES_SETTING].value end)
   return ok and v == true
@@ -1293,6 +1314,7 @@ local function build_input(f, cs, view, book, tick, D, w)
   return {
     can_exec = can_exec, skip = skip, successors = successors_for(cs),
     data = D, state = { techs = st.techs or {}, known = st.known }, stock = stock, flows = cs.flows or {},
+    barils = Capi.barils_on() or nil, -- lot TV-FLUX (G51) : un fluide se juge sur ses barils pleins au coffre (nil : le stock d'avant)
     -- lot VIDEO-L13 : plus de `or {}` (une liste absente ferme la décision, decide_start ; cs.scan existe : Capi.think)
     machines = cs.scan and cs.scan.machines, drills = cs.scan and cs.scan.drills, labs = labs,
     hold = cs.scan and cs.scan.hold, -- lot VIDEO-L5 : objets suspendus (nil : sans confirmation, la capacité compte à la pose)
@@ -1890,6 +1912,7 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
   local full = room ~= nil and room <= 0
   -- Lot VIDEO-L6 : portes avant d'étendre (transport saturé, bras à seuil croissant), AVANT la boucle d'envoi ; nil : réglage éteint.
   -- Un ordre retenu suit le chemin des refus ci-dessous (« porte L6 : », épargne rendue, cs.refused).
+  Capi.say_barils(f, cs, res, tick) -- lot TV-FLUX (G51)
   res.orders = AmRt.after_decision(f, cs, res, tick, minutes(f, tick)) -- lot VIDEO-COUVERTURE 5 : cycles publiés, MÊME plan re-émis après l'exécutant occupé
   local gate_why = Capi.portes(f, cs, res, view, tick)
   local seat_why
