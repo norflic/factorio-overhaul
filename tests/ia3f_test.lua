@@ -130,7 +130,18 @@ do
   local steps = Worker.program(pf, task, s, game.tick)
   check(steps ~= nil and task.target and (task.target.x - 100) ^ 2 + (task.target.y - 100) ^ 2 < 30 * 30,
     "minage d'appoint : gisement connu à 134 tuiles choisi (" .. tostring(task.target and task.target.x) .. ")")
+  -- Lot ROUGES-0659 : depuis 578fc2c6 (votre équipe pense à la phase 174, voulu), sa pensée du tick 174 a déjà ouvert l'exploration du
+  -- cuivre pour un SITE (prospection) quand ce contrôle arrive ; open_request (script/ai3/exploration.lua) garde la demande ouverte et
+  -- son motif (« en cours »). Les deux chemins sont contrôlés : demande déjà ouverte par un site, puis aucune demande (précondition
+  -- posée : la demande du site est retirée), le minage ouvre la sienne, motif « minage ».
   local t2 = { kind = "mine", key = "mine:copper-ore", resource = "copper-ore", count = 20 }
+  local pre = pf.ai3f.req["copper-ore"]
+  if pre then
+    check(Worker.program(pf, t2, s, game.tick) == nil and pf.ai3f.req["copper-ore"] == pre,
+      "ressource inconnue, exploration déjà demandée (" .. tostring(pre.why) .. ") : pas de minage, la demande reste ouverte")
+    pf.ai3f.req["copper-ore"] = nil
+  end
+  t2 = { kind = "mine", key = "mine:copper-ore", resource = "copper-ore", count = 20 }
   check(Worker.program(pf, t2, s, game.tick) == nil and pf.ai3f.req["copper-ore"] ~= nil and pf.ai3f.req["copper-ore"].why == "minage",
     "ressource inconnue : pas de minage, exploration demandée (minage)")
   local t3 = { kind = "mine", key = "mine:iron-ore", resource = "iron-ore", count = 20, fond = true, radius = 96 }
