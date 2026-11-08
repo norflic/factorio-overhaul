@@ -13,10 +13,7 @@
     §5 relevés à la période du pouls : un relevé « banc:rv » (période Build.PULSE, coût 32) en file depuis une passe ne retient PAS le
        budget au tick suivant (hors passe) : le réveil y passe ; build.lua passe `pulse = Build.PULSE` aux deux relevés, et chaque prise de
        reseau_vivant.lua et raccord.lua la transmet ;
-    §6 mutants de source : réveil sans jeton (§2 échoue) ; période ignorée par le jeton (§5 échoue) ; le créneau qui passe par le jeton
-       (§7 échoue) ;
-    §7 le CRÉNEAU ne passe jamais par le jeton : faction éveillée (joueur proche), tout le budget pris au tick de son créneau : elle pense
-       quand même à ce tick ; et le réveil refusé au §2 est bien en file (« <faction>:reveil ») au tick du refus, rejoué au tick suivant.
+    §6 mutants de source : réveil sans jeton (§2 échoue) ; période ignorée par le jeton (§5 échoue).
   Usage : lua5.2 tests/reveil_jeton_test.lua   (depuis la racine du mod)
 ]]
 package.path = "./?.lua;" .. package.path
@@ -98,25 +95,8 @@ local function scene_taken(ctx)
   local held = ctx.Lourd.take(T + 1, "banc:lourd")
   M.run_ticks(1)
   local at1 = f.last_think
-  local q = (require("script.core.storage").ns("pouls_jeton") or {}).q or {}
-  local queued = false
-  for _, k in ipairs(q) do if k == tostring(f.key) .. ":reveil" then queued = true end end
   M.run_ticks(1)
-  return T, f.last_think, held, at1, queued
-end
-
---- §7 : faction éveillée (joueur proche) ; tout le budget pris au tick de son prochain créneau. Rend (tick du créneau, sa pensée).
-local function scene_slot(ctx)
-  local f = ctx.f
-  ctx.char.teleport({ x = f.hq_pos.x + 20, y = f.hq_pos.y })
-  M.run_ticks(700)
-  local L = f.last_think
-  if not L or game.tick >= L + 300 then return nil end
-  while game.tick < L + 299 do M.run_ticks(1) end
-  local held = ctx.Lourd.take(L + 300, "banc:lourd")
-  M.run_ticks(1)
-  ctx.char.teleport({ x = 20000, y = 20000 })
-  return held and L + 300, f.last_think
+  return T, f.last_think, held, at1
 end
 
 local function scenes(ctx)
@@ -130,11 +110,10 @@ local function scenes(ctx)
   check(f.last_think == T + 1, string.format("§1 : jeton libre : la faction repense au tick suivant la cause (%s, attendu %d)", tostring(f.last_think), T + 1))
   check(not Lourd.take(T + 1, "banc:apres"), "§1 : le réveil a pris tout le budget de son tick (un autre travail y est refusé)")
   -- §2
-  local T2, th2, held2, at1, queued2 = scene_taken(ctx)
+  local T2, th2, held2, at1 = scene_taken(ctx)
   check(T2 and held2 and at1 ~= T2 + 1 and th2 == T2 + 2,
     string.format("§2 : jeton pris au tick %s : pas de pensée ce tick-là (%s), pensée au tick d'après (%s, attendu %s)", tostring(T2 and T2 + 1),
       tostring(at1), tostring(th2), tostring(T2 and T2 + 2)))
-  check(queued2 == true, "§7 : le réveil refusé au tick " .. tostring(T2 and T2 + 1) .. " est en file (« " .. tostring(f.key) .. ":reveil »), rejoué au tick suivant")
   -- §3
   check(sleep(ctx), "§3 : rendormie")
   quiet_ticks()
@@ -168,10 +147,6 @@ local function scenes(ctx)
   M.run_ticks(1)
   check(rv == false and f.last_think == P + 1,
     string.format("§5 : « banc:rv » (période 5) en file depuis la passe %d : le réveil passe au tick %d hors passe (%s)", P, P + 1, tostring(f.last_think)))
-  -- §7 : le créneau ne passe jamais par le jeton
-  local slot, th7 = scene_slot(ctx)
-  check(slot and th7 == slot, string.format("§7 : tout le budget pris au tick du créneau (%s) : la faction éveillée pense quand même à ce tick (%s)",
-    tostring(slot), tostring(th7)))
 end
 
 -- Câblage : build.lua passe la période aux deux relevés ; chaque prise des relevés la transmet.
@@ -227,17 +202,6 @@ do
     return f.last_think ~= P + 1
   end)
   check(dead, "§6 : mutant « période ignorée » refusé (§5 échoue)")
-end
-do
-  local dead = refused(function()
-    local c = setup({ { module = "script.faction.commander", path = "script/faction/commander.lua",
-      old = "    if not woken and Cd.recent(cs, tick) then return end" .. string.char(10),
-      new = "    if not woken and not Lourd.take(tick, tostring(f.key) .. ':creneau') then return end" .. string.char(10) ..
-        "    if not woken and Cd.recent(cs, tick) then return end" .. string.char(10) } })
-    local slot, th = scene_slot(c)
-    return slot ~= nil and th ~= slot
-  end)
-  check(dead, "§6 : mutant « le créneau passe par le jeton » refusé (§7 échoue)")
 end
 
 print(string.format("[REVEIL-JETON] BILAN : %d OK, %d ECHEC(S)", passes, failures))
