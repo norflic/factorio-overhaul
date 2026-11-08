@@ -163,10 +163,10 @@ local function machine_catalog()
     local group = get(p, "fast_replaceable_group")
     local rang = false
     for _, t in ipairs(R.RANG_TYPES) do if p.type == t then rang = true end end
-    local speed = get(p, "crafting_speed") or (rang and (get(p, "belt_speed") or get(p, "inserter_rotation_speed"))) or nil
+    local speed = get(p, "crafting_speed") or (rang and get(p, R.RANG_SPEED[p.type])) or nil
     local reach = nil
-    if p.type == "inserter" then
-      local a, b = get(p, "inserter_pickup_position"), get(p, "inserter_drop_position")
+    if p.type == R.RANG_REACH.type then
+      local a, b = get(p, R.RANG_REACH.pickup), get(p, R.RANG_REACH.drop)
       if a and b then reach = string.format("%.2f,%.2f>%.2f,%.2f", a[1] or a.x, a[2] or a.y, b[1] or b.x, b[2] or b.y) end
     end
     local hidden = false
@@ -742,7 +742,7 @@ local function replace_one(f, c, e, to)
   if Stock.count(f, tp.item) < 1 then return nil, "objet" end
   local surface = e.surface
   local args = { name = to, position = e.position, direction = e.direction, force = e.force }
-  if e.type == "underground-belt" then args.type = e.belt_to_ground_type end -- entrée ou sortie du souterrain
+  if e.type == R.RANG_HALF then args.type = e.belt_to_ground_type end -- entrée ou sortie du souterrain
   if not surface.can_fast_replace(args) then return nil, "pas-remplacable" end
   local old_unit = e.unit_number
   local ratio = e.get_health_ratio() or 1
