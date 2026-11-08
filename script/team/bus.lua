@@ -143,10 +143,12 @@ function Bus.advance(h, api, f, surface, tick)
     if l.bus then total = total + 1 if not l.done then open = open + 1 end end
   end
   local present = {}
+  local why = { lies = 0, portee = 0, attente = 0, garde = 0 }
   for _, bus in ipairs(res.buses) do
     -- paire : le consommateur qui contribue le plus, avec le producteur du même bus le plus proche, hors de portée de la liaison de quai
     for _, tc in ipairs(bus.taps) do
       local d = tc.kind == "c" and maps.docks[tc.key] or nil
+      if d and st.links[tc.key] then why.lies = why.lies + 1 end
       if d and not st.links[tc.key] then
         local best, bspan
         for _, tp in ipairs(bus.taps) do
@@ -156,10 +158,14 @@ function Bus.advance(h, api, f, surface, tick)
             if span > Ln.MAX_SPAN and (not bspan or span < bspan or (span == bspan and tp.key < best.key)) then best, bspan = tp, span end
           end
         end
+        if not best then why.portee = why.portee + 1 end
         if best then
-          local pk = tc.key .. ">" .. best.key
+          -- confirmation par QUAI (pas par paire) : le choix du producteur d'un bus change d'un calcul a l'autre quand les stocks bougent
+          local pk = tc.key
           present[pk] = true
           bs.seen[pk] = (bs.seen[pk] or 0) + 1
+          if bs.seen[pk] < (bs.confirm or Bus.CONFIRM) then why.attente = why.attente + 1
+          elseif not (open < h.max_open(h.free_workers(f)) and total < Bus.MAX_LINKS and not h.hq_threat(f, surface)) then why.garde = why.garde + 1 end
           if bs.seen[pk] >= (bs.confirm or Bus.CONFIRM) and open < h.max_open(h.free_workers(f)) and total < Bus.MAX_LINKS and not h.hq_threat(f, surface) then
             local sr = maps.srcs[best.key]
             local last = st.last_try[tc.key]
@@ -198,10 +204,11 @@ function Bus.advance(h, api, f, surface, tick)
     end
   end
   for _, k in ipairs(sorted_keys(bs.seen)) do if not present[k] then bs.seen[k] = nil end end
-  if (bs.last or 0) ~= #res.buses then
-    bs.last = #res.buses
-    Bus.say(f, tick, string.format("%d bus calcule(s) : %.0f objets/min servis sur %.0f demandes, %d file(s), %d candidat(s) ; aucune paire a demander encore (confirmation, portee, ou deja relies)",
-      #res.buses, s.served, s.demand, s.belts, s.candidates))
+  local sig = string.format("%d/%d/%d/%d/%d", #res.buses, why.lies, why.portee, why.attente, why.garde)
+  if bs.last ~= sig then
+    bs.last = sig
+    Bus.say(f, tick, string.format("%d bus calcule(s) : %.0f objets/min servis sur %.0f demandes, %d file(s), %d candidat(s) ; aucune paire a demander encore (quais deja relies %d, hors de portee de la liaison de quai %d, en attente de confirmation %d, gardes (ouvriers, danger, plafond) %d)",
+      #res.buses, s.served, s.demand, s.belts, s.candidates, why.lies, why.portee, why.attente, why.garde))
   end
   return false
 end
