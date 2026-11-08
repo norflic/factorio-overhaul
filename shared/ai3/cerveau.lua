@@ -42,6 +42,7 @@ local Ca = require("shared.ai3.capitalisation") -- lot CAPIB : buts de FOND de l
 local Dm = require("shared.ai3.demande") -- lot C2 : capacités de plus selon les bras libres (puits ouvert)
 P.EMIT.capi = Ca.emit(P)
 local Gi = require("shared.team.gisement") -- lot GISEMENTS : matières en manque par rapport au besoin
+local Fa = require("shared.ai3.famille_armee") -- lot TV-PILOTE (V10) : famille armée à parts réservées
 local Pi = require("shared.ai3.pile") -- lot PILE-PRIORITE : réparer + protéger, puis produire, puis améliorer
 local Rs = require("shared.ai3.reserve") -- lot INDUSTRIE I1 : le besoin évalué, le reste du stock s'investit
 local Fx = require("shared.team.flux") -- lot FLUX : tournée des sorties pleines gardée (règle pure)
@@ -349,7 +350,20 @@ function C.think(view, book, st, ctx)
   -- 16f1b3e0, point 1). Lot DEFAUT7 : l'amélioration exigée par le centre (chaîne Q16) servie d'abord ; étage 3 : le centre passé
   -- devant servi en tête, après les seuls projets qui produisent la matière qui lui manque (Cap.ahead_first).
   local served = Cap.ahead_first(Cap.chain_first(order), E.avail, T.outposts, T.smelter_inputs)
-  for _, proj in ipairs(served) do P.emit(E, proj, ctx, tick) end
+  -- Lot TV-PILOTE (V10) : FAMILLE ARMÉE à parts réservées (shared/ai3/famille_armee.lua). ctx.armee = { parts = { delta, alpha } } posé par le
+  -- runtime quand le réglage fo-war-armee-famille est allumé (nil : la boucle d'avant, ligne pour ligne). La réserve de la famille (munitions et
+  -- équipement des soldats, UNE liste) est prêtée aux projets qui n'en sont pas : ils servent le stock MOINS la réserve ; les membres le voient entier.
+  local famres = nil
+  if ctx.armee then
+    local share, share_why = Fa.share(ctx.armee.parts)
+    famres = Fa.reserve(E.avail, Fa.wants(goals, function(g) return P.army_kits(view, g) end),
+      function(list) return E.book:plan(list, E.avail).raw end, share, share_why)
+  end
+  for _, proj in ipairs(served) do
+    local taken = (famres and next(famres.held) ~= nil) and Fa.lend(E.avail, famres.held, Fa.member(proj.goal)) or nil
+    P.emit(E, proj, ctx, tick)
+    if taken then Fa.restore(E.avail, taken) end
+  end
   -- 6. Approvisionnement.
   local raw, minable = C.raw_items()
   -- Lot KIT : matières naturelles récoltables (le bois des poteaux, lu par le runtime sur les arbres) : à miner à la main
@@ -533,6 +547,7 @@ function C.think(view, book, st, ctx)
     ia3 = { K = K, active = n_active, productive = n_productive, dropped = dropped, kept_unmeasured = kept_unmeasured,
       explore = E.explore, saturated = saturated, dominant = dom and dom.key or nil,
       pile = { top = pile.top, hold = pile.hold, blocked = pile.blocked }, -- lot PILE-PRIORITE (l'état complet : st.pile)
+      armee = famres, -- lot TV-PILOTE (V10) : réserve de la famille armée de cette pensée (journal [FO-ARMEE], script/ai3/cerveau.lua)
       pay = E.pay }, -- lot CAPITAL : améliorations dont le coût est réservé au stock virtuel, payées par le runtime
   }
 end

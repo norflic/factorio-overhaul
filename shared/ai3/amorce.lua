@@ -211,6 +211,47 @@ function Am.supplied(st, item)
   return (st and st.amorce and st.amorce.hand and st.amorce.hand[item]) or 0
 end
 
+--- (f) KIT DE DÉPART ÉCRIT (lot TV-PILOTE, TODO D02, C11) : la liste minimale d'amorçage est EXPLICITE (shared/team/amorce_kit.lua, K.MINIMAL,
+--- passée ici en paramètre : aucun nom d'objet dans cette règle) et se compare au compteur d'amorce. minimal = { { item, n, per, why } } ;
+--- workers = ouvriers de départ de l'équipe ; opts.min_extra = main fournie avant la 1re production à partir de laquelle un objet HORS liste
+--- est signalé (Am.KIT_EXTRA_MIN) ; opts.max_extra = nombre d'objets hors liste rapportés (Am.KIT_EXTRA_N). Rend
+---   rows  = { { item, listed (total de la liste), hand (compteur d'amorce), why } } dans l'ordre de la liste ;
+---   extra = { { item, hand } } objets fournis à la main HORS liste, du plus fourni au moins fourni, au plus max_extra ;
+---   text  = ligne lisible : « kit minimal : A x8, B x80 | main hors liste : C 25, D 12 ».
+--- FERMÉ PAR DÉFAUT : une liste absente rend nil et la raison (jamais « aucun kit » par défaut).
+Am.KIT_EXTRA_MIN = 10
+Am.KIT_EXTRA_N = 8
+function Am.kit_report(st, minimal, workers, opts)
+  if type(minimal) ~= "table" then return nil, "kit minimal absent" end
+  local w = type(workers) == "number" and workers == workers and workers >= 0 and math.floor(workers) or nil
+  if w == nil then return nil, "ouvriers de depart absents" end
+  local min_extra = (opts and opts.min_extra) or Am.KIT_EXTRA_MIN
+  local max_extra = (opts and opts.max_extra) or Am.KIT_EXTRA_N
+  local rows, listed = {}, {}
+  for _, el in ipairs(minimal) do
+    local total = (el.per == "ouvrier") and (el.n or 0) * w or (el.n or 0)
+    rows[#rows + 1] = { item = el.item, listed = total, hand = Am.supplied(st, el.item), why = el.why }
+    listed[el.item] = true
+  end
+  local extra = {}
+  local hand = (st and st.amorce and st.amorce.hand) or {}
+  for _, it in ipairs(sorted_keys(hand)) do
+    if not listed[it] and (hand[it] or 0) >= min_extra then extra[#extra + 1] = { item = it, hand = hand[it] } end
+  end
+  table.sort(extra, function(a, b)
+    if a.hand ~= b.hand then return a.hand > b.hand end
+    return a.item < b.item
+  end)
+  while #extra > max_extra do extra[#extra] = nil end
+  local parts = {}
+  for _, r in ipairs(rows) do parts[#parts + 1] = string.format("%s x%d", tostring(r.item), r.listed) end
+  local ex = {}
+  for _, e in ipairs(extra) do ex[#ex + 1] = string.format("%s %d", e.item, e.hand) end
+  local text = string.format("kit minimal : %s | main avant la 1re production, hors liste : %s", table.concat(parts, ", "),
+    #ex > 0 and table.concat(ex, ", ") or "aucun")
+  return { rows = rows, extra = extra, text = text }
+end
+
 --- Ligne du journal [FO-AMORCE] d'un retrait (aucune décision ne la lit).
 function Am.describe(r, st)
   local since = st and st.amorce and st.amorce.since and st.amorce.since[r.item]

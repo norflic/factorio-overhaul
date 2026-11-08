@@ -57,6 +57,8 @@ local T = require("shared.team.config")
 local Ca = require("shared.ai3.capitalisation")
 local Rf = require("shared.ai3.refus") -- lot VIDEO-REFUS (C6) : décompte des refus par sorte, ligne [FO-CAPI-REFUS]
 local RangTrace = require("script.ai3.rang_trace") -- lot VIDEO-TRACES (G34) : journal [FO-RANG]
+local Df = require("shared.ai3.defauts") -- lot TV-PILOTE (V88) : table défaut -> signal -> levier (statuts du moteur -> cause)
+local Pil = require("script.ai3.pilotage") -- lot TV-PILOTE : plafonds de sûreté (G02), défauts → levier (V88), kit d'amorçage (D02), journal des gardes (W04)
 local Excl = require("script.ai3.exclusion") -- lot VIDEO-PLAFONDS (V99) : réglage fo-war-exclusion (objets exclus de la demande), journal [FO-EXCLU]
 local Cf = require("shared.ai3.confirmation") -- lot VIDEO-L5 : capacité CONFIRMÉE (première production observée)
 local Sante = require("script.team.sante_centrale") -- étape 5a de VIDEO-INTEG : consommateurs en chantier (vue de la porte du plan directeur)
@@ -385,17 +387,12 @@ end
 -- API 1.1.91) ; working et normal : aucune.
 local CONF_CAUSE = {}
 do
-  local by_cause = {
-    { "courant", { "no_power", "low_power", "not_plugged_in_electric_network" } },
-    { "entree", { "no_ingredients", "item_ingredient_shortage", "fluid_ingredient_shortage", "missing_required_fluid", "no_input_fluid",
-      "low_input_fluid", "no_fuel", "no_minable_resources", "waiting_for_source_items" } },
-    { "sortie", { "full_output", "waiting_for_space_in_destination" } },
-    { "recette", { "no_recipe" } },
-  }
-  for _, c in ipairs(by_cause) do
-    for _, name in ipairs(c[2]) do
+  -- Lot TV-PILOTE (V88) : la table statut -> cause est celle de shared/ai3/defauts.lua (Df.FAULTS), la même qui dit le levier de chaque
+  -- défaut ; plus de seconde liste ici. Le statut « no_minable_resources » (foreuse sans minerai) est la cause « gisement epuise ».
+  for _, fault in ipairs(Df.FAULTS) do
+    for _, name in ipairs(fault.statuses) do
       local v = defines.entity_status[name]
-      if v ~= nil then CONF_CAUSE[v] = c[1] end
+      if v ~= nil then CONF_CAUSE[v] = fault.cause end
     end
   end
 end
@@ -554,11 +551,13 @@ local function scan(f, cs, tick)
       for _, g in ipairs(drills) do conf_group(cs, g) end
       hold = cfr.hold
       conf_log(f, cs, cfr, tick)
+      Pil.defauts(f, cs, cfr, tick, minutes(f, tick)) -- lot TV-PILOTE (V88) : chaque défaut vu, son signal et son levier (shared/ai3/defauts.lua)
       -- lot VIDEO L7 : la main de l'amorce est retirée à la 1re production d'une MACHINE (confirmed_now de L5), jamais sur les
       -- statistiques de la force (votre équipe partage la force du joueur : ses fabrications à la main y entrent)
       local ml = f.team.ia3 and f.team.ia3.mall
       if ml then
         for _, line in ipairs(AmRt.lines(f, ml, AmRt.observe(f, cs, ml, cfr, cs.cf, tick), minutes(f, tick))) do log(line) end
+        Pil.kit(f, cs, ml, tick, minutes(f, tick)) -- lot TV-PILOTE (D02) : kit minimal écrit contre le compteur d'amorce
       end
     else
       for _, g in ipairs(machines) do g.ids = nil end
@@ -1280,6 +1279,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     -- lot VIDEO-L3 : les manques mesurés des modules finis s'ajoutent aux puits (Mq.sinks ; Ca.requirements n'est pas touché)
     deposits = deposits, open = open, sinks = cs.bench_sinks or Mq.sinks(mq_fresh(f, tick), Ml.sinks(st.mall)), need = need, research = research, drill_for = drill_for,
     excl = Excl.read(), -- lot VIDEO-PLAFONDS (V99) : objets exclus de la demande (nil : réglage vide, entrée inchangée)
+    hard_off = (not Pil.plafonds_on()) or nil, -- lot TV-PILOTE (G02) : plafonds de sûreté des fours, chaînes et packs (réglage fo-war-plafonds, allumé par défaut)
     limits = Rsv.on() and {} or { max_ingredients = 2 }, workers = view.workers or 0, idle = Ca.idle_of(g and g.idle_ema or 0),
     can_grow = (view.workers or 0) < (view.workers_wanted or 0), traits = f.traits or {},
     weights = w or {}, threat = threat, dt = 1, lag = cs.lag, starved = Pi.threat_exempt(st.pile, st.starved_open), -- (intégration 0.6.28)
@@ -1912,7 +1912,7 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
     else
       refused[#refused + 1] = o.key .. " (" .. tostring(why) .. ")"
       cs.refused[o.key] = tick
-      AmRt.defer(cs, o, why, tick) -- lot VIDEO-COUVERTURE 5 : refusé par l'exécutant occupé = mis de côté, re-émis à l'identique
+      if AmRt.defer(cs, o, why, tick) then Pil.note(cs, "chantier occupe", o.item) end -- lot VIDEO-COUVERTURE 5 : refusé par l'exécutant occupé = mis de côté, re-émis à l'identique ; lot TV-PILOTE (V88) : défaut noté
       if cs.st.posed and o.item ~= nil then cs.st.posed[o.item] = nil end -- lot VIDEO-ORDRE : un ordre refusé n'a rien posé, l'objet reste ordonnable
       -- lot LEVIERS : pas redemandé tout de suite (lot FUITES-PILE : sauf un refus de la pile, redemandé dès qu'elle se vide)
       if allowed and (o.kind == "equiper" or o.kind == "techno") then hold(cs, o.key, why, tick) end
@@ -2095,6 +2095,7 @@ function Capi.forget_memory() DJ_MEM = {} end
 --- décision découpée attend sa tranche suivante (lot CAPI-DECIDE). `run` : nil (tout tout de suite) ou { t = tick de la pensée, rush }.
 function Capi.think(f, view, book, tick, research, w, run)
   if not Capi.on(f) then return nil end
+  Pil.session() -- lot TV-PILOTE (W04) : une ligne [FO-GARDES] par session
   local cs = state_of(f)
   if cs.dj and run and cs.dj.t_think ~= run.t then
     -- décision d'une pensée perdue (effacée au changement de version du mod) : jetée, cette pensée repart comme d'habitude

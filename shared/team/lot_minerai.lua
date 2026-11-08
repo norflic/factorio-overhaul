@@ -100,6 +100,9 @@ end
 
 --- Une sorte de module (extraction, fonte, energie, fabrique) peut-elle aller sur un lot de ce rôle ? Rend ok, raison.
 function Lm.allows(role, kind)
+  -- Lot TV-PILOTE (W04, point 8 de l'inventaire) : un rôle absent ou inconnu ferme la garde (avant : « role nil : OUVERT », la fabrique
+  -- passait sur un lot de minerai sans que personne ait lu son rôle). Les appelants passent « minerai » ou « general » (Lm.role).
+  if role ~= "minerai" and role ~= "general" then return false, "role absent ou inconnu (garde fermee)" end
   if not Lm.KINDS[kind] then return false, "sorte inconnue (garde fermee)" end
   if role == "minerai" and not Lm.ON_ORE[kind] then
     return false, "lot de minerai reserve a l'extraction et a la fonte"

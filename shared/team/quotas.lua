@@ -225,18 +225,9 @@ function Q.refill(qin, n, have)
   return { due = c > 0, count = max(0, c) }
 end
 
---- Filtre E2 des tournées du plan directeur : retire l'ALIMENTATION (t.ia1d.mode == "fill") d'un projet dont le verdict est faux
---- (verdicts[pid] == false) ; garde la collecte et tout le reste. Liste neuve, même ordre.
---- ORPHELIN (inventaire W04, point 10) : aucun appelant à l'exécution, seulement tests/quotas_test.lua. Chemin réel : Build.Quotas.feed_ok,
---- script/team/build.lua:4002 (une sortie pleine n'émet plus de tournée de remplissage, build.lua:4018 ; la collecte n'est jamais retenue).
-function Q.filter(tasks, verdicts)
-  local out = {}
-  for _, t in ipairs(tasks or {}) do
-    local j = t.ia1d
-    if not (j and j.mode == "fill" and verdicts and verdicts[j.pid] == false) then out[#out + 1] = t end
-  end
-  return out
-end
+--- (Q.filter, filtre E2 des tournées du plan directeur, est RETIRÉ au lot TV-PILOTE : garde ORPHELINE de l'inventaire W04 (point 10), aucun
+--- appelant à l'exécution, seulement un test. Le chemin réel est Q.feed_ok ci-dessus, appelé par script/team/build.lua (une sortie pleine
+--- n'émet plus de tournée de remplissage ; la collecte n'est jamais retenue). Une garde sans mesure se prouve ou se retire.)
 
 --- Ligne du journal [FO-QUOTA] (aucune décision ne la lit).
 function Q.describe(q, counts)

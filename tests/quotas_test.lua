@@ -86,15 +86,8 @@ local function battery(Q, verbose)
   end
   ck(rB.outs[1].collect_at == 50, "petit module : collecte à 50 (la moitié de 100), pas au seuil de l'appelant 200")
   ck(rC.outs[1].collect_at == 200, "grand module : seuil de l'appelant (200) gardé")
-  local tasks = {
-    { key = "f1", ia1d = { pid = 1, mode = "fill" } }, { key = "c1", ia1d = { pid = 1, mode = "collect" } },
-    { key = "f2", ia1d = { pid = 2, mode = "fill" } }, { key = "o", kind = "craft" },
-  }
-  local kept = Q.filter(tasks, { [1] = false, [2] = true })
-  local keys = {}
-  for _, t in ipairs(kept) do keys[#keys + 1] = t.key end
-  ck(table.concat(keys, ",") == "c1,f2,o", "filtre : alimentation du module plein retirée, collecte gardée (" .. table.concat(keys, ",") .. ")")
-  ck(#Q.filter(tasks, nil) == 4, "sans verdict : rien retiré")
+  -- Lot TV-PILOTE : Q.filter (garde orpheline, W04 point 10) est retiré ; la seule garde d'alimentation est Q.feed_ok (build.lua l'appelle).
+  ck(Q.filter == nil, "Q.filter (orphelin) est retiré : une garde sans appelant se retire (W04, point 10)")
 
   -- 8. Lot VIDEO-COUVERTURE 3 (C11, C3.2) : un coffre à PLUSIEURS produits partage ses cases en parts
   local two = { a = 0.5, b = 0.1 }                  -- 300 a (3 cases de 100) et 60 b (2 cases de 50) en 10 min
@@ -204,14 +197,8 @@ do
   local big, q = 0, nil
   big = count(function() q = Q0.quotas(nominal, inputs, outs, ins, opts) end)
   local feed = count(function() Q0.feed_ok(q, counts) end)
-  local tasks = {}
-  for i = 1, 200 do tasks[i] = { ia1d = { pid = i % 20, mode = (i % 2 == 0) and "fill" or "collect" } } end
-  local verdicts = {}
-  for i = 0, 19 do verdicts[i] = (i % 3 ~= 0) end
-  local filt = count(function() Q0.filter(tasks, verdicts) end)
-  print(string.format("[QUOTAS] instructions : module simple %d ; 64 coffres de sortie + 8 entrées : quotas %d, feed_ok %d ; filtre de 200 tournées %d",
-    small, big, feed, filt))
-  check(small < 2000 and big < 60000 and feed < 5000 and filt < 10000, "coût borné (quotas calculés à la pose, feed_ok par pensée)")
+  print(string.format("[QUOTAS] instructions : module simple %d ; 64 coffres de sortie + 8 entrées : quotas %d, feed_ok %d", small, big, feed))
+  check(small < 2000 and big < 60000 and feed < 5000, "coût borné (quotas calculés à la pose, feed_ok par pensée)")
 end
 
 -- 7. mutants
@@ -237,16 +224,6 @@ mutant("alimentation gardée quand la sortie est pleine", function(Q) Q.feed_ok 
 mutant("barre constante", function(Q)
   local base = Q.quotas
   Q.quotas = function(...) local r = base(...); for _, o in ipairs(r.outs) do o.cases, o.cap = 4, 400 end; return r end
-end)
-mutant("collecte bloquée par feed_ok", function(Q)
-  Q.filter = function(tasks, verdicts)
-    local out = {}
-    for _, t in ipairs(tasks or {}) do
-      local j = t.ia1d
-      if not (j and verdicts and verdicts[j.pid] == false) then out[#out + 1] = t end
-    end
-    return out
-  end
 end)
 mutant("entrée non bornée au coffre (I2)", function(Q)
   local base = Q.quotas
