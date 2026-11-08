@@ -215,69 +215,133 @@ end
 --- Rend candidats (non scorés), impayables (cible sans coût connu : la recherche qui la débloque n'est PAS réclamée).
 function Cap.replace_candidates(Ld, census, ctx)
   local out, blocked = {}, {}
-  local succ_memo = {}
   if not (ctx.mproto and census.machines) then return out, blocked end
   local groups, order = {}, {}
   local blocked_seen = {}
-  local machines = {}
-  for i, m in ipairs(census.machines) do machines[i] = m end
-  table.sort(machines, function(a, b) return a.id < b.id end)
-  for _, m in ipairs(machines) do
-    if Ld.parse(m.name) == nil and not (ctx.exclude and ctx.exclude["m:" .. m.id]) then
-      local p0 = ctx.mproto(m.name)
-      local best
-      local first_missing
-      -- Mémo par nom (un relevé de milliers de tapis et de bras n'a que quelques noms distincts).
-      succ_memo[m.name] = succ_memo[m.name] or Cap.successors(Ld, ctx, m.name)
-      for _, t in ipairs(succ_memo[m.name]) do
-        local p1 = ctx.mproto(t)
-        local g = p1.speed / p0.speed - 1
-        local use = m.working and 100 or Cap.IDLE_USE
-        local v = math.floor(Cap.V_DEBIT * g * use / 100 * wf(ctx.weights, "capital") + 0.5)
-        local cost, missing = Cap.work_cost({ { p1.item, 1 } }, ctx)
-        -- « Dès qu'elle est débloquée » : une cible que la force ne sait pas encore fabriquer (recette désactivée, ctx.available)
-        -- attend ; sa recherche n'est pas réclamée (no_want) et son coût de recherche n'entre pas dans le choix.
-        if #missing == 0 and ctx.available and not ctx.available(p1.item) then missing = { p1.item } end
-        if #missing > 0 then
-          first_missing = first_missing or { to = t, causes = missing }
-        elseif v > 0 then
-          local score = v * 1000 / (cost + Cap.COST_FLOOR)
-          if not best or score > best.score then best = { to = t, v = v, score = score, item = p1.item } end
-        end
+  local machines, count = census.machines, {}
+  local ordered, prev = true, -math.huge
+  for i = 1, #machines do
+    local id = machines[i].id
+    if id < prev then ordered = false; break end
+    prev = id
+  end
+  if not ordered then -- le relevé du runtime est déjà trié : le tri n'est fait que pour un relevé qui ne l'est pas
+    machines = {}
+    for i, m in ipairs(census.machines) do machines[i] = m end
+    table.sort(machines, function(a, b) return a.id < b.id end)
+  end
+  local has_exclude = ctx.exclude ~= nil and next(ctx.exclude) ~= nil
+  local pending = {} -- cibles bloquées : le nombre de pièces du nom n'est connu qu'après le relevé entier
+  local parsed, gcache = {}, {}
+  local evals = {} -- tables d'évaluation créées (pour le compte de pièces par nom)
+  -- Lot AMELIORATION-CONTINUE : un relevé de milliers de tapis et de bras n'a que quelques noms distincts : successeurs, coût et
+  -- disponibilité sont évalués UNE fois par objet, la meilleure cible UNE fois par (nom, en marche ou non).
+  local succ_memo, item_memo, eval_memo = {}, {}, { {}, {} }
+  local function item_state(item)
+    local st = item_memo[item]
+    if not st then
+      local cost, missing = Cap.work_cost({ { item, 1 } }, ctx)
+      -- « Dès qu'elle est débloquée » : une cible que la force ne sait pas encore fabriquer (recette désactivée, ctx.available)
+      -- attend ; sa recherche n'est réclamée que pour un rang à monter en nombre (Am.RESEARCH_MIN, ctx.continu).
+      if #missing == 0 and ctx.available and not ctx.available(item) then missing = { item } end
+      st = { cost = cost, missing = missing }
+      item_memo[item] = st
+    end
+    return st
+  end
+  local function evaluate(name, working)
+    local memo = eval_memo[working and 1 or 2]
+    local e = memo[name]
+    if e then return e end
+    e = { name = name }
+    evals[#evals + 1] = e
+    local p0 = ctx.mproto(name)
+    succ_memo[name] = succ_memo[name] or Cap.successors(Ld, ctx, name)
+    for _, t in ipairs(succ_memo[name]) do
+      local p1 = ctx.mproto(t)
+      local g = p1.speed / p0.speed - 1
+      local use = working and 100 or Cap.IDLE_USE
+      local v = math.floor(Cap.V_DEBIT * g * use / 100 * wf(ctx.weights, "capital") + 0.5)
+      local st = item_state(p1.item)
+      if #st.missing > 0 then
+        e.first_missing = e.first_missing or { to = t, causes = st.missing }
+      elseif v > 0 then
+        local score = v * 1000 / (st.cost + Cap.COST_FLOOR)
+        if not e.best or score > e.best.score then e.best = { to = t, v = v, score = score, item = p1.item } end
       end
+    end
+    memo[name] = e
+    return e
+  end
+  for _, m in ipairs(machines) do
+    local is_plain = parsed[m.name]
+    if is_plain == nil then
+      is_plain = Ld.parse(m.name) == nil
+      parsed[m.name] = is_plain
+    end
+    if is_plain and not (has_exclude and ctx.exclude["m:" .. m.id]) then
+      local e = evaluate(m.name, m.working)
+      e.n = (e.n or 0) + 1
+      local best, first_missing = e.best, e.first_missing
       if best then
-        local gk = (m.block and (m.block .. "|") or "") .. m.name .. ">" .. best.to
-        local grp = groups[gk]
+        -- groupe de (bloc, nom, en marche ou non) : une recherche par table, la clé n'est construite qu'à la première pièce
+        local bg = gcache[m.block or ""]
+        if not bg then bg = {}; gcache[m.block or ""] = bg end
+        local grp = bg[e]
         if not grp then
-          grp = { from = m.name, to = best.to, item = best.item, ids = {}, value = 0, block = m.block }
-          groups[gk] = grp
-          order[#order + 1] = gk
+          local gk = (m.block and (m.block .. "|") or "") .. m.name .. ">" .. best.to
+          grp = groups[gk]
+          if not grp then
+            grp = { from = m.name, to = best.to, item = best.item, members = {}, value = 0, block = m.block, key = gk }
+            groups[gk] = grp
+            order[#order + 1] = gk
+          end
+          bg[e] = grp
         end
-        grp.ids[#grp.ids + 1] = m.id
-        grp.value = grp.value + best.v
-        grp.vals = grp.vals or {}
-        grp.vals[#grp.vals + 1] = best.v
+        grp.members[#grp.members + 1] = m -- l'entrée du relevé elle-même (pas de copie : milliers de pièces)
       elseif first_missing then
         local bk = "remplacer:" .. m.name .. ">" .. first_missing.to
         if not blocked_seen[bk] then
           blocked_seen[bk] = true
-          blocked[#blocked + 1] = { key = bk, family = "remplacer", from = 0, to = 1, value = 0, causes = first_missing.causes,
+          local entry = { key = bk, family = "remplacer", from = 0, to = 1, value = 0, causes = first_missing.causes,
             no_want = true, cost = { { ctx.mproto(first_missing.to).item, 1 } } }
+          blocked[#blocked + 1] = entry
+          pending[#pending + 1] = { entry = entry, name = m.name }
         end
       end
     end
   end
+  for _, e in ipairs(evals) do count[e.name] = (count[e.name] or 0) + (e.n or 0) end
+  for _, pd in ipairs(pending) do
+    -- Un rang (tapis, bras) à monter en nombre attire la recherche qui débloque la cible ; une machine seule, non.
+    local p0 = ctx.mproto(pd.name)
+    local want = ctx.continu and p0 and p0.rang and (count[pd.name] or 0) >= Am.RESEARCH_MIN
+    pd.entry.no_want, pd.entry.count = not want, count[pd.name]
+  end
   table.sort(order)
+  local net = Am.net(ctx.stock, ctx.recon) -- lot AMELIORATION : net de la reconstruction ouverte
   for _, gk in ipairs(order) do
     local grp = groups[gk]
-    local have = Am.net(ctx.stock, ctx.recon)[grp.item] or 0 -- lot AMELIORATION : net de la reconstruction ouverte
-    local n = math.max(1, math.min(Cap.REPLACE_BATCH, #grp.ids, have))
+    local have = net[grp.item] or 0
+    local total = #grp.members
+    local n = math.max(1, math.min(Cap.REPLACE_BATCH, total, have))
+    -- orientation : les pièces du lot se suivent le long de la ligne (seulement les n premières sont triées)
+    local mem = ctx.continu and Am.first_n(grp.members, n) or grp.members
     local ids, value = {}, 0
-    for i = 1, n do ids[i] = grp.ids[i]; value = value + grp.vals[i] end
-    out[#out + 1] = { key = "remplacer:" .. gk .. ":" .. ids[1], id = ids[1], ids = ids, family = "remplacer", from = 0, to = 1,
-      cost = { { grp.item, n } }, value = value, replace = { from = grp.from, to = grp.to, n = n },
+    for i = 1, n do
+      ids[i] = mem[i].id
+      value = value + evaluate(mem[i].name, mem[i].working).best.v
+    end
+    local c = { key = "remplacer:" .. gk .. ":" .. ids[1], id = ids[1], ids = ids, family = "remplacer", from = 0, to = 1,
+      cost = { { grp.item, n } }, value = value, replace = { from = grp.from, to = grp.to, n = n, group = gk },
       why = { { "debit", math.floor((ctx.mproto(grp.to).speed / ctx.mproto(grp.from).speed - 1) * 1000 + 0.5) / 10 },
         { "machines", n } } }
+    if ctx.continu then
+      -- Lot AMELIORATION-CONTINUE : le BLOC entier (au plus Cap.REPLACE_BATCH pièces) est demandé à la fabrication ; l'unité sert au paiement partiel.
+      c.unit, c.fab, c.group, c.n = { { grp.item, 1 } }, Am.fab(total, Cap.REPLACE_BATCH), gk, n
+      c.remaining = total
+    end
+    out[#out + 1] = c
   end
   return out, blocked
 end
@@ -335,6 +399,8 @@ function Cap.candidates(Ld, census, ctx)
     if c.value <= 0 then return end
     local score = math.floor(c.value * 1000 / (cost + Cap.COST_FLOOR))
     if ctx.current and c.key == ctx.current then score = math.floor(score * (100 + Cap.INERTIA_PCT) / 100) end
+    -- Lot AMELIORATION-CONTINUE : finir le bloc entamé (le groupe payé à la décision précédente) avant d'en ouvrir un autre.
+    if ctx.last_group and c.group and c.group == ctx.last_group then score = math.floor(score * (100 + Am.GROUP_PCT) / 100) end
     c.score = score
     cands[#cands + 1] = c
   end
@@ -546,7 +612,8 @@ function Cap.goal(d, weights)
     value = clamp(math.floor(base * w / 1000), 1, 100), center = d.center or nil, fond = true,
     short = (d.center and d.work ~= nil and (d.work <= Cap.SHORT_WORK or d.starved)) or nil, replace = d.replace and true or nil,
     -- Lot AMELIORATION : un lot de bâtiments d'un bloc (n bâtiments, `unit` = coût d'un seul) ; Cap.emit peut en payer moins (E.pay.n).
-    bloc = d.bloc, n = d.bloc and d.n or nil, unit = d.bloc and d.unit or nil,
+    bloc = d.bloc, n = (d.bloc or d.fab) and d.n or nil, unit = (d.bloc or d.fab) and d.unit or nil,
+    fab = d.fab, -- lot AMELIORATION-CONTINUE : pièces du bloc demandées à la fabrication (≥ n)
     -- lot DEFAUT7 : bâtiment de la chaîne Q16 (sa montée est la condition du centre) ; essai 2 : aussi l'amélioration d'un bâtiment
     -- pendant que le centre est PAYABLE (porte ouverte) : ses paiements sont le chemin du centre (règle du loueur de skis, Cap.starved).
     -- Étage 3 (relecture de 16f1b3e0, point 2) : porte ouverte, un REMPLACEMENT de machines n'est pas « sur le chemin » (pas un bâtiment
@@ -571,7 +638,35 @@ function Cap.emit(P)
     local prio = g.ahead and Cap.ahead_prio(P, proj.prio) or proj.prio
     local res
     local part = nil
-    if g.bloc and g.unit and (g.n or 0) > 1 and not Am.covers(E.avail, g.cost) then
+    local idle = (E.view and E.view.workers_idle) or 0
+    -- Lot AMELIORATION-CONTINUE : le reste du bloc (g.fab − payé) est demandé à la fabrication comme un projet, même quand une partie vient
+    -- d'être payée. Un remplacement (tapis, bras, four) le demande toujours (tâches de fond, servies quand personne n'a mieux à faire).
+    -- Un bloc de bâtiments à niveaux le demande en entier avec des bras libres ; SANS bras libre (règle des bras libres d'IA-G : un but de
+    -- fond qui réclamait du fer retardait la recherche, banc c4), il ne demande que ce que la main fabrique avec le stock virtuel, sans
+    -- jamais réclamer de matière brute à l'extraction : les pièces d'un lot qui dort avec du fer au coffre (16,5 à 96 min dans la
+    -- partie du DC : engrenages 0/3, circuits 0/2, fer 145/6) sont enfin fabriquées par le premier PNJ sans autre tâche.
+    local function feasible(k_max)
+      if k_max <= 0 then return 0 end
+      local function ok(k) return next(E.book:plan(Am.scaled(g.unit, k), E.avail).raw) == nil end
+      if ok(k_max) then return k_max end
+      local lo, hi = 0, k_max - 1
+      while lo < hi do
+        local mid = math.floor((lo + hi + 1) / 2)
+        if ok(mid) then lo = mid else hi = mid - 1 end
+      end
+      return lo
+    end
+    local function want_pieces(k)
+      if k <= 0 or not (g.fab and g.unit) then return end
+      if g.replace or g.center or g.opens or idle > 0 then
+        P.want(E, proj, Am.scaled(g.unit, k), prio, false, "niveau")
+      else
+        local f = feasible(k)
+        if f > 0 then P.want(E, proj, Am.scaled(g.unit, f), prio, false, "niveau") end
+      end
+    end
+    local function rest(paid) want_pieces((g.fab or 0) - paid) end
+    if g.unit and (g.bloc or g.fab) and (g.n or 0) > 1 and not Am.covers(E.avail, g.cost) then
       -- Lot AMELIORATION : un lot de bloc que le stock virtuel ne paie pas en entier est payé en plus petit (jamais « non-reserve »
       -- pour un lot dont une partie est payable) ; le runtime paie p.n bâtiments, pas g.n.
       local k = Am.supported(g.unit, E.avail, g.n - 1)
@@ -583,16 +678,21 @@ function Cap.emit(P)
       E.pay = E.pay or {}
       E.pay[#E.pay + 1] = { key = g.key, target = g.target, cost = cost, n = part }
       res = "ok"
+      rest(part)
     elseif P.take(E, g.cost) then
       E.pay = E.pay or {}
       E.pay[#E.pay + 1] = { key = g.key, target = g.target, cost = g.cost, n = g.n }
       res = "ok"
-    elseif not g.center and not g.opens and not g.replace and ((E.view and E.view.workers_idle) or 0) <= 0 then
+      rest(g.n or 1)
+    elseif not g.center and not g.opens and not g.replace and idle <= 0 and not (g.fab and g.unit) then
+      res = "matiere"
+    elseif g.fab and g.unit then
+      want_pieces(g.fab) -- lot AMELIORATION-CONTINUE : le bloc entier (ou ce que le stock virtuel permet de fabriquer sans bras libre)
       res = "matiere"
     else
       -- Lot AMELIORATION : un lot de bloc que le stock ne paie même pas pour un seul demande de quoi en payer quelques-uns (pas 12
       -- fabrications d'un coup) ; il grossira avec le stock, la décision reste celle du lot entier.
-      P.want(E, proj, g.bloc and g.unit and Am.scaled(g.unit, math.min(g.n or 1, 4)) or g.cost, prio, false, "niveau")
+      P.want(E, proj, (g.bloc and g.unit and Am.scaled(g.unit, math.min(g.n or 1, 4))) or g.cost, prio, false, "niveau")
       res = "matiere"
     end
     for _, k in ipairs(sorted_keys(aside)) do E.avail[k] = (E.avail[k] or 0) + aside[k] end
