@@ -14,6 +14,7 @@
   Rp.size_next(fresh_n, side, reach, covers, max_pairs) -> (paires, couverture) de la ligne suivante d'après le minerai restant : la
                                                 première couverture de l'échelle `covers` (80 % d'abord, puis plus bas, jusqu'au dernier
                                                 essai du bord de gisement) qui tient au moins une paire ; (0, nil) sinon.
+  Rp.per_line(side, reach, pairs_line, cover) -> tuiles de minerai d'une ligne pleine (165 pour 7 paires à 80 %).
   Rp.lines_wanted(s)                         -> (lignes de plus, cause) pour couvrir le gisement ; s = { field, covered, per_line, target,
                                                 free, min_free, max_lines, in_flight, last_gain, min_gain }.
   Causes : "sature", "reste_trop_petit", "sans_progres", "plafond", "ok", "invalide" : toujours écrites (aucun cas silencieux).
@@ -65,6 +66,12 @@ function Rp.size_next(fresh_n, side, reach, covers, max_pairs)
     if n >= 1 then return n, cv end
   end
   return 0, nil
+end
+
+--- Tuiles de minerai qu'une ligne PLEINE (pairs_line paires) apporte au moins à la couverture `cover` : le `per_line` de Rp.lines_wanted.
+function Rp.per_line(side, reach, pairs_line, cover)
+  if not (num(side) and num(reach) and num(pairs_line) and num(cover)) or side < 1 or pairs_line < 1 or cover <= 0 then return 0 end
+  return floor(cover * Rg.area(side, floor(pairs_line + EPS), reach) + EPS)
 end
 
 --- Lignes de plus pour saturer un gisement. field : tuiles de minerai du gisement ; covered : tuiles déjà minées ; per_line : tuiles de

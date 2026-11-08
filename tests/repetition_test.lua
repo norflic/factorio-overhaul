@@ -85,6 +85,7 @@ do
     end
     check(steps <= Rp.MAX_LINES + 1 and field - covered <= Rp.EPS_TILES, string.format("gisement de %d tuiles : saturé en %d pas (couvert %d)", field, steps, covered))
   end
+  check(Rp.per_line(3, 1, 7, 0.8) == 165 and Rp.per_line(3, 1, 0, 0.8) == 0 and Rp.per_line(nil, 1, 7, 0.8) == 0, "per_line : 7 paires a 80 % = 165 tuiles (0 si illisible)")
   check(Rp.TARGET == 1.0 and Rp.MAX_LINES == 8 and Rp.MIN_GAIN > 0 and Rp.EPS_TILES > 0, "constantes")
 end
 

@@ -1559,6 +1559,13 @@ local function line_rows(f, surface, spec, g, cur, rev)
     -- budget), les rangées sont posées par étapes (ligne_split au plan, Build.ligne_step ensuite) ; sinon le stock borne la ligne
     budget_rows = (not cfg.dyn) and Li.budget_rows(Stock.count(f, T.outposts.iron.product), cfg.row_cost, cfg.stock_share, 0) or nil,
   })
+  if rows == cur and (tiles > 0 or pairs_dep > 0) then -- lot FONTE-MULTI : la ligne ne grandit pas avec le gisement : la borne qui la retient, au journal
+    b.line_logs = (b.line_logs or 0) + 1
+    if b.line_logs <= Build.LINE_LOGS then
+      log(string.format("[FO-LIGNE] %s : fonderie %s, %d rangee(s) demandee(s), la ligne ne grandit pas (%s) ; gisement %d tuiles (borne %d paire(s)) = %d paire(s) de foreuses a %d%% verifiees, ligne de %d paire(s) au plus, gabarit %d rangee(s) au plus",
+        f.key or "player", tostring(prm.ore), cur, tostring(why), tiles, bound, pairs_dep, math.floor(cfg.cover * 100 + 0.5), pairs_line, g.extensions[1].max))
+    end
+  end
   if rows ~= cur then
     b.line_logs = (b.line_logs or 0) + 1
     if b.line_logs <= Build.LINE_LOGS then

@@ -1,17 +1,17 @@
 -- Scénario greffé du lot FONTE-MULTI (8/11) : répétition de la ligne de foreuses sur un gisement. Un seul gisement de fer (disque de
--- rayon 14, environ 600 tuiles), deux demandes de fonderie de fer à 1 080 ticks d'écart, plan directeur seul (aucun PNJ ne bâtit :
+-- rayon 14, environ 600 tuiles), deux demandes de fonderie de fer à 2 280 ticks d'écart (le plan de la première se fait en plusieurs passes), plan directeur seul (aucun PNJ ne bâtit :
 -- la mesure porte sur le PLAN, lu à Build.layout). Mesures (zone minée = corps de la foreuse + 1 tuile de portée) :
 --   - la ligne 2 ne mine pas par-dessus la ligne 1 : au plus 26 % de son minerai est déjà dans la zone de la ligne 1 (80 % de minerai
 --     NEUF sous la zone, 25 % de recouvrement au pire) ; sans le lot (Build.REPETITION = false), la ligne 2 se pose contre la ligne 1 ;
 --   - la couverture du gisement par les deux lignes dépasse celle de la ligne 1 seule d'au moins 40 % de plus.
--- Lancement : py -3.9 -B tools/autotest/banc.py --out <archive> --qui FONTE-MULTI -- 2000 fonte-multi <source>   (2 000 ticks, environ 30 s).
+-- Lancement : py -3.9 -B tools/autotest/banc.py --out <archive> --qui FONTE-MULTI -- 6000 fonte-multi <source>   (6 000 ticks, environ 1 min).
 -- Journal : [FO-FONTE-MULTI] ; le mod écrit aussi [FO-REPETITION] (lot, minerai restant) au journal du jeu.
 
 local TAG = "FO-FONTE-MULTI"
 local CX, CY, R = 56, -28, 14
 local HALF = 140
-local T_A, T_B = 120, 1200
-local CHECK = 2000
+local T_A, T_B = 120, 2400
+local CHECK = 5800
 
 local function stock_chest(chest)
   for _, it in ipairs({
@@ -84,6 +84,10 @@ return {
   finish = function(ctx)
     local st = ctx.state()
     ctx.check(st.a ~= nil and st.b ~= nil, "les deux demandes ont un numero (A " .. tostring(st.a) .. ", B " .. tostring(st.b) .. ")")
+    for _, id in ipairs({ st.a or -1, st.b or -1 }) do
+      local sv = ctx.remote("fo-ia1d", "status", "player", id)
+      ctx.log(string.format("projet %s : etat %s, raison %s, %d partie(s)", tostring(id), sv and tostring(sv.state) or "?", sv and tostring(sv.reason) or "?", sv and #(sv.parts or {}) or 0))
+    end
     local lay = ctx.remote("fo-ia1d", "layout", "player")
     ctx.check(lay ~= nil, "relevé du plan lu")
     if not (lay and st.a and st.b) then return end
