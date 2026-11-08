@@ -192,15 +192,17 @@ function Trav.route(f, surface, p, s, t, t_dir, bounds, cost, opts)
   local ore = ore_lookup(surface)
   local ctx = {
     maxd = ug and ug.maxd or nil, sd = opts.sd, weight = opts.weight, max = opts.max, ore = ore,
+    slice = opts.slice, resume = opts.resume, no_detour = opts.no_detour, -- lot RESEAU-GRAPHE : recherche par tranches (tronc de bus)
     ug_axis = ug and (function()
       local axes = read_ug_axes(f, surface, bounds.x0, bounds.y0, bounds.x1, bounds.y1, ug.name)
       return function(x, y) return axes[P.tkey(x, y)] end
     end)() or nil,
     nature = function(x, y) return nature_at(surface, x, y) end,
   }
-  local tiles, info
+  local tiles, info, resume_state
   if Trav.ENABLED then
-    tiles, info = Tv.route(s, t, t_dir, bounds, cost, ctx)
+    tiles, info, resume_state = Tv.route(s, t, t_dir, bounds, cost, ctx)
+    if not tiles and info == "pending" then return nil, "pending", resume_state end -- tranche finie : ni verdict, ni journal
   else
     -- réglage éteint : l'ancien tracé (P.belt_route), compteur de gisement seulement
     local old, n = P.belt_route(s, t, t_dir, bounds, cost, opts.weight and { weight = opts.weight, max = opts.max } or nil)
@@ -215,7 +217,7 @@ function Trav.route(f, surface, p, s, t, t_dir, bounds, cost, opts)
     if Trav.ENABLED then
       -- la CAUSE du refus : quel obstacle arrête le tracé, où (le journal ne la disait pas)
       local st = f.build and f.build.stats
-      if st and (st.traversee_logs or 0) < Trav.LOGS and (info == "aucun chemin" or info == "trop long") then
+      if st and (st.traversee_logs or 0) < Trav.LOGS and (info == "aucun chemin" or info == "trop long") and not opts.no_diag then
         local diag = Tv.diagnose(s, t, bounds, cost, ug and ug.maxd or nil)
         local nat = diag.block and not diag.outside and nature_at(surface, diag.block.x, diag.block.y) or nil
         say(f, Tv.refusal_line({ team = f.key or "player", project = p and p.id or "?", kind = opts.kind or "tapis" }, info, diag, nat))

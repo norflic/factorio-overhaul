@@ -26,6 +26,14 @@ Bus.STOCK_MIN = 50       -- objets au coffre de sortie pour croire à sa product
 Bus.FALLBACK_RATE = 120  -- objets/min supposés d'un coffre de sortie qui porte au moins Bus.STOCK_MIN objets (NON MESURÉ)
 Bus.MAX_LINKS = 4        -- liaisons de bus ouvertes ou finies au plus par équipe (le « k » de cette version)
 Bus.LOGS = 40            -- lignes [FO-BUS] au plus par équipe
+-- Tracé du tronc (liaison.lua, Liaison.plan) : recherche A* PAR TRANCHES, pour qu'une passe ne dépasse pas ~5 ms (mesuré en instructions : tests/bus_test.lua)
+Bus.SLICE = 250          -- états développés au plus par passe (~1000 instructions chacun)
+Bus.WEIGHT = 1.4         -- heuristique pondérée (tracé au plus 1,4 fois plus long que le meilleur, bien moins d'états : revue-s, 923 états en terrain libre)
+Bus.MAX_STATES = 8000    -- états développés au plus sur le TOTAL des passes d'un tronc (au-delà : « trop long », la paire est laissée à la liaison de quai)
+Bus.CACHE_TTL = 3600     -- ticks de validité des masques gardés en mémoire locale pendant la recherche
+
+--- Signature d'un bout (sites de départ et d'arrivée) : la recherche reprise doit porter sur le même couple de bouts.
+function Bus.end_sig(e) return string.format("%d:%d:%d>%d:%d:%d", e.src.bx, e.src.by, e.src.dir, e.dst.bx, e.dst.by, e.dst.dir) end
 
 function Bus.on()
   local ok, s = pcall(function() return settings.global[Bus.SETTING] end)
