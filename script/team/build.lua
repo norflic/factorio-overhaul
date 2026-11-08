@@ -124,6 +124,8 @@ Build.Tj = require("script.team.tourelle_journal")
 Build.Co = require("shared.team.couloir")
 -- Lot VIDEO L4 : quotas du gabarit (colle de shared/team/quotas.lua) ; champ de Build, même raison (199 locales sur 200).
 Build.Quotas = require("script.team.quotas_glue")
+Build.Agents = require("script.companion.registry") -- lot MESURE-MODULE : l'agent qui porte une tâche de coffre (indice réécrit)
+Build.Sites = require("shared.team.sites_dedup") -- lot MESURE-MODULE : copies de coffres de p.quais / p.outs (champ de Build, pas une locale)
 -- Lot TV-VAPEUR : tampon de vapeur de la centrale (V36, colle de shared/team/vapeur_tampon.lua) et dégradation sous charge (V89, script/core/
 -- charge.lua) ; champs de Build, pas des locales (199 locales sur 200).
 Build.Vg = require("script.team.vapeur_glue")
@@ -4249,6 +4251,7 @@ local function advance(f, surface, p, tick)
     -- lot IA3-e : minuteurs des parties arrêtés aussi après un retour anticipé du plan (refus, attente)
     Profiler.stop("build:plan:place"); Profiler.stop("build:plan:feed"); Profiler.stop("build:plan:power"); Profiler.stop("build:plan:anchors")
     if ok then
+      p.sites_v = 1 -- lot MESURE-MODULE : coffres planifiés une seule fois (Build.dedupe_sites n'a rien à relire)
       p.masq_n = nil -- lot POTEAUX-MASQUES : l'accord de chunks repart de zéro au prochain plan de ce projet
       p.state = "reserve"
       p.started = tick
@@ -4263,6 +4266,7 @@ local function advance(f, surface, p, tick)
       for _, l in pairs(b.lots) do if l.used == p.id then l.used = nil end end
       for _, n in ipairs(sorted_keys(b.net)) do if b.net[n].pid == p.id then b.net[n] = nil end end
       p.ents, p.parts = {}, {}
+      p.quais, p.outs = {}, {} -- lot MESURE-MODULE : plan_feed les AJOUTE à chaque plan (un module à 3 attentes avait 4 copies de sa sortie)
       p.masq_n = (p.masq_n or 0) + 1
       p.plan_after = tick + Mq.WAIT_TICKS
       p.state, p.reason = "attente", why
@@ -4272,6 +4276,7 @@ local function advance(f, surface, p, tick)
       for _, l in pairs(b.lots) do if l.used == p.id then l.used = nil end end
       for _, n in ipairs(sorted_keys(b.net)) do if b.net[n].pid == p.id then b.net[n] = nil end end
       p.ents, p.parts = {}, {}
+      p.quais, p.outs = {}, {} -- lot MESURE-MODULE (voir plus haut)
       p.wait_net = (p.wait_net or 0) + 1
       -- lot POTEAUX-MASQUES (relecture) : après 30 s le cache (Mq.TTL) est tombé ; garder l'ancien accord ferait relire jusqu'à 20
       -- chunks en une seule passe (pic) : l'accord repart de zéro, comme pour tout nouveau plan
@@ -4285,6 +4290,7 @@ local function advance(f, surface, p, tick)
       for _, l in pairs(b.lots) do if l.used == p.id then l.used = nil end end
       for _, n in ipairs(sorted_keys(b.net)) do if b.net[n].pid == p.id then b.net[n] = nil end end
       p.ents, p.parts, p.far = {}, {}, nil
+      p.quais, p.outs = {}, {} -- lot MESURE-MODULE (voir plus haut)
       p.masq_n = nil
       p.plan_after = tick + (p.far_poll or Cl.RETRY)
       p.far_poll = nil
@@ -4302,6 +4308,7 @@ local function advance(f, surface, p, tick)
       for _, l in pairs(b.lots) do if l.used == p.id then l.used = nil end end
       for _, n in ipairs(sorted_keys(b.net)) do if b.net[n].pid == p.id then b.net[n] = nil end end
       p.ents, p.parts = {}, {}
+      p.quais, p.outs = {}, {} -- lot MESURE-MODULE (voir plus haut)
       p.state, p.reason = "refuse", why
       b.stats.projects_refused = b.stats.projects_refused + 1
       if b.plant == p.id then b.plant = nil end
@@ -5022,6 +5029,7 @@ function Build.think(f, surface, tick)
       -- la condition (relue telle quelle par tests/charbon_centrale_test.lua) ; e2:coffres compté à l'unique appel, et non dans quai_tasks,
       -- que tests/quotas_glue_test.lua charge à part, sans profileur (mesure seulement, détail)
       Profiler.fstart("e2:quai")
+      if p.sites_v ~= 1 then Build.dedupe_sites(f, p) end -- lot MESURE-MODULE : projets planifiés avant le correctif
       if p.state == "fini" or p.state == "chantier" or (p.reopened and p.state ~= "refuse" and is_plant_project(p)) then
         quai_tasks(f, p, surface, tasks)
         Profiler.fcount("e2:coffres", #p.quais + #p.outs)
@@ -5122,6 +5130,58 @@ function Build.status(f, id)
     -- lot FONDERIE-DYNAMIQUE : taille posée et réservée d'une ligne dynamique (nil pour les autres projets)
     ligne = p.ligne and { rows = p.ligne.rows, rows_max = p.ligne.rows_max, pairs = p.ligne.pairs, pairs_max = p.ligne.pairs_max,
       held = #p.ligne.held, last = p.ligne.last, steps = p.ligne.steps } or nil }
+end
+
+--- Lot MESURE-MODULE : retire les copies d'un même coffre de p.quais et p.outs (projets planifiés avant le correctif de plan_feed :
+--- un plan qui attendait puis recommençait ajoutait ses coffres une fois de plus). Les indices de p.quais et p.outs servent de clé aux
+--- tâches du tableau (ia1d:<projet>:q|o:<indice>) et sont copiés dans l'agent qui porte la tâche : ils sont RÉÉCRITS ensemble.
+--- Une seule tâche reste par coffre (la prise de préférence), les copies libres sont jetées, la tâche prise passe à son nouvel
+--- indice, celui de l'agent aussi. Appelée par la passe des tâches (premier passage après un chargement, jamais en on_load) tant que
+--- p.sites_v ~= 1. Rend le nombre de copies retirées de p.quais et p.outs.
+function Build.dedupe_sites(f, p)
+  local D = Build.Sites
+  local dq, do_ = D.count_dups(p.quais, D.quai_key), D.count_dups(p.outs, D.out_key)
+  if dq == 0 and do_ == 0 then p.sites_v = 1; return 0 end
+  local quais, map_q = D.remap(p.quais, D.quai_key)
+  local outs, map_o = D.remap(p.outs, D.out_key)
+  p.quais, p.outs = quais, outs
+  p.quota, p.quota_key = nil, nil -- le quota se refait pour le vrai nombre de coffres (Quotas.of)
+  -- tâches du tableau de ce projet
+  local tasks = f.team and f.team.board and f.team.board.tasks or {}
+  local entries, by_key = {}, {}
+  for _, key in ipairs(sorted_keys(tasks)) do
+    local t = tasks[key]
+    local j = t.ia1d
+    if j and j.pid == p.id and (j.mode == "collect" or j.mode == "fill") and type(j.idx) == "number" then
+      entries[#entries + 1] = { key = key, mode = j.mode, idx = j.idx, taken = t.worker ~= nil }
+      by_key[key] = t
+    end
+  end
+  local plan = D.plan_tasks(entries, map_o, map_q, p.id)
+  local dropped = {}
+  for _, a in ipairs(plan) do if a.action == "drop" then dropped[by_key[a.key]] = true end end
+  if next(dropped) ~= nil then Board.drop_free(f, function(t) return not dropped[t] end) end
+  for _, a in ipairs(plan) do
+    local t = by_key[a.key]
+    if a.action == "keep" and t then
+      local old = t.ia1d.idx
+      t.ia1d.idx = a.idx
+      if t.worker ~= nil then -- l'agent porte une copie de l'indice (étape « ia1d », worker.lua)
+        local ag = Build.Agents.get(t.worker)
+        local aj = ag and ag.ia1d
+        if aj and aj.pid == p.id and aj.mode == t.ia1d.mode and aj.idx == old then aj.idx = a.idx end
+      end
+      if a.newkey ~= a.key and tasks[a.newkey] == nil then
+        tasks[a.key] = nil
+        tasks[a.newkey] = t
+        t.key = a.newkey
+      end
+    end
+  end
+  p.sites_v = 1
+  log(string.format("[FO-SITES] %s : projet %d, %d copie(s) de coffre d'entree et %d de coffre de sortie retiree(s), %d tache(s) du tableau jetee(s) (plans repris avant le correctif) a %.1f min",
+    f.key or "player", p.id, dq, do_, (function() local n = 0; for _ in pairs(dropped) do n = n + 1 end; return n end)(), game.tick / 3600))
+  return dq + do_
 end
 
 --- Lot IA3-e : état court d'une demande, SANS appel du moteur (lu à chaque pensée par le cerveau ; Build.status relit les

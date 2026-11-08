@@ -214,13 +214,16 @@ function Col.waiting_all(f, surface, b, tick)
   if not (b and b.order and b.projects and surface) then return out end
   local hq = f.hq and f.hq.valid and f.hq.position or nil
   local tasks = (f.team and f.team.board and f.team.board.tasks) or {}
+  local seen = {} -- lot MESURE-MODULE : un coffre n'est lu qu'UNE fois, quel que soit le nombre d'entrées de p.outs qui le désignent
   for _, pid in ipairs(b.order) do
     local p = b.projects[pid]
     if p and Co.collects_outs(p.state, p.outs and #p.outs or 0) then
       for i, o in ipairs(p.outs) do
         local c = surface.find_entity(CHEST, { o.x, o.y })
         if c and c.valid and c.force.name == f.force then
-          local inv = c.get_inventory(defines.inventory.chest)
+          local ck = c.unit_number or (tostring(o.x) .. "," .. tostring(o.y))
+          local prev = seen[ck]
+          local inv = (not prev) and c.get_inventory(defines.inventory.chest) or nil -- (la copie n'est pas relue)
           local key = "ia1d:" .. pid .. ":o:" .. i
           local t = tasks[key]
           local ok = false
@@ -231,9 +234,18 @@ function Col.waiting_all(f, surface, b, tick)
             ok = Co.refusal({ enemy = foe ~= nil and foe.valid, loss = loss_near(f, o.x, o.y, tick),
               lethal_tick = ob and ob.lethal_tick or nil }, tick) == nil
           end
-          out[#out + 1] = { id = pid .. ":" .. i, items = inv and inv.get_contents() or {}, read_tick = tick,
+          local entry = { id = pid .. ":" .. i, items = inv and inv.get_contents() or {}, read_tick = tick,
             d = hq and ((o.x - hq.x) ^ 2 + (o.y - hq.y) ^ 2) or nil, ok = ok,
             collect = t and (t.worker and "taken" or "open") or nil, task = t and key or nil }
+          if prev then
+            -- copie du même coffre : pas de seconde lecture ; la tâche de collecte prise l'emporte sur celle qui attend
+            if entry.collect and (prev.collect == nil or (entry.collect == "taken" and prev.collect ~= "taken")) then
+              prev.collect, prev.task, prev.ok = entry.collect, entry.task, entry.ok
+            end
+          else
+            out[#out + 1] = entry
+            seen[ck] = entry
+          end
         end
       end
     end
