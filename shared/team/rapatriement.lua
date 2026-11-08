@@ -90,19 +90,22 @@ local floor, ceil, max, min = math.floor, math.ceil, math.max, math.min
 ---------------------------------------------------------------------------------------------------
 -- 1. Débit d'une sortie
 ---------------------------------------------------------------------------------------------------
---- Débit d'une sortie (objets/s) lu à l'historique { {tick, n}, ... } : la plus forte hausse du coffre entre deux relevés (une baisse est une
+--- Débit d'une sortie (objets/s) lu à l'historique { {tick, n}, ... } : la médiane des hausses du coffre entre deux relevés (une baisse est une
 --- collecte, pas une production : la paire est écartée). Un coffre qui dort plein (n >= `at`) et ne monte plus se vide, au plus à `arm` objets/s,
 --- en Rp.DRAIN_MIN minutes. Rend le débit et sa nature ("mesure" | "stock" | nil).
 function Rp.rate_of(hist, at, arm)
-  local best = 0
+  local rises = {}
   local last
   for _, h in ipairs(hist or {}) do
     if last and h[1] > last[1] then
       local r = (h[2] - last[2]) / ((h[1] - last[1]) / 60)
-      if r > best then best = r end
+      if r > 0 then rises[#rises + 1] = r end
     end
     last = h
   end
+  table.sort(rises)
+  local best = 0
+  if #rises > 0 then best = rises[floor((#rises + 1) / 2)] end -- médiane basse des hausses positives : un pic isolé ne fait pas le débit
   if arm and best > arm then best = arm end
   if best >= Rp.MIN_RATE then return best, "mesure" end
   local n = last and last[2] or 0
@@ -252,7 +255,7 @@ function Rp.candidates(srcs, docks, hub, o)
       if reuse then tx, ty = reuse.x, reuse.y end
       local covered, fill_w, fill_sum = 0, 0, 0
       for _, d in ipairs(cons) do
-        if manhattan(d.x, d.y, tx, ty) <= Li.MAX_SPAN then covered = covered + d.flow end
+        if manhattan(d.x, d.y, tx, ty) <= Li.MAX_SPAN and d.flow > covered then covered = d.flow end -- une source = un quai (liaison ordinaire) : le plus gros seulement
         fill_w = fill_w + d.flow
         fill_sum = fill_sum + d.flow * manhattan(d.x, d.y, hub.x, hub.y)
       end
@@ -363,7 +366,7 @@ end
 -- Mesure du 8/11 (debug.sethook, Rap.plan sur la sauvegarde-type) : un tracé de 180 tuiles coûte 0,49 M d'instructions, une destination
 -- inatteignable 81,6 M (0,65 à 3,6 s d'un seul tenant) : le tracé se fait donc en tranches de nœuds développés (Rp.SLICE_NODES), sur plusieurs
 -- pensées. MÊME algorithme et MÊME départage que P.belt_route (shared/team/plan.lua) : le test compare les deux tuile pour tuile.
-Rp.SLICE_NODES = 250        -- noeuds développés au plus par tranche (environ 0,2 M d'instructions mesurées : 800 par noeud développé)
+Rp.SLICE_NODES = 135        -- noeuds développés au plus par tranche (environ 110 k instructions mesurées : 800 par noeud développé ; 5 ms à 44 ns, demande de team-lead 8/11)
 Rp.TOTAL_NODES = 60000      -- noeuds développés au plus par projet, toutes recherches comprises (60 000 = 120 tranches ; au pire environ 24 M d'instructions étalées)
 Rp.POCKET_NODES = 300       -- une recherche sans issue qui a développé moins de noeuds est une POCHE (départ ou arrivée enfermés) : les autres bouts restent essayés ; au-delà, une barrière : le passage s'arrête
 local function tkey(x, y) return (x + 1048576) * 2097152 + (y + 1048576) end

@@ -207,7 +207,7 @@ local function names_of(st, b, pid)
   if not c then
     local arm, rate, pole = pick_names(b, { b.projects[pid] })
     c = { arm = arm or false, rate = rate or false, pole = pole }
-    st.names[pid] = c
+    if arm then st.names[pid] = c end -- seul le succès est gardé : un bras posé plus tard par l'équipe doit être vu
   end
   return c.arm or nil, c.rate or nil, c.pole
 end

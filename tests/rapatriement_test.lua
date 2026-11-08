@@ -76,6 +76,8 @@ local function suite(Rp, quiet)
   check(r == 0 and nat == nil, "2.7 aucun releve : rien")
   r = Rp.rate_of({ { 100, 5 }, { 100, 90 } }, 200, 5)
   check(r == 0, "2.8 deux releves au meme tick : aucun debit")
+  r = Rp.rate_of({ { 0, 0 }, { 1800, 3 }, { 3600, 6 }, { 5400, 90 } }, 200, 5)
+  check(near(r, 0.1), "2.9 un pic isole ne fait pas le debit : mediane des hausses (" .. tostring(r) .. ")")
 
   -- §3 point du tampon : médiane pondérée, prouvée contre la force brute
   local rnd = lcg(20261108)
@@ -177,7 +179,7 @@ local function suite(Rp, quiet)
   local far
   for _, c in ipairs(cands) do if c.src.key == "s-far" then far = c end end
   check(far and far.point.x == 20 and far.point.y == 10, "6.2 le tampon est a la mediane des quais non servis du meme objet (le quai servi est ecarte)")
-  check(far and near(far.covered, 2.0) and far.consumers == 2, "6.3 les quais a portee du tampon sont comptes")
+  check(far and near(far.covered, 1.0) and far.consumers == 2, "6.3 deux quais a portee : le tampon n'en sert qu'un (liaison ordinaire), covered = le plus gros (1,0), pas la somme (2,0)")
   check(far and far.d_src == 140 and far.d_tam == 30 and far.span == 110, "6.4 distances source -> QG, tampon -> QG et source -> tampon")
   check(cands[1].net >= cands[2].net, "6.5 tri par economie decroissante")
   local with_reuse = Rp.candidates({ src("s-far", 120, 20, "A", 0.8) }, docks, H, { tampons = { { x = 26, y = 12, item = "A", lines = 1 } } })
@@ -533,6 +535,8 @@ local mutants = {
   { "bord de rue : le milieu de la rue compte", "if xs then return rx == geom.lot or rx == geom.pitch - 1 end", "if xs then return true end" },
   { "bord de rue : un seul bord", "if ys then return ry == geom.lot or ry == geom.pitch - 1 end", "if ys then return ry == geom.lot end" },
   { "candidats : le stock dormant compte comme une production", "if s.nature == \"stock\" then flow = flow * Rp.STOCK_FACTOR end", "" },
+  { "debit : le pic remplace la mediane", "best = rises[floor((#rises + 1) / 2)]", "best = rises[#rises]" },
+  { "candidats : les quais a portee s'additionnent", "and d.flow > covered then covered = d.flow end", "then covered = covered + d.flow end" },
   { "candidats : la saturation est ignoree", "if s.saturated and #cons == 0 then ok, why = false, Rp.WHY_SATURATED end", "" },
   { "candidats : le tri est inverse", "if a.net ~= b.net then return a.net > b.net end", "if a.net ~= b.net then return a.net < b.net end" },
   { "decision : la confirmation est oubliee", "if (inp.seen or 0) < Rp.CONFIRM then", "if false then" },
