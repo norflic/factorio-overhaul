@@ -1,0 +1,253 @@
+--[[
+  Lot TV-ARCHI, tranche 1 (V23 de docs/TODO_VIDEO.md l.89 : enveloppe commune d'avance ; règle pure shared/team/quartiers.lua) : runtime.
+  Champ de script/team/build.lua (Build.Quartiers), pas une locale : le bloc principal de build.lua est à 199 locales.
+
+    Qr.step(f, tick, H)          E2 (Build.think, après space_step) : suivi des quartiers demandés, puis toutes les Qr.CHECK ticks la décision
+                                 (Q.decide) ; une ouverture = un projet « quartier » du plan directeur (H.request). Journal [FO-ENVELOPPE].
+    Qr.plan(f, surface, p, H)    plan du projet « quartier » (appelé par plan_project de build.lua, comme un raccord) : poteau au lot du pôle,
+                                 2 coffres de dépôt, liaison au réseau par la fin de plan commune (plan_finish : plan_power, points d'appui),
+                                 puis tous les arbres et rochers du lot du pôle en obstacles (défrichage du lot entier). Les rues vers le
+                                 quartier sont défrichées par street_clear_tasks de build.lua, qui lit p.parts[1] (rien à ajouter).
+  Réglage de carte fo-war-enveloppe (settings/tv_archi.lua, allumé par défaut). Éteint ou absent (moteur simulé des tests) : rien n'est lu,
+  rien n'est écrit (f.build.quartiers n'est pas créé), aucun projet : le plan directeur d'avant à l'identique. Un quartier déjà demandé
+  continue son chantier (projet ordinaire du plan directeur).
+  État : f.build.quartiers = { known = { [clé "I:J"] = { I, J, lot, pid, refus, open } }, next, why, logs } (nombres, chaînes, tables).
+]]
+
+local Q = require("shared.team.quartiers")
+local P = require("shared.team.plan")
+local T = require("shared.team.config") -- noms lus dans T (registre §8 bis de tests/iag_test.lua) : coffre du stock, petit poteau
+local Registry = require("script.companion.registry")
+local State = require("script.faction.state")
+
+local Qr = {}
+
+Qr.SETTING = "fo-war-enveloppe"
+Qr.CHECK = 1800        -- ticks entre deux décisions (comme la croissance du treillis, shared/team/enceinte.lua E.CHECK_TICKS)
+Qr.PRIO = 35           -- priorité du projet (sous les modules, 55 ; au-dessus du fond, 18 à 24)
+Qr.CLEAR_MAX = 400     -- arbres et rochers au plus mis en obstacles dans le lot du pôle
+Qr.LOGS = 60           -- lignes [FO-ENVELOPPE] au plus, par équipe
+Qr.DEPOT = T.annex.kinds[1].item -- le coffre des annexes du stock (32 cases)
+Qr.DEPOTS = 2
+local TREES = { "tree", "simple-entity" }
+
+function Qr.on()
+  local ok, s = pcall(function() return settings.global[Qr.SETTING] end)
+  return ok and s ~= nil and s.value == true
+end
+
+local function say(f, st, text)
+  st.logs = (st.logs or 0) + 1
+  if st.logs <= Qr.LOGS then log(text) end
+end
+
+local function sorted_keys(t)
+  local ks = {}
+  for k in pairs(t or {}) do ks[#ks + 1] = k end
+  table.sort(ks)
+  return ks
+end
+
+--- PNJ sans tâche et sans fabrication de fond (même compte que Worker.idle_count, script/team/worker.lua : pas de require, worker.lua
+--- requiert build.lua).
+local function idle_count(f)
+  local n = 0
+  for _, id in ipairs(State.sorted_keys(f.engineers or {})) do
+    local a = Registry.get(id)
+    if a and not a.task and not a.bg then n = n + 1 end
+  end
+  return n
+end
+
+--- Ticks de plan des modules posés dans un lot du treillis (projets du plan directeur).
+local function module_starts(b)
+  local out = {}
+  for _, pid in ipairs(b.order) do
+    local p = b.projects[pid]
+    local pt = p and p.parts and p.parts[1]
+    if p and p.started and pt and pt.kind == "module" and type(pt.lot) == "string" and b.lots[pt.lot] then out[#out + 1] = p.started end
+  end
+  return out
+end
+
+local CLOSED = { fini = true, refuse = true }
+
+--- Suivi des quartiers demandés : ouverture (projet fini), refus (projet refusé, disparu ou bloqué sans reprise).
+local function follow(f, st, tick)
+  local b = f.build
+  for _, k in ipairs(sorted_keys(st.known)) do
+    local kn = st.known[k]
+    if kn.pid then
+      local p = b.projects[kn.pid]
+      if p and p.state == "fini" then
+        if not kn.open then
+          kn.open = tick
+          local wired = 0
+          for _, e in ipairs(p.ents) do if e.name:find("electric%-pole") then wired = wired + 1 end end
+          say(f, st, string.format("[FO-ENVELOPPE] %s : quartier %s OUVERT a %.1f min (projet %d, pole au lot %s : %d poteau(x), %d coffre(s) de depot, %d obstacle(s) defriche(s))",
+            f.key or "player", k, tick / 3600, p.id, tostring(kn.lot), wired, Qr.DEPOTS, #(p.obstacles or {})))
+        end
+      elseif not p or p.state == "refuse" or (p.state == "bloque" and not p.retry_at) then
+        say(f, st, string.format("[FO-ENVELOPPE] %s : quartier %s refuse a %.1f min (projet %s : %s)", f.key or "player", k, tick / 3600,
+          tostring(kn.pid), p and tostring(p.reason) or "disparu"))
+        kn.pid, kn.open, kn.refus = nil, nil, (kn.refus or 0) + 1
+      end
+    end
+  end
+end
+
+--- E2 (Build.think). `H` = { request = Build.request }.
+function Qr.step(f, tick, H)
+  local b = f.build
+  if not b or not Qr.on() then return end
+  local st = b.quartiers
+  if not st then
+    st = { known = {}, next = 0, logs = 0 }
+    b.quartiers = st
+  end
+  follow(f, st, tick)
+  if tick < (st.next or 0) then return end
+  st.next = tick + Qr.CHECK
+  local open, busy = {}, false
+  for _, k in ipairs(sorted_keys(st.known)) do
+    local kn = st.known[k]
+    if kn.open then open[k] = true elseif kn.pid then busy = true end
+  end
+  local pl = b.plant and b.projects[b.plant]
+  local need, taken = Q.need(module_starts(b), tick)
+  local pile = f.team and f.team.ia3 and f.team.ia3.pile
+  local s = {
+    on = true, plant = pl ~= nil and pl.state == "fini", busy = busy, free = Q.free_open(b.lots, open), need = need,
+    idle = idle_count(f), hold = (pile and pile.hold) and true or false,
+    survie = (f.team and f.team.survie and f.team.survie.on == true) or false,
+  }
+  if s.plant and not s.busy and s.free < s.need then s.cands = Q.candidates(b.lots, st.known) end
+  local d = Q.decide(s)
+  if d.open then
+    local c = d.open
+    -- pile = « upgrade » (R3) : une retenue de la pile suspend sa réserve au coffre (Build.reserve_suspended), comme un module neuf
+    local id = H.request(f, { quartier = { I = c.I, J = c.J, lot = c.hub, key = c.key }, prio = Qr.PRIO, domain = "infrastructures",
+      pole = pl and pl.spec and pl.spec.pole or nil, pile = "upgrade" })
+    if id then
+      local kn = st.known[c.key] or { I = c.I, J = c.J, refus = 0 }
+      kn.pid, kn.lot, kn.asked = id, c.hub, tick
+      st.known[c.key] = kn
+      st.why = nil
+      say(f, st, string.format("[FO-ENVELOPPE] %s : decision a %.1f min : quartier %s ouvert d'avance (projet %d, pole au lot %s, %d lot(s) libre(s) de plus) ; lots libres des quartiers ouverts %d < besoin %d (%d module(s) en %d min) ; %d PNJ inactif(s)",
+        f.key or "player", tick / 3600, c.key, id, c.hub, c.free, s.free, s.need, taken, Q.WINDOW / 3600, s.idle))
+    end
+  elseif d.why ~= st.why then
+    st.why = d.why
+    say(f, st, string.format("[FO-ENVELOPPE] %s : a %.1f min, pas d'ouverture : %s (lots libres des quartiers ouverts %d, besoin %d, %d module(s) en %d min, %d PNJ inactif(s), %d quartier(s) ouvert(s))",
+      f.key or "player", tick / 3600, d.why, s.free, s.need, taken, Q.WINDOW / 3600, s.idle, #sorted_keys(open)))
+  end
+end
+
+local function passable(b)
+  return function(key) local s = b.segs[key]; return s ~= nil and s.state ~= "ferme" and s.state ~= "inconnu" end
+end
+
+--- Plan du projet « quartier » : (true) ou (false, raison[, attendre]). `H` = { read_masks(x0, y0, x1, y1), reserve_tiles(b, p, ents),
+--- finish(f, surface, p, masks, is_plant), add_obstacle(p, o), free_spot(b, masks, x, y, trees) } (fonctions locales de build.lua).
+function Qr.plan(f, surface, p, H)
+  local b = f.build
+  local q = p.spec.quartier
+  local l = q and b.lots[q.lot]
+  if not Q.usable(l) then return false, "quartier: lot du pole pris ou inutilisable" end
+  local x0, y0, x1, y1 = P.lot_rect(b.lat, l.i, l.j)
+  local masks = H.read_masks(x0 - 8, y0 - 8, x1 + 8, y1 + 8)
+  -- poteau et coffres de dépôt en ligne (3 tuiles libres : ni eau, ni falaise, ni bâti ; les arbres seront coupés), au plus près du
+  -- centre du lot (anneaux de Chebyshev, puis y, puis x)
+  local cx, cy = x0 + P.HALF, y0 + P.HALF
+  local spot
+  for r = 0, P.HALF - 3 do
+    for dy = -r, r do
+      for dx = -r, r do
+        if not spot and math.max(math.abs(dx), math.abs(dy)) == r then
+          local tx, ty = cx + dx, cy + dy
+          local ok = tx >= x0 + 1 and tx + 2 < x1 - 1 and ty >= y0 + 1 and ty < y1 - 1
+          for k = 0, 2 do ok = ok and masks.free(tx + k, ty) end
+          if ok then spot = { tx, ty } end
+        end
+      end
+    end
+    if spot then break end
+  end
+  if not spot then return false, "quartier: aucune place pour le poteau et les coffres" end
+  local pole = p.spec.pole or T.swap.poles[1] -- le poteau de la centrale, sinon le petit poteau (sa recette est ouverte au départ)
+  local ents = { { name = pole, x = spot[1] + 0.5, y = spot[2] + 0.5, dir = 0, part = 1, role = "quartier" } }
+  for k = 1, Qr.DEPOTS do
+    ents[#ents + 1] = { name = Qr.DEPOT, x = spot[1] + k + 0.5, y = spot[2] + 0.5, dir = 0, part = 1, role = "depot" }
+  end
+  if not H.reserve_tiles(b, p, ents) then return false, "place" end
+  p.parts[1] = { kind = "quartier", key = "quartier", lot = q.lot, ox = x0, oy = y0, w = P.LOT, h = P.LOT, power = true }
+  p.counted = true -- un quartier n'est pas un module : finish_project ne le compte ni aux modules ni aux projets finis
+  l.used = p.id
+  local ok, why, wait = H.finish(f, surface, p, masks, false)
+  if not ok then return false, why, wait end
+  -- défrichage du lot ENTIER du pôle (G38) : chaque arbre et rocher devient un obstacle, rattaché au point d'appui de sa rue
+  local pass = passable(b)
+  local found = surface.find_entities_filtered({ area = { { x0, y0 }, { x1, y1 } }, type = TREES })
+  local list = {}
+  for _, t in ipairs(found) do list[#list + 1] = { x = t.position.x, y = t.position.y } end
+  table.sort(list, function(a, c) if a.y ~= c.y then return a.y < c.y end return a.x < c.x end)
+  local n = 0
+  for _, t in ipairs(list) do
+    if n >= Qr.CLEAR_MAX then break end
+    local tx, ty = math.floor(t.x), math.floor(t.y)
+    local a = P.anchor_for(b.lat, tx + 0.5, ty + 0.5, pass)
+    local ax, ay
+    if a then ax, ay = a.x, a.y else ax, ay = math.floor(tx / 8) * 8 + 4, math.floor(ty / 8) * 8 + 4 end
+    local fx, fy = H.free_spot(b, masks, ax, ay, nil)
+    if (fx - tx) * (fx - tx) + (fy - ty) * (fy - ty) > P.BUILD_DISTANCE * P.BUILD_DISTANCE then fx, fy = H.free_spot(b, masks, tx, ty, nil) end
+    H.add_obstacle(p, { x = tx + 0.5, y = ty + 0.5, anchor = string.format("%s%g:%g", a and "" or "c", fx, fy), ax = fx, ay = fy })
+    n = n + 1
+  end
+  local links = 0
+  for _, e in ipairs(p.ents) do if e.role ~= "quartier" and e.role ~= "depot" and e.name:find("electric%-pole") then links = links + 1 end end
+  local st = b.quartiers or { logs = 0 }
+  say(f, st, string.format("[FO-ENVELOPPE] %s : projet %d planifie (quartier %s, lot %s) : poteau %s en (%.1f, %.1f), %d coffre(s) de depot, %d poteau(x) de liaison au reseau, %d arbre(s) ou rocher(s) du lot a defricher (%d trouve(s))",
+    f.key or "player", p.id, tostring(q.key), tostring(q.lot), pole, ents[1].x, ents[1].y, Qr.DEPOTS, links, n, #list))
+  return true
+end
+
+--- BANCS SEULEMENT (interface distante fo-ia1d.quartiers, scénario greffé tv-archi) :
+---   "report"           { on, why, logs, known = { { key, pid, lot, open, refus, state, obstacles, ents } } } ;
+---   "now"              la décision suivante a lieu à la prochaine pensée (st.next = 0) ;
+---   "bench_build", pid les entités planifiées du projet `pid` posées par script (le banc tient le rôle des PNJ bâtisseurs : le plan
+---                      directeur les voit « déjà là » à la pose des fantômes) ; les arbres ne sont PAS touchés. Rend le nombre posé.
+function Qr.remote(f, cmd, arg)
+  local b = f and f.build
+  if not b then return nil end
+  local st = b.quartiers
+  if cmd == "report" then
+    local out = { on = Qr.on(), why = st and st.why, logs = st and st.logs or 0, known = {} }
+    for _, k in ipairs(sorted_keys(st and st.known)) do
+      local kn = st.known[k]
+      local p = kn.pid and b.projects[kn.pid]
+      out.known[#out.known + 1] = { key = k, pid = kn.pid, lot = kn.lot, open = kn.open, refus = kn.refus or 0, state = p and p.state,
+        reason = p and p.reason, obstacles = p and #(p.obstacles or {}) or 0, ents = p and #(p.ents or {}) or 0 }
+    end
+    return out
+  elseif cmd == "now" then
+    if st then st.next = 0 end
+    return st ~= nil
+  elseif cmd == "bench_build" then
+    local p = b.projects[arg]
+    local surface = f.hq and f.hq.valid and f.hq.surface
+    if not (p and surface) then return 0 end
+    local n = 0
+    for _, e in ipairs(p.ents) do
+      if not e.built then
+        local found = surface.find_entities_filtered({ name = e.name, position = { e.x, e.y }, radius = 0.3, force = f.force, limit = 1 })[1]
+        if not found and surface.create_entity({ name = e.name, position = { e.x, e.y }, direction = e.dir, force = f.force, recipe = e.recipe }) then
+          n = n + 1
+        end
+      end
+    end
+    return n
+  end
+  return nil
+end
+
+return Qr
