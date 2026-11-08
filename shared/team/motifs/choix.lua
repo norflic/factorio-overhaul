@@ -341,6 +341,7 @@ function X.debit(m, ctx)
   end
   borne(m.entrees, conso, "tapis_entree")
   borne(m.sorties, rejet, "tapis_sortie")
+  borne(m.sorties_internes, rejet, "tapis_sortie")   -- voies fusionnées en queue : chaque rangée garde SA voie
   if n_fixe < n_tapis then n_tapis = n_fixe end
   return { sortie = sortie, util = util, conso = conso, rejet = rejet, limites = limites, n_tapis = n_tapis }
 end

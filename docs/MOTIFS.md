@@ -53,9 +53,11 @@ Débit estimé par tuile : recettes de base, bras de base (0,83 et 1,15 objet/s,
 | `fonte-2x2-simple` | fonte | 4 × 6 | 1 | 1 | série (x ou y) | 2 | 0.62 plaques/s (four de pierre) | forum |
 | `fonte-3x3-simple` | fonte | 6 × 7 | 1 | 1 | série (x ou y) | 2 | 1.25 plaques/s (four électrique) | derive |
 | `fonte-2x2-double-central` | fonte | 4 × 11 | 1 | 2 | série (x ou y) | 4 | 1.25 plaques/s (four de pierre) | ref_dc |
+| `fonte-2x2-double-central-fusion` | fonte | 4 × 11 | 1 | 1 | série (x ou y) | 4 | (voir la règle cliente) | ref_dc |
 | `fonte-2x2-double-sortie-centrale` | fonte | 4 × 11 | 2 | 1 | série (x ou y) | 4 | 1.25 plaques/s (four de pierre) | forum |
 | `fonte-chaine-directe-3x3` | fonte | 6 × 11 | 1 | 1 | série (x ou y) | 4 | (voir la règle cliente) | forum |
 | `fonte-3x3-double-central` | fonte | 6 × 13 | 1 | 2 | série (x ou y) | 4 | 2.50 plaques/s (four électrique) | derive |
+| `fonte-3x3-double-central-fusion` | fonte | 6 × 13 | 1 | 1 | série (x ou y) | 4 | (voir la règle cliente) | ref_dc |
 | `fonte-3x3-double-sortie-centrale` | fonte | 6 × 13 | 2 | 1 | série (x ou y) | 4 | 2.50 plaques/s (four électrique) | derive |
 | `labo-chaine-bras` | labo | 4 × 5 | 1 | 1 | série (x ou y) | 1 | (voir la règle cliente) | derive |
 | `labo-rangee-tapis` | labo | 4 × 5 | 1 | 1 | série (x ou y) | 1 | 0.03 unités de recherche/s (30 s) | derive |
@@ -70,7 +72,7 @@ Débit estimé par tuile : recettes de base, bras de base (0,83 et 1,15 objet/s,
 | `packs-rouges-rangee` | science | 4 × 7 | 2 | 1 | série (x ou y) | 2 | (voir la règle cliente) | derive |
 | `packs-verts-rangee` | science | 4 × 9 | 2 | 1 | série (x ou y) | 3 | (voir la règle cliente) | derive |
 
-40 motifs : asm 9, bus 3, chimie 3, energie 1, equilibreur 5, fonte 7, labo 3, mine 4, petrole 3, science 2.
+42 motifs : asm 9, bus 3, chimie 3, energie 1, equilibreur 5, fonte 9, labo 3, mine 4, petrole 3, science 2.
 
 ## Ratios usuels (calculés, jamais écrits dans le catalogue)
 
@@ -622,6 +624,31 @@ n+n.n+n.
 
 Sources : https://forums.factorio.com/viewtopic.php?p=15569 ; https://forums.factorio.com/viewtopic.php?p=46359 ; https://forums.factorio.com/viewtopic.php?p=194325
 
+### `fonte-2x2-double-central-fusion` : Colonne de fonte 2×2, deux rangées, tapis central partagé, sorties fusionnées en queue
+
+Famille **fonte**, usages : fonte, acier, sortie-unique. Origine : **ref_dc** (Fonderie.png). Tuile 4 × 11, période 4, répétable en série, 1 entrée(s), 1 sortie(s), 4 machine(s) par tuile.
+
+Comme la colonne de référence du DC, avec la queue de Fonderie.png : les deux tapis de plaques rejoignent par les côtés un seul tapis de sortie (plaques du haut sur la voie 1, du bas sur la voie 2), au bout de la colonne ; le tapis du milieu s'arrête devant la queue.
+
+Pièces d'une tuile : bras ×8, machine_fonte ×4, poteau ×3, tapis ×0, tapis_entree ×4, tapis_sortie ×8.
+Place minimale : 7 × 11 (une tuile, tête et queue comprises). Doit rester droit : tapis_sortie:1 (rangée 0), tapis_entree:1 (rangée 5), tapis_sortie:2 (rangée 10).
+
+```
+>>>>>>>>>v.
+s+s.s+s..v.
+AABBEEFF.v.
+AABBEEFF.v.
+s+s.s+s..v.
+>>>>>>>>.>>
+n.n.n.n..^.
+CCDDGGHH.^.
+CCDDGGHH.^.
+n+n.n+n..^.
+>>>>>>>>>^.
+```
+
+Sources : https://forums.factorio.com/viewtopic.php?p=15569 ; https://forums.factorio.com/viewtopic.php?p=46359 ; https://forums.factorio.com/viewtopic.php?p=194325
+
 ### `fonte-2x2-double-sortie-centrale` : Colonne de fonte 2×2, deux rangées, sortie centrale
 
 Famille **fonte**, usages : fonte, acier. Origine : **forum**. Tuile 4 × 11, période 4, répétable en série, 2 entrée(s), 1 sortie(s), 4 machine(s) par tuile.
@@ -695,6 +722,33 @@ CCCDDDGGGHHH
 CCCDDDGGGHHH
 .n+.n..n+.n.
 >>>>>>>>>>>>
+```
+
+Sources : https://forums.factorio.com/viewtopic.php?p=15569 ; https://forums.factorio.com/viewtopic.php?p=46359 ; https://forums.factorio.com/viewtopic.php?p=194325
+
+### `fonte-3x3-double-central-fusion` : Colonne de fonte 3×3 (électrique), deux rangées, tapis central, sorties fusionnées en queue
+
+Famille **fonte**, usages : fonte, acier, sortie-unique. Origine : **ref_dc**. Tuile 6 × 13, période 6, répétable en série, 1 entrée(s), 1 sortie(s), 4 machine(s) par tuile.
+
+Colonne électrique à fours de côté 3 avec la même queue : les deux tapis de plaques se fusionnent en un seul tapis de sortie à l'est.
+
+Pièces d'une tuile : bras ×8, machine_fonte ×4, poteau ×3, tapis ×0, tapis_entree ×6, tapis_sortie ×12.
+Place minimale : 9 × 13 (une tuile, tête et queue comprises). Doit rester droit : tapis_sortie:1 (rangée 0), tapis_entree:1 (rangée 6), tapis_sortie:2 (rangée 12).
+
+```
+>>>>>>>>>>>>>v.
+.s+.s..s+.s..v.
+AAABBBEEEFFF.v.
+AAABBBEEEFFF.v.
+AAABBBEEEFFF.v.
+.s+.s..s+.s..v.
+>>>>>>>>>>>>.>>
+.n..n..n..n..^.
+CCCDDDGGGHHH.^.
+CCCDDDGGGHHH.^.
+CCCDDDGGGHHH.^.
+.n+.n..n+.n..^.
+>>>>>>>>>>>>>^.
 ```
 
 Sources : https://forums.factorio.com/viewtopic.php?p=15569 ; https://forums.factorio.com/viewtopic.php?p=46359 ; https://forums.factorio.com/viewtopic.php?p=194325

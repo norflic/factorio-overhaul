@@ -352,7 +352,7 @@ batterie_debut(Ch)
 section("5. Équilibreurs : suivi de flux")
 ---------------------------------------------------------------------------------------------------
 -- flux d'une unité sur chaque sous-ensemble d'entrées ; renvoie les sorties par numéro
-local function suivi(inst, entrees_actives)
+local function suivi(inst, entrees_actives, injections)
   local occ = D.occupation(inst.pieces)
   local function at(x, y) return inst.pieces[occ[D.cle(x, y)] or 0] end
   local inject, cells = {}, {}
@@ -362,6 +362,7 @@ local function suivi(inst, entrees_actives)
       if p.role == "tapis_entree" and entrees_actives[p.k] then inject[D.cle(p.x, p.y)] = 1 end
     end
   end
+  for _, k in ipairs(injections or {}) do inject[k] = 1 end
   local function suite(p, x, y)
     if p.role == "souterrain_entree" then
       local v = D.DV[p.dir]
@@ -422,6 +423,26 @@ end
 for _, id in ipairs({ "equilibreur-1-2", "equilibreur-2-2", "equilibreur-1-4", "equilibreur-2-4", "equilibreur-4-4" }) do
   local m = Cat.get(id)
   check(m ~= nil and equilibre(m), id .. " : chaque combinaison d'entrées se répartit en parts égales sur toutes les sorties")
+end
+do
+  -- queue de fusion (Fonderie.png) : les deux tapis de plaques se retrouvent sur l'unique sortie
+  for _, id in ipairs({ "fonte-2x2-double-central-fusion", "fonte-3x3-double-central-fusion" }) do
+    local m = Cat.get(id)
+    local inst = D.instancier(m, 2, { rot = 0, miroir = false })
+    local inj = {}
+    local xmax = 0
+    for _, p in ipairs(inst.pieces) do if p.role == "tapis_sortie" and (p.k == 1 or p.k == 2) and p.x > xmax and p.x < inst.l - 3 then xmax = p.x end end
+    for _, p in ipairs(inst.pieces) do if p.role == "tapis_sortie" and (p.k == 1 or p.k == 2) and p.x == xmax then inj[#inj + 1] = D.cle(p.x, p.y) end end
+    local s = suivi(inst, {}, inj)
+    check(#inj == 2 and near(s[3] or -1, 2, 1e-9), id .. " : les deux tapis de plaques arrivent sur l'unique sortie (" .. tostring(s[3]) .. ")")
+    check(m.derive.n_entrees == 1 and m.derive.m_sorties == 1 and m.derive.place_min.l == m.periode + 3, id .. " : 1 entrée, 1 sortie, queue de 3 tuiles")
+  end
+  local c = { vitesse = { machine_fonte = 1 }, taille = { machine_fonte = 2 }, recettes = { principal = { temps = 3.2, entrees = { A = 1 }, sorties = { P = 1 } } },
+    combustible = { machine_fonte = 90 / 4000 }, bras = { bras = 0.83, bras_long = 1.15 }, tapis_voie = 7.5, poteau = { supply = 2.5, fil = 7.5 } }
+  local r = Ch.choisir({ zone = { x = 0, y = 0, l = 40, h = 12 }, famille = "fonte", usage = "sortie-unique", demande = { jeton = "P", debit = 5 }, ctx = c })
+  check(r.motif == "fonte-2x2-double-central-fusion" and r.n == 4, "usage « sortie-unique » : la colonne du DC à queue fusionnée, 4 tuiles pour 5 plaques/s (" .. tostring(r.motif) .. " " .. tostring(r.n) .. ")")
+  local d = Ch.debit(Cat.get("fonte-2x2-double-central-fusion"), c)
+  check(d and near(d.sortie.P, 1.25) and d.n_tapis == 6, "fusion : mêmes 1,25 plaques/s par tuile, 6 tuiles par voie de minerai (" .. tostring(d and d.n_tapis) .. ")")
 end
 do
   local m = Cat.get("bus-piquage-voie-exterieure")

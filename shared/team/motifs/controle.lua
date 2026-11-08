@@ -174,7 +174,8 @@ function K.verifier(m, opt)
             local q = at(nx, ny)
             local rq = q and D.ROLES[q.role]
             if not (q and rq and (rq.classe == "tapis" or rq.classe == "souterrain" or rq.classe == "repartiteur")) then
-              if not (p.role == "tapis_entree" and pris[D.cle(x, y)]) then
+              -- un tapis d'entrée peut finir dans le vide (bout de ligne) ou devant le bras qui y prend
+              if not (p.role == "tapis_entree" and (q == nil or pris[D.cle(x, y)])) then
                 e("%s en (%d, %d) mène à %s en (%d, %d)", p.role, x, y, q and q.role or "du vide", nx, ny)
               end
             elseif q.dir == opposite(p.dir) then
