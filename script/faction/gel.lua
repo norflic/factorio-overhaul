@@ -8,7 +8,7 @@
       entité non figée rend e.status tel quel (gel éteint : aucun changement) ;
     - Gel.on() : réglage de carte `fo-war-gel` (vrai par défaut ; absent : vrai) ;
     - Gel.players(war) : positions des joueurs connectés de la surface de la guerre (ordre de game.connected_players) ;
-    - Gel.input(f, players, tick) : entrées de faction de la règle (causes de la cadence S10, f.cadence.base_alert compris) ;
+    - Gel.input(f, players, army_out) : entrées de faction de la règle (causes de la cadence S10, f.cadence.base_alert compris) ;
     - Gel.spend(tick, n) : budget d'écritures `active` par tick (Gel.WRITES), partagé par les branchements ;
     - Gel.say(key, text) : journal [FO-GEL] borné (Gel.LOGS lignes par clé).
   État (global, namespace « gel ») : vstatus[unit] = statut comptable (nombre defines.entity_status) des machines figées, n_frozen,
@@ -79,11 +79,12 @@ function Gel.players(surface_index)
   return out
 end
 
---- Entrées de faction de la règle commune (mêmes causes que la cadence S10 : script/faction/commander.lua de x10-s10).
-function Gel.input(f, players)
-  local army_out = (f.groups ~= nil and next(f.groups) ~= nil) or f.route_pending ~= nil -- test de vacuité : sans effet d'ordre
+--- Entrées de faction de la règle commune : les MÊMES que la cadence S10 (cadence_input de script/faction/commander.lua) ; `army_out`
+--- = Commander.army_out(f), passé par l'appelant (ce fichier est requis par military.lua, que commander.lua requiert : pas de cycle).
+function Gel.input(f, players, army_out)
   return { is_player = f.is_player, players = players, threatened_until = f.threatened_until, attack_t = f.attack_alert_t,
-    lost_t = f.lost_t, base_alert = f.cadence and f.cadence.base_alert or nil, army_out = army_out, off = not Gel.on() }
+    hit_t = f.hit_t, lost_t = f.lost_t, base_alert = f.cadence and f.cadence.base_alert or nil, army_out = army_out,
+    off = not Gel.on() }
 end
 
 -- Budget d'écritures du tick courant (local : remis à zéro à chaque tick, aucune donnée gardée entre deux ticks).

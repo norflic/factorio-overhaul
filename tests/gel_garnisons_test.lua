@@ -112,6 +112,7 @@ local function load_mod(src)
     raw = function() return W.store end,
   }
   package.loaded["script.core.profiler"] = { start = function() end, stop = function() end }
+  package.loaded["script.faction.commander"] = { army_out = function() return W.army_out == true, nil end }
   package.loaded["script.ai3.comportement"] = {
     enabled = function() return true end,
     team = function(f) W.teams[f.id] = W.teams[f.id] or { sd = { per = {} } }; return W.teams[f.id] end,

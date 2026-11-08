@@ -33,7 +33,7 @@ local function S(o)
   local army = o.army_out
   if army == nil then army = false end -- armée rentrée par défaut (le calme de S10 l'exige)
   return { is_player = o.is_player, players = o.players == nil and {} or o.players, threatened_until = o.threatened_until,
-    attack_t = o.attack_t, lost_t = o.lost_t, base_alert = o.base_alert, army_out = army, off = o.off }
+    attack_t = o.attack_t, hit_t = o.hit_t, lost_t = o.lost_t, base_alert = o.base_alert, army_out = army, off = o.off }
 end
 if not pcall(require, "shared.faction.cadence") then
   print("[GEL] ECHEC : shared/faction/cadence.lua absent (branche x10-s10 a fusionner)")
@@ -81,6 +81,8 @@ local function cases(G)
     check(a == "eveille" and w == "menace", "G4 : menace : reveil (" .. tostring(w) .. ")")
     a, w = wake({ attack_t = T - 100 })
     check(a == "eveille" and w == "attaque", "G4 : attaque : reveil (" .. tostring(w) .. ")")
+    a, w = wake({ hit_t = T - 100 })
+    check(a == "eveille" and w == "attaque", "G4 : coup recu (hit_t, S10) : reveil (" .. tostring(w) .. ")")
     a, w = wake({ lost_t = T - 100 })
     check(a == "eveille" and w == "perte", "G4 : perte : reveil (" .. tostring(w) .. ")")
     a, w = wake({ base_alert = true })
@@ -225,6 +227,7 @@ local MUTANTS = {
   { "garnison : votre equipe figee", "if o.is_player then return \"votre equipe\" end", "" },
   { "garnison : marge d'arrivee ignoree", "o.d > r + Gel.ARRIVED_MARGIN then", "o.d > r then" },
   { "garnison : ordre change ignore", "if o.changed then return \"ordre\" end", "" },
+  { "coup recu (hit_t) oublie", "hit_t = s.hit_t, ", "" },
   { "garde fermee ouverte (joueurs inconnus)", "if type(box) ~= \"table\" or type(players) ~= \"table\" then return true end", "if type(box) ~= \"table\" or type(players) ~= \"table\" then return false end" },
 }
 quiet = true

@@ -32,6 +32,7 @@ local G = require("shared.faction.gel")
 local A = require("shared.ai3.armee")
 local Gel = require("script.faction.gel")
 local C = require("script.ai3.comportement")
+local Commander = require("script.faction.commander") -- Commander.army_out (S10) ; requis au chargement, après commander
 
 local Ga = {}
 
@@ -378,7 +379,7 @@ local function guet(tick)
     for _, fid in ipairs(State.alive()) do
       local f = war.factions[fid]
       if f and f.hq and f.hq.valid and f.hq_pos and f.soldiers and (f.soldiers_count or 0) > 0 then
-        local s = Gel.input(f, players)
+        local s = Gel.input(f, players, (Commander.army_out(f)))
         if not Ga.ON then s.off = true end
         s.attack_t, s.lost_t = max_t(s.attack_t, a.hit[fid]), max_t(s.lost_t, a.lost[fid])
         local t = C.enabled() and C.team(f) or nil

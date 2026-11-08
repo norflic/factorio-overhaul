@@ -16,6 +16,7 @@ local G = require("shared.faction.gel")
 local Gc = require("shared.faction.gel_compta")
 local Gel = require("script.faction.gel")
 local Gu = require("script.faction.gel_usines")
+local Commander = require("script.faction.commander") -- Commander.army_out (S10) ; requis au chargement, après commander
 
 local Gj = {}
 
@@ -386,7 +387,7 @@ local function guet(tick)
     for _, fid in ipairs(State.alive()) do
       local f = war.factions[fid]
       if f then
-        local s = Gel.input(f, players)
+        local s = Gel.input(f, players, (Commander.army_out(f)))
         if not Gu.ON or not (f.hq and f.hq.valid) then s.off = true end
         guet_group(fid, tostring(f.key), s, tick)
         if tick % (5 * 3600) == 0 and u.ids_f[fid] then bilan(f, fid, tick) end

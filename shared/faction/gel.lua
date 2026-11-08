@@ -34,7 +34,7 @@ end
 
 local function cd_input(s, box, players)
   return { is_player = s.is_player, box = box, players = players, threatened_until = s.threatened_until, attack_t = s.attack_t,
-    lost_t = s.lost_t, base_alert = s.base_alert, army_out = s.army_out }
+    hit_t = s.hit_t, lost_t = s.lost_t, base_alert = s.base_alert, army_out = s.army_out }
 end
 
 --- Une cause de FACTION (sans la distance des joueurs) : rend (vrai, cause) ou (faux, nil).
