@@ -204,6 +204,15 @@ local function suite(Rp, quiet)
   check(near(stock[1].worth_flow, 0.8 * Rp.STOCK_FACTOR) and near(prod[1].worth_flow, 0.8) and stock[1].net < prod[1].net and stock[1].flow == 0.8,
     "6.14 un debit de stock ne compte que pour Rp.STOCK_FACTOR dans le prix, le debit reste le vrai")
 
+  -- objet saturé au QG sans quai preneur : pas de ligne ; avec un quai preneur : la ligne reste possible
+  local sat_src = { key = "sat", pid = 1, idx = 1, x = 120, y = 20, item = "A", rate = 0.8, nature = "mesure", saturated = true }
+  local sat_none = Rp.candidates({ sat_src }, {}, H)
+  check(sat_none[1].ok == false and sat_none[1].why == Rp.WHY_SATURATED, "6.15 objet sature au QG et aucun quai : refuse avec la cause ecrite")
+  local sat_dock = Rp.candidates({ sat_src }, docks, H)
+  check(sat_dock[1].ok == true, "6.16 objet sature au QG mais des quais le consomment : la ligne reste possible")
+  local unsat = Rp.candidates({ { key = "u", pid = 1, idx = 1, x = 120, y = 20, item = "A", rate = 0.8, nature = "mesure", saturated = false } }, {}, H)
+  check(unsat[1].why ~= Rp.WHY_SATURATED, "6.17 objet non sature : la cause n'est pas la saturation")
+
   -- §7 décision
   local good = { worth = true, worth_why = "ok", open_total = 0, free = 1, seen = 2, tries = 0, since_try = Rp.RETRY_AFTER, enemies = 0, threat = false, lines = 0 }
   local function with(t) local c = {} for k, v in pairs(good) do c[k] = v end for k, v in pairs(t) do c[k] = v end return c end
@@ -406,6 +415,54 @@ local function suite(Rp, quiet)
   local c1, c2 = Rp.candidates(srcs, docks, H), Rp.candidates(srcs, docks, H)
   check(#c1 == #c2 and c1[1].src.key == c2[1].src.key and near(c1[1].net, c2[1].net), "13.2 deux appels, meme resultat")
 
+  -- §17 recherche de chemin reprenable : même résultat que P.belt_route (shared/team/plan.lua), quel que soit le découpage
+  local PP = require("shared.team.plan")
+  local rnd4 = lcg(424242)
+  local same, total, sliced_same, cap_same = 0, 0, 0, 0
+  for case = 1, 160 do
+    local W, H = 14 + rnd4(12), 14 + rnd4(12)
+    local wall = {}
+    local density = rnd4(35)
+    for x = 0, W do for y = 0, H do if rnd4(100) <= density then wall[x .. ":" .. y] = true end end end
+    local s = { x = 1 + (rnd4(3) - 1), y = 1 + (rnd4(3) - 1) }
+    local t = { x = W - (rnd4(3) - 1), y = H - (rnd4(3) - 1) }
+    wall[s.x .. ":" .. s.y], wall[t.x .. ":" .. t.y] = nil, nil
+    local function cost(x, y) if wall[x .. ":" .. y] then return nil end if case % 4 < 2 then return 1 + (((x * 7 + y * 3) % 5 == 0) and 1 or 0) end return 1 + ((x * 7 + y * 3) % 5) end
+    local bounds = { x0 = 0, y0 = 0, x1 = W, y1 = H }
+    local weight = (case % 2 == 0) and 1.4 or 1
+    local cap = (case % 5 == 0) and 25 or 100000
+    local ref, why = PP.belt_route(s, t, 2, bounds, cost, { weight = weight, max = cap })
+    local job = Rp.route_begin(s, t, 2, bounds, weight)
+    local st = Rp.route_step(job, cost, nil, cap)
+    total = total + 1
+    local ok_one = (ref ~= nil and st == "found" and #ref == #job.tiles) or (ref == nil and st ~= "found" and job.why == why)
+    if ok_one and ref then for i = 1, #ref do if ref[i].x ~= job.tiles[i].x or ref[i].y ~= job.tiles[i].y or ref[i].dir ~= job.tiles[i].dir then ok_one = false end end end
+    if ok_one then same = same + 1 end
+    local job2 = Rp.route_begin(s, t, 2, bounds, weight)
+    local guard = 0
+    local st2 = "more"
+    while st2 == "more" and guard < 100000 do st2 = Rp.route_step(job2, cost, 1 + rnd4(9), cap); guard = guard + 1 end
+    local ok_sl = (ref ~= nil and st2 == "found" and #ref == #job2.tiles) or (ref == nil and st2 ~= "found" and job2.why == why)
+    if ok_sl and ref then for i = 1, #ref do if ref[i].x ~= job2.tiles[i].x or ref[i].y ~= job2.tiles[i].y then ok_sl = false end end end
+    if ok_sl then sliced_same = sliced_same + 1 end
+    if cap == 25 and ok_one then cap_same = cap_same + 1 end
+  end
+  check(same == total, string.format("17.1 d'un seul tenant : meme trace que P.belt_route sur %d grilles tirees (%d)", total, same))
+  check(sliced_same == total, string.format("17.2 en tranches de 1 a 9 noeuds : meme trace (%d sur %d)", sliced_same, total))
+  local jb = Rp.route_begin({ x = 0, y = 0 }, { x = 5, y = 5 }, 2, { x = 0, y = 0, x1 = 9, y1 = 9 }, 1)
+  check(Rp.route_step(jb, function() return nil end, 10, 100) == "none" and jb.why == "depart", "17.3 depart interdit : refuse avec la cause")
+  local jc = Rp.route_begin({ x = 0, y = 0 }, { x = 5, y = 5 }, 2, { x0 = 0, y0 = 0, x1 = 9, y1 = 9 }, 1)
+  check(Rp.route_step(jc, function(x, y) if x == 5 and y == 5 then return nil end return 1 end, 10, 100) == "none" and jc.why == "arrivee", "17.4 arrivee interdite : refuse avec la cause")
+  local jd = Rp.route_begin({ x = 0, y = 0 }, { x = 9, y = 9 }, 2, { x0 = 0, y0 = 0, x1 = 9, y1 = 9 }, 1)
+  local sd = Rp.route_step(jd, function() return 1 end, 3, 100)
+  check(sd == "more" and jd.expanded == 3, "17.5 une tranche de 3 noeuds developpe 3 noeuds et rend la main (" .. tostring(sd) .. " " .. jd.expanded .. ")")
+  local je = Rp.route_begin({ x = 0, y = 0 }, { x = 9, y = 9 }, 2, { x0 = 0, y0 = 0, x1 = 9, y1 = 9 }, 1)
+  check(Rp.route_step(je, function() return 1 end, nil, 5) == "cap" and je.why == "trop long", "17.6 plafond de noeuds : trop long")
+  local jf = Rp.route_begin({ x = 0, y = 0 }, { x = 4, y = 0 }, 2, { x0 = 0, y0 = 0, x1 = 9, y1 = 9 }, 1)
+  local function no_open_state() for k, v in pairs(jf) do if type(v) == "function" then return false end end return true end
+  Rp.route_step(jf, function() return 1 end, 2, 100)
+  check(no_open_state(), "17.7 l'etat d'une recherche ne contient aucune fonction")
+
   return fail_n, ok_n
 end
 
@@ -467,10 +524,16 @@ local mutants = {
   { "candidats : le tampon n'est plus ramene au QG", "px, py = Rp.clamp_near(px, py, hub, Rp.NEAR_HUB)", "" },
   { "candidats : le tampon du meme objet n'est pas controle", "if t.item == s.item and (t.lines or 1) < Rp.REUSE_MAX", "if (t.lines or 1) < Rp.REUSE_MAX" },
   { "candidats : la limite de lignes par tampon est oubliee", "(t.lines or 1) < Rp.REUSE_MAX and", "true and" },
+  { "chemin : le poids de l'heuristique est ignore", "local h = (math.abs(nx - t.x) + math.abs(ny - t.y)) * hw", "local h = (math.abs(nx - t.x) + math.abs(ny - t.y))" },
+  { "chemin : le plafond de noeuds est ignore", "if job.expanded > (cap or math.huge) then", "if false then" },
+  { "chemin : un noeud ferme est rouvert", "if not closed[nk] then\n            local c = cost(nx, ny)", "if true then\n            local c = cost(nx, ny)" },
+  { "chemin : la tranche ne rend jamais la main", "if left <= 0 then return \"more\" end", "" },
+  { "chemin : tas sans depart a egalite de cle", "if a.f < b.f or (a.f == b.f and (a.h < b.h or (a.h == b.h and a.k < b.k))) then m = r end", "if a.f <= b.f then m = r end" },
   { "bord de rue : le croisement compte", "if xs and ys then return false end -- croisement", "" },
   { "bord de rue : le milieu de la rue compte", "if xs then return rx == geom.lot or rx == geom.pitch - 1 end", "if xs then return true end" },
   { "bord de rue : un seul bord", "if ys then return ry == geom.lot or ry == geom.pitch - 1 end", "if ys then return ry == geom.lot end" },
   { "candidats : le stock dormant compte comme une production", "if s.nature == \"stock\" then flow = flow * Rp.STOCK_FACTOR end", "" },
+  { "candidats : la saturation est ignoree", "if s.saturated and #cons == 0 then ok, why = false, Rp.WHY_SATURATED end", "" },
   { "candidats : le tri est inverse", "if a.net ~= b.net then return a.net > b.net end", "if a.net ~= b.net then return a.net < b.net end" },
   { "decision : la confirmation est oubliee", "if (inp.seen or 0) < Rp.CONFIRM then", "if false then" },
   { "decision : la menace est ignoree", "if inp.threat then return", "if false then return" },
