@@ -189,6 +189,17 @@ T.annex = {
   early_at = 0.60, early_keep = 0.55, early_ticks = 5 * 3600, refused_ticks = 3600, retry = 1800, gap = 1,
   block = { near = 5, far = 11, half_south = 11, half_north = 7 },
 }
+-- Lot STOCKAGE-VITAL (retour du DC sur 0.6.58, 7/11 : coffres pleins de pierre, équipe arrêtée jusqu'à ce qu'il pose des coffres) :
+-- matières VITALES (le fer et le charbon des avant-postes) ; une autre matière ne prend pas les dernières cases (reserve : part des
+-- cases gardée aux vitales) ; au-dessus de stop_at, les non vitales ne sont plus ramassées aux avant-postes (et une non vitale
+-- saturée par le cerveau jamais) ; au-dessus de urgent_at sans coffre en main, un coffre est réclamé en urgence. Règle :
+-- shared/team/stockage.lua.
+-- Le MINERAI de fer aussi (relecture du 7/11) : celui du minage de renfort (FER-EQUIPE) passe par le stock avant les fours du QG ;
+-- sans lui, un stock presque plein refusait le minerai, donc les plaques.
+T.stock_vital = { T.outposts.iron.product, T.outposts.coal.product, T.outposts.iron.resource }
+-- urgent_at reste SOUS le plafond des non vitales (1 - réserve, arrondi : 81/96 = 84,4 % pour le coffre du QG) : à 0,85, une pierre
+-- seule arrêtée par la réserve n'aurait jamais déclenché l'urgence (tests/stockage_test.lua le contrôle pour 16 à 784 cases).
+T.stockage = { reserve = 0.15, stop_at = 0.80, urgent_at = 0.80 }
 -- Fournée d'une tournée « smelt » (script/team/worker.lua) : minerai porté = T.smelt_per_furnace entrées par four du QG,
 -- au moins T.smelt_trip_min (la fournée de main 0.6.1 : 20 entrées pour les 4 fours de la fonderie de base d'une
 -- faction, d'où 5 par four) : une fonderie agrandie par les bras libres (shared/ai3/bras.lua, Br.smelters) n'est pas

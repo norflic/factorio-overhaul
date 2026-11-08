@@ -45,6 +45,7 @@ local Rr = require("shared.team.rebuild_rapide") -- lot REBUILD-RAPIDE : ordre d
 local RrRt = require("script.team.rebuild_rapide") -- lot REBUILD-RAPIDE : foreuse thermique de secours dans un projet rouvert
 local Bm = require("shared.team.book_max") -- lot S5 (×10) : plus grand nombre fabricable, test léger sans copie du stock
 
+local Profiler = require("script.core.profiler") -- lot X10-S0 : portees fines (mesure seulement)
 local Recon = {}
 
 -- Lot S5 (×10, fo-logs/2026-11-07_X10/S5_CRITERES.md) : dans Recon.craft_spares, « fabricable ? » et « matière qui manque » sont
@@ -335,15 +336,20 @@ end
 
 --- Une pensée de l'équipe : tâches de reconstruction au tableau (après Board.sync, comme le plan directeur).
 function Recon.think(f, surface, tick)
+  Profiler.fstart("recon:sweep") -- lot X10-S0 : mesure seulement
   Sweep.step(f, surface, tick) -- lot REBUILD-TOUT : relevé par tranches des pièces posées des projets (horloge propre)
+  Profiler.fstop("recon:sweep")
   local s = f.recon
   if not s then return 0 end
   s.lost, s.hist = s.lost or {}, s.hist or {} -- registre d'une version d'essai : jamais d'erreur à l'indexation
   -- Fin de vie du registre (une fois par minute) : AVANT les sorties anticipées, sinon la mémoire des destructions (hist) d'un registre
   -- vide ou d'une équipe au tableau plein de tâches « rebuild » ne serait jamais élaguée (sauvegarde qui grossit).
+  Profiler.fstart("recon:ruines")
   if Rc.prune_due(s, tick) then Rc.prune(s, tick) end
   Ruines.step(f, s, tick) -- lot REBUILD-AVANT-POSTE : verdict de chaque ruine (refaite, expirée, remplacée, sans pièce, site pris)
+  Profiler.fstop("recon:ruines")
   if next(s.lost) == nil then return 0 end
+  Profiler.fstart("recon:releve")
   -- Mesure seule : une pièce perdue revue en place (refaite par le plan directeur, le joueur…) est datée, mais reste au registre.
   if tick >= (s.scan_at or 0) then
     s.scan_at = tick + 600
@@ -362,6 +368,7 @@ function Recon.think(f, surface, tick)
       end
     end
   end
+  Profiler.fstop("recon:releve")
   local b = Board.get(f)
   -- Libère les pièces dont la tâche n'existe plus ou n'a plus d'ouvrier (PNJ mort en route).
   local open = 0
@@ -382,8 +389,12 @@ function Recon.think(f, surface, tick)
     if b.tasks[key].kind == "rebuild" then open = open + 1 end
   end
   if open >= Recon.MAX_OPEN then return 0 end
+  Profiler.fstart("recon:poteaux")
   refresh_poles(f, s, surface, tick)
+  Profiler.fstop("recon:poteaux")
+  Profiler.fstart("recon:secours")
   substitute_drills(f, s, surface, tick)
+  Profiler.fstop("recon:secours")
   local due = Rc.due(s, tick)
   if #due == 0 then return 0 end
   local added, tried = {}, 0
@@ -593,13 +604,17 @@ local function substitute_poles(f, s, book, free, tick, memo, keys)
 end
 
 function Recon.craft_spares(f, book, free, tick)
+  Profiler.fstart("spares:secours") -- lot X10-S0 : mesure seulement
   RrRt.drill_swap(f, book, free, tick) -- lot REBUILD-RAPIDE (d) : foreuse thermique de secours (avant la sortie anticipée : registre vide compris)
+  Profiler.fstop("spares:secours")
   local s = f.recon
   if not (s and s.lost and next(s.lost) and book and free) then return 0 end
   -- Lot S5 : mémo de cet appel seulement ; clés du registre triées UNE fois pour substitute_poles et Rc.demand (substitute_poles
   -- ne change que r.place et r.item, pas les clés ; avant : deux tris des clés et le tri de Rc.due, jusqu'à 635 pièces)
   local keys = Recon.S5 and State.sorted_keys(s.lost) or nil
+  Profiler.fstart("spares:poteaux")
   substitute_poles(f, s, book, free, tick, Recon.S5 and { ok = {}, raw = {} } or nil, keys)
+  Profiler.fstop("spares:poteaux")
   local wanted = Rc.demand(s, tick, function(item) return free[item] or 0 end, keys)
   if #wanted == 0 then return 0 end
   local added = {}

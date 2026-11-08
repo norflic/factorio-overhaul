@@ -634,8 +634,11 @@ function Sites.census(surface, name, pos)
   local half = Sites.CENSUS_HALF
   local out = nil
   while true do
+    Profiler.fstart("census:find") -- lot X10-S0 : mesure seulement
     local ents = surface.find_entities_filtered({ area = { { pos.x - half, pos.y - half }, { pos.x + half, pos.y + half } },
       name = name })
+    Profiler.fstop("census:find")
+    Profiler.fstart("census:idx")
     local idx = {}
     local seed, sd = nil, nil
     for _, e in ipairs(ents) do
@@ -647,7 +650,9 @@ function Sites.census(surface, name, pos)
       local d = dx * dx + dy * dy
       if sd == nil or d < sd or (d == sd and k < seed[3]) then seed, sd = { x, y, k }, d end
     end
+    Profiler.fstop("census:idx")
     if not seed then break end
+    Profiler.fstart("census:bfs")
     local qx, qy = { seed[1] }, { seed[2] }
     local seen = { [seed[3]] = true }
     local head, n, amount = 1, 0, 0
@@ -673,6 +678,7 @@ function Sites.census(surface, name, pos)
         end
       end
     end
+    Profiler.fstop("census:bfs")
     local touches = x0 <= pos.x - half + 1 or y0 <= pos.y - half + 1 or x1 >= pos.x + half - 2 or y1 >= pos.y + half - 2
     if touches and not cut and half < Sites.CENSUS_MAX then
       half = math.min(Sites.CENSUS_MAX, half * 2)

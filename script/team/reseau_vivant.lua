@@ -19,6 +19,7 @@
 local M = require("shared.team.modules")
 local S = require("shared.team.reseau_sante")
 local Cr = require("shared.team.coupure_reseau") -- lot ENERGIE (2/11) : chemin le plus court des poteaux à reposer, second chemin
+local Gens = require("script.team.generateurs") -- lot X10-S4 : registre des génératrices (plus de recherche sur toute la surface)
 
 local Rv = {}
 
@@ -151,11 +152,7 @@ local function in_construction(b, x, y)
 end
 
 local function net_read(f, surface, b)
-  local gnets = {}
-  for _, g in ipairs(surface.find_entities_filtered({ force = f.force, type = "generator" })) do
-    local id = g.electric_network_id
-    if id then gnets[id] = true end
-  end
+  local gnets = Gens.networks(surface, f.force, "generator") -- lot X10-S4 : registre des génératrices
   local out = { islands = 0, uncovered = 0, nets = {}, live = gnets } -- (lot ENERGIE : nets = réseaux des îlots, live = réseaux alimentés)
   for _, e in ipairs(surface.find_entities_filtered({ force = f.force, type = ELEC_TYPES })) do
     -- Le réseau d'abord : la quasi-totalité des machines est sur un réseau avec centrale, et le prototype (objet créé à chaque lecture)
@@ -242,11 +239,27 @@ local function job_finish(b, j)
   return out
 end
 
---- Avance le relevé en cours de Rv.BANDS_PER_PULSE bandes au plus (jeton du tick pris d'abord : api.jeton, script/team/pouls_jeton.lua).
+--- Lot LOURD (point 2) : coût DÉCLARÉ au jeton (script/core/lourd.lua) du prochain pas du relevé `j` : les chunks couverts par les
+--- Rv.BANDS_PER_PULSE tranches suivantes (même avance que job_band), au plus jusqu'à la fin ; nil (tout le budget) quand tout le relevé se
+--- fait à la passe.
+function Rv.cout(j)
+  if Rv.BANDS_PER_PULSE == math.huge then return nil end
+  local y, x, n = j.y, j.x or j.x0, 0
+  for _ = 1, Rv.BANDS_PER_PULSE do
+    if y >= j.y_end then break end
+    local yb, xb = math.min(y + Rv.BAND, j.y_end), math.min(x + Rv.COLS, j.x1)
+    n = n + (yb - y) * (xb - x)
+    if xb >= j.x1 then x, y = j.x0, yb else x = xb end
+  end
+  return n
+end
+
+--- Avance le relevé en cours de Rv.BANDS_PER_PULSE bandes au plus (jeton du tick pris d'abord : api.jeton, script/team/pouls_jeton.lua,
+--- au coût déclaré Rv.cout).
 --- Rend la table du relevé quand il est fini, nil sinon.
 local function job_step(api, f, surface, sv, tick)
   local j = sv.nr_job
-  if api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":rv") then return nil end
+  if api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":rv", nil, Rv.cout(j)) then return nil end
   local P = api.prof
   local done = false
   for _ = 1, Rv.BANDS_PER_PULSE do

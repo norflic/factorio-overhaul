@@ -320,8 +320,10 @@ local MUT = {
   { "echange : plan perdu en route", "out[#out + 1] = { id = r.id, cx = c[1], cy = c[2], dir = c[4], poles = {}, est = 0, exchange = ex }", "out[#out + 1] = { id = r.id, cx = c[1], cy = c[2], dir = c[4], poles = {}, est = 0 }" },
   { "lectures de place sans borne", "    if #out >= n or fit_tries >= (ctx.fit_tries or S.FIT_TRIES) then break end", "    if #out >= n then break end" },
   { "puissance a l'envers", "<= c.capacity + EPS", ">= c.capacity - EPS" },
-  { "cases voisines ignorees (couverture)", "for _, p in ipairs(near(box, 1)) do", "for _, p in ipairs(near(box, 0)) do" },
-  { "cases trop proches (chaine)", "near(box_at(cs[1]), far_r)", "near(box_at(cs[1]), 1)" },
+  -- (lot S5 du ×10 : powered_at lit les cases sans near, et une seule boîte b1 sert à la chaîne ; motifs suivis, mêmes mutations)
+  { "cases voisines ignorees (couverture)", "    for dy = -1, 1 do\n      for dx = -1, 1 do\n        local g = grid[(gx + dx) * 4194304 + (gy + dy)]",
+    "    for dy = 0, 0 do\n      for dx = 0, 0 do\n        local g = grid[(gx + dx) * 4194304 + (gy + dy)]" },
+  { "cases trop proches (chaine)", "near(b1, far_r)", "near(b1, 1)" },
   -- (mutants équivalents écartés, 7/11 : retirer « recouvre l'ancienne emprise » ou la priorité de la direction ne change aucun placement :
   -- les décalages de ±1,5 recouvrent toujours la 2 × 2, et un placement d'une autre direction est toujours plus loin de l'ancien centre)
   { "poteau eteint compte", "  for _, s in ipairs(sources or {}) do\n    if s.powered then\n      if S.covered(s.x, s.y, s.dist, box) then return { poles = {}, source = s } end", "  for _, s in ipairs(sources or {}) do\n    if true then\n      if S.covered(s.x, s.y, s.dist, box) then return { poles = {}, source = s } end" },

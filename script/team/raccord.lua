@@ -21,6 +21,7 @@ local M = require("shared.team.modules")
 local P = require("shared.team.plan")
 local Rv = require("script.team.reseau_vivant")
 local Cr = require("shared.team.coupure_reseau") -- lot ENERGIE (2/11) : second chemin autour des ennemis
+local Gens = require("script.team.generateurs") -- lot X10-S4 : registre des génératrices (plus de recherche sur toute la surface)
 
 local Ra = {}
 
@@ -55,13 +56,9 @@ end
 -- Relevé
 ---------------------------------------------------------------------------------------------------
 --- Réseaux alimentés (au moins une machine génératrice de l'équipe) : { [numéro] = true }, nombre.
+--- Lot X10-S4 : lu au registre des génératrices (script/team/generateurs.lua), même ensemble que l'ancienne recherche sur toute la surface.
 local function live_networks(f, surface)
-  local live, n = {}, 0
-  for _, g in ipairs(surface.find_entities_filtered({ force = f.force, type = GEN_TYPES })) do
-    local id = g.electric_network_id
-    if id and not live[id] then live[id] = true; n = n + 1 end
-  end
-  return live, n
+  return Gens.networks(surface, f.force, GEN_TYPES)
 end
 
 -- Lot LOURD : le même relevé par bandes. Une bande = Ra.BAND lignes de chunks sur toute la largeur de la boîte des chunks générés ; un
@@ -101,6 +98,21 @@ end
 
 -- Bancs hors jeu (tests/lourd_test.lua) : le relevé des générateurs par bandes et d'un bloc, sur un même monde.
 Ra.generateurs = { new = gen_job_new, band = gen_band, finish = gen_finish, bloc = live_networks }
+
+--- Lot LOURD (point 2) : coût DÉCLARÉ au jeton (script/core/lourd.lua) des Ra.BANDS_PER_PULSE bandes suivantes d'un relevé à la ligne
+--- `y` (fin `y_end`, `width` chunks de large) : les chunks qu'elles couvrent, au plus jusqu'à la fin ; nil (tout le budget) quand tout le
+--- relevé se fait à la passe.
+function Ra.cout(y, y_end, width)
+  if Ra.BANDS_PER_PULSE == math.huge then return nil end
+  local n = 0
+  for _ = 1, Ra.BANDS_PER_PULSE do
+    if y >= y_end then break end
+    local yb = math.min(y + Ra.BAND, y_end)
+    n = n + (yb - y) * width
+    y = yb
+  end
+  return n
+end
 
 --- Lot FONDERIE (3/11, 0.6.43) : une bande de champ EN COURS (réserve à chantier) dont des machines sont posées est relevée aussi, quand la
 --- fonderie à tapis est allumée (`champ_live`, passé par build.lua) : son raccord du plan peut viser un poteau détruit depuis (attaque
@@ -451,13 +463,17 @@ function Ra.step(api, f, surface, tick)
       -- Lot POULS : le début de relevé (live_networks : une recherche sur toute la surface) ne tombe jamais sur le tick d'une bande du relevé du
       -- réseau (script/team/reseau_vivant.lua) ni sur un autre début (autre équipe) : jeton du tick (api.jeton, script/team/pouls_jeton.lua).
       -- Jeton pris : rien de fait, l'horloge intacte, nouvel essai à la passe suivante.
-      if api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":ra") then return end
+      -- Lot LOURD (point 2) : coût déclaré au jeton (script/core/lourd.lua) : chunks de la première bande ; sans boîte, tout le budget.
+      local box = api.box and api.box(surface)
+      if api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":ra", nil,
+        box and Ra.cout(box.y0, box.y1 + 1, box.x1 + 1 - box.x0) or nil) then return end
       st.next = tick + R.PERIOD
       -- Lot LOURD : boîte des chunks connue (api.box) : relevé des générateurs par bandes (st.lj), une bande par passe sous le jeton ; la
       -- centrale n'est lue qu'ici, au départ, comme avant. L'horloge est posée ici : la cadence des cycles est celle d'avant, le cycle
       -- commence quand la dernière bande est faite. Sans boîte (bancs d'avant ce lot) : d'un bloc, comme avant.
-      local box = api.box and api.box(surface)
-      if not box then
+      -- Lot X10-S4 : registre des génératrices prêt (script/team/generateurs.lua, en jeu toujours) : d'un bloc aussi, car live_networks ne
+      -- lit plus que les génératrices de l'équipe (O(génératrices), réseaux lus maintenant) ; les bandes restent le chemin sans registre.
+      if not box or Gens.ready() then
         if P then P.fstart("ra:debut") end
         st.cyc = start_cycle(f, surface, b, api.champ_live)
         if P then P.fstop("ra:debut") end
@@ -465,7 +481,7 @@ function Ra.step(api, f, surface, tick)
       end
       lj = gen_job_new(box)
       st.lj = lj
-    elseif api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":ra") then
+    elseif api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":ra", nil, Ra.cout(lj.y, lj.y_end, lj.x1 - lj.x0)) then
       return
     end
     local done = false

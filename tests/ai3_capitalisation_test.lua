@@ -1794,6 +1794,49 @@ local function s19()
       tostring(r1.kw and r1.kw.blocked)))
 end
 
+-- §20 Lot VIDEO-COUVERTURE 5 (critères C5.2 et C5.4, écrits avant le code) : le module SUIVANT attend la 1re production de l'amont ;
+-- le relevé du courant qui manque ferme la garde (refus qui nomme l'entrée), l'amorçage (aucune centrale finie : power = nil) reste ouvert.
+local function s20()
+  local D = vdata()
+  local function gears(over)
+    local inp = iron_scene(D, 0, { sinks = { { item = "iron-gear-wheel", rate = 120 } },
+      flows = { ["iron-ore"] = { made = 3000 }, ["iron-plate"] = { made = 3000 } },
+      machines = { { entity = "stone-furnace", recipe = "iron-plate", n = 160, where = "qg" } } })
+    for k, v in pairs(over or {}) do inp[k] = v end
+    return inp
+  end
+  local base = Ca.decide(gears(), {})
+  check(find(base, "chaine:iron-gear-wheel") ~= nil, "§20 C5.2 témoin : sans suspension, la chaîne d'engrenages est décidée")
+  local held = Ca.decide(gears({ hold = { ["iron-plate"] = "attente de confirmation : 1 engage(s)" } }), {})
+  local rf = refus_of(held, "chaine:iron-gear-wheel")
+  check(find(held, "chaine:iron-gear-wheel") == nil and rf and rf.why:find("confirmation : en amont : iron-plate", 1, true) == 1,
+    "§20 C5.2 : les plaques n'ont rien produit : le module suivant (engrenages) est refusé, le refus nomme l'amont (" .. tostring(rf and rf.why) .. ")")
+  check(find(held, "couvrir:d1") ~= nil, "§20 C5.2 : l'extraction (sans recette) n'est pas retenue par l'amont")
+  local lifted = Ca.decide(gears({ hold = {} }), {})
+  check(canon(lifted) == canon(base), "§20 C5.2 : levé à la 1re production (hold vidé) : rendu identique au témoin")
+  local other = Ca.decide(gears({ hold = { ["steel-plate"] = "attente de confirmation : 1 engage(s)" } }), {})
+  check(find(other, "chaine:iron-gear-wheel") ~= nil, "§20 C5.2 : une attente sur un objet que la recette ne consomme pas ne retient rien")
+  -- C5.4 : relevé du courant
+  local d1 = iron_scene(D, 150, { power = {} })
+  local r1 = Ca.decide(d1, {})
+  local rf1, rf1o = refus_of(r1, "couvrir:d1"), refus_of(r1, "ouvrir:s2")
+  local opened = false
+  for _, o in ipairs(r1.orders) do if o.kind == "couvrir" or o.kind == "ouvrir" then opened = true end end
+  check(not opened and rf1 and rf1.why:find("power.have_kw", 1, true) and rf1.why:find("entree absente", 1, true) and rf1o and rf1o.why:find("power.have_kw", 1, true),
+    "§20 C5.4 : relevé du courant sans capacité : aucune foreuse électrique ouverte, refus écrit qui nomme l'entrée (" .. tostring(rf1 and rf1.why) .. ")")
+  local amorcage = Ca.decide(iron_scene(D, 150), {})
+  check(find(amorcage, "couvrir:d1") ~= nil, "§20 C5.4 : aucune centrale finie (power = nil) : l'amorçage reste ouvert (la centrale est demandée par le premier ordre)")
+  local lu = Ca.decide(iron_scene(D, 150, { power = { have_kw = 1000, used_kw = 0 } }), {})
+  check(find(lu, "couvrir:d1") ~= nil, "§20 C5.4 : capacité lue (1 000 kW) : les foreuses sont décidées")
+  check(r1.kw ~= nil and r1.kw.have == 0, "§20 C5.4 : le courant rendu reste celui d'avant (capacité 0)")
+  -- lot 5b : centrale détruite (capacité ≤ 0 lue comme relevé vide) : aucune foreuse électrique, mais les kW retenus remontent (la centrale grandit)
+  check(r1.kw.blocked > 0, "§20 5b : relevé vide : les kW des foreuses retenues sont comptés (reconstruction de la centrale demandée, pas bloquée) : " .. tostring(r1.kw.blocked))
+  -- les cycles de la décision sont rendus pour l'amorce (C5.1) ; aucun sans cycle
+  -- (intégrateur, 7/11 23 h 55 : sans cycle ni graine, le champ est absent, pour garder l'identité rang allumé / éteint de
+  -- rang_cablage_test §2 ; le cas AVEC cycle est contrôlé par amorce_test et amorce_glue_test)
+  check(base.rang_cycles == nil, "§20 C5.1 : sans cycle, la décision ne rend aucune graine de cycle (champ absent)")
+end
+
 local function run_all()
   s1()
   s2()
@@ -1813,6 +1856,7 @@ local function run_all()
   if not AB_DUMP then
     s18()
     s19()
+    s20()
   end
 end
 
@@ -1987,6 +2031,18 @@ do
   MV("plafond par objet retiré", "CAPPED", {})
   -- Étape 5a (§19).
   MF("kW retenus jamais comptés", "blocked_kw", function() return function() return 0 end end)
+  -- Lot VIDEO-COUVERTURE 5 (§20).
+  MF("module suivant jamais retenu en amont", "held", function()
+    return function(ctx, o)
+      local h = ctx.input.hold
+      if h == nil or not Ca.HOLD_KINDS[o.kind] or o.item == nil then return nil end
+      return h[o.item]
+    end
+  end)
+  do
+    local orig = Pf.power_why
+    M("refus du courant sans l'entrée nommée", function() Pf.power_why = function() return nil end end, function() Pf.power_why = orig end)
+  end
 end
 check(n_caught == n_mut, string.format("mutants : %d refusés sur %d", n_caught, n_mut))
 
@@ -2033,7 +2089,12 @@ do
   -- (un calcul qui double de complexité échoue). Les millisecondes restent affichées et gardent une limite large (10 fois
   -- l'ancienne : 200, 400 et 800 ms) qui ne voit que l'effondrement ; l'ancienne limite stricte est écrite en avertissement.
   check(k4 <= 92 and k60 <= 244 and k200 <= 486, string.format("§12 pires appels en milliers d'instructions : %d, %d, %d (limites 92, 244, 486 ; mesuré 46, 122, 243)", k4, k60, k200))
-  check(w4 < 200 and w60 < 400 and w200 < 800, string.format("§12 pics sous 200, 400 et 800 ms (%.1f, %.1f, %.1f)", w4, w60, w200))
+  -- (essai-0660, 7/11 vers 22 h 20 : la limite large en ms a échoué DEUX fois sur un PC chargé, 215 ms au pic de 4 gisements avec
+  -- 46 suites en parallèle, puis passé seule ; un temps mesuré au mur ne juge rien (règle du projet : coût en instructions, contrôle
+  -- ci-dessus). Elle n'est plus qu'un avertissement, comme l'ancienne limite stricte.)
+  if not (w4 < 200 and w60 < 400 and w200 < 800) then
+    print(string.format("[CAPI] AVERTISSEMENT §12 : pics au-dessus de 200, 400 et 800 ms (%.1f, %.1f, %.1f) : PC tres charge ?", w4, w60, w200))
+  end
   if not (w4 < 20 and w60 < 40 and w200 < 80) then
     print(string.format("[CAPI] AVERTISSEMENT §12 : pics au-dessus de l'ancienne limite 20, 40 et 80 ms (%.1f, %.1f, %.1f) : PC chargé ?", w4, w60, w200))
   end

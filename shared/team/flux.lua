@@ -161,10 +161,13 @@ end
 --- La tournée d'un avant-poste dont le produit est SATURÉ au coffre (ou couvert par un module) est-elle retirée ? Pas quand ses
 --- sorties sont pleines : il s'arrête, et la saturation d'aujourd'hui est la pénurie de demain (les 17 fours à 100 plaques de
 --- cuivre du DC). `dropped` : ce que la règle d'avant décidait.
+--- FERMÉ PAR DÉFAUT (lot 5b, W04 n°4) : une rangée absente ou sans `stuck` mesuré (avant : `or {}`, compté 0 = « sorties vides ») ne retire
+--- plus la tournée : on ne sait pas si le four s'arrête. Rend retire?, raison (texte quand la tournée est gardée faute de mesure).
 function Fx.drop_service(o, dropped)
   if not Fx.ENABLE.keep_drop then return dropped end
   if not dropped then return false end
-  return (o.stuck or 0) == 0
+  if type(o) ~= "table" or type(o.stuck) ~= "number" or o.stuck ~= o.stuck then return false, "sorties non mesurees : tournee gardee" end
+  return o.stuck == 0
 end
 
 --- Minages à la main RETENUS tant que les plaques qu'ils donneraient attendent déjà dans les sorties des avant-postes.
