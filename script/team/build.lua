@@ -135,6 +135,7 @@ Build.Rempl = require("script.team.remplissage_glue")
 -- Lot TV-VAPEUR : tampon de vapeur de la centrale (V36, colle de shared/team/vapeur_tampon.lua) et dégradation sous charge (V89, script/core/
 -- charge.lua) ; champs de Build, pas des locales (199 locales sur 200).
 Build.Vg = require("script.team.vapeur_glue")
+Build.Ct = require("script.team.charbon_tampon") -- lot COMBUSTIBLE-CENTRALE : tampon de charbon des avant-postes (levier a)
 Build.FonderieBloc = require("script.team.fonderie_bloc") -- lot FONDERIE-BLOC : le coffre de charbon d'une fonderie de champ relié par un tapis au charbon ; champ de Build, pas une locale
 Build.Piquage = require("script.team.piquage") -- lot PIQUAGE : entrée d'un bloc alimentée par le surplus d'un tapis existant ; champ de Build, pas une locale (build.lua est à 199 locales)
 Build.Charge = require("script.core.charge")
@@ -4162,7 +4163,16 @@ local function quai_tasks(f, p, surface, out)
         -- lot TV-VAPEUR (V36) : le tampon de vapeur bas déclenche aussi le remplissage (Build.Vg nul dans les doublures des bancs hors jeu)
         local steam_low = Build.Vg and Build.Vg.low(f, p, surface) or false
         local r = Cc.refill(n, rate, have, inv and (n + inv.get_insertable_count(q.item)) or nil, steam_low)
+        -- lot COMBUSTIBLE-CENTRALE (levier a) : coffre du QG sans charbon -> le tampon d'un avant-poste de charbon porte le complément
+        local relay
+        if r.short and Build.Ct then
+          local a = P.anchor_for(f.build.lat, q.x, q.y, seg_passable(f.build))
+          if not a then local fx, fy = free_spot(f.build, nil, q.x, q.y); a = { x = fx, y = fy } end
+          relay = Build.Ct.relay(f, p, surface, i, q, n, r, a.x, a.y, Build.Quartiers.DEPOT, game.tick)
+          if relay then r.short = nil end
+        end
         cc_say(f, p, i, n, have, rate, r)
+        if relay then out[#out + 1] = relay end
         if r.due then
           local a = P.anchor_for(f.build.lat, q.x, q.y, seg_passable(f.build))
           if not a then local fx, fy = free_spot(f.build, nil, q.x, q.y); a = { x = fx, y = fy } end
