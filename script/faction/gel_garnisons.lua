@@ -14,7 +14,7 @@
       moins de G.HAZARD_R du poste, de G.HQ_R du QG, ou dans la boîte d'un amas de tourelles élargie de la portée + G.TURRET_MARGIN ;
       tourelle qui tire ; alerte d'armée ; alerte de site), ordre changé ou groupe ;
     - AU TICK MÊME : un coup reçu par un bâtiment, une tourelle, un soldat ou un PNJ de l'équipe (on_entity_damaged, filtre du mod :
-      script/team/reparation.lua, noms de Ga.filter_names) ; une mort dans l'équipe (Events.on_died) ; une commande donnée au soldat
+      script/team/reparation.lua, noms de Gel.filter_names, script/faction/gel.lua) ; une mort dans l'équipe (Events.on_died) ; une commande donnée au soldat
       (crochet Gel.before_command, script/ai3/soldats.lua et script/faction/military.lua).
   Bancs : groupes de garnison posés par l'interface « fo-gel » (script/faction/gel_banc.lua), soumis à la même règle.
 
