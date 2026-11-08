@@ -109,6 +109,33 @@ check(nx == 8 and ny == 9, "3.14d la tuile libre de l'anneau est trouvee")
 local taken = { ["9:9"] = true }
 local px3 = Li.pole_tile(sites[1], open_grid(), taken)
 check(px3 == 11, "3.15 tuile deja prise (autre poteau) ecartee")
+-- l'anneau de repli est borne par la zone d'alimentation LUE dans les donnees du jeu (pas une constante du test)
+do
+  local cands = { "../../data", "../../../../../data" }
+  if os.getenv("FO_DATA_DIR") then table.insert(cands, 1, os.getenv("FO_DATA_DIR")) end
+  local fh
+  for _, d in ipairs(cands) do fh = d and io.open(d .. "/base/prototypes/entity/entities.lua", "rb") if fh then break end end
+  if fh then
+    local txt = fh:read("*a") fh:close()
+    local blk = txt:match('name = "small%-electric%-pole".-supply_area_distance = ([%d%.]+)')
+    local supply = tonumber(blk)
+    check(supply ~= nil, "3.17 supply_area_distance du petit poteau lu dans les donnees du jeu (" .. tostring(supply) .. ")")
+    if supply then
+      local d = 0
+      while (d + 1) - 0.5 < supply do d = d + 1 end
+      check(Li.POLE_RING == d, "3.18 anneau de repli = plus grand d avec d - 0,5 < supply_area_distance (" .. d .. ")")
+      check(Li.POLE_RING - 0.5 < supply, "3.19 un poteau a l'anneau couvre bien la tuile du bras")
+      local ring_ok = true
+      for dx = -Li.POLE_RING, Li.POLE_RING do for dy = -Li.POLE_RING, Li.POLE_RING do
+        local rx3, ry3 = Li.pole_tile(sites[1], function(x, y) return x == sites[1].ax + dx and y == sites[1].ay + dy and math.max(math.abs(dx), math.abs(dy)) == Li.POLE_RING end)
+        if rx3 ~= nil and (math.abs(rx3 - sites[1].ax) - 0.5 >= supply or math.abs(ry3 - sites[1].ay) - 0.5 >= supply) then ring_ok = false end
+      end end
+      check(ring_ok, "3.20 toute tuile rendue par le repli est dans la zone d'alimentation du petit poteau")
+    end
+  else
+    print("  (info) donnees du jeu introuvables : 3.17 a 3.20 sautes")
+  end
+end
 check(Li.end_dir(sites[1]) == 4, "3.16 la derniere tuile regarde le bras d'arrivee")
 
 -- §4 tracé accepté
