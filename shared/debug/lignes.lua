@@ -110,7 +110,7 @@ end
 
 -- AMELIORATION (lot AMELIORATION, champ d'état f.team.capital.refus["<bloc>|<famille>"] = { cause, tick }) : mots fixes. bloc : « p<projet> », « qg »,
 -- « t<avant-poste> » ; la famille est un nom de données (paramètre, jamais une clé de traduction).
-Lg.AM_CAUSES = { "plafond-centre", "sans-centre", "emprise", "sans-cout", "refus-recent", "niveau-max", "sans-gain" }
+Lg.AM_CAUSES = { "plafond-centre", "sans-centre", "emprise", "sans-cout", "refus-recent", "niveau-max", "sans-gain", "reconstruction" }
 local AM_C = {}
 for _, w in ipairs(Lg.AM_CAUSES) do AM_C[w] = true end
 
