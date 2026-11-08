@@ -648,8 +648,8 @@ remote.add_interface("fo-ia1", {
     if type(copies) == "number" and copies > 1 then
       if type(quai) == "table" then
         local surface = f.hq.surface
-        if not surface.find_entity("iron-chest", { quai.x, quai.y }) then
-          surface.create_entity({ name = "iron-chest", position = { x = quai.x, y = quai.y }, force = f.force })
+        if not surface.find_entity(T.outposts.coal.sink, { quai.x, quai.y }) then
+          surface.create_entity({ name = T.outposts.coal.sink, position = { x = quai.x, y = quai.y }, force = f.force })
         end
         p.quais[#p.quais + 1] = { x = quai.x, y = quai.y, item = quai.item }
       end
