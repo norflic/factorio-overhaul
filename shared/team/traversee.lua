@@ -44,11 +44,15 @@ Tv.UG_COST = 6                   -- surcoût d'une paire de souterrains (tuiles 
 Tv.ORE_STEPS = { 8 }             -- surcoût par tuile de gisement des recherches de détour (mesuré : 4 recherches coûtaient 3,5 à 127 millions d'instructions ; une seule, plafonnée)
 Tv.ORE_WEIGHT = 1.5                -- heuristique des recherches « gisement » (tracé un peu moins court que le meilleur, bien moins d'états)
 Tv.ORE_CAP = 3000                -- états développés au plus par recherche de détour (au-delà : abandon, on garde le tracé de base ; mesuré : 11 millions d'instructions sans plafond)
-Tv.PROOF_AFTER = 2000            -- états développés avant la preuve rapide d'impossibilité (remplissage de tuiles)
+Tv.PROOF_AFTER = 0               -- états développés avant la preuve rapide d'impossibilité (remplissage de tuiles) ; 0 : éteinte (mesuré : le remplissage d'une boîte de 120 coûtait 10 M
+                                    -- d'instructions, plus que les 6 000 états du budget ; Tv.unreachable reste disponible)
 Tv.DETOUR_MIN = 6                -- détour toujours permis pour éviter un gisement (tuiles)
 Tv.DETOUR_RATIO = 0.5            -- ... ou la moitié de la longueur de base
 Tv.DETOUR_MAX = 24               -- ... mais jamais plus de 24 tuiles
 Tv.POLE_EXTRA = 2                -- poteaux de plus acceptés pour éviter un gisement
+Tv.NEAR_DETOUR = 8               -- détour (tuiles) au-delà duquel la recherche avec souterrains est lancée
+Tv.GAME_WEIGHT = 1.25            -- heuristique des tracés EN JEU (script/team/traversee.lua) : un peu plus long que le meilleur, bien moins d'états
+Tv.PLAN_BUDGET = 4000            -- états développés au plus par plan (tous les appels d'un même projet au même tick)
 Tv.CAP = 24000                   -- états développés au plus par recherche (8 états possibles par tuile)
 Tv.ORE_DIAG_MAX = 80             -- tuiles de gisement listées au plus dans un diagnostic
 
@@ -146,12 +150,18 @@ end
 -- État : (tuile, sens d'arrivée d, m) ; m = 1 juste après une sortie de souterrain (la tuile suivante est droite ou une entrée).
 -- Rend la liste d'éléments { x, y, d, ug } dans l'ordre du flux (d : index 1 à 4 ; ug : nil | "input" | "output"), le nombre d'états
 -- développés, ou nil, raison.
-local function search(s, t, td, bounds, cost, ctx, pen, lim, wt, capn)
+local TURNS = { 0, -1, 1 }
+
+-- use_ug : recherche AVEC paires souterraines (états (tuile, sens, tout droit imposé), jusqu'à 8 par tuile) ; sans : recherche de TUILES (un état
+-- par tuile, comme P.belt_route ; seule la tuile d'arrivée garde son sens). Mesuré : la recherche avec sens coûtait 1,6 à 5 fois P.belt_route.
+-- ctx.budget = { left } : états développés restants, PARTAGÉS entre les recherches d'un même plan (épuisé : « trop long »).
+local function search(s, t, td, bounds, cost, ctx, pen, lim, wt, capn, use_ug)
   local ore = ctx.ore
-  local maxd = ctx.maxd
+  local maxd = use_ug and ctx.maxd or nil
   if maxd ~= nil and maxd < 2 then maxd = nil end
   local weight = wt or ctx.weight or 1
   local cap = capn or ctx.max or Tv.CAP
+  local budget = ctx.budget
   local sd = ctx.sd or dominant(s, t)
   -- coût brut et gisement de chaque tuile : demandés UNE fois par tuile et par tracé (tables partagées par les recherches du tracé)
   local mc, mo = ctx.memo_c, ctx.memo_o
@@ -171,28 +181,35 @@ local function search(s, t, td, bounds, cost, ctx, pen, lim, wt, capn)
     if pen > 0 and mo[tk(x, y)] then c = c + pen end
     return c
   end
+  local x0, y0, x1, y1 = bounds.x0, bounds.y0, bounds.x1, bounds.y1
+  local sx, sy, tx, ty = s.x, s.y, t.x, t.y
   local function inb(x, y)
-    if x < bounds.x0 or x > bounds.x1 or y < bounds.y0 or y > bounds.y1 then return false end
+    if x < x0 or x > x1 or y < y0 or y > y1 then return false end
     -- ellipse de la borne de détour : une tuile hors d'elle ne se trouve sur aucun tracé d'au plus `lim` tuiles
-    if lim and math.abs(x - s.x) + math.abs(y - s.y) + math.abs(x - t.x) + math.abs(y - t.y) > lim - 1 then return false end
+    if lim and math.abs(x - sx) + math.abs(y - sy) + math.abs(x - tx) + math.abs(y - ty) > lim - 1 then return false end
     return true
   end
-  local function hh(x, y) return (math.abs(x - t.x) + math.abs(y - t.y)) * weight end
-  local function key(x, y, d, m) return tk(x, y) * 10 + (d - 1) * 2 + m end
-  local open, g, prev, closed = {}, {}, {}, {}
-  local k0 = key(s.x, s.y, sd, 0)
+  local function hh(x, y) return (math.abs(x - tx) + math.abs(y - ty)) * weight end
+  local function key(x, y, d, m)
+    if not maxd and not (x == tx and y == ty) then return tk(x, y) * 10 end
+    return tk(x, y) * 10 + (d - 1) * 2 + m
+  end
+  local open, g, closed = {}, {}, {}
+  local pk, ppx, ppy, pnd, pjm = {}, {}, {}, {}, {} -- parent : état, tuile, sens du tapis posé là, écart d'une paire (0 : tapis simple)
+  local k0 = key(sx, sy, sd, 0)
   g[k0] = 0
-  hpush(open, { x = s.x, y = s.y, d = sd, m = 0, f = hh(s.x, s.y), h = hh(s.x, s.y), k = k0 })
+  hpush(open, { x = sx, y = sy, d = sd, m = 0, f = hh(sx, sy), h = hh(sx, sy), k = k0 })
   local expanded = 0
-  local function relax(cur, nx, ny, nd, nm, c, act)
+  local function relax(cur, nx, ny, nd, nm, c, jm)
     if not inb(nx, ny) then return end
-    if not (free(nx, ny) or (nx == t.x and ny == t.y)) then return end
+    if not (free(nx, ny) or (nx == tx and ny == ty)) then return end
     local nk = key(nx, ny, nd, nm)
     if closed[nk] then return end
     local ng = g[cur.k] + c
-    if g[nk] == nil or ng < g[nk] then
+    local old = g[nk]
+    if old == nil or ng < old then
       g[nk] = ng
-      prev[nk] = { k = cur.k, act = act }
+      pk[nk], ppx[nk], ppy[nk], pnd[nk], pjm[nk] = cur.k, cur.x, cur.y, jm == 0 and nd or cur.d, jm
       local h = hh(nx, ny)
       hpush(open, { x = nx, y = ny, d = nd, m = nm, f = ng + h, h = h, k = nk })
     end
@@ -203,49 +220,63 @@ local function search(s, t, td, bounds, cost, ctx, pen, lim, wt, capn)
       closed[cur.k] = true
       expanded = expanded + 1
       if expanded > cap then return nil, "trop long", expanded end
+      if budget then
+        budget.left = budget.left - 1
+        if budget.left < 0 then return nil, "trop long", expanded end
+      end
       if expanded == Tv.PROOF_AFTER and pen == 0 and Tv.unreachable(s, t, cost, maxd, inb) then return nil, "aucun chemin", expanded end
-      if cur.x == t.x and cur.y == t.y then
+      if cur.x == tx and cur.y == ty then
         if cur.d ~= ((td + 1) % 4) + 1 and (cur.m == 0 or cur.d == td) then
-          local out = { { x = t.x, y = t.y, d = td } }
+          local rev = { { x = tx, y = ty, d = td } }
           local k = cur.k
-          while prev[k] do
-            local a = prev[k].act
-            for i = #a, 1, -1 do table.insert(out, 1, a[i]) end
-            k = prev[k].k
+          while pk[k] do
+            local px, py, nd, kk = ppx[k], ppy[k], pnd[k], pjm[k]
+            if kk == 0 then
+              rev[#rev + 1] = { x = px, y = py, d = nd }
+            else
+              local dv = D4[nd]
+              rev[#rev + 1] = { x = px + kk * dv[1], y = py + kk * dv[2], d = nd, ug = "output" }
+              rev[#rev + 1] = { x = px, y = py, d = nd, ug = "input" }
+            end
+            k = pk[k]
           end
+          local out = {}
+          for a = #rev, 1, -1 do out[#out + 1] = rev[a] end
           return out, expanded
         end
       else
+        local cx, cy, cd = cur.x, cur.y, cur.d
+        local ctc = tc(cx, cy)
         -- tapis posé ici, tout droit ou en virage (jamais demi-tour ; tout droit imposé après une sortie de souterrain)
-        for _, turn in ipairs({ 0, -1, 1 }) do
+        for ti = 1, 3 do
+          local turn = TURNS[ti]
           if turn == 0 or cur.m == 0 then
-            local nd = ((cur.d - 1 + turn) % 4) + 1
+            local nd = ((cd - 1 + turn) % 4) + 1
             local dv = D4[nd]
-            relax(cur, cur.x + dv[1], cur.y + dv[2], nd, 0, tc(cur.x, cur.y), { { x = cur.x, y = cur.y, d = nd } })
+            relax(cur, cx + dv[1], cy + dv[2], nd, 0, ctc, 0)
           end
         end
         -- paire de souterrains : entrée ici (on y arrive tout droit), sortie k tuiles plus loin, puis tout droit
         -- (jamais depuis une tuile dont la suivante est libre et sans gisement : marcher jusqu'au bord de l'obstacle puis sauter coûte pareil,
         -- avec un trou plus court ; mesuré : sans cette règle, 8 arêtes de plus par état)
-        local dv0 = D4[cur.d]
-        local nxt_x, nxt_y = cur.x + dv0[1], cur.y + dv0[2]
-        if maxd and (not free(nxt_x, nxt_y) or mo[tk(nxt_x, nxt_y)]) then
-          local dv = D4[cur.d]
-          local axis = (cur.d == 1 or cur.d == 3) and 1 or 2
-          local ok_span = true
-          for kk = 1, maxd do
-            local mx, my = cur.x + kk * dv[1], cur.y + kk * dv[2]
-            if kk >= 2 and ok_span and free(mx, my) and not (mx == t.x and my == t.y) then
-              relax(cur, mx + dv[1], my + dv[2], cur.d, 1, tc(cur.x, cur.y) + tc(mx, my) + (kk - 1) + Tv.UG_COST + kk * 0.001, {
-                { x = cur.x, y = cur.y, d = cur.d, ug = "input" },
-                { x = mx, y = my, d = cur.d, ug = "output" } })
+        if maxd then
+          local dv = D4[cd]
+          local nxt_x, nxt_y = cx + dv[1], cy + dv[2]
+          if not free(nxt_x, nxt_y) or mo[tk(nxt_x, nxt_y)] then
+            local axis = (cd == 1 or cd == 3) and 1 or 2
+            local ok_span = true
+            for kk = 1, maxd do
+              local mx, my = cx + kk * dv[1], cy + kk * dv[2]
+              if kk >= 2 and ok_span and free(mx, my) and not (mx == tx and my == ty) then
+                relax(cur, mx + dv[1], my + dv[2], cd, 1, ctc + tc(mx, my) + (kk - 1) + Tv.UG_COST + kk * 0.001, kk)
+              end
+              -- les tuiles sous lesquelles la paire passe : tout sauf une pièce souterraine de même axe
+              if ctx.ug_axis then
+                local a = ctx.ug_axis(mx, my)
+                if a ~= nil and (a == true or a == axis) then ok_span = false end
+              end
+              if not inb(mx, my) then ok_span = false end
             end
-            -- les tuiles sous lesquelles la paire passe : tout sauf une pièce souterraine de même axe
-            if ctx.ug_axis then
-              local a = ctx.ug_axis(mx, my)
-              if a ~= nil and (a == true or a == axis) then ok_span = false end
-            end
-            if not inb(mx, my) then ok_span = false end
           end
         end
       end
@@ -392,21 +423,32 @@ function Tv.route(s, t, t_dir, bounds, cost, ctx)
   local td = didx_of_code(t_dir)
   local ctx2 = { ore = ctx.ore, maxd = ctx.maxd, ug_axis = ctx.ug_axis, weight = ctx.weight, max = ctx.max, nature = ctx.nature,
     sd = ctx.sd and didx_of_code(ctx.sd) or nil, memo_c = {}, memo_o = {} }
+ ctx2.budget = ctx.budget
   local expanded, searches = 0, 0
-  local function run(pen, lim)
+  local function run(pen, lim, use_ug)
     searches = searches + 1
     local el, n
     if pen > 0 then
-      el, n = search(s, t, td, bounds, cost, ctx2, pen, lim, math.max(ctx.weight or 1, Tv.ORE_WEIGHT), math.min(ctx.max or Tv.CAP, Tv.ORE_CAP))
+      el, n = search(s, t, td, bounds, cost, ctx2, pen, lim, math.max(ctx.weight or 1, Tv.ORE_WEIGHT), math.min(ctx.max or Tv.CAP, Tv.ORE_CAP), false)
     else
-      el, n = search(s, t, td, bounds, cost, ctx2, pen, lim)
+      -- la phase A d'un plan qui dispose de souterrains n'use que la moitié du budget restant : un mur sans fin la ferait tout dépenser avant la phase B
+      local capn
+      if not use_ug and ctx2.maxd and ctx2.maxd >= 2 and ctx2.budget then capn = math.max(100, math.floor(ctx2.budget.left / 2)) end
+      el, n = search(s, t, td, bounds, cost, ctx2, pen, lim, nil, capn, use_ug)
     end
     Tv.STATS.searches = Tv.STATS.searches + 1
     local used = type(n) == "number" and n or 0
     expanded = expanded + used
     return el, n
   end
-  local base, why = run(0)
+  -- Phase A : recherche de TUILES (le prix de P.belt_route). Phase B (avec paires souterraines) seulement si la phase A échoue ou impose un détour de
+  -- plus de Tv.NEAR_DETOUR tuiles sur la distance à vol d'oiseau : un obstacle contournable de près ne mérite pas de souterrain.
+  local base, why = run(0, nil, false)
+  local manh = math.abs(s.x - t.x) + math.abs(s.y - t.y) + 1
+  if ctx2.maxd and ctx2.maxd >= 2 and (not base or phys(base) > manh + Tv.NEAR_DETOUR) then
+    local b2, why2 = run(0, nil, true)
+    if b2 then base, why = b2, nil elseif not base then why = why2 end
+  end
   if not base then
     Tv.STATS.refused = Tv.STATS.refused + 1
     Tv.STATS.expanded = Tv.STATS.expanded + expanded
@@ -418,7 +460,7 @@ function Tv.route(s, t, t_dir, bounds, cost, ctx)
   if ctx.ore and base_ore > 0 then
     local limit = Tv.detour_limit(base_phys)
     for _, pen in ipairs(Tv.ORE_STEPS) do
-      local el = run(pen, limit)
+      local el = run(pen, limit, false)
       if el and phys(el) <= limit then
         local on = measure(el, ctx.ore)
         if on < best_ore or (on == best_ore and phys(el) < phys(best)) then best, best_pen, best_ore = el, pen, on end

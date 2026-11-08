@@ -7,7 +7,8 @@
     - Trav.route(f, surface, p, s, t, t_dir, bounds, cost, opts) -> tiles, info, names  |  nil, raison
         tiles : { x, y, dir, ug = nil | "input" | "output" } ; Trav.entities(tiles, names, role) en fait des entités de projet
         (une pièce souterraine porte type = "input" | "output" : convention de build.lua pour le fantôme et le ravivage).
-        opts : belt (nom du tapis du tracé), sd (sens d'arrivée en s, code du jeu), weight, max, kind (texte du journal).
+        opts : belt (nom du tapis du tracé), sd (sens d'arrivée en s, code du jeu), weight, max, kind (texte du journal), no_ore (vrai : le
+        gisement est ignoré), budget ({ left } : états restants, partagé ; défaut : Tv.PLAN_BUDGET par projet et par tick).
     - Trav.pole_chain(f, surface, a, b, reach, big, free, known, opts) -> chaîne | nil
   Réglage : Trav.ENABLED (banc : Trav.set_enabled(false) rend les anciens tracés, le compteur de gisement continue de tourner).
   Rien dans global ici, sauf les compteurs de f.build.stats (traversee_*), créés à la demande, jamais à on_load.
@@ -38,7 +39,18 @@ end
 
 --- Souterrain à poser avec un tapis `belt` : le moins cher (vitesse, puis nom) débloqué dont la vitesse atteint celle du tapis, sinon le
 --- plus rapide débloqué. Rend { name, maxd } ou nil (aucun débloqué : le tracé se contourne). Aucun nom écrit ici.
+local UG_CACHE = {}
 function Trav.underground(f, belt)
+  -- cache LOCAL (jamais dans global) par force et tapis, Trav.TTL ticks : la liste des prototypes était relue et triée à chaque tracé
+  local ck = tostring(f.force) .. "|" .. tostring(belt)
+  local hit = UG_CACHE[ck]
+  if hit and game.tick - hit.tick < Trav.TTL then return hit.ug or nil end
+  local ug = Trav.underground_read(f, belt)
+  UG_CACHE[ck] = { tick = game.tick, ug = ug or false }
+  return ug
+end
+
+function Trav.underground_read(f, belt)
   local protos = game.get_filtered_entity_prototypes({ { filter = "type", type = T.LOGISTIC_TYPES.underground } })
   local bp = belt and game.entity_prototypes[belt]
   local want = bp and bp.belt_speed or 0
@@ -80,8 +92,12 @@ local function ore_chunk(surface, cx, cy)
   end
   local set = {}
   local x0, y0 = cx * 32, cy * 32
-  for _, r in ipairs(surface.find_entities_filtered({ area = { { x0, y0 }, { x0 + 32, y0 + 32 } }, type = "resource" })) do
-    set[P.tkey(math.floor(r.position.x), math.floor(r.position.y))] = true
+  local area = { { x0, y0 }, { x0 + 32, y0 + 32 } }
+  -- (aucune ressource dans le chunk : un simple comptage, sans créer un objet par entité)
+  if surface.count_entities_filtered({ area = area, type = "resource", limit = 1 }) > 0 then
+    for _, r in ipairs(surface.find_entities_filtered({ area = area, type = "resource" })) do
+      set[P.tkey(math.floor(r.position.x), math.floor(r.position.y))] = true
+    end
   end
   sc.by[k] = { tick = game.tick, set = set }
   return set
@@ -100,11 +116,6 @@ local function read_ug_axes(f, surface, x0, y0, x1, y1, ug_name)
   local area = { { x0, y0 }, { x1 + 1, y1 + 1 } }
   for _, e in ipairs(surface.find_entities_filtered({ area = area, type = T.LOGISTIC_TYPES.underground })) do
     map[P.tkey(math.floor(e.position.x), math.floor(e.position.y))] = axis_of(e.direction or 0)
-  end
-  for _, e in ipairs(surface.find_entities_filtered({ area = area, name = "entity-ghost" })) do
-    if e.ghost_type == T.LOGISTIC_TYPES.underground then
-      map[P.tkey(math.floor(e.position.x), math.floor(e.position.y))] = axis_of(e.direction or 0)
-    end
   end
   local b = f.build
   if b and ug_name then
@@ -185,16 +196,31 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Tapis
 ---------------------------------------------------------------------------------------------------
+local BUDGET = { key = nil, box = nil }
+--- Budget d'états PARTAGÉ par tous les tracés d'un même projet au même tick (les 3 essais de plan_drills, les 4 paires de bouts d'une liaison).
+--- opts.budget (table { left }) l'emporte. Table LOCALE : jamais dans global, rien à sauvegarder.
+function Trav.budget(f, p, opts)
+  if opts and opts.budget then return opts.budget end
+  local key = tostring(f.key or f.force) .. ":" .. tostring(p and p.id or "?") .. ":" .. tostring(game.tick)
+  if BUDGET.key ~= key then BUDGET.key, BUDGET.box = key, { left = Tv.PLAN_BUDGET } end
+  return BUDGET.box
+end
+
 --- Trace d'un tapis de s à t (voir le haut du fichier). `p` : le projet (numéro et nature au journal), facultatif.
 function Trav.route(f, surface, p, s, t, t_dir, bounds, cost, opts)
   opts = opts or {}
   local ug = Trav.ENABLED and Trav.underground(f, opts.belt) or nil
-  local ore = ore_lookup(surface)
+  -- opts.no_ore : aucun détour de gisement (appelants courts : branches de piquage) ; le gisement n'est alors pas lu du tout
+  local ore = (not opts.no_ore) and ore_lookup(surface) or nil
   local ctx = {
-    maxd = ug and ug.maxd or nil, sd = opts.sd, weight = opts.weight, max = opts.max, ore = ore,
+    maxd = ug and ug.maxd or nil, sd = opts.sd, weight = opts.weight or Tv.GAME_WEIGHT, max = opts.max, ore = ore, budget = Trav.budget(f, p, opts),
+    -- les souterrains existants ne sont lus qu'à la première paire envisagée (phase B de la règle) : un tracé sans obstacle ne lit rien
     ug_axis = ug and (function()
-      local axes = read_ug_axes(f, surface, bounds.x0, bounds.y0, bounds.x1, bounds.y1, ug.name)
-      return function(x, y) return axes[P.tkey(x, y)] end
+      local axes
+      return function(x, y)
+        if not axes then axes = read_ug_axes(f, surface, bounds.x0, bounds.y0, bounds.x1, bounds.y1, ug.name) end
+        return axes[P.tkey(x, y)]
+      end
     end)() or nil,
     nature = function(x, y) return nature_at(surface, x, y) end,
   }
@@ -207,7 +233,7 @@ function Trav.route(f, surface, p, s, t, t_dir, bounds, cost, opts)
     if not old then return nil, n end
     tiles = old
     local on = 0
-    for _, e in ipairs(old) do if ore(e.x, e.y) then on = on + 1 end end
+    for _, e in ipairs(old) do if ore and ore(e.x, e.y) then on = on + 1 end end
     info = { len = #old, ore = on, jumps = 0, base_len = #old, base_ore = on, pen = 0, jump_list = {} }
   end
   if not tiles then

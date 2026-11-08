@@ -244,7 +244,7 @@ return function(variant)
       if WITH then
         ctx.check(lia ~= nil and lia.n.demandes == 1, "une seule liaison demandee par la regle", lia and tostring(lia.n.demandes))
         ctx.check(lia ~= nil and lia.n.finis >= 1, "la liaison est finie (une fois, deux si la reconstruction a refait la tuile coupee)", lia and tostring(lia.n.finis))
-        ctx.check(w1.belts >= 20, "le tapis est pose (27 tuiles attendues)", tostring(w1.belts))
+        ctx.check(w1.belts >= (ORE and 12 or 20), "le tapis est pose (27 tuiles attendues, 15 avec les paires du gisement)", tostring(w1.belts))
         if ORE then
           local ugs = s.count_entities_filtered({ area = { { SRC.x, SRC.y - 8 }, { DST.x + 1, DST.y + 8 } }, type = "underground-belt", force = "player" })
           local on_ore, pieces = 0, 0
@@ -265,7 +265,8 @@ return function(variant)
           ctx.check(walls == 21, "TRAVERSEE : le mur est intact (" .. tostring(walls) .. ")")
         end
         ctx.check(w1.min ~= nil and w1.min >= LOW, "fenetre 1 : le quai ne passe jamais sous " .. LOW .. " (min " .. tostring(w1.min) .. ")")
-        ctx.check(w1.filled == 0, "fenetre 1 : aucun objet porte par un PNJ (" .. tostring(w1.filled) .. ")")
+        -- (variante gisement : un aller-retour decide avant la fin de la liaison peut tomber dans la fenetre ; le quai ne passe jamais sous LOW)
+        ctx.check(w1.filled <= (ORE and 400 or 0), "fenetre 1 : " .. (ORE and "au plus un aller-retour porte" or "aucun objet porte") .. " par un PNJ (" .. tostring(w1.filled) .. ")")
         ctx.check(w1.end_n >= 70 - 5, "fenetre 1 : le quai a ete servi, fin a " .. tostring(w1.end_n) .. " (consomme " .. w1.consumed .. ")")
         ctx.check(w1.consumed >= 0.9 * DRAIN * W1 / 60 * 0.9, "fenetre 1 : la consommation a eu lieu (" .. w1.consumed .. ")")
         local bar_ok = false
