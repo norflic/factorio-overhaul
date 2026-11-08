@@ -1113,16 +1113,20 @@ function Capi.palier_inputs(f, cs, view, input)
   local batis = (cs.slots and cs.slots.batis) or 0
   local pose = st.batis_prev ~= nil and batis > st.batis_prev
   local build = view.mq and view.mq.build or nil
-  local manques = nil
-  if build then
-    manques = 0
-    for _, k in ipairs(sorted_keys(build)) do if (build[k] or 0) > 0 then manques = manques + 1 end end
-  end
+  -- lot BLOCAGE-SORTIE-2 : un manque qu'aucune décision ne peut lever (cs.impayable, lu par Ca.obtainable à la décision précédente) ne retient plus le palier
+  local manques, ecartes = Pal.fixable(build, cs.impayable)
   local g_iag = f.team.iag
   local arbre_fini = true
   for _, q in ipairs((input.research or {}).queue or {}) do if (q.left or 0) > 0 then arbre_fini = false break end end
+  -- Lot BLOCAGE-SORTIE-2 (soupape de dormance, shared/ai3/palier.lua) : le stock libre dort-il ? (Dm.sleeping : mêmes MU que la décision ;
+  -- le besoin évalué est absent sous menace du QG ou besoin non évalué : alors nil, jamais de soupape)
+  local dort, stock_mu, free_mu = nil, 0, 0
+  if input.reserve and type(input.reserve.free) == "table" and input.data then
+    dort, stock_mu, free_mu = Dm.sleeping(input.data, input.stock or {}, input.reserve.free)
+  end
   return { manques = manques, crise = (view.survie or view.hq_threat) and true or false,
-    bras_libres = math.floor(Ca.idle_of(g_iag and g_iag.idle_ema or 0)), pose = pose, arbre_fini = arbre_fini }, batis
+    bras_libres = math.floor(Ca.idle_of(g_iag and g_iag.idle_ema or 0)), pose = pose, arbre_fini = arbre_fini, dort = dort,
+    stock_mu = stock_mu, free_mu = free_mu, ecartes = ecartes }, batis
 end
 
 --- Une décision (decide_start, après build_input, AVANT l'instantané) : rend la marche ou nil. Réglage allumé : input.demande n'est vrai
@@ -1134,8 +1138,30 @@ function Capi.palier(f, cs, view, input, tick)
   local a, batis = Capi.palier_inputs(f, cs, view, input)
   st.batis_prev = batis
   local had = st.until_tick
+  local since = st.manque_depuis
   local mk, ev = Pal.step(st, a, tick)
+  -- lot BLOCAGE-SORTIE-2 : si c'est le palier qui ferme le puits (le reste l'autorisait), sa raison part avec l'entrée (décision, journal [FO-DEMANDE])
+  if input.demande and mk == nil then input.palier_why = Pal.explain(a, ev, st, tick) end
   input.demande = (input.demande and mk ~= nil) and true or false
+  local sig = table.concat(a.ecartes or {}, ",")
+  if sig ~= (st.ecartes_sig or "") then
+    st.ecartes_sig = sig
+    if sig ~= "" then
+      log(string.format("[FO-SORTIE] %s minute %d : manque(s) INSOLUBLE(S) ecarte(s) de la stabilite du palier : %s (ni au stock, ni ressource extractible, ni recette ouverte a ingredients obtenables) ; %s manque(s) restant(s)",
+        f.key or "?", math.floor(minutes(f, tick) + 0.5), sig, tostring(a.manques)))
+    end
+  end
+  -- Lot BLOCAGE-SORTIE-2 : [FO-SORTIE], une ligne à l'ouverture de la soupape et une à sa fermeture, avec la cause
+  if ev == "soupape" then
+    log(string.format("[FO-SORTIE] %s minute %d : soupape de dormance OUVERTE (%d manque(s) seuls depuis %.1f min, stock libre %d MU sur %d MU qui dort, %d bras libres) : puits de C2 ouvert a chaque decision, sans minuteur ; ouvertures %d",
+      f.key or "?", math.floor(minutes(f, tick) + 0.5), a.manques or 0, (tick - (since or tick)) / 3600, math.floor(a.free_mu or 0),
+      math.floor(a.stock_mu or 0), a.bras_libres, st.soupapes or 0))
+  elseif ev == "soupape_ferme" then
+    local why = (not a.dort and "le stock ne dort plus ou le besoin n'est plus evalue") or (a.crise and "crise (survie ou QG menace)")
+      or (a.bras_libres < Pal.HANDS_MIN and "aucun bras libre") or ((a.manques or 0) == 0 and "plus aucun manque : la video reprend") or "autre"
+    log(string.format("[FO-SORTIE] %s minute %d : soupape de dormance FERMEE : %s ; ouvertures %d",
+      f.key or "?", math.floor(minutes(f, tick) + 0.5), why, st.soupapes or 0))
+  end
   if ev == "marche" or ev == "arme" or ev == "annule" or (had and not st.until_tick) then
     log(string.format("[FO-PALIER] %s minute %d : %s (minuteur %s, marches %d, annulations %d) ; manques %s, crise %s, bras libres %d, pose %s, arbre fini %s%s",
       f.key or "?", math.floor(minutes(f, tick) + 0.5), tostring(ev), tostring(st.until_tick), st.marches or 0, st.annules or 0,
@@ -1213,7 +1239,11 @@ local function build_input(f, cs, view, book, tick, D, w)
   -- Lot L12 (partie 3) : la menace TENUE (view.threat_held, script/team/menace_equipe.lua : jusqu'à 2 pensées calmes avec une tourelle armée
   -- au QG, ou 5 min après la dernière perte) ferme aussi les gisements. Avant, la décision ne voyait la menace que par fenêtres de 15 s
   -- (f.threatened_until). Ni le budget couvert (Pi.threat_open) ni l'échéance ne la lèvent : seule la règle tenue ; le mode survie, si (Sv.capi).
-  if not threat and view.threat_held then threat = (Sv.capi(Survie.on(f) and not (view.qg_peril and view.qg_peril.peril), true, production_first)) end
+  local threat_why = threat and "menace recente du QG (view.threatened)" or nil -- lot BLOCAGE-SORTIE-2 : origine écrite au journal du puits fermé
+  if not threat and view.threat_held then
+    threat = (Sv.capi(Survie.on(f) and not (view.qg_peril and view.qg_peril.peril), true, production_first))
+    if threat then threat_why = "menace tenue (view.threat_held)" end
+  end
   -- foreuse imposée par ressource : électrique (fonderie du plan directeur) si le gabarit se pose aujourd'hui ; sinon
   -- AUCUNE (« » : la règle refuse « aucune foreuse disponible »). Les avant-postes à combustion restent au décideur
   -- d'avant (croissance des buts et vagues de SCALE) : leur combustible est porté par les PNJ, un travail récurrent que
@@ -1338,7 +1368,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     hard_off = (not Pil.plafonds_on()) or nil, -- lot TV-PILOTE (G02) : plafonds de sûreté des fours, chaînes et packs (réglage fo-war-plafonds, allumé par défaut)
     limits = Rsv.on() and {} or { max_ingredients = 2 }, workers = view.workers or 0, idle = Ca.idle_of(g and g.idle_ema or 0),
     can_grow = (view.workers or 0) < (view.workers_wanted or 0), traits = f.traits or {},
-    weights = w or {}, threat = threat, dt = 1, lag = cs.lag, starved = Pi.threat_exempt(st.pile, st.starved_open), -- (intégration 0.6.28)
+    weights = w or {}, threat = threat, threat_why = threat_why, dt = 1, lag = cs.lag, starved = Pi.threat_exempt(st.pile, st.starved_open), -- (intégration 0.6.28)
     reserve = (not threat) and Dep.capi_reserve(f, Rsv.input(f, tick), tick) or nil, -- lot INDUSTRIE I1 : stock hors besoin (nil : réglage éteint, besoin périmé ou QG menacé) ; lot DEPENSES2 (revue D2) : débité de ce que la règle du stock qui dort a accordé ou engagé
     demande = (not threat) and Rsv.on() and not cs.demande_off or false, -- (cs.demande_off : BANC SEULEMENT, témoin) lot C2 : puits ouvert (le stock hors besoin qui dort devient une demande)
     demande_sleep = Dm.SLEEP_CYCLES, -- intégration 0.6.32 : un stock ne dort qu'après 3 décisions de suite au-dessus du seuil
@@ -1823,10 +1853,18 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
     end
     local last = cs.dm_last or { dormant = false, p = 0 }
     local p = dm and dm.p or 0
-    if (dm and dm.dormant or false) ~= last.dormant or math.abs(p - last.p) > 0.25 * math.max(last.p, 1) then
+    -- lot BLOCAGE-SORTIE-2 : puits fermé = une cause DISTINCTE (Dm.closed_cause), journalisée aussi quand elle change
+    local ckey, ctext
+    if not dm then
+      ckey, ctext = Dm.closed_cause({ on = Rsv.on(), off = cs.demande_off, threat = input.threat, threat_why = input.threat_why,
+        reserve = input.reserve ~= nil, palier_why = input.palier_why })
+      if ckey == "palier" then ckey = ckey .. ":" .. tostring(input.palier_why or ""):sub(1, 40) end
+    end
+    if (dm and dm.dormant or false) ~= last.dormant or math.abs(p - last.p) > 0.25 * math.max(last.p, 1) or ckey ~= cs.dm_ckey then
       cs.dm_last = { dormant = dm and dm.dormant or false, p = p }
+      cs.dm_ckey = ckey
       log(string.format("[FO-DEMANDE] %s : %s ; retour accepte au moins %.0f min (le stock dormirait autant, cout d'opportunite nul ; plafond %d) ; %d ordre(s) a %.1f min",
-        f.key or "?", dm and dm.cause or "puits ferme (reglage maitre eteint, QG menace ou besoin non evalue)",
+        f.key or "?", dm and dm.cause or ctext,
         math.min(dm and dm.tmax_sleep or 0, Dm.TMAX_CAP), Dm.TMAX_CAP, #res.orders, minutes(f, tick)))
     end
   end
@@ -1890,7 +1928,9 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
   cs.res = { delta = res.delta, alpha = res.alpha, s = res.s, K = res.K, Y = res.Y, budget = res.budget, spent = res.spent,
     labs_target = res.labs_target, u_star = res.u_star, free = input.reserve and input.reserve.free or nil,
     zero = input.reserve and input.reserve.zero or nil,
-    puits = res.demande and { p = res.demande.p, dormant = res.demande.dormant, left0 = res.demande.left0, cap = res.demande.cap } or nil }
+    puits = res.demande and { p = res.demande.p, dormant = res.demande.dormant, left0 = res.demande.left0, cap = res.demande.cap } or nil,
+    -- lot BLOCAGE-SORTIE-2 (lecture seule, bancs) : pourquoi le puits est fermé (menace, puits éteint, besoin évalué ou non)
+    threat = input.threat and true or false, demande_in = input.demande and true or false, reserve_in = input.reserve ~= nil }
   -- Lots VIDEO-L5 et VIDEO-L13 : refus de la règle par la suspension (« confirmation : ») ou par le plafond d'un objet, au journal.
   for _, r in ipairs(res.refus or {}) do
     local why = tostring(r.why)
@@ -2129,6 +2169,13 @@ local function decide_slice(f, cs, view, book, tick, research, run)
   end
   replace_contents(cs.st, mem.st)
   cs.wanted_set = mem.cex.wanted
+  do -- lot BLOCAGE-SORTIE-2 : manques mesurés que cette décision ne peut pas lever (Ca.obtainable) ; lus par Capi.palier_inputs à la décision suivante
+    local imp, build = {}, view.mq and view.mq.build or nil
+    for _, k in ipairs(sorted_keys(build or {})) do
+      if (build[k] or 0) > 0 and not Ca.obtainable(J.ctx, k) then imp[k] = true end
+    end
+    cs.impayable = next(imp) ~= nil and imp or nil
+  end
   cs.dj, DJ_MEM[key] = nil, nil
   RangTrace.note(f, J.ctx.rang, tick) -- lot VIDEO-TRACES (G34) : journal [FO-RANG], une ligne par signature changée (rang de la décision, sans toucher au résultat)
   decide_finish(f, cs, J.res, mem.input, view, book, tick, research)
