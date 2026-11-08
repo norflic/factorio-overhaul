@@ -113,11 +113,16 @@ return {
     -- PHASE 2
     st.after = st.after or { collect = 0, fill = 0, outs = 0, quais = 0, any = false, bad_idx = false }
     local a = st.after
-    if s.collect > a.collect then a.collect = s.collect end
-    if s.fill > a.fill then a.fill = s.fill end
-    if s.collect + s.fill > 0 then a.any = true end
+    -- les releves d'AVANT le passage du plan directeur (p.sites_v encore vide : listes et taches toujours en double) ne comptent pas
+    -- pour K3 ; a.first_clean = le releve ou le dedoublonnage est vu pour la premiere fois
     a.outs, a.quais, a.sites_v = s.outs, s.quais, s.sites_v
-    a.last = s
+    if s.sites_v == 1 then
+      a.first_clean = a.first_clean or dt
+      if s.collect > a.collect then a.collect = s.collect end
+      if s.fill > a.fill then a.fill = s.fill end
+      if s.collect + s.fill > 0 then a.any = true end
+      a.last = s
+    end
     ctx.log(string.format("apres t0+%d | %s", dt, brief(s)))
   end,
 
@@ -134,7 +139,8 @@ return {
     ctx.check(a.outs == 2 and a.quais == 1 and a.sites_v == 1, "K2 : apres, 2 sorties, 1 quai, p.sites_v = 1",
       string.format("%s/%s/%s", tostring(a.outs), tostring(a.quais), tostring(a.sites_v)))
     local last = a.last
-    ctx.check((a.collect or 99) <= 2 and (a.fill or 99) <= 1 and last ~= nil and max_idx(last, "o") <= 2 and max_idx(last, "q") <= 1,
+    ctx.log(string.format("dedoublonnage vu a t0+%s", tostring(a.first_clean)))
+    ctx.check(a.first_clean ~= nil and (a.collect or 99) <= 2 and (a.fill or 99) <= 1 and last ~= nil and max_idx(last, "o") <= 2 and max_idx(last, "q") <= 1,
       "K3 : apres, jamais plus de taches que de coffres, aucune cle au-dela des listes",
       string.format("collecte max %s remplissage max %s o<=%d q<=%d", tostring(a.collect), tostring(a.fill), last and max_idx(last, "o") or -1,
         last and max_idx(last, "q") or -1))
