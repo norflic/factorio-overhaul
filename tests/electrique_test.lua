@@ -47,6 +47,16 @@ local function suite(E)
     check(E.thermal({ obtainable = true, plants = 1, poles = true, fuel = false, healthy = false }) == false,
       "1h : autre minerai, centrale a l'arret : refusee (seul le combustible la relance)")
     check(E.thermal({ obtainable = true, plants = 3, poles = true }) == false, "1i : plusieurs centrales : refusee")
+    -- 1j (partie neuve du 8/11 : bascule a 7,7 min, 0 electrique posee a 30 min, thermiques detruites jamais refaites) : la bascule exige
+    -- des foreuses electriques POSEES ; au-dessous du seuil, la thermique reste permise (pose, agrandissement, reconstruction).
+    local a0, w0 = E.thermal({ obtainable = true, plants = 1, poles = true, healthy = true, elec = 0 })
+    check(a0 == true and w0:find("electrique", 1, true) ~= nil, "1j : centrale finie mais 0 electrique posee : thermique PERMISE, cause ecrite")
+    check(E.thermal({ obtainable = true, plants = 1, poles = true, healthy = true, elec = E.CFG.min_elec - 1 }) == true,
+      "1j : sous le seuil d'electriques posees : permise")
+    check(E.thermal({ obtainable = true, plants = 1, poles = true, healthy = true, elec = E.CFG.min_elec }) == false,
+      "1j : seuil d'electriques posees atteint : refusee")
+    check(E.thermal({ obtainable = true, plants = 1, poles = true, healthy = true, elec = 0 }, { min_elec = 0 }) == false,
+      "1j : seuil donne par cfg (0) : refusee")
     check(E.thermal(nil) == true, "1j : rien de lu : permise")
     -- partie du DC (0.6.66, joueur) : centrale 1 finie à 28,0 min, foreuse électrique fabricable dès le début, poteaux : refusée dès 28 min
     check(E.thermal({ on = true, obtainable = true, plants = 1, poles = true, healthy = true }) == false, "1k : cas du DC a 28 min : refusee")
@@ -280,6 +290,7 @@ local mutants = {
   { "thermal : exception combustible supprimee", "if s.fuel and s.healthy == false then return true", "if false then return true" },
   { "thermal : exception pour tout minerai", "if s.fuel and s.healthy == false then return true", "if s.healthy == false then return true" },
   { "thermal : toujours permise", "  return false, string.format(\"electrique possible", "  return true, string.format(\"electrique possible" },
+  { "thermal : electriques posees ignorees (partie neuve du 8/11)", "if s.elec ~= nil and (num(s.elec) or 0) < (cfg.min_elec or 0) then", "if false then" },
   { "task_drills : craft d'autre objet compte", "    if t.item == drill then return max(1, floor(num(t.count) or 1)) end\n    return 0", "    return max(1, floor(num(t.count) or 1))" },
   { "task_drills : build sans type compte", "if t.kind ~= \"extend\" and not (t.kind == \"build\" and t.outpost_kind ~= nil) then return 0 end", "if t.kind ~= \"extend\" and t.kind ~= \"build\" then return 0 end" },
   { "task_drills : extend ignore", "if t.kind ~= \"extend\" and not (t.kind == \"build\" and t.outpost_kind ~= nil) then return 0 end", "if not (t.kind == \"build\" and t.outpost_kind ~= nil) then return 0 end" },

@@ -77,8 +77,15 @@ function Elec.think(f, book, tick)
   for _, p in ipairs(T.swap.poles or {}) do
     if obtainable(f, book, p) then poles = true break end
   end
+  -- Foreuses électriques POSÉES par la force (lot ELECTRIQUE, correctif du 8/11 : la bascule exige des électriques réelles).
+  local elec = 0
+  local surface = f.hq and f.hq.valid and f.hq.surface
+  if surface and T.DRILL_ELECTRIC then
+    local ok, n = pcall(function() return surface.count_entities_filtered({ name = T.DRILL_ELECTRIC, force = f.force }) end)
+    if ok and type(n) == "number" then elec = n end
+  end
   local v = { tick = tick, on = Elec.on(), obtainable = obtainable(f, book, T.DRILL_ELECTRIC), plants = cap_kw > 0 and 1 or 0,
-    poles = poles, healthy = not (f.build and f.build.sante and f.build.sante.healthy == false), cap = cap_kw }
+    poles = poles, healthy = not (f.build and f.build.sante and f.build.sante.healthy == false), cap = cap_kw, elec = elec }
   st.v = v
   local allowed, why = E.thermal(v)
   if st.allowed ~= allowed then
@@ -131,7 +138,7 @@ local function verdict_for(v)
     local spec = t.outpost_kind and T.outposts[t.outpost_kind]
     -- une fabrication de thermique ne sert qu'à l'exception du combustible : permise quand la centrale est à l'arrêt
     local fuel = (t.kind == "craft") or (spec ~= nil and spec.product == T.fuel)
-    return E.thermal({ on = v.on, obtainable = v.obtainable, plants = v.plants, poles = v.poles, fuel = fuel, healthy = v.healthy })
+    return E.thermal({ on = v.on, obtainable = v.obtainable, plants = v.plants, poles = v.poles, fuel = fuel, healthy = v.healthy, elec = v.elec })
   end
 end
 
@@ -145,7 +152,7 @@ function Elec.view_off(f, tick)
   for _, kind in ipairs(T.OUTPOST_ORDER or {}) do
     local spec = T.outposts[kind]
     local ok, why = E.thermal({ on = v.on, obtainable = v.obtainable, plants = v.plants, poles = v.poles,
-      fuel = spec ~= nil and spec.product == T.fuel, healthy = v.healthy })
+      fuel = spec ~= nil and spec.product == T.fuel, healthy = v.healthy, elec = v.elec })
     if not ok then out[kind], any = why, true end
   end
   return any and out or nil
