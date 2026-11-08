@@ -1,3 +1,13 @@
+---------------------------------------------------------------------------------------------------
+Version: 0.6.64
+Date: 2026-11-08
+  Changes:
+    - Factions lointaines plus lentes (votre choix du 7/11, retire par erreur de la 0.6.63) : une faction loin de vous decide 2 fois moins souvent (capitalisation toutes les 2 min au lieu de chaque minute) et grandit un peu moins vite (25 a 27 PNJ a 12 min au lieu de 29 a 30, moteur simule).
+    - Charge : la pensee d'une faction est decoupee en etapes qui prennent le jeton des travaux lourds ; elle ne s'ajoute plus aux autres gros travaux dans le meme tick (au plus 7 ticks par etape, 103 par pensee). Filet de surete : une pensee bloquee plus de 1 200 ticks est rattrapee d'un bloc, avec une ligne [FO-ETAPES] FILET au journal (ne devrait jamais servir).
+    - Reglages : 7 descriptions disaient encore "eteint par defaut" alors que le reglage est allume (petrole, capital, lots de minerai, paliers, portes, trace de la carte, capitalisation) ; corrigees en francais et en anglais.
+    - Bancs et mesures : banc des foreuses en panne (aucune electrique posee pendant une coupure, 2 sans la regle) ; banc des grenadiers corrige (regle eteinte : 8 PNJ perdus sur 8 ; allumee : 0 sur 8) ; remplacement des foreuses mesure a 0,087 ms par tick sur un avant-poste de 328 foreuses (1,35 avant les optimisations) ; compteur des lectures de place du stock (profileur detaille seulement).
+    - Tests : le controle du petrole (ia3f) compare avec des marges calculees sur le hasard (allume 18, eteint 19 sur 24 graines : pas de defaut de jeu) ; suite a part ia3f_petrole24 (environ 1 h).
+    - Pas encore dans cette version : gel des usines et garnisons lointaines (un plantage trouve sur votre sauvegarde et un cout trop eleve, jusqu'a 20 ms par tick contre 2 permis ; retire, vise la 0.6.65) ; surplus des poches de votre equipe (votre choix) ; designs du titan (votre choix) ; cout du trowel (votre choix).
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Version: 0.6.63
 Date: 2026-11-08
