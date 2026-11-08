@@ -25,4 +25,15 @@ function M.note(f, R, tick)
   return true
 end
 
+--- Lot CONSOLIDATION-TIERS : lignes d'attente, de consolidation et de levée d'une décision (J.ctx.cons_log, texte sans préfixe). Une ligne par
+--- événement (la règle les a dédoublonnés : Pr.solid_mark, Pr.solid_step). Rend le nombre de lignes écrites.
+function M.attentes(f, lines, tick)
+  local n = 0
+  for _, text in ipairs(lines or {}) do
+    log(string.format("[FO-RANG] %s : %s a %.1f min", tostring(f.key or "player"), text, tick / 3600))
+    n = n + 1
+  end
+  return n
+end
+
 return M

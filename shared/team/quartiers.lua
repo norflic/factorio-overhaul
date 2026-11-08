@@ -103,10 +103,24 @@ function Q.need(starts, tick)
   return math.max(Q.NEED_MIN, math.min(Q.NEED_MAX, want)), n
 end
 
+--- Tranche 3 (défense des lots préparés, V23 « défense » ; V72 l.138 : n'engager qu'une place sûre) : le pôle (centre du lot `l`,
+--- treillis `lat` = { ox, oy }) est-il à Q.THREAT_R tuiles ou moins (Chebyshev) d'une menace connue (`threats` : { { x, y } }, nids
+--- et vers de la carte de connaissance) ?
+Q.THREAT_R = 64
+function Q.threatened(l, lat, threats)
+  if not (l and lat and threats) then return false end
+  local cx, cy = lat.ox + 28 * l.i, lat.oy + 28 * l.j
+  for _, t in ipairs(threats) do
+    if math.max(math.abs(t.x - cx), math.abs(t.y - cy)) <= Q.THREAT_R then return true end
+  end
+  return false
+end
+
 --- Quartiers ouvrables, triés : ni le cœur, ni ouverts ni en chantier (`known` : { [clé] = { refus } }), avec un pôle et au moins un
---- lot libre de plus. Rend une liste de { I, J, key, hub, free, d }.
-function Q.candidates(lots, known)
-  local seen, out = {}, {}
+--- lot libre de plus, et (tranche 3) un pôle loin des menaces connues (`threats`, `lat` facultatifs : sans eux, aucune menace).
+--- Rend (liste de { I, J, key, hub, free, d }, nombre de quartiers écartés pour une menace).
+function Q.candidates(lots, known, threats, lat)
+  local seen, out, menaces = {}, {}, 0
   for _, k in ipairs(sorted_keys(lots)) do
     local l = lots[k]
     local I, J = Q.of_lot(l.i, l.j)
@@ -117,7 +131,9 @@ function Q.candidates(lots, known)
       if not kn or (not kn.pid and (kn.refus or 0) < Q.REFUS_MAX) then
         local hub = Q.hub_lot(lots, I, J)
         local free = hub and Q.free_in(lots, I, J, hub) or 0
-        if hub and free >= 1 then
+        if hub and free >= 1 and Q.threatened(lots[hub], lat, threats) then
+          menaces = menaces + 1
+        elseif hub and free >= 1 then
           local h = lots[hub]
           out[#out + 1] = { I = I, J = J, key = qk, hub = hub, free = free, d = math.max(math.abs(I), math.abs(J)),
             hd = math.abs(h.i) + math.abs(h.j) }
@@ -132,7 +148,7 @@ function Q.candidates(lots, known)
     if a.J ~= b.J then return a.J < b.J end
     return a.I < b.I
   end)
-  return out
+  return out, menaces
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -148,6 +164,23 @@ function Q.depot_items(counts, n)
   local out = {}
   for i = 1, math.min(n or 0, #list) do out[i] = list[i] end
   return out
+end
+
+--- Le coffre (contenu `contents` = { [objet] = n }) tient-il un objet que le dépôt ne demande plus (`items` : liste) ? Alors il est
+--- vidé au QG (collecte), et n'est pas rempli tant qu'il en tient.
+function Q.depot_stale(contents, items)
+  local want = {}
+  for _, it in ipairs(items or {}) do want[it] = true end
+  for _, k in ipairs(sorted_keys(contents)) do if (contents[k] or 0) > 0 and not want[k] then return true end end
+  return false
+end
+
+--- Une collecte d'un module du quartier va-t-elle au dépôt ? Oui si un de ses produits (`products` : liste) est demandé par le dépôt.
+function Q.collect_to_depot(products, items)
+  local want = {}
+  for _, it in ipairs(items or {}) do want[it] = true end
+  for _, p in ipairs(products or {}) do if want[p] then return true end end
+  return false
 end
 
 --- Le dépôt sert-il la tournée ? Il faut TOUT le lot de la tournée au dépôt (pas de tournée à moitié vide).

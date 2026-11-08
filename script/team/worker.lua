@@ -45,9 +45,11 @@ local Harvest = require("script.team.harvest") -- lot KIT : entités qui donnent
 local Charge = require("shared.team.charge_four") -- lot FOURS : quantité emportée pour remplir les fours à la pile
 local Front = require("script.team.front") -- lot DEFENSE-FRONT : tourelles posées là où les pièces tombent
 local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : tourelles posées dans l'emprise d'un îlot isolé
+local DefStock = require("script.team.defense_stock") -- lot DEFENSE-STOCK : tourelles du coffre posées en groupes
 local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites (tâche « rebuild »)
 local Mi = require("shared.team.main_inventaire") -- lot MAIN-INVENTAIRE : minage à la main, inventaire plein, minerai au sol
 local Sorties = require("script.team.sorties") -- lot CHARBON-MAIN : la ressource qui dort dans les coffres des avant-postes bruts
+local Src = require("script.team.sources") -- lot MINAGE-MAIN : ce qui dort dans les coffres de SORTIE (fonderies), tournée « fetch »
 local CB = require("shared.team.craft_bg") -- lot CRAFT-PARALLELE : fabrication en arrière-plan (règles pures, bilan [FO-CRAFT])
 local Tp = require("shared.team.tri_proches") -- lot CERVEAU-CENTRAL (P1) : tri des tuiles de minage, positions lues une fois
 local Sp = require("shared.team.spirale") -- EFFONDREMENT : filet de recul de la recrue gratuite (mort rapide d'une recrue gratuite)
@@ -513,6 +515,8 @@ local function ia1d_program(task)
   elseif j.mode == "fill" and j.depot then -- lot TV-ARCHI (V91) : quai d'un quartier servi par son dépôt (script/team/quartiers.lua, Qr.route)
     return { { "goto", j.depot, 2 }, { "take_depot", j.depot, task.depot_items }, { "goto", at, 1 }, { "ia1d" }, { "goto", j.depot, 2 },
       { "put_depot", j.depot, task.depot_items } }
+  elseif j.mode == "collect" and j.depot then -- lot TV-ARCHI (V91) : produits demandés par le dépôt du quartier laissés au passage
+    return { { "goto", at, 1 }, { "ia1d" }, { "goto", j.depot, 2 }, { "put_depot", j.depot, task.depot_items }, { "home" } }
   elseif j.mode == "fill" or j.mode == "amorce" then -- amorce : lot ENERGIE (2/11), charbon versé dans les chaudières à sec
     return { { "home" }, { "take", task.items, strict = true }, { "goto", at, 1 }, { "ia1d" }, { "home" } }
   elseif j.mode == "clear" or j.mode == "collect" then
@@ -660,7 +664,7 @@ function Worker.program(f, task, surface, tick)
       return { { "home" }, { "take", task.items, strict = true }, { "goto", task.pos, 5 }, { "act", "fortify" }, { "home" } }
     end
     -- Lot DEFENSE-FRONT : la cellule du front ; on va jusqu'à son centre
-    if task.outpost == "front" then
+    if task.outpost == "front" or task.outpost == "reserve" then -- (lot DEFENSE-STOCK : le lieu de la réserve, même trajet)
       if not task.pos then return nil end
       return { { "home" }, { "take", task.items, strict = true }, { "goto", task.pos, 5 }, { "act", "fortify" }, { "home" } }
     end
@@ -723,6 +727,8 @@ function Worker.program(f, task, surface, tick)
       list[#list + 1] = { T.fuel, Outposts.coal_needed_for(Outposts.smelters(f)) }
     end
     return { { "home" }, { "take", list }, { "act", "smelt" }, { "home" } }
+  elseif k == "fetch" then
+    return Src.program(f, task) -- lot MINAGE-MAIN : vider une sortie qui dort (plaques d'une fonderie), puis le dépôt au QG
   elseif k == "equiper" then
     return Equip.program(f, task) -- lot LEVIERS
   elseif k == "mine" then
@@ -757,6 +763,23 @@ function Worker.program(f, task, surface, tick)
             f.key or "?", tostring(task.resource), why2, dormant, tostring(task.key), tick / 3600, f.stats.main_sorties, tours or ""))
         end
         task.fail = task.fail or "main:sorties"
+        return nil
+      end
+      -- Lot MINAGE-MAIN (retour du DC du 8/11, 0.6.65 : « ils minent à la main du fer et du cuivre alors qu'ils ont des milliers de plaques dans
+      -- les coffres de la fonderie ») : jamais à la main ce qu'une sortie de la force tient ou produit (registre : shared/team/sources.lua) ;
+      -- la tournée « fetch » va le chercher. Survie comprise ; seule une crise injectée par un banc passe.
+      local ok3, why3, text3 = Src.hand_ok(f, task.resource, tick, task.crisis)
+      if not ok3 then
+        f.stats.main_sources = (f.stats.main_sources or 0) + 1
+        f.stats.main_refus = f.stats.main_refus or {}
+        local key3 = "sources:" .. tostring(task.resource)
+        local last3 = f.stats.main_refus[key3]
+        if not last3 or tick - last3 >= 3600 then
+          f.stats.main_refus[key3] = tick
+          log(string.format("[FO-MAIN] %s : minage a la main de '%s' REFUSE (sources: %s) : %s, tache %s, a %.1f min (refus %d)",
+            f.key or "?", tostring(task.resource), tostring(why3), text3, tostring(task.key), tick / 3600, f.stats.main_sources))
+        end
+        task.fail = task.fail or "main:sources"
         return nil
       end
     end
@@ -934,7 +957,8 @@ end
 ACTS.service = function(agent, f, task, surface, tick)
   local o = f.outposts[task.outpost]
   if not o then return false end
-  local n = Outposts.service(o, main_inv(agent), tick, f.team and f.team.flux_fill, Stock.skip_fn and Stock.skip_fn(f))
+  local n = Outposts.service(o, main_inv(agent), tick, f.team and f.team.flux_fill, Stock.skip_fn and Stock.skip_fn(f),
+    { key = f.key or "player", stock = function() return Stock.count(f, T.fuel) end }) -- lot BLOCAGE-COMBUSTIBLE : journal [FO-RAVITAILLEMENT]
   f.stats.serviced = (f.stats.serviced or 0) + 1
   f.team.collected = (f.team.collected or 0) + n
   return true
@@ -952,6 +976,11 @@ ACTS.refill = function(agent, f, task)
 end
 
 ACTS.fortify = function(agent, f, task, surface)
+  if task.outpost == "reserve" then -- lot DEFENSE-STOCK : tourelles du coffre en groupe
+    local n = DefStock.place(f, surface, task, main_inv(agent))
+    f.stats.reserve_fortified = (f.stats.reserve_fortified or 0) + n
+    return n > 0
+  end
   if task.outpost == "front" then
     local n = Front.place(f, surface, task, main_inv(agent))
     if task.defend then f.stats.defend_fortified = (f.stats.defend_fortified or 0) + n end
@@ -981,6 +1010,7 @@ ACTS.smelters = function(agent, f, task, surface)
 end
 
 ACTS.equiper = Equip.act -- lot LEVIERS
+ACTS.fetch = Src.act -- lot MINAGE-MAIN
 
 ACTS.rebuild = function(agent, f, task, surface) return Recon.act(agent, f, task, surface) end -- lot COUVERTURE
 ACTS.repair = function(agent, f, task, surface) return Recon.repair_act(agent, f, task, surface) end -- lot RECONSTRUIRE
@@ -2177,6 +2207,7 @@ Registry.on_removed(function(agent)
     if t and t.kind == "fortify" and t.outpost == "plant" then GardeCentrale.on_lost(f, agent.id, agent.death_cause) end
     -- Lot DEFENSE-FRONT : porteur tué en allant renforcer une cellule du front : la cellule se repose (T.lethal_ticks)
     if t and t.kind == "fortify" and t.outpost == "front" then Front.on_lost(f, t.cell_key, agent.death_cause) end
+    if t and t.kind == "fortify" and t.outpost == "reserve" then DefStock.on_lost(f, t.cell_key, agent.death_cause) end -- lot DEFENSE-STOCK
     if t and t.kind == "fortify" and t.outpost == "ilot" then Ilots.on_lost(f, agent.id, agent.death_cause) end -- lot ILOTS-MURS
     -- Lot SCALE (correction après revue) : QG OCCUPÉ par les biters (factions) : T.hq_lethal_deaths PNJ tués par la force
     -- « enemy » à moins de Worker.SAFE_HOME tuiles du QG en moins de T.hq_lethal_window : plus de recrue pendant

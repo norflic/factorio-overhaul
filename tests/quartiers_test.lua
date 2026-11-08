@@ -4,7 +4,9 @@
     §1 quartier d'un lot ; §2 centre ; §3 lot utilisable ; §4 pôle ; §5 lots libres d'un quartier ; §6 lots libres des quartiers
        ouverts ; §7 besoin anticipé ; §8 candidats (exclusions, tri, égalités) ; §9 décision (ordre des raisons) ; §10 déterminisme ;
     §11 mutants : des motifs du source sont réécrits, le texte est rechargé, et la suite de contrôles doit ÉCHOUER sur chacun ;
-    §12 dépôt du quartier (tranche 2) : depot_items, depot_serves (rejoués sur chaque mutant, car dans la suite).
+    §12 dépôt du quartier (tranche 2) : depot_items, depot_serves (rejoués sur chaque mutant, car dans la suite) ;
+    §13 menaces (tranche 3) : threatened, candidats écartés et 2e valeur de candidates ; dépôt périmé et collecte (depot_stale,
+       collect_to_depot).
   Usage : lua5.2 tests/quartiers_test.lua   (depuis la racine du mod ; quelques secondes ; rien en jeu)
 ]]
 package.path = "./?.lua;" .. package.path
@@ -216,6 +218,40 @@ local function suite(R)
   check(R.depot_serves(100, 0) == false, "§12 depot_serves(100,0) : faux (besoin nul)")
   check(R.depot_serves(nil, 10) == false, "§12 depot_serves(nil,10) : faux")
 
+  -- §13 menaces (tranche 3) : seuil Chebyshev de Q.THREAT_R, candidats écartés, 2e valeur de candidates
+  do
+    local L = lot(0, -3, "libre")
+    local LAT = { ox = 0, oy = 0 }   -- centre du lot (0, -84)
+    check(R.threatened(L, LAT, { { x = 0, y = -20 } }) == true, "§13 menace en (0,-20), 64 pile : menacé")
+    check(R.threatened(L, LAT, { { x = 0, y = -19 } }) == false, "§13 menace en (0,-19), 65 : pas menacé")
+    check(R.threatened(L, LAT, { { x = 64, y = -84 } }) == true, "§13 menace en (64,-84), 64 pile à l'est : menacé")
+    check(R.threatened(L, LAT, { { x = 65, y = -84 } }) == false, "§13 menace en (65,-84) : pas menacé")
+    check(R.threatened(L, LAT, {}) == false, "§13 aucune menace : faux")
+    check(R.threatened(L, nil, { { x = 0, y = -20 } }) == false, "§13 lat absent : faux")
+    check(R.threatened(nil, LAT, { { x = 0, y = -20 } }) == false, "§13 lot absent : faux")
+
+    local tl = fill(fill({}, 0, -1), 1, 0)   -- quartiers (0,-1) (pôle (0,-3)) et (1,0) (pôle (3,0)), tous libres
+    local sans = R.candidates(tl)
+    check(keys_of(sans) == "0:-1,1:0", "§13 sans menace : (0,-1) avant (1,0) (" .. keys_of(sans) .. ")")
+    local _, n0 = R.candidates(tl)
+    check(n0 == 0, "§13 sans menace : 2e valeur 0 (" .. tostring(n0) .. ")")
+    local listed, nm = R.candidates(tl, nil, { { x = 0, y = -90 } }, LAT)
+    check(keys_of(listed) == "1:0", "§13 menace près de (0,-1) : écarté, liste = 1:0 (" .. keys_of(listed) .. ")")
+    check(nm >= 1, "§13 menace près de (0,-1) : 2e valeur au moins 1 (" .. tostring(nm) .. ")")
+    local _, n1 = R.candidates(tl, nil, nil, LAT)
+    check(n1 == 0, "§13 sans liste de menaces : 2e valeur 0 (" .. tostring(n1) .. ")")
+  end
+
+  -- §13 dépôt périmé (tranche 2) et collecte vers le dépôt
+  check(R.depot_stale({ ["iron-plate"] = 10 }, { "iron-plate" }) == false, "§13 depot_stale : objet demandé seul : pas périmé")
+  check(R.depot_stale({ ["iron-plate"] = 10, coal = 1 }, { "iron-plate" }) == true, "§13 depot_stale : charbon non demandé : périmé")
+  check(R.depot_stale({ coal = 0 }, {}) == false, "§13 depot_stale : objet à 0 : pas périmé")
+  check(R.depot_stale({}, { "x" }) == false, "§13 depot_stale : coffre vide : pas périmé")
+  check(R.collect_to_depot({ "iron-gear-wheel" }, { "iron-plate", "iron-gear-wheel" }) == true, "§13 collecte : produit demandé par le dépôt : oui")
+  check(R.collect_to_depot({ "copper-cable" }, { "iron-plate" }) == false, "§13 collecte : produit non demandé : non")
+  check(R.collect_to_depot({}, { "a" }) == false, "§13 collecte : aucun produit : non")
+  check(R.collect_to_depot({ "a" }, nil) == false, "§13 collecte : dépôt sans demande : non")
+
   return n, bad
 end
 
@@ -275,6 +311,10 @@ local MUTANTS = {
   { "m", "return counts[a] > counts[b]", "return counts[a] < counts[b]" },
   { "n", "return (need or 0) > 0 and (have or 0) >= need", "return (have or 0) >= (need or 0)" },
   { "o", "if (counts[k] or 0) > 0 then", "if true then" },
+  { "p", "if math.max(math.abs(t.x - cx), math.abs(t.y - cy)) <= Q.THREAT_R then return true end", "if math.max(math.abs(t.x - cx), math.abs(t.y - cy)) < Q.THREAT_R then return true end" },
+  { "q", "if hub and free >= 1 and Q.threatened(lots[hub], lat, threats) then", "if false then" },
+  { "r", "if (contents[k] or 0) > 0 and not want[k] then return true end", "if not want[k] then return true end" },
+  { "s", "for _, p in ipairs(products or {}) do if want[p] then return true end end", "for _, p in ipairs(products or {}) do if not want[p] then return true end end" },
 }
 
 local refused, total = 0, #MUTANTS

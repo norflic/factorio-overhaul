@@ -47,8 +47,10 @@ function Rpl.try(f, surface, g, ctx)
   local b = f.build
   local st = state(b)
   local tick = game.tick
+  -- relevé élargi de 8 tuiles comme lot_scan (build.lua) : les tapis, bras et poteaux du module sortent de la fenêtre et sont planifiés
+  -- avec ces masques ; une eau ou une falaise non lue y passerait pour libre (relecture de revue-t)
   local function read(rect)
-    local masks = ctx.read_masks(f, surface, rect.x0 - 1, rect.y0 - 1, rect.x1 + 1, rect.y1 + 1)
+    local masks = ctx.read_masks(f, surface, rect.x0 - 8, rect.y0 - 8, rect.x1 + 8, rect.y1 + 8)
     local ores = ctx.res and ctx.ore_set(surface, rect, ctx.res) or nil
     return masks, ores
   end

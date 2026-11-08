@@ -963,7 +963,9 @@ function M.new_world(opts)
       ["fo-war-capital"] = (opts.capital ~= false) and (os.getenv("FO_CAPITAL") ~= "0"),
       -- Lot AMELIORER : remplacement des machines hors famille, ALLUMÉ par défaut comme le jeu (settings/capital.lua)
       ["fo-war-remplacer"] = opts.remplacer ~= false,
-      ["fo-war-amelioration"] = opts.amelioration ~= false, -- lot AMELIORATION : montée par bloc (défaut allumé, comme le réglage)
+      -- Lot AMELIORATION (8/11) : monter les bâtiments par bloc, ALLUMÉ par défaut comme le jeu (settings/capital.lua) ; éteint par
+      -- l'option (amelioration = false) ou par FO_AMELIORATION=0. Absent, script/ai3/capital.lua levait « paramètre inconnu ».
+      ["fo-war-amelioration"] = (opts.amelioration ~= false) and (os.getenv("FO_AMELIORATION") ~= "0"),
       -- Lot CAPIB : ÉTEINT par défaut comme le jeu (settings/capi.lua) ; allumé par l'option (capi = true) ou FO_CAPI=1
       -- (n'agit qu'avec fo-war-ia3e : FO_IA3E=1)
       ["fo-war-capi"] = (opts.capi == true) or (os.getenv("FO_CAPI") == "1"),
@@ -1136,6 +1138,11 @@ function M.new_world(opts)
     -- EFFONDREMENT (parade du kit offert, script/team/worker.lua) : corps d'un personnage mort ; levé par die() sur demande seulement
     -- (opts.corpses du monde, fire_post_died), comme le moteur réel (micro-banc kit-cadavre, 9ee2b12d)
     on_post_entity_died = 41,
+    -- lot DEBUG-CERVEAU : vue « Cerveau » (script/debug/cerveau.lua) : liste déroulante de la force observée et départ d'un joueur ;
+    -- le mock n'en lève aucun, tests/debug_cerveau_vue_test.lua rejoue les gestionnaires à la main (noms de l'API 1.1.91)
+    on_gui_selection_state_changed = 42, on_player_removed = 43,
+    -- lot MINAGE-MAIN : bras tourné par le joueur (script/team/sources.lua) ; le mock ne tourne rien : jamais levé, testé à la main par tests/sources_glue_test.lua
+    on_player_rotated_entity = 142,
   }
   _G.defines = {
     -- Lot PANNEAU : type de l'interface ouverte (LuaControl.opened_gui_type) ; noms de l'API 1.1.91, valeurs opaques.

@@ -67,6 +67,7 @@ check(#C.missing(cost, have_of(full)) == 1 and C.missing(cost, have_of(full))[1]
 -- 2. Moteur simulé
 ---------------------------------------------------------------------------------------------------
 local CCN = L.name(L.by_key.command, 1)
+local START_REPAIRED = false -- scènes de l'épave (départ d'avant le 8/11) ; la section 3 joue le départ livré (vrai)
 local function box(x0, y0, x1, y1) return { left_top = { x = x0, y = y0 }, right_bottom = { x = x1, y = y1 } } end
 
 local function world()
@@ -80,6 +81,8 @@ local function world()
     selection_box = box(-2, -2, 2, 2), collision_mask = w.prototypes["gun-turret"].collision_mask })
   _G.game.item_prototypes = setmetatable({}, { __index = function() return {} end })
   M.load_mod()
+  -- Depuis le 8/11 (demande du DC), le départ pose le centre RÉPARÉ ; les scènes de l'épave ci-dessous rejouent l'ancien départ.
+  require("script.levels.centre").START_REPAIRED = (START_REPAIRED == true)
   M.dispatch(w.on_init)
   return w
 end
@@ -223,6 +226,27 @@ check(conv.health == 3000 * C.WRECK_HEALTH and rawget(conv, "_minable") == false
 stock(w, C.repair_cost(L))
 local okm, rm = remote.call("fo-centre", "repair", "player", 1)
 check(okm and rm == "done" and Levels.cc(w.forces.player).name == CCN and status().wreck == false, "migration : l'épave convertie se répare")
+
+---------------------------------------------------------------------------------------------------
+-- 3. Départ livré (DC, 8/11) : centre RÉPARÉ au niveau 1, près du joueur, sans rien payer
+---------------------------------------------------------------------------------------------------
+START_REPAIRED = true
+w = world()
+local inv0 = 0
+for _, c in ipairs(C.repair_cost(L)) do inv0 = inv0 + w.player.get_main_inventory().get_item_count(c[1]) end
+player_created(w)
+local cc3 = Levels.cc(w.forces.player)
+check(cc3 ~= nil and cc3.valid and cc3.name == CCN, "départ : le centre de niveau 1 (pas l'épave)")
+check(count_cc(w) == 1, "départ : un seul centre, l'épave a disparu")
+check(cc3 and cc3.position.x == 8 and cc3.position.y == 0, "départ : posé à C.START_OFFSET du joueur (8 tuiles)")
+check(cc3 and cc3.health == 3000 and rawget(cc3, "_minable") ~= false and rawget(cc3, "_operable") ~= false, "départ : vie pleine, minable, ouvrable")
+check(status().wreck == false and status().started == true, "départ : aucune épave suivie, départ fait")
+check(Levels.cc_level(w.forces.player) == 1, "départ : niveau effectif 1 (plafond du centre offert)")
+local inv1 = 0
+for _, c in ipairs(C.repair_cost(L)) do inv1 = inv1 + w.player.get_main_inventory().get_item_count(c[1]) end
+check(inv1 == inv0, "départ : rien prélevé à l'inventaire du joueur")
+player_created(w)
+check(count_cc(w) == 1, "départ : un second joueur ne pose pas de second centre")
 
 print(string.format("[CENTRE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

@@ -42,6 +42,10 @@ C.STALE_REASON = "delai" -- raison du projet annulé (ne compte pas comme un ref
 C.SECOURS_BOILERS = 1
 C.SECOURS_MAX = 3
 
+-- Lot TV-ENERGIE (diagnostic azure) : DÉFICIT de kW (kW retenus par la capitalisation avec de l'épargne qui dort, S.deficit) : la centrale de plus
+-- est demandée après C.DEFICIT_CHECKS relevés de suite (15 s), à la taille du déficit (C.deficit_size), une seule à la fois (garde « chantier ouvert »).
+C.DEFICIT_CHECKS = 3
+
 -- Lot VIDEO-L12, partie 2 (fo-logs/2026-11-07_VIDEO-AUTOMATISATION/PLAN_L6_L10_L12.md §3.3, point 2 ; gist l.48-53) : HYSTÉRÉSIS. Avant, un
 -- seul relevé sous C.SAT effaçait la saturation (seuil unique : une charge qui oscille autour de 80 % allumait et éteignait la saturation, et
 -- remettait à zéro la durée qui lève le repli, C.HOLD_PASS). Une centrale SATURÉE le reste tant qu'elle produit au moins C.SAT_EXIT de sa
@@ -69,13 +73,29 @@ function C.crisis(st, n)
   return false, nil
 end
 
+--- Suivi du déficit de kW. st : mémoire { def_n } ; flag : il y a un déficit à ce relevé. Rend vrai quand il dure depuis C.DEFICIT_CHECKS relevés.
+function C.deficit_track(st, flag)
+  if flag then st.def_n = (st.def_n or 0) + 1 else st.def_n = 0 end
+  return st.def_n >= C.DEFICIT_CHECKS
+end
+
+--- Chaudières pour couvrir `kw` kW de déficit (boiler_kw : puissance d'une chaudière ; nil/0 : C.BOILERS). Au moins 1, au plus Cv.MAX_FIELD, une de moins
+--- par refus du plan (shrink), bornée par la voie de tapis (lane_cap).
+function C.deficit_size(kw, boiler_kw, shrink, lane_cap)
+  if not (boiler_kw and boiler_kw > 0 and kw and kw > 0) then return C.BOILERS end
+  local nb = math.min(Cv.MAX_FIELD, math.max(1, math.ceil(kw / boiler_kw - 1e-9)))
+  if lane_cap and lane_cap >= 1 then nb = math.min(nb, math.floor(lane_cap)) end
+  return math.max(1, nb - math.max(0, shrink or 0))
+end
+
 --- Nombre de chaudières de la centrale à demander, ou (nil, raison). n : { done = centrales finies, pending = centrales en
 --- projet (ni finies ni refusées), refused = demandes de croissance refusées, hold = repli de l'équipe, cool = pause après un abandon, off = règle coupée }.
 function C.growth(st, n)
   if n.off then return nil, "regle coupee" end
   -- lot ENERGIE (2/11) : `anticipate` (shared/team/sante_centrale.lua : production + chantiers + modules retenus >= 70 % de la capacité) demande la
   -- centrale AVANT la saturation ; tous les garde-fous suivants (chantier ouvert, plafonds, pauses, repli) valent aussi pour elle
-  if not st.saturated and not n.lost and not n.anticipate then return nil, "pas saturee" end
+  local deficit = (n.deficit_kw or 0) > 0 and (st.def_n or 0) >= C.DEFICIT_CHECKS -- lot TV-ENERGIE : déficit de kW installé
+  if not st.saturated and not n.lost and not n.anticipate and not deficit then return nil, "pas saturee" end
   -- lot ENERGIE (relecture) : la reconstruction qui n'aboutit pas ne retient pas le champ de remplacement (« si on y arrive vraiment pas, on
   -- le fait ailleurs ») ; n.rebuilding : ceux de n.pending qui sont des centrales rouvertes
   if n.lost then
@@ -94,6 +114,8 @@ function C.growth(st, n)
     if (n.secours_n or 0) >= C.SECOURS_MAX then return nil, "unites de secours epuisees pour cette crise" end
     return C.SECOURS_BOILERS
   end
+  -- lot TV-ENERGIE : déficit de kW sans saturation ni avance : la taille du déficit, pas celle du champ ordinaire
+  if deficit and not st.saturated and not n.anticipate then return C.deficit_size(n.deficit_kw, n.boiler_kw, n.refused, n.lane_cap) end
   -- lot ENERGIE : un CHAMP (une rangée de chaudières, un seul tapis) dimensionné sur les chaudières vivantes, au lieu d'une chaudière
   -- isolée ; sans la mesure (n.built absent : anciens appels, bancs), C.BOILERS comme avant
   if n.built ~= nil then return Cv.boilers_for(n.built, n.refused, n.lane_cap) end
@@ -123,6 +145,7 @@ end
 --- La demande est partie : la saturation est à remesurer avec la nouvelle capacité.
 function C.requested(st)
   st.sat, st.saturated = 0, false
+  st.def_n = 0 -- lot TV-ENERGIE : le déficit de kW se remesure aussi
   st.requests = (st.requests or 0) + 1
 end
 

@@ -1820,7 +1820,7 @@ local function s19()
     "§19 kW retenus : somme des machines et foreuses retenues par le courant")
   -- Foreuses électriques sans courant ni centrale à proposer (chemin no_power) : refusées comme avant, et leurs kW sont retenus.
   local rf1 = refus_of(r1, "couvrir:d1")
-  check(rf1 and rf1.why:find("aucune centrale possible", 1, true) and r1.kw and r1.kw.blocked > 0 and r1.kw.blocked % 90 == 0,
+  check(rf1 and rf1.why == "courant insuffisant (aucune centrale possible : 0 kW de capacite)" and r1.kw and r1.kw.blocked > 0 and r1.kw.blocked % 90 == 0,
     string.format("§19 foreuses sans courant : refus « %s », %s kW retenus (90 kW par foreuse)", tostring(rf1 and rf1.why),
       tostring(r1.kw and r1.kw.blocked)))
 end
@@ -1945,8 +1945,57 @@ local function s22()
     open = { { key = "couvrir:d1", kind = "couvrir", item = "iron-ore", resource = "iron-ore", deposit = "d1", entity = "electric-mining-drill",
       n = 1, n_left = 1, rate = 20, where = "d1" } } }), {})
   check(elec_orders(ouvert) == 0, "§22 W02 : un ordre électrique déjà ouvert a pris l'amorce : aucune autre foreuse électrique (" .. elec_orders(ouvert) .. ")")
+  -- diagnostic azure : centrale FINIE dont les kW sont pris : le refus dit les kW, pas « aucune centrale possible »
+  local pris = Ca.decide(rich(D, { power = { have_kw = 1000, used_kw = 950 } }), {})
+  local rp = refus_of(pris, "couvrir:d1")
+  check(rp and rp.why == "courant insuffisant : 950 kW pris sur 1000 kW (reste 50, il en faut 90)",
+    "§21 azure : centrale finie, kW pris : le refus dit les kW (" .. tostring(rp and rp.why) .. ")")
+  check(not (rp and rp.why:find("aucune centrale", 1, true)), "§21 azure : plus de « aucune centrale possible » devant une centrale qui tourne")
+  check(Ca.kw_refusal({ kw_have = 1800, kw_used = 1721 }, 90) == "courant insuffisant : 1721 kW pris sur 1800 kW (reste 79, il en faut 90)",
+    "§21 azure : le cas du journal (1721 sur 1800, foreuse de 90) : « reste 79 »")
+  check(Ca.kw_refusal({ kw_have = 100, kw_used = 300 }, 90):find("reste 0", 1, true) ~= nil, "§21 azure : reste jamais négatif")
   local capacite = Ca.decide(rich(D, { power = { have_kw = 1000, used_kw = 0 } }), {})
   check(elec_orders(capacite) >= 2, "§22 W02 : centrale finie, capacité lue : plus de limite d'amorce (" .. elec_orders(capacite) .. ")")
+end
+
+-- §22 Lot TV-ENERGIE (c, 8/11) : kW libres insuffisants pour tous les ordres électriques d'une décision : répartis par ordre de manque.
+local function s23()
+  local D = vdata()
+  -- règle pure
+  local a, order = Ca.kw_alloc({ { key = "A", item = "iron-ore", kw = 90, n = 18, short = 30 }, { key = "B", item = "copper-ore", kw = 90, n = 1, short = 10 } }, 1700)
+  check(a.A == 17 and a.B == 1 and order[1] == "iron-ore" and order[2] == "copper-ore",
+    "§23 1700 kW, fer x18 (manque 30) et cuivre x1 (manque 10) : le cuivre reçoit son premier lot AVANT le second du fer (fer " .. tostring(a.A) .. ", cuivre " .. tostring(a.B) .. ")")
+  local a2, o2 = Ca.kw_alloc({ { key = "x", item = "zeta", kw = 100, n = 5, short = 10 }, { key = "y", item = "alpha", kw = 100, n = 5, short = 10 } }, 300)
+  check(a2.x == 1 and a2.y == 2 and o2[1] == "alpha", "§23 manque égal : départage écrit, ordre alphabétique des objets (alpha " .. tostring(a2.y) .. ", zeta " .. tostring(a2.x) .. ")")
+  local a3 = Ca.kw_alloc({ { key = "p", item = "grand", kw = 100, n = 9, short = 50 }, { key = "q", item = "petit", kw = 100, n = 1, short = 1 } }, 200)
+  check(a3.p == 1 and a3.q == 1, "§23 deux kW de 100 pour deux objets : un chacun, même si l'un manque 50 fois plus")
+  local a4 = Ca.kw_alloc({ { key = "p", item = "grand", kw = 100, n = 2, short = 50 }, { key = "q", item = "petit", kw = 30, n = 9, short = 1 } }, 250)
+  check(a4.p == 2 and a4.q == 1, "§23 une machine qui ne tient plus est sautée, les plus petites passent (" .. tostring(a4.p) .. ", " .. tostring(a4.q) .. ")")
+  -- Ca.share_kw : identité quand les kW suffisent
+  local fake_ctx = { input = { power = { have_kw = 5000, used_kw = 0 } }, refus = {}, refus_list = {} }
+  local opts = { { o = { key = "A", item = "i", n = 3, kw_unit = 90, short = 5 } }, { o = { key = "B", item = "j", n = 2, kw_unit = 90, short = 1 } } }
+  local same = Ca.share_kw(fake_ctx, { kw_have = 5000, kw_used = 0, amorce_left = 0 }, opts)
+  check(same == opts, "§23 kW suffisants : la liste des options est rendue telle quelle (identité)")
+  local ctx2 = { input = { power = { have_kw = 200, used_kw = 0 } }, refus = {}, refus_list = {}, kw_share_off = nil }
+  local made = {}
+  local function mkA(k) made.A = k return { key = "A", item = "i", n = k, kw_unit = 90, short = 5, why = "a" } end
+  local opts2 = { { o = { key = "A", item = "i", n = 3, kw_unit = 90, short = 5, kind = "couvrir" }, mk = mkA },
+    { o = { key = "B", item = "j", n = 2, kw_unit = 90, short = 1, kind = "couvrir" } } }
+  local cut = Ca.share_kw(ctx2, { kw_have = 200, kw_used = 0, amorce_left = 0 }, opts2)
+  check(made.A == 1 and #cut == 1 and cut[1].o.n == 1 and cut[1].o.why:find("kW partages : 1 machine(s) sur 3", 1, true) ~= nil,
+    "§23 200 kW pour 3 + 2 machines de 90 : A est ramenée à 1 (taille refaite par sa fonction), B sans fonction de taille est retirée")
+  -- décision entière : les kW insuffisants sont répartis, aucun objet qui veut du courant n'en voit zéro tant qu'un autre en a deux
+  local r = Ca.decide(rich(D, { power = { have_kw = 450, used_kw = 0 } }), {})
+  local per_item = {}
+  for _, o in ipairs(r.orders) do
+    if (o.kind == "couvrir" or o.kind == "ouvrir") and o.entity == "electric-mining-drill" then per_item[o.item] = (per_item[o.item] or 0) + o.n end
+  end
+  local total, kinds = 0, 0
+  for _, n in pairs(per_item) do total = total + n kinds = kinds + 1 end
+  check(total * 90 <= 450 + 1e-6, "§23 la décision entière tient dans les 450 kW (" .. total .. " foreuses électriques)")
+  local repart = false
+  for _, rf in ipairs(r.refus) do if rf.why:find("repartition des kW", 1, true) then repart = true end end
+  check(kinds >= 2 or repart, "§23 plusieurs objets reçoivent du courant, ou le refus écrit nomme la répartition (" .. kinds .. " objet(s))")
 end
 
 local function run_all()
@@ -1971,6 +2020,7 @@ local function run_all()
     s20()
     s21()
     s22()
+    s23()
   end
 end
 
@@ -2170,6 +2220,20 @@ do
       Pf.power_missing = function(pw) if pw and pw.fermee then return nil end return orig(pw) end
     end, function() Pf.power_missing = orig end)
   end
+  MF("répartition des kW coupée", "share_kw", function() return function(_, _, opts) return opts end end)
+  MF("répartition sans tour par objet (le premier objet prend tout)", "kw_alloc", function()
+    return function(entries, free)
+      local allot, order = {}, {}
+      for _, e in ipairs(entries) do
+        local k = math.min(e.n, math.floor(free / e.kw + 1e-9))
+        allot[e.key] = k
+        free = free - k * e.kw
+        order[#order + 1] = e.item
+      end
+      return allot, order
+    end
+  end)
+  MF("refus de courant sans les kW", "kw_refusal", function() return function() return "courant insuffisant" end end)
   MF("amorce jamais consommée (autant d'ordres électriques que d'options)", "spend_amorce", function() return function() end end)
   do
     local orig = Pf.power_why

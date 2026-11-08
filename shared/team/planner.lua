@@ -31,6 +31,7 @@ local F = require("shared.faction.config") -- drapeau `rocket` : soldat à attaq
 local Guard = require("shared.team.garde_centrale") -- lot CENTRALE-GARDE : tourelles armées autour de la centrale
 local Pr = require("shared.team.priorite") -- lot PRIORITE-RESSOURCES : production avant défense quand le fer ne paie pas les deux
 local Fr = require("shared.team.front") -- lot DEFENSE-FACTIONS : planchers du front, commande partielle (constantes de ce module)
+local Dsr = require("shared.team.defense_stock") -- lot DEFENSE-STOCK : tourelles du coffre posées en groupes (règle pure)
 local V = require("shared.faction.valeur") -- lot SITE-PROCHE : V.extension_refused (R1)
 local Dc = require("shared.team.defchoix") -- lot DEFENSE-CHOIX : tourelles du QG avant les soldats quand la base est menacée
 local Sq = require("shared.team.survie_qg") -- lot S1 : QG en péril (planchers réduits, tourelles voulues, remplissage partiel)
@@ -832,6 +833,34 @@ function P.plan(view, book)
     end
     if held_taken then avail[iron_key] = (avail[iron_key] or 0) + held end
     out.defend = { undefended = waiting, craftable = turret_craftable, hq = view.hq_turrets or 0, posts = dposts }
+    -- Lot DEFENSE-STOCK : les tourelles qui DORMENT au coffre (au-dessus d'une petite réserve) sont posées en groupes là où l'ennemi arrive
+    -- (shared/team/defense_stock.lua, script/team/defense_stock.lua : view.reserve.pick). Poste FACULTATIF et SANS fabrication : le stock
+    -- seulement (coût matière 0) ; hors de out.defend.posts (lu par la pile et l'armée : aucun effet sur eux). Rien en « production d'abord »
+    -- ni pour une équipe décimée. Lot rétréci au surplus et aux chargeurs RÉELLEMENT libres à ce point de la pensée (Dsr.lot).
+    local rs = view.reserve
+    if rs and rs.pick and not rs.busy and not open["fortify:reserve"] then
+      local pk = rs.pick
+      out.reserve = { key = pk.key, kind = pk.kind, have = pk.have, want = pk.want }
+      if pri.production_first or decimated then
+        out.reserve.why = "ressources"
+      else
+        local n, each = Dsr.lot(pk.count, Dsr.surplus(avail[T.turret] or 0), pk.count, avail[T.turret_ammo] or 0)
+        if n <= 0 then
+          out.reserve.why = "stock"
+        elseif pk.have + n < Dsr.MIN_GROUP then
+          out.reserve.why = "groupe"
+        else
+          local items = turret_items(n, each)
+          if take(items) then
+            add({ key = "fortify:reserve", kind = "fortify", prio = Dsr.prio(pk.kind), outpost = "reserve", items = items, sites = pk.sites,
+              pos = { x = pk.x, y = pk.y }, cell_key = pk.key, reserve = true })
+            out.reserve.why, out.reserve.count = "tache_creee", n
+          else
+            out.reserve.why = "stock"
+          end
+        end
+      end
+    end
     -- Lot DEFENSE-CHOIX (relecture) : la levée d'urgence n'est retenue que si le QG est RÉELLEMENT servi à cette pensée (tâche de pose
     -- créée ou tourelles en fabrication). Dc.turrets juge sur le stock d'avant les recharges ; si elles ont mangé le fer (QG « fer » ou
     -- « manque »), retenir la levée laissait la base sans tourelle NI soldat à chaque pensée de l'alerte (famine). Lecteur : la levée plus bas.

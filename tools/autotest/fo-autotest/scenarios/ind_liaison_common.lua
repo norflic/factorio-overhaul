@@ -28,11 +28,12 @@ local W2 = 1500                 -- fenêtre 2 : tapis coupé, le PNJ reprend
 local T_FIXED = 1500            -- variante témoin : début de la fenêtre 1
 local W1_TEMOIN = 2700          -- … plus longue : le quai passe sous 60 en 15 s, puis un PNJ doit marcher 70 tuiles (9 s) avant de déposer
 local LOW = 60                  -- Build.QUAI_LOW
+local WALL_X = 55               -- variante « mur » (lot TRAVERSEE)
 
 local function stock_chest(chest)
   for _, it in ipairs({
     { "iron-plate", 4000 }, { "copper-plate", 400 }, { "coal", 200 }, { "transport-belt", 300 }, { "inserter", 60 },
-    { "small-electric-pole", 40 }, { "medium-electric-pole", 20 }, { "iron-chest", 20 },
+    { "small-electric-pole", 40 }, { "medium-electric-pole", 20 }, { "iron-chest", 20 }, { "underground-belt", 20 },
   }) do
     chest.insert({ name = it[1], count = it[2] })
   end
@@ -68,7 +69,7 @@ local function shape(ctx)
   s.set_tiles(tiles, true)
 end
 
-local function arena(ctx, st)
+local function arena(ctx, st, WALL)
   local s = ctx.surface()
   local eei = s.create_entity({ name = "electric-energy-interface", position = { 36.5, 6.5 }, force = "player" })
   if eei then
@@ -83,6 +84,16 @@ local function arena(ctx, st)
     if s.create_entity({ name = "medium-electric-pole", position = { x + 0.5, 4.5 }, force = "player" }) then poles = poles + 1 end
   end
   ctx.check(eei ~= nil and poles == 7, "arene alimentee : interface electrique et 7 poteaux", string.format("eei=%s poteaux=%d", tostring(eei ~= nil), poles))
+  if WALL then
+    -- lot TRAVERSEE : un mur de 1 tuile d'epaisseur en x = 55, de y = -10 a 10, en travers de tout couloir de la liaison (la boite du plan
+    -- fait 6 tuiles de marge autour des coffres) : la liaison ne passe que par DESSOUS (paire de souterrains)
+    local n = 0
+    for y = -10, 10 do
+      if s.create_entity({ name = "stone-wall", position = { WALL_X + 0.5, y + 0.5 }, force = "player" }) then n = n + 1 end
+    end
+    ctx.check(n == 21, "mur de 21 segments pose en x = " .. WALL_X, tostring(n))
+    game.forces.player.recipes["underground-belt"].enabled = true
+  end
   for _, c in ipairs({ SRC, DST }) do
     local ch = s.create_entity({ name = "iron-chest", position = { c.x + 0.5, c.y + 0.5 }, force = "player" })
     ctx.check(ch ~= nil, string.format("coffre pose en (%d, %d)", c.x, c.y))
@@ -90,8 +101,9 @@ local function arena(ctx, st)
 end
 
 return function(variant)
-  local TAG = "ind-liaison" .. (variant == "temoin" and "-temoin" or "")
+  local TAG = "ind-liaison" .. (variant == "temoin" and "-temoin" or (variant == "mur" and "-mur" or ""))
   local WITH = variant ~= "temoin"
+  local WALL = variant == "mur"
   return {
     description = "INDUSTRIE I7 : liaison de quai par tapis (" .. variant .. ")",
     base = nil,
@@ -109,7 +121,7 @@ return function(variant)
       stock_chest(chest)
       st.hq = chest
       ctx.check(ctx.remote("fo-ia1d", "enable", "player", { seul = true, ghosts_ahead = true, radius = 1 }) == true, "plan directeur active")
-      arena(ctx, st)
+      arena(ctx, st, WALL)
       set_count(s, DST.x, DST.y, 400)
       local p1 = ctx.remote("fo-liaison", "inject", "player", { outs = { { x = SRC.x + 0.5, y = SRC.y + 0.5 } }, names = { arm = "inserter", pole = "small-electric-pole" } })
       local p2 = ctx.remote("fo-liaison", "inject", "player", { quais = { { x = DST.x + 0.5, y = DST.y + 0.5, item = ITEM } }, inflow = { [ITEM] = 1.0 },
@@ -180,7 +192,7 @@ return function(variant)
           w.end_n, w.consumed, w.filled, w.belts))
         if WITH then
           -- coupure : une tuile du milieu du tapis
-          local mid = s.find_entities_filtered({ position = { (SRC.x + DST.x) / 2 + 0.5, SRC.y + 0.5 }, radius = 0.6, type = "transport-belt", limit = 1 })[1]
+          local mid = s.find_entities_filtered({ position = { (SRC.x + DST.x) / 2 + 0.5 - (WALL and 5 or 0), SRC.y + 0.5 }, radius = 0.6, type = "transport-belt", limit = 1 })[1]
           st.cut = mid ~= nil
           if mid then mid.destroy() end
           set_count(s, DST.x, DST.y, 20)
@@ -208,6 +220,12 @@ return function(variant)
         ctx.check(lia ~= nil and lia.n.demandes == 1, "une seule liaison demandee par la regle", lia and tostring(lia.n.demandes))
         ctx.check(lia ~= nil and lia.n.finis >= 1, "la liaison est finie (une fois, deux si la reconstruction a refait la tuile coupee)", lia and tostring(lia.n.finis))
         ctx.check(w1.belts >= 20, "le tapis est pose (27 tuiles attendues)", tostring(w1.belts))
+        if WALL then
+          local ugs = s.count_entities_filtered({ area = { { SRC.x, SRC.y - 8 }, { DST.x + 1, DST.y + 8 } }, type = "underground-belt", force = "player" })
+          ctx.check(ugs == 2, "TRAVERSEE : une paire de souterrains pose sous le mur (" .. tostring(ugs) .. ")")
+          local walls = s.count_entities_filtered({ area = { { WALL_X, -11 }, { WALL_X + 1, 11 } }, name = "stone-wall" })
+          ctx.check(walls == 21, "TRAVERSEE : le mur est intact (" .. tostring(walls) .. ")")
+        end
         ctx.check(w1.min ~= nil and w1.min >= LOW, "fenetre 1 : le quai ne passe jamais sous " .. LOW .. " (min " .. tostring(w1.min) .. ")")
         ctx.check(w1.filled == 0, "fenetre 1 : aucun objet porte par un PNJ (" .. tostring(w1.filled) .. ")")
         ctx.check(w1.end_n >= 70 - 5, "fenetre 1 : le quai a ete servi, fin a " .. tostring(w1.end_n) .. " (consomme " .. w1.consumed .. ")")

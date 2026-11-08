@@ -20,7 +20,17 @@
     - STABLE et minuteur échu : UNE marche au sommet (G64) : { kind = "recherche", labs = 1 } (un laboratoire de plus et ses packs comme
       puits), ou { kind = "equipement", n = 1 } quand l'arbre est fini (a.arbre_fini), comme C2 aujourd'hui ; puis plus aucune marche
       tant qu'aucune pose n'est venue (I1 : jamais deux marches sans pose entre elles).
-  Rend (marche ou nil, evenement) ; evenement : "arme", "attente", "marche", "annule", "instable", "attend_pose", "tick".
+  SOUPAPE DE DORMANCE (lot BLOCAGE-SORTIE-2, 8/11/2026). Mesure sur la sauvegarde du DC (255 min) : un seul manque permanent qu'AUCUN module ne
+  peut lever (plastic-bar à 0 pour mille, pétrole éteint) jette le minuteur à chaque décision ; aucune marche en 10 min pour 5 forces, le puits
+  de C2 reste fermé et 50 000 plaques par force dorment, les fours restent en « sortie pleine » et les foreuses en « waiting_for_space ». La
+  vidéo ne connaît pas ce cas (son stock se vide dès qu'il se remplit). Règle : si, DEPUIS Pl.SOUPAPE_TICKS (10 min) de décisions de suite, le
+  seul obstacle à la stabilité est un manque (pas de crise, bras libres) ET le stock libre DORT (a.dort : Dm.sleeping), le manque ne retient
+  plus : la soupape s'ouvre, et le puits de C2 (variante A, croissance continue Dm.step) est ouvert à CHAQUE décision, sans minuteur ni
+  attente de pose, tant que ces trois conditions tiennent. Elle se referme dès que le stock ne dort plus, qu'une crise vient, que les bras
+  manquent ou que plus rien ne manque (la vidéo reprend la main). Une base saine (manques réglés en moins de 10 min) : comportement de la vidéo
+  inchangé, à l'identique. Entrée a.dort ABSENTE : jamais de soupape (garde fermée par défaut).
+  Rend (marche ou nil, evenement) ; evenement : "arme", "attente", "marche", "annule", "instable", "attend_pose", "tick", "soupape" (ouverte
+  à cette décision : la marche rendue est { kind = "soupape" }), "soupape_ferme" (refermée à cette décision).
 
   CRITÈRE A/B (Pl.verdict), écrit AVANT la mesure pour ne pas choisir après coup. A = C2 seul (croissance continue : +10 % par cycle quand
   le stock dort) ; B = C2 avec les marches de ce module (le puits élastique de C2 n'est ouvert qu'à l'échéance d'une marche). Même carte,
@@ -39,8 +49,9 @@ Pl.SEEDS = 3             -- graines du critère A/B
 Pl.PROD_TOL_PM = 50      -- ‰ : B ne perd jamais plus de 5 % de production sur une graine
 Pl.WIN_MIN = 2           -- graines sur 3 où B doit avoir moins de minutes de manque
 Pl.LAST_MIN = 30         -- minutes de fin de partie lues pour la production
+Pl.SOUPAPE_TICKS = 10 * 3600 -- 36 000 ticks : durée de décisions de suite où un manque seul retient le palier avant que la soupape de dormance s'ouvre
 
-function Pl.new() return { until_tick = nil, wait_pose = false, marches = 0, annules = 0 } end
+function Pl.new() return { until_tick = nil, wait_pose = false, marches = 0, annules = 0, manque_depuis = nil, soupape = false, soupapes = 0 } end
 
 local function num(v) if type(v) ~= "number" or v ~= v then return nil end return v end
 
@@ -55,6 +66,51 @@ function Pl.stable(a)
   return true
 end
 
+--- Le seul obstacle à la stabilité est-il un manque ? (manques > 0, aucune crise, assez de bras libres ; entrée absente : non.)
+function Pl.shortage_only(a)
+  if type(a) ~= "table" then return false end
+  local m, h = num(a.manques), num(a.bras_libres)
+  if m == nil or h == nil or type(a.crise) ~= "boolean" then return false end
+  return m > 0 and not a.crise and h >= Pl.HANDS_MIN
+end
+
+--- Manques qui comptent pour la stabilité : `build` = { [objet] = quantité en manque } (view.mq.build), `impayable` = { [objet] = vrai } (objets qu'aucune
+--- décision ne peut lever : ni au stock, ni ressource extractible, ni recette ouverte à ingrédients obtenables ; lus à la décision précédente par
+--- Ca.obtainable). Un manque impayable ne compte pas : il ne retient plus le palier. Rend (n, écartés triés). `build` nil : n nil (L3 éteint : jamais stable).
+function Pl.fixable(build, impayable)
+  if type(build) ~= "table" then return nil, {} end
+  local ks = {}
+  for k in next, build do ks[#ks + 1] = k end
+  table.sort(ks)
+  local n, out = 0, {}
+  for _, k in ipairs(ks) do
+    if (num(build[k]) or 0) > 0 then
+      if impayable and impayable[k] then out[#out + 1] = k else n = n + 1 end
+    end
+  end
+  return n, out
+end
+
+--- Pourquoi le palier n'a (ou n'a eu) pas de marche à cette décision : texte pour le journal. a = entrées de Pl.step, ev = son événement, st = son état.
+function Pl.explain(a, ev, st, tick)
+  if ev == "soupape" or ev == "soupape_tient" then return "soupape de dormance ouverte" end
+  if ev == "attend_pose" then return "palier : une marche a eu lieu, attente d'une pose avant la suivante" end
+  local ok, why = Pl.stable(a)
+  if not ok then
+    local s = "palier (fo-war-paliers) : instable, " .. tostring(why)
+    if st and st.manque_depuis and type(tick) == "number" then
+      s = s .. string.format(" ; soupape de dormance dans %.1f min", math.max(0, Pl.SOUPAPE_TICKS - (tick - st.manque_depuis)) / 3600)
+    elseif Pl.shortage_only(a) then
+      s = s .. " ; le stock libre ne dort pas : pas de soupape"
+    end
+    return s
+  end
+  if st and st.until_tick then
+    return string.format("palier (fo-war-paliers) : stable, marche dans %.1f min", math.max(0, st.until_tick - (tick or 0)) / 3600)
+  end
+  return "palier (fo-war-paliers) : stable, minuteur a armer"
+end
+
 --- Une décision. Voir l'en-tête.
 function Pl.step(st, a, tick)
   if type(tick) ~= "number" then return nil, "tick" end
@@ -64,15 +120,30 @@ function Pl.step(st, a, tick)
     if st.until_tick then st.annules = (st.annules or 0) + 1 end
     st.until_tick, st.wait_pose, cancelled = nil, false, true
   end
+  -- Soupape de dormance : la durée où un manque seul retient le palier alors que le stock libre dort. Toute autre situation la remet à zéro.
+  if Pl.shortage_only(a) and a.dort == true then
+    st.manque_depuis = st.manque_depuis or tick
+  else
+    st.manque_depuis = nil
+  end
+  if st.manque_depuis and tick - st.manque_depuis >= Pl.SOUPAPE_TICKS then
+    local first = not st.soupape
+    st.soupape = true
+    if first then st.soupapes = (st.soupapes or 0) + 1 end
+    st.until_tick, st.wait_pose = nil, false -- la vidéo reprendra à zéro à la fermeture
+    return { kind = "soupape" }, first and "soupape" or "soupape_tient"
+  end
+  local closed = st.soupape == true
+  st.soupape = false
   local ok = Pl.stable(a)
   if not ok then
-    if st.until_tick then st.until_tick = nil return nil, "instable" end
-    return nil, cancelled and "annule" or "instable"
+    if st.until_tick then st.until_tick = nil return nil, closed and "soupape_ferme" or "instable" end
+    return nil, closed and "soupape_ferme" or (cancelled and "annule" or "instable")
   end
   if st.wait_pose then return nil, "attend_pose" end
   if not st.until_tick then
     st.until_tick = tick + Pl.TICKS
-    return nil, cancelled and "annule" or "arme"
+    return nil, closed and "soupape_ferme" or (cancelled and "annule" or "arme")
   end
   if tick >= st.until_tick then
     st.until_tick, st.wait_pose = nil, true
