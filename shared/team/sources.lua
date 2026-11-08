@@ -315,6 +315,48 @@ function S.fetchable(rows, safe, pause, room)
 end
 
 ---------------------------------------------------------------------------------------------------
+-- 4 bis. PNJ libres : pourquoi rien à faire (DC, 8/11, 14 h 30 : « ils attendent à ne rien faire » ; la cause doit être écrite)
+---------------------------------------------------------------------------------------------------
+S.IDLE_MISSING_MAX = 4  -- matières citées au plus
+S.IDLE_KINDS_MAX = 4    -- types de tâches libres cités au plus
+
+--- a = { idle = PNJ sans tâche, free = { [type de tâche] = nombre de tâches LIBRES au tableau }, waiting = liste de
+---       { pid, ents = entités du projet, missing = { { objet, n }, ... } } (projets en attente de matière) }.
+--- Rend nil (aucun PNJ libre) ou { code = "matiere" | "bloquees" | "aucune", text } ; le texte commence par « rien a construire : ».
+function S.idle_cause(a)
+  if (a.idle or 0) <= 0 then return nil end
+  local function top(map, max)
+    local names = {}
+    for k, v in pairs(map) do if v > 0 then names[#names + 1] = k end end
+    table.sort(names, function(x, y) if map[x] ~= map[y] then return map[x] > map[y] end return x < y end)
+    local out = {}
+    for i = 1, math.min(max, #names) do out[#out + 1] = { names[i], map[names[i]] } end
+    return out
+  end
+  local miss = {}
+  local waiting = a.waiting or {}
+  for _, w in ipairs(waiting) do
+    for _, m in ipairs(w.missing or {}) do
+      if type(m[1]) == "string" and (tonumber(m[2]) or 0) > 0 then miss[m[1]] = (miss[m[1]] or 0) + m[2] end
+    end
+  end
+  local nfree = 0
+  for _, v in pairs(a.free or {}) do nfree = nfree + v end
+  if #waiting > 0 then
+    local parts = {}
+    for _, kv in ipairs(top(miss, S.IDLE_MISSING_MAX)) do parts[#parts + 1] = string.format("%s %d", kv[1], kv[2]) end
+    return { code = "matiere", text = string.format("rien a construire : %d projet(s) attendent de la matiere (manque %s)", #waiting,
+      #parts > 0 and table.concat(parts, ", ") or "?") }
+  end
+  if nfree > 0 then
+    local parts = {}
+    for _, kv in ipairs(top(a.free, S.IDLE_KINDS_MAX)) do parts[#parts + 1] = string.format("%s %d", kv[1], kv[2]) end
+    return { code = "bloquees", text = string.format("rien a construire : %d tache(s) libre(s) mais aucune prenable (%s)", nfree, table.concat(parts, ", ")) }
+  end
+  return { code = "aucune", text = "rien a construire : aucune tache au tableau" }
+end
+
+---------------------------------------------------------------------------------------------------
 -- 5. Données : ressources suivies
 ---------------------------------------------------------------------------------------------------
 --- spec = T.outposts, inputs = T.smelter_inputs ({ produit = { entrée, quantité } }), order = T.OUTPOST_ORDER.

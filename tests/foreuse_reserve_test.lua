@@ -296,7 +296,7 @@ local MUT = {
       "    if false then" } } },
   { "script", "releve qui ne compte pas les thermiques", { { "        if fuel and d.valid and d.name == T.DRILL then pass.burners[oid] = (pass.burners[oid] or 0) + 1 end",
       "        if false then end" } } },
-  { "script", "plan sans reserve", { { "    fits = fits_for(f, surface, refs), reserve = reserve }", "    fits = fits_for(f, surface, refs) }" } } },
+  { "script", "plan sans reserve", { { "    fits = fits_for(f, surface, refs), reserve = reserve, tries = ep.tries", "    fits = fits_for(f, surface, refs), tries = ep.tries" } } },
   { "ra", "K par defaut au lieu des donnees", { { "  return S.coal_reserve(d), d", "  return S.coal_reserve(nil), d" } } },
   { "ra", "avant-poste de combustible jamais reconnu", { { "  return sp ~= nil and (sp.resource == T.fuel or sp.product == T.fuel)", "  return false" } } },
 }

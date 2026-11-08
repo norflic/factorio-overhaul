@@ -1,4 +1,23 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.69
+Date: 2026-11-08
+  Changes:
+    - Zero inactivite : un PNJ libre avec un stock qui paie un kit de fonderie lance tout de suite un agrandissement (le plus proche d'abord), meme quand fer et cuivre sont satures ; kit manquant fabrique, jamais mine a la main ; journal [FO-ZERO-IDLE].
+    - Saturation : la cause d'un ordre voulu non retenu est ecrite ; un ordre d'ouverture compte comme ordre ouvert.
+    - Vue Cerveau V2.4 : raison "rien a faire" des PNJ au panneau, corrections de relecture.
+    - Defense : table des types construite au chargement (aucune table de module ecrite en evenement).
+---------------------------------------------------------------------------------------------------
+Version: 0.6.68
+Date: 2026-11-08
+  Changes:
+    - Saturation des gisements : un gisement revendique avec des places libres garde un ordre de couverture electrique, sans demande nette ; plusieurs modules par ordre ; journal [FO-SATURATION].
+    - Minage a la main coupe pour votre equipe quand les machines suffisent (D09 lu pour la force du joueur), y compris pour une tache deja prise ; cause des PNJ libres au journal [FO-RIEN-A-FAIRE].
+    - Rangees d'assembleurs dynamiques : la rangee reserve sa place entiere et grandit sur place ; cables sur deux voies ; tapis plus rapide des qu'il est debloque (reglage fo-war-rangee-dyn).
+    - Tout-electrique des la premiere centrale : plus de foreuse thermique neuve, remplacement du champ entier au rythme des kW, centrale demandee avant la pose (reglage fo-war-electrique, journal [FO-ELECTRIQUE]).
+    - Vue Cerveau V2 : panneau du PNJ (tache, etapes, raison de l'etat, taches suivantes), blocs avec entrees et sorties, liaisons, bus et tampons traces, refus en rouge avec cause.
+    - Fonderie dynamique : la ligne de fours est enfin decoupee (ligne_split appele).
+    - Modules poses par les PNJ (machines qui tournent seulement) ; traversee : budget d'etats partage, recherche en deux phases, cout divise par 3 a 12.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.67
 Date: 2026-11-08
   Changes:

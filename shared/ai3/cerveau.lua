@@ -48,6 +48,7 @@ local Rs = require("shared.ai3.reserve") -- lot INDUSTRIE I1 : le besoin évalu�
 local Fx = require("shared.team.flux") -- lot FLUX : tournée des sorties pleines gardée (règle pure)
 local Sp = require("shared.team.spirale") -- EFFONDREMENT : recrue gratuite de votre équipe sous l'effectif de départ
 local Sa = require("shared.ai3.saturation") -- lot VIDEO-SAT (V79) : pente mesurée du stock, saturation jugée sur le stock projeté
+local ZI = require("shared.ai3.zero_idle") -- lot ZERO-IDLE : agrandissement de fonderie par PNJ libre, tout de suite
 
 local C = {}
 
@@ -259,6 +260,15 @@ function C.think(view, book, st, ctx)
   local starved_pass = Gi.passent(Gi.penurie(Gi.rows(T.OUTPOST_ORDER, T.outposts, sorted_keys(T.smelter_inputs), view.stock, st.need)), pile.focus)
   -- 3. Buts ; 4. projets.
   local goals = A.goals(B.generate(s, st), ctx.auto, s.weights, s.research) -- lot IA3-e : modules demandés = projets
+  -- Lot ZERO-IDLE (DC, 8/11) : PNJ libres et stock qui paie un kit de fonderie (foreuses + fours) : un agrandissement par PNJ libre, tout
+  -- de suite, en FOND (shared/ai3/zero_idle.lua) ; ni la saturation, ni les capacités visées, ni la capitalisation ne le retiennent.
+  if ZI.ON then
+    local zres = ZI.decide(ZI.input(view, s, book, avail0, ctx, st.covered))
+    for _, g in ipairs(ZI.goals(zres)) do goals[#goals + 1] = g end
+    st.zi_last = ZI.summary(zres) -- relu par le runtime (script/ai3/zero_idle_rt.lua) : ligne [FO-ZERO-IDLE] de la minute
+  else
+    st.zi_last = nil
+  end
   -- Lot CAPITAL : le but « amélioration » choisi par le runtime (valeur ÷ coût, shared/ai3/capital.lua), factions seulement.
   -- Lot PILE-PRIORITE : suspendu tant qu'un cadre de rang inférieur retient (il ne réserve plus sa matière, audit A3).
   -- Lot AGES : le centre dont le gel est levé (shared/team/degel.lua, ctx.thaw) passe la retenue de la pile ; lui seul.

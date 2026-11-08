@@ -80,6 +80,7 @@ local Pf = require("shared.ai3.plafonds") -- lot VIDEO-L13 : gardes fermées par
 local Rg = require("shared.ai3.rang") -- lot VIDEO-L1b : rang de la décision (Rg.chain), ordre de propagation des besoins
 local Cf = require("shared.ai3.confirmation") -- lot VIDEO-COUVERTURE 5 : module suivant retenu en amont (Cf.upstream)
 local Pr = require("shared.ai3.porte_rang") -- lot VIDEO-L2 : porte de rang ciblée
+local Cv = require("shared.ai3.couverture") -- lot COUVERTURE : saturation totale des gisements revendiqués (Cv.saturation)
 
 local Ca = {}
 
@@ -1537,12 +1538,14 @@ end
 
 --- Options d'extraction d'une ressource : couvrir les gisements ouverts (manque, puis d'avance), ouvrir un gisement
 --- connu, explorer.
-local function extraction_options(ctx, plan, req, item, def, out)
+local function extraction_options(ctx, plan, req, item, def, out, sat_only)
   local D = ctx.D
   local rs = D.res[item]
-  if rs.fluid then refuse(ctx, "extraire:" .. item, "couvrir", item, "limite : fluide") return end
+  -- Lot COUVERTURE (sat_only) : ressource SANS demande nette (Ri = 0) : seule la saturation des gisements revendiqués est étudiée, sans
+  -- refus de ressource (fluide, aucune foreuse) ni ouverture de site.
+  if rs.fluid then if not sat_only then refuse(ctx, "extraire:" .. item, "couvrir", item, "limite : fluide") end return end
   local d = best_drill(ctx, item)
-  if not d then refuse(ctx, "extraire:" .. item, "couvrir", item, "aucune foreuse disponible") return end
+  if not d then if not sat_only then refuse(ctx, "extraire:" .. item, "couvrir", item, "aucune foreuse disponible") end return end
   local rho = Ca.drill_per_min(D, d, item)
   local fuel = Ca.fuel_per_min(D, d)
   local Ri = req.R[item] or 0
@@ -1550,7 +1553,7 @@ local function extraction_options(ctx, plan, req, item, def, out)
   local stock_i = (ctx.stock[item] or 0) / Ca.H_STOCK
   local theta = Ri > 0 and (Ni + (plan.hand[item] or 0) + stock_i) / Ri or 1
   local n_need = Ca.count_for(def, rho, theta)
-  if def > Ca.EPS and n_need == 0 then
+  if def > Ca.EPS and n_need == 0 and not sat_only then
     refuse(ctx, "extraire:" .. item, "couvrir", item, "manque sous une demi-machine (" .. fmt(def) .. "/min)")
   end
   local opened, sites = {}, {}
@@ -1660,6 +1663,19 @@ local function extraction_options(ctx, plan, req, item, def, out)
         n = math.max(0, math.min(free, math.floor(room / rho + Ca.EPS), to_k))
         ahead = true
       end
+      -- Lot COUVERTURE, SATURATION TOTALE (directive du DC du 8/11) : un gisement REVENDIQUÉ (ouvert) qui a encore des tuiles libres garde un
+      -- ordre de couverture, sans condition sur la demande nette (Ri) ni sur le manque. Le budget, les bras, les emplacements et la porte du
+      -- transport le bornent ; la cause d'une absence d'ordre est toujours écrite (ctx.sat, journal [FO-SATURATION]).
+      local sat_order = false
+      if n == 0 and ctx.input.saturation then
+        local ok, why = Cv.saturation({ free = free, kappa = kappa, kappa_max = Ca.KAPPA, electric = d.energy ~= "burner",
+          crisis = ctx.threat and not starved_in(ctx, item) })
+        ctx.sat[tostring(f.id)] = { ok = ok, why = why }
+        if ok then
+          n = math.max(0, math.min(free, math.ceil((Ca.KAPPA * (f.tiles or 0) / 1000 - covered) / math.max(Ca.EPS, cov) - Ca.EPS)))
+          ahead, sat_order = true, true
+        end
+      end
       if n > 0 then
         local why_not = Ca.usable(ctx, f, "couvrir")
         if why_not then refuse(ctx, key, "couvrir", item, why_not)
@@ -1677,11 +1693,13 @@ local function extraction_options(ctx, plan, req, item, def, out)
           if np <= 0 then refuse(ctx, key, "couvrir", item, pw_why or Ca.kw_refusal(plan, d.kw))
           else
             if np ~= n then o = mk_drills("couvrir", f, np) end
-            local why = ahead and "couverture d'avance" or nil
+            local why = ahead and (sat_order and "saturation du gisement" or "couverture d'avance") or nil
             o.why = why
+            o.saturation = sat_order or nil
             cand(out, finish(ctx, o), function(k)
               local x = mk_drills("couvrir", f, k)
               x.why = why
+              x.saturation = sat_order or nil
               return finish(ctx, x)
             end)
           end
@@ -1689,6 +1707,7 @@ local function extraction_options(ctx, plan, req, item, def, out)
       end
     end
   end
+  if sat_only then return end
   -- Ouvrir : autorisé quand les ouverts sont couverts ou interdits (et qu'il manque), ou d'avance.
   local amount_open, unknown = 0, false
   for _, f in ipairs(opened) do
@@ -2189,6 +2208,7 @@ function Ca.options(ctx, plan, req)
   local out = {}
   ctx.power_block = {}
   ctx.ds = {}
+  ctx.sat = {} -- lot COUVERTURE : verdict de saturation par gisement (id -> { ok, why }), dernier passage
   for _, i in ipairs(req.list) do
     local Ri = req.R[i] or 0
     if Ri > 0 then
@@ -2203,6 +2223,12 @@ function Ca.options(ctx, plan, req)
           fabric_options(ctx, plan, req, i, r, def, out)
         end
       end
+    end
+  end
+  -- Lot COUVERTURE : les ressources dont le besoin net est nul (stock de plaques, puits fermé) gardent leurs gisements revendiqués saturés.
+  if ctx.input.saturation then
+    for _, i in ipairs(sorted_keys(ctx.dep_by_res)) do
+      if D.res[i] and (req.R[i] or 0) <= 0 then extraction_options(ctx, plan, req, i, 0, out, true) end
     end
   end
   lab_options(ctx, plan, out)
@@ -2630,10 +2656,16 @@ local function decide_report(J)
   for _, f in ipairs(ctx.deposits) do
     local d = ctx.D.res[f.resource] and (best_drill(ctx, f.resource) or ctx.D.drill_by[(ctx.drills_in[1] or {}).entity or ""])
     if d then
-      local _, free, kappa = deposit_state(ctx, plan, f, d)
+      local covered_t, free, kappa = deposit_state(ctx, plan, f, d)
       local key = tostring(f.id)
       coverage[#coverage + 1] = { id = f.id, resource = f.resource, kappa = kappa, free = free,
         open = plan.opened[key] or false, dead = plan.dead[key] or false }
+      -- Lot COUVERTURE : tuiles couvertes / tuiles du gisement (journal [FO-SATURATION]) ; seulement quand la saturation est allumée
+      -- (le rendu d'avant reste identique sinon).
+      if ctx.input.saturation then
+        local c = coverage[#coverage]
+        c.tiles, c.covered = f.tiles or 0, covered_t
+      end
     end
   end
   local bottleneck, theta = nil, nil
@@ -2652,7 +2684,8 @@ local function decide_report(J)
     barils = ctx.barils_added, -- lot TV-FLUX (G51) : unités de fluide comptées en contenants pleins ce tour (nil : réglage éteint ou aucun contenant)
     u_star = ctx.u_star, labs_target = ctx.lab_rate > 0 and math.ceil(ctx.u_star / ctx.lab_rate - Ca.EPS) or 0,
     coverage = coverage, bottleneck = bottleneck and { item = bottleneck, theta = theta } or nil, R = req.R,
-    open_n = #ctx.open, rstar = ctx.rstar, rang_held = ctx.rang_held, -- lot VIDEO-L2 : porte de rang (nil quand elle est éteinte)
+    open_n = #ctx.open, rstar = ctx.rstar, rang_held = ctx.rang_held,
+    sat = ctx.input.saturation and ctx.sat or nil, -- lot COUVERTURE : verdict de saturation par gisement (nil : saturation éteinte) -- lot VIDEO-L2 : porte de rang (nil quand elle est éteinte)
     -- lot VIDEO-COUVERTURE 5 (C5.1) : cycles de la décision, graine de l'amorce. Seulement s'il y a un cycle ou une graine (intégrateur,
     -- 7/11 23 h 55) : sinon le champ casserait l'identité de la décision rang allumé / éteint (rang_cablage_test §2) sans rien semer.
     rang_cycles = ctx.rang and (next(ctx.rang.cyc or {}) ~= nil or next(ctx.rang.seed or {}) ~= nil)

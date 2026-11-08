@@ -93,6 +93,99 @@ function Panneau.close(player)
   if frame then frame.destroy() end
 end
 
+local NPC = "fo_dbg_pnj_frame"
+
+function Panneau.close_npc(player)
+  local f = player.gui.screen[NPC]
+  if f then f.destroy() end
+end
+
+local function npc_task_line(t)
+  local target = ""
+  if t.outpost then target = "avant-poste " .. tostring(t.outpost)
+  elseif t.pid then target = "projet " .. tostring(t.pid) .. (t.mode and (" / " .. tostring(t.mode)) or "")
+  elseif t.resource then target = tostring(t.resource) end
+  return { "fo-dbg-cerveau.pnj-tache", { "fo-dbg-cerveau.tache-" .. Lg.task_key(t.kind, t.mode) }, tostring(t.key), target, tostring(t.prio or "?") }
+end
+
+local function explain_line(ex)
+  local c = ex.cause
+  if c == "matiere" then
+    return { "fo-dbg-cerveau.pnj-cause-matiere", tostring(ex.key), Lg.item(ex.item), tostring(ex.need or "?"), tostring(ex.free or "?"), tostring(ex.n or 0) }
+  elseif c == "pauses" then
+    return { "fo-dbg-cerveau.pnj-cause-pauses", tostring(ex.key), Lg.ago(ex.left), tostring(ex.n or 0) }
+  elseif c == "pret" then
+    return { "fo-dbg-cerveau.pnj-cause-pret", tostring(ex.key), tostring(ex.n or 0), tostring(ex.n_pause or 0), tostring(ex.n_matiere or 0) }
+  elseif c == "attente" then
+    return { "fo-dbg-cerveau.pnj-cause-attente", string.format("%.0f", (ex.left or 0) / 60) }
+  elseif c == "marche_echec" then
+    return { "fo-dbg-cerveau.pnj-cause-marche_echec", tostring(ex.why) }
+  end
+  return { "fo-dbg-cerveau.pnj-cause-" .. c }
+end
+
+--- Panneau d'un PNJ (état cognitif complet) : tâche en cours, étapes restantes, cause d'inactivité, tâches suivantes du tableau, sac. `npc` : Lec.npc.
+function Panneau.update_npc(player, v, npc, gone)
+  if not npc and not gone then Panneau.close_npc(player) return end
+  local frame = player.gui.screen[NPC]
+  if not frame then
+    frame = player.gui.screen.add({ type = "frame", name = NPC, direction = "vertical", caption = { "fo-dbg-cerveau.pnj-titre" } })
+    frame.location = { x = 12, y = 110 }
+  end
+  frame.clear()
+  local top = frame.add({ type = "flow", direction = "horizontal" })
+  local sp = top.add({ type = "empty-widget" })
+  sp.style.horizontally_stretchable = true
+  top.add({ type = "button", name = "fo_dbg_pnj_close", caption = { "fo-dbg-cerveau.fermer" } })
+  if gone or not npc then
+    lbl(frame, { "fo-dbg-cerveau.pnj-disparu" }, nil, true)
+    return
+  end
+  local now = npc.now
+  local h = lbl(frame, { "fo-dbg-cerveau.pnj-entete", tostring(npc.id), npc.team, { "fo-dbg-cerveau.pnj-etat-" .. npc.state }, tostring(npc.role or "?"), tostring(npc.pole or "?") })
+  h.style.font = "default-bold"
+  -- tâche en cours
+  local t1 = lbl(frame, { "fo-dbg-cerveau.pnj-h-tache" })
+  t1.style.font = "default-bold"
+  if npc.task then lbl(frame, npc_task_line(npc.task), nil, true) else lbl(frame, { "fo-dbg-cerveau.pnj-sans-tache" }) end
+  -- étapes
+  if npc.task then
+    local t2 = lbl(frame, { "fo-dbg-cerveau.pnj-h-etapes", npc.steps.left, npc.steps.total })
+    t2.style.font = "default-bold"
+    for _, r in ipairs(npc.steps.rows) do
+      lbl(frame, { "fo-dbg-cerveau.pnj-etape", r.current and ">" or " ", { "fo-dbg-cerveau.pnj-etape-" .. r.kind }, r.arg }, r.current and { r = 1, g = 1, b = 0.6 } or nil)
+    end
+  end
+  -- cause
+  local t3 = lbl(frame, { "fo-dbg-cerveau.pnj-h-cause" })
+  t3.style.font = "default-bold"
+  local ex = lbl(frame, explain_line(npc.explain), (npc.explain.cause == "en_marche") and nil or { r = 1, g = 0.75, b = 0.3 }, true)
+  ex.style.maximal_width = 420
+  -- tâches suivantes
+  local t4 = lbl(frame, { "fo-dbg-cerveau.pnj-h-suivantes" })
+  t4.style.font = "default-bold"
+  if #npc.nexts == 0 then lbl(frame, { "fo-dbg-cerveau.pnj-aucune-suivante" }) end
+  for _, r in ipairs(npc.nexts) do
+    local st
+    if r.status == "pause" then st = { "fo-dbg-cerveau.pnj-sv-pause", Lg.ago(r.pause) }
+    elseif r.status == "matiere" then st = { "fo-dbg-cerveau.pnj-sv-matiere", Lg.item(r.item), tostring(r.need or "?"), tostring(r.free or "?") }
+    else st = { "fo-dbg-cerveau.pnj-sv-ok" } end
+    lbl(frame, { "fo-dbg-cerveau.pnj-suivante", { "fo-dbg-cerveau.tache-" .. Lg.task_key(r.kind, nil) }, tostring(r.key), tostring(r.prio or "?"), st }, nil, true)
+  end
+  if npc.team_sur then
+    lbl(frame, { "fo-dbg-cerveau.pnj-equipe", tostring(npc.team_sur.starved or "?"), tostring(npc.team_sur.want or "?"), tostring(npc.team_sur.service or "?"), tostring(npc.team_sur.mine or "?") }, nil, true)
+  end
+  if npc.team_idle then
+    lbl(frame, { "fo-dbg-cerveau.pnj-rien", tostring(npc.team_idle.n or "?"), { "fo-dbg-cerveau.pnj-rien-" .. npc.team_idle.code }, Lg.ago(npc.team_idle.age) }, nil, true)
+  end
+  -- sac
+  if npc.carry and #npc.carry > 0 then
+    local parts = {}
+    for _, c in ipairs(npc.carry) do parts[#parts + 1] = tostring(c.item) .. " " .. tostring(c.n) end
+    lbl(frame, { "fo-dbg-cerveau.pnj-sac", table.concat(parts, ", ") }, nil, true)
+  end
+end
+
 local function team_label(t)
   if t.id == "player" then return { "fo-dbg-cerveau.equipe-joueur" } end
   return tostring(t.key)
@@ -140,7 +233,7 @@ local function fill_detail(detail, ctx)
   if z.total and z.total > 0 then lbl(detail, { "fo-dbg-cerveau.detail-pose", z.built or 0, z.total }) end
   -- production attribuée
   if z.product then
-    lbl(detail, { "fo-dbg-cerveau.detail-produit", { "item-name." .. z.product }, z.rate_meas and string.format("%.0f", z.rate_meas) or "?",
+    lbl(detail, { "fo-dbg-cerveau.detail-produit", Lg.item(z.product), z.rate_meas and string.format("%.0f", z.rate_meas) or "?",
       z.rate_nom and string.format("%.0f", z.rate_nom) or "?" })
   end
   -- état réel
@@ -181,8 +274,19 @@ local function fill_detail(detail, ctx)
   else
     for _, t in ipairs(ctx.sel_tasks) do
       lbl(detail, { "fo-dbg-cerveau.detail-tache", { "fo-dbg-cerveau.tache-" .. Lg.task_key(t.kind, t.mode) },
-        { t.taken and "fo-dbg-cerveau.tache-prise" or "fo-dbg-cerveau.tache-libre" }, t.item and { "item-name." .. t.item } or "", tostring(t.prio or "?") }, nil, true)
+        { t.taken and "fo-dbg-cerveau.tache-prise" or "fo-dbg-cerveau.tache-libre" }, t.item and Lg.item(t.item) or "", tostring(t.prio or "?") }, nil, true)
     end
+  end
+  -- liaisons enregistrées qui touchent ce bloc
+  local h5 = lbl(detail, { "fo-dbg-cerveau.detail-liaisons" })
+  h5.style.font = "default-bold"
+  if #(ctx.sel_links or {}) == 0 then lbl(detail, { "fo-dbg-cerveau.detail-liaisons-aucune" }, nil, true) end
+  for _, l in ipairs(ctx.sel_links or {}) do
+    local sens = (l.dock_pid == row.z.pid) and "entree" or "sortie"
+    local autre = sens == "entree" and l.src_pid or l.dock_pid
+    lbl(detail, { "fo-dbg-cerveau.detail-liaison", { "fo-dbg-cerveau.lien-" .. l.kind }, { "fo-dbg-cerveau.lien-sens-" .. sens }, l.item and Lg.item(l.item) or "?",
+      autre and { "fo-dbg-cerveau.lien-source-bloc", tostring(autre) } or { "fo-dbg-cerveau.lien-source-tapis" },
+      l.status == "actif" and { "fo-dbg-cerveau.lien-statut-actif" } or Lg.link_state(l) }, nil, true)
   end
   -- piquage des quais d'entrée de la zone (lot PIQUAGE)
   for _, q in ipairs(ctx.sel_piquage or {}) do
@@ -262,6 +366,8 @@ function Panneau.update(player, v, ctx)
     fill_list(find(frame, "fo_dbg_list"), ctx)
   end
   fill_detail(find(frame, "fo_dbg_detail"), ctx)
+  if ctx.npc then ctx.npc.now = ctx.now end
+  Panneau.update_npc(player, v, ctx.npc, ctx.npc_gone)
   local sd = tostring(#ctx.decisions) .. ":" .. (ctx.decisions[1] and (tostring(ctx.decisions[1].tick) .. tostring(ctx.decisions[1].text)) or "")
   if v.sig.dec ~= sd then
     v.sig.dec = sd

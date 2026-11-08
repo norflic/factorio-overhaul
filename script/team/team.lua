@@ -49,6 +49,7 @@ local Objectif = require("script.team.objectif") -- lot AGES : libellé d'un obj
 local Reparation = require("script.team.reparation") -- lot PD-REPARATION (D79) : bâtiments endommagés réparés (toutes les équipes)
 local Gisement = require("script.team.gisement") -- lot GISEMENTS : foreuses à combustion à l'arrêt rebranchées ou retirées
 local FoSwap = require("script.team.foreuse_swap") -- lot FOREUSES : foreuse à combustion remplacée par l'électrique quand le courant arrive
+local Elec = require("script.team.electrique") -- lot ELECTRIQUE (DC 8/11) : verdict « électrique possible, thermique refusée », relu à chaque pensée
 local Survie = require("script.team.survie") -- lot SURVIE-PENURIE : mode survie d'une équipe en pénurie (entrée, sortie, tâches, journal)
 local SurvieQg = require("script.team.survie_qg") -- lot S1 : QG en péril (défense armée contre la menace reçue, journal [FO-SURVIE])
 local MenaceQg = require("script.team.menace_qg") -- lot L12 (partie 1) : hystérésis de la menace sur le QG (hq_threat)
@@ -802,6 +803,7 @@ function Team.view(f, tick)
     -- lot DEPENSES2 (b) : plafond des factions, celui des soldats que votre équipe paie sur son stock qui dort (0 sans guerre lancée)
     army_cap = (war.settings and war.settings.soldiers_max) or 0,
     workers = f.engineers_count, workers_max = workers_max, workers_idle = workers_idle, workers_waiting = workers_waiting,
+    workers_fond = on_fond, -- lot ZERO-IDLE : PNJ au fond doux (minage à la main, garde) : des bras prêts à poser une fonderie (shared/ai3/zero_idle.lua)
     backlog = backlog, -- lot VIDEO-L6 : tâches libres qui attendent (porte « transport saturé », Capi.portes, script/ai3/capitalisation.lua)
     workers_wanted = workers_wanted, recruit_cost = recruit_cost, recruit_blocked = recruit_blocked,
     recruit_held = recruit_held, recruit_prio = recruit_prio, -- lot IA3-d : priorité de l'équipement d'une recrue décidée
@@ -833,6 +835,7 @@ function Team.view(f, tick)
     -- Lot IA1-b2 (D-17) : défendre d'abord (tourelles avant les ouvriers ; shared/team/planner.lua) ; recrues retenues
     -- après une perte récente.
     defend_first = defend_first or nil, hold_recruits = hold_recruits or nil,
+    thermal_off = Elec.view_off(f, tick), -- lot ELECTRIQUE (a) : types d'avant-poste refusés en thermique ({ [type] = raison } ou nil), lu par shared/ai3/projets.lua
     recul_wait = recul_wait, -- EFFONDREMENT : recrue gratuite en recul (planificateur, bloc de reprise)
     -- Tourelles du QG voulues : votre équipe seulement (une faction garde son QG avec ses soldats ; T.defend_first_factions).
     front = Profiler.fwrap("view:5-front", Front.view, f, fortify_open), -- lot DEFENSE-FRONT : tourelles en plus là où les pièces de l'équipe tombent, et près des laboratoires
@@ -1075,7 +1078,7 @@ TT.e4 = function(f, surface, tick, et)
   local view, plan, ia3 = et.view, et.plan, et.ia3
   Profiler.fstart("tt:inter")
   Inter.think(f, tick) -- lot MAIN-ET-INTERMEDIAIRES (D09, D10) : tâches libres retirées AVANT le marché (minage à la main fourni par les machines, quais d'un module au plafond)
-  Src.think(f, tick) -- lot MINAGE-MAIN : tournées vers les sorties qui dorment, minages libres des ressources qu'elles fournissent retirés (AVANT le marché)
+  Src.think(f, tick, view.workers_waiting or view.workers_idle or 0) -- lot MINAGE-MAIN : tournées vers les sorties qui dorment, minages libres des ressources qu'elles fournissent retirés (AVANT le marché)
   -- Lot IA3-b : meilleures paires PNJ inactif × tâche (place de marché, réglage allumé). Fusion IA-V2 : APRÈS le plan
   -- directeur (le plan crée ses tâches, puis le marché les attribue ; consigne de l'intégrateur, 27/10).
   Profiler.fstop("tt:inter")
@@ -1211,6 +1214,8 @@ TT.e5 = function(f, surface, tick, et)
   Profiler.fstart("tt:repli")
   FoSwap.repli(f, surface, book_for(f), et.stock, tick)
   Profiler.fstop("tt:repli")
+  -- lot ELECTRIQUE (a) : verdict relu à chaque pensée, retenue de la pile ou non (lu par le tableau : Board.sync, Board.add)
+  Elec.think(f, book_for(f), tick)
   if not et.pile_hold then
     Profiler.fstart("tt:foswap")
     FoSwap.think(f, surface, book_for(f), et.stock, tick) -- lot FOREUSES (retour du DC du 29/10) : foreuses thermiques remplacées par des électriques alimentées

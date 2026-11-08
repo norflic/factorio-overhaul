@@ -32,8 +32,8 @@ return {
     st.last = res
     local parts = {}
     for _, t in ipairs(res or {}) do
-      parts[#parts + 1] = string.format("%s: %d zone(s) dont %d mesuree(s) [vert %d, orange %d, rouge %d, gris %d], %d alerte(s), anneau %d", t.key, t.zones,
-        t.mesurees, t.couleurs.vert, t.couleurs.orange, t.couleurs.rouge, t.couleurs.gris, t.alertes, t.anneau)
+      parts[#parts + 1] = string.format("%s: %d zone(s) dont %d mesuree(s) [vert %d, orange %d, rouge %d, gris %d], %d alerte(s), anneau %d, %d liaison(s), %d entree(s)/sortie(s)", t.key, t.zones,
+        t.mesurees, t.couleurs.vert, t.couleurs.orange, t.couleurs.rouge, t.couleurs.gris, t.alertes, t.anneau, t.liens or 0, t.ios or 0)
       st.zones_max = math.max(st.zones_max or 0, t.zones)
       st.mesurees_max = math.max(st.mesurees_max or 0, t.mesurees)
       st.anneau_max = math.max(st.anneau_max or 0, t.anneau)

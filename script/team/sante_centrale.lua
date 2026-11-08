@@ -245,7 +245,7 @@ function Sante.gate(f, p, tick, kw_of)
   local b = f.build
   local is_plant = p.id == b.plant
   for _, id in ipairs(b.extra_plants or {}) do if id == p.id then is_plant = true end end
-  if sp.alim or sp.raccord or sp.enceinte or sp.liaison or sp.site or is_plant or p.reopened then p.admitted = true return true end
+  if sp.alim or sp.alimquai or sp.raccord or sp.enceinte or sp.liaison or sp.site or is_plant or p.reopened then p.admitted = true return true end
   if p.power_kw == nil then p.power_kw = kw_of(sp) or 0 end
   local g = f.build.grow
   -- lot 5b (W04 n°2) : la centrale est-elle FINIE ? Alors une capacité ou une production non lue retient le module (S.admit) au lieu de l'admettre
@@ -308,8 +308,13 @@ function Sante.growth(f, tick, plants, used_j, capacity_j)
   if not flag and was_n >= 2 then
     say(f, { kind = "avance-rompue", tick = tick, n = was_n, used = used, committed = committed, capacity = cap })
   end
+  -- lot ELECTRIQUE (c, DC 8/11 : « 4 machines à vapeur à plein régime ») : + les kW des électriques PRÉVUES que la marge ne couvre pas
+  -- (thermiques à convertir, paires refusées ; f.team.elec_kw, script/team/electrique.lua, valable S.CAPI_TTL) : un déficit, centrale demandée
+  -- avant la pose et à la taille du besoin (C.deficit_size)
+  local elec = S.capi_kw(f.team and f.team.elec_kw, tick)
   return ant, stalled, used, committed, cap,
-    S.deficit(f.team and f.team.capi and f.team.capi.kw_blocked, tick) -- lot TV-ENERGIE : déficit de kW avec épargne qui dort
+    S.deficit(f.team and f.team.capi and f.team.capi.kw_blocked, tick) + elec, -- lot TV-ENERGIE : déficit de kW avec épargne qui dort
+    elec -- lot ELECTRIQUE : part des électriques prévues (journal [FO-ENERGIE] de plant_arms)
 end
 
 return Sante

@@ -135,8 +135,10 @@ Build.Rempl = require("script.team.remplissage_glue")
 -- Lot TV-VAPEUR : tampon de vapeur de la centrale (V36, colle de shared/team/vapeur_tampon.lua) et dégradation sous charge (V89, script/core/
 -- charge.lua) ; champs de Build, pas des locales (199 locales sur 200).
 Build.Vg = require("script.team.vapeur_glue")
+Build.FonderieBloc = require("script.team.fonderie_bloc") -- lot FONDERIE-BLOC : le coffre de charbon d'une fonderie de champ relié par un tapis au charbon ; champ de Build, pas une locale
 Build.Piquage = require("script.team.piquage") -- lot PIQUAGE : entrée d'un bloc alimentée par le surplus d'un tapis existant ; champ de Build, pas une locale (build.lua est à 199 locales)
 Build.Charge = require("script.core.charge")
+Build.Rangee = require("script.team.rangee_dyn") -- lot RANGEES-ASM : rangée d'assembleurs dynamique (place entière, grandit sur place) ; champ de Build, pas une locale
 -- Lot VIDEO L9 : lots de minerai réservés au minerai (colle de shared/team/lot_minerai.lua, interrupteur éteint par défaut) ; champ
 -- de Build, même raison (199 locales sur 200).
 Build.LotsMinerai = require("script.team.lots_minerai_glue")
@@ -2119,7 +2121,7 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
   local relay_legs
   if bx1 - bx0 > 120 or by1 - by0 > 120 then
     local mode, legs = nil, nil
-    if p.spec and p.spec.alim then mode, legs = Cv.reach(s.x, s.y, a.x, a.y) end
+    if p.spec and (p.spec.alim or p.spec.alimquai) then mode, legs = Cv.reach(s.x, s.y, a.x, a.y) end -- (lot FONDERIE-BLOC : l'alimentation d'un coffre de champ aussi)
     if mode ~= "relais" then return false, "trop loin" end
     relay_legs = legs
   end
@@ -2730,6 +2732,10 @@ local function plan_project(f, surface, p)
   local spec = p.spec
   if spec.enceinte then return plan_enceinte(f, surface, p) end
   if spec.alim then return plan_alim(f, surface, p) end -- lot CHARBON-CENTRALE
+  if spec.alimquai then -- lot FONDERIE-BLOC : ligne de foreuses de charbon et tapis jusqu'au coffre de tête d'un champ (script/team/fonderie_bloc.lua)
+    return Build.FonderieBloc.plan({ read_masks = function(x0, y0, x1, y1) return read_masks(f, surface, x0, y0, x1, y1) end, reserve_tiles = reserve_tiles,
+      finish = plan_finish, plan_drills = Build.plan_drills }, f, surface, p)
+  end
   if spec.raccord then return plan_raccord(f, surface, p) end -- lot PD-ELEC (D05)
   if spec.quartier then -- lot TV-ARCHI (V23) : pôle d'un quartier (poteau, dépôts, lot défriché), script/team/quartiers.lua
     return Build.Quartiers.plan(f, surface, p, { read_masks = function(x0, y0, x1, y1) return read_masks(f, surface, x0, y0, x1, y1) end,
@@ -2760,7 +2766,7 @@ local function plan_project(f, surface, p)
         type = e.type } -- (lot CHAMP : charge du coffre de combustible, rang de pose ; lot FONDERIE : entrée ou sortie d'un souterrain)
     end
     if not reserve_tiles(b, p, ents) then return false, "place" end
-    for _, q in ipairs(lay.quais or {}) do p.quais[#p.quais + 1] = { x = q.x, y = q.y, item = q.item } end
+    for _, q in ipairs(lay.quais or {}) do p.quais[#p.quais + 1] = { x = q.x, y = q.y, item = q.item, flow = q.flow } end -- (lot FONDERIE-BLOC : flow = débit d'un coffre de tête de champ)
     for _, o in ipairs(lay.outs or {}) do p.outs[#p.outs + 1] = { x = o.x, y = o.y, at = lay.out_at } end
     Profiler.stop("build:plan:place")
     return anchors_and_obstacles(f, surface, p, lay.masks)
@@ -2782,6 +2788,7 @@ local function plan_project(f, surface, p)
   end
   local g, why = template_of(spec, topts)
   if not g then return false, why end
+  g = Build.Rangee.full(p, g) -- lot RANGEES-ASM : rangée dynamique planifiée à la borne de son gabarit (place entière réservée)
   p.consumes = {}
   p.inflow = {} -- lot INDUSTRIE I7 : débit nominal de chaque entrée (objets/s), lu par script/team/liaison.lua pour le prix d'une liaison de quai
   for _, k in ipairs(sorted_keys(g.inputs or {})) do p.consumes[k] = true; p.inflow[k] = g.inputs[k] end
@@ -2893,6 +2900,7 @@ local function plan_project(f, surface, p)
   p.parts[1] = { kind = is_plant and "centrale" or "module", key = main.g.key, lot = main.lot or (main.repli and "repli") or "lointain", ox = main.ox, oy = main.oy,
     k = main.k, w = main.g.w, h = main.g.h, power = needs_power(main.g) }
   local ents = inst_entities(main.inst, 1)
+  Build.Rangee.tag(p, ents, main.g) -- lot RANGEES-ASM : colonne de chaque machine et de ses bras (pose par étapes, Build.Rangee.split)
   if topts then Build.tag_rows(ents, g, 0, "four", "row") end -- lot FONDERIE-DYNAMIQUE : rangée de chaque four et de ses bras (ligne_split)
   if not reserve_tiles(b, p, ents) then return false, "place" end
   if main.lot then b.lots[main.lot].used = p.id end
@@ -2918,12 +2926,14 @@ local function plan_project(f, surface, p)
         f.key or "player", p.id, #ov, e1.name, tostring(e1.role), e2.name, tostring(e2.role), e2.x, e2.y))
     end
   end
-  return plan_finish(f, surface, p, main.masks, is_plant)
+  return Build.Rangee.after(f, p, plan_finish(f, surface, p, main.masks, is_plant, topts, g)) -- RANGEES-ASM (machines au-delà de n en attente) + FONTE-DYN (topts et g pour ligne_split)
 end
 
 --- Fin commune d'un plan (lot CHARBON-CENTRALE : partagée avec le projet d'alimentation de la centrale, plan_alim) : poteaux du
 --- réseau, points d'appui, obstacles. `masks` : relevé de la zone de la première partie. Rend true, ou (false, raison, attendre).
-plan_finish = function(f, surface, p, masks, is_plant)
+--- `topts` et `g` (facultatifs, de plan_project) : l'option et le gabarit d'une ligne de fonderie, pour Build.ligne_split ; nil pour les
+--- autres plans (alimentation de la centrale, quartiers).
+plan_finish = function(f, surface, p, masks, is_plant, topts, g)
   local b = f.build
   Profiler.start("build:plan:power")
   -- électricité : le réseau de l'équipe ; la centrale l'amorce
@@ -4717,6 +4727,7 @@ local function pulse_team(f, tick)
   Profiler.fstart("bp:liaison")
   Liaison.step({ request = Build.request, prio = Build.PRIO + 1, fill = Build.QUAI_FILL, low = Build.QUAI_LOW }, f, surface, tick)
   Build.Piquage.step({ request = Build.request, prio = Build.PRIO + 1, fill = Build.QUAI_FILL, low = Build.QUAI_LOW }, f, surface, tick) -- lot PIQUAGE
+  Build.FonderieBloc.step({ request = Build.request, prio = Build.PRIO + 1 }, f, surface, tick) -- lot FONDERIE-BLOC : coffre de tête d'un champ sans source
   Profiler.fstop("bp:liaison")
   Build.Rapatriement.step({ request = Build.request, prio = Build.PRIO + 1 }, f, surface, tick) -- lot RAPATRIEMENT : sorties lointaines reliées au tampon près des quais
   Profiler.fstart("bp:centrale")
@@ -5278,7 +5289,8 @@ function Build.brief(f, id)
   local rebuilding = Sweep.rebuilding(p)
   return { state = p.state, reason = p.reason, missing = missing, built = count_built(p), total = #p.ents,
     retry_at = p.retry_at, retries = p.retries, parts = parts, quais = quais, grow = grow,
-    rebuilding = rebuilding, growth = (p.ligne ~= nil and p.reopened ~= nil and p.reopened ~= 0 and not rebuilding and p.state ~= "fini") or false }
+    rebuilding = rebuilding, growth = (p.ligne ~= nil and p.reopened ~= nil and p.reopened ~= 0 and not rebuilding and p.state ~= "fini") or false,
+    rangee = Build.Rangee.brief(p) } -- lot RANGEES-ASM : { n, n_max, held } d'une rangée dynamique
 end
 
 --- Lot ENERGIE (relecture) : projet d'alimentation de centrale ouvert de l'équipe (un seul à la fois, Cc.want_alim), ou nil. Lecteur :

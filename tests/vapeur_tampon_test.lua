@@ -179,7 +179,7 @@ local chunk_src = between("--- Lot CHARBON-CENTRALE : boilers (nombre)", "--- Lo
   .. between("--- Lot CHARBON-CENTRALE : journal du coffre", "-- Raccordement : fils")
 local W = { logs = {}, stock = 1000, chest = 300 }
 local function run_quai(Vg_stub, mod_src)
-  local Build = { QUAI_LOW = 60, QUAI_FILL = 400, COLLECT_AT = 200, Vg = Vg_stub }
+  local Build = { QUAI_LOW = 60, QUAI_FILL = 400, COLLECT_AT = 200, QUAI_CHEST = "iron-chest", Vg = Vg_stub } -- 0.6.67 : quai_tasks cherche Build.QUAI_CHEST
   Build.Quotas = require("script.team.quotas_glue")
   local env = {
     Cc = Cc, M = M, P = P, Build = Build,

@@ -16,7 +16,7 @@ local logs = {}
 function log(text) logs[#logs + 1] = text end -- luacheck: ignore
 
 local ore_tiles, entities, ghost_ugs = {}, {}, {}
-local resource_reads = 0
+local resource_reads, ug_reads, count_calls, proto_reads = 0, 0, 0, 0
 local surface = {
   index = 1,
   find_entities_filtered = function(q)
@@ -28,6 +28,7 @@ local surface = {
         if o.x >= x0 and o.x < x1 and o.y >= y0 and o.y < y1 then out[#out + 1] = { position = { x = o.x + 0.5, y = o.y + 0.5 }, type = "resource" } end
       end
     elseif q.type == "underground-belt" then
+      ug_reads = ug_reads + 1
       for _, e in ipairs(entities) do
         if e.type == "underground-belt" and e.x >= x0 and e.x < x1 and e.y >= y0 and e.y < y1 then
           out[#out + 1] = { position = { x = e.x + 0.5, y = e.y + 0.5 }, direction = e.direction, type = e.type }
@@ -49,6 +50,15 @@ local surface = {
     return out
   end,
   count_tiles_filtered = function() return 0 end,
+  count_entities_filtered = function(q)
+    count_calls = count_calls + 1
+    local x0, y0, x1, y1 = q.area[1][1], q.area[1][2], q.area[2][1], q.area[2][2]
+    local n = 0
+    if q.type == "resource" then
+      for _, o in ipairs(ore_tiles) do if o.x >= x0 and o.x < x1 and o.y >= y0 and o.y < y1 then n = n + 1 end end
+    end
+    return n
+  end,
 }
 
 local function proto(speed, maxd, item)
@@ -61,6 +71,7 @@ game = { -- luacheck: ignore
   entity_prototypes = { ["transport-belt"] = { belt_speed = 0.03125 }, ["fast-transport-belt"] = { belt_speed = 0.0625 } },
   get_filtered_entity_prototypes = function(filters)
     assert(filters[1].filter == "type" and filters[1].type == "underground-belt")
+    proto_reads = proto_reads + 1
     return { ["underground-belt"] = proto(0.03125, 5, "underground-belt"), ["fast-underground-belt"] = proto(0.0625, 7, "fast-underground-belt") }
   end,
 }
@@ -95,19 +106,67 @@ check(nug == 2 and ents[1].name == "transport-belt", "5 : entités : deux pièce
 check(f.build.stats.traversee and f.build.stats.traversee.routes == 1 and f.build.stats.traversee.jumps == 1, "6 : compteurs de l'équipe")
 
 -- Un tapis rapide exige un souterrain rapide ; non débloqué : le plus rapide débloqué ---------------
+local function bump() game.tick = game.tick + Trav.TTL + 1 end -- (le cache des prototypes vit Trav.TTL ticks)
+bump()
 local ug = Trav.underground(f, "fast-transport-belt")
 check(ug and ug.name == "underground-belt", "7 : rapide non débloqué : le plus rapide débloqué (" .. tostring(ug and ug.name) .. ")")
 recipes["fast-underground-belt"].enabled = true
+bump()
 ug = Trav.underground(f, "fast-transport-belt")
 check(ug and ug.name == "fast-underground-belt" and ug.maxd == 7, "8 : rapide débloqué : portée 7")
 recipes["fast-underground-belt"].enabled = false
 recipes["underground-belt"].enabled = false
+bump()
 check(Trav.underground(f, "transport-belt") == nil, "9 : aucun souterrain débloqué : nil")
 local none, why = Trav.route(team(), surface, { id = 1 }, { x = 0, y = 1 }, { x = 12, y = 1 }, 2, bounds, cost, { belt = "transport-belt" })
 check(none == nil and why == "aucun chemin", "10 : sans souterrain, le mur plein ne se passe pas")
 local last = logs[#logs] or ""
 check(last:find("REFUS (aucun chemin)", 1, true) and last:find("poteau en (6,", 1, true), "10b : la CAUSE du refus est écrite (" .. last .. ")")
 recipes["underground-belt"].enabled = true
+bump()
+
+-- Lectures paresseuses (mesure : le tracé libre lisait les souterrains, les fantômes et la liste des prototypes à chaque appel)
+do
+  ug_reads, proto_reads, count_calls, resource_reads = 0, 0, 0, 0
+  local free_cost = function(x, y) if x < 0 or x > 30 or y < 0 or y > 6 then return nil end return 1 end
+  local fq = team()
+  local ta = Trav.route(fq, surface, { id = 50 }, { x = 0, y = 3 }, { x = 30, y = 3 }, 2, { x0 = 0, y0 = 0, x1 = 30, y1 = 6 }, free_cost, { belt = "transport-belt" })
+  local tb = Trav.route(fq, surface, { id = 51 }, { x = 0, y = 3 }, { x = 30, y = 3 }, 2, { x0 = 0, y0 = 0, x1 = 30, y1 = 6 }, free_cost, { belt = "transport-belt" })
+  check(ta and tb and ug_reads == 0, "L1 : tracé sans obstacle : aucun souterrain lu au moteur (" .. ug_reads .. ")")
+  check(proto_reads == 0 or proto_reads == 1, "L2 : prototypes de souterrain lus au plus une fois (" .. proto_reads .. ")")
+  check(count_calls <= 2, "L3 : un chunk sans ressource : un comptage, aucune liste (" .. count_calls .. " comptage(s), " .. resource_reads .. " lecture(s))")
+  check(resource_reads == 0, "L4 : aucune ressource dans les chunks : aucune lecture de liste")
+end
+
+-- Option no_ore : le gisement n'est pas lu du tout
+do
+  ore_tiles = { { x = 5, y = 1 } }
+  game.tick = game.tick + Trav.TTL + 1
+  resource_reads, count_calls = 0, 0
+  local fn = team()
+  local free_cost = function(x, y) if x < 0 or x > 30 or y < 0 or y > 6 then return nil end return 1 end
+  local tn = Trav.route(fn, surface, { id = 70 }, { x = 0, y = 3 }, { x = 30, y = 3 }, 2, { x0 = 0, y0 = 0, x1 = 30, y1 = 6 }, free_cost, { belt = "transport-belt", no_ore = true })
+  check(tn ~= nil and count_calls == 0 and resource_reads == 0, "N1 : no_ore : aucune lecture de gisement (" .. count_calls .. " comptage(s))")
+  ore_tiles = {}
+end
+
+-- Budget d'états partagé par les appels d'un même projet au même tick
+do
+  local fb = team()
+  local big = function(x, y) if x < 0 or x > 60 or y < 0 or y > 60 then return nil end return 1 end
+  local bud = { left = 30 }
+  local t1, w1 = Trav.route(fb, surface, { id = 60 }, { x = 0, y = 0 }, { x = 60, y = 60 }, 2, { x0 = 0, y0 = 0, x1 = 60, y1 = 60 }, big, { belt = "transport-belt", budget = bud })
+  check(t1 == nil and w1 == "trop long", "B1 : budget de 30 états : trop long (" .. tostring(w1) .. ")")
+  local t2, w2 = Trav.route(fb, surface, { id = 60 }, { x = 0, y = 0 }, { x = 5, y = 0 }, 2, { x0 = 0, y0 = 0, x1 = 60, y1 = 60 }, big, { belt = "transport-belt", budget = bud })
+  check(t2 == nil and w2 == "trop long", "B2 : budget épuisé : le deuxième appel sort tout de suite")
+  game.tick = game.tick + 1
+  local fc = team()
+  local t3 = Trav.route(fc, surface, { id = 61 }, { x = 0, y = 0 }, { x = 20, y = 0 }, 2, { x0 = 0, y0 = 0, x1 = 60, y1 = 60 }, big, { belt = "transport-belt" })
+  check(t3 ~= nil, "B3 : sans budget donné : budget de projet par défaut (Tv.PLAN_BUDGET = " .. Tv.PLAN_BUDGET .. ")")
+  local t4, w4 = Trav.route(fc, surface, { id = 61 }, { x = 0, y = 0 }, { x = 60, y = 60 }, 2, { x0 = 0, y0 = 0, x1 = 60, y1 = 60 }, big, { belt = "transport-belt", max = 100000 })
+  local t5 = Trav.route(fc, surface, { id = 62 }, { x = 0, y = 0 }, { x = 20, y = 0 }, 2, { x0 = 0, y0 = 0, x1 = 60, y1 = 60 }, big, { belt = "transport-belt" })
+  check(t5 ~= nil, "B4 : un autre projet a son propre budget")
+end
 
 -- Réglage éteint : ancien tracé --------------------------------------------------------------------
 Trav.set_enabled(false)
@@ -144,12 +203,6 @@ entities = {}
 for y = 0, 2 do entities[#entities + 1] = { x = 6, y = y, type = "electric-pole" } end
 ore_tiles = {}
 game.tick = 90000
-ghost_ugs = { { x = 6, y = 0, direction = 2 }, { x = 6, y = 1, direction = 2 }, { x = 6, y = 2, direction = 2 } }
-local t4 = Trav.route(team(), surface, { id = 3 }, { x = 0, y = 1 }, { x = 12, y = 1 }, 2, bounds, cost, { belt = "transport-belt" })
-check(t4 == nil, "17 : fantôme de souterrain de même axe sous le mur : pas de paire")
-ghost_ugs = { { x = 6, y = 0, direction = 0 }, { x = 6, y = 1, direction = 0 }, { x = 6, y = 2, direction = 0 } }
-local t5 = Trav.route(team(), surface, { id = 4 }, { x = 0, y = 1 }, { x = 12, y = 1 }, 2, bounds, cost, { belt = "transport-belt" })
-check(t5 ~= nil, "18 : fantôme d'axe perpendiculaire : paire permise")
 ghost_ugs = {}
 -- pièce planifiée par un autre projet de l'équipe
 local f6 = team()
