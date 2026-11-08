@@ -27,9 +27,12 @@ rem          les fichiers son ne se chargent que dans la session avec images (fo
 rem          Les volumes a 0 ne coupent PAS la sortie (F152) : le jeu de test recoit aussi SDL_AUDIODRIVER=disk.
 rem  Place (lot BANC2, 27/10) : la variable FO_PLACE choisit la place du banc, pour faire tourner plusieurs bancs
 rem          en meme temps (tools\autotest\banc.py). Absente, vide ou 1 : place 1, dossier fo-autotest et verrou
-rem          fo-autotest.lock (comportement inchange). 2 ou 3 : dossier fo-autotest-2 ou fo-autotest-3, verrou
-rem          fo-autotest-2.lock ou fo-autotest-3.lock. Toute autre valeur : code 3 avant le verrou, rien n'a tourne.
-rem          Aux places 2 et 3, FO_LOCK_HELD (verrou deja tenu par l'appelant) doit valoir le numero de la place,
+rem          fo-autotest.lock (comportement inchange). 2 a 6 : dossier fo-autotest-N, verrou fo-autotest-N.lock
+rem          (lot BANC-PLACES, 8/11 : 6 places au lieu de 3 ; marqueur FO_PLACES_MULTI, lu par banc.py pour savoir
+rem          que ce .bat sait faire les places 4 a 6 : deploye aussi sous le nom fo-autotest-multi.bat, que banc.py
+rem          n'utilise que pour les places 4 a 6, le fo-autotest.bat de la racine servant aux places 1 a 3).
+rem          Toute autre valeur : code 3 avant le verrou, rien n'a tourne.
+rem          Aux places 2 a 6, FO_LOCK_HELD (verrou deja tenu par l'appelant) doit valoir le numero de la place,
 rem          sinon code 3 : fo-captures.bat pose FO_LOCK_HELD=1, une FO_PLACE=2 heritee ne peut donc jamais faire
 rem          tourner un banc a la place 2 sans son verrou. Les images (fo-captures, fo-visual) restent a la place 1.
 rem  Sauvegarde donnee (lot PERF4, 5/11) : la variable FO_SAVE (chemin absolu d'un .zip de sauvegarde) remplace la
@@ -80,8 +83,8 @@ if not exist "%EXE%" (
 )
 
 rem Place du banc (lot BANC2) : FO_PLACE absente, vide ou 1 = place 1 (fo-autotest, fo-autotest.lock : inchange) ;
-rem 2 ou 3 = fo-autotest-N et fo-autotest-N.lock ; toute autre valeur, ou FO_LOCK_HELD different du numero de la
-rem place 2 ou 3 : code 3 AVANT le verrou. Valeurs lues en expansion retardee seulement (comme la graine) : aucun
+rem 2 a 6 = fo-autotest-N et fo-autotest-N.lock ; toute autre valeur, ou FO_LOCK_HELD different du numero de la
+rem place 2 a 6 : code 3 AVANT le verrou. Valeurs lues en expansion retardee seulement (comme la graine) : aucun
 rem caractere ne peut casser ni detourner le script.
 set PLACE=1
 set LOCK=%ROOT%\fo-autotest.lock
@@ -95,6 +98,9 @@ if "!PL_V!"=="" goto :plend
 if "!PL_V!"=="1" goto :plend
 if "!PL_V!"=="2" (set PL_N=2& goto :plheld)
 if "!PL_V!"=="3" (set PL_N=3& goto :plheld)
+if "!PL_V!"=="4" (set PL_N=4& goto :plheld)
+if "!PL_V!"=="5" (set PL_N=5& goto :plheld)
+if "!PL_V!"=="6" (set PL_N=6& goto :plheld)
 set PL_BAD=1
 echo Valeur invalide dans FO_PLACE : [!PL_V!]
 goto :plend
@@ -106,7 +112,7 @@ echo FO_PLACE=!PL_N! avec FO_LOCK_HELD=[!FO_LOCK_HELD!] : l'appelant ne tient pa
 :plend
 endlocal & set "PLACEN=%PL_N%" & set "PLACEBAD=%PL_BAD%"
 if defined PLACEBAD (
-  echo FO_PLACE : 1, 2 ou 3 ^(place du banc^) ou absente ; aux places 2 et 3, FO_LOCK_HELD absente ou egale a la place. Rien n'a tourne.
+  echo FO_PLACE : 1 a 6 ^(place du banc^) ou absente ; aux places 2 a 6, FO_LOCK_HELD absente ou egale a la place. Rien n'a tourne.
   if /i not "%~1"=="nopause" pause
   exit /b 3
 )
