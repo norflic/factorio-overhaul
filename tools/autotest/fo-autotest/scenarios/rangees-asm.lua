@@ -7,6 +7,9 @@
     banc.py --out <archive> --qui RANGEES-ASM -- 1500 rangees-asm <source>
 ]]
 local CHECK = 1400
+local PARTS = { { "assembling-machine-1", 40 }, { "assembling-machine-2", 20 }, { "fast-inserter", 60 }, { "inserter", 60 },
+  { "transport-belt", 400 }, { "small-electric-pole", 100 }, { "medium-electric-pole", 40 }, { "iron-chest", 20 },
+  { "copper-plate", 400 }, { "iron-plate", 400 } }
 local ORDERS = { { "chaine", "copper-cable", 60 }, { "chaine", "copper-cable", 120 }, { "chaine", "iron-gear-wheel", 600 } }
 
 local function first_team(ctx)
@@ -41,6 +44,9 @@ return {
       local r = first_team(ctx)
       st.key = r and r.key
       ctx.check(st.key ~= nil, "faction relevee (" .. tostring(st.key) .. ")")
+      -- objets des gabarits au coffre (premier banc, 13 h 18 : « objets impossibles : assembling-machine-1,fast-inserter »)
+      local put = st.key and ctx.remote("fo-ind", "stock", st.key, PARTS)
+      ctx.check(put ~= nil, "coffre : pieces des rangees posees", tostring(put))
     end
     if st.key and not st.done and t > 300 and t % 60 == 0 and ctx.remote("fo-capi", "status", st.key) ~= nil then
       st.done = t
