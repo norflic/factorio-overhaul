@@ -415,6 +415,7 @@ do
   for _, v in ipairs(Pn.STATES) do ps[#ps + 1] = v end
   add("pnj-cause-", pc)
   add("pnj-rien-", { "matiere", "bloquees", "aucune" })
+  add("pnj-zero-", { "aucun_libre", "servis", "stock", "combustible", "plein", "en_cours", "non_defendu", "menace", "palier", "aucune_fonderie", "autre" })
   add("pnj-etape-", pe)
   add("pnj-etat-", ps)
   add("lien-", require("shared.debug.liens").KINDS)

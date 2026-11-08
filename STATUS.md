@@ -5,6 +5,6 @@
 - MANQUE 1 : captures en images (jamais vues). Scenario pret : tools/autotest/fo-autotest/scenarios/dbg-cerveau-photo.lua (lignes FICTIVES via remote demo).
   Commande : py -3.9 -B tools/autotest/banc.py --out <archive> --captures --visuel="--no-atlas-cache --ticks 9700" --qui DEBUG-CERVEAU -- 9600 dbg-cerveau-photo <worktree>
   Seulement quand le lead l'autorise (une seule instance Factorio) ; regarder chaque x-dbgc-*.png.
-- MANQUE 2 : gate_why / champ d'inactivite de zero-idle (non recus) ; brancher dans Lec.npc (script/debug/lecture.lua) et panneau.lua.
+- FAIT (V2.5) : gate_why/gate_tick et f.team.zero_idle.last lus (zero-idle, branche zero-idle-2, non fusionnes : champs absents = rien affiche).
 - MANQUE 3 : Gel.status(e) quand X10-GEL est fusionne (lecture des statuts dans lecture.lua).
 - Un seul lua5.2 a la fois, nice -n 19 (ordre du DC).
