@@ -134,6 +134,16 @@ do
   J.reset()
   store["pouls_jeton"].charge = nil
   check(Charge.level() == 0 and Charge.stretch(600) == 600, "C3 : sauvegarde d'avant le lot (pas de champ charge) : niveau 0, rien d'espace")
+  -- file VIDE : le niveau ne bouge jamais, aucune ligne de journal (demande du lead)
+  local te = 500
+  local moved = false
+  for _ = 1, 500 do
+    J.reset()
+    Charge.sample(te)
+    te = te + 60
+    if Charge.level() ~= 0 then moved = true end
+  end
+  check(not moved and #LOGS == 0 and store["pouls_jeton"].charge.ema == 0, "C3 : file vide pendant 500 echantillons : niveau 0, lissage 0, aucune ligne [FO-CHARGE]")
   local t = 1000
   for _ = 1, 30 do
     crowd(t, 8)
@@ -233,6 +243,12 @@ end)
 mutant("Cd.skip ignore la cadence passee", function()
   local M = load_src(mutated("shared/faction/cadence.lua", { { "(slow or Cd.SLOW)", "Cd.SLOW" } }), "mut_cd")
   return M.skip({ last = 1000 }, { box = { x0 = 0, y0 = 0, x1 = 1, y1 = 1 }, players = {}, army_out = false }, 1700, 900) == false
+end)
+mutant("niveau qui monte file vide", function()
+  local M = pure_with({ { "local ema = st.ema or 0", "local ema = (st.ema or 0) + 16" } })
+  local st = { ema = 0, level = 0 }
+  for _ = 1, 60 do M.sample(st, 0) end
+  return st.level ~= 0
 end)
 mutant("Cd.skip ralentit aussi une faction eveillee", function()
   local M = load_src(mutated("shared/faction/cadence.lua", { { "if up then return false, why end", "if up and false then return false, why end" } }), "mut_cd2")
