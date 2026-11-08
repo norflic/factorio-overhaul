@@ -246,6 +246,20 @@ for _, e in ipairs(P2.ents) do if e.role == "liaison-tapis" and math.floor(e.x) 
 check(first ~= nil, "3.4 un tapis part de la sortie du répartiteur")
 check(has_log("projet 2 planifie %(quai 1:q1, X%)") ~= nil, "3.5 journal : projet planifié")
 -- le répartiteur est compté aux besoins du projet (build.lua, needs_of, lu comme texte) : voir §6
+-- anti-doublon avec la liaison : la ligne à poser dans finish_cycle de script/team/liaison.lua (à l'intégration) est
+--   for _, d in ipairs(c.docks) do d.linked = st.links[d.key] ~= nil or (b.piquage ~= nil and b.piquage.links[d.key] ~= nil) end
+-- Preuve : les clés de b.piquage.links sont celles des quais de la liaison (pid:qN), et un quai ainsi marqué n'est plus apparié (Li.pairs).
+do
+  local key = next(B.piquage.links)
+  check(key == "1:q1" and key == (PROJ1.id .. ":q" .. 1), "3.0 la clé de b.piquage.links est celle des quais de la liaison (pid:qN)")
+  local b_sim = B
+  local dock = { key = key, pid = 1, x = 20, y = 14, item = "X", flow = 1.0 }
+  local src = { key = "9:o1", pid = 9, x = 25, y = 14, item = "X" }
+  dock.linked = (({})[key] ~= nil) or (b_sim.piquage ~= nil and b_sim.piquage.links[dock.key] ~= nil) -- (st.links de la liaison vide ici)
+  check(dock.linked == true and #Li.pairs({ dock }, { src }) == 0, "3.0 bis un quai déjà piqué n'est pas apparié par la liaison")
+  dock.linked = (({})[key] ~= nil) or (b_sim.piquage ~= nil and b_sim.piquage.links["7:q9"] ~= nil)
+  check(dock.linked == false and #Li.pairs({ dock }, { src }) == 1, "3.0 ter un quai non piqué reste apparié")
+end
 -- le tracé passe par le lot TRAVERSEE quand il est fusionné (api.trav) : appel, forme du retour, pièces rendues par Trav.entities
 do
   local seen_call
