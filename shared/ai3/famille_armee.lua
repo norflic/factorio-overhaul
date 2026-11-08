@@ -44,7 +44,7 @@ function Fa.member(goal)
 end
 
 --- Part réservée (‰) lue sur la capitalisation : parts = { delta, alpha } en ‰. Rend part, raison (part nil et raison écrite quand une des
---- deux est absente ou illisible : fermé par défaut, jamais une part inventée).
+--- deux est absente ou illisible : aucune part, jamais une part inventée).
 function Fa.share(parts)
   if type(parts) ~= "table" then return nil, "parts absentes : capitalisation sans decision" end
   local d, a = num(parts.delta), num(parts.alpha)
