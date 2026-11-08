@@ -510,6 +510,9 @@ local function ia1d_program(task)
   local at = { x = j.ax, y = j.ay }
   if j.mode == "build" then
     return { { "home" }, { "take_res", j.pid, task.items }, { "goto", at, 1 }, { "ia1d" }, { "home" } }
+  elseif j.mode == "fill" and j.depot then -- lot TV-ARCHI (V91) : quai d'un quartier servi par son dépôt (script/team/quartiers.lua, Qr.route)
+    return { { "goto", j.depot, 2 }, { "take_depot", j.depot, task.depot_items }, { "goto", at, 1 }, { "ia1d" }, { "goto", j.depot, 2 },
+      { "put_depot", j.depot, task.depot_items } }
   elseif j.mode == "fill" or j.mode == "amorce" then -- amorce : lot ENERGIE (2/11), charbon versé dans les chaudières à sec
     return { { "home" }, { "take", task.items, strict = true }, { "goto", at, 1 }, { "ia1d" }, { "home" } }
   elseif j.mode == "clear" or j.mode == "collect" then
@@ -1551,6 +1554,15 @@ local function run_steps(agent, tick)
     elseif kind == "goto" then
       if not goto_step(agent, step[2], step[3] or 4, tick) then return end
       agent.street_off = nil -- lot IA1-d : le repli vers le PathService ne vaut que pour ce trajet
+      agent.pc = agent.pc + 1
+    elseif kind == "take_depot" or kind == "put_depot" then
+      -- Lot TV-ARCHI (V91) : prise au dépôt du quartier, puis retour du reste au même dépôt (script/team/quartiers.lua, Qr.depot_step)
+      local ok = Build.Quartiers.depot_step(f, kind, step[2], step[3], main_inv(agent))
+      if agent.task then agent.task.took = true end
+      if not ok then
+        abort(agent, f, tick, "stock")
+        return
+      end
       agent.pc = agent.pc + 1
     elseif kind == "take_res" then
       -- Lot IA1-d : objets réservés au chantier (retirés du coffre à la réservation : personne ne les arrache)
