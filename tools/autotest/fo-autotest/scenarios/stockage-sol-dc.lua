@@ -115,6 +115,31 @@ local function pockets_line(ctx, label, p)
   ctx.log(string.format("%s POCHES : %d PNJ, %d/%d cases prises ; {%s}", label, p.n, p.used, p.size, top_text(p.by, 16)))
 end
 
+--- C8 (relance du lead) : les packs sont-ils LIVRÉS aux laboratoires ? Recherche en cours de la force, statut de chaque laboratoire
+--- de l'équipe du joueur (500 tuiles autour du coffre) et ce qu'il tient en entrée.
+local function labs(ctx, s, pos, label)
+  local names = {}
+  for k, v in pairs(defines.entity_status) do names[v] = k end
+  local fo = game.forces.player
+  local r = fo.current_research
+  ctx.log(string.format("%s LABOS : recherche en cours %s (%.0f %%), file %d", label, r and r.name or "aucune",
+    100 * (fo.research_progress or 0), #(fo.research_queue or {})))
+  local list = s.find_entities_filtered({ type = "lab", force = "player", position = pos, radius = 500 })
+  table.sort(list, function(a, b) return a.unit_number < b.unit_number end)
+  local by = {}
+  for _, e in ipairs(list) do
+    local k = names[e.status] or tostring(e.status)
+    by[k] = (by[k] or 0) + 1
+  end
+  ctx.log(string.format("%s LABOS : %d laboratoire(s) ; statuts {%s}", label, #list, refused_text(by)))
+  for i = 1, math.min(6, #list) do
+    local e = list[i]
+    local inv = e.get_inventory(defines.inventory.lab_input)
+    ctx.log(string.format("%s LABOS : %s unite %d en (%.1f, %.1f) statut %s, entree {%s}", label, e.name, e.unit_number, e.position.x, e.position.y,
+      names[e.status] or tostring(e.status), refused_text(inv and inv.get_contents() or {})))
+  end
+end
+
 --- C8 : statut de chaque machine à packs rouges de l'équipe du joueur (500 tuiles autour du coffre).
 local function red_packs(ctx, s, pos, label)
   local names = {}
@@ -167,6 +192,7 @@ S.init = function(ctx)
   local _, pr = line(ctx, "DEPART")
   st.n0, st.c0 = _, pr.contents or {}
   red_packs(ctx, s, st.pos, "DEPART")
+  labs(ctx, s, st.pos, "DEPART")
   local p0 = pockets(s)
   st.p0 = p0.by
   pockets_line(ctx, "DEPART", p0)
@@ -189,6 +215,7 @@ S.finish = function(ctx)
   local up, down = delta_text(st.c0, pr.contents)
   ctx.log(string.format("FIN ENTREES au stock depuis DEPART : {%s} ; SORTIES {%s}", up, down))
   red_packs(ctx, ctx.surface(), st.pos, "FIN")
+  labs(ctx, ctx.surface(), st.pos, "FIN")
   local p1 = pockets(ctx.surface())
   pockets_line(ctx, "FIN", p1)
   local pu, pd = delta_text(st.p0, p1.by)
