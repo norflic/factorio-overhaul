@@ -209,7 +209,7 @@ local function mutant(path, from, to, name, runner)
   local i, j = src:find(from, 1, true)
   if not i then check(false, "mutant '" .. name .. "' : texte introuvable") return end
   local m = src:sub(1, i - 1) .. to .. src:sub(j + 1)
-  local tmp = os.tmpname()
+  local tmp = require("tests.depot").tmpname() -- lot TESTS-GIT : os.tmpname() visait la racine du disque (refusée sur C:)
   local f = assert(io.open(tmp, "wb")) f:write(m) f:close()
   local ok, mod = pcall(dofile, tmp)
   os.remove(tmp)

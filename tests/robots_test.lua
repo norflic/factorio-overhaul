@@ -375,10 +375,10 @@ do
 end
 -- aucun nom du lot dans le cerveau (tests/iag_test.lua §8 le contrôle aussi, par permutation)
 local brain_hits = {}
-local p = assert(io.popen('git ls-files "shared/ai3/*.lua" "script/ai3/*.lua"'))
-local brain_files = {}
-for path in p:lines() do brain_files[#brain_files + 1] = path end
-p:close()
+-- Lot TESTS-GIT (0.6.64) : liste par tests/depot.lua (git ls-files ; sans git, le disque, annoncé par une ligne [ENVIRONNEMENT]).
+local Depot = require("tests.depot")
+local brain_files, brain_src = Depot.lua_files({ "shared/ai3", "script/ai3" })
+if brain_src == "disque" then Depot.env("§6 aucun nom de robot dans le cerveau (git ls-files)", #brain_files > 0) end
 for _, path in ipairs(brain_files) do
   local code = strip(read(path))
   if code:find("fo%-robot") or code:find("steam%-trotter") then brain_hits[#brain_hits + 1] = path end

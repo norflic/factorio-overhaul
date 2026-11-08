@@ -60,6 +60,50 @@ local function suite(Sg)
   local r4, rec4 = Sg.demand_room({ q = 200, used = 200, s = A1, m = false }, 200, A2, false)
   c("borne : meme quantite redemandee a une pensee NEUVE -> 200, compte remis a zero (B1)", r4 == 200 and rec4.used == 0 and rec4.s == A2)
   c("borne : meme pensee, meme quantite -> 0", Sg.demand_room({ q = 200, used = 200, s = A1, m = false }, 200, A1, false) == 0)
+  -- C1 de DIAG_CONSO (7/11) : manques des projets en reserve (modules 94 et 95 de la partie du DC), sommes entre projets
+  local rn = Sg.reserve_need({ { { "assembling-machine-2", 3 }, { "transport-belt", 23 } },
+    { { "assembling-machine-2", 4 }, { "long-handed-inserter", 4 }, { "transport-belt", 47 } } })
+  c("C1 reserves : manques sommes entre projets (courroies 23 + 47, assembleurs 2 3 + 4, bras longs 4)", rn["transport-belt"] == 70
+    and rn["assembling-machine-2"] == 7 and rn["long-handed-inserter"] == 4, tostring(rn["transport-belt"]))
+  local rz = Sg.reserve_need({ { { "steel-plate", 0 }, { 7, 5 }, { "pipe", -2 } }, {} })
+  c("C1 reserves : manque nul, negatif ou nom illisible ignore", next(rz) == nil)
+  c("C1 reserves : aucune reserve -> rien", next(Sg.reserve_need(nil)) == nil and next(Sg.reserve_need({})) == nil)
+  local nr = Sg.demanded(nil, nil, LINKS, rn)
+  c("C1 demande : un manque de reserve est demande, hors projet dominant (courroies 70)", nr["transport-belt"] == 70 and nr["assembling-machine-2"] == 7)
+  c("C1 demande : la plus grande des sources (cerveau 100 courroies, reserves 70 -> 100 ; objectif 80 -> 80)",
+    Sg.demanded({ ["transport-belt"] = 100 }, nil, LINKS, rn)["transport-belt"] == 100
+    and Sg.demanded(nil, { { "transport-belt", 80 } }, LINKS, rn)["transport-belt"] == 80)
+  c("C1 demande : plaque d'une reserve -> son minerai aussi", Sg.demanded(nil, nil, LINKS, { ["iron-plate"] = 50 })["iron-ore"] == 50)
+  c("C1 demande : reserve vide ou absente -> regle d'avant", next(Sg.demanded(nil, nil, LINKS, {})) == nil and Sg.demanded(nil, nil, LINKS, nil)["transport-belt"] == nil)
+  c("C1 borne : manque 127, rien au stock -> 127", Sg.resv_room(127, 0) == 127)
+  c("C1 borne : manque 127, 100 deja au stock (pas encore repris) -> 27", Sg.resv_room(127, 100) == 27)
+  c("C1 borne : stock au manque ou au-dela -> 0", Sg.resv_room(127, 127) == 0 and Sg.resv_room(127, 400) == 0)
+  c("C1 borne : sans manque -> 0", Sg.resv_room(nil, 0) == 0 and Sg.resv_room(0, 0) == 0)
+  -- C2 de DIAG_CONSO (7/11) : une matiere SATUREE au plafond (cfg.sat_cap piles au stock, 20 par defaut) n'est plus ramassee ni collectee,
+  -- vitale comprise (partie du DC : charbon +5 231 et fer +8 683 par minute dans un stock plein, sature [coal copper-plate iron-plate stone])
+  local STK = { coal = 50, stone = 50, ["iron-plate"] = 100, ["copper-plate"] = 100 }
+  local CNT = { coal = 1000, stone = 999, ["iron-plate"] = 5000, ["copper-plate"] = 9999 }
+  local ov = Sg.over_cap({ coal = true, stone = true, ["iron-plate"] = true, ["copper-plate"] = false }, function(it) return CNT[it] end,
+    function(it) return STK[it] end, CFG)
+  c("C2 plafond : charbon sature a 1000 = 20 piles -> au plafond (>=)", ov.coal == 1000, tostring(ov.coal))
+  c("C2 plafond : fer sature a 5000 (50 piles) -> au plafond", ov["iron-plate"] == 5000)
+  c("C2 plafond : pierre saturee a 999 (sous 20 piles) -> non", ov.stone == nil)
+  c("C2 plafond : cuivre a 9999 NON sature (marque a faux) -> non (le plafond ne vaut que pour une saturee)", ov["copper-plate"] == nil)
+  c("C2 plafond : plafond lu dans la configuration (sat_cap 10 : pierre 999 >= 500)", Sg.over_cap({ stone = true }, function(it) return CNT[it] end,
+    function(it) return STK[it] end, { sat_cap = 10 }).stone == 999)
+  c("C2 plafond : compte ou pile illisible -> non", next(Sg.over_cap({ coal = true }, function() return nil end, function(it) return STK[it] end, CFG)) == nil
+    and next(Sg.over_cap({ coal = true }, function(it) return CNT[it] end, function() return nil end, CFG)) == nil and next(Sg.over_cap(nil, nil, nil, CFG)) == nil)
+  local s2 = Sg.skip({ coal = true, ["iron-plate"] = true, stone = true }, 0.5, V, CFG, false, {}, ov)
+  c("C2 ramassage : charbon vital au plafond -> plus ramasse", Sg.skipped(s2, "coal", V) == true)
+  c("C2 ramassage : fer vital au plafond -> plus ramasse", Sg.skipped(s2, "iron-plate", V) == true)
+  c("C2 ramassage : pierre saturee sous le plafond, rien d'autre ne manque -> ramassee (regle d'avant)", Sg.skipped(s2, "stone", V) == false)
+  c("C2 ramassage : minerai de fer (vital, pas au plafond) -> ramasse", Sg.skipped(s2, "iron-ore", V) == false)
+  local s3 = Sg.skip({ coal = true }, 0.5, V, CFG, false, { coal = 30 }, { coal = 1000 })
+  c("C2 ramassage : charbon au plafond mais DEMANDE -> ramasse", Sg.skipped(s3, "coal", V) == false)
+  local s4 = Sg.skip({ stone = true }, 0.5, V, CFG, false, {}, { stone = 2000 })
+  c("C2 ramassage : pierre au plafond, rien d'autre ne manque -> plus ramassee (le plafond ne depend pas des autres manques)", Sg.skipped(s4, "stone", V) == true)
+  c("C2 ramassage : charbon au plafond, une autre matiere manque -> plus ramasse non plus", Sg.skipped(Sg.skip({}, 0.5, V, CFG, true, {}, { coal = 1000 }), "coal", V) == true)
+  c("C2 ramassage : sans plafond (nil) -> regle d'avant (charbon vital ramasse)", Sg.skipped(Sg.skip({ coal = true }, 0.9, V, CFG, true, {}), "coal", V) == false)
   local sk9 = Sg.skip({ stone = true }, 0.9, V, CFG, true, need)
   c("stock a 90 %, cuivre demande : cuivre ramasse et mine", Sg.skipped(sk9, "copper-plate", V) == false and Sg.skipped(sk9, "copper-ore", V) == false)
   c("stock a 90 %, cuivre demande : pierre et bois toujours ecartes", Sg.skipped(sk9, "stone", V) == true and Sg.skipped(sk9, "wood", V) == true)
@@ -98,8 +142,17 @@ do
     and op:find("function Outposts.service(o, carrier, tick, fill, skip)", 1, true) ~= nil)
   check("cablage : la tournee passe Stock.skip_fn", wk:find("Stock.skip_fn and Stock.skip_fn(f))", 1, true) ~= nil)
   check("cablage : Stock.skip_fn passe les matieres demandees (manque du cerveau, manque de l'objectif)",
-    sk:find("return Sg.demanded(ia3 and ia3.short, team and team.missing, LINKS)", 1, true) ~= nil and sk:find("local need = demanded(f)", 1, true) ~= nil
-    and sk:find("T.stockage, ia3 and ia3.other_short, need)", 1, true) ~= nil)
+    sk:find("return Sg.demanded(ia3 and ia3.short, team and team.missing, LINKS, all and reserve_need(f) or nil)", 1, true) ~= nil
+    and sk:find("local need = demanded(f, true)", 1, true) ~= nil
+    and sk:find("T.stockage, ia3 and ia3.other_short, need, over_cap(f))", 1, true) ~= nil)
+  check("cablage C1 : les manques des projets en reserve (p.missing, etat reserve) entrent au depot, bornes par le stock (Sg.resv_room)",
+    sk:find('if p and p.state == "reserve" and not p.abandoned and p.missing and #p.missing > 0 then lists[#lists + 1] = p.missing end', 1, true) ~= nil
+    and sk:find("local agg = Sg.reserve_need(lists)", 1, true) ~= nil and sk:find("local resv = reserve_need(f)", 1, true) ~= nil
+    and sk:find("local rroom = rq and Sg.resv_room(rq, Stock.count(f, item)) or 0", 1, true) ~= nil
+    and sk:find("local k = math.min(n - put, math.max(room, rroom))", 1, true) ~= nil)
+  check("cablage C2 : saturees au plafond (Sg.over_cap sur f.team.ia3.saturated, compte du stock), une ligne [FO-STOCKAGE] quand l'ensemble change",
+    sk:find("local set = Sg.over_cap(ia3 and ia3.saturated, function(it) return Stock.count(f, it) end, stack_of, T.stockage)", 1, true) ~= nil
+    and sk:find("plafond des saturees", 1, true) ~= nil)
   local mc, ml = read("script/team/migration_champ.lua"), read("script/team/melange.lua")
   check("cablage A : retire verifie le contenu des paires avant tout retrait, ses 3 appelants attendent sans rien compter",
     mc:find("  if not contents_fit(f, st.ids, list, ents) then return 0, {}, {}, true end", 1, true) ~= nil
@@ -120,7 +173,7 @@ do
     and sk:find('find_entities_filtered({ name = "item-on-ground", position = f.hq_pos, radius = Stock.GROUND_RADIUS,', 1, true) ~= nil)
   check("cablage D1 : au depot, la matiere demandee prend la reserve, bornee (Sg.demand_room, f.stock_dem)",
     sk:find("local room, rec = Sg.demand_room(f.stock_dem and f.stock_dem[item], need[item], src_s, src_m)", 1, true) ~= nil
-    and sk:find("rec.used = rec.used + got", 1, true) ~= nil)
+    and sk:find("if rec and room > 0 then rec.used = rec.used + math.min(got, room) end", 1, true) ~= nil)
   check("cablage : Stock.insert borne les non vitales (Sg.new_stacks, reserve au seul coffre du QG), pas les coffres d'annexe", sk:find("local allowed = Sg.new_stacks(item, em, #hq_inv, VITAL, T.stockage)", 1, true) ~= nil
     and sk:find("local plan = opts and opts.reserve and not VITAL[item] and not ANNEX[item] and non_vital_plan(f, item, n) or nil", 1, true) ~= nil
     and wk:find("local moved = Stock.insert(f, name, n, DEPOSIT_OPTS)", 1, true) ~= nil and wk:find("local DEPOSIT_OPTS = { reserve = true }", 1, true) ~= nil)
@@ -300,6 +353,11 @@ local MUT = {
   { "au-dela de la quantite demandee (borne ignoree)", "  return math.max(0, q - rec.used), rec", "  return q, rec" },
   { "demande jamais recomptee (compte jamais remis a zero)", "  if not rec or rec.q ~= q or rec.s ~= s or rec.m ~= m then rec = { q = q, used = 0, s = s, m = m } end", "  if not rec then rec = { q = q, used = 0, s = s, m = m } end" },
   { "borne liee a la valeur, pas a la pensee (B1)", "  if not rec or rec.q ~= q or rec.s ~= s or rec.m ~= m then rec = { q = q, used = 0, s = s, m = m } end", "  if not rec or rec.q ~= q then rec = { q = q, used = 0, s = s, m = m } end" },
+  { "C1 : manques des reserves ignores", "    if type(k) == \"number\" and k > 0 then out[it] = math.max(out[it] or 0, k) end", "" },
+  { "C1 : reserves en maximum au lieu de somme", "      if type(m[1]) == \"string\" and n > 0 then out[m[1]] = (out[m[1]] or 0) + n end", "      if type(m[1]) == \"string\" and n > 0 then out[m[1]] = math.max(out[m[1]] or 0, n) end" },
+  { "C1 : manque nul d'une reserve compte", "      if type(m[1]) == \"string\" and n > 0 then out[m[1]] = (out[m[1]] or 0) + n end", "      if type(m[1]) == \"string\" then out[m[1]] = (out[m[1]] or 0) + n end" },
+  { "C1 : borne sans le stock", "  return math.max(0, (q or 0) - (have or 0))", "  return math.max(0, q or 0)" },
+  { "C1 : borne negative", "  return math.max(0, (q or 0) - (have or 0))", "  return (q or 0) - (have or 0)" },
   { "manque nul compte comme demande", "    if type(n) == \"number\" and n > 0 then out[item] = math.max(out[item] or 0, n) end", "    if type(n) == \"number\" then out[item] = math.max(out[item] or 0, n) end" },
   { "manque de l'objectif ignore", "    if type(m[1]) == \"string\" and n > 0 then out[m[1]] = math.max(out[m[1]] or 0, n) end", "" },
   { "saturee ecartee meme quand rien ne manque", "  if short ~= false then\n", "  if true then\n" },
@@ -308,7 +366,14 @@ local MUT = {
   { "contenu juste a la place refuse", "  return need <= (empty or 0), need", "  return need < (empty or 0), need" },
   { "stock presque plein ignore", "  out.__all_non_vital = (fill or 0) >= cfg.stop_at or nil", "  out.__all_non_vital = nil" },
   { "seuil de plein a l'envers", "(fill or 0) >= cfg.stop_at", "(fill or 0) > cfg.stop_at" },
-  { "vitale jamais protegee au ramassage", "  if not set or (vital and vital[item]) then return false end", "  if not set then return false end" },
+  { "vitale jamais protegee au ramassage", "  if vital and vital[item] then return set.__over ~= nil and set.__over[item] == true end\n", "" },
+  { "C2 : plafond ignore pour une vitale", "  if vital and vital[item] then return set.__over ~= nil and set.__over[item] == true end", "  if vital and vital[item] then return false end" },
+  { "C2 : plafond sans la saturation", "    if saturated[it] then names[#names + 1] = it end", "    names[#names + 1] = it" },
+  { "C2 : plafond strict (>)", "    if n and st and n >= cap * st then out[it] = n end", "    if n and st and n > cap * st then out[it] = n end" },
+  { "C2 : plafond qui ecarte une demande", "    if not need[item] then out[item] = true; over_set[item] = true end", "    out[item] = true; over_set[item] = true" },
+  { "C2 : plafond soumis aux autres manques", "  for item in pairs(over or {}) do", "  for item in pairs(short ~= false and {} or over or {}) do" },
+  { "C2 : plafond ignore", "  for item in pairs(over or {}) do", "  for item in pairs({}) do" },
+  { "C2 : plafond par defaut absent", "Sg.DEFAULT = { reserve = 0.15, stop_at = 0.80, urgent_at = 0.80, sat_cap = 20 }", "Sg.DEFAULT = { reserve = 0.15, stop_at = 0.80, urgent_at = 0.80, sat_cap = 1e9 }" },
   { "urgence malgre un coffre en main", "  return (fill or 0) >= cfg.urgent_at and not have_chest", "  return (fill or 0) >= cfg.urgent_at" },
   { "urgence trop tard", "  return (fill or 0) >= cfg.urgent_at and not have_chest", "  return (fill or 0) > cfg.urgent_at and not have_chest" },
 }

@@ -259,7 +259,7 @@ end
 --- Rend la table du relevé quand il est fini, nil sinon.
 local function job_step(api, f, surface, sv, tick)
   local j = sv.nr_job
-  if api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":rv", nil, Rv.cout(j)) then return nil end
+  if api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":rv", api.pulse, Rv.cout(j)) then return nil end
   local P = api.prof
   local done = false
   for _ = 1, Rv.BANDS_PER_PULSE do

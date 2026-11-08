@@ -500,6 +500,82 @@ do
   h2.team = { ia3 = { short = { ["copper-plate"] = 2 * cs } } } -- pensee neuve : la meme quantite revient
   local e3 = Stock.insert(h2, "copper-plate", 3 * cs, DEP)
   check(e1 == 2 * cs and e2 == 0 and e3 == 2 * cs, "B1 : la meme quantite redemandee a une pensee neuve entre de nouveau, bornee (" .. e1 .. ", " .. e2 .. ", " .. e3 .. ")")
+  -- C1 de DIAG_CONSO (7/11) : courroies qui manquent a deux projets en RESERVE (modules 94 et 95 de la partie du DC, hors projet dominant),
+  -- stock plein (annexe pleine, QG dans sa reserve) : elles entrent jusqu'a la somme des manques ; pas pour un projet fini ni abandonne ;
+  -- relues au plus toutes les Stock.RESV_EVERY ticks ; bornees par ce que le stock en tient deja (la reserve les y reprend)
+  local bs = STACK["transport-belt"] or 50
+  local function scene_c1()
+    local h = team(30)
+    readable(h.hq)
+    local an = new_chest(10)
+    readable(an)
+    h.annex = { an }
+    h.hq.items.coal = (STACK.coal or 50) * 25 -- 5 cases vides = la reserve du QG (ceil(0,15 x 30))
+    an.items.coal = (STACK.coal or 50) * 10
+    h.build = { order = { 94, 95, 96, 97 }, projects = {
+      [94] = { id = 94, state = "reserve", missing = { { "assembling-machine-2", 3 }, { "transport-belt", bs } } },
+      [95] = { id = 95, state = "reserve", missing = { { "transport-belt", bs } } },
+      [96] = { id = 96, state = "fini", missing = { { "transport-belt", 5 * bs } } },
+      [97] = { id = 97, state = "reserve", abandoned = true, missing = { { "transport-belt", 5 * bs } } } } }
+    return h
+  end
+  local saved_tick = game.tick
+  game.tick = 7000
+  local t1 = scene_c1()
+  t1.build = nil
+  check(Stock.insert(t1, "transport-belt", 3 * bs, DEP) == 0, "C1 temoin : sans projet en reserve, courroies refusees (stock plein)")
+  local h3 = scene_c1()
+  local c1 = Stock.insert(h3, "transport-belt", 3 * bs, DEP)
+  check(c1 == 2 * bs, "C1 : courroies manquantes aux reserves 94 et 95 (1 pile chacune) : 2 piles entrent, pas celles du projet fini ni de l'abandonne (" .. c1 .. ")")
+  check(Stock.insert(h3, "transport-belt", bs, DEP) == 0, "C1 : au-dela de la somme des manques (2 piles deja au stock) : refusees")
+  Stock.remove(h3, "transport-belt", 2 * bs)                          -- les deux reserves reprennent leurs courroies au stock...
+  h3.build.projects[94].missing = { { "assembling-machine-2", 3 } }
+  h3.build.projects[95].missing = { { "transport-belt", 3 * bs } }   -- ...et 95 en redemande 3 piles (recompte net du stock)
+  game.tick = 7000 + Stock.RESV_EVERY - 1
+  local c2 = Stock.insert(h3, "transport-belt", 3 * bs, DEP)
+  check(c2 == 2 * bs, "C1 : manques relus au plus toutes les Stock.RESV_EVERY ticks (encore 2 piles, stock vide : 2 piles) (" .. c2 .. ")")
+  game.tick = 7000 + Stock.RESV_EVERY
+  local c3 = Stock.insert(h3, "transport-belt", 2 * bs, DEP)
+  check(c3 == bs, "C1 : manques relus (3 piles), 2 deja au stock : 1 pile de plus (" .. c3 .. ")")
+  game.tick = 7000 + 2 * Stock.RESV_EVERY
+  check(Stock.insert(h3, "transport-belt", bs, DEP) == 0 and h3.hq.get_inventory().count_empty_stacks() == 2,
+    "C1 : rien repris par la reserve, meme manque relu : rien de plus (2 cases gardees vides)")
+  local sk3 = Stock.skip_fn(h3)
+  check(sk3 ~= nil and sk3("copper-plate") and not sk3("transport-belt"),
+    "C1 : stock presque plein : le cuivre n'est plus ramasse, les courroies qui manquent a une reserve le sont toujours")
+  -- C2 de DIAG_CONSO : charbon (vital) et pierre saturees au cerveau ; au plafond de 20 piles, plus ramassees ; sous le plafond, regle d'avant
+  local h4 = scene_c1()
+  h4.build = nil
+  h4.team = { ia3 = { saturated = { coal = true, stone = true } } }
+  h4.hq.items.stone = (STACK.stone or 50) * 2
+  local n0 = #logs
+  game.tick = 9000
+  local sk4 = Stock.skip_fn(h4)
+  check(sk4 ~= nil and sk4("coal") and not sk4("iron-plate") and not sk4("iron-ore"),
+    "C2 : charbon sature a 35 piles (plafond 20) : plus ramasse ni collecte ; fer et minerai toujours")
+  check(sk4 ~= nil and sk4("stone"), "C2 : pierre saturee sous le plafond, stock presque plein : ecartee (regle d'avant)")
+  local over_logs = 0
+  for i = n0 + 1, #logs do if logs[i]:find("plafond des saturees", 1, true) and logs[i]:find("coal 1750", 1, true) then over_logs = over_logs + 1 end end
+  check(over_logs == 1, "C2 : une ligne [FO-STOCKAGE] « plafond des saturees » nommant le charbon et son compte (" .. over_logs .. ")")
+  game.tick = 9000 + Stock.OVER_EVERY
+  Stock.skip_fn(h4)
+  local again = 0
+  for i = n0 + 1, #logs do if logs[i]:find("plafond des saturees", 1, true) then again = again + 1 end end
+  check(again == 1, "C2 : ensemble inchange a la relecture : pas de nouvelle ligne (" .. again .. ")")
+  h4.team.missing = { { "coal", 40 } }
+  game.tick = 9000 + 2 * Stock.OVER_EVERY
+  check(not Stock.skip_fn(h4)("coal"), "C2 : charbon au plafond mais DEMANDE (objectif) : ramasse")
+  h4.team.missing = nil
+  h4.hq.items.coal = (STACK.coal or 50) * 19
+  h4.annex[1].items.coal = nil
+  game.tick = 9000 + 3 * Stock.OVER_EVERY
+  local sk5 = Stock.skip_fn(h4)
+  check(sk5 == nil or not sk5("coal"), "C2 : charbon sous le plafond (19 piles) : ramasse de nouveau")
+  h4.hq.items.coal = (STACK.coal or 50) * 25
+  game.tick = 9000 + 3 * Stock.OVER_EVERY + 1
+  local sk6 = Stock.skip_fn(h4)
+  check(sk6 == nil or not sk6("coal"), "C2 : plafond relu au plus toutes les Stock.OVER_EVERY ticks (verdict garde 1 tick plus tard)")
+  game.tick = saved_tick
   f.team = { ia3 = { saturated = { stone = true } } }
   local skip = Stock.skip_fn(f)
   check(skip ~= nil and skip("stone") and skip("copper-plate") and not skip("coal") and not skip("iron-plate"),
