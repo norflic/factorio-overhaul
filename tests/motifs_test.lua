@@ -594,6 +594,14 @@ local function terrains(Chx)
     check(sig(a) == sig(b), "T15 résultats identiques")
   end)
 
+  t("T16b entrées invalides : erreur nette, jamais un résultat silencieux", function()
+    local ok1, e1 = pcall(Chx.choisir, { famille = "fonte", demande = { jeton = "P", debit = 1 }, ctx = ctx_pierre() })
+    check(not ok1 and tostring(e1):find("zone", 1, true), "T16b zone absente refusée : " .. tostring(e1))
+    local ok2, e2 = pcall(Chx.choisir, { zone = { x = 0, y = 0, l = 10, h = 10 }, famille = "fonte", demande = { jeton = "P", debit = 1 }, ctx = ctx_pierre(),
+      entrees = { { cote = "X", jetons = { "A" } } } })
+    check(not ok2 and tostring(e2):find("côté", 1, true), "T16b côté inconnu refusé : " .. tostring(e2))
+  end)
+
   t("T16 zone trop petite pour une seule tuile : aucun motif, cause pour chacun", function()
     local r = Chx.choisir({ zone = { x = 0, y = 0, l = 3, h = 3 }, famille = "fonte", demande = { jeton = "P", debit = 1 }, ctx = ctx_pierre() })
     check(r.motif == nil and r.n == nil, "T16 aucun motif")

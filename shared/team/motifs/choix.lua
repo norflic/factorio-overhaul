@@ -400,7 +400,10 @@ end
 
 local function sides_de(req)
   local s = {}
-  for _, e in ipairs(req.entrees or {}) do s[#s + 1] = { cote = D.COTES[e.cote], pos = e.pos, jetons = e.jetons or {} } end
+  for i, e in ipairs(req.entrees or {}) do
+    if D.COTES[e.cote] == nil then error("Choix.choisir : entrée " .. i .. " sans côté valide (N, E, S ou O) : " .. tostring(e.cote), 0) end
+    s[#s + 1] = { cote = D.COTES[e.cote], pos = e.pos, jetons = e.jetons or {} }
+  end
   return s
 end
 
@@ -607,6 +610,9 @@ function X.choisir(req)
   local ctx = req.ctx or {}
   local dem = req.demande or {}
   local Z = req.zone
+  if type(Z) ~= "table" or not (Z.x and Z.y and Z.l and Z.h) or Z.l < 0 or Z.h < 0 then
+    error("Choix.choisir : zone = { x, y, l, h } requise (tuiles entières, l et h positifs)", 0)
+  end
   local obs = obstacles_de(req)
   local supplies = sides_de(req)
   local fams
