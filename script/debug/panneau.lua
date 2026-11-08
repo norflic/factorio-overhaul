@@ -204,7 +204,7 @@ local function fill_decisions(el, ctx)
   if #ctx.decisions == 0 then lbl(el, { "fo-dbg-cerveau.aucune-decision" }, nil, true) return end
   for _, d in ipairs(ctx.decisions) do
     local ag = d.tick and (ctx.now - d.tick) or nil
-    local l = lbl(el, { "fo-dbg-cerveau.ligne-decision", Lg.ago(ag), { "fo-dbg-cerveau.decision-" .. tostring(d.kind) }, tostring(d.text) }, nil, true)
+    local l = lbl(el, { "fo-dbg-cerveau.ligne-decision", Lg.ago(ag), { "fo-dbg-cerveau.decision-" .. tostring(d.kind) }, d.ltext or tostring(d.text) }, nil, true)
     l.style.maximal_width = 840
   end
 end

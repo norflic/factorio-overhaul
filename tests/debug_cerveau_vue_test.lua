@@ -486,6 +486,13 @@ do
   check(#prows == 2 and prows[2].verdict == "refuse" and prows[2].cause == "trop_loin", "quais du projet 1")
   f3.build.piquage = nil
   check(Lec.improvement_facts(f3).bras_repartiteur == nil, "sans champ piquage : aucun fait (reste absente)")
+  -- MINAGE-MAIN : f.team.sources.dec lu
+  f3.team.sources = { dec = { ["iron-ore"] = { choix = "main", raison = "aucune_sortie", n = 0, d = 0, tick = NOW - 600, why = "libre" } } }
+  local drows = Lec.decision_rows(f3)
+  local found
+  for _, r in ipairs(drows) do if r.kind == "source" then found = r end end
+  check(found and found.ltext[3][1] == "fo-dbg-cerveau.src-choix-main" and found.ltext[4][1] == "fo-dbg-cerveau.src-raison-aucune_sortie", "decision de minage lue dans f.team.sources.dec")
+  f3.team.sources = nil
   -- C : sante creee mais jamais relevee = aucune lecture ; relevee (healthy) = marche
   z.kind = "centrale"
   rd = Lec.reads(f3, z)

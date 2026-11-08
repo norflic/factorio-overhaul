@@ -220,6 +220,12 @@ local function run_all(Zn, Ec, Am, Lg)
   check(Lg.task_key("service", nil) == "service" and Lg.task_key("carry", "fill") == "carry-fill" and Lg.task_key("carry", "collect") == "carry-collect", "etiquettes de tache : kind et kind/mode")
   check(Lg.task_key("carry", "zzz") == "autre" and Lg.task_key("inconnue", nil) == "autre" and Lg.task_key(nil, nil) == "autre", "tache inconnue : autre, jamais une cle absente")
   check(Lg.task_key("rebuild") == "repare" and Lg.task_key("repair") == "repare", "reparer : trois kinds, une etiquette")
+  local sr = Lg.source_row("iron-ore", { choix = "sortie", raison = "en_marche", n = 120, d = 34, tick = 500, why = "texte libre jamais lu" })
+  check(sr.kind == "source" and sr.tick == 500 and sr.ltext[3][1] == "fo-dbg-cerveau.src-choix-sortie" and sr.ltext[4][1] == "fo-dbg-cerveau.src-raison-en_marche" and sr.ltext[5] == "120" and sr.ltext[6] == "34", "decision de minage : mots fixes traduits")
+  check(not sr.text:find("libre", 1, true), "le champ why (texte libre) n'est jamais lu")
+  sr = Lg.source_row("iron-ore", { choix = "n'importe quoi", raison = "texte libre" })
+  check(sr.ltext[3][1] == "fo-dbg-cerveau.src-choix-inconnu" and sr.ltext[4][1] == "fo-dbg-cerveau.src-raison-inconnu" and sr.ltext[5] == "?" and sr.tick == nil, "mot hors liste : inconnu, nombres absents : ?")
+  check(Lg.source_row("x", nil) == nil, "entree absente : pas de ligne")
   local dec = Lg.decisions({
     { tick = 100, kind = "ordre", text = "A" }, { tick = 300, kind = "ordre", text = "B" }, { tick = 200, kind = "refus", text = "C" },
     { tick = 50, kind = "ordre", text = "A" }, { kind = "note", text = "sans date" },
@@ -312,6 +318,12 @@ do
   local tk = { "autre", "prise", "libre" }
   for _, v in pairs(Lg.TASK_KEYS) do tk[#tk + 1] = v end -- valeurs a lister : l'ordre ne compte pas
   add("tache-", tk)
+  local sc, sr2 = { "inconnu" }, { "inconnu" }
+  for _, v in ipairs(Lg.SRC_CHOIX) do sc[#sc + 1] = v end
+  for _, v in ipairs(Lg.SRC_RAISON) do sr2[#sr2 + 1] = v end
+  add("src-choix-", sc)
+  add("src-raison-", sr2)
+  add("decision-", { "source" })
   local pqv, pqc = { "inconnu" }, { "inconnu" }
   for _, v in ipairs(Am.PQ_VERDICTS) do pqv[#pqv + 1] = v end
   for _, v in ipairs(Am.PQ_CAUSES) do pqc[#pqc + 1] = v end
@@ -368,6 +380,7 @@ local MUTANTS = {
   { "am: mot hors liste brut", "am", { "return (type(w) == \"string\" and known[w]) and w or \"inconnu\"", "return w" } },
   { "am: quais d'un autre projet", "am", { "key:sub(1, #prefix) == prefix and", "true and" } },
   { "am: refus avant travail", "am", { "local rank = { aucune = 0, refusee = 1, en_cours = 2 }", "local rank = { aucune = 0, refusee = 2, en_cours = 1 }" } },
+  { "lg: mot de minage hors liste brut", "lg", { "local choix = (type(d.choix) == \"string\" and SRC_C[d.choix]) and d.choix or \"inconnu\"", "local choix = d.choix" } },
   { "lg: doublons gardes", "lg", { "if not seen[k] then", "if true then" } },
   { "lg: decisions anciennes d'abord", "lg", { "if ta ~= tb and ta ~= nil then return ta > tb end", "if ta ~= tb and ta ~= nil then return ta < tb end" } },
   { "lg: label affiche la cause du vert", "lg", { "local cause = (z.color ~= \"vert\" and z.cause)", "local cause = (z.cause)" } },

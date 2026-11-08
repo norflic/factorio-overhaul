@@ -23,6 +23,7 @@ local Zn = require("shared.debug.zone")
 local Rv = require("script.team.reseau_vivant")
 local An = require("script.debug.anneau")
 local Am = require("shared.debug.ameliorations")
+local Lg = require("shared.debug.lignes")
 
 local Lec = {}
 
@@ -328,6 +329,12 @@ function Lec.decision_rows(f)
   end
   for _, e in ipairs(An.get(f.key or "player")) do
     rows[#rows + 1] = { tick = e.t, kind = e.s == "refus" and "refus" or "envoye", text = e.r ~= "" and (e.k .. " : " .. e.r) or e.k }
+  end
+  -- MINAGE-MAIN : la dernière décision d'approvisionnement par ressource (f.team.sources.dec), mots fixes
+  local src = f.team and f.team.sources and f.team.sources.dec
+  for _, res in ipairs(sorted_keys(type(src) == "table" and src or {})) do
+    local row = Lg.source_row(res, src[res])
+    if row then rows[#rows + 1] = row end
   end
   local st = f.team and f.team.ia3e
   for _, l in ipairs(st and st.logs or {}) do rows[#rows + 1] = { tick = l.tick, kind = "module", text = tostring(l.text) } end
