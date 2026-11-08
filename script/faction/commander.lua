@@ -28,6 +28,7 @@ local Cd = require("shared.faction.cadence") -- lot X10-S10 : factions lointaine
 local DefChoix = require("script.faction.defchoix") -- lot X10-S10 : ennemi près du QG (lu au créneau)
 local Storage = require("script.core.storage") -- lot X10-S10 : état des soldats de l'IA3 (nettoyage, expédition), lu sans le créer
 local Ia3k = require("script.ai3.comportement") -- lot X10-S10 : clé de l'équipe dans cet état (Ia3k.team_key)
+local Lourd = require("script.core.lourd") -- lot LOURD (point 2 b) : la pensée d'un réveil passe par le jeton des travaux lourds
 
 local Commander = {}
 
@@ -279,9 +280,13 @@ end
 
 --- Lot X10-S10 : RÉVEIL d'une faction endormie (rang `id` dans war.factions) pour la cause `cause`, au tick `tick`. SEUL point d'appel de
 --- la pensée hors créneau : le lot S6 (jeton des travaux lourds, script/core/lourd.lua) le fera passer par son minuteur (Cd.skip décide
---- SI la faction pense, le jeton décide QUAND ; consigne du lead, 7/11). Aujourd'hui : la pensée tout de suite (Commander.think, puis ses
---- étapes E2 à E4 aux ticks suivants, comme d'habitude).
+--- SI la faction pense, le jeton décide QUAND ; consigne du lead, 7/11).
+--- Lot LOURD (point 2 b, 8/11) : la pensée du réveil prend le jeton du tick (« <faction>:reveil », tout le budget : elle a son tick à elle
+--- seule). Refusé : rien n'est fait, la faction reste endormie ; Cd.wake est un NIVEAU (la cause tient : Cd.ALERT, menace, joueur,
+--- armée), le guet le redemande au tick suivant et le jeton le sert en tête de file. Aucun état de plus (accord de video-l5) : toute
+--- relance repasse par Cd.wake, qui relit cs.asleep (une faction pensée entre-temps par son créneau n'est plus réveillée).
 function Commander.wake(f, id, cause, tick)
+  if not Lourd.take(tick, tostring(f.key) .. ":reveil") then return end
   cadence_say(f, cadence_of(f), "normale", cause, tick)
   Commander.think(id, tick, true)
 end
