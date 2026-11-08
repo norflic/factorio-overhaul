@@ -428,7 +428,13 @@ function Cap.candidates(Ld, census, ctx)
   local rep, rep_blocked = Cap.replace_candidates(Ld, census, ctx)
   for _, c in ipairs(rep) do add(c) end
   for _, c in ipairs(rep_blocked) do blocked[#blocked + 1] = c end
+  -- Lot AMELIORATION (banc-2, 36 200 ticks sur la sauvegarde du DC) : un remplacement dont l'objet n'est pas au stock (un bras rapide, un tapis
+  -- rapide : 1 à fabriquer à la main) gardait la décision 1 à 3 min et passait toujours devant les blocs de foreuses et de fours PAYABLES
+  -- SUR-LE-CHAMP (score 1 600 à 5 600 contre 540). Investir d'abord ce qui dort au stock (H4) : en mode blocs, le candidat payable en entier
+  -- passe avant celui qu'il faut fabriquer ; le centre garde son rang (sa règle du loueur de skis est à part).
+  local function ready(c) return (c.all_in or c.center) and 1 or 0 end
   table.sort(cands, function(a, b)
+    if ctx.blocs and ready(a) ~= ready(b) then return ready(a) > ready(b) end
     if a.score ~= b.score then return a.score > b.score end
     return a.key < b.key
   end)

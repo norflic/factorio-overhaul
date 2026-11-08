@@ -340,6 +340,33 @@ local function run_all(Am, full)
   for _, c in ipairs(rc) do byblock[#byblock + 1] = c.key end
   check(#rc == 2 and rc[1].replace.n == 12 and rc[2].replace.n == 10, "§7 ter tapis : un lot par bloc, de 12 au plus : " .. #rc .. " lot(s)")
 
+  -- §7 quater Ce qui est payable sur-le-champ passe avant ce qu'il faut fabriquer : 12 foreuses payables (bloc) contre des bras rapides
+  -- absents du stock (remplacement à score bien plus haut) : le bloc de foreuses est choisi.
+  do
+    local MP2 = { i1 = { type = "inserter", group = "ins", w = 1, h = 1, energy = "electric", cats = {}, speed = 0.014, item = "j1", reach = "r" },
+      i2 = { type = "inserter", group = "ins", w = 1, h = 1, energy = "electric", cats = {}, speed = 0.04, item = "j2", reach = "r" } }
+    local c7 = { list = ents({}, DR, 1, 12, "p1", 100), center = { id = 1, name = L.name(CC, 3) }, machines = {} }
+    for i = 1, 8 do c7.machines[i] = { id = 900 + i, name = "i1", working = true, block = "p2" } end
+    local base = { cc_level = nil, blocs = true, stock = BIG, mproto = function(n) return MP2[n] end, machines = { "i1", "i2" },
+      unit_cost = function(item) return UNIT[item] or 3 end }
+    local dq = Cap.choose(L, c7, ctx(base))
+    check(dq.bloc == "p1", "§7 quater les foreuses payables passent avant des bras rapides à fabriquer : " .. tostring(dq.key))
+    local base2 = {}
+    for k, v in pairs(base) do base2[k] = v end
+    base2.stock = setmetatable({ j2 = 8 }, { __index = BIG })
+    local dq2 = Cap.choose(L, c7, ctx(base2))
+    check(dq2.replace ~= nil, "§7 quater bras rapides au stock : le remplacement payable (score haut) passe devant : " .. tostring(dq2.key))
+    -- Mutant : l'ordre « payable d'abord » retiré -> le remplacement à fabriquer reprend la tête.
+    local f = assert(io.open("shared/ai3/capital.lua", "rb"))
+    local src = f:read("*a")
+    f:close()
+    local i, j = src:find("if ctx.blocs and ready(a) ~= ready(b) then return ready(a) > ready(b) end", 1, true)
+    assert(i, "mutant ready : motif introuvable")
+    local mut = assert(load(src:sub(1, i - 1) .. src:sub(j + 1), "=mutantReady", "t"))()
+    local dm = mut.choose(L, c7, ctx(base))
+    check(dm.replace ~= nil and dm.bloc == nil, "§7 quater le mutant « à fabriquer avant payable » est vu par le contrôle précédent")
+  end
+
   -- §8 Coût d'une décision sur 600 bâtiments.
   local big = {}
   ents(big, DR, 1, 240, "champ", 1000)
