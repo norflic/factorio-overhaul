@@ -240,7 +240,7 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
   -- appariement
   local taken = {}
   for _, dkey in ipairs(sorted_keys(st.links)) do taken[st.links[dkey].src] = true end
-  for _, d in ipairs(c.docks) do d.linked = st.links[d.key] ~= nil end
+  for _, d in ipairs(c.docks) do d.linked = st.links[d.key] ~= nil or (b.piquage ~= nil and b.piquage.links[d.key] ~= nil) end -- un quai servi par un piquage (lot PIQUAGE) n'est plus apparié par la liaison
   for _, s in ipairs(c.srcs) do s.linked = taken[s.key] == true end
   local pairs_ = Ln.pairs(c.docks, c.srcs)
   local present = {}

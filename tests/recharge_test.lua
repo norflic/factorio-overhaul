@@ -130,6 +130,7 @@ local KNOWN_CALLS = {
   ["script/team/build.lua"] = 1,   -- niveau du module (mur), exécuté à chaque chargement
   ["script/team/champ.lua"] = 3,   -- dans Champ.data : répartiteur (couvert par plan.lua), souterrain, pièces de BASE
   ["script/team/quartiers.lua"] = 1, -- lot TV-ARCHI : niveau du module (tourelle du pôle, 2 × 2), exécuté à chaque chargement, comme le mur
+  ["script/team/traversee.lua"] = 2, -- lot TRAVERSEE : Trav.underground déclare le souterrain choisi (1 × 1), couvert au rechargement (UNDERGROUNDS, section 1)
 }
 -- Lot TESTS-GIT (0.6.64) : lignes comptées par tests/depot.lua (fichiers de git ls-files, comme git grep -c ; sans git, le disque,
 -- annoncé par une ligne [ENVIRONNEMENT]). Avant : sans git, la commande ne rendait RIEN et le garde-fou disait à tort « n'a plus
