@@ -883,9 +883,9 @@ local function run_replace()
   check(d1b.replace and d1b.replace.n == 1 and #d1b.ids == 1, "§13 rien en stock : une machine à la fois (rien de fabriqué en gros)")
   local cs5 = census({}, cen)
   local seven = {}
-  for i = 1, 7 do seven[i] = { "stone-furnace", true } end
+  for i = 1, 15 do seven[i] = { "stone-furnace", true } end
   cs5.machines = mach(seven)
-  local d5 = Cap.choose(L, cs5, mctx(W, { stock = { ["steel-furnace"] = 9 } }))
+  local d5 = Cap.choose(L, cs5, mctx(W, { stock = { ["steel-furnace"] = 17 } }))
   check(d5.replace and d5.replace.n == Cap.REPLACE_BATCH, "§13 le lot est borné à Cap.REPLACE_BATCH (" .. tostring(d5.replace and d5.replace.n) .. ")")
 
   -- Valeur : à l'arrêt, un quart ; l'assembleur 1 choisit la cible de meilleur score ; la cible impayable ne compte pas.

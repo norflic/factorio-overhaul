@@ -290,6 +290,28 @@ local function run_all(Am, full)
     check(dm.chain ~= nil and dm.bloc == nil, "§7 bis le mutant « seule la chaîne Q16 monte, les blocs restent au niveau 1 » est vu par le contrôle précédent")
   end
 
+  -- §7 ter Tapis et bras : rang lu à la vitesse des données, jamais un nom ; un bras ne change que vers un bras de MÊME portée.
+  local MP = {
+    a = { type = "transport-belt", group = "belt", w = 1, h = 1, energy = "none", cats = {}, speed = 0.03, item = "ia" },
+    b = { type = "transport-belt", group = "belt", w = 1, h = 1, energy = "none", cats = {}, speed = 0.06, item = "ib" },
+    c = { type = "transport-belt", group = "belt", w = 1, h = 1, energy = "none", cats = {}, speed = 0.09, item = "ic" },
+    i1 = { type = "inserter", group = "ins", w = 1, h = 1, energy = "electric", cats = {}, speed = 0.014, item = "j1", reach = "0,-1>0,1" },
+    i2 = { type = "inserter", group = "ins", w = 1, h = 1, energy = "electric", cats = {}, speed = 0.04, item = "j2", reach = "0,-1>0,1" },
+    i3 = { type = "inserter", group = "ins", w = 1, h = 1, energy = "electric", cats = {}, speed = 0.02, item = "j3", reach = "0,-2>0,2" },
+  }
+  local mc = { mproto = function(n) return MP[n] end, machines = { "a", "b", "c", "i1", "i2", "i3" } }
+  local sa = Cap.successors(L, mc, "a")
+  check(#sa == 2 and sa[1] == "b" and sa[2] == "c", "§7 ter tapis : rangs supérieurs par vitesse croissante")
+  local si = Cap.successors(L, mc, "i1")
+  check(#si == 1 and si[1] == "i2", "§7 ter bras : le bras à portée différente n'est jamais une cible")
+  local cm = { list = {}, center = { id = 1, name = L.name(CC, 1) }, machines = {} }
+  for i = 1, 30 do cm.machines[i] = { id = i, name = "a", working = true, block = (i <= 20) and "p1" or "p2" } end
+  local rc, _ = Cap.replace_candidates(L, cm, ctx({ mproto = mc.mproto, machines = mc.machines, stock = { ib = 50, ic = 50 },
+    unit_cost = function() return 3 end }))
+  local byblock = {}
+  for _, c in ipairs(rc) do byblock[#byblock + 1] = c.key end
+  check(#rc == 2 and rc[1].replace.n == 12 and rc[2].replace.n == 10, "§7 ter tapis : un lot par bloc, de 12 au plus : " .. #rc .. " lot(s)")
+
   -- §8 Coût d'une décision sur 600 bâtiments.
   local big = {}
   ents(big, DR, 1, 240, "champ", 1000)

@@ -77,7 +77,7 @@ Cap.SHORT_WORK = 800
 -- Lot AMELIORER : machines HORS des familles à niveaux (celles que les équipes posent réellement avant la première
 -- machine d'une famille : four de pierre, premier assembleur) remplacées SUR PLACE par la machine supérieure, lue dans
 -- les prototypes (Cap.successors). Au plus Cap.REPLACE_BATCH machines identiques par décision (un paiement par pensée).
-Cap.REPLACE_BATCH = 4
+Cap.REPLACE_BATCH = 12 -- lot AMELIORATION : un bloc de tapis ou de bras se remplace par lots de 12 (4 avant)
 -- Lot AGES « le passage d'âge ne meurt pas de faim » (retour du DC du 2/11, points 8 et 17 : l'âge 2 vu une fois sur huit
 -- parties). Le choix est un rapport valeur ÷ coût (règle de Smith) : exact pour un ensemble FINI de travaux, mais le centre
 -- (un gros prix qui ouvre l'époque, rapport 170 à 560) passait derrière un flux qui ne tarit pas (chaque tourelle, mur ou
@@ -195,7 +195,7 @@ function Cap.successors(Ld, ctx, name)
   for _, t in ipairs(ctx.machines or {}) do
     local p1 = (t ~= name) and ctx.mproto(t) or nil
     if p1 and p1.item and p1.type == p0.type and p1.group == p0.group and p1.w == p0.w and p1.h == p0.h
-        and p1.energy == p0.energy and (p1.speed or 0) > p0.speed and covers(p1.cats, p0.cats) then
+        and p1.energy == p0.energy and (p1.speed or 0) > p0.speed and covers(p1.cats, p0.cats) and p1.reach == p0.reach then
       local fam, n = Ld.parse(t)
       if fam == nil or n == 1 then out[#out + 1] = t end
     end
@@ -215,6 +215,7 @@ end
 --- Rend candidats (non scorés), impayables (cible sans coût connu : la recherche qui la débloque n'est PAS réclamée).
 function Cap.replace_candidates(Ld, census, ctx)
   local out, blocked = {}, {}
+  local succ_memo = {}
   if not (ctx.mproto and census.machines) then return out, blocked end
   local groups, order = {}, {}
   local blocked_seen = {}
@@ -226,7 +227,9 @@ function Cap.replace_candidates(Ld, census, ctx)
       local p0 = ctx.mproto(m.name)
       local best
       local first_missing
-      for _, t in ipairs(Cap.successors(Ld, ctx, m.name)) do
+      -- Mémo par nom (un relevé de milliers de tapis et de bras n'a que quelques noms distincts).
+      succ_memo[m.name] = succ_memo[m.name] or Cap.successors(Ld, ctx, m.name)
+      for _, t in ipairs(succ_memo[m.name]) do
         local p1 = ctx.mproto(t)
         local g = p1.speed / p0.speed - 1
         local use = m.working and 100 or Cap.IDLE_USE
@@ -243,10 +246,10 @@ function Cap.replace_candidates(Ld, census, ctx)
         end
       end
       if best then
-        local gk = m.name .. ">" .. best.to
+        local gk = (m.block and (m.block .. "|") or "") .. m.name .. ">" .. best.to
         local grp = groups[gk]
         if not grp then
-          grp = { from = m.name, to = best.to, item = best.item, ids = {}, value = 0 }
+          grp = { from = m.name, to = best.to, item = best.item, ids = {}, value = 0, block = m.block }
           groups[gk] = grp
           order[#order + 1] = gk
         end
