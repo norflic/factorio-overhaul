@@ -38,6 +38,7 @@ local Piquage = {}
 Piquage.MAX_TRACK = 12     -- tuiles suivies au plus par quai
 Piquage.MAX_SCAN = 300     -- tapis lus au plus à une découverte
 Piquage.DISC_EVERY = 10 * 3600 -- ticks entre deux découvertes pour un quai (s'il suit moins de MAX_TRACK tuiles)
+Piquage.EMPTY_RETRY = 3 * 3600 -- ... ou 3 min quand aucune tuile n'est suivie (le tapis peut se remplir plus tard : micro-banc 8/11, découverte unique à t=0 sur un tapis vide)
 Piquage.SPLIT_TRIES = 3    -- poses du répartiteur au plus par liaison
 Piquage.EVAL_MAX = 3       -- quais évalués (lecture des côtés libres) au plus par relevé
 
@@ -541,7 +542,7 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
   for _, d in ipairs(order) do
     -- découverte et relevé (bornés : au plus 3 découvertes par passage)
     local tr = st.track[d.key]
-    if not tr or (#tr.order < Piquage.MAX_TRACK and tick - (st.disc[d.key] or -Piquage.DISC_EVERY) >= Piquage.DISC_EVERY) then
+    if not tr or (#tr.order < Piquage.MAX_TRACK and tick - (st.disc[d.key] or -Piquage.DISC_EVERY) >= (st.disc_every or (#tr.order == 0 and Piquage.EMPTY_RETRY or Piquage.DISC_EVERY))) then
       if (c.discovered or 0) < 3 then
         c.discovered = (c.discovered or 0) + 1
         discover(f, surface, st, d, tick)
@@ -847,6 +848,7 @@ remote.add_interface("fo-piquage", {
     elseif name == "sans_centrale" then st.sans_centrale = value and true or false
     elseif name == "off" then st.off = value and true or false
     elseif name == "confirm" then st.confirm = value
+    elseif name == "disc_every" then st.disc_every = value
     else return nil end
     return value
   end,

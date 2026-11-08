@@ -2,7 +2,7 @@
   Micro-banc « piquage-micro » du lot PIQUAGE (8/11) : le PIQUAGE d'un tapis existant (shared/team/piquage.lua, script/team/piquage.lua) contre le
   moteur réel. Chaîne : tapis plein posé par le banc -> relevés -> projet de branche -> tapis, bras, poteau bâtis par les PNJ -> répartiteur posé
   par le script (fast_replace) avec la priorité de sortie sur le tapis PRINCIPAL -> le coffre du quai est servi sans PNJ.
-  ÉCRIT LE 8/11 PENDANT LE GEL, NON JOUÉ : à lancer par la file (banc.py ... -- 6900 piquage-micro <source>) après « fin de gel » seulement.
+  ÉCRIT LE 8/11 PENDANT LE GEL, NON JOUÉ : à lancer par la file (banc.py ... -- 6000 piquage-micro <source>) après « fin de gel » seulement.
 
   Terrain : un champ de 180 x 100 tuiles autour de (50, 0), refait en herbe. Votre équipe (coffre d'équipe en (0, 0), 8 PNJ, plan directeur « seul »,
   fo-war-ia3e coupé : le banc tient le rôle du cerveau) reçoit UN module fini fictif (remote fo-piquage inject) dont le quai d'entrée est le coffre
@@ -22,8 +22,8 @@ local DOCK = { x = 60, y = 6 }
 local SINK = { x = 91, y = -10 }
 local BUF = 1e8
 local DRAIN = 0.7
-local W = 1500
-local WS = 1800
+local W = 1200
+local WS = 1200
 local LOW = 60
 
 local function stock_chest(chest)
@@ -102,7 +102,7 @@ return function(variant)
   return {
     description = "PIQUAGE : surplus d'un tapis existant vers le quai d'un module (" .. variant .. ")",
     base = nil,
-    check_tick = 6900,
+    check_tick = 5900,
 
     init = function(ctx)
       local s = ctx.surface()
@@ -124,6 +124,11 @@ return function(variant)
       ctx.check(ctx.remote("fo-piquage", "set_param", "player", "sans_centrale", true) == true, "sans centrale (banc)")
       ctx.check(ctx.remote("fo-piquage", "set_param", "player", "period", 120) == 120, "releve toutes les 120 ticks")
       ctx.check(ctx.remote("fo-piquage", "set_param", "player", "confirm", 1) == 1, "confirmation en un releve")
+      ctx.check(ctx.remote("fo-piquage", "set_param", "player", "disc_every", 300) == 300, "decouverte toutes les 300 ticks (banc)")
+      -- tapis plein des le depart (sinon le tapis se remplit pendant 3 000 ticks)
+      for _, b in ipairs(s.find_entities_filtered({ area = { { 30, -11 }, { 91, -9 } }, name = "transport-belt" })) do
+        for i = 1, 2 do for _ = 1, 4 do b.get_transport_line(i).insert_at_back({ name = ITEM, count = 1 }) end end
+      end
       if not WITH then ctx.check(ctx.remote("fo-piquage", "set_param", "player", "off", true) == true, "regle eteinte (temoin)") end
       st.t0 = game.tick
       st.acc, st.log_next = 0, 0
