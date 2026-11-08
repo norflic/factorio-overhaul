@@ -42,6 +42,7 @@ local Ac = require("shared.team.actif") -- lot COMPAGNONS-ACTIFS : retour rapide
 local State = require("script.faction.state") -- lot AGEBLOCAGE : interrupteur de la sonde [FO-BRAS] (État de la guerre)
 local Profiler = require("script.core.profiler") -- lot DANGER-ACTIF : mesure [FO-PRISE-VIDE] seulement avec le profileur
 local Rc = require("shared.team.repli_chemin") -- lot NAV2 : délai croissant pour une tâche dont le chemin échoue de suite (règle pure)
+local Elec = require("script.team.electrique") -- lot ELECTRIQUE (DC 8/11) : plus de paire thermique quand l'électrique est possible
 
 local Board = {}
 
@@ -330,6 +331,9 @@ function Board.sync(f, planned, tick, plan, view, book)
   for key, t in pairs(b.tasks) do
     if t.worker then keep[key] = t else born[key] = t.created end
   end
+  -- lot ELECTRIQUE (a) : tâches libres d'agrandissement, d'avant-poste neuf ou de fabrication de thermiques refusées quand l'électrique est
+  -- possible (script/team/electrique.lua, cause écrite dans [FO-ELECTRIQUE]) ; une tâche déjà prise est gardée plus haut
+  planned = Elec.filter(f, planned, tick)
   for _, t in ipairs(planned) do
     local cd = b.cooldown[t.key]
     if not keep[t.key] and not (cd and tick < cd) then
@@ -399,6 +403,7 @@ function Board.add(f, tasks, tick)
   local b = Board.get(f)
   local born = b.born or {}
   local n = 0
+  tasks = Elec.filter(f, tasks, tick) -- lot ELECTRIQUE (a) : même règle pour le travail ajouté après la synchronisation (fond, survie)
   -- Lot FLUX : même rétention pour le travail ajouté après la synchronisation (fond, survie), sur le budget que Board.sync a laissé.
   if b.hold_left then
     local held = Fx.hold_mines(tasks, PLATE_MAP, b.hold_left, Fx.URGENT)

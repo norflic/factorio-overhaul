@@ -32,6 +32,7 @@ local Ra = require("script.team.reserve_amorcage") -- réserve d'amorçage du co
 local Rt = require("shared.team.repli_thermique") -- partie C : repli thermique quand le réseau tombe (règle pure)
 local Profiler = require("script.core.profiler") -- mesure des tranches jouées par la minuterie (hors de la portée tt:foswap de la pensée)
 local Bm = require("shared.team.book_max") -- lot S5 (×10) : plus grand nombre fabricable, sans la boucle de plans complets
+local Elec = require("script.team.electrique") -- lot ELECTRIQUE (DC 8/11) : quota lu à la marge de kW, par bloc, kW prévus pour la centrale
 
 local Swap = {}
 
@@ -673,6 +674,14 @@ local function plan_step(f, surface, book, pass)
   local st, t0 = f.swap, pass.t0
   local free = pass.free
   table.sort(pass.poles, function(a, b) return a.id < b.id end)
+  local item = T.DRILL_ELECTRIC
+  pass.kw = (game.entity_prototypes[item].energy_usage or 0) * Swap.JTICK_KW
+  pass.pc = power_of(f)
+  -- lot ELECTRIQUE (b, c) : quota lu à la marge de kW (et non T.swap.per_pass), champs entiers d'abord ; kW prévus demandés à la centrale,
+  -- même quand aucun poteau n'est encore à portée (partie du DC : 81 candidates et 0 poteau à 30 min, centrale finie depuis 2 min)
+  local ep = Elec.swap_plan(f, pass, pass.pc, pass.kw, { limit = T.swap.per_pass, tries = S.TRIES, fit_tries = S.FIT_TRIES,
+    craft_cap = T.swap.craft_cap })
+  pass.fields, pass.quota, pass.margin, pass.craft_cap, pass.made_by = ep.fields, ep.quota, ep.margin, ep.craft_cap, {}
   if #pass.entries == 0 or #pass.poles == 0 then -- (lot GISEMENTS : st.ready relu par script/team/gisement.lua)
     st.ready = 0
     report(f, st, t0, 0, 0, #pass.entries)
@@ -694,10 +703,11 @@ local function plan_step(f, surface, book, pass)
     log(string.format("[FO-FOREUSES-RESERVE] %s : %d thermique(s) gardee(s) par avant-poste de combustible (chaudiere %.0f kW, combustible %.0f kJ, thermique %s/s extraits, %s kW brules) a %.1f min",
       f.key or "player", keep, kd.boiler_kw or 0, kd.fuel_kj or 0, tostring(kd.drill_rate), tostring(kd.drill_kw), (t0 - (f.started or 0)) / 3600))
   end
-  local ctx = { poles = pass.poles, electric = T.drill_electric, have = pass.have, obtainable = pass.obtainable, limit = T.swap.per_pass,
+  local ctx = { poles = pass.poles, electric = T.drill_electric, have = pass.have, obtainable = pass.obtainable, limit = ep.limit,
     pole = pole, free_for = pole and free_for(f, surface, pole) or nil, chain = P.pole_chain, chain_max = S.CHAIN_MAX,
-    fits = fits_for(f, surface, refs), reserve = reserve }
-  local out, n_ready, n_chain = S.plan(pass.entries, ctx)
+    fits = fits_for(f, surface, refs), reserve = reserve, tries = ep.tries, fit_tries = ep.fit_tries }
+  local out, n_ready, n_chain = S.plan(ep.entries, ctx)
+  Elec.swap_planned(f, pass, out, n_ready, n_chain) -- lot ELECTRIQUE (b) : champ sans candidat retenu sauté 5 min (le bloc passe au champ suivant)
   for _, rf in ipairs(ctx.refused or {}) do
     local ref = refs[rf.id]
     if ref then st.retry[ref.key] = t0 + Swap.RETRY end
@@ -705,13 +715,10 @@ local function plan_step(f, surface, book, pass)
   end
   local by_pos = {}
   for _, p in ipairs(pass.poles) do by_pos[p.x .. ":" .. p.y] = p.ent end
-  local item = T.DRILL_ELECTRIC
   pass.out, pass.k, pass.n_ready, pass.n_chain, pass.by_pos = out, 1, n_ready, n_chain, by_pos
   pass.pole = pole and { name = pole.name, supply = pole.supply, wire = pole.wire } or nil
   pass.pole_free = { n = pole and free and free[pole.name] or 0 } -- (3) : stock libre des poteaux, debite chaine par chaine
   pass.made, pass.kw_new, pass.need_poles, pass.touched = 0, 0, 0, {}
-  pass.kw = (game.entity_prototypes[item].energy_usage or 0) * Swap.JTICK_KW
-  pass.pc = power_of(f)
   pass.phase = "remplacer"
   return Swap.PLAN_COST + #pass.entries
 end
@@ -804,6 +811,7 @@ local function exec_step(f, surface, pass)
   if done_swap then
     pass.made = pass.made + 1
     pass.kw_new = pass.kw_new + pass.kw
+    if pass.made_by then pass.made_by[ref.o.id] = (pass.made_by[ref.o.id] or 0) + 1 end -- lot ELECTRIQUE : champ basculé N/M
     if placed_n > 0 then
       st.chained = (st.chained or 0) + 1
       st.poles = (st.poles or 0) + placed_n
@@ -826,7 +834,9 @@ local function finish_step(f, book, pass)
   if pass.out then
     local have, pole = pass.have, pass.pole
     st.ready = pass.n_ready
-    craft(f, book, free, S.demand(pass.n_ready + pass.n_chain, have - pass.made, T.swap.craft_cap), t0)
+    -- lot ELECTRIQUE (b) : fabrication d'avance à la taille du quota (pass.craft_cap ; passe d'une version d'avant : T.swap.craft_cap)
+    craft(f, book, free, S.demand(pass.n_ready + pass.n_chain, have - pass.made, pass.craft_cap or T.swap.craft_cap), t0)
+    Elec.swap_done(f, pass)
     if pole and pass.n_chain > 0 then
       local want = math.min(Swap.POLE_CAP, math.max(pass.need_poles, S.CHAIN_MAX)) - (free and free[pole.name] or 0)
       if want > 0 then craft(f, book, free, want, t0, pole.name) end

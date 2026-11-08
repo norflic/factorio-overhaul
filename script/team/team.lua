@@ -49,6 +49,7 @@ local Objectif = require("script.team.objectif") -- lot AGES : libellé d'un obj
 local Reparation = require("script.team.reparation") -- lot PD-REPARATION (D79) : bâtiments endommagés réparés (toutes les équipes)
 local Gisement = require("script.team.gisement") -- lot GISEMENTS : foreuses à combustion à l'arrêt rebranchées ou retirées
 local FoSwap = require("script.team.foreuse_swap") -- lot FOREUSES : foreuse à combustion remplacée par l'électrique quand le courant arrive
+local Elec = require("script.team.electrique") -- lot ELECTRIQUE (DC 8/11) : verdict « électrique possible, thermique refusée », relu à chaque pensée
 local Survie = require("script.team.survie") -- lot SURVIE-PENURIE : mode survie d'une équipe en pénurie (entrée, sortie, tâches, journal)
 local SurvieQg = require("script.team.survie_qg") -- lot S1 : QG en péril (défense armée contre la menace reçue, journal [FO-SURVIE])
 local MenaceQg = require("script.team.menace_qg") -- lot L12 (partie 1) : hystérésis de la menace sur le QG (hq_threat)
@@ -833,6 +834,7 @@ function Team.view(f, tick)
     -- Lot IA1-b2 (D-17) : défendre d'abord (tourelles avant les ouvriers ; shared/team/planner.lua) ; recrues retenues
     -- après une perte récente.
     defend_first = defend_first or nil, hold_recruits = hold_recruits or nil,
+    thermal_off = Elec.view_off(f, tick), -- lot ELECTRIQUE (a) : types d'avant-poste refusés en thermique ({ [type] = raison } ou nil), lu par shared/ai3/projets.lua
     recul_wait = recul_wait, -- EFFONDREMENT : recrue gratuite en recul (planificateur, bloc de reprise)
     -- Tourelles du QG voulues : votre équipe seulement (une faction garde son QG avec ses soldats ; T.defend_first_factions).
     front = Profiler.fwrap("view:5-front", Front.view, f, fortify_open), -- lot DEFENSE-FRONT : tourelles en plus là où les pièces de l'équipe tombent, et près des laboratoires
@@ -1211,6 +1213,8 @@ TT.e5 = function(f, surface, tick, et)
   Profiler.fstart("tt:repli")
   FoSwap.repli(f, surface, book_for(f), et.stock, tick)
   Profiler.fstop("tt:repli")
+  -- lot ELECTRIQUE (a) : verdict relu à chaque pensée, retenue de la pile ou non (lu par le tableau : Board.sync, Board.add)
+  Elec.think(f, book_for(f), tick)
   if not et.pile_hold then
     Profiler.fstart("tt:foswap")
     FoSwap.think(f, surface, book_for(f), et.stock, tick) -- lot FOREUSES (retour du DC du 29/10) : foreuses thermiques remplacées par des électriques alimentées
