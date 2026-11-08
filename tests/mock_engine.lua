@@ -980,9 +980,6 @@ function M.new_world(opts)
       -- (kit_egal = true) ou FO_KIT_EGAL=1 joue le kit égal du jeu.
       ["fo-war-adopte"] = true, -- lot ADOPTE (settings/adopte.lua : vrai par defaut) ; lu par on_configuration_changed depuis PARITE
       ["fo-war-kit-genereux"] = not ((opts.kit_egal == true) or (os.getenv("FO_KIT_EGAL") == "1")),
-      -- Lot X10-GEL : usines des factions figées hors de vue. ALLUMÉ dans le jeu (settings/gel.lua) ; ÉTEINT ici par défaut (les
-      -- suites gardent leur partie ; le gel a ses propres bancs : tests/gel_*_test.lua) ; allumé par l'option (gel = true) ou FO_GEL=1.
-      ["fo-war-gel"] = (opts.gel == true) or (os.getenv("FO_GEL") == "1"),
     },
     groups_hit_player = opts.groups_hit_player or false, -- lot IA0 : les attaques de faction touchent le joueur
     turrets_kill = opts.turrets_kill or false, -- lot IA0 : les tourelles du joueur tuent les attaquants

@@ -44,7 +44,6 @@ local Outposts = require("script.faction.outposts")
 local Profiler = require("script.core.profiler")
 local PathService = require("script.core.path_service")
 local Journal = require("script.faction.journal")
-local Gel = require("script.faction.gel") -- lot X10-GEL (Q10) : un soldat figé est réveillé avant d'entrer dans un groupe
 
 local Military = {}
 
@@ -227,7 +226,6 @@ local function launch_group(f, surface, target_faction, rp, path, tick)
   end
   local group = surface.create_unit_group({ position = rp.gather, force = f.force })
   for _, id in ipairs(chosen) do
-    Gel.before_command(f.soldiers[id].entity)
     group.add_member(f.soldiers[id].entity)
     f.soldiers[id].group = group.group_number
   end
@@ -571,7 +569,6 @@ PathService.register_handler(RECALL_HANDLER, function(fid, path, ticket, reason,
   local surface = game.surfaces[war.surface]
   local group = surface.create_unit_group({ position = rc.start, force = f.force })
   for _, id in ipairs(chosen) do
-    Gel.before_command(f.soldiers[id].entity)
     group.add_member(f.soldiers[id].entity)
     f.soldiers[id].group = group.group_number
   end
@@ -623,7 +620,6 @@ PathService.register_handler(SCOUT_HANDLER, function(fid, path, ticket, reason, 
   local surface = game.surfaces[war.surface]
   local group = surface.create_unit_group({ position = sp.gather, force = f.force })
   for _, id in ipairs(chosen) do
-    Gel.before_command(f.soldiers[id].entity)
     group.add_member(f.soldiers[id].entity)
     f.soldiers[id].group = group.group_number
   end

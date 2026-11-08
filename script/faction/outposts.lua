@@ -1010,13 +1010,11 @@ function Outposts.smelter_furnaces(f, list)
   return out
 end
 
-local Gel = require("script.faction.gel") -- lot X10-GEL : statut comptable d'un four figé hors de vue (sinon « disabled_by_script »)
-
 --- Lot BRIQUES : fours dont la sortie est PLEINE (état du moteur `full_output`) : arrêtés tant qu'une tournée ne vide pas la sortie.
 function Outposts.smelters_blocked(f, list)
   local n = 0
   for _, s in ipairs(list or Outposts.smelters(f)) do
-    if Gel.status(s) == defines.entity_status.full_output then n = n + 1 end
+    if s.status == defines.entity_status.full_output then n = n + 1 end
   end
   return n
 end

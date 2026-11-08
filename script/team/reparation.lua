@@ -110,7 +110,6 @@ local function on_damaged(e)
 end
 Events.on(defines.events.on_entity_damaged, on_damaged)
 
-local Gel = require("script.faction.gel") -- lot X10-GEL (Q11) : noms des soldats et des PNJ au filtre (require au chargement, F24)
 local function set_filter()
   local filters, seen = {}, {}
   for _, t in ipairs(Rp.filter_types()) do
@@ -122,9 +121,6 @@ local function set_filter()
   for _, t in ipairs(Ab.filter_types()) do
     if not seen[t] then filters[#filters + 1] = { filter = "type", type = t } end
   end
-  -- Lot X10-GEL (Q11) : soldats des factions et PNJ, par NOM (ni les biters ni les autres unités) : un coup reçu réveille au tick même
-  -- la garnison figée de leur équipe (script/faction/gel_garnisons.lua) ; on_damaged ci-dessus les laisse (CLASS ne les a pas).
-  for _, n in ipairs(Gel.filter_names()) do filters[#filters + 1] = { filter = "name", name = n } end
   script.set_event_filter(defines.events.on_entity_damaged, filters)
 end
 Events.on_init(set_filter)

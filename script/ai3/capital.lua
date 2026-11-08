@@ -38,7 +38,6 @@ local General = require("script.ai3.general")
 local Profiler = require("script.core.profiler")
 local Auto = require("script.ai3.automatisation") -- lot IA3-e : Auto.capital_steps (objets du dépliage)
 local CentreQG = require("script.faction.centre_qg") -- lot PD-CENTREQG (D20) : le centre de la faction est lié à son QG
-local Gel = require("script.faction.gel") -- lot X10-GEL : statut comptable d'une machine figée hors de vue (sinon « disabled_by_script »)
 
 local Capital = {}
 
@@ -228,7 +227,7 @@ local function scan_machines(f)
   local ws = defines.entity_status and defines.entity_status.working
   for _, id in ipairs(sorted_keys(ents)) do
     local e = ents[id]
-    list[#list + 1] = { id = id, name = e.name, working = ws ~= nil and Gel.status(e) == ws }
+    list[#list + 1] = { id = id, name = e.name, working = ws ~= nil and e.status == ws }
   end
   return { list = list, ents = ents, refs = refs }
 end
@@ -325,7 +324,7 @@ local function scan(f, c)
     local e = by_id[id]
     ents[#ents + 1] = e
     local ws = defines.entity_status and defines.entity_status.working
-    local working = ws ~= nil and Gel.status(e) == ws
+    local working = ws ~= nil and e.status == ws
     list[#list + 1] = { id = id, name = e.name, working = working }
     local fam, n = L.parse(e.name)
     if fam then by_family[fam.key] = math.max(by_family[fam.key] or 0, n) end
