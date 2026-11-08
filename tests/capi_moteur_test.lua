@@ -88,15 +88,18 @@ for i = 1, math.min(4, #on.lines) do say("   " .. on.lines[i]:sub(1, 400)) end
 for i = math.max(1, #on.lines - 3), #on.lines do say("   " .. on.lines[i]:sub(1, 600)) end
 -- Lot X10-S10 : attendu PAR FACTION selon son état. Proche : une décision par minute (au moins 20 en 30 min, attendu d'avant S10).
 -- Lointaine et calme : le cycle de capitalisation compte des PENSÉES (Capi.CYCLE = 12, une minute à 300 ticks), donc une décision
--- toutes les 2 min à Cd.SLOW = 600 : au moins 20 × 300 / Cd.SLOW = 10 en 30 min (décision du DC citée en tête).
+-- toutes les 2 min à Cd.SLOW = 600 (décision du DC citée en tête). Seuil 14, juste sous le mesuré (décision du lead du 8/11, sur la
+-- note de revue-s : 20 × 300 / 600 = 10 était trop lâche) : 15 décisions mesurées en 30 min, exactement la moitié des 30 de la faction
+-- proche et du témoin cadence éteinte.
 local Cd = require("shared.faction.cadence")
 local d1 = (on.st[1] or {}).decisions or 0
 local d2 = (on.st[2] or {}).decisions or 0
 check(not on.lente[1] and on.lente[2], string.format("§1 etats : faction 1 jamais en cadence lente (%s), faction 2 lointaine en cadence lente (%s)",
   tostring(on.lente[1]), tostring(on.lente[2])))
 check(d1 >= 20, "§1 faction 1 PROCHE du joueur : une decision par minute (au moins 20 en 30 min) : " .. d1)
-check(d2 >= math.floor(20 * 300 / Cd.SLOW), string.format("§1 faction 2 LOINTAINE et calme : une decision par cycle de %d pensees a %d ticks (au moins %d en 30 min) : %d",
-  12, Cd.SLOW, math.floor(20 * 300 / Cd.SLOW), d2))
+local FAR_MIN = 14
+check(d2 >= FAR_MIN, string.format("§1 faction 2 LOINTAINE et calme : une decision par cycle de %d pensees a %d ticks (au moins %d en 30 min, 15 mesurees) : %d",
+  12, Cd.SLOW, FAR_MIN, d2))
 check(deps >= 2, "§1 gisements recenses : " .. deps)
 -- Le moteur simulé pose une entité de ressource par gisement (une tuile) : le recensement au-delà de 64 tuiles se prouve
 -- en moteur réel seulement (banc capi-partie, BRANCHEMENT.md).

@@ -316,9 +316,12 @@ end
 -- Lot X10-S10 (décision du DC du 7/11, 17 h 47, QCM-7/11-X10, OBJECTIFS §4 : « Oui, factions lointaines plus lentes (Recommandé) ») :
 -- une faction loin de tout joueur et calme pense toutes les Cd.SLOW = 600 ticks au lieu de 300 ; le plan pose au plus UNE recrue par
 -- pensée (shared/team/planner.lua, recruit_workers = 1). Le joueur est donc posé près de la faction 1 : elle garde l'attendu d'avant
--- S10 (25 PNJ) ; les 3 autres, lointaines et calmes, ont le seuil de CROISSANCE divisé par la cadence : 8 + (25 − 8) × 300 / Cd.SLOW.
+-- S10 (25 PNJ) ; les 3 autres sont lointaines et calmes. Leur seuil n'est PAS la croissance divisée par la cadence (8 + 17 × 300 / 600 = 16),
+-- trop lâche : il laisserait passer une régression que le changelog de la 0.6.64 ne promet pas (« 25 à 27 PNJ à 12 min au lieu de 29 à
+-- 30 »). Seuil 22 (décision du lead du 8/11, sur la note de revue-s) : juste sous le mesuré (moteur simulé, cette partie : 27, 25 et 26
+-- PNJ à 12 min, recrues 19, 17 et 18 ; 26 à 28 selon la graine), avec une marge de 3 sous le plus bas.
 local Cd = require("shared.faction.cadence")
-local FAR_MIN = 8 + math.floor((25 - 8) * 300 / Cd.SLOW)
+local FAR_MIN = 22
 local w = run_war(12, nil, true)
 local all30, uniq, paid = true, true, true
 local lente = {}
@@ -347,7 +350,7 @@ end
 -- moteur simulé : au moins 28 PNJ à 12 min (29 avant le lot). Seuil 25 (83 %) au lieu de 27 : la croissance reste libre.
 check(not lente[w.factions[1].key] and lente[w.factions[2].key] and lente[w.factions[3].key] and lente[w.factions[4].key],
   "X10-S10 : faction 1 proche du joueur jamais en cadence lente ; les 3 lointaines y passent")
-check(all30, string.format("chaque faction atteint au moins 25 PNJ (83 %% de 30) en 12 min si elle est proche du joueur, au moins %d si elle est lointaine et calme (croissance divisee par la cadence), stock financé", FAR_MIN))
+check(all30, string.format("chaque faction atteint au moins 25 PNJ (83 %% de 30) en 12 min si elle est proche du joueur, au moins %d si elle est lointaine et calme (25 a 27 mesures, cadence %d ticks), stock financé", FAR_MIN, Cd.SLOW))
 check(uniq, "une case du QG par PNJ vivant (aucun partage)")
 check(paid, "toute recrue au-delà des 8 de départ est payée")
 local rows = remote.call("fo-ia1", "teams")

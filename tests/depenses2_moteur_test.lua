@@ -5,8 +5,7 @@
        journal [FO-DEPENSES] à chaque cycle de capitalisation (la règle est jouée à la décision, une par cycle de Capi.CYCLE pensées).
        Lot X10-S10 (décision du DC du 7/11, 17 h 47, QCM-7/11-X10, OBJECTIFS §4 : « Oui, factions lointaines plus lentes
        (Recommandé) ») : dans ce §1, le joueur reste LOIN de la faction (moteur simulé : joueur au départ, faction à 320 tuiles), qui
-       pense toutes les Cd.SLOW = 600 ticks quand elle est calme : une ligne par cycle, soit au moins 10 × 300 / Cd.SLOW lignes en
-       16 min ; §1 bis, même partie, joueur PRÈS de la faction : une ligne par minute, attendu d'avant S10 (au moins 10) ;
+       pense toutes les Cd.SLOW = 600 ticks quand elle est calme : une ligne par cycle, au moins 8 en 16 min (9 mesurées) ; §1 bis, même partie, joueur PRÈS de la faction : une ligne par minute, attendu d'avant S10 (au moins 10) ;
        la cible de laboratoires se fige, les laboratoires posés ne dépassent jamais le plafond (Br.labs_max + Dep.LABS_MAX) et ne
        bougent plus sur les 4 dernières minutes, même pensée après pensée (research_step tourne à chaque pensée) ;
     §2 TÉMOIN DU DÉFAUT : la cible relative d'avant (« présents + n », commit ddd82445) remise à la main : les laboratoires dépassent
@@ -168,13 +167,15 @@ local a = run({ minutes = MINUTES })
 local sleeping = 0
 for _, l in ipairs(a.lines) do if l:find(" dort ", 1, true) then sleeping = sleeping + 1 end end
 -- Lot X10-S10 : la faction du §1 est LOINTAINE et calme (décision du DC citée en tête) : une ligne par cycle de capitalisation, chaque
--- décision écrite (Dep.think est joué à la décision), au moins 10 × 300 / Cd.SLOW cycles en 16 min (5 ; 10 avant S10).
+-- décision écrite (Dep.think est joué à la décision). Seuil 8 cycles en 16 min, juste sous le mesuré (décision du lead du 8/11, sur la
+-- note de revue-s : 10 × 300 / 600 = 5 était trop lâche) : 9 lignes pour 9 décisions mesurées (16 pour la faction proche du §1 bis).
 local Cd = require("shared.faction.cadence")
 check(a.lente, "§1 la faction, loin du joueur, est passee en cadence lente")
 say(string.format("§1 faction lointaine : %d ligne(s) [FO-DEPENSES], %d decision(s) en %d min", #a.lines, a.decisions, MINUTES))
-check(#a.lines >= a.decisions and a.decisions >= math.floor(10 * 300 / Cd.SLOW),
-  string.format("§1 faction lointaine et calme : journal [FO-DEPENSES] a chaque cycle de capitalisation (%d lignes, %d decisions, au moins %d)",
-    #a.lines, a.decisions, math.floor(10 * 300 / Cd.SLOW)))
+local FAR_MIN = 8
+check(#a.lines >= a.decisions and a.decisions >= FAR_MIN,
+  string.format("§1 faction lointaine et calme (cadence %d ticks) : journal [FO-DEPENSES] a chaque cycle de capitalisation (%d lignes, %d decisions, au moins %d, 9 mesurees)",
+    Cd.SLOW, #a.lines, a.decisions, FAR_MIN))
 check(sleeping >= 3, "§1 le stock s'endort (" .. sleeping .. " ligne(s) « dort »)")
 local maxl, last = 0, a.series[MINUTES]
 for m = 1, MINUTES do if a.series[m] > maxl then maxl = a.series[m] end end
