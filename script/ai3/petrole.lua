@@ -1792,6 +1792,9 @@ remote.add_interface("fo-petrole", {
       local b = brief_of(s.id)
       sites[i].missing = b and b.missing or nil
       sites[i].ext = brief_of(s.ext_id) -- lot PETROLE-RANGEE : chantier d'extension en cours (état, manques, entités bâties / prévues)
+      local q = s.ext_id and f.build and f.build.projects[s.ext_id]
+      sites[i].ext_plan = q and (q.champ or q.rangee) or nil -- ... et ce que son plan couvre (chevalets, écartés, différés ; copies, pas, bus)
+      if sites[i].ext_plan and q.champ then sites[i].ext_plan = { n = q.champ.n, total = q.champ.total, skipped = #(q.champ.skipped or {}), deferred = q.champ.deferred, pipes = q.champ.pipes } end
     end
     local why = {}
     for _, k in ipairs(sorted_keys(st.why)) do why[#why + 1] = st.why[k].text end
