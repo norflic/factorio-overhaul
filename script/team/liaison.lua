@@ -38,7 +38,7 @@ local Tv = require("shared.team.traversee")
 
 local Liaison = {}
 
-local SKIP_KEYS = { "alim", "raccord", "enceinte", "liaison", "site", "quartier" } -- projets qui ne sont pas des modules de fabrication (lot TV-ARCHI : les dépôts d'un quartier ne reçoivent pas de liaison à tapis)
+local SKIP_KEYS = { "alim", "alimquai", "raccord", "enceinte", "liaison", "site", "quartier" } -- projets qui ne sont pas des modules de fabrication (lot TV-ARCHI : les dépôts d'un quartier ne reçoivent pas de liaison à tapis)
 local DEAD = { refuse = true }
 local POLE_SET = {}
 for _, name in ipairs(M.POLES) do POLE_SET[name] = true end -- les poteaux des données de modules.lua, aucun nom écrit ici
@@ -121,7 +121,7 @@ local function scan_unit(f, surface, b, st, c, pid)
     if ch and not seen[tk] then
       seen[tk] = true
       c.docks[#c.docks + 1] = { key = pid .. ":q" .. idx, pid = pid, idx = idx, x = math.floor(q.x), y = math.floor(q.y), item = q.item,
-        flow = flows and flows[q.item] or 0, n = ch.get_item_count(q.item) }
+        flow = q.flow or (flows and flows[q.item]) or 0, n = ch.get_item_count(q.item) }
     end
   end
   for idx, o in ipairs(p.outs or {}) do

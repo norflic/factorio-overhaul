@@ -569,7 +569,7 @@ local function named(plan, names, coal_side, exclude)
       -- 18 min, scarlet, graine 20261020)
       if e.kind == "foreuse" then ent.rank = Champ.CFG.drill_rank end
       ents[#ents + 1] = ent
-      if e.kind == "coffre" and e.role == "combustible" then quais[#quais + 1] = { x = e.x, y = e.y, item = names.fuel } end
+      if e.kind == "coffre" and e.role == "combustible" then quais[#quais + 1] = { x = e.x, y = e.y, item = names.fuel, flow = e.need } end -- lot FONDERIE-BLOC : débit du quai
       if e.kind == "coffre" and e.role == "sortie" then outs[#outs + 1] = { x = e.x, y = e.y } end
     end
     ::continue::

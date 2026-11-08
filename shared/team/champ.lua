@@ -763,7 +763,12 @@ local function plan_once(spec)
         g.list, g.info = list, info
         g.len = math.min(g.len, len)
       end
-      for _, e in ipairs(g.list) do emit_e(e, it.bi, it.gi, it.pr, e.kind == "tapis" and (e.role == "charbon" and 1 or g.belt) or nil) end
+      for _, e in ipairs(g.list) do
+        emit_e(e, it.bi, it.gi, it.pr, e.kind == "tapis" and (e.role == "charbon" and 1 or g.belt) or nil)
+        -- lot FONDERIE-BLOC : le coffre de tête porte le charbon/s que sa colonne brûle (son quai a un débit : la liaison, le piquage et
+        -- l'alimentation de quai le voient ; avant, 0 et « ne_se_paie_pas »)
+        if e.kind == "coffre" and e.role == "combustible" then ents[#ents].need = g.info.need end
+      end
       if mode == "voie" and nt and nt.uT then
         local cf = (F and F.cols) and nt or coal_frame[tostring(g.side)]
         local col = { b = it.b, s_edge = g.s_edge, far = g.info.far, last = (cf and cf.last) == key }

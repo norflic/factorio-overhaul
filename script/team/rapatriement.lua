@@ -36,7 +36,7 @@ local Rap = {}
 
 Rap.SETTING = "fo-war-rapatriement"
 local CHEST = T.outposts.coal.sink -- le coffre de sortie des projets du plan directeur (shared/team/config.lua), comme script/team/collecte.lua
-local SKIP_KEYS = { "alim", "raccord", "enceinte", "liaison", "quartier", "rapatriement" } -- des sites (champ, pétrole) PORTENT des sorties : ils sont lus
+local SKIP_KEYS = { "alim", "alimquai", "raccord", "enceinte", "liaison", "quartier", "rapatriement" } -- des sites (champ, pétrole) PORTENT des sorties : ils sont lus
 local DEAD = { refuse = true }
 local POLE_SET = {}
 for _, name in ipairs(M.POLES) do POLE_SET[name] = true end -- les poteaux des données de modules.lua, aucun nom écrit ici
