@@ -320,6 +320,22 @@ local function suite(Rg, quick, out)
     local par = Rg.plan({ producers = { P[1], prod("pb", "B", 0, 40, 100) }, consumers = { C[1], cons("cb", "B", 100, 40, 100) }, hub = HUB, hub_share = 0, k = 2 })
     check(par.stats.crossings == 0, "5.28 deux bus parallèles : aucun croisement")
   end
+  do -- coût fixe d'un terminal (piquage : répartiteur, souterrains)
+    local base = plan({ prod("p", "X", 0, 0, 100) }, { cons("c", "X", 80, 0, 100) })
+    local ex = plan({ { key = "p", item = "X", x = 0, y = 0, rate = 100, extra = 40 } }, { cons("c", "X", 80, 0, 100) })
+    check(base.buses[1] and ex.buses[1] and near(ex.buses[1].plaques, base.buses[1].plaques + 40), "5.29 le coût fixe `extra` d'un terminal s'ajoute aux plaques du bus")
+    local big = plan({ { key = "p", item = "X", x = 0, y = 0, rate = 100, extra = 1e6 } }, { cons("c", "X", 80, 0, 100) })
+    check(#big.buses == 0, "5.30 un coût fixe énorme : le bus ne se paie pas")
+  end
+  do -- adaptateur du registre des coffres
+    local list = { { uid = 7, x = 10, y = 0, surface = "s", kind = "sortie", rate = { b = 30, a = 100 } }, { uid = 9, x = 90, y = 0, surface = "s", kind = "entree", rate = { a = 60 } },
+      { uid = 3, x = 0, y = 0, surface = "s", kind = "neutre", rate = { a = 1 } }, { uid = 4, x = 0, y = 0, surface = "s", kind = "sortie" },
+      { uid = 5, x = 0, y = 0, surface = "autre", kind = "sortie", rate = { a = 5 } } }
+    local P, C, skipped = Rg.terminals_from_sources(list, "s")
+    check(#P == 2 and P[1].key == "7:a" and P[2].key == "7:b" and #C == 1 and C[1].key == "9:a" and skipped == 3, "5.31 registre des coffres : une sortie donne un producteur par objet, les neutres, sans débit et d'une autre surface sont écartés")
+    local r = Rg.plan({ producers = P, consumers = C, hub = HUB, hub_share = 0, k = 1 })
+    check(#r.buses == 1 and near(r.buses[1].served, 60), "5.32 le bus lit les terminaux de l'adaptateur (60 objets/min servis)")
+  end
   do -- le sac à dos : l'ordre par valeur / coût bat l'ordre par valeur (budget 100 : un gros bus contre deux petits)
     local function cd(item, line, net, plaques)
       return { item = item, axis = "x", sign = 1, line = line, lo = 0, hi = 50, plaques = plaques, net = net, pay_s = plaques, taps = { { key = item } } }
@@ -589,6 +605,7 @@ local MUTANTS = {
   { "ordre de pose inversé", "if dens[a.belt] ~= dens[b.belt] then return dens[a.belt] > dens[b.belt] end", "if dens[a.belt] ~= dens[b.belt] then return dens[a.belt] < dens[b.belt] end" },
   { "voie de partage posée avant la voie de base", "return a.lane < b.lane", "return a.lane > b.lane" },
   { "k indifférent au stock de tapis", "local by_stock = math.floor(math.max(0, belt_stock or 0) / Rg.BELT_TILES)", "local by_stock = 99" },
+  { "coût fixe ignoré", "local plaques = tiles * price.belt + arms * price.arm + #S * price.pole + extra", "local plaques = tiles * price.belt + arms * price.arm + #S * price.pole" },
   { "croisement gratuit", "mplaq = mplaq + nx * Rg.CROSS_PLAQUES", "mplaq = mplaq" },
   { "croisement à l'intérieur compté aux bornes", "if h.a < v.k and v.k < h.b and v.a < h.k and h.k < v.b then", "if h.a <= v.k and v.k <= h.b and v.a <= h.k and h.k <= v.b then" },
   { "partage pour un recouvrement faible", "if ov >= Rg.OVERLAP_MIN * math.max(1, short) and ov > bov", "if ov > bov" },

@@ -95,7 +95,7 @@ local function make_terminal(t, kind, hub, hub_share)
   if rate < Rg.MIN_RATE then return nil end
   local d = manhattan(hub.x, hub.y, t.x, t.y)
   return { key = tostring(t.key), kind = kind, item = t.item, x = t.x, y = t.y, rate = rate,
-    arms = math.max(1, math.ceil(rate / Rg.ARM_RATE - Rg.EPS)),
+    arms = math.max(1, math.ceil(rate / Rg.ARM_RATE - Rg.EPS)), extra = math.max(0, t.extra or 0),
     leg = Rg.leg(d, kind == "p" and Rg.COLLECT_BATCH or Rg.FILL_BATCH) }
 end
 
@@ -191,7 +191,7 @@ local function evaluate(S, ax, o)
   local pool, pleg = 0, 0
   local served, gain = 0, 0
   local lo, hi = math.huge, -math.huge
-  local perps, arms, sx, sy = {}, 0, 0, 0
+  local perps, arms, sx, sy, extra = {}, 0, 0, 0, 0
   local per = {}
   for i = 1, #S do
     local t = S[i]
@@ -200,6 +200,7 @@ local function evaluate(S, ax, o)
     if c > hi then hi = c end
     perps[i] = t[ax.perp]
     arms = arms + t.arms
+    extra = extra + (t.extra or 0)
     sx, sy = sx + t.x, sy + t.y
     per[i] = 0
     if t.kind == "p" then
@@ -227,7 +228,7 @@ local function evaluate(S, ax, o)
   local trunk = math.ceil((hi - lo + stubs) * Rg.DETOUR)
   local tiles = trunk + 2 * #S
   local price = o.price
-  local plaques = tiles * price.belt + arms * price.arm + #S * price.pole
+  local plaques = tiles * price.belt + arms * price.arm + #S * price.pole + extra
   local n_ent = tiles + arms + #S
   local n = math.max(1, #S)
   local trip_s = 2 * manhattan(o.hub.x, o.hub.y, sx / n, sy / n) / Li.WALK + Li.HANDLE_S
@@ -632,6 +633,28 @@ function Rg.k_for(epoch, belt_stock)
   local cap = 1 + math.floor(math.max(0, epoch or 0) / Rg.EPOCH_STEP)
   local by_stock = math.floor(math.max(0, belt_stock or 0) / Rg.BELT_TILES)
   return math.max(0, math.min(cap, by_stock))
+end
+
+--- Adaptateur du registre des coffres du lot MINAGE-MAIN (`require("script.team.sources").list(f)`, lecture seule) : liste d'entrées
+--- { uid, x, y, surface, kind = "sortie" | "entree" | "neutre", rate = { [objet] = objets/min } } (rate absent : pas de débit mesuré, l'entrée
+--- est écartée). Rend producers, consommateurs, nombre d'entrées écartées. Une sortie donne un producteur par objet, une entrée un consommateur.
+function Rg.terminals_from_sources(list, surface)
+  local P, C, skipped = {}, {}, 0
+  for _, e in ipairs(list or {}) do
+    local rate = e.rate
+    if (surface and e.surface ~= surface) or type(rate) ~= "table" or (e.kind ~= "sortie" and e.kind ~= "entree") then
+      skipped = skipped + 1
+    else
+      local items = {}
+      for item in next, rate do items[#items + 1] = item end
+      table.sort(items)
+      for _, item in ipairs(items) do
+        local t = { key = tostring(e.uid) .. ":" .. item, item = item, x = e.x, y = e.y, rate = rate[item] }
+        if e.kind == "sortie" then P[#P + 1] = t else C[#C + 1] = t end
+      end
+    end
+  end
+  return P, C, skipped
 end
 
 --- Tout d'un coup (bancs hors jeu, petites instances).

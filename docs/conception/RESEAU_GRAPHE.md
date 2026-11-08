@@ -1,6 +1,6 @@
 # RESEAU-GRAPHE : relier un maximum de ressources aux assembleurs par des bus (conception)
 
-Lot RESEAU-GRAPHE, 8/11. Rien n'est branché en jeu. Livrables : ce document, la règle pure `shared/team/reseau_graphe.lua` (Lua pur, sans nom d'objet), son banc `tests/reseau_graphe_test.lua` (184 contrôles, 30 mutants refusés) et les instances `tests/reseau_graphe_exemple.lua`.
+Lot RESEAU-GRAPHE, 8/11. Rien n'est branché en jeu. Livrables : ce document ; trois règles pures (Lua pur, sans nom d'objet) : `shared/team/reseau_graphe.lua` (bus, §2 à §8), `shared/team/placement_poids.lua` (placement pondéré, §9), `shared/team/blocs_audit.lua` (audit n entrées / m sorties, §10) ; leurs bancs `tests/reseau_graphe_test.lua` (188 contrôles, 31 mutants), `tests/placement_poids_test.lua` (91, 15 mutants), `tests/blocs_audit_test.lua` (137, 25 mutants) ; les instances `tests/reseau_graphe_exemple.lua`.
 Étiquettes : **mesuré** = lu dans les journaux archivés ou compté par un banc ; **lu** = vu dans le code ; **déduit** = raisonnement non prouvé en moteur réel ; **non mesuré** = paramètre posé faute de mesure.
 
 ## 0. Ce que demande le DC (8/11, 0.6.65), et la réponse en 12 lignes
@@ -131,6 +131,56 @@ Ce que cela dit : (a) le premier bus (le fer vers le quai d'engrenages) apporte 
 
 ## 8. Checklist `IA_WORKFLOW.md` §6
 
-1. Étape : aucune (règle pure, rien d'appelé). Prévue : E2 (plan directeur), pas la pensée de 300 ticks. 2. Stock : la règle lit des débits, pas le coffre ; l'intégration lira le stock LIBRE pour `Rg.k_for`. 3. Lecteurs : aucun encore ; futur lecteur = `Build.request`. 4. Tâche : un bus supprime des tâches `carry` (collecte et remplissage) ; il ne passe ni par `Board.sync` ni par la porte. 5. Vue : les sorties du plan directeur restent invisibles du cerveau (maillon fragile de la carte) ; un bus ne le règle pas. 6. Boucles : B2 (place, dépôt, collecte) s'améliore (moins de dépôts) ; aucune nouvelle boucle. 7. Joueur : aucune action sur une entité qui n'est pas à l'équipe. 8. `f.is_player` : vaut pour les factions et pour votre équipe. 9. Journal : `[FO-LIAISON]` (quais servis), `[FO-BUS]` à créer. 10. Preuve : 184 contrôles hors jeu, mutants, énumération ; aucun banc moteur.
+1. Étape : aucune (règle pure, rien d'appelé). Prévue : E2 (plan directeur), pas la pensée de 300 ticks. 2. Stock : la règle lit des débits, pas le coffre ; l'intégration lira le stock LIBRE pour `Rg.k_for`. 3. Lecteurs : aucun encore ; futur lecteur = `Build.request`. 4. Tâche : un bus supprime des tâches `carry` (collecte et remplissage) ; il ne passe ni par `Board.sync` ni par la porte. 5. Vue : les sorties du plan directeur restent invisibles du cerveau (maillon fragile de la carte) ; un bus ne le règle pas. 6. Boucles : B2 (place, dépôt, collecte) s'améliore (moins de dépôts) ; aucune nouvelle boucle. 7. Joueur : aucune action sur une entité qui n'est pas à l'équipe. 8. `f.is_player` : vaut pour les factions et pour votre équipe. 9. Journal : `[FO-LIAISON]` (quais servis), `[FO-BUS]` à créer. 10. Preuve : 188 contrôles hors jeu, mutants, énumération ; aucun banc moteur.
 
-Commandes : `lua5.2 tests/reseau_graphe_test.lua` (3 s ; attendu « [RESEAU-GRAPHE] BILAN : 184 OK, 0 ECHEC(S) », « mutants refusés : 30 sur 30 ») ; `lua5.2 tests/liaison_test.lua` inchangé (164 OK).
+Commandes : `lua5.2 tests/reseau_graphe_test.lua` (3 s ; attendu « [RESEAU-GRAPHE] BILAN : 188 OK, 0 ECHEC(S) », « mutants refusés : 31 sur 31 »), `lua5.2 tests/placement_poids_test.lua` (« [PLACEMENT] BILAN : 91 OK »), `lua5.2 tests/blocs_audit_test.lua [--liste]` (« [AUDIT] BILAN : 137 OK ») ; `lua5.2 tests/liaison_test.lua` inchangé (164 OK).
+
+## 9. Placement pondéré d'un module consommateur (ajout du DC, 8/11 vers 11 h 55)
+
+> « Avoir des usines dont l'input est nécessaire, par exemple du fer ou du cuivre, à mi-chemin entre les deux ou disons le plus proche de l'un ou de l'autre en fonction du besoin de l'input. »
+
+**Aujourd'hui** (**lu**). `candidates(b, states, toward, res)` (`build.lua:688`) trie les lots permis par la distance de Manhattan à UN seul point `toward`, et `place_module` (`build.lua:803`) les essaie dans cet ordre (8 au plus). `toward` vaut `spec.near`, sinon, pour une fabrique, `deposit_toward(b, best)` : le gisement du MINERAI d'entrée le plus gros (`M.ORES`, charbon exclu), sinon l'origine du treillis (`build.lua:2754-2770`). Une fabrique qui consomme des plaques (circuits, engrenages, paquets) n'a pas de minerai en entrée : `toward` est le QG. Le repli simple (`Ps.order`, `place_simple.lua:54`) range les lots par couronne et distance, sans regarder les sources.
+
+**Règle** (`shared/team/placement_poids.lua`, 91 contrôles, 15 mutants refusés sur 15). Une DEMANDE = { poids w (objets/min), position } ou { w, plusieurs positions : la plus proche compte }. `Pp.demands(entrées, sorties, où_entrée, où_sortie, QG)` en construit la liste depuis un gabarit : chaque entrée pèse son débit, située à sa fonderie, son champ ou son avant-poste (à défaut le QG, porté à la main) ; chaque sortie pèse son débit, située chez son client (à défaut le QG). `Pp.rank(lots, demandes, {hub, power})` classe les lots permis par `somme w × distance^p`, départage par la distance au QG puis la clé. `Pp.order` range ainsi une liste de candidats de `place_module` (mêmes tables, `d` remplacé par le coût) ; `Pp.point` est le point de Weber, `toward` de `P.fit` (de quel côté du lot poser le gabarit).
+
+**Ce que dit le calcul.** En distance de Manhattan (la métrique du plan directeur) le coût est séparable : le point optimal est la **médiane pondérée par axe**. Conséquences, vérifiées par énumération de la grille (60 jeux de demandes) :
+- une source qui pèse plus de la moitié du total attire le module **sur elle** (le « plus proche de l'un ou de l'autre en fonction du besoin ») ;
+- deux sources de poids égaux : coût **à plat** tout le long du segment, d'où le « à mi-chemin » : on prend le lot le plus près du QG (départage écrit, test 3.1) ;
+- avec p = 2 (une longue distance coûte plus que proportionnellement : danger, tapis coupé, F251), l'optimum est **intérieur** : à 28 tuiles de la source lourde au lieu de dessus (test 2.5). C'est le réglage à donner au DC si « le plus proche de l'un ou de l'autre » doit rester un compromis visible ; **défaut p = 1**, non mesuré.
+
+**Exemple chiffré** (`tests/placement_poids_test.lua` §6 ; positions illustratives, débits d'un gabarit de circuits : cuivre 4,5/s, fer 3/s, sortie 3/s ; fonderie de cuivre à (140, −28), de fer à (−140, 28), QG à l'origine ; 169 lots de pas 28). Placement actuel : le QG (coût 75 600 objets/min × tuiles). Pondéré, sans compter la sortie : le lot du cuivre (140, −28), coût 60 480, **−20 %**, soit 11,1 PNJ-s/min (0,19 PNJ-équivalent) de trajets de remplissage. Si la sortie de 180/min va au QG, le QG redevient le meilleur lot (coût 75 600 contre 90 720) : le poids de la sortie compte autant que celui des entrées, d'où `out_factor` (poids relatif d'un objet sorti) à fixer avec le DC.
+
+**Coût de calcul** (**mesuré**) : classer 169 lots contre 8 demandes = 78 320 instructions (une unité) ; `candidates` en donne bien moins (états permis seulement).
+
+**Intégration prévue** : dans `candidates`, remplacer le tri par `d = |c - toward|` par `Pp.order` quand le gabarit a des entrées connues ; `toward` de `P.fit` = `Pp.point`. Les positions des sources viennent de ce qui existe déjà : `deposit_toward` (gisements), `p.outs` des projets finis (sorties), avant-postes (`f.outposts`), registre des coffres de MINAGE-MAIN. Ce lot ne touche pas à `build.lua`.
+
+## 10. Audit « n entrées, m sorties » des gabarits (second ajout du DC, 8/11 vers 12 h)
+
+> « Vérifie bien qu'un bloc d'usine, ça a n inputs et n outputs en fonction des outputs [...] sinon ça peut poser problème en termes de logique et d'optimisation. »
+
+**Modèle.** Un bloc est un nœud à n entrées et m sorties typées par objet. `shared/team/blocs_audit.lua` (`Au.audit(g, rep, ctx)`, 137 contrôles, 25 mutants refusés sur 25 dans `tests/blocs_audit_test.lua`) recalcule, **indépendamment** de `M.analyze`, les entrées attendues (ingrédients solides distincts des recettes de ses machines, nets de ce qu'elles produisent elles-mêmes, plus le combustible d'une machine qui brûle), les sorties attendues (produits nets), le débit de chacune (recette × cadence prévue), puis compare : à l'analyse, à ce que le gabarit déclare (`g.inputs`, `g.nominal`), aux PORTS (chaque entrée arrive par un port, aucun port n'amène un objet inutile, aucune voie ne mêle deux objets, chaque sortie part par un port, aucun port ne sort un intermédiaire), et à la capacité d'arrivée (7,5/s par voie de tapis ; quai : **un bras de 0,83/s par objet et par port tapis**, `P.feeder` et `build.lua:1503-1550`).
+
+**Résultat sur les gabarits réels** (**mesuré**, `lua5.2 tests/blocs_audit_test.lua --liste`) :
+- **Structure : 0 écart** sur les 51 gabarits (24 du catalogue + 27 variantes d'ère) : n entrées = ingrédients solides distincts, m sorties = produits nets, débits recalculés = analyse = déclaré, aucun port inutile ou parasite, aucune voie mêlée. Les rangées générées pour chaque recette du livre réel (`M.GEN.simple`, 839 recettes, 168 constructibles, 671 refusées par le générateur : plus de 2 ingrédients solides, fluide, catégorie) : **0 écart de structure**, 0 erreur d'analyse.
+- **Dimensionnement : 21 gabarits sur 51 en écart** (33 écarts), tous du même type : **le quai d'entrée est un seul bras de base (0,83 objet/s) par objet et par port, quel que soit le débit nominal de la recette**. Ce n'est pas un défaut de n ou de m, c'est « chaque entrée dimensionnée au débit de la recette » qui n'est pas tenu côté quai (les sorties, elles, sont dimensionnées : `out_arms`, 1 à 2 bras rapides par tapis). Même constat sur 74 des 168 rangées du livre de recettes (une machine par rangée).
+
+| Gabarit (et variantes) | Entrée | Attendu (objets/s) | Quai réel |
+|---|---|---|---|
+| engrenages, -n7, -n13, -n19 | fer (plaques) | 12,0 ; 13,3 ; 11,8 ; 14,6 | 0,83 (6 à 7 %) |
+| circuits-verts, -n7, -3m-n13, -3m-n19 | cuivre / fer | 4,5 / 3,0 ; 6,7 / 4,4 ; 4,4 / 2,9 ; 5,5 / 3,7 | 0,83 / 0,83 |
+| packs-rouges, -4-n7, -3-n13, -2-n19 | fer (et cuivre pour -4-n7 et -3-n13) | 1,5 ; 1,8 ; 1,8 ; 1,5 (cuivre 0,9) | 0,83 |
+| packs-verts, -3-n7, -3-n13, -2-n19 | fer | 2,8 ; 2,5 ; 3,3 ; 2,8 | 0,83 |
+| plastique-2 | charbon | 2,0 | 0,83 |
+| circuits-rouges, -3m-n13, -3m-n19 | cuivre, circuits verts, plastique | 1,0 ; 1,0 ; 1,2 (chacun) | 0,83 (3 entrées) |
+| moteurs-n7 | fer | 0,89 | 0,83 |
+
+Non en écart : fonderies, foreuses, avant-postes (minerai servi par tapis de foreuses au-delà de 1/s), centrale (bras à combustion, charbon porté), labos, soufre, moteurs de base, raffinerie et chevalets (fluides).
+
+**Lecture.**
+1. Le journal du DC contient justement un quai d'engrenages à **1,50 objet/s** (`[FO-LIAISON] azure : quai 15:q2`) alimenté par UN bras de 0,83/s : le module ne peut pas tourner à son nominal, et `Li.worth` (qui lit `p.inflow`, le nominal) **surestime** l'économie d'une liaison : le tapis supprimerait un goulot que le PNJ ne servait de toute façon pas plus vite que 0,83/s.
+2. Les `[FO-FONCTION]` « no_ingredients » et les modules « finis à 0/min » vus au journal sont compatibles avec un module affamé par son quai, mais **ce lien n'est pas prouvé** : les modules réels du plan sont dimensionnés par le débit visé (« 3 objets/min visés, nominal 5 »), non au nominal du catalogue.
+3. Correctifs à décider (pas faits ici) : choisir le bras du quai par le débit visé comme `out_arms` (bras rapide 2,31/s, deux bras par voie) ; borner `n` du gabarit à ce que le quai porte ; au-delà (engrenages à 12/s), l'entrée doit venir d'un tapis, donc d'un **bus** (§2 à §4), pas d'un quai ; faire lire à `Li.worth` le minimum du nominal et de la capacité du quai.
+
+**Autre constat de structure** (pas un écart) : 6 gabarits ont deux ports de sortie du MÊME objet (fonderies : un tapis par côté de la colonne de fours, 5 à 6,25 plaques/s au total) : un produit, deux coffres de sortie. Dans le graphe, ce sont deux terminaux producteurs du même objet (ce que fait déjà `p.outs`).
+
+**Limites de l'audit.** Débits au NOMINAL du gabarit, pas au débit visé du module construit ; le combustible n'est pas dimensionné (consommation des brûleurs non recalculée) ; les fluides sont écartés du compte (n solide) ; les « quais et coffres » du plan directeur sont jugés par leur règle de construction (un bras par voie, `P.feeder`), pas par un relevé de modules posés en jeu.
