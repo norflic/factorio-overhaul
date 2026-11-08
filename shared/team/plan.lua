@@ -717,14 +717,15 @@ function P.feeder(port, sources, quai_inserter, belt, arms)
       -- bras du côté OPPOSÉ à la voie (dépose sur la voie lointaine), coffre au-delà
       local ix, iy = at(1, -side)
       local cx, cy = at(1, -2 * side)
-      ents[#ents + 1] = { name = quai_inserter or "inserter", x = ix + 0.5, y = iy + 0.5, dir = dir_of(-side * lx, -side * ly), role = "quai-bras" }
-      ents[#ents + 1] = { name = "iron-chest", x = cx + 0.5, y = cy + 0.5, dir = 0, role = "quai", item = item }
+      local q_arm, q_chest = quai_inserter or "inserter", "iron-chest" -- pièces du quai (un ou deux bras, lot RESEAU-GRAPHE)
+      ents[#ents + 1] = { name = q_arm, x = ix + 0.5, y = iy + 0.5, dir = dir_of(-side * lx, -side * ly), role = "quai-bras" }
+      ents[#ents + 1] = { name = q_chest, x = cx + 0.5, y = cy + 0.5, dir = 0, role = "quai", item = item }
       chests[#chests + 1] = { x = cx + 0.5, y = cy + 0.5, item = item, lane = lane }
       if arms > 1 then
         local jx, jy = at(3, -side)
         local kx, ky = at(3, -2 * side)
-        ents[#ents + 1] = { name = quai_inserter or "inserter", x = jx + 0.5, y = jy + 0.5, dir = dir_of(-side * lx, -side * ly), role = "quai-bras" }
-        ents[#ents + 1] = { name = "iron-chest", x = kx + 0.5, y = ky + 0.5, dir = 0, role = "quai", item = item }
+        ents[#ents + 1] = { name = q_arm, x = jx + 0.5, y = jy + 0.5, dir = dir_of(-side * lx, -side * ly), role = "quai-bras" }
+        ents[#ents + 1] = { name = q_chest, x = kx + 0.5, y = ky + 0.5, dir = 0, role = "quai", item = item }
         chests[#chests + 1] = { x = kx + 0.5, y = ky + 0.5, item = item, lane = lane }
       end
     elseif item and sources[lane] == "tapis" then

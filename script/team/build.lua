@@ -114,6 +114,7 @@ local REACH = P.BUILD_DISTANCE
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (réserve des modules neufs, agrandissement, tapis)
 Build.Ene = require("shared.team.energie_dabord") -- lot TV-ENERGIE (G41) : « la première expansion est l'énergie », règle pure ; champ de Build, pas une locale (bloc principal à 198 locales)
 Build.Qd = require("shared.team.quai_debit") -- lot RESEAU-GRAPHE : bras du quai d'entrée choisi par le débit, n borné à ce que le quai porte (règle pure) ; champ de Build, pas une locale
+Build.QUAI_CHEST = "iron-chest" -- coffre des quais et des sorties (pièce du plan, P.feeder) : un seul nom pour les relevés au moteur
 Build.QUAI_BORNE_N = false -- vrai : rangée raccourcie à ce que le quai porte (RESEAU-GRAPHE) ; faux depuis la directive du DC (rangées longues)
 Build.QUAI_PAR_DEBIT = true -- vrai : NOUVEAUX gabarits seulement (les projets déjà planifiés gardent leurs pièces) ; faux : le quai d'avant (un bras de base par voie)
 Build.Colr = require("shared.team.collecte") -- lot COLLECTE : règle pure (états servis, voyage à vide) ; champ de Build, pas une locale (essai-0660 : bloc principal à 200 locales)
@@ -3821,7 +3822,7 @@ function Build.work(agent, f, tick)
     return "done"
   elseif job.mode == "fill" then
     local q = p.quais[job.idx]
-    local chest = q and surface.find_entity("iron-chest", { q.x, q.y })
+    local chest = q and surface.find_entity(Build.QUAI_CHEST, { q.x, q.y })
     if not chest then return "fail" end
     local n = inv.get_item_count(q.item)
     if n > 0 then
@@ -3836,7 +3837,7 @@ function Build.work(agent, f, tick)
     return Sante.work(f, p, surface, inv, tick) -- lot ENERGIE (2/11) : charbon porté versé dans les chaudières à sec
   elseif job.mode == "collect" then
     local o = p.outs[job.idx]
-    local function out_chest(q) return surface.find_entity("iron-chest", { q.x, q.y }) end
+    local function out_chest(q) return surface.find_entity(Build.QUAI_CHEST, { q.x, q.y }) end
     local chest = o and out_chest(o)
     if not chest then return "fail" end
     local got = 0
@@ -4078,7 +4079,7 @@ end
 local function out_tasks(f, p, surface, out)
   local chests, counts, slots, in_slots = {}, {}, nil, nil
   for i, o in ipairs(p.outs) do
-    local chest = surface.find_entity("iron-chest", { o.x, o.y })
+    local chest = surface.find_entity(Build.QUAI_CHEST, { o.x, o.y })
     if chest and chest.force.name == f.force then
       local inv = chest.get_inventory(defines.inventory.chest)
       chests[i], counts[i] = chest, inv.get_item_count()
@@ -4122,7 +4123,7 @@ local function quai_tasks(f, p, surface, out)
   local qta, counts = out_tasks(f, p, surface, collect)
   local feed = Build.Quotas.feed_ok(qta, counts)
   for i, q in ipairs(p.quais) do
-    local chest = surface.find_entity("iron-chest", { q.x, q.y })
+    local chest = surface.find_entity(Build.QUAI_CHEST, { q.x, q.y })
     if chest and chest.force.name == f.force then
       local n = chest.get_item_count(q.item)
       local have = Stock.count(f, q.item)
@@ -5161,7 +5162,7 @@ function Build.status(f, id)
   local quais = {}
   local surface = surface_of(f)
   for _, q in ipairs(p.quais) do
-    local chest = surface and surface.find_entity("iron-chest", { q.x, q.y })
+    local chest = surface and surface.find_entity(Build.QUAI_CHEST, { q.x, q.y })
     quais[#quais + 1] = { x = q.x, y = q.y, item = q.item, count = chest and chest.get_item_count(q.item) or -1 }
   end
   -- entités pas encore bâties (5 au plus, dans l'ordre de pose) : ce qui retient un chantier
