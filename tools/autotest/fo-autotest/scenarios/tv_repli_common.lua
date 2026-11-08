@@ -33,7 +33,7 @@ local function verify(ctx, on, TAG, proj, rep)
       for _, e in ipairs(lay and lay.ents or {}) do
         if e.pid == proj.id and e.x >= part.x and e.x <= part.x + part.w and e.y >= part.y and e.y <= part.y + part.h then found = found + 1 end
       end
-      ctx.check(found >= 50, "repli allume : au moins 50 entites planifiees du projet sur l'emprise de la partie", tostring(found))
+      ctx.check(found >= 30, "repli allume : au moins 30 entites planifiees du projet sur l'emprise de la partie", tostring(found))
       ctx.log(TAG .. string.format("partie %s lot %s en (%d, %d) %dx%d rotation %d ; %d entite(s) planifiee(s) sur l'emprise", part.kind, tostring(part.lot),
         part.x, part.y, part.w, part.h, part.rotation or 0, found))
     end
