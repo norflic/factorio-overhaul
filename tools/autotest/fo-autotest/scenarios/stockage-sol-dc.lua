@@ -124,6 +124,28 @@ local function labs(ctx, s, pos, label)
   local r = fo.current_research
   ctx.log(string.format("%s LABOS : recherche en cours %s (%.0f %%), file %d", label, r and r.name or "aucune",
     100 * (fo.research_progress or 0), #(fo.research_queue or {})))
+  -- Technologies PRÊTES (ouvertes, pas faites, prérequis faits) et leurs packs : une recherche bloquée faute de pack payable, ou non ?
+  local tnames = {}
+  for name in pairs(fo.technologies) do tnames[#tnames + 1] = name end
+  table.sort(tnames)
+  local ready, by_packs = {}, {}
+  for _, name in ipairs(tnames) do
+    local t = fo.technologies[name]
+    if t.enabled and not t.researched then
+      local ok = true
+      for _, pre in pairs(t.prerequisites) do if not pre.researched then ok = false break end end
+      if ok then
+        local packs = {}
+        for _, ing in ipairs(t.research_unit_ingredients) do packs[#packs + 1] = ing.name end
+        table.sort(packs)
+        local key = table.concat(packs, "+")
+        by_packs[key] = (by_packs[key] or 0) + 1
+        ready[#ready + 1] = name .. "[" .. key .. "]"
+      end
+    end
+  end
+  ctx.log(string.format("%s LABOS : %d technologie(s) prete(s) ; par packs {%s} ; %s", label, #ready, refused_text(by_packs),
+    table.concat(ready, " ", 1, math.min(12, #ready))))
   local list = s.find_entities_filtered({ type = "lab", force = "player", position = pos, radius = 500 })
   table.sort(list, function(a, b) return a.unit_number < b.unit_number end)
   local by = {}
