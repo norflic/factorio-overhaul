@@ -71,7 +71,9 @@ check(has("script/team/worker.lua", "return Ra.floor(T.ammo_min, urgent, s1 ~= n
 check(has("shared/ai3/buts.lua", "B.AMMO_MIN = T.ammo_min") and T.ammo_min == 20 and not has("script/team/worker.lua", "shared.ai3.buts"),
   "relecture (4) : une seule constante T.ammo_min (buts et rechargement), plus de require de shared.ai3.buts dans worker.lua")
 check(has("script/team/worker.lua", "if not (guns and guns.get_item_count(T.worker_gun) > 0) then return end"), "seul un PNJ armé (pistolet) est rechargé")
-check(has("script/team/worker.lua", "if ammo then deposit_inventory(f, ammo, KEEP_AMMO) end")
+-- (intégrateur, 8/11 : depuis 30405558 (danger5, gel « away »), deposit_inventory reçoit le coffre sûr en 4e argument ; la dotation
+-- KEEP_AMMO reste le 3e, la propriété contrôlée ne change pas)
+check(has("script/team/worker.lua", "if ammo then deposit_inventory(f, ammo, KEEP_AMMO, chest) end")
   and has("script/team/worker.lua", "local spare = inv and (inv.get_item_count(item) - (s[2][item] or 0)) or 0"),
   "la dotation est protégée : le dépôt et bg_absorb ne reprennent que l'excédent au-delà de KEEP_AMMO")
 check(has("script/team/team.lua", "Worker.rearm_report(f, tick)"), "journal [FO-REARMEMENT] écrit à la pensée de l'équipe (votre équipe et factions)")
