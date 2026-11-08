@@ -107,6 +107,22 @@ local function battery(Fa)
   check(low.plaque == 0 and t3.plaque == 100, "5 : jamais plus que ce qui est au stock")
   Fa.restore(low, t3)
   check(low.plaque == 100, "5 : retour exact")
+  -- 5 bis. la famille consomme : ce qu'elle a pris sort de la réserve (un projet servi après elle ne la voit pas deux fois)
+  local resl = Fa.reserve(avail, w, plan_raw, 250)
+  check(resl.left.plaque == resl.held.plaque and resl.left ~= resl.held, "5 : left est une copie de la reserve de depart")
+  local av = { plaque = 1000, cuivre = 80 }
+  local snap = Fa.snapshot(av, resl.left)
+  check(snap.plaque == 1000 and snap.cuivre == 80 and snap.autre == nil, "5 : releve avant le membre : les seules matieres retenues")
+  av.plaque = 960 -- le membre a consomme 40 plaques
+  Fa.spend(resl.left, snap, av)
+  check(resl.left.plaque == resl.held.plaque - 40 and resl.held.plaque == 92, "5 : 40 plaques consommees par la famille : la reserve baisse de 40, celle de depart reste (" .. tostring(resl.left.plaque) .. ")")
+  av.plaque = 0 -- consommation au-dela de la reserve
+  Fa.spend(resl.left, snap, av)
+  check(resl.left.plaque == nil, "5 : consommation au-dela de la reserve : plus rien de retenu, jamais negatif")
+  local av2 = { plaque = 1200 } -- le stock a monte (arrivee) : rien consomme
+  local l2 = { plaque = 50 }
+  Fa.spend(l2, { plaque = 1000 }, av2)
+  check(l2.plaque == 50, "5 : un stock qui monte ne libere rien")
   -- 6. déterminisme, signature, ligne
   local r1, r2 = Fa.reserve(avail, w, plan_raw, 250), Fa.reserve(avail, w, plan_raw, 250)
   check(Fa.signature(r1) == Fa.signature(r2) and Fa.signature(r1) == "250|cuivre,plaque", "6 : signature deterministe, sans quantites : " .. Fa.signature(r1))
@@ -229,6 +245,9 @@ local MUTANTS = {
   { "plan du livre absent : reserve quand meme", 'if type(raw) ~= "table" then res.why = "plan du livre absent" return res end', "raw = raw or {}" },
   { "un membre emprunte aussi", "if member then return taken end", "" },
   { "reserve jamais rendue", "avail[k] = (avail[k] or 0) + taken[k]", "" },
+  { "consommation de la famille jamais deduite", "if used > 0 then held[k] = math.max(0, held[k] - used) end", "" },
+  { "reserve epuisee gardee a zero", "if held[k] <= 0 then held[k] = nil end", "" },
+  { "left partage avec la reserve de depart", "for _, k in ipairs(sorted_keys(res.held)) do res.left[k] = res.held[k] end", "res.left = res.held" },
   { "munitions ignorees", 'if g.kind == "stock" and', 'if false and' },
   { "equipement ignore", 'elseif g.kind == "army" and kit_of then', "elseif false then" },
   { "famille sans la defense", "Fa.FAMILIES = { armee = true, defense = true }", "Fa.FAMILIES = { armee = true }" },

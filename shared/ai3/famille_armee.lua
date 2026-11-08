@@ -74,10 +74,10 @@ end
 
 --- La réserve. avail = stock virtuel { [matière] = n } ; wants = Fa.wants ; plan_raw(liste { {objet, n} }) rend { [matière de base] = manque }
 --- (le plan du livre sur le stock virtuel) ; share = Fa.share (‰ ou nil). Rend
----   { held = { [matière] = n } (réserve, triée à l'usage), share, wants, raw, why } ;
+---   { held = { [matière] = n } (réserve de départ), left (le même, qui baisse quand la famille consomme), share, wants, raw, why } ;
 ---   held vide et `why` écrit quand rien n'est retenu (part absente, aucun besoin, aucune matière de base réclamée).
 function Fa.reserve(avail, wants, plan_raw, share, share_why)
-  local res = { held = {}, share = share, wants = wants or {}, raw = {}, why = nil }
+  local res = { held = {}, left = {}, share = share, wants = wants or {}, raw = {}, why = nil }
   if share == nil then res.why = "part absente : " .. tostring(share_why or "?") return res end
   if share <= 0 then res.why = "part nulle" return res end
   if #res.wants == 0 then res.why = "aucun besoin de la famille" return res end
@@ -95,6 +95,8 @@ function Fa.reserve(avail, wants, plan_raw, share, share_why)
     if h > 0 then res.held[k] = h any = true end
   end
   if not any then res.why = "aucune matiere de base reclamee au stock" end
+  res.left = {} -- ce qui reste retenu au fil du service du stock (Fa.spend) ; `held` garde la réserve de départ, rapportée au journal
+  for _, k in ipairs(sorted_keys(res.held)) do res.left[k] = res.held[k] end
   return res
 end
 
@@ -115,6 +117,24 @@ end
 
 function Fa.restore(avail, taken)
   for _, k in ipairs(sorted_keys(taken)) do avail[k] = (avail[k] or 0) + taken[k] end
+end
+
+--- Un membre vient d'être servi : ce qu'il a consommé du stock virtuel (avant -> après) sort de la réserve (elle servait à cela), jamais plus que
+--- ce qu'elle retenait. Sans cela, un projet servi APRÈS l'armée verrait la réserve deux fois (une fois consommée, une fois retenue).
+--- before = { [matière] = n } relevé avant l'émission du membre (Fa.snapshot) ; avail = stock virtuel après.
+function Fa.spend(held, before, avail)
+  for _, k in ipairs(sorted_keys(held)) do
+    local used = (before[k] or 0) - (avail[k] or 0)
+    if used > 0 then held[k] = math.max(0, held[k] - used) end
+    if held[k] <= 0 then held[k] = nil end
+  end
+end
+
+--- Relevé du stock virtuel des seules matières retenues, avant l'émission d'un membre.
+function Fa.snapshot(avail, held)
+  local out = {}
+  for _, k in ipairs(sorted_keys(held)) do out[k] = avail[k] or 0 end
+  return out
 end
 
 --- Signature d'une réserve (pour n'écrire au journal qu'aux changements) : la part et les matières retenues, SANS les quantités (qui bougent à

@@ -84,6 +84,7 @@ end
 --- aussi (« defaut sans levier »), jamais ignorée. Rend le résultat de Df.route.
 function Pil.defauts(f, cs, cfr, tick, mn)
   local d = def_state(cs)
+  cfr = cfr or {} -- nil : seulement les défauts notés hors du relevé (chaque pensée, Capi.think_tail)
   local events = {}
   for _, list in ipairs({ cfr.failed_now or {}, cfr.stopped_now or {}, cfr.lost_now or {} }) do
     for _, e in ipairs(list) do events[#events + 1] = { cause = e.cause, item = e.item, id = e.id } end

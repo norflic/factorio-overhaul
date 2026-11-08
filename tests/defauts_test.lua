@@ -121,6 +121,15 @@ local function battery(Df)
   check(Df.signature(r) == Df.signature(r2) and Df.signature(r) == "courant=3,rien produit=1,sortie=1,?(aucune)=2,?cause-nouvelle=1",
     "3 : deterministe : " .. Df.signature(r))
   check(#Df.route(nil).rows == 0 and Df.route({}).total == 0, "3 : aucun evenement : rien")
+  -- ordre : toutes les causes de la table, a l'envers, doivent ressortir triees (un parcours par pairs ne le ferait pas)
+  local all = {}
+  for i = #Df.FAULTS, 1, -1 do all[#all + 1] = { cause = Df.FAULTS[i].cause, item = "obj" .. i, id = i } end
+  for i = 1, 6 do all[#all + 1] = { cause = "inconnue-" .. string.char(96 + 7 - i), item = "x" .. i, id = 100 + i } end
+  local ra = Df.route(all)
+  local sorted = true
+  for i = 2, #ra.rows do if ra.rows[i - 1].cause >= ra.rows[i].cause then sorted = false end end
+  for i = 2, #ra.unrouted do if ra.unrouted[i - 1].cause >= ra.unrouted[i].cause then sorted = false end end
+  check(sorted and #ra.rows == #Df.FAULTS and #ra.unrouted == 6, "3 : toutes les causes, a l'envers, ressortent triees")
   local line = Df.line("emerald", r.rows[1], 12.5)
   check(line:find("[FO-DEFAUT] emerald : courant -> ", 1, true) == 1 and line:find("levier energie", 1, true) and line:find("3 unite(s) [a b]", 1, true),
     "3 : ligne [FO-DEFAUT] : " .. line)

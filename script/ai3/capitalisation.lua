@@ -2137,6 +2137,7 @@ end
 
 --- Suite de Capi.think après la décision (suivi des ordres, laboratoires, buts de fond) : chaque pensée.
 function Capi.think_tail(f, cs, tick)
+  if cs.def and cs.def.pending and #cs.def.pending > 0 then Pil.defauts(f, cs, nil, tick, minutes(f, tick)) end -- lot TV-PILOTE (V88) : défauts notés hors du relevé (plan refusé par l'exécutant occupé), rangés à la pensée même
   -- Suivi des ordres ouverts (chaque pensée : lectures sans appel coûteux du moteur).
   local keep = {}
   for _, rec in ipairs(cs.open) do
@@ -2326,6 +2327,14 @@ remote.add_interface("fo-capi", {
     if not (f and f.team) then return false end
     local cs = state_of(f)
     cs.bench_sinks = (rate and rate > 0) and { { item = item, rate = rate, want = rate } } or nil
+    return true
+  end,
+  --- Lot TV-PILOTE (BANC SEULEMENT) : note un défaut `cause` (objet `item`) comme le ferait le relevé des machines ; le prochain relevé le range
+  --- par défaut (Df.route) et écrit [FO-DEFAUT]. Un banc court ne peut pas attendre qu'une machine tombe en panne (15 min sans hausse au moins).
+  bench_defaut = function(key, cause, item)
+    local f = team_of(key)
+    if not (f and f.team) then return false end
+    Pil.note(state_of(f), cause, item)
     return true
   end,
   --- Lot C2 (BANC SEULEMENT, témoin) : éteint le puits ouvert, la décision sur le débit voulu et le seuil du tapis de cette faction.

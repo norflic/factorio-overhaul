@@ -360,9 +360,19 @@ function C.think(view, book, st, ctx)
       function(list) return E.book:plan(list, E.avail).raw end, share, share_why)
   end
   for _, proj in ipairs(served) do
-    local taken = (famres and next(famres.held) ~= nil) and Fa.lend(E.avail, famres.held, Fa.member(proj.goal)) or nil
-    P.emit(E, proj, ctx, tick)
-    if taken then Fa.restore(E.avail, taken) end
+    if famres and next(famres.left) ~= nil then
+      if Fa.member(proj.goal) then
+        local before = Fa.snapshot(E.avail, famres.left)
+        P.emit(E, proj, ctx, tick)
+        Fa.spend(famres.left, before, E.avail) -- ce que la famille a consommé n'est plus retenu pour les projets suivants
+      else
+        local taken = Fa.lend(E.avail, famres.left, false)
+        P.emit(E, proj, ctx, tick)
+        Fa.restore(E.avail, taken)
+      end
+    else
+      P.emit(E, proj, ctx, tick)
+    end
   end
   -- 6. Approvisionnement.
   local raw, minable = C.raw_items()
