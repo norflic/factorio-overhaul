@@ -30,6 +30,32 @@ return function(name, actif)
     check_tick = -1,
   }
 
+  -- Événements de la fenêtre (amendement du 8/11, AMENDEMENT_Q5_2026-11-08.md, point b) : morts vues par le lot
+  -- (créées + loin + sans point) et effets script des autres lots (tirs des chargeurs : fo-tirs, évts par âge + autres).
+  local function compte(ctx)
+    local m, t = -1, -1
+    if remote.interfaces["fo-explosions-mort"] then
+      local z = ctx.remote("fo-explosions-mort", "stats")
+      m = z.crees + z.loin + z.sans_point
+    end
+    if remote.interfaces["fo-tirs"] then
+      local s = ctx.remote("fo-tirs", "stats")
+      t = s.autres or 0
+      for _, a in ipairs(s.ages or {}) do t = t + (a.evts or 0) end
+    end
+    return { morts = m, tirs = t }
+  end
+
+  local function journal_fenetre(ctx, st, nom, rel)
+    local c = compte(ctx)
+    local d = st.borne
+    if d then
+      ctx.log(string.format("FENETRE %s [%d, %d[ : %d ticks, morts vues par le lot %d, effets script d'autres lots %d", nom, d.rel, rel,
+        rel - d.rel, c.morts - d.morts, c.tirs - d.tirs))
+    end
+    st.borne = { rel = rel, morts = c.morts, tirs = c.tirs }
+  end
+
   local function force(n)
     return game.forces[n] or game.create_force(n)
   end
@@ -116,6 +142,8 @@ return function(name, actif)
         ctx.check(false, "interface fo-explosions-mort presente (lot Q5)")
       end
     end
+    if rel == WAVES[1] then journal_fenetre(ctx, st, "debut", rel) end
+    if rel == ATTAQUE_B then journal_fenetre(ctx, st, "A", rel) end
     for _, w in ipairs(WAVES) do
       if rel == w then
         local grp = s.create_unit_group({ position = { st.xa + 40, st.ya }, force = "enemy" })
@@ -148,6 +176,7 @@ return function(name, actif)
   S.finish = function(ctx)
     local st = ctx.state()
     if not st.xa then return end
+    journal_fenetre(ctx, st, "B", game.tick - st.debut)
     local s = game.surfaces[1]
     local restants_b = s.count_entities_filtered({ force = "fo-x10-bloc", area = { { st.xb - 20, st.yb - 20 }, { st.xb + 70, st.yb + 70 } } })
     ctx.log(string.format("scene A : biters encore en vie a la fin de la fenetre A : %s ; scene B : %d batiments detruits sur %d",
