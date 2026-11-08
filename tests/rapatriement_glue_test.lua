@@ -286,6 +286,12 @@ do
   check(ok == false and tostring(why):find("rapatriement", 1, true), "G4.3 un mur de tuiles bloquees : refus (" .. tostring(why) .. ")")
   ok, why = try(function(W2, f2) W2.surface.is_chunk_generated = function(c) return c.x < 2 end end)
   check(ok == false, "G4.4 des chunks non generes sur le chemin : refus (" .. tostring(why) .. ")")
+  ok, why = try(function(W2, f2, b2)
+    for dx = -1, 1 do for dy = -1, 1 do
+      if dx ~= 0 or dy ~= 0 then b2.occ[P.tkey(150 + dx, 20 + dy)] = 99 end -- le coffre de sortie est entouré
+    end end
+  end)
+  check(ok == false and tostring(why):find("aucune place pour un bras", 1, true), "G4.7 coffre de sortie entoure : refus avec sa cause (" .. tostring(why) .. ")")
   local far_spec = { rapatriement = { key = "1:o1", item = "A", flow = 0.8, arm = "fast-inserter", pole = "small-electric-pole", belt = "transport-belt", chest = CHEST,
     src = { pid = 1, idx = 1, x = 150, y = 20 }, point = { x = 2000, y = 2000 } } }
   local W3 = new_world()

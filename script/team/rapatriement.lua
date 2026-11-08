@@ -565,6 +565,7 @@ function Rap.plan(api, f, surface, p)
     if #spots == 0 then return false, "rapatriement: aucune place pour le tampon a portee d'un poteau" end
   end
   S = { x = src.x, y = src.y }
+  if #Li.sites(S.x, S.y, free) == 0 then return false, "rapatriement: aucune place pour un bras et un tapis contre le coffre de sortie" end
   local bounds = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }
   local last_why = "aucun chemin"
   local chosen
