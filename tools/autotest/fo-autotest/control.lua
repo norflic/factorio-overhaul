@@ -32,6 +32,8 @@ local KIT_EGAL = {
 KIT_EGAL["foreuses-partie-dc"] = true
 KIT_EGAL["foreuses-partie-dc-temoin"] = true
 KIT_EGAL["foreuses-stock-dc"] = true
+-- Lot BLOCAGE-SORTIE : diagnostic et mesure sur la sauvegarde du DC telle quelle.
+KIT_EGAL["blocage-diag"] = true
 
 -- Lot IA0 : les scénarios de guerre intégrés restent en « Paisible » (pvp = "peaceful"), comportement des
 -- sessions 4-5, pour rester comparables à E17-E22 (sinon, au niveau Normal par défaut, les factions
