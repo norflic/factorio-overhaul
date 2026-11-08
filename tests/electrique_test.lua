@@ -230,6 +230,31 @@ do
     "8b : la porte est dans EMIT.outpost")
 end
 
+section("8 bis 2. Petit poteau et bois (d) : A.choose_pole, A.POLE_BATCH, tâches de minage du bois marquées « trees »")
+do
+  local A = require("shared.ai3.automatiser")
+  local Mo = require("shared.team.modules")
+  local small = Mo.POLES[1]
+  -- livre factice : chaque poteau se fabrique (2 par recette) avec 1 matière naturelle « bois-x » ; le reste n'est pas naturel
+  local book = {
+    handcraftable = function(_, name) return name == small end,
+    natural = function(_, k) return k == "bois-x" end,
+    plan = function(_, wants, stock)
+      local n = wants[1][2]
+      local need = math.ceil(n / 2) - ((stock or {})["bois-x"] or 0)
+      return { raw = need > 0 and { ["bois-x"] = need } or {} }
+    end,
+  }
+  check(A.POLE_BATCH == 12, "8d : A.POLE_BATCH = 12 (gabarit de fonderie au petit poteau)")
+  check(A.choose_pole(book, { ["bois-x"] = 6 }, {}) == small, "8d : 6 bois au coffre suffisent au gabarit (12 poteaux)")
+  check(A.choose_pole(book, { ["bois-x"] = 5 }, {}) ~= small, "8d : 5 bois, rien a portee : pas le petit poteau")
+  check(A.choose_pole(book, {}, { ["bois-x"] = 40 }) == small, "8d : bois a portee (arbres) : petit poteau sans stock")
+  local psrc = read("shared/ai3/projets.lua")
+  check(psrc:find("trees = (ctx.trees and ctx.trees[item]) or nil", 1, true) ~= nil, "8d : la tache de minage du bois porte `trees`")
+  local csrc = read("shared/ai3/cerveau.lua")
+  check(csrc:find("trees = trees,", 1, true) ~= nil, "8d : le cerveau passe l'ensemble des matieres des arbres a P.supply")
+end
+
 section("8 ter. Centrales en parallèle (shared/team/centrale.lua, C.parallel_kw, C.growth)")
 local CSRC = read("shared/team/centrale.lua")
 local function centrale_suite(C)
