@@ -9,6 +9,7 @@
         (une pièce souterraine porte type = "input" | "output" : convention de build.lua pour le fantôme et le ravivage).
         opts : belt (nom du tapis du tracé), sd (sens d'arrivée en s, code du jeu), weight, max, kind (texte du journal), no_ore (vrai : le
         gisement est ignoré), budget ({ left } : états restants, partagé ; défaut : Tv.PLAN_BUDGET par projet et par tick).
+        phase_slice / phase_state (lot TRANCHES-FOREUSES) : tracé par passes de phase_slice états ; une passe inachevée rend nil, "pending", état.
     - Trav.pole_chain(f, surface, a, b, reach, big, free, known, opts) -> chaîne | nil
   Réglage : Trav.ENABLED (banc : Trav.set_enabled(false) rend les anciens tracés, le compteur de gisement continue de tourner).
   Rien dans global ici, sauf les compteurs de f.build.stats (traversee_*), créés à la demande, jamais à on_load.
@@ -215,6 +216,7 @@ function Trav.route(f, surface, p, s, t, t_dir, bounds, cost, opts)
   local ctx = {
     maxd = ug and ug.maxd or nil, sd = opts.sd, weight = opts.weight or Tv.GAME_WEIGHT, max = opts.max, ore = ore, budget = (not opts.slice) and Trav.budget(f, p, opts) or nil,
     slice = opts.slice, resume = opts.resume, no_detour = opts.no_detour, -- lot RESEAU-GRAPHE : recherche par tranches (tronc de bus)
+    phase_slice = opts.phase_slice, phase_state = opts.phase_state, -- lot TRANCHES-FOREUSES : le MÊME tracé, cherché par passes (état rendu : nil, "pending", état)
     -- les souterrains existants ne sont lus qu'à la première paire envisagée (phase B de la règle) : un tracé sans obstacle ne lit rien
     ug_axis = ug and (function()
       local axes
