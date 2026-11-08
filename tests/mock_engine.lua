@@ -963,6 +963,9 @@ function M.new_world(opts)
       ["fo-war-capital"] = (opts.capital ~= false) and (os.getenv("FO_CAPITAL") ~= "0"),
       -- Lot AMELIORER : remplacement des machines hors famille, ALLUMÉ par défaut comme le jeu (settings/capital.lua)
       ["fo-war-remplacer"] = opts.remplacer ~= false,
+      -- Lot AMELIORATION (8/11) : monter les bâtiments par bloc, ALLUMÉ par défaut comme le jeu (settings/capital.lua) ; éteint par
+      -- l'option (amelioration = false) ou par FO_AMELIORATION=0. Absent, script/ai3/capital.lua levait « paramètre inconnu ».
+      ["fo-war-amelioration"] = (opts.amelioration ~= false) and (os.getenv("FO_AMELIORATION") ~= "0"),
       -- Lot CAPIB : ÉTEINT par défaut comme le jeu (settings/capi.lua) ; allumé par l'option (capi = true) ou FO_CAPI=1
       -- (n'agit qu'avec fo-war-ia3e : FO_IA3E=1)
       ["fo-war-capi"] = (opts.capi == true) or (os.getenv("FO_CAPI") == "1"),
