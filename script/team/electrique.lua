@@ -151,6 +151,23 @@ function Elec.view_off(f, tick)
   return any and out or nil
 end
 
+--- La thermique est-elle encore permise pour ce type d'avant-poste (nil : type inconnu, jamais du combustible) ? Verdict périmé ou règle
+--- éteinte : vrai (comportement d'avant). Lu par la reconstruction (script/team/reconstruction.lua).
+function Elec.allowed(f, tick, kind)
+  local st = f and f.elec
+  local v = st and st.v
+  if not (v and v.on and tick - (v.tick or -math.huge) <= Elec.TTL) then return true end
+  local spec = kind and T.outposts[kind]
+  return (E.thermal({ on = v.on, obtainable = v.obtainable, plants = v.plants, poles = v.poles,
+    fuel = spec ~= nil and spec.product == T.fuel, healthy = v.healthy }))
+end
+
+--- Journal : foreuses thermiques perdues non refaites (n) et secours thermiques annulés (back) par la reconstruction.
+function Elec.note_rebuild(f, tick, n, back)
+  local st = state_of(f)
+  say(f, st, tick, string.format("reconstruction : %d foreuse(s) thermique(s) perdue(s) non refaite(s), %d secours thermique(s) annule(s) (l'electrique les remplace)", n, back))
+end
+
 local function report(f, st, tick)
   local slot = math.floor(tick / Elec.REPORT)
   if st.slot == slot then return end

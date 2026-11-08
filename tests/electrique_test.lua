@@ -92,17 +92,20 @@ local function suite(E)
   end
   -- 4. (b) quota à la marge de kW
   do
-    local n, m = E.swap_quota({ capacity = 1800, used = 500, committed = 0, kw = 90 })
-    check(n == 6 and math.abs(m - 580) < 1e-6, "4a : 1800 x 0,6 - 500 = 580 kW : 6 electriques (" .. tostring(n) .. ")")
-    check(E.swap_quota({ capacity = 1800, used = 1700, committed = 0, kw = 90 }) == 0, "4b : marge negative : 0")
-    check(E.swap_quota({ capacity = 1800, used = 0, committed = 0, kw = 90 }) == 12, "4c : centrale vide : 1080 / 90 = 12")
+    local n, m = E.swap_quota({ capacity = 1800, used = 1300, committed = 0, kw = 90 })
+    check(n == 5 and math.abs(m - 500) < 1e-6, "4a : 1800 - 1300 = 500 kW : 5 electriques (" .. tostring(n) .. ")")
+    check(E.swap_quota({ capacity = 1800, used = 1850, committed = 0, kw = 90 }) == 0, "4b : marge negative : 0")
+    check(E.swap_quota({ capacity = 900, used = 0, committed = 0, kw = 90 }) == 10, "4c : centrale vide : 900 / 90 = 10")
     check(E.swap_quota({ capacity = 18000, used = 0, committed = 0, kw = 90 }) == E.CFG.block_max, "4d : borne block_max")
-    check(E.swap_quota({ capacity = 1800, used = 0, committed = 900, kw = 90 }) == 2, "4e : chantiers comptes : (1080 - 900) / 90 = 2")
+    check(E.swap_quota({ capacity = 1800, used = 0, committed = 2000, kw = 90 }) == 6, "4e : chantiers a 0,6 : (1800 - 1200) / 90 = 6")
+    -- banc sur la sauvegarde du DC (8/11) : 9 000 kW, 4 797 pris, 2 523 en chantiers : 2 286 kW de marge (bornee a 16 electriques)
+    local nd, md = E.swap_quota({ capacity = 9000, used = 4797, committed = 2523, kw = 90 })
+    check(nd == E.CFG.block_max and md > 2200, "4k : cas de la sauvegarde du DC : marge positive, quota plein (" .. tostring(md) .. ")")
     local nf, mf = E.swap_quota({ capacity = nil, kw = 90, fallback = 2 })
     check(nf == 2 and mf == nil, "4f : capacite non lue : quota de secours, pas de marge")
     check(E.swap_quota({ capacity = 0, kw = 90, fallback = 99 }) == E.CFG.block_max, "4g : secours borne")
     check(E.swap_quota({ capacity = 1800, used = 0, kw = 0, fallback = 3 }) == 3, "4h : kW d'une foreuse inconnu : secours")
-    check(E.swap_quota({ capacity = 1800, used = 900, committed = 0, kw = 90 }) == 2, "4i : 1080 - 900 = 180 : exactement 2")
+    check(E.swap_quota({ capacity = 1800, used = 1620, committed = 0, kw = 90 }) == 2, "4i : 1800 - 1620 = 180 : exactement 2")
     check(E.swap_quota({ capacity = 0 / 0, kw = 90, fallback = 1 }) == 1, "4j : capacite NaN : secours")
   end
   -- 5. (b) par bloc
@@ -287,8 +290,9 @@ local mutants = {
   { "task_drills : lignes non sommees", "n = n + (num(it[2]) or 0)", "n = (num(it[2]) or 0)" },
   { "filter : tache prise filtree", "local n = (not t.worker) and E.task_drills(t, drill) or 0", "local n = E.task_drills(t, drill)" },
   { "filter : verdict ignore", "if n > 0 then ok, why = verdict(t) end", "if n > 0 then ok, why = false, \"x\" end" },
-  { "swap_quota : draw ignore", "local margin = cap * cfg.draw - (num(c.used) or 0) - (num(c.committed) or 0)", "local margin = cap - (num(c.used) or 0) - (num(c.committed) or 0)" },
-  { "swap_quota : chantiers ignores", "local margin = cap * cfg.draw - (num(c.used) or 0) - (num(c.committed) or 0)", "local margin = cap * cfg.draw - (num(c.used) or 0)" },
+  { "swap_quota : draw ignore", "local margin = cap - (num(c.used) or 0) - cfg.draw * (num(c.committed) or 0)", "local margin = cap - (num(c.used) or 0) - (num(c.committed) or 0)" },
+  { "swap_quota : chantiers ignores", "local margin = cap - (num(c.used) or 0) - cfg.draw * (num(c.committed) or 0)", "local margin = cap - (num(c.used) or 0)" },
+  { "swap_quota : draw sur la capacite (bug du 8/11)", "local margin = cap - (num(c.used) or 0) - cfg.draw * (num(c.committed) or 0)", "local margin = cap * cfg.draw - (num(c.used) or 0) - (num(c.committed) or 0)" },
   { "swap_quota : sans borne", "return max(0, min(cfg.block_max, n)), margin", "return max(0, n), margin" },
   { "swap_quota : negatif rendu", "return max(0, min(cfg.block_max, n)), margin", "return min(cfg.block_max, n), margin" },
   { "swap_quota : arrondi au-dessus", "local n = floor(margin / kw + EPS)", "local n = ceil(margin / kw - EPS)" },

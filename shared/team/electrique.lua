@@ -22,7 +22,7 @@
 local E = {}
 
 E.CFG = {
-  draw = 0.6,        -- part de la capacité au-delà de laquelle une électrique de plus n'est pas posée (même seuil que S.power_ok)
+  draw = 0.6,        -- part de leur puissance nominale que tirent les chantiers admis (comme S.power_ok et S.DRAW de sante_centrale)
   block_max = 16,    -- remplacements au plus par passe (chaque place de 3 x 3 est lue au moteur : borne de coût d'une passe)
   tries_max = 8,     -- chaînes de poteaux calculées au plus par passe (recherche de chemin bornée, P.pole_chain)
   refused_ttl = 7200, -- ticks (2 min) pendant lesquels une paire thermique refusée compte dans la demande de centrale
@@ -83,8 +83,9 @@ function E.filter(tasks, drill, verdict)
   return kept, refused
 end
 
---- (b) c = { capacity, used, committed (kW), kw (kW d'une électrique), fallback (quota sans mesure de la centrale) }. Marge = capacité ×
---- draw − pris − chantiers. Rend (quota, marge) : le nombre d'électriques que la marge alimente, au plus cfg.block_max ; sans capacité lue,
+--- (b) c = { capacity, used, committed (kW), kw (kW d'une électrique), fallback (quota sans mesure de la centrale) }. Marge = capacité −
+--- pris − draw × chantiers, la règle de S.power_ok (shared/team/foreuse_swap.lua) qui garde chaque pose. Banc sur la sauvegarde du DC (8/11) :
+--- « capacité × draw − pris − chantiers » rendait −1 920 kW à 53 % de charge, aucun remplacement. Rend (quota, marge) : le nombre d'électriques que la marge alimente, au plus cfg.block_max ; sans capacité lue,
 --- le quota de secours (au plus block_max). Une marge négative rend 0.
 function E.swap_quota(c, cfg)
   cfg = cfg_of(cfg)
@@ -93,7 +94,7 @@ function E.swap_quota(c, cfg)
   if not cap or cap <= 0 or not kw or kw <= 0 then
     return min(cfg.block_max, max(0, floor(num(c.fallback) or 0))), nil
   end
-  local margin = cap * cfg.draw - (num(c.used) or 0) - (num(c.committed) or 0)
+  local margin = cap - (num(c.used) or 0) - cfg.draw * (num(c.committed) or 0)
   local n = floor(margin / kw + EPS)
   return max(0, min(cfg.block_max, n)), margin
 end
@@ -150,7 +151,7 @@ function E.idle_fields(fields, out, owner)
 end
 
 --- (c) p = { thermals (thermiques à convertir), refused (thermiques refusées récemment), th_speed, el_speed (cadences de minage), kw (kW d'une
---- électrique), margin (kW libres sous le seuil draw ; nil = 0) }. Une électrique remplace el_speed / th_speed thermiques. Rend (kW à demander à
+--- électrique), margin (kW libres, E.swap_quota ; nil = 0) }. Une électrique remplace el_speed / th_speed thermiques. Rend (kW à demander à
 --- la centrale, kW prévus, électriques prévues). Sans donnée valide : 0.
 function E.planned_kw(p)
   p = p or {}
