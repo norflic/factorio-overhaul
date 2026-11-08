@@ -308,8 +308,12 @@ function Sante.growth(f, tick, plants, used_j, capacity_j)
   if not flag and was_n >= 2 then
     say(f, { kind = "avance-rompue", tick = tick, n = was_n, used = used, committed = committed, capacity = cap })
   end
+  -- lot ELECTRIQUE (c, DC 8/11 : « 4 machines à vapeur à plein régime ») : + les kW des électriques PRÉVUES que la marge ne couvre pas
+  -- (thermiques à convertir, paires refusées ; f.team.elec_kw, script/team/electrique.lua, valable S.CAPI_TTL) : un déficit, centrale demandée
+  -- avant la pose et à la taille du besoin (C.deficit_size)
   return ant, stalled, used, committed, cap,
     S.deficit(f.team and f.team.capi and f.team.capi.kw_blocked, tick) -- lot TV-ENERGIE : déficit de kW avec épargne qui dort
+      + S.capi_kw(f.team and f.team.elec_kw, tick)
 end
 
 return Sante
