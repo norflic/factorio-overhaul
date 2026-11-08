@@ -106,6 +106,9 @@ instructions (≈ 13 à 25 ms : refusé) ; échantillon, décision complète (ta
 Fait et testé HORS JEU seulement (aucun Factorio lancé : le DC joue) : règle pure (`tests/mega_fonderie_test.lua`, 200 OK, 20 mutants,
 propriété « toute taille acceptée donne un plan juste » sur un balayage de 192 jeux de données, 4 320 essayés à la main, 0 faux) ; runtime
 branché dans la capitalisation (E1, `Ia3.plan` → `Capi.think`, étape 11), factions ET votre équipe (`tests/mega_fonderie_moteur_test.lua`,
-34 OK, 8 mutants) ; réglage `fo-war-mega-fonderie` (vrai ; l'intégrateur ajoute `require("settings.mega_fonderie")` à `settings.lua`, sans quoi
+38 OK, 10 mutants) ; réglage `fo-war-mega-fonderie` (vrai ; l'intégrateur ajoute `require("settings.mega_fonderie")` à `settings.lua`, sans quoi
 le réglage n'existe pas et rien ne tourne). Rien n'est encore POSÉ : la décision, sa taille et ses refus sont écrits (`f.mega`, `[FO-MEGA]`).
-À prouver en moteur réel : micro-banc de décision (gisement de 1 000 tuiles, centrale finie, 2 500 ticks) puis `etape1-geants`.
+Moteur simulé (partie de 15 min, 4 factions et votre équipe, réglage allumé) : aucune erreur, 69 lignes `[FO-MEGA]`, toutes des refus ; le
+moteur simulé ne peut pas décider (recensement à 1 tuile par gisement, prototypes sans rayon de foreuse : `Champ.data` répond « foreuse ou
+minerai »). La décision n'est donc prouvée qu'avec `Champ.data` doublé. À prouver en moteur réel : micro-banc de décision (gisement de
+1 000 tuiles, centrale finie, 2 500 ticks), puis `etape1-geants`.
