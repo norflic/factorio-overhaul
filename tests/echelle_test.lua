@@ -104,7 +104,7 @@ local function suite(Ech)
   end
   local all = true
   for i = 1, n do all = all and seen[i] == true end
-  check(all and not dup and Ech.ticks(n) == math.ceil(n / Ech.TRANCHE), "§4 tranches : chaque cible une fois")
+  check(all and not dup and Ech.ticks(n) == math.ceil(n / Ech.BUDGET), "§4 tranches : chaque cible une fois")
   -- §4 rangement incrémental : par lots, la même file qu'en une fois
   local p = Ech.nouveau_plan({ x = 0, y = 0 })
   for a = 1, #cands, 7 do Ech.ranger(p, cands, a, math.min(#cands, a + 6)) end
@@ -122,11 +122,13 @@ local function suite(Ech)
   end
   local pb = Ech.nouveau_plan({ x = 0, y = 0 })
   Ech.ranger(pb, big, 1, #big)
-  local lb, tb = parcours(pb, Ech.TRANCHE)
+  local lb, tb = parcours(pb, Ech.BUDGET)
   local lbl = Ech.liste(pb)
-  local sb = #lb == #lbl and #lb == Ech.PLAFOND and tb == math.ceil(Ech.PLAFOND / Ech.TRANCHE)
+  local sb = #lb == #lbl and #lb == Ech.PLAFOND and tb == math.ceil(Ech.PLAFOND / Ech.BUDGET)
   for i = 1, #lbl do sb = sb and lb[i] == lbl[i] end
   check(sb, "§4 parcours par tranches = liste en une fois (plafond, dernière tranche)")
+  local lb33 = parcours(pb, 33) -- 4 000 n'est pas un multiple de 33 : le plafond tombe au milieu d'une tranche
+  check(#lb33 == Ech.PLAFOND, "§4 parcours : le plafond tient au milieu d'une tranche", tostring(#lb33))
   local pc = Ech.nouveau_plan({ x = 0, y = 0 })
   local sparse = {}
   for i = 1, 25 do sparse[i] = { x = (i % 5) * 20, y = 0, id = i } end -- anneaux vides entre les pleins
@@ -138,7 +140,7 @@ local function suite(Ech)
   check(sc, "§4 parcours : anneaux vides sautés, dernière tranche partielle")
   local _, t5 = parcours(pc, 5)
   check(t5 == 5, "§4 parcours : file multiple de la tranche, aucune tranche vide à la fin")
-  local _, f0 = Ech.suivants(Ech.nouveau_plan({ x = 0, y = 0 }), Ech.curseur(), Ech.TRANCHE)
+  local _, f0 = Ech.suivants(Ech.nouveau_plan({ x = 0, y = 0 }), Ech.curseur(), Ech.BUDGET)
   check(f0 == true, "§4 parcours d'un plan vide : épuisé tout de suite")
   local l2 = Ech.liste(p)
   local same = #l2 == #plan
@@ -175,6 +177,208 @@ local function suite(Ech)
     "§8 balayage : bande de 1,5 autour du rayon, bout compris")
   local fx = Ech.feux(o, { x = 45, y = 0 }, 4)
   check(#fx == 11 and math.abs(fx[1].x - 4) < 1e-9 and math.abs(fx[11].x - 44) < 1e-9, "§8 balayage : un feu tous les 4 tuiles le long du rayon")
+  -- §4 bis budget de coups PARTAGÉ par les salves en cours (décision du lead du 7/11 : 40 par tick en tout)
+  check(Ech.BUDGET == 40, "§4 bis budget de 40 coups de zone par tick, en tout")
+  local somme_ok, borne_ok = true, true
+  for n = 1, 50 do
+    for t = 0, 7 do
+      local q, s = Ech.partage(n, Ech.BUDGET, t), 0
+      for i = 1, n do
+        s = s + q[i]
+        if q[i] < math.floor(Ech.BUDGET / n) or q[i] > math.ceil(Ech.BUDGET / n) then borne_ok = false end
+      end
+      if #q ~= n or s ~= Ech.BUDGET then somme_ok = false end
+    end
+  end
+  check(somme_ok and borne_ok, "§4 bis la somme des parts vaut le budget, quel que soit le nombre de salves (1 à 50) ; parts égales à 1 près")
+  local tot = { 0, 0, 0 }
+  for t = 0, 2 do
+    local q = Ech.partage(3, Ech.BUDGET, t)
+    for i = 1, 3 do tot[i] = tot[i] + q[i] end
+  end
+  check(tot[1] == tot[2] and tot[2] == tot[3] and tot[1] == Ech.BUDGET, "§4 bis sur n ticks, chaque salve reçoit autant (le reste tourne)")
+  local q60 = Ech.partage(60, Ech.BUDGET, 5)
+  local uns, zeros = 0, 0
+  for i = 1, 60 do if q60[i] == 1 then uns = uns + 1 elseif q60[i] == 0 then zeros = zeros + 1 end end
+  check(uns == 40 and zeros == 20 and #Ech.partage(0, Ech.BUDGET, 0) == 0, "§4 bis plus de salves que de coups : 40 salves frappent une fois, les autres attendent")
+  -- §12 SÉQUELLES (QCM-7/11) : traces des géants 1 h, du Glas 10 min ; cratère rendu à son sol d'origine
+  check(Ech.TRACE_TICKS == 216000 and Ech.TRACE_GLAS_TICKS == 36000, "§12 traces des géants 1 h, du Glas 10 min")
+  local dq = Ech.disque({ x = 0, y = 0 }, 15)
+  local dq_ok, attendu = true, 0
+  for _, t in ipairs(dq) do
+    if (t.x + 0.5) ^ 2 + (t.y + 0.5) ^ 2 > 225 then dq_ok = false end
+  end
+  for y = -17, 17 do for x = -17, 17 do if (x + 0.5) ^ 2 + (y + 0.5) ^ 2 <= 225 then attendu = attendu + 1 end end end
+  check(#dq == attendu and attendu == 716 and dq_ok and #Ech.disque({ x = 0.5, y = 0.5 }, 0.4) == 1 and #Ech.disque({ x = 0, y = 0 }, 0.4) == 0,
+    "§12 disque : les tuiles dont le centre est dans le cercle (716 au rayon 15)", tostring(#dq))
+  local R = Ech.trace_nouveau()
+  -- en jeu, fin = tick + TRACE_TICKS : les échéances arrivent dans l'ordre croissant
+  local n1 = Ech.trace_marquer(R, 3, 4, "grass-1", 100)
+  Ech.trace_marquer(R, 5, 5, "sand-1", 120)
+  local n2 = Ech.trace_marquer(R, 3, 4, "nuclear-ground", 250) -- second cratère sur la même tuile
+  check(n1 == true and n2 == false and Ech.trace_compte(R) == 2, "§12 une tuile marquée deux fois n'est posée qu'une fois")
+  local e100 = Ech.trace_echues(R, 100, 10)
+  local e120 = Ech.trace_echues(R, 120, 10)
+  local e250 = Ech.trace_echues(R, 250, 10)
+  check(#e100 == 0 and #e120 == 1 and e120[1].orig == "sand-1" and #e250 == 1 and e250[1].orig == "grass-1" and e250[1].fin == 250
+    and Ech.trace_compte(R) == 0, "§12 échéance repoussée par le second cratère ; le sol d'origine du PREMIER est rendu")
+  -- point 1 de la revue de la 0.6.57 : une seule entrée de file par tuile, quel que soit le nombre de marques
+  local R3 = Ech.trace_nouveau()
+  for f = 1, 10000 do Ech.trace_marquer(R3, 7, 7, "grass-1", f) end
+  Ech.trace_marquer(R3, 8, 8, "sand-1", 10001)
+  local f_avant = R3.n
+  local r1 = Ech.trace_echues(R3, 1, 10)          -- l'entrée de (7, 7) est due, mais la tuile est repoussée à 10 000 : remise en file
+  local r2 = Ech.trace_echues(R3, 9999, 10)
+  local r3 = Ech.trace_echues(R3, 10001, 10)
+  check(f_avant == 2 and #r1 == 0 and #r2 == 0 and #r3 == 2 and r3[1].orig == "sand-1" and r3[2].orig == "grass-1" and Ech.trace_compte(R3) == 0,
+    "§12 une entrée de file par tuile (10 000 marques : 2 entrées) ; tuile repoussée remise en file et rendue à sa nouvelle échéance",
+    string.format("file %d, %d %d %d", f_avant, #r1, #r2, #r3))
+  local R2 = Ech.trace_nouveau()
+  for i = 1, 5000 do Ech.trace_marquer(R2, i, 0, "grass-1", i) end
+  local lot = Ech.trace_echues(R2, 5000, Ech.RESORPTION_LOT)
+  local tout = #lot
+  while true do
+    local l = Ech.trace_echues(R2, 5000, Ech.RESORPTION_LOT)
+    if #l == 0 then break end
+    tout = tout + #l
+  end
+  check(#lot == Ech.RESORPTION_LOT and tout == 5000 and R2.n < 5000 and Ech.trace_compte(R2) == 0,
+    "§12 rendu par lots bornés, file compactée, rien d'oublié", string.format("lot %d, tout %d, n %d", #lot, tout, R2.n))
+  -- §4 quater budget de MORTS par tick (diagnostic du 7/11 : le coût du moteur suit les morts) et frappe sans allocation
+  check(Ech.MORTS == 15, "§4 quater 15 morts par tick, en tout")
+  local pf = Ech.nouveau_plan({ x = 0, y = 0 })
+  local cibles = {}
+  for i = 1, 300 do
+    local c = { x = (i % 30) - 15, y = math.floor(i / 30) - 5, id = i, pv = (i % 3 == 0) and 1000 or 1, touche = 0 }
+    cibles[i] = c
+    Ech.poser(pf, c.x, c.y, c)
+  end
+  local cf = Ech.curseur()
+  local function frappe(c) c.touche = c.touche + 1; c.pv = c.pv - 10; return c.pv <= 0 end
+  local ticks, morts_ok, coups_ok, fin = 0, true, true, false
+  while not fin and ticks < 1000 do
+    local co, mo, ep = Ech.frapper(pf, cf, 40, 15, frappe)
+    ticks = ticks + 1
+    if mo > 15 then morts_ok = false end
+    if co > 40 then coups_ok = false end
+    fin = ep
+  end
+  local une_fois = true
+  for _, c in ipairs(cibles) do if c.touche ~= 1 then une_fois = false end end
+  check(morts_ok and coups_ok and une_fois and fin, "§4 quater au plus 15 morts et 40 coups par tick ; chaque cible frappée une fois ; épuisé à la fin",
+    string.format("%d ticks", ticks))
+  check(ticks == math.ceil(200 / 15), "§4 quater 200 morts à 15 par tick : 14 ticks (les survivants ne comptent pas)", tostring(ticks))
+  local vide = true
+  for k = 1, pf.top do
+    local r = pf.rings[k]
+    if r then for i = 1, pf.cnt[k] do if r[i] ~= nil then vide = false end end end
+  end
+  check(vide, "§4 quater les anneaux frappés sont vidés (rien ne reste pour le ramasse-miettes)")
+  local pg = Ech.nouveau_plan({ x = 0, y = 0 })
+  for i = 1, 300 do Ech.poser(pg, i % 17, i % 13, { pv = 1e9 }) end
+  local cg, tg, max_co, eg = Ech.curseur(), 0, 0, false
+  while not eg and tg < 100 do
+    local co, _, ep = Ech.frapper(pg, cg, 40, 15, function(c) c.pv = c.pv - 1; return false end)
+    if co > max_co then max_co = co end
+    tg, eg = tg + 1, ep
+  end
+  check(max_co == 40 and tg == 8, "§4 quater sans mort, 40 coups par tick au plus : 300 cibles en 8 ticks", string.format("%d coups, %d ticks", max_co, tg))
+  -- §4 quater ÉGALITÉ (demande du lead, 7/11) : à la fin de la salve, mêmes dégâts totaux et MÊMES cibles tuées avec ou sans budget de morts
+  local function salve_complete(qm, n)
+    local pl = Ech.nouveau_plan({ x = 0, y = 0 })
+    local cs = {}
+    for i = 1, n do
+      local c = { x = (i * 7) % 61 - 30, y = (i * 11) % 47 - 23, id = i, pv = (i % 4 == 0) and 5000 or (i % 5) * 40 + 10 }
+      cs[i] = c
+      Ech.poser(pl, c.x, c.y, c)
+    end
+    local cu, total, tues, fin2, t2 = Ech.curseur(), 0, {}, false, 0
+    while not fin2 and t2 < 100000 do
+      local _, _, ep = Ech.frapper(pl, cu, 40, qm, function(c)
+        local d = math.min(c.pv, 250)
+        total = total + d
+        c.pv = c.pv - d
+        if c.pv <= 0 then tues[#tues + 1] = c.id; return true end
+        return false
+      end)
+      t2, fin2 = t2 + 1, ep
+    end
+    table.sort(tues)
+    return total, tues, t2
+  end
+  local d1, k1, t1 = salve_complete(15, 4500)  -- au-delà du plafond : les mêmes 4 000 premières cibles
+  local d2, k2, t2b = salve_complete(1e9, 4500)
+  local meme = #k1 == #k2 and d1 == d2
+  for i = 1, #k1 do meme = meme and k1[i] == k2[i] end
+  check(meme and t1 > t2b and #k1 > 0, "§4 quater égalité : budget de morts ou non, mêmes dégâts totaux et mêmes cibles tuées (seule la durée change)",
+    string.format("%d / %d tuées, dégâts %d / %d, ticks %d / %d", #k1, #k2, d1, d2, t1, t2b))
+  -- §4 quinquies recherche par secteurs : chaque point du disque dans UN seul secteur, aucun secteur hors du disque
+  local sc, rr = { x = 12000.3, y = 4200.7 }, 90
+  local secs = Ech.secteurs(sc, rr, Ech.SECTEUR)
+  local un_seul, hors = true, false
+  for gx = -91, 91, 1.5 do
+    for gy = -91, 91, 1.5 do
+      if gx * gx + gy * gy <= rr * rr then
+        local n = 0
+        for _, q in ipairs(secs) do if Ech.dans_secteur(q, sc.x + gx, sc.y + gy) then n = n + 1 end end
+        if n ~= 1 then un_seul = false end
+      end
+    end
+  end
+  for _, q in ipairs(secs) do
+    local px, py = math.max(q.x0, math.min(sc.x, q.x1)), math.max(q.y0, math.min(sc.y, q.y1))
+    if (px - sc.x) ^ 2 + (py - sc.y) ^ 2 > rr * rr then hors = true end
+  end
+  local bord = Ech.dans_secteur(secs[1], secs[1].x1, secs[1].y0)
+  local aligne = true
+  for _, q in ipairs(secs) do
+    if q.x0 % 32 ~= 0 or q.y0 % 32 ~= 0 or q.x1 - q.x0 ~= 32 or q.cx ~= q.x0 / 32 or q.cy ~= q.y0 / 32 then aligne = false end
+  end
+  check(un_seul and not hors and not bord and aligne and Ech.SECTEUR == 32 and #secs <= 42 and #secs >= 30,
+    "§4 quinquies secteurs demi-ouverts ALIGNÉS sur les chunks : un point du disque dans un seul secteur ; coins hors du disque écartés",
+    tostring(#secs))
+  -- §4 quinquies égalité : chunks non générés sautés, mêmes cibles que la recherche par rayon dans le terrain généré (revue 0.6.57)
+  local function genere(cx, cy) return (cx * 7 + cy * 13) % 5 ~= 0 end
+  local graine, ents = 12345, {}
+  local function hasard()
+    graine = (graine * 1103515245 + 12345) % 2147483648
+    return graine / 2147483648
+  end
+  for k = 1, 4000 do
+    local x, y = sc.x - 100 + 200 * hasard(), sc.y - 100 + 200 * hasard()
+    if k % 10 == 0 then x = math.floor(x / 32 + 0.5) * 32 end -- sur un bord de chunk
+    if k % 17 == 0 then y = math.floor(y / 32 + 0.5) * 32 end
+    if genere(math.floor(x / 32), math.floor(y / 32)) then ents[#ents + 1] = { x = x, y = y, n = 0 } end
+  end
+  local rayon = 0
+  for _, en in ipairs(ents) do if (en.x - sc.x) ^ 2 + (en.y - sc.y) ^ 2 <= rr * rr then rayon = rayon + 1; en.r = true end end
+  local saute = 0
+  for _, q in ipairs(secs) do
+    if genere(q.cx, q.cy) then
+      for _, en in ipairs(ents) do -- recherche du moteur par zone : bords compris (F96)
+        if en.x >= q.x0 and en.x <= q.x1 and en.y >= q.y0 and en.y <= q.y1 and Ech.dans_secteur(q, en.x, en.y)
+          and (en.x - sc.x) ^ 2 + (en.y - sc.y) ^ 2 <= rr * rr then en.n = en.n + 1 end
+      end
+    else
+      saute = saute + 1
+    end
+  end
+  local egal = true
+  for _, en in ipairs(ents) do if en.n ~= (en.r and 1 or 0) then egal = false end end
+  check(egal and saute > 0 and rayon > 500, "§4 quinquies égalité : chunks non générés sautés, chaque cible du rayon trouvée une fois et une seule",
+    string.format("%d cibles, %d chunks sautes", rayon, saute))
+  -- §12 bis cratère par lots : complet à la fin, aucune tuile sautée ni posée deux fois
+  local vu_l, pas_l, ci = {}, 0, 1
+  while ci <= 709 do
+    local a, b, suite = Ech.lot_cratere(ci, 709, false)
+    for i = a, b do vu_l[i] = (vu_l[i] or 0) + 1 end
+    ci, pas_l = suite, pas_l + 1
+  end
+  local complet = true
+  for i = 1, 709 do if vu_l[i] ~= 1 then complet = false end end
+  local a2, b2, s2 = Ech.lot_cratere(201, 709, true)
+  check(complet and pas_l == 8 and a2 == 201 and b2 == 709 and s2 == 710,
+    "§12 bis cratère complet à la fin : 709 tuiles en 8 lots, chacune une fois ; géant mort : le reste d'un coup", tostring(pas_l))
   -- §10 IMPACT, variante B : brûlures
   local unit = true
   for k = 1, 24 do
@@ -199,6 +403,67 @@ local function suite(Ech)
   -- §11 sauvegardes existantes : proportion de vie ; régénération proportionnelle au maximum
   check(math.abs(Ech.soin(8260200, 0.5, 60000) - 68.835) < 1e-9 and math.abs(Ech.soin(8260200, 0.5, 60000) / 8260200 - 0.5 / 60000) < 1e-15,
     "§11 régénération du Bourdon : même part du maximum qu'avant (68,835 PV par tick)")
+  -- §4 sexies partage ÉQUITABLE PAR FORCE (décision du lead, 7/11) : même total, la force du DC garde sa part
+  local dc_min, fac_tot, somme_ok = 99, 0, true
+  for tk = 0, 39 do
+    local fz = { "joueur" }
+    for _ = 1, 10 do fz[#fz + 1] = "faction" end
+    local pf = Ech.partage_forces(fz, 15, tk)
+    local tot = 0
+    for i = 1, #fz do tot = tot + pf[i] end
+    if tot ~= 15 then somme_ok = false end
+    if pf[1] < dc_min then dc_min = pf[1] end
+    for i = 2, #fz do fac_tot = fac_tot + pf[i] end
+  end
+  check(somme_ok and dc_min >= 7 and fac_tot <= 40 * 8 and fac_tot >= 40 * 7,
+    "§4 sexies une salve du joueur contre 10 d'une faction : le joueur garde 7 ou 8 morts par tick sur 15, total exact", tostring(dc_min))
+  local p5 = Ech.partage_forces({ "a", "b", "c", "d", "e" }, 15, 3)
+  local mix = Ech.partage_forces({ "b", "a", "b", "c", "b" }, 15, 0)
+  check(p5[1] == 3 and p5[5] == 3 and mix[1] + mix[3] + mix[5] == 5 and mix[2] == 5 and mix[4] == 5,
+    "§4 sexies 5 forces : 3 chacune ; parts alignées sur la file, salves d'une force entre elles", table.concat(mix, ","))
+  local recu, tot20 = {}, true
+  for tk = 0, 19 do
+    local fz = {}
+    for i = 1, 20 do fz[i] = "f" .. i end
+    local pf = Ech.partage_forces(fz, 15, tk)
+    local t = 0
+    for i = 1, 20 do recu[i] = (recu[i] or 0) + pf[i]; t = t + pf[i] end
+    if t ~= 15 then tot20 = false end
+  end
+  local egal = true
+  for i = 1, 20 do if recu[i] ~= 15 then egal = false end end
+  check(tot20 and egal, "§4 sexies plus de forces que de morts : le reste tourne, chacune reçoit autant sur 20 ticks")
+  -- §12 bis cratère par lots : mêmes tuiles que le disque, du centre vers le bord, ordre total
+  local cc = { x = 10.3, y = -4.6 }
+  local dr, dd = Ech.disque_radial(cc, 15), Ech.disque(cc, 15)
+  local vu, meme, croit = {}, #dr == #dd, true
+  for _, t in ipairs(dd) do vu[t.x .. "," .. t.y] = true end
+  for i, t in ipairs(dr) do
+    if not vu[t.x .. "," .. t.y] then meme = false end
+    if i > 1 then
+      local p = dr[i - 1]
+      if p.d > t.d or (p.d == t.d and (p.y > t.y or (p.y == t.y and p.x >= t.x))) then croit = false end
+    end
+  end
+  check(meme and croit and Ech.CRATERE_LOT == 100 and math.ceil(#dr / Ech.CRATERE_LOT) <= 8,
+    "§12 bis cratère par lots de 100 tuiles, du centre vers le bord (709 tuiles au rayon 15 : 8 ticks)", tostring(#dr))
+  -- §12 ter plafond des traces dessinées d'1 h par surface (revue de la 0.6.57, point 4), les plus anciennes retirées d'abord
+  local FR = Ech.rendus_nouveau()
+  local retires, ordre_ok = {}, true
+  for id = 1, 10000 do
+    for _, v in ipairs(Ech.rendus_ajouter(FR, id, 300)) do retires[#retires + 1] = v end
+  end
+  for i = 1, #retires do if retires[i] ~= i then ordre_ok = false end end
+  check(#retires == 9700 and ordre_ok and FR.n - FR.tete + 1 == 300 and FR.ids[FR.n] == 10000 and FR.tete <= 4097,
+    "§12 ter au plus 300 traces gardées sur 10 000 : les 9 700 plus anciennes retirées dans l'ordre, file compactée", tostring(#retires))
+  check(Ech.RENDUS_MAX == 4000, "§12 ter plafond PROVISOIRE de 4 000 traces par surface (à mesurer avec images)")
+  -- §11 bis sauvegarde faite PENDANT une salve de la 0.6.56 (B1 de la revue de la 0.6.57) : jobs de l'ancien format refusés, jobs neufs gardés
+  local vieux_found = { kind = "zone", found = { {}, {} }, i = 1, plan = { c = { x = 0, y = 0 }, rings = {}, top = 0 } }
+  local vieux_plan = { kind = "zone", plan = { c = { x = 0, y = 0 }, rings = { { {} } }, top = 1 }, cur = { k = 1, i = 1, pris = 0 } }
+  local neuf_cherche = { kind = "zone", secteurs = Ech.secteurs({ x = 0, y = 0 }, 15, Ech.SECTEUR), si = 1, plan = Ech.nouveau_plan({ x = 0, y = 0 }) }
+  local neuf_frappe = { kind = "zone", plan = Ech.nouveau_plan({ x = 0, y = 0 }), cur = Ech.curseur() }
+  check(not Ech.zone_jouable(vieux_found) and not Ech.zone_jouable(vieux_plan) and Ech.zone_jouable(neuf_cherche) and Ech.zone_jouable(neuf_frappe),
+    "§11 bis jobs de salve de la 0.6.56 (liste found, plan sans cnt) refusés ; jobs neufs (secteurs, curseur et plan à compteurs) gardés")
   return pass, fail, msgs
 end
 
@@ -246,6 +511,37 @@ check(PB:find("healing_per_tick = Ech.soin(Ech.pv(AGE_BOURDON), 0.5, 60000)", 1,
 local SXG = read("script/robots/experimentaux_geants.lua")
 check(SXG:find("K.candidates(e.surface, e.force, e.position, eff.range), r.marks, eff.range)", 1, true) ~= nil
   and SXG:find("radius = eff.zone, width = 4", 1, true) ~= nil, "§7 bis Cairn : marques et anneau à la portée et à la zone EFFECTIVES (modules)")
+check(SXG:find("local parts = Ech.partage_forces(fz, s.budgets and s.budgets.coups or Ech.BUDGET, ev.tick)", 1, true) ~= nil
+  and SXG:find("local morts = Ech.partage_forces(fz, s.budgets and s.budgets.morts or Ech.MORTS, ev.tick)", 1, true) ~= nil
+  and SXG:find("force = e.force.name, forces = forces, c = { x = c.x, y = c.y }", 1, true) ~= nil
+  and SXG:find("Ech.frapper(j.plan, j.cur, qh, qm, function(t)", 1, true) ~= nil and not SXG:find("Ech.TRANCHE", 1, true),
+  "§4 ter jeu : chaque salve frappe sa PART des budgets de coups et de morts du tick (aucun budget par salve)")
+check(SXG:find("if #j.forces > 0 and (q.cx == nil or s.is_chunk_generated({ x = q.cx, y = q.cy })) then", 1, true) ~= nil,
+  "§4 quinquies jeu : un secteur dont le chunk n'est pas généré n'est pas cherché")
+check(SXG:find("secteurs = Ech.secteurs(c, eff.zone, Ech.SECTEUR)", 1, true) ~= nil and SXG:find("if Ech.dans_secteur(q, p.x, p.y) then", 1, true) ~= nil
+  and not SXG:find("radius = eff.zone, force = forces", 1, true), "§4 ter jeu : recherche par secteurs demi-ouverts, plus de recherche de tout le disque en un tick")
+check(SXG:find("if not Ech.zone_jouable(j) then", 1, true) ~= nil and SXG:find("and not j.secteurs and j.at <= ev.tick and Ech.zone_jouable(j) then", 1, true) ~= nil,
+  "§11 bis jeu : un job de salve de l'ancien format est abandonné (zone_pas) et ne reçoit aucune part des budgets (on_tick)")
+check(SXG:find("if ev.tick >= g.next and not G.zone_active(g.un) then", 1, true) ~= nil
+  and SG:find("if tick >= at and not XpG.zone_active(un) then", 1, true) ~= nil, "§4 ter jeu : pas de nouvelle salve tant que la précédente frappe")
+-- §12 bis séquelles branchées (QCM-7/11)
+local PXG = read("prototypes/experimentaux_geants.lua")
+check(not PXG:find('tile_name = "nuclear-ground"', 1, true) and PXG:find("b.time_before_removed = Ech.TRACE_TICKS", 1, true) ~= nil,
+  "§12 bis prototypes : l'explosion ne pose plus de sol permanent ; brûlures d'1 h")
+check(SXG:find("local cr = Ech.disque_radial(c, r.cratere)", 1, true) ~= nil and SXG:find("if j.cr then cratere_suite(j, tick, not (e and e.valid)) end", 1, true) ~= nil
+  and SXG:find("local a, b, suite = Ech.lot_cratere(j.ci, n, tout)", 1, true) ~= nil and SXG:find("j.ci = suite", 1, true) ~= nil and SXG:find("Events.on_nth_tick(RESORPTION, resorber)", 1, true) ~= nil
+  and SXG:find('not p.collision_mask["water-tile"] and not p.mineable_properties.minable', 1, true) ~= nil
+  and SXG:find("local v = sol_cratere[name]", 1, true) ~= nil and not SXG:find("tile.prototype.mineable_properties", 1, true) and SXG:find('t.name == "nuclear-ground" and e.orig ~= "nuclear-ground" and game.tile_prototypes[e.orig] then', 1, true) ~= nil,
+  "§12 bis cratère posé par script, résorbé, jamais sur un sol de joueur ni sur un sol changé depuis ; sol d'origine disparu : le cratère reste")
+local _, n_trace = SXG:gsub("time_to_live = Ech.TRACE_TICKS", "")
+check(n_trace == 2 and not SXG:find('name = "big-scorchmark"', 1, true) and not SXG:find('name = "small-scorchmark"', 1, true),
+  "§12 bis verre de la Tournesol et tranchée de l'Ixion : 1 h ; brûlures d'1 h seulement")
+local _, n_plaf = SXG:gsub("trace_rendu%(e%.surface, rendering%.draw_", "")
+check(n_plaf == 2 and SXG:find("for _, vieux in ipairs(Ech.rendus_ajouter(F, id, st.rendus_max or Ech.RENDUS_MAX)) do", 1, true) ~= nil
+  and SXG:find("if rendering.is_valid(vieux) then rendering.destroy(vieux) end", 1, true) ~= nil,
+  "§12 ter jeu : traits de l'Ixion et verre de la Tournesol plafonnés par surface, les plus anciens détruits")
+check(SB:find("time_to_live = Ech.TRACE_GLAS_TICKS,", 1, true) ~= nil and SB:find("time_to_live = Ech.TRACE_GLAS_TICKS - GLAS_REFERME", 1, true) ~= nil
+  and not SB:find("time_to_live = 4200", 1, true), "§12 bis Glas du Bourdon : sol balayé et cicatrices, 10 min")
 
 -- §5 forme
 check(not SRC:gsub("ipairs%(", ""):find("pairs%("), "§5 aucun pairs")
@@ -253,6 +549,16 @@ check(not SRC:find("game%.") and not SRC:find("script%.") and not SRC:find("%f[%
 
 -- §6 mutants
 local MUTANTS = {
+  { "tuiles du cratère sautées", "  return ci, b, b + 1", "  return ci, b, b + 2" },
+  { "secteurs non alignés sur les chunks", "      local a, b = i * cote, j * cote", "      local a, b = i * cote + 5, j * cote" },
+  { "cratère du bord vers le centre", "if a.d ~= b.d then return a.d < b.d end", "if a.d ~= b.d then return a.d > b.d end" },
+  { "cratère d'un bloc", "Ech.CRATERE_LOT = 100", "Ech.CRATERE_LOT = 100000" },
+  { "plafond des traces ignoré", "  while F.n - F.tete + 1 > max do", "  while false do" },
+  { "trace la plus récente retirée au lieu de la plus ancienne", "    out[#out + 1] = F.ids[F.tete]", "    out[#out + 1] = F.ids[F.n]" },
+  { "part de force donnée à chaque salve", "local sous = Ech.partage(#m, parts[r], tick)", "local sous = Ech.partage(#m, budget, tick)" },
+  { "part de force au prorata des salves", "local parts = Ech.partage(#ordre, budget, tick)", "local parts = {} for r = 1, #ordre do parts[r] = math.floor(budget * #membres[r] / #forces) end" },
+  { "job de la 0.6.56 sans cnt accepté", "(j.cur ~= nil and j.plan ~= nil and j.plan.cnt ~= nil)", "(j.cur ~= nil and j.plan ~= nil)" },
+  { "job de la 0.6.56 à liste found accepté", "return j.secteurs ~= nil or", "return j.found ~= nil or j.secteurs ~= nil or" },
   { "écart de 3 âges", "Ech.ECART = 4", "Ech.ECART = 3" },
   { "résistance à 30 %", "Ech.POURCENT = 50", "Ech.POURCENT = 30" },
   { "survie de 2 min", "Ech.SURVIE_S = 180", "Ech.SURVIE_S = 120" },
@@ -273,10 +579,16 @@ local MUTANTS = {
   { "brûlures : 6 points au lieu de 12", "part = 0.7, pas = 2", "part = 0.7, pas = 4" },
   { "brûlures : rotation de quart de tour fausse", "for _ = 1, q do x, y = -y, x end", "for _ = 1, q do x, y = y, -x end" },
   { "brûlures sans plafond", "return math.max(1, math.ceil(n / Ech.BRULURES_MAX))", "return 1" },
-  { "parcours sans plafond","while #out < n and cur.pris < Ech.PLAFOND and cur.k <= p.top do", "while #out < n and cur.k <= p.top do" },
-  { "parcours qui saute un anneau", "      cur.k, cur.i = cur.k + 1, 1", "      cur.k, cur.i = cur.k + 2, 1" },
-  { "parcours épuisé trop tôt", "if r and i <= #r then fini = false; break end", "if r and i < #r then fini = false; break end" },
-  { "parcours jamais épuisé par le reste vide", "    fini = true\n    while k <= p.top do", "    fini = false\n    while k <= p.top do" },
+  { "parcours sans plafond", "  while cur.pris < Ech.PLAFOND and cur.k <= p.top do", "  while cur.k <= p.top do" },
+  { "parcours qui saute un anneau", "    cur.k, cur.i = cur.k + 1, 1\n  end\n  return nil", "    cur.k, cur.i = cur.k + 2, 1\n  end\n  return nil" },
+  { "parcours épuisé trop tôt", "    if p.rings[k] and i <= p.cnt[k] then return false end", "    if p.rings[k] and i < p.cnt[k] then return false end" },
+  { "parcours jamais épuisé par le reste vide", "    k, i = k + 1, 1\n  end\n  return true", "    k, i = k + 1, 1\n  end\n  return false" },
+  { "budget de morts ignoré", "  while coups < qh and morts < qm do", "  while coups < qh do" },
+  { "budget de coups ignoré", "  while coups < qh and morts < qm do", "  while morts < qm do" },
+  { "budget qui saute la cible du bord", "    coups = coups + 1\n    if frappe(x) then morts = morts + 1 end", "    coups = coups + 1\n    if morts + 1 < qm and frappe(x) then morts = morts + 1 end" },
+  { "secteur fermé (doublons de bord)", "  return x >= q.x0 and x < q.x1 and y >= q.y0 and y < q.y1", "  return x >= q.x0 and x <= q.x1 and y >= q.y0 and y <= q.y1" },
+  { "secteurs : coins gardés", "      if dx * dx + dy * dy <= r * r then out[#out + 1] = q end", "      out[#out + 1] = q" },
+  { "secteurs : une ligne de moins", "  for j = j0, j1 do", "  for j = j0, j1 - 1 do" },
   { "module de portée sans effet sur la zone", "zone = r.zone and r.zone * (1 + bp)", "zone = r.zone" },
   { "puissance en somme au lieu du produit", "salve = r.salve and r.salve * (1 + bf)", "salve = r.salve and r.salve + bf" },
   { "balayage de 36°", "local COS15, SIN15 = 0.96592582628906829, 0.25881904510252074", "local COS15, SIN15 = 0.95105651629515353, 0.30901699437494740" },
@@ -286,7 +598,18 @@ local MUTANTS = {
   { "feux à la mauvaise distance", "local t = i * pas / l", "local t = (i - 0.5) * pas / l" },
   { "anneaux de 6 tuiles", "Ech.ANNEAU = 3", "Ech.ANNEAU = 6" },
   { "plafond ignoré", "if #out >= Ech.PLAFOND then return out end", "" },
-  { "tranche qui saute une cible", "local a = (k - 1) * Ech.TRANCHE + 1", "local a = (k - 1) * Ech.TRANCHE + 2" },
+  { "tranche qui saute une cible", "local a = (k - 1) * Ech.BUDGET + 1", "local a = (k - 1) * Ech.BUDGET + 2" },
+  { "budget par salve (chaque salve prend tout le budget)", "    out[i] = base + (((i - 1 - tick) % n) < reste and 1 or 0)", "    out[i] = budget" },
+  { "reste jamais distribué", "    out[i] = base + (((i - 1 - tick) % n) < reste and 1 or 0)", "    out[i] = base" },
+  { "reste toujours aux mêmes salves", "    out[i] = base + (((i - 1 - tick) % n) < reste and 1 or 0)", "    out[i] = base + ((i - 1) < reste and 1 or 0)" },
+  { "budget de 120", "Ech.BUDGET = 40", "Ech.BUDGET = 120" },
+  { "traces de 10 min pour les géants", "Ech.TRACE_TICKS = 216000", "Ech.TRACE_TICKS = 36000" },
+  { "une entrée de file par marque", "    if fin > e.fin then e.fin = fin end\n    return false\n  end", "    if fin > e.fin then e.fin = fin end\n    R.n = R.n + 1\n    R.file[R.n] = { k = k, fin = fin }\n    return false\n  end" },
+  { "tuile repoussée jamais remise en file", "        R.n = R.n + 1\n        R.file[R.n] = { k = q.k, fin = e.fin }\n", "" },
+  { "second cratère qui écrase le sol d'origine", "    if fin > e.fin then e.fin = fin end", "    e.orig = orig; if fin > e.fin then e.fin = fin end" },
+  { "échéance non repoussée", "    if fin > e.fin then e.fin = fin end", "" },
+  { "rendu sans lot", "  while R.tete <= R.n and #out < max do", "  while R.tete <= R.n do" },
+  { "disque au coin des tuiles", "    local dy = y + 0.5 - c.y", "    local dy = y - c.y" },
   { "cratère au quart de la zone", "Ech.CRATERE_PART = 6", "Ech.CRATERE_PART = 4" },
   { "petits avec une zone", "if age < Ech.AGE_ZONE_MIN then return nil end", "" },
 }

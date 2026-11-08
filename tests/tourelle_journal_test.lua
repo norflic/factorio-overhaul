@@ -159,5 +159,25 @@ lm = lines("minage refuse")
 check(#lm == nm + 2 and lm[#lm]:find("selection = aucune", 1, true) ~= nil and lm[#lm]:find("2 refus non journalise(s)", 1, true) ~= nil,
   "seconde suivante : une ligne, sélection vide écrite, 2 refus sautés comptés : " .. tostring(lm[#lm]))
 
+-- 7. Artillerie (relecture de la 0.6.59 : « toute tourelle ») : absente de la liste partagée Rg.TURRET_TYPES, journalisée quand même.
+local gp = W().prototypes["gun-turret"]
+W().prototypes["artillery-turret"] = { type = "artillery-turret", max_health = 2000,
+  collision_box = { left_top = { x = -1.2, y = -1.2 }, right_bottom = { x = 1.2, y = 1.2 } }, collision_mask = gp.collision_mask }
+local art = s.create_entity({ name = "artillery-turret", position = { x = 400.5, y = 5.5 }, force = "player" })
+local in_shared = false
+for _, ty in ipairs(require("shared.ai3.reglages").TURRET_TYPES) do if ty == "artillery-turret" then in_shared = true end end
+check(art ~= nil and art.type == "artillery-turret" and not in_shared and Tj.is_turret(art),
+  "artillerie : une tourelle pour le journal, sans toucher la liste partagée de l'IA")
+M.run_ticks(60 - game.tick % 60)
+local na = #lines("[FO-TOURELLE-MORTE]")
+die(art, shooter)
+local la = lines("[FO-TOURELLE-MORTE]")
+check(#la == na + 1 and la[#la]:find("artillery-turret", 1, true) and la[#la]:find("(400.5, 5.5)", 1, true) ~= nil,
+  "artillerie du joueur tuée : une ligne [FO-TOURELLE-MORTE] : " .. tostring(la[#la]))
+local art2 = s.create_entity({ name = "artillery-turret", position = { x = 410.5, y = 5.5 }, force = "player" })
+local nr2 = #lines("[FO-TOURELLE-RETIREE]")
+Tj.removed(Tj.describe(art2), "test", "emprise de test", "deplacee")
+check(#lines("[FO-TOURELLE-RETIREE]") == nr2 + 1, "artillerie retirée par le script : une ligne [FO-TOURELLE-RETIREE]")
+
 print(string.format("[TOURELLE-JOURNAL] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

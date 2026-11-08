@@ -101,6 +101,21 @@ function S.anticipate(used, committed, capacity)
   return (used or 0) + S.DRAW * (committed or 0) >= S.ANTICIPATE * capacity
 end
 
+-- Étape 5a de VIDEO-INTEG : kW nominaux que la CAPITALISATION a retenus faute de courant (dernière décision, une par minute) ; valables
+-- deux décisions, puis oubliés (capitalisation coupée, équipe disparue : jamais une avance pour toujours).
+S.CAPI_TTL = 2 * 3600
+
+--- kW retenus par la capitalisation, comptés avec les consommateurs retenus de l'avance (S.anticipate, à S.DRAW) : sans eux, la décision
+--- attend du courant et la centrale attend une saturation qui ne vient pas (boucle B). rec = { kw, tick } (f.team.capi.kw_blocked) ;
+--- 0 si absent, invalide, daté du futur ou plus vieux que S.CAPI_TTL.
+function S.capi_kw(rec, tick)
+  if type(rec) ~= "table" or type(tick) ~= "number" then return 0 end
+  local kw, t = rec.kw, rec.tick
+  if type(kw) ~= "number" or type(t) ~= "number" or kw ~= kw or kw <= 0 or kw == math.huge then return 0 end
+  if t > tick or tick - t > S.CAPI_TTL then return 0 end
+  return kw
+end
+
 --- Durée de l'avance. st : mémoire { ant_n } ; flag : S.anticipate à ce relevé. Rend vrai quand elle dure depuis S.ANTICIPATE_CHECKS relevés.
 function S.sustain(st, flag)
   if flag then st.ant_n = (st.ant_n or 0) + 1 else st.ant_n = 0 end
@@ -110,9 +125,24 @@ end
 --- Un nouveau module électrique de `new` kW nominaux peut-il s'ouvrir ? c : { capacity, used, committed (kW) } ; st : mémoire { since } du module ;
 --- tick. Rend (vrai, nil) ou (faux, raison) ; le module retenu passe après S.GATE_WAIT. Sans centrale finie (capacité nulle) : vrai (la
 --- centrale précède, elle ne se juge pas elle-même).
+--- FERMÉ PAR DÉFAUT (lot 5b, W04 n°2) : `c.plant_done` (centrale FINIE) avec une capacité non lue, ou une capacité lue sans production
+--- (c.used absent, avant : compté 0 = tout admis) : le module est RETENU, raison écrite qui nomme l'entrée, et passe quand même après
+--- S.GATE_WAIT (la mesure revient en quelques secondes, PA.watch). SANS centrale finie (capacité nulle, plant_done faux) : vrai comme avant,
+--- car la centrale PRÉCÈDE les consommateurs et ne se juge pas elle-même (le premier module électrique la fait demander).
 function S.admit(st, c, new, tick)
-  if not (c.capacity and c.capacity > 0) or (new or 0) <= 0 then st.since = nil return true, nil end
-  local want = (c.used or 0) + S.DRAW * ((c.committed or 0) + new)
+  local function hold(why)
+    st.since = st.since or tick
+    if tick - st.since >= S.GATE_WAIT then return true, "delai" end
+    return false, why
+  end
+  if (new or 0) <= 0 then st.since = nil return true, nil end
+  if not (type(c.capacity) == "number" and c.capacity > 0) then
+    if c.plant_done then return hold("courant : centrale finie, entree absente : capacity") end
+    st.since = nil
+    return true, nil
+  end
+  if type(c.used) ~= "number" then return hold("courant : entree absente : used (production)") end
+  local want = c.used + S.DRAW * ((c.committed or 0) + new)
   if want <= S.GATE_FRAC * c.capacity then st.since = nil return true, nil end
   st.since = st.since or tick
   if tick - st.since >= S.GATE_WAIT then return true, "delai" end

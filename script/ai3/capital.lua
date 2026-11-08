@@ -42,7 +42,7 @@ local Gel = require("script.faction.gel") -- lot X10-GEL : statut comptable d'un
 
 local Capital = {}
 
--- Réglage de carte fo-war-capital (settings/capital.lua), ÉTEINT par défaut (correction après revue, 27/10 : la recherche
+-- Réglage de carte fo-war-capital (settings/capital.lua), ALLUMÉ par défaut (correction après revue, 27/10 : la recherche
 -- des factions est retardée quand il est allumé, D1 ouvert) ; relu à chaque pensée. Capital.ENABLED = false et l'interface
 -- « fo-capital » set_enabled(false) (bancs témoins, rangé dans l'état de la guerre) l'éteignent aussi, même réglage allumé.
 -- Il commande les buts sur les bâtiments à niveaux et le centre. Le REMPLACEMENT des machines hors famille (lot AMELIORER)

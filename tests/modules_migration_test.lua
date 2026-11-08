@@ -200,6 +200,9 @@ local function load_mult(patch)
   local stubs = {
     ["script.core.events"] = {
       on = function(id, fn) ENG.handlers[id] = fn end,
+      -- Lot MORTS (c270bf7f) : mult.lua s'abonne par Events.on_died (avant : Events.on(on_entity_died)) ; même table qu'avant, comme les
+      -- doubles des bancs corrigés par 9f5b0f4e (oublié ici : le banc plantait au chargement de mult.lua depuis 0.6.59).
+      on_died = function(fn) ENG.handlers[defines.events.on_entity_died] = fn end,
       on_nth_tick = function() end,
       on_configuration_changed = function(fn) ENG.config[#ENG.config + 1] = fn end,
       on_load = function() end,

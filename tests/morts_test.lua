@@ -216,7 +216,8 @@ local function attendu()
     ["script/team/front.lua"] = { types = set_of(pieces), ennemi = false },
     ["script/team/player_team.lua"] = { types = by_names({ "fo-team-chest" }), ennemi = false },
     ["script/team/qg_groupe.lua"] = NE,
-    ["script/team/qg_tourelle.lua"] = { types = set_of(Rg.TURRET_TYPES), ennemi = false },
+    -- qg_tourelle s'abonne aux types du journal des tourelles (artillerie comprise) depuis 040d1f8c (tourelle-journal)
+    ["script/team/qg_tourelle.lua"] = { types = set_of(require("script.team.tourelle_journal").TURRET_TYPES), ennemi = false },
     ["script/team/reconstruction.lua"] = { types = set_of(pieces), ennemi = false },
     ["script/levels/levels.lua"] = NE, ["script/levels/centre.lua"] = NE, ["script/modules/lots.lua"] = NE,
     ["script/modules/mult.lua"] = { types = set_of(Mult.TYPES) },
@@ -225,6 +226,8 @@ local function attendu()
     ["script/robots/outils.lua"] = { types = set_of({ "unit", "spider-vehicle" }) },
     ["script/ai3/prevision.lua"] = { types = set_of({ "unit" }), ennemi = true },
     ["script/companion/registry.lua"] = { types = set_of({ "character" }) },
+    -- EFFONDREMENT (parade du kit offert, 7/11) : la mort d'un PNJ au kit offert note sa fiche ; jamais la force « enemy »
+    ["script/team/worker.lua"] = { types = set_of({ "character" }), ennemi = false },
     ["script/scenario/journal.lua"] = { types = set_of({ "unit-spawner" }) },
     ["script/td/director.lua"] = { types = set_of({ "unit" }) },
     ["script/world/enemy_mechanics.lua"] = { types = by_names(brood) },
@@ -530,7 +533,7 @@ local died = Events.died_list()
 -- P2 : déclarations
 do
   local want = attendu()
-  check(#died == 23, "P2 : 23 abonnés à on_entity_died recensés (" .. #died .. ")")
+  check(#died == 24, "P2 : 24 abonnés à on_entity_died recensés (" .. #died .. ")") -- 23 + worker.lua (parade du kit offert, EFFONDREMENT)
   local tout, bad = {}, {}
   local seen = {}
   for i, d in ipairs(died) do

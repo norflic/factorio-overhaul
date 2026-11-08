@@ -11,6 +11,11 @@
     5. recrues de l'alerte (la faction s'arme avant la première perte) ; global sérialisable ; déterminisme de la décision.
   Le moteur simulé ne cherche pas les ennemis : find_nearest_enemy et find_enemy_units sont remplacés ici par une recherche réelle
   sur ses entités (force « enemy »).
+  Lot ROUGES-0659 (7/11) : la vague vient du premier côté du QG (nord, est, sud, ouest) où AUCUN avant-poste de la faction n'est,
+  choisi par la géométrie du test et jamais lu dans la prévision : le QG est le premier site touché par construction (précondition
+  contrôlée). Depuis l'étalement des pensées des factions (d609e416), Écarlate fonde ap1 ENTRE le QG et une vague au nord avant le
+  tick 600 : la prévision le jugeait à bon droit premier touché (2 ECHEC de 0.6.55 à 0.6.59 ; correctif bd6d23e9 refusé, attendu
+  circulaire). 3 mutants (PREPARER coupé, regroupement derrière le site, regroupement décalé de (40, 40)) doivent échouer.
   Lancement : lua5.2 tests/armee_moteur_test.lua (depuis la racine du mod).
 ]]
 package.path = "./?.lua;" .. package.path
@@ -82,8 +87,58 @@ local function roles(f, per)
   return n
 end
 
-local function run()
+-- Lot ROUGES-0659 : côtés essayés dans cet ordre (le nord d'abord : le test d'avant 0.6.55, inchangé quand aucun avant-poste n'y est).
+local DIRS = { { 0, -1, "nord" }, { 1, 0, "est" }, { 0, 1, "sud" }, { -1, 0, "ouest" } }
+
+--- Position à `along` tuiles du QG dans la direction d, décalée de `side` tuiles sur sa perpendiculaire (au nord : vers l'est, comme
+--- avant ce lot).
+local function wave_pos(f, d, along, side)
+  return { x = f.hq_pos.x + d[1] * along - d[2] * side, y = f.hq_pos.y + d[2] * along + d[1] * side }
+end
+
+--- Premier côté où AUCUN avant-poste de la faction n'est vers la vague (projection sur d <= -WAVE_MARGIN) : de tous les sites, le QG
+--- est alors le plus près de CHAQUE déchiqueteur, quel que soit le juge du premier site. Rend le côté (nil si aucun) et la liste des
+--- côtés écartés. Marge (relecture revue-s, 8/11) : un déchiqueteur est à a >= 60 tuiles sur l'axe et à 18 au plus de côté ; un
+--- avant-poste à projection <= -5 en est à a + 5 ou plus, le QG à sqrt(a^2 + 18^2) < a + 5 dès que a > 30 (sans marge, un avant-poste
+--- de côté, à projection 0, pouvait être plus près que le QG de moins d'une tuile).
+local WAVE_MARGIN = 5
+local function wave_dir(f, St)
+  local blocked = {}
+  for _, d in ipairs(DIRS) do
+    local free = true
+    for _, k in ipairs(St.sorted_keys(f.outposts or {})) do
+      local q = f.outposts[k].access or f.outposts[k].pos
+      if q and (q.x - f.hq_pos.x) * d[1] + (q.y - f.hq_pos.y) * d[2] > -WAVE_MARGIN then free = false end
+    end
+    if free then return d, blocked end
+    blocked[#blocked + 1] = d[3]
+  end
+  return nil, blocked
+end
+
+--- Mutants (lot ROUGES-0659), posés après new_game ; chacun doit faire échouer un contrôle de fonction. Rend la fonction qui les retire.
+local function mutate(mut)
+  local Pc = require("shared.ai3.prevision_choix")
+  local o_muster, o_rho = Pc.muster, Pc.RHO_IN
+  if mut == "preparer_coupe" then
+    Pc.RHO_IN = 1e12 -- seuil d'ouverture hors d'atteinte : « préparer » ne s'ouvre jamais
+  elseif mut == "derriere" then
+    Pc.muster = function(site)
+      local m = o_muster(site)
+      return (m and site) and { x = 2 * site.x - m.x, y = 2 * site.y - m.y } or m
+    end
+  elseif mut == "de_cote" then
+    Pc.muster = function(site)
+      local m = o_muster(site)
+      return m and { x = m.x + 40, y = m.y + 40 } or m
+    end
+  end
+  return function() Pc.muster, Pc.RHO_IN = o_muster, o_rho end
+end
+
+local function run(mut)
   M.new_game({ patches = patches(), p_busy = 0, p_nopath = 0, p_lost = 0 })
+  local unmutate = mutate(mut)
   M.command("fo-war", "start 4 100 10 320")
   enemy_search()
   M.run_ticks(600)
@@ -95,7 +150,10 @@ local function run()
   local f = global.fo.war.factions[1]
   local s = game.surfaces[1]
   local made = Military.train(f, s, "rifleman", 13)
-  local out = { made = made, hq_y = f.hq_pos.y }
+  local out = { made = made, hq_pos = { x = f.hq_pos.x, y = f.hq_pos.y } }
+  -- Lot ROUGES-0659 : côté de la vague par la géométrie (voir l'en-tête) ; sans côté libre, le nord, et la précondition échoue.
+  out.dir, out.blocked = wave_dir(f, St)
+  local wd = out.dir or DIRS[1]
 
   local t = C.team(f)
   t.escorts = {}
@@ -104,7 +162,7 @@ local function run()
 
   -- Lot PREVISION : 8 déchiqueteurs (1 600 PV dans le moteur simulé) contre 13 soldats (13 × 480 PV) : couverts, aucune alerte.
   local few = {}
-  for i = 1, 8 do few[i] = s.create_entity({ name = "small-biter", position = { x = f.hq_pos.x + i * 2, y = f.hq_pos.y - 60 }, force = "enemy" }) end
+  for i = 1, 8 do few[i] = s.create_entity({ name = "small-biter", position = wave_pos(f, wd, 60, i * 2), force = "enemy" }) end
   if f.armee then f.armee.t = nil end
   if f.prevision then f.prevision.t = nil end
   t.escorts = {}
@@ -114,8 +172,9 @@ local function run()
   -- Équipements au coffre (payés : hors du budget de fer de la prévision) : de quoi équiper 40 soldats.
   f.hq.insert({ name = "submachine-gun", count = 40 })
   f.hq.insert({ name = "firearm-magazine", count = 400 })
-  -- Vague en approche : 40 déchiqueteurs à 60 tuiles au nord du QG (200 PV chacun dans le moteur simulé : 8 000 PV).
-  for i = 1, 40 do s.create_entity({ name = "small-biter", position = { x = f.hq_pos.x + (i % 10) * 2, y = f.hq_pos.y - 60 - math.floor(i / 10) * 2 }, force = "enemy" }) end
+  -- Vague en approche : 40 déchiqueteurs à 60 tuiles du QG, du côté wd (au nord quand aucun avant-poste n'y est, comme avant ce lot ;
+  -- 200 PV chacun dans le moteur simulé : 8 000 PV).
+  for i = 1, 40 do s.create_entity({ name = "small-biter", position = wave_pos(f, wd, 60 + math.floor(i / 10) * 2, (i % 10) * 2), force = "enemy" }) end
   if f.armee then f.armee.t = nil end
   if f.prevision then f.prevision.t = nil end
   t.escorts = {}
@@ -173,11 +232,29 @@ local function run()
   for _, l in ipairs(M.world().logs) do if l:find("[FO-PREVISION]", 1, true) and l:find("PREPARER qg ouvert", 1, true) then logs = logs + 1 end end
   out.prep_logs = logs
   out.ser = pcall(M.serialize, global)
+  unmutate()
   return out
+end
+
+-- Contrôles de FONCTION de la vague (lot ROUGES-0659) : ceux d'avant ce lot, écrits dans le repère du côté choisi. Au nord, la
+-- projection du regroupement sur la direction de la vague vaut hq.y - muster.y : « muster.y < hq.y et hq.y - muster.y <= 20 ».
+local function prep_ok(r) return r.prep_logs >= 1 end
+local function along(r)
+  if not (r.dir and r.muster) then return nil end
+  return (r.muster.x - r.hq_pos.x) * r.dir[1] + (r.muster.y - r.hq_pos.y) * r.dir[2]
+end
+local function rally_ok(r, A)
+  local p = along(r)
+  return p ~= nil and p > 0 and p <= A.MUSTER_R + 1e-6
 end
 
 section("Branchement (moteur simulé, guerre de 4 factions)")
 local r = run()
+print(string.format("  côté de la vague : %s (écartés : %s) ; regroupement (%s), à %s tuiles du QG vers la vague", r.dir and r.dir[3] or "aucun",
+  #r.blocked > 0 and table.concat(r.blocked, ", ") or "aucun", r.muster and string.format("%.1f, %.1f", r.muster.x, r.muster.y) or "?",
+  tostring(along(r) and string.format("%.1f", along(r)))))
+check(r.dir ~= nil, "précondition : un côté du QG sans avant-poste pour la vague (écartés : "
+  .. (#r.blocked > 0 and table.concat(r.blocked, ", ") or "aucun") .. ")")
 check(r.made == 13, "13 soldats équipés (" .. tostring(r.made) .. ")")
 check((r.calm.patrol or 0) > 0 and (r.calm.muster or 0) == 0, "sans menace : patrouilles, aucun regroupement")
 check(r.few_alert == false, "8 déchiqueteurs que 13 soldats couvrent : aucune alerte (écart vague / défense, lot PREVISION)")
@@ -185,8 +262,8 @@ check(r.alert, "vague en approche : alerte (f.armee)")
 check(r.threat and math.abs(r.threat - 40 * 200) < 1e-6, "menace estimée = PV des 40 déchiqueteurs VUS (" .. tostring(r.threat) .. ")")
 local A = require("shared.ai3.armee")
 check(r.need and r.need == r.pc_need and r.need > 13 and r.need <= 30, "besoin estimé par la prévision, au-delà des 13 soldats, sous le plafond (" .. tostring(r.need) .. ")")
-check(r.prep_logs >= 1, "journal [FO-PREVISION] : cadre PREPARER qg ouvert (" .. tostring(r.prep_logs) .. ")")
-check(r.muster and r.muster.y < r.hq_y and r.hq_y - r.muster.y <= A.MUSTER_R + 1e-6, "regroupement entre le QG et la vague (au nord, à 20 tuiles au plus)")
+check(prep_ok(r), "journal [FO-PREVISION] : cadre PREPARER qg ouvert (" .. tostring(r.prep_logs) .. ")")
+check(rally_ok(r, A), "regroupement entre le QG et la vague (" .. (r.dir and r.dir[3] or "?") .. ", à 20 tuiles au plus)")
 check((r.wave.muster or 0) >= 13 and (r.wave.patrol or 0) == 0 and (r.wave.guard or 0) == 0,
   string.format("tous les soldats libres regroupés (regroupement %d, patrouille %d, garde %d)", r.wave.muster or 0, r.wave.patrol or 0, r.wave.guard or 0))
 check(r.muster_points == 1, "un seul point de regroupement (" .. r.muster_points .. ")")
@@ -205,6 +282,13 @@ section("Déterminisme")
 local r2 = run()
 check(r2.need == r.need and r2.s1 == r.s1 and r2.muster.x == r.muster.x and r2.muster.y == r.muster.y,
   "deux passages identiques (besoin, regroupement, recrues)")
+
+section("Mutants (chacun doit faire échouer un contrôle de la vague)")
+for _, mut in ipairs({ "preparer_coupe", "derriere", "de_cote" }) do
+  local rm = run(mut)
+  check(rm.dir ~= nil and not (prep_ok(rm) and rally_ok(rm, A)), string.format("mutant %s refusé (PREPARER %s, regroupement %s)", mut,
+    prep_ok(rm) and "ouvert" or "absent", rally_ok(rm, A) and "juste" or "faux"))
+end
 
 print(string.format("[ARMEE-MOTEUR] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

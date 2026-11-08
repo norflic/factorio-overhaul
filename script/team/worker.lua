@@ -23,6 +23,7 @@ local Acc = require("shared.team.acces_champ") -- lot NAV2 : point d'accès atte
 local Co = require("shared.team.couloir") -- lot ÉTAGE 5 : le bâtiment qui ferme la dernière issue d'un accès (journal [FO-NAV-ACCES])
 local Rc = require("shared.team.repli_chemin") -- lot CHARBON3 (B2) : essais de marche d'un PNJ (règle pure)
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
+local AmRt = require("script.ai3.amorce_rt") -- lot VIDEO-COUVERTURE (C3) : remise directe aux modules en réserve avant le coffre
 local Mu = require("shared.team.munitions") -- lot MUNITIONS (revue M3) : prise bornée de la munition de base (Mu.split_take)
 local Ra = require("shared.team.rearmement") -- lot REARMEMENT : emplacement des munitions complété au dépôt au QG (règle pure)
 local Tj = require("script.team.tourelle_journal") -- lot TOURELLE-JOURNAL : minage refusé sous une tourelle, journal [FO-TOURELLE-RETIREE]
@@ -48,6 +49,9 @@ local Mi = require("shared.team.main_inventaire") -- lot MAIN-INVENTAIRE : minag
 local Sorties = require("script.team.sorties") -- lot CHARBON-MAIN : la ressource qui dort dans les coffres des avant-postes bruts
 local CB = require("shared.team.craft_bg") -- lot CRAFT-PARALLELE : fabrication en arrière-plan (règles pures, bilan [FO-CRAFT])
 local Tp = require("shared.team.tri_proches") -- lot CERVEAU-CENTRAL (P1) : tri des tuiles de minage, positions lues une fois
+local Sp = require("shared.team.spirale") -- EFFONDREMENT : filet de recul de la recrue gratuite (mort rapide d'une recrue gratuite)
+local Events = require("script.core.events") -- EFFONDREMENT : parade du kit offert (mort d'un PNJ, corps rendu)
+local Storage = require("script.core.storage")
 
 local Worker = {}
 Worker.BUILD_LOGS = 30 -- lot SCALE-COMPLET : lignes [FO-AVANT-POSTE] au plus par équipe (f.stats.build_logs)
@@ -259,6 +263,9 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Transferts avec le stock (QG)
 ---------------------------------------------------------------------------------------------------
+-- Lot STOCKAGE-VITAL : le dépôt d'un PNJ au QG est le seul appelant de Stock.insert soumis à la réserve des vitales (ce qui est refusé
+-- reste en poche, rien n'est perdu).
+local DEPOSIT_OPTS = { reserve = true }
 local function deposit_inventory(f, inv, keep)
   local contents = inv.get_contents()
   local names = {}
@@ -266,8 +273,9 @@ local function deposit_inventory(f, inv, keep)
   table.sort(names)
   for _, name in ipairs(names) do
     local n = contents[name] - (keep and keep[name] or 0)
+    if n > 0 then n = n - AmRt.deliver(f, inv, name, n) end -- C3 : ce qu'un module en réserve attend lui est remis AVANT le coffre
     if n > 0 then
-      local moved = Stock.insert(f, name, n)
+      local moved = Stock.insert(f, name, n, DEPOSIT_OPTS)
       if moved > 0 then
         inv.remove({ name = name, count = moved })
         f.team.delivered[name] = (f.team.delivered[name] or 0) + moved
@@ -310,6 +318,35 @@ local function rearm_floor(f)
   return Ra.floor(T.ammo_min, urgent, s1 ~= nil and s1.was == true, s1 and s1.reserve_said or 0)
 end
 
+-- EFFONDREMENT, parade du KIT OFFERT (décision du lead, 7/11 vers 19 h 05 ; règle pure : Sp.kit_take, shared/team/spirale.lua) :
+-- le kit d'une recrue au kit OFFERT (effectif de départ, recrue gratuite sous l'effectif de départ) est retiré de son corps à sa mort,
+-- au plus 1 pistolet et les chargeurs non payés, détruits (jamais rendus au coffre) ; la cargaison du corps reste.
+-- Fait moteur (micro-banc kit-cadavre, 9ee2b12d, 7/11 19:20) : pendant on_entity_died, les inventaires armes et munitions du
+-- personnage sont DÉJÀ vides (remove rend 0) ; on_post_entity_died rend l'unit_number et le character-corpse (corpses), dont
+-- l'inventaire character_corpse se vide par script. D'où deux temps : la mort note le kit (units → dead), le corps rendu le retire.
+--   units[unit] = { fid, ammo = chargeurs offerts, paid = chargeurs payés reçus au réarmement } (recrue au kit offert, vivante) ;
+--   dead[unit]  = la même fiche, plus tick (mort notée, corps pas encore rendu ; oubliée après Sp.KIT_TTL) ;
+--   taken[fid]  = { gun, ammo } retirés depuis le début (journal [FO-KIT-OFFERT]).
+-- Une recrue SANS arme (unarmed) n'a pas de fiche : rien d'offert à retirer. Les PNJ recrutés avant cette version n'en ont pas non plus.
+Storage.declare("kit_offert", function() return { units = {}, dead = {}, taken = {} } end)
+
+local function kit_ns() return Storage.ns("kit_offert") end
+
+--- Recrue au kit offert : fiche ouverte (appelé par Worker.recruit après la pose du kit).
+local function kit_give(f, e)
+  local ns = kit_ns()
+  if ns and e and e.valid and e.unit_number then
+    ns.units[e.unit_number] = { fid = f.id, ammo = T.worker_ammo_keep, paid = 0 }
+  end
+end
+
+--- Chargeurs PAYÉS (pris au coffre) remis à un PNJ au kit offert : jamais retirés de son corps.
+local function kit_paid(e, n)
+  local ns = kit_ns()
+  local k = ns and e and e.valid and e.unit_number and ns.units[e.unit_number]
+  if k then k.paid = k.paid + n end
+end
+
 --- Lot REARMEMENT : au dépôt au QG, l'emplacement des munitions d'un PNJ ARMÉ (pistolet en main) est complété jusqu'à la dotation
 --- (T.worker_ammo_keep) avec des chargeurs du coffre au-dessus du plancher (Ra.take). Avant : jamais (seul le recrutement le remplissait).
 --- Compte : f.team.rearm = { n = rechargements, mags = chargeurs } (journal [FO-REARMEMENT], Worker.rearm_report).
@@ -334,6 +371,7 @@ local function rearm(agent, f)
   if put > 0 then
     f.team.rearm = f.team.rearm or { n = 0, mags = 0 }
     f.team.rearm.n, f.team.rearm.mags = f.team.rearm.n + 1, f.team.rearm.mags + put
+    kit_paid(e, put) -- EFFONDREMENT : chargeurs payés, jamais retirés du corps d'une recrue au kit offert
   end
 end
 
@@ -762,10 +800,19 @@ function Worker.program(f, task, surface, tick)
     if best then claim_tile(f, best.position, tick) end
     -- Lot IA3-f (constat du DC, 25/10 vers 18 h 45) : rien à portée du coffre : gisement CONNU et sûr plus loin (carte de
     -- connaissance, crochet posé par script/ai3/exploration.lua ; sinon il demande une exploration). Pas pour le fond.
+    -- Lot STOCKAGE-VITAL : récolte d'un coffre urgent (shared/team/fond.lua, F.annex_urgent) : le coffre est fabriqué SUR PLACE avec la
+    -- matière récoltée, avant le retour (un stock plein refuserait le bois au dépôt ; le coffre, lui, est posé en annexe au dépôt).
+    local function mine_steps()
+      local steps = { { "home" }, { "goto", task.target, 1.5 }, { "mine", task.resource, task.count } }
+      local tc = task.then_craft
+      if tc then steps[#steps + 1] = { "craft_now", tc.crafts, tc.ticks, tc.item } end
+      steps[#steps + 1] = { "home" }
+      return steps
+    end
     local far = not best and not task.fond and Worker.far_mine and Worker.far_mine(f, task, surface, tick)
     if far then
       task.target = far
-      return { { "home" }, { "goto", task.target, 1.5 }, { "mine", task.resource, task.count }, { "home" } }
+      return mine_steps()
     end
     if not best then
       -- Lot KIT (diagnostic) : un minage à la main sans tuile libre ni sûre à portée (au plus une ligne par ressource et par
@@ -780,7 +827,7 @@ function Worker.program(f, task, surface, tick)
       return nil
     end
     task.target = { x = best.position.x, y = best.position.y }
-    return { { "home" }, { "goto", task.target, 1.5 }, { "mine", task.resource, task.count }, { "home" } }
+    return mine_steps()
   end
   return nil
 end
@@ -876,7 +923,7 @@ end
 ACTS.service = function(agent, f, task, surface, tick)
   local o = f.outposts[task.outpost]
   if not o then return false end
-  local n = Outposts.service(o, main_inv(agent), tick, f.team and f.team.flux_fill)
+  local n = Outposts.service(o, main_inv(agent), tick, f.team and f.team.flux_fill, Stock.skip_fn and Stock.skip_fn(f))
   f.stats.serviced = (f.stats.serviced or 0) + 1
   f.team.collected = (f.team.collected or 0) + n
   return true
@@ -1383,6 +1430,30 @@ local function run_steps(agent, tick)
       agent.wait_until = tick + (step[2] or 0)
       set(agent, "wait", tick)
       return
+    elseif kind == "craft_now" then
+      -- Lot STOCKAGE-VITAL : fabrication sur place avec ce que le PNJ porte (coffre urgent après sa récolte), puis attente de la durée
+      -- de fabrication ; jamais derrière une fabrication en arrière-plan (sa file est à elle : rien n'est lancé, le bois rentre au QG).
+      local e = agent.entity
+      local n, why = 0, "file de fabrication occupee"
+      if not agent.bg and e.crafting_queue_size == 0 then
+        why = "matiere absente"
+        for _, c in ipairs(step[2] or {}) do
+          local ok, k = pcall(e.begin_crafting, { count = c.runs, recipe = c.recipe, silent = true })
+          if ok and type(k) == "number" then n = n + k end
+        end
+      end
+      f.stats.stock_craft_logs = (f.stats.stock_craft_logs or 0) + 1
+      if f.stats.stock_craft_logs <= 40 then
+        log(string.format("[FO-STOCKAGE] %s : coffre urgent %s fabrique sur place par le PNJ %s : %s a %.1f min", f.key or "player",
+          tostring(step[4]), tostring(agent.id), n > 0 and (n .. " fabrication(s) lancee(s)") or ("rien de lance (" .. why .. ")"),
+          (tick - (f.started or 0)) / 3600))
+      end
+      if n > 0 then
+        agent.wait_until = tick + (step[3] or 0)
+        set(agent, "wait", tick)
+        return
+      end
+      agent.pc = agent.pc + 1
     elseif kind == "goto" then
       if not goto_step(agent, step[2], step[3] or 4, tick) then return end
       agent.street_off = nil -- lot IA1-d : le repli vers le PathService ne vaut que pour ce trajet
@@ -1508,6 +1579,7 @@ FSM.define(MACHINE, {
         Profiler.fcredit("idle", "idle:sans-tache")
         return
       end
+      Stock.note_claim(f, main_inv(agent), tick) -- lot STOCKAGE-VITAL : prise de tâche avec la poche pleine (compteur, aucune décision)
       Profiler.fstart("worker:program")
       local steps = Worker.program(f, task, agent.entity.surface, tick)
       Profiler.fstop("worker:program")
@@ -1851,6 +1923,7 @@ function Worker.recruit(f, surface, tick, unarmed, free)
     e.get_inventory(defines.inventory.character_ammo).insert({ name = T.worker_ammo, count = T.worker_ammo_keep })
   end
   if free or unarmed then agent.free_kit = true end
+  if free and not unarmed then kit_give(f, e) end -- EFFONDREMENT : kit offert, retiré du corps à la mort (parade du kit)
   f.engineers[agent.id] = true
   f.engineers_count = f.engineers_count + 1
   home_slot(agent, f) -- case attribuée dès le recrutement (lot IA1-a)
@@ -1910,7 +1983,63 @@ function Worker.counts(f)
   return states
 end
 
+-- EFFONDREMENT, parade du kit offert : 1. la mort note la fiche du kit (le personnage est encore valide, ses inventaires déjà vides) ;
+-- les fiches oubliées (mort sans corps rendu) partent après Sp.KIT_TTL.
+Events.on_died(function(e)
+  local ent = e.entity
+  local ns = kit_ns()
+  -- hors de l'intérêt déclaré (personnage d'une force autre que « enemy ») : rien, pas même la purge (lot MORTS, tests/morts_test.lua P3)
+  if not (ns and ent and ent.valid and ent.unit_number and ent.type == "character" and ent.force.name ~= "enemy") then return end
+  local tick = e.tick or game.tick
+  local old = {}
+  for u, d in pairs(ns.dead) do if tick - d.tick > Sp.KIT_TTL then old[#old + 1] = u end end
+  table.sort(old)
+  for _, u in ipairs(old) do ns.dead[u] = nil end
+  local k = ns.units[ent.unit_number]
+  if not k then return end
+  ns.units[ent.unit_number] = nil
+  ns.dead[ent.unit_number] = { fid = k.fid, ammo = k.ammo, paid = k.paid, tick = tick }
+end, { types = { "character" }, ennemi = false })
+
+-- 2. le corps rendu (on_post_entity_died) : le kit offert en est retiré (Sp.kit_take), détruit ; la cargaison reste.
+-- Le bus (events.lua) ne filtre pas ; le FILTRE MOTEUR est posé ici, à on_init et on_load (comme script/team/reparation.lua) : le
+-- moteur ne lève plus l'événement que pour les personnages (relecture de revue-0657, accord du lead, 7/11). LIMITE : tout autre abonné du
+-- bus à on_post_entity_died ne verrait plus, lui aussi, que les personnages (noté dans script/core/events.lua).
+Events.on(defines.events.on_post_entity_died, function(e)
+  local u = e.unit_number
+  if not u then return end
+  local ns = kit_ns()
+  local d = ns and ns.dead[u]
+  if not d then return end
+  ns.dead[u] = nil
+  for _, c in ipairs(e.corpses or {}) do
+    if c.valid and c.type == "character-corpse" then
+      local inv = c.get_inventory(defines.inventory.character_corpse)
+      if inv and inv.valid then
+        local present = { gun = inv.get_item_count(T.worker_gun), ammo = inv.get_item_count(T.worker_ammo) }
+        local gun, ammo = Sp.kit_take({ gun = 1, ammo = d.ammo }, present, d.paid)
+        if gun > 0 then gun = inv.remove({ name = T.worker_gun, count = gun }) end
+        if ammo > 0 then ammo = inv.remove({ name = T.worker_ammo, count = ammo }) end
+        local tk = ns.taken[d.fid] or { gun = 0, ammo = 0 }
+        ns.taken[d.fid] = tk
+        tk.gun, tk.ammo = tk.gun + gun, tk.ammo + ammo
+        local f = State.faction(d.fid)
+        log(Sp.kit_text({ key = f and (f.key or "player") or tostring(d.fid), unit = u, gun = gun, ammo = ammo, kept = present.ammo - ammo,
+          total_gun = tk.gun, total_ammo = tk.ammo, minutes = (e.tick or game.tick) / 3600 }))
+      end
+      break
+    end
+  end
+end)
+Worker.KIT_POST_FILTER = { { filter = "type", type = "character" } }
+local function kit_post_filter() script.set_event_filter(defines.events.on_post_entity_died, Worker.KIT_POST_FILTER) end
+Events.on_init(kit_post_filter)
+Events.on_load(kit_post_filter)
+
 Registry.on_removed(function(agent)
+  -- EFFONDREMENT (parade du kit offert) : un PNJ renvoyé (sans mort) n'a plus de fiche ; mort, sa fiche est déjà passée à `dead`
+  local kns = kit_ns()
+  if kns and agent.unit then kns.units[agent.unit] = nil end
   if not agent.faction then return end
   local f = State.faction(agent.faction)
   if not f or not f.engineers[agent.id] then return end
@@ -1919,6 +2048,15 @@ Registry.on_removed(function(agent)
   f.engineers[agent.id] = nil
   f.engineers_count = (f.engineers_count or 1) - 1
   if f.stats then f.stats.engineers_lost = (f.stats.engineers_lost or 0) + 1 end
+  -- EFFONDREMENT (filet de recul, décision du DC, 7/11 vers 16 h 56) : une recrue GRATUITE (agent.free_born, posé en E4) TUÉE moins de
+  -- Sp.RECUL_VITE ticks après son arrivée double l'attente de la suivante (shared/team/spirale.lua) ; un renvoi (sans cause) ne compte pas.
+  if f.is_player and f.team and agent.free_born and agent.death_cause then
+    local now = game.tick
+    f.team.recul = Sp.recul_death(f.team.recul, agent.free_born, now)
+    if now - agent.free_born < Sp.RECUL_VITE then
+      log(Sp.recul_text({ key = f.key or "player", age = now - agent.free_born, wait = f.team.recul.wait, minutes = now / 3600 }))
+    end
+  end
   -- Lot IA1-b2 (mesure) : PNJ TUÉ (cause connue) : tâche, distance au QG, cause ; tués par les ennemis comptés à part.
   if agent.death_cause and f.stats then
     if agent.death_cause:find("/enemy:", 1, true) then f.stats.lost_enemy = (f.stats.lost_enemy or 0) + 1 end

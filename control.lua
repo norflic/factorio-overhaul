@@ -29,6 +29,7 @@ require("script.companion.bench")
 require("script.world.hazards")
 require("script.world.enemy_mechanics")
 require("script.world.guarantee") -- lot M0 : monnaies des époques 5, 7 et 8 garanties sur toute carte
+require("script.world.explosions_mort") -- lot X10, Q5 et Q5b : explosions de mort recréées près d'un joueur seulement
 
 -- Factions IA (pilier 2) : état, équipes (cerveau d'équipe, tâches, ouvriers), commandant, guerre
 require("script.faction.state")
@@ -47,6 +48,7 @@ require("script.faction.gel_usines_jeu") -- lot X10-GEL : gel, réveil, pas comp
 require("script.faction.gel_garnisons") -- lot X10-GEL (Q7) : soldats au repos en garnison figés hors de vue, réveillés avant le combat
 require("script.faction.gel_banc") -- lot X10-GEL : interface des bancs « fo-gel » (groupes de banc ; aucun dans une partie ordinaire)
 require("script.ai3.exploration") -- lot IA3-f : carte de connaissance, yeux des PNJ, éclaireurs (exploration sous brouillard)
+require("script.ai3.jalons") -- lot VIDEO-TRACES (V03) : journal [FO-JALON], époque atteinte par chaque faction
 
 -- Mode défense de tours (activable à tout moment)
 require("script.td.director")
@@ -78,6 +80,9 @@ require("script.robots.outils") -- lot RB-2 : outils de sélection, ralliement, 
 -- Le Bourdon, expérimental de l'âge 15 (lot BOURDON) : démonstration, /fo-bourdon, /fo-glas
 require("script.robots.bourdon")
 require("script.robots.experimentaux") -- lot EXPERIMENTAUX : effets, lancer des capsules, interface « fo-xp »
+
+-- Lot VIDEO (0.6.61) : migration UNIQUE des quatre réglages de carte de la vidéo dans une partie d'avant la 0.6.61
+require("script.ai3.video_reglages")
 
 -- Pilotage sans joueur (tests automatisés, scénarios)
 require("script.remote")

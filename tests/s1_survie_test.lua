@@ -409,7 +409,8 @@ local src = {
   capi = read_src("script/ai3/capitalisation.lua"), pteam = read_src("script/team/player_team.lua"),
 }
 local function has(s, pat) return s:find(pat, 1, true) ~= nil end
-check(has(src.team, "qg_peril = SurvieQg.update(f, tick)"), "maillon 1 (vue) : Team.view publie view.qg_peril")
+-- (X10-S0, 0.6.62 : l'appel passe par la portée fine du profileur, mesure seulement ; Profiler.fwrap rend la valeur de SurvieQg.update)
+check(has(src.team, 'qg_peril = Profiler.fwrap("view:5-survieqg", SurvieQg.update, f, tick)'), "maillon 1 (vue) : Team.view publie view.qg_peril")
 check(has(src.glue, "Sq.peril({") and has(src.glue, "Sq.threat(v.waves, tick)") and has(src.glue, "Prev.qg_view(f)") and has(src.glue, "[FO-SURVIE]"),
   "maillon 2 (glue) : la vue appelle Sq.peril avec la menace mémorisée et le recensement, et journalise [FO-SURVIE]")
 check(has(src.prev, "Sq.armed_share(have, T.turret_ammo_low)") and has(src.prev, "e.get_inventory(defines.inventory.turret_ammo)"),
@@ -441,7 +442,8 @@ do -- la porte du QG vient AVANT celle de la pile (qui laisse passer un module q
   local c = build_src:find("local fam = pile_family(f, p)\n  if not fam then return false end\n  -- Lot QGSURVIE", 1, true)
   check(a and b and c and c < a and a < b, "maillon 11 bis (QGSURVIE) : la porte du QG suit pile_family (pas les reconstructions) et précède celle de la pile")
 end
-check(has(src.team, "if f.is_player and T.qg_recruit_hold_on and SurvieQg.recruit_hold(f, tick, hq_threat) then hold_recruits = true end")
+-- EFFONDREMENT (7/11) : la branche de la retenue écrit aussi le journal [FO-RECRUE] d'une recrue gratuite retenue (tests/spirale_test.lua).
+check(has(src.team, "if f.is_player and T.qg_recruit_hold_on and SurvieQg.recruit_hold(f, tick, hq_threat) then\n    hold_recruits = true\n")
   and has(src.glue, "held = Sq.recruit_hold({ armed = v.qg.armed, threat = threat, workers = f.engineers_count })")
   and has(src.glue, "[FO-QGSURVIE]"),
   "maillon 12 (recrues, QGSURVIE) : la retenue passe par Sq.recruit_hold avec le recensement et la menace, view.hold_recruits, journal")

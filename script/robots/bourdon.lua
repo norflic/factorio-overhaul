@@ -24,6 +24,10 @@ local Mo = require("shared.robots.modele")
 local Ro = require("shared.content.robots") -- lot BOURDON-SORTIE : taille de l'usine (point de sortie)
 local State = require("script.faction.state") -- lot BOURDON-MINEURS : une faction ne sort pas de Bourdon (B.sortie)
 local XpG = require("script.robots.experimentaux_geants") -- règle d'échelle : cible « tout ce qui est ennemi » (lot EXPERIMENTAUX-PUISSANCE)
+local Ech = require("shared.robots.echelle") -- séquelles du Glas : 10 min (QCM-7/11 : « non temporaire mais de 10 minutes »)
+-- Traces du Glas : sol balayé et cicatrices des fissures durent Ech.TRACE_GLAS_TICKS ; le sol s'efface sur les 10 dernières secondes, les
+-- cicatrices se referment morceau par morceau sur les 20 dernières (même étalement qu'avant, 70 s et 47 à 67 s).
+local GLAS_FONDU, GLAS_REFERME = 600, 1200
 
 local M = {}
 
@@ -361,7 +365,7 @@ local function frapper(b, g, tick)
     dessine(s, "anneau-air", { g.cx, g.cy + zy }, nil, "smoke", { time_to_live = 58 }),
     dessine(s, "anneau-air", { g.cx, g.cy + zy }, nil, "smoke", { time_to_live = 58 }),
   }
-  g.balaye = dessine(s, "balaye", { g.cx, g.cy }, nil, "ground-patch", { time_to_live = 4200, x_scale = 0.01, y_scale = 0.01 })
+  g.balaye = dessine(s, "balaye", { g.cx, g.cy }, nil, "ground-patch", { time_to_live = Ech.TRACE_GLAS_TICKS, x_scale = 0.01, y_scale = 0.01 })
   local L = st().balayes
   L[#L + 1] = { id = g.balaye, t = tick }
   -- le souffle sous la cloche
@@ -381,7 +385,7 @@ local function ouvre_fissures(b, g, r)
     local ye = sg.e * (sg.n == 0 and 1.15 or 0.85)
     local cible = { g.cx + sg.x, g.cy + sg.y }
     rendering.draw_sprite({ sprite = nom("fissure-" .. sg.v), surface = s, target = cible, orientation = sg.o, x_scale = xs, y_scale = ye,
-      render_layer = "ground-patch-higher", time_to_live = 2800 + math.floor(1200 * sg.vc) })
+      render_layer = "ground-patch-higher", time_to_live = Ech.TRACE_GLAS_TICKS - GLAS_REFERME + math.floor(GLAS_REFERME * sg.vc) })
     rendering.draw_sprite({ sprite = nom("fissure-chaude-" .. sg.v), surface = s, target = cible, orientation = sg.o, x_scale = xs, y_scale = ye,
       render_layer = "ground-patch-higher2", time_to_live = 70 + math.floor(90 * sg.vh) })
     rendering.draw_sprite({ sprite = nom("fissure-chaude-" .. sg.v), surface = s, target = cible, orientation = sg.o, x_scale = xs, y_scale = ye,
@@ -726,7 +730,7 @@ local function sur_tick(ev)
       i = i + 1
     end
   end
-  -- le sol balayé s'efface sur 10 s, à la fin de sa vie
+  -- le sol balayé s'efface sur ses GLAS_FONDU derniers ticks
   if tick % 30 == 0 then
     local bal = etat.balayes
     local j = 1
@@ -736,8 +740,8 @@ local function sur_tick(ev)
         table.remove(bal, j)
       else
         local age = tick - x.t
-        if age > 3600 then
-          local v = math.max(0, 1 - (age - 3600) / 600)
+        if age > Ech.TRACE_GLAS_TICKS - GLAS_FONDU then
+          local v = math.max(0, 1 - (age - (Ech.TRACE_GLAS_TICKS - GLAS_FONDU)) / GLAS_FONDU)
           rendering.set_color(x.id, blanc(v))
         end
         j = j + 1

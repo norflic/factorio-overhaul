@@ -825,6 +825,7 @@ end
 --- État d'un avant-poste : brûleur à court de charbon, production en attente, tourelles.
 --- Lot FLUX : `outputs` = { [objet] = n } des sorties (ce que la tournée rapportera), `stuck` = réceptacles dont la sortie est
 --- pleine (shared/team/flux.lua, Fx.STUCK_AT : le four ne fond plus), `burners` / `dry` = brûleurs et brûleurs sans une braise.
+--- Partie C (FOREUSES-THERMIQUES) : `electric` / `unpowered` = électriques et électriques sans courant (signal du réseau tombé).
 function Outposts.status(o, tick)
   local low, output = false, 0
   local burners, dry = 0, 0
@@ -847,8 +848,10 @@ function Outposts.status(o, tick)
   -- Lot MIGRATION-CHAMP : un champ entièrement migré n'a plus rien à ravitailler ni à collecter ici (la fonderie du plan a ses coffres) :
   -- pas de tournée d'entretien « à l'heure » (les tourelles gardent leur ravitaillement par leurs propres tâches)
   local idle = (o.migr == "fini" and #valid_list(o.drill_list) == 0) and 0 or (tick - (o.last_service or 0))
+  -- Lot FOREUSES-THERMIQUES (partie C) : électriques de l'avant-poste et celles SANS COURANT, vues par la dernière passe de repli
+  -- (script/team/foreuse_swap.lua, Swap.repli : toutes les T.swap.every ticks environ ; aucune lecture du moteur ici).
   return { fuel_low = low, output = output, turrets = #o.turret_list, idle_ticks = idle,
-    outputs = outputs, stuck = stuck, burners = burners, dry = dry }
+    outputs = outputs, stuck = stuck, burners = burners, dry = dry, electric = o.electric or 0, unpowered = o.unpowered or 0 }
 end
 
 --- Charbon à apporter pour compléter tous les brûleurs d'une liste.
@@ -864,14 +867,17 @@ function Outposts.coal_needed(o, fill)
 end
 
 --- Ramasse la production des réceptacles dans l'inventaire de l'ouvrier. Renvoie le nombre d'objets.
-local function collect(sinks, carrier)
+local function collect(sinks, carrier, skip)
   local collected = 0
   for _, s in ipairs(sinks) do
     local inv = s.type == "container" and s.get_inventory(defines.inventory.chest) or s.get_output_inventory()
     for name, n in pairs(inv.get_contents()) do
-      local moved = carrier.insert({ name = name, count = n })
-      if moved > 0 then inv.remove({ name = name, count = moved }) end
-      collected = collected + moved
+      -- lot STOCKAGE-VITAL : une matière que le stock ne doit plus recevoir reste à l'avant-poste (script/team/stock.lua, Stock.skip_fn)
+      if not (skip and skip(name)) then
+        local moved = carrier.insert({ name = name, count = n })
+        if moved > 0 then inv.remove({ name = name, count = moved }) end
+        collected = collected + moved
+      end
     end
   end
   return collected
@@ -901,8 +907,8 @@ Outposts.COAL_SHORT_LOGS = 5 -- lot PLAFOND-FOREUSES : lignes [FO-CHARBON] au pl
 --- complète le charbon de chaque brûleur. Renvoie le nombre d'objets ramassés.
 --- Lot PLAFOND-FOREUSES : brûleurs laissés sous T.fuel_low faute de charbon porté comptés dans `o.coal_short` (tournées courtes ;
 --- lecteur : le journal [FO-CHARBON], les premières fois seulement, et tests/extension_fer_moteur_test.lua).
-function Outposts.service(o, carrier, tick, fill)
-  local collected = collect(valid_list(o.sinks), carrier)
+function Outposts.service(o, carrier, tick, fill, skip)
+  local collected = collect(valid_list(o.sinks), carrier, skip)
   local burners = Outposts.burners(o)
   local short = refuel(burners, carrier, fill)
   if short > 0 then

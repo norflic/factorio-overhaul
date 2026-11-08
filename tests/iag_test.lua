@@ -503,14 +503,16 @@ do
   --            rapport du lot) ; le plafond est l'état du 28/10 et ne peut que BAISSER.
   -- Tout autre fichier de ces dossiers : aucun nom. Une ligne en plus dans un fichier : ECHEC.
   local LEDGER = {
-    ["shared/team/config.lua"] = { "EXEC", 45, "table nommée de l'exécutant (kit, avant-postes, foreuse électrique du lot FOREUSES, fonte, munitions, pièces, tourelle de garde, mur de l'enceinte : T.turret et T.wall, recette et portée lues au moteur ; lot FONDERIE : T.LOGISTIC_TYPES, types de prototypes du répartiteur et du souterrain ; lot MUNITIONS : T.turret_ammo_ladder, échelle des munitions des tourelles, choisie par la règle pure Mu.best_ammo sans nom)" },
+    ["shared/team/config.lua"] = { "EXEC", 46, "table nommée de l'exécutant (kit, avant-postes, foreuse électrique du lot FOREUSES et poteaux de sa chaîne T.swap.poles du lot FOREUSES-THERMIQUES, fonte, munitions, pièces, tourelle de garde, mur de l'enceinte : T.turret et T.wall, recette et portée lues au moteur ; lot FONDERIE : T.LOGISTIC_TYPES, types de prototypes du répartiteur et du souterrain ; lot MUNITIONS : T.turret_ammo_ladder, échelle des munitions des tourelles, choisie par la règle pure Mu.best_ammo sans nom)" },
     ["shared/team/modules.lua"] = { "EXEC", 203, "gabarits de modules : catalogue d'usines posables, noms de leurs pièces" },
     ["shared/team/petrole_donnees.lua"] = { "EXEC", 4, "pièces de l'exécutant des chaînes à fluides (tuyau, coffre des quais, bras, poteaux) : briques du plan directeur, comme automatisation_donnees" },
     ["shared/team/automatisation_donnees.lua"] = { "EXEC", 11, "données de l'exécutant d'IA3-e (machines et pièces posables)" },
+    ["shared/team/lot_minerai_seuils.lua"] = { "EXEC", 1, "SEUILS de la règle pure shared/team/lot_minerai.lua en DONNÉES (lot MINERAI-SONDE) : le seul nom est le minerai à seuil de quantité (G42) ; la règle, elle, ne nomme rien" },
     ["shared/team/plan.lua"] = { "EXEC", 12, "empreintes des pièces et pièces du plan (tapis, coffre, poteaux)" },
     ["script/team/build.lua"] = { "EXEC", 23, "construction : pièces posées (tapis, coffre, poteaux, bras)" },
     ["script/team/reseau_vivant.lua"] = { "TYPE", 3, "types du moteur lus par la santé de la centrale et du réseau (boiler, generator, offshore-pump, inserter) : le GENRE de la pièce, jamais un niveau" },
     ["script/team/raccord.lua"] = { "TYPE", 2, "types du moteur lus par le relevé de couverture électrique (lot PD-ELEC : machines électriques, machines génératrices dont solar-panel) : le GENRE, jamais un niveau" },
+    ["script/team/generateurs.lua"] = { "TYPE", 1, "types du moteur des génératrices tenues par le registre (lot X10-S4 : burner-generator, generator, solar-panel, les types lus par raccord.lua) : le GENRE, jamais un niveau" },
     ["script/team/plant_arms.lua"] = { "EXEC", 1, "journal de la centrale : le fluide « vapeur » lu dans les chaudières (diagnostic)" },
     ["script/faction/vision.lua"] = { "TYPE", 2, "types du moteur (assembling-machine, furnace...)" },
     ["script/faction/journal.lua"] = { "TYPE", 2, "types du moteur (car, robots)" },

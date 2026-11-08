@@ -54,7 +54,19 @@ end
 --- La porte des îlots : peut-on en ouvrir un nouveau ? info = { islands, max, unwalled, unguarded, threatened, main_busy, outside_busy }.
 --- Rend (vrai) ou (faux, raison). `unwalled` : îlots retenus dont le mur n'est pas complet ; `unguarded` : îlots sous leur cible de
 --- tourelles ; `main_busy` : un segment de l'enceinte principale est en cours ; `outside_busy` : projets non finis sur des lots dehors du mur.
+--- FERMÉE PAR DÉFAUT (lot 5b, W04 n°6) : une mesure absente (menace, chantier d'enceinte, îlots, murs, tourelles, plafond) ferme la porte et
+--- la raison la nomme (avant : « pas menacé », `or 0`). Les booléens doivent être des booléens, les compteurs des nombres.
+Ic.GATE_NUMBERS = { "islands", "max", "unwalled", "unguarded", "outside_busy" }
+Ic.GATE_FLAGS = { "threatened", "main_busy" }
 function Ic.gate(info)
+  if type(info) ~= "table" then return false, "mesure absente : info" end
+  for _, k in ipairs(Ic.GATE_FLAGS) do
+    if type(info[k]) ~= "boolean" then return false, "mesure absente : " .. k end
+  end
+  for _, k in ipairs(Ic.GATE_NUMBERS) do
+    local v = info[k]
+    if type(v) ~= "number" or v ~= v then return false, "mesure absente : " .. k end
+  end
   if info.threatened then return false, "menace" end
   if info.main_busy then return false, "enceinte en cours" end
   if (info.outside_busy or 0) > Ic.OUTSIDE_BUSY_MAX then return false, "chantier hors du mur" end

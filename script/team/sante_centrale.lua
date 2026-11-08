@@ -248,11 +248,15 @@ function Sante.gate(f, p, tick, kw_of)
   if sp.alim or sp.raccord or sp.enceinte or sp.liaison or sp.site or is_plant or p.reopened then p.admitted = true return true end
   if p.power_kw == nil then p.power_kw = kw_of(sp) or 0 end
   local g = f.build.grow
-  if p.power_kw <= 0 or not g or (g.capacity or 0) <= 0 then p.admitted = true return true end
+  -- lot 5b (W04 n°2) : la centrale est-elle FINIE ? Alors une capacité ou une production non lue retient le module (S.admit) au lieu de l'admettre
+  local pp = b.projects[b.plant]
+  local plant_done = pp ~= nil and pp.state == "fini"
+  if p.power_kw <= 0 or (not plant_done and (not g or (g.capacity or 0) <= 0)) then p.admitted = true return true end
+  g = g or {}
   local st = sm.gate[p.id] or {}
   sm.gate[p.id] = st
-  local ok, why = S.admit(st, { capacity = g.capacity * JTICK_KW, used = (g.power or 0) * JTICK_KW, committed = Sante.committed(f, p.id) },
-    p.power_kw, tick)
+  local ok, why = S.admit(st, { capacity = g.capacity and g.capacity * JTICK_KW or nil, used = g.power and g.power * JTICK_KW or nil,
+    committed = Sante.committed(f, p.id), plant_done = plant_done }, p.power_kw, tick)
   if ok then
     p.admitted = true
     sm.held[p.id] = nil
@@ -278,7 +282,8 @@ end
 function Sante.growth(f, tick, plants, used_j, capacity_j)
   local sm = mem(f)
   if Sante.off(f) then sm.ant_n = 0 return false, {}, 0, 0, 0 end
-  local committed = Sante.committed(f) + Sante.held(f)
+  -- étape 5a de VIDEO-INTEG : + les kW que la capitalisation a retenus faute de courant (S.capi_kw ; boucle B)
+  local committed = Sante.committed(f) + Sante.held(f) + S.capi_kw(f.team and f.team.capi and f.team.capi.kw_blocked, tick)
   local used, cap = used_j * JTICK_KW, capacity_j * JTICK_KW
   local stalled = {}
   for _, p in ipairs(plants) do
