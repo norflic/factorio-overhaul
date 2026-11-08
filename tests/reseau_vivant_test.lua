@@ -175,6 +175,22 @@ do
   run(f, w, 1200, 1200 * 12)
   check(f.build.projects[1].state == "fini" and unbuilt(f.build.projects[1]) == 0, "saine : projet de la centrale inchangé")
   check(count("rouvert") == 0 and requested == nil, "saine : aucune réouverture, aucune centrale demandée")
+  check(f.build.sante.healthy == true, "saine : sante.healthy vrai (produit 900 kW)")
+
+  -- lot CHAMP-COURANT : aucune demande, production 0 kW : saine (sinon le champ électrique, power_ok, ne part jamais) ; chaudière à sec : non
+  logs = {}
+  w = new_world()
+  local f0, ent0 = team(w)
+  ent0.engine.energy_generated_last_tick = 0
+  run(f0, w, 1200, 1200 * 3)
+  check(f0.build.sante.healthy == true, "production 0 kW sans consommateur : centrale saine (champ-courant)")
+  w = new_world()
+  local f1, ent1 = team(w)
+  ent1.engine.energy_generated_last_tick = 0
+  ent1.boiler.burner.remaining_burning_fuel = 0
+  ent1.boiler.get_fuel_inventory = function() return { is_empty = function() return true end } end
+  run(f1, w, 1200, 1200 * 3)
+  check(f1.build.sante.healthy == false, "production 0 kW, chaudière à sec : pas saine")
 
   logs = {}
   w = new_world()

@@ -167,6 +167,10 @@ end
 
 -- §6 mutants
 local MUT = {
+  { "sante : production nulle sans demande refusee", "if (inp.prod_kw or 0) > 0 then return true end", "if (inp.prod_kw or 0) > 0 then return true end return false" },
+  { "sante : demande non servie acceptee", "if (inp.demand_kw or 0) >= S.MIN_DEMAND_KW then return false end", "" },
+  { "sante : chaudiere a sec acceptee", "and (inp.dry or 0) == 0", "" },
+  { "sante : centrale sans machine acceptee", "(p.gen or 0) > 0 and", "" },
   { "pas de confirmation de la production nulle", "if st.bad < S.CONFIRM then", "if false then" },
   { "pose sous le feu", 'if (inp.enemies or 0) > 0 then return "attendre", "ennemis a portee du site : pas de pose sous le feu", detail end', "" },
   { "danger sans persistance", "st.seen >= S.DANGER_SEEN or", "st.seen >= 1 or" },
@@ -192,6 +196,17 @@ local MUT = {
 local function battery(S2)
   local bad = 0
   local function exp(cond) if not cond then bad = bad + 1 end end
+  -- lot CHAMP-COURANT : S.healthy (partie neuve 0.6.72 : production 0 kW sans consommateur = œuf et poule du champ électrique)
+  exp(S2.healthy(inp()) == true)                                                              -- produit : saine
+  exp(S2.healthy(inp({ prod_kw = 0, demand_kw = 0 })) == true)                                -- rien ne la demande : saine
+  exp(S2.healthy(inp({ prod_kw = 0, demand_kw = 0.5 })) == true)                              -- sous le seuil de demande
+  exp(S2.healthy(inp({ prod_kw = 0, demand_kw = 500 })) == false)                             -- demandée et muette : panne
+  exp(S2.healthy(inp({ prod_kw = 0, demand_kw = 0, dry = 1 })) == false)                      -- chaudière à sec : rien ne partira
+  exp(S2.healthy(inp({ prod_kw = 0, demand_kw = 0, present = { source = 0, gen = 4, eau = 1 } })) == false) -- aucune chaudière
+  exp(S2.healthy(inp({ prod_kw = 0, demand_kw = 0, present = { source = 2, gen = 0, eau = 1 } })) == false) -- aucune machine
+  exp(S2.healthy(inp({ prod_kw = 0, demand_kw = 0, missing = { source = 1 } })) == false)     -- pièce perdue
+  exp(S2.healthy(inp({ fini = false, prod_kw = 0, demand_kw = 0 })) == false)                 -- pas finie
+  exp(S2.healthy(inp({ prod_kw = 900, missing = { eau = 1 } })) == false)                     -- produit mais pièce perdue
   exp((S2.decide(inp({ fini = false }), S2.new())) == "attendre")
   exp((S2.decide(inp(), S2.new())) == "ok")
   exp((S2.decide(inp({ missing = { source = 1 } }), S2.new())) == "reposer")

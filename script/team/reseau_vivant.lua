@@ -532,7 +532,7 @@ function Rv.step(api, f, surface, tick)
   end
   -- une perte survenue sur une centrale qui marchait : compte pour le jugement du site
   local was_healthy = sv.healthy
-  sv.healthy = inp.fini and S.lost(inp) == 0 and inp.prod_kw > 0
+  sv.healthy = S.healthy(inp) -- lot CHAMP-COURANT : une centrale sans demande qui n'a rien perdu est saine (avant : prod_kw > 0 seul)
   if sv.healthy then S.recovered(sv.st) end
   if was_healthy and S.lost(inp) > 0 then S.note_loss(sv.st, 1) end
   local action, why, detail = S.decide(inp, sv.st)
