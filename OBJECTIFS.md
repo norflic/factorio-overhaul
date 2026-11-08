@@ -120,6 +120,18 @@ Directives du DC (8/11, après-midi), citées :
   - aucun retrait de notre fait.
   - Nouveau verrou mesuré : bande électrique refusée au plan, « poteaux sans chaîne jusqu'au réseau alimenté » (`champ.lua:684`, boîte étroite au milieu du minerai). Après 3 refus, la migration est abandonnée. Lot RACCORD-BANDE (courant-libre).
 
+- Vers 18 h 30, « CONTAMINATION DES CONVOYEURS ET LOGIQUE DE "MALL" » (DC en jouant la 0.6.71 ; journal figé `fo-logs/2026-11-08_PARTIE-DC-0671/factorio-current-1830.log`). Citations :
+  - « L'algorithme de routage/piquage relie des outputs de machines d'assemblage directement sur ou à travers des lignes d'inputs destinées à d'autres ressources […] ce qui bloque totalement les machines d'assemblage » ;
+  - « Une ligne d'output ne doit jamais fusionner avec une ligne d'input qui attend un objet différent. Le pathfinding doit vérifier la ressource transportée par le convoyeur cible avant de s'y connecter » ;
+  - « Si un gisement est exploité, il doit l'être à 100% » ;
+  - « L'excédent massif de minerai brut généré ne doit pas dormir dans des coffres, mais être envoyé par de gros convoyeurs vers des Méga-Fonderies » ;
+  - « Un Mall est une zone dense où les machines d'assemblage sont regroupées par rangées, proches les unes des autres, partageant les mêmes bus d'inputs (fer, cuivre, acier, circuits). Quand un Tier supérieur demande une ressource en quantité industrielle, l'IA arrête de construire des mini-usines isolées et allonge plutôt la rangée d'assembleurs dédiée dans le Mall principal ».
+
+  Lots lancés :
+  - PURETE-TAPIS (Sonnet) : d'abord trouver qui contamine, avec les preuves du journal, puis un garde-fou commun `shared/team/purete.lua` appelé par tous les poseurs de tapis ;
+  - MALL (Opus) : conception `docs/MALL.md` avant tout code, avec l'entrée venant des méga-fonderies ;
+  - MEGA-FONDERIE : étendu au minerai des coffres, raccordé au bus.
+
   Lots lancés : GISEMENTS-GEANTS (scénario `etape1-geants`, 2 500 à 5 000 tuiles), MEGA-FONDERIE (conception d'abord), POSE-PAR-LOTS, CAPI-POTEAU (le gabarit des foreuses de capitalisation cède au poteau moyen), plus COURANT-LIBRE, TRANCHES-FOREUSES et ACIER. CENTRALE-PRES (78c20542) est fusionné dans `essai-0666` (44643872). Porte de la prochaine livraison : une partie neuve sur gisements géants qui montre de vrais champs électriques, sans effondrement.
 
 
