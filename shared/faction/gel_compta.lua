@@ -581,7 +581,7 @@ function Gc.commit(st, res)
   return st
 end
 
---- Remise à zéro au gel et au réveil (fractions et reports perdus : jamais un gain). Rend les reports perdus { [objet] = n }.
+--- Remise à zéro (îlot relevé, à relire) : fractions et reports perdus, jamais un gain. Rend les reports perdus { [objet] = n }.
 function Gc.reset(st)
   local lost = {}
   for _, b in ipairs(sorted_names(st.carry)) do
@@ -589,6 +589,36 @@ function Gc.reset(st)
   end
   st.frac, st.pfrac, st.carry = {}, {}, {}
   return lost
+end
+
+--- Au RÉVEIL (après le pas dû) : la fraction de fabrication comptée pendant le gel (temps de machine st.frac, produits à faire st.pfrac)
+--- est mise de côté (st.bank_frac, st.bank_pfrac), pas jetée : elle a été « faite » pendant un gel, le moteur ne la refera pas (il
+--- reprend la progression qu'il avait au gel, jamais écrite : F83, F84). Diagnostic du 8/11 (micro-banc A d'aa0f5477) : la jeter
+--- coûtait jusqu'à 1 fabrication par machine ET PAR RÉVEIL (8 foreuses sur 8 à −1). Les reports de bus (palier B) restent perdus.
+--- Rend les reports perdus { [objet] = n }.
+function Gc.bank(st)
+  local lost = {}
+  for _, b in ipairs(sorted_names(st.carry)) do
+    for _, n in ipairs(sorted_names(st.carry[b])) do lost[n] = (lost[n] or 0) + st.carry[b][n] end
+  end
+  local bf, bp = st.bank_frac or {}, st.bank_pfrac or {}
+  for _, id in ipairs(sorted_names(st.frac)) do bf[id] = (bf[id] or 0) + st.frac[id] end
+  for _, id in ipairs(sorted_names(st.pfrac)) do
+    local t = bp[id] or {}
+    for _, n in ipairs(sorted_names(st.pfrac[id])) do t[n] = (t[n] or 0) + st.pfrac[id][n] end
+    bp[id] = t
+  end
+  st.bank_frac, st.bank_pfrac = bf, bp
+  st.frac, st.pfrac, st.carry = {}, {}, {}
+  return lost
+end
+
+--- Au GEL : l'état comptable repart de la fraction mise de côté au dernier réveil (créditée au pas où la somme atteint 1 : la capacité
+--- d'un pas est rate × dt + fraction). Perte bornée à la fraction du DERNIER réveil (< 1 par machine sur toute la partie), jamais un gain.
+function Gc.restore(st)
+  st.frac, st.pfrac, st.carry = st.bank_frac or {}, st.bank_pfrac or {}, {}
+  st.bank_frac, st.bank_pfrac = nil, nil
+  return st
 end
 
 return Gc

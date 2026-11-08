@@ -234,7 +234,7 @@ local function freeze(I, tick)
   end
   g.n_frozen = g.n_frozen + n
   I.st.frozen, I.last = true, tick
-  Gc.reset(I.acc)
+  Gc.restore(I.acc) -- repart de la fraction mise de côté au dernier réveil (Gc.bank)
   local u = Gu.U()
   u.slots[I.slot] = u.slots[I.slot] or {}
   local list = u.slots[I.slot]
@@ -257,8 +257,10 @@ local function wake(I, tick, cause)
   if tick > I.last and not I.dirty then
     I.owed = tick - I.last -- pas dû jusqu'au tick du réveil, payé dans les ticks suivants (Gu.OWED_PER_TICK)
     u.owed[#u.owed + 1] = I.id
+  elseif I.dirty then
+    Gc.reset(I.acc) -- îlot à relire : il sera refait, sa fraction est perdue (au plus 1 par machine)
   else
-    Gc.reset(I.acc)
+    Gc.bank(I.acc)
   end
   I.last = tick
   local s = stats(I.fid)
@@ -462,7 +464,7 @@ local function each_tick(tick)
     local I = u.ilots[table.remove(u.owed, 1)]
     if I and I.owed and not I.st.frozen then
       if not I.dirty then step(I, tick, I.owed, false) end
-      Gc.reset(I.acc)
+      if I.dirty then Gc.reset(I.acc) else Gc.bank(I.acc) end -- fraction du gel mise de côté pour le prochain gel
       I.owed = nil
     end
     n = n + 1

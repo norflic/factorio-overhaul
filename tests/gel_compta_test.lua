@@ -12,7 +12,9 @@
     K10 assembleur à deux ingrédients de bus (engrenages + plaques) : une source courte ne laisse pas de reste chez l'autre.
     K11 cycle refusé ; bus sans preneur refusé (Gc.check).
     K12 coût : instructions Lua par machine et par pas (debug.sethook, compte exact) ; C8 d'origine (400) NON TENU, seuil C8' de 1 300 décidé par le lead après mesure (7/11, 20 h 01).
-    K13 remise à zéro : fractions et reports perdus au réveil, jamais gagnés.
+    K13 remise à zéro (îlot à relire) : fractions et reports perdus, jamais gagnés.
+    K17 report de la fraction d'un réveil au gel suivant (Gc.bank, Gc.restore) : foreuse et four, 2 et 5 gels et réveils, perte < 1 par
+        machine sur toute la partie (et non par réveil), jamais un gain.
     Mutants (texte de la source changé, chargé par load) : ils doivent TOUS être vus.
   Usage : lua5.2 tests/gel_compta_test.lua   (depuis la racine du mod)
 ]]
@@ -350,6 +352,50 @@ local function cases(Gc)
     check(lost["iron-ore"] == 3 and next(st.frac) == nil and next(st.pfrac) == nil and next(st.carry) == nil, "K13 : remise a zero : fractions et reports perdus (jamais gagnes)")
   end
 
+  -- K17 report de la fraction d'un réveil au gel suivant (diagnostic du 8/11, micro-banc A d'aa0f5477) : sur N gels et réveils, la perte
+  -- est la fraction du DERNIER réveil (< 1 par machine sur toute la partie), jamais un gain ; foreuse et four du QG isolés.
+  do
+    local function cycles(kind, n, T)
+      local il, fr
+      if kind == "drill" then
+        il = IL({ drill(1, { dst = { { k = "pool", id = "chest" } } }) })
+        fr = { pools = { chest = pool({}, { ["iron-ore"] = 100000 }), re1 = pool(nil, nil, 100000) }, fuel = { fu1 = fuel(1000) } }
+      else
+        il = IL({ furnace(1, { src = { { k = "pool", id = "src" } }, dst = { { k = "pool", id = "out" } } }) })
+        fr = { pools = { src = pool({ ["iron-ore"] = 100000 }, {}), out = pool({}, { ["iron-plate"] = 100000 }) }, fuel = { fu1 = fuel(1000) } }
+      end
+      local st, total = {}, 0
+      for _ = 1, n do
+        Gc.restore(st) -- gel
+        local left = T
+        while left > 0 do -- pas du créneau (1 200 ticks), puis pas dû au réveil
+          local dt = math.min(1200, left)
+          local res = assert(Gc.step(il, fr, st, dt))
+          total = total + (res.crafts[1] or 0)
+          apply(Gc, fr, st, res)
+          left = left - dt
+        end
+        Gc.bank(st) -- réveil
+      end
+      return total, il.machines[1].rate * T * n
+    end
+    for _, kind in ipairs({ "drill", "furnace" }) do
+      for _, n in ipairs({ 2, 5 }) do
+        local got, ideal = cycles(kind, n, 1900)
+        check(got <= ideal + 1e-9 and got >= ideal - 1, string.format("K17 : %s, %d gels et reveils de 1 900 ticks : %d fabrications pour %.3f (perte < 1 sur toute la partie, jamais un gain)",
+          kind, n, got, ideal))
+      end
+    end
+    local st = { frac = { [1] = 0.4 }, pfrac = { [1] = { ["iron-plate"] = 0.25 } }, carry = { b = { ["iron-ore"] = 2 } } }
+    local lost = Gc.bank(st)
+    check(lost["iron-ore"] == 2 and next(st.frac) == nil and st.bank_frac[1] == 0.4 and st.bank_pfrac[1]["iron-plate"] == 0.25,
+      "K17 : au reveil, fraction et produits a faire mis de cote, reports de bus perdus")
+    Gc.restore(st)
+    check(st.frac[1] == 0.4 and st.pfrac[1]["iron-plate"] == 0.25 and st.bank_frac == nil and next(st.carry) == nil,
+      "K17 : au gel, l'etat repart de la fraction mise de cote")
+  end
+
+
   return fail_n - f0
 end
 
@@ -396,6 +442,8 @@ local MUTANTS = {
   { "fraction de temps perdue a chaque pas", "res.frac[m.id] = (x >= cap - Gc.EPS) and max(0, min(0.999999, cap - k)) or 0", "res.frac[m.id] = 0" },
   { "ordre des machines non trie", "    table.sort(ready)\n", "" },
   { "productivite ignoree", "local total = k * it[2] * (1 + (m.prod or 0)) + (pf_old[n] or 0)", "local total = k * it[2] + (pf_old[n] or 0)" },
+  { "report oublie au reveil (Gc.bank)", "for _, id in ipairs(sorted_names(st.frac)) do bf[id] = (bf[id] or 0) + st.frac[id] end", "" },
+  { "report oublie au gel (Gc.restore)", "st.frac, st.pfrac, st.carry = st.bank_frac or {}, st.bank_pfrac or {}, {}", "st.frac, st.pfrac, st.carry = {}, {}, {}" },
   { "statut sortie pleine perdu", "if l.out < 1 - Gc.EPS then return \"full_output\" end", "if false then end" },
 }
 
