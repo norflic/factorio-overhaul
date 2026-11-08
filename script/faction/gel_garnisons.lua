@@ -10,9 +10,10 @@
   règle commune fige (aucune cause de faction, aucun joueur à moins de 256 tuiles, aucune menace locale, Gel.CALM ticks de calme).
 
   Réveil :
-    - au guet (toutes les G.GUET ticks) : cause de faction (S10), joueur à moins de 224 tuiles du poste, menace locale (ennemi mobile à
-      moins de G.HAZARD_R du poste, de G.HQ_R du QG, ou dans la boîte d'un amas de tourelles élargie de la portée + G.TURRET_MARGIN ;
-      tourelle qui tire ; alerte d'armée ; alerte de site), ordre changé ou groupe ;
+    - au guet (toutes les G.GUET ticks) : cause de faction (S10), joueur à moins de 224 tuiles du poste, menace locale (UNITÉ ennemie
+      à moins de G.HAZARD_R du poste, de G.HQ_R du QG, ou dans le cercle circonscrit à la boîte d'un amas de tourelles élargie de la
+      portée + G.TURRET_MARGIN : LuaSurface.find_enemy_units, C12' et C14' ; tourelle qui tire ; alerte d'armée ; alerte de site),
+      ordre changé ou groupe ;
     - AU TICK MÊME : un coup reçu par un bâtiment, une tourelle, un soldat ou un PNJ de l'équipe (on_entity_damaged, filtre du mod :
       script/team/reparation.lua, noms de Gel.filter_names, script/faction/gel.lua) ; une mort dans l'équipe (Events.on_died) ; une commande donnée au soldat
       (crochet Gel.before_command, script/ai3/soldats.lua et script/faction/military.lua).
@@ -181,6 +182,11 @@ local function build_lists(view, tick)
       turrets[#turrets + 1] = t
     end
   end
+  -- cercle circonscrit à la boîte de chaque amas (find_enemy_units cherche dans un cercle : il voit au moins la boîte)
+  for _, c in ipairs(clusters) do
+    c.cx, c.cy = (c.x0 + c.x1) / 2, (c.y0 + c.y1) / 2
+    c.r = math.sqrt((c.x1 - c.x0) ^ 2 + (c.y1 - c.y0) ^ 2) / 2
+  end
   return { t = tick, enemies = enemies_of(view.force), clusters = clusters, turrets = turrets }
 end
 
@@ -192,11 +198,15 @@ local function lists_of(a, vid, view, tick)
   return L
 end
 
-local function count(a, surface, q)
+--- Une UNITÉ ennemie de la force dans le cercle ? LuaSurface.find_enemy_units (décision du lead, 8/11, mesure (4) : micro-banc
+--- zones-10e99d4f sur la partie du DC, mêmes zones : 2,7 à 6,9 µs en moyenne contre 81 à 350 µs pour count_entities_filtered des
+--- types mobiles ; fait zones-fait-* : mêmes unités vues, biters et unités d'une autre faction). Les personnages et véhicules ennemis
+--- ne sont plus vus ici : ils passent au filet de tir et aux coups (C12', C14', fo-logs/2026-11-07_X10/L1_CRITERES.md).
+local function units_near(a, surface, center, radius, force)
   a.stats.requetes = a.stats.requetes + 1
   Profiler.fcount("gel:requetes", 1)
   Profiler.fstart("gel:gar:req")
-  local n = surface.count_entities_filtered(q)
+  local n = #surface.find_enemy_units(center, radius, force)
   Profiler.fstop("gel:gar:req")
   return n > 0
 end
@@ -217,11 +227,11 @@ local function faction_hazard(a, vid, view, L, tick)
   if #L.enemies == 0 then return nil end
   Profiler.fcount("gel:tourelles", #L.turrets)
   local surface = view.surface
-  if count(a, surface, { position = view.hq, radius = G.HQ_R, type = Ga.MOBILE, force = L.enemies, limit = 1 }) then
+  if units_near(a, surface, view.hq, G.HQ_R, view.force) then
     return "ennemi pres du QG"
   end
   for _, c in ipairs(L.clusters) do
-    if count(a, surface, { area = { { c.x0, c.y0 }, { c.x1, c.y1 } }, type = Ga.MOBILE, force = L.enemies, limit = 1 }) then
+    if units_near(a, surface, { x = c.cx, y = c.cy }, c.r, view.force) then
       return "ennemi pres des tourelles"
     end
   end
@@ -233,7 +243,7 @@ local function post_hazard(a, view, L, pt)
   if #L.enemies == 0 then return nil end
   local dx, dy = pt.x - view.hq.x, pt.y - view.hq.y
   if math.sqrt(dx * dx + dy * dy) + G.HAZARD_R <= G.HQ_R then return nil end
-  if count(a, view.surface, { position = pt, radius = G.HAZARD_R, type = Ga.MOBILE, force = L.enemies, limit = 1 }) then
+  if units_near(a, view.surface, pt, G.HAZARD_R, view.force) then
     return "ennemi pres du poste"
   end
   return nil

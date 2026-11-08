@@ -17,6 +17,8 @@
     N13 faction anéantie sans mort vue, guerre arrêtée : tout réveillé au guet suivant (relecture de revue-s, 8/11) ;
     N14 portées fines du guet (C19, 8/11 : mesure seulement) fermées sous leur nom, au sommet ; portées et compteurs vus ;
     N15 guets étalés (C19, décision du lead du 8/11) : garnisons aux ticks impairs de la période (1 : commun ; 3 : faction 1) ;
+    N16 Ga.zones (banc) ; N17 C12' et C14' : la menace de zone ne voit que les unités (find_enemy_units), un personnage ennemi réveille
+        au premier coup (au tick même) ;
     Mutants (texte de gel_garnisons.lua changé) : tous vus, dont « destructible mis à false au gel » (demande du lead, 7/11).
   Usage : lua5.2 tests/gel_garnisons_test.lua   (depuis la racine du mod ; shared/faction/cadence.lua de x10-s10 requis)
 ]]
@@ -78,6 +80,18 @@ local function new_world()
       if e.valid and has(q.type, e.type) and has(q.force, e.force.name) and in_q(e.position, q) then n = n + 1 end
     end
     return n
+  end
+  -- find_enemy_units (C12', C14', 8/11) : unités (type « unit ») ennemies de la force, dans le cercle
+  W.surface.find_enemy_units = function(center, radius, force_name)
+    W.queries = W.queries + 1
+    local me = game.forces[force_name]
+    local out = {}
+    for _, e in ipairs(W.foes) do
+      if e.valid and e.type == "unit" and me and me.is_enemy(game.forces[e.force.name]) and in_q(e.position, { position = center, radius = radius }) then
+        out[#out + 1] = e
+      end
+    end
+    return out
   end
   local function force(name, enemies)
     return { name = name, is_enemy = function(other) return enemies[other.name] == true end }
@@ -294,6 +308,18 @@ local function cases(src)
     run(20)
     check(n_frozen(E.home) == 6, "N3 : ennemi a 95 tuiles du QG, loin des tourelles : la garnison reste figee")
   end
+  -- N17 (C12', C14', décision du lead du 8/11) : la menace de zone ne voit que les UNITÉS (find_enemy_units) ; un personnage ennemi
+  -- près du QG ne réveille plus au guet ; il réveille au premier coup, au tick même (et par le filet de tir, couvert par N3)
+  do
+    local f, E = build(src)
+    run(640)
+    local pc = entity({ name = "character", type = "character", x = 10, y = 20, force = "fo-b" })
+    W.foes[#W.foes + 1] = pc
+    run(20)
+    check(n_frozen(E.home) == 6, "N17 : personnage ennemi a 22 tuiles du QG : pas vu par la recherche de zone (C12', C14') : garnison figee")
+    damage(E.wall, W.tick)
+    check(n_frozen(all_soldiers(E)) == 0, "N17 : son premier coup : toute la garnison reveillee au tick meme")
+  end
   -- N4 menace d'un poste loin du QG
   do
     local f, E = build(src)
@@ -486,6 +512,9 @@ local MUTANTS = {
   { "faction disparue ignoree", "if type(vid) == \"number\" and not seen[vid] and a.v[vid].n > 0 then wake_view(a, vid, \"faction disparue\", tick) end", "" },
   { "portee fine non fermee", "  Profiler.fstop(\"gel:gar:regle\")\n", "" },
   { "guet des garnisons aux ticks des usines (C19)", "local who = G.guet_of(tick % G.GUET, \"garnisons\")", "local who = G.guet_of(tick % G.GUET, \"usines\")" },
+  { "personnage vu par la recherche de zone (avant C12')", "local n = #surface.find_enemy_units(center, radius, force)",
+    "local n = surface.count_entities_filtered({ position = center, radius = radius, type = Ga.MOBILE, force = enemies_of(force) })" },
+  { "amas : boite seule (cercle inscrit)", "c.r = math.sqrt((c.x1 - c.x0) ^ 2 + (c.y1 - c.y0) ^ 2) / 2", "c.r = math.min(c.x1 - c.x0, c.y1 - c.y0) / 4" },
   { "attaque oubliee (regel immediat)", "s.attack_t, s.lost_t = max_t(s.attack_t, a.hit[fid]), max_t(s.lost_t, a.lost[fid])", "" },
 }
 quiet = true
