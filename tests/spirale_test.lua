@@ -400,6 +400,10 @@ local WIRES = {
   { "script/team/worker.lua", "kit_paid(e, put)" },
   { "script/team/worker.lua", "local gun, ammo = Sp.kit_take({ gun = 1, ammo = d.ammo }, present, d.paid)" },
   { "script/team/worker.lua", "Events.on(defines.events.on_post_entity_died, function(e)" },
+  -- filtre moteur (relecture de revue-0657) : posé à on_init ET à on_load, limité aux personnages
+  { "script/team/worker.lua", "Worker.KIT_POST_FILTER = { { filter = \"type\", type = \"character\" } }" },
+  { "script/team/worker.lua", "Events.on_init(kit_post_filter)" },
+  { "script/team/worker.lua", "Events.on_load(kit_post_filter)" },
 }
 local wired = true
 for _, w in ipairs(WIRES) do if count(src_of(w[1]), w[2]) ~= 1 then wired = false print("  CABLAGE ABSENT : " .. w[1] .. " : " .. w[2]) end end

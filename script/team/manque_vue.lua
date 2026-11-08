@@ -28,6 +28,10 @@ local Mq = require("shared.ai3.manque_local")
 local Co = require("shared.team.collecte")
 local Col = require("script.team.collecte")
 local Registry = require("script.companion.registry")
+local Board = require("script.team.board")
+local Outposts = require("script.faction.outposts")
+local Mu = require("shared.team.munitions")
+local R = require("shared.ai3.reglages")
 
 local Mv = {}
 
@@ -36,10 +40,10 @@ Mv.PERIOD = 3600      -- ticks entre deux calculs (1 min : Mq.H_NEED)
 Mv.MODS_MAX = 64      -- modules relus par calcul (tourniquet au-delà)
 Mv.PRIO_GOAL = 55     -- priorité du manque de l'objectif hors survie (Build.PRIO : celle d'une collecte ordinaire)
 Mv.LOGS = 24          -- lignes [FO-MQ] au plus par équipe
+Mv.LOGS_MODULES = 24  -- lignes [FO-MANQUE] au plus par équipe
 
 local PLATE = T.outposts.iron.product
 local CHEST = T.outposts.coal.sink -- coffre des quais et des sorties du plan directeur (comme script/team/collecte.lua)
-local MACHINES = { "assembling-machine", "furnace" } -- TYPES de prototypes (pas des noms d'objets) des machines d'un module
 local NO_POWER -- constante du moteur, lue au premier relevé (jamais dans global)
 
 local function sorted_keys(t)
@@ -49,15 +53,46 @@ local function sorted_keys(t)
   return ks
 end
 
+-- TYPES de prototypes (pas des noms d'objets) des machines d'un module, lus aux rôles de R.ENTITY_ROLE : les machines de fabrication
+-- (rôle « fabrique ») et, depuis le lot VIDEO-COUVERTURE 3 (V59), les laboratoires (rôle « labo », LAB_TYPE).
+local MACHINES, LAB_TYPE = {}, {}
+for _, ty in ipairs(sorted_keys(R.ENTITY_ROLE)) do
+  local role = R.ENTITY_ROLE[ty]
+  if role == "fabrique" or role == "labo" then MACHINES[#MACHINES + 1] = ty end
+  if role == "labo" then LAB_TYPE[ty] = true end
+end
+local GEN_LABS = "labs" -- générateur de gabarit des modules de laboratoires (shared/team/modules.lua, G.labs)
+
 local function is_module(p)
   return p ~= nil and p.state == "fini" and type(p.inflow) == "table" and next(p.inflow) ~= nil and type(p.quais) == "table" and #p.quais > 0
 end
 
 local function in_part(pt, pos) return pos.x > pt.ox and pos.x < pt.ox + pt.w and pos.y > pt.oy and pos.y < pt.oy + pt.h end
 
---- Relevé d'un module : { id, power, have, inputs, read_tick, prio } (Mq.step, input.mods).
+--- Lot VIDEO-COUVERTURE 3 (V59) : technologie en cours de l'équipe, au format de Mq.module : false (aucune en file : le laboratoire n'a rien
+--- à consommer), { unit_time (s), ingredients = { { item, n } } } lus aux prototypes du moteur, ou nil (technologie inconnue du moteur : refusé).
+function Mv.lab_tech(f)
+  local name = f.team and f.team.ia3 and f.team.ia3.lab and f.team.ia3.lab.tech
+  if name == nil then return false end
+  local tp = game.technology_prototypes[name]
+  if not tp then return nil end
+  local ing = {}
+  for _, i in ipairs(tp.research_unit_ingredients or {}) do ing[#ing + 1] = { item = i.name, n = i.amount } end
+  return { unit_time = tp.research_unit_energy / 60, ingredients = ing }
+end
+
+--- Vitesse de recherche d'un laboratoire posé : vitesse du prototype × (1 + bonus de la force).
+local function lab_speed(f, m)
+  local force = game.forces[f.force]
+  return (m.prototype.researching_speed or 1) * (1 + ((force and force.laboratory_speed_modifier) or 0))
+end
+
+--- Relevé d'un module : { id, power, have, inputs, read_tick, prio } (Mq.step, input.mods). Un module de laboratoires (gabarit « labs »)
+--- rend { consumes = Mq.RESEARCH, id, power, have, speed, tech, read_tick, prio } : Mq.module en tire les entrées (packs de la technologie en cours) ;
+--- `have` compte alors aussi les packs DANS les laboratoires.
 function Mv.read_module(f, surface, p, tick)
   if not NO_POWER then NO_POWER = defines.entity_status.no_power end
+  local is_lab = p.spec ~= nil and p.spec.gen == GEN_LABS
   local have = {}
   for _, q in ipairs(p.quais) do
     if type(q.item) == "string" then
@@ -72,15 +107,25 @@ function Mv.read_module(f, surface, p, tick)
   end
   -- Courant : vrai dès qu'une machine du module n'est pas « sans courant » ; faux si toutes le sont ; inconnu (nil, refusé par Mq) sans machine.
   local power
+  local speed = 0
+  local tech
+  if is_lab then tech = Mv.lab_tech(f) end
   local pt = p.parts and p.parts[1]
   if pt and pt.ox then
     local found = surface.find_entities_filtered({ area = { { pt.ox, pt.oy }, { pt.ox + pt.w, pt.oy + pt.h } }, type = MACHINES, force = f.force })
     for _, m in ipairs(found) do
       if m.valid and in_part(pt, m.position) then -- F96 : une machine voisine qui touche seulement le bord ne compte pas
-        if m.status ~= NO_POWER then power = true break end
-        power = false
+        if m.status ~= NO_POWER then power = true if not is_lab then break end end
+        if power == nil then power = false end
+        if is_lab and LAB_TYPE[m.type] then
+          speed = speed + lab_speed(f, m)
+          for _, ing in ipairs(tech and tech.ingredients or {}) do have[ing.item] = (have[ing.item] or 0) + m.get_item_count(ing.item) end
+        end
       end
     end
+  end
+  if is_lab then
+    return { consumes = Mq.RESEARCH, id = p.id, power = power, have = have, speed = speed, tech = tech, read_tick = tick, prio = p.prio }
   end
   return { id = p.id, power = power, have = have, inputs = inputs, read_tick = tick, prio = p.prio }
 end
@@ -105,7 +150,24 @@ function Mv.transit(f)
   return out
 end
 
---- Demandes hors module. args = { effectif, recruit_prio } (Team.view).
+--- Lot VIDEO-COUVERTURE 3 (V10) : groupes de tourelles au format de Mq.ammo_want. Règle de la recharge du planificateur
+--- (shared/team/planner.lua) : avec la règle des munitions, un groupe est dû quand Mu.due le dit, sinon quand une tourelle est sous le
+--- seuil bas (g.low, une cible de T.turret_ammo_target chacune) ; une tournée de recharge prise le sert déjà.
+local function ammo_groups(f, groups)
+  local out = {}
+  for _, g in ipairs(groups or {}) do
+    local has_task = g.has_task
+    if has_task == nil then has_task = Board.has(f, "refill:" .. tostring(g.key)) end
+    if g.short ~= nil then
+      out[#out + 1] = { key = g.key, due = Mu.due(g), missing = g.missing, has_task = has_task }
+    else
+      out[#out + 1] = { key = g.key, due = (g.low or 0) > 0, missing = (g.low or 0) * T.turret_ammo_target, has_task = has_task }
+    end
+  end
+  return out
+end
+
+--- Demandes hors module. args = { effectif, recruit_prio, turret_groups } (Team.view ; turret_groups absent : relus à Outposts).
 function Mv.wants(f, args)
   local out = {}
   local under = (f.engineers_count or 0) < ((f.team and f.team.floor) or 0)
@@ -120,6 +182,12 @@ function Mv.wants(f, args)
   if ef and ef.reason == "recrue" and type(ef.margin_item) == "string" and (ef.cost_iron or 0) > 0 then
     out[#out + 1] = { key = "recrue", item = ef.margin_item, n = ef.cost_iron, prio = (args and args.recruit_prio) or Mv.PRIO_GOAL, net = true }
   end
+  -- Lot VIDEO-COUVERTURE 3 (V10, C3.4) : les munitions qui manquent aux tourelles sont un but, à la priorité de l'armée (T.defend_prio, celle de
+  -- la tournée de recharge). Elles entraient en famille « armée » à parts réservées, hors des puits : aucun manque mesuré ne les voyait.
+  local groups = args and args.turret_groups
+  if groups == nil and type(f.turrets) == "table" then groups = Outposts.turret_groups(f) end
+  local ammo = Mq.ammo_want(ammo_groups(f, groups), { item = Outposts.ammo_name(f.tech, f), prio = T.defend_prio })
+  if ammo then out[#out + 1] = ammo end
   return out
 end
 
@@ -138,6 +206,23 @@ local function say(f, st, tick, res)
   if st.logs > Mv.LOGS then return end
   log(string.format("[FO-MQ] %s a %.1f min : %s ; refus %d, perimes %d, sans courant %d", f.key or "player", tick / 3600, sig,
     #res.refused, #res.stale, #res.no_power))
+end
+
+--- Lot VIDEO-COUVERTURE 3 : journal [FO-MANQUE] des modules AFFAMÉS (une entrée à 0, rien en route), un par module : « le module N manque X, Y ».
+--- Une ligne quand la liste change, Mv.LOGS_MODULES au plus par équipe. Aucune décision ne la lit.
+local function say_starved(f, st, tick, res)
+  local parts = {}
+  for _, s in ipairs(res.starved or {}) do
+    parts[#parts + 1] = string.format("module %s (%s) : %s", tostring(s.id), s.consumes == Mq.RESEARCH and "laboratoires" or "machines",
+      table.concat(s.items or {}, ", "))
+  end
+  local sig = table.concat(parts, " ; ")
+  if sig == st.said_starved then return end
+  st.said_starved = sig
+  if sig == "" then return end
+  st.logs_starved = (st.logs_starved or 0) + 1
+  if st.logs_starved > Mv.LOGS_MODULES then return end
+  log(string.format("[FO-MANQUE] %s a %.1f min : %d module(s) affame(s) : %s", f.key or "player", tick / 3600, #res.starved, sig))
 end
 
 --- Manque mesuré de l'équipe `f` (résultat de Mq.step, ou nil : éteint ou sans relevé). stock = stock libre de la vue ; args : Mv.wants.
@@ -163,8 +248,10 @@ function Mv.think(f, tick, stock, args)
   local res = Mq.step(st.mq, { mods = mods, transit = Mv.transit(f), sources = surface and Col.waiting_all(f, surface, b, tick) or {},
     wants = Mv.wants(f, args), stock = stock or {} }, tick)
   st.tick, st.res = tick, res
-  if res then say(f, st, tick, res) end
+  if res then say(f, st, tick, res) say_starved(f, st, tick, res) end
   return res
 end
 
+-- Interface de BANC (lecture et mise en scène seulement, rien n'est appelé par le jeu) : scénario manque-labo.
+require("script.team.manque_banc").install(Mv)
 return Mv

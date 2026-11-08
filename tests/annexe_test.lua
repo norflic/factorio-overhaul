@@ -219,6 +219,15 @@ do
   local seen = false
   for i = n0 + 1, #logs do if logs[i]:find("FO%-ANNEXE") and logs[i]:find("depot d'un PNJ", 1, true) then seen = true end end
   check(seen, "journal [FO-ANNEXE] : pose au depot d'un PNJ")
+  -- Un PNJ qui porte 100 coffres de fer, stock plein : UNE annexe posée, les 99 autres coffres rangés dedans (sauvegarde du DC, 7/11 :
+  -- emerald posait une annexe par coffre porté, 79 d'un coup)
+  local made9 = {}
+  local g9 = team(10)
+  g9.hq.surface = { create_entity = function(s) local e = new_chest(16); e.name = s.name; made9[#made9 + 1] = e; return e end }
+  g9.hq.items.stone = 50 * 10
+  local put9 = Stock.insert(g9, "iron-chest", 100)
+  check(put9 == 100 and #made9 == 1 and made9[1].items["iron-chest"] == 99,
+    "100 coffres refuses : une annexe posee, 99 coffres ranges dedans (" .. put9 .. ", " .. #made9 .. " annexe(s))")
   f.annex[1].items.stone = 16 * 50 -- l'annexe pleine aussi
   game.tick = 100
   local n1 = #logs
@@ -697,6 +706,64 @@ do
   Stock.grow(f6, W6.surface, 100)
   check(f6.annex_lost == #slots and Stock.capacity(f6) == #north and Stock.wanted(f6) == 0,
     "plafond suivi : " .. tostring(f6.annex_lost) .. " places tenues, plafond " .. Stock.capacity(f6) .. ", coffres voulus " .. Stock.wanted(f6))
+  -- Garde de place_held (revue-s, lead, 7/11) : 100 dépôts refusés d'un coffre, bloc plein (deux faces tenues) : une seule recherche
+  -- de place (au plus une vérification par place), pas une par dépôt ; T.annex.retry plus tard, une recherche de nouveau
+  local W7 = make_world()
+  for i = 1, #slots do W7.block(pos(i), "steel-chest") end
+  for i = 1, #north do W7.block(npos(i), "steel-chest") end
+  local calls = 0
+  local cpe = W7.surface.can_place_entity
+  W7.surface.can_place_entity = function(t) calls = calls + 1 return cpe(t) end
+  local f7 = full_team()
+  f7.hq.items["iron-chest"] = nil
+  f7.hq.items.coal = 50 * 10 -- stock plein, aucun coffre en main
+  f7.hq.surface = W7.surface
+  f7.hq_pos = { x = 0, y = 0 }
+  local saved_tick = game.tick
+  game.tick = 5000
+  local put7 = 0
+  for _ = 1, 100 do put7 = put7 + Stock.insert(f7, "wooden-chest", 1, { reserve = true }) end
+  local first = calls
+  game.tick = 5000 + T.annex.retry
+  Stock.insert(f7, "wooden-chest", 1, { reserve = true })
+  local again = calls - first
+  game.tick = saved_tick
+  check(put7 == 0 and #W7.made == 0 and first >= 1 and first <= #slots + #north and again >= 1,
+    "garde de place_held : 100 depots refuses, " .. first .. " verification(s) de place (une recherche), puis une recherche de nouveau apres T.annex.retry (" .. again .. ")")
+end
+
+do
+  print("== Lot STOCKAGE-VITAL : compteurs des depots refuses et des poches pleines (une ligne chacun par minute)")
+  local DEPR = { reserve = true }
+  local f = team(10)
+  f.hq.items.coal = 50 * 10 -- stock plein
+  local saved_tick = game.tick
+  local function has(pat) for _, s in ipairs(logs) do if s:find(pat, 1, true) then return s end end return nil end
+  for i = #logs, 1, -1 do logs[i] = nil end
+  game.tick = 1000
+  Stock.insert(f, "stone", 30, DEPR)
+  Stock.insert(f, "copper-plate", 20, DEPR) -- meme passage au QG (meme tick)
+  Stock.insert(f, "stone", 5) -- hors depot d'un PNJ : pas compte
+  game.tick = 1600
+  Stock.insert(f, "stone", 10, DEPR) -- second passage
+  local w = f.stock_refused_win
+  check(w and w.visits == 2 and w.calls == 3 and w.items == 60, "depots refuses : 2 passages, 3 objets d'un depot, 60 objets (" .. (w and (w.visits .. "/" .. w.calls .. "/" .. w.items) or "nil") .. ")")
+  local function inv(size, empty)
+    local t = setmetatable({}, { __len = function() return size end })
+    t.count_empty_stacks = function() return empty end
+    return t
+  end
+  Stock.note_claim(f, inv(80, 4), 1000) -- 76/80 = 95 % : pleine
+  Stock.note_claim(f, inv(80, 10), 1000) -- 70/80 = 87,5 % : non
+  Stock.note_claim(f, inv(80, 8), 1000) -- 72/80 = 90 % : pleine (seuil compris)
+  local q = f.stock_claim_win
+  check(q and q.n == 3 and q.full == 2, "poches pleines : 2 prises sur 3 a 90 % ou plus (" .. (q and (q.full .. "/" .. q.n) or "nil") .. ")")
+  Stock.grow(f, {}, 1000 + 1800) -- fenetre pas finie : aucune ligne
+  check(not has("depots refuses de PNJ") and not has("poches pleines"), "fenetre en cours : aucune ligne")
+  Stock.grow(f, {}, 1000 + Stock.COUNT_LOG)
+  local l1, l2 = has("depots refuses de PNJ : 2 passage(s) au QG, 3 objet(s) d'un depot refuse(s), 60 objet(s)"), has("poches pleines : 2 prise(s) de tache sur 3")
+  check(l1 ~= nil and l2 ~= nil and f.stock_refused_win == nil and f.stock_claim_win == nil, "fin de fenetre : une ligne chacun, compteurs remis")
+  game.tick = saved_tick
 end
 
 do

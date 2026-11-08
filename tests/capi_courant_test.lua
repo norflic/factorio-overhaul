@@ -79,7 +79,15 @@ local function run(mutant)
   local u90, uw = P(1500, "fini"), P(1500, "fini", true)
   out.unit = u90 ~= nil and u90.have_kw == 90 and math.abs((u90.used_kw or -1) - 36) < 1e-9 and u90.plant == nil
     and uw ~= nil and math.abs((uw.used_kw or -1) - (36 + 0.6 * 500)) < 1e-9
-    and P(1500, "chantier") == nil and P(0, "fini") == nil and P("x", "fini") == nil and power_input({}, "fini") == nil
+    and P(1500, "chantier") == nil
+    -- lot VIDEO-COUVERTURE 5 (W02) : centrale finie mais capacité NON LUE (texte, rien) = relevé vide, la garde de la règle se ferme
+    and type(P("x", "fini")) == "table" and next(P("x", "fini")) == nil and type(power_input({}, "fini")) == "table" and next(power_input({}, "fini")) == nil
+  -- lot 5b : capacité ≤ 0 (centrale finie, plus de machine à vapeur) = relevé vide, comme une capacité non lue ; mutant : l'ancien nil
+  local z, neg = P(0, "fini"), P(-5, "fini")
+  Capi.MUT.cap_ouvert = true
+  local zm = P(0, "fini")
+  Capi.MUT.cap_ouvert = nil
+  out.cap0 = type(z) == "table" and next(z) == nil and type(neg) == "table" and next(neg) == nil and zm == nil
   out.unit_txt = string.format("used_kw %s, avec 500 kW en chantier %s", tostring(u90 and u90.used_kw), tostring(uw and uw.used_kw))
   Capi.power_input = function(f, plant_state)
     if f1 and f == f1 then return P(1500, "fini") end
@@ -109,13 +117,13 @@ local WIRED = slurp("script/ai3/capitalisation.lua"):find("power = Capi.power_in
 local function verdict(o, quiet)
   o.wired = WIRED
   local ok = {
-    o.ok and o.unit and o.wired,
+    o.ok and o.unit and o.wired and o.cap0,
     o.p1 >= 2 and o.p1_ok == o.p1 and o.kw1 >= 2,
     o.d2 >= 2 and o.kw2 == 0,
   }
   local msgs = {
-    string.format("partie sans erreur (%s) ; Capi.power_input : 90 kW pour 1 500 J/tick a une centrale finie, vue de la porte = mesure + 0,6 x chantiers (%s : %s), nil sinon ; build_input la lit (%s)",
-      tostring(o.err), tostring(o.unit), tostring(o.unit_txt), tostring(o.wired)),
+    string.format("partie sans erreur (%s) ; Capi.power_input : 90 kW pour 1 500 J/tick a une centrale finie, vue de la porte = mesure + 0,6 x chantiers (%s : %s), nil sinon (releve VIDE si la capacite est non lue ou <= 0 : %s) ; build_input la lit (%s)",
+      tostring(o.err), tostring(o.unit), tostring(o.unit_txt), tostring(o.cap0), tostring(o.wired)),
     string.format("§1 faction %s : %d decision(s) avec input.power, %d a { have_kw = 90, used_kw = 36 } sans plant ; %d ligne(s) [FO-CAPI-KW] « capacite 90 kW »",
       o.k1, o.p1, o.p1_ok, o.kw1),
     string.format("§2 temoin %s : %d decision(s), %d ligne(s) [FO-CAPI-KW]", o.k2, o.d2, o.kw2),

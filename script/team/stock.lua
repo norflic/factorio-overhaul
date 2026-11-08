@@ -25,6 +25,7 @@ local Plan = require("shared.team.plan") -- lot STOCKAGE-VITAL (a) : clé de tui
 local PlacesQG = require("script.ai3.places_qg")
 local Br = require("shared.ai3.bras")
 local Ad = require("shared.team.adopte")
+local Profiler = require("script.core.profiler") -- lot X10-S0 : compteurs d'appels (mode detail du profileur seulement, mesure)
 local FQ = require("shared.ai3.fonderie_qg") -- lot PD-FONDERIEQG (D77) : fonderie du QG bornée par l'automatisation
 
 -- Entrées de la fonderie du QG, triées (données de shared/team/config.lua), pour FQ.automated.
@@ -38,6 +39,21 @@ end
 
 local Stock = {}
 
+-- Lot X10-S0 (demande de charbonmain pour le lot S1, 7/11) : APPELS AU MOTEUR du stock, comptés AUX SITES D'APPEL (pas à l'entrée des
+-- fonctions : un appel servi plus tard par un mémo ne touchera pas le moteur et ne doit pas compter). count : get_item_count ;
+-- contents : get_inventory et get_contents ; annexes : lectures de .valid. Mesure seulement, jamais lue par une décision : table du
+-- module (jamais dans global), tenue en mode fin du profileur seulement ; en mode détail, aussi écrite en compteurs « #stock:… » à la
+-- fin des lignes [FO-PERF3-T].
+Stock.engine_calls = { count = 0, contents = 0, annexes = 0 }
+local EC_NAME = { count = "stock:count", contents = "stock:contents", annexes = "stock:annexes" }
+local function ec(kind, n)
+  if Profiler.fine() then
+    local t = Stock.engine_calls
+    t[kind] = t[kind] + n
+    Profiler.fcount(EC_NAME[kind], n)
+  end
+end
+
 -- Lot STOCKAGE-VITAL : matières vitales { [objet] = true } (T.stock_vital : fer et charbon des avant-postes).
 local VITAL = {}
 for _, it in ipairs(T.stock_vital or {}) do VITAL[it] = true end
@@ -48,6 +64,62 @@ local ANNEX = {}
 for _, k in ipairs(T.annex.kinds) do ANNEX[k.item] = true end
 function Stock.ANNEX_ITEM(item) return ANNEX[item] == true end
 Stock.REFUSED_LOG = 3600 -- ticks entre deux lignes « dépôt refusé » d'une équipe
+Stock.COUNT_LOG = 3600    -- fenêtre des deux compteurs (dépôts refusés, poches pleines) : une ligne chacun par fenêtre au plus
+Stock.POCKET_FULL = 0.90  -- poche « pleine » à la prise de tâche : cases prises / cases de l'inventaire principal
+
+--- Lot STOCKAGE-VITAL (demande du lead, 7/11 : « un PNJ qui réessaie sans fin est un PNJ perdu ») : compteur des dépôts REFUSÉS d'un
+--- PNJ (Stock.insert avec opts.reserve, script/team/worker.lua) dans la fenêtre courante : appels refusés (un objet d'un dépôt),
+--- passages au QG (ticks distincts : un dépôt vide la poche en un tick) et objets refusés. f.stock_refused_win, tolérant à nil.
+local function count_refused(f, k, tick)
+  local c = f.stock_refused_win
+  if not c then
+    c = { since = tick, calls = 0, visits = 0, items = 0 }
+    f.stock_refused_win = c
+  end
+  c.calls, c.items = c.calls + 1, c.items + k
+  if c.last ~= tick then c.visits, c.last = c.visits + 1, tick end
+  f.stats = f.stats or {}
+  f.stats.refused_calls = (f.stats.refused_calls or 0) + 1
+end
+
+--- Lot STOCKAGE-VITAL : prise de tâche d'un PNJ (script/team/worker.lua, après Board.claim) : compte les prises dont l'inventaire
+--- principal est plein à Stock.POCKET_FULL ou plus (le PNJ part avec une poche qu'il ne peut plus remplir). f.stock_claim_win.
+function Stock.note_claim(f, inv, tick)
+  if not (inv and inv.count_empty_stacks) then return end
+  local size = #inv
+  if size <= 0 then return end
+  local c = f.stock_claim_win
+  if not c then
+    c = { since = tick, n = 0, full = 0 }
+    f.stock_claim_win = c
+  end
+  c.n = c.n + 1
+  if size - inv.count_empty_stacks() >= Stock.POCKET_FULL * size then
+    c.full = c.full + 1
+    f.stats = f.stats or {}
+    f.stats.claim_full = (f.stats.claim_full or 0) + 1
+  end
+end
+
+--- Fin de fenêtre des deux compteurs (Stock.grow, à chaque passage du stock) : une ligne [FO-STOCKAGE] chacun s'il a compté quelque chose.
+local function flush_counts(f, tick)
+  local c = f.stock_refused_win
+  if c and tick - c.since >= Stock.COUNT_LOG then
+    if c.calls > 0 then
+      log(string.format("[FO-STOCKAGE] %s : depots refuses de PNJ : %d passage(s) au QG, %d objet(s) d'un depot refuse(s), %d objet(s) refuse(s), sur %.1f min a %.1f min",
+        f.key or "player", c.visits, c.calls, c.items, (tick - c.since) / 3600, (tick - (f.started or 0)) / 3600))
+    end
+    f.stock_refused_win = nil
+  end
+  local q = f.stock_claim_win
+  if q and tick - q.since >= Stock.COUNT_LOG then
+    if q.full > 0 then
+      log(string.format("[FO-STOCKAGE] %s : poches pleines : %d prise(s) de tache sur %d avec la poche pleine a %d %% ou plus, sur %.1f min a %.1f min",
+        f.key or "player", q.full, q.n, math.floor(Stock.POCKET_FULL * 100 + 0.5), (tick - q.since) / 3600, (tick - (f.started or 0)) / 3600))
+    end
+    f.stock_claim_win = nil
+  end
+end
 local place_held -- (défini plus bas : il lit l'emprise et la face du bloc des annexes)
 
 -- Minerai et plaque de chaque avant-poste (Sg.demanded : une plaque demandée garde son minerai au minage à la main, et l'inverse).
@@ -67,6 +139,7 @@ end
 function Stock.annexes(f)
   local a = f.annex
   if not a or #a == 0 then return {} end
+  ec("annexes", #a) -- #a lectures de .valid
   local out = {}
   for _, e in ipairs(a) do
     if e.valid then out[#out + 1] = e end
@@ -79,7 +152,9 @@ local function chest_inv(e) return e.get_inventory(defines.inventory.chest) end
 
 function Stock.count(f, item)
   local n = f.hq.get_item_count(item)
-  for _, e in ipairs(Stock.annexes(f)) do n = n + e.get_item_count(item) end
+  local annex = Stock.annexes(f)
+  ec("count", 1 + #annex)
+  for _, e in ipairs(annex) do n = n + e.get_item_count(item) end
   return n
 end
 
@@ -227,6 +302,7 @@ function Stock.insert(f, item, n, opts)
     f.stats = f.stats or {}
     f.stats.refused = f.stats.refused or {}
     f.stats.refused[item] = (f.stats.refused[item] or 0) + (n - put)
+    if opts and opts.reserve then count_refused(f, n - put, tick) end -- dépôt d'un PNJ refusé (compteur de la fenêtre)
     -- Lot STOCKAGE-VITAL : au journal, au plus une ligne par équipe et par Stock.REFUSED_LOG ticks.
     if f.hq.get_inventory and (not f.refused_log or tick - f.refused_log >= Stock.REFUSED_LOG) then
       f.refused_log = tick
@@ -286,6 +362,7 @@ end
 function Stock.contents(f)
   local c = chest_inv(f.hq).get_contents()
   local annex = Stock.annexes(f)
+  ec("contents", 2 * (1 + #annex)) -- get_inventory et get_contents, du coffre du QG et de chaque annexe
   if #annex == 0 then return c end
   local out = {}
   for k, v in pairs(c) do out[k] = v end
@@ -530,22 +607,39 @@ place_held = function(f, item, k)
   local surface = f.hq.surface
   if not (surface and f.hq_pos and f.hq.get_inventory) then return 0 end -- moteur simulé sans inventaire
   local tick = game.tick or 0
-  local placed = 0
-  for _ = 1, k do
+  -- Garde (revue-s et lead, 7/11) : le bloc plein a été essayé il y a moins de T.annex.retry (ici ou par Stock.grow, même
+  -- f.stock_watch.retry) : aucune nouvelle recherche de place (jusqu'à 2 × 80 appels au moteur par essai) à chaque dépôt refusé.
+  local watch = f.stock_watch
+  if watch and watch.retry and tick < watch.retry then return 0 end
+  -- Une annexe à la fois, puis le RESTE des coffres refusés va dans le stock agrandi (sauvegarde du DC, 7/11 : la faction emerald
+  -- posait 79 annexes en 5 ms pour un PNJ qui portait 79 coffres, au lieu d'une annexe et de 78 coffres rangés dedans).
+  local placed, stored, failed, left = 0, 0, false, k
+  while left > 0 do
     local used, size, n = totals(f)
-    if n >= capacity(f) or place_one(f, surface, item, function() end) == 0 then break end
-    placed = placed + 1
+    if n >= capacity(f) then break end
+    if place_one(f, surface, item, function() end) == 0 then
+      failed = true
+      break
+    end
+    placed, left = placed + 1, left - 1
     f.stats = f.stats or {}
     f.stats.annex_placed = (f.stats.annex_placed or 0) + 1
     f.stats.annex_held = (f.stats.annex_held or 0) + 1
     log(string.format("[FO-ANNEXE] %s : coffre %d pose (%s) au depot d'un PNJ (stock plein pour ce coffre), stock %d/%d cases a %.1f min",
       f.key or "player", n + 1, item, used, size, (tick - (f.started or 0)) / 3600))
+    if left > 0 then
+      local put = plain_insert(f, item, left)
+      stored, left = stored + put, left - put
+    end
   end
   if placed > 0 then
     f.stock_watch = f.stock_watch or {}
     f.stock_watch.since, f.stock_watch.retry, f.stock_watch.placed_at = tick, nil, tick
+  elseif failed then
+    f.stock_watch = f.stock_watch or {}
+    f.stock_watch.retry = tick + T.annex.retry
   end
-  return placed
+  return placed + stored
 end
 
 --- Coffres à avoir en main pour agrandir le stock, NETS des coffres en main ; `gross` vrai : BRUTS (le fond, shared/team/fond.lua,
@@ -713,6 +807,7 @@ function Stock.grow(f, surface, tick)
   if Stock.on_think then Stock.on_think(f, tick) end -- lot FANTOMES : balayage des aperçus (posé par script/team/board.lua)
   Stock.deploy_idle(f, surface, tick)
   Stock.pick_ground(f, surface, tick) -- lot STOCKAGE-VITAL : objets posés au sol autour du QG, repris quand le stock a la place
+  flush_counts(f, tick) -- lot STOCKAGE-VITAL : dépôts refusés, poches pleines (une ligne chacun par fenêtre)
   local used, size, n = totals(f)
   if size <= 0 then return false end
   -- Lot STOCKAGE-VITAL (d) : places tenues par autre chose que nous (tourelles, coffres du DC, réserve du plan ; le sol seul ne compte

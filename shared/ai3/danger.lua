@@ -446,7 +446,13 @@ end
 
 --- PORTE d'une tâche (C5, C6). info = { blocked, max_d, goal_d, deaths, far } (itinéraire du PNJ vers sa destination) ;
 --- ctx = { B, prudence, escort_ok }. Renvoie "go" | "escort" | "wait", puis la raison.
+--- FERMÉ PAR DÉFAUT (lot 5b, W04 n°5) : une entrée SANS aucune lecture du danger (ni `max_d`, `goal_d`, `deaths` ni `blocked` : le chemin
+--- n'a pas été évalué) ne rend plus « go / sur » : « wait / danger non lu ». Un danger LU à 0 (champs présents) reste « go » : le danger
+--- inconnu et le danger nul sont deux choses (avant : les deux donnaient « go »). Une seule lecture suffit (les morts seules sont jugées).
 function D.gate(info, ctx)
+  if type(info) ~= "table" or (info.max_d == nil and info.goal_d == nil and info.deaths == nil and info.blocked == nil) then
+    return "wait", "danger non lu"
+  end
   local B = ctx.B or D.block(ctx.prudence)
   local esc = ctx.escort_ok and true or false
   -- Lot SURVIE-PENURIE : `ctx.survie_deaths` (nombre, mode survie d'une équipe en pénurie, tâche productive : shared/team/survie.lua)
