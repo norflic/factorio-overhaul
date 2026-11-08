@@ -73,6 +73,7 @@ require("settings.pilotage") -- lot TV-PILOTE : fo-war-armee-famille (V10) et fo
 require("settings.exclusion") -- lot VIDEO-PLAFONDS (V99) : fo-war-exclusion (objets exclus de la demande, vide par défaut)
 require("settings.tv_vapeur") -- lot TV-VAPEUR (V36, V89) : tampon de vapeur et dégradation graduée sous charge (allumés par défaut)
 require("settings.tv_archi") -- lot TV-ARCHI (V23, V91) : fo-war-enveloppe, fo-war-quartiers (allumés)
+require("settings.bus") -- lot RESEAU-GRAPHE : fo-war-bus, bus de produits par tapis (allumé par défaut)
 require("settings.place") -- lot TV-PLACE (G37, G38, G57) : fo-war-sonde-30, fo-war-sites-10, fo-war-defrichage-prev, fo-war-place-simple (allumés)
 require("settings.debug_cerveau") -- lot DEBUG-CERVEAU : réglages par joueur de la vue « Cerveau » (textes sur la carte allumés)
 require("settings.flux") -- lot TV-FLUX (V42, G51) : fo-war-soupape, fo-war-barils (allumés par défaut)
