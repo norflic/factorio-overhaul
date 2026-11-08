@@ -14,7 +14,9 @@
     M8  réglage éteint : tout réveillé, plus rien de figé ; données changées : tout réveillé, registre vidé ;
     M9  votre équipe jamais figée ;
     M10 déterminisme : deux passages, mêmes journaux et mêmes inventaires ;
-    M11 contrôle statique : aucune écriture de crafting_progress, mining_progress, bonus_progress dans les fichiers du lot ;
+    M11 contrôle statique : aucune écriture de crafting_progress ni bonus_progress ; mining_progress et bonus_mining_progress d'une foreuse
+        écrits par le seul write_progress (gel_usines_jeu.lua, option (ii) du lead) ; au monde factice, jamais sur autre chose qu'une foreuse ;
+    M14 option (ii) : au réveil, la fraction comptée pendant le gel est rendue à la foreuse par sa progression ;
     M12 remplaçant d'une machine figée (fast_replace, raise_built) hérité inactif : rendu actif dans le gestionnaire ;
     M13 faction anéantie pendant le gel : tout réveillé au guet suivant, n_frozen à 0, registre de la faction vidé ;
     Mutants du runtime (relecture de revue-s, 8/11) : guet limité aux factions vivantes ; remplaçant laissé inactif.
@@ -75,10 +77,19 @@ local function entity(o)
   setmetatable(e, { __index = function(t, k)
     if k == "active" then return rawget(t, "_active") end
     if k == "status" then return rawget(t, "_active") and STATUS.working or STATUS.disabled_by_script end
+    if k == "mining_progress" then return rawget(t, "_mp") or 0 end
+    if k == "bonus_mining_progress" then return rawget(t, "_bmp") or 0 end
     return nil
   end, __newindex = function(t, k, v)
     if k == "active" then rawset(t, "_active", v); W.writes[W.tick] = (W.writes[W.tick] or 0) + 1; return end
-    if k == "crafting_progress" or k == "mining_progress" or k == "bonus_progress" then W.bad_writes = W.bad_writes + 1 end
+    -- option (ii) : la progression d'une FOREUSE peut être écrite (fait moteur x10-gel-progres) ; jamais celle d'un four (F83, F84)
+    if k == "mining_progress" or k == "bonus_mining_progress" then
+      if rawget(t, "type") ~= "mining-drill" then W.bad_writes = W.bad_writes + 1 end
+      W.mp_writes = W.mp_writes + 1
+      rawset(t, k == "mining_progress" and "_mp" or "_bmp", v)
+      return
+    end
+    if k == "crafting_progress" or k == "bonus_progress" then W.bad_writes = W.bad_writes + 1 end
     rawset(t, k, v)
   end, __eq = function(a, b) return rawget(a, "unit_number") == rawget(b, "unit_number") end })
   e.get_inventory = function(i) if i == defines.inventory.chest then return e._inv end if i == defines.inventory.furnace_source then return e._src end end
@@ -108,7 +119,7 @@ local FURN_P = { energy_usage = 1500, burner_prototype = { effectivity = 1, emis
 local ELEC_DRILL_P = { mining_drill_radius = 2.49, mining_speed = 0.5, energy_usage = 1500 }
 
 local function new_world()
-  W = { un = 0, ents = {}, res = {}, writes = {}, bad_writes = 0, tick = 0, logs = {}, flows = {}, flows_in = {}, flows_out = {}, pollution = 0, store = {} }
+  W = { un = 0, ents = {}, res = {}, writes = {}, bad_writes = 0, mp_writes = 0, tick = 0, logs = {}, flows = {}, flows_in = {}, flows_out = {}, pollution = 0, store = {} }
   W.surface = { index = 1 }
   W.surface.find_entities_filtered = function(q)
     local out = {}
@@ -204,11 +215,13 @@ local function build_faction()
   local c1 = entity({ name = "wooden-chest", type = "container", x = 10.5, y = 12.5, h = 0.35 })
   -- fait du micro-banc A (8/11) : drop_target reste nil tant que la foreuse n'a rien déposé ; la cible est lue sur drop_position
   d1.drop_position = { x = 10.2, y = 12.3 }
+  d1.mining_target = r1
   -- (2) foreuse -> four
   local r2 = resource(20.5, 10.5, 1000)
   local d2 = entity({ name = "burner-mining-drill", type = "mining-drill", x = 20.5, y = 10.5, proto = DRILL_P, burner = true, coal = 5 })
   local k2 = entity({ name = "stone-furnace", type = "furnace", x = 20.5, y = 13, proto = FURN_P, burner = true, coal = 5, crafting_speed = 1 })
   d2.drop_target = k2
+  d2.mining_target = r2
   -- (3) four du QG rempli à la main
   local s1 = entity({ name = "stone-furnace", type = "furnace", x = -10.5, y = 0.5, proto = FURN_P, burner = true, coal = 5, crafting_speed = 1 })
   s1._src.items["iron-ore"] = 10
@@ -287,6 +300,13 @@ local function scenes()
   check(woke_at and woke_at - T <= 20, "M4 : joueur a 220 tuiles : reveil en " .. tostring(woke_at and (woke_at - T)) .. " ticks")
   check(E.d2.active == false, "M4 : le reste (a plus de 224 tuiles de sa boite) reste fige")
   check(Gel.status(E.d1) == STATUS.working and Gel.state().vstatus[E.d1.unit_number] == nil, "M4 : statut comptable efface au reveil")
+  -- M14 option (ii) : au réveil, la fraction comptée pendant le gel est rendue à la foreuse par sa progression (unités de mining_time)
+  do
+    local I1 = Gu.U().ilots[Gu.U().by_unit[E.d1.unit_number]]
+    local bank = I1 and I1.acc.bank_frac and I1.acc.bank_frac[E.d1.unit_number]
+    check(W.mp_writes >= 1 and E.d1.mining_progress > 0 and E.d1.mining_progress < 1 and bank == nil,
+      "M14 : reveil : progression de la foreuse ecrite (" .. string.format("%.4f", E.d1.mining_progress) .. "), plus rien de cote")
+  end
   W.player.position = { x = 5000, y = 5000 }
   -- M5
   run(700)
@@ -372,8 +392,14 @@ do
     local fh = assert(io.open(p, "rb"))
     local s = fh:read("*a")
     fh:close()
-    for _, k in ipairs({ "crafting_progress%s*=", "mining_progress%s*=", "bonus_progress%s*=", "bonus_mining_progress%s*=" }) do
+    for _, k in ipairs({ "crafting_progress%s*=", "bonus_progress%s*=" }) do
       if s:find("[%.:]" .. k) then bad[#bad + 1] = p .. " " .. k end
+    end
+    -- option (ii) : la progression d'une foreuse n'est écrite QUE par write_progress (gel_usines_jeu.lua)
+    if p ~= "script/faction/gel_usines_jeu.lua" then
+      for _, k in ipairs({ "mining_progress%s*=", "bonus_mining_progress%s*=" }) do
+        if s:find("[%.:]" .. k) then bad[#bad + 1] = p .. " " .. k end
+      end
     end
   end
   check(#bad == 0, "M11 : aucune ecriture de progression dans les fichiers du lot" .. (#bad > 0 and (" : " .. table.concat(bad, ", ")) or ""))
@@ -386,6 +412,7 @@ do
   fh:close()
   local MUTANTS = {
     { "guet limite aux factions vivantes", "        want_wake(I, tick, \"faction disparue\")\n", "" },
+    { "progression non rendue au reveil (option ii)", "else Gc.bank(I.acc); write_progress(I) end", "else Gc.bank(I.acc) end" },
     { "remplacant d'une machine figee laisse inactif", "if why == \"pose\" and inside_frozen and entity.active == false then entity.active = true end", "" },
   }
   local seen, missed = 0, {}

@@ -13,6 +13,7 @@
     K11 cycle refusé ; bus sans preneur refusé (Gc.check).
     K12 coût : instructions Lua par machine et par pas (debug.sethook, compte exact) ; C8 d'origine (400) NON TENU, seuil C8' de 1 300 décidé par le lead après mesure (7/11, 20 h 01).
     K13 remise à zéro (îlot à relire) : fractions et reports perdus, jamais gagnés.
+    K18 option (ii) : Gc.progress_write en unités de mining_time (2 ; 1,5), dépassement porté en fin de plage, reste de côté.
     K17 report de la fraction d'un réveil au gel suivant (Gc.bank, Gc.restore) : foreuse et four, 2 et 5 gels et réveils, perte < 1 par
         machine sur toute la partie (et non par réveil), jamais un gain.
     Mutants (texte de la source changé, chargé par load) : ils doivent TOUS être vus.
@@ -395,6 +396,17 @@ local function cases(Gc)
       "K17 : au gel, l'etat repart de la fraction mise de cote")
   end
 
+  -- K18 option (ii) : progression à écrire au réveil, en unités de mining_time de la cible (fait moteur x10-gel-progres)
+  do
+    local p, r = Gc.progress_write(0.3, 0.4, 2)
+    check(math.abs(p - 1.1) < 1e-9 and r == 0, string.format("K18 : mining_time 2 : 0,3 + 0,4 x 2 = 1,1 ecrit, rien de cote (%.6f, %.6f)", p, r))
+    p, r = Gc.progress_write(0.2, 0.5, 1.5)
+    check(math.abs(p - 0.95) < 1e-9 and r == 0, string.format("K18 : mining_time 1,5 : 0,2 + 0,5 x 1,5 = 0,95 (%.6f)", p))
+    p, r = Gc.progress_write(1.2, 0.5, 2)
+    check(p < 2 and p > 2 - 1e-5 and math.abs(r - (2.2 - p) / 2) < 1e-12 and r > 0.09 and r < 0.11,
+      string.format("K18 : depassement : fin de plage ecrite (%.6f), le reste (%.6f fabrication) reste de cote", p, r))
+  end
+
 
   return fail_n - f0
 end
@@ -444,6 +456,8 @@ local MUTANTS = {
   { "productivite ignoree", "local total = k * it[2] * (1 + (m.prod or 0)) + (pf_old[n] or 0)", "local total = k * it[2] + (pf_old[n] or 0)" },
   { "report oublie au reveil (Gc.bank)", "for _, id in ipairs(sorted_names(st.frac)) do bf[id] = (bf[id] or 0) + st.frac[id] end", "" },
   { "report oublie au gel (Gc.restore)", "st.frac, st.pfrac, st.carry = st.bank_frac or {}, st.bank_pfrac or {}, {}", "st.frac, st.pfrac, st.carry = {}, {}, {}" },
+  { "plage 0..1 (progression ecrite)", "local new = p0 + f * mt", "local new = p0 + f" },
+  { "plage 0..1 (fin de plage)", "local cap = mt * (1 - Gc.PROGRESS_EPS)", "local cap = 1 - Gc.PROGRESS_EPS" },
   { "statut sortie pleine perdu", "if l.out < 1 - Gc.EPS then return \"full_output\" end", "if false then end" },
 }
 

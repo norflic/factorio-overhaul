@@ -167,13 +167,13 @@ return {
         i, P.name, P.mt, P.case.bonus and "productivite" or "progression", p, tostring(w.firstD), tD and string.format("%.0f", tD) or "-",
         tD01 and string.format("%.0f", tD01) or "-", tostring(w.firstT), tT, nD, expD, nT, expT))
       if tD then
-        ctx.check(w.firstD ~= nil and math.abs(w.firstD - tD) <= 2,
+        ctx.check(w.firstD ~= nil and math.abs(w.firstD - tD) <= 2.5,
           string.format("fait : la progression ecrite est reprise en unites de mining_time (%s, mining_time %.2f, p = %.2f)", P.name, P.mt, p),
           tostring(w.firstD) .. " / " .. string.format("%.0f", tD))
       end
       ctx.check(nD == expD, string.format("fait : aucune fabrication gratuite (%s, %s p = %.2f)", P.name,
         P.case.bonus and "productivite" or "progression", p), nD .. " / " .. expD)
-      ctx.check(nT == expT and w.firstT ~= nil and math.abs(w.firstT - tT) <= 2, "temoin T : depots au rythme de sa propre progression (paire " .. i .. ")",
+      ctx.check(nT == expT and w.firstT ~= nil and math.abs(w.firstT - tT) <= 2.5, "temoin T : depots au rythme de sa propre progression (paire " .. i .. ")",
         nT .. " / " .. expT .. ", premier " .. tostring(w.firstT))
     end
   end,

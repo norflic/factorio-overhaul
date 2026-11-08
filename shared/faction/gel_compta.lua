@@ -613,6 +613,21 @@ function Gc.bank(st)
   return lost
 end
 
+Gc.PROGRESS_EPS = 1e-6 -- fin de plage d'une progression écrite : mining_time × (1 − EPS) ; le moteur finit la fabrication au tick suivant
+
+--- Option (ii) du lead (8/11) : progression d'une FOREUSE à écrire au réveil. Fait moteur (x10-gel-progres, 1453377f) : mining_progress et
+--- bonus_mining_progress se lisent et s'écrivent en unités de mining_time (plage [0, mining_time], mesuré sur des minerais à 1, 1,5 et 2) ;
+--- une foreuse à l'arrêt les garde ; écrites, elles sont reprises, sans fabrication gratuite. p0 = progression lue (unités de mining_time),
+--- f = fraction mise de côté (en FABRICATIONS, Gc.bank), mt = mining_time de la cible. Rend (p, reste) : p ≤ mt × (1 − EPS) ; un
+--- dépassement est porté à la fin de la plage (le moteur fait la fabrication au tick suivant : gisement, sortie et statistiques par lui),
+--- le reste (en fabrications) reste de côté.
+function Gc.progress_write(p0, f, mt)
+  local cap = mt * (1 - Gc.PROGRESS_EPS)
+  local new = p0 + f * mt
+  if new <= cap then return new, 0 end
+  return cap, (new - cap) / mt
+end
+
 --- Au GEL : l'état comptable repart de la fraction mise de côté au dernier réveil (créditée au pas où la somme atteint 1 : la capacité
 --- d'un pas est rate × dt + fraction). Perte bornée à la fraction du DERNIER réveil (< 1 par machine sur toute la partie), jamais un gain.
 function Gc.restore(st)

@@ -244,6 +244,41 @@ local function freeze(I, tick)
   return true
 end
 
+--- Option (ii) du lead (8/11) : après Gc.bank, la fraction mise de côté de chaque FOREUSE est rendue au moteur par sa progression
+--- (mining_progress) et sa progression de productivité (bonus_mining_progress), en unités de mining_time de la cible (Gc.progress_write ;
+--- fait moteur x10-gel-progres). Ce qui dépasse la plage reste de côté (Gc.restore le reprend au gel suivant). Les fours gardent la seule
+--- mise de côté : crafting_progress n'est jamais écrit (F83, F84).
+local function write_progress(I)
+  local st = I.acc
+  local bf, bp = st.bank_frac, st.bank_pfrac
+  if not (bf or bp) then return end
+  local ents = {}
+  for _, e in ipairs(I.machines) do if e.valid then ents[e.unit_number] = e end end
+  for _, m in ipairs(I.il.machines) do
+    local e = m.kind == "drill" and ents[m.id]
+    local tgt = e and e.mining_target
+    if tgt and tgt.valid then
+      local mt = tgt.prototype.mineable_properties.mining_time
+      local f = bf and bf[m.id]
+      if f and f > 0 then
+        local p, rest = Gc.progress_write(e.mining_progress, f, mt)
+        e.mining_progress = p
+        bf[m.id] = (rest > 0) and rest or nil
+      end
+      local pf = bp and bp[m.id]
+      local n = m.out and m.out[1] and m.out[1][1]
+      local q = pf and n and pf[n]
+      if q and q > 0 then
+        local whole = math.floor(q)
+        local p, rest = Gc.progress_write(e.bonus_mining_progress, q - whole, mt)
+        e.bonus_mining_progress = p
+        local left = whole + rest
+        pf[n] = (left > 0) and left or nil
+      end
+    end
+  end
+end
+
 local function wake(I, tick, cause)
   local u = Gu.U()
   local g = Gel.state()
@@ -261,6 +296,7 @@ local function wake(I, tick, cause)
     Gc.reset(I.acc) -- îlot à relire : il sera refait, sa fraction est perdue (au plus 1 par machine)
   else
     Gc.bank(I.acc)
+    write_progress(I)
   end
   I.last = tick
   local s = stats(I.fid)
@@ -464,7 +500,7 @@ local function each_tick(tick)
     local I = u.ilots[table.remove(u.owed, 1)]
     if I and I.owed and not I.st.frozen then
       if not I.dirty then step(I, tick, I.owed, false) end
-      if I.dirty then Gc.reset(I.acc) else Gc.bank(I.acc) end -- fraction du gel mise de côté pour le prochain gel
+      if I.dirty then Gc.reset(I.acc) else Gc.bank(I.acc); write_progress(I) end -- fraction du gel rendue au moteur (foreuses) ou mise de côté
       I.owed = nil
     end
     n = n + 1
@@ -524,5 +560,6 @@ Events.on_configuration_changed(function()
   Gu.reset_caches()
 end)
 
+Gj.write_progress = write_progress
 Gj.freeze, Gj.wake, Gj.step, Gj.frontier, Gj.still_same, Gj.guet, Gj.each_tick, Gj.touch = freeze, wake, step, frontier, still_same, guet, each_tick, touch
 return Gj
