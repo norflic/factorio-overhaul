@@ -30,6 +30,7 @@ local R = require("shared.ai3.reglages")
 local A = require("shared.ai3.automatiser")
 local D = require("shared.team.petrole_donnees")
 local Col = require("shared.ai3.collecteur") -- lot PETROLE-RANGEE : collecteur d'un champ de puits (règle pure)
+local Rf = require("shared.ai3.rangee_fluides") -- lot PETROLE-RANGEE, étape 2 : rangée de modules sur bus (règle pure)
 local Dg = require("shared.ai3.danger") -- carte du danger (lot IA3-k) : lue seulement
 local State = require("script.faction.state")
 local Build = require("script.team.build")
@@ -87,6 +88,7 @@ Pet.EXT_RETRY = 5 * 3600    -- une extension refusée est redemandée 5 min plus
 Pet.EXT_FAILS = 4           -- refus de suite après lesquels le site n'essaie plus (la cause est au journal)
 Pet.EXT_MARGIN = 14         -- tuiles relevées autour des puits et du réseau de brut
 Pet.EXT_WINDOW = 200        -- côté du relevé au plus (le reste de la ligne principale est lu par carrés de 32 tuiles)
+Pet.RG_FAILS = 3            -- refus de rangée de suite après lesquels le site n'essaie plus
 
 local function sorted_keys(t) return State.sorted_keys(t or {}) end
 
@@ -784,11 +786,13 @@ local function field_wells(f, surface, s, ids)
   if #seeds == 0 then return nil, "aucun chevalet au site de base" end
   local pts = {}
   for _, e in ipairs(surface.find_entities_filtered({ position = { s.x, s.y }, radius = Pet.FIELD_R, name = s.res })) do
-    pts[#pts + 1] = { x = e.position.x, y = e.position.y }
+    pts[#pts + 1] = { x = e.position.x, y = e.position.y, amount = get(e, "amount") }
   end
+  local live = {}
   if #names > 0 then
     for _, e in ipairs(surface.find_entities_filtered({ position = { s.x, s.y }, radius = Pet.FIELD_R + 8, name = names })) do
       eq[#eq + 1] = { x = e.position.x, y = e.position.y }
+      live[#live + 1] = { x = e.position.x, y = e.position.y }
     end
   end
   local cl = Col.cluster(pts, seeds, Pet.FIELD_GAP, Pet.EXT_MAX_WELLS)
@@ -800,7 +804,30 @@ local function field_wells(f, surface, s, ids)
     end
     if not taken then wells[#wells + 1] = w end
   end
-  return { total = #cl, wells = wells, extractor = extractor }
+  -- débit de brut des chevalets POSÉS (unités/s) : vitesse de minage / durée de minage × quantité du produit × rendement du puits
+  -- (quantité restante / quantité normale), tout lu aux prototypes ; nil quand un prototype ne le dit pas
+  local rate
+  local rp = game.entity_prototypes[s.res]
+  local ep = extractor and game.entity_prototypes[extractor]
+  local mp = rp and get(rp, "mineable_properties")
+  local prod = mp and mp.products and mp.products[1]
+  if mp and ep and prod and #live > 0 then
+    local amt = prod.amount or (((prod.amount_min or 0) + (prod.amount_max or 0)) / 2) * (prod.probability or 1)
+    local base = (get(ep, "mining_speed") or 1) / math.max(mp.mining_time or 1, 1e-9) * amt
+    local normal = get(rp, "normal_resource_amount")
+    rate = 0
+    for _, l in ipairs(live) do
+      local yield = 1
+      for _, w in ipairs(cl) do
+        if math.abs(w.x - l.x) <= 1.01 and math.abs(w.y - l.y) <= 1.01 then
+          if normal and normal > 0 and w.amount then yield = w.amount / normal end
+          break
+        end
+      end
+      rate = rate + base * yield
+    end
+  end
+  return { total = #cl, wells = wells, extractor = extractor, rate = rate, live = #live }
 end
 
 local function freeze_ext(f, surface, p, h)
@@ -867,7 +894,7 @@ local function ext_terrain(b, fz, h)
   end
   local function blocked(tx, ty)
     local k = Fl.tkey(tx, ty)
-    if fz.forbid[k] then return true end
+    if fz.forbid and fz.forbid[k] then return true end
     local o = fz.occ[k]
     if o == nil then o = b.occ[k] ~= nil; fz.occ[k] = o end
     if o then return true end
@@ -880,6 +907,10 @@ end
 
 local function causes_text(list)
   local n, order = {}, {}
+  local where = {}
+  for i, sk in ipairs(list or {}) do
+    if i <= 8 then where[#where + 1] = string.format("(%d,%d)", math.floor(sk.x), math.floor(sk.y)) end
+  end
   for _, sk in ipairs(list or {}) do
     local c = tostring(sk.cause):sub(1, 40)
     if not n[c] then n[c] = 0; order[#order + 1] = c end
@@ -888,6 +919,7 @@ local function causes_text(list)
   table.sort(order)
   local out = {}
   for _, c in ipairs(order) do out[#out + 1] = n[c] .. " x " .. c end
+  if #where > 0 then out[#out + 1] = "puits " .. table.concat(where, " ") end
   return table.concat(out, " ; ")
 end
 
@@ -933,11 +965,84 @@ local function step_ext(f, surface, p, h, pj)
   return lay
 end
 
+--- Rangée de modules (étape 2) : le module du site de base (machines, bras, coffres, tuyaux du fluide interne) copié le long de ses bus.
+local function freeze_rangee(f, surface, p, h)
+  local b = f.build
+  local spec = p.spec
+  if not Pet.on() then return nil, "reglage eteint", true end
+  if not Pet.champ_on() then return nil, "extension eteinte", true end
+  local info = current_info()
+  local rel = ensure_rel()
+  if not (rel and info) then return nil, "releve absent" end
+  local base = b.projects[spec.base]
+  if not (base and base.ents) then return nil, "site de base absent" end
+  local mod, why = Rf.analyze(rel, base.ents, { quais = base.quais, outs = base.outs })
+  if not mod then return nil, "module non copiable : " .. tostring(why) end
+  local L0, conn0 = Rf.world0(rel, ext_ents(b, spec.projects))
+  -- relevé : l'emprise du module, élargie le long de l'axe de toute la rangée voulue et de la hauteur des bus de l'autre côté
+  local x0, y0, x1, y1 = math.huge, math.huge, -math.huge, -math.huge
+  for _, t in ipairs(mod.tiles) do
+    x0, y0, x1, y1 = math.min(x0, t[1]), math.min(y0, t[2]), math.max(x1, t[1]), math.max(y1, t[2])
+  end
+  local W = mod.hi - mod.lo + 1
+  local along = (spec.kmax + (spec.from or 1)) * (W + Rf.DX_EXTRA + 2)
+  local across = Rf.HMAX + 8
+  if mod.axis == "h" then x0, x1, y0, y1 = x0 - along, x1 + along, y0 - across, y1 + across
+  else y0, y1, x0, x1 = y0 - along, y1 + along, x0 - across, x1 + across end
+  x0, y0, x1, y1 = math.floor(x0), math.floor(y0), math.ceil(x1), math.ceil(y1)
+  if x1 - x0 > Pet.EXT_WINDOW then local m = math.floor((x0 + x1) / 2); x0, x1 = m - Pet.EXT_WINDOW / 2, m + Pet.EXT_WINDOW / 2 end
+  if y1 - y0 > Pet.EXT_WINDOW then local m = math.floor((y0 + y1) / 2); y0, y1 = m - Pet.EXT_WINDOW / 2, m + Pet.EXT_WINDOW / 2 end
+  local masks = h.read_masks(x0, y0, x1, y1)
+  local cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+  local fz = {
+    mod = mod, L0 = L0, conn0 = conn0, fixed = spec.fixed, from = spec.from, kmax = spec.kmax,
+    pole = pole_of(f, rel), netpt = nearest_network(f, surface, cx, cy, b),
+    x0 = x0, y0 = y0, x1 = x1, y1 = y1, water = masks.water, blocked = masks.blocked, clear = masks.clear, extra = {},
+    danger = danger_tiles(f, game.tick), occ = {},
+  }
+  for _, v in ipairs({ mod, L0, conn0, fz.pole or {}, fz.netpt or {}, spec.fixed or {} }) do
+    if not Fl.is_plain(v) then return nil, "etat du plan non serialisable" end
+  end
+  return { jb = Fl.layout_new(), fz = fz, steps = 0 }
+end
+
+local function step_rangee(f, surface, p, h, pj)
+  local b = f.build
+  local spec = p.spec
+  local fz = pj.fz
+  local rel = ensure_rel()
+  if not rel then return nil, "releve absent" end
+  local blocked, masks = ext_terrain(b, fz, h)
+  local req = { mod = fz.mod, ents = rel.entities, conduit = D.PIPE, poles = fz.pole, network = fz.netpt, blocked = blocked, L0 = fz.L0, conn0 = fz.conn0,
+    kmax = fz.kmax, from = fz.from, fixed = fz.fixed }
+  local okc, status, lay = pcall(Fl.ext_step, req, pj.jb, Pet.PLAN_SLICE)
+  pj.steps = pj.steps + 1
+  p.plan_job = nil
+  if not okc then
+    log(string.format("[FO-PETROLE] %s : plan de la rangee en erreur (%s)", f.key or "?", tostring(status)))
+    return nil, "plan en erreur"
+  end
+  if status == "fail" then
+    log(string.format("[FO-PETROLE] %s : rangee refusee a %.1f min : %s", f.key or "?", minutes(f, game.tick), tostring(lay)))
+    return nil, tostring(lay)
+  end
+  lay.masks = masks
+  lay.out_at = Pet.OUT_AT
+  lay.key = "petrole-rangee:" .. tostring(spec.res)
+  p.rangee = { n = lay.copies, dx = lay.dx, sign = lay.sign, hs = lay.hs, axis = fz.mod.axis, from = fz.from or 1 }
+  log(string.format("[FO-PETROLE] %s : rangee planifiee a %.1f min : %d copie(s) du module (%d a %d) au pas de %d tuiles, axe %s, sens %d, bus du brut a %d et de l'eau a %d tuile(s) des prises, "
+    .. "%d tuyaux, %d poteaux, %d entites%s", f.key or "?", minutes(f, game.tick), lay.copies, fz.from or 1, (fz.from or 1) + lay.copies - 1, lay.dx, fz.mod.axis, lay.sign,
+    lay.hs.brut or 0, lay.hs.eau or 0, lay.pipes or 0, lay.poles or 0, #lay.ents, lay.copies < (fz.kmax or 1) and (" ; arret devant : " .. tostring(lay.cause)) or ""))
+  return lay
+end
+
 local function plan_site(f, surface, p, h)
   local pj = p.plan_job
   if not pj then
     local why, wait
-    if p.spec.ext then
+    if p.spec.rangee then
+      pj, why, wait = freeze_rangee(f, surface, p, h)
+    elseif p.spec.ext then
       pj, why, wait = freeze_ext(f, surface, p, h)
     else
       pj, why, wait = freeze_site(f, surface, p, h)
@@ -946,6 +1051,7 @@ local function plan_site(f, surface, p, h)
     p.plan_job = pj
     return nil, "terrain releve", "calcul" -- la première passe relève le terrain seulement ; l'A* commence à la suivante
   end
+  if p.spec.rangee then return step_rangee(f, surface, p, h, pj) end
   if p.spec.ext then return step_ext(f, surface, p, h, pj) end
   return step_site(f, surface, p, h, pj)
 end
@@ -1352,6 +1458,44 @@ local function ext_ids(s)
   return ids
 end
 
+--- Rangée de modules (étape 2) : le site de base est le module 1 ; autant de copies que le brut des chevalets posés en nourrit (Rf.count : débit des
+--- chevalets / consommation d'un module, lus aux prototypes), au plus Rf.KMAX modules et Rf.BATCH copies par chantier. Un chantier à la fois ; le
+--- pas, le sens et les bus du chantier précédent sont repris (s.rangee). Rien n'est demandé tant qu'un chantier d'extension de puits est en cours.
+local function rangee_check(f, st, s, tick, fw)
+  if s.rg_stop or s.ext_id or tick < (s.rg_next or 0) then return end
+  s.rg_next = tick + Pet.EXT_CHECK
+  local rel = ensure_rel()
+  local info = current_info()
+  if not (rel and info and s.items and #s.items > 0) then return end
+  local ids = { s.id }
+  for _, id in ipairs(s.exts or {}) do ids[#ids + 1] = id end
+  if not fw then fw = field_wells(f, f.hq.surface, s, ids) end
+  if not fw then return end
+  local G = package.loaded["script.ai3.general"]
+  local c = G and G.catalogue and G.catalogue()
+  local water
+  for _, res in ipairs(c and pump_resources(c) or {}) do if st.known[res] then water = res end end
+  local ch = Fl.chain(rel, info, s.items, water and { [water] = "pompe" } or {}, chooser(f))
+  if not ch then return end
+  local use = Rf.use(rel, ch.cells, s.res)
+  local K = Rf.count(fw.rate, use, Rf.KMAX)
+  local done = s.rangee and s.rangee.n or 0
+  local want = K - 1 - done
+  local line = string.format("site '%s' : rangee de modules : brut des %d chevalet(s) pose(s) %s/s, un module en prend %.1f/s, modules voulus %d, copies posees %d",
+    s.key, fw.live or 0, fw.rate and string.format("%.1f", fw.rate) or "?", use, K, done)
+  if s.rg_said ~= line then s.rg_said = line; note(f, st, tick, line) end
+  if want < 1 then return end
+  local batch = math.min(want, Rf.BATCH)
+  local id = Build.request(f, { site = "petrole", rangee = true, base = s.id, projects = ids, res = s.res, x = s.x, y = s.y, kmax = batch,
+    from = done + 1, fixed = s.rangee and { dx = s.rangee.dx, sign = s.rangee.sign, hs = s.rangee.hs } or nil, targets = s.items,
+    prio = Build.PRIO, domain = "production", lazy_clear = true })
+  if id then
+    s.ext_id, s.ext_state = id, "attente"
+    st.decisions = st.decisions + 1
+    note(f, st, tick, string.format("site '%s' : rangee de modules demandee (projet %d) : %d copie(s) de %d a %d", s.key, id, batch, done + 1, done + batch))
+  end
+end
+
 --- Site FINI : chantier d'extension jusqu'à ce que tous les puits atteignables de son champ soient équipés (lot PETROLE-RANGEE).
 --- Un seul chantier d'extension à la fois ; un refus redemande un lot plus petit 5 min plus tard, 4 refus de suite arrêtent le site.
 local function extend_site(f, st, s, tick)
@@ -1368,8 +1512,25 @@ local function extend_site(f, st, s, tick)
       local ch = q and q.champ
       if ch and ch.trunk then s.hint = { axis = ch.trunk.axis, c = ch.trunk.c } end
       s.ext_fail = 0
-      note(f, st, tick, string.format("site '%s' : extension du champ finie (projet %d, %d chevalet(s))", s.key, s.ext_id, ch and ch.n or 0))
+      if q and q.rangee then
+        -- chantier de rangee fini : le pas, le sens et les bus sont repris par le chantier suivant
+        s.rangee = { n = (s.rangee and s.rangee.n or 0) + q.rangee.n, dx = q.rangee.dx, sign = q.rangee.sign, hs = q.rangee.hs }
+        s.rg_fail, s.rg_next = 0, tick
+        note(f, st, tick, string.format("site '%s' : rangee de modules finie (projet %d) : %d copie(s) du module au total", s.key, s.ext_id, s.rangee.n))
+      else
+        note(f, st, tick, string.format("site '%s' : extension du champ finie (projet %d, %d chevalet(s))", s.key, s.ext_id, ch and ch.n or 0))
+      end
       s.ext_id, s.ext_state, s.ext_next = nil, nil, tick
+    elseif br.state == "refuse" and b.projects[s.ext_id] and b.projects[s.ext_id].spec.rangee then
+      s.rg_fail = (s.rg_fail or 0) + 1
+      note(f, st, tick, string.format("site '%s' : rangee de modules refusee (projet %d, refus %d/%d) : %s", s.key, s.ext_id, s.rg_fail, Pet.RG_FAILS, tostring(br.reason)))
+      s.ext_id, s.ext_state = nil, nil
+      s.rg_next = tick + Pet.EXT_RETRY
+      if s.rg_fail >= Pet.RG_FAILS then
+        s.rg_stop = tostring(br.reason)
+        note(f, st, tick, string.format("site '%s' : rangee de modules abandonnee (cause : %s)", s.key, s.rg_stop))
+      end
+      return
     elseif br.state == "refuse" then
       s.ext_fail = (s.ext_fail or 0) + 1
       s.ext_batch = math.max(3, math.floor((s.ext_batch or Pet.EXT_BATCH) / 2))
@@ -1387,7 +1548,10 @@ local function extend_site(f, st, s, tick)
       return
     end
   end
-  if s.ext_stop or tick < (s.ext_next or 0) then return end
+  if s.ext_stop or tick < (s.ext_next or 0) then
+    if s.ext_stop and not s.ext_id then rangee_check(f, st, s, tick, nil) end -- extension de puits abandonnée : la rangée se juge sur ce qui est posé
+    return
+  end
   local ids = { s.id }
   for _, id in ipairs(s.exts or {}) do ids[#ids + 1] = id end
   local fw, why = field_wells(f, f.hq.surface, s, ids)
@@ -1399,6 +1563,7 @@ local function extend_site(f, st, s, tick)
   s.cov = { total = fw.total, eq = fw.total - #fw.wells, left = #fw.wells }
   if #fw.wells == 0 then
     s.ext_next = tick + Pet.EXT_CHECK
+    rangee_check(f, st, s, tick, fw)
     if not s.cov_said then
       s.cov_said = true
       note(f, st, tick, string.format("site '%s' : champ de %s tout equipe, puits equipes %d / %d, chantiers d'extension %d", s.key, tostring(s.res),
@@ -1623,7 +1788,11 @@ remote.add_interface("fo-petrole", {
       for i = 1, math.min(4, #(br.missing or {})) do miss[i] = br.missing[i][1] .. "x" .. br.missing[i][2] end
       return { state = br.state, missing = miss, built = br.built, total = br.total }
     end
-    for i, s in ipairs(st.sites) do local b = brief_of(s.id); sites[i].missing = b and b.missing or nil end
+    for i, s in ipairs(st.sites) do
+      local b = brief_of(s.id)
+      sites[i].missing = b and b.missing or nil
+      sites[i].ext = brief_of(s.ext_id) -- lot PETROLE-RANGEE : chantier d'extension en cours (état, manques, entités bâties / prévues)
+    end
     local why = {}
     for _, k in ipairs(sorted_keys(st.why)) do why[#why + 1] = st.why[k].text end
     return { decisions = st.decisions, known = sorted_keys(st.known), sites = sites, logs = st.logs, why = why,
@@ -1663,13 +1832,16 @@ remote.add_interface("fo-petrole", {
     local ents = {}
     local x0, y0, x1, y1 = math.huge, math.huge, -math.huge, -math.huge
     for _, e in ipairs(spec.ents or {}) do
-      ents[#ents + 1] = { name = e.name, x = e.x, y = e.y, dir = e.dir or 0, role = e.role, built = true, part = 1, item = e.name }
+      ents[#ents + 1] = { name = e.name, x = e.x, y = e.y, dir = e.dir or 0, role = e.role, recipe = e.recipe, built = true, part = 1, item = e.name }
       x0, y0, x1, y1 = math.min(x0, e.x), math.min(y0, e.y), math.max(x1, e.x), math.max(y1, e.y)
     end
-    f.build.projects[id] = { id = id, state = "fini", ents = ents, outs = {}, quais = {}, spec = { site = "petrole" },
+    local quais, outs = {}, {}
+    for _, q in ipairs(spec.quais or {}) do quais[#quais + 1] = { x = q.x, y = q.y, item = q.item } end
+    for _, o in ipairs(spec.outs or {}) do outs[#outs + 1] = { x = o.x, y = o.y, at = Pet.OUT_AT } end
+    f.build.projects[id] = { id = id, state = "fini", ents = ents, outs = outs, quais = quais, spec = { site = "petrole" },
       parts = { { kind = "module", key = "bench", lot = "site", ox = math.floor(x0), oy = math.floor(y0), k = 0, w = math.ceil(x1 - x0) + 1, h = math.ceil(y1 - y0) + 1 } } }
     f.build.order[#f.build.order + 1] = id
-    st.sites[#st.sites + 1] = { key = "bench-champ", id = id, items = {}, state = "fini", res = spec.res, x = spec.x, y = spec.y }
+    st.sites[#st.sites + 1] = { key = "bench-champ", id = id, items = spec.items or {}, state = "fini", res = spec.res, x = spec.x, y = spec.y }
     return true
   end,
   -- bancs (lot PETROLE-RANGEE) : chevalets au plus par chantier d'extension (le banc n'a que quelques milliers de ticks)

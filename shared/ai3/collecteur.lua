@@ -82,7 +82,7 @@ Col.out_conn = out_conn
 --- des `seeds` restent. Les puits qui sont eux-mêmes des `seeds` sont rendus aussi (l'appelant les écarte s'ils sont équipés).
 function Col.cluster(wells, seeds, gap, max)
   local pts = {}
-  for _, w in ipairs(wells or {}) do pts[#pts + 1] = { x = w.x, y = w.y } end
+  for _, w in ipairs(wells or {}) do pts[#pts + 1] = { x = w.x, y = w.y, amount = w.amount } end
   table.sort(pts, function(a, b)
     if a.y ~= b.y then return a.y < b.y end
     return a.x < b.x

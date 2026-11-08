@@ -38,6 +38,7 @@
 ]]
 
 local Col = require("shared.ai3.collecteur") -- lot PETROLE-RANGEE : collecteur d'un champ de puits (règle pure)
+local Rf = require("shared.ai3.rangee_fluides") -- lot PETROLE-RANGEE, étape 2 : rangée de modules sur bus (règle pure)
 
 local Fl = {}
 
@@ -800,13 +801,17 @@ function Site:power(electric)
       -- couronne voisine : moteur réel, 28/10, « poteau : aucune place autour de inserter » dans un quai entouré de coffres et
       -- de tuyaux) ; le plus d'entités non couvertes d'abord, puis la plus proche, puis l'ordre de balayage
       local best, bn, bd
+      -- entités non couvertes, une fois pour toute la recherche de cette entité (aucun poteau n'est posé pendant elle) : même résultat
+      -- que de les recompter à chaque tuile, sans le produit entités x tuiles x poteaux (lot PETROLE-RANGEE : 30 chevalets)
+      local unc = {}
+      for _, o in ipairs(electric) do if not covered(o) then unc[#unc + 1] = o end end
       local reach = math.max(1, math.floor(s))
       for ty = y0 - reach, y1 + reach do
         for tx = x0 - reach, x1 + reach do
           if (tx < x0 or tx > x1 or ty < y0 or ty > y1) and self:free(tx, ty) and self.rsv[tkey(tx, ty)] == nil
               and covers(tx + 0.5, ty + 0.5, ent) then
             local n = 0
-            for _, o in ipairs(electric) do if not covered(o) and covers(tx + 0.5, ty + 0.5, o) then n = n + 1 end end
+            for _, o in ipairs(unc) do if covers(tx + 0.5, ty + 0.5, o) then n = n + 1 end end
             local dist = math.max(x0 - tx, tx - x1, y0 - ty, ty - y1)
             if not bn or n > bn or (n == bn and dist < bd) then best, bn, bd = { tx, ty }, n, dist end
           end
@@ -1457,11 +1462,58 @@ local function layout_ext(req)
     end)() }
 end
 
+--- RANGÉE de modules sur bus (lot PETROLE-RANGEE, étape 2) : les copies du module du site de base (req.mod, Rf.analyze) le long de ses bus,
+--- plan pur de shared/ai3/rangee_fluides.lua (gardé dans job.rg) ; poteaux par Site:power. Pas d'A* : une seule tranche.
+local function layout_rangee(req)
+  local s = new_site(req)
+  Fl.last_site = s
+  local job = req.job
+  local rg = job.rg
+  if not rg then
+    rg = Rf.plan(req.mod, { blocked = req.blocked, L0 = req.L0, conn0 = req.conn0, kmax = req.kmax, from = req.from, fixed = req.fixed })
+    job.rg = rg
+  end
+  if rg.n == 0 then return nil, "aucune copie du module ne tient : " .. tostring(rg.cause) end
+  local placed = {}
+  for _, e in ipairs(rg.ents) do
+    placed[#placed + 1] = s:put(e.name, e.x, e.y, e.dir, { role = e.role, recipe = e.recipe })
+  end
+  for _, t in ipairs(rg.tubes) do
+    s.tube[tkey(t.x, t.y)] = t.fluid
+    s.npipes = s.npipes + 1
+  end
+  for _, k in ipairs(sorted_keys(s.tube)) do
+    local tx, ty = math.floor(k / 2097152) - 1048576, k % 2097152 - 1048576
+    s:put(req.conduit, tx + 0.5, ty + 0.5, 0, { role = "tuyau", fluid = s.tube[k] })
+  end
+  local electric = {}
+  for _, p in ipairs(placed) do
+    local info = req.ents[p.name]
+    if info and info.electric then electric[#electric + 1] = p end
+  end
+  local npoles, line = 0, 0
+  if #electric > 0 then
+    if not req.poles then return nil, "aucun poteau" end
+    local a, b = s:power(electric)
+    if not a then return nil, b end
+    npoles, line = a, b
+  end
+  local x0, y0, x1, y1 = math.huge, math.huge, -math.huge, -math.huge
+  for _, en in ipairs(s.ents) do
+    if en.role ~= "liaison" then
+      x0, y0 = math.min(x0, math.floor(en.x)), math.min(y0, math.floor(en.y))
+      x1, y1 = math.max(x1, math.floor(en.x)), math.max(y1, math.floor(en.y))
+    end
+  end
+  return { ents = s.ents, quais = rg.quais, outs = rg.outs, box = { x0, y0, x1, y1 }, pipes = s.npipes, poles = npoles, line = line, extractors = 0,
+    skipped = {}, copies = rg.n, dx = rg.dx, sign = rg.sign, hs = rg.hs, cause = rg.cause }
+end
+
 function Fl.ext_step(req, job, budget)
   job.slice, job.limit = 0, math.max(1, budget or math.huge)
   job.ord = 0
   req.job = job
-  local ok, lay, why = pcall(layout_ext, req)
+  local ok, lay, why = pcall(req.mod and layout_rangee or layout_ext, req)
   if not ok then
     if lay == Fl.YIELD then return "more" end
     error(lay, 0)

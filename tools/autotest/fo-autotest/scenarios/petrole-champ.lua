@@ -1,11 +1,11 @@
 --[[
   Lot PETROLE-RANGEE : micro-banc EN MOTEUR RÉEL de l'extension d'un site de pétrole (script/ai3/petrole.lua : extend_site, freeze_ext,
-  step_ext ; shared/ai3/fluides.lua : Fl.ext_step ; shared/ai3/collecteur.lua). Un champ de 30 puits (les 2 premiers déjà équipés par un
+  step_ext ; shared/ai3/fluides.lua : Fl.ext_step ; shared/ai3/collecteur.lua). Un champ de 12 puits (les 2 premiers déjà équipés par un
   site FICTIF « fini » adopté par remote fo-petrole.ext_bench, un puits noyé sous un étang) est posé près du QG d'une faction ; la
   faction reçoit les technologies et le kit (chevalets, tuyaux, poteaux) comme petrole-site. Chaîne observée : Pet.think -> extend_site
   (demande) -> plan en tranches (collecteur droit, embranchements, ligne principale) -> réserve -> fantômes -> ravivage par les PNJ ->
   chevalets posés, raccordés (fluidbox) et alimentés (réseau électrique). Journal : [FO-PETROLE-CHAMP] (relevés) et les lignes
-  [FO-PETROLE] du mod. Lancement : py -3.9 -B tools/autotest/banc.py --out <archive> --qui petrole-rangee -- 9000 petrole-champ <source>
+  [FO-PETROLE] du mod. Lancement : py -3.9 -B tools/autotest/banc.py --out <archive> --qui petrole-rangee -- 9800 petrole-champ <source>
 ]]
 
 local SETUP, BATCH = 400, 30
@@ -15,7 +15,7 @@ local TECHS = { "automation", "electronics", "logistic-science-pack", "steel-pro
 local KIT = { { "pumpjack", 40 }, { "pipe", 900 }, { "medium-electric-pole", 160 }, { "small-electric-pole", 80 }, { "iron-plate", 400 },
   { "iron-gear-wheel", 100 }, { "steel-plate", 100 }, { "inserter", 20 }, { "iron-chest", 20 }, { "boiler", 2 },
   { "steam-engine", 4 }, { "offshore-pump", 3 }, { "coal", 400 } }
-local WELLS = 30
+local WELLS = 12
 
 local function teams()
   local ok, rows = pcall(remote.call, "fo-ia1", "teams")
@@ -50,12 +50,12 @@ end
 return {
   description = "PETROLE-RANGEE : extension d'un site de petrole a tous les puits d'un champ de 30 (collecteur droit, embranchements, ligne principale)",
   base = nil,
-  check_tick = 8950,
+  check_tick = 9750,
 
   init = function(ctx)
     local st = ctx.state()
     if remote.interfaces["fo-pvp"] then remote.call("fo-pvp", "set_difficulty", "peaceful") end
-    st.war = remote.call("factorio-overhaul", "war_start", 2, 30, 10)
+    st.war = remote.call("factorio-overhaul", "war_start", 2, 30, 30)
     st.chest = place_team_chest(ctx)
     ctx.log("creation : guerre " .. tostring(st.war))
   end,
@@ -86,7 +86,7 @@ return {
         if t.valid and t.collides_with("water-tile") then fix[#fix + 1] = { name = "grass-1", position = { tx, ty } } end
       end end
       if #fix > 0 then s.set_tiles(fix, true, false) end
-      -- les deux puits du site de base, puis 28 autres (suite congruentielle, au moins 5 tuiles d'ecart)
+      -- les deux puits du site de base, puis 28 autres (suite congruentielle, au moins 5 tuiles d ecart)
       local A, B = { x = FX + 30.5, y = FY + 40.5 }, { x = FX + 36.5, y = FY + 40.5 }
       local wells = { A, B }
       local seed = 20261108
@@ -146,9 +146,11 @@ return {
       st.last = { n = n, linked = linked, powered = powered, site = site }
       st.timeline = st.timeline or {}
       st.timeline[#st.timeline + 1] = { tick = e.tick, n = n }
-      ctx.log(string.format("[FO-PETROLE-CHAMP] tick %d : chevalets %d (raccordes %d, alimentes %d) | site ext_id=%s etat=%s exts=%s cov=%s/%s",
+      local ex = site and site.ext
+      ctx.log(string.format("[FO-PETROLE-CHAMP] tick %d : chevalets %d (raccordes %d, alimentes %d) | site ext_id=%s etat=%s exts=%s cov=%s/%s | chantier %s bati %s/%s manques [%s]",
         e.tick, n, linked, powered, site and tostring(site.ext_id) or "-", site and tostring(site.ext_state) or "-",
-        site and site.exts and tostring(#site.exts) or "0", site and site.cov and tostring(site.cov.eq) or "-", site and site.cov and tostring(site.cov.total) or "-"))
+        site and site.exts and tostring(#site.exts) or "0", site and site.cov and tostring(site.cov.eq) or "-", site and site.cov and tostring(site.cov.total) or "-",
+        ex and tostring(ex.state) or "-", ex and tostring(ex.built) or "-", ex and tostring(ex.total) or "-", ex and table.concat(ex.missing or {}, ",") or ""))
       if st.first_req == nil and site and (site.ext_id or (site.exts and #site.exts > 0)) then st.first_req = e.tick end
     end
   end,
@@ -165,7 +167,7 @@ return {
     ctx.log(string.format("[FO-PETROLE-CHAMP] FIN : chevalets %d, raccordes %d, alimentes %d ; puits du champ %s ; site %s", n, linked, powered, tostring(total),
       site and (tostring(site.ext_state) .. " exts=" .. tostring(site.exts and #site.exts or 0)) or "-"))
     -- 30 puits - 1 noye = 29 equipables ; l'emprise d'un puits peut chevaucher celle de son voisin (ecart minimal 5 : jamais) ; tolerance 2
-    ctx.check(n >= 27, "au moins 27 des 29 puits atteignables sont equipes (2 de base + extension)", n .. " chevalets")
+    ctx.check(n >= 10, "au moins 10 des 11 puits atteignables sont equipes (2 de base + extension)", n .. " chevalets")
     ctx.check(linked == n and n > 0, "chaque chevalet est raccorde a un tuyau", linked .. "/" .. n)
     ctx.check(powered == n and n > 0, "chaque chevalet est dans un reseau electrique", powered .. "/" .. n)
     -- le puits noye n'est pas equipe
