@@ -69,7 +69,7 @@ local function shape(ctx)
   s.set_tiles(tiles, true)
 end
 
-local function arena(ctx, st, WALL)
+local function arena(ctx, st, WALL, ORE, BIG)
   local s = ctx.surface()
   local eei = s.create_entity({ name = "electric-energy-interface", position = { 36.5, 6.5 }, force = "player" })
   if eei then
@@ -84,6 +84,28 @@ local function arena(ctx, st, WALL)
     if s.create_entity({ name = "medium-electric-pole", position = { x + 0.5, 4.5 }, force = "player" }) then poles = poles + 1 end
   end
   ctx.check(eei ~= nil and poles == 7, "arene alimentee : interface electrique et 7 poteaux", string.format("eei=%s poteaux=%d", tostring(eei ~= nil), poles))
+  if ORE then
+    -- lot TRAVERSEE : un gisement de fer de 12 colonnes (x = 50 a 61), de y = -10 a 10, en travers de tout couloir de la liaison
+    local n = 0
+    for x = 50, 61 do
+      for y = -10, 10 do
+        if s.create_entity({ name = "iron-ore", position = { x + 0.5, y + 0.5 }, amount = 500 }) then n = n + 1 end
+      end
+    end
+    ctx.check(n == 12 * 21, "gisement de 252 tuiles pose", tostring(n))
+    game.forces.player.recipes["underground-belt"].enabled = true
+  end
+  if BIG then
+    -- lot TRAVERSEE : un mur de 8 tuiles d'epaisseur (x = 52 a 59), plus large que la portee des souterrains (3 tuiles dessous) : aucun chemin
+    local n = 0
+    for x = 52, 59 do
+      for y = -10, 10 do
+        if s.create_entity({ name = "stone-wall", position = { x + 0.5, y + 0.5 }, force = "player" }) then n = n + 1 end
+      end
+    end
+    ctx.check(n == 8 * 21, "mur large de 168 segments pose", tostring(n))
+    game.forces.player.recipes["underground-belt"].enabled = true
+  end
   if WALL then
     -- lot TRAVERSEE : un mur de 1 tuile d'epaisseur en x = 55, de y = -10 a 10, en travers de tout couloir de la liaison (la boite du plan
     -- fait 6 tuiles de marge autour des coffres) : la liaison ne passe que par DESSOUS (paire de souterrains)
@@ -101,10 +123,13 @@ local function arena(ctx, st, WALL)
 end
 
 return function(variant)
-  local TAG = "ind-liaison" .. (variant == "temoin" and "-temoin" or (variant == "mur" and "-mur" or ""))
+  local TAG = "ind-liaison" .. (variant == "temoin" and "-temoin" or (variant == "mur" and "-mur" or (variant == "gisement" and "-gisement" or (variant == "refus" and "-refus" or ""))))
   local WITH = variant ~= "temoin"
   local WALL = variant == "mur"
-  return {
+  local ORE = variant == "gisement"
+  local BIG = variant == "refus"
+  local sc
+  sc = {
     description = "INDUSTRIE I7 : liaison de quai par tapis (" .. variant .. ")",
     base = nil,
     check_tick = 4900,
@@ -121,7 +146,7 @@ return function(variant)
       stock_chest(chest)
       st.hq = chest
       ctx.check(ctx.remote("fo-ia1d", "enable", "player", { seul = true, ghosts_ahead = true, radius = 1 }) == true, "plan directeur active")
-      arena(ctx, st, WALL)
+      arena(ctx, st, WALL, ORE, BIG)
       set_count(s, DST.x, DST.y, 400)
       local p1 = ctx.remote("fo-liaison", "inject", "player", { outs = { { x = SRC.x + 0.5, y = SRC.y + 0.5 } }, names = { arm = "inserter", pole = "small-electric-pole" } })
       local p2 = ctx.remote("fo-liaison", "inject", "player", { quais = { { x = DST.x + 0.5, y = DST.y + 0.5, item = ITEM } }, inflow = { [ITEM] = 1.0 },
@@ -192,7 +217,7 @@ return function(variant)
           w.end_n, w.consumed, w.filled, w.belts))
         if WITH then
           -- coupure : une tuile du milieu du tapis
-          local mid = s.find_entities_filtered({ position = { (SRC.x + DST.x) / 2 + 0.5 - (WALL and 5 or 0), SRC.y + 0.5 }, radius = 0.6, type = "transport-belt", limit = 1 })[1]
+          local mid = s.find_entities_filtered({ position = { (SRC.x + DST.x) / 2 + 0.5 - ((WALL and 5) or (ORE and 10) or 0), SRC.y + 0.5 }, radius = 0.6, type = "transport-belt", limit = 1 })[1]
           st.cut = mid ~= nil
           if mid then mid.destroy() end
           set_count(s, DST.x, DST.y, 20)
@@ -220,6 +245,19 @@ return function(variant)
         ctx.check(lia ~= nil and lia.n.demandes == 1, "une seule liaison demandee par la regle", lia and tostring(lia.n.demandes))
         ctx.check(lia ~= nil and lia.n.finis >= 1, "la liaison est finie (une fois, deux si la reconstruction a refait la tuile coupee)", lia and tostring(lia.n.finis))
         ctx.check(w1.belts >= 20, "le tapis est pose (27 tuiles attendues)", tostring(w1.belts))
+        if ORE then
+          local ugs = s.count_entities_filtered({ area = { { SRC.x, SRC.y - 8 }, { DST.x + 1, DST.y + 8 } }, type = "underground-belt", force = "player" })
+          local on_ore, pieces = 0, 0
+          for _, e in ipairs(s.find_entities_filtered({ area = { { 49, -1 }, { 63, 2 } }, force = "player" })) do
+            if e.type == "transport-belt" or e.type == "underground-belt" then
+              pieces = pieces + 1
+              if s.count_entities_filtered({ area = { { e.position.x - 0.4, e.position.y - 0.4 }, { e.position.x + 0.4, e.position.y + 0.4 } }, type = "resource" }) > 0 then on_ore = on_ore + 1 end
+            end
+          end
+          ctx.log(string.format("[%s] TRAVERSEE gisement : %d piece(s) de tapis sur x = 49..62, dont %d sur le gisement (12 tuiles de large), %d souterrain(s)", TAG, pieces, on_ore, ugs))
+          ctx.check(ugs >= 2 and ugs % 2 == 0, "TRAVERSEE : le gisement est traverse par des paires de souterrains (" .. tostring(ugs) .. ")")
+          ctx.check(on_ore <= 6, "TRAVERSEE : au plus 6 pieces sur les 12 tuiles de gisement, au lieu de 12 (" .. tostring(on_ore) .. ")")
+        end
         if WALL then
           local ugs = s.count_entities_filtered({ area = { { SRC.x, SRC.y - 8 }, { DST.x + 1, DST.y + 8 } }, type = "underground-belt", force = "player" })
           ctx.check(ugs == 2, "TRAVERSEE : une paire de souterrains pose sous le mur (" .. tostring(ugs) .. ")")
@@ -253,4 +291,28 @@ return function(variant)
       ctx.log(string.format("[%s] BILAN : fenetre 1 : min %s, PNJ ont porte %s ; fenetre 2 : PNJ ont porte %s", TAG, tostring(w1.min), tostring(w1.filled), w2 and tostring(w2.filled) or "-"))
     end,
   }
+  if BIG then
+    -- lot TRAVERSEE : mur plus large que la portee : la liaison est refusee, la cause est ecrite au journal ([FO-TRAVERSEE] ... REFUS)
+    local base_tick = sc.tick
+    sc.tick = function(ctx, e)
+      local st = ctx.state()
+      if st.eei and st.eei.valid then st.eei.energy = BUF end
+      if st.t0 and (e.tick - st.t0) % 600 == 0 then
+        local lia = ctx.remote("fo-liaison", "report", "player")
+        ctx.log(string.format("[%s] t=%d : liaison demandes %s refuses %s finis %s", TAG, e.tick - st.t0, tostring(lia and lia.n.demandes),
+          tostring(lia and lia.n.refuses), tostring(lia and lia.n.finis)))
+      end
+    end
+    sc.finish = function(ctx)
+      local s = ctx.surface()
+      local lia = ctx.remote("fo-liaison", "report", "player")
+      ctx.check(lia ~= nil and lia.n.demandes >= 1, "la regle demande une liaison", lia and tostring(lia.n.demandes))
+      ctx.check(lia ~= nil and lia.n.refuses >= 1, "la liaison est refusee (mur plus large que la portee)", lia and tostring(lia.n.refuses))
+      ctx.check(lia ~= nil and lia.n.finis == 0, "aucune liaison finie", lia and tostring(lia.n.finis))
+      local ugs = s.count_entities_filtered({ area = { { SRC.x, SRC.y - 8 }, { DST.x + 1, DST.y + 8 } }, type = "underground-belt", force = "player" })
+      ctx.check(ugs == 0, "aucun souterrain pose", tostring(ugs))
+      ctx.log(string.format("[%s] BILAN refus : demandes %s, refuses %s", TAG, tostring(lia and lia.n.demandes), tostring(lia and lia.n.refuses)))
+    end
+  end
+  return sc
 end
