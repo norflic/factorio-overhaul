@@ -40,13 +40,42 @@ end
 
 --- Quota du projet p : `slots` = cases ouvertes d'un coffre de sortie (sous sa barre), `in_slots` = cases d'un coffre d'entrée,
 --- `collect_at` = seuil de collecte de l'appelant. Rend la table de Qt.quotas, ou nil (pas de quota : ancienne règle).
+-- Lot TV-FLUX (C11) : réglage de carte ALLUMÉ par défaut (settings/flux.lua) ; absent (moteur simulé des tests) = éteint.
+Qg.PIECES_SETTING = "fo-war-quotas-pieces"
+function Qg.pieces_on()
+  local ok, v = pcall(function() return settings.global[Qg.PIECES_SETTING].value end)
+  return ok and v == true
+end
+
+--- Part de machines posées d'un projet : (posées, prévues) quand des machines à recette MANQUENT et que le réglage est allumé, sinon nil.
+function Qg.pieces(p)
+  if not Qg.pieces_on() then return nil end
+  local num, den = Qt.pieces(p.ents)
+  if den <= 0 or num >= den then return nil end
+  return num, den
+end
+
 function Qg.of(p, slots, in_slots, collect_at)
   if type(p.outflow) ~= "table" or type(slots) ~= "number" or slots < 1 or #(p.outs or {}) == 0 then return nil end
-  local key = string.format("%d:%d:%d:%d:%d", #p.outs, #(p.quais or {}), slots, in_slots or slots, collect_at or 0)
+  local num, den = Qg.pieces(p)
+  local key = string.format("%d:%d:%d:%d:%d%s", #p.outs, #(p.quais or {}), slots, in_slots or slots, collect_at or 0,
+    num and string.format(":p%d/%d", num, den) or "")
   if p.quota_key == key then return p.quota or nil end
+  -- Lot TV-FLUX (C11) : le débit pris en compte suit les machines posées (une ligne [FO-QUOTAS] par changement de part)
+  local outflow, inflow = p.outflow, p.inflow
+  local share = num and string.format("%d/%d", num, den) or "tout"
+  if (p.quota_share or "tout") ~= share then
+    if num then
+      log(string.format("[FO-QUOTAS] projet %s : %d machine(s) a recette posee(s) sur %d prevue(s) : debits nominaux x %s", tostring(p.id), num, den, share))
+    else
+      log(string.format("[FO-QUOTAS] projet %s : toutes les machines a recette sont posees : debits nominaux", tostring(p.id)))
+    end
+  end
+  p.quota_share = share
+  if num then outflow, inflow = Qt.scale(outflow, num, den), Qt.scale(inflow, num, den) end
   local products = {}
-  for _, k in ipairs(sorted_keys(p.outflow)) do
-    if (p.outflow[k] or 0) > 0 and stack(k) then products[#products + 1] = k end
+  for _, k in ipairs(sorted_keys(outflow)) do
+    if (outflow[k] or 0) > 0 and stack(k) then products[#products + 1] = k end
   end
   local q = false
   if #products >= 1 then -- chaque coffre de sortie porte tous les produits à pile connue (un seul : le cas d'avant, à l'identique)
@@ -58,7 +87,7 @@ function Qg.of(p, slots, in_slots, collect_at)
     end
     for i, c in ipairs(p.quais or {}) do ins[i] = { item = c.item } end
     -- une pile au moins par voyage d'alimentation (supposé, à mesurer sur [FO-ACTIF] : une minute de charbon d'un four, c'est 3 objets)
-    q = Qt.quotas(p.outflow, p.inflow, outs, ins, { stack = stack, slots = slots, in_slots = in_slots, collect_at = collect_at, lot_min = stack })
+    q = Qt.quotas(outflow, inflow, outs, ins, { stack = stack, slots = slots, in_slots = in_slots, collect_at = collect_at, lot_min = stack })
   end
   p.quota, p.quota_key = q, key
   return q or nil

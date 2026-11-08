@@ -252,4 +252,35 @@ function Q.describe(q, counts)
     #parts > 0 and table.concat(parts, " ; ") or "aucun quota")
 end
 
+
+--[[ Lot TV-FLUX (C11, docs/TODO_VIDEO.md l.306 : « sans modules, recalculer les quotas ») : les quotas suivent les machines RÉELLEMENT posées.
+  Le débit nominal du gabarit (M.analyze) suppose toutes ses machines à recette (fours, assembleurs) posées ; tant que des pièces manquent
+  (chantier en cours, machine détruite en attente de reconstruction), le module ne produit ni ne mange ce débit : un quota calculé sur le
+  nominal garde un coffre trop grand et porte trop d'ingrédients à un module qui ne les avale pas (défaut D2). Q.pieces compte, Q.scale
+  recalcule. PUR, aucun nom d'objet. ]]
+
+--- Machines à recette d'un projet : (posées, prévues). Une entité sans recette (tapis, bras, poteau, coffre) ne compte pas.
+function Q.pieces(ents)
+  local num, den = 0, 0
+  for _, e in ipairs(ents or {}) do
+    if e.recipe then
+      den = den + 1
+      if e.built then num = num + 1 end
+    end
+  end
+  return num, den
+end
+
+--- Débits (objets/s) ramenés à la part de machines posées num/den. Table neuve, mêmes clés. Rien de prévu (den <= 0) ou tout posé :
+--- les mêmes débits (copie). num est borné à [0, den].
+function Q.scale(flows, num, den)
+  local out = {}
+  local k = nil
+  if type(num) == "number" and type(den) == "number" and den > 0 then k = max(0, min(num, den)) / den end
+  for key, v in next, flows or {} do
+    if type(v) == "number" and k and k < 1 then out[key] = v * k else out[key] = v end
+  end
+  return out
+end
+
 return Q
