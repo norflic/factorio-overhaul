@@ -169,7 +169,10 @@ do
     { "palier_inputs", "local pose = st.batis_prev ~= nil and batis > st.batis_prev", "local pose = false", probe_pose, "pose toujours fausse" },
     { "palier", "input.demande = (input.demande and mk ~= nil) and true or false", "input.demande = input.demande", probe_demande, "puits de C2 ouvert hors marche" },
     { "palier_inputs", "crise = (view.survie or view.hq_threat) and true or false", "crise = false", probe_crise, "crise ignoree" },
-    { "palier_inputs", "local manques = nil", "local manques = 0", probe_l3, "L3 eteint compte comme « aucun manque »" },
+    -- 0.6.66 (lot BLOCAGE-SORTIE-2, 1fd11a07) : « local manques = nil ... » est devenu Pal.fixable(build, cs.impayable), qui rend nil quand build est nil
+    -- (shared/ai3/palier.lua, L3 eteint : jamais stable). Le mutant force ce nil a 0 (« aucun manque »).
+    { "palier_inputs", "local manques, ecartes = Pal.fixable(build, cs.impayable)",
+      "local manques, ecartes = Pal.fixable(build, cs.impayable) if manques == nil then manques = 0 end", probe_l3, "L3 eteint compte comme « aucun manque »" },
     { "palier", "st.batis_prev = batis", "", probe_pose, "releve des poses non garde" },
   }
   W.settings["fo-war-paliers"] = true
