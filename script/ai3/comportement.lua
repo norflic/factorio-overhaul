@@ -1355,12 +1355,14 @@ end
 -- Table LOCALE d'un seul tick (vidée au premier regard d'un autre tick ; jamais dans global) : elle ne sert qu'à SAUTER une
 -- recherche dont le résultat est déjà connu (nil). Vide (chargement d'une partie, autre pair), l'autodéfense cherche et trouve le
 -- même nil : la décision ne dépend jamais de son contenu.
-local LOOK, LOOK_TICK = {}, -1
+-- Lot X10-S0, fait F403 : la table du tick est un CHAMP (LK.look), jamais un local du module réaffecté à chaque tick (une table neuve
+-- rangée dans une upvalue fermée retient le marquage du ramasse-miettes de Lua 5.2 ; règle statique tests/upvalue_gc_test.lua).
+local LK = { look = {}, tick = -1 }
 M.LOOK_MARGIN = 1 -- tuile de marge de l'inclusion des disques (virgule fixe du moteur, distance à la boîte d'une entité)
 
 local function note_look(id, tick, c, r, none)
-  if tick ~= LOOK_TICK then LOOK, LOOK_TICK = {}, tick end
-  LOOK[id] = { x = c.x, y = c.y, r = r, none = none }
+  if tick ~= LK.tick then LK.look, LK.tick = {}, tick end
+  LK.look[id] = { x = c.x, y = c.y, r = r, none = none }
 end
 M.note_look = note_look -- (tests/cerveau_central_test.lua)
 
@@ -1368,8 +1370,8 @@ M.note_look = note_look -- (tests/cerveau_central_test.lua)
 --- distance(c, p) + R + M.LOOK_MARGIN <= r. find_nearest_enemy y rendrait nil (même force, même surface, même tick, aucune entité
 --- créée entre les deux : la pensée du PNJ rend la main juste après un regard vide).
 function M.look_clear(id, tick, p, R)
-  if tick ~= LOOK_TICK then return false end
-  local L = LOOK[id]
+  if tick ~= LK.tick then return false end
+  local L = LK.look[id]
   if not (L and L.none) then return false end
   local dx, dy = p.x - L.x, p.y - L.y
   return math.sqrt(dx * dx + dy * dy) + R + M.LOOK_MARGIN <= L.r

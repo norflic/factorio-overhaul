@@ -83,9 +83,14 @@ function Pe.transport(st, a)
 end
 
 --- Places de chantier (b) : ⌊modules ÷ Pe.MODULES_PER_SITE⌋ + 1 moins les chantiers ouverts (jamais négatif).
+--- FERMÉ PAR DÉFAUT (lot 5b, W04 n°1) : un nombre de modules posés ou de chantiers ouverts ABSENT ne vaut pas zéro (avant : limite 1 et
+--- aucun chantier ouvert = une place de chantier offerte sur une mesure manquante) ; aucune place, la raison nomme l'entrée. Rend
+--- room, limit, raison (nil quand les deux mesures sont là).
 function Pe.site_room(batis, open_sites)
-  local limit = math.floor(math.max(0, int(batis) or 0) / Pe.MODULES_PER_SITE) + 1
-  return math.max(0, limit - math.max(0, int(open_sites) or 0)), limit
+  local b, o = int(batis), int(open_sites)
+  if b == nil or o == nil then return 0, 0, "mesure absente : " .. (b == nil and "batis (modules poses)" or "open_sites (chantiers ouverts)") end
+  local limit = math.floor(math.max(0, b) / Pe.MODULES_PER_SITE) + 1
+  return math.max(0, limit - math.max(0, o)), limit
 end
 
 --- Porte d'UNE décision (unité 1 d'une décision découpée : Ca.decide_begin). a = { workers, idle, free_tasks, batis (modules et
@@ -93,8 +98,8 @@ end
 --- room, limit, batis, last_item, cause } : table de TRAVAIL de la décision (nombres, booléens, une chaîne), lue option par option.
 function Pe.gate(st, a)
   local closed, cause = Pe.transport(st, a)
-  local room, limit = Pe.site_room(a and a.batis, a and a.open_sites)
-  return { closed = closed, tense = closed or st.tense_now or st.unknown or false, room = room, limit = limit,
+  local room, limit, site_why = Pe.site_room(a and a.batis, a and a.open_sites)
+  return { closed = closed, tense = closed or st.tense_now or st.unknown or false, room = room, limit = limit, site_why = site_why,
     batis = int(a and a.batis) or 0, last_item = st.last_item, measured_item = nil, cause = cause }
 end
 
@@ -108,6 +113,7 @@ function Pe.check(g, o)
     elseif g.closed and o.tours and not o.belt then
       return "transport sature : " .. tostring(g.cause)
     elseif o.site and g.room <= 0 then
+      if g.site_why then return "bras : " .. g.site_why .. " (aucun chantier de plus sans mesure)" end
       return string.format("bras : %d chantier(s) ouvert(s) au plus pour %d module(s)", g.limit, g.batis)
     elseif o.measured and o.item ~= nil and o.item == g.last_item and not o.alone then
       return "repetition : meme objet qu'a la decision precedente (signal en retard sur la pose)"
