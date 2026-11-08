@@ -32,6 +32,10 @@ local PENDING_STATES = { reserve = true, defrichage = true, fantomes = true, cha
 local DECIDE_MAX = 6 -- groupes examinés au plus par relevé (lectures du moteur bornées)
 Ra.BAND = 2               -- lot LOURD : lignes de chunks par bande du relevé des générateurs (début de cycle)
 Ra.BANDS_PER_PULSE = 1    -- lot LOURD : bandes par passe ; math.huge : tout le relevé à la passe du départ (l'horaire d'avant)
+-- Lot LOURD, suite (0.6.63) : coût déclaré au jeton du DÉBUT par le registre des génératrices quand il sert (Gens.serves) : aucune recherche
+-- du moteur ; MESURÉ hors jeu (tests/ra_bloc_test.lua, 60 génératrices, plan de 40 machines) : environ 3 600 instructions Lua du mod ;
+-- en jeu, ra:debut 2,84 ms au pire (LOURD-ABAB série 2). La moitié du budget : une tranche du relevé du réseau (Rv.COLS = 32).
+Ra.COUT_REGISTRE = 32
 
 local function sorted_keys(t)
   local ks = {}
@@ -464,16 +468,25 @@ function Ra.step(api, f, surface, tick)
       -- réseau (script/team/reseau_vivant.lua) ni sur un autre début (autre équipe) : jeton du tick (api.jeton, script/team/pouls_jeton.lua).
       -- Jeton pris : rien de fait, l'horloge intacte, nouvel essai à la passe suivante.
       -- Lot LOURD (point 2) : coût déclaré au jeton (script/core/lourd.lua) : chunks de la première bande ; sans boîte, tout le budget.
+      -- Lot LOURD, suite (0.6.63, décision du lead du 8/11) : par le chemin d'un bloc (ci-dessous), Ra.COUT_REGISTRE quand le registre des
+      -- génératrices sert VRAIMENT (Gens.serves, mêmes arguments que live_networks : aucune recherche du moteur) ; sinon tout le budget
+      -- (Gens.list repart sur une recherche sur toute la surface). tests/ra_bloc_test.lua (R2) : le coût suit ce qui est relevé.
       local box = api.box and api.box(surface)
-      if api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":ra", nil,
-        box and Ra.cout(box.y0, box.y1 + 1, box.x1 + 1 - box.x0) or nil) then return end
+      local bloc = not box or Gens.ready()
+      local cost
+      if bloc then
+        cost = Gens.serves(surface, f.force, GEN_TYPES) and Ra.COUT_REGISTRE or nil
+      else
+        cost = Ra.cout(box.y0, box.y1 + 1, box.x1 + 1 - box.x0)
+      end
+      if api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":ra", api.pulse, cost) then return end
       st.next = tick + R.PERIOD
       -- Lot LOURD : boîte des chunks connue (api.box) : relevé des générateurs par bandes (st.lj), une bande par passe sous le jeton ; la
       -- centrale n'est lue qu'ici, au départ, comme avant. L'horloge est posée ici : la cadence des cycles est celle d'avant, le cycle
       -- commence quand la dernière bande est faite. Sans boîte (bancs d'avant ce lot) : d'un bloc, comme avant.
       -- Lot X10-S4 : registre des génératrices prêt (script/team/generateurs.lua, en jeu toujours) : d'un bloc aussi, car live_networks ne
       -- lit plus que les génératrices de l'équipe (O(génératrices), réseaux lus maintenant) ; les bandes restent le chemin sans registre.
-      if not box or Gens.ready() then
+      if bloc then
         if P then P.fstart("ra:debut") end
         st.cyc = start_cycle(f, surface, b, api.champ_live)
         if P then P.fstop("ra:debut") end
@@ -481,7 +494,7 @@ function Ra.step(api, f, surface, tick)
       end
       lj = gen_job_new(box)
       st.lj = lj
-    elseif api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":ra", nil, Ra.cout(lj.y, lj.y_end, lj.x1 - lj.x0)) then
+    elseif api.jeton and not api.jeton.take(tick, (f.key or "player") .. ":ra", api.pulse, Ra.cout(lj.y, lj.y_end, lj.x1 - lj.x0)) then
       return
     end
     local done = false
@@ -509,7 +522,7 @@ function Ra.step(api, f, surface, tick)
     -- revue de la 0.6.59, point 1 : la fin peut relire toute la surface (« relier » : live_networks) : sous le jeton du tick ; pris, elle
     -- passe au pouls suivant (relevé fini, rien d'autre ne bouge)
     local fin_par = (f.key or "player") .. ":ra"
-    if api.jeton and not api.jeton.take(tick, fin_par) then return end
+    if api.jeton and not api.jeton.take(tick, fin_par, api.pulse) then return end
     st.cyc = nil
     if P then P.fstart("ra:fin") end
     finish_cycle(api, f, surface, b, st, c, tick)

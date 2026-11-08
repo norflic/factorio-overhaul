@@ -122,8 +122,11 @@ print(string.format("[REPLI] simulation 10 min (tentative de 10 s, reprise de ba
 local B = read("script/team/board.lua")
 check("board charge la regle", B:find('require("shared.team.repli_chemin")', 1, true) ~= nil)
 check("note a chaque fin de tache (reussie ou non), datee", B:find("local n_path = Rc.note(b.path_fails, task.key, ok, task.fail, tick)", 1, true) ~= nil)
+-- Lot ROUGES-0659 : depuis fa246935 (ETAGE4 m4, voulu), la pause posée par la règle ne RACCOURCIT plus une pause plus longue déjà posée
+-- (tournée en pause après des bails, script/team/bail.lua) : « b.cooldown[task.key] = math.max(tick + delay, …) ». La propriété contrôlée
+-- reste la même : la reprise est à tick + le délai de Rc.delay, sans facteur ajouté (« * k_path » absent).
 check("delai de reprise par la regle (B1, Q2)", B:find("Rc.delay(Ac.retry(task.fail, task.fond, RETRY_TICKS), n_path, task.fail, task.prio, f.team.repli_off)", 1, true) ~= nil
-  and B:find("b.cooldown[task.key] = tick + delay", 1, true) ~= nil and B:find("* k_path", 1, true) == nil)
+  and B:find("b.cooldown[task.key] = math.max(tick + delay, b.cooldown[task.key] or 0)", 1, true) ~= nil and B:find("* k_path", 1, true) == nil)
 check("purge des comptes anciens (Q2)", B:find("if Rc.purge_due(b.path_purge_t, tick) then", 1, true) ~= nil
   and B:find("Rc.purge(b.path_fails, tick)", 1, true) ~= nil)
 local W = read("script/team/worker.lua")

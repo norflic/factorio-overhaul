@@ -747,6 +747,7 @@ end
 --- Recette choisie pour un objet : ouverte d'abord, faisable, sans fluide, de même nom que l'objet, à un seul produit,
 --- puis le nom. Rend la recette ou nil et la raison (mémoïsée par décision).
 local function choose_recipe(ctx, item)
+  if Pf.excluded(ctx.input.excl, item) then return nil, Pf.excluded_why(item) end -- lot VIDEO-PLAFONDS (V99) : objet exclu, aucune recette
   local memo = ctx.rec_memo[item]
   if memo then return memo.r, memo.why end
   local D = ctx.D
@@ -1194,7 +1195,7 @@ local function prepare(input, st)
   -- dépendent plus de l'ordre d'entrée.
   local agg = {}
   for _, s in ipairs(sinks_in) do
-    if s.item ~= nil then
+    if s.item ~= nil and not Pf.excluded(input.excl, s.item) then -- lot VIDEO-PLAFONDS (V99) : un objet exclu n'est aucun puits
       local a = agg[s.item] or { rates = {}, elastic = false }
       a.rates[#a.rates + 1] = math.max(s.rate or 0, s.want or 0)
       if s.elastic then a.elastic = true end
@@ -2021,6 +2022,7 @@ function Ca.options(ctx, plan, req)
   power_options(ctx, plan, out)
   Lv.options(Ca, ctx, plan, req, out) -- lot LEVIERS : modules dans les machines posées, recherches à effet
   if Ca.PORTE_RANG and Ca.RANG and ctx.rang then out = rank_gate(ctx, plan, req, out) end -- lot VIDEO-L2 (allumé à l'étape 8)
+  out = Pf.gate(out, ctx.input.excl, { labos = plan.labs }, function(k, kd, it, w) refuse(ctx, k, kd, it, w) end) -- lot VIDEO-PLAFONDS : exclusion (V99), plafond de sûreté des laboratoires (G02, G03, G64)
   table.sort(out, function(a, b) return Ca.before(a.o, b.o) end)
   -- Lot GISEMENTS (DC 31/10 : « la gestion des ressources […] on doit l'appliquer à toutes les ressources ») : la matière la plus en manque
   -- par rapport au besoin passe devant (cuivre, pierre, charbon comme le fer) ; laboratoires, courant et leviers gardent leur place.
