@@ -2205,7 +2205,10 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
     masks.water, masks.blocked, masks.clear = m2.water, m2.blocked, m2.clear
     local first = n2
     tiles, n2, tnames = Build.Trav.route(f, surface, p, s, { x = a.x, y = a.y }, a.dir, { x0 = cx0, y0 = cy0, x1 = cx1, y1 = cy1 }, cost,
-      { belt = belt, sd = tail.dir, kind = "foreuses", weight = Build.ROUTE_WEIGHT, max = (cx1 - cx0 + 1) * (cy1 - cy0 + 1) })
+      { belt = belt, sd = tail.dir, kind = "foreuses", weight = Build.ROUTE_WEIGHT, max = (cx1 - cx0 + 1) * (cy1 - cy0 + 1),
+        -- 0.6.72 : budget PROPRE a cet essai (la boite entiere), hors du budget partage Tv.PLAN_BUDGET (4000) qui le refusait toujours en
+        -- « trop long » depuis 0.6.68 : 0 champ electrique en partie neuve (projets 3 a 6 refuses, etape1-guide 0.6.71)
+        budget = { left = (cx1 - cx0 + 1) * (cy1 - cy0 + 1) } })
     bump(b.stats.plan_refused, "tapis-pondere:" .. (tiles and "ok" or tostring(n2)))
     if not tiles then n2 = first .. ", pondere : " .. tostring(n2) end
   end

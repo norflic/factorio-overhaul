@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.72
+Date: 2026-11-08
+  Changes:
+    - Champs electriques : le trace pondere du tapis des foreuses a de nouveau son propre budget (la boite entiere). Depuis 0.6.68, le budget partage de 4000 etats le refusait toujours en "trop long" : aucun champ electrique en partie neuve.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.71
 Date: 2026-11-08
   Changes:
