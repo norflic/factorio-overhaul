@@ -139,6 +139,41 @@ do
   check(ok2 and s2.cap <= 8 + 2, "§4b borne : Dm.SLOTS_HARD (8) plus le stock riche au plus (" .. tostring(s2 and s2.cap) .. ")")
 end
 
+-- §4c Saturation totale : l'ordre marqué saturation passe la porte du transport même produit saturé ; journal [FO-SATURATION].
+do
+  local fsa = { key = "azure", team = { ia3 = { saturated = { ["iron-plate"] = true } } } }
+  local csa = { slots = { batis = 0, open_sites = 0, cap = 2 }, open = {} }
+  local sat_order = { key = "couvrir:iron-ore@1,2", kind = "couvrir", resource = "iron-ore", deposit = "1,2", n = 14, saturation = true }
+  local resa = function(order) return { orders = { order }, coverage = { { id = "1,2", resource = "iron-ore", kappa = 40, free = 200, open = true,
+    tiles = 3000, covered = 120 } }, sat = {}, refus = {} } end
+  Capi.portes(fsa, csa, resa(sat_order), TENDU, 3600)
+  local wsa = Capi.portes(fsa, csa, resa(sat_order), TENDU, 7200)
+  check(wsa and wsa[sat_order.key] == nil, "§4c produit sature + ordre de saturation : passe la porte du transport")
+  local plain = { key = "couvrir:iron-ore@1,2", kind = "couvrir", resource = "iron-ore", deposit = "1,2", n = 14 }
+  local fpl = { key = "azure", team = { ia3 = { saturated = { ["iron-plate"] = true } } } }
+  local cpl = { slots = { batis = 0, open_sites = 0, cap = 2 }, open = {} }
+  Capi.portes(fpl, cpl, resa(plain), TENDU, 3600)
+  local wpl = Capi.portes(fpl, cpl, resa(plain), TENDU, 7200)
+  check(wpl and wpl[plain.key] ~= nil, "§4c le meme ordre sans marque de saturation reste retenu (debouche seulement)")
+  local n0 = count_logs("[FO-SATURATION]")
+  Capi.say_saturation(fsa, csa, resa(sat_order), 10800)
+  local l = last_log("[FO-SATURATION]")
+  check(count_logs("[FO-SATURATION]") == n0 + 1 and l and l:find("120/3000 tuiles couvertes", 1, true) and l:find("ordre ouvert", 1, true), "§4c [FO-SATURATION] : ordre ouvert, tuiles couvertes (" .. tostring(l) .. ")")
+  Capi.say_saturation(fsa, csa, resa(sat_order), 14400)
+  check(count_logs("[FO-SATURATION]") == n0 + 1, "§4c verdict inchange : pas de nouvelle ligne")
+  local none = { orders = {}, coverage = { { id = "1,2", resource = "iron-ore", kappa = 40, free = 200, open = true, tiles = 3000, covered = 120 } },
+    sat = { ["1,2"] = { false, "x" } }, refus = {} }
+  none.sat["1,2"] = { ok = false, why = "foreuse a combustion : la saturation se fait en electrique" }
+  Capi.say_saturation(fsa, csa, none, 18000)
+  l = last_log("[FO-SATURATION]")
+  check(l and l:find("ordre ferme", 1, true) and l:find("foreuse a combustion", 1, true), "§4c [FO-SATURATION] : ordre ferme avec sa cause (" .. tostring(l) .. ")")
+  check(Capi.saturation_on() == true, "§4c reglage non declare : saturation allumee")
+  W.settings["fo-war-saturation"] = false
+  check(Capi.saturation_on() == false, "§4c reglage a faux : saturation eteinte")
+  W.settings["fo-war-saturation"] = nil
+  Capi.say_saturation(fsa, csa, { orders = {}, coverage = {} }, 20000) -- res.sat absent : rien, sans erreur
+end
+
 -- §5 Compteur cumulé : lu dans le source (Capi.think_tail est lourd à rejouer hors moteur) et mutants du câblage.
 do
   local src = read("script/ai3/capitalisation.lua")
@@ -155,6 +190,11 @@ do
   local g2 = src:find("cs.couv_wants = Cv.reserve_wants(res.orders, gate_why)", g1 or 1, true)
   local g3 = src:find("res.orders, seat_why = Capi.arbitre(", g1 or 1, true)
   check(g1 and g2 and g3 and g2 > g1 and g2 < g3, "§5 la pose prevue est notee APRES la porte L6 et AVANT l'arbitre des sieges (cs.couv_wants)")
+  check(src:find("sat_k, sat_gap = Cv.sat_modules(sat_want, cs.slots and cs.slots.hands or 0, Dm.HANDS_PER_SITE, Dm.SLOTS_HARD)", 1, true) ~= nil
+    and src:find("Capi.split(rate, Rp.factor(repli, rkey, tick), sat_k)", 1, true) ~= nil,
+    "§5 un ordre de saturation a plusieurs modules (Cv.sat_modules, bras libres), les autres ordres gardent Capi.MODULES_PER_ORDER")
+  check(src:find("module(s) voulu(s), %d obtenu(s)", 1, true) ~= nil, "§5 [FO-SATURATION] : modules voulus et obtenus, cause de l'ecart")
+  check(src:find("sl.hands = hands", 1, true) ~= nil, "§5 Capi.slots rend les bras libres (sl.hands)")
   local isrc = read("script/ai3/industrie.lua")
   check(isrc:find("for _, w in ipairs(cs.couv_wants or {}) do", 1, true) ~= nil and isrc:find("Ml.want(ml, tick, w.item, w.rate, Cv.SRC)", 1, true) ~= nil,
     "§5 Ind.think transmet la pose prevue au mall (Ml.want, source couverture)")
