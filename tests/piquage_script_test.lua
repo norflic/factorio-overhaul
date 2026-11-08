@@ -242,6 +242,35 @@ for _, e in ipairs(P2.ents) do if e.role == "liaison-tapis" and math.floor(e.x) 
 check(first ~= nil, "3.4 un tapis part de la sortie du répartiteur")
 check(has_log("projet 2 planifie %(quai 1:q1, X%)") ~= nil, "3.5 journal : projet planifié")
 -- le répartiteur est compté aux besoins du projet (build.lua, needs_of, lu comme texte) : voir §6
+-- le tracé passe par le lot TRAVERSEE quand il est fusionné (api.trav) : appel, forme du retour, pièces rendues par Trav.entities
+do
+  local seen_call
+  local fake = {
+    route = function(f2, surface2, p2, s0, t0, tdir, bounds, cost, opts)
+      seen_call = { kind = opts and opts.kind, sd = opts and opts.sd, belt = opts and opts.belt, start = s0, goal = t0 }
+      local tiles = P.belt_route(s0, t0, tdir, bounds, cost)
+      return tiles, 0, { ug = "underground-belt", maxd = 5 }
+    end,
+    entities = function(tiles, names, role)
+      local out = {}
+      for _, t in ipairs(tiles) do out[#out + 1] = { name = names.belt, x = t.x + 0.5, y = t.y + 0.5, dir = t.dir, role = role } end
+      return out
+    end,
+  }
+  local api2 = {}
+  for k, v in pairs(PLAN_API) do api2[k] = v end
+  api2.trav = fake
+  local p4 = { id = 11, spec = REQ[1].spec, ents = {}, parts = {}, obstacles = {} }
+  P2.abandoned = true -- (le projet 2 planifié plus haut ne doit pas compter comme tapis voisin dans ce second plan)
+  local ok4, w4 = Piquage.plan(api2, FACTION, SURF, p4)
+  P2.abandoned = nil
+  check(ok4 == true and seen_call and seen_call.kind == "piquage" and seen_call.sd == lc.geo.dir and seen_call.belt == "transport-belt",
+    "3.7 le tracé passe par Trav.route (kind piquage, sens de départ, tapis) quand il est là" .. (ok4 and "" or (" : " .. tostring(w4))))
+  check(seen_call and seen_call.start.x == lc.geo.branch.x and seen_call.start.y == lc.geo.branch.y, "3.8 le tracé part de la sortie du répartiteur")
+  local nb4 = 0
+  for _, e in ipairs(p4.ents) do if e.role == "liaison-tapis" then nb4 = nb4 + 1 end end
+  check(nb4 == nb, "3.9 mêmes pièces de tapis par Trav.entities que par le tracé direct : " .. nb4 .. " contre " .. nb)
+end
 -- plan refusé si le tapis source a disparu
 do
   local keep

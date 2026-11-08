@@ -2705,7 +2705,7 @@ local function plan_project(f, surface, p)
       reserve_tiles = reserve_tiles, finish = plan_finish, add_obstacle = add_obstacle, free_spot = free_spot,
       count = function(it) return Stock.count(f, it) end }) -- (tranche 3 : tourelle du pôle si le coffre l'a)
   end
-  if spec.liaison and spec.liaison.piquage then return Build.Piquage.plan({ read_masks = function(x0, y0, x1, y1) return read_masks(f, surface, x0, y0, x1, y1) end, reserve_tiles = reserve_tiles, wood_of = wood_of, free_spot = free_spot, add_obstacle = add_obstacle, item_of = item_of, seg_passable = seg_passable, REACH = REACH }, f, surface, p) end -- lot PIQUAGE
+  if spec.liaison and spec.liaison.piquage then return Build.Piquage.plan({ read_masks = function(x0, y0, x1, y1) return read_masks(f, surface, x0, y0, x1, y1) end, reserve_tiles = reserve_tiles, wood_of = wood_of, free_spot = free_spot, add_obstacle = add_obstacle, item_of = item_of, seg_passable = seg_passable, REACH = REACH, trav = Build.Trav }, f, surface, p) end -- lot PIQUAGE
   if spec.liaison then return Liaison.plan({ read_masks = function(x0, y0, x1, y1) return read_masks(f, surface, x0, y0, x1, y1) end, reserve_tiles = reserve_tiles, wood_of = wood_of, free_spot = free_spot, add_obstacle = add_obstacle, item_of = item_of, seg_passable = seg_passable, REACH = REACH }, f, surface, p) end -- lot INDUSTRIE I7
   Profiler.start("build:plan:place") -- lot IA3-e : parts du coût d'un plan (pics de K10), mesure seulement
   -- Lot PETROLE : un SITE (spec.site) est implanté par son planificateur (Build.SITES[nom], hors du treillis : au gisement

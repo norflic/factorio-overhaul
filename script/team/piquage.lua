@@ -30,6 +30,8 @@ local Conv = require("script.team.convoyeurs")
 local Stock = require("script.team.stock")
 local Rsv = require("script.ai3.reserve")
 local Registry = require("script.companion.registry")
+local okTv, Tv = pcall(require, "shared.team.traversee") -- lot TRAVERSEE, si fusionné (preuve d'un tracé à souterrains) ; chargé ici, jamais pendant un événement
+if not okTv then Tv = nil end
 
 local Piquage = {}
 
@@ -687,10 +689,18 @@ function Piquage.plan(api, f, surface, p)
       if masks.clear[k] then cst = cst + 1 end
       return cst
     end
-    local tiles, why = P.belt_route({ x = g.branch.x, y = g.branch.y }, { x = site.bx, y = site.by }, Li.end_dir(site), bounds, cost)
+    -- lot TRAVERSEE (si fusionné : api.trav = Build.Trav) : un obstacle court est franchi par une paire de souterrains, le gisement évité ; sinon
+    -- l'A* d'avant. Même forme de retour : tuiles { x, y, dir [, ug = "input" | "output"] }, raison, noms { ug, maxd }.
+    local tiles, why, tnames
+    if api.trav then
+      tiles, why, tnames = api.trav.route(f, surface, p, { x = g.branch.x, y = g.branch.y }, { x = site.bx, y = site.by }, Li.end_dir(site), bounds, cost,
+        { belt = lc.belt, sd = g.dir, kind = "piquage" })
+    else
+      tiles, why = P.belt_route({ x = g.branch.x, y = g.branch.y }, { x = site.bx, y = site.by }, Li.end_dir(site), bounds, cost)
+    end
     if tiles then
       local ok, w2 = Li.route_ok(#tiles, Li.manhattan(g.branch.x, g.branch.y, site.bx, site.by))
-      if ok then chosen = { site = site, tiles = tiles } break end
+      if ok then chosen = { site = site, tiles = tiles, names = tnames } break end
       last_why = w2
     else
       last_why = tostring(why)
@@ -706,8 +716,20 @@ function Piquage.plan(api, f, surface, p)
   for _, t in ipairs(tiles) do planned[P.tkey(t.x, t.y)] = true; taken[t.x .. ":" .. t.y] = true end
   local px, py = Li.pole_tile(site, free, taken)
   if not px then return false, "piquage: aucune place pour un poteau contre le bras" end
-  local ents = Pq.entities({ geo = g, dst = site, route = tiles, names = { arm = lc.arm, belt = lc.belt, pole = lc.pole }, pole = { px, py } })
-  local bad = Pq.verify(g, ents, D, function(x) return x.role == "liaison-tapis" end, function(x) return x.role == "liaison-bras" end)
+  local names = { arm = lc.arm, belt = lc.belt, pole = lc.pole }
+  local ents = Pq.entities({ geo = g, dst = site, route = tiles, names = names, pole = { px, py } })
+  local has_ug = api.trav and chosen.names and chosen.names.ug
+  local vroute = tiles
+  if has_ug and Tv and Tv.virtual_belts then vroute = Tv.virtual_belts(tiles) end -- une paire souterraine = des tapis droits entre l'entrée et la sortie
+  local bad = Pq.verify(g, has_ug and Pq.entities({ geo = g, dst = site, route = vroute, names = names, pole = { px, py } }) or ents, D,
+    function(x) return x.role == "liaison-tapis" end, function(x) return x.role == "liaison-bras" end)
+  if has_ug and #bad == 0 then
+    -- les pièces réelles du tracé (entrées et sorties de souterrain comprises) viennent de Trav.entities ; bras et poteau gardés
+    local real = {}
+    for _, e in ipairs(ents) do if e.role ~= "liaison-tapis" then real[#real + 1] = e end end
+    for _, e in ipairs(api.trav.entities(tiles, { belt = lc.belt, ug = chosen.names.ug }, "liaison-tapis")) do real[#real + 1] = e end
+    ents = real
+  end
   if #bad > 0 then return false, "piquage: geometrie fausse (" .. bad[1] .. ")" end
   for _, x in ipairs(ents) do x.part = 1 end
   if not api.reserve_tiles(b, p, ents) then return false, "place" end
