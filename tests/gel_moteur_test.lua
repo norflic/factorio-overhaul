@@ -17,6 +17,8 @@
     M11 contrôle statique : aucune écriture de crafting_progress ni bonus_progress ; mining_progress et bonus_mining_progress d'une foreuse
         écrits par le seul write_progress (gel_usines_jeu.lua, option (ii) du lead) ; au monde factice, jamais sur autre chose qu'une foreuse ;
     M14 option (ii) : au réveil, la fraction comptée pendant le gel est rendue à la foreuse par sa progression ;
+    M15 four du QG vide refusé « recette » ; four figé dont la recette devient inconnue : aucun objet « ? » lu (le monde factice lève
+        « Unknown item name » comme le moteur), rien produit (C19, sauvegarde du DC, 8/11) ;
     M12 remplaçant d'une machine figée (fast_replace, raise_built) hérité inactif : rendu actif dans le gestionnaire ;
     M13 faction anéantie pendant le gel : tout réveillé au guet suivant, n_frozen à 0, registre de la faction vidé ;
     Mutants du runtime (relecture de revue-s, 8/11) : guet limité aux factions vivantes ; remplaçant laissé inactif.
@@ -38,8 +40,11 @@ end
 local W
 local function new_inv(cap)
   local inv = { items = {}, cap = cap or 4800 }
-  function inv.get_item_count(n) if n == nil then local t = 0 for _, c in pairs(inv.items) do t = t + c end return t end return inv.items[n] or 0 end
+  -- comme le moteur : un nom qui n'est pas un objet (« ? ») lève « Unknown item name » (C19, sauvegarde du DC, 8/11)
+  local function known(n) if n == "?" then error("Unknown item name: " .. tostring(n)) end end
+  function inv.get_item_count(n) if n == nil then local t = 0 for _, c in pairs(inv.items) do t = t + c end return t end known(n) return inv.items[n] or 0 end
   function inv.get_insertable_count(n)
+    known(n)
     local used = 0
     for _, c in pairs(inv.items) do used = used + c end
     return math.max(0, inv.cap - used)
@@ -358,7 +363,9 @@ local function scenes()
   check(frozen_count() == 0, "M9 : votre equipe : jamais figee")
   f.is_player = nil
   -- M12 remplaçant d'une machine figée (niveau, fast_replace, raise_built) qui hériterait de active = false (relecture de revue-s)
-  run(1300)
+  -- (depuis M15 : un four du QG VIDE n'est pas relevé ; s1 a tout fondu en M3 : regarni, il est relevé au relevé suivant, 3 600 ticks)
+  E.s1._src.items["iron-ore"] = 40
+  run(4300)
   check(not E.s1.active, "M12 : four du QG refige")
   local s1b = entity({ name = "steel-furnace", type = "furnace", x = E.s1.position.x, y = E.s1.position.y, proto = FURN_P, burner = true, crafting_speed = 2 })
   s1b.active = false
@@ -380,6 +387,28 @@ local function scenes()
   check(W.bad_writes == 0, "M11 : aucune ecriture de progression (au monde factice)")
   return table.concat(W.logs, "\n") .. "|" .. tostring(E.c1._inv.items["iron-ore"]) .. "|" .. tostring(E.k2._out.items["iron-plate"])
 end
+
+-- M15 four du QG sans recette connue (C19, sauvegarde du DC, 8/11 : « Unknown item name: ? » arrêtait la partie)
+local function scene_recette()
+  new_world()
+  local f = build_faction()
+  local Gu = require("script.faction.gel_usines")
+  local s2 = entity({ name = "stone-furnace", type = "furnace", x = -20.5, y = 0.5, proto = FURN_P, burner = true, coal = 5, crafting_speed = 1 })
+  s2._src.items["iron-ore"] = 10
+  local s3 = entity({ name = "stone-furnace", type = "furnace", x = -30.5, y = 0.5, proto = FURN_P, burner = true, coal = 5, crafting_speed = 1 })
+  f.smelters = { f.smelters[1], s2, s3 }
+  run(40)
+  local u = Gu.U()
+  local refus = u.stats[1] and u.stats[1].refus or {}
+  check((refus.recette or 0) >= 1 and u.by_unit[s3.unit_number] == nil, "M15 : four du QG vide : refuse « recette » au releve (" .. tostring(refus.recette) .. ")")
+  check(u.by_unit[s2.unit_number] ~= nil, "M15 : four du QG garni : releve")
+  -- la source de s2 est vidée et remplie d'un objet sans recette de four AVANT son premier pas : la recette reste inconnue (« ? »)
+  s2._src.items = { wood = 5 }
+  local ok, err = pcall(run, 3000)
+  check(ok, "M15 : four figé de recette inconnue : aucun objet « ? » lu au moteur, la partie continue" .. (ok and "" or (" : " .. tostring(err))))
+  check((s2._out.items["iron-plate"] or 0) == 0 and (s2._src.items.wood or 0) == 5, "M15 : rien produit ni consommé par le four de recette inconnue")
+end
+scene_recette()
 
 local a = scenes()
 local b = scenes()
@@ -414,6 +443,7 @@ do
     { "guet limite aux factions vivantes", "        want_wake(I, tick, \"faction disparue\")\n", "" },
     { "progression non rendue au reveil (option ii)", "else Gc.bank(I.acc); write_progress(I) end", "else Gc.bank(I.acc) end" },
     { "remplacant d'une machine figee laisse inactif", "if why == \"pose\" and inside_frozen and entity.active == false then entity.active = true end", "" },
+    { "objet « ? » lu au moteur (C19)", "            if n == \"?\" then", "            if false then" },
   }
   local seen, missed = 0, {}
   local ok0, fail0 = ok_n, fail_n
@@ -423,7 +453,7 @@ do
     if not s then missed[#missed + 1] = mu[1] .. " (texte introuvable)" else
       MUT_JEU = SRC:sub(1, s - 1) .. mu[3] .. SRC:sub(e + 1)
       local before = fail_n
-      local okc = pcall(scenes)
+      local okc = pcall(function() scene_recette(); scenes() end)
       local died = (fail_n > before) or not okc
       if died then seen = seen + 1 else missed[#missed + 1] = mu[1] end
       MUT_JEU = nil

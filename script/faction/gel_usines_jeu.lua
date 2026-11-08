@@ -108,8 +108,14 @@ local function frontier(I, dt)
           local items, space = {}, {}
           for _, it in ipairs(m.out) do
             local n = it[1]
-            items[n] = inv and inv.get_item_count(n) or 0
-            space[n] = inv and inv.get_insertable_count(n) or 0
+            -- « ? » : produit d'un four du QG dont la recette n'est pas (encore) connue (refresh_recipe). Ce n'est pas un objet : le
+            -- lire au moteur lève « Unknown item name » et arrête la partie (C19, sauvegarde du DC, 8/11). Rien n'y entre ni n'en sort.
+            if n == "?" then
+              items[n], space[n] = 0, 0
+            else
+              items[n] = inv and inv.get_item_count(n) or 0
+              space[n] = inv and inv.get_insertable_count(n) or 0
+            end
           end
           fr.pools[ref.id] = { items = items, space = space }
         end

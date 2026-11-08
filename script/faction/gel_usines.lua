@@ -283,6 +283,12 @@ local function discover_four(f, surface, s)
   if #feeders > 0 then return nil, "foreuse" end
   local fv = fuel_table(s)
   if not fv then return nil, "combustible" end
+  -- Recette lue à la source : un four vide (ou d'un objet sans recette de four) n'est pas relevé ; il le sera au relevé suivant s'il est
+  -- rempli (C19, 8/11 : un four du QG vide figé lisait l'objet fictif « ? » au pas et arrêtait la partie du DC).
+  local src = s.get_inventory(defines.inventory.furnace_source)
+  local contents = src and src.get_contents() or {}
+  local first = Gc.sorted_names(contents)[1]
+  if not (first and book()[first]) then return nil, "recette" end
   local u = s.unit_number
   local il = { machines = { furnace_desc(s, nil, { { k = "pool", id = "s" .. u } }, { { k = "pool", id = "o" .. u } }) }, fv = fv }
   local I = { kind = "four", dyn = true, machines = { s }, units = {}, targets = {}, res = {}, pool_ent = { ["s" .. u] = s, ["o" .. u] = s },
