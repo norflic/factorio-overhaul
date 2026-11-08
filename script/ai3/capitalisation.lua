@@ -1888,7 +1888,9 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
   cs.res = { delta = res.delta, alpha = res.alpha, s = res.s, K = res.K, Y = res.Y, budget = res.budget, spent = res.spent,
     labs_target = res.labs_target, u_star = res.u_star, free = input.reserve and input.reserve.free or nil,
     zero = input.reserve and input.reserve.zero or nil,
-    puits = res.demande and { p = res.demande.p, dormant = res.demande.dormant, left0 = res.demande.left0, cap = res.demande.cap } or nil }
+    puits = res.demande and { p = res.demande.p, dormant = res.demande.dormant, left0 = res.demande.left0, cap = res.demande.cap } or nil,
+    -- lot BLOCAGE-SORTIE-2 (lecture seule, bancs) : pourquoi le puits est fermé (menace, puits éteint, besoin évalué ou non)
+    threat = input.threat and true or false, demande_in = input.demande and true or false, reserve_in = input.reserve ~= nil }
   -- Lots VIDEO-L5 et VIDEO-L13 : refus de la règle par la suspension (« confirmation : ») ou par le plafond d'un objet, au journal.
   for _, r in ipairs(res.refus or {}) do
     local why = tostring(r.why)

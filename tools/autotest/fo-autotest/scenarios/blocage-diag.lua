@@ -148,7 +148,25 @@ local function persistance(ctx, a, b)
   ctx.log(string.format("PERSISTANCE | bloquees au 1er releve=%d ; encore bloquees au 2e=%d ; liberees=%d", n, both, onlya))
 end
 
+--- Lot BLOCAGE-SORTIE-2 : le puits ouvert de C2 est-il ouvert, et sinon pourquoi (menace, réserve absente) ? Lecture de fo-capi status.
+local function capi_probe(ctx, label)
+  for _, f in ipairs(teams()) do
+    local ok, st = pcall(remote.call, "fo-capi", "status", f.key)
+    local r = ok and st and st.res or nil
+    if r then
+      local pz = r.puits
+      ctx.log(string.format("%s | %s | CAPI decisions=%s ordres=%s budget=%s spent=%s threat=%s demande_in=%s reserve_in=%s puits=%s",
+        label, f.key, tostring(st.decisions), tostring(st.orders), tostring(r.budget), tostring(r.spent), tostring(r.threat),
+        tostring(r.demande_in), tostring(r.reserve_in),
+        pz and string.format("p=%.2f dormant=%s cap=%.2f", pz.p or 0, tostring(pz.dormant), pz.cap or 0) or "nil"))
+    else
+      ctx.log(string.format("%s | %s | CAPI indisponible", label, f.key))
+    end
+  end
+end
+
 local function probe(ctx, label)
+  capi_probe(ctx, label)
   for _, f in ipairs(teams()) do
     local ok, r = pcall(remote.call, "fo-ia1", "collect_probe", f.key)
     if ok and r then
