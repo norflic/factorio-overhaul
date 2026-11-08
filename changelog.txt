@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.65
+Date: 2026-11-08
+  Changes:
+    - TODO video, points finis dans cette version (tous allumes par defaut) : quotas recalcules quand des modules sont poses ou retires (C11) ; remplissage de charbon de la centrale declenche aussi par le tampon de vapeur (V36) ; degradation graduee sous charge : quand la file des gros travaux s'allonge, les factions lointaines et calmes pensent moins souvent, jamais la defense, le courant ni votre equipe (V89) ; table defaut -> signal -> levier lue par la pensee des equipes, journal [FO-DEFAUT] (V88, sans effet sur les decisions) ; inventaire de 29 gardes, chacune avec son refus ecrit (W04) ; comparaison A/B des reglages de la video (C25) ; repli de placement quand le plan directeur ne trouve pas de place (C07) ; sonde du minerai en 30 x 30 autour des lots (G37), defrichage preventif (G38), sites des factions relus en fenetres de 10 x 10 (G57) ; quartiers de 3 x 3 lots ouverts d'avance avec poteau, coffres de depot et defrichage (V23), et depot de quartier en version minimale (V91).
+    - Fer : un ordre d'ouvrir ou couvrir un gisement dont le produit manque passe la porte de transport (L6) ; avant, il etait retenu pendant que tous les PNJ compensaient le manque a la main (partie neuve de reference : 13 decisions retenues de la minute 27 a 40, stock de fer a 0 des 40 min).
+    - Fusion rapide sur ordre du DC (8/11) : chaque lot est vert sur ses tests et ceux des fichiers qu'il touche ; relectures et balayage complet des 323 tests faits APRES la sortie.
+    - Pas encore dans cette version : famille armee, plafonds de surete des fours et chaines, liste d'amorcage (lot tv-pilote) ; electrique refusee sans centrale, energie d'abord, unite de secours (lot tv-energie) ; barils et soupape des fluides (lot tv-flux) ; defense des lots prepares ; gel des usines lointaines.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.64
 Date: 2026-11-08
   Changes:
