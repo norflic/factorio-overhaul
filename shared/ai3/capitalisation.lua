@@ -1059,6 +1059,17 @@ function Ca.power_refusal(ctx, plan)
   return nil
 end
 
+--- Lot TV-ENERGIE (diagnostic azure, 8/11) : le refus de courant d'une centrale FINIE dit la vérité. Avant, « courant insuffisant (aucune centrale
+--- possible) » alors qu'une centrale de 1 800 kW tournait : les kW étaient pris (ordres de la même décision, chantiers), pas la centrale absente.
+--- Rend « courant insuffisant : <pris> kW pris sur <capacité> kW (reste <reste>, il en faut <kw>) ».
+function Ca.kw_refusal(plan, kw)
+  local have, used = plan.kw_have or 0, plan.kw_used or 0
+  -- aucune capacité du tout (centrale absente, sans machine vivante) : c'est bien « aucune centrale possible »
+  if have <= 0 then return "courant insuffisant (aucune centrale possible : 0 kW de capacite)" end
+  return string.format("courant insuffisant : %d kW pris sur %d kW (reste %d, il en faut %d)", math.floor(used + 0.5), math.floor(have + 0.5),
+    math.max(0, math.floor(have - used + 0.5)), math.floor((kw or 0) + 0.5))
+end
+
 function Ca.apply(ctx, plan, o)
   local D = ctx.D
   local k = o.kind
@@ -1652,7 +1663,7 @@ local function extraction_options(ctx, plan, req, item, def, out)
         local why_not = Ca.usable(ctx, f, "couvrir")
         if why_not then refuse(ctx, key, "couvrir", item, why_not)
         elseif no_power then
-          refuse(ctx, key, "couvrir", item, pw_why or "courant insuffisant (aucune centrale possible)")
+          refuse(ctx, key, "couvrir", item, pw_why or Ca.kw_refusal(plan, d.kw))
           -- étape 5a de VIDEO-INTEG : kW retenus, comme power_cap (la centrale les compte pour grandir : Ca.blocked_kw ; power_options
           -- ne lit power_block qu'avec une centrale à proposer, pw.plant : aucune décision ne change)
           ctx.power_block[#ctx.power_block + 1] = { key = key, kw = n * d.kw, n = n, item = item, p = rho, va = D.mu[item] or 0, share = 1 }
@@ -1662,7 +1673,7 @@ local function extraction_options(ctx, plan, req, item, def, out)
             ext_unit = (o.cost_m + ctx.lambda * o.work / 60) / (n * rho)
           end
           local np = power_cap(n, key)
-          if np <= 0 then refuse(ctx, key, "couvrir", item, pw_why or "courant insuffisant")
+          if np <= 0 then refuse(ctx, key, "couvrir", item, pw_why or Ca.kw_refusal(plan, d.kw))
           else
             if np ~= n then o = mk_drills("couvrir", f, np) end
             local why = ahead and "couverture d'avance" or nil
@@ -1728,7 +1739,7 @@ local function extraction_options(ctx, plan, req, item, def, out)
         if why_not then refuse(ctx, key, "ouvrir", item, why_not)
         else
           local np = power_cap(n, key)
-          if np <= 0 then refuse(ctx, key, "ouvrir", item, pw_why or "courant insuffisant")
+          if np <= 0 then refuse(ctx, key, "ouvrir", item, pw_why or Ca.kw_refusal(plan, d.kw))
           else
             local mk = function(k)
               local o = mk_drills("ouvrir", f, k, ctx.input.site_items)
@@ -1856,7 +1867,7 @@ local function fabric_options(ctx, plan, req, item, r, def, out)
       ctx.power_block[#ctx.power_block + 1] = { key = key, kw = (n - np) * m.kw, n = n - np, item = item, p = p, va = va,
         share = sh }
       n = np
-      if n <= 0 then refuse(ctx, key, kind, item, Ca.power_refusal(ctx, plan) or "courant insuffisant") return end
+      if n <= 0 then refuse(ctx, key, kind, item, Ca.power_refusal(ctx, plan) or Ca.kw_refusal(plan, m.kw)) return end
     end
   end
   -- Valeur de l'objet × part de cet étage dans le capital de sa chaîne (Ca.share) : un étage plein a le retour du

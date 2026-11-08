@@ -116,6 +116,22 @@ function S.capi_kw(rec, tick)
   return kw
 end
 
+-- Lot TV-ENERGIE (diagnostic azure, 8/11 : foreuses de cuivre refusées de 26 à 48 min, 15 026 MU d'épargne dormants, centrale de plus à 32 min
+-- puis 13 min de chantier) : un DÉFICIT DE kW est une crise de production. Les kW retenus faute de courant, avec de l'épargne qui dort
+-- (S.DEFICIT_BANK : MU d'épargne au moins, au-dessus du prix d'une centrale d'une chaudière), demandent la centrale de plus tout de suite
+-- (C.growth, n.deficit_kw), sans attendre S.sustain.
+S.DEFICIT_BANK = 300
+
+--- kW du déficit : les kW retenus (S.capi_kw) si la décision avait de l'épargne (rec.bank en MU, posé par la capitalisation) au moins S.DEFICIT_BANK,
+--- sinon 0 (pas d'argent pour la centrale : rien à demander de plus vite que l'avance).
+function S.deficit(rec, tick)
+  local kw = S.capi_kw(rec, tick)
+  if kw <= 0 then return 0 end
+  local bank = type(rec) == "table" and rec.bank or nil
+  if type(bank) ~= "number" or bank ~= bank or bank < S.DEFICIT_BANK then return 0 end
+  return kw
+end
+
 --- Durée de l'avance. st : mémoire { ant_n } ; flag : S.anticipate à ce relevé. Rend vrai quand elle dure depuis S.ANTICIPATE_CHECKS relevés.
 function S.sustain(st, flag)
   if flag then st.ant_n = (st.ant_n or 0) + 1 else st.ant_n = 0 end

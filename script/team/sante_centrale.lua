@@ -300,7 +300,8 @@ function Sante.growth(f, tick, plants, used_j, capacity_j)
       end
     end
   end
-  return S.sustain(sm, S.anticipate(used, committed, cap)), stalled, used, committed, cap
+  return S.sustain(sm, S.anticipate(used, committed, cap)), stalled, used, committed, cap,
+    S.deficit(f.team and f.team.capi and f.team.capi.kw_blocked, tick) -- lot TV-ENERGIE : déficit de kW avec épargne qui dort
 end
 
 return Sante
