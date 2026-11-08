@@ -2996,8 +2996,13 @@ function Build.grow_plant(f, nb, tick, secours)
   local b = f.build
   local first = b.plant and b.projects[b.plant]
   if not (first and first.spec and first.spec.gen) then return nil end -- (la centrale de plus est du même type que la première)
+  -- lot CENTRALE-PRES : taille et poteau OBTENABLES (le gabarit de 4 chaudières ne tient pas avec le petit poteau et cédait au moyen,
+  -- recette fermée : 34 poteaux réservés 30 min, projet 2 de la partie neuve 0.6.70) ; aucun poteau obtenable : refus tout de suite
+  local pole
+  nb, pole = PlantArms.size(f, first.spec.gen, nb, first.spec.pole, tick, secours)
+  if not nb then return nil end
   local id = Build.request(f, { gen = first.spec.gen, args = { nb }, feed = true, prio = Build.PRIO + 5, domain = "infrastructures",
-    pole = first.spec.pole, plant = true }) -- (intégration 0.6.28 : même poteau que la première, voir l'alimentation)
+    pole = pole, plant = true }) -- (intégration 0.6.28 : même poteau que la première, voir l'alimentation)
   if not id then return nil end
   b.projects[id].secours = secours or nil -- lot TV-ENERGIE (G65) : unité de secours, projet DISTINCT (journal, bancs)
   b.extra_plants = b.extra_plants or {}
@@ -4419,6 +4424,18 @@ local function advance(f, surface, p, tick)
       -- 27 tapis à refaire) ; le reste est pris au coffre par le PNJ à sa prise (Build.take_reserved) et suivi par refresh_missing.
       p.state, p.reason, p.reserve_next = (#p.obstacles > 0 and not p.spec.lazy_clear) and "defrichage" or "fantomes", nil, nil
     else
+      -- lot CENTRALE-PRES : une réserve de centrale qu'aucun coffre ni aucune fabrication ne peut couvrir (recette fermée, rien au
+      -- coffre) ne se lèvera jamais : refus tout de suite avec sa cause, la pause de la croissance prend le relais (plant_arms), au
+      -- lieu des 30 min de C.STALE pendant lesquelles aucune autre centrale n'est demandée
+      local dead = (p.spec.plant and f.build.plant ~= p.id and not p.reopened) and PlantArms.dead(f, p.missing) or {} -- (la première centrale attend sa recherche)
+      if #dead > 0 then
+        local cause = "insoluble:" .. table.concat(dead, ",")
+        if Build.cancel(f, p.id, cause) then
+          log(string.format("[FO-ENERGIE] %s : projet %d (centrale) refuse a %.1f min : %s (ni au coffre, ni recette ouverte) ; %d objet(s) manquent en tout",
+            f.key or "player", p.id, tick / 3600, table.concat(dead, ", "), #p.missing))
+          return
+        end
+      end
       p.reason, p.reserve_next = "materiaux", tick + 60
     end
     return
