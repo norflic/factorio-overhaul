@@ -1470,7 +1470,14 @@ local function layout_rangee(req)
   local job = req.job
   local rg = job.rg
   if not rg then
-    rg = Rf.plan(req.mod, { blocked = req.blocked, L0 = req.L0, conn0 = req.conn0, kmax = req.kmax, from = req.from, fixed = req.fixed })
+    -- deux tranches : les (pas, bus) sans contact (aucun terrain), puis les copies contre le terrain
+    if not job.cands then
+      local cands, why = Rf.candidates(req.mod, req.fixed)
+      if not cands then return nil, "aucune copie du module ne tient : " .. tostring(why) end
+      job.cands = cands
+      error(Fl.YIELD, 0)
+    end
+    rg = Rf.plan(req.mod, { blocked = req.blocked, L0 = req.L0, conn0 = req.conn0, kmax = req.kmax, from = req.from, fixed = req.fixed, cands = job.cands })
     job.rg = rg
   end
   if rg.n == 0 then return nil, "aucune copie du module ne tient : " .. tostring(rg.cause) end

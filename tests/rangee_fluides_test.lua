@@ -284,6 +284,7 @@ do
   end
   local r3, ents3 = req_of(terrain)
   local p3 = Rf.plan(mod, r3)
+  check(p3.sign == 1, "§3 murs symetriques : a egalite le sens + est garde")
   check(p3.n == 2, "§3 murs a trois pas des deux cotes : la rangee s'arrete devant la falaise apres 2 copies (" .. p3.n .. ")")
   local bad3 = verify(p3, ents3, terrain, "§3 ")
   check(#bad3 == 0, "§3 mur : verificateur sans violation (" .. #bad3 .. ")")
@@ -382,7 +383,15 @@ do
   local job = Fl.layout_new()
   local req = { mod = mod, ents = REL.entities, conduit = "tube", poles = { name = "pole", supply = 3.5, wire = 9 }, network = { x = 40.5, y = 20.5, wire = 9 },
     blocked = r7.blocked, L0 = r7.L0, conn0 = r7.conn0, kmax = 2, from = 1 }
-  local st, lay = Fl.ext_step(req, job, 600)
+  local function steps(rq, jb)
+    local st, a
+    for _ = 1, 10 do
+      st, a = Fl.ext_step(rq, jb, 600)
+      if st ~= "more" then break end
+    end
+    return st, a
+  end
+  local st, lay = steps(req, job)
   check(st == "done" and lay and lay.copies == 2, "§7 rangee de 2 copies implantee : " .. tostring(st) .. " " .. tostring(lay and lay.copies or lay))
   if st == "done" then
     local nm, npole, ntube = 0, 0, 0
@@ -411,7 +420,7 @@ do
     local req2b = {}
     for k, v in pairs(req) do req2b[k] = v end
     req2b.poles = nil
-    local st2, why2 = Fl.ext_step(req2b, job2, 600)
+    local st2, why2 = steps(req2b, job2)
     check(st2 == "fail" and tostring(why2):find("poteau", 1, true) ~= nil, "§7 sans poteau : refus (" .. tostring(why2) .. ")")
   end
   -- aucune copie : refus avec la cause
@@ -419,7 +428,7 @@ do
   for ty = -10, 30 do for tx = 30, 32 do terrain[tkey(tx, ty)] = true end for tx = -12, -10 do terrain[tkey(tx, ty)] = true end end
   local r8 = req_of(terrain, { kmax = 2 })
   local job3 = Fl.layout_new()
-  local st3, why3 = Fl.ext_step({ mod = mod, ents = REL.entities, conduit = "tube", poles = req.poles, blocked = r8.blocked, L0 = r8.L0, conn0 = r8.conn0, kmax = 2, from = 1 }, job3, 600)
+  local st3, why3 = steps({ mod = mod, ents = REL.entities, conduit = "tube", poles = req.poles, blocked = r8.blocked, L0 = r8.L0, conn0 = r8.conn0, kmax = 2, from = 1 }, job3)
   check(st3 == "fail" and tostring(why3):find("aucune copie", 1, true) ~= nil, "§7 bloque des deux cotes : refus (" .. tostring(why3) .. ")")
 end
 
@@ -469,7 +478,7 @@ local function failures(M)
   end
   local p3 = plan_with(terrain)
   if not p3 then return n + 99 end
-  if p3.n ~= 2 then n = n + 1 end
+  if p3.n ~= 2 or p3.sign ~= 1 then n = n + 1 end
   n = n + #verify(p3, ents0, terrain, "")
   -- obstacle a droite
   local t2 = {}
@@ -551,7 +560,7 @@ mutate("hauteur des bus toujours nulle", "local hlist = {}", "local hlist = { br
 mutate("contact des fluides ignore", "if g and g ~= \"m\" and g ~= lab then", "if false then")
 mutate("raccord inutilise permis", "if lab and lab ~= \"m\" and lab ~= c[3] then", "if false then")
 mutate("obstacle ignore", "if req.blocked(x, y) then\n              fails =", "if false then\n              fails =")
-mutate("un seul sens essaye", "if n2 > np then dx, hs, sign, np, cp = c.dx, c.hs, -1, n2, c2 end", "")
+mutate("un seul sens essaye", "if np < kmax then", "if false then")
 mutate("sens inverse prefere", "if n2 > np then dx, hs, sign, np, cp = c.dx, c.hs, -1, n2, c2 end", "if n2 >= np then dx, hs, sign, np, cp = c.dx, c.hs, -1, n2, c2 end")
 mutate("un seul candidat de pas", "if #cands >= Rf.CANDS then break end", "if #cands >= 1 then break end")
 mutate("quais non translates", "out.quais[#out.quais + 1] = { x = x, y = y, item = q.item, flow = q.flow }", "out.quais[#out.quais + 1] = { x = q.x, y = q.y, item = q.item, flow = q.flow }")
@@ -559,7 +568,7 @@ mutate("tuyaux deja au site refaits", "if lab ~= \"m\" and E0[key] ~= lab and re
 mutate("consommation sans la vitesse", "local dur = (r.energy and r.energy > 0) and r.energy / speed or 0", "local dur = (r.energy and r.energy > 0) and r.energy or 0")
 mutate("nombre de modules arrondi au plus proche", "local n = floor(supply / use + 1e-9)", "local n = floor(supply / use + 0.5)")
 mutate("nombre de modules sans plafond", "if n > kmax then n = kmax end", "")
-mutate("chantier suivant sans pas fixe", "cands[1] = { dx = req.fixed.dx, hs = req.fixed.hs }", "cands[1] = { dx = req.fixed.dx + 1, hs = req.fixed.hs }")
+mutate("chantier suivant sans pas fixe", "cands[1] = { dx = fixed.dx, hs = fixed.hs }", "cands[1] = { dx = fixed.dx + 1, hs = fixed.hs }")
 mutate("prises sur deux rangees acceptees", "if horiz and t.ty ~= list[1].ty then return nil, \"prises du fluide \" .. f .. \" sur plusieurs rangees\" end", "")
 
 print(string.format("[RANGEE] BILAN : %d OK, %d ECHEC(S)", pass, fail))

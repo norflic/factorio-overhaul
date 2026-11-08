@@ -250,7 +250,10 @@ local function contacts(mod, T, ks, step, bad)
       end
     end
   end
-  for _, k in ipairs(sorted_keys(T)) do
+  local pk = {}
+  for k, lab in pairs(T) do if lab ~= "m" then pk[#pk + 1] = k end end
+  table.sort(pk)
+  for _, k in ipairs(pk) do
     local lab = T[k]
     if lab ~= "m" then
       local x, y = untkey(k)
@@ -276,14 +279,14 @@ end
 ---          (raccords des machines existantes), kmax (copies à poser au plus), from (indice de la première copie, défaut 1),
 ---          fixed = { dx, sign, hs = { brut, eau } } (pas et bus d'un chantier précédent) ou nil }.
 --- Rend { n, dx, sign, hs, ents, quais, outs, cause } ; n = 0 : aucune copie ne tient (cause).
-function Rf.plan(mod, req)
-  local from = req.from or 1
-  local kmax = req.kmax or 1
+--- Les (pas, hauteur des bus) qui évitent tout contact, un par pas, les bus les plus bas d'abord (au plus Rf.CANDS) : calcul sans terrain, que l'appelant
+--- peut faire dans un tick à part (req.cands de Rf.plan). Rend la liste, ou nil et la cause.
+function Rf.candidates(mod, fixed)
   local W = mod.hi - mod.lo + 1
   local why
-  local cands = {} -- (pas, hauteur des bus) qui évitent tout contact, dans l'ordre d'essai ; au plus Rf.CANDS essayés contre le terrain
-  if req.fixed then
-    cands[1] = { dx = req.fixed.dx, hs = req.fixed.hs }
+  local cands = {}
+  if fixed then
+    cands[1] = { dx = fixed.dx, hs = fixed.hs }
   else
     local hlist = {}
     for _, f in ipairs({ "brut", "eau" }) do hlist[f] = mod.taps[f] and Rf.HMAX or 0 end
@@ -301,8 +304,17 @@ function Rf.plan(mod, req)
       end
       if #cands >= Rf.CANDS then break end
     end
-    if #cands == 0 then return { n = 0, ents = {}, quais = {}, outs = {}, tubes = {}, cause = "aucun pas ni bus n evite le contact : " .. tostring(why) } end
+    if #cands == 0 then return nil, "aucun pas ni bus n evite le contact : " .. tostring(why) end
   end
+  return cands
+end
+
+function Rf.plan(mod, req)
+  local from = req.from or 1
+  local kmax = req.kmax or 1
+  local cands, why = req.cands, nil
+  if not cands then cands, why = Rf.candidates(mod, req.fixed) end
+  if not cands then return { n = 0, ents = {}, quais = {}, outs = {}, tubes = {}, cause = why } end
   -- tuiles de module déjà posées : les copies avant `from` (le site de base est la copie 0)
   local function modworld(ks, step)
     local E = {}
@@ -372,8 +384,10 @@ function Rf.plan(mod, req)
     else
       local n1, c1 = run(c.dx, c.hs, 1)
       if n1 > np then dx, hs, sign, np, cp = c.dx, c.hs, 1, n1, c1 end
-      local n2, c2 = run(c.dx, c.hs, -1)
-      if n2 > np then dx, hs, sign, np, cp = c.dx, c.hs, -1, n2, c2 end
+      if np < kmax then -- le sens + qui pose tout ce qui est voulu l'emporte sans essayer l'autre (égalité : sens +)
+        local n2, c2 = run(c.dx, c.hs, -1)
+        if n2 > np then dx, hs, sign, np, cp = c.dx, c.hs, -1, n2, c2 end
+      end
     end
     if np >= kmax then break end
   end
