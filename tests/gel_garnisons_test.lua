@@ -411,8 +411,8 @@ end
 local MUTANTS = {
   { "destructible mis a false au gel", "local function freeze(a, vid, id, e, post, tick)\n  e.active = false",
     "local function freeze(a, vid, id, e, post, tick)\n  e.active = false\n  e.destructible = false" },
-  { "coup recu ignore", "    wake_view(a, vid, \"degat\", e.tick)\n", "" },
-  { "mort ignoree", "    wake_view(a, vid, \"perte\", e.tick)\n", "" },
+  { "coup recu ignore", "if a.v[vid] and a.v[vid].n > 0 then wake_view(a, vid, \"degat\", e.tick) end", "" },
+  { "mort ignoree", "if a.v[vid] and a.v[vid].n > 0 then wake_view(a, vid, \"perte\", e.tick) end", "" },
   { "menace de faction ignoree", "fh = faction_hazard(a, vid, view, L, tick)", "fh = nil" },
   { "menace du poste ignoree", "if not fup and not hz then hz = post_hazard(a, view, L, p.pt) end", "" },
   { "aptitude ignoree", "        if unfit then\n          a.el[m.id] = nil", "        if false then\n          a.el[m.id] = nil" },
