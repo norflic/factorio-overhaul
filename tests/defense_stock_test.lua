@@ -4,13 +4,13 @@
   Usage : lua5.2 tests/defense_stock_test.lua
   Vérifie : surplus au-dessus de la réserve, taille des groupes (croît avec le score, plafonnée), lot par voyage, munitions (cible, demi-dose,
   refus), jamais une tourelle isolée, ordre de service (QG, prévision, attaque, site, couverture), repos, pause, course avec le front,
-  plafond du poste, refus du moteur, un seul lieu par pensée, déterminisme, absence de nom d'objet ; 14 MUTANTS (chacun refusé).
+  plafond du poste, refus du moteur, un seul lieu par pensée, déterminisme, absence de nom d'objet ; 17 MUTANTS (chacun refusé).
 ]]
 package.path = "./?.lua;" .. package.path
 local S = require("shared.team.defense_stock")
 
 local passes, failures = 0, 0
-local CAP0, MIN_SCORE0 = S.TEAM_CAP, S.MIN_SCORE -- valeurs de la règle non mutée (les mutants changent les constantes, pas les attendus)
+local CAP0, MIN_SCORE0, DIST0 = S.TEAM_CAP, S.MIN_SCORE, S.MAX_DIST -- valeurs de la règle non mutée (les mutants changent les constantes, pas les attendus)
 local function suite()
   local f0 = failures
   local function check(cond, msg)
@@ -124,6 +124,20 @@ local function suite()
   -- emplacements : le plus écarté des tourelles déjà là d'abord
   r = plan({ zone("a", "attaque", 3000, 0) }, { turrets = { { x = 106, y = 100 } } })
   check(r.pick and not (r.pick.sites[1].x == 106 and r.pick.sites[1].y == 100), "le premier emplacement n'est pas sur une tourelle déjà là")
+  -- distance : au-delà de S.MAX_DIST du QG, seulement près d'un avant-poste de l'équipe (tournées de ravitaillement)
+  r = plan({ zone("a", "attaque", 3000, 0, { dist = DIST0 + 50 }), zone("b", "attaque", 2000, 0, { dist = DIST0 + 50, served = true }) })
+  check(r.rows[1].skip == "loin" and r.pick and r.pick.key == "b", "trop loin du QG hors des avant-postes : refus « loin » ; servi par un avant-poste : posé")
+  r = plan({ zone("a", "attaque", 3000, 0, { dist = DIST0 }) })
+  check(r.pick and r.pick.key == "a", "à la distance maximale : posé")
+  -- refus du moteur : la cause est un mot fixe, gardée dans la ligne
+  r = plan({ zone("a", "attaque", 3000, 0) }, { allow = function() return false, "danger" end })
+  check(r.rows[1].skip == "refus" and r.rows[1].why == "danger", "refus du moteur : cause « danger » gardée")
+  -- plafond de fabrication des tourelles (le poste ne peut plus poser au-delà)
+  check(S.stock_cap(0, 0) == S.RESERVE + S.TEAM_CAP + S.MALL_MARGIN, "plafond de stock : réserve + toutes les places + marge")
+  check(S.stock_cap(S.TEAM_CAP, 0) == S.RESERVE + S.MALL_MARGIN, "poste plein : réserve + marge seulement")
+  check(S.stock_cap(S.TEAM_CAP + 10, 5) == S.RESERVE + 5 + S.MALL_MARGIN, "places négatives ramenées à zéro, demande ajoutée")
+  check(S.stock_cap(0, -3) == S.stock_cap(0, 0), "demande négative ignorée")
+  check(S.stock_cap(10, 0) < S.stock_cap(0, 0), "le plafond baisse à mesure que le poste pose")
   -- déterminisme
   local r1 = plan({ zone("26,-29", "attaque", 3848, 0), zone("25,-36", "attaque", 2975, 1) })
   local r2 = plan({ zone("26,-29", "attaque", 3848, 0), zone("25,-36", "attaque", 2975, 1) })
@@ -203,6 +217,17 @@ end
 print("== Planificateur permanent : poste « reserve »")
 planner_suite(require("shared.team.planner"))
 
+-- Branchement du plafond de fabrication (script/team/intermediaires.lua, D10) : lu dans la source (le runtime D10 est joué par
+-- intermediaires_test avec des doublures ; le plafond des tourelles est prouvé en moteur réel par [FO-INTERMEDIAIRE] ... plafond du poste reserve)
+do
+  local fh = io.open("script/team/intermediaires.lua", "rb")
+  local src = fh and fh:read("*a") or ""
+  if fh then fh:close() end
+  local ok = src:find("Dsr.stock_cap(placed, a.demand)", 1, true) ~= nil and src:find("p == T.turret", 1, true) ~= nil
+    and src:find("if c2 < cap then", 1, true) ~= nil
+  if ok then passes = passes + 1 else failures = failures + 1; print("  ECHEC : le plafond des tourelles n'est pas branché au D10") end
+end
+
 -- Aucun nom d'objet dans la règle (anti-échelle) : lecture du fichier
 do
   local fh = io.open("shared/team/defense_stock.lua", "rb")
@@ -253,6 +278,9 @@ mutant("voulu imposé ignoré", function()
   local gw = orig.group_want
   S.group_want = function(kind, score) return gw(kind, score, nil) end
 end)
+mutant("distance ignorée", function() S.MAX_DIST = 1e9 end)
+mutant("plafond de fabrication ignoré", function() S.stock_cap = function() return 1e9 end end)
+mutant("plafond de fabrication sans places", function() S.stock_cap = function(placed, demand) return S.RESERVE + S.TEAM_CAP + S.MALL_MARGIN end end)
 mutant("lot sans borne de surplus", function()
   local lot = orig.lot
   S.lot = function(missing, surplus, room, ammo) return lot(missing, 1e9, room, ammo) end
