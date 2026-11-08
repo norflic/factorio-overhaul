@@ -100,16 +100,36 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Registre : événements
 ---------------------------------------------------------------------------------------------------
---- Étudie un bras ou une foreuse : le coffre où il dépose (drop_target) et celui où il prend (pickup_target, bras seulement).
+--- Le coffre sous un point (la cible d'un bras ou d'une foreuse). Banc 14 h : `drop_target` d'un bras posé par script rend nil (cible non encore
+--- résolue : bras sans courant ou posé dans le tick), alors que `drop_position` est connu : on cherche le coffre à ce point.
+local function chest_at(surface, pos)
+  if not pos then return nil end
+  local found = surface.find_entities_filtered({ area = { { pos.x - 0.2, pos.y - 0.2 }, { pos.x + 0.2, pos.y + 0.2 } }, type = "container" })
+  table.sort(found, function(a, b) return (a.unit_number or 0) < (b.unit_number or 0) end)
+  for _, c in ipairs(found) do
+    if c.valid and c.unit_number then return c end
+  end
+  return nil
+end
+
+local function target_of(ent, entity_target, position)
+  if entity_target and entity_target.valid then
+    return (entity_target.type == "container" and entity_target.unit_number) and entity_target or nil
+  end
+  return chest_at(ent.surface, position)
+end
+
+--- Étudie un bras ou une foreuse : le coffre où il dépose (drop_target, sinon le coffre au point de dépôt) et celui où il prend (pickup_target,
+--- sinon au point de prise ; bras seulement).
 local function study_feeder(st, ent)
   local iuid = ent.unit_number
   if not iuid then return end
   S.unlink(st, iuid)
-  local dt = ent.drop_target
-  if dt and dt.valid and dt.type == "container" and dt.unit_number then S.link(st, iuid, "feed", dt.unit_number) end
+  local dt = target_of(ent, ent.drop_target, ent.drop_position)
+  if dt then S.link(st, iuid, "feed", dt.unit_number) end
   if ent.type == "inserter" then
-    local pt = ent.pickup_target
-    if pt and pt.valid and pt.type == "container" and pt.unit_number then S.link(st, iuid, "take", pt.unit_number) end
+    local pt = target_of(ent, ent.pickup_target, ent.pickup_position)
+    if pt then S.link(st, iuid, "take", pt.unit_number) end
   end
 end
 
