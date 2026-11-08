@@ -26,14 +26,11 @@ Ds.LOGS = 400            -- lignes [FO-DEFENSE] reserve au plus par équipe
 Ds.REST = 7200           -- ticks : repos d'une cellule dont la pose n'a rien posé (comme le front)
 Ds.CHECK_EVERY = 600     -- ticks : durée de validité d'un « le moteur autorise »
 
-local ASSET_TYPES
-local function asset_types()
-  if ASSET_TYPES then return ASSET_TYPES end
-  ASSET_TYPES = {}
-  for _, ty in ipairs(R.ENTITY_TYPES) do
-    if Pose.role_factor(R.ENTITY_ROLE[ty]) > 0 then ASSET_TYPES[#ASSET_TYPES + 1] = ty end
-  end
-  return ASSET_TYPES
+-- Types de bâtiments de l'équipe qui comptent comme « un bâtiment à proximité » : table construite au CHARGEMENT (jamais affectée dans une
+-- fonction : tests/upvalue_gc_test.lua), faite de données pures de shared/ai3/reglages.lua et shared/team/pose_tourelles.lua.
+local ASSET_TYPES = {}
+for _, ty in ipairs(R.ENTITY_TYPES) do
+  if Pose.role_factor(R.ENTITY_ROLE[ty]) > 0 then ASSET_TYPES[#ASSET_TYPES + 1] = ty end
 end
 
 local function state(f, tick)
@@ -144,7 +141,7 @@ function Ds.view(f, fortify_open, out, stock, hq_turrets, outposts)
   for _, key in ipairs(State.sorted_keys(st.rest)) do
     if st.rest[key] > tick then rest[key] = true else st.rest[key] = nil end
   end
-  local types = asset_types()
+  local types = ASSET_TYPES
   -- carte du danger de l'équipe (IA3-k) : la porte des tâches refuserait d'y envoyer un PNJ au-delà du seuil de blocage
   local Cp = package.loaded["script.ai3.comportement"]
   local Dg = package.loaded["shared.ai3.danger"]
