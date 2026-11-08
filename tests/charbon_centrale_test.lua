@@ -276,7 +276,7 @@ end
 section("7. Chaine dans build.lua")
 check(src:find("if spec.alim then return plan_alim(f, surface, p) end", 1, true) ~= nil, "plan_project aiguille le projet d'alimentation")
 check(src:find("Build.plan_drills(f, surface, p, fuel, rate, a, nil)", 1, true) ~= nil, "plan_alim reutilise le plan des foreuses")
-check(src:find("return plan_finish(f, surface, p, masks, false)", 1, true) ~= nil and src:find("return plan_finish(f, surface, p, main.masks, is_plant)", 1, true) ~= nil,
+check(src:find("return plan_finish(f, surface, p, masks, false)", 1, true) ~= nil and (src:find("return plan_finish(f, surface, p, main.masks, is_plant)", 1, true) ~= nil or src:find("plan_finish(f, surface, p, main.masks, is_plant))", 1, true) ~= nil), -- RANGEES-ASM : enveloppe Build.Rangee.after
   "fin de plan commune (poteaux, appuis, obstacles)")
 local pt0 = src:find("local function pulse_team", 1, true)
 local pt1 = pt0 and src:find("local function teams", pt0, true)
