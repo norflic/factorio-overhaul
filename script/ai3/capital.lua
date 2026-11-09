@@ -641,7 +641,18 @@ function Capital.goal(f, view, book, tick, w)
     local before = eng.group
     local rg = d.replace and d.replace.group or nil
     Am.engage_update(eng, tick, { start = (not d.all_in) and rg or nil, -- engagé seulement pour une pièce À FABRIQUER
-      threat = ctx.threat, alive = (before == nil) or (d.rep_groups and d.rep_groups[before]) or false })
+      cost = d.work, -- aucun `threat` : la pile suspend déjà les améliorations sous danger réel, ctx.threat vaut aussi « guerre déclarée »
+      alive = (before == nil) or (d.rep_groups and d.rep_groups[before]) or false })
+    -- Diagnostic (banc f288d767 : azure n'engage jamais le tapis alors que la famine devait s'en charger) : l'état lu, toutes les 3 min.
+    if tick - (eng.diag or -1e9) >= 10800 and #(d.rep_kinds or {}) > 0 then
+      eng.diag = tick
+      local fam, rest_n = {}, 0
+      for _, k in ipairs(sorted_keys(ctx.starved or {})) do fam[#fam + 1] = k end
+      for _ in pairs(eng.rest or {}) do rest_n = rest_n + 1 end
+      log(string.format("[FO-ENGAGEMENT-DIAG] %s : danger %s ; engage %s ; %d groupe(s) au repos ; famine [%s] ; rangs candidats [%s] ; decision %s a %.1f min",
+        f.key or "?", tostring(ctx.threat), tostring(eng.group), rest_n, table.concat(fam, ","), table.concat(d.rep_kinds, ","),
+        d.replace and (d.replace.to .. (d.front and " (front)" or "")) or tostring(d.key), minutes(f, tick)))
+    end
     eng.kinds = {}
     for i, k in ipairs(d.rep_kinds or {}) do eng.kinds[i] = k end
     if eng.group ~= before then
