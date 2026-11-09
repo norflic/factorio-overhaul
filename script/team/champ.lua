@@ -1051,12 +1051,12 @@ function Champ.report(f, surface, tick)
             if e.built then
               local ent = surface.find_entity(e.name, { e.x, e.y })
               if ent and ent.valid then
-                local ty = ent.type
-                if ty == "transport-belt" or ty == "underground-belt" then
+                local pr = ent.prototype -- (un tapis a une vitesse de tapis, une foreuse une vitesse de minage : lus au prototype, aucun nom écrit)
+                if pr.belt_speed ~= nil and ent.get_max_transport_line_index() > 0 then
                   belts = belts + 1
                   local n = ent.get_transport_line(1).get_item_count() + ent.get_transport_line(2).get_item_count()
                   if n > 0 then withc = withc + 1 else empty = empty + 1 end
-                elseif ty == "mining-drill" then
+                elseif pr.mining_speed ~= nil then
                   dr = dr + 1
                   if ent.status == S.working then drun = drun + 1 elseif ent.status == S.waiting_for_space_in_destination then dstuck = dstuck + 1 end
                 end
