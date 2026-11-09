@@ -210,4 +210,76 @@ L[#L + 1] = {
   entrees = {}, sorties = {},
 }
 
+---------------------------------------------------------------------------------------------------
+-- 3. Traitement avancé du pétrole et craquage (lot « début de partie » suite : petrole-rangee)
+---------------------------------------------------------------------------------------------------
+-- Raffinerie à 3 sorties (lourd F3, léger F4, gaz F5) et 2 entrées (eau F1, brut F2) : trois collecteurs au nord espacés d'une rangée vide,
+-- chacun traversé par les piquages des autres grâce à des tuyaux souterrains qui restent DANS la tuile (période 6) ; deux collecteurs au sud
+-- (brut puis eau). Raccords de shared/team/modules.lua : entrées (1, 5) eau et (3, 5) brut, sorties (0, −1) lourd, (2, −1) léger, (4, −1) gaz.
+L[#L + 1] = {
+  id = "raffinerie-rangee-avancee", famille = "petrole", usages = { "petrole", "raffinage", "avance" }, origine = "derive",
+  source = SRC_RAFF,
+  nom_fr = "Rangée de raffineries (traitement avancé) : eau, brut, 3 sorties",
+  nom_en = "Refinery row (advanced processing): water, crude, 3 outputs",
+  note_fr = "Au nord, de haut en bas : gaz (rangée 0), léger (rangée 2), lourd (rangée 4) ; chaque piquage de sortie monte en traversant les collecteurs "
+    .. "plus bas par-dessus leurs tuyaux souterrains. Au sud : brut (rangée 12), eau (rangée 14). Période 6, un poteau par tuile. Les fluides F1 à F5 sont "
+    .. "ceux de la recette lue en jeu (eau, brut ; lourd, léger, gaz dans l'ordre des sorties de la raffinerie).",
+  art = {
+    "gggggg",
+    "....g.",
+    "llldge",
+    "..l.g.",
+    "hal.gb",
+    "h.l.g.",
+    "rrrrr.",
+    "rrrrr.",
+    "rrrrr+",
+    "rrrrr.",
+    "rrrrr.",
+    ".w.c..",
+    "fwiccc",
+    ".w....",
+    "wwwwww",
+  },
+  legende = {
+    g = h.tuyau("F5"), l = h.tuyau("F4"), h = h.tuyau("F3"), c = h.tuyau("F2"), w = h.tuyau("F1"),
+    a = h.ptg(W, "F3"), b = h.ptg(E, "F3"), d = h.ptg(W, "F4"), e = h.ptg(E, "F4"), f = h.ptg(W, "F2"), i = h.ptg(E, "F2"),
+    r = h.machine("machine_raffinerie", 5, "principal", { fluides_entree = { "F1", "F2" }, fluides_sortie = { "F3", "F4", "F5" } }),
+    ["+"] = h.poteau,
+  },
+  fluides = {
+    { io = "in", jeton = "F1", x = 0, y = 14, cote = "O" }, { io = "in", jeton = "F2", x = 0, y = 12, cote = "O" },
+    { io = "out", jeton = "F3", x = 0, y = 4, cote = "O" }, { io = "out", jeton = "F4", x = 0, y = 2, cote = "O" }, { io = "out", jeton = "F5", x = 0, y = 0, cote = "O" },
+  },
+  entrees = {}, sorties = {},
+}
+
+-- Craquage : usines chimiques à 2 fluides en entrée (eau F1 et huile à craquer F2, comme les rangées à 2 fluides) et UN fluide en sortie
+-- (F3) rejeté par un collecteur au sud ; les paires de souterrains sont complétées par la tête et la queue (comme chimie-rangee-2f-sortie).
+L[#L + 1] = {
+  id = "craquage-rangee", famille = "chimie", usages = { "chimie", "craquage", "petrole" }, origine = "derive",
+  source = SRC_CHIM,
+  nom_fr = "Rangée d'usines de craquage : eau et huile en entrée, un fluide en sortie",
+  nom_en = "Cracking plant row: water and oil in, one fluid out",
+  note_fr = "Entrées comme chimie-rangee-2f-sortie (eau rangée 0, huile rangée 1, sans mélange) ; la sortie 1 de chaque usine descend dans un collecteur "
+    .. "commun au sud (rangée 6). Même motif pour le craquage lourd → léger et léger → gaz : seul le jeton change (F2, F3 lus de la recette).",
+  art = {
+    "wx.y",
+    "wHgG",
+    "mmm.",
+    "mmm.",
+    "mmm.",
+    "z.+.",
+    "zzzz",
+  },
+  legende = {
+    w = h.tuyau("F1"), x = h.ptg(W, "F1"), y = h.ptg(E, "F1"), g = h.tuyau("F2"), G = h.ptg(W, "F2"), H = h.ptg(E, "F2"), z = h.tuyau("F3"),
+    m = h.machine("machine_chimie", 3, "principal", { fluides_entree = { "F1", "F2" }, fluides_sortie = { "F3", false } }),
+    ["+"] = h.poteau,
+  },
+  tete = tete_2f(7, { [6] = "zz" }), queue = queue_2f(7, { [6] = "zz" }),
+  fluides = { { io = "in", jeton = "F1", x = 1, y = 0, cote = "O" }, { io = "in", jeton = "F2", x = 0, y = 1, cote = "O" }, { io = "out", jeton = "F3", x = 0, y = 6, cote = "O" } },
+  entrees = {}, sorties = {},
+}
+
 return L

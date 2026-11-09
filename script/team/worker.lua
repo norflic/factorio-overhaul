@@ -284,6 +284,18 @@ local function deposit_inventory(f, inv, keep, chest)
       if put > 0 then inv.remove({ name = name, count = put }) f.team.delivered[name] = (f.team.delivered[name] or 0) + put end
       n = 0
     end
+    -- Lot STOCK-QG : un brut ou un déclassé que le stock n'accueille plus (plafond de rapatriement) n'entre pas : il est retiré de la poche
+    -- (jamais gardé en poche : un PNJ chargé de ce qu'on lui refuse est un PNJ perdu)
+    if n > 0 and not chest and Stock.cap_room then
+      local room = Stock.cap_room(f, name)
+      if room and n > room then
+        local gone = inv.remove({ name = name, count = n - room })
+        if gone > 0 then
+          n = n - gone
+          Stock.note_cap_drop(f, name, gone)
+        end
+      end
+    end
     if n > 0 then
       local moved = Stock.insert(f, name, n, DEPOSIT_OPTS)
       if moved > 0 then
