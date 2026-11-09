@@ -360,6 +360,11 @@ function Rt.place_bus(f, demandes, names, tick, afford, why_text)
     if not ok then
       for i = to, from, -1 do row.cells[i] = nil end
       restore()
+      -- seuls le répartiteur ou le souterrain manquent : pas d'attente, le mall continue en rangée à quais (l'attente d'un objet que personne n'a encore fabriqué bloquerait tout le mall)
+      local rest = {}
+      local logi = { [item_of(nm.repartiteur)] = true, [item_of(nm.souterrain)] = true }
+      for _, it in ipairs(list) do if not logi[it[1]] then rest[#rest + 1] = it end end
+      if #rest < #list and afford(rest) then return nil, "tronc : repartiteur ou souterrain pas encore disponibles" end
       return nil, tostring(whyc), true
     end
   end

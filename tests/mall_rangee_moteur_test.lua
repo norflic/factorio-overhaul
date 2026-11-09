@@ -406,6 +406,22 @@ do
   local _, why_w, w = Rt.place(f, { dem("d", 1, { "stone-brick" }) }, NAMES, 30, afford, "t")
   AFFORD = true
   check(#st.lines == nl, "§10 matériel refusé : lignes inchangées (" .. #st.lines .. ")")
+  -- seuls répartiteur et souterrain manquent : pas d'attente, la rangée d'avant (à quais) prend le relais
+  do
+    local f3 = team()
+    f3.team = { ia3 = {} }
+    local function sans_logi(list)
+      for _, it in ipairs(list) do if it[1] == "splitter" or it[1] == "underground-belt" then return false, "manque " .. it[1] end end
+      return true
+    end
+    local id3 = Rt.place(f3, { dem("a", 2, { "iron-plate" }) }, NAMES, 40, sans_logi, "t")
+    local st3 = f3.build.mall
+    check(id3 ~= nil and #st3.rows == 1 and st3.rows[1].bus == nil, "§10 sans répartiteur disponible : rangée à quais")
+    check(#(st3.lines or {}) == 0, "§10 sans répartiteur disponible : aucune ligne réservée")
+    local function rien() return false, "rien" end
+    local id4, why4, wait4 = Rt.place(team(), { dem("a", 2, { "iron-plate" }) }, NAMES, 40, rien, "t")
+    check(id4 == nil and wait4 == true, "§10 autre manque : on attend, comme avant (" .. tostring(why4) .. ")")
+  end
   -- plan du site : les pièces viennent du tronc et des cellules, avec la bonne étendue
   local p = f.build.projects[id]
   local masks = function() return { water = {}, blocked = {}, clear = {} } end
