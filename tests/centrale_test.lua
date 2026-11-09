@@ -85,6 +85,58 @@ local function battery(C)
   C.requested(s8)
   check(s8.requests == C.MAX_REQUESTS + 1, "chaque demande est comptee")
 
+  section("2 quater. COURANT-AVANCE : plafond en kW, pas en nombre de centrales")
+  local KW = CAP * 60 / 1000 -- kW d'une centrale de base
+  local function beyond(done, need_f, fed_f, capk)
+    local cap = capk or done * KW
+    return { done = done, pending = 0, refused = 0, cap_kw = cap, need_kw = need_f * cap, fed_kw = fed_f * cap }
+  end
+  local sat2 = { saturated = true }
+  check(C.growth(sat2, beyond(C.MAX_PLANTS, 1.0, 1.0)) ~= nil, "au plafond de nombre, demande a 100 % et combustible nourri : une centrale de plus")
+  local nb3, why3 = C.growth(sat2, beyond(C.MAX_PLANTS, 0.69, 1.0))
+  check(nb3 == nil and why3:find("plafond de centrales", 1, true) ~= nil, "demande a 69 % : le plafond tient, avec sa raison (" .. tostring(why3) .. ")")
+  check(C.growth(sat2, beyond(C.MAX_PLANTS, 0.7, 1.0)) ~= nil, "demande a 70 % pile : permis")
+  local nb4, why4 = C.growth(sat2, beyond(C.MAX_PLANTS, 1.0, 0.89))
+  check(nb4 == nil and why4:find("combustible", 1, true) ~= nil, "89 % de la capacite nourrie par foreuses : le combustible ne suit pas (" .. tostring(why4) .. ")")
+  check(C.growth(sat2, beyond(C.MAX_PLANTS, 1.0, 0.9)) ~= nil, "90 % nourris pile : permis")
+  local nb5, why5 = C.growth(sat2, beyond(C.ABS_PLANTS, 1.0, 1.0))
+  check(nb5 == nil and why5:find("absolu", 1, true) ~= nil, "plafond absolu : jamais plus, quoi qu'il arrive")
+  check(C.growth(sat2, beyond(C.ABS_PLANTS - 1, 1.0, 1.0)) ~= nil, "un de moins que le plafond absolu : permis")
+  local old_call = { done = C.MAX_PLANTS, pending = 0, refused = 0 }
+  check(C.growth(sat2, old_call) == nil, "capacite inconnue (anciens appels, bancs) : le plafond de nombre tient")
+  check(C.growth(sat2, { done = C.MAX_PLANTS - 1, pending = 0, refused = 0 }) == 1, "sous le plafond de nombre : inchange, sans mesure en kW")
+  local fl = beyond(C.MAX_PLANTS, 1.0, 1.0); fl.fuel_low = true
+  local nb6, why6 = C.growth(sat2, fl)
+  check(nb6 == nil and why6:find("combustible en manque", 1, true) ~= nil, "combustible en manque (Mc.low) : pas de centrale de plus malgre la demande et les foreuses (" .. tostring(why6) .. ")")
+  fl.fuel_low = false
+  check(C.growth(sat2, fl) ~= nil, "combustible pas en manque : permis")
+  local under = beyond(C.MAX_PLANTS - 1, 1.0, 1.0); under.fuel_low = true
+  check(C.growth(sat2, under) == 1, "sous le plafond de nombre, le combustible bas ne change rien (regle d'avant)")
+  local ok0 = C.ceiling({ done = 0, cap_kw = 0 })
+  check(ok0 == true, "aucune centrale : le plafond ne bloque pas")
+  -- simulation : demande croissante a 40 MW, centrales nourries : la capacite suit jusqu'au plafond absolu, jamais au-dela
+  local sim3, done3, pend3 = {}, 1, 0
+  for step = 1, 1200 do
+    local cap = CAP * done3
+    C.observe(sim3, math.min(cap, 40000 * 1000 / 60), cap)
+    local capk = cap * 60 / 1000
+    local g = C.growth(sim3, { done = done3, pending = pend3, refused = 0, cap_kw = capk, need_kw = math.min(capk, 40000), fed_kw = capk })
+    if g then pend3 = pend3 + 1; C.requested(sim3) end
+    if pend3 > 0 and step % 20 == 0 then pend3 = pend3 - 1; done3 = done3 + 1 end
+  end
+  check(done3 == C.ABS_PLANTS, "40 MW demandes, combustible suivant : " .. C.ABS_PLANTS .. " centrales (" .. done3 .. "), pas 6")
+  -- meme demande, combustible a la main : s'arrete au plafond de nombre
+  local sim4, done4, pend4 = {}, 1, 0
+  for step = 1, 1200 do
+    local cap = CAP * done4
+    C.observe(sim4, math.min(cap, 40000 * 1000 / 60), cap)
+    local capk = cap * 60 / 1000
+    local g = C.growth(sim4, { done = done4, pending = pend4, refused = 0, cap_kw = capk, need_kw = capk, fed_kw = 0 })
+    if g then pend4 = pend4 + 1; C.requested(sim4) end
+    if pend4 > 0 and step % 20 == 0 then pend4 = pend4 - 1; done4 = done4 + 1 end
+  end
+  check(done4 == C.MAX_PLANTS, "meme demande, aucune centrale nourrie par foreuses : " .. C.MAX_PLANTS .. " centrales (" .. done4 .. ")")
+
   section("2 bis. Reserve abandonnee (crise de matiere)")
   check(C.stale("reserve", "materiaux", C.STALE) == true, "reserve incomplete depuis 30 min : abandon")
   check(C.stale("reserve", "materiaux", C.STALE - 1) == false, "pas encore 30 min : on attend")
@@ -173,7 +225,16 @@ local mutants = {
   { "refus non memorise", "st.refused_n = refused", "st.refused_n = st.refused_n" },
   { "pause raccourcie", "math.max(st.cool_until or 0, tick + C.COOL)", "tick + C.COOL" },
   { "charge non bornee", "math.min(1, (power or 0) / capacity)", "(power or 0) / capacity" },
-  { "plafond atteint permis (>= -> >)", "n.done >= C.MAX_PLANTS", "n.done > C.MAX_PLANTS" },
+  { "plafond atteint permis (< -> <=)", "if done < C.MAX_PLANTS then return true end", "if done <= C.MAX_PLANTS then return true end" },
+  { "plafond absolu ignore", "if done >= C.ABS_PLANTS then", "if false then" },
+  { "capacite inconnue : plus de plafond", "if not (cap and cap > 0) then return false, \"plafond de centrales\" end", "if not (cap and cap > 0) then return true end" },
+  { "demande ignoree", "if need < C.DEMAND_FRAC * cap - 1e-6 then", "if false then" },
+  { "demande : seuil 0.7 -> 0.3", "C.DEMAND_FRAC = 0.7", "C.DEMAND_FRAC = 0.3" },
+ { "combustible en manque ignore", "if n.fuel_low then return false", "if false then return false" },
+  { "combustible ignore", "if fed < C.FED_FRAC * cap - 1e-6 then", "if false then" },
+  { "combustible : seuil 0.9 -> 0.1", "C.FED_FRAC = 0.9", "C.FED_FRAC = 0.1" },
+  { "plafond absolu 16 -> 40", "C.ABS_PLANTS = 16", "C.ABS_PLANTS = 40" },
+  { "croissance ignore le plafond", "if not room then return nil, why_ceiling end", "if false then return nil end" },
   { "chantier ouvert ignore", "if n.pending > 0 and not C.parallel_kw(st, n) then", "if false then" }, -- (lot ELECTRIQUE (e) : la garde porte la règle des chantiers en parallèle)
   { "refus ignores", "(n.refused or 0) >= C.MAX_REFUSED", "false" },
   { "repli ignore", "if n.hold and", "if false and" },
