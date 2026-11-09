@@ -722,6 +722,10 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
       return false
     end
     st.frame, st.order, st.done_pr = frame, order, {}
+    -- lot COUT-600 : le plan du cadre (5 à 12 M d'instructions sur un champ de 600 %) ne partage plus sa pensée avec la première bande (jusqu'à
+    -- 1 M) : celle-ci part à la pensée suivante de la migration (st.retry = ce tick : aucune attente de plus)
+    st.retry = tick
+    return false
   end
   local bad = {}
   for _, k in ipairs(st.bad or {}) do bad[k] = true end
@@ -1794,6 +1798,9 @@ function Mig.think(f, surface, book, free, tick, hold)
   local ms = ms_of(f)
   if tick < ms.next then return 0 end
   ms.next = tick + CFG.every
+  -- lot COUT-600 : la vérification d'un cadre planifié à la pensée d'avant (Champ.flush : jusqu'à 4,7 M d'instructions sur un champ de 600 %) a sa
+  -- pensée à elle : rien d'autre ne tourne dans celle-ci
+  if Champ.flush(f) then return 0 end
   if tick >= (ms.report_next or 0) then -- lot CHAMP : état des bandes du champ au journal ([FO-CHAMP-ETAT])
     ms.report_next = tick + Champ.REPORT_EVERY
     Profiler.fstart("mig:rapport") -- lot X10-S0 : mesure seulement
