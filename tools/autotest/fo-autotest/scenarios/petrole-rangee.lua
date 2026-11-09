@@ -44,13 +44,19 @@ local function census(s, force)
   local linked, powered = 0, 0
   local systems, nsys = {}, 0
   for _, r in ipairs(refs) do
-    local ok = true
-    for i = 1, 2 do
-      if #r.fluidbox.get_connections(i) == 0 then ok = false end
-      local sid = r.fluidbox.get_fluid_system_id(i)
-      if sid and not systems[sid] then systems[sid] = true; nsys = nsys + 1 end
+    -- seules les boites d'ENTREE comptent (la recette de base n'ouvre qu'une entree et une sortie : les sorties sont le gaz interne de chaque module)
+    local ok, ninputs = true, 0
+    for i = 1, #r.fluidbox do
+      local pr = r.fluidbox.get_prototype(i)
+      if pr and pr.object_name == nil and #pr > 0 then pr = pr[1] end
+      if pr and pr.production_type == "input" then
+        ninputs = ninputs + 1
+        if #r.fluidbox.get_connections(i) == 0 then ok = false end
+        local sid = r.fluidbox.get_fluid_system_id(i)
+        if sid and not systems[sid] then systems[sid] = true; nsys = nsys + 1 end
+      end
     end
-    if ok then linked = linked + 1 end
+    if ok and ninputs > 0 then linked = linked + 1 end
     if r.electric_network_id ~= nil then powered = powered + 1 end
   end
   for _, p in ipairs(plants) do if p.electric_network_id ~= nil then powered = powered + 1 end end
@@ -127,7 +133,8 @@ return {
       end
       st.extra = extra
       -- courant du site de base (le banc n'a pas de poteaux : les chevalets, la raffinerie et l'usine du site doivent etre alimentes comme les copies)
-      s.create_entity({ name = "medium-electric-pole", position = at(33.5, 35.5), force = row.force })
+      s.create_entity({ name = "medium-electric-pole", position = at(33.5, 33.5), force = row.force }) -- couvre la raffinerie et l'usine
+      s.create_entity({ name = "medium-electric-pole", position = at(32.5, 38.5), force = row.force }) -- couvre le chevalet
       local put = 0
       for _, it in ipairs(KIT) do put = put + hq.insert({ name = it[1], count = it[2] }) end
       st.ok_bench = remote.call("fo-petrole", "ext_bench", row.key, { res = "crude-oil", x = FX + 33.5, y = FY + 33.5, ents = ents, items = { "plastic-bar" },
@@ -194,7 +201,7 @@ return {
     end
     ctx.check(nr >= 3, "3 modules : au moins 3 raffineries (1 de base + 2 copies)", tostring(nr))
     ctx.check(np == nr, "autant d'usines que de raffineries", np .. "/" .. nr)
-    ctx.check(linked == nr and nr > 0, "chaque raffinerie a ses deux entrees de brut raccordees", linked .. "/" .. nr)
+    ctx.check(linked == nr and nr > 0, "chaque raffinerie a son entree de brut raccordee", linked .. "/" .. nr)
     ctx.check(nsys == 1 and nr > 0, "toutes les entrees de brut sont sur le MEME systeme de fluide (le bus)", tostring(nsys))
     ctx.check(powered >= nr + np, "machines alimentees en courant", powered .. "/" .. (nr + np))
   end,
