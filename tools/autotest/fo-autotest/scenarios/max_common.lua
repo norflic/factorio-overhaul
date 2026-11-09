@@ -121,6 +121,30 @@ function M.apply(ctx, st)
   end
 end
 
+--- Mode « création » : la carte a été créée AVEC les réglages max (banc.py --carte-max, --map-gen-settings) ; on les relit, on
+--- recense, et on prépare la surface de référence (mêmes réglages, ressources à 100 %).
+function M.verify(ctx, st)
+  local s = ctx.surface()
+  local mgs = s.map_gen_settings
+  st.seed = mgs.seed
+  local ok, parts = true, {}
+  local ref = { seed = mgs.seed, width = mgs.width, height = mgs.height, starting_area = mgs.starting_area,
+    peaceful_mode = mgs.peaceful_mode, autoplace_controls = copy_controls(mgs.autoplace_controls) }
+  st.controls = M.resource_controls()
+  for _, n in ipairs(st.controls) do
+    local c = mgs.autoplace_controls[n]
+    local p = game.autoplace_control_prototypes[n]
+    if not (c and c.size == M.SIZE and (not p.richness or c.richness == M.RICHNESS)) then ok = false end
+    parts[#parts + 1] = string.format("%s f%.2f s%.2f r%.2f", n, c and c.frequency or -1, c and c.size or -1, c and c.richness or -1)
+    local rc = ref.autoplace_controls[n] or { frequency = 1, size = 1, richness = 1 }
+    ref.autoplace_controls[n] = { frequency = rc.frequency, size = 1, richness = 1 }
+  end
+  st.mgs_ref, st.relu_ok, st.creation = ref, ok, true
+  ctx.log(M.TAG .. "reglages de carte RELUS (carte creee avec --map-gen-settings, graine " .. tostring(mgs.seed) .. ") : "
+    .. table.concat(parts, " | "))
+  census(ctx, s, "CREATION")
+end
+
 --- Tuiles de minerai et quantité par entité de ressource dans le rayon R autour de pos.
 local function stats(s, pos, names)
   local out = {}
@@ -203,8 +227,10 @@ end
 --- Contrôles (finish). Les 4 minerais de base : au moins `fmin` fois la quantité de la référence, sur l'ensemble des QG.
 function M.checks(ctx, st, fmin)
   ctx.check(st.relu_ok == true, "reglages max relus sur nauvis (taille 600 % de toutes les ressources)", tostring(st.relu_ok))
-  ctx.check((st.chunks_apres or 0) >= (st.chunks_avant or 1) and (st.chunks_avant or 0) > 0,
-    "chunks du depart regeneres", tostring(st.chunks_avant) .. " -> " .. tostring(st.chunks_apres))
+  if not st.creation then
+    ctx.check((st.chunks_apres or 0) >= (st.chunks_avant or 1) and (st.chunks_avant or 0) > 0,
+      "chunks du depart regeneres", tostring(st.chunks_avant) .. " -> " .. tostring(st.chunks_apres))
+  end
   local t = st.releve
   ctx.check(t ~= nil, "releve max / reference fait", tostring(t ~= nil))
   if not t then return end

@@ -73,7 +73,7 @@ return function(opts)
   base.check_tick = opts.check_tick
 
   base.init = function(ctx)
-    C.apply(ctx, ctx.state())
+    if opts.creation then C.verify(ctx, ctx.state()) else C.apply(ctx, ctx.state()) end
     if init0 then init0(ctx) end
   end
 

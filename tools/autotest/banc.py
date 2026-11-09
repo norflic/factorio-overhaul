@@ -681,6 +681,34 @@ def deployer_bat(src=None, dst=None):
                                                                   hashlib.sha256(new).hexdigest()[:12])
 
 
+def deployer_max():
+    """Lot CARTE-MAX : deux .bat NEUFS à la racine (fo-autotest.bat et fo-captures.bat ne sont pas touchés) :
+    fo-autotest-max.bat = tools/autotest/fo-autotest.bat avec « --map-gen-settings "%FO_MGS%" » à la création de la carte, et
+    fo-captures-max.bat = fo-captures.bat appelant fo-autotest-max.bat. Écriture atomique, seulement si le contenu diffère."""
+    out = []
+    here = os.path.dirname(os.path.abspath(__file__))
+    jobs = [(os.path.join(here, "fo-autotest.bat"), "fo-autotest-max.bat", b"--map-gen-seed %SEED%",
+             b'--map-gen-seed %SEED% --map-gen-settings "%FO_MGS%"'),
+            (os.path.join(RACINE, "fo-captures.bat"), "fo-captures-max.bat", b'call "%ROOT%\fo-autotest.bat"',
+             b'call "%ROOT%\fo-autotest-max.bat"')]
+    for src, name, old, new in jobs:
+        data = open(src, "rb").read()
+        if data.count(old) != 1:
+            raise SystemExit("--carte-max : motif %r absent ou multiple dans %s" % (old, src))
+        data = data.replace(old, new)
+        dst = os.path.join(RACINE, name)
+        cur = open(dst, "rb").read() if os.path.exists(dst) else b""
+        if cur != data:
+            tmp = dst + ".tmp-%d" % os.getpid()
+            with open(tmp, "wb") as f:
+                f.write(data)
+            os.replace(tmp, dst)
+            out.append(name + " ecrit")
+        else:
+            out.append(name + " a jour")
+    return "carte max : " + ", ".join(out)
+
+
 def blender_actifs():
     """Lot PERF4 : nombre de blender.exe au début d'un passage --seul (une mesure prise avec Blender actif est FAUSSE)."""
     try:
