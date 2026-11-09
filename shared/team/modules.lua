@@ -46,6 +46,7 @@ local Pt = need("shared.team.patrons", "shared/team/patrons") -- lot INDUSTRIE I
 
 local M = {}
 
+M.PORT_ROOM = 5                -- tuiles que les ports d'une rangée ajoutent à sa largeur (tête d'alimentation + sortie, plan.lua P.port_room)
 M.MAX_SIDE = 24                -- emprise maximale (EQUIPES_PNJ §6.4 ; lot de 24 × 24, §6.5)
 M.STREET = 4                   -- largeur de la rue autour d'un lot (§6.5)
 M.BUILD_DISTANCE = 16          -- O.SCRIPT_BUILD_DISTANCE (shared/team/org.lua), recopié : modules ne lit pas org
@@ -202,6 +203,7 @@ recipe("transport-belt", "crafting", 0.5, { I("iron-plate", 1), I("iron-gear-whe
 recipe("logistic-science-pack", "crafting", 6, { I("inserter", 1), I("transport-belt", 1) }, { I("logistic-science-pack", 1) })
 recipe("pipe", "crafting", 0.5, { I("iron-plate", 1) }, { I("pipe", 1) })
 recipe("firearm-magazine", "crafting", 1, { I("iron-plate", 4) }, { I("firearm-magazine", 1) }) -- lot IA3-e (G.simple)
+recipe("steel-plate", "smelting", 16, { I("iron-plate", 5) }, { I("steel-plate", 1) }) -- lot ACIER (G.simple avec un four)
 recipe("engine-unit", "advanced-crafting", 10, { I("steel-plate", 1), I("iron-gear-wheel", 1), I("pipe", 2) }, { I("engine-unit", 1) })
 recipe("basic-oil-processing", "oil-processing", 5, { F("crude-oil", 100, 2) }, { F("petroleum-gas", 45, 3) })
 recipe("plastic-bar", "chemistry", 1, { F("petroleum-gas", 20), I("coal", 1) }, { I("plastic-bar", 2) })
@@ -819,6 +821,7 @@ function G.row(key, fr, en, spec, ox, oy, b)
         if m.kind == "lab" then t = t + rate
         else
           for _, ing in ipairs(r.ingredients) do if ing.name == it then t = t + ing.amount * rate end end
+          if it == "coal" then t = t + (m.fuel or 0) end -- lot ACIER : four à combustion d'une rangée, charbon sur l'autre voie du tapis
         end
       end
       return t
@@ -948,7 +951,11 @@ end
 --- et les bornes suivent sa voie. Sans lui : le tapis du modèle (7,5/s par voie).
 function G.simple(recipe, n, machine, voies, belt)
   machine = machine or "assembling-machine-1"
-  local sp, why = machine_spec(machine, "assembler", "rangée"); if not sp then return nil, why end
+  local sp, why = machine_spec(machine, nil, "rangée"); if not sp then return nil, why end
+  -- Lot ACIER : la machine peut être un FOUR (recette de fonte à un ingrédient : l'acier d'après la plaque) ; son combustible
+  -- (charbon) arrive sur l'autre voie du tapis d'entrée et le même bras le sert.
+  local furnace = sp.kind == "furnace"
+  if sp.kind ~= "assembler" and not furnace then return fail("rangée : « %s » n'est ni un assembleur ni un four", tostring(machine)) end
   local lane_rate, belt_name = M.LANE_RATE, nil
   if belt ~= nil then
     if not (type(belt) == "table" and type(belt.name) == "string" and type(belt.lane) == "number" and belt.lane > 0) then
@@ -980,7 +987,7 @@ function G.simple(recipe, n, machine, voies, belt)
   end
   local r = R[key]
   local cat_ok = false
-  for _, c in ipairs(sp.categories or { "crafting" }) do if r and c == (r.category or "crafting") then cat_ok = true end end
+  for _, c in ipairs(sp.categories or { furnace and "smelting" or "crafting" }) do if r and c == (r.category or "crafting") then cat_ok = true end end
   if not r or not cat_ok then return fail("rangée : recette « %s » absente du modèle ou d'une catégorie que « %s » ne fabrique pas", tostring(key), machine) end
   if not (r.time and r.time > 0) then return fail("rangée : %s sans durée", key) end
   local ok, why2 = count_ok(n, "rangée"); if not ok then return nil, why2 end
@@ -993,9 +1000,12 @@ function G.simple(recipe, n, machine, voies, belt)
   local rate = sp.speed / r.time
   local top = {}
   for i, ing in ipairs(ings) do top[i] = ing.name end
+  local fuel = furnace and (sp.burner_kw or 0) / M.COAL_J or 0
+  if furnace and #ings ~= 1 then return fail("rangée de fours : %s n'a pas un seul ingrédient", key) end
   local ms = {}
-  for i = 1, n do ms[i] = { name = machine, recipe = key, rate = rate, top = top, out = true } end
+  for i = 1, n do ms[i] = { name = machine, recipe = key, rate = rate, top = top, out = true, fuel = fuel > 0 and fuel or nil } end
   local lanes = { ings[1].name, (ings[2] or ings[1]).name }
+  if fuel > 0 then lanes[2] = "coal" end -- (une voie d'ingrédient, une voie de charbon)
   local two = voies == 2
   local jn = (two and n >= 2) and math.floor(n / 2) or nil
   local b, info = G.row("rangee-" .. key .. lvl_tag(sp) .. (two and "-2v" or "") .. (belt_name and ("-" .. belt_name) or ""),
@@ -1013,7 +1023,17 @@ function G.simple(recipe, n, machine, voies, belt)
   -- sortie (deux voies : chaque tronçon de la jonction porte au plus une voie, d'où 2 × la borne d'une voie) ; voie du tapis posé
   local lane_n = floor_eps(lane_rate / (r.products[1].amount * rate))
   local bounds = { row_width_bound(sp.w), two and 2 * lane_n or lane_n }
-  if #ings == 1 then bounds[#bounds + 1] = floor_eps(2 * lane_rate / (ings[1].amount * rate))
+  if furnace then
+    -- la rangée entière (place réservée) doit tenir AVEC la place de ses ports dans le lot de 24 tuiles du plan directeur (P.fit : la tête
+    -- d'alimentation de 3 tuiles derrière le port d'entrée et 1 tuile après la sortie, soit M.PORT_ROOM = 5 tuiles de plus que la largeur
+    -- w = n·(w machine + 1) − 1 ; mesuré par P.port_room, verrouillé par tests/acier_test.lua §1b). Moteur réel, lot ACIER : 8 fours
+    -- (23 tuiles) refusés « trop grand », 7 fours (20 tuiles, 25 avec les ports) refusés « place » sur un lot entièrement libre.
+    bounds[#bounds + 1] = floor_eps((M.MAX_SIDE - M.PORT_ROOM + 1) / (sp.w + 1))
+  end
+  if #ings == 1 and fuel > 0 then
+    bounds[#bounds + 1] = floor_eps(lane_rate / (ings[1].amount * rate))
+    bounds[#bounds + 1] = floor_eps(lane_rate / fuel)
+  elseif #ings == 1 then bounds[#bounds + 1] = floor_eps(2 * lane_rate / (ings[1].amount * rate))
   else for _, ing in ipairs(ings) do bounds[#bounds + 1] = floor_eps(lane_rate / (ing.amount * rate)) end end
   set_ext(b.g, "n", 2, minimum(bounds))
   return b:finish()
