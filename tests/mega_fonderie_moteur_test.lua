@@ -39,6 +39,13 @@ package.loaded["script.team.champ"] = { data = function(f, kind)
   if kind == "copper" then return BRICK, NAMES end
   return DATA, NAMES
 end }
+-- Doublure de la migration du champ (tranche 2, A2) : Mega.think ordonne le champ d'une décision par MigChamp.want(f, dep, tick, par)
+local WANT = { calls = {}, fid = 77, produced = 0 }
+package.loaded["script.team.migration_champ"] = { want = function(f, dep, tick, par)
+  WANT.calls[#WANT.calls + 1] = { team = f.key or "player", dep = dep.id, par = par, tick = tick }
+  if WANT.refuse then return nil, WANT.refuse end
+  return WANT.fid, WANT.produced
+end }
 package.loaded["script.team.stock"] = { count = function(f, name) return (f.stock or {})[name] or 0 end }
 
 local function load_mega(src, mf)
@@ -78,6 +85,7 @@ local function suite(Mega, src)
   local function want(ok, msg) nw = nw + 1; if not ok then bad[#bad + 1] = msg end end
   local function grep(pat) local n = 0 for _, l in ipairs(LOGS) do if l:find(pat, 1, true) then n = n + 1 end end return n end
   LOGS = {}
+  WANT.calls, WANT.refuse = {}, nil
   _G.settings.global["fo-war-mega-fonderie"].value = true
   -- une faction et votre équipe, mêmes gisements
   local fac = { key = "azure", stock = { ["stone-furnace"] = 60, ["inserter"] = 200, ["small-electric-pole"] = 100, ["iron-chest"] = 100, ["transport-belt"] = 400 } }
@@ -96,18 +104,39 @@ local function suite(Mega, src)
   local r14 = fac.mega.deps[14]
   want(r14 and r14.state == "decide" and math.abs(r14.plates - r14.ore / 2) < 1e-6, "recette a 2 minerais pour 1 plaque : decidee, plaques = minerai / 2")
   want(grep("[FO-MEGA] azure : gisement 11 (iron-ore, 1000 tuiles) : DECIDE") == 1, "journal : decision de la faction")
-  want(grep("[FO-MEGA] player : gisement 11") == 1, "journal : decision de votre equipe")
+  want(grep("[FO-MEGA] player : gisement 11 (iron-ore, 1000 tuiles) : DECIDE") == 1, "journal : decision de votre equipe")
   want(grep("plan verifie sur 3 colonne(s)") >= 4, "journal : plan verifie (echantillon)")
   want(grep("REFUS : minerai sans four de champ") == 2 and grep("REFUS : gisement trop petit") == 2, "journal : refus causes")
   want(saveable(fac.mega) and saveable(pl.mega), "f.mega : nombres, chaines et tables seulement")
+  -- tranche 2 (A2) : une décision ordonne le champ du gisement, avec le plafond de bandes en vol ; un refus n'ordonne rien
+  do
+    local by = {}
+    for _, c in ipairs(WANT.calls) do by[c.team .. ":" .. c.dep] = (by[c.team .. ":" .. c.dep] or 0) + 1 end
+    want(by["azure:11"] and by["azure:11"] >= 1 and by["player:11"] and by["player:11"] >= 1, "champ ordonne : gisement decide, faction ET votre equipe")
+    want(by["azure:12"] == nil and by["azure:13"] == nil, "champ non ordonne : minerai sans four et gisement trop petit")
+    local c11
+    for _, c in ipairs(WANT.calls) do if c.dep == 11 then c11 = c end end
+    want(c11 and c11.par == 3, "champ ordonne avec le plafond de bandes en vol (6 lignes -> 3) : " .. tostring(c11 and c11.par))
+    want(fac.mega.deps[11].field == 77 and fac.mega.deps[11].pose_key == "champ", "decision : champ voulu note (field, pose_key)")
+    want(grep("POSE : champ 77 voulu") == 4, "journal : POSE ecrite une fois par decision (2 gisements decides x 2 equipes) (" .. grep("POSE : champ 77") .. ")")
+    want(Mega.summary(fac).fields == 2, "resume : champs voulus (2 decisions)")
+  end
   -- la même taille : « garder », aucune ligne de plus
   local n0 = #LOGS
   local cs = { deps = deps() }
+  local w0 = #WANT.calls
   for t = 3, 4 do Mega.think(fac, cs, t * 3600, { power = true }) end
   want(#LOGS == n0 and fac.mega.deps[11].state == "decide", "taille inchangee : garder, aucune ligne au journal")
+  want(#WANT.calls > w0, "garder : le champ reste voulu (nouvel appel de want)")
   -- crise puis retour
+  local w1 = #WANT.calls
   Mega.think(fac, cs, 5 * 3600, { power = true, crisis = true })
   Mega.think(fac, cs, 6 * 3600, { power = true, crisis = true })
+  do
+    local late = 0
+    for i = w1 + 1, #WANT.calls do if WANT.calls[i].dep == 11 then late = late + 1 end end
+    want(late == 0, "crise : decision en attente, le champ n'est plus ordonne (" .. late .. ")")
+  end
   want(fac.mega.deps[11].state == "decide-attente" and grep("ATTENTE : crise") >= 2, "crise : attente ecrite, decision gardee")
   Mega.think(fac, cs, 7 * 3600, { power = true })
   Mega.think(fac, cs, 8 * 3600, { power = true })
@@ -128,6 +157,16 @@ local function suite(Mega, src)
     Mega.think(nb, { deps = { [11] = deps()[11], [12] = deps()[12] } }, 3600, { power = true })
     want(nb.mega.deps[11].cause == "donnees : champ : tapis" and nb.mega.deps[12].cause == "minerai sans four de champ",
       "champ illisible (tapis) et minerai sans four : deux causes distinctes")
+  end
+  -- champ sans réseau alimenté à portée : la pose attend, cause écrite UNE fois, la décision reste
+  do
+    WANT.refuse = "aucun reseau alimente a moins de 40 tuiles"
+    local g2 = { key = "jaune", stock = {} }
+    for t = 1, 3 do Mega.think(g2, { deps = { [11] = deps()[11] } }, t * 3600, { power = true }) end
+    local r = g2.mega and g2.mega.deps[11]
+    want(r and r.state == "decide" and r.field == nil and r.pose_key:find("attente:", 1, true) == 1, "sans reseau : decision gardee, champ en attente")
+    want(grep("jaune : gisement 11 (iron-ore, 1000 tuiles) : POSE : champ en attente : aucun reseau alimente") == 1, "sans reseau : cause ecrite une seule fois")
+    WANT.refuse = nil
   end
   -- sans courant : attente, jamais de décision
   local nc = { key = "scarlet", stock = {} }
@@ -186,6 +225,10 @@ local MUTANTS = {
   { "decisions purgees", '(rec.state == "refuse" or rec.state == "attente")', 'true' },
   { "refus jamais purges", 'if not cs.deps[id] and (rec.state', 'if false and (rec.state' },
   { "garde ecrite a chaque fois", '(action == "decider" or action == "garder") and "decide"', '(action == "decider") and "decide"' },
+  { "champ jamais ordonne", 'if rec and rec.state == "decide" then order_field(f, st, dep, rec, tick) end', "" },
+  { "plafond ignore", "MigChamp.want(f, dep, tick, Mp.par_max(rec))", "MigChamp.want(f, dep, tick, 99)" },
+  { "champ ordonne meme refuse", 'if rec and rec.state == "decide" then order_field', "if rec then order_field" },
+  { "pose ecrite a chaque fois", "if key ~= rec.pose_key then", "if true then" },
   { "decision oubliee a la crise", 'rec.state = rec.sig and "decide-attente" or "attente"', 'rec.state, rec.sig = "attente", nil' },
 }
 local refused = 0

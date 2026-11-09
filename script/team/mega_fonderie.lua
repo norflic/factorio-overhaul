@@ -15,7 +15,10 @@
     4. journal [FO-MEGA] à chaque changement de verdict ou de cause (bloc décidé, taille, voies, fours, refus et cause).
   État : f.mega = { cursor, logs, logs_d, deps = { [id du gisement] = { state, cause, sig, ... nombres } } } : nombres et chaînes seulement,
   jamais d'entité ni de fonction. Lecteurs : Mega.block_for (tranche 2 : pose du bloc, Build.SITES.mega), Mega.summary (bancs).
-  RIEN n'est posé dans cette tranche : la décision et sa taille sont écrites, la pose du bloc, le collecteur et le bus viennent ensuite.
+  TRANCHE 2 (A2) : une décision "decide" ORDONNE le champ du gisement (Mega.order_field : MigChamp.want, bornes de Mp.par_max) : le champ
+  est servi d'abord, sans paire exigée, et ses bandes partent EN AVANCE les unes des autres (script/team/migration_champ.lua, ahead_step ;
+  règle pure shared/team/mega_pose.lua). La géométrie posée est celle du champ en colonnes alignées (shared/team/champ_colonne.lua).
+  Journal [FO-MEGA] ... POSE (champ voulu, ou cause de l'attente : aucun réseau alimenté à portée d'une chaîne de poteaux).
   Aucun nom d'objet ici (tests/iag_test.lua §8 bis) : les noms viennent de Champ.data. Déterminisme : clés triées, aucun temps mesuré.
 ]]
 
@@ -24,6 +27,8 @@ local T = require("shared.team.config")
 local State = require("script.faction.state")
 local Stock = require("script.team.stock")
 local Champ = require("script.team.champ")
+local Mp = require("shared.team.mega_pose")
+local MigChamp = require("script.team.migration_champ")
 
 local Mega = {}
 
@@ -162,6 +167,22 @@ local function consider(f, st, dep, tick, ctx, on)
   return action
 end
 
+--- Tranche 2 (A2) : une décision `rec` sur le gisement recensé `dep` ordonne son champ au passage de la migration (une fois par minute : la
+--- cible reste « voulue » CFG.want_ttl). Lecteurs de rec.field et rec.pose : Mega.summary (bancs), le journal. Rend le numéro du champ ou nil.
+local function order_field(f, st, dep, rec, tick)
+  local fid, produced = MigChamp.want(f, dep, tick, Mp.par_max(rec))
+  local key = fid and "champ" or ("attente:" .. tostring(produced))
+  rec.field = fid
+  if fid then rec.produced = produced or 0 end
+  if key ~= rec.pose_key then
+    rec.pose_key = key
+    local dl = { id = dep.id, res = dep.resource, tiles = dep.tiles or 0 }
+    say(f, st, Mf.line(team_name(f), dl, "POSE", fid and string.format("champ %s voulu, %d bande(s) en vol au plus", tostring(fid), Mp.par_max(rec))
+      or ("champ en attente : " .. tostring(produced)), nil, nil, tick / 3600), true)
+  end
+  return fid
+end
+
 --- Une étape de décision (capitalisation, étape 11). cs = f.team.capi (cs.deps : gisements recensés) ; ctx = { power, crisis }.
 --- Rend le nombre de gisements relus.
 function Mega.think(f, cs, tick, ctx)
@@ -179,7 +200,10 @@ function Mega.think(f, cs, tick, ctx)
   local n = math.min(Mega.PER_THINK, #ids)
   for _ = 1, n do
     st.cursor = (st.cursor or 0) % #ids + 1
-    consider(f, st, cs.deps[ids[st.cursor]], tick, ctx or {}, on)
+    local dep = cs.deps[ids[st.cursor]]
+    consider(f, st, dep, tick, ctx or {}, on)
+    local rec = st.deps[dep.id]
+    if rec and rec.state == "decide" then order_field(f, st, dep, rec, tick) end
   end
   return n
 end
@@ -194,13 +218,14 @@ end
 
 --- Résumé pour les bancs : nombres seulement.
 function Mega.summary(f)
-  local out = { decided = 0, refused = 0, waiting = 0, furnaces = 0, lines = 0 }
+  local out = { decided = 0, refused = 0, waiting = 0, furnaces = 0, lines = 0, fields = 0 }
   local st = f and f.mega
   for _, id in ipairs(State.sorted_keys(st and st.deps or {})) do
     local rec = st.deps[id]
     if rec.state == "decide" or rec.state == "decide-attente" then
       out.decided = out.decided + 1
       out.furnaces, out.lines = out.furnaces + (rec.furnaces or 0), out.lines + (rec.lines or 0)
+      if rec.field then out.fields = out.fields + 1 end
     elseif rec.state == "refuse" then out.refused = out.refused + 1
     else out.waiting = out.waiting + 1 end
   end
