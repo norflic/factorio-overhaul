@@ -4,6 +4,7 @@
 ]]
 package.path = "./?.lua;" .. package.path
 local S = require("shared.ai3.sites_avance")
+S.ON = true -- la regle est eteinte par defaut : ce banc l'allume
 local passes, failures = 0, 0
 local QUIET = false
 local function check(c, m) if c then passes = passes + 1 else failures = failures + 1 if not QUIET then print("  ECHEC : " .. m) end end end
@@ -57,6 +58,7 @@ for _, m in ipairs(mutants) do
   else
     local chunk = load(src:sub(1, a - 1) .. m[3] .. src:sub(b + 1), "=mut", "t")
     local Sm = chunk and chunk()
+    if Sm then Sm.ON = true end
     if not Sm then check(false, "mutant illisible : " .. m[1])
     else
       local Sa = S

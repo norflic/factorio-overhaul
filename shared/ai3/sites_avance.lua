@@ -17,7 +17,7 @@
 
 local S = {}
 
-S.ON = true       -- faux : la règle d'avant (interrupteur du banc A/B)
+S.ON = false      -- ETEINT par defaut (fo-logs/2026-11-09_EXPLORATION-FER : 3 graines, demande de fer des 7 min mais 2e site pas plus tot, plaques a 94 % ; voir RD_LOG) ; vrai : la regle anticipee
 S.MIN_SITES = 2 -- sites admissibles connus voulus pour le type clé avant que le dernier soit pris
 
 --- Nombre de sites voulus d'avance pour le type clé (0 : la règle d'avant, rien d'anticipé).
