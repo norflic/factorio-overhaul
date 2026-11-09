@@ -5510,7 +5510,7 @@ remote.add_interface("fo-ia1d", {
   end,
   set_option = function(key, name, value)
     local f = team_of_key(key)
-    if not (f and f.build and (name == "seul" or name == "ghosts_ahead" or name == "sante" or name == "no_grow" or name == "no_lots" or name == "no_alim" or name == "no_sante" or name == "no_coupure" or name == "no_energie_dabord" or name == "no_tampon")) then return nil end -- no_coupure : coupe le chemin le plus court et le second chemin des poteaux perdus (lot ENERGIE 2/11, témoin des bancs) ; no_grow : coupe la croissance de la centrale (bancs) ; no_alim : coupe les foreuses de la centrale (lot CHARBON-CENTRALE, bancs) ; no_sante : coupe l'amorce à la main, la porte des consommateurs et l'avance de la centrale de plus (lot ENERGIE 2/11, témoin des bancs)
+    if not (f and f.build and (name == "seul" or name == "ghosts_ahead" or name == "sante" or name == "no_grow" or name == "no_lots" or name == "no_alim" or name == "no_sante" or name == "no_coupure" or name == "no_energie_dabord" or name == "no_combustible" or name == "no_tampon")) then return nil end -- no_coupure : coupe le chemin le plus court et le second chemin des poteaux perdus (lot ENERGIE 2/11, témoin des bancs) ; no_grow : coupe la croissance de la centrale (bancs) ; no_alim : coupe les foreuses de la centrale (lot CHARBON-CENTRALE, bancs) ; no_sante : coupe l'amorce à la main, la porte des consommateurs et l'avance de la centrale de plus (lot ENERGIE 2/11, témoin des bancs)
     f.build.opts[name] = value and true or false
     return f.build.opts[name]
   end,
