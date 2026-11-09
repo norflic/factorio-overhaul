@@ -60,10 +60,15 @@ function K.verifier(m, opt)
     if not r then e("rôle inconnu « %s »", tostring(p.role))
     else
       if r.classe == "machine" then
-        if p.w ~= p.h then e("machine %s non carrée (%d×%d)", p.role, p.w, p.h) end
         local ok = false
-        for _, t in ipairs(r.tailles) do if t == p.w then ok = true end end
-        if not ok then e("machine %s de taille %d non permise", p.role, p.w) end
+        if r.dims then
+          for _, d in ipairs(r.dims) do if d[1] == p.w and d[2] == p.h then ok = true end end
+          if not ok then e("machine %s de %d×%d non permise", p.role, p.w, p.h) end
+        else
+          if p.w ~= p.h then e("machine %s non carrée (%d×%d)", p.role, p.w, p.h) end
+          for _, t in ipairs(r.tailles) do if t == p.w then ok = true end end
+          if not ok then e("machine %s de taille %d non permise", p.role, p.w) end
+        end
       end
       if (r.classe == "tapis" or r.classe == "bras" or r.classe == "souterrain" or r.classe == "repartiteur") and p.dir == nil then
         e("pièce %s sans direction en (%d, %d)", p.role, p.x, p.y)
@@ -109,6 +114,15 @@ function K.verifier(m, opt)
       end
     end
     return nil
+  end
+  -- un tapis qui s'arrête devant un bras qui y prend est un bout de ligne voulu (alimentation d'une machine de tête)
+  local pris = {}
+  for _, p in ipairs(pieces) do
+    local r = D.ROLES[p.role]
+    if r and r.classe == "bras" and p.dir then
+      local prise = Cp.prise_depot(p)
+      pris[D.cle(prise[1], prise[2])] = true
+    end
   end
   local sorties_decl, entrees_decl = {}, {}
   for _, s in ipairs(m.sorties or {}) do sorties_decl[#sorties_decl + 1] = s end
@@ -160,7 +174,10 @@ function K.verifier(m, opt)
             local q = at(nx, ny)
             local rq = q and D.ROLES[q.role]
             if not (q and rq and (rq.classe == "tapis" or rq.classe == "souterrain" or rq.classe == "repartiteur")) then
-              e("%s en (%d, %d) mène à %s en (%d, %d)", p.role, x, y, q and q.role or "du vide", nx, ny)
+              -- un tapis d'entrée peut finir dans le vide (bout de ligne) ou devant le bras qui y prend
+              if not (p.role == "tapis_entree" and (q == nil or pris[D.cle(x, y)])) then
+                e("%s en (%d, %d) mène à %s en (%d, %d)", p.role, x, y, q and q.role or "du vide", nx, ny)
+              end
             elseif q.dir == opposite(p.dir) then
               e("%s en (%d, %d) fait face à %s en (%d, %d)", p.role, x, y, q.role, nx, ny)
             elseif q.role == "souterrain_sortie" then
@@ -169,7 +186,7 @@ function K.verifier(m, opt)
           else
             if p.role == "tapis_sortie" then
               if not est_sortie_decl(p, x, y, "out") then e("tapis de sortie %d quitte l'emprise en (%d, %d) sans sortie déclarée", p.k or 0, x, y) end
-            elseif p.role == "tapis" then
+            elseif p.role == "tapis" and not p.bout then
               e("tapis interne quitte l'emprise en (%d, %d)", x, y)
             end
           end
@@ -181,7 +198,7 @@ function K.verifier(m, opt)
             if not inside(bx, by) then
               if p.role == "tapis_entree" then
                 if not est_sortie_decl(p, x, y, "in") then e("tapis d'entrée %d démarre au bord en (%d, %d) sans entrée déclarée", p.k or 0, x, y) end
-              elseif p.role == "tapis" then
+              elseif p.role == "tapis" and not p.origine then
                 e("tapis interne démarre au bord en (%d, %d)", x, y)
               end
             else
@@ -260,7 +277,9 @@ function K.verifier(m, opt)
   end
   for key, b in pairs(boites) do
     local q = pieces[occ[key] or 0]
-    if q and (q.role == "tuyau" or q.role == "tuyau_souterrain") then
+    if q and q.role == "pompe" then
+      if q.fluide ~= b.tok then e("pompe de %s sur le raccord de %s (%d, %d) qui attend %s", tostring(q.fluide), b.piece.role, b.cell[1], b.cell[2], tostring(b.tok)) end
+    elseif q and (q.role == "tuyau" or q.role == "tuyau_souterrain") then
       if not b.tok then e("tuyau sur le raccord inutilisé (%d, %d) de %s", b.cell[1], b.cell[2], b.piece.role)
       elseif q.fluide ~= b.tok then e("tuyau de %s sur le raccord de %s (%d, %d) qui attend %s", tostring(q.fluide), b.piece.role, b.cell[1], b.cell[2], tostring(b.tok)) end
     elseif b.tok and not (q and q.role == "tuyau") then
@@ -311,9 +330,9 @@ function K.verifier(m, opt)
     if #poteaux == 0 then e("aucun poteau")
     else
       for _, p in ipairs(pieces) do
-        if D.alimente(p.role, p) and p.bloc == "tuile" and p.tuile == cible then
+        if D.alimente(p.role, p) and ((p.bloc == "tuile" and p.tuile == cible) or p.bloc == "tete" or p.bloc == "queue") then
           local ok = false
-          for _, q in ipairs(propres) do
+          for _, q in ipairs(p.bloc == "tuile" and propres or poteaux) do
             local cx, cy = q.x + 0.5, q.y + 0.5
             if p.x < cx + spec.supply and p.x + p.w > cx - spec.supply and p.y < cy + spec.supply and p.y + p.h > cy - spec.supply then ok = true; break end
           end
@@ -339,7 +358,7 @@ function K.verifier(m, opt)
   -- raccords de fluide déclarés
   for _, f in ipairs(m.fluides or {}) do
     local q = at(f.x, f.y)
-    if not (q and (q.role == "tuyau" or q.role == "tuyau_souterrain") and q.fluide == f.jeton) then
+    if not (q and (q.role == "tuyau" or q.role == "tuyau_souterrain" or q.role == "pompe") and q.fluide == f.jeton) then
       e("raccord de fluide %s déclaré en (%d, %d) absent (%s)", tostring(f.jeton), f.x, f.y, q and (q.role .. ":" .. tostring(q.fluide)) or "vide")
     end
   end

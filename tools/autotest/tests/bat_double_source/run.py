@@ -45,12 +45,12 @@ benchmark.log ; le faux fo-visual.bat rend FAKE_VISUAL_RC, 0 par défaut) :
      (7, 4) garde son propre code. Sans benchmark.log (cas 9a, 13a) : 0, comme avant.
 Cas de la place du banc (lot BANC2 : FO_PLACE, plusieurs bancs en même temps) :
  15. FO_PLACE=1 ou vide : place 1, comme sans variable (fo-autotest, fo-autotest.lock) ;
- 16. FO_PLACE=2 et 3 : tout dans fo-autotest-N (config.ini, write-data, journal, done.txt, seed.txt), le fo-autotest\\
+ 16. FO_PLACE=2 à 6 (4 à 6 : lot BANC-PLACES) : tout dans fo-autotest-N (config.ini, write-data, journal, done.txt, seed.txt), le fo-autotest\\
      de la place 1 intact, aucun verrou restant ; avec FO_AUDIO=1, la sortie disk dans fo-autotest-N ; en double source
      aussi ; verrou fo-autotest-2.lock déjà pris : code 2, rien n'a tourné ; fo-autotest.lock pris (place 1 occupée) :
      la place 2 tourne quand même ; FO_LOCK_HELD=2 avec le verrou de la place 2 tenu par l'appelant : tourne, verrou
-     laissé à l'appelant ; FO_LOCK_HELD=1 (ou 2 pour la place 3, ou « x ») : code 3, rien n'a tourné ;
- 17. FO_PLACE refusée (0, 4, 02, « 2 » suivi d'une espace, espace puis 2, lettre, « % », guillemet et « & »
+     laissé à l'appelant ; FO_LOCK_HELD=1 (ou 2 pour la place 3, 5 pour la place 6, ou « x ») : code 3, rien n'a tourné ;
+ 17. FO_PLACE refusée (0, 7, 8, 02, 06, « 2 » suivi d'une espace, espace puis 2, lettre, « % », guillemet et « & »
      d'injection) : code 3, rien n'a tourné, aucun dossier fo-autotest-N, aucun verrou, aucune commande injectée ;
  18. par fo-captures.bat : FO_PLACE=2 héritée donne le code 8 (le banc refuse, code 3 : fo-captures.bat tient le verrou
      de la place 1), session visuelle NON lancée, aucun dossier fo-autotest-2 ; FO_PLACE=1 : code 0, comme avant.
@@ -360,7 +360,7 @@ def main():
               and seed_passed(r, DEFAULT_SEED) and r["bench"] and '"0.4.2"' in r["bench"] and "Place " not in r["stdout"]
               and "/fo-autotest/write" in r["config"],
               "%s. FO_PLACE=[%s] : place 1, comme sans variable" % (tag, val), r)
-    for n in (2, 3):
+    for n in (2, 3, 4, 5, 6):
         r = run_case(base, a.bat, bins, "16 place %d" % n, False, {"FO_PLACE": str(n)}, previous=True, place=n)
         check(r["rc"] == 0 and r["done"] and r["prev_text"] == "ancien" and r["locks"] == []
               and r["dirs"] == ["fo-autotest", "fo-autotest-%d" % n] and audio_off(r) and seed_passed(r, DEFAULT_SEED)
@@ -386,13 +386,13 @@ def main():
                  pre=("fo-autotest-2.lock",))
     check(r["rc"] == 0 and r["done"] and r["locks"] == ["fo-autotest-2.lock"],
           "16.8 FO_PLACE=2, FO_LOCK_HELD=2 (verrou tenu par l'appelant) : tourne, verrou laisse a l'appelant", r)
-    for tag, plc, held in (("16.9", "2", "1"), ("16.10", "3", "2"), ("16.11", "2", "x")):
+    for tag, plc, held in (("16.9", "2", "1"), ("16.10", "3", "2"), ("16.11", "2", "x"), ("16.12", "6", "5"), ("16.13", "4", "1")):
         r = run_case(base, a.bat, bins, tag + " verrou d'une autre place", False,
                      {"FO_PLACE": plc, "FO_LOCK_HELD": held}, previous=True, place=int(plc))
         check(r["rc"] == 3 and r["create_out"] is None and r["prev_text"] == "ancien" and r["locks"] == []
               and r["dirs"] == ["fo-autotest"] and "FO_LOCK_HELD" in r["stdout"],
               "%s FO_PLACE=%s avec FO_LOCK_HELD=%s : code 3, rien n'a tourne" % (tag, plc, held), r)
-    bad_place = ["0", "4", "02", "2 ", " 2", "a", "%CD%", '2" & echo PIEGE> piege5.txt & rem "',
+    bad_place = ["0", "7", "8", "06", "02", "2 ", " 2", "a", "%CD%", '2" & echo PIEGE> piege5.txt & rem "',
                  "2&echo PIEGE>piege6.txt"]
     for i, given in enumerate(bad_place):
         r = run_case(base, a.bat, bins, "17%02d place refusee" % i, False, {"FO_PLACE": given}, previous=True)

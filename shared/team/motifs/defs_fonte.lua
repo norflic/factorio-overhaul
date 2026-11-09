@@ -265,4 +265,41 @@ L[#L + 1] = {
   chaines = { { amont = "amont", aval = "aval", jeton = "M" } },
 }
 
+---------------------------------------------------------------------------------------------------
+-- 4. Fusion des deux sorties en queue (Fonderie.png : les deux tapis de plaques se rejoignent au bout de la colonne)
+---------------------------------------------------------------------------------------------------
+-- Le tapis du haut descend, celui du bas monte, tous deux entrent par les côtés d'un même tapis : l'un remplit sa voie 1, l'autre sa voie 2.
+-- Le tapis d'entrée du milieu s'arrête devant la queue (bout de ligne). Une seule sortie à l'est.
+local function fusion(src_id, mid, note)
+  local src
+  for _, d in ipairs(L) do if d.id == src_id then src = d end end
+  local H = #src.art
+  local d = {}
+  for k, v in pairs(src) do d[k] = v end
+  d.legende = {}
+  for k, v in pairs(src.legende) do d.legende[k] = v end
+  d.legende.T, d.legende.V, d.legende.U, d.legende.A = h.tapis(E), h.tapis(S), h.tapis(N), h.sortie(3, E)
+  d.id = src_id .. "-fusion"
+  d.usages = { "fonte", "acier", "sortie-unique" }
+  d.origine = "ref_dc"
+  d.nom_fr = src.nom_fr .. ", sorties fusionnées en queue"
+  d.nom_en = src.nom_en .. ", outputs merged at the tail"
+  d.note_fr = note
+  local rows = {}
+  for y = 0, H - 1 do
+    if y == 0 then rows[#rows + 1] = "TV."
+    elseif y < mid then rows[#rows + 1] = ".V."
+    elseif y == mid then rows[#rows + 1] = ".TA"
+    elseif y < H - 1 then rows[#rows + 1] = ".U."
+    else rows[#rows + 1] = "TU." end
+  end
+  d.queue = { art = rows }
+  d.sorties = { { k = 3, cote = "E", pos = mid, jetons = { P = { 1, 2 } } } }
+  d.sorties_internes = { { k = 1, jetons = { P = { 1 } } }, { k = 2, jetons = { P = { 2 } } } }
+  L[#L + 1] = d
+end
+fusion("fonte-2x2-double-central", 5, "Comme la colonne de référence du DC, avec la queue de Fonderie.png : les deux tapis de plaques rejoignent par les côtés un seul tapis "
+  .. "de sortie (plaques du haut sur la voie 1, du bas sur la voie 2), au bout de la colonne ; le tapis du milieu s'arrête devant la queue.")
+fusion("fonte-3x3-double-central", 6, "Colonne électrique à fours de côté 3 avec la même queue : les deux tapis de plaques se fusionnent en un seul tapis de sortie à l'est.")
+
 return L
