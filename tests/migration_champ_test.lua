@@ -2189,5 +2189,58 @@ do
   print(string.format("[MIGRATION-CHAMP] AZURE : exécutant, mutants %d refusés sur %d", caught, #muts))
 end
 
+do
+  -- W3. Lot COUT-600 : le plan du cadre (Champ.frame), sa vérification (Champ.flush) et la première bande (Champ.band) ont chacun leur pensée
+  -- (mesure : 11,7 M + 4,7 M + 1,0 M d'instructions sur un champ de 600 %, budget d'une pensée 0,6 M)
+  section("W3. cadre, vérification du cadre et première bande dans trois pensées (lot COUT-600)")
+  local function run_w3(mutant, lost)
+    local E = executor_run({ pairs = 8, mutant = mutant })
+    local Mig, f, o = E.Mig, E.f, E.o
+    local Ch = package.loaded["script.team.champ"]
+    local saved = { data = Ch.data, pole = Ch.powered_pole, frame = Ch.frame, band = Ch.band, flush = Ch.flush }
+    local calls, pending = {}, 0
+    Ch.data = function() return { stub = true }, {} end
+    Ch.powered_pole = function() return { x = 0, y = 0 } end
+    Ch.frame = function() calls[#calls + 1] = "frame"; pending = 1; return { axis = "x", design = "colonne" }, { 1 }, {} end
+    Ch.band = function() calls[#calls + 1] = "band"; return nil, "essai" end
+    Ch.flush = function() if lost then return false end if pending > 0 then pending = pending - 1; calls[#calls + 1] = "flush"; return true end return false end
+    local res = T.outposts.iron.resource
+    local tick = 1000
+    Mig.want(f, { id = "a", resource = res, tiles = 300, x0 = o.pos.x - 10, y0 = o.pos.y - 10, x1 = o.pos.x + 10, y1 = o.pos.y + 10, cx = o.pos.x, cy = o.pos.y }, tick)
+    game.tick = tick
+    E.think()
+    local after1 = table.concat(calls, ",")
+    E.think()
+    local after2 = table.concat(calls, ",")
+    E.think()
+    local after3 = table.concat(calls, ",")
+    Ch.data, Ch.powered_pole, Ch.frame, Ch.band, Ch.flush = saved.data, saved.pole, saved.frame, saved.band, saved.flush
+    return after1, after2, after3
+  end
+  local a1, a2, a3 = run_w3(nil)
+  check(a1 == "frame", "W3 : la première pensée planifie le cadre et rien d'autre (" .. a1 .. ")")
+  check(a2 == "frame,flush", "W3 : la deuxième ne fait que la vérification du cadre (" .. a2 .. ")")
+  check(a3 == "frame,flush,band", "W3 : la troisième demande la première bande (" .. a3 .. ")")
+  -- partie rechargée entre les deux pensées : les attentes locales sont perdues (Champ.flush ne trouve rien) ; la pensée de la vérification reste une
+  -- pensée à part (drapeau de global), comme dans la partie continuée
+  local l1, l2, l3 = run_w3(nil, true)
+  check(l1 == "frame" and l2 == "frame" and l3 == "frame,band", "W3 : attentes perdues par un chargement : même suite de pensées (" .. l1 .. " | " .. l2 .. " | " .. l3 .. ")")
+  local function mutsrc3(old, new)
+    return function(src)
+      local i, j = src:find(old, 1, true)
+      assert(i, "mutant introuvable : " .. old:sub(1, 50))
+      return src:sub(1, i - 1) .. new .. src:sub(j + 1)
+    end
+  end
+  local m1 = { run_w3(mutsrc3("    return false\n  end\n  local bad = {}", "  end\n  local bad = {}")) }
+  check(m1[1] ~= "frame", "W3 : mutant refusé : la première bande part dans la pensée du cadre (" .. m1[1] .. ")")
+  local m2 = { run_w3(mutsrc3("    Champ.flush(f) -- (journal seulement : la perte des attentes par un chargement ne change aucune décision)\n", "")) }
+  check(m2[2] ~= "frame,flush", "W3 : mutant refusé : la vérification du cadre n'est jamais appelée par la migration (" .. m2[2] .. ")")
+  local m3 = { run_w3(mutsrc3("ne change aucune décision)\n    return 0\n  end", "ne change aucune décision)\n  end")) }
+  check(m3[2] ~= "frame,flush", "W3 : mutant refusé : la vérification partage sa pensée avec le reste (" .. m3[2] .. ")")
+  local m4 = { run_w3(mutsrc3("    ms.verify_due = true -- lu par Mig.think (drapeau de global : la pensée suivante est celle de la vérification, même après un chargement)\n", "")) }
+  check(m4[2] ~= "frame,flush", "W3 : mutant refusé : drapeau de global jamais levé (" .. m4[2] .. ")")
+end
+
 print(string.format("[MIGRATION-CHAMP] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

@@ -132,7 +132,7 @@ local muts = {
   { "presque finie ignoree", "if (c.total or 0) > 0 and (c.built or 0) >= cfg.near_done * c.total then return \"rien\", \"presque-finie\" end", "" },
   { "presque finie exclusive", "(c.built or 0) >= cfg.near_done * c.total then", "(c.built or 0) > cfg.near_done * c.total then" },
   { "seuil a 80 %", "near_done = 0.9,", "near_done = 0.8," },
-  { "stall inclusif", "if (c.stalled or 0) >= cfg.stall then", "if (c.stalled or 0) > cfg.stall then" },
+  { "stall inclusif", "if (c.stalled or 0) >= ((c.fuel_low and cfg.stall_fuel) or cfg.stall) then", "if (c.stalled or 0) > ((c.fuel_low and cfg.stall_fuel) or cfg.stall) then" },
   { "ligne produite ignoree", "if c.produced then return \"rien\", \"produit\" end", "" },
   { "abandon ignore", "if c.abandon then return \"retour\", \"abandon\" end", "" },
   { "pas de paire", "if (c.undo or 0) == 0 then return \"rien\", \"sans-paire\" end", "" },

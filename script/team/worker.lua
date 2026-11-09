@@ -867,8 +867,8 @@ function Worker.program(f, task, surface, tick)
       local last = f.stats.mine_none[task.resource]
       if not last or tick - last >= 3600 then
         f.stats.mine_none[task.resource] = tick
-        log(string.format("[FO-TEAM] %s : minage a la main de '%s' sans tuile libre ni sure (rayon %d, %d entite(s) trouvee(s)) a %.1f min",
-          f.key or "?", tostring(task.resource), task.radius or 96, #res, tick / 3600))
+        log(string.format("[FO-TEAM] %s : minage a la main de '%s' sans tuile libre ni sure (rayon %d, %d entite(s) trouvee(s)) a %.1f min (tache %s : fond %s, prudent %s, sure %s)",
+          f.key or "?", tostring(task.resource), task.radius or 96, #res, tick / 3600, tostring(task.key), tostring(task.fond == true), tostring(task.prudent == true), tostring(task.safe == true)))
       end
       return nil
     end
