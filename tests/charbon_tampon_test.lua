@@ -181,6 +181,41 @@ do
   check(#out == 0 and #LOGS == 1 and LOGS[1]:find("SANS charbon", 1, true), "tampon sous la garde : ancien verdict, la cause au journal")
 end
 
+-- 3 bis. quai de COMBUSTIBLE d'une colonne de champ (lot COMBUSTIBLE-MIGRATION : q.flow = objets/s brûlés par ses fours) : seuil et cible à la consommation
+do
+  LOGS = {}
+  local ft3 = team({})
+  local pc = { id = 5, spec = { site = "champ", prio = 52 }, state = "fini", prio = 52, outs = {}, parts = {}, ents = {},
+    quais = { { x = 10.5, y = 4.5, item = "coal", flow = 0.5 } } }
+  ft3.build.projects[5] = pc
+  W.stock, W.chest = 1000, 100
+  local out = {}
+  X.quai_tasks(ft3, pc, surface, out)
+  check(#out == 1 and out[1].prio == Cc0.PRIO and out[1].no_rush and out[1].items and out[1].items[1][2] == 500, "quai a flow, 100 charbons < 120 (0,5/s x 240 s) : tache URGENTE, cible 600 (500 a porter)")
+  W.chest = 130
+  out = {}
+  X.quai_tasks(ft3, pc, surface, out)
+  check(#out == 0, "quai a flow au-dessus du seuil a la consommation : rien (l'ancien seuil fixe 60 ne l'aurait pas vu non plus)")
+  local pc2 = { id = 6, spec = { site = "champ", prio = 52 }, state = "fini", prio = 52, outs = {}, parts = {}, ents = {},
+    quais = { { x = 10.5, y = 4.5, item = "coal" } } }
+  ft3.build.projects[6] = pc2
+  W.chest = 100
+  out = {}
+  X.quai_tasks(ft3, pc2, surface, out)
+  check(#out == 0, "quai SANS flow : l'ancienne regle (seuil fixe 60), 100 charbons : rien")
+  W.chest = 50
+  out = {}
+  X.quai_tasks(ft3, pc2, surface, out)
+  check(#out == 1 and out[1].prio == 55, "quai SANS flow sous le seuil fixe : priorite du projet + 3")
+  local ft4, pc4 = team({ [3] = { id = 3, kind = "coal", sinks = { sink(OUT.sink, 50, 0, 300) } } })
+  pc4.parts, pc4.quais, pc4.ents, pc4.id = {}, { { x = 10.5, y = 4.5, item = "coal", flow = 0.5 } }, {}, 5
+  ft4.build.projects[5] = pc4
+  W.stock, W.chest = 0, 40
+  out = {}
+  X.quai_tasks(ft4, pc4, surface, out)
+  check(#out == 1 and out[1].ia1d.depot ~= nil, "quai a flow, QG sans charbon : le tampon d'un avant-poste de charbon le remplit")
+end
+
 -- chaîne statique : le programme à dépôt du travailleur
 local wf = assert(io.open("script/team/worker.lua", "rb"))
 local wsrc = wf:read("*a")
