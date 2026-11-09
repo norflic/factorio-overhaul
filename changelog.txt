@@ -20,6 +20,7 @@ Date: 2026-11-09
     - Charbon (F445) : la centrale ne prend plus au QG le charbon réservé aux tournées des brûleurs ; plus de brûleurs à sec pendant que la centrale accapare le coffre.
     - Arbre de décision (F446) : phases early / mid / late lues aux données ; hors amorçage, des foreuses électriques qui dorment au coffre interdisent toute foreuse thermique ; règle du meilleur choix disponible avec repli et marquage rétrofit.
     - Scans (F447) : impulsions toutes les 3 minutes et réveils événementiels (recherche finie, palier de stock, coupure d'énergie, famine) sur des voies disjointes par équipe ; journal [FO-SCAN].
+    - Boxes (F448) : gisements, fonderies, mall et énergie modélisés en boxes avec statut MAXED ; une box MAXED est ignorée par les scans jusqu'à épuisement ou déblocage de recherche ; journal [FO-BOX].
     - Fer en famine : l'avant-poste de la plaque clé n'est plus marqué plein par une migration qui n'a pas commencé, et s'agrandit avant sa tourelle (sauf site meurtrier).
     - Charbon : les tuiles du réseau de charbon d'une bande sont réservées dès la création du cadre ; remplissage urgent des quais de combustible.
 ---------------------------------------------------------------------------------------------------
