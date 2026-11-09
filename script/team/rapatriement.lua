@@ -501,12 +501,22 @@ local function pole_probe(f, surface, x, y, r)
   for _, e in ipairs(surface.find_entities_filtered({ position = { x, y }, radius = r, type = "electric-pole", force = f.force })) do
     list[#list + 1] = { e.position.x, e.position.y }
   end
-  return function(tx, ty, reach)
+  local function probe(tx, ty, reach)
     for _, q in ipairs(list) do
       if (q[1] - tx - 0.5) ^ 2 + (q[2] - ty - 0.5) ^ 2 <= reach * reach then return true end
     end
     return false
   end
+  -- lot BUS-FER (diagnostic) : nombre de poteaux lus et distance du plus proche à (tx, ty)
+  local function nearest(tx, ty)
+    local best
+    for _, q in ipairs(list) do
+      local d2 = (q[1] - tx - 0.5) ^ 2 + (q[2] - ty - 0.5) ^ 2
+      if not best or d2 < best then best = d2 end
+    end
+    return #list, best and math.floor(math.sqrt(best) + 0.5) or -1
+  end
+  return probe, nearest
 end
 
 --- Recherches de chemin en cours, par équipe puis par projet. MÉMOIRE LOCALE (jamais dans global) : une recherche est une fonction pure de la carte,
@@ -657,7 +667,7 @@ local function stage_spots(f, surface, b, p, J)
   if J.reuse then
     J.spots = { { x = J.reuse.x, y = J.reuse.y } }
   else
-    local at_tam = pole_probe(f, surface, J.px, J.py, Rp.SPOT_RADIUS + near + 4)
+    local at_tam, tam_near = pole_probe(f, surface, J.px, J.py, Rp.SPOT_RADIUS + near + 4)
     local geom = { pitch = P.PITCH, lot = P.LOT, half = P.HALF }
     -- le coffre tampon au BORD d'une rue (Rp.street_edge) : ni au milieu d'un lot (le module veut son rectangle entier), ni au milieu de la rue
     -- (marche des PNJ) ; repli : n'importe quelle tuile libre hors rue
@@ -673,7 +683,26 @@ local function stage_spots(f, surface, b, p, J)
     end
     J.spots = Rp.pick_spots(J.px, J.py, function(x, y) return free_chest(x, y, true) end, Rp.SPOT_TRIES)
     if #J.spots == 0 then J.spots = Rp.pick_spots(J.px, J.py, function(x, y) return free_chest(x, y, false) end, Rp.SPOT_TRIES) end
-    if #J.spots == 0 then return "rapatriement: aucune place pour le tampon a portee d'un poteau" end
+    if #J.spots == 0 then
+      -- lot BUS-FER : la CAUSE du refus (poteaux lus autour du point voulu, le plus proche, portée exigée ; tuiles du carré de recherche par cause)
+      local n_p, d_p = tam_near(J.px, J.py)
+      local why = { hors = 0, garde = 0, defriche = 0, rue = 0, poteau = 0, libre = 0 }
+      local R = Rp.SPOT_RADIUS
+      for dx = -R, R do
+        for dy = -R, R do
+          local x, y = J.px + dx, J.py + dy
+          local c, k = J.ground(x, y)
+          if not c then why.hors = why.hors + 1 -- (hors de la boite, eau, bloque ou deja pris par un projet)
+          elseif J.guard[k] then why.garde = why.garde + 1
+          elseif c.clear[k] then why.defriche = why.defriche + 1
+          elseif P.in_street(b.lat, x, y) then why.rue = why.rue + 1
+          elseif not at_tam(x, y, near) then why.poteau = why.poteau + 1
+          else why.libre = why.libre + 1 end
+        end
+      end
+      return string.format("rapatriement: aucune place pour le tampon a portee d'un poteau [point (%d, %d), %d poteau(x) lus dans %d tuiles, le plus proche a %d, portee exigee %.1f ; tuiles : hors %d, garde %d, a defricher %d, rue %d, sans poteau %d, libres %d]",
+        J.px, J.py, n_p, Rp.SPOT_RADIUS + near + 4, d_p, near, why.hors, why.garde, why.defriche, why.rue, why.poteau, why.libre)
+    end
   end
   if #Li.sites(J.S.x, J.S.y, J.free) == 0 then
     -- lot BUS-FER : la CAUSE par tuile du refus (bras puis tapis, dans l'ordre N E S O)
