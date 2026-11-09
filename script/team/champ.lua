@@ -1004,6 +1004,7 @@ function Champ.report(f, surface, tick)
   local bad = {} -- bandes finies dont une pièce manque au terrain (détruite) ou dont des foreuses sont figées : détail par projet
   local S = defines.entity_status
   local tapis_on, nopow_logs = Champ.tapis(), 0
+  local vlogs = 0 -- lot COMBUSTIBLE-MIGRATION : lignes [FO-CHAMP-VOIE] de ce relevé
   for _, pid in ipairs(b.order) do
     local p = b.projects[pid]
     if p and p.spec and p.spec.champ then
@@ -1014,7 +1015,7 @@ function Champ.report(f, surface, tick)
       if p.state == "reserve" then
         for _, m in ipairs(p.missing or {}) do miss[m[1]] = (miss[m[1]] or 0) + (m[2] or 0) end
       end
-      local pd = { lost = {}, stuck = 0, noin = 0, armoff = 0 }
+      local pd = { lost = {}, stuck = 0, noin = 0, armoff = 0, fn = 0, fnofuel = 0 }
       for _, e in ipairs(p.ents) do
         if e.built and not e.skipped and not e.dropped and p.state == "fini" and not (e.role == "champ-foreuse" or e.role == "champ-four") then
           local ent = surface.find_entity(e.name, { e.x, e.y })
@@ -1032,10 +1033,42 @@ function Champ.report(f, surface, tick)
               elseif s == S.no_power or s == S.low_power then d.nopow = d.nopow + 1 end
             else
               fu.n = fu.n + 1
+              pd.fn = pd.fn + 1
+              if s == S.no_fuel then pd.fnofuel = pd.fnofuel + 1 end
               if s == S.working then fu.run = fu.run + 1 elseif s == S.no_ingredients then fu.noin = fu.noin + 1; pd.noin = pd.noin + 1
               elseif s == S.no_fuel then fu.nofuel = fu.nofuel + 1 elseif s == S.full_output then fu.full = fu.full + 1 end
             end
           end
+        end
+      end
+      -- lot COMBUSTIBLE-MIGRATION : état de la VOIE DE CHARBON du projet (tapis posés, avec du charbon, vides ; foreuses du charbon) et fours sans combustible
+      -- de sa bande : lecture seule, une ligne par projet qui porte du charbon ou des fours, 8 lignes au plus par relevé (cause des fours à sec des fins de partie)
+      if vlogs < 8 then
+        local planned, belts, withc, empty, dr, drun, dstuck = 0, 0, 0, 0, 0, 0, 0
+        for _, e in ipairs(p.ents) do
+          if e.role == "champ-charbon" and not e.skipped and not e.dropped then
+            planned = planned + 1
+            if e.built then
+              local ent = surface.find_entity(e.name, { e.x, e.y })
+              if ent and ent.valid then
+                local ty = ent.type
+                if ty == "transport-belt" or ty == "underground-belt" then
+                  belts = belts + 1
+                  local n = ent.get_transport_line(1).get_item_count() + ent.get_transport_line(2).get_item_count()
+                  if n > 0 then withc = withc + 1 else empty = empty + 1 end
+                elseif ty == "mining-drill" then
+                  dr = dr + 1
+                  if ent.status == S.working then drun = drun + 1 elseif ent.status == S.waiting_for_space_in_destination then dstuck = dstuck + 1 end
+                end
+              end
+            end
+          end
+        end
+        if planned > 0 or pd.fn > 0 then
+          vlogs = vlogs + 1
+          log(string.format("[FO-CHAMP-VOIE] %s min %.0f | projet %d (%s, %s) : voie de charbon : %d pieces au plan, tapis poses %d (avec du charbon %d, vides %d), foreuses de charbon %d (en marche %d, bloquees sortie pleine %d) ; fours de la bande %d, sans combustible %d",
+            f.key or "player", tick / 3600, pid, p.state, p.spec.champ.coal and ("reseau du charbon cote " .. (p.spec.champ.coal > 0 and "+" or "-")) or ("bande " .. tostring(p.spec.champ.pr)),
+            planned, belts, withc, empty, dr, drun, dstuck, pd.fn, pd.fnofuel))
         end
       end
       -- lot FONDERIE (3/11) : consommateurs électriques posés SANS courant, chantier compris (lot7bis-20261020 : 15 à 22 bras hors réseau

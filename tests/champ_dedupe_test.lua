@@ -41,6 +41,8 @@ local i = src:find("if cut > 0 then", 1, true)
 local blk = i and src:sub(i, i + 2200) or ""
 check(blk:find("if waiting then return nil", 1, true) ~= nil, "l'attente rend « attendre » (3e valeur vraie), pas un refus définitif")
 
+check(src:find("[FO-CHAMP-VOIE]", 1, true) ~= nil and src:find("vlogs < 8", 1, true) ~= nil, "relevé de la voie de charbon par projet (borné à 8 lignes)")
+
 local function load_with(path, from, to)
   local s = read(path)
   local a, b = s:find(from, 1, true)
