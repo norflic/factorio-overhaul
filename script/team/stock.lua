@@ -188,6 +188,39 @@ function Stock.count(f, item)
   return n
 end
 
+-- DIAGNOSTIC (lot DEFENSE-AP, journal seul, aucune décision ne le lit) : où va la plaque de fer de votre équipe ? Chaque retrait
+-- est compté par minute sous « fichier:ligne de l'appelant » et la tâche en cours (`Stock.ctx`, posée par Worker au pas « take »).
+-- Compteur de module (jamais dans `global`) : une session rechargée repart de zéro, sans effet sur le jeu.
+local FER = {} -- par équipe : { acc = { ["fichier:ligne/tâche"] = n }, minute = n }
+local function fer_flush(f, st, minute)
+  local rows = {}
+  for k, v in pairs(st.acc) do rows[#rows + 1] = { k = k, n = v } end
+  table.sort(rows, function(a, b) if a.n ~= b.n then return a.n > b.n end return a.k < b.k end)
+  local out, tot = {}, 0
+  for i, r in ipairs(rows) do
+    tot = tot + r.n
+    if i <= 8 then out[#out + 1] = r.k .. "=" .. r.n end
+  end
+  if tot > 0 then
+    log(string.format("[FO-FER-SORTIE] %s minute %d : %d plaque(s) de fer sorties du coffre | %s", f.key or "player", minute, tot,
+      table.concat(out, " ; ")))
+  end
+  st.acc = {}
+end
+local function fer_note(f, item, got)
+  if got <= 0 or item ~= T.outposts.iron.product then return end
+  local key = f.key or "player"
+  local st = FER[key]
+  if not st then st = { acc = {} } FER[key] = st end
+  local minute = math.floor(game.tick / 3600)
+  if st.minute and minute ~= st.minute then fer_flush(f, st, st.minute) end
+  st.minute = minute
+  local info = debug.getinfo(3, "Sl")
+  local at = info and (((info.short_src or "?"):gsub("^.*[/\\]", "")) .. ":" .. (info.currentline or 0)) or "?"
+  local k = at .. "/" .. (Stock.ctx or "-")
+  st.acc[k] = (st.acc[k] or 0) + got
+end
+
 --- Retire jusqu'à `n` objets (coffre du QG d'abord) ; rend le nombre retiré.
 function Stock.remove(f, item, n)
   local got = f.hq.remove_item({ name = item, count = n })
@@ -197,6 +230,7 @@ function Stock.remove(f, item, n)
       if got >= n then break end
     end
   end
+  fer_note(f, item, got)
   return got
 end
 
