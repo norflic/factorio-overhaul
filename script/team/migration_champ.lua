@@ -1210,7 +1210,17 @@ local function step_build(f, surface, ms, o, st, tick)
       st.pg = Rb.progress(st.pg, nb, tick)
     end
     local ab = (act == "abandonner" or act == "perdu")
-    local dec, rwhy = Rb.decide({ undo = #st.undo, produced = false, state = p and p.state or nil, stalled = Rb.stalled(st.pg, tick), abandon = ab })
+    local nb_built, nb_total = 0, 0
+    for _, e in ipairs(p and p.ents or {}) do
+      nb_total = nb_total + 1
+      if e.built then nb_built = nb_built + 1 end
+    end
+    local dec, rwhy = Rb.decide({ undo = #st.undo, produced = false, state = p and p.state or nil, stalled = Rb.stalled(st.pg, tick), abandon = ab,
+      built = nb_built, total = nb_total }) -- (9/11 : une bande bâtie à 90 % ou plus est finie, pas reposée)
+    if rwhy == "presque-finie" then
+      say_why(f, ms, st, "presque-finie", string.format("avant-poste %d : projet %d bati a %d/%d, sans progres : on le finit (pas de retour en arriere)", o.id, st.pid,
+        nb_built, nb_total), true)
+    end
     if dec == "retour" then
       local res = rollback(f, surface, ms, o, st, p, tick, rwhy, ab)
       if res == "reserve" then return end
@@ -1842,13 +1852,16 @@ function Mig.think(f, surface, book, free, tick, hold)
   if ahead_step(f, surface, ms, free, book, tick, hold) > 0 then did = 1 end -- lot MEGA-FONDERIE (A2)
   Profiler.fstop("mig:avance")
   -- un créneau libre : trois au plus, un seul par minerai (lot THERMIQUE ; lot CHAMP : deux), la migration du treillis (sans cadre) seule
-  local busy = { total = 0, ids = {} }
+  local busy = { total = 0, ids = {}, key = "iron", stuck = {} } -- (9/11 : key = la plaque clé ; stuck = chantiers bloqués par leurs matières, Th.free_slot)
   for _, slot in ipairs(SLOTS) do
     local id = ms[slot]
     if id then
       local q = Champ.target(f, id)
       busy.total, busy.ids[id] = busy.total + 1, true
       if q then busy[q.kind] = (busy[q.kind] or 0) + 1 end
+      local sq = ms.o[id]
+      local pq = sq and sq.pid and f.build.projects[sq.pid]
+      if q and sq and pq and Th.band_stuck(pq.state, pq.reason, tick - (sq.t0 or tick)) then busy.stuck[q.kind] = (busy.stuck[q.kind] or 0) + 1 end
       if not (ms.o[id] and ms.o[id].frame) then return did end
     end
   end

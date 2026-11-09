@@ -52,6 +52,16 @@ local function run(R)
     and d({ undo = 8, stalled = 99 * MIN, state = "fini", abandon = true }) == "retour"            -- ... sauf abandon
     and d({ undo = 8, stalled = 99 * MIN, state = nil }) == "retour"                               -- projet perdu et sans progres
     and d({ undo = 8, stalled = 20 * MIN, state = "bloque" }) == "retour"
+  -- 7 bis. bande presque finie (>= 90 %) : chantier lent => on la finit ; en dessous, retour ; abandon : toujours retour
+  r.c7b = d({ undo = 8, stalled = 20 * MIN, state = "chantier", built = 90, total = 100 }) == "rien"
+    and d({ undo = 8, stalled = 20 * MIN, state = "chantier", built = 89, total = 100 }) == "retour"
+    and d({ undo = 8, stalled = 20 * MIN, state = "chantier", built = 43, total = 47 }) == "rien"
+    and d({ undo = 8, stalled = 20 * MIN, state = "chantier", built = 95, total = 95 }) == "rien"
+    and d({ undo = 8, stalled = 20 * MIN, state = "chantier" }) == "retour"                                  -- sans comptes : comme avant
+    and d({ undo = 8, stalled = 20 * MIN, state = "chantier", built = 0, total = 0 }) == "retour"
+    and d({ undo = 8, abandon = true, state = "chantier", built = 99, total = 100 }) == "retour"             -- abandon : retour malgre tout
+  local _, wnd = R.decide({ undo = 8, stalled = 20 * MIN, state = "chantier", built = 91, total = 100 })
+  r.c7b = r.c7b and wnd == "presque-finie"
   -- 8. raisons
   local _, w1 = R.decide({ undo = 8, stalled = 20 * MIN, state = "chantier" })
   local _, w2 = R.decide({ undo = 8, abandon = true })
@@ -103,6 +113,7 @@ end
 local R = require("shared.team.migration_retour")
 local res = run(R)
 for i = 1, 13 do check(res["c" .. i], "cas " .. i) end
+check(res.c7b, "cas 7 bis : bande presque finie (>= 90 %) jamais reposee en chantier lent")
 
 -- branchement (lecture des sources)
 local S = read("script/team/migration_champ.lua")
@@ -118,6 +129,9 @@ check(S:find("log(Rb.line(", 1, true) ~= nil, "journal [FO-ROLLBACK]")
 local src = read("shared/team/migration_retour.lua")
 local muts = {
   { "stall 15 min", "stall = 15 * 3600", "stall = 25 * 3600" },
+  { "presque finie ignoree", "if (c.total or 0) > 0 and (c.built or 0) >= cfg.near_done * c.total then return \"rien\", \"presque-finie\" end", "" },
+  { "presque finie exclusive", "(c.built or 0) >= cfg.near_done * c.total then", "(c.built or 0) > cfg.near_done * c.total then" },
+  { "seuil a 80 %", "near_done = 0.9,", "near_done = 0.8," },
   { "stall inclusif", "if (c.stalled or 0) >= cfg.stall then", "if (c.stalled or 0) > cfg.stall then" },
   { "ligne produite ignoree", "if c.produced then return \"rien\", \"produit\" end", "" },
   { "abandon ignore", "if c.abandon then return \"retour\", \"abandon\" end", "" },
@@ -147,7 +161,7 @@ for _, m in ipairs(muts) do
   if ok then
     local ok2, x = pcall(run, M)
     all = ok2
-    if ok2 then for i = 1, 13 do if not x["c" .. i] then all = false end end end
+    if ok2 then for i = 1, 13 do if not x["c" .. i] then all = false end end if not x.c7b then all = false end end
   end
   if not all then caught = caught + 1 else print("mutant survivant : " .. m[1]) end
 end
