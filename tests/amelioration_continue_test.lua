@@ -438,6 +438,126 @@ local function run(Cap, Am, quiet)
     check(w5 <= 450, "§8 une décision sur 4 920 pièces sous 450 000 instructions : " .. w5 .. " milliers")
   end
 
+  ---------------------------------------------------------------------------------------------------
+  -- §10 Engagement et famine (cause mesurée, banc geants432-02ffcbe5 : 0 tapis monté en 120 min, 5 remplacements payés)
+  ---------------------------------------------------------------------------------------------------
+  do
+    local ms = {}
+    line(ms, 1000, "transport-belt", "p1", 12, 0, 0, 2)
+    line(ms, 2000, "inserter", "p2", 8, 0, 5, 2)
+    local stock = { ["fast-inserter"] = 8 } -- les bras rapides sont au stock (payables sur-le-champ), aucun tapis rapide
+    local function pick(over)
+      local o = { stock = stock, blocs = true }
+      for k, v in pairs(over or {}) do o[k] = v end
+      return Cap.choose(L, census_of(ms), base_ctx(o))
+    end
+    local d0 = pick()
+    check(d0.replace and d0.replace.to == "fast-inserter", "§10 sans engagement, le remplacement payable au stock passe devant : " .. tostring(d0.replace and d0.replace.to))
+    local gb
+    for g in pairs(d0.rep_groups or {}) do if g:find("transport-belt", 1, true) then gb = g end end
+    check(gb ~= nil, "§10 la décision nomme les groupes de remplacement candidats (rep_groups)")
+    check(d0.rep_kinds and #d0.rep_kinds == 2 and d0.rep_kinds[1] == "fast-inserter" and d0.rep_kinds[2] == "fast-transport-belt",
+      "§10 la décision nomme les rangs candidats, triés : " .. table.concat(d0.rep_kinds or {}, ","))
+    local d1 = pick({ engaged = gb })
+    check(d1.replace and d1.replace.to == "fast-transport-belt", "§10 le groupe de tapis ENGAGÉ passe devant le payable : " .. tostring(d1.replace and d1.replace.to))
+    local d2 = pick({ engaged = gb, threat = true })
+    check(d2.replace and d2.replace.to == "fast-inserter", "§10 en danger, l'engagement ne passe pas devant")
+    local d3 = pick({ engaged = gb, rest = { [gb] = true } })
+    check(d3.replace and d3.replace.to == "fast-inserter", "§10 un groupe au repos ne reprend pas la tête")
+    local d4 = pick({ engaged = gb, continu = false })
+    check(d4.replace and d4.replace.to == "fast-inserter", "§10 règle éteinte : aucun engagement")
+    local d4b = pick({ starved = { ["fast-transport-belt"] = true }, continu = false })
+    check(d4b.replace and d4b.replace.to == "fast-inserter", "§10 règle éteinte : aucune famine non plus")
+    check(d1.rep_kinds and d1.rep_kinds[1] == "fast-inserter" and d1.rep_kinds[2] == "fast-transport-belt",
+      "§10 les rangs candidats sont triés quel que soit l'ordre des candidats : " .. table.concat(d1.rep_kinds or {}, ","))
+    local d5 = pick({ starved = { ["fast-transport-belt"] = true } })
+    check(d5.replace and d5.replace.to == "fast-transport-belt", "§10 un rang en famine passe devant le payable : " .. tostring(d5.replace and d5.replace.to))
+    local d6 = pick({ starved = { ["fast-transport-belt"] = true }, rest = { [gb] = true } })
+    check(d6.replace and d6.replace.to == "fast-inserter", "§10 un groupe en famine mais au repos ne passe pas devant")
+    local d7 = pick({ engaged = "p9|absent" })
+    check(d7.replace and d7.replace.to == "fast-inserter", "§10 un engagement sur un groupe absent ne change rien")
+
+    -- Pas de l'engagement.
+    local st = {}
+    local T = Am.ENGAGE_TICKS
+    check(Am.engage_update(st, 1000, { start = "g1" }) == "g1", "§10 le remplacement décidé s'engage")
+    check(Am.engage_update(st, 1000 + T, { start = "g1" }) == "g1", "§10 engagé jusqu'à la borne comprise")
+    check(Am.engage_update(st, 1000 + T + 1, { start = "g1" }) == nil, "§10 sans progrès au-delà de la borne : lâché")
+    check(Am.engage_update(st, 1000 + T + 2, { start = "g2" }) == nil, "§10 intervalle après un échec : aucun autre engagement")
+    check(Am.engage_update(st, 1000 + T + 1 + Am.FAIL_GAP, { start = "g1" }) == nil, "§10 le groupe lâché est au repos")
+    check(Am.engage_update(st, 1000 + T + 1 + Am.FAIL_GAP, { start = "g2" }) == "g2", "§10 un autre groupe s'engage l'intervalle passé")
+    local t0 = 1000 + T + 1 + Am.FAIL_GAP
+    check(Am.engage_update(st, t0 + 20000, { paid = "g2", start = "g2" }) == "g2" and Am.engage_update(st, t0 + 40000, { start = "g2" }) == "g2",
+      "§10 un paiement du groupe relance le compte (engagé 40 000 ticks après le début)")
+    check(Am.engage_update(st, t0 + 40001, { alive = false }) == nil, "§10 groupe sans candidat : lâché sans repos")
+    check(Am.engage_update(st, t0 + 40002, { start = "g2" }) == "g2", "§10 un groupe fini sans échec peut se réengager aussitôt")
+    check(Am.engage_update(st, t0 + 40003, { threat = true, start = "g2" }) == nil, "§10 danger : lâché et aucun engagement")
+    local sr = {}
+    Am.engage_update(sr, 0, { start = "g1" })
+    Am.engage_update(sr, T + 1, {})
+    check(sr.rest.g1 == T + 1 + Am.REST_TICKS, "§10 le groupe lâché repose Am.REST_TICKS")
+    check(Am.engage_update(sr, T + 1 + Am.FAIL_GAP, { start = "g1" }) == nil, "§10 au repos, même l'intervalle passé : pas d'engagement")
+    check(Am.engage_update(sr, T + 1 + Am.REST_TICKS, { start = "g1" }) == "g1", "§10 le repos prend fin")
+
+    -- Famine.
+    local sf = {}
+    check(next(Am.starved_kinds(sf, 5000, { "a", "b" })) == nil, "§10 rang vu pour la première fois : pas en famine")
+    local out = Am.starved_kinds(sf, 5000 + Am.STARVE_TICKS, { "a", "b" })
+    check(out.a and out.b, "§10 aucun paiement depuis la borne : en famine")
+    sf.paid.a = 5000 + Am.STARVE_TICKS
+    local out2 = Am.starved_kinds(sf, 5000 + Am.STARVE_TICKS + 10, { "a", "b" })
+    check(not out2.a and out2.b, "§10 un paiement du rang le sort de la famine")
+    local out3 = Am.starved_kinds(sf, 5000 + 2 * Am.STARVE_TICKS, { "a" })
+    check(out3.a, "§10 puis il y retombe après la borne suivante")
+
+    -- BOUCLE simulée : le tapis rapide est fabriqué (1 pièce / 4 pensées) tant qu'il est la décision courante, et un but payable au stock
+    -- arrive à chaque pensée. Sans engagement le tapis n'est jamais monté ; avec, le bloc se monte.
+    local function boucle(avec)
+      local es = {}
+      local fab_stock, belts_up = 0, 0
+      local belts = 12
+      local pay_stock = 0
+      for step = 1, 200 do
+        local tick = step * 600
+        pay_stock = 5 -- des buts payables au stock arrivent sans cesse (les bras rapides se refabriquent)
+        local ctx = { blocs = true }
+        if avec then
+          ctx.engaged = es.group
+          ctx.rest = es.rest
+          ctx.starved = Am.starved_kinds(es, tick, es.kinds)
+        end
+        local msl = {}
+        line(msl, 1000, "transport-belt", "p1", belts - belts_up, 0, 0, 2)
+        line(msl, 5000, "fast-transport-belt", "p1", belts_up, 0, 3, 2)
+        line(msl, 2000, "inserter", "p2", 1, 0, 5, 2)
+        ctx.stock = { ["fast-inserter"] = pay_stock, ["fast-transport-belt"] = fab_stock }
+        local d = Cap.choose(L, census_of(msl), base_ctx(ctx))
+        local rg = d.replace and d.replace.group or nil
+        if avec then
+          Am.engage_update(es, tick, { start = (not d.all_in) and rg or nil, alive = (es.group == nil) or (d.rep_groups and d.rep_groups[es.group]) or false })
+          es.kinds = d.rep_kinds
+        end
+        if d.replace and d.replace.to == "fast-transport-belt" then
+          if step % 4 == 0 then fab_stock = fab_stock + 1 end
+          if fab_stock > 0 then
+            fab_stock = fab_stock - 1
+            belts_up = belts_up + 1
+            es.paid = es.paid or {}
+            es.paid[d.replace.to] = tick
+            if avec then Am.engage_update(es, tick, { paid = rg }) end
+          end
+        elseif d.replace then
+          es.paid = es.paid or {}
+          es.paid[d.replace.to] = tick -- le bras rapide payable est payé à chaque pensée
+        end
+      end
+      return belts_up
+    end
+    local sans, avec = boucle(false), boucle(true)
+    say(string.format("§10 boucle simulée (200 pensées) : tapis montés sans engagement %d, avec %d", sans, avec))
+    check(avec >= 8 and avec > sans, "§10 la boucle avec engagement monte le bloc de tapis (" .. avec .. " contre " .. sans .. ")")
+  end
+
   return pass, fail
 end
 
@@ -501,6 +621,23 @@ M("lot demandé jamais borné", "am", "return math.max(1, math.min(cap or Am.FAB
 M("lot demandé borné à une pièce", "am", "return math.max(1, math.min(cap or Am.FAB_MAX, total or 1))", "return 1")
 M("bloc de bâtiments sans PNJ libre : tout demandé, matière brute comprise", "cap", "local f = feasible(k)\n        if f > 0 then", "local f = k\n        if f > 0 then")
 M("bloc de bâtiments sans PNJ libre : plus rien demandé", "cap", "local f = feasible(k)\n        if f > 0 then", "local f = 0\n        if f > 0 then")
+M("engagement ignoré par le tri", "cap", "if ctx.engaged and c.group == ctx.engaged then return 1 end", "if false then return 1 end")
+M("famine ignorée par le tri", "cap", "if ctx.starved and ctx.starved[c.replace.to] then return 1 end", "if false then return 1 end")
+M("danger ignoré par l'engagement", "cap", "if not (ctx.continu and c.replace and not ctx.threat) then return 0 end", "if not (ctx.continu and c.replace) then return 0 end")
+M("repos ignoré par le tri", "cap", "if ctx.rest and ctx.rest[c.group] then return 0 end", "")
+M("engagement hors règle continue", "cap", "if not (ctx.continu and c.replace and not ctx.threat) then return 0 end", "if not (c.replace and not ctx.threat) then return 0 end")
+M("rangs candidats non rendus", "cap", "d.rep_kinds, d.rep_groups = kinds, groups", "d.rep_kinds, d.rep_groups = {}, {}")
+M("rangs candidats non triés", "cap", "  table.sort(kinds)\n  d.rep_kinds", "  d.rep_kinds")
+M("engagement jamais lâché", "am", "elseif tick - (st.progress or tick) > Am.ENGAGE_TICKS then", "elseif false then")
+M("engagement lâché trop tôt", "am", "elseif tick - (st.progress or tick) > Am.ENGAGE_TICKS then", "elseif tick - (st.progress or tick) > 0 then")
+M("paiement sans effet sur le compte", "am", "if st.group and ev.paid == st.group then st.progress = tick end", "")
+M("repos du groupe lâché oublié", "am", "st.rest[st.group] = tick + Am.REST_TICKS\n", "\n")
+M("intervalle après échec oublié", "am", "st.gap_until = tick + Am.FAIL_GAP\n", "\n")
+M("danger sans effet sur l'engagement", "am", "if ev.threat or ev.alive == false then", "if ev.alive == false then")
+M("danger n'empêche pas l'engagement", "am", "if not st.group and ev.start and not ev.threat and", "if not st.group and ev.start and")
+M("groupe disparu garde l'engagement", "am", "if ev.threat or ev.alive == false then", "if ev.threat then")
+M("famine : borne ignorée", "am", "if tick - since >= Am.STARVE_TICKS then out[k] = true end", "out[k] = true")
+M("famine : paiement ignoré", "am", "local since = math.max(st.seen[k], st.paid[k] or 0)", "local since = st.seen[k]")
 M("évaluation non mémorisée coûte trop (mesure de coût)", "cap", "local e = memo[name]\n    if e then return e end", "local e = nil")
 
 QUIET = false

@@ -65,6 +65,10 @@ Am.TOP = 3          -- blocs gardés pour le journal
 Am.FAB_MAX = 12        -- pièces d'un bloc de rangs demandées d'un coup à la fabrication
 Am.GROUP_PCT = 25      -- % d'inertie du groupe (bloc, rang) payé à la décision précédente
 Am.RESEARCH_MIN = 24   -- pièces d'un rang inférieur à partir desquelles la recherche du rang supérieur est réclamée
+Am.ENGAGE_TICKS = 21600  -- 6 min : un remplacement entamé garde la tête tant qu'il progresse (un paiement) ; au-delà sans paiement, il est lâché
+Am.FAIL_GAP = 28800     -- 8 min : après un engagement lâché sans progrès, aucun nouvel engagement (les buts payables au stock passent)
+Am.REST_TICKS = 54000   -- 15 min : le groupe lâché ne reprend pas la tête avant ce repos
+Am.STARVE_TICKS = 72000 -- 20 min : un rang (objet cible) sans aucun paiement depuis ce temps passe devant les buts payables au stock
 Am.DIR_AXIS = { [0] = "v", [2] = "h", [4] = "v", [6] = "h" }   -- axe d'une direction du moteur (nord 0, est 2, sud 4, ouest 6)
 Am.DIR_SIGN = { [0] = -1, [2] = 1, [4] = 1, [6] = -1 }         -- sens du flux le long de l'axe (+1 : vers les coordonnées croissantes)
 
@@ -232,6 +236,48 @@ function Am.supported(unit, stock, cap)
   end
   if k < 0 then k = 0 end
   return k
+end
+
+--- Lot AMELIORATION-CONTINUE, ENGAGEMENT (cause mesurée, banc geants432-02ffcbe5 : 0 tapis monté en 120 min) : un but dont la pièce est à
+--- fabriquer perdait la tête, à chaque décision, contre tout but payable au stock (Cap.candidates, `ready`) : son projet de fabrication
+--- se fermait au bout d'une minute et la pièce n'existait jamais. Un pas de l'état `st` (nombres et tables de nombres, aucune fonction) :
+---   ev.start  = groupe du remplacement décidé ; ev.paid = groupe d'un paiement fait ; ev.threat = danger (rien ne passe devant la défense) ;
+---   ev.alive  = false quand le groupe engagé n'a plus aucun candidat (bloc fini, rang plus faisable).
+--- Rend le groupe ENGAGÉ (ou nil) : Cap.candidates le met en tête. Engagé dès la décision ; lâché sans progrès après Am.ENGAGE_TICKS
+--- (repos Am.REST_TICKS pour ce groupe, intervalle Am.FAIL_GAP avant tout autre engagement) ; un paiement du groupe relance le compte.
+function Am.engage_update(st, tick, ev)
+  st.rest = st.rest or {}
+  for _, k in ipairs(sorted_keys(st.rest)) do
+    if tick >= st.rest[k] then st.rest[k] = nil end
+  end
+  ev = ev or {}
+  if st.group and ev.paid == st.group then st.progress = tick end
+  if st.group then
+    if ev.threat or ev.alive == false then
+      st.group = nil
+    elseif tick - (st.progress or tick) > Am.ENGAGE_TICKS then
+      st.rest[st.group] = tick + Am.REST_TICKS
+      st.gap_until = tick + Am.FAIL_GAP
+      st.group = nil
+    end
+  end
+  if not st.group and ev.start and not ev.threat and not st.rest[ev.start] and tick >= (st.gap_until or 0) then
+    st.group, st.progress = ev.start, tick
+  end
+  return st.group
+end
+
+--- Lot AMELIORATION-CONTINUE, FAMINE : rangs (objets cibles des remplacements) sans paiement depuis Am.STARVE_TICKS. `kinds` = liste des
+--- cibles présentes parmi les candidats ; st.seen[cible] = 1er tick vu, st.paid[cible] = dernier paiement. Rend { [cible] = true }.
+function Am.starved_kinds(st, tick, kinds)
+  st.seen, st.paid = st.seen or {}, st.paid or {}
+  local out = {}
+  for _, k in ipairs(kinds or {}) do
+    if st.seen[k] == nil then st.seen[k] = tick end
+    local since = math.max(st.seen[k], st.paid[k] or 0)
+    if tick - since >= Am.STARVE_TICKS then out[k] = true end
+  end
+  return out
 end
 
 --- Groupes (bloc, famille) du relevé. ents = liste { id, name, working, block, fixed } ; rend une liste TRIÉE de

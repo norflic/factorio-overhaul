@@ -90,6 +90,22 @@ def resume(nom, lines):
         a, b = premier[(team, key)], dernier[(team, key)]
         out.append("  parc %-8s %-28s : %d/%d (%d%%) a %.1f min -> %d/%d (%d%%) a %.1f min  [%s]" % (
             team, key, a[1], a[2], a[3], a[0], b[1], b[2], b[3], b[0], b[4]))
+    # Tranches de 10 min : pieces de tapis et de bras effectivement montees (difference du compteur « montees » du parc, dernier etat de la tranche)
+    tranches = {}
+    for (team, key, up, tot, pct, minute, txt) in parcs:
+        if key.split("/")[0] in ("transport-belt", "inserter", "underground-belt", "splitter"):
+            tranches.setdefault((team, key), {})[int(minute // 10)] = (up, tot)
+    for (team, key) in sorted(tranches):
+        t = tranches[(team, key)]
+        prev, ligne = 0, []
+        for b in range(0, max(t) + 1):
+            if b in t:
+                up = t[b][0]
+                ligne.append("%d-%d min : +%d (%d/%d)" % (b * 10, b * 10 + 10, up - prev, up, t[b][1]))
+                prev = up
+            else:
+                ligne.append("%d-%d min : (pas de releve)" % (b * 10, b * 10 + 10))
+        out.append("  tranches %-8s %-28s : %s" % (team, key, " ; ".join(ligne)))
     for (team, tech, minute) in rech:
         if tech in ("logistics-2", "fast-inserter", "advanced-material-processing", "automation-2", "logistics"):
             out.append("  recherche %-8s %s commencee a %.1f min" % (team, tech, minute))

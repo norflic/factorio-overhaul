@@ -500,7 +500,17 @@ function Cap.candidates(Ld, census, ctx)
   -- SUR-LE-CHAMP (score 1 600 à 5 600 contre 540). Investir d'abord ce qui dort au stock (H4) : en mode blocs, le candidat payable en entier
   -- passe avant celui qu'il faut fabriquer ; le centre garde son rang (sa règle du loueur de skis est à part).
   local function ready(c) return (c.all_in or c.center) and 1 or 0 end
+  -- Lot AMELIORATION-CONTINUE : le remplacement ENGAGÉ (fabrication entamée) et celui d'un rang en FAMINE passent devant tout, sauf danger.
+  local function front(c)
+    if not (ctx.continu and c.replace and not ctx.threat) then return 0 end
+    if ctx.rest and ctx.rest[c.group] then return 0 end
+    if ctx.engaged and c.group == ctx.engaged then return 1 end
+    if ctx.starved and ctx.starved[c.replace.to] then return 1 end
+    return 0
+  end
   table.sort(cands, function(a, b)
+    local fa, fb = front(a), front(b)
+    if fa ~= fb then return fa > fb end
     if ctx.blocs and ready(a) ~= ready(b) then return ready(a) > ready(b) end
     if a.score ~= b.score then return a.score > b.score end
     return a.key < b.key
@@ -551,6 +561,16 @@ function Cap.choose(Ld, census, ctx)
     if b.rang_want then for _, c in ipairs(b.causes or {}) do rw[c] = true end end
   end
   d.rang_wanted = rw
+  -- Lot AMELIORATION-CONTINUE : ce que le runtime lit pour l'engagement et la famine (cibles et groupes des remplacements candidats).
+  local kinds, groups, seen = {}, {}, {}
+  for _, c in ipairs(res.cands) do
+    if c.replace and c.group then
+      groups[c.group] = true
+      if not seen[c.replace.to] then seen[c.replace.to] = true; kinds[#kinds + 1] = c.replace.to end
+    end
+  end
+  table.sort(kinds)
+  d.rep_kinds, d.rep_groups = kinds, groups
   return d
 end
 

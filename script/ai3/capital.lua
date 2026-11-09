@@ -620,6 +620,10 @@ function Capital.goal(f, view, book, tick, w)
     recon = Capital.blocs_on() and Capital.recon_needs(f) or nil, -- gel de la reconstruction levé sauf manque, objet par objet
     continu = Capital.blocs_on() or nil, -- lot AMELIORATION-CONTINUE : bloc entier à la fabrication, groupe fini d'abord, rang réclamé à la recherche
     last_group = Capital.blocs_on() and c.last_group or nil,
+    -- Lot AMELIORATION-CONTINUE : le remplacement ENGAGÉ et les rangs en famine passent devant (Am.engage_update, Am.starved_kinds).
+    engaged = Capital.blocs_on() and c.engage and c.engage.group or nil,
+    rest = Capital.blocs_on() and c.engage and c.engage.rest or nil,
+    starved = Capital.blocs_on() and Am.starved_kinds(c.engage or {}, tick, c.engage and c.engage.kinds) or nil,
     need = function(block)
       -- Un bloc de projet dont le produit manque (f.team.ia3.short, comme repli_opts de la capitalisation) monte d'abord.
       local pid = tonumber(tostring(block):match("^p(%d+)$"))
@@ -630,6 +634,21 @@ function Capital.goal(f, view, book, tick, w)
       return 100
     end }
   local d = Cap.choose(L, census, ctx)
+  if Capital.blocs_on() then
+    -- Lot AMELIORATION-CONTINUE : un pas de l'engagement (lu par la décision suivante : ctx.engaged) et les rangs vus (famine).
+    local eng = c.engage or { rest = {}, seen = {}, paid = {} }
+    c.engage = eng
+    local before = eng.group
+    local rg = d.replace and d.replace.group or nil
+    Am.engage_update(eng, tick, { start = (not d.all_in) and rg or nil, -- engagé seulement pour une pièce À FABRIQUER
+      threat = ctx.threat, alive = (before == nil) or (d.rep_groups and d.rep_groups[before]) or false })
+    eng.kinds = {}
+    for i, k in ipairs(d.rep_kinds or {}) do eng.kinds[i] = k end
+    if eng.group ~= before then
+      log(string.format("[FO-ENGAGEMENT] %s : %s '%s' (rang %s) a %.1f min", f.key or "?", eng.group and "debut" or "fin sans engagement",
+        tostring(eng.group or before), d.replace and d.replace.to or "-", minutes(f, tick)))
+    end
+  end
   Capital.log_blocs(f, c, d, tick)
   Capital.log_parc(f, c, census, tick)
   -- Lot AMELIORATION-CONTINUE : le rang (tapis, bras) à monter en nombre, pas encore débloqué, est déclaré OBJET VOULU (Voulues, source
@@ -1092,6 +1111,11 @@ function Capital.pay(f, surface, tick, plan, stock, only_center)
         log(string.format("[FO-CAPITAL] %s : amelioration payee '%s' (%s) valeur %d cout %d, paye %s a %.1f min",
           f.key or "?", d.key, Capital.describe(d), d.value or 0, d.work or 0, Gen.fmt_map(m), minutes(f, tick)))
         if d.replace and d.replace.group then c.last_group = d.replace.group end -- lot AMELIORATION-CONTINUE : finir le bloc entamé
+        if d.replace and d.replace.group and c.engage then
+          c.engage.paid = c.engage.paid or {}
+          c.engage.paid[d.replace.to] = tick -- le rang a progressé : plus en famine
+          Am.engage_update(c.engage, tick, { paid = d.replace.group }) -- le compte sans progrès repart
+        end
         c.current, c.goal, c.scan_n = nil, nil, 0 -- décision suivante dès la prochaine pensée
       else
         c.refused = (c.refused or 0) + 1
