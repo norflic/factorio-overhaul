@@ -44,6 +44,26 @@ check("mutant « sans la condition de famine » refusé", survivors(function(s) 
 check("mutant « paires retirées ignorées » refusé", survivors(function(s) return (s:gsub("if %(i%.retired or 0%) > 0 then return false end", "")) end) > 0)
 check("mutant « chantier compté comme attente » refusé", survivors(function(s) return (s:gsub("plan = true,", "plan = true, chantier = true,")) end) > 0)
 
+-- compatibilité avec la règle du DC « plus de paire foreuse + four, l'électrique prend la suite » (shared/team/gisement.lua G.forbid_pairs) :
+-- la famine ne rouvre JAMAIS un cas que G.forbid_pairs interdit (celle-ci ne s'applique déjà jamais à une matière qui manque)
+local G = require("shared.team.gisement")
+local function never_reopens_forbidden(R)
+  for _, starved in ipairs({ true, false }) do
+    for _, swap in ipairs({ 0, 2 }) do
+      for _, ret in ipairs({ 0, 3 }) do
+        local open = R.open({ starved = starved, migr = "en cours", stage = "projet", retired = ret, project = "reserve" })
+        local forbidden = G.forbid_pairs({ sink_furnace = true, swap_done = swap, swap_ready = 0, retired = ret, starved = starved })
+        if open and forbidden then return false end
+      end
+    end
+  end
+  return true
+end
+check("la famine ne rouvre aucun gisement interdit aux paires (G.forbid_pairs)", never_reopens_forbidden(F))
+local R_mut = load_rule(function(s) return (s:gsub("if not %(i and i%.starved%) then return false end", "if not i then return false end")) end)
+check("mutant « famine rouvre un gisement interdit aux paires » refusé", never_reopens_forbidden(R_mut) == false)
+load_rule()
+
 -- moteur : la lecture du runtime sur un état minimal
 package.loaded["script.team.famine_fer"] = nil
 local T = require("shared.team.config")

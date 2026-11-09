@@ -565,6 +565,14 @@ function Team.view(f, tick)
     local want_t, wave_t, why_t = base_t, 0, "base"
     local ospec_t = T.outposts[o.kind]
     if ospec_t and ospec_t.product == T.outposts.iron.product then want_t, wave_t, why_t = SurvieQg.garde(f, oid, tick, base_t) end
+    -- trace [FO-OUTPOST-PLEIN] (lecture seule, lot FAMINE-FER) : pourquoi un avant-poste de la plaque clé est « plein » pour le cerveau (une ligne par minute)
+    if f.is_player and ospec_t and ospec_t.product == T.outposts.iron.product and tick - (o.fulllog_t or -3600) >= 3600 then
+      o.fulllog_t = tick
+      local pj = f.migration and f.migration.o and f.migration.o[oid]
+      log(string.format("[FO-OUTPOST-PLEIN] %s : avant-poste %d (%s) a %.1f min : foreuses %s, o.full %s (par %s, motif %s), migr %s (etape %s), attente %s, echecs d'extension %s, famine %s",
+        tostring(f.key), oid, tostring(o.kind), tick / 3600, tostring(o.drills), tostring(o.full), tostring(o.full_by), tostring(o.full_why), tostring(o.migr),
+        tostring(pj and pj.stage), tostring(o.hold_until ~= nil), tostring(o.ext_fails), tostring(Famine.open(f, o))))
+    end
     outposts[#outposts + 1] = {
       -- lot MIGRATION-CHAMP : un champ migré (o.migr) n'est jamais « agrandissable » en paires thermiques, même quand la fin d'une attente
       -- (board.lua, release_holds) a remis o.full à faux : sinon des tâches « extend » inutiles (Outposts.extend rend 0) tourneraient sans fin
