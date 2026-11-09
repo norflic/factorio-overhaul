@@ -67,7 +67,7 @@ return function(rule)
       local boiler = s.create_entity({ name = "boiler", position = { bx, by }, direction = defines.direction.north, force = "player" })
       local engine = s.create_entity({ name = "steam-engine", position = { bx, by - 3.5 }, direction = defines.direction.north, force = "player" })
       local quai = s.create_entity({ name = "iron-chest", position = { bx, by + 2.5 }, force = "player" })
-      local ins = s.create_entity({ name = "burner-inserter", position = { bx, by + 1.5 }, direction = defines.direction.north, force = "player" })
+      local ins = s.create_entity({ name = "burner-inserter", position = { bx, by + 1.5 }, direction = defines.direction.south, force = "player" }) -- la direction d'un inserter est celle de sa PRISE (plan.lua P.feeder) : prend au sud (coffre), depose au nord (chaudiere)
       local pole = s.create_entity({ name = "medium-electric-pole", position = { bx + 3, by - 3.5 }, force = "player" })
       local radars = 0
       for _, off in ipairs({ { 7, -3.5 }, { 7, -7.5 }, { 7, 0.5 }, { 3, -7.5 } }) do
@@ -76,9 +76,9 @@ return function(rule)
       ctx.check(boiler and engine and quai and ins and pole and radars == 4, "centrale reelle posee (chaudiere, machine, coffre, inserter, poteau, 4 radars)",
         string.format("%s %s %s %s %s %d", tostring(boiler ~= nil), tostring(engine ~= nil), tostring(quai ~= nil), tostring(ins ~= nil), tostring(pole ~= nil), radars))
       if not (boiler and engine and quai and ins) then return end
-      -- le banc ne s'occupe pas de la geometrie de l'inserter : ramassage au coffre, depot a la chaudiere
-      ins.pickup_position = { bx, by + 2.5 }
-      ins.drop_position = { bx, by + 0.5 }
+      local pt, dt = ins.pickup_target, ins.drop_target
+      ctx.check(pt ~= nil and pt.name == "iron-chest" and dt ~= nil and dt.name == "boiler", "l'inserter prend au coffre de quai et depose dans la chaudiere",
+        string.format("prise %s, depot %s", pt and pt.name or "nil", dt and dt.name or "nil"))
       ins.insert({ name = "coal", count = 1 }) -- amorce de l'inserter a combustion
       quai.insert({ name = "coal", count = 8 })
       st.boiler, st.engine, st.quai = boiler, engine, quai
