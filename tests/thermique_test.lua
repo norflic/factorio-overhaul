@@ -284,13 +284,13 @@ local function suite(Th, verbose)
     -- 8e bis. garde de départ de la plaque CLÉ : le coffre BRUT contre key_min_plates (0), jamais le libre ; les autres gardent le libre contre le seuil
     do
       local pl, mn = Th.start_plates(true, 50, 1000, 150)
-      check(pl == 1000 and mn == Th.CFG.key_min_plates and mn == 0, "8e bis : plaque clé : brut 1 000 lu (libres 50), seuil 0")
+      check(pl == 1000 and mn == Th.CFG.key_min_plates and mn > 0 and mn < 150, "8e bis : plaque clé : brut 1 000 lu (libres 50), plancher brut propre (20)")
       pl, mn = Th.start_plates(true, 1000, 0, 150)
-      check(pl == 0 and mn == 0, "8e bis : plaque clé : le brut (0) est lu, pas le libre (1 000)")
+      check(pl == 0 and mn == Th.CFG.key_min_plates, "8e bis : plaque clé : le brut (0) est lu, pas le libre (1 000)")
       pl, mn = Th.start_plates(false, 50, 1000, 150)
       check(pl == 50 and mn == 150, "8e bis : autre minerai : libres 50 contre 150")
       pl, mn = Th.start_plates(true, nil, nil, nil)
-      check(pl == 0 and mn == 0, "8e bis : plaque clé sans donnée : 0 et 0")
+      check(pl == 0 and mn == Th.CFG.key_min_plates, "8e bis : plaque clé sans donnée : 0 contre le plancher")
       pl, mn = Th.start_plates(false, nil, nil, nil)
       check(pl == 0 and mn == 0, "8e bis : autre minerai sans donnée : 0 et 0")
       local c = { key_min_plates = 40 }
