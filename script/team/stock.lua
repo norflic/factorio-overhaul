@@ -27,6 +27,7 @@ local Br = require("shared.ai3.bras")
 local Ad = require("shared.team.adopte")
 local Profiler = require("script.core.profiler") -- lot X10-S0 : compteurs d'appels (mode detail du profileur seulement, mesure)
 local FQ = require("shared.ai3.fonderie_qg") -- lot PD-FONDERIEQG (D77) : fonderie du QG bornée par l'automatisation
+local Pqs = require("script.team.plafond_qg") -- lot STOCK-QG : plafonds de rapatriement au QG par catégorie d'objet (brut, base, déclassé)
 
 -- Entrées de la fonderie du QG, triées (données de shared/team/config.lua), pour FQ.automated.
 local SMELT_INPUTS = {}
@@ -331,10 +332,14 @@ function Stock.insert(f, item, n, opts)
   end
   -- Lot STOCKAGE-VITAL : un coffre que le stock plein refuse est posé en annexe (le PNJ qui le porte ne le garde pas en poche).
   if put < n and ANNEX[item] then put = put + place_held(f, item, n - put) end
+  -- Lot STOCK-QG : ce qui entre hors objets finis, par objet et par appelant (journal [FO-STOCKAGE], mesure seulement)
+  if put > 0 then Pqs.note_entry(f, item, put) end
   -- Lot STOCKAGE : un dépôt refusé = plus de place pour cet objet (quel qu'il soit) ; déclenche la pose anticipée d'un coffre.
   if put < n then
     local tick = game.tick or 0
-    f.refused_at = tick
+    -- Lot STOCK-QG : un brut ou un déclassé refusé ne déclenche PAS la pose d'une annexe (on n'agrandit que pour des objets finis utiles)
+    local cat = Pqs.category(f, item)
+    if cat ~= "brut" and cat ~= "declasse" then f.refused_at = tick end
     -- Lot STOCKAGE-VITAL : objets refusés par objet (cumul des tentatives de dépôt : un objet resté en poche et redéposé compte à chaque
     -- fois), lus par la sonde de banc (fo-ia1 stock_cost).
     f.stats = f.stats or {}
@@ -695,6 +700,7 @@ function Stock.wanted(f, gross)
   if not (f.hq and f.hq.valid) then return 0 end
   local used, size, n = totals(f)
   if size <= 0 then return 0 end -- capacité inconnue (moteur simulé)
+  used = math.max(0, used - Pqs.junk(f, function() return Stock.contents(f) end)) -- lot STOCK-QG : le brut et le déclassé ne comptent pas
   local have = 0
   for _, k in ipairs(T.annex.kinds) do have = have + chests_in_hand(f, k.item) end
   local tick = game.tick or 0
@@ -856,9 +862,15 @@ function Stock.grow(f, surface, tick)
   flush_counts(f, tick) -- lot STOCKAGE-VITAL : dépôts refusés, poches pleines (une ligne chacun par fenêtre)
   local used, size, n = totals(f)
   if size <= 0 then return false end
+  -- Lot STOCK-QG : les cases prises par du brut et du déclassé ne comptent pas : une annexe ne s'ouvre que pour des objets finis utiles
+  -- (et des intermédiaires de base), jamais pour du charbon, de la pierre, du bois ou des fours de pierre déclassés. `used` reste le
+  -- remplissage réel pour les journaux ; `eff` pilote l'agrandissement.
+  local junk = Pqs.junk(f, function() return Stock.contents(f) end)
+  local eff = math.max(0, used - junk)
+  Pqs.flush(f, tick, junk, used, size)
   -- Lot STOCKAGE-VITAL (d) : places tenues par autre chose que nous (tourelles, coffres du DC, réserve du plan ; le sol seul ne compte
   -- pas, place_on_ground le dégage), relevées au plus toutes les Stock.ANNEX_DIAG_LOG quand le stock se remplit : capacity les retire.
-  if surface and surface.can_place_entity and surface.find_entities_filtered and f.hq_pos and A.fill(used, size) >= T.annex.grow_at
+  if surface and surface.can_place_entity and surface.find_entities_filtered and f.hq_pos and A.fill(eff, size) >= T.annex.grow_at
     and (not f.annex_scan_at or tick - f.annex_scan_at >= Stock.ANNEX_DIAG_LOG) then
     f.annex_scan_at = tick
     local lost = 0
@@ -871,15 +883,15 @@ function Stock.grow(f, surface, tick)
   do
     local have = 0
     for _, k in ipairs(T.annex.kinds) do have = have + chests_in_hand(f, k.item) end
-    if Sg.urgent(used / size, have > 0, T.stockage) and (not f.stock_urgent_log or tick - f.stock_urgent_log >= 5 * 3600) then
+    if Sg.urgent(eff / size, have > 0, T.stockage) and (not f.stock_urgent_log or tick - f.stock_urgent_log >= 5 * 3600) then
       f.stock_urgent_log = tick
       log(string.format("[FO-STOCKAGE] %s : stock %d/%d cases (%.0f %%), aucun coffre en main : coffre URGENT demande (annexes %d) a %.1f min",
         f.key or "player", used, size, 100 * used / size, n, (tick - (f.started or 0)) / 3600))
     end
   end
   f.stock_watch = f.stock_watch or {}
-  local st = A.watch(f.stock_watch, used, size, tick)
-  if not A.need_chest(used, size, n, A.early_due(st, tick, f.refused_at), capacity(f)) then return false end
+  local st = A.watch(f.stock_watch, eff, size, tick)
+  if not A.need_chest(eff, size, n, A.early_due(st, tick, f.refused_at), capacity(f)) then return false end
   if st.retry and tick < st.retry then return false end
   local blocked = false
   for _, k in ipairs(T.annex.kinds) do
@@ -889,8 +901,8 @@ function Stock.grow(f, surface, tick)
         f.stats = f.stats or {}
         f.stats.annex_placed = (f.stats.annex_placed or 0) + 1
         st.since, st.retry, st.placed_at, f.refused_at = tick, nil, tick, nil -- la fenêtre repart : au plus un coffre toutes les 5 min par anticipation
-        log(string.format("[FO-ANNEXE] %s : coffre %d pose (%s), stock %d/%d cases a %.1f min", f.key or "player", n + 1, k.item,
-          used, size, (tick - (f.started or 0)) / 3600))
+        log(string.format("[FO-ANNEXE] %s : coffre %d pose (%s), stock %d/%d cases a %.1f min (dont %d de brut et de declasse, hors agrandissement)",
+          f.key or "player", n + 1, k.item, used, size, (tick - (f.started or 0)) / 3600, junk))
         return true
       end
       blocked = true
@@ -930,6 +942,7 @@ function Stock.urgent(f)
   if not (f.hq and f.hq.valid) then return false end
   local used, size, n = totals(f)
   if size <= 0 or n >= capacity(f) then return false end
+  used = math.max(0, used - Pqs.junk(f, function() return Stock.contents(f) end)) -- lot STOCK-QG : le brut et le déclassé ne comptent pas
   local have = 0
   for _, k in ipairs(T.annex.kinds) do have = have + chests_in_hand(f, k.item) end
   return Sg.urgent(used / size, have > 0, T.stockage)
@@ -973,8 +986,31 @@ function Stock.skip_fn(f)
   -- courant ; nets du stock), même stock presque plein et plafond d'annexes atteint
   local need = demanded(f, true)
   local set = Sg.skip(ia3 and ia3.saturated, used / size, VITAL, T.stockage, ia3 and ia3.other_short, need, over_cap(f))
-  if next(set) == nil then return nil end
-  return function(item) return Sg.skipped(set, item, VITAL) end
+  -- Lot STOCK-QG (directive du DC, 8/11) : PLAFOND DE RAPATRIEMENT par catégorie d'objet (shared/team/plafond_qg.lua), indépendant de la
+  -- saturation du cerveau : un objet au plafond de sa catégorie n'est plus ramassé, collecté, miné à la main ni vidé d'un tampon (il reste au
+  -- tampon de sa zone), vitales comprises ; une matière DEMANDÉE y échappe sauf si elle est brute (plafond dur).
+  local hard = Pqs.hard_set(f, function() return Stock.contents(f) end, need)
+  if next(set) == nil and next(hard) == nil then return nil end
+  return function(item)
+    if hard[item] then
+      Pqs.note_skip(f, item)
+      return true
+    end
+    return Sg.skipped(set, item, VITAL)
+  end
 end
+
+--- Lot STOCK-QG : place restante du stock pour un objet BRUT ou DÉCLASSÉ (shared/team/plafond_qg.lua, Pq.room), ou nil quand il n'a pas de
+--- plafond (objet fini, base, ou matière demandée). Lu par le dépôt d'un PNJ (script/team/worker.lua, deposit_inventory) : ce que le stock
+--- n'accueille plus est RETIRÉ de la poche (relevé de la partie du 8/11 : le bois de 768 à 4 960 en 30 min avec le seul ramassage plafonné,
+--- le reste arrivant par le dépôt des PNJ). Le brut demandé monte à Pq.DEFAULT.brut_demande fois son plafond.
+function Stock.cap_room(f, item)
+  if not (f.hq and f.hq.valid) or not Pqs.discards(f, item) then return nil end
+  local need = demanded(f, true)
+  return Pqs.room(f, item, Stock.count(f, item), need[item] ~= nil)
+end
+
+--- Lot STOCK-QG : compte (journal) ce que le dépôt d'un PNJ a retiré de sa poche faute de place au plafond.
+function Stock.note_cap_drop(f, item, n) Pqs.note_drop(f, item, n) end
 
 return Stock

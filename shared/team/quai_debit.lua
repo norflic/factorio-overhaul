@@ -63,8 +63,8 @@ function Qd.arm_cap(M, name, count)
 end
 
 --- Bras du quai pour un débit de voie `flow` (objets/s) : rend nom, nombre (1 à Qd.MAX_ARMS), tenu (vrai si la voie suit). Du coffre au tapis.
-function Qd.arm_for(M, flow, max_arms)
-  local arms = M.ARMS or {}
+function Qd.arm_for(M, flow, max_arms, usable)
+  local arms = usable or M.ARMS or {} -- lot RECHERCHE-BRAS : `usable` = bras obtenables du gabarit (g.arms) ; nil : tous
   local name, count = M.choose_inserters(flow, false, math.min(max_arms or Qd.MAX_ARMS, Qd.MAX_ARMS), arms)
   if name then return name, count, true end
   return arms[#arms] or M.ELECTRIC_ARM, math.min(max_arms or Qd.MAX_ARMS, Qd.MAX_ARMS), false
@@ -75,7 +75,7 @@ function Qd.plan(M, g, skip, max_arms)
   local flows = Qd.lane_flows(g, skip)
   local top = 0
   for _, it in ipairs(sorted_set(flows)) do if flows[it] > top then top = flows[it] end end
-  local name, count, ok = Qd.arm_for(M, top, max_arms)
+  local name, count, ok = Qd.arm_for(M, top, max_arms, g.arms)
   local src, caps = Qd.sources(g, skip), {}
   local cap = Qd.arm_cap(M, name, count)
   for _, it in ipairs(sorted_set(src)) do caps[it] = cap * src[it] end
@@ -95,7 +95,8 @@ function Qd.max_n(M, g, skip, max_arms)
   local flows = Qd.lane_flows(g, skip)
   local top = 0
   for _, it in ipairs(sorted_set(flows)) do if flows[it] > top then top = flows[it] end end
-  local best = Qd.arm_cap(M, M.ARMS[#M.ARMS], math.min(max_arms or Qd.MAX_ARMS, Qd.MAX_ARMS))
+  local arms = g.arms or M.ARMS
+  local best = Qd.arm_cap(M, arms[#arms], math.min(max_arms or Qd.MAX_ARMS, Qd.MAX_ARMS))
   local n = math.max(1, math.floor(cur * best / top + 1e-9))
   while n >= 1 do
     local h = n == cur and g or M.extend(g, n)

@@ -419,6 +419,26 @@ local function battery(Tv)
         function(px, py) return px == 1 end)
       ck(x == 2 and y == 2, "n5 : tuile de poteau sans gisement d'abord")
     end
+    -- reprise par tranches : une tuile en file occupée entre deux passes (plantage de la partie neuve du 9/11 à 15 min, traversee.lua:217 :
+    -- `false` entrait dans le prix) ; le tracé abandonne cet état et continue par les autres
+    do
+      local b = { x0 = 1, y0 = 1, x1 = 40, y1 = 9 }
+      local s, t = { x = 1, y = 5 }, { x = 40, y = 5 }
+      local function libre(cx, cy) return (cx >= b.x0 and cx <= b.x1 and cy >= b.y0 and cy <= b.y1) and 1 or nil end
+      local function reprise(choisir)
+        local none, why, st = Tv.route(s, t, 2, b, libre, { slice = 6, sd = 2 })
+        ck(none == nil and why == "pending" and st and #st.open > 0, "reprise : la 1re tranche rend un état en attente (" .. tostring(why) .. ")")
+        local occ = choisir(st)
+        return Tv.route(s, t, 2, b, function(cx, cy) if occ[cx .. "," .. cy] then return nil end return libre(cx, cy) end, { resume = st, slice = 100000, sd = 2 }), occ
+      end
+      -- la tuile du prochain état à développer est prise : un chemin subsiste, qui l'évite
+      local tiles, occ1 = reprise(function(st) local e = st.open[1]; return { [e.x .. "," .. e.y] = true } end)
+      ck(tiles ~= nil, "reprise : un chemin subsiste quand une seule tuile en file est prise")
+      for _, e in ipairs(tiles or {}) do ck(not occ1[e.x .. "," .. e.y], "reprise : le chemin passe sur la tuile prise (" .. e.x .. "," .. e.y .. ")") end
+      -- toutes les tuiles en file sont prises : refus net, pas de plantage
+      local none2 = reprise(function(st) local o = {}; for _, e in ipairs(st.open) do o[e.x .. "," .. e.y] = true end; return o end)
+      ck(none2 == nil, "reprise : aucun chemin quand toute la file est prise")
+    end
   end)
   if not ok then fails = fails + 1; errs[#errs + 1] = "plantage : " .. tostring(err) end
   return fails, errs
@@ -469,6 +489,7 @@ do
   mutant("poteaux : borne +2 ignorée", "if alt and (not base or #alt <= #base + extra) then", "if alt then")
   mutant("poteaux : gisement jamais évité", "local alt = chain(a, b, free2)", "local alt = nil")
   mutant("preuve : portée non contrôlée", "if not (maxd and k >= 2 and k <= maxd) then", "if false then")
+  mutant("reprise : état sur une tuile prise développé", "elseif free(cur.x, cur.y) then", "else")
   check(nmut >= 12, "au moins 12 mutants joués (" .. nmut .. ")")
 end
 

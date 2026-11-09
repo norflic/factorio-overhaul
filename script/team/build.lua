@@ -135,6 +135,7 @@ Build.Rempl = require("script.team.remplissage_glue")
 -- Lot TV-VAPEUR : tampon de vapeur de la centrale (V36, colle de shared/team/vapeur_tampon.lua) et dégradation sous charge (V89, script/core/
 -- charge.lua) ; champs de Build, pas des locales (199 locales sur 200).
 Build.Vg = require("script.team.vapeur_glue")
+Build.Ct = require("script.team.charbon_tampon") -- lot COMBUSTIBLE-CENTRALE : tampon de charbon des avant-postes (levier a)
 Build.FonderieBloc = require("script.team.fonderie_bloc") -- lot FONDERIE-BLOC : le coffre de charbon d'une fonderie de champ relié par un tapis au charbon ; champ de Build, pas une locale
 Build.Piquage = require("script.team.piquage") -- lot PIQUAGE : entrée d'un bloc alimentée par le surplus d'un tapis existant ; champ de Build, pas une locale (build.lua est à 199 locales)
 Build.Charge = require("script.core.charge")
@@ -149,6 +150,7 @@ Build.Repli = require("script.team.repli_place")
 Build.Quartiers = require("script.team.quartiers")
 Build.TrancheForeuses = require("script.team.foreuses_tranches") -- lot TRANCHES-FOREUSES : tracé pondéré du tapis des foreuses par tranches (champ de Build, même raison : 199 locales)
 Build.Trav = require("script.team.traversee") -- lot TRAVERSEE : tapis qui enjambent les obstacles par des souterrains, gisements évités (champ de Build : bloc principal à 199 locales)
+Build.Pur = require("script.team.purete") -- lot PURETE-TAPIS : garde-fou de pureté des tapis (aucun mélange d'objets), champ de Build pour la même raison
 -- Lot RAPATRIEMENT (8/11) : lignes sortie lointaine -> tapis -> tampon (script/team/rapatriement.lua) ; champ de Build, même raison (199 locales sur 200).
 Build.Rapatriement = require("script.team.rapatriement")
 Build.Place = require("script.team.place_glue") -- lot TV-PLACE : sonde 30 x 30 (G37), défrichage préventif 50 x 50 (G38), repli de placement simple (C07)
@@ -654,9 +656,11 @@ local function template_of(spec, opts)
     if opts and opts.sortie == "exterieur" and spec.gen == "smelter" then
       args = { args[1], args[2], args[3], "exterieur" }
     end
-    g, why = M.with_pole(spec.pole, fn, table.unpack(args))
+    -- lot RECHERCHE-BRAS : spec.arms = les bras OBTENABLES de la demande (nil : tous) ; le gabarit tourne alors à la cadence qu'ils tiennent
+    g, why = M.with_arms(spec.arms, M.with_pole, spec.pole, fn, table.unpack(args))
     -- lot PLANDIR : un poteau plus court qui ne couvre pas le gabarit cède au poteau par défaut
-    if spec.pole and spec.pole ~= M.DEFAULT_POLE and (not g or #M.check(g) > 0) then g, why = fn(table.unpack(args)) end
+    if spec.pole and spec.pole ~= M.DEFAULT_POLE and (not g or #M.check(g) > 0) then g, why = M.with_arms(spec.arms, fn, table.unpack(args)) end
+    if not g and spec.arms then g, why = M.with_pole(spec.pole, fn, table.unpack(args)) end -- bras trop lents : tous les bras, comme avant
   elseif spec.key then
     g = M.get_any(spec.key)
     if not g then why = "gabarit inconnu" end
@@ -847,6 +851,7 @@ local function place_module(f, surface, g, kind_states, toward, res, opts)
     -- lot PD-FONDERIEQG (D82) : ligne de foreuses (gabarit « drills ») dans le sens du gisement, sortie du collecteur vers l'arrivée
     if res and g.gen == "drills" then fopts.axis = ores and ores.axis or nil; fopts.out_toward = true end
     if opts and opts.water then fopts.water = masks.water end
+    fopts.front_ok = Build.Pur.front_ok(f, surface) -- lot PURETE-TAPIS : la queue d'un tapis du gabarit ne verse sur aucun tapis existant (nil : éteint)
     local fit, why = P.fit(g, rect, fopts)
     if fit then
       local r = fit.k == 0 and g or M.rotate(g, fit.k)
@@ -1397,8 +1402,9 @@ local function out_arms(g, fan_max)
   for _, q in ipairs(g.ports or {}) do if q.kind == "tapis" and q.io == "out" then nports = nports + 1 end end
   local per = outn / math.max(1, nports)
   local cmax = math.max(1, math.min(fan_max or 1, Li.MAX_ARMS))
-  local ins, cnt = M.choose_inserters(per, true, cmax)
-  if not ins then ins, cnt = "fast-inserter", cmax end
+  -- lot RECHERCHE-BRAS : g.arms = les bras obtenables du gabarit (nil : tous, comme avant) ; au pire le plus rapide d'entre eux
+  local ins, cnt = M.choose_inserters(per, true, cmax, g.arms)
+  if not ins then ins, cnt = (g.arms or M.ARMS)[#(g.arms or M.ARMS)], cmax end
   return ins, cnt
 end
 
@@ -2146,10 +2152,14 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
   local planned = {}
   for _, e in ipairs(ents) do for _, t in ipairs(P.tiles_of(e)) do planned[P.tkey(t[1], t[2])] = true end end
   local sk, ak = P.tkey(s.x, s.y), P.tkey(a.x, a.y)
+  -- lot PURETE-TAPIS (journal du DC du 8/11 : « une ligne d'output ne doit jamais fusionner avec une ligne d'input qui attend un objet différent ») : ce
+  -- tracé n'avait AUCUN garde de la tuile devant un tapis existant ; la tuile où un tapis étranger (plan ou monde) verse reste libre
+  local pure_front = Build.Pur.fronts(f, surface, item, p)
   local function cost(x, y)
     local k = P.tkey(x, y)
     if k ~= sk and k ~= ak and ring[k] then return nil end
     if masks.water[k] or masks.blocked[k] or b.occ[k] or planned[k] then return nil end
+    if pure_front(x, y) then return nil end
     local c = 1
     if P.in_street(b.lat, x, y) then c = P.STREET_COST end
     if masks.clear[k] then c = c + 1 end
@@ -2212,6 +2222,20 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
     p.parts[part] = nil
     Build.drill_diag(f, item, n, a, "tapis " .. tostring(n2), nil, s)
     return false, n2
+  end
+  if not relay_legs then
+    -- lot PURETE-TAPIS : la preuve du tracé (causes a, b, c, d) contre une lecture fraîche du monde ; la tuile devant l'arrivée est la cible
+    local own = {}
+    for k in next, planned do own[k] = true end -- (copie d'un ensemble : l'ordre n'a aucun effet)
+    local av = P.DV[a.dir or 0]
+    local targets = {}
+    if av then targets[P.tkey(a.x + av[1], a.y + av[2])] = true end
+    local pok, pwhy = Build.Pur.check_route(f, surface, p, "foreuses", tiles, item, targets, { own = own })
+    if not pok then
+      p.parts[part] = nil
+      Build.drill_diag(f, item, n, a, "tapis " .. tostring(pwhy), nil, s)
+      return false, pwhy
+    end
   end
   for _, e2 in ipairs(Build.Trav.entities(tiles, { belt = belt, ug = tnames and tnames.ug }, "liaison-tapis")) do
     e2.part = part
@@ -2789,7 +2813,7 @@ local function plan_project(f, surface, p)
   end
   local g, why = template_of(spec, topts)
   if not g then return false, why end
-  g = Build.Rangee.full(p, g) -- lot RANGEES-ASM : rangée dynamique planifiée à la borne de son gabarit (place entière réservée)
+  g = Build.Rangee.full(p, g, f) -- lot RANGEES-ASM : rangée dynamique planifiée à la borne de son gabarit (place entière réservée)
   p.consumes = {}
   p.inflow = {} -- lot INDUSTRIE I7 : débit nominal de chaque entrée (objets/s), lu par script/team/liaison.lua pour le prix d'une liaison de quai
   for _, k in ipairs(sorted_keys(g.inputs or {})) do p.consumes[k] = true; p.inflow[k] = g.inputs[k] end
@@ -4159,7 +4183,16 @@ local function quai_tasks(f, p, surface, out)
         -- lot TV-VAPEUR (V36) : le tampon de vapeur bas déclenche aussi le remplissage (Build.Vg nul dans les doublures des bancs hors jeu)
         local steam_low = Build.Vg and Build.Vg.low(f, p, surface) or false
         local r = Cc.refill(n, rate, have, inv and (n + inv.get_insertable_count(q.item)) or nil, steam_low)
+        -- lot COMBUSTIBLE-CENTRALE (levier a) : coffre du QG sans charbon -> le tampon d'un avant-poste de charbon porte le complément
+        local relay
+        if r.short and Build.Ct then
+          local a = P.anchor_for(f.build.lat, q.x, q.y, seg_passable(f.build))
+          if not a then local fx, fy = free_spot(f.build, nil, q.x, q.y); a = { x = fx, y = fy } end
+          relay = Build.Ct.relay(f, p, surface, i, q, n, r, a.x, a.y, Build.Quartiers.DEPOT, game.tick)
+          if relay then r.short = nil end
+        end
         cc_say(f, p, i, n, have, rate, r)
+        if relay then out[#out + 1] = relay end
         if r.due then
           local a = P.anchor_for(f.build.lat, q.x, q.y, seg_passable(f.build))
           if not a then local fx, fy = free_spot(f.build, nil, q.x, q.y); a = { x = fx, y = fy } end
@@ -4601,9 +4634,9 @@ local function watch_stall(f, tick)
       b.noprog[pid] = rec
       if say and not b.noprog_dits[pid .. ":" .. say] then -- lot REBUILD-SUIVI : une fois par (projet, cause), non par cause
         b.noprog_dits[pid .. ":" .. say] = true
-        log(string.format("[FO-BLOQUE] %s : projet %d (%s) sans progres depuis %d min : %s ; %d entite(s) baties sur %d, etat %s a %.1f min",
+        log(string.format("[FO-BLOQUE] %s : projet %d (%s) sans progres depuis %d min : %s ; %d entite(s) baties sur %d, etat %s a %.1f min%s",
           f.key or "player", p.id, tostring(p.spec.key or p.spec.gen or "?"), math.floor((tick - rec.since) / 3600), say, count_built(p), #p.ents,
-          p.state, tick / 3600))
+          p.state, tick / 3600, ChantierLent.missing(p))) -- (RECHERCHE-BRAS suite : entités manquantes nommées, shared/team/manquantes.lua)
         ChantierLent.report(f, p, tick, say, rec) -- lot AZURE : détail du chantier lent d'une bande (une fois par projet)
       end
     elseif b.noprog[pid] then
@@ -5445,14 +5478,14 @@ remote.add_interface("fo-ia1d", {
   end,
   --- Lot TV-ENERGIE (BANC SEULEMENT, micro-banc tv-energie-kw) : pose comme centrale FINIE de l'équipe un projet dont les pièces sont des entités
   --- RÉELLES déjà créées par le banc (ents = { { name, x, y } }) : le relevé de la centrale (PA.watch, Sante.observe) les lit au moteur.
-  bench_plant = function(key, ents, gen)
+  bench_plant = function(key, ents, gen, quais) -- quais (facultatif, lot COMBUSTIBLE-CENTRALE) : { { x, y, item } } coffres de quai de la centrale du banc
     local f = team_of_key(key)
     local b = f and f.build
     if not (b and type(ents) == "table") then return nil end
     local id = b.next_id
     b.next_id = id + 1
     local p = { id = id, spec = { gen = gen, args = { 1 }, feed = true, plant = true, bench = "remote" }, state = "fini", created = game.tick,
-      finished = game.tick, reason = nil, parts = { { kind = "centrale", ox = ents[1] and ents[1].x or 0, oy = ents[1] and ents[1].y or 0, w = 3, h = 3, k = 0 } }, ents = {}, wires = {}, stock = {}, quais = {}, outs = {},
+      finished = game.tick, reason = nil, parts = { { kind = "centrale", ox = ents[1] and ents[1].x or 0, oy = ents[1] and ents[1].y or 0, w = 3, h = 3, k = 0 } }, ents = {}, wires = {}, stock = {}, quais = type(quais) == "table" and quais or {}, outs = {},
       obstacles = {}, fails = 0, prio = Build.PRIO, domain = "infrastructures" }
     for _, e in ipairs(ents) do p.ents[#p.ents + 1] = { name = e.name, x = e.x, y = e.y, built = true } end
     b.projects[id] = p
@@ -5474,7 +5507,7 @@ remote.add_interface("fo-ia1d", {
   end,
   set_option = function(key, name, value)
     local f = team_of_key(key)
-    if not (f and f.build and (name == "seul" or name == "ghosts_ahead" or name == "sante" or name == "no_grow" or name == "no_lots" or name == "no_alim" or name == "no_sante" or name == "no_coupure" or name == "no_energie_dabord")) then return nil end -- no_coupure : coupe le chemin le plus court et le second chemin des poteaux perdus (lot ENERGIE 2/11, témoin des bancs) ; no_grow : coupe la croissance de la centrale (bancs) ; no_alim : coupe les foreuses de la centrale (lot CHARBON-CENTRALE, bancs) ; no_sante : coupe l'amorce à la main, la porte des consommateurs et l'avance de la centrale de plus (lot ENERGIE 2/11, témoin des bancs)
+    if not (f and f.build and (name == "seul" or name == "ghosts_ahead" or name == "sante" or name == "no_grow" or name == "no_lots" or name == "no_alim" or name == "no_sante" or name == "no_coupure" or name == "no_energie_dabord" or name == "no_tampon")) then return nil end -- no_coupure : coupe le chemin le plus court et le second chemin des poteaux perdus (lot ENERGIE 2/11, témoin des bancs) ; no_grow : coupe la croissance de la centrale (bancs) ; no_alim : coupe les foreuses de la centrale (lot CHARBON-CENTRALE, bancs) ; no_sante : coupe l'amorce à la main, la porte des consommateurs et l'avance de la centrale de plus (lot ENERGIE 2/11, témoin des bancs)
     f.build.opts[name] = value and true or false
     return f.build.opts[name]
   end,

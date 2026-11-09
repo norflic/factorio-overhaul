@@ -133,8 +133,9 @@ end
 
 --- Résumé d'un gabarit : { key, n_ent, items = { [objet] = n }, nominal = { [objet] = n/s }, inputs = { [objet] = n/s },
 --- power_kw, ext = { arg, max }, args } ou nil, raison. Les entités vanilla se posent par l'objet de même nom.
-function A.template(gen, args, pole)
-  local k = args_key(gen, args) .. (pole and ("#" .. pole) or "")
+function A.template(gen, args, pole, arms)
+  -- lot RECHERCHE-BRAS : `arms` = bras OBTENABLES (A.choose_arms, nil : tous) ; le gabarit est fait avec eux, à la cadence qu'ils tiennent
+  local k = args_key(gen, args) .. (pole and ("#" .. pole) or "") .. (arms and ("@" .. table.concat(arms, ",")) or "")
   local c = cache[k]
   if c ~= nil then
     if c == false then return nil, "gabarit refuse" end
@@ -142,15 +143,22 @@ function A.template(gen, args, pole)
   end
   local fn = M.GEN[gen]
   if not fn then cache[k] = false return nil, "generateur inconnu" end
-  local g, why = M.with_pole(pole, fn, table.unpack(args))
+  local g, why = M.with_arms(arms, M.with_pole, pole, fn, table.unpack(args))
   -- un poteau plus court couvre parfois moins bien (bras ou machine hors de l'aire des poteaux, fils trop longs) : le
   -- gabarit est contrôlé (M.check) et cède au poteau par défaut s'il est refusé
   if g and pole and pole ~= M.DEFAULT_POLE and #M.check(g) > 0 then g = nil end
   if not g and pole then
     -- Lot PLANDIR : le poteau choisi ne couvre pas ce gabarit (portée plus courte) : le poteau par défaut le pose
-    local c2 = A.template(gen, args)
+    local c2 = A.template(gen, args, nil, arms)
     cache[k] = c2 or false
     return c2, c2 == nil and why or nil
+  end
+  if not g and arms then
+    -- lot RECHERCHE-BRAS : les bras obtenables ne tiennent pas ce gabarit (cadence sous M.ARM_F_MIN) : le gabarit à tous les bras, comme
+    -- avant le lot (le bras rapide est alors un objet à rechercher)
+    local c3 = A.template(gen, args, pole)
+    cache[k] = c3 or false
+    return c3, c3 == nil and why or nil
   end
   if not g then cache[k] = false return nil, why end
   local items, recipes = {}, {}
@@ -165,7 +173,7 @@ function A.template(gen, args, pole)
   local ex = g.extensions and g.extensions[1]
   c = { key = g.key, n_ent = #g.entities, items = items, recipes = recipes, nominal = g.nominal or {}, inputs = g.inputs or {},
     power_kw = g.power_kw or 0, ext = ex and { arg = ex.arg, max = ex.max } or nil, args = args, gen = gen,
-    pole = g.pole_name }
+    pole = g.pole_name, arms = g.arms }
   cache[k] = c
   return c
 end
@@ -189,6 +197,21 @@ function A.choose_pole(book, stock, harvest)
     end
     return true
   end)
+end
+
+--- Lot RECHERCHE-BRAS : les bras des gabarits d'une équipe = ceux qu'elle sait avoir : au coffre en nombre suffisant (A.ARM_STOCK), ou
+--- fabricables à la main (livre de la main : recettes OUVERTES). Rend la liste (du plus lent au plus rapide, M.ARMS : lue aux données, aucun
+--- nom écrit) des bras obtenables, ou nil quand TOUS le sont (rien à limiter : comportement d'avant) ou qu'AUCUN ne l'est (rien à
+--- bâtir de toute façon : même comportement). Un gabarit fait avec cette liste tourne moins vite plutôt que d'exiger un bras à rechercher.
+A.ARM_STOCK = 8 -- bras d'un type au coffre au-delà desquels il compte comme obtenable (la taille d'une rangée de bras d'un module)
+function A.choose_arms(book, stock)
+  stock = stock or {}
+  local ok = {}
+  for _, name in ipairs(M.ARMS) do
+    if (stock[name] or 0) >= A.ARM_STOCK or book:handcraftable(name) then ok[#ok + 1] = name end
+  end
+  if #ok == 0 or #ok == #M.ARMS then return nil end
+  return ok
 end
 
 --- Lot KIT : matières NATURELLES (aucune recette ne les produit : le bois) qu'il faut pour A.POLE_BATCH poteaux de chaque
@@ -309,8 +332,8 @@ function A.add_executors(exec, recipes)
 end
 
 --- Gabarit d'une méthode dimensionné au débit `rate` (objets/min du produit) : (résumé, args) ou nil, raison.
-function A.sized(method, rate, pole)
-  local base, why = A.template(method.gen, method.args, pole)
+function A.sized(method, rate, pole, arms)
+  local base, why = A.template(method.gen, method.args, pole, arms)
   if not base then return nil, why end
   local nom = (base.nominal[method.product] or 0) * 60
   if nom <= 0 then return nil, "debit nominal nul" end
@@ -323,7 +346,7 @@ function A.sized(method, rate, pole)
     if n > base.ext.max then n = base.ext.max end
     args[base.ext.arg] = n
   end
-  local g, why2 = A.template(method.gen, args, pole)
+  local g, why2 = A.template(method.gen, args, pole, arms)
   if not g then return nil, why2 end
   return g, args
 end
@@ -384,7 +407,13 @@ local function feed_extra(method, g, belt_flow)
   -- bras simple ne suffit pas (choix du plan directeur, P.out_quai)
   local ports = method.gen == "smelter" and 2 or 1
   add(D.PARTS.chest, ports)
-  add(outn / ports > A.QUAI_RATE and D.PARTS.fast_arm or D.PARTS.arm, ports)
+  -- lot RECHERCHE-BRAS : le bras rapide du quai ne se compte que s'il est obtenable (g.arms : bras du gabarit ; nil : tous)
+  local fast_ok = true
+  if g.arms then
+    fast_ok = false
+    for _, a in ipairs(g.arms) do if a == D.PARTS.fast_arm then fast_ok = true end end
+  end
+  add(outn / ports > A.QUAI_RATE and fast_ok and D.PARTS.fast_arm or D.PARTS.arm, ports)
   if (g.power_kw or 0) > 0 then add(g.pole or D.PARTS.pole, A.NET_POLES) end
   return items, n, quais_in, ports
 end
@@ -844,7 +873,7 @@ function A.decide(input)
     else
       local rate = math.max(1, D) * (100 + margin) / 100
       if st.fini == 0 and rate > A.FIRST_RATE_MAX then rate = A.FIRST_RATE_MAX end
-      local g, args = A.sized(meth, rate, input.pole)
+      local g, args = A.sized(meth, rate, input.pole, input.arms)
       -- Fonderie : la voie de minerai n'est servie par foreuses et tapis qu'au-delà de A.BELT_FLOW (P.AUTO_FLOW) ; en
       -- dessous, c'est un quai que les porteurs remplissent DEPUIS LE COFFRE, où il n'y a pas de minerai (les avant-postes
       -- livrent des plaques) : moteur réel, e6-usine, emerald, seconde fonderie de fer à quai de minerai vide 30 min. La
@@ -855,7 +884,7 @@ function A.decide(input)
           local a2 = {}
           for i = 1, #args do a2[i] = args[i] end
           a2[g.ext.arg] = n
-          local g2 = A.template(meth.gen, a2, input.pole)
+          local g2 = A.template(meth.gen, a2, input.pole, input.arms)
           if g2 and belt_ok(g2) then g, args = g2, a2 break end
         end
       end
@@ -875,7 +904,7 @@ function A.decide(input)
           local a2 = {}
           for i = 1, #args do a2[i] = args[i] end
           a2[g.ext.arg] = n
-          local g2 = A.template(meth.gen, a2, input.pole)
+          local g2 = A.template(meth.gen, a2, input.pole, input.arms)
           if g2 and belt_ok(g2) and #missing_of(g2) == 0 then g, args = g2, a2 break end
         end
       end
@@ -924,7 +953,7 @@ function A.decide(input)
             v.verdict, v.why = "demande", string.format("charge %.2f PNJ, retour %.1f min <= %d", L, T, H)
             out.requests[#out.requests + 1] = { product = c.item, gen = meth.gen, args = args, rate = rate,
               rate_nom = rate_nom, feed = meth.feed, why = v.why, items = items, electric = electric, gain = G,
-              pole = g.pole }
+              pole = g.pole, arms = g.arms }
             open = open + 1
             busy[c.item] = true
           end
@@ -1045,7 +1074,7 @@ function A.emit(P)
     if state == "bloque" then return "bloque", "module:" .. tostring(g.reason or "?") end
     -- Lot INTEG-RECONSTRUCTION (D6) : un projet ROUVERT garde ses manques aussi en fantômes / chantier (refresh_missing de build.lua les relit)
     if (state == "reserve" or state == "defrichage" or state == "fantomes" or state == "chantier") and g.missing and #g.missing > 0 then
-      P.want(E, proj, g.missing, proj.prio, false, "module")
+      P.want_kit(E, proj, g.missing, proj.prio, "module") -- lot POSE-PAR-LOTS : le manque fabricable du chantier en KITS
       return "matiere"
     end
     return "en_cours"
