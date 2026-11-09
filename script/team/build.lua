@@ -156,6 +156,7 @@ Build.Pur = require("script.team.purete") -- lot PURETE-TAPIS : garde-fou de pur
 Build.Rapatriement = require("script.team.rapatriement")
 Build.Mall = require("script.team.mall") -- lot MALL (tranche 1) : secteur du mall choisi par le terrain et réservé, état S (docs/MALL.md) ; champ de Build, pas une locale
 Build.Place = require("script.team.place_glue") -- lot TV-PLACE : sonde 30 x 30 (G37), défrichage préventif 50 x 50 (G38), repli de placement simple (C07)
+Build.Hygiene = require("script.team.hygiene") -- lot SCAN-TRANCHES (DC 9/11) : audit électrique en lecture seule par impulsions (s'abonne lui-même à on_tick) ; champ de Build, pas une locale (199 locales)
 local TREE_TYPES = { "tree", "simple-entity" }
 
 
