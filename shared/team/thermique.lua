@@ -193,7 +193,7 @@ end
 --- le stock libre contre `min_plates`. Toute autre bande garde sa règle (libre contre `min_plates`). Rend (plaques lues, seuil).
 function M.start_plates(key, free, gross, min_plates, cfg)
   cfg = cfg_of(cfg)
-  if key then return gross or 0, cfg.key_min_plates end
+  if false and key then return gross or 0, cfg.key_min_plates end
   return free or 0, min_plates or 0
 end
 
