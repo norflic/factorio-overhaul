@@ -122,16 +122,20 @@ end
 
 local function hq_of(s, force) return s.find_entities_filtered({ name = "fo-faction-hq", force = force, limit = 1 })[1] end
 
---- Positions des QG (votre équipe : coffre d'équipe), triées par clé. { { key, x, y }, ... }
+--- Positions des QG (votre équipe : coffre d'équipe, sinon point de départ de la force), triées par clé. { { key, x, y }, ... }
+--- Les factions se lisent aux QG eux-mêmes (fo-faction-hq, clé = nom de la force sans « fo- ») : les lignes de fo-ia1.teams sont
+--- encore vides aux ticks 1500 à 2700 d'une carte neuve (micro-2, diag).
 function M.sites(s)
   local out = {}
   local chest = s.find_entities_filtered({ name = "fo-team-chest", force = "player", limit = 1 })[1]
-  if chest then out[#out + 1] = { key = "equipe", x = chest.position.x, y = chest.position.y } end
-  for _, r in ipairs(remote.call("fo-ia1", "teams") or {}) do
-    if r.key ~= "player" then
-      local hq = hq_of(s, r.force)
-      if hq then out[#out + 1] = { key = r.key, x = hq.position.x, y = hq.position.y } end
-    end
+  if chest then
+    out[#out + 1] = { key = "equipe", x = chest.position.x, y = chest.position.y }
+  else
+    local sp = game.forces.player.get_spawn_position(s)
+    out[#out + 1] = { key = "equipe", x = sp.x, y = sp.y }
+  end
+  for _, hq in ipairs(s.find_entities_filtered({ name = "fo-faction-hq" })) do
+    out[#out + 1] = { key = (hq.force.name:gsub("^fo%-", "")), x = hq.position.x, y = hq.position.y }
   end
   table.sort(out, function(a, b) return a.key < b.key end)
   return out
