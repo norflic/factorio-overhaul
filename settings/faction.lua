@@ -29,7 +29,10 @@ data:extend({
     type = "bool-setting",
     name = "fo-war-autostart",
     setting_type = "runtime-global",
-    default_value = false,
+    -- Lot DEFAUTS-DC (9/11, QCM du DC de 12 h 10 : « guerre cochee par defaut ») : COCHE par defaut. Une sauvegarde existante garde la
+    -- valeur qu'elle a enregistree (un reglage runtime-global deja ecrit dans la partie n'est pas remplace par un nouveau defaut) ; et la
+    -- guerre d'une sauvegarde deja lancee (war.active) ou deja auto-lancee (war.autostarted) n'est jamais relancee (war.lua autostart).
+    default_value = true,
     order = "e-war-a",
   },
   -- Nombre de factions et ouvriers (PNJ) par faction : valeurs dans shared/team/scale.lua (S.SETTINGS, lot IA1-a,

@@ -31,7 +31,7 @@
   M.verdict(ok, critical, age, cfg)     -> "retirer" | "attendre" | "annuler"  (au moment du retrait d'une bande)
   M.financed(fl, ctx, cfg)              -> vrai/faux, raison  (courant + fer)
   M.order(cands)                        -> liste triée (voulus, puis les plus productifs)
-  M.free_slot(res, busy, cfg)           -> vrai/faux, raison
+  M.free_slot(res, busy, cfg)           -> vrai/faux, raison ; M.band_stuck(état, raison, âge, cfg) -> vrai/faux (bande bloquée par ses matières)
   M.shares(fields, order)               -> part électrique par minerai (journal et critères)
   Lot THERMIQUE5 : M.band_covers(état du projet), M.covering(état), M.pile_permits(action, retenue, porte), M.order_end(...), M.noop_counts(ids), M.stop_state(...),
   M.min_plates(brut, seuil) ; fl.fueled (paires avec combustible, facultatif) remplace fl.pairs dans M.supply.
@@ -54,6 +54,9 @@ M.CFG = {
   critical_wait = 20 * 3600, -- ticks : attente d'une coupe d'un minerai critique avant d'annuler la demande (la bande est redemandée plus tard)
   fund_ratio = 1.0,       -- fer libre / coût des foreuses de remplacement à partir duquel une bande est financée
   per_mineral = 1,        -- chantiers de bande simultanés au plus par minerai
+  key_per_mineral = 2,    -- plaque CLÉ (le fer) : chantiers de bande simultanés au plus quand TOUS ceux du minerai attendent leurs matières (9/11, directive du lead :
+                          -- partie 314159265 / geants, une bande de fer bloquée par ses matières gardait le créneau « un par minerai » pendant des dizaines de minutes)
+  stuck_wait = 5 * 3600,  -- ticks : une bande en réserve (matières) depuis plus que cela est « bloquée » : elle ne retient plus le créneau de la plaque clé seule
   slots = 2,              -- chantiers de bande simultanés au plus, tous minerais (3 : le fer manquait aux bandes, mesuré 150 min : 25 à 50 % des plaques du témoin)
   sweep_max = 1,          -- gisements balayés au plus par pensée (le retrait est immédiat : un gisement à la fois suffit)
   every = 600,            -- ticks entre deux balayages (une pensée d'équipe de la migration)
@@ -347,11 +350,25 @@ function M.raw_holds(c, cfg)
   return true, "retenue"
 end
 
---- Reste-t-il un créneau pour un chantier de ce minerai ? busy = { total, [res] = n } (chantiers de bande en cours). Rend (vrai/faux, raison).
+
+--- Une bande est-elle « bloquée par ses matières » ? Réserve (pas encore au chantier), autre raison que la porte « degel » (qui attend le retrait des paires,
+--- matières déjà réunies), depuis plus de cfg.stuck_wait ticks. `state` : état du projet du plan, `reason` : sa raison, `age` : ticks depuis la demande.
+function M.band_stuck(state, reason, age, cfg)
+  cfg = cfg_of(cfg)
+  return state == "reserve" and reason ~= "degel" and (age or 0) > cfg.stuck_wait
+end
+
+--- Reste-t-il un créneau pour un chantier de ce minerai ? busy = { total, [res] = n, key = minerai de la plaque clé, stuck = { [res] = chantiers bloqués
+--- par leurs matières } } (chantiers de bande en cours). Rend (vrai/faux, raison). La plaque clé a un 2e chantier quand tous les siens sont bloqués.
 function M.free_slot(res, busy, cfg)
   cfg = cfg_of(cfg)
   if (busy.total or 0) >= cfg.slots then return false, "creneaux" end
-  if (busy[res] or 0) >= cfg.per_mineral then return false, "minerai-occupe" end
+  if (busy[res] or 0) >= cfg.per_mineral then
+    if busy.key ~= nil and busy.key == res and (busy[res] or 0) < cfg.key_per_mineral and ((busy.stuck and busy.stuck[res]) or 0) >= (busy[res] or 0) then
+      return true, "libre-cle"
+    end
+    return false, "minerai-occupe"
+  end
   return true, "libre"
 end
 

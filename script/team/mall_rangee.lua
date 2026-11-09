@@ -144,14 +144,30 @@ Build.SITES.mall = function(f, surface, p, h)
     end
   end
   -- raccord au réseau alimenté (section de tête : la rangée suivante se branche sur la précédente ou sur le réseau)
-  if (sp.head or (sp.bus and sp.from == 1)) and not st.sans_raccord then
+  -- une rangée dont la précédente vit se branche par son poteau relais, même si la précédente n'est pas encore bâtie : chercher le réseau pour elle la faisait refuser (partie tronc-partie-30bfce34,
+  -- azure rangée 2 : la cible était un poteau de la rangée 1, en chantier)
+  local relais_ok = false
+  if row.j > 1 then
+    for _, q in ipairs((st.rows[row.j - 1] or {}).projects or {}) do
+      local pp = b.projects[q.id]
+      if q.from == 1 and not q.dead and pp and pp.state ~= "refuse" then relais_ok = true end
+    end
+  end
+  if (sp.head or (sp.bus and sp.from == 1)) and not st.sans_raccord and not relais_ok then
     local poles = {}
     for _, e in ipairs(sec.ents) do if e.role == "mall-poteau" then poles[#poles + 1] = e end end
+    if #poles == 0 then return nil, "mall raccord : aucun poteau dans la section" end -- (sans poteau, raccord_tous rendrait 0 : la section passerait sans courant)
     local cx, cy = 0, 0
     for _, e in ipairs(poles) do cx, cy = cx + e.x, cy + e.y end
     cx, cy = cx / #poles, cy / #poles
     local bd = { spec = { pole = { wire = P.wire(sp.names.poteau) or 7.5 }, mine = {}, ore = {} }, names = { pole = sp.names.poteau },
       plan = { bands = {}, pitch = 0, axis = "x" } }
+    local rep_s = st.rep
+    bd.occ_libre = function(x, y, owner)
+      if owner ~= Build.Mall.OCC then return false end
+      local rx, ry = Mr.from_world(x + 0.5, y + 0.5, rep_s.k, rep_s.ox, rep_s.oy)
+      return Mr.reserve_libre(floor(rx), floor(ry), rep_s.west or Mr.TETE, rep_s.north or 0)
+    end
     local Champ = package.loaded["script.team.champ"] -- (lecture : champ.lua est chargé par le plan directeur ; aucun require pendant un événement, F24)
     if not Champ then return nil, "mall raccord : champ non charge", true end
     local n, why, wait = Champ._raccord_tous(f, surface, bd, sec.ents, cx, cy, p)
@@ -207,13 +223,13 @@ local function machines_for(rate, par_min)
 end
 
 --- Objets « plaque » (produit fondu) : les seuls portés par le tronc à cette tranche.
-local PLATE_SET
-local function plate_set()
-  if not PLATE_SET then
-    PLATE_SET = {}
-    for _, o in pairs(T.outposts) do if o.product and o.resource and o.product ~= o.resource then PLATE_SET[o.product] = true end end
+local function plate_set() -- (posé une fois, dans un champ du module : pas de table neuve dans un local de module, F403)
+  if not Rt.PLATE_SET then
+    local out = {}
+    for _, o in pairs(T.outposts) do if o.product and o.resource and o.product ~= o.resource then out[o.product] = true end end
+    Rt.PLATE_SET = out
   end
-  return PLATE_SET
+  return Rt.PLATE_SET
 end
 
 local function bus_eligible(d, plates)
@@ -495,6 +511,44 @@ function Rt.place(f, demandes, names, tick, afford, why_text)
   return id
 end
 
+--- Part d'un ingrédient par objet fabriqué (objets d'ingrédient par objet de sortie), lue au prototype.
+local function part_de(rname, s)
+  local proto = game.recipe_prototypes and game.recipe_prototypes[rname]
+  if not proto then return 1 end
+  local amount, made = 1, 1
+  for _, ing in ipairs(proto.ingredients) do if ing.name == s then amount = ing.amount end end
+  local pr = proto.products[1]
+  if pr and pr.amount and pr.amount > 0 then made = pr.amount end
+  return amount / made
+end
+
+--- Le premier intermédiaire qu'il faut au mall avant cette recette : une entrée solide qui n'est pas une plaque, qu'aucune rangée ne fabrique, et qu'une recette assemblable sait faire ; d'abord ce dont
+--- elle a elle-même besoin. Partie 388473a0, votre équipe : des rangées posées attendaient engrenages, tuyaux, câbles et circuits que le coffre du QG n'avait pas ; 18 min à l'arrêt. Rend
+--- { item, pr, rate } ou nil. depth borne la descente ; rate en objets/min.
+local function intermediaire_manquant(lec, usable, rname, rate, depth, served, plates)
+  -- une cellule de rangée est faite pour un assembleur : une recette de four n'est pas un intermédiaire du mall (partie inter-a4e67879, azure : 8 fours de pierre pour l'acier, projet bloqué)
+  local function assemblable(pr)
+    local m = cheap(pr.entry, usable)
+    local proto = m and game.entity_prototypes[m.entity]
+    return proto ~= nil and proto.type == "assembling-machine"
+  end
+  local e = lec.fab[rname]
+  local solides = {}
+  for _, x in ipairs(e and e.solides or {}) do solides[#solides + 1] = x.name end
+  table.sort(solides)
+  for _, s in ipairs(solides) do
+    if not plates[s] and not served[s] then
+      local pr = Id.profile(lec.fab, s, usable)
+      if pr and pr.s <= 4 and pr.par_min > 0 and pr.s > 0 and assemblable(pr) then
+        local rate_s = (rate or 0) * part_de(rname, s)
+        local deeper = depth > 0 and intermediaire_manquant(lec, usable, pr.recipe, rate_s, depth - 1, served, plates) or nil
+        return deeper or { item = s, pr = pr, rate = rate_s }
+      end
+    end
+  end
+  return nil
+end
+
 --- Une décision de Ind.think passe par le mall. c = { dec, kind, items } (Id.order) ; mod = prepare(...) ; rend vrai (pris) ou (faux, raison, attendre).
 function Rt.accueille(f, c, mod, lec, tick, afford, usable)
   if not Rt.ouvert(f) then return false, "ferme" end
@@ -521,9 +575,30 @@ function Rt.accueille(f, c, mod, lec, tick, afford, usable)
     first_machine = first_machine or m.entity
     demandes[#demandes + 1] = { item = it, recipe = rname, machine = m.entity, machines = machines_for(rate, m.par_min), solides = solides, rate = rate }
   end
+  -- les rangées d'intermédiaires d'abord (une par décision) : la recette demandée revient à la décision suivante
+  local served, plates, inter = Rt.served(f), plate_set(), nil
+  for _, d in ipairs(demandes) do
+    inter = intermediaire_manquant(lec, usable, d.recipe, d.rate, 2, served, plates)
+    if inter then break end
+  end
+  local inter_m = inter and cheap(inter.pr.entry, usable) or nil
+  if inter_m and not seen_m[inter_m.entity] then
+    seen_m[inter_m.entity] = true
+    decl.machines[#decl.machines + 1] = { machine = inter_m, categories = { inter.pr.entry.category } }
+  end
   A.declare(decl)
   local names = { machine = first_machine, bras = kit.bras, bras_long = kit.bras_long, tapis = kit.tapis, poteau = mod.pole or kit.poteau, coffre = kit.coffre or Build.QUAI_CHEST, decl = decl }
   f.build.mall.names_kit = names
+  if inter_m then
+    local d = { item = inter.item, recipe = inter.pr.recipe, machine = inter_m.entity, machines = machines_for(inter.rate, inter_m.par_min), solides = inter.pr.solides, rate = inter.rate }
+    local id_i, why_i, wait_i = Rt.place(f, { d }, names, tick, afford, "MALL intermediaire " .. inter.item)
+    if id_i then
+      say(f, f.build.mall, tick, string.format("intermediaire %s d'abord (%d machine(s), %.1f/min, projet %d), avant %s", inter.item, d.machines, inter.rate, id_i, table.concat(c.items, ",")))
+      return true
+    end
+    if wait_i then return false, why_i, wait_i end
+    -- (refus : mall plein, entrée hors des voies) la recette demandée continue comme avant
+  end
   local id, why, wait = Rt.place(f, demandes, names, tick, afford, "MALL rangee " .. table.concat(c.items, ","))
   if id then return true end
   return false, why, wait
@@ -577,6 +652,23 @@ local function chest_inv(surface, x, y)
   return ch, ch and ch.get_inventory(defines.inventory.chest)
 end
 
+--- Nom d'un état de machine (defines.entity_status) ; table construite une fois (ni décision ni sauvegarde : le journal seulement).
+local function sorted_keys(t)
+  local ks = {}
+  for k in pairs(t) do ks[#ks + 1] = k end
+  table.sort(ks)
+  return ks
+end
+
+local function status_name(s)
+  if not Rt.STATUS_NAMES then
+    local out = {}
+    for name, v in pairs(defines.entity_status) do out[v] = name end
+    Rt.STATUS_NAMES = out
+  end
+  return Rt.STATUS_NAMES[s] or tostring(s)
+end
+
 --- Une fois par décision (Ind.think) : barres des coffres de sortie, cellules rendues par une section refusée, allongement, compteurs.
 function Rt.minute(f, surface, lec, sources, afford, tick)
   local b = f.build
@@ -604,13 +696,22 @@ function Rt.minute(f, surface, lec, sources, afford, tick)
       elseif (s == "refuse" or s == "perdu") and not q.dead then
         q.dead = true
         local why = p and p.reason or "projet perdu"
-        for k = #r.cells, q.from, -1 do r.cells[k] = nil end
-        -- les sections suivantes de la rangée perdent leurs cellules avec celle-ci : on les annule, pour que leurs réservations ne restent pas (Build.cancel n'agit que tant que rien n'est bâti)
+        -- les sections suivantes : annulées tant que rien n'est bâti (leurs réservations ne restent pas). Une section déjà bâtie garde ses cellules, suivies par le compteur ; une cellule se repère à
+        -- sa place dans la rangée, celles rendues sous une section gardée deviennent des cases vides (sans recette)
+        local gardees, garde_to = {}, 0
         for _, q2 in ipairs(r.projects) do
           if q2 ~= q and not q2.dead and q2.from > q.from then
-            q2.dead = true
-            Build.cancel(f, q2.id, "mall : section precedente refusee")
+            local pp = b.projects[q2.id]
+            if not pp or pp.state == "refuse" or Build.cancel(f, q2.id, "mall : section precedente refusee") then
+              q2.dead = true
+            else
+              for k = q2.from, q2.to do gardees[k] = true end
+              garde_to = max(garde_to, q2.to)
+            end
           end
+        end
+        for k = #r.cells, q.from, -1 do
+          if k > garde_to then r.cells[k] = nil elseif not gardees[k] then r.cells[k] = {} end
         end
         if q.lines_prev then st.lines = q.lines_prev end -- (les lignes et leur étendue reviennent à leur état d'avant la section refusée)
         if tostring(why):find("obstacle", 1, true) or tostring(why):find("purete", 1, true) then r.stop = tostring(why)
@@ -664,6 +765,7 @@ function Rt.minute(f, surface, lec, sources, afford, tick)
   local total_made, total_chests, total_m, total_run = 0, 0, 0, 0
   for _, r in ipairs(st.rows) do
     local made, chests, nm, run, expected = 0, 0, 0, 0, 0
+    local etats, q_vides, q_total, vides = {}, 0, 0, {}
     for _, q in ipairs(r.projects) do
       local p = b.projects[q.id]
       if p and not q.dead then
@@ -675,10 +777,22 @@ function Rt.minute(f, surface, lec, sources, afford, tick)
               nm = nm + 1
               made = made + (en.products_finished or 0)
               if en.status == defines.entity_status.working or en.status == defines.entity_status.low_power then run = run + 1 end
+              local sn = status_name(en.status)
+              etats[sn] = (etats[sn] or 0) + 1
             end
           elseif e.role == "mall-sortie" then
             local ch, inv = chest_inv(surface, e.x, e.y)
             if ch and inv then chests = chests + inv.get_item_count() end
+          end
+        end
+        for _, qd in ipairs(p.quais or {}) do
+          local _, qi = chest_inv(surface, qd.x, qd.y)
+          if qi and qd.item then
+            q_total = q_total + 1
+            if qi.get_item_count(qd.item) == 0 then
+              q_vides = q_vides + 1
+              vides[qd.item] = true
+            end
           end
         end
       end
@@ -693,9 +807,36 @@ function Rt.minute(f, surface, lec, sources, afford, tick)
       say(f, st, tick, string.format("PRODUCTION rangee %d : %d machine(s) sur %d dont %d en marche, %d objet(s) fabriques (+%d depuis la derniere minute), %d objet(s) dans les coffres de sortie, cellules %d, arret %s",
         r.j, nm, expected, run, r.made_total, delta, chests, #r.cells, tostring(r.stop)))
     end
+    -- rangée posée qui ne tourne pas : pourquoi (états des machines, quais vides) ; au plus une ligne par 5 min et par rangée
+    if nm > 0 and run == 0 and delta == 0 and tick >= (r.arret_next or 0) then
+      r.arret_next = tick + 5 * 3600
+      local parts, its = {}, {}
+      for _, k in ipairs(sorted_keys(etats)) do parts[#parts + 1] = k .. "=" .. etats[k] end
+      for _, k in ipairs(sorted_keys(vides)) do its[#its + 1] = k end
+      say(f, st, tick, string.format("ARRET rangee %d : 0 machine(s) en marche sur %d : etats {%s} ; quais vides %d sur %d {%s}", r.j, nm, table.concat(parts, ","), q_vides, q_total, table.concat(its, ",")))
+    end
     total_made, total_chests, total_m, total_run = total_made + r.made_total, total_chests + chests, total_m + nm, total_run + run
   end
   st.fab = { made = total_made, chests = total_chests, machines = total_m, run = total_run, tick = tick }
+end
+
+--- Tapis et bras d'abord (lot amelioration-2 : azure manquait de 470 à 520 tapis de base à 67-74 min, sans une rangée de mall à 65,5 min) : les candidats qui portent un objet posant une entité de ces
+--- types passent devant, ordre relatif gardé. Lu au prototype : aucun nom d'objet.
+local function premier(item)
+  local pr = game.item_prototypes[item]
+  local pe = pr and pr.place_result
+  return pe ~= nil and T.MALL_PREMIERS[pe.type] == true
+end
+
+function Rt.ordonne(cands)
+  local first, rest = {}, {}
+  for _, c in ipairs(cands) do
+    local hit = false
+    for _, it in ipairs(c.items or {}) do if premier(it) then hit = true end end
+    if hit then first[#first + 1] = c else rest[#rest + 1] = c end
+  end
+  for _, c in ipairs(rest) do first[#first + 1] = c end
+  return first
 end
 
 --- Contexte du cerveau (script/ai3/automatisation.lua, comme la centrale et la migration) : une section en chantier est un projet dont les MANQUES sont fabriqués (mods) ; une
