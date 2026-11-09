@@ -344,6 +344,8 @@ local function fit_module(meth, rate, book, stock, has_plant, harvest, belt_flow
   return g, args
 end
 
+Capi.fit_module = fit_module -- lot ACIER : la rangée de fours d'acier (script/team/acier.lua) dimensionne son gabarit comme un ordre de la capitalisation
+
 local function module_ok(meth, book, stock, has_plant, rate, harvest, belt_flow)
   local g, miss = fit_module(meth, math.min(rate or A.FIRST_RATE_MAX, A.FIRST_RATE_MAX), book, stock, has_plant, harvest, belt_flow)
   if not g then return false, miss end

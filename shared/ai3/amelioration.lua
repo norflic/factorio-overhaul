@@ -43,6 +43,155 @@ Am.PROD_PCT = 200   -- % : valeur d'un lot de DÉBIT (fours, foreuses, assembleu
 Am.NEED_PCT = 150   -- % : valeur d'un bloc dont le PRODUIT manque au cerveau (« les chaînes en manque d'abord »)
 Am.TOP = 3          -- blocs gardés pour le journal
 
+--[[
+  Lot AMELIORATION-CONTINUE (directive du DC, 8/11, 18 h 40 : « Amélioration Continue (Upgrade Continu) : Les PNJ ne doivent jamais
+  s'arrêter. Disposant d'une automatisation totale de la production, ils doivent enchaîner la pose de structures en boucle et remplacer
+  en continu les vieux convoyeurs/bras par leurs versions supérieures. » ; 11 h 20 : « penser en bloc et pas penser en petite unité
+  [...] vérifiez également que les blocs soient améliorés en fonction de l'orientation. »).
+  Mesure de départ (fo-logs/2026-11-08_AMELIORATION-CONTINUE/CRITERES.md) : une décision ne portait que ce que le stock payait déjà (un
+  seul objet quand le stock était vide : « x1 ») ; la fabrication de la version supérieure n'était donc demandée qu'à l'unité, un
+  paiement à la fois, et le bloc ne finissait jamais. Règles ajoutées (allumées avec la montée par bloc, ctx.continu) :
+  1. FABRICATION PAR BLOC : la décision demande à la fabrication (projet de fond) le lot ENTIER du bloc (Am.fab : au plus Am.FAB_MAX
+     pièces), pas seulement ce qui est payable ; le reste du lot est demandé même quand une partie vient d'être payée.
+  2. FINIR LE BLOC : le groupe (bloc, rang) payé à la décision précédente garde une inertie de Am.GROUP_PCT % (Cap.candidates) : on
+     termine un bloc avant d'en ouvrir un autre.
+  3. ORIENTATION (Am.run_order) : les pièces d'un lot se suivent le long de la ligne (même axe, même ligne, puis dans le sens contraire
+     du flux : l'aval d'abord), pour qu'une ligne ne reste pas mêlée de tapis lents et rapides ; aucun nom d'objet ; la table de
+     direction est celle du moteur (nord 0, est 2, sud 4, ouest 6).
+  4. OBTENABLE : un rang supérieur pas encore débloqué est RÉCLAMÉ à la recherche dès qu'il y a Am.RESEARCH_MIN pièces à monter (avant,
+     « no_want » : la recherche n'était jamais réclamée par le remplacement).
+  5. PARC (Am.parc) : le journal dit, par type et par rang, combien de pièces sont à chaque niveau (preuve de « plus de 50 % montés »).
+]]
+Am.FAB_MAX = 12        -- pièces d'un bloc de rangs demandées d'un coup à la fabrication
+Am.GROUP_PCT = 25      -- % d'inertie du groupe (bloc, rang) payé à la décision précédente
+Am.RESEARCH_MIN = 24   -- pièces d'un rang inférieur à partir desquelles la recherche du rang supérieur est réclamée
+Am.ENGAGE_TICKS = 21600  -- 6 min : un remplacement entamé garde la tête tant qu'il progresse (un paiement) ; au-delà sans paiement, il est lâché
+Am.FAIL_GAP = 28800     -- 8 min : après un engagement lâché sans progrès, aucun nouvel engagement (les buts payables au stock passent)
+Am.REST_TICKS = 54000   -- 15 min : le groupe lâché ne reprend pas la tête avant ce repos
+Am.STARVE_TICKS = 72000 -- 20 min : un rang (objet cible) sans aucun paiement depuis ce temps passe devant les buts payables au stock
+Am.DIR_AXIS = { [0] = "v", [2] = "h", [4] = "v", [6] = "h" }   -- axe d'une direction du moteur (nord 0, est 2, sud 4, ouest 6)
+Am.DIR_SIGN = { [0] = -1, [2] = 1, [4] = 1, [6] = -1 }         -- sens du flux le long de l'axe (+1 : vers les coordonnées croissantes)
+
+--- Pièces demandées à la fabrication pour un bloc de `total` pièces à monter : le bloc entier, au plus `cap` (Am.FAB_MAX), au moins 1.
+function Am.fab(total, cap)
+  return math.max(1, math.min(cap or Am.FAB_MAX, total or 1))
+end
+
+--- Ordre d'orientation : `list` = { { id, x, y, dir } } (x, y, dir facultatifs) ; rend une NOUVELLE liste : d'abord les pièces à
+--- direction connue, par axe (horizontal puis vertical), par ligne (la coordonnée qui ne change pas le long de l'axe), puis par la
+--- coordonnée le long de l'axe, l'AVAL d'abord (sens contraire du flux) ; les pièces sans position ou sans direction à la fin, par
+--- numéro. Déterministe (le numéro départage en dernier).
+local function order_key(m)
+  local axis = m.dir ~= nil and Am.DIR_AXIS[m.dir] or nil
+  if not (axis and m.x and m.y) then return 3, 0, 0 end
+  local sign = Am.DIR_SIGN[m.dir]
+  if axis == "h" then return 1, m.y, -sign * m.x end
+  return 2, m.x, -sign * m.y
+end
+
+-- a, b = { axe, ligne, le long, numéro, pièce } : a passe-t-il avant b ?
+local function before(a, b)
+  if a[1] ~= b[1] then return a[1] < b[1] end
+  if a[2] ~= b[2] then return a[2] < b[2] end
+  if a[3] ~= b[3] then return a[3] < b[3] end
+  return a[4] < b[4]
+end
+
+function Am.run_order(list)
+  local dec = {}
+  for i, m in ipairs(list or {}) do
+    local ax, ln, al = order_key(m)
+    dec[i] = { ax, ln, al, m.id, m }
+  end
+  table.sort(dec, before)
+  local out = {}
+  for i, it in ipairs(dec) do out[i] = it[5] end
+  return out
+end
+
+--- Les `n` premières pièces de Am.run_order(list), sans trier la liste entière (une insertion bornée : O(taille × n) au pire, une
+--- comparaison par pièce en général) : un bloc de milliers de tapis n'en paie que douze à la fois.
+function Am.first_n(list, n)
+  if n <= 0 then return {} end
+  local kept, nk = {}, 0
+  local axes, signs = Am.DIR_AXIS, Am.DIR_SIGN
+  list = list or {}
+  for i = 1, #list do
+    local m = list[i]
+    -- (la clé d'order_key, en ligne : un bloc de milliers de pièces passe ici une fois par décision)
+    local ax, ln, al
+    local d, x, y = m.dir, m.x, m.y
+    local axis = d and axes[d]
+    if axis and x and y then
+      if axis == "h" then ax, ln, al = 1, y, -signs[d] * x else ax, ln, al = 2, x, -signs[d] * y end
+    else
+      ax, ln, al = 3, 0, 0
+    end
+    -- Une pièce qui ne passe pas avant la dernière gardée (liste pleine) n'alloue rien : le cas courant d'un grand bloc.
+    local worst = kept[nk]
+    local wax = worst and worst[1]
+    if nk < n or ax < wax or (ax == wax and (ln < worst[2] or (ln == worst[2] and (al < worst[3] or (al == worst[3] and m.id < worst[4]))))) then
+      local it = { ax, ln, al, m.id, m }
+      local pos = nk + 1
+      while pos > 1 and before(it, kept[pos - 1]) do pos = pos - 1 end
+      table.insert(kept, pos, it)
+      nk = nk + 1
+      if nk > n then kept[nk] = nil; nk = n end
+    end
+  end
+  local out = {}
+  for i, it in ipairs(kept) do out[i] = it[5] end
+  return out
+end
+
+--- Parc : `machines` = { { name } } (relevé des pièces remplaçables), `mproto(nom)` -> { type, group, speed } ou nil. Rend une liste
+--- TRIÉE de { key = "type/groupe", total, tiers = { { name, speed, n } } (vitesse croissante), up = pièces au-dessus du plus bas niveau
+--- de la famille (`catalog`, facultatif : noms du catalogue des prototypes ; sans lui, le plus bas niveau vu) }.
+function Am.parc(machines, mproto, catalog)
+  local by, keys, low = {}, {}, {}
+  for _, m in ipairs(machines or {}) do
+    local p = mproto(m.name)
+    if p and p.group and (p.speed or 0) > 0 then
+      local k = tostring(p.type) .. "/" .. tostring(p.group)
+      local g = by[k]
+      if not g then g = { key = k, total = 0, per = {} }; by[k] = g; keys[#keys + 1] = k end
+      g.total = g.total + 1
+      g.per[m.name] = (g.per[m.name] or 0) + 1
+    end
+  end
+  for _, name in ipairs(catalog or {}) do
+    local p = mproto(name)
+    if p and p.group and (p.speed or 0) > 0 then
+      local k = tostring(p.type) .. "/" .. tostring(p.group)
+      if not low[k] or p.speed < low[k] then low[k] = p.speed end
+    end
+  end
+  table.sort(keys)
+  local out = {}
+  for _, k in ipairs(keys) do
+    local g = by[k]
+    local tiers = {}
+    for _, name in ipairs(Am.sorted_keys(g.per)) do tiers[#tiers + 1] = { name = name, speed = mproto(name).speed, n = g.per[name] } end
+    table.sort(tiers, function(a, b)
+      if a.speed ~= b.speed then return a.speed < b.speed end
+      return a.name < b.name
+    end)
+    local floor_speed = low[k] or tiers[1].speed
+    local up = 0
+    for _, t in ipairs(tiers) do if t.speed > floor_speed then up = up + t.n end end
+    out[#out + 1] = { key = k, total = g.total, tiers = tiers, up = up }
+  end
+  return out
+end
+
+--- Ligne de journal (ASCII) d'un groupe du parc.
+function Am.parc_line(row)
+  local parts = {}
+  for _, t in ipairs(row.tiers) do parts[#parts + 1] = t.name .. " " .. t.n end
+  return string.format("%s : %s ; montees %d/%d (%d%%)", row.key, table.concat(parts, ", "), row.up, row.total,
+    row.total > 0 and math.floor(100 * row.up / row.total) or 0)
+end
+
 local function sorted_keys(t)
   local ks = {}
   for k in pairs(t or {}) do ks[#ks + 1] = k end
@@ -89,6 +238,48 @@ function Am.supported(unit, stock, cap)
   return k
 end
 
+--- Lot AMELIORATION-CONTINUE, ENGAGEMENT (cause mesurée, banc geants432-02ffcbe5 : 0 tapis monté en 120 min) : un but dont la pièce est à
+--- fabriquer perdait la tête, à chaque décision, contre tout but payable au stock (Cap.candidates, `ready`) : son projet de fabrication
+--- se fermait au bout d'une minute et la pièce n'existait jamais. Un pas de l'état `st` (nombres et tables de nombres, aucune fonction) :
+---   ev.start  = groupe du remplacement décidé ; ev.paid = groupe d'un paiement fait ; ev.threat = danger (rien ne passe devant la défense) ;
+---   ev.alive  = false quand le groupe engagé n'a plus aucun candidat (bloc fini, rang plus faisable).
+--- Rend le groupe ENGAGÉ (ou nil) : Cap.candidates le met en tête. Engagé dès la décision ; lâché sans progrès après Am.ENGAGE_TICKS
+--- (repos Am.REST_TICKS pour ce groupe, intervalle Am.FAIL_GAP avant tout autre engagement) ; un paiement du groupe relance le compte.
+function Am.engage_update(st, tick, ev)
+  st.rest = st.rest or {}
+  for _, k in ipairs(sorted_keys(st.rest)) do
+    if tick >= st.rest[k] then st.rest[k] = nil end
+  end
+  ev = ev or {}
+  if st.group and ev.paid == st.group then st.progress = tick end
+  if st.group then
+    if ev.threat or ev.alive == false then
+      st.group = nil
+    elseif tick - (st.progress or tick) > Am.ENGAGE_TICKS then
+      st.rest[st.group] = tick + Am.REST_TICKS
+      st.gap_until = tick + Am.FAIL_GAP
+      st.group = nil
+    end
+  end
+  if not st.group and ev.start and not ev.threat and not st.rest[ev.start] and tick >= (st.gap_until or 0) then
+    st.group, st.progress = ev.start, tick
+  end
+  return st.group
+end
+
+--- Lot AMELIORATION-CONTINUE, FAMINE : rangs (objets cibles des remplacements) sans paiement depuis Am.STARVE_TICKS. `kinds` = liste des
+--- cibles présentes parmi les candidats ; st.seen[cible] = 1er tick vu, st.paid[cible] = dernier paiement. Rend { [cible] = true }.
+function Am.starved_kinds(st, tick, kinds)
+  st.seen, st.paid = st.seen or {}, st.paid or {}
+  local out = {}
+  for _, k in ipairs(kinds or {}) do
+    if st.seen[k] == nil then st.seen[k] = tick end
+    local since = math.max(st.seen[k], st.paid[k] or 0)
+    if tick - since >= Am.STARVE_TICKS then out[k] = true end
+  end
+  return out
+end
+
 --- Groupes (bloc, famille) du relevé. ents = liste { id, name, working, block, fixed } ; rend une liste TRIÉE de
 --- { block, fam, members (triés par numéro), fixed }. Le centre (famille sans condition de centre) n'en fait pas partie.
 function Am.groups(Ld, ents, cfam)
@@ -104,7 +295,7 @@ function Am.groups(Ld, ents, cfam)
         by[k] = g
         keys[#keys + 1] = k
       end
-      g.members[#g.members + 1] = { id = e.id, n = n, working = e.working and true or false }
+      g.members[#g.members + 1] = { id = e.id, n = n, working = e.working and true or false, x = e.x, y = e.y, dir = e.dir }
       if e.fixed then g.fixed = true end
     end
   end
@@ -148,10 +339,14 @@ function Am.candidates(Ld, ents, ctx, cfam, Cap)
       for _, mb in ipairs(low) do
         if not (ctx.exclude and ctx.exclude["e:" .. mb.id]) then avail[#avail + 1] = mb end
       end
-      table.sort(avail, function(a, b)
-        if a.working ~= b.working then return a.working end
-        return a.id < b.id
-      end)
+      -- Lot AMELIORATION-CONTINUE : en marche d'abord, puis dans l'ordre d'orientation (la ligne se suit ; sans position : par numéro).
+      avail = Am.run_order(avail)
+      local run, idle = {}, {}
+      for _, mb in ipairs(avail) do
+        if mb.working then run[#run + 1] = mb else idle[#idle + 1] = mb end
+      end
+      for _, mb in ipairs(idle) do run[#run + 1] = mb end
+      avail = run
       if #avail == 0 then
         row.cause = "refus-recent"
       else
@@ -191,6 +386,7 @@ function Am.candidates(Ld, ents, ctx, cfam, Cap)
             local score = math.floor(value * 1000 / (work + Cap.COST_FLOOR))
             if ctx.current and ctx.current == key then score = math.floor(score * (100 + Cap.INERTIA_PCT) / 100) end
             cands[#cands + 1] = { key = key, id = ids[1], ids = ids, n = n, unit = unit, family = fam.key, from = m, to = m + 1,
+              fab = ctx.continu and Am.fab(#avail, Am.BATCH_MAX) or nil, -- lot AMELIORATION-CONTINUE : le bloc entier est demandé à la fabrication
               cost = cost, work = work, all_in = all_in, value = value, score = score, bloc = g.block, bloc_size = #g.members,
               bloc_low = #low, why = { { kind or "debit", gain }, { "bloc", g.block }, { "batiments", n .. "/" .. #low } } }
             row.state, row.n, row.cause = "decide", n, nil

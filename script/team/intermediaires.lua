@@ -126,7 +126,9 @@ local function d10(f, s, list, tick)
   local products, seen = {}, {}
   for _, m in ipairs(mods) do
     local p = m.product
-    if p and p ~= "centrale" and T.smelter_inputs[p] == nil and (m.state == "fini" or m.state == "chantier") and not seen[p] then
+    -- (lot ACIER : une plaque fondue d'un MINERAI n'est pas suivie ; l'acier, fondu d'une plaque, l'est : son bloc ne se nourrit plus au-delà du plafond)
+    local fondu = T.smelter_inputs[p] ~= nil and T.smelter_inputs[T.smelter_inputs[p][1]] == nil
+    if p and p ~= "centrale" and not fondu and (m.state == "fini" or m.state == "chantier") and not seen[p] then
       seen[p] = true
       products[#products + 1] = p
     end

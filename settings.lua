@@ -83,3 +83,4 @@ require("settings.rangees_asm") -- lot RANGEES-ASM (8/11) : fo-war-rangee-dyn, r
 require("settings.electrique") -- lot ELECTRIQUE (8/11) : fo-war-electrique, bascule tout-electrique des la premiere centrale (allume par defaut)
 require("settings.mall") -- lot MALL (8/11) : fo-war-mall, secteur du mall centralise reserve par le terrain (allume par defaut)
 require("settings.petrole_rangee") -- lot PETROLE-RANGEE (8/11) : fo-war-petrole-champ, extension du champ jusqu aux puits atteignables (allume par defaut)
+require("settings.acier") -- lot ACIER (8/11) : fo-war-acier, rangee dynamique de fours d acier, coupure des tournees quand le bloc debite (allume par defaut)
