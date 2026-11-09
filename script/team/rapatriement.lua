@@ -32,6 +32,7 @@ local Conv = require("script.team.convoyeurs")
 local Rsv = require("script.ai3.reserve") -- le réglage maître (fo-war-industrie)
 local Registry = require("script.companion.registry")
 local Stock = require("script.team.stock") -- Stock.skip_fn : les objets que le stock du QG refuse (saturés)
+local Pur = require("script.team.purete") -- lot PURETE-TAPIS : aucun tapis étranger ne verse sur la ligne, la ligne ne verse sur aucun tapis étranger
 
 local Rap = {}
 
@@ -587,6 +588,8 @@ local function new_job(api, f, surface, p)
   local J = { box = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }, pass = 1, reuse = reuse, px = px, py = py, planned = {}, total = 0, base = 0, runs = 0, si = 0, ei = 1,
     last_why = "aucun chemin", slices = 0, stage = "guard", gi = 1, gj = 1, guard = {} }
   J.chunk, J.merged = chunk_masks(api, surface)
+  J.f, J.surface, J.p = f, surface, p -- (mémoire LOCALE de la recherche : lue par la preuve de pureté)
+  J.wf = Pur.fronts(f, surface, lc.item, p, { world_only = true }) -- lot PURETE-TAPIS : tuiles où un tapis du MONDE d'un autre objet verse
   function J.ground(x, y)
     local bx = J.box
     if x < bx.x0 or x > bx.x1 or y < bx.y0 or y > bx.y1 then return nil end
@@ -598,7 +601,7 @@ local function new_job(api, f, surface, p)
   end
   function J.free(x, y)
     local c, k = J.ground(x, y)
-    return c ~= nil and not (J.guard[k] or J.planned[k])
+    return c ~= nil and not (J.guard[k] or J.planned[k]) and not J.wf(x, y)
   end
   function J.cost(x, y)
     if not J.free(x, y) then return nil end
@@ -669,6 +672,12 @@ local function stage_spots(f, surface, b, p, J)
   return nil
 end
 
+--- Lot PURETE-TAPIS : preuve de pureté d'un tracé trouvé (causes a, b, c, d) ; refus : le bout suivant est essayé. Rend ok, raison.
+local function purity(J, e, tiles)
+  local lc = J.p.spec.rapatriement
+  return Pur.check_route(J.f, J.surface, J.p, "rapatriement", tiles, lc.item, { [P.tkey(e.dst.ax, e.dst.ay)] = true, [P.tkey(J.D.x, J.D.y)] = true }, nil)
+end
+
 --- Étape search : au plus Rp.SLICE_NODES noeuds développés. Rend "more", "found" (J.chosen) ou "fail" (J.last_why).
 local function stage_search(J, src)
   local budget = Rp.SLICE_NODES
@@ -689,6 +698,7 @@ local function stage_search(J, src)
           local tiles, why = Rap.route({ x = e.src.bx, y = e.src.by }, { x = e.dst.bx, y = e.dst.by }, Li.end_dir(e.dst), J.box, J.cost)
           if tiles then
             local ok, w2 = Rp.route_ok(#tiles, Li.manhattan(e.src.bx, e.src.by, e.dst.bx, e.dst.by))
+            if ok then ok, w2 = purity(J, e, tiles) end
             if ok then J.chosen = { e = e, tiles = tiles, D = J.D } return "found" end
             J.last_why = w2
           else
@@ -729,6 +739,7 @@ local function stage_search(J, src)
       elseif st == "found" then
         local e = J.e
         local ok, w2 = Rp.route_ok(#J.astar.tiles, Li.manhattan(e.src.bx, e.src.by, e.dst.bx, e.dst.by))
+        if ok then ok, w2 = purity(J, e, J.astar.tiles) end
         if ok then J.chosen = { e = e, tiles = J.astar.tiles, D = J.D } return "found" end
         J.last_why = w2
         J.astar = nil

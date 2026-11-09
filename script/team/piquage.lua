@@ -30,6 +30,7 @@ local Conv = require("script.team.convoyeurs")
 local Stock = require("script.team.stock")
 local Rsv = require("script.ai3.reserve")
 local Registry = require("script.companion.registry")
+local Pur = require("script.team.purete") -- lot PURETE-TAPIS : la branche ne verse sur aucun tapis étranger, aucun tapis étranger ne verse sur elle ni sur le répartiteur
 local LAST_SEARCH = -1 -- tick de la dernière recherche de branche (local au module, jamais dans global)
 
 local Piquage = {}
@@ -435,6 +436,16 @@ local function place_split(f, surface, p, lc)
   local belt = belt_at(f, surface, g.tile.x, g.tile.y)
   if not belt then return false, "tapis source disparu" end
   if belt.direction ~= g.dir then return false, "tapis source tourne" end
+  -- lot PURETE-TAPIS : la seconde entrée du répartiteur (derrière sa tuile latérale) est relue à la POSE (elle n'était lue qu'à la décision) : un tapis
+  -- de n'importe quelle force, tourné vers le répartiteur, y déverserait son objet sur le tapis principal
+  do
+    local v = Li.DV[g.dir]
+    for _, r in ipairs(Pur.feeding(surface, g.side_tile.x, g.side_tile.y)) do
+      if r.dir == g.dir and r.x == g.side_tile.x - v[1] and r.y == g.side_tile.y - v[2] then
+        return false, "tapis etranger derriere la tuile laterale du repartiteur"
+      end
+    end
+  end
   if not surface.can_fast_replace({ name = lc.split, position = { g.x, g.y }, direction = g.dir, force = f.force }) then
     return false, "remplacement sur place refuse par le moteur"
   end
@@ -802,6 +813,9 @@ function Piquage.plan(api, f, surface, p)
   do
     local ok, w2 = Li.route_ok(#tiles, Li.manhattan(g.branch.x, g.branch.y, site.bx, site.by))
     if not ok then return false, "piquage: " .. w2 end
+    -- lot PURETE-TAPIS : preuve de pureté de la branche (causes a, b, c, d) contre une lecture fraîche du monde ; la dernière tuile verse sur le bras du quai
+    local pok, pwhy = Pur.check_route(f, surface, p, "piquage", tiles, lc.item, { [P.tkey(site.ax, site.ay)] = true }, nil)
+    if not pok then return false, "piquage: " .. pwhy end
   end
   -- le prix réel du tracé : un tracé plus long que l'estimation ne doit pas ruiner le retour (même calcul que la décision)
   local okw, ww = Pq.worth({ flow = lc.flow, dist = dist_hq(f, dock.x, dock.y), tiles = #tiles, fill = api.fill or 400, low = api.low or 60 })

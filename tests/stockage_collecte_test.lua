@@ -43,6 +43,10 @@ local KEYS = between("local function sorted_keys(t)", "local function bump(")
 local OUT = between("local function out_wanted(f, p, chest)", "local function quai_tasks(")
 local WORK = between("function Build.work(agent, f, tick)", "\n---------------------------------------------------------------")
 
+-- Le nom du coffre des quais est LU dans build.lua (96c6adf0 : Build.QUAI_CHEST remplace "iron-chest" en dur ; la doublure l'ignorait,
+-- find_entity(nil, ...) ne rendait plus rien et le test voyait 0 tache).
+local QUAI_CHEST = assert(src:match('\nBuild%.QUAI_CHEST = "([^"]+)"'), "repere absent : Build.QUAI_CHEST")
+
 local function count(s, pat) local _, n = s:gsub(pat, "") return n end
 section("0. Reperes")
 check(count(OUT, "Build%.Colr%.take_list") == 1, "out_wanted extrait : un appel a Build.Colr.take_list (repere toujours sur la ligne corrigee)")
@@ -100,7 +104,7 @@ end
 
 local surface = {
   find_entity = function(name, pos)
-    if name ~= "iron-chest" then return nil end
+    if name ~= QUAI_CHEST then return nil end
     return W.chests[pos[1] .. "," .. pos[2]]
   end,
 }
@@ -109,7 +113,7 @@ local Stock = { count = function() return 0 end }
 local STONE_SKIP = function() return function(it) return it == "stone" end end
 
 local function load_code(out_src, work_src)
-  local Build = { COLLECT_AT = 200, Quotas = require("script.team.quotas_glue"), Colr = Colr }
+  local Build = { COLLECT_AT = 200, Quotas = require("script.team.quotas_glue"), Colr = Colr, QUAI_CHEST = QUAI_CHEST }
   local env = setmetatable({
     Build = Build, Stock = Stock, REACH = 16,
     P = { anchor_for = function(_, x, y) return { x = x, y = y } end },

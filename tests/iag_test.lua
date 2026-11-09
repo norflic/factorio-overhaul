@@ -521,6 +521,7 @@ do
     ["script/team/generateurs.lua"] = { "TYPE", 1, "types du moteur des génératrices tenues par le registre (lot X10-S4 : burner-generator, generator, solar-panel, les types lus par raccord.lua) : le GENRE, jamais un niveau" },
     ["script/team/plant_arms.lua"] = { "EXEC", 1, "journal de la centrale : le fluide « vapeur » lu dans les chaudières (diagnostic)" },
     ["script/faction/vision.lua"] = { "TYPE", 2, "types du moteur (assembling-machine, furnace...)" },
+    ["script/team/purete.lua"] = { "TYPE", 6, "types du moteur des pièces qui portent des objets (transport-belt, underground-belt, splitter), lus par le garde-fou de pureté des tapis, lot PURETE-TAPIS : le GENRE, jamais un niveau" },
     ["script/faction/journal.lua"] = { "TYPE", 2, "types du moteur (car, robots)" },
     ["script/modules/mult.lua"] = { "TYPE", 2, "types du moteur des machines à modules" },
     ["script/team/convoyeurs.lua"] = { "TYPE", 1, "type du moteur transport-belt (filtre des prototypes de tapis, lot CONVOYEURS)" },
