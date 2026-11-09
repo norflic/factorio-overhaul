@@ -128,6 +128,10 @@ local function suite(Mega, src)
   for t = 3, 4 do Mega.think(fac, cs, t * 3600, { power = true }) end
   want(#LOGS == n0 and fac.mega.deps[11].state == "decide", "taille inchangee : garder, aucune ligne au journal")
   want(#WANT.calls > w0, "garder : le champ reste voulu (nouvel appel de want)")
+  -- le minerai sans four est « statique » : lu une fois (tick 3600), jamais relu ; les gisements vivants tournent (le 13 « trop petit » est relu)
+  want(fac.mega.deps[12].static == true and fac.mega.deps[12].tick == 3600, "charbon : statique, jamais relu (tick " .. tostring(fac.mega.deps[12].tick) .. ")")
+  want(fac.mega.deps[13].static == nil and fac.mega.deps[13].tick > 3600, "gisement trop petit : relu (non statique)")
+  want(fac.mega.deps[11].tick >= 3 * 3600, "gisement decide : relu a chaque tour")
   -- crise puis retour
   local w1 = #WANT.calls
   Mega.think(fac, cs, 5 * 3600, { power = true, crisis = true })
@@ -225,6 +229,7 @@ local MUTANTS = {
   { "decisions purgees", '(rec.state == "refuse" or rec.state == "attente")', 'true' },
   { "refus jamais purges", 'if not cs.deps[id] and (rec.state', 'if false and (rec.state' },
   { "garde ecrite a chaque fois", '(action == "decider" or action == "garder") and "decide"', '(action == "decider") and "decide"' },
+  { "statiques relus", "if not (known and known.static) then", "if true then" },
   { "champ jamais ordonne", 'if rec and rec.state == "decide" then order_field(f, st, dep, rec, tick) end', "" },
   { "plafond ignore", "MigChamp.want(f, dep, tick, Mp.par_max(rec))", "MigChamp.want(f, dep, tick, 99)" },
   { "champ ordonne meme refuse", 'if rec and rec.state == "decide" then order_field', "if rec then order_field" },

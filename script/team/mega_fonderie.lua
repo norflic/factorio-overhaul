@@ -146,6 +146,9 @@ local function consider(f, st, dep, tick, ctx, on)
   rec = rec or {}
   st.deps[dep.id] = rec
   rec.tick, rec.res = tick, dep.resource
+  -- un minerai sans four de champ le restera (prototypes) : le curseur ne le relit plus (partie géants du 9/11, K1 : 20 gisements dont 11 de charbon
+  -- ou de pierre relus deux par minute retardaient de 6 min la première décision des factions)
+  rec.static = (on and kind == nil) and true or nil
   if action == "decider" then
     rec.state, rec.sig, rec.decided = "decide", Mf.signature(z), tick
     rec.lines, rec.cols, rec.furnaces, rec.ncol, rec.drills = z.lines, z.cols, z.furnaces, z.ncol, z.drills
@@ -197,13 +200,19 @@ function Mega.think(f, cs, tick, ctx)
   end
   local ids = State.sorted_keys(cs.deps)
   if #ids == 0 then return 0 end
-  local n = math.min(Mega.PER_THINK, #ids)
-  for _ = 1, n do
+  -- le curseur avance sur la liste ENTIÈRE et saute les gisements « statiques » (minerai sans four) : il lit Mega.PER_THINK gisements vivants
+  local n, scanned = 0, 0
+  while n < Mega.PER_THINK and scanned < #ids do
     st.cursor = (st.cursor or 0) % #ids + 1
+    scanned = scanned + 1
     local dep = cs.deps[ids[st.cursor]]
-    consider(f, st, dep, tick, ctx or {}, on)
-    local rec = st.deps[dep.id]
-    if rec and rec.state == "decide" then order_field(f, st, dep, rec, tick) end
+    local known = st.deps[dep.id]
+    if not (known and known.static) then
+      consider(f, st, dep, tick, ctx or {}, on)
+      local rec = st.deps[dep.id]
+      if rec and rec.state == "decide" then order_field(f, st, dep, rec, tick) end
+      n = n + 1
+    end
   end
   return n
 end
