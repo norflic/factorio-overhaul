@@ -404,12 +404,13 @@ function Rt.minute(f, surface, lec, sources, afford, tick)
   -- 3. compteurs (lecture en FONCTION : objets fabriqués par le mall et sortis en coffre)
   local total_made, total_chests, total_m, total_run = 0, 0, 0, 0
   for _, r in ipairs(st.rows) do
-    local made, chests, nm, run, waiting = 0, 0, 0, 0, 0
+    local made, chests, nm, run, expected = 0, 0, 0, 0, 0
     for _, q in ipairs(r.projects) do
       local p = b.projects[q.id]
       if p and not q.dead then
         for _, e in ipairs(p.ents) do
           if e.role == "mall-machine_asm" then
+            expected = expected + 1
             local en = surface.find_entity(e.name, { e.x, e.y })
             if en and en.force.name == f.force then
               nm = nm + 1
@@ -423,15 +424,17 @@ function Rt.minute(f, surface, lec, sources, afford, tick)
         end
       end
     end
+    -- compteur CUMULÉ : products_finished est porté par la machine ; une machine détruite retire son compte de la somme (partie neuve 67887c48, scarlet : 1 535 puis 102), le cumul ne redescend pas
     r.made0 = r.made0 or 0
-    local delta = made - r.made0
+    local delta = math.max(0, made - r.made0)
     r.made0 = made
+    r.made_total = (r.made_total or 0) + delta
     if nm > 0 and (delta > 0 or r.last_prod_m ~= nm) then
       r.last_prod_m = nm
-      say(f, st, tick, string.format("PRODUCTION rangee %d : %d machine(s) dont %d en marche, %d objet(s) fabriques (+%d depuis la derniere minute), %d objet(s) dans les coffres de sortie, cellules %d, arret %s",
-        r.j, nm, run, made, delta, chests, #r.cells, tostring(r.stop)))
+      say(f, st, tick, string.format("PRODUCTION rangee %d : %d machine(s) sur %d dont %d en marche, %d objet(s) fabriques (+%d depuis la derniere minute), %d objet(s) dans les coffres de sortie, cellules %d, arret %s",
+        r.j, nm, expected, run, r.made_total, delta, chests, #r.cells, tostring(r.stop)))
     end
-    total_made, total_chests, total_m, total_run = total_made + made, total_chests + chests, total_m + nm, total_run + run
+    total_made, total_chests, total_m, total_run = total_made + r.made_total, total_chests + chests, total_m + nm, total_run + run
   end
   st.fab = { made = total_made, chests = total_chests, machines = total_m, run = total_run, tick = tick }
 end

@@ -108,6 +108,7 @@ local Capi = {}
 -- Lot DEBUG-CERVEAU : anneau des ordres envoyés et refusés AVEC leur raison, lu par la seule vue « Cerveau » (jamais par une décision). Champ, pas une locale (199 sur 200).
 Capi.Anneau = require("script.debug.anneau")
 Capi.MS = require("script.ai3.modules_stock") -- lot MODULES-POSES : disposition du stock de modules (champ de Capi : aucune locale de plus)
+Capi.Mega = require("script.team.mega_fonderie") -- lot MEGA-FONDERIE : décision du bloc de fonte nourri par un bus (étape 11 ; champ, aucune locale de plus)
 
 Capi.SETTING = "fo-war-capi"
 Capi.ENABLED = true
@@ -2427,6 +2428,11 @@ function Capi.think(f, view, book, tick, research, w, run)
       Profiler.stop("capi:think")
       return Capi.PENDING
     end
+  elseif phase == 11 and Capi.Mega.on() then
+    -- Lot MEGA-FONDERIE : méga-fonderie des gisements recensés (étape libre jusqu'ici : une seule étape coûteuse par pensée)
+    Profiler.fstart("mega:think")
+    Capi.Mega.think(f, cs, tick, { power = Auto.plant_state(f) == "fini", crisis = (view and (view.survie or view.hq_threat)) and true or false })
+    Profiler.fstop("mega:think")
   end
   return Capi.think_tail(f, cs, tick)
 end
@@ -2679,6 +2685,28 @@ remote.add_interface("fo-capi", {
     if not rec then return nil, tostring(why) end
     cs.open[#cs.open + 1] = rec
     return rec.mod_ids, o.key
+  end,
+  --- Lot MEGA-FONDERIE (BANC SEULEMENT) : l'étape 11 tout de suite (sans attendre le cycle de 12 pensées), courant comme l'étape 11 (centrale
+  --- finie), sans crise. box = { x0, y0, x1, y1, resource, tiles } : un gisement relevé AU MOTEUR dans cette boîte (tiles impose le compte :
+  --- mesure de coût d'un gisement géant) ; sans box : les gisements recensés (cs.deps). Durée au profileur : ligne [FO-MEGA-COUT]. Rend
+  --- { power, n, deps = copie de f.mega.deps }.
+  bench_mega = function(key, box)
+    local f = team_of(key)
+    local cs = f and f.team and f.team.capi
+    if not (cs and f.hq and f.hq.valid) then return nil end
+    local target = cs
+    if box then
+      local n = box.tiles or f.hq.surface.count_entities_filtered({ area = { { box.x0, box.y0 }, { box.x1, box.y1 } }, name = box.resource })
+      local id = "banc:" .. tostring(box.resource) .. "@" .. box.x0 .. "," .. box.y0
+      target = { deps = { [id] = { id = id, resource = box.resource, tiles = n, x0 = box.x0, y0 = box.y0, x1 = box.x1, y1 = box.y1,
+        cx = (box.x0 + box.x1) / 2, cy = (box.y0 + box.y1) / 2 } } }
+    end
+    local power = Auto.plant_state(f) == "fini"
+    local prof = game.create_profiler()
+    local n = Capi.Mega.think(f, target, game.tick, { power = power, crisis = false })
+    prof.stop()
+    log({ "", "[FO-MEGA-COUT] ", f.key or "player", " : ", n, " gisement(s) relu(s), ", (box and box.tiles) and "tuiles imposees par le banc, " or "", prof })
+    return { power = power, n = n, deps = f.mega and f.mega.deps or {} }
   end,
   --- Lot TV-ENERGIE (W02, lecture seule) : le relevé du courant que la capitalisation donnerait aujourd'hui à la règle, selon l'état de la
   --- centrale de l'équipe (Auto.plant_state) : { amorce } ou { fermee } sans centrale finie, { have_kw, used_kw } avec.

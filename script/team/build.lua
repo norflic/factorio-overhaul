@@ -150,6 +150,7 @@ Build.Repli = require("script.team.repli_place")
 Build.Quartiers = require("script.team.quartiers")
 Build.TrancheForeuses = require("script.team.foreuses_tranches") -- lot TRANCHES-FOREUSES : tracé pondéré du tapis des foreuses par tranches (champ de Build, même raison : 199 locales)
 Build.Trav = require("script.team.traversee") -- lot TRAVERSEE : tapis qui enjambent les obstacles par des souterrains, gisements évités (champ de Build : bloc principal à 199 locales)
+Build.Pur = require("script.team.purete") -- lot PURETE-TAPIS : garde-fou de pureté des tapis (aucun mélange d'objets), champ de Build pour la même raison
 -- Lot RAPATRIEMENT (8/11) : lignes sortie lointaine -> tapis -> tampon (script/team/rapatriement.lua) ; champ de Build, même raison (199 locales sur 200).
 Build.Rapatriement = require("script.team.rapatriement")
 Build.Mall = require("script.team.mall") -- lot MALL (tranche 1) : secteur du mall choisi par le terrain et réservé, état S (docs/MALL.md) ; champ de Build, pas une locale
@@ -852,6 +853,7 @@ local function place_module(f, surface, g, kind_states, toward, res, opts)
     -- lot PD-FONDERIEQG (D82) : ligne de foreuses (gabarit « drills ») dans le sens du gisement, sortie du collecteur vers l'arrivée
     if res and g.gen == "drills" then fopts.axis = ores and ores.axis or nil; fopts.out_toward = true end
     if opts and opts.water then fopts.water = masks.water end
+    fopts.front_ok = Build.Pur.front_ok(f, surface) -- lot PURETE-TAPIS : la queue d'un tapis du gabarit ne verse sur aucun tapis existant (nil : éteint)
     local fit, why = P.fit(g, rect, fopts)
     if fit then
       local r = fit.k == 0 and g or M.rotate(g, fit.k)
@@ -2152,10 +2154,14 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
   local planned = {}
   for _, e in ipairs(ents) do for _, t in ipairs(P.tiles_of(e)) do planned[P.tkey(t[1], t[2])] = true end end
   local sk, ak = P.tkey(s.x, s.y), P.tkey(a.x, a.y)
+  -- lot PURETE-TAPIS (journal du DC du 8/11 : « une ligne d'output ne doit jamais fusionner avec une ligne d'input qui attend un objet différent ») : ce
+  -- tracé n'avait AUCUN garde de la tuile devant un tapis existant ; la tuile où un tapis étranger (plan ou monde) verse reste libre
+  local pure_front = Build.Pur.fronts(f, surface, item, p)
   local function cost(x, y)
     local k = P.tkey(x, y)
     if k ~= sk and k ~= ak and ring[k] then return nil end
     if masks.water[k] or masks.blocked[k] or b.occ[k] or planned[k] then return nil end
+    if pure_front(x, y) then return nil end
     local c = 1
     if P.in_street(b.lat, x, y) then c = P.STREET_COST end
     if masks.clear[k] then c = c + 1 end
@@ -2218,6 +2224,20 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
     p.parts[part] = nil
     Build.drill_diag(f, item, n, a, "tapis " .. tostring(n2), nil, s)
     return false, n2
+  end
+  if not relay_legs then
+    -- lot PURETE-TAPIS : la preuve du tracé (causes a, b, c, d) contre une lecture fraîche du monde ; la tuile devant l'arrivée est la cible
+    local own = {}
+    for k in next, planned do own[k] = true end -- (copie d'un ensemble : l'ordre n'a aucun effet)
+    local av = P.DV[a.dir or 0]
+    local targets = {}
+    if av then targets[P.tkey(a.x + av[1], a.y + av[2])] = true end
+    local pok, pwhy = Build.Pur.check_route(f, surface, p, "foreuses", tiles, item, targets, { own = own })
+    if not pok then
+      p.parts[part] = nil
+      Build.drill_diag(f, item, n, a, "tapis " .. tostring(pwhy), nil, s)
+      return false, pwhy
+    end
   end
   for _, e2 in ipairs(Build.Trav.entities(tiles, { belt = belt, ug = tnames and tnames.ug }, "liaison-tapis")) do
     e2.part = part
@@ -4465,7 +4485,10 @@ local function advance(f, surface, p, tick)
     end
     return
   end
-  if p.reopened and tick >= (p.miss_next or 0) and (p.state == "defrichage" or p.state == "fantomes" or p.state == "chantier") then
+  -- lot RACCORD-BANDE 2 : une LIGNE de bande (p.spec.lg) relit aussi ses manques en chantier : partie neuve 0.6.72 (diag2), 29 poteaux sur 32 posés puis plus rien
+  -- pendant 6 min, 0 tâche au tableau : les poteaux perdus en route (PNJ tué, réserve de 31 pour 32) n'étaient demandés à personne (p.missing resté vide
+  -- depuis la fin de la réserve), le PNJ échouait « stock » en boucle
+  if (p.reopened or (p.spec and p.spec.lg)) and tick >= (p.miss_next or 0) and (p.state == "defrichage" or p.state == "fantomes" or p.state == "chantier") then
     p.miss_next = tick + 60 -- lot INTEG-RECONSTRUCTION (D6) : une fois par seconde
     refresh_missing(f, p)
   end
@@ -5118,6 +5141,7 @@ end
 function Build.think(f, surface, tick)
   local b = f.build
   if not b then return end
+  if Build.line_trace then Build.line_trace(f, tick) end -- lot RACCORD-BANDE 2 : trace [FO-LIGNE-BANDE-ETAT] (lecture seule)
   Build.LotsMinerai.minute(f, tick) -- lot VIDEO L9 : [FO-LOTS-MINERAI], une ligne par équipe et par minute de jeu (la mesure avant la règle)
   Build.LotsMinerai.think(f, tick) -- lot VIDEO MINERAI-SONDE : pièce détruite, ennemi vu ou porte fermée : le relevé des lots est refait (Lm.needs_survey)
   local tasks = {}

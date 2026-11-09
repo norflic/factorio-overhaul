@@ -223,6 +223,11 @@ do
   local got
   for _, l in ipairs(LOG) do if l:find("PRODUCTION", 1, true) and l:find("+50", 1, true) then got = true end end
   check(got, "§6 ligne PRODUCTION : delta depuis la dernière minute")
+  check(st.fab.made == 92, "§6 cumul des objets fabriqués (" .. tostring(st.fab.made) .. ")")
+  -- une machine détruite : la somme des compteurs baisse, le cumul reste
+  p.ents[1] = { role = "mall-machine_asm", name = "assembling-machine-1", x = 99.5, y = 99.5 }
+  Rt.minute(f, surf, { fab = {} }, {}, afford, 10900)
+  check(st.fab.made == 92 and st.fab.machines == 1, "§6 machine détruite : le cumul ne redescend pas (" .. tostring(st.fab.made) .. ", " .. tostring(st.fab.machines) .. ")")
 end
 
 ---------------------------------------------------------------------------------------------------

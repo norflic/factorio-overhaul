@@ -64,6 +64,7 @@ require("settings.capital") -- lot CAPITAL : améliorer et monter les époques (
 require("settings.capi") -- lot CAPIB : capitaliser (fo-war-capi, allumé par défaut ; agit avec fo-war-ia3e)
 require("settings.adopte") -- lot ADOPTE : adopter les machines posées à la main (fo-war-adopte)
 require("settings.fonderie") -- lot FONDERIE : fonderies des champs à tapis, charbon par tapis (fo-war-fonderie-tapis)
+require("settings.mega_fonderie") -- lot MEGA-FONDERIE : méga-fonderies, bus de minerai et blocs de fonte (fo-war-mega-fonderie)
 require("settings.petrole") -- lot PETROLE : aller au pétrole (fo-war-petrole, allumé par défaut, settings/petrole.lua:20)
 require("settings.industrie") -- lot INDUSTRIE : réglage maître (fo-war-industrie ; I1 : le besoin est évalué, le reste du stock s'investit)
 require("settings.robots") -- lot RB-1 : robots (fo-war-robots, fo-war-robots-cap)
@@ -81,3 +82,4 @@ require("settings.rapatriement") -- lot RAPATRIEMENT (8/11) : fo-war-rapatriemen
 require("settings.rangees_asm") -- lot RANGEES-ASM (8/11) : fo-war-rangee-dyn, rangées d'assembleurs dynamiques (allumé par défaut)
 require("settings.electrique") -- lot ELECTRIQUE (8/11) : fo-war-electrique, bascule tout-electrique des la premiere centrale (allume par defaut)
 require("settings.mall") -- lot MALL (8/11) : fo-war-mall, secteur du mall centralise reserve par le terrain (allume par defaut)
+require("settings.petrole_rangee") -- lot PETROLE-RANGEE (8/11) : fo-war-petrole-champ, extension du champ jusqu aux puits atteignables (allume par defaut)
