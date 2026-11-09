@@ -451,7 +451,7 @@ function Recon.think(f, surface, tick)
     local protect_wait = seed.kind and s1 and s1.turret_ok == true and s1.prot and s1.prot[seed.oid] ~= nil and tick - s1.prot[seed.oid] <= 1800
     if protect_wait or #near > 0 or (foe and foe.valid) then
       -- (attendre ses tourelles ne compte pas pour l'abandon : la mémoire des vagues s'éteint seule après 30 min)
-      Ruines.wait(f, s, seed, protect_wait and "tourelles" or "ennemi", tick, #near .. "u" .. ((foe and foe.valid) and (foe.type .. "@" .. string.format("%.0f,%.0f", foe.position.x, foe.position.y)) or "-")) -- lot RUINES-ATTENTE (trace)
+      Ruines.wait(f, s, seed, protect_wait and "tourelles" or "ennemi", tick, #near .. "u" .. ((foe and foe.valid) and tostring(foe.name) or "-")) -- lot RUINES-ATTENTE (trace)
       Rc.defer(s, seed.key, tick + Recon.RETRY, tick, protect_wait and math.huge or (seed.kind and Ru.MAX_DEFERS or nil))
       stat(s, "deferred")
     else
