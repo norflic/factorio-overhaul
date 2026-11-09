@@ -46,6 +46,7 @@ local Pt = need("shared.team.patrons", "shared/team/patrons") -- lot INDUSTRIE I
 
 local M = {}
 
+M.PORT_ROOM = 5                -- tuiles que les ports d'une rangée ajoutent à sa largeur (tête d'alimentation + sortie, plan.lua P.port_room)
 M.MAX_SIDE = 24                -- emprise maximale (EQUIPES_PNJ §6.4 ; lot de 24 × 24, §6.5)
 M.STREET = 4                   -- largeur de la rue autour d'un lot (§6.5)
 M.BUILD_DISTANCE = 16          -- O.SCRIPT_BUILD_DISTANCE (shared/team/org.lua), recopié : modules ne lit pas org
@@ -202,6 +203,7 @@ recipe("transport-belt", "crafting", 0.5, { I("iron-plate", 1), I("iron-gear-whe
 recipe("logistic-science-pack", "crafting", 6, { I("inserter", 1), I("transport-belt", 1) }, { I("logistic-science-pack", 1) })
 recipe("pipe", "crafting", 0.5, { I("iron-plate", 1) }, { I("pipe", 1) })
 recipe("firearm-magazine", "crafting", 1, { I("iron-plate", 4) }, { I("firearm-magazine", 1) }) -- lot IA3-e (G.simple)
+recipe("steel-plate", "smelting", 16, { I("iron-plate", 5) }, { I("steel-plate", 1) }) -- lot ACIER (G.simple avec un four)
 recipe("engine-unit", "advanced-crafting", 10, { I("steel-plate", 1), I("iron-gear-wheel", 1), I("pipe", 2) }, { I("engine-unit", 1) })
 recipe("basic-oil-processing", "oil-processing", 5, { F("crude-oil", 100, 2) }, { F("petroleum-gas", 45, 3) })
 recipe("plastic-bar", "chemistry", 1, { F("petroleum-gas", 20), I("coal", 1) }, { I("plastic-bar", 2) })
@@ -315,7 +317,7 @@ end
 --- Choix des bras d'une liaison : le moins d'entités, du plus lent au plus rapide (débit demandé `need`, depuis un
 --- tapis ou non). Renvoie nom et nombre.
 function M.choose_inserters(need, from_belt, max_count, allow)
-  local kinds = allow or { "inserter", "fast-inserter" }
+  local kinds = allow or M.current_arms or { "inserter", "fast-inserter" } -- lot RECHERCHE-BRAS : M.current_arms = les bras OBTENABLES
   max_count = max_count or 3
   for count = 1, max_count do
     for _, k in ipairs(kinds) do
@@ -324,6 +326,60 @@ function M.choose_inserters(need, from_belt, max_count, allow)
     end
   end
   return nil, 0
+end
+
+--- Lot RECHERCHE-BRAS (diagnostic des parties neuves 0.6.70 et 0.6.72 : « executant : recherche : fast-inserter » refusait les chaînes de
+--- câbles, circuits et engrenages de la minute 9 à 24-27, alors que trois bras simples portent déjà ~57 engrenages/min pour une demande de
+--- 0,2 à 0,6/min ; le bras rapide exige electronics, 27 unités de packs faits à la main). Un joueur pose des bras simples et la machine
+--- tourne moins vite : le gabarit fait de même. CONTEXTE, comme M.current_pole :
+---   M.current_arms : liste (du plus lent au plus rapide) des bras OBTENABLES, ou nil (tous : comportement d'avant, rien ne change) ;
+---   M.arm_f        : part (0 à 1) de la cadence maximale des machines que ces bras tiennent (1 hors contexte) ;
+---   M.arm_need     : écrit par G.row quand un bras manque : la part à retirer de M.arm_f (M.with_arms refait le gabarit).
+M.current_arms = nil
+M.arm_f = 1
+M.arm_need = nil
+M.ARM_F_MIN = 0.2   -- en dessous, les bras lents ne valent plus un module : refus (le bras rapide sera recherché)
+M.ARM_TRIES = 16
+
+--- Les bras utilisables par le gabarit en cours : les obtenables, sinon tous les bras électriques de portée 1 (M.ARMS).
+function M.usable_arms() return M.current_arms or M.ARMS end
+
+--- Comme M.choose_inserters, mais sous un contexte de bras (M.current_arms) un refus note la part de cadence que les bras permis
+--- tiennent (M.arm_need) : M.with_arms refait alors le gabarit à cette cadence. Hors contexte : choose_inserters tel quel.
+local function arm_pick(need, from_belt, max_count, allow)
+  local k, n = M.choose_inserters(need, from_belt, max_count, allow)
+  if k or not M.current_arms then return k, n end
+  local best = 0
+  for _, kd in ipairs(allow or M.current_arms) do
+    best = math.max(best, BASE[kd].rate * (from_belt and M.BELT_PICKUP or 1) * M.MARGIN * math.max(0, max_count or 3))
+  end
+  -- aucune place pour un bras (best nul) : un peu moins de cadence libère des emplacements
+  local ratio = (best > 0 and need > 0) and best / need * 0.999 or 0.9
+  M.arm_need = math.min(M.arm_need or 1, ratio)
+  return nil, 0
+end
+
+--- Joue `fn(...)` (un générateur, éventuellement enveloppé par M.with_pole) sous les bras `arms` (liste des bras obtenables, nil : tous,
+--- fn tel quel). Si les bras permis ne tiennent pas les machines au maximum, le gabarit est refait à la cadence qu'ils tiennent
+--- (M.arm_f), jusqu'à M.ARM_TRIES essais ; sous M.ARM_F_MIN, refus. Rend ce que rend `fn`. Le contexte est rétabli même sur erreur.
+function M.with_arms(arms, fn, ...)
+  if not arms then return fn(...) end
+  local pa, pf, pn = M.current_arms, M.arm_f, M.arm_need
+  M.current_arms = arms
+  local f, res = 1, nil
+  for _ = 1, M.ARM_TRIES do
+    M.arm_f, M.arm_need = f, nil
+    res = table.pack(pcall(fn, ...))
+    if not res[1] or res[2] ~= nil or M.arm_need == nil then break end
+    f = f * M.arm_need
+    if f < M.ARM_F_MIN then
+      res = table.pack(true, nil, string.format("bras %s : cadence tenue %.0f %% < %.0f %%", table.concat(arms, "+"), f * 100, M.ARM_F_MIN * 100))
+      break
+    end
+  end
+  M.current_arms, M.arm_f, M.arm_need = pa, pf, pn
+  if not res[1] then error(res[2], 0) end
+  return table.unpack(res, 2, res.n)
 end
 
 --- Lot PLANDIR : poteaux connus, du plus court fil au plus long (portée de fil, puis nom) : le « moins cher » d'abord
@@ -516,6 +572,11 @@ function Builder:finish(w, h)
   g.epoch = rep.epoch
   g.unlocks = rep.unlocks
   g.electric_out_kw = rep.electric_out_kw
+  -- lot RECHERCHE-BRAS : le gabarit dit avec quels bras il a été fait (une extension le refait avec les mêmes) et à quelle cadence
+  if M.current_arms then
+    g.arms = copy(M.current_arms)
+    g.arm_f = M.arm_f
+  end
   return g
 end
 
@@ -724,6 +785,8 @@ function G.row(key, fr, en, spec, ox, oy, b)
   if spec.belt then b.belt = spec.belt end -- lot RANGEES-ASM : tapis des données (G.simple, argument 5)
   ox, oy = ox or 0, oy or 0
   local s = M.spec(spec.machines[1].name).w
+  -- lot RECHERCHE-BRAS : avec des bras lents (plusieurs par rangée), une tuile par rangée reste libre pour un poteau
+  local slots_n = M.current_arms and math.max(1, s - 1) or s
   local nm = #spec.machines
   -- machine seule (hors étage A d'un bloc à deux étages) : une colonne de plus à l'est, pour un poteau (correction
   -- IA1-c : sans colonne de liaison, une rangée de bras pleine n'avait aucun poteau possible)
@@ -747,9 +810,10 @@ function G.row(key, fr, en, spec, ox, oy, b)
   for i, m in ipairs(spec.machines) do
     local x = ox + (i - 1) * (s + 1)
     xs[i] = x
-    b:put(m.name, x, y_m, N, { recipe = m.recipe, rate = m.rate, role = m.role or "machine" })
+    -- lot RECHERCHE-BRAS : cadence bridée (M.arm_f < 1) quand seuls des bras lents sont obtenables ; 1 hors contexte (rien ne change)
+    local rate = m.rate * M.arm_f
+    b:put(m.name, x, y_m, N, { recipe = m.recipe, rate = rate, role = m.role or "machine" })
     local r = R[m.recipe]
-    local rate = m.rate
     -- bras du haut
     local function need_of(items)
       local t = 0
@@ -757,17 +821,18 @@ function G.row(key, fr, en, spec, ox, oy, b)
         if m.kind == "lab" then t = t + rate
         else
           for _, ing in ipairs(r.ingredients) do if ing.name == it then t = t + ing.amount * rate end end
+          if it == "coal" then t = t + (m.fuel or 0) end -- lot ACIER : four à combustion d'une rangée, charbon sur l'autre voie du tapis
         end
       end
       return t
     end
     local k1, n1, k2, n2 = nil, 0, nil, 0
     if m.top and #m.top > 0 then
-      k1, n1 = M.choose_inserters(need_of(m.top), true, s - (m.top2 and 1 or 0))
+      k1, n1 = arm_pick(need_of(m.top), true, slots_n - (m.top2 and 1 or 0))
       if not k1 then return fail("%s : bras du haut introuvables pour la machine %d (%.2f/s)", key, i, need_of(m.top)) end
     end
     if m.top2 and #m.top2 > 0 then
-      k2, n2 = M.choose_inserters(need_of(m.top2), true, s - n1, { "long-handed-inserter" })
+      k2, n2 = arm_pick(need_of(m.top2), true, slots_n - n1, { "long-handed-inserter" })
       if not k2 then return fail("%s : bras longs introuvables pour la machine %d (%.2f/s)", key, i, need_of(m.top2)) end
     end
     -- Rangée des bras du haut pleine sur une machine du bord, machines de 4 × 4 ou plus : aucun poteau ne couvre
@@ -786,7 +851,7 @@ function G.row(key, fr, en, spec, ox, oy, b)
       any_out = true
       local outn = 0
       for _, p in ipairs(r.products) do outn = outn + p.amount * rate end
-      local k, n = M.choose_inserters(outn, false, s)
+      local k, n = arm_pick(outn, false, slots_n)
       if not k then return fail("%s : bras de sortie introuvables pour la machine %d (%.2f/s)", key, i, outn) end
       for c = 0, n - 1 do b:put(k, x + c, y_out, N) end
     end
@@ -798,7 +863,7 @@ function G.row(key, fr, en, spec, ox, oy, b)
     local gap = math.min(l.from, l.to)
     local gx = xs[gap] + s
     local dir = l.from < l.to and W or E     -- prend du côté de la source
-    local k, n = M.choose_inserters(l.flow, false, s)
+    local k, n = arm_pick(l.flow * M.arm_f, false, slots_n)
     if not k then return fail("%s : liaison %d → %d impossible (%.2f/s)", key, l.from, l.to, l.flow) end
     used[gap] = used[gap] or 0
     for _ = 1, n do
@@ -886,7 +951,11 @@ end
 --- et les bornes suivent sa voie. Sans lui : le tapis du modèle (7,5/s par voie).
 function G.simple(recipe, n, machine, voies, belt)
   machine = machine or "assembling-machine-1"
-  local sp, why = machine_spec(machine, "assembler", "rangée"); if not sp then return nil, why end
+  local sp, why = machine_spec(machine, nil, "rangée"); if not sp then return nil, why end
+  -- Lot ACIER : la machine peut être un FOUR (recette de fonte à un ingrédient : l'acier d'après la plaque) ; son combustible
+  -- (charbon) arrive sur l'autre voie du tapis d'entrée et le même bras le sert.
+  local furnace = sp.kind == "furnace"
+  if sp.kind ~= "assembler" and not furnace then return fail("rangée : « %s » n'est ni un assembleur ni un four", tostring(machine)) end
   local lane_rate, belt_name = M.LANE_RATE, nil
   if belt ~= nil then
     if not (type(belt) == "table" and type(belt.name) == "string" and type(belt.lane) == "number" and belt.lane > 0) then
@@ -918,7 +987,7 @@ function G.simple(recipe, n, machine, voies, belt)
   end
   local r = R[key]
   local cat_ok = false
-  for _, c in ipairs(sp.categories or { "crafting" }) do if r and c == (r.category or "crafting") then cat_ok = true end end
+  for _, c in ipairs(sp.categories or { furnace and "smelting" or "crafting" }) do if r and c == (r.category or "crafting") then cat_ok = true end end
   if not r or not cat_ok then return fail("rangée : recette « %s » absente du modèle ou d'une catégorie que « %s » ne fabrique pas", tostring(key), machine) end
   if not (r.time and r.time > 0) then return fail("rangée : %s sans durée", key) end
   local ok, why2 = count_ok(n, "rangée"); if not ok then return nil, why2 end
@@ -931,9 +1000,12 @@ function G.simple(recipe, n, machine, voies, belt)
   local rate = sp.speed / r.time
   local top = {}
   for i, ing in ipairs(ings) do top[i] = ing.name end
+  local fuel = furnace and (sp.burner_kw or 0) / M.COAL_J or 0
+  if furnace and #ings ~= 1 then return fail("rangée de fours : %s n'a pas un seul ingrédient", key) end
   local ms = {}
-  for i = 1, n do ms[i] = { name = machine, recipe = key, rate = rate, top = top, out = true } end
+  for i = 1, n do ms[i] = { name = machine, recipe = key, rate = rate, top = top, out = true, fuel = fuel > 0 and fuel or nil } end
   local lanes = { ings[1].name, (ings[2] or ings[1]).name }
+  if fuel > 0 then lanes[2] = "coal" end -- (une voie d'ingrédient, une voie de charbon)
   local two = voies == 2
   local jn = (two and n >= 2) and math.floor(n / 2) or nil
   local b, info = G.row("rangee-" .. key .. lvl_tag(sp) .. (two and "-2v" or "") .. (belt_name and ("-" .. belt_name) or ""),
@@ -951,7 +1023,17 @@ function G.simple(recipe, n, machine, voies, belt)
   -- sortie (deux voies : chaque tronçon de la jonction porte au plus une voie, d'où 2 × la borne d'une voie) ; voie du tapis posé
   local lane_n = floor_eps(lane_rate / (r.products[1].amount * rate))
   local bounds = { row_width_bound(sp.w), two and 2 * lane_n or lane_n }
-  if #ings == 1 then bounds[#bounds + 1] = floor_eps(2 * lane_rate / (ings[1].amount * rate))
+  if furnace then
+    -- la rangée entière (place réservée) doit tenir AVEC la place de ses ports dans le lot de 24 tuiles du plan directeur (P.fit : la tête
+    -- d'alimentation de 3 tuiles derrière le port d'entrée et 1 tuile après la sortie, soit M.PORT_ROOM = 5 tuiles de plus que la largeur
+    -- w = n·(w machine + 1) − 1 ; mesuré par P.port_room, verrouillé par tests/acier_test.lua §1b). Moteur réel, lot ACIER : 8 fours
+    -- (23 tuiles) refusés « trop grand », 7 fours (20 tuiles, 25 avec les ports) refusés « place » sur un lot entièrement libre.
+    bounds[#bounds + 1] = floor_eps((M.MAX_SIDE - M.PORT_ROOM + 1) / (sp.w + 1))
+  end
+  if #ings == 1 and fuel > 0 then
+    bounds[#bounds + 1] = floor_eps(lane_rate / (ings[1].amount * rate))
+    bounds[#bounds + 1] = floor_eps(lane_rate / fuel)
+  elseif #ings == 1 then bounds[#bounds + 1] = floor_eps(2 * lane_rate / (ings[1].amount * rate))
   else for _, ing in ipairs(ings) do bounds[#bounds + 1] = floor_eps(lane_rate / (ing.amount * rate)) end end
   set_ext(b.g, "n", 2, minimum(bounds))
   return b:finish()
@@ -1413,7 +1495,8 @@ function M.regenerate(g, changes, pole)
   local args = {}
   for i = 1, #g.args do args[i] = g.args[i] end
   if changes then for i = 1, #g.args do if changes[i] ~= nil then args[i] = changes[i] end end end
-  return M.with_pole(pole or g.pole_name, fn, unpack_(args, 1, #g.args))
+  -- lot RECHERCHE-BRAS : un gabarit fait avec des bras limités garde ses bras (g.arms) ; nil : comme avant
+  return M.with_arms(g.arms, M.with_pole, pole or g.pole_name, fn, unpack_(args, 1, #g.args))
 end
 
 --- Gabarit agrandi (ou réduit) : paramètre d'extension à la valeur n. Refusé au-delà de `max`.

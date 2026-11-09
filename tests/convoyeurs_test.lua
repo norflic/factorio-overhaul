@@ -138,6 +138,20 @@ local d0 = 0
 for _, e in ipairs(fd0.entities) do if e.role == "tete" and e.name == "transport-belt" then d0 = d0 + 1 end end
 check(d0 == 3, "sans tapis demandé : le tapis par défaut d'avant")
 
+-- lot AMELIORATION-CONTINUE : C.stocked, le tapis le plus rapide disponible dont l'objet est au stock
+do
+  local bl = { { name = "a", speed = 0.03, item = "ia" }, { name = "b", speed = 0.06, item = "ib" }, { name = "c", speed = 0.09, item = "ic" } }
+  local function cnt(t) return function(it) return t[it] end end
+  local all = function() return true end
+  check(C.stocked(bl, all, cnt({ ib = 30, ic = 5 }), 24) == "b", "stocked : le plus rapide dont le stock suffit (b)")
+  check(C.stocked(bl, all, cnt({ ib = 30, ic = 24 }), 24) == "c", "stocked : au seuil exact, c")
+  check(C.stocked(bl, all, cnt({ ib = 23, ic = 23 }), 24) == nil, "stocked : sous le seuil, nil (l'appelant garde le choix d'avant)")
+  check(C.stocked(bl, all, cnt({ ia = 500 }), 24) == nil, "stocked : le tapis de base n'est jamais « choisi » par le stock")
+  check(C.stocked(bl, function(n) return n ~= "c" end, cnt({ ib = 30, ic = 99 }), 24) == "b", "stocked : un tapis non débloqué n'est pas pris")
+  check(C.stocked(bl, all, cnt({}), 24) == nil, "stocked : rien au stock, nil")
+  check(C.stocked({}, all, cnt({}), 24) == nil, "stocked : aucun tapis, nil")
+end
+
 -- aucun nom d'objet en dur dans la règle
 local fh = assert(io.open("shared/team/convoyeurs.lua", "rb"))
 local src = fh:read("*a"); fh:close()

@@ -108,10 +108,12 @@ local Capi = {}
 -- Lot DEBUG-CERVEAU : anneau des ordres envoyés et refusés AVEC leur raison, lu par la seule vue « Cerveau » (jamais par une décision). Champ, pas une locale (199 sur 200).
 Capi.Anneau = require("script.debug.anneau")
 Capi.MS = require("script.ai3.modules_stock") -- lot MODULES-POSES : disposition du stock de modules (champ de Capi : aucune locale de plus)
+Capi.Mega = require("script.team.mega_fonderie") -- lot MEGA-FONDERIE : décision du bloc de fonte nourri par un bus (étape 11 ; champ, aucune locale de plus)
 
 Capi.SETTING = "fo-war-capi"
 Capi.ENABLED = true
 Capi.CYCLE = 12              -- pensées par cycle (une minute à une pensée toutes les 300 ticks)
+Capi.Cov = require("shared.ai3.cov_pas") -- lot COUT-600 : couverture d'un gisement par pensée (règles pures ; champ de Capi : pas de locale de plus en tête de fichier)
 Capi.SCAN_R = 160            -- tuiles autour du QG : machines, foreuses, gisements connus
 Capi.HQ_R = 40               -- une machine à moins de 40 tuiles du QG est « au QG »
 Capi.DEP_MAX = 16            -- gisements suivis au plus par faction (les plus proches)
@@ -127,6 +129,7 @@ Capi.BACKOFF_MAX = 40 * 3600 -- au plus 40 min (banc p3 du lot : 63 demandes ref
 Capi.COUV_EVERY = 5 * 3600   -- lot CAPI-MESURE : une ligne [FO-CAPI-COUV] par gisement toutes les 5 min
 Capi.EQUIP_BATCH = 6         -- lot LEVIERS : machines équipées par tâche de PNJ (Equip.BATCH)
 Capi.UNITS_MAX = 48          -- lot LEVIERS : machines gardées par groupe au relevé (positions, pour la tâche « equiper »)
+Capi.MallRt = require("script.team.mall_rangee") -- lot MALL (tranche 2) : les ordres « chaine » vont dans une rangée du mall (champ, pas une locale)
 Capi.RaRt = require("script.ai3.rangees_asm") -- lot RANGEES-ASM : rangées agrandies au lieu d'îlots (champ, pas une locale)
 Capi.MODULES_PER_ORDER = 1   -- modules du plan directeur au plus par ordre (chacun au plus A.FIRST_RATE_MAX objets/min :
                              -- un gabarit plus grand ne tient pas dans un lot, moteur réel p1, « pas de lot », « trop grand »).
@@ -317,7 +320,8 @@ end
 local function fit_module(meth, rate, book, stock, has_plant, harvest, belt_flow)
   -- lot PLANDIR : poteau du gabarit = le moins cher dont la recette est débloquée (A.choose_pole)
   local pole = A.choose_pole(book, stock, harvest) -- lot KIT : le bois à portée compte (les factions n'en ont plus au départ)
-  local g, args = A.sized(meth, rate, pole)
+  local arms = A.choose_arms(book, stock) -- lot RECHERCHE-BRAS : bras obtenables (nil : tous)
+  local g, args = A.sized(meth, rate, pole, arms)
   if not g then return nil, {} end
   local function missing_of(gg)
     local _, items = A.cost(meth, gg, { has_plant = has_plant, belt_flow = belt_flow })
@@ -333,13 +337,15 @@ local function fit_module(meth, rate, book, stock, has_plant, harvest, belt_flow
     for i = 1, #args do a2[i] = args[i] end
     a2[g.ext.arg] = args[g.ext.arg] - 1
     local g2 = A.template(meth.gen, a2, pole)
-    if not g2 then break end
+    local g2 = A.template(meth.gen, a2, pole, arms)
     g, args = g2, a2
     miss = missing_of(g)
   end
   if #miss > 0 then return nil, miss end
   return g, args
 end
+
+Capi.fit_module = fit_module -- lot ACIER : la rangée de fours d'acier (script/team/acier.lua) dimensionne son gabarit comme un ordre de la capitalisation
 
 local function module_ok(meth, book, stock, has_plant, rate, harvest, belt_flow)
   local g, miss = fit_module(meth, math.min(rate or A.FIRST_RATE_MAX, A.FIRST_RATE_MAX), book, stock, has_plant, harvest, belt_flow)
@@ -628,7 +634,11 @@ end
 local OFF = 1048576
 local function tkey(x, y) return (x + OFF) * 2097152 + (y + OFF) end
 
-local function coverage(f, cs)
+-- Lot COUT-600 : UN gisement par pensée (le plus ancien dû après le curseur cs.cov_last, shared/ai3/cov_pas.lua) au lieu de tous dans la même
+-- pensée (382 k instructions par gisement de 600 %, 1,9 M à cinq gisements). Chaque gisement garde la valeur d'avant (Capi.Cov.covered = la boucle
+-- d'avant) et est relu au plus toutes les Capi.Cov.EVERY ticks (le rythme d'avant : une fois par cycle). cs.cov_last et d.cov_tick sont dans cs
+-- (global, par le stockage de state_of) ; lecteurs : cette fonction. Un gisement apparu ou disparu change la liste triée, jamais le curseur.
+local function coverage(f, cs, tick)
   local sc = cs.scan
   if not sc then return end
   local surface = f.hq.surface
@@ -640,30 +650,28 @@ local function coverage(f, cs)
       l[#l + 1] = dp
     end
   end
-  cs.cov = {}
-  for _, id in ipairs(sorted_keys(by_dep)) do
-    local d = cs.deps[id]
-    if d then
-      Profiler.fstart("cov:find") -- lot X10-S0 : mesure seulement
-      local idx = {}
-      for _, e in ipairs(surface.find_entities_filtered({ area = { { d.x0, d.y0 }, { d.x1, d.y1 } }, name = d.resource })) do
-        idx[tkey(math.floor(e.position.x), math.floor(e.position.y))] = true
-      end
-      Profiler.fstop("cov:find")
-      local seen, n = {}, 0
-      for _, dp in ipairs(by_dep[id]) do
-        local r = dp.r
-        for x = math.floor(dp.x - r + 0.01), math.floor(dp.x + r - 0.01) do
-          for y = math.floor(dp.y - r + 0.01), math.floor(dp.y + r - 0.01) do
-            local k = tkey(x, y)
-            if idx[k] and not seen[k] then seen[k] = true n = n + 1 end
-          end
-        end
-      end
-      cs.cov[id] = n
-      d.covered = n
-    end
+  cs.cov = cs.cov or {}
+  for _, id in ipairs(sorted_keys(cs.cov)) do
+    if not by_dep[id] then cs.cov[id] = nil end
   end
+  local ids = {}
+  for _, id in ipairs(sorted_keys(by_dep)) do
+    if cs.deps[id] then ids[#ids + 1] = id end
+  end
+  local id = Capi.Cov.next_due(ids, cs.cov_last, function(i) return cs.deps[i].cov_tick end, tick, Capi.Cov.EVERY)
+  if not id then return end
+  cs.cov_last = id
+  local d = cs.deps[id]
+  d.cov_tick = tick
+  Profiler.fstart("cov:find") -- lot X10-S0 : mesure seulement
+  local idx = {}
+  for _, e in ipairs(surface.find_entities_filtered({ area = { { d.x0, d.y0 }, { d.x1, d.y1 } }, name = d.resource })) do
+    idx[tkey(math.floor(e.position.x), math.floor(e.position.y))] = true
+  end
+  Profiler.fstop("cov:find")
+  local n = Capi.Cov.covered(idx, by_dep[id], tkey)
+  cs.cov[id] = n
+  d.covered = n
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -685,7 +693,8 @@ local function census_one(f, cs, tick)
     local fresh = cs.seed_seen[sk] and tick - cs.seed_seen[sk] < Capi.CENSUS_EVERY
     if not fresh and (not d or tick - (d.tick or 0) >= Capi.CENSUS_EVERY) then
       cs.seed_seen[sk] = tick
-      local c = Sites.census(surface, s.res, { x = s.x + 0.5, y = s.y + 0.5 })
+      -- lot COUT-600 : le gisement déjà connu (d) donne la boîte à relire au lieu du carré de 96, puis de 192 tuiles (même résultat)
+      local c = Sites.census(surface, s.res, { x = s.x + 0.5, y = s.y + 0.5 }, d)
       if c then
         -- une composante déjà connue sous un autre identifiant (coin épuisé) : la même entrée, mise à jour
         local old = dep_at(cs, s.res, c.cx, c.cy)
@@ -694,7 +703,8 @@ local function census_one(f, cs, tick)
           limit = 1 }) > 0
         cs.deps[c.id] = { id = c.id, resource = s.res, tiles = c.tiles, amount = c.amount, x0 = c.x0, y0 = c.y0, x1 = c.x1,
           y1 = c.y1, cx = c.cx, cy = c.cy, tick = tick, cut = c.cut, danger = hostile or nil,
-          covered = old and old.covered or (cs.deps[c.id] and cs.deps[c.id].covered) or nil }
+          covered = old and old.covered or (cs.deps[c.id] and cs.deps[c.id].covered) or nil,
+          cov_tick = (old and old.cov_tick) or (cs.deps[c.id] and cs.deps[c.id].cov_tick) or nil }
         -- au plus Capi.DEP_MAX gisements : les plus lointains sont oubliés
         local ids = sorted_keys(cs.deps)
         if #ids > Capi.DEP_MAX then
@@ -1581,7 +1591,7 @@ local function execute(f, cs, o, view, book, tick, research)
         if not g then why = "objets impossibles : " .. table.concat(args or {}, ",") break end
         local id, w2 = Auto.submit(f, { product = meth.product, gen = meth.gen, args = args, feed = meth.feed, rate = part,
           shrunk = shrunk or nil,
-          rate_nom = (g.nominal[meth.product] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, near = near, pole = g.pole,
+          rate_nom = (g.nominal[meth.product] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, near = near, pole = g.pole, arms = g.arms,
           capi = o.key, why = string.format("CAPI %s %s x%d T=%.2f", o.kind, tostring(o.deposit), o.n or 0, o.T or 0) },
           tick, research)
         if not id then
@@ -1659,11 +1669,18 @@ local function execute(f, cs, o, view, book, tick, research)
     -- Lot RANGEES-ASM : une chaîne agrandit la rangée en attente de la même recette, ou pose une rangée dimensionnée sur la
     -- demande (5 machines au moins quand elle le justifie), près des autres (script/ai3/rangees_asm.lua) ; false : ancien chemin
     if o.kind == "chaine" then
+      -- lot MALL (tranche 2, docs/MALL.md §3) : l'état S vrai, l'objet va dans une rangée du mall (une section de plus) au lieu d'un module isolé ; refus : le chemin d'avant, cause écrite
+      local mid = Capi.MallRt.chaine(f, o, book, vstock, tick, A.choose_pole(book, vstock, Harvest.reachable(f)))
+      if mid then
+        rec.exec, rec.product = "mall", o.item
+        if mid ~= true then rec.mall_id = mid end
+        return rec
+      end
       local rids, rwhy = Capi.RaRt.execute(f, o, meth,
         function(m2, rate) return fit_module(m2, rate, book, view.stock or {}, Auto.plant_state(f) ~= nil, Harvest.reachable(f), Auto.belt_flow(f)) end,
         function(m2, g, args, near, dyn)
           local id, w2 = Auto.submit(f, { product = o.item, gen = m2.gen, args = args, feed = m2.feed, rate = o.rate or 0,
-            rate_nom = (g.nominal[o.item] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, capi = o.key, pole = g.pole,
+            rate_nom = (g.nominal[o.item] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, capi = o.key, pole = g.pole, arms = g.arms,
             near = near, rangee = dyn or nil, why = string.format("CAPI %s x%d T=%.2f (rangee)", o.kind, o.n or 0, o.T or 0) }, tick, research)
           if not id then Rp.fail(repli, rkey, w2, tick, nil) return nil, "plan directeur : " .. tostring(w2) end
           return { id }
@@ -1678,7 +1695,7 @@ local function execute(f, cs, o, view, book, tick, research)
       local g, args = fit_module(meth, part, book, view.stock or {}, Auto.plant_state(f) ~= nil, Harvest.reachable(f), Auto.belt_flow(f))
       if not g then why2 = "objets impossibles : " .. table.concat(args or {}, ",") break end
       local id, w2 = Auto.submit(f, { product = o.item, gen = meth.gen, args = args, feed = meth.feed, rate = part,
-        rate_nom = (g.nominal[o.item] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, capi = o.key, pole = g.pole,
+        rate_nom = (g.nominal[o.item] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, capi = o.key, pole = g.pole, arms = g.arms,
         why = string.format("CAPI %s x%d T=%.2f", o.kind, o.n or 0, o.T or 0) }, tick, research)
       if not id then
         why2 = "plan directeur : " .. tostring(w2)
@@ -1801,6 +1818,12 @@ local function follow(f, cs, rec, tick)
     if n ~= rec.built then rec.built, rec.progress_tick = n, tick end
     rec.n_left = math.max(0, (rec.target or 0) - n)
     if n >= (rec.target or 0) then return "fini" end
+    return "ouvert"
+  end
+  if rec.exec == "mall" then -- lot MALL : la section de rangée demandée (aucune : l'objet était déjà servi)
+    local p = rec.mall_id and f.build and f.build.projects[rec.mall_id]
+    if not rec.mall_id or (p and p.state == "fini") then return "fini" end
+    if not p or p.state == "refuse" then return "echec", p and tostring(p.reason) or "section du mall perdue" end
     return "ouvert"
   end
   return "echec", "executant inconnu"
@@ -2403,15 +2426,24 @@ function Capi.think(f, view, book, tick, research, w, run)
     Profiler.fstop("capi:scan")
   elseif phase == 1 then
     Profiler.fstart("capi:coverage")
-    coverage(f, cs)
+    coverage(f, cs, tick)
     Profiler.fstop("capi:coverage")
   elseif phase >= 2 and phase <= 9 then
+    -- lot COUT-600 : un gisement de la couverture par pensée (les cinq ou six gisements d'avant ne tenaient pas dans la seule pensée 1)
+    Profiler.fstart("capi:coverage")
+    coverage(f, cs, tick)
+    Profiler.fstop("capi:coverage")
     census_one(f, cs, tick)
   elseif phase == 10 and cs.scan then
     if decide_start(f, cs, view, book, tick, w, run) and not decide_slice(f, cs, view, book, tick, research, run) then
       Profiler.stop("capi:think")
       return Capi.PENDING
     end
+  elseif phase == 11 and Capi.Mega.on() then
+    -- Lot MEGA-FONDERIE : méga-fonderie des gisements recensés (étape libre jusqu'ici : une seule étape coûteuse par pensée)
+    Profiler.fstart("mega:think")
+    Capi.Mega.think(f, cs, tick, { power = Auto.plant_state(f) == "fini", crisis = (view and (view.survie or view.hq_threat)) and true or false })
+    Profiler.fstop("mega:think")
   end
   return Capi.think_tail(f, cs, tick)
 end
@@ -2664,6 +2696,28 @@ remote.add_interface("fo-capi", {
     if not rec then return nil, tostring(why) end
     cs.open[#cs.open + 1] = rec
     return rec.mod_ids, o.key
+  end,
+  --- Lot MEGA-FONDERIE (BANC SEULEMENT) : l'étape 11 tout de suite (sans attendre le cycle de 12 pensées), courant comme l'étape 11 (centrale
+  --- finie), sans crise. box = { x0, y0, x1, y1, resource, tiles } : un gisement relevé AU MOTEUR dans cette boîte (tiles impose le compte :
+  --- mesure de coût d'un gisement géant) ; sans box : les gisements recensés (cs.deps). Durée au profileur : ligne [FO-MEGA-COUT]. Rend
+  --- { power, n, deps = copie de f.mega.deps }.
+  bench_mega = function(key, box)
+    local f = team_of(key)
+    local cs = f and f.team and f.team.capi
+    if not (cs and f.hq and f.hq.valid) then return nil end
+    local target = cs
+    if box then
+      local n = box.tiles or f.hq.surface.count_entities_filtered({ area = { { box.x0, box.y0 }, { box.x1, box.y1 } }, name = box.resource })
+      local id = "banc:" .. tostring(box.resource) .. "@" .. box.x0 .. "," .. box.y0
+      target = { deps = { [id] = { id = id, resource = box.resource, tiles = n, x0 = box.x0, y0 = box.y0, x1 = box.x1, y1 = box.y1,
+        cx = (box.x0 + box.x1) / 2, cy = (box.y0 + box.y1) / 2 } } }
+    end
+    local power = Auto.plant_state(f) == "fini"
+    local prof = game.create_profiler()
+    local n = Capi.Mega.think(f, target, game.tick, { power = power, crisis = false })
+    prof.stop()
+    log({ "", "[FO-MEGA-COUT] ", f.key or "player", " : ", n, " gisement(s) relu(s), ", (box and box.tiles) and "tuiles imposees par le banc, " or "", prof })
+    return { power = power, n = n, deps = f.mega and f.mega.deps or {} }
   end,
   --- Lot TV-ENERGIE (W02, lecture seule) : le relevé du courant que la capitalisation donnerait aujourd'hui à la règle, selon l'état de la
   --- centrale de l'équipe (Auto.plant_state) : { amorce } ou { fermee } sans centrale finie, { have_kw, used_kw } avec.

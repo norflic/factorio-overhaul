@@ -34,6 +34,7 @@ local Fr = require("shared.team.front") -- lot DEFENSE-FACTIONS : planchers du f
 local Dsr = require("shared.team.defense_stock") -- lot DEFENSE-STOCK : tourelles du coffre posées en groupes (règle pure)
 local V = require("shared.faction.valeur") -- lot SITE-PROCHE : V.extension_refused (R1)
 local Dc = require("shared.team.defchoix") -- lot DEFENSE-CHOIX : tourelles du QG avant les soldats quand la base est menacée
+local Ga = require("shared.team.garde_ap") -- lot DEFENSE-AP : garde d'avant-poste, assurance du QG, fonds de défense
 local Sq = require("shared.team.survie_qg") -- lot S1 : QG en péril (planchers réduits, tourelles voulues, remplissage partiel)
 local Pt = require("shared.team.premiere_tourelle") -- lot EQUIPE : premier palier de la défense du QG (planchers réduits sous P.FIRST_N tourelles)
 local Fx = require("shared.team.flux") -- lot FLUX : priorité des tournées d'avant-poste (règle pure)
@@ -371,7 +372,7 @@ function P.plan(view, book)
   local protect_any = false
   if df and turret_ok then
     for _, o in ipairs(view.outposts or {}) do
-      if o.protect and (o.turrets or 0) < T.defend_turrets(o.drills) then protect_any = true end
+      if o.protect and (o.turrets or 0) < (o.want_t or T.defend_turrets(o.drills)) then protect_any = true end -- (DEFENSE-AP : garde voulue sur la menace)
     end
   end
   out.turret_ok = turret_ok -- lot S1 : lu par script/team/survie_qg.lua (reconstruction et agrandissement de survie attendent les tourelles)
@@ -396,9 +397,14 @@ function P.plan(view, book)
     local qwant = qp and (qp.hq_want or (view.hq_turrets or 0) + (qp.fresh or 0)) or 0
     posts[1] = { id = "hq", want = qg_peril and math.max(dc.want, qwant) or dc.want, have = view.hq_turrets or 0, busy = view.hq_fortify }
     for _, o in ipairs(view.outposts) do
-      if lacking[o.id] then
+      -- Lot DEFENSE-AP (mesure diag1, 9/11) : un avant-poste « défendu » selon ses foreuses mais sous la garde que sa menace exige (vague prévue
+      -- ou reçue, shared/team/garde_ap.lua) reçoit aussi ses tourelles : la règle d'avant (1 + foreuses / 8 = 3) laissait l'avant-poste de fer
+      -- face à 1750 PV de vague avec 1724 PV de défense, puis à 2457 PV ; il tombait à 15 min, le fer ne revenait plus. N'agit pas sur
+      -- `lacking` (agrandissement, tournées de fond : règles d'avant) ; ne retire rien à la défense.
+      local wt = math.max(o.want_t or 0, T.defend_turrets(o.drills))
+      if lacking[o.id] or (o.turrets or 0) < wt then
         local ospec = T.outposts[o.kind]
-        posts[#posts + 1] = { id = o.id, want = T.defend_turrets(o.drills), have = o.turrets or 0, busy = o.has_fortify,
+        posts[#posts + 1] = { id = o.id, want = wt, have = o.turrets or 0, busy = o.has_fortify,
           iron = (ospec and ospec.product == iron_key) or nil } -- lot DEFENSE-FACTIONS D5 : un avant-poste de fer non défendu passe AVANT le front
       end
     end
@@ -732,6 +738,7 @@ function P.plan(view, book)
     local held_taken = false
     -- Lot DEFENSE-FACTIONS D1 : pourquoi chaque poste n'est pas servi (journal [FO-DEFENSE], script/team/defense_log.lua) ; aucune décision n'en dépend.
     local dposts = {}
+    local fund_hold = 0 -- lot DEFENSE-AP : fer mis de côté pour un avant-poste de fer sans tourelle
     for _, p in ipairs(posts) do
       if p.id ~= "hq" and not held_taken then
         avail[iron_key] = (avail[iron_key] or 0) - held
@@ -823,8 +830,23 @@ function P.plan(view, book)
                 end
               end
             else
-              d.why = want_defense(items) and "fabrication" or "manque"
-              if d.why == "manque" then d.raw = last_raw end
+              -- Lot DEFENSE-AP : fonds de défense (shared/team/garde_ap.lua) : avant-poste de fer sans aucune tourelle.
+              local crit = Ga.critical(p.iron, p.have, p.want) -- (le fer du pas de production, pri.hold, est déjà retiré de `avail` plus haut : le fonds ne prend que le reste)
+              local fi_p, fc_p
+              if crit then fi_p, fc_p = math.min(fl_i, Sq.FLOOR_IRON), math.min(fl_c, Sq.FLOOR_COPPER) end
+              d.why = want_defense(items, fi_p, fc_p) and "fabrication" or "manque"
+              if d.why == "manque" then
+                d.raw = last_raw
+                if crit then
+                  local s0 = {}
+                  for k, v in pairs(avail) do s0[k] = v end -- (copie, aucune décision n'en dépend)
+                  s0[iron_key], s0[def_copper] = 0, 0
+                  local cost = book:plan(items, s0).raw[iron_key] or 0 -- fer de ce qui manque (chargeurs déjà au coffre non recomptés)
+                  local h = Ga.fund({ critical = true, avail = avail[iron_key] or 0, cost = cost + (fi_p or 0) }) -- coût PLUS plancher : sans lui le fer ne dépasserait jamais le seuil de fabrication
+                  if h > fund_hold then fund_hold = h end
+                  d.fonds = h
+                end
+              end
             end
           end
         end
@@ -832,6 +854,7 @@ function P.plan(view, book)
       if d then dposts[#dposts + 1] = d end
     end
     if held_taken then avail[iron_key] = (avail[iron_key] or 0) + held end
+    if fund_hold > 0 then out.defense_hold = { [iron_key] = fund_hold } end -- lu par C.consumed (shared/ai3/cerveau.lua) : le cerveau ne dépense pas ce fer
     out.defend = { undefended = waiting, craftable = turret_craftable, hq = view.hq_turrets or 0, posts = dposts }
     -- Lot DEFENSE-STOCK : les tourelles qui DORMENT au coffre (au-dessus d'une petite réserve) sont posées en groupes là où l'ennemi arrive
     -- (shared/team/defense_stock.lua, script/team/defense_stock.lua : view.reserve.pick). Poste FACULTATIF et SANS fabrication : le stock

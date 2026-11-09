@@ -58,6 +58,7 @@ local Sq = require("shared.team.survie_qg") -- lot QGSURVIE : réserve de fer du
 local PileRt = require("script.team.pile") -- lot PILE-PRIORITE : la pile retient l'amélioration (réparer + protéger d'abord)
 local Flux = require("shared.team.flux") -- lot FLUX : sorties des avant-postes comptées comme objets attendus (règle pure)
 local REPAT_ONLY = Flux.plates_of(Flux.plate_map(T.OUTPOST_ORDER, T.outposts, T.smelter_inputs)) -- lot FLUX : seules les plaques comptent comme objets attendus
+local Acier = require("script.team.acier") -- lot ACIER : bloc « fonderie d'acier » (rangée de fours) et coupure des tournées manuelles d'acier
 local Inter = require("script.team.intermediaires") -- lot MAIN-ET-INTERMEDIAIRES (D09, D10) : pas de minage à la main de ce que les machines sortent, plafond des intermédiaires
 local Src = require("script.team.sources") -- lot MINAGE-MAIN : registre des coffres de SORTIE, tournées « fetch », plus de minage à la main de ce qui dort dans une sortie
 local MigChamp = require("script.team.migration_champ") -- lot MIGRATION-CHAMP : un avant-poste de paires thermiques migré par parties vers des rangées électriques
@@ -120,6 +121,11 @@ local function book_for(f)
       allowed = function(name)
         local r = force.recipes[name]
         return r ~= nil and r.enabled
+      end,
+      -- lot POSE-PAR-LOTS : taille des piles pour borner un kit de fabrication à l'inventaire du PNJ (shared/ai3/kit_lot.lua)
+      stack_of = function(item)
+        local ip = game.item_prototypes[item]
+        return ip and ip.stack_size or nil
       end,
     })
     books[key] = b
@@ -550,6 +556,14 @@ function Team.view(f, tick)
         type = { "unit-spawner", "turret" }, limit = 1 }) > 0 or (f.is_player and Poles.near_loss(f, pos, tick)))) or nil
       Profiler.fstop("view:2-danger")
     end
+    -- Lot DEFENSE-AP : la garde voulue suit la menace du site (prévision), pas seulement ses foreuses ; une vague au moins égale au seuil de
+    -- protection (Sq.SITE_HIT) et des tourelles en manque : à protéger d'abord (planchers de fer réduits, Sq.floors) AVANT le premier coup.
+    -- Seul l'avant-poste de la plaque clé (le fer) est gardé selon sa menace : « les ressources d'abord » (le DC, 29/10) ; les autres gardent la règle
+    -- d'avant (mesure 1618033988 : une tourelle de plus demandée à un avant-poste de pierre à 211 tuiles, fer dépensé, PNJ perdu en chemin).
+    local base_t = T.defend_turrets(o.drills)
+    local want_t, wave_t, why_t = base_t, 0, "base"
+    local ospec_t = T.outposts[o.kind]
+    if ospec_t and ospec_t.product == T.outposts.iron.product then want_t, wave_t, why_t = SurvieQg.garde(f, oid, tick, base_t) end
     outposts[#outposts + 1] = {
       -- lot MIGRATION-CHAMP : un champ migré (o.migr) n'est jamais « agrandissable » en paires thermiques, même quand la fin d'une attente
       -- (board.lua, release_holds) a remis o.full à faux : sinon des tâches « extend » inutiles (Outposts.extend rend 0) tourneraient sans fin
@@ -563,7 +577,8 @@ function Team.view(f, tick)
       lethal = (o.lethal_tick ~= nil and tick - o.lethal_tick < T.lethal_ticks) or nil,
       -- Lot S1 : des vagues ont touché cet avant-poste (mémoire de la prévision) et il lui manque des tourelles : à protéger avant d'être agrandi
       -- ou refait (shared/team/survie_qg.lua, Sq.protect_first ; lu par le planificateur si une tourelle est posable).
-      protect = SurvieQg.mark_protect(f, oid, tick, st.turrets, T.defend_turrets(o.drills)) or nil,
+      protect = (SurvieQg.mark_protect(f, oid, tick, st.turrets, want_t) or (why_t ~= "base" and wave_t >= Sq.SITE_HIT and st.turrets < want_t)) or nil,
+      want_t = want_t, -- lot DEFENSE-AP : lu par le planificateur (postes de défense, protect_any) ; le journal [FO-DEFENSE] l'écrit en « have/want »
       -- R-QCM-25c (c) : distance au QG au carré (tuiles entières ; transport de fond sans tourelle : avant-postes proches).
       d2 = math.floor((o.pos.x - f.hq_pos.x) ^ 2 + (o.pos.y - f.hq_pos.y) ^ 2),
     }
@@ -841,7 +856,7 @@ function Team.view(f, tick)
     front = Profiler.fwrap("view:5-front", Front.view, f, fortify_open), -- lot DEFENSE-FRONT : tourelles en plus là où les pièces de l'équipe tombent, et près des laboratoires
     plant = Profiler.fwrap("view:5-garde", GardeCentrale.view, f, fortify_open, iron0), -- lot CENTRALE-GARDE : tourelles armées à portée de toutes les pièces de la centrale finie
     ilot = Profiler.fwrap("view:5-ilots", Ilots.view, f, fortify_open, iron0), -- lot ILOTS-MURS : 1 ou 2 tourelles par îlot isolé (poste facultatif, « ressources d'abord »)
-    hq_turrets = hq_turrets, hq_fortify = fortify_open["hq"] or false, hq_defend = f.is_player and T.defend_hq or Profiler.fwrap("view:5-hqpost", Front.hq_post, f, hq_turrets, tick), -- une faction garde son QG avec ses 4 tourelles offertes (Fondation.grant) et ses soldats ; lot DEFENSE-FACTIONS D3 : 2 tourelles refaites si une a été perdue ET que le QG a été attaqué
+    hq_turrets = hq_turrets, hq_fortify = fortify_open["hq"] or false, hq_defend = f.is_player and SurvieQg.hq_insure(f, tick, T.defend_hq, hq_turrets, iron0) or Profiler.fwrap("view:5-hqpost", Front.hq_post, f, hq_turrets, tick), -- une faction garde son QG avec ses 4 tourelles offertes (Fondation.grant) et ses soldats ; lot DEFENSE-FACTIONS D3 : 2 tourelles refaites si une a été perdue ET que le QG a été attaqué
     iron_flow = ((not f.is_player) and Profiler.fwrap("view:5-ironflow", iron_flow, f)) or nil, -- lot INTEG-DEFENSE D-A : lu par shared/team/planner.lua (iron_producing) ; factions seulement : les statistiques de la force « player » comptent l'usine du joueur, pas le coffre de l'équipe
     -- Lot INTEG-DEFENSE D-D : dernier choix « production d'abord » retenu et nombre de pensées de suite qui ont demandé le contraire (hystérésis
     -- de Pr.decide ; écrits plus bas par Team.think, f.team.priorite_pf et f.team.priorite_streak)
@@ -961,6 +976,7 @@ TT.e1c = function(f, surface, tick, et)
       plan.tasks[#plan.tasks + 1] = { key = "smelt", kind = "smelt", prio = 85, smelt = plan.smelt }
     end
   end
+  Acier.apply(f, view, book_for(f), plan, tick) -- lot ACIER : bloc de fours d'acier demandé ; l'acier quitte le plan (tournées manuelles) quand un bloc fini produit assez
   local tasks_avant_filtre = plan.tasks
   -- Lot FOURS (remarque 13 du DC) : une tournée de fonte ne part que si elle sert (shared/team/chaine_main.lua) : minerai à
   -- charger dans un four libre ou à compléter, sortie qui vaut le déplacement, four à ravitailler avec du charbon au coffre.

@@ -30,6 +30,7 @@ local Pp = require("shared.team.pose_paires")
 local D = require("shared.team.automatisation_donnees")
 local Mg = require("shared.team.migration_champ")
 local CFG = Mg.CFG
+local CHAMP_PAUSE = 5 * 3600 -- lot RACCORD-BANDE : pause (CHAMP_CFG.pause)
 
 ---------------------------------------------------------------------------------------------------
 -- Données communes : cadences du gabarit réel, champ émulé
@@ -754,6 +755,43 @@ do
   for _ = 1, 20 do E.think() end
   check(#E.Build.requests == n, "C6 : plus aucune demande après l'abandon")
   E.restore()
+end
+
+do
+  -- C bis. Lot RACCORD-BANDE (partie neuve 0.6.72 : « migration abandonnee apres 3 echec(s) de suite (refuse) » à 39 min, la bande ne repartait
+  -- plus qu'à 30 min) : une BANDE du champ (cadre posé) abandonnée sur des refus du plan repart après 5 min d'un état neuf, la cause du refus au
+  -- journal ; une migration sans cadre garde l'attente d'avant (CFG.revive, 30 min)
+  for _, champ in ipairs({ true, false }) do
+    local E = executor_run({ pairs = 8 })
+    for round = 1, CFG.max_fails do
+      E.think()
+      local p = E.project()
+      if champ then E.f.migration.o[1].frame = E.f.migration.o[1].frame or { axis = "x" } end
+      p.state, p.reason = "refuse", "champ: 1 composante(s) de poteaux (11 poteaux) sans chaine jusqu'au reseau alimente"
+      E.think()
+      game.tick = game.tick + CFG.retry
+    end
+    local st = E.f.migration.o[1]
+    local logs = table.concat(E.logs, "\n")
+    check(st.abandoned == true, "Cbis : abandon après " .. CFG.max_fails .. " échecs (champ " .. tostring(champ) .. ")")
+    check(logs:find("sans chaine jusqu'au reseau alimente", 1, true) ~= nil, "Cbis : la cause du refus du plan est au journal (champ " .. tostring(champ) .. ")")
+    if champ then
+      check(st.pause == CHAMP_PAUSE and logs:find("reprise dans 5 min", 1, true) ~= nil, "Cbis : bande du champ : pause de 5 min annoncée au journal")
+      local n0 = #E.Build.requests
+      game.tick = st.abandoned_at + CHAMP_PAUSE - 1200
+      E.think()
+      check(#E.Build.requests == n0 and E.f.migration.o[1].abandoned == true, "Cbis : avant la fin de la pause, toujours abandonnée")
+      game.tick = st.abandoned_at + CHAMP_PAUSE + 60
+      E.think()
+      check(table.concat(E.logs, "\n"):find("migration reprise apres abandon (5 min)", 1, true) ~= nil, "Cbis : après 5 min, la migration repart d'un état neuf")
+    else
+      check(st.pause == nil, "Cbis : sans cadre de champ : pas de pause courte")
+      game.tick = st.abandoned_at + 6 * 3600
+      E.think()
+      check(E.f.migration.o[1].abandoned == true, "Cbis : sans cadre de champ : toujours abandonnée après 6 min (CFG.revive)")
+    end
+    E.restore()
+  end
 end
 
 do
@@ -2037,6 +2075,26 @@ do
       r.j4 = not again and p.state == "bloque" and #E.Build.requests == before and E.o.migr == "partiel"
       E.restore()
     end
+    -- L. 9/11 : une bande bâtie à 90 % ou plus, sans progrès, n'est PAS reposée : on la finit (partie 314159265 : 43/47 et 91/95 abandonnées)
+    do
+      local E = world({ pairs = 8 }, mutator)
+      local p, st = to_chantier(E)
+      local left = E.alive()
+      p.ents = {}
+      for k = 1, 10 do p.ents[k] = { name = D.PARTS.belt, x = 6400 + k, y = 6400, dir = 0, built = (k <= 9) } end
+      for _ = 1, math.floor(Rb.CFG.stall / CFG.every) + 8 do E.think() end
+      r.l1 = E.alive() == left and st.stage == "chantier" and st.rollbacks == nil and #E.made == 0
+      r.l2 = table.concat(E.logs, "\n"):find("[FO-ROLLBACK]", 1, true) == nil and table.concat(E.logs, "\n"):find("on le finit", 1, true) ~= nil
+      -- en dessous de 90 % (8 sur 10) : le retour a bien lieu
+      local E2 = world({ pairs = 8 }, mutator)
+      local p2, st2 = to_chantier(E2)
+      p2.ents = {}
+      for k = 1, 10 do p2.ents[k] = { name = D.PARTS.belt, x = 6400 + k, y = 6400, dir = 0, built = (k <= 8) } end
+      for _ = 1, math.floor(Rb.CFG.stall / CFG.every) + 8 do E2.think() end
+      r.l3 = E2.alive() == 8 and (st2.rollbacks or 0) >= 1
+      E2.restore()
+      E.restore()
+    end
     -- F. deux retours sans progrès : la bande est LAISSÉE AU PLAN (jamais annulée : ses entités bâties resteraient orphelines, revue A1)
     do
       local E = world({ pairs = 8 }, mutator)
@@ -2115,6 +2173,7 @@ do
     -- (« ligne produite non protegee » : mutant ÉQUIVALENT, Mg.watch ne rend « produit » que pour un projet « fini », que Rb.decide laisse en paix)
     { "compte des foreuses oublie", mutsrc("o.drills = (o.drills or 0) + 1\n        placed", "placed") },
     { "retours sans limite", mutsrc("local nxt = Rb.after(st.rollbacks, final)", "local nxt = \"reserve\"") },
+    { "presque finie reposee", mutsrc("built = nb_built, total = nb_total })", "built = 0, total = 0 })") },
   }
   local caught = 0
   local real_print = print
@@ -2128,6 +2187,59 @@ do
   end
   check(caught == #muts, string.format("AZURE : mutants de l'exécutant refusés %d sur %d", caught, #muts))
   print(string.format("[MIGRATION-CHAMP] AZURE : exécutant, mutants %d refusés sur %d", caught, #muts))
+end
+
+do
+  -- W3. Lot COUT-600 : le plan du cadre (Champ.frame), sa vérification (Champ.flush) et la première bande (Champ.band) ont chacun leur pensée
+  -- (mesure : 11,7 M + 4,7 M + 1,0 M d'instructions sur un champ de 600 %, budget d'une pensée 0,6 M)
+  section("W3. cadre, vérification du cadre et première bande dans trois pensées (lot COUT-600)")
+  local function run_w3(mutant, lost)
+    local E = executor_run({ pairs = 8, mutant = mutant })
+    local Mig, f, o = E.Mig, E.f, E.o
+    local Ch = package.loaded["script.team.champ"]
+    local saved = { data = Ch.data, pole = Ch.powered_pole, frame = Ch.frame, band = Ch.band, flush = Ch.flush }
+    local calls, pending = {}, 0
+    Ch.data = function() return { stub = true }, {} end
+    Ch.powered_pole = function() return { x = 0, y = 0 } end
+    Ch.frame = function() calls[#calls + 1] = "frame"; pending = 1; return { axis = "x", design = "colonne" }, { 1 }, {} end
+    Ch.band = function() calls[#calls + 1] = "band"; return nil, "essai" end
+    Ch.flush = function() if lost then return false end if pending > 0 then pending = pending - 1; calls[#calls + 1] = "flush"; return true end return false end
+    local res = T.outposts.iron.resource
+    local tick = 1000
+    Mig.want(f, { id = "a", resource = res, tiles = 300, x0 = o.pos.x - 10, y0 = o.pos.y - 10, x1 = o.pos.x + 10, y1 = o.pos.y + 10, cx = o.pos.x, cy = o.pos.y }, tick)
+    game.tick = tick
+    E.think()
+    local after1 = table.concat(calls, ",")
+    E.think()
+    local after2 = table.concat(calls, ",")
+    E.think()
+    local after3 = table.concat(calls, ",")
+    Ch.data, Ch.powered_pole, Ch.frame, Ch.band, Ch.flush = saved.data, saved.pole, saved.frame, saved.band, saved.flush
+    return after1, after2, after3
+  end
+  local a1, a2, a3 = run_w3(nil)
+  check(a1 == "frame", "W3 : la première pensée planifie le cadre et rien d'autre (" .. a1 .. ")")
+  check(a2 == "frame,flush", "W3 : la deuxième ne fait que la vérification du cadre (" .. a2 .. ")")
+  check(a3 == "frame,flush,band", "W3 : la troisième demande la première bande (" .. a3 .. ")")
+  -- partie rechargée entre les deux pensées : les attentes locales sont perdues (Champ.flush ne trouve rien) ; la pensée de la vérification reste une
+  -- pensée à part (drapeau de global), comme dans la partie continuée
+  local l1, l2, l3 = run_w3(nil, true)
+  check(l1 == "frame" and l2 == "frame" and l3 == "frame,band", "W3 : attentes perdues par un chargement : même suite de pensées (" .. l1 .. " | " .. l2 .. " | " .. l3 .. ")")
+  local function mutsrc3(old, new)
+    return function(src)
+      local i, j = src:find(old, 1, true)
+      assert(i, "mutant introuvable : " .. old:sub(1, 50))
+      return src:sub(1, i - 1) .. new .. src:sub(j + 1)
+    end
+  end
+  local m1 = { run_w3(mutsrc3("    return false\n  end\n  local bad = {}", "  end\n  local bad = {}")) }
+  check(m1[1] ~= "frame", "W3 : mutant refusé : la première bande part dans la pensée du cadre (" .. m1[1] .. ")")
+  local m2 = { run_w3(mutsrc3("    Champ.flush(f) -- (journal seulement : la perte des attentes par un chargement ne change aucune décision)\n", "")) }
+  check(m2[2] ~= "frame,flush", "W3 : mutant refusé : la vérification du cadre n'est jamais appelée par la migration (" .. m2[2] .. ")")
+  local m3 = { run_w3(mutsrc3("ne change aucune décision)\n    return 0\n  end", "ne change aucune décision)\n  end")) }
+  check(m3[2] ~= "frame,flush", "W3 : mutant refusé : la vérification partage sa pensée avec le reste (" .. m3[2] .. ")")
+  local m4 = { run_w3(mutsrc3("    ms.verify_due = true -- lu par Mig.think (drapeau de global : la pensée suivante est celle de la vérification, même après un chargement)\n", "")) }
+  check(m4[2] ~= "frame,flush", "W3 : mutant refusé : drapeau de global jamais levé (" .. m4[2] .. ")")
 end
 
 print(string.format("[MIGRATION-CHAMP] BILAN : %d OK, %d ECHEC(S)", passes, failures))

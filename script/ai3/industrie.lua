@@ -41,6 +41,7 @@ local Harvest = require("script.team.harvest")
 local Profiler = require("script.core.profiler")
 local PileRt = require("script.team.pile")
 local Events = require("script.core.events")
+local MallRt = require("script.team.mall_rangee") -- lot MALL (tranche 2) : rangée du mall, avant le module isolé (docs/MALL.md §3)
 
 local Ind = {}
 
@@ -271,21 +272,17 @@ local function prepare(f, lec, book, view, dec, kind)
     gen, args = "patron", { dec.machine, recs[1], dec.unite and "unite" or "coffre", 1, k2, barre }
   end
   local pole = A.choose_pole(book, stock, Harvest.reachable(f))
-  local g, why2 = A.template(gen, args, pole)
+  local g, why2 = A.template(gen, args, pole, A.choose_arms(book, stock)) -- lot RECHERCHE-BRAS : bras obtenables
   if not g then return nil, "gabarit refuse : " .. tostring(why2) end
-  return { gen = gen, args = args, items = items, product = items[1], g = g, pole = g.pole, barre = barre }
+  return { gen = gen, args = args, items = items, product = items[1], g = g, pole = g.pole, arms = g.arms, barre = barre }
 end
 
---- Le stock HORS besoin paie-t-il le module ? Rend vrai, ou faux et la raison. Les objets du gabarit qu'on ne sait pas fabriquer
---- ni n'a au coffre sont refusés (« recherche : … »). `orders` : les ordres de la décision de cette minute, que le même stock paie déjà.
-local function affordable(f, book, view, mod, tick, orders)
+--- Le stock HORS besoin paie-t-il cette liste de matériel { { objet, n } } ? (lot MALL : extrait de `affordable`) Rend vrai, ou faux et la raison.
+local function afford_list(f, book, view, list, tick, orders)
   local stock = view.stock or {}
-  local meth = { gen = mod.gen, product = mod.product }
-  local _, items = A.cost(meth, mod.g, { book = book, stock = stock, has_plant = Auto.plant_state(f) ~= nil })
-  local list, miss = {}, {}
-  for _, name in ipairs(sorted_keys(items)) do
-    list[#list + 1] = { name, items[name] }
-    if not (book:handcraftable(name) or (stock[name] or 0) > 0) then miss[#miss + 1] = name end
+  local miss = {}
+  for _, it in ipairs(list) do
+    if not (book:handcraftable(it[1]) or (stock[it[1]] or 0) > 0) then miss[#miss + 1] = it[1] end
   end
   if #miss > 0 then return false, "recherche : " .. table.concat(miss, ",") end
   -- Lot DEPENSES2 (revue E3) : le stock hors besoin DÉBITÉ de ce que la règle du stock qui dort a accordé ou engagé (comme la capitalisation).
@@ -305,6 +302,17 @@ local function affordable(f, book, view, mod, tick, orders)
   end
   if #short > 0 then return false, "stock hors besoin insuffisant (manque " .. table.concat(short, ", ") .. ")" end
   return true
+end
+
+--- Le stock HORS besoin paie-t-il le module ? Rend vrai, ou faux et la raison. Les objets du gabarit qu'on ne sait pas fabriquer
+--- ni n'a au coffre sont refusés (« recherche : … »). `orders` : les ordres de la décision de cette minute, que le même stock paie déjà.
+local function affordable(f, book, view, mod, tick, orders)
+  local stock = view.stock or {}
+  local meth = { gen = mod.gen, product = mod.product }
+  local _, items = A.cost(meth, mod.g, { book = book, stock = stock, has_plant = Auto.plant_state(f) ~= nil })
+  local list = {}
+  for _, name in ipairs(sorted_keys(items)) do list[#list + 1] = { name, items[name] } end
+  return afford_list(f, book, view, list, tick, orders)
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -337,6 +345,7 @@ function Ind.think(f, cs, res, view, book, tick)
     for _, p in ipairs(e and e.produits or {}) do served[p] = true end
   end
   for _, o in ipairs(cs.open or {}) do if o.exec == "module" and o.item then served[o.item] = true end end
+  for it in pairs(MallRt.served(f)) do served[it] = true end -- lot MALL : un objet servi (ou demandé) par une rangée du mall (union d'ensemble : l'ordre n'a aucun effet)
   local mods = {}
   for _, b in ipairs(st.blocs) do
     local m = Auto.module(f, b.id)
@@ -401,13 +410,28 @@ function Ind.think(f, cs, res, view, book, tick)
       end
     end
     local cands = Id.order(out) -- lot RB-FLUIDE : la cellule d'un kit d'unité passe devant les blocs
+    if MallRt.ouvert(f) then cands = MallRt.ordonne(cands) end -- lot MALL : tapis et bras d'abord
     for _, c in ipairs(cands) do
       local dec, kind = c.dec, c.kind
       local label = kind == "bloc" and ("[" .. table.concat(dec.items, ",") .. "]") or dec.item
       local allowed, pwhy = PileRt.porte_any(f, "capital", c.items)
       local mod, why
       if allowed then mod, why = prepare(f, lec, book, view, dec, kind == "bloc" and "bloc" or "cellule") end
-      if not allowed then
+      -- lot MALL (tranche 2, docs/MALL.md §3) : l'état S vrai, ces objets vont dans une rangée du mall (allongée) et plus dans un module isolé.
+      -- Refus du mall (rangées pleines, entrée hors voies) : le module isolé d'avant, cause écrite ; attente (matériel) : pas de module isolé
+      local mall_ok, mall_why, mall_wait
+      if allowed and mod and MallRt.ouvert(f) and f.build and f.build.mall then
+        local vstock = view.stock or {}
+        mall_ok, mall_why, mall_wait = MallRt.accueille(f, c, mod, lec, tick, function(list) return afford_list(f, book, view, list, tick, res and res.orders) end,
+          function(n) return book:handcraftable(n) or (vstock[n] or 0) > 0 end)
+      end
+      if mall_ok then
+        st.said[label] = nil
+        say(f, tick, string.format("%s %s : rangee du mall (au lieu d'un module isole)", kind, label))
+        break
+      elseif mall_wait then
+        wait(label, kind, "mall : " .. tostring(mall_why))
+      elseif not allowed then
         PileRt.refuse(f, "mall:" .. label, kind .. " " .. label .. " non demande (" .. tostring(pwhy) .. ")", tick)
       elseif not mod then
         say(f, tick, string.format("%s %s refuse : %s", kind, label, tostring(why)))
@@ -427,7 +451,7 @@ function Ind.think(f, cs, res, view, book, tick)
           -- feed = "quai" : toute entrée d'un bloc se sert au coffre du QG par un quai, JAMAIS par des foreuses (script/team/build.lua, plan_feed :
           -- une voie de matière brute à plus de P.AUTO_FLOW envoyait le bloc chercher un gisement ; mesuré au banc ind-jetable : 4 foreuses, 154 entités)
           local id, why3 = Auto.submit(f, { product = mod.product, gen = mod.gen, args = mod.args, feed = "quai", rate = rate,
-            rate_nom = nominal_sum(mod.g), electric = (mod.g.power_kw or 0) > 0, gain = 1, pole = mod.pole,
+            rate_nom = nominal_sum(mod.g), electric = (mod.g.power_kw or 0) > 0, gain = 1, pole = mod.pole, arms = mod.arms,
             why = "MALL " .. kind .. " " .. label }, tick, nil)
           if id then
             st.blocs[#st.blocs + 1] = { id = id, items = mod.items, kind = kind, tick = tick, state = "attente", gen = mod.gen,
@@ -452,6 +476,7 @@ function Ind.think(f, cs, res, view, book, tick)
       end
     end
   end
+  MallRt.minute(f, f.hq and f.hq.surface, lec, keep, function(list) return afford_list(f, book, view, list, tick, res and res.orders) end, tick) -- lot MALL : barres, cellules rendues, allongement, compteurs
   Ind.sweep(f, tick)
   for _, k in ipairs(sorted_keys(st.hold)) do if st.hold[k] <= tick then st.hold[k] = nil end end
   Profiler.stop("ind:think")
@@ -576,10 +601,10 @@ remote.add_interface("fo-ind", {
     local usable = function(n) return book:handcraftable(n) or (contents[n] or 0) > 0 end
     local meth, why = A.method_for(item, book, usable)
     if not meth then return nil, why end
-    local g, args = A.sized(meth, rate, A.choose_pole(book, contents, Harvest.reachable(f)))
+    local g, args = A.sized(meth, rate, A.choose_pole(book, contents, Harvest.reachable(f)), A.choose_arms(book, contents))
     if not g then return nil, args end
     local id, why2 = Auto.submit(f, { product = item, gen = meth.gen, args = args, feed = meth.feed, rate = rate,
-      rate_nom = (g.nominal[item] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, pole = g.pole, why = "banc : rangee" }, game.tick, nil)
+      rate_nom = (g.nominal[item] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, pole = g.pole, arms = g.arms, why = "banc : rangee" }, game.tick, nil)
     if not id then return nil, why2 end
     local st = state_of(f)
     st.blocs[#st.blocs + 1] = { id = id, items = { item }, kind = "rangee", tick = game.tick, state = "attente", gen = meth.gen, barre = 0 }

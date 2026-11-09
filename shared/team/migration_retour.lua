@@ -24,9 +24,12 @@ local R = {}
 
 R.CFG = {
   stall = 15 * 3600,     -- 15 min sans entité de plus posée : chantier lent
+  stall_fuel = 5 * 3600, -- lot COMBUSTIBLE-MIGRATION : même seuil quand la bande remplace un avant-poste du combustible de l'équipe et que son stock manque (c.fuel_low)
   cool = 30 * 3600,      -- 30 min en réserve avant que le plan puisse retirer de nouveau (les paires produisent entre-temps)
   max_rollbacks = 2,     -- retours en arrière par bande au plus ; le dernier annule la bande
   undo_max = 40,         -- paires gardées au plus (une bande retire 8 paires par partie en général, 21 au pire mesuré)
+  near_done = 0.9,       -- une bande bâtie à 90 % ou plus n'est PAS reposée en chantier lent : on la finit (directive du lead, 9/11 ; partie 314159265 : bandes parquées à
+                         -- 43/47 et 91/95 entités bâties)
   craft_depth = 3,       -- profondeur des recettes dépliées pour refaire un objet rendu au stock puis dépensé (foreuse -> engrenage -> plaque)
 }
 
@@ -67,14 +70,19 @@ function R.stalled(rec, now)
 end
 
 --- Décision. c = { undo (paires gardées), produced (une ligne neuve a produit), state (état du projet : "fini", "bloque", ... ou nil si perdu),
---- stalled (ticks), abandon (le suivi vient d'abandonner la bande) }. Rend ("retour" | "rien", raison).
+--- stalled (ticks), abandon (le suivi vient d'abandonner la bande), built / total (entités posées / entités du projet, facultatifs), fuel_low (facultatif :
+--- le combustible de l'équipe manque, lot COMBUSTIBLE-MIGRATION : seuil court cfg.stall_fuel) }.
+--- Rend ("retour" | "rien", raison). Une bande déjà bâtie à R.CFG.near_done ou plus n'est jamais reposée pour un simple chantier lent.
 function R.decide(c, cfg)
   cfg = cfg or R.CFG
   if (c.undo or 0) == 0 then return "rien", "sans-paire" end
   if c.produced then return "rien", "produit" end
   if c.abandon then return "retour", "abandon" end
   if c.state == "fini" then return "rien", "fini" end
-  if (c.stalled or 0) >= cfg.stall then return "retour", "chantier-lent" end
+  if (c.stalled or 0) >= ((c.fuel_low and cfg.stall_fuel) or cfg.stall) then
+    if (c.total or 0) > 0 and (c.built or 0) >= cfg.near_done * c.total then return "rien", "presque-finie" end
+    return "retour", "chantier-lent"
+  end
   return "rien", "avance"
 end
 

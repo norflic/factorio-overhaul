@@ -503,14 +503,15 @@ do
   --            rapport du lot) ; le plafond est l'état du 28/10 et ne peut que BAISSER.
   -- Tout autre fichier de ces dossiers : aucun nom. Une ligne en plus dans un fichier : ECHEC.
   local LEDGER = {
-    ["shared/team/config.lua"] = { "EXEC", 46, "table nommée de l'exécutant (kit, avant-postes, foreuse électrique du lot FOREUSES et poteaux de sa chaîne T.swap.poles du lot FOREUSES-THERMIQUES, fonte, munitions, pièces, tourelle de garde, mur de l'enceinte : T.turret et T.wall, recette et portée lues au moteur ; lot FONDERIE : T.LOGISTIC_TYPES, types de prototypes du répartiteur et du souterrain ; lot MUNITIONS : T.turret_ammo_ladder, échelle des munitions des tourelles, choisie par la règle pure Mu.best_ammo sans nom)" },
-    ["shared/team/modules.lua"] = { "EXEC", 206, "gabarits de modules : catalogue d'usines posables, noms de leurs pièces (204 : genre « lab » lu par le débit des quais, lot RESEAU-GRAPHE ; 206 : tapis des voies des rangées, lot RANGEES-ASM)" },
+    ["shared/team/config.lua"] = { "EXEC", 47, "table nommée de l'exécutant (kit, avant-postes, foreuse électrique du lot FOREUSES et poteaux de sa chaîne T.swap.poles du lot FOREUSES-THERMIQUES, fonte, munitions, pièces, tourelle de garde, mur de l'enceinte : T.turret et T.wall, recette et portée lues au moteur ; lot MALL : T.MALL_PREMIERS, types d'entité passés devant dans le mall ; lot FONDERIE : T.LOGISTIC_TYPES, types de prototypes du répartiteur et du souterrain ; lot MUNITIONS : T.turret_ammo_ladder, échelle des munitions des tourelles, choisie par la règle pure Mu.best_ammo sans nom)" },
+    ["shared/team/modules.lua"] = { "EXEC", 207, "gabarits de modules : catalogue d'usines posables, noms de leurs pièces (204 : genre « lab » lu par le débit des quais, lot RESEAU-GRAPHE ; 206 : tapis des voies des rangées, lot RANGEES-ASM ; 207 : 204 lignes d'avant + 3 du lot ACIER, mesurées ligne à ligne : la recette de l'acier du modèle (M.RECIPES), le charbon ajouté au besoin d'un four, la voie de charbon du tapis d'entrée de la rangée de fours)" },
     ["script/team/sources.lua"] = { "TYPE", 7, "types du moteur des coffres et bras du registre des sorties (container, inserter, mining-drill), lot MINAGE-MAIN : le GENRE, jamais un niveau" },
     ["script/team/traversee.lua"] = { "TYPE", 2, "nature d'un obstacle lue au TYPE du moteur (tapis, bras, poteau, mur...) pour la cause d'un refus de tracé, lot TRAVERSEE" },
     ["script/team/rangee_dyn.lua"] = { "TYPE", 1, "genre de pièce (kind inserter) des machines d'une rangée dynamique, lot RANGEES-ASM" },
     ["shared/team/rangee_dyn.lua"] = { "TYPE", 1, "genre de pièce (kind inserter) donné par l'appelant, lot RANGEES-ASM" },
     ["script/team/rapatriement.lua"] = { "TYPE", 1, "genre de pièce (kind inserter) du bras choisi, lot RAPATRIEMENT" },
     ["shared/team/blocs_audit.lua"] = { "TYPE", 2, "genres de pièces (kind lab, inserter) de l'audit n entrées / m sorties, lot RESEAU-GRAPHE" },
+    ["shared/team/depart_coffre.lua"] = { "EXEC", 2, "stock de départ du coffre d'équipe posé d'office (DONNÉES, lot DEFAUTS-DC) : la liste des objets du guide, lue par PlayerTeam.found_default ; aucune décision n'y lit un nom" },
     ["shared/team/petrole_donnees.lua"] = { "EXEC", 4, "pièces de l'exécutant des chaînes à fluides (tuyau, coffre des quais, bras, poteaux) : briques du plan directeur, comme automatisation_donnees" },
     ["shared/team/automatisation_donnees.lua"] = { "EXEC", 11, "données de l'exécutant d'IA3-e (machines et pièces posables)" },
     ["shared/team/lot_minerai_seuils.lua"] = { "EXEC", 1, "SEUILS de la règle pure shared/team/lot_minerai.lua en DONNÉES (lot MINERAI-SONDE) : le seul nom est le minerai à seuil de quantité (G42) ; la règle, elle, ne nomme rien" },
@@ -521,6 +522,7 @@ do
     ["script/team/generateurs.lua"] = { "TYPE", 1, "types du moteur des génératrices tenues par le registre (lot X10-S4 : burner-generator, generator, solar-panel, les types lus par raccord.lua) : le GENRE, jamais un niveau" },
     ["script/team/plant_arms.lua"] = { "EXEC", 1, "journal de la centrale : le fluide « vapeur » lu dans les chaudières (diagnostic)" },
     ["script/faction/vision.lua"] = { "TYPE", 2, "types du moteur (assembling-machine, furnace...)" },
+    ["script/team/purete.lua"] = { "TYPE", 6, "types du moteur des pièces qui portent des objets (transport-belt, underground-belt, splitter), lus par le garde-fou de pureté des tapis, lot PURETE-TAPIS : le GENRE, jamais un niveau" },
     ["script/faction/journal.lua"] = { "TYPE", 2, "types du moteur (car, robots)" },
     ["script/modules/mult.lua"] = { "TYPE", 2, "types du moteur des machines à modules" },
     ["script/team/convoyeurs.lua"] = { "TYPE", 1, "type du moteur transport-belt (filtre des prototypes de tapis, lot CONVOYEURS)" },

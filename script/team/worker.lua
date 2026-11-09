@@ -284,6 +284,18 @@ local function deposit_inventory(f, inv, keep, chest)
       if put > 0 then inv.remove({ name = name, count = put }) f.team.delivered[name] = (f.team.delivered[name] or 0) + put end
       n = 0
     end
+    -- Lot STOCK-QG : un brut ou un déclassé que le stock n'accueille plus (plafond de rapatriement) n'entre pas : il est retiré de la poche
+    -- (jamais gardé en poche : un PNJ chargé de ce qu'on lui refuse est un PNJ perdu)
+    if n > 0 and not chest and Stock.cap_room then
+      local room = Stock.cap_room(f, name)
+      if room and n > room then
+        local gone = inv.remove({ name = name, count = n - room })
+        if gone > 0 then
+          n = n - gone
+          Stock.note_cap_drop(f, name, gone)
+        end
+      end
+    end
     if n > 0 then
       local moved = Stock.insert(f, name, n, DEPOSIT_OPTS)
       if moved > 0 then
@@ -855,8 +867,8 @@ function Worker.program(f, task, surface, tick)
       local last = f.stats.mine_none[task.resource]
       if not last or tick - last >= 3600 then
         f.stats.mine_none[task.resource] = tick
-        log(string.format("[FO-TEAM] %s : minage a la main de '%s' sans tuile libre ni sure (rayon %d, %d entite(s) trouvee(s)) a %.1f min",
-          f.key or "?", tostring(task.resource), task.radius or 96, #res, tick / 3600))
+        log(string.format("[FO-TEAM] %s : minage a la main de '%s' sans tuile libre ni sure (rayon %d, %d entite(s) trouvee(s)) a %.1f min (tache %s : fond %s, prudent %s, sure %s)",
+          f.key or "?", tostring(task.resource), task.radius or 96, #res, tick / 3600, tostring(task.key), tostring(task.fond == true), tostring(task.prudent == true), tostring(task.safe == true)))
       end
       return nil
     end
@@ -1214,6 +1226,17 @@ local function bg_close_job(agent, f, job, ok, tick, cause)
     w.done = w.done + 1
     w.delay_ticks = w.delay_ticks + (tick - (job.ready_tick or tick))
     f.stats.crafted = (f.stats.crafted or 0) + 1
+    -- Lot POSE-PAR-LOTS : un kit de fabrication d'un projet (shared/ai3/kit_lot.lua) est livré au coffre ; durée = de la prise à la livraison
+    if task.kit then
+      f.stats.kits_livres = (f.stats.kits_livres or 0) + 1
+      if f.stats.kits_livres <= 300 then
+        local parts = {}
+        for _, wk in ipairs(task.kit) do parts[#parts + 1] = string.format("%s x%d", tostring(wk[1]), wk[2] or 0) end
+        log(string.format("[FO-LOTS-KIT] %s : kit LIVRE %s (projet %s '%s') : %s ; %d fabrication(s) en %.0f s de la prise a la livraison (%.0f s de fabrication) par le PNJ %d a %.1f min",
+          f.key or (f.is_player and "player") or tostring(f.id), tostring(task.key), tostring(task.ia3), tostring(task.why), table.concat(parts, ", "),
+          #job.list, (tick - job.at) / 60, (job.ready_tick and job.t0 and (job.ready_tick - job.t0) or 0) / 60, agent.id, tick / 3600))
+      end
+    end
   else
     w.failed = w.failed + 1
     w.causes[cause] = (w.causes[cause] or 0) + 1
@@ -1545,8 +1568,10 @@ local function run_steps(agent, tick)
     elseif kind == "take" then
       -- Lot IA3-b : une tâche avec réservation (registre) prend exactement sa réservation, rien de plus.
       local all
+      Stock.ctx = agent.task and ((agent.task.kind or "?") .. ":" .. tostring(agent.task.key or "?"):sub(1, 28)) or nil -- diagnostic DEFENSE-AP
       if agent.resa_id then all = Board.take_reserved(f, agent, main_inv(agent), step[2])
       else all = take(agent, f, step[2]) end
+      Stock.ctx = nil
       if agent.task then agent.task.took = true end -- lot IA1-b : objets pris (stock libre du fond)
       if step.strict and not all then
         abort(agent, f, tick, (agent.task and agent.task.preempted) and "preempte" or "stock")
@@ -1762,7 +1787,15 @@ FSM.define(MACHINE, {
   -- Lot IA1-d : travail sur place du plan directeur (ravivages, défrichage, quais) : script/team/build.lua.
   ia1d = {
     think = function(agent, tick)
-      defend(agent, tick)
+      -- Correction PC-INVALIDE (plantage bail.lua:72, azure, 87,8 min) : une réaction (demi-tour ou fuite, Worker.abort) qui part
+      -- pendant cette pensée remet le programme à `{ home }` (pc = 1). Ne pas continuer le travail après elle : le retour
+      -- « again » retirait alors 1 à pc et laissait pc = 0 (aucune étape). Une simple HALTE (M.sense rend vrai sans changer le
+      -- programme) ne lâche pas le chantier : le job reste, et la pensée suivante reprend le travail.
+      local steps0, pc0 = agent.steps, agent.pc
+      if defend(agent, tick) then
+        if agent.steps ~= steps0 or agent.pc ~= pc0 then agent.ia1d = nil end
+        return
+      end
       local f = faction_of(agent)
       if not f then return end
       Profiler.start("build:work")
@@ -1771,9 +1804,15 @@ FSM.define(MACHINE, {
       if r == "more" then return end
       agent.ia1d = nil
       if r == "again" then
-        -- refaire la marche vers le point d'appui (étape précédente), depuis la position atteinte
-        agent.pc = agent.pc - 1
-        set(agent, "step", tick)
+        -- refaire la marche vers le point d'appui (étape précédente), depuis la position atteinte. Seulement si le programme
+        -- est resté le même et que l'étape courante est bien ce travail, avec une étape avant (pc > 1) : sinon rien à refaire.
+        local cur = steps0 and pc0 and steps0[pc0]
+        if agent.steps == steps0 and agent.pc == pc0 and pc0 > 1 and cur and cur[1] == "ia1d" then
+          agent.pc = pc0 - 1
+          set(agent, "step", tick)
+        else
+          abort(agent, f, tick, "chantier")
+        end
         return
       end
       if r == "done" then

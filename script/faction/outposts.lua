@@ -56,9 +56,10 @@ local function resource_tiles(surface, spec, center, radius, same_deposit)
   for _, r in ipairs(surface.find_entities_filtered({ position = center, radius = radius, name = spec.resource })) do
     if r.valid then raw[#raw + 1] = { x = r.position.x, y = r.position.y } end
   end
-  local sorted = Paires.sorted(raw, center)
-  if same_deposit then return Paires.component(sorted, Paires.GAP, center) end
-  return sorted
+  -- lot COUT-600 : la composante du centre sans trier les gisements voisins lus dans le même rayon (même liste, même ordre que l'ancien
+  -- Paires.component(Paires.sorted(...)) ; tests/nearest_component_test.lua)
+  if same_deposit then return Paires.nearest_component(raw, Paires.GAP, center) end
+  return Paires.sorted(raw, center)
 end
 
 --- Lot PLAFOND-FOREUSES : clés des tuiles minées par la foreuse `d` (zone de minage du prototype, sinon son emprise).

@@ -14,6 +14,7 @@ local Stock = require("script.team.stock")
 local Bras = require("shared.team.bras_retour")
 local C = require("shared.team.centrale") -- lot CORR-ENERGIE : croissance de la centrale
 local Cv = require("shared.team.champ_vapeur") -- lot ENERGIE : champ de machines à vapeur (taille, perte)
+local Cp = require("shared.team.centrale_pole") -- lot CENTRALE-PRES : poteau obtenable, taille de la centrale
 local Sante = require("script.team.sante_centrale") -- lot ENERGIE (2/11) : santé de la centrale, amorce à la main, croissance avant saturation
 
 local PA = {}
@@ -305,6 +306,82 @@ function PA.watch(f, surface, tick)
   end
   if nb then C.requested(g); g.why = nil end
   return nb, stale, (nb ~= nil and crisis) or false
+end
+
+-- Lot CENTRALE-PRES : objets OBTENABLES et taille d'une centrale (règles pures : shared/team/centrale_pole.lua). Un objet est obtenable
+-- quand il est au coffre, ou qu'aucune recette ne le produit (matière naturelle), ou qu'une recette qui le produit est ouverte à la
+-- force. Index « objet -> recettes qui le produisent » lu une fois aux prototypes (donnée dérivée, pas de `global` : refait à chaque
+-- chargement) ; les recettes sont parcourues par noms triés.
+local PRODUCERS = nil
+local function producers()
+  if PRODUCERS then return PRODUCERS end
+  local names = {}
+  for name in pairs(game.recipe_prototypes) do names[#names + 1] = name end
+  table.sort(names)
+  local idx = {}
+  for _, rn in ipairs(names) do
+    for _, pr in ipairs(game.recipe_prototypes[rn].products or {}) do
+      if pr.type ~= "fluid" then
+        local l = idx[pr.name]
+        if not l then l = {} idx[pr.name] = l end
+        l[#l + 1] = rn
+      end
+    end
+  end
+  PRODUCERS = idx
+  return idx
+end
+
+--- Vide l'index (tests, qui changent de recettes).
+function PA.reset_producers() PRODUCERS = nil end
+
+--- Cet objet peut-il encore venir ? (voir ci-dessus). `f` : l'équipe (coffre et force).
+function PA.obtainable(f, name)
+  if Stock.count(f, name) > 0 then return true end
+  local list = producers()[name]
+  if not list then return true end
+  local force = game.forces[f.force]
+  if not force then return true end
+  for _, rn in ipairs(list) do
+    local r = force.recipes[rn]
+    if r and r.enabled then return true end
+  end
+  return false
+end
+
+--- Objets d'une réserve qu'aucune fabrication ne peut couvrir (liste triée), pour refuser tout de suite une réserve qui ne se lèvera jamais.
+function PA.dead(f, missing)
+  return Cp.dead(missing, function(name) return PA.obtainable(f, name) end)
+end
+
+--- Taille et poteau d'une centrale de `nb` chaudières du générateur `gen`, `pref` = poteau de la première centrale (nil : le défaut).
+--- Rend (n, poteau, réduite) ou (nil, cause).
+function PA.fit(f, gen, nb, pref)
+  local poles = Cp.candidates(pref, M.DEFAULT_POLE, function(name) return PA.obtainable(f, name) end)
+  return Cp.fit(nb, poles, function(pole, n) return Cp.valid(gen, pole, n) end)
+end
+
+--- Taille de la centrale à demander (appelé par Build.grow_plant avant Build.request) : rend (n, poteau) ou nil quand aucun poteau
+--- obtenable ne tient une centrale, après une ligne [FO-ENERGIE] qui dit pourquoi ; un refus ouvre la pause de C.COOL (la demande
+--- n'a pas eu lieu : elle ne compte pas parmi les C.MAX_REQUESTS) et ne compte pas comme refus du plan.
+function PA.size(f, gen, nb, pref, tick, secours)
+  local n, pole, reduced = PA.fit(f, gen, nb, pref) -- (refus : n nil, `pole` porte alors la CAUSE)
+  local g = f.build.grow or {}
+  f.build.grow = g
+  if not n then
+    g.cool_until = math.max(g.cool_until or 0, tick + C.COOL)
+    g.requests = math.max(0, (g.requests or 0) - 1)
+    g.size_refused = (g.size_refused or 0) + 1
+    log(string.format("[FO-ENERGIE] %s : centrale de %d chaudiere(s) REFUSEE a %.1f min : %s (poteau prevu %s, defaut %s) ; aucune reserve ouverte, nouvel essai a %.1f min",
+      f.key or "player", nb, tick / 3600, tostring(pole), tostring(pref or M.DEFAULT_POLE), M.DEFAULT_POLE, g.cool_until / 3600))
+    return nil
+  end
+  if reduced or pole ~= (pref or M.DEFAULT_POLE) then
+    log(string.format("[FO-ENERGIE] %s : centrale de %d chaudiere(s) demandee a %.1f min, %s avec le poteau %s (obtenable ; prevu %s, defaut %s%s)",
+      f.key or "player", nb, tick / 3600, reduced and ("ramenee a " .. n) or "gardee", pole, tostring(pref or M.DEFAULT_POLE), M.DEFAULT_POLE,
+      PA.obtainable(f, M.DEFAULT_POLE) and ", obtenable" or ", NON obtenable : recette fermee, rien au coffre"))
+  end
+  return n, pole
 end
 
 PA.STALE_REASON = C.STALE_REASON

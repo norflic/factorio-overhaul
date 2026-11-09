@@ -166,7 +166,7 @@ local function run(mode, min, out)
     goulot_lu = 0, goulot_manque = 0, bonus_steps = 0, bonus_seen = 0 }
   -- (a) Le GOULOT de la dernière décision de chaque équipe (θ le plus bas du compte rendu, qui lit ctx.stock) : l'objet injecté avec
   -- les plaques. Lu au journal, ligne « [FO-CAPI] <équipe> minute … goulot=<objet> θ … ».
-  local scan, goulot, inj_item = 1, {}, {}
+  local scan, goulot, inj_item, trace = 1, {}, {}, {}
   local function goulot_of(line)
     return tostring(line):match("^%[FO%-CAPI%] (%S+) minute .- goulot=(%S+) ")
   end
@@ -240,6 +240,12 @@ local function run(mode, min, out)
             if k == tostring(f.key) then seen = gg end
           end
           if seen == g then info.goulot_lu = info.goulot_lu + 1 else info.goulot_manque = info.goulot_manque + 1 end
+          local mn
+          for i = b.log0, #W.logs do
+            local k2, m2 = tostring(W.logs[i]):match("^%[FO%-CAPI%] (%S+) minute (%d+) ")
+            if k2 == tostring(f.key) then mn = m2 end
+          end
+          trace[#trace + 1] = tostring(f.key) .. " " .. tostring(mn) .. " " .. g .. " " .. tostring(seen)
           inj_item[dk] = nil
         end
       end
@@ -275,6 +281,7 @@ local function run(mode, min, out)
   for _, l in ipairs(W.logs) do if tostring(l):match("^%[FO%-CAPI%] %S+ minute") then ndec = ndec + 1 end end
   il[#il + 1] = "lignes_decision " .. ndec
   wr("_info.txt", table.concat(il, "\n"))
+  wr("_goulots.txt", table.concat(trace, "\n"))
   print("[CAPI-DECIDE-RUN] " .. mode .. " fini")
 end
 
@@ -390,9 +397,52 @@ local ok2, o2 = sub("charge", 3, "viv_c", { FO_CD_INJ = "stock" })
 local ok3, o3 = sub("etapes", 3, "viv_me", { FO_CD_INJ = "stock", FO_CD_MUT = "vivant" })
 local ok4, o4 = sub("charge", 3, "viv_mc", { FO_CD_INJ = "stock", FO_CD_MUT = "vivant" })
 local i1 = info_of(o1)
-check(ok1 and (i1.inj_goulot or 0) >= 1 and (i1.goulot_lu or 0) >= 1 and (i1.goulot_manque or -1) == 0, string.format(
-  "précondition : l'objet du goulot est injecté et relu par le compte rendu (%s injection(s), %s décision(s) au goulot injecté, %s non)",
-  tostring(i1.inj_goulot), tostring(i1.goulot_lu), tostring(i1.goulot_manque)))
+-- Précondition (a), critère CONDITIONNEL (9/11, depuis d9694bdf MINAGE-MAIN : plus de minage à la main de ce qui dort ; le charbon du joueur
+-- tombe à 0 à la 3e décision, stock 128/98/nil au lieu de 106/64/30, et son goulot passe du minerai de fer au charbon). L'objet injecté est
+-- le goulot de la décision PRÉCÉDENTE de l'équipe. Chaque décision est jugée dans l'un de deux cas :
+--   STRICT  : elle écrit l'objet injecté (un chemin de sortie le relit) ;
+--   DÉPLACÉ : son goulot a bougé depuis la décision précédente ; il doit alors être celui de la partie SANS injection (référence `oe`,
+--             même équipe, même minute) : le monde l'a déplacé, pas la lecture de la vue.
+-- Réussite : au moins une décision au cas strict (sinon le banc est aveugle) ET aucune décision déplacée sans l'accord de la référence.
+local function goulots_of_journal(path)
+  local t = {}
+  for l in (slurp(path) or ""):gmatch("[^\n]+") do
+    local k, m, g = l:match("^%[FO%-CAPI%] (%S+) minute (%d+) .- goulot=(%S+) ")
+    if k then t[k .. " " .. m] = g end
+  end
+  return t
+end
+local function precondition(out, ref)
+  local strict, moved, explained = 0, 0, 0
+  for l in (slurp(out .. "_goulots.txt") or ""):gmatch("[^\n]+") do
+    local k, m, injected, written = l:match("^(%S+) (%S+) (%S+) (%S+)$")
+    if k then
+      if written == injected then strict = strict + 1
+      else
+        moved = moved + 1
+        if ref[k .. " " .. m] == written then explained = explained + 1 end
+      end
+    end
+  end
+  return strict >= 1 and explained == moved, strict, moved, explained
+end
+local ref_goulots = goulots_of_journal(oe .. "_journal.txt")
+local pre_ok, n_strict, n_moved, n_expl = precondition(o1, ref_goulots)
+check(ok1 and (i1.inj_goulot or 0) >= 1 and pre_ok, string.format(
+  "précondition : l'objet du goulot est injecté et relu par le compte rendu (%s injection(s) ; %d décision(s) jugée(s) au cas strict, %d au cas déplacé dont %d accordée(s) par la référence sans injection)",
+  tostring(i1.inj_goulot), n_strict, n_moved, n_expl))
+print(string.format("  précondition du goulot : %d décision(s) au cas strict, %d au cas déplacé (%d expliquée(s) par la référence)", n_strict, n_moved, n_expl))
+do -- mutants de la précondition
+  local fake = {}
+  for k2, v in pairs(ref_goulots) do fake[k2] = "zz-" .. v end
+  check(n_moved >= 1 and not (precondition(o1, fake)), "mutant « goulot déplacé que la référence ne confirme pas » refusé par la précondition")
+  local tmpf = TMP .. "/capidecide_nostrict"
+  local h = assert(io.open(tmpf .. "_goulots.txt", "w"))
+  h:write("player 1 iron-ore coal\n")
+  h:close()
+  check(not (precondition(tmpf, { ["player 1"] = "coal" })), "mutant « aucune décision au cas strict » refusé (le banc serait aveugle)")
+  check(not (precondition(o3, ref_goulots)), "mutant « entrée vivante » : la précondition le refuse aussi (goulot déplacé hors de la référence)")
+end
 check(ok1 and ok2 and same(o1, o2), "stock changé entre deux tranches : continue = chargée (la décision ne lit que l'instantané)")
 check(ok3 and ok4 and not same(o3, o4), "mutant « entrée vivante » refusé (continue et chargée diffèrent)")
 -- st avancé dès la première tranche

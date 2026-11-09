@@ -40,6 +40,7 @@ local General = require("script.ai3.general")
 local Profiler = require("script.core.profiler")
 local Auto = require("script.ai3.automatisation") -- lot IA3-e : Auto.capital_steps (objets du dépliage)
 local CentreQG = require("script.faction.centre_qg") -- lot PD-CENTREQG (D20) : le centre de la faction est lié à son QG
+local Voulues = require("script.ai3.voulues") -- lot RECHERCHE-BRAS (A) : objets voulus déclarés par un module
 
 local Capital = {}
 
@@ -257,7 +258,10 @@ local function scan_machines(f)
     local e = ents[id]
     -- Un tapis n'a pas d'état : il est « en marche » (sa montée rapporte à plein).
     local st = e.status
-    list[#list + 1] = { id = id, name = e.name, working = (st == nil) or (ws ~= nil and st == ws), block = blocks[id] }
+    -- Lot AMELIORATION-CONTINUE : position et direction (Am.run_order : les pièces d'un lot se suivent le long de la ligne).
+    local pos = e.position
+    list[#list + 1] = { id = id, name = e.name, working = (st == nil) or (ws ~= nil and st == ws), block = blocks[id],
+      x = pos.x, y = pos.y, dir = e.direction }
   end
   return { list = list, ents = ents, refs = refs }
 end
@@ -502,7 +506,10 @@ function Capital.describe(d)
     return string.format("bloc %s : %s %d -> %d x%d batiment(s) sur %d au plus bas", d.bloc, d.family, d.from, d.to, d.n or 1,
       d.bloc_low or 0)
   end
-  if d.replace then return string.format("remplacer %s -> %s x%d", d.replace.from, d.replace.to, d.replace.n) end
+  if d.replace then
+    return string.format("remplacer %s -> %s x%d%s", d.replace.from, d.replace.to, d.replace.n,
+      (d.fab and d.fab > d.replace.n) and (" sur un lot demande de " .. d.fab .. ", " .. (d.remaining or 0) .. " a monter dans le bloc") or "")
+  end
   return string.format("%s %d -> %d", d.family, d.from, d.to)
 end
 
@@ -535,6 +542,24 @@ function Capital.log_blocs(f, c, d, tick)
   -- Un bloc disparu du relevé (projet fini, détruit) : oublié, sa clé ne reste pas dans la sauvegarde.
   for _, k in ipairs(sorted_keys(c.am_sig)) do
     if not seen[k] then c.am_sig[k], c.refus[k] = nil, nil end
+  end
+end
+
+--- Lot AMELIORATION-CONTINUE : le PARC des pièces remplaçables (tapis, bras, fours...) par type et par rang, une ligne [FO-AMELIORATION-PARC] par
+--- groupe, toutes les Capital.PARC_TICKS ticks de jeu et seulement si un chiffre a changé : la preuve de « plus de la moitié des tapis montés ».
+Capital.PARC_TICKS = 5 * 3600
+function Capital.log_parc(f, c, census, tick)
+  if not (census.machines and #census.machines > 0) then return end
+  if tick < (c.parc_next or 0) then return end
+  c.parc_next = tick + Capital.PARC_TICKS
+  c.parc_sig = c.parc_sig or {}
+  local rows = Am.parc(census.machines, Capital.mproto, machine_catalog().names)
+  for _, row in ipairs(rows) do
+    local line = Am.parc_line(row)
+    if c.parc_sig[row.key] ~= line then
+      c.parc_sig[row.key] = line
+      log(string.format("[FO-AMELIORATION-PARC] %s : %s a %.1f min", f.key or "player", line, minutes(f, tick)))
+    end
   end
 end
 
@@ -593,6 +618,12 @@ function Capital.goal(f, view, book, tick, w)
     exclude = exclude, defer = c.defer, thaw = (c.thaw and c.thaw.active) or false, tick = tick,
     blocs = (census.list ~= nil and Capital.blocs_on()) or nil, -- lot AMELIORATION
     recon = Capital.blocs_on() and Capital.recon_needs(f) or nil, -- gel de la reconstruction levé sauf manque, objet par objet
+    continu = Capital.blocs_on() or nil, -- lot AMELIORATION-CONTINUE : bloc entier à la fabrication, groupe fini d'abord, rang réclamé à la recherche
+    last_group = Capital.blocs_on() and c.last_group or nil,
+    -- Lot AMELIORATION-CONTINUE : le remplacement ENGAGÉ et les rangs en famine passent devant (Am.engage_update, Am.starved_kinds).
+    engaged = Capital.blocs_on() and c.engage and c.engage.group or nil,
+    rest = Capital.blocs_on() and c.engage and c.engage.rest or nil,
+    starved = Capital.blocs_on() and Am.starved_kinds(c.engage or {}, tick, c.engage and c.engage.kinds) or nil,
     need = function(block)
       -- Un bloc de projet dont le produit manque (f.team.ia3.short, comme repli_opts de la capitalisation) monte d'abord.
       local pid = tonumber(tostring(block):match("^p(%d+)$"))
@@ -603,7 +634,45 @@ function Capital.goal(f, view, book, tick, w)
       return 100
     end }
   local d = Cap.choose(L, census, ctx)
+  if Capital.blocs_on() then
+    -- Lot AMELIORATION-CONTINUE : un pas de l'engagement (lu par la décision suivante : ctx.engaged) et les rangs vus (famine).
+    local eng = c.engage or { rest = {}, seen = {}, paid = {} }
+    c.engage = eng
+    local before = eng.group
+    local rg = d.replace and d.replace.group or nil
+    Am.engage_update(eng, tick, { start = (not d.all_in) and rg or nil, -- engagé seulement pour une pièce À FABRIQUER
+      cost = d.work, -- aucun `threat` : la pile suspend déjà les améliorations sous danger réel, ctx.threat vaut aussi « guerre déclarée »
+      alive = (before == nil) or (d.rep_groups and d.rep_groups[before]) or false })
+    -- Diagnostic (banc f288d767 : azure n'engage jamais le tapis alors que la famine devait s'en charger) : l'état lu, toutes les 3 min.
+    if tick - (eng.diag or -1e9) >= 10800 and #(d.rep_kinds or {}) > 0 then
+      eng.diag = tick
+      local fam, rest_n = {}, 0
+      for _, k in ipairs(sorted_keys(ctx.starved or {})) do fam[#fam + 1] = k end
+      for _ in pairs(eng.rest or {}) do rest_n = rest_n + 1 end
+      log(string.format("[FO-ENGAGEMENT-DIAG] %s : danger %s ; engage %s ; %d groupe(s) au repos ; famine [%s] ; rangs candidats [%s] ; decision %s a %.1f min",
+        f.key or "?", tostring(ctx.threat), tostring(eng.group), rest_n, table.concat(fam, ","), table.concat(d.rep_kinds, ","),
+        d.replace and (d.replace.to .. (d.front and " (front)" or "")) or tostring(d.key), minutes(f, tick)))
+    end
+    eng.kinds = {}
+    for i, k in ipairs(d.rep_kinds or {}) do eng.kinds[i] = k end
+    if eng.group ~= before then
+      log(string.format("[FO-ENGAGEMENT] %s : %s '%s' (rang %s) a %.1f min", f.key or "?", eng.group and "debut" or "fin sans engagement",
+        tostring(eng.group or before), d.replace and d.replace.to or "-", minutes(f, tick)))
+    end
+  end
   Capital.log_blocs(f, c, d, tick)
+  Capital.log_parc(f, c, census, tick)
+  -- Lot AMELIORATION-CONTINUE : le rang (tapis, bras) à monter en nombre, pas encore débloqué, est déclaré OBJET VOULU (Voulues, source
+  -- « amelioration ») ; la règle K1 de Gen (voulue proche devant) et la recherche du cerveau général font le reste. Rien à monter : retiré.
+  local rw = {}
+  for _, k in ipairs(sorted_keys(d.rang_wanted)) do rw[#rw + 1] = k end
+  if Capital.blocs_on() and #rw > 0 then
+    if Voulues.set(f, "amelioration", rw, tick) then
+      log(string.format("[FO-AMELIORATION] %s : rang a monter en nombre, recherche reclamee pour %s a %.1f min", f.key or "player", table.concat(rw, ","), minutes(f, tick)))
+    end
+  else
+    Voulues.clear(f, "amelioration")
+  end
   -- Lot DEFAUT7, étage 3 : fin de l'état « collant » quand la cible du centre change (payé, ou autre centre) : sa durée au journal.
   local old = c.defer
   if old and old.ahead_since and not old.ahead_done and old.key ~= d.gate_key then
@@ -657,7 +726,7 @@ function Capital.goal(f, view, book, tick, w)
     c.current = { key = d.key, id = d.id, family = d.family, from = d.from, to = d.to, build = d.build or nil,
       center = d.center or nil, value = d.value, work = d.work, score = d.score, cost = cost, ids = ids,
       bloc = d.bloc, n = d.n, unit = unit, bloc_low = d.bloc_low,
-      replace = d.replace and { from = d.replace.from, to = d.replace.to, n = d.replace.n } or nil }
+      replace = d.replace and { from = d.replace.from, to = d.replace.to, n = d.replace.n, group = d.replace.group } or nil }
     if d.key ~= prev then
       c.decisions = (c.decisions or 0) + 1
       -- Dépliage du coût par le graphe du cerveau général (le même que pour la recherche) : ce que la faction fabriquera
@@ -779,10 +848,11 @@ end
 
 --- Paie un lot de remplacements (d.ids) : chaque machine refusée est écartée seule, 5 min. Rend le nombre fait et le dernier
 --- motif de refus.
-local function pay_replace(f, c, d, tick)
+local function pay_replace(f, c, d, tick, limit)
   local n, why = 0, nil
   c.refused_until = c.refused_until or {}
-  for _, id in ipairs(d.ids or {}) do
+  for i, id in ipairs(d.ids or {}) do
+    if limit and i > limit then break end -- lot AMELIORATION-CONTINUE : un paiement partiel ne dépasse pas ce que le cerveau a réservé
     local e = c.mach_ents and c.mach_ents[id]
     local new, w
     if e and e.valid and e.name == d.replace.from then
@@ -982,7 +1052,7 @@ function Capital.pay(f, surface, tick, plan, stock, only_center)
         ok = n_done > 0
         if ok then why = nil end
       elseif d.replace then
-        n_done, why = pay_replace(f, c, d, tick)
+        n_done, why = pay_replace(f, c, d, tick, p.n)
         ok = n_done > 0
         if ok then why = nil end
       elseif d.build then
@@ -1051,6 +1121,12 @@ function Capital.pay(f, surface, tick, plan, stock, only_center)
         end
         log(string.format("[FO-CAPITAL] %s : amelioration payee '%s' (%s) valeur %d cout %d, paye %s a %.1f min",
           f.key or "?", d.key, Capital.describe(d), d.value or 0, d.work or 0, Gen.fmt_map(m), minutes(f, tick)))
+        if d.replace and d.replace.group then c.last_group = d.replace.group end -- lot AMELIORATION-CONTINUE : finir le bloc entamé
+        if d.replace and d.replace.group and c.engage then
+          c.engage.paid = c.engage.paid or {}
+          c.engage.paid[d.replace.to] = tick -- le rang a progressé : plus en famine
+          Am.engage_update(c.engage, tick, { paid = d.replace.group }) -- le compte sans progrès repart
+        end
         c.current, c.goal, c.scan_n = nil, nil, 0 -- décision suivante dès la prochaine pensée
       else
         c.refused = (c.refused or 0) + 1

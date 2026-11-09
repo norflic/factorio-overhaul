@@ -41,6 +41,7 @@ local Rg = require("shared.ai3.reglages") -- lot IA-G : types du moteur, ressour
 local Paliers = require("script.ai3.paliers") -- lot IA-G : paliers de MESURE (déplacés ; aucune décision ne les lit)
 local Auto = require("script.ai3.automatisation") -- lot IA3-e : automatiser ce qui revient (plan directeur d'IA1-d)
 local Pet = require("script.ai3.petrole") -- lot PETROLE : aller au pétrole (sites des chaînes à fluides)
+local Voulues = require("script.ai3.voulues") -- lot RECHERCHE-BRAS (A) : objets voulus déclarés par un module (mall…)
 local Lj = require("script.ai3.labo_journal") -- lot BLOCAGE-LABOS : journal [FO-LABO] (cause d'une recherche qui attend ses packs)
 local Capital = require("script.ai3.capital") -- lot CAPITAL : améliorer les bâtiments à niveaux, monter le centre
 local Harvest = require("script.team.harvest") -- lot KIT : arbres qui donnent le bois (matière naturelle des poteaux)
@@ -62,6 +63,7 @@ local SurvieQg = require("script.team.survie_qg") -- lot S1 : réserve de charge
 local Dep = require("script.ai3.depenses") -- lot DEPENSES2 : laboratoires de plus quand les plaques dorment
 local Prev = require("script.ai3.prevision") -- lot PREVISION : estimateur unique de la menace (cadres « preparer », défense induite)
 local ZIrt = require("script.ai3.zero_idle_rt") -- lot ZERO-IDLE : journal [FO-ZERO-IDLE] de la minute
+local Kit = require("shared.ai3.kit_lot") -- lot POSE-PAR-LOTS : texte des pièces d'un kit ([FO-LOTS-KIT])
 
 local Ia3 = {}
 
@@ -506,6 +508,14 @@ local function research_step(f, st, book, w, tick, view)
       local m = {}
       for _, k in ipairs(sorted_keys(wanted or {})) do m[k] = wanted[k] end
       for _, k in ipairs(sorted_keys(pw)) do m[k] = true end
+      wanted = m
+    end
+    -- Lot RECHERCHE-BRAS (A) : objets voulus déclarés par un module (script/ai3/voulues.lua : mall, répartiteur et souterrain…)
+    local vw = Voulues.wanted(f)
+    if vw then
+      local m = {}
+      for _, k in ipairs(sorted_keys(wanted or {})) do m[k] = wanted[k] end
+      for _, k in ipairs(sorted_keys(vw)) do m[k] = true end
       wanted = m
     end
     -- Lot RB-FLUIDE : le kit du premier robot d'une faction qui n'en a aucun (script/robots/faction.lua ; non chargé hors jeu : nil)
@@ -956,6 +966,20 @@ function Ia3.plan_b(f, view, book, surface, tick, L)
       log(string.format("[FO-IA3C] %s : projet %s '%s'%s a %.1f min", f.key, e.kind, e.key,
         e.extra ~= nil and (" (" .. tostring(e.extra) .. ")") or "", minutes(f, e.tick)))
       st.log_seen = e.seq
+    end
+  end
+  -- Lot POSE-PAR-LOTS : kits de fabrication émis pour les projets du plan directeur (shared/ai3/kit_lot.lua), une ligne par kit (et par
+  -- contenu) ; la livraison est écrite par script/team/worker.lua (bg_close_job). Au plus 300 lignes par équipe.
+  st.kit_seen = st.kit_seen or 0
+  for _, e in ipairs(st.kit_log or {}) do
+    if (e.seq or 0) > st.kit_seen then
+      st.kit_seen = e.seq
+      st.kit_lines = (st.kit_lines or 0) + 1
+      if st.kit_lines <= 300 then
+        log(string.format("[FO-LOTS-KIT] %s : kit EMIS %s pour le projet %s '%s' : %s ; %d fabrication(s), %.0f s de travail, %d case(s) a %.1f min",
+          f.key, e.key, tostring(e.pid), tostring(e.project), Kit.pieces_text(e.pieces), e.crafts or 0, e.energy or 0, e.slots or 0,
+          minutes(f, e.tick)))
+      end
     end
   end
   -- Lot PD-FONDERIEQG (D77) : la fonderie nourrie à la main est bornée dès qu'une ligne à tapis fond une plaque

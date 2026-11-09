@@ -286,7 +286,8 @@ function FB.plan(api, f, surface, p)
     if #bad > 0 then return false, "alimentation de quai: geometrie fausse (" .. bad[1] .. ")" end
     for _, e in ipairs(ents) do e.part = 2 end
     if api.reserve_tiles(b, p, ents) then
-      local ok, why = api.plan_drills(f, surface, p, ac.item, ac.flow, arr, nil)
+      local ok, why, wait = api.plan_drills(f, surface, p, ac.item, ac.flow, arr, nil)
+      if wait then p.parts, p.ents = {}, {}; return false, "alimentation de quai: " .. tostring(why), wait end -- lot TRANCHES-FOREUSES : le tracé continue à la pensée suivante (le plan rend ses réservations)
       if ok then
         p.parts[2] = { kind = "liaison", key = "alimquai", ox = c.site.ax, oy = c.site.ay, w = 1, h = 1, power = false }
         p.counted = true -- une alimentation de quai n'est pas un module : finish_project ne la compte pas aux modules finis

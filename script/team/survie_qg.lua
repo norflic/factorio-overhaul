@@ -12,6 +12,7 @@
 
 local Sq = require("shared.team.survie_qg")
 local Dc = require("shared.team.defchoix")
+local Ga = require("shared.team.garde_ap") -- lot DEFENSE-AP : garde d'un avant-poste dimensionnée sur la menace
 local Prev = require("script.ai3.prevision")
 local Pv = require("shared.ai3.prevision")
 local State = require("script.faction.state")
@@ -103,6 +104,50 @@ end
 --- L'avant-poste doit-il être protégé d'abord ? (vagues reçues et tourelles manquantes ; `turrets` : tourelles posées, `wanted` : voulues.)
 function SurvieQg.protect(f, oid, tick, turrets, wanted)
   return Sq.protect_first({ hit = SurvieQg.hit(f, oid, tick), turrets = turrets, wanted = wanted })
+end
+
+--- Lot DEFENSE-AP : tourelles voulues à l'avant-poste `oid` = le plus grand de `base` (règle d'avant : foreuses) et de ce que la plus grande vague
+--- connue du site exige (vague prévue à 5 et 15 min, vague reçue : prévision, clé « ap<oid> ») ; rend aussi cette vague (PV) et la raison.
+--- Prévision éteinte ou sans relevé : `base`. Lecteurs : Team.view (outposts[i].want_t, .protect), planificateur (postes de défense).
+function SurvieQg.garde(f, oid, tick, base)
+  local st = f.prevision
+  if not (st and st.pc and Prev.enabled()) then return base, 0, "base" end
+  local s = st.pc.sites and st.pc.sites["ap" .. tostring(oid)]
+  local mem = SurvieQg.hit(f, oid, tick)
+  local n, w, why = Ga.want({ base = base, w5 = s and s.w5, w15 = s and s.w15, mem = mem, tv = st.turret_value })
+  -- Cliquet (mesure 1618033988, 9/11 : une vague prévue de 760 PV à 7,1 min puis 336 PV à 8,1 min faisait vouloir puis ne plus vouloir une
+  -- tourelle de plus à un avant-poste de pierre) : la garde voulue d'un avant-poste ne baisse pas ; la prévision d'une minute à l'autre fluctue,
+  -- les tourelles posées, non. Nombres seulement dans f.team.s1.gwant (lu ici, à la pensée suivante).
+  local g = state(f)
+  g.gwant = g.gwant or {}
+  local key = tostring(oid)
+  local prev = g.gwant[key] or 0
+  if prev > n then n, why = prev, (why == "base" and "cliquet" or why) end
+  -- Journal [FO-GARDE-AP] : une ligne quand la garde voulue dépasse la règle d'avant ou change (aucune décision n'en dépend).
+  if n ~= (prev > 0 and prev or base) and (n ~= base or prev ~= base) then
+    log(string.format("[FO-GARDE-AP] %s a %.1f min : avant-poste %s garde voulue %d -> %d (regle d'avant %d), vague retenue %d PV (prevue 5 min %d, 15 min %d, recue %d ; tourelle %d PV), raison %s",
+      tostring(f.key or "?"), tick / 3600, key, prev > 0 and prev or base, n, base, math.floor(w), math.floor((s and s.w5) or 0), math.floor((s and s.w15) or 0),
+      math.floor(mem), math.floor(st.turret_value or 0), why))
+  end
+  g.gwant[key] = n
+  return n, w, why
+end
+
+--- Lot DEFENSE-AP : tourelles voulues au QG de votre équipe = la règle d'avant (`base`) relevée, si le fer le paie, pour couvrir la plus grosse vague
+--- reçue n'importe où en 30 min (shared/team/garde_ap.lua, Ga.hq_want). Lu par Team.view (hq_defend) puis le poste « hq » du planificateur.
+function SurvieQg.hq_insure(f, tick, base, have, iron)
+  local st = f.prevision
+  if not (st and st.cal and Prev.enabled()) then return base end
+  local threat = Sq.threat_any(Pv.threat_waves(st.cal, "qg"), tick)
+  local n, why = Ga.hq_want({ base = base, have = have, cap = Dc.HQ_CAP, threat = threat, min = Sq.MIN_THREAT, tv = st.turret_value,
+    funds = iron, cost = st.turret_iron, reserve = Sq.FLOOR_IRON })
+  local s = state(f)
+  if n > base and s.hq_ins ~= n then
+    log(string.format("[FO-GARDE-AP] %s a %.1f min : QG assure %d tourelle(s) (regle d'avant %d, posees %d), plus grosse vague recue %d PV, fer %d, raison %s",
+      tostring(f.key or "?"), tick / 3600, n, base, have, threat, iron or 0, why))
+  end
+  s.hq_ins = n > base and n or nil
+  return n
 end
 
 --- Comme SurvieQg.protect, et note le résultat dans f.team.s1.prot (tick du dernier constat, nombres seulement) : la reconstruction le lit sans

@@ -192,7 +192,14 @@ check(build:find("mode, legs = Cv.reach(s.x, s.y, a.x, a.y)", 1, true) ~= nil an
 check(build:find("if p.spec and p.spec.alimquai then mode, legs = Cv.reach(s.x, s.y, a.x, a.y) end", 1, true) ~= nil,
   "plan_drills : le relais sert aussi a l'alimentation d'un coffre de champ (spec.alimquai)")
 check(build:find("tiles, why_leg, leg_no = Cv.route(s, a, relay_legs", 1, true) ~= nil, "plan_drills : trace par troncons")
-check(build:find("if not tiles and not relay_legs then", 1, true) ~= nil, "plan_drills : les seconds essais de boite unique ne servent pas au relais")
+-- (lot TRANCHES-FOREUSES : les trois essais de boite unique sont dans Tdr.trace, appele dans la branche « sinon » du relais)
+do
+  local i_relais = build:find('n2 = "relais : " .. tostring(why_leg)', 1, true)
+  local i_trace = build:find("Tdr.trace({", 1, true)
+  check(i_relais ~= nil and i_trace ~= nil and i_trace > i_relais and build:sub(i_relais, i_trace):find("\n  else\n", 1, true) ~= nil
+    and build:sub(i_relais, i_trace):find("if not tiles and not relay_legs", 1, true) == nil,
+    "plan_drills : les essais de boite unique (Tdr.trace) ne servent pas au relais")
+end
 check(build:find("Cv.after_refusal(last, Build.can_grow(b)) == \"grandir\"", 1, true) ~= nil, "plan_alim : le treillis grandit sur un refus « minerai »")
 check(build:find("if mode ~= \"relais\" then return false, \"trop loin\" end", 1, true) ~= nil, "plan_drills : au-dela du relais, « trop loin » reste")
 
@@ -317,7 +324,9 @@ do
   check(build:find("Cc.refused(st, tick, alim.cv_grew)", 1, true) ~= nil and build:find("p.cv_grew = true", 1, true) ~= nil, "build.lua : le refus dit qu'il a fait grandir")
   -- Intégration 0.6.28 : alimentation et champ suivant héritent du poteau de la centrale (pas le poteau moyen par défaut, recette fermée)
   check(build:find('domain = "infrastructures", pole = p.spec and p.spec.pole }', 1, true) ~= nil, "build.lua : l'alimentation prend le poteau de la centrale")
-  check(build:find("pole = first.spec.pole", 1, true) ~= nil, "build.lua : le champ suivant prend le poteau de la première centrale")
+  -- lot CENTRALE-PRES : le poteau de la première centrale est le poteau PRÉFÉRÉ (PlantArms.size) ; la demande porte celui qui est obtenable
+  check(build:find("PlantArms.size(f, first.spec.gen, nb, first.spec.pole, tick, secours)", 1, true) ~= nil and build:find("pole = pole, plant = true", 1, true) ~= nil,
+    "build.lua : le champ suivant prend le poteau de la première centrale (ou un poteau obtenable, lot CENTRALE-PRES)")
 end
 
 print(string.format("[CHAMP-VAPEUR] BILAN : %d OK, %d ECHEC(S)", passes, failures))

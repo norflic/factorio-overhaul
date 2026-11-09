@@ -795,5 +795,27 @@ do
   check(Ch.head_chests(pmut) == 5, "mutant « sortie enfermee acceptee » vu : 5 coffres de tete (" .. Ch.head_chests(pmut) .. ")")
 end
 
+---------------------------------------------------------------------------------------------------
+section("10. refus « sans place de fonderie » : la première tuile prise est donnée (9/11, partie 314159265, bande de fer de votre équipe)")
+---------------------------------------------------------------------------------------------------
+do
+  local ore10 = {}
+  for x = -12, 12 do for y = -8, 8 do if (x / 12) ^ 2 + (y / 8) ^ 2 <= 1 then ore10[#ore10 + 1] = x; ore10[#ore10 + 1] = y end end end
+  local free10 = Ch.plan(spec_of(ore10, {}))
+  check(free10 ~= nil and #free10.ents > 0 and free10.stats.no_smelter == 0 and free10.stats.no_smelter_at == nil, "champ libre : des entités, aucun groupe sans fonderie, aucune tuile signalée")
+  local wall10 = {}
+  for x = -80, 80 do for y = -80, 80 do
+    if not (x >= -16 and x <= 16 and y >= -11 and y <= 11) then wall10[Ch.key(x, y)] = true end
+  end end
+  local p10 = Ch.plan(spec_of(ore10, { blocked = wall10 }))
+  local at = p10 and p10.stats.no_smelter_at
+  check(p10 ~= nil and #p10.ents == 0 and p10.stats.no_smelter >= 1 and (p10.stats.band_drills or 0) > 0, "champ muré : bande vide, des foreuses possibles, des groupes sans fonderie")
+  check(at ~= nil and at.fixed == false and (math.abs(at.x) > 16 or math.abs(at.y) > 11) and at.band ~= nil and (at.side == 1 or at.side == -1),
+    "la première tuile prise est donnée, dans le mur (" .. (at and string.format("%.1f, %.1f", at.x, at.y) or "aucune") .. ")")
+  -- déterminisme du diagnostic
+  local p10b = Ch.plan(spec_of(ore10, { blocked = wall10 }))
+  check(p10b.stats.no_smelter_at.x == at.x and p10b.stats.no_smelter_at.y == at.y, "diagnostic déterministe")
+end
+
 print(string.format("[CHAMP-COLONNE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

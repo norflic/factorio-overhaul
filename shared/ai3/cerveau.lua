@@ -198,6 +198,9 @@ function C.consumed(base, view)
       used[a] = (used[a] or 0) + (t.count or g.missing or g.low * T.turret_ammo_target)
     end
   end
+  -- Lot DEFENSE-AP : fonds de défense (planificateur, Ga.fund) : le fer mis de côté pour la tourelle d'un avant-poste de fer sans défense n'est pas
+  -- au stock libre des projets du cerveau (chargeurs de réserve, modules, science).
+  for _, k in ipairs(sorted_keys(base.defense_hold or {})) do used[k] = (used[k] or 0) + base.defense_hold[k] end
   -- EFFONDREMENT : une recrue gratuite (base.recruit_free) ne prend rien au stock virtuel.
   if base.recruit_workers and not base.recruit_unarmed and not base.recruit_free then add(base.recruit_uses or view.recruit_cost) end
   local tr = base.train
@@ -287,7 +290,8 @@ function C.think(view, book, st, ctx)
         -- Lot GISEMENTS : un ordre qui étend une matière en manque par rapport au besoin est un investissement de production, même sans
         -- manque brut (journal du DC : « capi:couvrir:copper-ore : suspendu » à 45 plaques de cuivre).
         local sv, ord = starved_pass, g.order or {}
-        if g.invest or sv[ord.item] or sv[ord.resource] then goals[#goals + 1] = g
+        -- décision du DC du 8/11 : couvrir et ouvrir un gisement passent TOUJOURS (leurs manques sont fabriqués aussi)
+        if g.invest or Pi.COVER_KINDS[ord.kind] or sv[ord.item] or sv[ord.resource] then goals[#goals + 1] = g
         else Pi.suspend(pile, g.key, "but de la capitalisation suspendu (pas un investissement de production)") end -- journal [FO-PILE]
       end
     end
@@ -354,7 +358,42 @@ function C.think(view, book, st, ctx)
   -- rang R1 (audit M4 : « perte sans objet » n'était ni fabriquée ni demandée), sa matière héritant de la priorité de la pièce.
   for _, it in ipairs(pile.reserve or {}) do E.avail[it[1]] = math.max(0, (E.avail[it[1]] or 0) - it[2]) end
   local repair_proj = { id = 0, key = "pile:reparer" }
-  for _, it in ipairs(pile.crafts or {}) do P.want(E, repair_proj, { { it[1], it[2] } }, it[3], false, "pile") end
+  local pile_c0 = E.crafts
+  -- lot RUINES-ATTENTE (partie neuve 20261020, [FO-PILE] « craft de pile » : foreuse de fer demandée x3 à x24, « parties 0 » pendant 25 min, fer qui manque
+  -- alors que le coffre en tient) : la fabrication qui refait l'EXTRACTION de la plaque clé (it[4]) est payée sur le stock AVANT les consommations du
+  -- plan permanent (used : tourelles, munitions, fonds de défense, recrues), sans fer il n'y a plus de défense. Ce qu'elle prend est ensuite retiré du
+  -- stock libre du reste (le plan permanent garde son dû sur ce qui reste) ; la foreuse fabriquée n'est pas comptée deux fois.
+  for _, it in ipairs(pile.crafts or {}) do
+    if it[4] then
+      local pre = {}
+      for _, k in ipairs(sorted_keys(view.stock)) do pre[k] = view.stock[k] end
+      for _, k in ipairs(sorted_keys(view.incoming or {})) do pre[k] = (pre[k] or 0) + view.incoming[k] end
+      for _, r in ipairs(pile.reserve or {}) do pre[r[1]] = math.max(0, (pre[r[1]] or 0) - r[2]) end
+      local pre0 = {}
+      for _, k in ipairs(sorted_keys(pre)) do pre0[k] = pre[k] end
+      local saved = E.avail
+      E.avail = pre
+      P.want(E, repair_proj, { { it[1], it[2] } }, it[3], false, "pile")
+      E.avail = saved
+      for _, k in ipairs(sorted_keys(pre0)) do
+        local paid = pre0[k] - (pre[k] or 0)
+        if paid > 0 and k ~= it[1] then saved[k] = math.max(0, pre0[k] - paid - (used[k] or 0)) end
+      end
+    else
+      P.want(E, repair_proj, { { it[1], it[2] } }, it[3], false, "pile")
+    end
+  end
+  -- trace (lecture seule, lue par script/team/pile.lua PileRt.journal) : ce que la pile a demandé de fabriquer, ce qui est parti, ce qui manque
+  do
+    local wants, short = {}, {}
+    for _, it in ipairs(pile.crafts or {}) do wants[#wants + 1] = it[1] .. " x" .. it[2] .. " (stock libre " .. (E.avail[it[1]] or 0) .. ")" end
+    for _, k in ipairs(sorted_keys(repair_proj.missing or {})) do
+      short[#short + 1] = string.format("%s %d (coffre %d, en route %d, pris par le plan permanent %d dont fonds de defense %d, libre au depart %d)", k, repair_proj.missing[k],
+        view.stock[k] or 0, (view.incoming or {})[k] or 0, used[k] or 0, (base.defense_hold or {})[k] or 0, avail0[k] or 0)
+    end
+    st.pile.craft_note = string.format("fabrications demandees [%s], parties %d, matiere qui manque [%s]", table.concat(wants, ", "), E.crafts - pile_c0,
+      table.concat(short, ", "))
+  end
   P.boot_smelters(E, st, s.cap) -- lot IA-V2 : fours du QG avant les projets (chemin critique)
   -- Ordre de SERVICE du stock virtuel : une COPIE de l'ordre (l'ordre d'origine garde le projet dominant, plus bas ; relecture de
   -- 16f1b3e0, point 1). Lot DEFAUT7 : l'amélioration exigée par le centre (chaîne Q16) servie d'abord ; étage 3 : le centre passé
@@ -409,7 +448,9 @@ function C.think(view, book, st, ctx)
     local now = {}
     for _, list in ipairs({ base.tasks or {}, E.tasks or {} }) do
       for _, t in ipairs(list) do
-        if t.kind == "craft" and t.item and (t.count or 0) > 0 then now[t.item] = (now[t.item] or 0) + t.count end
+        if t.kind == "craft" and t.kit then -- lot POSE-PAR-LOTS : toutes les pièces d'un kit
+          for _, w in ipairs(t.kit) do now[w[1]] = (now[w[1]] or 0) + w[2] end
+        elseif t.kind == "craft" and t.item and (t.count or 0) > 0 then now[t.item] = (now[t.item] or 0) + t.count end
       end
     end
     Ml.note(st.mall, tick, now)

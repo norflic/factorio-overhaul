@@ -425,6 +425,15 @@ function Recon.think(f, surface, tick)
   substitute_drills(f, s, surface, tick)
   Profiler.fstop("recon:secours")
   local due = Rc.due(s, tick)
+  -- lot RUINES-ATTENTE : les pièces d'un avant-poste dont la matière MANQUE (f.team.ia3.starved, écrit par la pensée) passent d'abord
+  local sv = f.team and f.team.ia3 and f.team.ia3.starved
+  if sv and #due > 1 then
+    due = Ru.prefer_scarce(due, function(r)
+      local host = r.kind and ((f.outposts and f.outposts[r.oid]) or (s.ruins and s.ruins[r.oid]))
+      local spec = host and T.outposts[host.kind]
+      return spec ~= nil and (sv[spec.product] == true or sv[spec.resource] == true)
+    end)
+  end
   if #due == 0 then return 0 end
   local added, tried = {}, 0
   local have, taken = {}, {}
@@ -434,6 +443,7 @@ function Recon.think(f, surface, tick)
       -- réceptacle sans foreuse prête : ni place essayée ni tâche (il attend sa foreuse ou la fin de la ruine)
     elseif not taken[seed.key] and Stock.count(f, seed.item) < 1 then
       -- Mesure : pièce en attente faute d'objet au stock (elle ne consomme pas l'une des places essayées de la pensée).
+      Ruines.wait(f, s, seed, "stock", tick) -- lot RUINES-ATTENTE (trace)
       if not seed.nostock then
         seed.nostock = true
         by_name(s, seed.name).nostock = (by_name(s, seed.name).nostock or 0) + 1
@@ -450,6 +460,7 @@ function Recon.think(f, surface, tick)
     local protect_wait = seed.kind and s1 and s1.turret_ok == true and s1.prot and s1.prot[seed.oid] ~= nil and tick - s1.prot[seed.oid] <= 1800
     if protect_wait or #near > 0 or (foe and foe.valid) then
       -- (attendre ses tourelles ne compte pas pour l'abandon : la mémoire des vagues s'éteint seule après 30 min)
+      Ruines.wait(f, s, seed, protect_wait and "tourelles" or "ennemi", tick, #near .. "u" .. ((foe and foe.valid) and tostring(foe.name) or "-")) -- lot RUINES-ATTENTE (trace)
       Rc.defer(s, seed.key, tick + Recon.RETRY, tick, protect_wait and math.huge or (seed.kind and Ru.MAX_DEFERS or nil))
       stat(s, "deferred")
     else

@@ -3,7 +3,8 @@
 # fo-captures.bat qui notent, pour chaque banc, les bancs actifs au début et à la fin (preuve du chevauchement) et les
 # verrous présents. Aucun jeu lancé, aucun verrou réel touché. Lot BANC2 : plusieurs places (1 à 3), tickets « place 1 »
 # (images) et « seul » (K10), garde-fou mémoire, passage de 3 à 1 place en cours de route, cohabitation avec l'ANCIEN
-# banc.py (lu dans git, commit aeb03ba).
+# banc.py (lu dans git, commit aeb03ba). Lot BANC-PLACES (8/11) : 6 places (4 à 6 par fo-autotest-multi.bat), cohabitation avec le
+# banc.py à 3 places (e02ee0dc : limite 3 par ticket, tickets .run), --place-exacte, --seul à 6 places.
 #   PYTHONUTF8=1 py -3.9 -B tools/autotest/tests/test_banc_file.py   -> BILAN : n OK
 import os
 import shutil
@@ -16,6 +17,7 @@ ICI = os.path.dirname(os.path.abspath(__file__))
 BANC = os.path.join(os.path.dirname(ICI), "banc.py")
 DEPOT = os.path.dirname(os.path.dirname(os.path.dirname(ICI)))
 ANCIEN_COMMIT = "aeb03ba"
+AVANT_6_PLACES = "e02ee0dc"   # dernier commit du banc.py à 3 places (lot BANC-PLACES : 6 places)
 ok = 0
 ko = 0
 
@@ -52,11 +54,14 @@ servi.update(A=10.0, B=30.0, C=20.0)
 verifie(banc.classement(sorted(lots), lots.get, servi.get) == ["1-a", "5-c", "3-b"],
         "classement : un ticket par lot (le plus ancien), lots par dernier service")
 
-G = {"o1": "ordinaire", "o2": "ordinaire", "o3": "ordinaire", "p": "place1", "p2": "place1", "s": "seul"}
+G = {"o1": "ordinaire", "o2": "ordinaire", "o3": "ordinaire", "o4": "ordinaire", "old": "ordinaire",
+     "p": "place1", "p2": "place1", "s": "seul", "so": "seul"}
+SIX = {1, 2, 3, 4, 5, 6}
 
 
-def aff(rangs, libres, n=3, mem=True, lim=None):
-    return banc.affecter(rangs, G.get, set(libres), n, mem, (lambda t: lim.get(t, 3)) if lim else (lambda t: 3))
+def aff(rangs, libres, n=3, mem=True, lim=None, pin=None):
+    return banc.affecter(rangs, G.get, set(libres), n, mem, (lambda t: lim.get(t, 6)) if lim else (lambda t: 6),
+                         (lambda t: pin.get(t)) if pin else (lambda t: None))
 
 
 verifie(aff([], {1, 2, 3}) == {}, "affectation : file vide, personne")
@@ -75,14 +80,51 @@ verifie(aff(["p", "o1"], {1, 2, 3}) == {"p": [1], "o1": [2]}, "images en tête, 
 verifie(aff(["p", "p2", "o1"], {1, 2, 3}) == {"p": [1], "o1": [2]},
         "deux tickets d'images : le premier seul prend la place 1, l'ordinaire part ailleurs")
 verifie(aff(["p", "p2", "o1"], {2, 3}) == {"o1": [2]}, "place 1 prise, réservée au premier ticket d'images")
-verifie(aff(["s", "o1"], {1, 2, 3}) == {"s": [1, 2, 3]}, "seul en tête, tout libre : toutes les places")
+verifie(aff(["s", "o1"], SIX, n=6) == {"s": [1, 2, 3, 4, 5, 6]}, "seul en tête, tout libre : les 6 places")
+verifie(aff(["s", "o1"], {1, 2, 3}) == {}, "seul en tête, places 4 à 6 prises : BARRIÈRE (le seul prend les 6)")
 verifie(aff(["s", "o1"], {1, 3}) == {}, "seul en tête, une place prise : BARRIÈRE, personne ne part")
-verifie(aff(["o1", "s", "o2"], {1, 2, 3}) == {"o1": [1]}, "ordinaire devant un seul : il part ; rien derrière le seul")
-verifie(aff(["o1", "s", "p"], {1, 2, 3}) == {"o1": [1]}, "images derrière un seul : la barrière les arrête aussi")
+verifie(aff(["o1", "s", "o2"], SIX, n=6) == {"o1": [1]}, "ordinaire devant un seul : il part ; rien derrière le seul")
+verifie(aff(["o1", "s", "p"], SIX, n=6) == {"o1": [1]}, "images derrière un seul : la barrière les arrête aussi")
 verifie(aff(["o1", "o2"], {2, 3}, lim={"o1": 1}) == {"o2": [2]}, "--places 1 : ce ticket ne prend jamais la place 2")
 verifie(aff(["o1"], {1, 2}, lim={"o1": 1}) == {"o1": [1]}, "--places 1 : place 1 libre, il part")
 verifie(aff(["o1", "o2"], {3}, n=3) == {"o1": [3]}, "seule la place 3 libre : prise")
 verifie(aff(["o1", "o2"], {3}, n=2) == {}, "place 3 libre mais 2 places ouvertes : personne")
+
+# Lot BANC-PLACES (8/11) : 6 places. Un ancien lanceur écrit « [banc2 genre 3] » : sa limite est respectée PAR TICKET.
+verifie(banc.MAX_PLACES == 6 and banc.PLACES == (1, 2, 3, 4, 5, 6), "6 places (3 avant BANC-PLACES)")
+verifie(aff(["o1", "o2", "o3", "o4"], SIX, n=6) == {"o1": [1], "o2": [2]},
+        "6 places libres : place 1, puis UNE seule place en plus par tour (garde mémoire inchangé)")
+verifie(aff(["o1"], {4, 5, 6}, n=6) == {"o1": [4]}, "places 1 à 3 prises, 6 ouvertes : le ticket part à la place 4")
+verifie(aff(["o1"], {4, 5, 6}, n=3) == {}, "places 1 à 3 prises, 3 ouvertes : personne à la place 4")
+verifie(aff(["o1"], {6}, n=5) == {} and aff(["o1"], {6}, n=6) == {"o1": [6]}, "place 6 seulement si 6 places ouvertes")
+verifie(aff(["old", "o1"], {4, 5, 6}, n=6, lim={"old": 3}) == {"o1": [4]},
+        "ANCIEN ticket limité à 3 en tête, places 1 à 3 prises + NOUVEAU ticket derrière : le nouveau prend la place 4")
+verifie(aff(["old", "o1", "o2"], {4, 5, 6}, n=6, lim={"old": 3}) == {"o1": [4]},
+        "idem avec un 2e nouveau derrière : une place de plus par tour seulement")
+verifie(aff(["old", "o1"], {1, 4, 5, 6}, n=6, lim={"old": 3}) == {"old": [1], "o1": [4]},
+        "ancien ticket limité à 3 qui prend la place 1, le nouveau derrière prend la place 4 au même tour")
+verifie(aff(["old", "o1"], {2, 4, 5, 6}, n=6, lim={"old": 3}) == {"old": [2]},
+        "ancien limité à 3, place 2 libre : il la prend (une place de plus par tour), le nouveau attend le tour suivant")
+verifie(aff(["old", "o1", "p"], {4, 5, 6}, n=6, lim={"old": 3}) == {"o1": [4]},
+        "ancien limité à 3 puis images en attente de la place 1 : les places 4 à 6 restent à qui peut les prendre")
+verifie(aff(["so", "o1"], SIX, n=6, lim={"so": 3}) == {"so": [1, 2, 3, 4, 5, 6]}
+        and aff(["so", "o1"], {1, 2, 3}, n=6, lim={"so": 3}) == {},
+        "seul d'un ANCIEN lanceur en tête : barrière comme un seul nouveau (rien derrière lui)")
+verifie(aff(["o1", "so"], {4, 5, 6}, n=6, lim={"so": 3}) == {},
+        "seul d'un ANCIEN lanceur qui attend : plus aucune place 4 à 6 n'est donnée (il ne les voit pas)")
+verifie(aff(["o1", "so"], {1, 4, 5, 6}, n=6, lim={"so": 3}) == {"o1": [1]},
+        "seul ancien qui attend : un ticket devant lui prend encore la place 1 (comme avant)")
+verifie(aff(["o1", "s"], {4, 5, 6}, n=6) == {"o1": [4]} and aff(["o1", "s"], {2, 4, 5, 6}, n=6) == {"o1": [2]},
+        "seul NOUVEAU (limite 6) : n'empêche pas les places 4 à 6 aux tickets devant lui")
+verifie(aff(["o1"], SIX, n=6, pin={"o1": 5}) == {"o1": [5]}, "--place-exacte 5 : le ticket prend la place 5 (pas la 1)")
+verifie(aff(["o1"], {1, 2, 3}, n=6, pin={"o1": 5}) == {}, "--place-exacte 5, place 5 prise : il attend, ne prend pas la place 1")
+verifie(aff(["o1", "o2"], {1, 2, 3}, n=6, pin={"o1": 5}) == {"o2": [1]}, "--place-exacte 5 en attente : il ne réserve rien, le suivant part")
+verifie(aff(["o1"], SIX, n=4, pin={"o1": 5}) == {}, "--place-exacte 5 avec 4 places ouvertes : il attend")
+verifie(banc.epingle_du_texte("X : s 1 (d) {place=4} [banc2 ordinaire 6]") == 4
+        and banc.epingle_du_texte("X : s 1 (d) [banc2 ordinaire 6]") is None
+        and banc.genre_du_texte("X : s 1 (d) {place=4} [banc2 ordinaire 6]") == ("ordinaire", 6)
+        and banc.lot_du_texte("X : s 1 (d) {place=4} [banc2 ordinaire 6]") == "X",
+        "ticket épinglé : {place=N} lu, marque [banc2 genre 6] lue, lot inchangé")
 
 with open(banc.FICHIER_PLACES, "w") as f:
     f.write("3\n")
@@ -117,12 +159,13 @@ shutil.rmtree(dep, ignore_errors=True)
 
 os.remove(banc.FICHIER_PLACES)
 verifie(banc.places_ouvertes(None, None) == 2, "fo-banc-places.txt absent : 2 places")
-verifie([banc.places_ouvertes(None, x) for x in ("1", "2", "3\r\n", " 3 ")] == [1, 2, 3, 3], "fichier « 1 » à « 3 »")
-verifie([banc.places_ouvertes(None, x) for x in ("0", "4", "03", "deux", "", "3 places", "-1")] == [1] * 7,
-        "fichier hors de 1 à 3 ou illisible : 1 place")
+verifie([banc.places_ouvertes(None, x) for x in ("1", "2", "3\r\n", " 3 ", "4", "5\n", "6")] == [1, 2, 3, 3, 4, 5, 6],
+        "fichier « 1 » à « 6 »")
+verifie([banc.places_ouvertes(None, x) for x in ("0", "7", "03", "deux", "", "3 places", "-1", "10", "06")] == [1] * 9,
+        "fichier hors de 1 à 6 ou illisible : 1 place")
 verifie(banc.places_ouvertes(3, "1") == 3 and banc.places_ouvertes(1, None) == 1, "--places prioritaire sur le fichier")
 verifie(banc.lire_places(None) == 2, "lire_places : fichier absent, 2")
-for contenu, attendu in ((b"3\r\n", 3), (b"7", 1), (b"\xff\xfe\x00", 1)):
+for contenu, attendu in ((b"3\r\n", 3), (b"7", 1), (b"\xff\xfe\x00", 1), (b"6", 3), (b"4", 3)):
     with open(banc.FICHIER_PLACES, "wb") as f:
         f.write(contenu)
     verifie(banc.lire_places(None) == attendu and banc.lire_places(2) == 2,
@@ -136,8 +179,28 @@ verifie(banc.genre_du_texte("X : s 1 (d) [banc2 ordinaire 3]") == ("ordinaire", 
 m = banc.memoire_libre_go()
 verifie(0 < m < 4096, "mémoire libre lue par GlobalMemoryStatusEx : %.1f Go" % m)
 verifie([os.path.basename(banc.verrou(p)) for p in banc.PLACES] == ["fo-autotest.lock", "fo-autotest-2.lock",
-                                                                    "fo-autotest-3.lock"]
-        and banc.VERROU == os.path.join(tmp, "fo-autotest.lock"), "verrous des places 1 à 3 (place 1 : celui d'avant)")
+                                                                    "fo-autotest-3.lock", "fo-autotest-4.lock",
+                                                                    "fo-autotest-5.lock", "fo-autotest-6.lock"]
+        and banc.VERROU == os.path.join(tmp, "fo-autotest.lock"), "verrous des places 1 à 6 (place 1 : celui d'avant)")
+verifie([banc.bat_de(p) for p in banc.PLACES] == ["fo-autotest.bat"] * 3 + [banc.BAT_MULTI] * 3,
+        "fo-autotest.bat aux places 1 à 3 (jamais remplacé en cours de banc), fo-autotest-multi.bat aux places 4 à 6")
+# fo-autotest-multi.bat : sans lui ou sans son marqueur, 3 places au plus (fichier « 6 » et --places 6 compris).
+with open(banc.FICHIER_PLACES, "w") as fh:
+    fh.write("6\n")
+verifie(banc.lire_places(None) == 3 and banc.lire_places(6) == 3 and not banc.bat_multi() and banc.places_permises() == 3,
+        "fichier « 6 » sans fo-autotest-multi.bat : 3 places seulement, --places 6 compris")
+with open(os.path.join(tmp, banc.BAT_MULTI), "w", newline="\r\n") as fh:
+    fh.write("@echo off\nif \"%FO_PLACE%\"==\"2\" rem place 2\nexit /b 0\n")
+verifie(banc.lire_places(None) == 3 and not banc.bat_multi(), "fo-autotest-multi.bat SANS le marqueur FO_PLACES_MULTI : 3 places")
+with open(os.path.join(tmp, banc.BAT_MULTI), "w", newline="\r\n") as fh:
+    fh.write("@echo off\nrem FO_PLACES_MULTI\nif \"%FO_PLACE%\"==\"2\" rem place 2\nexit /b 0\n")
+verifie(banc.bat_multi() and banc.places_permises() == 6 and banc.lire_places(None) == 6 and banc.lire_places(4) == 4
+        and banc.lire_places(6) == 6, "fo-autotest-multi.bat avec son marqueur : fichier « 6 » -> 6 places, --places 4 -> 4")
+with open(banc.FICHIER_PLACES, "w") as fh:
+    fh.write("7\n")
+verifie(banc.lire_places(None) == 1, "fichier « 7 » : 1 place (hors bornes)")
+os.remove(banc.FICHIER_PLACES)
+os.remove(os.path.join(tmp, banc.BAT_MULTI))
 
 # 2. Faux .bat : chaque banc note les bancs actifs à son début et à sa fin, et les verrous présents.
 FAUX_BAT = r"""@echo off
@@ -152,10 +215,10 @@ if not exist "%~dp0actifs" mkdir "%~dp0actifs" 2>nul
 > "%~dp0actifs\%NOM%" echo %NOM%
 > "%~dp0trace-%NOM%.txt" echo debut
 for %%f in ("%~dp0actifs\*") do if /i not "%%~nxf"=="%NOM%" >> "%~dp0trace-%NOM%.txt" echo avec %%~nxf
-for %%v in (fo-autotest.lock fo-autotest-2.lock fo-autotest-3.lock) do if exist "%~dp0%%v\owner.txt" >> "%~dp0trace-%NOM%.txt" echo verrou %%v
+for %%v in (fo-autotest.lock fo-autotest-2.lock fo-autotest-3.lock fo-autotest-4.lock fo-autotest-5.lock fo-autotest-6.lock) do if exist "%~dp0%%v\owner.txt" >> "%~dp0trace-%NOM%.txt" echo verrou %%v
 if exist "%D%" rmdir /s /q "%D%"
 mkdir "%D%"
-> "%D%\place.txt" echo %NOM% FO_PLACE[%FO_PLACE%] FO_LOCK_HELD[%FO_LOCK_HELD%] FO_AUDIO[%FO_AUDIO%]
+> "%D%\place.txt" echo %NOM% FO_PLACE[%FO_PLACE%] FO_LOCK_HELD[%FO_LOCK_HELD%] FO_AUDIO[%FO_AUDIO%] BAT[%~nx0]
 ping -n %2 127.0.0.1 >nul
 > "%D%\create.log" echo cree %NOM%
 > "%D%\benchmark.log" echo [FO-%NOM%] BILAN : 1 OK, 0 ECHEC(S)
@@ -362,9 +425,9 @@ procs += [lancer("M1", "LM1", 2, *MEM)]
 codes = attendre(procs)
 verifie(codes == [0, 0, 0], f"seul : 3 lanceurs finis, code 0 ({codes})")
 tx = trace("X1")
-verifie(place_de("X1") == 1 and banc_txt("X1").get("verrous") == "1 2 3"
+verifie(place_de("X1") == 1 and banc_txt("X1").get("verrous") == "1 2 3 4 5 6"
         and all("verrou %s" % os.path.basename(banc.verrou(p)) in tx for p in banc.PLACES),
-        "seul : place 1, les 3 verrous tenus pendant son banc")
+        "seul : place 1, les 6 verrous tenus pendant son banc")
 verifie(not avec("X1") and not ensemble("X1", "L1") and not ensemble("X1", "M1"), "seul : personne en même temps")
 verifie(not ensemble("M1", "L1") and float(banc_txt("M1").get("prise", "0")) > float(banc_txt("X1").get("fin", "9e9")),
         "seul : M1 (déposé après lui) attend derrière la barrière, places 2 et 3 libres comprises")
@@ -380,7 +443,7 @@ verifie(codes == [0, 0] and place_de("N1") == 1 and place_de("O1") == 1 and not 
 # 10. Cohabitation avec un ANCIEN banc.py en attente (il ne connaît que fo-autotest.lock) : V1 (nouveau) tient la
 # place 1 ; W1 (ANCIEN) arrive, puis Y1 et Z1 (nouveaux). W1 compte comme un ticket « place 1 » : Y1 et Z1 partent
 # aux places 2 et 3 sans l'attendre ; W1 part à la place 1 après V1, jamais en même temps qu'elle.
-procs = [lancer("V1", "LV1", 6, *MEM)]
+procs = [lancer("V1", "LV1", 10, *MEM)]
 time.sleep(1.5)
 procs += [lancer("W1", "LW1", 2, script=ancien)]
 time.sleep(1.0)
@@ -394,6 +457,94 @@ verifie(bool(w) and w[0].startswith("W1 FO_PLACE[] FO_LOCK_HELD[1]") and not ens
         "cohabitation : l'ancien lanceur tourne à la place 1, après V1, jamais en même temps")
 verifie(place_de("Y1") in (2, 3) and place_de("Z1") in (2, 3) and ensemble("V1", "Y1") and ensemble("V1", "Z1"),
         "cohabitation : Y1 et Z1 aux places 2 et 3 pendant que l'ancien attend la place 1")
+
+# 12. Lot BANC-PLACES (8/11) : SIX places. fo-autotest-multi.bat (faux, même contenu + marqueur FO_PLACES_MULTI) fait les
+# places 4 à 6 ; le fo-autotest.bat de la racine reste celui des places 1 à 3 (le faux .bat note BAT[nom] dans place.txt).
+with open(os.path.join(tmp, banc.BAT_MULTI), "w", newline="\r\n") as fh:
+    fh.write(FAUX_BAT.replace("@echo off\n", "@echo off\nrem FO_PLACES_MULTI\n", 1))
+ancien3 = os.path.join(tmp, "ancien3", "banc.py")
+os.makedirs(os.path.dirname(ancien3))
+r = subprocess.run(["git", "-C", DEPOT, "show", AVANT_6_PLACES + ":tools/autotest/banc.py"], capture_output=True)
+with open(ancien3, "wb") as f:
+    f.write(r.stdout)
+verifie(r.returncode == 0 and b"MAX_PLACES = 3" in r.stdout, "banc.py à 3 places (%s) lu dans git pour la cohabitation" % AVANT_6_PLACES)
+places(6)
+
+# 12a. Six bancs de six lots EN MÊME TEMPS : places 1 à 6, 1 à 3 par fo-autotest.bat, 4 à 6 par fo-autotest-multi.bat.
+six = ["S%d" % i for i in range(1, 7)]
+procs = [lancer(n, "L" + n, 16, *MEM) for n in six]
+verifie(attendre_debut(six, 60), "6 places : les 6 bancs ont démarré")
+time.sleep(1.0)
+fichiers = os.listdir(os.path.join(tmp, "fo-banc-file"))
+verifie(len([n for n in fichiers if n.endswith(".run")]) == 3 and len([n for n in fichiers if n.endswith(".txt")]) == 3,
+        "tickets en cours aux places 4 à 6 : renommés .run (3), les autres restent .txt (%s)" % sorted(fichiers))
+codes = attendre(procs)
+verifie(codes == [0] * 6, f"6 places : 6 lanceurs finis, code 0 ({codes})")
+verifie(sorted(place_de(n) for n in six) == [1, 2, 3, 4, 5, 6], "6 bancs : places 1 à 6 (%s)" % [place_de(n) for n in six])
+verifie(all(ensemble(a, b) for i, a in enumerate(six) for b in six[i + 1:]),
+        "les 6 bancs ont tourné EN MÊME TEMPS (chaque paire s'est vue active)")
+verifie(all(archive_juste(n, place_de(n)) for n in six), "archive de chaque place : place.txt du bon dossier fo-autotest[-N]")
+verifie(all(("BAT[%s]" % ("fo-autotest-multi.bat" if place_de(n) > 3 else "fo-autotest.bat"))
+            in " ".join(lignes(os.path.join(tmp, "out", n, "place.txt"))) for n in six),
+        "places 1 à 3 : fo-autotest.bat ; places 4 à 6 : fo-autotest-multi.bat")
+verifie(all(banc_txt(n).get("dossier", "").endswith(os.path.basename(banc.dossier(place_de(n)))) for n in six),
+        "banc.txt : dossier de la place utilisée (fo-autotest-4 à fo-autotest-6 compris)")
+verifie(not [d for d in os.listdir(tmp) if d.endswith(".lock")]
+        and not [n for n in os.listdir(os.path.join(tmp, "fo-banc-file")) if n.endswith((".txt", ".run"))],
+        "6 places : aucun verrou ni ticket (.txt ou .run) restant")
+
+# 12b. COHABITATION : trois bancs tiennent les places 1 à 3, un banc.py à 3 places (ANCIEN) attend en tête, puis deux
+# nouveaux tickets d'un même lot. Les nouveaux prennent les places 4 et 5 sans attendre l'ancien (limite 3 par ticket),
+# l'ancien part à la première place libre de 1 à 3 sans que le ticket .run des nouveaux le gêne.
+t3 = ["T1", "T2", "T3"]
+procs = [lancer(n, "L" + n, 22, *MEM) for n in t3]
+verifie(attendre_debut(t3, 40), "cohabitation 6 places : les places 1 à 3 sont tenues")
+procs += [lancer("OLD", "LOLD", 2, script=ancien3)]
+time.sleep(1.5)
+procs += [lancer("N1", "LNEW", 5, *MEM)]
+time.sleep(0.5)
+procs += [lancer("N2", "LNEW", 5, *MEM)]
+verifie(attendre_debut(["N1", "N2"], 30), "cohabitation 6 places : N1 et N2 (nouveaux, derrière l'ancien) ont démarré")
+fichiers = os.listdir(os.path.join(tmp, "fo-banc-file"))
+verifie(len([n for n in fichiers if n.endswith(".run")]) == 2 and not trace("OLD"),
+        "N1 et N2 en cours : tickets .run (invisibles de l'ancien lanceur), l'ancien attend toujours (%s)" % sorted(fichiers))
+codes = attendre(procs)
+verifie(codes == [0] * 6, f"cohabitation 6 places : 6 lanceurs finis, code 0 ({codes})")
+verifie(place_de("N1") == 4 and place_de("N2") == 5,
+        "ancien ticket limité à 3 en tête + nouveaux derrière : N1 à la place 4, N2 à la place 5 (%s, %s)" %
+        (place_de("N1"), place_de("N2")))
+verifie(ensemble("N1", "T1") and ensemble("N1", "N2") and not ensemble("N1", "OLD") and not ensemble("N2", "OLD"),
+        "N1 et N2 ont tourné pendant que l'ancien attendait, avec T1 et ensemble")
+w = lignes(os.path.join(tmp, "out", "OLD", "place.txt"))
+po = [int(x) for x in ("1", "2", "3") if w and w[0].startswith("OLD FO_PLACE[%s] FO_LOCK_HELD[%s]" % ("" if x == "1" else x, x))]
+verifie(len(po) == 1 and "BAT[fo-autotest.bat]" in w[0], "l'ancien banc.py part à une place 1 à 3, avec fo-autotest.bat (%s)" % w)
+verifie(not [d for d in os.listdir(tmp) if d.endswith(".lock")]
+        and not [n for n in os.listdir(os.path.join(tmp, "fo-banc-file")) if n.endswith((".txt", ".run"))],
+        "cohabitation : aucun verrou ni ticket restant")
+
+# 12c. --place-exacte 5 : le ticket attend la place 5 et n'en prend aucune autre.
+procs = [lancer("PIN", "LPIN", 2, "--place-exacte", "5", *MEM)]
+codes = attendre(procs)
+verifie(codes == [0] and place_de("PIN") == 5 and archive_juste("PIN", 5)
+        and "BAT[fo-autotest-multi.bat]" in " ".join(lignes(os.path.join(tmp, "out", "PIN", "place.txt"))),
+        "--place-exacte 5 : place 5, par fo-autotest-multi.bat (place %s)" % place_de("PIN"))
+
+# 12d. « seul » avec des bancs aux places 1 à 4 : il attend les 6 places libres, tient les 6 verrous, personne en même temps.
+d4 = ["D1", "D2", "D3", "D4"]
+procs = [lancer(n, "L" + n, 7, *MEM) for n in d4]
+verifie(attendre_debut(d4, 40), "seul à 6 places : 4 bancs tiennent les places 1 à 4")
+procs += [lancer("X2", "LX2", 2, "--seul", *MEM)]
+time.sleep(0.6)
+procs += [lancer("M2", "LM2", 2, *MEM)]
+codes = attendre(procs)
+verifie(codes == [0] * 6, f"seul à 6 places : 6 lanceurs finis, code 0 ({codes})")
+verifie(banc_txt("X2").get("verrous") == "1 2 3 4 5 6" and not avec("X2") and not any(ensemble("X2", n) for n in d4 + ["M2"]),
+        "seul à 6 places : les 6 verrous, seul sur le banc (ni D1 à D4 ni M2 en même temps)")
+verifie(float(banc_txt("M2").get("prise", "0")) > float(banc_txt("X2").get("fin", "9e9")),
+        "seul à 6 places : M2, déposé après lui, part après sa fin")
+verifie(not [d for d in os.listdir(tmp) if d.endswith(".lock")], "seul à 6 places : aucun verrou restant")
+places(3)
+os.remove(os.path.join(tmp, banc.BAT_MULTI))
 
 # 10. Archive ÉCHEC (28/10) : un jeu qui plante ou ne répond pas laissait les journaux PÉRIMÉS du banc précédent, archivés comme
 # les siens. Faux .bat : "crash" (code d'échec sans rien écrire : cmd tronque 3221225794 à -1), "muet" (code 0 sans rien écrire), "interrompu" (écrit tout, sans
@@ -490,7 +641,7 @@ reste = [n for n in os.listdir(f) if n.endswith(".txt") or n.startswith(("prise-
 verifie(reste == [], f"aucun ticket ni dossier de prise restant ({reste})")
 sortie = subprocess.run([sys.executable, "-B", BANC, "--file"], env=env, capture_output=True, text=True,
                         encoding="utf-8", errors="replace").stdout
-verifie("places ouvertes : 3" in sortie and sortie.count(": libre") == 3, "--file : places ouvertes et places libres")
+verifie("places ouvertes : 3" in sortie and sortie.count(": libre") == 6, "--file : places ouvertes et 6 places libres")
 
 shutil.rmtree(tmp, ignore_errors=True)
 print(f"BILAN : {ok} OK" + (f", {ko} ECHEC(S)" if ko else ""))

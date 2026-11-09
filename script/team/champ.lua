@@ -23,6 +23,7 @@ local Ch = require("shared.team.champ")
 local Cv = require("shared.team.champ_verif")
 local Sa = require("shared.team.champ_saut") -- lot FONDERIE : découpe d'une bande trop grosse en projets liés
 local Ln = require("shared.team.champ_lien") -- revue-fonderie (point 7) : lecteur des projets liés du réseau du charbon
+local LB = require("script.team.ligne_bande") -- lot RACCORD-BANDE 2 : ligne de poteaux d'une bande lointaine
 local Ra = require("shared.team.champ_raccord") -- lot FONDERIE : tous les poteaux d'une bande rejoignent le réseau alimenté
 local Storage = require("script.core.storage")
 local Events = require("script.core.events")
@@ -269,7 +270,7 @@ local function ore_tiles(surface, o)
   for _, r in ipairs(surface.find_entities_filtered({ position = o.pos, radius = Champ.CFG.radius, name = res })) do
     if r.valid then raw[#raw + 1] = { x = r.position.x, y = r.position.y } end
   end
-  local comp = Paires.component(Paires.sorted(raw, o.pos), Paires.GAP, o.pos)
+  local comp = Paires.nearest_component(raw, Paires.GAP, o.pos) -- lot COUT-600 : = component(sorted(...)) sans trier les gisements voisins
   local out = {}
   for _, t in ipairs(comp) do out[#out + 1] = math.floor(t.x); out[#out + 1] = math.floor(t.y) end
   return out
@@ -335,7 +336,7 @@ end
 
 --- Tuiles où rien ne se pose dans le rectangle : eau, bâtiments (arbres et rochers exceptés : défrichés), tuiles réservées par un
 --- autre projet du plan directeur ; les tuiles `mine` restent libres.
-local function blocked_in(f, surface, x0, y0, x1, y1, mine, soft_out)
+local function blocked_in(f, surface, x0, y0, x1, y1, mine, soft_out, occ_libre)
   local blocked = {}
   for _, t in ipairs(surface.find_tiles_filtered({ area = { { x0, y0 }, { x1, y1 } }, collision_mask = "water-tile" })) do
     blocked[Ch.key(math.floor(t.position.x), math.floor(t.position.y))] = "eau"
@@ -354,7 +355,7 @@ local function blocked_in(f, surface, x0, y0, x1, y1, mine, soft_out)
   for x = math.floor(x0), math.ceil(x1) do
     for y = math.floor(y0), math.ceil(y1) do
       local k = P.tkey(x, y)
-      if occ[k] and not blocked[Ch.key(x, y)] then blocked[Ch.key(x, y)] = "reserve" end
+      if occ[k] and not blocked[Ch.key(x, y)] and not (occ_libre and occ_libre(x, y, occ[k])) then blocked[Ch.key(x, y)] = "reserve" end -- occ_libre : le mall ouvre à la chaîne les tuiles que ses rangées n'utilisent jamais
       if cor[k] and not blocked[Ch.key(x, y)] then
         blocked[Ch.key(x, y)] = "couloir"
         if f.stats then f.stats.couloir_champ = (f.stats.couloir_champ or 0) + 1 end -- revue (B3)
@@ -438,7 +439,9 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Plans
 ---------------------------------------------------------------------------------------------------
---- Plan entier : (cadre, ordre des bandes { pr }, plan) ou nil, raison. Journal : une ligne [FO-CHAMP] par plan.
+local FRAME_PENDING = {} -- lot COUT-600 : { f, plan, spec, journal } des cadres dont la vérification attend sa pensée (Champ.flush)
+
+--- Plan entier : (cadre, ordre des bandes { pr }, plan) ou nil, raison. Journal : une ligne [FO-CHAMP] par plan (écrite par Champ.flush).
 function Champ.frame(f, surface, o)
   Profiler.fstart("champ:frame-spec")
   local spec, names = spec_of(f, surface, o, nil, nil)
@@ -449,9 +452,8 @@ function Champ.frame(f, surface, o)
   local plan, why = Ch.plan(spec)
   Profiler.fstop("champ:frame-plan")
   if not plan then return nil, why end
-  Profiler.fstart("champ:frame-verify")
-  local rep = Cv.verify(plan, spec)
-  Profiler.fstop("champ:frame-verify")
+  -- lot COUT-600 : la vérification du plan (Cv.verify : 0,2 M d'instructions à l'ordinaire, 4,7 M sur un champ de 600 %) ne sert qu'à la ligne de
+  -- journal [FO-CHAMP] ci-dessous : elle part dans une pensée à part (Champ.flush), le plan et l'ordre des bandes sont rendus tout de suite
   -- ce qui occupe le gisement (hors de nos paires) : cause des tuiles que le champ ne couvre pas
   local why, keys = {}, {}
   for i = 1, #spec.ore - 1, 2 do
@@ -493,9 +495,12 @@ function Champ.frame(f, surface, o)
     cs[#cs + 1] = string.format("cote %s %s%s", c.side > 0 and "+" or "-", c.voie and "voie de charbon" or "coffre de tete",
       c.why and (" (" .. c.why .. ")") or "")
   end
+  -- (lot COUT-600 : la ligne du plan est écrite tout de suite, comme avant, sans le résultat de Cv.verify ; ce résultat suit sur sa propre ligne,
+  -- écrite par Champ.flush avec log seul : say compte les lignes dans f.champ_logs (global), un compte écrit en différé ferait diverger une
+  -- partie rechargée de la même partie continuée)
   say(f, string.format("avant-poste %d (%s) : plan du champ, %d bande(s) (%d avec des paires), axe %s, sortie %s ; %d foreuses, %d fours, %d poteaux, %d tapis ; %s",
     o.id, o.kind, #prs, with, plan.axis, plan.exit > 0 and "+" or "-", plan.stats.drills, plan.stats.furnaces,
-    plan.stats.poles, plan.stats.belts, Cv.line(rep)) .. string.format(" ; gisement occupe (hors paires) : %s", #occ > 0 and table.concat(occ, ", ") or "rien")
+    plan.stats.poles, plan.stats.belts, "verification du plan : ligne suivante") .. string.format(" ; gisement occupe (hors paires) : %s", #occ > 0 and table.concat(occ, ", ") or "rien")
     .. string.format(" ; fonderie %s, %d souterrain(s), %d repartiteur(s)%s", plan.design or "a coffres", plan.stats.undergrounds or 0,
       plan.stats.splitters or 0, #cs > 0 and (", " .. table.concat(cs, ", ")) or "")
     .. string.format(" ; autres ressources minables autour : %d tuile(s) du champ, %d de la ligne de charbon", spec.nforeign or 0,
@@ -518,7 +523,27 @@ function Champ.frame(f, surface, o)
     log(string.format("[FO-CHAMP] %s : colonne refusee : pas de voie de charbon (avant-poste %d, bande %d, cote %s : %s) a %.1f min", f.key or "player",
       o.id, x.pr, x.side > 0 and "+" or "-", tostring(x.why), game.tick / 3600))
   end
+  FRAME_PENDING[#FRAME_PENDING + 1] = { f = f, plan = plan, spec = spec, oid = o.id, kind = o.kind }
   return plan.frame, prs, plan
+end
+
+--- Lot COUT-600 : UNE vérification de cadre en attente de l'équipe `f` (la plus ancienne) : Cv.verify puis la ligne de journal [FO-CHAMP]. À appeler à
+--- chaque pensée de la migration du champ (Mig.think) et avant un nouveau plan : un coût de vérification par appel, jamais celui du plan. Les attentes
+--- sont LOCALES (jamais dans global) : un chargement de sauvegarde les perd, et seule la ligne de journal manque (Champ.flush n'écrit rien dans global ;
+--- c'est l'appelant, par un drapeau de global, qui décide de la pensée à part). Rend vrai si une vérification a eu lieu.
+function Champ.flush(f)
+  for i, it in ipairs(FRAME_PENDING) do
+    if it.f == f then
+      table.remove(FRAME_PENDING, i)
+      Profiler.fstart("champ:frame-verify")
+      local rep = Cv.verify(it.plan, it.spec)
+      Profiler.fstop("champ:frame-verify")
+      log(string.format("[FO-CHAMP] %s : avant-poste %d (%s) : verification du plan : %s a %.1f min", f.key or "player", it.oid, tostring(it.kind), Cv.line(rep),
+        game.tick / 3600))
+      return true
+    end
+  end
+  return false
 end
 
 --- Lot FONDERIE : vrai si une bande du champ de `o` a déjà été demandée au plan directeur (un cadre d'avant le lot, sans `design`, n'est
@@ -589,8 +614,19 @@ function Champ.band(f, surface, o, frame, pr, coal_side)
   Profiler.fstop("champ:band-plan")
   if not plan then return nil, why end
   if #plan.ents == 0 then
-    return nil, string.format("bande vide : %d foreuse(s) possibles sur ses rangees, %d groupe(s) sans place de fonderie", plan.stats.band_drills or 0,
-      plan.stats.no_smelter or 0)
+    local at = plan.stats.no_smelter_at
+    local cause = ""
+    if at then
+      local es = surface.find_entities_filtered({ area = { { at.x - 0.5, at.y - 0.5 }, { at.x + 0.5, at.y + 0.5 } }, limit = 3 })
+      local names = {}
+      for _, e in ipairs(es) do names[#names + 1] = e.name .. (e.force and (" " .. e.force.name) or "") end
+      table.sort(names)
+      local why_tile = spec.blocked and spec.blocked[Ch.key(math.floor(at.x), math.floor(at.y))] -- « eau », « cliff », « reserve », « couloir » ou le nom du bâtiment
+      cause = string.format(" ; 1re tuile prise (%.1f, %.1f), %s, %s : %s, relevee « %s »", at.x, at.y, at.fixed and "place du cadre figé" or "1re place essayee", at.side > 0 and "cote +" or "cote -",
+        #names > 0 and table.concat(names, ", ") or "aucune entite visible", tostring(why_tile))
+    end
+    return nil, string.format("bande vide : %d foreuse(s) possibles sur ses rangees, %d groupe(s) sans place de fonderie%s", plan.stats.band_drills or 0,
+      plan.stats.no_smelter or 0, cause)
   end
   -- (lot FONDERIE, lot6-123456789 : une bande de 1 026 entités portait les deux réseaux du charbon) : au-delà de band_max, les réseaux les plus
   -- gros sont reportés dans des projets liés à la bande (script/team/migration_champ.lua les demande juste après elle)
@@ -630,9 +666,10 @@ end
 Champ.powered_pole = powered_pole
 
 Build.SITES = Build.SITES or {}
+LB.install(Build)
 --- Lot FONDERIE : raccorde TOUTES les composantes des poteaux de `ents` (projet d'une bande ou d'un réseau du charbon) à un poteau alimenté
 --- (Ra.connect). Ajoute les poteaux de liaison à `ents` ; rend (poteaux posés, nil, nil, composantes) ou (nil, raison, attente).
-local function raccord_tous(f, surface, bd, ents, cx, cy)
+local function raccord_tous(f, surface, bd, ents, cx, cy, proj)
   local wire = bd.spec.pole.wire
   local own = {}
   for _, e in ipairs(ents) do if e.name == bd.names.pole then own[#own + 1] = { x = e.x, y = e.y } end end
@@ -657,31 +694,92 @@ local function raccord_tous(f, surface, bd, ents, cx, cy)
     end
     grow(best.x, best.y)
   end
-  x0, y0, x1, y1 = math.floor(x0) - 8, math.floor(y0) - 8, math.ceil(x1) + 8, math.ceil(y1) + 8
-  local blocked = blocked_in(f, surface, x0, y0, x1, y1, bd.spec.mine)
+  -- lot RACCORD-BANDE : chaîne par paliers (Ra.tiered_chain : boîte étroite, autour, à travers le minerai), la lecture du moteur n'est faite qu'au
+  -- premier besoin de chaque marge
+  local hull = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }
+  local blocked_by = {}
+  local function blocked_of(margin)
+    local bl = blocked_by[margin]
+    if not bl then
+      bl = blocked_in(f, surface, math.floor(x0) - margin, math.floor(y0) - margin, math.ceil(x1) + margin, math.ceil(y1) + margin, bd.spec.mine, nil, bd.occ_libre)
+      blocked_by[margin] = bl
+    end
+    return function(tx, ty) return bl[Ch.key(tx, ty)] ~= nil end
+  end
   local used = {}
   for _, e in ipairs(ents) do for _, t in ipairs(P.tiles_of(e)) do used[Ch.key(t[1], t[2])] = true end end
   local ore = {}
   for i = 1, #bd.spec.ore - 1, 2 do ore[Ch.key(bd.spec.ore[i], bd.spec.ore[i + 1])] = true end
-  -- (comme le raccord 0.6.41) une chaîne ne passe sur le minerai que dans les rangées de SA bande
+  -- (comme le raccord 0.6.41) une chaîne ne passe sur le minerai que dans les rangées de SA bande, sauf dernier palier
   local b1 = bd.plan.bands[1]
   local v0, v1 = b1 and b1.pr or 0, b1 and (b1.pr + bd.plan.pitch) or -1
-  local function free(x, y)
-    local tx, ty = math.floor(x), math.floor(y)
-    if tx < x0 or tx > x1 or ty < y0 or ty > y1 then return false end
-    local k = Ch.key(tx, ty)
-    local v = (bd.plan.axis == "x") and ty or tx
-    return not blocked[k] and not used[k] and (not ore[k] or (v >= v0 and v <= v1))
+  local axis_x = bd.plan.axis == "x"
+  local tier_used = {}
+  -- lot RACCORD-BANDE 2 : le réseau alimenté est à plus de LB.LINE_FAR tuiles (partie neuve 0.6.72 : 163 à 281) : aucun palier local n'y mènera, la ligne de
+  -- poteaux est demandée tout de suite (coût d'un palier épargné)
+  local nearest = proj and Ra.nearest(own, targets) or nil
+  if nearest and nearest.d > LB.LINE_FAR then
+    local ok, why = LB.ensure(f, surface, proj, nearest, wire, bd.names.pole, game.tick)
+    if ok then
+      proj.rtier, proj.far_poll = nil, LB.POLL
+      return nil, why, "loin"
+    end
   end
+  -- un palier par essai quand le projet est connu (coût d'un essai = celui d'une recherche, ~5 ms) : proj.rtier = palier du prochain essai
+  local only = proj and (proj.rtier or 1) or nil
+  local prm = { tier = only, hull = hull, reach = wire, pole_chain = P.pole_chain, blocked = blocked_of, used = used, key = Ch.key,
+    ore = function(tx, ty) return ore[Ch.key(tx, ty)] == true end,
+    rows = function(tx, ty) local v = axis_x and ty or tx return v >= v0 and v <= v1 end }
   local added, fails = Ra.connect(own, targets, wire, function(a, b)
-    local ch = P.pole_chain(a, b, wire, false, free, nil)
+    local ch, tier = Ra.tiered_chain(a, b, prm)
     for _, c in ipairs(ch or {}) do used[Ch.key(math.floor(c.x), math.floor(c.y))] = true end
+    if ch and tier ~= Ra.TIERS[1].name then tier_used[tier] = (tier_used[tier] or 0) + 1 end
     return ch
   end)
+  for _, nm in ipairs({ Ra.TIERS[2].name, Ra.TIERS[3].name }) do
+    if tier_used[nm] then say(f, string.format("raccord de bande : %d chaine(s) de poteaux trouvee(s) %s (la boite etroite n'en donnait aucune)", tier_used[nm], nm)) end
+  end
+  -- lot RACCORD-BANDE, diagnostic (journal seulement) : pourquoi le palier n'a trouvé aucune chaîne (terrain le long du segment et dans la boîte)
+  if #fails > 0 then
+    local fl = fails[1]
+    local t = Ra.TIERS[only or #Ra.TIERS]
+    if fl and fl.to and t then
+      local free, box, blk = Ra.tier_free(prm, t)
+      local st = Ra.segment_stats(fl.at, fl.to, box, { blocked_now = function(tx, ty) return blk(tx, ty) end, ore = prm.ore, used = used, key = Ch.key }, free)
+      say(f, string.format("raccord de bande refuse, palier « %s » : composante de %d poteau(x) en (%.0f, %.0f), cible la plus proche en (%.0f, %.0f) a %.0f tuiles ; segment %d points : %d occupes, %d de minerai, %d deja pris, %d libres ; boite %d x %d : %d%% de tuiles libres",
+        t.name, fl.n, fl.at.x, fl.at.y, fl.to.x, fl.to.y, fl.d or 0, st.seg, st.seg_blocked, st.seg_ore, st.seg_used, st.seg_free,
+        box.x1 - box.x0 + 1, box.y1 - box.y0 + 1, st.box > 0 and math.floor(100 * st.box_free / st.box) or 0))
+      if bd.occ_libre then -- mall : de quoi sont faites les tuiles bloquées de la plus grande boîte lue (journal seulement)
+        local widest, wm, tally, ks, parts = nil, nil, {}, {}, {}
+        for m, bl in pairs(blocked_by) do if not wm or m > wm then widest, wm = bl, m end end
+        for _, why in pairs(widest or {}) do tally[why] = (tally[why] or 0) + 1 end
+        for k in pairs(tally) do ks[#ks + 1] = tostring(k) end
+        table.sort(ks)
+        for _, k in ipairs(ks) do parts[#parts + 1] = k .. "=" .. tally[k] end
+        say(f, "raccord du mall : tuiles bloquees (marge " .. tostring(wm) .. ") : " .. table.concat(parts, ", "))
+      end
+    end
+  end
+  -- lot RACCORD-BANDE 2 : le réseau alimenté est LOIN (partie neuve 0.6.72 : 163 à 281 tuiles) : après le dernier palier, une LIGNE de poteaux, projet
+  -- à part (une par avant-poste, partagée par ses bandes) ; la bande attend sa ligne au lieu d'être refusée
+  if #fails > 0 and proj and (not only or only >= #Ra.TIERS) and fails[1].to and (fails[1].d or 0) > LB.LINE_MIN then
+    local ok, why = LB.ensure(f, surface, proj, fails[1], wire, bd.names.pole, game.tick)
+    if ok then
+      proj.rtier, proj.far_poll = nil, LB.POLL
+      return nil, why, "loin"
+    end
+  end
+  if #fails > 0 and only and only < #Ra.TIERS then
+    proj.rtier = only + 1
+    return nil, string.format("raccord de bande : palier « %s » sans chaine jusqu'au reseau alimente, palier « %s » au prochain essai",
+      Ra.TIERS[only].name, Ra.TIERS[only + 1].name), true
+  end
   if #fails > 0 then
     local n = 0
     for _, x in ipairs(fails) do n = n + x.n end
-    return nil, string.format("%d composante(s) de poteaux (%d poteaux) sans chaine jusqu'au reseau alimente", #fails, n)
+    local d = fails[1] and fails[1].d
+    return nil, string.format("%d composante(s) de poteaux (%d poteaux) sans chaine jusqu'au reseau alimente (%s, %s, %s essayes%s)", #fails, n,
+      Ra.TIERS[1].name, Ra.TIERS[2].name, Ra.TIERS[3].name, d and string.format(" ; plus proche cible a %.0f tuiles", d) or "")
   end
   for _, c in ipairs(added) do ents[#ents + 1] = { name = bd.names.pole, x = c.x, y = c.y, dir = 0, role = "liaison" } end
   return #added, nil, nil, nc
@@ -750,7 +848,7 @@ Build.SITES.champ = function(f, surface, p, h)
     -- lot FONDERIE (3/11, ENERGIE4, lot7bis-20261020 : colonne de 16 à 20 poteaux à 101 tuiles du réseau, foreuses de charbon à 65 tuiles,
     -- jamais raccordées) : TOUTES les composantes des poteaux du projet rejoignent un poteau ALIMENTÉ (shared/team/champ_raccord.lua) ;
     -- les poteaux d'une bande voisine (déjà au plan, retirés ci-dessus) ne comptent pas : son projet peut ne jamais finir
-    local n_r, why_r, wait_r, nc = raccord_tous(f, surface, bd, ents, cx, cy)
+    local n_r, why_r, wait_r, nc = raccord_tous(f, surface, bd, ents, cx, cy, p)
     if not n_r then return nil, "champ: " .. why_r, wait_r end
     chain_n, comps, net = n_r, nc, true
   else

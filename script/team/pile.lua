@@ -15,6 +15,7 @@ local Stock = require("script.team.stock")
 local Rule = require("shared.team.rebuild_sweep")
 local R = require("shared.ai3.reglages")
 local Rc = require("shared.team.reconstruction")
+local T = require("shared.team.config")
 local Pi = require("shared.ai3.pile")
 local Ml = require("shared.ai3.mall")
 
@@ -67,8 +68,15 @@ function PileRt.inputs(f, book, tick)
           have[r.item] = Stock.count(f, r.item)
           craft[r.item] = (book and book:handcraftable(r.item)) or false
         end
+        -- lot RUINES-ATTENTE : la foreuse d'un avant-poste de la plaque clé (le fer : T.outposts.iron, comme le planificateur) refait l'EXTRACTION
+        local key_ext = false
+        if r.kind == "drill" and r.oid then
+          local host = (f.outposts and f.outposts[r.oid]) or (s.ruins and s.ruins[r.oid])
+          local spec = host and T.outposts[host.kind]
+          key_ext = spec ~= nil and spec.product == T.outposts.iron.product
+        end
         repair[#repair + 1] = { key = r.key or k, item = r.item, value = r.value or 0, prio = Rc.task_prio(r.value or 0),
-          have = have[r.item], craftable = craft[r.item],
+          have = have[r.item], craftable = craft[r.item], key_extraction = key_ext or nil,
           claimed = r.claimed ~= nil, enemy = (r.retry ~= nil and tick < r.retry) or false, infra = r.infra or false }
       end
     end
@@ -193,8 +201,8 @@ function PileRt.journal(f, tick)
   st.logged_tick = st.tick
   if not st.changed and tick < (st.log_at or 0) then return false end
   st.log_at = tick + Pi.LOG_EVERY
-  log(string.format("[FO-PILE] %s : %s a %.1f min", f.key or "player", Pi.describe(st),
-    (tick - (f.started or 0)) / 3600))
+  log(string.format("[FO-PILE] %s : %s a %.1f min ; craft de pile : %s", f.key or "player", Pi.describe(st),
+    (tick - (f.started or 0)) / 3600, tostring(st.craft_note)))
   return true
 end
 

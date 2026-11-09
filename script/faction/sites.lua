@@ -664,62 +664,101 @@ local OFF = 1048576 -- 2^20 : clé numérique d'une tuile (x + OFF) * 2^21 + (y 
 local function tkey(x, y) return (x + OFF) * 2097152 + (y + OFF) end
 local N8 = { { -1, -1 }, { 0, -1 }, { 1, -1 }, { -1, 0 }, { 1, 0 }, { -1, 1 }, { 0, 1 }, { 1, 1 } }
 
-function Sites.census(surface, name, pos)
-  Profiler.start("sites:census")
-  local half = Sites.CENSUS_HALF
-  local out = nil
-  while true do
-    Profiler.fstart("census:find") -- lot X10-S0 : mesure seulement
-    local ents = surface.find_entities_filtered({ area = { { pos.x - half, pos.y - half }, { pos.x + half, pos.y + half } },
-      name = name })
-    Profiler.fstop("census:find")
-    Profiler.fstart("census:idx")
-    local idx = {}
-    local seed, sd = nil, nil
-    for _, e in ipairs(ents) do
-      local p = e.position
-      local x, y = math.floor(p.x), math.floor(p.y)
-      local k = tkey(x, y)
-      idx[k] = e.amount or 0
-      local dx, dy = x + 0.5 - pos.x, y + 0.5 - pos.y
-      local d = dx * dx + dy * dy
-      if sd == nil or d < sd or (d == sd and k < seed[3]) then seed, sd = { x, y, k }, d end
-    end
-    Profiler.fstop("census:idx")
-    if not seed then break end
-    Profiler.fstart("census:bfs")
-    local qx, qy = { seed[1] }, { seed[2] }
-    local seen = { [seed[3]] = true }
-    local head, n, amount = 1, 0, 0
-    local x0, y0, x1, y1 = seed[1], seed[2], seed[1], seed[2]
-    local sx, sy = 0, 0
-    local cut = false
-    while head <= #qx do
-      local x, y = qx[head], qy[head]
-      head = head + 1
-      n = n + 1
-      amount = amount + (idx[tkey(x, y)] or 0)
-      sx, sy = sx + x, sy + y
-      if x < x0 then x0 = x end
-      if x > x1 then x1 = x end
-      if y < y0 then y0 = y end
-      if y > y1 then y1 = y end
-      if n >= Sites.CENSUS_TILES then cut = true break end
-      for _, d in ipairs(N8) do
-        local k = tkey(x + d[1], y + d[2])
-        if idx[k] and not seen[k] then
-          seen[k] = true
-          qx[#qx + 1], qy[#qy + 1] = x + d[1], y + d[2]
-        end
+-- Lot COUT-600 : lecture d'un carré [ax0, ax1] x [ay0, ay1] : index des tuiles, graine (la tuile la plus proche de `pos`, départage par la
+-- clé) et composante connexe (8 voisins) de la graine. Rend nil sans tuile. Le coût grandit avec le NOMBRE de tuiles lues.
+local function read_square(surface, name, pos, ax0, ay0, ax1, ay1)
+  Profiler.fstart("census:find") -- lot X10-S0 : mesure seulement
+  local ents = surface.find_entities_filtered({ area = { { ax0, ay0 }, { ax1, ay1 } }, name = name })
+  Profiler.fstop("census:find")
+  Profiler.fstart("census:idx")
+  local idx = {}
+  local seed, sd = nil, nil
+  for _, e in ipairs(ents) do
+    local p = e.position
+    local x, y = math.floor(p.x), math.floor(p.y)
+    local k = tkey(x, y)
+    idx[k] = e.amount or 0
+    local dx, dy = x + 0.5 - pos.x, y + 0.5 - pos.y
+    local d = dx * dx + dy * dy
+    if sd == nil or d < sd or (d == sd and k < seed[3]) then seed, sd = { x, y, k }, d end
+  end
+  Profiler.fstop("census:idx")
+  if not seed then return nil end
+  Profiler.fstart("census:bfs")
+  local qx, qy = { seed[1] }, { seed[2] }
+  local seen = { [seed[3]] = true }
+  local head, n, amount = 1, 0, 0
+  local x0, y0, x1, y1 = seed[1], seed[2], seed[1], seed[2]
+  local sx, sy = 0, 0
+  local cut = false
+  while head <= #qx do
+    local x, y = qx[head], qy[head]
+    head = head + 1
+    n = n + 1
+    amount = amount + (idx[tkey(x, y)] or 0)
+    sx, sy = sx + x, sy + y
+    if x < x0 then x0 = x end
+    if x > x1 then x1 = x end
+    if y < y0 then y0 = y end
+    if y > y1 then y1 = y end
+    if n >= Sites.CENSUS_TILES then cut = true break end
+    for _, d in ipairs(N8) do
+      local k = tkey(x + d[1], y + d[2])
+      if idx[k] and not seen[k] then
+        seen[k] = true
+        qx[#qx + 1], qy[#qy + 1] = x + d[1], y + d[2]
       end
     end
-    Profiler.fstop("census:bfs")
-    local touches = x0 <= pos.x - half + 1 or y0 <= pos.y - half + 1 or x1 >= pos.x + half - 2 or y1 >= pos.y + half - 2
-    if touches and not cut and half < Sites.CENSUS_MAX then
+  end
+  Profiler.fstop("census:bfs")
+  return { n = n, amount = amount, x0 = x0, y0 = y0, x1 = x1, y1 = y1, sx = sx, sy = sy, cut = cut, sd = sd }
+end
+
+-- La composante touche-t-elle le bord du carré lu (une tuile voisine peut alors manquer) ?
+local function touches_square(r, ax0, ay0, ax1, ay1)
+  return r.x0 <= ax0 + 1 or r.y0 <= ay0 + 1 or r.x1 >= ax1 - 2 or r.y1 >= ay1 - 2
+end
+
+local function census_out(name, r, touches, half)
+  return { tiles = r.n, amount = r.amount, x0 = r.x0, y0 = r.y0, x1 = r.x1 + 1, y1 = r.y1 + 1, cx = r.sx / r.n + 0.5, cy = r.sy / r.n + 0.5,
+    id = name .. "@" .. r.x0 .. "," .. r.y0, cut = r.cut or (touches and half >= Sites.CENSUS_MAX) or nil }
+end
+
+--- `hint` (facultatif, lot COUT-600) : la boîte { x0, y0, x1, y1 } (x1, y1 exclus) du même gisement à un recensement précédent. Le carré lu
+--- est alors cette boîte élargie de Sites.CENSUS_HINT_MARGIN tuiles (et d'un carré de Sites.CENSUS_HINT_NEAR autour de `pos`) au lieu de
+--- 96 x 96, puis 192 x 192 quand le gisement touche le bord. Résultat IDENTIQUE à celui sans indice (tests/census_hint_test.lua) : l'indice
+--- n'est accepté que si la graine est à moins de Sites.CENSUS_HINT_NEAR tuiles de `pos` (toute tuile plus proche est dans le carré lu), si la
+--- composante ne touche pas le bord de ce carré (donc entière : ni tronquée ni coupée, et le carré est strictement dans celui de
+--- Sites.CENSUS_MAX autour de `pos`) et reste sous Sites.CENSUS_TILES ; sinon le recensement repart comme avant, du carré de
+--- Sites.CENSUS_HALF.
+Sites.CENSUS_HINT_MARGIN = 3
+Sites.CENSUS_HINT_NEAR = 8
+function Sites.census(surface, name, pos, hint)
+  Profiler.start("sites:census")
+  local out = nil
+  if hint then
+    local m, near = Sites.CENSUS_HINT_MARGIN, Sites.CENSUS_HINT_NEAR
+    local ax0, ay0 = math.min(hint.x0 - m, pos.x - near), math.min(hint.y0 - m, pos.y - near)
+    local ax1, ay1 = math.max(hint.x1 + m, pos.x + near), math.max(hint.y1 + m, pos.y + near)
+    local mx = Sites.CENSUS_MAX
+    -- le carré lu reste dans le carré maximal du recensement sans indice (même résultat si la composante le touche)
+    if ax0 > pos.x - mx and ay0 > pos.y - mx and ax1 < pos.x + mx and ay1 < pos.y + mx then
+      local r = read_square(surface, name, pos, ax0, ay0, ax1, ay1)
+      if r and r.sd <= near * near and not r.cut and not touches_square(r, ax0, ay0, ax1, ay1) then
+        out = census_out(name, r, false, 0)
+      end
+    end
+  end
+  local half = Sites.CENSUS_HALF
+  while not out do
+    local ax0, ay0, ax1, ay1 = pos.x - half, pos.y - half, pos.x + half, pos.y + half
+    local r = read_square(surface, name, pos, ax0, ay0, ax1, ay1)
+    if not r then break end
+    local touches = touches_square(r, ax0, ay0, ax1, ay1)
+    if touches and not r.cut and half < Sites.CENSUS_MAX then
       half = math.min(Sites.CENSUS_MAX, half * 2)
     else
-      out = { tiles = n, amount = amount, x0 = x0, y0 = y0, x1 = x1 + 1, y1 = y1 + 1, cx = sx / n + 0.5, cy = sy / n + 0.5,
-        id = name .. "@" .. x0 .. "," .. y0, cut = cut or (touches and half >= Sites.CENSUS_MAX) or nil }
+      out = census_out(name, r, touches, half)
       break
     end
   end

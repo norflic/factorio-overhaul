@@ -208,6 +208,7 @@ local function search(s, t, td, bounds, cost, ctx, pen, lim, wt, capn, use_ug)
     hpush(open, { x = sx, y = sy, d = sd, m = 0, f = hh(sx, sy), h = hh(sx, sy), k = k0 })
   end
   local slice_end = ctx.slice and (expanded + ctx.slice) or nil
+  local pass = ctx.pass -- lot TRANCHES-FOREUSES : { left } = états à développer encore dans CETTE passe, partagés par toutes les recherches de la passe
   local function relax(cur, nx, ny, nd, nm, c, jm)
     if not inb(nx, ny) then return end
     if not (free(nx, ny) or (nx == tx and ny == ty)) then return end
@@ -227,10 +228,14 @@ local function search(s, t, td, bounds, cost, ctx, pen, lim, wt, capn, use_ug)
     if slice_end and expanded >= slice_end then
       return nil, "pending", expanded, { open = open, g = g, closed = closed, expanded = expanded, pk = pk, ppx = ppx, ppy = ppy, pnd = pnd, pjm = pjm }
     end
+    if pass and pass.left <= 0 then -- lot TRANCHES-FOREUSES : la passe est épuisée (tranche partagée entre les recherches du tracé)
+      return nil, "pending", expanded, { open = open, g = g, closed = closed, expanded = expanded, pk = pk, ppx = ppx, ppy = ppy, pnd = pnd, pjm = pjm }
+    end
     local cur = hpop(open)
     if not closed[cur.k] then
       closed[cur.k] = true
       expanded = expanded + 1
+      if pass then pass.left = pass.left - 1 end
       if expanded > cap then return nil, "trop long", expanded end
       if budget then
         budget.left = budget.left - 1
@@ -256,7 +261,9 @@ local function search(s, t, td, bounds, cost, ctx, pen, lim, wt, capn, use_ug)
           for a = #rev, 1, -1 do out[#out + 1] = rev[a] end
           return out, expanded
         end
-      else
+      -- tracé par tranches (ctx.resume) : entre deux passes le moteur a pu occuper cette tuile, relue libre à l'empilement. L'état est abandonné : sinon
+      -- `false` entre dans le prix (plantage de la partie neuve du 9/11 à 15 min, en `relax`)
+      elseif free(cur.x, cur.y) then
         local cx, cy, cd = cur.x, cur.y, cur.d
         local ctc = tc(cx, cy)
         -- tapis posé ici, tout droit ou en virage (jamais demi-tour ; tout droit imposé après une sortie de souterrain)
@@ -422,6 +429,10 @@ end
 ---------------------------------------------------------------------------------------------------
 --- Tracé d'un tapis de la tuile `s` à la tuile `t` (incluses) dans `bounds` { x0, y0, x1, y1 } (inclus). cost(x, y) -> nil (interdit
 --- pour une pièce) ou coût >= 1 (même contrat que P.belt_route). t_dir : code du jeu de la dernière tuile.
+--- ctx.phase_slice (lot TRANCHES-FOREUSES) : le MÊME tracé (mêmes phases A, B et détour de gisement, même résultat qu'en un appel) cherché PAR PASSES
+---   d'au plus phase_slice états développés ; ctx.phase_state : l'état rendu par la passe d'avant (nil à la première) ; une passe qui n'a pas
+---   fini rend nil, "pending", état (tables de nombres seulement : sauvegardable). Le budget ctx.budget n'est lu qu'à la première passe
+---   (son reste voyage dans l'état). Les phases finies sont REJOUÉES (résultat gardé), pas recalculées.
 --- ctx (facultatif) : maxd (portée des souterrains, nil : aucun), ore(x, y) -> bool (tuile de gisement), ug_axis(x, y) -> nil | true | 1
 ---   (N/S) | 2 (E/O) (pièce souterraine à cet endroit), sd (sens d'arrivée en s, code du jeu ; défaut : axe dominant), weight (heuristique,
 ---   défaut 1), max (états développés au plus), nature(x, y) -> texte ou nil (journal).
@@ -436,20 +447,51 @@ function Tv.route(s, t, t_dir, bounds, cost, ctx)
   local ctx2 = { ore = ctx.ore, maxd = ctx.maxd, ug_axis = ctx.ug_axis, weight = ctx.weight, max = ctx.max, nature = ctx.nature,
     sd = ctx.sd and didx_of_code(ctx.sd) or nil, memo_c = {}, memo_o = {}, slice = ctx.slice, resume = ctx.resume }
  ctx2.budget = ctx.budget
+  -- lot TRANCHES-FOREUSES : tracé en passes (voir l'en-tête) ; PS = état gardé d'une passe à l'autre
+  local PS
+  if ctx.phase_slice then
+    PS = ctx.phase_state or { done = {}, bl = ctx.budget and ctx.budget.left or nil, capn = {} }
+    ctx2.pass = { left = ctx.phase_slice }
+    ctx2.budget = PS.bl and { left = PS.bl } or nil
+  end
   local expanded, searches = 0, 0
-  local function run(pen, lim, use_ug)
+  -- (compteur de diagnostic ; par passes : seulement le travail de CETTE passe, pas les phases rejouées)
+  -- et le reste du budget revient à l'appelant (comme en un seul appel : ses recherches le décomptent en place)
+  local function stat_expanded()
+    Tv.STATS.expanded = Tv.STATS.expanded + (PS and (ctx.phase_slice - ctx2.pass.left) or expanded)
+    if PS and ctx.budget and PS.bl then ctx.budget.left = PS.bl end
+  end
+  local function run(pen, lim, use_ug, name)
     searches = searches + 1
+    if PS then
+      local d = PS.done[name]
+      if d then expanded = expanded + d.used; return d.el, d.n end -- phase finie à une passe d'avant : rejouée
+      ctx2.resume = (PS.cur == name) and PS.cs or nil
+    end
     local el, n, used4, state
     if pen > 0 then
-      el, n = search(s, t, td, bounds, cost, ctx2, pen, lim, math.max(ctx.weight or 1, Tv.ORE_WEIGHT), math.min(ctx.max or Tv.CAP, Tv.ORE_CAP), false)
+      local _u; el, n, _u, state = search(s, t, td, bounds, cost, ctx2, pen, lim, math.max(ctx.weight or 1, Tv.ORE_WEIGHT), math.min(ctx.max or Tv.CAP, Tv.ORE_CAP), false)
     else
       -- la phase A d'un plan qui dispose de souterrains n'use que la moitié du budget restant : un mur sans fin la ferait tout dépenser avant la phase B
       local capn
-      if not use_ug and ctx2.maxd and ctx2.maxd >= 2 and ctx2.budget then capn = math.max(100, math.floor(ctx2.budget.left / 2)) end
+      if PS and PS.capn[name] then capn = PS.capn[name] -- (par passes : fixé au début de la phase, le budget a baissé depuis)
+      elseif not use_ug and ctx2.maxd and ctx2.maxd >= 2 and ctx2.budget then
+        capn = math.max(100, math.floor(ctx2.budget.left / 2))
+        if PS then PS.capn[name] = capn end
+      end
       el, n, used4, state = search(s, t, td, bounds, cost, ctx2, pen, lim, nil, capn, use_ug)
     end
     Tv.STATS.searches = Tv.STATS.searches + 1
     local used = type(n) == "number" and n or (type(used4) == "number" and used4 or 0)
+    if PS then
+      PS.bl = ctx2.budget and ctx2.budget.left or nil
+      if n == "pending" then
+        PS.cur, PS.cs = name, state
+        return nil, "pending", "pending"
+      end
+      PS.cur, PS.cs = nil, nil
+      PS.done[name] = { el = el, n = n, used = used }
+    end
     expanded = expanded + used
     return el, n, state
   end
@@ -461,19 +503,21 @@ function Tv.route(s, t, t_dir, bounds, cost, ctx)
     -- lot RESEAU-GRAPHE : recherche PAR TRANCHES (tronc de bus) : une seule recherche reprenable, avec les souterrains s'il y en a ; pas de phase A
     base, why, pending_state = run(0, nil, true)
     if not base and why == "pending" then
-      Tv.STATS.expanded = Tv.STATS.expanded + expanded
+      stat_expanded()
       return nil, "pending", pending_state
     end
   else
-    base, why = run(0, nil, false)
+    base, why = run(0, nil, false, "A")
+    if PS and why == "pending" then stat_expanded(); return nil, "pending", PS end
     if ctx2.maxd and ctx2.maxd >= 2 and (not base or phys(base) > manh + Tv.NEAR_DETOUR) then
-      local b2, why2 = run(0, nil, true)
+      local b2, why2 = run(0, nil, true, "B")
+      if PS and why2 == "pending" then stat_expanded(); return nil, "pending", PS end
       if b2 then base, why = b2, nil elseif not base then why = why2 end
     end
   end
   if not base then
     Tv.STATS.refused = Tv.STATS.refused + 1
-    Tv.STATS.expanded = Tv.STATS.expanded + expanded
+    stat_expanded()
     return nil, why
   end
   local base_ore = measure(base, ctx.ore)
@@ -482,7 +526,8 @@ function Tv.route(s, t, t_dir, bounds, cost, ctx)
   if ctx.ore and base_ore > 0 and not ctx.no_detour then
     local limit = Tv.detour_limit(base_phys)
     for _, pen in ipairs(Tv.ORE_STEPS) do
-      local el = run(pen, limit, false)
+      local el, why3 = run(pen, limit, false, "O" .. pen)
+      if PS and why3 == "pending" then stat_expanded(); return nil, "pending", PS end
       if el and phys(el) <= limit then
         local on = measure(el, ctx.ore)
         if on < best_ore or (on == best_ore and phys(el) < phys(best)) then best, best_pen, best_ore = el, pen, on end
@@ -494,7 +539,7 @@ function Tv.route(s, t, t_dir, bounds, cost, ctx)
     end
     if best_ore > 0 then Tv.STATS.ore_crossed = Tv.STATS.ore_crossed + 1 end
   end
-  Tv.STATS.expanded = Tv.STATS.expanded + expanded
+  stat_expanded()
   -- traversée en ligne droite du gisement restant, par paires de portée maximale
   if ctx2.maxd and ctx2.maxd >= 2 and ctx.ore and best_ore > 0 then
     local c = compress(best, ctx2)

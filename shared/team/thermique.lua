@@ -31,7 +31,7 @@
   M.verdict(ok, critical, age, cfg)     -> "retirer" | "attendre" | "annuler"  (au moment du retrait d'une bande)
   M.financed(fl, ctx, cfg)              -> vrai/faux, raison  (courant + fer)
   M.order(cands)                        -> liste triée (voulus, puis les plus productifs)
-  M.free_slot(res, busy, cfg)           -> vrai/faux, raison
+  M.free_slot(res, busy, cfg)           -> vrai/faux, raison ; M.band_stuck(état, raison, âge, cfg) -> vrai/faux (bande bloquée par ses matières)
   M.shares(fields, order)               -> part électrique par minerai (journal et critères)
   Lot THERMIQUE5 : M.band_covers(état du projet), M.covering(état), M.pile_permits(action, retenue, porte), M.order_end(...), M.noop_counts(ids), M.stop_state(...),
   M.min_plates(brut, seuil) ; fl.fueled (paires avec combustible, facultatif) remplace fl.pairs dans M.supply.
@@ -43,6 +43,8 @@
 
 local M = {}
 
+M.FER_D_ABORD = true -- faux : la règle d'avant (banc témoin) ; lot FER-D-ABORD
+
 -- Réglages propres au lot (ni dans shared/team/config.lua, ni de nom d'objet).
 M.CFG = {
   cover_ratio = 1.0,      -- extraction électrique en marche / extraction thermique restante à partir de laquelle le gisement est couvert
@@ -52,12 +54,17 @@ M.CFG = {
   critical_wait = 20 * 3600, -- ticks : attente d'une coupe d'un minerai critique avant d'annuler la demande (la bande est redemandée plus tard)
   fund_ratio = 1.0,       -- fer libre / coût des foreuses de remplacement à partir duquel une bande est financée
   per_mineral = 1,        -- chantiers de bande simultanés au plus par minerai
+  key_per_mineral = 2,    -- plaque CLÉ (le fer) : chantiers de bande simultanés au plus quand TOUS ceux du minerai attendent leurs matières (9/11, directive du lead :
+                          -- partie 314159265 / geants, une bande de fer bloquée par ses matières gardait le créneau « un par minerai » pendant des dizaines de minutes)
+  stuck_wait = 5 * 3600,  -- ticks : une bande en réserve (matières) depuis plus que cela est « bloquée » : elle ne retient plus le créneau de la plaque clé seule
   slots = 2,              -- chantiers de bande simultanés au plus, tous minerais (3 : le fer manquait aux bandes, mesuré 150 min : 25 à 50 % des plaques du témoin)
   sweep_max = 1,          -- gisements balayés au plus par pensée (le retrait est immédiat : un gisement à la fois suffit)
   every = 600,            -- ticks entre deux balayages (une pensée d'équipe de la migration)
   raw_stock_max = 3000,   -- lot THERMIQUE2 (essai 3, décision du lead) : stock libre d'un minerai BRUT au-delà duquel plus aucun brûleur n'est posé
   cover_by_output = true, -- lot THERMIQUE6 (essai 3) : couverture lue à la production de la bande (bloquée qui a produit, sortie pleine si elle produit)
   dry_wait = 10 * 3600,   -- lot THERMIQUE6, règle B : ticks à sec avant qu'un brûleur d'un gisement à bande finie soit retiré seul
+  iron_hold_max = 20 * 3600, -- lot FER-D-ABORD : ticks de retenue des bandes brutes au plus, depuis le premier refus « plaques » d'une bande de fer (jamais une impasse)
+  iron_hold_gap = 10 * 3600, -- lot FER-D-ABORD : ticks sans refus « plaques » après lesquels l'horloge de retenue repart de zéro
 }
 
 local EPS = 1e-9
@@ -300,11 +307,68 @@ function M.order(cands)
   return out
 end
 
---- Reste-t-il un créneau pour un chantier de ce minerai ? busy = { total, [res] = n } (chantiers de bande en cours). Rend (vrai/faux, raison).
+-- Lot FER-D-ABORD (9/11, graine 123456789, votre équipe ; fo-logs/2026-11-09_COLLECTE-CHAMP/off-123456789) : la bande de FER (tier 0, plaques) est refusée
+-- « plaques » (stock libre sous min_plates) pendant toute la partie, mais les bandes de charbon et de pierre (tier 1, sans garde de plaques : Th.min_plates)
+-- partent et dépensent le fer qu'elle attend : 10 foreuses de fer sur 1 935 tuiles à 60 et 100 min, 91 + 80 + 102 foreuses de charbon et de pierre planifiées.
+-- Règle : tant qu'un gisement qui fournit les matières des bandes (tier 0) attend les plaques, un gisement brut (tier 1) que la capitalisation n'a pas voulu
+-- n'ouvre pas de bande neuve ; le fer d'abord. Pure : aucun nom d'objet.
+function M.iron_waits(tier, why)
+  return (tier or 0) == 0 and why == "plaques"
+end
+
+--- Horloge de la retenue (bornée, ticks) : since = début de l'attente du fer, last = dernier refus « plaques » vu. waiting : une bande de plaques
+--- attend le fer à cette pensée. Rend (since, last) : l'attente continue si un refus a été vu il y a moins de cfg.iron_hold_gap ticks, sinon elle
+--- repart de zéro (since = last = nil sans attente).
+function M.iron_clock(since, last, waiting, tick, cfg)
+  cfg = cfg_of(cfg)
+  local live = since ~= nil and last ~= nil and tick - last <= cfg.iron_hold_gap
+  if waiting then
+    if live then return since, tick end
+    return tick, tick
+  end
+  if live then return since, last end
+  return nil, nil
+end
+
+--- Le combustible manque-t-il (mesuré) ? stock libre du minerai critique et son plancher (ore/s brûlés par les générateurs) : le stock doit pouvoir
+--- ponter cfg.horizon secondes de consommation (même seuil que M.cut_ok). Sans consommation lue : pas de manque mesuré.
+function M.fuel_short(stock, floor, cfg)
+  cfg = cfg_of(cfg)
+  if (floor or 0) <= EPS then return false end
+  return (stock or 0) + EPS < floor * cfg.horizon
+end
+
+--- Un gisement de ce rang attend-il le fer (un gisement tier 0 attend déjà les plaques) ? Rend (retenu, raison).
+--- c = { tier, wanted (voulu par la capitalisation : jamais retenu), iron_waiting, fuel (ce minerai est le combustible), fuel_short (mesuré),
+--- since (début de l'attente), now }. Raisons : "retenue", "expire" (retenue levée après cfg.iron_hold_max ticks sans départ de la bande de fer),
+--- "combustible" (le combustible manque : sa bande n'est pas retenue), "libre".
+function M.raw_holds(c, cfg)
+  cfg = cfg_of(cfg)
+  if c.iron_waiting ~= true or (c.tier or 0) ~= 1 or c.wanted then return false, "libre" end
+  if c.fuel and c.fuel_short then return false, "combustible" end
+  if c.since ~= nil and (c.now or 0) - c.since >= cfg.iron_hold_max then return false, "expire" end
+  return true, "retenue"
+end
+
+
+--- Une bande est-elle « bloquée par ses matières » ? Réserve (pas encore au chantier), autre raison que la porte « degel » (qui attend le retrait des paires,
+--- matières déjà réunies), depuis plus de cfg.stuck_wait ticks. `state` : état du projet du plan, `reason` : sa raison, `age` : ticks depuis la demande.
+function M.band_stuck(state, reason, age, cfg)
+  cfg = cfg_of(cfg)
+  return state == "reserve" and reason ~= "degel" and (age or 0) > cfg.stuck_wait
+end
+
+--- Reste-t-il un créneau pour un chantier de ce minerai ? busy = { total, [res] = n, key = minerai de la plaque clé, stuck = { [res] = chantiers bloqués
+--- par leurs matières } } (chantiers de bande en cours). Rend (vrai/faux, raison). La plaque clé a un 2e chantier quand tous les siens sont bloqués.
 function M.free_slot(res, busy, cfg)
   cfg = cfg_of(cfg)
   if (busy.total or 0) >= cfg.slots then return false, "creneaux" end
-  if (busy[res] or 0) >= cfg.per_mineral then return false, "minerai-occupe" end
+  if (busy[res] or 0) >= cfg.per_mineral then
+    if busy.key ~= nil and busy.key == res and (busy[res] or 0) < cfg.key_per_mineral and ((busy.stuck and busy.stuck[res]) or 0) >= (busy[res] or 0) then
+      return true, "libre-cle"
+    end
+    return false, "minerai-occupe"
+  end
   return true, "libre"
 end
 

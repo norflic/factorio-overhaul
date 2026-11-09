@@ -196,6 +196,14 @@ local function run_all()
   -- Seuil réglé à 0 % : les PNJ du moteur simulé, réels de nouveau, sont « assez » sans tâche (la règle de seuil est testée dans survie_test.lua).
   local keep_pct = Sv.IDLE_PCT
   Sv.IDLE_PCT = 0
+  -- Lot SURVIE-BISECT : les fours de réserve du coffre sont POSÉS par le banc, et non plus supposés de la trajectoire du moteur simulé.
+  -- Le coffre naît avec 8 fours, mais la partie les consomme avant l'entrée (les 5 premiers servent aux fonderies) ; il y en avait 3 de
+  -- plus à l'entrée tant que la trajectoire était celle d'avant MINAGE-MAIN (fabriqués sur la pierre minée à la main, 25da1a75), et 0
+  -- depuis : la tâche « smelters » (Sv.smelters : n fours ET leur charbon au coffre) n'était plus demandée et la section 4 lisait 0
+  -- tâche de survie. Le mode ne se trompait pas : sans four de réserve, sans avant-poste à agrandir et avec des minages déjà au tableau,
+  -- il n'y a rien à demander. La règle est prouvée dans survie_test.lua ; ici la chaîne pensée -> tableau l'est avec des fours posés.
+  chest.insert({ name = "stone-furnace", count = 4 })
+  chest.insert({ name = "coal", count = 60 })
   M.run_ticks(900)
   check(s2.on, "paralysie (refus + seuil de PNJ sans tâche levé) et manque durable : le mode s'allume")
   Sv.IDLE_PCT = keep_pct
@@ -219,6 +227,9 @@ local function run_all()
   for _, t in ipairs(Board.get(f).list) do if t.survie then survie_tasks = survie_tasks + 1 end end
   check(survie_tasks >= 1 or s2.mines + s2.smelters + s2.extends >= 1,
     "tâches de survie au tableau ou déjà posées (" .. survie_tasks .. " au tableau, " .. s2.mines .. " minages, " .. s2.smelters .. " fours, " .. s2.extends .. " agrandissements)")
+  -- Lot SURVIE-BISECT : la chaîne pensée -> tâche -> tableau est jugée sur les fours de réserve posés plus haut (3 demandés au moins) ;
+  -- un maillon coupé (Sv.smelters, Board.add, Src.think qui retire la tâche) donne 0 ici, et non plus un « 0 » pris pour un état sans travail.
+  check(s2.smelters >= 1, "les fours de réserve posés au coffre sont demandés par le mode (" .. s2.smelters .. " four(s) demandé(s) au bilan du séjour)")
   for _, t in ipairs(Board.get(f).list) do
     if t.survie and t.kind == "mine" then
       check(t.danger_radius == Sv.MINE_DANGER_RADIUS and t.prudent == true and t.prio == Sv.PRIO, "minage de survie : rayon de danger, prudent, priorité " .. Sv.PRIO)

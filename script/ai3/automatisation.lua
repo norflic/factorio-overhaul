@@ -29,10 +29,12 @@ local Build = require("script.team.build")
 local Sweep = require("shared.team.rebuild_sweep") -- lot REBUILD-SUIVI : règles pures du suivi d'un projet rouvert
 local Harvest = require("script.team.harvest") -- lot KIT : matières naturelles récoltables à portée
 local Profiler = require("script.core.profiler")
+local LigneBande = require("script.team.ligne_bande") -- lot RACCORD-BANDE 2 : les poteaux manquants d'une ligne de bande sont des buts du cerveau
 local MigChamp = require("script.team.migration_champ") -- lot MIGRATION-DECLENCHE : la ligne neuve d'une migration de champ est un projet du cerveau
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (agrandissement des lignes)
 local Pi = require("shared.ai3.pile") -- lot FUITES-PILE : famille d'un module (reconstruction, neuf, agrandissement)
 local Rsv = require("script.ai3.reserve") -- lot C2 : réglage maître (fo-war-industrie), puits ouvert
+local MallRt = require("script.team.mall_rangee") -- lot MALL (tranche 2) : les sections de rangée du mall, projets du cerveau (manques, quais)
 local Inter = require("script.team.intermediaires") -- lot MAIN-ET-INTERMEDIAIRES (D10) : module au plafond de son produit, plus nourri
 
 local Auto = {}
@@ -151,6 +153,12 @@ function Auto.on_done(f, task, ok, tick)
     add(b.load, task.item, dt)
     add(b.made, task.item, task.count or 0) -- débit d'un objet fabriqué : à la main (ici) + modules (mesurés, roll)
     st.hand[task.item] = (st.hand[task.item] or 0) + (task.count or 0)
+    -- lot POSE-PAR-LOTS : les autres pièces d'un kit (la première est task.item)
+    for i = 2, #(task.kit or {}) do
+      local w = task.kit[i]
+      add(b.made, w[1], w[2] or 0)
+      st.hand[w[1]] = (st.hand[w[1]] or 0) + (w[2] or 0)
+    end
     -- Objets fabriqués à la main, intermédiaires compris (étapes de la tâche : recette × fabrications × produits) : la
     -- part « à la main » se compare aux produits des assembleurs, intermédiaires compris (statistiques de la force).
     st.hand_all = st.hand_all or {}
@@ -175,7 +183,9 @@ local function measure_module(f, m)
   local surface = f.hq and f.hq.valid and f.hq.surface
   local s = surface and f.build and Build.brief(f, m.id)
   if not s then return 0 end
-  local made = 0
+  -- Fabrications par MACHINE (numéro d'unité) : une machine remplacée (amélioration de niveau : l'entité neuve repart à 0) ne se
+  -- soustrait pas à sa devancière. Moteur réel, banc acier-bloc : four remplacé, minute lue 3/min pour 7,5/min produits.
+  local made, cur, ids = 0, {}, {}
   for _, pt in ipairs(s.parts or {}) do
     local area = { { pt.x, pt.y }, { pt.x + pt.w, pt.y + pt.h } }
     for _, e in ipairs(surface.find_entities_filtered({ area = area, force = f.force, type = { "furnace", "assembling-machine" } })) do
@@ -184,11 +194,27 @@ local function measure_module(f, m)
         local r = e.get_recipe and e.get_recipe() or nil
         ok = r ~= nil and r.name == m.product
       end
-      if ok then made = made + (e.products_finished or 0) end
+      if ok then
+        local n = e.products_finished or 0
+        made = made + n
+        if e.unit_number then cur[e.unit_number] = n; ids[#ids + 1] = e.unit_number end
+      end
     end
   end
-  local rate = m.made_prev and math.max(0, made - m.made_prev) or 0
-  m.made_prev = made
+  local rate = 0
+  if m.made_prev then
+    local before = m.made_by
+    if before then
+      -- machine déjà lue : son écart ; machine neuve (remplaçante) : tout son compteur (plancher de la minute)
+      for _, u in ipairs(ids) do
+        local n, b = cur[u], before[u]
+        rate = rate + ((b and n >= b) and (n - b) or n)
+      end
+    else
+      rate = made >= m.made_prev and (made - m.made_prev) or made -- (suivi d'avant ce correctif, chargé d'une partie)
+    end
+  end
+  m.made_prev, m.made_by = made, cur
   return rate
 end
 
@@ -457,7 +483,7 @@ local function submit(f, st, tick, rq, research)
     note(f, st, tick, "centrale demandee (projet " .. tostring(st.plant_id) .. ") avant le premier module electrique")
   end
   local spec = { gen = rq.gen, args = rq.args, feed = rq.feed, prio = prio, domain = "production", near = rq.near,
-    pole = rq.pole,
+    pole = rq.pole, arms = rq.arms,
     -- lot FUITES-PILE (fuite b) : famille de la pile et produit du module NEUF (réserve au coffre suspendue pendant une retenue,
     -- script/team/build.lua advance) ; un module rouvert pour reconstruction n'est jamais suspendu (Sweep.rebuilding)
     pile = rq.capi and "capi" or "capital", product = rq.product,
@@ -489,7 +515,7 @@ local function submit(f, st, tick, rq, research)
         for i, a in ipairs(rq.args) do o[i] = type(a) == "table" and ("recette " .. tostring(a.name)) or tostring(a) end
         return o
       end)(), ","),
-      rq.rate or 0, rq.rate_nom or 0, tostring(rq.why)))
+      rq.rate or 0, rq.rate_nom or 0, tostring(rq.why) .. (rq.arms and (" ; bras obtenables : " .. table.concat(rq.arms, "+") .. " (cadence bridee, nominal ci-dessus)") or "")))
     return id
   end
   note(f, st, tick, string.format("module '%s' : demande impossible (%s)", rq.product, tostring(why)))
@@ -565,6 +591,7 @@ function Auto.think(f, view, book, tick, research)
       demande = Rsv.on() and not (f.team.capi and f.team.capi.demande_off), wanted = (f.team.ia3 and f.team.ia3.puits and f.team.ia3.puits.flow) or nil,
       -- lot PLANDIR : poteau des gabarits = le moins cher dont la recette est débloquée (jamais un nom écrit ici)
       pole = A.choose_pole(book, stock, Harvest.reachable(f)), -- lot KIT : le bois à portée compte
+      arms = A.choose_arms(book, stock), -- lot RECHERCHE-BRAS : bras obtenables (nil : tous)
       has_plant = st.plant_id ~= nil and st.plant_state ~= "refuse",
       no_power = st.plant_refused and st.plant_refused.reason or nil,
       -- objets du dépliage du cerveau général (IA-G : étapes hand, produce, extract de la dernière décision)
@@ -647,8 +674,19 @@ function Auto.think(f, view, book, tick, research)
         pile = (not ps.rebuilding and not (i == 1 and PileRt.migration_building(f))) and fam or nil }
     end
   end
+  -- Lot RACCORD-BANDE 2 (partie neuve 0.6.72 : « reserve:materiaux », 0 entite batie sur 32, poteaux a 0 au stock) : la LIGNE de poteaux d'une bande lointaine est un
+  -- projet du cerveau comme la ligne de la migration : ses poteaux manquants deviennent des buts « auto:ligne-bande » (fabriquer). La couverture passe toujours
+  -- la pile (decision du DC du 8/11) : famille « couverture ».
+  for i, lp in ipairs(LigneBande.projects(f)) do
+    local ps = Build.brief(f, lp.pid)
+    if ps and ps.state ~= "fini" and ps.state ~= "refuse" then
+      mods[#mods + 1] = { product = (i == 1) and "ligne-bande" or ("ligne-bande-" .. i), state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = 0,
+        pile = "couverture", line = true }
+    end
+  end
   local feeds = {}
   local stock = view.stock or {}
+  MallRt.contexte(f, mods, feeds, stock, book, Auto.FEED_STOCK) -- lot MALL : manques des sections en chantier, objets des quais de tête
   for _, m in ipairs(st.mods) do
     -- Lot CAPIB : un module demandé par la capitalisation est un projet « capi » du cerveau (but de fond), pas « auto ».
     -- Lot INTEG-RECONSTRUCTION (D1) : sauf rouvert par le relevé de reconstruction : l'ordre CAPI est alors fermé depuis longtemps
