@@ -18,7 +18,13 @@
 -- Lot PARITE : AUTO vrai = aucun coffre posé par le banc ; le coffre d'équipe est posé d'office par le lancement automatique de la guerre
 -- (votre équipe naît comme une faction : coffre vide, 4 tourelles de QG), scenarios/dc-evolution-parite.lua. AUTO = "vide" : le banc pose le
 -- coffre à t = 0 comme le DC (fabriqué puis posé) mais NE LE GARNIT PAS (témoin de la main, scenarios/dc-evolution-vide.lua).
-return function(WORKERS, AUTO)
+-- Lot DEFAUTS-DC (9/11, QCM du DC de 12 h 10 : il joue en NORMAL, guerre cochee, coffre garni d'office) : par defaut la partie est celle
+-- du DC aux reglages livres : difficulte NORMAL (DIFF, "easy" pour un temoin), coffre d'equipe pose ET garni par le MOD (AUTO nil = true :
+-- PlayerTeam.found_default, shared/team/depart_coffre.lua). AUTO = "banc" : l'ancien montage (le banc pose et garnit le coffre a t = 0,
+-- temoin) ; AUTO = "vide" : coffre pose par le banc, vide (temoin de la main).
+return function(WORKERS, AUTO, DIFF)
+if AUTO == nil then AUTO = true end
+DIFF = DIFF or "normal"
 local CHECK = 214000
 local RUN_MAX = 5     -- minutes de suite sous l'effectif de départ, fer au coffre : au-delà, l'équipe ne se reconstruit pas
 local IRON_MIN = 100  -- plaques de fer au coffre (une recrue coûte environ 60 plaques équipée au QG)
@@ -55,22 +61,28 @@ end
 return {
   iron_tranche = iron_tranche, -- (lot FER-MARQUE : exposée pour tests/fer_marque_test.lua ; le banc ne lit pas ce champ)
   IRON_TRANCHE = IRON_TRANCHE,
-  description = "VERIF-NUIT : partie du guide (reglages de carte, lancement automatique, Facile, coffre d'equipe)",
+  autostart_defaut = true, -- lot DEFAUTS-DC : le banc (control.lua) ne coupe PAS le lancement automatique de la guerre pour cette partie : elle le LIT
+  description = "VERIF-NUIT : partie du guide aux reglages livres (lancement automatique, Normal, coffre d'equipe garni par le mod)",
   base = nil,
   check_tick = CHECK,
 
   init = function(ctx)
+    -- DEFAUTS-DC : « lancer la guerre au debut » et la difficulte NORMAL ne sont PLUS ecrits : le banc les LIT (ce sont les defauts du mod,
+    -- ceux du DC) ; il n'ecrit que ce qui s'ecarte du defaut (ouvriers du guide, difficulte d'un temoin).
     local set = {
       ctx.remote("factorio-overhaul", "war_setting", "fo-war-factions", 2),
       ctx.remote("factorio-overhaul", "war_setting", "fo-war-soldiers", 30),
       ctx.remote("factorio-overhaul", "war_setting", "fo-war-workers", WORKERS),
-      ctx.remote("factorio-overhaul", "war_setting", "fo-war-autostart", true),
+      settings.global["fo-war-autostart"].value,
     }
-    ctx.check(set[1] == 2 and set[2] == 30 and set[3] == WORKERS and set[4] == true, "reglages de carte du guide ecrits",
+    ctx.check(set[1] == 2 and set[2] == 30 and set[3] == WORKERS and set[4] == true,
+      "reglages de carte du guide (lancement automatique = DEFAUT du mod, lu et non ecrit)",
       table.concat({ tostring(set[1]), tostring(set[2]), tostring(set[3]), tostring(set[4]) }, ", "))
-    local ok = ctx.remote("fo-pvp", "set_difficulty", "easy")
-    ctx.check(ok == true and settings.global["fo-pvp-difficulty"].value == "easy",
-      "difficulte Facile ecrite dans le reglage de partie", tostring(settings.global["fo-pvp-difficulty"].value))
+    local ok = true
+    if settings.global["fo-pvp-difficulty"].value ~= DIFF then ok = ctx.remote("fo-pvp", "set_difficulty", DIFF) end
+    ctx.check(ok == true and settings.global["fo-pvp-difficulty"].value == DIFF,
+      "difficulte " .. DIFF .. (DIFF == "normal" and " (defaut du mod, lue)" or " ecrite dans le reglage de partie"),
+      tostring(settings.global["fo-pvp-difficulty"].value))
     ctx.call("profiler", true)
     local s = ctx.surface()
     local c = game.forces.player.get_spawn_position(s)
@@ -102,7 +114,7 @@ return {
     if AUTO and not (st.chest and st.chest.valid) then st.chest = s.find_entities_filtered({ name = "fo-team-chest", force = "player", limit = 1 })[1] end
     local pvp = ctx.remote("fo-pvp", "status")
     st.polls = (st.polls or 0) + 1
-    if pvp.difficulty == "easy" then st.easy = (st.easy or 0) + 1 end
+    if pvp.difficulty == DIFF then st.easy = (st.easy or 0) + 1 end
     st.max_soldiers, st.max_workers = st.max_soldiers or 0, st.max_workers or 0
     local parts = {}
     for _, f in ipairs(pvp.factions) do
@@ -197,7 +209,7 @@ return {
     ctx.check((st.max_soldiers or 0) <= 30 and (st.max_soldiers or 0) > 0, "soldats par faction : 1 a 30", st.max_soldiers)
     ctx.check((st.max_workers or 0) <= WORKERS and (st.max_workers or 0) > 0, "ouvriers par faction : 1 a " .. WORKERS,
       st.max_workers)
-    ctx.check(st.polls and st.easy == st.polls, "difficulte Facile a chaque releve",
+    ctx.check(st.polls and st.easy == st.polls, "difficulte " .. DIFF .. " a chaque releve",
       tostring(st.easy) .. "/" .. tostring(st.polls))
     ctx.check(not st.early, "aucune attaque contre le joueur avant la fin de la grace")
     local line = ctx.call("team_status")

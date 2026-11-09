@@ -30,6 +30,14 @@ E.CFG = {
   -- et 30 min faute de poteaux (6 tout le long), thermiques 28 -> 0, reconstruction « build:copper » refusée à 15,5 min) :
   poles_min = 12,    -- poteaux au stock qui rendent l'électrique MATÉRIELLEMENT possible sans électrique qui tourne (gabarit de fonderie : 12 petits)
   revert = 3 * 3600, -- ticks après la bascule sans aucune électrique qui tourne : retour au thermique
+  -- Lot DEFENSE-AP (carte à 600 %, fo-logs/2026-11-09_INTEG-MAX/base-g1618033988-47f3d637) : à 48-50 min, 28 pièces d'avant-poste de fer détruites ;
+  -- les foreuses de fer tombent de 19 à 4 (93 min), le fer à 0 dès 60 min, et [FO-ZERO-IDLE] écrit jusqu'au bout « iron = palier:électrique :
+  -- thermique refusée » (37 puis 32 électriques tournent ailleurs, 5 sur le fer) alors qu'AUCUNE extension électrique du fer n'avance : impasse.
+  collapse_pct = 50, -- % du pic récent sous lequel l'extraction d'une ressource est EFFONDRÉE
+  recover_pct = 80,  -- % du pic récent à regagner pour que la thermique soit de nouveau refusée (hystérésis)
+  stall = 5 * 3600,  -- ticks sans qu'une foreuse de plus travaille sur la ressource : aucune extension n'avance
+  peak_min = 6,      -- foreuses : un pic plus petit n'est pas un effondrement (3 cuivre à 9,8 min : bruit de mise en place, mesuré)
+  peak_keep = 30 * 3600, -- ticks pendant lesquels un pic de foreuses actives reste « récent »
 }
 
 local EPS = 1e-9
@@ -49,6 +57,20 @@ end
 --- seule la règle globale) }. L'électrique doit être MATÉRIELLEMENT là : une électrique qui tourne, ou des poteaux au stock pour un gabarit
 --- (cfg.poles_min) ; 0 électrique cfg.revert ticks après la bascule : retour au thermique ; une ressource sur laquelle AUCUNE électrique ne
 --- tourne garde sa thermique (agrandir, bâtir, reconstruire : jamais affamée). Rend (permise, raison).
+--- Lot DEFENSE-AP : l'extraction d'une ressource est-elle EFFONDRÉE ET À L'ARRÊT ? a = { active (foreuses qui travaillent sur la ressource,
+--- thermiques et électriques), peak (pic récent, cfg.peak_keep), stalled (ticks sans foreuse de plus), was (vrai : déjà effondrée à la pensée
+--- d'avant, hystérésis) }. Effondrée : active < collapse_pct % du pic (entrée), ou encore < recover_pct % du pic si `was` (sortie). Entrée :
+--- « à l'arrêt », stalled >= cfg.stall ; une fois entrée, la thermique reste permise jusqu'au retour à recover_pct. Rend (vrai si le refus du thermique ne tient plus, effondrée). Un pic nul ou inconnu : jamais.
+function E.collapsed(a, cfg)
+  cfg = cfg_of(cfg)
+  a = a or {}
+  local peak, active = num(a.peak) or 0, num(a.active) or 0
+  if peak <= 0 or peak < cfg.peak_min then return false, false end
+  local limit = a.was and cfg.recover_pct or cfg.collapse_pct
+  local down = active * 100 < peak * limit
+  return down and (a.was == true or (num(a.stalled) or 0) >= cfg.stall), down
+end
+
 function E.thermal(s, cfg)
   cfg = cfg_of(cfg)
   s = s or {}
@@ -66,6 +88,10 @@ function E.thermal(s, cfg)
   if s.fuel and s.healthy == false then return true, "combustible de la centrale a l'arret : thermique permise" end
   if s.res_live ~= nil and (num(s.res_live) or 0) <= 0 then
     return true, "aucune foreuse electrique ne tourne sur cette ressource : thermique permise (agrandir, batir, reconstruire)"
+  end
+  if s.res_peak ~= nil and (E.collapsed({ active = s.res_active, peak = s.res_peak, stalled = s.res_stalled, was = s.res_was }, cfg)) then
+    return true, string.format("extraction effondree (%d foreuse(s) actives pour un pic recent de %d) et aucune extension ne progresse : thermique permise jusqu'au retour du debit",
+      floor(num(s.res_active) or 0), floor(num(s.res_peak) or 0))
   end
   return false, string.format("electrique possible (%d centrale(s) finie(s), %d electrique(s) qui tournent) : thermique refusee",
     floor(num(s.plants) or 0), floor(live))

@@ -330,6 +330,39 @@ do
   print(string.format("[MALL-RANGEE] mutants refusés : %d/%d", killed, #mutants))
 end
 
+-- §4c tuiles libres de la réserve : aucune pièce d'une rangée n'y tombe, aux 4 orientations ; aller-retour du repère
+do
+  local floor = math.floor
+  check(Mr.reserve_libre(10, 14, 6, 0) and Mr.reserve_libre(10, 29, 6, 0), "§4c passage entre deux rangées : libre")
+  check(not Mr.reserve_libre(3, 14, 6, 0), "§4c tuile du poteau relais : réservée")
+  check(not Mr.reserve_libre(10, 13, 6, 0) and not Mr.reserve_libre(10, 0, 6, 0), "§4c rangée : réservée")
+  check(Mr.reserve_libre(-20, 5, 16, 3) and Mr.reserve_libre(5, -2, 16, 3) and Mr.reserve_libre(5, -4, 16, 3), "§4c hors de la place du tronc : libre")
+  check(not Mr.reserve_libre(-5, -2, 16, 3) and not Mr.reserve_libre(-5, 14, 16, 3), "§4c place du tronc : réservée")
+  check(Mr.reserve_libre(-5, -2, 6, 0), "§4c sans tronc, la bande nord n'est que la marge")
+  for _, s in ipairs(SECTORS) do
+    local ox, oy = Mr.origin(s)
+    local k = Mr.frame(s.dir)
+    local rx, ry = Mr.from_world(select(1, Mr.to_world(7.5, 22.5, 0, k, ox, oy, 1)), select(2, Mr.to_world(7.5, 22.5, 0, k, ox, oy, 1)), k, ox, oy)
+    check(rx == 7.5 and ry == 22.5, "§4c aller-retour du repère, dir " .. s.dir)
+    for _, j in ipairs({ 1, 3 }) do
+      for _, voies in ipairs({ { "fer", "cuivre", "gear", "circ" }, { "fer" } }) do
+        local row = row_of(voies, 3)
+        row.j = j
+        local rep = { ox = ox, oy = oy, k = k }
+        local sec = Mr.section(P, modele(), row, 1, 3, NAMES, rep, true)
+        local bad = 0
+        for _, e in ipairs(sec.ents) do
+          for _, t in ipairs(P.tiles_of(e)) do
+            local cx, cy = Mr.from_world(t[1] + 0.5, t[2] + 0.5, k, ox, oy)
+            if Mr.reserve_libre(floor(cx), floor(cy), Mr.TETE, 0) then bad = bad + 1 end
+          end
+        end
+        check(bad == 0, string.format("§4c dir %d, rangée %d, %d voie(s) : aucune pièce sur une tuile dite libre (%d)", s.dir, j, #voies, bad))
+      end
+    end
+  end
+end
+
 -- §4b capacité : ce que Mr.capacite annonce tient dans le secteur, marge comprise, aux 4 orientations, avec et sans la place du tronc ; un de plus ne tient pas
 do
   local floor = math.floor
