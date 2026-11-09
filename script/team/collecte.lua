@@ -128,7 +128,7 @@ end
 --- Lot COLLECTE-CHAMP : un coffre de sortie du champ SOUS son seuil de collecte reçoit sa tâche quand il tient de quoi combler un manque mesuré
 --- (Co.low_due sur f.team.mq.res.net, résultat frais). Appelé par out_tasks (build.lua) ; au plus Co.LOW_MAX coffres par pensée. Lecture seule
 --- des coffres ; la sûreté du trajet est celle de toute tâche de collecte (porte du danger à la prise). Journal [FO-COLLECTE].
-Col.LOW_ON = true        -- faux : la règle d'avant (banc témoin)
+Col.LOW_ON = false       -- ETEINT par defaut : hypothese refutee (les coffres du champ de votre equipe tiennent 0 plaque de fer, pierre et charbon) et fer/min 187 -> 106 a 60/120 min (graine 123456789, fo-logs/2026-11-09_COLLECTE-CHAMP) ; vrai : la regle
 Col.LOW_LOGS = 12
 function Col.low_due(f, p, chest, tick)
   if not Col.LOW_ON or not (p.spec and p.spec.champ) then return false end
