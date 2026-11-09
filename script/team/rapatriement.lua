@@ -350,6 +350,13 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
     st.log_next = tick + Rp.LOG_EVERY
     say(f, tick, Rp.text("releve", { team = f.key, tick = tick, far = c.far, worth = worth, done = done, open = open, demandes = st.n.demandes,
       finis = st.n.finis, refuses = st.n.refuses, coupees = st.n.coupees }))
+    -- lot BUS-FER : le COMPTEUR du fer qui arrive vraiment (objets arrivés aux tampons par tapis, par minute depuis le relevé précédent)
+    local arrived = math.floor(b.stats.rapatrie or 0)
+    local dt = (tick - (st.bus_tick or tick)) / 3600
+    local rate = (st.bus_tick and dt > 0) and (arrived - (st.bus_last or 0)) / dt or 0
+    st.bus_tick, st.bus_last = tick, arrived
+    say(f, tick, string.format("[FO-BUSFER] %s : %d objet(s) arrives aux tampons par tapis en tout, %.0f/min depuis le releve precedent ; %d ligne(s) finie(s), %d sortie(s) lointaine(s) vue(s) a %.1f min",
+      f.key or "player", arrived, rate, done, c.far, tick / 3600))
     for _, k in ipairs(sorted_keys(st.lines)) do -- ce que les lignes finies ont fait depuis leur fin
       local l = st.lines[k]
       if l.done and l.owner then
