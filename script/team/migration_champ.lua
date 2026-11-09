@@ -1210,7 +1210,17 @@ local function step_build(f, surface, ms, o, st, tick)
       st.pg = Rb.progress(st.pg, nb, tick)
     end
     local ab = (act == "abandonner" or act == "perdu")
-    local dec, rwhy = Rb.decide({ undo = #st.undo, produced = false, state = p and p.state or nil, stalled = Rb.stalled(st.pg, tick), abandon = ab })
+    local nb_built, nb_total = 0, 0
+    for _, e in ipairs(p and p.ents or {}) do
+      nb_total = nb_total + 1
+      if e.built then nb_built = nb_built + 1 end
+    end
+    local dec, rwhy = Rb.decide({ undo = #st.undo, produced = false, state = p and p.state or nil, stalled = Rb.stalled(st.pg, tick), abandon = ab,
+      built = nb_built, total = nb_total }) -- (9/11 : une bande bâtie à 90 % ou plus est finie, pas reposée)
+    if rwhy == "presque-finie" then
+      say_why(f, ms, st, "presque-finie", string.format("avant-poste %d : projet %d bati a %d/%d, sans progres : on le finit (pas de retour en arriere)", o.id, st.pid,
+        nb_built, nb_total), true)
+    end
     if dec == "retour" then
       local res = rollback(f, surface, ms, o, st, p, tick, rwhy, ab)
       if res == "reserve" then return end
