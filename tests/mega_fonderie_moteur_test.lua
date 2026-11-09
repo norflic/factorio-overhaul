@@ -179,6 +179,27 @@ local function suite(Mega, src)
     want(nj == 2, "sans reseau : redemande apres 3 min (" .. nj .. ")")
     WANT.refuse = nil
   end
+  -- courant lu A L'INSTANT : la capitalisation dit « pas fini » (2e centrale demandee) mais le reseau est sain -> la decision tient et le champ reste voulu ;
+  -- panne reelle (ni centrale finie ni reseau sain) -> attente, le champ n'est plus ordonne
+  do
+    local g3 = { key = "rose", stock = {}, build = { sante = { healthy = true } } }
+    Mega.think(g3, { deps = { [11] = deps()[11] } }, 3600, { power = false })
+    local r = g3.mega and g3.mega.deps[11]
+    want(r and r.state == "decide", "reseau sain malgre plant_state non fini : decision (healthy = true)")
+    local w0 = #WANT.calls
+    Mega.think(g3, { deps = { [11] = deps()[11] } }, 7200, { power = false })
+    want(g3.mega.deps[11].state == "decide" and #WANT.calls > w0, "reseau sain : la decision tient et le champ reste voulu")
+    g3.build.sante.healthy = false
+    local w1 = #WANT.calls
+    Mega.think(g3, { deps = { [11] = deps()[11] } }, 10800, { power = false })
+    want(g3.mega.deps[11].state == "decide-attente" and #WANT.calls == w1, "panne reelle (reseau malsain, centrale non finie) : attente, champ non ordonne")
+    g3.build = nil
+    Mega.think(g3, { deps = { [11] = deps()[11] } }, 14400, { power = false })
+    want(g3.mega.deps[11].state == "decide-attente", "sans suivi de sante ni centrale finie : pas de courant")
+    local g4 = { key = "gris", stock = {}, build = { sante = { healthy = false } } }
+    Mega.think(g4, { deps = { [11] = deps()[11] } }, 3600, { power = true })
+    want(g4.mega.deps[11].state == "decide", "centrale finie (capitalisation) : courant meme si le suivi n'a pas encore relevee le reseau")
+  end
   -- sans courant : attente, jamais de décision
   local nc = { key = "scarlet", stock = {} }
   Mega.think(nc, { deps = deps() }, 3600, { power = false })
@@ -237,6 +258,9 @@ local MUTANTS = {
   { "refus jamais purges", 'if not cs.deps[id] and (rec.state', 'if false and (rec.state' },
   { "garde ecrite a chaque fois", '(action == "decider" or action == "garder") and "decide"', '(action == "decider") and "decide"' },
   { "attente redemandee a chaque pensee", "if rec.pose_next and tick < rec.pose_next then return rec.field end", "" },
+  { "sante ignoree", "return sv ~= nil and sv.healthy == true", "return false" },
+  { "sante toujours bonne", "return sv ~= nil and sv.healthy == true", "return sv ~= nil" },
+  { "capitalisation ignoree", "if ctx and ctx.power == true then return true end", "" },
   { "statiques relus", "if not (known and known.static) then", "if true then" },
   { "champ jamais ordonne", 'if rec and rec.state == "decide" then order_field(f, st, dep, rec, tick) end', "" },
   { "plafond ignore", "MigChamp.want(f, dep, tick, Mp.par_max(rec))", "MigChamp.want(f, dep, tick, 99)" },

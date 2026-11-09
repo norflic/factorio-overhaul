@@ -130,7 +130,7 @@ end
 
 -- Anti-échelle : aucun nom d'objet ni de bâtiment du jeu, aucun pairs
 do
-  local code = SRC:gsub("%-%-%[%[.-%]%]", "")
+  local code = SRC:gsub("%-%-%[%[.-%]%]", ""):gsub("%-%-[^\n]*", "")
   for _, bad in ipairs({ "gun%-turret", "iron%-plate", "firearm", "copper", "stone", "pairs%(", "game%.", "math%.random" }) do
     check(not code:find(bad), "anti-échelle : pas de « " .. bad .. " »")
   end
@@ -272,7 +272,7 @@ do
     f.mid, f.mid_why = w({ funds = 568 })
     f.poor, f.poor_why = w({ funds = 100 })
     f.small, f.small_why = w({ threat = 200 })
-    f.five, f.five_why = w({ threat = 2287 })
+    f.five, f.five_why = w({ threat = 1500 })
     f.below_min = w({ threat = 3000, min = 3500 })
     f.notv = w({ tv = 0 })
     f.nocap = w({ cap = 4 })
@@ -288,7 +288,7 @@ do
   check(H0.mid == 6 and H0.mid_why == "fer", "fer 568 : borné par le fer au-dessus de la réserve (2 tourelles de plus : 6)")
   check(H0.poor == 4 and H0.poor_why == "base" and H0.small == 4 and H0.small_why == "base", "fer insuffisant ou vague sous le seuil : la règle d'avant (4)")
   check(H0.below_min == 4, "vague sous le seuil de menace du lot : la règle d'avant")
-  check(H0.five == 5 and H0.five_why == "menace", "menace 2 287 PV : 5 tourelles (couvre 1,1 x la vague)")
+  check(H0.five == 6 and H0.five_why == "menace", "menace 1 500 PV : 6 tourelles (vise 2 x la vague)")
   check(H0.notv == 4 and H0.nocap == 4 and H0.nocost == 4 and H0.nothreat == 4 and H0.empty == 4 - 4, "entrées inconnues : la règle d'avant (tv 0, plafond atteint, coût inconnu, aucune vague)")
   check(H0.have_hi == 6 and H0.edge == 5, "déjà 6 posées avec 400 de fer : 6 ; 420 de fer et 4 posées : 5 (une de plus payée)")
   local gsrc = read_all("shared/team/garde_ap.lua")
@@ -297,7 +297,7 @@ do
     { "plafond ignoré", "if want > cap then want, why = cap, \"plafond\" end", "" },
     { "réserve oubliée", "math.max(0, num(a.funds) - num(a.reserve))", "num(a.funds)" },
     { "vague sous le seuil prise en compte", "or threat < num(a.min) or", "or" },
-    { "arrondi bas", "local need = math.ceil(threat * Ga.MARGE / 1000 / tv - 1e-9)", "local need = math.floor(threat * Ga.MARGE / 1000 / tv)" },
+    { "arrondi bas", "local need = math.ceil(threat * Ga.HQ_MARGE / 1000 / tv - 1e-9)", "local need = math.floor(threat * Ga.HQ_MARGE / 1000 / tv)" },
     { "tourelles déjà posées ignorées", "local payable = math.max(have, base) + pay", "local payable = base + pay" },
     { "coût nul = gratuit", "local pay = cost > 0 and math.floor(math.max(0, num(a.funds) - num(a.reserve)) / cost) or 0", "local pay = cost > 0 and math.floor(math.max(0, num(a.funds) - num(a.reserve)) / cost) or 99" },
   }
@@ -313,6 +313,117 @@ do
         end
       end
       check(dead, "mutant QG « " .. m[1] .. " » refusé")
+    end
+  end
+end
+
+-- 5 quater. Fonds de défense : le fer d'une tourelle d'avant-poste de fer sans défense est mis de côté (Ga.fund, planificateur, C.consumed)
+do
+  local T = require("shared.team.config")
+  local Book = require("shared.team.book")
+  local S = require("shared.team.scale")
+  local Planner = require("shared.team.planner")
+  local IRON, COPPER = T.outposts.iron.product, T.outposts.copper.product
+  local book = Book.new(dofile("tests/fixtures/recipes.lua"))
+  local function view(outposts, stock, over)
+    local v = {
+      tech = 0, personality = "balanced", done = { coal = true, iron = true, copper = true, stone = true, defense = true },
+      deferred = {}, stock = stock, incoming = {}, outposts = outposts, pending = {}, sites = { iron = 1 }, smelters = 2,
+      smelters_pending = 0, smelter_task = false, smelter_output = 0, smelter_fuel_low = false, smelter_coal = 0,
+      turret_groups = {}, soldiers = 0, soldiers_max = 0, workers = 8, workers_max = 30, workers_idle = 0,
+      threatened = false, open = {}, workers_wanted = 30, no_research = true, ladder = T.player_ladder,
+      hq_turrets = T.defend_hq, defend_first = true,
+    }
+    v.recruit_cost = S.recruit_cost(v.workers)
+    for k, x in pairs(over or {}) do v[k] = x end
+    return v
+  end
+  local function op(id, kind, drills, turrets)
+    return { id = id, kind = kind, drills = drills, full = false, turrets = turrets, coal_needed = 0, fuel_low = false, output = 0,
+      idle_ticks = 0, has_task = true, has_fortify = false }
+  end
+  local function stock_of(iron)
+    return { [IRON] = iron, [COPPER] = 1000, coal = 500, stone = 500, [T.turret_ammo] = 200,
+      ["burner-mining-drill"] = 20, ["stone-furnace"] = 20, ["iron-chest"] = 8 }
+  end
+  local function has_craft(plan)
+    for _, t in ipairs(plan.tasks) do if t.key == "craft:gun-turret:defense:1" then return 1 end end
+    return 0
+  end
+  local function fund_facts(Pl, GaX)
+    local f = {}
+    local zero = { op(1, "coal", 4, 1), op(2, "iron", 16, 0), op(3, "copper", 3, 1), op(4, "stone", 2, 1) }
+    local one = { op(1, "coal", 4, 1), op(2, "iron", 16, 1), op(3, "copper", 3, 1), op(4, "stone", 2, 1) }
+    local p20 = Pl.plan(view(zero, stock_of(20)), book)
+    f.hold20 = p20.defense_hold and p20.defense_hold[IRON] or 0
+    local p80 = Pl.plan(view(zero, stock_of(80)), book)
+    f.hold80 = p80.defense_hold and p80.defense_hold[IRON] or 0
+    local p1000 = Pl.plan(view(zero, stock_of(1000)), book)
+    f.hold_rich = p1000.defense_hold and p1000.defense_hold[IRON] or 0
+    f.craft_zero_200 = has_craft(Pl.plan(view(zero, stock_of(200)), book))
+    f.craft_one_200 = has_craft(Pl.plan(view(one, stock_of(200)), book))
+    local p1 = Pl.plan(view(one, stock_of(20)), book)
+    f.hold_one = p1.defense_hold and p1.defense_hold[IRON] or 0
+    local pf = Pl.plan(view(zero, stock_of(20), { survie = true }), book)
+    f.hold_survie = pf.defense_hold and pf.defense_hold[IRON] or 0
+    f.pure_on = GaX.fund({ critical = GaX.critical(true, 0, 3), avail = 50, cost = 120 })
+    f.pure_cap = GaX.fund({ critical = GaX.critical(true, 0, 3), avail = 500, cost = 120 })
+    f.pure_have = GaX.fund({ critical = GaX.critical(true, 1, 3), avail = 50, cost = 120 })
+    f.pure_notiron = GaX.fund({ critical = GaX.critical(false, 0, 3), avail = 50, cost = 120 })
+    f.pure_pf = GaX.fund({ critical = true, production_first = true, avail = 50, cost = 120 })
+    f.pure_nowant = GaX.fund({ critical = GaX.critical(true, 0, 0), avail = 50, cost = 120 })
+    return f
+  end
+  local U0 = fund_facts(Planner, Ga)
+  check(U0.hold20 == 20 and U0.hold80 == 80, "avant-poste de fer à 0 tourelle, fer 20 ou 80 : tout le fer libre est mis de côté (20, 80)")
+  check(U0.hold_rich == 0 and U0.craft_zero_200 == 1, "fer 1 000 : rien à mettre de côté ; fer 200 (plancher 150 baissé à 60) : la tourelle se fabrique")
+  check(U0.hold_one == 0 and U0.craft_one_200 == 0, "avant-poste de fer à 1 tourelle (3 voulues) : ni fonds ni plancher baissé (règle d'avant)")
+  check(U0.pure_on == 50 and U0.pure_cap == 120 and U0.pure_have == 0 and U0.pure_notiron == 0 and U0.pure_pf == 0 and U0.pure_nowant == 0,
+    "règle pure : min(fer libre, coût) pour un poste de fer sans tourelle ; rien s'il en a, hors fer, en production d'abord, sans tourelle voulue")
+  -- C.consumed lit le fonds
+  local C = require("shared.ai3.cerveau")
+  local used = C.consumed({ tasks = {}, defense_hold = { [IRON] = 30 } }, view({}, stock_of(100)))
+  check(used[IRON] == 30, "le cerveau compte le fonds comme consommé (fer 30 retiré aux projets)")
+  local pmut = {
+    { "fonds oublié", "if fund_hold > 0 then out.defense_hold", "if false then out.defense_hold" },
+    { "plancher non baissé", "if crit then fi_p, fc_p = math.min(fl_i, Sq.FLOOR_IRON), math.min(fl_c, Sq.FLOOR_COPPER) end", "" },
+    { "fonds pour tout avant-poste", "local crit = Ga.critical(p.iron, p.have, p.want)", "local crit = true" },
+  }
+  local psrc = read_all("shared/team/planner.lua")
+  for _, m in ipairs(pmut) do
+    local a, b = psrc:find(m[2], 1, true)
+    if not a then check(false, "mutant fonds « " .. m[1] .. " » : texte introuvable") else
+      local saved = package.loaded["shared.team.planner"]
+      package.loaded["shared.team.planner"] = nil
+      local okm, PlM = pcall(function() return assert(load(psrc:sub(1, a - 1) .. m[3] .. psrc:sub(b + 1), "@shared.team.planner"))() end)
+      package.loaded["shared.team.planner"] = saved
+      local dead = not okm
+      if okm then
+        local okf, FM = pcall(fund_facts, PlM, Ga)
+        dead = (not okf)
+        if okf then for k, v in pairs(U0) do if FM[k] ~= v then dead = true end end end
+      end
+      check(dead, "mutant fonds « " .. m[1] .. " » refusé")
+    end
+  end
+  local gm = {
+    { "fonds au-delà du coût", "return math.floor(math.min(num(a.avail), num(a.cost)))", "return math.floor(num(a.avail))" },
+    { "fonds en production d'abord", "if not a.critical or a.production_first then return 0 end", "if not a.critical then return 0 end" },
+    { "poste avec tourelle critique", "return Ga.FUND_ON and iron == true and num(have) <= 0 and num(want) > 0", "return Ga.FUND_ON and iron == true and num(want) > 0" },
+    { "poste hors fer critique", "return Ga.FUND_ON and iron == true and num(have) <= 0 and num(want) > 0", "return Ga.FUND_ON and num(have) <= 0 and num(want) > 0" },
+  }
+  local gsrc2 = read_all("shared/team/garde_ap.lua")
+  for _, m in ipairs(gm) do
+    local a, b = gsrc2:find(m[2], 1, true)
+    if not a then check(false, "mutant fonds pur « " .. m[1] .. " » : texte introuvable") else
+      local ok, GM = pcall(load_module, gsrc2:sub(1, a - 1) .. m[3] .. gsrc2:sub(b + 1))
+      local dead = not ok
+      if ok then
+        local okf, FM = pcall(fund_facts, Planner, GM)
+        dead = not okf
+        if okf then for k, v in pairs(U0) do if FM[k] ~= v then dead = true end end end
+      end
+      check(dead, "mutant fonds pur « " .. m[1] .. " » refusé")
     end
   end
 end
