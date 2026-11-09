@@ -19,6 +19,23 @@ local Sa = {}
 
 Sa.LIMIT = 3 -- refus avant de sauter (Build.FAIL_LIMIT)
 
+-- Lot VOIE-AVANT-FOURS (9/11, candidat 123456789 : bande de 46 fours finie à 51,9 min, son réseau du charbon lié (projet 9, 344 entités) à 71,8 min :
+-- une vingtaine de minutes de fours sans voie). Le projet lié est demandé à la priorité de sa bande ; ses tâches (fantômes, transports) passaient après
+-- celles d'autres projets. Règle : le réseau d'une bande vivante passe d'un rang devant les bandes sœurs, et de trois rangs quand sa bande est FINIE (ses
+-- fours attendent la voie). Plafond : jamais au niveau des tâches de garnison (priorité de tâche = priorité du projet + 30, Build.FINISH_BONUS).
+Sa.LINK_ON = true
+Sa.LINK_ALIVE = 1
+Sa.LINK_DONE = 3
+Sa.LINK_CAP = 55
+
+--- Priorité du projet lié d'une bande. base : priorité de la demande ; band_state : état de la bande dans le plan directeur (nil ou "refuse" : la
+--- bande n'existe plus, le projet lié va être annulé : base). Pure, aucun nom d'objet.
+function Sa.link_prio(base, band_state)
+  if not Sa.LINK_ON or band_state == nil or band_state == "refuse" then return base end
+  local bonus = (band_state == "fini") and Sa.LINK_DONE or Sa.LINK_ALIVE
+  return math.min(base + bonus, math.max(base, Sa.LINK_CAP))
+end
+
 function Sa.split(own, shared, max)
   local list = {}
   local total = own or 0

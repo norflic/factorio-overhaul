@@ -736,6 +736,7 @@ local function defer_projects(f, ms, o, st, bd, pr, id)
   for _, sd in ipairs(bd.defer or {}) do
     local cid = Build.request(f, { site = "champ", champ = { oid = o.id, pr = pr, frame = st.frame, coal = sd, link = id }, near = { x = o.pos.x, y = o.pos.y },
       prio = CFG.prio, domain = "production", lazy_clear = true })
+    -- (lot VOIE-AVANT-FOURS : la priorité effective est relue à chaque relevé par Champ.links_step, Sa.link_prio ; la demande garde celle de la bande)
     say(f, ms, string.format("%s %d (%s) : reseau du charbon cote %s reporte dans le projet lie %s (bande %d, projet %d)", o.field and "gisement" or "avant-poste",
       o.id, o.kind, sd > 0 and "+" or "-", tostring(cid), pr, id), true)
   end

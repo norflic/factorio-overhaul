@@ -969,6 +969,18 @@ function Champ.links_step(f, tick)
     end
   end
   if #items == 0 then return 0, 0 end
+  -- lot VOIE-AVANT-FOURS : le réseau d'une bande vivante passe devant les bandes sœurs, plus encore quand sa bande est finie (Sa.link_prio)
+  for _, it in ipairs(items) do
+    local q = b.projects[it.id]
+    if q and q.spec and (q.state == "attente" or q.state == "plan" or q.state == "reserve" or q.state == "fantomes" or q.state == "chantier") then
+      local np = Sa.link_prio(q.spec.prio or Build.PRIO, it.band_state)
+      if q.prio ~= np then
+        log(string.format("[FO-CHAMP] %s : projet lie %d (reseau du charbon, bande %d %s) : priorite %s -> %s a %.1f min", f.key or "player", it.id, it.band,
+          tostring(it.band_state), tostring(q.prio), tostring(np), tick / 3600))
+        q.prio = np
+      end
+    end
+  end
   local acts = Ln.decide(items)
   local nc, nr = 0, 0
   for _, id in ipairs(acts.cancel) do
