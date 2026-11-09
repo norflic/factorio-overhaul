@@ -323,6 +323,12 @@ end
 --- au plan, et facteurs de besoin des tâches d'extraction (b.need_mult) pour la place de marché.
 function Board.sync(f, planned, tick, plan, view, book)
   local b = Board.get(f)
+  -- DIAG-REPAR (instrument, lecture seule) : tâches « repair » libres retirées par cette synchronisation
+  do
+    local rp = f.team and f.team.rp_diag
+    if f.team and not rp then rp = {}; f.team.rp_diag = rp end
+    if rp then for _, t in pairs(b.tasks) do if (t.kind == "repair") and not t.worker then rp.dropped = (rp.dropped or 0) + 1 end end end
+  end
   local keep = {}
   -- Lot IA1-b : une tâche libre replanifiée garde sa date de naissance (`created`) : l'attente d'une tâche se compte
   -- d'une pensée à l'autre (règle « tâche en souffrance » de Board.claim). Dates des tâches libres retirées gardées
@@ -853,6 +859,7 @@ function Board.claim(f, agent, tick)
     if best then
       best.worker = agent.id
       best.claimed = tick
+      if best.kind == "repair" and f.team and f.team.rp_diag then f.team.rp_diag.taken = (f.team.rp_diag.taken or 0) + 1 end
       if best.created then Ac.note_claim(Board.actif(f).win, tick - best.created) end -- lot COMPAGNONS-ACTIFS : délai d'affectation
       best.away = nil
       Fantomes.show(f, best, tick) -- lot FANTOMES : où le PNJ va poser (aperçu en fantômes)
@@ -977,6 +984,7 @@ Stock.on_think = function(f, tick)
 end
 
 function Board.finish(f, task, ok, tick)
+  if task.kind == "repair" and f.team and f.team.rp_diag then local r = f.team.rp_diag; if ok then r.fin_ok = (r.fin_ok or 0) + 1 else r.fin_ko = (r.fin_ko or 0) + 1; r.why = tostring(task.fail) end end
   Fantomes.finish(f, task.key) -- lot FANTOMES : l'aperçu de la tâche part, réussie ou non
   note_extend(f, task, ok, tick)
   if not ok and Board.on_fail then Board.on_fail(f, task, tick) end

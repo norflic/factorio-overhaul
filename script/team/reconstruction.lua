@@ -729,6 +729,12 @@ function Recon.repair_think(f, surface, tick)
   -- de TOUTES les équipes (factions comprises) sont réparées, relevé toutes les Ac.TURRET_SCAN ticks (10 s), seuil Ac.TURRET_REPAIR_BELOW %.
   -- L'infrastructure électrique (votre équipe, 30 s, 60 %) garde sa règle et passe d'abord. État écrit : f.repair_at, f.repair_turret_at
   -- (dates du prochain relevé), lus ici seulement.
+  if f.team and f.team.rp_diag and tick % 3600 < 300 and (f.team.rp_diag.logged_at or -1) ~= math.floor(tick / 3600) then
+    local r = f.team.rp_diag
+    r.logged_at = math.floor(tick / 3600)
+    log(string.format("[FO-REPAR] %s minute %d : ouvertes %d, retirees libres %d, prises %d, finies ok %d ko %d (%s), actes %d, cibles trouvees %d introuvables %d, soignees %d dont encore abimees %d",
+      tostring(f.key or "player"), math.floor(tick / 3600), r.opened or 0, r.dropped or 0, r.taken or 0, r.fin_ok or 0, r.fin_ko or 0, tostring(r.why), r.acts or 0, r.found or 0, r.nofind or 0, r.healed or 0, r.still or 0))
+  end
   local infra_due = f.is_player and (f.repair_at or 0) <= tick
   local turret_due = (f.repair_turret_at or 0) <= tick
   if not infra_due and not turret_due then return 0 end
@@ -772,6 +778,7 @@ function Recon.repair_think(f, surface, tick)
   end
   local targets = {}
   for _, c in ipairs(batch) do targets[#targets + 1] = { name = c.name, x = c.x, y = c.y } end
+  if turrets and f.team and f.team.rp_diag then f.team.rp_diag.opened = (f.team.rp_diag.opened or 0) + 1 end
   local n = Board.add(f, { { key = "repair:" .. batch[1].key, kind = "repair", prio = Rc.REPAIR_PRIO, domain = "defense", work = 10 + 2 * #batch,
     targets = targets, pos = { x = batch[1].x, y = batch[1].y } } }, tick)
   if turrets and n > 0 then
@@ -792,13 +799,17 @@ function Recon.repair_act(agent, f, task, surface)
   -- Lot COMPAGNONS-ACTIFS : les factions réparent aussi (tourelles) ; leur état de reconstruction n'est pas créé pour autant.
   local s = f.is_player and Recon.state(f) or { stats = {} }
   local n = 0
+  local rpd = f.team and f.team.rp_diag
+  if rpd then rpd.acts = (rpd.acts or 0) + 1 end
   for _, t in ipairs(task.targets or {}) do
     local e = surface.find_entity(t.name, { t.x, t.y })
+    if rpd then if not (e and e.valid) then rpd.nofind = (rpd.nofind or 0) + 1 else rpd.found = (rpd.found or 0) + 1 end end
     if e and e.valid and e.force.name == f.force and e.health then
       local mx = e.prototype.max_health
       if mx and e.health < mx then
         e.health = mx
         n = n + 1
+        if rpd then rpd.healed = (rpd.healed or 0) + 1; if e.get_health_ratio() < 1 then rpd.still = (rpd.still or 0) + 1 end end
       end
     end
   end
