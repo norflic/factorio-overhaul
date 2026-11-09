@@ -186,11 +186,20 @@ end
 function Mu.stock_target(a)
   a = a or {}
   local turrets = num(a.turrets)
-  local t = num(a.missing) + turrets * Mu.SPARE
+  -- Lot TOURELLE-FER : `defer_spare` (Mu.defer_spare) : la réserve dormante (Mu.SPARE par tourelle) attend ; reste le manque urgent
+  local t = num(a.missing) + (a.defer_spare and 0 or turrets * Mu.SPARE)
   local cap = math.floor(turrets * num(a.base) * Mu.CAP_PCT / 100)
   if a.base ~= nil and t > cap then t = cap end
   local floor = num(a.floor)
   return t > floor and t or floor
+end
+
+--- Lot TOURELLE-FER : la réserve DORMANTE de chargeurs (le stock visé au-delà du minimum, de la réserve sur la menace reçue et du manque urgent)
+--- attend quand un avant-poste de fer manque de tourelles (`unlock` : il bloque son propre agrandissement, +8 foreuses = +120 plaques/min pour une
+--- tourelle de 80 plaques) : la tourelle et ses chargeurs passent avant la réserve. Mesuré (defense-ap, [FO-FER-SORTIE], minutes 5 à 11) : 884
+--- plaques en chargeurs contre 200 en tourelles. Faux sans signal (règle d'avant).
+function Mu.defer_spare(unlock)
+  return unlock == true
 end
 
 --- La munition à fabriquer et à porter. list = { { enabled (recette ouverte), makeable (fabricable depuis le coffre), stock (au coffre) }, ... }

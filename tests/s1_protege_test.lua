@@ -238,7 +238,7 @@ check(has(src.planner, "local in_peril = qg_peril or protect_any") and has(src.p
   "maillon 2 (planificateur) : le site touché passe la défense d'abord (donc exclu de l'agrandissement), le plan publie turret_ok")
 check(has(src.recon, "s1.prot[seed.oid] ~= nil") and has(src.recon, "protect_wait and math.huge"), "maillon 3 (reconstruction) : la pièce d'un site touché attend ses tourelles, sans compter pour l'abandon")
 check(has(src.surv, "o.protect and f.team.s1 and f.team.s1.turret_ok == true"), "maillon 4 (survie) : l'agrandissement de survie évite le site touché")
-check(has(src.cer, "ammo_reserve = SurvieQg.ammo_reserve(f, tick)") and has(src.scer, "ammo_reserve = ctx.ammo_reserve or 0") and has(src.buts, "math.max(B.AMMO_STOCK, reserve)"),
+check(has(src.cer, "ammo_reserve = SurvieQg.ammo_reserve(f, tick)") and has(src.scer, "ammo_reserve = ctx.ammo_reserve or 0") and has(src.buts, "math.max(defer and B.AMMO_MIN or B.AMMO_STOCK, reserve)"),
   "maillon 5 (réserve) : le runtime calcule la réserve, la situation la porte, le but la lit")
 check(has(src.cer, "e.type == \"unlock-recipe\" and e.recipe == T.turret") and has(src.buts, "not r.for_defense") and has(src.scer, "ctx.research.for_defense"),
   "maillon 6 (recherche) : le runtime reconnaît la recherche de la tourelle, le but la sert d'abord, le noyau porte ses packs")
@@ -295,7 +295,7 @@ local mutants = {
   { "protection sans tourelle posable", "Pl", "  if df and turret_ok then\n    for _, o in ipairs(view.outposts or {}) do\n      if o.protect", "  if df then\n    for _, o in ipairs(view.outposts or {}) do\n      if o.protect" },
   { "protection d'un site défendu (planificateur)", "Pl", "if o.protect and (o.turrets or 0) < (o.want_t or T.defend_turrets(o.drills)) then protect_any = true end", "if o.protect then protect_any = true end" },
   { "protection sans effet sur la priorité", "Pl", "local in_peril = qg_peril or protect_any", "local in_peril = qg_peril" },
-  { "pas de réserve dans le but", "B", "local ammo_target = math.max(B.AMMO_STOCK, reserve)", "local ammo_target = B.AMMO_STOCK" },
+  { "pas de réserve dans le but", "B", "local ammo_target = math.max(defer and B.AMMO_MIN or B.AMMO_STOCK, reserve)", "local ammo_target = (defer and B.AMMO_MIN or B.AMMO_STOCK)" },
   { "réserve retenue par la production d'abord", "B", "minimal_n = math.max(0, math.max(B.AMMO_MIN, reserve) - (s.stock[ammo] or 0)) }", "minimal_n = math.max(0, B.AMMO_MIN - (s.stock[ammo] or 0)) }" },
   { "réserve sans amorçage", "B", "or s.at_war or reserve > 0", "or s.at_war" },
   { "recherche de la tourelle plafonnée", "B", "and not r.for_auto and not r.for_defense then v = B.RESEARCH_PRE end", "and not r.for_auto then v = B.RESEARCH_PRE end" },

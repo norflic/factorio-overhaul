@@ -106,6 +106,13 @@ function C.situation(view, st, ctx)
     if not o.full and (o.drills or 0) < T.max_drills(o.kind) then room[o.kind] = true end
   end
   for _, kind in ipairs(T.OUTPOST_ORDER) do if (cap[kind] or 0) > 0 then st.ever[kind] = true end end
+  -- Lot TOURELLE-FER : un avant-poste de la ressource clé (le fer) manque de tourelles : il bloque son agrandissement (« défendre d'abord »). Sûr :
+  -- ni meurtrier, ni dangereux (la tourelle ne se pose pas là).
+  local iron_unlock = false
+  local top_kind = (ctx.key and ctx.key.top) or R.FALLBACK_KEY.top
+  for _, o in ipairs(view.outposts or {}) do
+    if o.kind == top_kind and (o.turrets or 0) < T.defend_turrets(o.drills or 0) and not o.lethal and not o.unsafe then iron_unlock = true end
+  end
   -- Lot IA3-e : un module FINI (fonderie électrique et ses foreuses) compte comme capacité d'extraction de son produit
   -- (en unités d'avant-poste) : le cerveau ne bâtit plus l'avant-poste que le module remplace. Après `ever` : un module
   -- n'est pas un avant-poste à reconstruire.
@@ -123,6 +130,7 @@ function C.situation(view, st, ctx)
     soldiers_max = view.soldiers_max or 0, stock = view.stock or {}, cap = cap, pending = view.pending or {},
     army_cap = view.army_cap or 0, -- lot DEPENSES2 (R1) : plafond des factions, celui de l'armée de votre équipe (B.generate)
     sites = view.sites or {}, sites_near = view.sites_near or {}, nout = nout, undef_n = undef_n, lethal_n = lethal_n,
+    iron_unlock = iron_unlock, -- lot TOURELLE-FER
     threatened = view.threatened or false, expansion = ctx.expansion or 0, dominant = ctx.dominant or false,
     desired = ctx.desired, extension = ctx.industrie or false, room = room, smelters = view.smelters or 0, smelters_pending = view.smelters_pending or 0,
     -- Intégration 0.6.20 (SCALE-COMPLET x PLAFOND-FOREUSES) : l'équipe recrute encore vers son effectif voulu (lecteur : B.generate,

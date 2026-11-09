@@ -35,6 +35,7 @@ local Dsr = require("shared.team.defense_stock") -- lot DEFENSE-STOCK : tourelle
 local V = require("shared.faction.valeur") -- lot SITE-PROCHE : V.extension_refused (R1)
 local Dc = require("shared.team.defchoix") -- lot DEFENSE-CHOIX : tourelles du QG avant les soldats quand la base est menacée
 local Sq = require("shared.team.survie_qg") -- lot S1 : QG en péril (planchers réduits, tourelles voulues, remplissage partiel)
+local Tf = require("shared.team.tourelle_fer") -- lot TOURELLE-FER : la tourelle de l'avant-poste de fer se paie au plancher réduit
 local Pt = require("shared.team.premiere_tourelle") -- lot EQUIPE : premier palier de la défense du QG (planchers réduits sous P.FIRST_N tourelles)
 local Fx = require("shared.team.flux") -- lot FLUX : priorité des tournées d'avant-poste (règle pure)
 local Th = require("shared.team.thermique") -- lot THERMIQUE2 (essai 3) : plus de brûleur pour un minerai brut plein (Th.raw_full)
@@ -828,7 +829,10 @@ function P.plan(view, book)
                 end
               end
             else
-              d.why = want_defense(items) and "fabrication" or "manque"
+              -- Lot TOURELLE-FER : la tourelle d'un avant-poste de fer (elle débloque son agrandissement) se paie au plancher réduit du QG en péril
+              local fi, fc, reduced = Tf.floors(p, fl_i, fl_c, Sq.FLOOR_IRON, Sq.FLOOR_COPPER)
+              if reduced then d.floor_i, d.floor_cu, d.reduced = fi, fc, true end
+              d.why = want_defense(items, fi, fc) and "fabrication" or "manque"
               if d.why == "manque" then d.raw = last_raw end
             end
           end
