@@ -12,8 +12,8 @@
   2. DÉCISION (Rp.candidates, Rp.decide) : sorties à Rp.MIN_DIST tuiles du QG et plus, valeur par PNJ-secondes économisées ; confirmée sur Rp.CONFIRM
      relevés ; ni ennemi à portée, ni QG menacé ; une ligne demandée par relevé, autant en construction que de PNJ libres.
   3. PROJET : Build.request({ rapatriement = ... }) ; le plan (Rap.plan, appelé par plan_project) lit les masques du moteur par chunks de 32
-     le long du tracé, choisit le point libre du tampon près du point voulu (à portée d'un poteau du réseau), trace le tapis (P.belt_route, A*
-     pondéré, ou le crochet Rap.route de traversee quand il existe), pose un bras contre chaque coffre et un poteau contre chaque bras.
+     le long du tracé, choisit le point libre du tampon près du point voulu (à portée d'un poteau du réseau), trace le tapis PAR TRONÇONS (shared/team/troncons.lua, lot BUS-LONG :
+     souterrains compris), pose un bras contre chaque coffre et un poteau contre chaque bras.
   4. FIN : la barre du tampon (Rp.bar) ; relevé du contenu pour le compte des objets arrivés ; ligne « finie » au journal.
   5. SUIVI : un projet qui quitte « fini » est écrit « coupée » ; refusé, la sortie est libérée (nouvel essai après Rp.RETRY_AFTER).
 
@@ -33,6 +33,9 @@ local Rsv = require("script.ai3.reserve") -- le réglage maître (fo-war-industr
 local Registry = require("script.companion.registry")
 local Stock = require("script.team.stock") -- Stock.skip_fn : les objets que le stock du QG refuse (saturés)
 local Pur = require("script.team.purete") -- lot PURETE-TAPIS : aucun tapis étranger ne verse sur la ligne, la ligne ne verse sur aucun tapis étranger
+local Tc = require("shared.team.troncons") -- lot BUS-LONG : le tracé d'une ligne longue, par tronçons (souterrains compris)
+local Tv = require("shared.team.traversee")
+local Trav = require("script.team.traversee") -- portée et nom du souterrain débloqué, tuiles de gisement
 
 local Rap = {}
 
@@ -44,12 +47,10 @@ local POLE_SET = {}
 for _, name in ipairs(M.POLES) do POLE_SET[name] = true end -- les poteaux des données de modules.lua, aucun nom écrit ici
 local CHUNK = 32
 local CELL = P.ANCHOR_STEP or 8
-local ASTAR_WEIGHT = 1.4 -- A* pondéré : au plus 1,4 fois le meilleur chemin, bien moins de noeuds sur 150 tuiles
-local MARGIN = 16 -- tuiles lues autour de la boîte des deux coffres
-local BOX_MAX = 420 -- tuiles : plus grande dimension de la boîte lue
-local WIDE = 64 -- tuiles : marge du second passage quand le premier ne trouve « aucun chemin » (journal du DC 8/11 : 30 refus sur 36 demandes, tous « aucun chemin »)
+local MARGIN = 96 -- tuiles lues autour de la boîte des deux coffres (lot BUS-LONG : le couloir du plan grossier contourne un lac ou une base dans cette marge ; 64 refusait encore « aucun chemin »)
+local BOX_MAX = 640 -- tuiles : plus grande dimension de la boîte lue (lot BUS-LONG : sources à 300 tuiles du QG à l'échelle 600 %, plus le détour)
+local CHUNK_TTL = 600 -- ticks : vie d'un chunk de masques lu pour une recherche (mémoire LOCALE)
 Rap.SLICE_WAIT = 2 -- ticks entre deux tranches de la recherche du tracé (build.lua : plan_after)
-Rap.route = nil -- crochet du lot traversee : function(s, t, t_dir, bounds, cost, ctx) -> tiles (comme P.belt_route) ; nil : P.belt_route
 
 local function sorted_keys(t)
   local ks = {}
@@ -452,17 +453,16 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Plan d'un projet de ligne (appelé par plan_project de build.lua)
 ---------------------------------------------------------------------------------------------------
---- Masques par chunks de 32, lus à la demande (un chunk non généré est un obstacle) ; `merged` rend les tables { water, blocked, clear } réunies
---- des chunks lus (pour free_spot et les obstacles).
-local function chunk_masks(api, surface)
-  local chunks = {}
+--- Masques par chunks de 32, lus à la demande et gardés CHUNK_TTL ticks dans `chunks` (mémoire LOCALE par projet : relire le monde à chaque tranche coûterait plus que la tranche ; un chunk
+--- non généré est un obstacle) ; `merged` rend les tables { water, blocked, clear } réunies des chunks lus (pour free_spot et les obstacles).
+local function chunk_masks(api, surface, chunks)
   local function chunk(cx, cy)
     local ck = cx .. ":" .. cy
     local c = chunks[ck]
-    if c == nil then
+    if c == nil or (c and game.tick - c.tick > CHUNK_TTL) then
       if surface.is_chunk_generated({ x = cx, y = cy }) then
         local m = api.read_masks(cx * CHUNK, cy * CHUNK, cx * CHUNK + CHUNK, cy * CHUNK + CHUNK)
-        c = { water = m.water, blocked = m.blocked, clear = m.clear }
+        c = { water = m.water, blocked = m.blocked, clear = m.clear, tick = game.tick }
       else
         c = false
       end
@@ -502,41 +502,39 @@ local function pole_probe(f, surface, x, y, r)
   end
 end
 
---- Recherches de chemin en cours, par équipe puis par projet. MÉMOIRE LOCALE (jamais dans global) : une recherche est une fonction pure de la carte,
---- refaite à l'identique après un chargement (elle repart de zéro) ; elle ne contient que des nombres et des tables, plus les fermetures de la carte.
 --- Le plan d'une ligne se fait en ÉTAPES, une par appel de Rap.plan (build.lua : « tranche » = nouvel essai deux ticks plus tard), chacune bornée :
 ---   guard   tuiles devant les tapis des autres projets, Rap.GUARD_ENTS pièces par appel ;
 ---   spots   poteaux du réseau, points libres du tampon, sites du bras de départ ;
----   search  A* reprenable, Rp.SLICE_NODES noeuds par appel ;
+---   search  tracé par tronçons (shared/team/troncons.lua), une tranche par appel ;
 ---   ents    pièces de la ligne et preuve géométrique ;
 ---   anchors points d'appui, Rap.ANCHOR_BATCH pièces par appel ;
 ---   sort    ordre de pose des pièces (P.sort_build) ;
 ---   reserve réservation des tuiles ;
 ---   close   obstacles à défricher, sorties du projet.
-local JOBS = {}
+--- ÉTAT : p.rj (nombres, chaînes, tables : dans global, jamais de fonction ; lot BUS-LONG : la recherche reprend après un chargement) ; les fonctions de la carte sont refaites à chaque appel
+--- (bind) et retirées à la fin (strip). Mémoire LOCALE : seulement les masques lus (LOCAL, une lecture du monde, refaite après un chargement).
+local LOCAL = setmetatable({}, { __mode = "k" }) -- clé : la table du projet (une carte relue ne garde rien)
 Rap.GUARD_ENTS = 400   -- pièces des autres projets relues par appel
 Rap.ANCHOR_BATCH = 60  -- pièces de la ligne dont le point d'appui est cherché par appel
 
-local function jobs_of(f)
-  local key = f.key or "player"
-  JOBS[key] = JOBS[key] or {}
-  return JOBS[key]
+local function locals_of(p)
+  local L = LOCAL[p]
+  if not L then L = { chunks = {} }; LOCAL[p] = L end
+  return L
 end
 
---- Oublie les recherches des projets qui ne planifient plus (annulés, refusés, finis) : appelé à chaque relevé.
+--- Oublie l'état et les masques des projets qui ne planifient plus (annulés, refusés, finis) : appelé à chaque relevé.
 local function prune_jobs(f, b)
-  local js = jobs_of(f)
-  local ids = {}
-  for pid in next, js do ids[#ids + 1] = pid end
-  table.sort(ids)
-  for _, pid in ipairs(ids) do
+  for _, pid in ipairs(b.order) do
     local q = b.projects[pid]
-    if not q or (q.state ~= "plan" and q.state ~= "attente") then js[pid] = nil end
+    if q and q.rj and q.state ~= "plan" and q.state ~= "attente" then
+      q.rj, LOCAL[q] = nil, nil
+    end
   end
 end
 Rap.prune_jobs = prune_jobs
 
---- Prépare la tentative suivante (point libre du tampon, paire de bouts) ; faux quand le passage en cours n'en a plus.
+--- Prépare la tentative suivante (point libre du tampon, paire de bouts) ; faux quand il n'y en a plus.
 local function advance(J)
   while true do
     if J.ends and J.ei <= #J.ends and J.runs < Rp.ROUTE_TRIES then
@@ -555,40 +553,20 @@ local function advance(J)
   end
 end
 
---- Second passage : boîte élargie (un mur, une rive ou la base elle-même obligent à contourner au-delà de la marge d'origine).
-local function widen(J, src, px, py)
-  local x0, y0 = math.min(src.x, px) - WIDE - Rp.SPOT_RADIUS, math.min(src.y, py) - WIDE - Rp.SPOT_RADIUS
-  local x1, y1 = math.max(src.x, px) + WIDE + Rp.SPOT_RADIUS, math.max(src.y, py) + WIDE + Rp.SPOT_RADIUS
-  if x1 - x0 > BOX_MAX then x0, x1 = math.max(x0, (src.x + px) / 2 - BOX_MAX / 2), math.min(x1, (src.x + px) / 2 + BOX_MAX / 2) end
-  if y1 - y0 > BOX_MAX then y0, y1 = math.max(y0, (src.y + py) / 2 - BOX_MAX / 2), math.min(y1, (src.y + py) / 2 + BOX_MAX / 2) end
-  J.box = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }
-  J.runs, J.si, J.ends, J.ei = 0, 0, nil, 1
-  J.last_why = J.last_why .. " (boite elargie a " .. WIDE .. " tuiles aussi)"
-end
-
 local function waiting(J)
   return false, string.format("rapatriement: planification en cours (%s, appel %d, %d noeuds)", J.stage, J.slices, J.total), "tranche"
 end
 
---- Début : validations et fermetures de la carte. Rend le travail, ou nil et la raison.
-local function new_job(api, f, surface, p)
+local STRIP = { "chunk", "merged", "ground", "free", "cost", "wf", "f", "surface", "p", "L" }
+
+--- Les fonctions de la carte, refaites à chaque appel (jamais dans global).
+local function bind(api, f, surface, p, J)
   local b = f.build
   local lc = p.spec.rapatriement
-  local src = lc.src
-  if not chest_at(f, surface, src.x + 0.5, src.y + 0.5) then return nil, "rapatriement: coffre de sortie disparu" end
-  if not (lc.arm and lc.belt and lc.pole and lc.chest) then return nil, "rapatriement: pieces inconnues" end
-  local reuse = lc.reuse
-  if reuse and not chest_at(f, surface, reuse.x + 0.5, reuse.y + 0.5) then reuse = nil end -- tampon disparu : on en pose un neuf
-  local px, py = lc.point.x, lc.point.y
-  if reuse then px, py = reuse.x, reuse.y end
-  local mg = MARGIN
-  local x0, y0 = math.min(src.x, px) - mg - Rp.SPOT_RADIUS, math.min(src.y, py) - mg - Rp.SPOT_RADIUS
-  local x1, y1 = math.max(src.x, px) + mg + Rp.SPOT_RADIUS, math.max(src.y, py) + mg + Rp.SPOT_RADIUS
-  if x1 - x0 > BOX_MAX or y1 - y0 > BOX_MAX then return nil, "rapatriement: trop loin" end
-  local J = { box = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }, pass = 1, reuse = reuse, px = px, py = py, planned = {}, total = 0, base = 0, runs = 0, si = 0, ei = 1,
-    last_why = "aucun chemin", slices = 0, stage = "guard", gi = 1, gj = 1, guard = {} }
-  J.chunk, J.merged = chunk_masks(api, surface)
-  J.f, J.surface, J.p = f, surface, p -- (mémoire LOCALE de la recherche : lue par la preuve de pureté)
+  local L = locals_of(p)
+  J.L = L
+  J.chunk, J.merged = chunk_masks(api, surface, L.chunks)
+  J.f, J.surface, J.p = f, surface, p -- (lus par la preuve de pureté)
   J.wf = Pur.fronts(f, surface, lc.item, p, { world_only = true }) -- lot PURETE-TAPIS : tuiles où un tapis du MONDE d'un autre objet verse
   function J.ground(x, y)
     local bx = J.box
@@ -611,6 +589,29 @@ local function new_job(api, f, surface, p)
     if c.clear[k] then v = v + 1 end
     return v
   end
+end
+
+local function strip(J) for _, k in ipairs(STRIP) do J[k] = nil end end
+
+--- Début : validations. Rend le travail, ou nil et la raison.
+local function new_job(f, surface, p)
+  local lc = p.spec.rapatriement
+  local src = lc.src
+  if not chest_at(f, surface, src.x + 0.5, src.y + 0.5) then return nil, "rapatriement: coffre de sortie disparu" end
+  if not (lc.arm and lc.belt and lc.pole and lc.chest) then return nil, "rapatriement: pieces inconnues" end
+  local reuse = lc.reuse
+  if reuse and not chest_at(f, surface, reuse.x + 0.5, reuse.y + 0.5) then reuse = nil end -- tampon disparu : on en pose un neuf
+  local px, py = lc.point.x, lc.point.y
+  if reuse then px, py = reuse.x, reuse.y end
+  local mg = MARGIN + Rp.SPOT_RADIUS
+  local x0, y0 = math.min(src.x, px) - mg, math.min(src.y, py) - mg
+  local x1, y1 = math.max(src.x, px) + mg, math.max(src.y, py) + mg
+  if x1 - x0 > BOX_MAX then x0, x1 = (src.x + px) / 2 - BOX_MAX / 2, (src.x + px) / 2 + BOX_MAX / 2 end
+  if y1 - y0 > BOX_MAX then y0, y1 = (src.y + py) / 2 - BOX_MAX / 2, (src.y + py) / 2 + BOX_MAX / 2 end
+  if math.min(src.x, px) - Rp.SPOT_RADIUS < x0 or math.max(src.x, px) + Rp.SPOT_RADIUS > x1
+    or math.min(src.y, py) - Rp.SPOT_RADIUS < y0 or math.max(src.y, py) + Rp.SPOT_RADIUS > y1 then return nil, "rapatriement: trop loin" end
+  local J = { box = { x0 = math.floor(x0), y0 = math.floor(y0), x1 = math.ceil(x1), y1 = math.ceil(y1) }, reuse = reuse, px = px, py = py, planned = {}, total = 0, runs = 0, si = 0, ei = 1,
+    last_why = "aucun chemin", slices = 0, stage = "guard", gi = 1, gj = 1, guard = {}, grid = { cost = {}, done = false } }
   J.S = { x = src.x, y = src.y }
   return J
 end
@@ -672,87 +673,60 @@ local function stage_spots(f, surface, b, p, J)
   return nil
 end
 
---- Lot PURETE-TAPIS : preuve de pureté d'un tracé trouvé (causes a, b, c, d) ; refus : le bout suivant est essayé. Rend ok, raison.
-local function purity(J, e, tiles)
+--- Lot PURETE-TAPIS : preuve de pureté d'un tronçon (causes a, b, c, d) ; la dernière tuile verse sur `nxt` (la première du tronçon suivant) ou, au bout, sur le bras d'arrivée. Rend ok, raison.
+local function purity(J, e, tiles, nxt)
   local lc = J.p.spec.rapatriement
-  return Pur.check_route(J.f, J.surface, J.p, "rapatriement", tiles, lc.item, { [P.tkey(e.dst.ax, e.dst.ay)] = true, [P.tkey(J.D.x, J.D.y)] = true }, nil)
+  local targets
+  if nxt then targets = { [P.tkey(nxt.x, nxt.y)] = true }
+  else targets = { [P.tkey(e.dst.ax, e.dst.ay)] = true, [P.tkey(J.D.x, J.D.y)] = true } end
+  return Pur.check_route(J.f, J.surface, J.p, "rapatriement", tiles, lc.item, targets, nil)
 end
 
---- Étape search : au plus Rp.SLICE_NODES noeuds développés. Rend "more", "found" (J.chosen) ou "fail" (J.last_why).
-local function stage_search(J, src)
-  local budget = Rp.SLICE_NODES
-  while true do
-    if not J.astar and not J.pre then
-      if not advance(J) then
-        if J.pass == 1 then
-          J.pass = 2
-          widen(J, src, J.px, J.py)
-        else
-          return "fail"
-        end
-      else
-        local e = J.e
-        J.planned = { [P.tkey(e.src.ax, e.src.ay)] = true, [P.tkey(e.dst.ax, e.dst.ay)] = true, [P.tkey(J.D.x, J.D.y)] = true }
-        J.base = J.total
-        if Rap.route then -- crochet du lot traversee : une recherche d'un seul tenant (nil : le tracé de P.belt_route repris en tranches)
-          local tiles, why = Rap.route({ x = e.src.bx, y = e.src.by }, { x = e.dst.bx, y = e.dst.by }, Li.end_dir(e.dst), J.box, J.cost)
-          if tiles then
-            local ok, w2 = Rp.route_ok(#tiles, Li.manhattan(e.src.bx, e.src.by, e.dst.bx, e.dst.by))
-            if ok then ok, w2 = purity(J, e, tiles) end
-            if ok then J.chosen = { e = e, tiles = tiles, D = J.D } return "found" end
-            J.last_why = w2
-          else
-            J.last_why = tostring(why)
-          end
-        else
-          -- sondage de l'ARRIVÉE (journal du DC du 8/11 : 30 refus « aucun chemin » après 14 à 20 mille noeuds chacun) : une recherche depuis le bout du tampon vers
-          -- le bout de départ, plafonnée à Rp.POCKET_NODES ; si elle s'épuise avant, le tampon est dans une POCHE fermée : refus immédiat, avec sa cause
-          J.pre = Rp.route_begin({ x = e.dst.bx, y = e.dst.by }, { x = e.src.bx, y = e.src.by }, 0, J.box, 1)
-        end
-      end
-    elseif J.pre then
-      local before = J.pre.expanded
-      local st = Rp.route_step(J.pre, J.cost, budget, Rp.POCKET_NODES)
-      local used = J.pre.expanded - before
-      J.total = J.total + used
-      budget = budget - used
-      if st == "more" then
-        return "more"
-      elseif st == "none" then
-        J.last_why = (J.pre.why == "aucun chemin") and string.format("arrivee enfermee (poche de %d tuiles libres autour du tampon)", J.pre.expanded)
-          or ("bout du tapis bloque (" .. tostring(J.pre.why) .. ")")
-        J.pre = nil
-      else -- trouvé ou plafond : le tampon n'est pas dans une petite poche, la recherche vers l'avant commence
-        J.pre = nil
-        local e = J.e
-        J.astar = Rp.route_begin({ x = e.src.bx, y = e.src.by }, { x = e.dst.bx, y = e.dst.by }, Li.end_dir(e.dst), J.box, ASTAR_WEIGHT)
-      end
-      if budget <= 0 and (J.astar or J.pre) then return "more" end
-    else
-      local before = J.astar.expanded
-      local st = Rp.route_step(J.astar, J.cost, budget, math.max(1, Rp.TOTAL_NODES - J.base))
-      local used = J.astar.expanded - before
-      J.total = J.total + used
-      budget = budget - used
-      if st == "more" then
-        return "more"
-      elseif st == "found" then
-        local e = J.e
-        local ok, w2 = Rp.route_ok(#J.astar.tiles, Li.manhattan(e.src.bx, e.src.by, e.dst.bx, e.dst.by))
-        if ok then ok, w2 = purity(J, e, J.astar.tiles) end
-        if ok then J.chosen = { e = e, tiles = J.astar.tiles, D = J.D } return "found" end
-        J.last_why = w2
-        J.astar = nil
-      else
-        J.last_why = tostring(J.astar.why)
-        local barrier = J.astar.why == "aucun chemin" and J.astar.expanded >= Rp.POCKET_NODES
-        J.astar = nil
-        if st == "cap" then return "fail" end -- plafond de noeuds du projet atteint
-        if barrier then J.runs = Rp.ROUTE_TRIES end -- une barrière vide la boîte : les autres bouts échoueraient de même, au prix d'une boîte entière chacun
-      end
-      if budget <= 0 then return "more" end
-    end
+--- Lot BUS-LONG : le contexte d'une tranche de Tc.step (les fonctions du monde, refaites à chaque appel).
+local function leg_ctx(J, e)
+  local lc = J.p.spec.rapatriement
+  if J.ug == nil then
+    local ug = Trav.underground(J.f, lc.belt)
+    J.ug = ug and { name = ug.name, maxd = ug.maxd } or false -- (false : aucun souterrain débloqué, relu au prochain tracé seulement)
   end
+  local ug = J.ug or nil
+  local ctx = { cost = J.cost, solid = function(x, y) return J.ground(x, y) == nil end, ore = Trav.ore_lookup(J.surface), maxd = ug and ug.maxd or nil,
+    check_leg = function(tiles, nxt) return purity(J, e, tiles, nxt) end }
+  if ug then ctx.ug_axis = Pur.ug_axis(J.f, J.surface, J.p) end
+  return ctx
+end
+
+--- Étape search : au plus une tranche de tracé (Tc.step). Rend "more", "found" (J.chosen) ou "fail" (J.last_why).
+local function stage_search(J)
+  if not J.tc then
+    if not advance(J) then return "fail" end
+    local e = J.e
+    J.planned = { [P.tkey(e.src.ax, e.src.ay)] = true, [P.tkey(e.dst.ax, e.dst.ay)] = true, [P.tkey(J.D.x, J.D.y)] = true }
+    local m = Li.manhattan(e.src.bx, e.src.by, e.dst.bx, e.dst.by)
+    J.tc = Tc.new({ s = { x = e.src.bx, y = e.src.by }, t = { x = e.dst.bx, y = e.dst.by }, t_dir = Li.end_dir(e.dst), sd = e.src.dir, box = J.box,
+      lim = Rp.DETOUR * (m + 1) + Rp.DETOUR_SLACK, grid = J.grid })
+    return "more"
+  end
+  local e = J.e
+  local st, why, barrier = Tc.step(J.tc, leg_ctx(J, e))
+  if st == "more" then return "more" end
+  local tc = J.tc
+  J.tc = nil
+  J.total = J.total + tc.total
+  if st == "done" then
+    local ok, w2 = Rp.route_ok(#tc.tiles, Li.manhattan(e.src.bx, e.src.by, e.dst.bx, e.dst.by))
+    if ok then
+      local jumps = 0
+      for _, t in ipairs(tc.tiles) do if t.ug == "input" then jumps = jumps + 1 end end
+      J.chosen = { e = e, tiles = tc.tiles, D = J.D, legs = #tc.legs, repairs = tc.repairs, pairs = jumps }
+      return "found"
+    end
+    J.last_why = w2
+  else
+    J.last_why = tostring(why) .. string.format(" (%d troncon(s) poses, %d reparation(s))", #tc.legs, tc.repairs)
+    if barrier then J.runs = Rp.ROUTE_TRIES end -- aucun couloir : les autres bouts échoueraient de même
+  end
+  return "more"
 end
 
 --- Étape ents : poteaux contre les bras, pièces de la ligne, preuve géométrique. Rend nil, ou la raison du refus.
@@ -772,10 +746,14 @@ local function stage_ents(f, surface, b, p, J)
     J.planned[P.tkey(ptx, pty)] = true
     poles[#poles + 1] = { ptx, pty }
   end
-  local ents = Rp.entities({ src = e.src, dst = e.dst, route = tiles, names = { arm = lc.arm, belt = lc.belt, pole = lc.pole, chest = lc.chest }, poles = poles,
-    reuse = J.reuse ~= nil })
-  local bad = Rp.verify(ents, J.S, D, function(x) return x.role == "liaison-tapis" end, function(x) return x.role == "liaison-bras" end,
+  local ug = J.ug or nil
+  local names = { arm = lc.arm, belt = lc.belt, pole = lc.pole, chest = lc.chest, ug = ug and ug.name or nil }
+  local ents = Rp.entities({ src = e.src, dst = e.dst, route = tiles, names = names, poles = poles, reuse = J.reuse ~= nil })
+  -- preuve géométrique sur le tracé VIRTUEL (une paire souterraine = des tapis droits), puis celle des paires (comme la liaison de quai)
+  local vents = Rp.entities({ src = e.src, dst = e.dst, route = Tv.virtual_belts(tiles), names = { arm = lc.arm, belt = lc.belt, pole = lc.pole, chest = lc.chest }, poles = poles, reuse = J.reuse ~= nil })
+  local bad = Rp.verify(vents, J.S, D, function(x) return x.role == "liaison-tapis" end, function(x) return x.role == "liaison-bras" end,
     function(x) return x.role == "tampon" end, J.reuse ~= nil)
+  if #bad == 0 then bad = Tv.verify(tiles, { x = e.src.bx, y = e.src.by }, { x = e.dst.bx, y = e.dst.by }, Li.end_dir(e.dst), ug and ug.maxd or 0, nil) end
   if #bad > 0 then return "rapatriement: geometrie fausse (" .. bad[1] .. ")" end
   -- le rang de pose est écrit une fois (P.sort_build le lit avant de le calculer) : le tri de 300 pièces coûtait 171 k instructions, 40 k avec le rang
   for _, x in ipairs(ents) do x.part = 1; x.rank = P.kind_rank(x.name) end
@@ -785,10 +763,22 @@ end
 
 --- Étape anchors : points d'appui (comme la liaison de quai), Rap.ANCHOR_BATCH pièces par appel. Rend vrai quand toutes les pièces en ont un.
 local function stage_anchors(api, surface, b, J)
-  if not J.wood then
-    J.masks = J.merged()
-    J.wood = api.wood_of(surface, J.ents)
-    J.passable = api.seg_passable(b)
+  local L = J.L
+  if not L.wood then
+    -- après un chargement, les masques locaux sont vides : relus ici, chunk par chunk le long des pièces (6 par appel, jamais toute la ligne d'un coup)
+    local reads = 0
+    while (J.rci or 1) <= #J.ents and reads < 6 do
+      local x = J.ents[J.rci or 1]
+      J.rci = (J.rci or 1) + 1
+      local cx, cy = math.floor(x.x / CHUNK), math.floor(x.y / CHUNK)
+      if not L.chunks[cx .. ":" .. cy] then reads = reads + 1 end
+      J.chunk(cx, cy)
+    end
+    if (J.rci or 1) <= #J.ents then return false end
+    J.rci = nil
+    L.masks = J.merged()
+    L.wood = api.wood_of(surface, J.ents)
+    L.passable = api.seg_passable(b)
     return false
   end
   local n = 0
@@ -796,11 +786,11 @@ local function stage_anchors(api, surface, b, J)
     local x = J.ents[J.ai]
     J.ai = J.ai + 1
     n = n + 1
-    local a = P.anchor_for(b.lat, x.x, x.y, J.passable)
+    local a = P.anchor_for(b.lat, x.x, x.y, L.passable)
     local ax, ay
     if a then ax, ay = a.x, a.y else ax, ay = math.floor(x.x / CELL) * CELL + 4, math.floor(x.y / CELL) * CELL + 4 end
-    local fx, fy = api.free_spot(b, J.masks, ax, ay, J.wood)
-    if (fx - x.x) * (fx - x.x) + (fy - x.y) * (fy - x.y) > api.REACH * api.REACH then fx, fy = api.free_spot(b, J.masks, x.x, x.y, J.wood) end
+    local fx, fy = api.free_spot(b, L.masks, ax, ay, L.wood)
+    if (fx - x.x) * (fx - x.x) + (fy - x.y) * (fy - x.y) > api.REACH * api.REACH then fx, fy = api.free_spot(b, L.masks, x.x, x.y, L.wood) end
     x.ax, x.ay = fx, fy
     x.anchor = string.format("%s%g:%g", a and "" or "c", fx, fy)
     x.item = api.item_of(x.name)
@@ -814,11 +804,16 @@ local function stage_close(api, f, p, J)
   local lc = p.spec.rapatriement
   local chosen = J.chosen
   local tiles, D = chosen.tiles, chosen.D
+  local L = J.L
+  if not L.masks then -- chargement entre les étapes : le relevé est refait (rare ; quelques dizaines de chunks déjà lus, jamais plus d'une fois)
+    for _, x in ipairs(p.ents) do J.chunk(math.floor(x.x / CHUNK), math.floor(x.y / CHUNK)) end
+    L.masks, L.wood = J.merged(), api.wood_of(J.surface, p.ents)
+  end
   p.obstacles, p.obst_keys = {}, {}
   for _, x in ipairs(p.ents) do
     for _, t in ipairs(P.tiles_of(x)) do
       local k = P.tkey(t[1], t[2])
-      if J.masks.clear[k] or J.wood[k] then api.add_obstacle(p, { x = t[1] + 0.5, y = t[2] + 0.5, anchor = x.anchor, ax = x.ax, ay = x.ay }) end
+      if L.masks.clear[k] or L.wood[k] then api.add_obstacle(p, { x = t[1] + 0.5, y = t[2] + 0.5, anchor = x.anchor, ax = x.ax, ay = x.ay }) end
     end
   end
   p.parts[1] = { kind = "liaison", key = "rapatriement", ox = J.S.x, oy = J.S.y, w = 1, h = 1, power = false }
@@ -836,30 +831,18 @@ local function stage_close(api, f, p, J)
     p.keep_stock = { [lc.item] = Rp.KEEP_STOCK }
   end
   p.rap = { item = lc.item, flow = lc.flow, tampon_x = D.x, tampon_y = D.y }
-  log(string.format("[FO-RAPATRIEMENT] %s : projet %d planifie (sortie %s, %s) : %d tuile(s) de tapis %s, 2 bras %s, 2 poteau(x) %s, du coffre (%d, %d) au tampon (%d, %d)%s, %d obstacle(s), %d appel(s), %d noeud(s)",
+  log(string.format("[FO-RAPATRIEMENT] %s : projet %d planifie (sortie %s, %s) : %d tuile(s) de tapis %s, 2 bras %s, 2 poteau(x) %s, du coffre (%d, %d) au tampon (%d, %d)%s, %d obstacle(s), %d appel(s), %d noeud(s), %d troncon(s), %d reparation(s), %d paire(s) souterraine(s)",
     f.key or "player", p.id, tostring(lc.key), tostring(lc.item), #tiles, lc.belt, lc.arm, lc.pole, J.S.x, J.S.y, D.x, D.y, J.reuse and " (tampon reutilise)" or "", #p.obstacles,
-    J.slices, J.total))
+    J.slices, J.total, chosen.legs or 0, chosen.repairs or 0, chosen.pairs or 0))
   return true
 end
 
---- api = { read_masks(x0, y0, x1, y1), reserve_tiles(b, p, list), wood_of(surface, ents), free_spot(b, masks, x, y, wood), add_obstacle(p, o),
----   item_of(name), seg_passable(b), REACH } : les aides locales de build.lua. Rend true, ou false et la raison ; faux, raison, "tranche" quand la
---- planification continue à la pensée suivante (une étape bornée par appel : la recherche d'un tracé sans issue coûtait 81,6 M d'instructions d'un
---- seul tenant, soit de 0,65 à 3,6 s ; tests/rapatriement_cout_test.lua mesure le pire appel).
-function Rap.plan(api, f, surface, p)
+--- Les étapes, une par appel. Rend true, ou false et la raison ; faux, raison, "tranche" quand la planification continue à la pensée suivante (une étape bornée par appel : la recherche
+--- d'un tracé sans issue coûtait 81,6 M d'instructions d'un seul tenant, soit de 0,65 à 3,6 s ; tests/rapatriement_cout_test.lua mesure le pire appel).
+local function plan_step(api, f, surface, p, J)
   local b = f.build
-  local src = p.spec.rapatriement.src
-  local js = jobs_of(f)
-  local J = js[p.id]
-  if not J then
-    local why
-    J, why = new_job(api, f, surface, p)
-    if not J then return false, why end
-    js[p.id] = J
-    return waiting(J)
-  end
   J.slices = J.slices + 1
-  local function stop(why) js[p.id] = nil return false, why end
+  local function stop(why) p.rj = nil return false, why end
   if J.stage == "guard" then
     if stage_guard(J, b, p) then J.stage = "spots" end
     return waiting(J)
@@ -869,7 +852,7 @@ function Rap.plan(api, f, surface, p)
     J.stage = "search"
     return waiting(J)
   elseif J.stage == "search" then
-    local st = stage_search(J, src)
+    local st = stage_search(J)
     if st == "more" then return waiting(J) end
     if st == "fail" then return stop("rapatriement: " .. J.last_why .. string.format(" (%d noeuds en %d appel(s))", J.total, J.slices)) end
     J.stage = "ents"
@@ -893,8 +876,26 @@ function Rap.plan(api, f, surface, p)
     return waiting(J)
   end
   local ok, why = stage_close(api, f, p, J)
-  js[p.id] = nil
+  p.rj = nil
   return ok, why
+end
+
+--- api = { read_masks(x0, y0, x1, y1), reserve_tiles(b, p, list), wood_of(surface, ents), free_spot(b, masks, x, y, wood), add_obstacle(p, o),
+---   item_of(name), seg_passable(b), REACH } : les aides locales de build.lua. Rend true, ou false et la raison ; faux, raison, "tranche".
+--- État de la recherche : p.rj (global). Un projet dont le monde a changé reste une entrée valide : chaque étape relit le monde et se refuse proprement.
+function Rap.plan(api, f, surface, p)
+  local J = p.rj
+  if not J then
+    local why
+    J, why = new_job(f, surface, p)
+    if not J then return false, why end
+    p.rj = J
+    return waiting(J)
+  end
+  bind(api, f, surface, p, J)
+  local ok, why, wait = plan_step(api, f, surface, p, J)
+  strip(J)
+  return ok, why, wait
 end
 
 ---------------------------------------------------------------------------------------------------
