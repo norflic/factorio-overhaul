@@ -156,6 +156,7 @@ Build.SITES.mall = function(f, surface, p, h)
   if (sp.head or (sp.bus and sp.from == 1)) and not st.sans_raccord and not relais_ok then
     local poles = {}
     for _, e in ipairs(sec.ents) do if e.role == "mall-poteau" then poles[#poles + 1] = e end end
+    if #poles == 0 then return nil, "mall raccord : aucun poteau dans la section" end -- (sans poteau, raccord_tous rendrait 0 : la section passerait sans courant)
     local cx, cy = 0, 0
     for _, e in ipairs(poles) do cx, cy = cx + e.x, cy + e.y end
     cx, cy = cx / #poles, cy / #poles
@@ -695,13 +696,22 @@ function Rt.minute(f, surface, lec, sources, afford, tick)
       elseif (s == "refuse" or s == "perdu") and not q.dead then
         q.dead = true
         local why = p and p.reason or "projet perdu"
-        for k = #r.cells, q.from, -1 do r.cells[k] = nil end
-        -- les sections suivantes de la rangée perdent leurs cellules avec celle-ci : on les annule, pour que leurs réservations ne restent pas (Build.cancel n'agit que tant que rien n'est bâti)
+        -- les sections suivantes : annulées tant que rien n'est bâti (leurs réservations ne restent pas). Une section déjà bâtie garde ses cellules, suivies par le compteur ; une cellule se repère à
+        -- sa place dans la rangée, celles rendues sous une section gardée deviennent des cases vides (sans recette)
+        local gardees, garde_to = {}, 0
         for _, q2 in ipairs(r.projects) do
           if q2 ~= q and not q2.dead and q2.from > q.from then
-            q2.dead = true
-            Build.cancel(f, q2.id, "mall : section precedente refusee")
+            local pp = b.projects[q2.id]
+            if not pp or pp.state == "refuse" or Build.cancel(f, q2.id, "mall : section precedente refusee") then
+              q2.dead = true
+            else
+              for k = q2.from, q2.to do gardees[k] = true end
+              garde_to = max(garde_to, q2.to)
+            end
           end
+        end
+        for k = #r.cells, q.from, -1 do
+          if k > garde_to then r.cells[k] = nil elseif not gardees[k] then r.cells[k] = {} end
         end
         if q.lines_prev then st.lines = q.lines_prev end -- (les lignes et leur étendue reviennent à leur état d'avant la section refusée)
         if tostring(why):find("obstacle", 1, true) or tostring(why):find("purete", 1, true) then r.stop = tostring(why)

@@ -669,10 +669,83 @@ do
   end
   local m1 = mutant('if not row.cells[i] then return nil, "mall : cellules rendues" end', "")
   check(not m1.pas_de_plantage, "§11 mutant sans la garde : la séquence plante (cell nil)")
-  local m2 = mutant('Build.cancel(f, q2.id, "mall : section precedente refusee")', "")
+  local m2 = mutant('Build.cancel(f, q2.id, "mall : section precedente refusee")', "true")
   check(not m2.annule, "§11 mutant sans l'annulation : la section suivante reste réservée")
   local m3 = mutant("q2.from > q.from", "q2.from < q.from")
   check(not m3.morte, "§11 mutant : mauvais sens de comparaison")
+end
+
+---------------------------------------------------------------------------------------------------
+-- §12 relecture purete-2 : section sans poteau ; section suivante déjà bâtie ; mutants
+---------------------------------------------------------------------------------------------------
+do
+  local function masks() return { water = {}, blocked = {}, clear = {} } end
+  local function sans_poteau(R)
+    local f = team()
+    local id = R.place(f, { dem("belt", 2, { "fer", "gear" }) }, NAMES, 100, afford, "t")
+    f.build.mall.sans_raccord = nil
+    local section0 = Mr.section
+    Mr.section = function(...)
+      local sec = section0(...)
+      local kept = {}
+      for _, e in ipairs(sec.ents) do if e.role ~= "mall-poteau" then kept[#kept + 1] = e end end
+      sec.ents = kept
+      return sec
+    end
+    local lay, why = Build.SITES.mall(f, {}, f.build.projects[id], { read_masks = masks })
+    Mr.section = section0
+    return lay, why
+  end
+  local function batie(R, etat2)
+    local f = team()
+    local id1 = R.place(f, { dem("belt", 2, { "fer", "gear" }) }, NAMES, 100, afford, "t")
+    local id2 = R.place(f, { dem("belt", 4, { "fer", "gear" }) }, NAMES, 200, afford, "t")
+    local id3 = R.place(f, { dem("belt", 6, { "fer", "gear" }) }, NAMES, 300, afford, "t")
+    local r = f.build.mall.rows[1]
+    local p1, p2, p3 = f.build.projects[id1], f.build.projects[id2], f.build.projects[id3]
+    p1.state, p1.reason = "refuse", "mall raccord : sans chaine"
+    p2.state, p3.state = etat2, "attente"
+    local old = Build.cancel
+    Build.cancel = function(f2, id, why)
+      local p = f2.build.projects[id]
+      if p.state == "attente" or p.state == "plan" or p.state == "reserve" then p.state, p.reason = "refuse", why return true end
+      return false
+    end
+    R.minute(f, surface_mock({}, {}), { fab = {} }, {}, afford, 400)
+    Build.cancel = old
+    return { n = #r.cells, c1 = r.cells[1], c2 = r.cells[2], c3 = r.cells[3], m1 = r.projects[1].dead, m2 = r.projects[2].dead == true, m3 = r.projects[3].dead == true, served = R.served(f), f = f, r = r }
+  end
+  local lay, why = sans_poteau(Rt)
+  check(lay == nil and tostring(why):find("aucun poteau", 1, true) ~= nil, "§12 section sans poteau : refus explicite (" .. tostring(why) .. ")")
+  local b1 = batie(Rt, "chantier")
+  check(b1.n == 2, "§12 section 2 bâtie, section 3 annulée : deux cases restent (" .. b1.n .. ")")
+  check(b1.m2 == false and b1.m3 == true, "§12 la section bâtie reste suivie, l'annulable est morte")
+  check(b1.c1 ~= nil and b1.c1.h == nil and b1.c1.ih == nil, "§12 la cellule refusée devient une case vide")
+  check(b1.c2 ~= nil and b1.c2.ih ~= nil, "§12 la cellule de la section bâtie est gardée")
+  check(b1.served.belt == true, "§12 l'objet de la section bâtie reste servi")
+  check(Mr.compte(b1.r, "r-belt") == 2, "§12 le compte ne voit que les machines de la section bâtie (" .. Mr.compte(b1.r, "r-belt") .. ")")
+  local b2 = batie(Rt, "fini")
+  check(b2.n == 2 and b2.m2 == false, "§12 section suivante finie : gardée aussi")
+  local b3 = batie(Rt, "attente")
+  check(b3.n == 0 and b3.m2 == true and b3.m3 == true, "§12 rien de bâti : tout est rendu (" .. b3.n .. ")")
+
+  local path = "script/team/mall_rangee.lua"
+  local src = assert(io.open(path, "rb")):read("*a")
+  local site0 = Build.SITES.mall
+  local function mutant(a, c, fn)
+    local i, j = src:find(a, 1, true)
+    assert(i, "motif introuvable : " .. a)
+    local R = assert(load(src:sub(1, i - 1) .. c .. src:sub(j + 1), "mutant", "t"))()
+    local x, y = fn(R)
+    Build.SITES.mall = site0
+    return x, y
+  end
+  local m1 = mutant('if #poles == 0 then return nil, "mall raccord : aucun poteau dans la section" end', "", sans_poteau)
+  check(m1 ~= nil, "§12 mutant sans le refus : la section passe sans courant")
+  local m2 = mutant("if k > garde_to then r.cells[k] = nil elseif not gardees[k] then r.cells[k] = {} end", "r.cells[k] = nil", function(R) return batie(R, "chantier") end)
+  check(m2.n == 0, "§12 mutant : tout rendre perd la section bâtie")
+  local m3 = mutant("elseif not gardees[k] then r.cells[k] = {} end", "end", function(R) return batie(R, "chantier") end)
+  check(m3.c1 ~= nil and m3.c1.ih ~= nil, "§12 mutant sans case vide : la cellule refusée compte encore")
 end
 
 print(string.format("[MALL-RANGEE-MOTEUR] BILAN : %d OK, %d ECHEC(S)", ok_n, ko_n))
