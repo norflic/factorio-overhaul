@@ -59,6 +59,11 @@ local function battery(B, verbose)
   ck(#B.lines(HUBS, "late") == 3, "1.4 late : lignes aussi")
   ck(#B.lines(HUBS, "mid", nil, true) == 0 and #B.lines(HUBS, "late", nil, true) == 0, "1.4 bis famine de la plaque clé : aucune ligne, même en mid ou late")
   ck(#B.lines(HUBS, "mid", nil, false) == 3, "1.4 ter sans famine : les 3 lignes")
+  do -- débit demandé borné à une rangée (banc V0676-N : 36 machines d'engrenages demandées d'un coup)
+    local big = B.lines({ { item = "h-big", rate = 72, machines = 36 }, { item = "h-one", rate = 2, machines = 1 } }, "mid", { machines_par_rangee = 6 })
+    ck(big[1] and big[1].item == "h-big" and math.abs(big[1].rate_row - 12) < 1e-9, "1.6 36 machines pour 72/min : la ligne demande 12/min (une rangée de 6)")
+    ck(big[2] and math.abs(big[2].rate_row - 2) < 1e-9, "1.6 bis une machine : le débit entier")
+  end
   ck(mid[1] and mid[1].item == "h-gear" and mid[2].item == "h-circ" and mid[3].item == "h-wire", "1.5 ordre par débit décroissant")
   local names = {}
   for _, l in ipairs(B.lines(HUBS, "mid", { k = 6 })) do names[l.item] = true end
@@ -211,6 +216,7 @@ local SRC = read("shared/team/bus_intermediaires.lua")
 local MUTANTS = {
   { "phase : toute phase sauf early", 'return phase == "mid" or phase == "late"', 'return phase ~= "early"' },
   { "famine ignorée", "if famine == true then return out end", "" },
+  { "débit d'une rangée non borné", "math.min(l.rate, l.rate * c.machines_par_rangee / l.machines)", "l.rate" },
   { "débit minimal : demi-machine admise", "m + Bi.EPS >= c.min_machines", "m + Bi.EPS >= 0" },
   { "k ignoré", "for i = 1, math.min(c.k, #cands) do", "for i = 1, #cands do" },
   { "rangées arrondies en dessous", "math.ceil(l.machines / c.machines_par_rangee - Bi.EPS)", "math.floor(l.machines / c.machines_par_rangee + Bi.EPS)" },

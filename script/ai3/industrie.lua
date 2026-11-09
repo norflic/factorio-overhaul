@@ -399,7 +399,7 @@ local function intermediaires(f, ml, cs, book, tick)
   local prev = (ml.bi and ml.bi.states) or {}
   local states, fallback = {}, {}
   for _, l in ipairs(lines) do
-    Ml.want(ml, tick, l.item, l.rate, Bi.SRC)
+    Ml.want(ml, tick, l.item, l.rate_row or l.rate, Bi.SRC) -- (rate_row : une rangée d'abord, banc V0676-N)
     states[l.item] = line_state(f, l.item, cs.flows, prev[l.item])
     if Bi.fallback(states[l.item], Bi.CFG) then fallback[l.item] = true end
   end

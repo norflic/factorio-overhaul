@@ -82,6 +82,9 @@ function Bi.lines(hubs, phase, cfg, famine)
   for i = 1, math.min(c.k, #cands) do
     local l = cands[i]
     l.rows = math.max(1, math.ceil(l.machines / c.machines_par_rangee - Bi.EPS))
+    -- Banc V0676-N (123456789) : des hubs à 36 puis 64 machines d'engrenages demandés d'un coup ; une ligne commence par UNE rangée (on pose ce
+    -- qu'on a) : le débit demandé au mall est borné à ce qu'une rangée produit, le surplus fera grandir la rangée (F442, allongement).
+    l.rate_row = (l.machines > 0) and math.min(l.rate, l.rate * c.machines_par_rangee / l.machines) or l.rate
     out[#out + 1] = l
   end
   return out
