@@ -76,11 +76,8 @@ return function(rule)
       ctx.check(boiler and engine and quai and ins and pole and radars == 4, "centrale reelle posee (chaudiere, machine, coffre, inserter, poteau, 4 radars)",
         string.format("%s %s %s %s %s %d", tostring(boiler ~= nil), tostring(engine ~= nil), tostring(quai ~= nil), tostring(ins ~= nil), tostring(pole ~= nil), radars))
       if not (boiler and engine and quai and ins) then return end
-      local pt, dt = ins.pickup_target, ins.drop_target
-      ctx.check(pt ~= nil and pt.name == "iron-chest" and dt ~= nil and dt.name == "boiler", "l'inserter prend au coffre de quai et depose dans la chaudiere",
-        string.format("prise %s, depot %s", pt and pt.name or "nil", dt and dt.name or "nil"))
       ins.insert({ name = "coal", count = 1 }) -- amorce de l'inserter a combustion
-      quai.insert({ name = "coal", count = 8 })
+      st.ins = ins -- coffre de quai VIDE et chaudiere a sec au depart
       st.boiler, st.engine, st.quai = boiler, engine, quai
       local id = ctx.remote("fo-ia1d", "bench_plant", "player", {
         { name = "boiler", x = boiler.position.x, y = boiler.position.y },
@@ -91,7 +88,7 @@ return function(rule)
       st.q_prev, st.recv, st.first_recv, st.dry, st.power, st.samples, st.hq_coal_max = 0, 0, nil, 0, 0, 0, 0
       boiler.fluidbox[1] = { name = "water", amount = 200 }
       st.ready = true
-      ctx.log(TAG .. string.format("depart : QG sans charbon, centrale en (%.1f, %.1f), coffre de quai a 8 charbons, avant-poste %s en (%d, %d)", bx, by, tostring(o and o.id), cc.x, cc.y))
+      ctx.log(TAG .. string.format("depart : QG sans charbon, centrale en (%.1f, %.1f), coffre de quai VIDE, avant-poste %s en (%d, %d)", bx, by, tostring(o and o.id), cc.x, cc.y))
     end,
 
     tick = function(ctx, e)
@@ -99,6 +96,11 @@ return function(rule)
       if not st.ready then return end
       local t = e.tick
       if t % 30 == 0 and st.boiler.valid then st.boiler.fluidbox[1] = { name = "water", amount = 200 } end -- accessoire declare : l'eau
+      if t == 120 then
+        local pt, dt = st.ins.valid and st.ins.pickup_target, st.ins.valid and st.ins.drop_target
+        ctx.check(pt and pt.name == "iron-chest" and dt and dt.name == "boiler", "l'inserter prend au coffre de quai et depose dans la chaudiere",
+          string.format("prise %s, depot %s", pt and pt.name or "nil", dt and dt.name or "nil"))
+      end
       if t == 1 then
         -- charbon des coffres de sortie de l'avant-poste : l'etat du DC (des centaines de charbons que la tournee n'a pas ramasses)
         st.sinks = ctx.surface().find_entities_filtered({ name = "iron-chest", force = "player", position = st.cc, radius = 18 })
@@ -118,6 +120,7 @@ return function(rule)
         if not st.first_recv then st.first_recv = t end
       end
       st.q_prev = n
+      if n > (st.q_max or 0) then st.q_max = n end
       if st.boiler.valid and st.boiler.status == defines.entity_status.no_fuel then st.dry = st.dry + 1 end
       if st.engine.valid and st.engine.energy_generated_last_tick > 0 then st.power = st.power + 1 end
       local hqc = st.hq.valid and st.hq.get_item_count("coal") or 0
@@ -139,15 +142,15 @@ return function(rule)
       local sink = 0
       for _, c in ipairs(st.sinks or {}) do if c.valid then sink = sink + c.get_item_count("coal") end end
       local n = st.quai.valid and st.quai.get_item_count("coal") or 0
-      ctx.log(TAG .. string.format("RESULTAT regle=%s recu=%d premier_s=%.1f chaudiere_a_sec_s=%.1f courant_s=%.1f coffre_fin=%d tampon_depart=%d tampon_fin=%d qg_charbon_max=%d echantillons=%d",
-        rule and "allumee" or "coupee", st.recv, st.first_recv and (st.first_recv - T0) / 60 or -1, st.dry * STEP / 60, st.power * STEP / 60, n, st.sink0 or 0, sink,
+      ctx.log(TAG .. string.format("RESULTAT regle=%s recu=%d premier_s=%.1f chaudiere_a_sec_s=%.1f courant_s=%.1f coffre_max=%d coffre_fin=%d tampon_depart=%d tampon_fin=%d qg_charbon_max=%d echantillons=%d",
+        rule and "allumee" or "coupee", st.recv, st.first_recv and (st.first_recv - T0) / 60 or -1, st.dry * STEP / 60, st.power * STEP / 60, st.q_max or 0, n, st.sink0 or 0, sink,
         st.hq_coal_max, st.samples))
       ctx.check(st.samples >= WINDOW / STEP - 2, "la fenetre complete est echantillonnee", tostring(st.samples))
       ctx.check(st.hq_coal_max == 0, "le coffre du QG est reste SANS charbon (aucun PNJ n'y a rapporte de charbon)", tostring(st.hq_coal_max))
       if rule then
         ctx.check(st.recv >= 100, "le coffre de la centrale a RECU du charbon du tampon", tostring(st.recv))
         ctx.check(sink >= 60 * #st.sinks - 1 and sink < (st.sink0 or 0), "le tampon a fourni du charbon et en garde pour ses bruleurs", string.format("%d -> %d", st.sink0 or 0, sink))
-        ctx.check(st.dry * STEP / 60 < 60, "la chaudiere n'est pas restee a sec plus d'une minute", string.format("%.1f s", st.dry * STEP / 60))
+        ctx.check(st.dry * STEP / 60 < 45, "la chaudiere n'est pas restee a sec plus de 45 s (livraison du tampon)", string.format("%.1f s", st.dry * STEP / 60))
       else
         ctx.check(st.recv == 0, "(temoin) le coffre de la centrale n'a rien recu", tostring(st.recv))
         ctx.check(st.dry * STEP / 60 > 60, "(temoin) la chaudiere reste a sec", string.format("%.1f s", st.dry * STEP / 60))
