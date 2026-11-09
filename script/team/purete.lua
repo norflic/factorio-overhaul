@@ -253,6 +253,28 @@ function Pur.fronts(f, surface, item, p, opts)
   end
 end
 
+--- Lot BUS-LONG : axe (1 N/S, 2 E/O) de la pièce souterraine à la tuile (x, y), posée, fantôme, ou planifiée par un projet de l'équipe autre que `p` ; nil : aucune. Lecture par tuile (cache de chunks,
+--- index des projets) : le coût ne dépend ni du nombre de projets ni de la taille de la boîte, contrairement à une lecture de toute la zone à chaque tranche.
+function Pur.ug_axis(f, surface, p)
+  local b = f.build
+  local lx, ly, lb
+  local function axis_of(d) return (d == 0 or d == 4) and 1 or 2 end
+  return function(x, y)
+    local k = (x + 1048576) * 2097152 + (y + 1048576)
+    local r = b.occ[k] and plan_rec(b, p, k) or nil
+    if not r then
+      if lx == nil or x < lx or x >= lx + 32 or y < ly or y >= ly + 32 then
+        local cx, cy = floor(x / 32), floor(y / 32)
+        lx, ly = cx * 32, cy * 32
+        lb = eng_chunk(surface, cx, cy).byk
+      end
+      r = lb[k]
+    end
+    if r and (r.kind == "ug_in" or r.kind == "ug_out" or r.kind == "ug") then return axis_of(r.dir or 0) end
+    return nil
+  end
+end
+
 function Pur.front_ok(f, surface)
   if not Pur.ENABLED then return nil end
   local b = f.build

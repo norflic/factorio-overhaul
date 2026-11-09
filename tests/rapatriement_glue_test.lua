@@ -29,7 +29,7 @@ end
 defines = { inventory = { chest = 1 } }
 local remote_fn = {}
 remote = { add_interface = function(name, t) remote_fn[name] = t end }
-game = { tick = 0, item_prototypes = { A = { stack_size = 100 }, B = { stack_size = 50 } } }
+game = { tick = 0, item_prototypes = { A = { stack_size = 100 }, B = { stack_size = 50 } }, entity_prototypes = {}, get_filtered_entity_prototypes = function() return {} end, forces = {} } -- (lot BUS-LONG : aucun souterrain debloque, trace 4 voisins)
 local SETTING_ON = false
 settings = { global = setmetatable({}, { __index = function(_, k)
   if k == "fo-war-rapatriement" then return { value = SETTING_ON } end
@@ -90,6 +90,7 @@ local function new_world()
     end
     return {}
   end
+  surface.index = 1
   function surface.is_chunk_generated() return true end
   function surface.find_nearest_enemy() return nil end
   function surface.count_entities_filtered() return 0 end

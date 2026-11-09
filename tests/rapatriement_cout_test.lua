@@ -59,7 +59,7 @@ run("source a 300 tuiles, mur plein", wallx(150, 152, -420, 420), { 300, 20 }, {
 run("mur a contourner (-16..50)", wallx(60, 62, -16, 50), { 150, 20 }, { 24, 14 })
 
 local fails = 0
-local LIMITE = 160000 -- instructions par appel (1,3 a 7 ms a 8-44 ns) ; mesure du 8/11 : pire appel 143 k
+local LIMITE = 400000 -- instructions par appel (3 a 17 ms) ; lot BUS-LONG : la tranche de troncon (260 etats, souterrains) ; plafond du lot : 600 000 a 800 000 par pensee (ancienne borne 160 000 : A* de 135 noeuds, sans souterrains)
 local function check(c, m) if not c then fails = fails + 1 print("  ECHEC : " .. m) end end
 local by = {}
 for _, r in ipairs(RESULTS) do by[r.label] = r; check(r.maxc <= LIMITE, r.label .. " : pire appel " .. r.maxc .. " instructions > limite") end

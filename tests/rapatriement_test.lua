@@ -285,7 +285,7 @@ local function suite(Rp, quiet)
   check(Rp.route_ok(Rp.MAX_LEN + 1, Rp.MAX_LEN - 50) == false, "9.2 un tapis plus long que Rp.MAX_LEN est refuse")
   check(Rp.route_ok(250, 100) == false, "9.3 un detour de plus de Rp.DETOUR est refuse")
   check(Rp.route_ok(Rp.MAX_LEN, Rp.MAX_LEN - 20) == true, "9.4 au plafond mais direct : accepte")
-  local _, w = Rp.route_ok(400, 300)
+  local _, w = Rp.route_ok(Rp.MAX_LEN + 80, Rp.MAX_LEN - 20)
   check(type(w) == "string" and w:find("tuiles", 1, true) ~= nil, "9.5 la raison du refus est ecrite")
 
   -- §10 entités et preuve géométrique : tracé en L entre un coffre S (au nord-ouest) et un tampon D
