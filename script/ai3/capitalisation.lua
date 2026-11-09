@@ -113,6 +113,7 @@ Capi.Mega = require("script.team.mega_fonderie") -- lot MEGA-FONDERIE : décisio
 Capi.SETTING = "fo-war-capi"
 Capi.ENABLED = true
 Capi.CYCLE = 12              -- pensées par cycle (une minute à une pensée toutes les 300 ticks)
+Capi.Cov = require("shared.ai3.cov_pas") -- lot COUT-600 : couverture d'un gisement par pensée (règles pures ; champ de Capi : pas de locale de plus en tête de fichier)
 Capi.SCAN_R = 160            -- tuiles autour du QG : machines, foreuses, gisements connus
 Capi.HQ_R = 40               -- une machine à moins de 40 tuiles du QG est « au QG »
 Capi.DEP_MAX = 16            -- gisements suivis au plus par faction (les plus proches)
@@ -633,7 +634,11 @@ end
 local OFF = 1048576
 local function tkey(x, y) return (x + OFF) * 2097152 + (y + OFF) end
 
-local function coverage(f, cs)
+-- Lot COUT-600 : UN gisement par pensée (le plus ancien dû après le curseur cs.cov_last, shared/ai3/cov_pas.lua) au lieu de tous dans la même
+-- pensée (382 k instructions par gisement de 600 %, 1,9 M à cinq gisements). Chaque gisement garde la valeur d'avant (Capi.Cov.covered = la boucle
+-- d'avant) et est relu au plus toutes les Capi.Cov.EVERY ticks (le rythme d'avant : une fois par cycle). cs.cov_last et d.cov_tick sont dans cs
+-- (global, par le stockage de state_of) ; lecteurs : cette fonction. Un gisement apparu ou disparu change la liste triée, jamais le curseur.
+local function coverage(f, cs, tick)
   local sc = cs.scan
   if not sc then return end
   local surface = f.hq.surface
@@ -645,30 +650,28 @@ local function coverage(f, cs)
       l[#l + 1] = dp
     end
   end
-  cs.cov = {}
-  for _, id in ipairs(sorted_keys(by_dep)) do
-    local d = cs.deps[id]
-    if d then
-      Profiler.fstart("cov:find") -- lot X10-S0 : mesure seulement
-      local idx = {}
-      for _, e in ipairs(surface.find_entities_filtered({ area = { { d.x0, d.y0 }, { d.x1, d.y1 } }, name = d.resource })) do
-        idx[tkey(math.floor(e.position.x), math.floor(e.position.y))] = true
-      end
-      Profiler.fstop("cov:find")
-      local seen, n = {}, 0
-      for _, dp in ipairs(by_dep[id]) do
-        local r = dp.r
-        for x = math.floor(dp.x - r + 0.01), math.floor(dp.x + r - 0.01) do
-          for y = math.floor(dp.y - r + 0.01), math.floor(dp.y + r - 0.01) do
-            local k = tkey(x, y)
-            if idx[k] and not seen[k] then seen[k] = true n = n + 1 end
-          end
-        end
-      end
-      cs.cov[id] = n
-      d.covered = n
-    end
+  cs.cov = cs.cov or {}
+  for _, id in ipairs(sorted_keys(cs.cov)) do
+    if not by_dep[id] then cs.cov[id] = nil end
   end
+  local ids = {}
+  for _, id in ipairs(sorted_keys(by_dep)) do
+    if cs.deps[id] then ids[#ids + 1] = id end
+  end
+  local id = Capi.Cov.next_due(ids, cs.cov_last, function(i) return cs.deps[i].cov_tick end, tick, Capi.Cov.EVERY)
+  if not id then return end
+  cs.cov_last = id
+  local d = cs.deps[id]
+  d.cov_tick = tick
+  Profiler.fstart("cov:find") -- lot X10-S0 : mesure seulement
+  local idx = {}
+  for _, e in ipairs(surface.find_entities_filtered({ area = { { d.x0, d.y0 }, { d.x1, d.y1 } }, name = d.resource })) do
+    idx[tkey(math.floor(e.position.x), math.floor(e.position.y))] = true
+  end
+  Profiler.fstop("cov:find")
+  local n = Capi.Cov.covered(idx, by_dep[id], tkey)
+  cs.cov[id] = n
+  d.covered = n
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -690,7 +693,8 @@ local function census_one(f, cs, tick)
     local fresh = cs.seed_seen[sk] and tick - cs.seed_seen[sk] < Capi.CENSUS_EVERY
     if not fresh and (not d or tick - (d.tick or 0) >= Capi.CENSUS_EVERY) then
       cs.seed_seen[sk] = tick
-      local c = Sites.census(surface, s.res, { x = s.x + 0.5, y = s.y + 0.5 })
+      -- lot COUT-600 : le gisement déjà connu (d) donne la boîte à relire au lieu du carré de 96, puis de 192 tuiles (même résultat)
+      local c = Sites.census(surface, s.res, { x = s.x + 0.5, y = s.y + 0.5 }, d)
       if c then
         -- une composante déjà connue sous un autre identifiant (coin épuisé) : la même entrée, mise à jour
         local old = dep_at(cs, s.res, c.cx, c.cy)
@@ -699,7 +703,8 @@ local function census_one(f, cs, tick)
           limit = 1 }) > 0
         cs.deps[c.id] = { id = c.id, resource = s.res, tiles = c.tiles, amount = c.amount, x0 = c.x0, y0 = c.y0, x1 = c.x1,
           y1 = c.y1, cx = c.cx, cy = c.cy, tick = tick, cut = c.cut, danger = hostile or nil,
-          covered = old and old.covered or (cs.deps[c.id] and cs.deps[c.id].covered) or nil }
+          covered = old and old.covered or (cs.deps[c.id] and cs.deps[c.id].covered) or nil,
+          cov_tick = (old and old.cov_tick) or (cs.deps[c.id] and cs.deps[c.id].cov_tick) or nil }
         -- au plus Capi.DEP_MAX gisements : les plus lointains sont oubliés
         local ids = sorted_keys(cs.deps)
         if #ids > Capi.DEP_MAX then
@@ -2421,9 +2426,13 @@ function Capi.think(f, view, book, tick, research, w, run)
     Profiler.fstop("capi:scan")
   elseif phase == 1 then
     Profiler.fstart("capi:coverage")
-    coverage(f, cs)
+    coverage(f, cs, tick)
     Profiler.fstop("capi:coverage")
   elseif phase >= 2 and phase <= 9 then
+    -- lot COUT-600 : un gisement de la couverture par pensée (les cinq ou six gisements d'avant ne tenaient pas dans la seule pensée 1)
+    Profiler.fstart("capi:coverage")
+    coverage(f, cs, tick)
+    Profiler.fstop("capi:coverage")
     census_one(f, cs, tick)
   elseif phase == 10 and cs.scan then
     if decide_start(f, cs, view, book, tick, w, run) and not decide_slice(f, cs, view, book, tick, research, run) then

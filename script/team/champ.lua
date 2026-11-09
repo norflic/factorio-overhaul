@@ -270,7 +270,7 @@ local function ore_tiles(surface, o)
   for _, r in ipairs(surface.find_entities_filtered({ position = o.pos, radius = Champ.CFG.radius, name = res })) do
     if r.valid then raw[#raw + 1] = { x = r.position.x, y = r.position.y } end
   end
-  local comp = Paires.component(Paires.sorted(raw, o.pos), Paires.GAP, o.pos)
+  local comp = Paires.nearest_component(raw, Paires.GAP, o.pos) -- lot COUT-600 : = component(sorted(...)) sans trier les gisements voisins
   local out = {}
   for _, t in ipairs(comp) do out[#out + 1] = math.floor(t.x); out[#out + 1] = math.floor(t.y) end
   return out
