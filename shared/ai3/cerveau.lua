@@ -358,7 +358,16 @@ function C.think(view, book, st, ctx)
   -- rang R1 (audit M4 : « perte sans objet » n'était ni fabriquée ni demandée), sa matière héritant de la priorité de la pièce.
   for _, it in ipairs(pile.reserve or {}) do E.avail[it[1]] = math.max(0, (E.avail[it[1]] or 0) - it[2]) end
   local repair_proj = { id = 0, key = "pile:reparer" }
+  local pile_c0 = E.crafts
   for _, it in ipairs(pile.crafts or {}) do P.want(E, repair_proj, { { it[1], it[2] } }, it[3], false, "pile") end
+  -- trace (lecture seule, lue par script/team/pile.lua PileRt.journal) : ce que la pile a demandé de fabriquer, ce qui est parti, ce qui manque
+  do
+    local wants, short = {}, {}
+    for _, it in ipairs(pile.crafts or {}) do wants[#wants + 1] = it[1] .. " x" .. it[2] .. " (stock libre " .. (E.avail[it[1]] or 0) .. ")" end
+    for _, k in ipairs(sorted_keys(repair_proj.missing or {})) do short[#short + 1] = k .. " " .. repair_proj.missing[k] end
+    st.pile.craft_note = string.format("fabrications demandees [%s], parties %d, matiere qui manque [%s]", table.concat(wants, ", "), E.crafts - pile_c0,
+      table.concat(short, ", "))
+  end
   P.boot_smelters(E, st, s.cap) -- lot IA-V2 : fours du QG avant les projets (chemin critique)
   -- Ordre de SERVICE du stock virtuel : une COPIE de l'ordre (l'ordre d'origine garde le projet dominant, plus bas ; relecture de
   -- 16f1b3e0, point 1). Lot DEFAUT7 : l'amélioration exigée par le centre (chaîne Q16) servie d'abord ; étage 3 : le centre passé

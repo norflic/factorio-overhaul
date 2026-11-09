@@ -193,8 +193,8 @@ function PileRt.journal(f, tick)
   st.logged_tick = st.tick
   if not st.changed and tick < (st.log_at or 0) then return false end
   st.log_at = tick + Pi.LOG_EVERY
-  log(string.format("[FO-PILE] %s : %s a %.1f min", f.key or "player", Pi.describe(st),
-    (tick - (f.started or 0)) / 3600))
+  log(string.format("[FO-PILE] %s : %s a %.1f min ; craft de pile : %s", f.key or "player", Pi.describe(st),
+    (tick - (f.started or 0)) / 3600, tostring(st.craft_note)))
   return true
 end
 
