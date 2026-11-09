@@ -38,6 +38,10 @@ local function place_team_chest(ctx)
 end
 
 --- Raffineries et usines de la force, entrees de brut raccordees, systemes de fluide des entrees de brut.
+local STATUS = {}
+for name, v in pairs(defines.entity_status) do STATUS[v] = name end
+local function status_of(e) return (STATUS[e.status] or tostring(e.status)) .. (e.active and "" or "/inactif") end
+
 local function census(s, force)
   local refs = s.find_entities_filtered({ name = "oil-refinery", force = force })
   local plants = s.find_entities_filtered({ name = "chemical-plant", force = force })
@@ -206,10 +210,10 @@ return {
       crude_out = fs.get_input_count("crude-oil")
       for _, r in ipairs(s.find_entities_filtered({ name = "oil-refinery", force = st.force })) do
         ref_done = ref_done + r.products_finished
-        ref_status[#ref_status + 1] = tostring(r.status)
+        ref_status[#ref_status + 1] = status_of(r)
       end
       for _, pl in ipairs(s.find_entities_filtered({ name = "chemical-plant", force = st.force })) do plant_done = plant_done + pl.products_finished end
-      for _, pj in ipairs(s.find_entities_filtered({ name = "pumpjack", force = st.force })) do pj_status[#pj_status + 1] = tostring(pj.status) end
+      for _, pj in ipairs(s.find_entities_filtered({ name = "pumpjack", force = st.force })) do pj_status[#pj_status + 1] = status_of(pj) end
     end
     ctx.log(string.format("[FO-PETROLE-RANGEE] FONCTION : brut extrait %.0f unites, cycles de raffinage finis %d, cycles de plastique finis %d ; raffineries [%s] ; chevalets [%s]",
       crude_out, ref_done, plant_done, table.concat(ref_status, ","), table.concat(pj_status, ",")))
