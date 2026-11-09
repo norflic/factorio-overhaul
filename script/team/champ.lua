@@ -336,7 +336,7 @@ end
 
 --- Tuiles où rien ne se pose dans le rectangle : eau, bâtiments (arbres et rochers exceptés : défrichés), tuiles réservées par un
 --- autre projet du plan directeur ; les tuiles `mine` restent libres.
-local function blocked_in(f, surface, x0, y0, x1, y1, mine, soft_out)
+local function blocked_in(f, surface, x0, y0, x1, y1, mine, soft_out, occ_libre)
   local blocked = {}
   for _, t in ipairs(surface.find_tiles_filtered({ area = { { x0, y0 }, { x1, y1 } }, collision_mask = "water-tile" })) do
     blocked[Ch.key(math.floor(t.position.x), math.floor(t.position.y))] = "eau"
@@ -355,7 +355,7 @@ local function blocked_in(f, surface, x0, y0, x1, y1, mine, soft_out)
   for x = math.floor(x0), math.ceil(x1) do
     for y = math.floor(y0), math.ceil(y1) do
       local k = P.tkey(x, y)
-      if occ[k] and not blocked[Ch.key(x, y)] then blocked[Ch.key(x, y)] = "reserve" end
+      if occ[k] and not blocked[Ch.key(x, y)] and not (occ_libre and occ_libre(x, y, occ[k])) then blocked[Ch.key(x, y)] = "reserve" end -- occ_libre : le mall ouvre à la chaîne les tuiles que ses rangées n'utilisent jamais
       if cor[k] and not blocked[Ch.key(x, y)] then
         blocked[Ch.key(x, y)] = "couloir"
         if f.stats then f.stats.couloir_champ = (f.stats.couloir_champ or 0) + 1 end -- revue (B3)
@@ -677,7 +677,7 @@ local function raccord_tous(f, surface, bd, ents, cx, cy, proj)
   local function blocked_of(margin)
     local bl = blocked_by[margin]
     if not bl then
-      bl = blocked_in(f, surface, math.floor(x0) - margin, math.floor(y0) - margin, math.ceil(x1) + margin, math.ceil(y1) + margin, bd.spec.mine)
+      bl = blocked_in(f, surface, math.floor(x0) - margin, math.floor(y0) - margin, math.ceil(x1) + margin, math.ceil(y1) + margin, bd.spec.mine, nil, bd.occ_libre)
       blocked_by[margin] = bl
     end
     return function(tx, ty) return bl[Ch.key(tx, ty)] ~= nil end
@@ -725,6 +725,15 @@ local function raccord_tous(f, surface, bd, ents, cx, cy, proj)
       say(f, string.format("raccord de bande refuse, palier « %s » : composante de %d poteau(x) en (%.0f, %.0f), cible la plus proche en (%.0f, %.0f) a %.0f tuiles ; segment %d points : %d occupes, %d de minerai, %d deja pris, %d libres ; boite %d x %d : %d%% de tuiles libres",
         t.name, fl.n, fl.at.x, fl.at.y, fl.to.x, fl.to.y, fl.d or 0, st.seg, st.seg_blocked, st.seg_ore, st.seg_used, st.seg_free,
         box.x1 - box.x0 + 1, box.y1 - box.y0 + 1, st.box > 0 and math.floor(100 * st.box_free / st.box) or 0))
+      if bd.occ_libre then -- mall : de quoi sont faites les tuiles bloquées de la plus grande boîte lue (journal seulement)
+        local widest, wm, tally, ks, parts = nil, nil, {}, {}, {}
+        for m, bl in pairs(blocked_by) do if not wm or m > wm then widest, wm = bl, m end end
+        for _, why in pairs(widest or {}) do tally[why] = (tally[why] or 0) + 1 end
+        for k in pairs(tally) do ks[#ks + 1] = tostring(k) end
+        table.sort(ks)
+        for _, k in ipairs(ks) do parts[#parts + 1] = k .. "=" .. tally[k] end
+        say(f, "raccord du mall : tuiles bloquees (marge " .. tostring(wm) .. ") : " .. table.concat(parts, ", "))
+      end
     end
   end
   -- lot RACCORD-BANDE 2 : le réseau alimenté est LOIN (partie neuve 0.6.72 : 163 à 281 tuiles) : après le dernier palier, une LIGNE de poteaux, projet

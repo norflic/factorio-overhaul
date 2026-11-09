@@ -191,6 +191,23 @@ do
   check(relais(s4), "§3 tronc commencé à la rangée 2 : relais de la tête vers le poteau de la rangée 1")
 end
 
+-- §3b aucune pièce du tronc sur une tuile que la chaîne de poteaux peut prendre
+do
+  local Mr = require("shared.team.mall_rangee")
+  local ls = lines_for({ "fer", "cuivre", "acier" })
+  local bad = 0
+  for j = 1, 3 do
+    local sec = Mt.section(ls, { j = j, bus = { a = 1, b = 3 } }, NAMES)
+    for _, ln in ipairs(ls) do ln.y_to = sec.y_to[ln.k] end
+    for _, e in ipairs(sec.ents) do
+      for _, t in ipairs(tiles_of(e)) do
+        if Mr.reserve_libre(t[1], t[2], Mt.WEST, Mt.NORTH) then bad = bad + 1; print("libre : " .. e.name .. " " .. t[1] .. "," .. t[2]) end
+      end
+    end
+  end
+  check(bad == 0, "§3b tronc, 3 lignes, 3 rangées : aucune pièce sur une tuile libre (" .. bad .. ")")
+end
+
 -- §4 mutants
 do
   local path = "shared/team/mall_tronc.lua"

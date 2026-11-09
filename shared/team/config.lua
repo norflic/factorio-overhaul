@@ -81,6 +81,7 @@ T.drill_electric = { size = 3, drop = { 0, -1.85 } }
 -- Lot FONDERIE (retour du DC du 2/11 : « Faites attention aux passages sous-terrain et aux splitters (si pas recherchés) ») : TYPES de
 -- prototypes des pièces de logistique de la colonne de fonderie (script/team/champ.lua lit le moins cher dont la recette est débloquée).
 T.LOGISTIC_TYPES = { splitter = "splitter", underground = "underground-belt" }
+T.MALL_PREMIERS = { ["transport-belt"] = true, inserter = true } -- types d'entité dont les objets passent devant dans le mall (tapis et bras d'abord)
 -- (lot FONDERIE) types de tourelle : une foreuse de bande refusée par une tourelle de la faction est sautée (shared/team/champ_saut.lua)
 T.TURRET_TYPES = { "ammo-turret", "electric-turret", "fluid-turret", "turret", "artillery-turret" }
 -- every : ticks entre deux passes ; per_pass : remplacements au plus par passe ; craft_cap : foreuses electriques fabriquees d'avance

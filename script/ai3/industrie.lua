@@ -410,6 +410,7 @@ function Ind.think(f, cs, res, view, book, tick)
       end
     end
     local cands = Id.order(out) -- lot RB-FLUIDE : la cellule d'un kit d'unité passe devant les blocs
+    if MallRt.ouvert(f) then cands = MallRt.ordonne(cands) end -- lot MALL : tapis et bras d'abord
     for _, c in ipairs(cands) do
       local dec, kind = c.dec, c.kind
       local label = kind == "bloc" and ("[" .. table.concat(dec.items, ",") .. "]") or dec.item

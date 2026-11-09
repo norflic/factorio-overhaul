@@ -14,7 +14,7 @@ end
 local LOG = {}
 _G.log = function(s) LOG[#LOG + 1] = s end
 _G.remote = { add_interface = function() end }
-_G.defines = { inventory = { chest = 1 }, entity_status = { working = 1, low_power = 2 } }
+_G.defines = { inventory = { chest = 1 }, entity_status = { working = 1, low_power = 2, no_ingredients = 3 } }
 local PROTOS = {}
 _G.game = { tick = 0, entity_prototypes = PROTOS, item_prototypes = setmetatable({}, { __index = function() return { stack_size = 50 } end }) }
 
@@ -302,6 +302,157 @@ do
 end
 
 ---------------------------------------------------------------------------------------------------
+-- §7w intermédiaires d'abord : engrenage avant tapis, câble avant circuit avant inserteur
+---------------------------------------------------------------------------------------------------
+do
+  game.entity_prototypes.asm = { type = "assembling-machine" }
+  game.entity_prototypes.four = { type = "furnace" }
+  local M = { { item = "asm", entity = "asm", par_min = 30 } }
+  local function rec(prod, sol) return { solides = sol, produits = { prod }, patronnable = true, category = "crafting", machines = M, fluides_in = {} } end
+  local lec = { fab = {
+    belt = rec("belt", { { name = "gear", amount = 1 }, { name = "iron-plate", amount = 1 } }),
+    gear = rec("gear", { { name = "iron-plate", amount = 2 } }),
+    cable = rec("cable", { { name = "copper-plate", amount = 1 } }),
+    circ = rec("circ", { { name = "cable", amount = 3 }, { name = "iron-plate", amount = 1 } }),
+    bras = rec("bras", { { name = "circ", amount = 1 }, { name = "gear", amount = 1 }, { name = "iron-plate", amount = 1 } }),
+    fluide = { solides = { { name = "iron-plate", amount = 1 } }, produits = { "fluide" }, patronnable = true, category = "crafting", machines = M, fluides_in = { { name = "eau" } } },
+    tuyau = rec("tuyau", { { name = "fluide", amount = 1 } }),
+    acier = { solides = { { name = "iron-plate", amount = 5 } }, produits = { "acier" }, patronnable = true, category = "smelting", machines = { { item = "four", entity = "four", par_min = 12 } }, fluides_in = {} },
+    moteur = rec("moteur", { { name = "acier", amount = 1 }, { name = "iron-plate", amount = 1 } }),
+  } }
+  local kit = { decl = { kit = {} }, bras = NAMES.bras, bras_long = NAMES.bras_long, tapis = NAMES.tapis, poteau = NAMES.poteau, coffre = NAMES.coffre }
+  local mod = { args = { 0, 0, kit } }
+  local function bloc(item) return { kind = "bloc", items = { item }, dec = { recipes = { [item] = item }, rates = { [item] = 30 } } } end
+  local function oui() return true end
+  local f = team()
+  local st = f.build.mall
+  check(Rt.accueille(f, bloc("belt"), mod, lec, 10, afford, oui) == true, "§7w tapis : pris")
+  check(Rt.served(f).gear == true and Rt.served(f).belt == nil, "§7w d'abord l'engrenage, pas le tapis")
+  check(#st.rows == 1 and table.concat(st.rows[1].voies, ",") == "iron-plate", "§7w rangée de plaques seulement (" .. table.concat(st.rows[1].voies, ",") .. ")")
+  check(Mr.compte(st.rows[1], "gear") == 2, "§7w machines d'après le débit réel : 30/min x 1 x 2 / 30 = 2 (" .. Mr.compte(st.rows[1], "gear") .. ")")
+  check(Rt.accueille(f, bloc("belt"), mod, lec, 20, afford, oui) == true and Rt.served(f).belt == true, "§7w puis le tapis")
+  local f2 = team()
+  check(Rt.accueille(f2, bloc("bras"), mod, lec, 10, afford, oui) == true and Rt.served(f2).cable == true and Rt.served(f2).circ == nil and Rt.served(f2).bras == nil, "§7w le plus profond d'abord : le câble")
+  check(Rt.accueille(f2, bloc("bras"), mod, lec, 20, afford, oui) == true and Rt.served(f2).circ == true and Rt.served(f2).bras == nil, "§7w puis le circuit")
+  check(Rt.accueille(f2, bloc("bras"), mod, lec, 30, afford, oui) == true and Rt.served(f2).gear == true and Rt.served(f2).bras == nil, "§7w puis l'engrenage")
+  check(Rt.accueille(f2, bloc("bras"), mod, lec, 40, afford, oui) == true and Rt.served(f2).bras == true, "§7w enfin l'inserteur")
+  -- une entrée que le patron ne sait pas faire (fluide) : pas d'intermédiaire, la recette passe comme avant
+  local f3 = team()
+  local ok3 = Rt.accueille(f3, bloc("tuyau"), mod, lec, 10, afford, oui)
+  check(ok3 == true and Rt.served(f3).tuyau == true and Rt.served(f3).fluide == nil, "§7w intermédiaire à fluide : recette gardée (" .. tostring(ok3) .. ")")
+  -- une recette de four n'est pas un intermédiaire : la recette demandée passe, l'acier reste une entrée
+  local f5 = team()
+  local ok5 = Rt.accueille(f5, bloc("moteur"), mod, lec, 10, afford, oui)
+  check(ok5 == true and Rt.served(f5).moteur == true and Rt.served(f5).acier == nil, "§7w recette de four : pas de rangée d'intermédiaire (" .. tostring(ok5) .. ")")
+  -- matériel refusé : on attend, sans poser la recette demandée
+  local f4 = team()
+  local ok4, why4, wait4 = Rt.accueille(f4, bloc("belt"), mod, lec, 10, function() return false, "rien" end, oui)
+  check(ok4 == false and wait4 == true and #f4.build.mall.rows == 0, "§7w matériel refusé : attente (" .. tostring(why4) .. ")")
+end
+
+---------------------------------------------------------------------------------------------------
+-- §7x tapis et bras d'abord ; famille des chantiers dans la pile
+---------------------------------------------------------------------------------------------------
+do
+  local old_items = game.item_prototypes
+  game.item_prototypes = {
+    tapis = { place_result = { type = "transport-belt" } }, bras = { place_result = { type = "inserter" } },
+    gear = { }, mur = { place_result = { type = "wall" } },
+  }
+  local a, b, c, d = { items = { "gear" } }, { items = { "gear", "bras" } }, { items = { "mur" } }, { items = { "tapis" } }
+  local o = Rt.ordonne({ a, b, c, d })
+  check(o[1] == b and o[2] == d and o[3] == a and o[4] == c, "§7x tapis et bras devant, ordre relatif gardé")
+  check(#Rt.ordonne({}) == 0, "§7x liste vide")
+  game.item_prototypes = old_items
+
+  local f = team()
+  local id = Rt.place(f, { dem("belt", 2, { "fer", "gear" }) }, NAMES, 100, afford, "t")
+  local p = f.build.projects[id]
+  p.state = "chantier"
+  local old_brief = Build.brief
+  Build.brief = function() return { state = "chantier", missing = {} } end
+  local mods = {}
+  Rt.contexte(f, mods, {}, {}, nil, 200)
+  check(#mods == 1 and mods[1].pile == "capi", "§7x famille des chantiers : capi (" .. tostring(mods[1] and mods[1].pile) .. ")")
+  Build.brief = old_brief
+end
+
+---------------------------------------------------------------------------------------------------
+-- §7y raccord : la chaîne peut passer sur les tuiles que les rangées n'utilisent jamais
+---------------------------------------------------------------------------------------------------
+do
+  local f = team()
+  local id = Rt.place(f, { dem("belt", 2, { "fer", "gear" }) }, NAMES, 100, afford, "t")
+  local st = f.build.mall
+  local p = f.build.projects[id]
+  local CAPT
+  local champ = package.loaded["script.team.champ"]
+  local old = champ._raccord_tous
+  champ._raccord_tous = function(_, _, bd) CAPT = bd; return 0 end
+  Build.Mall.OCC = Build.Mall.OCC or -1
+  st.sans_raccord = nil
+  local lay = Build.SITES.mall(f, {}, p, { read_masks = function() return { water = {}, blocked = {}, clear = {} } end })
+  champ._raccord_tous = old
+  check(lay ~= nil and CAPT ~= nil and CAPT.occ_libre ~= nil, "§7y le raccord reçoit la règle des tuiles libres")
+  if CAPT and CAPT.occ_libre then
+    local r = st.rep
+    local function monde(cx, cy)
+      local x, y = Mr.to_world(cx + 0.5, cy + 0.5, 0, r.k, r.ox, r.oy, 1)
+      return math.floor(x), math.floor(y)
+    end
+    local px, py = monde(10, 14)
+    local qx, qy = monde(10, 5)
+    check(CAPT.occ_libre(px, py, Build.Mall.OCC) == true, "§7y passage entre rangées : ouvert à la chaîne")
+    check(CAPT.occ_libre(qx, qy, Build.Mall.OCC) == false, "§7y tuile de rangée : fermée")
+    check(CAPT.occ_libre(px, py, 12) == false, "§7y tuile d'un autre projet : fermée")
+  end
+  -- rangée 2 : sa précédente vit, le poteau relais suffit ; sa précédente refusée, elle cherche le réseau
+  local id2 = Rt.place(f, { dem("x", 2, { "a", "b", "c" }) }, NAMES, 200, afford, "t")
+  check(id2 ~= nil and #st.rows == 2, "§7y deuxième rangée ouverte")
+  local p2 = f.build.projects[id2]
+  local n_raccord = 0
+  champ._raccord_tous = function() n_raccord = n_raccord + 1; return 0 end
+  local masks = function() return { water = {}, blocked = {}, clear = {} } end
+  local lay2 = Build.SITES.mall(f, {}, p2, { read_masks = masks })
+  check(lay2 ~= nil and n_raccord == 0, "§7y rangée 1 vivante : pas de raccord pour la rangée 2 (" .. n_raccord .. ")")
+  f.build.projects[id].state = "refuse"
+  lay2 = Build.SITES.mall(f, {}, p2, { read_masks = masks })
+  check(lay2 ~= nil and n_raccord == 1, "§7y rangée 1 refusée : la rangée 2 cherche le réseau (" .. n_raccord .. ")")
+  champ._raccord_tous = old
+end
+
+---------------------------------------------------------------------------------------------------
+-- §7z rangée à l'arrêt : le journal dit pourquoi
+---------------------------------------------------------------------------------------------------
+do
+  local f = team()
+  local id = Rt.place(f, { dem("belt", 2, { "fer", "gear" }) }, NAMES, 100, afford, "t")
+  local p = f.build.projects[id]
+  p.state = "fini"
+  p.quais = { { x = 0.5, y = 0.5, item = "fer" }, { x = 1.5, y = 0.5, item = "gear" } }
+  p.ents = { { role = "mall-machine_asm", name = "assembling-machine-1", x = 1.5, y = 3.5 }, { role = "mall-machine_asm", name = "assembling-machine-1", x = 1.5, y = 10.5 } }
+  local vide = { get_item_count = function() return 0 end }
+  local plein = { get_item_count = function() return 5 end }
+  local cv = { get_inventory = function() return vide end }
+  local cp = { get_inventory = function() return plein end }
+  local mk = function() return { force = { name = "player" }, products_finished = 0, status = defines.entity_status.no_ingredients } end
+  local surf = surface_mock({ ["assembling-machine-11.5:3.5"] = mk(), ["assembling-machine-11.5:10.5"] = mk() }, { ["iron-chest0.5:0.5"] = cv, ["iron-chest1.5:0.5"] = cp })
+  local machines_ok = false
+  for _, e in ipairs(p.ents) do if e.role == "mall-machine_asm" then machines_ok = true end end
+  check(machines_ok, "§7z le projet a des machines")
+  LOG = {}
+  Rt.minute(f, surf, { fab = {} }, {}, afford, 4000)
+  local n_arret, ligne = 0, nil
+  for _, l in ipairs(LOG) do if l:find("ARRET rangee", 1, true) then n_arret = n_arret + 1; ligne = l end end
+  check(n_arret == 1 and ligne:find("no_ingredients=", 1, true) ~= nil and ligne:find("quais vides 1 sur 2 {fer}", 1, true) ~= nil, "§7z ligne ARRET : états et quais vides (" .. tostring(ligne) .. ")")
+  LOG = {}
+  Rt.minute(f, surf, { fab = {} }, {}, afford, 4000 + 3600)
+  local again = false
+  for _, l in ipairs(LOG) do if l:find("ARRET rangee", 1, true) then again = true end end
+  check(not again, "§7z au plus une ligne par 5 min")
+end
+
+---------------------------------------------------------------------------------------------------
 -- §8b S2 partiel, reprise après un refus de raccord
 ---------------------------------------------------------------------------------------------------
 do
@@ -513,10 +664,83 @@ do
   end
   local m1 = mutant('if not row.cells[i] then return nil, "mall : cellules rendues" end', "")
   check(not m1.pas_de_plantage, "§11 mutant sans la garde : la séquence plante (cell nil)")
-  local m2 = mutant('Build.cancel(f, q2.id, "mall : section precedente refusee")', "")
+  local m2 = mutant('Build.cancel(f, q2.id, "mall : section precedente refusee")', "true")
   check(not m2.annule, "§11 mutant sans l'annulation : la section suivante reste réservée")
   local m3 = mutant("q2.from > q.from", "q2.from < q.from")
   check(not m3.morte, "§11 mutant : mauvais sens de comparaison")
+end
+
+---------------------------------------------------------------------------------------------------
+-- §12 relecture purete-2 : section sans poteau ; section suivante déjà bâtie ; mutants
+---------------------------------------------------------------------------------------------------
+do
+  local function masks() return { water = {}, blocked = {}, clear = {} } end
+  local function sans_poteau(R)
+    local f = team()
+    local id = R.place(f, { dem("belt", 2, { "fer", "gear" }) }, NAMES, 100, afford, "t")
+    f.build.mall.sans_raccord = nil
+    local section0 = Mr.section
+    Mr.section = function(...)
+      local sec = section0(...)
+      local kept = {}
+      for _, e in ipairs(sec.ents) do if e.role ~= "mall-poteau" then kept[#kept + 1] = e end end
+      sec.ents = kept
+      return sec
+    end
+    local lay, why = Build.SITES.mall(f, {}, f.build.projects[id], { read_masks = masks })
+    Mr.section = section0
+    return lay, why
+  end
+  local function batie(R, etat2)
+    local f = team()
+    local id1 = R.place(f, { dem("belt", 2, { "fer", "gear" }) }, NAMES, 100, afford, "t")
+    local id2 = R.place(f, { dem("belt", 4, { "fer", "gear" }) }, NAMES, 200, afford, "t")
+    local id3 = R.place(f, { dem("belt", 6, { "fer", "gear" }) }, NAMES, 300, afford, "t")
+    local r = f.build.mall.rows[1]
+    local p1, p2, p3 = f.build.projects[id1], f.build.projects[id2], f.build.projects[id3]
+    p1.state, p1.reason = "refuse", "mall raccord : sans chaine"
+    p2.state, p3.state = etat2, "attente"
+    local old = Build.cancel
+    Build.cancel = function(f2, id, why)
+      local p = f2.build.projects[id]
+      if p.state == "attente" or p.state == "plan" or p.state == "reserve" then p.state, p.reason = "refuse", why return true end
+      return false
+    end
+    R.minute(f, surface_mock({}, {}), { fab = {} }, {}, afford, 400)
+    Build.cancel = old
+    return { n = #r.cells, c1 = r.cells[1], c2 = r.cells[2], c3 = r.cells[3], m1 = r.projects[1].dead, m2 = r.projects[2].dead == true, m3 = r.projects[3].dead == true, served = R.served(f), f = f, r = r }
+  end
+  local lay, why = sans_poteau(Rt)
+  check(lay == nil and tostring(why):find("aucun poteau", 1, true) ~= nil, "§12 section sans poteau : refus explicite (" .. tostring(why) .. ")")
+  local b1 = batie(Rt, "chantier")
+  check(b1.n == 2, "§12 section 2 bâtie, section 3 annulée : deux cases restent (" .. b1.n .. ")")
+  check(b1.m2 == false and b1.m3 == true, "§12 la section bâtie reste suivie, l'annulable est morte")
+  check(b1.c1 ~= nil and b1.c1.h == nil and b1.c1.ih == nil, "§12 la cellule refusée devient une case vide")
+  check(b1.c2 ~= nil and b1.c2.ih ~= nil, "§12 la cellule de la section bâtie est gardée")
+  check(b1.served.belt == true, "§12 l'objet de la section bâtie reste servi")
+  check(Mr.compte(b1.r, "r-belt") == 2, "§12 le compte ne voit que les machines de la section bâtie (" .. Mr.compte(b1.r, "r-belt") .. ")")
+  local b2 = batie(Rt, "fini")
+  check(b2.n == 2 and b2.m2 == false, "§12 section suivante finie : gardée aussi")
+  local b3 = batie(Rt, "attente")
+  check(b3.n == 0 and b3.m2 == true and b3.m3 == true, "§12 rien de bâti : tout est rendu (" .. b3.n .. ")")
+
+  local path = "script/team/mall_rangee.lua"
+  local src = assert(io.open(path, "rb")):read("*a")
+  local site0 = Build.SITES.mall
+  local function mutant(a, c, fn)
+    local i, j = src:find(a, 1, true)
+    assert(i, "motif introuvable : " .. a)
+    local R = assert(load(src:sub(1, i - 1) .. c .. src:sub(j + 1), "mutant", "t"))()
+    local x, y = fn(R)
+    Build.SITES.mall = site0
+    return x, y
+  end
+  local m1 = mutant('if #poles == 0 then return nil, "mall raccord : aucun poteau dans la section" end', "", sans_poteau)
+  check(m1 ~= nil, "§12 mutant sans le refus : la section passe sans courant")
+  local m2 = mutant("if k > garde_to then r.cells[k] = nil elseif not gardees[k] then r.cells[k] = {} end", "r.cells[k] = nil", function(R) return batie(R, "chantier") end)
+  check(m2.n == 0, "§12 mutant : tout rendre perd la section bâtie")
+  local m3 = mutant("elseif not gardees[k] then r.cells[k] = {} end", "end", function(R) return batie(R, "chantier") end)
+  check(m3.c1 ~= nil and m3.c1.ih ~= nil, "§12 mutant sans case vide : la cellule refusée compte encore")
 end
 
 print(string.format("[MALL-RANGEE-MOTEUR] BILAN : %d OK, %d ECHEC(S)", ok_n, ko_n))
