@@ -6,12 +6,8 @@
 
   Ce que fait cette version : par relevé, au plus une liaison demandée pour la paire (coffre de sortie, quai) la mieux placée du meilleur bus, quand elle est
   hors de portée de la liaison de quai (plus de Li.MAX_SPAN tuiles) ; la règle tourne par TRANCHES (une unité de Rg.step par passe de Build, jamais d'un coup).
-  Les autres consommateurs du bus : une fois le tronc FINI, ses tapis (rôle liaison-tapis d'un projet de liaison fini) sont des sources du piquage par
-  répartiteur (script/team/piquage.lua, discover : opt_in des liaisons finies, lot PIQUAGE) pour les quais du même objet à Pq.SEARCH_SPAN tuiles ; avant
-  cela, chacun reste servi par la liaison de quai ou par ses PNJ. Une liaison longue par quai, jamais de tronc partagé.
-  Lot BUS-INTERMEDIAIRES (DC, 9/11) : les objets qui sont des intermédiaires pivots du mall (ml.bi.hubs, écrits par script/ai3/industrie.lua depuis le
-  graphe des recettes) passent DEVANT dans le classement des paires (Bi.order_buses : bonus = le débit du hub) et leurs liaisons sont comptées À PART
-  (Bi.link_ok : plafond Bi.CFG.k, hors Bus.MAX_LINKS). Journal : « paire d'intermediaire ».
+  Ce qu'elle ne fait PAS encore : les autres consommateurs du bus ne piquent pas sur le tronc par répartiteur (Build.Piquage ne voit que des tapis HORS plan,
+  or le tronc est un projet du plan) ; chacun reste servi par la liaison de quai ou par ses PNJ. Une liaison longue par quai, jamais de tronc partagé.
 
   Réglage fo-war-bus (settings/bus.lua), allumé par défaut ; absent ou éteint : rien ne tourne (le moteur simulé des tests n'a pas le réglage).
   État : b.liaison.bus = { next, job, maps, n, logs, seen, last } (nombres, chaînes, tables). Journal [FO-BUS], BUS.LOGS lignes au plus par équipe.
@@ -19,7 +15,6 @@
 
 local Rg = require("shared.team.reseau_graphe")
 local Ln = require("shared.team.liaison")
-local Bi = require("shared.team.bus_intermediaires") -- lot BUS-INTERMEDIAIRES : paires d'intermédiaires pivots devant, comptées à part
 
 local Bus = {}
 
@@ -79,12 +74,6 @@ local function state(st)
   return st.bus
 end
 
---- Lot BUS-INTERMEDIAIRES : débits des intermédiaires pivots { [objet] = objets/min } écrits par le mall (script/ai3/industrie.lua, ml.bi.hubs) ; vide sinon.
-function Bus.hubs(f)
-  local ml = f and f.team and f.team.ia3 and f.team.ia3.mall
-  return (ml and ml.bi and ml.bi.hubs) or {}
-end
-
 --- Réglages de BANC (remote fo-liaison set_param bus_period / bus_confirm) : jamais appelés par le mod.
 function Bus.set_param(st, name, value)
   local bs = state(st)
@@ -135,14 +124,8 @@ function Bus.start(h, f, surface, tick, b, st, c)
     end
   end
   if #P == 0 or #C == 0 then bs.next = tick + (bs.period or Bus.PERIOD) return false end
-  local hubs = Bus.hubs(f)
   local function keep(list)
-    table.sort(list, function(a, z)
-      local ha, hz = hubs[a.item] ~= nil, hubs[z.item] ~= nil
-      if ha ~= hz then return ha end -- lot BUS-INTERMEDIAIRES : les terminaux d'un intermédiaire pivot restent dans le calcul avant les plus proches
-      if a._d ~= z._d then return a._d < z._d end
-      return a.key < z.key
-    end)
+    table.sort(list, function(a, z) if a._d ~= z._d then return a._d < z._d end return a.key < z.key end)
     while #list > Bus.MAX_TERM do list[#list] = nil end
   end
   keep(P)
@@ -174,18 +157,15 @@ function Bus.advance(h, api, f, surface, tick)
     end
     return false
   end
-  -- ouvertes ; les liaisons ouvertes ou finies sont comptées à part pour les intermédiaires pivots (lot BUS-INTERMEDIAIRES : Bi.count_links)
-  local open = 0
+  -- ouvertes ou finies
+  local open, total = 0, 0
   for _, k in ipairs(sorted_keys(st.links)) do
     local l = st.links[k]
-    if l.bus and not l.done then open = open + 1 end
+    if l.bus then total = total + 1 if not l.done then open = open + 1 end end
   end
-  local hubs = Bus.hubs(f)
-  local counts = Bi.count_links(st.links, hubs)
   local present = {}
   local why = { lies = 0, portee = 0, attente = 0, garde = 0 }
-  for _, bus in ipairs(Bi.order_buses(res.buses, hubs)) do -- les bus d'un intermédiaire pivot d'abord (bonus = le débit du hub)
-    local cap_ok = Bi.link_ok(counts, bus.item, hubs, Bus.MAX_LINKS)
+  for _, bus in ipairs(res.buses) do
     -- paire : le consommateur qui contribue le plus, avec le producteur du même bus le plus proche, hors de portée de la liaison de quai
     for _, tc in ipairs(bus.taps) do
       local d = tc.kind == "c" and maps.docks[tc.key] or nil
@@ -206,8 +186,8 @@ function Bus.advance(h, api, f, surface, tick)
           present[pk] = true
           bs.seen[pk] = (bs.seen[pk] or 0) + 1
           if bs.seen[pk] < (bs.confirm or Bus.CONFIRM) then why.attente = why.attente + 1
-          elseif not (open < h.max_open(h.free_workers(f)) and cap_ok and not h.hq_threat(f, surface)) then why.garde = why.garde + 1 end
-          if bs.seen[pk] >= (bs.confirm or Bus.CONFIRM) and open < h.max_open(h.free_workers(f)) and cap_ok and not h.hq_threat(f, surface) then
+          elseif not (open < h.max_open(h.free_workers(f)) and total < Bus.MAX_LINKS and not h.hq_threat(f, surface)) then why.garde = why.garde + 1 end
+          if bs.seen[pk] >= (bs.confirm or Bus.CONFIRM) and open < h.max_open(h.free_workers(f)) and total < Bus.MAX_LINKS and not h.hq_threat(f, surface) then
             local sr = maps.srcs[best.key]
             local last = st.last_try[tc.key]
             local tries = st.tries[tc.key] or 0
@@ -232,10 +212,6 @@ function Bus.advance(h, api, f, surface, tick)
                   st.links[tc.key] = { pid = id, src = best.key, item = d.item, dock_pid = d.pid, dock_idx = d.idx, done = false, since = tick, bus = true }
                   st.n.demandes = st.n.demandes + 1
                   bs.n.demandes = bs.n.demandes + 1
-                  if hubs[bus.item] then
-                    Bus.say(f, tick, string.format("paire d'intermediaire %s : sortie %s -> quai %s (projet %d), %.0f/min voulus au mall, %d liaison(s) d'intermediaire sur %d",
-                      bus.item, best.key, tc.key, id, hubs[bus.item], counts.hubs + 1, Bi.CFG.k))
-                  end
                   Bus.say(f, tick, string.format("bus %d choisi : %s, %d producteur(s) %d consommateur(s), %.0f/min servis (retour %.0f min, %d tuiles) ; "
                     .. "liaison demandee (projet %d) de la sortie %s au quai %s, %d tuiles a vol d'oiseau ; %.0f/%.0f demandes servies, plafond %.0f",
                     bus.id, bus.item, bus.n_prod, bus.n_cons, bus.served, bus.payback_min, bus.tiles, id, best.key, tc.key, bspan, s.served, s.demand, s.ceiling))

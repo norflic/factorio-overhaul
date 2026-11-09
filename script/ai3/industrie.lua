@@ -24,7 +24,6 @@
 
 local Id = require("shared.ai3.industrie")
 local Ml = require("shared.ai3.mall")
-local Famine = require("script.team.famine_fer") -- lot BUS-INTERMEDIAIRES : aucune ligne d'intermédiaire pendant la famine de la plaque clé (F434)
 local Cv = require("shared.ai3.couverture") -- lot COUVERTURE : réserve de machines (Cv.reserve_wants, source de la demande du mall)
 local AmRt = require("script.ai3.amorce_rt") -- lot VIDEO L7 : graine du mall (liste de matériel des prochains projets)
 local Em = require("shared.ai3.emplacements")
@@ -43,21 +42,11 @@ local Profiler = require("script.core.profiler")
 local PileRt = require("script.team.pile")
 local Events = require("script.core.events")
 local MallRt = require("script.team.mall_rangee") -- lot MALL (tranche 2) : rangée du mall, avant le module isolé (docs/MALL.md §3)
-local Bi = require("shared.team.bus_intermediaires") -- lot BUS-INTERMEDIAIRES : lignes d'intermédiaires pivots (graphe des recettes), repli à la main
-local T = require("shared.team.config") -- (matières que le bus fournit : produits des avant-postes et combustible, lus aux données)
 
 local Ind = {}
 
 Ind.RETRY_TICKS = 10 * 3600  -- un bloc refusé par le plan directeur n'est pas redemandé avant 10 minutes de jeu
 Ind.COLLECT_AT = 5           -- objets dans un coffre de sortie du mall qui envoient un PNJ le vider (Build.COLLECT_AT : 200)
-
--- Lot RECIPE-SOLVER (codé en parallèle) : `Solver.new(book, bus)`, `Solver.hubs(s, demands, k)` -> { { item, rate, machines } }. `require` gardé :
--- sans le module, aucune ligne d'intermédiaire (le mall joue comme avant). Ind.SOLVER est remplaçable par un banc (doublure).
-Ind.SOLVER = nil
-do
-  local ok, m = pcall(require, "shared.team.recipe_solver")
-  if ok and type(m) == "table" and type(m.new) == "function" and type(m.hubs) == "function" then Ind.SOLVER = m end
-end
 
 local function sorted_keys(t) return State.sorted_keys(t or {}) end
 
@@ -344,79 +333,6 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Pensée (appelée une fois par décision de la capitalisation)
 ---------------------------------------------------------------------------------------------------
----------------------------------------------------------------------------------------------------
--- Lot BUS-INTERMEDIAIRES : lignes d'intermédiaires pivots (règle pure : shared/team/bus_intermediaires.lua)
----------------------------------------------------------------------------------------------------
---- Matières que le bus fournit déjà : les produits des avant-postes (T.outposts[k].product) et le combustible (T.fuel), lus aux données.
-local function bus_set()
-  local out = {}
-  for _, kind in ipairs(T.OUTPOST_ORDER or {}) do
-    local o = T.outposts[kind]
-    if o and o.product then out[o.product] = true end
-  end
-  if T.fuel then out[T.fuel] = true end
-  return out
-end
-
---- État d'une ligne (Bi.fallback) : présente quand une rangée du mall porte l'objet (b.mall.rows, cellules ih/ib), finie quand tous les projets de
---- cette rangée le sont ; relevés de suite sans production comptés sur cs.flows (production des MACHINES de la dernière minute, décision d'avant).
-local function line_state(f, item, flows, prev)
-  local b = f.build
-  local present, done = false, true
-  for _, r in ipairs((b and b.mall and b.mall.rows) or {}) do
-    local hit = false
-    for _, c in ipairs(r.cells or {}) do if c.ih == item or c.ib == item then hit = true end end
-    if hit then
-      present = true
-      for _, q in ipairs(r.projects or {}) do
-        local p = b.projects[q.id]
-        if not (p and p.state == "fini") then done = false end
-      end
-    end
-  end
-  local fl = flows and flows[item]
-  local produced = fl ~= nil and ((fl.made or 0) - (fl.hand or 0)) > 0
-  return { present = present, done = present and done, empty_releves = Bi.empty_count(prev and prev.empty_releves or 0, produced) }
-end
-
---- Les intermédiaires pivots (Solver.hubs sur la demande ENTIÈRE du mall : ce qu'il produit déjà, ml.items, et ce que la main et les autres sources
---- demandent, Ml.sources, hors les lignes elles-mêmes) deviennent des lignes (Bi.lines) demandées EN PRIORITÉ dès la phase mid : Ml.want (source
---- Bi.SRC, lu par Id.decide) et Ml.sinks (lignes d'abord : la capitalisation ouvre la chaîne, MallRt.chaine la pose en rangée). Écrit ml.bi =
---- { phase, lines, hubs, states, fallback, sig } (nombres, chaînes, booléens) : lu par le bus (script/team/bus.lua, Bus.hubs) et par la main
---- (Ml.hand_allowed). Phase : celle de l'arbre de décision écrite par Elec (f.elec.phase, Dt.phase) ; absente : early (aucune ligne).
-local function intermediaires(f, ml, cs, book, tick)
-  local S = Ind.SOLVER
-  if not S then ml.bi = nil return end
-  local phase = (f.elec and f.elec.phase) or "early"
-  local own = {}
-  for _, it in ipairs(ml.items or {}) do own[#own + 1] = { item = it.item, rate = it.rate, src = "mall" } end
-  local demands = {}
-  for _, c in ipairs(Id.merge({ own, Ml.sources(ml, tick) })) do
-    if not (#c.srcs == 1 and c.srcs[1] == Bi.SRC) then demands[#demands + 1] = { item = c.item, rate = c.rate } end
-  end
-  local famine = Famine.team_starved(f, tick) == true
-  local lines = Bi.lines(S.hubs(S.new(book, bus_set()), demands, Bi.CFG.k), phase, Bi.CFG, famine)
-  local prev = (ml.bi and ml.bi.states) or {}
-  local states, fallback = {}, {}
-  for _, l in ipairs(lines) do
-    Ml.want(ml, tick, l.item, l.rate_row or l.rate, Bi.SRC) -- (rate_row : une rangée d'abord, banc V0676-N)
-    states[l.item] = line_state(f, l.item, cs.flows, prev[l.item])
-    if Bi.fallback(states[l.item], Bi.CFG) then fallback[l.item] = true end
-  end
-  local sig = Bi.describe(lines, fallback)
-  if sig ~= (ml.bi and ml.bi.sig) and (#lines > 0 or (ml.bi and ml.bi.sig)) then
-    say(f, tick, string.format("rangee d'intermediaire demandee (phase %s, %d ligne(s)%s) : %s", phase, #lines, famine and ", famine de la plaque cle : lignes retenues" or "", sig))
-  end
-  ml.bi = { tick = tick, phase = phase, lines = lines, hubs = Bi.hub_rates(lines), states = states, fallback = fallback, sig = sig }
-end
-
---- Banc : remplace le solveur (doublure) ; rend l'ancien.
-function Ind.set_solver(S)
-  local old = Ind.SOLVER
-  Ind.SOLVER = S
-  return old
-end
-
 function Ind.think(f, cs, res, view, book, tick)
   if not Rsv.on() then return nil end
   local lec = lecture()
@@ -437,9 +353,6 @@ function Ind.think(f, cs, res, view, book, tick)
   for _, w in ipairs(cs.couv_wants or {}) do
     if not (st.hold[w.item] and st.hold[w.item] > tick) and not Ml.refused(ml, tick, w.item) then Ml.want(ml, tick, w.item, w.rate, Cv.SRC) end
   end
-  -- 1c. lot BUS-INTERMEDIAIRES : les intermédiaires pivots du graphe des recettes deviennent des lignes demandées en priorité dès la phase mid (ml.bi :
-  -- lu par le bus et par la main)
-  intermediaires(f, ml, cs, book, tick)
   -- 2. objets déjà servis : machine posée (relevé de la capitalisation), chaîne ouverte, bloc en cours
   local served = {}
   for _, m in ipairs(cs.scan and cs.scan.machines or {}) do
@@ -513,7 +426,6 @@ function Ind.think(f, cs, res, view, book, tick)
     end
     local cands = Id.order(out) -- lot RB-FLUIDE : la cellule d'un kit d'unité passe devant les blocs
     if MallRt.ouvert(f) then cands = MallRt.ordonne(cands) end -- lot MALL : tapis et bras d'abord
-    cands = Bi.order_cands(cands, ml.bi and ml.bi.hubs) -- lot BUS-INTERMEDIAIRES : les intermédiaires pivots devant les objets finis
     for _, c in ipairs(cands) do
       local dec, kind = c.dec, c.kind
       local label = kind == "bloc" and ("[" .. table.concat(dec.items, ",") .. "]") or dec.item

@@ -26,11 +26,9 @@
   Déterminisme : listes triées par (volume décroissant, clé), entiers, aucun pairs décisionnel.
 ]]
 
-local Bi = require("shared.team.bus_intermediaires") -- lot BUS-INTERMEDIAIRES : lignes d'intermédiaires pivots (st.bi), repli à la main
-
 local Ml = {}
 
-Ml.MIN_EPISODES = 3       -- demandes distinctes de fabrication à la main avant de dédier un assembleur
+Ml.MIN_EPISODES = 3        -- demandes distinctes de fabrication à la main avant de dédier un assembleur
 Ml.MAX_ITEMS = 40          -- objets suivis (8 avant le lot INDUSTRIE I6 : la demande décide, pas un plafond écrit)
 Ml.MACHINES_MAX = 64       -- assembleurs par objet (4 avant I6) ; au-delà d'un module, l'objet est servi par plusieurs modules
 Ml.LEAD = 2                -- capacité = 2 fois le débit demandé (même règle que Ca.LEAD)
@@ -168,9 +166,6 @@ end
 --- La fabrication à la main de cet objet est-elle permise ? Pas quand le mall le fabrique en continu (st.running[objet], posé par le
 --- runtime quand le module tourne), sauf stock nul (amorçage, ou mall à sec).
 function Ml.hand_allowed(st, item, have)
-  -- lot BUS-INTERMEDIAIRES : un intermédiaire dont la ligne n'est pas servie (Bi.fallback, écrit par le runtime dans st.bi.fallback) reste
-  -- fabricable à la main (zéro blocage), même si le mall le fabrique par ailleurs
-  if st and st.bi and st.bi.fallback and st.bi.fallback[item] then return true end
   if not (st and st.running and st.running[item]) then return true end
   return (have or 0) <= 0
 end
@@ -179,17 +174,9 @@ end
 --- « chaîne » (plusieurs machines selon le débit, Ca.CHAIN_LEAD) sont posés par l'exécutant existant (plan directeur). Liste triée par
 --- Ml.decide : déterministe.
 function Ml.sinks(st)
-  local out, seen = {}, {}
-  -- lot BUS-INTERMEDIAIRES : les lignes d'intermédiaires pivots (Bi.lines, st.bi.lines) D'ABORD, au débit du hub ; un objet du mall qui est
-  -- aussi un hub n'est compté qu'une fois (la capitalisation somme les puits d'un même objet)
-  for _, l in ipairs((st and st.bi and st.bi.lines) or {}) do
-    if (l.rate or 0) > 0 and not seen[l.item] then
-      seen[l.item] = true
-      out[#out + 1] = { item = l.item, rate = l.rate, want = l.rate, src = Bi.SRC }
-    end
-  end
+  local out = {}
   for _, it in ipairs((st and st.items) or {}) do
-    if it.rate > 0 and not seen[it.item] then out[#out + 1] = { item = it.item, rate = it.rate, want = it.rate } end
+    if it.rate > 0 then out[#out + 1] = { item = it.item, rate = it.rate, want = it.rate } end
   end
   return out
 end
