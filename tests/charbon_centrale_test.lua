@@ -31,6 +31,15 @@ local function battery(Cc)
   check(math.abs(Cc.rate(BOILER_KW, M.COAL_J) - 0.45) < 1e-9, "une chaudiere a pleine charge : 0,45 charbon/s (donnees)")
   check(Cc.rate(0, M.COAL_J) == 0 and Cc.rate(nil, M.COAL_J) == 0 and Cc.rate(1800, 0) == 0, "rien a bruler : 0")
 
+  section("1 bis. Combustible libre pour la centrale (lot BRULEURS-A-SEC, B4)")
+  -- banc V0676-D graine 123456789, 36,3 min : 400 charbons au coffre du QG, 46 bruleurs de fer a sec sur 60 (besoin 588)
+  check(Cc.free_fuel(400, 588) == 0, "400 au coffre, 588 reserves aux bruleurs : rien de libre pour la centrale")
+  check(Cc.free_fuel(1000, 588) == 412, "1000 au coffre, 588 reserves : 412 libres")
+  check(Cc.free_fuel(400, 0) == 400 and Cc.free_fuel(400, nil) == 400, "sans reserve : tout le coffre")
+  check(Cc.free_fuel(0, 588) == 0 and Cc.free_fuel(nil, 588) == 0, "coffre vide : 0, jamais negatif")
+  local r0 = Cc.refill(100, RATE1, Cc.free_fuel(400, 588), 1600)
+  check(not r0.due and r0.short == true, "coffre de la centrale a 100 : tache seulement si du charbon est libre au-dela de la reserve")
+
   section("2. Seuil d'avance et cible")
   local r = Cc.refill(400, RATE1, 1000, 1600)
   check(r.low == 108 and not r.due, "1 chaudiere : seuil 0,45 x 240 s = 108 ; 400 au coffre, rien a faire")
@@ -147,6 +156,10 @@ local env = {
   Cc = Cc0, M = M, P = P, Build = Build,
   Sweep = require("shared.team.rebuild_sweep"), -- lot FUITES-PILE : « rouvert » = reconstruction (Sweep.rebuilding) ou murs, pas un agrandissement
   Stock = { count = function() return W.stock end },
+  -- lot BRULEURS-A-SEC : reserve des bruleurs (burner_fuel_reserve) : fours de l'equipe (W.smelter_need) et brûleurs des avant-postes (o.need)
+  T = require("shared.team.config"),
+  Outposts = { smelters = function() return {} end, coal_needed_for = function() return W.smelter_need or 0 end,
+    coal_needed = function(o) return o.need or 0 end },
   Sante = { tasks = function() end }, -- lot ENERGIE (2/11) : l'amorce a la main a son propre banc (tests/sante_centrale_test.lua)
   seg_passable = function() return function() return true end end,
   free_spot = function(_, _, x, y) return x, y end,
@@ -168,7 +181,7 @@ local surface = { find_entity = function(name, pos) if name == "iron-chest" and 
 
 local function team()
   local lat = P.lattice({ x = 0.5, y = 0.5 })
-  local f = { key = "f1", force = "f1", build = { opts = {}, lat = lat, segs = {}, projects = {}, order = {}, next_id = 1, occ = {} } }
+  local f = { key = "f1", force = "f1", outposts = {}, team = {}, build = { opts = {}, lat = lat, segs = {}, projects = {}, order = {}, next_id = 1, occ = {} } }
   local b = f.build
   local plant = { id = 1, spec = { gen = "steam", prio = 60 }, state = "fini", prio = 60, outs = {},
     parts = { { kind = "centrale" } },
@@ -218,6 +231,42 @@ do
   out = {}
   X.quai_tasks(f, mod, surface, out)
   check(#out == 1 and out[1].prio == 58 and out[1].items[1][2] == 341, "autre module sous 60 : ancienne tache (prio + 3, charge 400)")
+end
+
+-- Lot BRULEURS-A-SEC (B4) : banc V0676-D graine 123456789, 36,3 min : coffre de la centrale a 0, coffre du QG a 400, avant-poste de fer
+-- 46 bruleurs a sec sur 60 (besoin 588) : avant la coupe, quai_tasks lisait le stock brut et portait les 400 a la centrale ([FO-CHARBON-CENTRALE]
+-- « 400 a porter (cible 1080), coffre du QG 400 ») ; la tournee de ravitaillement partait ensuite avec 0 (« coffre du QG 0 », 45 min a sec).
+do
+  section("6 bis. Le charbon des bruleurs n'est pas a la centrale (lot BRULEURS-A-SEC)")
+  local f, plant = team()
+  f.outposts[1] = { id = 1, kind = "iron", need = 588 } -- avant-poste de fer : produit iron-plate, ses bruleurs manquent de 588
+  f.outposts[2] = { id = 2, kind = "coal", need = 130 } -- avant-poste de charbon : se sert sur ses sorties, pas dans la reserve
+  W.logs, W.smelter_need = {}, 0
+  W.stock, W.chests[1] = 400, 0
+  local out = {}
+  X.quai_tasks(f, plant, surface, out)
+  check(#out == 0, "400 au coffre, 588 reserves aux bruleurs du fer : aucune tache de portage pour la centrale")
+  check(#W.logs == 1 and W.logs[1]:find("SANS charbon libre", 1, true) ~= nil, "journal : coffre du QG sans charbon libre (hors la reserve)")
+  W.stock = 1000
+  out = {}
+  X.quai_tasks(f, plant, surface, out)
+  check(#out == 1 and out[1].kind == "carry" and out[1].items[1][2] == 412, "1000 au coffre : la centrale prend ce qui depasse la reserve (412), pas la cible 540")
+  W.smelter_need = 200
+  out = {}
+  X.quai_tasks(f, plant, surface, out)
+  check(#out == 1 and out[1].items[1][2] == 212, "les fours de l'equipe comptent dans la reserve (1000 - 588 - 200 = 212)")
+  f.outposts[1].need = 0
+  W.smelter_need = 0
+  out = {}
+  X.quai_tasks(f, plant, surface, out)
+  check(#out == 1 and out[1].items[1][2] == 540, "bruleurs pleins : la centrale est servie jusqu'a sa cible (540), l'avant-poste de charbon ne reserve rien")
+  -- un quai qui n'est pas du combustible ne connait pas cette reserve
+  local mod = { id = 8, spec = { gen = "smelter" }, state = "fini", prio = 55, ents = {}, parts = {}, outs = {}, quais = { { x = 1.5, y = 1.5, item = "iron-ore" } } }
+  f.outposts[1].need = 588
+  W.stock, W.chests[1] = 1000, 59
+  out = {}
+  X.quai_tasks(f, mod, surface, out)
+  check(#out == 1 and out[1].items[1][2] == 341, "quai de minerai : la reserve de combustible ne s'applique pas")
 end
 
 do
@@ -303,6 +352,8 @@ local function mutant(label, edit)
   check(caught, "mutant refuse : " .. label)
 end
 mutant("seuil = ancien seuil fixe (60)", function(C) C.LEAD_S = 0 end)
+mutant("reserve des bruleurs ignoree (stock brut a la centrale)", function(C) C.free_fuel = function(stock) return stock or 0 end end)
+mutant("reserve des bruleurs comptee a l'envers", function(C) C.free_fuel = function(stock, reserve) return math.max(0, (reserve or 0) - (stock or 0)) end end)
 mutant("priorite non urgente", function(C) C.PRIO = 63 end)
 mutant("tache meme sans charbon au QG", function(C)
   local old = C.refill

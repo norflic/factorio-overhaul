@@ -4108,7 +4108,7 @@ local function cc_say(f, p, i, n, have, rate, r)
     log(string.format("[FO-CHARBON-CENTRALE] %s : centrale %d, coffre %d a %d charbon(s), sous le seuil %d (%.2f/s x %d s) a %.1f min : tache URGENTE (prio %d), %d a porter (cible %d), coffre du QG %d",
       f.key or "player", p.id, i, n, r.low, rate, Cc.LEAD_S, game.tick / 3600, r.prio, r.count, r.target, have))
   else
-    log(string.format("[FO-CHARBON-CENTRALE] %s : centrale %d, coffre %d a %d charbon(s), sous le seuil %d a %.1f min : coffre du QG SANS charbon, aucune tache possible (le bilan du charbon compte les chaudieres nourries a la main)",
+    log(string.format("[FO-CHARBON-CENTRALE] %s : centrale %d, coffre %d a %d charbon(s), sous le seuil %d a %.1f min : coffre du QG SANS charbon libre (hors la reserve des bruleurs), aucune tache possible (le bilan du charbon compte les chaudieres nourries a la main)",
       f.key or "player", p.id, i, n, r.low, game.tick / 3600))
   end
 end
@@ -4161,6 +4161,21 @@ local function out_tasks(f, p, surface, out)
 end
 
 local function quai_tasks(f, p, surface, out)
+  --- Lot BRULEURS-A-SEC (B4, banc V0676-D graine 123456789) : combustible du coffre du QG RÉSERVÉ aux tournées des brûleurs : la grandeur
+  --- que shared/team/planner.lua retire du stock virtuel (« le charbon nécessaire aux tournées est réservé avant toute fabrication ») :
+  --- fours de l'équipe, puis brûleurs des avant-postes dont le produit n'est pas le combustible (un avant-poste de combustible se sert sur
+  --- ses sorties, Sm.carry_fuel). Avant le lot, quai_tasks lisait le stock BRUT : à 36,3 min, 400 charbons au coffre et 46 brûleurs de fer
+  --- à sec sur 60 (besoin 588), la centrale (prio 91, cible 1080) prenait les 400 ; les brûleurs sont restés à sec 45 min.
+  --- (somme d'entiers : l'ordre de `pairs` n'y change rien ; locale de quai_tasks : le bloc principal de build.lua est à sa limite de locales)
+  local function burner_fuel_reserve()
+    local n = Outposts.coal_needed_for(Outposts.smelters(f))
+    local fill = f.team and f.team.flux_fill
+    for _, o in pairs(f.outposts) do
+      local spec = T.outposts[o.kind]
+      if not (spec and spec.product == T.fuel) then n = n + Outposts.coal_needed(o, fill) end
+    end
+    return n
+  end
   -- lot CHARBON-CENTRALE : le coffre d'une centrale se remplit en URGENCE dès qu'il passe sous un seuil d'avance (consommation à pleine
   -- charge des chaudières × Cc.LEAD_S), jamais seulement au-dessous de Build.QUAI_LOW à la priorité du projet (63 : coffre oublié, centrale
   -- de scarlet à sec 8 fois dans la partie du DC en 0.6.18)
@@ -4184,6 +4199,8 @@ local function quai_tasks(f, p, surface, out)
     if chest and chest.force.name == f.force then
       local n = chest.get_item_count(q.item)
       local have = Stock.count(f, q.item)
+      -- lot BRULEURS-A-SEC (B4) : le combustible des tournées des brûleurs n'est pas à la centrale ni au quai de combustible d'un champ
+      if q.item == T.fuel then have = Cc.free_fuel(have, burner_fuel_reserve()) end
       if rate then
         local inv = chest.get_inventory(defines.inventory.chest)
         -- lot TV-VAPEUR (V36) : le tampon de vapeur bas déclenche aussi le remplissage (Build.Vg nul dans les doublures des bancs hors jeu)
