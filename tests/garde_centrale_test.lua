@@ -307,13 +307,60 @@ do
     for _, t in ipairs(plan.tasks) do if t.kind == "craft" and t.tag == "defense" then n = n + 1 end end
     return n
   end
-  local pp = Planner.plan(view({ stock = { ["iron-plate"] = 300, ["copper-plate"] = 100 }, plant = plant() }), book)
+  -- (une centrale qui a DEJA une tourelle à portée : la règle de la commande partielle aux planchers ordinaires, GARDE-CENTRALES ne s'y applique pas)
+  local one = { boilers = 2, turrets = { turrets[1] } }
+  local pp = Planner.plan(view({ stock = { ["iron-plate"] = 300, ["copper-plate"] = 100 }, plant = plant(one) }), book)
   check(plant_post(pp) and plant_post(pp).partial == true and plant_post(pp).why == "fabrication" and crafts(pp) >= 2,
     "3.4 : fer 300 (< 390) : la centrale est servie par la commande partielle (" .. tostring(plant_post(pp) and plant_post(pp).why) .. ")")
-  local pq = Planner.plan(view({ stock = { ["iron-plate"] = 170, ["copper-plate"] = 100 }, plant = plant() }), book)
+  local pq = Planner.plan(view({ stock = { ["iron-plate"] = 170, ["copper-plate"] = 100 }, plant = plant(one) }), book)
   check(plant_post(pq) and plant_post(pq).why == "fer" and crafts(pq) == 0, "3.4 : fer 170 : sous le plancher ordinaire, rien n'est fabriqué")
-  local pr2 = Planner.plan(view({ stock = { ["iron-plate"] = 2000, ["copper-plate"] = 500 }, plant = plant() }), book)
+  local pr2 = Planner.plan(view({ stock = { ["iron-plate"] = 2000, ["copper-plate"] = 500 }, plant = plant(one) }), book)
   check(plant_post(pr2) and plant_post(pr2).partial == nil and plant_post(pr2).why == "fabrication", "3.4 : fer largement suffisant : commande complète, comme avant")
+end
+
+-- Lot GARDE-CENTRALES : une centrale SANS AUCUNE tourelle à portée (mesure 271828182 : « plant 0/2 manque copper-plate 10 » de 80 à 107 min, fer
+-- 5 000 à 10 000, cuivre 0 à 38, pièces perdues à 82, 94 et 107 min) se paie aux planchers du péril et met de côté la matière qui lui manque.
+do
+  local Ga = require("shared.team.garde_ap")
+  local Sq = require("shared.team.survie_qg")
+  local IRON, CU = T.outposts.iron.product, T.outposts.copper.product
+  local function plant_post(plan)
+    for _, d in ipairs(plan.defend and plan.defend.posts or {}) do if d.id == "plant" then return d end end
+    return nil
+  end
+  local function hold(plan, k) return plan.defense_hold and plan.defense_hold[k] or 0 end
+  -- règle pure
+  check(Ga.dark_plant(0, 2) == true and Ga.dark_plant(1, 3) == false and Ga.dark_plant(0, 0) == false, "règle : sombre = aucune tourelle à portée et au moins une voulue")
+  local fi, fc = Ga.dark_floors(T.defend_iron_floor, T.defend_copper_floor, Sq.FLOOR_IRON, Sq.FLOOR_COPPER)
+  check(fi == Sq.FLOOR_IRON and fc == Sq.FLOOR_COPPER, "règle : planchers du péril")
+  local lo_i, lo_c = Ga.dark_floors(20, 5, Sq.FLOOR_IRON, Sq.FLOOR_COPPER)
+  check(lo_i == 20 and lo_c == 5, "règle : un plancher déjà plus bas n'est jamais relevé")
+  check(Ga.dark_hold({ dark = true, avail = 8, cost = 10, floor = 10 }) == 8, "règle : cuivre 8 : tout est mis de côté (sous le coût plus le plancher)")
+  check(Ga.dark_hold({ dark = true, avail = 500, cost = 10, floor = 10 }) == 20, "règle : jamais plus que le coût plus le plancher")
+  check(Ga.dark_hold({ dark = false, avail = 8, cost = 10, floor = 10 }) == 0 and Ga.dark_hold({ dark = true, production_first = true, avail = 8, cost = 10, floor = 10 }) == 0,
+    "règle : rien mis de côté hors sombre ni en « production d'abord »")
+  -- planificateur : centrale sombre, fer 170 cuivre 100 : payable au plancher du péril (commande partielle fabriquée) ; non sombre : « fer »
+  local pd = Planner.plan(view({ stock = { [IRON] = 170, [CU] = 100 }, plant = plant() }), book)
+  check(plant_post(pd) and plant_post(pd).why == "fabrication" and plant_post(pd).partial == true, "centrale sombre, fer 170 : fabriquée au plancher du péril (" .. tostring(plant_post(pd) and plant_post(pd).why) .. ")")
+  local pn = Planner.plan(view({ stock = { [IRON] = 170, [CU] = 100 }, plant = plant({ boilers = 2, turrets = { turrets[1] } }) }), book)
+  check(plant_post(pn) and plant_post(pn).why == "fer", "centrale avec une tourelle à portée : plancher ordinaire, comme avant")
+  -- cuivre 8, fer 5 000 : la centrale sombre attend du cuivre ; ce cuivre est mis de côté (le cerveau ne le dépense pas)
+  local pc = Planner.plan(view({ stock = { [IRON] = 5000, [CU] = 8 }, plant = plant() }), book)
+  check(plant_post(pc) and plant_post(pc).why == "fer" and hold(pc, CU) == 8, "centrale sombre, cuivre 8 : cuivre mis de côté (" .. tostring(hold(pc, CU)) .. ")")
+  check(hold(pc, IRON) == 0, "le fer n'est pas retenu quand il ne manque pas")
+  local pn2 = Planner.plan(view({ stock = { [IRON] = 5000, [CU] = 8 }, plant = plant({ boilers = 2, turrets = { turrets[1] } }) }), book)
+  check(hold(pn2, CU) == 0, "centrale non sombre : rien mis de côté")
+  -- MUTANTS
+  local keep = Ga.FUND_ON
+  Ga.FUND_ON = false
+  local pm = Planner.plan(view({ stock = { [IRON] = 5000, [CU] = 8 }, plant = plant() }), book)
+  check(hold(pm, CU) == 0, "mutant « règle éteinte » refusé : plus de retenue")
+  Ga.FUND_ON = keep
+  local d0 = Ga.dark_floors
+  Ga.dark_floors = function(a, b2) return a, b2 end -- mutant : planchers ordinaires
+  local pm2 = Planner.plan(view({ stock = { [IRON] = 170, [CU] = 100 }, plant = plant() }), book)
+  Ga.dark_floors = d0
+  check(plant_post(pm2) and plant_post(pm2).why == "fer", "mutant « planchers ordinaires » refusé : la commande n'est plus payée à 170 de fer")
 end
 
 print(string.format("[GARDE-CENTRALE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
