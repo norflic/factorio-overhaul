@@ -15,6 +15,7 @@ Date: 2026-11-09
     - Centrale (F440) : les pièces déposées au QG vont d'abord aux projets rouverts pour reconstruction (tapis de charbon de la centrale détruits par une attaque), puis aux réserves ; plus de chaudière nourrie à la main pendant 26 minutes.
     - Champ (F441) : une bande de plus de 400 entités laisse son réseau de charbon à un projet lié ; la bande se paie seule.
     - Mall (F442) : les machines qui dorment au coffre au-delà d'une réserve de 20 % paient une section de rangée de plus, sans attendre le débit.
+    - PNJ (F443) : en famine de la plaque clé, un PNJ dont la file de fabrication est pleine part miner au lieu de rester au QG à refuser toutes les tâches.
     - Fer en famine : l'avant-poste de la plaque clé n'est plus marqué plein par une migration qui n'a pas commencé, et s'agrandit avant sa tourelle (sauf site meurtrier).
     - Charbon : les tuiles du réseau de charbon d'une bande sont réservées dès la création du cadre ; remplissage urgent des quais de combustible.
 ---------------------------------------------------------------------------------------------------
