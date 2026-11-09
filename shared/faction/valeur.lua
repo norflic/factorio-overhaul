@@ -46,6 +46,12 @@ V.LOST_R = 64           -- notre site perdu à moins de 64 tuiles…
 V.LOST_TTL = 30 * 3600  -- … depuis moins de 30 min : danger dégressif
 V.LOST = 600
 V.LOST_SAME_R = 12      -- lot REBUILD-AVANT-POSTE : un site perdu marqué « à refaire en place » (keep) ne pénalise pas le champ à moins de 12 tuiles de lui
+-- Lot GEANT-D-ABORD (9/11) : la valeur d'un site ne disait pas la TAILLE du gisement (richesse lue sur 64 tuiles au plus, un géant de 3 000 tuiles
+-- valait un petit cercle). `site.deposit` = nombre réel de tuiles du gisement (script/faction/sites.lua, recensement borné) : un gain PLAFONNÉ,
+-- jamais accordé à un site dangereux, disputé ou hors de portée (accès >= 1 000), donc il ne bat ni le danger ni l'impossibilité d'atteindre.
+V.SIZE_SMALL = 300      -- tuiles : en deçà, aucun gain (un petit cercle reste permis pour démarrer)
+V.SIZE_GIANT = 2500     -- tuiles : gain maximal à partir de là
+V.SIZE_MAX = 250        -- gain maximal (la richesse en vaut au plus 1 000 ; l'accès d'un site à 55 tuiles du territoire coûte 250)
 V.NEAR = 100            -- hasard borné : marge de V.NEAR pour mille de |meilleure valeur|, au moins MARGIN_MIN
 V.MARGIN_MIN = 60
 
@@ -91,7 +97,14 @@ end
 --- Composantes de la valeur d'un site. `ctx` :
 ---   hq {x, y} ; anchors : liste de points du territoire (QG compris) ; rivals : { {x, y, hq = bool}, … } VUS ;
 ---   lost : { {x, y, tick}, … } nos sites perdus ; tick ; ambition, prudence (pour mille) ; appetite (pour mille).
---- Renvoie { value, rich, water, terrain, access, danger, contest, d_terr, d_hq } (entiers).
+--- Renvoie { value, rich, water, terrain, access, danger, contest, size, d_terr, d_hq } (entiers).
+--- Gain de taille (entier) d'un gisement de `tiles` tuiles (nil : inconnu, 0) : de 0 à V.SIZE_MAX, linéaire entre V.SIZE_SMALL et V.SIZE_GIANT.
+function V.size_gain(tiles)
+  if type(tiles) ~= "number" or tiles <= V.SIZE_SMALL then return 0 end
+  if tiles >= V.SIZE_GIANT then return V.SIZE_MAX end
+  return math.floor(V.SIZE_MAX * (tiles - V.SIZE_SMALL) / (V.SIZE_GIANT - V.SIZE_SMALL))
+end
+
 function V.components(site, ctx)
   local c = {}
   -- Richesse
@@ -135,7 +148,9 @@ function V.components(site, ctx)
   local pru = ctx.prudence or 1000
   c.danger = math.floor(danger * pru / 1000)
   c.contest = math.floor(contest * pru / 1000)
-  c.value = c.rich + c.water - c.terrain - c.access - c.danger - c.contest
+  -- lot GEANT-D-ABORD : gain de taille, jamais pour un site dangereux, disputé ou hors de portée
+  c.size = (c.danger == 0 and c.contest == 0 and c.access < 1000) and V.size_gain(site.deposit) or 0
+  c.value = c.rich + c.water - c.terrain - c.access - c.danger - c.contest + c.size
   return c
 end
 
