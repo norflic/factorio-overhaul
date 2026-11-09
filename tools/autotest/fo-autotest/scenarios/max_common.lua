@@ -137,11 +137,24 @@ function M.sites(s)
   return out
 end
 
+--- Diagnostic : ce que voient les recherches de QG (coffre, lignes de fo-ia1.teams, QG par force).
+function M.diag(ctx, s)
+  local rows = remote.call("fo-ia1", "teams") or {}
+  local parts = {}
+  for _, r in ipairs(rows) do
+    parts[#parts + 1] = string.format("%s/%s hq=%d", tostring(r.key), tostring(r.force),
+      #s.find_entities_filtered({ name = "fo-faction-hq", force = r.force }))
+  end
+  ctx.log(M.TAG .. string.format("diag sites : coffres player %d, hq toutes forces %d, lignes teams %d : %s",
+    #s.find_entities_filtered({ name = "fo-team-chest", force = "player" }),
+    s.count_entities_filtered({ name = "fo-faction-hq" }), #rows, table.concat(parts, " ; ")))
+end
+
 --- Relevé max contre référence ; `st.releve` reçoit les totaux. Rend vrai si fait.
 function M.releve(ctx, st)
   local s = ctx.surface()
   local sites = M.sites(s)
-  if #sites == 0 then return false end
+  if #sites == 0 then M.diag(ctx, s); return false end
   local names = M.resource_entities()
   -- Surface de référence : mêmes graine et réglages que la carte d'origine.
   if game.surfaces[M.REF] then game.delete_surface(M.REF) end

@@ -80,7 +80,7 @@ return function(opts)
   base.tick = function(ctx, e)
     if tick0 then tick0(ctx, e) end
     local st = ctx.state()
-    if e.tick == opts.releve_at and not st.releve_done then
+    if e.tick >= opts.releve_at and e.tick % 300 == 0 and e.tick < opts.releve_at + 2400 and not st.releve_done then
       st.releve_done = C.releve(ctx, st) or false
       if not st.releve_done then ctx.log(C.TAG .. "releve : aucun QG au tick " .. e.tick) end
     end
