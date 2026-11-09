@@ -1,0 +1,726 @@
+{
+ "arguments": [],
+ "commande": "PYTHONUTF8=1 py -3.9 tools/render/pieces/titans/feuilles_titans.py   (depuis la racine du mod ; sources : fo-logs/2026-11-09_TITANS/rendu, à GARDER)",
+ "fichiers": {
+  "hr-juggernaut-1-lueur.png": {
+   "hauteur": 1085,
+   "largeur": 653,
+   "sha256": "cae55aed3f756a8a0cf72b535ceb8701f47f17eb6838b465c536746e8d0b5bdd",
+   "taille": 512189
+  },
+  "hr-juggernaut-1-ombre.png": {
+   "hauteur": 701,
+   "largeur": 858,
+   "sha256": "6262456558fb3dd3e7723e2c6f0b938ab002babd56dbaacab4353b1f892a62d4",
+   "taille": 315116
+  },
+  "hr-juggernaut-1.png": {
+   "hauteur": 1098,
+   "largeur": 659,
+   "sha256": "64cf7267e612e9693a6140c8d824817b2f2757b589176cd925feb18a3ee2ae20",
+   "taille": 545950
+  },
+  "hr-juggernaut-2-lueur.png": {
+   "hauteur": 1096,
+   "largeur": 651,
+   "sha256": "4a3b5831287fd283c9402aecbad4c48fcd230f7fc23b0be8ddd211cb0e3166b7",
+   "taille": 642591
+  },
+  "hr-juggernaut-2-ombre.png": {
+   "hauteur": 707,
+   "largeur": 863,
+   "sha256": "d251d232e0b777d8b8a8981a0c96c57cdc3e6bbefea45bb83fcb8b7e03cd6b32",
+   "taille": 323272
+  },
+  "hr-juggernaut-2.png": {
+   "hauteur": 1127,
+   "largeur": 660,
+   "sha256": "2a64ea23a88bc6d43f2362aee9c73a0fecfcbfbdc54bfb2cb619f944b2edce5a",
+   "taille": 570051
+  },
+  "hr-juggernaut-3-lueur.png": {
+   "hauteur": 1224,
+   "largeur": 740,
+   "sha256": "55187f001d80747809ef8c929469fbc69629e9364b8df9ba5063e61914a918dd",
+   "taille": 822447
+  },
+  "hr-juggernaut-3-ombre.png": {
+   "hauteur": 728,
+   "largeur": 934,
+   "sha256": "cec762051edf46743a6adef1ea3eff5336661985579c7a1ad64b8ab878b65b53",
+   "taille": 365124
+  },
+  "hr-juggernaut-3.png": {
+   "hauteur": 1226,
+   "largeur": 742,
+   "sha256": "aa8db4187e901bdb792263e366fb920aeb0ce27cc2c9451d2b8559d8e2c843eb",
+   "taille": 654597
+  },
+  "hr-kaiju-attaque-glow-0.png": {
+   "hauteur": 920,
+   "largeur": 1872,
+   "sha256": "94d6598a009878b9f947a7b1af36823753c6bd678194a331ac9c46a01698f00c",
+   "taille": 178662
+  },
+  "hr-kaiju-attaque-glow-1.png": {
+   "hauteur": 920,
+   "largeur": 1872,
+   "sha256": "c5fc79def2423d76564d6324e65f27dc5829fafb9a507d875d99579bce3ad926",
+   "taille": 178004
+  },
+  "hr-kaiju-attaque-glow-2.png": {
+   "hauteur": 920,
+   "largeur": 1872,
+   "sha256": "510c25110a6e16145371a7f49783bbc09bafd1b9c7e5f0cca2ff1576fd0c33bb",
+   "taille": 162831
+  },
+  "hr-kaiju-attaque-glow-3.png": {
+   "hauteur": 920,
+   "largeur": 1872,
+   "sha256": "f00bda0c54caa0b139a065e479eaf250f48f912696e0b909e6e06fedd509dbfe",
+   "taille": 153841
+  },
+  "hr-kaiju-attaque-glow-4.png": {
+   "hauteur": 920,
+   "largeur": 1872,
+   "sha256": "4ac35b9dc9c76e3f8d0f86e679e384c25aa0571bfe2e2b60bbda38d378b3b4da",
+   "taille": 151459
+  },
+  "hr-kaiju-attaque-glow-5.png": {
+   "hauteur": 920,
+   "largeur": 1872,
+   "sha256": "da1cfb05e2032acc75f7456871de6be7f661414ba95e3873a1ede33cecf9fc3c",
+   "taille": 155988
+  },
+  "hr-kaiju-attaque-glow-6.png": {
+   "hauteur": 920,
+   "largeur": 1872,
+   "sha256": "711ba053b4a3ebdb66a31d6b806c19bcaeb74cf50d8d82da84574bca5de1d1ec",
+   "taille": 165459
+  },
+  "hr-kaiju-attaque-glow-7.png": {
+   "hauteur": 920,
+   "largeur": 1872,
+   "sha256": "e1727b8808639be2f6fc46108d45b8e3bd452aa3ac266c4eb6e792d68a6b6e40",
+   "taille": 175735
+  },
+  "hr-kaiju-attaque-main-0.png": {
+   "hauteur": 988,
+   "largeur": 1872,
+   "sha256": "ab0c3cb97a9420cb29185ba555dc461123bebf0e6d08949c65b26336a599b688",
+   "taille": 363928
+  },
+  "hr-kaiju-attaque-main-1.png": {
+   "hauteur": 988,
+   "largeur": 1872,
+   "sha256": "3a4e328d3e589ff6b86e5d20816a3d21abf7233b700f6639fb84b6adff652359",
+   "taille": 391481
+  },
+  "hr-kaiju-attaque-main-2.png": {
+   "hauteur": 988,
+   "largeur": 1872,
+   "sha256": "dd79ad18afb0b99733a02176c0953f7be01ba7b007a088a38a78604993d4904e",
+   "taille": 377489
+  },
+  "hr-kaiju-attaque-main-3.png": {
+   "hauteur": 988,
+   "largeur": 1872,
+   "sha256": "bb7546949c511726c30d75f7ad69e7ea59785b65f75c6d9de25e4924f0f4fa5e",
+   "taille": 410536
+  },
+  "hr-kaiju-attaque-main-4.png": {
+   "hauteur": 988,
+   "largeur": 1872,
+   "sha256": "54ff09313b1c273994bfcec75fcc46af886388a0633f62f493e49228e109bbb9",
+   "taille": 386940
+  },
+  "hr-kaiju-attaque-main-5.png": {
+   "hauteur": 988,
+   "largeur": 1872,
+   "sha256": "2f397d0494c444dbb5508b060bf49abf32e9e12fe09a1223d25944001921a226",
+   "taille": 421031
+  },
+  "hr-kaiju-attaque-main-6.png": {
+   "hauteur": 988,
+   "largeur": 1872,
+   "sha256": "3a138446e677e2ff755700b8dd2b5e5007edfb07c959722b4373f36b1da8f819",
+   "taille": 385962
+  },
+  "hr-kaiju-attaque-main-7.png": {
+   "hauteur": 988,
+   "largeur": 1872,
+   "sha256": "4684c933782d641287ea575c46e50f997b1e41576d976e40d20add1fe0c2a3a9",
+   "taille": 394047
+  },
+  "hr-kaiju-attaque-shadow-0.png": {
+   "hauteur": 880,
+   "largeur": 1372,
+   "sha256": "9b8bd61071a9cc96efa771c9cbc0f451955c10cb6e992ee1d7a2e4f041344ed0",
+   "taille": 97967
+  },
+  "hr-kaiju-attaque-shadow-1.png": {
+   "hauteur": 880,
+   "largeur": 1372,
+   "sha256": "d260a8ce956b2ae63a7fa3b47d210857af5154cad7510ff03bec8580685a3192",
+   "taille": 95904
+  },
+  "hr-kaiju-attaque-shadow-2.png": {
+   "hauteur": 880,
+   "largeur": 1372,
+   "sha256": "a9dc4f6d6f32b02af284fa09b5855d90391edba6eb39c32cd542c64f82ea1008",
+   "taille": 98654
+  },
+  "hr-kaiju-attaque-shadow-3.png": {
+   "hauteur": 880,
+   "largeur": 1372,
+   "sha256": "607839d00b1e1a19f6c5b65b123bb1202cb640e33fdb19b24de95b6e81164df6",
+   "taille": 99021
+  },
+  "hr-kaiju-attaque-shadow-4.png": {
+   "hauteur": 880,
+   "largeur": 1372,
+   "sha256": "95de37b3876858ff66d70c478b5718bf0751f49290cc99268a962a9954b41e91",
+   "taille": 101508
+  },
+  "hr-kaiju-attaque-shadow-5.png": {
+   "hauteur": 880,
+   "largeur": 1372,
+   "sha256": "ebb5678b5ae2a61a88b561a8152191b619e9bd516245338b230729672da5a436",
+   "taille": 92964
+  },
+  "hr-kaiju-attaque-shadow-6.png": {
+   "hauteur": 880,
+   "largeur": 1372,
+   "sha256": "dc34aeba89da99c4e829a379a2d2c269015223b380dc77c1b19815cfdcd60e32",
+   "taille": 84549
+  },
+  "hr-kaiju-attaque-shadow-7.png": {
+   "hauteur": 880,
+   "largeur": 1372,
+   "sha256": "e4a70d2a30b6977728ac9b28c7dea6ae2951262e473d4f7cb7332517b2262756",
+   "taille": 92573
+  },
+  "hr-kaiju-course-glow-0.png": {
+   "hauteur": 1386,
+   "largeur": 1872,
+   "sha256": "9ed8601e5c356e8044c8c9404aa4827202cbbc47369dc24453012b5e4c0d9c92",
+   "taille": 519028
+  },
+  "hr-kaiju-course-glow-1.png": {
+   "hauteur": 1386,
+   "largeur": 1872,
+   "sha256": "a91412593c79b647ccb24dce8fef881849b5731f3e895ccc313ded73a67af33a",
+   "taille": 488411
+  },
+  "hr-kaiju-course-glow-2.png": {
+   "hauteur": 1386,
+   "largeur": 1872,
+   "sha256": "3e89c68959e4f727344eb6495d8dda8d20d56e86affd38c4c73c1f76a277621f",
+   "taille": 415968
+  },
+  "hr-kaiju-course-glow-3.png": {
+   "hauteur": 1386,
+   "largeur": 1872,
+   "sha256": "8748aa6908c28b9a8ad51daefbaa6882e2a788b18d8f454105e10f519cb6d4bb",
+   "taille": 365105
+  },
+  "hr-kaiju-course-glow-4.png": {
+   "hauteur": 1386,
+   "largeur": 1872,
+   "sha256": "481c6d6141e6bdbcd767a1eac4a4902b1c869a5b44888c10e672c92cdc1782e1",
+   "taille": 345132
+  },
+  "hr-kaiju-course-glow-5.png": {
+   "hauteur": 1386,
+   "largeur": 1872,
+   "sha256": "ac23b2fa966a91acd270e7b875cf393e85b3eec9f036ea857a986eaaf2cfbe8b",
+   "taille": 371271
+  },
+  "hr-kaiju-course-glow-6.png": {
+   "hauteur": 1386,
+   "largeur": 1872,
+   "sha256": "6af8854aecdf227576da99ed3a85fd19d37543c8290da9b6bfa7264b7c3a5dfc",
+   "taille": 415497
+  },
+  "hr-kaiju-course-glow-7.png": {
+   "hauteur": 1386,
+   "largeur": 1872,
+   "sha256": "a652277d8bedddbe817d64b6a84634f0c98c70892a9a0bf97ce0b97c5b245e4c",
+   "taille": 490987
+  },
+  "hr-kaiju-course-main-0.png": {
+   "hauteur": 1476,
+   "largeur": 1872,
+   "sha256": "1d44e3525c6bc4d51a73048f7929e991b70c7a3d186fdeaa7435fd2fa42f4659",
+   "taille": 1011942
+  },
+  "hr-kaiju-course-main-1.png": {
+   "hauteur": 1476,
+   "largeur": 1872,
+   "sha256": "8dcafdec312d78bf5fa43e6909d14939555050ea77e8125d5eaf856661b6e85a",
+   "taille": 1046420
+  },
+  "hr-kaiju-course-main-2.png": {
+   "hauteur": 1476,
+   "largeur": 1872,
+   "sha256": "cfb8bba08f9fee6c73f454379df84eb79337ff5da97872a555b41ef033542ad2",
+   "taille": 1004860
+  },
+  "hr-kaiju-course-main-3.png": {
+   "hauteur": 1476,
+   "largeur": 1872,
+   "sha256": "9f158d86dd8a04324634e325e459602390ba2a0e079c4e52535a4fb193e016c3",
+   "taille": 994784
+  },
+  "hr-kaiju-course-main-4.png": {
+   "hauteur": 1476,
+   "largeur": 1872,
+   "sha256": "df3d626be58bbda014ae1a7209502622247709d42e4f56a3e08020d7cc022e79",
+   "taille": 869839
+  },
+  "hr-kaiju-course-main-5.png": {
+   "hauteur": 1476,
+   "largeur": 1872,
+   "sha256": "94419d76bb61049f1258094a3eab9ff36aff814ec9d640b841a4fffbd8fddae9",
+   "taille": 963944
+  },
+  "hr-kaiju-course-main-6.png": {
+   "hauteur": 1476,
+   "largeur": 1872,
+   "sha256": "ed77e2a9d8e36198e24e34da965d0204140b5b5268706f60500ae37704b23066",
+   "taille": 992995
+  },
+  "hr-kaiju-course-main-7.png": {
+   "hauteur": 1476,
+   "largeur": 1872,
+   "sha256": "c5551840b04a02729082378af9bbe622558217fed0f18d5b7a33e7598cab0ba8",
+   "taille": 1066285
+  },
+  "hr-kaiju-course-shadow-0.png": {
+   "hauteur": 1332,
+   "largeur": 2040,
+   "sha256": "339c787a2c99564f91d99e897dea673fe211bcf233136b6b9aaabfcfde6fdda4",
+   "taille": 270908
+  },
+  "hr-kaiju-course-shadow-1.png": {
+   "hauteur": 1332,
+   "largeur": 2040,
+   "sha256": "2e18b87b0298a50a42692a76767144901936f9776aeb04006cca0a07f1c51815",
+   "taille": 243928
+  },
+  "hr-kaiju-course-shadow-2.png": {
+   "hauteur": 1332,
+   "largeur": 2040,
+   "sha256": "e849bb1eabb947df4b2d01477f012a74e40cba9ac0e4a9837825012ccfb0f085",
+   "taille": 248850
+  },
+  "hr-kaiju-course-shadow-3.png": {
+   "hauteur": 1332,
+   "largeur": 2040,
+   "sha256": "c6f38ce6c5ae63e17fe1a4abb81aaed58abbaedb0fd7e72d5a653d4dbefc3672",
+   "taille": 243648
+  },
+  "hr-kaiju-course-shadow-4.png": {
+   "hauteur": 1332,
+   "largeur": 2040,
+   "sha256": "3528b4e56368ce7d83e00663a90690207c96c6a9a0e72daed25bd553264dc55b",
+   "taille": 272082
+  },
+  "hr-kaiju-course-shadow-5.png": {
+   "hauteur": 1332,
+   "largeur": 2040,
+   "sha256": "892d659ed8f13a31662cbb752c4480bc44219ff69943af51232062b4d9fe1ad7",
+   "taille": 262859
+  },
+  "hr-kaiju-course-shadow-6.png": {
+   "hauteur": 1332,
+   "largeur": 2040,
+   "sha256": "a958ce820917231dc71b40e3010197e51e32ca9e4099415860d85d86d520ab2b",
+   "taille": 246858
+  },
+  "hr-kaiju-course-shadow-7.png": {
+   "hauteur": 1332,
+   "largeur": 2040,
+   "sha256": "89a4a9a4276066f4d2e6e7a5ad9799f7e814d4180686c7832d758290e3b5db02",
+   "taille": 261882
+  },
+  "icone-juggernaut-1.png": {
+   "hauteur": 64,
+   "largeur": 64,
+   "sha256": "0ba49696ba8a2612658816a0804c11d3ed255887e974e18da9050bb74943a320",
+   "taille": 5876
+  },
+  "icone-juggernaut-2.png": {
+   "hauteur": 64,
+   "largeur": 64,
+   "sha256": "a900387fa0716627279a21345d8b8b903dc6120400226f3ab094e1c333b2d35c",
+   "taille": 5780
+  },
+  "icone-juggernaut-3.png": {
+   "hauteur": 64,
+   "largeur": 64,
+   "sha256": "e66e7bc3a8ae8003bf23076dae0cfabbb019e89b72f6a1a761550e31b9b2275b",
+   "taille": 5886
+  },
+  "icone-kaiju.png": {
+   "hauteur": 64,
+   "largeur": 64,
+   "sha256": "7c8cb91eb8c2677c658d0cc8cadeffcb3d2e8f8811bd0797d01cfe3b9ab5df6e",
+   "taille": 4150
+  },
+  "juggernaut-1-lueur.png": {
+   "hauteur": 542,
+   "largeur": 326,
+   "sha256": "99a4eb85211453ffd2407b47232cf5a54adaf2d8ed20b033d2fd843ac1b7457d",
+   "taille": 185453
+  },
+  "juggernaut-1-ombre.png": {
+   "hauteur": 350,
+   "largeur": 429,
+   "sha256": "f3b6984a18f4c142cdcf4da545a882deef1e450090f3e308e56b2d3b9d1d067e",
+   "taille": 69574
+  },
+  "juggernaut-1.png": {
+   "hauteur": 549,
+   "largeur": 330,
+   "sha256": "57cd31f1f0e6742f34b9519e352a397a617255d01c0ad843e3ca28d61ddde2d8",
+   "taille": 181905
+  },
+  "juggernaut-2-lueur.png": {
+   "hauteur": 548,
+   "largeur": 326,
+   "sha256": "067eba9f0c7161e99ba9154d416f51f7c57ff8908e346f59cf163a006395a3c3",
+   "taille": 219045
+  },
+  "juggernaut-2-ombre.png": {
+   "hauteur": 354,
+   "largeur": 431,
+   "sha256": "3f07aa8f59ee73ac97dc8e62add7695b3add419f9f31d2ec1af874ed525d8129",
+   "taille": 72006
+  },
+  "juggernaut-2.png": {
+   "hauteur": 564,
+   "largeur": 330,
+   "sha256": "90da451b5b9423a78d6f44064acda0ae0b765351793737effcbb83c20488714d",
+   "taille": 189942
+  },
+  "juggernaut-3-lueur.png": {
+   "hauteur": 612,
+   "largeur": 370,
+   "sha256": "ebf0a5434c54fe1f8bd65a9d2475e4561d1b007faa420627de5fc700aba78403",
+   "taille": 267510
+  },
+  "juggernaut-3-ombre.png": {
+   "hauteur": 364,
+   "largeur": 467,
+   "sha256": "fa923d00cc50d27655cc087c31705a0843dce5cb7cad47a5f708b03d3de49a6f",
+   "taille": 81150
+  },
+  "juggernaut-3.png": {
+   "hauteur": 613,
+   "largeur": 371,
+   "sha256": "1cd6bfbbe22c4baed252f9522082e8cb851c653aae9d5324365d1555d8c75bad",
+   "taille": 220752
+  },
+  "kaiju-attaque-glow-0.png": {
+   "hauteur": 460,
+   "largeur": 936,
+   "sha256": "79aaf45b9b43b5ceaea8b3e985d655b933c4ec8e9c3dac0d9190154edcda299f",
+   "taille": 54729
+  },
+  "kaiju-attaque-glow-1.png": {
+   "hauteur": 460,
+   "largeur": 936,
+   "sha256": "968207e9f4353a1d88bb4224f58e9395030ea20550fa178bbf96eb60e0f6a9fa",
+   "taille": 54893
+  },
+  "kaiju-attaque-glow-2.png": {
+   "hauteur": 460,
+   "largeur": 936,
+   "sha256": "502f036c2c192b46dd5d99ede262317ee88d67c258ad07cdae3e840681a653c5",
+   "taille": 51562
+  },
+  "kaiju-attaque-glow-3.png": {
+   "hauteur": 460,
+   "largeur": 936,
+   "sha256": "23da5badf995c43615860e1d8fe556daea4235364e3c3c336f3f6fbd2499ac33",
+   "taille": 49507
+  },
+  "kaiju-attaque-glow-4.png": {
+   "hauteur": 460,
+   "largeur": 936,
+   "sha256": "614f17842b1d455831f0a5d1b61571a9e5f91e4c16d50325c413da962f6ac72b",
+   "taille": 45284
+  },
+  "kaiju-attaque-glow-5.png": {
+   "hauteur": 460,
+   "largeur": 936,
+   "sha256": "776ce5b5945dc24a418edc661bb4e331f727c7df5c9fd33d5a664ea1c84ae50a",
+   "taille": 50252
+  },
+  "kaiju-attaque-glow-6.png": {
+   "hauteur": 460,
+   "largeur": 936,
+   "sha256": "155b8520a0bfe8116e92d46951ab65ee94e65586170e9ebf42ce3c595b5bd95d",
+   "taille": 52087
+  },
+  "kaiju-attaque-glow-7.png": {
+   "hauteur": 460,
+   "largeur": 936,
+   "sha256": "220a26fff4fc394f0ea23fa73033422e22b7034cc89d1709364e355422114753",
+   "taille": 54724
+  },
+  "kaiju-attaque-main-0.png": {
+   "hauteur": 494,
+   "largeur": 936,
+   "sha256": "589a2695c2178f3fb4f79d773bd629e39f9bbc60f9137d127cb53ac01d2a1e10",
+   "taille": 112142
+  },
+  "kaiju-attaque-main-1.png": {
+   "hauteur": 494,
+   "largeur": 936,
+   "sha256": "9073bc7f2d8422ee9ae1e2378635ee47641f9c6308d9b758364750d5a6526219",
+   "taille": 120703
+  },
+  "kaiju-attaque-main-2.png": {
+   "hauteur": 494,
+   "largeur": 936,
+   "sha256": "b283ebf1a95209b45a8044bca1a05932b5a94441c56abbaf886d5e652eb731e3",
+   "taille": 119803
+  },
+  "kaiju-attaque-main-3.png": {
+   "hauteur": 494,
+   "largeur": 936,
+   "sha256": "505b635f800f4aeb10bf702ed8539a0bfbd174a60ad60077df794e4b451e39c3",
+   "taille": 128263
+  },
+  "kaiju-attaque-main-4.png": {
+   "hauteur": 494,
+   "largeur": 936,
+   "sha256": "ba8f9825e80d23e49291070305ac8cd3fb3554db17e2ee52889898f1747bb9d2",
+   "taille": 121140
+  },
+  "kaiju-attaque-main-5.png": {
+   "hauteur": 494,
+   "largeur": 936,
+   "sha256": "2f35222bcbf182aa945a6ae61a49240cc7b173df7544562ffc1c6e36a0552805",
+   "taille": 131218
+  },
+  "kaiju-attaque-main-6.png": {
+   "hauteur": 494,
+   "largeur": 936,
+   "sha256": "9984c02252bc0bbda1d63457709657e1e754f8fb0d9468fb7bf325f6c934150c",
+   "taille": 122233
+  },
+  "kaiju-attaque-main-7.png": {
+   "hauteur": 494,
+   "largeur": 936,
+   "sha256": "37eb0eb4dcb1a269d47916d03165410c0587cb480bad841d92ccafa6085ac296",
+   "taille": 120581
+  },
+  "kaiju-attaque-shadow-0.png": {
+   "hauteur": 440,
+   "largeur": 686,
+   "sha256": "09ff402b35db60e872f3a25efa49256b968a6ee1cdcda9f706494bceaeb144c8",
+   "taille": 45126
+  },
+  "kaiju-attaque-shadow-1.png": {
+   "hauteur": 440,
+   "largeur": 686,
+   "sha256": "81c61f0d6612df3cc31a6fe4af4da074b77f0327805bf57afb8e405e0ce9152a",
+   "taille": 43491
+  },
+  "kaiju-attaque-shadow-2.png": {
+   "hauteur": 440,
+   "largeur": 686,
+   "sha256": "38f3485a353eccb60658d3518c513f99b674f6f9d51eb23c6da8e50c846110d7",
+   "taille": 44794
+  },
+  "kaiju-attaque-shadow-3.png": {
+   "hauteur": 440,
+   "largeur": 686,
+   "sha256": "372df8a106f630e3eb67eddecd571a3d094d7459794f95aab318486471fb5cd5",
+   "taille": 44332
+  },
+  "kaiju-attaque-shadow-4.png": {
+   "hauteur": 440,
+   "largeur": 686,
+   "sha256": "d9c1f4518d8e6f5a3f589da1d8afd25bc8267fd8d4aa2cc6ceb5b564cd861c1f",
+   "taille": 46528
+  },
+  "kaiju-attaque-shadow-5.png": {
+   "hauteur": 440,
+   "largeur": 686,
+   "sha256": "4501e0aecc7f16f9f0db90c81faa2ffde4ebf8ba2cb66b581e5af4e0f4f1740f",
+   "taille": 42796
+  },
+  "kaiju-attaque-shadow-6.png": {
+   "hauteur": 440,
+   "largeur": 686,
+   "sha256": "6c10f16b5087cde6afb72d864b6a82c30a2cf3c44a559c415ce980ec57176358",
+   "taille": 36607
+  },
+  "kaiju-attaque-shadow-7.png": {
+   "hauteur": 440,
+   "largeur": 686,
+   "sha256": "005df5a8552dd6c83f983f677b48d96554de3b24518abcc97c9c49aff9e843d3",
+   "taille": 42623
+  },
+  "kaiju-course-glow-0.png": {
+   "hauteur": 693,
+   "largeur": 936,
+   "sha256": "d0c33a331f37704bf027dcac5a7d4590a08bc6b3d2d972f1bdd7c7dd752effdd",
+   "taille": 157750
+  },
+  "kaiju-course-glow-1.png": {
+   "hauteur": 693,
+   "largeur": 936,
+   "sha256": "a9aee701f7f0228dcc4b75443d377772809ef336a8dc82d12ea8ace5b015d6f3",
+   "taille": 151752
+  },
+  "kaiju-course-glow-2.png": {
+   "hauteur": 693,
+   "largeur": 936,
+   "sha256": "a52a192f087992484141f81439b1b4cee9d3e6f046dbfbf15dd10dcf5fda1924",
+   "taille": 134603
+  },
+  "kaiju-course-glow-3.png": {
+   "hauteur": 693,
+   "largeur": 936,
+   "sha256": "c5ac8feb420d73cdb7848704dc96c345dacdd0a2f432aa74fd2ea9548deff738",
+   "taille": 120328
+  },
+  "kaiju-course-glow-4.png": {
+   "hauteur": 693,
+   "largeur": 936,
+   "sha256": "bb2b6607ffe562621e5b5088a5da7de47fd255b0a28a6d252c9d363c5154718e",
+   "taille": 102395
+  },
+  "kaiju-course-glow-5.png": {
+   "hauteur": 693,
+   "largeur": 936,
+   "sha256": "048a42c52c7eaf2e2e271cc6c7ae031fb527c2851cb301949ffd09ddad924378",
+   "taille": 120298
+  },
+  "kaiju-course-glow-6.png": {
+   "hauteur": 693,
+   "largeur": 936,
+   "sha256": "96efefb108ffe959e28a0f1eb1cd6225ee46208a5388bd4977ecba9a4f2599c6",
+   "taille": 135811
+  },
+  "kaiju-course-glow-7.png": {
+   "hauteur": 693,
+   "largeur": 936,
+   "sha256": "cc4e06fb7af4b802481c75de3289e80c68d6d8b5eaf9240433c3ebd1fe466486",
+   "taille": 153948
+  },
+  "kaiju-course-main-0.png": {
+   "hauteur": 738,
+   "largeur": 936,
+   "sha256": "938ae7499b358a3e9bc81a5df1cf74c341a4ec0e4552b51ef3eadab2a3b047c1",
+   "taille": 314361
+  },
+  "kaiju-course-main-1.png": {
+   "hauteur": 738,
+   "largeur": 936,
+   "sha256": "5929400b54db7a9d9973470be37f1246eed8566f0596858628303f59150c3c07",
+   "taille": 326263
+  },
+  "kaiju-course-main-2.png": {
+   "hauteur": 738,
+   "largeur": 936,
+   "sha256": "a46db49fe1c22c83328efdb3d2e770a7fd643d6985063a52924f713e2b3cf03f",
+   "taille": 317939
+  },
+  "kaiju-course-main-3.png": {
+   "hauteur": 738,
+   "largeur": 936,
+   "sha256": "a022d64f6282eff78b70eb89e4a52e095605613e1aeadc37ce8b3defcddef656",
+   "taille": 312830
+  },
+  "kaiju-course-main-4.png": {
+   "hauteur": 738,
+   "largeur": 936,
+   "sha256": "d1b81d86759adcb9fa7a9da71ab49d1c847ba0de746fc8c99824ae1deeaaa764",
+   "taille": 275749
+  },
+  "kaiju-course-main-5.png": {
+   "hauteur": 738,
+   "largeur": 936,
+   "sha256": "96f3c4a23be2b9eed60607c693e4ac75e4f0f4ed6a292d1aee89f182f6e53a88",
+   "taille": 304633
+  },
+  "kaiju-course-main-6.png": {
+   "hauteur": 738,
+   "largeur": 936,
+   "sha256": "20389f3ee20a92ed859745877c114bd64388fa1da57f17529bb5ecef9cc01055",
+   "taille": 313589
+  },
+  "kaiju-course-main-7.png": {
+   "hauteur": 738,
+   "largeur": 936,
+   "sha256": "d298f21e57d4730dfce30667c33b982fdd149e8ef5f5671d7939bb49a6c88004",
+   "taille": 331672
+  },
+  "kaiju-course-shadow-0.png": {
+   "hauteur": 666,
+   "largeur": 1020,
+   "sha256": "b2fa0997c238e218beee7247ef5fd7b38006a94553dfd10877fb25c8fe96e45b",
+   "taille": 125311
+  },
+  "kaiju-course-shadow-1.png": {
+   "hauteur": 666,
+   "largeur": 1020,
+   "sha256": "f04b3e897004b72093dadcf97cf94e02a2c309c2bd4936b760740758bf50ef75",
+   "taille": 108204
+  },
+  "kaiju-course-shadow-2.png": {
+   "hauteur": 666,
+   "largeur": 1020,
+   "sha256": "9d88fcabfafc325cdf4392d8394a37260959db6c4b57a1e988ccf1a4c3cc1fb3",
+   "taille": 104545
+  },
+  "kaiju-course-shadow-3.png": {
+   "hauteur": 666,
+   "largeur": 1020,
+   "sha256": "adf54464862fcec8d4182075e7bc1972141086dd9d8d9949e4c83d95796f09de",
+   "taille": 108221
+  },
+  "kaiju-course-shadow-4.png": {
+   "hauteur": 666,
+   "largeur": 1020,
+   "sha256": "7b17a13ffd31f66eccc276a95db99f9b8aa2577b7949d48b4c063a89cff8987c",
+   "taille": 126745
+  },
+  "kaiju-course-shadow-5.png": {
+   "hauteur": 666,
+   "largeur": 1020,
+   "sha256": "831a1e24144bf28447ea2c584a219279ac7725d0090f8a1f0ec2cb373610bac5",
+   "taille": 125439
+  },
+  "kaiju-course-shadow-6.png": {
+   "hauteur": 666,
+   "largeur": 1020,
+   "sha256": "de3253869e4694114895d8c3b944a6cd5b49318d9bf69bc896cd85b2bb584066",
+   "taille": 108750
+  },
+  "kaiju-course-shadow-7.png": {
+   "hauteur": 666,
+   "largeur": 1020,
+   "sha256": "bb077cef9bb18c190f59aec273e097632a3c968ae700b4ba6168166f5f84aca8",
+   "taille": 124979
+  }
+ },
+ "poids_mpx": {
+  "juggernaut": {
+   "haute": 6.6,
+   "images": 3,
+   "normale": 1.65
+  },
+  "kaiju": {
+   "haute": 38.22,
+   "images": 96,
+   "normale": 9.56
+  }
+ }
+}
