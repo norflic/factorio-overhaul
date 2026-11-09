@@ -271,9 +271,9 @@ local function prepare(f, lec, book, view, dec, kind)
     gen, args = "patron", { dec.machine, recs[1], dec.unite and "unite" or "coffre", 1, k2, barre }
   end
   local pole = A.choose_pole(book, stock, Harvest.reachable(f))
-  local g, why2 = A.template(gen, args, pole)
+  local g, why2 = A.template(gen, args, pole, A.choose_arms(book, stock)) -- lot RECHERCHE-BRAS : bras obtenables
   if not g then return nil, "gabarit refuse : " .. tostring(why2) end
-  return { gen = gen, args = args, items = items, product = items[1], g = g, pole = g.pole, barre = barre }
+  return { gen = gen, args = args, items = items, product = items[1], g = g, pole = g.pole, arms = g.arms, barre = barre }
 end
 
 --- Le stock HORS besoin paie-t-il le module ? Rend vrai, ou faux et la raison. Les objets du gabarit qu'on ne sait pas fabriquer
@@ -427,7 +427,7 @@ function Ind.think(f, cs, res, view, book, tick)
           -- feed = "quai" : toute entrée d'un bloc se sert au coffre du QG par un quai, JAMAIS par des foreuses (script/team/build.lua, plan_feed :
           -- une voie de matière brute à plus de P.AUTO_FLOW envoyait le bloc chercher un gisement ; mesuré au banc ind-jetable : 4 foreuses, 154 entités)
           local id, why3 = Auto.submit(f, { product = mod.product, gen = mod.gen, args = mod.args, feed = "quai", rate = rate,
-            rate_nom = nominal_sum(mod.g), electric = (mod.g.power_kw or 0) > 0, gain = 1, pole = mod.pole,
+            rate_nom = nominal_sum(mod.g), electric = (mod.g.power_kw or 0) > 0, gain = 1, pole = mod.pole, arms = mod.arms,
             why = "MALL " .. kind .. " " .. label }, tick, nil)
           if id then
             st.blocs[#st.blocs + 1] = { id = id, items = mod.items, kind = kind, tick = tick, state = "attente", gen = mod.gen,
@@ -576,10 +576,10 @@ remote.add_interface("fo-ind", {
     local usable = function(n) return book:handcraftable(n) or (contents[n] or 0) > 0 end
     local meth, why = A.method_for(item, book, usable)
     if not meth then return nil, why end
-    local g, args = A.sized(meth, rate, A.choose_pole(book, contents, Harvest.reachable(f)))
+    local g, args = A.sized(meth, rate, A.choose_pole(book, contents, Harvest.reachable(f)), A.choose_arms(book, contents))
     if not g then return nil, args end
     local id, why2 = Auto.submit(f, { product = item, gen = meth.gen, args = args, feed = meth.feed, rate = rate,
-      rate_nom = (g.nominal[item] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, pole = g.pole, why = "banc : rangee" }, game.tick, nil)
+      rate_nom = (g.nominal[item] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, pole = g.pole, arms = g.arms, why = "banc : rangee" }, game.tick, nil)
     if not id then return nil, why2 end
     local st = state_of(f)
     st.blocs[#st.blocs + 1] = { id = id, items = { item }, kind = "rangee", tick = game.tick, state = "attente", gen = meth.gen, barre = 0 }

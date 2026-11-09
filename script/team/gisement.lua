@@ -182,8 +182,16 @@ function Gis.think(f, surface, tick, book)
               kept = false
               seen[u] = nil
               o.full, o.full_by, o.full_why = nil, nil, nil -- la place libérée sert aux foreuses électriques de la capitalisation
-              say(f, st, string.format("foreuse a combustion retiree en (%.1f, %.1f) : %s (arret %.1f min, avant-poste %d, %d retiree(s))",
-                pos.x, pos.y, why, idle / 3600, o.id, st.retired), tick)
+              -- lot RACCORD-BANDE : le risque vu au diagnostic d'aa17f16c (retrait sur « électrique possible » sans électrique qui tourne) au journal
+              local el_here, el_run = 0, 0
+              for _, q in ipairs(o.drill_list) do
+                if q.valid and q.name == T.DRILL_ELECTRIC then
+                  el_here = el_here + 1
+                  if q.status == defines.entity_status.working then el_run = el_run + 1 end
+                end
+              end
+              say(f, st, string.format("foreuse a combustion retiree en (%.1f, %.1f) : %s (arret %.1f min, avant-poste %d, %d retiree(s) ; electriques sur cet avant-poste : %d posee(s), %d qui tourne(nt)%s)",
+                pos.x, pos.y, why, idle / 3600, o.id, st.retired, el_here, el_run, el_run == 0 and " : AUCUNE ne remplace la foreuse retiree" or ""), tick)
             end
           end
         end

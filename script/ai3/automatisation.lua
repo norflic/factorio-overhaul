@@ -457,7 +457,7 @@ local function submit(f, st, tick, rq, research)
     note(f, st, tick, "centrale demandee (projet " .. tostring(st.plant_id) .. ") avant le premier module electrique")
   end
   local spec = { gen = rq.gen, args = rq.args, feed = rq.feed, prio = prio, domain = "production", near = rq.near,
-    pole = rq.pole,
+    pole = rq.pole, arms = rq.arms,
     -- lot FUITES-PILE (fuite b) : famille de la pile et produit du module NEUF (réserve au coffre suspendue pendant une retenue,
     -- script/team/build.lua advance) ; un module rouvert pour reconstruction n'est jamais suspendu (Sweep.rebuilding)
     pile = rq.capi and "capi" or "capital", product = rq.product,
@@ -489,7 +489,7 @@ local function submit(f, st, tick, rq, research)
         for i, a in ipairs(rq.args) do o[i] = type(a) == "table" and ("recette " .. tostring(a.name)) or tostring(a) end
         return o
       end)(), ","),
-      rq.rate or 0, rq.rate_nom or 0, tostring(rq.why)))
+      rq.rate or 0, rq.rate_nom or 0, tostring(rq.why) .. (rq.arms and (" ; bras obtenables : " .. table.concat(rq.arms, "+") .. " (cadence bridee, nominal ci-dessus)") or "")))
     return id
   end
   note(f, st, tick, string.format("module '%s' : demande impossible (%s)", rq.product, tostring(why)))
@@ -565,6 +565,7 @@ function Auto.think(f, view, book, tick, research)
       demande = Rsv.on() and not (f.team.capi and f.team.capi.demande_off), wanted = (f.team.ia3 and f.team.ia3.puits and f.team.ia3.puits.flow) or nil,
       -- lot PLANDIR : poteau des gabarits = le moins cher dont la recette est débloquée (jamais un nom écrit ici)
       pole = A.choose_pole(book, stock, Harvest.reachable(f)), -- lot KIT : le bois à portée compte
+      arms = A.choose_arms(book, stock), -- lot RECHERCHE-BRAS : bras obtenables (nil : tous)
       has_plant = st.plant_id ~= nil and st.plant_state ~= "refuse",
       no_power = st.plant_refused and st.plant_refused.reason or nil,
       -- objets du dépliage du cerveau général (IA-G : étapes hand, produce, extract de la dernière décision)

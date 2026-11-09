@@ -7,6 +7,7 @@
 --- (champ rangee), script/ai3/rangees_asm.lua. Projets d'avant ce lot (sans p.rangee) : inchangés.
 local Rd = require("shared.team.rangee_dyn")
 local M = require("shared.team.modules")
+local P = require("shared.team.plan")
 local Conv = require("script.team.convoyeurs")
 
 -- Genre des bras dans le modèle, lu sur le bras que le modèle choisit lui-même (aucun nom écrit ici)
@@ -52,7 +53,7 @@ local function width(name)
 end
 
 --- Gabarit du plan : à la borne de son extension pour une rangée demandée dynamique (spec.rangee), sinon tel quel.
-function Rg.full(p, g)
+function Rg.full(p, g, f)
   p.rangee_plan = nil
   local spec = p.spec
   if not (spec and spec.rangee and g and Rg.GENS[g.gen] and Rg.on()) then return g end
@@ -62,7 +63,23 @@ function Rg.full(p, g)
   if n < 1 or ex.max <= n then return g end
   local gm = M.extend(g, ex.max)
   if not gm then return g end
-  p.rangee_plan = { n = n, n_max = ex.max, jn = (gm.params or {}).jn }
+  -- Repli « trop grand » : la borne ne tient dans aucun lot (côté > lot - 2 marges, P.fit) ; plus grande extension qui tient, sinon
+  -- rangée fixe de n machines (le plan dira « trop grand » si même celle-là ne tient pas)
+  local limit, top = P.LOT - 2 * Rd.MARGIN, ex.max
+  local function side(h) return math.max(h.w or 0, h.h or 0) end
+  if side(gm) > limit then
+    local cache = {}
+    local e = Rd.largest_fit(n, ex.max - 1, function(k)
+      cache[k] = cache[k] or M.extend(g, k) or false
+      return cache[k] and side(cache[k]) <= limit
+    end)
+    log(string.format("[FO-RANGEES-ASM] %s : projet %d, rangee de %d machine(s) trop grande (cote %d > %d tuiles du lot) : %s",
+      f and f.key or "player", p.id or 0, ex.max, side(gm), limit,
+      e and e > n and (string.format("ramenee a %d machine(s)", e)) or "rangee fixe de " .. n .. " machine(s)"))
+    if not (e and e > n) then return g end
+    gm, top = cache[e], e
+  end
+  p.rangee_plan = { n = n, n_max = top, jn = (gm.params or {}).jn }
   return gm
 end
 

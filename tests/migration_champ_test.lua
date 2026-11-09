@@ -30,6 +30,7 @@ local Pp = require("shared.team.pose_paires")
 local D = require("shared.team.automatisation_donnees")
 local Mg = require("shared.team.migration_champ")
 local CFG = Mg.CFG
+local CHAMP_PAUSE = 5 * 3600 -- lot RACCORD-BANDE : pause (CHAMP_CFG.pause)
 
 ---------------------------------------------------------------------------------------------------
 -- Données communes : cadences du gabarit réel, champ émulé
@@ -754,6 +755,43 @@ do
   for _ = 1, 20 do E.think() end
   check(#E.Build.requests == n, "C6 : plus aucune demande après l'abandon")
   E.restore()
+end
+
+do
+  -- C bis. Lot RACCORD-BANDE (partie neuve 0.6.72 : « migration abandonnee apres 3 echec(s) de suite (refuse) » à 39 min, la bande ne repartait
+  -- plus qu'à 30 min) : une BANDE du champ (cadre posé) abandonnée sur des refus du plan repart après 5 min d'un état neuf, la cause du refus au
+  -- journal ; une migration sans cadre garde l'attente d'avant (CFG.revive, 30 min)
+  for _, champ in ipairs({ true, false }) do
+    local E = executor_run({ pairs = 8 })
+    for round = 1, CFG.max_fails do
+      E.think()
+      local p = E.project()
+      if champ then E.f.migration.o[1].frame = E.f.migration.o[1].frame or { axis = "x" } end
+      p.state, p.reason = "refuse", "champ: 1 composante(s) de poteaux (11 poteaux) sans chaine jusqu'au reseau alimente"
+      E.think()
+      game.tick = game.tick + CFG.retry
+    end
+    local st = E.f.migration.o[1]
+    local logs = table.concat(E.logs, "\n")
+    check(st.abandoned == true, "Cbis : abandon après " .. CFG.max_fails .. " échecs (champ " .. tostring(champ) .. ")")
+    check(logs:find("sans chaine jusqu'au reseau alimente", 1, true) ~= nil, "Cbis : la cause du refus du plan est au journal (champ " .. tostring(champ) .. ")")
+    if champ then
+      check(st.pause == CHAMP_PAUSE and logs:find("reprise dans 5 min", 1, true) ~= nil, "Cbis : bande du champ : pause de 5 min annoncée au journal")
+      local n0 = #E.Build.requests
+      game.tick = st.abandoned_at + CHAMP_PAUSE - 1200
+      E.think()
+      check(#E.Build.requests == n0 and E.f.migration.o[1].abandoned == true, "Cbis : avant la fin de la pause, toujours abandonnée")
+      game.tick = st.abandoned_at + CHAMP_PAUSE + 60
+      E.think()
+      check(table.concat(E.logs, "\n"):find("migration reprise apres abandon (5 min)", 1, true) ~= nil, "Cbis : après 5 min, la migration repart d'un état neuf")
+    else
+      check(st.pause == nil, "Cbis : sans cadre de champ : pas de pause courte")
+      game.tick = st.abandoned_at + 6 * 3600
+      E.think()
+      check(E.f.migration.o[1].abandoned == true, "Cbis : sans cadre de champ : toujours abandonnée après 6 min (CFG.revive)")
+    end
+    E.restore()
+  end
 end
 
 do

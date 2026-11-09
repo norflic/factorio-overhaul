@@ -17,6 +17,52 @@
 local Ra = {}
 Ra.EPS = 1e-6
 
+--- Lot RACCORD-BANDE (partie neuve 0.6.72, INTEG-0672 : « champ: 1 composante(s) de poteaux (11 poteaux) sans chaine jusqu'au reseau alimente »,
+--- projets 4 à 6, puis « migration abandonnee apres 3 echec(s) ») : une bande à une centaine de tuiles du réseau, au milieu du gisement et des
+--- thermiques, ne trouvait aucune chaîne dans la boîte étroite (poteaux de la bande + poteau cible + 8 tuiles) où le minerai est interdit hors des
+--- rangées de la bande. Comme un joueur : d'abord la chaîne d'avant (boîte étroite, minerai interdit), puis AUTOUR (boîte large, minerai toujours
+--- interdit), puis À TRAVERS le minerai (un poteau 1x1 ne gêne rien) si c'est le seul chemin. Les tuiles occupées (thermiques, bâtiments, eau,
+--- falaises, réserves du plan) ne sont jamais franchies. Coût borné : chaque essai est celui de P.pole_chain (plafonds de Poteaux.path), 3 essais au plus.
+-- opts : plafonds de Poteaux.path pour ce palier. Les paliers larges ont un couloir de plus de 600 cellules de 2 tuiles (110 x 52 tuiles) : cellules de
+-- 4 tuiles (div 2), donc moins de 400 cellules, plafond relevé à 1 200 ; nœuds développés au plus 700 (2 500 avant) : un palier coûte au plus ~0,5 M
+-- d'instructions (~5 ms, mesuré par debug.sethook, tests/raccord_bande_test.lua §6).
+Ra.TIERS = {
+  { margin = 8, ore = false, name = "boite etroite" },
+  { margin = 24, ore = false, name = "autour", opts = { div = 2, max_cells = 1200, max_expand = 450, widths = { 3.5 } } },
+  { margin = 24, ore = true, name = "a travers le minerai", opts = { div = 2, max_cells = 1200, max_expand = 450, widths = { 3.5 } } },
+}
+
+--- Chaîne de a vers b par paliers. p = {
+---   hull       = { x0, y0, x1, y1 } boîte des poteaux de la bande et de leurs cibles les plus proches (sans marge),
+---   reach      = portée de fil du poteau obtenable ; pole_chain = fonction (a, b, reach, big, free, known) -> liste | nil (P.pole_chain),
+---   blocked    = function(margin) -> function(tx, ty) -> vrai si la tuile est occupée (lecture du moteur, faite au premier besoin de chaque marge),
+---   used       = { [clé] = vrai } tuiles déjà prises par les poteaux du plan et les chaînes posées (modifié par l'appelant), key = function(tx, ty),
+---   ore        = function(tx, ty) -> vrai si minerai ; rows = function(tx, ty) -> vrai si la tuile est dans une rangée de la bande,
+---   tier       = (facultatif) numéro du SEUL palier essayé : l'appelant découpe le travail sur plusieurs ticks (un palier par essai, le coût d'un
+---                appel reste celui d'une recherche) ; absent : les trois paliers à la suite }.
+--- Rend chaîne (liste de {x, y}), nom du palier retenu ; ou nil, nom du dernier palier essayé.
+function Ra.tiered_chain(a, b, p)
+  local last
+  for ti, t in ipairs(Ra.TIERS) do
+    if p.tier ~= nil and ti ~= p.tier then goto continue end
+    last = t.name
+    local x0, y0 = math.floor(p.hull.x0) - t.margin, math.floor(p.hull.y0) - t.margin
+    local x1, y1 = math.ceil(p.hull.x1) + t.margin, math.ceil(p.hull.y1) + t.margin
+    local blocked = p.blocked(t.margin)
+    local function free(x, y)
+      local tx, ty = math.floor(x), math.floor(y)
+      if tx < x0 or tx > x1 or ty < y0 or ty > y1 then return false end
+      local k = p.key(tx, ty)
+      if blocked(tx, ty) or p.used[k] then return false end
+      return t.ore or not p.ore(tx, ty) or p.rows(tx, ty)
+    end
+    local ch = p.pole_chain(a, b, p.reach, false, free, nil, t.opts)
+    if ch then return ch, t.name end
+    ::continue::
+  end
+  return nil, last
+end
+
 local function key(x, y) return (math.floor(x) + 50000) * 100000 + (math.floor(y) + 50000) end
 
 --- Composantes des points `pts` ({x, y}) à portée `r` : comp[i] = numéro de composante (1..n, dans l'ordre du premier point), n.
