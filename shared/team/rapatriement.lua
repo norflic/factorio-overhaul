@@ -54,7 +54,7 @@ Rp.HIST = 6                 -- relevés gardés par sortie pour le débit
 -- Géométrie
 Rp.MIN_DIST = 56            -- tuiles (Manhattan) QG -> sortie : en deçà, la main et la liaison ordinaire suffisent
 Rp.NEAR_HUB = 72            -- tuiles : le tampon est au plus à cette distance du QG
-Rp.MAX_LEN = 320            -- tuiles de tapis au plus
+Rp.MAX_LEN = 640            -- tuiles de tapis au plus (lot BUS-LONG : 320 refusait des sources à 300 tuiles du QG à l'échelle 600 %, détour compris)
 Rp.DETOUR = 1.4             -- un tracé ne dépasse pas DETOUR x (Manhattan + 1) + DETOUR_SLACK tuiles
 Rp.DETOUR_SLACK = 16
 Rp.ROUTE_TRIES = 4          -- paires de bouts essayées au plus par plan
