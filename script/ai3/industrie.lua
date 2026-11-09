@@ -24,6 +24,7 @@
 
 local Id = require("shared.ai3.industrie")
 local Ml = require("shared.ai3.mall")
+local Famine = require("script.team.famine_fer") -- lot BUS-INTERMEDIAIRES : aucune ligne d'intermédiaire pendant la famine de la plaque clé (F434)
 local Cv = require("shared.ai3.couverture") -- lot COUVERTURE : réserve de machines (Cv.reserve_wants, source de la demande du mall)
 local AmRt = require("script.ai3.amorce_rt") -- lot VIDEO L7 : graine du mall (liste de matériel des prochains projets)
 local Em = require("shared.ai3.emplacements")
@@ -393,7 +394,8 @@ local function intermediaires(f, ml, cs, book, tick)
   for _, c in ipairs(Id.merge({ own, Ml.sources(ml, tick) })) do
     if not (#c.srcs == 1 and c.srcs[1] == Bi.SRC) then demands[#demands + 1] = { item = c.item, rate = c.rate } end
   end
-  local lines = Bi.lines(S.hubs(S.new(book, bus_set()), demands, Bi.CFG.k), phase, Bi.CFG)
+  local famine = Famine.team_starved(f, tick) == true
+  local lines = Bi.lines(S.hubs(S.new(book, bus_set()), demands, Bi.CFG.k), phase, Bi.CFG, famine)
   local prev = (ml.bi and ml.bi.states) or {}
   local states, fallback = {}, {}
   for _, l in ipairs(lines) do
@@ -403,7 +405,7 @@ local function intermediaires(f, ml, cs, book, tick)
   end
   local sig = Bi.describe(lines, fallback)
   if sig ~= (ml.bi and ml.bi.sig) and (#lines > 0 or (ml.bi and ml.bi.sig)) then
-    say(f, tick, string.format("rangee d'intermediaire demandee (phase %s, %d ligne(s)) : %s", phase, #lines, sig))
+    say(f, tick, string.format("rangee d'intermediaire demandee (phase %s, %d ligne(s)%s) : %s", phase, #lines, famine and ", famine de la plaque cle : lignes retenues" or "", sig))
   end
   ml.bi = { tick = tick, phase = phase, lines = lines, hubs = Bi.hub_rates(lines), states = states, fallback = fallback, sig = sig }
 end

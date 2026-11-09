@@ -163,6 +163,8 @@ do
   local lines = Bi.lines(hubs, "mid", Bi.CFG)
   check(#lines == 2 and lines[1].item == "iron-gear-wheel" and lines[1].rows == 1 and lines[2].machines == 1.8, "5.2 Bi.lines sur la sortie du solveur (mid)")
   check(#Bi.lines(hubs, "early", Bi.CFG) == 0, "5.3 early : aucune ligne malgré les hubs")
+  check(#Bi.lines(hubs, "mid", Bi.CFG, true) == 0, "5.3 bis famine de la plaque clé : aucune ligne en mid (le fer va aux bandes)")
+  check(#Bi.lines(hubs, "mid", Bi.CFG, false) == #lines, "5.3 ter sans famine : les lignes de 5.1")
   local small = Solver.hubs(Solver.new(book, bus), { { item = "assembling-machine-1", rate = 1 } }, Bi.CFG.k)
   check(#Bi.lines(small, "mid", Bi.CFG) == 0, "5.4 demande d'une machine par minute : moins d'une machine entière par hub, aucune ligne (pas de micro-usine)")
 end
@@ -206,6 +208,7 @@ end
 local SRC = read("shared/team/bus_intermediaires.lua")
 local MUTANTS = {
   { "phase : toute phase sauf early", 'return phase == "mid" or phase == "late"', 'return phase ~= "early"' },
+  { "famine ignorée", "if famine == true then return out end", "" },
   { "débit minimal : demi-machine admise", "m + Bi.EPS >= c.min_machines", "m + Bi.EPS >= 0" },
   { "k ignoré", "for i = 1, math.min(c.k, #cands) do", "for i = 1, #cands do" },
   { "rangées arrondies en dessous", "math.ceil(l.machines / c.machines_par_rangee - Bi.EPS)", "math.floor(l.machines / c.machines_par_rangee + Bi.EPS)" },

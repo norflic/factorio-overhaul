@@ -60,8 +60,12 @@ end
 
 --- (a) hubs = { { item, rate (objets/min), machines } } (Solver.hubs) ; phase = Dt.phase ; cfg (facultatif) = clés de Bi.CFG, et min_rate
 --- (objets/min, facultatif : un seuil de plus, jamais à la place des machines). Rend la liste triée { { item, rate, machines, rows } }.
-function Bi.lines(hubs, phase, cfg)
+--- `famine` (facultatif) : la plaque clé de l'équipe MANQUE (F434, Famine.team_starved) : aucune ligne d'intermédiaire n'est ouverte, le fer va aux
+--- bandes et à la défense. Mesuré (banc V0676-M, graine 123456789, 90 min) : sans cette garde, 158 demandes de rangées d'engrenages et de câble dès
+--- 7 min pendant que le noyau manquait de 1 212 à 1 681 plaques : bande de fer finie à 77,9 min au lieu de 40,3, 1 bande finie au lieu de 8.
+function Bi.lines(hubs, phase, cfg, famine)
   local out = {}
+  if famine == true then return out end
   if not Bi.phase_ok(phase) then return out end
   local c = cfg_of(cfg)
   local cands = {}
