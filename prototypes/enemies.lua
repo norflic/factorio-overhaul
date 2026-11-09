@@ -395,3 +395,6 @@ for tier = E.VANILLA_TIERS + 1, E.TIERS do
 end
 
 data:extend(out)
+
+-- Lot TITANS : le Kaiju cristallin lourd, titan ennemi (un `unit` par ère)
+require("prototypes.titans_kaiju")

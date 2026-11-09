@@ -19,6 +19,7 @@ local Events = require("script.core.events")
 local Xp = require("shared.robots.experimentaux")
 local K = require("script.robots.experimentaux_commun")
 local Geants = require("script.robots.experimentaux_geants")
+require("script.robots.titans") -- lot TITANS : le Juggernaut (titan allié), après les géants (il lit G.cible et G.salve)
 
 local M = {}
 
