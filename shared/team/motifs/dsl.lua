@@ -41,6 +41,12 @@ D.ROLES = {
   machine_raffinerie = { classe = "machine", tailles = { 5 }, entrees_fluide = { { 1, 5 }, { 3, 5 } },
     sorties_fluide = { { 0, -1 }, { 2, -1 }, { 4, -1 } } },
   foreuse = { classe = "machine", tailles = { 2, 3 } },
+  machine_labo = { classe = "machine", tailles = { 3 } },
+  -- centrale à vapeur : chaudière 3 × 2 (eau aux deux bouts de sa rangée du bas, vapeur au-dessus), machine à vapeur 3 × 5 (vapeur aux
+  -- deux bouts), pompe de rive 1 × 1 ; aucune ne consomme d'électricité (la machine à vapeur doit toucher l'aire d'un poteau pour la livrer)
+  chaudiere = { classe = "machine", dims = { { 3, 2 } }, sans_energie = true, entrees_fluide = { { -1, 1 }, { 3, 1 } }, sorties_fluide = { { 1, -1 } } },
+  machine_vapeur = { classe = "machine", dims = { { 3, 5 } } },
+  pompe = { classe = "pompe" },
   chevalet = { classe = "machine", tailles = { 3 }, sorties_fluide = { { 2, -1 } },
     sorties_fluide_dir = { [0] = { { 2, -1 } }, [2] = { { 3, 0 } }, [4] = { { 0, 3 } }, [6] = { { -1, 2 } } } },
   bras = { classe = "bras", portee = 1, elec = true },
@@ -62,6 +68,7 @@ function D.alimente(role, piece)
   local r = D.ROLES[role]
   if not r then return false end
   if piece and piece.combustion then return false end  -- machine ou bras à combustion : aucun poteau
+  if r.sans_energie then return false end
   return r.classe == "machine" or r.classe == "bras"
 end
 
