@@ -133,6 +133,23 @@ function SurvieQg.garde(f, oid, tick, base)
   return n, w, why
 end
 
+--- Lot DEFENSE-AP : tourelles voulues au QG de votre équipe = la règle d'avant (`base`) relevée, si le fer le paie, pour couvrir la plus grosse vague
+--- reçue n'importe où en 30 min (shared/team/garde_ap.lua, Ga.hq_want). Lu par Team.view (hq_defend) puis le poste « hq » du planificateur.
+function SurvieQg.hq_insure(f, tick, base, have, iron)
+  local st = f.prevision
+  if not (st and st.cal and Prev.enabled()) then return base end
+  local threat = Sq.threat_any(Pv.threat_waves(st.cal, "qg"), tick)
+  local n, why = Ga.hq_want({ base = base, have = have, cap = Dc.HQ_CAP, threat = threat, min = Sq.MIN_THREAT, tv = st.turret_value,
+    funds = iron, cost = st.turret_iron, reserve = 2 * T.defend_iron_floor })
+  local s = state(f)
+  if n > base and s.hq_ins ~= n then
+    log(string.format("[FO-GARDE-AP] %s a %.1f min : QG assure %d tourelle(s) (regle d'avant %d, posees %d), plus grosse vague recue %d PV, fer %d, raison %s",
+      tostring(f.key or "?"), tick / 3600, n, base, have, threat, iron or 0, why))
+  end
+  s.hq_ins = n > base and n or nil
+  return n
+end
+
 --- Comme SurvieQg.protect, et note le résultat dans f.team.s1.prot (tick du dernier constat, nombres seulement) : la reconstruction le lit sans
 --- dépendre de ce module (script.ai3.prevision -> comportement -> ... : pas de cycle de require).
 function SurvieQg.mark_protect(f, oid, tick, turrets, wanted)

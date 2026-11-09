@@ -245,6 +245,64 @@ do
   end
 end
 
+-- 5 ter. QG : assurance quand le fer le paie (Ga.hq_want), cas mesurés de long432-b2f727e4 (50 min : vague 4 575 PV, fer 1 365)
+do
+  local function hq_facts(Gx)
+    local f = {}
+    local function w(over)
+      local a = { base = 4, have = 3, cap = 8, threat = 4575, min = 300, tv = 574, funds = 1365, cost = 120, reserve = 300 }
+      for k, x in pairs(over or {}) do a[k] = x end
+      return Gx.hq_want(a)
+    end
+    f.rich, f.rich_why = w()
+    f.mid, f.mid_why = w({ funds = 568 })
+    f.poor, f.poor_why = w({ funds = 100 })
+    f.small, f.small_why = w({ threat = 200 })
+    f.five, f.five_why = w({ threat = 2287 })
+    f.below_min = w({ threat = 3000, min = 3500 })
+    f.notv = w({ tv = 0 })
+    f.nocap = w({ cap = 4 })
+    f.nocost = w({ cost = 0 })
+    f.nothreat = w({ threat = 0 })
+    f.have_hi = w({ have = 6, funds = 400 })
+    f.edge = w({ funds = 300 + 120 * 1, have = 4 })
+    f.empty = Gx.hq_want()
+    return f
+  end
+  local H0 = hq_facts(Ga)
+  check(H0.rich == 8 and H0.rich_why == "plafond", "50 min (vague 4 575 PV, fer 1 365, 3 tourelles) : le QG en veut 8 (plafond), pas 5")
+  check(H0.mid == 6 and H0.mid_why == "fer", "fer 568 : borné par le fer au-dessus de la réserve (2 tourelles de plus : 6)")
+  check(H0.poor == 4 and H0.poor_why == "base" and H0.small == 4 and H0.small_why == "base", "fer insuffisant ou vague sous le seuil : la règle d'avant (4)")
+  check(H0.below_min == 4, "vague sous le seuil de menace du lot : la règle d'avant")
+  check(H0.five == 5 and H0.five_why == "menace", "menace 2 287 PV : 5 tourelles (couvre 1,1 x la vague)")
+  check(H0.notv == 4 and H0.nocap == 4 and H0.nocost == 4 and H0.nothreat == 4 and H0.empty == 4 - 4, "entrées inconnues : la règle d'avant (tv 0, plafond atteint, coût inconnu, aucune vague)")
+  check(H0.have_hi == 6 and H0.edge == 5, "déjà 6 posées avec 400 de fer : 6 ; 420 de fer et 4 posées : 5 (une de plus payée)")
+  local gsrc = read_all("shared/team/garde_ap.lua")
+  local hm = {
+    { "menace complète non bornée par le fer", "if want > payable then want, why = payable, \"fer\" end", "" },
+    { "plafond ignoré", "if want > cap then want, why = cap, \"plafond\" end", "" },
+    { "réserve oubliée", "math.max(0, num(a.funds) - num(a.reserve))", "num(a.funds)" },
+    { "vague sous le seuil prise en compte", "or threat < num(a.min) or", "or" },
+    { "arrondi bas", "local need = math.ceil(threat * Ga.MARGE / 1000 / tv - 1e-9)", "local need = math.floor(threat * Ga.MARGE / 1000 / tv)" },
+    { "tourelles déjà posées ignorées", "local payable = math.max(have, base) + pay", "local payable = base + pay" },
+    { "coût nul = gratuit", "local pay = cost > 0 and math.floor(math.max(0, num(a.funds) - num(a.reserve)) / cost) or 0", "local pay = cost > 0 and math.floor(math.max(0, num(a.funds) - num(a.reserve)) / cost) or 99" },
+  }
+  for _, m in ipairs(hm) do
+    local a, b = gsrc:find(m[2], 1, true)
+    if not a then check(false, "mutant QG « " .. m[1] .. " » : texte introuvable") else
+      local ok, GM = pcall(load_module, gsrc:sub(1, a - 1) .. m[3] .. gsrc:sub(b + 1))
+      local dead = not ok
+      if ok then
+        local okf, FM = pcall(hq_facts, GM)
+        if not okf then dead = true else
+          for k, v in pairs(H0) do if FM[k] ~= v then dead = true end end
+        end
+      end
+      check(dead, "mutant QG « " .. m[1] .. " » refusé")
+    end
+  end
+end
+
 -- 6. Mutants
 local mutants = {
   { "marge à 1000", "Ga.MARGE = 1100", "Ga.MARGE = 1000" },

@@ -46,4 +46,30 @@ function Ga.want(a)
   return need, w, "menace"
 end
 
+--- Lot DEFENSE-AP, QG : assurance du coffre quand le fer est là. Mesure (fo-logs/2026-11-09_INTEG-0673/long432-b2f727e4, graine 20261020,
+--- partie de 2 h) : à 50 min une vague de 4 575 PV frappe les avant-postes (ap6), le QG entre en péril avec 3 tourelles et en veut 5 (la menace
+--- reçue AILLEURS ne compte qu'à moitié pour lui), alors que le coffre tient 1 365 plaques de fer ; à 53,6 min 176 à 235 petites unités
+--- attaquent le QG (4 tourelles, 62 chargeurs), qui tombe à 54,9 min : l'équipe finit. Règle : le QG veut de quoi couvrir la PLUS GROSSE vague
+--- reçue n'importe où (marge Ga.MARGE), jusqu'à `cap` tourelles, mais seulement ce que le fer au-dessus de `reserve` PAIE (`cost` plaques par
+--- tourelle garnie) : jamais plus que la règle d'avant sans vague connue, ni plus que le coffre ne paie. a = { base (règle d'avant), have
+--- (tourelles posées), cap, threat (PV de la plus grosse vague reçue), min (PV en dessous desquels rien ne change), tv (PV d'une tourelle),
+--- funds (plaques de fer), cost (plaques par tourelle garnie), reserve (plaques gardées) }. Rend (voulues, raison) : "base" | "menace" |
+--- "fer" (bornée par le fer) | "plafond".
+function Ga.hq_want(a)
+  a = a or {}
+  local base, have, cap = math.floor(num(a.base)), math.floor(num(a.have)), math.floor(num(a.cap))
+  local tv, threat = num(a.tv), num(a.threat)
+  if tv <= 0 or threat <= 0 or threat < num(a.min) or cap <= base then return base, "base" end
+  local need = math.ceil(threat * Ga.MARGE / 1000 / tv - 1e-9)
+  if need <= base then return base, "base" end
+  local want, why = need, "menace"
+  if want > cap then want, why = cap, "plafond" end
+  local cost = num(a.cost)
+  local pay = cost > 0 and math.floor(math.max(0, num(a.funds) - num(a.reserve)) / cost) or 0
+  local payable = math.max(have, base) + pay
+  if want > payable then want, why = payable, "fer" end
+  if want <= base then return base, "base" end
+  return want, why
+end
+
 return Ga
