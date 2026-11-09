@@ -886,11 +886,11 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
   -- champ du joueur à 48 % ; fo-logs/2026-11-09_VOIE-AVANT-FOURS)
   st.band_need = band_list(bd)
   local sat = Mp.saturation(st.band_need, free)
-  if sat.machines and #ids == 0 then
-    say_why(f, ms, st, "dormant:" .. pr, string.format("avant-poste %d : bande %d PAYEE PAR LE STOCK DORMANT (%d machine(s) sur %d au coffre, %d piece(s) a fabriquer) : elle part sans attendre que %s manque",
-      o.id, pr, sat.dormant, sat.want, #sat.net, product), true)
+  if sat.starts and #ids == 0 then
+    say_why(f, ms, st, "dormant:" .. pr, string.format("avant-poste %d : bande %d PAYEE PAR LE STOCK DORMANT (%d machine(s) sur %d au coffre, seuil %d %%, %d piece(s) a fabriquer) : elle part sans attendre que %s manque",
+      o.id, pr, sat.dormant, sat.want, Mp.CFG.start_pct, #sat.net, product), true)
   end
-  if #ids == 0 and (free[product] or 0) >= EXT_PLATES and not wanted and not sat.machines then
+  if #ids == 0 and (free[product] or 0) >= EXT_PLATES and not wanted and not sat.starts then
     say_why(f, ms, st, "ext:" .. pr, string.format("avant-poste %d : bande %d sans paire en attente (%d %s libres, agrandissement sous %d)", o.id, pr,
       free[product] or 0, product, EXT_PLATES))
     st.retry = tick + CFG.retry
@@ -1801,7 +1801,7 @@ local function ahead_launch(f, surface, ms, o, st, tick, free, book, hold, dorma
   st.why_last = nil
   say(f, ms, string.format("%s %d (%s) : bande %d EN AVANCE demandee, projet %d (%d bande(s) en vol sur %d), fer libre %d pour %d (marge d'une bande comprise)%s",
     o.field and "gisement" or "avant-poste", o.id, o.kind, pr, id, inflight + 1, c.par_max, math.floor(c.iron), math.ceil(c.band_iron * (1 + Mp.CFG.margin)),
-    (sat and sat.machines) and string.format(" ; PAYEE PAR LE STOCK DORMANT (%d machine(s) sur %d au coffre)", sat.dormant, sat.want) or ""), true)
+    (sat and sat.starts) and string.format(" ; PAYEE PAR LE STOCK DORMANT (%d machine(s) sur %d au coffre, seuil %d %%)", sat.dormant, sat.want, Mp.CFG.start_pct) or ""), true)
   return true
 end
 
@@ -1813,7 +1813,7 @@ local function ahead_step(f, surface, ms, free, book, tick, hold)
   for _, oid in ipairs(sorted_keys(ms.o)) do
     local st = ms.o[oid]
     -- lot SATURATION (DC 9/11) : les machines de la dernière bande planifiée dorment au coffre : le champ a droit aux bandes en avance, méga-fonderie ou non
-    local dormant = st.band_need ~= nil and Mp.saturation(st.band_need, free).machines == true
+    local dormant = st.band_need ~= nil and Mp.saturation(st.band_need, free).starts == true
     if (st.mega_par or dormant) and st.frame and not st.abandoned then
       local o = Champ.target(f, oid)
       if o then

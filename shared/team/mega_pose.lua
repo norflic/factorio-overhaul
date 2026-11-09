@@ -36,6 +36,9 @@ Mp.CFG = {
   par_cap = 3,    -- bandes en vol au plus (principale comprise) ; borne aussi la demande de fer et de PNJ d'un seul gisement
   margin = 1.0,   -- bandes de fer qui restent libres en plus de la bande en avance (défense, mall) : fer libre >= (1 + margin) × fer de la bande
   block_max = 15 * 3600, -- ticks : une bande en avance bloquée (fantôme refusé) est laissée au plan et comptée posée (comme step_build)
+  start_pct = 30, -- lot SATURATION (DC 9/11, 2e directive : « on pose ce qu'on a, on branche, on complète ensuite ») : part des machines de la
+                  -- bande déjà au coffre à partir de laquelle la bande PART (banc V0675-B : bandes de 42 foreuses, 16 à 26 au coffre, seuil
+                  -- « toutes » jamais atteint, 0 bande en 90 min)
 }
 
 --- Bandes en vol au plus pour une décision { lines } : jamais plus que de lignes de bus, au plus par_cap, au moins 1.
@@ -63,9 +66,11 @@ function Mp.allow(c, cfg)
 end
 
 --- Lot SATURATION : pièces d'une bande déjà au stock. l = { { name, n, machine } } (une entrée par nom), s = { [objet] = n }.
-function Mp.saturation(l, s)
+--- `starts` : la bande part sur le stock dormant (au moins cfg.start_pct % de ses machines au coffre) ; `machines` : toutes y sont.
+function Mp.saturation(l, s, cfg)
+  cfg = cfg or Mp.CFG
   s = s or {}
-  local out = { machines = true, all = true, net = {}, dormant = 0, want = 0 }
+  local out = { machines = true, all = true, net = {}, dormant = 0, want = 0, starts = false }
   local any = false
   for _, e in ipairs(l or {}) do
     local n, have = e.n or 0, s[e.name] or 0
@@ -81,6 +86,7 @@ function Mp.saturation(l, s)
     end
   end
   if not any then out.machines = false end -- une bande sans machine (réseau seul) n'est jamais « payée par le stock dormant »
+  out.starts = any and out.dormant * 100 >= out.want * cfg.start_pct
   return out
 end
 

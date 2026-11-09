@@ -89,7 +89,16 @@ local function suite(Mp, tag, strict)
   -- lot SATURATION : pièces d'une bande déjà au stock (directive du DC du 9/11)
   local band = { { name = "d", n = 42, machine = true }, { name = "f", n = 46, machine = true }, { name = "b", n = 84 }, { name = "p", n = 38 } }
   local s = Mp.saturation(band, { d = 52, f = 104, b = 10, p = 0 })
-  ck(s.machines == true and s.all == false, "saturation : 52 foreuses et 104 fours au coffre paient les machines, pas les tapis")
+  ck(s.machines == true and s.all == false and s.starts == true, "saturation : 52 foreuses et 104 fours au coffre paient les machines, pas les tapis")
+  -- seuil de départ (2e directive du DC) : 30 % des machines au coffre suffisent, 29 % non ; une bande sans machine ne part jamais ainsi
+  s = Mp.saturation(band, { d = 13, f = 14 })            -- 27 sur 88 = 30,7 %
+  ck(s.starts == true and s.machines == false, "saturation : 27 machines sur 88 (30,7 %) : la bande part, kit incomplet")
+  s = Mp.saturation(band, { d = 12, f = 14 })            -- 26 sur 88 = 29,5 %
+  ck(s.starts == false, "saturation : 26 sur 88 (29,5 %) : ne part pas")
+  s = Mp.saturation(band, { d = 26, f = 0 }, { start_pct = 30 })
+  ck(s.starts == false, "saturation : 26 sur 88 avec un cfg explicite : ne part pas")
+  ck(Mp.saturation({ { name = "p", n = 38 } }, { p = 100 }).starts == false, "saturation : bande sans machine : starts faux")
+  ck(Mp.saturation(band, { d = 42, f = 46 }).starts == true, "saturation : tout au coffre : part")
   ck(s.dormant == 88 and s.want == 88, "saturation : machines prises au stock 88 sur 88")
   ck(#s.net == 2 and s.net[1][1] == "b" and s.net[1][2] == 74 and s.net[2][1] == "p" and s.net[2][2] == 38, "saturation : reste a fabriquer 74 tapis et 38 poteaux, dans l'ordre de la liste")
   s = Mp.saturation(band, { d = 41, f = 104, b = 100, p = 100 })
@@ -135,6 +144,8 @@ local MUT = {
   { "saturation : reste a fabriquer oublie", "out.net%[#out.net %+ 1%] = { e.name, n %- have }", "" },
   { "saturation : bande sans machine payee", "if not any then out.machines = false end", "" },
   { "saturation : stock inclusif", "if n > have then", "if n >= have then" },
+  { "saturation : seuil de depart ignore", "out.starts = any and out.dormant %* 100 >= out.want %* cfg.start_pct", "out.starts = any" },
+  { "saturation : seuil de depart exclusif", "out.dormant %* 100 >= out.want %* cfg.start_pct", "out.dormant * 100 > out.want * cfg.start_pct" },
 }
 local survivors = 0
 for _, m in ipairs(MUT) do
