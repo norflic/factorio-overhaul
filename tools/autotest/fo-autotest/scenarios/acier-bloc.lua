@@ -99,8 +99,26 @@ return {
         ctx.check(ctx.remote("fo-ia1", "bench_smelt_demand", st.key, { [ITEM] = 40 }) == true, "demande de fonte d'acier imposee au plan")
         st.phase = 2
       end
+      -- 2 bis. recette de l'acier VERROUILLEE (recherche « steel-processing » pas faite) : le bloc n'est PAS demande (il ne fondrait rien) ;
+      -- 900 ticks plus tard le banc ouvre la recette (la recherche finie) et la regle demande le bloc
+      if st.phase == 2 then
+        local r = st.force and game.forces[st.force] and game.forces[st.force].recipes[ITEM]
+        if r == nil then
+          local row = first_team(ctx)
+          st.force = row and row.force
+          r = st.force and game.forces[st.force] and game.forces[st.force].recipes[ITEM]
+        end
+        if r and not r.enabled and t >= st.plant_t + 900 then
+          local s0 = ctx.remote("fo-acier", "status", st.key) or {}
+          st.asked_locked = s0.asked or 0
+          r.enabled = true
+          st.unlock_t = t
+          ctx.log(string.format("tick %d : recette de l'acier verrouillee depuis la demande (%d demande(s) de bloc) ; ouverte par le banc", t, st.asked_locked))
+          st.phase = 3
+        end
+      end
       -- 3. le bloc d'acier est demande SEUL (Acier.apply), raviver ses fantômes jusqu'à « fini »
-      if st.phase >= 2 then
+      if st.phase >= 3 then
         local m = steel_mod(ctx, st.key)
         if m and not st.mod then
           st.mod, st.mod_t = m.id, t
@@ -192,6 +210,7 @@ return {
     local a = st.key and ctx.remote("fo-ia3e", "status", st.key) or nil
     ctx.check(a ~= nil and a.plant_state == "fini", "centrale de l'equipe finie (le bloc l'attend)", tostring(a and a.plant_state))
     ctx.check(s ~= nil and (s.asked or 0) >= 1, "le bloc a ete demande par la regle (fo-acier status.asked)", tostring(s and s.asked))
+    ctx.check(st.unlock_t ~= nil and st.asked_locked == 0, "recette verrouillee : aucun bloc demande avant l'ouverture de la recette (fo-acier status.asked)", tostring(st.asked_locked))
     ctx.check(st.mod ~= nil, "module d'acier relevé au suivi de l'automatisation", tostring(st.mod))
     ctx.check(st.fini ~= nil, "bloc d'acier fini (fantomes ravives par le banc)", tostring(st.fini))
     local n, done, steel, plates = 0, 0, 0, 0

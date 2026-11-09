@@ -277,6 +277,21 @@ do
   check(#SUBMITS == 1, "b bis) centrale finie : le bloc est demande")
 end
 
+-- b ter) recette de l'acier verrouillee : aucun bloc (il ne fondrait rien), puis demande des l'ouverture de la recette
+do
+  local f = world()
+  f.force = "fx"
+  local fr = { recipes = { [STEEL] = { enabled = false } } }
+  rawset(_G, "game", { forces = { fx = fr } })
+  think(f, plan_of(60), 1000)
+  think(f, plan_of(60), 1300)
+  check(#SUBMITS == 0 and logged("la recette de l'acier est verrouillee"), "b ter) recette verrouillee : aucune demande, cause au journal")
+  fr.recipes[STEEL].enabled = true
+  think(f, plan_of(60), 1600)
+  check(#SUBMITS == 1, "b ter) recette ouverte : le bloc est demande")
+  rawset(_G, "game", nil)
+end
+
 -- c) refus : tous les fours manquent d'objets ; cause au journal ; nouvelle tentative apres le delai
 do
   local f = world()

@@ -145,6 +145,14 @@ local function strip(view, plan)
   return dropped, qty
 end
 
+--- Vrai si la recette de l'acier est encore VERROUILLEE pour la force de l'équipe (recherche pas finie) : un four ne reçoit pas de plaques de
+--- fer sans recette ouverte (moteur réel, banc acier-bloc : bloc posé, bras « en attente de source », four « no_ingredients » pendant 4 000 ticks).
+--- Moteur simulé ou recette inconnue : faux.
+local function recipe_locked(f)
+  local ok, r = pcall(function() return game.forces[f.force].recipes[Ac.ITEM] end)
+  return ok and r ~= nil and r.enabled == false
+end
+
 --- Pensée d'équipe (E1c) : demande du bloc, transition, journal. Modifie `plan` sur place.
 function Acier.apply(f, view, book, plan, tick)
   if not (f and f.team and plan and Ac.ITEM and Acier.on()) then return end
@@ -172,6 +180,8 @@ function Acier.apply(f, view, book, plan, tick)
     if plant ~= "fini" then
       -- (les bras de la rangée sont électriques : le bloc n'amorce pas la centrale à lui seul, il attend celle de l'équipe)
       say(f, st, tick, "ask", "bloc en attente : centrale de l'equipe non finie (etat " .. tostring(plant) .. ")")
+    elseif bl.fini + bl.open == 0 and recipe_locked(f) then
+      say(f, st, tick, "ask", "bloc en attente : la recette de l'acier est verrouillee (recherche pas finie), un bloc posé ne fondrait rien")
     elseif bl.open > 0 then
       say(f, st, tick, "ask", "bloc en attente : un bloc est en chantier, il sera agrandi a sa fin (jamais un deuxieme pendant le chantier)")
     else
