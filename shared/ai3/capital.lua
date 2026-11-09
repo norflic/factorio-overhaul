@@ -79,6 +79,7 @@ Cap.SHORT_WORK = 800
 -- machine d'une famille : four de pierre, premier assembleur) remplacées SUR PLACE par la machine supérieure, lue dans
 -- les prototypes (Cap.successors). Au plus Cap.REPLACE_BATCH machines identiques par décision (un paiement par pensée).
 Cap.REPLACE_BATCH = 12 -- lot AMELIORATION : un bloc de tapis ou de bras se remplace par lots de 12 (4 avant)
+Cap.REPLACE_FAB = 40   -- lot AMELIORATION-CONTINUE : pièces du bloc demandées à la fabrication (au-delà de Am.FAB_MAX, seulement ce que la matière du stock virtuel permet)
 -- Lot AGES « le passage d'âge ne meurt pas de faim » (retour du DC du 2/11, points 8 et 17 : l'âge 2 vu une fois sur huit
 -- parties). Le choix est un rapport valeur ÷ coût (règle de Smith) : exact pour un ensemble FINI de travaux, mais le centre
 -- (un gros prix qui ouvre l'époque, rapport 170 à 560) passait derrière un flux qui ne tarit pas (chaque tourelle, mur ou
@@ -340,7 +341,7 @@ function Cap.replace_candidates(Ld, census, ctx)
         { "machines", n } } }
     if ctx.continu then
       -- Lot AMELIORATION-CONTINUE : le BLOC entier (au plus Cap.REPLACE_BATCH pièces) est demandé à la fabrication ; l'unité sert au paiement partiel.
-      c.unit, c.fab, c.group, c.n = { { grp.item, 1 } }, Am.fab(total, Cap.REPLACE_BATCH), gk, n
+      c.unit, c.fab, c.group, c.n = { { grp.item, 1 } }, Am.fab(total, Cap.REPLACE_FAB), gk, n
       c.remaining = total
     end
     out[#out + 1] = c
@@ -503,7 +504,9 @@ function Cap.candidates(Ld, census, ctx)
   local function ready(c) return (c.all_in or c.center) and 1 or 0 end
   -- Lot AMELIORATION-CONTINUE : le remplacement ENGAGÉ (fabrication entamée) et celui d'un rang en FAMINE passent devant tout, sauf danger.
   local function front(c)
-    if not (ctx.continu and c.replace and not ctx.threat) then return 0 end
+    -- ctx.alert (danger IMMÉDIAT que le runtime lit, non posé aujourd'hui) : ctx.threat vaut aussi « guerre déclarée », vrai toute la partie des
+    -- factions (banc 7f183e5d : azure « danger true » de 55 à 120 min, l'engagement n'a jamais passé devant) ; la pile suspend déjà les améliorations.
+    if not (ctx.continu and c.replace and not ctx.alert) then return 0 end
     if ctx.rest and ctx.rest[c.group] then return 0 end
     if ctx.engaged and c.group == ctx.engaged then return 1 end
     if ctx.starved and ctx.starved[c.replace.to] then return 1 end
@@ -690,7 +693,11 @@ function Cap.emit(P)
     end
     local function want_pieces(k)
       if k <= 0 or not (g.fab and g.unit) then return end
-      if g.replace or g.center or g.opens or idle > 0 then
+      if g.replace and k > Am.FAB_MAX then
+        -- Lot AMELIORATION-CONTINUE : les Am.FAB_MAX premières pièces sont toujours demandées ; au-delà, seulement ce que le stock virtuel
+        -- fabrique sans matière brute (une pièce de rang supérieur consomme du rang inférieur : un tapis rapide, du tapis de base).
+        P.want(E, proj, Am.scaled(g.unit, math.max(Am.FAB_MAX, feasible(k))), prio, false, "niveau")
+      elseif g.replace or g.center or g.opens or idle > 0 then
         P.want(E, proj, Am.scaled(g.unit, k), prio, false, "niveau")
       else
         local f = feasible(k)

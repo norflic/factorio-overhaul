@@ -110,6 +110,10 @@ Build.SITES.mall = function(f, surface, p, h)
   local sp = p.spec.mall
   local row = st and st.rows and st.rows[sp.row]
   if not (row and st.rep) then return nil, "mall : rangee inconnue" end
+  -- une section précédente refusée rend les cellules suivantes (Rt.minute) : celles de ce projet peuvent ne plus exister (plantage de la carte à 600 %, graine 271828182 : « cell nil », 57 min)
+  for i = sp.from, sp.to do
+    if not row.cells[i] then return nil, "mall : cellules rendues" end
+  end
   local extra = nil
   if sp.bus and sp.lines then extra = Mt.section(sp.lines, row, sp.names) end
   local sec = Mr.section(P, modele(), row, sp.from, sp.to, sp.names, st.rep, sp.head == true, extra)
@@ -601,6 +605,13 @@ function Rt.minute(f, surface, lec, sources, afford, tick)
         q.dead = true
         local why = p and p.reason or "projet perdu"
         for k = #r.cells, q.from, -1 do r.cells[k] = nil end
+        -- les sections suivantes de la rangée perdent leurs cellules avec celle-ci : on les annule, pour que leurs réservations ne restent pas (Build.cancel n'agit que tant que rien n'est bâti)
+        for _, q2 in ipairs(r.projects) do
+          if q2 ~= q and not q2.dead and q2.from > q.from then
+            q2.dead = true
+            Build.cancel(f, q2.id, "mall : section precedente refusee")
+          end
+        end
         if q.lines_prev then st.lines = q.lines_prev end -- (les lignes et leur étendue reviennent à leur état d'avant la section refusée)
         if tostring(why):find("obstacle", 1, true) or tostring(why):find("purete", 1, true) then r.stop = tostring(why)
         else r.retry_at = tick + Rt.RETRY_TICKS end -- (raccord, projet perdu : nouvel essai plus tard, pas à chaque minute)

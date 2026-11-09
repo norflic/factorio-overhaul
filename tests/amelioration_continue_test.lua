@@ -162,22 +162,22 @@ local function run(Cap, Am, quiet)
     check(#rc == 2, "§2 un lot par bloc (" .. #rc .. ")")
     local c1, c2 = rc[1], rc[2]
     check(c1.replace.n == 1 and c1.n == 1 and #c1.ids == 1, "§2 stock vide : le lot PAYABLE est 1")
-    check(c1.fab == 12, "§2 stock vide : le lot DEMANDÉ est 12, le bloc de 20 borné à 12 (" .. tostring(c1.fab) .. ")")
+    check(c1.fab == 20 and c1.n == 1, "§2 stock vide : le lot DEMANDÉ est le bloc de 20 (borne 40), le payable 1 (" .. tostring(c1.fab) .. ")")
     check(c2.fab == 8, "§2 un bloc de 8 pièces : 8 demandées (" .. tostring(c2.fab) .. ")")
     check(c1.unit and c1.unit[1][1] == "fast-transport-belt" and c1.unit[1][2] == 1, "§2 l'unité du paiement partiel est la cible, une pièce")
     check(c1.ids[1] == 1020, "§2 la première pièce est l'AVAL de la ligne (flux est : x = 19, numéro 1020) : " .. tostring(c1.ids[1]))
     local rc5 = Cap.replace_candidates(L, census_of(ms), base_ctx({ stock = { ["fast-transport-belt"] = 5 } }))
     table.sort(rc5, function(a, b) return a.key < b.key end)
-    check(rc5[1].n == 5 and #rc5[1].ids == 5 and rc5[1].fab == 12, "§2 cinq pièces au stock : cinq payables, douze demandées")
+    check(rc5[1].n == 5 and #rc5[1].ids == 5 and rc5[1].fab == 20, "§2 cinq pièces au stock : cinq payables, vingt demandées")
     check(rc5[1].ids[1] == 1020 and rc5[1].ids[5] == 1016, "§2 les cinq payées se SUIVENT le long de la ligne, en aval (1020 à 1016)")
     local off = Cap.replace_candidates(L, census_of(ms), base_ctx({ stock = {}, continu = false }))
     table.sort(off, function(a, b) return a.key < b.key end)
     check(off[1].fab == nil and off[1].unit == nil and off[1].group == nil and off[1].ids[1] == 1001,
       "§2 règle éteinte : la décision d'avant (ni lot demandé, ni unité, ordre par numéro)")
     D2 = Cap.choose(L, census_of(ms), base_ctx({ stock = {} }))
-    check(D2.replace and D2.fab == 12 and D2.n == 1, "§2 Cap.choose garde le lot demandé (" .. tostring(D2.fab) .. ")")
+    check(D2.replace and D2.fab == 20 and D2.n == 1, "§2 Cap.choose garde le lot demandé (" .. tostring(D2.fab) .. ")")
     local g = Cap.goal(D2, {})
-    check(g.fab == 12 and g.unit and g.n == 1 and g.replace == true, "§2 le but porte le lot demandé, l'unité et le nombre payable")
+    check(g.fab == 20 and g.unit and g.n == 1 and g.replace == true, "§2 le but porte le lot demandé, l'unité et le nombre payable")
     local goff = Cap.goal(Cap.choose(L, census_of(ms), base_ctx({ stock = {}, continu = false })), {})
     check(goff.fab == nil and goff.unit == nil and goff.n == nil, "§2 règle éteinte : le but d'avant")
   end
@@ -202,7 +202,7 @@ local function run(Cap, Am, quiet)
     local av = {}
     for k, v in pairs(RICH) do av[k] = v end
     local st0, E0, c0 = emit(av, goal_for({}), 0)
-    check(st0 == "matiere" and c0 == 12 and not E0.pay, "§3 stock vide, aucun PNJ libre : 12 tapis rapides demandés à la fabrication, rien à payer (" .. c0 .. ")")
+    check(st0 == "matiere" and c0 == 20 and not E0.pay, "§3 stock vide, aucun PNJ libre : 20 tapis rapides demandés à la fabrication, rien à payer (" .. c0 .. ")")
     local off = Cap.goal(Cap.choose(L, census_of(ms), base_ctx({ stock = {}, continu = false })), {})
     local _, _, coff = emit(av, off, 0)
     check(coff == 1, "§3 règle éteinte : UN tapis rapide à la fois (" .. coff .. ")")
@@ -211,14 +211,14 @@ local function run(Cap, Am, quiet)
     for k, v in pairs(RICH) do av3[k] = v end
     av3["fast-transport-belt"] = 3
     local st3, E3, c3 = emit(av3, goal_for({ ["fast-transport-belt"] = 3 }), 0)
-    check(st3 == "ok" and E3.pay and E3.pay[1].n == 3 and c3 == 9, "§3 trois au stock : trois payés, neuf demandés (" .. tostring(E3.pay and E3.pay[1].n) .. ", " .. c3 .. ")")
+    check(st3 == "ok" and E3.pay and E3.pay[1].n == 3 and c3 == 17, "§3 trois au stock : trois payés, dix-sept demandés (" .. tostring(E3.pay and E3.pay[1].n) .. ", " .. c3 .. ")")
     -- Stock libre de 5 mais stock VIRTUEL de 2 (le reste est promis ailleurs) : deux payés, dix demandés.
     local av2 = {}
     for k, v in pairs(RICH) do av2[k] = v end
     av2["fast-transport-belt"] = 2
     local st2, E2, c2 = emit(av2, goal_for({ ["fast-transport-belt"] = 5 }), 0)
-    check(st2 == "ok" and E2.pay and E2.pay[1].n == 2 and #E2.pay[1].cost == 1 and E2.pay[1].cost[1][2] == 2 and c2 == 10,
-      "§3 cinq au stock libre, deux au virtuel : deux payés, dix demandés (" .. tostring(E2.pay and E2.pay[1].n) .. ", " .. c2 .. ")")
+    check(st2 == "ok" and E2.pay and E2.pay[1].n == 2 and #E2.pay[1].cost == 1 and E2.pay[1].cost[1][2] == 2 and c2 == 18,
+      "§3 cinq au stock libre, deux au virtuel : deux payés, dix-huit demandés (" .. tostring(E2.pay and E2.pay[1].n) .. ", " .. c2 .. ")")
     -- Bloc de 20 entièrement au stock : douze payés, rien à demander.
     local av20 = {}
     for k, v in pairs(RICH) do av20[k] = v end
@@ -294,8 +294,8 @@ local function run(Cap, Am, quiet)
       local mm = {}
       line(mm, 5000, "inserter", "p3", 14, 0, 4, 2)
       local dm = Cap.choose(L, census_of(mm), base_ctx({ available = function() return true end }))
-      check(dm.replace and dm.replace.from == "inserter" and dm.replace.to == "fast-inserter" and dm.fab == 12 and dm.replace.group:sub(1, 2) == "p3",
-        "§5 module à bras simples : candidat de 12 dès que le bras rapide est obtenable (" .. tostring(dm.replace and dm.replace.to) .. ", lot " .. tostring(dm.fab) .. ")")
+      check(dm.replace and dm.replace.from == "inserter" and dm.replace.to == "fast-inserter" and dm.fab == 14 and dm.replace.group:sub(1, 2) == "p3",
+        "§5 module à bras simples : candidat de 14 demandés dès que le bras rapide est obtenable (" .. tostring(dm.replace and dm.replace.to) .. ", lot " .. tostring(dm.fab) .. ")")
     end
     -- Dès que la cible est débloquée, le remplacement commence (plus aucune cause de blocage).
     local ms = {}
@@ -460,8 +460,10 @@ local function run(Cap, Am, quiet)
       "§10 la décision nomme les rangs candidats, triés : " .. table.concat(d0.rep_kinds or {}, ","))
     local d1 = pick({ engaged = gb })
     check(d1.replace and d1.replace.to == "fast-transport-belt", "§10 le groupe de tapis ENGAGÉ passe devant le payable : " .. tostring(d1.replace and d1.replace.to))
-    local d2 = pick({ engaged = gb, threat = true })
-    check(d2.replace and d2.replace.to == "fast-inserter", "§10 en danger, l'engagement ne passe pas devant")
+    local d2 = pick({ engaged = gb, alert = true })
+    check(d2.replace and d2.replace.to == "fast-inserter", "§10 en alerte immédiate, l'engagement ne passe pas devant")
+    local d2b = pick({ engaged = gb, threat = true })
+    check(d2b.replace and d2b.replace.to == "fast-transport-belt", "§10 la guerre déclarée (threat) ne retire PAS l'engagement : il vaut toute la partie")
     local d3 = pick({ engaged = gb, rest = { [gb] = true } })
     check(d3.replace and d3.replace.to == "fast-inserter", "§10 un groupe au repos ne reprend pas la tête")
     local d4 = pick({ engaged = gb, continu = false })
@@ -510,6 +512,9 @@ local function run(Cap, Am, quiet)
     check(Am.engage_update(st, t0 + 40001, { alive = false }) == nil, "§10 groupe sans candidat : lâché sans repos")
     check(Am.engage_update(st, t0 + 40002, { start = "g2" }) == "g2", "§10 un groupe fini sans échec peut se réengager aussitôt")
     check(Am.engage_update(st, t0 + 40003, { threat = true, start = "g2" }) == nil, "§10 danger : lâché et aucun engagement")
+    local sc = {}
+    check(Am.engage_update(sc, 0, { start = "g1", cost = Am.ENGAGE_COST + 1 }) == nil, "§10 un remplacement trop cher ne s'engage pas")
+    check(Am.engage_update(sc, 1, { start = "g1", cost = Am.ENGAGE_COST }) == "g1", "§10 au coût limite, il s'engage")
     local sr = {}
     Am.engage_update(sr, 0, { start = "g1" })
     Am.engage_update(sr, T + 1, {})
@@ -576,6 +581,38 @@ local function run(Cap, Am, quiet)
     check(avec >= 8 and avec > sans, "§10 la boucle avec engagement monte le bloc de tapis (" .. avec .. " contre " .. sans .. ")")
   end
 
+  ---------------------------------------------------------------------------------------------------
+  -- §11 Lot de tapis jusqu'à Cap.REPLACE_FAB (40) : les 12 premiers toujours demandés, le reste borné par la matière du stock virtuel
+  ---------------------------------------------------------------------------------------------------
+  do
+    local ms = {}
+    line(ms, 1000, "transport-belt", "p1", 60, 0, 0, 2)
+    local d = Cap.choose(L, census_of(ms), base_ctx({ stock = {} }))
+    check(d.fab == Cap.REPLACE_FAB and Cap.REPLACE_FAB == 40 and d.n == 1, "§11 un bloc de 60 : 40 demandés, 1 payable (" .. tostring(d.fab) .. ", " .. tostring(d.n) .. ")")
+    local g = Cap.goal(d, {})
+    local function crafted(avail)
+      local E = P.context(avail, book, { open = {}, workers_idle = 0 }, {})
+      E.view = { workers_idle = 0 }
+      Cap.emit(P)(E, { id = 5, key = g.key, prio = 50 }, g)
+      local n, raw = 0, 0
+      for _, t in ipairs(E.tasks) do if t.kind == "craft" and t.item == "fast-transport-belt" then n = n + t.count end end
+      for _, q in pairs(E.raw or {}) do raw = raw + (type(q) == "table" and (q.n or q.count or 1) or q) end
+      return n, raw
+    end
+    local rich = {}
+    for k, v in pairs(RICH) do rich[k] = v end
+    check(crafted(rich) == 40, "§11 matière en abondance : les 40 sont demandées (" .. crafted(rich) .. ")")
+    local poor = { ["iron-plate"] = 12 * 13 }
+    local np = crafted(poor)
+    check(np >= 12 and np < 40, "§11 matière pauvre : jamais moins de 12, jamais les 40 (" .. np .. ")")
+    local _, raw12 = crafted({})
+    local _, raw_poor = crafted(poor)
+    check(raw12 > 0, "§11 sans matière : le manque brut des 12 premières est dit (" .. raw12 .. ")")
+    check(raw_poor == 0, "§11 matière pauvre : au-delà des 12, rien n'est demandé que le stock ne fabrique (manque brut " .. raw_poor .. ")")
+    local none = crafted({})
+    check(none <= 12, "§11 sans aucune matière : jamais plus que les 12 premières (" .. none .. ")")
+  end
+
   return pass, fail
 end
 
@@ -620,7 +657,7 @@ local function M(name, which, old, new)
   QUIET = false
   say("§9 mutant « " .. name .. " » : " .. (caught and "refusé" or "SURVIVANT"))
 end
-M("lot demandé réduit à une pièce", "cap", "Am.fab(total, Cap.REPLACE_BATCH)", "1")
+M("lot demandé réduit à une pièce", "cap", "Am.fab(total, Cap.REPLACE_FAB)", "1")
 M("reste du bloc non demandé après un paiement", "cap", "      rest(g.n or 1)", "")
 M("reste du bloc non demandé après un paiement partiel", "cap", "      res = \"ok\"\n      rest(part)", "      res = \"ok\"")
 M("l'unité du paiement partiel n'est pas passée au but", "cap", "unit = (d.bloc or d.fab) and d.unit or nil,", "unit = d.bloc and d.unit or nil,")
@@ -641,9 +678,9 @@ M("bloc de bâtiments sans PNJ libre : tout demandé, matière brute comprise", 
 M("bloc de bâtiments sans PNJ libre : plus rien demandé", "cap", "local f = feasible(k)\n        if f > 0 then", "local f = 0\n        if f > 0 then")
 M("engagement ignoré par le tri", "cap", "if ctx.engaged and c.group == ctx.engaged then return 1 end", "if false then return 1 end")
 M("famine ignorée par le tri", "cap", "if ctx.starved and ctx.starved[c.replace.to] then return 1 end", "if false then return 1 end")
-M("danger ignoré par l'engagement", "cap", "if not (ctx.continu and c.replace and not ctx.threat) then return 0 end", "if not (ctx.continu and c.replace) then return 0 end")
+M("danger ignoré par l'engagement", "cap", "if not (ctx.continu and c.replace and not ctx.alert) then return 0 end", "if not (ctx.continu and c.replace) then return 0 end")
 M("repos ignoré par le tri", "cap", "if ctx.rest and ctx.rest[c.group] then return 0 end", "")
-M("engagement hors règle continue", "cap", "if not (ctx.continu and c.replace and not ctx.threat) then return 0 end", "if not (c.replace and not ctx.threat) then return 0 end")
+M("engagement hors règle continue", "cap", "if not (ctx.continu and c.replace and not ctx.alert) then return 0 end", "if not (c.replace and not ctx.alert) then return 0 end")
 M("rangs candidats non rendus", "cap", "d.rep_kinds, d.rep_groups = kinds, groups", "d.rep_kinds, d.rep_groups = {}, {}")
 M("rangs candidats non triés", "cap", "  table.sort(kinds)\n  d.rep_kinds", "  d.rep_kinds")
 M("engagement jamais lâché", "am", "elseif tick - (st.progress or tick) > Am.ENGAGE_TICKS then", "elseif false then")
@@ -651,6 +688,7 @@ M("engagement lâché trop tôt", "am", "elseif tick - (st.progress or tick) > A
 M("paiement sans effet sur le compte", "am", "if st.group and ev.paid == st.group then st.progress = tick end", "")
 M("repos du groupe lâché oublié", "am", "st.rest[st.group] = tick + Am.REST_TICKS\n", "\n")
 M("intervalle après échec oublié", "am", "st.gap_until = tick + Am.FAIL_GAP\n", "\n")
+M("coût de l'engagement ignoré", "am", "(ev.cost or 0) <= Am.ENGAGE_COST and", "")
 M("danger sans effet sur l'engagement", "am", "if ev.threat or ev.alive == false then", "if ev.alive == false then")
 M("danger n'empêche pas l'engagement", "am", "if not st.group and ev.start and not ev.threat and", "if not st.group and ev.start and")
 M("groupe disparu garde l'engagement", "am", "if ev.threat or ev.alive == false then", "if ev.threat then")
@@ -659,6 +697,9 @@ M("famine : paiement ignoré", "am", "local since = math.max(st.seen[k], st.paid
 M("but engagé au fond", "cap", "front = d.front or nil, -- lot AMELIORATION-CONTINUE : servi", "front = nil, -- lot AMELIORATION-CONTINUE : servi")
 M("valeur du but engagé non relevée", "cap", "if d.front then base = math.max(base, Cap.GOAL_FRONT) end", "")
 M("candidat front non marqué", "cap", "c.front = (front(c) == 1) or nil end", "c.front = nil end")
+M("lot de fabrication borné à 12", "cap", "Am.fab(total, Cap.REPLACE_FAB), gk, n", "Am.fab(total, Cap.REPLACE_BATCH), gk, n")
+M("au-delà de 12, tout demandé sans borne de matière", "cap", "math.max(Am.FAB_MAX, feasible(k))", "k")
+M("au-delà de 12, rien demandé hors matière", "cap", "math.max(Am.FAB_MAX, feasible(k))", "feasible(k)")
 M("évaluation non mémorisée coûte trop (mesure de coût)", "cap", "local e = memo[name]\n    if e then return e end", "local e = nil")
 
 QUIET = false
