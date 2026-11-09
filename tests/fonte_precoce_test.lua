@@ -56,6 +56,9 @@ local function facts(W)
   local function g(over) return goal_of(B.generate(fac_s(B, over), TG), "capital:fonderie") end
   local a0 = g({})
   f.g_early = a0 and a0.n or 0
+  f.g_fond = (a0 and a0.fond) and 1 or 0
+  local n0 = g({ cap = { coal = 1, iron = 1, copper = 0, stone = 0 }, smelters = 3, stock = { [ORE] = 100, [PLATE] = 500 } })
+  f.g_nofond = (n0 and not n0.fond) and 1 or 0 -- fonderie ordinaire (avant-poste en place) : garde sa place parmi les K
   f.g_noore = g({ stock = { [ORE] = 20, [PLATE] = 10 } }) and 1 or 0
   f.g_plate = g({ stock = { [ORE] = 100, [PLATE] = 500 } }) and 1 or 0
   f.g_cap = g({ cap = { coal = 1, iron = 1, copper = 0, stone = 0 } }) and 1 or 0 -- avant-poste en place : règle d'avant (4 fours = la base, rien de plus)
@@ -79,6 +82,7 @@ check(F0.g_early == 2, "faction sans avant-poste de fer, minerai qui attend : bu
 check(F0.g_noore == 0 and F0.g_plate == 0 and F0.g_cap == 0 and F0.g_hard == 0, "sans minerai, plaque suffisante, avant-poste présent, borne : aucun but")
 check(F0.g_pending == 2, "fours en cours comptés (3 posés + 1 en cours = 4 : 2 de plus) (" .. F0.g_pending .. ")")
 check(F0.g_pend_hard == 1, "6 posés + 1 en cours = 7 : la borne de 8 ne laisse qu'un four (" .. F0.g_pend_hard .. ")")
+check(F0.g_fond == 1 and F0.g_nofond == 1, "but de fonte précoce = FOND (hors des K places) ; la fonderie ordinaire reste dans les K")
 print("== 3. Câblage")
 do
   local buts = read_src("shared/ai3/buts.lua")
@@ -103,6 +107,7 @@ mutant("la plaque n'a pas besoin de manquer", "Fp", FP, "if (a.plate or 0) >= (a
 mutant("le minerai n'a pas besoin d'attendre", "Fp", FP, "if (a.ore or 0) < have * Fp.PER_MIN * Fp.SECONDS / 60 then return 0 end", "")
 mutant("le but ignore la règle", "B", BP, "or early > 0) then", ") then")
 mutant("le but ne compte pas les fours en cours", "B", BP, "have = (s.smelters or 0) + (s.smelters_pending or 0) })", "have = (s.smelters or 0) })")
+mutant("le but précoce prend une des K places", "B", BP, "fond = (early > 0 and (s.cap[key.top] or 0) < 0.75) or nil }", "fond = nil }")
 mutant("la cible ne monte pas", "B", BP, "smelters_want = math.max(smelters_want, (s.smelters or 0) + (s.smelters_pending or 0) + early)", "smelters_want = smelters_want")
 print(string.format("   mutants refusés : %d / %d", killed, total))
 check(killed == total, "tous les mutants refusés")

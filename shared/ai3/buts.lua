@@ -399,7 +399,8 @@ function B.generate(s, st)
   end
   if (s.smelters or 0) + (s.smelters_pending or 0) < smelters_want and ((s.cap[key.top] or 0) >= 0.75 or early > 0) then
     goals[#goals + 1] = { key = "capital:fonderie", family = "capital", kind = "smelters",
-      n = smelters_want - (s.smelters or 0) - (s.smelters_pending or 0), value = val(B.SMELTERS, w.capital) }
+      n = smelters_want - (s.smelters or 0) - (s.smelters_pending or 0), value = val(B.SMELTERS, w.capital),
+      fond = (early > 0 and (s.cap[key.top] or 0) < 0.75) or nil } -- fonte précoce : hors des K places (4 places prises par extraction et tourelle, mesuré : jamais ouvert)
   end
   -- Défense : réserve de munitions. Famille PERMANENTE (comme l'armée) : toujours dépliée à son rang de valeur, sans
   -- prendre de place parmi les K projets (la réserve d'un joueur, H10 ; l'armée qui grandit en fond comme avant).
