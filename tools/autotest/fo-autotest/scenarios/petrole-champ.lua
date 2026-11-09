@@ -53,7 +53,7 @@ end
 return {
   description = "PETROLE-RANGEE : extension d'un site de petrole a tous les puits d'un champ de 30 (collecteur droit, embranchements, ligne principale)",
   base = nil,
-  check_tick = 24750,
+  check_tick = 40750,
 
   init = function(ctx)
     local st = ctx.state()
