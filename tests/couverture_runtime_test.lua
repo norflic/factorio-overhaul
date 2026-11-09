@@ -273,6 +273,42 @@ do
   print(string.format("[COUVERTURE-RT] §6 mutants du runtime refuses : %d sur %d", refused, #MUT))
 end
 
+-- §7 RELAIS (lot MODULES-ORDRE, 9/11) : une chaine dont les PNJ font la fabrication a la main passe la porte FERMEE (reglage fo-war-relais).
+do
+  local gear = { key = "chaine:gear", kind = "chaine", item = "gear", n = 2 }
+  local function res_g() return { orders = { gear }, coverage = {} } end
+  local function team_with(load) return { key = "scarlet", team = { ia3 = { saturated = {} }, ia3e = { verdicts = { { product = "gear", L = load } } } } } end
+  local function run(load, view, setting)
+    W.settings["fo-war-relais"] = setting
+    local f = team_with(load)
+    local c = { slots = { batis = 0, open_sites = 0 } }
+    Capi.portes(f, c, res_g(), view, 3600)
+    return Capi.portes(f, c, res_g(), view, 7200), c
+  end
+  local n0 = count_logs("[FO-PORTES]")
+  local w, c = run(2.13, TENDU, true)
+  check(c.portes and c.portes.closed == true, "§7 porte du transport fermee")
+  check(w and w[gear.key] == nil, "§7 relais allume : la chaine dont la main fait 2,13 PNJ PASSE la porte fermee")
+  local lg7 = last_log("relais :")
+  check(lg7 ~= nil and lg7:find("chaine:gear", 1, true) ~= nil and lg7:find("2.13 PNJ", 1, true) ~= nil, "§7 journal [FO-PORTES] relais : la cause (2.13 PNJ) est ecrite")
+  local w2 = run(0.10, TENDU, true)
+  check(w2 and w2[gear.key] ~= nil and tostring(w2[gear.key]):find("transport sature", 1, true) ~= nil, "§7 charge a la main 0,10 PNJ : retenue")
+  local w3 = run(2.13, TENDU, nil)
+  check(w3 and w3[gear.key] ~= nil, "§7 reglage absent (moteur simule) : la decision d'avant, retenue")
+  local w4 = run(2.13, TENDU, false)
+  check(w4 and w4[gear.key] ~= nil, "§7 reglage decoche (temoin A/B) : retenue")
+  local w5 = run(2.13, { workers = 8, workers_waiting = 0, backlog = 57, survie = true }, true)
+  check(w5 and w5[gear.key] ~= nil, "§7 crise (survie) : retenue")
+  local noload = { key = "scarlet", team = { ia3 = { saturated = {} } } } -- pas de verdicts : aucune charge mesuree
+  W.settings["fo-war-relais"] = true
+  local cN = { slots = { batis = 0, open_sites = 0 } }
+  Capi.portes(noload, cN, res_g(), TENDU, 3600)
+  local wN = Capi.portes(noload, cN, res_g(), TENDU, 7200)
+  check(wN and wN[gear.key] ~= nil, "§7 aucune charge mesuree (pas de verdicts) : retenue")
+  W.settings["fo-war-relais"] = nil
+  check(count_logs("[FO-PORTES]") >= n0, "§7 journal intact")
+end
+
 W.settings["fo-war-portes"] = nil
 print(string.format("[COUVERTURE-RT] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 if fail > 0 then os.exit(1) end
