@@ -364,7 +364,10 @@ function C.think(view, book, st, ctx)
   do
     local wants, short = {}, {}
     for _, it in ipairs(pile.crafts or {}) do wants[#wants + 1] = it[1] .. " x" .. it[2] .. " (stock libre " .. (E.avail[it[1]] or 0) .. ")" end
-    for _, k in ipairs(sorted_keys(repair_proj.missing or {})) do short[#short + 1] = k .. " " .. repair_proj.missing[k] end
+    for _, k in ipairs(sorted_keys(repair_proj.missing or {})) do
+      short[#short + 1] = string.format("%s %d (coffre %d, en route %d, pris par le plan permanent %d dont fonds de defense %d, libre au depart %d)", k, repair_proj.missing[k],
+        view.stock[k] or 0, (view.incoming or {})[k] or 0, used[k] or 0, (base.defense_hold or {})[k] or 0, avail0[k] or 0)
+    end
     st.pile.craft_note = string.format("fabrications demandees [%s], parties %d, matiere qui manque [%s]", table.concat(wants, ", "), E.crafts - pile_c0,
       table.concat(short, ", "))
   end
