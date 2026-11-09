@@ -79,6 +79,27 @@ function Sonde.tick(f, tick)
     local ok, rec = pcall(function() return e.get_recipe() or e.previous_recipe end)
     if ok and rec and rec.valid ~= false and rec.name == plate then furn_iron[#furn_iron + 1] = e end
   end
+  -- Lot SONDE-8MIN : fours par recette (ce que les fours du QG et des avant-postes fondent vraiment) et coffre de TOUTES les matières des fours
+  local by_rec = {}
+  for _, e in ipairs(furn) do
+    local ok2, rec2 = pcall(function() return e.get_recipe() or e.previous_recipe end)
+    local nm = (ok2 and rec2 and rec2.name) or "aucune"
+    local b2 = bucket(names[e.status] or "autre")
+    by_rec[nm] = by_rec[nm] or { n = 0, marche = 0 }
+    by_rec[nm].n = by_rec[nm].n + 1
+    if b2 == "marche" then by_rec[nm].marche = by_rec[nm].marche + 1 end
+  end
+  local rk = {}
+  for k in next, by_rec do rk[#rk + 1] = k end
+  table.sort(rk)
+  local rparts = {}
+  for _, k in ipairs(rk) do rparts[#rparts + 1] = string.format("%s=%d(marche %d)", k, by_rec[k].n, by_rec[k].marche) end
+  local cparts = {}
+  for _, kind in ipairs(T.OUTPOST_ORDER) do
+    local sp = T.outposts[kind]
+    cparts[#cparts + 1] = string.format("%s %d/%d", sp.resource, Stock.count(f, sp.resource), sp.product == sp.resource and 0 or Stock.count(f, sp.product))
+  end
+  log(string.format("[FO-SONDE-FOURS] %s minute %d : fours par recette {%s} ; coffre ressource/produit {%s}", key, minute, table.concat(rparts, " ; "), table.concat(cparts, " ; ")))
   local d_ore = prev and (ore_n - prev.ore) or ore_n
   local d_plate = prev and (plate_n - prev.plate) or plate_n
   log(string.format("[FO-SONDE-FER] %s minute %d : foreuses thermiques sur le fer %s ; electriques %s ; autres foreuses %d ; fours %s dont a plaque de fer %s ; flux de la minute : minerai sorti %d, plaques fondues %d ; coffre : minerai %d, plaques %d, combustible %d",
