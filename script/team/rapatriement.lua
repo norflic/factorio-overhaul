@@ -668,7 +668,30 @@ local function stage_spots(f, surface, b, p, J)
     if #J.spots == 0 then J.spots = Rp.pick_spots(J.px, J.py, function(x, y) return free_chest(x, y, false) end, Rp.SPOT_TRIES) end
     if #J.spots == 0 then return "rapatriement: aucune place pour le tampon a portee d'un poteau" end
   end
-  if #Li.sites(J.S.x, J.S.y, J.free) == 0 then return "rapatriement: aucune place pour un bras et un tapis contre le coffre de sortie" end
+  if #Li.sites(J.S.x, J.S.y, J.free) == 0 then
+    -- lot BUS-FER : la CAUSE par tuile du refus (bras puis tapis, dans l'ordre N E S O)
+    local function why_tile(x, y)
+      local bx = J.box
+      if x < bx.x0 or x > bx.x1 or y < bx.y0 or y > bx.y1 then return "hors" end
+      local c = J.chunk(math.floor(x / CHUNK), math.floor(y / CHUNK))
+      if not c then return "inconnu" end
+      local k = P.tkey(x, y)
+      if c.water[k] then return "eau" end
+      if c.blocked[k] then return "bloque" end
+      if b.occ[k] then return "projet" end
+      if J.guard[k] then return "garde" end
+      if J.planned[k] then return "plan" end
+      if J.wf(x, y) then return "monde" end
+      return "libre"
+    end
+    local parts = {}
+    for _, d in ipairs({ 0, 2, 4, 6 }) do
+      local v = P.DV[d]
+      local ax, ay = J.S.x + v[1], J.S.y + v[2]
+      parts[#parts + 1] = string.format("%d:%s/%s", d, why_tile(ax, ay), why_tile(ax + v[1], ay + v[2]))
+    end
+    return "rapatriement: aucune place pour un bras et un tapis contre le coffre de sortie [" .. table.concat(parts, " ") .. "]"
+  end
   return nil
 end
 

@@ -425,7 +425,28 @@ function Liaison.plan(api, f, surface, p)
   end
   local S, D = { x = src.x, y = src.y }, { x = dock.x, y = dock.y }
   local ends = Ln.pick_ends(S, D, free, Ln.ROUTE_TRIES)
-  if #ends == 0 then return false, "liaison: aucune place pour un bras et un tapis contre les coffres" end
+  if #ends == 0 then
+    -- lot BUS-FER : la CAUSE par tuile (le refus « aucune place » n'avait aucun détail : moteur réel, 6 refus sur 7 demandes, 0 quai sur 23 servi par tapis)
+    local function why_tile(x, y)
+      if not inside(x, y) then return "hors" end
+      local k = P.tkey(x, y)
+      if masks.water[k] then return "eau" end
+      if masks.blocked[k] then return "bloque" end
+      if b.occ[k] then return "projet" end
+      if guard[k] then return "garde" end
+      if worldf(x, y) then return "monde" end
+      return "libre"
+    end
+    local parts = {}
+    for _, c in ipairs({ { "S", S }, { "D", D } }) do
+      for _, d in ipairs({ 0, 2, 4, 6 }) do
+        local v = P.DV[d]
+        local ax, ay = c[2].x + v[1], c[2].y + v[2]
+        parts[#parts + 1] = string.format("%s%d:%s/%s", c[1], d, why_tile(ax, ay), why_tile(ax + v[1], ay + v[2]))
+      end
+    end
+    return false, "liaison: aucune place pour un bras et un tapis contre les coffres [" .. table.concat(parts, " ") .. "]"
+  end
   local bounds = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }
   local last_why = "aucun chemin"
   local chosen
