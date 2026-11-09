@@ -146,6 +146,19 @@ return {
     local r = st.rec
     local n = st.key and st.box and ctx.surface().count_entities_filtered({ area = { { st.box.x0 - 4, st.box.y0 - 4 }, { st.box.x1 + 4, st.box.y1 + 4 } },
       name = "electric-mining-drill", force = force_of(st.key) }) or 0
+    -- K4 (FONCTION, pas presence) : aucune foreuse electrique du gisement ne depose dans un four ; leur sortie est un tapis
+    local into_furnace, onto_belt, other = 0, 0, 0
+    if st.key and st.box then
+      for _, d in ipairs(ctx.surface().find_entities_filtered({ area = { { st.box.x0 - 4, st.box.y0 - 4 }, { st.box.x1 + 4, st.box.y1 + 4 } },
+        name = "electric-mining-drill", force = force_of(st.key) })) do
+        local tgt = d.drop_target
+        if tgt and tgt.valid and tgt.type == "furnace" then into_furnace = into_furnace + 1
+        elseif tgt and tgt.valid and tgt.type == "transport-belt" then onto_belt = onto_belt + 1
+        else other = other + 1 end
+      end
+    end
+    ctx.log(string.format("K4 : %d foreuse(s) electrique(s) deposent dans un four, %d sur un tapis, %d ailleurs", into_furnace, onto_belt, other))
+    ctx.check(into_furnace == 0 and onto_belt > 0, "K4 : aucune foreuse electrique ne depose dans un four (sortie sur tapis)", string.format("four %d, tapis %d, autre %d", into_furnace, onto_belt, other))
     ctx.check(st.plant_fini ~= nil, "centrale finie avant la decision", tostring(st.plant_fini))
     ctx.check(r ~= nil and r.state == "decide", "K1 : mega-fonderie DECIDEE", r and (tostring(r.state) .. " : " .. tostring(r.cause)) or "aucune decision")
     ctx.check(r ~= nil and r.field ~= nil, "le champ du gisement est VOULU (field)", r and tostring(r.field) or "-")
