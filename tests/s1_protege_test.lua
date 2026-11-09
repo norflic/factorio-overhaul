@@ -150,8 +150,8 @@ check(L0.calm_mode == Pr.MODE_SURVIE_PENURIE and L0.calm_pf and L0.calm_extend =
   "témoin : mode survie, site de fer sans tourelle mais que rien ne touche : la production d'abord, il s'agrandit sans attendre sa tourelle (fer riche : sa tourelle part aussi)")
 check(L0.hit_mode == Pr.MODE_QG_PERIL and not L0.hit_pf and L0.hit_extend == 0 and L0.hit_fortify == 1 and L0.hit_turret_ok == 1,
   "même site TOUCHÉ par des vagues : la défense d'abord, pas d'agrandissement, sa tourelle posée")
-check(L0.poor_mode == Pr.MODE_QG_PERIL and L0.poor_craft_turret == 1 and L0.poor_calm_craft == 0,
-  "fer 160, aucune tourelle : le site touché fait fabriquer sa tourelle sous l'ancien plancher de 150 ; le site calme, non")
+check(L0.poor_mode == Pr.MODE_QG_PERIL and L0.poor_craft_turret == 1 and L0.poor_calm_craft == 1,
+  "fer 160, aucune tourelle : le site touché fait fabriquer sa tourelle sous l'ancien plancher de 150 ; le site de FER calme sans aucune tourelle aussi (lot DEFENSE-AP, fonds de défense : plancher baissé)")
 check(L0.norecipe_mode == Pr.MODE_SURVIE_PENURIE and L0.norecipe_extend == 1, "sans recette de tourelle : rien ne change (production d'abord, le site s'agrandit)")
 check(L0.defended_mode == Pr.MODE_SURVIE_PENURIE, "site touché mais défendu : pas de protection, la survie-pénurie comme avant")
 
