@@ -1016,13 +1016,18 @@ local function step_rangee(f, surface, p, h, pj)
   local blocked, masks = ext_terrain(b, fz, h)
   local req = { mod = fz.mod, ents = rel.entities, conduit = D.PIPE, poles = fz.pole, network = fz.netpt, blocked = blocked, L0 = fz.L0, conn0 = fz.conn0,
     kmax = fz.kmax, from = fz.from, fixed = fz.fixed }
-  local okc, status, lay = pcall(Fl.ext_step, req, pj.jb, Pet.PLAN_SLICE)
+  local okc, status, lay = pcall(Fl.ext_step, req, pj.jb, pj.steps == 0 and 1 or Pet.PLAN_SLICE)
   pj.steps = pj.steps + 1
-  p.plan_job = nil
   if not okc then
-    log(string.format("[FO-PETROLE] %s : plan de la rangee en erreur (%s)", f.key or "?", tostring(status)))
-    return nil, "plan en erreur"
+    log(string.format("[FO-PETROLE] %s : plan de la rangee repris de zero (%s)", f.key or "?", tostring(status)))
+    p.plan_job = nil
+    p.plan_restarts = (p.plan_restarts or 0) + 1
+    if p.plan_restarts > 2 then return nil, "plan incoherent" end
+    return nil, "plan repris de zero", "calcul"
   end
+  -- le plan avance par tranches de noeuds (Pet.PLAN_SLICE) : « more » garde le travail pour le passage suivant (plantage du 9/11 : lay nil)
+  if status == "more" then return nil, "calcul du plan (" .. pj.jb.spent .. " noeuds)", "calcul" end
+  p.plan_job = nil
   if status == "fail" then
     log(string.format("[FO-PETROLE] %s : rangee refusee a %.1f min : %s", f.key or "?", minutes(f, game.tick), tostring(lay)))
     return nil, tostring(lay)
