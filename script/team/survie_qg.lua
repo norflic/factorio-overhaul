@@ -115,13 +115,18 @@ function SurvieQg.garde(f, oid, tick, base)
   local s = st.pc.sites and st.pc.sites["ap" .. tostring(oid)]
   local mem = SurvieQg.hit(f, oid, tick)
   local n, w, why = Ga.want({ base = base, w5 = s and s.w5, w15 = s and s.w15, mem = mem, tv = st.turret_value })
-  -- Journal [FO-GARDE-AP] : une ligne quand la garde voulue de l'avant-poste CHANGE (nombres seulement dans f.team.s1.gwant ; aucune décision n'en dépend).
+  -- Cliquet (mesure 1618033988, 9/11 : une vague prévue de 760 PV à 7,1 min puis 336 PV à 8,1 min faisait vouloir puis ne plus vouloir une
+  -- tourelle de plus à un avant-poste de pierre) : la garde voulue d'un avant-poste ne baisse pas ; la prévision d'une minute à l'autre fluctue,
+  -- les tourelles posées, non. Nombres seulement dans f.team.s1.gwant (lu ici, à la pensée suivante).
   local g = state(f)
   g.gwant = g.gwant or {}
   local key = tostring(oid)
-  if (g.gwant[key] or base) ~= n then
+  local prev = g.gwant[key] or 0
+  if prev > n then n, why = prev, (why == "base" and "cliquet" or why) end
+  -- Journal [FO-GARDE-AP] : une ligne quand la garde voulue dépasse la règle d'avant ou change (aucune décision n'en dépend).
+  if n ~= (prev > 0 and prev or base) and (n ~= base or prev ~= base) then
     log(string.format("[FO-GARDE-AP] %s a %.1f min : avant-poste %s garde voulue %d -> %d (regle d'avant %d), vague retenue %d PV (prevue 5 min %d, 15 min %d, recue %d ; tourelle %d PV), raison %s",
-      tostring(f.key or "?"), tick / 3600, key, g.gwant[key] or base, n, base, math.floor(w), math.floor((s and s.w5) or 0), math.floor((s and s.w15) or 0),
+      tostring(f.key or "?"), tick / 3600, key, prev > 0 and prev or base, n, base, math.floor(w), math.floor((s and s.w5) or 0), math.floor((s and s.w15) or 0),
       math.floor(mem), math.floor(st.turret_value or 0), why))
   end
   g.gwant[key] = n

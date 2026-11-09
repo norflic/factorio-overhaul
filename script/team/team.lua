@@ -552,7 +552,12 @@ function Team.view(f, tick)
     end
     -- Lot DEFENSE-AP : la garde voulue suit la menace du site (prévision), pas seulement ses foreuses ; une vague au moins égale au seuil de
     -- protection (Sq.SITE_HIT) et des tourelles en manque : à protéger d'abord (planchers de fer réduits, Sq.floors) AVANT le premier coup.
-    local want_t, wave_t, why_t = SurvieQg.garde(f, oid, tick, T.defend_turrets(o.drills))
+    -- Seul l'avant-poste de la plaque clé (le fer) est gardé selon sa menace : « les ressources d'abord » (le DC, 29/10) ; les autres gardent la règle
+    -- d'avant (mesure 1618033988 : une tourelle de plus demandée à un avant-poste de pierre à 211 tuiles, fer dépensé, PNJ perdu en chemin).
+    local base_t = T.defend_turrets(o.drills)
+    local want_t, wave_t, why_t = base_t, 0, "base"
+    local ospec_t = T.outposts[o.kind]
+    if ospec_t and ospec_t.product == T.outposts.iron.product then want_t, wave_t, why_t = SurvieQg.garde(f, oid, tick, base_t) end
     outposts[#outposts + 1] = {
       -- lot MIGRATION-CHAMP : un champ migré (o.migr) n'est jamais « agrandissable » en paires thermiques, même quand la fin d'une attente
       -- (board.lua, release_holds) a remis o.full à faux : sinon des tâches « extend » inutiles (Outposts.extend rend 0) tourneraient sans fin
