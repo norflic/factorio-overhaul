@@ -18,6 +18,7 @@ Date: 2026-11-09
     - PNJ (F443) : en famine de la plaque clé, un PNJ dont la file de fabrication est pleine part miner au lieu de rester au QG à refuser toutes les tâches.
     - Scans (F444) : audit périodique de la base par impulsions de 5 minutes, découpé en 20 tranches et décalé par équipe ; premier audit électrique en lecture seule (poteaux sur gisement, poteaux redondants candidats), journal [FO-HYGIENE].
     - Charbon (F445) : la centrale ne prend plus au QG le charbon réservé aux tournées des brûleurs ; plus de brûleurs à sec pendant que la centrale accapare le coffre.
+    - Arbre de décision (F446) : phases early / mid / late lues aux données ; hors amorçage, des foreuses électriques qui dorment au coffre interdisent toute foreuse thermique ; règle du meilleur choix disponible avec repli et marquage rétrofit.
     - Fer en famine : l'avant-poste de la plaque clé n'est plus marqué plein par une migration qui n'a pas commencé, et s'agrandit avant sa tourelle (sauf site meurtrier).
     - Charbon : les tuiles du réseau de charbon d'une bande sont réservées dès la création du cadre ; remplissage urgent des quais de combustible.
 ---------------------------------------------------------------------------------------------------
