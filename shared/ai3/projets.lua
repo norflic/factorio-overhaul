@@ -42,6 +42,10 @@ P.K_MIN, P.K_PER, P.K_MAX = 2, 4, 10
 -- libre est occupé par lui), il est servi APRÈS tous les projets ordinaires, l'armée de l'équipe ET le fond (agrandir foreuses et fours d'abord) : du stock qui reste, jamais devant eux.
 P.IDLE_K_ON = true
 P.IDLE_K_MAX = 3
+-- … et ses tâches passent APRÈS toutes les autres du tableau (priorité du plancher de P.prio_of) : un PNJ libre les prend faute de mieux,
+-- il ne préfère jamais la centrale ou une couverture électrique à l'agrandissement d'une fonderie (mesuré, 5 graines, projet de plus à sa
+-- priorité de valeur : plaques par minute de 10 à 40 min à 83 % (votre équipe) et 70 % (scarlet) du témoin, pour 4 à 5 points d'inactivité de moins).
+P.EXTRA_PRIO = 41
 P.INERTIA_PCT = 20
 P.AGING_TICKS = 3600
 P.AGING_MAX = 20
@@ -169,6 +173,7 @@ function P.update(st, goals, tick, workers, idle)
       if extra then
         p.extra = true
         n_extra = n_extra + 1
+        if p.prio > P.EXTRA_PRIO then p.prio = P.EXTRA_PRIO end
       else
         p.extra = nil
         if not g.permanent and not g.fond then n_active = n_active + 1 end

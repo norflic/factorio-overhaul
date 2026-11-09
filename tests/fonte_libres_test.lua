@@ -12,6 +12,7 @@ local Br = require("shared.ai3.bras")
 local B = require("shared.ai3.buts")
 local T = require("shared.team.config")
 
+Br.IDLE_SMELT_ON = true -- la regle est eteinte par defaut (shared/ai3/bras.lua) : ce banc l'allume
 local passes, failures = 0, 0
 local QUIET = false
 local function check(cond, msg)
@@ -153,7 +154,7 @@ do
   local src = f:read("*a")
   f:close()
   local mutants = {
-    { "interrupteur eteint", "Br.IDLE_SMELT_ON = true", "Br.IDLE_SMELT_ON = false" },
+    { "regle toujours eteinte", "local idle = Br.IDLE_SMELT_ON and math.max(0, s.workers_idle or 0) or 0", "local idle = 0" },
     { "pas de plafond", "max = math.max(max, math.min(Br.SMELT_HARD, have + math.min(idle, Br.SMELT_STEP)))", "max = max + idle * 100" },
     { "seuil de vague toujours double", "(idle > 0 and 1 or Br.ORE_WAIT) * short * per", "Br.ORE_WAIT * short * per" },
   }

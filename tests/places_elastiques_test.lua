@@ -162,6 +162,21 @@ do
   check(pos["fond-x"] and pos["fond-x"] < pos["auto:centrale"], "le fond (agrandir foreuses et fours) est servi AVANT le projet de plus")
 end
 
+section("5 bis. priorite des taches du projet de plus : au plancher, derriere toutes les autres")
+do
+  local st = {}
+  P.update(st, goals(), 0, 8, 2)
+  local c, r = by_key(st, "auto:centrale"), by_key(st, "recherche")
+  check(c.extra and c.prio <= P.EXTRA_PRIO and r.prio <= P.EXTRA_PRIO, "les projets de plus ont la priorite du plancher (" .. tostring(c.prio) .. ", " .. tostring(r.prio) .. ")")
+  local o = by_key(st, "extraction:stone")
+  check(o.prio > P.EXTRA_PRIO, "un projet ordinaire garde sa priorite de valeur (" .. tostring(o.prio) .. " > " .. P.EXTRA_PRIO .. ")")
+  -- devenu ordinaire (une place K se libere), il retrouve sa priorite de valeur
+  local g = goals()
+  table.remove(g, 1)
+  P.update(st, g, 60, 8, 0)
+  check(not by_key(st, "auto:centrale").extra and by_key(st, "auto:centrale").prio > P.EXTRA_PRIO, "ordinaire : priorite de valeur retrouvee")
+end
+
 section("6. permanents et fond ne comptent pas, un bloque ne prend pas la place")
 do
   local g = goals()
@@ -249,6 +264,9 @@ local function body(opts)
   local pc, pa
   for i, p in ipairs(o5) do if p.key == "auto:centrale" then pc = i end if p.key == "armee-joueur" then pa = i end end
   check(pc and pa and pa < pc, "m5 ordre de service")
+  local st7 = {}
+  P.update(st7, goals(), 0, 8, 1)
+  check(by_key(st7, "auto:centrale").prio <= P.EXTRA_PRIO, "m7 priorite du plancher")
   local st6 = { projects = { { id = 9, key = "bk", family = "x", state = "bloque", opened = 0 } }, next_id = 10 }
   local _, _, e6 = P.update(st6, goals_bk(), 60, 8, 1)
   check(e6 == 1 and by_key(st6, "cand").extra, "m6 bloque")
@@ -275,6 +293,7 @@ do
     { "pas de sticky", "if p and p.extra then extra = true", "if false then extra = true" },
     { "un seul PNJ libre en ouvre autant que voulu", "elseif idle_n > 0 and new_extra < idle_n then", "elseif idle_n > 0 then" },
     { "la regle ouvre sans PNJ libre", "elseif idle_n > 0 and new_extra < idle_n then", "elseif true then" },
+    { "extra a sa priorite de valeur", "if p.prio > P.EXTRA_PRIO then p.prio = P.EXTRA_PRIO end", "" },
     { "extra servi avec les ordinaires", "if p.extra then xtra[#xtra + 1] = p", "if false then xtra[#xtra + 1] = p" },
     { "extra servi avant le fond", "for _, p in ipairs(fond) do out[#out + 1] = p end\n  for _, p in ipairs(xtra) do out[#out + 1] = p end", "for _, p in ipairs(xtra) do out[#out + 1] = p end\n  for _, p in ipairs(fond) do out[#out + 1] = p end" },
     { "un bloque prend une place de plus", "and not (p and p.state == \"bloque\")", "" },

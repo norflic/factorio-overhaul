@@ -45,7 +45,7 @@ Br.SMELT_EVERY = 3600     -- une vague de fours au plus par minute
 -- (fo-logs/2026-11-09_ZERO-IDLE-3, scarlet, 8 PNJ) : 4 fours du QG de 8 à 40 min, minerai de fer au coffre 105 à 131, fer manquant 74 à 158 et 1 à
 -- 4 PNJ libres : trois seuils qui ne se composent pas (le minage à la main s'arrête à 100 minerais, Mi.COVER x Fond.MINE_BATCH ; la vague exige
 -- 2 x le manque ; la borne vaut 50 % de 8 PNJ) ; la fonderie restait à 4 fours pour toujours.
-Br.IDLE_SMELT_ON = true
+Br.IDLE_SMELT_ON = false -- ETEINT par defaut : 4 graines en moteur reel, aucun gain mesure d'inactivite ni de plaques (RD_LOG a ecrire par l'integrateur) ; l'allumer pour essai
 Br.ORE_WAIT = 2           -- … quand le minerai au coffre couvre au moins 2 fois ce qu'il faut pour le manque de plaques
 -- Étape 1 / électrification (27/10 au soir, banc etape1-guide, Écarlate : 8 PNJ bloqués à l'effectif de départ, donc 4 fours
 -- au QG au plus, dont 2 pris par l'acier ; minerai de fer au coffre 99 -> 378 entre 30 et 40 min, plaque de fer à 15, aucune
