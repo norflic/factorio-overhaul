@@ -80,3 +80,4 @@ require("settings.flux") -- lot TV-FLUX (V42, G51) : fo-war-soupape, fo-war-bari
 require("settings.rapatriement") -- lot RAPATRIEMENT (8/11) : fo-war-rapatriement, sortie lointaine -> tapis -> tampon (allumé par défaut)
 require("settings.rangees_asm") -- lot RANGEES-ASM (8/11) : fo-war-rangee-dyn, rangées d'assembleurs dynamiques (allumé par défaut)
 require("settings.electrique") -- lot ELECTRIQUE (8/11) : fo-war-electrique, bascule tout-electrique des la premiere centrale (allume par defaut)
+require("settings.petrole_rangee") -- lot PETROLE-RANGEE (8/11) : fo-war-petrole-champ, extension du champ jusqu aux puits atteignables (allume par defaut)
