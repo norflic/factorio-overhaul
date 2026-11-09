@@ -208,7 +208,7 @@ local function fer_flush(f, minute)
   FER.acc = {}
 end
 local function fer_note(f, item, got)
-  if got <= 0 or item ~= "iron-plate" or (f.key and f.key ~= "player") then return end
+  if got <= 0 or item ~= T.outposts.iron.product or (f.key and f.key ~= "player") then return end
   local minute = math.floor(game.tick / 3600)
   if FER.minute and minute ~= FER.minute then fer_flush(f, FER.minute) end
   FER.minute = minute
