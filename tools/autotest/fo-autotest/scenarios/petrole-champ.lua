@@ -17,6 +17,9 @@ local KIT = { { "pumpjack", 40 }, { "pipe", 900 }, { "medium-electric-pole", 160
   { "steam-engine", 4 }, { "offshore-pump", 3 }, { "coal", 400 } }
 local WELLS = 30
 
+local STATUS = {}
+for name, v in pairs(defines.entity_status) do STATUS[v] = name end
+
 local function teams()
   local ok, rows = pcall(remote.call, "fo-ia1", "teams")
   local out = {}
@@ -50,7 +53,7 @@ end
 return {
   description = "PETROLE-RANGEE : extension d'un site de petrole a tous les puits d'un champ de 30 (collecteur droit, embranchements, ligne principale)",
   base = nil,
-  check_tick = 40750,
+  check_tick = 24750,
 
   init = function(ctx)
     local st = ctx.state()
@@ -175,6 +178,28 @@ return {
         e.tick, n, linked, powered, site and tostring(site.ext_id) or "-", site and tostring(site.ext_state) or "-",
         site and site.exts and tostring(#site.exts) or "0", site and site.cov and tostring(site.cov.eq) or "-", site and site.cov and tostring(site.cov.total) or "-",
         ex and tostring(ex.state) or "-", ex and tostring(ex.built) or "-", ex and tostring(ex.total) or "-", ex and table.concat(ex.missing or {}, ",") or ""))
+      if st.power_tick and e.tick > st.power_tick then
+        -- diagnostic du debit : statuts des chevalets, remplissage moyen des tuyaux, brut extrait depuis le dernier releve
+        local names, cnt = {}, {}
+        for _, pj in ipairs(s.find_entities_filtered({ name = "pumpjack", force = st.force })) do
+          local nm = STATUS[pj.status] or tostring(pj.status)
+          if not cnt[nm] then cnt[nm] = 0; names[#names + 1] = nm end
+          cnt[nm] = cnt[nm] + 1
+        end
+        table.sort(names)
+        local parts = {}
+        for _, nm in ipairs(names) do parts[#parts + 1] = nm .. "=" .. cnt[nm] end
+        local tot, np, mx = 0, 0, 0
+        for _, pp in ipairs(s.find_entities_filtered({ name = "pipe", force = st.force })) do
+          local c = pp.fluidbox[1]
+          local a = c and c.amount or 0
+          tot, np, mx = tot + a, np + 1, math.max(mx, a)
+        end
+        local now = game.forces[st.force].fluid_production_statistics.get_input_count("crude-oil")
+        local d = now - (st.fs_prev or st.fs0 or now)
+        st.fs_prev = now
+        ctx.log(string.format("[FO-PETROLE-CHAMP] debit tick %d : %.1f unites/s sur 10 s ; chevalets [%s] ; tuyaux %d remplis a %.1f en moyenne (max %.1f)", e.tick, d / 10, table.concat(parts, " "), np, np > 0 and tot / np or 0, mx))
+      end
       if st.first_req == nil and site and (site.ext_id or (site.exts and #site.exts > 0)) then st.first_req = e.tick end
       if site and site.ext_plan and not st.plan then st.plan = site.ext_plan end
     end
