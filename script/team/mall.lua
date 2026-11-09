@@ -211,6 +211,8 @@ local function plate_flow(f, item)
   return st.get_flow_count({ name = item, input = true, precision_index = defines.flow_precision_index.one_minute }) or 0
 end
 
+Mall.flow = plate_flow -- débit mesuré d'un objet (objets/min) : lu aussi par l'allongement au surplus (script/team/mall_rangee.lua)
+
 local function assembler_usable(f)
   local force = game.forces[f.force]
   if not force then return false end

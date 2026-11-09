@@ -743,5 +743,75 @@ do
   check(m3.c1 ~= nil and m3.c1.ih ~= nil, "§12 mutant sans case vide : la cellule refusée compte encore")
 end
 
+---------------------------------------------------------------------------------------------------
+-- §13 allongement au surplus : le fer qui manque n'allonge rien ; une section à la fois ; S partiel exclu ; mutants
+---------------------------------------------------------------------------------------------------
+do
+  local M = { { item = NAMES.machine, entity = NAMES.machine, par_min = 30 } }
+  local lec = { fab = {
+    ["r-belt"] = { solides = { { name = "fer", amount = 1 }, { name = "gear", amount = 1 } }, produits = { "belt" }, machines = M },
+    ["r-pipe"] = { solides = { { name = "fer", amount = 1 } }, produits = { "pipe" }, machines = M },
+  } }
+  local function partie(R, flow_v, libre_v, opts)
+    opts = opts or {}
+    local f = team()
+    local id = R.place(f, { dem("belt", 2, { "fer", "gear" }) }, NAMES, 100, afford, "t")
+    local st = f.build.mall
+    f.build.projects[id].state = opts.etat or "fini"
+    if opts.second then
+      local id2 = R.place(f, { dem("x", 2, { "c", "d", "e" }) }, NAMES, 110, afford, "t")
+      f.build.projects[id2].state = "chantier"
+    end
+    st.pret = (opts.partiel == nil) and true or nil
+    if opts.partiel then st.partiel = { ok = { fer = true }, all = { fer = true } } end
+    st.names_kit = NAMES
+    local old = Build.Mall.flow
+    Build.Mall.flow = function() return flow_v end
+    LOG = {}
+    R.minute(f, surface_mock({}, {}), lec, {}, afford, 4000, libre_v)
+    Build.Mall.flow = old
+    return #st.rows[1].cells, st, f
+  end
+  local riche = { fer = 100000, gear = 100000 }
+  local n1 = partie(Rt, 1200, riche)
+  check(n1 == 2, "§13 surplus : une cellule de plus (" .. n1 .. ")")
+  check(partie(Rt, 1200, { fer = 100, gear = 100000 }) == 1, "§13 le fer manque au stock libre : rien")
+  check(partie(Rt, 0, riche) == 1, "§13 sans débit : rien")
+  check(partie(Rt, 1200, nil) == 1, "§13 stock libre non évalué : rien")
+  check(partie(Rt, 1200, riche, { etat = "chantier" }) == 1, "§13 une section encore en chantier : rien")
+  check(partie(Rt, 1200, riche, { partiel = true }) == 1, "§13 S partiel : rien")
+  check(partie(Rt, 1200, riche, { second = true }) == 1, "§13 une section en chantier ailleurs dans le mall : rien")
+  local _, st2 = partie(Rt, 1200, riche)
+  check(Mr.compte(st2.rows[1], "r-belt") == 4, "§13 la recette de la rangée est doublée (" .. Mr.compte(st2.rows[1], "r-belt") .. ")")
+
+  local path = "script/team/mall_rangee.lua"
+  local src = assert(io.open(path, "rb")):read("*a")
+  local site0 = Build.SITES.mall
+  local function mutant(a, c, fn)
+    local i, j = src:find(a, 1, true)
+    assert(i, "motif introuvable : " .. a)
+    local R = assert(load(src:sub(1, i - 1) .. c .. src:sub(j + 1), "mutant", "t"))()
+    local x = fn(R)
+    Build.SITES.mall = site0
+    return x
+  end
+  check(mutant("if not ouvert then", "if true then", function(R) return partie(R, 1200, riche, { second = true }) end) == 2, "§13 mutant : allonge pendant un chantier ailleurs")
+  check(mutant("(st.pret or st.force_pret) and #st.rows > 0 and st.names_kit", "#st.rows > 0 and st.names_kit", function(R) return partie(R, 1200, riche, { partiel = true }) end) == 2, "§13 mutant : allonge en S partiel")
+  check(mutant("if libre and Build.Mall.flow and", "if Build.Mall.flow and", function(R)
+    local ok = pcall(partie, R, 1200, nil)
+    return ok
+  end) == false, "§13 mutant : stock libre absent non gardé")
+  local seule_ok = mutant("(not seule or r == seule) and ", "", function(R)
+    local f = team()
+    local a = R.place(f, { dem("belt", 2, { "fer", "gear" }) }, NAMES, 100, afford, "t")
+    local b2 = R.place(f, { dem("x", 2, { "fer", "gear", "c", "d" }) }, NAMES, 110, afford, "t")
+    local st = f.build.mall
+    local r2 = st.rows[#st.rows]
+    R.place(f, { dem("belt", 4, { "fer", "gear" }) }, NAMES, 120, afford, "t", r2)
+    return #st.rows[1].cells
+  end)
+  check(seule_ok == 2, "§13 mutant : sans la rangée imposée, l'allongement va à la première rangée qui accepte (" .. tostring(seule_ok) .. ")")
+end
+
 print(string.format("[MALL-RANGEE-MOTEUR] BILAN : %d OK, %d ECHEC(S)", ok_n, ko_n))
 os.exit(ko_n == 0 and 0 or 1)

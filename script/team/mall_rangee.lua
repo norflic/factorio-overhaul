@@ -16,6 +16,7 @@
 
 local Mr = require("shared.team.mall_rangee")
 local Mt = require("shared.team.mall_tronc") -- tranche 3 : le tronc et les prises
+local Ma = require("shared.team.mall_allonge") -- allongement au-delà de la demande, au surplus de matière
 local Cat = require("shared.team.motifs.catalogue")
 local P = require("shared.team.plan")
 local Pu = require("shared.team.purete")
@@ -422,7 +423,7 @@ end
 
 --- Range des demandes dans une rangée. demandes = { { item, recipe, machine, machines, solides, rate } } ; names = le kit (machine, bras, bras_long, tapis, poteau, coffre, decl) ;
 --- rend (id du projet) ou (nil, raison, attendre).
-function Rt.place(f, demandes, names, tick, afford, why_text)
+function Rt.place(f, demandes, names, tick, afford, why_text, seule)
   local b = f.build
   local st = b.mall
   repere(st)
@@ -442,7 +443,7 @@ function Rt.place(f, demandes, names, tick, afford, why_text)
   local plates = plate_set()
   local bus_d = {}
   for _, d in ipairs(demandes) do if bus_eligible(d, plates) then bus_d[#bus_d + 1] = d end end
-  if #bus_d > 0 and Build.Mall.tronc_on and Build.Mall.tronc_on() then
+  if #bus_d > 0 and not seule and Build.Mall.tronc_on and Build.Mall.tronc_on() then
     local id, why, wait = Rt.place_bus(f, bus_d, names, tick, afford, why_text)
     if id or wait then return id, why, wait end
     -- pas de tronc possible (répartiteur non débloqué, lignes pleines) : la rangée à quais d'avant
@@ -452,7 +453,7 @@ function Rt.place(f, demandes, names, tick, afford, why_text)
   -- une rangée dont les voies acceptent TOUT, sinon une neuve
   local row, newrow
   for _, r in ipairs(st.rows) do
-    local all_in = not r.stop and #r.cells < cells_max and not (r.retry_at and r.retry_at > tick)
+    local all_in = (not seule or r == seule) and not r.stop and #r.cells < cells_max and not (r.retry_at and r.retry_at > tick)
     for _, d in ipairs(demandes) do
       if not Mr.accepte(r.voies, d.solides, d.item) then all_in = false end
     end
@@ -669,8 +670,57 @@ local function status_name(s)
   return Rt.STATUS_NAMES[s] or tostring(s)
 end
 
+--- Ce que boivent les machines posées : parts[j] = liste triée { item, per_machine } (une machine de la rangée j, au plus, objets/min), conso = ce que tout le mall peut boire, entrée par entrée.
+local function consommation(st, lec)
+  local conso, parts = {}, {}
+  for _, r in ipairs(st.rows) do
+    local maxi = {}
+    for _, c in ipairs(r.cells) do
+      for _, rname in ipairs({ c.h or false, c.b or false }) do
+        local e = rname and lec.fab[rname]
+        if e then
+          local par_min = 0
+          for _, m in ipairs(e.machines or {}) do if m.entity == c.m then par_min = m.par_min or 0 end end
+          for _, x in ipairs(e.solides or {}) do
+            local u = par_min * part_de(rname, x.name)
+            conso[x.name] = (conso[x.name] or 0) + u
+            if u > (maxi[x.name] or 0) then maxi[x.name] = u end
+          end
+        end
+      end
+    end
+    local list = {}
+    for _, k in ipairs(sorted_keys(maxi)) do list[#list + 1] = { item = k, per_machine = maxi[k] } end
+    parts[r.j] = list
+  end
+  return parts, conso
+end
+
+--- La recette la moins représentée de la rangée (ordre : compte, puis nom) : la demande d'une cellule de plus. Rend une demande pour Rt.place, ou nil.
+local function cellule_de_plus(r, lec)
+  local best
+  local seen = {}
+  for _, c in ipairs(r.cells) do
+    for _, pair in ipairs({ { c.ih, c.h }, { c.ib, c.b } }) do
+      local it, rn = pair[1], pair[2]
+      if it and rn and not seen[rn] then
+        seen[rn] = true
+        local n = Mr.compte(r, rn)
+        if not best or n < best.n or (n == best.n and rn < best.recipe) then best = { item = it, recipe = rn, n = n, machine = c.m } end
+      end
+    end
+  end
+  local e = best and lec.fab[best.recipe]
+  if not e then return nil end
+  local solides, par_min = {}, 0
+  for _, s in ipairs(e.solides or {}) do solides[#solides + 1] = s.name end
+  table.sort(solides)
+  for _, m in ipairs(e.machines or {}) do if m.entity == best.machine then par_min = m.par_min or 0 end end
+  return { item = best.item, recipe = best.recipe, machine = best.machine, machines = best.n + Ma.PAR_CELLULE, solides = solides, rate = par_min }
+end
+
 --- Une fois par décision (Ind.think) : barres des coffres de sortie, cellules rendues par une section refusée, allongement, compteurs.
-function Rt.minute(f, surface, lec, sources, afford, tick)
+function Rt.minute(f, surface, lec, sources, afford, tick, libre)
   local b = f.build
   local st = b and b.mall
   if not (st and st.rows) or not surface then return end
@@ -757,6 +807,41 @@ function Rt.minute(f, surface, lec, sources, afford, tick)
             say(f, st, tick, string.format("rangee %d : allongement refuse : %s", r.j, tostring(why)))
           end
           if id then break end
+        end
+      end
+    end
+  end
+  -- 2b. au-delà de la demande : une cellule de plus quand la matière est en surplus (shared/team/mall_allonge.lua) ; une section à la fois pour tout le mall, la rangée la plus courte d'abord
+  if libre and Build.Mall.flow and (st.pret or st.force_pret) and #st.rows > 0 and st.names_kit then
+    local ouvert = false
+    for _, r in ipairs(st.rows) do
+      for _, q in ipairs(r.projects) do
+        local pq = b.projects[q.id]
+        if not q.dead and pq and pq.state ~= "fini" then ouvert = true end
+      end
+    end
+    if not ouvert then
+      local parts, conso = consommation(st, lec)
+      local flow = {}
+      for _, r in ipairs(st.rows) do
+        for _, x in ipairs(parts[r.j] or {}) do
+          if flow[x.item] == nil then flow[x.item] = Build.Mall.flow(f, x.item) end
+        end
+      end
+      local ordre = {}
+      for _, r in ipairs(st.rows) do ordre[#ordre + 1] = r end
+      table.sort(ordre, function(x, y) if #x.cells ~= #y.cells then return #x.cells < #y.cells end return x.j < y.j end)
+      for _, r in ipairs(ordre) do
+        if not r.stop and not (r.retry_at and r.retry_at > tick) and #r.cells < Mr.MAX_CELLS then
+          local cible = Ma.cible(#r.cells, parts[r.j] or {}, flow, libre, conso, Mr.MAX_CELLS)
+          local d = cible > #r.cells and cellule_de_plus(r, lec) or nil
+          if d then
+            local id = Rt.place(f, { d }, st.names_kit, tick, afford, "MALL rangee " .. r.j .. " allongee au surplus", r)
+            if id then
+              say(f, st, tick, string.format("rangee %d : surplus : cible %d cellule(s), une de plus (%s, projet %d)", r.j, cible, d.item, id))
+              break
+            end
+          end
         end
       end
     end
