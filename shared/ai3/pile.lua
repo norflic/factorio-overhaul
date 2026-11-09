@@ -137,6 +137,9 @@ function Pi.update(st, sig, tick)
         end
         a.n = a.n + 1
         if r.claimed then a.claimed = a.claimed + 1 end
+        -- lot RUINES-ATTENTE : une pièce qui refait l'EXTRACTION de la plaque clé (r.key_extraction, posé par script/team/pile.lua) : sa fabrication est payée
+        -- avant le plan permanent (shared/ai3/cerveau.lua) ; seules ces pièces-là, au nombre réel d'objets qui manquent
+        if r.key_extraction and not r.claimed then a.key_open = (a.key_open or 0) + 1 end
         if (r.prio or 0) > a.prio then a.prio = r.prio or 0 end
       end
     end
@@ -154,7 +157,12 @@ function Pi.update(st, sig, tick)
       local keep = math.min(a.have, open_n)
       if keep > 0 then reserve[#reserve + 1] = { item, keep } end
       -- L'objet manque : il devient une fabrication de rang R1 (l'infrastructure électrique a déjà la sienne, Rc.demand).
-      if open_n > keep and a.craftable and not a.infra then crafts[#crafts + 1] = { item, open_n - keep, a.prio } end
+      if open_n > keep and a.craftable and not a.infra then
+        local n_craft = open_n - keep
+        local kn = math.min(n_craft, a.key_open or 0)
+        if kn > 0 then crafts[#crafts + 1] = { item, kn, a.prio, true } n_craft = n_craft - kn end -- 4e champ : extraction de la plaque clé, payée d'abord
+        if n_craft > 0 then crafts[#crafts + 1] = { item, n_craft, a.prio } end
+      end
     end
   end
   if sig.plan_reopened then
