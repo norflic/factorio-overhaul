@@ -9,12 +9,24 @@
 #   place 1 : dossier <racine>\fo-autotest,   verrou fo-autotest.lock   (celui d'avant, partagé avec fo-captures.bat
 #             et fo-visual.bat : les images ne tournent QU'À la place 1) ;
 #   place 2 : dossier <racine>\fo-autotest-2, verrou fo-autotest-2.lock (fo-autotest.bat avec FO_PLACE=2) ;
-#   place 3 : dossier <racine>\fo-autotest-3, verrou fo-autotest-3.lock (FO_PLACE=3).
+#   place 3 : dossier <racine>\fo-autotest-3, verrou fo-autotest-3.lock (FO_PLACE=3) ;
+#   places 4 à 6 (lot BANC-PLACES, 8/11 : « 100 % de la puissance du PC » du DC) : fo-autotest-N, fo-autotest-N.lock,
+#             lancées par <racine>\fo-autotest-multi.bat (copie du .bat qui accepte FO_PLACE de 1 à 6, marqueur
+#             FO_PLACES_MULTI) ; le fo-autotest.bat de la racine, qu'un banc en cours ne doit JAMAIS voir remplacé (cmd.exe
+#             relit un .bat par décalage d'octets), reste celui des places 1 à 3.
 # Nombre de places ouvertes : --places N si donné (prioritaire), sinon le fichier <racine>\fo-banc-places.txt, RELU à
-# chaque tour d'attente (on le change sans relancer personne) : absent -> 2 ; « 1 », « 2 » ou « 3 » -> ce nombre ;
+# chaque tour d'attente (on le change sans relancer personne) : absent -> 2 ; « 1 » à « 6 » -> ce nombre ;
 # toute autre valeur ou fichier illisible -> 1 (jamais de risque).
 # Tant que le fo-autotest.bat de la RACINE ne connaît pas FO_PLACE (ancien .bat, déploiement pas fini), 1 place
 # seulement, --places compris : l'ancien .bat ferait tourner la place 2 dans fo-autotest\, celui de la place 1.
+# Sans fo-autotest-multi.bat (ou sans son marqueur), 3 places au plus.
+# COHABITATION avec les lanceurs d'AVANT (3 places, vus par leurs tickets « [banc2 genre 3] ») : (1) la limite écrite
+# dans un ticket est respectée PAR TICKET : un ancien ticket ne reçoit jamais une place 4 à 6, et il ne bloque pas
+# les places 4 à 6 pour les nouveaux tickets derrière lui ; (2) un ticket qui tourne à une place 4 à 6 passe de .txt à
+# .run : les anciens lanceurs ne listent que les .txt, sinon ils prendraient ce ticket pour un ticket en attente de
+# son lot et feraient attendre les autres tickets du même lot ; (3) un ticket « seul » ANCIEN (limite < 6) ne voit que
+# les places 1 à 3 : tant qu'il attend, plus aucune place 4 à 6 n'est donnée (une mesure déjà en route à la place 4
+# à 6 au moment où il part ne peut pas être arrêtée : limite connue) ; (4) un ticket --seul NOUVEAU prend les 6 places.
 # GARDE-FOU MÉMOIRE : une place au-delà de la première n'est prise que s'il reste au moins 6 Go de mémoire physique
 # libre (GlobalMemoryStatusEx, --memoire-min-go pour les tests), et au plus UNE place au-delà de la première par tour.
 #
@@ -22,7 +34,7 @@
 #   ordinaire : banc sans images, n'importe quelle place ;
 #   place 1   : --captures, --visuel ou --son (fo-captures.bat, fo-visual, son) : la place 1 seulement. Un ticket d'un
 #               ANCIEN lanceur (sans marque [banc2 ...]) compte comme « place 1 » : il ne connaît que fo-autotest.lock ;
-#   seul      : --seul (mesure de performance K10) : TOUTES les places (1 à 3, quel que soit le nombre ouvert : une
+#   seul      : --seul (mesure de performance K10) : TOUTES les places (1 à 6, quel que soit le nombre ouvert : une
 #               place fermée peut encore finir un banc lancé avant le changement), personne d'autre ne tourne.
 #
 # RÈGLE DE LA FILE (à chaque tour, tous les lanceurs calculent la même affectation ; chacun n'agit que pour lui) :
@@ -64,8 +76,10 @@
 #   --seul : banc seul sur le PC (mesures de performance K10 : TOUJOURS --seul).
 #   --sauvegarde <zip> : (lot PERF4) pas de création de carte : la sauvegarde (chemin absolu, .zip) est COPIÉE dans le
 #                dossier de la place et rejouée par --benchmark (variable FO_SAVE de fo-autotest.bat) ; jamais avec --creation.
-#   --places N : nombre de places vues par ce lanceur (1 à 3), au lieu de fo-banc-places.txt ; ce ticket ne prend
+#   --places N : nombre de places vues par ce lanceur (1 à 6), au lieu de fo-banc-places.txt ; ce ticket ne prend
 #                alors aucune place au-delà de N.
+#   --place-exacte N : (2 à 6, diagnostic et preuves) ce ticket ordinaire n'accepte QUE la place N (inscrit dans le ticket :
+#                « {place=N} », lu par tous les lanceurs nouveaux).
 #   --file : affiche les places, la file et l'affectation, sans rien lancer.
 # Codes : ceux du .bat ; 9 = attente de plus de --attente-max secondes (défaut 6 h), rien n'a tourné ;
 #         12 = le jeu a rendu 0 mais le dossier de la place n'a PAS de résultat frais (voir ci-dessous).
@@ -100,8 +114,11 @@ except ImportError:  # copie isolée de ce fichier : mêmes drapeaux, en minimal
 
 _kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
 
-MAX_PLACES = 3
+MAX_PLACES = 6            # lot BANC-PLACES (8/11) : 6 ; 3 avant
 PLACES = tuple(range(1, MAX_PLACES + 1))
+PLACES_ANCIENNES = 3      # places que fo-autotest.bat (celui de la racine, jamais remplacé en cours de banc) sait faire
+BAT_MULTI = "fo-autotest-multi.bat"
+MARQUE_BAT_MULTI = b"FO_PLACES_MULTI"
 MEMOIRE_MIN_GO = 6.0
 PLACES_PAR_DEFAUT = 2
 
@@ -207,7 +224,7 @@ def tickets():
             if not vivant(pid_du_ticket(n)):
                 shutil.rmtree(p, ignore_errors=True)
             continue
-        if not n.endswith(".txt"):
+        if not n.endswith((".txt", ".run")):  # .run : ticket en cours à une place 4 à 6 (invisible des anciens lanceurs)
             continue
         pid = pid_du_ticket(n)
         if not pid:
@@ -253,6 +270,15 @@ def genre_du_texte(txt):
     return (m.group(1), int(m.group(2))) if m else ("place1", 1)
 
 
+_EPINGLE = re.compile(r"\{place=([2-6])\}")
+
+
+def epingle_du_texte(txt):
+    """Place exigée par le ticket (--place-exacte, « {place=N} »), ou None."""
+    m = _EPINGLE.search(txt)
+    return int(m.group(1)) if m else None
+
+
 def nom_de_lot(qui):
     return "".join(c if c.isalnum() or c in "-_" else "_" for c in qui)[:80] or "_"
 
@@ -279,12 +305,15 @@ def elu(t, lot=lot_du_ticket, servi=dernier_service):
     return c[0] if c else None
 
 
-def affecter(rangs, genre, libres, n, memoire_ok, limite=lambda t: MAX_PLACES):
+def affecter(rangs, genre, libres, n, memoire_ok, limite=lambda t: MAX_PLACES, epingle=lambda t: None):
     """Règle pure de la file : {ticket: [places à prendre maintenant]}.
     rangs : tickets en attente, dans l'ordre de classement() ; genre(t) : "ordinaire", "place1" ou "seul" ;
-    libres : places sans verrou ; n : places ouvertes (1 à 3) ; memoire_ok : assez de mémoire pour une place de plus ;
-    limite(t) : place la plus haute permise au ticket (--places)."""
+    libres : places sans verrou ; n : places ouvertes (1 à 6) ; memoire_ok : assez de mémoire pour une place de plus ;
+    limite(t) : place la plus haute permise au ticket (--places ; ticket d'un ancien lanceur : 3 au plus) ;
+    epingle(t) : place exigée par le ticket (--place-exacte) ou None."""
     res = {}
+    if any(genre(t) == "seul" and limite(t) < MAX_PLACES for t in rangs):
+        n = min(n, PLACES_ANCIENNES)   # « seul » d'un ancien lanceur : il ne voit pas les places 4 à 6, on n'en donne plus
     p1 = 1 in libres          # place 1 encore à donner (ni prise, ni réservée)
     en_plus = memoire_ok      # une seule place au-delà de la première par tour
     fin = next((i for i, t in enumerate(rangs) if genre(t) == "seul"), len(rangs))
@@ -298,6 +327,13 @@ def affecter(rangs, genre, libres, n, memoire_ok, limite=lambda t: MAX_PLACES):
             if p1:
                 res[t] = [1]
             p1 = False        # prise, ou réservée à ce ticket
+            continue
+        pin = epingle(t)
+        if pin:               # place exigée : ni la place 1, ni une autre place, et il ne réserve rien en attendant
+            if en_plus and pin in libres and pin <= min(n, limite(t)):
+                res[t] = [pin]
+                libres = set(libres) - {pin}
+                en_plus = False
             continue
         autre = None
         if en_plus:
@@ -314,14 +350,14 @@ def affecter(rangs, genre, libres, n, memoire_ok, limite=lambda t: MAX_PLACES):
 
 
 def places_ouvertes(option=None, texte=None):
-    """Nombre de places : --places si donné ; sinon fo-banc-places.txt : absent (texte None) -> 2 ; « 1 », « 2 », « 3 »
+    """Nombre de places : --places si donné ; sinon fo-banc-places.txt : absent (texte None) -> 2 ; « 1 » à « 6 »
     -> ce nombre ; autre chose (fichier illisible compris) -> 1. Règle pure."""
     if option is not None:
         return option
     if texte is None:
         return PLACES_PAR_DEFAUT
     texte = texte.strip()
-    return int(texte) if texte in ("1", "2", "3") else 1
+    return int(texte) if texte in ("1", "2", "3", "4", "5", "6") else 1
 
 
 def bat_a_places():
@@ -334,16 +370,41 @@ def bat_a_places():
         return False
 
 
-def lire_places(option):
+def bat_multi():
+    """Vrai si <racine>\\fo-autotest-multi.bat existe et porte le marqueur FO_PLACES_MULTI (places 4 à 6 possibles)."""
+    try:
+        with open(os.path.join(RACINE, BAT_MULTI), "rb") as f:
+            c = f.read()
+        return MARQUE_BAT_MULTI in c and b"FO_PLACE" in c
+    except OSError:
+        return False
+
+
+def places_permises():
+    """Plus haute place que les .bat déployés savent faire : 1 (fo-autotest.bat d'avant BANC2), 3 (BANC2, pas de
+    fo-autotest-multi.bat), 6 (fo-autotest-multi.bat avec son marqueur)."""
     if not bat_a_places():
         return 1
+    return MAX_PLACES if bat_multi() else PLACES_ANCIENNES
+
+
+def bat_de(place):
+    """.bat qui fait tourner la place : celui de la racine aux places 1 à 3 (jamais remplacé en cours de banc), le
+    .bat « multi » aux places 4 à 6."""
+    return BAT_MULTI if place > PLACES_ANCIENNES else "fo-autotest.bat"
+
+
+def lire_places(option):
+    cap = places_permises()
+    if cap == 1:
+        return 1
     if option is not None:
-        return option
+        return min(option, cap)
     if not os.path.exists(FICHIER_PLACES):
-        return places_ouvertes(None, None)
+        return min(places_ouvertes(None, None), cap)
     try:
         with open(FICHIER_PLACES, encoding="utf-8", errors="strict") as f:
-            return places_ouvertes(None, f.read(64))
+            return min(places_ouvertes(None, f.read(64)), cap)
     except (OSError, UnicodeError):
         return 1
 
@@ -573,7 +634,8 @@ def tour(option_places, memoire_min_go):
         aff = {}
     else:
         aff = affecter(rangs, lambda x: genre_du_texte(textes[x])[0], {p for p in PLACES if etats[p] is None}, n,
-                       mem >= memoire_min_go, lambda x: genre_du_texte(textes[x])[1])
+                       mem >= memoire_min_go, lambda x: genre_du_texte(textes[x])[1],
+                       lambda x: epingle_du_texte(textes[x]))
     return t, textes, etats, rangs, aff, n, mem
 
 
@@ -582,7 +644,7 @@ def montrer_file(option_places, memoire_min_go):
     print(f"[BANC] racine {RACINE}")
     print(f"[BANC] places ouvertes : {n} (fo-banc-places.txt : "
           f"{lire(FICHIER_PLACES) or 'absent' if os.path.exists(FICHIER_PLACES) else 'absent'}) ; "
-          f"mémoire libre {mem:.1f} Go (seuil {memoire_min_go:g} Go pour les places 2 et 3)")
+          f"mémoire libre {mem:.1f} Go (seuil {memoire_min_go:g} Go par place au-delà de la première)")
     for p in PLACES:
         e = etats[p]
         print(f"[BANC] place {p} ({os.path.basename(verrou(p))}) : " + (
@@ -643,6 +705,7 @@ def main(argv):
     ap.add_argument("--visuel")
     ap.add_argument("--seul", action="store_true")
     ap.add_argument("--places", type=int, choices=PLACES)
+    ap.add_argument("--place-exacte", type=int, choices=PLACES[1:])
     ap.add_argument("--memoire-min-go", type=float, default=MEMOIRE_MIN_GO)
     ap.add_argument("--qui", default="")
     ap.add_argument("--file", action="store_true")
@@ -678,13 +741,16 @@ def main(argv):
     if a.visuel:
         env["FO_VISUAL_ARGS"] = a.visuel
     genre = "seul" if a.seul else "place1" if (a.captures or a.visuel or a.son) else "ordinaire"
+    if a.place_exacte and genre != "ordinaire":
+        ap.error("--place-exacte ne va qu'avec un banc ordinaire (sans --seul, --captures, --visuel ni --son)")
     mode = "exclusif" if genre == "seul" else "partage"
     qui = (a.qui or os.path.basename(out)).replace("\n", " ")
     os.makedirs(FILE, exist_ok=True)
     moi = f"{time.time_ns():020d}-{os.getpid()}.txt"
     with open(os.path.join(FILE, moi), "w", encoding="utf-8") as f:
         f.write(f"{qui} : {scenario} {ticks} ({time.strftime('%d/%m %H:%M:%S')}) "
-                f"[banc2 {genre} {a.places or MAX_PLACES}]\n")
+                + (f"{{place={a.place_exacte}}} " if a.place_exacte else "")
+                + f"[banc2 {genre} {MAX_PLACES if genre == 'seul' else a.places or MAX_PLACES}]\n")
     t0 = time.time()
     etat = {}
     dernier = 0
@@ -738,11 +804,17 @@ def main(argv):
         env["FO_LOCK_HELD"] = str(place)
         if place != 1:
             env["FO_PLACE"] = str(place)
+        if place > PLACES_ANCIENNES:   # invisible des anciens lanceurs (ils ne listent que les .txt) : voir l'en-tête
+            try:
+                os.rename(os.path.join(FILE, moi), os.path.join(FILE, moi[:-4] + ".run"))
+            except OSError:
+                pass
         print(f"[BANC] {qui} : place {place} ({genre}{', toutes les places' if genre == 'seul' else ''}), "
               f"attente {attente:.0f} s", flush=True)
         notes = []
         if genre == "seul":
             notes.append(deployer_bat())
+            notes.append(deployer_bat(dst=os.path.join(RACINE, BAT_MULTI)))  # places 4 à 6 : même source, autre nom
             nb = blender_actifs()
             notes.append("blender.exe actifs au debut du passage : %d%s" % (nb, " (MESURE FAUSSE)" if nb != 0 else ""))
             for x in notes:
@@ -752,7 +824,7 @@ def main(argv):
         if a.captures:
             cmd = [os.path.join(RACINE, "fo-captures.bat"), scenario, source]
         else:
-            cmd = [os.path.join(RACINE, "fo-autotest.bat"), "nopause", str(ticks), scenario, source]
+            cmd = [os.path.join(RACINE, bat_de(place)), "nopause", str(ticks), scenario, source]
         # Lot OUTILLAGE : sans fenêtre (CREATE_NO_WINDOW), priorité réduite pour la création de la carte et les copies ;
         # le benchmark reste lancé par « start /ABOVENORMAL » dans fo-autotest.bat (mesures inchangées).
         p = sans_fenetre.run(cmd, env=env, cwd=RACINE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -784,10 +856,11 @@ def main(argv):
     finally:
         for q in reversed(PLACES):
             rendre_place(q)
-        try:
-            os.remove(os.path.join(FILE, moi))
-        except OSError:
-            pass
+        for ext in (".txt", ".run"):
+            try:
+                os.remove(os.path.join(FILE, moi[:-4] + ext))
+            except OSError:
+                pass
     print(f"[BANC] {qui} : code {p.returncode}, place {place}, attente {attente:.0f} s, banc {time.time() - t1:.0f} s, "
           f"archive {out}", flush=True)
     for x in problemes:
