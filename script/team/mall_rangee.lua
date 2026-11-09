@@ -740,6 +740,25 @@ function Rt.minute(f, surface, lec, sources, afford, tick)
   st.fab = { made = total_made, chests = total_chests, machines = total_m, run = total_run, tick = tick }
 end
 
+--- Tapis et bras d'abord (lot amelioration-2 : azure manquait de 470 à 520 tapis de base à 67-74 min, sans une rangée de mall à 65,5 min) : les candidats qui portent un objet posant une entité de ces
+--- types passent devant, ordre relatif gardé. Lu au prototype : aucun nom d'objet.
+local function premier(item)
+  local pr = game.item_prototypes[item]
+  local pe = pr and pr.place_result
+  return pe ~= nil and T.MALL_PREMIERS[pe.type] == true
+end
+
+function Rt.ordonne(cands)
+  local first, rest = {}, {}
+  for _, c in ipairs(cands) do
+    local hit = false
+    for _, it in ipairs(c.items or {}) do if premier(it) then hit = true end end
+    if hit then first[#first + 1] = c else rest[#rest + 1] = c end
+  end
+  for _, c in ipairs(rest) do first[#first + 1] = c end
+  return first
+end
+
 --- Contexte du cerveau (script/ai3/automatisation.lua, comme la centrale et la migration) : une section en chantier est un projet dont les MANQUES sont fabriqués (mods) ; une
 --- section de tête finie demande les objets de ses quais qui manquent au coffre (feeds). `pile` : famille « capi » de la pile (la porte de la pensée la lit).
 function Rt.contexte(f, mods, feeds, stock, book, feed_stock)
@@ -750,7 +769,8 @@ function Rt.contexte(f, mods, feeds, stock, book, feed_stock)
         local p = f.build.projects[q.id]
         if p and p.state ~= "fini" and p.state ~= "refuse" then
           local ps = Build.brief(f, q.id)
-          if ps then mods[#mods + 1] = { product = "mall:" .. r.j .. ":" .. q.from, state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = 0, pile = "capi" } end
+          local famille = (Build.Mall.preparer_on and Build.Mall.preparer_on()) and "preparer" or "capi" -- mesure (réglage fo-war-mall-preparer) : « preparer » est de rang s'adapter, jamais suspendu
+          if ps then mods[#mods + 1] = { product = "mall:" .. r.j .. ":" .. q.from, state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = 0, pile = famille } end
         elseif p and p.state == "fini" and q.from == 1 then
           local ps = Build.brief(f, q.id)
           local items = {}

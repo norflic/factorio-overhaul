@@ -301,6 +301,38 @@ do
 end
 
 ---------------------------------------------------------------------------------------------------
+-- §7x tapis et bras d'abord ; famille des chantiers dans la pile
+---------------------------------------------------------------------------------------------------
+do
+  local old_items = game.item_prototypes
+  game.item_prototypes = {
+    tapis = { place_result = { type = "transport-belt" } }, bras = { place_result = { type = "inserter" } },
+    gear = { }, mur = { place_result = { type = "wall" } },
+  }
+  local a, b, c, d = { items = { "gear" } }, { items = { "gear", "bras" } }, { items = { "mur" } }, { items = { "tapis" } }
+  local o = Rt.ordonne({ a, b, c, d })
+  check(o[1] == b and o[2] == d and o[3] == a and o[4] == c, "§7x tapis et bras devant, ordre relatif gardé")
+  check(#Rt.ordonne({}) == 0, "§7x liste vide")
+  game.item_prototypes = old_items
+
+  local f = team()
+  local id = Rt.place(f, { dem("belt", 2, { "fer", "gear" }) }, NAMES, 100, afford, "t")
+  local p = f.build.projects[id]
+  p.state = "chantier"
+  local old_brief = Build.brief
+  Build.brief = function() return { state = "chantier", missing = {} } end
+  local mods = {}
+  Rt.contexte(f, mods, {}, {}, nil, 200)
+  check(#mods == 1 and mods[1].pile == "capi", "§7x famille par défaut : capi (" .. tostring(mods[1] and mods[1].pile) .. ")")
+  Build.Mall.preparer_on = function() return true end
+  mods = {}
+  Rt.contexte(f, mods, {}, {}, nil, 200)
+  check(#mods == 1 and mods[1].pile == "preparer", "§7x réglage allumé : preparer (" .. tostring(mods[1] and mods[1].pile) .. ")")
+  Build.Mall.preparer_on = nil
+  Build.brief = old_brief
+end
+
+---------------------------------------------------------------------------------------------------
 -- §7y raccord : la chaîne peut passer sur les tuiles que les rangées n'utilisent jamais
 ---------------------------------------------------------------------------------------------------
 do
