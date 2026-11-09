@@ -681,6 +681,34 @@ def deployer_bat(src=None, dst=None):
                                                                   hashlib.sha256(new).hexdigest()[:12])
 
 
+def deployer_max():
+    """Lot CARTE-MAX : deux .bat NEUFS à la racine (fo-autotest.bat et fo-captures.bat ne sont pas touchés) :
+    fo-autotest-max.bat = tools/autotest/fo-autotest.bat avec « --map-gen-settings "%FO_MGS%" » à la création de la carte, et
+    fo-captures-max.bat = fo-captures.bat appelant fo-autotest-max.bat. Écriture atomique, seulement si le contenu diffère."""
+    out = []
+    here = os.path.dirname(os.path.abspath(__file__))
+    jobs = [(os.path.join(here, "fo-autotest.bat"), "fo-autotest-max.bat", b"--map-gen-seed %SEED%",
+             b'--map-gen-seed %SEED% --map-gen-settings "%FO_MGS%"'),
+            (os.path.join(RACINE, "fo-captures.bat"), "fo-captures-max.bat", br'call "%ROOT%\fo-autotest.bat"',
+             br'call "%ROOT%\fo-autotest-max.bat"')]
+    for src, name, old, new in jobs:
+        data = open(src, "rb").read()
+        if data.count(old) != 1:
+            raise SystemExit("--carte-max : motif %r absent ou multiple dans %s" % (old, src))
+        data = data.replace(old, new)
+        dst = os.path.join(RACINE, name)
+        cur = open(dst, "rb").read() if os.path.exists(dst) else b""
+        if cur != data:
+            tmp = dst + ".tmp-%d" % os.getpid()
+            with open(tmp, "wb") as f:
+                f.write(data)
+            os.replace(tmp, dst)
+            out.append(name + " ecrit")
+        else:
+            out.append(name + " a jour")
+    return "carte max : " + ", ".join(out)
+
+
 def blender_actifs():
     """Lot PERF4 : nombre de blender.exe au début d'un passage --seul (une mesure prise avec Blender actif est FAUSSE)."""
     try:
@@ -702,6 +730,7 @@ def main(argv):
     ap.add_argument("--son", action="store_true")
     ap.add_argument("--carte", action="store_true")
     ap.add_argument("--captures", action="store_true")
+    ap.add_argument("--carte-max", action="store_true", dest="carte_max")  # lot CARTE-MAX : carte creee avec carte_max_mgs.json
     ap.add_argument("--visuel")
     ap.add_argument("--seul", action="store_true")
     ap.add_argument("--places", type=int, choices=PLACES)
@@ -736,6 +765,9 @@ def main(argv):
         if a.creation or a.captures:
             ap.error("--sauvegarde ne va ni avec --creation ni avec --captures")
         env["FO_SAVE"] = os.path.abspath(a.sauvegarde)
+    if a.carte_max:
+        env["FO_MGS"] = os.path.join(os.path.dirname(os.path.abspath(__file__)), "carte_max_mgs.json")
+        print("[BANC] " + deployer_max(), flush=True)
     if a.son:
         env["FO_AUDIO"] = "1"
     if a.visuel:
@@ -822,9 +854,9 @@ def main(argv):
         sig_avant = signature(dossier(place))
         t1 = time.time()
         if a.captures:
-            cmd = [os.path.join(RACINE, "fo-captures.bat"), scenario, source]
+            cmd = [os.path.join(RACINE, "fo-captures-max.bat" if a.carte_max else "fo-captures.bat"), scenario, source]
         else:
-            cmd = [os.path.join(RACINE, bat_de(place)), "nopause", str(ticks), scenario, source]
+            cmd = [os.path.join(RACINE, "fo-autotest-max.bat" if a.carte_max else bat_de(place)), "nopause", str(ticks), scenario, source]
         # Lot OUTILLAGE : sans fenêtre (CREATE_NO_WINDOW), priorité réduite pour la création de la carte et les copies ;
         # le benchmark reste lancé par « start /ABOVENORMAL » dans fo-autotest.bat (mesures inchangées).
         p = sans_fenetre.run(cmd, env=env, cwd=RACINE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
