@@ -41,21 +41,26 @@ Ra.TIERS = {
 ---   tier       = (facultatif) numéro du SEUL palier essayé : l'appelant découpe le travail sur plusieurs ticks (un palier par essai, le coût d'un
 ---                appel reste celui d'une recherche) ; absent : les trois paliers à la suite }.
 --- Rend chaîne (liste de {x, y}), nom du palier retenu ; ou nil, nom du dernier palier essayé.
+function Ra.tier_free(p, t)
+  local x0, y0 = math.floor(p.hull.x0) - t.margin, math.floor(p.hull.y0) - t.margin
+  local x1, y1 = math.ceil(p.hull.x1) + t.margin, math.ceil(p.hull.y1) + t.margin
+  local blocked = p.blocked(t.margin)
+  local function free(x, y)
+    local tx, ty = math.floor(x), math.floor(y)
+    if tx < x0 or tx > x1 or ty < y0 or ty > y1 then return false end
+    local k = p.key(tx, ty)
+    if blocked(tx, ty) or p.used[k] then return false end
+    return t.ore or not p.ore(tx, ty) or p.rows(tx, ty)
+  end
+  return free, { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }, blocked
+end
+
 function Ra.tiered_chain(a, b, p)
   local last
   for ti, t in ipairs(Ra.TIERS) do
     if p.tier ~= nil and ti ~= p.tier then goto continue end
     last = t.name
-    local x0, y0 = math.floor(p.hull.x0) - t.margin, math.floor(p.hull.y0) - t.margin
-    local x1, y1 = math.ceil(p.hull.x1) + t.margin, math.ceil(p.hull.y1) + t.margin
-    local blocked = p.blocked(t.margin)
-    local function free(x, y)
-      local tx, ty = math.floor(x), math.floor(y)
-      if tx < x0 or tx > x1 or ty < y0 or ty > y1 then return false end
-      local k = p.key(tx, ty)
-      if blocked(tx, ty) or p.used[k] then return false end
-      return t.ore or not p.ore(tx, ty) or p.rows(tx, ty)
-    end
+    local free = Ra.tier_free(p, t)
     local ch = p.pole_chain(a, b, p.reach, false, free, nil, t.opts)
     if ch then return ch, t.name end
     ::continue::
@@ -164,16 +169,54 @@ function Ra.connect(own, targets, r, chain)
         failed[key(best.first.x, best.first.y)] = true
         local cnt = 0
         for i = 1, #pts do if comp[i] == best.c then cnt = cnt + 1 end end
-        fails[#fails + 1] = { n = cnt, d = math.sqrt(best.d2), at = { x = best.first.x, y = best.first.y } }
+        fails[#fails + 1] = { n = cnt, d = math.sqrt(best.d2), at = { x = best.first.x, y = best.first.y }, to = { x = best.b.x, y = best.b.y } }
       end
     else
       failed[key(best.first.x, best.first.y)] = true
       local cnt = 0
       for i = 1, #pts do if comp[i] == best.c then cnt = cnt + 1 end end
-      fails[#fails + 1] = { n = cnt, d = math.sqrt(best.d2), at = { x = best.first.x, y = best.first.y } }
+      fails[#fails + 1] = { n = cnt, d = math.sqrt(best.d2), at = { x = best.first.x, y = best.first.y }, to = { x = best.b.x, y = best.b.y } }
     end
   end
   return added, fails, linked
+end
+
+--- Lot RACCORD-BANDE, diagnostic d'un refus (journal seulement, aucune décision ne le lit) : le long du segment de a à b (une tuile sur deux) et dans la
+--- boîte du palier (une tuile sur deux), combien de tuiles sont occupées, de minerai, déjà prises, ou libres pour un poteau. free(tx, ty) est la règle du palier.
+--- Rend { seg, seg_blocked, seg_ore, seg_used, seg_free, box, box_free }.
+function Ra.segment_stats(a, b, box, p, free)
+  local dx, dy = b.x - a.x, b.y - a.y
+  local n = math.max(1, math.floor(math.sqrt(dx * dx + dy * dy) / 2))
+  local out = { seg = 0, seg_blocked = 0, seg_ore = 0, seg_used = 0, seg_free = 0, box = 0, box_free = 0 }
+  for i = 0, n do
+    local tx, ty = math.floor(a.x + dx * i / n), math.floor(a.y + dy * i / n)
+    out.seg = out.seg + 1
+    if p.blocked_now(tx, ty) then out.seg_blocked = out.seg_blocked + 1 end
+    if p.ore(tx, ty) then out.seg_ore = out.seg_ore + 1 end
+    if p.used[p.key(tx, ty)] then out.seg_used = out.seg_used + 1 end
+    if free(tx, ty) then out.seg_free = out.seg_free + 1 end
+  end
+  for tx = box.x0, box.x1, 2 do
+    for ty = box.y0, box.y1, 2 do
+      out.box = out.box + 1
+      if free(tx, ty) then out.box_free = out.box_free + 1 end
+    end
+  end
+  return out
+end
+
+--- Lot RACCORD-BANDE 2 : la paire (poteau de la bande, poteau alimenté) la plus proche. Rend { at, to, d } ou nil. Égalité : plus petit x puis y du poteau de la
+--- bande, puis de la cible (déterministe).
+function Ra.nearest(own, targets)
+  local best
+  for _, q in ipairs(own) do
+    for _, t in ipairs(targets) do
+      local d2 = (q.x - t.x) ^ 2 + (q.y - t.y) ^ 2
+      if not best or d2 < best.d2 - Ra.EPS then best = { d2 = d2, at = q, to = t } end
+    end
+  end
+  if not best then return nil end
+  return { at = { x = best.at.x, y = best.at.y }, to = { x = best.to.x, y = best.to.y }, d = math.sqrt(best.d2) }
 end
 
 return Ra

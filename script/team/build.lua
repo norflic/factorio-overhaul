@@ -4483,7 +4483,10 @@ local function advance(f, surface, p, tick)
     end
     return
   end
-  if p.reopened and tick >= (p.miss_next or 0) and (p.state == "defrichage" or p.state == "fantomes" or p.state == "chantier") then
+  -- lot RACCORD-BANDE 2 : une LIGNE de bande (p.spec.lg) relit aussi ses manques en chantier : partie neuve 0.6.72 (diag2), 29 poteaux sur 32 posés puis plus rien
+  -- pendant 6 min, 0 tâche au tableau : les poteaux perdus en route (PNJ tué, réserve de 31 pour 32) n'étaient demandés à personne (p.missing resté vide
+  -- depuis la fin de la réserve), le PNJ échouait « stock » en boucle
+  if (p.reopened or (p.spec and p.spec.lg)) and tick >= (p.miss_next or 0) and (p.state == "defrichage" or p.state == "fantomes" or p.state == "chantier") then
     p.miss_next = tick + 60 -- lot INTEG-RECONSTRUCTION (D6) : une fois par seconde
     refresh_missing(f, p)
   end
@@ -5135,6 +5138,7 @@ end
 function Build.think(f, surface, tick)
   local b = f.build
   if not b then return end
+  if Build.line_trace then Build.line_trace(f, tick) end -- lot RACCORD-BANDE 2 : trace [FO-LIGNE-BANDE-ETAT] (lecture seule)
   Build.LotsMinerai.minute(f, tick) -- lot VIDEO L9 : [FO-LOTS-MINERAI], une ligne par équipe et par minute de jeu (la mesure avant la règle)
   Build.LotsMinerai.think(f, tick) -- lot VIDEO MINERAI-SONDE : pièce détruite, ennemi vu ou porte fermée : le relevé des lots est refait (Lm.needs_survey)
   local tasks = {}
