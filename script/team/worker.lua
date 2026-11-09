@@ -1787,18 +1787,28 @@ FSM.define(MACHINE, {
   -- Lot IA1-d : travail sur place du plan directeur (ravivages, défrichage, quais) : script/team/build.lua.
   ia1d = {
     think = function(agent, tick)
-      defend(agent, tick)
+      -- Correction PC-INVALIDE (plantage bail.lua:72, azure, 87,8 min) : une réaction (demi-tour ou fuite, Worker.abort) qui part
+      -- pendant cette pensée remet le programme à `{ home }` (pc = 1). Ne pas continuer le travail après elle : le retour
+      -- « again » retirait alors 1 à pc et laissait pc = 0 (aucune étape).
+      if defend(agent, tick) then agent.ia1d = nil return end
       local f = faction_of(agent)
       if not f then return end
+      local steps0, pc0 = agent.steps, agent.pc
       Profiler.start("build:work")
       local r = Build.work(agent, f, tick)
       Profiler.stop("build:work")
       if r == "more" then return end
       agent.ia1d = nil
       if r == "again" then
-        -- refaire la marche vers le point d'appui (étape précédente), depuis la position atteinte
-        agent.pc = agent.pc - 1
-        set(agent, "step", tick)
+        -- refaire la marche vers le point d'appui (étape précédente), depuis la position atteinte. Seulement si le programme
+        -- est resté le même et que l'étape courante est bien ce travail, avec une étape avant (pc > 1) : sinon rien à refaire.
+        local cur = steps0 and pc0 and steps0[pc0]
+        if agent.steps == steps0 and agent.pc == pc0 and pc0 > 1 and cur and cur[1] == "ia1d" then
+          agent.pc = pc0 - 1
+          set(agent, "step", tick)
+        else
+          abort(agent, f, tick, "chantier")
+        end
         return
       end
       if r == "done" then
