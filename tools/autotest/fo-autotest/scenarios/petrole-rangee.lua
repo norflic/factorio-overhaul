@@ -139,6 +139,9 @@ return {
       -- courant du site de base (le banc n'a pas de poteaux : les chevalets, la raffinerie et l'usine du site doivent etre alimentes comme les copies)
       s.create_entity({ name = "medium-electric-pole", position = at(33.5, 33.5), force = row.force }) -- couvre la raffinerie et l'usine
       s.create_entity({ name = "medium-electric-pole", position = at(32.5, 38.5), force = row.force }) -- couvre le chevalet
+      -- source de courant du banc : la centrale reelle de l'equipe (116 entites) n'est pas finie en 15 000 ticks ; une interface d'energie (10 MW) la remplace
+      local eei = s.create_entity({ name = "electric-energy-interface", position = at(34, 36), force = row.force })
+      if eei and eei.valid then eei.power_production = 1e7 / 60; eei.electric_buffer_size = 1e7 end
       local put = 0
       for _, it in ipairs(KIT) do put = put + hq.insert({ name = it[1], count = it[2] }) end
       st.ok_bench = remote.call("fo-petrole", "ext_bench", row.key, { res = "crude-oil", x = FX + 33.5, y = FY + 33.5, ents = ents, items = { "plastic-bar" },
