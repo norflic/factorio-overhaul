@@ -2769,7 +2769,7 @@ local function plan_project(f, surface, p)
     local ents = {}
     for _, e in ipairs(lay.ents) do
       ents[#ents + 1] = { name = e.name, x = e.x, y = e.y, dir = e.dir or 0, recipe = e.recipe, part = 1, role = e.role, charge = e.charge, rank = e.rank,
-        type = e.type } -- (lot CHAMP : charge du coffre de combustible, rang de pose ; lot FONDERIE : entrée ou sortie d'un souterrain)
+        type = e.type, carries = e.carries } -- (lot CHAMP : charge du coffre de combustible, rang de pose ; lot FONDERIE : entrée ou sortie d'un souterrain ; lot MALL : objet porté par un tapis, déclaré)
     end
     if not reserve_tiles(b, p, ents) then return false, "place" end
     for _, q in ipairs(lay.quais or {}) do p.quais[#p.quais + 1] = { x = q.x, y = q.y, item = q.item, flow = q.flow } end -- (lot FONDERIE-BLOC : flow = débit d'un coffre de tête de champ)
