@@ -62,7 +62,10 @@ Champ.CFG = {
   -- côté, dans son projet (une bande ne produit pas sans lui ; la migration attend ses plaques). Taille bornée : charbon à coal_r tuiles au plus,
   -- tracé à Co.ROUTE_MAX. Vrai : projet séparé (code gardé, éteint).
   coal_project = false,
-  band_max = 800,   -- (lot FONDERIE) entités d'un projet de bande au plus : au-delà, ses réseaux du charbon vont dans des projets LIÉS (Sa.split)
+  band_max = 400,   -- (lot FONDERIE) entités d'un projet de bande au plus : au-delà, ses réseaux du charbon vont dans des projets LIÉS (Sa.split)
+                    -- 0.6.76 (directive du DC : on pose ce qu'on a) : 800 -> 400. Mesure (123456789, fo-logs/2026-11-09_V0675-B et V0676-B) : la bande -30 du
+                    -- joueur, 299 pieces propres + 421 pieces du reseau de charbon = 720 <= 800, non scindee, attend 627 tapis et 1 081 plaques de 24 a 86 min,
+                    -- 0 bande finie en 90 min. A 400, le reseau de charbon part en projet LIE (Sa.split) et la bande de 299 pieces se paie seule.
   coal_window = 28, -- demi-côté de la fenêtre lue autour de sa tuile la plus proche (shared/team/champ_colonne.lua, Co.WINDOW = 24)
   route_margin = 24,-- tuiles lues autour du champ et du charbon pour le tracé (eau, bâtiments, souterrains)
   charge_tete = 200,-- charbon posé avec le coffre de tête d'une colonne SANS voie de charbon (24 fours de pierre : 6 min)
