@@ -15,6 +15,7 @@ local Bras = require("shared.team.bras_retour")
 local C = require("shared.team.centrale") -- lot CORR-ENERGIE : croissance de la centrale
 local Cv = require("shared.team.champ_vapeur") -- lot ENERGIE : champ de machines à vapeur (taille, perte)
 local Cp = require("shared.team.centrale_pole") -- lot CENTRALE-PRES : poteau obtenable, taille de la centrale
+local Sa = require("shared.team.sante_centrale") -- lot COURANT-AVANCE : S.DRAW (part du courant nominal que tire un chantier)
 local Sante = require("script.team.sante_centrale") -- lot ENERGIE (2/11) : santé de la centrale, amorce à la main, croissance avant saturation
 
 local PA = {}
@@ -157,7 +158,7 @@ end
 --- (réserve de matériaux incomplète depuis trop longtemps) ; la demande est faite par Build.grow_plant, l'abandon par Build.cancel.
 PA.WATCH_EVERY = 300
 PA.LOG_EVERY = 5 * 3600 -- lot ENERGIE-CROISSANCE : bilan [FO-ENERGIE] toutes les 5 min
-function PA.watch(f, surface, tick)
+function PA.watch(f, surface, tick, fed_fn)
   local b = f.build
   b.grow = b.grow or { sat = 0 }
   local g = b.grow
@@ -165,6 +166,7 @@ function PA.watch(f, surface, tick)
   g.next = tick + PA.WATCH_EVERY
   local power, capacity, done, pending = 0, 0, 0, 0
   local pending_kw = 0 -- lot ELECTRIQUE (e) : kW nominaux des machines des chantiers ouverts (C.parallel_kw)
+  local fed_j = 0 -- lot COURANT-AVANCE : capacité vive (J/tick) des centrales finies nourries par des foreuses (fed_fn : Build.plant_automated)
   local planned, boilers_alive, boiler_kw = 0, 0, nil -- lot ENERGIE : capacité prévue (vivante ou non), chaudières vivantes
   local reopened_alive, rebuilding = 0, 0 -- lot ENERGIE (relecture) : centrales déjà finies, rouvertes par la reconstruction
   -- les projets de centrale : la première (b.plant) et celles demandées par la croissance (b.extra_plants)
@@ -183,6 +185,7 @@ function PA.watch(f, surface, tick)
       if p.state == "fini" or (p.reopened and p.finished) then Sante.observe(f, surface, p, tick) end
       if p.state == "fini" then
         done = done + 1
+        local before = capacity
         for _, e in ipairs(p.ents) do
           local sp = M.spec(e.name) or {}
           if sp.power_out then
@@ -198,6 +201,7 @@ function PA.watch(f, surface, tick)
             if real_of(surface, e, f.force) then boilers_alive = boilers_alive + 1 end
           end
         end
+        if fed_fn and fed_fn(p) then fed_j = fed_j + (capacity - before) end
       else
         -- lot ENERGIE (relecture) : une machine détruite ROUVRE le projet (Sweep.reopen_pieces, en quelques secondes) : il n'est plus « fini »,
         -- et sans ce relevé sa capacité sortait du prévu : la perte ne se constatait jamais. Hors de `capacity` (saturation inchangée).
@@ -264,7 +268,10 @@ function PA.watch(f, surface, tick)
     local q = b.projects[id]
     if q and q.state ~= "refuse" and not (q.state == "bloque" and not q.retry_at) then ns = ns + 1 end
   end
-  local nb, why = C.growth(g, { done = done, pending = pending - ns, rebuilding = math.max(0, rebuilding - ns), refused = refused, hold = hold,
+  -- lot COURANT-AVANCE : plafond en kW, pas en nombre de centrales (demande décidée ou en vol = production + S.DRAW x chantiers et retenus + électriques prévues)
+  local need_kw = (used_kw or 0) + Sa.DRAW * (committed_kw or 0) + (elec_kw or 0)
+  local fed_kw = fed_fn and fed_j * 60 / 1000 or nil
+  local nb, why = C.growth(g, { cap_kw = fed_fn and (cap_kw or 0) or nil, need_kw = need_kw, fed_kw = fed_kw, done = done, pending = pending - ns, rebuilding = math.max(0, rebuilding - ns), refused = refused, hold = hold,
     cool = tick < (g.cool_until or 0), off = b.opts and b.opts.no_grow == true, lost = lost, built = boilers_alive,
     anticipate = anticipate, secours_n = g.secours_n, deficit_kw = deficit_kw, boiler_kw = boiler_kw, pending_kw = pending_kw,
     lane_cap = Cv.lane_cap(M.BELT_RATE, boiler_kw, M.COAL_J) })
@@ -280,6 +287,10 @@ function PA.watch(f, surface, tick)
   elseif nb and not crisis and not anticipate and not g.saturated and (deficit_kw or 0) > 0 then
     log(string.format("[FO-ENERGIE] %s : DEFICIT de kW a %.1f min : %.0f kW retenus faute de courant (capitalisation avec de l'epargne qui dort %.0f, electriques prevues %.0f) (capacite %.0f kW, vue de la porte %.0f kW) : centrale de %d chaudiere(s) demandee tout de suite (sans attendre la saturation ni l'avance)",
       f.key or "player", tick / 3600, deficit_kw, deficit_kw - (elec_kw or 0), elec_kw or 0, cap_kw or 0, used_kw or 0, nb))
+  end
+  if nb and done >= C.MAX_PLANTS and not lost and not crisis then
+    log(string.format("[FO-ENERGIE] %s : centrale AU-DELA du plafond de %d a %.1f min : %d finie(s), demande %.0f kW (production %.0f + chantiers et retenus %.0f x %.1f + electriques %.0f) pour %.0f kW de capacite, %.0f kW nourris par foreuses : centrale de %d chaudiere(s)",
+      f.key or "player", C.MAX_PLANTS, tick / 3600, done, need_kw, used_kw or 0, committed_kw or 0, Sa.DRAW, elec_kw or 0, cap_kw or 0, fed_kw or 0, nb))
   end
   if nb and lost then
     log(Cv.line({ kind = "perte", team = f.key or "player", tick = tick, alive = capacity + reopened_alive, planned = planned, nb = nb }))

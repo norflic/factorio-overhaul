@@ -4799,7 +4799,7 @@ local function pulse_team(f, tick)
   Build.Mall.step({ couloirs = Build.couloirs, jeton = Jeton, pulse = Build.PULSE }, f, surface, tick) -- lot MALL : secteur (relevé par chunks sous le jeton), état S
   Profiler.fstart("bp:centrale")
   -- 5. lot CORR-ENERGIE : centrale saturée, une centrale de plus (même mécanisme que la première)
-  local nb, stale, secours = PlantArms.watch(f, surface, tick)
+  local nb, stale, secours = PlantArms.watch(f, surface, tick, function(p) return (plant_automated(f.build, p)) end) -- lot COURANT-AVANCE : le combustible suit
   for _, id in ipairs(stale or {}) do Build.cancel(f, id, PlantArms.STALE_REASON) end
   if nb then Build.grow_plant(f, nb, tick, secours) end
   -- 6. lot CHARBON-CENTRALE : une centrale nourrie à la main demande ses foreuses (horloge propre)

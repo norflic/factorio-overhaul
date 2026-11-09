@@ -103,7 +103,7 @@ do
   check(line ~= nil and line:find("centrale perdue", 1, true) and line:find("secours 1 sur " .. C0.SECOURS_MAX, 1, true), "journal [FO-ENERGIE] : unité de secours demandée, cause et compte")
   log = old_log
   -- côté Build : le projet demandé est marqué secours
-  check(build_src:find("local nb, stale, secours = PlantArms.watch(f, surface, tick)", 1, true) ~= nil
+  check(build_src:find("local nb, stale, secours = PlantArms.watch(f, surface, tick, ", 1, true) ~= nil
     and build_src:find("if nb then Build.grow_plant(f, nb, tick, secours) end", 1, true) ~= nil, "build.lua : le relevé de la centrale dit si la demande est un secours")
   check(build_src:find("b.projects[id].secours = secours or nil", 1, true) ~= nil, "Build.grow_plant : le projet est marqué secours (projet distinct)")
   check(arms_src:find("local crisis, crisis_why = C.crisis(g, { lost = lost, hold = hold })", 1, true) ~= nil and arms_src:find("secours_n = g.secours_n", 1, true) ~= nil,
