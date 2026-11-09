@@ -219,6 +219,7 @@ local function attendu()
     -- qg_tourelle s'abonne aux types du journal des tourelles (artillerie comprise) depuis 040d1f8c (tourelle-journal)
     ["script/team/qg_tourelle.lua"] = { types = set_of(require("script.team.tourelle_journal").TURRET_TYPES), ennemi = false },
     ["script/team/reconstruction.lua"] = { types = set_of(pieces), ennemi = false },
+    ["script/team/sources.lua"] = { types = set_of({ "container", "inserter", "mining-drill" }), ennemi = false }, -- MINAGE-MAIN (d9694bdf) : registre des coffres de sortie
     ["script/levels/levels.lua"] = NE, ["script/levels/centre.lua"] = NE, ["script/modules/lots.lua"] = NE,
     ["script/modules/mult.lua"] = { types = set_of(Mult.TYPES) },
     ["script/compute/compute.lua"] = { types = by_names(Compute.NAMES) },
@@ -533,7 +534,7 @@ local died = Events.died_list()
 -- P2 : déclarations
 do
   local want = attendu()
-  check(#died == 24, "P2 : 24 abonnés à on_entity_died recensés (" .. #died .. ")") -- 23 + worker.lua (parade du kit offert, EFFONDREMENT)
+  check(#died == 25, "P2 : 25 abonnés à on_entity_died recensés (" .. #died .. ")") -- 23 + worker.lua (parade du kit offert, EFFONDREMENT) + sources.lua (MINAGE-MAIN)
   local tout, bad = {}, {}
   local seen = {}
   for i, d in ipairs(died) do

@@ -78,6 +78,11 @@ G.LIST = {
   { id = "D.gate", fichier = "shared/ai3/danger.lua", mesure = "max_d, goal_d, deaths ou blocked (releve du danger)",
     appelant = "script/ai3/comportement.lua:843 ; shared/team/vague.lua:92", mods = { D = "shared.ai3.danger" }, verdict = "ferme",
     sonde = function(M) local v, why = M.D.gate({}, { prudence = 500 }); return v == "wait", why end },
+  { id = "Rb.extent", fichier = "shared/team/rangee_bus.lua", mesure = "reponse de la tuile (libre, defricher, bloque:<cause>) ; toute autre reponse",
+    appelant = "script/ai3/petrole.lua:33 ; shared/ai3/rangee_fluides.lua:23", mods = { Rb = "shared.team.rangee_bus" }, verdict = "ferme",
+    sonde = function(M)
+      local r = M.Rb.extent({ pas = 1, largeur = 1, n_max = 2, x = 0, y = 0, axe = "x", sens = 1, tuile = function() return 42 end })
+      return r.n == 0 and r.stop == "obstacle:inconnu", r.stop end },
   { id = "Ic.gate", fichier = "shared/team/ilots_croissance.lua", mesure = "threatened, main_busy, islands, max, unwalled, unguarded, outside_busy",
     appelant = "script/team/build.lua:4651", mods = { Ic = "shared.team.ilots_croissance" }, verdict = "ferme",
     sonde = function(M)

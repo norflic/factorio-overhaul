@@ -275,7 +275,8 @@ end
 -- T8, câblage : build.lua passe la période aux deux relevés ; chaque prise du jeton des relevés la transmet.
 do
   local b = slurp("script/team/build.lua")
-  local n = select(2, b:gsub("pulse = Build%.PULSE", ""))
+  -- (seuls les DEUX relevés : Build.Mall.step passe aussi pulse, lot MALL 05dad4fe)
+  local n = select(2, b:gsub("Rv%.step%(%{[^}]-pulse = Build%.PULSE", "")) + select(2, b:gsub("Raccord%.step%(%{[^}]-pulse = Build%.PULSE", ""))
   check(n == 2, string.format("T8 : build.lua passe pulse = Build.PULSE aux deux relevés (Rv.step et Raccord.step) : %d", n))
   local rv = slurp("script/team/reseau_vivant.lua")
   local ra = slurp("script/team/raccord.lua")
