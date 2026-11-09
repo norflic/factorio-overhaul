@@ -671,7 +671,7 @@ local function stage_spots(f, surface, b, p, J)
     local geom = { pitch = P.PITCH, lot = P.LOT, half = P.HALF }
     -- le coffre tampon au BORD d'une rue (Rp.street_edge) : ni au milieu d'un lot (le module veut son rectangle entier), ni au milieu de la rue
     -- (marche des PNJ) ; repli : n'importe quelle tuile libre hors rue
-    local function free_chest(x, y, edge)
+    local function free_chest(x, y, edge, probe)
       local c, k = J.ground(x, y)
       if not c or J.guard[k] or c.clear[k] then return false end
       if edge then
@@ -679,10 +679,30 @@ local function stage_spots(f, surface, b, p, J)
       elseif P.in_street(b.lat, x, y) then
         return false
       end
-      return at_tam(x, y, near)
+      return (probe or at_tam)(x, y, near)
     end
     J.spots = Rp.pick_spots(J.px, J.py, function(x, y) return free_chest(x, y, true) end, Rp.SPOT_TRIES)
     if #J.spots == 0 then J.spots = Rp.pick_spots(J.px, J.py, function(x, y) return free_chest(x, y, false) end, Rp.SPOT_TRIES) end
+    -- lot BUS-FER : REPLI FORCE. Moteur réel (carte max, 2 graines) : « 0 poteau lu dans 21 tuiles » autour du point voulu (le point est ramené à
+    -- Rp.NEAR_HUB du QG, hors de tout réseau) : le tampon est déplacé VERS le QG, par pas de Rp.FALLBACK_STEP tuiles, jusqu'au premier point
+    -- où un poteau du réseau est à portée ; la boîte de lecture s'élargit à ce point.
+    local hq = f.hq and f.hq.valid and f.hq.position
+    if #J.spots == 0 and hq then
+      local dx, dy = hq.x - J.px, hq.y - J.py
+      local n = math.ceil(math.max(math.abs(dx), math.abs(dy)) / Rp.FALLBACK_STEP)
+      for i = 1, n do
+        local qx, qy = math.floor(J.px + dx * i / n + 0.5), math.floor(J.py + dy * i / n + 0.5)
+        local bx = J.box
+        J.box = { x0 = math.min(bx.x0, qx - Rp.SPOT_RADIUS), y0 = math.min(bx.y0, qy - Rp.SPOT_RADIUS), x1 = math.max(bx.x1, qx + Rp.SPOT_RADIUS), y1 = math.max(bx.y1, qy + Rp.SPOT_RADIUS) }
+        local probe = pole_probe(f, surface, qx, qy, Rp.SPOT_RADIUS + near + 4)
+        local sp = Rp.pick_spots(qx, qy, function(x, y) return free_chest(x, y, true, probe) end, Rp.SPOT_TRIES)
+        if #sp == 0 then sp = Rp.pick_spots(qx, qy, function(x, y) return free_chest(x, y, false, probe) end, Rp.SPOT_TRIES) end
+        if #sp > 0 then
+          J.spots, J.px, J.py = sp, qx, qy
+          break
+        end
+      end
+    end
     if #J.spots == 0 then
       -- lot BUS-FER : la CAUSE du refus (poteaux lus autour du point voulu, le plus proche, portée exigée ; tuiles du carré de recherche par cause)
       local n_p, d_p = tam_near(J.px, J.py)

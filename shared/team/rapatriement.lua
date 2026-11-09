@@ -60,6 +60,7 @@ Rp.DETOUR_SLACK = 16
 Rp.ROUTE_TRIES = 4          -- paires de bouts essayées au plus par plan
 Rp.SPOT_RADIUS = 12         -- tuiles (Manhattan) : recherche d'un point libre pour le tampon autour du point voulu
 Rp.SPOT_TRIES = 6           -- points libres essayés au plus
+Rp.FALLBACK_STEP = 12        -- tuiles : pas du repli forcé du tampon vers le QG quand aucun poteau du réseau n'est à portée du point voulu (lot BUS-FER)
 Rp.REUSE_R = 10             -- tuiles : un tampon du même objet plus proche du point voulu est réutilisé (un coffre, plusieurs lignes)
 Rp.REUSE_MAX = 3            -- lignes au plus vers un même tampon (un coffre a quatre côtés, un est pris par son bras de sortie)
 Rp.EST_FACTOR = Li.EST_FACTOR
