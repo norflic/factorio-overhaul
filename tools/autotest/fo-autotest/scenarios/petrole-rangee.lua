@@ -199,6 +199,22 @@ return {
         ctx.log(string.format("[FO-PETROLE-RANGEE] usine (%.1f, %.1f) : courant %s", pl.position.x, pl.position.y, tostring(pl.electric_network_id)))
       end
     end
+    -- FONCTION (pas presence) : brut reellement extrait, raffineries et usines qui ont fini des fabrications
+    local crude_out, ref_done, plant_done, ref_status, pj_status = 0, 0, 0, {}, {}
+    if st.force then
+      local fs = game.forces[st.force].fluid_production_statistics
+      crude_out = fs.get_input_count("crude-oil")
+      for _, r in ipairs(s.find_entities_filtered({ name = "oil-refinery", force = st.force })) do
+        ref_done = ref_done + r.products_finished
+        ref_status[#ref_status + 1] = tostring(r.status)
+      end
+      for _, pl in ipairs(s.find_entities_filtered({ name = "chemical-plant", force = st.force })) do plant_done = plant_done + pl.products_finished end
+      for _, pj in ipairs(s.find_entities_filtered({ name = "pumpjack", force = st.force })) do pj_status[#pj_status + 1] = tostring(pj.status) end
+    end
+    ctx.log(string.format("[FO-PETROLE-RANGEE] FONCTION : brut extrait %.0f unites, cycles de raffinage finis %d, cycles de plastique finis %d ; raffineries [%s] ; chevalets [%s]",
+      crude_out, ref_done, plant_done, table.concat(ref_status, ","), table.concat(pj_status, ",")))
+    ctx.check(crude_out > 0, "du brut est reellement extrait par les chevalets (statistiques de fluide de la force)", string.format("%.0f", crude_out))
+    ctx.check(ref_done > 0, "les raffineries de la rangee ont fini des cycles (brut arrive par le bus)", tostring(ref_done))
     ctx.check(nr >= 3, "3 modules : au moins 3 raffineries (1 de base + 2 copies)", tostring(nr))
     ctx.check(np == nr, "autant d'usines que de raffineries", np .. "/" .. nr)
     ctx.check(linked == nr and nr > 0, "chaque raffinerie a son entree de brut raccordee", linked .. "/" .. nr)
