@@ -62,7 +62,7 @@ end
 --- opts : description, check_tick, releve_at, photo_ticks (liste de ticks), fmin, shots (vrai : captures de fin du guide),
 --- shots_delay.
 return function(opts)
-  local guide = require("scenarios/etape1-guide")
+  local guide = require(opts.base or "scenarios/etape1-guide")
   local base = {}
   for k, v in pairs(guide) do base[k] = v end
   local tick0, init0 = guide.tick, guide.init
@@ -70,17 +70,18 @@ return function(opts)
   for _, t in ipairs(opts.photo_ticks or {}) do photos[t] = true end
 
   base.description = opts.description
-  base.check_tick = opts.check_tick
+  base.check_tick = opts.check_tick or guide.check_tick
 
   base.init = function(ctx)
-    if opts.creation then C.verify(ctx, ctx.state()) else C.apply(ctx, ctx.state()) end
+    if opts.nomap then
+    elseif opts.creation then C.verify(ctx, ctx.state()) else C.apply(ctx, ctx.state()) end
     if init0 then init0(ctx) end
   end
 
   base.tick = function(ctx, e)
     if tick0 then tick0(ctx, e) end
     local st = ctx.state()
-    if e.tick >= opts.releve_at and e.tick % 300 == 0 and e.tick < opts.releve_at + 2400 and not st.releve_done then
+    if not opts.nomap and e.tick >= opts.releve_at and e.tick % 300 == 0 and e.tick < opts.releve_at + 2400 and not st.releve_done then
       st.releve_done = C.releve(ctx, st) or false
       if not st.releve_done then ctx.log(C.TAG .. "releve : aucun QG au tick " .. e.tick) end
     end
@@ -103,10 +104,10 @@ return function(opts)
     end
   end
 
-  base.finish = function(ctx) C.checks(ctx, ctx.state(), opts.fmin or 3) end
+  if not opts.nomap then base.finish = function(ctx) C.checks(ctx, ctx.state(), opts.fmin or 3) end end
 
   if opts.shots then
-    base.shots_delay = opts.shots_delay
+    base.shots, base.shots_delay = guide.shots, opts.shots_delay
   else
     base.shots, base.shots_delay = nil, nil
   end
