@@ -188,7 +188,10 @@ section("§5 moteur script/team/hygiene.lua sur un moteur minimal")
 ---------------------------------------------------------------------------------------------------
 -- Doublures des modules du dépôt (chargées AVANT le moteur ; aucune n'est le vrai module)
 local tick_fn, research_fn
-package.loaded["script.core.events"] = { on = function(id, fn) if id == 1 then tick_fn = fn elseif id == 2 then research_fn = fn end end }
+-- (fusion BOXES : deux modules s'abonnent a on_research_finished (scan_reveil, boxes_rt) : la doublure les appelle TOUS, dans l'ordre d'abonnement)
+local research_fns = {}
+research_fn = function(e) for _, fn in ipairs(research_fns) do fn(e) end end
+package.loaded["script.core.events"] = { on = function(id, fn) if id == 1 then tick_fn = fn elseif id == 2 then research_fns[#research_fns + 1] = fn end end }
 package.loaded["script.core.profiler"] = { start = function() end, stop = function() end, fstart = function() end, fstop = function() end }
 package.loaded["script.team.boite_chunks"] = { get = function() return { x0 = -2, y0 = -2, x1 = 3, y1 = 3 } end }
 local jeton = { refuse = 0, takes = 0, drops = 0, costs = {} }
