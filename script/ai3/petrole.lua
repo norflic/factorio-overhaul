@@ -30,6 +30,7 @@ local R = require("shared.ai3.reglages")
 local A = require("shared.ai3.automatiser")
 local D = require("shared.team.petrole_donnees")
 local Col = require("shared.ai3.collecteur") -- lot PETROLE-RANGEE : collecteur d'un champ de puits (règle pure)
+local Rb = require("shared.team.rangee_bus") -- règle COMMUNE de rangée extensible (propriétaire : lot MEGA-FONDERIE) : cible de la rangée et sa cause
 local Rf = require("shared.ai3.rangee_fluides") -- lot PETROLE-RANGEE, étape 2 : rangée de modules sur bus (règle pure)
 local Dg = require("shared.ai3.danger") -- carte du danger (lot IA3-k) : lue seulement
 local State = require("script.faction.state")
@@ -1478,11 +1479,16 @@ local function rangee_check(f, st, s, tick, fw)
   local ch = Fl.chain(rel, info, s.items, water and { [water] = "pompe" } or {}, chooser(f))
   if not ch then return end
   local use = Rf.use(rel, ch.cells, s.res)
-  local K = Rf.count(fw.rate, use, Rf.KMAX)
   local done = s.rangee and s.rangee.n or 0
+  -- cible de la rangée par la règle commune : le débit du bus de brut borne (« debit:ligne »), la cible ne baisse jamais ; la demande en aval n'est pas
+  -- modélisée (voulu = Rf.KMAX), l'arrêt devant un obstacle est décidé par le plan du chantier (step_rangee)
+  local cap = Rf.count(fw.rate, use, Rf.KMAX)
+  local g = Rb.croissance({ n = done + 1, prev = s.rg_cible, voulu = Rf.KMAX, extent = Rf.KMAX, cap = cap })
+  s.rg_cible = g.cible
+  local K = g.cible
   local want = K - 1 - done
-  local line = string.format("site '%s' : rangee de modules : brut des %d chevalet(s) pose(s) %s/s, un module en prend %.1f/s, modules voulus %d, copies posees %d",
-    s.key, fw.live or 0, fw.rate and string.format("%.1f", fw.rate) or "?", use, K, done)
+  local line = string.format("site '%s' : rangee de modules : brut des %d chevalet(s) pose(s) %s/s, un module en prend %.1f/s, modules voulus %d (%s), copies posees %d",
+    s.key, fw.live or 0, fw.rate and string.format("%.1f", fw.rate) or "?", use, K, g.cause, done)
   if s.rg_said ~= line then s.rg_said = line; note(f, st, tick, line) end
   if want < 1 then return end
   local batch = math.min(want, Rf.BATCH)
@@ -1841,7 +1847,8 @@ remote.add_interface("fo-petrole", {
     local quais, outs = {}, {}
     for _, q in ipairs(spec.quais or {}) do quais[#quais + 1] = { x = q.x, y = q.y, item = q.item } end
     for _, o in ipairs(spec.outs or {}) do outs[#outs + 1] = { x = o.x, y = o.y, at = Pet.OUT_AT } end
-    f.build.projects[id] = { id = id, state = "fini", ents = ents, outs = outs, quais = quais, spec = { site = "petrole" },
+    -- prio et domaine comme un vrai projet (Build.request) : quai_tasks lit p.prio dès qu'un quai est déclaré (plantage observé le 9/11 au banc petrole-rangee)
+    f.build.projects[id] = { id = id, state = "fini", ents = ents, outs = outs, quais = quais, spec = { site = "petrole" }, prio = Build.PRIO, domain = "production",
       parts = { { kind = "module", key = "bench", lot = "site", ox = math.floor(x0), oy = math.floor(y0), k = 0, w = math.ceil(x1 - x0) + 1, h = math.ceil(y1 - y0) + 1 } } }
     f.build.order[#f.build.order + 1] = id
     st.sites[#st.sites + 1] = { key = "bench-champ", id = id, items = spec.items or {}, state = "fini", res = spec.res, x = spec.x, y = spec.y }

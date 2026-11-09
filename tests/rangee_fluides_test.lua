@@ -540,7 +540,7 @@ local function failures(M)
   REL.entities.refinery.speed = 2
   if math.abs(M.use(REL, cells, "crude") - 40) > 1e-9 then n = n + 1 end
   REL.entities.refinery.speed = 1
-  if M.count(100, 20, 8) ~= 5 or M.count(110, 20, 8) ~= 5 or M.count(5, 20, 8) ~= 1 or M.count(1000, 20, 8) ~= 8 then n = n + 1 end
+  if M.count(100, 20, 8) ~= 5 or M.count(110, 20, 8) ~= 5 or M.count(5, 20, 8) ~= 1 or M.count(1000, 20, 8) ~= 8 or M.count(100, 0, 8) ~= 1 or M.count(nil, 20, 8) ~= 1 then n = n + 1 end
   return n
 end
 
@@ -566,7 +566,8 @@ mutate("un seul candidat de pas", "if #cands >= Rf.CANDS then break end", "if #c
 mutate("quais non translates", "out.quais[#out.quais + 1] = { x = x, y = y, item = q.item, flow = q.flow }", "out.quais[#out.quais + 1] = { x = q.x, y = q.y, item = q.item, flow = q.flow }")
 mutate("tuyaux deja au site refaits", "if lab ~= \"m\" and E0[key] ~= lab and req.L0[key] ~= lab then", "if lab ~= \"m\" and E0[key] ~= lab then")
 mutate("consommation sans la vitesse", "local dur = (r.energy and r.energy > 0) and r.energy / speed or 0", "local dur = (r.energy and r.energy > 0) and r.energy or 0")
-mutate("nombre de modules arrondi au plus proche", "local n = floor(supply / use + 1e-9)", "local n = floor(supply / use + 0.5)")
+mutate("nombre de modules arrondi au plus proche (la règle commune compte à l'entier inférieur)", "Rb.capacite({ supply }, { use })", "Rb.count(supply, use)")
+mutate("consommation illisible : plus un module", "if not n then return 1 end", "if not n then return kmax end")
 mutate("nombre de modules sans plafond", "if n > kmax then n = kmax end", "")
 mutate("chantier suivant sans pas fixe", "cands[1] = { dx = fixed.dx, hs = fixed.hs }", "cands[1] = { dx = fixed.dx + 1, hs = fixed.hs }")
 mutate("prises sur deux rangees acceptees", "if horiz and t.ty ~= list[1].ty then return nil, \"prises du fluide \" .. f .. \" sur plusieurs rangees\" end", "")

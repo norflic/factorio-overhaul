@@ -20,6 +20,8 @@
   Déterminisme : listes et clés triées, aucune trigonométrie, aucun temps mesuré.
 ]]
 
+local Rb = require("shared.team.rangee_bus") -- règle COMMUNE de rangée extensible (propriétaire : lot MEGA-FONDERIE) : débit des lignes, cible qui ne baisse pas
+
 local Rf = {}
 
 Rf.HMAX = 4          -- distance au plus d'un bus à la rangée de prises (tuiles)
@@ -480,8 +482,8 @@ end
 --- Nombre de modules que `supply` unités/s nourrissent à `use` unités/s chacun : au moins 1, au plus kmax.
 function Rf.count(supply, use, kmax)
   kmax = kmax or Rf.KMAX
-  if not (type(supply) == "number" and type(use) == "number") or use <= 0 or supply ~= supply then return 1 end
-  local n = floor(supply / use + 1e-9)
+  local n = Rb.capacite({ supply }, { use }) -- ⌊ligne ÷ conso⌋ de la règle commune ; nil : consommation illisible
+  if not n then return 1 end
   if n < 1 then n = 1 end
   if n > kmax then n = kmax end
   return n
