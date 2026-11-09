@@ -6,6 +6,7 @@ Date: 2026-11-09
     - Gisements : la taille réelle du gisement compte dans la valeur des sites et dans le choix du champ de la bande (jamais contre le danger).
     - Mall : les rangées s'allongent quand la matière est en surplus.
   Bugfixes:
+    - Famine du fer (F434) : la famine forcée de la plaque clé lit aussi le besoin évalué (noyau) ; elle ne se referme plus à 27 min pendant que la bande du champ attend 887 plaques en réserve (graine 1618033988).
     - Fer en famine : l'avant-poste de la plaque clé n'est plus marqué plein par une migration qui n'a pas commencé, et s'agrandit avant sa tourelle (sauf site meurtrier).
     - Charbon : les tuiles du réseau de charbon d'une bande sont réservées dès la création du cadre ; remplissage urgent des quais de combustible.
 ---------------------------------------------------------------------------------------------------

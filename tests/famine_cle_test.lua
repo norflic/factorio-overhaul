@@ -20,6 +20,9 @@ check("famine, bande en réserve, rien retiré : l'extension thermique reste ouv
 check("famine, projet en plan : ouverte", F.open(with({ project = "plan" })) == true)
 check("famine, projet en attente : ouverte", F.open(with({ project = "attente" })) == true)
 check("pas de famine : fermée (la migration garde la main)", F.open(with({ starved = false })) == false)
+-- 0.6.75 (A2, graine 1618033988 à 27,2 min) : la pensée ne manque plus, le besoin évalué manque encore de 887 plaques : ouverte
+check("pensée sans manque, 887 plaques manquantes au noyau : ouverte", F.open(with({ starved = false, missing = 887 })) == true)
+check("pensée sans manque, noyau couvert (0) : fermée", F.open(with({ starved = false, missing = 0 })) == false)
 check("bande en chantier : fermée", F.open(with({ project = "chantier" })) == false)
 check("paires déjà retirées : fermée", F.open(with({ retired = 3 })) == false)
 check("migration autre que « en cours » : fermée", F.open(with({ migr = "fini" })) == false)
@@ -33,6 +36,7 @@ local function survivors(mut)
   local fails = 0
   local cases = {
     { base, true }, { with({ project = "plan" }), true }, { with({ starved = false }), false }, { with({ project = "chantier" }), false },
+    { with({ starved = false, missing = 887 }), true },
     { with({ retired = 3 }), false }, { with({ migr = "fini" }), false }, { with({ stage = "veille" }), false }, { with({ project = "" }), false },
   }
   for _, c in ipairs(cases) do if R.open(c[1]) ~= c[2] then fails = fails + 1 end end
@@ -40,7 +44,8 @@ local function survivors(mut)
   return fails
 end
 check("mutant « famine sans issue » (toujours fermée) refusé", survivors(function(s) return (s:gsub("return F%.WAITING%[i%.project or \"\"%] == true", "return false")) end) > 0)
-check("mutant « sans la condition de famine » refusé", survivors(function(s) return (s:gsub("if not %(i and i%.starved%) then return false end", "if not i then return false end")) end) > 0)
+check("mutant « sans la condition de famine » refusé", survivors(function(s) return (s:gsub("if not %(i and %(i%.starved or %(i%.missing or 0%) > 0%)%) then return false end", "if not i then return false end")) end) > 0)
+check("mutant 0.6.75 « le manque du noyau ignoré » refusé", survivors(function(s) return (s:gsub("i%.starved or %(i%.missing or 0%) > 0", "i.starved")) end) > 0)
 check("mutant « paires retirées ignorées » refusé", survivors(function(s) return (s:gsub("if %(i%.retired or 0%) > 0 then return false end", "")) end) > 0)
 check("mutant « chantier compté comme attente » refusé", survivors(function(s) return (s:gsub("plan = true,", "plan = true, chantier = true,")) end) > 0)
 
@@ -60,7 +65,7 @@ local function never_reopens_forbidden(R)
   return true
 end
 check("la famine ne rouvre aucun gisement interdit aux paires (G.forbid_pairs)", never_reopens_forbidden(F))
-local R_mut = load_rule(function(s) return (s:gsub("if not %(i and i%.starved%) then return false end", "if not i then return false end")) end)
+local R_mut = load_rule(function(s) return (s:gsub("if not %(i and %(i%.starved or %(i%.missing or 0%) > 0%)%) then return false end", "if not i then return false end")) end)
 check("mutant « famine rouvre un gisement interdit aux paires » refusé", never_reopens_forbidden(R_mut) == false)
 load_rule()
 
@@ -75,6 +80,14 @@ local o = { id = 1, kind = "iron", migr = "en cours" }
 check("moteur : plaque clé en famine, bande en réserve : ouverte", Fr.open(f, o) == true)
 f.team.ia3.starved = {}
 check("moteur : plus de famine : fermée", Fr.open(f, o) == false)
+-- 0.6.75 : la pensée ne manque plus mais le noyau (besoin évalué, frais) manque encore de la plaque clé : ouverte ; noyau périmé : fermée
+f.team.ia3.noyau = { tick = 1000, missing = { [iron.product] = 887 } }
+check("moteur : pensée sans manque, noyau frais à 887 plaques manquantes : ouverte", Fr.open(f, o, 1200) == true)
+check("moteur : idem, plaque clé déclarée en famine pour le planificateur (key_starved)", Fr.key_starved(f, o, 1200) == true)
+check("moteur : noyau périmé : fermée", Fr.open(f, o, 1000 + 1800 + 1) == false)
+f.team.ia3.noyau = { tick = 1000, missing = { [iron.product] = 0 } }
+check("moteur : noyau couvert : fermée", Fr.open(f, o, 1200) == false)
+f.team.ia3.noyau = nil
 f.team.ia3.starved = { [iron.product] = true }
 f.build.projects[5].state = "chantier"
 check("moteur : bande en chantier : fermée", Fr.open(f, o) == false)

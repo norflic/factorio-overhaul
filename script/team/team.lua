@@ -571,12 +571,12 @@ function Team.view(f, tick)
       local pj = f.migration and f.migration.o and f.migration.o[oid]
       log(string.format("[FO-OUTPOST-PLEIN] %s : avant-poste %d (%s) a %.1f min : foreuses %s, o.full %s (par %s, motif %s), migr %s (etape %s), attente %s, echecs d'extension %s, famine %s",
         tostring(f.key), oid, tostring(o.kind), tick / 3600, tostring(o.drills), tostring(o.full), tostring(o.full_by), tostring(o.full_why), tostring(o.migr),
-        tostring(pj and pj.stage), tostring(o.hold_until ~= nil), tostring(o.ext_fails), tostring(Famine.open(f, o))))
+        tostring(pj and pj.stage), tostring(o.hold_until ~= nil), tostring(o.ext_fails), tostring(Famine.open(f, o, tick))))
     end
     outposts[#outposts + 1] = {
       -- lot MIGRATION-CHAMP : un champ migré (o.migr) n'est jamais « agrandissable » en paires thermiques, même quand la fin d'une attente
       -- (board.lua, release_holds) a remis o.full à faux : sinon des tâches « extend » inutiles (Outposts.extend rend 0) tourneraient sans fin
-      id = oid, kind = o.kind, drills = o.drills, famine = Famine.key_starved(f, o), full = ((o.full or o.migr ~= nil) and not Famine.open(f, o)) or false, -- (lot FAMINE-FER : plaque clé en famine, bande en attente) turrets = st.turrets, coal_needed = Outposts.coal_needed(o, f.team.flux_fill),
+      id = oid, kind = o.kind, drills = o.drills, famine = Famine.key_starved(f, o, tick), full = ((o.full or o.migr ~= nil) and not Famine.open(f, o, tick)) or false, -- (lot FAMINE-FER : plaque clé en famine, bande en attente) turrets = st.turrets, coal_needed = Outposts.coal_needed(o, f.team.flux_fill),
       fuel_low = st.fuel_low, output = st.output, idle_ticks = st.idle_ticks,
       -- Lot FLUX : ce que la tournée rapportera (sorties par objet), réceptacles pleins, brûleurs (à sec), âge de la tournée libre.
       outputs = st.outputs, stuck = st.stuck, burners = st.burners, dry = st.dry, unpowered = st.unpowered, free_age = Board.free_age(f, "service:" .. oid, tick),
