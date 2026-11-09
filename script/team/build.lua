@@ -135,6 +135,7 @@ Build.Rempl = require("script.team.remplissage_glue")
 -- Lot TV-VAPEUR : tampon de vapeur de la centrale (V36, colle de shared/team/vapeur_tampon.lua) et dégradation sous charge (V89, script/core/
 -- charge.lua) ; champs de Build, pas des locales (199 locales sur 200).
 Build.Vg = require("script.team.vapeur_glue")
+Build.Cd = require("shared.team.champ_dedupe") -- lot COMBUSTIBLE-MIGRATION : tuiles retenues par le cadre d'un champ pour son réseau du charbon (champ de Build, pas une locale)
 Build.Ct = require("script.team.charbon_tampon") -- lot COMBUSTIBLE-CENTRALE : tampon de charbon des avant-postes (levier a)
 Build.FonderieBloc = require("script.team.fonderie_bloc") -- lot FONDERIE-BLOC : le coffre de charbon d'une fonderie de champ relié par un tapis au charbon ; champ de Build, pas une locale
 Build.Piquage = require("script.team.piquage") -- lot PIQUAGE : entrée d'un bloc alimentée par le surplus d'un tapis existant ; champ de Build, pas une locale (build.lua est à 199 locales)
@@ -879,7 +880,9 @@ local function reserve_tiles(b, p, list)
   for _, e in ipairs(list) do
     for _, t in ipairs(P.tiles_of(e)) do
       local k = P.tkey(t[1], t[2])
-      if b.occ[k] and b.occ[k] ~= p.id then return false end
+      -- (lot COMBUSTIBLE-MIGRATION : les tuiles que le cadre du champ de ce projet a retenues pour son réseau du charbon reporté lui reviennent)
+      local ow = b.occ[k]
+      if ow and ow ~= p.id and not (p.spec and p.spec.champ and Build.Cd.own(ow, p.spec.champ.oid)) then return false end
     end
   end
   for _, e in ipairs(list) do
