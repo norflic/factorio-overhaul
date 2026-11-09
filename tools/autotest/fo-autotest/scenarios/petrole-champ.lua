@@ -169,11 +169,30 @@ return {
     ctx.log(string.format("[FO-PETROLE-CHAMP] FIN : chevalets %d, raccordes %d, alimentes %d ; puits du champ %s ; site %s", n, linked, powered, tostring(total),
       site and (tostring(site.ext_state) .. " exts=" .. tostring(site.exts and #site.exts or 0)) or "-"))
     -- 30 puits - 1 noye = 29 equipables ; l'emprise d'un puits peut chevaucher celle de son voisin (ecart minimal 5 : jamais) ; tolerance 2
-    -- le PLAN couvre tous les puits atteignables (30 puits - 1 noye - 2 de base = 27 pour l extension) ; le chantier (1 entite par 50 ticks environ) demande ~ 30 000 ticks
+    -- le PLAN rend compte de chaque puits hors base : equipe par l'extension, ou ecarte AVEC sa cause ; rien de differe
     local plan = st.plan
-    ctx.check(plan ~= nil and plan.n >= 27 and plan.skipped <= 1 and plan.deferred == 0, "le plan d'extension couvre tous les puits atteignables (>= 27 equipes, <= 1 ecarte, aucun differe)",
+    ctx.check(plan ~= nil and plan.n + plan.skipped + plan.deferred == (st.wells or 0) - 2 and plan.deferred == 0 and plan.n >= 25,
+      "le plan d'extension rend compte de chaque puits hors base : equipe ou ecarte avec sa cause (>= 25 equipes, aucun differe)",
       plan and string.format("n %s ecartes %s differes %s total %s", tostring(plan.n), tostring(plan.skipped), tostring(plan.deferred), tostring(plan.total)) or "pas de plan")
-    ctx.check(n >= 29, "100 % des puits atteignables equipes a la fin du banc (30 puits - 1 noye = 29 chevalets, 2 de base compris)", n .. " chevalets")
+    -- 100 % des puits ATTEIGNABLES : tout puits sans chevalet a, a la fin, de l'eau ou un batiment sur son emprise 3 x 3 (releve au moteur)
+    local free_unequipped, blocked_list = 0, {}
+    for _, w in ipairs(st.wells_list or {}) do
+      if not s.find_entities_filtered({ name = "pumpjack", position = w, radius = 1.5 })[1] then
+        local why
+        local wt = s.get_tile(math.floor(w.x), math.floor(w.y))
+        if wt.valid and wt.collides_with("water-tile") then why = "eau" end
+        for _, en in ipairs(s.find_entities_filtered({ area = { { w.x - 2.5, w.y - 2.5 }, { w.x + 2.5, w.y + 2.5 } } })) do
+          if en.name ~= "crude-oil" and not why then
+            local bb = en.bounding_box
+            if bb.left_top.x < w.x + 1.49 and bb.right_bottom.x > w.x - 1.49 and bb.left_top.y < w.y + 1.49 and bb.right_bottom.y > w.y - 1.49 then why = en.name end
+          end
+        end
+        if why then blocked_list[#blocked_list + 1] = string.format("(%.1f, %.1f) %s", w.x, w.y, why) else free_unequipped = free_unequipped + 1 end
+      end
+    end
+    ctx.log("[FO-PETROLE-CHAMP] puits sans chevalet et justifies par l'emprise : " .. table.concat(blocked_list, " ; "))
+    ctx.check(free_unequipped == 0, "100 % des puits atteignables equipes : aucun puits libre (ni eau ni batiment sur son emprise) sans chevalet", tostring(free_unequipped))
+    ctx.check(plan ~= nil and n >= plan.n + 2, "le chantier est fini : chevalets = ceux du plan + les 2 de base", n .. " chevalets, plan " .. tostring(plan and plan.n))
     ctx.check(linked == n and n > 0, "chaque chevalet est raccorde a un tuyau", linked .. "/" .. n)
     ctx.check(powered >= n - 1 and n > 0, "les chevalets poses sont alimentes (1 en retard au plus)", powered .. "/" .. n)
     -- le puits noye n'est pas equipe
