@@ -420,9 +420,9 @@ function Ind.think(f, cs, res, view, book, tick)
       -- Refus du mall (rangées pleines, entrée hors voies) : le module isolé d'avant, cause écrite ; attente (matériel) : pas de module isolé
       local mall_ok, mall_why, mall_wait
       if allowed and mod and MallRt.ouvert(f) and f.build and f.build.mall then
-        local kit = (kind == "bloc") and mod.args[3] or mod.args[5]
-        f.build.mall.names_kit = { machine = dec.machine, bras = kit.bras, bras_long = kit.bras_long, tapis = kit.tapis, poteau = mod.pole or kit.poteau, coffre = kit.coffre, decl = kit.decl }
-        mall_ok, mall_why, mall_wait = MallRt.accueille(f, c, mod, lec, tick, function(list) return afford_list(f, book, view, list, tick, res and res.orders) end)
+        local vstock = view.stock or {}
+        mall_ok, mall_why, mall_wait = MallRt.accueille(f, c, mod, lec, tick, function(list) return afford_list(f, book, view, list, tick, res and res.orders) end,
+          function(n) return book:handcraftable(n) or (vstock[n] or 0) > 0 end)
       end
       if mall_ok then
         st.said[label] = nil

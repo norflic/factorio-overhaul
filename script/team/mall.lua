@@ -12,7 +12,8 @@
      candidats (Mall.lot_inside, lu par candidates dans script/team/build.lua). Aucune fenêtre : cause au journal, nouvel essai 10 min
      plus tard.
   2. ÉTAT S (une fois par minute) : S1 centrale qui produit (premier courant, b.plant_watch), S2 une source AUTOMATISÉE finie par plaque
-     fondue (bande de champ ou fonderie du plan directeur ; plaques lues dans T.outposts : celles dont le produit n'est pas la ressource),
+     fondue (bande de champ ou fonderie du plan directeur ; plaques lues dans T.outposts : celles dont le produit n'est pas la ressource) OU
+     un débit mesuré de cette plaque d'au moins Mp.S2_PLAQUES_MIN par minute (lot MALL, tranche 2),
      S3 pas de crise (mode survie, QG menacé, pile qui retient), S4 un assembleur dont la recette est débloquée. Journal à chaque
      changement de cause. La tranche 1 ne POSE RIEN : l'état dit seulement quand la tranche 2 poserait.
   Réglage de carte fo-war-mall (settings/mall.lua), allumé par défaut ; absent (moteur simulé, mod d'avant) : éteint. Éteint en cours de
@@ -189,6 +190,14 @@ local function automated(f, pl)
   return false
 end
 
+--- Plaques `item` produites par minute par la force (statistiques du moteur) ; 0 sans statistiques.
+local function plate_flow(f, item)
+  local force = game.forces[f.force]
+  local st = force and force.item_production_statistics
+  if not st then return 0 end
+  return st.get_flow_count({ name = item, input = true, precision_index = defines.flow_precision_index.one_minute }) or 0
+end
+
 local function assembler_usable(f)
   local force = game.forces[f.force]
   if not force then return false end
@@ -219,7 +228,9 @@ function Mall.inputs(f)
   local b = f.build
   local pp = b.plant and b.projects[b.plant]
   local inp = { plant = pp ~= nil and pp.state == "fini" and b.plant_watch ~= nil and b.plant_watch.first_power ~= nil, plaques = {} }
-  for _, pl in ipairs(plates()) do inp.plaques[#inp.plaques + 1] = { item = pl.item, auto = automated(f, pl) } end
+  for _, pl in ipairs(plates()) do
+    inp.plaques[#inp.plaques + 1] = { item = pl.item, auto = automated(f, pl) or plate_flow(f, pl.item) >= Mp.S2_PLAQUES_MIN } -- automatisée : un projet fini, ou le débit mesuré
+  end
   inp.crise = crise(f)
   inp.asm = assembler_usable(f)
   return inp

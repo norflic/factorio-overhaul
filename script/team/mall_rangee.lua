@@ -161,6 +161,18 @@ end)
 ---------------------------------------------------------------------------------------------------
 -- Décision
 ---------------------------------------------------------------------------------------------------
+--- La machine la moins rapide utilisable pour l'entrée `e` de la lecture (lecture.lua : `machines`), départage par nom : une rangée se paie en machines (partie neuve
+--- t2-neuve90-a31ce386 : 12 assembling-machine-2 demandées à 72 min, réserve « materiaux » sans fin) ; une machine plus rapide n'est pas ce qui manque à une rangée qu'on allonge.
+local function cheap(e, usable)
+  local best
+  for _, m in ipairs(e and e.machines or {}) do
+    if not usable or usable(m.item) then
+      if not best or (m.par_min or 0) < (best.par_min or 0) or ((m.par_min or 0) == (best.par_min or 0) and m.entity < best.entity) then best = m end
+    end
+  end
+  return best
+end
+
 --- Machines voulues pour un objet : ⌈débit voulu ÷ machine⌉, au moins 1, au plus Ml.MACHINES_MAX.
 local function machines_for(rate, par_min)
   if not par_min or par_min <= 0 then return 1 end
@@ -238,11 +250,15 @@ function Rt.place(f, demandes, names, tick, afford, why_text)
 end
 
 --- Une décision de Ind.think passe par le mall. c = { dec, kind, items } (Id.order) ; mod = prepare(...) ; rend vrai (pris) ou (faux, raison, attendre).
-function Rt.accueille(f, c, mod, lec, tick, afford)
+function Rt.accueille(f, c, mod, lec, tick, afford, usable)
   if not Rt.ouvert(f) then return false, "ferme" end
   local demandes = {}
+  local dec = c.dec
+  local kit = (c.kind == "bloc") and mod.args[3] or mod.args[5]
+  local decl = { kit = kit.decl and kit.decl.kit or {}, machines = {} }
+  local seen_m = {}
+  local first_machine
   for _, it in ipairs(c.items) do
-    local dec = c.dec
     local rname = (c.kind == "bloc") and dec.recipes[it] or dec.recipe
     local rate = (c.kind == "bloc") and dec.rates[it] or dec.rate
     local e = lec.fab[rname]
@@ -250,12 +266,18 @@ function Rt.accueille(f, c, mod, lec, tick, afford)
     local solides = {}
     for _, s in ipairs(e.solides or {}) do solides[#solides + 1] = s.name end
     table.sort(solides)
-    local par_min
-    for _, m in ipairs(e.machines or {}) do if m.entity == dec.machine then par_min = m.par_min end end
-    demandes[#demandes + 1] = { item = it, recipe = rname, machine = dec.machine, machines = machines_for(rate, par_min), solides = solides, rate = rate }
+    local m = cheap(e, usable)
+    if not m then return false, "aucune machine utilisable pour " .. tostring(rname) end
+    if not seen_m[m.entity] then
+      seen_m[m.entity] = true
+      decl.machines[#decl.machines + 1] = { machine = m, categories = { e.category } }
+    end
+    first_machine = first_machine or m.entity
+    demandes[#demandes + 1] = { item = it, recipe = rname, machine = m.entity, machines = machines_for(rate, m.par_min), solides = solides, rate = rate }
   end
-  local kit = (c.kind == "bloc") and mod.args[3] or mod.args[5]
-  local names = { machine = c.dec.machine, bras = kit.bras, bras_long = kit.bras_long, tapis = kit.tapis, poteau = mod.pole or kit.poteau, coffre = kit.coffre or Build.QUAI_CHEST, decl = kit.decl }
+  A.declare(decl)
+  local names = { machine = first_machine, bras = kit.bras, bras_long = kit.bras_long, tapis = kit.tapis, poteau = mod.pole or kit.poteau, coffre = kit.coffre or Build.QUAI_CHEST, decl = decl }
+  f.build.mall.names_kit = names
   local id, why, wait = Rt.place(f, demandes, names, tick, afford, "MALL rangee " .. table.concat(c.items, ","))
   if id then return true end
   return false, why, wait
@@ -284,11 +306,12 @@ function Rt.chaine(f, o, book, stock, tick, pole)
   if pr.par_min <= 0 then return refuse("sans debit") end
   local kit, whyk = A.patron_kit(lec, usable)
   if not kit then return refuse(whyk) end
-  local decl = { kit = kit.decl.kit, machines = { { machine = pr.machine, categories = { pr.entry.category } } } }
+  local mc = cheap(pr.entry, usable) or pr.machine
+  local decl = { kit = kit.decl.kit, machines = { { machine = mc, categories = { pr.entry.category } } } }
   A.declare(decl)
-  local names = { machine = pr.machine.entity, bras = kit.bras, bras_long = kit.bras_long, tapis = kit.tapis, poteau = pole or kit.poteau, coffre = kit.coffre, decl = decl }
+  local names = { machine = mc.entity, bras = kit.bras, bras_long = kit.bras_long, tapis = kit.tapis, poteau = pole or kit.poteau, coffre = kit.coffre, decl = decl }
   st.names_kit = st.names_kit or names
-  local machines = machines_for(o.rate or 0, pr.par_min)
+  local machines = machines_for(o.rate or 0, mc.par_min)
   local dem = { { item = o.item, recipe = pr.recipe, machine = names.machine, machines = machines, solides = pr.solides, rate = o.rate or 0 } }
   -- déjà servi : la rangée qui l'a porte assez de machines
   for _, r in ipairs(st.rows or {}) do

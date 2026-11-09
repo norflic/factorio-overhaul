@@ -43,6 +43,7 @@ local Rt = require("script.team.mall_rangee")
 local NAMES = { machine = "assembling-machine-1", bras = "inserter", bras_long = "long-handed-inserter", tapis = "transport-belt", poteau = "small-electric-pole", coffre = "iron-chest" }
 local M = require("shared.team.modules")
 M.BASE["assembling-machine-1"] = M.BASE["assembling-machine-1"] or { kind = "assembler", w = 3, h = 3, speed = 0.5 }
+M.BASE["slow-asm"] = { kind = "assembler", w = 3, h = 3, speed = 0.5 }
 
 local SECT = { x0 = 16, y0 = -48, x1 = 80, y1 = 16, dir = 2, ext = 16 }
 
@@ -290,8 +291,8 @@ do
   local function entry(sol)
     local solides = {}
     for _, n in ipairs(sol) do solides[#solides + 1] = { name = n, amount = 1 } end
-    return { patronnable = true, solides = solides, fluides_in = {}, category = "crafting", machines = { { entity = NAMES.machine, item = NAMES.machine, par_min = 30 } },
-      produits = {} }
+    return { patronnable = true, solides = solides, fluides_in = {}, category = "crafting", machines = { { entity = "slow-asm", item = "slow-asm", par_min = 30 },
+      { entity = NAMES.machine, item = NAMES.machine, par_min = 60 } }, produits = {} }
   end
   LEC.fab = { ["r-a"] = entry({ "fer" }), ["r-b"] = entry({ "cuivre", "fer" }), ["r-c"] = entry({ "a", "b", "c", "d", "e" }) }
   LEC.fab["r-a"].produits = { "a" }; LEC.fab["r-b"].produits = { "b" }; LEC.fab["r-c"].produits = { "c1" }
@@ -311,6 +312,7 @@ do
   local id = Rt.chaine(f, { item = "a", rate = 60 }, book, {}, 10, "small-electric-pole")
   check(type(id) == "number" and REQ[1] and REQ[1].mall.names.poteau == "small-electric-pole", "§9 ordre chaine : une rangée demandée (poteau de l'appelant)")
   local r1 = f.build.mall.rows[1]
+  check(r1.cells[1].m == "slow-asm", "§9 la machine la moins rapide utilisable (" .. tostring(r1.cells[1].m) .. ")")
   check(#r1.cells == 2 and Mr.compte(r1, "r-a") == 4, "§9 machines dimensionnées (60/min × LEAD 2 ÷ 30 = 4 machines) : " .. Mr.compte(r1, "r-a"))
   check(Rt.chaine(f, { item = "a", rate = 60 }, book, {}, 20, nil) == true, "§9 déjà servi : vrai, sans nouvelle section")
   check(#REQ == 1, "§9 pas de seconde demande")

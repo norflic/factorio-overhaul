@@ -110,7 +110,7 @@ function Mr.sceller(ajouts)
   local i = 1
   while i <= #flat do
     local a, c = flat[i], flat[i + 1]
-    cells[#cells + 1] = { h = a.recipe, b = (c or a).recipe, ih = a.item, ib = (c or a).item, m = a.machine }
+    cells[#cells + 1] = { h = a.recipe, b = (c or a).recipe, ih = a.item, ib = (c or a).item, m = a.machine, mb = (c or a).machine }
     i = i + 2
   end
   return cells
@@ -144,7 +144,8 @@ function Mr.cellule(modele, i, cell, names, carries)
   local dx = (i - 1) * Mr.PERIODE
   local ents, outs = {}, {}
   for _, p in ipairs(modele) do
-    local nm = (p.role == "machine_asm") and (cell.m or names.machine) or names[ROLE_NAME[p.role]]
+    local nm = names[ROLE_NAME[p.role]]
+    if p.role == "machine_asm" then nm = ((p.groupe == "bas") and cell.mb or cell.m) or cell.m or names.machine end -- (machine propre à chaque recette)
     local c = { name = nm, x = p.x + p.w / 2 + dx, y = p.y + p.h / 2, dir = p.dir, role = "mall-" .. p.role }
     if p.role == "machine_asm" then
       c.recipe = (p.groupe == "haut") and cell.h or cell.b

@@ -35,6 +35,10 @@ Mp.STEP = 2                 -- pas des fenêtres essayées, en cases (16 tuiles 
 -- fenêtre à 112 tuiles en 4 passages, 92 eau, 118 minerai, 118 bâtiments) : une fenêtre plus petite à la même distance (32 tuiles : 2 rangées de 6 cellules), puis plus loin (160).
 Mp.TRIES = { { size = 8, radius = 84 }, { size = 6, radius = 84 }, { size = 6, radius = 112 }, { size = 4, radius = 112 }, { size = 6, radius = 160 } }
 
+-- S2 lu aussi en FONCTION : plaques produites par minute (statistiques de la force) ; au-dessus, la plaque est tenue pour automatisée même sans projet « champ » ou « fonderie »
+-- fini. 30/min = un peu plus d'un four de pierre et demi (18,75/min) : le plus petit débit continu qu'une section de rangée peut boire. Partie neuve t2-neuve90-a31ce386 : votre
+-- équipe en « attente S2 » de 19,9 à 90 min avec +105 plaques de fer par minute d'excédent à 60 min (FO-BILAN) : aucun projet fini ne le disait.
+Mp.S2_PLAQUES_MIN = 30
 Mp.EAU, Mp.MINERAI, Mp.BATI, Mp.INCONNU, Mp.ARBRE = 1, 2, 4, 8, 16
 Mp.INTERDIT = 1 + 2 + 4 + 8
 local CAT = { { bit = 1, name = "eau" }, { bit = 2, name = "minerai" }, { bit = 4, name = "bati" }, { bit = 8, name = "inconnu" } }

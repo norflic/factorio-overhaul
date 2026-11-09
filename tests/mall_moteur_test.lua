@@ -20,6 +20,8 @@ local function read(path)
 end
 
 -- Moteur simulé ----------------------------------------------------------------------------------
+_G.defines = { flow_precision_index = { one_minute = 1 } }
+_G.FLOW = {}
 local LOG = {}
 _G.log = function(s) LOG[#LOG + 1] = s end
 local SETTING = nil
@@ -31,7 +33,7 @@ _G.settings = setmetatable({}, { __index = function(_, k)
 end })
 local RECIPES = { ["assembling-machine-1"] = { enabled = false } }
 _G.game = {
-  forces = { player = { recipes = RECIPES } },
+  forces = { player = { recipes = RECIPES, item_production_statistics = { get_flow_count = function(t) return (FLOW or {})[t.name] or 0 end } } },
   get_filtered_entity_prototypes = function()
     return { ["assembling-machine-1"] = { items_to_place_this = { { name = "assembling-machine-1" } } } }
   end,
@@ -229,6 +231,29 @@ do
   check(count_occ(f.build, Mall.OCC) == 0 and f.build.mall == nil, "§6 réservation rendue")
   check(f.build.occ[P.tkey(0, 0)] == 9, "§6 les tuiles des projets restent")
   SETTING = true
+end
+
+-- §7b S2 lu au débit mesuré (plaques produites par minute), sans projet fini
+do
+  LOG = {}
+  local f = team(100, -40)
+  local b = f.build
+  b.projects[1] = { id = 1, state = "fini", spec = { gen = "steam" } }
+  b.order = { 1 }
+  b.plant = 1
+  b.plant_watch = { first_power = 100 }
+  _G.FLOW = { ["iron-plate"] = Mp.S2_PLAQUES_MIN, ["copper-plate"] = Mp.S2_PLAQUES_MIN - 1 }
+  Mall.step(H, f, world({}), 0)
+  local found = false
+  for _, l in ipairs(LOG) do if l:find("attente S2", 1, true) and l:find("copper-plate", 1, true) and not l:find("iron-plate", 1, true) then found = true end end
+  check(found, "§7b S2 : le fer au seuil compte, le cuivre sous le seuil manque")
+  _G.FLOW = { ["iron-plate"] = Mp.S2_PLAQUES_MIN, ["copper-plate"] = Mp.S2_PLAQUES_MIN }
+  LOG = {}
+  Mall.step(H, f, world({}), Mall.ETAT_EVERY + 1)
+  local still = false
+  for _, l in ipairs(LOG) do if l:find("attente S2", 1, true) then still = true end end
+  check(not still, "§7b S2 : les deux plaques au seuil, S2 levé")
+  _G.FLOW = {}
 end
 
 -- §7 état S
