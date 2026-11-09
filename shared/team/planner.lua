@@ -418,7 +418,8 @@ function P.plan(view, book)
       local pick = plan and plan.pick
       if pick then
         posts[#posts + 1] = { id = "plant", want = pick.need.near + pick.missing, have = pick.need.near, busy = pl.fortify,
-          sites = pick.need.sites, pos = pick.need.center, range = pl.range, pieces = pick.pieces, plant_id = pick.id }
+          sites = pick.need.sites, pos = pick.need.center, range = pl.range, pieces = pick.pieces, plant_id = pick.id,
+          dark = Ga.dark_plant(pick.need.near, pick.need.near + pick.missing) or nil } -- (GARDE-CENTRALES : aucune tourelle à portée)
       end
     end
     -- Lot DEFENSE-FRONT : la cellule la plus attaquée (ou un groupe de laboratoires à couvrir) reçoit ses tourelles en plus, par lots,
@@ -739,6 +740,7 @@ function P.plan(view, book)
     -- Lot DEFENSE-FACTIONS D1 : pourquoi chaque poste n'est pas servi (journal [FO-DEFENSE], script/team/defense_log.lua) ; aucune décision n'en dépend.
     local dposts = {}
     local fund_hold = 0 -- lot DEFENSE-AP : fer mis de côté pour un avant-poste de fer sans tourelle
+    local dark_hold = {} -- lot GARDE-CENTRALES : matière mise de côté pour la tourelle d'une centrale sans aucune tourelle à portée
     for _, p in ipairs(posts) do
       if p.id ~= "hq" and not held_taken then
         avail[iron_key] = (avail[iron_key] or 0) - held
@@ -798,6 +800,7 @@ function P.plan(view, book)
               if p.id == "front" then
                 fi, fc, reduced = Fr.floors(p.score, iron_producing, T.defend_iron_floor, T.defend_copper_floor, pri.production_cost)
               end
+              if p.dark then fi, fc = Ga.dark_floors(fi, fc, Sq.FLOOR_IRON, Sq.FLOOR_COPPER); reduced = true end -- lot GARDE-CENTRALES : centrale sans tourelle
               d.floor_i, d.floor_cu, d.reduced = fi, fc, reduced or nil
               if affordable(items, fi, fc) then
                 d.why = want_defense(items, fi, fc) and "fabrication" or "manque"
@@ -815,6 +818,22 @@ function P.plan(view, book)
                 else
                   local _, pp = affordable(part, fi, fc)
                   d.why, d.partial, d.raw = "fer", true, pp.raw
+                  if p.dark then
+                    -- Lot GARDE-CENTRALES : la matière qui manque (cuivre à 0 pendant 15 min, fer à 5 000) est mise de côté : les projets du cerveau ne la
+                    -- dépensent plus à mesure qu'elle arrive (même mécanisme que le fonds de l'avant-poste de fer, shared/ai3/cerveau.lua C.consumed).
+                    local s0 = {}
+                    for k, v in pairs(avail) do s0[k] = v end
+                    s0[def_iron], s0[def_copper] = 0, 0
+                    local full = book:plan(part, s0).raw
+                    for _, k in ipairs({ def_copper, def_iron }) do
+                      if pp.raw[k] then
+                        local h = Ga.dark_hold({ dark = true, production_first = pri.production_first, avail = avail[k] or 0, cost = full[k] or 0,
+                          floor = k == def_iron and fi or fc })
+                        if h > (dark_hold[k] or 0) then dark_hold[k] = h end
+                      end
+                    end
+                    d.fonds = dark_hold[def_copper] or dark_hold[def_iron]
+                  end
                   -- Intégration 0.6.18 : le QG et la centrale gardent leur DEMANDE de matières (ce qui manque à la commande partielle
                   -- au-dessus des planchers), comme want_defense le faisait avant 3.4 ; sans elle, ni minage ni fonte du fer de leurs
                   -- tourelles (tests/survie_moteur_test.lua §4). Le front garde la règle de D4 (aucune demande).
@@ -855,6 +874,12 @@ function P.plan(view, book)
     end
     if held_taken then avail[iron_key] = (avail[iron_key] or 0) + held end
     if fund_hold > 0 then out.defense_hold = { [iron_key] = fund_hold } end -- lu par C.consumed (shared/ai3/cerveau.lua) : le cerveau ne dépense pas ce fer
+    for _, k in ipairs({ def_copper, def_iron }) do -- lot GARDE-CENTRALES : la matière mise de côté pour une centrale sans tourelle (clés triées)
+      if (dark_hold[k] or 0) > 0 then
+        out.defense_hold = out.defense_hold or {}
+        out.defense_hold[k] = math.max(out.defense_hold[k] or 0, dark_hold[k])
+      end
+    end
     out.defend = { undefended = waiting, craftable = turret_craftable, hq = view.hq_turrets or 0, posts = dposts }
     -- Lot DEFENSE-STOCK : les tourelles qui DORMENT au coffre (au-dessus d'une petite réserve) sont posées en groupes là où l'ennemi arrive
     -- (shared/team/defense_stock.lua, script/team/defense_stock.lua : view.reserve.pick). Poste FACULTATIF et SANS fabrication : le stock

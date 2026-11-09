@@ -97,4 +97,24 @@ function Ga.fund(a)
   return math.floor(math.min(num(a.avail), num(a.cost)))
 end
 
+--- Lot GARDE-CENTRALES. Mesure (fo-logs/2026-11-09_CANDIDAT/carte-g271828182-1d7c6218, votre équipe, 271828182) : de 80 à 107 min la centrale n'a
+--- AUCUNE tourelle à portée (« plant 0/2 fer ... manque copper-plate 10 », fer 5 000 à 10 000, cuivre 0 à 38 sous un plancher de 30) et perd
+--- ses pièces à 82, 94 et 107 min (« armees 0 »). Même règle que le fonds de l'avant-poste de fer : une centrale SANS AUCUNE tourelle à portée
+--- (`near` = 0) alors qu'elle en veut est SOMBRE ; sa commande se paie aux planchers du péril et la matière qui lui manque est mise de côté.
+function Ga.dark_plant(near, want)
+  return Ga.FUND_ON and num(near) <= 0 and num(want) > 0
+end
+
+--- Planchers de la commande d'une centrale sombre : jamais au-dessus de ceux du péril (fer, cuivre), jamais en dessous.
+function Ga.dark_floors(fi, fc, ri, rc)
+  return math.min(num(fi), num(ri)), math.min(num(fc), num(rc))
+end
+
+--- Matière mise de côté pour une centrale sombre : min(libre, coût de ce qui manque + plancher), 0 hors sombre ou en « production d'abord ».
+function Ga.dark_hold(a)
+  a = a or {}
+  if not a.dark or a.production_first then return 0 end
+  return math.floor(math.max(0, math.min(num(a.avail), num(a.cost) + num(a.floor))))
+end
+
 return Ga
