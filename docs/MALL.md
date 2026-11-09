@@ -421,3 +421,31 @@ demande une partie plus longue : `etape1-geants` porté à 90 min, soit un banc 
   - (a, défaut) T1 et T2 sur `etape1-geants` (40 min) et micro-bancs ; T3 et T4 sur `etape1-geants` porté à 90 min (banc long, à votre
     accord) ;
   - (b) sur votre partie seulement.
+
+## 11. Tranche 2 : ce qui est livré (9/11)
+
+Écarts à la conception du §7, assumés :
+- **Pas de tronc** à cette tranche : chaque rangée a sa TÊTE (quais par voie, remplis par les PNJ). Le tronc et les prises sont la tranche 3.
+- **La rangée sert plusieurs objets** : motif `asm-miroir-2e-coffres` (4 voies, 2 tapis, une recette par machine, sortie en coffre). La rangée dédiée à une recette en est le cas
+  particulier.
+- **S2 lu aussi au débit** (`Mp.S2_PLAQUES_MIN` = 30 plaques/min, statistiques de la force), en plus du projet fini : décision à soumettre au DC (risque au dernier point).
+- **Machine la moins rapide utilisable**, non la plus rapide.
+
+Chaîne : `Ind.think` (`script/ai3/industrie.lua:422`) ou ordre « chaine » (`script/ai3/capitalisation.lua:1666`) → `Rt.place` (`script/team/mall_rangee.lua:184`) → projet `site = "mall"`
+(`Build.SITES.mall`, `:101`) → chantier ordinaire → `Rt.minute` (`:335`) : barres, cellules rendues, allongement, compteurs `[FO-MALL] … PRODUCTION`. Le cerveau fabrique les manques
+(`Rt.contexte`, `:444`, lu par `script/ai3/automatisation.lua:671`).
+
+Mesuré :
+- Micro-banc `mall-rangee` (`fo-logs/2026-11-09_MALL/t2-rangee4-58f1f0c7`) : 23 OK ; 12 machines en ligne, 150 objets fabriqués, tapis purs, arbre défriché, arrêt devant l'eau avec sa
+  cause. Un bras par voie plafonnait à 0,8 objet/s ; deux bras : 1,65 objet/s.
+- Partie neuve de 90 min, une seule graine (`t2-neuve90-67887c48`) : scarlet ouvre 3 rangées (25,6 à 28,8 min, finies de 35,1 à 51,7 min) ; sa rangée 1 fait 1 535 objets à 85,6 min. Azure
+  ouvre 2 rangées ; sa rangée 1 fait 123 objets à 89 min. Votre équipe n'atteint jamais l'état S.
+
+Non prouvé, ou défaut ouvert :
+- **Ordres « chaine » : 0 passage au mall dans cette partie** ; le chemin n'est prouvé qu'hors jeu.
+- **Scarlet, rangée 3 : 0 objet** (voies d'objets intermédiaires, quais vides : cause supposée, non mesurée).
+- **Azure, rangée 2 : encore en réserve de matériaux** à 90 min ; le raccord au réseau n'est prouvé que sur ces parties.
+- **S2 au débit bat** (plaques mesurées sur une minute) : l'état S clignote, sans effet sur ce qui est posé.
+- **Risque de l'ouverture précoce** : couverture électrique des gisements à 88 min, azure 229 tuiles contre 725 sans S2 au débit (`t2-neuve90-a31ce386`), scarlet 118 contre 0. Une seule
+  graine, et l'intégration a bougé entre les deux parties : rien n'est attribué ; une mesure A/B sur plusieurs graines est à faire avant d'en conclure.
+- Pureté : `Pu.check` n'est pas appelé (branche `purete-tapis` non fusionnée). `carries` est déclaré sur chaque tapis et la pureté est lue au moteur dans le micro-banc.
