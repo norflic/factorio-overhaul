@@ -90,7 +90,11 @@ local function think(B, C, o)
 end
 local function crafted(plan, item)
   local n = 0
-  for _, t in ipairs(plan.tasks) do if t.kind == "craft" and t.item == item then n = n + (t.count or 0) end end
+  for _, t in ipairs(plan.tasks) do
+    if t.kind == "craft" and t.kit then -- lot POSE-PAR-LOTS : un kit porte toutes les pièces d'un projet
+      for _, w in ipairs(t.kit) do if w[1] == item then n = n + (w[2] or 0) end end
+    elseif t.kind == "craft" and t.item == item then n = n + (t.count or 0) end
+  end
   return n
 end
 local function army_goal(B, s)

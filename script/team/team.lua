@@ -121,6 +121,11 @@ local function book_for(f)
         local r = force.recipes[name]
         return r ~= nil and r.enabled
       end,
+      -- lot POSE-PAR-LOTS : taille des piles pour borner un kit de fabrication à l'inventaire du PNJ (shared/ai3/kit_lot.lua)
+      stack_of = function(item)
+        local ip = game.item_prototypes[item]
+        return ip and ip.stack_size or nil
+      end,
     })
     books[key] = b
   end

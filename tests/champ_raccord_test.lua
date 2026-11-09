@@ -146,7 +146,7 @@ do
     { "un seul tour", "for _ = 1, #own + 1 do", "for _ = 1, 1 do" },
     { "portee double pour la cible", "<= r2 then ok[comp[i]] = true", "<= 4 * r2 then ok[comp[i]] = true" },
     { "union absente", "if a ~= b then if a < b then parent[b] = a else parent[a] = b end end", "" },
-    { "echec oublie", "fails[#fails + 1] = { n = cnt, d = math.sqrt(best.d2), at = { x = best.first.x, y = best.first.y } }\n    end\n  end",
+    { "echec oublie", "fails[#fails + 1] = { n = cnt, d = math.sqrt(best.d2), at = { x = best.first.x, y = best.first.y }, to = { x = best.b.x, y = best.b.y } }\n    end\n  end",
       "end\n  end" },
   }
   local caught = 0
