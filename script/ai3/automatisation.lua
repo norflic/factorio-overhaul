@@ -181,7 +181,9 @@ local function measure_module(f, m)
   local surface = f.hq and f.hq.valid and f.hq.surface
   local s = surface and f.build and Build.brief(f, m.id)
   if not s then return 0 end
-  local made = 0
+  -- Fabrications par MACHINE (numéro d'unité) : une machine remplacée (amélioration de niveau : l'entité neuve repart à 0) ne se
+  -- soustrait pas à sa devancière. Moteur réel, banc acier-bloc : four remplacé, minute lue 3/min pour 7,5/min produits.
+  local made, cur, ids = 0, {}, {}
   for _, pt in ipairs(s.parts or {}) do
     local area = { { pt.x, pt.y }, { pt.x + pt.w, pt.y + pt.h } }
     for _, e in ipairs(surface.find_entities_filtered({ area = area, force = f.force, type = { "furnace", "assembling-machine" } })) do
@@ -190,14 +192,27 @@ local function measure_module(f, m)
         local r = e.get_recipe and e.get_recipe() or nil
         ok = r ~= nil and r.name == m.product
       end
-      if ok then made = made + (e.products_finished or 0) end
+      if ok then
+        local n = e.products_finished or 0
+        made = made + n
+        if e.unit_number then cur[e.unit_number] = n; ids[#ids + 1] = e.unit_number end
+      end
     end
   end
-  -- Un compteur qui BAISSE vient d'un remplacement de machine (amélioration de niveau : l'entité neuve repart à 0, moteur réel, banc
-  -- acier-bloc : four remplacé, minute lue 3/min pour 7,5/min produits) : la production depuis le remplacement est le plancher de la minute.
   local rate = 0
-  if m.made_prev then rate = made >= m.made_prev and (made - m.made_prev) or made end
-  m.made_prev = made
+  if m.made_prev then
+    local before = m.made_by
+    if before then
+      -- machine déjà lue : son écart ; machine neuve (remplaçante) : tout son compteur (plancher de la minute)
+      for _, u in ipairs(ids) do
+        local n, b = cur[u], before[u]
+        rate = rate + ((b and n >= b) and (n - b) or n)
+      end
+    else
+      rate = made >= m.made_prev and (made - m.made_prev) or made -- (suivi d'avant ce correctif, chargé d'une partie)
+    end
+  end
+  m.made_prev, m.made_by = made, cur
   return rate
 end
 
