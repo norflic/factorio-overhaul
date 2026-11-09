@@ -38,7 +38,9 @@ Cc.RETRY_TICKS = 18000  -- 5 min de pause après un refus
 Cc.LONG_RETRY_TICKS = 108000 -- 30 min de pause après Cc.MAX_TRIES refus (relecture : jamais d'abandon définitif)
 Cc.PROJECT_PRIO = 80    -- priorité du projet d'alimentation (ses tâches de chantier : min(80 + 30, 89) = 89, Build.FINISH_CAP)
 Cc.LOGS = 40            -- lignes [FO-CHARBON-CENTRALE] au plus par équipe
-
+Cc.BUFFER_KEEP = 60     -- charbons laissés à un tampon d'avant-poste (de quoi ravitailler ses brûleurs : il ne se vide jamais pour la centrale)
+Cc.BUFFER_MIN = 40      -- en dessous de ce reste utilisable, un voyage au tampon ne vaut pas la peine
+Cc.BUFFER_LOGS = 12     -- lignes « tampon » au plus par équipe
 --- Consommation de charbon (objets/s) à pleine charge : `kw` = somme des puissances de combustion des chaudières (kW, données),
 --- `coal_kj` = énergie d'un charbon (kJ, données). 0 si rien.
 function Cc.rate(kw, coal_kj)
@@ -70,6 +72,33 @@ function Cc.refill(n, rate, have, cap, steam_low)
   if r.count <= 0 then r.why = "rien a porter" return r end
   r.due, r.why = true, r.steam and "tampon de vapeur bas" or "sous le seuil"
   return r
+end
+
+--- Tampon de charbon (RECHERCHE-BRAS suite, COMBUSTIBLE-CENTRALE levier a, 8/11 : « les PNJ remplissent les chaudières depuis les coffres des
+--- foreuses ou un tampon, priorité vitale ») : le coffre de la centrale est sous son seuil ET le coffre du QG n'a plus de charbon (Cc.refill
+--- rend `short`) : les coffres de sortie des avant-postes de charbon (buffers = { { id, x, y, count, d2 }, ... }) portent le complément.
+--- Un tampon garde Cc.BUFFER_KEEP charbons (ses brûleurs) ; sous Cc.BUFFER_MIN utilisables, il est écarté. Préférence : un tampon qui couvre
+--- seul le besoin `want` (le plus proche, d2), sinon le plus garni ; à égalité, id puis x puis y (ordre total). Rend { buffer, count } ou nil
+--- et la raison.
+function Cc.pick_buffer(buffers, want, keep)
+  keep = keep or Cc.BUFFER_KEEP
+  if not (want and want > 0) then return nil, "rien a porter" end
+  local cands = {}
+  for _, b in ipairs(buffers or {}) do
+    local usable = (b.count or 0) - keep
+    if usable >= Cc.BUFFER_MIN then cands[#cands + 1] = { buffer = b, usable = usable, covers = usable >= want } end
+  end
+  if #cands == 0 then return nil, "aucun tampon utilisable" end
+  table.sort(cands, function(p, q)
+    if p.covers ~= q.covers then return p.covers end
+    if p.covers then
+      if (p.buffer.d2 or 0) ~= (q.buffer.d2 or 0) then return (p.buffer.d2 or 0) < (q.buffer.d2 or 0) end
+    elseif p.usable ~= q.usable then return p.usable > q.usable end
+    if tostring(p.buffer.id) ~= tostring(q.buffer.id) then return tostring(p.buffer.id) < tostring(q.buffer.id) end
+    if (p.buffer.x or 0) ~= (q.buffer.x or 0) then return (p.buffer.x or 0) < (q.buffer.x or 0) end
+    return (p.buffer.y or 0) < (q.buffer.y or 0)
+  end)
+  return { buffer = cands[1].buffer, count = math.min(want, cands[1].usable) }
 end
 
 --- La centrale est-elle nourrie par des foreuses ? kinds = genres de ses parties (« foreuses » : prévues à son plan, débit au-delà de

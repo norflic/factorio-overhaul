@@ -97,6 +97,15 @@ function M.compte()
   return c
 end
 
+--- Tête de répartiteurs pour l'entrée de K colonnes (K = 2, 4, 8) de pas et de rangée d'entrée donnés : motif COMPILÉ à la demande,
+--- non enregistré (instancier avec D.instancier(motif, 1, T)). Voir shared/team/motifs/distribution.lua. Renvoie (motif) ou (nil, raison).
+function M.distribution(K, pas, mid, hauteur, jetons)
+  local Dist = need("shared.team.motifs.distribution", "shared/team/motifs/distribution")
+  local def, why = Dist.definition(K, pas, mid, hauteur, jetons)
+  if not def then return nil, why end
+  return C.compiler(def)
+end
+
 --- Instance de n tuiles d'un motif (D.instancier) : pièces transformées, emprise, ports.
 function M.instancier(id, n, T, opt)
   local m = M.par_id[id]

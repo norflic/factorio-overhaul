@@ -261,7 +261,9 @@ local function search(s, t, td, bounds, cost, ctx, pen, lim, wt, capn, use_ug)
           for a = #rev, 1, -1 do out[#out + 1] = rev[a] end
           return out, expanded
         end
-      else
+      -- tracé par tranches (ctx.resume) : entre deux passes le moteur a pu occuper cette tuile, relue libre à l'empilement. L'état est abandonné : sinon
+      -- `false` entre dans le prix (plantage de la partie neuve du 9/11 à 15 min, en `relax`)
+      elseif free(cur.x, cur.y) then
         local cx, cy, cd = cur.x, cur.y, cur.d
         local ctc = tc(cx, cy)
         -- tapis posé ici, tout droit ou en virage (jamais demi-tour ; tout droit imposé après une sortie de souterrain)

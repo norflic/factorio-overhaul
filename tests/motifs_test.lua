@@ -452,6 +452,31 @@ do
   check(d and near(d.sortie.P, 1.25) and d.n_tapis == 6, "fusion : mêmes 1,25 plaques/s par tuile, 6 tuiles par voie de minerai (" .. tostring(d and d.n_tapis) .. ")")
 end
 do
+  -- têtes de répartiteurs pour K colonnes : 1/K du flux sur chaque sortie, sorties aux rangées d'entrée des colonnes empilées
+  for _, K in ipairs({ 2, 4, 8 }) do
+    for _, spec in ipairs({ { 11, 5 }, { 13, 6 } }) do
+      local id = "distribution-" .. K .. "-pas-" .. spec[1]
+      local m = Cat.get(id)
+      check(m ~= nil and equilibre(m), id .. " : une entrée se répartit en 1/" .. K .. " sur chaque sortie")
+      local rows_ok = m ~= nil and #m.sorties == K
+      for k, so in ipairs(m and m.sorties or {}) do
+        if so.pos ~= spec[2] + (k - 1) * spec[1] or so.k ~= k then rows_ok = false end
+      end
+      check(rows_ok and m.h == (K - 1) * spec[1] + spec[1], id .. " : sortie k à la rangée " .. spec[2] .. " + (k − 1) × " .. spec[1] .. ", hauteur K × pas")
+      check(m.derive.n_entrees == 1 and m.derive.m_sorties == K and not m.repetable, id .. " : 1 entrée, " .. K .. " sorties, tuile unique")
+    end
+  end
+  local g, why = Cat.distribution(2, 15, 7, 15, { A = { 1 } })
+  check(g ~= nil and #K.verifier(g) == 0 and equilibre(g), "fabrique à la demande (pas 15) : cohérente et équilibrée")
+  check(Cat.distribution(3, 11, 5, 11, { A = { 1 } }) == nil, "K = 3 refusé (pas de répartition en tiers par répartiteurs simples)")
+  local r = Ch.choisir({ zone = { x = 0, y = 0, l = 12, h = 50 }, famille = "equilibreur", usage = "distribution", demande = { entrees = 1, sorties = 4, pas = 11 }, ctx = {} })
+  check(r.motif == "distribution-4-pas-11" and r.n == 1 and r.h == 44, "sélection d'une tête 1 → 4 de pas 11 : " .. tostring(r.motif))
+  local r2 = Ch.choisir({ zone = { x = 0, y = 0, l = 12, h = 50 }, famille = "equilibreur", demande = { entrees = 1, sorties = 4 }, ctx = {} })
+  local cz
+  for _, e in ipairs(r2.ecartes) do if e.id == "distribution-4-pas-11" then cz = e.cause end end
+  check(r2.motif == "equilibreur-1-4" and cz == "demande_incompatible", "sans pas : l'arbre simple, jamais la tête de distribution")
+end
+do
   local m = Cat.get("bus-piquage-voie-exterieure")
   local inst = D.instancier(m, 1, { rot = 0, miroir = false })
   local s = suivi(inst, { [4] = true })

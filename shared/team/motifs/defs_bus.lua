@@ -139,4 +139,17 @@ L[#L + 1] = eq("equilibreur-4-4", "Équilibreur 4 vers 4 (papillon)", "4-to-4 bu
     "...ttttn..",
   }, 4, 4, { 0, 1, 2, 3 }, { 0, 1, 2, 3 }, 4)
 
+---------------------------------------------------------------------------------------------------
+-- Têtes de répartiteurs pour l'entrée de K colonnes empilées (shared/team/motifs/distribution.lua)
+---------------------------------------------------------------------------------------------------
+do
+  local Dist = need("shared.team.motifs.distribution", "shared/team/motifs/distribution")
+  -- pas 11 : colonnes de fonte 2×2 (tapis central à la rangée 5, minerai voie 1 et combustible voie 2) ;
+  -- pas 13 : colonnes de fonte électrique 3×3 (rangée 6, minerai sur les deux voies)
+  for _, K in ipairs({ 2, 4, 8 }) do
+    L[#L + 1] = assert(Dist.definition(K, 11, 5, 11, { A = { 1 }, combustible = { 2 } }))
+    L[#L + 1] = assert(Dist.definition(K, 13, 6, 13, { A = { 1, 2 } }))
+  end
+end
+
 return L
