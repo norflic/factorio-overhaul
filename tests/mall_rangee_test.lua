@@ -149,6 +149,15 @@ for _, s in ipairs(SECTORS) do
       check(pick ~= nil and pick.name == NAMES.tapis, tag .. "bras long : prise sur un tapis")
       check(drop ~= nil and drop.name == NAMES.machine, tag .. "bras long : dépose dans une machine")
     end
+    -- tracés de pureté : chaque tuile mène à la suivante, dans l'ordre du flux
+    for k = 1, 2 do
+      local ln = sec.lines[k]
+      check(#ln >= 12, tag .. "tracé du tapis " .. k .. " (" .. #ln .. " tuiles)")
+      for i = 1, #ln - 1 do
+        local v = DV[ln[i].dir]
+        check(ln[i].x + v[1] == ln[i + 1].x and ln[i].y + v[2] == ln[i + 1].y, tag .. string.format("tracé %d continu à la tuile %d", k, i))
+      end
+    end
     -- quais et sorties
     check(#sec.quais == Mr.ARMS * #voies, tag .. "Mr.ARMS quais par voie (" .. #sec.quais .. ")")
     for _, q in ipairs(sec.quais) do

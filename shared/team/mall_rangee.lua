@@ -151,6 +151,7 @@ function Mr.cellule(modele, i, cell, names, carries)
       c.recipe = (p.groupe == "haut") and cell.h or cell.b
     elseif p.role == "tapis_entree" then
       c.carries = carries[p.k]
+      c.line, c.flow = p.k, dx + p.x
     elseif p.role == "coffre" then
       -- coffre : le coffre du haut (k = 1) reçoit la machine « haut », celui du bas (k = 2) la machine « bas »
       c.role = "mall-sortie"
@@ -173,14 +174,18 @@ function Mr.tete(P, voies, names)
   local lanes = { { voies[1], voies[2] or voies[1] }, { voies[3] or voies[1], voies[4] or voies[3] or voies[1] } }
   for k = 1, 2 do
     local y = rows[k]
-    for x = Mr.PORT_X, -1 do ents[#ents + 1] = { name = names.tapis, x = x + 0.5, y = y + 0.5, dir = 2, role = "mall-tete", carries = carries[k] } end
+    for x = Mr.PORT_X, -1 do ents[#ents + 1] = { name = names.tapis, x = x + 0.5, y = y + 0.5, dir = 2, role = "mall-tete", carries = carries[k], line = k, flow = -100 + (x - Mr.PORT_X) } end
     if k <= nb then
       local port = { x = Mr.PORT_X, y = y, dir = dirs[k], lanes = lanes[k] }
       local same = lanes[k][1] == lanes[k][2]
       local fd = P.feeder(port, { "quai", (not same) and "quai" or nil }, names.bras, names.tapis, Mr.ARMS)
+      local upstream = 0
       for _, e in ipairs(fd.entities) do
-        e.carries = (e.role == "tete") and carries[k] or nil
-        e.role = (e.role == "tete") and "mall-tete" or e.role
+        if e.role == "tete" then
+          upstream = upstream + 1 -- (P.feeder donne ses tapis du coude vers l'amont)
+          e.carries, e.line, e.flow = carries[k], k, -100 - upstream
+          e.role = "mall-tete"
+        end
         ents[#ents + 1] = e
       end
       for _, c in ipairs(fd.chests) do quais[#quais + 1] = { x = c.x, y = c.y, item = c.item } end
@@ -256,7 +261,7 @@ function Mr.section(P, modele, row, from, to, names, repere, head)
   local function push(list, dest)
     for _, e in ipairs(list) do
       local x, y, d = Mr.to_world(e.x, e.y, e.dir, repere.k, repere.ox, repere.oy, row.j)
-      dest[#dest + 1] = { name = e.name, x = x, y = y, dir = d, recipe = e.recipe, role = e.role, carries = e.carries, item = e.item }
+      dest[#dest + 1] = { name = e.name, x = x, y = y, dir = d, recipe = e.recipe, role = e.role, carries = e.carries, item = e.item, line = e.line, flow = e.flow }
     end
   end
   if head then
@@ -275,7 +280,13 @@ function Mr.section(P, modele, row, from, to, names, repere, head)
       outs[#outs + 1] = { x = x, y = y, item = o.item }
     end
   end
-  return { ents = ents, quais = quais, outs = outs }
+  -- tracés des deux tapis, dans l'ordre du flux (preuve de pureté : Pur.check_route)
+  local lines = { {}, {} }
+  for _, e in ipairs(ents) do
+    if e.line then lines[e.line][#lines[e.line] + 1] = { x = floor(e.x), y = floor(e.y), dir = e.dir, flow = e.flow } end
+  end
+  for k = 1, 2 do table.sort(lines[k], function(a, b) return a.flow < b.flow end) end
+  return { ents = ents, quais = quais, outs = outs, lines = lines, carries = carries }
 end
 
 --- Liste de matériel { { nom, n } } triée par nom, comptée sur des entités.

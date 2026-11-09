@@ -190,6 +190,13 @@ local function automated(f, pl)
   return false
 end
 
+--- Réglage fo-war-mall-s2-debit (A/B du seuil de S2 ; absent : allumé).
+function Mall.s2_debit()
+  local ok, v = pcall(function() return settings.global["fo-war-mall-s2-debit"].value end)
+  if not ok then return true end
+  return v == true
+end
+
 --- Plaques `item` produites par minute par la force (statistiques du moteur) ; 0 sans statistiques.
 local function plate_flow(f, item)
   local force = game.forces[f.force]
@@ -229,7 +236,7 @@ function Mall.inputs(f)
   local pp = b.plant and b.projects[b.plant]
   local inp = { plant = pp ~= nil and pp.state == "fini" and b.plant_watch ~= nil and b.plant_watch.first_power ~= nil, plaques = {} }
   for _, pl in ipairs(plates()) do
-    inp.plaques[#inp.plaques + 1] = { item = pl.item, auto = automated(f, pl) or plate_flow(f, pl.item) >= Mp.S2_PLAQUES_MIN } -- automatisée : un projet fini, ou le débit mesuré
+    inp.plaques[#inp.plaques + 1] = { item = pl.item, auto = automated(f, pl) or (Mall.s2_debit() and plate_flow(f, pl.item) >= Mp.S2_PLAQUES_MIN) } -- automatisée : un projet fini, ou le débit mesuré
   end
   inp.crise = crise(f)
   inp.asm = assembler_usable(f)

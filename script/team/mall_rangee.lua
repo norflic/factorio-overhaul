@@ -17,6 +17,7 @@
 local Mr = require("shared.team.mall_rangee")
 local Cat = require("shared.team.motifs.catalogue")
 local P = require("shared.team.plan")
+local Pu = require("shared.team.purete")
 local M = require("shared.team.modules")
 local A = require("shared.ai3.automatiser")
 local Id = require("shared.ai3.industrie")
@@ -114,6 +115,17 @@ Build.SITES.mall = function(f, surface, p, h)
       if occ and occ ~= Build.Mall.OCC and occ ~= p.id then return nil, string.format("obstacle:reserve en (%d, %d)", t[1], t[2]) end
       if masks.water[k] then return nil, string.format("obstacle:eau en (%d, %d)", t[1], t[2]) end
       if masks.blocked[k] then return nil, string.format("obstacle:batiment en (%d, %d)", t[1], t[2]) end
+    end
+  end
+  -- pureté (shared/team/purete.lua, script/team/purete.lua) : chaque tapis de la section porte ses objets déclarés ; aucun tapis étranger ne verse dessus, il ne verse sur aucun
+  if Build.Pur and surface then
+    local own = {}
+    for _, e in ipairs(sec.ents) do
+      for _, t in ipairs(P.tiles_of(e)) do own[Pu.tkey(t[1], t[2])] = true end
+    end
+    for k = 1, 2 do
+      local okp, whyp = Build.Pur.check_route(f, surface, p, "mall", sec.lines[k], sec.carries[k], {}, { own = own })
+      if not okp then return nil, "purete : " .. tostring(whyp) end
     end
   end
   -- raccord au réseau alimenté (section de tête : la rangée suivante se branche sur la précédente ou sur le réseau)
@@ -359,7 +371,7 @@ function Rt.minute(f, surface, lec, sources, afford, tick)
         q.dead = true
         local why = p and p.reason or "projet perdu"
         for k = #r.cells, q.from, -1 do r.cells[k] = nil end
-        if tostring(why):find("obstacle", 1, true) then r.stop = tostring(why) end
+        if tostring(why):find("obstacle", 1, true) or tostring(why):find("purete", 1, true) then r.stop = tostring(why) end
         say(f, st, tick, string.format("rangee %d : section %d-%d refusee (%s) : cellules rendues, arret : %s", r.j, q.from, q.to, tostring(why), tostring(r.stop)))
       end
     end
@@ -478,7 +490,9 @@ function Rt.report(f)
     end
     rows[#rows + 1] = { j = r.j, voies = r.voies, cells = #r.cells, stop = r.stop, projects = projs }
   end
-  return { sect = st.sect, rep = st.rep, rows = rows, fab = st.fab, pret = st.pret, force = st.force_pret }
+  local outposts = 0
+  for _ in pairs(f.outposts or {}) do outposts = outposts + 1 end -- (comptage : l'ordre n'a aucun effet)
+  return { sect = st.sect, rep = st.rep, rows = rows, fab = st.fab, pret = st.pret, force = st.force_pret, team_force = f.force, outposts = outposts }
 end
 
 local function team_of(key)

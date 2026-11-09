@@ -20,7 +20,9 @@ _G.game = { tick = 0, entity_prototypes = PROTOS, item_prototypes = setmetatable
 
 local RELEASED = {}
 local REQ = {}
-local Build = { SITES = {}, QUAI_CHEST = "iron-chest", Mall = { OCC = -1, on = function() return true end } }
+local PUR = { ok = true, why = nil, calls = 0 }
+local Build = { SITES = {}, QUAI_CHEST = "iron-chest", Mall = { OCC = -1, on = function() return true end },
+  Pur = { check_route = function() PUR.calls = PUR.calls + 1; return PUR.ok, PUR.why end } }
 function Build.request(f, spec)
   local id = f.build.next_id
   f.build.next_id = id + 1
@@ -166,6 +168,16 @@ do
   f.build.occ[P.tkey(t0[1], t0[2])] = 77
   local lay3, why3 = Build.SITES.mall(f, nil, p, { read_masks = mock_masks() })
   check(lay3 == nil and tostring(why3):find("obstacle:reserve", 1, true) ~= nil, "§5 tuile d'un autre projet : refus")
+  f.build.occ[P.tkey(t0[1], t0[2])] = -1
+  -- pureté : refus du tracé
+  st.sans_raccord = true
+  PUR.ok, PUR.why = false, "pointe_vers_etranger"
+  local lay5, why5 = Build.SITES.mall(f, {}, p, { read_masks = mock_masks() })
+  check(lay5 == nil and tostring(why5):find("purete", 1, true) ~= nil and PUR.calls >= 1, "§5 pureté : refus avec cause (" .. tostring(why5) .. ")")
+  PUR.ok, PUR.why = true, nil
+  PUR.calls = 0
+  local lay6 = Build.SITES.mall(f, {}, p, { read_masks = mock_masks() })
+  check(lay6 ~= nil and PUR.calls == 2, "§5 pureté : les deux tapis contrôlés (" .. PUR.calls .. ")")
   f.build.occ[P.tkey(t0[1], t0[2])] = -1
   -- raccord sauté si pas de site ; plan accepté
   st.sans_raccord = true
