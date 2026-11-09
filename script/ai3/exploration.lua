@@ -58,6 +58,7 @@ local Ext = require("script.ai3.extension") -- lot C3 EXTENSION : veille poussé
 local Ex = require("shared.ai3.extension")
 local Veille = require("script.faction.veille") -- lot VEILLE : reconnaissance régulière par ouvrier libre (état, compteurs, bilans)
 local V = require("shared.faction.veille")
+local SA = require("shared.ai3.sites_avance") -- lot EXPLORATION-FER : exploration anticipée du type clé (f.site_soon)
 -- Lot RECO-DIRECTION : reconnaissance par la direction des attaques (mission « reco », carnet transmis au retour).
 local Reco = require("script.ai3.reco")
 
@@ -349,7 +350,7 @@ local function on_fresh(f, k, surface, key, names, tick)
     local r = k.req[res]
     if r and K.count(k.m, res) > (r.known0 or 0) then close_request(f, k, res, tick, "trouve") end
     -- Une ressource demandée par le cerveau (sites d'avant-poste) : le gisement est évalué tout de suite.
-    if (f.site_needs or {})[res] and f.site_needs[res] > 0 and Sites.available(f, res) == 0 then
+    if SA.short(Sites.available(f, res), (f.site_needs or {})[res], (f.site_soon or {})[res]) then
       for _, s in ipairs(k.m.s[key].r or {}) do
         if s.name == res and Sites.probe_at(f, surface, s.x, s.y, tick) then
           k.stats.injected = (k.stats.injected or 0) + 1
@@ -868,14 +869,14 @@ local function auto_requests(f, k, surface, tick)
   -- Besoin de site sans site en réserve : d'abord les gisements CONNUS, sinon explorer.
   local needs = f.site_needs or {}
   for _, res in ipairs(sorted_keys(needs)) do
-    if (needs[res] or 0) > 0 and Sites.available(f, res) == 0 then
+    if SA.short(Sites.available(f, res), needs[res], (f.site_soon or {})[res]) then
       if not inject_known(f, k, surface, res, tick) then open_request(f, k, res, tick, "site") end
     end
   end
   -- Fermetures : besoin satisfait, demande de minage non renouvelée.
   for _, res in ipairs(sorted_keys(k.req)) do
     local r = k.req[res]
-    if r.why == "site" and ((needs[res] or 0) == 0 or Sites.available(f, res) > 0) then
+    if r.why == "site" and not SA.short(Sites.available(f, res), needs[res], (f.site_soon or {})[res]) then
       close_request(f, k, res, tick, "satisfait")
     elseif r.why == "minage" and tick - (r.renewed or r.t) >= MINE_REQ_TTL then
       close_request(f, k, res, tick, "expiree")

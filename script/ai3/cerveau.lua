@@ -24,6 +24,7 @@
 ]]
 
 local T = require("shared.team.config")
+local SA = require("shared.ai3.sites_avance") -- lot EXPLORATION-FER : sites de fer connus d'avance
 local Book = require("shared.team.book")
 local Planner = require("shared.team.planner")
 local B = require("shared.ai3.buts")
@@ -957,6 +958,29 @@ function Ia3.plan_b(f, view, book, surface, tick, L)
       st.explore_logged[res] = tick
       log(string.format("[FO-IA3C] %s : exploration demandee pour '%s' (aucune source connue) a %.1f min", f.key, res,
         minutes(f, tick)))
+    end
+  end
+  -- Lot EXPLORATION-FER : le type clé (fer) garde 2 sites connus d'avance (shared/ai3/sites_avance.lua) : sa prospection et son exploration
+  -- partent avant « sites 0 ». f.site_soon est relu par script/ai3/exploration.lua (SA.short) ; f.site_needs par la prospection.
+  do
+    local top = key and key.top
+    local spec = top and T.outposts[top]
+    local want = 0
+    if spec and SA.ON then
+      local n_out = 0
+      for _, o in ipairs(view.outposts or {}) do if o.kind == top then n_out = n_out + 1 end end
+      want = SA.wanted({ outposts = n_out, sites = (view.sites or {})[top] or 0, threat = view.hq_threat or view.threatened })
+    end
+    if want > 0 then
+      plan.site_needs[top] = math.max(plan.site_needs[top] or 0, want)
+      f.site_soon = { [spec.resource] = want }
+      if not st.sa_logged then
+        st.sa_logged = tick
+        log(string.format("[FO-ANTICIPE] %s : sites de %s connus %d < %d, exploration et prospection anticipees a %.1f min", f.key, spec.resource,
+          (view.sites or {})[top] or 0, want, minutes(f, tick)))
+      end
+    else
+      f.site_soon = nil
     end
   end
   -- Annonces du cerveau (projets ouverts, finis, bloqués) : une ligne du journal du mod chacune.
