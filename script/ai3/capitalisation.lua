@@ -128,6 +128,7 @@ Capi.BACKOFF_MAX = 40 * 3600 -- au plus 40 min (banc p3 du lot : 63 demandes ref
 Capi.COUV_EVERY = 5 * 3600   -- lot CAPI-MESURE : une ligne [FO-CAPI-COUV] par gisement toutes les 5 min
 Capi.EQUIP_BATCH = 6         -- lot LEVIERS : machines équipées par tâche de PNJ (Equip.BATCH)
 Capi.UNITS_MAX = 48          -- lot LEVIERS : machines gardées par groupe au relevé (positions, pour la tâche « equiper »)
+Capi.MallRt = require("script.team.mall_rangee") -- lot MALL (tranche 2) : les ordres « chaine » vont dans une rangée du mall (champ, pas une locale)
 Capi.RaRt = require("script.ai3.rangees_asm") -- lot RANGEES-ASM : rangées agrandies au lieu d'îlots (champ, pas une locale)
 Capi.MODULES_PER_ORDER = 1   -- modules du plan directeur au plus par ordre (chacun au plus A.FIRST_RATE_MAX objets/min :
                              -- un gabarit plus grand ne tient pas dans un lot, moteur réel p1, « pas de lot », « trop grand »).
@@ -342,6 +343,8 @@ local function fit_module(meth, rate, book, stock, has_plant, harvest, belt_flow
   if #miss > 0 then return nil, miss end
   return g, args
 end
+
+Capi.fit_module = fit_module -- lot ACIER : la rangée de fours d'acier (script/team/acier.lua) dimensionne son gabarit comme un ordre de la capitalisation
 
 local function module_ok(meth, book, stock, has_plant, rate, harvest, belt_flow)
   local g, miss = fit_module(meth, math.min(rate or A.FIRST_RATE_MAX, A.FIRST_RATE_MAX), book, stock, has_plant, harvest, belt_flow)
@@ -1661,6 +1664,13 @@ local function execute(f, cs, o, view, book, tick, research)
     -- Lot RANGEES-ASM : une chaîne agrandit la rangée en attente de la même recette, ou pose une rangée dimensionnée sur la
     -- demande (5 machines au moins quand elle le justifie), près des autres (script/ai3/rangees_asm.lua) ; false : ancien chemin
     if o.kind == "chaine" then
+      -- lot MALL (tranche 2, docs/MALL.md §3) : l'état S vrai, l'objet va dans une rangée du mall (une section de plus) au lieu d'un module isolé ; refus : le chemin d'avant, cause écrite
+      local mid = Capi.MallRt.chaine(f, o, book, vstock, tick, A.choose_pole(book, vstock, Harvest.reachable(f)))
+      if mid then
+        rec.exec, rec.product = "mall", o.item
+        if mid ~= true then rec.mall_id = mid end
+        return rec
+      end
       local rids, rwhy = Capi.RaRt.execute(f, o, meth,
         function(m2, rate) return fit_module(m2, rate, book, view.stock or {}, Auto.plant_state(f) ~= nil, Harvest.reachable(f), Auto.belt_flow(f)) end,
         function(m2, g, args, near, dyn)
@@ -1803,6 +1813,12 @@ local function follow(f, cs, rec, tick)
     if n ~= rec.built then rec.built, rec.progress_tick = n, tick end
     rec.n_left = math.max(0, (rec.target or 0) - n)
     if n >= (rec.target or 0) then return "fini" end
+    return "ouvert"
+  end
+  if rec.exec == "mall" then -- lot MALL : la section de rangée demandée (aucune : l'objet était déjà servi)
+    local p = rec.mall_id and f.build and f.build.projects[rec.mall_id]
+    if not rec.mall_id or (p and p.state == "fini") then return "fini" end
+    if not p or p.state == "refuse" then return "echec", p and tostring(p.reason) or "section du mall perdue" end
     return "ouvert"
   end
   return "echec", "executant inconnu"

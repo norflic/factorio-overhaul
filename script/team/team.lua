@@ -58,6 +58,7 @@ local Sq = require("shared.team.survie_qg") -- lot QGSURVIE : réserve de fer du
 local PileRt = require("script.team.pile") -- lot PILE-PRIORITE : la pile retient l'amélioration (réparer + protéger d'abord)
 local Flux = require("shared.team.flux") -- lot FLUX : sorties des avant-postes comptées comme objets attendus (règle pure)
 local REPAT_ONLY = Flux.plates_of(Flux.plate_map(T.OUTPOST_ORDER, T.outposts, T.smelter_inputs)) -- lot FLUX : seules les plaques comptent comme objets attendus
+local Acier = require("script.team.acier") -- lot ACIER : bloc « fonderie d'acier » (rangée de fours) et coupure des tournées manuelles d'acier
 local Inter = require("script.team.intermediaires") -- lot MAIN-ET-INTERMEDIAIRES (D09, D10) : pas de minage à la main de ce que les machines sortent, plafond des intermédiaires
 local Src = require("script.team.sources") -- lot MINAGE-MAIN : registre des coffres de SORTIE, tournées « fetch », plus de minage à la main de ce qui dort dans une sortie
 local MigChamp = require("script.team.migration_champ") -- lot MIGRATION-CHAMP : un avant-poste de paires thermiques migré par parties vers des rangées électriques
@@ -975,6 +976,7 @@ TT.e1c = function(f, surface, tick, et)
       plan.tasks[#plan.tasks + 1] = { key = "smelt", kind = "smelt", prio = 85, smelt = plan.smelt }
     end
   end
+  Acier.apply(f, view, book_for(f), plan, tick) -- lot ACIER : bloc de fours d'acier demandé ; l'acier quitte le plan (tournées manuelles) quand un bloc fini produit assez
   local tasks_avant_filtre = plan.tasks
   -- Lot FOURS (remarque 13 du DC) : une tournée de fonte ne part que si elle sert (shared/team/chaine_main.lua) : minerai à
   -- charger dans un four libre ou à compléter, sortie qui vaut le déplacement, four à ravitailler avec du charbon au coffre.
