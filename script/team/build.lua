@@ -4799,7 +4799,12 @@ local function pulse_team(f, tick)
   Build.Mall.step({ couloirs = Build.couloirs, jeton = Jeton, pulse = Build.PULSE }, f, surface, tick) -- lot MALL : secteur (relevé par chunks sous le jeton), état S
   Profiler.fstart("bp:centrale")
   -- 5. lot CORR-ENERGIE : centrale saturée, une centrale de plus (même mécanisme que la première)
-  local nb, stale, secours = PlantArms.watch(f, surface, tick, function(p) return (plant_automated(f.build, p)) end) -- lot COURANT-AVANCE : le combustible suit
+  local nb, stale, secours = PlantArms.watch(f, surface, tick, function(p) return (plant_automated(f.build, p)) end,
+    function() -- lot COURANT-AVANCE : Mc.low (migration_champ, chargé plus tard : pas de require en événement, F24)
+      local mig = package.loaded["script.team.migration_champ"]
+      if mig and mig.fuel_low then return mig.fuel_low(f, surface) end
+      return false, 0, 0
+    end)
   for _, id in ipairs(stale or {}) do Build.cancel(f, id, PlantArms.STALE_REASON) end
   if nb then Build.grow_plant(f, nb, tick, secours) end
   -- 6. lot CHARBON-CENTRALE : une centrale nourrie à la main demande ses foreuses (horloge propre)

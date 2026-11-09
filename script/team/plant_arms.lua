@@ -158,7 +158,7 @@ end
 --- (réserve de matériaux incomplète depuis trop longtemps) ; la demande est faite par Build.grow_plant, l'abandon par Build.cancel.
 PA.WATCH_EVERY = 300
 PA.LOG_EVERY = 5 * 3600 -- lot ENERGIE-CROISSANCE : bilan [FO-ENERGIE] toutes les 5 min
-function PA.watch(f, surface, tick, fed_fn)
+function PA.watch(f, surface, tick, fed_fn, fuel_fn)
   local b = f.build
   b.grow = b.grow or { sat = 0 }
   local g = b.grow
@@ -271,7 +271,10 @@ function PA.watch(f, surface, tick, fed_fn)
   -- lot COURANT-AVANCE : plafond en kW, pas en nombre de centrales (demande décidée ou en vol = production + S.DRAW x chantiers et retenus + électriques prévues)
   local need_kw = (used_kw or 0) + Sa.DRAW * (committed_kw or 0) + (elec_kw or 0)
   local fed_kw = fed_fn and fed_j * 60 / 1000 or nil
-  local nb, why = C.growth(g, { cap_kw = fed_fn and (cap_kw or 0) or nil, need_kw = need_kw, fed_kw = fed_kw, done = done, pending = pending - ns, rebuilding = math.max(0, rebuilding - ns), refused = refused, hold = hold,
+  -- lot COURANT-AVANCE : le combustible manque-t-il ? (Mc.low par rappel ; lu seulement au-dela du plafond de nombre, il coute un relevé des génératrices)
+  local fuel_low, fuel_stock, fuel_floor
+  if fuel_fn and done >= C.MAX_PLANTS then fuel_low, fuel_stock, fuel_floor = fuel_fn() end
+  local nb, why = C.growth(g, { cap_kw = fed_fn and (cap_kw or 0) or nil, need_kw = need_kw, fed_kw = fed_kw, fuel_low = fuel_low, done = done, pending = pending - ns, rebuilding = math.max(0, rebuilding - ns), refused = refused, hold = hold,
     cool = tick < (g.cool_until or 0), off = b.opts and b.opts.no_grow == true, lost = lost, built = boilers_alive,
     anticipate = anticipate, secours_n = g.secours_n, deficit_kw = deficit_kw, boiler_kw = boiler_kw, pending_kw = pending_kw,
     lane_cap = Cv.lane_cap(M.BELT_RATE, boiler_kw, M.COAL_J) })
@@ -289,8 +292,9 @@ function PA.watch(f, surface, tick, fed_fn)
       f.key or "player", tick / 3600, deficit_kw, deficit_kw - (elec_kw or 0), elec_kw or 0, cap_kw or 0, used_kw or 0, nb))
   end
   if nb and done >= C.MAX_PLANTS and not lost and not crisis then
-    log(string.format("[FO-ENERGIE] %s : centrale AU-DELA du plafond de %d a %.1f min : %d finie(s), demande %.0f kW (production %.0f + chantiers et retenus %.0f x %.1f + electriques %.0f) pour %.0f kW de capacite, %.0f kW nourris par foreuses : centrale de %d chaudiere(s)",
-      f.key or "player", C.MAX_PLANTS, tick / 3600, done, need_kw, used_kw or 0, committed_kw or 0, Sa.DRAW, elec_kw or 0, cap_kw or 0, fed_kw or 0, nb))
+    log(string.format("[FO-ENERGIE] %s : centrale AU-DELA du plafond de %d a %.1f min : %d finie(s), demande %.0f kW (production %.0f + chantiers et retenus %.0f x %.1f + electriques %.0f) pour %.0f kW de capacite, %.0f kW nourris par foreuses, combustible %.1f au coffre pour %.2f/s brules : centrale de %d chaudiere(s)",
+      f.key or "player", C.MAX_PLANTS, tick / 3600, done, need_kw, used_kw or 0, committed_kw or 0, Sa.DRAW, elec_kw or 0, cap_kw or 0, fed_kw or 0,
+      fuel_stock or 0, fuel_floor or 0, nb))
   end
   if nb and lost then
     log(Cv.line({ kind = "perte", team = f.key or "player", tick = tick, alive = capacity + reopened_alive, planned = planned, nb = nb }))

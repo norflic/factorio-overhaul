@@ -588,6 +588,13 @@ local function fuel_floor(f, surface)
   return Mc.floor(fuel_burn(f, surface), burner_groups(f), fuel_kj())
 end
 
+--- Lot COURANT-AVANCE : le combustible de l'équipe manque-t-il (règle Mc.low : le stock ne tient pas Mc.CFG.horizon secondes du plancher) ? Lu par le relevé
+--- des centrales (script/team/plant_arms.lua, par rappel de build.lua) avant d'autoriser une centrale de plus au-delà du plafond. Rend (manque, stock, plancher).
+function Mig.fuel_low(f, surface)
+  local stock, floor = Stock.count(f, T.fuel), fuel_floor(f, surface)
+  return Mc.low(stock, floor), stock, floor
+end
+
 --- Gisements de la force pour la règle pure : un par propriétaire de champ (les voisins du même gisement lui sont rattachés), un par
 --- avant-poste ou gisement voulu sinon. Rend (liste, par numéro).
 local function build_fields(f, surface, ms, free)

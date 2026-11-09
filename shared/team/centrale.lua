@@ -35,7 +35,8 @@ C.STALE_REASON = "delai" -- raison du projet annulé (ne compte pas comme un ref
 -- Lot COURANT-AVANCE (9/11, partie g1618033988 de scarlet : « plafond de centrales » dès 79 min, centrale saturée à 98 min, 16 foreuses sans courant à
 -- 95 min, 14 367 kW pris sur 14 400 kW) : le plafond C.MAX_PLANTS compte des CENTRALES, pas des kW. Au-delà, une centrale de plus est permise tant que
 -- (a) la demande décidée ou en vol atteint C.DEMAND_FRAC de la capacité et (b) le combustible suit (au moins C.FED_FRAC de la capacité est nourrie
--- par des foreuses) ; C.ABS_PLANTS reste le plafond absolu.
+-- par des foreuses) et (c) le combustible n'est pas en manque (règle Mc.low de shared/team/migration_combustible.lua, lue par l'appelant : n.fuel_low ;
+-- consigne du lead, 9/11 : l'effondrement en Normal vient du charbon, jamais d'une centrale de plus quand il manque) ; C.ABS_PLANTS reste le plafond absolu.
 C.ABS_PLANTS = 16    -- centrales finies au plus, quoi qu'il arrive
 C.DEMAND_FRAC = 0.7  -- part de la capacité que la demande (production + chantiers + retenus) doit atteindre pour passer C.MAX_PLANTS
 C.FED_FRAC = 0.9     -- part de la capacité nourrie par des foreuses (le combustible suit) pour passer C.MAX_PLANTS
@@ -113,7 +114,7 @@ function C.parallel_kw(st, n)
 end
 
 --- Plafond de centrales (lot COURANT-AVANCE). n : { done (centrales finies), cap_kw (capacité vive, kW ; nil = inconnue), need_kw (demande décidée ou
---- en vol, kW), fed_kw (kW de capacité nourris par des foreuses) }. Rend vrai, ou faux et la raison. Sous C.MAX_PLANTS : toujours permis ; au-delà : la
+--- en vol, kW), fed_kw (kW de capacité nourris par des foreuses), fuel_low (le combustible manque : Mc.low) }. Rend vrai, ou faux et la raison. Sous C.MAX_PLANTS : toujours permis ; au-delà : la
 --- demande et le combustible décident, sans capacité connue le plafond reste celui du nombre.
 function C.ceiling(n)
   local done = n.done or 0
@@ -128,6 +129,7 @@ function C.ceiling(n)
   if fed < C.FED_FRAC * cap - 1e-6 then
     return false, string.format("combustible ne suit pas (%.0f kW nourris par foreuses sur %.0f kW)", fed, cap)
   end
+  if n.fuel_low then return false, "combustible en manque (stock sous l'horizon du plancher)" end
   return true
 end
 
