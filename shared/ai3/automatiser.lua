@@ -1071,7 +1071,7 @@ function A.emit(P)
     if state == "bloque" then return "bloque", "module:" .. tostring(g.reason or "?") end
     -- Lot INTEG-RECONSTRUCTION (D6) : un projet ROUVERT garde ses manques aussi en fantômes / chantier (refresh_missing de build.lua les relit)
     if (state == "reserve" or state == "defrichage" or state == "fantomes" or state == "chantier") and g.missing and #g.missing > 0 then
-      P.want(E, proj, g.missing, proj.prio, false, "module")
+      P.want_kit(E, proj, g.missing, proj.prio, "module") -- lot POSE-PAR-LOTS : le manque fabricable du chantier en KITS
       return "matiere"
     end
     return "en_cours"
