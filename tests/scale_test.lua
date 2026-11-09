@@ -195,7 +195,7 @@ local MUTANTS = {
     "function Br.smelt_max(workers, floor, extra) return (floor or 0) + (extra or 0) end" },
   { "vague d'une capacité", "return clamp(math.floor((spare + Br.HANDS_PER_CAP - 1) / Br.HANDS_PER_CAP), 1, Br.WAVE_MAX)",
     "return 1" },
-  { "fours sans minerai au coffre", "(s.stock[ore] or 0) >= Br.ORE_WAIT * short * per", "true" },
+  { "fours sans minerai au coffre", "(s.stock[ore] or 0) >= (idle > 0 and 1 or Br.ORE_WAIT) * short * per", "true" }, -- (lot ZERO-IDLE-3 : seuil unique avec PNJ libres)
   { "fours sur manque passager", "n >= (grow_thinks or 0)", "true" },
   { "fours avant la pose des précédents", "if due and have >= target and target < max then", "if due and target < max then" },
   { "fours posés ignorés", "local target = math.max(base or 0, st.smelt_target or 0, have)",
