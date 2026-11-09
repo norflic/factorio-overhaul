@@ -40,6 +40,7 @@ package.loaded["shared.ai3.automatiser"] = { declare = function() end, lecture =
 
 local P = require("shared.team.plan")
 local Mr = require("shared.team.mall_rangee")
+Build.cancel = function() return true end -- (doublure : la vraie agit sur un projet en attente, plan ou reserve)
 local Rt = require("script.team.mall_rangee")
 
 local NAMES = { machine = "assembling-machine-1", bras = "inserter", bras_long = "long-handed-inserter", tapis = "transport-belt", poteau = "small-electric-pole", coffre = "iron-chest" }
@@ -454,6 +455,68 @@ do
   check(st.lines[1].y_to == 42, "§10 section refusée : les lignes reviennent à leur état d'avant")
   Build.Mall.tronc_on = nil
   Rt.logistique = nil
+end
+
+---------------------------------------------------------------------------------------------------
+-- §11 section précédente refusée pendant un allongement (plantage « cell nil », carte à 600 %, graine 271828182, 57 min) ; mutants
+---------------------------------------------------------------------------------------------------
+do
+  local function sequence(R)
+    local out = {}
+    local f = team()
+    local id1 = R.place(f, { dem("belt", 2, { "fer", "gear" }) }, NAMES, 100, afford, "t")
+    local id2 = R.place(f, { dem("belt", 4, { "fer", "gear" }) }, NAMES, 200, afford, "t")
+    local st = f.build.mall
+    local r = st.rows[1]
+    out.deux = #r.cells == 2 and r.projects[2].from == 2
+    local p1, p2 = f.build.projects[id1], f.build.projects[id2]
+    p1.state, p1.reason = "refuse", "mall raccord : sans chaine"
+    p2.state = "attente"
+    local annules = {}
+    local old = Build.cancel
+    Build.cancel = function(f2, id, why)
+      annules[#annules + 1] = id
+      local p = f2.build.projects[id]
+      p.state, p.reason = "refuse", why
+      return true
+    end
+    R.minute(f, surface_mock({}, {}), { fab = {} }, {}, afford, 300)
+    Build.cancel = old
+    out.cellules = #r.cells
+    out.morte = r.projects[2].dead == true
+    out.annule = annules[1] == id2 and #annules == 1
+    out.etat2 = p2.state
+    local p3 = { id = 99, spec = p2.spec }
+    local ok, lay, why = pcall(Build.SITES.mall, f, {}, p3, { read_masks = function() return { water = {}, blocked = {}, clear = {} } end })
+    out.pas_de_plantage = ok
+    out.refus = ok and lay == nil and tostring(why):find("cellules rendues", 1, true) ~= nil
+    return out
+  end
+  local o = sequence(Rt)
+  check(o.deux, "§11 deux sections en file")
+  check(o.cellules == 0, "§11 la section refusée rend ses cellules et les suivantes (" .. o.cellules .. ")")
+  check(o.morte, "§11 la section suivante est marquée morte")
+  check(o.annule and o.etat2 == "refuse", "§11 la section suivante est annulée (" .. tostring(o.etat2) .. ")")
+  check(o.pas_de_plantage, "§11 le plan d'une section sans cellules ne plante pas")
+  check(o.refus, "§11 refus propre : « cellules rendues »")
+
+  local path = "script/team/mall_rangee.lua"
+  local src = assert(io.open(path, "rb")):read("*a")
+  local site0 = Build.SITES.mall
+  local function mutant(a, b)
+    local i, j = src:find(a, 1, true)
+    assert(i, "motif introuvable : " .. a)
+    local R = assert(load(src:sub(1, i - 1) .. b .. src:sub(j + 1), "mutant", "t"))()
+    local r = sequence(R)
+    Build.SITES.mall = site0
+    return r
+  end
+  local m1 = mutant('if not row.cells[i] then return nil, "mall : cellules rendues" end', "")
+  check(not m1.pas_de_plantage, "§11 mutant sans la garde : la séquence plante (cell nil)")
+  local m2 = mutant('Build.cancel(f, q2.id, "mall : section precedente refusee")', "")
+  check(not m2.annule, "§11 mutant sans l'annulation : la section suivante reste réservée")
+  local m3 = mutant("q2.from > q.from", "q2.from < q.from")
+  check(not m3.morte, "§11 mutant : mauvais sens de comparaison")
 end
 
 print(string.format("[MALL-RANGEE-MOTEUR] BILAN : %d OK, %d ECHEC(S)", ok_n, ko_n))

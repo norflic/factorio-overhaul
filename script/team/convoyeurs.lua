@@ -24,6 +24,7 @@ local Conv = {}
 Conv.MODE = "besoin"
 Conv.EVERY = 1800       -- ticks entre deux passages d'amélioration par équipe
 Conv.BATCH = 8          -- tuiles remplacées au plus par passage
+Conv.NEW_MIN = 24      -- lot AMELIORATION-CONTINUE : un tapis rapide au stock en cette quantité suffit pour qu'un NOUVEAU tracé le prenne (C.stocked)
 Conv.TRIES = 3          -- essais en vain par tuile avant qu'elle soit écartée
 
 local LIST = nil -- cache local (les prototypes ne changent pas dans une session ; jamais dans global)
@@ -92,7 +93,8 @@ end
 
 --- Tapis d'un nouveau tracé dont `flow` objets/s passent sur une voie. nil : aucun tapis débloqué.
 function Conv.choose(f, flow)
-  local name = C.pick(Conv.belts(), Conv.usable(f), flow, { need_only = Conv.MODE == "besoin" })
+  local name = C.stocked(Conv.belts(), Conv.usable(f), function(item) return Stock.count(f, item) end, Conv.NEW_MIN)
+    or C.pick(Conv.belts(), Conv.usable(f), flow, { need_only = Conv.MODE == "besoin" })
   if f.build then
     local ok = unlocked(f)
     note(f, "choix", string.format("premier choix de tapis : %s (mode %s, débit voulu %.2f/s sur une voie, un tapis jaune sature à %.1f/s ; débloqués : %s)",

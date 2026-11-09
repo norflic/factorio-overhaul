@@ -68,8 +68,18 @@ end
 function B.pre_act(agent)
   local steps = agent.steps
   if not (steps and agent.pc) then return false end
-  for i = agent.pc, #steps do
-    if steps[i][1] == "act" then return true end
+  -- Garde PC-INVALIDE (plantage bail.lua:72, azure, 87,8 min : pc = 0, donc steps[0] nil). Le défaut est la cause réelle, corrigée dans
+  -- script/team/worker.lua (état ia1d) ; cette garde ne le cache pas : une ligne au journal dit quand elle sert.
+  if agent.pc < 1 or agent.pc > #steps + 1 then
+    if not agent.pc_inv_logged then
+      agent.pc_inv_logged = true
+      log(string.format("[FO-PC-INVALIDE] PNJ %s : pc %s hors du programme (%d etape(s)) dans le bail : ni acte a venir ni tenue",
+        tostring(agent.id), tostring(agent.pc), #steps))
+    end
+  end
+  for i = math.max(agent.pc, 1), #steps do
+    local s = steps[i]
+    if s and s[1] == "act" then return true end
   end
   return false
 end

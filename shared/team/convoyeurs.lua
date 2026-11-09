@@ -56,6 +56,19 @@ function C.pick(belts, usable, need, opts)
   return last.name, last.speed
 end
 
+--- Lot AMELIORATION-CONTINUE (directive du DC, 9/11 : « remplacer en continu les vieux convoyeurs par leurs versions supérieures ») : un
+--- nouveau tracé prend le tapis le plus rapide disponible DONT L'OBJET EST DÉJÀ AU STOCK en quantité (`count(objet)` >= `min`) : les
+--- tapis rapides fabriqués pour les remplacements ne restent pas à dormir et les tracés neufs ne naissent plus au rang de base, sans
+--- jamais commander une fabrication (le fer manque). nil : aucun tapis disponible n'est assez en stock (l'appelant garde C.pick).
+function C.stocked(belts, usable, count, min)
+  local list = usable_list(belts, usable)
+  for i = #list, 2, -1 do
+    local b = list[i]
+    if b.item and (count(b.item) or 0) >= min then return b.name, b.speed end
+  end
+  return nil
+end
+
 function C.saturated(flow, speed)
   return (flow or 0) >= C.SATURATION * C.capacity(speed) - 1e-9
 end

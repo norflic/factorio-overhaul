@@ -2075,6 +2075,26 @@ do
       r.j4 = not again and p.state == "bloque" and #E.Build.requests == before and E.o.migr == "partiel"
       E.restore()
     end
+    -- L. 9/11 : une bande bâtie à 90 % ou plus, sans progrès, n'est PAS reposée : on la finit (partie 314159265 : 43/47 et 91/95 abandonnées)
+    do
+      local E = world({ pairs = 8 }, mutator)
+      local p, st = to_chantier(E)
+      local left = E.alive()
+      p.ents = {}
+      for k = 1, 10 do p.ents[k] = { name = D.PARTS.belt, x = 6400 + k, y = 6400, dir = 0, built = (k <= 9) } end
+      for _ = 1, math.floor(Rb.CFG.stall / CFG.every) + 8 do E.think() end
+      r.l1 = E.alive() == left and st.stage == "chantier" and st.rollbacks == nil and #E.made == 0
+      r.l2 = table.concat(E.logs, "\n"):find("[FO-ROLLBACK]", 1, true) == nil and table.concat(E.logs, "\n"):find("on le finit", 1, true) ~= nil
+      -- en dessous de 90 % (8 sur 10) : le retour a bien lieu
+      local E2 = world({ pairs = 8 }, mutator)
+      local p2, st2 = to_chantier(E2)
+      p2.ents = {}
+      for k = 1, 10 do p2.ents[k] = { name = D.PARTS.belt, x = 6400 + k, y = 6400, dir = 0, built = (k <= 8) } end
+      for _ = 1, math.floor(Rb.CFG.stall / CFG.every) + 8 do E2.think() end
+      r.l3 = E2.alive() == 8 and (st2.rollbacks or 0) >= 1
+      E2.restore()
+      E.restore()
+    end
     -- F. deux retours sans progrès : la bande est LAISSÉE AU PLAN (jamais annulée : ses entités bâties resteraient orphelines, revue A1)
     do
       local E = world({ pairs = 8 }, mutator)
@@ -2153,6 +2173,7 @@ do
     -- (« ligne produite non protegee » : mutant ÉQUIVALENT, Mg.watch ne rend « produit » que pour un projet « fini », que Rb.decide laisse en paix)
     { "compte des foreuses oublie", mutsrc("o.drills = (o.drills or 0) + 1\n        placed", "placed") },
     { "retours sans limite", mutsrc("local nxt = Rb.after(st.rollbacks, final)", "local nxt = \"reserve\"") },
+    { "presque finie reposee", mutsrc("built = nb_built, total = nb_total })", "built = 0, total = 0 })") },
   }
   local caught = 0
   local real_print = print
