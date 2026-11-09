@@ -46,4 +46,12 @@ function Famine.key_starved(f, o, tick)
   return starved or missing > 0
 end
 
+--- Lot CRAFT-ROLE : la plaque clé manque-t-elle à l'ÉQUIPE (même question, sans avant-poste) ? Lu par la place de marché
+--- (script/team/board.lua, market_npc) : en famine, le plafond de fabrications en arrière-plan ne retient plus une fabrication libre.
+function Famine.team_starved(f, tick)
+  if not (f and f.team) then return false end
+  local starved, missing = key_missing(f, T.outposts.iron, tick)
+  return starved or missing > 0
+end
+
 return Famine

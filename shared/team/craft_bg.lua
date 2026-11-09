@@ -65,8 +65,13 @@ end
 
 --- La tâche (genre `kind`, travail estimé `work_s`, priorité `prio`) tient-elle pendant la file restante `left_s` ? Une urgence
 --- (prio >= urgent) passe toujours (la défense avant la livraison), une tâche du QG aussi (C.AT_HOME).
-function C.fits(kind, work_s, prio, urgent, left_s)
+--- Lot CRAFT-ROLE (chirurgie 0.6.76, graine 1618033988 : [FO-PRISE-VIDE] mine:indice 84 et craft:role 454 en 5 min à 35 min, le seul PNJ
+--- inactif au QG plein de ses 2 fabrications refusait tout minage plus long que sa file, pendant que la plaque clé manquait de 458 à
+--- 1 220 toute la partie) : en `famine` de la plaque clé (vue de l'équipe, script/team/famine_fer.lua), le retard de livraison n'est plus
+--- une borne : le PNJ dont la file fabrique part miner, sa file avance en marchant (c'est le sens du lot).
+function C.fits(kind, work_s, prio, urgent, left_s, famine)
   if (prio or 0) >= (urgent or math.huge) then return true end
+  if famine then return true end
   if C.AT_HOME[kind or ""] then return true end
   return (work_s or 0) <= (left_s or 0) + C.SLACK_S
 end

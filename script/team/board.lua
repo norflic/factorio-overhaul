@@ -464,6 +464,7 @@ for _, k in ipairs(sorted_keys(O.DESIGN_KINDS)) do
 end
 local CANNOT_UNARMED = { garrison = true }
 local CB = require("shared.team.craft_bg") -- lot CRAFT-PARALLELE : genres refusés pendant une fabrication en arrière-plan
+local Famine = require("script.team.famine_fer") -- lot CRAFT-ROLE : plaque clé en famine : un PNJ dont la file fabrique part miner (CB.fits)
 -- Lot CRAFT-PARALLELE : crochet posé par script/team/worker.lua (seul lecteur de agent.bg) : nil ou { left = s de file restante }.
 Board.bg_view = nil
 
@@ -578,6 +579,7 @@ local function claim_market(f, agent, tick, b)
   local list = b.list
   local reg = reg_of(f)
   local npc = market_npc(agent)
+  local famine = npc.bg_left ~= nil and Famine.team_starved(f, tick) -- lot CRAFT-ROLE : plaque clé en famine : un PNJ qui fabrique part miner
   local hinted = b.hinted or {}
   local mine = b.hint and b.hint[agent.id]
   local ctx = market_ctx(f, b)
@@ -585,7 +587,11 @@ local function claim_market(f, agent, tick, b)
   local fresh = b.hint_tick ~= nil and tick - b.hint_tick <= Board.HINT_TICKS
   ctx.skip = function(t)
     -- Lot CRAFT-PARALLELE : PNJ qui fabrique : seulement une tâche qui finit avec sa file (+ CB.SLACK_S), ou une urgence.
-    if npc.bg_left and not CB.fits(t.kind, t.work or O.TASK_WORK[t.kind] or O.DEFAULT_WORK, t.prio, M.URGENT, npc.bg_left) then return true end
+    -- Lot CRAFT-ROLE (chirurgie 0.6.76, graine 1618033988 : [FO-PRISE-VIDE] mine:indice 84, craft:role 454 en 5 min à 35 min : le seul PNJ
+    -- inactif au QG, plein de ses 2 fabrications, refusait les minages plus longs que sa file et toute fabrication de plus, pendant que la
+    -- plaque clé manquait de 458 à 1 220 toute la partie) : en famine de la plaque clé (Famine.team_starved, la vue qui dit déjà `famine`
+    -- par avant-poste), la borne de durée tombe : il part miner, sa file avance en marchant.
+    if npc.bg_left and not CB.fits(t.kind, t.work or O.TASK_WORK[t.kind] or O.DEFAULT_WORK, t.prio, M.URGENT, npc.bg_left, famine) then return true end
     local h = hinted[t.key]
     if h == nil or h == agent.id or not fresh then return false end
     local ha = Registry.get(h)
