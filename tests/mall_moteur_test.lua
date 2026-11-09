@@ -242,18 +242,55 @@ do
   b.order = { 1 }
   b.plant = 1
   b.plant_watch = { first_power = 100 }
-  _G.FLOW = { ["iron-plate"] = Mp.S2_PLAQUES_MIN, ["copper-plate"] = Mp.S2_PLAQUES_MIN - 1 }
-  Mall.step(H, f, world({}), 0)
-  local found = false
-  for _, l in ipairs(LOG) do if l:find("attente S2", 1, true) and l:find("copper-plate", 1, true) and not l:find("iron-plate", 1, true) then found = true end end
-  check(found, "§7b S2 : le fer au seuil compte, le cuivre sous le seuil manque")
-  _G.FLOW = { ["iron-plate"] = Mp.S2_PLAQUES_MIN, ["copper-plate"] = Mp.S2_PLAQUES_MIN }
+  local E, MIN, BAS, TENUE = Mall.ETAT_EVERY, Mp.S2_PLAQUES_MIN, Mp.S2_PLAQUES_BAS, Mp.S2_TENUE
+  local W = world({})
+  local function pas(t) LOG = {}; Mall.step(H, f, W, t) end
+  local function dit(a, b2, sans)
+    for _, l in ipairs(LOG) do
+      if l:find("attente S2", 1, true) and l:find(a, 1, true) and (not b2 or l:find(b2, 1, true)) and not (sans and l:find(sans, 1, true)) then return true end
+    end
+    return false
+  end
+  _G.FLOW = { ["iron-plate"] = MIN, ["copper-plate"] = MIN - 1 }
+  pas(0)
+  check(dit("copper-plate", "iron-plate"), "§7b S2 : le fer au seuil ne compte pas encore (tenue non atteinte)")
+  for t = E, TENUE - E, E do pas(t) end
+  local ms = f.build.mall.s2
+  check(ms["iron-plate"].since == 0 and not ms["iron-plate"].open and ms["copper-plate"].since == nil, "§7b S2 : la tenue compte pour le fer, pas pour le cuivre sous le seuil")
+  pas(TENUE)
+  check(dit("copper-plate", nil, "iron-plate"), "§7b S2 : fer tenu 5 min : seul le cuivre manque")
+  _G.FLOW = { ["iron-plate"] = MIN, ["copper-plate"] = MIN }
+  pas(TENUE + E)
+  for t = TENUE + 2 * E, 2 * TENUE, E do pas(t) end
+  check(not ms["copper-plate"].open, "§7b S2 : le cuivre attend sa propre tenue")
+  pas(2 * TENUE + E)
+  check(ms["copper-plate"].open == true and not dit("copper-plate"), "§7b S2 : les deux plaques tenues, S2 levé")
+  _G.FLOW = { ["iron-plate"] = BAS, ["copper-plate"] = BAS }
+  pas(2 * TENUE + 2 * E)
+  check(ms["iron-plate"].open == true and not dit("iron-plate"), "§7b S2 : au seuil bas, la plaque reste comptée")
+  _G.FLOW = { ["iron-plate"] = BAS - 1, ["copper-plate"] = BAS }
+  pas(2 * TENUE + 3 * E)
+  check(ms["iron-plate"].open == nil and dit("iron-plate", nil, "copper-plate"), "§7b S2 : sous le seuil bas, la plaque ne compte plus")
+  _G.FLOW = { ["iron-plate"] = MIN, ["copper-plate"] = MIN }
+  pas(2 * TENUE + 4 * E)
+  check(ms["iron-plate"].open == nil and ms["iron-plate"].since ~= nil, "§7b S2 : pour rouvrir, une nouvelle tenue")
+  -- sans électricité : le débit des fours du départ ne compte pas
+  local f2 = team(100, -40)
+  _G.FLOW = { ["iron-plate"] = 500, ["copper-plate"] = 500 }
   LOG = {}
-  Mall.step(H, f, world({}), Mall.ETAT_EVERY + 1)
-  local still = false
-  for _, l in ipairs(LOG) do if l:find("attente S2", 1, true) then still = true end end
-  check(not still, "§7b S2 : les deux plaques au seuil, S2 levé")
+  Mall.step(H, f2, W, 0)
+  check(f2.build.mall.s2["iron-plate"].since == nil, "§7b S2 : avant la première électricité, la tenue ne commence pas")
   _G.FLOW = {}
+end
+
+-- §7c S2 partiel
+do
+  local e = Mp.etat({ plant = true, plaques = { { item = "fer", auto = true }, { item = "cuivre", auto = false } }, asm = true })
+  check(e.ok == false and e.partiel and e.partiel.ok.fer == true and e.partiel.all.cuivre == true and e.partiel.ok.cuivre == nil, "§7c S2 partiel : le fer coule, le cuivre non")
+  local e2 = Mp.etat({ plant = true, plaques = { { item = "fer", auto = true }, { item = "cuivre", auto = false } }, asm = true, crise = "survie" })
+  check(e2.partiel == nil, "§7c crise : pas de S2 partiel")
+  local e3 = Mp.etat({ plant = true, plaques = { { item = "fer", auto = false }, { item = "cuivre", auto = false } }, asm = true })
+  check(e3.partiel == nil, "§7c aucune plaque : pas de S2 partiel")
 end
 
 -- §7 état S
