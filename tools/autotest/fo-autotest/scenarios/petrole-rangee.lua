@@ -126,6 +126,8 @@ return {
         if s.create_entity({ name = "pumpjack", position = w, direction = defines.direction.north, force = row.force }) then extra = extra + 1 end
       end
       st.extra = extra
+      -- courant du site de base (le banc n'a pas de poteaux : les chevalets, la raffinerie et l'usine du site doivent etre alimentes comme les copies)
+      s.create_entity({ name = "medium-electric-pole", position = at(33.5, 35.5), force = row.force })
       local put = 0
       for _, it in ipairs(KIT) do put = put + hq.insert({ name = it[1], count = it[2] }) end
       st.ok_bench = remote.call("fo-petrole", "ext_bench", row.key, { res = "crude-oil", x = FX + 33.5, y = FY + 33.5, ents = ents, items = { "plastic-bar" },
@@ -159,9 +161,14 @@ return {
     -- diagnostic : systemes de fluide des entrees de chaque raffinerie, puis des tuyaux regroupes par systeme (n, boite, fluide)
     if st.force then
       for _, r in ipairs(s.find_entities_filtered({ name = "oil-refinery", force = st.force })) do
-        ctx.log(string.format("[FO-PETROLE-RANGEE] raffinerie (%.1f, %.1f) dir %s : systemes entrees %s / %s, raccords %d / %d, courant %s", r.position.x, r.position.y,
-          tostring(r.direction), tostring(r.fluidbox.get_fluid_system_id(1)), tostring(r.fluidbox.get_fluid_system_id(2)),
-          #r.fluidbox.get_connections(1), #r.fluidbox.get_connections(2), tostring(r.electric_network_id)))
+        local boxes = {}
+        for i = 1, #r.fluidbox do
+          local pr = r.fluidbox.get_prototype(i)
+          if pr and pr.object_name == nil and #pr > 0 then pr = pr[1] end
+          boxes[#boxes + 1] = string.format("%d:%s:sys%s:%dc", i, pr and pr.production_type or "?", tostring(r.fluidbox.get_fluid_system_id(i)), #r.fluidbox.get_connections(i))
+        end
+        ctx.log(string.format("[FO-PETROLE-RANGEE] raffinerie (%.1f, %.1f) dir %s : boites [%s], courant %s", r.position.x, r.position.y,
+          tostring(r.direction), table.concat(boxes, " "), tostring(r.electric_network_id)))
       end
       local groups, order = {}, {}
       for _, pp in ipairs(s.find_entities_filtered({ name = "pipe", force = st.force })) do
