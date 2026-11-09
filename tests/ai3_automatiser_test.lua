@@ -350,7 +350,12 @@ do
   check(proj ~= nil and proj.state == "actif", "un module demandé est un PROJET actif du cerveau (" .. tostring(proj and proj.state) .. ")")
   local crafts = count(plan, function(t) return t.kind == "craft" and t.item == "electric-mining-drill" and t.ia3 == (proj and proj.id) end)
   check(crafts >= 1, "ses manques (foreuses électriques) sont fabriqués à la main pour lui (" .. crafts .. " tâche(s))")
-  check(count(plan, function(t) return t.kind == "craft" and t.item == "inserter" and t.why == "auto:iron-plate" end) >= 1,
+  -- (lot POSE-PAR-LOTS : le manque fabricable d'un projet est UN kit, dont la première pièce est task.item et dont toutes les pièces sont dans task.kit)
+  check(count(plan, function(t)
+    if t.kind ~= "craft" or t.why ~= "auto:iron-plate" then return false end
+    for _, w in ipairs(t.kit or { { t.item } }) do if w[1] == "inserter" then return true end end
+    return false
+  end) >= 1,
     "… et ses bras, avec sa raison")
   -- Compté dans K : 8 PNJ, K = 4.
   check(plan.ia3.K == P.K(8) and plan.ia3.active <= plan.ia3.K, "compté dans les K projets ouverts (K = " .. plan.ia3.K .. ")")

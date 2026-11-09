@@ -1051,7 +1051,13 @@ function Board.incoming(f)
   local inc = {}
   for _, key in ipairs(sorted_keys(b.tasks)) do
     local t = b.tasks[key]
-    if t.worker and t.kind == "craft" then inc[t.item] = (inc[t.item] or 0) + t.count end
+    if t.worker and t.kind == "craft" then
+      if t.kit then -- lot POSE-PAR-LOTS : un kit porte toutes les pièces d'un projet
+        for _, w in ipairs(t.kit) do inc[w[1]] = (inc[w[1]] or 0) + w[2] end
+      else
+        inc[t.item] = (inc[t.item] or 0) + t.count
+      end
+    end
   end
   return inc
 end

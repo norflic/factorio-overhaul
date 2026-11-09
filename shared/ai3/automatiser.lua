@@ -1036,6 +1036,9 @@ function A.goals(goals, auto, weights, research)
       local base = math.min(A.VALUE_MAX, A.VALUE + math.floor(A.VALUE_PER_PNJ * math.max(0, m.gain or 0)))
       goals[#goals + 1] = { key = "auto:" .. m.product, family = "capital", kind = "module", product = m.product,
         status = m.state, missing = m.missing, reason = m.reason, pile = m.pile, item = m.item, -- (lot CHAMP : plaque d'une bande du champ)
+        -- lot RACCORD-BANDE 2 : la LIGNE de poteaux d'une bande (famille « couverture ») est un investissement de fond : elle ne prend pas de place parmi les K
+        -- projets (partie neuve 0.6.72 : « auto:ligne-bande:attente » 12 min sur 20, 104 poteaux manquants de 8 à 38 min avec 470 de bois et 330 de cuivre au coffre)
+        fond = m.line or nil, invest = m.line or nil, -- (m.line : posé par script/ai3/automatisation.lua pour une ligne de bande)
         value = capped(clamp(math.floor(base * w / 1000), 1, 100), m.product) }
     end
   end
@@ -1071,7 +1074,7 @@ function A.emit(P)
     if state == "bloque" then return "bloque", "module:" .. tostring(g.reason or "?") end
     -- Lot INTEG-RECONSTRUCTION (D6) : un projet ROUVERT garde ses manques aussi en fantômes / chantier (refresh_missing de build.lua les relit)
     if (state == "reserve" or state == "defrichage" or state == "fantomes" or state == "chantier") and g.missing and #g.missing > 0 then
-      P.want(E, proj, g.missing, proj.prio, false, "module")
+      P.want_kit(E, proj, g.missing, proj.prio, "module") -- lot POSE-PAR-LOTS : le manque fabricable du chantier en KITS
       return "matiere"
     end
     return "en_cours"

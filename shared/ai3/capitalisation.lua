@@ -2800,7 +2800,7 @@ function Ca.emit(P)
     local held = {}
     for _, k in ipairs(sorted_keys(full)) do held[k] = (full[k] or 0) - (view[k] or 0) end
     E.avail = view
-    P.want(E, proj, miss, proj.prio, false, "capi")
+    P.want_kit(E, proj, miss, proj.prio, "capi") -- lot POSE-PAR-LOTS : le manque fabricable de l'exécutant en KITS
     local after = E.avail
     local merged = {}
     for _, k in ipairs(sorted_keys(after)) do merged[k] = (after[k] or 0) + (held[k] or 0) end

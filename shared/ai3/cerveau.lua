@@ -411,7 +411,9 @@ function C.think(view, book, st, ctx)
     local now = {}
     for _, list in ipairs({ base.tasks or {}, E.tasks or {} }) do
       for _, t in ipairs(list) do
-        if t.kind == "craft" and t.item and (t.count or 0) > 0 then now[t.item] = (now[t.item] or 0) + t.count end
+        if t.kind == "craft" and t.kit then -- lot POSE-PAR-LOTS : toutes les pièces d'un kit
+          for _, w in ipairs(t.kit) do now[w[1]] = (now[w[1]] or 0) + w[2] end
+        elseif t.kind == "craft" and t.item and (t.count or 0) > 0 then now[t.item] = (now[t.item] or 0) + t.count end
       end
     end
     Ml.note(st.mall, tick, now)

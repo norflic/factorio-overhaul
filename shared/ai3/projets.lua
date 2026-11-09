@@ -29,6 +29,7 @@ local Planner = require("shared.team.planner")
 local R = require("shared.ai3.reglages") -- lot IA-G : la tourelle de « défendre d'abord » (nom déplacé, inchangé)
 local Bi = require("shared.ai3.bilan") -- lot BILAN : pondération des récoltes par production moins consommation
 local V = require("shared.faction.valeur") -- lot SITE-PROCHE : règle pure d'agrandissement lointain (V.extension_refused)
+local Kit = require("shared.ai3.kit_lot") -- lot POSE-PAR-LOTS : kits de fabrication d'un projet (P.want_kit)
 
 local P = {}
 
@@ -53,6 +54,7 @@ P.INERTIA_PCT = 20
 P.AGING_TICKS = 3600
 P.AGING_MAX = 20
 P.MAX_CRAFTS = 12        -- fabrications émises par pensée (le planificateur permanent en a 8 de son côté)
+P.KIT_ON = true          -- lot POSE-PAR-LOTS : les projets du plan directeur fabriquent leur manque en KITS (P.want_kit) ; faux : P.want d'avant
 P.CHUNK_SECONDS = 30     -- une fabrication ≈ 30 s de travail : plusieurs PNJ avancent une grosse commande
 P.MINE_BATCH = 50
 P.FINISH_BONUS = 3
@@ -349,6 +351,51 @@ function P.want(E, proj, list, prio, fresh, tag)
   return ok
 end
 
+--- Lot POSE-PAR-LOTS : comme P.want, mais ce que le stock permet de fabriquer devient des KITS (shared/ai3/kit_lot.lua) : UNE tâche de
+--- fabrication par kit, qui porte toutes les pièces du projet (un seul plan du livre, intermédiaires communs fabriqués une fois), au lieu
+--- d'une file de morceaux de 30 s par objet. Un kit ne compte que pour UNE des P.MAX_CRAFTS fabrications de la pensée. Ce que les kits ne
+--- couvrent pas (matière première manquante, plafond de kits) repart au chemin d'avant (P.want : fabrication partielle, manque brut).
+--- Clé d'un kit : ia3:<projet>:kit:<tag>:<i>, la première libre (un kit déjà PRIS est ouvert : un manque neuf prend la clé suivante).
+--- Renvoie vrai si tout est servi (au stock ou en fabrication), comme P.want.
+function P.want_kit(E, proj, list, prio, tag)
+  if not P.KIT_ON then return P.want(E, proj, list, prio, false, tag) end
+  local shorts = {}
+  for _, it in ipairs(list) do
+    local item, n = it[1], it[2]
+    local have = E.avail[item] or 0
+    if have >= n then
+      E.avail[item] = have - n
+    elseif n > 0 then
+      shorts[#shorts + 1] = { item, n - have }
+      E.avail[item] = 0
+    end
+  end
+  if #shorts == 0 then return true end
+  local room = math.min(Kit.MAX_KITS, P.MAX_CRAFTS - E.crafts)
+  local res = Kit.build(E.book, E.avail, shorts, { max_kits = room })
+  E.avail = res.avail
+  local idx = 0
+  for _, kit in ipairs(res.kits) do
+    local key
+    repeat
+      idx = idx + 1
+      key = "ia3:" .. proj.id .. ":kit:" .. tag .. ":" .. idx
+    until not (E.keys[key] or E.open[key])
+    E.crafts = E.crafts + 1
+    local head = kit.wants[1]
+    local pieces = {}
+    for _, w in ipairs(kit.wants) do pieces[#pieces + 1] = { w[1], w[2] } end
+    local added = P.add(E, { key = key, kind = "craft", prio = prio, item = head[1], count = head[2], kit = pieces,
+      steps = kit.crafts, uses = sorted_uses(kit.uses), tag = "ia3", ia3 = proj.id, why = proj.key })
+    if added and E.st then
+      Kit.announce(E.st, E.tick or 0, { what = "emis", key = key, pid = proj.id, project = proj.key, pieces = pieces,
+        crafts = #kit.crafts, energy = kit.energy, slots = kit.slots })
+    end
+  end
+  if #res.rest == 0 then return true end
+  return P.want(E, proj, res.rest, prio, false, tag)
+end
+
 ---------------------------------------------------------------------------------------------------
 -- Émission par type de projet
 ---------------------------------------------------------------------------------------------------
@@ -615,6 +662,7 @@ end
 
 --- Émet les tâches d'un projet ; met à jour son état (actif, bloqué + cause) et ses manques.
 function P.emit(E, proj, ctx, tick)
+  E.tick = tick -- lot POSE-PAR-LOTS : date des annonces de kits (P.want_kit)
   proj.missing = {}
   local before = #E.tasks
   local fn = EMIT[proj.goal.kind]
