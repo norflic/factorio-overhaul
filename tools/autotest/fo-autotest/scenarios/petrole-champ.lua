@@ -134,7 +134,7 @@ return {
       st.made = pa ~= nil and pb ~= nil
       -- puits d'evacuation du brut (tuyau infini qui retire le brut) au bout de la ligne : le debit extrait est alors celui du reseau, sans contre-pression
       local sink = s.create_entity({ name = "infinity-pipe", position = { mx + 0.5, cy + 7.5 }, force = row.force })
-      if sink and sink.valid then sink.set_infinity_pipe_filter({ name = "crude-oil", percentage = 0, mode = "remove" }) end
+      if sink and sink.valid then sink.set_infinity_pipe_filter({ name = "crude-oil", percentage = 0, mode = "exactly" }) end
       st.sink = sink ~= nil
       -- kit au QG
       local put = 0
