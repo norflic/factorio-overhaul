@@ -245,7 +245,7 @@ local MUT = {
   { "validation du monde retiree", "if not ctx.cost(t.x, t.y) then broke = true break end", "" },
   { "etat de reprise perdu", "    st.rs = state\n", "    st.rs = nil\n" },
   { "cases toutes bouchees", "if free >= Tc.MIN_FREE then", "if free >= 17 then" },
-  { "aucune reparation", "if st.repairs > Tc.MAX_REPAIRS then", "if st.repairs > 0 then" },
+  { "aucune reparation", "if st.repairs > Tc.MAX_REPAIRS or", "if st.repairs > 0 or" },
   { "poche ignoree", "if shut then return \"fail\", string.format(\"arrivee enfermee", "if false then return \"fail\", string.format(\"arrivee enfermee" },
   { "plan grossier sans tranche", "if left <= 0 then return \"more\" end", "" },
   { "lecture des cases sans tranche", "if n >= Tc.SAMPLE_CELLS then return false end", "" },

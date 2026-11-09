@@ -5,7 +5,7 @@
   49) qui porte du CHARBON : l'A* à 4 voisins de la version d'avant n'y passait pas (« aucun chemin »), la ligne doit la franchir par une paire de souterrains. Après l'arrivée, aucun objet d'une ligne
   sur l'autre (jamais deux objets sur un même tapis). Le souterrain est débloqué pour la force, le coffre d'équipe en porte.
 
-  Lancement : banc.py ... -- 9500 bus-long <source>. Journal : [FO-BUS-LONG] + [FO-RAPATRIEMENT] du mod.
+  Lancement : banc.py ... -- 12100 bus-long <source> (mesure de la 1re passe : 5 550 ticks pour poser la ligne, 4 200 de trajet : la fenetre de 6 200 ticks se ferme vers 11 750). Journal : [FO-BUS-LONG] + [FO-RAPATRIEMENT] du mod.
 ]]
 local ITEM, FOREIGN = "iron-plate", "coal"
 local SRC = { x = 150, y = 0 }
@@ -45,7 +45,7 @@ end
 return {
   description = "BUS-LONG : ligne longue par troncons, colonne de tapis en travers franchie par souterrain",
   base = nil,
-  check_tick = 9300,
+  check_tick = 12000,
 
   init = function(ctx)
     local s = ctx.surface()
