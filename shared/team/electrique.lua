@@ -36,6 +36,7 @@ E.CFG = {
   collapse_pct = 50, -- % du pic récent sous lequel l'extraction d'une ressource est EFFONDRÉE
   recover_pct = 80,  -- % du pic récent à regagner pour que la thermique soit de nouveau refusée (hystérésis)
   stall = 5 * 3600,  -- ticks sans qu'une foreuse de plus travaille sur la ressource : aucune extension n'avance
+  peak_min = 6,      -- foreuses : un pic plus petit n'est pas un effondrement (3 cuivre à 9,8 min : bruit de mise en place, mesuré)
   peak_keep = 30 * 3600, -- ticks pendant lesquels un pic de foreuses actives reste « récent »
 }
 
@@ -64,7 +65,7 @@ function E.collapsed(a, cfg)
   cfg = cfg_of(cfg)
   a = a or {}
   local peak, active = num(a.peak) or 0, num(a.active) or 0
-  if peak <= 0 then return false, false end
+  if peak <= 0 or peak < cfg.peak_min then return false, false end
   local limit = a.was and cfg.recover_pct or cfg.collapse_pct
   local down = active * 100 < peak * limit
   return down and (a.was == true or (num(a.stalled) or 0) >= cfg.stall), down

@@ -43,6 +43,8 @@ local function facts(E)
   f.was_back = C({ active = 16, peak = 19, stalled = 0, was = true })  -- 84 % : rétablie
   f.was_edge = C({ active = 16, peak = 20, stalled = 0, was = true })  -- 80 % pile : rétablie
   f.nopeak = C({ active = 0, peak = 0, stalled = 99 * MIN })
+  f.small_peak = C({ active = 0, peak = 3, stalled = 99 * MIN })   -- 3 foreuses au pic : mise en place, pas un effondrement
+  f.small_edge = C({ active = 0, peak = 6, stalled = 99 * MIN })   -- 6 : compté
   f.nopeak_nil = C({ active = 3 })
   f.empty = C()
   local _, down = C({ active = 5, peak = 19, stalled = 1 * MIN })
@@ -72,6 +74,7 @@ check(F0.enter == true and F0.not_stalled == false, "entrée : 5 foreuses pour u
 check(F0.at_limit == false and F0.below == true, "seuil : 50 % pile n'est pas effondré, 45 % l'est")
 check(F0.down_only == true, "le second retour dit « sous le seuil » même avant la durée (journal)")
 check(F0.was_low == true and F0.was_back == false and F0.was_edge == false, "hystérésis : déjà permise, 63 % du pic reste permis sans durée ; 84 % et 80 % rétablissent")
+check(F0.small_peak == false and F0.small_edge == true, "pic de 3 foreuses : jamais effondré ; pic de 6 : oui")
 check(F0.nopeak == false and F0.nopeak_nil == false and F0.empty == false, "pic nul, inconnu ou entrée vide : jamais effondré")
 check(F0.refused_old == false, "témoin : sans pic, thermique refusée comme avant (37 électriques ailleurs, 5 sur la ressource)")
 check(F0.refused_ok == false and F0.refused_progress == false, "débit tenu (17 sur 19) ou extension qui progresse (1 min) : le refus tient")
@@ -89,6 +92,8 @@ local mutants = {
   { "E.thermal ignore la durée", "stalled = s.res_stalled, was = s.res_was }, cfg))", "stalled = 99999999, was = s.res_was }, cfg))" },
   { "E.thermal ignore l'hystérésis", "stalled = s.res_stalled, was = s.res_was }, cfg))", "stalled = s.res_stalled, was = nil }, cfg))" },
   { "seuil d'effondrement à 90", "collapse_pct = 50,", "collapse_pct = 90," },
+  { "pic minimal ignoré", "peak_min = 6,", "peak_min = 0," },
+  { "pic minimal inclusif", "or peak < cfg.peak_min then", "or peak <= cfg.peak_min then" },
   { "seuil de retour à 40", "recover_pct = 80,", "recover_pct = 40," },
   { "durée nulle", "stall = 5 * 3600,", "stall = 0," },
 }
