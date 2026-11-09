@@ -444,8 +444,8 @@ Mesuré :
 Non prouvé, ou défaut ouvert :
 - **Ordres « chaine » : 0 passage au mall dans cette partie** ; le chemin n'est prouvé qu'hors jeu.
 - **Scarlet, rangée 3 : 0 objet** (voies d'objets intermédiaires, quais vides : cause supposée, non mesurée).
-- **Azure, rangée 2 : encore en réserve de matériaux** à 90 min ; le raccord au réseau n'est prouvé que sur ces parties.
-- **S2 au débit bat** (plaques mesurées sur une minute) : l'état S clignote, sans effet sur ce qui est posé.
+- **Azure, rangée 2 : jamais finie** dans la partie (dernier état lu : réserve de matériaux à 50,4 min).
+- **S2 au débit bat** (plaques mesurées sur une minute) : l'état S clignote. Ce qui est posé continue, mais pendant une minute sans S un bloc de mall repart en module isolé (scarlet, projet 27 à 77,8 min).
 - **Risque de l'ouverture précoce** : couverture électrique des gisements à 88 min, azure 229 tuiles contre 725 sans S2 au débit (`t2-neuve90-a31ce386`), scarlet 118 contre 0. Une seule
   graine, et l'intégration a bougé entre les deux parties : rien n'est attribué ; une mesure A/B sur plusieurs graines est à faire avant d'en conclure.
 - Pureté : `Pu.check` n'est pas appelé (branche `purete-tapis` non fusionnée). `carries` est déclaré sur chaque tapis et la pureté est lue au moteur dans le micro-banc.
