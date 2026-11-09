@@ -330,5 +330,35 @@ do
   print(string.format("[MALL-RANGEE] mutants refusés : %d/%d", killed, #mutants))
 end
 
+-- §4b capacité : ce que Mr.capacite annonce tient dans le secteur, marge comprise, aux 4 orientations, avec et sans la place du tronc ; un de plus ne tient pas
+do
+  local floor = math.floor
+  local function inside(s, k, ox, oy, m, x, y)
+    local wx, wy = Mr.to_world(x + 0.5, y + 0.5, 0, k, ox, oy, 1)
+    local tx, ty = floor(wx), floor(wy)
+    return tx >= s.x0 + m and tx <= s.x1 - 1 - m and ty >= s.y0 + m and ty <= s.y1 - 1 - m
+  end
+  for _, dir in ipairs({ 0, 2, 4, 6 }) do
+    for _, place in ipairs({ { nil, nil }, { 16, 3 } }) do
+      for _, size in ipairs({ { 60, 45 }, { 61, 46 }, { 64, 64 }, { 48, 75 }, { 47, 74 }, { 90, 62 } }) do
+        local s = { x0 = 100, y0 = -40, x1 = 100 + size[1], y1 = -40 + size[2], dir = dir }
+        local west, north = place[1], place[2]
+        local tag = string.format("§4b dir %d, %dx%d, ouest %s, nord %s : ", dir, size[1], size[2], tostring(west), tostring(north))
+        local rows, cells = Mr.capacite(s, west, north)
+        local k = Mr.frame(dir)
+        local ox, oy = Mr.origin(s, west, north)
+        local m = Mr.MARGE
+        local w0, n0 = -(west or Mr.TETE), -(north or 0)
+        if rows > 0 and cells > 0 then
+          local xe, ye = 4 * cells - 1, 15 * (rows - 1) + 13
+          check(inside(s, k, ox, oy, m, w0, n0) and inside(s, k, ox, oy, m, xe, ye) and inside(s, k, ox, oy, m, w0, ye) and inside(s, k, ox, oy, m, xe, n0), tag .. "annoncé " .. rows .. "x" .. cells .. " : tient dans le secteur")
+        end
+        check(not inside(s, k, ox, oy, m, w0, 15 * rows + 13), tag .. "une rangée de plus ne tient pas (" .. rows .. ")")
+        check(not inside(s, k, ox, oy, m, 4 * (cells + 1) - 1, n0), tag .. "une cellule de plus ne tient pas (" .. cells .. ")")
+      end
+    end
+  end
+end
+
 print(string.format("[MALL-RANGEE] BILAN : %d OK, %d ECHEC(S)", ok_n, ko_n))
 os.exit(ko_n == 0 and 0 or 1)

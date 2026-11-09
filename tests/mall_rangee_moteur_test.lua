@@ -373,5 +373,71 @@ do
   Id.recipe_of = real
 end
 
+---------------------------------------------------------------------------------------------------
+-- §10 tronc : rangée alimentée par le tronc (plaques), plan de site, retour à l'état d'avant
+---------------------------------------------------------------------------------------------------
+do
+  local TRONC = true
+  Build.Mall.tronc_on = function() return TRONC end
+  Rt.logistique = function() return { repartiteur = "splitter", souterrain = "underground-belt" } end
+  local Mt = require("shared.team.mall_tronc")
+  local f = team()
+  f.team = { ia3 = {} }
+  local st = f.build.mall
+  REQ = {}
+  local id = Rt.place(f, { dem("a", 2, { "iron-plate" }), dem("b", 2, { "copper-plate", "iron-plate" }) }, NAMES, 10, afford, "t")
+  check(id ~= nil, "§10 rangée du tronc demandée")
+  local r = st.rows[1]
+  check(r.bus and r.bus.a == 1 and r.bus.b == 2, "§10 deux lignes, A = la plus petite (" .. tostring(r.bus and r.bus.a) .. ")")
+  check(table.concat(r.voies, ",") == "copper-plate,copper-plate,iron-plate,iron-plate", "§10 un objet par tapis (" .. table.concat(r.voies, ",") .. ")")
+  check(#st.lines == 2 and st.lines[1].y_to == 7 and st.lines[2].y_to == 7, "§10 lignes prévues jusqu'à yb (" .. tostring(st.lines[1].y_to) .. ")")
+  check(st.rep.west == Mt.WEST and st.rep.north == Mt.NORTH, "§10 le repère réserve la place du tronc")
+  local spec = REQ[1].mall
+  check(spec.bus == true and spec.head == false and spec.lines ~= nil and spec.names.repartiteur == "splitter", "§10 spec : tronc, instantané des lignes, noms des prises")
+  check(spec.lines[1].y_to == nil, "§10 instantané pris AVANT d'avoir prolongé les lignes")
+  -- rangée 2, mêmes plaques : les lignes sont prolongées à partir de leur étendue
+  local id2 = Rt.place(f, { dem("c", 2, { "iron-plate" }) }, NAMES, 20, afford, "t")
+  check(id2 ~= nil, "§10 demande suivante acceptée")
+  check(#st.rows == 1 and REQ[2].mall.from == 3, "§10 même rangée : cellules à la suite, sans tronc")
+  check(REQ[2].mall.lines == nil, "§10 pas de tronc dans une section d'allongement")
+  -- matériel refusé : les lignes reviennent à leur état
+  AFFORD = false
+  local nl = #st.lines
+  local _, why_w, w = Rt.place(f, { dem("d", 1, { "stone-brick" }) }, NAMES, 30, afford, "t")
+  AFFORD = true
+  check(#st.lines == nl, "§10 matériel refusé : lignes inchangées (" .. #st.lines .. ")")
+  -- plan du site : les pièces viennent du tronc et des cellules, avec la bonne étendue
+  local p = f.build.projects[id]
+  local masks = function() return { water = {}, blocked = {}, clear = {} } end
+  st.sans_raccord = true
+  PUR.calls = 0
+  local lay = Build.SITES.mall(f, {}, p, { read_masks = masks })
+  check(lay ~= nil, "§10 plan du site accepté")
+  if lay then
+    local ns, nu = 0, 0
+    for _, e in ipairs(lay.ents) do
+      if e.name == "splitter" then ns = ns + 1 end
+      if e.name == "underground-belt" then nu = nu + 1 end
+    end
+    check(ns == 2, "§10 deux répartiteurs (" .. ns .. ")")
+    check(nu == 2, "§10 un souterrain (entrée, sortie) pour la ligne 2 (" .. nu .. ")")
+    check(#lay.quais == 4, "§10 quatre coffres de tête (deux par ligne) (" .. #lay.quais .. ")")
+    check(#lay.outs == 4, "§10 une sortie par machine (2 + 2 demandées), pas de quai de rangée (" .. #lay.outs .. ")")
+    local n_inflow = 0
+    for _ in pairs(p.inflow or {}) do n_inflow = n_inflow + 1 end
+    check(n_inflow == 2 and math.abs(p.inflow["iron-plate"] - 1) < 1e-9 and math.abs(p.inflow["copper-plate"] - 0.5) < 1e-9, "§10 débit nominal des têtes de ligne, en objets/s (fer " .. tostring(p.inflow and p.inflow["iron-plate"]) .. ")")
+    local ok_b, bad = true, nil
+    for _, e in ipairs(lay.ents) do if e.role == "mall-tete" then ok_b, bad = false, e.name end end
+    check(ok_b, "§10 aucune tête à quais sur une rangée du tronc (" .. tostring(bad) .. ")")
+  end
+  -- section refusée : lignes rendues
+  st.rows[1].projects[1].lines_prev = { { k = 1, item = "x", y_to = 42 } }
+  f.build.projects[id].state = "refuse"; f.build.projects[id].reason = "obstacle:eau"
+  Rt.minute(f, surface_mock({}, {}), { fab = {} }, {}, afford, 100)
+  check(st.lines[1].y_to == 42, "§10 section refusée : les lignes reviennent à leur état d'avant")
+  Build.Mall.tronc_on = nil
+  Rt.logistique = nil
+end
+
 print(string.format("[MALL-RANGEE-MOTEUR] BILAN : %d OK, %d ECHEC(S)", ok_n, ko_n))
 os.exit(ko_n == 0 and 0 or 1)

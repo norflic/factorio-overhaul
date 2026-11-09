@@ -190,6 +190,12 @@ local function automated(f, pl)
   return false
 end
 
+--- Réglage fo-war-mall-tronc (tronc et prises du mall ; absent : éteint).
+function Mall.tronc_on()
+  local ok, v = pcall(function() return settings.global["fo-war-mall-tronc"].value end)
+  return ok and v == true
+end
+
 --- Réglage fo-war-mall-s2-debit (A/B du seuil de S2 ; absent : allumé).
 function Mall.s2_debit()
   local ok, v = pcall(function() return settings.global["fo-war-mall-s2-debit"].value end)
