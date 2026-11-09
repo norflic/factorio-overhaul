@@ -4657,7 +4657,14 @@ local function watch_stall(f, tick)
         b.noprog_dits[pid .. ":" .. say] = true
         log(string.format("[FO-BLOQUE] %s : projet %d (%s) sans progres depuis %d min : %s ; %d entite(s) baties sur %d, etat %s a %.1f min%s",
           f.key or "player", p.id, tostring(p.spec.key or p.spec.gen or "?"), math.floor((tick - rec.since) / 3600), say, count_built(p), #p.ents,
-          p.state, tick / 3600, ChantierLent.missing(p))) -- (RECHERCHE-BRAS suite : entités manquantes nommées, shared/team/manquantes.lua)
+          p.state, tick / 3600, ChantierLent.missing(p) .. (function() -- (lot COURANT-AVANCE : MATIÈRES qui manquent à une réserve qui ne se lève pas, pour savoir quoi fabriquer d'abord)
+            if p.state ~= "reserve" then return "" end
+            local t = {}
+            for _, m in ipairs(p.missing or {}) do t[#t + 1] = tostring(m[1]) .. " x" .. tostring(m[2]) end
+            local held = {}
+            for _, it in ipairs(sorted_keys(p.stock or {})) do if (p.stock[it] or 0) > 0 then held[#held + 1] = it .. " x" .. p.stock[it] end end
+            return string.format(" ; matieres manquantes [%s] ; deja reservees [%s]", table.concat(t, ", "), table.concat(held, ", "))
+          end)())) -- (RECHERCHE-BRAS suite : entités manquantes nommées, shared/team/manquantes.lua)
         ChantierLent.report(f, p, tick, say, rec) -- lot AZURE : détail du chantier lent d'une bande (une fois par projet)
       end
     elseif b.noprog[pid] then
