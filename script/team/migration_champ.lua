@@ -1604,12 +1604,23 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy, book, ho
       if npairs >= cfg.min_pairs and lattice and tick >= (st.retry or 0) then enemy = enemy_near(f, surface, o.pos.x, o.pos.y) end
       -- lot CHAMP : la bande coûte surtout du FER (foreuses, bras, tapis) : la garde de stock lit les plaques de fer ; elle lisait la plaque
       -- du champ, et un champ de cuivre ne migrait jamais quand le cuivre manquait (le cas même du DC)
-      local plates = champ and (free[T.outposts.iron.product] or 0) or (free[product] or 0)
-      local ok, why = Mg.start_ok({ migr = o.migr, plan = true, power = power_ok(b), obtainable = obtainable, plates = plates,
+      local free_plates = champ and (free[T.outposts.iron.product] or 0) or (free[product] or 0)
+      -- lot MEGA-FONDERIE (9/11, directive du lead) : la bande de la plaque CLÉ (le fer) lit le coffre BRUT contre Th.CFG.key_min_plates au lieu du stock
+      -- LIBRE contre cfg.min_plates (314159265 : 1 000 plaques brutes dès la minute 45, plaques « libres » sous 150 pendant 40 min, aucune bande de fer
+      -- demandée ; la bande réserve elle-même ses matières par la pile « couverture »)
+      local key = champ and o.kind == busy.key
+      local gross_plates = key and Stock.count(f, T.outposts.iron.product) or nil
+      local plates, min_plates = Th.start_plates(key, free_plates, gross_plates, cfg.min_plates)
+      local ok, why = Mg.start_ok({ migr = o.migr, plan = true, power = power_ok(b), obtainable = obtainable, plates = plates, min_plates = min_plates,
         lattice = lattice, pairs = npairs, enemy = enemy, now = tick, retry = st.retry, abandoned = st.abandoned }, cfg)
       if Th.iron_waits(it.tier, why) then -- lot FER-D-ABORD
         iron_waiting = true
         ms.iron_since, ms.iron_last = Th.iron_clock(ms.iron_since, ms.iron_last, true, tick)
+      end
+      -- journal : seulement quand la règle change l'issue (le stock libre seul aurait refusé la bande)
+      if ok and key and free_plates < cfg.min_plates then
+        say_why(f, ms, st, "cle-brut", string.format("avant-poste %d (%s) : garde de la plaque cle lue au coffre brut : plaques libres %d, coffre brut %d (seuil libre %d, seuil brut %d)",
+          o.id, o.kind, free_plates, gross_plates or 0, cfg.min_plates, min_plates), true)
       end
       -- Lot THERMIQUE2 : la garde de fer du lot THERMIQUE (Th.financed : fer libre >= coût des foreuses de remplacement) est retirée : une force
       -- dont le fer est tout consommé ne lançait jamais la bande qui lui rendrait du fer (« migration en veille (fer) », champ-longue 20261020) ;

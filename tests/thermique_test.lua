@@ -281,6 +281,22 @@ local function suite(Th, verbose)
     check(Th.min_plates(true, 150) == 0, "8e : minerai brut (charbon, pierre) : aucune plaque exigée")
     check(Th.min_plates(false, 150) == 150, "8e : plaque : la garde reste (150)")
     check(Th.min_plates(false, nil) == 0, "8e : garde absente : 0")
+    -- 8e bis. garde de départ de la plaque CLÉ : le coffre BRUT contre key_min_plates (0), jamais le libre ; les autres gardent le libre contre le seuil
+    do
+      local pl, mn = Th.start_plates(true, 50, 1000, 150)
+      check(pl == 1000 and mn == Th.CFG.key_min_plates and mn == 0, "8e bis : plaque clé : brut 1 000 lu (libres 50), seuil 0")
+      pl, mn = Th.start_plates(true, 1000, 0, 150)
+      check(pl == 0 and mn == 0, "8e bis : plaque clé : le brut (0) est lu, pas le libre (1 000)")
+      pl, mn = Th.start_plates(false, 50, 1000, 150)
+      check(pl == 50 and mn == 150, "8e bis : autre minerai : libres 50 contre 150")
+      pl, mn = Th.start_plates(true, nil, nil, nil)
+      check(pl == 0 and mn == 0, "8e bis : plaque clé sans donnée : 0 et 0")
+      pl, mn = Th.start_plates(false, nil, nil, nil)
+      check(pl == 0 and mn == 0, "8e bis : autre minerai sans donnée : 0 et 0")
+      local c = { key_min_plates = 40 }
+      pl, mn = Th.start_plates(true, 5, 900, 150, c)
+      check(pl == 900 and mn == 40, "8e bis : seuil brut du réglage lu (40)")
+    end
     -- 8f. états qui couvrent
     check(Th.covering("working") and Th.covering("waiting_for_space_in_destination"), "8f : en marche et sortie pleine couvrent")
     check(not Th.covering("no_power") and not Th.covering("no_minable_resources") and not Th.covering("waiting_for_source_items")
@@ -385,6 +401,11 @@ local mutants = {
   { "noop_counts : toute bande compte", "  return #(ids or {}) > 0\nend", "  return true\nend" },
   { "stop_state : retrait ignoré", "or (retired or 0) > 0 then return \"partiel\" end", "then return \"partiel\" end" },
   { "min_plates : brut gardé", "  if raw then return 0 end\n", "" },
+  { "start_plates : clé lit le libre", "if key then return gross or 0, cfg.key_min_plates end", "if key then return free or 0, cfg.key_min_plates end" },
+  { "start_plates : clé sans seuil propre", "if key then return gross or 0, cfg.key_min_plates end", "if key then return gross or 0, min_plates or 0 end" },
+  { "start_plates : clé jamais", "if key then return gross or 0, cfg.key_min_plates end\n", "" },
+  { "start_plates : tous lisent le brut", "  return free or 0, min_plates or 0\nend", "  return gross or 0, min_plates or 0\nend" },
+  { "start_plates : autres sans seuil", "  return free or 0, min_plates or 0\nend", "  return free or 0, 0\nend" },
   { "min_plates : plaques sans garde", "  return min_plates or 0\nend", "  return 0\nend" },
   { "covering : sortie pleine ignorée", "M.COVERING_STATUS = { \"working\", \"waiting_for_space_in_destination\" }", "M.COVERING_STATUS = { \"working\" }" },
   { "covering : tout couvre", "  for _, s in ipairs(M.COVERING_STATUS) do if s == status_name then return true end end\n  return false", "  return true" },

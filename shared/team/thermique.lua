@@ -34,7 +34,7 @@
   M.free_slot(res, busy, cfg)           -> vrai/faux, raison ; M.band_stuck(état, raison, âge, cfg) -> vrai/faux (bande bloquée par ses matières)
   M.shares(fields, order)               -> part électrique par minerai (journal et critères)
   Lot THERMIQUE5 : M.band_covers(état du projet), M.covering(état), M.pile_permits(action, retenue, porte), M.order_end(...), M.noop_counts(ids), M.stop_state(...),
-  M.min_plates(brut, seuil) ; fl.fueled (paires avec combustible, facultatif) remplace fl.pairs dans M.supply.
+  M.min_plates(brut, seuil) ; M.start_plates(clé, libre, brut, seuil) -> (plaques lues, seuil) (garde de départ de la plaque clé sur le coffre brut) ; fl.fueled (paires avec combustible, facultatif) remplace fl.pairs dans M.supply.
   fl = { id, res, tier (0 : plaques, 1 : sans plaque), pairs (paires thermiques debout), th_rate (ore/s d'une foreuse thermique), working (foreuses électriques en marche),
          el_rate (ore/s d'une foreuse électrique), busy (une bande de ce gisement est en chantier), wanted, have }
   ctx = { power, iron (fer libre au stock), drill_cost (fer d'une foreuse électrique), floor = { [res] }, stock = { [res] }, critical = { [res] } }
@@ -56,6 +56,8 @@ M.CFG = {
   per_mineral = 1,        -- chantiers de bande simultanés au plus par minerai
   key_per_mineral = 2,    -- plaque CLÉ (le fer) : chantiers de bande simultanés au plus quand TOUS ceux du minerai attendent leurs matières (9/11, directive du lead :
                           -- partie 314159265 / geants, une bande de fer bloquée par ses matières gardait le créneau « un par minerai » pendant des dizaines de minutes)
+  key_min_plates = 0,     -- plaque CLÉ : plaques de fer au coffre BRUT exigées pour lancer une bande de fer (9/11, lot MEGA-FONDERIE : 0 ; la garde de 150 plaques LIBRES retenait
+                          -- la bande 40 min avec 1 000 plaques au coffre, 314159265 : le libre est le coffre moins les réservations du marché, la bande les réserve elle-même)
   stuck_wait = 5 * 3600,  -- ticks : une bande en réserve (matières) depuis plus que cela est « bloquée » : elle ne retient plus le créneau de la plaque clé seule
   slots = 2,              -- chantiers de bande simultanés au plus, tous minerais (3 : le fer manquait aux bandes, mesuré 150 min : 25 à 50 % des plaques du témoin)
   sweep_max = 1,          -- gisements balayés au plus par pensée (le retrait est immédiat : un gisement à la fois suffit)
@@ -184,6 +186,15 @@ end
 function M.min_plates(raw, min_plates)
   if raw then return 0 end
   return min_plates or 0
+end
+
+--- Lot MEGA-FONDERIE (9/11, directive du lead) : garde de plaques au DÉPART d'une bande. La bande de la plaque CLÉ (`key`, le fer) se rembourse seule (des
+--- dizaines de plaques par minute) et réserve elle-même ses matières par la pile : sa garde lit le coffre BRUT (`gross`) contre cfg.key_min_plates (0), et non
+--- le stock libre contre `min_plates`. Toute autre bande garde sa règle (libre contre `min_plates`). Rend (plaques lues, seuil).
+function M.start_plates(key, free, gross, min_plates, cfg)
+  cfg = cfg_of(cfg)
+  if key then return gross or 0, cfg.key_min_plates end
+  return free or 0, min_plates or 0
 end
 
 --- Le gisement est-il couvert par une bande électrique qui produit ? Rend (vrai/faux, raison).

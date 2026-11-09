@@ -321,7 +321,7 @@ end
 --- Faut-il lancer la migration de cet avant-poste ? c = { migr (o.migr), plan (plan directeur allumé), power (réseau qui produit),
 --- obtainable (objet de foreuse électrique au stock ou fabricable), plates (plaques libres), lattice (le champ est dans un lot de
 --- gisement du treillis), pairs (paires thermiques vivantes), enemy (ennemi à CFG.safe tuiles), now, retry (tick avant lequel on
---- n'essaie pas) }. Rend vrai, ou faux et la raison.
+--- n'essaie pas, min_plates seuil de plaques propre à ce départ, facultatif) }. Rend vrai, ou faux et la raison.
 function M.start_ok(c, cfg)
   cfg = cfg or M.CFG
   if c.migr == "fini" or c.migr == "partiel" or c.abandoned then return false, "fait" end
@@ -330,7 +330,8 @@ function M.start_ok(c, cfg)
   if not c.obtainable then return false, "objet" end
   if (c.pairs or 0) < cfg.min_pairs then return false, "paires" end
   if not c.lattice then return false, "treillis" end
-  if (c.plates or 0) < cfg.min_plates then return false, "plaques" end
+  -- lot MEGA-FONDERIE (9/11) : c.min_plates remplace le seuil du réglage (la plaque clé lit le coffre brut contre Th.CFG.key_min_plates, Th.start_plates)
+  if (c.plates or 0) < (c.min_plates or cfg.min_plates) then return false, "plaques" end
   if c.retry and c.now < c.retry then return false, "attente" end
   if c.enemy then return false, "ennemi" end
   return true, "ok"
