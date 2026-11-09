@@ -10,9 +10,9 @@
     5. contrôles : centrale finie ; gisement relevé (≥ 900 tuiles) ; décision DECIDE avec au moins 2 lignes de bus et des fours ; décision
        du géant bornée à 12 lignes ; sinon la cause écrite.
   Journal du mod : [FO-MEGA] (décision, taille, voies, fours, cause), [FO-MEGA-COUT] (durée au profileur, banc NON épinglé : indicatif).
-  Lancement : banc.py --out <archive> --qui mega-fonderie -- 3000 mega-decision <source>
+  Lancement : banc.py --out <archive> --qui mega-fonderie -- 5000 mega-decision <source>
 ]]
-local CHECK = 2900
+local CHECK = 4900
 local EVERY = 120
 local PARTS = { { "assembling-machine-1", 40 }, { "inserter", 80 },
   { "transport-belt", 400 }, { "small-electric-pole", 100 }, { "iron-chest", 20 }, { "wood", 100 },
@@ -91,6 +91,13 @@ return {
     end
     if t > 600 and t % EVERY == 0 and not st.decided then
       local a = ctx.remote("fo-ia3e", "status", st.key)
+      if t % 480 == 0 then
+        local ps = a and a.plant and ctx.remote("fo-ia1d", "status", st.key, a.plant)
+        local u = ps and ps.unbuilt and ps.unbuilt[1]
+        ctx.log(string.format("diag tick %d : plant=%s etat=%s ; projet %s bati %s/%s obstacles ouverts %s ; premier manquant %s", t, tostring(a and a.plant),
+          tostring(a and a.plant_state), tostring(ps and ps.state), tostring(ps and ps.built), tostring(ps and ps.total), tostring(ps and ps.open_obstacles),
+          u and string.format("%s (%s,%s) echecs %s", u.name, tostring(u.x), tostring(u.y), tostring(u.fails)) or "-"))
+      end
       if a and a.plant and a.plant_state ~= "fini" then ctx.remote("fo-ind", "revive", st.key, a.plant) end
       if a and a.plant then fill_quais(ctx, ctx.remote("fo-ia1d", "status", st.key, a.plant), 200) end
       local fin = a and a.plant_state == "fini"
