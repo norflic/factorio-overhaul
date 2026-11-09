@@ -667,6 +667,15 @@ local function stage_spots(f, surface, b, p, J)
     end
     J.spots = Rp.pick_spots(J.px, J.py, function(x, y) return free_chest(x, y, true) end, Rp.SPOT_TRIES)
     if #J.spots == 0 then J.spots = Rp.pick_spots(J.px, J.py, function(x, y) return free_chest(x, y, false) end, Rp.SPOT_TRIES) end
+    if #J.spots == 0 then -- lot FORCE-0674 (DC) : repli : le tampon se déplace, jusqu'à 3 rayons du point voulu, contre un poteau existant
+      local far = Rp.SPOT_RADIUS * 3
+      local at_far = pole_probe(f, surface, J.px, J.py, far + near + 4)
+      J.spots = Rp.pick_spots(J.px, J.py, function(x, y)
+        local c, k = J.ground(x, y)
+        if not c or J.guard[k] or c.clear[k] or P.in_street(b.lat, x, y) then return false end
+        return at_far(x, y, near)
+      end, Rp.SPOT_TRIES, far)
+    end
     if #J.spots == 0 then return "rapatriement: aucune place pour le tampon a portee d'un poteau" end
   end
   if #Li.sites(J.S.x, J.S.y, J.free) == 0 then return "rapatriement: aucune place pour un bras et un tapis contre le coffre de sortie" end

@@ -121,7 +121,8 @@ function P.no_go(view, turret_ok)
   local out = {}
   local und = P.undefended(view)
   for _, o in ipairs(view.outposts or {}) do
-    if und[o.id] and (turret_ok or o.lethal) then out[o.id] = true end
+    -- lot FORCE-0674 (DC) : la plaque clé en famine s'agrandit avant sa tourelle, sauf site meurtrier
+    if und[o.id] and (o.lethal or (turret_ok and not o.famine)) then out[o.id] = true end
   end
   return out
 end
