@@ -1135,13 +1135,18 @@ Worker.far_mine = function(f, task, surface, tick)
   if not k then return nil end
   local res = task.resource
   local unreach = k.unreach or {}
+  local why = { deposits = 0, loin = 0, injoignable = 0, ennemis = 0, marques = 0, perte = 0, sans_tuile = 0, fond = task.fond and 1 or 0 } -- trace [FO-IA3F-MINAGE]
   for _, d in ipairs(K.deposits(k.m, res, f.hq_pos)) do
-    if d.d2 > FAR_MINE * FAR_MINE then break end
+    why.deposits = why.deposits + 1
+    if d.d2 > FAR_MINE * FAR_MINE then why.loin = why.loin + 1 break end
     -- Lot IA-V2 : gisement au chemin raté récemment (Board.on_fail) : sauté (moteur réel, ia3c-reduit graine 20261020 :
     -- Azur, 45 minages à la main ratés sur « chemin », toujours vers les mêmes gisements de l'autre côté de l'eau).
     local t0 = unreach[d.key]
-    if t0 and tick - t0 < BAD_TTL then goto continue end
+    if t0 and tick - t0 < BAD_TTL then why.injoignable = why.injoignable + 1 goto continue end
     local nests, worms = K.enemies_near(k.m, d.x, d.y, K.NEAR)
+    if nests + worms > 0 then why.ennemis = why.ennemis + 1
+    elseif K.marks_near(k.m, d.x, d.y, K.NEAR, tick) > 0 then why.marques = why.marques + 1
+    elseif f.is_player and Poles.near_loss(f, d, tick) then why.perte = why.perte + 1 end
     if nests + worms == 0 and K.marks_near(k.m, d.x, d.y, K.NEAR, tick) == 0
       and not (f.is_player and Poles.near_loss(f, d, tick)) then
       local tiles = surface.find_entities_filtered({ position = { x = d.x, y = d.y }, radius = 24, name = res, limit = 64 })
@@ -1167,6 +1172,13 @@ Worker.far_mine = function(f, task, surface, tick)
       end
     end
     ::continue::
+  end
+  -- trace (lecture seule) : pourquoi aucune tuile lointaine n'est rendue, au plus une ligne par ressource et par minute
+  k.stats.far_log = k.stats.far_log or {}
+  if tick - (k.stats.far_log[res] or -3600) >= 3600 then
+    k.stats.far_log[res] = tick
+    log(string.format("[FO-IA3F-MINAGE] %s : aucune tuile lointaine de %s a %.1f min : gisements connus %d, trop loin %d, chemin rate %d, nids ou vers %d, marques de mort %d, perte recente %d, tache de fond %d",
+      team_label(f), res, tick / 3600, why.deposits, why.loin, why.injoignable, why.ennemis, why.marques, why.perte, why.fond))
   end
   open_request(f, k, res, tick, "minage")
   return nil
