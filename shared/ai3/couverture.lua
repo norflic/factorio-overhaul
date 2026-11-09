@@ -60,6 +60,28 @@ function Cv.saturation(a)
   return true, string.format("%d place(s) libre(s), couverture %d pour mille", math.floor(a.free), math.floor(a.kappa))
 end
 
+-- RELAIS (lot MODULES-ORDRE, 9/11). Mesuré par acier-2 sur scarlet, 120 min, graine 1618033988 (fo-logs/2026-11-09_INTEG-MAX/
+-- base-g1618033988-47f3d637) : engrenages 147/min et circuits 56/min restent faits à la MAIN ([FO-IA3E] : 2,1 et 1,6 PNJ) ; la capitalisation
+-- avait bien ordonné la chaîne des engrenages (« chaine iron-gear-wheel x2 », minutes 70, 94, 104), mais la porte L6 du transport la retenait
+-- 95 fois sur 79 décisions (« transport sature : 0 PNJ libre(s) sur N ») : les PNJ sont saturés PARCE QU'ils fabriquent à la main ce que la
+-- chaîne ordonnée produirait. Même cercle que les racines de minerai (lot tv-fer) : l'ordre qui RETIRE de la main la fabrication d'un objet
+-- que les PNJ font déjà à la main, à une charge d'au moins Cv.LOAD_MIN, passe la porte du transport fermée. Il reste soumis à la porte des
+-- chantiers (places), au rang, au budget et au courant : le travail ouvert reste borné.
+Cv.RELIEF_KINDS = { chaine = true } -- sortes d'ordres qui automatisent une fabrication (noms de sortes d'ordres, pas des objets du jeu)
+
+--- a = { kind, load (PNJ de fabrication à la main de l'objet de l'ordre, mesurée sur la fenêtre), load_min (seuil du relais, PNJ),
+--- crisis (survie ou QG menacé) }. Rend (vrai, raison) quand l'ordre passe la porte du transport comme RELAIS, (faux, raison) sinon.
+function Cv.relief(a)
+  a = a or {}
+  if not Cv.RELIEF_KINDS[a.kind] then return false, "sorte qui n'automatise pas une fabrication (" .. tostring(a.kind) .. ")" end
+  if a.crisis then return false, "crise (survie ou QG menace) : le travail de base d'abord" end
+  local load, min = a.load, a.load_min
+  if type(load) ~= "number" or load ~= load then return false, "aucune charge a la main mesuree pour cet objet" end
+  if type(min) ~= "number" or min ~= min or min <= 0 then return false, "seuil de charge illisible" end
+  if load < min then return false, string.format("charge a la main %.2f PNJ sous le seuil %.2f", load, min) end
+  return true, string.format("relais : %.2f PNJ de fabrication a la main retires par cet ordre (seuil %.2f)", load, min)
+end
+
 --- Modules d'un ordre de SATURATION (accord du lead, 8/11 : « plusieurs modules par ordre, pour les ordres de saturation seulement »). `want` =
 --- modules que le débit de l'ordre demande (⌈débit ÷ capacité d'un module⌉), `hands` = bras libres (escouades de zéro-idle), `per_hand` = bras
 --- par module (Dm.HANDS_PER_SITE), `hard` = plafond de sûreté (Dm.SLOTS_HARD). Rend (obtenus, cause de l'écart ou nil) : toujours au moins 1 (le
