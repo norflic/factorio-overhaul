@@ -304,6 +304,8 @@ end
 -- §7w intermédiaires d'abord : engrenage avant tapis, câble avant circuit avant inserteur
 ---------------------------------------------------------------------------------------------------
 do
+  game.entity_prototypes.asm = { type = "assembling-machine" }
+  game.entity_prototypes.four = { type = "furnace" }
   local M = { { item = "asm", entity = "asm", par_min = 30 } }
   local function rec(prod, sol) return { solides = sol, produits = { prod }, patronnable = true, category = "crafting", machines = M, fluides_in = {} } end
   local lec = { fab = {
@@ -314,6 +316,8 @@ do
     bras = rec("bras", { { name = "circ", amount = 1 }, { name = "gear", amount = 1 }, { name = "iron-plate", amount = 1 } }),
     fluide = { solides = { { name = "iron-plate", amount = 1 } }, produits = { "fluide" }, patronnable = true, category = "crafting", machines = M, fluides_in = { { name = "eau" } } },
     tuyau = rec("tuyau", { { name = "fluide", amount = 1 } }),
+    acier = { solides = { { name = "iron-plate", amount = 5 } }, produits = { "acier" }, patronnable = true, category = "smelting", machines = { { item = "four", entity = "four", par_min = 12 } }, fluides_in = {} },
+    moteur = rec("moteur", { { name = "acier", amount = 1 }, { name = "iron-plate", amount = 1 } }),
   } }
   local kit = { decl = { kit = {} }, bras = NAMES.bras, bras_long = NAMES.bras_long, tapis = NAMES.tapis, poteau = NAMES.poteau, coffre = NAMES.coffre }
   local mod = { args = { 0, 0, kit } }
@@ -335,6 +339,10 @@ do
   local f3 = team()
   local ok3 = Rt.accueille(f3, bloc("tuyau"), mod, lec, 10, afford, oui)
   check(ok3 == true and Rt.served(f3).tuyau == true and Rt.served(f3).fluide == nil, "§7w intermédiaire à fluide : recette gardée (" .. tostring(ok3) .. ")")
+  -- une recette de four n'est pas un intermédiaire : la recette demandée passe, l'acier reste une entrée
+  local f5 = team()
+  local ok5 = Rt.accueille(f5, bloc("moteur"), mod, lec, 10, afford, oui)
+  check(ok5 == true and Rt.served(f5).moteur == true and Rt.served(f5).acier == nil, "§7w recette de four : pas de rangée d'intermédiaire (" .. tostring(ok5) .. ")")
   -- matériel refusé : on attend, sans poser la recette demandée
   local f4 = team()
   local ok4, why4, wait4 = Rt.accueille(f4, bloc("belt"), mod, lec, 10, function() return false, "rien" end, oui)

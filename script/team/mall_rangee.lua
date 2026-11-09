@@ -521,6 +521,12 @@ end
 --- elle a elle-même besoin. Partie 388473a0, votre équipe : des rangées posées attendaient engrenages, tuyaux, câbles et circuits que le coffre du QG n'avait pas ; 18 min à l'arrêt. Rend
 --- { item, pr, rate } ou nil. depth borne la descente ; rate en objets/min.
 local function intermediaire_manquant(lec, usable, rname, rate, depth, served, plates)
+  -- une cellule de rangée est faite pour un assembleur : une recette de four n'est pas un intermédiaire du mall (partie inter-a4e67879, azure : 8 fours de pierre pour l'acier, projet bloqué)
+  local function assemblable(pr)
+    local m = cheap(pr.entry, usable)
+    local proto = m and game.entity_prototypes[m.entity]
+    return proto ~= nil and proto.type == "assembling-machine"
+  end
   local e = lec.fab[rname]
   local solides = {}
   for _, x in ipairs(e and e.solides or {}) do solides[#solides + 1] = x.name end
@@ -528,7 +534,7 @@ local function intermediaire_manquant(lec, usable, rname, rate, depth, served, p
   for _, s in ipairs(solides) do
     if not plates[s] and not served[s] then
       local pr = Id.profile(lec.fab, s, usable)
-      if pr and pr.s <= 4 and pr.par_min > 0 and pr.s > 0 then
+      if pr and pr.s <= 4 and pr.par_min > 0 and pr.s > 0 and assemblable(pr) then
         local rate_s = (rate or 0) * part_de(rname, s)
         local deeper = depth > 0 and intermediaire_manquant(lec, usable, pr.recipe, rate_s, depth - 1, served, plates) or nil
         return deeper or { item = s, pr = pr, rate = rate_s }
