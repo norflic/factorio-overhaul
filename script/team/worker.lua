@@ -696,7 +696,7 @@ function Worker.program(f, task, surface, tick)
       local by_item = {}
       -- Lot BRIQUES : un produit sans four reçoit le four repris à une autre entrée (Outposts.smelt_release) ; le porteur emporte aussi son entrée.
       local rel = Outposts.smelt_release(f, task.smelt, function(item) return Stock.count(f, item) end)
-      for _, l in ipairs(Outposts.smelt_loads(f, products, nil, rel)) do
+      for _, l in ipairs(Outposts.smelt_loads(f, products, nil, rel, function(item) return Stock.count(f, item) end)) do
         local g = by_item[l.item]
         if not g then
           g = { room = 0, loads = 0, ratio = l.ratio }

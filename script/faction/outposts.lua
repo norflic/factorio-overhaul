@@ -23,6 +23,7 @@ local Axe = require("shared.team.axe") -- lot TOURELLES-HORS-AXE : couloir d'ext
 local Ar = require("shared.team.arrivee") -- lot C4 PLATEAU 3 : tournée arrivée malgré un chemin refusé (règle pure)
 local Charge = require("shared.team.charge_four") -- lot FOURS : charge d'un four à la pile (règle pure)
 local Chaine = require("shared.team.chaine_main") -- lot BRIQUES : partage des fours (C.releases, règle pure)
+local Fd = require("shared.team.fonte_demande") -- lot FONTE-CUIVRE : un four dont l'entrée n'est plus demandée n'est plus complété (règle pure)
 local Gisement = require("script.team.gisement") -- lot GISEMENTS : plus de paire foreuse + four sur le minerai quand l'électrique a pris ce champ
 local Paires = require("shared.team.pose_paires") -- lot EXTENSION-FER : parcours des emplacements, emplacements occupés écartés sans coût (règle pure)
 local Ruines = require("script.team.ruines") -- lot REBUILD-AVANT-POSTE : un avant-poste perdu en entier garde son plan (ruine)
@@ -1009,7 +1010,7 @@ end
 --- Lot FOURS : fours à charger, dans l'ordre de la fonderie. `products` = produits demandés (triés). Un four vide reçoit un
 --- produit à tour de rôle ; un four tombé au tiers de sa pile est complété avec SON entrée (une entrée qui est elle-même un
 --- produit de fonte, la plaque de l'acier, seulement pour une demande). Rend { { s, item, ratio, room, free } ... }.
-function Outposts.smelt_loads(f, products, list, released)
+function Outposts.smelt_loads(f, products, list, released, stock_of)
   local out = {}
   list = list or Outposts.smelters(f)
   released = released or {}
@@ -1027,7 +1028,12 @@ function Outposts.smelt_loads(f, products, list, released)
     local c = s.get_inventory(defines.inventory.furnace_source)[1]
     if c and c.valid_for_read and not released[k] then
       local ratio = RATIO[c.name]
-      if ratio and not stuck(s, c) and (not T.smelter_inputs[c.name] or demanded_item(products, c.name)) then
+      -- Lot FONTE-CUIVRE : un minerai qui n'est plus demandé n'est plus complété tant qu'une autre entrée demandée attend (shared/team/fonte_demande.lua)
+      local wanted = true
+      if stock_of and not T.smelter_inputs[c.name] then
+        wanted = Fd.refill({ demanded = demanded_item(products, c.name), other_waiting = Fd.other_waiting(c.name, items, stock_of) })
+      end
+      if ratio and wanted and not stuck(s, c) and (not T.smelter_inputs[c.name] or demanded_item(products, c.name)) then
         local room = Charge.room(c.count, stack_of(c.name), ratio)
         if room >= ratio then out[#out + 1] = { s = s, item = c.name, ratio = ratio, room = room, free = false } end
       end
@@ -1137,7 +1143,7 @@ function Outposts.service_smelters(f, carrier, smelt)
     -- Lot FOURS (remarque 12 du DC) : chaque four à charger est rempli jusqu'à sa pile (shared/team/charge_four.lua), à égalité
     -- entre les fours qui reçoivent la même entrée.
     local items = {}
-    for _, l in ipairs(Outposts.smelt_loads(f, products, list)) do
+    for _, l in ipairs(Outposts.smelt_loads(f, products, list, nil, function(item) return carrier.get_item_count(item) end)) do
       items[l.item] = items[l.item] or {}
       local g = items[l.item]
       g[#g + 1] = l
