@@ -133,6 +133,7 @@ function C.line(ev)
     ev.team, ev.pid, tostring(ev.band), tostring(ev.state), ev.reason and ("/" .. tostring(ev.reason)) or "", ev.minute or 0,
     ev.stall_min or 0, tostring(ev.cause), ev.built or 0, ev.total or 0, braces(roles), braces(whys), ev.tasks_n or 0, ev.oldest_min or 0,
     braces(tasks), braces(ahead), braces(C.kv(ev.busy, C.MAX_BUSY)), braces(C.kv(ev.fails, C.MAX_KV)))
+    .. (ev.miss and (" ; " .. ev.miss) or "")
 end
 
 return C
