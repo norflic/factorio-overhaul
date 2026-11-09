@@ -135,6 +135,48 @@ local function suite(ZI)
     check(next(none.missing) ~= nil, "le manque du kit est écrit")
   end
 
+  section("3 bis. Auto-financement (DC 9/11) : la plaque manque au QG, les fours de l'avant-poste en débordent")
+  do
+    local kit = ZI.tiers("iron")[1].kit
+    local raw = book:raw_cost(kit)
+    local plates = math.ceil(raw[IRON_PLATE] or 0)
+    check(plates > 0, "le kit de fer coûte des plaques (" .. tostring(plates) .. ")")
+    -- tout sauf la plaque est au QG ; l'avant-poste 11 a 200 plaques dans ses fours, le 12 n'en a aucune
+    local no_plate = {}
+    for k2, v2 in pairs(RICH) do no_plate[k2] = v2 end
+    no_plate[IRON_PLATE] = 0
+    local outs = { op(11, "iron", 8, { outputs = { [IRON_PLATE] = 200 } }), op(12, "iron", 8, { outputs = {} }) }
+    local r = ZI.decide(kinds_of(ZI, { outposts = outs, stock = no_plate, workers_idle = 3 }))
+    check(#r.orders == 1 and r.orders[1].outpost == 11 and r.orders[1].onsite ~= nil, "1 agrandissement auto-financé sur l'avant-poste 11 (rendu " .. #r.orders .. ")")
+    local od = r.orders[1]
+    check(od.onsite and od.onsite.item == IRON_PLATE and od.onsite.n == plates, "il prend sur place exactement les plaques manquantes (" .. tostring(od.onsite and od.onsite.n) .. ")")
+    local carries_plate = false
+    for _, it in ipairs(od.items or {}) do if it[1] == IRON_PLATE then carries_plate = true end end
+    check(not carries_plate and #(od.items or {}) > 0, "les pièces portées depuis le QG ne comptent aucune plaque, mais le reste du kit")
+    check(od.onsite and #od.onsite.crafts > 0 and od.onsite.ticks > ZI.CRAFT_SLACK, "les fabrications sur place et leur durée sont écrites")
+    check((r.onsite or 0) == 1, "le résumé compte 1 auto-financement")
+    local none = ZI.decide(kinds_of(ZI, { outposts = { outs[2] }, stock = no_plate, workers_idle = 3 }))
+    check(#none.orders == 0 and none.causes.iron == "stock", "sans plaque sur place : rien, cause « stock »")
+    local few = ZI.decide(kinds_of(ZI, { outposts = { op(11, "iron", 8, { outputs = { [IRON_PLATE] = plates - 1 } }) }, stock = no_plate, workers_idle = 3 }))
+    check(#few.orders == 0, "une plaque de moins que le besoin sur place : pas d'auto-financement")
+    local nostone = {}
+    for k2, v2 in pairs(RICH) do nostone[k2] = v2 end
+    nostone[IRON_PLATE], nostone[STONE] = 0, 0
+    local two = ZI.decide(kinds_of(ZI, { outposts = outs, stock = nostone, workers_idle = 3 }))
+    check(#two.orders == 0, "plaque ET pierre manquantes : l'auto-financement ne couvre que la plaque, rien ne part")
+    -- émission : la tâche porte le kit réduit et l'ordre de prise sur place
+    local goals = ZI.goals(r)
+    check(goals[1].onsite ~= nil and goals[1].items == od.items, "le but porte onsite et les pièces réduites")
+    local E = { avail = no_plate, open = {}, keys = {}, book = book, tasks = {}, raw = {} }
+    local added
+    local saved_add = P.add
+    P.add = function(_, t) added = t end
+    local verdict = P.EMIT.zero_idle(E, { id = 1, key = "zero-idle:iron:1", prio = 10 }, goals[1])
+    P.add = saved_add
+    check(verdict == "ok" and added and added.kind == "extend" and added.onsite ~= nil and added.items == od.items, "émission : tâche extend avec onsite (" .. tostring(verdict) .. ")")
+    check(added and deep_ok(added), "la tâche ne contient que des données pures")
+  end
+
   section("4. Causes")
   do
     local outs = { op(11, "iron", 8) }
@@ -351,6 +393,8 @@ local MUTANTS = {
   { "ligne sans cause", "acc.causes[c] = (acc.causes[c] or 0) + 1", "" },
   { "couverture électrique ignorée", "ok = not (cov or off),", "ok = not off," },
   { "bascule électrique ignorée", "local off = thermal_off and thermal_off[kind]", "local off = nil" },
+  { "auto-financement : sortie de l'avant-poste ignorée", "if ((outputs or {})[product] or 0) < n then return nil end", "" },
+  { "auto-financement : plaques portées depuis le QG", "if it == product then q = q - n end", "" },
 }
 local refused, kept = 0, {}
 local saved_p, saved_f0 = passes, failures

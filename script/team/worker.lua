@@ -595,6 +595,10 @@ function Worker.program(f, task, surface, tick)
   elseif k == "extend" then
     local o = f.outposts[task.outpost]
     if not o then return nil end
+    if task.onsite then -- lot AUTO-FINANCEMENT (DC 9/11) : plaques prises dans les fours de l'avant-poste, paires fabriquées sur place, puis posées
+      return { { "home" }, { "take", task.items, strict = true }, { "goto", access(o, f), 3 }, { "act", "autofinancement" },
+        { "craft_now", task.onsite.crafts, task.onsite.ticks, "auto-financement" }, { "act", "extend" }, { "home" } }
+    end
     return { { "home" }, { "take", task.items, strict = true }, { "goto", access(o, f), 3 }, { "act", "extend" }, { "home" } }
   elseif k == "rebuild" then
     return Recon.program(f, task)
@@ -963,6 +967,26 @@ ACTS.extend = function(agent, f, task, surface)
   if not o then return false end
   local n = Outposts.extend(f, surface, o, main_inv(agent))
   f.stats.extended = (f.stats.extended or 0) + n
+  if task.onsite then
+    log(string.format("[FO-AUTOFINANCEMENT] %s : avant-poste %s : %d paire(s) posee(s) avec %d %s pris(es) sur place par le PNJ %s a %.1f min",
+      f.key or "player", tostring(task.outpost), n, task.onsite.taken or 0, tostring(task.onsite.item), tostring(agent.id), game.tick / 3600))
+  end
+  return true
+end
+
+--- Lot AUTO-FINANCEMENT : les plaques du kit sont prises dans les sorties de l'avant-poste lui-même (Outposts.take_output) ; rien de pris : la
+--- tâche échoue avec ce motif (la sortie a été vidée entre la pensée et l'arrivée).
+ACTS.autofinancement = function(agent, f, task, surface)
+  local o = f.outposts[task.outpost]
+  if not (o and task.onsite) then return false end
+  local taken = Outposts.take_output(o, main_inv(agent), task.onsite.item, task.onsite.n)
+  task.onsite.taken = taken
+  f.stats.autofinance = (f.stats.autofinance or 0) + taken
+  if taken <= 0 then
+    log(string.format("[FO-AUTOFINANCEMENT] %s : avant-poste %s : aucune %s dans les sorties a l'arrivee du PNJ %s (voulu %d) a %.1f min",
+      f.key or "player", tostring(task.outpost), tostring(task.onsite.item), tostring(agent.id), task.onsite.n or 0, game.tick / 3600))
+    return false
+  end
   return true
 end
 

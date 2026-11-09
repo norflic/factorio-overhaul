@@ -84,12 +84,43 @@ function ZI.tiers(kind, forced, covered, thermal_off)
   return { { name = "thermique", kit = Planner.outpost_items(kind), ok = not (cov or off), why = why } }
 end
 
+--- Lot AUTO-FINANCEMENT (directive du DC du 9/11, validée : « l'auto-financement sur les gisements ») : le kit d'agrandissement ne manque
+--- QUE de la plaque de l'avant-poste (raw = { [product] = n }) et les sorties de cet avant-poste (ses fours, lues par la vue : o.outputs)
+--- en tiennent au moins n : le PNJ part avec le reste du kit (pierre, combustible, pièces déjà au coffre), prend n plaques SUR PLACE et
+--- fabrique les foreuses et les fours devant le gisement. Mesuré (graine 1618033988, 0.6.74) : 114 prises « extend:matiere » à 15 min
+--- pendant que les fours de l'avant-poste débordaient et que le QG manquait de 458 à 1 220 plaques ; famine de 60 min.
+--- Rend nil, ou { items (pièces portées depuis le QG, triées), n (plaques prises sur place), crafts (Book:plan, ordre exécutable),
+--- ticks (durée des fabrications, secondes du livre × 60 + ZI.CRAFT_SLACK), avail (stock virtuel après la prise) }.
+ZI.CRAFT_SLACK = 30
+function ZI.onsite(book, kit, avail, raw, product, outputs)
+  if not (book and product and raw) then return nil end
+  local n = raw[product]
+  if not n or n <= 0 then return nil end
+  n = math.ceil(n) -- (une autre matière qui manque aussi laisse p2.raw non vide : refus plus bas)
+  if ((outputs or {})[product] or 0) < n then return nil end
+  local a2 = copy(avail)
+  a2[product] = (a2[product] or 0) + n
+  local p2 = book:plan(kit, a2)
+  if next(p2.raw) ~= nil then return nil end
+  local items = {}
+  for _, it in ipairs(sorted_keys(p2.uses)) do
+    local q = p2.uses[it]
+    if it == product then q = q - n end -- les n plaques prises sur place ne sortent pas du coffre du QG
+    if q > 0 then items[#items + 1] = { it, q } end
+  end
+  local secs = 0
+  for _, c in ipairs(p2.crafts) do secs = secs + (c.energy or 0) end
+  local crafts = {}
+  for _, c in ipairs(p2.crafts) do crafts[#crafts + 1] = { recipe = c.recipe, runs = c.runs } end
+  return { items = items, n = n, crafts = crafts, ticks = math.ceil(secs * 60) + ZI.CRAFT_SLACK, avail = p2.avail }
+end
+
 --- Décision PURE. inp = {
 ---   idle (PNJ sans tâche), fond (PNJ au fond doux : minage à la main, garde ; prêts à poser), threat (QG menacé),
 ---   book (livre de recettes : Book:plan), avail (stock virtuel { [objet] = n }), fuel (objet combustible),
 ---   kinds = { { kind, product, outposts = { { id, d2 } } (avec place, triés), open = { [id] = vrai }, no_go = { [id] = vrai },
 ---             tiers = { { name, kit, ok, why } } } } (ordre du besoin) }.
---- Rend { orders = { { kind, outpost, tier, items } }, idle, left, causes = { [kind] = cause }, missing = { [objet] = n }, plans }.
+--- Rend { orders = { { kind, outpost, tier, items, onsite } }, idle, left, causes = { [kind] = cause }, missing = { [objet] = n }, plans, onsite }.
 function ZI.decide(inp)
   local hands = math.max(0, (inp.idle or 0) + (inp.fond or 0))
   local res = { orders = {}, idle = inp.idle or 0, fond = inp.fond or 0, hands = hands, left = hands, causes = {}, missing = {}, plans = 0 }
@@ -140,7 +171,15 @@ function ZI.decide(inp)
           else
             local p = inp.book:plan(tier.kit, avail)
             res.plans = res.plans + 1
-            if next(p.raw) ~= nil then
+            local self_paid = (next(p.raw) ~= nil) and ZI.onsite(inp.book, tier.kit, avail, p.raw, k.product, o.outputs) or nil -- lot AUTO-FINANCEMENT
+            if self_paid then
+              avail = self_paid.avail
+              res.orders[#res.orders + 1] = { kind = k.kind, outpost = o.id, tier = tier.name, items = self_paid.items, product = k.product,
+                onsite = { item = k.product, n = self_paid.n, crafts = self_paid.crafts, ticks = self_paid.ticks } }
+              res.onsite = (res.onsite or 0) + 1
+              left = left - 1
+              progressed = true
+            elseif next(p.raw) ~= nil then
               s.done = true
               local only_fuel = true
               for _, item in ipairs(sorted_keys(p.raw)) do
@@ -177,7 +216,7 @@ function ZI.input(view, s, book, avail, ctx, covered)
     local outs, op = {}, {}
     for _, o in ipairs(view.outposts or {}) do
       if o.kind == kind and not o.full and (o.drills or 0) < T.max_drills(kind) then
-        outs[#outs + 1] = { id = o.id, d2 = o.d2 or 0 }
+        outs[#outs + 1] = { id = o.id, d2 = o.d2 or 0, outputs = o.outputs } -- (outputs : sorties de l'avant-poste, lot AUTO-FINANCEMENT)
         if open["extend:" .. tostring(o.id)] then op[o.id] = true end
       end
     end
@@ -200,7 +239,7 @@ function ZI.goals(res)
   for _, o in ipairs(res.orders or {}) do
     rank[o.kind] = (rank[o.kind] or 0) + 1
     out[#out + 1] = { key = ZI.KEY .. o.kind .. ":" .. rank[o.kind], family = "extraction", kind = "zero_idle", outpost = o.kind,
-      target = o.outpost, items = o.items, tier = o.tier, fond = true, zero_idle = true, value = ZI.VALUE, why = o.product }
+      target = o.outpost, items = o.items, tier = o.tier, fond = true, zero_idle = true, value = ZI.VALUE, why = o.product, onsite = o.onsite }
   end
   return out
 end
@@ -208,7 +247,7 @@ end
 --- Résumé GARDÉ dans l'état (global : nombres et chaînes seulement) : relu par le runtime pour la ligne [FO-ZERO-IDLE].
 function ZI.summary(res)
   local orders = {}
-  for _, o in ipairs(res.orders or {}) do orders[#orders + 1] = o.kind .. ":" .. tostring(o.outpost) .. ":" .. o.tier end
+  for _, o in ipairs(res.orders or {}) do orders[#orders + 1] = o.kind .. ":" .. tostring(o.outpost) .. ":" .. o.tier .. (o.onsite and ":auto-finance" or "") end
   return { idle = res.idle or 0, fond = res.fond or 0, emitted = #(res.orders or {}), left = res.left or 0,
     causes = copy(res.causes), missing = copy(res.missing), orders = orders, plans = res.plans or 0 }
 end
@@ -221,9 +260,10 @@ P.EMIT.zero_idle = function(E, proj, g)
   if E.open[key] or E.keys[key] then return "en_cours" end
   if P.take(E, g.items) then
     P.add(E, { key = key, kind = "extend", prio = (proj.prio or 0) + P.FINISH_BONUS, outpost = g.target, outpost_kind = g.outpost,
-      items = g.items, ia3 = proj.id, why = proj.key, zero_idle = true })
+      items = g.items, ia3 = proj.id, why = proj.key, zero_idle = true, onsite = g.onsite }) -- (onsite : lot AUTO-FINANCEMENT, plaques prises sur place)
     return "ok"
   end
+  if g.onsite then return "matiere" end -- (les pièces portées ne sont plus au stock virtuel : pas de fabrication à la main pour elles)
   local p = E.book:plan(g.items, E.avail)
   if next(p.raw) ~= nil then return "matiere" end
   P.want(E, proj, g.items, proj.prio or 0, false, "zero-idle")

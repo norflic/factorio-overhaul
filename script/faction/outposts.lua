@@ -817,6 +817,28 @@ local function contents_of(e)
   return inv and inv.get_contents() or {}
 end
 
+--- Lot AUTO-FINANCEMENT (DC 9/11) : prend jusqu'à `n` objets `item` dans les sorties de l'avant-poste `o` (fours, coffres) et les met dans
+--- `carrier` ; rend le nombre pris. Même lecture que collect, bornée à un objet et une quantité.
+function Outposts.take_output(o, carrier, item, n)
+  local left, taken = math.floor(n or 0), 0
+  if left <= 0 or not item then return 0 end
+  for _, s in ipairs(valid_list(o.sinks)) do
+    if left <= 0 then break end
+    local inv
+    if s.type == "furnace" then inv = s.get_output_inventory()
+    elseif s.type == "container" then inv = s.get_inventory(defines.inventory.chest) end
+    local have = inv and inv.get_item_count(item) or 0
+    if have > 0 then
+      local moved = carrier.insert({ name = item, count = math.min(have, left) })
+      if moved > 0 then
+        inv.remove({ name = item, count = moved })
+        left, taken = left - moved, taken + moved
+      end
+    end
+  end
+  return taken
+end
+
 --- Lot C4 PLATEAU 3 : distance carrée du point (x, y) au bâtiment (foreuse, four, coffre) le plus proche de l'avant-poste ; nil si aucun.
 function Outposts.nearest_d2(o, x, y)
   local pts = {}
