@@ -504,7 +504,9 @@ function Cap.candidates(Ld, census, ctx)
   local function ready(c) return (c.all_in or c.center) and 1 or 0 end
   -- Lot AMELIORATION-CONTINUE : le remplacement ENGAGÉ (fabrication entamée) et celui d'un rang en FAMINE passent devant tout, sauf danger.
   local function front(c)
-    if not (ctx.continu and c.replace and not ctx.threat) then return 0 end
+    -- ctx.alert (danger IMMÉDIAT que le runtime lit, non posé aujourd'hui) : ctx.threat vaut aussi « guerre déclarée », vrai toute la partie des
+    -- factions (banc 7f183e5d : azure « danger true » de 55 à 120 min, l'engagement n'a jamais passé devant) ; la pile suspend déjà les améliorations.
+    if not (ctx.continu and c.replace and not ctx.alert) then return 0 end
     if ctx.rest and ctx.rest[c.group] then return 0 end
     if ctx.engaged and c.group == ctx.engaged then return 1 end
     if ctx.starved and ctx.starved[c.replace.to] then return 1 end
