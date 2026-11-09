@@ -20,7 +20,9 @@ _G.game = { tick = 0, entity_prototypes = PROTOS, item_prototypes = setmetatable
 
 local RELEASED = {}
 local REQ = {}
-local Build = { SITES = {}, QUAI_CHEST = "iron-chest", Mall = { OCC = -1, on = function() return true end } }
+local PUR = { ok = true, why = nil, calls = 0 }
+local Build = { SITES = {}, QUAI_CHEST = "iron-chest", Mall = { OCC = -1, on = function() return true end },
+  Pur = { check_route = function() PUR.calls = PUR.calls + 1; return PUR.ok, PUR.why end } }
 function Build.request(f, spec)
   local id = f.build.next_id
   f.build.next_id = id + 1
@@ -167,6 +169,16 @@ do
   local lay3, why3 = Build.SITES.mall(f, nil, p, { read_masks = mock_masks() })
   check(lay3 == nil and tostring(why3):find("obstacle:reserve", 1, true) ~= nil, "§5 tuile d'un autre projet : refus")
   f.build.occ[P.tkey(t0[1], t0[2])] = -1
+  -- pureté : refus du tracé
+  st.sans_raccord = true
+  PUR.ok, PUR.why = false, "pointe_vers_etranger"
+  local lay5, why5 = Build.SITES.mall(f, {}, p, { read_masks = mock_masks() })
+  check(lay5 == nil and tostring(why5):find("purete", 1, true) ~= nil and PUR.calls >= 1, "§5 pureté : refus avec cause (" .. tostring(why5) .. ")")
+  PUR.ok, PUR.why = true, nil
+  PUR.calls = 0
+  local lay6 = Build.SITES.mall(f, {}, p, { read_masks = mock_masks() })
+  check(lay6 ~= nil and PUR.calls == 2, "§5 pureté : les deux tapis contrôlés (" .. PUR.calls .. ")")
+  f.build.occ[P.tkey(t0[1], t0[2])] = -1
   -- raccord sauté si pas de site ; plan accepté
   st.sans_raccord = true
   local lay4 = Build.SITES.mall(f, nil, p, { read_masks = mock_masks() })
@@ -289,6 +301,33 @@ do
 end
 
 ---------------------------------------------------------------------------------------------------
+-- §8b S2 partiel, reprise après un refus de raccord
+---------------------------------------------------------------------------------------------------
+do
+  local f = team()
+  local st = f.build.mall
+  st.pret = nil
+  st.partiel = { ok = { fer = true }, all = { fer = true, cuivre = true } }
+  check(Rt.ouvert(f) == true, "§8b S2 partiel : ouvert")
+  local _, why = Rt.place(f, { dem("cable", 1, { "cuivre" }) }, NAMES, 10, afford, "t")
+  check(tostring(why):find("S2 partiel", 1, true) ~= nil, "§8b objet d'une plaque qui ne coule pas : refusé (" .. tostring(why) .. ")")
+  local id = Rt.place(f, { dem("gear", 1, { "fer" }), dem("cable", 1, { "cuivre" }) }, NAMES, 10, afford, "t")
+  check(id ~= nil and #st.rows == 1 and Mr.compte(st.rows[1], "r-gear") >= 1 and Mr.compte(st.rows[1], "r-cable") == 0, "§8b seul l'objet dont la plaque coule entre")
+  local p = f.build.projects[id]
+  p.state, p.reason = "refuse", "mall raccord : 1 composante(s)"
+  Rt.minute(f, surface_mock({}, {}), { fab = {} }, {}, afford, 100)
+  local r = st.rows[1]
+  check(#r.cells == 0 and r.stop == nil and r.retry_at == 100 + Rt.RETRY_TICKS, "§8b refus de raccord : cellules rendues, nouvel essai plus tard (" .. tostring(r.retry_at) .. ")")
+  local n0 = #st.rows
+  local id2 = Rt.place(f, { dem("gear", 1, { "fer" }) }, NAMES, 200, afford, "t")
+  check(id2 ~= nil and #st.rows == n0 + 1, "§8b pendant le délai, la rangée en attente n'est pas reprise")
+  local r2 = st.rows[2]
+  r2.stop = "obstacle:test"
+  local id3 = Rt.place(f, { dem("gear", 2, { "fer" }) }, NAMES, 100 + Rt.RETRY_TICKS + 1, afford, "t")
+  check(id3 ~= nil and #st.rows == n0 + 1 and #r.cells >= 1, "§8b après le délai, la rangée est reprise")
+end
+
+---------------------------------------------------------------------------------------------------
 -- §9 ordre « chaine » de la capitalisation
 ---------------------------------------------------------------------------------------------------
 do
@@ -332,6 +371,89 @@ do
   for _, l in ipairs(LOG) do if l:find("hors du mall", 1, true) then logged = true end end
   check(logged, "§9 la cause est écrite")
   Id.recipe_of = real
+end
+
+---------------------------------------------------------------------------------------------------
+-- §10 tronc : rangée alimentée par le tronc (plaques), plan de site, retour à l'état d'avant
+---------------------------------------------------------------------------------------------------
+do
+  local TRONC = true
+  Build.Mall.tronc_on = function() return TRONC end
+  Rt.logistique = function() return { repartiteur = "splitter", souterrain = "underground-belt" } end
+  local Mt = require("shared.team.mall_tronc")
+  local f = team()
+  f.team = { ia3 = {} }
+  local st = f.build.mall
+  REQ = {}
+  local id = Rt.place(f, { dem("a", 2, { "iron-plate" }), dem("b", 2, { "copper-plate", "iron-plate" }) }, NAMES, 10, afford, "t")
+  check(id ~= nil, "§10 rangée du tronc demandée")
+  local r = st.rows[1]
+  check(r.bus and r.bus.a == 1 and r.bus.b == 2, "§10 deux lignes, A = la plus petite (" .. tostring(r.bus and r.bus.a) .. ")")
+  check(table.concat(r.voies, ",") == "copper-plate,copper-plate,iron-plate,iron-plate", "§10 un objet par tapis (" .. table.concat(r.voies, ",") .. ")")
+  check(#st.lines == 2 and st.lines[1].y_to == 7 and st.lines[2].y_to == 7, "§10 lignes prévues jusqu'à yb (" .. tostring(st.lines[1].y_to) .. ")")
+  check(st.rep.west == Mt.WEST and st.rep.north == Mt.NORTH, "§10 le repère réserve la place du tronc")
+  local spec = REQ[1].mall
+  check(spec.bus == true and spec.head == false and spec.lines ~= nil and spec.names.repartiteur == "splitter", "§10 spec : tronc, instantané des lignes, noms des prises")
+  check(spec.lines[1].y_to == nil, "§10 instantané pris AVANT d'avoir prolongé les lignes")
+  -- rangée 2, mêmes plaques : les lignes sont prolongées à partir de leur étendue
+  local id2 = Rt.place(f, { dem("c", 2, { "iron-plate" }) }, NAMES, 20, afford, "t")
+  check(id2 ~= nil, "§10 demande suivante acceptée")
+  check(#st.rows == 1 and REQ[2].mall.from == 3, "§10 même rangée : cellules à la suite, sans tronc")
+  check(REQ[2].mall.lines == nil, "§10 pas de tronc dans une section d'allongement")
+  -- matériel refusé : les lignes reviennent à leur état
+  AFFORD = false
+  local nl = #st.lines
+  local _, why_w, w = Rt.place(f, { dem("d", 1, { "stone-brick" }) }, NAMES, 30, afford, "t")
+  AFFORD = true
+  check(#st.lines == nl, "§10 matériel refusé : lignes inchangées (" .. #st.lines .. ")")
+  -- seuls répartiteur et souterrain manquent : pas d'attente, la rangée d'avant (à quais) prend le relais
+  do
+    local f3 = team()
+    f3.team = { ia3 = {} }
+    local function sans_logi(list)
+      for _, it in ipairs(list) do if it[1] == "splitter" or it[1] == "underground-belt" then return false, "manque " .. it[1] end end
+      return true
+    end
+    local id3 = Rt.place(f3, { dem("a", 2, { "iron-plate" }) }, NAMES, 40, sans_logi, "t")
+    local st3 = f3.build.mall
+    check(id3 ~= nil and #st3.rows == 1 and st3.rows[1].bus == nil, "§10 sans répartiteur disponible : rangée à quais")
+    check(#(st3.lines or {}) == 0, "§10 sans répartiteur disponible : aucune ligne réservée")
+    local function rien() return false, "rien" end
+    local id4, why4, wait4 = Rt.place(team(), { dem("a", 2, { "iron-plate" }) }, NAMES, 40, rien, "t")
+    check(id4 == nil and wait4 == true, "§10 autre manque : on attend, comme avant (" .. tostring(why4) .. ")")
+  end
+  -- plan du site : les pièces viennent du tronc et des cellules, avec la bonne étendue
+  local p = f.build.projects[id]
+  local masks = function() return { water = {}, blocked = {}, clear = {} } end
+  st.sans_raccord = true
+  PUR.calls = 0
+  local lay = Build.SITES.mall(f, {}, p, { read_masks = masks })
+  check(lay ~= nil, "§10 plan du site accepté")
+  check(PUR.calls == 8, "§10 pureté : 2 tapis de rangée, 4 segments de lignes, 2 prises (" .. PUR.calls .. ")")
+  if lay then
+    local ns, nu = 0, 0
+    for _, e in ipairs(lay.ents) do
+      if e.name == "splitter" then ns = ns + 1 end
+      if e.name == "underground-belt" then nu = nu + 1 end
+    end
+    check(ns == 2, "§10 deux répartiteurs (" .. ns .. ")")
+    check(nu == 2, "§10 un souterrain (entrée, sortie) pour la ligne 2 (" .. nu .. ")")
+    check(#lay.quais == 4, "§10 quatre coffres de tête (deux par ligne) (" .. #lay.quais .. ")")
+    check(#lay.outs == 4, "§10 une sortie par machine (2 + 2 demandées), pas de quai de rangée (" .. #lay.outs .. ")")
+    local n_inflow = 0
+    for _ in pairs(p.inflow or {}) do n_inflow = n_inflow + 1 end
+    check(n_inflow == 2 and math.abs(p.inflow["iron-plate"] - 1) < 1e-9 and math.abs(p.inflow["copper-plate"] - 0.5) < 1e-9, "§10 débit nominal des têtes de ligne, en objets/s (fer " .. tostring(p.inflow and p.inflow["iron-plate"]) .. ")")
+    local ok_b, bad = true, nil
+    for _, e in ipairs(lay.ents) do if e.role == "mall-tete" then ok_b, bad = false, e.name end end
+    check(ok_b, "§10 aucune tête à quais sur une rangée du tronc (" .. tostring(bad) .. ")")
+  end
+  -- section refusée : lignes rendues
+  st.rows[1].projects[1].lines_prev = { { k = 1, item = "x", y_to = 42 } }
+  f.build.projects[id].state = "refuse"; f.build.projects[id].reason = "obstacle:eau"
+  Rt.minute(f, surface_mock({}, {}), { fab = {} }, {}, afford, 100)
+  check(st.lines[1].y_to == 42, "§10 section refusée : les lignes reviennent à leur état d'avant")
+  Build.Mall.tronc_on = nil
+  Rt.logistique = nil
 end
 
 print(string.format("[MALL-RANGEE-MOTEUR] BILAN : %d OK, %d ECHEC(S)", ok_n, ko_n))

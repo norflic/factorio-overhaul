@@ -271,5 +271,43 @@ do
   end
 end
 
+-- §13 tenue du débit de S2 (règle pure), mutants compris
+do
+  local function suite(M)
+    local out, mem = {}, nil
+    local serie = { { 0, 30 }, { 50, 29 }, { 100, 30 }, { 18099, 30 }, { 18100, 30 }, { 18101, 15 }, { 18102, 14.9 }, { 18103, 29 }, { 18104, 30 }, { 18105, 30 }, { 36103, 30 }, { 36104, 30 }, { 36105, 29 }, { 36106, 15 } }
+    for _, p in ipairs(serie) do
+      mem = M.s2_tenue(mem, p[2], p[1])
+      out[#out + 1] = (mem.open and "O" or "f") .. ":" .. tostring(mem.since)
+    end
+    return table.concat(out, " ")
+  end
+  local ref = suite(Mp)
+  check(ref == "f:0 f:nil f:100 f:100 O:100 O:100 f:nil f:nil f:18104 f:18104 f:18104 O:18104 O:18104 O:18104", "§13 suite de référence (" .. ref .. ")")
+  local m1 = Mp.s2_tenue(nil, 30, 0, 600)
+  m1 = Mp.s2_tenue(m1, 30, 599, 600)
+  check(not m1.open, "§13 tenue passée en argument : un tick trop tôt")
+  m1 = Mp.s2_tenue(m1, 30, 600, 600)
+  check(m1.open == true, "§13 tenue passée en argument : atteinte")
+  local m2 = Mp.s2_tenue(Mp.s2_tenue(nil, 30, 0), 29, 60)
+  check(m2.since == nil, "§13 un creux sous le seuil remet la tenue à zéro")
+  local src = assert(io.open("shared/team/mall_plan.lua", "rb")):read("*a")
+  local function mute(a, b)
+    local i, j = src:find(a, 1, true)
+    assert(i, "motif introuvable : " .. a)
+    local chunk = assert(load(src:sub(1, i - 1) .. b .. src:sub(j + 1), "mutant", "t"))
+    return chunk()
+  end
+  for _, mu in ipairs({
+    { "mem.open and flow < Mp.S2_PLAQUES_BAS", "mem.open and flow < Mp.S2_PLAQUES_MIN", "maintien au seuil haut (pas d'hystérésis)" },
+    { "      mem.since = nil\n    end", "    end", "creux sans remise à zéro" },
+    { "tick - mem.since >= (tenue or Mp.S2_TENUE)", "tick - mem.since > (tenue or Mp.S2_TENUE)", "tenue atteinte un tick trop tard" },
+    { "tick - mem.since >= (tenue or Mp.S2_TENUE)", "true", "aucune tenue" },
+  }) do
+    local ok, sig = pcall(function() return suite(mute(mu[1], mu[2])) end)
+    check(not ok or sig ~= ref, "§13 mutant vu : " .. mu[3])
+  end
+end
+
 print(string.format("[MALL-PLAN] BILAN : %d OK, %d ECHEC(S)", ok_n, ko_n))
 if ko_n > 0 then os.exit(1) end

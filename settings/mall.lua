@@ -16,4 +16,18 @@ data:extend({
     default_value = true,
     order = "e-war-z-video-x",
   },
+  {
+    type = "bool-setting",
+    name = "fo-war-mall-tronc",
+    setting_type = "runtime-global",
+    default_value = false,
+    order = "e-war-z-video-z",
+  },
+  {
+    type = "bool-setting",
+    name = "fo-war-mall-s2-debit",
+    setting_type = "runtime-global",
+    default_value = true,
+    order = "e-war-z-video-y",
+  },
 })
