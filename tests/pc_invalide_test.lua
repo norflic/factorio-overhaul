@@ -74,8 +74,9 @@ local function scenario(opts)
   log = function(text) logs[#logs + 1] = tostring(text) end
 
   -- Le demi-tour : le regard (H.sense) rend « pris » et passe par Worker.abort, comme comportement.lua le fait en réaction.
-  local sense_on = false
+  local sense_on, halt_on = false, false
   Worker.hook = { sense = function(a, t)
+    if halt_on then halt_on = false; return true end -- halte : rend vrai, programme inchangé (M.sense, arrêt sur place)
     if sense_on then sense_on = false; Worker.abort(a, f, t, "danger"); return true end
     return false
   end }
@@ -109,6 +110,23 @@ local function scenario(opts)
   c("1 : pas de travail sur place après le demi-tour (Build.work non appelé)", work_calls == 0)
   c("1 : pc valide après le demi-tour (pc = 1, programme « home »)", agent.pc == 1 and agent.steps[1][1] == "home")
   c("1 : la réaction marque la tâche en échec (abandon)", agent.failed == true)
+
+  -- 1 bis. Halte pendant ia1d (M.sense rend vrai sans changer le programme) : le job reste, aucun travail pendant la halte,
+  -- la pensée suivante reprend le travail avec le même job.
+  pose(steps_ia1d(), 2)
+  local job0 = agent.ia1d
+  halt_on = true
+  local okh = pcall(FSM.think, "worker", agent, tick)
+  c("1 bis : halte : pensee sans erreur", okh)
+  c("1 bis : halte : job conserve", agent.ia1d == job0 and job0 ~= nil)
+  c("1 bis : halte : pas de travail pendant la halte", work_calls == 0)
+  c("1 bis : halte : programme inchange (pc = 2)", agent.pc == 2 and agent.steps[2][1] == "ia1d")
+  local seen_job = nil
+  work_fn = function(a) seen_job = a.ia1d return "more" end
+  local okh2 = pcall(FSM.think, "worker", agent, tick)
+  work_fn = nil
+  c("1 bis : pensee suivante : pas d'erreur", okh2)
+  c("1 bis : pensee suivante reprend le travail avec le job conserve", work_calls == 1 and seen_job == job0 and seen_job ~= nil)
 
   -- 2. « again » sans réaction : recul d'une étape, comme avant (pc > 1, programme inchangé, étape ia1d).
   pose(steps_ia1d(), 2)
@@ -167,8 +185,10 @@ for _, r in ipairs(res) do check(r[1], r[2]) end
 local W = read("script/team/worker.lua")
 local BS = read("script/team/bail.lua")
 local MUT_W = {
-  { "ia1d continue après une réaction (sans lire defend)", "if defend(agent, tick) then agent.ia1d = nil return end",
-    "defend(agent, tick)" },
+  { "ia1d continue après une réaction (sans lire defend)", "      if defend(agent, tick) then\n        if agent.steps ~= steps0 or agent.pc ~= pc0 then agent.ia1d = nil end\n        return\n      end",
+    "      defend(agent, tick)" },
+  { "halte : job effacé à chaque retour de defend (ancienne version du lead)", "if agent.steps ~= steps0 or agent.pc ~= pc0 then agent.ia1d = nil end",
+    "agent.ia1d = nil" },
   { "again sans garde de programme (pc - 1 aveugle)", "if agent.steps == steps0 and agent.pc == pc0 and pc0 > 1 and cur and cur[1] == \"ia1d\" then",
     "if pc0 > 1 then" },
   { "again sans garde pc > 1 (pc = 0 possible)", "if agent.steps == steps0 and agent.pc == pc0 and pc0 > 1 and cur and cur[1] == \"ia1d\" then",

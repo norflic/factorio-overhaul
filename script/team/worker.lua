@@ -1789,11 +1789,15 @@ FSM.define(MACHINE, {
     think = function(agent, tick)
       -- Correction PC-INVALIDE (plantage bail.lua:72, azure, 87,8 min) : une réaction (demi-tour ou fuite, Worker.abort) qui part
       -- pendant cette pensée remet le programme à `{ home }` (pc = 1). Ne pas continuer le travail après elle : le retour
-      -- « again » retirait alors 1 à pc et laissait pc = 0 (aucune étape).
-      if defend(agent, tick) then agent.ia1d = nil return end
+      -- « again » retirait alors 1 à pc et laissait pc = 0 (aucune étape). Une simple HALTE (M.sense rend vrai sans changer le
+      -- programme) ne lâche pas le chantier : le job reste, et la pensée suivante reprend le travail.
+      local steps0, pc0 = agent.steps, agent.pc
+      if defend(agent, tick) then
+        if agent.steps ~= steps0 or agent.pc ~= pc0 then agent.ia1d = nil end
+        return
+      end
       local f = faction_of(agent)
       if not f then return end
-      local steps0, pc0 = agent.steps, agent.pc
       Profiler.start("build:work")
       local r = Build.work(agent, f, tick)
       Profiler.stop("build:work")
