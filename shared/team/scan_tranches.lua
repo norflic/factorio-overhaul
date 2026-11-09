@@ -7,6 +7,16 @@
   Une liste de n éléments relevée au début de la fenêtre est traitée par parts : la tranche s (0..slices-1) prend [a, b] (St.share) ;
   les parts couvrent la liste sans trou ni doublon (test §2).
 
+  Lot SCAN-EVENEMENTS (directive du DC du 9/11, « bannissement du H24 ») : la période passe à 3 min (10 800 ticks) et une impulsion part
+  AUSSI sur un RÉVEIL événementiel (recherche débloquée, palier de stock, coupure d'énergie, rupture d'une ressource critique ; déclencheurs :
+  script/team/scan_reveil.lua). État par équipe `st` (f.team.scan, données pures) : st.wake = { tick, why, n } (réveil posé, non servi ;
+  un second réveil avant service ne fait que compter : une seule passe), st.served = tick de départ de la dernière passe, st.why = sa cause.
+    St.due(st, t0, cfg, rank) : une passe est-elle due au départ de fenêtre t0 ? refusée pendant une fenêtre en cours ; « periode » si
+      t0 est le départ de la fenêtre périodique du rang ; sinon la cause du réveil posé ; St.ack(st, t0, why) marque la passe servie.
+    VOIES DE RÉVEIL : la période est un train de créneaux k = 0, 1, 2… de `stride` ticks ; le créneau k appartient au rang k mod n
+      (n équipes). Les créneaux k < n sont les fenêtres périodiques (k = rang) ; les suivants, libres, servent les réveils. Deux rangs
+      distincts n'ont jamais le même créneau : une fenêtre de réveil est disjointe de toute autre fenêtre (test §6). Le prochain créneau
+      de la voie du rang r est à moins de n × stride ticks (4 équipes : 240 ticks, 4 s) : St.wake_start.
   Ni temps mesuré ni ordre de `pairs` : tout est arithmétique sur le tick. Rien d'autre ici : le moteur (script/team/hygiene.lua) lit le
   monde et journalise.
 ]]
@@ -14,7 +24,7 @@
 local St = {}
 
 St.CFG = {
-  period = 18000,     -- ticks entre deux impulsions (5 min)
+  period = 10800,     -- ticks entre deux impulsions (3 min, directive du DC du 9/11)
   slices = 20,        -- tranches (ticks successifs) de la fenêtre d'une équipe
   gap = 40,           -- ticks de repos entre la fenêtre d'une équipe et celle de la suivante
   max_per_slice = 40, -- éléments traités au plus par tranche (garde ; le reste de la part est reporté, compté, jamais traité ici)
@@ -64,6 +74,60 @@ function St.share_capped(n, slice, slices, max)
   local b2 = b
   if max and b - a + 1 > max then b2 = a + max - 1 end
   return a, b2, b - b2
+end
+
+---------------------------------------------------------------------------------------------------
+-- Réveils (lot SCAN-EVENEMENTS) : état `st` = f.team.scan de l'équipe, données pures
+---------------------------------------------------------------------------------------------------
+
+--- Pose le réveil `why` (« recherche », « stock », « energie », « ressource ») au tick `tick`. Un réveil déjà posé et non servi est gardé
+--- (le premier gagne, le second est compté) : jamais deux passes pour deux réveils rapprochés. Rend vrai si le réveil est nouveau.
+function St.wake(st, tick, why)
+  if st.wake then
+    st.wake.n = (st.wake.n or 1) + 1
+    return false
+  end
+  st.wake = { tick = tick, why = why, n = 1 }
+  return true
+end
+
+--- Une passe est-elle due au départ de fenêtre `t0` pour l'équipe de rang `rank` ? Rend (vrai, cause) ou (faux, raison).
+--- Refusée tant que la dernière passe servie (st.served) a sa fenêtre en cours (pas de double passe) ; « periode » quand t0 est le début
+--- de la fenêtre périodique du rang (T + rang × stride, T multiple de period) ; sinon la cause du réveil posé et non servi.
+function St.due(st, t0, cfg, rank)
+  cfg = cfg or St.CFG
+  if st.served and t0 >= st.served and t0 < st.served + cfg.slices then return false, "fenetre en cours" end
+  if (t0 - (rank or 0) * St.stride(cfg)) % cfg.period == 0 then return true, "periode" end
+  if st.wake then return true, st.wake.why end
+  return false, "rien"
+end
+
+--- La passe partie au tick `t0` pour la cause `why` est servie : le réveil posé (s'il y en a un) est consommé.
+function St.ack(st, t0, why)
+  st.served, st.why, st.wake = t0, why or "periode", nil
+end
+
+--- (actif, tranche) de la VOIE du rang `rank` parmi `n` équipes au tick `tick` : les créneaux k ≡ rank (mod n) ; la fenêtre périodique
+--- (k = rank) en fait partie. Même forme que St.window ; St.window(tick, r) actif implique St.lane(tick, r, n) actif.
+function St.lane(tick, rank, n, cfg)
+  local k, s = St.rank_at(tick, cfg)
+  if k == nil or n == nil or n < 1 or k % n ~= rank then return false, nil end
+  return true, s
+end
+
+--- Départ de la prochaine fenêtre de réveil du rang `rank` (n équipes) à partir de `tick` : le premier créneau de sa voie dont le début
+--- est ≥ tick. Toujours à moins de n × stride ticks ; nil si n < 1.
+function St.wake_start(tick, rank, n, cfg)
+  cfg = cfg or St.CFG
+  if not n or n < 1 then return nil end
+  local stride = St.stride(cfg)
+  local t = tick + (stride - tick % stride) % stride
+  for _ = 1, n do
+    local k = math.floor((t % cfg.period) / stride)
+    if k % n == rank then return t end
+    t = t + stride
+  end
+  return nil
 end
 
 --- Le carré d'alimentation d'un poteau en (px, py), de demi-côté d (supply_area_distance), touche-t-il la boîte { x0, y0, x1, y1 } ?

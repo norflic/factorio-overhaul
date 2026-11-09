@@ -24,6 +24,13 @@
     3. JOURNAL, une ligne à la dernière tranche : « [FO-HYGIENE] <équipe> : impulsion a X.X min : P poteaux releves, S sur gisement,
        R redondants candidats (feuilles sans consommateur propre) ; cout : N tranches » (N = tranches ayant travaillé).
   État : f.team.hygiene (nombres, booléens, liste de triplets de nombres), jamais de fonction ni d'entité.
+
+  Lot SCAN-EVENEMENTS (directive du DC du 9/11, « bannissement du H24 ») : période de 3 min (St.CFG.period = 10 800) ET RÉVEIL événementiel.
+  La période est un train de créneaux de stride ticks ; le créneau k appartient au rang k mod n (n équipes) : k < n, c'est la fenêtre
+  périodique du rang k ; au-delà, un créneau libre de la VOIE du rang, où une passe ne part qu'à la tranche 0 si un réveil est posé
+  (St.due / St.ack sur f.team.scan ; déclencheurs : script/team/scan_reveil.lua). Journal au départ d'une passe de réveil :
+  « [FO-SCAN] <équipe> : reveil (<cause>) a X.X min » ; la ligne [FO-HYGIENE] de la passe redit sa cause. Le début d'une passe est le
+  tick de sa tranche 0 (t0 = tick - tranche) : une passe de réveil et une passe périodique ont le même moteur.
 ]]
 
 local Events = require("script.core.events")
@@ -32,6 +39,7 @@ local BoiteChunks = require("script.team.boite_chunks")
 local Lourd = require("script.core.lourd")
 local Profiler = require("script.core.profiler")
 local St = require("shared.team.scan_tranches")
+local Sr = require("script.team.scan_reveil") -- lot SCAN-EVENEMENTS : réveils (ordre des équipes, état f.team.scan)
 
 local Hy = {}
 
@@ -43,14 +51,15 @@ local function key_of(f) return tostring(f.key or "player") end
 local function who(f) return key_of(f) .. ":hygiene" end
 
 --- Identifiants des équipes dans l'ordre stable des rangs : factions vivantes (ids triés), puis « player » si votre équipe existe.
-function Hy.ids()
-  local ids = State.alive()
-  if State.faction("player") then ids[#ids + 1] = "player" end
-  return ids
-end
+function Hy.ids() return Sr.ids() end
 
-local function new_pass(t0)
-  return { t0 = t0, poles = {}, n = 0, sur = 0, red = 0, audited = 0, gone = 0, skipped = 0, cost = 0, dmax = 0, r0 = nil, logged = false }
+--- Déclencheurs d'une pensée d'équipe (script/team/team.lua, E6 : Build.Hygiene.reveil) : palier de stock, coupure d'énergie, rupture de
+--- ressource (script/team/scan_reveil.lua, Sr.think). Rend la première cause posée ou nil.
+function Hy.reveil(f, stock, tick) return Sr.think(f, stock, tick) end
+
+local function new_pass(t0, why)
+  return { t0 = t0, why = why or "periode", poles = {}, n = 0, sur = 0, red = 0, audited = 0, gone = 0, skipped = 0, cost = 0, dmax = 0,
+    r0 = nil, logged = false }
 end
 
 --- 1. Relevé des poteaux de la force (jeton des travaux lourds pris d'abord ; faux s'il est refusé : on réessaie à la tranche suivante).
@@ -156,20 +165,23 @@ local function report(f, h, why)
   if h.r0 == nil then extra = " ; jeton des travaux lourds refuse sur toute la fenetre : rien releve" end
   if h.skipped > 0 then extra = extra .. string.format(" ; %d non audites (plafond %d par tranche)", h.skipped, Hy.CFG.max_per_slice) end
   if h.gone > 0 then extra = extra .. string.format(" ; %d disparus pendant la passe", h.gone) end
+  if h.why and h.why ~= "periode" then extra = extra .. " ; reveil (" .. h.why .. ")" end -- lot SCAN-EVENEMENTS : la cause de la passe
   if why then extra = extra .. " ; " .. why end
   log(string.format("[FO-HYGIENE] %s : impulsion a %.1f min : %d poteaux releves, %d sur gisement, %d redondants candidats (feuilles sans consommateur propre) ; cout : %d tranches%s",
     key_of(f), h.t0 / 3600, h.n, h.sur, h.red, h.cost, extra))
   h.logged, h.poles = true, {}
 end
 
---- Tranche `slice` de l'équipe `f` au tick `tick` (St.window a dit actif).
+--- Tranche `slice` de l'équipe `f` au tick `tick` (St.window ou la voie de réveil a dit actif). Le début de la passe est le tick de sa
+--- tranche 0 ; sa cause est celle servie par St.ack sur f.team.scan pour ce début (« periode » sinon).
 function Hy.step(f, surface, tick, slice)
   local t = f.team
-  local t0 = St.pulse_start(tick, Hy.CFG)
+  local t0 = tick - slice
   local h = t.hygiene
   if not h or h.t0 ~= t0 then
     if h and not h.logged then report(f, h, "passe interrompue") end
-    h = new_pass(t0)
+    local sc = t.scan
+    h = new_pass(t0, sc and sc.served == t0 and sc.why or nil)
     t.hygiene = h
   end
   if h.logged then return end
@@ -188,13 +200,36 @@ function Hy.step(f, surface, tick, slice)
   if last then report(f, h) end
 end
 
+--- Départ ou suite d'une passe au tick `tick` (tranche `slice`, début t0) pour l'équipe `f` de rang `rank` : rend vrai si la tranche se
+--- joue. Créneau périodique (`periodic`) : la passe se joue toujours et la première tranche vue la marque servie (St.ack : un réveil en
+--- attente est servi par elle). Créneau de la voie : départ à la tranche 0 seulement, sur St.due ; les tranches suivantes ne se jouent
+--- que si c'est bien cette passe qui a commencé (sc.served == t0) : pas de double passe, pas de demi-fenêtre.
+local function admit(f, rank, tick, slice, periodic)
+  local t0 = tick - slice
+  local sc = Sr.state(f)
+  if sc.served == t0 then return true end
+  if not periodic and slice ~= 0 then return false end
+  local due, why = St.due(sc, t0, Hy.CFG, rank)
+  if not due then return false end
+  St.ack(sc, t0, why)
+  if why ~= "periode" then
+    log(string.format("[FO-SCAN] %s : reveil (%s) a %.1f min", key_of(f), why, t0 / 3600))
+  end
+  return true
+end
+
 Events.on(defines.events.on_tick, function(e)
   local tick = e.tick
-  local rank, slice = St.rank_at(tick, Hy.CFG)
-  if not rank or rank >= Hy.MAX_RANKS then return end
-  local id = Hy.ids()[rank + 1]
-  local f = id and State.faction(id)
+  local k, slice = St.rank_at(tick, Hy.CFG) -- créneau k de la période (k < n : fenêtre périodique du rang k ; sinon voie du rang k mod n)
+  if not k then return end
+  local ids = Hy.ids()
+  local n = #ids
+  if n == 0 then return end
+  local rank = k % n
+  if rank >= Hy.MAX_RANKS then return end
+  local f = State.faction(ids[rank + 1])
   if not (f and f.team and f.hq and f.hq.valid) then return end
+  if not admit(f, rank, tick, slice, k < n) then return end
   Profiler.start("hygiene")
   Hy.step(f, f.hq.surface, tick, slice)
   Profiler.stop("hygiene")
