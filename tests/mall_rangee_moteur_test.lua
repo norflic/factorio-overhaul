@@ -301,6 +301,47 @@ do
 end
 
 ---------------------------------------------------------------------------------------------------
+-- §7w intermédiaires d'abord : engrenage avant tapis, câble avant circuit avant inserteur
+---------------------------------------------------------------------------------------------------
+do
+  local M = { { item = "asm", entity = "asm", par_min = 30 } }
+  local function rec(prod, sol) return { solides = sol, produits = { prod }, patronnable = true, category = "crafting", machines = M, fluides_in = {} } end
+  local lec = { fab = {
+    belt = rec("belt", { { name = "gear", amount = 1 }, { name = "iron-plate", amount = 1 } }),
+    gear = rec("gear", { { name = "iron-plate", amount = 2 } }),
+    cable = rec("cable", { { name = "copper-plate", amount = 1 } }),
+    circ = rec("circ", { { name = "cable", amount = 3 }, { name = "iron-plate", amount = 1 } }),
+    bras = rec("bras", { { name = "circ", amount = 1 }, { name = "gear", amount = 1 }, { name = "iron-plate", amount = 1 } }),
+    fluide = { solides = { { name = "iron-plate", amount = 1 } }, produits = { "fluide" }, patronnable = true, category = "crafting", machines = M, fluides_in = { { name = "eau" } } },
+    tuyau = rec("tuyau", { { name = "fluide", amount = 1 } }),
+  } }
+  local kit = { decl = { kit = {} }, bras = NAMES.bras, bras_long = NAMES.bras_long, tapis = NAMES.tapis, poteau = NAMES.poteau, coffre = NAMES.coffre }
+  local mod = { args = { 0, 0, kit } }
+  local function bloc(item) return { kind = "bloc", items = { item }, dec = { recipes = { [item] = item }, rates = { [item] = 30 } } } end
+  local function oui() return true end
+  local f = team()
+  local st = f.build.mall
+  check(Rt.accueille(f, bloc("belt"), mod, lec, 10, afford, oui) == true, "§7w tapis : pris")
+  check(Rt.served(f).gear == true and Rt.served(f).belt == nil, "§7w d'abord l'engrenage, pas le tapis")
+  check(#st.rows == 1 and table.concat(st.rows[1].voies, ",") == "iron-plate", "§7w rangée de plaques seulement (" .. table.concat(st.rows[1].voies, ",") .. ")")
+  check(Mr.compte(st.rows[1], "gear") == 2, "§7w machines d'après le débit réel : 30/min x 1 x 2 / 30 = 2 (" .. Mr.compte(st.rows[1], "gear") .. ")")
+  check(Rt.accueille(f, bloc("belt"), mod, lec, 20, afford, oui) == true and Rt.served(f).belt == true, "§7w puis le tapis")
+  local f2 = team()
+  check(Rt.accueille(f2, bloc("bras"), mod, lec, 10, afford, oui) == true and Rt.served(f2).cable == true and Rt.served(f2).circ == nil and Rt.served(f2).bras == nil, "§7w le plus profond d'abord : le câble")
+  check(Rt.accueille(f2, bloc("bras"), mod, lec, 20, afford, oui) == true and Rt.served(f2).circ == true and Rt.served(f2).bras == nil, "§7w puis le circuit")
+  check(Rt.accueille(f2, bloc("bras"), mod, lec, 30, afford, oui) == true and Rt.served(f2).gear == true and Rt.served(f2).bras == nil, "§7w puis l'engrenage")
+  check(Rt.accueille(f2, bloc("bras"), mod, lec, 40, afford, oui) == true and Rt.served(f2).bras == true, "§7w enfin l'inserteur")
+  -- une entrée que le patron ne sait pas faire (fluide) : pas d'intermédiaire, la recette passe comme avant
+  local f3 = team()
+  local ok3 = Rt.accueille(f3, bloc("tuyau"), mod, lec, 10, afford, oui)
+  check(ok3 == true and Rt.served(f3).tuyau == true and Rt.served(f3).fluide == nil, "§7w intermédiaire à fluide : recette gardée (" .. tostring(ok3) .. ")")
+  -- matériel refusé : on attend, sans poser la recette demandée
+  local f4 = team()
+  local ok4, why4, wait4 = Rt.accueille(f4, bloc("belt"), mod, lec, 10, function() return false, "rien" end, oui)
+  check(ok4 == false and wait4 == true and #f4.build.mall.rows == 0, "§7w matériel refusé : attente (" .. tostring(why4) .. ")")
+end
+
+---------------------------------------------------------------------------------------------------
 -- §7x tapis et bras d'abord ; famille des chantiers dans la pile
 ---------------------------------------------------------------------------------------------------
 do

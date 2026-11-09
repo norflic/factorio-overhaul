@@ -506,6 +506,38 @@ function Rt.place(f, demandes, names, tick, afford, why_text)
   return id
 end
 
+--- Part d'un ingrédient par objet fabriqué (objets d'ingrédient par objet de sortie), lue au prototype.
+local function part_de(rname, s)
+  local proto = game.recipe_prototypes and game.recipe_prototypes[rname]
+  if not proto then return 1 end
+  local amount, made = 1, 1
+  for _, ing in ipairs(proto.ingredients) do if ing.name == s then amount = ing.amount end end
+  local pr = proto.products[1]
+  if pr and pr.amount and pr.amount > 0 then made = pr.amount end
+  return amount / made
+end
+
+--- Le premier intermédiaire qu'il faut au mall avant cette recette : une entrée solide qui n'est pas une plaque, qu'aucune rangée ne fabrique, et qu'une recette assemblable sait faire ; d'abord ce dont
+--- elle a elle-même besoin. Partie 388473a0, votre équipe : des rangées posées attendaient engrenages, tuyaux, câbles et circuits que le coffre du QG n'avait pas ; 18 min à l'arrêt. Rend
+--- { item, pr, rate } ou nil. depth borne la descente ; rate en objets/min.
+local function intermediaire_manquant(lec, usable, rname, rate, depth, served, plates)
+  local e = lec.fab[rname]
+  local solides = {}
+  for _, x in ipairs(e and e.solides or {}) do solides[#solides + 1] = x.name end
+  table.sort(solides)
+  for _, s in ipairs(solides) do
+    if not plates[s] and not served[s] then
+      local pr = Id.profile(lec.fab, s, usable)
+      if pr and pr.s <= 4 and pr.par_min > 0 and pr.s > 0 then
+        local rate_s = (rate or 0) * part_de(rname, s)
+        local deeper = depth > 0 and intermediaire_manquant(lec, usable, pr.recipe, rate_s, depth - 1, served, plates) or nil
+        return deeper or { item = s, pr = pr, rate = rate_s }
+      end
+    end
+  end
+  return nil
+end
+
 --- Une décision de Ind.think passe par le mall. c = { dec, kind, items } (Id.order) ; mod = prepare(...) ; rend vrai (pris) ou (faux, raison, attendre).
 function Rt.accueille(f, c, mod, lec, tick, afford, usable)
   if not Rt.ouvert(f) then return false, "ferme" end
@@ -532,9 +564,30 @@ function Rt.accueille(f, c, mod, lec, tick, afford, usable)
     first_machine = first_machine or m.entity
     demandes[#demandes + 1] = { item = it, recipe = rname, machine = m.entity, machines = machines_for(rate, m.par_min), solides = solides, rate = rate }
   end
+  -- les rangées d'intermédiaires d'abord (une par décision) : la recette demandée revient à la décision suivante
+  local served, plates, inter = Rt.served(f), plate_set(), nil
+  for _, d in ipairs(demandes) do
+    inter = intermediaire_manquant(lec, usable, d.recipe, d.rate, 2, served, plates)
+    if inter then break end
+  end
+  local inter_m = inter and cheap(inter.pr.entry, usable) or nil
+  if inter_m and not seen_m[inter_m.entity] then
+    seen_m[inter_m.entity] = true
+    decl.machines[#decl.machines + 1] = { machine = inter_m, categories = { inter.pr.entry.category } }
+  end
   A.declare(decl)
   local names = { machine = first_machine, bras = kit.bras, bras_long = kit.bras_long, tapis = kit.tapis, poteau = mod.pole or kit.poteau, coffre = kit.coffre or Build.QUAI_CHEST, decl = decl }
   f.build.mall.names_kit = names
+  if inter_m then
+    local d = { item = inter.item, recipe = inter.pr.recipe, machine = inter_m.entity, machines = machines_for(inter.rate, inter_m.par_min), solides = inter.pr.solides, rate = inter.rate }
+    local id_i, why_i, wait_i = Rt.place(f, { d }, names, tick, afford, "MALL intermediaire " .. inter.item)
+    if id_i then
+      say(f, f.build.mall, tick, string.format("intermediaire %s d'abord (%d machine(s), %.1f/min, projet %d), avant %s", inter.item, d.machines, inter.rate, id_i, table.concat(c.items, ",")))
+      return true
+    end
+    if wait_i then return false, why_i, wait_i end
+    -- (refus : mall plein, entrée hors des voies) la recette demandée continue comme avant
+  end
   local id, why, wait = Rt.place(f, demandes, names, tick, afford, "MALL rangee " .. table.concat(c.items, ","))
   if id then return true end
   return false, why, wait
