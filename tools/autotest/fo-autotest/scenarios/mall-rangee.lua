@@ -104,7 +104,11 @@ return {
     if t >= st.log_next then
       st.log_next = t + 600
       local parts = {}
-      for _, q in ipairs(row and row.projects or {}) do parts[#parts + 1] = string.format("%d[%d-%d]:%s(%s)", q.id, q.from, q.to, tostring(q.state), tostring(q.reason)) end
+      for _, q in ipairs(row and row.projects or {}) do
+        local miss = {}
+        for _, m in ipairs(q.missing or {}) do miss[#miss + 1] = tostring(m[1]) .. " x" .. tostring(m[2]) end
+        parts[#parts + 1] = string.format("%d[%d-%d]:%s(%s){%s}", q.id, q.from, q.to, tostring(q.state), tostring(q.reason), table.concat(miss, ","))
+      end
       ctx.log(string.format("[%s] t=%d phase=%s rangees=%d cellules=%s fabriques=%s coffres=%s machines=%s stop=%s projets %s", TAG, t, tostring(st.phase), rep and rep.rows and #rep.rows or 0,
         row and row.cells or "-", rep and rep.fab and rep.fab.made or "-", rep and rep.fab and rep.fab.chests or "-", rep and rep.fab and rep.fab.machines or "-", row and tostring(row.stop) or "-", table.concat(parts, " ")))
     end

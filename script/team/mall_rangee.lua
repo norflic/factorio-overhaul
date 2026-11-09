@@ -382,7 +382,7 @@ function Rt.report(f)
     local projs = {}
     for _, q in ipairs(r.projects) do
       local p = f.build.projects[q.id]
-      projs[#projs + 1] = { id = q.id, from = q.from, to = q.to, state = p and p.state or "perdu", reason = p and p.reason or nil, built = p and p.built or 0 }
+      projs[#projs + 1] = { id = q.id, from = q.from, to = q.to, state = p and p.state or "perdu", reason = p and p.reason or nil, built = p and p.built or 0, missing = p and p.missing or nil }
     end
     rows[#rows + 1] = { j = r.j, voies = r.voies, cells = #r.cells, stop = r.stop, projects = projs }
   end
