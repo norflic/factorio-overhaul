@@ -32,7 +32,10 @@ function Famine.open(f, o, tick)
   local ms = f.migration
   local st = ms and ms.o and ms.o[o.id]
   local p = st and st.pid and f.build and f.build.projects and f.build.projects[st.pid]
-  return Fam.open({ starved = starved, missing = missing, migr = o.migr, stage = st and st.stage, retired = st and st.retired, project = p and p.state })
+  -- CHANTIER-GELE : « commencée » = une entité bâtie au moins (ni l'étape de la migration ni les paires retirées ne comptent)
+  local built = 0
+  for _, e in ipairs(p and p.ents or {}) do if e.built then built = built + 1 end end
+  return Fam.open({ starved = starved, missing = missing, migr = o.migr, built = built, project = p and p.state })
 end
 
 --- Lot FORCE-0674 : l'avant-poste `o` produit-il la plaque clé, et cette matière manque-t-elle ? (lu par Planner.no_go par la vue)

@@ -9,21 +9,23 @@
   vient de consommer, shared/team/gisement.lua) retombait à faux à 27,2 min pendant que le BESOIN ÉVALUÉ (shared/ai3/reserve.lua, noyau)
   manquait encore de 887 à 1 220 plaques : la famine se refermait, l'avant-poste redevenait « plein », 18 foreuses jusqu'à la fin. La bande
   qui attend en réserve est précisément ce besoin-là : la règle lit aussi `missing` (plaque clé manquante au noyau).
-  Règle : tant que la matière de l'avant-poste MANQUE (starved, ou missing > 0) et que sa bande n'a encore rien retiré ni commencé (étape « projet », 0 paire
-  retirée, projet du plan en plan, réserve ou attente), l'extension thermique reste ouverte. Dès que la bande commence (paires retirées, chantier),
-  la règle se ferme : la migration reprend la main.
+  Règle : tant que la matière de l'avant-poste MANQUE (starved, ou missing > 0) et que sa bande n'a encore rien BÂTI (projet du plan en vol, 0 entité
+  bâtie), l'extension thermique reste ouverte. Dès que la bande commence (une entité bâtie au moins), la règle se ferme : la migration reprend la main.
+  CHANTIER-GELE (B5, graine 123456789, archive fo-logs/2026-11-09_V0675-B) : « commencée » valait « étape chantier ou paires retirées » : la bande -30
+  (projet 5) passait en « chantier » par le dégel à 85,9 min avec 3 paires retirées et 0 entité bâtie sur 720 ; la famine se fermait (iron=plein à
+  86-90 min) alors que rien n'était bâti. Directive du DC (9/11) : une bande n'est commencée qu'avec une entité bâtie au moins.
 ]]
 local F = {}
 
---- Projets du plan dont la bande n'a encore rien posé ni retiré.
-F.WAITING = { plan = true, reserve = true, attente = true, demande = true }
+--- États d'un projet du plan dont la bande est EN VOL (demandée, pas finie ni refusée) : avec 0 entité bâtie, elle n'a pas commencé.
+F.WAITING = { plan = true, reserve = true, attente = true, demande = true, defrichage = true, fantomes = true, chantier = true, raccordement = true, bloque = true }
 
---- i = { starved (la matière manque par rapport au besoin de la pensée), missing (plaque clé manquante au besoin évalué, nombre), migr (o.migr), stage (étape de la migration), retired (paires retirées),
----       project (état du projet de la bande) } -> vrai si l'extension thermique reste permise.
+--- i = { starved (la matière manque par rapport au besoin de la pensée), missing (plaque clé manquante au besoin évalué, nombre), migr (o.migr),
+---       built (entités bâties du projet de la bande), project (état du projet de la bande, nil sans bande en vol) } -> vrai si l'extension thermique reste permise.
 function F.open(i)
   if not (i and (i.starved or (i.missing or 0) > 0)) then return false end
-  if i.migr ~= "en cours" or i.stage ~= "projet" then return false end
-  if (i.retired or 0) > 0 then return false end
+  if i.migr ~= "en cours" then return false end
+  if (i.built or 0) > 0 then return false end
   return F.WAITING[i.project or ""] == true
 end
 
