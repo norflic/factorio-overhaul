@@ -1035,7 +1035,7 @@ local function step_rangee(f, surface, p, h, pj)
   lay.masks = masks
   lay.out_at = Pet.OUT_AT
   lay.key = "petrole-rangee:" .. tostring(spec.res)
-  p.rangee = { n = lay.copies, dx = lay.dx, sign = lay.sign, hs = lay.hs, axis = fz.mod.axis, from = fz.from or 1 }
+  p.rangee_fl = { n = lay.copies, dx = lay.dx, sign = lay.sign, hs = lay.hs, axis = fz.mod.axis, from = fz.from or 1 }
   log(string.format("[FO-PETROLE] %s : rangee planifiee a %.1f min : %d copie(s) du module (%d a %d) au pas de %d tuiles, axe %s, sens %d, bus du brut a %d et de l'eau a %d tuile(s) des prises, "
     .. "%d tuyaux, %d poteaux, %d entites%s", f.key or "?", minutes(f, game.tick), lay.copies, fz.from or 1, (fz.from or 1) + lay.copies - 1, lay.dx, fz.mod.axis, lay.sign,
     lay.hs.brut or 0, lay.hs.eau or 0, lay.pipes or 0, lay.poles or 0, #lay.ents, lay.copies < (fz.kmax or 1) and (" ; arret devant : " .. tostring(lay.cause)) or ""))
@@ -1523,9 +1523,9 @@ local function extend_site(f, st, s, tick)
       local ch = q and q.champ
       if ch and ch.trunk then s.hint = { axis = ch.trunk.axis, c = ch.trunk.c } end
       s.ext_fail = 0
-      if q and q.rangee then
+      if q and q.rangee_fl then
         -- chantier de rangee fini : le pas, le sens et les bus sont repris par le chantier suivant
-        s.rangee = { n = (s.rangee and s.rangee.n or 0) + q.rangee.n, dx = q.rangee.dx, sign = q.rangee.sign, hs = q.rangee.hs }
+        s.rangee = { n = (s.rangee and s.rangee.n or 0) + q.rangee_fl.n, dx = q.rangee_fl.dx, sign = q.rangee_fl.sign, hs = q.rangee_fl.hs }
         s.rg_fail, s.rg_next = 0, tick
         note(f, st, tick, string.format("site '%s' : rangee de modules finie (projet %d) : %d copie(s) du module au total", s.key, s.ext_id, s.rangee.n))
       else
@@ -1804,7 +1804,7 @@ remote.add_interface("fo-petrole", {
       sites[i].missing = b and b.missing or nil
       sites[i].ext = brief_of(s.ext_id) -- lot PETROLE-RANGEE : chantier d'extension en cours (état, manques, entités bâties / prévues)
       local q = s.ext_id and f.build and f.build.projects[s.ext_id]
-      sites[i].ext_plan = q and (q.champ or q.rangee) or nil -- ... et ce que son plan couvre (chevalets, écartés, différés ; copies, pas, bus)
+      sites[i].ext_plan = q and (q.champ or q.rangee_fl) or nil -- ... et ce que son plan couvre (chevalets, écartés, différés ; copies, pas, bus)
       if sites[i].ext_plan and q.champ then sites[i].ext_plan = { n = q.champ.n, total = q.champ.total, skipped = #(q.champ.skipped or {}), deferred = q.champ.deferred, pipes = q.champ.pipes } end
     end
     local why = {}
