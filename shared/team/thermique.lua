@@ -56,7 +56,7 @@ M.CFG = {
   per_mineral = 1,        -- chantiers de bande simultanés au plus par minerai
   key_per_mineral = 2,    -- plaque CLÉ (le fer) : chantiers de bande simultanés au plus quand TOUS ceux du minerai attendent leurs matières (9/11, directive du lead :
                           -- partie 314159265 / geants, une bande de fer bloquée par ses matières gardait le créneau « un par minerai » pendant des dizaines de minutes)
-  key_min_plates = 0,     -- plaque CLÉ : plaques de fer au coffre BRUT exigées pour lancer une bande de fer (9/11, lot MEGA-FONDERIE : 0 ; la garde de 150 plaques LIBRES retenait
+  key_min_plates = 20,    -- plaque CLÉ : plaques de fer au coffre BRUT exigées pour lancer une bande de fer (9/11, lot MEGA-FONDERIE : 20, PLANCHER contre les bandes demandées à coffre vide ; la garde de 150 plaques LIBRES retenait
                           -- la bande 40 min avec 1 000 plaques au coffre, 314159265 : le libre est le coffre moins les réservations du marché, la bande les réserve elle-même)
   stuck_wait = 5 * 3600,  -- ticks : une bande en réserve (matières) depuis plus que cela est « bloquée » : elle ne retient plus le créneau de la plaque clé seule
   slots = 2,              -- chantiers de bande simultanés au plus, tous minerais (3 : le fer manquait aux bandes, mesuré 150 min : 25 à 50 % des plaques du témoin)
