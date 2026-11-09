@@ -1020,7 +1020,9 @@ local function step_project(f, surface, ms, o, st, tick, free, book)
           end
           rest = math.max(0, rest - env.present * fl.th_rate)
           local floor = fuel_floor(f, surface)
-          ok, cwhy = Mc.cut_ok({ fuel = true, ready = not env.enemy, rest = rest, floor = floor, stock = ctx.stock[o.kind] or 0 })
+          if not b.opts.no_combustible then -- (réglage de banc no_combustible : la règle d'avant, témoin des bancs)
+            ok, cwhy = Mc.cut_ok({ fuel = true, ready = not env.enemy, rest = rest, floor = floor, stock = ctx.stock[o.kind] or 0 })
+          end
           st.mc_logs = (st.mc_logs or 0) + 1
           if st.mc_logs <= 3 or st.mc_why ~= cwhy then
             st.mc_why = cwhy
@@ -1275,7 +1277,7 @@ local function step_build(f, surface, ms, o, st, tick)
     -- lot COMBUSTIBLE-MIGRATION : une bande de combustible retirée pendant que le stock de combustible ne tient plus Mc.CFG.horizon s du plancher est reposée au seuil court
     local fuel_low = false
     local ospec = T.outposts[o.kind]
-    if ospec and ospec.resource == T.fuel then fuel_low = Mc.low(Stock.count(f, T.fuel), fuel_floor(f, surface)) end
+    if ospec and ospec.resource == T.fuel and not (f.build and f.build.opts and f.build.opts.no_combustible) then fuel_low = Mc.low(Stock.count(f, T.fuel), fuel_floor(f, surface)) end
     local dec, rwhy = Rb.decide({ undo = #st.undo, produced = false, state = p and p.state or nil, stalled = Rb.stalled(st.pg, tick), abandon = ab,
       built = nb_built, total = nb_total, fuel_low = fuel_low }) -- (9/11 : une bande bâtie à 90 % ou plus est finie, pas reposée)
     if rwhy == "presque-finie" then
