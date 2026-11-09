@@ -14,7 +14,7 @@ end
 local LOG = {}
 _G.log = function(s) LOG[#LOG + 1] = s end
 _G.remote = { add_interface = function() end }
-_G.defines = { inventory = { chest = 1 }, entity_status = { working = 1, low_power = 2 } }
+_G.defines = { inventory = { chest = 1 }, entity_status = { working = 1, low_power = 2, no_ingredients = 3 } }
 local PROTOS = {}
 _G.game = { tick = 0, entity_prototypes = PROTOS, item_prototypes = setmetatable({}, { __index = function() return { stack_size = 50 } end }) }
 
@@ -298,6 +298,37 @@ do
   debug.sethook()
   print("[MALL-RANGEE-MOTEUR] minute, 4 rangées de 320 machines et coffres : " .. count .. " instructions")
   check(count <= 370000, "§8 coût de la minute ≤ 370 k instructions (" .. count .. ")")
+end
+
+---------------------------------------------------------------------------------------------------
+-- §7z rangée à l'arrêt : le journal dit pourquoi
+---------------------------------------------------------------------------------------------------
+do
+  local f = team()
+  local id = Rt.place(f, { dem("belt", 2, { "fer", "gear" }) }, NAMES, 100, afford, "t")
+  local p = f.build.projects[id]
+  p.state = "fini"
+  p.quais = { { x = 0.5, y = 0.5, item = "fer" }, { x = 1.5, y = 0.5, item = "gear" } }
+  p.ents = { { role = "mall-machine_asm", name = "assembling-machine-1", x = 1.5, y = 3.5 }, { role = "mall-machine_asm", name = "assembling-machine-1", x = 1.5, y = 10.5 } }
+  local vide = { get_item_count = function() return 0 end }
+  local plein = { get_item_count = function() return 5 end }
+  local cv = { get_inventory = function() return vide end }
+  local cp = { get_inventory = function() return plein end }
+  local mk = function() return { force = { name = "player" }, products_finished = 0, status = defines.entity_status.no_ingredients } end
+  local surf = surface_mock({ ["assembling-machine-11.5:3.5"] = mk(), ["assembling-machine-11.5:10.5"] = mk() }, { ["iron-chest0.5:0.5"] = cv, ["iron-chest1.5:0.5"] = cp })
+  local machines_ok = false
+  for _, e in ipairs(p.ents) do if e.role == "mall-machine_asm" then machines_ok = true end end
+  check(machines_ok, "§7z le projet a des machines")
+  LOG = {}
+  Rt.minute(f, surf, { fab = {} }, {}, afford, 4000)
+  local n_arret, ligne = 0, nil
+  for _, l in ipairs(LOG) do if l:find("ARRET rangee", 1, true) then n_arret = n_arret + 1; ligne = l end end
+  check(n_arret == 1 and ligne:find("no_ingredients=", 1, true) ~= nil and ligne:find("quais vides 1 sur 2 {fer}", 1, true) ~= nil, "§7z ligne ARRET : états et quais vides (" .. tostring(ligne) .. ")")
+  LOG = {}
+  Rt.minute(f, surf, { fab = {} }, {}, afford, 4000 + 3600)
+  local again = false
+  for _, l in ipairs(LOG) do if l:find("ARRET rangee", 1, true) then again = true end end
+  check(not again, "§7z au plus une ligne par 5 min")
 end
 
 ---------------------------------------------------------------------------------------------------

@@ -573,6 +573,23 @@ local function chest_inv(surface, x, y)
   return ch, ch and ch.get_inventory(defines.inventory.chest)
 end
 
+--- Nom d'un état de machine (defines.entity_status) ; table construite une fois (ni décision ni sauvegarde : le journal seulement).
+local function sorted_keys(t)
+  local ks = {}
+  for k in pairs(t) do ks[#ks + 1] = k end
+  table.sort(ks)
+  return ks
+end
+
+local STATUS_NAMES
+local function status_name(s)
+  if not STATUS_NAMES then
+    STATUS_NAMES = {}
+    for name, v in pairs(defines.entity_status) do STATUS_NAMES[v] = name end
+  end
+  return STATUS_NAMES[s] or tostring(s)
+end
+
 --- Une fois par décision (Ind.think) : barres des coffres de sortie, cellules rendues par une section refusée, allongement, compteurs.
 function Rt.minute(f, surface, lec, sources, afford, tick)
   local b = f.build
@@ -653,6 +670,7 @@ function Rt.minute(f, surface, lec, sources, afford, tick)
   local total_made, total_chests, total_m, total_run = 0, 0, 0, 0
   for _, r in ipairs(st.rows) do
     local made, chests, nm, run, expected = 0, 0, 0, 0, 0
+    local etats, q_vides, q_total, vides = {}, 0, 0, {}
     for _, q in ipairs(r.projects) do
       local p = b.projects[q.id]
       if p and not q.dead then
@@ -664,10 +682,22 @@ function Rt.minute(f, surface, lec, sources, afford, tick)
               nm = nm + 1
               made = made + (en.products_finished or 0)
               if en.status == defines.entity_status.working or en.status == defines.entity_status.low_power then run = run + 1 end
+              local sn = status_name(en.status)
+              etats[sn] = (etats[sn] or 0) + 1
             end
           elseif e.role == "mall-sortie" then
             local ch, inv = chest_inv(surface, e.x, e.y)
             if ch and inv then chests = chests + inv.get_item_count() end
+          end
+        end
+        for _, qd in ipairs(p.quais or {}) do
+          local _, qi = chest_inv(surface, qd.x, qd.y)
+          if qi and qd.item then
+            q_total = q_total + 1
+            if qi.get_item_count(qd.item) == 0 then
+              q_vides = q_vides + 1
+              vides[qd.item] = true
+            end
           end
         end
       end
@@ -681,6 +711,14 @@ function Rt.minute(f, surface, lec, sources, afford, tick)
       r.last_prod_m = nm
       say(f, st, tick, string.format("PRODUCTION rangee %d : %d machine(s) sur %d dont %d en marche, %d objet(s) fabriques (+%d depuis la derniere minute), %d objet(s) dans les coffres de sortie, cellules %d, arret %s",
         r.j, nm, expected, run, r.made_total, delta, chests, #r.cells, tostring(r.stop)))
+    end
+    -- rangée posée qui ne tourne pas : pourquoi (états des machines, quais vides) ; au plus une ligne par 5 min et par rangée
+    if nm > 0 and run == 0 and delta == 0 and tick >= (r.arret_next or 0) then
+      r.arret_next = tick + 5 * 3600
+      local parts, its = {}, {}
+      for _, k in ipairs(sorted_keys(etats)) do parts[#parts + 1] = k .. "=" .. etats[k] end
+      for _, k in ipairs(sorted_keys(vides)) do its[#its + 1] = k end
+      say(f, st, tick, string.format("ARRET rangee %d : 0 machine(s) en marche sur %d : etats {%s} ; quais vides %d sur %d {%s}", r.j, nm, table.concat(parts, ","), q_vides, q_total, table.concat(its, ",")))
     end
     total_made, total_chests, total_m, total_run = total_made + r.made_total, total_chests + chests, total_m + nm, total_run + run
   end
