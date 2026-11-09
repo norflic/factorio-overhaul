@@ -10,6 +10,34 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **9/11, 17 h 05 : VERSION 0.6.73 (`1d7c6218`, code identique sur `7bce0299`) : ÉTAT DU PROJET.** Pas encore installée ni poussée sur GitHub.
+>
+> **Où on en est.** `main` est en **0.6.73** (`7bce0299`). Le code du jeu est celui du candidat 1 (`1d7c6218`) : le diff entre les deux ne touche que la documentation, `info.json`, deux lignes de `CLAUDE.md` et `tools/globals_scan.lua`. `content` : 554 OK sur `7bce0299`. 3 parties à 600 % en Normal sans plantage sur `1d7c6218` (chiffres à compléter).
+>
+> **Porte de livraison** (DC, mémoire `dc-teste-partie-neuve`) : `content` puis une PARTIE NEUVE de 40 min (144 000 ticks, famille `etape1-guide`), jamais la sauvegarde rejouée. **Une partie neuve complète sur 0.6.73 n'est PAS encore jouée** : à faire avant d'installer.
+>
+> **Places de banc** : décision du lead, **6 places**, à remettre à **1** quand le DC joue (`fo-banc-places.txt`, `CLAUDE.md` §4.4). L'ordre du DC du 28/10 (« 3 au plus quand il a fini ») reste écrit dans `CLAUDE.md` ; à réconcilier.
+>
+> **Dans 0.6.73** : décisions du DC du 9/11 (Normal ; guerre cochée par défaut ; coffre d'équipe garni ; Truelle à 79 `fo-guidance-core`, 13 679 MU) ; fer d'abord ALLUMÉ ; cout-600 ; règle de combustible `Mc` (effondrement en Normal corrigé) ; mall par motif ; pétrole ; défense ; pose par lots ; plantages `traversee.lua:217`, `mall_rangee.lua:158`, `bail.lua:72`.
+>
+> **Chiffres (F432, 3 graines, Normal, 600 %, une partie par graine, somme des 3 équipes)** : `1d7c6218` 4 693 ; `df54c3c5` 3 962 ; `bfe4b437` 3 071 ; votre équipe : 538, 310, 266. **Preuve limitée (chaos des parties).**
+>
+> **HORS de 0.6.73, branche gardée `bfe4b437`** : garde au coffre brut ; tronc de charbon réservé (`dd9dfba5`, 195 tapis vides avant correction, prouvé en moteur) ; garde des centrales sans tourelle (`accbb3ad`) ; plafond de centrales en kW (`6b685049`, non exercé) ; tracé des lignes longues `bus-long` (micro-banc 22 OK, partie non prouvée) ; mall allongé au surplus ; `modules-ordre` ; `geant-d-abord`.
+>
+> **Défauts connus, à écrire tels quels** : pas de vrai bus (0 quai servi par tapis, F429) ; boucle de réparation sous menace (rouverture toutes les 10 s, sans gain de fer, F431) ; famine du fer de votre équipe sur 1618033988 (cause non établie, F430) ; champs géants non visés sans `geant-d-abord` ; rangées du mall courtes ; circuits et packs faibles, relais des ateliers à décider ; **6 tests hors jeu rouges sur le candidat, voir `purete-2`** (lesquels : à compléter).
+>
+> **Branches NON fusionnées** (critères écrits avant les bancs, `fo-logs\2026-11-09_*\CRITERES*.md`) : `fer-munitions`, `tourelle-fer`, `fonte-cuivre`, `zi3-8min`, `zero-idle-3`, `exploration-fer`, `collecte-champ` : verdicts chiffrés **à compléter**. `cout-600` : dans 0.6.73 ; chiffres du coût à 600 % **à compléter**. `mall` : tronc éteint par défaut.
+>
+> **Pièges nouveaux** (RD_LOG 9/11, F414 à F433) : le personnage du joueur de test meurt au tick 389 682 en banc avec images ; `fo-war-autostart` vaut vrai par défaut (à relire sur la version livrée) ; un réglage de carte ne change les gisements qu'à la création (déduit, à rejouer) ; un tronc de charbon peut être coupé par un autre flux (garde hors version).
+>
+> **À faire ensuite, dans l'ordre** :
+> 1. Passer `tools/globals_scan.lua` sur les fichiers Lua modifiés avant tout SHA ; il a trouvé 3 fautes (corrections : à compléter).
+> 2. Lancer une PARTIE NEUVE de 40 min (144 000 ticks) sur 0.6.73, une seule instance Factorio ; relire les effondrements en Normal (F422) et le fer d'abord allumé (F427).
+> 3. Résoudre ou accepter les 6 tests hors jeu rouges (`purete-2`) avant tout nouveau SHA.
+> 4. Décider de la réparation sous menace (F431) et de la famine 1618033988 (F430) pour la prochaine version, ou les garder comme défauts connus (déjà écrits ici).
+> 5. Compléter les verdicts des branches non fusionnées, lot par lot, avant de les citer.
+> 6. Captures de la version livrée pour le verdict du DC (« effet WOW »). Aucun lot ne couvre la coordination des 8 à 10 speedrunners.
+>
 > **8/11, 18 h 55 : ULTIMATUM DE 15 H DU DC (jusqu'au 9/11 vers 9 h 40)** : 100 % du PC, 3 places, partie finale « exponentielle » (saturation, amélioration continue, malls et motifs, zéro inactivité, progression early → mid → late). Voir OBJECTIFS §2 et la mémoire autonomie-8-novembre-15h.
 > - **Intégration** : `essai-0666` en e02ee0dc, avec centrale-pres, couverture, géants, tranches et raccord-bande. Copie figée : scratchpad `src-0672c`.
 > - **Pilotage** : cron toutes les 10 min (4-59/10).

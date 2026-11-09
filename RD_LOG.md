@@ -8,6 +8,135 @@
 > F306 à F308, E204, E205. Les blocs d'IA3-a, b, c, f (F279 à F291, E186 à E194) restent à leurs lots, repris par IA-V2.
 > Prochains identifiants libres (24/10, vers 7 h 35, après la fusion d'A4-préparation) : **F163** et **E118** hors blocs ; F149, F157 à F160, E112, E114 à E116 : A4-préparation (blocs d'A3 et A4 épuisés). Avant (24/10, vers 5 h 50, après la fusion de D4m-géant) : **F163** et **E118** hors blocs ; F157 à F160, E114 à E116 réservés à A4 ; F161, F162, E117 : D4m-géant. Avant (24/10, vers 4 h 15, après la fusion d'A3-jeu) : **F157** et **E114** hors blocs ; F146 à F148 et E109 à E111 : A3-jeu ; **F149 et E112 réservés à A4**. Avant (24/10, vers 2 h 45, après la fusion de S0-suite) : **F157** hors blocs ; F155, F156 et **E113** : S0-suite ; **E114** hors blocs. Avant (24/10, vers 0 h 10, après la fusion d'A3-préparation) : **F155** hors blocs ; F140 à F145 et E105 à E108 : A3-préparation ; **F146 à F149 et E109 à E112 réservés à A3-jeu et A4**. Avant (23/10, vers 23 h 10, après la fusion du lot S0) : **F155** hors blocs ; F150 à F154 : S0 (F154 hors de son bloc F150 à F153) ; E69 : S0 ; F140 à F149 et E105 à E108 : toujours réservés à A3 et A4. Avant (23/10, vers 21 h 15, après la fusion du lot A2) : **F150** hors blocs ; **F140 à F149 réservés à A3 et A4** ; F123 à F129 et E68 : A2 (le bloc F120 à F129 d'A1 à A4 est épuisé) ; en expériences, **E105 à E108 réservés à A3 et A4** (leur bloc E66 à E70 est épuisé : E66, E67, E70 à A1, E68 à A2, E69 à S0 ; E81 à E104 : lots F1 à F6). Avant (23/10, vers 19 h, après les fusions d'INT-K0, INT-GARDE et INT-GRAINE) : **F140** ; F137 à F139 : INT-GRAINE (cmd.exe et PowerShell). Avant (23/10, vers 18 h 30, après la consignation des lots A1, K0 et M0) : **F137** (F123 à F129 restent réservés à A2 à A4) ; en expériences, aucun numéro hors des blocs réservés : **E68** (A2 à A4), **E69** (S0), **E77 à E80** (M1, M2), **E81 et suivants** (lots F, par blocs de 4). Attribués le 23/10 : F120 à F122 (A1), F130 à F135 (M0 ; F135 hors du bloc), F136 (vérification de K0, Blender) ; E66, E67, E70 (A1), E71, E72 (K0), E73 à E76 (M0 ; l'« E77 » proposé par le correcteur de M0 est consigné dans E74, E77 étant réservé à M1 et M2). Avant : (23/10, vers 14 h 55, après la consignation de la passe 5 de V3-E, E65 et F119) **F120, E66**. Blocs RÉSERVÉS par le plan de la suite (23/10, 16 h ; `fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md` §6) : mitrailleuse A1 à A4 : E66 à E70 et F120 à F129 (E69 : sons, lot S0) ; K0 : E71 et E72 ; M0 : E73 à E76 et F130 à F134 ; M1 et M2 : E77 à E80 ; chaque lot F : un bloc de 4 expériences à partir de E81. E3 n'a jamais été attribué (la numérotation passe de E2 à E4).
 
+## 2026-11-09 : version livrée 0.6.73 (`1d7c6218`)
+
+> Sources : `git log 80608881..1d7c6218` (11 commits hors fusions, dont `b0c8e0ee`, `6fbc5cc1`, `78dbca1c` COUT-600 ;
+> `1a7520b3`, `5d5ddf13` fer d'abord ; `e8197604`, `3095abd3`, `5d28d900` combustible ; `8a74dbe9`, `baa9e970`, `45af10c6`
+> pile ; `18f073d0` minage lointain), `52b5db3a` (défauts DC) et `1183cc7c` (mall), vérifiés dans l'arbre de `1d7c6218`.
+
+### Plantages et corrections
+
+- **F414 · [LU] + [RAPPORTÉ]** Plantage de `shared/team/traversee.lua:217` : tuile occupée entre deux tranches de la
+  recherche A*. Correctif `d05c2092` (« correctif traversee.lua:217 », dans `amelioration-continue`), dans `1d7c6218`. Le
+  numéro vient du journal rapporté par le lead, **non relu ici**. Mécanisme [DÉDUIT] du message. **Reproduction : à compléter.**
+
+- **F415 · [LU] + [RAPPORTÉ]** Plantage `shared/team/mall_rangee.lua:158` : `cell nil`. La ligne lit `cell.ih` / `cell.ib`
+  pour la sortie d'un coffre [DÉDUIT]. Correctif `6496795c`, fusionné par `0f8a08c2`. [MESURÉ selon le message] : micro-banc
+  12 OK, `content` 554 OK. Non rejoué ici.
+
+- **F416 · [LU] + [RAPPORTÉ]** Plantage `script/team/bail.lua:72` (garde `PC-INVALIDE`, azure, 87,8 min) : une réaction
+  `Worker.abort` pendant l'état `ia1d` met `agent.pc` à 0, puis `Build.work` rend `again` et `steps[0]` est nil. Le
+  commentaire du code place la cause réelle dans `script/team/worker.lua`. Fusions `64700d4f`, `5ac1499a`, `ad4782d6`.
+  **Reproduction moteur : à compléter.**
+
+- **F417 · [DÉDUIT]** Réglages de carte : la régénération des chunks d'une surface déjà créée ne change pas les gisements
+  de départ ; ils se donnent à la création. Appui : `banc.py --carte-max` et `etape1-carte` (`a0d92a45`). **Pas
+  d'expérience qui isole ce fait** : à rejouer avant de le citer comme mesuré.
+
+- **F418 · [MESURÉ]** Banc avec images : le personnage du joueur de test est tué au tick **389 682**
+  (`fo-logs\2026-11-09_CARTE-MAX\carte-max-120d\fo-shots\coeur.txt`, lignes 110 et 111 : « [FO-TEMOIN] tick 389682 :
+  on_player_died joueur 1 »). **[À COMPLÉTER]** : « plus aucun script ensuite » et `automatic-quit` non relus.
+
+- **F419 · [LU]** `fo-war-autostart` vaut **vrai** par défaut dans `essai-0666` (`tests/defauts_dc_test.lua` ligne 28) ;
+  locale `locale/en/ia0.cfg` ligne 10 : « When checked, the AI factions' war starts on its own a few seconds after the game
+  starts ». **Valeur dans `1d7c6218` : à relire** (le `settings.lua` de cette version ne l'a pas montré à la recherche).
+
+- **F420 · [À COMPLÉTER]** `mod-settings.dat` conserve les valeurs déjà enregistrées : un nouveau défaut ne s'applique qu'à
+  un réglage jamais touché. Affirmation du lead, **non vérifiée**. Incidence joueur : une partie existante garde son
+  ancienne difficulté.
+
+- **F421 · [LU] + [MESURÉ selon les messages]** Coût d'une pensée sur gisements à 600 % : `debug.sethook` (compte
+  d'instructions, déterministe), jamais `os.clock`. **Dans `1d7c6218`** (`b0c8e0ee`, `6fbc5cc1`, `78dbca1c` : composante du
+  gisement sans trier les voisins, recensement à la boîte connue, couverture un gisement par pensée, drapeau de vérification
+  dans `global`). Tests présents : `tests/nearest_component_test.lua`, `tests/census_hint_test.lua`, `tests/cov_pas_test.lua`.
+  **Chiffres : à compléter.**
+
+### Fer d'abord et combustible (dans 0.6.73)
+
+- **F422 · [LU] + [RAPPORTÉ]** Effondrement en Normal : les avant-postes de charbon étaient démontés avant que la bande
+  produise ; le plancher du charbon ne comptait que les générateurs. Correctif : règle `Mc` / `migration_combustible`
+  (`3095abd3`, `5d28d900`, `e8197604`), dans `1d7c6218`. Tests : `Mc` 9 mutants refusés ; `Mc.low` comparé à
+  `Th.fuel_short`. **Vérification moteur en Normal : à compléter.**
+
+- **F427 · [LU] + [RAPPORTÉ]** Fer d'abord : **ALLUMÉ dans 0.6.73** (`shared/team/thermique.lua:46`, `M.FER_D_ABORD = true`,
+  lu dans `1d7c6218`). Retenue des bandes brutes bornée à 20 min (`5d5ddf13`). L'interrupteur **éteint** de `b3e10f39` n'est
+  PAS dans cette version. Rapport du lead : la version éteinte était pire en Normal sur 2 graines pour votre équipe.
+  **Chiffres : à compléter.**
+
+### Faits des branches gardées (sur `bfe4b437`, NON livrés dans 0.6.73)
+
+- **F423 · [RAPPORTÉ, prouvé en moteur] GARDÉE** Tronc de charbon coupé par un autre flux : `[FO-CHAMP-VOIE]` relève
+  **195 tapis vides**. Correctif `dd9dfba5` (réservation des tuiles du réseau du charbon reporté, 41 tests, 13 mutants) :
+  **hors de 0.6.73** (vérifié). Le journal `TRONC COUPE` est dans `373f5607`.
+
+- **F424 · [RAPPORTÉ] GARDÉE** Garde de centrale sans tourelle : cuivre à **0 de 80 à 107 min** sur 271828182. Commit
+  `accbb3ad`, 103 OK. **Hors de 0.6.73** (vérifié).
+
+- **F425 · [RAPPORTÉ, non exercé] GARDÉE** Plafond de centrales en kW (`6b685049`). **Non exercé en partie.** Hors de 0.6.73.
+
+- **F426 · [RAPPORTÉ, en évaluation] GARDÉE** Départ de la bande de fer au stock brut, plancher 20 plaques (`fc6c0165`,
+  `9a71c325`, `c2bae5d8`). Hors de 0.6.73 (vérifié). Aucune conclusion.
+
+- **F428 · [RAPPORTÉ, micro-banc seulement] GARDÉE** Tracé par tronçons `bus-long` (`a4ad2469`, `83e6b7dd`, `c44499f9`) :
+  micro-banc **22 OK** ; la pose prend 5 550 ticks. **Partie non prouvée.** Hors de 0.6.73 (vérifié).
+
+### Défauts connus (dans 0.6.73)
+
+- **F429 · [RAPPORTÉ]** Pas de vrai bus : **0 quai servi par tapis**.
+- **F430 · [RAPPORTÉ]** Famine du fer de votre équipe sur la graine **1618033988** : cause **non établie**.
+- **F431 · [RAPPORTÉ]** Boucle de réparation sous menace (lot porte-pile, branche `boucle-repar`, `484701f8`, base
+  `80608881`, archive `fo-logs\2026-11-09_BOUCLE-REPAR\diag-35-g123456789`, lignes `[FO-REPAR]`) : la réparation (kind
+  `repair`, `script/team/reconstruction.lua:775`) est rouverte toutes les 10 s (`Ac.TURRET_SCAN`). Mesuré sur 35 min, carte
+  600 % : 40 tentatives, 6 prises dont 5 abandonnées « danger-but », 137 ouvertures sur une même tourelle à 63 % en 120 min.
+  **Aucun gain de fer.** Correctif proposé, non écrit.
+
+### Vérifications d'intégration (7bce0299, 9/11 17 h 05)
+
+- **F433 · [MESURÉ pour le premier point, RAPPORTÉ pour les autres]** Vérifications d'intégration du 9/11 (lead, jalon 17 h 05) :
+  - `content` : **554 OK** sur `7bce0299` [RAPPORTÉ].
+  - Code du jeu identique à `1d7c6218` [MESURÉ] : `git diff 1d7c6218 7bce0299` ne touche que la documentation (`OBJECTIFS.md`, `RD_LOG.md`, `REPRISE.md`, `docs/`), `info.json` (0.6.72 -> 0.6.73), `CLAUDE.md` (deux lignes) et `tools/globals_scan.lua` (nouveau).
+  - 3 parties à 600 % en Normal sans plantage sur `1d7c6218` [RAPPORTÉ] ; chiffres de ces parties : **à compléter**.
+  - Outil `tools/globals_scan.lua` (balayage des lectures et écritures de variables globales inconnues, bytecode) : **3 fautes trouvées** [RAPPORTÉ] ; corrections et relance : **à compléter**. À passer avant tout SHA.
+  - **6 tests hors jeu rouges sur le candidat**, voir `purete-2` [RAPPORTÉ, non relu ici] : **à compléter** (lesquels, et s'ils sont corrigés dans 0.6.73).
+
+### Mesures des candidats (rapportées par le lead, à relire)
+
+- **F432 · [RAPPORTÉ]** Candidats 1 (`1d7c6218`), 2 (`df54c3c5`) et final (`bfe4b437`) joués sur 3 graines, Normal, carte à
+  600 %, une partie par graine, archives `fo-logs\2026-11-09_CANDIDAT`. Fer/min moyen sur 20 à 120 min, **somme des 3 équipes** :
+  `1d7c6218` **4 693**, `df54c3c5` **3 962**, `bfe4b437` **3 071**. **Votre équipe** : 538, 310, 266. Par graine, pour votre
+  équipe (candidats 1 et 2) : 123456789 : 415 et 621 ; 271828182 : 1 097 et 265 ; 1618033988 : 103 et 43 (hausse puis recul,
+  **non expliqué**). **Preuve limitée** : chaos des parties, une partie par graine.
+
+### Mesures de lots du 9/11 (rapportées, à relire avant citation)
+
+- Mall (`1183cc7c`, dans 0.6.73) : 1 535 objets chez scarlet, 123 chez azure ; votre équipe : pas de mall en 90 min.
+  [MESURÉ selon le message.]
+- Pose par lots : inactivité 11,0 % -> 3,2 % en moyenne sur 3 graines (`dc365bb4`). [MESURÉ selon le message.]
+- Pétrole (`57f7a334`) : 27 chevalets, 97 % du débit théorique. [MESURÉ selon le message.]
+- Ligne de bande électrique (`69dc8dd5`) : 32/32 poteaux à 20,4 min ; première charge entre 19,7 et 24,7 min. [MESURÉ selon
+  le message.]
+- Amélioration continue (`36dd70d3`) : tapis montés azure 229 contre 0 en 120 min. [MESURÉ selon le message.]
+- Méga-fonderie, 2e passage (`b2f727e4`) : K2 non atteint en partie neuve. [MESURÉ selon le message.]
+- Défense (`eb9eafeb`) : 4 graines de 120 min, équipe vivante, QG à 5 à 7 tourelles. [MESURÉ selon le message.]
+
+### Lots mesurés négatifs ou sans effet (critères écrits avant les bancs)
+
+Verdicts chiffrés **non relus dans ce lot** ; l'intégrateur les complète avant de citer quoi que ce soit.
+
+- **E265 · [À COMPLÉTER]** `FER-D-ABORD` (`fo-logs\2026-11-09_FER-D-ABORD\CRITERES.md`) : critères F1 à F3.
+- **E266 · [À COMPLÉTER]** `COLLECTE-CHAMP` (`fo-logs\2026-11-09_COLLECTE-CHAMP\CRITERES.md`) : critères K1 à K4.
+- **E267 · [À COMPLÉTER]** `EXPLORATION-FER` et `ZERO-IDLE-3` (critères E1 à E4).
+- **E268 · [À COMPLÉTER]** `MEGA-FONDERIE` 2e passage (`CRITERES_FER2.md`, critères G1 et suivants).
+- **E269 · [À COMPLÉTER]** Effondrement en Normal (F422) : vérification moteur.
+- `FER-MUNITIONS`, `TOURELLE-FER`, `FONTE-CUIVRE`, `SONDE-8MIN` : dossiers présents ; critères et verdicts à compléter.
+- `bus-long` (F428) : partie à mesurer ; garde (F424, F425, F426) : à mesurer avant livraison.
+
+## Points de méthode
+
+- Le DC teste sur une partie NEUVE : la sauvegarde rejouée ne prouve que la migration et l'absence d'erreur
+  (`dc-teste-partie-neuve`).
+- Une mesure de performance se prend avec `--seul` (interdit n° 4 de `CLAUDE.md`).
+
 ## 2026-11-08 : 0.6.64, gel des usines des factions (lot X10-GEL, RETIRÉ de la version)
 
 > Prochains identifiants libres (8/11, 8 h) : **F414** et **E265** hors blocs. Attribués ici : F407 à F413. Archives des faits :

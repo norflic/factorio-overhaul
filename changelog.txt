@@ -1,4 +1,36 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.73
+Date: 2026-11-09
+  Features:
+    - Partie : difficulté Normal par défaut ; guerre lancée au début de la partie cochée par défaut ; coffre d'équipe garni automatiquement une fois par partie, avec le contenu du guide.
+    - Truelle : recette renforcée (fo-guidance-core 40 -> 79, 13 679 MU au total).
+    - Mall : rangées dupliquables par motif, chacune dans son secteur réservé ; intermédiaires d'abord, tapis et bras d'abord, sections sans poteau refusées.
+    - Méga-fonderie : décision et champ voulus ; bandes en parallèle bornées par le stock ; rangée dynamique de fours d'acier (6 au plus) ; raccord des bandes du champ au réseau par chaîne de poteaux.
+    - Pétrole : champ de pétrole entièrement équipé, 27 chevalets en marche, 97 % du débit théorique ; rangée de modules avec 3 raffineries et 3 usines.
+    - Motifs de départ : catalogue de motifs réutilisables par rôle (centrale à vapeur en rangée, laboratoires, packs rouges et verts, boucle de charbon, sortie unique de fonderie).
+    - Défense : le QG de votre équipe tient deux fois la plus grosse vague reçue ; fonds de défense pour un avant-poste de la plaque clé sans tourelle.
+    - Stock du QG : rapatriement limité (8 piles brutes, demande x4, déclassement 2). Les annexes et les cases de stock inutiles se vident plus vite.
+    - Pose par lots : un projet qui manque d'un élément fabrique le kit manquant ; l'inactivité de votre équipe baisse fortement en moyenne.
+    - Électricité : ligne de bande électrique, posée en quelques minutes en partie neuve.
+    - Combustible : un avant-poste de charbon alimente le coffre de la centrale quand le QG n'en a plus ; le quai de combustible d'une colonne de champ se remplit en urgence.
+    - Bras : une recherche voulue proche passe devant les autres paliers.
+    - Couverture des gisements : couvrir et ouvrir passent toujours la pile.
+    - Fer d'abord : tant qu'une bande de plaques attend le stock de fer, aucune bande brute neuve (charbon, pierre) ne part sans être voulue ; retenue bornée à 20 min.
+    - Calcul des pensées sur gisements à 600 % réduit (un gisement par pensée, recensement à la boîte connue).
+  Changes:
+    - Tronc du mall éteint par défaut ; le réglage « préparer » du mall est retiré.
+    - Factions : une guerre déclarée n'éteint plus l'engagement ; engagement borné à 10 min ; lot de tapis jusqu'à 40.
+    - Factions : centrale de croissance : poteau obtenable, taille ramenée, refus immédiat si impossible.
+    - Pureté des tapis : un tapis ne reçoit pas un autre objet que celui qu'il porte ; le refus est journalisé.
+    - Diagnostic des fonderies : la raison du refus dit la tuile en cause.
+    - Ruines : à valeur égale, les pièces dont la matière manque sont refaites d'abord.
+    - Une bande bâtie à 90 % ou plus n'est plus reposée ni parquée ; un deuxième chantier de la plaque clé démarre si le premier attend ses matières depuis plus de 5 min.
+  Bugfixes:
+    - Plantage du tracé des tapis : une tuile occupée entre deux tranches de recherche.
+    - Plantage « cell nil » du mall : une section refusée annule les suivantes de la rangée ; refus propre si une cellule n'existe plus.
+    - Plantage des PNJ : une réaction pendant un chantier ne laisse plus le point de programme à 0 ; le chantier est conservé.
+    - Effondrement en Normal : les avant-postes de charbon ne sont plus démontés avant que la bande produise ; le plancher du charbon compte aussi les brûleurs.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.72
 Date: 2026-11-08
   Changes:

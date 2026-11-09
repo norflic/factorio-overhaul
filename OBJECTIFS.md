@@ -185,6 +185,92 @@ Directives du DC (8/11, après-midi), citées :
 - **Gel des usines et garnisons lointaines** (x10-gel) : plantage corrigé ; aucun pic au-dessus de 2 ms (C19) ; aucune perte nette
   sur votre sauvegarde et un gain net sur une scène 10 fois plus grosse (C20'). Retiré de la 0.6.64, vise la version suivante.
 
+## 4bis. Décisions du Directeur Créatif (9/11)
+
+### Décisions reçues par QCM, 9/11 vers 12 h 10
+
+Source : note mémoire, citée telle qu'elle est écrite.
+
+- Difficulté : « Normal ». La note ajoute : « il jouera en **Normal** (toutes les preuves de survie, faites en Facile, sont à
+  rejouer en Normal) ».
+- Lancement de la guerre : « lancer la guerre au début de la partie » **cochée par défaut**.
+- Coffre d'équipe : **garni automatiquement** au départ, avec le contenu du guide.
+- Truelle : **A** : `fo-guidance-core` de 40 à 79 dans la recette (13 679 MU). Libellé complet du QCM : « A : renforcer la
+  recette » **[À COMPLÉTER : libellé exact non retrouvé]**.
+
+Mise en œuvre dans la version livrée : `shared/content/robots.lua` lignes 129 et 130 (Truelle : 79 `fo-guidance-core`,
+13 679 MU) ; `52b5db3a` (défauts DC) est dans `1d7c6218`. `tests/defauts_dc_test.lua` (guerre cochée, Normal, 30 ouvriers,
+2 factions, 30 soldats, stock de départ du guide) : lu sur `essai-0666`, **à relire sur la version livrée**.
+
+**État des 4 décisions** : **mise en œuvre présente dans le code de la version livrée** (lu) ; **preuve non relue dans ce
+lot**. **[À COMPLÉTER : résultat de `defauts_dc_test` et de `content` sur `1d7c6218` ; partie neuve.]**
+
+### Directive du 9/11 vers 7 h 35
+
+Source : note mémoire `perfectionnement-9-novembre-10h.md`.
+
+> « DIRECTIVE DE PERFECTIONNEMENT : 10 HEURES RESTANTES (EFFET WOW EXIGÉ) »
+> « ce délai étendu n'est en aucun cas une excuse pour ralentir la cadence »
+> « Dans 10 heures, je lance une nouvelle partie. »
+
+Attendus cités par la note : saturation à 100 % des gisements ; méga-fonderies et malls duplicables alimentés par des bus
+massifs ; amélioration continue machines, convoyeurs, bras (early, mid, late) ; zéro inactivité ; coordination de 8 à 10
+speedrunners professionnels. Fin annoncée : vers 17 h 35 le 9/11 ; gel des lots vers 16 h.
+
+## 4ter. État honnête des objectifs touchés le 9/11 (version livrée 0.6.73)
+
+Légende : **Atteint** (preuve mesurée) ; **Partiel** (preuve sur une partie seulement) ; **Non atteint** (la preuve dit le
+contraire ou il n'y a pas de preuve).
+
+| Objectif | État | Preuve (source) | Ce qui manque |
+|---|---|---|---|
+| Saturation à 100 % des gisements | **Partiel** | Pétrole : 97 % du débit théorique, 27 chevalets (`57f7a334`) ; couverture des gisements (`689de9c2`) | Gisements de fer et de cuivre non saturés : bandes de la méga-fonderie qui attendent le fer (`b2f727e4`). Fer d'abord allumé dans 0.6.73 (F427), chiffres à compléter. Champs géants non visés (`geant-d-abord` gardé, hors version). |
+| Méga-fonderies duplicables, alimentées par bus massifs | **Non atteint** | Bandes parallèles bornées par le stock ; méga-fonderie 2e passage (`b2f727e4`, K2 non atteint) | **Pas de vrai bus : 0 quai servi par tapis (F429).** Le tracé par tronçons (F428) n'est prouvé qu'au micro-banc, et il est hors de la version. |
+| Malls duplicables | **Partiel** | Rangées par motif `asm-miroir-2e-coffres` (`1183cc7c`, dans 0.6.73) : 1 535 objets chez scarlet, 123 chez azure ; votre équipe : pas de mall en 90 min | **Rangées encore courtes** ; allongement au surplus gardé, hors version (`6ae17429`). Tronc du mall éteint par défaut. |
+| Amélioration continue (machines, convoyeurs, bras) | **Partiel** | Tapis montés azure 229 contre 0 en 120 min (`36dd70d3`) ; recherche « bras » (`0ac4778e`, `b89482af`) | K3 et K4 non atteints pour votre équipe (0). **Circuits et packs faibles (défaut connu).** |
+| Zéro inactivité | **Partiel** | Pose par lots : 11,0 % -> 3,2 % en moyenne sur 3 graines (`dc365bb4`, message) | 3,2 % n'est pas zéro. Boucle de réparation sous menace (F431). Famine du fer sur 1618033988 (F430). |
+| Coordination de 8 à 10 speedrunners | **Non traité** | Aucun élément lu dans ce lot | **À compléter** : aucun lot ne le couvre. |
+| « Effet WOW » sur une partie neuve | **Non jugé** | Aucune capture de la version livrée lue dans ce lot | Le verdict revient au DC, sur capture et partie neuve (critères D1 à D3). **À compléter.** |
+
+### Fer et charbon (dans 0.6.73, sauf mention)
+
+- Effondrement en Normal : avant-postes de charbon démontés avant que la bande produise (F422), corrigé par la règle `Mc`
+  (dans 0.6.73). **Vérification moteur en Normal : à compléter.**
+- Fer d'abord : allumé dans 0.6.73 (F427). Rapport du lead : la version éteinte était pire en Normal sur 2 graines.
+- Tronc de charbon coupé par un autre flux : 195 tapis vides relevés en moteur (F423). **Correctif hors de 0.6.73 (garde).**
+- Centrale sans tourelle : cuivre à 0 de 80 à 107 min sur 271828182 (F424). **Garde hors de 0.6.73.**
+- Plafond de centrales en kW (F425) : **hors de 0.6.73, non exercé en partie.**
+
+### Résultats des candidats (F432, rapportés par le lead)
+
+Fer/min moyen sur 20 à 120 min, Normal, 600 %, 3 graines, une partie par graine, somme des 3 équipes : `1d7c6218` (livrée)
+**4 693** ; `df54c3c5` **3 962** ; `bfe4b437` **3 071**. Votre équipe : 538, 310, 266. **Preuve limitée (chaos des parties).**
+La version livrée est la plus haute des trois sur la somme ; l'écart pour votre équipe est à relire par graine.
+
+### Plantages corrigés (sans objectif écrit, mais à tracer)
+
+- `traversee.lua:217` (F414) : correctif `d05c2092`. Reproduction : **à compléter**.
+- `mall_rangee.lua:158` (F415) : correctif `6496795c` / `0f8a08c2`. Micro-banc 12 OK, `content` 554 OK (selon le message).
+- `bail.lua:72` (F416) : correctifs `64700d4f`, `5ac1499a`, `ad4782d6`. Reproduction : **à compléter**.
+
+### Défauts connus (0.6.73)
+
+1. Pas de vrai bus : 0 quai servi par tapis (F429).
+2. Boucle de réparation sous menace : rouverture toutes les 10 s, aucun gain de fer (F431).
+3. Famine du fer de votre équipe sur la graine 1618033988, cause non établie (F430).
+4. Champs géants non visés (le réglage `geant-d-abord` n'est pas dans la version).
+5. Rangées du mall courtes.
+6. Circuits et packs faibles ; relais des ateliers à décider.
+
+### Vérifications d'intégration (9/11, 17 h 05)
+
+- **F433 · [MESURÉ pour le premier point, RAPPORTÉ pour les autres]** Vérifications d'intégration du 9/11 (lead, jalon 17 h 05) :
+  - `content` : **554 OK** sur `7bce0299` [RAPPORTÉ].
+  - Code du jeu identique à `1d7c6218` [MESURÉ] : `git diff 1d7c6218 7bce0299` ne touche que la documentation (`OBJECTIFS.md`, `RD_LOG.md`, `REPRISE.md`, `docs/`), `info.json` (0.6.72 -> 0.6.73), `CLAUDE.md` (deux lignes) et `tools/globals_scan.lua` (nouveau).
+  - 3 parties à 600 % en Normal sans plantage sur `1d7c6218` [RAPPORTÉ] ; chiffres de ces parties : **à compléter**.
+  - Outil `tools/globals_scan.lua` (balayage des lectures et écritures de variables globales inconnues, bytecode) : **3 fautes trouvées** [RAPPORTÉ] ; corrections et relance : **à compléter**. À passer avant tout SHA.
+  - **6 tests hors jeu rouges sur le candidat**, voir `purete-2` [RAPPORTÉ, non relu ici] : **à compléter** (lesquels, et s'ils sont corrigés dans 0.6.73).
+
 ## 4. AUTRES OBJECTIFS
 
 - Votre équipe de PNJ : elle ne doit plus tomber à 2 PNJ (vu en 0.6.58), à vérifier sur la dernière version.

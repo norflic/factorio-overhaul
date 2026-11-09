@@ -46,7 +46,7 @@ moteur F21 à F295, historique des chiffres) est dans **`docs/MEMO_COMPLET.md`**
    Depuis le lot P1, `fo-visual.bat` ferme lui-même sa session : d'abord le PID qu'il a lancé, puis tout
    `factorio.exe` dont la ligne de commande contient le chemin complet du dossier `fo-visual`.
 4. **Bancs toujours par la FILE** : `py -3.9 -B tools/autotest/banc.py --out <archive> [--graine N] [--creation <source>]
-   [--son] [--captures] [--visuel="<args>"] [--seul] --qui <lot> -- <ticks> <scenario> <source>`. Jusqu'à 3 places
+   [--son] [--captures] [--visuel="<args>"] [--seul] --qui <lot> -- <ticks> <scenario> <source>`. Jusqu'à 6 places (décision du lead, 9/11)
    (`<racine>\fo-banc-places.txt`, **remettre 1 quand le DC joue**) ; **depuis le 28/10 vers 18 h, ordre du DC : 1 SEUL
    factorio.exe de test quand il joue, 3 AU PLUS quand il a fini (« 3 parties max en simultané », 28/10 ~19 h 30) ; tests
    GROUPÉS (scénarios composites), AUCUNE boucle de sondage plus serrée que `sleep 60`, un seul moniteur par lot**
